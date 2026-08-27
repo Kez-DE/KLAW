@@ -87,7 +87,24 @@ Chiến lược: **dataset CC-BY-4.0 làm nguồn chính** (bỏ hẳn 1–2 tu�
 
 `linh_vuc` **KHÔNG dùng để lọc được**: `"Chưa phân loại"` cho 113.772/171.556 dòng (**66%**), **kể cả chính Bộ luật Lao động**.
 
-Corpus recall-oriented: **1.971 văn bản** (TW, loại Bộ luật/Luật/NĐ/TT/TTLT, Còn hiệu lực hoặc HHL một phần). Có nhiễu (Luật Báo chí, Luật Cư trú lọt vào) → **cần lọc tay vòng hai**.
+Corpus recall-oriented: **1.971 văn bản** (TW, loại Bộ luật/Luật/NĐ/TT/TTLT). Có nhiễu (Luật Báo chí, Luật Cư trú lọt vào) → không dùng trực tiếp.
+
+#### Logic chọn corpus — 4 tầng, KHÔNG lọc theo `linh_vuc`
+
+| Tầng | Tiêu chí chọn | Số VB | Nguồn tiêu chí |
+|---|---|---|---|
+| **1 — Bắt buộc** | Mọi văn bản mà **rule (mục 7.3) hoặc checklist (mục 7.2) trích dẫn** | 4 | suy ra từ chính spec |
+| **2 — Cần** | Cạnh `references` trỏ tới BLLĐ (`139264`) với `referenceType ∈ {8 Hướng dẫn áp dụng, 9 Quy định chi tiết, hướng dẫn thi hành}` | ~6 | **truy vấn dữ liệu**, do cơ quan ban hành tự khai |
+| **3 — Tập bẫy** | Chuỗi supersession của nghị định lương tối thiểu, **kể cả đã hết hiệu lực toàn bộ** | ~5 | mục 11.1 |
+| **4 — Loại vòng 1** | BHXH · Việc làm/BHTN · NLĐ nước ngoài · NLĐ VN đi nước ngoài · Công đoàn · TT chuyên sâu ATVSLĐ | — | lĩnh vực liền kề nhưng riêng |
+
+Tầng 2 dùng **truy vấn cạnh quan hệ thay cho lọc tay** — tiêu chí do cơ quan ban hành khai báo, không do tác giả phán đoán. Đây là lựa chọn có thể tái lập và bảo vệ được trước hội đồng.
+
+**⚠ Tầng 3 BẮT BUỘC ingest văn bản đã HẾT HIỆU LỰC TOÀN BỘ.** Lọc corpus theo *"chỉ Còn hiệu lực hoặc HHL một phần"* sẽ **loại bỏ chính tập bẫy**: nếu NĐ 74/2024 (`168670`) không có trong index thì retrieval không bao giờ trả về nó, và cơ chế hiệu lực 3 mức (mục 5.2) **không có gì để đo**. Đúng cách là ingest hết, rồi để cơ chế hiệu lực làm việc của nó — đó mới là bài toán thật.
+
+**Tầng 4 — loại, và lý do phải ghi vào chương Phạm vi:** BHXH bị loại vì là lĩnh vực riêng *và* Luật BHXH 41/2024 có lỗi trạng thái (mục 5.1); checklist HĐLĐ chỉ cần biết "phải có điều khoản BHXH" (mục 7.2 #9), không cần chi tiết mức đóng. TT 5/2023/TT-BNV (`160212`) giữ **metadata** để tham chiếu trong khóa luận (có mẫu HĐLĐ nhưng cho cơ quan hành chính/ĐVSNCL, và bị 401), **không ingest nội dung**.
+
+**Quy mô ước tính:** ~15 văn bản → 1.500–2.500 điều/khoản → **~2.000–4.000 chunk** → vector ~3–6 MB. Nhỏ hơn ước tính ban đầu; retrieval nhanh, eval rẻ.
 
 **Vòng 1 — 15 văn bản lõi, `tinh_trang` đã fetch live từng cái:**
 
@@ -533,11 +550,12 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 | 2 | Mở `aistudio.google.com/rate-limit` đọc RPM/RPD thật của Gemini embedding | Docs Google **không còn publish** bảng này; phải đăng nhập xem |
 | 3 | Railway auto-detect Dockerfile, hay cần `railway.json`? | Cấu hình deploy |
 | 4 | Kiểm phủ class `prov-*` trên toàn corpus (mới verify 3/40 văn bản) | Parser có tin được không |
-| 5 | Lọc tay vòng hai 1.971 → ~40 văn bản Lao động thật | `linh_vuc` sai 66% |
+| 5 | Truy vấn `references` trỏ tới BLLĐ `139264` với `referenceType ∈ {8, 9}` → chốt tầng 2 của corpus | Thay việc lọc tay 1.971 dòng bằng tiêu chí do cơ quan ban hành khai báo (`linh_vuc` sai 66%) |
 | 6 | Đối chiếu tay ~10 điều quan trọng với văn bản hợp nhất → `verified_provisions` | Dữ liệu bãi bỏ cấp điều khoản không public |
 | 7 | Hỏi tác giả `nguyenlab/ALQAC` về license | Chưa khai báo → chưa được coi là mở |
 | 8 | Thử quantize int8 `AITeamVN/Vietnamese_Embedding` bằng `optimum`, đo chất lượng tụt | Họ **không ship** bản int8, khác e5-small |
 | 9 | Đo RAM thật bằng `docker stats` cho model embedding đã chọn | Overhead runtime chưa ai công bố |
+| 10 | Tra `doc_id` của NĐ 157/2018, 141/2017, 122/2015 (lương tối thiểu cũ) | Bổ sung ca bẫy Mức 2 (mục 11.1) |
 
 ---
 
