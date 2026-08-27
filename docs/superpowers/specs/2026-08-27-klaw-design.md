@@ -246,14 +246,37 @@ Thêm: `id` HTML **không phải khóa chính đáng tin** (quan sát 1 node xu�
 | `Alibaba-NLP/gte-multilingual-base` | 305M | 0.61 GB | 38.38 | Avg cao hơn bge-m3 |
 | **`intfloat/multilingual-e5-small`** | 118M | **0.12 GB int8 ONNX ship sẵn** | **34.12** | Vừa Railway Free. Chênh AITeamVN **0.06 điểm** cho **19× nhỏ hơn** |
 
-#### Key đã có trong `.env` (kiểm 2026-08-27)
+#### Trạng thái key — ĐÃ TEST THẬT 2026-08-27
 
-`OPENAI_API_KEY` · `COHERE_API_KEY` · `LANGCHAIN_API_KEY` + `LANGCHAIN_TRACING_V2`
+| Biến | Kết quả test | Ràng buộc |
+|---|---|---|
+| `OPENROUTER_API_KEY` | ✅ HTTP 200, `is_free_tier: false` | ⚠ **credit limit $3, đã dùng $0.57, còn $2.43** |
+| `COHERE_API_KEY` | ✅ HTTP 200, dim 1536 | trial: **1.000 call/tháng**, 100/phút; **cấm dùng production** |
+| `OPENAI_API_KEY` | ❌ **HTTP 401** | **là placeholder** `sk-your-...-here` lấy từ `.env.example` — **KHÔNG phải key thật** |
+| `LANGCHAIN_API_KEY` + `LANGCHAIN_TRACING_V2` | chưa test | LangSmith cho trace theo node |
 
-**Kế hoạch (đã sửa sau khi biết có sẵn key):**
-- **Tuần 1–3: OpenAI `text-embedding-3-small`** — key có sẵn, zero setup, **không giới hạn call**. Chi phí cả khóa luận: corpus ~4.000 chunk × ~400 token = 1,6M token → **$0.032**; cộng eval queries ≈ **$0.05 tổng**. Quan trọng hơn tiền: **xóa câu hỏi RAM Railway khỏi tuần 1–3** — không phải dựng ONNX runtime, không phải lo cap 0.5 GB.
-- **Tuần 4:** eval offline trên `golden_qa` Lao động, **chạy trên laptop**. `e5-small int8` từ điểm khởi đầu chuyển thành **một dòng trong bảng** — dòng đo phương án "hạ tầng $0".
-- **Sau tuần 4:** chốt theo số đo, không theo phán đoán.
+**Kế hoạch embedding (đã sửa sau khi test — bản trước giả định sai rằng `OPENAI_API_KEY` là key thật):**
+
+| Phương án | Chi phí | Dùng cho ingest + query + demo live? |
+|---|---|---|
+| **`intfloat/multilingual-e5-small` int8 ONNX** ⭐ mặc định | **$0**, không cần tài khoản mới | ✅ **cả ba** — 0,12 GB vừa Railway Free 0,5 GB |
+| OpenAI `text-embedding-3-small` | thực chi ~**$0.03** cả khóa luận, nhưng OpenAI **buộc nạp tối thiểu $5** | ✅ cả ba — nâng cấp nếu chấp nhận nạp |
+| Cohere `embed-v4.0` | $0 trong trial | ❌ **không** — trial cấm production, và corpus/query buộc cùng vector space nên demo live cũng vướng |
+
+- **Tuần 1–3:** `multilingual-e5-small` int8 ONNX. Một model cho cả ingest (local) và query (Railway Free), không tài khoản mới, không vướng license.
+- **Tuần 4:** eval offline 6 model trên `golden_qa`, **chạy trên laptop**.
+- **Sau tuần 4:** chốt theo số đo.
+
+#### ⚠ Ngân sách OpenRouter — $2.43 là ràng buộc thiết kế, không phải chi tiết
+
+Ablation đầy đủ = 7 cấu hình × 150 câu = **1.050 query** × 2 LLM call/query:
+
+| Model dùng | ~$/query | Tổng ablation |
+|---|---|---|
+| rẻ (~$0.15/1M input) | ~$0.0009 | **~$1.9** → vừa trong $2.43 |
+| mạnh (~$3/1M input) | ~$0.015 | **~$31** → vượt xa |
+
+**Chiến lược bắt buộc:** model rẻ cho **toàn bộ** ablation; model mạnh chỉ chạy **một lần** cho cấu hình cuối cùng. Ablation chiều LLM (mục 8.1) do đó không chỉ là kết quả hay mà là **yêu cầu ngân sách**. Nếu muốn chạy thoải mái thì nâng credit OpenRouter trước tuần 5.
 
 #### Bảng so sánh embedding tuần 4 — ứng viên đã chốt
 
@@ -798,11 +821,11 @@ FE để cuối vì nó chỉ hiển thị, và tính năng quan trọng nhất 
 
 | # | Việc | Xong khi |
 |---|---|---|
-| 1 | Lấy `OPENROUTER_API_KEY` ở `openrouter.ai/keys`, **set spend limit ngay** | `.env` có key, dashboard có limit |
+| 1 | ✅ **XONG** — `OPENROUTER_API_KEY` đã có và hoạt động. Việc còn lại: quyết có nâng credit từ $3 hay không | biết được ablation chạy trong $2.43 hay cần nạp thêm |
 | 2 | Thêm service postgres vào `docker-compose.yml`: image `pgvector/pgvector:pg16` + bật `unaccent` | `docker-compose up` → `SELECT extname FROM pg_extension` có `vector`, `unaccent` |
 | 3 | Tải 2 file parquet (25 MB) vào `data/raw/`, thêm vào `.gitignore` | `ls -la data/raw/` thấy 15,1 MB + 9,4 MB |
 | 4 | Kiểm `/doc/{id}/related` có trả cạnh **đi vào** không | Trả lời được: có → bỏ `relationships.parquet`; không → giữ |
-| 5 | Sửa `.env`: `DATABASE_URL` → Postgres local, gỡ `CHROMA_PERSIST_DIR` | `docker-compose up` connect được DB |
+| 5 | Sửa `.env`: `DATABASE_URL` → Postgres local, gỡ `CHROMA_PERSIST_DIR`, **gỡ `OPENAI_API_KEY` placeholder** (đang là `sk-your-...-here`, gây 401 khó hiểu nếu để lại) | `docker-compose up` connect được DB |
 
 Việc **#5 của Phase 0 (đối chiếu tay 10 điều BLLĐ)** và **#9 (đối chiếu hiệu lực luật gốc)** là việc của bạn, không giao được — cần đọc văn bản hợp nhất và phán đoán pháp lý.
 
@@ -820,7 +843,8 @@ Việc **#5 của Phase 0 (đối chiếu tay 10 điều BLLĐ)** và **#9 (đ�
 | `golden_qa` bị nghi vì LLM tự sinh | **Cao** | **Cao** | Quy trình 3 bước (11.1) + báo cáo tỉ lệ loại |
 | Không kịp xây 215–275 item eval | **Cao** | **Rất cao** | Lịch riêng (11.1); `golden_qa` chia 2 nhịp tuần 3/4; cắt cỡ tập trước khi cắt chất lượng quy trình review |
 | NĐ 12/2022 hết hiệu lực **2026-09-10** | Chắc chắn | Thấp | Theo dõi văn bản thay; đừng hardcode mức phạt |
-| Hết ngân sách API | Thấp | TB | Spend limit + cache + log cost |
+| **Hết credit OpenRouter** (còn $2.43) | **Cao** | **Cao** | Model rẻ cho toàn bộ ablation, model mạnh chỉ 1 lần cho cấu hình cuối; log `cost_usd` mỗi query; nâng credit trước tuần 5 |
+| Cần key embedding thật | TB | Thấp | Mặc định `e5-small int8` không cần key nào; nâng lên OpenAI chỉ khi chấp nhận nạp $5 |
 | Trượt deadline | TB | Cao | Tuần 9 là mốc đủ bảo vệ; 10–12 chỉ viết |
 
 ---
