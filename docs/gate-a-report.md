@@ -155,8 +155,24 @@ ux_provisions_neo_trich_dan  UNIQUE (duong_dan) WHERE cap IN ('dieu','khoan','di
 provisions_noi_dung_citable_check  CHECK (cap NOT IN (...) OR btrim(noi_dung) <> '')
 ```
 
+`005` thêm ràng buộc thứ ba, dạng ĐỒNG NHẤT (đúng cho cả cấp sẽ thêm về sau,
+không chỉ cấp đang có bug):
+
+```
+provisions_so_hieu_cap_check  CHECK (cap IN ('mo_dau','phu_luc') OR btrim(so_hieu_cap) <> '')
+```
+
 Partial index vì cấp container có ngoại lệ đã chấp nhận (hai "Chương XI" của
-NĐ 145/2020). Đã xác minh chạy migration HAI LẦN trên bảng có đủ 19.135 dòng.
+NĐ 145/2020). Đã xác minh chạy cả 6 migration HAI LẦN trên bảng có đủ 19.135 dòng.
+
+`scripts/ingest.py` giờ ĐỌC `checksums.json`: `_kiem_toan_ven()` chạy MỘT LẦN
+trước vòng lặp document (và trước `run_migrations()`), băm lại từng file seed và
+raise nếu lệch hoặc nếu thiếu mục. Trước đó `checksums.json` là artefact CHỈ-GHI,
+nên kênh "sửa `provisions.jsonl` mà không chạm `documents.jsonl` → ingest trả
+0/0/0, không phân biệt được với re-run lành" còn nguyên.
+
+`mo_dau` có `thu_tu = -1` (không phải index cuối): `local_id` vẫn ở cuối để
+`parent_local_id` không phải dịch, nhưng chữ mở đầu nằm ở ĐẦU văn bản.
 
 ## Lỗ của chính phép đo này
 
