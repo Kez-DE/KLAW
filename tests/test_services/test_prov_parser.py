@@ -72,6 +72,62 @@ def test_so_hieu_cap_tach_dung_tu_text():
     assert next(r for r in rows if r.cap is Cap.diem and r.so_hieu_cap == "a")
 
 
+def test_dieu_van_tro_vao_chuong_cha_trong_cay():
+    """Spec 4.4: provisions là CÂY Phần>Chương>Mục>Điều>Khoản>Điểm.
+    duong_dan bỏ container, nhưng parent_local_id PHẢI giữ cấu trúc thật."""
+    rows = parse_provisions(HTML_DIEU_21, SKH)
+    chuong = next(r for r in rows if r.cap is Cap.chuong)
+    d21 = next(r for r in rows if r.duong_dan == "45/2019/QH14 > Điều 21")
+    assert d21.parent_local_id == chuong.local_id, "Điều mất liên kết với Chương cha"
+    assert "Chương" not in d21.duong_dan, "duong_dan không được chứa Chương"
+
+
+def test_khong_container_nao_bi_bo_ro():
+    """Mọi Chương/Mục phải có ít nhất một con — nếu không, cây bị vỡ."""
+    rows = parse_provisions(HTML_DIEU_21, SKH)
+    co_con = {r.parent_local_id for r in rows if r.parent_local_id is not None}
+    ro = [r for r in rows if r.cap in (Cap.phan, Cap.chuong, Cap.muc)
+          and r.local_id not in co_con]
+    assert not ro, f"container bị bỏ rơ: {[(r.cap.value, r.so_hieu_cap) for r in ro]}"
+
+
+def test_hai_prov_content_lien_tiep_duoc_merge_CA_HAI():
+    """Reference swap (model_copy) dễ sai: chỉ cái cuối được merge, cái đầu mất.
+    Brief không có test cho chỗ này."""
+    html = """
+    <div class="WordSection1">
+    <p id="x1" class="MsoNormal prov-article"><strong><b>Điều 9. Thử</b></strong></p>
+    <p class="MsoNormal prov-content">Đoạn thứ nhất của điều này.</p>
+    <p class="MsoNormal prov-content">Đoạn thứ hai của điều này.</p>
+    </div>
+    """
+    rows = parse_provisions(html, SKH)
+    d9 = next(r for r in rows if r.cap is Cap.dieu)
+    assert "thứ nhất" in d9.noi_dung, "mất đoạn prov-content ĐẦU (reference swap sai)"
+    assert "thứ hai" in d9.noi_dung, "mất đoạn prov-content SAU"
+
+
+def test_tieu_de_chuong_tach_lam_2_the_khong_bi_bo_ro():
+    """Phát hiện qua verify dữ liệu thật (không phải test của brief): Chương I
+    của BLLĐ tách tiêu đề thành 2 <p class="prov-chapter"> riêng (cùng id) thay
+    vì nối bằng <br> trong 1 thẻ như 16 chương còn lại. Thẻ sau không khớp
+    so_hieu phải nối vào node đã có, không tạo node mồ côi mới."""
+    html = """
+    <div class="WordSection1">
+    <p id="c1" class="MsoNormal prov-chapter"><strong><b>Chương I</b></strong></p>
+    <p id="c1" class="MsoNormal prov-chapter"><strong><b>NHỮNG QUY ĐỊNH CHUNG</b></strong></p>
+    <p id="c2" class="MsoNormal prov-article"><strong><b>Điều 1. Phạm vi điều chỉnh</b></strong></p>
+    </div>
+    """
+    rows = parse_provisions(html, SKH)
+    chuong_rows = [r for r in rows if r.cap is Cap.chuong]
+    assert len(chuong_rows) == 1, "tiêu đề tách 2 thẻ phải gộp lại thành 1 node Chương"
+    assert chuong_rows[0].so_hieu_cap == "I"
+    assert "NHỮNG QUY ĐỊNH CHUNG" in chuong_rows[0].tieu_de
+    dieu1 = next(r for r in rows if r.cap is Cap.dieu)
+    assert dieu1.parent_local_id == chuong_rows[0].local_id
+
+
 @pytest.mark.integration
 def test_bo_luat_lao_dong_that_co_dung_220_dieu():
     p = Path("data/raw/moj/139264.json")

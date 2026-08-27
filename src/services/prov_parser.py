@@ -29,8 +29,11 @@ NHAN = {Cap.phan: "Phần", Cap.chuong: "Chương", Cap.muc: "Mục",
         Cap.dieu: "Điều", Cap.khoan: "Khoản", Cap.diem: "Điểm"}
 
 # Phần/Chương/Mục là tiêu đề mục lục, không phải neo trích dẫn: Điều được đánh số
-# duy nhất trong toàn văn bản nên duong_dan của nó bỏ qua các tổ tiên này (vd.
-# "45/2019/QH14 > Điều 25", không phải "... > Chương III > Điều 25").
+# duy nhất trong toàn văn bản nên duong_dan bỏ qua các tổ tiên này khi build path
+# (vd. "45/2019/QH14 > Điều 25", không phải "... > Chương III > Điều 25"). Nhưng
+# parent_local_id vẫn giữ nguyên cây thật (spec 4.4: provisions là cây
+# Phần>Chương>Mục>Điều>Khoản>Điểm) — nếu không thì Chương/Mục thành lá rời,
+# không nối được vào cây.
 CONTAINER_CAPS = (Cap.phan, Cap.chuong, Cap.muc)
 
 RE_SO = {
@@ -67,6 +70,20 @@ def _so_hieu(cap: Cap, text: str) -> str:
         return ""
     hit = m.match(text)
     return hit.group(1) if hit else ""
+
+
+def _duong_dan(cap: Cap, so: str, parent: ProvisionRow | None, so_ky_hieu: str,
+               rows: list[ProvisionRow]) -> str:
+    """Công ước dẫn chiếu: đi ngược cây thật qua `parent_local_id`, nhưng bỏ qua
+    mọi ancestor Phần/Chương/Mục — chỉ Điều/Khoản/Điểm góp mặt trong duong_dan."""
+    segments = [f"{NHAN[cap]} {so}".rstrip()]
+    node = parent
+    while node is not None:
+        if node.cap not in CONTAINER_CAPS:
+            segments.append(f"{NHAN[node.cap]} {node.so_hieu_cap}".rstrip())
+        node = rows[node.parent_local_id] if node.parent_local_id is not None else None
+    segments.reverse()
+    return " > ".join([so_ky_hieu, *segments])
 
 
 def parse_tables(html: str) -> list[str]:
@@ -115,14 +132,26 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
         if cap is None:
             continue
 
+        so = _so_hieu(cap, text)
+
+        # Phát hiện qua verify dữ liệu thật: có tiêu đề bị tách làm 2 thẻ cùng cấp
+        # thay vì nối bằng <br> trong 1 thẻ (vd. Chương I của BLLĐ: "Chương I" và
+        # "NHỮNG QUY ĐỊNH CHUNG" là 2 <p class="prov-chapter"> riêng, cùng id).
+        # Thẻ sau không khớp số hiệu và cùng cấp với đỉnh stack → nối tiêu đề vào
+        # node đã có, không tạo node mồ côi mới.
+        if so == "" and stack and stack[-1].cap is cap:
+            cur = stack[-1]
+            updated = cur.model_copy(update={"tieu_de": (cur.tieu_de + " " + text).strip()})
+            stack[-1] = updated
+            rows[cur.local_id] = updated
+            continue
+
         # Bẫy #1: pop stack tới khi đỉnh có bậc nhỏ hơn
         while stack and stack[-1].cap.bac >= cap.bac:
             stack.pop()
 
-        so = _so_hieu(cap, text)
-        # bỏ qua tổ tiên là Phần/Chương/Mục khi tìm cha thật (duong_dan lẫn cây)
-        parent = next((r for r in reversed(stack) if r.cap not in CONTAINER_CAPS), None)
-        duong_dan = (parent.duong_dan if parent else so_ky_hieu) + f" > {NHAN[cap]} {so}".rstrip()
+        parent = stack[-1] if stack else None  # cha thật (spec 4.4: cây, không bỏ container)
+        duong_dan = _duong_dan(cap, so, parent, so_ky_hieu, rows)
 
         row = ProvisionRow(
             local_id=len(rows),
