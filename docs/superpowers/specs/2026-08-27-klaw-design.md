@@ -25,7 +25,7 @@ Hệ thống AI Agent hai module: (1) **tra cứu pháp luật** có dẫn ngu�
 
 ### Ngoài phạm vi (out of scope)
 
-Lĩnh vực pháp luật ngoài Lao động – Tiền lương · **phủ sâu 6 luật ở tầng nông** (chỉ nêu ranh giới, không diễn giải) · tư vấn vụ việc cụ thể · xác thực người dùng · thanh toán · app di động · đa ngôn ngữ.
+Lĩnh vực pháp luật ngoài Lao động – Tiền lương · **benchmark ngoại vi ALQAC/Zalo** (license không khai báo) · **phủ sâu 6 luật ở tầng nông** (chỉ nêu ranh giới, không diễn giải) · tư vấn vụ việc cụ thể · xác thực người dùng · thanh toán · app di động · đa ngôn ngữ.
 
 ---
 
@@ -67,7 +67,7 @@ Phần lớn hệ thống hiện nay nhờ LLM tự kiểm tra chính nó — sa
 |---|---|---|
 | **1** | `th1nhng0/vietnamese-legal-documents` (HuggingFace, **CC-BY-4.0**, DOI 10.57967/hf/8598) — 171.556 metadata + 170.824 toàn văn + 1.033.255 cạnh quan hệ + kèm mã crawler | Nguồn chính. License rõ ràng — hiếm. |
 | **2** | API MOJ `https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/{id}` — JSON, không auth, không JS, không anti-bot | Refresh delta ~40 văn bản Lao động |
-| 3 | `nguyenlab/ALQAC` (ALQAC 2022–2025 + Zalo 2021, **có GOLD label**) | Benchmark đối chiếu — **license không khai báo, phải hỏi tác giả trước khi trích số** |
+| ❌ | `nguyenlab/ALQAC`, `kiil-lab/vietnamese-law-corpus`, `another-symato/VMTEB-ALQAC-retrieval` | **NGOÀI SCOPE.** Có GOLD label nhưng **license không khai báo** → không được viện dẫn là dữ liệu mở trong khóa luận. Đánh giá dùng hoàn toàn tập tự xây |
 | ❌ | `thuvienphapluat.vn` | **KHÔNG dùng.** `robots.txt`: `User-agent: ClaudeBot` / `Disallow: /`, `ai-train=no`, HTTP 403, reservation of rights theo EU Directive 2019/790 Art.4 |
 | ❌ | `vbpl.vn` / `phapluat.gov.vn` frontend | JS anti-bot, 403. Dùng API gateway thay thế |
 
@@ -621,7 +621,6 @@ python runtime → COPY --from=node dist/ ./static/  +  app.mount("/", StaticFil
 | `trap` | 40–50 | điều luật không tồn tại · ngoài lĩnh vực · **văn bản đã bị thay thế ở cấp văn bản** (xem dưới) | abstention accuracy, hallucination rate |
 | `draft_facts` | 20 hợp lệ + 30 cài lỗi | tự tạo, mỗi rule 2–3 case | completeness, legality detection, FP |
 | `boundary` | ~25 | câu hỏi chi tiết về BHXH · BHTN · công đoàn · NLĐ đi nước ngoài — thuộc **tầng nông** | **coverage-boundary accuracy** |
-| `alqac_subset` | tùy | ALQAC/Zalo có GOLD | đối chiếu ngoại vi *(chờ rõ license)* |
 
 **Tập `trap` — nhóm "văn bản đã bị thay thế" phải ở CẤP VĂN BẢN, không phải cấp điều khoản.**
 Lý do: mục 5.1 đã xác định dữ liệu bãi bỏ cấp điều khoản **không công khai** — nên không thể dựng ground truth đáng tin ở cấp điều. Hai ca cụ thể, đã verify live:
@@ -686,7 +685,7 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 | 10–11 | Viết khóa luận | nháp đủ chương |
 | 12 | Slide + **demo dự phòng offline** (video + bản local có dữ liệu) | buổi bảo vệ không phụ thuộc mạng |
 
-**Thứ tự cắt nếu trượt deadline** (quyết trước): Hướng C prototype → reranker → word segmentation → đối chiếu ALQAC → soạn thảo còn 1 loại văn bản.
+**Thứ tự cắt nếu trượt deadline** (quyết trước): Hướng C prototype → reranker → word segmentation → ablation chiều LLM → soạn thảo còn 1 loại văn bản.
 
 ---
 
@@ -700,12 +699,11 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 | 4 | Kiểm phủ class `prov-*` trên toàn corpus (mới verify 3/40 văn bản) | Parser có tin được không |
 | 5 | Truy vấn `references` trỏ tới BLLĐ `139264` với `referenceType ∈ {8, 9}` → chốt tầng 2 của corpus | Thay việc lọc tay 1.971 dòng bằng tiêu chí do cơ quan ban hành khai báo (`linh_vuc` sai 66%) |
 | 6 | Đối chiếu tay ~10 điều quan trọng với văn bản hợp nhất → `verified_provisions` | Dữ liệu bãi bỏ cấp điều khoản không public |
-| 7 | Hỏi tác giả `nguyenlab/ALQAC` về license | Chưa khai báo → chưa được coi là mở |
-| 8 | Thử quantize int8 `AITeamVN/Vietnamese_Embedding` bằng `optimum`, đo chất lượng tụt | Họ **không ship** bản int8, khác e5-small |
-| 9 | Đo RAM thật bằng `docker stats` cho model embedding đã chọn | Overhead runtime chưa ai công bố |
-| 10 | Tra `doc_id` của NĐ 157/2018, 141/2017, 122/2015 (lương tối thiểu cũ) | Bổ sung ca bẫy Mức 2 (mục 11.1) |
-| 11 | Đối chiếu tay hiệu lực của **các luật gốc cấp Quốc hội** trong corpus → `verified_documents`. Ưu tiên Luật BHXH 41/2024 (`175027`) | Mức 2 kế thừa lỗi phân loại cạnh của MOJ (mục 5.2 guard) |
-| 12 | Tra `doc_id` Luật Giáo dục nghề nghiệp 74/2014/QH13 | Hoàn tất tầng nông (mục 4.3) |
+| 7 | Thử quantize int8 `AITeamVN/Vietnamese_Embedding` bằng `optimum`, đo chất lượng tụt | Họ **không ship** bản int8, khác e5-small |
+| 8 | Đo RAM thật bằng `docker stats` cho model embedding đã chọn | Overhead runtime chưa ai công bố |
+| 9 | Tra `doc_id` của NĐ 157/2018, 141/2017, 122/2015 (lương tối thiểu cũ) | Bổ sung ca bẫy Mức 2 (mục 11.1) |
+| 10 | Đối chiếu tay hiệu lực của **các luật gốc cấp Quốc hội** trong corpus → `verified_documents`. Ưu tiên Luật BHXH 41/2024 (`175027`) | Mức 2 kế thừa lỗi phân loại cạnh của MOJ (mục 5.2 guard) |
+| 11 | Tra `doc_id` Luật Giáo dục nghề nghiệp 74/2014/QH13 | Hoàn tất tầng nông (mục 4.3) |
 
 ---
 
@@ -756,4 +754,4 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 
 ### Chưa xác minh
 
-Điều nào của BLLĐ bị bãi bỏ · danh mục địa bàn vùng I–IV (Phụ lục 401) · mẫu HĐLĐ Phụ lục II TT 5/2023/TT-BNV (PDF 401) · license `nguyenlab/ALQAC` · trạng thái "HHL toàn bộ" của Luật BHXH 41/2024 (nghi lỗi MOJ) · chuỗi supersession đầy đủ của nghị định lương tối thiểu · độ chính xác 1.971 dòng corpus · class `prov-*` trên 37/40 văn bản còn lại · overhead RAM runtime · rate limit gateway MOJ · Gemini embedding free tier RPM/RPD.
+Điều nào của BLLĐ bị bãi bỏ · danh mục địa bàn vùng I–IV (Phụ lục 401) · mẫu HĐLĐ Phụ lục II TT 5/2023/TT-BNV (PDF 401) · trạng thái "HHL toàn bộ" của Luật BHXH 41/2024 (nghi lỗi MOJ) · chuỗi supersession đầy đủ của nghị định lương tối thiểu · độ chính xác 1.971 dòng corpus · class `prov-*` trên 37/40 văn bản còn lại · overhead RAM runtime · rate limit gateway MOJ · Gemini embedding free tier RPM/RPD.
