@@ -29,7 +29,8 @@ env/
 Thumbs.db
 
 # Data (never commit large data)
-data/
+data/*
+!data/seed/
 *.db
 *.sqlite3
 
@@ -59,4 +60,3 @@ out/
 .ai-log/*.jsonl
 .ai-log/archive/
 .codegraph/
-data/raw/
