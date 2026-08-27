@@ -1351,7 +1351,7 @@ from datetime import date
 
 from sqlalchemy import Engine, text
 
-from src.services.effectivity import danh_gia
+from src.services.effectivity import Effectivity, EffectivityVerdict
 
 SQL_PROV = (
     "SELECT p.id, p.document_id, p.parent_id, p.cap, p.so_hieu_cap, p.tieu_de,"
@@ -1960,6 +1960,19 @@ async def test_response_luon_co_trace_id_va_config_name(client):
 
 
 @pytest.mark.asyncio
+async def test_effectivity_tu_expand_duoc_dung_KHONG_tinh_lai_voi_canh_rong():
+    """Regression: n_tier1 từng tính lại effectivity với cạnh đi vào rỗng, làm
+    Mức 2 không bao giờ kích hoạt và nhóm bẫy 'văn bản đã bị thay' fail im lặng."""
+    from src.agents.graph_tra_cuu import build_graph_tra_cuu
+    st = await build_graph_tra_cuu().ainvoke(
+        {"query": "mức lương tối thiểu vùng một hiện nay là bao nhiêu"})
+    if st["result_type"].value == "answer":
+        assert any("thay thế" in w or "hết hiệu lực" in w for w in st["warnings"]) or \
+            all(c["hieu_luc"] == "con_hieu_luc" for c in st["citations"]), \
+            "citation từ văn bản đã bị thay mà không có cảnh báo"
+
+
+@pytest.mark.asyncio
 async def test_citation_khong_bao_gio_thieu_duong_dan(client):
     d = (await client.post("/api/v1/tra-cuu", json={"query": "thử việc lương bao nhiêu"})).json()
     assert all(c["duong_dan"] and c["so_ky_hieu"] for c in d["citations"])
@@ -2072,11 +2085,16 @@ def build_graph_tra_cuu():
     def n_tier1(st: KLawState) -> KLawState:
         claims = st.get("draft_claims") or []
         dbp = _db_provisions([c.provision_id for c in claims])
-        canh: dict = {}
+        # expand() ĐÃ tính effectivity cho từng provision kèm cạnh đi vào — dùng lại.
+        # Tính lại ở đây với cạnh rỗng sẽ luôn ra con_hieu_luc và Mức 2 không bao giờ
+        # kích hoạt, làm nhóm bẫy "văn bản đã bị thay" của trap.yaml fail im lặng.
+        eff_map = {p["id"]: p["effectivity"] for p in (st.get("expanded") or [])
+                   if p.get("effectivity") is not None}
+        mac_dinh = Effectivity(EffectivityVerdict.con_hieu_luc, "thap",
+                               "không có trong tập expanded — không đánh giá được hiệu lực")
         return {**st, "tier1": verify_tier1(
             claims, st.get("expanded") or [], dbp,
-            lambda pid: danh_gia(dbp.get(pid, {}), canh.get(pid, []),
-                                 st.get("as_of_date") or date.today()))}
+            lambda pid: eff_map.get(pid, mac_dinh))}
 
     def n_tier2(st: KLawState) -> KLawState:
         if not s.verify_tier2_enabled:
