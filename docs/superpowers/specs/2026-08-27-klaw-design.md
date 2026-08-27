@@ -65,13 +65,13 @@ Phần lớn hệ thống hiện nay nhờ LLM tự kiểm tra chính nó — sa
 
 | Ưu tiên | Nguồn | Trạng thái |
 |---|---|---|
-| **1** | `th1nhng0/vietnamese-legal-documents` (HuggingFace, **CC-BY-4.0**, DOI 10.57967/hf/8598) — 171.556 metadata + 170.824 toàn văn + 1.033.255 cạnh quan hệ + kèm mã crawler | Nguồn chính. License rõ ràng — hiếm. |
-| **2** | API MOJ `https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/{id}` — JSON, không auth, không JS, không anti-bot | Refresh delta ~40 văn bản Lao động |
+| **1** | **API MOJ** `https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/{id}` — JSON, không auth, không JS, không anti-bot | **Toàn văn + `effStatus` live** cho 21 văn bản. Nguồn gốc chính thống |
+| **2** | `th1nhng0/vietnamese-legal-documents` (HuggingFace, **CC-BY-4.0**, DOI 10.57967/hf/8598) | **Chỉ 2 file**: `metadata.parquet` (15,1 MB, tra `doc_id`) + `relationships.parquet` (9,4 MB, cạnh đi vào). **Không tải** `content.parquet` 784 MB — xem 4b.3 |
 | ❌ | `nguyenlab/ALQAC`, `kiil-lab/vietnamese-law-corpus`, `another-symato/VMTEB-ALQAC-retrieval` | **NGOÀI SCOPE.** Có GOLD label nhưng **license không khai báo** → không được viện dẫn là dữ liệu mở trong khóa luận. Đánh giá dùng hoàn toàn tập tự xây |
 | ❌ | `thuvienphapluat.vn` | **KHÔNG dùng.** `robots.txt`: `User-agent: ClaudeBot` / `Disallow: /`, `ai-train=no`, HTTP 403, reservation of rights theo EU Directive 2019/790 Art.4 |
 | ❌ | `vbpl.vn` / `phapluat.gov.vn` frontend | JS anti-bot, 403. Dùng API gateway thay thế |
 
-Chiến lược: **dataset CC-BY-4.0 làm nguồn chính** (bỏ hẳn 1–2 tuần crawl, bỏ việc enumerate 185k ID), **API MOJ chỉ refresh delta**, rate-limit lịch sự (quan sát HTTP 400 thoáng qua sau ~35 request liên tiếp).
+Chiến lược: **API MOJ lấy toàn văn 21 văn bản** (rate-limit lịch sự — quan sát HTTP 400 thoáng qua sau ~35 request liên tiếp), **dataset HF chỉ dùng làm chỉ mục + đồ thị quan hệ**. Bỏ hẳn việc crawl 185k ID và bỏ việc tải 784 MB toàn văn. Tổng tải: **~25 MB**.
 
 ### 4.2 Cơ sở pháp lý của việc sử dụng dữ liệu
 
@@ -313,7 +313,10 @@ Fine-tune embedding cho miền pháp lý là **hướng phát triển** (mục 3
 
 | Loại | Cỡ | Nơi lưu | Vì sao |
 |---|---|---|---|
-| Parquet gốc HuggingFace | **5,6 GB** | máy local, **`.gitignore`** | Chỉ dùng 21/171.556 văn bản. **Không bao giờ** vào repo hoặc image |
+| `data/metadata.parquet` | **15,1 MB** | máy local, **`.gitignore`** | Tra `doc_id` + số liệu corpus cho khóa luận |
+| `data/relationships.parquet` | **9,4 MB** | tải local; **bản lọc ~vài KB vào git** | Cạnh **ĐI VÀO** cho cơ chế Mức 2 (API chỉ cho cạnh đi ra) |
+| `data/content.parquet` | 784,6 MB | ❌ **KHÔNG TẢI** | Thay bằng 21 lần gọi API MOJ — xem 4b.3 |
+| `legacy/*.parquet` | 3,56 GB | ❌ không dùng | bản cũ của dataset |
 | **Seed đã parse** | ~5–15 MB JSONL | **git repo** `data/seed/` | Reproducible, review được, **là artifact của khóa luận** |
 | Corpus runtime | ~15 MB | **Postgres** | Verifier tầng 1 `SELECT` từ `provisions` — cần DB thật |
 | Vector | ~24 MB (1536 dim × 4.000 chunk) | **Postgres (pgvector)** | cùng chỗ `provisions` → join trong một query |
@@ -322,8 +325,11 @@ Fine-tune embedding cho miền pháp lý là **hướng phát triển** (mục 3
 ### 4b.3 Pipeline ingest — 4 giai đoạn, tất cả offline
 
 ```
-[1] TẢI          parquet HF (5,6 GB) → máy local, gitignore
-                 ↓ lọc 21 doc_id đã chốt (mục 4.3)
+[1] TẢI  (~25 MB tổng, KHÔNG tải content.parquet 784 MB)
+         data/metadata.parquet       15,1 MB  → tra doc_id, số liệu corpus
+         data/relationships.parquet   9,4 MB  → cạnh ĐI VÀO cho Mức 2
+         21 × API MOJ /doc/{id}       ~5 MB   → TOÀN VĂN, effStatus LIVE
+                 ↓
 [2] PARSE        prov-* classes → documents / provisions / references
                  ↓ ghi data/seed/*.jsonl  (~5–15 MB, VÀO GIT)
                  ↓ acceptance: count(cap='dieu') == 220 cho BLLĐ
@@ -332,6 +338,10 @@ Fine-tune embedding cho miền pháp lý là **hướng phát triển** (mục 3
 [4] LOAD         scripts/ingest.py → Postgres (local hoặc Railway)
                  idempotent qua documents.checksum
 ```
+
+**Vì sao KHÔNG tải `content.parquet` (784 MB):** đã có API MOJ hoạt động, và toàn văn lấy trực tiếp từ nguồn gốc có `effStatus` **tại thời điểm chạy** thay vì snapshot crawl không rõ thời điểm. Trong một đề tài về độ tin cậy dữ liệu pháp luật, đó là điểm phòng vệ thật, không chỉ là tiết kiệm dung lượng. Dataset HF giữ đúng ba vai: **(a)** chỉ mục tra `doc_id`, **(b)** đồ thị quan hệ (cạnh đi vào), **(c)** license CC-BY-4.0 phủ phần dữ liệu phái sinh.
+
+**`relationships.parquet` là bắt buộc, không thay được bằng API:** API `/doc/{id}` chỉ trả cạnh **đi ra** từ văn bản đó. Cơ chế Mức 2 cần cạnh **đi vào** (*"ai đã thay thế văn bản này?"*) → phải quét đồ thị. 9,4 MB quét được trong vài giây; lọc xuống các cạnh liên quan 21 văn bản còn vài KB → commit vào `data/seed/`. *(Phase 0: kiểm xem `/doc/{id}/related` có trả cạnh đi vào không — nếu có thì bỏ được cả file này.)*
 
 **Docker image chứa CODE, KHÔNG chứa DATA.** Bốn lý do: (a) Railway Free cap image 4 GB; (b) rebuild image mỗi lần sửa dữ liệu là vô lý; (c) dữ liệu trong image là read-only, không update delta được; (d) mục 10 đã định ingest là job rời. Dữ liệu vào Postgres qua ingest job, không qua image.
 
