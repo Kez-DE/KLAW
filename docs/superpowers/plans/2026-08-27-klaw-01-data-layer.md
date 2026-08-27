@@ -1692,19 +1692,27 @@ would leave the trap set empty."
 - Produces: `scripts.gate_a_audit.audit(n: int = 30, seed: int = 42) -> dict` và `docs/gate-a-report.md`
 
 **Tiêu chí pass — không pass thì DỪNG, không sang plan 2:**
-- 100% Điều trong mẫu có `noi_dung` không rỗng **hoặc** có con
-- ≥98% khớp ký tự sau normalize khoảng trắng
-- 0 trường hợp mất nội dung `prov-content` không có id
-- Bảng NĐ 293/2025 giữ đúng hàng/cột
+- **`do_phu_min ≥ 0.98`** trên cả 6 Bộ luật — độ phủ token so với văn bản gốc **đã strip tag**, tức phép kiểm ĐỘC LẬP VỚI PARSER. Đây là tiêu chí bắt được bẫy #2 (`prov-content` không có `id`)
+- **`rong_tong == 0`** — không Điều nào vừa rỗng nội dung vừa không có con
+- Bảng NĐ 293/2025 giữ đúng hàng/cột (Step 3)
+
+*Vì sao không so với `parse_provisions` chạy lại: cả hai đến từ cùng một parser, phép so đó là hằng đúng và chỉ bắt được lỗi ingest, không bắt được lỗi parser.*
 
 - [ ] **Step 1: Viết script audit**
 
 ```python
 """Cổng A — Data Integrity Audit (spec 16.3).
 
-Lấy mẫu ngẫu nhiên các Điều trên cả 6 Bộ luật, fetch lại HTML gốc từ API MOJ,
-so từng ký tự với provisions.noi_dung. Bắt lỗi parser mất nội dung âm thầm —
-loại lỗi làm Recall@5 và citation precision đều xấu mà không để lại dấu vết.
+Bắt lỗi parser mất nội dung ÂM THẦM — loại lỗi làm Recall@5 và citation
+precision đều xấu mà không để lại dấu vết.
+
+⚠ ĐIỂM THIẾT KẾ QUAN TRỌNG: KHÔNG được kiểm bằng cách chạy lại parse_provisions
+rồi so với DB. Cả hai đến từ CÙNG một parser nên phép so đó là hằng đúng — nó
+chỉ bắt được lỗi ingest/DB, KHÔNG bắt được lỗi parser.
+
+Phép kiểm thật phải ĐỘC LẬP VỚI PARSER: strip toàn bộ tag khỏi HTML gốc để lấy
+tập ký tự "sự thật", rồi đo xem nội dung trong DB phủ được bao nhiêu phần. Nếu
+parser bỏ sót prov-content không có id (bẫy #2) thì độ phủ tụt ngay.
 """
 
 import json
@@ -1714,10 +1722,11 @@ from pathlib import Path
 
 from sqlalchemy import text
 
+from bs4 import BeautifulSoup
+
 from scripts.fetch_moj import DOC_IDS
 from src.config import get_settings
 from src.services.db import get_engine
-from src.services.prov_parser import parse_provisions
 
 BO_LUAT = ["95942", "96122", "96115", "96172", "139264", "96117"]
 
@@ -1726,45 +1735,70 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+def _van_ban_goc(html: str) -> str:
+    """Sự thật ĐỘC LẬP VỚI PARSER: bỏ hết tag, chỉ giữ text.
+
+    Bỏ <table> vì bảng được lưu riêng (bẫy #4), không nằm trong provisions.noi_dung
+    theo đường prov-*.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    for t in soup.find_all("table"):
+        t.decompose()
+    for br in soup.find_all("br"):
+        br.replace_with(" ")
+    return _norm(soup.get_text(" "))
+
+
 def audit(n: int = 30, seed: int = 42) -> dict:
+    """Hai phép kiểm độc lập.
+
+    A. ĐỘ PHỦ (độc lập với parser) — trên CẢ 6 Bộ luật, không lấy mẫu:
+       ghép mọi tieu_de + noi_dung trong DB, đo xem phủ được bao nhiêu phần
+       tập token của văn bản gốc đã strip tag. Đây là phép kiểm bắt được bẫy #2.
+    B. RỖNG — Điều nào vừa không có nội dung vừa không có con.
+    """
     random.seed(seed)
     raw = Path(get_settings().data_raw_dir) / "moj"
-    khop = lech = rong = 0
+    per_doc: list[dict] = []
     chi_tiet: list[dict] = []
+    rong_tong = 0
 
     with get_engine().connect() as conn:
         for doc_id in BO_LUAT:
-            so_ky_hieu = DOC_IDS[doc_id][1]
             rows = conn.execute(text(
-                "SELECT id, so_hieu_cap, noi_dung,"
+                "SELECT id, cap, so_hieu_cap, tieu_de, noi_dung,"
                 " (SELECT count(*) FROM provisions c WHERE c.parent_id = p.id) AS so_con"
-                " FROM provisions p WHERE document_id = :d AND cap = 'dieu'"
+                " FROM provisions p WHERE document_id = :d"
             ), {"d": doc_id}).mappings().all()
             if not rows:
-                chi_tiet.append({"doc_id": doc_id, "loi": "KHÔNG CÓ Điều nào trong DB"})
+                chi_tiet.append({"doc_id": doc_id, "loi": "KHÔNG CÓ provision nào trong DB"})
+                per_doc.append({"doc_id": doc_id, "do_phu": 0.0, "rong": 0})
                 continue
 
             html = json.loads((raw / f"{doc_id}.json").read_text(encoding="utf-8"))
-            goc = {r.so_hieu_cap: _norm(r.noi_dung)
-                   for r in parse_provisions(html["documentContent"]["content"], so_ky_hieu)
-                   if r.cap.value == "dieu"}
+            goc_tokens = set(_van_ban_goc(html["documentContent"]["content"]).split())
+            db_tokens = set(_norm(" ".join(
+                f"{r['tieu_de']} {r['noi_dung']}" for r in rows)).split())
 
-            for r in random.sample(list(rows), min(n // len(BO_LUAT) + 1, len(rows))):
-                db_txt = _norm(r["noi_dung"])
-                if not db_txt and r["so_con"] == 0:
-                    rong += 1
-                    chi_tiet.append({"doc_id": doc_id, "dieu": r["so_hieu_cap"], "loi": "RỖNG, không con"})
-                    continue
-                if db_txt == goc.get(r["so_hieu_cap"], db_txt):
-                    khop += 1
-                else:
-                    lech += 1
-                    chi_tiet.append({"doc_id": doc_id, "dieu": r["so_hieu_cap"], "loi": "LỆCH KÝ TỰ"})
+            do_phu = len(goc_tokens & db_tokens) / len(goc_tokens) if goc_tokens else 0.0
+            thieu = sorted(goc_tokens - db_tokens)
 
-    tong = khop + lech + rong
-    ty_le = khop / tong if tong else 0.0
-    return {"tong_mau": tong, "khop": khop, "lech": lech, "rong": rong,
-            "ty_le_khop": round(ty_le, 4), "pass": rong == 0 and ty_le >= 0.98,
+            rong = [r for r in rows if r["cap"] == "dieu"
+                    and not (r["noi_dung"] or "").strip() and r["so_con"] == 0]
+            rong_tong += len(rong)
+            for r in random.sample(rong, min(5, len(rong))):
+                chi_tiet.append({"doc_id": doc_id, "dieu": r["so_hieu_cap"],
+                                 "loi": "Điều RỖNG và không có con"})
+            if do_phu < 0.98:
+                chi_tiet.append({"doc_id": doc_id, "loi": f"độ phủ {do_phu:.2%}",
+                                 "token_mat_mau": thieu[:25]})
+
+            per_doc.append({"doc_id": doc_id, "do_phu": round(do_phu, 4),
+                            "rong": len(rong), "provisions": len(rows)})
+
+    do_phu_min = min((d["do_phu"] for d in per_doc), default=0.0)
+    return {"per_doc": per_doc, "do_phu_min": do_phu_min, "rong_tong": rong_tong,
+            "pass": rong_tong == 0 and do_phu_min >= 0.98,
             "chi_tiet": chi_tiet}
 
 
@@ -1800,19 +1834,23 @@ assert r and 'Vùng I' in r and '5.310.000' in r
 - [ ] **Step 4: Ghi báo cáo Cổng A**
 
 ```bash
-python3 -c "
+python3 - <<'PY'
 import json
 from scripts.gate_a_audit import audit
-r=audit()
-open('docs/gate-a-report.md','w',encoding='utf-8').write(
- '# Cổng A — Data Integrity Audit\n\n'
- f'- Mẫu: {r[\"tong_mau\"]} Điều trên 6 Bộ luật\n'
- f'- Khớp: {r[\"khop\"]} · Lệch: {r[\"lech\"]} · Rỗng: {r[\"rong\"]}\n'
- f'- Tỷ lệ khớp: {r[\"ty_le_khop\"]:.2%}\n'
- f'- **Kết quả: {\"PASS\" if r[\"pass\"] else \"FAIL\"}**\n\n'
- '## Chi tiết lệch\n\n' + ('\n'.join(f'- {c}' for c in r[\"chi_tiet\"]) or '(không có)') + '\n')
-print('đã ghi docs/gate-a-report.md')
-"
+
+r = audit()
+lines = ["# Cổng A — Data Integrity Audit", "",
+         "Phép kiểm ĐỘC LẬP VỚI PARSER: độ phủ token so với văn bản gốc đã strip tag.", "",
+         "| Bộ luật | provisions | độ phủ | Điều rỗng |", "|---|---|---|---|"]
+for d in r["per_doc"]:
+    lines.append(f"| {d['doc_id']} | {d.get('provisions', 0)} | {d['do_phu']:.2%} | {d['rong']} |")
+lines += ["", f"- Độ phủ thấp nhất: **{r['do_phu_min']:.2%}** (ngưỡng 98%)",
+          f"- Tổng Điều rỗng: **{r['rong_tong']}** (ngưỡng 0)",
+          f"- **Kết quả: {'PASS' if r['pass'] else 'FAIL'}**", "", "## Chi tiết", ""]
+lines += [f"- {c}" for c in r["chi_tiet"]] or ["(không có)"]
+open("docs/gate-a-report.md", "w", encoding="utf-8").write("\n".join(lines) + "\n")
+print("đã ghi docs/gate-a-report.md")
+PY
 ```
 
 - [ ] **Step 5: Commit**
