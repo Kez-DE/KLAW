@@ -1,0 +1,3 @@
+[tool.pytest.ini_options]
+markers = ["integration: cần Postgres đang chạy; CI bỏ qua bằng -m 'not integration'"]
+asyncio_mode = "auto"
