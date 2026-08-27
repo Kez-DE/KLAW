@@ -156,8 +156,12 @@ chunks
   embedding vector, embedding_model, embedding_dim,   -- nhiều bộ song song cho ablation
   tsv tsvector, token_count
 
-verified_provisions    -- đối chiếu tay cho các điều quan trọng (xem 5.2)
+verified_provisions    -- đối chiếu tay cho các ĐIỀU quan trọng (xem 5.2)
   provision_id, verified_at, verified_by, nguon_doi_chieu, ket_luan
+
+verified_documents     -- đối chiếu tay hiệu lực của các LUẬT GỐC (xem 5.2 guard)
+  document_id, verified_at, verified_by, nguon_doi_chieu,
+  ket_luan_hieu_luc, ghi_chu_lech_voi_moj
 
 traces                 -- dữ liệu cho chương đánh giá
   id, ts, endpoint, query, config_name,
@@ -256,6 +260,32 @@ Mặc định → CON_HIEU_LUC, tin cậy TRUNG BÌNH
 ```
 
 **Mức 2 là đóng góp:** nó bắt đúng bốn nghị định mà `effStatus` bỏ sót.
+
+**⚠ Nhưng Mức 2 KẾ THỪA lỗi của đồ thị — phải có guard.** Đồ thị MOJ chỉ biểu diễn quan hệ **cấp văn bản**; khi một luật chỉ thay thế *một phần* luật khác, quan hệ bị ép thành "Thay thế" toàn bộ. Ca đã xác minh:
+
+```
+Luật Việc làm 74/2025/QH15  ──THAY THẾ (type 12)──►  41/2024/QH15 Luật Bảo hiểm xã hội
+```
+
+⇒ MOJ suy ra Luật BHXH 41/2024 `effTo = 2026-01-01`, `effStatus = "Hết hiệu lực toàn bộ"`. Gần như chắc chắn sai: một Luật Việc làm không thể thay thế toàn bộ một Luật BHXH; thực tế 74/2025 chỉ thay phần **bảo hiểm thất nghiệp**. Mức 2 áp vào ca này sẽ **xác nhận lỗi**, không bắt được.
+
+**Guard bắt buộc — kiểm tính hợp lý của cạnh "Thay thế" trước khi tin:**
+
+| Điều kiện | Kết luận |
+|---|---|
+| Văn bản thay và văn bản bị thay **cùng `loai_van_ban`** và tiêu đề chia sẻ chủ ngữ chính (vd "Luật Việc làm" thay "Luật Việc làm") | Mức 2, tin cậy **CAO** |
+| Khác chủ đề (vd "Luật Việc làm" thay "Luật Bảo hiểm xã hội") | **CẦN_ĐỐI_CHIẾU_TAY**, tin cậy **THẤP** — không tự động kết luận hết hiệu lực |
+
+**Bảng `verified_documents`** (song song với `verified_provisions`): các **luật gốc cấp Quốc hội** trong corpus được đối chiếu tay một lần, ghi `verified_at` + `nguon_doi_chieu` + `ket_luan`. Tập này nhỏ và hữu hạn (≤10 văn bản) nên đây là task đóng, không phải vấn đề mở.
+
+**Đóng góp và giới hạn nói cùng lúc:** cơ chế 3 mức cải thiện `effStatus`, nhưng **kế thừa lỗi phân loại của đồ thị nguồn**. Cách chặn là guard hợp lý + đối chiếu tay tập luật gốc — và phải công bố rõ giới hạn này, không được trình bày cơ chế như đã giải quyết trọn vẹn.
+
+**Hai chiều lỗi đã xác minh trên chính CSDL quốc gia** (dùng làm bằng chứng ở chương kết quả):
+
+| Ca | `doc_id` | MOJ nói | Thực tế | Chiều lỗi | Cơ chế nào cần |
+|---|---|---|---|---|---|
+| NĐ 90/2019 lương tối thiểu | 139094 | Còn hiệu lực | đã bị thay | **false negative** | Mức 2 bắt được |
+| Luật BHXH 41/2024 | 175027 | Hết hiệu lực toàn bộ (`effTo 2026-01-01`) | chỉ mất phần BHTN | **false positive** | **guard + đối chiếu tay** |
 
 **Mức 3 áp cho chính BLLĐ** (HHL1P do Luật BHXH 41/2024). Xử lý:
 - Cảnh báo hiển thị **một lần ở tầng UI**, không lặp trên từng citation (tránh nhiễu vô dụng)
@@ -556,6 +586,7 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 | 8 | Thử quantize int8 `AITeamVN/Vietnamese_Embedding` bằng `optimum`, đo chất lượng tụt | Họ **không ship** bản int8, khác e5-small |
 | 9 | Đo RAM thật bằng `docker stats` cho model embedding đã chọn | Overhead runtime chưa ai công bố |
 | 10 | Tra `doc_id` của NĐ 157/2018, 141/2017, 122/2015 (lương tối thiểu cũ) | Bổ sung ca bẫy Mức 2 (mục 11.1) |
+| 11 | Đối chiếu tay hiệu lực của **các luật gốc cấp Quốc hội** trong corpus → `verified_documents`. Ưu tiên Luật BHXH 41/2024 (`175027`) | Mức 2 kế thừa lỗi phân loại cạnh của MOJ (mục 5.2 guard) |
 
 ---
 
