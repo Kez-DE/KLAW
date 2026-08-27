@@ -295,6 +295,61 @@ Bảng tuần 4 là đóng góp phụ: **VN-MTEB không test API thương mại 
 
 ---
 
+## 4b. Vòng đời dữ liệu & nơi lưu trữ
+
+### 4b.1 KLAW KHÔNG train model nào
+
+**Không có bước training hay fine-tuning.** LLM gọi qua API (OpenRouter) và dùng nguyên trạng; model embedding cũng dùng nguyên trạng. Không checkpoint, không GPU, không tập train.
+
+Lý do phải nêu rõ trong khóa luận (đây là câu hội đồng sẽ hỏi):
+
+1. **Fine-tune không giải được bài toán của đề tài.** Ảo giác citation là vấn đề **grounding**, không phải vấn đề **kiến thức** — model đã fine-tune vẫn bịa số điều. Cơ chế verify tầng 1 giải được; thêm trọng số thì không.
+2. **Pháp luật sửa đổi liên tục.** Model fine-tune lỗi thời ngay khi có nghị định mới; RAG chỉ cần chạy lại ingest.
+3. Đóng góp của đề tài nằm ở **cơ chế kiểm chứng**, không ở trọng số model.
+
+Fine-tune embedding cho miền pháp lý là **hướng phát triển** (mục 3, Hướng C và chương kết luận), **không thuộc scope**.
+
+### 4b.2 Ba loại "dữ liệu", ba nơi lưu
+
+| Loại | Cỡ | Nơi lưu | Vì sao |
+|---|---|---|---|
+| Parquet gốc HuggingFace | **5,6 GB** | máy local, **`.gitignore`** | Chỉ dùng 21/171.556 văn bản. **Không bao giờ** vào repo hoặc image |
+| **Seed đã parse** | ~5–15 MB JSONL | **git repo** `data/seed/` | Reproducible, review được, **là artifact của khóa luận** |
+| Corpus runtime | ~15 MB | **Postgres** | Verifier tầng 1 `SELECT` từ `provisions` — cần DB thật |
+| Vector | ~24 MB (1536 dim × 4.000 chunk) | **Postgres (pgvector)** | cùng chỗ `provisions` → join trong một query |
+| Tập eval (`golden_qa`, `trap`, `boundary`, `draft_facts`) | ~1 MB | **git repo** `eval/datasets/` | versioned, review được, là artifact khóa luận |
+
+### 4b.3 Pipeline ingest — 4 giai đoạn, tất cả offline
+
+```
+[1] TẢI          parquet HF (5,6 GB) → máy local, gitignore
+                 ↓ lọc 21 doc_id đã chốt (mục 4.3)
+[2] PARSE        prov-* classes → documents / provisions / references
+                 ↓ ghi data/seed/*.jsonl  (~5–15 MB, VÀO GIT)
+                 ↓ acceptance: count(cap='dieu') == 220 cho BLLĐ
+[3] EMBED        gọi OpenAI text-embedding-3-small (~$0.03)
+                 ↓ ghi vector vào bảng chunks
+[4] LOAD         scripts/ingest.py → Postgres (local hoặc Railway)
+                 idempotent qua documents.checksum
+```
+
+**Docker image chứa CODE, KHÔNG chứa DATA.** Bốn lý do: (a) Railway Free cap image 4 GB; (b) rebuild image mỗi lần sửa dữ liệu là vô lý; (c) dữ liệu trong image là read-only, không update delta được; (d) mục 10 đã định ingest là job rời. Dữ liệu vào Postgres qua ingest job, không qua image.
+
+### 4b.4 Hai môi trường — Railway chỉ phục vụ demo
+
+| Môi trường | Dùng khi | Postgres |
+|---|---|---|
+| **Local** (`docker-compose up`) | dev · ingest · **toàn bộ eval + ablation tuần 4** | container postgres trên máy |
+| **Railway** | **chỉ demo cho hội đồng** | Railway Postgres |
+
+Ablation tuần 4 (6 model embedding, 7 cấu hình retrieval) chạy **hoàn toàn ở local** — Railway không tham gia. Chỉ **model embedding thắng cuộc** mới đẩy vector lên Railway, một lần, ~24 MB.
+
+Hệ quả: nghi vấn pgvector trên Railway (mục 8.2) **không chặn tuần 1–7** vì local Postgres bật pgvector chắc chắn được qua image `pgvector/pgvector:pg16`.
+
+**Gap cụ thể trong repo:** `docker-compose.yml` hiện chỉ có service `backend`, **chưa có postgres**. Task đầu của Phase 1 phải thêm service dùng image `pgvector/pgvector:pg16` + `unaccent`.
+
+---
+
 ## 5. Hiệu lực văn bản (pain point #2)
 
 ### 5.1 Vấn đề đã xác minh
@@ -693,7 +748,7 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 
 | # | Việc | Vì sao |
 |---|---|---|
-| 1 | Railway Postgres bật được `pgvector` + `unaccent`? | Quyết định vector store (fallback: numpy) |
+| 1 | Railway Postgres bật được `pgvector` + `unaccent`? | Chỉ ảnh hưởng deploy demo (tuần 8) — **không chặn tuần 1–7** vì eval chạy local với `pgvector/pgvector:pg16` (mục 4b.4). Fallback: numpy |
 | 2 | Mở `aistudio.google.com/rate-limit` đọc RPM/RPD thật của Gemini embedding | Docs Google **không còn publish** bảng này; phải đăng nhập xem |
 | 3 | Railway auto-detect Dockerfile, hay cần `railway.json`? | Cấu hình deploy |
 | 4 | Kiểm phủ class `prov-*` trên toàn corpus (mới verify 3/40 văn bản) | Parser có tin được không |
