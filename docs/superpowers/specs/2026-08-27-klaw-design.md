@@ -25,7 +25,7 @@ Hệ thống AI Agent hai module: (1) **tra cứu pháp luật** có dẫn ngu�
 
 ### Ngoài phạm vi (out of scope)
 
-Đa lĩnh vực pháp luật · tư vấn vụ việc cụ thể · xác thực người dùng · thanh toán · app di động · đa ngôn ngữ.
+Lĩnh vực pháp luật ngoài Lao động – Tiền lương · **phủ sâu 6 luật ở tầng nông** (chỉ nêu ranh giới, không diễn giải) · tư vấn vụ việc cụ thể · xác thực người dùng · thanh toán · app di động · đa ngôn ngữ.
 
 ---
 
@@ -104,7 +104,29 @@ Tầng 2 dùng **truy vấn cạnh quan hệ thay cho lọc tay** — tiêu chí
 
 **Tầng 4 — loại, và lý do phải ghi vào chương Phạm vi:** BHXH bị loại vì là lĩnh vực riêng *và* Luật BHXH 41/2024 có lỗi trạng thái (mục 5.1); checklist HĐLĐ chỉ cần biết "phải có điều khoản BHXH" (mục 7.2 #9), không cần chi tiết mức đóng. TT 5/2023/TT-BNV (`160212`) giữ **metadata** để tham chiếu trong khóa luận (có mẫu HĐLĐ nhưng cho cơ quan hành chính/ĐVSNCL, và bị 401), **không ingest nội dung**.
 
-**Quy mô ước tính:** ~15 văn bản → 1.500–2.500 điều/khoản → **~2.000–4.000 chunk** → vector ~3–6 MB. Nhỏ hơn ước tính ban đầu; retrieval nhanh, eval rẻ.
+#### Hai tầng ĐỘ SÂU — phủ rộng mà không vỡ scope
+
+Lĩnh vực "Lao động – Tiền lương" theo phân loại chính thức gồm 7–8 luật cấp Quốc hội. Phủ sâu cả 7 là gần toàn bộ 1.971 văn bản → không khả thi trong 12 tuần. Phủ hẹp rồi im lặng với câu hỏi BHXH → trông như thiếu sót. Giải pháp: **hai tầng độ sâu**.
+
+| Tầng | Nội dung | Cách ingest | Dùng để |
+|---|---|---|---|
+| **SÂU** (`depth='deep'`) | Cụm BLLĐ ~15 văn bản (tầng 1–3 ở trên) | chunk tới Điều/Khoản, retrieval + verifier đầy đủ | trả lời có citation kiểm chứng |
+| **NÔNG** (`depth='shallow'`) | 6 luật gốc còn lại, **chỉ thân luật**, không NĐ/TT | chunk ở mức Điều, không expand reference | **xác định ranh giới phủ** |
+
+**Tầng NÔNG — 6 luật, `doc_id` đã fetch live 2026-08-27:**
+
+| Luật | `doc_id` | `effFrom` | `effStatus` theo MOJ |
+|---|---|---|---|
+| Luật Việc làm 74/2025/QH15 | 179273 | 2026-01-01 | Còn hiệu lực |
+| Luật Công đoàn 50/2024/QH15 | 172553 | 2025-07-01 | Hết hiệu lực một phần |
+| Luật BHXH 41/2024/QH15 | 175027 | 2025-07-01 | ⚠ **"Hết hiệu lực toàn bộ"** — nghi lỗi MOJ, xem 5.2 |
+| Luật NLĐ VN đi làm việc ở nước ngoài 69/2020/QH14 | 146643 | **2022-01-01** | Còn hiệu lực |
+| Luật 97/2025/QH15 (SĐBS Luật Công đoàn…) | 179407 | 2025-07-01 | Còn hiệu lực |
+| Luật Giáo dục nghề nghiệp 74/2014/QH13 | *chưa tra* | — | — |
+
+Luật ATVSLĐ 84/2015/QH13 (`70811`) nằm ở **tầng SÂU** (đã ở tầng 2), không phải tầng nông.
+
+**Quy mô ước tính:** tầng sâu ~15 văn bản → 1.500–2.500 điều → ~2.000–4.000 chunk; tầng nông +6 luật → +~600–900 điều. Tổng vector ~4–8 MB. Retrieval nhanh, eval rẻ.
 
 **Vòng 1 — 15 văn bản lõi, `tinh_trang` đã fetch live từng cái:**
 
@@ -133,6 +155,7 @@ Vòng 2 mở rộng từ danh sách 40 văn bản đã verify + lọc tay từ 1
 ```sql
 documents
   id, so_hieu, loai_van_ban, ten, co_quan_ban_hanh,
+  depth,               -- 'deep' | 'shallow'  (xem 4.3 Hai tầng độ sâu)
   ngay_ban_hanh, ngay_hieu_luc, ngay_het_hieu_luc,
   tinh_trang,          -- CHL | HHL | HHL1P | chua_hieu_luc
   moj_doc_id, nguon_url, checksum, crawled_at
@@ -303,6 +326,8 @@ query, as_of_date
   → rewrite_query    dân sinh → ngôn ngữ pháp lý + 2–3 query phụ   [ablate được]
   → retrieve_hybrid  BM25 top20 ⊕ dense top20 → RRF → top10
   → expand           Khoản→Điều (parent-doc) · references 1-hop · lọc as_of_date
+                     TÁCH 2 nhánh: expanded_deep[]  vs  hits_shallow[]
+                     deep rỗng & shallow có → PARTIAL_COVERAGE (bỏ qua LLM, 0 token)
   → generate_claims  structured: [{text, provision_id, quote}] | insufficient_evidence
   → VERIFY TẦNG 1    thuần Python, 0 token
   → VERIFY TẦNG 2    LLM judge, chỉ claim qua tầng 1, batch 1 call
@@ -318,7 +343,22 @@ query, as_of_date
 | `quote` là substring của `provisions.noi_dung` (sau normalize dấu/khoảng trắng)? | LLM "trích dẫn" nhưng viết lại nội dung | **DROP** |
 | Điều còn hiệu lực tại `as_of_date`? (mục 5.2) | Pain point #2 | **WARN** |
 
-### 6.2 Abstain
+### 6.2 Bốn loại kết quả
+
+| Kết quả | Khi nào | Chi phí |
+|---|---|---|
+| `ANSWER` | có claim qua verify từ **tầng sâu** | đầy đủ |
+| `PARTIAL_COVERAGE` | `expanded_deep` rỗng, `hits_shallow` có kết quả | **0 token LLM** — nhánh xác định |
+| `ABSTAIN` | không tìm thấy căn cứ ở **cả hai** tầng | tiết kiệm |
+| `OUT_OF_SCOPE` | `route` xác định ngoài lĩnh vực lao động | rẻ nhất |
+
+**`PARTIAL_COVERAGE` là nhánh xác định (deterministic), KHÔNG gọi LLM.** Trả về: tên luật + Điều liên quan từ tầng nông + tuyên bố ranh giới. Ví dụ:
+
+> Câu hỏi thuộc **Luật Việc làm 74/2025/QH15, Điều X**. KLAW phủ sâu Bộ luật Lao động và các văn bản hướng dẫn; **chưa phủ nghị định/thông tư hướng dẫn Luật Việc làm** nên không diễn giải chi tiết được. Xem văn bản gốc: [link]
+
+Tốt hơn `ABSTAIN` (có thông tin định hướng), và vô cùng tốt hơn việc bịa. Nó cũng khiến quyết định "ngoài phạm vi" của node `route` dựa trên **dữ liệu** thay vì danh sách hardcode.
+
+### 6.3 Abstain
 
 `ABSTAIN` khi **bất kỳ** điều nào sau đây đúng:
 
@@ -509,6 +549,7 @@ python runtime → COPY --from=node dist/ ./static/  +  app.mount("/", StaticFil
 | `golden_qa` | 100–150 | tự viết từ corpus, ghi rõ `provision_id` đúng | Recall@k, MRR, nDCG, citation P/R |
 | `trap` | 40–50 | điều luật không tồn tại · ngoài lĩnh vực · **văn bản đã bị thay thế ở cấp văn bản** (xem dưới) | abstention accuracy, hallucination rate |
 | `draft_facts` | 20 hợp lệ + 30 cài lỗi | tự tạo, mỗi rule 2–3 case | completeness, legality detection, FP |
+| `boundary` | ~25 | câu hỏi chi tiết về BHXH · BHTN · công đoàn · NLĐ đi nước ngoài — thuộc **tầng nông** | **coverage-boundary accuracy** |
 | `alqac_subset` | tùy | ALQAC/Zalo có GOLD | đối chiếu ngoại vi *(chờ rõ license)* |
 
 **Tập `trap` — nhóm "văn bản đã bị thay thế" phải ở CẤP VĂN BẢN, không phải cấp điều khoản.**
@@ -534,6 +575,12 @@ Bước 3 bắt buộc: câu hỏi dùng đúng từ trong luật làm retrieval
 Citation precision = (citation qua verify tầng 1) / (tổng citation LLM đưa ra)
 ```
 Deterministic, không cần LLM judge. Không có tầng 1 thì không tính được nó.
+
+```
+Coverage-boundary accuracy = (số câu tầng nông trả PARTIAL_COVERAGE với ĐÚNG tên luật)
+                             / (tổng câu trong tập `boundary`)
+```
+Hai kiểu sai phải đếm riêng: **bịa chi tiết** (nghiêm trọng) và **abstain oan** (mất thông tin nhưng an toàn).
 
 ### 11.3 Bảng kết quả chính
 
@@ -587,6 +634,7 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 | 9 | Đo RAM thật bằng `docker stats` cho model embedding đã chọn | Overhead runtime chưa ai công bố |
 | 10 | Tra `doc_id` của NĐ 157/2018, 141/2017, 122/2015 (lương tối thiểu cũ) | Bổ sung ca bẫy Mức 2 (mục 11.1) |
 | 11 | Đối chiếu tay hiệu lực của **các luật gốc cấp Quốc hội** trong corpus → `verified_documents`. Ưu tiên Luật BHXH 41/2024 (`175027`) | Mức 2 kế thừa lỗi phân loại cạnh của MOJ (mục 5.2 guard) |
+| 12 | Tra `doc_id` Luật Giáo dục nghề nghiệp 74/2014/QH13 | Hoàn tất tầng nông (mục 4.3) |
 
 ---
 
