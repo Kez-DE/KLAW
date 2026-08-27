@@ -171,6 +171,39 @@ def test_khoan_khong_khop_regex_KHONG_bi_gop_vao_khoan_truoc():
     assert "định dạng lạ" not in khoan[0].tieu_de
 
 
+def test_tieu_de_DIEU_tach_2_the_KHAC_id_duoc_gop():
+    """BLDS/BLHS/BLTTDS/BLTTHS có 75 thẻ prov-article tách tiêu đề, id KHÁC nhau."""
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 33.</b></p>
+    <p id="a2" class="MsoNormal prov-article"><b>Bảo vệ quyền nhân thân</b></p></div>"""
+    rows = parse_provisions(html, SKH)
+    dieu = [r for r in rows if r.cap is Cap.dieu]
+    assert len(dieu) == 1, f"tạo {len(dieu)} node thay vì gộp"
+    assert dieu[0].so_hieu_cap == "33"
+    assert "nhân thân" in dieu[0].tieu_de
+
+
+def test_DIEU_that_so_hieu_la_KHONG_bi_gop():
+    """'Điều 33a' và 'ĐIỀU 5' đều mở đầu bằng nhãn -> là node THẬT, không gộp."""
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 33. Gốc</b></p>
+    <p id="a2" class="MsoNormal prov-article"><b>Điều 33a. Bổ sung</b></p>
+    <p id="a3" class="MsoNormal prov-article"><b>ĐIỀU 34. Hoa</b></p></div>"""
+    so = [r.so_hieu_cap for r in parse_provisions(html, SKH) if r.cap is Cap.dieu]
+    assert so == ["33", "33a", "34"], so
+
+
+def test_KHOAN_KHONG_BAO_GIO_bi_gop_du_so_hieu_rong():
+    """Khoản không có nhãn trong text -> LABEL_LEVELS loại nó ra -> bất biến."""
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 7. T</b></p>
+    <p id="k1" class="MsoNormal prov-clause">1. Khoản một.</p>
+    <p id="k2" class="MsoNormal prov-clause">I/ Định dạng lạ.</p>
+    <p id="k3" class="MsoNormal prov-clause">Không có số gì cả.</p></div>"""
+    khoan = [r for r in parse_provisions(html, SKH) if r.cap is Cap.khoan]
+    assert len(khoan) == 3, f"chỉ còn {len(khoan)} Khoản — bị gộp mất"
+
+
 def test_parse_anomalies_bat_provision_trong_bang():
     html = """<div class="WordSection1">
     <p id="a1" class="MsoNormal prov-article"><b>Điều 90. Lương</b></p>

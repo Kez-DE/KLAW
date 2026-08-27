@@ -6,7 +6,7 @@ from pathlib import Path
 
 from scripts.fetch_moj import DOC_IDS
 from src.models.domain import DocumentRow
-from src.services.prov_parser import parse_provisions, parse_tables
+from src.services.prov_parser import parse_provisions
 
 TINH_TRANG_MAP = {
     "CHL": "CHL", "HHL": "HHL", "HHL1P": "HHL1P",
@@ -51,16 +51,10 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             checksum=checksum,
         ).model_dump(mode="json"))
 
-        tables = parse_tables(html)
         for r in parse_provisions(html, so_ky_hieu):
             row = r.model_dump(mode="json")
             row["document_id"] = doc_id
             provs.append(row)
-        if tables:
-            provs.append({"document_id": doc_id, "local_id": -1, "parent_local_id": None,
-                          "cap": "dieu", "so_hieu_cap": "", "tieu_de": "[BẢNG]",
-                          "noi_dung": "\n\n".join(tables), "duong_dan": f"{so_ky_hieu} > [Bảng]",
-                          "source_node_id": None, "thu_tu": 10**6})
 
         for ref in d.get("references") or []:
             tgt = ref.get("targetDocument") or {}

@@ -43,6 +43,11 @@ NHAN = {Cap.phan: "Phần", Cap.chuong: "Chương", Cap.muc: "Mục",
 # không nối được vào cây.
 CONTAINER_CAPS = {Cap.phan, Cap.chuong, Cap.muc}
 
+# Bốn cấp có NHÃN xuất hiện trong text ("Phần"/"Chương"/"Mục"/"Điều").
+# Khoản/Điểm chỉ có số ("1.", "a)") nên không dùng được dấu hiệu nhãn —
+# và vì thế chúng KHÔNG BAO GIỜ bị gộp, đúng bất biến cần giữ.
+LABEL_LEVELS = {Cap.phan, Cap.chuong, Cap.muc, Cap.dieu}
+
 # Điều/Khoản dùng chung quy ước hậu tố chữ cho điều/khoản bổ sung (vd. "Điều 33a"
 # của luật sửa đổi) — thiếu hậu tố này thì "Điều 33" và "Điều 33a" ra cùng
 # duong_dan, tức false-positive verification: một claim trích Điều 33a sẽ được
@@ -84,6 +89,20 @@ def _so_hieu(cap: Cap, text: str) -> str:
         return ""
     hit = m.match(text)
     return hit.group(1) if hit else ""
+
+
+def _la_tiep_noi_tieu_de(text: str, cap: Cap, so: str) -> bool:
+    """Thẻ này là phần TIẾP NỐI tiêu đề của node trước, không phải node mới?
+
+    Dấu hiệu: không parse được số hiệu VÀ text không mở đầu bằng nhãn của cấp.
+    Một node THẬT luôn mở đầu bằng nhãn ("Điều 33a", "ĐIỀU 5") dù số hiệu lạ.
+
+    Đã đo: BLLĐ Chương I tách 2 thẻ CÙNG id; BLDS/BLHS/BLTTDS/BLTTHS có 75 thẻ
+    prov-article tách tiêu đề với id KHÁC nhau. Một quy tắc phủ cả hai cơ chế.
+    """
+    if so or cap not in LABEL_LEVELS:
+        return False
+    return not text.strip().lower().startswith(NHAN[cap].lower())
 
 
 def _duong_dan(cap: Cap, so: str, parent: ProvisionRow | None, so_ky_hieu: str,
@@ -205,12 +224,14 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
 
         # Phát hiện qua verify dữ liệu thật: có tiêu đề bị tách làm 2 thẻ cùng cấp
         # thay vì nối bằng <br> trong 1 thẻ (vd. Chương I của BLLĐ: "Chương I" và
-        # "NHỮNG QUY ĐỊNH CHUNG" là 2 <p class="prov-chapter"> riêng, cùng id).
-        # Thẻ sau không khớp số hiệu và cùng cấp với đỉnh stack → nối tiêu đề vào
-        # node đã có, không tạo node mồ côi mới. CHỈ áp cho container: một Khoản
-        # thật ở văn bản khác không khớp regex số hiệu thì phải vẫn ra node riêng
-        # (bảo vệ bằng cách không gộp), không được âm thầm nuốt vào Khoản trước.
-        if so == "" and cap in CONTAINER_CAPS and stack and stack[-1].cap is cap:
+        # "NHỮNG QUY ĐỊNH CHUNG" là 2 <p class="prov-chapter"> riêng, cùng id; và
+        # BLDS/BLHS/BLTTDS/BLTTHS tách tiêu đề Điều thành 2 thẻ prov-article ID
+        # KHÁC nhau). Dấu hiệu gộp: không khớp số hiệu VÀ không mở đầu bằng nhãn
+        # của cấp (_la_tiep_noi_tieu_de) — CHỈ áp cho 4 cấp có nhãn (LABEL_LEVELS).
+        # Khoản/Điểm không có nhãn trong text nên không thể thỏa điều kiện này,
+        # do đó KHÔNG BAO GIỜ bị gộp: một Khoản không khớp regex số hiệu ở văn
+        # bản khác vẫn luôn ra node riêng, không bị âm thầm nuốt vào Khoản trước.
+        if _la_tiep_noi_tieu_de(text, cap, so) and stack and stack[-1].cap is cap:
             cur = stack[-1]
             updated = cur.model_copy(update={"tieu_de": (cur.tieu_de + " " + text).strip()})
             stack[-1] = updated
