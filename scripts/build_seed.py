@@ -18,6 +18,11 @@ def _date(v: str | None) -> str | None:
     return v[:10] if v else None
 
 
+def bam_tep(p: Path) -> str:
+    """sha256 của một file seed. Dùng CHUNG với `scripts.ingest`."""
+    return hashlib.sha256(p.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+
+
 def build(raw: Path, out: Path) -> dict[str, int]:
     out.mkdir(parents=True, exist_ok=True)
     docs: list[dict] = []
@@ -84,10 +89,24 @@ def build(raw: Path, out: Path) -> dict[str, int]:
                          "loai": ref.get("referenceType") or 0,
                          "raw_text": tgt.get("docNum")})
 
+    tep: list[str] = []
     for name, data in (("documents", docs), ("provisions", provs), ("references", refs)):
         (out / f"{name}.jsonl").write_text(
             "\n".join(json.dumps(x, ensure_ascii=False) for x in data) + "\n", encoding="utf-8")
-    (out / "checksums.json").write_text(json.dumps(checksums, indent=2), encoding="utf-8")
+        tep.append(f"{name}.jsonl")
+
+    # `files` là mục để `ingest` KIỂM ĐƯỢC tính toàn vẹn của seed. Checksum theo
+    # document băm HTML thô nên ingest không thể tính lại (data/raw gitignored);
+    # checksum theo FILE thì tính lại được từ chính seed, và nó bắt luôn kênh
+    # hỏng âm thầm: sửa `provisions.jsonl` mà không chạm `documents.jsonl` để lại
+    # 21 checksum không đổi → ingest bỏ qua cả 21 → trả 0/0/0, không phân biệt
+    # được với một lần re-run lành.
+    # Băm TEXT đã đọc qua universal newline (không băm bytes thô) nên checkout
+    # CRLF trên Windows không làm checksum lệch giả.
+    (out / "checksums.json").write_text(json.dumps(
+        {"documents": checksums,
+         "files": {n: bam_tep(out / n) for n in tep}},
+        indent=2, ensure_ascii=False), encoding="utf-8")
 
     for c in canh_bao_tong:
         warnings.warn(c, stacklevel=2)

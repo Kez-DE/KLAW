@@ -256,6 +256,20 @@ def test_moi_van_ban_co_dung_MOT_ban_ghi_mo_dau(provisions, documents):
         assert p["noi_dung"].strip(), p["duong_dan"]
 
 
+def test_mo_dau_co_thu_tu_NHO_NHAT_trong_moi_van_ban(provisions):
+    """`local_id` ở cuối, `thu_tu` ở đầu: chữ mở đầu nằm đầu văn bản nên nó phải
+    xếp trước mọi provision khác. Trước khi sửa: `126319` có `mo_dau` thu_tu=35,
+    `phu_luc` thu_tu=36, `dieu` chạy 0–32 — lời mở đầu xếp SAU Phụ lục."""
+    nho_nhat: dict[str, int] = {}
+    for p in provisions:
+        d = p["document_id"]
+        if p["cap"] != "mo_dau":
+            nho_nhat[d] = min(nho_nhat.get(d, p["thu_tu"]), p["thu_tu"])
+    xau = [(p["document_id"], p["thu_tu"], nho_nhat[p["document_id"]]) for p in provisions
+           if p["cap"] == "mo_dau" and p["thu_tu"] >= nho_nhat[p["document_id"]]]
+    assert not xau, f"mo_dau không xếp đầu: {xau[:5]}"
+
+
 def test_tieu_ngu_van_ban_KHONG_con_trong_bat_ky_neo_trich_dan_nao(provisions):
     """Kịch bản hỏng của C1: agent sinh câu lấy từ TÊN VĂN BẢN, tầng 1 tìm thấy
     nguyên văn trong `noi_dung` của Điều 1 → "đã kiểm chứng". Trước khi sửa: 4
@@ -279,4 +293,4 @@ def test_checksums_json_khop_documents_jsonl(documents):
     nó là artefact chỉ-ghi. Test này ít nhất bắt được trôi giữa hai file, thứ sẽ
     làm `ingest` bỏ qua văn bản đã đổi."""
     cs = json.loads((SEED / "checksums.json").read_text(encoding="utf-8"))
-    assert cs == {d["id"]: d["checksum"] for d in documents}
+    assert cs["documents"] == {d["id"]: d["checksum"] for d in documents}

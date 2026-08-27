@@ -477,6 +477,23 @@ def test_mo_dau_MOT_ban_ghi_moi_van_ban_va_KHONG_danh_so():
         "không có chữ trước thẻ prov-* đầu tiên thì không được tạo bản ghi"
 
 
+def test_mo_dau_co_thu_tu_NHO_NHAT_du_local_id_lon_nhat():
+    """`local_id` của `mo_dau` phải ở CUỐI (để `parent_local_id` của mọi node quy
+    phạm giữ nguyên) nhưng chữ mở đầu nằm ở ĐẦU văn bản. Trước khi sửa,
+    `126319` có `mo_dau` thu_tu=35 và `phu_luc` thu_tu=36 — lời mở đầu xếp SAU
+    Phụ lục. `thu_tu = -1` giải quyết mà không phải đánh số lại gì cả (không có
+    CHECK nào bắt `thu_tu >= 0`)."""
+    html = """<div class="WordSection1">
+    <p class="MsoNormal">THÔNG TƯ Quy định thử.</p>
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p>
+    <p class="MsoNormal">Phụ lục I DUOI danh mục.</p></div>"""
+    rows = parse_provisions(html, SKH)
+    md = next(r for r in rows if r.cap is Cap.mo_dau)
+    assert md.thu_tu == -1, md.thu_tu
+    assert md.thu_tu < min(r.thu_tu for r in rows if r.cap is not Cap.mo_dau)
+    assert md.local_id > 0, "local_id vẫn ở cuối để parent_local_id không phải dịch"
+
+
 # ══ Mục F — NFC hoá lúc parse, KHÔNG casefold ══
 
 def test_text_luu_duoc_NFC_hoa():

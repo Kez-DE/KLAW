@@ -65,7 +65,12 @@ def test_build_ghi_du_ba_file_va_checksums(tmp_path, monkeypatch):
         encoding="utf-8").splitlines()]
     assert all(p["document_id"] == "9001" for p in provs)
     assert all(p["noi_dung"].strip() for p in provs), "seed ghi noi_dung rỗng"
-    assert json.loads((out / "checksums.json").read_text(encoding="utf-8")).keys() == {"9001"}
+    cs = json.loads((out / "checksums.json").read_text(encoding="utf-8"))
+    assert cs["documents"].keys() == {"9001"}
+    # mục `files` là thứ `scripts.ingest._kiem_toan_ven` đọc để bắt seed bị sửa
+    # tay; nếu build ghi sai thì ingest chặn cả đường lành.
+    assert cs["files"] == {n: build_seed.bam_tep(out / n) for n in
+                           ("documents.jsonl", "provisions.jsonl", "references.jsonl")}
 
 
 def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
@@ -108,7 +113,7 @@ def test_checksum_DOI_khi_parser_doi_du_HTML_khong_doi(tmp_path, monkeypatch):
 
     def _checksum(out: Path) -> str:
         build_seed.build(tmp_path / "raw", out)
-        return json.loads((out / "checksums.json").read_text(encoding="utf-8"))["9003"]
+        return json.loads((out / "checksums.json").read_text(encoding="utf-8"))["documents"]["9003"]
 
     truoc = _checksum(tmp_path / "s1")
 

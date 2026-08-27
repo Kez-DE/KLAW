@@ -448,7 +448,13 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
             noi_dung=_chuan_hoa(" ".join([nhan[i], *than[i]])),
             duong_dan=_duong_dan(i, caps, so_hieu, parents, so_ky_hieu),
             source_node_id=src[i],
-            thu_tu=i,
+            # `local_id` của `mo_dau` ở CUỐI (để `parent_local_id` của mọi node
+            # quy phạm giữ nguyên) nhưng chữ mở đầu nằm ở ĐẦU văn bản, nên
+            # `thu_tu` phải là -1: nếu không, lời mở đầu xếp SAU cả Phụ lục
+            # (126319 từng có mo_dau=35, phu_luc=36, dieu 0–32). Không cần đánh
+            # số lại gì cả — không có CHECK nào bắt `thu_tu >= 0`, và `ingest`
+            # chỉ dùng `thu_tu` để bảo đảm cha đứng trước con (mo_dau không cha).
+            thu_tu=-1 if cap is Cap.mo_dau else i,
         ))
 
     _kiem_bat_bien(rows, so_ky_hieu)

@@ -1,5 +1,6 @@
 """Load data/seed/*.jsonl vào Postgres. Idempotent qua documents.checksum."""
 
+import hashlib
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -8,12 +9,46 @@ from sqlalchemy import text
 
 from src.services.db import get_engine, run_migrations
 
+TEP_SEED = ("documents.jsonl", "provisions.jsonl", "references.jsonl")
+
 
 def _read(p: Path) -> list[dict]:
     return [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def _kiem_toan_ven(seed: Path) -> None:
+    """So từng file seed với `checksums.json`. MỘT LẦN, trước vòng lặp document.
+
+    Khác hẳn phép skip-per-document bên dưới, và đây là kênh hỏng mà phép kia
+    không thể thấy: sửa tay `provisions.jsonl` mà KHÔNG chạm `documents.jsonl`
+    để lại 21 checksum document không đổi → mọi document bị `continue` → hàm
+    trả `{0, 0, 0}`, không phân biệt được với một lần re-run idempotent lành.
+    Dữ liệu hỏng nằm trong git, không bao giờ vào DB, không ai biết.
+
+    Trước hàm này `checksums.json` không được dòng Python nào đọc — nó là
+    artefact CHỈ-GHI. Thiếu mục cho một file seed cũng là lỗi: bỏ qua im lặng
+    thì phép kiểm chỉ là trang trí.
+    """
+    p = seed / "checksums.json"
+    if not p.exists():
+        raise ValueError(f"{p} không tồn tại — chạy `python -m scripts.build_seed`")
+    files = json.loads(p.read_text(encoding="utf-8")).get("files") or {}
+    for name in TEP_SEED:
+        mong_doi = files.get(name)
+        if not mong_doi:
+            raise ValueError(
+                f"checksums.json KHÔNG có mục cho {name} — không kiểm được toàn vẹn "
+                "seed; chạy lại `python -m scripts.build_seed`")
+        thuc_te = hashlib.sha256(
+            (seed / name).read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+        if thuc_te != mong_doi:
+            raise ValueError(
+                f"{name} LỆCH checksum: file={thuc_te} checksums.json={mong_doi} — "
+                "seed bị sửa mà không rebuild; chạy `python -m scripts.build_seed`")
+
+
 def ingest(seed: Path) -> dict[str, int]:
+    _kiem_toan_ven(seed)
     run_migrations()
     docs = _read(seed / "documents.jsonl")
     provs = _read(seed / "provisions.jsonl")
