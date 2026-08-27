@@ -273,10 +273,30 @@ Ablation đầy đủ = 7 cấu hình × 150 câu = **1.050 query** × 2 LLM cal
 
 | Model dùng | ~$/query | Tổng ablation |
 |---|---|---|
-| rẻ (~$0.15/1M input) | ~$0.0009 | **~$1.9** → vừa trong $2.43 |
-| mạnh (~$3/1M input) | ~$0.015 | **~$31** → vượt xa |
+| **rẻ nhất khả dụng ($0.017/1M)** | ~$0.00015 | **~$0.16** → dư sức trong $2.43 |
+| trung (~$0.15/1M) | ~$0.0009 | ~$1.9 → vừa |
+| mạnh (~$3/1M) | ~$0.015 | **~$31** → vượt xa |
 
-**Chiến lược bắt buộc:** model rẻ cho **toàn bộ** ablation; model mạnh chỉ chạy **một lần** cho cấu hình cuối cùng. Ablation chiều LLM (mục 8.1) do đó không chỉ là kết quả hay mà là **yêu cầu ngân sách**. Nếu muốn chạy thoải mái thì nâng credit OpenRouter trước tuần 5.
+$2.43 **đủ thoải mái**, kể cả chạy lại ablation nhiều lần — miễn không dùng model mạnh cho toàn bộ. Chiến lược: model rẻ/trung cho toàn bộ ablation, model mạnh chỉ **một lần** cho cấu hình cuối.
+
+#### ⚠ Model siêu rẻ KHÔNG dùng được cho `generate_claims` — đã đo
+
+Test thật (yêu cầu *"Trả lời đúng một từ: ok"*), 4 model trả tiền rẻ nhất:
+
+| Model | $/1M | Trả về | Dùng được? |
+|---|---|---|---|
+| `ibm-granite/granite-4.0-h-micro` | 0.017 | `"Chấp thuận"` | ❌ hiểu tiếng Việt, **không theo instruction** |
+| `mistralai/mistral-nemo` | 0.019 | `"Ok"` | ✅ |
+| `inclusionai/ling-3.0-flash` | 0.021 | `""` **rỗng** | ❌ |
+| `nex-agi/nex-n2-mini` | 0.025 | `"ok"` | ✅ |
+
+**2/4 model ở mức giá này không trả nổi một từ theo yêu cầu.** `generate_claims` phụ thuộc hoàn toàn vào structured output đúng schema ⇒ mức rẻ nhất chỉ đủ cho `route` (phân loại đơn giản). **Task đầu của tuần 5 phải là: test structured-output compliance của các ứng viên `LLM_MODEL_GENERATE` trước khi xây graph** — chọn sai ở đây thì verify tầng 1 sẽ DROP toàn bộ claim và không phân biệt được lỗi model với lỗi cơ chế.
+
+#### Privacy: giữ nguyên tắt, trả $0.017/1M thay vì $0
+
+Toàn bộ model `:free` trả 404 *"guardrail restrictions and data policy"*. Mở được bằng cách bật cho phép provider dùng prompt để train tại `openrouter.ai/settings/privacy`.
+
+**Quyết định: KHÔNG bật.** Câu hỏi pháp luật của người dùng bị đưa vào tập train của bên thứ ba là trái với chương Đạo đức của chính đề tài (mục 15) và trái nguyên tắc privacy-by-design. Trả $0.017/1M là **quyết định có chủ đích**, không phải hạn chế kỹ thuật — và là một đoạn viết được trong khóa luận.
 
 #### Bảng so sánh embedding tuần 4 — ứng viên đã chốt
 
@@ -616,7 +636,15 @@ GET  /health
 | `generate_claims` | chất lượng cao, structured output ổn định |
 | `verify_tier2` | judge, output ngắn, batch nhiều claim/call |
 
-**Đã xác minh 2026-08-27: OpenRouter KHÔNG có embedding.** Quét `openrouter.ai/api/v1/models` — 417 model, **0 embedding, 0 reranker**. OpenRouter chỉ có chat/completion.
+**Đã xác minh 2026-08-27 bằng BA đường độc lập: OpenRouter KHÔNG có embedding.**
+
+| Kiểm tra | Kết quả |
+|---|---|
+| `GET /models` không auth **vs** có auth | **417 = 417** → privacy gate không lọc catalog; **0 embedding, 0 reranker** ở cả hai |
+| `POST /api/v1/embeddings` với 4 slug (`openai/text-embedding-3-small`, `text-embedding-3-small`, `cohere/embed-v4.0`, `baai/bge-m3`) | 404 / 400 |
+| **Cùng key, cùng thời điểm**, `POST /chat/completions` model trả tiền | ✅ **HTTP 200, 4/4** |
+
+Đường thứ ba là bằng chứng quyết định: key hoạt động, chat 200, embeddings 404 ⇒ **vấn đề không ở key mà ở chỗ OpenRouter không cung cấp embedding.** Không có cấu hình nào mở được. Bắt buộc có provider embedding riêng.
 
 #### Contract config — BA provider, không gộp được về một key
 
