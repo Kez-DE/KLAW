@@ -9,6 +9,7 @@ class Cap(StrEnum):
     phan = "phan"
     chuong = "chuong"
     muc = "muc"
+    tieu_muc = "tieu_muc"
     dieu = "dieu"
     khoan = "khoan"
     diem = "diem"
