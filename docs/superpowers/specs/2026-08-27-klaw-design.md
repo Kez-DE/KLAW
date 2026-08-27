@@ -528,7 +528,40 @@ GET  /health
 | `generate_claims` | chất lượng cao, structured output ổn định |
 | `verify_tier2` | judge, output ngắn, batch nhiều claim/call |
 
-**Đã xác minh 2026-08-27: OpenRouter KHÔNG có embedding.** Quét `openrouter.ai/api/v1/models` — 417 model, **0 embedding, 0 reranker**. ⇒ Config **bắt buộc** tách `LLM_*` và `EMBEDDING_*`.
+**Đã xác minh 2026-08-27: OpenRouter KHÔNG có embedding.** Quét `openrouter.ai/api/v1/models` — 417 model, **0 embedding, 0 reranker**. OpenRouter chỉ có chat/completion.
+
+#### Contract config — BA provider, không gộp được về một key
+
+| Tầng | Provider | Biến | Base URL |
+|---|---|---|---|
+| LLM (route, rewrite, generate_claims, verify_tier2) | OpenRouter | `OPENROUTER_API_KEY` | `https://openrouter.ai/api/v1` |
+| Embedding | OpenAI trực tiếp | `OPENAI_API_KEY` | `https://api.openai.com/v1` |
+| Reranker *(tùy chọn)* | Cohere | `COHERE_API_KEY` | `https://api.cohere.com` |
+
+```dotenv
+# --- LLM: qua OpenRouter ---
+OPENROUTER_API_KEY=          # CHƯA CÓ trong .env — lấy ở openrouter.ai/keys, set spend limit ngay
+LLM_BASE_URL=https://openrouter.ai/api/v1
+LLM_MODEL_ROUTER=            # rẻ nhất, cần structured output
+LLM_MODEL_GENERATE=          # mạnh, structured output ổn định
+LLM_MODEL_JUDGE=             # trung, output ngắn, batch được
+
+# --- Embedding: KHÔNG qua OpenRouter ---
+EMBEDDING_PROVIDER=openai
+EMBEDDING_BASE_URL=https://api.openai.com/v1
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_DIM=1536
+
+# --- Reranker: tùy chọn, provider riêng ---
+RERANK_PROVIDER=cohere       # cohere | local | none
+RERANK_MODEL=rerank-v4.0-fast
+```
+
+Cả ba dùng chung SDK OpenAI-compatible, chỉ khác `base_url` → code không phức tạp thêm.
+
+**Hai biến trong `.env` hiện tại lệch spec, phải sửa:** `DATABASE_URL` đang trỏ SQLite (spec dùng Postgres — mục 8.2); `CHROMA_PERSIST_DIR` không còn dùng (spec dùng pgvector hoặc numpy, không Chroma).
+
+**Ablation chiều LLM (gần như miễn phí khi đã có OpenRouter):** giữ nguyên graph, đổi `LLM_MODEL_GENERATE` giữa Claude / Gemini / GPT / DeepSeek / Qwen → báo cáo hallucination rate và citation precision của từng model **dưới cùng một cơ chế verify**. Với đề tài về chống ảo giác, bảng "model nào bịa nhiều hơn khi bị kiểm chứng như nhau" là kết quả có giá trị và chi phí thêm chỉ là tiền token.
 
 Set spend limit OpenRouter ngày đầu. Log `token_in/token_out/cost_usd` vào `traces`.
 
