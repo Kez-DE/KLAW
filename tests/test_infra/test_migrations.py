@@ -100,12 +100,14 @@ def test_migration_idempotent_KHI_DA_CO_DU_LIEU_dung_moi_cap():
             "INSERT INTO documents (id, so_ky_hieu, loai_van_ban, ten, tinh_trang, checksum)"
             " VALUES ('mig-test', 'x/2020/NĐ-CP', 'Nghị định', 't', 'CHL', 'c')"
             " ON CONFLICT (id) DO NOTHING"))
-        for cap, dd, nd in (("phu_luc", "x/2020/NĐ-CP > Phụ lục", ""),
-                            ("mo_dau", "x/2020/NĐ-CP > Mở đầu", "Căn cứ Luật X;"),
-                            ("dieu", "x/2020/NĐ-CP > Điều 1", "Điều 1. Phạm vi")):
+        # `so_hieu_cap` rỗng CHỈ hợp lệ ở hai cấp tài liệu — xem `005`.
+        for cap, so, dd, nd in (("phu_luc", "", "x/2020/NĐ-CP > Phụ lục", ""),
+                                ("mo_dau", "", "x/2020/NĐ-CP > Mở đầu", "Căn cứ Luật X;"),
+                                ("dieu", "1", "x/2020/NĐ-CP > Điều 1", "Điều 1. Phạm vi")):
             conn.execute(text(
                 "INSERT INTO provisions (document_id, cap, so_hieu_cap, noi_dung, duong_dan, thu_tu)"
-                " VALUES ('mig-test', :cap, '', :nd, :dd, 0)"), {"cap": cap, "dd": dd, "nd": nd})
+                " VALUES ('mig-test', :cap, :so, :nd, :dd, 0)"),
+                {"cap": cap, "so": so, "dd": dd, "nd": nd})
     try:
         run_migrations()   # phải KHÔNG ném CheckViolation lẫn UniqueViolation
         run_migrations()
@@ -208,3 +210,42 @@ def test_cap_mo_dau_duoc_CHECK_cho_qua():
     for cap in ("phan", "chuong", "muc", "tieu_muc", "dieu", "khoan", "diem",
                 "phu_luc", "mo_dau"):
         assert f"'{cap}'" in chk, f"{cap} thiếu trong {chk}"
+
+
+@pytest.mark.integration
+def test_check_so_hieu_cap_CHAN_moi_cap_cau_truc_va_CHO_hai_cap_tai_lieu():
+    """`005`. Dạng ĐỒNG NHẤT: mọi cấp phải có số hiệu, trừ `mo_dau`/`phu_luc` —
+    hai cấp tài liệu là chữ không thuộc điều luật nào nên không có số hiệu để
+    mang. Đồng nhất tốt hơn liệt kê: nó đúng cho cả cấp sẽ thêm về sau, không
+    phải chỉ cấp đang có bug. Neo `"… > Điều 33 > Khoản"` (thiếu thành phần, người
+    dùng không tra được) trước đây chỉ bị parser chặn, DB nhận hết."""
+    run_migrations()
+    eng = get_engine()
+    with eng.begin() as c:
+        chk = c.execute(text(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint"
+            " WHERE conname = 'provisions_so_hieu_cap_check'")).scalar_one()
+        assert "so_hieu_cap" in chk
+        c.execute(text(
+            "INSERT INTO documents (id, so_ky_hieu, loai_van_ban, ten, tinh_trang, checksum)"
+            " VALUES ('sh-test', 'x/2023/NĐ-CP', 'Nghị định', 't', 'CHL', 'c')"
+            " ON CONFLICT (id) DO NOTHING"))
+    try:
+        with eng.begin() as c:   # hai cấp tài liệu rỗng: PHẢI qua
+            for cap, dd in (("mo_dau", "x/2023/NĐ-CP > Mở đầu"),
+                            ("phu_luc", "x/2023/NĐ-CP > Phụ lục")):
+                c.execute(text(
+                    "INSERT INTO provisions (document_id, cap, so_hieu_cap, noi_dung, duong_dan, thu_tu)"
+                    " VALUES ('sh-test', :cap, '', 'x', :dd, 0)"), {"cap": cap, "dd": dd})
+        # mọi cấp cấu trúc rỗng: PHẢI chặn (kể cả chỉ-khoảng-trắng)
+        for cap, so in (("khoan", ""), ("diem", "  "), ("dieu", ""), ("chuong", ""),
+                        ("muc", ""), ("tieu_muc", ""), ("phan", "")):
+            with pytest.raises(IntegrityError):
+                with eng.begin() as c:
+                    c.execute(text(
+                        "INSERT INTO provisions (document_id, cap, so_hieu_cap, noi_dung, duong_dan, thu_tu)"
+                        " VALUES ('sh-test', :cap, :so, 'x', 'x/2023/NĐ-CP > Điều 9 > Khoản', 0)"),
+                        {"cap": cap, "so": so})
+    finally:
+        with eng.begin() as c:
+            c.execute(text("DELETE FROM documents WHERE id = 'sh-test'"))
