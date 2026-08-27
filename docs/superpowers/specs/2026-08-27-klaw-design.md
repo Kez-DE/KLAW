@@ -770,16 +770,41 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 | # | Việc | Vì sao |
 |---|---|---|
 | 1 | Railway Postgres bật được `pgvector` + `unaccent`? | Chỉ ảnh hưởng deploy demo (tuần 8) — **không chặn tuần 1–7** vì eval chạy local với `pgvector/pgvector:pg16` (mục 4b.4). Fallback: numpy |
-| 2 | Mở `aistudio.google.com/rate-limit` đọc RPM/RPD thật của Gemini embedding | Docs Google **không còn publish** bảng này; phải đăng nhập xem |
-| 3 | Railway auto-detect Dockerfile, hay cần `railway.json`? | Cấu hình deploy |
-| 4 | Kiểm phủ class `prov-*` trên toàn corpus (mới verify 3/40 văn bản) | Parser có tin được không |
-| 5 | Truy vấn `references` trỏ tới BLLĐ `139264` với `referenceType ∈ {8, 9}` → chốt tầng 2 của corpus | Thay việc lọc tay 1.971 dòng bằng tiêu chí do cơ quan ban hành khai báo (`linh_vuc` sai 66%) |
-| 6 | Đối chiếu tay ~10 điều quan trọng với văn bản hợp nhất → `verified_provisions` | Dữ liệu bãi bỏ cấp điều khoản không public |
-| 7 | Thử quantize int8 `AITeamVN/Vietnamese_Embedding` bằng `optimum`, đo chất lượng tụt | Họ **không ship** bản int8, khác e5-small |
-| 8 | Đo RAM thật bằng `docker stats` cho model embedding đã chọn | Overhead runtime chưa ai công bố |
-| 9 | Tra `doc_id` của NĐ 157/2018, 141/2017, 122/2015 (lương tối thiểu cũ) | Bổ sung ca bẫy Mức 2 (mục 11.1) |
-| 10 | Đối chiếu tay hiệu lực của **các luật gốc cấp Quốc hội** trong corpus → `verified_documents`. Ưu tiên Luật BHXH 41/2024 (`175027`) | Mức 2 kế thừa lỗi phân loại cạnh của MOJ (mục 5.2 guard) |
-| 11 | Tra `doc_id` Luật Giáo dục nghề nghiệp 74/2014/QH13 | Hoàn tất tầng nông (mục 4.3) |
+| 2 | Railway auto-detect Dockerfile, hay cần `railway.json`? | Cấu hình deploy |
+| 3 | Kiểm phủ class `prov-*` trên toàn corpus (mới verify 3/40 văn bản) | Parser có tin được không |
+| 4 | Truy vấn `references` trỏ tới BLLĐ `139264` với `referenceType ∈ {8, 9}` → chốt tầng 2 của corpus | Thay việc lọc tay 1.971 dòng bằng tiêu chí do cơ quan ban hành khai báo (`linh_vuc` sai 66%) |
+| 5 | Đối chiếu tay ~10 điều quan trọng với văn bản hợp nhất → `verified_provisions` | Dữ liệu bãi bỏ cấp điều khoản không public |
+| 6 | Thử quantize int8 `AITeamVN/Vietnamese_Embedding` bằng `optimum`, đo chất lượng tụt | Họ **không ship** bản int8, khác e5-small |
+| 7 | Đo RAM thật bằng `docker stats` cho model embedding đã chọn | Overhead runtime chưa ai công bố |
+| 8 | Tra `doc_id` của NĐ 157/2018, 141/2017, 122/2015 (lương tối thiểu cũ) | Bổ sung ca bẫy Mức 2 (mục 11.1) |
+| 9 | Đối chiếu tay hiệu lực của **các luật gốc cấp Quốc hội** trong corpus → `verified_documents`. Ưu tiên Luật BHXH 41/2024 (`175027`) | Mức 2 kế thừa lỗi phân loại cạnh của MOJ (mục 5.2 guard) |
+| 10 | Tra `doc_id` Luật Giáo dục nghề nghiệp 74/2014/QH13 | Hoàn tất tầng nông (mục 4.3) |
+
+---
+
+### 13.1 Vì sao DATA trước, không phải BACKEND trước
+
+Thứ tự thực thi là **data → retrieval → eval → verifier → soạn thảo → FE**. Ba lý do bắt buộc:
+
+1. **Verifier tầng 1 không tồn tại được nếu chưa có dữ liệu.** Công việc của nó đúng nghĩa là `SELECT noi_dung FROM provisions WHERE id = ?` cộng so khớp `quote` nguyên văn. Chưa có corpus thì không có gì để verify, và không viết được test nào có ý nghĩa. Đóng góp chính của đề tài **là một hàm của tầng dữ liệu**.
+2. **Không có dữ liệu thật thì không có test thật.** Test với `provision` bịa ra không phát hiện được bẫy `prov-content` không có `id` — con bug làm mất trắng nội dung Điều 26 (mục 4.5).
+3. **BE không chặn gì.** Route FastAPI là lớp vỏ mỏng và template đã chạy được. Viết endpoint trước khi có gì để trả về là viết hai lần.
+
+**"Data first" KHÔNG phải hai tuần ngồi trong notebook.** Tuần 1–2 là schema + parser + `scripts/ingest.py` — đó **đã là code backend**, chỉ là tầng dữ liệu của nó. Mỗi tuần ra code chạy được kèm test; không tuần nào chỉ "chuẩn bị".
+
+FE để cuối vì nó chỉ hiển thị, và tính năng quan trọng nhất của nó (click citation ra nguyên văn) phụ thuộc `GET /api/v1/van-ban/{id}` → phụ thuộc `provisions`.
+
+### 13.2 Ngày đầu tiên — 5 việc, không chặn nhau
+
+| # | Việc | Xong khi |
+|---|---|---|
+| 1 | Lấy `OPENROUTER_API_KEY` ở `openrouter.ai/keys`, **set spend limit ngay** | `.env` có key, dashboard có limit |
+| 2 | Thêm service postgres vào `docker-compose.yml`: image `pgvector/pgvector:pg16` + bật `unaccent` | `docker-compose up` → `SELECT extname FROM pg_extension` có `vector`, `unaccent` |
+| 3 | Tải 2 file parquet (25 MB) vào `data/raw/`, thêm vào `.gitignore` | `ls -la data/raw/` thấy 15,1 MB + 9,4 MB |
+| 4 | Kiểm `/doc/{id}/related` có trả cạnh **đi vào** không | Trả lời được: có → bỏ `relationships.parquet`; không → giữ |
+| 5 | Sửa `.env`: `DATABASE_URL` → Postgres local, gỡ `CHROMA_PERSIST_DIR` | `docker-compose up` connect được DB |
+
+Việc **#5 của Phase 0 (đối chiếu tay 10 điều BLLĐ)** và **#9 (đối chiếu hiệu lực luật gốc)** là việc của bạn, không giao được — cần đọc văn bản hợp nhất và phán đoán pháp lý.
 
 ---
 
