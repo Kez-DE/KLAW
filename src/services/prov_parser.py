@@ -3,11 +3,18 @@
 Đọc class `prov-*`, KHÔNG regex tiếng Việt. HTML phẳng: mọi <p> là anh em ruột
 trong div.WordSection1, cấp bậc chỉ nằm ở tên class → duyệt tuần tự + stack.
 
-Bốn cạm bẫy (spec 4.5), mỗi cái có test riêng:
+Năm cạm bẫy (spec 4.5), mỗi cái có test riêng:
   1. HTML phẳng          → stack theo Cap.bac
   2. prov-content KHÔNG có id → gắn vào node đỉnh stack, KHÔNG tạo node mới
   3. <br> dính chữ       → thay bằng ' ' TRƯỚC khi strip tag
   4. bảng bị bẹp         → parse <table> bằng đường riêng, loại khỏi luồng prov-*
+  5. tiêu đề container tách 2 thẻ CÙNG id → gộp thay vì tạo node mồ côi
+     (BLLĐ: Chương I có 'Chương I' và 'NHỮNG QUY ĐỊNH CHUNG' ở 2 thẻ id edbf3bf0;
+      18 thẻ prov-chapter thô → 17 chương thật)
+
+parse_provisions() là cổng NỘI DUNG (đo độ phủ token). parse_anomalies() là cổng
+CẤU TRÚC bổ trợ — bắt ba đường mất dữ liệu mà cổng nội dung không thấy vì token
+vẫn còn đủ (xem docstring của nó).
 """
 
 import re
@@ -34,15 +41,22 @@ NHAN = {Cap.phan: "Phần", Cap.chuong: "Chương", Cap.muc: "Mục",
 # parent_local_id vẫn giữ nguyên cây thật (spec 4.4: provisions là cây
 # Phần>Chương>Mục>Điều>Khoản>Điểm) — nếu không thì Chương/Mục thành lá rời,
 # không nối được vào cây.
-CONTAINER_CAPS = (Cap.phan, Cap.chuong, Cap.muc)
+CONTAINER_CAPS = {Cap.phan, Cap.chuong, Cap.muc}
 
+# Điều/Khoản dùng chung quy ước hậu tố chữ cho điều/khoản bổ sung (vd. "Điều 33a"
+# của luật sửa đổi) — thiếu hậu tố này thì "Điều 33" và "Điều 33a" ra cùng
+# duong_dan, tức false-positive verification: một claim trích Điều 33a sẽ được
+# "kiểm chứng thành công" trên văn bản Điều 33. IGNORECASE để bắt "ĐIỀU 5" viết
+# hoa toàn bộ (thiếu cờ này trước đây làm so_hieu="" → node rác nhận nhầm con).
 RE_SO = {
-    Cap.dieu: re.compile(r"^Điều\s+(\d+)"),
-    Cap.khoan: re.compile(r"^(\d+)\s*[.)]"),
+    Cap.dieu: re.compile(r"^Điều\s+(\d+[a-zA-ZđĐ]*)", re.IGNORECASE),
+    Cap.khoan: re.compile(r"^(\d+[a-zA-ZđĐ]*)\s*[.)]", re.IGNORECASE),
     Cap.diem: re.compile(r"^([a-zăâđêôơư])\s*\)", re.IGNORECASE),
     Cap.chuong: re.compile(r"^Chương\s+([IVXLCDM\d]+)", re.IGNORECASE),
     Cap.muc: re.compile(r"^Mục\s+([IVXLCDM\d]+)", re.IGNORECASE),
-    Cap.phan: re.compile(r"^Phần\s+(\S+)"),  # `re` KHÔNG hỗ trợ \p{L} — dùng \S+
+    # "Phần thứ nhất" (BLDS 95942) ưu tiên trước "Phần I" — nhánh `thứ\s+\S+`
+    # đứng trước nên khớp hết "thứ nhất", không cắt ở khoảng trắng đầu.
+    Cap.phan: re.compile(r"^Phần\s+(thứ\s+\S+|\S+)", re.IGNORECASE),
 }
 
 
@@ -101,6 +115,53 @@ def parse_tables(html: str) -> list[str]:
     return out
 
 
+def parse_anomalies(html: str) -> list[str]:
+    """Phát hiện đường MẤT DỮ LIỆU ÂM THẦM mà parse_provisions không báo.
+
+    parse_provisions() là cổng NỘI DUNG — đo độ phủ bằng token. Hàm này là cổng
+    CẤU TRÚC bổ trợ, bắt ba thứ cổng nội dung không thấy (vì token vẫn còn đủ,
+    chỉ cấu trúc/số hiệu/id bị mất — cổng nội dung không đo được điều đó):
+      1. Text ngoài mọi thẻ prov-* — parse_provisions chỉ duyệt <p> có class prov-*
+      2. prov-content xuất hiện khi chưa có node nào (lời mở đầu "Căn cứ Hiến pháp…")
+         → bị bỏ vì `if stack:` không có nhánh else. Mất ~20 token, DƯỚI ngưỡng 98%
+         của cổng nội dung nên nó không bắt được.
+      3. <p class="prov-*"> nằm TRONG <table> — bị decompose() xóa trước khi duyệt,
+         mất cả cấp/số hiệu/id. parse_tables giữ text nên cổng nội dung vẫn PASS.
+
+    Trả về list mô tả người đọc được. Rỗng = không phát hiện gì.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    out: list[str] = []
+
+    # 3 — provision thật nằm trong bảng
+    for tbl in soup.find_all("table"):
+        for p in tbl.find_all("p"):
+            if _cap_of(p) is not None:
+                out.append(
+                    f"provision trong <table> sẽ bị mất cấu trúc: "
+                    f"class={p.get('class')} id={p.get('id')} text={_text(p)[:60]!r}")
+    for tbl in soup.find_all("table"):
+        tbl.decompose()
+
+    # 2 — prov-content trước mọi node
+    thay_node = False
+    for p in soup.find_all("p"):
+        if _cap_of(p) is not None:
+            thay_node = True
+            continue
+        if _is_content(p) and not thay_node and _text(p):
+            out.append(f"prov-content trước mọi node, sẽ bị bỏ: {_text(p)[:70]!r}")
+
+    # 1 — text ngoài mọi thẻ prov-*
+    for p in soup.find_all("p"):
+        if _cap_of(p) is None and not _is_content(p):
+            t = _text(p)
+            if len(t) > 40:  # bỏ qua dòng trắng/ngắt trang
+                out.append(f"<p> không có class prov-*, text sẽ biến mất: {t[:70]!r}")
+
+    return out
+
+
 def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
     soup = BeautifulSoup(html, "html.parser")
 
@@ -138,8 +199,10 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
         # thay vì nối bằng <br> trong 1 thẻ (vd. Chương I của BLLĐ: "Chương I" và
         # "NHỮNG QUY ĐỊNH CHUNG" là 2 <p class="prov-chapter"> riêng, cùng id).
         # Thẻ sau không khớp số hiệu và cùng cấp với đỉnh stack → nối tiêu đề vào
-        # node đã có, không tạo node mồ côi mới.
-        if so == "" and stack and stack[-1].cap is cap:
+        # node đã có, không tạo node mồ côi mới. CHỈ áp cho container: một Khoản
+        # thật ở văn bản khác không khớp regex số hiệu thì phải vẫn ra node riêng
+        # (bảo vệ bằng cách không gộp), không được âm thầm nuốt vào Khoản trước.
+        if so == "" and cap in CONTAINER_CAPS and stack and stack[-1].cap is cap:
             cur = stack[-1]
             updated = cur.model_copy(update={"tieu_de": (cur.tieu_de + " " + text).strip()})
             stack[-1] = updated

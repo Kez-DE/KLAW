@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from src.models.domain import Cap
-from src.services.prov_parser import parse_provisions, parse_tables
+from src.services.prov_parser import parse_anomalies, parse_provisions, parse_tables
 
 SKH = "45/2019/QH14"
 
@@ -126,6 +126,68 @@ def test_tieu_de_chuong_tach_lam_2_the_khong_bi_bo_ro():
     assert "NHỮNG QUY ĐỊNH CHUNG" in chuong_rows[0].tieu_de
     dieu1 = next(r for r in rows if r.cap is Cap.dieu)
     assert dieu1.parent_local_id == chuong_rows[0].local_id
+
+
+def test_dieu_33a_KHONG_dung_chung_duong_dan_voi_dieu_33():
+    """FALSE-POSITIVE VERIFICATION: hai Điều cùng anchor thì verify tầng 1 sẽ
+    'kiểm chứng thành công' một trích dẫn sai."""
+    html = """
+    <div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><strong><b>Điều 33. Nội dung gốc</b></strong></p>
+    <p id="a2" class="MsoNormal prov-article"><strong><b>Điều 33a. Nội dung bổ sung</b></strong></p>
+    </div>
+    """
+    rows = parse_provisions(html, SKH)
+    dd = [r.duong_dan for r in rows if r.cap is Cap.dieu]
+    assert len(dd) == len(set(dd)), f"hai Điều dùng chung duong_dan: {dd}"
+    assert "45/2019/QH14 > Điều 33a" in dd
+
+
+def test_DIEU_viet_hoa_toan_bo_van_bat_duoc_so_hieu():
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>ĐIỀU 5. Viết hoa</b></p></div>"""
+    r = next(x for x in parse_provisions(html, SKH) if x.cap is Cap.dieu)
+    assert r.so_hieu_cap == "5", f"so_hieu={r.so_hieu_cap!r}"
+
+
+def test_phan_thu_nhat_va_thu_hai_khac_nhau():
+    """Bộ luật Dân sự trong corpus dùng quy ước 'Phần thứ nhất'."""
+    html = """<div class="WordSection1">
+    <p id="p1" class="MsoNormal prov-part"><b>Phần thứ nhất NHỮNG QUY ĐỊNH CHUNG</b></p>
+    <p id="p2" class="MsoNormal prov-part"><b>Phần thứ hai QUYỀN SỞ HỮU</b></p></div>"""
+    phan = [r.so_hieu_cap for r in parse_provisions(html, SKH) if r.cap is Cap.phan]
+    assert len(set(phan)) == 2, f"hai Phần cùng so_hieu: {phan}"
+
+
+def test_khoan_khong_khop_regex_KHONG_bi_gop_vao_khoan_truoc():
+    """Fix bẫy #5 phải hẹp: gộp tiêu đề chỉ áp cho container, không cho Khoản."""
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 7. Thử</b></p>
+    <p id="k1" class="MsoNormal prov-clause">1. Khoản một.</p>
+    <p id="k2" class="MsoNormal prov-clause">I/ Khoản định dạng lạ.</p></div>"""
+    rows = parse_provisions(html, SKH)
+    khoan = [r for r in rows if r.cap is Cap.khoan]
+    assert len(khoan) == 2, f"chỉ còn {len(khoan)} Khoản — bị gộp mất một"
+    assert "định dạng lạ" not in khoan[0].tieu_de
+
+
+def test_parse_anomalies_bat_provision_trong_bang():
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 90. Lương</b></p>
+    <table><tr><td><p id="k1" class="MsoNormal prov-clause">1. Vùng I.</p></td></tr></table></div>"""
+    a = parse_anomalies(html)
+    assert any("table" in x for x in a), f"không bắt được: {a}"
+
+
+def test_parse_anomalies_bat_loi_mo_dau_va_text_ngoai_prov():
+    html = """<div class="WordSection1">
+    <p class="MsoNormal prov-content">Căn cứ Hiến pháp nước Cộng hòa xã hội chủ nghĩa Việt Nam;</p>
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p>
+    <p class="MsoNormal">Đoạn này không có class prov nào và dài hơn bốn mươi ký tự nên phải bị bắt.</p>
+    </div>"""
+    a = parse_anomalies(html)
+    assert any("trước mọi node" in x for x in a), f"không bắt lời mở đầu: {a}"
+    assert any("không có class prov" in x for x in a), f"không bắt text ngoài prov: {a}"
 
 
 @pytest.mark.integration
