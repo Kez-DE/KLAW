@@ -812,7 +812,7 @@ python runtime → COPY --from=node dist/ ./static/  +  app.mount("/", StaticFil
 
 | Tập | Cỡ | Cách xây | Đo |
 |---|---|---|---|
-| `golden_qa` | 100–150 | tự viết từ corpus, ghi rõ `provision_id` đúng | Recall@k, MRR, nDCG, citation P/R |
+| `golden_qa` | **150 — chia 90 Lao động / 60 cho 5 Bộ luật khác (12/bộ)** | tự viết từ corpus, ghi rõ `provision_id` đúng | Recall@k, MRR, nDCG, citation P/R **+ bảng tổng quát 11.4** |
 | `trap` | 40–50 | điều luật không tồn tại · ngoài lĩnh vực · **văn bản đã bị thay thế ở cấp văn bản** (xem dưới) | abstention accuracy, hallucination rate |
 | `draft_facts` | 20 hợp lệ + 30 cài lỗi | tự tạo, mỗi rule 2–3 case | completeness, legality detection, FP |
 | `boundary` | ~25 | câu hỏi chi tiết về BHXH · BHTN · công đoàn · NLĐ đi nước ngoài — thuộc **tầng nông** | **coverage-boundary accuracy** |
@@ -843,7 +843,7 @@ Ba thứ được thêm **miễn phí** nhờ mở sang 6 Bộ luật:
 
 | Tập | Item | Tuần | Ghi chú |
 |---|---|---|---|
-| `golden_qa` | 100–150 | 3 (50 đầu) → 4 (đủ) | chia hai nhịp để có số baseline sớm ở tuần 3 |
+| `golden_qa` | 150 (90 LĐ + 60 khác) | 3 (50 câu LĐ đầu) → 4 (đủ 150) | chia hai nhịp để có số baseline sớm ở tuần 3; 60 câu cross-domain làm sau khi 6 Bộ luật đã ingest |
 | `trap` | 40–50 | 4 | 3 nhóm; nhóm "văn bản đã bị thay" dùng `doc_id` 168670, 139094 |
 | `boundary` | ~25 | 4 | cần tầng nông đã ingest trước |
 | `draft_facts` | 50 | 7 | 30 bộ cài lỗi — mỗi rule 2–3 case |
@@ -912,7 +912,7 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 | **0** (3–4 ngày) | Phase 0 (mục 13) | `docs/phase0-findings.md` — mỗi dòng có URL hoặc "không xác minh được" |
 | 1–2 | Ingest + schema + parser `prov-*` | `count(*) WHERE cap='dieu'` = **220** cho BLLĐ |
 | 3 | Retrieval BM25+dense+RRF, 50 câu golden đầu | Recall@5 có số baseline |
-| 4 | `golden_qa` đủ 100–150 + `trap` 40–50 + **`boundary` 25** + eval harness + **bảng so sánh 6 embedding** | `eval/results/` có bảng đầu |
+| 4 | `golden_qa` đủ **150 (90+60)** + `trap` 40–50 + **`boundary` 25** + eval harness + **bảng so sánh 6 embedding** | `eval/results/` có bảng đầu |
 | 5–6 | Graph tra cứu + verifier 2 tầng + hiệu lực 3 mức | 3 dòng đầu bảng ablation |
 | 7 | Soạn thảo + rule engine + test cài lỗi | 3 metric soạn thảo có số |
 | 8 | FE + deploy Railway | URL live, click citation ra nguyên văn |
