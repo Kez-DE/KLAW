@@ -254,6 +254,8 @@ Thêm: **không định danh văn bản bằng `title`** — `doc_id 96117` có 
 
 Thêm: `id` HTML **không phải khóa chính đáng tin** (quan sát 1 node xuất hiện 2 lần) → lưu vào `source_node_id` nullable, non-unique; PK là id của ta.
 
+**✅ ĐÃ KIỂM THẬT 2026-08-27** — chạy parser trực tiếp trên `documentContent.content` của `139264`: `chapter` 18 · `section` 24 · **`article` 220** · `clause` 638 · `item` 267 · `content` 149; Điều 1 → Điều 220 liên tục. Khớp **chính xác** một lần chạy độc lập trước đó ⇒ cách parse theo class `prov-*` đáng tin. Acceptance test dưới đây đã pass trước khi tồn tại code ingest.
+
 **Acceptance test bắt buộc sau parse:** số node `cap='dieu'` phải khớp số Điều cuối cùng của văn bản (BLLĐ = 220). Fail → dừng ingest.
 
 **Chưa xác minh:** class `prov-*` mới kiểm kỹ trên 3 văn bản (BLLĐ, TT 10/2020, NĐ 293/2025). 37 văn bản còn lại chỉ xác nhận content không rỗng. → **Chạy kiểm phủ trước khi tin parser cho toàn corpus.**
@@ -551,7 +553,7 @@ Tốt hơn `ABSTAIN` (có thông tin định hướng), và vô cùng tốt hơn
 
 ---
 
-## 7. Module soạn thảo
+## 7. Module soạn thảo & TỰ SOÁT
 
 **Không có mẫu HĐLĐ chính thức hiện hành** cho khu vực doanh nghiệp: TT 21/2003/TT-BLĐTBXH "Mẫu số 1" đã **hết hiệu lực toàn bộ**; TT 10/2020/TT-BLĐTBXH (còn hiệu lực) chỉ quy định **nội dung** (toàn văn 0 lần "Mẫu số"). TT 5/2023/TT-BNV có mẫu HĐLĐ nhưng cho **cơ quan hành chính/ĐVSNCL**, và nằm trong PDF khoá 401.
 
@@ -566,6 +568,34 @@ Tốt hơn `ABSTAIN` (có thông tin định hướng), và vô cùng tốt hơn
 | Metric | citation precision, hallucination rate | completeness, legality violation rate |
 
 **Bước citation dùng lại nguyên verifier tầng 1 của mục 6.1.**
+
+### 7.1b Đối xứng THẬT: sinh rồi TỰ SOÁT
+
+*Bản spec trước tuyên bố module này "đối xứng hoàn hảo" với module tra cứu. Đó là tu từ, không phải kỹ thuật: phần citation tái dùng thật, nhưng completeness và legality là **rule engine** — expert system cổ điển, cơ chế khác hẳn. Bản này sửa bằng cách thêm vòng tự soát; khi đó đối xứng mới có thật.*
+
+```
+TRA CỨU:    LLM đưa ra N citation       → verify tầng 1 loại M cái LLM vừa bịa
+SOẠN THẢO:  Generator sinh N điều khoản → Auditor bắt M điều khoản trái luật
+                                          mà chính generator vừa tạo ra
+```
+
+Cùng một luận điểm: **đừng tin output của LLM, hãy kiểm nó bằng cơ chế xác định.**
+
+**Ba hệ quả:**
+
+1. **Ground luật cứng.** "Hợp đồng này tốt không?" cần chuyên gia. "Auditor có bắt được lỗi ta cố tình cài không?" thì precision/recall rõ ràng.
+2. **Bỏ hẳn render `.docx`** — python-docx, định dạng, phân trang: công sức thuần kỹ thuật, giá trị nghiên cứu bằng không. Markdown/HTML đủ cho demo và eval.
+3. **Thêm chức năng soát văn bản NGƯỜI DÙNG dán vào** — gần như miễn phí vì cùng engine, và là ca dùng thực tế hơn: người ta *đã có* hợp đồng và không biết mình có bị ép không. Rủi ro pháp lý cũng thấp hơn sinh văn bản để người khác ký.
+
+### 7.1c Ba loại văn bản — căn cứ ĐÃ XÁC MINH từ API MOJ
+
+| Loại văn bản | Căn cứ (BLLĐ `139264`, fetch 2026-08-27) |
+|---|---|
+| **Hợp đồng lao động** | **Đ21** Nội dung HĐLĐ · Đ25 Thời gian thử việc · Đ26 Tiền lương thử việc · Đ17 Hành vi NSDLĐ không được làm · NĐ 293/2025 Đ3 · TT 10/2020 Đ3 |
+| **Nội quy lao động** | **Đ118** Nội quy lao động · Đ119 Đăng ký · Đ120 Hồ sơ đăng ký · Đ121 Hiệu lực |
+| **Quyết định kỷ luật lao động** | **Đ122** Nguyên tắc, trình tự, thủ tục · Đ123 Thời hiệu · **Đ124** Hình thức · Đ125 Áp dụng sa thải · **Đ127** Hành vi bị nghiêm cấm |
+
+Số hiệu điều trên **đã fetch và đối chiếu tiêu đề thật**, không lấy từ ký ức. Nội dung chi tiết (danh mục bắt buộc của Đ118, trình tự của Đ122) **cố ý không sao chép vào spec** — sau khi ingest, nó là một truy vấn: `SELECT noi_dung FROM provisions WHERE duong_dan LIKE '%Điều 118%'`. Đừng sao tay thứ hệ thống tự lấy được.
 
 ### 7.2 Checklist nội dung bắt buộc — BLLĐ Đ21.1 × TT 10/2020 Đ3
 
@@ -639,13 +669,17 @@ Lợi ích của rules-là-data: xác minh căn cứ thành task **nhập dữ l
 
 | Metric | Cách đo | Test set |
 |---|---|---|
+| **Self-audit catch rate** ⭐ | trên N văn bản do chính hệ thống sinh: (điều khoản trái luật auditor bắt) / (điều khoản trái luật thực có) | 30 VB tự sinh, đối chiếu tay |
+| **Generator violation rate** ⭐ | số điều khoản trái luật generator tạo ra / văn bản | cùng 30 VB trên |
 | Completeness | % nội dung bắt buộc được cover | 20 bộ fact hợp lệ |
 | Legality detection | % lỗi cài sẵn bị bắt | **~30 HĐ cố tình cài lỗi**, mỗi rule 2–3 case |
 | False positive | % HĐ hợp lệ bị báo sai | 20 HĐ hợp lệ |
 
+Hai chỉ số ⭐ là **cặp song song với module tra cứu** và là kết quả đáng kể nhất của module này: *"generator tạo X điều khoản trái luật mỗi văn bản; auditor bắt được Y%"* đặt cạnh *"LLM đưa ra X citation; tầng 1 loại Y%"*.
+
 Ground truth chắc chắn vì lỗi do ta tự cài → **không cần chuyên gia**. Nếu xin được luật sư/giảng viên review 10–15 văn bản theo rubric thì thêm một mục, nhưng không phụ thuộc.
 
-Xuất file: `python-docx`. Bỏ: LaTeX, headless LibreOffice.
+Xuất file: **Markdown/HTML**. **Bỏ `python-docx`, LaTeX, headless LibreOffice** — render văn bản không phục vụ đóng góp nào. Thêm khi có người thực sự cần `.docx`.
 
 ---
 
@@ -710,7 +744,8 @@ Phải viết điều này vào chương Phương pháp của khóa luận. Nế
 
 ```
 POST /api/v1/tra-cuu     {query, as_of_date?}     → {answer, citations[], warnings[], abstained, trace_id}
-POST /api/v1/soan-thao   {loai_van_ban, facts{}}  → {document, clauses[], validation_report, trace_id}
+POST /api/v1/soan-thao   {loai_van_ban, facts{}}  → {document, clauses[], audit_report, trace_id}
+POST /api/v1/soat        {loai_van_ban, text}     → {audit_report, trace_id}   # soát VB người dùng dán vào
 GET  /api/v1/van-ban/{id}                         → provision tree
 POST /api/v1/feedback    {trace_id, verdict}      → ghi bảng traces
 GET  /health
@@ -914,7 +949,7 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 | 3 | Retrieval BM25+dense+RRF, 50 câu golden đầu | Recall@5 có số baseline |
 | 4 | `golden_qa` đủ **150 (90+60)** + `trap` 40–50 + **`boundary` 25** + eval harness + **bảng so sánh 6 embedding** | `eval/results/` có bảng đầu |
 | 5–6 | Graph tra cứu + verifier 2 tầng + hiệu lực 3 mức | 3 dòng đầu bảng ablation |
-| 7 | Soạn thảo + rule engine + test cài lỗi | 3 metric soạn thảo có số |
+| 7 | Soạn thảo **3 loại VB** + rule engine + vòng **tự soát** + endpoint `/soat` + test cài lỗi | **5 metric** có số, gồm self-audit catch rate |
 | 8 | FE + deploy Railway | URL live, click citation ra nguyên văn |
 | **9** | Ablation đủ 7 cấu hình + Hướng B | **bảng kết quả chính hoàn chỉnh** ← mốc đủ bảo vệ |
 | 10–11 | Viết khóa luận | nháp đủ chương |
