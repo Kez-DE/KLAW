@@ -4,11 +4,11 @@ from pydantic import ValidationError
 from src.models.domain import Cap, DocumentRow, ProvisionRow
 
 
-def test_cap_co_dung_bay_bac():
+def test_cap_co_dung_cac_bac():
     """`prov-subsection` tồn tại 43 lần trong corpus (23 Tiểu mục BLDS sau khi
     gộp tiêu đề tách thẻ). Thiếu cấp này thì chúng mất trắng."""
     assert [c.value for c in Cap] == [
-        "phan", "chuong", "muc", "tieu_muc", "dieu", "khoan", "diem"]
+        "phan", "chuong", "muc", "tieu_muc", "dieu", "khoan", "diem", "phu_luc"]
 
 
 def test_cap_bac_tang_dan_de_stack_pop_dung():

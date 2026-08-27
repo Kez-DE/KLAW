@@ -1,18 +1,17 @@
--- Thêm cấp `tieu_muc` (Tiểu mục) vào CHECK của provisions.cap.
+-- Thêm cấp `tieu_muc` (Tiểu mục) vào cây provision.
 --
 -- Lý do: đã đếm class thật trên HTML của cả 21 văn bản — `prov-subsection`
--- xuất hiện 43 lần (22 Tiểu mục của Bộ luật Dân sự) nhưng không có trong
--- CLASS_TO_CAP lẫn CHECK constraint, nên 22 Tiểu mục mất trắng.
--- Thứ tự cây: phan > chuong > muc > tieu_muc > dieu > khoan > diem.
+-- xuất hiện 43 lần (23 Tiểu mục của Bộ luật Dân sự sau khi gộp tiêu đề tách
+-- thẻ) nhưng không có trong CLASS_TO_CAP lẫn CHECK constraint, nên chúng mất
+-- trắng. Thứ tự cây: phan > chuong > muc > tieu_muc > dieu > khoan > diem.
 --
--- KHÁC pattern của 001_init.sql một điểm: constraint này ĐÃ TỒN TẠI với định
--- nghĩa CŨ, nên `ADD CONSTRAINT` sẽ ném duplicate_object và `EXCEPTION ... NULL`
--- sẽ âm thầm GIỮ LẠI bản cũ. Phải DROP trước. Vẫn idempotent: DROP IF EXISTS
--- chạy được cả trên DB mới và DB đã có constraint.
-ALTER TABLE provisions DROP CONSTRAINT IF EXISTS provisions_cap_check;
-
-DO $$ BEGIN
-    ALTER TABLE provisions ADD CONSTRAINT provisions_cap_check
-        CHECK (cap IN ('phan', 'chuong', 'muc', 'tieu_muc', 'dieu', 'khoan', 'diem'));
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+-- FILE NÀY CỐ Ý KHÔNG CÒN CÂU LỆNH NÀO. `provisions_cap_check` do
+-- `003_cap_phu_luc.sql` — file MỚI NHẤT — sở hữu, và chỉ nó.
+--
+-- Vì sao: `run_migrations()` chạy LẠI MỌI file mỗi lần, không có sổ "đã áp
+-- dụng". Khi 001, 002 và 003 mỗi file đều `DROP` rồi `ADD` cùng một constraint,
+-- lần chạy thứ hai đi qua 002 TRƯỚC 003, tức nó thu hẹp lại tập giá trị và
+-- `ADD CONSTRAINT` kiểm ngay dữ liệu đang có → CheckViolation trên chính các
+-- dòng `phu_luc` mà 003 vừa cho phép. Đã gặp thật.
+--
+-- Quy tắc: MỘT constraint thì MỘT file sở hữu, và đó là file mới nhất.

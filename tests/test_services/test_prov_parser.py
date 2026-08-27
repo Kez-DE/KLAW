@@ -357,14 +357,16 @@ def test_text_ngoai_moi_the_prov_duoc_gan_vao_provision_dang_mo():
     html = """<div class="WordSection1">
     <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p>
     <p class="MsoNormal">Thông tư này quy định danh mục nghề được làm ban đêm.</p>
+    <p id="a2" class="MsoNormal prov-article"><b>Điều 2. Hiệu lực</b></p>
     <p>Phụ lục I</p>
     <em>(Ban hành kèm theo Thông tư số 09/2020/TT-BLĐTBXH)</em>
     </div>"""
     rows = parse_provisions(html, SKH)
-    d1 = next(r for r in rows if r.cap is Cap.dieu)
-    assert "danh mục nghề được làm ban đêm" in d1.noi_dung
-    assert "Phụ lục I" in d1.noi_dung
-    assert "Ban hành kèm theo" in d1.noi_dung, "text ngoài <p> cũng không được bỏ"
+    d1 = next(r for r in rows if r.so_hieu_cap == "1")
+    assert "danh mục nghề được làm ban đêm" in d1.noi_dung, "mất phần xen giữa"
+    pl = next(r for r in rows if r.cap is Cap.phu_luc)
+    assert "Phụ lục I" in pl.noi_dung
+    assert "Ban hành kèm theo" in pl.noi_dung, "text ngoài <p> cũng không được bỏ"
 
 
 def test_khong_con_ky_tu_mo_coi_nao_sau_khi_parse():
@@ -469,3 +471,81 @@ def test_the_prov_trong_tron_khong_tao_provision_rong():
     <p class="prov-clause"></p></div>"""
     khoan = [r for r in parse_provisions(html, SKH) if r.cap is Cap.khoan]
     assert len(khoan) == 1, [r.duong_dan for r in khoan]
+
+
+# ══ Ruling: tách chữ mồ côi theo VỊ TRÍ, không theo regex tiếng Việt ══
+
+def test_mo_coi_XEN_GIUA_gan_vao_provision_dang_mo_con_DUOI_thanh_phu_luc():
+    """Đã đo: 97–98% chữ mồ côi của cụm Lao động nằm SAU thẻ prov-* cuối cùng
+    (152668: 42.636 đuôi / 647 xen giữa). Ranh giới là thật.
+
+    - xen giữa hai thẻ prov-* = tiếp nối thật → giữ cách gắn cũ (đây là thứ đã
+      cứu BLDS Điều 493)
+    - sau thẻ prov-* cuối = nội dung đuôi (Phụ lục, khối chữ ký) → bản ghi riêng
+      cấp KHÔNG trích dẫn được, nên nó không thể là neo cho câu trích nào
+    """
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p>
+    <p class="MsoNormal">XENGIUA đoạn tiếp nối thật của Điều 1.</p>
+    <p id="a2" class="MsoNormal prov-article"><b>Điều 2. Hiệu lực</b></p>
+    <p class="MsoNormal">Phụ lục I DUOI danh mục nghề được làm ban đêm.</p>
+    <div>DUOIHAI khối chữ ký ngoài cả thẻ p.</div></div>"""
+    rows = parse_provisions(html, SKH)
+
+    d1 = next(r for r in rows if r.so_hieu_cap == "1")
+    assert "XENGIUA" in d1.noi_dung, "phần xen giữa phải giữ nguyên cách gắn"
+
+    pl = next(r for r in rows if r.cap is Cap.phu_luc)
+    assert pl.duong_dan == f"{SKH} > Phụ lục"
+    assert pl.parent_local_id is None and pl.so_hieu_cap == ""
+    assert "DUOI" in pl.noi_dung and "DUOIHAI" in pl.noi_dung
+    assert "XENGIUA" not in pl.noi_dung
+
+    assert not any("DUOI" in r.noi_dung for r in rows if r.cap is not Cap.phu_luc), \
+        "chữ đuôi vẫn còn trong một provision khác — neo trích dẫn còn bị loãng"
+    assert Cap.phu_luc not in CITABLE
+
+
+def test_phu_luc_khong_vuong_bat_bien_so_hieu_cap():
+    """`phu_luc` không thuộc nhóm cấp có nhãn kèm số, nên bất biến `so_hieu_cap`
+    không rỗng KHÔNG áp cho nó. Một bản ghi mỗi văn bản nên nó tự duy nhất —
+    không đánh số thứ tự, đó là bịa ký hiệu không có trong nguồn."""
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p>
+    <p class="MsoNormal">Phụ lục I. Danh mục.</p>
+    <p class="MsoNormal">Phụ lục II. Danh mục khác.</p></div>"""
+    pl = [r for r in parse_provisions(html, SKH) if r.cap is Cap.phu_luc]
+    assert len(pl) == 1, f"phải MỘT bản ghi cho mỗi văn bản, có {len(pl)}"
+    assert "Phụ lục I" in pl[0].noi_dung and "Phụ lục II" in pl[0].noi_dung
+
+
+def test_khong_co_chu_duoi_thi_khong_tao_ban_ghi_phu_luc():
+    rows = parse_provisions(HTML_DIEU_21, SKH)
+    assert not any(r.cap is Cap.phu_luc for r in rows)
+
+
+def test_bao_toan_ky_tu_van_khit_khi_co_phu_luc():
+    """`noi_dung` của `phu_luc` KHÔNG được thêm chuỗi tổng hợp nào (nhãn
+    "Phụ lục" nằm ở `tieu_de`), nếu không phép bảo toàn ký tự lệch."""
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p>
+    <p class="MsoNormal">Phụ lục I. Danh mục nghề.</p></div>"""
+    loi, _ = parse_anomalies(html, SKH)
+    assert not loi, loi
+    pl = next(r for r in parse_provisions(html, SKH) if r.cap is Cap.phu_luc)
+    assert pl.tieu_de == "Phụ lục"
+    assert pl.noi_dung == "Phụ lục I. Danh mục nghề.", "noi_dung có chuỗi tổng hợp"
+
+
+@pytest.mark.integration
+def test_BLDS_dieu_493_van_giu_doan_xen_giua():
+    """232 ký tự mồ côi XEN GIỮA mà Cổng A tìm ra. Ruling nói rõ: đừng đổi phần
+    xen giữa. Test này là bằng chứng nó không bị đổi."""
+    p = Path("data/raw/moj/95942.json")
+    if not p.exists():
+        pytest.skip("chạy `python -m scripts.fetch_moj` trước")
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    rows = parse_provisions(doc["documentContent"]["content"], "91/2015/QH13")
+    d493 = next(r for r in rows if r.cap is Cap.dieu and r.so_hieu_cap == "493")
+    assert "Khi chấm dứt hợp đồng thuê khoán" in d493.noi_dung
+    assert len(d493.noi_dung) == 269, len(d493.noi_dung)

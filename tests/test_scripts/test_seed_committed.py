@@ -151,3 +151,49 @@ def test_text_trong_seed_da_NFC(provisions):
             if unicodedata.normalize("NFC", p["noi_dung"]) != p["noi_dung"]
             or unicodedata.normalize("NFC", p["tieu_de"]) != p["tieu_de"]]
     assert not lech, f"{len(lech)} provision còn ở dạng NFD: {lech[:5]}"
+
+
+# ══ Ruling: chữ đuôi tách ra bản ghi `phu_luc`, không làm loãng neo trích dẫn ══
+
+def test_dieu_115_cua_ND_145_khong_con_chua_chu_duoi(provisions):
+    """Trước ruling: `145/2020/NĐ-CP > Điều 115` dài 44.106 ký tự vì toàn bộ Phụ
+    lục gắn vào nó, nên một câu trích lấy từ Phụ lục sẽ 'kiểm chứng thành công'
+    trên neo Điều 115. Phép kiểm không cần ngưỡng bịa: Điều 115 phải ngắn lại
+    theo cỡ độ lớn, và chữ đó phải xuất hiện lại trong bản ghi `phu_luc`."""
+    theo_path = {p["duong_dan"]: p for p in provisions}
+    d115 = theo_path["145/2020/NĐ-CP > Điều 115"]
+    pl = theo_path["145/2020/NĐ-CP > Phụ lục"]
+    assert len(d115["noi_dung"]) < 2_000, len(d115["noi_dung"])
+    assert len(pl["noi_dung"]) > 40_000, len(pl["noi_dung"])
+    assert pl["cap"] == "phu_luc" and pl["cap"] not in CITABLE
+    # chữ không mất: đuôi chuyển chỗ, không bốc hơi
+    assert len(d115["noi_dung"]) + len(pl["noi_dung"]) >= 44_000
+
+
+def test_khong_provision_trich_dan_duoc_nao_om_ca_khoi_phu_luc(provisions):
+    """Ba neo từng phình vì chữ đuôi: 145/2020 Điều 115 (44.106),
+    09/2020 Điều 13 Khoản 2 Điểm b (25.912), 29/2019 Điều 29 (22.155)."""
+    to = [(p["duong_dan"], len(p["noi_dung"])) for p in provisions
+          if p["cap"] in CITABLE and len(p["noi_dung"]) > 20_000]
+    assert not to, f"neo trích dẫn còn ôm khối chữ đuôi: {to}"
+
+
+def test_moi_van_ban_co_nhieu_nhat_MOT_ban_ghi_phu_luc(provisions):
+    """Một bản ghi mỗi văn bản nên `duong_dan` tự duy nhất — không đánh số thứ
+    tự, đó là bịa ký hiệu không có trong nguồn."""
+    dem = Counter(p["document_id"] for p in provisions if p["cap"] == "phu_luc")
+    assert not [d for d, c in dem.items() if c > 1], dem
+    pl = [p for p in provisions if p["cap"] == "phu_luc"]
+    assert len(pl) == 17, f"17 văn bản có chữ đuôi, thấy {len(pl)}"
+    assert len({p["duong_dan"] for p in pl}) == len(pl)
+    for p in pl:
+        assert p["parent_local_id"] is None, p["duong_dan"]
+        assert p["so_hieu_cap"] == "", p["duong_dan"]
+        assert p["duong_dan"].endswith(" > Phụ lục"), p["duong_dan"]
+
+
+def test_phu_luc_khong_bao_gio_la_cha_cua_provision_nao(provisions):
+    pl = {(p["document_id"], p["local_id"]) for p in provisions if p["cap"] == "phu_luc"}
+    con = [p["duong_dan"] for p in provisions
+           if (p["document_id"], p["parent_local_id"]) in pl]
+    assert not con, f"phu_luc có con — nó là cấp tài liệu, không phải cấp cây: {con}"

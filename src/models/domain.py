@@ -13,6 +13,10 @@ class Cap(StrEnum):
     dieu = "dieu"
     khoan = "khoan"
     diem = "diem"
+    # Nội dung đuôi (Phụ lục, khối chữ ký) — cấp TÀI LIỆU, không phải cấp trong
+    # cây quy phạm. Đứng CUỐI enum để `bac` của 7 cấp trên không dịch; nó không
+    # bao giờ vào stack nên `bac` của nó không có nghĩa thứ bậc.
+    phu_luc = "phu_luc"
 
     @property
     def bac(self) -> int:

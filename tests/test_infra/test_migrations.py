@@ -78,3 +78,30 @@ def test_gia_tri_task8_se_ghi_deu_duoc_chap_nhan():
             " VALUES ('__t8__', 'x/2020', 'Luật', 'x', 'chua_xac_dinh', 'c')"))
         c.execute(text('INSERT INTO "references" (from_document_id, loai) VALUES (\'__t8__\', 0)'))
         c.execute(text("DELETE FROM documents WHERE id = '__t8__'"))
+
+
+@pytest.mark.integration
+def test_migration_idempotent_KHI_DA_CO_DU_LIEU_dung_moi_cap():
+    """`test_migration_idempotent_chay_hai_lan_khong_loi` ở trên chỉ chứng minh
+    được idempotency trên bảng RỖNG — `ADD CONSTRAINT` không có dòng nào để kiểm
+    nên nó không thể đỏ. Đã gặp thật: 001, 002, 003 mỗi file đều DROP rồi ADD
+    `provisions_cap_check`, lần chạy thứ hai đi qua 002 TRƯỚC 003 nên nó thu hẹp
+    tập giá trị lại và ném CheckViolation trên chính các dòng `phu_luc` mà 003
+    vừa cho phép.
+
+    Bản này chèn một dòng dùng cấp MỚI NHẤT rồi chạy lại migration."""
+    run_migrations()
+    eng = get_engine()
+    with eng.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO documents (id, so_ky_hieu, loai_van_ban, ten, tinh_trang, checksum)"
+            " VALUES ('mig-test', 'x/2020/NĐ-CP', 'Nghị định', 't', 'CHL', 'c')"
+            " ON CONFLICT (id) DO NOTHING"))
+        conn.execute(text(
+            "INSERT INTO provisions (document_id, cap, so_hieu_cap, duong_dan, thu_tu)"
+            " VALUES ('mig-test', 'phu_luc', '', 'x/2020/NĐ-CP > Phụ lục', 0)"))
+    try:
+        run_migrations()   # phải KHÔNG ném CheckViolation
+    finally:
+        with eng.begin() as conn:
+            conn.execute(text("DELETE FROM documents WHERE id = 'mig-test'"))

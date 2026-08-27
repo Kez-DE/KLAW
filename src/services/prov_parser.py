@@ -55,7 +55,7 @@ CLASS_TO_CAP = {
 
 NHAN = {Cap.phan: "Phần", Cap.chuong: "Chương", Cap.muc: "Mục",
         Cap.tieu_muc: "Tiểu mục", Cap.dieu: "Điều", Cap.khoan: "Khoản",
-        Cap.diem: "Điểm"}
+        Cap.diem: "Điểm", Cap.phu_luc: "Phụ lục"}
 
 # Cấp TRÍCH DẪN ĐƯỢC — nơi verifier tầng 1 đối chiếu câu trích vào văn bản.
 # `noi_dung` rỗng ở đây nghĩa là phép kiểm "câu trích khớp nguyên văn" không có
@@ -175,10 +175,15 @@ def _la_tiep_noi_tieu_de(text: str, cap: Cap, so: str) -> bool:
 def _don_vi(node: Tag):
     """Duyệt cây theo thứ tự văn bản, yield MỌI text node — không whitelist.
 
-    Yield `(cap, text, tag)`:
-      - `cap is not None` → thẻ mở node mới (class prov-<cấp>), `tag` để lấy id
-      - `cap is None`     → text thuộc node đang mở (prov-content, <p> không
-                            class, hoặc text trần trong <div>/<em>/<strong>)
+    Yield `(cap, text, tag)`, ba dạng phân biệt được bằng chính hai trường đó:
+      - `cap` có giá trị            → thẻ mở node mới (class prov-<cấp>)
+      - `cap` None, `tag` có giá trị → thẻ `prov-content`: thân của node đang mở,
+                                       MOJ đánh dấu tường minh nên KHÔNG mồ côi
+      - `cap` None, `tag` None       → text MỒ CÔI: không có tổ tiên `prov-*` nào
+
+    Phân biệt dạng 2 và dạng 3 là điều kiện để tách chữ mồ côi theo vị trí:
+    `prov-content` đứng sau thẻ `prov-<cấp>` cuối cùng vẫn là thân của Điều đó
+    (vd. Điều 26 BLLĐ), không phải nội dung đuôi.
 
     KHÔNG đi sâu vào thẻ đã có class prov-* : lấy nguyên text của nó một lần.
     Đã kiểm trên cả 21 văn bản: không có prov-* nào lồng trong prov-* (0 ca).
@@ -198,7 +203,7 @@ def _don_vi(node: Tag):
                 if t:
                     yield cap, t, child
             elif "prov-content" in (child.get("class") or []):
-                yield None, _text(child), None
+                yield None, _text(child), child
             else:
                 yield from _don_vi(child)
 
@@ -308,7 +313,25 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
     stack: list[int] = []
     mo_dau: list[str] = []  # text xuất hiện TRƯỚC node đầu tiên
 
-    for cap, text, tag in _don_vi(soup):
+    # TÁCH CHỮ MỒ CÔI THEO VỊ TRÍ. Đã đo phân bố so với thẻ prov-* CUỐI CÙNG:
+    # 152668 có 42.636 ký tự ở đuôi / 647 xen giữa; 152670 25.316/560; 134611
+    # 21.296/653 — 97–98% ở đuôi. Ranh giới là thật, không trùng hợp.
+    #   xen giữa hai thẻ prov-* = tiếp nối thật của provision đang mở (đó là thứ
+    #     giữ được 232 ký tự của BLDS Điều 493) → gắn như cũ
+    #   sau thẻ prov-* cuối = nội dung đuôi (Phụ lục, khối chữ ký) → MỘT bản ghi
+    #     `phu_luc` cho mỗi văn bản, cấp KHÔNG trích dẫn được, nên nó không thể
+    #     làm neo cho câu trích nào
+    # Nhận diện bằng VỊ TRÍ, không bằng regex tiếng Việt — nên đây là quy tắc về
+    # cấu trúc tài liệu, không phải special case thứ sáu của parser.
+    # Mốc là thẻ MANG CLASS `prov-*` cuối cùng — gồm cả `prov-content`, vì một
+    # `prov-content` sau thẻ `prov-article` cuối vẫn là thân của Điều đó
+    # (Điều 26 của BLLĐ) chứ không phải nội dung đuôi.
+    units = list(_don_vi(soup))
+    cuoi = max((i for i, (cap, _, tag) in enumerate(units)
+                if cap is not None or tag is not None), default=-1)
+    duoi = [t for _, t, _ in units[cuoi + 1:]]
+
+    for cap, text, tag in units[:cuoi + 1]:
         if cap is None:
             # Nguyên tắc 1: không bao giờ bỏ. Chưa có node nào mở → giữ lại và
             # gắn vào node ĐẦU TIÊN. Không raise: cả 21 văn bản đều mở bằng lời
@@ -333,10 +356,18 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
         parents.append(stack[-1] if stack else None)
         stack.append(len(caps) - 1)
 
-    if mo_dau and not caps:
+    if not caps:
+        con_lai = sum(len(t) for t in duoi + mo_dau)
         raise ValueError(
-            f"{so_ky_hieu}: có {sum(len(t) for t in mo_dau)} ký tự nhưng KHÔNG có "
-            "thẻ prov-* nào — không thể gắn nội dung vào provision nào")
+            f"{so_ky_hieu}: có {con_lai} ký tự nhưng KHÔNG có thẻ prov-<cấp> "
+            "nào — không thể dựng cây provision")
+
+    if duoi:
+        caps.append(Cap.phu_luc)
+        nhan.append("")   # nhãn nằm ở `tieu_de`; noi_dung chỉ chứa chữ NGUỒN,
+        than.append(duoi)  # nếu không phép bảo toàn ký tự sẽ lệch
+        src.append(None)
+        parents.append(None)  # cấp tài liệu, không treo vào cây quy phạm
 
     # ── Pha 2: đọc số hiệu từ chuỗi ĐÃ GỘP, rồi dựng row ───────────────────
     so_hieu = [_so_hieu(caps[i], nhan[i]) for i in range(len(caps))]
@@ -360,7 +391,7 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
             so_hieu_cap=so_hieu[i],
             # `tieu_de` là NHÃN NGẮN. Khoản/Điểm không có tiêu đề riêng trong
             # nguồn (thẻ nhãn chứa toàn văn), nên nhãn ngắn là chính số hiệu.
-            tieu_de=nhan[i] if cap not in (Cap.khoan, Cap.diem)
+            tieu_de=nhan[i] if cap not in (Cap.khoan, Cap.diem, Cap.phu_luc)
             else f"{NHAN[cap]} {so_hieu[i]}".rstrip(),
             noi_dung=_chuan_hoa(" ".join(
                 [*(mo_dau if i == 0 else []), nhan[i], *than[i]])),

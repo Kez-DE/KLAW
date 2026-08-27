@@ -1,6 +1,7 @@
 # Cổng A — Data Integrity Audit
 
-Sinh bởi `python -m scripts.gate_a_audit` (2026-08-27, sau vòng sửa gốc parser).
+Sinh bởi `python -m scripts.gate_a_audit` (2026-08-28, sau vòng sửa gốc parser
+và sau ruling tách chữ đuôi thành cấp `phu_luc`).
 
 Phép kiểm ĐỘC LẬP VỚI PARSER: độ phủ token so với văn bản gốc đã strip tag,
 cộng hai phép kiểm cấu trúc mà độ phủ dùng `set()` về bản chất không thấy.
@@ -12,27 +13,27 @@ tốt và bỏ qua đúng phần parser hỏng nặng.
 
 | doc_id | so_ky_hieu | provisions | Điều | token gốc | token thiếu | độ phủ | rỗng | dãy số Điều |
 |---|---|---|---|---|---|---|---|---|
-| 95942 | 91/2015/QH13 | 2514 | 689 | 3129 | 2 | 99.94% | 0 | liên tục |
+| 95942 | 91/2015/QH13 | 2515 | 689 | 3129 | 2 | 99.94% | 0 | liên tục |
 | 96122 | 100/2015/QH13 | 4801 | 426 | 3428 | 0 | 100.00% | 0 | liên tục |
-| 96115 | 92/2015/QH13 | 2659 | 517 | 2821 | 0 | 100.00% | 0 | liên tục |
-| 96172 | 101/2015/QH13 | 2890 | 510 | 2972 | 0 | 100.00% | 0 | liên tục |
-| 139264 | 45/2019/QH14 | 1166 | 220 | 2320 | 2 | 99.91% | 0 | liên tục |
-| 96117 | 95/2015/QH13 | 1702 | 341 | 2647 | 0 | 100.00% | 0 | liên tục |
-| 152668 | 145/2020/NĐ-CP | 911 | 115 | 2752 | 0 | 100.00% | 0 | liên tục |
-| 146696 | 10/2020/TT-BLĐTBXH | 104 | 12 | 726 | 0 | 100.00% | 0 | liên tục |
-| 183939 | 293/2025/NĐ-CP | 28 | 5 | 356 | 0 | 100.00% | 0 | liên tục |
+| 96115 | 92/2015/QH13 | 2660 | 517 | 2821 | 0 | 100.00% | 0 | liên tục |
+| 96172 | 101/2015/QH13 | 2891 | 510 | 2972 | 0 | 100.00% | 0 | liên tục |
+| 139264 | 45/2019/QH14 | 1167 | 220 | 2320 | 2 | 99.91% | 0 | liên tục |
+| 96117 | 95/2015/QH13 | 1703 | 341 | 2647 | 0 | 100.00% | 0 | liên tục |
+| 152668 | 145/2020/NĐ-CP | 912 | 115 | 2752 | 0 | 100.00% | 0 | liên tục |
+| 146696 | 10/2020/TT-BLĐTBXH | 105 | 12 | 726 | 0 | 100.00% | 0 | liên tục |
+| 183939 | 293/2025/NĐ-CP | 29 | 5 | 356 | 0 | 100.00% | 0 | liên tục |
 | 185561 | 337/2025/NĐ-CP | 193 | 30 | 846 | 0 | 100.00% | 0 | liên tục |
 | 153913 | 12/2022/NĐ-CP | 972 | 64 | 1610 | 0 | 100.00% | 0 | liên tục |
-| 152670 | 09/2020/TT-BLĐTBXH | 68 | 13 | 1895 | 0 | 100.00% | 0 | liên tục |
-| 153297 | 18/2021/TT-BLĐTBXH | 44 | 10 | 605 | 8 | 98.68% | 0 | liên tục |
-| 152734 | 135/2020/NĐ-CP | 34 | 9 | 369 | 0 | 100.00% | 0 | liên tục |
-| 134611 | 29/2019/NĐ-CP | 181 | 29 | 1170 | 0 | 100.00% | 0 | liên tục |
-| 70811 | 84/2015/QH13 | 665 | 93 | 1699 | 0 | 100.00% | 0 | liên tục |
-| 168670 | 74/2024/NĐ-CP | 27 | 5 | 358 | 0 | 100.00% | 0 | liên tục |
+| 152670 | 09/2020/TT-BLĐTBXH | 69 | 13 | 1895 | 0 | 100.00% | 0 | liên tục |
+| 153297 | 18/2021/TT-BLĐTBXH | 45 | 10 | 605 | 8 | 98.68% | 0 | liên tục |
+| 152734 | 135/2020/NĐ-CP | 35 | 9 | 369 | 0 | 100.00% | 0 | liên tục |
+| 134611 | 29/2019/NĐ-CP | 182 | 29 | 1170 | 0 | 100.00% | 0 | liên tục |
+| 70811 | 84/2015/QH13 | 666 | 93 | 1699 | 0 | 100.00% | 0 | liên tục |
+| 168670 | 74/2024/NĐ-CP | 28 | 5 | 358 | 0 | 100.00% | 0 | liên tục |
 | 139094 | 90/2019/NĐ-CP | 35 | 6 | 398 | 0 | 100.00% | 0 | liên tục |
-| 132862 | 157/2018/NĐ-CP | 35 | 6 | 733 | 0 | 100.00% | 0 | liên tục |
-| 126319 | 141/2017/NĐ-CP | 35 | 6 | 422 | 0 | 100.00% | 0 | liên tục |
-| 92898 | 122/2015/NĐ-CP | 36 | 6 | 478 | 0 | 100.00% | 0 | liên tục |
+| 132862 | 157/2018/NĐ-CP | 36 | 6 | 733 | 0 | 100.00% | 0 | liên tục |
+| 126319 | 141/2017/NĐ-CP | 36 | 6 | 422 | 0 | 100.00% | 0 | liên tục |
+| 92898 | 122/2015/NĐ-CP | 37 | 6 | 478 | 0 | 100.00% | 0 | liên tục |
 
 - Văn bản đã đo: **21** / 21
 - Độ phủ thấp nhất: **98.68%** (ngưỡng 98%) — ĐẠT
@@ -62,6 +63,25 @@ Ba văn bản chưa đạt 100% và cả ba là chênh lệch TÁCH TỪ, không
 được chỉnh cho khớp parser: cổng phải giữ tính độc lập, kể cả khi giá là vài
 token dấu câu. Phép bảo toàn ký tự tuyệt đối (0 ký tự lệch, không ngưỡng) là
 việc của `prov_parser.parse_anomalies()`, chạy trong `build_seed`.
+
+## Cấp `phu_luc` — chữ đuôi tách theo VỊ TRÍ
+
+Chữ mồ côi **sau thẻ `prov-*` cuối cùng** (Phụ lục, khối chữ ký) là một bản ghi
+`phu_luc` riêng cho mỗi văn bản, cấp KHÔNG trích dẫn được. Chữ mồ côi **xen giữa
+hai thẻ `prov-*`** là tiếp nối thật và vẫn gắn vào provision đang mở.
+
+Đã đo phân bố: `152668` 42.636 đuôi / 647 xen giữa, `152670` 25.316 / 560,
+`134611` 21.296 / 653 — 97–98% ở đuôi. Ranh giới là thật, nhận diện bằng vị trí
+chứ không bằng regex tiếng Việt.
+
+17 / 21 văn bản có chữ đuôi. Tác dụng lên neo trích dẫn:
+`145/2020/NĐ-CP > Điều 115` từ **44.106 → 278** ký tự; neo dài nhất còn lại trong
+toàn corpus là 2.561 ký tự (`45/2019/QH14 > Điều 219 > Khoản 1 > Điểm a`). Trước
+đó có 3 neo vượt 20.000 ký tự, tức một câu trích lấy từ Phụ lục sẽ "kiểm chứng
+thành công" trên một neo Điều. Giờ 0.
+
+`phu_luc` vẫn tính vào độ phủ token (chữ vẫn trong corpus) nên `do_phu_min`
+không tụt: **0.9868 trước và sau**.
 
 ## Lỗ của chính phép đo này
 
