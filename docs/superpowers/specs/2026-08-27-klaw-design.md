@@ -1251,7 +1251,120 @@ Việc **#5 của Phase 0 (đối chiếu tay 10 điều BLLĐ)** và **#9 (đ�
 
 ---
 
-## 16. Phụ lục — nguồn đã xác minh (2026-08-27)
+## 16. Công cụ & cổng kiểm chất lượng theo giai đoạn
+
+Ưu tiên **chất lượng thật**, không giới hạn chi phí agent. Nhưng "không giới hạn chi phí" **không có nghĩa dùng nhiều tool hơn** — nó có nghĩa thêm **cổng kiểm phản biện**, chỗ tiền mua được chất lượng. Tool không liên quan vẫn bị loại (16.7): lời khuyên xung đột gây churn, và churn làm giảm chất lượng.
+
+### 16.1 Bốn nguyên tắc kỷ luật
+
+1. **Agent BÁO CÁO, người QUYẾT.** Không auto-apply. Reviewer không có quyền sửa code.
+2. **Mọi thay đổi được nhận phải kèm một test.** Không có test thì không phải là sửa, là đổi.
+3. **Hai agent xung đột → KHÔNG lấy trung bình.** Chọn một, ghi lý do vào `JOURNAL.md`.
+4. **Không chạy reviewer khi test chưa xanh.** Review code chưa chạy được là đoán, và nó tạo ra danh sách việc giả.
+
+### 16.2 Bảng công cụ theo tuần
+
+| Tuần | Việc | Công cụ |
+|---|---|---|
+| **0** | Phase 0 | **Làm tay.** Xác minh pháp lý và đối chiếu văn bản hợp nhất **không delegate** — đó là phán đoán pháp lý, không phải tra cứu |
+| **1–2** | Schema · parser · ingest | `ecc:database-reviewer` (schema + index) → **Cổng A: Data Integrity Audit (16.3)** → `ecc:python-reviewer` |
+| **3** | Retrieval hybrid | `RAG Pipeline Engineer` (chunking, hybrid, RRF) · `ecc:postgres-patterns` |
+| **4** | Eval harness · golden_qa · so sánh embedding | `ecc:eval-harness` · **`ars-reviewer` vòng 1 — soi PHƯƠNG PHÁP trước khi xây xong 150 câu** |
+| **5** | Verifier tầng 1 + 2 | `ecc:tdd-workflow` **trước khi viết code** → sau đó **ba reviewer song song, ba lăng kính khác nhau**: `ecc:silent-failure-hunter` + `ecc:type-design-analyzer` + `ecc:python-reviewer` · **`Prompt Engineer`** cho `generate_claims` (16.4) |
+| **6** | Graph tra cứu đầy đủ | `ecc:fastapi-reviewer` · `ecc:agent-eval` |
+| **7** | Soạn thảo & tự soát | `ecc:silent-failure-hunter` (rule engine cũng drop âm thầm) · `ecc:python-reviewer` |
+| **8** | FE + deploy | `frontend-design` (full) → `impeccable` (audit đọc-có-rõ) → `Accessibility Auditor` · `ecc:react-reviewer` · `use-railway` · **`ecc:security-review` + `Senior SecOps Engineer` TRƯỚC khi công khai URL** |
+| **9** | Ablation đầy đủ | **Cổng B: Adversarial Eval Verification (16.3)** ⭐ quan trọng nhất cả dự án · `dataviz` |
+| **10–11** | Viết khóa luận | `ars-outline` → `ars-full` → **`ars-reviewer` vòng 2 (kết quả), vòng 3 (bản đầy đủ)** · `ars-citation-check` |
+| **12** | Slide + demo dự phòng | `dataviz` · `ecc:frontend-slides` |
+
+### 16.3 Hai cổng CHẶN — không pass thì không đi tiếp
+
+#### Cổng A — Data Integrity Audit (sau tuần 2)
+
+**Vấn đề:** parser có **4 cạm bẫy đã biết** (mục 4.5). Nếu nó mất nội dung âm thầm thì Recall@5 **và** citation precision đều xấu — và **cả hai đều bị quy cho cơ chế thay vì cho dữ liệu**. Đây là loại lỗi làm vô nghĩa toàn bộ chương kết quả mà không để lại dấu vết.
+
+**Cách làm:** agent độc lập (không phải agent đã viết parser) lấy mẫu **30 Điều ngẫu nhiên trên cả 6 Bộ luật**, fetch lại HTML gốc từ API MOJ, so từng ký tự với `provisions.noi_dung`.
+
+**Tiêu chí pass:**
+- 100% Điều trong mẫu có `noi_dung` **không rỗng**
+- ≥98% khớp ký tự sau normalize khoảng trắng
+- 0 trường hợp mất `prov-content` không có `id` (bẫy #2 — bẫy làm mất Điều 26)
+- Bảng trong NĐ 293/2025 giữ đúng quan hệ hàng/cột (bẫy #4)
+
+**Không pass → dừng, sửa parser, chạy lại.** Không đi sang tuần 3.
+
+#### Cổng B — Adversarial Eval Verification (sau tuần 9) ⭐
+
+**Vấn đề:** toàn bộ khóa luận đứng trên bảng 11.3. Nếu bảng đó có lỗ hổng phương pháp thì **hội đồng tìm ra, không phải bạn** — và lúc đó không sửa được nữa.
+
+**Cách làm:** spawn **5 agent với nhiệm vụ PHẢN BIỆN**, mỗi agent một góc tấn công, prompt yêu cầu *mặc định là "kết quả này không đáng tin"*:
+
+| Góc tấn công | Câu hỏi phải trả lời bằng dữ liệu |
+|---|---|
+| **Leakage** | `golden_qa` có được sinh từ chính đoạn text mà retrieval trả về không? Câu hỏi có copy thuật ngữ pháp lý (làm retrieval quá dễ) không? Tỉ lệ trùng từ vựng query-document là bao nhiêu? |
+| **Tuning trên test** | `ABSTAIN_THRESHOLD`, `RRF_K`, `RETRIEVE_FINAL_TOPK` được tinh chỉnh trên tập nào? Nếu trên chính tập báo cáo thì mọi số bị thổi. Có tập dev tách riêng không? |
+| **Baseline bị làm yếu** | Cấu hình "không verify" có được cho **cùng** retrieval, **cùng** prompt, **cùng** model, **cùng** temperature không? Hay baseline bị bỏ `rewrite_query` để KLAW trông tốt hơn? |
+| **Cherry-pick** | Có cấu hình nào đã chạy mà **không** báo cáo? Có lần chạy nào bị loại vì số xấu? Đối chiếu `traces.config_name` với các dòng trong bảng |
+| **Ý nghĩa thống kê** | 150 câu → chênh 2% có nghĩa gì? Có khoảng tin cậy không? Chạy lại cùng cấu hình có ra cùng số không (temperature 0 **không** đảm bảo xác định — mục 8.1)? |
+
+**Quy tắc xử lý:** mỗi phản biện phải **hoặc bị bác bằng dữ liệu, hoặc thành một dòng trong chương Giới hạn**. **Không phản biện nào được bỏ qua im lặng.** Danh sách phản biện + cách xử lý từng cái ghi vào một file, đưa vào phụ lục khóa luận — nó chứng minh bạn đã tự tấn công công trình của mình trước khi hội đồng làm.
+
+### 16.4 Hai hạng mục chất lượng spec chưa tính đến
+
+#### Prompt engineering là TASK, không phải việc tranh thủ
+
+Citation precision phụ thuộc **trực tiếp** vào chất lượng prompt `generate_claims`. Spec hiện chưa có một dòng prompt nào. Với ưu tiên chất lượng, đây là hạng mục có lịch riêng ở **tuần 5**:
+
+- Dùng `Prompt Engineer` agent, iterate trên một **slice giữ riêng** của `golden_qa` (không phải tập báo cáo)
+- Đo hai chỉ số mỗi vòng: **tỉ lệ JSON đúng schema** và **citation precision**
+- Ghi lại từng phiên bản prompt + số đo → thành một mục trong khóa luận (*"prompt v1 → v4, citation precision 0.6 → 0.9"*), đây là kết quả có giá trị chứ không phải chi tiết kỹ thuật
+- **Prompt là artifact có version, nằm trong git** (`prompts/*.md`), không nhúng trong code
+
+#### `ars-reviewer` vòng 1 ở tuần 4 là vòng rẻ nhất và giá trị nhất
+
+Nó soi **phương pháp** trước khi bạn xây xong 150 câu golden. Nếu quy trình xây golden set có lỗ hổng, biết ở tuần 4 thì sửa quy trình; biết ở tuần 11 thì **làm lại 150 câu**. Ba vòng: tuần 4 phương pháp · tuần 9 kết quả · tuần 11 bản đầy đủ.
+
+### 16.5 Framework kiến trúc để dẫn chiếu
+
+Skill `ecc:recsys-pipeline-architect` mô tả framework 6 tầng (từ thuật toán For You của xAI). Pipeline KLAW map gần như 1-1:
+
+| Tầng framework | Node KLAW |
+|---|---|
+| Source | `retrieve_hybrid` (BM25 ⊕ dense) |
+| Hydrator | `expand` (Khoản→Điều, references 1-hop) |
+| **Filter** | lọc `as_of_date` + **verify tầng 1** |
+| Scorer | RRF + reranker |
+| Selector | top-k + `ABSTAIN_THRESHOLD` |
+| SideEffect | ghi `traces` |
+
+Giá trị: khóa luận có **framework có tên để dẫn chiếu** thay vì tự mô tả pipeline. Và nó đặt verify tầng 1 vào đúng vị trí lý thuyết — **Filter** — củng cố luận điểm *"kiểm chứng trích dẫn là tra bảng, không phải suy luận"*.
+
+### 16.6 FE: dùng đủ, vì demo là bộ mặt của khóa luận
+
+| Dùng | Khi |
+|---|---|
+| `frontend-design` (full pipeline) | tuần 8, dựng 3 màn |
+| `impeccable` | sau đó — audit *"citation có đọc/kiểm được không"*, *"4 trạng thái có phân biệt rõ không"* |
+| `Accessibility Auditor` + `ecc:frontend-a11y` | contrast, keyboard nav — hội đồng có thể xem trên máy chiếu kém |
+| `ecc:react-reviewer` | hook correctness, render perf |
+| **`dataviz`** | bảng ablation 7×9 dạng biểu đồ cho slide — dễ đọc hơn bảng số rất nhiều |
+
+Quyết định UI quan trọng nhất **không phải** độ đẹp mà là: citation có kiểm được tại chỗ, và `abstain` phải trình bày như **hành vi đúng** (mục 9.2). Nếu UI hiện `abstain` như lỗi thì bạn tự phá đóng góp chính ngay trước hội đồng.
+
+### 16.7 Cạm bẫy — loại dù không giới hạn chi phí
+
+| Loại | Vì |
+|---|---|
+| `ecc:orch-build-mvp` · `ecc:multi-workflow` · `Agents Orchestrator` | Plan đã có từng task; orchestrator lớn làm mất kiểm soát và tạo diff không ai review được |
+| `ecc:gan-build` (generator/evaluator loop) | Nghe **rất** khớp đề tài nhưng là vòng lặp build code, không phải cơ chế verify của KLAW. Dùng nó sẽ gây nhầm lẫn khái niệm trong chính khóa luận |
+| `ecc:codebase-onboarding` · `repo-scan` · `codegraph` | Repo do bạn viết từ đầu, không có gì để onboard |
+| `ecc:motion-*` · `ecc:design-system` · `ecc:liquid-glass-design` | 0 giá trị cho đề tài; thêm việc và thêm chỗ hỏng |
+| Reviewer chạy khi test còn đỏ | Nguyên tắc 16.1 #4 — tạo danh sách việc giả |
+
+---
+
+## 17. Phụ lục — nguồn đã xác minh (2026-08-27)
 
 | Fact | Nguồn |
 |---|---|
