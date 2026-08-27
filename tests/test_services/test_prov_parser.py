@@ -204,6 +204,16 @@ def test_KHOAN_KHONG_BAO_GIO_bi_gop_du_so_hieu_rong():
     assert len(khoan) == 3, f"chỉ còn {len(khoan)} Khoản — bị gộp mất"
 
 
+def test_khoan_thieu_dau_phan_cach_van_bat_duoc_so():
+    """BLTTDS (96115) có Khoản viết '1 Trường hợp...' không có dấu . hoặc )."""
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 4. T</b></p>
+    <p id="k1" class="MsoNormal prov-clause">1 Trường hợp không có quy định.</p>
+    <p id="k2" class="MsoNormal prov-clause">2. Có dấu chấm bình thường.</p></div>"""
+    khoan = [r for r in parse_provisions(html, SKH) if r.cap is Cap.khoan]
+    assert [r.so_hieu_cap for r in khoan] == ["1", "2"], [r.so_hieu_cap for r in khoan]
+
+
 def test_parse_anomalies_bat_provision_trong_bang():
     html = """<div class="WordSection1">
     <p id="a1" class="MsoNormal prov-article"><b>Điều 90. Lương</b></p>

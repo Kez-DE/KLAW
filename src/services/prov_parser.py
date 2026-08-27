@@ -55,7 +55,11 @@ LABEL_LEVELS = {Cap.phan, Cap.chuong, Cap.muc, Cap.dieu}
 # hoa toàn bộ (thiếu cờ này trước đây làm so_hieu="" → node rác nhận nhầm con).
 RE_SO = {
     Cap.dieu: re.compile(r"^Điều\s+(\d+[a-zA-ZđĐ]*)", re.IGNORECASE),
-    Cap.khoan: re.compile(r"^(\d+[a-zA-ZđĐ]*)\s*[.)]", re.IGNORECASE),
+    # Khoản: số rồi HOẶC dấu ./) HOẶC khoảng trắng.
+    # Đã đo: BLTTDS (96115) có Khoản viết "1 Trường hợp..." không dấu phân cách.
+    # An toàn vì regex này chỉ áp cho thẻ ĐÃ có class prov-clause — số dẫn đầu
+    # trong một prov-clause gần như luôn là số hiệu Khoản.
+    Cap.khoan: re.compile(r"^(\d+[a-zA-ZđĐ]*)(?:\s*[.)]|\s)", re.IGNORECASE),
     Cap.diem: re.compile(r"^([a-zăâđêôơư])\s*\)", re.IGNORECASE),
     Cap.chuong: re.compile(r"^Chương\s+([IVXLCDM\d]+)", re.IGNORECASE),
     Cap.muc: re.compile(r"^Mục\s+([IVXLCDM\d]+)", re.IGNORECASE),
