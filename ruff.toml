@@ -8,3 +8,10 @@ ignore = ["E501"]
 [format]
 quote-style = "double"
 indent-style = "space"
+
+[lint.per-file-ignores]
+# Tên test trong repo này cố ý viết HOA phần cần nhấn ("KHONG_BAO_GIO",
+# "RAISE") để đọc được ý định ngay trong output của pytest. `ruff check
+# src/ tests/` của CI đang ĐỎ vì 13 vi phạm N802 có từ trước — mà CI đỏ
+# thì cổng cấu trúc ở mục H không bao giờ được tin.
+"tests/**" = ["N802"]

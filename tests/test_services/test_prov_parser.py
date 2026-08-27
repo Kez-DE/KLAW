@@ -1,10 +1,18 @@
 import json
+import unicodedata
 from pathlib import Path
 
 import pytest
+from bs4 import BeautifulSoup
 
 from src.models.domain import Cap
-from src.services.prov_parser import parse_anomalies, parse_provisions, parse_tables
+from src.services.prov_parser import (
+    CITABLE,
+    _chuan_hoa,
+    parse_anomalies,
+    parse_provisions,
+    parse_tables,
+)
 
 SKH = "45/2019/QH14"
 
@@ -193,15 +201,23 @@ def test_DIEU_that_so_hieu_la_KHONG_bi_gop():
     assert so == ["33", "33a", "34"], so
 
 
-def test_KHOAN_KHONG_BAO_GIO_bi_gop_du_so_hieu_rong():
-    """Khoản không có nhãn trong text -> LABEL_LEVELS loại nó ra -> bất biến."""
+def test_HAI_KHOAN_KHONG_SO_duoi_cung_mot_DIEU_thi_RAISE():
+    """Thay cho test cũ `test_KHOAN_KHONG_BAO_GIO_bi_gop_du_so_hieu_rong`, vốn
+    khẳng định 3 node được tạo — nhưng hai Khoản không số dưới cùng một Điều ra
+    CÙNG duong_dan "… > Điều 7 > Khoản", tức hai neo trích dẫn trùng.
+
+    Đây là cơ chế trùng #1 mà review đã xác định là TIỀM ẨN trong corpus (hiện 0
+    cha có ≥2 Khoản không số, nhưng 3 Điều ở sát ngưỡng). Hai bất biến xung đột
+    nhau ở đây và bất biến neo trích dẫn thắng: Khoản vẫn KHÔNG bị gộp (xem
+    test_khoan_khong_khop_regex_KHONG_bi_gop_vao_khoan_truoc), nhưng dữ liệu như
+    vậy phải làm build ĐỎ chứ không được ship ra hai neo giống nhau."""
     html = """<div class="WordSection1">
     <p id="a1" class="MsoNormal prov-article"><b>Điều 7. T</b></p>
     <p id="k1" class="MsoNormal prov-clause">1. Khoản một.</p>
     <p id="k2" class="MsoNormal prov-clause">I/ Định dạng lạ.</p>
     <p id="k3" class="MsoNormal prov-clause">Không có số gì cả.</p></div>"""
-    khoan = [r for r in parse_provisions(html, SKH) if r.cap is Cap.khoan]
-    assert len(khoan) == 3, f"chỉ còn {len(khoan)} Khoản — bị gộp mất"
+    with pytest.raises(ValueError, match="duong_dan TRÙNG"):
+        parse_provisions(html, SKH)
 
 
 def test_khoan_thieu_dau_phan_cach_van_bat_duoc_so():
@@ -214,23 +230,66 @@ def test_khoan_thieu_dau_phan_cach_van_bat_duoc_so():
     assert [r.so_hieu_cap for r in khoan] == ["1", "2"], [r.so_hieu_cap for r in khoan]
 
 
-def test_parse_anomalies_bat_provision_trong_bang():
+def test_parse_anomalies_CHAN_neo_trich_dan_trong_bang():
+    """Cấp trích dẫn được trong <table> = mất một neo → lỗi CHẶN build."""
     html = """<div class="WordSection1">
     <p id="a1" class="MsoNormal prov-article"><b>Điều 90. Lương</b></p>
     <table><tr><td><p id="k1" class="MsoNormal prov-clause">1. Vùng I.</p></td></tr></table></div>"""
-    a = parse_anomalies(html)
-    assert any("table" in x for x in a), f"không bắt được: {a}"
+    loi, canh_bao = parse_anomalies(html)
+    assert any("khoan" in x and "table" in x for x in loi), f"không bắt được: {loi}"
+    assert not canh_bao
 
 
-def test_parse_anomalies_bat_loi_mo_dau_va_text_ngoai_prov():
+def test_parse_anomalies_chi_CANH_BAO_container_trong_bang():
+    """BLHS (96122) có 9 thẻ prov-part/prov-section trong <table>: "Phần thứ
+    hai"/"Mục 3" lặp lại ở đầu trang Công báo tiếp theo. Không mất neo trích
+    dẫn nào nên WARN, không chặn build — nếu chặn thì build đỏ vĩnh viễn."""
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 90. Lương</b></p>
+    <table><tr><td><p class="MsoNormal prov-part">Phần thứ hai</p></td></tr></table></div>"""
+    loi, canh_bao = parse_anomalies(html)
+    assert not loi, loi
+    assert any("phan" in x for x in canh_bao), canh_bao
+
+
+def test_parse_anomalies_lo_hong_cu_da_thanh_KHONG_THE_XAY_RA():
+    """Hai đường cũ (lời mở đầu trước mọi node; <p> không class prov) trước đây
+    được PHÁT HIỆN; sau khi bỏ whitelist chúng KHÔNG THỂ XẢY RA. parse_anomalies
+    chuyển sang assert lại bằng phép bảo toàn token, nên fixture này phải SẠCH."""
     html = """<div class="WordSection1">
     <p class="MsoNormal prov-content">Căn cứ Hiến pháp nước Cộng hòa xã hội chủ nghĩa Việt Nam;</p>
     <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p>
-    <p class="MsoNormal">Đoạn này không có class prov nào và dài hơn bốn mươi ký tự nên phải bị bắt.</p>
+    <p class="MsoNormal">Đoạn này không có class prov nào và dài hơn bốn mươi ký tự.</p>
     </div>"""
-    a = parse_anomalies(html)
-    assert any("trước mọi node" in x for x in a), f"không bắt lời mở đầu: {a}"
-    assert any("không có class prov" in x for x in a), f"không bắt text ngoài prov: {a}"
+    loi, canh_bao = parse_anomalies(html)
+    assert not loi and not canh_bao, (loi, canh_bao)
+    rows = parse_provisions(html, SKH)
+    assert any("Căn cứ Hiến pháp" in r.noi_dung for r in rows)
+    assert any("không có class prov" in r.noi_dung for r in rows)
+
+
+def test_parse_anomalies_BAT_khi_whitelist_quay_lai(monkeypatch):
+    """Phép bảo toàn phải thực sự bắt được mất chữ, không phải hằng đúng. Mô
+    phỏng đúng bản cũ (bỏ mọi text không có class prov-*) và bắt hàm báo đỏ.
+    Nếu nó im thì cổng cấu trúc chỉ là trang trí."""
+    import src.services.prov_parser as pp
+
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p>
+    <p class="MsoNormal">Phụ lục I. DANH MỤC nghề được làm ban đêm.</p>
+    </div>"""
+    assert not pp.parse_anomalies(html)[0]
+
+    that = pp._don_vi
+
+    def whitelist_cu(node):
+        for cap, text, tag in that(node):
+            if cap is not None:  # đúng hành vi cũ: `continue` với thẻ không prov-*
+                yield cap, text, tag
+
+    monkeypatch.setattr(pp, "_don_vi", whitelist_cu)
+    loi, _ = pp.parse_anomalies(html)
+    assert any("KHÔNG BẢO TOÀN" in x for x in loi), f"không bắt mất chữ: {loi}"
 
 
 def test_muc_cung_so_o_chuong_khac_nhau_co_duong_dan_KHAC_NHAU():
@@ -253,19 +312,138 @@ def test_muc_cung_so_o_chuong_khac_nhau_co_duong_dan_KHAC_NHAU():
     assert all("Chương" not in d and "Mục" not in d for d in dieu), dieu
 
 
-def test_moi_duong_dan_duy_nhat_tren_toan_bo_provision():
-    """Invariant: duong_dan duy nhất trên toàn bộ provision của một văn bản."""
+# ══ Mục A — noi_dung là TOÀN VĂN, không phải chuỗi rỗng ══
+
+def test_noi_dung_khoan_la_toan_van_khong_phai_rong():
+    """Đã đo trên DB: noi_dung rỗng ở 17.813/19.077 provision (93,4%). MOJ nhét
+    toàn bộ text quy phạm vào chính thẻ nhãn Khoản/Điểm → nếu noi_dung chỉ nhận
+    prov-content thì verifier tầng 1 đối chiếu vào chuỗi rỗng."""
+    rows = parse_provisions(HTML_DIEU_21, SKH)
+    k1 = next(r for r in rows if r.cap is Cap.khoan)
+    assert "Hợp đồng lao động phải có những nội dung chủ yếu" in k1.noi_dung
+    diem_a = next(r for r in rows if r.cap is Cap.diem)
+    assert "Tên, địa chỉ của người sử dụng lao động" in diem_a.noi_dung
+
+
+def test_noi_dung_dieu_gom_ca_dong_tieu_de_va_moi_prov_content():
+    rows = parse_provisions(HTML_DIEU_21, SKH)
+    d26 = next(r for r in rows if r.duong_dan == "45/2019/QH14 > Điều 26")
+    assert "Điều 26" in d26.noi_dung, "noi_dung của Điều phải gồm cả dòng tiêu đề"
+    assert "85%" in d26.noi_dung
+
+
+def test_noi_dung_KHONG_RONG_o_moi_cap_trich_dan_duoc():
+    """Bất biến RAISE. Cấp trích dẫn được = dieu/khoan/diem — đây là trường
+    tầng 1 đối chiếu câu trích vào; rỗng = verifier không kiểm được gì."""
+    for html in (HTML_DIEU_21, HTML_BANG):
+        for r in parse_provisions(html, SKH):
+            if r.cap in CITABLE:
+                assert r.noi_dung.strip(), f"{r.duong_dan} có noi_dung rỗng"
+
+
+def test_tieu_de_khoan_la_NHAN_NGAN_khong_phai_toan_van():
+    rows = parse_provisions(HTML_DIEU_21, SKH)
+    k1 = next(r for r in rows if r.cap is Cap.khoan)
+    assert k1.tieu_de == "Khoản 1", k1.tieu_de
+    diem_a = next(r for r in rows if r.cap is Cap.diem)
+    assert diem_a.tieu_de == "Điểm a", diem_a.tieu_de
+
+
+# ══ Mục B — bỏ whitelist: text ngoài prov-* KHÔNG BAO GIỜ bị bỏ ══
+
+def test_text_ngoai_moi_the_prov_duoc_gan_vao_provision_dang_mo():
+    """Whitelist làm mất 113.121 ký tự / 21 văn bản (TT 09/2020: 64,4% tài liệu).
+    Phần lớn là Phụ lục và DANH MỤC — nội dung có hiệu lực pháp lý."""
     html = """<div class="WordSection1">
-    <p id="c1" class="MsoNormal prov-chapter"><b>Chương I A</b></p>
-    <p id="m1" class="MsoNormal prov-section"><b>Mục 1. X</b></p>
-    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. P</b></p>
-    <p id="k1" class="MsoNormal prov-clause">1. K.</p>
-    <p id="c2" class="MsoNormal prov-chapter"><b>Chương II B</b></p>
-    <p id="m2" class="MsoNormal prov-section"><b>Mục 1. Y</b></p>
-    <p id="a2" class="MsoNormal prov-article"><b>Điều 2. Q</b></p>
-    <p id="k2" class="MsoNormal prov-clause">1. K.</p></div>"""
-    dd = [r.duong_dan for r in parse_provisions(html, SKH)]
-    assert len(dd) == len(set(dd)), f"trùng: {[x for x in dd if dd.count(x) > 1]}"
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p>
+    <p class="MsoNormal">Thông tư này quy định danh mục nghề được làm ban đêm.</p>
+    <p>Phụ lục I</p>
+    <em>(Ban hành kèm theo Thông tư số 09/2020/TT-BLĐTBXH)</em>
+    </div>"""
+    rows = parse_provisions(html, SKH)
+    d1 = next(r for r in rows if r.cap is Cap.dieu)
+    assert "danh mục nghề được làm ban đêm" in d1.noi_dung
+    assert "Phụ lục I" in d1.noi_dung
+    assert "Ban hành kèm theo" in d1.noi_dung, "text ngoài <p> cũng không được bỏ"
+
+
+def test_khong_con_ky_tu_mo_coi_nao_sau_khi_parse():
+    """Phép BẢO TOÀN: mọi token của HTML đã strip tag (trừ <table>) phải xuất
+    hiện trong provisions. Đây là điều biến case #1 của parse_anomalies từ
+    'phát hiện được' thành 'không thể xảy ra'."""
+    html = """<div class="WordSection1">
+    <p class="MsoNormal">Căn cứ Bộ luật Lao động ngày 20 tháng 11 năm 2019;</p>
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p>
+    <p class="MsoNormal prov-clause">1. Nội dung khoản một.</p>
+    <p class="MsoNormal">Đoạn mồ côi giữa hai khoản.</p>
+    <p class="MsoNormal prov-clause">2. Nội dung khoản hai.</p>
+    <div>Đoạn mồ côi ngoài thẻ p.</div></div>"""
+    rows = parse_provisions(html, SKH)
+    goc = set(_chuan_hoa(BeautifulSoup(html, "html.parser").get_text(" ")).split())
+    db = set(_chuan_hoa(" ".join(f"{r.tieu_de} {r.noi_dung}" for r in rows)).split())
+    assert not (goc - db), f"mất token: {sorted(goc - db)}"
+
+
+def test_loi_mo_dau_truoc_moi_node_khong_bi_bo():
+    """prov-content/text xuất hiện trước node đầu tiên ('Căn cứ Hiến pháp…') —
+    trước đây bị `if stack:` bỏ im lặng. Chọn: gắn vào provision ĐẦU TIÊN
+    (không tạo cấp giả, không raise vì cả 21 văn bản đều có lời mở đầu)."""
+    html = """<div class="WordSection1">
+    <p class="MsoNormal prov-content">Căn cứ Hiến pháp nước Cộng hòa xã hội chủ nghĩa Việt Nam;</p>
+    <p id="c1" class="MsoNormal prov-chapter"><b>Chương I NHỮNG QUY ĐỊNH CHUNG</b></p>
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p></div>"""
+    rows = parse_provisions(html, SKH)
+    assert any("Căn cứ Hiến pháp" in r.noi_dung for r in rows), "mất lời mở đầu"
+
+
+# ══ Mục F — NFC hoá lúc parse, KHÔNG casefold ══
+
+def test_text_luu_duoc_NFC_hoa():
+    """96117 tại offset 33.642 ghi 'ư'+U+0323 thay vì 'ự'(U+1EF1). NFD một phía
+    làm độ phủ sụp về 0,28–0,37 — lệch một phần trông y hệt mất dữ liệu."""
+    nfd = unicodedata.normalize("NFD", "sự")
+    html = f"""<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Danh {nfd} kiện</b></p></div>"""
+    r = next(x for x in parse_provisions(html, SKH) if x.cap is Cap.dieu)
+    assert r.tieu_de == unicodedata.normalize("NFC", r.tieu_de)
+    assert "ự" in r.tieu_de, "chưa NFC hoá: 'ự' vẫn ở dạng tổ hợp dấu"
+    assert "Danh sự kiện" in r.noi_dung
+
+
+# ══ Mục E — neo trích dẫn trùng là bất biến RAISE ══
+
+def test_duong_dan_trung_o_cap_trich_dan_duoc_thi_RAISE():
+    """Không được bịa số thứ tự vào duong_dan để né trùng — neo trích dẫn phải
+    là thứ có trong văn bản nguồn, nên trùng = raise."""
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 5. Bản gốc</b></p>
+    <p id="a2" class="MsoNormal prov-article"><b>Điều 5. Bản trùng</b></p></div>"""
+    with pytest.raises(ValueError, match="duong_dan"):
+        parse_provisions(html, SKH)
+
+
+def test_D_hoa_U00D0_khong_lam_hai_Dieu_that_bi_gop():
+    """96172 có đúng 2 lần ký tự Ð U+00D0 (khác Đ U+0110). Nếu rơi vào đầu thẻ
+    prov-article thì regex ^Điều không khớp → node số rỗng → gộp mất một Điều."""
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Ðiều 7. Bản dùng Ð U+00D0</b></p>
+    <p id="a2" class="MsoNormal prov-article"><b>Điều 8. Bản thường</b></p></div>"""
+    rows = parse_provisions(html, SKH)
+    so = [r.so_hieu_cap for r in rows if r.cap is Cap.dieu]
+    assert so == ["7", "8"], f"Ð U+00D0 làm mất Điều: {so}"
+
+
+def test_duong_dan_trung_o_cap_container_chi_WARN():
+    """NĐ 145/2020 (152668) thật sự đánh số hai Chương cùng là 'Chương XI' —
+    đã chấp nhận có chủ đích, không được bịa 'XII' để né."""
+    html = """<div class="WordSection1">
+    <p id="c1" class="MsoNormal prov-chapter"><b>Chương XI A</b></p>
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. X</b></p>
+    <p id="c2" class="MsoNormal prov-chapter"><b>Chương XI B</b></p>
+    <p id="a2" class="MsoNormal prov-article"><b>Điều 2. Y</b></p></div>"""
+    with pytest.warns(UserWarning, match="duong_dan"):
+        rows = parse_provisions(html, SKH)
+    assert len([r for r in rows if r.cap is Cap.chuong]) == 2
 
 
 @pytest.mark.integration
@@ -279,6 +457,15 @@ def test_bo_luat_lao_dong_that_co_dung_220_dieu():
     assert len(dieu) == 220, f"đếm được {len(dieu)} Điều, phải là 220"
     assert dieu[0].so_hieu_cap == "1"
     assert dieu[-1].so_hieu_cap == "220"
-    assert all(r.noi_dung or any(c.parent_local_id == r.local_id for c in rows) for r in dieu), (
-        "có Điều vừa rỗng nội dung vừa không có con — dấu hiệu mất dữ liệu"
-    )
+    assert all(r.noi_dung.strip() for r in dieu), "có Điều noi_dung rỗng"
+
+
+def test_the_prov_trong_tron_khong_tao_provision_rong():
+    """337/2025/NĐ-CP có `<p class="prov-clause"></p>` trống trơn — thẻ không có
+    chữ chỉ tạo node noi_dung rỗng và duong_dan mất số hiệu. Không chữ, không mất."""
+    html = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 30. Trách nhiệm</b></p>
+    <p class="prov-clause">1. Bộ trưởng Bộ Nội vụ hướng dẫn.</p>
+    <p class="prov-clause"></p></div>"""
+    khoan = [r for r in parse_provisions(html, SKH) if r.cap is Cap.khoan]
+    assert len(khoan) == 1, [r.duong_dan for r in khoan]
