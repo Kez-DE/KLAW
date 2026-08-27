@@ -248,24 +248,51 @@ Thêm: `id` HTML **không phải khóa chính đáng tin** (quan sát 1 node xu�
 
 #### Trạng thái key — ĐÃ TEST THẬT 2026-08-27
 
-| Biến | Kết quả test | Ràng buộc |
+| Biến | Kết quả | Ghi chú |
 |---|---|---|
-| `OPENROUTER_API_KEY` | ✅ HTTP 200, `is_free_tier: false` | ⚠ **credit limit $3, đã dùng $0.57, còn $2.43** |
-| `COHERE_API_KEY` | ✅ HTTP 200, dim 1536 | trial: **1.000 call/tháng**, 100/phút; **cấm dùng production** |
-| `OPENAI_API_KEY` | ❌ **HTTP 401** | **là placeholder** `sk-your-...-here` lấy từ `.env.example` — **KHÔNG phải key thật** |
-| `LANGCHAIN_API_KEY` + `LANGCHAIN_TRACING_V2` | chưa test | LangSmith cho trace theo node |
+| `OPENROUTER_API_KEY` | ✅ chat + **embeddings** + rerank | key mới hoạt động cả 3 endpoint |
+| `COHERE_API_KEY` | ✅ nhưng **không cần nữa** | Cohere rerank có sẵn qua OpenRouter |
+| `OPENAI_API_KEY` | ❌ placeholder → 401 | **gỡ khỏi `.env`**, không còn cần |
 
-**Kế hoạch embedding (đã sửa sau khi test — bản trước giả định sai rằng `OPENAI_API_KEY` là key thật):**
+#### Embedding: `baai/bge-m3` qua OpenRouter — chốt
 
-| Phương án | Chi phí | Dùng cho ingest + query + demo live? |
-|---|---|---|
-| **`intfloat/multilingual-e5-small` int8 ONNX** ⭐ mặc định | **$0**, không cần tài khoản mới | ✅ **cả ba** — 0,12 GB vừa Railway Free 0,5 GB |
-| OpenAI `text-embedding-3-small` | thực chi ~**$0.03** cả khóa luận, nhưng OpenAI **buộc nạp tối thiểu $5** | ✅ cả ba — nâng cấp nếu chấp nhận nạp |
-| Cohere `embed-v4.0` | $0 trong trial | ❌ **không** — trial cấm production, và corpus/query buộc cùng vector space nên demo live cũng vướng |
+| | Giá trị |
+|---|---|
+| Model | `baai/bge-m3` · dim **1024** · ctx **8194** |
+| Giá | **$0.010/1M** (đo thật: 143 token = $1.43e-06) |
+| Chi phí toàn corpus | 1,6M token → **$0.016** |
+| Self-host? | **KHÔNG** — không ONNX, không 2,27 GB weights, không vấn đề RAM Railway |
+| Vì sao model này | **VN-MTEB retrieval 39.84 — cao nhất nhóm ≤1B**, và qua API thì kích thước weights không còn là ràng buộc |
 
-- **Tuần 1–3:** `multilingual-e5-small` int8 ONNX. Một model cho cả ingest (local) và query (Railway Free), không tài khoản mới, không vướng license.
-- **Tuần 4:** eval offline 6 model trên `golden_qa`, **chạy trên laptop**.
-- **Sau tuần 4:** chốt theo số đo.
+Toàn bộ phân tích "self-host $30/tháng vs API" ở các bản spec trước **không còn áp dụng**: model tốt nhất giờ có sẵn qua API với giá $0.016 cho cả khóa luận.
+
+**Smoke test tiếng Việt pháp lý** — 4 điều BLLĐ thật (Đ17 K1, Đ25 K4, Đ26, Đ127 K2) × 4 câu hỏi giọng dân sinh:
+
+| Model | dim | $/1M | Recall@1 | Biên top1−top2 (tb) | Điểm tuyệt đối |
+|---|---|---|---|---|---|
+| **`baai/bge-m3`** | 1024 | 0.010 | **4/4** | 0.113 | **0.629–0.677** ← cao nhất |
+| `openai/text-embedding-3-small` | 1536 | 0.020 | 4/4 | 0.106 | 0.474–0.586 |
+| `qwen/qwen3-embedding-8b` | 4096 | 0.010 | 4/4 | 0.139 | 0.434–0.618 |
+| `cohere/embed-v4.0` (qua key Cohere) | 1536 | trial | 4/4 | 0.111 | 0.370–0.562 |
+
+⚠ **Đây là smoke test, KHÔNG phải eval** — 4 văn bản chủ đề tách biệt, biên mỏng nhất chỉ 0.013. Không được trích 4/4 như kết quả trong khóa luận. Eval thật ở tuần 4.
+
+**Bảng so sánh tuần 4 — tất cả qua MỘT key:** `baai/bge-m3` · `openai/text-embedding-3-small` · `qwen/qwen3-embedding-8b` · `google/gemini-embedding-001` · `voyageai/voyage-4-lite`. Thêm một dòng model local (`intfloat/multilingual-e5-small` int8) là **tùy chọn** — chỉ để đo đánh đổi "không có ngân sách API", không còn là phương án production.
+
+#### Reranker: 7 model, cùng key
+
+| `qwen/qwen3-reranker-8b` | 40960 | $0.000 |
+| `voyageai/rerank-2.5-lite` | 32000 | $0.000 |
+| `voyageai/rerank-2.5` | 32000 | $0.000 |
+| `nvidia/llama-nemotron-rerank-vl-1b-v2:free` | 10240 | $0.000 |
+| `cohere/rerank-4-pro` | 32768 | $0.000 |
+| `cohere/rerank-4-fast` | 32768 | $0.000 |
+| `cohere/rerank-v3.5` | 4096 | $0.000 |
+
+⚠ Trường `pricing.prompt` của cả 7 đều trả `0` — reranker thường tính theo **số document/search**, không theo prompt token. **Phải kiểm giá thật lúc dùng**, đừng cho là miễn phí.
+
+`ctx` rộng nhất: `qwen/qwen3-reranker-8b` (40.960) và `cohere/rerank-4-pro` / `-fast` (32.768). Cả 7 đều **chưa có số tiếng Việt công bố** → phải tự đo, thành một dòng ablation.
+
 
 #### ⚠ Ngân sách OpenRouter — $2.43 là ràng buộc thiết kế, không phải chi tiết
 
@@ -315,18 +342,6 @@ Giới hạn trial key (đọc từ response header): `x-endpoint-monthly-call-l
 
 `embed-multilingual-v3.0` ctx chỉ **512 token** → truncate chunk cấp Điều. Nếu dùng Cohere thì phải là `embed-v4.0` (ctx 8192).
 
-#### Reranker — ứng viên đã chốt
-
-Rerank gọi **1 lần/query** với top-20 candidate ⇒ số call rất thấp ⇒ giới hạn 1.000 call/tháng của Cohere trial **không cắn** ở workload này.
-
-| Model | ctx | Nguồn |
-|---|---|---|
-| **`Cohere rerank-v4.0-fast`** / `rerank-v4.0-pro` | **32.768** | key có sẵn (trial, đủ cho eval) |
-| `Cohere rerank-multilingual-v3.0` | 4.096 | dự phòng |
-| `BAAI/bge-reranker-v2-m3` | 8.192 | local, $0 |
-| `jina-reranker-v3` | 134.144 | $0.05/1M, **0/29 model Jina nhắc tiếng Việt** |
-
-Cả bốn đều **chưa có số tiếng Việt công bố** → phải tự đo, và đó là thêm một dòng ablation.
 
 #### Observability
 
@@ -636,50 +651,37 @@ GET  /health
 | `generate_claims` | chất lượng cao, structured output ổn định |
 | `verify_tier2` | judge, output ngắn, batch nhiều claim/call |
 
-**Đã xác minh 2026-08-27 bằng BA đường độc lập: OpenRouter KHÔNG có embedding.**
+**ĐÃ SỬA 2026-08-27 (kết luận trước đó SAI): OpenRouter CÓ embedding và reranker.**
 
-| Kiểm tra | Kết quả |
+| Truy vấn | Kết quả |
 |---|---|
-| `GET /models` không auth **vs** có auth | **417 = 417** → privacy gate không lọc catalog; **0 embedding, 0 reranker** ở cả hai |
-| `POST /api/v1/embeddings` với 4 slug (`openai/text-embedding-3-small`, `text-embedding-3-small`, `cohere/embed-v4.0`, `baai/bge-m3`) | 404 / 400 |
-| **Cùng key, cùng thời điểm**, `POST /chat/completions` model trả tiền | ✅ **HTTP 200, 4/4** |
+| `GET /api/v1/models` (mặc định) | 417 model — `output_modalities` ∈ {text, image+text, text+audio, text+image}. **0 embedding** |
+| `GET /api/v1/models?output_modalities=embeddings` | **36 model embedding** |
+| `GET /api/v1/models?output_modalities=rerank` | **7 model reranker** |
 
-Đường thứ ba là bằng chứng quyết định: key hoạt động, chat 200, embeddings 404 ⇒ **vấn đề không ở key mà ở chỗ OpenRouter không cung cấp embedding.** Không có cấu hình nào mở được. Bắt buộc có provider embedding riêng.
+**Bài học phương pháp, ghi lại để không lặp:** embedding và reranker nằm ở **catalog riêng**, chỉ truy cập được qua tham số `output_modalities`. Danh sách mặc định chỉ trả model có output là text ⇒ tìm chuỗi `"embed"` trong đó **không bao giờ** ra kết quả, dù tìm cách nào. Ngoài ra lỗi `404 "No endpoints available matching your guardrail restrictions and data policy"` là **cổng chính sách của key**, KHÔNG phải "model không tồn tại" — đọc sai thông báo này dẫn tới kết luận sai lần thứ hai.
 
-#### Contract config — BA provider, không gộp được về một key
+#### Contract config — MỘT provider, MỘT key
 
-| Tầng | Provider | Biến | Base URL |
-|---|---|---|---|
-| LLM (route, rewrite, generate_claims, verify_tier2) | OpenRouter | `OPENROUTER_API_KEY` | `https://openrouter.ai/api/v1` |
-| Embedding | OpenAI trực tiếp | `OPENAI_API_KEY` | `https://api.openai.com/v1` |
-| Reranker *(tùy chọn)* | Cohere | `COHERE_API_KEY` | `https://api.cohere.com` |
+LLM + embedding + rerank đều qua OpenRouter. **Không cần** `OPENAI_API_KEY`, **không cần** `COHERE_API_KEY`.
 
 ```dotenv
-# --- LLM: qua OpenRouter ---
-OPENROUTER_API_KEY=          # CHƯA CÓ trong .env — lấy ở openrouter.ai/keys, set spend limit ngay
+OPENROUTER_API_KEY=              # phủ cả 3 tầng
 LLM_BASE_URL=https://openrouter.ai/api/v1
-LLM_MODEL_ROUTER=            # rẻ nhất, cần structured output
-LLM_MODEL_GENERATE=          # mạnh, structured output ổn định
-LLM_MODEL_JUDGE=             # trung, output ngắn, batch được
 
-# --- Embedding: KHÔNG qua OpenRouter ---
-EMBEDDING_PROVIDER=openai
-EMBEDDING_BASE_URL=https://api.openai.com/v1
-EMBEDDING_MODEL=text-embedding-3-small
-EMBEDDING_DIM=1536
+LLM_MODEL_ROUTER=                # rẻ — xem cảnh báo tuân thủ instruction bên dưới
+LLM_MODEL_GENERATE=              # BẮT BUỘC structured output ổn định
+LLM_MODEL_JUDGE=
 
-# --- Reranker: tùy chọn, provider riêng ---
-RERANK_PROVIDER=cohere       # cohere | local | none
-RERANK_MODEL=rerank-v4.0-fast
+EMBEDDING_MODEL=baai/bge-m3      # cùng key, cùng base_url, endpoint /embeddings
+EMBEDDING_DIM=1024
+
+RERANK_MODEL=cohere/rerank-4-fast   # tùy chọn
 ```
 
-Cả ba dùng chung SDK OpenAI-compatible, chỉ khác `base_url` → code không phức tạp thêm.
+**Ba biến trong `.env` phải sửa:** `DATABASE_URL` đang trỏ SQLite (spec dùng Postgres — 8.2); `CHROMA_PERSIST_DIR` không còn dùng; `OPENAI_API_KEY` là placeholder gây 401 → **gỡ hẳn**.
 
-**Hai biến trong `.env` hiện tại lệch spec, phải sửa:** `DATABASE_URL` đang trỏ SQLite (spec dùng Postgres — mục 8.2); `CHROMA_PERSIST_DIR` không còn dùng (spec dùng pgvector hoặc numpy, không Chroma).
-
-**Ablation chiều LLM (gần như miễn phí khi đã có OpenRouter):** giữ nguyên graph, đổi `LLM_MODEL_GENERATE` giữa Claude / Gemini / GPT / DeepSeek / Qwen → báo cáo hallucination rate và citation precision của từng model **dưới cùng một cơ chế verify**. Với đề tài về chống ảo giác, bảng "model nào bịa nhiều hơn khi bị kiểm chứng như nhau" là kết quả có giá trị và chi phí thêm chỉ là tiền token.
-
-Set spend limit OpenRouter ngày đầu. Log `token_in/token_out/cost_usd` vào `traces`.
+**Ablation chiều LLM:** giữ nguyên graph, đổi `LLM_MODEL_GENERATE` giữa các nhà cung cấp → báo cáo hallucination rate và citation precision **dưới cùng một cơ chế verify**.
 
 ### 8.2 Database: Railway Postgres
 
@@ -825,11 +827,9 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 | 3 | Kiểm phủ class `prov-*` trên toàn corpus (mới verify 3/40 văn bản) | Parser có tin được không |
 | 4 | Truy vấn `references` trỏ tới BLLĐ `139264` với `referenceType ∈ {8, 9}` → chốt tầng 2 của corpus | Thay việc lọc tay 1.971 dòng bằng tiêu chí do cơ quan ban hành khai báo (`linh_vuc` sai 66%) |
 | 5 | Đối chiếu tay ~10 điều quan trọng với văn bản hợp nhất → `verified_provisions` | Dữ liệu bãi bỏ cấp điều khoản không public |
-| 6 | Thử quantize int8 `AITeamVN/Vietnamese_Embedding` bằng `optimum`, đo chất lượng tụt | Họ **không ship** bản int8, khác e5-small |
-| 7 | Đo RAM thật bằng `docker stats` cho model embedding đã chọn | Overhead runtime chưa ai công bố |
-| 8 | Tra `doc_id` của NĐ 157/2018, 141/2017, 122/2015 (lương tối thiểu cũ) | Bổ sung ca bẫy Mức 2 (mục 11.1) |
-| 9 | Đối chiếu tay hiệu lực của **các luật gốc cấp Quốc hội** trong corpus → `verified_documents`. Ưu tiên Luật BHXH 41/2024 (`175027`) | Mức 2 kế thừa lỗi phân loại cạnh của MOJ (mục 5.2 guard) |
-| 10 | Tra `doc_id` Luật Giáo dục nghề nghiệp 74/2014/QH13 | Hoàn tất tầng nông (mục 4.3) |
+| 6 | Tra `doc_id` của NĐ 157/2018, 141/2017, 122/2015 (lương tối thiểu cũ) | Bổ sung ca bẫy Mức 2 (mục 11.1) |
+| 7 | Đối chiếu tay hiệu lực của **các luật gốc cấp Quốc hội** trong corpus → `verified_documents`. Ưu tiên Luật BHXH 41/2024 (`175027`) | Mức 2 kế thừa lỗi phân loại cạnh của MOJ (mục 5.2 guard) |
+| 8 | Tra `doc_id` Luật Giáo dục nghề nghiệp 74/2014/QH13 | Hoàn tất tầng nông (mục 4.3) |
 
 ---
 
@@ -872,7 +872,6 @@ Việc **#5 của Phase 0 (đối chiếu tay 10 điều BLLĐ)** và **#9 (đ�
 | Không kịp xây 215–275 item eval | **Cao** | **Rất cao** | Lịch riêng (11.1); `golden_qa` chia 2 nhịp tuần 3/4; cắt cỡ tập trước khi cắt chất lượng quy trình review |
 | NĐ 12/2022 hết hiệu lực **2026-09-10** | Chắc chắn | Thấp | Theo dõi văn bản thay; đừng hardcode mức phạt |
 | **Hết credit OpenRouter** (còn $2.43) | **Cao** | **Cao** | Model rẻ cho toàn bộ ablation, model mạnh chỉ 1 lần cho cấu hình cuối; log `cost_usd` mỗi query; nâng credit trước tuần 5 |
-| Cần key embedding thật | TB | Thấp | Mặc định `e5-small int8` không cần key nào; nâng lên OpenAI chỉ khi chấp nhận nạp $5 |
 | Trượt deadline | TB | Cao | Tuần 9 là mốc đủ bảo vệ; 10–12 chỉ viết |
 
 ---
