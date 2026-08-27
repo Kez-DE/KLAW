@@ -1,9 +1,12 @@
 import json
+from pathlib import Path
 
 import pytest
 
 from scripts import build_seed
 from scripts.fetch_moj import DOC_IDS
+from src.models.domain import Cap
+from src.services import prov_parser
 
 
 def test_du_6_bo_luat_o_tang_sau():
@@ -83,3 +86,35 @@ def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
     monkeypatch.setattr(build_seed, "DOC_IDS", {"9002": ("deep", "2/2020/NĐ-CP")})
     with pytest.raises(ValueError, match="bất thường cấu trúc"):
         build_seed.build(tmp_path / "raw", tmp_path / "seed")
+
+
+def test_checksum_DOI_khi_parser_doi_du_HTML_khong_doi(tmp_path, monkeypatch):
+    """Kênh dữ liệu CŨ ÂM THẦM. `ingest` bỏ qua document khi checksum không đổi,
+    và checksum chỉ băm HTML nguồn. Nên: sửa parser → rebuild seed → `ingest`
+    bỏ qua cả 21 văn bản → Postgres giữ nguyên 19.077 dòng hỏng, mọi phép kiểm
+    xanh. Đúng loại lỗi mà vòng sửa này tồn tại để diệt.
+
+    Chữa: checksum băm HTML VÀ chính các dòng provision sinh ra từ nó."""
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    (raw / "9003.json").write_text(json.dumps({
+        "docType": {"name": "Nghị định"}, "effStatus": {"code": "CHL"},
+        "documentContent": {"content":
+            '<div class="WordSection1">'
+            '<p id="a1" class="prov-article"><b>Điều 1. Phạm vi</b></p>'
+            '<p class="prov-clause">1. Nội dung khoản một.</p></div>'},
+    }, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(build_seed, "DOC_IDS", {"9003": ("deep", "3/2020/NĐ-CP")})
+
+    def _checksum(out: Path) -> str:
+        build_seed.build(tmp_path / "raw", out)
+        return json.loads((out / "checksums.json").read_text(encoding="utf-8"))["9003"]
+
+    truoc = _checksum(tmp_path / "s1")
+
+    # Đổi output parser mà KHÔNG đổi một byte HTML nào và không mất chữ nào —
+    # đúng hình dạng của vòng sửa này: duong_dan và tieu_de đổi, HTML y nguyên.
+    monkeypatch.setitem(prov_parser.NHAN, Cap.khoan, "Khoan")
+    sau = _checksum(tmp_path / "s2")
+
+    assert truoc != sau, "checksum không đổi khi parser đổi — ingest sẽ giữ dữ liệu cũ"

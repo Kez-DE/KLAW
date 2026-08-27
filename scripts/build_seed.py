@@ -35,7 +35,27 @@ def build(raw: Path, out: Path) -> dict[str, int]:
         if not html:
             raise ValueError(f"doc {doc_id} không có documentContent.content — không được bỏ qua im lặng")
 
-        checksum = hashlib.sha256(html.encode("utf-8")).hexdigest()
+        # Cổng CẤU TRÚC chạy TRƯỚC khi ghi seed. parse_anomalies() đã tồn tại và
+        # đã có test từ vòng trước nhưng build không gọi nó, nên nó chưa bao giờ
+        # chạy trên dữ liệu thật — đó là lý do bốn nhóm lỗi parser lọt được vào
+        # 19.077 dòng seed mà 49 test vẫn xanh.
+        loi, canh_bao = parse_anomalies(html, so_ky_hieu)
+        if loi:
+            raise ValueError(
+                f"doc {doc_id} ({so_ky_hieu}): {len(loi)} bất thường cấu trúc — "
+                f"KHÔNG ghi seed: {loi[:5]}")
+        canh_bao_tong.extend(f"{doc_id} ({so_ky_hieu}): {c}" for c in canh_bao)
+
+        prov_rows = [r.model_dump(mode="json") for r in parse_provisions(html, so_ky_hieu)]
+
+        # Checksum băm HTML *VÀ* các dòng provision sinh ra từ nó. Nếu chỉ băm
+        # HTML thì có một kênh dữ liệu cũ ÂM THẦM: sửa parser → rebuild seed →
+        # `ingest` thấy checksum không đổi nên bỏ qua cả 21 văn bản → Postgres
+        # giữ nguyên các dòng hỏng và mọi phép kiểm vẫn xanh. Vẫn idempotent:
+        # cùng HTML + cùng parser ⇒ cùng checksum.
+        checksum = hashlib.sha256(
+            (html + "\n" + json.dumps(prov_rows, ensure_ascii=False, sort_keys=True))
+            .encode("utf-8")).hexdigest()
         checksums[doc_id] = checksum
 
         docs.append(DocumentRow(
@@ -53,19 +73,7 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             checksum=checksum,
         ).model_dump(mode="json"))
 
-        # Cổng CẤU TRÚC chạy TRƯỚC khi ghi seed. parse_anomalies() đã tồn tại và
-        # đã có test từ vòng trước nhưng build không gọi nó, nên nó chưa bao giờ
-        # chạy trên dữ liệu thật — đó là lý do bốn nhóm lỗi parser lọt được vào
-        # 19.077 dòng seed mà 49 test vẫn xanh.
-        loi, canh_bao = parse_anomalies(html, so_ky_hieu)
-        if loi:
-            raise ValueError(
-                f"doc {doc_id} ({so_ky_hieu}): {len(loi)} bất thường cấu trúc — "
-                f"KHÔNG ghi seed: {loi[:5]}")
-        canh_bao_tong.extend(f"{doc_id} ({so_ky_hieu}): {c}" for c in canh_bao)
-
-        for r in parse_provisions(html, so_ky_hieu):
-            row = r.model_dump(mode="json")
+        for row in prov_rows:
             row["document_id"] = doc_id
             provs.append(row)
 
