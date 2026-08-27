@@ -90,3 +90,30 @@ CREATE TABLE IF NOT EXISTS traces (
     cost_usd                NUMERIC(12, 8)
 );
 CREATE INDEX IF NOT EXISTS ix_traces_config ON traces(config_name);
+
+-- Ràng buộc giá trị. Idempotent: chạy được cả trên DB mới và DB đã tồn tại.
+-- Postgres không hỗ trợ ADD CONSTRAINT IF NOT EXISTS cho CHECK/FK.
+DO $$ BEGIN
+    ALTER TABLE documents ADD CONSTRAINT documents_tinh_trang_check
+        CHECK (tinh_trang IN ('CHL', 'HHL', 'HHL1P', 'chua_hieu_luc', 'chua_xac_dinh'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE provisions ADD CONSTRAINT provisions_cap_check
+        CHECK (cap IN ('phan', 'chuong', 'muc', 'dieu', 'khoan', 'diem'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    -- 0 = MOJ không cung cấp referenceType; 1..15 là bảng mã quan hệ của MOJ
+    ALTER TABLE "references" ADD CONSTRAINT references_loai_check
+        CHECK (loai BETWEEN 0 AND 15);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "references" ADD CONSTRAINT references_from_document_fk
+        FOREIGN KEY (from_document_id) REFERENCES documents(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
