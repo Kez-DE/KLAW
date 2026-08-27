@@ -11,13 +11,9 @@
 -- Nhận diện bằng VỊ TRÍ, không bằng regex tiếng Việt — nên nó không phải một
 -- special case của parser mà là một quy tắc về cấu trúc tài liệu.
 --
--- Idempotent theo đúng pattern 002: constraint đã tồn tại với định nghĩa cũ nên
--- phải DROP trước, `EXCEPTION ... NULL` một mình sẽ âm thầm giữ bản cũ.
-ALTER TABLE provisions DROP CONSTRAINT IF EXISTS provisions_cap_check;
-
-DO $$ BEGIN
-    ALTER TABLE provisions ADD CONSTRAINT provisions_cap_check
-        CHECK (cap IN ('phan', 'chuong', 'muc', 'tieu_muc', 'dieu', 'khoan',
-                       'diem', 'phu_luc'));
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+-- FILE NÀY CỐ Ý KHÔNG CÒN CÂU LỆNH NÀO, cùng lý do như `002_cap_tieu_muc.sql`:
+-- `provisions_cap_check` giờ do `004_bat_bien_neo_trich_dan.sql` — file MỚI NHẤT
+-- — sở hữu, và chỉ nó. `004` thêm cấp `mo_dau` (lời mở đầu văn bản, đối xứng với
+-- `phu_luc`), nên bản ở đây lại là bản HẸP HƠN bản đang chạy.
+--
+-- Quy tắc: MỘT constraint thì MỘT file sở hữu, và đó là file mới nhất.

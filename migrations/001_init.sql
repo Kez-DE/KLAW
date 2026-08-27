@@ -99,11 +99,13 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-DO $$ BEGIN
-    ALTER TABLE provisions ADD CONSTRAINT provisions_cap_check
-        CHECK (cap IN ('phan', 'chuong', 'muc', 'dieu', 'khoan', 'diem'));
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+-- `provisions_cap_check` CỐ Ý KHÔNG CÓ Ở ĐÂY. Nó do `004_bat_bien_neo_trich_dan.sql`
+-- — file MỚI NHẤT — sở hữu, và chỉ nó. Bản cũ ở file này chỉ liệt kê 6 cấp, tức
+-- nó là bản HẸP HƠN bản đang chạy; giữ lại là vi phạm quy tắc `002_cap_tieu_muc.sql`
+-- đặt ra và mở một đường vỡ thật: nếu constraint vắng mặt lúc file này chạy trên
+-- bảng đã có dữ liệu thì `ADD` bản hẹp ném check_violation (23514) trên các dòng
+-- `tieu_muc`/`phu_luc`/`mo_dau` — mã đó không nằm trong EXCEPTION, và
+-- `run_migrations()` bọc mọi file trong MỘT transaction nên tất cả rollback.
 
 DO $$ BEGIN
     -- 0 = MOJ không cung cấp referenceType; 1..15 là bảng mã quan hệ của MOJ

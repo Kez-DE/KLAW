@@ -89,7 +89,10 @@ def test_migration_idempotent_KHI_DA_CO_DU_LIEU_dung_moi_cap():
     tập giá trị lại và ném CheckViolation trên chính các dòng `phu_luc` mà 003
     vừa cho phép.
 
-    Bản này chèn một dòng dùng cấp MỚI NHẤT rồi chạy lại migration."""
+    Bản này chèn một dòng dùng cấp MỚI NHẤT rồi chạy lại migration. `004` cũng
+    DROP rồi ADD `provisions_cap_check` và thêm hai ràng buộc nữa (partial unique
+    index + CHECK `noi_dung`), nên nó phải sống sót đúng phép thử đó — lần này
+    còn có dữ liệu CẤP TRÍCH DẪN ĐƯỢC để `ADD CONSTRAINT` phải kiểm thật."""
     run_migrations()
     eng = get_engine()
     with eng.begin() as conn:
@@ -97,11 +100,111 @@ def test_migration_idempotent_KHI_DA_CO_DU_LIEU_dung_moi_cap():
             "INSERT INTO documents (id, so_ky_hieu, loai_van_ban, ten, tinh_trang, checksum)"
             " VALUES ('mig-test', 'x/2020/NĐ-CP', 'Nghị định', 't', 'CHL', 'c')"
             " ON CONFLICT (id) DO NOTHING"))
-        conn.execute(text(
-            "INSERT INTO provisions (document_id, cap, so_hieu_cap, duong_dan, thu_tu)"
-            " VALUES ('mig-test', 'phu_luc', '', 'x/2020/NĐ-CP > Phụ lục', 0)"))
+        for cap, dd, nd in (("phu_luc", "x/2020/NĐ-CP > Phụ lục", ""),
+                            ("mo_dau", "x/2020/NĐ-CP > Mở đầu", "Căn cứ Luật X;"),
+                            ("dieu", "x/2020/NĐ-CP > Điều 1", "Điều 1. Phạm vi")):
+            conn.execute(text(
+                "INSERT INTO provisions (document_id, cap, so_hieu_cap, noi_dung, duong_dan, thu_tu)"
+                " VALUES ('mig-test', :cap, '', :nd, :dd, 0)"), {"cap": cap, "dd": dd, "nd": nd})
     try:
-        run_migrations()   # phải KHÔNG ném CheckViolation
+        run_migrations()   # phải KHÔNG ném CheckViolation lẫn UniqueViolation
+        run_migrations()
     finally:
         with eng.begin() as conn:
             conn.execute(text("DELETE FROM documents WHERE id = 'mig-test'"))
+
+
+# ══ H4: hai bất biến nền tảng phải nằm TRONG DB, nơi không thể vòng qua ══
+
+@pytest.mark.integration
+def test_hai_bat_bien_neo_trich_dan_ton_tai_trong_DB():
+    """Trước `004`, "neo trích dẫn duy nhất" và "`noi_dung` không rỗng ở cấp trích
+    dẫn được" chỉ tồn tại ở `prov_parser._kiem_bat_bien` (lúc BUILD) và
+    `test_seed_committed.py` (trên FILE ĐÃ COMMIT). Không cái nào nằm trên đường
+    INGEST — đường thật sự nạp dữ liệu mà verifier sẽ đọc. `scripts/ingest.py`
+    không validate gì cả."""
+    run_migrations()
+    with get_engine().connect() as c:
+        idx = c.execute(text(
+            "SELECT indexdef FROM pg_indexes"
+            " WHERE tablename = 'provisions' AND indexname = 'ux_provisions_neo_trich_dan'"
+        )).scalar_one()
+        assert "UNIQUE" in idx and "duong_dan" in idx
+        assert "WHERE" in idx, f"phải là PARTIAL index (cấp container được trùng): {idx}"
+
+        chk = c.execute(text(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint"
+            " WHERE conname = 'provisions_noi_dung_citable_check'")).scalar_one()
+        assert "noi_dung" in chk
+
+
+@pytest.mark.integration
+def test_unique_index_CHAN_neo_trung_nhung_VAN_CHO_container_trung():
+    """NĐ 145/2020 thật sự đánh số hai Chương cùng là "Chương XI" — ngoại lệ đã
+    chấp nhận có chủ đích, không được bịa "XII" để né. Partial index là đúng công
+    cụ: trùng ở cấp trích dẫn được thành BẤT KHẢ THI VỀ MẶT VẬT LÝ, cấp container
+    vẫn qua."""
+    run_migrations()
+    eng = get_engine()
+    with eng.begin() as c:
+        c.execute(text(
+            "INSERT INTO documents (id, so_ky_hieu, loai_van_ban, ten, tinh_trang, checksum)"
+            " VALUES ('uq-test', 'x/2021/NĐ-CP', 'Nghị định', 't', 'CHL', 'c')"
+            " ON CONFLICT (id) DO NOTHING"))
+    try:
+        with eng.begin() as c:   # container trùng: PHẢI qua
+            for _ in range(2):
+                c.execute(text(
+                    "INSERT INTO provisions (document_id, cap, so_hieu_cap, noi_dung, duong_dan, thu_tu)"
+                    " VALUES ('uq-test', 'chuong', 'XI', 'Chương XI', 'x/2021/NĐ-CP > Chương XI', 0)"))
+        with pytest.raises(IntegrityError):   # neo trích dẫn trùng: PHẢI chặn
+            with eng.begin() as c:
+                for _ in range(2):
+                    c.execute(text(
+                        "INSERT INTO provisions (document_id, cap, so_hieu_cap, noi_dung, duong_dan, thu_tu)"
+                        " VALUES ('uq-test', 'dieu', '1', 'Điều 1. X', 'x/2021/NĐ-CP > Điều 1', 0)"))
+    finally:
+        with eng.begin() as c:
+            c.execute(text("DELETE FROM documents WHERE id = 'uq-test'"))
+
+
+@pytest.mark.integration
+def test_check_CHAN_noi_dung_rong_o_cap_trich_dan_duoc():
+    """`noi_dung` rỗng ở cấp trích dẫn được = phép kiểm "câu trích khớp nguyên
+    văn" không có gì để đối chiếu. Cấp container/tài liệu được phép rỗng."""
+    run_migrations()
+    eng = get_engine()
+    with eng.begin() as c:
+        c.execute(text(
+            "INSERT INTO documents (id, so_ky_hieu, loai_van_ban, ten, tinh_trang, checksum)"
+            " VALUES ('chk-test', 'x/2022/NĐ-CP', 'Nghị định', 't', 'CHL', 'c')"
+            " ON CONFLICT (id) DO NOTHING"))
+    try:
+        with eng.begin() as c:   # container rỗng: PHẢI qua
+            c.execute(text(
+                "INSERT INTO provisions (document_id, cap, so_hieu_cap, noi_dung, duong_dan, thu_tu)"
+                " VALUES ('chk-test', 'chuong', 'I', '', 'x/2022/NĐ-CP > Chương I', 0)"))
+        for nd in ("", "   "):
+            with pytest.raises(IntegrityError):
+                with eng.begin() as c:
+                    c.execute(text(
+                        "INSERT INTO provisions (document_id, cap, so_hieu_cap, noi_dung, duong_dan, thu_tu)"
+                        " VALUES ('chk-test', 'khoan', '1', :nd, 'x/2022/NĐ-CP > Điều 9 > Khoản 1', 0)"),
+                        {"nd": nd})
+    finally:
+        with eng.begin() as c:
+            c.execute(text("DELETE FROM documents WHERE id = 'chk-test'"))
+
+
+@pytest.mark.integration
+def test_cap_mo_dau_duoc_CHECK_cho_qua():
+    """`004` sở hữu đủ tập cấp (M6): `001` và `003` không còn câu lệnh nào cho
+    `provisions_cap_check`, nên tập giá trị cuối cùng phải đến từ `004`."""
+    run_migrations()
+    with get_engine().connect() as c:
+        chk = c.execute(text(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint"
+            " WHERE conname = 'provisions_cap_check'")).scalar_one()
+    for cap in ("phan", "chuong", "muc", "tieu_muc", "dieu", "khoan", "diem",
+                "phu_luc", "mo_dau"):
+        assert f"'{cap}'" in chk, f"{cap} thiếu trong {chk}"
