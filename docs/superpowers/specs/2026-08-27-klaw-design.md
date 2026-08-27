@@ -697,6 +697,17 @@ Lý do: mục 5.1 đã xác định dữ liệu bãi bỏ cấp điều khoản 
 
 Ca thứ hai là **test case then chốt của cả đề tài**: nó chứng minh cơ chế Mức 2 (đồ thị thay thế) bắt được lỗi mà chính cơ sở dữ liệu quốc gia bỏ sót. Baseline không có cơ chế này sẽ trả lời sai với vẻ hoàn toàn tự tin, kèm citation hợp lệ. Bổ sung thêm ca từ NĐ 157/2018, 141/2017, 122/2015 (cùng lỗi trạng thái).
 
+**⚠ Khối lượng: 215–275 item có ground truth — đây là hạng mục việc tay LỚN NHẤT của dự án**, lớn hơn cả viết verifier. Phải có lịch riêng, không làm tranh thủ:
+
+| Tập | Item | Tuần | Ghi chú |
+|---|---|---|---|
+| `golden_qa` | 100–150 | 3 (50 đầu) → 4 (đủ) | chia hai nhịp để có số baseline sớm ở tuần 3 |
+| `trap` | 40–50 | 4 | 3 nhóm; nhóm "văn bản đã bị thay" dùng `doc_id` 168670, 139094 |
+| `boundary` | ~25 | 4 | cần tầng nông đã ingest trước |
+| `draft_facts` | 50 | 7 | 30 bộ cài lỗi — mỗi rule 2–3 case |
+
+**Corpus luật KHÔNG phải dataset của đề tài.** Corpus là thứ tải về — ai cũng tải được y như vậy, công sức trí tuệ bằng không. Dataset thực sự của đề tài là bốn tập trên, vì chúng mang **ground truth do tác giả tạo ra**, và toàn bộ bảng kết quả ở 11.3 đứng trên chúng. Nhóm này yếu thì mọi số liệu phía sau mất giá trị.
+
 **Quy trình xây `golden_qa` — phải viết vào khóa luận:**
 1. LLM sinh câu hỏi **từ một điều luật cụ thể** → ground truth biết trước
 2. **Người review, loại câu lộ đáp án** → **báo cáo tỉ lệ loại**
@@ -742,7 +753,7 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 | **0** (3–4 ngày) | Phase 0 (mục 13) | `docs/phase0-findings.md` — mỗi dòng có URL hoặc "không xác minh được" |
 | 1–2 | Ingest + schema + parser `prov-*` | `count(*) WHERE cap='dieu'` = **220** cho BLLĐ |
 | 3 | Retrieval BM25+dense+RRF, 50 câu golden đầu | Recall@5 có số baseline |
-| 4 | `golden_qa` đủ + `trap` 40 + eval harness + **bảng so sánh 5 embedding** | `eval/results/` có bảng đầu |
+| 4 | `golden_qa` đủ 100–150 + `trap` 40–50 + **`boundary` 25** + eval harness + **bảng so sánh 6 embedding** | `eval/results/` có bảng đầu |
 | 5–6 | Graph tra cứu + verifier 2 tầng + hiệu lực 3 mức | 3 dòng đầu bảng ablation |
 | 7 | Soạn thảo + rule engine + test cài lỗi | 3 metric soạn thảo có số |
 | 8 | FE + deploy Railway | URL live, click citation ra nguyên văn |
@@ -782,6 +793,7 @@ Chạy: `python -m eval.run --config configs/full.yaml` → `eval/results/`.
 | Railway không bật pgvector | TB | **Thấp** | numpy in-process, 15–40 MB |
 | Corpus lọc ra nhiễu | TB | TB | Phase 0 #5 lọc tay |
 | `golden_qa` bị nghi vì LLM tự sinh | **Cao** | **Cao** | Quy trình 3 bước (11.1) + báo cáo tỉ lệ loại |
+| Không kịp xây 215–275 item eval | **Cao** | **Rất cao** | Lịch riêng (11.1); `golden_qa` chia 2 nhịp tuần 3/4; cắt cỡ tập trước khi cắt chất lượng quy trình review |
 | NĐ 12/2022 hết hiệu lực **2026-09-10** | Chắc chắn | Thấp | Theo dõi văn bản thay; đừng hardcode mức phạt |
 | Hết ngân sách API | Thấp | TB | Spend limit + cache + log cost |
 | Trượt deadline | TB | Cao | Tuần 9 là mốc đủ bảo vệ; 10–12 chỉ viết |
