@@ -246,10 +246,48 @@ Thêm: `id` HTML **không phải khóa chính đáng tin** (quan sát 1 node xu�
 | `Alibaba-NLP/gte-multilingual-base` | 305M | 0.61 GB | 38.38 | Avg cao hơn bge-m3 |
 | **`intfloat/multilingual-e5-small`** | 118M | **0.12 GB int8 ONNX ship sẵn** | **34.12** | Vừa Railway Free. Chênh AITeamVN **0.06 điểm** cho **19× nhỏ hơn** |
 
-**Kế hoạch:**
-- Tuần 1–3: chạy `multilingual-e5-small` int8 ONNX — **cùng model cho ingest (local) và query (Railway Free), $0**
-- Tuần 4: eval offline 5 model trên `golden_qa` Lao động, **chạy trên laptop, không tốn RAM production**
-- Sau tuần 4: AITeamVN thắng đáng kể → tự quantize int8 (~$10/tháng) hoặc Hobby. Không → giữ e5-small, $0
+#### Key đã có trong `.env` (kiểm 2026-08-27)
+
+`OPENAI_API_KEY` · `COHERE_API_KEY` · `LANGCHAIN_API_KEY` + `LANGCHAIN_TRACING_V2`
+
+**Kế hoạch (đã sửa sau khi biết có sẵn key):**
+- **Tuần 1–3: OpenAI `text-embedding-3-small`** — key có sẵn, zero setup, **không giới hạn call**. Chi phí cả khóa luận: corpus ~4.000 chunk × ~400 token = 1,6M token → **$0.032**; cộng eval queries ≈ **$0.05 tổng**. Quan trọng hơn tiền: **xóa câu hỏi RAM Railway khỏi tuần 1–3** — không phải dựng ONNX runtime, không phải lo cap 0.5 GB.
+- **Tuần 4:** eval offline trên `golden_qa` Lao động, **chạy trên laptop**. `e5-small int8` từ điểm khởi đầu chuyển thành **một dòng trong bảng** — dòng đo phương án "hạ tầng $0".
+- **Sau tuần 4:** chốt theo số đo, không theo phán đoán.
+
+#### Bảng so sánh embedding tuần 4 — ứng viên đã chốt
+
+| Model | Nguồn | Dim | ctx | Chi phí | Ghi chú |
+|---|---|---|---|---|---|
+| **OpenAI `text-embedding-3-small`** | API (key có sẵn) | 1536 (truncate được) | 8192 | $0.02/1M | **mặc định tuần 1–3** |
+| `Cohere embed-v4.0` | API (key có sẵn, **trial**) | 1536 | 8192 | xem ghi chú trial | smoke test Vietnamese: **Recall@1 4/4** |
+| `AITeamVN/Vietnamese_Embedding` | local | 1024 | 2048 | $0 offline | Legal Zalo Acc@1 0.727 |
+| `BAAI/bge-m3` | local | 1024 | 8192 | $0 offline | VN-MTEB retrieval 39.84 |
+| `Alibaba-NLP/gte-multilingual-base` | local | 768 | 8192 | $0 offline | VN-MTEB Avg 65.22 |
+| `intfloat/multilingual-e5-small` int8 | local | 384 | 512 | $0, **vừa Railway Free** | đo phương án hạ tầng $0 |
+
+**Cohere embed — smoke test đã chạy, và giới hạn đã đo.** Với 4 điều luật BLLĐ thật (Đ17 K1, Đ25 K4, Đ26, Đ127 K2) và 4 câu hỏi giọng dân sinh: **Recall@1 = 4/4**, dù docs Cohere không nêu tên tiếng Việt. **Nhưng đây là smoke test, KHÔNG phải eval** — 4 văn bản chủ đề tách biệt, biên điểm mỏng (câu 1 hơn 0.011, câu 4 hơn 0.041). Với 3.000 chunk chứa nhiều điều cùng nói về lương/thử việc, biên đó sẽ sập. Không được trích 4/4 như kết quả trong khóa luận.
+
+Giới hạn trial key (đọc từ response header): `x-endpoint-monthly-call-limit: 1000`, `x-trial-endpoint-call-limit: 100`/phút. Batch 96 text/call thì ingest 4.000 chunk ≈ 42 call — vừa. Nhưng docs Cohere ghi trial key *"not permitted to be used for production or commercial purposes"* ⇒ **không dùng cho URL live**, chỉ dùng đo trong tuần 4.
+
+`embed-multilingual-v3.0` ctx chỉ **512 token** → truncate chunk cấp Điều. Nếu dùng Cohere thì phải là `embed-v4.0` (ctx 8192).
+
+#### Reranker — ứng viên đã chốt
+
+Rerank gọi **1 lần/query** với top-20 candidate ⇒ số call rất thấp ⇒ giới hạn 1.000 call/tháng của Cohere trial **không cắn** ở workload này.
+
+| Model | ctx | Nguồn |
+|---|---|---|
+| **`Cohere rerank-v4.0-fast`** / `rerank-v4.0-pro` | **32.768** | key có sẵn (trial, đủ cho eval) |
+| `Cohere rerank-multilingual-v3.0` | 4.096 | dự phòng |
+| `BAAI/bge-reranker-v2-m3` | 8.192 | local, $0 |
+| `jina-reranker-v3` | 134.144 | $0.05/1M, **0/29 model Jina nhắc tiếng Việt** |
+
+Cả bốn đều **chưa có số tiếng Việt công bố** → phải tự đo, và đó là thêm một dòng ablation.
+
+#### Observability
+
+`LANGCHAIN_API_KEY` + `LANGCHAIN_TRACING_V2` đã có ⇒ LangSmith cho latency/token/cost **theo từng node** miễn phí. Dùng nó thay cho phần lớn việc tự log; bảng `traces` chỉ cần giữ những gì eval harness đọc trực tiếp (`claims_after_tier1/2`, `abstained`, `config_name`).
 
 Ràng buộc cứng: **corpus và query phải cùng model** (cùng vector space).
 
