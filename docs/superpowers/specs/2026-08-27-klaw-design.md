@@ -743,13 +743,78 @@ Phải viết điều này vào chương Phương pháp của khóa luận. Nế
 ## 8. Backend & API
 
 ```
-POST /api/v1/tra-cuu     {query, as_of_date?}     → {answer, citations[], warnings[], abstained, trace_id}
-POST /api/v1/soan-thao   {loai_van_ban, facts{}}  → {document, clauses[], audit_report, trace_id}
-POST /api/v1/soat        {loai_van_ban, text}     → {audit_report, trace_id}   # soát VB người dùng dán vào
-GET  /api/v1/van-ban/{id}                         → provision tree
-POST /api/v1/feedback    {trace_id, verdict}      → ghi bảng traces
+POST /api/v1/tra-cuu       → TraCuuResponse
+POST /api/v1/soan-thao     → SoanThaoResponse
+POST /api/v1/soat          → SoatResponse          # soát văn bản người dùng dán vào
+GET  /api/v1/van-ban/{id}  → VanBanResponse        # LAZY — xem 8.0c
+POST /api/v1/feedback      → {ok: true}
 GET  /health
 ```
+
+#### 8.0a `result_type` là ENUM, không phải boolean `abstained`
+
+Mục 6.2 định **bốn** loại kết quả, nên response không thể dùng cờ `abstained`:
+
+```python
+class ResultType(StrEnum):
+    ANSWER            = "answer"             # có claim qua verify từ tầng sâu
+    PARTIAL_COVERAGE  = "partial_coverage"   # chỉ trúng tầng nông — nêu luật, không diễn giải
+    ABSTAIN           = "abstain"            # không tìm thấy căn cứ ở cả hai tầng
+    OUT_OF_SCOPE      = "out_of_scope"       # route xác định ngoài phạm vi
+
+class Citation(BaseModel):
+    provision_id: str
+    duong_dan: str          # "45/2019/QH14 > Điều 25 > Khoản 2"  ← canonical
+    bo_luat: str            # "Bộ luật Lao động"  ← cần thiết từ khi có 6 Bộ luật
+    so_ky_hieu: str         # KHÔNG dùng title (doc_id 96117 có title = "Hàng hải")
+    quote: str              # nguyên văn, đã qua verify tầng 1
+    hieu_luc: EffectivityVerdict     # con_hieu_luc | het_hieu_luc | bi_thay_the | mot_phan_khong_xac_dinh
+    tin_cay: Literal["cao","trung_binh","thap"]
+
+class TraCuuResponse(BaseModel):
+    result_type: ResultType
+    answer: str | None                 # None khi ABSTAIN / OUT_OF_SCOPE
+    citations: list[Citation]
+    warnings: list[str]
+    coverage_note: str | None          # chỉ có ở PARTIAL_COVERAGE: tên luật + Điều liên quan
+    trace_id: str
+    config_name: str                   # echo lại, để đối chiếu với eval
+```
+
+#### 8.0b `audit_report` — shape dùng chung cho `/soan-thao` và `/soat`
+
+```python
+class AuditFinding(BaseModel):
+    loai: Literal["thieu_noi_dung","trai_luat","citation_khong_hop_le"]
+    muc_do: Literal["chan","canh_bao"]
+    mo_ta: str
+    dieu_khoan_lien_quan: str | None   # đoạn text trong văn bản bị soát
+    can_cu: Citation | None            # findings loại trai_luat/thieu_noi_dung PHẢI có căn cứ
+    rule_id: str | None                # khớp id trong rules.yaml
+
+class AuditReport(BaseModel):
+    dat: bool                          # không có finding muc_do="chan"
+    completeness: float                # 0..1, denominator đổi theo ngành (7.2 Đ21.3)
+    findings: list[AuditFinding]
+    so_dieu_khoan: int
+    self_audit: bool                   # True = đang soát output do chính hệ thống sinh
+```
+
+`self_audit=True` là cờ để tính **self-audit catch rate** (7.4) — phân biệt "soát văn bản của mình" với "soát văn bản người dùng".
+
+#### 8.0c Chọn cấu hình ablation, và lazy provision tree
+
+**Cấu hình:** mọi POST nhận `config_name: str | None`. `None` → dùng `.env`. Có giá trị → nạp preset từ `eval/configs/<name>.yaml` và ghi vào `traces.config_name`. Nếu không có cơ chế này thì chạy 7 cấu hình ablation nghĩa là **sửa `.env` rồi restart 7 lần** — không tự động hóa được, không tái lập được.
+
+**`GET /van-ban/{id}` PHẢI lazy.** Bộ luật Dân sự **689 điều**, Tố tụng dân sự **517 điều** — trả cả cây là hàng trăm KB JSON cho mỗi lần click citation.
+
+```
+GET /api/v1/van-ban/{doc_id}                        → metadata + danh mục Chương/Mục (KHÔNG có Điều)
+GET /api/v1/van-ban/{doc_id}/dieu/{so_dieu}         → một Điều + các Khoản/Điểm con
+GET /api/v1/van-ban/{doc_id}?around={provision_id}  → Điều đó + 2 Điều trước/sau (cho click citation)
+```
+
+Dạng thứ ba là dạng FE dùng nhiều nhất: click citation → mở đúng Điều kèm ngữ cảnh lân cận, không tải cả bộ luật.
 
 **Không SSE token streaming ở MVP.** Verifier chạy *sau* generate → stream sẽ hiện text rồi rút lại, tệ hơn không stream. Thay bằng progress event thô. Thêm khi latency đo thực > 8s.
 
@@ -879,6 +944,53 @@ Field cần **gỡ**: `openai_api_key`, `chroma_persist_dir`, `model_name` (thay
 
 **Vì sao đưa tham số retrieval vào config thay vì hardcode:** bảng ablation 11.3 có 7 cấu hình và bảng embedding có 6 model. Nếu các con số này nằm trong code thì mỗi dòng ablation là một lần sửa code — không tái lập được, và không ghi được `config_name` vào `traces`. Là biến thì mỗi cấu hình là một file `.env` hoặc một dòng CLI.
 
+### 8.3 Cấu trúc file — ánh xạ lên template có sẵn
+
+Template đã có `src/agents/ src/api/ src/models/ src/services/`. KLAW map lên đúng đó, không dựng lại:
+
+```
+src/
+  agents/
+    graph_tra_cuu.py         # route→rewrite→retrieve→expand→generate→verify→assemble
+    graph_soan_thao.py       # collect→retrieve_req→generate_clauses→audit (tự soát)
+    state.py                 # KLawState (mục 6)
+    nodes/
+      route.py  rewrite_query.py  retrieve_hybrid.py  expand.py
+      generate_claims.py  verify_tier1.py  verify_tier2.py  assemble.py
+      draft_generate.py   draft_audit.py
+  api/routes.py              # 6 endpoint (8.0)
+  models/
+    schemas.py               # request/response Pydantic (8.0a, 8.0b)
+    domain.py                # Document Provision Chunk Claim Citation AuditFinding
+  services/
+    llm.py                   # OpenRouter chat — 3 vai (7b.1)
+    embedding.py             # OpenRouter /embeddings
+    rerank.py                # OpenRouter /rerank — tùy chọn
+    retrieval.py             # BM25 + dense + RRF
+    effectivity.py           # cơ chế 3 mức + guard (5.2)
+    rules.py                 # rule engine đọc config/*.yaml
+    db.py
+  config.py                  # Settings (8.1 ánh xạ)
+scripts/
+  download_data.py           # 2 file parquet → data/raw/
+  fetch_moj.py               # 21+6 doc_id → toàn văn
+  parse_prov.py              # parser prov-* + 4 cạm bẫy (4.5)
+  ingest.py                  # → Postgres, idempotent qua checksum
+eval/
+  run.py  metrics.py
+  configs/*.yaml             # 7 cấu hình ablation
+  datasets/                  # golden_qa trap boundary draft_facts (VÀO GIT)
+  results/
+config/
+  rules.yaml                 # 5 rule legality (7.3)
+  checklist_hdld.yaml  checklist_noi_quy.yaml  checklist_ky_luat.yaml
+  minimum_wage.yaml          # bảng vùng I–IV, NĐ 293/2025
+migrations/001_init.sql
+frontend/                    # Vite React → build vào src/static/
+```
+
+**Mỗi node một file** vì verify tầng 1 là logic thuần → TDD từng node dễ, và test một node không cần dựng cả graph.
+
 ### 8.2 Database: Railway Postgres
 
 | | Railway PG | Supabase free |
@@ -898,11 +1010,40 @@ Quyết định theo **pause khi idle**: bảo vệ vào ngày cố định, DB 
 
 **React (Vite) build static, FastAPI `StaticFiles` mount.** Một service Railway, một domain, **không CORS**, không lệch env FE/BE.
 
-Hai màn hình:
-- `/` — chat tra cứu; citation **click được → mở nguyên văn điều luật**; badge `✓ đã kiểm chứng` · `⚠ hết hiệu lực một phần` · `✗ không tìm thấy căn cứ`
-- `/soan-thao` — form nhập fact (gồm **`vung` bắt buộc**) → preview → **báo cáo kiểm tra** (thiếu mục nào, điều khoản nào trái luật) → tải `.docx`
+### 9.1 Ba màn hình
 
-Bỏ ở MVP: auth, tài khoản, lịch sử chat phía client. Giữ `trace_id` + bảng `traces` server-side (**bắt buộc** — dữ liệu cho chương đánh giá).
+| Route | Chức năng | Endpoint |
+|---|---|---|
+| `/` | Chat tra cứu | `POST /api/v1/tra-cuu` |
+| `/soan-thao` | Nhập fact → sinh văn bản → **báo cáo tự soát** | `POST /api/v1/soan-thao` |
+| `/soat` | **Dán văn bản có sẵn → soát** | `POST /api/v1/soat` |
+
+Màn `/soat` gần như miễn phí (cùng `AuditReport`) và là ca dùng thực tế nhất — người ta *đã có* hợp đồng và không biết mình có bị ép không.
+
+### 9.2 Bốn trạng thái kết quả, bốn cách hiển thị
+
+`result_type` có 4 giá trị (8.0a) nên UI phải có 4 xử lý khác nhau — đây là chỗ dễ làm thiếu:
+
+| `result_type` | Hiển thị |
+|---|---|
+| `answer` | Câu trả lời + citation click được. Badge theo `hieu_luc` từng citation: `✓ còn hiệu lực` · `⚠ hết hiệu lực một phần — CSDL không công bố dữ liệu cấp điều khoản` · `✗ đã bị thay thế` |
+| `partial_coverage` | **Không** hiện câu trả lời. Hiện `coverage_note`: tên luật + Điều liên quan + câu nói rõ *"KLAW chưa phủ nghị định hướng dẫn lĩnh vực này"* + link văn bản gốc |
+| `abstain` | *"Không tìm thấy căn cứ pháp lý cho câu hỏi này"* + gợi ý diễn đạt lại. **Trình bày như hành vi đúng, không như lỗi** |
+| `out_of_scope` | Nêu rõ phạm vi: 6 Bộ luật; soạn thảo chỉ Lao động |
+
+### 9.3 Citation click-to-verify — tính năng quan trọng nhất
+
+Đây là chỗ hội đồng tự kiểm chứng đóng góp của bạn tại chỗ. Yêu cầu:
+
+- Mỗi citation hiện **`bo_luat` + `duong_dan`** (không hiện `title` — `doc_id 96117` có title = `"Hàng hải"`)
+- Click → gọi `GET /api/v1/van-ban/{doc_id}?around={provision_id}` → panel bên cạnh mở đúng Điều **kèm 2 Điều trước/sau**, highlight đoạn `quote`
+- **Không tải cả cây** — BLDS 689 điều
+
+### 9.4 Bỏ ở MVP
+
+Auth · tài khoản người dùng · lịch sử chat phía client · **tải `.docx`** (mục 7 đã bỏ python-docx; xuất Markdown/HTML).
+
+Giữ `trace_id` + bảng `traces` server-side — **bắt buộc**, là dữ liệu cho chương đánh giá.
 
 ---
 
