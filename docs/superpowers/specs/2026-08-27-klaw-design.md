@@ -11,7 +11,8 @@ Hệ thống AI Agent hai module: (1) **tra cứu pháp luật** có dẫn ngu�
 | Tham số | Giá trị |
 |---|---|
 | Bối cảnh | Đồ án/khóa luận tốt nghiệp, có hội đồng bảo vệ |
-| Lĩnh vực pháp luật | **Luật Lao động** (chỉ một lĩnh vực) |
+| Phạm vi TRA CỨU | **Cả 6 Bộ luật đang có hiệu lực của Việt Nam** |
+| Phạm vi SOẠN THẢO | **Chỉ Lao động** (cụm BLLĐ + NĐ/TT hướng dẫn) |
 | Đóng góp chính | **Chống ảo giác bằng trích dẫn kiểm chứng được** |
 | Thời lượng giả định | ~12 tuần (điều chỉnh nếu khác) |
 | Hạ tầng | OpenRouter (LLM) · Railway (deploy, Docker) · Postgres |
@@ -25,7 +26,7 @@ Hệ thống AI Agent hai module: (1) **tra cứu pháp luật** có dẫn ngu�
 
 ### Ngoài phạm vi (out of scope)
 
-Lĩnh vực pháp luật ngoài Lao động – Tiền lương · **benchmark ngoại vi ALQAC/Zalo** (license không khai báo) · **phủ sâu 6 luật ở tầng nông** (chỉ nêu ranh giới, không diễn giải) · tư vấn vụ việc cụ thể · xác thực người dùng · thanh toán · app di động · đa ngôn ngữ.
+Soạn thảo văn bản ngoài lĩnh vực Lao động · phủ sâu NĐ/TT hướng dẫn của 5 Bộ luật ngoài Lao động · các ngành luật không có Bộ luật (Hành chính, Đất đai, Thuế, HN&GĐ…) · **benchmark ngoại vi ALQAC/Zalo** (license không khai báo) · **phủ sâu 6 luật ở tầng nông** (chỉ nêu ranh giới, không diễn giải) · tư vấn vụ việc cụ thể · xác thực người dùng · thanh toán · app di động · đa ngôn ngữ.
 
 ---
 
@@ -128,6 +129,31 @@ Luật ATVSLĐ 84/2015/QH13 (`70811`) nằm ở **tầng SÂU** (đã ở tầng
 
 **Quy mô ước tính:** tầng sâu ~15 văn bản → 1.500–2.500 điều → ~2.000–4.000 chunk; tầng nông +6 luật → +~600–900 điều. Tổng vector ~4–8 MB. Retrieval nhanh, eval rẻ.
 
+#### Tầng SÂU-A: 6 Bộ luật — trục tra cứu (đã xác minh qua `metadata.parquet` 2026-08-27)
+
+CSDL quốc gia có **17 văn bản loại `Bộ luật`**, trong đó **6 đang có hiệu lực**:
+
+| Bộ luật | `doc_id` | Số hiệu | Hiệu lực từ | `tinh_trang_hieu_luc` |
+|---|---|---|---|---|
+| Dân sự | **95942** | 91/2015/QH13 | 01/01/2017 | **Còn hiệu lực** |
+| Hình sự | **96122** | 100/2015/QH13 | 01/01/2018 | Hết hiệu lực một phần |
+| Tố tụng dân sự | **96115** | 92/2015/QH13 | 01/07/2016 | Hết hiệu lực một phần |
+| Tố tụng hình sự | **96172** | 101/2015/QH13 | 01/01/2018 | Hết hiệu lực một phần |
+| **Lao động** | **139264** | 45/2019/QH14 | 01/01/2021 | Hết hiệu lực một phần |
+| Hàng hải Việt Nam | **96117** | 95/2015/QH13 | 01/07/2017 | Hết hiệu lực một phần |
+
+**Vì sao "6 Bộ luật" là phạm vi tốt:** đó là một **tập trọn vẹn, kiểm chứng được, không tùy tiện** — khác với "2 lĩnh vực" hay "vài luật". Và chi phí thật rất thấp: **6 văn bản**, ước ~2.700 điều, xấp xỉ đúng cỡ corpus một lĩnh vực. Parser `prov-*` không cần sửa một dòng vì cấu trúc HTML giống nhau trên toàn bộ 171.556 văn bản.
+
+**Bất đối xứng quyết định phạm vi này:** module **tra cứu** mở rộng gần như miễn phí (chỉ thêm `doc_id` + câu hỏi eval); module **soạn thảo** thì đắt (mỗi loại văn bản cần bộ rule + checklist riêng, phải xác minh căn cứ pháp lý từng cái). Nên mở cái rẻ, giữ nguyên cái đắt.
+
+**⚠ Ba lỗi dữ liệu MOJ phát hiện khi xác minh — dùng làm bằng chứng chương kết quả:**
+
+1. **`96117` có `title` = `"Hàng hải"`** — mất cả cụm "Bộ luật … Việt Nam số 95/2015/QH13". Hệ thống nào tra theo tên văn bản sẽ trượt. `so_ky_hieu` thì đúng ⇒ **định danh phải dựa vào `so_ky_hieu`/`doc_id`, không dựa vào `title`.**
+2. **5/6 Bộ luật ở trạng thái "Hết hiệu lực một phần"** (chỉ BLDS 91/2015 còn hiệu lực trọn vẹn), mà dữ liệu bãi bỏ **cấp điều khoản không công khai** (mục 5.1) ⇒ **với 83% các Bộ luật của Việt Nam, không ai tra được từ CSDL quốc gia rằng điều nào đã chết.** Đây là con số mạnh nhất chứng minh pain point #2.
+3. **`nganh` = `NaN` cho 5/6 Bộ luật**; chỉ Hàng hải có giá trị. Cộng với `linh_vuc` sai 66% ⇒ **metadata phân loại của CSDL không dùng để lọc được**, đúng như mục 4.3 đã kết luận.
+
+#### Tầng SÂU-B: cụm Lao động — trục soạn thảo
+
 **Vòng 1 — 15 văn bản lõi, `tinh_trang` đã fetch live từng cái:**
 
 | so_hieu | Loại | Tên | Hiệu lực | Tình trạng | `doc_id` |
@@ -223,6 +249,8 @@ Nhưng `documentContent.content` **đã được đánh dấu cấu trúc sẵn*
 | 2 | **`prov-content` KHÔNG có `id`** — 157/1332 thẻ chỉ có `(class, style)` | **Gắn vào node đang ở đỉnh stack, KHÔNG tạo node mới.** Parser đòi `id` sẽ **mất trắng nội dung Điều 26 (tiền lương thử việc)** và câu dẫn Điều 25. |
 | 3 | **`<br>` dính chữ** | Thay `<br>` bằng `' '` **trước** khi strip tag. Nếu không: `"Chương IIVIỆC LÀM…"` |
 | 4 | **Bảng bị bẹp** — `<td>` hạ cấp thành `prov-content` rời | **Parse `<table>` bằng đường riêng**, giữ hàng/cột, lưu dạng markdown vào `noi_dung`. Bảng lương NĐ 293/2025 vỡ thành 15 mảnh nếu đi đường `prov-*`. |
+
+Thêm: **không định danh văn bản bằng `title`** — `doc_id 96117` có `title` = `"Hàng hải"` thay vì tên đầy đủ. Dùng `so_ky_hieu` hoặc `doc_id`.
 
 Thêm: `id` HTML **không phải khóa chính đáng tin** (quan sát 1 node xuất hiện 2 lần) → lưu vào `source_node_id` nullable, non-unique; PK là id của ta.
 
@@ -799,6 +827,18 @@ Lý do: mục 5.1 đã xác định dữ liệu bãi bỏ cấp điều khoản 
 
 Ca thứ hai là **test case then chốt của cả đề tài**: nó chứng minh cơ chế Mức 2 (đồ thị thay thế) bắt được lỗi mà chính cơ sở dữ liệu quốc gia bỏ sót. Baseline không có cơ chế này sẽ trả lời sai với vẻ hoàn toàn tự tin, kèm citation hợp lệ. Bổ sung thêm ca từ NĐ 157/2018, 141/2017, 122/2015 (cùng lỗi trạng thái).
 
+**Phân bổ `golden_qa` — KHÔNG tăng tổng, chỉ chia lại.** Bằng chứng tính tổng quát không cần 150 câu mỗi lĩnh vực, chỉ cần đủ để chứng minh cơ chế không vỡ:
+
+- **90 câu Lao động** → giữ độ sâu cho **bảng ablation chính** (11.3), bảng đó không đổi
+- **60 câu × 5 Bộ luật khác** (12/bộ) → **bảng tính tổng quát của cơ chế** (11.4)
+
+Hai bảng, hai tuyên bố. Bảng chính vẫn kiểm soát trên một lĩnh vực; bảng tổng quát trả lời câu *"cơ chế này có chỉ chạy được với luật lao động không?"* — câu hội đồng chắc chắn hỏi nếu chỉ có một lĩnh vực.
+
+Ba thứ được thêm **miễn phí** nhờ mở sang 6 Bộ luật:
+- **Tập bẫy mạnh hơn** — "ngoài phạm vi" thành câu hỏi thật khó (thuế, đất đai, hành chính: **không Bộ luật nào phủ**), thay vì chỉ "không phải luật lao động"
+- **Định tuyến thành bài toán thật** — retrieval phải chọn đúng **Bộ luật**, không chỉ đúng Điều
+- **Thêm một chiều ablation**: Recall@5 trên corpus 1 lĩnh vực **vs** corpus 6 Bộ luật → **độ nhạy theo kích thước corpus**
+
 **⚠ Khối lượng: 215–275 item có ground truth — đây là hạng mục việc tay LỚN NHẤT của dự án**, lớn hơn cả viết verifier. Phải có lịch riêng, không làm tranh thủ:
 
 | Tập | Item | Tuần | Ghi chú |
@@ -841,6 +881,23 @@ Hai kiểu sai phải đếm riêng: **bịa chi tiết** (nghiêm trọng) và 
 | + verify tầng 1 | | | | | | | | |
 | + verify tầng 2 (**KLAW**) | | | | | | | | |
 | Hướng B: retrieve-then-cite | | | | | | | | |
+
+### 11.4 Bảng tính tổng quát của cơ chế
+
+Chạy **cấu hình KLAW đầy đủ** (verify 2 tầng) trên 60 câu của 5 Bộ luật ngoài Lao động:
+
+| Bộ luật | Số câu | R@5 | Citation P | Abstain sai | Halluc. |
+|---|---|---|---|---|---|
+| Dân sự (91/2015) | 12 | | | | |
+| Hình sự (100/2015) | 12 | | | | |
+| Tố tụng dân sự (92/2015) | 12 | | | | |
+| Tố tụng hình sự (101/2015) | 12 | | | | |
+| Hàng hải (95/2015) | 12 | | | | |
+| **Lao động (đối chứng, 90 câu)** | 90 | | | | |
+
+Câu hỏi bảng này trả lời: **cơ chế verify có chỉ hoạt động với Bộ luật Lao động, hay tổng quát?** Nếu citation precision giữ ổn định trên cả 6 Bộ luật thì tuyên bố tổng quát có bằng chứng. Nếu tụt ở một bộ nào thì đó cũng là kết quả — và phải giải thích tại sao (văn phong pháp điển khác, cấu trúc dẫn chiếu dày hơn…).
+
+### 11.5 Ghi chú về đọc số
 
 Cột **"Abstain sai"** cố ý có mặt: từ chối quá nhiều là failure mode thật và là **giá phải trả** của cơ chế. Báo cáo trung thực làm khóa luận mạnh hơn.
 
@@ -900,7 +957,7 @@ FE để cuối vì nó chỉ hiển thị, và tính năng quan trọng nhất 
 |---|---|---|
 | 1 | ✅ **XONG** — `OPENROUTER_API_KEY` đã có và hoạt động. Việc còn lại: quyết có nâng credit từ $3 hay không | biết được ablation chạy trong $2.43 hay cần nạp thêm |
 | 2 | Thêm service postgres vào `docker-compose.yml`: image `pgvector/pgvector:pg16` + bật `unaccent` | `docker-compose up` → `SELECT extname FROM pg_extension` có `vector`, `unaccent` |
-| 3 | Tải 2 file parquet (25 MB) vào `data/raw/`, thêm vào `.gitignore` | `ls -la data/raw/` thấy 15,1 MB + 9,4 MB |
+| 3 | ✅ **XONG** — `data/raw/metadata.parquet` (14 MB) đã tải, đã dùng để xác minh 6 Bộ luật. Còn `relationships.parquet` (9,4 MB) + thêm `data/raw/` vào `.gitignore` | `ls -la data/raw/` |
 | 4 | Kiểm `/doc/{id}/related` có trả cạnh **đi vào** không | Trả lời được: có → bỏ `relationships.parquet`; không → giữ |
 | 5 | Sửa `.env`: `DATABASE_URL` → Postgres local, gỡ `CHROMA_PERSIST_DIR`, **gỡ `OPENAI_API_KEY` placeholder** (đang là `sk-your-...-here`, gây 401 khó hiểu nếu để lại) | `docker-compose up` connect được DB |
 
