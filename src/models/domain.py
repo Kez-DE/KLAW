@@ -17,6 +17,10 @@ class Cap(StrEnum):
     # cây quy phạm. Đứng CUỐI enum để `bac` của 7 cấp trên không dịch; nó không
     # bao giờ vào stack nên `bac` của nó không có nghĩa thứ bậc.
     phu_luc = "phu_luc"
+    # Lời mở đầu (tiêu ngữ, số hiệu, tên văn bản, chuỗi "Căn cứ …") — ĐỐI XỨNG
+    # với `phu_luc`: chữ nằm TRƯỚC thẻ prov-* đầu tiên, cũng là cấp TÀI LIỆU và
+    # cũng không trích dẫn được. Cùng lý do đứng cuối enum.
+    mo_dau = "mo_dau"
 
     @property
     def bac(self) -> int:

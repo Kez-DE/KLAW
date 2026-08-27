@@ -55,7 +55,7 @@ CLASS_TO_CAP = {
 
 NHAN = {Cap.phan: "Phần", Cap.chuong: "Chương", Cap.muc: "Mục",
         Cap.tieu_muc: "Tiểu mục", Cap.dieu: "Điều", Cap.khoan: "Khoản",
-        Cap.diem: "Điểm", Cap.phu_luc: "Phụ lục"}
+        Cap.diem: "Điểm", Cap.phu_luc: "Phụ lục", Cap.mo_dau: "Mở đầu"}
 
 # Cấp TRÍCH DẪN ĐƯỢC — nơi verifier tầng 1 đối chiếu câu trích vào văn bản.
 # `noi_dung` rỗng ở đây nghĩa là phép kiểm "câu trích khớp nguyên văn" không có
@@ -69,9 +69,10 @@ CITABLE = {Cap.dieu, Cap.khoan, Cap.diem}
 # Điều 25"). Nhưng parent_local_id vẫn giữ nguyên cây thật (spec 4.4).
 CONTAINER_CAPS = {Cap.phan, Cap.chuong, Cap.muc, Cap.tieu_muc}
 
-# Cấp có NHÃN xuất hiện trong text ("Phần"/"Chương"/"Mục"/"Tiểu mục"/"Điều").
-# Khoản/Điểm chỉ có số ("1.", "a)") nên không dùng được dấu hiệu nhãn — và vì
-# thế chúng KHÔNG BAO GIỜ bị gộp, đúng bất biến cần giữ.
+# Cấp có NHÃN CHỮ xuất hiện trong text ("Phần"/"Chương"/"Mục"/"Tiểu mục"/"Điều").
+# Khoản/Điểm không nằm ở đây vì nhãn của chúng KHÔNG phải chữ — với chúng SỐ HỌC
+# LÀ NHÃN, nên `_la_tiep_noi_tieu_de` đọc dấu hiệu "không mở đầu bằng nhãn" từ
+# chính việc không parse được số. Cùng một luật, hai cách đọc nhãn.
 LABEL_LEVELS = {Cap.phan, Cap.chuong, Cap.muc, Cap.tieu_muc, Cap.dieu}
 
 # Cấp phải có số hiệu vì nhãn của chúng LUÔN kèm số trong văn bản nguồn. Rỗng =
@@ -167,9 +168,18 @@ def _la_tiep_noi_tieu_de(text: str, cap: Cap, so: str) -> bool:
     prov-article tách tiêu đề với id KHÁC nhau; BLDS có 22 thẻ prov-subsection
     tách "Tiểu mục N" khỏi tên; BLHS có "Chương " trơ. Một quy tắc phủ cả bốn.
     """
-    if so or cap not in LABEL_LEVELS:
+    if so:
         return False
-    return not _khoa(text).lower().startswith(NHAN[cap].lower())
+    if cap in LABEL_LEVELS:
+        return not _khoa(text).lower().startswith(NHAN[cap].lower())
+    # Khoản/Điểm: SỐ HỌC LÀ NHÃN, nên "không parse được số" CHÍNH LÀ dấu hiệu
+    # "không mở đầu bằng nhãn" ở trên — cùng một luật, không phải ca riêng thứ
+    # sáu. Không gộp thì Khoản cha bị CẮT CỤT (đoạn hai của nó đi sang một node
+    # khác) và một trích dẫn ĐÚNG vào khoản đó thất bại ở tầng 1: hệ thống
+    # ABSTAIN một câu trả lời đúng. An toàn vì `RE_SO[khoan]` nhận cả số chỉ có
+    # khoảng trắng phân cách ("1 Trường hợp…"), nên Khoản có số thật gần như
+    # không thể lọt xuống nhánh này — và số mảnh đã gộp được WARN lúc build.
+    return cap in (Cap.khoan, Cap.diem)
 
 
 def _don_vi(node: Tag):
@@ -203,7 +213,16 @@ def _don_vi(node: Tag):
                 if t:
                     yield cap, t, child
             elif "prov-content" in (child.get("class") or []):
-                yield None, _text(child), child
+                # CÙNG guard `if t:` như nhánh trên, vì cùng một lý do đo bằng
+                # vị trí: mốc `cuoi` của parse_provisions tính theo thẻ MANG
+                # class prov-*, nên một `<p class="prov-content"></p>` rỗng ở
+                # cuối trang đẩy mốc VƯỢT QUA Phụ lục, `duoi` thành rỗng, và
+                # toàn bộ chữ đuôi sập lại vào provision đang mở — đúng bug
+                # 42.636 ký tự đã chữa ở 1ddf020. Thẻ không có chữ không mang
+                # thông tin vị trí; MOJ đã ship thẻ prov-* trống trơn thật.
+                t = _text(child)
+                if t:
+                    yield None, t, child
             else:
                 yield from _don_vi(child)
 
@@ -316,6 +335,8 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
     # TÁCH CHỮ MỒ CÔI THEO VỊ TRÍ. Đã đo phân bố so với thẻ prov-* CUỐI CÙNG:
     # 152668 có 42.636 ký tự ở đuôi / 647 xen giữa; 152670 25.316/560; 134611
     # 21.296/653 — 97–98% ở đuôi. Ranh giới là thật, không trùng hợp.
+    #   trước thẻ prov-* đầu = lời mở đầu (tiêu ngữ, tên văn bản, "Căn cứ …") →
+    #     MỘT bản ghi `mo_dau` cho mỗi văn bản, cũng KHÔNG trích dẫn được
     #   xen giữa hai thẻ prov-* = tiếp nối thật của provision đang mở (đó là thứ
     #     giữ được 232 ký tự của BLDS Điều 493) → gắn như cũ
     #   sau thẻ prov-* cuối = nội dung đuôi (Phụ lục, khối chữ ký) → MỘT bản ghi
@@ -331,18 +352,23 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
                 if cap is not None or tag is not None), default=-1)
     duoi = [t for _, t, _ in units[cuoi + 1:]]
 
+    gop_khoan_diem = 0
     for cap, text, tag in units[:cuoi + 1]:
         if cap is None:
-            # Nguyên tắc 1: không bao giờ bỏ. Chưa có node nào mở → giữ lại và
-            # gắn vào node ĐẦU TIÊN. Không raise: cả 21 văn bản đều mở bằng lời
-            # mở đầu ("THÔNG TƯ …", "Căn cứ …"), raise sẽ chặn toàn bộ corpus;
-            # không tạo cấp giả vì cấp phải là thứ có trong văn bản nguồn.
+            # Nguyên tắc 1: không bao giờ bỏ. Chưa có node nào mở → dồn vào
+            # `mo_dau`, thành bản ghi riêng cấp TÀI LIỆU ở dưới. Không raise: cả
+            # 21 văn bản đều mở bằng lời mở đầu ("THÔNG TƯ …", "Căn cứ …") nên
+            # raise sẽ chặn toàn bộ corpus. `mo_dau` KHÔNG phải cấp bịa: nó là
+            # một khối có thật trong văn bản nguồn, chỉ không trích dẫn được —
+            # đúng như `phu_luc` ở đầu bên kia.
             (than[stack[-1]] if stack else mo_dau).append(text)
             continue
 
         so = _so_hieu(cap, text)
         if stack and caps[stack[-1]] is cap and _la_tiep_noi_tieu_de(text, cap, so):
             nhan[stack[-1]] = f"{nhan[stack[-1]]} {text}".strip()
+            if cap in (Cap.khoan, Cap.diem):
+                gop_khoan_diem += 1
             continue
 
         # Bẫy #1: pop stack tới khi đỉnh có bậc nhỏ hơn
@@ -356,11 +382,36 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
         parents.append(stack[-1] if stack else None)
         stack.append(len(caps) - 1)
 
+    if gop_khoan_diem:
+        # WARN, KHÔNG raise: 0 là con số hiện tại của corpus (4 mảnh trước khi
+        # sửa, tất cả đã gộp), không phải một bất biến. Raise sẽ chặn build ngay
+        # lần MOJ tách thêm một đoạn — mà gộp là hành vi ĐÚNG cho ca đó.
+        warnings.warn(
+            f"{so_ky_hieu}: đã gộp {gop_khoan_diem} mảnh Khoản/Điểm không có số "
+            "hiệu vào sibling cùng cấp liền trước", stacklevel=2)
+
     if not caps:
         con_lai = sum(len(t) for t in duoi + mo_dau)
         raise ValueError(
             f"{so_ky_hieu}: có {con_lai} ký tự nhưng KHÔNG có thẻ prov-<cấp> "
             "nào — không thể dựng cây provision")
+
+    if mo_dau:
+        # ĐỐI XỨNG với `phu_luc` dưới đây. Chữ trước thẻ prov-* đầu tiên (tiêu
+        # ngữ "CHÍNH PHỦ / CỘNG HÒA…", số hiệu, tên văn bản, chuỗi "Căn cứ …")
+        # không thuộc điều luật nào. Trước đây nó ghép vào `noi_dung` của row 0;
+        # với 8/21 văn bản mở đầu TRỰC TIẾP bằng "Điều 1", row 0 là cấp TRÍCH
+        # DẪN ĐƯỢC và một câu trích lấy từ TÊN VĂN BẢN được "kiểm chứng thành
+        # công" trên neo Điều 1 — véc-tơ tấn công số 1.
+        # Một bản ghi mỗi văn bản nên `duong_dan` tự duy nhất: KHÔNG đánh số thứ
+        # tự, đó là bịa ký hiệu không có trong nguồn. Đặt ở CUỐI danh sách (chứ
+        # không phải index 0) để `parent_local_id` của mọi node quy phạm giữ
+        # nguyên; `mo_dau` không bao giờ vào stack nên thứ tự này vô hại.
+        caps.append(Cap.mo_dau)
+        nhan.append("")
+        than.append(mo_dau)
+        src.append(None)
+        parents.append(None)  # cấp tài liệu, không treo vào cây quy phạm
 
     if duoi:
         caps.append(Cap.phu_luc)
@@ -391,10 +442,10 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
             so_hieu_cap=so_hieu[i],
             # `tieu_de` là NHÃN NGẮN. Khoản/Điểm không có tiêu đề riêng trong
             # nguồn (thẻ nhãn chứa toàn văn), nên nhãn ngắn là chính số hiệu.
-            tieu_de=nhan[i] if cap not in (Cap.khoan, Cap.diem, Cap.phu_luc)
+            tieu_de=nhan[i] if cap not in (Cap.khoan, Cap.diem, Cap.phu_luc,
+                                           Cap.mo_dau)
             else f"{NHAN[cap]} {so_hieu[i]}".rstrip(),
-            noi_dung=_chuan_hoa(" ".join(
-                [*(mo_dau if i == 0 else []), nhan[i], *than[i]])),
+            noi_dung=_chuan_hoa(" ".join([nhan[i], *than[i]])),
             duong_dan=_duong_dan(i, caps, so_hieu, parents, so_ky_hieu),
             source_node_id=src[i],
             thu_tu=i,

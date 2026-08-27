@@ -184,7 +184,12 @@ def test_moi_van_ban_co_nhieu_nhat_MOT_ban_ghi_phu_luc(provisions):
     dem = Counter(p["document_id"] for p in provisions if p["cap"] == "phu_luc")
     assert not [d for d, c in dem.items() if c > 1], dem
     pl = [p for p in provisions if p["cap"] == "phu_luc"]
-    assert len(pl) == 17, f"17 văn bản có chữ đuôi, thấy {len(pl)}"
+    # 17 → 18 sau khi vá H2: Bộ luật Hình sự (96122) có ĐÚNG MỘT
+    # `<p class="prov-content">` rỗng đứng SAU khối "Bộ luật này đã được Quốc hội
+    # … thông qua" (132 ký tự). Thẻ rỗng đó đẩy mốc `cuoi` vượt qua khối đuôi nên
+    # `duoi` thành rỗng và 132 ký tự đó sập lại vào provision đang mở. H2 KHÔNG
+    # tiềm ẩn — nó đang hỏng thật trên corpus, chỉ nhỏ nên không cổng nào thấy.
+    assert len(pl) == 18, f"18 văn bản có chữ đuôi, thấy {len(pl)}"
     assert len({p["duong_dan"] for p in pl}) == len(pl)
     for p in pl:
         assert p["parent_local_id"] is None, p["duong_dan"]
@@ -197,3 +202,81 @@ def test_phu_luc_khong_bao_gio_la_cha_cua_provision_nao(provisions):
     con = [p["duong_dan"] for p in provisions
            if (p["document_id"], p["parent_local_id"]) in pl]
     assert not con, f"phu_luc có con — nó là cấp tài liệu, không phải cấp cây: {con}"
+
+
+# ══ Ruling C1: chữ ĐẦU tách ra bản ghi `mo_dau`, đối xứng với chữ ĐUÔI ══
+
+# Tiêu ngữ chỉ có ở khối mở đầu văn bản. KHÔNG dùng "Căn cứ" làm dấu hiệu: nó
+# xuất hiện hợp lệ trong 83 điều luật thật ("Căn cứ vào …"), nên nó không phân
+# biệt được lời mở đầu với nội dung quy phạm.
+TIEU_NGU = ("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", "Độc lập")
+
+
+def test_noi_dung_cap_trich_dan_duoc_MO_DAU_bang_nhan_cua_chinh_no(provisions):
+    """Bất biến QUY THUỘC — thứ mà cả ba cổng đều mù trước vòng này. Bảo toàn ký
+    tự bảo rằng chữ KHÔNG MẤT; độ phủ dùng `set()` nên chữ chỉ cần "có mặt". Cả
+    hai không thể thấy chữ nằm SAI provision.
+
+    `noi_dung` của một provision cấp trích dẫn được chỉ chứa chữ nằm giữa nhãn
+    của nó và nhãn kế tiếp, nên nó phải mở đầu bằng nhãn của chính nó. Đo trên
+    seed trước khi sửa: 8 Điều (lời mở đầu văn bản, C1) + 3 Khoản + 1 Điểm (mảnh
+    tiếp nối bị tách, H3) vi phạm."""
+    import re
+    import unicodedata
+
+    def khoa(x: str) -> str:
+        return unicodedata.normalize("NFC", re.sub(r"\s+", " ", x)).strip().replace("Ð", "Đ")
+
+    lech = []
+    for p in provisions:
+        if p["cap"] not in CITABLE:
+            continue
+        nd, so = khoa(p["noi_dung"]), (p["so_hieu_cap"] or "")
+        if p["cap"] == "dieu":
+            ok = nd.lower().startswith("điều")
+        else:
+            ok = bool(so) and nd.lower().startswith(so.lower())
+        if not ok:
+            lech.append((p["document_id"], p["duong_dan"], nd[:60]))
+    assert not lech, f"{len(lech)} neo trích dẫn mở đầu bằng chữ KHÔNG thuộc nó: {lech[:5]}"
+
+
+def test_moi_van_ban_co_dung_MOT_ban_ghi_mo_dau(provisions, documents):
+    """Đã đo: cả 21 văn bản đều có chữ trước thẻ `prov-*` đầu tiên (tiêu ngữ, số
+    hiệu, tên văn bản, chuỗi "Căn cứ …"). Một bản ghi mỗi văn bản nên `duong_dan`
+    tự duy nhất — không đánh số thứ tự, đó là bịa ký hiệu không có trong nguồn."""
+    md = [p for p in provisions if p["cap"] == "mo_dau"]
+    assert len(md) == 21, f"21 văn bản đều có chữ mở đầu, thấy {len(md)}"
+    assert {p["document_id"] for p in md} == {d["id"] for d in documents}
+    assert len({p["duong_dan"] for p in md}) == len(md)
+    for p in md:
+        assert p["parent_local_id"] is None, p["duong_dan"]
+        assert p["so_hieu_cap"] == "", p["duong_dan"]
+        assert p["duong_dan"].endswith(" > Mở đầu"), p["duong_dan"]
+        assert p["noi_dung"].strip(), p["duong_dan"]
+
+
+def test_tieu_ngu_van_ban_KHONG_con_trong_bat_ky_neo_trich_dan_nao(provisions):
+    """Kịch bản hỏng của C1: agent sinh câu lấy từ TÊN VĂN BẢN, tầng 1 tìm thấy
+    nguyên văn trong `noi_dung` của Điều 1 → "đã kiểm chứng". Trước khi sửa: 4
+    Điều 1 chứa nguyên khối tiêu ngữ."""
+    xau = [(p["document_id"], p["duong_dan"]) for p in provisions
+           if p["cap"] in CITABLE and any(t in p["noi_dung"] for t in TIEU_NGU)]
+    assert not xau, f"{len(xau)} neo trích dẫn còn chứa tiêu ngữ văn bản: {xau[:5]}"
+
+
+def test_khoan_va_diem_LUON_co_so_hieu_cap(provisions):
+    """H3. `"… > Điều 33 > Khoản"` không phải một dẫn chiếu pháp luật Việt Nam:
+    nếu hệ thống hiển thị nó làm citation thì người dùng nhận một trích dẫn không
+    thể tra. Trước khi sửa: 3 Khoản + 1 Điểm rỗng."""
+    rong = [(p["document_id"], p["duong_dan"]) for p in provisions
+            if p["cap"] in {"khoan", "diem"} and not (p["so_hieu_cap"] or "").strip()]
+    assert not rong, f"{len(rong)} Khoản/Điểm thiếu so_hieu_cap: {rong}"
+
+
+def test_checksums_json_khop_documents_jsonl(documents):
+    """H4. `checksums.json` không được đọc bởi bất kỳ dòng Python nào trong repo —
+    nó là artefact chỉ-ghi. Test này ít nhất bắt được trôi giữa hai file, thứ sẽ
+    làm `ingest` bỏ qua văn bản đã đổi."""
+    cs = json.loads((SEED / "checksums.json").read_text(encoding="utf-8"))
+    assert cs == {d["id"]: d["checksum"] for d in documents}

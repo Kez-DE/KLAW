@@ -167,16 +167,40 @@ def test_phan_thu_nhat_va_thu_hai_khac_nhau():
     assert len(set(phan)) == 2, f"hai Phần cùng so_hieu: {phan}"
 
 
-def test_khoan_khong_khop_regex_KHONG_bi_gop_vao_khoan_truoc():
-    """Fix bẫy #5 phải hẹp: gộp tiêu đề chỉ áp cho container, không cho Khoản."""
+def test_khoan_KHONG_CO_SO_duoc_gop_vao_KHOAN_lien_truoc():
+    """Ruling H3 đảo ruling trước. 4 mảnh trong corpus (BLDS Điều 33, BLTTHS
+    Điều 33 và 123, BLHS Điều 3 Khoản 1) là đoạn TIẾP NỐI thật: đã đối chiếu HTML
+    thô, cả 4 đứng ngay sau một thẻ CÙNG CẤP có số và mở đầu bằng chữ thường
+    ("Trường hợp", "Nếu", "Khoan hồng"), không có dấu hiệu số hiệu nào.
+
+    Không gộp thì Khoản cha bị CẮT CỤT: một trích dẫn ĐÚNG vào khoản 3 Điều 33
+    BLDS sẽ THẤT BẠI ở tầng 1 vì đoạn hai của nó không còn trong `noi_dung` — hệ
+    thống ABSTAIN một câu trả lời đúng, false-negative trên đúng phép kiểm số 3.
+
+    Cùng một luật, không phải ca riêng thứ sáu: với Khoản/Điểm SỐ HỌC LÀ NHÃN,
+    nên "không parse được số" chính là dấu hiệu "không mở đầu bằng nhãn" mà cấp
+    có nhãn đang dùng."""
     html = """<div class="WordSection1">
-    <p id="a1" class="MsoNormal prov-article"><b>Điều 7. Thử</b></p>
-    <p id="k1" class="MsoNormal prov-clause">1. Khoản một.</p>
-    <p id="k2" class="MsoNormal prov-clause">I/ Khoản định dạng lạ.</p></div>"""
-    rows = parse_provisions(html, SKH)
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 33. Thử nghiệm y học</b></p>
+    <p id="k1" class="MsoNormal prov-clause">3. Việc thử nghiệm y học phải được người đó đồng ý.</p>
+    <p id="k2" class="MsoNormal prov-clause">Trường hợp người được thử nghiệm là người chưa thành niên thì phải được cha, mẹ đồng ý.</p>
+    <p id="i1" class="MsoNormal prov-item">d) Khoan hồng đối với người tự thú;</p>
+    <p id="i2" class="MsoNormal prov-item">Nếu phát hiện hành vi trái pháp luật thì phải kiến nghị.</p></div>"""
+    with pytest.warns(UserWarning, match="gộp"):
+        rows = parse_provisions(html, SKH)
+
     khoan = [r for r in rows if r.cap is Cap.khoan]
-    assert len(khoan) == 2, f"chỉ còn {len(khoan)} Khoản — bị gộp mất một"
-    assert "định dạng lạ" not in khoan[0].tieu_de
+    assert len(khoan) == 1, [r.duong_dan for r in khoan]
+    assert khoan[0].duong_dan == f"{SKH} > Điều 33 > Khoản 3"
+    assert "chưa thành niên" in khoan[0].noi_dung, "Khoản cha vẫn bị cắt cụt"
+
+    diem = [r for r in rows if r.cap is Cap.diem]
+    assert len(diem) == 1, [r.duong_dan for r in diem]
+    assert "trái pháp luật" in diem[0].noi_dung, "Điểm cha vẫn bị cắt cụt"
+
+    assert not [r.duong_dan for r in rows
+                if r.duong_dan.endswith("> Khoản") or r.duong_dan.endswith("> Điểm")], \
+        "còn neo trích dẫn thiếu thành phần số hiệu"
 
 
 def test_tieu_de_DIEU_tach_2_the_KHAC_id_duoc_gop():
@@ -206,16 +230,21 @@ def test_HAI_KHOAN_KHONG_SO_duoi_cung_mot_DIEU_thi_RAISE():
     khẳng định 3 node được tạo — nhưng hai Khoản không số dưới cùng một Điều ra
     CÙNG duong_dan "… > Điều 7 > Khoản", tức hai neo trích dẫn trùng.
 
-    Đây là cơ chế trùng #1 mà review đã xác định là TIỀM ẨN trong corpus (hiện 0
-    cha có ≥2 Khoản không số, nhưng 3 Điều ở sát ngưỡng). Hai bất biến xung đột
-    nhau ở đây và bất biến neo trích dẫn thắng: Khoản vẫn KHÔNG bị gộp (xem
-    test_khoan_khong_khop_regex_KHONG_bi_gop_vao_khoan_truoc), nhưng dữ liệu như
-    vậy phải làm build ĐỎ chứ không được ship ra hai neo giống nhau."""
+    Đây là cơ chế trùng #1 mà review đã xác định là TIỀM ẨN trong corpus. Hai bất
+    biến xung đột nhau ở đây và bất biến neo trích dẫn thắng: dữ liệu như vậy
+    phải làm build ĐỎ chứ không được ship ra hai neo giống nhau.
+
+    Sau ruling H3, một Khoản không số đứng NGAY SAU một Khoản khác được gộp nên
+    không còn ra neo thiếu số. Đường còn lại: thẻ ngay trước nó là cấp KHÁC (một
+    Điểm) — gộp không áp dụng, node vẫn sinh ra với `so_hieu` rỗng, và hai node
+    như vậy dưới cùng một Điều ra CÙNG `duong_dan` "… > Khoản"."""
     html = """<div class="WordSection1">
     <p id="a1" class="MsoNormal prov-article"><b>Điều 7. T</b></p>
     <p id="k1" class="MsoNormal prov-clause">1. Khoản một.</p>
-    <p id="k2" class="MsoNormal prov-clause">I/ Định dạng lạ.</p>
-    <p id="k3" class="MsoNormal prov-clause">Không có số gì cả.</p></div>"""
+    <p id="i1" class="MsoNormal prov-item">a) Điểm a.</p>
+    <p id="k2" class="MsoNormal prov-clause">Không có số gì cả.</p>
+    <p id="i2" class="MsoNormal prov-item">b) Điểm b.</p>
+    <p id="k3" class="MsoNormal prov-clause">Cũng không có số hiệu.</p></div>"""
     with pytest.raises(ValueError, match="duong_dan TRÙNG"):
         parse_provisions(html, SKH)
 
@@ -385,17 +414,67 @@ def test_khong_con_ky_tu_mo_coi_nao_sau_khi_parse():
     db = set(_chuan_hoa(" ".join(f"{r.tieu_de} {r.noi_dung}" for r in rows)).split())
     assert not (goc - db), f"mất token: {sorted(goc - db)}"
 
+    # M9: `set(goc) - set(db)` chỉ chứng minh KHÔNG MẤT — theo định nghĩa nó
+    # không thể phát hiện GÁN SAI. Bất biến còn thiếu: `noi_dung` của một
+    # provision cấp trích dẫn được chỉ chứa chữ nằm giữa nhãn của nó và nhãn kế
+    # tiếp, nên nó phải MỞ ĐẦU bằng nhãn của chính nó.
+    k1, k2 = [r for r in rows if r.cap is Cap.khoan]
+    assert k1.noi_dung.startswith("1.") and k2.noi_dung.startswith("2."), \
+        (k1.noi_dung[:40], k2.noi_dung[:40])
+    assert "mồ côi giữa hai khoản" in k1.noi_dung, "đoạn xen giữa phải vào Khoản 1"
+    assert "mồ côi giữa hai khoản" not in k2.noi_dung
+    assert not [r.duong_dan for r in rows
+                if r.cap in CITABLE and "Căn cứ Bộ luật" in r.noi_dung], \
+        "lời mở đầu bị gán vào một neo trích dẫn"
 
-def test_loi_mo_dau_truoc_moi_node_khong_bi_bo():
-    """prov-content/text xuất hiện trước node đầu tiên ('Căn cứ Hiến pháp…') —
-    trước đây bị `if stack:` bỏ im lặng. Chọn: gắn vào provision ĐẦU TIÊN
-    (không tạo cấp giả, không raise vì cả 21 văn bản đều có lời mở đầu)."""
+
+def test_loi_mo_dau_vao_ban_ghi_MO_DAU_khong_vao_DIEU_1():
+    """M9: bản cũ chỉ assert `any(... in r.noi_dung for r in rows)` — nó chứng
+    minh "không mất", chưa bao giờ chứng minh "không gán sai"; và fixture của nó
+    mở đầu bằng `prov-chapter`, tức chỉ chạy đúng nhánh vô hại.
+
+    C1: 8/21 văn bản mở đầu TRỰC TIẾP bằng "Điều 1", và ở đó toàn bộ tiêu ngữ +
+    tên văn bản + chuỗi "Căn cứ …" trở thành văn bản của Điều 1. Tầng 1 sẽ tra
+    `<so_ky_hieu> > Điều 1`, tìm thấy nguyên văn tên văn bản trong `noi_dung` và
+    trả về "đã kiểm chứng" cho một câu trích KHÔNG thuộc điều luật nào.
+
+    Fixture này dùng đúng hình dạng đó — đối xứng với chữ ở ĐUÔI (`phu_luc`)."""
     html = """<div class="WordSection1">
+    <p class="MsoNormal">CHÍNH PHỦ CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc</p>
     <p class="MsoNormal prov-content">Căn cứ Hiến pháp nước Cộng hòa xã hội chủ nghĩa Việt Nam;</p>
-    <p id="c1" class="MsoNormal prov-chapter"><b>Chương I NHỮNG QUY ĐỊNH CHUNG</b></p>
-    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p></div>"""
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi điều chỉnh</b></p>
+    <p class="MsoNormal prov-content">Nghị định này quy định mức lương tối thiểu.</p></div>"""
     rows = parse_provisions(html, SKH)
-    assert any("Căn cứ Hiến pháp" in r.noi_dung for r in rows), "mất lời mở đầu"
+
+    md = next(r for r in rows if r.cap is Cap.mo_dau)
+    assert md.duong_dan == f"{SKH} > Mở đầu"
+    assert md.parent_local_id is None and md.so_hieu_cap == ""
+    assert Cap.mo_dau not in CITABLE
+    assert "Căn cứ Hiến pháp" in md.noi_dung and "CHÍNH PHỦ" in md.noi_dung
+
+    d1 = next(r for r in rows if r.cap is Cap.dieu)
+    assert d1.noi_dung.startswith("Điều 1."), d1.noi_dung[:80]
+    assert "Căn cứ" not in d1.noi_dung and "CHÍNH PHỦ" not in d1.noi_dung
+    assert "mức lương tối thiểu" in d1.noi_dung, "thân của Điều 1 phải còn nguyên"
+
+    assert not parse_anomalies(html, SKH)[0], "phép bảo toàn ký tự phải còn khít"
+
+
+def test_mo_dau_MOT_ban_ghi_moi_van_ban_va_KHONG_danh_so():
+    """Một bản ghi mỗi văn bản nên `duong_dan` tự duy nhất — không đánh số thứ
+    tự, đó là bịa ký hiệu không có trong nguồn. Và văn bản mở đầu ngay bằng thẻ
+    `prov-*` thì KHÔNG sinh bản ghi rỗng."""
+    html = """<div class="WordSection1">
+    <p class="MsoNormal">THÔNG TƯ Quy định về thời giờ làm việc.</p>
+    <p class="MsoNormal">Căn cứ Bộ luật Lao động ngày 20 tháng 11 năm 2019;</p>
+    <p class="MsoNormal">Theo đề nghị của Cục trưởng;</p>
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p></div>"""
+    md = [r for r in parse_provisions(html, SKH) if r.cap is Cap.mo_dau]
+    assert len(md) == 1, [r.duong_dan for r in md]
+    assert all(x in md[0].noi_dung for x in ("THÔNG TƯ", "Căn cứ", "Theo đề nghị"))
+
+    assert not [r for r in parse_provisions(HTML_DIEU_21, SKH) if r.cap is Cap.mo_dau], \
+        "không có chữ trước thẻ prov-* đầu tiên thì không được tạo bản ghi"
 
 
 # ══ Mục F — NFC hoá lúc parse, KHÔNG casefold ══
@@ -549,3 +628,26 @@ def test_BLDS_dieu_493_van_giu_doan_xen_giua():
     d493 = next(r for r in rows if r.cap is Cap.dieu and r.so_hieu_cap == "493")
     assert "Khi chấm dứt hợp đồng thuê khoán" in d493.noi_dung
     assert len(d493.noi_dung) == 269, len(d493.noi_dung)
+
+
+def test_prov_content_RONG_sau_chu_duoi_van_tach_ra_PHU_LUC():
+    """H2. Dòng 203 bỏ qua thẻ `prov-<cấp>` không có chữ; nhánh `prov-content`
+    thiếu guard tương ứng, nên một `<p class="prov-content"></p>` ở cuối trang
+    đẩy mốc `cuoi` VƯỢT QUA Phụ lục → `duoi` rỗng → toàn bộ chữ đuôi quay về gắn
+    vào provision đang mở. Đúng bug 42.636 ký tự đã chữa ở 1ddf020, quay lại
+    nguyên trạng. 337/2025/NĐ-CP đã ship một `<p class="prov-clause"></p>` trống
+    trơn, nên thẻ rỗng là thứ CÓ THẬT trong HTML của MOJ.
+
+    Thẻ không có chữ không mang thông tin vị trí."""
+    truoc = """<div class="WordSection1">
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. Phạm vi</b></p>
+    <p class="MsoNormal">DUOI Phụ lục I danh mục nghề được làm ban đêm.</p>"""
+    for the_rong in ("", '<p class="prov-content"></p>', '<p class="prov-content">   </p>'):
+        html = f"{truoc}{the_rong}</div>"
+        rows = parse_provisions(html, SKH)
+        pl = [r for r in rows if r.cap is Cap.phu_luc]
+        assert len(pl) == 1, f"{the_rong!r}: {len(pl)} bản ghi phu_luc"
+        assert "DUOI" in pl[0].noi_dung, the_rong
+        d1 = next(r for r in rows if r.cap is Cap.dieu)
+        assert "DUOI" not in d1.noi_dung, f"{the_rong!r}: chữ đuôi sập lại vào Điều 1"
+        assert not parse_anomalies(html, SKH)[0], the_rong

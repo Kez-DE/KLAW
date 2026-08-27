@@ -8,7 +8,10 @@ def test_cap_co_dung_cac_bac():
     """`prov-subsection` tồn tại 43 lần trong corpus (23 Tiểu mục BLDS sau khi
     gộp tiêu đề tách thẻ). Thiếu cấp này thì chúng mất trắng."""
     assert [c.value for c in Cap] == [
-        "phan", "chuong", "muc", "tieu_muc", "dieu", "khoan", "diem", "phu_luc"]
+        "phan", "chuong", "muc", "tieu_muc", "dieu", "khoan", "diem",
+        # Hai cấp TÀI LIỆU, đứng cuối enum để `bac` của 7 cấp cây không dịch:
+        # chữ ở ĐUÔI văn bản và chữ ở ĐẦU văn bản, cả hai không trích dẫn được.
+        "phu_luc", "mo_dau"]
 
 
 def test_cap_bac_tang_dan_de_stack_pop_dung():
