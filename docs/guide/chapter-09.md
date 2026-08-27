@@ -1,506 +1,351 @@
 ---
-title: "Nộp bài Demo Day"
-weight: 9
+title: "Tài nguyên học tập"
+weight: 10
 ---
 
-## 9.1 Mười deliverables BTC yêu cầu
+## 10.1 Lộ trình học 6 tuần
 
-Ban Tổ Chức (BTC) AI20K yêu cầu mỗi đội nộp **10 deliverables** cho Demo Day. Tỷ lệ hoàn thành phổ biến như sau (ước tính từ kinh nghiệm):
+Lộ trình này thiết kế cho sinh viên VinUni tham gia AI20K Build Phase, với mục tiêu từ "chưa biết LangGraph" đến "có thể build và deploy AI Agent hoàn chỉnh" trong 6 tuần. Mỗi tuần có focus cụ thể, kết hợp lý thuyết và thực hành.
 
-| # | Deliverable | Mức độ phổ biến | Độ khó | Mẹo |
-|---|-------------|-----------------|--------|-----|
-| 1 | Source Code (GitHub repo) | Phần lớn hoàn thành | Trung bình | Push code sớm, không đợi hoàn hảo |
-| 2 | README.md | Phần lớn hoàn thành | Dễ | Dùng template, có screenshot |
-| 3 | Architecture Diagram | Thường bị thiếu | Trung bình | Dùng draw.io hoặc Mermaid |
-| 4 | AI Logs (LangSmith/screenshot) | Phần lớn hoàn thành | Dễ | Chỉ cần config 3 env vars |
-| 5 | Live URL | Thường hoàn thành | Trung bình | Deploy lên Render, free tier OK |
-| 6 | Video Demo | Hiếm khi có | Trung bình | Quay 3-5 phút, upload YouTube |
-| 7 | Pitch Deck (slide thuyết trình) | Thường bị thiếu | Khó | 10 slides theo template |
-| 8 | Development Journal | Phần lớn hoàn thành | Dễ | Ghi mỗi ngày, không cần dài |
-| 9 | Worklog (commit history) | Phần lớn hoàn thành | Dễ | Git log tự động |
-| 10 | Evaluation Evidence | Hiếm khi có | Khó | RAGAS metrics + test results |
+### Tuần 1: Nền tảng Python và API
 
-Phân tích nhanh: deliverables dễ nhất là AI Logs và Worklog — không cần code phức tạp, chỉ cần discipline. Deliverables khó nhất là Video Demo, Pitch Deck, và Evaluation Evidence — đây cũng là nơi bạn tạo lợi thế cạnh tranh lớn nhất.
+Mục tiêu: Hiểu FastAPI, viết được API endpoint, biết gọi LLM API.
 
-Mỗi deliverable cần được đặt đúng vị trí trong GitHub repository:
+- Học FastAPI fundamentals: routing, request/response, Pydantic models
+- Làm quen với async/await trong Python
+- Gọi OpenAI API cơ bản: chat completion, streaming
+- Setup project structure: `app/`, `tests/`, `requirements.txt`
+- Bài tập: Viết FastAPI app có 3 endpoints (GET /health, POST /chat, GET /history)
 
-```
-project-root/
-├── README.md              ← Deliverable #2
-├── docs/
-│   ├── architecture.md    ← Deliverable #3 (hoặc .png/.pdf)
-│   ├── video-demo.md      ← Deliverable #6 (link YouTube)
-│   ├── pitch-deck.pdf     ← Deliverable #7
-│   ├── journal.md         ← Deliverable #8
-│   ├── worklog.md         ← Deliverable #9
-│   └── evaluation.md      ← Deliverable #10
-├── src/                   ← Deliverable #1 (Source Code)
-├── tests/                 ← Cho Evaluation Evidence
-├── .github/workflows/     ← Bonus cho DevOps
-├── Dockerfile             ← Bonus cho DevOps
-└── docker-compose.yml     ← Bonus cho DevOps
-```
+Tài liệu: FastAPI official tutorial (2-3 giờ), Python async docs (1 giờ), OpenAI API quickstart (1 giờ).
 
-> 🔑 **ĐIỂM CHÍNH:** 10/10 deliverables = điểm tối đa ở tiêu chí "Hoàn thành deliverables". Nhiều đội mất điểm không phải vì code kém mà vì thiếu deliverables. Thực tế cho thấy đa số đội chỉ hoàn thành khoảng 5/10 deliverables — tức là nộp đủ 10/10 đã vượt phần lớn các đội khác.
+### Tuần 2: LangGraph Fundamentals
 
-### Chi tiết từng deliverable
+Mục tiêu: Hiểu LangGraph graph, state, nodes, edges. Build được agent đơn giản.
 
-**1. Source Code:** Push toàn bộ code lên GitHub. Repo nên có cấu trúc rõ ràng, `.gitignore` đúng, không chứa secrets, không chứa file lớn (>10MB). BTC sẽ clone và chạy thử — đảm bảo code chạy được sau khi set env vars.
+- Học LangGraph concepts: StateGraph, nodes, edges, conditional routing
+- Build graph đầu tiên: 2-3 nodes, conditional routing
+- Thử nghiệm với different state schemas (TypedDict vs Pydantic)
+- Debug với LangSmith tracing
+- Bài tập: Build agent có routing dựa trên intent (FAQ → retrieval, chitchat → respond directly)
 
-**2. README.md:** File README là ấn tượng đầu tiên. Phải có: tên dự án, mô tả, screenshot/gif, hướng dẫn cài đặt, cách chạy, cấu trúc thư mục, tech stack, team members. Xem template ở mục 9.2.
+Tài liệu: LangGraph Academy Module 1-2 (4-5 giờ), Lance Martin YouTube LangGraph playlist (2 giờ).
 
-**3. Architecture Diagram:** Sơ đồ kiến trúc thể hiện bạn hiểu hệ thống. Dùng draw.io (miễn phí), Mermaid (trong README), hoặc Excalidraw. Vẽ rõ: Frontend, Backend API, LangGraph Agent, Vector Store, External APIs.
+### Tuần 3: RAG và Vector Store
 
-**4. AI Logs:** Chứng minh agent hoạt động đúng. Cách dễ nhất: dùng LangSmith (3 env vars, không cần code thêm). Hoặc screenshot terminal output cho thấy agent reasoning steps.
+Mục tiêu: Hiểu RAG pipeline, load documents, embed, retrieve.
 
-**5. Live URL:** URL truy cập được từ internet. Deploy lên Render (backend), Vercel (frontend). Free tier chấp nhận được. Đảm bảo URL hoạt động ít nhất đến hết ngày Demo Day + 7 ngày.
+- Học document loading: PDF, web, text files
+- Text splitting strategies: chunk size, overlap
+- Embedding models: OpenAI embeddings, local alternatives
+- Vector stores: ChromaDB (local), PGVector (production)
+- RAG pipeline: retrieve → rerank → generate
+- Bài tập: Build RAG agent trả lời câu hỏi từ 10 tài liệu PDF
 
-**6. Video Demo:** Quay màn hình 3-5 phút, đi qua main features. Upload YouTube (unlisted OK). Nên có: giới thiệu team, demo main use case, giải thích architecture, demo edge case. Rất hiếm đội có video — đây là lợi thế cạnh tranh lớn.
+Tài liệu: DeepLearning.AI "Building RAG Agents with LLMs" (4 giờ), LangChain RAG tutorial (2 giờ).
 
-**7. Pitch Deck:** Slide thuyết trình cho Demo Day. Thường 10 slides, mỗi slide 1 phút. Xem template chi tiết ở mục 9.6.
+### Tuần 4: Agent nâng cao và Tools
 
-**8. Development Journal:** Nhật ký phát triển, ghi lại: quyết định kỹ thuật và lý do, khó khăn gặp phải và cách giải quyết, bài học rút ra. Không cần dài — 2-3 câu mỗi ngày đủ.
+Mục tiêu: Agent có tools, memory, multi-step reasoning.
 
-**9. Worklog:** Lịch sử phát triển, chứng minh team làm việc đều đặn. Cách dễ nhất: `git log --oneline --since="2024-01-01" > worklog.md`. Hoặc export GitHub contribution graph.
+- Học LangGraph tools: @tool decorator, tool calling
+- Agent memory: conversation history, long-term memory
+- Multi-step reasoning: ReAct pattern, planning
+- Error handling trong agent: retry, fallback
+- Bài tập: Build agent có 3+ tools (search, calculator, database query)
 
-**10. Evaluation Evidence:** Bằng chứng đánh giá chất lượng agent. Xem chương 8 phần 8.5 và 8.6. Rất hiếm đội nộp deliverable này — đây là cơ hội ghi điểm lớn.
+Tài liệu: LangGraph Academy Module 3-4 (4 giờ), DeepLearning.AI "AI Agents in LangGraph" (3 giờ).
 
-## 9.2 Checklist chi tiết
+### Tuần 5: DevOps, Testing, và Deploy
 
-Dưới đây là checklist từng bước để đảm bảo không bỏ sót deliverables. In ra hoặc copy vào Notion/Trello, check từng mục trước khi nộp.
+Mục tiêu: Dockerize, viết tests, deploy lên cloud, setup CI/CD.
 
-### Checklist Source Code
+- Docker: Dockerfile multi-stage, Docker Compose
+- Testing: pytest, mock LLM, test coverage
+- CI/CD: GitHub Actions workflow
+- Deploy: Render (backend), Vercel (frontend)
+- Monitoring: structured logging, LangSmith, health checks
+- Bài tập: Dockerize app, đạt 60%+ test coverage, deploy lên Render
 
-- [ ] Repository GitHub public hoặc add BTC làm collaborator
-- [ ] Code chạy được sau khi set env vars (README có hướng dẫn)
-- [ ] `.gitignore` đúng (không chứa `.env`, `__pycache__`, `.venv`)
-- [ ] Không commit secrets (API keys, passwords)
-- [ ] Không commit file lớn (models, datasets >10MB)
-- [ ] Có `requirements.txt` hoặc `pyproject.toml` với pinned versions
-- [ ] Code có type hints
-- [ ] Code có docstrings cho functions chính
-- [ ] Có ít nhất 1 file test (pytest)
+Tài liệu: Chương 7 và 8 của guidebook này, Docker official tutorial (2 giờ), pytest docs (1 giờ).
 
-### Checklist README.md
+### Tuần 6: Evaluation và Chuẩn bị Demo Day
 
-- [ ] Tên dự án và mô tả rõ ràng
-- [ ] Screenshot hoặc GIF của ứng dụng
-- [ ] Hướng dẫn cài đặt (step-by-step)
-- [ ] Hướng dẫn chạy (và chạy với Docker nếu có)
-- [ ] Cấu trúc thư mục (tree)
-- [ ] Tech stack (bảng hoặc badges)
-- [ ] Environment variables cần thiết (liệt kê tên, không ghi giá trị)
-- [ ] API documentation (endpoints, request/response format)
-- [ ] Team members (tên, vai trò)
-- [ ] Link Live URL
+Mục tiêu: Đánh giá chất lượng agent, chuẩn bị deliverables.
 
-### Checklist Architecture Diagram
+- RAGAS evaluation: faithfulness, relevance, precision
+- Evaluation report: metrics table, test results, user feedback
+- Hoàn thiện 10 deliverables
+- Pitch Deck: 10 slides, thuyết trình
+- Code review: xóa bare except, thêm type hints, cleanup
+- Bài tập: Nộp đủ 10 deliverables, đạt 35+/50 điểm dự kiến
 
-- [ ] Sơ đồ rõ ràng, dễ đọc
-- [ ] Thể hiện đầy đủ components (Frontend, Backend, Agent, DB, External APIs)
-- [ ] Có data flow arrows (mũi tên luồng dữ liệu)
-- [ ] File format: PNG hoặc SVG (embed trong README)
-- [ ] Có mô tả ngắn kèm sơ đồ
-
-### Checklist AI Logs
+Tài liệu: Chương 9 của guidebook này, RAGAS docs (2 giờ).
 
-- [ ] LangSmith project URL (share publicly hoặc screenshot)
-- [ ] Hoặc: screenshot terminal logs cho thấy agent reasoning
-- [ ] Ít nhất 5-10 trace examples
-- [ ] Mỗi trace cho thấy: input, LLM call, retrieval, output
-
-### Checklist Live URL
-
-- [ ] URL trả về HTTP 200 khi truy cập
-- [ ] Health check endpoint hoạt động (`/health`)
-- [ ] API endpoints chính hoạt động
-- [ ] URL được ghi trong README
-- [ ] URL hoạt động ổn định (không sleep — dùng UptimeRobot nếu free tier)
-
-### Checklist Video Demo
+> 💡 **MẸO:** Lộ trình này intensity cao — ~15-20 giờ/tuần. Nếu bạn có ít thời gian, ưu tiên: Tuần 2 (LangGraph) > Tuần 3 (RAG) > Tuần 5 (DevOps) > Tuần 6 (Evaluation). Đây là thứ tự impact đến điểm số.
 
-- [ ] Video 3-5 phút, chất lượng HD
-- [ ] Upload YouTube (unlisted OK)
-- [ ] Link YouTube ghi trong README hoặc `docs/video-demo.md`
-- [ ] Video có: giới thiệu team, demo use case chính, demo edge case
-- [ ] Audio rõ ràng, có phụ đề tốt hơn
+### Tổng kết thời gian
 
-### Checklist Pitch Deck
+| Tuần | Chủ đề | Giờ học | Giờ code |
+|------|--------|---------|----------|
+| 1 | FastAPI + LLM API | 6 | 8 |
+| 2 | LangGraph fundamentals | 6 | 10 |
+| 3 | RAG + Vector Store | 6 | 10 |
+| 4 | Agent nâng cao + Tools | 7 | 10 |
+| 5 | DevOps + Testing + Deploy | 5 | 12 |
+| 6 | Evaluation + Demo Day prep | 4 | 10 |
+| **Tổng** | | **34** | **60** |
 
-- [ ] 10 slides theo template (xem mục 9.6)
-- [ ] File PDF (không PowerPoint — tránh font/format issues)
-- [ ] Thêm vào `docs/pitch-deck.pdf`
-- [ ] Thực hành trình bày trong 10 phút
+## 10.2 Khóa học DeepLearning.AI
 
-### Checklist Journal + Worklog
+DeepLearning.AI (deeplearning.ai) là nền tảng học AI hàng đầu của Andrew Ng, với hơn 121 khóa học ngắn (short courses). Các khóa học này miễn phí, duration 1-2 giờ, và được thiết kế bởi chuyên gia từ OpenAI, LangChain, Google, Anthropic. Đây là nguồn học tập chất lượng cao nhất cho AI20K.
 
-- [ ] Journal: ít nhất 5-7 entries, mỗi entry 2-3 câu
-- [ ] Worklog: git log hoặc bảng commit history
-- [ ] Cả hai lưu trong `docs/`
+### Top khóa học cho AI20K
 
-### Checklist Evaluation Evidence
+| Khóa học | Chủ đề | Thời gian | Ưu tiên |
+|----------|--------|-----------|---------|
+| AI Agents in LangGraph | LangGraph agents, ReAct, tools | 2 giờ | CAO |
+| Building RAG Agents with LLMs | RAG pipeline, retrieval, evaluation | 2 giờ | CAO |
+| Prompt Engineering with LLMs | Prompt design, chain-of-thought | 1 giờ | CAO |
+| Functions, Tools and Agents with LangChain | Tool use, agents, chains | 1.5 giờ | CAO |
+| Multi-AI Agent Systems with CrewAI | Multi-agent collaboration | 1.5 giờ | TRUNG BÌNH |
+| Evaluating and Debugging Generative AI | Evaluation methods, metrics | 1 giờ | TRUNG BÌNH |
+| LangChain for LLM Application Development | LangChain basics, chains, memory | 1.5 giờ | TRUNG BÌNH |
+| ChatGPT Prompt Engineering for Developers | Prompt engineering basics | 1 giờ | THẤP |
+| Building Systems with the ChatGPT API | API usage, system design | 1 giờ | THẤP |
+| Red Teaming LLM Applications | Security, adversarial testing | 1 giờ | BONUS |
 
-- [ ] Bảng test results (pytest output + coverage)
-- [ ] Bảng RAGAS metrics (hoặc tự đánh giá)
-- [ ] Performance metrics (response time)
-- [ ] User feedback (ít nhất 3-5 người)
-- [ ] Code traceability (map test case → feature)
-
-> 💡 **MẸO:** Tạo GitHub Issue hoặc Notion checklist ngay tuần đầu tiên. Check off từng mục khi hoàn thành. Đừng đến tuần cuối mới chạy checklist — lúc đó đã quá muộn để quay video hay viết journal.
-
-## 9.3 Tiêu chí chấm điểm
-
-BTC chấm điểm theo 5 tiêu chí, mỗi tiêu chí thang điểm 1-10. Điểm tối đa = 50 điểm. Dưới đây là phân tích từng tiêu chí và cách ghi điểm tối đa.
+### Cách học hiệu quả từ DeepLearning.AI
 
-### 5 tiêu chí chấm điểm
-
-| Tiêu chí | Trọng số | Mô tả |
-|----------|----------|-------|
-| Product/Business | 20% | Giá trị sản phẩm, market fit, business model |
-| System Design | 20% | Kiến trúc, scalability, tech stack choice |
-| UI/UX | 20% | Giao diện, trải nghiệm người dùng, accessibility |
-| DevOps | 20% | Docker, CI/CD, deployment, monitoring |
-| Code Quality | 20% | Code style, tests, error handling, documentation |
-
-Phân tích: DevOps thường là tiêu chí có điểm trung bình thấp nhất — đây là cơ hội lớn để ghi điểm. Chỉ cần có Docker + CI/CD + health check, bạn đã đạt 7-8/10 ở tiêu chí này.
-
-### Cách tối đa hóa từng tiêu chí
-
-**Product/Business (target: 8+/10)**
-- Thể hiện rõ problem statement và target user
-- Demo use case thực tế, không phải toy example
-- Có market sizing hoặc competitor analysis
-- Business model khả thi (dù đơn giản)
-- Minimum: giải quyết 1 pain point cụ thể cho 1 nhóm user cụ thể
-
-**System Design (target: 8+/10)**
-- Architecture diagram rõ ràng, professional
-- Giải thích được tại sao chọn tech stack này
-- Hệ thống có thể scale (dù chỉ về mặt lý thuyết)
-- Error handling ở mọi layer
-- Minimum: có diagram + giải thích design decisions trong README
-
-**UI/UX (target: 7+/10)**
-- Giao diện sạch sẽ, responsive, dùng được trên mobile
-- Loading states cho LLM calls (spinner, skeleton)
-- Error messages thân thiện (không hiện raw exception)
-- Ít nhất 2-3 screens/views
-- Minimum: giao diện không bị lỗi, có thể chat với agent
-
-**DevOps (target: 8+/10)**
-- Dockerfile multi-stage + Docker Compose
-- GitHub Actions CI (lint + test + build)
-- Live URL hoạt động ổn định
-- Health check endpoint
-- Structured logging + LangSmith tracing
-- Minimum: Live URL + Docker + bất kỳ CI/CD nào
-
-**Code Quality (target: 8+/10)**
-- Type hints cho tất cả functions
-- Docstrings cho public APIs
-- Tests với 60%+ coverage
-- No bare except, no hardcoded secrets
-- Consistent code style (Ruff lint pass)
-- Minimum: code chạy + có tests + không có anti-patterns
-
-### Mục tiêu điểm số cho AI20K
-
-| Mục tiêu | Tổng điểm | Cần đạt ở mỗi tiêu chí |
-|----------|-----------|------------------------|
-| Top 3 | 40+/50 | 8+ ở mỗi tiêu chí |
-| Top 5 | 37+/50 | 7.5+ ở mỗi tiêu chí |
-| Top 8 | 35+/50 | 7+ ở mỗi tiêu chí |
-| Pass | 30+/50 | 6+ ở mỗi tiêu chí |
-
-Để đạt kết quả tốt (top), cần khoảng 35+ điểm. Để pass an toàn, cần khoảng 30 điểm. Mỗi tiêu chí 7+/10 là mục tiêu tối thiểu.
-
-> 🔑 **ĐIỂM CHÍNH:** Chiến lược tối ưu: đảm bảo 7+ ở mọi tiêu chí trước, rồi đẩy 1-2 tiêu chí lên 9+. Không tập trung hết vào 1 tiêu chí mà bỏ qua các tiêu chí khác. DevOps là tiêu chí dễ ghi điểm nhất vì đa số đội bỏ qua phần này.
-
-## 9.4 Những lỗi phổ biến cần tránh
-
-Kinh nghiệm thực tiễn cho thấy những lỗi sau đây lặp đi lặp lại ở nhiều đội. Hiểu và tránh những lỗi này là cách nhanh nhất để cải thiện điểm số.
-
-### Top 5 lỗi phổ biến nhất
-
-**Lỗi #1: Không có CI/CD**
-
-Hầu hết các đội không thiết lập CI/CD pipeline. Đây là lỗi nghiêm trọng nhất vì nó ảnh hưởng trực tiếp đến tiêu chí DevOps. Không có CI/CD nghĩa là code không được test tự động, không được lint tự động, và deploy bằng tay — không chuyên nghiệp.
-
-```yaml
-# SAI: Không có .github/workflows/
-# (thư mục không tồn tại)
-
-# ĐÚNG: .github/workflows/ci.yml
-name: CI
-on:
-  push:
-    branches: [main]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: pip install -r requirements.txt
-      - run: pytest tests/ -v
-```
-
-**Lỗi #2: Không có test**
-
-Đa số các đội không có test tự động, code coverage = 0%. BTC không thể verify code hoạt động đúng, dẫn đến điểm Code Quality thấp.
-
-```python
-# SAI: Không có thư mục tests/
-# (hoặc tests/ rỗng)
-
-# ĐÚNG: tests/test_api.py
-import pytest
-from httpx import AsyncClient
-
-@pytest.mark.asyncio
-async def test_health(client):
-    response = await client.get("/health")
-    assert response.status_code == 200
-```
-
-**Lỗi #3: Bare except**
-
-Bắt exception với `except:` hoặc `except Exception` mà không log hay handle cụ thể. Đây là anti-pattern nghiêm trọng — nó che giấu bugs và làm debug cực kỳ khó khăn.
-
-```python
-# SAI: Bare except
-try:
-    result = llm.invoke(prompt)
-except:  # Bắt mọi thứ, che giấu lỗi
-    pass
-
-# SAI: except Exception quá rộng
-try:
-    result = llm.invoke(prompt)
-except Exception:
-    pass  # Vẫn che giấu lỗi
-
-# ĐÚNG: Bắt cụ thể + log
-import logging
-logger = logging.getLogger(__name__)
-
-try:
-    result = llm.invoke(prompt)
-except openai.APIError as e:
-    logger.error(f"LLM API error: {e}")
-    raise HTTPException(status_code=503, detail="AI service unavailable")
-except openai.RateLimitError:
-    logger.warning("Rate limit hit, retrying...")
-    # Retry logic
-except ValidationError as e:
-    logger.error(f"Validation error: {e}")
-    raise HTTPException(status_code=422, detail=str(e))
-```
-
-**Lỗi #4: Hardcoded secrets**
-
-Nhiều đội commit API key trực tiếp vào source code trên GitHub. Đây là lỗi bảo mật nghiêm trọng — key có thể bị ai đó sử dụng trái phép, tốn tiền.
-
-```python
-# SAI: Hardcoded API key
-openai_client = OpenAI(api_key="sk-proj-abc123...")
-DATABASE_URL = "postgresql://admin:password123@localhost/db"
-
-# ĐÚNG: Dùng environment variables
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-openai_client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///local.db")
-```
-
-```python
-# .env (không commit vào git!)
-OPENAI_API_KEY=sk-proj-abc123...
-DATABASE_URL=postgresql://user:pass@host/db
-```
-
-```text
-# .gitignore (luôn có dòng này)
-.env
-```
-
-**Lỗi #5: Thiếu Evaluation Evidence**
-
-Gần như không có đội nào nộp bằng chứng đánh giá chất lượng AI agent. Đây là deliverable thường bị bỏ qua nhất, nhưng lại là cơ hội ghi điểm lớn nhất.
-
-## 9.5 Tips ghi điểm từ kinh nghiệm thực tiễn
-
-Kinh nghiệm từ các đội đạt kết quả cao cho thấy những điểm chung tạo nên sự khác biệt.
-
-### Điểm chung của top teams
-
-**1. Đủ 10 deliverables.** Các đội đạt điểm cao nộp đủ hoặc gần đủ tất cả deliverables (9-10/10). Đội yếu chỉ nộp 4-5/10. Deliverables hoàn chỉnh = tín hiệu chuyên nghiệp.
-
-**2. Code có cấu trúc rõ ràng.** Top teams tổ chức code theo cấu trúc module: `app/api/`, `app/agent/`, `app/core/`, `app/models/`. Không dump tất cả code vào 1-2 file. Mỗi module có `__init__.py` và职责 rõ ràng.
-
-```text
-# Cấu trúc tốt (ví dụ)
-app/
-├── __init__.py
-├── main.py              # FastAPI app
-├── api/
-│   ├── __init__.py
-│   ├── health.py        # Health endpoints
-│   └── chat.py          # Chat endpoints
-├── agent/
-│   ├── __init__.py
-│   ├── graph.py         # LangGraph graph
-│   ├── nodes.py         # Agent nodes
-│   ├── state.py         # State definition
-│   └── tools.py         # Agent tools
-├── core/
-│   ├── __init__.py
-│   ├── config.py        # Settings
-│   └── logging_config.py
-├── models/
-│   ├── __init__.py
-│   └── schemas.py       # Pydantic models
-└── services/
-    ├── __init__.py
-    └── vector_store.py  # Vector store service
-
-# Cấu trúc kém (ví dụ)
-app.py                   # Tất cả trong 1 file
-agent.py                 # Tất cả agent logic
-```
-
-**3. README chuyên nghiệp.** Top teams có README với: screenshot, architecture diagram, installation guide, API docs, team info. README là thứ BTC đọc đầu tiên — ấn tượng đầu tiên quyết định tone của toàn bộ đánh giá.
-
-**4. Có tests.** Dù ít, top teams có ít nhất 5-10 test cases cho API endpoints và agent nodes. Bottom teams có 0 tests.
-
-**5. Docker + deployment.** Top teams có Dockerfile và Live URL hoạt động. Bottom teams không Dockerize hoặc Live URL không hoạt động.
-
-### Tips cụ thể để ghi điểm
-
-**Tip 1: README "vàng"** — README là deliverable ROI (return on investment) cao nhất. 30 phút viết README tốt đáng giá hơn 3 tiếng thêm feature. BTC đọc README trước khi xem code. README tốt = điểm +1-2 ở mọi tiêu chí.
-
-**Tip 2: Deploy sớm** — Deploy trong tuần đầu tiên, ngay cả khi app chỉ có 1 endpoint `/health`. Deploy sớm cho bạn thời gian fix deployment issues. Nhiều đội deploy ngày cuối và gặp lỗi không kịp fix.
-
-**Tip 3: Screenshot mọi thứ** — Screenshot: running app, API docs (/docs), test output, LangSmith traces, Docker running, CI/CD green checks. Cho tất cả vào README hoặc `docs/`. Bằng chứng hình ảnh mạnh hơn text.
-
-**Tip 4: Git history đều đặn** — Commit thường xuyên (hàng ngày), message rõ ràng. BTC xem git history để đánh giá effort và tiến độ. 50 commits trong 4 tuần tốt hơn 3 commits ngày cuối.
+**Chiến lược học tập:**
+
+1. **Xem video ở 1.5x speed.** Các khóa học DeepLearning.AI nói chậm, tăng tốc 1.5x tiết kiệm 33% thời gian mà vẫn hiểu.
+
+2. **Code along.** Mỗi khóa có Jupyter notebook. Code cùng video, không chỉ xem. Sau đó, thử modify code và xem kết quả thay đổi thế nào.
+
+3. **Áp dụng ngay.** Sau mỗi khóa, áp dụng concept vào dự án AI20K của bạn. Ví dụ: học xong "AI Agents in LangGraph" → thêm 1 node mới vào agent của bạn.
+
+4. **Ghi chú vào journal.** Mỗi khóa học, ghi 3 điểm chính vào Development Journal — vừa ôn tập, vừa có material cho deliverable.
+
+**AI Agents courses (35 khóa):** DeepLearning.AI có 35 khóa liên quan đến AI Agents, từ cơ bản đến nâng cao. Không cần học tất cả — chọn 3-4 khóa có priority CAO trong bảng trên, rồi mở rộng nếu có thời gian.
+
+> 🔑 **ĐIỂM CHÍNH:** Bốn khóa học bắt buộc cho AI20K: (1) AI Agents in LangGraph, (2) Building RAG Agents with LLMs, (3) Prompt Engineering with LLMs, (4) Functions, Tools and Agents with LangChain. Hoàn thành 4 khóa này trong 2 tuần đầu.
+
+### Lộ trình học DeepLearning.AI theo tuần
+
+- **Tuần 1:** Prompt Engineering + Building Systems with ChatGPT API (2 khóa)
+- **Tuần 2:** AI Agents in LangGraph + Functions/Tools/Agents (2 khóa)
+- **Tuần 3:** Building RAG Agents (1 khóa, nhưng intensive)
+- **Tuần 4:** Evaluating and Debugging Generative AI (1 khóa)
+- **Tuần 5-6:** Bonus courses tùy thời gian
+
+## 10.3 Tài liệu LangGraph
+
+LangGraph là framework chính cho AI20K, và tài liệu chính thức là nguồn học tập đáng tin cậy nhất. Ngoài docs, còn có nhiều tài nguyên cộng đồng chất lượng cao.
+
+### Tài liệu chính thức
+
+**LangGraph Documentation** (langchain-ai.github.io/langgraph/):
+- Core concepts: StateGraph, nodes, edges, state, tools
+- Tutorials: step-by-step guides cho common patterns
+- API reference: chi tiết mọi class và function
+- How-to guides: specific tasks như "add memory to agent", "human-in-the-loop"
+
+**LangGraph Academy** (academy.langchain.com):
+- Module 1: Fundamentals — StateGraph, nodes, edges
+- Module 2: State management — TypedDict state, reducers
+- Module 3: Tools and human-in-the-loop
+- Module 4: Multi-agent systems
+- Module 5: Persistence and deployment
+- Mỗi module 2-3 giờ, có code exercises
+
+### Kênh YouTube
+
+**Lance Martin** (youtube.com/@LanceMartinAI):
+- LangGraph tutorials từ cơ bản đến nâng cao
+- RAG deep dives
+- Agent patterns and best practices
+- Cập nhật liên tục khi LangGraph release version mới
+- Ưu điểm: ngắn gọn (10-20 phút/video), practical, code-first
+
+**James Briggs** (youtube.com/@JamesBriggs):
+- Vector databases and embeddings
+- RAG optimization techniques
+- LangChain ecosystem tutorials
+- Ưu điểm: deep technical explanations, production-focused
+
+**LangChain Official** (youtube.com/@LangChain):
+- Official tutorials và announcements
+- LangGraph release walkthroughs
+- Community showcases
+
+### GitHub examples
+
+**langchain-ai/langgraph** (github.com/langchain-ai/langgraph):
+- Thư mục `examples/` chứa dozens of complete examples
+- Examples theo pattern: ReAct agent, RAG, multi-agent, human-in-the-loop
+- Mỗi example có README và requirements.txt — chạy được ngay
 
 ```bash
-# Tốt: commit message rõ ràng
-git commit -m "feat: add RAG retrieval node with ChromaDB"
-git commit -m "fix: handle empty query in chat endpoint"
-git commit -m "test: add integration tests for chat API"
+# Clone LangGraph repo và xem examples
+git clone https://github.com/langchain-ai/langgraph.git
+cd langgraph/examples
+ls -la
 
-# Kém: commit message chung chung
-git commit -m "update"
-git commit -m "fix"
-git commit -m "wip"
+# Chạy một example
+cd rag/
+pip install -r requirements.txt
+python agent.py
 ```
 
-**Tip 5: Nộp Evaluation Evidence** — Rất hiếm đội có deliverable này. Đây là "low-hanging fruit" (trái hái thấp) — ít effort, nhiều điểm. Chạy pytest + RAGAS, screenshot kết quả, viết bảng metrics. Xong trong 1-2 ngày.
+**langchain-ai/langchain** (github.com/langchain-ai/langchain):
+- Thư mục `templates/` chứa project templates
+- `cookbook/` chứa recipes cho specific use cases
+- Useful cho tìm solutions cho specific problems
 
-## 9.6 Pitch Deck — Slide thuyết trình
+> 💡 **MẸO:** Khi gặp lỗi với LangGraph, search GitHub Issues trước: `repo:langchain-ai/langgraph "error message"`. 90% lỗi phổ biến đã được hỏi và trả lời. Nếu không tìm thấy, mở issue mới — maintainers phản hồi nhanh.
 
-Pitch Deck là bài thuyết trìnhDemo Day — thường 10 phút cho 10 slides. Đây là deliverable có completion rate thấp (33%) nhưng ảnh hưởng lớn đến ấn tượng BTC. Slide tốt + thuyết trình tốt = điểm thuyết phục ở mọi tiêu chí.
+## 10.4 BMAD Method
 
-### Cấu trúc 10 slides
+BMAD (Build Modular AI Development) là một phương pháp phát triển phần mềm AI-first, phiên bản mới nhất là BMAD-v6. BMAD sử dụng 6 AI agents chuyên biệt, mỗi agent đảm nhiệm một vai trò trong quy trình phát triển, tương tự như một development team thực tế. Hiểu BMAD giúp bạn tư duy về multi-agent systems và project management hiệu quả.
 
-**Slide 1: Title (Tiêu đề)**
-- Tên dự án
-- Tagline (1 câu mô tả)
-- Tên team + logo
-- Ngày Demo Day
+### 6 AI Agents trong BMAD-v6
 
-**Slide 2: Problem (Vấn đề)**
-- Mô tả pain point cụ thể
-- Ai đang gặp vấn đề? (target user)
-- Tần suất/mức độ nghiêm trọng
-- Số liệu nếu có (ví dụ: "70% sinh viên không biết sử dụng AI")
+| Agent | Vai trò | Analog thực tế | Khi nào dùng |
+|-------|---------|----------------|-------------|
+| **Mary** (Analyst) | Phân tích yêu cầu, viết PRD, user stories | Business Analyst | Đầu dự án, khi nhận brief |
+| **John** (Architect) | Thiết kế kiến trúc, tech stack, system design | Solution Architect | Sau khi có PRD |
+| **Winston** (Developer) | Viết code, implement features | Developer | Sau khi có architecture |
+| **Amelia** (Designer) | UI/UX design, wireframes, user flow | UX Designer | Song song với development |
+| **Sally** (QA) | Viết test, review code, quality assurance | QA Engineer | Song song với development |
+| **Paige** (PM) | Quản lý tiến độ, priorities, deliverables | Project Manager | Xuyên suốt dự án |
 
-**Slide 3: Solution (Giải pháp)**
-- Giải pháp của bạn giải quyết vấn đề như thế nào
-- Khác biệt với các giải pháp hiện có
-- Demo screenshot hoặc mockup
+### 4-phase workflow
 
-**Slide 4: Product Demo (Sản phẩm)**
-- Screenshot hoặc GIF demo thực tế
-- Highlight main features
-- User flow chính
+**Phase 1: Discovery (Khám phá) — Agent Mary + Paige**
+Mary phân tích requirements từ BTC brief, viết Product Requirements Document (PRD), xác định user personas và use cases. Paige tạo project plan với timeline, milestones, và resource allocation. Output: PRD document + project plan.
 
-**Slide 5: Architecture (Kiến trúc)**
-- Architecture diagram (đơn giản, dễ hiểu)
-- Giải thích tech stack choices
-- Tại sao chọn LangGraph? Tại sao chọn vector store này?
+**Phase 2: Design (Thiết kế) — Agent John + Amelia**
+John thiết kế system architecture: tech stack, data flow, API design, deployment strategy. Amelia thiết kế UI/UX: wireframes, user flows, interaction patterns. Output: Architecture document + UI mockups.
 
-**Slide 6: AI/LLM Approach (Cách tiếp cận AI)**
-- RAG pipeline, Agent design, Prompt strategy
-- LangGraph graph diagram
-- Evaluation metrics (RAGAS hoặc custom)
+**Phase 3: Build (Xây dựng) — Agent Winston + Sally**
+Winston implement code theo architecture design. Sally viết tests song song, review code, đảm bảo quality standards. Output: Working code + test suite.
 
-**Slide 7: Technical Highlights (Điểm nổi bật kỹ thuật)**
-- CI/CD pipeline
-- Test coverage
-- Performance metrics
-- DevOps setup
+**Phase 4: Deliver (Giao hàng) — Agent Paige + Sally**
+Paige quản lý deliverables checklist, đảm bảo đủ 10/10. Sally chạy final evaluation, verify tất cả quality gates pass. Output: Complete deliverables package.
 
-**Slide 8: Demo Video (Video demo)**
-- Embed video hoặc QR code link YouTube
-- 2-3 phút demo main use case
+### Khi nào sử dụng BMAD
 
-**Slide 9: Challenges & Learnings (Thách thức & Bài học)**
-- Khó khăn lớn nhất và cách giải quyết
-- Bài học kỹ thuật
-- Nếu làm lại, bạn sẽ thay đổi gì?
+BMAD phù hợp khi:
+- Dự án có scope rõ ràng, cần structure
+- Team mới làm việc cùng nhau, cần roles phân minh
+- Cần documentation đầy đủ cho Demo Day
+- Muốn học multi-agent thinking pattern
 
-**Slide 10: Team & Next Steps (Team & Bước tiếp theo)**
-- Team members + vai trò
-- Roadmap tiếp theo (nếu có thời gian phát triển thêm)
-- Cảm ơn + Q&A
+BMAD không phù hợp khi:
+- Prototype nhanh, thử nghiệm ý tưởng
+- Solo developer, không cần role separation
+- Dự án rất nhỏ (1-2 endpoints)
 
-### Tips cho slide và thuyết trình
+> ⚠️ **LƯU Ý:** BMAD là framework tư duy, không phải tool bắt buộc. Bạn không cần cài đặt gì cả. Hãy áp dụng mindset: phân tích trước khi code (Mary), thiết kế trước khi implement (John), test song song với dev (Sally), quản lý deliverables xuyên suốt (Paige).
 
-**Slide design:**
-- Mỗi slide chỉ 1 idea chính
-- Font size tối thiểu 24pt (BTC ngồi xa)
-- Hình ảnh > text (1 hình = 1000 từ)
-- Dark background + light text (projector tốt hơn)
-- Không quá 30 từ mỗi slide
+### Áp dụng BMAD vào AI20K
 
-**Thuyết trình:**
-- Thực hành ít nhất 3 lần trước Demo Day
-- Time rehearsal: 10 slides × 1 phút = 10 phút
-- Chỉ có người nói chuyện, không ai đọc slide
-- Demo live rủi ro — có video backup sẵn
-- Chuẩn bị cho Q&A: "Làm sao bạn xử lý hallucination?" "Scale thế nào?"
+Trong AI20K, bạn có thể áp dụng BMAD bằng cách:
 
-> 💡 **MẸO:** BTC sẽ hỏi về technical decisions. Chuẩn bị câu trả lời cho: "Tại sao chọn LangGraph thay vì CrewAI/AutoGen?", "Làm sao giảm hallucination?", "Cost per request là bao nhiêu?", "Làm sao scale khi có 1000 users đồng thời?"
+1. **Session 1 (Mary):** Đọc BTC brief, viết PRD 1 trang: problem, solution, target user, features, non-goals
+2. **Session 2 (John):** Vẽ architecture diagram, chọn tech stack, define API contracts
+3. **Session 3-10 (Winston + Sally):** Implement + test song song. Mỗi feature mới = test mới
+4. **Session 11-12 (Paige + Sally):** Hoàn thiện deliverables, chạy evaluation, chuẩn bị Pitch Deck
+
+## 10.5 Dự án mẫu tham khảo
+
+Khi học cách xây dựng AI Agent, việc tham khảo các dự án mẫu tốt là một trong những cách học nhanh nhất. Dưới đây là những pattern và best practices mà các dự án AI Agent chất lượng cao thường có, để bạn học hỏi và áp dụng vào dự án của mình.
+
+### Pattern 1: Sự hoàn chỉnh (Completeness)
+
+Dự án AI Agent chất lượng cao không cần xuất sắc ở mọi mặt, nhưng phải đủ tốt ở tất cả. Điểm đều ở 5 tiêu chí (Kiến trúc, Code, Tài liệu, Demo, Sáng tạo) tốt hơn điểm cao ở 1-2 tiêu chí.
+
+Đặc điểm của dự án hoàn chỉnh:
+- Code structure rõ ràng, modular
+- Đầy đủ deliverables (gần đủ 10/10)
+- README chuyên nghiệp, có screenshot và hướng dẫn
+- DevOps setup hoàn chỉnh: Docker, CI/CD, health check
+
+Học: **completeness** — không cần perfect, nhưng không bỏ trống phần nào.
+
+### Pattern 2: Kỷ luật code (Code Discipline)
+
+Code chất lượng không cần kỹ thuật phức tạp — chỉ cần consistent application of best practices:
+- Type hints cho tất cả functions
+- Docstrings chi tiết
+- Error handling cụ thể (không bare except)
+- Code style nhất quán
+- Có tests (ít nhưng chất)
+
+Học: **discipline** — chất lượng code đến từ thói quen, không phải kỹ thuật cao siêu.
+
+### Pattern 3: Độ sâu trong LangGraph (Depth)
+
+Thay vì xây nhiều features nông, xây ít features nhưng sâu và đúng:
+- Graph design phức tạp: 5+ nodes, conditional routing, tools
+- State management đúng cách (TypedDict với reducers)
+- Human-in-the-loop pattern
+- RAG pipeline tối ưu: chunking, retrieval, reranking
+
+Học: **depth** — hiểu sâu một vài pattern tốt hơn hiểu nông nhiều pattern.
+
+### Pattern 4: Infrastructure First
+
+Deploy sớm, deploy thường. Infrastructure vững chắc giúp development nhanh hơn:
+- Multi-stage Dockerfile tối ưu
+- Docker Compose với nhiều services
+- Live URL hoạt động ổn định
+- Environment-based configuration
+
+Học: **infrastructure first** — khi infrastructure vững, bạn tập trung vào logic thay vì fight với môi trường.
+
+### Pattern 5: Thử nghiệm multi-agent (Ambition)
+
+Thử nghiệm approach phức tạp hơn, kể cả khi chưa hoàn hảo:
+- Nhiều agents chuyên biệt (retrieval agent + reasoning agent)
+- Agent-to-agent communication
+- Task delegation based on query type
+
+Học: **ambition** — BTC đánh giá cao nỗ lực học hỏi và innovation. Thử nghiệm approach mới là cách học nhanh nhất.
+
+### Bảng tham chiếu nhanh
+
+| Khi bạn muốn học về... | Tập trung vào pattern... | Tài liệu tham khảo |
+|------------------------|--------------------------|-------------------|
+| Tổng thể hoàn chỉnh | Completeness | README mẫu, deliverables checklist |
+| Code sạch, có discipline | Code Discipline | Type hints guide, ruff config |
+| LangGraph nâng cao | Depth | LangGraph examples trên GitHub |
+| Docker, DevOps | Infrastructure First | Docker docs, CI/CD templates |
+| Multi-agent | Ambition | CrewAI docs, LangGraph multi-agent |
+| Documentation | Completeness | README template, ADR mẫu |
+
+> 💡 **MẸO:** Đừng copy code từ dự án khác. Học **pattern** và **approach**, rồi áp dụng vào context dự án của bạn. BTC có thể nhận ra code copy và đánh giá thấp. Hiểu tại sao họ làm vậy quan trọng hơn làm đúng hệt họ.
 
 ## Tóm tắt
 
-Trong chương này, chúng ta đã tìm hiểu mọi thứ cần biết để nộp bài Demo Day thành công:
+Trong chương cuối này, chúng ta đã tổng hợp tài nguyên học tập cho hành trình AI20K:
 
-- **10 deliverables** BTC yêu cầu — Video Demo và Evaluation Evidence thường bị bỏ qua nhất, là cơ hội ghi điểm lớn nhất
-- **Checklist chi tiết** cho từng deliverable — không bỏ sót gì
-- **5 tiêu chí chấm điểm** — DevOps là tiêu chí dễ cải thiện nhất
-- **Top 5 lỗi phổ biến** — Không có CI/CD, Không có test, Bare except, Hardcoded secrets, Thiếu Evaluation Evidence
-- **Tips từ các đội đạt điểm cao** — README chuyên nghiệp, deploy sớm, commit đều, screenshot mọi thứ
-- **Pitch Deck 10 slides** — template hoàn chỉnh cho Demo Day
+- **Lộ trình 6 tuần** từ FastAPI cơ bản đến Demo Day, ~94 giờ tổng cộng
+- **DeepLearning.AI courses** — 4 khóa bắt buộc: LangGraph agents, RAG, Prompt Engineering, Tools
+- **LangGraph resources** — Official docs, Academy, YouTube channels (Lance Martin, James Briggs), GitHub examples
+- **BMAD Method** — 6 agents, 4 phases, áp dụng như framework tư duy cho project management
+- **Dự án mẫu tham khảo** — 5 pattern chính: completeness, code discipline, depth, infrastructure first, ambition
 
-Cuối cùng, hãy nhớ: Demo Day không chỉ là thi — nó là cơ hội thể hiện kỹ năng engineering và teamwork. BTC đánh giá tổng thể, không chỉ code. Deliverables đầy đủ + code sạch + thuyết trình tốt = chiến thắng.
+AI20K Build Phase là hành trình ngắn nhưng intense. 6 tuần không nhiều, nhưng đủ để build một AI Agent hoàn chỉnh nếu bạn sử dụng thời gian và tài nguyên wisely. Lộ trình, tài liệu, và kinh nghiệm thực tiễn đã sẵn sàng — giờ là lúc bạn bắt tay vào code.
 
-## Checklist cuối cùng trước khi nộp
+## Lời kết
 
-- [ ] 10/10 deliverables đã hoàn thành?
-- [ ] README có screenshot, install guide, API docs?
-- [ ] Live URL hoạt động (test trên browser khác + incognito)?
-- [ ] Tests chạy pass (pytest green)?
-- [ ] Không có hardcoded secrets trong code?
-- [ ] Không có bare except?
-- [ ] Docker build thành công?
-- [ ] CI/CD pipeline xanh (GitHub Actions green)?
-- [ ] Git history đều đặn (không phải 5 commits ngày cuối)?
-- [ ] Pitch Deck đã thực hành thuyết trình 3+ lần?
+Chúc các bạn VinUni AI20K thành công. Hãy nhớ:
+
+- **Start simple, iterate fast.** Bắt đầu với 1 endpoint, 1 node, 1 test. Rồi mở rộng.
+- **Ship early, ship often.** Deploy trong tuần đầu tiên. Mỗi tuần thêm feature mới.
+- **Document everything.** README, journal, architecture. Deliverables đầy đủ = nửa chiến thắng.
+- **Tránh những sai lầm phổ biến.** Hầu hết đội thiếu CI/CD, thiếu tests, thiếu Evaluation Evidence. Tránh những lỗi này, bạn đã ở top.
+
+May mắn và hẹn gặp ở Demo Day.
