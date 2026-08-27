@@ -777,23 +777,107 @@ GET  /health
 
 LLM + embedding + rerank đều qua OpenRouter. **Không cần** `OPENAI_API_KEY`, **không cần** `COHERE_API_KEY`.
 
+Đặt tên theo convention đã có trong `.env` của dự án (`OPENROUTER_API_KEY`, `OPENROUTER_MODEL_NAME`).
+
 ```dotenv
-OPENROUTER_API_KEY=              # phủ cả 3 tầng
-LLM_BASE_URL=https://openrouter.ai/api/v1
+# ══ OpenRouter — một key, ba endpoint ══
+OPENROUTER_API_KEY=
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 
-LLM_MODEL_ROUTER=mistralai/mistral-nemo                     # đã đo: tuân thủ instruction VI
-LLM_MODEL_GENERATE=google/gemini-2.5-flash-lite              # structured_outputs, ctx 1M
-LLM_MODEL_JUDGE=mistralai/mistral-small-3.2-24b-instruct     # KHÁC HỌ với GENERATE (7b.2)
+# LLM — ba vai, ba model (mục 7b.1)
+OPENROUTER_MODEL_NAME=mistralai/mistral-nemo                          # route + rewrite_query
+OPENROUTER_GENERATE_MODEL_NAME=google/gemini-2.5-flash-lite            # generate_claims — BẮT BUỘC structured output
+OPENROUTER_JUDGE_MODEL_NAME=mistralai/mistral-small-3.2-24b-instruct   # verify_tier2 — PHẢI khác họ với GENERATE (7b.2)
 
-EMBEDDING_MODEL=baai/bge-m3      # cùng key, cùng base_url, endpoint /embeddings
-EMBEDDING_DIM=1024
+# Embedding — cùng key, endpoint /embeddings
+OPENROUTER_EMBEDDING_MODEL_NAME=baai/bge-m3
+OPENROUTER_EMBEDDING_DIM=1024
 
-RERANK_MODEL=cohere/rerank-4-fast   # tùy chọn
+# Rerank — tùy chọn, mặc định TẮT
+OPENROUTER_RERANK_MODEL_NAME=cohere/rerank-4-fast
+OPENROUTER_RERANK_ENABLED=false
+
+# ⚠ Temperature: 0.0, KHÔNG phải 0.7 của template
+LLM_TEMPERATURE=0.0
+
+# ══ Database ══
+# Local (docker-compose, mục 4b.4). Trên Railway dùng variable reference, không hardcode
+DATABASE_URL=postgresql://klaw:klaw@localhost:5432/klaw
+
+# ══ Retrieval & chunking — trước đây hardcode trong spec, giờ là biến ══
+CHUNK_MAX_TOKENS=1500              # Điều dài hơn thì cắt theo Khoản (4.5)
+RETRIEVE_BM25_TOPK=20
+RETRIEVE_DENSE_TOPK=20
+RRF_K=60                           # giá trị thường dùng — CẦN XÁC MINH nguồn trước khi trích trong khóa luận
+RETRIEVE_FINAL_TOPK=10
+EXPAND_REFERENCE_HOPS=1            # 1 hop, không lặp sâu (4.6)
+
+# ══ Verifier ══
+VERIFY_TIER2_ENABLED=true          # tắt = cấu hình ablation "chỉ tầng 1"
+ABSTAIN_THRESHOLD=0.5              # tỉ lệ claim verified tối thiểu (6.3)
+AS_OF_DATE=                        # rỗng = hôm nay; đặt giá trị để tra cứu theo mốc thời gian
+
+# ══ Eval ══
+EVAL_CONFIG_NAME=full              # tên cấu hình, ghi vào traces.config_name
+EVAL_DATASET_DIR=./eval/datasets
+EVAL_RESULT_DIR=./eval/results
+
+# ══ Data & ingest ══
+DATA_RAW_DIR=./data/raw            # parquet tải về — GITIGNORE
+DATA_SEED_DIR=./data/seed          # seed đã parse — VÀO GIT
+MOJ_API_BASE=https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public
+MOJ_RATE_LIMIT_SLEEP=1.5           # giây giữa các request (thấy HTTP 400 sau ~35 request liên tiếp)
+
+# ══ Giữ nguyên từ template ══
+APP_ENV= / APP_PORT= / APP_HOST= / CORS_ORIGINS= / LOG_LEVEL= / AI_LOG_DIR=
+LANGCHAIN_API_KEY= / LANGCHAIN_PROJECT= / LANGCHAIN_TRACING_V2=
 ```
 
-**Ba biến trong `.env` phải sửa:** `DATABASE_URL` đang trỏ SQLite (spec dùng Postgres — 8.2); `CHROMA_PERSIST_DIR` không còn dùng; `OPENAI_API_KEY` là placeholder gây 401 → **gỡ hẳn**.
+**Ba biến phải GỠ khỏi `.env`:**
 
-**Ablation chiều LLM:** giữ nguyên graph, đổi `LLM_MODEL_GENERATE` giữa các nhà cung cấp → báo cáo hallucination rate và citation precision **dưới cùng một cơ chế verify**.
+| Gỡ | Vì |
+|---|---|
+| `OPENAI_API_KEY` | là placeholder `sk-your-...-here` → gây HTTP 401 rất khó truy. Embedding đi qua OpenRouter |
+| `COHERE_API_KEY` | rerank đi qua OpenRouter (`cohere/rerank-4-fast`) |
+| `CHROMA_PERSIST_DIR` | không dùng Chroma; vector nằm trong Postgres (8.2) |
+
+**⚠ `LLM_TEMPERATURE` phải là `0.0`.** Template đặt `0.7` — sai cho dự án này ở hai điểm: (a) `generate_claims` phải trả JSON đúng schema, temperature cao làm tăng tỉ lệ hỏng; (b) bảng ablation 11.3 phải **tái lập được**, nếu không thì mọi con số so sánh mất nghĩa.
+
+*Lưu ý trung thực: `temperature=0` **không đảm bảo** kết quả hoàn toàn xác định với LLM API. Nên khóa luận phải hoặc chạy eval nhiều lần và báo cáo độ lệch, hoặc nêu rõ giới hạn này. Đừng trình bày một lần chạy như con số tuyệt đối.*
+
+#### Ánh xạ sang `src/config.py`
+
+`pydantic-settings` tự map tên biến env sang field snake_case (không phân biệt hoa/thường). Các field cần **thêm** vào class `Settings`:
+
+| Field mới | Kiểu | Mặc định |
+|---|---|---|
+| `openrouter_api_key` | `str` | `""` |
+| `openrouter_base_url` | `str` | `https://openrouter.ai/api/v1` |
+| `openrouter_model_name` | `str` | `mistralai/mistral-nemo` |
+| `openrouter_generate_model_name` | `str` | `google/gemini-2.5-flash-lite` |
+| `openrouter_judge_model_name` | `str` | `mistralai/mistral-small-3.2-24b-instruct` |
+| `openrouter_embedding_model_name` | `str` | `baai/bge-m3` |
+| `openrouter_embedding_dim` | `int` | `1024` |
+| `openrouter_rerank_model_name` | `str` | `cohere/rerank-4-fast` |
+| `openrouter_rerank_enabled` | `bool` | `False` |
+| `chunk_max_tokens` | `int` | `1500` |
+| `retrieve_bm25_topk` / `retrieve_dense_topk` | `int` | `20` |
+| `rrf_k` | `int` | `60` |
+| `retrieve_final_topk` | `int` | `10` |
+| `expand_reference_hops` | `int` | `1` |
+| `verify_tier2_enabled` | `bool` | `True` |
+| `abstain_threshold` | `float` | `0.5`, `ge=0.0 le=1.0` |
+| `as_of_date` | `date \| None` | `None` |
+| `eval_config_name` | `str` | `full` |
+| `eval_dataset_dir` / `eval_result_dir` | `str` | `./eval/datasets`, `./eval/results` |
+| `data_raw_dir` / `data_seed_dir` | `str` | `./data/raw`, `./data/seed` |
+| `moj_api_base` | `str` | URL gateway |
+| `moj_rate_limit_sleep` | `float` | `1.5` |
+
+Field cần **sửa**: `llm_temperature` mặc định `0.7` → **`0.0`**; `database_url` mặc định SQLite → Postgres.
+Field cần **gỡ**: `openai_api_key`, `chroma_persist_dir`, `model_name` (thay bằng ba biến `OPENROUTER_*_MODEL_NAME`).
+
+**Vì sao đưa tham số retrieval vào config thay vì hardcode:** bảng ablation 11.3 có 7 cấu hình và bảng embedding có 6 model. Nếu các con số này nằm trong code thì mỗi dòng ablation là một lần sửa code — không tái lập được, và không ghi được `config_name` vào `traces`. Là biến thì mỗi cấu hình là một file `.env` hoặc một dòng CLI.
 
 ### 8.2 Database: Railway Postgres
 
