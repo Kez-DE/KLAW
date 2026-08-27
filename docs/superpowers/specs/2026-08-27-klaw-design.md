@@ -294,17 +294,9 @@ Toàn bộ phân tích "self-host $30/tháng vs API" ở các bản spec trướ
 `ctx` rộng nhất: `qwen/qwen3-reranker-8b` (40.960) và `cohere/rerank-4-pro` / `-fast` (32.768). Cả 7 đều **chưa có số tiếng Việt công bố** → phải tự đo, thành một dòng ablation.
 
 
-#### ⚠ Ngân sách OpenRouter — $2.43 là ràng buộc thiết kế, không phải chi tiết
+#### Ngân sách OpenRouter → xem mục 7b.3
 
-Ablation đầy đủ = 7 cấu hình × 150 câu = **1.050 query** × 2 LLM call/query:
-
-| Model dùng | ~$/query | Tổng ablation |
-|---|---|---|
-| **rẻ nhất khả dụng ($0.017/1M)** | ~$0.00015 | **~$0.16** → dư sức trong $2.43 |
-| trung (~$0.15/1M) | ~$0.0009 | ~$1.9 → vừa |
-| mạnh (~$3/1M) | ~$0.015 | **~$31** → vượt xa |
-
-$2.43 **đủ thoải mái**, kể cả chạy lại ablation nhiều lần — miễn không dùng model mạnh cho toàn bộ. Chiến lược: model rẻ/trung cho toàn bộ ablation, model mạnh chỉ **một lần** cho cấu hình cuối.
+Key mới **không còn cap** (`limit: null`, đo 2026-08-27); cap $3 của key cũ đã hết hiệu lực. Tổng ước tính cả khóa luận **~$4–6**. Chi tiết và dự phòng ở **mục 7b.3**.
 
 #### ⚠ Model siêu rẻ KHÔNG dùng được cho `generate_claims` — đã đo
 
@@ -629,6 +621,63 @@ Xuất file: `python-docx`. Bỏ: LaTeX, headless LibreOffice.
 
 ---
 
+## 7b. Phương án chọn API — CHỐT
+
+Một provider (**OpenRouter**), một key, ba endpoint. Không cần `OPENAI_API_KEY`, không cần `COHERE_API_KEY`.
+
+### 7b.1 Bảng quyết định
+
+| Vai | Endpoint | Model | $in / $out (1M) | Lý do chọn |
+|---|---|---|---|---|
+| `route`, `rewrite_query` | `/chat/completions` | **`mistralai/mistral-nemo`** | 0.019 / 0.030 | Model rẻ nhất **đã ĐO thật** là tuân thủ instruction tiếng Việt (trả đúng `"Ok"` khi yêu cầu một từ). `structured_outputs` + `tools`, ctx 131k |
+| `generate_claims` | `/chat/completions` | **`google/gemini-2.5-flash-lite`** | 0.100 / 0.400 | `structured_outputs`, ctx 1M. ~$0.0006/query → ablation đầy đủ ~$0.63 |
+| `verify_tier2` | `/chat/completions` | **`mistralai/mistral-small-3.2-24b-instruct`** | 0.075 / 0.200 | **Khác họ model với `generate_claims`** — xem 7b.2. 24B, `structured_outputs`, ctx 131k |
+| Embedding | `/embeddings` | **`baai/bge-m3`** | 0.010 (đo thật) | **VN-MTEB retrieval 39.84 — cao nhất nhóm ≤1B**. dim 1024, ctx 8194 |
+| Rerank *(tùy chọn)* | `/rerank` | **`cohere/rerank-4-fast`** | ⚠ chưa rõ | ctx 32.768. Field `pricing.prompt` trả 0 vì reranker tính theo document/search — **phải kiểm giá lúc dùng** |
+
+Cơ sở lọc: **325/417 model** trên OpenRouter khai báo `structured_outputs` trong `supported_parameters`. `generate_claims` và `verify_tier2` **bắt buộc** nằm trong tập đó — chọn theo khả năng trước, theo giá sau.
+
+### 7b.2 Nguyên tắc phương pháp: judge PHẢI khác họ với generator
+
+`generate_claims` dùng họ **Gemini**, `verify_tier2` dùng họ **Mistral**. Đây không phải sở thích mà là yêu cầu phương pháp: LLM-as-judge có **self-preference bias** — model đánh giá cao output của chính nó. Nếu cả hai node dùng cùng một model, verify tầng 2 sẽ thiên vị cho qua, và chỉ số faithfulness bị thổi lên một cách hệ thống.
+
+Phải viết điều này vào chương Phương pháp của khóa luận. Nếu hội đồng hỏi *"sao không dùng cùng một model cho gọn?"* thì đây là câu trả lời.
+
+*(Lưu ý: verify **tầng 1** không dùng LLM nên miễn nhiễm hoàn toàn với vấn đề này — đó là một lợi thế nữa của việc đặt phần lớn công việc kiểm chứng vào tầng deterministic.)*
+
+### 7b.3 Ngân sách cả khóa luận
+
+| Hạng mục | Ước tính |
+|---|---|
+| Embed corpus 1 lần (1,6M token × $0.010) | **$0.016** |
+| Re-embed 5 model cho bảng so sánh tuần 4 | ~$0.35 |
+| Ablation 7 cấu hình × 150 câu (generate + judge + route) | ~$0.86 |
+| Ablation chiều LLM (4 model × 150 câu, gồm 1 model mạnh) | ~$1.50 |
+| Query dev/debug tuần 5–8 (~2.000 query) | ~$1.20 |
+| Demo buổi bảo vệ | không đáng kể |
+| **TỔNG** | **~$4–6** |
+
+**Trạng thái key (đo 2026-08-27):** `limit: null`, `is_free_tier: false` → **không còn cap $3** như key cũ. Ngân sách bị chặn bởi số dư tài khoản, không đọc được từ API.
+
+**Vẫn nên tự đặt spend limit ở key level** — một vòng lặp lỗi trong graph có thể đốt số dư rất nhanh, và `traces.cost_usd` chỉ phát hiện được sau khi đã tiêu.
+
+### 7b.4 Dự phòng
+
+| Nếu | Thì |
+|---|---|
+| `gemini-2.5-flash-lite` sinh claim quá yếu / JSON hỏng | lên `google/gemini-2.5-flash` (0.300/2.500) hoặc `openai/gpt-5-mini` (0.250/2.000) — cả hai `structured_outputs` |
+| OpenRouter sập / lỗi định tuyến | mỗi model đều có provider gốc; đổi `LLM_BASE_URL` + key là xong vì cùng SDK OpenAI-compatible |
+| Reranker đắt hơn dự kiến | bỏ reranker — nó là dòng ablation tùy chọn, không phải thành phần lõi |
+| Muốn dùng model `:free` cho rẻ | **KHÔNG** — đòi bật cho phép provider train trên prompt, trái mục 15 |
+
+### 7b.5 Còn phải đo trước khi tin
+
+1. **Structured-output compliance của `gemini-2.5-flash-lite`** với schema thật `[{text, provision_id, quote}]` + context tiếng Việt → **task đầu tuần 5, trước khi xây graph**. Đã đo được rằng 2/4 model rẻ nhất không trả nổi một từ theo yêu cầu (`granite-4.0-h-micro` trả `"Chấp thuận"`, `ling-3.0-flash` trả rỗng) — nên đây không phải lo xa.
+2. **Giá thật của reranker** — `pricing.prompt` = 0 không phản ánh cách tính.
+3. **Eval 5 model embedding** (tuần 4) → chốt lại `EMBEDDING_MODEL` theo số đo.
+
+---
+
 ## 8. Backend & API
 
 ```
@@ -669,9 +718,9 @@ LLM + embedding + rerank đều qua OpenRouter. **Không cần** `OPENAI_API_KEY
 OPENROUTER_API_KEY=              # phủ cả 3 tầng
 LLM_BASE_URL=https://openrouter.ai/api/v1
 
-LLM_MODEL_ROUTER=                # rẻ — xem cảnh báo tuân thủ instruction bên dưới
-LLM_MODEL_GENERATE=              # BẮT BUỘC structured output ổn định
-LLM_MODEL_JUDGE=
+LLM_MODEL_ROUTER=mistralai/mistral-nemo                     # đã đo: tuân thủ instruction VI
+LLM_MODEL_GENERATE=google/gemini-2.5-flash-lite              # structured_outputs, ctx 1M
+LLM_MODEL_JUDGE=mistralai/mistral-small-3.2-24b-instruct     # KHÁC HỌ với GENERATE (7b.2)
 
 EMBEDDING_MODEL=baai/bge-m3      # cùng key, cùng base_url, endpoint /embeddings
 EMBEDDING_DIM=1024
