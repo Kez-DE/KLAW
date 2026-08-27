@@ -2,11 +2,12 @@
 
 import hashlib
 import json
+import warnings
 from pathlib import Path
 
 from scripts.fetch_moj import DOC_IDS
 from src.models.domain import DocumentRow
-from src.services.prov_parser import parse_provisions
+from src.services.prov_parser import parse_anomalies, parse_provisions
 
 TINH_TRANG_MAP = {
     "CHL": "CHL", "HHL": "HHL", "HHL1P": "HHL1P",
@@ -23,6 +24,7 @@ def build(raw: Path, out: Path) -> dict[str, int]:
     provs: list[dict] = []
     refs: list[dict] = []
     checksums: dict[str, str] = {}
+    canh_bao_tong: list[str] = []
 
     for doc_id, (depth, so_ky_hieu) in DOC_IDS.items():
         p = raw / "moj" / f"{doc_id}.json"
@@ -51,6 +53,17 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             checksum=checksum,
         ).model_dump(mode="json"))
 
+        # Cổng CẤU TRÚC chạy TRƯỚC khi ghi seed. parse_anomalies() đã tồn tại và
+        # đã có test từ vòng trước nhưng build không gọi nó, nên nó chưa bao giờ
+        # chạy trên dữ liệu thật — đó là lý do bốn nhóm lỗi parser lọt được vào
+        # 19.077 dòng seed mà 49 test vẫn xanh.
+        loi, canh_bao = parse_anomalies(html, so_ky_hieu)
+        if loi:
+            raise ValueError(
+                f"doc {doc_id} ({so_ky_hieu}): {len(loi)} bất thường cấu trúc — "
+                f"KHÔNG ghi seed: {loi[:5]}")
+        canh_bao_tong.extend(f"{doc_id} ({so_ky_hieu}): {c}" for c in canh_bao)
+
         for r in parse_provisions(html, so_ky_hieu):
             row = r.model_dump(mode="json")
             row["document_id"] = doc_id
@@ -67,6 +80,9 @@ def build(raw: Path, out: Path) -> dict[str, int]:
         (out / f"{name}.jsonl").write_text(
             "\n".join(json.dumps(x, ensure_ascii=False) for x in data) + "\n", encoding="utf-8")
     (out / "checksums.json").write_text(json.dumps(checksums, indent=2), encoding="utf-8")
+
+    for c in canh_bao_tong:
+        warnings.warn(c, stacklevel=2)
 
     return {"documents": len(docs), "provisions": len(provs), "references": len(refs)}
 
