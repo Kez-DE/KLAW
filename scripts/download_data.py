@@ -29,11 +29,18 @@ def download(dest: Path, only: list[str] | None = None) -> dict[str, Path]:
             out[name] = path
             continue
         print(f"[get ] {name} …")
-        with httpx.stream("GET", url, follow_redirects=True, timeout=300) as r:
-            r.raise_for_status()
-            with path.open("wb") as f:
-                for chunk in r.iter_bytes(1 << 20):
-                    f.write(chunk)
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        try:
+            with httpx.stream("GET", url, follow_redirects=True, timeout=300) as r:
+                r.raise_for_status()
+                with tmp.open("wb") as f:
+                    for chunk in r.iter_bytes(1 << 20):
+                        f.write(chunk)
+            # atomic: `path` chỉ tồn tại khi đã tải trọn vẹn, nên skip-if-exists
+            # ở lần chạy sau không bao giờ giữ một file dở
+            tmp.replace(path)
+        finally:
+            tmp.unlink(missing_ok=True)
         print(f"[ok  ] {path} ({path.stat().st_size / 1e6:.1f} MB)")
         out[name] = path
     return out
