@@ -190,6 +190,41 @@ def test_parse_anomalies_bat_loi_mo_dau_va_text_ngoai_prov():
     assert any("không có class prov" in x for x in a), f"không bắt text ngoài prov: {a}"
 
 
+def test_muc_cung_so_o_chuong_khac_nhau_co_duong_dan_KHAC_NHAU():
+    """BLLĐ có 6 'Mục 1' ở 6 Chương khác nhau. Nếu duong_dan trùng thì mọi phép
+    kiểm 'duong_dan trùng' về sau phải khoét ngoại lệ — mà chính phép kiểm đó
+    bắt được bug Điều 33/33a."""
+    html = """<div class="WordSection1">
+    <p id="c1" class="MsoNormal prov-chapter"><b>Chương III HỢP ĐỒNG LAO ĐỘNG</b></p>
+    <p id="m1" class="MsoNormal prov-section"><b>Mục 1. GIAO KẾT</b></p>
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 13. Hợp đồng</b></p>
+    <p id="c2" class="MsoNormal prov-chapter"><b>Chương V ĐỐI THOẠI</b></p>
+    <p id="m2" class="MsoNormal prov-section"><b>Mục 1. ĐỐI THOẠI</b></p>
+    <p id="a2" class="MsoNormal prov-article"><b>Điều 63. Đối thoại</b></p></div>"""
+    rows = parse_provisions(html, SKH)
+    muc = [r.duong_dan for r in rows if r.cap is Cap.muc]
+    assert len(set(muc)) == 2, f"hai Mục 1 dùng chung duong_dan: {muc}"
+    assert "Chương" in muc[0], f"duong_dan của Mục phải giữ Chương: {muc[0]!r}"
+    # nhưng Điều thì VẪN bỏ container
+    dieu = [r.duong_dan for r in rows if r.cap is Cap.dieu]
+    assert all("Chương" not in d and "Mục" not in d for d in dieu), dieu
+
+
+def test_moi_duong_dan_duy_nhat_tren_toan_bo_provision():
+    """Invariant: duong_dan duy nhất trên toàn bộ provision của một văn bản."""
+    html = """<div class="WordSection1">
+    <p id="c1" class="MsoNormal prov-chapter"><b>Chương I A</b></p>
+    <p id="m1" class="MsoNormal prov-section"><b>Mục 1. X</b></p>
+    <p id="a1" class="MsoNormal prov-article"><b>Điều 1. P</b></p>
+    <p id="k1" class="MsoNormal prov-clause">1. K.</p>
+    <p id="c2" class="MsoNormal prov-chapter"><b>Chương II B</b></p>
+    <p id="m2" class="MsoNormal prov-section"><b>Mục 1. Y</b></p>
+    <p id="a2" class="MsoNormal prov-article"><b>Điều 2. Q</b></p>
+    <p id="k2" class="MsoNormal prov-clause">1. K.</p></div>"""
+    dd = [r.duong_dan for r in parse_provisions(html, SKH)]
+    assert len(dd) == len(set(dd)), f"trùng: {[x for x in dd if dd.count(x) > 1]}"
+
+
 @pytest.mark.integration
 def test_bo_luat_lao_dong_that_co_dung_220_dieu():
     p = Path("data/raw/moj/139264.json")

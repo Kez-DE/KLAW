@@ -88,12 +88,20 @@ def _so_hieu(cap: Cap, text: str) -> str:
 
 def _duong_dan(cap: Cap, so: str, parent: ProvisionRow | None, so_ky_hieu: str,
                rows: list[ProvisionRow]) -> str:
-    """Công ước dẫn chiếu: đi ngược cây thật qua `parent_local_id`, nhưng bỏ qua
-    mọi ancestor Phần/Chương/Mục — chỉ Điều/Khoản/Điểm góp mặt trong duong_dan."""
+    """Đường dẫn canonical, đi ngược cây thật qua `parent_local_id`.
+
+    Cấp trích dẫn được (dieu/khoan/diem): BỎ container, theo công ước dẫn chiếu
+    pháp lý Việt Nam — "khoản 2 Điều 25", không ai viết "Chương III Điều 25".
+
+    Cấp container (phan/chuong/muc) đang xét: GIỮ đủ chuỗi container, vì tự thân
+    nó (vd. "Mục 1") không duy nhất — BLLĐ có 6 "Mục 1" ở 6 Chương khác nhau. Nhờ
+    vậy duong_dan duy nhất trên TOÀN BỘ provision, không chỉ ở cấp dieu.
+    """
+    bo_container = cap not in CONTAINER_CAPS
     segments = [f"{NHAN[cap]} {so}".rstrip()]
     node = parent
     while node is not None:
-        if node.cap not in CONTAINER_CAPS:
+        if not (bo_container and node.cap in CONTAINER_CAPS):
             segments.append(f"{NHAN[node.cap]} {node.so_hieu_cap}".rstrip())
         node = rows[node.parent_local_id] if node.parent_local_id is not None else None
     segments.reverse()
