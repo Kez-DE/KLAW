@@ -230,3 +230,25 @@ def test_evaluate_khong_dem_loi_thanh_recall_0_tren_du_lieu_that():
     và n_ok phải cộng đúng với n_queries (không có câu nào bị đếm nhầm)."""
     r = _evaluate_hoac_bo_qua("bm25_only")
     assert r["n_ok"] + r["n_errors"] == r["n_queries"]
+
+
+# ---------------------------------------------------------------------------
+# H2 (review-final-p2) — tên file kết quả phải mang model, nếu không lần chạy
+# model thứ hai GHI ĐÈ per_item của model thứ nhất (đã thực sự xảy ra)
+# ---------------------------------------------------------------------------
+
+
+def test_ten_file_ket_qua_khac_nhau_giua_hai_model():
+    from eval.run import _ten_file_ket_qua
+
+    a = _ten_file_ket_qua("dense_only", "baai/bge-m3", 77)
+    b = _ten_file_ket_qua("dense_only", "voyageai/voyage-4-lite", 77)
+    assert a != b, "hai model cùng preset không được ghi chung một file"
+
+
+def test_ten_file_ket_qua_an_toan_cho_ten_file():
+    from eval.run import _ten_file_ket_qua
+
+    ten = _ten_file_ket_qua("dense_only", "voyageai/voyage-4-lite", 77)
+    assert ten == "dense_only-voyageai_voyage-4-lite-77.json"
+    assert "/" not in ten

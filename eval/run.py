@@ -14,6 +14,7 @@ BÁO, không phải kết quả công bố được.
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -62,6 +63,15 @@ def overlay_settings(overrides: dict) -> Settings:
     base = get_settings().model_dump()
     base.update(overrides)
     return Settings(**base)
+
+
+def _ten_file_ket_qua(config_name: str, model: str, n: int) -> str:
+    """Tên file PHẢI mang model. `compare_embeddings` gọi `evaluate("dense_only")`
+    một lần cho MỖI model; tên chỉ theo `config_name` làm lần chạy sau GHI ĐÈ
+    `per_item` của lần trước — đã thực sự xảy ra, mất toàn bộ bằng chứng cấp
+    item của một model. Slug hoá `/` cho an toàn với tên file."""
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "_", model)
+    return f"{config_name}-{slug}-{n}.json"
 
 
 def _commit_hash() -> str:
@@ -192,7 +202,7 @@ def evaluate(config_name: str) -> dict:
 
     res_dir = Path(s.eval_result_dir)
     res_dir.mkdir(parents=True, exist_ok=True)
-    f = res_dir / f"{config_name}-{n}.json"
+    f = res_dir / _ten_file_ket_qua(config_name, s.openrouter_embedding_model_name, n)
     f.write_text(
         json.dumps({"summary": summary, "per_item": per_item}, ensure_ascii=False, indent=2),
         encoding="utf-8",
