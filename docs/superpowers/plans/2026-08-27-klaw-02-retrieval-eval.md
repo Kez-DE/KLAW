@@ -11,6 +11,37 @@
 **Spec:** `docs/superpowers/specs/2026-08-27-klaw-design.md`
 **Plan trước:** `2026-08-27-klaw-01-data-layer.md` — phải PASS Cổng A trước khi bắt đầu
 
+## Mang sang từ Plan 1 — ĐỌC TRƯỚC KHI VIẾT DÒNG ĐẦU TIÊN
+
+Plan 1 đã xong (Cổng A đạt: 21 văn bản, `do_phu_min` 0.9868, `rong_tong` 0). Bốn điều
+dưới đây đã đo trên corpus thật; bỏ qua bất kỳ điều nào sẽ hỏng âm thầm.
+
+1. **Chunk theo `noi_dung`, KHÔNG theo `tieu_de`.** Sau vòng sửa cuối của Plan 1,
+   `noi_dung` là **toàn văn điều luật** (nhãn + thân), `tieu_de` chỉ là nhãn ngắn.
+   Trước vòng đó `noi_dung` rỗng ở 93,4% provision — mọi giả định viết trước vòng sửa
+   đều đã sai.
+
+2. **Nội dung `<table>` KHÔNG có trong corpus.** Đã kiểm: `5.310.000` → 0 provision,
+   `"Vùng I"` → 0. Toàn bộ bảng lương tối thiểu NĐ 293/2025 nằm ngoài. Câu hỏi "lương
+   tối thiểu vùng I là bao nhiêu" hiện **không có dữ liệu để truy hồi** — Điều 3 chỉ
+   nói "…như sau:" rồi trỏ vào bảng. **Việc của Plan 2:** cho `parse_tables` trả
+   `(vị trí, markdown)` để gắn bảng vào provision liền trước.
+
+3. **NFC hoá ở tầng index.** Corpus không thuần NFC (`96117` có `ư`+U+0323 thay vì
+   `ự`). BM25/`tsvector` và embedding coi NFD ≠ NFC, còn IME tiếng Việt sinh NFC ⇒
+   truy vấn người dùng sẽ **âm thầm không khớp** Bộ luật Hàng hải.
+
+4. **9 cấp, không phải 6.** `phan · chuong · muc · tieu_muc · dieu · khoan · diem`
+   cộng hai cấp tài liệu **không trích dẫn được**: `mo_dau` (21 bản ghi, `thu_tu` = -1)
+   và `phu_luc` (18 bản ghi). Chunker phải loại hai cấp cuối khỏi mọi thứ đóng vai neo
+   trích dẫn. `phu_luc` là khối phẳng (lớn nhất 43.827 ký tự) — chẻ theo từng Phụ lục /
+   Mẫu số khi làm `<table>`.
+
+**Giới hạn corpus đã chấp nhận:** đây là **văn bản gốc**, không phải bản hợp nhất. Cả
+6 VBHN liên quan đều trả `hasContent: False` + `hasOriginalPdf: True` (chỉ có PDF scan).
+Hệ quả: BLHS thiếu Điều 217a; 9/21 văn bản là `HHL1P`, gồm cả BLLĐ.
+
+
 ## Global Constraints
 
 - Python **3.11** · ruff `line-length = 120`, `select = ["E","F","I","N","W","UP"]`
