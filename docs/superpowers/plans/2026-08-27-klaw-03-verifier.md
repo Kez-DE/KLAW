@@ -44,6 +44,64 @@ cho một trích dẫn SAI — tức đúng thứ khóa luận tồn tại để
 nguyên văn**; nó **không** bảo đảm **là bản hiện hành**. Corpus là văn bản gốc (mọi VBHN
 trên MOJ chỉ có PDF scan, `hasContent: False`).
 
+## Mang sang từ Plan 2 — ĐỌC CÙNG MỤC TRÊN
+
+Plan 2 xong (25 commit, 194 test). Corpus: 3.283 chunk × 2 bộ embedding, 1.500 cạnh
+dẫn chiếu cấp điều khoản, harness eval một lệnh.
+
+### Kết quả ablation hiện có (77 câu, **CHƯA người duyệt** — là chỉ báo, không công bố được)
+
+| Config | Recall@5 | MRR@5 | nDCG@5 |
+|---|---|---|---|
+| `lexical_only` (bge-m3) | 0,3117 | 0,2245 | 0,2455 |
+| `hybrid` (bge-m3) | 0,5455 | 0,3660 | 0,4069 |
+| `dense_only` (bge-m3) | 0,6494 | 0,4870 | 0,5260 |
+| `dense_only` (voyage-4-lite) | **0,8442** | **0,6494** | **0,6904** |
+
+**Dense thuần thắng hybrid.** Đã loại trừ nguyên nhân tham số: sweep `rrf_k` ∈ {1,5,10,60}
+không đảo được kết quả. Nguyên nhân còn lại là RRF trộn **cân bằng** hai nhánh chênh nhau
+gấp đôi.
+
+### Bốn việc phải làm ở Plan 3
+
+1. **Tầng 1 tra theo `duong_dan` phải xử lý multi-row tường minh** — có đúng 1 chuỗi trả 2
+   dòng (`145/2020/NĐ-CP > Chương XI`). `.one()` raise; `.first()` âm thầm chọn sai.
+2. **Judge phải khác GENERATE về HỌ MODEL**, không chỉ khác tên. `gemini-2.5-flash-lite` và
+   `gemini-2.5-flash` cùng một họ.
+3. **Cache vector truy vấn khi eval.** API embedding **không tất định**: cùng một câu embed 4
+   lần thì 3 lần giống hệt từng bit, lần thứ tư lệch 2,67e-4 mỗi chiều. Hệ quả đo được:
+   `dense` Recall@10 dao động 0,7727 / 0,7792 / 0,7727 qua ba lần chạy; metric @5 đứng yên;
+   `lexical_only` tất định tuyệt đối. Cache theo `(model, query)` làm eval tái lập được và
+   rẻ hơn. **Không có cache thì số @10 phải kèm ±0,007.**
+4. **RRF có trọng số hoặc bật rerank** (`cohere/rerank-4-fast` đã cấu hình sẵn, đang tắt) —
+   đây là việc Plan 3, đã hoãn có chủ đích ở Plan 2 vì lý do ở mục dưới.
+
+### Vì sao Plan 2 dừng tinh chỉnh: bộ đo đang chấm điểm âm cho cải tiến thật
+
+`golden_qa` được sinh từ chính `chunks.noi_dung_embed`. Nên nội dung **không** nằm trong chunk
+thì không câu hỏi nào hỏi tới — bộ đo có điểm mù đúng chỗ index đang thiếu.
+
+Điều này **hiện ra thành số**: khi chunker được sửa để chunk cấp Khoản mang tiêu đề Điều cha
+(một cải tiến thật, cụm khoá lan từ 5 → 30 chunk), `dense` **tụt** 0,6753 → 0,6494, và tụt
+mạnh nhất đúng trên 11 câu neo vào 6 điều luật mà bản sửa đó cứu (0,8182 → 0,7273) — vì câu
+hỏi được sinh từ text **cũ**.
+
+**Hệ quả:** chừng nào `golden_qa` còn sinh từ chunk, mọi cải thiện độ phủ index đều bị trừ
+điểm. Tách từ tiếng Việt (`pyvi`/`underthesea`) đã đo là vẫn kém (0,3117) nhưng **hoãn** vì lý
+do này — đo bằng một cái thước tự co lại thì con số không tin được.
+
+**Cách chữa là câu hỏi viết tay của người**, không phải code. 8 câu `lao-hand-*` hiện có đạt
+dense 0,8125 so với 0,6594 của nhóm sinh máy — nên không có bằng chứng số bị thổi phồng, điểm
+mù mới là vấn đề. Ghi thành **giới hạn phương pháp** trong khóa luận.
+
+### Đặt tên: KHÔNG gọi là BM25
+
+Nhánh từ vựng dùng `tsvector` + `ts_rank` của PostgreSQL (`simple` + `unaccent`, truy vấn OR,
+`normalization=1`, lọc hư từ). **Không phải BM25** — `ts_rank` không có tham số `k1`/`b` và
+không dùng IDF. Config đã đổi tên `bm25_only` → `lexical_only`; file kết quả cũ giữ tên cũ làm
+hồ sơ.
+
+
 
 ## Global Constraints
 
