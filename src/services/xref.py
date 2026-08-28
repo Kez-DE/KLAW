@@ -38,27 +38,49 @@ def _normalize(s: str) -> str:
     return unicodedata.normalize("NFC", s).translate(_MAP_D)
 
 
-# "khoản 2 Điều 35 của Bộ luật này"  |  "Điều 12 của Luật BHXH"
+# "khoản 2 Điều 35 của Bộ luật này"  |  "Điều 12 của Luật BHXH"  |
+# "Điều 3 và Điều 10 của Bộ luật này"  |  "Điều 49 đến Điều 53 của Bộ luật này"
 #
 # Defect #1: the article number uses `\d+[a-zA-ZđĐ]*`, matching
 # `prov_parser.RE_SO[Cap.dieu]`'s convention for the same "Điều 33a" label.
 #
-# Two lookaheads after the number, in this order:
+# Two lookaheads after the FIRST number, in this order:
 #   (?!\w)      the match must consume the WHOLE token. Without this, a
 #               period-terminated heading like "Điều 21." lets `\d+` back off
 #               from "21" to "2" (since backtracking only needs the char
 #               right after the shorter match to not be ".", and "1" isn't
 #               "."), and the OLD lookahead below would then wrongly pass —
-#               producing a phantom match "Điều 2" out of "Điều 21.".
+#               producing a phantom match "Điều 2" out of "Điều 21.". Verified
+#               empirically before adding the guard, not just reasoned about.
 #   (?!\s*\.)   reject a heading: "Điều 21. Nội dung ..." is not a reference
 #               to itself — a following period means this is a label, not a
 #               citation.
+#
+# `lietke` (named for readability, not matched by name elsewhere) captures
+# zero or more "(,|và|hoặc|đến) Điều N" continuations of an enumerated list —
+# "theo quy định tại Điều 3 và Điều 10 của Bộ luật này" only has the trailing
+# "của Bộ luật này" once, after the LAST article, but every article in the
+# list is still the same document. Each continuation number gets the same
+# (?!\w) guard as the first.
+_TIEP_DIEU = r"(?:,|và|hoặc|đến)\s*Điều\s+\d+[a-zA-ZđĐ]*(?!\w)"
+
 RE_XREF = re.compile(
     r"(?:khoản\s+(?P<khoan>\d+)\s+)?"
     r"Điều\s+(?P<dieu>\d+[a-zA-ZđĐ]*)(?!\w)(?!\s*\.)"
-    r"(?P<duoi>\s+(?:của\s+)?(?:Bộ luật|Luật|Nghị định|Thông tư)\s+(?P<nay>này)?)?",
+    rf"(?P<lietke>(?:\s*{_TIEP_DIEU})*)"
+    r"(?P<duoi>\s*(?:,\s*)?(?:của\s+)?(?:Bộ luật|Luật|Nghị định|Thông tư)\s+(?P<nay>này)?)?",
     re.IGNORECASE,
 )
+
+# Re-parsed against the `lietke` substring above to recover each
+# (separator, number) pair IN ORDER — a repeated group in RE_XREF would only
+# keep the last iteration, not all of them.
+_RE_TIEP_DIEU = re.compile(r"(,|và|hoặc|đến)\s*Điều\s+(\d+[a-zA-ZđĐ]*)", re.IGNORECASE)
+
+# "Điều 49 đến Điều 53" expands to 49,50,51,52,53. Beyond this span the
+# reference is more likely a mis-parse than a real range — skip the whole
+# cluster and log it rather than emit hundreds of garbage edges.
+_KHOANG_TOI_DA = 30
 
 
 @dataclass(frozen=True)
@@ -70,19 +92,47 @@ class XrefHit:
     hau_to: str = ""  # letter suffix of so_dieu (e.g. "a" in "Điều 33a"), "" if none
 
 
+def _tach_so_hau_to(token: str) -> tuple[int, str]:
+    so_str, hau_to = re.match(r"(\d+)([a-zA-ZđĐ]*)", token).groups()
+    return int(so_str), hau_to
+
+
 def find_xrefs(noi_dung: str) -> list[XrefHit]:
     out: list[XrefHit] = []
     for m in RE_XREF.finditer(_normalize(noi_dung)):
-        dieu_raw = m.group("dieu")
-        so_dieu_str, hau_to = re.match(r"(\d+)([a-zA-ZđĐ]*)", dieu_raw).groups()
-        so_dieu = int(so_dieu_str)
-        out.append(XrefHit(
-            so_dieu=so_dieu,
-            so_khoan=int(m.group("khoan")) if m.group("khoan") else None,
-            cung_van_ban=bool(m.group("nay")),
-            raw=m.group(0).strip(),
-            hau_to=hau_to,
-        ))
+        so_dau, hau_dau = _tach_so_hau_to(m.group("dieu"))
+        danh_sach = [(so_dau, hau_dau)]
+        cuoi_so, cuoi_hau = so_dau, hau_dau
+        hop_le = True
+        for sep, token in _RE_TIEP_DIEU.findall(m.group("lietke") or ""):
+            so, hau_to = _tach_so_hau_to(token)
+            if sep.lower() == "đến":
+                khoang_hop_le = so > cuoi_so and so - cuoi_so <= _KHOANG_TOI_DA
+                if not khoang_hop_le or cuoi_hau or hau_to:
+                    logger.warning(
+                        "bỏ qua cụm dẫn chiếu 'đến' không hợp lệ hoặc vượt ngưỡng %d: %r",
+                        _KHOANG_TOI_DA, m.group(0).strip(),
+                    )
+                    hop_le = False
+                    break
+                danh_sach.extend((n, "") for n in range(cuoi_so + 1, so + 1))
+            else:
+                danh_sach.append((so, hau_to))
+            cuoi_so, cuoi_hau = so, hau_to
+        if not hop_le:
+            continue
+
+        cung_van_ban = bool(m.group("nay"))
+        raw = m.group(0).strip()
+        so_khoan = int(m.group("khoan")) if m.group("khoan") else None
+        for i, (so_dieu, hau_to) in enumerate(danh_sach):
+            out.append(XrefHit(
+                so_dieu=so_dieu,
+                so_khoan=so_khoan if i == 0 else None,
+                cung_van_ban=cung_van_ban,
+                raw=raw,
+                hau_to=hau_to,
+            ))
     return out
 
 

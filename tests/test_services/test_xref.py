@@ -80,6 +80,42 @@ def test_chuan_hoa_NFD_khong_lam_mat_dan_chieu():
     assert len(hits) == 1 and hits[0].so_dieu == 12
 
 
+# ══ Unit tests — enumerated same-document lists ("Điều X và Điều Y ...") ═══
+# The coordinator measured 88 same-document edges missed because only the
+# LAST article in an enumerated list carries the trailing "của Bộ luật này"
+# that marks it same-document — real examples: "Điều 3 và Điều 10 của Bộ luật
+# này" (95942), "khoản 4 Điều 84, ... của Bộ luật này" (70811).
+
+
+def test_liet_ke_va_ra_hai_canh():
+    hits = find_xrefs("theo Điều 3 và Điều 10 của Bộ luật này")
+    assert {h.so_dieu for h in hits} == {3, 10}
+    assert all(h.cung_van_ban for h in hits)
+
+
+def test_liet_ke_phay_ra_hai_canh():
+    hits = find_xrefs("theo Điều 49, Điều 50 của Bộ luật này")
+    assert {h.so_dieu for h in hits} == {49, 50}
+
+
+def test_liet_ke_den_mo_rong_thanh_khoang():
+    hits = find_xrefs("theo Điều 49 đến Điều 53 của Bộ luật này")
+    assert {h.so_dieu for h in hits} == {49, 50, 51, 52, 53}
+    assert all(h.cung_van_ban for h in hits)
+
+
+def test_liet_ke_den_vuot_nguong_bi_bo_qua():
+    # 500 - 1 = 499 > 30 — almost certainly a mis-parse, not a real range.
+    assert find_xrefs("theo Điều 1 đến Điều 500 của Bộ luật này") == []
+
+
+def test_dieu_don_le_van_dung_so_khong_bi_anh_huong_boi_liet_ke():
+    # Regression guard: extending the pattern for lists must not reopen the
+    # \d+ backtrack bug — "21" must stay "21", not fold to "2".
+    hits = find_xrefs("theo Điều 21 của Bộ luật này")
+    assert len(hits) == 1 and hits[0].so_dieu == 21
+
+
 # ══ Integration tests — resolve_all against the real corpus ════════════════
 
 
