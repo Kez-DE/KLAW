@@ -1,0 +1,19 @@
+-- Thêm cấp `phu_luc` vào CHECK của provisions.cap.
+--
+-- Lý do: đã đo phân bố chữ mồ côi so với thẻ prov-* CUỐI CÙNG của mỗi văn bản —
+-- 152668: 42.636 ký tự ở đuôi / 647 xen giữa; 152670: 25.316 / 560;
+-- 134611: 21.296 / 653. Tức 97–98% nằm sau thẻ prov-* cuối. Ranh giới là thật.
+-- Chữ đuôi (Phụ lục, khối chữ ký) trước đây gắn vào provision đang mở, làm
+-- `145/2020/NĐ-CP > Điều 115` phình lên 44.106 ký tự và thành neo trích dẫn sai
+-- cho mọi câu lấy từ Phụ lục. Giờ nó là MỘT bản ghi `phu_luc` cho mỗi văn bản,
+-- cấp KHÔNG trích dẫn được, parent_id NULL, so_hieu_cap ''.
+--
+-- Nhận diện bằng VỊ TRÍ, không bằng regex tiếng Việt — nên nó không phải một
+-- special case của parser mà là một quy tắc về cấu trúc tài liệu.
+--
+-- FILE NÀY CỐ Ý KHÔNG CÒN CÂU LỆNH NÀO, cùng lý do như `002_cap_tieu_muc.sql`:
+-- `provisions_cap_check` giờ do `004_bat_bien_neo_trich_dan.sql` — file MỚI NHẤT
+-- — sở hữu, và chỉ nó. `004` thêm cấp `mo_dau` (lời mở đầu văn bản, đối xứng với
+-- `phu_luc`), nên bản ở đây lại là bản HẸP HƠN bản đang chạy.
+--
+-- Quy tắc: MỘT constraint thì MỘT file sở hữu, và đó là file mới nhất.

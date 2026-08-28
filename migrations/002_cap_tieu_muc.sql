@@ -1,0 +1,17 @@
+-- Thêm cấp `tieu_muc` (Tiểu mục) vào cây provision.
+--
+-- Lý do: đã đếm class thật trên HTML của cả 21 văn bản — `prov-subsection`
+-- xuất hiện 43 lần (23 Tiểu mục của Bộ luật Dân sự sau khi gộp tiêu đề tách
+-- thẻ) nhưng không có trong CLASS_TO_CAP lẫn CHECK constraint, nên chúng mất
+-- trắng. Thứ tự cây: phan > chuong > muc > tieu_muc > dieu > khoan > diem.
+--
+-- FILE NÀY CỐ Ý KHÔNG CÒN CÂU LỆNH NÀO. `provisions_cap_check` do
+-- `003_cap_phu_luc.sql` — file MỚI NHẤT — sở hữu, và chỉ nó.
+--
+-- Vì sao: `run_migrations()` chạy LẠI MỌI file mỗi lần, không có sổ "đã áp
+-- dụng". Khi 001, 002 và 003 mỗi file đều `DROP` rồi `ADD` cùng một constraint,
+-- lần chạy thứ hai đi qua 002 TRƯỚC 003, tức nó thu hẹp lại tập giá trị và
+-- `ADD CONSTRAINT` kiểm ngay dữ liệu đang có → CheckViolation trên chính các
+-- dòng `phu_luc` mà 003 vừa cho phép. Đã gặp thật.
+--
+-- Quy tắc: MỘT constraint thì MỘT file sở hữu, và đó là file mới nhất.

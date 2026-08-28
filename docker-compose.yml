@@ -17,3 +17,23 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: klaw
+      POSTGRES_PASSWORD: klaw
+      POSTGRES_DB: klaw
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations/000_extensions.sql:/docker-entrypoint-initdb.d/000_extensions.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U klaw -d klaw"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

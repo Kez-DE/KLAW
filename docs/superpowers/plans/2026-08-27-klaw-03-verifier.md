@@ -11,6 +11,40 @@
 **Spec:** `docs/superpowers/specs/2026-08-27-klaw-design.md` (mục 5, 6, 7b)
 **Plan trước:** `2026-08-27-klaw-02-retrieval-eval.md` — cần `hybrid` Recall@5 đã đo
 
+## Mang sang từ Plan 1 — ĐỌC TRƯỚC KHI VIẾT TẦNG 1
+
+Bốn điều đã đo trên corpus thật. Ba điều đầu là đường để tầng 1 báo "đã kiểm chứng"
+cho một trích dẫn SAI — tức đúng thứ khóa luận tồn tại để chống.
+
+1. **Tra theo `duong_dan` PHẢI xử lý multi-row tường minh.** `duong_dan` duy nhất ở cấp
+   trích dẫn được (Postgres thực thi bằng partial unique index
+   `ux_provisions_neo_trich_dan`), nhưng ở cấp Chương có **đúng 1 chuỗi trả về 2 dòng**:
+   `145/2020/NĐ-CP > Chương XI` — NĐ 145/2020 thật sự đánh số hai Chương cùng là
+   "Chương XI" (đã xác minh trên JSON thô). `.one()` sẽ raise; `.first()` sẽ âm thầm
+   chọn sai Chương.
+
+2. **Đối chiếu câu trích vào `noi_dung`, không phải `tieu_de`.** `noi_dung` giờ là toàn
+   văn; Postgres thực thi `provisions_noi_dung_citable_check` (không rỗng ở
+   `dieu`/`khoan`/`diem`).
+
+3. **Phép kiểm số 4 ("còn hiệu lực?") CHƯA có dữ liệu đáng tin.** Bảng `provisions`
+   **không có trường hiệu lực nào** — hiệu lực chỉ ở cấp document. `verified_documents`
+   và `verified_provisions` (hai bảng tồn tại để ghi đè phán đoán sai của MOJ) **đang
+   rỗng**. 4 văn bản lưu `CHL` dù `scripts/fetch_moj.py` chú thích rằng MOJ đánh sai:
+   `90/2019`, `157/2018`, `141/2017`, `122/2015` — cả 4 có `ngay_het_hieu_luc` NULL.
+   *Kịch bản hỏng:* claim "lương tối thiểu vùng I là 3.500.000 theo Điều 3 NĐ 122/2015"
+   qua **cả bốn** phép kiểm → "đã kiểm chứng" cho mức lương đã bị thay thế ba lần.
+   **Chặn Plan 3:** cần đối chiếu tay hiệu lực 6 văn bản gốc trước.
+
+4. **Judge phải khác GENERATE về HỌ MODEL, không chỉ khác tên.** `gemini-2.5-flash-lite`
+   và `gemini-2.5-flash` là hai chuỗi khác nhau nhưng **cùng một họ** — dùng cặp đó là
+   tự cho mình sự yên tâm giả về đúng thiên lệch tự-ưu-ái mà spec 7b.2 cấm.
+
+**Phát biểu phạm vi cho chương phương pháp:** verifier bảo đảm **nguồn gốc** và **đúng
+nguyên văn**; nó **không** bảo đảm **là bản hiện hành**. Corpus là văn bản gốc (mọi VBHN
+trên MOJ chỉ có PDF scan, `hasContent: False`).
+
+
 ## Global Constraints
 
 - **Tầng 1 KHÔNG được gọi LLM.** Nếu nó cần một API call thì thiết kế đã sai
