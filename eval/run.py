@@ -1,4 +1,4 @@
-"""Eval harness một lệnh: python -m eval.run --config hybrid|bm25_only|dense_only|all
+"""Eval harness một lệnh: python -m eval.run --config hybrid|lexical_only|dense_only|all
 
 Mọi tham số đến từ preset YAML (`eval/configs/*.yaml`), không hardcode — nhờ
 vậy mỗi dòng ablation là MỘT FILE, tái lập được, và config_name/commit_hash đi
@@ -239,7 +239,7 @@ _BANG_METRIC_KEYS = ("recall@5", "recall@10", "mrr@5", "mrr@10", "ndcg@5", "ndcg
 
 
 def _nhanh_chet(results: dict[str, dict]) -> list[str]:
-    """So bm25_only/dense_only với hybrid trên mọi metric. Nếu MỘT preset khớp
+    """So lexical_only/dense_only với hybrid trên mọi metric. Nếu MỘT preset khớp
     hybrid TUYỆT ĐỐI, đó là dấu hiệu nhánh còn lại trong hybrid không đóng góp
     gì — nhánh chết (yêu cầu #1). Phải báo, không được lặng lẽ ghi vào bảng
     như một hàng ablation đáng tin."""
@@ -247,7 +247,7 @@ def _nhanh_chet(results: dict[str, dict]) -> list[str]:
     hybrid = results.get("hybrid")
     if not hybrid:
         return canh_bao
-    for name in ("bm25_only", "dense_only"):
+    for name in ("lexical_only", "dense_only"):
         other = results.get(name)
         if other and all(other.get(k) == hybrid.get(k) for k in _BANG_METRIC_KEYS):
             canh_bao.append(
@@ -291,15 +291,18 @@ def write_report(results: dict[str, dict]) -> str:
     mau = next((r for r in results.values() if "bm25_rank_normalization" in r), None)
     if mau:
         lines.append(
-            f"Nhánh BM25 chạy với `ts_rank` normalization = **{mau['bm25_rank_normalization']}** và "
-            f"lọc hư từ tiếng Việt = **{'có' if mau['bm25_strip_stopwords'] else 'không'}**. Hai giá "
-            "trị này chọn theo đo, không theo mặc định của Postgres — bảng sweep đầy đủ và lý do ở "
-            "`docs/bm25-tuning.md` (tái lập: `python -m scripts.sweep_bm25`)."
+            f"`lexical_only` là **truy hồi từ vựng bằng `tsvector` + `ts_rank` của PostgreSQL** "
+            f"(config `simple` + `unaccent`, truy vấn OR, chuẩn hoá độ dài "
+            f"`normalization={mau['bm25_rank_normalization']}`, lọc hư từ "
+            f"{'có' if mau['bm25_strip_stopwords'] else 'không'}) — **không phải BM25**: `ts_rank` "
+            "không có tham số `k1`/`b` và không dùng IDF. Hai tham số trên chọn theo đo, không theo "
+            "mặc định của Postgres; bảng sweep đầy đủ và lý do ở `docs/bm25-tuning.md` (tái lập: "
+            "`python -m scripts.sweep_bm25`)."
         )
         lines.append("")
     lines.append("| Config | Recall@5 | Recall@10 | MRR@5 | MRR@10 | nDCG@5 | nDCG@10 | n_ok/n_queries |")
     lines.append("|---|---|---|---|---|---|---|---|")
-    for name in ("hybrid", "bm25_only", "dense_only"):
+    for name in ("hybrid", "lexical_only", "dense_only"):
         r = results.get(name)
         if not r:
             continue
@@ -312,7 +315,7 @@ def write_report(results: dict[str, dict]) -> str:
 
     lines.append("## 2. Tái lập")
     lines.append("")
-    for name in ("hybrid", "bm25_only", "dense_only"):
+    for name in ("hybrid", "lexical_only", "dense_only"):
         r = results.get(name)
         if not r:
             continue
@@ -361,7 +364,7 @@ def main() -> None:
     a = ap.parse_args()
 
     if a.config == "all":
-        results = {name: evaluate(name) for name in ("hybrid", "bm25_only", "dense_only")}
+        results = {name: evaluate(name) for name in ("hybrid", "lexical_only", "dense_only")}
         p = _ghi_report(results)
         print(f"đã ghi {p}")
         goc = {name: {k: v for k, v in r.items() if k != "per_item"} for name, r in results.items()}

@@ -1,5 +1,5 @@
 """Test eval/run.py — harness một lệnh cho Recall@k/MRR/nDCG trên golden_qa,
-và ba preset (hybrid/bm25_only/dense_only) để ablation (Task 9, Plan 2).
+và ba preset (hybrid/lexical_only/dense_only) để ablation (Task 9, Plan 2).
 
 Test THUẦN (không DB, không API) kiểm phần logic dễ sai âm thầm nhất:
 - overlay không làm bẩn Settings toàn cục (cached, dùng chung mọi nơi).
@@ -10,7 +10,7 @@ Test THUẦN (không DB, không API) kiểm phần logic dễ sai âm thầm nh�
 - cảnh báo nhánh chết khi một preset trùng y hệt hybrid (yêu cầu #1).
 - chọn câu tệ nhất loại trừ câu lỗi, không lẫn lỗi vào Recall=0.
 
-Test integration (DB thật, `bm25_only` — KHÔNG gọi OpenRouter vì dense_topk=0)
+Test integration (DB thật, `lexical_only` — KHÔNG gọi OpenRouter vì dense_topk=0)
 kiểm đường ống evaluate() đầu-cuối: ghi file, đủ khoá, có cảnh báo chưa duyệt,
 có commit_hash — mà không tốn tiền embedding. Số gọi API thật để đo bảng ablation
 thật nằm ở lần chạy `python -m eval.run --config all` riêng, không lặp trong CI.
@@ -33,8 +33,8 @@ from src.services.retrieval import Retriever
 _METRIC_KEYS = ("recall@5", "recall@10", "mrr@5", "mrr@10", "ndcg@5", "ndcg@10")
 
 
-def test_config_bm25_only_tat_nhanh_dense():
-    cfg = load_config("bm25_only")
+def test_config_lexical_only_tat_nhanh_dense():
+    cfg = load_config("lexical_only")
     assert cfg["retrieve_dense_topk"] == 0
 
 
@@ -76,7 +76,7 @@ def test_retrieve_raise_ro_rang_khi_ca_hai_nhanh_tat():
 
 
 def test_retrieve_khong_dung_nhanh_bi_tat_bang_topk_0():
-    """bm25_only (dense_topk=0): .dense() không được gọi — nếu gọi, nó sẽ chạm
+    """lexical_only (dense_topk=0): .dense() không được gọi — nếu gọi, nó sẽ chạm
     EmbeddingClient thật (embedder=None ở đây) và nổ AttributeError, khác hẳn
     exception mong đợi; test này chặn hồi quy nếu ai đó sau này bỏ guard topk>0."""
     s = overlay_settings({"retrieve_bm25_topk": 20, "retrieve_dense_topk": 0})
@@ -147,7 +147,7 @@ def test_run_items_mot_cau_loi_khong_lam_hong_cau_con_lai():
 
 
 # ---------------------------------------------------------------------------
-# _nhanh_chet — yêu cầu #1: cảnh báo khi bm25_only/dense_only trùng y hệt hybrid
+# _nhanh_chet — yêu cầu #1: cảnh báo khi lexical_only/dense_only trùng y hệt hybrid
 # ---------------------------------------------------------------------------
 
 
@@ -155,18 +155,18 @@ def test_canh_bao_nhanh_chet_khi_mot_preset_trung_het_hybrid():
     giong_nhau = dict.fromkeys(_METRIC_KEYS, 0.5)
     results = {
         "hybrid": giong_nhau,
-        "bm25_only": dict(giong_nhau),
+        "lexical_only": dict(giong_nhau),
         "dense_only": {**giong_nhau, "recall@5": 0.1},
     }
     canh_bao = _nhanh_chet(results)
     assert len(canh_bao) == 1
-    assert "bm25_only" in canh_bao[0]
+    assert "lexical_only" in canh_bao[0]
 
 
 def test_khong_canh_bao_khi_ba_preset_khac_nhau():
     results = {
         "hybrid": dict.fromkeys(_METRIC_KEYS, 0.5),
-        "bm25_only": dict.fromkeys(_METRIC_KEYS, 0.3),
+        "lexical_only": dict.fromkeys(_METRIC_KEYS, 0.3),
         "dense_only": dict.fromkeys(_METRIC_KEYS, 0.2),
     }
     assert _nhanh_chet(results) == []
@@ -189,7 +189,7 @@ def test_cau_hoi_te_nhat_loai_loi_va_sap_tang_dan():
 
 
 # ---------------------------------------------------------------------------
-# evaluate — integration, dùng bm25_only để không tốn tiền embedding trong CI
+# evaluate — integration, dùng lexical_only để không tốn tiền embedding trong CI
 # (dense_topk=0 nên .dense()/EmbeddingClient thật không bao giờ được gọi).
 # ---------------------------------------------------------------------------
 
@@ -204,7 +204,7 @@ def _evaluate_hoac_bo_qua(name: str) -> dict:
 
 @pytest.mark.integration
 def test_evaluate_tra_ve_du_metric_va_ghi_file():
-    r = _evaluate_hoac_bo_qua("bm25_only")
+    r = _evaluate_hoac_bo_qua("lexical_only")
     assert {"recall@5", "mrr@10", "ndcg@10", "n_queries", "config_name"} <= set(r)
     assert 0.0 <= r["recall@5"] <= 1.0
     assert Path(r["result_file"]).exists()
@@ -212,14 +212,14 @@ def test_evaluate_tra_ve_du_metric_va_ghi_file():
 
 @pytest.mark.integration
 def test_evaluate_canh_bao_golden_qa_chua_duoc_duyet():
-    r = _evaluate_hoac_bo_qua("bm25_only")
+    r = _evaluate_hoac_bo_qua("lexical_only")
     assert r["golden_qa_da_review"] is False
     assert "chưa" in r["canh_bao"].lower()
 
 
 @pytest.mark.integration
 def test_evaluate_ghi_commit_hash_de_tai_lap():
-    r = _evaluate_hoac_bo_qua("bm25_only")
+    r = _evaluate_hoac_bo_qua("lexical_only")
     assert r["commit_hash"] and r["commit_hash"] != "unknown"
 
 
@@ -228,7 +228,7 @@ def test_evaluate_khong_dem_loi_thanh_recall_0_tren_du_lieu_that():
     """dense_topk=0 nên câu nào cũng chỉ đi qua bm25 — nếu Postgres tsvector ổn
     định như các task trước đã kiểm, không câu nào lỗi thật; n_errors phải là 0
     và n_ok phải cộng đúng với n_queries (không có câu nào bị đếm nhầm)."""
-    r = _evaluate_hoac_bo_qua("bm25_only")
+    r = _evaluate_hoac_bo_qua("lexical_only")
     assert r["n_ok"] + r["n_errors"] == r["n_queries"]
 
 

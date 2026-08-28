@@ -33,7 +33,7 @@ def test_abstain_threshold_bi_chan_trong_khoang_0_1():
 
 
 def test_retrieve_topk_co_the_bang_0_de_tat_mot_nhanh():
-    """Task 9 (eval ablation) cần bm25_only/dense_only tắt hẳn nhánh còn lại
+    """Task 9 (eval ablation) cần lexical_only/dense_only tắt hẳn nhánh còn lại
     bằng topk=0 — gt=0 (đặt từ commit khởi tạo config.py, trước khi ablation
     tồn tại) chặn giá trị này một cách sai."""
     s = Settings(_env_file=None, retrieve_bm25_topk=0, retrieve_dense_topk=20)

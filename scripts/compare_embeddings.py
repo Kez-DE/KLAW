@@ -7,7 +7,7 @@ corpus, rồi bỏ qua CÓ BÁO CÁO model chiều khác, KHÔNG truncate/pad (b
 KHÔNG tự thêm cột/migration (cần quyết định của chủ dự án).
 
 Đo bằng cấu hình `dense_only`, KHÔNG phải `hybrid`: hybrid trộn thêm nhánh từ vựng
-(Recall@5 0.3117 sau khi chuẩn hoá độ dài + lọc hư từ, xem docs/bm25-tuning.md) nên
+`lexical_only` (Recall@5 0.3117, xem docs/bm25-tuning.md) nên
 chất lượng embedding bị nhiễu bởi một biến không liên quan — dense thuần là nơi nó
 hiện ra rõ nhất (Task 9).
 
@@ -175,10 +175,13 @@ def render_markdown(rows: list[dict]) -> str:
         "",
         f"> **CẢNH BÁO:** {_CANH_BAO_CHUA_DUYET}",
         "",
-        "Đo bằng cấu hình **`dense_only`**, không phải `hybrid`: hybrid trộn thêm nhánh từ vựng "
-        "(Recall@5 0,3117 sau khi chuẩn hoá độ dài `ts_rank` và lọc hư từ — xem "
-        "`docs/bm25-tuning.md` và `eval/results/report.md`), nên chất lượng embedding bị nhiễu bởi "
-        "một biến không liên quan. Dense thuần là nơi nó hiện ra rõ nhất.",
+        "Đo bằng cấu hình **`dense_only`**, không phải `hybrid`: hybrid trộn thêm nhánh `lexical_only` "
+        "(Recall@5 0,3117 — xem `docs/bm25-tuning.md` và `eval/results/report.md`), nên chất lượng "
+        "embedding bị nhiễu bởi một biến không liên quan. Dense thuần là nơi nó hiện ra rõ nhất.",
+        "",
+        "`lexical_only` là **truy hồi từ vựng bằng `tsvector` + `ts_rank` của PostgreSQL** (config "
+        "`simple` + `unaccent`, truy vấn OR, chuẩn hoá độ dài `normalization=1`, lọc hư từ) — **không "
+        "phải BM25**: `ts_rank` không có tham số `k1`/`b` và không dùng IDF.",
         "",
         "VN-MTEB không benchmark model thương mại (OpenAI/Google/Voyage) trên tiếng Việt — bảng "
         "dưới đây, dù nhỏ, là số liệu CHƯA từng công bố cho các model đó trên văn bản pháp luật "

@@ -261,7 +261,7 @@ def test_hybrid_dung_ket_qua_dense_khi_bm25_that_su_rong(chunks_that):
 
 
 @pytest.mark.integration
-def test_provision_ids_dung_cho_ca_nhanh_don_bm25_only_dense_only(chunks_that):
+def test_provision_ids_dung_cho_ca_nhanh_don_lexical_only_dense_only(chunks_that):
     """Task 9 (eval) dùng .provision_ids() trực tiếp trên chunk_ids của MỘT
     nhánh (bm25 hoặc dense khi nhánh kia bị tắt topk=0) — không chỉ qua
     .hybrid(). Phải khử trùng + giữ thứ tự rank giống hệt hybrid_provisions."""

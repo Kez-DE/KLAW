@@ -1,4 +1,4 @@
-# Nhánh BM25: đo rồi mới chọn (H1, review cuối Plan 2)
+# Nhánh `lexical_only`: đo rồi mới chọn (H1, review cuối Plan 2)
 
 > **CẢNH BÁO:** `golden_qa.yaml` (77 câu) toàn bộ đang `da_review: false` — chưa ai,
 > kể cả chủ dự án, duyệt tay từng câu (Task 8). Mọi con số dưới đây là **CHỈ BÁO cho
@@ -9,7 +9,8 @@ Tái lập: `python -m scripts.sweep_bm25` (chỉ đọc Postgres, không gọi 
 
 ## 1. Vì sao phải đo lại
 
-Bảng ablation đầu tiên cho `bm25_only` Recall@5 = **0,1299**. Đọc con số đó thành
+Bảng ablation đầu tiên cho preset `bm25_only` (nay đổi tên thành `lexical_only`, xem §5)
+Recall@5 = **0,1299**. Đọc con số đó thành
 "BM25 yếu trên văn bản pháp luật Việt Nam" là một kết luận **sai về bản chất phương
 pháp**. Nó thật ra đo: `to_tsvector('simple')` + nối OR + `ts_rank` **không chuẩn hoá
 độ dài** thì yếu. Ba nguyên nhân, đo trực tiếp trên DB:
@@ -87,7 +88,7 @@ trị thật đi vào từng file kết quả nên mỗi hàng ablation tự mô
 
 ## 4. Kết luận còn đứng được sau khi sửa
 
-`bm25_only` Recall@5 **0,1299 → 0,3117** (×2,4). Nhánh BM25 **vẫn** yếu hơn dense
+`lexical_only` Recall@5 **0,1299 → 0,3117** (×2,4). Nhánh từ vựng **vẫn** yếu hơn dense
 (0,6494) một khoảng lớn, nhưng bây giờ đó là một phát biểu về BM25 trên tiếng Việt
 chứ không phải về một baseline hỏng.
 
@@ -98,9 +99,21 @@ Nguyên nhân còn lại đã biết tên, **chưa** xử lý ở vòng này:
    Constraint của Plan cho phép thêm `pyvi`/`underthesea` "nếu đo được Recall@k kém"
    — đã đo và kém, nhưng hai biến rẻ hơn ở trên phải được vắt kiệt trước. Đây là
    dòng ablation kế tiếp, không phải việc của vòng này.
-2. **`ts_rank` không phải BM25.** Nó không có thành phần `k1`/`b` của BM25, không
-   dùng IDF thật (chỉ trọng số A–D). Gọi nhánh này là "BM25" trong khóa luận là
-   **không chính xác** — nên gọi là "truy hồi từ vựng bằng `tsvector`/`ts_rank`", và
-   nếu cần một baseline BM25 đúng nghĩa thì phải cài `pg_search`/`ParadeDB` hoặc tự
-   tính IDF. Tên preset `bm25_only` giữ nguyên để không phá liên kết với các file
-   kết quả đã có, nhưng chú thích này phải đi kèm bảng.
+2. **`ts_rank` không phải BM25** — xem §5.
+
+## 5. Đặt tên: `lexical_only`, không phải `bm25_only`
+
+Preset đã đổi tên `bm25_only` → **`lexical_only`** (`eval/configs/lexical_only.yaml`).
+
+Nhánh này là **truy hồi từ vựng bằng `tsvector` + `ts_rank` của PostgreSQL** (config
+`simple` + `unaccent`, truy vấn OR, chuẩn hoá độ dài `normalization=1`, lọc hư từ) —
+**không phải BM25**: `ts_rank` không có tham số `k1`/`b` và không dùng IDF (chỉ trọng
+số A–D theo `setweight`, mà dự án không set). Gọi nó là "baseline BM25" trong khóa
+luận là một **lỗi sự kiện** người phản biện sẽ bắt.
+
+Muốn có baseline BM25 đúng nghĩa thì phải cài `pg_search`/ParadeDB hoặc tự tính IDF —
+đó là một dòng ablation riêng, chưa làm.
+
+File kết quả cũ `eval/results/bm25_only-baai_bge-m3-77.json` **giữ nguyên tên**: nó là
+hồ sơ của lần chạy đã xảy ra dưới tên cũ, không phải thứ để viết lại. Lần chạy sau
+sinh `lexical_only-*`.
