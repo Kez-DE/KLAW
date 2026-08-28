@@ -15,12 +15,45 @@ là tiện ích gọi `.provision_ids(self.hybrid(q))`. Task 9 (eval) gọi th�
 metrics Task 7 trong cả ba preset ablation, không chỉ hybrid.
 """
 
+import re
+import unicodedata
 from collections import defaultdict
 
 from sqlalchemy import Engine, text
 
 from src.config import Settings
 from src.services.embedding import EmbeddingClient
+
+# Hư từ tiếng Việt — danh sách nhỏ, tự viết, CHỈ áp lên truy vấn (corpus không
+# đụng tới). Viết KHÔNG DẤU vì so khớp sau khi bỏ dấu, giống `unaccent()` của
+# Postgres. Cố ý BỎ QUA những từ mà bản không dấu đụng độ với từ nội dung pháp
+# lý ("tai" ← tại/tài sản, "trong" ← trong/trọng tài, "ban" ← bạn/văn bản,
+# "can" ← cần/căn cứ, "the" ← thế/có thể, "hoi" ← hỏi/hội đồng, "dang" ←
+# đang/đăng ký, "boi" ← bởi/chửi bới): lọc nhầm chúng là mất từ khoá thật.
+HU_TU = frozenset(
+    "a bao cac cho chua co cua cung da duoc em gi hay hoac khi khong la luon ma"
+    " minh mot muon nay nen neu nhe nhieu nhung phai rat roi sao se thi toi vay"
+    " ve voi xin".split()
+)
+
+_TU = re.compile(r"\w+", re.UNICODE)
+
+
+def _bo_dau(s: str) -> str:
+    """'Nếu' → 'neu', 'Điều' → 'dieu'. `đ` không phải ký tự tổ hợp nên NFD không
+    tách được — phải thay tay, đúng như `unaccent.rules` của Postgres làm."""
+    s = s.replace("đ", "d").replace("Đ", "D")
+    return "".join(c for c in unicodedata.normalize("NFD", s) if not unicodedata.combining(c))
+
+
+def loc_hu_tu(q: str) -> str:
+    r"""Bỏ hư từ khỏi truy vấn. Giữ số hiệu Điều/Khoản — `\w` bao cả chữ số.
+
+    Truy vấn TOÀN hư từ thì trả nguyên câu: chuỗi rỗng cho tsquery rỗng, tức
+    bm25 trả [] cho một câu hỏi thật — thà xếp hạng tệ còn hơn im lặng trả rỗng.
+    """
+    giu = [w for w in _TU.findall(q) if _bo_dau(w).lower() not in HU_TU]
+    return " ".join(giu) or q
 
 
 def rrf(rankings: list[list[int]], k: int) -> list[tuple[int, float]]:
@@ -63,7 +96,15 @@ class Retriever:
         # Guard `tq::text <> ''`: truy vấn không sinh lexeme (rỗng/toàn ký tự
         # lạ) cho tsquery rỗng — nối OR trên nó vẫn hợp lệ về cú pháp nhưng
         # không được khớp bừa, phải trả [] thay vì raise hay khớp mọi dòng.
+        # `ts_rank` gọi không có tham số normalization = mặc định 0 = KHÔNG chuẩn
+        # hoá theo độ dài tài liệu → top-k toàn chunk dài (đo được: trung bình
+        # 695 token trong khi corpus trung bình 269). Nay lấy từ Settings, giá
+        # trị mặc định chọn theo bảng đo, không đoán. Cùng lý do đó:
+        # `bm25_strip_stopwords` bỏ hư từ khỏi truy vấn. Hai biến ĐỘC LẬP để đo
+        # tách bạch được — xem `eval/results/report.md`.
         topk = topk or self.s.retrieve_bm25_topk
+        if self.s.bm25_strip_stopwords:
+            q = loc_hu_tu(q)
         with self.engine.connect() as c:
             rows = c.execute(
                 text(
@@ -73,10 +114,10 @@ class Retriever:
                     " WHERE c.embedding_model = :m"
                     "   AND q.tq::text <> ''"
                     "   AND c.tsv @@ q.tq"
-                    " ORDER BY ts_rank(c.tsv, q.tq) DESC"
+                    " ORDER BY ts_rank(c.tsv, q.tq, CAST(:norm AS integer)) DESC"
                     " LIMIT :k"
                 ),
-                {"q": q, "k": topk, "m": self.embedder.model},
+                {"q": q, "k": topk, "m": self.embedder.model, "norm": self.s.bm25_rank_normalization},
             ).all()
         return [r[0] for r in rows]
 

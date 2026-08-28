@@ -283,3 +283,56 @@ def test_hybrid_provisions_khu_trung_giu_thu_tu_rank_tren_db_that(chunks_that):
     r.bm25 = lambda q, topk=None: [ids[0], ids[1], ids[2]]  # cả 2 chunk của p1 đứng trước p2
     out = r.hybrid_provisions("q")
     assert out == [p1, p2], "p1 phải xuất hiện đúng một lần, đứng trước p2"
+
+
+# ---------------------------------------------------------------------------
+# H1 (review-final-p2) — 'simple' không có stopword list tiếng Việt nên mọi hư
+# từ thành lexeme; nối OR biến truy hồi thành xếp hạng gần như cả corpus.
+# ---------------------------------------------------------------------------
+
+
+def test_loc_hu_tu_bo_hu_tu_giu_tu_noi_dung():
+    from src.services.retrieval import loc_hu_tu
+
+    ra = loc_hu_tu("Nếu sếp em cứ chửi bới, xúc phạm em trước mặt mọi người thì có được không ạ?")
+    con = set(ra.split())
+    assert {"sếp", "chửi", "xúc", "phạm"} <= con, "từ nội dung bị bỏ nhầm"
+    assert con.isdisjoint({"Nếu", "em", "thì", "có", "được", "không", "ạ"})
+
+
+def test_loc_hu_tu_giu_so_hieu_dieu_khoan():
+    from src.services.retrieval import loc_hu_tu
+
+    assert "35" in loc_hu_tu("khoản 2 Điều 35 của Bộ luật Lao động").split()
+
+
+def test_loc_hu_tu_truy_van_toan_hu_tu_giu_nguyen_khong_tra_rong():
+    """Rỗng → tsquery rỗng → bm25 trả [] cho một câu hỏi thật. Thà xếp hạng tệ."""
+    from src.services.retrieval import loc_hu_tu
+
+    assert loc_hu_tu("có được không ạ") == "có được không ạ"
+
+
+def test_settings_co_tham_so_normalization_cho_ts_rank():
+    from src.config import Settings
+
+    assert Settings(_env_file=None, bm25_rank_normalization=2).bm25_rank_normalization == 2
+
+
+@pytest.mark.integration
+def test_normalization_do_dai_lam_top10_bot_thien_lech_ve_chunk_dai():
+    """`ts_rank` mặc định normalization=0 = KHÔNG chuẩn hoá độ dài → top-k toàn
+    chunk dài. Chuẩn hoá (2 = chia độ dài) phải kéo độ dài trung bình xuống."""
+    q = "Nếu sếp em cứ chửi bới, xúc phạm em trước mặt mọi người thì có được không ạ?"
+    e = EmbeddingClient(api_key="k", base_url="https://x/api/v1", model="baai/bge-m3", dim=1024)
+
+    def _dai_tb(norm: int) -> float:
+        s = _settings(bm25_rank_normalization=norm, bm25_strip_stopwords=False)
+        ids = Retriever(get_engine(), e, s).bm25(q, topk=10)
+        with get_engine().connect() as c:
+            n = c.execute(
+                text("SELECT avg(token_count) FROM chunks WHERE id = ANY(:ids)"), {"ids": ids}
+            ).scalar_one()
+        return float(n)
+
+    assert _dai_tb(2) < _dai_tb(0)

@@ -58,6 +58,20 @@ class Settings(BaseSettings):
     retrieve_bm25_topk: int = Field(default=20, ge=0)
     retrieve_dense_topk: int = Field(default=20, ge=0)
     rrf_k: int = Field(default=60, gt=0)
+    # ts_rank normalization bitmask (0=không chuẩn hoá, 1=chia 1+log(len),
+    # 2=chia len, 4=mean harmonic distance, 32=rank/(rank+1); cộng dồn được).
+    # Mặc định 0 của Postgres KHÔNG chuẩn hoá độ dài → top-k toàn chunk dài.
+    # =1 chọn THEO ĐO, không đoán: sweep 5 giá trị × 2 (xem `scripts/sweep_bm25.py`,
+    # bảng trong `eval/results/report.md`) cho 1 và 33 tốt nhất (Recall@5 0,2143 so
+    # với 0,1299 của 0), 2 sụp hẳn (0,013 — chia thẳng độ dài phạt quá tay điều
+    # luật dài). Lấy 1 chứ không 33 vì 32 chỉ chia rank+1: biến đổi đơn điệu, đổi
+    # THANG ĐIỂM chứ không đổi THỨ TỰ, nên 33 cho y hệt 1 mà khó giải thích hơn.
+    bm25_rank_normalization: int = Field(default=1, ge=0, le=63)
+    # Bỏ hư từ tiếng Việt khỏi TRUY VẤN trước khi dựng tsquery — 'simple' không
+    # có stopword list tiếng Việt nên hư từ thành lexeme và nối OR biến truy hồi
+    # thành xếp hạng gần như cả corpus. Cũng chọn theo đo: bật cho +50% tương đối
+    # ở MỌI mức normalization (0,2143 → 0,3117 tại normalization=1).
+    bm25_strip_stopwords: bool = True
     retrieve_final_topk: int = Field(default=10, gt=0)
     expand_reference_hops: int = Field(default=1, ge=0)
 
