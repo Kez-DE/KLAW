@@ -152,6 +152,12 @@ def chunks_that(hai_provisions):
         (p1, "thời gian thử việc tối đa theo quy định", _vec(0), "retrieval-test"),
         (p1, "một nội dung khác không liên quan đến từ khóa", _vec(1), "retrieval-test"),
         (p2, "chấm dứt hợp đồng lao động trước thời hạn", _vec(2), "retrieval-test"),
+        (
+            p2,
+            "người lao động đơn phương chấm dứt hợp đồng lao động phải báo trước ít nhất 45 ngày",
+            _vec(3),
+            "retrieval-test",
+        ),
     ]
     ids: list[int] = []
     with eng.begin() as c:
@@ -193,6 +199,35 @@ def test_bm25_khong_tra_chunk_cua_embedding_model_khac(chunks_that):
 
 
 @pytest.mark.integration
+def test_bm25_cau_hoi_tu_nhien_khop_dieu_luat_qua_or_khong_and(chunks_that):
+    """plainto_tsquery mặc định AND toàn bộ lexeme — một câu hỏi tự nhiên gần
+    như không bao giờ chứa đủ MỌI từ của điều luật, nên bm25() luôn rỗng với
+    truy vấn thật và hybrid() thoái hoá thành dense thuần. Phải chuyển sang OR
+    (ts_rank lo xếp hạng) để câu hỏi tự nhiên khớp được điều luật thật."""
+    ids = chunks_that["ids"]
+    r = Retriever(engine=get_engine(), embedder=_embedder_gia({}), settings=_settings())
+    out = r.bm25("nghỉ việc thì phải báo trước bao nhiêu ngày")
+    assert ids[3] in out
+
+
+@pytest.mark.integration
+def test_bm25_xep_hang_chunk_khop_nhieu_lexeme_hon_len_truoc(chunks_that):
+    ids = chunks_that["ids"]
+    r = Retriever(engine=get_engine(), embedder=_embedder_gia({}), settings=_settings())
+    out = r.bm25("báo trước ít nhất 45 ngày chấm dứt hợp đồng lao động")
+    # ids[3] khớp gần hết lexeme của truy vấn; ids[2] chỉ khớp một phần
+    assert ids[2] in out and ids[3] in out
+    assert out.index(ids[3]) < out.index(ids[2])
+
+
+@pytest.mark.integration
+def test_bm25_truy_van_khong_sinh_lexeme_tra_ve_rong_khong_exception(chunks_that):
+    r = Retriever(engine=get_engine(), embedder=_embedder_gia({}), settings=_settings())
+    assert r.bm25("!!!???...") == []
+    assert r.bm25("") == []
+
+
+@pytest.mark.integration
 def test_dense_xep_hang_theo_khoang_cach_cosine(chunks_that):
     ids = chunks_that["ids"]
     settings = _settings()
@@ -206,13 +241,16 @@ def test_dense_xep_hang_theo_khoang_cach_cosine(chunks_that):
 @pytest.mark.integration
 def test_hybrid_dung_ket_qua_dense_khi_bm25_that_su_rong(chunks_that):
     """Truy vấn không khớp tsv chunk nào (bm25 rỗng thật trên DB thật), nhưng
-    dense vẫn tìm ra — hybrid không được vỡ theo Yêu cầu #2."""
+    dense vẫn tìm ra — hybrid không được vỡ theo Yêu cầu #2. Chuỗi vô nghĩa,
+    không lexeme nào của nó trùng bất kỳ chunk nào (kể cả từng từ rời sau khi
+    bm25 chuyển sang OR — khác "tu_khoa_..." lúc trước, "khoa" trong đó vô tình
+    trùng chunk[1])."""
     ids = chunks_that["ids"]
     settings = _settings()
-    embedder = _embedder_gia({"tu_khoa_khong_ton_tai_trong_bat_ky_chunk_nao": _vec(2)})
+    embedder = _embedder_gia({"zzzxxxqqq wwwyyykkk": _vec(2)})
     r = Retriever(engine=get_engine(), embedder=embedder, settings=settings)
-    assert r.bm25("tu_khoa_khong_ton_tai_trong_bat_ky_chunk_nao") == []
-    out = r.hybrid("tu_khoa_khong_ton_tai_trong_bat_ky_chunk_nao")
+    assert r.bm25("zzzxxxqqq wwwyyykkk") == []
+    out = r.hybrid("zzzxxxqqq wwwyyykkk")
     assert ids[2] in out
 
 

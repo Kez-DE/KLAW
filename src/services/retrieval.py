@@ -53,14 +53,24 @@ class Retriever:
         self.s = settings
 
     def bm25(self, q: str, topk: int | None = None) -> list[int]:
+        # plainto_tsquery nối lexeme bằng AND — một câu hỏi tự nhiên gần như
+        # không bao giờ chứa ĐỦ mọi từ của điều luật, nên AND luôn cho rỗng
+        # trên truy vấn thật và làm hybrid() thoái hoá thành dense thuần.
+        # Chuyển '&' → '|' (OR) và để ts_rank lo xếp hạng theo số lexeme khớp.
+        # Guard `tq::text <> ''`: truy vấn không sinh lexeme (rỗng/toàn ký tự
+        # lạ) cho tsquery rỗng — nối OR trên nó vẫn hợp lệ về cú pháp nhưng
+        # không được khớp bừa, phải trả [] thay vì raise hay khớp mọi dòng.
         topk = topk or self.s.retrieve_bm25_topk
         with self.engine.connect() as c:
             rows = c.execute(
                 text(
-                    "SELECT id FROM chunks"
-                    " WHERE embedding_model = :m"
-                    "   AND tsv @@ plainto_tsquery('simple', unaccent(:q))"
-                    " ORDER BY ts_rank(tsv, plainto_tsquery('simple', unaccent(:q))) DESC"
+                    "WITH q AS ("
+                    "  SELECT replace(plainto_tsquery('simple', unaccent(:q))::text, '&', '|')::tsquery AS tq"
+                    ") SELECT c.id FROM chunks c, q"
+                    " WHERE c.embedding_model = :m"
+                    "   AND q.tq::text <> ''"
+                    "   AND c.tsv @@ q.tq"
+                    " ORDER BY ts_rank(c.tsv, q.tq) DESC"
                     " LIMIT :k"
                 ),
                 {"q": q, "k": topk, "m": self.embedder.model},
