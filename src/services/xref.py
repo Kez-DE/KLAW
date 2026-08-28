@@ -77,9 +77,25 @@ RE_XREF = re.compile(
 # keep the last iteration, not all of them.
 _RE_TIEP_DIEU = re.compile(r"(,|và|hoặc|đến)\s*Điều\s+(\d+[a-zA-ZđĐ]*)", re.IGNORECASE)
 
-# "Điều 49 đến Điều 53" expands to 49,50,51,52,53. Beyond this span the
-# reference is more likely a mis-parse than a real range — skip the whole
-# cluster and log it rather than emit hundreds of garbage edges.
+# "các điều 22, 23 và 24 của Bộ luật này" — a THIRD syntax: "điều" said once,
+# then bare numbers (no repeated "Điều" per item, unlike RE_XREF's lietke
+# group above). Kept as its own pattern rather than merged into RE_XREF —
+# the two trigger conditions don't overlap, and merging them would make both
+# harder to read and easier to regress.
+_SO_TRAN = r"(?:,|và|hoặc|đến)\s*\d+[a-zA-ZđĐ]*(?!\w)"
+
+RE_LIET_KE_TRAN = re.compile(
+    r"các\s+điều\s+(?P<dieu>\d+[a-zA-ZđĐ]*)(?!\w)"
+    rf"(?P<lietke>(?:\s*{_SO_TRAN})+)"
+    r"\s*(?:,\s*)?(?:của\s+)?(?:Bộ luật|Luật|Nghị định|Thông tư)\s+(?P<nay>này)?",
+    re.IGNORECASE,
+)
+_RE_SO_TRAN = re.compile(r"(,|và|hoặc|đến)\s*(\d+[a-zA-ZđĐ]*)", re.IGNORECASE)
+
+# "Điều 49 đến Điều 53" / "các điều 22 đến 26" expands to every number in
+# between. Beyond this span the reference is more likely a mis-parse than a
+# real range — skip the whole cluster and log it rather than emit hundreds
+# of garbage edges. Shared by both list syntaxes above.
 _KHOANG_TOI_DA = 30
 
 
@@ -97,33 +113,47 @@ def _tach_so_hau_to(token: str) -> tuple[int, str]:
     return int(so_str), hau_to
 
 
+def _mo_rong_danh_sach(
+    so_dau: int, hau_dau: str, tiep: list[tuple[str, str]], raw_cum: str
+) -> list[tuple[int, str]] | None:
+    """Expand one cluster's first (so, hau_to) plus its (sep, token)
+    continuations into the full list of (so_dieu, hau_to) pairs. "đến"
+    fills in every number in between; any other separator is a discrete
+    list item. Returns None — discard the WHOLE cluster, not just the bad
+    span — when a "đến" range is descending, exceeds `_KHOANG_TOI_DA`, or
+    touches a letter-suffixed endpoint (ranges over suffixed articles are
+    ambiguous and unobserved in the corpus, not worth guessing at)."""
+    danh_sach = [(so_dau, hau_dau)]
+    cuoi_so, cuoi_hau = so_dau, hau_dau
+    for sep, token in tiep:
+        so, hau_to = _tach_so_hau_to(token)
+        if sep.lower() == "đến":
+            khoang_hop_le = so > cuoi_so and so - cuoi_so <= _KHOANG_TOI_DA
+            if not khoang_hop_le or cuoi_hau or hau_to:
+                logger.warning(
+                    "bỏ qua cụm dẫn chiếu 'đến' không hợp lệ hoặc vượt ngưỡng %d: %r",
+                    _KHOANG_TOI_DA, raw_cum,
+                )
+                return None
+            danh_sach.extend((n, "") for n in range(cuoi_so + 1, so + 1))
+        else:
+            danh_sach.append((so, hau_to))
+        cuoi_so, cuoi_hau = so, hau_to
+    return danh_sach
+
+
 def find_xrefs(noi_dung: str) -> list[XrefHit]:
     out: list[XrefHit] = []
-    for m in RE_XREF.finditer(_normalize(noi_dung)):
-        so_dau, hau_dau = _tach_so_hau_to(m.group("dieu"))
-        danh_sach = [(so_dau, hau_dau)]
-        cuoi_so, cuoi_hau = so_dau, hau_dau
-        hop_le = True
-        for sep, token in _RE_TIEP_DIEU.findall(m.group("lietke") or ""):
-            so, hau_to = _tach_so_hau_to(token)
-            if sep.lower() == "đến":
-                khoang_hop_le = so > cuoi_so and so - cuoi_so <= _KHOANG_TOI_DA
-                if not khoang_hop_le or cuoi_hau or hau_to:
-                    logger.warning(
-                        "bỏ qua cụm dẫn chiếu 'đến' không hợp lệ hoặc vượt ngưỡng %d: %r",
-                        _KHOANG_TOI_DA, m.group(0).strip(),
-                    )
-                    hop_le = False
-                    break
-                danh_sach.extend((n, "") for n in range(cuoi_so + 1, so + 1))
-            else:
-                danh_sach.append((so, hau_to))
-            cuoi_so, cuoi_hau = so, hau_to
-        if not hop_le:
-            continue
+    norm = _normalize(noi_dung)
 
-        cung_van_ban = bool(m.group("nay"))
+    for m in RE_XREF.finditer(norm):
+        so_dau, hau_dau = _tach_so_hau_to(m.group("dieu"))
+        tiep = _RE_TIEP_DIEU.findall(m.group("lietke") or "")
         raw = m.group(0).strip()
+        danh_sach = _mo_rong_danh_sach(so_dau, hau_dau, tiep, raw)
+        if danh_sach is None:
+            continue
+        cung_van_ban = bool(m.group("nay"))
         so_khoan = int(m.group("khoan")) if m.group("khoan") else None
         for i, (so_dieu, hau_to) in enumerate(danh_sach):
             out.append(XrefHit(
@@ -133,6 +163,20 @@ def find_xrefs(noi_dung: str) -> list[XrefHit]:
                 raw=raw,
                 hau_to=hau_to,
             ))
+
+    for m in RE_LIET_KE_TRAN.finditer(norm):
+        so_dau, hau_dau = _tach_so_hau_to(m.group("dieu"))
+        tiep = _RE_SO_TRAN.findall(m.group("lietke") or "")
+        raw = m.group(0).strip()
+        danh_sach = _mo_rong_danh_sach(so_dau, hau_dau, tiep, raw)
+        if danh_sach is None:
+            continue
+        cung_van_ban = bool(m.group("nay"))
+        for so_dieu, hau_to in danh_sach:
+            out.append(XrefHit(
+                so_dieu=so_dieu, so_khoan=None, cung_van_ban=cung_van_ban, raw=raw, hau_to=hau_to,
+            ))
+
     return out
 
 
@@ -150,11 +194,14 @@ def resolve_all(engine: Engine) -> int:
     (cross-document, or a same-document "Điều N" whose N doesn't exist in
     this document) are not written and not silently discarded either — they
     are counted and logged, with a short sample, via the `xref` logger.
+    Two hits in the same provision resolving to the same target (two
+    sentences citing the same article) write ONE edge, not two.
     """
     ghi = 0
     khong_resolve = 0
     khac_van_ban = 0
     tu_tham_chieu = 0
+    trung_lap = 0
     mau_khong_resolve: list[str] = []
 
     with engine.begin() as conn:
@@ -173,6 +220,7 @@ def resolve_all(engine: Engine) -> int:
         conn.execute(text('DELETE FROM "references" WHERE from_provision_id IS NOT NULL'))
 
         for r in rows:
+            da_ghi: set[int] = set()  # targets already written FOR THIS provision
             for hit in find_xrefs(r["noi_dung"]):
                 if not hit.cung_van_ban:
                     khac_van_ban += 1
@@ -187,6 +235,10 @@ def resolve_all(engine: Engine) -> int:
                 if target == r["id"]:
                     tu_tham_chieu += 1
                     continue
+                if target in da_ghi:
+                    trung_lap += 1
+                    continue
+                da_ghi.add(target)
                 conn.execute(text(
                     'INSERT INTO "references"'
                     " (from_document_id, to_document_id, from_provision_id, to_provision_id, loai, raw_text)"
@@ -197,8 +249,8 @@ def resolve_all(engine: Engine) -> int:
 
     logger.info(
         "resolve_all: %d cạnh ghi | %d cùng văn bản không resolve | "
-        "%d tự tham chiếu bỏ qua | %d khác văn bản (không map)",
-        ghi, khong_resolve, tu_tham_chieu, khac_van_ban,
+        "%d tự tham chiếu bỏ qua | %d khác văn bản (không map) | %d cặp trùng bị khử",
+        ghi, khong_resolve, tu_tham_chieu, khac_van_ban, trung_lap,
     )
     if mau_khong_resolve:
         logger.info("mẫu không resolve: %s", mau_khong_resolve)

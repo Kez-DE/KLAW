@@ -116,6 +116,48 @@ def test_dieu_don_le_van_dung_so_khong_bi_anh_huong_boi_liet_ke():
     assert len(hits) == 1 and hits[0].so_dieu == 21
 
 
+# ══ Unit tests — "các điều N, M và K" (bare numbers, "điều" said once) ═════
+# A THIRD syntax, distinct from "Điều X và Điều Y": "điều" appears once, then
+# bare numbers. Measured in the real corpus (95942): "các điều 22, 23 và 24
+# của Bộ luật này", "các điều 228, 229, 230, 231, 232, 233 và 236 của Bộ luật
+# này". A separate pattern (RE_LIET_KE_TRAN), not merged into RE_XREF — the
+# two trigger conditions ("Điều" repeated vs. said once) don't overlap.
+
+
+def test_lietke_tran_phay_va_ra_ba_canh():
+    hits = find_xrefs("các điều 22, 23 và 24 của Bộ luật này")
+    # RE_XREF also independently matches the bare "điều 22" (as it would
+    # anywhere), tagged cung_van_ban=False since it has no trailing marker on
+    # its own — harmless noise resolve_all discards before writing anything;
+    # what matters is the cạnh (edge) resolve_all actually writes, i.e. the
+    # cung_van_ban=True hits.
+    cung_vb = {h.so_dieu for h in hits if h.cung_van_ban}
+    assert cung_vb == {22, 23, 24}
+
+
+def test_lietke_tran_bo_qua_khong_lien_tuc_khong_tu_dien_91():
+    # 88,89,90,92,93 — 91 is skipped in the source text and must NOT be
+    # invented; there's no "đến" here, just discrete comma/và items.
+    hits = find_xrefs("các điều 88, 89, 90, 92 và 93 của Bộ luật này")
+    assert {h.so_dieu for h in hits} == {88, 89, 90, 92, 93}
+
+
+def test_lietke_tran_den_mo_rong_thanh_khoang():
+    hits = find_xrefs("các điều 22 đến 26 của Bộ luật này")
+    assert {h.so_dieu for h in hits} == {22, 23, 24, 25, 26}
+
+
+def test_ca_hai_cu_phap_trong_mot_doan_khong_trung_khong_thieu():
+    text_ = (
+        "Theo Điều 3 và Điều 10 của Bộ luật này. "
+        "Ngoài ra các điều 22, 23 và 24 của Bộ luật này cũng áp dụng."
+    )
+    hits = find_xrefs(text_)
+    cung_vb = [h.so_dieu for h in hits if h.cung_van_ban]
+    assert set(cung_vb) == {3, 10, 22, 23, 24}
+    assert len(cung_vb) == 5  # không trùng, không thiếu, trong số cạnh sẽ ghi
+
+
 # ══ Integration tests — resolve_all against the real corpus ════════════════
 
 
@@ -155,3 +197,37 @@ def test_resolve_all_khong_dung_242_dong_cap_van_ban_co_san():
             text('SELECT count(*) FROM "references" WHERE from_provision_id IS NULL')
         ).scalar_one()
     assert dem == 242
+
+
+@pytest.mark.integration
+def test_resolve_all_khu_trung_cung_mot_cap_trong_mot_provision():
+    """Cùng một provision trích 'Điều 5' hai lần, ở hai câu khác nhau — cùng
+    một cặp (from_provision_id, to_provision_id) chỉ được ghi MỘT cạnh."""
+    run_migrations()
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO documents (id, so_ky_hieu, loai_van_ban, ten, tinh_trang, checksum)"
+            " VALUES ('xref-dedup-test', 'x/2024/QH15', 'Luật', 't', 'CHL', 'c')"
+            " ON CONFLICT (id) DO NOTHING"))
+        conn.execute(text(
+            "INSERT INTO provisions (document_id, cap, so_hieu_cap, noi_dung, duong_dan, thu_tu)"
+            " VALUES ('xref-dedup-test', 'dieu', '5', 'Điều 5. Nội dung X',"
+            " 'x/2024/QH15 > Điều 5', 0)"))
+        conn.execute(text(
+            "INSERT INTO provisions (document_id, cap, so_hieu_cap, noi_dung, duong_dan, thu_tu)"
+            " VALUES ('xref-dedup-test', 'dieu', '9',"
+            " 'Điều 9. Theo Điều 5 của Bộ luật này và theo Điều 5 của Bộ luật này một lần nữa.',"
+            " 'x/2024/QH15 > Điều 9', 1)"))
+    try:
+        resolve_all(engine)
+        with engine.connect() as conn:
+            dem = conn.execute(text(
+                'SELECT count(*) FROM "references" r'
+                " JOIN provisions fp ON fp.id = r.from_provision_id"
+                " WHERE fp.document_id = 'xref-dedup-test' AND fp.so_hieu_cap = '9'"
+            )).scalar_one()
+        assert dem == 1
+    finally:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM documents WHERE id = 'xref-dedup-test'"))
