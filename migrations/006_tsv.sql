@@ -42,3 +42,10 @@ DROP TRIGGER IF EXISTS chunks_tsv_update ON chunks;
 CREATE TRIGGER chunks_tsv_update
     BEFORE INSERT OR UPDATE OF noi_dung_embed ON chunks
     FOR EACH ROW EXECUTE FUNCTION chunks_tsv_trigger();
+
+-- Backfill: trigger chỉ chạy khi INSERT/UPDATE. Dòng `chunks` tồn tại TRƯỚC khi
+-- `006` được áp giữ `tsv` NULL vĩnh viễn — vô hình với BM25, không lỗi, không
+-- cảnh báo. Hiện 0 dòng như vậy, nhưng để `006` tự chữa thì nó phải tự sửa.
+-- Idempotent: `WHERE tsv IS NULL` nên lần chạy thứ hai đụng 0 dòng, và không
+-- ghi đè `tsv` của dòng đã đúng.
+UPDATE chunks SET tsv = klaw_tsv(noi_dung_embed) WHERE tsv IS NULL;

@@ -83,3 +83,30 @@ def test_migration_idempotent_tren_bang_chunks_co_du_lieu():
     finally:
         with eng.begin() as c:
             c.execute(text("DELETE FROM chunks WHERE id = :i"), {"i": cid})
+
+
+@pytest.mark.integration
+def test_006_backfill_tsv_null_khi_chay_lai():
+    """M1: trigger chỉ chạy khi INSERT/UPDATE noi_dung_embed. Dòng tồn tại TRƯỚC
+    khi `006` được áp giữ `tsv` NULL vĩnh viễn — vô hình với BM25, không lỗi,
+    không cảnh báo. `006` phải tự chữa, và phải idempotent."""
+    run_migrations()
+    eng = get_engine()
+    with eng.begin() as c:
+        pid = c.execute(text("SELECT id FROM provisions LIMIT 1")).scalar_one()
+        cid = c.execute(text(
+            "INSERT INTO chunks (provision_id, noi_dung_embed, embedding_model, embedding_dim)"
+            " VALUES (:p, 'thời gian thử việc tối đa', 'test-backfill', 4) RETURNING id"
+        ), {"p": pid}).scalar_one()
+        # UPDATE cột tsv KHÔNG kích trigger (trigger nghe `UPDATE OF noi_dung_embed`)
+        # → tái tạo đúng dòng "tồn tại trước khi 006 chạy".
+        c.execute(text("UPDATE chunks SET tsv = NULL WHERE id = :i"), {"i": cid})
+    try:
+        run_migrations()
+        run_migrations()
+        with eng.connect() as c:
+            tsv_text = c.execute(text("SELECT tsv::text FROM chunks WHERE id = :i"), {"i": cid}).scalar_one()
+        assert tsv_text, "006 không backfill tsv NULL"
+    finally:
+        with eng.begin() as c:
+            c.execute(text("DELETE FROM chunks WHERE id = :i"), {"i": cid})
