@@ -233,6 +233,33 @@ def test_evaluate_khong_dem_loi_thanh_recall_0_tren_du_lieu_that():
 
 
 # ---------------------------------------------------------------------------
+# H3 (review-final-p2) — preset gõ nhầm key phải NỔ, không im lặng dùng mặc định
+# ---------------------------------------------------------------------------
+
+
+def test_load_config_nem_khi_yaml_co_key_khong_khop_field_nao(tmp_path, monkeypatch):
+    import eval.run as run_mod
+
+    (tmp_path / "go_nham.yaml").write_text("rrf_K: 5\nretrieve_final_topk: 10\n", encoding="utf-8")
+    monkeypatch.setattr(run_mod, "CONFIG_DIR", tmp_path)
+    with pytest.raises(ValueError, match="rrf_K"):
+        run_mod.load_config("go_nham")
+
+
+def test_load_config_van_doc_duoc_preset_dung(tmp_path, monkeypatch):
+    import eval.run as run_mod
+
+    (tmp_path / "dung.yaml").write_text("rrf_k: 5\n", encoding="utf-8")
+    monkeypatch.setattr(run_mod, "CONFIG_DIR", tmp_path)
+    assert run_mod.load_config("dung") == {"rrf_k": 5}
+
+
+def test_overlay_settings_nem_khi_override_go_nham_ten():
+    with pytest.raises(ValueError, match="rrf_K"):
+        overlay_settings({"rrf_K": 5})
+
+
+# ---------------------------------------------------------------------------
 # H2 (review-final-p2) — tên file kết quả phải mang model, nếu không lần chạy
 # model thứ hai GHI ĐÈ per_item của model thứ nhất (đã thực sự xảy ra)
 # ---------------------------------------------------------------------------

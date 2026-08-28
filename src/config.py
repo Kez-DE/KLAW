@@ -13,6 +13,19 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    def __init__(self, **kw: object) -> None:
+        """`extra="ignore"` là CỐ Ý cho `.env` (nó chứa key của công cụ khác —
+        LANGCHAIN_*, COHERE_API_KEY… — chặn chúng thì app không khởi động nổi),
+        nhưng kwargs thì phải NỔ. `Settings(rrf_K=5)` từng lặng lẽ giữ mặc định
+        `rrf_k=60`: đúng kịch bản sweep `rrf_k` qua `overlay_settings(**preset)`
+        — một lần gõ nhầm là bốn hàng ablation bằng nhau và kết luận sai
+        "rrf_k không ảnh hưởng". Kwargs `_`-prefixed là của pydantic (`_env_file`…).
+        """
+        la = {k for k in kw if not k.startswith("_")} - set(type(self).model_fields)
+        if la:
+            raise ValueError(f"Settings: field không tồn tại: {sorted(la)}")
+        super().__init__(**kw)
+
     # App
     app_name: str = "KLAW API"
     app_env: Literal["development", "production", "test"] = "development"

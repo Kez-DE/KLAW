@@ -50,16 +50,28 @@ _CANH_BAO_CHUA_DUYET = (
 )
 
 
+def _chan_key_la(cfg: dict, nguon: str) -> None:
+    """Key không khớp field nào của Settings phải NỔ. `rrf_K: 5` từng cho ra một
+    hàng ablation giống hệt mặc định — không warning, không lỗi, đúng kịch bản
+    sweep `rrf_k`: một lần gõ nhầm là bốn hàng bằng nhau và kết luận sai."""
+    la = set(cfg) - set(Settings.model_fields)
+    if la:
+        raise ValueError(f"{nguon}: key không khớp field nào của Settings: {sorted(la)}")
+
+
 def load_config(name: str) -> dict:
     p = CONFIG_DIR / f"{name}.yaml"
     if not p.exists():
         raise FileNotFoundError(f"không có preset {name!r} tại {p}")
-    return yaml.safe_load(p.read_text(encoding="utf-8"))
+    cfg = yaml.safe_load(p.read_text(encoding="utf-8"))
+    _chan_key_la(cfg, str(p))
+    return cfg
 
 
 def overlay_settings(overrides: dict) -> Settings:
     """Settings mới với override — KHÔNG sửa instance toàn cục đã cache (get_settings
     dùng @lru_cache; mọi nơi khác trong app tin instance đó không đổi giữa chừng)."""
+    _chan_key_la(overrides, "overlay_settings")
     base = get_settings().model_dump()
     base.update(overrides)
     return Settings(**base)
