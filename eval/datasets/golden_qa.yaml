@@ -1,0 +1,773 @@
+items:
+- id: lao-000-0
+  cau_hoi: Công ty tôi có 50 nhân viên, trong đó có 30 nữ. Vậy công ty tôi có phải
+    là công ty sử dụng nhiều lao động nữ không?
+  provision_ids:
+  - 144154
+  duong_dan:
+  - 145/2020/NĐ-CP > Điều 74
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-000-1
+  cau_hoi: Nếu công ty tôi có 150 nhân viên, trong đó có 50 nữ, thì có được coi là
+    công ty sử dụng nhiều lao động nữ không?
+  provision_ids:
+  - 144154
+  duong_dan:
+  - 145/2020/NĐ-CP > Điều 74
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-001-0
+  cau_hoi: Nếu sếp em cứ chửi bới, xúc phạm em trước mặt mọi người thì có được không
+    ạ?
+  provision_ids:
+  - 141418
+  duong_dan:
+  - 45/2019/QH14 > Điều 127
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-001-1
+  cau_hoi: Công ty có được trừ thẳng tiền lương của em vì đi muộn vài lần không ạ?
+  provision_ids:
+  - 141418
+  duong_dan:
+  - 45/2019/QH14 > Điều 127
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-002-0
+  cau_hoi: Từ ngày 1/1/2026, công ty tôi có được giảm lương của nhân viên làm thêm
+    giờ hay không?
+  provision_ids:
+  - 144652
+  duong_dan:
+  - 293/2025/NĐ-CP > Điều 5
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-002-1
+  cau_hoi: Nếu lương tối thiểu vùng mới thấp hơn lương cũ, công ty tôi có phải trả
+    lương cũ cho nhân viên đã làm từ trước không?
+  provision_ids:
+  - 144652
+  duong_dan:
+  - 293/2025/NĐ-CP > Điều 5
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-004-0
+  cau_hoi: Tôi ký hợp đồng với công ty hôm nay, vậy là từ lúc nào tôi bắt đầu đi làm
+    chính thức?
+  provision_ids:
+  - 140879
+  duong_dan:
+  - 45/2019/QH14 > Điều 23
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-004-1
+  cau_hoi: Nếu tôi và công ty thỏa thuận là hợp đồng có hiệu lực vào tuần sau, thì
+    có được không?
+  provision_ids:
+  - 140879
+  duong_dan:
+  - 45/2019/QH14 > Điều 23
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-005-0
+  cau_hoi: Nếu công ty tôi đóng cửa và tôi bị mất việc, tôi có được nhận tiền hỗ trợ
+    gì không và bao nhiêu?
+  provision_ids:
+  - 141010
+  duong_dan:
+  - 45/2019/QH14 > Điều 47
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-005-1
+  cau_hoi: Tôi làm ở công ty này được 5 năm, giờ bị cho nghỉ việc, thì tôi sẽ được
+    nhận bao nhiêu tiền hỗ trợ mất việc?
+  provision_ids:
+  - 141010
+  duong_dan:
+  - 45/2019/QH14 > Điều 47
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-006-0
+  cau_hoi: Nếu tôi thuê người giúp việc mà không làm giấy tờ gì cả, có bị phạt không?
+  provision_ids:
+  - 145378
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 30
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-006-1
+  cau_hoi: Nếu tôi đuổi việc người giúp việc mà không cho tiền xe về quê thì có bị
+    phạt không?
+  provision_ids:
+  - 145378
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 30
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-009-0
+  cau_hoi: Nếu tôi làm sai gì đó ở nước ngoài, thì cán bộ ở Đại sứ quán Việt Nam có
+    thể phạt tôi bao nhiêu tiền?
+  provision_ids:
+  - 145790
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 56
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-009-1
+  cau_hoi: Tôi có thể bị phạt tối đa bao nhiêu nếu tôi vi phạm quy định nào đó khi
+    làm việc với cơ quan đại diện của Việt Nam ở nước ngoài?
+  provision_ids:
+  - 145790
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 56
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-010-0
+  cau_hoi: Tôi muốn làm việc chỉ 4 tiếng một ngày thôi thì có được không ạ?
+  provision_ids:
+  - 140912
+  duong_dan:
+  - 45/2019/QH14 > Điều 32
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-010-1
+  cau_hoi: Nếu tôi làm việc nửa ngày thì lương có bị cắt hết không ạ?
+  provision_ids:
+  - 140912
+  duong_dan:
+  - 45/2019/QH14 > Điều 32
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-011-0
+  cau_hoi: Nếu công ty tôi ký thỏa ước lao động tập thể mà không cho nhân viên biết
+    thì có bị phạt không?
+  provision_ids:
+  - 145123
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 16
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-011-1
+  cau_hoi: Công ty tôi từ chối ngồi lại nói chuyện với đại diện nhân viên để bàn về
+    quyền lợi chung thì có bị phạt không?
+  provision_ids:
+  - 145123
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 16
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-013-0
+  cau_hoi: Công ty tôi mới mở, tôi cần phải làm gì với mấy bạn nhân viên mới ngay
+    từ đầu để đúng quy định của nhà nước?
+  provision_ids:
+  - 140813
+  duong_dan:
+  - 45/2019/QH14 > Điều 12
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-013-1
+  cau_hoi: Nếu công ty tôi có thay đổi về nhân sự, ví dụ có người nghỉ việc hay có
+    người mới vào, thì tôi có cần báo cáo cho cơ quan chức năng không và báo cáo khi
+    nào?
+  provision_ids:
+  - 140813
+  duong_dan:
+  - 45/2019/QH14 > Điều 12
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-014-0
+  cau_hoi: Công ty nhận tôi vào học việc, có được thu tiền học việc của tôi không?
+  provision_ids:
+  - 141095
+  duong_dan:
+  - 45/2019/QH14 > Điều 61
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-014-1
+  cau_hoi: Nếu tôi đi học nghề ở công ty thì có được trả lương không?
+  provision_ids:
+  - 141095
+  duong_dan:
+  - 45/2019/QH14 > Điều 61
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-015-0
+  cau_hoi: Nếu tôi làm việc mà sếp không trả lương thì tôi phải làm sao?
+  provision_ids:
+  - 141258
+  - 145136
+  duong_dan:
+  - 45/2019/QH14 > Điều 97
+  - 12/2022/NĐ-CP > Điều 17
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-015-1
+  cau_hoi: Tôi đi học nghề mà họ không trả tiền công cho tôi thì có được không?
+  provision_ids:
+  - 144883
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 4 > Khoản 7
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-017-0
+  cau_hoi: Công ty tôi sắp cắt giảm nhân sự, họ phải thông báo cho chúng tôi biết
+    những gì về việc ai sẽ ở lại, ai sẽ nghỉ việc và quyền lợi của chúng tôi ra sao?
+  provision_ids:
+  - 140994
+  duong_dan:
+  - 45/2019/QH14 > Điều 44
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-017-1
+  cau_hoi: Nếu công ty tôi muốn cho một số người nghỉ việc, họ có cần bàn bạc với
+    đại diện của chúng tôi trước không và phải báo cho mọi người biết kế hoạch này
+    trong bao lâu?
+  provision_ids:
+  - 140994
+  duong_dan:
+  - 45/2019/QH14 > Điều 44
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-018-0
+  cau_hoi: Tôi làm công nhân hầm lò đã được 15 năm, giờ tôi muốn nghỉ hưu sớm thì
+    cần bao nhiêu năm đóng bảo hiểm xã hội và bao nhiêu tuổi?
+  provision_ids:
+  - 141894
+  duong_dan:
+  - 45/2019/QH14 > Điều 219 > Khoản 1
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-018-1
+  cau_hoi: Tôi bị tai nạn nghề nghiệp và nhiễm HIV, tôi đã đóng bảo hiểm xã hội được
+    20 năm rồi, vậy tôi có được hưởng lương hưu không?
+  provision_ids:
+  - 141894
+  duong_dan:
+  - 45/2019/QH14 > Điều 219 > Khoản 1
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-020-0
+  cau_hoi: Nếu công ty đưa tôi đi làm việc ở nước ngoài mà họ làm sai hợp đồng đã
+    đăng ký thì họ bị phạt bao nhiêu tiền?
+  provision_ids:
+  - 145534
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 42 > Khoản 5
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-020-1
+  cau_hoi: Công ty môi giới xuất khẩu lao động mà quảng cáo sai sự thật về lương hoặc
+    điều kiện làm việc cho tôi thì có bị phạt không? Nếu có thì phạt bao nhiêu?
+  provision_ids:
+  - 145534
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 42 > Khoản 5
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-022-0
+  cau_hoi: Nếu tôi muốn thay đổi một vài điều khoản trong hợp đồng lao động với công
+    ty thì phải làm thế nào?
+  provision_ids:
+  - 140916
+  duong_dan:
+  - 45/2019/QH14 > Điều 33
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-022-1
+  cau_hoi: Công ty tôi muốn giảm lương của tôi, họ có được làm ngay không hay phải
+    báo trước bao lâu?
+  provision_ids:
+  - 140916
+  duong_dan:
+  - 45/2019/QH14 > Điều 33
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-023-0
+  cau_hoi: Nếu công ty tôi cử tôi đi làm ở nước ngoài mà xảy ra chuyện gì đó với tôi,
+    ví dụ như tai nạn hay bị bệnh nặng, mà công ty không lo liệu gì hết thì có bị
+    phạt không?
+  provision_ids:
+  - 145610
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 43 > Khoản 6
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-023-1
+  cau_hoi: Nếu tôi đi làm ở nước ngoài mà gặp chuyện không may, ví dụ như bị tai nạn
+    lao động, mà công ty không báo cho đại sứ quán Việt Nam để họ giúp đỡ thì có bị
+    phạt không?
+  provision_ids:
+  - 145610
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 43 > Khoản 6
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-024-0
+  cau_hoi: Nếu công ty tôi đột nhiên đóng cửa mấy ngày vì lý do kinh doanh, tôi có
+    được nhận lương không và bao nhiêu?
+  provision_ids:
+  - 141271
+  duong_dan:
+  - 45/2019/QH14 > Điều 99
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-024-1
+  cau_hoi: Nếu tôi không đi làm được vì công ty bị ngập nước, tôi có được trả lương
+    không?
+  provision_ids:
+  - 141271
+  duong_dan:
+  - 45/2019/QH14 > Điều 99
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-025-0
+  cau_hoi: Nếu công ty em muốn đình công thì ai là người có quyền quyết định và phải
+    làm những gì trước khi đình công ạ?
+  provision_ids:
+  - 141806
+  duong_dan:
+  - 45/2019/QH14 > Điều 201
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-026-0
+  cau_hoi: Tôi muốn mở công ty cho thuê lại lao động, tôi cần mang giấy tờ đến đâu
+    để xin phép và mất bao lâu thì có giấy phép?
+  provision_ids:
+  - 146018
+  duong_dan:
+  - 29/2019/NĐ-CP > Điều 9
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-026-1
+  cau_hoi: Nếu công ty tôi nộp hồ sơ xin phép cho thuê lại lao động mà bị thiếu giấy
+    tờ, thì bao lâu tôi sẽ nhận được thông báo để bổ sung?
+  provision_ids:
+  - 146018
+  duong_dan:
+  - 29/2019/NĐ-CP > Điều 9
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-028-0
+  cau_hoi: Công ty có thể cho tôi nghỉ việc ngay lập tức nếu tôi vắng mặt ở chỗ làm
+    quá 5 ngày mà không có lý do chính đáng không?
+  provision_ids:
+  - 140949
+  duong_dan:
+  - 45/2019/QH14 > Điều 36
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-028-1
+  cau_hoi: Nếu tôi làm việc không tốt và công ty có quy định đánh giá, họ có thể sa
+    thải tôi mà không cần báo trước không?
+  provision_ids:
+  - 140949
+  duong_dan:
+  - 45/2019/QH14 > Điều 36
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-029-0
+  cau_hoi: Nếu tôi đi làm việc ở nước ngoài mà làm sai quy định, thì người có thẩm
+    quyền cao nhất có thể phạt tôi bao nhiêu tiền?
+  provision_ids:
+  - 145727
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 50
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-029-1
+  cau_hoi: Nếu tôi vi phạm quy định về việc đi làm việc ở nước ngoài, ngoài việc bị
+    phạt tiền, tôi còn có thể bị áp dụng những hình thức xử lý nào khác không?
+  provision_ids:
+  - 145727
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 50
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-030-0
+  cau_hoi: Nếu tôi ở lại nước ngoài trái phép sau khi hết hợp đồng mà không bị ai
+    ép buộc, thì ai sẽ là người lập biên bản vi phạm của tôi?
+  provision_ids:
+  - 145798
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 59
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-030-1
+  cau_hoi: Khi tôi bị lập biên bản vì ở lại nước ngoài trái phép, biên bản đó sẽ được
+    gửi đi đâu và ai sẽ là người quyết định phạt tôi?
+  provision_ids:
+  - 145798
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 59
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-031-0
+  cau_hoi: Tôi làm việc tự do, có ký hợp đồng điện tử với công ty thì có được bảo
+    vệ không?
+  provision_ids:
+  - 144662
+  duong_dan:
+  - 337/2025/NĐ-CP > Điều 2
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-031-1
+  cau_hoi: Công ty tôi muốn thuê người làm việc qua mạng và ký hợp đồng online, có
+    được phép không?
+  provision_ids:
+  - 144662
+  duong_dan:
+  - 337/2025/NĐ-CP > Điều 2
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-033-0
+  cau_hoi: Nếu công ty em với công nhân đang có chuyện bất đồng về lương mà bên hòa
+    giải không giải quyết được thì công nhân có được phép nghỉ làm hết không ạ?
+  provision_ids:
+  - 141799
+  duong_dan:
+  - 45/2019/QH14 > Điều 199
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-033-1
+  cau_hoi: Nếu công ty em với công nhân đang có chuyện bất đồng về lương mà công ty
+    không chịu làm theo quyết định của bên trọng tài thì công nhân có được phép nghỉ
+    làm không ạ?
+  provision_ids:
+  - 141799
+  duong_dan:
+  - 45/2019/QH14 > Điều 199
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-034-0
+  cau_hoi: Khi đi làm, tôi cần biết những thông tin gì về công ty và công việc của
+    mình được ghi trong giấy tờ?
+  provision_ids:
+  - 140860
+  duong_dan:
+  - 45/2019/QH14 > Điều 21
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-034-1
+  cau_hoi: Nếu tôi làm việc liên quan đến bí mật của công ty, thì hợp đồng lao động
+    cần ghi rõ những gì về việc này?
+  provision_ids:
+  - 140860
+  duong_dan:
+  - 45/2019/QH14 > Điều 21
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-035-0
+  cau_hoi: Nếu tôi lén đưa 5 người đi làm ở Đài Loan mà không có giấy tờ hợp lệ thì
+    bị phạt bao nhiêu tiền?
+  provision_ids:
+  - 145572
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 42 > Khoản 11
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-035-1
+  cau_hoi: Công ty tôi bị phát hiện đưa 20 người sang Nhật làm việc chui, không đúng
+    danh sách, thì sẽ bị phạt nặng cỡ nào?
+  provision_ids:
+  - 145572
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 42 > Khoản 11
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-036-0
+  cau_hoi: Tôi làm việc 8 tiếng một ngày thì có được nghỉ giải lao giữa giờ không,
+    và nếu có thì được nghỉ bao lâu?
+  provision_ids:
+  - 141317
+  duong_dan:
+  - 45/2019/QH14 > Điều 109
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-036-1
+  cau_hoi: Nếu tôi làm ca đêm thì có được nghỉ dài hơn không ạ?
+  provision_ids:
+  - 141317
+  duong_dan:
+  - 45/2019/QH14 > Điều 109
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-037-0
+  cau_hoi: Công ty tôi có bắt buộc phải tổ chức họp định kỳ với đại diện người lao
+    động để bàn chuyện công ty không?
+  provision_ids:
+  - 143915
+  duong_dan:
+  - 145/2020/NĐ-CP > Điều 39
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-037-1
+  cau_hoi: Nếu công ty tổ chức họp với đại diện người lao động thì cần có bao nhiêu
+    người đại diện của chúng tôi tham gia thì cuộc họp mới hợp lệ?
+  provision_ids:
+  - 143915
+  duong_dan:
+  - 145/2020/NĐ-CP > Điều 39
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-039-0
+  cau_hoi: Tôi muốn làm nội quy cho công ty thì cần chuẩn bị những giấy tờ gì để nộp
+    lên cơ quan có thẩm quyền?
+  provision_ids:
+  - 141380
+  duong_dan:
+  - 45/2019/QH14 > Điều 120
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-039-1
+  cau_hoi: Nếu công ty tôi có công đoàn thì khi làm nội quy có cần xin ý kiến của
+    họ không?
+  provision_ids:
+  - 141380
+  duong_dan:
+  - 45/2019/QH14 > Điều 120
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-040-0
+  cau_hoi: Công ty tôi không cho cán bộ công đoàn cấp trên vào làm việc để hướng dẫn
+    anh em thành lập công đoàn thì có bị phạt không?
+  provision_ids:
+  - 145429
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 35
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-040-1
+  cau_hoi: Nếu công ty tôi đơn phương cho một người trong ban lãnh đạo công đoàn nghỉ
+    việc mà không bàn bạc trước với ban lãnh đạo công đoàn thì có bị phạt không?
+  provision_ids:
+  - 145429
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 35
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-041-0
+  cau_hoi: Công ty em mới vào làm, sếp bắt làm việc gấp đôi mọi người mà lương vẫn
+    vậy, có đúng không ạ?
+  provision_ids:
+  - 141243
+  duong_dan:
+  - 45/2019/QH14 > Điều 93
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-041-1
+  cau_hoi: Công ty em có bảng lương mới, nhưng em thấy có vẻ không hợp lý, họ có cần
+    hỏi ý kiến mọi người trước khi áp dụng không ạ?
+  provision_ids:
+  - 141243
+  duong_dan:
+  - 45/2019/QH14 > Điều 93
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-042-0
+  cau_hoi: Nếu công ty tôi đưa người đi làm việc ở nước ngoài mà không cho họ đi học
+    định hướng trước thì có bị phạt không?
+  provision_ids:
+  - 145626
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 44
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-042-1
+  cau_hoi: Công ty tôi đưa lao động đi nước ngoài nhưng không nói rõ cho họ biết về
+    tiền lương, chỗ ở và các quyền lợi khác thì có bị phạt không?
+  provision_ids:
+  - 145626
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 44
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-043-0
+  cau_hoi: Đi làm mà em có em bé dưới 1 tuổi, em có được nghỉ thêm giờ nào trong ngày
+    không ạ?
+  provision_ids:
+  - 144044
+  duong_dan:
+  - 145/2020/NĐ-CP > Điều 58
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-043-1
+  cau_hoi: Nếu công ty bắt em đi học lớp nghiệp vụ, thì thời gian đi học đó có được
+    tính là đi làm và có lương không ạ?
+  provision_ids:
+  - 144044
+  duong_dan:
+  - 145/2020/NĐ-CP > Điều 58
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-044-0
+  cau_hoi: Nếu công ty môi giới việc làm ở nước ngoài thu tiền của tôi sai quy định,
+    họ có phải trả lại tiền và lãi cho tôi không?
+  provision_ids:
+  - 145587
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 42 > Khoản 14
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-044-1
+  cau_hoi: Nếu công ty đưa tôi đi làm việc ở nước ngoài làm tôi bị thiệt hại, họ có
+    phải bồi thường cho tôi không?
+  provision_ids:
+  - 145587
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 42 > Khoản 14
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-hand-01
+  cau_hoi: Một ngày mình phải làm việc bao nhiêu tiếng thì đúng luật?
+  provision_ids:
+  - 141294
+  duong_dan:
+  - 45/2019/QH14 > Điều 105
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-hand-02
+  cau_hoi: Tôi muốn nghỉ việc thì phải báo cho công ty biết trước bao nhiêu ngày?
+  provision_ids:
+  - 140935
+  duong_dan:
+  - 45/2019/QH14 > Điều 35
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-hand-03
+  cau_hoi: Đi làm thêm giờ thì có được trả thêm tiền không, tính thế nào, và công
+    ty được bắt làm thêm tối đa mấy giờ?
+  provision_ids:
+  - 141299
+  - 141263
+  duong_dan:
+  - 45/2019/QH14 > Điều 107
+  - 45/2019/QH14 > Điều 98
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-hand-04
+  cau_hoi: Bị công ty cho nghỉ việc mà không có lý do gì thì phải kiện ai để đòi quyền
+    lợi?
+  provision_ids:
+  - 140974
+  - 141726
+  duong_dan:
+  - 45/2019/QH14 > Điều 41
+  - 45/2019/QH14 > Điều 187
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-hand-05
+  cau_hoi: Lương tối thiểu vùng bây giờ là bao nhiêu một tháng?
+  provision_ids:
+  - 141234
+  - 144637
+  duong_dan:
+  - 45/2019/QH14 > Điều 91
+  - 293/2025/NĐ-CP > Điều 3
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-hand-06
+  cau_hoi: Tôi bị tai nạn khi đang làm việc, công ty có phải lo tiền viện phí và trả
+    lương những ngày tôi nghỉ điều trị không?
+  provision_ids:
+  - 146455
+  duong_dan:
+  - 84/2015/QH13 > Điều 38
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-hand-07
+  cau_hoi: Bây giờ bao nhiêu tuổi thì được nghỉ hưu?
+  provision_ids:
+  - 141610
+  - 145951
+  duong_dan:
+  - 45/2019/QH14 > Điều 169
+  - 135/2020/NĐ-CP > Điều 4
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
+- id: lao-hand-08
+  cau_hoi: Công ty bắt làm thêm giờ liên tục, một tháng tối đa được bắt làm thêm bao
+    nhiêu tiếng?
+  provision_ids:
+  - 145915
+  duong_dan:
+  - 18/2021/TT-BLĐTBXH > Điều 6
+  bo_luat: Lao động
+  nguon: llm-gen
+  da_review: false
