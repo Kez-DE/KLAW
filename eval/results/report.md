@@ -4,19 +4,21 @@
 
 ## 1. Bảng ablation (77 câu golden_qa)
 
-Nhánh BM25 chạy với `ts_rank` normalization = **1** và lọc hư từ tiếng Việt = **có**. Hai giá trị này chọn theo đo, không theo mặc định của Postgres — bảng sweep đầy đủ và lý do ở `docs/bm25-tuning.md` (tái lập: `python -m scripts.sweep_bm25`).
+`lexical_only` là **truy hồi từ vựng bằng `tsvector` + `ts_rank` của PostgreSQL** (config `simple` + `unaccent`, truy vấn OR, chuẩn hoá độ dài `normalization=1`, lọc hư từ có) — **không phải BM25**: `ts_rank` không có tham số `k1`/`b` và không dùng IDF. Hai tham số trên chọn theo đo, không theo mặc định của Postgres; bảng sweep đầy đủ và lý do ở `docs/bm25-tuning.md` (tái lập: `python -m scripts.sweep_bm25`).
+
+> **Sai số tái lập:** nhánh dense KHÔNG tất định tuyệt đối. Vector truy vấn do OpenRouter trả về đôi khi lệch tới ~2,7e-4 mỗi chiều giữa hai lần gọi CÙNG một câu (đo được: 1/4 lần gọi lệch), đủ để đảo thứ tự vài láng giềng sát nhau. Chạy `dense_only` ba lần cho Recall@10 0,7727 / 0,7792 / 0,7727: giữa hai lần đầu, 5/77 câu đổi thứ tự ở **hạng 7–10** và 1 câu đổi metric → biên độ Recall@10 ±0,0065, nDCG@10 ±0,0023. **Top-5 không đổi** ở cả hai lần, nên Recall@5/MRR@5/nDCG@5 ổn định; @10 phải đọc kèm sai số này. Nhánh từ vựng thì tất định tuyệt đối (0/77 câu lệch qua nhiều lần chạy).
 
 | Config | Recall@5 | Recall@10 | MRR@5 | MRR@10 | nDCG@5 | nDCG@10 | n_ok/n_queries |
 |---|---|---|---|---|---|---|---|
 | hybrid | 0.5455 | 0.7532 | 0.366 | 0.393 | 0.4069 | 0.4764 | 77/77 |
-| bm25_only | 0.3117 | 0.4156 | 0.2245 | 0.2381 | 0.2455 | 0.2802 | 77/77 |
+| lexical_only | 0.3117 | 0.4156 | 0.2245 | 0.2381 | 0.2455 | 0.2802 | 77/77 |
 | dense_only | 0.6494 | 0.7727 | 0.487 | 0.5037 | 0.526 | 0.5659 | 77/77 |
 
 ## 2. Tái lập
 
-- `hybrid`: commit `f1c404771cf298dff1ca2800fd69af297c7ad83c`, model embedding `baai/bge-m3`, n=77, ts=2026-08-28T20:52:54.898384+00:00
-- `bm25_only`: commit `f1c404771cf298dff1ca2800fd69af297c7ad83c`, model embedding `baai/bge-m3`, n=77, ts=2026-08-28T20:52:58.189257+00:00
-- `dense_only`: commit `f1c404771cf298dff1ca2800fd69af297c7ad83c`, model embedding `baai/bge-m3`, n=77, ts=2026-08-28T20:54:42.905205+00:00
+- `hybrid`: commit `5b7355c437520394dd029b5a9efb1ceac2963cb4`, model embedding `baai/bge-m3`, n=77, ts=2026-08-28T21:09:49.194080+00:00
+- `lexical_only`: commit `5b7355c437520394dd029b5a9efb1ceac2963cb4`, model embedding `baai/bge-m3`, n=77, ts=2026-08-28T21:09:52.500572+00:00
+- `dense_only`: commit `5b7355c437520394dd029b5a9efb1ceac2963cb4`, model embedding `baai/bge-m3`, n=77, ts=2026-08-28T21:14:51.856543+00:00
 
 ## 3. 10 câu tệ nhất (config `hybrid`)
 

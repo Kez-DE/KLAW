@@ -300,6 +300,16 @@ def write_report(results: dict[str, dict]) -> str:
             "`python -m scripts.sweep_bm25`)."
         )
         lines.append("")
+    lines.append(
+        "> **Sai số tái lập:** nhánh dense KHÔNG tất định tuyệt đối. Vector truy vấn do OpenRouter "
+        "trả về đôi khi lệch tới ~2,7e-4 mỗi chiều giữa hai lần gọi CÙNG một câu (đo được: 1/4 lần "
+        "gọi lệch), đủ để đảo thứ tự vài láng giềng sát nhau. Chạy `dense_only` ba lần cho Recall@10 "
+        "0,7727 / 0,7792 / 0,7727: giữa hai lần đầu, 5/77 câu đổi thứ tự ở **hạng 7–10** và 1 câu "
+        "đổi metric → biên độ Recall@10 ±0,0065, nDCG@10 ±0,0023. "
+        "**Top-5 không đổi** ở cả hai lần, nên Recall@5/MRR@5/nDCG@5 ổn định; @10 phải đọc kèm sai "
+        "số này. Nhánh từ vựng thì tất định tuyệt đối (0/77 câu lệch qua nhiều lần chạy)."
+    )
+    lines.append("")
     lines.append("| Config | Recall@5 | Recall@10 | MRR@5 | MRR@10 | nDCG@5 | nDCG@10 | n_ok/n_queries |")
     lines.append("|---|---|---|---|---|---|---|---|")
     for name in ("hybrid", "lexical_only", "dense_only"):

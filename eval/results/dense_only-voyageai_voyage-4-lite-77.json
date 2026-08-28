@@ -13,8 +13,8 @@
     "embedding_model": "voyageai/voyage-4-lite",
     "bm25_rank_normalization": 1,
     "bm25_strip_stopwords": true,
-    "commit_hash": "f1c404771cf298dff1ca2800fd69af297c7ad83c",
-    "ts": "2026-08-28T20:57:11.772270+00:00",
+    "commit_hash": "5b7355c437520394dd029b5a9efb1ceac2963cb4",
+    "ts": "2026-08-28T21:15:34.211156+00:00",
     "golden_qa_da_review": false,
     "canh_bao": "golden_qa.yaml CHƯA được người duyệt tay (da_review: false trên toàn bộ 77 câu, Task 8) — con số dưới đây là CHỈ BÁO cho hướng phát triển, KHÔNG phải kết quả công bố được."
   },
@@ -139,11 +139,11 @@
         144901,
         141247,
         144884,
-        144885,
         141271,
+        144885,
         141418,
         145162,
-        141415
+        141250
       ],
       "duong_dan_tra_ve_top3": [
         "45/2019/QH14 > Điều 102",
@@ -1527,8 +1527,8 @@
         144783,
         144795,
         144846,
-        144685,
         144688,
+        144685,
         144712,
         144725,
         144805
@@ -2493,8 +2493,8 @@
         144906,
         146589,
         146509,
-        144905,
-        141271
+        141271,
+        144905
       ],
       "duong_dan_tra_ve_top3": [
         "92/2015/QH13 > Điều 118",

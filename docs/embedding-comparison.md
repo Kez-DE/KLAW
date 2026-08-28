@@ -2,7 +2,9 @@
 
 > **CẢNH BÁO:** golden_qa.yaml CHƯA được người duyệt tay (da_review: false trên toàn bộ câu, Task 8) — con số dưới đây là CHỈ BÁO cho hướng phát triển, KHÔNG phải kết quả công bố được.
 
-Đo bằng cấu hình **`dense_only`**, không phải `hybrid`: hybrid trộn thêm nhánh từ vựng (Recall@5 0,3117 sau khi chuẩn hoá độ dài `ts_rank` và lọc hư từ — xem `docs/bm25-tuning.md` và `eval/results/report.md`), nên chất lượng embedding bị nhiễu bởi một biến không liên quan. Dense thuần là nơi nó hiện ra rõ nhất.
+Đo bằng cấu hình **`dense_only`**, không phải `hybrid`: hybrid trộn thêm nhánh `lexical_only` (Recall@5 0,3117 — xem `docs/bm25-tuning.md` và `eval/results/report.md`), nên chất lượng embedding bị nhiễu bởi một biến không liên quan. Dense thuần là nơi nó hiện ra rõ nhất.
+
+`lexical_only` là **truy hồi từ vựng bằng `tsvector` + `ts_rank` của PostgreSQL** (config `simple` + `unaccent`, truy vấn OR, chuẩn hoá độ dài `normalization=1`, lọc hư từ) — **không phải BM25**: `ts_rank` không có tham số `k1`/`b` và không dùng IDF.
 
 VN-MTEB không benchmark model thương mại (OpenAI/Google/Voyage) trên tiếng Việt — bảng dưới đây, dù nhỏ, là số liệu CHƯA từng công bố cho các model đó trên văn bản pháp luật Việt Nam.
 
@@ -22,4 +24,4 @@ Tổng chi phí embed thật đã tiêu **trong lần chạy so sánh này**: **
 
 Model tốt nhất theo Recall@5 trong lần đo này: `voyageai/voyage-4-lite` (0.8442).
 
-Đo tại commit `f1c404771cf298dff1ca2800fd69af297c7ad83c`.
+Đo tại commit `5b7355c437520394dd029b5a9efb1ceac2963cb4`.

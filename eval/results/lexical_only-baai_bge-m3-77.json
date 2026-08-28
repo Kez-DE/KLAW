@@ -1,0 +1,2574 @@
+{
+  "summary": {
+    "recall@5": 0.3117,
+    "recall@10": 0.4156,
+    "mrr@5": 0.2245,
+    "mrr@10": 0.2381,
+    "ndcg@5": 0.2455,
+    "ndcg@10": 0.2802,
+    "n_queries": 77,
+    "n_ok": 77,
+    "n_errors": 0,
+    "config_name": "lexical_only",
+    "embedding_model": "baai/bge-m3",
+    "bm25_rank_normalization": 1,
+    "bm25_strip_stopwords": true,
+    "commit_hash": "5b7355c437520394dd029b5a9efb1ceac2963cb4",
+    "ts": "2026-08-28T21:09:52.500572+00:00",
+    "golden_qa_da_review": false,
+    "canh_bao": "golden_qa.yaml CHƯA được người duyệt tay (da_review: false trên toàn bộ 77 câu, Task 8) — con số dưới đây là CHỈ BÁO cho hướng phát triển, KHÔNG phải kết quả công bố được."
+  },
+  "per_item": [
+    {
+      "id": "lao-000-0",
+      "cau_hoi": "Công ty tôi có 50 nhân viên, trong đó có 30 nữ. Vậy công ty tôi có phải là công ty sử dụng nhiều lao động nữ không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        144154
+      ],
+      "duong_dan_dung": [
+        "145/2020/NĐ-CP > Điều 74"
+      ],
+      "retrieved": [
+        144154,
+        140900,
+        143908,
+        141456,
+        143638,
+        141299,
+        146557,
+        141658,
+        140978,
+        144362
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 74",
+        "45/2019/QH14 > Điều 30",
+        "145/2020/NĐ-CP > Điều 38"
+      ]
+    },
+    {
+      "id": "lao-000-1",
+      "cau_hoi": "Nếu công ty tôi có 150 nhân viên, trong đó có 50 nữ, thì có được coi là công ty sử dụng nhiều lao động nữ không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.5,
+      "mrr@10": 0.5,
+      "ndcg@5": 0.6309297535714575,
+      "ndcg@10": 0.6309297535714575,
+      "provision_ids_dung": [
+        144154
+      ],
+      "duong_dan_dung": [
+        "145/2020/NĐ-CP > Điều 74"
+      ],
+      "retrieved": [
+        143908,
+        144154,
+        143638,
+        140978,
+        142835,
+        141299,
+        144362,
+        144770,
+        141410,
+        141456
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 38",
+        "145/2020/NĐ-CP > Điều 74",
+        "145/2020/NĐ-CP > Điều 5"
+      ]
+    },
+    {
+      "id": "lao-001-0",
+      "cau_hoi": "Nếu sếp em cứ chửi bới, xúc phạm em trước mặt mọi người thì có được không ạ?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141418
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 127"
+      ],
+      "retrieved": [
+        142860,
+        138449,
+        139764,
+        137895,
+        141428,
+        139141,
+        137912,
+        135879,
+        142907,
+        144116
+      ],
+      "duong_dan_tra_ve_top3": [
+        "95/2015/QH13 > Điều 152",
+        "101/2015/QH13 > Điều 73",
+        "101/2015/QH13 > Điều 326"
+      ]
+    },
+    {
+      "id": "lao-001-1",
+      "cau_hoi": "Công ty có được trừ thẳng tiền lương của em vì đi muộn vài lần không ạ?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141418
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 127"
+      ],
+      "retrieved": [
+        133359,
+        141335,
+        143638,
+        141456,
+        145346,
+        141258,
+        133263,
+        132977,
+        144429,
+        144265
+      ],
+      "duong_dan_tra_ve_top3": [
+        "100/2015/QH13 > Điều 273",
+        "45/2019/QH14 > Điều 113",
+        "145/2020/NĐ-CP > Điều 5"
+      ]
+    },
+    {
+      "id": "lao-002-0",
+      "cau_hoi": "Từ ngày 1/1/2026, công ty tôi có được giảm lương của nhân viên làm thêm giờ hay không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.25,
+      "mrr@10": 0.25,
+      "ndcg@5": 0.43067655807339306,
+      "ndcg@10": 0.43067655807339306,
+      "provision_ids_dung": [
+        144652
+      ],
+      "duong_dan_dung": [
+        "293/2025/NĐ-CP > Điều 5"
+      ],
+      "retrieved": [
+        141456,
+        146852,
+        139267,
+        144652,
+        141313,
+        145346,
+        143638,
+        145926,
+        129862,
+        144099
+      ],
+      "duong_dan_tra_ve_top3": [
+        "45/2019/QH14 > Điều 137",
+        "74/2024/NĐ-CP > Điều 5",
+        "101/2015/QH13 > Điều 213"
+      ]
+    },
+    {
+      "id": "lao-002-1",
+      "cau_hoi": "Nếu lương tối thiểu vùng mới thấp hơn lương cũ, công ty tôi có phải trả lương cũ cho nhân viên đã làm từ trước không?",
+      "recall@5": 0.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.1111111111111111,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.3010299956639812,
+      "provision_ids_dung": [
+        144652
+      ],
+      "duong_dan_dung": [
+        "293/2025/NĐ-CP > Điều 5"
+      ],
+      "retrieved": [
+        144328,
+        146985,
+        142385,
+        140895,
+        146949,
+        146912,
+        146876,
+        144429,
+        144652,
+        143686
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 96",
+        "122/2015/NĐ-CP > Điều 5",
+        "95/2015/QH13 > Điều 71"
+      ]
+    },
+    {
+      "id": "lao-004-0",
+      "cau_hoi": "Tôi ký hợp đồng với công ty hôm nay, vậy là từ lúc nào tôi bắt đầu đi làm chính thức?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140879
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 23"
+      ],
+      "retrieved": [
+        142835,
+        145673,
+        145626,
+        132285,
+        145798,
+        132361,
+        140746,
+        131490,
+        134138,
+        143073
+      ],
+      "duong_dan_tra_ve_top3": [
+        "95/2015/QH13 > Điều 151",
+        "12/2022/NĐ-CP > Điều 46",
+        "12/2022/NĐ-CP > Điều 44"
+      ]
+    },
+    {
+      "id": "lao-004-1",
+      "cau_hoi": "Nếu tôi và công ty thỏa thuận là hợp đồng có hiệu lực vào tuần sau, thì có được không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140879
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 23"
+      ],
+      "retrieved": [
+        144711,
+        143312,
+        144020,
+        143554,
+        141901,
+        146852,
+        144652,
+        141194,
+        129354,
+        129320
+      ],
+      "duong_dan_tra_ve_top3": [
+        "337/2025/NĐ-CP > Điều 7",
+        "95/2015/QH13 > Điều 267",
+        "145/2020/NĐ-CP > Điều 54"
+      ]
+    },
+    {
+      "id": "lao-005-0",
+      "cau_hoi": "Nếu công ty tôi đóng cửa và tôi bị mất việc, tôi có được nhận tiền hỗ trợ gì không và bao nhiêu?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141010
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 47"
+      ],
+      "retrieved": [
+        140617,
+        138777,
+        144929,
+        143073,
+        138449,
+        143638,
+        140828,
+        132596,
+        135662,
+        141917
+      ],
+      "duong_dan_tra_ve_top3": [
+        "101/2015/QH13 > Điều 486",
+        "101/2015/QH13 > Điều 127",
+        "12/2022/NĐ-CP > Điều 4 > Khoản 53"
+      ]
+    },
+    {
+      "id": "lao-005-1",
+      "cau_hoi": "Tôi làm ở công ty này được 5 năm, giờ bị cho nghỉ việc, thì tôi sẽ được nhận bao nhiêu tiền hỗ trợ mất việc?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141010
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 47"
+      ],
+      "retrieved": [
+        143638,
+        138495,
+        138777,
+        140828,
+        145346,
+        139115,
+        141335,
+        140860,
+        144026,
+        144116
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 5",
+        "101/2015/QH13 > Điều 78",
+        "101/2015/QH13 > Điều 127"
+      ]
+    },
+    {
+      "id": "lao-006-0",
+      "cau_hoi": "Nếu tôi thuê người giúp việc mà không làm giấy tờ gì cả, có bị phạt không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        145378
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 30"
+      ],
+      "retrieved": [
+        144860,
+        144881,
+        134567,
+        145567,
+        138731,
+        131455,
+        140746,
+        145673,
+        134375,
+        145859
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 3",
+        "12/2022/NĐ-CP > Điều 4 > Khoản 5",
+        "100/2015/QH13 > Điều 359"
+      ]
+    },
+    {
+      "id": "lao-006-1",
+      "cau_hoi": "Nếu tôi đuổi việc người giúp việc mà không cho tiền xe về quê thì có bị phạt không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.5,
+      "mrr@10": 0.5,
+      "ndcg@5": 0.6309297535714575,
+      "ndcg@10": 0.6309297535714575,
+      "provision_ids_dung": [
+        145378
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 30"
+      ],
+      "retrieved": [
+        144889,
+        145378,
+        133187,
+        133091,
+        133133,
+        133213,
+        130922,
+        132350,
+        134665,
+        131328
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 4 > Khoản 13",
+        "12/2022/NĐ-CP > Điều 30",
+        "100/2015/QH13 > Điều 265"
+      ]
+    },
+    {
+      "id": "lao-009-0",
+      "cau_hoi": "Nếu tôi làm sai gì đó ở nước ngoài, thì cán bộ ở Đại sứ quán Việt Nam có thể phạt tôi bao nhiêu tiền?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        145790
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 56"
+      ],
+      "retrieved": [
+        137637,
+        137667,
+        144860,
+        130183,
+        145807,
+        137605,
+        142527,
+        140676,
+        145556,
+        145626
+      ],
+      "duong_dan_tra_ve_top3": [
+        "92/2015/QH13 > Điều 474",
+        "92/2015/QH13 > Điều 477 > Khoản 6",
+        "12/2022/NĐ-CP > Điều 3"
+      ]
+    },
+    {
+      "id": "lao-009-1",
+      "cau_hoi": "Tôi có thể bị phạt tối đa bao nhiêu nếu tôi vi phạm quy định nào đó khi làm việc với cơ quan đại diện của Việt Nam ở nước ngoài?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        145790
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 56"
+      ],
+      "retrieved": [
+        145610,
+        145798,
+        145807,
+        145653,
+        145673,
+        144860,
+        145626,
+        137605,
+        144935,
+        142264
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 43 > Khoản 6",
+        "12/2022/NĐ-CP > Điều 59",
+        "12/2022/NĐ-CP > Điều 60"
+      ]
+    },
+    {
+      "id": "lao-010-0",
+      "cau_hoi": "Tôi muốn làm việc chỉ 4 tiếng một ngày thôi thì có được không ạ?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140912
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 32"
+      ],
+      "retrieved": [
+        141422,
+        145904,
+        140884,
+        137452,
+        143674,
+        141335,
+        146109,
+        139627,
+        137150,
+        140895
+      ],
+      "duong_dan_tra_ve_top3": [
+        "45/2019/QH14 > Điều 128",
+        "18/2021/TT-BLĐTBXH > Điều 4",
+        "45/2019/QH14 > Điều 25"
+      ]
+    },
+    {
+      "id": "lao-010-1",
+      "cau_hoi": "Nếu tôi làm việc nửa ngày thì lương có bị cắt hết không ạ?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140912
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 32"
+      ],
+      "retrieved": [
+        141472,
+        141456,
+        144103,
+        141422,
+        141335,
+        144088,
+        145176,
+        146852,
+        144652,
+        140193
+      ],
+      "duong_dan_tra_ve_top3": [
+        "45/2019/QH14 > Điều 140",
+        "45/2019/QH14 > Điều 137",
+        "145/2020/NĐ-CP > Điều 67"
+      ]
+    },
+    {
+      "id": "lao-011-0",
+      "cau_hoi": "Nếu công ty tôi ký thỏa ước lao động tập thể mà không cho nhân viên biết thì có bị phạt không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        145123
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 16"
+      ],
+      "retrieved": [
+        145123,
+        141228,
+        141185,
+        141193,
+        141226,
+        140746,
+        140777,
+        128288,
+        146192,
+        141216
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 16",
+        "45/2019/QH14 > Điều 89",
+        "45/2019/QH14 > Điều 76"
+      ]
+    },
+    {
+      "id": "lao-011-1",
+      "cau_hoi": "Công ty tôi từ chối ngồi lại nói chuyện với đại diện nhân viên để bàn về quyền lợi chung thì có bị phạt không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        145123
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 16"
+      ],
+      "retrieved": [
+        137163,
+        138495,
+        145798,
+        139489,
+        142835,
+        136791,
+        136595,
+        137856,
+        132160,
+        145346
+      ],
+      "duong_dan_tra_ve_top3": [
+        "92/2015/QH13 > Điều 375",
+        "101/2015/QH13 > Điều 78",
+        "12/2022/NĐ-CP > Điều 59"
+      ]
+    },
+    {
+      "id": "lao-013-0",
+      "cau_hoi": "Công ty tôi mới mở, tôi cần phải làm gì với mấy bạn nhân viên mới ngay từ đầu để đúng quy định của nhà nước?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140813
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 12"
+      ],
+      "retrieved": [
+        144328,
+        144429,
+        144193,
+        146391,
+        136791,
+        144476,
+        136595,
+        142835,
+        132172,
+        140884
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 96",
+        "145/2020/NĐ-CP > Điều 103",
+        "145/2020/NĐ-CP > Điều 81"
+      ]
+    },
+    {
+      "id": "lao-013-1",
+      "cau_hoi": "Nếu công ty tôi có thay đổi về nhân sự, ví dụ có người nghỉ việc hay có người mới vào, thì tôi có cần báo cáo cho cơ quan chức năng không và báo cáo khi nào?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140813
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 12"
+      ],
+      "retrieved": [
+        138449,
+        138495,
+        146192,
+        135810,
+        146279,
+        135639,
+        141456,
+        146679,
+        146664,
+        144429
+      ],
+      "duong_dan_tra_ve_top3": [
+        "101/2015/QH13 > Điều 73",
+        "101/2015/QH13 > Điều 78",
+        "84/2015/QH13 > Điều 6"
+      ]
+    },
+    {
+      "id": "lao-014-0",
+      "cau_hoi": "Công ty nhận tôi vào học việc, có được thu tiền học việc của tôi không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141095
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 61"
+      ],
+      "retrieved": [
+        130271,
+        141355,
+        130048,
+        136170,
+        146852,
+        146391,
+        140884,
+        130582,
+        131855,
+        140889
+      ],
+      "duong_dan_tra_ve_top3": [
+        "91/2015/QH13 > Điều 658",
+        "45/2019/QH14 > Điều 116",
+        "91/2015/QH13 > Điều 600"
+      ]
+    },
+    {
+      "id": "lao-014-1",
+      "cau_hoi": "Nếu tôi đi học nghề ở công ty thì có được trả lương không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141095
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 61"
+      ],
+      "retrieved": [
+        141102,
+        141335,
+        143638,
+        144546,
+        130190,
+        142835,
+        143678,
+        130048,
+        141967,
+        144026
+      ],
+      "duong_dan_tra_ve_top3": [
+        "45/2019/QH14 > Điều 62",
+        "45/2019/QH14 > Điều 113",
+        "145/2020/NĐ-CP > Điều 5"
+      ]
+    },
+    {
+      "id": "lao-015-0",
+      "cau_hoi": "Nếu tôi làm việc mà sếp không trả lương thì tôi phải làm sao?",
+      "recall@5": 0.0,
+      "recall@10": 0.5,
+      "mrr@5": 0.0,
+      "mrr@10": 0.1111111111111111,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.18457569677956817,
+      "provision_ids_dung": [
+        141258,
+        145136
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 97",
+        "12/2022/NĐ-CP > Điều 17"
+      ],
+      "retrieved": [
+        144032,
+        141263,
+        141250,
+        141230,
+        141010,
+        144499,
+        140819,
+        141271,
+        141258,
+        144103
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 56",
+        "45/2019/QH14 > Điều 98",
+        "45/2019/QH14 > Điều 95"
+      ]
+    },
+    {
+      "id": "lao-015-1",
+      "cau_hoi": "Tôi đi học nghề mà họ không trả tiền công cho tôi thì có được không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        144883
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 4 > Khoản 7"
+      ],
+      "retrieved": [
+        130048,
+        141102,
+        145492,
+        146192,
+        145485,
+        144546,
+        146748,
+        145101,
+        140828,
+        146455
+      ],
+      "duong_dan_tra_ve_top3": [
+        "91/2015/QH13 > Điều 600",
+        "45/2019/QH14 > Điều 62",
+        "12/2022/NĐ-CP > Điều 41"
+      ]
+    },
+    {
+      "id": "lao-017-0",
+      "cau_hoi": "Công ty tôi sắp cắt giảm nhân sự, họ phải thông báo cho chúng tôi biết những gì về việc ai sẽ ở lại, ai sẽ nghỉ việc và quyền lợi của chúng tôi ra sao?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140994
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 44"
+      ],
+      "retrieved": [
+        138449,
+        145346,
+        141456,
+        137163,
+        138061,
+        137662,
+        139242,
+        143638,
+        138230,
+        135837
+      ],
+      "duong_dan_tra_ve_top3": [
+        "101/2015/QH13 > Điều 73",
+        "12/2022/NĐ-CP > Điều 28",
+        "45/2019/QH14 > Điều 137"
+      ]
+    },
+    {
+      "id": "lao-017-1",
+      "cau_hoi": "Nếu công ty tôi muốn cho một số người nghỉ việc, họ có cần bàn bạc với đại diện của chúng tôi trước không và phải báo cho mọi người biết kế hoạch này trong bao lâu?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140994
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 44"
+      ],
+      "retrieved": [
+        144296,
+        145926,
+        135810,
+        139764,
+        143628,
+        139574,
+        139376,
+        137163,
+        138495,
+        141643
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 93",
+        "18/2021/TT-BLĐTBXH > Điều 8",
+        "92/2015/QH13 > Điều 101"
+      ]
+    },
+    {
+      "id": "lao-018-0",
+      "cau_hoi": "Tôi làm công nhân hầm lò đã được 15 năm, giờ tôi muốn nghỉ hưu sớm thì cần bao nhiêu năm đóng bảo hiểm xã hội và bao nhiêu tuổi?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        141894
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 219 > Khoản 1"
+      ],
+      "retrieved": [
+        141894,
+        141610,
+        145954,
+        145964,
+        141501,
+        140860,
+        143638,
+        141355,
+        140828,
+        141466
+      ],
+      "duong_dan_tra_ve_top3": [
+        "45/2019/QH14 > Điều 219 > Khoản 1",
+        "45/2019/QH14 > Điều 169",
+        "135/2020/NĐ-CP > Điều 5"
+      ]
+    },
+    {
+      "id": "lao-018-1",
+      "cau_hoi": "Tôi bị tai nạn nghề nghiệp và nhiễm HIV, tôi đã đóng bảo hiểm xã hội được 20 năm rồi, vậy tôi có được hưởng lương hưu không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        141894
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 219 > Khoản 1"
+      ],
+      "retrieved": [
+        141894,
+        146581,
+        146537,
+        146485,
+        146553,
+        146531,
+        146455,
+        146586,
+        142385,
+        146803
+      ],
+      "duong_dan_tra_ve_top3": [
+        "45/2019/QH14 > Điều 219 > Khoản 1",
+        "84/2015/QH13 > Điều 58",
+        "84/2015/QH13 > Điều 49"
+      ]
+    },
+    {
+      "id": "lao-020-0",
+      "cau_hoi": "Nếu công ty đưa tôi đi làm việc ở nước ngoài mà họ làm sai hợp đồng đã đăng ký thì họ bị phạt bao nhiêu tiền?",
+      "recall@5": 0.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.14285714285714285,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.3333333333333333,
+      "provision_ids_dung": [
+        145534
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 42 > Khoản 5"
+      ],
+      "retrieved": [
+        145556,
+        145599,
+        145549,
+        145673,
+        145545,
+        145610,
+        145534,
+        145525,
+        145587,
+        145626
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 42 > Khoản 9",
+        "12/2022/NĐ-CP > Điều 43 > Khoản 2",
+        "12/2022/NĐ-CP > Điều 42 > Khoản 8"
+      ]
+    },
+    {
+      "id": "lao-020-1",
+      "cau_hoi": "Công ty môi giới xuất khẩu lao động mà quảng cáo sai sự thật về lương hoặc điều kiện làm việc cho tôi thì có bị phạt không? Nếu có thì phạt bao nhiêu?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        145534
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 42 > Khoản 5"
+      ],
+      "retrieved": [
+        145201,
+        146264,
+        145136,
+        143638,
+        146679,
+        140756,
+        140828,
+        145346,
+        146171,
+        145485
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 21",
+        "84/2015/QH13 > Điều 12",
+        "12/2022/NĐ-CP > Điều 17"
+      ]
+    },
+    {
+      "id": "lao-022-0",
+      "cau_hoi": "Nếu tôi muốn thay đổi một vài điều khoản trong hợp đồng lao động với công ty thì phải làm thế nào?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140916
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 33"
+      ],
+      "retrieved": [
+        144570,
+        145059,
+        131304,
+        142306,
+        133263,
+        146694,
+        141015,
+        131283,
+        141335,
+        145898
+      ],
+      "duong_dan_tra_ve_top3": [
+        "10/2020/TT-BLĐTBXH > Điều 5",
+        "12/2022/NĐ-CP > Điều 13 > Khoản 2",
+        "100/2015/QH13 > Điều 151"
+      ]
+    },
+    {
+      "id": "lao-022-1",
+      "cau_hoi": "Công ty tôi muốn giảm lương của tôi, họ có được làm ngay không hay phải báo trước bao lâu?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140916
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 33"
+      ],
+      "retrieved": [
+        145964,
+        143638,
+        140860,
+        141335,
+        141472,
+        144652,
+        130153,
+        144496,
+        129862,
+        146455
+      ],
+      "duong_dan_tra_ve_top3": [
+        "135/2020/NĐ-CP > Điều 7",
+        "145/2020/NĐ-CP > Điều 5",
+        "45/2019/QH14 > Điều 21"
+      ]
+    },
+    {
+      "id": "lao-023-0",
+      "cau_hoi": "Nếu công ty tôi cử tôi đi làm ở nước ngoài mà xảy ra chuyện gì đó với tôi, ví dụ như tai nạn hay bị bệnh nặng, mà công ty không lo liệu gì hết thì có bị phạt không?",
+      "recall@5": 0.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.14285714285714285,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.3333333333333333,
+      "provision_ids_dung": [
+        145610
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 43 > Khoản 6"
+      ],
+      "retrieved": [
+        146192,
+        144928,
+        146622,
+        143073,
+        145626,
+        145653,
+        145610,
+        145599,
+        146664,
+        142835
+      ],
+      "duong_dan_tra_ve_top3": [
+        "84/2015/QH13 > Điều 6",
+        "12/2022/NĐ-CP > Điều 4 > Khoản 52",
+        "84/2015/QH13 > Điều 67"
+      ]
+    },
+    {
+      "id": "lao-023-1",
+      "cau_hoi": "Nếu tôi đi làm ở nước ngoài mà gặp chuyện không may, ví dụ như bị tai nạn lao động, mà công ty không báo cho đại sứ quán Việt Nam để họ giúp đỡ thì có bị phạt không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        145610
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 43 > Khoản 6"
+      ],
+      "retrieved": [
+        145610,
+        145549,
+        145556,
+        145626,
+        145653,
+        145798,
+        145673,
+        142835,
+        145615,
+        146192
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 43 > Khoản 6",
+        "12/2022/NĐ-CP > Điều 42 > Khoản 8",
+        "12/2022/NĐ-CP > Điều 42 > Khoản 9"
+      ]
+    },
+    {
+      "id": "lao-024-0",
+      "cau_hoi": "Nếu công ty tôi đột nhiên đóng cửa mấy ngày vì lý do kinh doanh, tôi có được nhận lương không và bao nhiêu?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141271
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 99"
+      ],
+      "retrieved": [
+        141410,
+        143638,
+        140978,
+        144116,
+        141456,
+        141015,
+        144429,
+        145626,
+        145346,
+        146679
+      ],
+      "duong_dan_tra_ve_top3": [
+        "45/2019/QH14 > Điều 125",
+        "145/2020/NĐ-CP > Điều 5",
+        "45/2019/QH14 > Điều 42"
+      ]
+    },
+    {
+      "id": "lao-024-1",
+      "cau_hoi": "Nếu tôi không đi làm được vì công ty bị ngập nước, tôi có được trả lương không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141271
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 99"
+      ],
+      "retrieved": [
+        143638,
+        145604,
+        145599,
+        145415,
+        142835,
+        145626,
+        145684,
+        145549,
+        144935,
+        133568
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 5",
+        "12/2022/NĐ-CP > Điều 43 > Khoản 4",
+        "12/2022/NĐ-CP > Điều 43 > Khoản 2"
+      ]
+    },
+    {
+      "id": "lao-025-0",
+      "cau_hoi": "Nếu công ty em muốn đình công thì ai là người có quyền quyết định và phải làm những gì trước khi đình công ạ?",
+      "recall@5": 0.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.125,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.31546487678572877,
+      "provision_ids_dung": [
+        141806
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 201"
+      ],
+      "retrieved": [
+        144496,
+        141823,
+        137973,
+        144499,
+        139698,
+        141839,
+        137306,
+        141806,
+        135662,
+        143457
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 112",
+        "45/2019/QH14 > Điều 203",
+        "101/2015/QH13 > Điều 37"
+      ]
+    },
+    {
+      "id": "lao-026-0",
+      "cau_hoi": "Tôi muốn mở công ty cho thuê lại lao động, tôi cần mang giấy tờ đến đâu để xin phép và mất bao lâu thì có giấy phép?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        146018
+      ],
+      "duong_dan_dung": [
+        "29/2019/NĐ-CP > Điều 9"
+      ],
+      "retrieved": [
+        143638,
+        144688,
+        145084,
+        143838,
+        143723,
+        146052,
+        146362,
+        141054,
+        143863,
+        143877
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 5",
+        "337/2025/NĐ-CP > Điều 6",
+        "12/2022/NĐ-CP > Điều 13 > Khoản 6"
+      ]
+    },
+    {
+      "id": "lao-026-1",
+      "cau_hoi": "Nếu công ty tôi nộp hồ sơ xin phép cho thuê lại lao động mà bị thiếu giấy tờ, thì bao lâu tôi sẽ nhận được thông báo để bổ sung?",
+      "recall@5": 0.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.125,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.31546487678572877,
+      "provision_ids_dung": [
+        146018
+      ],
+      "duong_dan_dung": [
+        "29/2019/NĐ-CP > Điều 9"
+      ],
+      "retrieved": [
+        143638,
+        144958,
+        143838,
+        146052,
+        143764,
+        143831,
+        143877,
+        146018,
+        143790,
+        145084
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 5",
+        "12/2022/NĐ-CP > Điều 7",
+        "145/2020/NĐ-CP > Điều 28"
+      ]
+    },
+    {
+      "id": "lao-028-0",
+      "cau_hoi": "Công ty có thể cho tôi nghỉ việc ngay lập tức nếu tôi vắng mặt ở chỗ làm quá 5 ngày mà không có lý do chính đáng không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140949
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 36"
+      ],
+      "retrieved": [
+        143638,
+        146247,
+        141730,
+        144416,
+        136358,
+        144503,
+        135639,
+        144652,
+        137667,
+        138889
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 5",
+        "84/2015/QH13 > Điều 10",
+        "45/2019/QH14 > Điều 188"
+      ]
+    },
+    {
+      "id": "lao-028-1",
+      "cau_hoi": "Nếu tôi làm việc không tốt và công ty có quy định đánh giá, họ có thể sa thải tôi mà không cần báo trước không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140949
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 36"
+      ],
+      "retrieved": [
+        144688,
+        146279,
+        138449,
+        144258,
+        142385,
+        135662,
+        144274,
+        132570,
+        143928,
+        138711
+      ],
+      "duong_dan_tra_ve_top3": [
+        "337/2025/NĐ-CP > Điều 6",
+        "84/2015/QH13 > Điều 14",
+        "101/2015/QH13 > Điều 73"
+      ]
+    },
+    {
+      "id": "lao-029-0",
+      "cau_hoi": "Nếu tôi đi làm việc ở nước ngoài mà làm sai quy định, thì người có thẩm quyền cao nhất có thể phạt tôi bao nhiêu tiền?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.25,
+      "mrr@10": 0.25,
+      "ndcg@5": 0.43067655807339306,
+      "ndcg@10": 0.43067655807339306,
+      "provision_ids_dung": [
+        145727
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 50"
+      ],
+      "retrieved": [
+        145587,
+        145653,
+        145596,
+        145727,
+        145687,
+        145626,
+        145514,
+        145807,
+        145610,
+        145600
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 42 > Khoản 14",
+        "12/2022/NĐ-CP > Điều 45",
+        "12/2022/NĐ-CP > Điều 43 > Khoản 1"
+      ]
+    },
+    {
+      "id": "lao-029-1",
+      "cau_hoi": "Nếu tôi vi phạm quy định về việc đi làm việc ở nước ngoài, ngoài việc bị phạt tiền, tôi còn có thể bị áp dụng những hình thức xử lý nào khác không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.5,
+      "mrr@10": 0.5,
+      "ndcg@5": 0.6309297535714575,
+      "ndcg@10": 0.6309297535714575,
+      "provision_ids_dung": [
+        145727
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 50"
+      ],
+      "retrieved": [
+        144914,
+        145727,
+        144935,
+        144929,
+        144927,
+        144860,
+        144930,
+        144928,
+        144877,
+        144889
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 4 > Khoản 38",
+        "12/2022/NĐ-CP > Điều 50",
+        "12/2022/NĐ-CP > Điều 4 > Khoản 59"
+      ]
+    },
+    {
+      "id": "lao-030-0",
+      "cau_hoi": "Nếu tôi ở lại nước ngoài trái phép sau khi hết hợp đồng mà không bị ai ép buộc, thì ai sẽ là người lập biên bản vi phạm của tôi?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        145798
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 59"
+      ],
+      "retrieved": [
+        145798,
+        134455,
+        145673,
+        145556,
+        145626,
+        145615,
+        145653,
+        145587,
+        144936,
+        134441
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 59",
+        "100/2015/QH13 > Điều 350",
+        "12/2022/NĐ-CP > Điều 46"
+      ]
+    },
+    {
+      "id": "lao-030-1",
+      "cau_hoi": "Khi tôi bị lập biên bản vì ở lại nước ngoài trái phép, biên bản đó sẽ được gửi đi đâu và ai sẽ là người quyết định phạt tôi?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        145798
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 59"
+      ],
+      "retrieved": [
+        145798,
+        145626,
+        145673,
+        145587,
+        145653,
+        145556,
+        145807,
+        145615,
+        130800,
+        145514
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 59",
+        "12/2022/NĐ-CP > Điều 44",
+        "12/2022/NĐ-CP > Điều 46"
+      ]
+    },
+    {
+      "id": "lao-031-0",
+      "cau_hoi": "Tôi làm việc tự do, có ký hợp đồng điện tử với công ty thì có được bảo vệ không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        144662
+      ],
+      "duong_dan_dung": [
+        "337/2025/NĐ-CP > Điều 2"
+      ],
+      "retrieved": [
+        142835,
+        143628,
+        134088,
+        141299,
+        132032,
+        145441,
+        140764,
+        146009,
+        141887,
+        140746
+      ],
+      "duong_dan_tra_ve_top3": [
+        "95/2015/QH13 > Điều 151",
+        "145/2020/NĐ-CP > Điều 3",
+        "100/2015/QH13 > Điều 314"
+      ]
+    },
+    {
+      "id": "lao-031-1",
+      "cau_hoi": "Công ty tôi muốn thuê người làm việc qua mạng và ký hợp đồng online, có được phép không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        144662
+      ],
+      "duong_dan_dung": [
+        "337/2025/NĐ-CP > Điều 2"
+      ],
+      "retrieved": [
+        143638,
+        143782,
+        146075,
+        143723,
+        141313,
+        141057,
+        141080,
+        145995,
+        140764,
+        141040
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 5",
+        "145/2020/NĐ-CP > Điều 24",
+        "29/2019/NĐ-CP > Điều 13"
+      ]
+    },
+    {
+      "id": "lao-033-0",
+      "cau_hoi": "Nếu công ty em với công nhân đang có chuyện bất đồng về lương mà bên hòa giải không giải quyết được thì công nhân có được phép nghỉ làm hết không ạ?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141799
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 199"
+      ],
+      "retrieved": [
+        144496,
+        141823,
+        144328,
+        143638,
+        144462,
+        144503,
+        142835,
+        141730,
+        141792,
+        145346
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 112",
+        "45/2019/QH14 > Điều 203",
+        "145/2020/NĐ-CP > Điều 96"
+      ]
+    },
+    {
+      "id": "lao-033-1",
+      "cau_hoi": "Nếu công ty em với công nhân đang có chuyện bất đồng về lương mà công ty không chịu làm theo quyết định của bên trọng tài thì công nhân có được phép nghỉ làm không ạ?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141799
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 199"
+      ],
+      "retrieved": [
+        142835,
+        145346,
+        141823,
+        143024,
+        143638,
+        146075,
+        143073,
+        144496,
+        144429,
+        144328
+      ],
+      "duong_dan_tra_ve_top3": [
+        "95/2015/QH13 > Điều 151",
+        "12/2022/NĐ-CP > Điều 28",
+        "45/2019/QH14 > Điều 203"
+      ]
+    },
+    {
+      "id": "lao-034-0",
+      "cau_hoi": "Khi đi làm, tôi cần biết những thông tin gì về công ty và công việc của mình được ghi trong giấy tờ?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140860
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 21"
+      ],
+      "retrieved": [
+        144296,
+        138449,
+        136452,
+        143638,
+        144688,
+        146423,
+        137856,
+        133449,
+        135662,
+        141152
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 93",
+        "101/2015/QH13 > Điều 73",
+        "92/2015/QH13 > Điều 234"
+      ]
+    },
+    {
+      "id": "lao-034-1",
+      "cau_hoi": "Nếu tôi làm việc liên quan đến bí mật của công ty, thì hợp đồng lao động cần ghi rõ những gì về việc này?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.2,
+      "mrr@10": 0.2,
+      "ndcg@5": 0.38685280723454163,
+      "ndcg@10": 0.38685280723454163,
+      "provision_ids_dung": [
+        140860
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 21"
+      ],
+      "retrieved": [
+        143686,
+        141152,
+        140828,
+        130544,
+        140860,
+        146423,
+        144258,
+        146164,
+        141643,
+        141359
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 8 > Khoản 5",
+        "45/2019/QH14 > Điều 70",
+        "45/2019/QH14 > Điều 16"
+      ]
+    },
+    {
+      "id": "lao-035-0",
+      "cau_hoi": "Nếu tôi lén đưa 5 người đi làm ở Đài Loan mà không có giấy tờ hợp lệ thì bị phạt bao nhiêu tiền?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        145572
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 42 > Khoản 11"
+      ],
+      "retrieved": [
+        145673,
+        145556,
+        133187,
+        145567,
+        145549,
+        133213,
+        145653,
+        145626,
+        144860,
+        145610
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 46",
+        "12/2022/NĐ-CP > Điều 42 > Khoản 9",
+        "100/2015/QH13 > Điều 265"
+      ]
+    },
+    {
+      "id": "lao-035-1",
+      "cau_hoi": "Công ty tôi bị phát hiện đưa 20 người sang Nhật làm việc chui, không đúng danh sách, thì sẽ bị phạt nặng cỡ nào?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        145572
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 42 > Khoản 11"
+      ],
+      "retrieved": [
+        132977,
+        132285,
+        131304,
+        146324,
+        132361,
+        131015,
+        131165,
+        131667,
+        134749,
+        134138
+      ],
+      "duong_dan_tra_ve_top3": [
+        "100/2015/QH13 > Điều 253",
+        "100/2015/QH13 > Điều 218",
+        "100/2015/QH13 > Điều 151"
+      ]
+    },
+    {
+      "id": "lao-036-0",
+      "cau_hoi": "Tôi làm việc 8 tiếng một ngày thì có được nghỉ giải lao giữa giờ không, và nếu có thì được nghỉ bao lâu?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        141317
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 109"
+      ],
+      "retrieved": [
+        141317,
+        141134,
+        142306,
+        145937,
+        145903,
+        144266,
+        144077,
+        145915,
+        145904,
+        145909
+      ],
+      "duong_dan_tra_ve_top3": [
+        "45/2019/QH14 > Điều 109",
+        "45/2019/QH14 > Điều 67",
+        "95/2015/QH13 > Điều 63"
+      ]
+    },
+    {
+      "id": "lao-036-1",
+      "cau_hoi": "Nếu tôi làm ca đêm thì có được nghỉ dài hơn không ạ?",
+      "recall@5": 0.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.125,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.31546487678572877,
+      "provision_ids_dung": [
+        141317
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 109"
+      ],
+      "retrieved": [
+        141456,
+        145346,
+        141320,
+        144083,
+        146912,
+        146949,
+        146876,
+        141317,
+        144167,
+        146985
+      ],
+      "duong_dan_tra_ve_top3": [
+        "45/2019/QH14 > Điều 137",
+        "12/2022/NĐ-CP > Điều 28",
+        "45/2019/QH14 > Điều 110"
+      ]
+    },
+    {
+      "id": "lao-037-0",
+      "cau_hoi": "Công ty tôi có bắt buộc phải tổ chức họp định kỳ với đại diện người lao động để bàn chuyện công ty không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        143915
+      ],
+      "duong_dan_dung": [
+        "145/2020/NĐ-CP > Điều 39"
+      ],
+      "retrieved": [
+        145429,
+        145441,
+        144116,
+        137284,
+        141549,
+        141658,
+        145798,
+        141823,
+        144486,
+        144496
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 35",
+        "12/2022/NĐ-CP > Điều 36",
+        "145/2020/NĐ-CP > Điều 69"
+      ]
+    },
+    {
+      "id": "lao-037-1",
+      "cau_hoi": "Nếu công ty tổ chức họp với đại diện người lao động thì cần có bao nhiêu người đại diện của chúng tôi tham gia thì cuộc họp mới hợp lệ?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        143915
+      ],
+      "duong_dan_dung": [
+        "145/2020/NĐ-CP > Điều 39"
+      ],
+      "retrieved": [
+        137284,
+        144688,
+        136292,
+        144534,
+        141658,
+        141643,
+        143908,
+        137306,
+        137300,
+        141617
+      ],
+      "duong_dan_tra_ve_top3": [
+        "92/2015/QH13 > Điều 407",
+        "337/2025/NĐ-CP > Điều 6",
+        "92/2015/QH13 > Điều 209"
+      ]
+    },
+    {
+      "id": "lao-039-0",
+      "cau_hoi": "Tôi muốn làm nội quy cho công ty thì cần chuẩn bị những giấy tờ gì để nộp lên cơ quan có thẩm quyền?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141380
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 120"
+      ],
+      "retrieved": [
+        138731,
+        138741,
+        143638,
+        146247,
+        137337,
+        132596,
+        136302,
+        138449,
+        138751,
+        146411
+      ],
+      "duong_dan_tra_ve_top3": [
+        "101/2015/QH13 > Điều 121",
+        "101/2015/QH13 > Điều 122",
+        "145/2020/NĐ-CP > Điều 5"
+      ]
+    },
+    {
+      "id": "lao-039-1",
+      "cau_hoi": "Nếu công ty tôi có công đoàn thì khi làm nội quy có cần xin ý kiến của họ không?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141380
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 120"
+      ],
+      "retrieved": [
+        146694,
+        143638,
+        143928,
+        146679,
+        144688,
+        146279,
+        136302,
+        141806,
+        145201,
+        145847
+      ],
+      "duong_dan_tra_ve_top3": [
+        "84/2015/QH13 > Điều 75",
+        "145/2020/NĐ-CP > Điều 5",
+        "145/2020/NĐ-CP > Điều 41"
+      ]
+    },
+    {
+      "id": "lao-040-0",
+      "cau_hoi": "Công ty tôi không cho cán bộ công đoàn cấp trên vào làm việc để hướng dẫn anh em thành lập công đoàn thì có bị phạt không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        145429
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 35"
+      ],
+      "retrieved": [
+        145429,
+        146664,
+        142385,
+        146679,
+        146646,
+        137856,
+        140746,
+        146247,
+        142356,
+        142306
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 35",
+        "84/2015/QH13 > Điều 73",
+        "95/2015/QH13 > Điều 71"
+      ]
+    },
+    {
+      "id": "lao-040-1",
+      "cau_hoi": "Nếu công ty tôi đơn phương cho một người trong ban lãnh đạo công đoàn nghỉ việc mà không bàn bạc trước với ban lãnh đạo công đoàn thì có bị phạt không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        145429
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 35"
+      ],
+      "retrieved": [
+        145429,
+        146679,
+        145798,
+        144887,
+        145346,
+        139985,
+        144496,
+        137856,
+        141456,
+        143638
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 35",
+        "84/2015/QH13 > Điều 74",
+        "12/2022/NĐ-CP > Điều 59"
+      ]
+    },
+    {
+      "id": "lao-041-0",
+      "cau_hoi": "Công ty em mới vào làm, sếp bắt làm việc gấp đôi mọi người mà lương vẫn vậy, có đúng không ạ?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141243
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 93"
+      ],
+      "retrieved": [
+        142835,
+        143711,
+        132977,
+        143073,
+        144180,
+        144167,
+        146985,
+        140895,
+        138449,
+        141057
+      ],
+      "duong_dan_tra_ve_top3": [
+        "95/2015/QH13 > Điều 151",
+        "145/2020/NĐ-CP > Điều 11",
+        "100/2015/QH13 > Điều 253"
+      ]
+    },
+    {
+      "id": "lao-041-1",
+      "cau_hoi": "Công ty em có bảng lương mới, nhưng em thấy có vẻ không hợp lý, họ có cần hỏi ý kiến mọi người trước khi áp dụng không ạ?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        141243
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 93"
+      ],
+      "retrieved": [
+        139764,
+        146279,
+        130392,
+        138449,
+        144429,
+        146192,
+        145176,
+        143073,
+        142250,
+        145136
+      ],
+      "duong_dan_tra_ve_top3": [
+        "101/2015/QH13 > Điều 326",
+        "84/2015/QH13 > Điều 14",
+        "100/2015/QH13 > Điều 3"
+      ]
+    },
+    {
+      "id": "lao-042-0",
+      "cau_hoi": "Nếu công ty tôi đưa người đi làm việc ở nước ngoài mà không cho họ đi học định hướng trước thì có bị phạt không?",
+      "recall@5": 0.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.16666666666666666,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.3562071871080222,
+      "provision_ids_dung": [
+        145626
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 44"
+      ],
+      "retrieved": [
+        145600,
+        145549,
+        145525,
+        145514,
+        145604,
+        145626,
+        143073,
+        145620,
+        145599,
+        145615
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 43 > Khoản 3",
+        "12/2022/NĐ-CP > Điều 42 > Khoản 8",
+        "12/2022/NĐ-CP > Điều 42 > Khoản 2"
+      ]
+    },
+    {
+      "id": "lao-042-1",
+      "cau_hoi": "Công ty tôi đưa lao động đi nước ngoài nhưng không nói rõ cho họ biết về tiền lương, chỗ ở và các quyền lợi khác thì có bị phạt không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        145626
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 44"
+      ],
+      "retrieved": [
+        145626,
+        145549,
+        143073,
+        145653,
+        145534,
+        145556,
+        143638,
+        145610,
+        145514,
+        145600
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 44",
+        "12/2022/NĐ-CP > Điều 42 > Khoản 8",
+        "95/2015/QH13 > Điều 203"
+      ]
+    },
+    {
+      "id": "lao-043-0",
+      "cau_hoi": "Đi làm mà em có em bé dưới 1 tuổi, em có được nghỉ thêm giờ nào trong ngày không ạ?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        144044
+      ],
+      "duong_dan_dung": [
+        "145/2020/NĐ-CP > Điều 58"
+      ],
+      "retrieved": [
+        141456,
+        144180,
+        145346,
+        141498,
+        144061,
+        141466,
+        145915,
+        144026,
+        144116,
+        144071
+      ],
+      "duong_dan_tra_ve_top3": [
+        "45/2019/QH14 > Điều 137",
+        "145/2020/NĐ-CP > Điều 80",
+        "12/2022/NĐ-CP > Điều 28"
+      ]
+    },
+    {
+      "id": "lao-043-1",
+      "cau_hoi": "Nếu công ty bắt em đi học lớp nghiệp vụ, thì thời gian đi học đó có được tính là đi làm và có lương không ạ?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.25,
+      "mrr@10": 0.25,
+      "ndcg@5": 0.43067655807339306,
+      "ndcg@10": 0.43067655807339306,
+      "provision_ids_dung": [
+        144044
+      ],
+      "duong_dan_dung": [
+        "145/2020/NĐ-CP > Điều 58"
+      ],
+      "retrieved": [
+        143678,
+        145549,
+        142835,
+        144044,
+        144088,
+        143638,
+        145673,
+        141102,
+        140828,
+        141355
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 8 > Khoản 3",
+        "12/2022/NĐ-CP > Điều 42 > Khoản 8",
+        "95/2015/QH13 > Điều 151"
+      ]
+    },
+    {
+      "id": "lao-044-0",
+      "cau_hoi": "Nếu công ty môi giới việc làm ở nước ngoài thu tiền của tôi sai quy định, họ có phải trả lại tiền và lãi cho tôi không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        145587
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 42 > Khoản 14"
+      ],
+      "retrieved": [
+        145587,
+        143073,
+        143638,
+        145621,
+        145549,
+        138449,
+        146622,
+        145673,
+        145599,
+        144958
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 42 > Khoản 14",
+        "95/2015/QH13 > Điều 203",
+        "145/2020/NĐ-CP > Điều 5"
+      ]
+    },
+    {
+      "id": "lao-044-1",
+      "cau_hoi": "Nếu công ty đưa tôi đi làm việc ở nước ngoài làm tôi bị thiệt hại, họ có phải bồi thường cho tôi không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 1.0,
+      "mrr@10": 1.0,
+      "ndcg@5": 1.0,
+      "ndcg@10": 1.0,
+      "provision_ids_dung": [
+        145587
+      ],
+      "duong_dan_dung": [
+        "12/2022/NĐ-CP > Điều 42 > Khoản 14"
+      ],
+      "retrieved": [
+        145587,
+        145534,
+        145604,
+        143638,
+        143073,
+        145556,
+        145615,
+        135321,
+        144935,
+        145621
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 42 > Khoản 14",
+        "12/2022/NĐ-CP > Điều 42 > Khoản 5",
+        "12/2022/NĐ-CP > Điều 43 > Khoản 4"
+      ]
+    },
+    {
+      "id": "lao-hand-01",
+      "cau_hoi": "Một ngày mình phải làm việc bao nhiêu tiếng thì đúng luật?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.5,
+      "mrr@10": 0.5,
+      "ndcg@5": 0.6309297535714575,
+      "ndcg@10": 0.6309297535714575,
+      "provision_ids_dung": [
+        141294
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 105"
+      ],
+      "retrieved": [
+        141346,
+        141294,
+        141519,
+        144266,
+        145898,
+        144061,
+        145922,
+        143782,
+        140935,
+        139823
+      ],
+      "duong_dan_tra_ve_top3": [
+        "45/2019/QH14 > Điều 114",
+        "45/2019/QH14 > Điều 105",
+        "45/2019/QH14 > Điều 148"
+      ]
+    },
+    {
+      "id": "lao-hand-02",
+      "cau_hoi": "Tôi muốn nghỉ việc thì phải báo cho công ty biết trước bao nhiêu ngày?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140935
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 35"
+      ],
+      "retrieved": [
+        141335,
+        145964,
+        144099,
+        145954,
+        144652,
+        141894,
+        144035,
+        145926,
+        144296,
+        143632
+      ],
+      "duong_dan_tra_ve_top3": [
+        "45/2019/QH14 > Điều 113",
+        "135/2020/NĐ-CP > Điều 7",
+        "145/2020/NĐ-CP > Điều 66"
+      ]
+    },
+    {
+      "id": "lao-hand-03",
+      "cau_hoi": "Đi làm thêm giờ thì có được trả thêm tiền không, tính thế nào, và công ty được bắt làm thêm tối đa mấy giờ?",
+      "recall@5": 0.5,
+      "recall@10": 0.5,
+      "mrr@5": 0.3333333333333333,
+      "mrr@10": 0.3333333333333333,
+      "ndcg@5": 0.3065735963827292,
+      "ndcg@10": 0.3065735963827292,
+      "provision_ids_dung": [
+        141299,
+        141263
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 107",
+        "45/2019/QH14 > Điều 98"
+      ],
+      "retrieved": [
+        144211,
+        141335,
+        141263,
+        133623,
+        141258,
+        144026,
+        144180,
+        143638,
+        143073,
+        142835
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 84",
+        "45/2019/QH14 > Điều 113",
+        "45/2019/QH14 > Điều 98"
+      ]
+    },
+    {
+      "id": "lao-hand-04",
+      "cau_hoi": "Bị công ty cho nghỉ việc mà không có lý do gì thì phải kiện ai để đòi quyền lợi?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        140974,
+        141726
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 41",
+        "45/2019/QH14 > Điều 187"
+      ],
+      "retrieved": [
+        135569,
+        135938,
+        136351,
+        140764,
+        135639,
+        138449,
+        138230,
+        138061,
+        136235,
+        136215
+      ],
+      "duong_dan_tra_ve_top3": [
+        "92/2015/QH13 > Điều 68",
+        "92/2015/QH13 > Điều 134",
+        "92/2015/QH13 > Điều 215"
+      ]
+    },
+    {
+      "id": "lao-hand-05",
+      "cau_hoi": "Lương tối thiểu vùng bây giờ là bao nhiêu một tháng?",
+      "recall@5": 0.5,
+      "recall@10": 1.0,
+      "mrr@5": 0.25,
+      "mrr@10": 0.25,
+      "ndcg@5": 0.2640681225725909,
+      "ndcg@10": 0.48247555939075504,
+      "provision_ids_dung": [
+        141234,
+        144637
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 91",
+        "293/2025/NĐ-CP > Điều 3"
+      ],
+      "retrieved": [
+        143993,
+        146829,
+        144630,
+        141234,
+        143996,
+        144637,
+        146836,
+        146912,
+        146949,
+        146985
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 49",
+        "74/2024/NĐ-CP > Điều 1",
+        "293/2025/NĐ-CP > Điều 1"
+      ]
+    },
+    {
+      "id": "lao-hand-06",
+      "cau_hoi": "Tôi bị tai nạn khi đang làm việc, công ty có phải lo tiền viện phí và trả lương những ngày tôi nghỉ điều trị không?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.5,
+      "mrr@10": 0.5,
+      "ndcg@5": 0.6309297535714575,
+      "ndcg@10": 0.6309297535714575,
+      "provision_ids_dung": [
+        146455
+      ],
+      "duong_dan_dung": [
+        "84/2015/QH13 > Điều 38"
+      ],
+      "retrieved": [
+        145176,
+        146455,
+        144328,
+        146247,
+        144429,
+        143638,
+        142327,
+        141263,
+        146192,
+        141335
+      ],
+      "duong_dan_tra_ve_top3": [
+        "12/2022/NĐ-CP > Điều 19",
+        "84/2015/QH13 > Điều 38",
+        "145/2020/NĐ-CP > Điều 96"
+      ]
+    },
+    {
+      "id": "lao-hand-07",
+      "cau_hoi": "Bây giờ bao nhiêu tuổi thì được nghỉ hưu?",
+      "recall@5": 1.0,
+      "recall@10": 1.0,
+      "mrr@5": 0.25,
+      "mrr@10": 0.25,
+      "ndcg@5": 0.5012658353418871,
+      "ndcg@10": 0.5012658353418871,
+      "provision_ids_dung": [
+        141610,
+        145951
+      ],
+      "duong_dan_dung": [
+        "45/2019/QH14 > Điều 169",
+        "135/2020/NĐ-CP > Điều 4"
+      ],
+      "retrieved": [
+        145943,
+        145961,
+        145947,
+        145951,
+        141610,
+        145954,
+        145922,
+        145964,
+        144044,
+        141456
+      ],
+      "duong_dan_tra_ve_top3": [
+        "135/2020/NĐ-CP > Điều 1",
+        "135/2020/NĐ-CP > Điều 6",
+        "135/2020/NĐ-CP > Điều 3"
+      ]
+    },
+    {
+      "id": "lao-hand-08",
+      "cau_hoi": "Công ty bắt làm thêm giờ liên tục, một tháng tối đa được bắt làm thêm bao nhiêu tiếng?",
+      "recall@5": 0.0,
+      "recall@10": 0.0,
+      "mrr@5": 0.0,
+      "mrr@10": 0.0,
+      "ndcg@5": 0.0,
+      "ndcg@10": 0.0,
+      "provision_ids_dung": [
+        145915
+      ],
+      "duong_dan_dung": [
+        "18/2021/TT-BLĐTBXH > Điều 6"
+      ],
+      "retrieved": [
+        143628,
+        145922,
+        143638,
+        144116,
+        144026,
+        144099,
+        142306,
+        144083,
+        144067,
+        144077
+      ],
+      "duong_dan_tra_ve_top3": [
+        "145/2020/NĐ-CP > Điều 3",
+        "18/2021/TT-BLĐTBXH > Điều 7",
+        "145/2020/NĐ-CP > Điều 5"
+      ]
+    }
+  ]
+}
