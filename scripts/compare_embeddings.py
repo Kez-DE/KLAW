@@ -6,9 +6,10 @@ chiều THẬT của từng model bằng một lệnh gọi API rẻ (`probe_dim
 corpus, rồi bỏ qua CÓ BÁO CÁO model chiều khác, KHÔNG truncate/pad (bịa dữ liệu) và
 KHÔNG tự thêm cột/migration (cần quyết định của chủ dự án).
 
-Đo bằng cấu hình `dense_only`, KHÔNG phải `hybrid`: trên golden_qa hiện tại BM25 quá
-yếu (Recall@5 ≈ 0.13, đã tự sweep rrf_k không cứu được) nên trộn vào hybrid làm nhiễu
-tín hiệu — dense thuần là nơi chất lượng embedding hiện ra rõ nhất (Task 9).
+Đo bằng cấu hình `dense_only`, KHÔNG phải `hybrid`: hybrid trộn thêm nhánh từ vựng
+(Recall@5 0.3117 sau khi chuẩn hoá độ dài + lọc hư từ, xem docs/bm25-tuning.md) nên
+chất lượng embedding bị nhiễu bởi một biến không liên quan — dense thuần là nơi nó
+hiện ra rõ nhất (Task 9).
 
 VN-MTEB không benchmark model thương mại (OpenAI/Google/Voyage) trên tiếng Việt, nên
 bảng này — dù nhỏ — là số liệu CHƯA từng công bố cho các model đó trên văn bản pháp
@@ -174,10 +175,10 @@ def render_markdown(rows: list[dict]) -> str:
         "",
         f"> **CẢNH BÁO:** {_CANH_BAO_CHUA_DUYET}",
         "",
-        "Đo bằng cấu hình **`dense_only`**, không phải `hybrid`: trên golden_qa hiện tại BM25 "
-        "quá yếu (Recall@5 ≈ 0,13, xem `eval/results/report.md`; đã tự sweep `rrf_k` không cứu "
-        "được) nên trộn vào hybrid làm nhiễu tín hiệu — dense thuần là nơi chất lượng embedding "
-        "hiện ra rõ nhất.",
+        "Đo bằng cấu hình **`dense_only`**, không phải `hybrid`: hybrid trộn thêm nhánh từ vựng "
+        "(Recall@5 0,3117 sau khi chuẩn hoá độ dài `ts_rank` và lọc hư từ — xem "
+        "`docs/bm25-tuning.md` và `eval/results/report.md`), nên chất lượng embedding bị nhiễu bởi "
+        "một biến không liên quan. Dense thuần là nơi nó hiện ra rõ nhất.",
         "",
         "VN-MTEB không benchmark model thương mại (OpenAI/Google/Voyage) trên tiếng Việt — bảng "
         "dưới đây, dù nhỏ, là số liệu CHƯA từng công bố cho các model đó trên văn bản pháp luật "
@@ -216,7 +217,9 @@ def render_markdown(rows: list[dict]) -> str:
         thang = max(do_duoc, key=lambda r: r["recall@5"])
         commit = do_duoc[0].get("commit_hash", "?")
         lines += [
-            f"Tổng chi phí embed thật đã tiêu trong lần so sánh này: **${tong_chi_phi}**.",
+            f"Tổng chi phí embed thật đã tiêu **trong lần chạy so sánh này**: **${tong_chi_phi}**. "
+            "Model ghi `đã có sẵn trong DB` tính $0 ở đây vì corpus của nó đã được embed ở một lần "
+            "chạy `build_chunks` trước — chi phí đã trả ở lần đó, không phải miễn phí.",
             "",
             f"Model tốt nhất theo Recall@5 trong lần đo này: `{thang['model']}` ({thang['recall@5']}).",
             "",

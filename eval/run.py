@@ -206,6 +206,11 @@ def evaluate(config_name: str) -> dict:
         "n_errors": n - n_ok,
         "config_name": config_name,
         "embedding_model": s.openrouter_embedding_model_name,
+        # Hai knob này quyết định nhánh BM25 mạnh hay yếu (xem docs/bm25-tuning.md)
+        # — ghi vào summary để mỗi hàng ablation tự mô tả được, không phải suy
+        # ra từ mặc định của Settings ở thời điểm đọc lại file.
+        "bm25_rank_normalization": s.bm25_rank_normalization,
+        "bm25_strip_stopwords": s.bm25_strip_stopwords,
         "commit_hash": _commit_hash(),
         "ts": datetime.now(UTC).isoformat(),
         "golden_qa_da_review": False,
@@ -283,6 +288,15 @@ def write_report(results: dict[str, dict]) -> str:
 
     lines.append("## 1. Bảng ablation (77 câu golden_qa)")
     lines.append("")
+    mau = next((r for r in results.values() if "bm25_rank_normalization" in r), None)
+    if mau:
+        lines.append(
+            f"Nhánh BM25 chạy với `ts_rank` normalization = **{mau['bm25_rank_normalization']}** và "
+            f"lọc hư từ tiếng Việt = **{'có' if mau['bm25_strip_stopwords'] else 'không'}**. Hai giá "
+            "trị này chọn theo đo, không theo mặc định của Postgres — bảng sweep đầy đủ và lý do ở "
+            "`docs/bm25-tuning.md` (tái lập: `python -m scripts.sweep_bm25`)."
+        )
+        lines.append("")
     lines.append("| Config | Recall@5 | Recall@10 | MRR@5 | MRR@10 | nDCG@5 | nDCG@10 | n_ok/n_queries |")
     lines.append("|---|---|---|---|---|---|---|---|")
     for name in ("hybrid", "bm25_only", "dense_only"):

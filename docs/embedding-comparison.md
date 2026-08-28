@@ -2,7 +2,7 @@
 
 > **CẢNH BÁO:** golden_qa.yaml CHƯA được người duyệt tay (da_review: false trên toàn bộ câu, Task 8) — con số dưới đây là CHỈ BÁO cho hướng phát triển, KHÔNG phải kết quả công bố được.
 
-Đo bằng cấu hình **`dense_only`**, không phải `hybrid`: trên golden_qa hiện tại BM25 quá yếu (Recall@5 ≈ 0,13, xem `eval/results/report.md`; đã tự sweep `rrf_k` không cứu được) nên trộn vào hybrid làm nhiễu tín hiệu — dense thuần là nơi chất lượng embedding hiện ra rõ nhất.
+Đo bằng cấu hình **`dense_only`**, không phải `hybrid`: hybrid trộn thêm nhánh từ vựng (Recall@5 0,3117 sau khi chuẩn hoá độ dài `ts_rank` và lọc hư từ — xem `docs/bm25-tuning.md` và `eval/results/report.md`), nên chất lượng embedding bị nhiễu bởi một biến không liên quan. Dense thuần là nơi nó hiện ra rõ nhất.
 
 VN-MTEB không benchmark model thương mại (OpenAI/Google/Voyage) trên tiếng Việt — bảng dưới đây, dù nhỏ, là số liệu CHƯA từng công bố cho các model đó trên văn bản pháp luật Việt Nam.
 
@@ -12,14 +12,14 @@ Cột `chunks.embedding` là `vector(1024)` cố định (`migrations/001_init.s
 
 | Model | Chiều | $/1M token | Chunks | Token | Chi phí | Recall@5 | MRR@5 | nDCG@5 | Ghi chú |
 |---|---|---|---|---|---|---|---|---|---|
-| baai/bge-m3 | 1024 | 0.01 | 3283 | 883935 | $0.0 | 0.6753 | 0.511 | 0.5507 | đã có sẵn trong DB — không embed lại |
+| baai/bge-m3 | 1024 | 0.01 | 3283 | 891772 | $0.0 | 0.6494 | 0.487 | 0.526 | đã có sẵn trong DB — không embed lại |
 | openai/text-embedding-3-small | 1536 | — | — | — | — | — | — | — | **BỎ QUA**: không so được vì chiều 1536 ≠ 1024 (chunks.embedding vector(1024) cố định) |
 | qwen/qwen3-embedding-8b | 4096 | — | — | — | — | — | — | — | **BỎ QUA**: không so được vì chiều 4096 ≠ 1024 (chunks.embedding vector(1024) cố định) |
 | google/gemini-embedding-001 | 3072 | — | — | — | — | — | — | — | **BỎ QUA**: không so được vì chiều 3072 ≠ 1024 (chunks.embedding vector(1024) cố định) |
-| voyageai/voyage-4-lite | 1024 | 0.02 | 3283 | 883935 | $0.0177 | 0.8442 | 0.6539 | 0.6959 | embed mới |
+| voyageai/voyage-4-lite | 1024 | 0.02 | 3283 | 891772 | $0.0 | 0.8442 | 0.6494 | 0.6904 | đã có sẵn trong DB — không embed lại |
 
-Tổng chi phí embed thật đã tiêu trong lần so sánh này: **$0.0177**.
+Tổng chi phí embed thật đã tiêu **trong lần chạy so sánh này**: **$0.0**. Model ghi `đã có sẵn trong DB` tính $0 ở đây vì corpus của nó đã được embed ở một lần chạy `build_chunks` trước — chi phí đã trả ở lần đó, không phải miễn phí.
 
 Model tốt nhất theo Recall@5 trong lần đo này: `voyageai/voyage-4-lite` (0.8442).
 
-Đo tại commit `0fefd9f0cc96a19f70378bdc585d7276d3ef9b55`.
+Đo tại commit `f1c404771cf298dff1ca2800fd69af297c7ad83c`.

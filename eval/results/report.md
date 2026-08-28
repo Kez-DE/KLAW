@@ -4,34 +4,31 @@
 
 ## 1. Bảng ablation (77 câu golden_qa)
 
+Nhánh BM25 chạy với `ts_rank` normalization = **1** và lọc hư từ tiếng Việt = **có**. Hai giá trị này chọn theo đo, không theo mặc định của Postgres — bảng sweep đầy đủ và lý do ở `docs/bm25-tuning.md` (tái lập: `python -m scripts.sweep_bm25`).
+
 | Config | Recall@5 | Recall@10 | MRR@5 | MRR@10 | nDCG@5 | nDCG@10 | n_ok/n_queries |
 |---|---|---|---|---|---|---|---|
-| hybrid | 0.5649 | 0.7338 | 0.3043 | 0.3282 | 0.368 | 0.4268 | 77/77 |
-| bm25_only | 0.1299 | 0.1558 | 0.0784 | 0.0826 | 0.0914 | 0.1001 | 77/77 |
-| dense_only | 0.6753 | 0.7857 | 0.511 | 0.5253 | 0.5507 | 0.5857 | 77/77 |
+| hybrid | 0.5455 | 0.7532 | 0.366 | 0.393 | 0.4069 | 0.4764 | 77/77 |
+| bm25_only | 0.3117 | 0.4156 | 0.2245 | 0.2381 | 0.2455 | 0.2802 | 77/77 |
+| dense_only | 0.6494 | 0.7727 | 0.487 | 0.5037 | 0.526 | 0.5659 | 77/77 |
 
 ## 2. Tái lập
 
-- `hybrid`: commit `a50b524d6039633b3a0f02fe74d6c03fe6236cff`, model embedding `baai/bge-m3`, n=77, ts=2026-08-28T17:24:19.059339+00:00
-- `bm25_only`: commit `a50b524d6039633b3a0f02fe74d6c03fe6236cff`, model embedding `baai/bge-m3`, n=77, ts=2026-08-28T17:24:24.101040+00:00
-- `dense_only`: commit `a50b524d6039633b3a0f02fe74d6c03fe6236cff`, model embedding `baai/bge-m3`, n=77, ts=2026-08-28T17:25:23.419127+00:00
+- `hybrid`: commit `f1c404771cf298dff1ca2800fd69af297c7ad83c`, model embedding `baai/bge-m3`, n=77, ts=2026-08-28T20:52:54.898384+00:00
+- `bm25_only`: commit `f1c404771cf298dff1ca2800fd69af297c7ad83c`, model embedding `baai/bge-m3`, n=77, ts=2026-08-28T20:52:58.189257+00:00
+- `dense_only`: commit `f1c404771cf298dff1ca2800fd69af297c7ad83c`, model embedding `baai/bge-m3`, n=77, ts=2026-08-28T20:54:42.905205+00:00
 
 ## 3. 10 câu tệ nhất (config `hybrid`)
-
-### `lao-000-0` — recall@5=0.0, mrr@5=0.0
-- Câu hỏi: Công ty tôi có 50 nhân viên, trong đó có 30 nữ. Vậy công ty tôi có phải là công ty sử dụng nhiều lao động nữ không?
-- Điều luật đúng: 145/2020/NĐ-CP > Điều 74
-- Hệ thống trả về (top 3): 12/2022/NĐ-CP > Điều 28; 145/2020/NĐ-CP > Điều 80; 45/2019/QH14 > Điều 42
 
 ### `lao-001-0` — recall@5=0.0, mrr@5=0.0
 - Câu hỏi: Nếu sếp em cứ chửi bới, xúc phạm em trước mặt mọi người thì có được không ạ?
 - Điều luật đúng: 45/2019/QH14 > Điều 127
-- Hệ thống trả về (top 3): 101/2015/QH13 > Điều 73; 100/2015/QH13 > Điều 155; 101/2015/QH13 > Điều 326
+- Hệ thống trả về (top 3): 95/2015/QH13 > Điều 152; 100/2015/QH13 > Điều 155; 101/2015/QH13 > Điều 73
 
 ### `lao-001-1` — recall@5=0.0, mrr@5=0.0
 - Câu hỏi: Công ty có được trừ thẳng tiền lương của em vì đi muộn vài lần không ạ?
 - Điều luật đúng: 45/2019/QH14 > Điều 127
-- Hệ thống trả về (top 3): 12/2022/NĐ-CP > Điều 17; 100/2015/QH13 > Điều 273; 45/2019/QH14 > Điều 102
+- Hệ thống trả về (top 3): 45/2019/QH14 > Điều 97; 100/2015/QH13 > Điều 273; 45/2019/QH14 > Điều 102
 
 ### `lao-002-1` — recall@5=0.0, mrr@5=0.0
 - Câu hỏi: Nếu lương tối thiểu vùng mới thấp hơn lương cũ, công ty tôi có phải trả lương cũ cho nhân viên đã làm từ trước không?
@@ -41,29 +38,34 @@
 ### `lao-004-0` — recall@5=0.0, mrr@5=0.0
 - Câu hỏi: Tôi ký hợp đồng với công ty hôm nay, vậy là từ lúc nào tôi bắt đầu đi làm chính thức?
 - Điều luật đúng: 45/2019/QH14 > Điều 23
-- Hệ thống trả về (top 3): 100/2015/QH13 > Điều 317; 337/2025/NĐ-CP > Điều 28; 100/2015/QH13 > Điều 278
+- Hệ thống trả về (top 3): 95/2015/QH13 > Điều 151; 337/2025/NĐ-CP > Điều 28; 12/2022/NĐ-CP > Điều 46
 
-### `lao-004-1` — recall@5=0.0, mrr@5=0.0
-- Câu hỏi: Nếu tôi và công ty thỏa thuận là hợp đồng có hiệu lực vào tuần sau, thì có được không?
-- Điều luật đúng: 45/2019/QH14 > Điều 23
-- Hệ thống trả về (top 3): 293/2025/NĐ-CP > Điều 5; 92/2015/QH13 > Điều 39 > Khoản 2; 91/2015/QH13 > Điều 401
+### `lao-005-0` — recall@5=0.0, mrr@5=0.0
+- Câu hỏi: Nếu công ty tôi đóng cửa và tôi bị mất việc, tôi có được nhận tiền hỗ trợ gì không và bao nhiêu?
+- Điều luật đúng: 45/2019/QH14 > Điều 47
+- Hệ thống trả về (top 3): 84/2015/QH13 > Điều 55; 101/2015/QH13 > Điều 486; 145/2020/NĐ-CP > Điều 8 > Khoản 1
+
+### `lao-005-1` — recall@5=0.0, mrr@5=0.0
+- Câu hỏi: Tôi làm ở công ty này được 5 năm, giờ bị cho nghỉ việc, thì tôi sẽ được nhận bao nhiêu tiền hỗ trợ mất việc?
+- Điều luật đúng: 45/2019/QH14 > Điều 47
+- Hệ thống trả về (top 3): 145/2020/NĐ-CP > Điều 5; 145/2020/NĐ-CP > Điều 8 > Khoản 5; 101/2015/QH13 > Điều 78
+
+### `lao-009-0` — recall@5=0.0, mrr@5=0.0
+- Câu hỏi: Nếu tôi làm sai gì đó ở nước ngoài, thì cán bộ ở Đại sứ quán Việt Nam có thể phạt tôi bao nhiêu tiền?
+- Điều luật đúng: 12/2022/NĐ-CP > Điều 56
+- Hệ thống trả về (top 3): 12/2022/NĐ-CP > Điều 42 > Khoản 9; 12/2022/NĐ-CP > Điều 46; 12/2022/NĐ-CP > Điều 42 > Khoản 8
 
 ### `lao-009-1` — recall@5=0.0, mrr@5=0.0
 - Câu hỏi: Tôi có thể bị phạt tối đa bao nhiêu nếu tôi vi phạm quy định nào đó khi làm việc với cơ quan đại diện của Việt Nam ở nước ngoài?
 - Điều luật đúng: 12/2022/NĐ-CP > Điều 56
-- Hệ thống trả về (top 3): 12/2022/NĐ-CP > Điều 44; 12/2022/NĐ-CP > Điều 32; 12/2022/NĐ-CP > Điều 45
+- Hệ thống trả về (top 3): 12/2022/NĐ-CP > Điều 43 > Khoản 6; 12/2022/NĐ-CP > Điều 46; 12/2022/NĐ-CP > Điều 44
 
 ### `lao-010-0` — recall@5=0.0, mrr@5=0.0
 - Câu hỏi: Tôi muốn làm việc chỉ 4 tiếng một ngày thôi thì có được không ạ?
 - Điều luật đúng: 45/2019/QH14 > Điều 32
-- Hệ thống trả về (top 3): 145/2020/NĐ-CP > Điều 114; 45/2019/QH14 > Điều 105; 145/2020/NĐ-CP > Điều 102
+- Hệ thống trả về (top 3): 18/2021/TT-BLĐTBXH > Điều 4; 45/2019/QH14 > Điều 25; 18/2021/TT-BLĐTBXH > Điều 5
 
-### `lao-013-0` — recall@5=0.0, mrr@5=0.0
-- Câu hỏi: Công ty tôi mới mở, tôi cần phải làm gì với mấy bạn nhân viên mới ngay từ đầu để đúng quy định của nhà nước?
-- Điều luật đúng: 45/2019/QH14 > Điều 12
-- Hệ thống trả về (top 3): 84/2015/QH13 > Điều 14; 145/2020/NĐ-CP > Điều 103; 45/2019/QH14 > Điều 144
-
-### `lao-013-1` — recall@5=0.0, mrr@5=0.0
-- Câu hỏi: Nếu công ty tôi có thay đổi về nhân sự, ví dụ có người nghỉ việc hay có người mới vào, thì tôi có cần báo cáo cho cơ quan chức năng không và báo cáo khi nào?
-- Điều luật đúng: 45/2019/QH14 > Điều 12
-- Hệ thống trả về (top 3): 101/2015/QH13 > Điều 73; 145/2020/NĐ-CP > Điều 4; 101/2015/QH13 > Điều 78
+### `lao-011-1` — recall@5=0.0, mrr@5=0.0
+- Câu hỏi: Công ty tôi từ chối ngồi lại nói chuyện với đại diện nhân viên để bàn về quyền lợi chung thì có bị phạt không?
+- Điều luật đúng: 12/2022/NĐ-CP > Điều 16
+- Hệ thống trả về (top 3): 12/2022/NĐ-CP > Điều 35; 12/2022/NĐ-CP > Điều 28; 92/2015/QH13 > Điều 375
