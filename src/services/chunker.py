@@ -2,7 +2,8 @@
 
 Chunk = một Điều (gồm cả Khoản/Điểm con), KHÔNG cắt cứng theo token.
 Điều dài hơn max_tokens thì cắt theo Khoản, nhưng mỗi chunk vẫn mang context
-header đường dẫn — đó là contextual retrieval nhẹ, giải một phần pain point #4/#5.
+header = đường dẫn + tiêu đề/câu dẫn của Điều cha — đó là contextual retrieval
+nhẹ, giải một phần pain point #4/#5.
 
 Khi cắt theo Khoản, chunk neo vào provision_id của KHOẢN (không của Điều) để
 citation trỏ đúng cấp mà người dùng cần kiểm.
@@ -70,17 +71,25 @@ def build_chunks(provisions: list[dict], max_tokens: int) -> list[ChunkRow]:
             out.append(ChunkRow(p["id"], body, dem_token(body)))
             continue
 
-        # Quá dài → cắt theo Khoản. Header của mỗi mảnh là duong_dan của chính
-        # Khoản đó ("... > Điều N > Khoản M"), nên vẫn giữ ngữ cảnh Điều.
+        # Quá dài → cắt theo Khoản. Header mỗi mảnh = duong_dan của chính Khoản
+        # ("… > Điều N > Khoản M") CỘNG `_text_of(p)`, tức tiêu đề Điều và câu
+        # dẫn trước Khoản 1. `duong_dan` chỉ mang SỐ HIỆU, không mang chữ: thiếu
+        # dòng này thì chủ đề duy nhất phân biệt Điều 42 ("đưa người lao động
+        # Việt Nam đi làm việc ở nước ngoài") với hàng trăm điều xử phạt khác
+        # KHÔNG tồn tại ở bất kỳ đâu trong index; câu dẫn — thường mang điều
+        # kiện áp dụng — cũng mất. Đo trên corpus: 190 chunk, 6/49 gold anchor.
+        # CHỈ tiêu đề + câu dẫn, KHÔNG nhồi toàn văn Điều cha: nhồi vào là phình
+        # chunk và trùng lặp, đúng thứ mà việc cắt theo Khoản sinh ra để tránh.
         khoans = [c for c in con.get(p["id"], []) if c["cap"] == "khoan"]
         if not khoans:
             out.append(ChunkRow(p["id"], body, dem_token(body)))
             continue
+        dan = _text_of(p)
         for k in khoans:
             ktext = gom(k)
             if not ktext:
                 continue
-            kbody = f"{k['duong_dan']}\n{ktext}"
+            kbody = "\n".join(x for x in (k["duong_dan"], dan, ktext) if x)
             out.append(ChunkRow(k["id"], kbody, dem_token(kbody)))
 
     return out

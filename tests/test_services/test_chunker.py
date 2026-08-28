@@ -61,3 +61,60 @@ def test_mo_dau_khong_lot_vao_chunk_du_bi_gan_nham_parent_id():
     assert len(chunks) == 1
     assert chunks[0].provision_id == 10
     assert "Căn cứ Hiến pháp" not in chunks[0].noi_dung_embed
+
+
+# ══ C1 (review-final-p2): chunk cấp Khoản mất tiêu đề Điều cha ═══════════════
+
+
+def _dieu_dai_hai_khoan() -> list[dict]:
+    """Điều có tiêu đề + câu dẫn, đủ dài để bị cắt theo Khoản."""
+    dieu = dict(
+        DIEU,
+        noi_dung=(
+            "Điều 42. Vi phạm quy định về đưa người lao động Việt Nam đi làm việc ở nước ngoài"
+            " Mức phạt đối với doanh nghiệp dịch vụ được quy định như sau:"
+        ),
+    )
+    k1 = dict(KHOAN_1, noi_dung="1. " + "alpha " * 900)
+    k2 = dict(
+        KHOAN_1, id=12, so_hieu_cap="2",
+        duong_dan="45/2019/QH14 > Điều 25 > Khoản 2", noi_dung="2. " + "beta " * 900,
+    )
+    return [dieu, k1, k2]
+
+
+def test_chunk_cap_khoan_mang_tieu_de_dieu_cha():
+    """C1: header chỉ có `duong_dan` (số hiệu) — chủ đề của Điều biến mất khỏi
+    index. 190 chunk thật đang bị vậy, phủ 6/49 gold anchor."""
+    chunks = build_chunks(_dieu_dai_hai_khoan(), max_tokens=100)
+    assert len(chunks) == 2
+    for c in chunks:
+        assert "đưa người lao động Việt Nam đi làm việc ở nước ngoài" in c.noi_dung_embed, (
+            "chunk cấp Khoản phải mang tiêu đề của Điều cha"
+        )
+
+
+def test_chunk_cap_khoan_giu_ca_cau_dan_truoc_khoan_1():
+    """Câu dẫn (chapeau) thường mang điều kiện áp dụng — mất nó là mất ràng buộc."""
+    chunks = build_chunks(_dieu_dai_hai_khoan(), max_tokens=100)
+    assert all("Mức phạt đối với doanh nghiệp dịch vụ" in c.noi_dung_embed for c in chunks)
+
+
+def test_chunk_cap_khoan_KHONG_nhoi_toan_van_dieu_cha():
+    """Chỉ tiêu đề + câu dẫn. Nhồi cả Khoản anh em vào là phình chunk và trùng
+    lặp — đúng thứ việc cắt theo Khoản sinh ra để tránh."""
+    chunks = build_chunks(_dieu_dai_hai_khoan(), max_tokens=100)
+    theo_id = {c.provision_id: c.noi_dung_embed for c in chunks}
+    assert "beta" not in theo_id[11], "chunk Khoản 1 không được chứa text của Khoản 2"
+    assert "alpha" not in theo_id[12], "chunk Khoản 2 không được chứa text của Khoản 1"
+
+
+def test_dieu_khong_co_noi_dung_rieng_van_cat_duoc_theo_khoan():
+    """Điều rỗng thân (chỉ có Khoản con) không được sinh dòng trống thừa trong body."""
+    dieu = dict(DIEU, noi_dung="")
+    k1 = dict(KHOAN_1, noi_dung="1. " + "alpha " * 900)
+    k2 = dict(KHOAN_1, id=12, so_hieu_cap="2",
+              duong_dan="45/2019/QH14 > Điều 25 > Khoản 2", noi_dung="2. " + "beta " * 900)
+    chunks = build_chunks([dieu, k1, k2], max_tokens=100)
+    assert len(chunks) == 2
+    assert all("\n\n" not in c.noi_dung_embed for c in chunks)
