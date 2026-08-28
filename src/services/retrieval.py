@@ -7,9 +7,12 @@ tức tin vào thứ hạng ít hơn.
 
 Citation neo vào `provisions.id`, KHÔNG vào `chunks.id` (bảng `chunks` bị
 DROP/CREATE lại nhiều lần khi ablation nên id của nó không ổn định). Vì vậy,
-ngoài `.hybrid()` trả `chunks.id` theo đúng interface gốc, `Retriever` còn có
-`.hybrid_provisions()` trả `provisions.id` — đây là hàm mà Task 9 (eval) thật
-sự dùng, để khớp kiểu với `golden_qa.yaml` (provision_ids) và metrics Task 7.
+ngoài `.hybrid()` trả `chunks.id` theo đúng interface gốc, `Retriever` có
+`.provision_ids(chunk_ids)` — khử trùng + giữ thứ tự rank — và `.hybrid_provisions()`
+là tiện ích gọi `.provision_ids(self.hybrid(q))`. Task 9 (eval) gọi thẳng
+`.provision_ids()` trên từng nhánh đơn (bm25/dense) khi nhánh kia bị tắt
+(bm25_only/dense_only), để khớp kiểu với `golden_qa.yaml` (provision_ids) và
+metrics Task 7 trong cả ba preset ablation, không chỉ hybrid.
 """
 
 from collections import defaultdict
@@ -98,14 +101,15 @@ class Retriever:
         fused = rrf([self.bm25(q), self.dense(q)], k=self.s.rrf_k)
         return [cid for cid, _ in fused[: self.s.retrieve_final_topk]]
 
-    def hybrid_provisions(self, q: str) -> list[int]:
-        """Như .hybrid() nhưng trả provisions.id, ĐÃ KHỬ TRÙNG, GIỮ THỨ TỰ RANK.
+    def provision_ids(self, chunk_ids: list[int]) -> list[int]:
+        """chunk_ids đã xếp hạng (từ bm25/dense/hybrid) → provisions.id, ĐÃ
+        KHỬ TRÙNG, GIỮ THỨ TỰ RANK. Dùng chung cho mọi preset Task 9 — kể cả
+        bm25_only/dense_only (chỉ MỘT nhánh, không qua .hybrid()) — nên vẫn
+        khớp kiểu với golden_qa.provision_ids dù nhánh kia bị tắt (topk=0).
 
         Nhiều chunk có thể cùng một provision (Điều dài bị cắt theo Khoản);
-        provision giữ thứ hạng của chunk TỐT NHẤT của nó. Eval (Task 9) dùng
-        hàm này, không dùng .hybrid().
+        provision giữ thứ hạng của chunk TỐT NHẤT của nó.
         """
-        chunk_ids = self.hybrid(q)
         if not chunk_ids:
             return []
         with self.engine.connect() as c:
@@ -115,3 +119,7 @@ class Retriever:
             ).all()
         provision_cua = dict(rows)
         return _dedup_giu_hang_tot_nhat(chunk_ids, provision_cua)
+
+    def hybrid_provisions(self, q: str) -> list[int]:
+        """Như .hybrid() nhưng trả provisions.id — xem .provision_ids()."""
+        return self.provision_ids(self.hybrid(q))

@@ -100,6 +100,12 @@ def test_hybrid_hop_nhat_hai_nhanh_theo_rrf():
 # ---------------------------------------------------------------------------
 
 
+def test_provision_ids_rong_khong_cham_db():
+    # engine=None: nếu code chạm DB trên input rỗng, test này sẽ nổ AttributeError
+    r = Retriever(engine=None, embedder=None, settings=_settings())
+    assert r.provision_ids([]) == []
+
+
 def test_dedup_provision_giu_hang_cua_chunk_tot_nhat_khong_lap():
     # chunk 10 (hạng 1) và chunk 20 (hạng 2) cùng thuộc provision 5;
     # chunk 30 (hạng 3) thuộc provision 7 → provision 5 phải đứng trước 7,
@@ -252,6 +258,18 @@ def test_hybrid_dung_ket_qua_dense_khi_bm25_that_su_rong(chunks_that):
     assert r.bm25("zzzxxxqqq wwwyyykkk") == []
     out = r.hybrid("zzzxxxqqq wwwyyykkk")
     assert ids[2] in out
+
+
+@pytest.mark.integration
+def test_provision_ids_dung_cho_ca_nhanh_don_bm25_only_dense_only(chunks_that):
+    """Task 9 (eval) dùng .provision_ids() trực tiếp trên chunk_ids của MỘT
+    nhánh (bm25 hoặc dense khi nhánh kia bị tắt topk=0) — không chỉ qua
+    .hybrid(). Phải khử trùng + giữ thứ tự rank giống hệt hybrid_provisions."""
+    ids = chunks_that["ids"]
+    p1, p2 = chunks_that["p1"], chunks_that["p2"]
+    r = Retriever(engine=get_engine(), embedder=_embedder_gia({}), settings=_settings())
+    out = r.provision_ids([ids[0], ids[1], ids[2]])
+    assert out == [p1, p2]
 
 
 @pytest.mark.integration

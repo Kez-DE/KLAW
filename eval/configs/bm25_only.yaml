@@ -1,0 +1,4 @@
+retrieve_bm25_topk: 20
+retrieve_dense_topk: 0
+rrf_k: 60
+retrieve_final_topk: 10
