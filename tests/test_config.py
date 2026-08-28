@@ -30,3 +30,13 @@ def test_abstain_threshold_bi_chan_trong_khoang_0_1():
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None, abstain_threshold=1.5)
+
+
+def test_retrieve_topk_co_the_bang_0_de_tat_mot_nhanh():
+    """Task 9 (eval ablation) cần bm25_only/dense_only tắt hẳn nhánh còn lại
+    bằng topk=0 — gt=0 (đặt từ commit khởi tạo config.py, trước khi ablation
+    tồn tại) chặn giá trị này một cách sai."""
+    s = Settings(_env_file=None, retrieve_bm25_topk=0, retrieve_dense_topk=20)
+    assert s.retrieve_bm25_topk == 0
+    s2 = Settings(_env_file=None, retrieve_bm25_topk=20, retrieve_dense_topk=0)
+    assert s2.retrieve_dense_topk == 0

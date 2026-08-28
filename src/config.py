@@ -40,8 +40,10 @@ class Settings(BaseSettings):
 
     # Retrieval & chunking
     chunk_max_tokens: int = Field(default=1500, gt=0)
-    retrieve_bm25_topk: int = Field(default=20, gt=0)
-    retrieve_dense_topk: int = Field(default=20, gt=0)
+    # ge=0 (không phải gt=0): eval ablation (Task 9) tắt hẳn một nhánh bằng 0
+    # để đo bm25_only/dense_only — 0 là giá trị hợp lệ, không phải lỗi cấu hình.
+    retrieve_bm25_topk: int = Field(default=20, ge=0)
+    retrieve_dense_topk: int = Field(default=20, ge=0)
     rrf_k: int = Field(default=60, gt=0)
     retrieve_final_topk: int = Field(default=10, gt=0)
     expand_reference_hops: int = Field(default=1, ge=0)
