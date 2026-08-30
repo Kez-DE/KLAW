@@ -464,3 +464,44 @@ def test_tien_de_khong_nhac_so_dieu_nao_thi_KHONG_chan():
     from src.services.db import get_engine
 
     assert tien_de_cau_hoi_sai("công ty nợ lương thì làm sao", get_engine()) is None
+
+
+# ══ C1/H2 — silent-failure review round 2: khớp văn bản theo VỊ TRÍ, hai chiều ══
+
+
+@pytest.mark.integration
+def test_tien_de_chon_van_ban_GAN_dieu_N_nhat_khong_theo_thu_tu_bang():
+    """Bug đo được (coordinator): 'Điều 600 Bộ luật Dân sự về hợp đồng lao
+    động' khớp NHẦM 'Bộ luật Lao động' — chỉ vì 'lao động' đứng TRƯỚC 'dân sự'
+    trong bảng `_VAN_BAN_BO_LUAT`, dù 'Bộ luật Dân sự' đứng NGAY SAU 'Điều 600'
+    trong câu thật. Điều 600 CÓ THẬT ở Bộ luật Dân sự (689 điều) — câu hợp lệ,
+    không được chặn."""
+    from src.agents.nodes.verify_tier1 import tien_de_cau_hoi_sai
+    from src.services.db import get_engine
+
+    eng = get_engine()
+    assert tien_de_cau_hoi_sai("Điều 600 Bộ luật Dân sự về hợp đồng lao động", eng) is None
+    # Chiều ngược: BLLĐ đứng NGAY SAU Điều 250, "tố tụng dân sự" đứng xa hơn ở
+    # cuối câu — BLLĐ chỉ có 220 điều nên câu này PHẢI bị chặn.
+    assert tien_de_cau_hoi_sai("Điều 250 Bộ luật Lao động trong tố tụng dân sự", eng) == (
+        "Bộ luật Lao động không có Điều 250"
+    )
+
+
+@pytest.mark.integration
+def test_tien_de_quet_ca_hai_chieu_quanh_dieu_N():
+    """Bug đo được (coordinator): phép kiểm chỉ quét VỀ SAU từ 'Điều N', bỏ lọt
+    hoàn toàn cách viết văn bản đứng TRƯỚC — và cả 15/15 câu `dieu_khong_ton_tai`
+    trong trap.yaml đều dùng trật tự 'Điều N [văn bản]' nên 15/15 không chứng
+    minh được phép kiểm hoạt động cho cách viết ngược lại."""
+    from src.agents.nodes.verify_tier1 import tien_de_cau_hoi_sai
+    from src.services.db import get_engine
+
+    eng = get_engine()
+    assert tien_de_cau_hoi_sai("Bộ luật Lao động Điều 999 nói gì", eng) == "Bộ luật Lao động không có Điều 999"
+    assert tien_de_cau_hoi_sai("Trong BLLĐ, Điều 999 quy định thế nào", eng) == (
+        "Bộ luật Lao động không có Điều 999"
+    )
+    assert tien_de_cau_hoi_sai("Theo BLLĐ thì Điều 999 quy định thế nào", eng) == (
+        "Bộ luật Lao động không có Điều 999"
+    )

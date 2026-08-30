@@ -338,7 +338,39 @@ _VAN_BAN_BO_LUAT: tuple[tuple[re.Pattern, str, str], ...] = (
     (re.compile(r"95/2015/qh13", re.IGNORECASE), "95/2015/QH13", "Bộ luật Hàng hải"),
 )
 
-_CUA_SO_KY_TU = 40  # đủ cho "Điều N Bộ luật Tố tụng dân sự" hoặc "theo Điều N BLLĐ"
+_CUA_SO_KY_TU = 40  # đủ cho "Điều N Bộ luật Tố tụng dân sự" hoặc "theo Bộ luật Lao động, Điều N"
+
+
+def _van_ban_gan_dieu(q: str, m: re.Match) -> tuple[str, str] | None:
+    """Văn bản khớp GẦN match "Điều N" NHẤT — quét CẢ HAI CHIỀU (trước và sau
+    vị trí "Điều N"), chọn theo KHOẢNG CÁCH TUYỆT ĐỐI tới "Điều N", KHÔNG theo
+    thứ tự trong bảng `_VAN_BAN_BO_LUAT` (silent-failure review round 2):
+
+      C1 — chọn theo thứ tự bảng làm "Điều 600 Bộ luật Dân sự về hợp đồng lao
+      động" khớp NHẦM "lao động" (đứng trước "dân sự" trong bảng) dù "Bộ luật
+      Dân sự" đứng NGAY SAU "Điều 600" trong câu thật — sai sự thật pháp lý
+      (Điều 600 có thật ở BLDS) đưa thẳng ra HTTP qua `coverage_note`.
+
+      H2 — quét chỉ MỘT CHIỀU (về sau) bỏ lọt hoàn toàn cách viết văn bản
+      đứng TRƯỚC "Điều N" ("Bộ luật Lao động Điều 999...", "Theo BLLĐ thì
+      Điều 999...") — và toàn bộ 15 câu `dieu_khong_ton_tai` của trap.yaml
+      tình cờ dùng CHUNG một trật tự từ, nên 15/15 không phân biệt được
+      "phép kiểm hoạt động" với "phép kiểm hoạt động cho một cách viết".
+    """
+    sau = q[m.end(): m.end() + _CUA_SO_KY_TU]
+    truoc = q[max(0, m.start() - _CUA_SO_KY_TU): m.start()]
+    ung_vien: list[tuple[int, str, str]] = []
+    for rx, sk, ten in _VAN_BAN_BO_LUAT:
+        km = rx.search(sau)
+        if km:
+            ung_vien.append((km.start(), sk, ten))
+        km = rx.search(truoc)
+        if km:
+            ung_vien.append((len(truoc) - km.end(), sk, ten))
+    if not ung_vien:
+        return None
+    _, sk, ten = min(ung_vien, key=lambda x: x[0])
+    return sk, ten
 
 
 def tien_de_cau_hoi_sai(query: str, engine: Engine) -> str | None:
@@ -350,8 +382,7 @@ def tien_de_cau_hoi_sai(query: str, engine: Engine) -> str | None:
     cap: list[tuple[str, str, str]] = []
     for m in _RE_DIEU_CAU_HOI.finditer(q):
         so_dieu = m.group(1)
-        cua_so = q[m.end(): m.end() + _CUA_SO_KY_TU]
-        khop = next(((sk, ten) for rx, sk, ten in _VAN_BAN_BO_LUAT if rx.search(cua_so)), None)
+        khop = _van_ban_gan_dieu(q, m)
         if khop is not None:
             cap.append((khop[0], khop[1], so_dieu))
     if not cap:

@@ -1,14 +1,18 @@
-# Tập bẫy (Task 10) — 40 câu THIẾT KẾ ĐỂ LÀM HỆ THỐNG SAI, khác `golden_qa.yaml`
+# Tập bẫy (Task 10) — 45 câu THIẾT KẾ ĐỂ LÀM HỆ THỐNG SAI, khác `golden_qa.yaml`
 # (câu hỏi thật, muốn hệ thống trả lời đúng). Đây là tập BÁO CÁO — không tinh
 # chỉnh ABSTAIN_THRESHOLD trên tập này (Global Constraint, xem AGENTS.md/report).
 #
-# Ba nhóm, 15+15+10 = 40:
+# Ba nhóm, 20+15+10 = 45:
 #   dieu_khong_ton_tai — số Điều vượt quá số Điều thật của chính Bộ luật đó
 #     (đo trực tiếp trên DB, `MAX(so_hieu_cap::int)` theo từng Bộ luật deep:
 #     Lao động 45/2019/QH14=220, Dân sự 91/2015/QH13=689, Hình sự
 #     100/2015/QH13=426, Tố tụng dân sự 92/2015/QH13=517, Tố tụng hình sự
 #     101/2015/QH13=510, Hàng hải 95/2015/QH13=341). Tầng 1 (phép kiểm 1,
-#     provision_id tồn tại) phải loại — hành vi đúng là abstain.
+#     provision_id tồn tại) phải loại — hành vi đúng là abstain. 15 câu đầu
+#     dùng trật tự "Điều N [văn bản]"; 5 câu cuối (16-20, silent-failure
+#     review round 2 — H2) dùng trật tự NGƯỢC "[văn bản] ... Điều N" — cả 15
+#     câu đầu tình cờ cùng một trật tự từ nên không chứng minh được phép kiểm
+#     thứ sáu hoạt động cho cách viết ngược, cách người thật cũng hay viết.
 #   ngoai_pham_vi — thuế, đất đai, hôn nhân gia đình, hành chính, y tế, giáo
 #     dục: KHÔNG Bộ luật nào trong corpus phủ. Hành vi đúng là out_of_scope —
 #     đây là kết luận ĐÚNG, không phải từ chối oan.
@@ -92,6 +96,27 @@ items:
     ky_vong: abstain
   - id: trap-nonexist-15
     cau_hoi: "Điều 450 Bộ luật Hàng hải quy định thế nào về bảo hiểm hàng hải"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+
+  - id: trap-nonexist-16
+    cau_hoi: "Bộ luật Lao động Điều 260 nói gì về kỷ luật lao động"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-17
+    cau_hoi: "Trong Bộ luật Dân sự, Điều 750 quy định gì về thừa kế"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-18
+    cau_hoi: "Theo Bộ luật Hình sự thì Điều 500 xử lý tội gì"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-19
+    cau_hoi: "BLTTDS Điều 600 quy định thủ tục gì"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-20
+    cau_hoi: "Theo Bộ luật Hàng hải, Điều 400 nói gì về cứu hộ"
     nhom: dieu_khong_ton_tai
     ky_vong: abstain
 
