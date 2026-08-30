@@ -17,7 +17,7 @@ from src.agents.nodes.expand import expand
 from src.agents.nodes.generate_claims import generate_claims
 from src.agents.nodes.rewrite_query import rewrite_query
 from src.agents.nodes.route import Intent, route
-from src.agents.nodes.verify_tier1 import nap_provisions, verify_tier1
+from src.agents.nodes.verify_tier1 import nap_provisions, tien_de_cau_hoi_sai, verify_tier1
 from src.agents.nodes.verify_tier2 import verify_tier2_and_trace
 from src.agents.state import KLawState
 from src.config import get_settings
@@ -71,6 +71,11 @@ def build_graph_tra_cuu():
 
     def n_route(st: KLawState) -> KLawState:
         return route(st, llm, router_model())
+
+    def n_tien_de(st: KLawState) -> KLawState:
+        # Phép kiểm thứ sáu (0 token) — TRƯỚC rewrite/retrieve/generate, để
+        # không tốn một token nào cho một câu hỏi đã biết tiền đề sai.
+        return {**st, "tien_de_sai": tien_de_cau_hoi_sai(st["query"], engine)}
 
     def n_rewrite(st: KLawState) -> KLawState:
         return rewrite_query(st, llm, router_model())
@@ -129,14 +134,16 @@ def build_graph_tra_cuu():
                         _db_provisions(ids, engine), llm, generate_model())
 
     g = StateGraph(KLawState)
-    for name, fn in (("route", n_route), ("rewrite", n_rewrite), ("retrieve", n_retrieve),
+    for name, fn in (("route", n_route), ("tien_de", n_tien_de), ("rewrite", n_rewrite), ("retrieve", n_retrieve),
                      ("expand", n_expand), ("generate", n_generate), ("tier1", n_tier1),
                      ("tier2", n_tier2), ("assemble", n_assemble)):
         g.add_node(name, fn)
 
     g.set_entry_point("route")
     g.add_conditional_edges("route", lambda st: (
-        "assemble" if st.get("intent") == Intent.ngoai_pham_vi else "rewrite"))
+        "assemble" if st.get("intent") == Intent.ngoai_pham_vi else "tien_de"))
+    g.add_conditional_edges("tien_de", lambda st: (
+        "assemble" if st.get("tien_de_sai") else "rewrite"))
     for a, b in (("rewrite", "retrieve"), ("retrieve", "expand"), ("expand", "generate"),
                  ("generate", "tier1"), ("tier1", "tier2"), ("tier2", "assemble")):
         g.add_edge(a, b)

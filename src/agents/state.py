@@ -16,6 +16,7 @@ class KLawState(TypedDict, total=False):
     abstain_threshold: float
     # trung gian
     intent: object
+    tien_de_sai: str | None    # phép kiểm thứ sáu — lý do nếu câu hỏi tự nêu Điều không tồn tại
     queries: list[str]
     retrieved: list[int]
     expanded: list[dict]

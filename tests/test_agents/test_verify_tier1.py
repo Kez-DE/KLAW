@@ -414,3 +414,53 @@ def test_hieu_luc_doc_qua_danh_gia_theo_id_chu_khong_qua_tinh_trang():
     db = nap_provisions(get_engine(), [141418])
     eff = effectivity_qua_provision(get_engine(), db, date(2026, 8, 30))
     assert isinstance(eff(141418), Effectivity)
+
+
+# ══ Phép kiểm thứ sáu — tiền đề sai ở đầu vào (coordinator, sau phép kiểm thứ 5) ══
+
+
+def test_tien_de_khong_can_llm_hay_client_mang():
+    """Chữ ký chỉ nhận query/engine — engine là SQLAlchemy, không phải LLM
+    client hay HTTP client, khớp đúng bất biến '0 token' của cả module."""
+    from src.agents.nodes.verify_tier1 import tien_de_cau_hoi_sai
+    assert set(inspect.signature(tien_de_cau_hoi_sai).parameters) == {"query", "engine"}
+
+
+@pytest.mark.integration
+def test_tien_de_dieu_khong_ton_tai_tra_ve_ly_do_neu_dich_danh():
+    from src.agents.nodes.verify_tier1 import tien_de_cau_hoi_sai
+    from src.services.db import get_engine
+
+    ly_do = tien_de_cau_hoi_sai("Điều 999 Bộ luật Lao động quy định gì về nghỉ phép", get_engine())
+    assert ly_do == "Bộ luật Lao động không có Điều 999"
+
+
+@pytest.mark.integration
+def test_tien_de_phan_biet_DUNG_van_ban_khong_chi_so_dieu():
+    """Điều 550 CÓ THẬT ở Bộ luật Dân sự (689 điều) nhưng KHÔNG có ở Bộ luật
+    Tố tụng dân sự (517 điều) — lẫn hai văn bản là chặn oan hoặc bỏ lọt sai
+    chiều, đúng chế độ hỏng phép kiểm này tồn tại để tránh."""
+    from src.agents.nodes.verify_tier1 import tien_de_cau_hoi_sai
+    from src.services.db import get_engine
+
+    eng = get_engine()
+    assert tien_de_cau_hoi_sai("Điều 550 Bộ luật Tố tụng dân sự quy định thủ tục gì", eng) == (
+        "Bộ luật Tố tụng dân sự không có Điều 550"
+    )
+    assert tien_de_cau_hoi_sai("Điều 550 Bộ luật Dân sự quy định thủ tục gì", eng) is None
+
+
+@pytest.mark.integration
+def test_tien_de_dieu_co_that_thi_KHONG_chan():
+    from src.agents.nodes.verify_tier1 import tien_de_cau_hoi_sai
+    from src.services.db import get_engine
+
+    assert tien_de_cau_hoi_sai("Điều 35 Bộ luật Lao động quy định quyền gì", get_engine()) is None
+
+
+@pytest.mark.integration
+def test_tien_de_khong_nhac_so_dieu_nao_thi_KHONG_chan():
+    from src.agents.nodes.verify_tier1 import tien_de_cau_hoi_sai
+    from src.services.db import get_engine
+
+    assert tien_de_cau_hoi_sai("công ty nợ lương thì làm sao", get_engine()) is None

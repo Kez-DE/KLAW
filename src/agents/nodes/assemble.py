@@ -183,6 +183,15 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
                           "soạn thảo chỉ trong lĩnh vực lao động.",
         )
 
+    # Phép kiểm thứ sáu (coordinator, ở tầng ĐẦU VÀO — verify_tier1.tien_de_cau_hoi_sai,
+    # chạy TRƯỚC rewrite/retrieve/generate trong graph). Câu hỏi tự nêu một
+    # "Điều N [văn bản]" không có thật: KHÔNG được âm thầm trả lời một câu hỏi
+    # khác rồi để tiền đề sai đứng nguyên — coverage_note nêu ĐÍCH DANH vấn đề
+    # (vd. "Bộ luật Lao động không có Điều 999"), không phải một câu chung
+    # chung "không đủ căn cứ".
+    if state.get("tien_de_sai"):
+        return _base(state, ResultType.abstain, coverage_note=state["tien_de_sai"])
+
     deep = state.get("expanded") or []
     shallow = state.get("hits_shallow") or []
 

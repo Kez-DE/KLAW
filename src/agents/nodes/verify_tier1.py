@@ -299,3 +299,70 @@ def effectivity_qua_provision(
         return da_biet[doc_id]
 
     return tra
+
+
+# ══ Phép kiểm thứ sáu (coordinator, sau phép kiểm thứ năm ở assemble.py) ═════
+# Ở ĐẦU VÀO — trước khi chạy pipeline, không phải sau khi có answer. Câu hỏi
+# tự nêu "Điều N [văn bản]" mà Điều đó KHÔNG có trong ĐÚNG văn bản được nêu:
+# hệ thống không được âm thầm bỏ qua tiền đề sai đó rồi trả lời một câu hỏi
+# khác — với một hệ thống chống ảo giác, im lặng trước tiền đề sai cũng là một
+# dạng để người dùng tin sai (Điều 999 không tồn tại, nhưng câu trả lời về
+# "nghỉ phép" khiến người đọc tin Điều 999 nói đúng điều đó).
+#
+# Vẫn TRA BẢNG, 0 TOKEN: regex rút "Điều N" + tên văn bản NGAY SAU nó, một
+# truy vấn SQL kiểm tồn tại theo ĐÚNG (document, số Điều) — không phải theo
+# số Điều một mình (Điều 550 có thật ở Bộ luật Dân sự, KHÔNG có ở Bộ luật Tố
+# tụng dân sự — lẫn hai cái là chặn oan hoặc bỏ lọt sai chiều).
+#
+# Phạm vi CỐ Ý hẹp: chỉ nhận diện 6 Bộ luật trong corpus (tên đầy đủ, viết tắt
+# thường gặp, hoặc so_ky_hieu) — không phải một bộ nhận diện thực thể văn bản
+# tổng quát. Không nhận ra văn bản nào thì KHÔNG CHẶN (thà bỏ lọt còn hơn chặn
+# nhầm câu hỏi hợp lệ) — xem test hai chiều.
+_RE_DIEU_CAU_HOI = re.compile(r"[Đđ]iều\s+(\d+)")
+
+# Thứ tự CÓ Ý NGHĨA: mẫu CỤ THỂ HƠN ("tố tụng dân sự") phải đứng TRƯỚC mẫu
+# chung ("dân sự"/"hình sự"), nếu không "Bộ luật Tố tụng Dân sự" sẽ khớp nhầm
+# thành "dân sự" (thứ tự dò tìm dừng ở mẫu ĐẦU TIÊN khớp).
+_VAN_BAN_BO_LUAT: tuple[tuple[re.Pattern, str, str], ...] = (
+    (re.compile(r"tố tụng dân sự|blttds", re.IGNORECASE), "92/2015/QH13", "Bộ luật Tố tụng dân sự"),
+    (re.compile(r"tố tụng hình sự|bltths", re.IGNORECASE), "101/2015/QH13", "Bộ luật Tố tụng hình sự"),
+    (re.compile(r"lao động|bllđ|blld\b", re.IGNORECASE), "45/2019/QH14", "Bộ luật Lao động"),
+    (re.compile(r"dân sự|blds\b", re.IGNORECASE), "91/2015/QH13", "Bộ luật Dân sự"),
+    (re.compile(r"hình sự|blhs\b", re.IGNORECASE), "100/2015/QH13", "Bộ luật Hình sự"),
+    (re.compile(r"hàng hải|blhh\b", re.IGNORECASE), "95/2015/QH13", "Bộ luật Hàng hải"),
+    (re.compile(r"45/2019/qh14", re.IGNORECASE), "45/2019/QH14", "Bộ luật Lao động"),
+    (re.compile(r"91/2015/qh13", re.IGNORECASE), "91/2015/QH13", "Bộ luật Dân sự"),
+    (re.compile(r"100/2015/qh13", re.IGNORECASE), "100/2015/QH13", "Bộ luật Hình sự"),
+    (re.compile(r"92/2015/qh13", re.IGNORECASE), "92/2015/QH13", "Bộ luật Tố tụng dân sự"),
+    (re.compile(r"101/2015/qh13", re.IGNORECASE), "101/2015/QH13", "Bộ luật Tố tụng hình sự"),
+    (re.compile(r"95/2015/qh13", re.IGNORECASE), "95/2015/QH13", "Bộ luật Hàng hải"),
+)
+
+_CUA_SO_KY_TU = 40  # đủ cho "Điều N Bộ luật Tố tụng dân sự" hoặc "theo Điều N BLLĐ"
+
+
+def tien_de_cau_hoi_sai(query: str, engine: Engine) -> str | None:
+    """Trả lý do NÊU ĐÍCH DANH nếu câu hỏi dẫn một "Điều N [văn bản]" không có
+    thật trong ĐÚNG văn bản đó; trả `None` nếu không phát hiện được văn bản
+    nào gần "Điều N" (KHÔNG CHẶN) hoặc mọi cặp (văn bản, Điều) đều tồn tại.
+    """
+    q = normalize(query)
+    cap: list[tuple[str, str, str]] = []
+    for m in _RE_DIEU_CAU_HOI.finditer(q):
+        so_dieu = m.group(1)
+        cua_so = q[m.end(): m.end() + _CUA_SO_KY_TU]
+        khop = next(((sk, ten) for rx, sk, ten in _VAN_BAN_BO_LUAT if rx.search(cua_so)), None)
+        if khop is not None:
+            cap.append((khop[0], khop[1], so_dieu))
+    if not cap:
+        return None
+
+    with engine.connect() as conn:
+        for so_ky_hieu, ten, so_dieu in cap:
+            ton_tai = conn.execute(text(
+                "SELECT 1 FROM provisions p JOIN documents d ON d.id = p.document_id"
+                " WHERE d.so_ky_hieu = :sk AND p.cap = 'dieu' AND p.so_hieu_cap = :sd LIMIT 1"),
+                {"sk": so_ky_hieu, "sd": so_dieu}).first()
+            if ton_tai is None:
+                return f"{ten} không có Điều {so_dieu}"
+    return None
