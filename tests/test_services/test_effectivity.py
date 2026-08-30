@@ -10,6 +10,7 @@ Hai nhóm test:
     pháp lý chứ không khớp `tinh_trang` của MOJ — MOJ đánh sai 4/6 dòng.
 """
 
+import logging
 import unicodedata
 from datetime import date
 
@@ -117,6 +118,54 @@ def test_muc_2_canh_loai_22_KHONG_phai_tin_hieu_khai_tu():
     assert danh_gia(doc, canh, HOM_NAY).verdict is not V.bi_thay_the
 
 
+def test_muc_2a_canh_DI_RA_loai_22_LA_bang_chung_khai_tu_truc_tiep():
+    """Cạnh `from=tôi, to=Y, loai=22` nghĩa là "Y quy định TÔI hết hiệu lực".
+    Đọc theo chiều đi ra, 18 cạnh này thành bằng chứng đồ thị trực tiếp cho
+    văn bản bị khai tử — `cao`, chứ không phải suy luận `trung_binh`."""
+    doc = _doc(ngay_hieu_luc=date(2006, 1, 1), ten="Bộ luật Hàng hải Việt Nam")
+    canh = [{"loai": 22, "chieu": "di_ra", "from_ten": "Bộ luật Hàng hải",
+             "from_ngay_hieu_luc": date(2017, 7, 1), "from_so_ky_hieu": "95/2015/QH13"}]
+    r = danh_gia(doc, canh, HOM_NAY)
+    assert r.verdict is V.bi_thay_the and r.tin_cay == "cao"
+    assert "95/2015/QH13" in r.ly_do
+    assert "bị 95/2015/QH13 thay thế" not in r.ly_do, (
+        "cạnh đi ra nói 'Y QUY ĐỊNH tôi hết hiệu lực', câu chữ phải đúng chiều")
+
+
+def test_muc_2a_canh_DI_RA_loai_23_chi_khai_tu_MOT_PHAN():
+    doc = _doc(ngay_hieu_luc=date(2025, 7, 1), ten="Nghị định về phân quyền, phân cấp")
+    canh = [{"loai": 23, "chieu": "di_ra", "from_ten": "Nghị định về mức lương tối thiểu",
+             "from_ngay_hieu_luc": date(2026, 1, 1), "from_so_ky_hieu": "293/2025/NĐ-CP"}]
+    r = danh_gia(doc, canh, date(2026, 8, 29))
+    assert r.verdict is V.mot_phan_khong_xac_dinh
+    assert "293/2025/NĐ-CP" in r.ly_do
+
+
+def test_CUNG_loai_22_doc_hai_chieu_ra_hai_ket_qua_NGUOC_nhau():
+    """Cùng một `loai=22`, chỉ khác `chieu` — đây là toàn bộ lý do bảng
+    `TAC_DONG` phải khoá theo cặp (chiều, loai) chứ không theo loai."""
+    ten = "Nghị định quy định mức lương tối thiểu"
+    canh_ra = {"loai": 22, "chieu": "di_ra", "from_ten": ten,
+               "from_ngay_hieu_luc": date(2026, 1, 1), "from_so_ky_hieu": "293/2025/NĐ-CP"}
+    doc = _doc(ngay_hieu_luc=date(2024, 7, 1), ten=ten)
+    assert danh_gia(doc, [canh_ra], date(2026, 8, 29)).verdict is V.bi_thay_the
+    assert danh_gia(doc, [canh_ra | {"chieu": "di_vao"}], date(2026, 8, 29)).verdict is not V.bi_thay_the
+
+
+def test_canh_DI_RA_ngay_MAU_THUAN_bi_bo_qua_VA_dem(caplog):
+    """`to` phải hiệu lực SAU `from`. Nếu không, dữ liệu bẩn: bỏ qua và ĐẾM
+    bằng log cảnh báo, không im lặng và cũng không tin."""
+    doc = _doc(ngay_hieu_luc=date(2020, 1, 1), ten="Nghị định về mức lương tối thiểu")
+    canh = [{"loai": 22, "chieu": "di_ra", "from_ten": "Nghị định về mức lương tối thiểu",
+             "from_ngay_hieu_luc": date(2015, 1, 1), "from_so_ky_hieu": "103/2014/NĐ-CP"}]
+    with caplog.at_level(logging.WARNING, logger="src.services.effectivity"):
+        r = danh_gia(doc, canh, HOM_NAY)
+    assert r.verdict is not V.bi_thay_the
+    assert "103/2014" not in r.ly_do
+    canh_bo = [x for x in caplog.records if "ngày mâu thuẫn" in x.getMessage()]
+    assert len(canh_bo) == 1, "cạnh bẩn phải được đếm, không được nuốt im lặng"
+
+
 def test_muc_2c_canh_SUA_DOI_lam_khong_xac_dinh_chu_khong_khai_tu():
     doc = _doc(ten="Bộ luật Lao động", tinh_trang="CHL")
     canh = [{"loai": 20, "from_ten": "Luật sửa đổi, bổ sung một số điều của Bộ luật Lao động",
@@ -216,11 +265,27 @@ def test_chua_hieu_luc_khi_ngay_hieu_luc_o_tuong_lai():
     assert r.verdict is V.chua_hieu_luc and r.tin_cay == "cao"
 
 
-def test_mac_dinh_con_hieu_luc_nhung_tin_cay_chi_TRUNG_BINH():
+def test_mac_dinh_con_hieu_luc_thi_tin_cay_chi_THAP():
+    """Brief ghim `trung_binh`; ruling 2026-08-30 của chủ đề tài ghi đè xuống
+    `thap`. Phán quyết này chỉ dựa vào `tinh_trang` của MOJ — nguồn ĐO ĐƯỢC là
+    sai 4/6 trên chuỗi lương tối thiểu — trong khi suy luận cùng chủ đề (đúng
+    6/6) mang `trung_binh`. Cùng nhãn là nói dối về chất lượng bằng chứng.
+    ĐỪNG sửa ngược lại cho khớp brief."""
     r = danh_gia(_doc(), [], HOM_NAY)
-    assert r.verdict is V.con_hieu_luc and r.tin_cay == "trung_binh", (
-        "chưa đối chiếu cấp điều khoản thì không được tự tin"
-    )
+    assert r.verdict is V.con_hieu_luc and r.tin_cay == "thap"
+
+
+def test_tin_cay_xep_hang_dung_theo_nguon_bang_chung():
+    """cạnh đồ thị > suy luận cùng chủ đề > chỉ đọc `tinh_trang` của MOJ."""
+    ten = "Nghị định quy định mức lương tối thiểu vùng"
+    do_thi = danh_gia(
+        _doc(ten=ten),
+        [{"loai": 21, "from_ten": ten, "from_ngay_hieu_luc": date(2024, 7, 1),
+          "from_so_ky_hieu": "74/2024/NĐ-CP"}], HOM_NAY)
+    suy_luan = danh_gia(_doc(ten=ten), [], HOM_NAY, [
+        {"so_ky_hieu": "74/2024/NĐ-CP", "ten": ten, "ngay_hieu_luc": date(2024, 7, 1)}])
+    chi_moj = danh_gia(_doc(ten=ten), [], HOM_NAY)
+    assert (do_thi.tin_cay, suy_luan.tin_cay, chi_moj.tin_cay) == ("cao", "trung_binh", "thap")
 
 
 # ─────────────── Không nuốt lỗi: mọi ca "không biết" phải nói ra ───────────────
@@ -356,11 +421,46 @@ def test_CHAP_NHAN_tin_cay_phan_anh_nguon_phan_quyet():
 
 @pytest.mark.integration
 def test_ND_293_2025_hien_hanh_KHONG_bi_chinh_ke_bi_no_thay_the_khai_tu():
-    """293/2025 có 2 cạnh đi vào (loai 22 và 23) — cả hai là chiều ngược."""
+    """183939 là `to_document_id` của 2 cạnh loai 22/23 — tức nó là KẺ khai tử,
+    không phải nạn nhân. Đọc đúng chiều thì nó có 0 tín hiệu chấm dứt."""
     engine = get_engine()
+    with engine.connect() as c:
+        tho = c.execute(text(
+            'SELECT count(*) FROM "references"'
+            " WHERE to_document_id = '183939' AND loai IN (22, 23)")).scalar()
+    assert tho == 2, "dữ liệu đổi — xem lại giả định của test này"
     doc, canh, _ = nap_ngu_canh(engine, "183939", NGAY_CHAP_NHAN)
-    assert len(canh) == 2, "dữ liệu đổi — xem lại giả định của test này"
+    assert canh == [], "2 cạnh đó phải được đọc từ phía 74/2024 và 128/2025, không phải phía này"
     assert danh_gia(doc, canh, NGAY_CHAP_NHAN).verdict is V.con_hieu_luc
+
+
+@pytest.mark.integration
+def test_canh_DI_RA_nang_tin_cay_len_CAO_tren_du_lieu_that():
+    """Bộ luật Hàng hải 40/2005 — không có cạnh đi vào nào, trước đây phải suy
+    luận (`trung_binh`). Cạnh đi ra loai=22 tới Bộ luật Hàng hải 95/2015 là bằng
+    chứng đồ thị trực tiếp → `cao`."""
+    engine = get_engine()
+    doc, canh, uv = nap_ngu_canh(engine, "18131", NGAY_CHAP_NHAN)
+    assert [c["chieu"] for c in canh] == ["di_ra"]
+    r = danh_gia(doc, canh, NGAY_CHAP_NHAN, uv)
+    assert r.verdict is V.bi_thay_the and r.tin_cay == "cao"
+    assert "95/2015/QH13" in r.ly_do
+    # Bỏ cạnh đi ra đi thì tụt về suy luận — đó chính là phần cạnh này đóng góp.
+    khong_di_ra = danh_gia(doc, [], NGAY_CHAP_NHAN, uv)
+    assert khong_di_ra.tin_cay == "trung_binh"
+
+
+@pytest.mark.integration
+def test_KHONG_canh_22_23_nao_trong_DB_co_ngay_mau_thuan(caplog):
+    """Đo lại trên cả 57 văn bản: 0 cạnh bị bỏ vì ngày mâu thuẫn. Test đỏ nếu
+    một parquet mới mang dữ liệu bẩn vào — lúc đó phải xem lại, không nuốt."""
+    engine = get_engine()
+    with engine.connect() as c:
+        ids = [r[0] for r in c.execute(text("SELECT id FROM documents")).all()]
+    with caplog.at_level(logging.WARNING, logger="src.services.effectivity"):
+        for doc_id in ids:
+            danh_gia_theo_id(engine, doc_id, NGAY_CHAP_NHAN)
+    assert [r.getMessage() for r in caplog.records if "ngày mâu thuẫn" in r.getMessage()] == []
 
 
 @pytest.mark.integration

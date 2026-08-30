@@ -13,8 +13,9 @@ Vì sao cần ba mức thay vì đọc `tinh_trang` của MOJ:
 
   * **Mức 1** — `ngay_het_hieu_luc` đã qua. Trường của chính CSDL quốc gia, tin
     được, nhưng chỉ 1/6 ca có.
-  * **Mức 2a** — cạnh đồ thị "Thay thế"/"Sửa đổi, bổ sung" đi vào. Bắt được ca
-    MOJ bỏ sót, `tin_cay = cao` vì có văn bản đích danh làm chứng.
+  * **Mức 2a** — cạnh đồ thị chấm dứt hiệu lực, đọc theo ĐÚNG CHIỀU của từng
+    loại quan hệ. Bắt được ca MOJ bỏ sót, `tin_cay = cao` vì có văn bản đích
+    danh làm chứng.
   * **Mức 2b** — khi đồ thị IM LẶNG: cùng chủ đề + hiệu lực sau ⇒ suy ra đã bị
     thay. `tin_cay = trung_binh` vì đây là suy luận, không phải bằng chứng.
   * **Mức 3** — `HHL1P` (hết hiệu lực một phần). CSDL quốc gia không công bố dữ
@@ -28,6 +29,7 @@ khi không biết luôn là `chua_xac_dinh` với `tin_cay` thấp, KHÔNG BAO G
 "còn hiệu lực".
 """
 
+import logging
 import re
 import unicodedata
 from collections.abc import Sequence
@@ -37,24 +39,36 @@ from enum import StrEnum
 
 from sqlalchemy import Engine, text
 
-# ── Mã quan hệ ────────────────────────────────────────────────────────────────
-# 1/5/11/12 là mã MOJ (Bãi bỏ · Đình chỉ · Tạm ngưng · Thay thế); 20-23 là dải
-# TỰ SUY RA mà `scripts/load_incoming_edges.py` ghi (xem `migrations/007`).
-# `nap_ngu_canh` hiện chỉ nạp 20-23 — dải duy nhất đã ĐO được chiều (xem dưới)
-# — nhưng `danh_gia` nhận cả hai để một loader về sau nạp thêm cạnh MOJ mà
-# không phải sửa logic.
-LOAI_THAY_THE = {1, 5, 11, 12, 21}
-LOAI_SUA_DOI = {20}
+logger = logging.getLogger(__name__)
 
-# `loai` 22/23 ("Văn bản quy định hết hiệu lực [1 phần]") CỐ Ý vắng mặt ở trên.
-# Đo trên cả 46 cạnh trong DB, chiều của parquet nhất quán 46/46: tên quan hệ
-# luôn nói theo góc nhìn của `from_document_id`. Nên một cạnh ĐI VÀO mang
-#   loai 20/21 = "văn bản `from` sửa/thay TÔI"      → tín hiệu khai tử
-#   loai 22/23 = "TÔI làm văn bản `from` hết hiệu lực" → tín hiệu NGƯỢC
-# 13/13 cạnh loai 22 và 5/5 cạnh loai 23 đều đi từ văn bản hiệu lực TRƯỚC, đúng
-# như chiều này dự đoán. Coi 22/23 là khai tử sẽ tuyên NĐ 293/2025 — luật lương
-# tối thiểu HIỆN HÀNH — là đã chết, vì nó có cạnh 22 đi vào từ NĐ 74/2024 mà
-# chính nó vừa thay thế.
+# ── Bảng tác động: (chiều, loai) → cạnh này nói gì về SỐ PHẬN của `doc` ──────
+# Đo trên cả 46 cạnh trong DB: chiều của parquet nhất quán 46/46 — tên quan hệ
+# LUÔN phát biểu theo góc nhìn của `from_document_id`. Nên `loai` một mình
+# KHÔNG đủ, phải kèm chiều:
+#
+#   ĐI VÀO  (to_document_id = tôi)
+#     loai 21 "Thay thế"            → văn bản `from` THAY tôi     (from hiệu lực SAU: 5/5)
+#     loai 20 "Sửa đổi, bổ sung"    → văn bản `from` SỬA tôi      (from hiệu lực SAU: 22/23)
+#     loai 22/23                    → TÔI khai tử `from`; KHÔNG nói gì về tôi
+#   ĐI RA   (from_document_id = tôi)
+#     loai 22 "VB quy định hết hiệu lực"      → văn bản `to` khai tử TÔI  (to SAU: 13/13)
+#     loai 23 "... hết hiệu lực 1 phần"       → `to` khai tử tôi MỘT PHẦN (to SAU: 5/5)
+#
+# Đọc 22/23 theo chiều ĐI VÀO là bẫy chết người: NĐ 293/2025 — luật lương tối
+# thiểu HIỆN HÀNH — có đúng hai cạnh 22/23 đi vào, từ NĐ 74/2024 mà chính nó
+# vừa thay thế và từ NĐ 128/2025; đọc sai chiều là tuyên luật hiện hành đã chết.
+# Đọc theo chiều ĐI RA thì chính 18 cạnh 22/23 đó thành bằng chứng TRỰC TIẾP
+# cho văn bản BỊ khai tử, nâng phán quyết của nó từ suy luận lên đồ thị-xác-nhận.
+#
+# 1/5/11/12 là mã MOJ (Bãi bỏ · Đình chỉ · Tạm ngưng · Thay thế), giữ sẵn cho
+# một loader về sau nạp cạnh MOJ — chiều của 242 dòng đó CHƯA đo, xem report.
+TAC_DONG = {
+    ("di_vao", 1): "thay_the", ("di_vao", 5): "thay_the", ("di_vao", 11): "thay_the",
+    ("di_vao", 12): "thay_the", ("di_vao", 21): "thay_the",
+    ("di_vao", 20): "sua_doi",
+    ("di_ra", 22): "thay_the",
+    ("di_ra", 23): "sua_doi",
+}
 
 # ── So chủ đề ─────────────────────────────────────────────────────────────────
 # Từ chức năng + từ loại văn bản: có mặt trong hầu hết tiêu đề nên không phân
@@ -188,6 +202,12 @@ def _cung_thu_bac(doc: dict, ung_vien: dict) -> bool:
     return a is None or b is None or a == b
 
 
+def _tac_dong(canh: dict) -> str | None:
+    """`thay_the` | `sua_doi` | None. `chieu` khuyết = `di_vao` (mặc định an
+    toàn: cạnh đi vào là hình dạng cũ, cũng là hình dạng mã MOJ dùng)."""
+    return TAC_DONG.get((canh.get("chieu") or "di_vao", canh.get("loai")))
+
+
 def _canh_dung_chieu(canh: dict, ngay_hieu_luc_doc: date, as_of: date) -> str:
     """Phân loại một cạnh đi vào: `ok` | `hong` | `nguoc` | `sap_toi`."""
     hl = canh.get("from_ngay_hieu_luc")
@@ -199,6 +219,34 @@ def _canh_dung_chieu(canh: dict, ngay_hieu_luc_doc: date, as_of: date) -> str:
     if hl > as_of:
         return "sap_toi"
     return "ok"
+
+
+def _ke_khai_tu(canh: dict) -> str:
+    """Câu chữ `ly_do` phải đúng chiều — cạnh đi ra nói "văn bản kia QUY ĐỊNH
+    tôi hết hiệu lực", không phải "văn bản kia thay thế tôi"."""
+    sk = canh.get("from_so_ky_hieu")
+    if canh.get("chieu") == "di_ra":
+        return f"{sk} quy định văn bản này hết hiệu lực"
+    return f"bị {sk} thay thế"
+
+
+def _ke_sua_doi(canh: dict) -> str:
+    sk = canh.get("from_so_ky_hieu")
+    if canh.get("chieu") == "di_ra":
+        return f"{sk} quy định văn bản này hết hiệu lực một phần"
+    return f"bị {sk} sửa đổi, bổ sung"
+
+
+def _bao_ngay_mau_thuan(doc: dict, canh: dict, ngay_hieu_luc_doc: date) -> None:
+    """Cạnh mang quan hệ chấm dứt nhưng ngày không cho phép — dữ liệu bẩn.
+    BỎ QUA và ĐẾM (`logger.warning`, cùng khuôn `xref.py` dùng cho dữ liệu bị
+    loại), không im lặng và cũng không tin."""
+    logger.warning(
+        "bỏ qua cạnh chieu=%s loai=%s giữa %s và %s: ngày mâu thuẫn "
+        "(%s không sau %s)",
+        canh.get("chieu") or "di_vao", canh.get("loai"), doc.get("so_ky_hieu"),
+        canh.get("from_so_ky_hieu"), canh.get("from_ngay_hieu_luc"), ngay_hieu_luc_doc,
+    )
 
 
 def danh_gia(
@@ -249,27 +297,26 @@ def danh_gia(
     canh_hong: list[str] = []
     sap_toi: list[str] = []
 
-    # ── Mức 2a: cạnh đồ thị nói "bị thay thế" ────────────────────────────────
+    # ── Mức 2a: cạnh đồ thị nói "bị chấm dứt hiệu lực" ───────────────────────
     for c in canh_di_vao:
-        if c.get("loai") not in LOAI_THAY_THE:
+        if _tac_dong(c) != "thay_the":
             continue
         match _canh_dung_chieu(c, bd, as_of):
             case "hong":
                 canh_hong.append(str(c.get("from_document_id") or c.get("from_so_ky_hieu")))
             case "nguoc":
-                continue  # guard 1 — không vu cho văn bản cũ là kẻ thay thế
+                _bao_ngay_mau_thuan(doc, c, bd)  # guard 1 — bỏ qua VÀ đếm
             case "sap_toi":
                 sap_toi.append(f"{c.get('from_so_ky_hieu')} từ {c.get('from_ngay_hieu_luc')}")
             case "ok":
                 if cung_chu_de(ten_doc, c.get("from_ten")):
                     return Effectivity(
                         EffectivityVerdict.bi_thay_the, "cao",
-                        f"cạnh Thay thế trong đồ thị: bị {c.get('from_so_ky_hieu')} thay thế "
-                        f"từ {c.get('from_ngay_hieu_luc')}")
+                        f"đồ thị xác nhận: {_ke_khai_tu(c)} từ {c.get('from_ngay_hieu_luc')}")
                 return Effectivity(
                     EffectivityVerdict.can_doi_chieu_tay, "thap",
-                    f"có cạnh thay thế từ {c.get('from_so_ky_hieu')} nhưng KHÁC chủ đề "
-                    f"({c.get('from_ten')!r} vs {ten_doc!r}) — nghi lỗi dữ liệu MOJ, "
+                    f"có cạnh chấm dứt hiệu lực với {c.get('from_so_ky_hieu')} nhưng KHÁC "
+                    f"chủ đề ({c.get('from_ten')!r} vs {ten_doc!r}) — nghi lỗi dữ liệu MOJ, "
                     "phải đối chiếu tay")
 
     # ── Mức 2b: đồ thị im lặng, suy luận từ chính corpus ─────────────────────
@@ -301,17 +348,19 @@ def danh_gia(
     # Không áp guard cùng chủ đề: luật sửa đổi gộp (VD "sửa đổi 37 luật có liên
     # quan đến quy hoạch") sửa đúng những văn bản khác chủ đề nhau.
     for c in canh_di_vao:
-        if c.get("loai") not in LOAI_SUA_DOI:
+        if _tac_dong(c) != "sua_doi":
             continue
         match _canh_dung_chieu(c, bd, as_of):
             case "hong":
                 canh_hong.append(str(c.get("from_document_id") or c.get("from_so_ky_hieu")))
+            case "nguoc":
+                _bao_ngay_mau_thuan(doc, c, bd)
             case "ok":
                 return Effectivity(
                     EffectivityVerdict.mot_phan_khong_xac_dinh, "thap",
-                    f"bị {c.get('from_so_ky_hieu')} sửa đổi, bổ sung từ "
-                    f"{c.get('from_ngay_hieu_luc')}; CSDL quốc gia không công bố dữ liệu "
-                    "cấp điều khoản nên không xác định được điều này còn hiệu lực hay không")
+                    f"{_ke_sua_doi(c)} từ {c.get('from_ngay_hieu_luc')}; CSDL quốc gia không "
+                    "công bố dữ liệu cấp điều khoản nên không xác định được điều này còn "
+                    "hiệu lực hay không")
 
     # ── Chưa hiệu lực ────────────────────────────────────────────────────────
     if bd > as_of:
@@ -335,8 +384,14 @@ def danh_gia(
             f"({', '.join(canh_hong)}) — không đọc được ngày để kết luận")
 
     if tinh_trang == "CHL":
+        # `thap`, KHÁC brief (brief ghim `trung_binh`) — ruling của chủ đề tài
+        # 2026-08-30, ĐỪNG "sửa lại cho khớp brief". Lý do: phán quyết này chỉ
+        # dựa vào `tinh_trang` của MOJ, thứ đã ĐO được là sai 4/6 trên chính
+        # chuỗi lương tối thiểu, trong khi suy luận cùng chủ đề đúng 6/6 và
+        # đang mang `trung_binh`. Để hai nguồn cùng nhãn là nói dối người đọc
+        # về chất lượng bằng chứng.
         ghi_chu = f"; sẽ bị {', '.join(sap_toi)} thay thế" if sap_toi else ""
-        return Effectivity(EffectivityVerdict.con_hieu_luc, "trung_binh",
+        return Effectivity(EffectivityVerdict.con_hieu_luc, "thap",
                            "không có tín hiệu chấm dứt nào trong đồ thị lẫn trong corpus; "
                            f"theo tình trạng MOJ = CHL, chưa đối chiếu cấp điều khoản{ghi_chu}")
 
@@ -350,14 +405,26 @@ _SQL_DOC = text(
     " tinh_trang FROM documents WHERE id = :i"
 )
 
+# Hai chiều, một danh sách. Cột `from_*` ở NHÁNH THỨ HAI trỏ tới `to_document_id`
+# — tên cột giữ nguyên vì chúng có nghĩa "văn bản ĐỐI DIỆN trong cạnh này", và
+# `chieu` mới là thứ nói bên nào là ai. Xem bảng `TAC_DONG` đầu file.
+#
+#   di_vao: loai 20/21, `to_document_id = tôi`   → văn bản kia sửa/thay tôi
+#   di_ra : loai 22/23, `from_document_id = tôi` → văn bản kia khai tử tôi
+#
 # LEFT JOIN chứ không JOIN: cạnh trỏ tới văn bản đã biến mất phải NỔI LÊN với
 # `from_*` toàn NULL để `danh_gia` trả `chua_xac_dinh`, chứ không bị JOIN nuốt
 # mất rồi âm thầm rơi vào nhánh "còn hiệu lực".
 _SQL_CANH = text(
-    "SELECT r.loai, r.from_document_id, d2.ten AS from_ten,"
+    "SELECT r.loai, 'di_vao' AS chieu, r.from_document_id, d2.ten AS from_ten,"
     " d2.so_ky_hieu AS from_so_ky_hieu, d2.ngay_hieu_luc AS from_ngay_hieu_luc"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.from_document_id'
-    " WHERE r.to_document_id = :i AND r.loai BETWEEN 20 AND 23"
+    " WHERE r.to_document_id = :i AND r.loai IN (20, 21)"
+    " UNION ALL"
+    " SELECT r.loai, 'di_ra', r.to_document_id, d2.ten,"
+    " d2.so_ky_hieu, d2.ngay_hieu_luc"
+    ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.to_document_id'
+    " WHERE r.from_document_id = :i AND r.loai IN (22, 23)"
 )
 
 # ponytail: quét cả bảng rồi lọc chủ đề trong Python. `documents` có 57 dòng —
@@ -373,9 +440,10 @@ _SQL_UNG_VIEN = text(
 def nap_ngu_canh(engine: Engine, doc_id: str, as_of: date) -> tuple[dict, list[dict], list[dict]]:
     """Đọc `(doc, canh_di_vao, ung_vien_ke_nhiem)` cho `danh_gia`.
 
-    Chỉ nạp cạnh `loai` 20-23 — dải đã ĐO được chiều trên cả 46 cạnh. Cạnh MOJ
-    gốc (`loai` 0-15) chưa nạp vì chiều của chúng chưa được kiểm; `danh_gia` vẫn
-    nhận mã MOJ nên chỉ cần nới câu SQL này khi đã đo xong.
+    Nạp cạnh `loai` 20-23 THEO ĐÚNG CHIỀU của từng loại (xem `_SQL_CANH`): 20/21
+    đọc ngược vào, 22/23 đọc xuôi ra. Cạnh MOJ gốc (`loai` 0-15) chưa nạp vì
+    chiều của 242 dòng đó chưa được đo; `danh_gia` vẫn nhận mã MOJ nên chỉ cần
+    nới câu SQL này SAU KHI đã đo, không phải trước.
     """
     with engine.connect() as conn:
         doc = dict(conn.execute(_SQL_DOC, {"i": doc_id}).mappings().one())
