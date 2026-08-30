@@ -16,6 +16,7 @@ Bốn phép kiểm — BA loại, MỘT cảnh báo:
   1. `provision_id` có tồn tại trong CSDL?          → không thì DROP
   2. `provision_id` có trong tập đã truy hồi?       → không thì DROP
   3. `quote` là văn bản nguyên văn của điều đó?     → không thì DROP
+     (ba nhánh, ba mã riêng: rỗng · quá ngắn · không khớp)
   4. điều luật còn hiệu lực tại `as_of`?            → không thì WARN, VẪN trả lời
 
 Phép kiểm 2 là phép dễ quên nhất và khó phát hiện nhất khi thiếu: một điều luật
@@ -47,6 +48,30 @@ from src.services.effectivity import Effectivity, danh_gia_theo_id
 # ("Ðoàn thanh niên", Điều 414 và 420).
 _MAP_KHOA = str.maketrans({"​": "", "﻿": "", "Ð": "Đ", "ð": "đ"})
 
+# Sàn độ dài quote, tính bằng ký tự SAU `normalize`.
+#
+# Không có sàn thì phép kiểm 3 có một đường vòng tầm thường: `quote = "a"` là
+# substring của gần như mọi điều luật, nên mô hình "trích dẫn" một ký tự là luôn
+# được đóng dấu đã kiểm chứng. Đó là lỗ hổng NGUYÊN TẮC ở đúng phép kiểm trung
+# tâm của khoá luận, không phải lỗi cài đặt.
+#
+# 12 là số ĐO RA, không phải số bịa. Trên 65 quote thật do `generate_claims`
+# sinh (30 lần gọi, `temperature=0.0`, câu hỏi lấy từ `golden_qa.yaml`):
+#
+#     ký tự sau normalize   min=32  p10=80  trung vị=191  tb=217  max=1126
+#     số từ                 min=7   p10=17  trung vị=42   tb=48   max=259
+#
+# Sàn đặt AN TOÀN DƯỚI mức nhỏ nhất quan sát được (32 / 12 ≈ 2,7× dự phòng), cố
+# ý KHÔNG đặt sát: mục đích là chặn ca suy biến, không phải lọc quote thật. Ở
+# tiếng Việt 12 ký tự là 2-3 từ — dưới mọi mệnh đề có thể làm căn cứ pháp lý.
+#
+# ponytail: sàn độ dài là phép xấp xỉ THÔ của "quote này có đặc trưng cho điều
+# luật được dẫn không". Phép đo đúng là TÍNH ĐẶC TRƯNG — một quote xuất hiện
+# trong 500 điều luật không phải bằng chứng cho điều nào cả. Vẫn là tra bảng,
+# nhưng đắt hơn mỗi claim. Nâng cấp khi Task 9 cho phân bố ở quy mô lớn hơn;
+# n=65 còn ít.
+QUOTE_TOI_THIEU = 12
+
 
 class Tier1Reason(StrEnum):
     """Mỗi phép kiểm có ĐÚNG MỘT lý do của riêng nó.
@@ -61,7 +86,9 @@ class Tier1Reason(StrEnum):
     ok = "ok"
     provision_khong_ton_tai = "provision_khong_ton_tai"   # phép kiểm 1
     khong_trong_context = "khong_trong_context"           # phép kiểm 2
-    quote_khong_khop = "quote_khong_khop"                 # phép kiểm 3
+    quote_rong = "quote_rong"                             # phép kiểm 3a
+    quote_qua_ngan = "quote_qua_ngan"                     # phép kiểm 3b
+    quote_khong_khop = "quote_khong_khop"                 # phép kiểm 3c
 
 
 @dataclass(frozen=True)
@@ -139,18 +166,20 @@ def _cay_con(goc: int, db_provisions: dict[int, dict]) -> list[dict]:
     return ra
 
 
-def _tim_quote(quote: str, cay: list[dict]) -> int | None:
-    """`provisions.id` của dòng chứa `quote`, hoặc None.
+def _tim_quote(q: str, cay: list[dict]) -> int | None:
+    """`provisions.id` của dòng chứa `q` (ĐÃ normalize), hoặc None.
 
-    So với TỪNG DÒNG một, KHÔNG nối cả cây thành một chuỗi rồi so: nối lại sẽ
-    tạo ra những vết ghép không tồn tại trong văn bản gốc, và một "quote" vắt
-    qua ranh giới tiêu đề Điều sang thân Khoản 1 sẽ khớp dù nó không nguyên văn
-    ở bất kỳ đâu. Một trích dẫn pháp luật nguyên văn luôn nằm gọn trong một đơn
-    vị của corpus.
+    So với TỪNG DÒNG một, KHÔNG nối cả cây thành một chuỗi rồi so: nối lại tạo
+    ra những vết ghép không tồn tại trong văn bản gốc, và một "quote" vắt qua
+    ranh giới tiêu đề Điều sang thân Khoản 1 sẽ khớp dù nó không nguyên văn ở
+    bất kỳ đâu. Một trích dẫn pháp luật nguyên văn luôn nằm gọn trong một đơn vị
+    của corpus.
+
+    Đo được, không phải lo xa: 6/65 quote thật (9,2%) do `generate_claims` sinh
+    ra ĐÚNG LÀ những mảnh ghép kiểu đó — mô hình nối câu dẫn của Điều với một
+    hoặc nhiều Khoản con bằng "\n\n", một trường hợp còn chèn thẳng "..." đánh
+    dấu phần đã lược. Nối cây lại sẽ đóng dấu đã kiểm chứng cho chính chúng.
     """
-    q = normalize(quote)
-    if not q:
-        return None
     return next((p["id"] for p in cay if q in normalize(p.get("noi_dung") or "")), None)
 
 
@@ -187,7 +216,16 @@ def verify_tier1(
             continue
 
         # ── Phép kiểm 3 — quote nguyên văn, đối chiếu vào CẢ CÂY CON ─────────
-        khop_tai = _tim_quote(c.quote, _cay_con(c.provision_id, db_provisions))
+        # Ba nhánh, ba mã: không trích gì · trích một mẩu vô nghĩa · bịa nội
+        # dung. Xem `Tier1Reason` — gộp lại là mất đúng thứ cần đo.
+        q = normalize(c.quote)
+        if not q:
+            ra.append(Tier1Result(c, False, Tier1Reason.quote_rong, None))
+            continue
+        if len(q) < QUOTE_TOI_THIEU:
+            ra.append(Tier1Result(c, False, Tier1Reason.quote_qua_ngan, None))
+            continue
+        khop_tai = _tim_quote(q, _cay_con(c.provision_id, db_provisions))
         if khop_tai is None:
             ra.append(Tier1Result(c, False, Tier1Reason.quote_khong_khop, None))
             continue

@@ -46,12 +46,25 @@ K127_1 = {"id": 141419, "parent_id": 141418, "document_id": "139264",
 K127_2 = {"id": 141420, "parent_id": 141418, "document_id": "139264",
           "duong_dan": "45/2019/QH14 > Điều 127 > Khoản 2",
           "noi_dung": "2. Phạt tiền, cắt lương thay việc xử lý kỷ luật lao động."}
+# Dòng thật chứa quote NGẮN NHẤT trong 65 quote đo được ("không quá 40 giờ
+# trong 01 tháng;" — 32 ký tự sau normalize). Dùng để khoá sàn `QUOTE_TOI_THIEU`
+# không cắt phải quote thật.
+D107 = {"id": 141301, "parent_id": None, "document_id": "139264",
+        "duong_dan": "45/2019/QH14 > Điều 107 > Khoản 2",
+        "noi_dung": "2. Người sử dụng lao động được sử dụng người lao động làm thêm giờ khi đáp ứng đầy đủ các yêu cầu sau đây:"}
+E107 = {"id": 141303, "parent_id": 141301, "document_id": "139264",
+        "duong_dan": "45/2019/QH14 > Điều 107 > Khoản 2 > Điểm b",
+        "noi_dung": "b) Bảo đảm số giờ làm thêm của người lao động không quá 50% số giờ làm việc bình thường "
+                    "trong 01 ngày; trường hợp áp dụng quy định thời giờ làm việc bình thường theo tuần thì "
+                    "tổng số giờ làm việc bình thường và số giờ làm thêm không quá 12 giờ trong 01 ngày; "
+                    "không quá 40 giờ trong 01 tháng;"}
+
 # Điều hàng xóm — dùng để chứng minh cây con KHÔNG rò sang anh em
 D128 = {"id": 141422, "parent_id": 141357, "document_id": "139264",
         "duong_dan": "45/2019/QH14 > Điều 128",
         "noi_dung": "Điều 128. Tạm đình chỉ công việc"}
 
-DB = {p["id"]: p for p in (D26, D25, D127, K127_1, K127_2, D128)}
+DB = {p["id"]: p for p in (D26, D25, D127, K127_1, K127_2, D128, D107, E107)}
 CON_HL = Effectivity(V.con_hieu_luc, "trung_binh", "x")
 
 
@@ -153,14 +166,53 @@ def test_kiem_3_quote_VAT_QUA_RANH_GIOI_cha_con_bi_DROP():
     assert r.ok is False and r.reason is R.quote_khong_khop
 
 
-def test_quote_rong_bi_drop():
+def test_quote_rong_co_MA_RIENG_khong_gop_vao_quote_khong_khop():
+    """"Không trích gì cả" là mô hình KHÔNG TUÂN THỦ ĐỊNH DẠNG; "trích rồi bịa"
+    là mô hình BỊA NỘI DUNG. Hai chế độ hỏng khác nhau, hai cách sửa khác nhau,
+    nên phải là hai cột khác nhau trong chương đánh giá."""
     c = Claim("x", 11, "")
-    assert verify_tier1([c], [D26], DB, _eff)[0].reason is R.quote_khong_khop
+    assert verify_tier1([c], [D26], DB, _eff)[0].reason is R.quote_rong
 
 
-def test_quote_toan_khoang_trang_bi_drop():
+def test_quote_toan_khoang_trang_cung_la_quote_rong():
     c = Claim("x", 11, "   \n  ")
-    assert verify_tier1([c], [D26], DB, _eff)[0].reason is R.quote_khong_khop
+    assert verify_tier1([c], [D26], DB, _eff)[0].reason is R.quote_rong
+
+
+# ══ Sàn độ dài — đóng đường vòng tầm thường của phép kiểm 3 ═════════════════
+def test_quote_MOT_KY_TU_bi_DROP_voi_ma_rieng():
+    """⭐ Không có sàn thì `quote="a"` là substring của gần như mọi điều luật,
+    tức mô hình luôn được đóng dấu "đã kiểm chứng" chỉ bằng một ký tự. Đó là lỗ
+    hổng NGUYÊN TẮC ở đúng phép kiểm trung tâm của khoá luận."""
+    c = Claim("Điều 26 nói về thử việc.", 11, "a")
+    r = verify_tier1([c], [D26], DB, _eff)[0]
+    assert r.ok is False and r.reason is R.quote_qua_ngan
+
+
+def test_quote_mot_tu_chung_chung_bi_DROP():
+    c = Claim("x", 11, "thỏa thuận")   # 10 ký tự — có thật trong D26 nhưng vô nghĩa làm căn cứ
+    assert "thỏa thuận" in D26["noi_dung"]
+    assert verify_tier1([c], [D26], DB, _eff)[0].reason is R.quote_qua_ngan
+
+
+def test_quote_THAT_NGAN_NHAT_do_duoc_van_DI_QUA():
+    """Sàn đặt để chặn ca suy biến, KHÔNG để lọc quote thật. 32 ký tự là quote
+    ngắn nhất trong 65 quote thật `generate_claims` sinh ra; sàn 12 phải chừa
+    nó lại với dự phòng 2,7 lần."""
+    q = "không quá 40 giờ trong 01 tháng;"
+    assert len(normalize(q)) == 32
+    r = verify_tier1([Claim("x", 141301, q)], [D107], DB, _eff)[0]
+    assert r.ok is True and r.khop_tai == 141303
+
+
+def test_san_do_dai_dat_DUOI_moi_quote_that_da_do():
+    """Khoá quan hệ giữa hằng số và phép đo: sàn phải nằm dưới min quan sát
+    được (32), không phải sát nó. Đổi `QUOTE_TOI_THIEU` lên quá 32 là bắt đầu
+    cắt vào quote thật."""
+    from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU
+
+    assert QUOTE_TOI_THIEU < 32, "sàn đã chạm vùng quote thật"
+    assert QUOTE_TOI_THIEU >= 8, "sàn quá thấp thì không chặn được ca suy biến"
 
 
 # ══ Quote GẦN ĐÚNG NHƯNG SAI phải bị loại ═══════════════════════════════════
@@ -290,10 +342,11 @@ def test_KHONG_goi_LLM_bang_chung_3_chan_socket_van_chay_dung(monkeypatch):
     rs = verify_tier1(
         [Claim("a", 141418, "Phạt tiền, cắt lương thay việc xử lý kỷ luật lao động"),
          Claim("b", 999, "x"), Claim("c", 10, "Không quá 06 ngày làm việc"),
-         Claim("d", 11, "diễn giải lại")],
+         Claim("d", 11, "diễn giải lại nội dung điều luật"), Claim("e", 11, "a"), Claim("f", 11, "")],
         [D127, D26], DB, _eff)
     assert [r.reason for r in rs] == [
-        R.ok, R.provision_khong_ton_tai, R.khong_trong_context, R.quote_khong_khop]
+        R.ok, R.provision_khong_ton_tai, R.khong_trong_context, R.quote_khong_khop,
+        R.quote_qua_ngan, R.quote_rong]
 
 
 # ══ Hợp đồng chung ══════════════════════════════════════════════════════════
@@ -321,9 +374,9 @@ def test_citation_precision():
 def test_cay_con_chiu_duoc_parent_id_vong_lap():
     """Dữ liệu vòng (a là cha của b, b là cha của a) phải cho kết quả, không
     treo. Rẻ hơn nhiều so với đi tìm nguyên nhân một test CI đứng im."""
-    a = {"id": 1, "parent_id": 2, "document_id": "d", "noi_dung": "alpha"}
-    b = {"id": 2, "parent_id": 1, "document_id": "d", "noi_dung": "beta"}
-    r = verify_tier1([Claim("x", 1, "beta")], [a], {1: a, 2: b}, _eff)[0]
+    a = {"id": 1, "parent_id": 2, "document_id": "d", "noi_dung": "dòng alpha của văn bản vòng"}
+    b = {"id": 2, "parent_id": 1, "document_id": "d", "noi_dung": "dòng beta của văn bản vòng"}
+    r = verify_tier1([Claim("x", 1, "dòng beta của văn bản vòng")], [a], {1: a, 2: b}, _eff)[0]
     assert r.ok is True
 
 
