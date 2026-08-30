@@ -36,4 +36,7 @@ app.include_router(router, prefix="/api/v1")
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "env": settings.app_env}
+    # KHÔNG trả `app_env` (FastAPI review, MEDIUM): một endpoint không xác
+    # thực không nên tiết lộ deployment đang chạy môi trường nào trước khi
+    # Plan 4 deploy thật.
+    return {"status": "ok"}

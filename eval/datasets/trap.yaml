@@ -1,0 +1,237 @@
+# Tập bẫy (Task 10) — 45 câu THIẾT KẾ ĐỂ LÀM HỆ THỐNG SAI, khác `golden_qa.yaml`
+# (câu hỏi thật, muốn hệ thống trả lời đúng). Đây là tập BÁO CÁO — không tinh
+# chỉnh ABSTAIN_THRESHOLD trên tập này (Global Constraint, xem AGENTS.md/report).
+#
+# Ba nhóm, 20+15+10 = 45:
+#   dieu_khong_ton_tai — số Điều vượt quá số Điều thật của chính Bộ luật đó
+#     (đo trực tiếp trên DB, `MAX(so_hieu_cap::int)` theo từng Bộ luật deep:
+#     Lao động 45/2019/QH14=220, Dân sự 91/2015/QH13=689, Hình sự
+#     100/2015/QH13=426, Tố tụng dân sự 92/2015/QH13=517, Tố tụng hình sự
+#     101/2015/QH13=510, Hàng hải 95/2015/QH13=341). Tầng 1 (phép kiểm 1,
+#     provision_id tồn tại) phải loại — hành vi đúng là abstain. 15 câu đầu
+#     dùng trật tự "Điều N [văn bản]"; 5 câu cuối (16-20, silent-failure
+#     review round 2 — H2) dùng trật tự NGƯỢC "[văn bản] ... Điều N" — cả 15
+#     câu đầu tình cờ cùng một trật tự từ nên không chứng minh được phép kiểm
+#     thứ sáu hoạt động cho cách viết ngược, cách người thật cũng hay viết.
+#   ngoai_pham_vi — thuế, đất đai, hôn nhân gia đình, hành chính, y tế, giáo
+#     dục: KHÔNG Bộ luật nào trong corpus phủ. Hành vi đúng là out_of_scope —
+#     đây là kết luận ĐÚNG, không phải từ chối oan.
+#   van_ban_bi_thay — chuỗi nghị định lương tối thiểu vùng mà MOJ đánh sai
+#     "còn hiệu lực" (đo được ở Task 2/Plan 2, xác nhận lại bằng
+#     `danh_gia_theo_id` trước khi viết file này):
+#       90/2019/NĐ-CP  (doc_id 139094) → bi_thay_the  (suy luận Mức 2b, qua
+#         74/2024) — VÀ có số liệu quotable thật (vd. "4.420.000 đồng/tháng"
+#         vùng I), nên đây là ca nguy hiểm nhất: model có thể trích dẫn NGUYÊN
+#         VĂN một con số đã lỗi thời mà không cảnh báo.
+#       74/2024/NĐ-CP  (doc_id 168670) → het_hieu_luc (Mức 1, ngày hết hiệu
+#         lực 2026-01-01 đã qua tại as_of hôm nay) — và bảng số liệu vùng
+#         KHÔNG nằm trong corpus (chỉ có câu trỏ Phụ lục), giống 293/2025.
+#       122/2015/NĐ-CP (doc_id 92898)  → bi_thay_the (Mức 2b, qua 153/2016)
+#       141/2017/NĐ-CP (doc_id 126319) → bi_thay_the (Mức 2a, đồ thị xác nhận
+#         qua 157/2018)
+#       157/2018/NĐ-CP (doc_id 132862) → bi_thay_the (Mức 2a, đồ thị xác nhận
+#         qua 90/2019)
+#     Văn bản HIỆN HÀNH đúng là 293/2025/NĐ-CP (doc_id 183939, con_hieu_luc) —
+#     nhưng bảng số liệu của nó cũng KHÔNG có trong corpus (Plan 2 để lại),
+#     nên một câu hỏi "hiện nay/mới nhất" mà hệ thống trả lời được con số cụ
+#     thể gần như chắc chắn đang dùng một trong năm văn bản đã bị thay ở trên.
+
+items:
+  # ── Nhóm 1: điều luật KHÔNG TỒN TẠI (15 câu) — tầng 1 phải loại → abstain ──
+  - id: trap-nonexist-01
+    cau_hoi: "Điều 999 Bộ luật Lao động quy định gì về nghỉ phép"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-02
+    cau_hoi: "Điều 250 Bộ luật Lao động nói gì về việc trả lương làm thêm giờ"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-03
+    cau_hoi: "theo Điều 300 Bộ luật Lao động thì thời gian thử việc tối đa là bao lâu"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-04
+    cau_hoi: "Điều 260 Bộ luật Lao động quy định thế nào về sa thải trái pháp luật"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-05
+    cau_hoi: "Điều 700 Bộ luật Dân sự quy định gì về hợp đồng vay tài sản"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-06
+    cau_hoi: "Điều 750 Bộ luật Dân sự nói gì về thừa kế thế vị"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-07
+    cau_hoi: "Điều 450 Bộ luật Hình sự quy định khung hình phạt của tội gì"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-08
+    cau_hoi: "theo Điều 500 Bộ luật Hình sự thì tội lừa đảo chiếm đoạt tài sản bị xử lý ra sao"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-09
+    cau_hoi: "Điều 550 Bộ luật Tố tụng dân sự quy định thủ tục gì"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-10
+    cau_hoi: "Điều 600 Bộ luật Tố tụng dân sự nói gì về thời hạn kháng cáo"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-11
+    cau_hoi: "Điều 550 Bộ luật Tố tụng hình sự quy định quyền gì của bị can"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-12
+    cau_hoi: "theo Điều 600 Bộ luật Tố tụng hình sự thì thời hạn tạm giam tối đa là bao lâu"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-13
+    cau_hoi: "Điều 380 Bộ luật Hàng hải quy định gì về cứu hộ trên biển"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-14
+    cau_hoi: "Điều 400 Bộ luật Hàng hải nói gì về trách nhiệm của thuyền trưởng"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-15
+    cau_hoi: "Điều 450 Bộ luật Hàng hải quy định thế nào về bảo hiểm hàng hải"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+
+  - id: trap-nonexist-16
+    cau_hoi: "Bộ luật Lao động Điều 260 nói gì về kỷ luật lao động"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-17
+    cau_hoi: "Trong Bộ luật Dân sự, Điều 750 quy định gì về thừa kế"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-18
+    cau_hoi: "Theo Bộ luật Hình sự thì Điều 500 xử lý tội gì"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-19
+    cau_hoi: "BLTTDS Điều 600 quy định thủ tục gì"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+  - id: trap-nonexist-20
+    cau_hoi: "Theo Bộ luật Hàng hải, Điều 400 nói gì về cứu hộ"
+    nhom: dieu_khong_ton_tai
+    ky_vong: abstain
+
+  # ── Nhóm 2: NGOÀI PHẠM VI (15 câu) — route phải nhận ra → out_of_scope ────
+  - id: trap-oos-01
+    cau_hoi: "thu nhập bao nhiêu thì phải đóng thuế thu nhập cá nhân"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-02
+    cau_hoi: "thuế giá trị gia tăng hiện nay là bao nhiêu phần trăm"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-03
+    cau_hoi: "mua bán nhà đất cần những giấy tờ gì"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-04
+    cau_hoi: "tranh chấp ranh giới đất đai giữa hai hộ gia đình giải quyết ở đâu"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-05
+    cau_hoi: "sổ đỏ và sổ hồng khác nhau thế nào"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-06
+    cau_hoi: "thủ tục ly hôn đơn phương cần chuẩn bị giấy tờ gì"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-07
+    cau_hoi: "muốn ly hôn thuận tình thì nộp đơn ở đâu"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-08
+    cau_hoi: "đăng ký kết hôn cần thủ tục gì"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-09
+    cau_hoi: "cấp lại căn cước công dân bị mất cần làm gì"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-10
+    cau_hoi: "đăng ký kinh doanh hộ cá thể cần thủ tục gì"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-11
+    cau_hoi: "đăng ký khai sinh cho con cần giấy tờ gì"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-12
+    cau_hoi: "khám bảo hiểm y tế trái tuyến có được thanh toán không"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-13
+    cau_hoi: "trẻ dưới sáu tuổi được cấp thẻ bảo hiểm y tế miễn phí không"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-14
+    cau_hoi: "thủ tục nhập học lớp một cần giấy tờ gì"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+  - id: trap-oos-15
+    cau_hoi: "miễn giảm học phí đại học áp dụng cho đối tượng nào"
+    nhom: ngoai_pham_vi
+    ky_vong: out_of_scope
+
+  # ── Nhóm 3: văn bản ĐÃ BỊ THAY THẾ (10 câu) — quan trọng nhất, xem đầu file ─
+  # doc_id_bay = document_id THẬT của văn bản bẫy; ky_vong đã xác nhận bằng
+  # danh_gia_theo_id() trước khi viết (không phải suy đoán).
+  - id: trap-superseded-01
+    cau_hoi: "mức lương tối thiểu vùng một hiện nay là bao nhiêu"
+    nhom: van_ban_bi_thay
+    doc_id_bay: "139094"     # NĐ 90/2019 — MOJ đánh sai "còn hiệu lực"; đồ thị+suy luận: bi_thay_the qua 74/2024
+    ky_vong: warning_bi_thay_the
+  - id: trap-superseded-02
+    cau_hoi: "lương tối thiểu vùng bốn theo quy định năm hai nghìn hai mươi bốn"
+    nhom: van_ban_bi_thay
+    doc_id_bay: "168670"     # NĐ 74/2024 — hết hiệu lực toàn bộ (Mức 1, ngày hết hiệu lực đã qua)
+    ky_vong: warning_het_hieu_luc
+  - id: trap-superseded-03
+    cau_hoi: "mức lương tối thiểu vùng hai theo nghị định 90/2019 là bao nhiêu tiền"
+    nhom: van_ban_bi_thay
+    doc_id_bay: "139094"
+    ky_vong: warning_bi_thay_the
+  - id: trap-superseded-04
+    cau_hoi: "lương tối thiểu vùng ba hiện nay quy định thế nào"
+    nhom: van_ban_bi_thay
+    doc_id_bay: "139094"
+    ky_vong: warning_bi_thay_the
+  - id: trap-superseded-05
+    cau_hoi: "nghị định 122/2015 quy định mức lương tối thiểu vùng một là bao nhiêu"
+    nhom: van_ban_bi_thay
+    doc_id_bay: "92898"      # NĐ 122/2015 — bi_thay_the (suy luận Mức 2b qua 153/2016)
+    ky_vong: warning_bi_thay_the
+  - id: trap-superseded-06
+    cau_hoi: "mức lương tối thiểu vùng bốn theo nghị định 141/2017 là bao nhiêu"
+    nhom: van_ban_bi_thay
+    doc_id_bay: "126319"     # NĐ 141/2017 — bi_thay_the (đồ thị xác nhận qua 157/2018)
+    ky_vong: warning_bi_thay_the
+  - id: trap-superseded-07
+    cau_hoi: "lương tối thiểu vùng một theo nghị định 157/2018 là bao nhiêu tiền một tháng"
+    nhom: van_ban_bi_thay
+    doc_id_bay: "132862"     # NĐ 157/2018 — bi_thay_the (đồ thị xác nhận qua 90/2019)
+    ky_vong: warning_bi_thay_the
+  - id: trap-superseded-08
+    cau_hoi: "mức lương tối thiểu giờ theo nghị định 74/2024 là bao nhiêu"
+    nhom: van_ban_bi_thay
+    doc_id_bay: "168670"
+    ky_vong: warning_het_hieu_luc
+  - id: trap-superseded-09
+    cau_hoi: "lương tối thiểu vùng hai hiện hành áp dụng cho doanh nghiệp là bao nhiêu"
+    nhom: van_ban_bi_thay
+    doc_id_bay: "139094"
+    ky_vong: warning_bi_thay_the
+  - id: trap-superseded-10
+    cau_hoi: "công ty tôi ở vùng một thì phải trả lương tối thiểu bao nhiêu theo quy định mới nhất"
+    nhom: van_ban_bi_thay
+    doc_id_bay: "139094"
+    ky_vong: warning_bi_thay_the

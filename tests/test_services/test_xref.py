@@ -185,18 +185,26 @@ def test_resolve_all_idempotent_goi_hai_lan_cung_so_dong():
 
 
 @pytest.mark.integration
-def test_resolve_all_khong_dung_242_dong_cap_van_ban_co_san():
-    """242 dòng cấp văn bản (from_provision_id IS NULL) do MOJ cung cấp, từ
-    Plan 1 — resolve_all() chỉ được thêm cạnh cấp điều khoản, không được đụng
-    tới các dòng này."""
+def test_resolve_all_khong_dung_dong_cap_van_ban_co_san():
+    """Dòng cấp văn bản (from_provision_id IS NULL) — dù do MOJ cung cấp (Plan 1)
+    hay do task khác thêm sau này (Plan 3 T1 nạp cạnh hiệu lực đi vào, cũng
+    from_provision_id IS NULL) — resolve_all() chỉ được thêm/xoá cạnh CẤP ĐIỀU
+    KHOẢN của chính nó, không được đụng các dòng này. So trước/sau, không
+    hard-code số dòng: một hằng số chỉ đúng cho một trạng thái DB, và giòn
+    trước bất kỳ task nào khác hợp lệ thêm cạnh cấp văn bản."""
     run_migrations()
     engine = get_engine()
+
+    def dem_cap_van_ban() -> int:
+        with engine.connect() as conn:
+            return conn.execute(
+                text('SELECT count(*) FROM "references" WHERE from_provision_id IS NULL')
+            ).scalar_one()
+
+    truoc = dem_cap_van_ban()
     resolve_all(engine)
-    with engine.connect() as conn:
-        dem = conn.execute(
-            text('SELECT count(*) FROM "references" WHERE from_provision_id IS NULL')
-        ).scalar_one()
-    assert dem == 242
+    sau = dem_cap_van_ban()
+    assert sau == truoc, f"resolve_all() đụng vào dòng cấp văn bản có sẵn: {truoc} → {sau}"
 
 
 @pytest.mark.integration

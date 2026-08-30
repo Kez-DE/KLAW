@@ -1,0 +1,372 @@
+import json
+
+from src.agents.nodes.assemble import ResultType, assemble
+from src.agents.nodes.generate_claims import Claim
+from src.agents.nodes.verify_tier1 import Tier1Reason as R
+from src.agents.nodes.verify_tier1 import Tier1Result
+from src.agents.nodes.verify_tier2 import Tier2Verdict
+from src.services.effectivity import Effectivity
+from src.services.effectivity import EffectivityVerdict as V
+
+DB = {11: {"id": 11, "duong_dan": "45/2019/QH14 > Điều 26", "so_ky_hieu": "45/2019/QH14",
+           "ten": "Bộ Luật lao động", "noi_dung": "…85%…"}}
+EFF = Effectivity(V.con_hieu_luc, "trung_binh", "x")
+
+
+class FakeLlm:
+    def chat(self, model, messages, json_schema=None):
+        from src.services.llm import Usage
+        return json.dumps({"answer": "Ít nhất 85% mức lương."}), Usage(1, 1, 0.0)
+
+
+def _pass(pid=11):
+    return Tier1Result(Claim("Ít nhất 85%.", pid, "85%"), True, R.ok, EFF)
+
+
+def test_ngoai_pham_vi_tra_out_of_scope_va_KHONG_goi_LLM():
+    class Never(FakeLlm):
+        def chat(self, *a, **k):
+            raise AssertionError("không gọi LLM khi ngoài phạm vi")
+
+    st = assemble({"intent": "ngoai_pham_vi"}, DB, Never(), "m")
+    assert st["result_type"] is ResultType.out_of_scope and st["answer"] is None
+
+
+def test_deep_rong_shallow_co_thi_partial_coverage_va_KHONG_goi_LLM():
+    class Never(FakeLlm):
+        def chat(self, *a, **k):
+            raise AssertionError("PARTIAL_COVERAGE phải là nhánh 0 token")
+
+    st = assemble({"intent": "tra_cuu", "expanded": [], "hits_shallow": [
+        {"id": 5, "duong_dan": "84/2015/QH13 > Điều 3", "so_ky_hieu": "84/2015/QH13",
+         "ten": "Luật An toàn, vệ sinh lao động"}]}, DB, Never(), "m")
+    assert st["result_type"] is ResultType.partial_coverage
+    assert st["answer"] is None
+    assert "84/2015/QH13" in st["coverage_note"]
+
+
+def test_khong_claim_nao_qua_tang_1_thi_abstain():
+    fail = Tier1Result(Claim("x", 999, "y"), False, R.provision_khong_ton_tai, None)
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [fail],
+                   "tier2": [], "abstain_threshold": 0.5}, DB, FakeLlm(), "m")
+    assert st["result_type"] is ResultType.abstain
+
+
+def test_ty_le_verified_duoi_nguong_thi_abstain():
+    ok = _pass()
+    fails = [Tier1Result(Claim("x", 999, "y"), False, R.provision_khong_ton_tai, None)] * 3
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [ok, *fails],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert st["result_type"] is ResultType.abstain, "1/4 = 0.25 < 0.5"
+
+
+def test_insufficient_evidence_tu_LLM_duoc_ton_trong():
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "insufficient_evidence": True,
+                   "tier1": [], "tier2": [], "abstain_threshold": 0.5}, DB, FakeLlm(), "m")
+    assert st["result_type"] is ResultType.abstain
+
+
+def test_tang_2_bac_thi_claim_bi_loai_khoi_citation():
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [_pass()],
+                   "tier2": [Tier2Verdict(0, False, "không hỗ trợ")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert st["result_type"] is ResultType.abstain
+
+
+def test_answer_mang_citation_co_bo_luat_va_so_ky_hieu_khong_mang_title():
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [_pass()],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert st["result_type"] is ResultType.answer
+    c = st["citations"][0]
+    assert c["so_ky_hieu"] == "45/2019/QH14" and c["duong_dan"].startswith("45/2019/QH14")
+
+
+def test_hieu_luc_khong_chac_sinh_warning():
+    mp = Effectivity(V.mot_phan_khong_xac_dinh, "thap", "HHL1P")
+    t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, mp)
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert st["warnings"], "điều luật hết hiệu lực một phần phải sinh cảnh báo"
+
+
+# ── Bổ sung ngoài 8 test hợp đồng của brief ──────────────────────────────────
+# `khop_tai` mặc định None trên Tier1Result (dataclass thật ở verify_tier1.py) và
+# không test nào ở trên từng đặt nó khác None — nên riêng nhánh "quote khớp ở
+# Khoản con, không phải Điều cha" (yêu cầu #3 của task) chưa có test nào phủ.
+# Không có test này thì một regression làm assemble luôn tra theo
+# claim.provision_id (bỏ qua khop_tai hoàn toàn) sẽ không bị bắt.
+DB_CON = {
+    11: {"id": 11, "duong_dan": "45/2019/QH14 > Điều 127", "so_ky_hieu": "45/2019/QH14",
+         "ten": "Bộ Luật lao động", "noi_dung": "Điều 127. Các hành vi bị nghiêm cấm..."},
+    12: {"id": 12, "duong_dan": "45/2019/QH14 > Điều 127 > Khoản 2", "so_ky_hieu": "45/2019/QH14",
+         "ten": "Bộ Luật lao động", "noi_dung": "Phạt tiền, cắt lương thay việc xử lý kỷ luật lao động."},
+}
+
+
+def test_khop_tai_khac_provision_id_thi_duong_dan_theo_dong_that_chua_quote():
+    t1 = Tier1Result(Claim("Cấm phạt tiền.", 11, "Phạt tiền"), True, R.ok, EFF, khop_tai=12)
+    st = assemble({"intent": "tra_cuu", "expanded": [DB_CON[11]], "tier1": [t1],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB_CON, FakeLlm(), "m")
+    assert st["result_type"] is ResultType.answer
+    c = st["citations"][0]
+    assert c["provision_id"] == 11, "vẫn neo provisions.id mà claim đã dẫn"
+    assert c["khop_tai_id"] == 12, "khop_tai_id phải ghi tường minh dòng thật đã khớp"
+    assert c["khop_tai_id"] != c["provision_id"], (
+        "coordinator review 2026-08-31: hai id phải TÁCH BẠCH khi lệch nhau, không giấu vào duong_dan"
+    )
+    assert c["duong_dan"] == "45/2019/QH14 > Điều 127 > Khoản 2", (
+        "duong_dan hiển thị phải trỏ dòng khop_tai_id, không phải Điều cha rỗng ruột"
+    )
+
+
+def test_khop_tai_none_thi_khop_tai_id_bang_provision_id():
+    # coordinator review 2026-08-31: khi khop_tai vắng (không có Khoản con nào
+    # tách biệt khỏi Điều đã dẫn), hai id phải BẰNG NHAU — không phải một id
+    # "biến mất", để người tiêu thụ citation luôn thấy khop_tai_id, không cần
+    # tự suy ra khi nào nó trùng provision_id.
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [_pass()],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    c = st["citations"][0]
+    assert c["khop_tai_id"] == c["provision_id"] == 11
+
+
+def test_canh_bao_mang_nguyen_van_ly_do_ca_that_BLLD_45_2019():
+    # Yêu cầu #1 + ruling 2026-08-31: `ly_do` phải NGUYÊN VĂN, không phải câu
+    # mẫu chung chung ("đã bị thay thế."). Effectivity dưới đây KHÔNG bịa — là
+    # kết quả THẬT của `danh_gia_theo_id(get_engine(), "139264", date(2026, 8,
+    # 31))` chạy trên DB thật: chính 45/2019/QH14 (Bộ luật Lao động, văn bản
+    # trung tâm của khoá luận) bị 19/2023/QH15 sửa đổi, bổ sung từ 2024-07-01,
+    # đồ thị không có cạnh xác nhận cấp điều khoản nên rơi vào
+    # `mot_phan_khong_xac_dinh`. `test_hieu_luc_khong_chac_sinh_warning` (test
+    # hợp đồng của brief) chỉ kiểm `warnings` không rỗng, không kiểm NỘI DUNG —
+    # tự thêm test này để một tái phát (quay lại câu mẫu chung chung) không lọt
+    # qua CI.
+    ly_do_that = (
+        "bị 19/2023/QH15 sửa đổi, bổ sung từ 2024-07-01; CSDL quốc gia không công bố "
+        "dữ liệu cấp điều khoản nên không xác định được điều này còn hiệu lực hay không"
+    )
+    blld = Effectivity(V.mot_phan_khong_xac_dinh, "thap", ly_do_that)
+    t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, blld)
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert any(ly_do_that in w for w in st["warnings"]), (
+        f"ly_do nguyên văn phải xuất hiện trong warnings, thấy: {st['warnings']!r}"
+    )
+
+
+def test_chua_xac_dinh_cung_sinh_canh_bao_khong_duoc_im_lang():
+    # Ruling 2026-08-31: brief không liệt kê chua_xac_dinh, nhưng im lặng ở
+    # verdict "hoàn toàn không biết" bị người dùng đọc thành "ổn" — ngược với
+    # lời hứa "bảo đảm nguồn gốc/nguyên văn, KHÔNG bảo đảm là bản hiện hành".
+    khong_biet = Effectivity(V.chua_xac_dinh, "thap", "thiếu ngày hiệu lực — không so được chiều thời gian")
+    t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, khong_biet)
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert st["warnings"], "chua_xac_dinh phải sinh cảnh báo, không được im lặng"
+
+
+# ══ Phép kiểm thứ năm (coordinator, task-10 round 3) — số Điều trong `answer` ═
+# phải nằm trong tập trích dẫn đã xác minh. Ca thật: trap-nonexist-09 (Điều 550
+# BLTTDS không tồn tại) — assemble lấy đúng nội dung Điều 363-365 nhưng viết
+# prose gán cho "Điều 550". Gián đoạn 1/6 lần đo lại, không hệ thống.
+
+import inspect  # noqa: E402
+
+from src.agents.nodes.assemble import _dieu_khong_duoc_chong_do  # noqa: E402
+
+
+def test_dieu_khong_chong_do_bat_so_dieu_khong_co_trong_citation():
+    citations = [{"duong_dan": "92/2015/QH13 > Điều 363"}, {"duong_dan": "92/2015/QH13 > Điều 364"}]
+    assert _dieu_khong_duoc_chong_do(
+        "Điều 550 Bộ luật Tố tụng dân sự quy định thủ tục nhận đơn yêu cầu.", citations,
+    ) == ["550"]
+
+
+def test_dieu_khong_chong_do_giu_nguyen_khi_so_dieu_co_trong_citation():
+    citations = [{"duong_dan": "45/2019/QH14 > Điều 35 > Khoản 1"}]
+    assert _dieu_khong_duoc_chong_do("Điều 35 quy định người lao động có quyền nghỉ.", citations) == []
+
+
+def test_dieu_khong_chong_do_answer_khong_nhac_dieu_nao_thi_rong():
+    citations = [{"duong_dan": "45/2019/QH14 > Điều 35"}]
+    assert _dieu_khong_duoc_chong_do("Người lao động có quyền nghỉ hằng năm.", citations) == []
+
+
+def test_dieu_khong_chong_do_0_token_khong_can_llm_hay_engine():
+    """Hàm thuần tra bảng: chữ ký chỉ nhận answer/citations — không llm, không
+    engine, không cách nào chạm mạng. Cùng tinh thần test chữ ký của
+    verify_tier1 (module đó dùng cả quét AST + chặn socket vì nó là phép kiểm
+    TRUNG TÂM của khoá luận; phép kiểm thứ năm này nhỏ và thuần set/regex nên
+    kiểm chữ ký là đủ)."""
+    assert set(inspect.signature(_dieu_khong_duoc_chong_do).parameters) == {"answer", "citations"}
+
+
+def test_assemble_ha_xuong_abstain_khi_answer_gan_sai_so_dieu():
+    """Ca thật trap-nonexist-09: citation đúng là Điều 363, nhưng LLM hành văn
+    gán nội dung cho 'Điều 550' (số bịa từ câu hỏi) — phải hạ xuống abstain,
+    với mã lý do riêng (LY_DO_DIEU_KHONG_CHONG_DO) để đếm được tần suất."""
+    class FakeLlmGanSaiSoDieu(FakeLlm):
+        def chat(self, model, messages, json_schema=None):
+            from src.services.llm import Usage
+            return json.dumps({"answer": "Điều 550 quy định thủ tục nhận và xử lý đơn yêu cầu."}), Usage(1, 1, 0.0)
+
+    db = {363: {"id": 363, "duong_dan": "92/2015/QH13 > Điều 363", "so_ky_hieu": "92/2015/QH13", "ten": "x"}}
+    t1 = Tier1Result(Claim("Thủ tục nhận đơn.", 363, "nội dung"), True, R.ok, EFF)
+    st = assemble({"intent": "tra_cuu", "expanded": [db[363]], "tier1": [t1],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  db, FakeLlmGanSaiSoDieu(), "m")
+    assert st["result_type"] is ResultType.abstain
+    assert st["answer"] is None and st["citations"] == []
+    assert st["traces"]["assemble_dieu_bi_loai"] == ["550"]
+
+
+def test_assemble_khong_ha_xuong_khi_khong_co_so_dieu_lech():
+    """Đường bình thường (FakeLlm trả lời không nhắc số Điều nào) phải KHÔNG bị
+    ảnh hưởng — traces vẫn ghi assemble_dieu_bi_loai=[] để đếm được mẫu số
+    (bao nhiêu request đã qua phép kiểm này mà không bị hạ)."""
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [_pass()],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert st["result_type"] is ResultType.answer
+    assert st["traces"]["assemble_dieu_bi_loai"] == []
+
+
+# ══ Phép kiểm thứ bảy (coordinator, sau khi tự kiểm phép kiểm 6) — không dựng ═
+# câu trả lời từ các nguồn đã bị thay thế khi câu hỏi KHÔNG neo văn bản cụ thể.
+# Ca thật đo được: "mức lương tối thiểu vùng I HIỆN NAY" gộp 4.420.000/
+# 4.180.000/3.980.000/3.500.000 (bốn NĂM khác nhau, đều bi_thay_the) thành
+# "các phương án song song" — từng citation đúng, hành văn sai.
+
+
+def test_khong_neo_va_TOAN_BO_da_bi_thay_thi_abstain_0_token():
+    """0 token: LLM hành văn KHÔNG được gọi khi đã biết trước không còn nguồn
+    nào hợp lệ để dựng câu trả lời."""
+    class KhongDuocGoi(FakeLlm):
+        def chat(self, *a, **k):
+            raise AssertionError("không được gọi LLM khi mọi nguồn đã bị lọc hết")
+
+    db = {1: {"id": 1, "duong_dan": "90/2019/NĐ-CP > Điều 3", "so_ky_hieu": "90/2019/NĐ-CP", "ten": "x"}}
+    eff_thay = Effectivity(V.bi_thay_the, "trung_binh", "suy luận cùng chủ đề: 74/2024/NĐ-CP cùng chủ đề và đã có "
+                            "hiệu lực từ 2024-07-01")
+    t1 = Tier1Result(Claim("4.420.000 đồng/tháng vùng I.", 1, "4.420.000"), True, R.ok, eff_thay)
+    st = assemble({"intent": "tra_cuu", "query": "mức lương tối thiểu vùng I hiện nay là bao nhiêu",
+                   "expanded": [db[1]], "tier1": [t1], "tier2": [Tier2Verdict(0, True, "ok")],
+                   "abstain_threshold": 0.5}, db, KhongDuocGoi(), "m")
+    assert st["result_type"] is ResultType.abstain
+    assert "74/2024/NĐ-CP" in st["coverage_note"]
+    assert st["traces"]["assemble_nguon_bi_loc_khoi_prose"] == ["90/2019/NĐ-CP"]
+
+
+def test_neo_van_ban_thi_KHONG_loc_giu_nguyen_hanh_vi():
+    db = {1: {"id": 1, "duong_dan": "90/2019/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+              "so_ky_hieu": "90/2019/NĐ-CP", "ten": "x"}}
+    eff_thay = Effectivity(V.bi_thay_the, "trung_binh", "suy luận cùng chủ đề: 74/2024/NĐ-CP cùng chủ đề")
+    t1 = Tier1Result(Claim("Mức 4.420.000 đồng/tháng, áp dụng vùng I.", 1, "4.420.000"), True, R.ok, eff_thay)
+
+    class FakeLlmSo(FakeLlm):
+        def chat(self, model, messages, json_schema=None):
+            from src.services.llm import Usage
+            return json.dumps({"answer": "Theo Nghị định 90/2019, mức 4.420.000 đồng/tháng."}), Usage(1, 1, 0.0)
+
+    st = assemble({"intent": "tra_cuu", "query": "theo Nghị định 90/2019 lương tối thiểu vùng I bao nhiêu",
+                   "expanded": [db[1]], "tier1": [t1], "tier2": [Tier2Verdict(0, True, "ok")],
+                   "abstain_threshold": 0.5}, db, FakeLlmSo(), "m")
+    assert st["result_type"] is ResultType.answer
+    assert "4.420.000" in st["answer"]
+    assert st["warnings"], "cảnh báo hiệu lực vẫn phải còn dù đã neo văn bản"
+    assert st["traces"]["assemble_nguon_bi_loc_khoi_prose"] == []
+
+
+def test_mix_con_hieu_luc_va_bi_thay_the_prose_chi_dung_con_hieu_luc():
+    db = {1: {"id": 1, "duong_dan": "293/2025/NĐ-CP > Điều 3", "so_ky_hieu": "293/2025/NĐ-CP", "ten": "x"},
+          2: {"id": 2, "duong_dan": "90/2019/NĐ-CP > Điều 3", "so_ky_hieu": "90/2019/NĐ-CP", "ten": "y"}}
+    eff_con = Effectivity(V.con_hieu_luc, "thap", "không có tín hiệu chấm dứt nào")
+    eff_thay = Effectivity(V.bi_thay_the, "trung_binh", "suy luận cùng chủ đề: 293/2025/NĐ-CP cùng chủ đề")
+    t1a = Tier1Result(Claim("NOI DUNG CON HIEU LUC.", 1, "q1"), True, R.ok, eff_con)
+    t1b = Tier1Result(Claim("NOI DUNG DA BI THAY THE.", 2, "q2"), True, R.ok, eff_thay)
+
+    class Ghi(FakeLlm):
+        cau_hoi_gui = ""
+
+        def chat(self, model, messages, json_schema=None):
+            Ghi.cau_hoi_gui = messages[0]["content"]
+            from src.services.llm import Usage
+            return json.dumps({"answer": "NOI DUNG CON HIEU LUC."}), Usage(1, 1, 0.0)
+
+    st = assemble({"intent": "tra_cuu", "query": "mức lương tối thiểu hiện nay",
+                   "expanded": [db[1], db[2]], "tier1": [t1a, t1b],
+                   "tier2": [Tier2Verdict(0, True, "ok"), Tier2Verdict(1, True, "ok")],
+                   "abstain_threshold": 0.5}, db, Ghi(), "m")
+    assert "NOI DUNG CON HIEU LUC" in Ghi.cau_hoi_gui
+    assert "NOI DUNG DA BI THAY THE" not in Ghi.cau_hoi_gui, "prose không được nạp claim đã lọc"
+    assert st["result_type"] is ResultType.answer
+    assert st["traces"]["assemble_nguon_bi_loc_khoi_prose"] == ["90/2019/NĐ-CP"]
+
+
+def test_neo_vao_van_ban_va_ly_do_ke_nhiem_0_token():
+    from src.agents.nodes.assemble import _neo_vao_van_ban, _van_ban_ke_nhiem
+    assert set(inspect.signature(_neo_vao_van_ban).parameters) == {"query", "so_ky_hieu"}
+    assert set(inspect.signature(_van_ban_ke_nhiem).parameters) == {"ly_do"}
+
+
+def test_N1_phep_kiem_5_chi_so_voi_citation_DUNG_CHO_PROSE_khong_phai_toan_bo():
+    """Bug đo được (silent-failure review round 2): phép kiểm thứ năm từng so
+    `answer` với TOÀN BỘ `citations` — kể cả claim đã bị phép kiểm thứ bảy
+    loại khỏi văn xuôi (bi_thay_the, không neo). Answer nhắc số Điều của
+    nguồn ĐÃ BỊ LOẠI đó vẫn "qua" phép kiểm 5 vì nó tình cờ có mặt ở đâu đó
+    trong `citations` đầy đủ — dù prompt hành văn chưa từng thấy claim đó.
+
+    Điều 5 (con_hieu_luc, DÙNG cho prose) và Điều 3 (bi_thay_the, không neo,
+    BỊ LOẠI khỏi prose) khác số cố ý — để "Điều 3 có mặt trong citations đầy
+    đủ" và "Điều 3 có mặt trong citations_dung_cho_prose" tách bạch được."""
+    db = {1: {"id": 1, "duong_dan": "293/2025/NĐ-CP > Điều 5", "so_ky_hieu": "293/2025/NĐ-CP", "ten": "x"},
+          2: {"id": 2, "duong_dan": "90/2019/NĐ-CP > Điều 3", "so_ky_hieu": "90/2019/NĐ-CP", "ten": "y"}}
+    eff_con = Effectivity(V.con_hieu_luc, "thap", "không có tín hiệu chấm dứt nào")
+    eff_thay = Effectivity(V.bi_thay_the, "trung_binh", "suy luận cùng chủ đề: 293/2025/NĐ-CP cùng chủ đề")
+    t1a = Tier1Result(Claim("Điều 5 quy định mức lương mới.", 1, "q1"), True, R.ok, eff_con)
+    t1b = Tier1Result(Claim("Điều 3 quy định mức lương cũ.", 2, "q2"), True, R.ok, eff_thay)
+
+    class NhacDieuDaBiLoc(FakeLlm):
+        def chat(self, model, messages, json_schema=None):
+            from src.services.llm import Usage
+            # answer nhắc "Điều 3" — số Điều của claim ĐÃ BỊ LOẠI khỏi prose
+            # (90/2019, bi_thay_the, không neo). Trước fix N1: phép kiểm 5 so
+            # với `citations` ĐẦY ĐỦ (có cả Điều 3 của claim bị loại) → cho
+            # qua NHẦM. Sau fix: so với `citations_dung_cho_prose` (chỉ Điều
+            # 5) → không thấy Điều 3 → hạ xuống abstain, đúng ý phép kiểm 5.
+            return json.dumps({"answer": "Điều 3 quy định mức lương cũ."}), Usage(1, 1, 0.0)
+
+    st = assemble({"intent": "tra_cuu", "query": "mức lương tối thiểu hiện nay",
+                   "expanded": [db[1], db[2]], "tier1": [t1a, t1b],
+                   "tier2": [Tier2Verdict(0, True, "ok"), Tier2Verdict(1, True, "ok")],
+                   "abstain_threshold": 0.5}, db, NhacDieuDaBiLoc(), "m")
+    assert st["result_type"] is ResultType.abstain
+    assert st["traces"]["assemble_dieu_bi_loai"] == ["3"]
+
+
+def test_CRITICAL_tier2_RONG_HOAN_TOAN_khong_duoc_coi_la_da_verified():
+    """Test quan trọng nhất của lượt này (coordinator): khoá đúng RULING
+    2026-08-31 mà Task 9 đã gỡ khỏi assemble.py — "tier2 rỗng toàn bộ" KHÔNG
+    được coi là "mọi claim qua tầng 1 đã verified". Một mutation tái lập đúng
+    bug đó (`if not tier2: verified = qua_t1`) từng chạy qua CI xanh tuyệt đối
+    vì không test nào canh nhánh này — một comment ruling không phải một phép
+    kiểm. Tier 1 CÓ 2 claim pass, tier2 RỖNG HOÀN TOÀN (không phải thiếu vài
+    verdict — không có lấy MỘT cái)."""
+    class KhongDuocGoi(FakeLlm):
+        def chat(self, *a, **k):
+            raise AssertionError("verified rỗng thì không được gọi LLM hành văn")
+
+    t1a = Tier1Result(Claim("a", 11, "85%"), True, R.ok, EFF)
+    t1b = Tier1Result(Claim("b", 11, "85%"), True, R.ok, EFF)
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1a, t1b],
+                   "tier2": [], "abstain_threshold": 0.5}, DB, KhongDuocGoi(), "m")
+    assert st["result_type"] is not ResultType.answer
+    assert st["result_type"] is ResultType.abstain
+    assert st["citations"] == [] and st["answer"] is None
