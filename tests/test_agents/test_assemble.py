@@ -114,9 +114,25 @@ def test_khop_tai_khac_provision_id_thi_duong_dan_theo_dong_that_chua_quote():
     assert st["result_type"] is ResultType.answer
     c = st["citations"][0]
     assert c["provision_id"] == 11, "vẫn neo provisions.id mà claim đã dẫn"
-    assert c["duong_dan"] == "45/2019/QH14 > Điều 127 > Khoản 2", (
-        "duong_dan hiển thị phải trỏ dòng THẬT chứa quote (khop_tai), không phải Điều cha rỗng ruột"
+    assert c["khop_tai_id"] == 12, "khop_tai_id phải ghi tường minh dòng thật đã khớp"
+    assert c["khop_tai_id"] != c["provision_id"], (
+        "coordinator review 2026-08-31: hai id phải TÁCH BẠCH khi lệch nhau, không giấu vào duong_dan"
     )
+    assert c["duong_dan"] == "45/2019/QH14 > Điều 127 > Khoản 2", (
+        "duong_dan hiển thị phải trỏ dòng khop_tai_id, không phải Điều cha rỗng ruột"
+    )
+
+
+def test_khop_tai_none_thi_khop_tai_id_bang_provision_id():
+    # coordinator review 2026-08-31: khi khop_tai vắng (không có Khoản con nào
+    # tách biệt khỏi Điều đã dẫn), hai id phải BẰNG NHAU — không phải một id
+    # "biến mất", để người tiêu thụ citation luôn thấy khop_tai_id, không cần
+    # tự suy ra khi nào nó trùng provision_id.
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [_pass()],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    c = st["citations"][0]
+    assert c["khop_tai_id"] == c["provision_id"] == 11
 
 
 def test_canh_bao_mang_nguyen_van_ly_do_ca_that_BLLD_45_2019():

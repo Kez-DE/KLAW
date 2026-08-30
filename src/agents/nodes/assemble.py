@@ -79,9 +79,22 @@ class ResultType(StrEnum):
 
 
 class Citation(TypedDict):
-    """Dict thường (TypedDict chỉ để gõ kiểu) — test tra bằng `c["so_ky_hieu"]`."""
+    """Dict thường (TypedDict chỉ để gõ kiểu) — test tra bằng `c["so_ky_hieu"]`.
+
+    `provision_id` và `khop_tai_id` có thể trỏ HAI DÒNG KHÁC NHAU (coordinator
+    review 2026-08-31): `provision_id` là điều luật claim ĐÃ DẪN
+    (`claim.provision_id`); `khop_tai_id` là dòng THẬT chứa quote khớp được —
+    và `duong_dan`/`bo_luat`/`so_ky_hieu` LUÔN hiển thị theo `khop_tai_id`, không
+    phải theo `provision_id`. Khi `khop_tai_id != provision_id`: mô hình dẫn
+    Điều cha còn căn cứ nằm ở Khoản con — HÀNH VI BÌNH THƯỜNG, không phải lỗi,
+    vì 73,6% số Điều trong corpus có `noi_dung` chỉ là tiêu đề (xem
+    verify_tier1.py `_cay_con`). Trước bản này chỉ có `provision_id`, khiến
+    chuỗi `duong_dan` hiển thị và trường dùng để tra cứu lệch nhau mà không
+    trường nào trong citation nói cho người tiêu thụ (Plan 4/5) biết.
+    """
 
     provision_id: int
+    khop_tai_id: int
     duong_dan: str
     bo_luat: str
     so_ky_hieu: str
@@ -171,20 +184,19 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
     citations: list[Citation] = []
     warnings: list[str] = []
     for r in verified:
-        # `khop_tai` là dòng THẬT chứa quote — có thể là Khoản con của
-        # claim.provision_id (73,6% số Điều chỉ có tiêu đề, xem verify_tier1.py
-        # `_cay_con`). Hiển thị theo khop_tai để duong_dan trỏ đúng dòng có nội
-        # dung; provision_id trong citation vẫn giữ nguyên claim.provision_id vì
-        # đó mới là điều luật claim THỰC SỰ dẫn — chỉ màn hiển thị đổi, không
-        # đổi cái được neo. Rơi về claim.provision_id khi khop_tai vắng (None,
-        # hoặc trỏ tới id không có trong db_provisions) để không hiển thị citation
-        # rỗng trường.
+        # row_id = dòng THẬT hiển thị (xem docstring `Citation`) — ghi lại
+        # NGUYÊN VẸN vào citation dưới tên `khop_tai_id`, tường minh, thay vì
+        # đổi ngầm chỉ trong duong_dan/bo_luat/so_ky_hieu. Rơi về
+        # claim.provision_id khi khop_tai vắng (None, hoặc trỏ tới id không có
+        # trong db_provisions) — khi đó khop_tai_id == provision_id, đúng
+        # nghĩa "không có Khoản con nào khác để tách".
         khop_tai = r.khop_tai
         row_id = khop_tai if khop_tai is not None and khop_tai in db_provisions else r.claim.provision_id
         p = db_provisions.get(row_id, {})
         eff = r.effectivity
         citations.append({
             "provision_id": r.claim.provision_id,
+            "khop_tai_id": row_id,
             "duong_dan": p.get("duong_dan", ""),
             "bo_luat": p.get("ten", ""),
             "so_ky_hieu": p.get("so_ky_hieu", ""),
