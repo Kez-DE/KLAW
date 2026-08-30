@@ -24,10 +24,12 @@ nằm trong traces.
 
 import json
 import logging
+import re
 from enum import StrEnum
 from pathlib import Path
 from typing import TypedDict
 
+from src.agents.nodes.verify_tier1 import normalize
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.llm import Usage
 
@@ -127,6 +129,50 @@ def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: boo
         },
         **kw,
     }
+
+
+# Phép kiểm THỨ NĂM (coordinator, sau khi đo tập bẫy — task-10 round 3): bốn
+# phép kiểm của verify_tier1 xác minh CITATION OBJECT (provision_id/quote),
+# không cái nào nhìn vào chính văn xuôi `answer`. Đo được trên
+# `trap-nonexist-09`: assemble lấy đúng nội dung đã verify từ Điều 363-365
+# nhưng viết prose gán cho "Điều 550" — số Điều BỊA ngay trong câu hỏi, không
+# phải từ citation. Đo lại 6 lần trên 3 câu: GIÁN ĐOẠN (1/6), không hệ thống —
+# nguy hiểm hơn một lỗi luôn xảy ra vì không hiện đều trong test.
+#
+# Vẫn là TRA BẢNG, 0 TOKEN: rút số Điều trong `answer` bằng regex, so với tập
+# số Điều có trong `citations` ĐÃ QUA CẢ HAI TẦNG — không suy luận ngữ nghĩa.
+LY_DO_DIEU_KHONG_CHONG_DO = "dieu_nhac_trong_answer_khong_co_trong_citation_da_xac_minh"
+
+_RE_DIEU = re.compile(r"[Đđ]iều\s+(\d+)")
+
+
+def _so_dieu_trong(text: str) -> set[str]:
+    """Tập số Điều (chuỗi) nhắc trong `text`, sau CHUẨN HOÁ (`normalize` của
+    verify_tier1 — corpus có `Ð` U+00D0 và không thuần NFC). Dùng CHUNG cho cả
+    `answer` (văn xuôi) và `citations[].duong_dan` (định danh có cấu trúc, vd.
+    "45/2019/QH14 > Điều 35 > Khoản 1"), để hai phía so được bằng đúng MỘT quy
+    tắc trích số — không phải hai cách đọc khác nhau."""
+    return set(_RE_DIEU.findall(normalize(text or "")))
+
+
+def _dieu_khong_duoc_chong_do(answer: str, citations: list) -> list[str]:
+    """Số Điều nào NHẮC trong `answer` mà KHÔNG nằm trong tập số Điều của các
+    `citations` đã qua tầng 1+2. Rỗng nghĩa là mọi số Điều trong answer đều có
+    căn cứ, HOẶC answer không nhắc số Điều nào — cả hai đều AN TOÀN (xem test).
+
+    Cố ý so THEO SỐ, không theo (văn bản, số) — đúng nguyên văn yêu cầu của
+    coordinator ("mọi số điều nhắc trong answer phải nằm trong tập trích dẫn
+    đã xác minh"). Giới hạn đã biết: hai văn bản khác nhau trùng số Điều sẽ
+    khiến một câu trả lời đúng-mã-sai-nguồn lọt qua — chưa đo được ca này xảy
+    ra trong tập bẫy, nâng cấp lên cặp (văn bản, số) nếu có ca đo được cần nó.
+    """
+    trong_answer = _so_dieu_trong(answer)
+    if not trong_answer:
+        return []
+    trong_citation: set[str] = set()
+    for c in citations:
+        trong_citation |= _so_dieu_trong(c.get("duong_dan", ""))
+    return sorted(trong_answer - trong_citation, key=int)
 
 
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> dict:
@@ -234,5 +280,22 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         answer = " ".join(r.claim.text for r in verified)
         degraded = True
 
-    return _base(state, ResultType.answer, usage=usage, degraded=degraded,
-                 answer=answer, citations=citations, warnings=warnings)
+    # Phép kiểm thứ năm — xem docstring `_dieu_khong_duoc_chong_do`. Chạy SAU
+    # khi có `answer` thật (kể cả đường fallback ở trên): fallback nối
+    # nguyên văn claim.text nên về lý thuyết không tự bịa số Điều, nhưng kiểm
+    # vẫn chạy trên CẢ HAI đường — phép kiểm không được giả định đường nào
+    # "chắc chắn an toàn".
+    dieu_bi_loai = _dieu_khong_duoc_chong_do(answer, citations)
+    if dieu_bi_loai:
+        logger.warning(
+            "assemble: answer nhắc Điều %s không có trong citations đã xác minh — hạ xuống abstain (%s)",
+            ", ".join(dieu_bi_loai), LY_DO_DIEU_KHONG_CHONG_DO,
+        )
+        ket = _base(state, ResultType.abstain, usage=usage, degraded=degraded)
+        ket["traces"]["assemble_dieu_bi_loai"] = dieu_bi_loai
+        return ket
+
+    ket = _base(state, ResultType.answer, usage=usage, degraded=degraded,
+                answer=answer, citations=citations, warnings=warnings)
+    ket["traces"]["assemble_dieu_bi_loai"] = []
+    return ket

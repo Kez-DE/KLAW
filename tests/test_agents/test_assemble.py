@@ -170,3 +170,69 @@ def test_chua_xac_dinh_cung_sinh_canh_bao_khong_duoc_im_lang():
                    "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
                   DB, FakeLlm(), "m")
     assert st["warnings"], "chua_xac_dinh phải sinh cảnh báo, không được im lặng"
+
+
+# ══ Phép kiểm thứ năm (coordinator, task-10 round 3) — số Điều trong `answer` ═
+# phải nằm trong tập trích dẫn đã xác minh. Ca thật: trap-nonexist-09 (Điều 550
+# BLTTDS không tồn tại) — assemble lấy đúng nội dung Điều 363-365 nhưng viết
+# prose gán cho "Điều 550". Gián đoạn 1/6 lần đo lại, không hệ thống.
+
+import inspect  # noqa: E402
+
+from src.agents.nodes.assemble import _dieu_khong_duoc_chong_do  # noqa: E402
+
+
+def test_dieu_khong_chong_do_bat_so_dieu_khong_co_trong_citation():
+    citations = [{"duong_dan": "92/2015/QH13 > Điều 363"}, {"duong_dan": "92/2015/QH13 > Điều 364"}]
+    assert _dieu_khong_duoc_chong_do(
+        "Điều 550 Bộ luật Tố tụng dân sự quy định thủ tục nhận đơn yêu cầu.", citations,
+    ) == ["550"]
+
+
+def test_dieu_khong_chong_do_giu_nguyen_khi_so_dieu_co_trong_citation():
+    citations = [{"duong_dan": "45/2019/QH14 > Điều 35 > Khoản 1"}]
+    assert _dieu_khong_duoc_chong_do("Điều 35 quy định người lao động có quyền nghỉ.", citations) == []
+
+
+def test_dieu_khong_chong_do_answer_khong_nhac_dieu_nao_thi_rong():
+    citations = [{"duong_dan": "45/2019/QH14 > Điều 35"}]
+    assert _dieu_khong_duoc_chong_do("Người lao động có quyền nghỉ hằng năm.", citations) == []
+
+
+def test_dieu_khong_chong_do_0_token_khong_can_llm_hay_engine():
+    """Hàm thuần tra bảng: chữ ký chỉ nhận answer/citations — không llm, không
+    engine, không cách nào chạm mạng. Cùng tinh thần test chữ ký của
+    verify_tier1 (module đó dùng cả quét AST + chặn socket vì nó là phép kiểm
+    TRUNG TÂM của khoá luận; phép kiểm thứ năm này nhỏ và thuần set/regex nên
+    kiểm chữ ký là đủ)."""
+    assert set(inspect.signature(_dieu_khong_duoc_chong_do).parameters) == {"answer", "citations"}
+
+
+def test_assemble_ha_xuong_abstain_khi_answer_gan_sai_so_dieu():
+    """Ca thật trap-nonexist-09: citation đúng là Điều 363, nhưng LLM hành văn
+    gán nội dung cho 'Điều 550' (số bịa từ câu hỏi) — phải hạ xuống abstain,
+    với mã lý do riêng (LY_DO_DIEU_KHONG_CHONG_DO) để đếm được tần suất."""
+    class FakeLlmGanSaiSoDieu(FakeLlm):
+        def chat(self, model, messages, json_schema=None):
+            from src.services.llm import Usage
+            return json.dumps({"answer": "Điều 550 quy định thủ tục nhận và xử lý đơn yêu cầu."}), Usage(1, 1, 0.0)
+
+    db = {363: {"id": 363, "duong_dan": "92/2015/QH13 > Điều 363", "so_ky_hieu": "92/2015/QH13", "ten": "x"}}
+    t1 = Tier1Result(Claim("Thủ tục nhận đơn.", 363, "nội dung"), True, R.ok, EFF)
+    st = assemble({"intent": "tra_cuu", "expanded": [db[363]], "tier1": [t1],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  db, FakeLlmGanSaiSoDieu(), "m")
+    assert st["result_type"] is ResultType.abstain
+    assert st["answer"] is None and st["citations"] == []
+    assert st["traces"]["assemble_dieu_bi_loai"] == ["550"]
+
+
+def test_assemble_khong_ha_xuong_khi_khong_co_so_dieu_lech():
+    """Đường bình thường (FakeLlm trả lời không nhắc số Điều nào) phải KHÔNG bị
+    ảnh hưởng — traces vẫn ghi assemble_dieu_bi_loai=[] để đếm được mẫu số
+    (bao nhiêu request đã qua phép kiểm này mà không bị hạ)."""
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [_pass()],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert st["result_type"] is ResultType.answer
+    assert st["traces"]["assemble_dieu_bi_loai"] == []
