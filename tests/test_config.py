@@ -1,4 +1,5 @@
 from src.config import Settings
+from src.services.llm import _provider
 
 
 def test_temperature_mac_dinh_la_0_khong_phai_0_7():
@@ -12,11 +13,31 @@ def test_embedding_mac_dinh_la_bge_m3_dim_1024():
     assert s.openrouter_embedding_dim == 1024
 
 
-def test_ba_vai_llm_la_ba_model_khac_nhau():
+def test_generate_va_judge_khac_provider_mac_dinh():
+    """Kiểm PROVIDER (phần trước dấu '/', xấp xỉ thô của "họ model" — xem
+    `_provider()` trong `src/services/llm.py`), không so chuỗi đầy đủ: hai
+    model có thể có tên khác nhau nhưng cùng nhà cung cấp (xem test âm bên
+    dưới) — self-preference bias, spec 7b.2. Đây không phải bảo đảm, chỉ là
+    tín hiệu để cảnh báo."""
     s = Settings(_env_file=None)
-    assert s.openrouter_generate_model_name != s.openrouter_judge_model_name, (
-        "judge phải khác họ với generate — self-preference bias, spec 7b.2"
+    assert _provider(s.openrouter_generate_model_name) != _provider(s.openrouter_judge_model_name)
+
+
+def test_provider_bat_duoc_cap_nguy_hiem_nhat_du_ten_khac_nhau():
+    """Test ÂM: 'gemini-2.5-flash-lite' và 'gemini-2.5-flash' là hai CHUỖI
+    khác nhau nhưng CÙNG provider 'google' — đúng cặp spec 7b.2 lo ngại nhất.
+    Trước khi sửa, bản cũ của test này so chuỗi đầy đủ (== test_config.py
+    trước Task 3, cùng lỗi với `generate_model() != judge_model()`) và sẽ
+    XANH nhầm cho cặp này — đo được bằng tay: assert chuỗi != chuỗi -> True
+    (qua nhầm), còn assert _provider(...) != _provider(...) -> False (đúng,
+    bắt được). Test này xanh nghĩa là so theo provider bắt được ca đó."""
+    s = Settings(
+        _env_file=None,
+        openrouter_generate_model_name="google/gemini-2.5-flash-lite",
+        openrouter_judge_model_name="google/gemini-2.5-flash",
     )
+    assert s.openrouter_generate_model_name != s.openrouter_judge_model_name  # chuỗi thật sự khác nhau
+    assert _provider(s.openrouter_generate_model_name) == _provider(s.openrouter_judge_model_name)  # nhưng cùng họ
 
 
 def test_database_url_mac_dinh_la_postgres_khong_phai_sqlite():
