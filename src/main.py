@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AI20K Agent",
+    title="KLAW API",
     description="AI Agent built with LangGraph",
     version="1.0.0",
     lifespan=lifespan,
