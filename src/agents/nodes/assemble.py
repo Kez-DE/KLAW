@@ -52,16 +52,18 @@ ABSTAIN_THRESHOLD_DEFAULT = 0.5
 # cộng chua_hieu_luc (chưa có hiệu lực — người hỏi cần biết) và can_doi_chieu_tay
 # (nghi lỗi dữ liệu MOJ). KHÔNG gồm con_hieu_luc (đúng nghĩa không cảnh báo) hay
 # chua_xac_dinh (xem CONCERN trong report — brief không liệt kê, giữ đúng brief).
-CANH_BAO = {
-    V.mot_phan_khong_xac_dinh:
-        "Văn bản này hết hiệu lực một phần. Cơ sở dữ liệu quốc gia không công bố "
-        "dữ liệu bãi bỏ cấp điều khoản, nên không xác định được điều luật này còn "
-        "hiệu lực hay không.",
-    V.bi_thay_the: "Văn bản này đã bị thay thế.",
-    V.het_hieu_luc: "Văn bản này đã hết hiệu lực.",
-    V.chua_hieu_luc: "Văn bản này chưa có hiệu lực.",
-    V.can_doi_chieu_tay:
-        "Trạng thái hiệu lực của văn bản này không xác định được tự động, cần đối chiếu tay.",
+#
+# Giá trị CHỈ LÀ NHÃN NGẮN để phân loại — câu cảnh báo THẬT ghép nhãn với
+# `eff.ly_do` NGUYÊN VĂN (xem chỗ dùng bên dưới), không phải chính câu cảnh
+# báo. `ly_do` mới là nơi nêu ĐÍCH DANH văn bản thay thế (spec, yêu cầu #1) —
+# một nhãn chung chung như "Văn bản này đã bị thay thế." xoá mất đúng thông
+# tin đó, nên KHÔNG được dùng làm toàn bộ câu cảnh báo.
+CANH_BAO_NHAN = {
+    V.mot_phan_khong_xac_dinh: "hết hiệu lực một phần",
+    V.bi_thay_the: "đã bị thay thế",
+    V.het_hieu_luc: "đã hết hiệu lực",
+    V.chua_hieu_luc: "chưa có hiệu lực",
+    V.can_doi_chieu_tay: "cần đối chiếu tay",
 }
 
 
@@ -180,8 +182,11 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
             "hieu_luc": eff.verdict.value if eff else None,
             "tin_cay": eff.tin_cay if eff else None,
         })
-        if eff and eff.verdict in CANH_BAO:
-            msg = f"{p.get('so_ky_hieu', '')}: {CANH_BAO[eff.verdict]}"
+        if eff and eff.verdict in CANH_BAO_NHAN:
+            # `ly_do` NGUYÊN VĂN, không viết lại: nó nêu đích danh văn bản thay
+            # thế (vd. "bị 38/2022/NĐ-CP thay thế từ ..."), một nhãn chung
+            # chung như "đã bị thay thế" không mang thông tin đó.
+            msg = f"{p.get('so_ky_hieu', '')} {CANH_BAO_NHAN[eff.verdict]}: {eff.ly_do}"
             if msg not in warnings:
                 warnings.append(msg)
 

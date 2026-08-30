@@ -117,3 +117,21 @@ def test_khop_tai_khac_provision_id_thi_duong_dan_theo_dong_that_chua_quote():
     assert c["duong_dan"] == "45/2019/QH14 > Điều 127 > Khoản 2", (
         "duong_dan hiển thị phải trỏ dòng THẬT chứa quote (khop_tai), không phải Điều cha rỗng ruột"
     )
+
+
+def test_canh_bao_mang_nguyen_van_ly_do_khong_phai_cau_chung_chung():
+    # Yêu cầu #1 của task: cảnh báo hiệu lực phải CHỊU TẢI — `ly_do` nêu đích
+    # danh văn bản thay thế, một câu mẫu chung chung ("đã bị thay thế.") xoá
+    # mất đúng thông tin đó. `test_hieu_luc_khong_chac_sinh_warning` (test hợp
+    # đồng của brief) chỉ kiểm `warnings` không rỗng, không kiểm NỘI DUNG — nên
+    # tự thêm test này để một bản tái phát (quay lại câu mẫu chung chung) không
+    # lọt qua CI.
+    ly_do_that = "đồ thị xác nhận: bị 38/2022/NĐ-CP thay thế từ 2022-07-01"
+    bi_thay_the = Effectivity(V.bi_thay_the, "cao", ly_do_that)
+    t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, bi_thay_the)
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert any(ly_do_that in w for w in st["warnings"]), (
+        f"ly_do nguyên văn phải xuất hiện trong warnings, thấy: {st['warnings']!r}"
+    )
