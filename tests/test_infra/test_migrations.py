@@ -270,6 +270,37 @@ def test_migration_idempotent_KHI_DA_CO_DONG_loai_hieu_luc_suy_ra():
 
 
 @pytest.mark.integration
+def test_traces_mang_cot_model_va_kich_thuoc_expand():
+    """`008` (Task 10): traces cần cột cho tên model tầng 2 và kích thước
+    expand để khoá luận chứng minh bằng số liệu, không phải tuyên bố suông."""
+    run_migrations()
+    cols = {c["name"] for c in inspect(get_engine()).get_columns("traces")}
+    assert {"generate_model", "judge_model", "expand_before", "expand_after"} <= cols
+
+
+@pytest.mark.integration
+def test_migration_idempotent_KHI_DA_CO_DONG_traces():
+    """Đúng phép thử `test_migration_idempotent_KHI_DA_CO_DU_LIEU_dung_moi_cap`
+    ở trên áp cho `008`: chèn một dòng `traces` THẬT (đủ NOT NULL) rồi chạy lại
+    migration hai lần — `ADD COLUMN IF NOT EXISTS` tự idempotent nên rủi ro ở
+    đây thấp hơn hẳn CHECK/FK, nhưng bảng RỖNG vẫn không chứng minh được gì."""
+    run_migrations()
+    eng = get_engine()
+    with eng.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO traces (id, endpoint, config_name) VALUES ('mig-traces-test', '/x', 'full')"))
+    try:
+        run_migrations()
+        run_migrations()
+        with eng.connect() as conn:
+            cols = {c["name"] for c in inspect(eng).get_columns("traces")}
+            assert {"generate_model", "judge_model", "expand_before", "expand_after"} <= cols
+    finally:
+        with eng.begin() as conn:
+            conn.execute(text("DELETE FROM traces WHERE id = 'mig-traces-test'"))
+
+
+@pytest.mark.integration
 def test_check_so_hieu_cap_CHAN_moi_cap_cau_truc_va_CHO_hai_cap_tai_lieu():
     """`005`. Dạng ĐỒNG NHẤT: mọi cấp phải có số hiệu, trừ `mo_dau`/`phu_luc` —
     hai cấp tài liệu là chữ không thuộc điều luật nào nên không có số hiệu để
