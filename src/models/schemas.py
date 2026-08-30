@@ -45,3 +45,49 @@ class TraCuuResponse(BaseModel):
     coverage_note: str | None
     trace_id: str
     config_name: str
+
+
+# ══ GET /van-ban/{doc_id} (Task 7 step 2) — ba dạng lazy ═════════════════════
+# BLDS (doc_id 95942) có 689 Điều: không dạng nào dưới đây được kéo cả cây.
+# Tên field khớp NGUYÊN VĂN hợp đồng FE (fe-contract.md) — FE đang xây song
+# song theo shape này, đổi tên trường ở đây là lỗi tích hợp câm.
+
+
+class MucLucItem(BaseModel):
+    # Chỉ 4 cấp TÀI LIỆU-cấu-trúc — KHÔNG BAO GIỜ 'dieu' (đó là lý do dạng
+    # không tham số lazy: mục lục không kéo nội dung Điều). Ràng buộc kiểu ở
+    # đây là lớp kiểm THỨ HAI, độc lập với `WHERE cap IN (...)` trong SQL —
+    # nếu SQL từng nới lỏng sai, response vẫn bị chặn ở biên pydantic.
+    id: int
+    cap: Literal["phan", "chuong", "muc", "tieu_muc"]
+    so_hieu_cap: str
+    tieu_de: str
+    thu_tu: int
+
+
+class ProvisionOut(BaseModel):
+    id: int
+    cap: Literal["dieu", "khoan", "diem"]
+    so_hieu_cap: str
+    duong_dan: str
+    tieu_de: str
+    noi_dung: str
+    # True cho Điều đang hỏi (`so_dieu`/`around`) VÀ mọi Khoản/Điểm con của
+    # nó; False cho tối đa 4 Điều lân cận (dạng `around`) và con của chúng.
+    la_tam: bool
+
+
+class VanBanMucLucResponse(BaseModel):
+    # `doc_id` là TEXT ở DB (`documents.id`, moj doc_id — vd "95942"), KHÔNG
+    # PHẢI int: ép int sẽ vỡ nếu MOJ từng cấp một id không thuần số.
+    doc_id: str
+    so_ky_hieu: str
+    bo_luat: str  # = documents.ten — HIỂN THỊ, không phải khoá định danh (xem assemble.py)
+    muc_luc: list[MucLucItem]
+
+
+class VanBanProvisionsResponse(BaseModel):
+    doc_id: str
+    so_ky_hieu: str
+    bo_luat: str
+    provisions: list[ProvisionOut]
