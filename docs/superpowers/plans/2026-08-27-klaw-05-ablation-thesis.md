@@ -68,7 +68,7 @@ print(f'golden {len(g)} · dev {len(d)} · không chồng lấn')
 
 | Cấu hình | Cách chạy |
 |---|---|
-| BM25 only | `eval/configs/bm25_only.yaml` |
+| Lexical only (`tsvector`+`ts_rank`, KHÔNG phải BM25) | `eval/configs/lexical_only.yaml` |
 | Dense only | `eval/configs/dense_only.yaml` |
 | Hybrid RRF (**baseline**) | `eval/configs/hybrid.yaml` |
 | + rewrite_query | `hybrid_rewrite.yaml` |

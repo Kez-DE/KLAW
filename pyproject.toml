@@ -1,3 +1,6 @@
 [tool.pytest.ini_options]
-markers = ["integration: cần Postgres đang chạy; CI bỏ qua bằng -m 'not integration'"]
+markers = [
+    "integration: cần Postgres đang chạy; CI bỏ qua bằng -m 'not integration'",
+    "pending_review: chờ chủ dự án duyệt tay da_review (spec 11.1); bỏ qua bằng -m 'not pending_review' cho tới khi duyệt xong",
+]
 asyncio_mode = "auto"
