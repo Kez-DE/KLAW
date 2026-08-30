@@ -109,7 +109,9 @@ def test_het_hieu_luc_van_O_LAI_khong_bi_LOAI_khoi_expand():
 # "Xâm phạm sức khỏe, danh dự..." / Khoản 2 (141420) "Phạt tiền, cắt lương...".
 # golden_qa lao-001-0/lao-001-1: mỗi câu hỏi truy hồi RIÊNG một Khoản — expand
 # phải đưa Điều 127 vào CẢ HAI trường hợp, và khi cả hai Khoản cùng có mặt thì
-# Điều 127 chỉ được xuất hiện MỘT LẦN (dedup theo cha chung).
+# Điều 127 chỉ được xuất hiện MỘT LẦN (dedup theo cha chung). CẢ HAI CHIỀU
+# (task-7 review, 2026-08-31): cho Khoản → có Điều cha (đã có từ đầu); và
+# NGƯỢC LẠI, cho Điều 127 một mình → phải có CẢ Khoản 1 và Khoản 2 (mới thêm).
 @pytest.mark.integration
 def test_ca_DIEU_127_KHOAN_1_va_KHOAN_2_deu_keo_ve_DIEU_127_KHONG_TRUNG_LAP():
     deep1, _ = expand([141419], get_engine(), date(2026, 8, 27), hops=1)
@@ -122,3 +124,23 @@ def test_ca_DIEU_127_KHOAN_1_va_KHOAN_2_deu_keo_ve_DIEU_127_KHONG_TRUNG_LAP():
     ids_both = [p["id"] for p in both]
     assert {141418, 141419, 141420} <= set(ids_both)
     assert ids_both.count(141418) == 1, "Điều 127 bị trùng lặp khi hai Khoản con cùng có mặt"
+
+    # chiều ngược: chỉ đưa Điều 127 (không đưa Khoản nào) — phải TỰ kéo về cả
+    # Khoản 1 và Khoản 2, không chỉ giữ nguyên dòng tiêu đề trơ trọi.
+    deep3, _ = expand([141418], get_engine(), date(2026, 8, 27), hops=1)
+    ids3 = {p["id"] for p in deep3}
+    assert {141418, 141419, 141420} <= ids3, "Điều 127 không kéo được Khoản 1 và Khoản 2 con"
+
+
+# ── Ca đo được trên đường chạy thật (task-7 review, 2026-08-31): retrieval
+# (Plan 2) neo 3.093 chunk ở cấp `dieu`, chỉ 190 ở `khoan` — 5 id thật dưới đây
+# là r.hybrid_provisions() thật của một truy vấn thật, cả 5 đều cấp `dieu`,
+# 4/5 chỉ-tiêu-đề (<120 ký tự). TRƯỚC bản sửa này expand(5 id) -> 5, không
+# thêm gì (chỉ có chiều con→cha, mà không id nào là con). Giờ PHẢI có ít nhất
+# một Khoản/Điểm con mang nội dung thật.
+@pytest.mark.integration
+def test_5_DIEU_that_tu_san_xuat_PHAI_co_it_nhat_mot_con_mang_noi_dung_that():
+    ids = [131372, 134938, 138449, 139141, 137741]  # 100/2015>Đ155,>Đ391; 101/2015>Đ73,>Đ186; 92/2015>Đ492
+    deep, _ = expand(ids, get_engine(), date(2026, 8, 27), hops=1)
+    con_that = [p for p in deep if p["id"] not in ids and len(p.get("noi_dung") or "") > 120]
+    assert con_that, "expand không kéo được Khoản/Điểm con mang nội dung thật cho ca dieu-only thật"

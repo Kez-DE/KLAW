@@ -73,7 +73,9 @@ class Settings(BaseSettings):
     # ở MỌI mức normalization (0,2143 → 0,3117 tại normalization=1).
     bm25_strip_stopwords: bool = True
     retrieve_final_topk: int = Field(default=10, gt=0)
-    expand_reference_hops: int = Field(default=1, ge=0)
+    # le=3: một giá trị sweep vô ý (Task 9 ablation) không còn cách nào làm
+    # phình tập expand() không kiểm soát được (task-7 review, 2026-08-31).
+    expand_reference_hops: int = Field(default=1, ge=0, le=3)
 
     # Verifier
     verify_tier2_enabled: bool = True

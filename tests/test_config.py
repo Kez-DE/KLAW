@@ -63,6 +63,19 @@ def test_retrieve_topk_co_the_bang_0_de_tat_mot_nhanh():
     assert s2.retrieve_dense_topk == 0
 
 
+def test_expand_reference_hops_bi_chan_tren_o_3():
+    """task-7 review (2026-08-31): `ge=0` một mình không có trần — một giá trị
+    sweep vô ý (Task 9 ablation, vd. 10) không còn cách nào cản `expand()` khỏi
+    phình tập không kiểm soát được qua nhiều hop liên tiếp."""
+    import pytest
+    from pydantic import ValidationError
+
+    s = Settings(_env_file=None, expand_reference_hops=3)
+    assert s.expand_reference_hops == 3
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, expand_reference_hops=4)
+
+
 def test_settings_tu_choi_field_la_khong_nuot_im_lang():
     """H3 (review-final-p2): `Settings(rrf_K=5)` từng giữ nguyên mặc định rrf_k=60,
     không warning — đúng kịch bản sweep rrf_k: một lần gõ nhầm là bốn hàng ablation
