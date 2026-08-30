@@ -164,3 +164,39 @@ async def test_effectivity_tu_expand_duoc_dung_KHONG_tinh_lai_voi_canh_rong():
 async def test_citation_khong_bao_gio_thieu_duong_dan(client):
     d = (await client.post("/api/v1/tra-cuu", json={"query": "thử việc lương bao nhiêu"})).json()
     assert all(c["duong_dan"] and c["so_ky_hieu"] for c in d["citations"])
+
+
+# ══ H1 (silent-failure review round 2) — khop_tai_id không bị lọc ở biên HTTP ═
+
+
+@pytest.mark.asyncio
+async def test_khop_tai_id_khong_bi_loc_o_bien_HTTP(client, monkeypatch):
+    """`CitationOut` từng THIẾU `khop_tai_id` — pydantic (`extra="ignore"` mặc
+    định) âm thầm vứt field này ở biên HTTP: response ghép `provision_id` với
+    `duong_dan`/`so_ky_hieu` của DÒNG KHÁC (`khop_tai`) mà không trường nào
+    nói ra. Ca THƯỜNG, không phải ca biên — 73,6% số Điều chỉ có tiêu đề, xem
+    `verify_tier1._cay_con`."""
+    from src.agents.nodes.assemble import ResultType
+    from src.api import routes
+
+    class FakeGraph:
+        async def ainvoke(self, *a, **k):
+            return {
+                "result_type": ResultType.answer,
+                "answer": "x",
+                "citations": [{
+                    "provision_id": 141418, "khop_tai_id": 141420,
+                    "duong_dan": "45/2019/QH14 > Điều 127 > Khoản 2",
+                    "bo_luat": "Bộ Luật lao động", "so_ky_hieu": "45/2019/QH14",
+                    "quote": "Phạt tiền...", "hieu_luc": "con_hieu_luc", "tin_cay": "cao",
+                }],
+                "warnings": [],
+            }
+
+    monkeypatch.setattr(routes, "_g", lambda: FakeGraph())
+    r = await client.post("/api/v1/tra-cuu", json={"query": "x"})
+    assert r.status_code == 200
+    c = r.json()["citations"][0]
+    assert c["provision_id"] == 141418
+    assert c["khop_tai_id"] == 141420
+    assert "Khoản 2" in c["duong_dan"], "duong_dan phải khớp khop_tai_id (dòng THẬT), không phải provision_id"

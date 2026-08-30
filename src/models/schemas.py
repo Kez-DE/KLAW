@@ -17,6 +17,13 @@ class TraCuuRequest(BaseModel):
 
 class CitationOut(BaseModel):
     provision_id: int
+    # `khop_tai_id` THIẾU ở đây từng làm pydantic (`extra="ignore"` mặc định)
+    # âm thầm vứt field này tại biên HTTP (silent-failure review): response
+    # ghép provision_id với duong_dan/so_ky_hieu của DÒNG KHÁC (khop_tai) mà
+    # không trường nào nói ra — đúng ca THƯỜNG, không phải ca biên (73,6% số
+    # Điều chỉ có tiêu đề, xem verify_tier1._cay_con), và đúng lệch mà
+    # assemble.py (commit 4d46a3f) đã tách bạch ở tầng trong.
+    khop_tai_id: int
     duong_dan: str
     bo_luat: str
     so_ky_hieu: str
