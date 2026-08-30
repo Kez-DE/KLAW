@@ -35,8 +35,10 @@ async def test_as_of_date_sai_dinh_dang_bi_422(client):
 
 
 @pytest.mark.asyncio
-async def test_loi_ha_tang_tra_502_khong_lo_chi_tiet_ngoai_le(client, monkeypatch):
-    """Lỗi hạ tầng phải NỔ ra mã lỗi rõ ràng (502), không phải abstain giả.
+async def test_loi_khong_xac_dinh_tra_500_khong_lo_chi_tiet_ngoai_le(client, monkeypatch):
+    """Lỗi hạ tầng phải NỔ ra mã lỗi rõ ràng, không phải abstain giả. Một
+    RuntimeError không thuộc (httpx lỗi, OperationalError) → 500 (bug thật,
+    không ngụ ý nên thử lại) — xem hai test 503 riêng cho hai loại NHẤT THỜI.
     Đồng thời khoá constraint #2: response KHÔNG mang `str(e)` — chỉ TÊN loại
     ngoại lệ — để không mở rộng bề mặt rò rỉ nếu một ngoại lệ tương lai vô
     tình mang theo dữ liệu nhạy cảm (vd. OPENROUTER_API_KEY)."""
@@ -48,9 +50,43 @@ async def test_loi_ha_tang_tra_502_khong_lo_chi_tiet_ngoai_le(client, monkeypatc
 
     monkeypatch.setattr(routes, "_g", lambda: BomGraph())
     r = await client.post("/api/v1/tra-cuu", json={"query": "thử việc bao lâu"})
-    assert r.status_code == 502
+    assert r.status_code == 500
     assert "sk-khong-duoc-lo" not in r.text
     assert "RuntimeError" in r.text
+
+
+@pytest.mark.asyncio
+async def test_loi_httpx_tra_503_nen_thu_lai(client, monkeypatch):
+    """OpenRouter 429/5xx cạn retry (httpx.HTTPStatusError/TransportError) →
+    503 Service Unavailable — client NÊN thử lại, khác 500 (bug thật)."""
+    import httpx
+
+    from src.api import routes
+
+    class BomHttpx:
+        async def ainvoke(self, *a, **k):
+            raise httpx.TransportError("connection refused")
+
+    monkeypatch.setattr(routes, "_g", lambda: BomHttpx())
+    r = await client.post("/api/v1/tra-cuu", json={"query": "x"})
+    assert r.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_loi_postgres_tra_503_nen_thu_lai(client, monkeypatch):
+    """Postgres không kết nối được (sqlalchemy.exc.OperationalError) → 503,
+    cùng lý do với lỗi httpx: NHẤT THỜI, client nên thử lại."""
+    from sqlalchemy.exc import OperationalError
+
+    from src.api import routes
+
+    class BomDb:
+        async def ainvoke(self, *a, **k):
+            raise OperationalError("statement", {}, Exception("connection refused"))
+
+    monkeypatch.setattr(routes, "_g", lambda: BomDb())
+    r = await client.post("/api/v1/tra-cuu", json={"query": "x"})
+    assert r.status_code == 503
 
 
 @pytest.mark.asyncio
@@ -211,3 +247,44 @@ async def test_khop_tai_id_khong_bi_loc_o_bien_HTTP(client, monkeypatch):
     assert c["provision_id"] == 141418
     assert c["khop_tai_id"] == 141420
     assert "Khoản 2" in c["duong_dan"], "duong_dan phải khớp khop_tai_id (dòng THẬT), không phải provision_id"
+
+
+# ══ HIGH (FastAPI review) — _ghi_traces() không được chặn event loop ═══════
+
+
+@pytest.mark.asyncio
+async def test_ghi_traces_khong_chan_event_loop(client, monkeypatch):
+    """`_ghi_traces()` chạy SQLAlchemy ĐỒNG BỘ ngay trong `async def tra_cuu()`,
+    NGOÀI graph nên KHÔNG được LangGraph tự offload sang thread (khác các
+    node trong graph — LangGraph coerce mỗi `def` đồng bộ thành chạy trong
+    threadpool). Dưới tải cao hoặc Postgres chậm, nó chặn TẤT CẢ request khác.
+    Ép `_ghi_traces` chậm (giả lập Postgres chậm bằng `time.sleep` — hàm ĐỒNG
+    BỘ, blocking thật) rồi đo hai request đồng thời: tổng thời gian phải xấp
+    xỉ MỘT lần sleep, không phải hai lần cộng dồn."""
+    import asyncio
+    import time as time_mod
+
+    from src.agents.nodes.assemble import ResultType
+    from src.api import routes
+
+    class FakeGraph:
+        async def ainvoke(self, *a, **k):
+            return {"result_type": ResultType.abstain, "citations": [], "warnings": []}
+
+    sleep_s = 0.3
+
+    def cham(*a, **k):
+        time_mod.sleep(sleep_s)
+
+    monkeypatch.setattr(routes, "_g", lambda: FakeGraph())
+    monkeypatch.setattr(routes, "_ghi_traces", cham)
+
+    bat_dau = time_mod.monotonic()
+    await asyncio.gather(
+        client.post("/api/v1/tra-cuu", json={"query": "a"}),
+        client.post("/api/v1/tra-cuu", json={"query": "b"}),
+    )
+    tong = time_mod.monotonic() - bat_dau
+    assert tong < sleep_s * 1.7, (
+        f"hai request đồng thời mất {tong:.2f}s — nghi _ghi_traces chặn tuần tự (≈{2 * sleep_s:.2f}s nếu vậy)"
+    )

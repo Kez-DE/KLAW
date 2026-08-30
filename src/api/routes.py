@@ -2,8 +2,11 @@ import logging
 import time
 import uuid
 
+import httpx
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
+from starlette.concurrency import run_in_threadpool
 
 from src.agents.graph_tra_cuu import build_graph_tra_cuu
 from src.config import get_settings
@@ -115,20 +118,32 @@ async def tra_cuu(req: TraCuuRequest) -> TraCuuResponse:
     bat_dau = time.monotonic()
     try:
         st = await _g().ainvoke({"query": req.query, "as_of_date": req.as_of_date, "trace_id": trace_id})
-    except Exception as e:
-        # Lỗi hạ tầng (Postgres xuống, OpenRouter cạn retry...) phải NỔ RA
-        # thành mã lỗi rõ ràng — KHÔNG được rơi êm thành abstain giả. Chi tiết
+    except (httpx.HTTPStatusError, httpx.TransportError, OperationalError) as e:
+        # Lỗi hạ tầng NHẤT THỜI, nhận diện được theo LOẠI ngoại lệ — OpenRouter
+        # 429/5xx cạn retry (httpx) hoặc Postgres không kết nối được
+        # (OperationalError): 503, đúng nghĩa "client NÊN thử lại". Chi tiết
         # đầy đủ vào log server (không lộ ra response — LlmClient không bao
         # giờ đưa OPENROUTER_API_KEY vào message ngoại lệ, nhưng response vẫn
         # chỉ mang TÊN loại lỗi, không mang str(e), để không mở rộng bề mặt rò
         # rỉ nếu một ngoại lệ tương lai vô tình mang theo dữ liệu nhạy cảm).
-        logger.exception("tra_cuu: lỗi hạ tầng khi chạy graph (trace_id=%s)", trace_id)
-        raise HTTPException(status_code=502, detail=f"tra cứu thất bại: {type(e).__name__}") from e
+        logger.exception("tra_cuu: lỗi hạ tầng nhất thời khi chạy graph (trace_id=%s)", trace_id)
+        raise HTTPException(status_code=503, detail=f"tra cứu thất bại: {type(e).__name__}") from e
+    except Exception as e:
+        # Không thuộc hai loại rõ ràng-nhất-thời ở trên — bug thật (KeyError,
+        # AttributeError...) hoặc ValueError của chính LlmClient khi OpenRouter
+        # trả nội dung dị dạng (content rỗng/usage thiếu, xem llm.py) — 500,
+        # KHÔNG ngụ ý client nên tự ý thử lại. Giới hạn đã biết: ValueError đó
+        # về BẢN CHẤT cũng là dấu hiệu OpenRouter không ổn định, nhưng llm.py
+        # dùng ValueError trần (không phải exception riêng) nên không tách
+        # được khỏi ValueError từ một bug thật bằng KIỂU — nâng cấp lên một
+        # exception riêng nếu cần tách rạch hơn.
+        logger.exception("tra_cuu: lỗi không xác định khi chạy graph (trace_id=%s)", trace_id)
+        raise HTTPException(status_code=500, detail=f"tra cứu thất bại: {type(e).__name__}") from e
     latency_ms = int((time.monotonic() - bat_dau) * 1000)
 
     config_name = req.config_name or s.eval_config_name
     try:
-        _ghi_traces(trace_id, "/api/v1/tra-cuu", req.query, config_name, st, latency_ms)
+        await run_in_threadpool(_ghi_traces, trace_id, "/api/v1/tra-cuu", req.query, config_name, st, latency_ms)
     except Exception:
         # Telemetry hỏng không phải lý do từ chối người dùng một câu trả lời
         # đã tính ĐÚNG — khác lỗi hạ tầng của chính graph ở trên, cái đó PHẢI

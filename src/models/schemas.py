@@ -12,7 +12,12 @@ class TraCuuRequest(BaseModel):
     # `n_expand`/`danh_gia` cần so sánh (`hl <= as_of`) sẽ nhận một chuỗi và
     # nổ TypeError ở giữa graph thay vì bị chặn sạch ở biên bởi FastAPI.
     as_of_date: date | None = None
-    config_name: str | None = None
+    # `max_length`, KHÔNG PHẢI danh sách enum cố định (FastAPI review, MEDIUM):
+    # đây là nhãn ablation (Task 9 có "full"/"hybrid"/"lexical_only"/
+    # "dense_only"/"bm25_only", và danh sách còn mở rộng) — trước bản này là
+    # field DUY NHẤT không ràng buộc gì, trong khi `query` có min/max_length
+    # và `as_of_date` là `date`.
+    config_name: str | None = Field(default=None, max_length=100)
 
 
 class CitationOut(BaseModel):
