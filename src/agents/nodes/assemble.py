@@ -294,6 +294,12 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
     # tầng 1+2, kể cả cái bị loại khỏi prose (kèm `hieu_luc` để phân biệt).
     dung_cho_prose: list = []
     nguon_bi_loc: list[str] = []
+    # N1 (silent-failure review round 2): phép kiểm thứ năm phải so `answer`
+    # với tập citation THỰC SỰ dùng để dựng văn xuôi, không phải toàn bộ
+    # `citations` — nếu không, một số Điều tới từ nguồn VỪA BỊ LOẠI (bi_thay_the/
+    # het_hieu_luc, không neo) vẫn được coi là "có căn cứ" vì nó tình cờ có mặt
+    # ở đâu đó trong `citations`, dù chính prompt hành văn chưa từng thấy nó.
+    citations_dung_cho_prose: list = []
     for r in verified:
         # row_id = dòng THẬT hiển thị (xem docstring `Citation`) — ghi lại
         # NGUYÊN VẸN vào citation dưới tên `khop_tai_id`, tường minh, thay vì
@@ -328,6 +334,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
             nguon_bi_loc.append(so_ky_hieu)
         else:
             dung_cho_prose.append(r)
+            citations_dung_cho_prose.append(citations[-1])
 
     # Toàn bộ nguồn dùng-được-cho-prose đã bị lọc (mọi citation đều bi_thay_the/
     # het_hieu_luc và câu hỏi không neo văn bản nào) → KHÔNG dựng câu trả lời
@@ -364,8 +371,12 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
     # khi có `answer` thật (kể cả đường fallback ở trên): fallback nối
     # nguyên văn claim.text nên về lý thuyết không tự bịa số Điều, nhưng kiểm
     # vẫn chạy trên CẢ HAI đường — phép kiểm không được giả định đường nào
-    # "chắc chắn an toàn".
-    dieu_bi_loai = _dieu_khong_duoc_chong_do(answer, citations)
+    # "chắc chắn an toàn". So với `citations_dung_cho_prose`, KHÔNG PHẢI
+    # `citations` đầy đủ (N1, silent-failure review round 2): `citations` còn
+    # chứa cả nguồn đã bị phép kiểm thứ bảy loại khỏi văn xuôi (bi_thay_the/
+    # het_hieu_luc, không neo) — so với tập đó sẽ cho một số Điều đến từ nguồn
+    # VỪA BỊ LOẠI vẫn qua sạch, dù chính prompt hành văn chưa từng thấy nó.
+    dieu_bi_loai = _dieu_khong_duoc_chong_do(answer, citations_dung_cho_prose)
     if dieu_bi_loai:
         logger.warning(
             "assemble: answer nhắc Điều %s không có trong citations đã xác minh — hạ xuống abstain (%s)",

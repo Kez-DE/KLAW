@@ -314,3 +314,38 @@ def test_neo_vao_van_ban_va_ly_do_ke_nhiem_0_token():
     from src.agents.nodes.assemble import _neo_vao_van_ban, _van_ban_ke_nhiem
     assert set(inspect.signature(_neo_vao_van_ban).parameters) == {"query", "so_ky_hieu"}
     assert set(inspect.signature(_van_ban_ke_nhiem).parameters) == {"ly_do"}
+
+
+def test_N1_phep_kiem_5_chi_so_voi_citation_DUNG_CHO_PROSE_khong_phai_toan_bo():
+    """Bug đo được (silent-failure review round 2): phép kiểm thứ năm từng so
+    `answer` với TOÀN BỘ `citations` — kể cả claim đã bị phép kiểm thứ bảy
+    loại khỏi văn xuôi (bi_thay_the, không neo). Answer nhắc số Điều của
+    nguồn ĐÃ BỊ LOẠI đó vẫn "qua" phép kiểm 5 vì nó tình cờ có mặt ở đâu đó
+    trong `citations` đầy đủ — dù prompt hành văn chưa từng thấy claim đó.
+
+    Điều 5 (con_hieu_luc, DÙNG cho prose) và Điều 3 (bi_thay_the, không neo,
+    BỊ LOẠI khỏi prose) khác số cố ý — để "Điều 3 có mặt trong citations đầy
+    đủ" và "Điều 3 có mặt trong citations_dung_cho_prose" tách bạch được."""
+    db = {1: {"id": 1, "duong_dan": "293/2025/NĐ-CP > Điều 5", "so_ky_hieu": "293/2025/NĐ-CP", "ten": "x"},
+          2: {"id": 2, "duong_dan": "90/2019/NĐ-CP > Điều 3", "so_ky_hieu": "90/2019/NĐ-CP", "ten": "y"}}
+    eff_con = Effectivity(V.con_hieu_luc, "thap", "không có tín hiệu chấm dứt nào")
+    eff_thay = Effectivity(V.bi_thay_the, "trung_binh", "suy luận cùng chủ đề: 293/2025/NĐ-CP cùng chủ đề")
+    t1a = Tier1Result(Claim("Điều 5 quy định mức lương mới.", 1, "q1"), True, R.ok, eff_con)
+    t1b = Tier1Result(Claim("Điều 3 quy định mức lương cũ.", 2, "q2"), True, R.ok, eff_thay)
+
+    class NhacDieuDaBiLoc(FakeLlm):
+        def chat(self, model, messages, json_schema=None):
+            from src.services.llm import Usage
+            # answer nhắc "Điều 3" — số Điều của claim ĐÃ BỊ LOẠI khỏi prose
+            # (90/2019, bi_thay_the, không neo). Trước fix N1: phép kiểm 5 so
+            # với `citations` ĐẦY ĐỦ (có cả Điều 3 của claim bị loại) → cho
+            # qua NHẦM. Sau fix: so với `citations_dung_cho_prose` (chỉ Điều
+            # 5) → không thấy Điều 3 → hạ xuống abstain, đúng ý phép kiểm 5.
+            return json.dumps({"answer": "Điều 3 quy định mức lương cũ."}), Usage(1, 1, 0.0)
+
+    st = assemble({"intent": "tra_cuu", "query": "mức lương tối thiểu hiện nay",
+                   "expanded": [db[1], db[2]], "tier1": [t1a, t1b],
+                   "tier2": [Tier2Verdict(0, True, "ok"), Tier2Verdict(1, True, "ok")],
+                   "abstain_threshold": 0.5}, db, NhacDieuDaBiLoc(), "m")
+    assert st["result_type"] is ResultType.abstain
+    assert st["traces"]["assemble_dieu_bi_loai"] == ["3"]
