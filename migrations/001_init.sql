@@ -107,12 +107,11 @@ END $$;
 -- `tieu_muc`/`phu_luc`/`mo_dau` — mã đó không nằm trong EXCEPTION, và
 -- `run_migrations()` bọc mọi file trong MỘT transaction nên tất cả rollback.
 
-DO $$ BEGIN
-    -- 0 = MOJ không cung cấp referenceType; 1..15 là bảng mã quan hệ của MOJ
-    ALTER TABLE "references" ADD CONSTRAINT references_loai_check
-        CHECK (loai BETWEEN 0 AND 15);
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+-- `references_loai_check` CỐ Ý KHÔNG CÓ Ở ĐÂY. Nó do `007_loai_hieu_luc_suy_ra.sql`
+-- — file MỚI NHẤT — sở hữu, và chỉ nó. Bản cũ ở file này chỉ cho 0..15 (bảng mã
+-- MOJ), tức nó là bản HẸP HƠN bản đang chạy (0..31, dành thêm dải 20..23 cho
+-- quan hệ hiệu lực tự suy ra); giữ lại là vi phạm quy tắc `002:17` và mở lại
+-- đúng đường vỡ mà `007` đã sửa: xem ghi chú trong `007`.
 
 DO $$ BEGIN
     ALTER TABLE "references" ADD CONSTRAINT references_from_document_fk

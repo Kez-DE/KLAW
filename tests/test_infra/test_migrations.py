@@ -213,6 +213,63 @@ def test_cap_mo_dau_duoc_CHECK_cho_qua():
 
 
 @pytest.mark.integration
+def test_references_loai_check_CHO_qua_dai_20_23_va_CHAN_ngoai_0_31():
+    """`007`. Dải 20..23 dành cho quan hệ hiệu lực TỰ SUY RA (T1, plan 3) — xem
+    `scripts/load_incoming_edges.py`. Không đụng 1,3,4,9,10,12 của MOJ."""
+    run_migrations()
+    with get_engine().connect() as c:
+        chk = c.execute(text(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint"
+            " WHERE conname = 'references_loai_check'")).scalar_one()
+        assert "31" in chk, f"chưa nới lên 31: {chk}"
+    eng = get_engine()
+    with eng.begin() as c:
+        c.execute(text(
+            "INSERT INTO documents (id, so_ky_hieu, loai_van_ban, ten, tinh_trang, checksum)"
+            " VALUES ('loai-test', 'x/2024/NĐ-CP', 'Nghị định', 't', 'chua_xac_dinh', 'c')"
+            " ON CONFLICT (id) DO NOTHING"))
+    try:
+        with eng.begin() as c:   # 20..23: PHẢI qua
+            for ma in (20, 21, 22, 23):
+                c.execute(text(
+                    'INSERT INTO "references" (from_document_id, loai) VALUES (\'loai-test\', :l)'),
+                    {"l": ma})
+        for ma in (-1, 32):
+            with pytest.raises(IntegrityError):
+                with eng.begin() as c:
+                    c.execute(text(
+                        'INSERT INTO "references" (from_document_id, loai) VALUES (\'loai-test\', :l)'),
+                        {"l": ma})
+    finally:
+        with eng.begin() as c:
+            c.execute(text("DELETE FROM documents WHERE id = 'loai-test'"))
+
+
+@pytest.mark.integration
+def test_migration_idempotent_KHI_DA_CO_DONG_loai_hieu_luc_suy_ra():
+    """Đúng phép thử `test_migration_idempotent_KHI_DA_CO_DU_LIEU_dung_moi_cap` ở
+    trên, áp cho `references_loai_check`: chèn một dòng dùng mã 20..23 MỚI NHẤT
+    của `007` rồi chạy lại migration hai lần. Nếu câu lệnh tạo constraint hẹp
+    (0..15) còn sót lại ở `001` thay vì được gỡ hẳn, đây là phép thử phải bắt
+    được lỗi đó — không phải bảng RỖNG như `test_migration_idempotent_chay_hai_lan_khong_loi`."""
+    run_migrations()
+    eng = get_engine()
+    with eng.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO documents (id, so_ky_hieu, loai_van_ban, ten, tinh_trang, checksum)"
+            " VALUES ('mig-loai-test', 'y/2024/NĐ-CP', 'Nghị định', 't', 'chua_xac_dinh', 'c')"
+            " ON CONFLICT (id) DO NOTHING"))
+        conn.execute(text(
+            'INSERT INTO "references" (from_document_id, loai) VALUES (\'mig-loai-test\', 21)'))
+    try:
+        run_migrations()   # phải KHÔNG ném CheckViolation trên dòng loai=21 vừa chèn
+        run_migrations()
+    finally:
+        with eng.begin() as conn:
+            conn.execute(text("DELETE FROM documents WHERE id = 'mig-loai-test'"))
+
+
+@pytest.mark.integration
 def test_check_so_hieu_cap_CHAN_moi_cap_cau_truc_va_CHO_hai_cap_tai_lieu():
     """`005`. Dạng ĐỒNG NHẤT: mọi cấp phải có số hiệu, trừ `mo_dau`/`phu_luc` —
     hai cấp tài liệu là chữ không thuộc điều luật nào nên không có số hiệu để
