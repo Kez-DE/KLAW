@@ -74,7 +74,7 @@
 
 ## 4. Task 10 — Graph + endpoint + tập bẫy (Plan 3)
 
-### ⚠️ Phát hiện quan trọng nhất: `dieu_khong_ton_tai` 0/15 → 2/15 sau khi vá — KHÔNG phải "trích dẫn bịa" theo nghĩa hẹp, mà tệ hơn ở một cách khác
+### ⚠️ Phát hiện quan trọng nhất: `dieu_khong_ton_tai` 0/15 → 2/15 → 15/15 sau HAI lần vá — hai chế độ hỏng KHÁC NHAU, không phải một
 
 **Đã vá bằng phép kiểm THỨ NĂM** (coordinator giao sau khi đọc phát hiện dưới đây): `assemble.py::_dieu_khong_duoc_chong_do` — rút mọi "Điều N" trong `answer`, so với tập số Điều trong `citations` đã qua tầng 1+2; số nào không được chống đỡ → hạ xuống `abstain`, ghi `traces["assemble_dieu_bi_loai"]` (rỗng khi qua, danh sách số khi hạ) để đếm tần suất. Vẫn TRA BẢNG, 0 TOKEN (test chữ ký khoá không llm/engine). Đo lại nguyên 15 câu: **2/15 giờ đúng abstain** (`trap-nonexist-07`, `trap-nonexist-09` — chính ca đã đo ở dưới). **Không phải 15/15** — hành vi gốc (LLM gán nội dung đã verify cho số Điều bịa trong câu hỏi) **gián đoạn, không hệ thống** (coordinator đo riêng: 1/6 lần); phép kiểm mới chỉ bắt được lần nó THỰC SỰ xảy ra trong lượt đo này, không phải toàn bộ 15 câu đều mắc lỗi. Xác nhận không có false-negative: chạy lại hàm kiểm trên cả 13 câu còn `answer`, không câu nào thực sự có số Điều lệch.
 
@@ -90,6 +90,8 @@ Model lấy ĐÚNG nội dung từ Điều 363-365 (tiêu đề ba điều này 
 
 **Đối chứng — 1/15 câu hành văn ĐÚNG:** `trap-nonexist-07` ("Điều 450 Bộ luật Hình sự"): *"Thông tin bạn cung cấp không đề cập đến Điều 450 Bộ luật Hình sự."* — model tự nhận không có căn cứ, nhưng `result_type` vẫn là `answer` (có 1 citation kèm theo, quan hệ khá xa). Cho thấy `result_type` hai giá trị hiện tại không phân biệt được "trả lời có căn cứ" với "trả lời kèm tự bác bỏ".
 
+**Vá lần hai — phép kiểm thứ SÁU, ở tầng ĐẦU VÀO** (coordinator, sau khi đọc `trap.yaml` và nhận ra 13/15 câu vẫn `answer` sai — chỉ là sai vì MỘT LÝ DO KHÁC phép kiểm thứ năm vừa vá): 13/15 câu `answer` còn lại không hề bịa số Điều trong PROSE (phép kiểm thứ năm đúng khi để chúng qua) — chúng chỉ ÂM THẦM BỎ QUA việc số Điều NGƯỜI HỎI nêu không tồn tại, rồi trả lời một câu hỏi KHÁC (đúng chủ đề, sai tiền đề) mà không nói ra. `verify_tier1.tien_de_cau_hoi_sai(query, engine)` — vẫn TRA BẢNG, 0 TOKEN, chạy TRƯỚC rewrite/retrieve/generate: rút "Điều N [văn bản]" từ câu hỏi, tra ĐÚNG (văn bản, số Điều) — không phải số Điều một mình, vì Điều 550 có thật ở Bộ luật Dân sự (689 điều) nhưng không có ở Bộ luật Tố tụng dân sự (517 điều). Không nhận diện được văn bản nào thì KHÔNG chặn (thà bỏ lọt còn hơn chặn nhầm). Đo lại nguyên 15 câu: **15/15 → abstain**, mỗi câu chỉ tốn 1 lần gọi API (route) thay vì ~8 — phép kiểm bắt được TRƯỚC KHI pipeline tốn một token nào. Ví dụ nguyên văn `coverage_note`: *"Bộ luật Lao động không có Điều 999"*.
+
 **Kết luận cho khoá luận:** tầng 1 phép kiểm 1 (provision tồn tại) làm ĐÚNG việc nó được thiết kế để làm (không cho qua provision_id bịa) — nhưng KHÔNG bảo vệ được trường hợp câu hỏi tự mang một tiền đề sai (số Điều không tồn tại) mà model né tránh bằng cách âm thầm trả lời một câu hỏi khác. Đây là một lớp lỗ hổng NGOÀI phạm vi bốn phép kiểm hiện có — bước hành văn cuối cùng của `assemble` không được đối chiếu lại với accuracy của chính câu hỏi gốc.
 
 ### Bảng 40/40 theo nhóm
@@ -97,9 +99,9 @@ Model lấy ĐÚNG nội dung từ Điều 363-365 (tiêu đề ba điều này 
 | Nhóm | Đúng/Tổng | % | Ghi chú |
 |---|---|---|---|
 | `ngoai_pham_vi` (kỳ vọng out_of_scope) | 14/15 | 93% | 1 câu route sai → `abstain` (an toàn, không phải trả lời sai) |
-| `dieu_khong_ton_tai` (kỳ vọng abstain) | 2/15 | 13% | Trước khi vá: 0/15. Sau phép kiểm thứ năm: 2/15 (`nonexist-07`, `nonexist-09`) — xem phân tích ở trên |
+| `dieu_khong_ton_tai` (kỳ vọng abstain) | 15/15 | 100% | 0/15 → 2/15 (phép kiểm 5, prose) → 15/15 (phép kiểm 6, tiền đề câu hỏi) — xem phân tích |
 | `van_ban_bi_thay` (kỳ vọng warning) | 10/10 | 100% | Xem chi tiết mục dưới — kết quả THÀNH CÔNG rõ ràng nhất của tập bẫy |
-| **TỔNG** | **26/40** | **65%** | Đo đủ 40/40, không phải mẫu chọn. Trước phép kiểm thứ năm: 24/40 (60%) |
+| **TỔNG** | **39/40** | **97,5%** | Đo đủ 40/40. Tiến trình: 24/40 (60%) → 26/40 (65%, phép kiểm 5) → 39/40 (97,5%, phép kiểm 6) |
 
 ### Nhóm `van_ban_bi_thay` — chi tiết (10/10 đúng)
 
@@ -132,7 +134,7 @@ Một số câu (02, 04, 09) trả về NHIỀU citation từ cả 4 nghị đ�
 
 ### Số lần gọi API thật và chi phí
 
-**411** tổng cộng qua 4 lượt (round 1: 38, round 2: 232, ablation OFF: 24, đo lại `dieu_khong_ton_tai` sau phép kiểm thứ năm: 117) — trần được coordinator nới hai lần (300, rồi +150 riêng cho lượt đo lại), còn dư so với mọi trần đã cấp. Không quan sát 429 lần nào trong toàn bộ 4 lượt.
+**426** tổng cộng qua 5 lượt (round 1: 38, round 2: 232, ablation OFF: 24, đo lại sau phép kiểm 5: 117, đo lại sau phép kiểm 6: 15) — trần được coordinator nới ba lần (300, +150, +120), còn dư rất nhiều so với mọi trần đã cấp; lượt cuối RẺ HẲN (15 câu chỉ tốn 15 call, vì phép kiểm 6 chặn TRƯỚC khi pipeline tốn token). Không quan sát 429 lần nào.
 
 Chi phí: mẫu đo `cost_usd` trên các hàng `traces` thật dao động 0,0012–0,0065 USD/request tuỳ độ dài câu trả lời (không đồng nhất bằng $0,0065 như ước tính ban đầu — câu có ít claim/answer ngắn rẻ hơn nhiều). Tổng cộng khoảng 60 request full-pipeline thật đã chạy trong 3 lượt — chi phí thực tế nằm trong khoảng đã ước tính (~$0,15–0,25), dưới ngân sách $0,20-0,30 coordinator chấp nhận.
 
