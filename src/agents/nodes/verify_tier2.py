@@ -181,8 +181,13 @@ def verify_tier2_and_trace(
     verdicts, usage = _run_judge(tier1, db_provisions, llm, model)
     traces = {
         **(prior_traces or {}),
-        "tier2_generate_model": generate_model(),
-        "tier2_judge_model": model,
+        # Điều kiện theo `usage`, giống ba khoá bên dưới — KHÔNG vô điều kiện:
+        # `usage is None` nghĩa là `_run_judge` không hề gọi LLM (qua_t1 rỗng).
+        # Hai cột này là BẰNG CHỨNG "judge đã chạy trên request thật" (docstring
+        # routes.py) — ghi tên model khi chưa judge biến "chưa judge" thành
+        # "đã judge" trong số liệu (silent-failure review, sau task-10).
+        "tier2_generate_model": generate_model() if usage else None,
+        "tier2_judge_model": model if usage else None,
         "tier2_token_in": usage.token_in if usage else 0,
         "tier2_token_out": usage.token_out if usage else 0,
         "tier2_cost_usd": usage.cost_usd if usage else 0.0,

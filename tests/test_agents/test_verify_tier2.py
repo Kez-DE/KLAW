@@ -171,13 +171,23 @@ def test_traces_dung_usage_that_va_ca_hai_ten_model():
 
 def test_traces_khac_ho_that_giua_generate_va_judge_mac_dinh():
     """Chứng minh bằng SỐ đo được qua chính `traces`, không tuyên bố suông:
-    model mặc định của hai vai khác PROVIDER (spec 7b.2)."""
-    llm = FakeLlm({"verdicts": []})
-    _, traces = verify_tier2_and_trace([], DB, llm, judge_model())
+    model mặc định của hai vai khác PROVIDER (spec 7b.2).
+
+    `tier1=[_ok(0)]`, KHÔNG PHẢI `[]`: sau khi hai cột tên model có điều kiện
+    theo `usage` (silent-failure review), `tier1=[]` không gọi LLM nên cả hai
+    cột đều None — test khi đó chỉ chứng minh "None != None ném lỗi", không
+    còn chứng minh được điều nó tuyên bố. Cần MỘT claim qua tầng 1 để judge
+    THẬT SỰ chạy."""
+    llm = FakeLlm({"verdicts": [{"claim_index": 0, "supported": True, "reason": "x"}]})
+    _, traces = verify_tier2_and_trace([_ok(0)], DB, llm, judge_model())
     assert _provider(traces["tier2_generate_model"]) != _provider(traces["tier2_judge_model"])
 
 
-def test_traces_khong_goi_llm_thi_khong_co_cost_nhung_van_ghi_ten_model():
+def test_traces_khong_goi_llm_thi_khong_co_cost_va_KHONG_ghi_ten_model():
+    """Sửa sau silent-failure review: bản cũ của test này khẳng định
+    tier2_judge_model == "m" NGAY CẢ KHI judge không hề chạy — đúng bug bị bắt
+    (hai cột tên model là bằng chứng "đã judge trên request thật"; ghi tên
+    model khi chưa judge biến "chưa judge" thành "đã judge" trong số liệu)."""
     class Never(FakeLlm):
         def chat(self, *a, **k):
             raise AssertionError("không có claim nào để kiểm")
@@ -186,7 +196,8 @@ def test_traces_khong_goi_llm_thi_khong_co_cost_nhung_van_ghi_ten_model():
     verdicts, traces = verify_tier2_and_trace([fail], DB, Never({}), "m")
     assert verdicts == []
     assert traces["tier2_token_in"] == 0 and traces["tier2_cost_usd"] == 0.0
-    assert traces["tier2_judge_model"] == "m"
+    assert traces["tier2_judge_model"] is None
+    assert traces["tier2_generate_model"] is None
 
 
 def test_traces_gop_voi_traces_co_san_khong_ghi_de():

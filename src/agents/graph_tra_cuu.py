@@ -115,7 +115,16 @@ def build_graph_tra_cuu():
         # trap.yaml fail im lặng (xem
         # test_effectivity_tu_expand_duoc_dung_KHONG_tinh_lai_voi_canh_rong).
         eff_map = {p["id"]: p["effectivity"] for p in (st.get("expanded") or []) if p.get("effectivity") is not None}
-        mac_dinh = Effectivity(EffectivityVerdict.con_hieu_luc, "thap",
+        # `chua_xac_dinh`, KHÔNG PHẢI `con_hieu_luc` (silent-failure review):
+        # effectivity.py quy định dứt khoát — không biết → chua_xac_dinh,
+        # KHÔNG BAO GIỜ mặc định còn hiệu lực. Nhánh này hiện KHÔNG đến được
+        # qua graph thật (trong_context và eff_map cùng dựng từ st["expanded"],
+        # và expand() gán effectivity cho MỌI dòng) — nhưng chỉ cần một tối ưu
+        # tương lai làm hai list lệch nhau là một điều luật CHƯA TỪNG được
+        # đánh giá sẽ hiện ra "còn hiệu lực, không cảnh báo": đúng chế độ hỏng
+        # nguy hiểm nhất của cả đề tài, xảy ra ở chính điểm mặc định an toàn
+        # phải chặn.
+        mac_dinh = Effectivity(EffectivityVerdict.chua_xac_dinh, "thap",
                                "không có trong tập expanded — không đánh giá được hiệu lực")
         return {**st, "tier1": verify_tier1(claims, st.get("expanded") or [], dbp,
                                              lambda pid: eff_map.get(pid, mac_dinh))}

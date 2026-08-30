@@ -36,9 +36,15 @@ class Intent(StrEnum):
 def route(state: dict, llm, model: str) -> dict:
     prior_traces = state.get("traces") or {}
     prompt = PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi=state["query"])
-    usage = None
+    # llm.chat(...) NẰM NGOÀI try: lỗi hạ tầng thật (content rỗng, usage thiếu
+    # — xem ValueError ở llm.py chat()/_usage_from()) phải NỔ RA NGOÀI, đúng
+    # ruling gốc của module này (docstring đầu file). Bọc nó CÙNG phần parse
+    # bên dưới sẽ khiến "OpenRouter chết" và "model trả intent không nhận ra"
+    # rơi vào MỘT nhánh fallback tra_cuu như nhau — hai chế độ hỏng khác nhau
+    # mà số liệu độ chính xác route sau này không tách lại được (silent-failure
+    # review, sau task-10).
+    raw, usage = llm.chat(model, [{"role": "user", "content": prompt}], json_schema=INTENT_SCHEMA)
     try:
-        raw, usage = llm.chat(model, [{"role": "user", "content": prompt}], json_schema=INTENT_SCHEMA)
         intent = Intent(json.loads(raw)["intent"])
     except (json.JSONDecodeError, KeyError, ValueError, TypeError, RuntimeError):
         # Route sai sang ngoai_pham_vi làm hệ thống từ chối oan.

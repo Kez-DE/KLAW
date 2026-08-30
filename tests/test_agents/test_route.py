@@ -37,6 +37,21 @@ def test_route_json_hong_thi_mac_dinh_tra_cuu():
     assert route({"query": "x"}, Bad({}), "m")["intent"] is Intent.tra_cuu
 
 
+def test_route_loi_ha_tang_PHAI_no_ra_khong_duoc_nuot():
+    """Ruling: lỗi hạ tầng (LlmClient raise vì content rỗng hoặc usage thiếu —
+    xem llm.py ValueError ở _usage_from/chat) phải NỔ RA NGOÀI route, khác
+    'model trả intent không nhận ra' (JSON hỏng/enum lạ) — cái đó mới được
+    phép fallback tra_cuu. Gộp hai chế độ hỏng làm số liệu độ chính xác route
+    không tách được 'model không chắc' với 'hạ tầng chết' (silent-failure
+    review, sau task-10)."""
+    class Bad(FakeLlm):
+        def chat(self, *a, **k):
+            raise ValueError("model trả content rỗng")
+
+    with pytest.raises(ValueError):
+        route({"query": "x"}, Bad({}), "m")
+
+
 def test_rewrite_luon_giu_query_GOC_o_vi_tri_0():
     st = rewrite_query({"query": "công ty cho nghỉ không báo trước"},
                        FakeLlm({"queries": ["nghĩa vụ thông báo khi đơn phương chấm dứt HĐLĐ"]}), "m")
