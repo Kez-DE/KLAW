@@ -279,6 +279,22 @@ def test_traces_mang_cot_model_va_kich_thuoc_expand():
 
 
 @pytest.mark.integration
+def test_index_khoa_ngoai_ton_tai_va_migration_idempotent_tren_bang_co_du_lieu():
+    """`009` (silent-failure review round 2): ba cột FK không index — đo bằng
+    EXPLAIN ANALYZE (task-10-report.md): CTE đệ quy của `nap_provisions()`
+    Seq Scan lại toàn bộ `provisions` mỗi vòng lặp, 10,034ms cho 10 id; sau
+    index còn 0,705ms. `CREATE INDEX IF NOT EXISTS` tự idempotent, nhưng vẫn
+    chạy trên bảng CÓ dữ liệu theo đúng quy tắc Plan 1 (bảng rỗng không bắt
+    được lỗi, dù rủi ro ở index thấp hơn hẳn constraint)."""
+    run_migrations()
+    idx = {i["name"] for i in inspect(get_engine()).get_indexes("provisions")}
+    idx |= {i["name"] for i in inspect(get_engine()).get_indexes("references")}
+    assert {"ix_provisions_parent_id", "ix_references_from_provision_id",
+            "ix_references_to_provision_id"} <= idx
+    run_migrations()   # bảng đã có 19.135+ dòng thật — phải KHÔNG lỗi
+
+
+@pytest.mark.integration
 def test_migration_idempotent_KHI_DA_CO_DONG_traces():
     """Đúng phép thử `test_migration_idempotent_KHI_DA_CO_DU_LIEU_dung_moi_cap`
     ở trên áp cho `008`: chèn một dòng `traces` THẬT (đủ NOT NULL) rồi chạy lại
