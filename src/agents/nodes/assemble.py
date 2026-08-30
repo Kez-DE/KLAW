@@ -18,8 +18,8 @@ Cảnh báo hiệu lực PHẢI chịu tải: Plan 1 đo được cả 6 nghị 
 liên quan trên MOJ chỉ có PDF scan (`hasContent: false`), và MOJ tự đánh 4/6
 nghị định đã bị thay thế là "còn hiệu lực". Task 2 sửa được cả 4 và
 `Effectivity.ly_do` nêu đích danh văn bản thay thế — nên khi verdict rơi vào
-`CANH_BAO`, nguyên văn `ly_do` phải lên tới người dùng, không phải chỉ nằm
-trong traces.
+`CANH_BAO_NHAN`, nguyên văn `ly_do` phải lên tới người dùng, không phải chỉ
+nằm trong traces.
 """
 
 import json
