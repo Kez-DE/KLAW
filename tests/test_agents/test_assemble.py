@@ -349,3 +349,24 @@ def test_N1_phep_kiem_5_chi_so_voi_citation_DUNG_CHO_PROSE_khong_phai_toan_bo():
                    "abstain_threshold": 0.5}, db, NhacDieuDaBiLoc(), "m")
     assert st["result_type"] is ResultType.abstain
     assert st["traces"]["assemble_dieu_bi_loai"] == ["3"]
+
+
+def test_CRITICAL_tier2_RONG_HOAN_TOAN_khong_duoc_coi_la_da_verified():
+    """Test quan trọng nhất của lượt này (coordinator): khoá đúng RULING
+    2026-08-31 mà Task 9 đã gỡ khỏi assemble.py — "tier2 rỗng toàn bộ" KHÔNG
+    được coi là "mọi claim qua tầng 1 đã verified". Một mutation tái lập đúng
+    bug đó (`if not tier2: verified = qua_t1`) từng chạy qua CI xanh tuyệt đối
+    vì không test nào canh nhánh này — một comment ruling không phải một phép
+    kiểm. Tier 1 CÓ 2 claim pass, tier2 RỖNG HOÀN TOÀN (không phải thiếu vài
+    verdict — không có lấy MỘT cái)."""
+    class KhongDuocGoi(FakeLlm):
+        def chat(self, *a, **k):
+            raise AssertionError("verified rỗng thì không được gọi LLM hành văn")
+
+    t1a = Tier1Result(Claim("a", 11, "85%"), True, R.ok, EFF)
+    t1b = Tier1Result(Claim("b", 11, "85%"), True, R.ok, EFF)
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1a, t1b],
+                   "tier2": [], "abstain_threshold": 0.5}, DB, KhongDuocGoi(), "m")
+    assert st["result_type"] is not ResultType.answer
+    assert st["result_type"] is ResultType.abstain
+    assert st["citations"] == [] and st["answer"] is None
