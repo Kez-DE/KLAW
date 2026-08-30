@@ -83,8 +83,57 @@ _SQL_HOP = text(
 )
 
 
+# ══ Logic THUẦN (silent-failure review — CRITICAL 2) ═════════════════════════
+# expand.py trước bản này gộp SQL và Python trong một hàm, nên 0% được unit
+# test (cả 10 test của test_expand.py đều @pytest.mark.integration, bị lệnh CI
+# `-m "not integration"` loại sạch — trên một clone sạch, KHÔNG dòng nào của
+# node này được kiểm). Ba hàm dưới đây nhận dữ liệu ĐÃ LẤY SẴN (list/dict
+# thường), không chạm DB — tách theo đúng khuôn `verify_tier1`/`effectivity.py`
+# đã dùng (hàm thuần tách khỏi lớp DB).
+
+
+def _mo_rong_cha(ids: set[int], cha_moi: list[int]) -> set[int]:
+    """Bước 1 THUẦN (module docstring #1): hợp nhất cha mới tìm được (Khoản/
+    Điểm → Điều cha) vào `ids`, khử trùng qua set. `cha_moi` là kết quả THÔ
+    của `_SQL_PARENT` (đã lấy sẵn) — có thể chứa `None` nếu caller không lọc
+    trước, nên vẫn lọc lại ở đây cho an toàn."""
+    return set(ids) | {p for p in cha_moi if p is not None}
+
+
+def _mo_rong_con_hai_muc(ids: set[int], con_muc1: list[int], con_muc2: list[int]) -> set[int]:
+    """Bước 2 THUẦN (module docstring #2): Điều → con (`con_muc1`) → cháu
+    (`con_muc2`) — CHẶN Ở HAI MỨC, không đệ quy tới lá bất kể cây sâu tới đâu.
+    `con_muc1`/`con_muc2` là kết quả THÔ của `_SQL_CHILDREN` gọi hai lượt (lượt
+    hai truy vấn con của `con_muc1`) — đã lấy sẵn, không chạm DB ở đây."""
+    return set(ids) | set(con_muc1) | set(con_muc2)
+
+
+def _chia_deep_shallow(rows: list[dict], eff, uu_tien: dict[int, int]) -> tuple[list[dict], list[dict]]:
+    """Bước 4 THUẦN (module docstring #4): đánh dấu hiệu lực — KHÔNG LỌC, mọi
+    provision đều được gắn `effectivity` kể cả `het_hieu_luc`/`bi_thay_the` —
+    rồi chia deep/shallow theo `depth`, sắp theo độ ưu tiên ban đầu. `metadata`
+    hay giá trị lạ khác bị loại khỏi CẢ HAI danh sách một cách tường minh.
+    `eff` là callable `provision_id -> Effectivity` đã có sẵn (test truyền
+    hàm giả) — không chạm DB ở đây.
+    """
+    deep: list[dict] = []
+    shallow: list[dict] = []
+    for r in rows:
+        r = {**r, "effectivity": eff(r["id"])}
+        depth = r.get("depth")
+        if depth == "deep":
+            deep.append(r)
+        elif depth == "shallow":
+            shallow.append(r)
+        # else: 'metadata' hoặc giá trị lạ khác — loại khỏi CẢ HAI (xem docstring #4)
+    deep.sort(key=lambda p: uu_tien.get(p["id"], 10**6))
+    shallow.sort(key=lambda p: uu_tien.get(p["id"], 10**6))
+    return deep, shallow
+
+
 def expand(provision_ids: list[int], engine: Engine, as_of: date, hops: int) -> tuple[list[dict], list[dict]]:
-    """`(expanded_deep, hits_shallow)` — xem docstring module.
+    """`(expanded_deep, hits_shallow)` — xem docstring module. Chỉ lo TRUY VẤN;
+    logic gộp cha/con/chia deep-shallow nằm ở ba hàm thuần phía trên.
 
     `hits_shallow` chỉ để tầng phát hiện ranh giới dùng (PARTIAL_COVERAGE);
     KHÔNG trộn vào `expanded_deep` đưa cho generate_claims.
@@ -98,15 +147,13 @@ def expand(provision_ids: list[int], engine: Engine, as_of: date, hops: int) -> 
     with engine.connect() as conn:
         # 1 — Khoản/Điểm → Điều cha
         parents = conn.execute(_SQL_PARENT, {"ids": list(ids)}).scalars().all()
-        ids.update(p for p in parents if p is not None)
+        ids = _mo_rong_cha(ids, parents)
 
         # 2 — Điều (kể cả cha vừa thêm ở #1) → con, CHẶN Ở HAI MỨC (con rồi
         # cháu trực tiếp) — không đệ quy tới lá.
         children = conn.execute(_SQL_CHILDREN, {"ids": list(ids)}).scalars().all()
-        ids.update(children)
-        if children:
-            grandchildren = conn.execute(_SQL_CHILDREN, {"ids": list(children)}).scalars().all()
-            ids.update(grandchildren)
+        grandchildren = conn.execute(_SQL_CHILDREN, {"ids": list(children)}).scalars().all() if children else []
+        ids = _mo_rong_con_hai_muc(ids, children, grandchildren)
 
         # 3 — reference N hop, frontier-BFS (visited = `ids`, chống vòng + trùng)
         frontier = set(ids)
@@ -121,18 +168,4 @@ def expand(provision_ids: list[int], engine: Engine, as_of: date, hops: int) -> 
 
     db_provisions = {r["id"]: r for r in rows}
     eff = effectivity_qua_provision(engine, db_provisions, as_of)
-
-    deep: list[dict] = []
-    shallow: list[dict] = []
-    for r in rows:
-        r["effectivity"] = eff(r["id"])
-        depth = r.get("depth")
-        if depth == "deep":
-            deep.append(r)
-        elif depth == "shallow":
-            shallow.append(r)
-        # else: 'metadata' hoặc giá trị lạ khác — loại khỏi CẢ HAI (xem docstring #4)
-
-    deep.sort(key=lambda p: uu_tien.get(p["id"], 10**6))
-    shallow.sort(key=lambda p: uu_tien.get(p["id"], 10**6))
-    return deep, shallow
+    return _chia_deep_shallow(rows, eff, uu_tien)

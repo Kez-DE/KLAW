@@ -157,3 +157,53 @@ def test_5_DIEU_that_tu_san_xuat_PHAI_co_it_nhat_mot_con_mang_noi_dung_that():
     deep, _ = expand(ids, get_engine(), date(2026, 8, 27), hops=1)
     con_that = [p for p in deep if p["id"] not in ids and len(p.get("noi_dung") or "") > 120]
     assert con_that, "expand không kéo được Khoản/Điểm con mang nội dung thật cho ca dieu-only thật"
+
+
+# ══ CRITICAL 2 (silent-failure review round 2) — logic thuần, KHÔNG integration ═
+# 0% code của expand.py từng chạy trong CI (`-m "not integration"` loại sạch cả
+# 10 test cũ). Bốn test dưới đây khoá đúng bốn hành vi tối thiểu, thuần Python,
+# không cần Postgres.
+
+from src.agents.nodes.expand import _chia_deep_shallow, _mo_rong_cha, _mo_rong_con_hai_muc  # noqa: E402
+
+
+def test_thuan_con_den_cha_khoan_diem_keo_ve_dieu():
+    """Bước 1: Khoản 5 (con) → kéo về Điều 10 (cha) — chiều con→cha."""
+    assert _mo_rong_cha({5}, [10]) == {5, 10}
+
+
+def test_thuan_cha_den_con_dieu_keo_ve_khoan_diem_hai_muc():
+    """Bước 2: Điều 10 (cha) → con 11,12 rồi cháu 13 — chiều cha→con, CHẶN Ở
+    HAI MỨC (không đệ quy thêm dù đồ thị còn sâu hơn)."""
+    assert _mo_rong_con_hai_muc({10}, [11, 12], [13]) == {10, 11, 12, 13}
+
+
+def test_thuan_khu_trung_id_da_co_khong_nhan_ban():
+    """Id đã có mặt (vd. đã là cha của chính nó qua path khác) không bị thêm
+    trùng — set union tự khử trùng."""
+    assert _mo_rong_cha({5, 10}, [10, 10, None]) == {5, 10}
+    assert _mo_rong_con_hai_muc({10, 11}, [11, 12], [12]) == {10, 11, 12}
+
+
+def test_thuan_hieu_luc_DANH_DAU_khong_LOC_ke_ca_het_hieu_luc():
+    """Provision hết hiệu lực VẪN xuất hiện trong deep — hiệu lực chỉ đính
+    kèm, không bao giờ là lý do loại (module docstring: 'ĐÁNH DẤU, không LỌC')."""
+    rows = [{"id": 1, "depth": "deep"}]
+    eff = {1: V.het_hieu_luc}
+    deep, shallow = _chia_deep_shallow(rows, lambda pid: eff[pid], {1: 0})
+    assert len(deep) == 1 and deep[0]["effectivity"] == V.het_hieu_luc
+    assert shallow == []
+
+
+def test_thuan_deep_shallow_khong_tron_va_metadata_bi_loai_ca_hai():
+    rows = [{"id": 1, "depth": "deep"}, {"id": 2, "depth": "shallow"}, {"id": 3, "depth": "metadata"}]
+    deep, shallow = _chia_deep_shallow(rows, lambda pid: None, {1: 0, 2: 1, 3: 2})
+    assert [r["id"] for r in deep] == [1]
+    assert [r["id"] for r in shallow] == [2]
+    assert all(r["id"] != 3 for r in deep + shallow), "'metadata' phải bị loại khỏi CẢ HAI, không rơi vào deep"
+
+
+def test_thuan_sap_theo_do_uu_tien_ban_dau():
+    rows = [{"id": 20, "depth": "deep"}, {"id": 10, "depth": "deep"}]
+    deep, _ = _chia_deep_shallow(rows, lambda pid: None, {10: 0, 20: 1})
+    assert [r["id"] for r in deep] == [10, 20]
