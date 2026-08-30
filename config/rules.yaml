@@ -1,0 +1,64 @@
+# Bộ quy tắc kiểm tính hợp pháp — mỗi rule là DỮ LIỆU, không phải mã nguồn.
+# Người chỉnh sửa file này không cần biết lập trình: thêm hoặc sửa một rule
+# là sửa YAML, không đụng tới src/services/rules.py.
+#
+# can_cu PHẢI khớp CHÍNH XÁC một `provisions.duong_dan` đang có trong DB —
+# test tích hợp trong tests/test_services/test_rules.py chặn đứng bất kỳ rule
+# nào viện dẫn một điều luật không tồn tại. Đã tự tra DB (không chép từ trí
+# nhớ) để lấy đúng từng can_cu bên dưới.
+#
+# `kiem` là một công thức nhỏ — so sánh (<= < >= > == !=), and/or/not, + - * /,
+# tra bảng bằng `bang[khoa]` — được rules.py đọc và TÍNH TRỰC TIẾP, không phải
+# chú thích suông. Chỉ được dùng: tên fact khai báo ở `can_facts`, và tên
+# trường khác của chính rule này (vd. `gioi_han`, `ty_le_toi_thieu`,
+# `bang_thang`). Không gọi hàm, không truy cập thuộc tính — biểu thức bị từ
+# chối ngay lúc nạp nếu chứa cú pháp ngoài danh sách này.
+rules:
+  - id: thu_viec_toi_da
+    can_cu: "45/2019/QH14 > Điều 25"
+    muc_do: chan
+    mo_ta: "Thời gian thử việc vượt mức tối đa theo chức danh"
+    can_facts: [thoi_gian_thu_viec_ngay, nhom_chuc_danh]
+    gioi_han:
+      quan_ly_doanh_nghiep: 180
+      cao_dang_tro_len: 60
+      trung_cap_cnkt_nghiep_vu: 30
+      cong_viec_khac: 6
+    kiem: thoi_gian_thu_viec_ngay <= gioi_han[nhom_chuc_danh]
+
+  - id: luong_thu_viec_toi_thieu
+    can_cu: "45/2019/QH14 > Điều 26"
+    muc_do: chan
+    mo_ta: "Tiền lương thử việc thấp hơn 85% mức lương của công việc"
+    can_facts: [luong_thu_viec, luong_chinh_thuc]
+    ty_le_toi_thieu: 0.85
+    kiem: luong_thu_viec >= ty_le_toi_thieu * luong_chinh_thuc
+
+  - id: luong_toi_thieu_vung
+    can_cu: "293/2025/NĐ-CP > Điều 3 > Khoản 1"
+    muc_do: chan
+    mo_ta: "Mức lương tháng thấp hơn lương tối thiểu vùng"
+    can_facts: [luong_thang, vung]
+    bang_thang: {I: 5310000, II: 4730000, III: 4140000, IV: 3700000}
+    bang_gio:   {I: 25500,   II: 22700,   III: 20000,   IV: 17800}
+    kiem: luong_thang >= bang_thang[vung]
+    ghi_chu: >
+      Danh mục địa bàn vùng I–IV nằm ở Phụ lục NĐ 293/2025, KHÔNG có trong
+      documentContent và endpoint tải file trả 401 → `vung` PHẢI là input
+      người dùng, không suy ra từ địa chỉ. `bang_gio` là mức theo giờ cùng
+      Khoản 1, chưa có rule nào dùng — giữ lại làm dữ liệu tham chiếu cho
+      rule tương lai về lao động tính lương theo giờ.
+
+  - id: cam_phat_tien_nld
+    can_cu: "45/2019/QH14 > Điều 127 > Khoản 2"
+    muc_do: chan
+    mo_ta: "Có điều khoản phạt tiền hoặc cắt lương thay xử lý kỷ luật"
+    can_facts: [co_dieu_khoan_phat_tien]
+    kiem: not co_dieu_khoan_phat_tien
+
+  - id: cam_giu_giay_to_dat_coc
+    can_cu: "45/2019/QH14 > Điều 17"
+    muc_do: chan
+    mo_ta: "Có điều khoản giữ bản chính giấy tờ hoặc buộc đặt cọc"
+    can_facts: [co_dieu_khoan_giu_giay_to, co_dieu_khoan_dat_coc]
+    kiem: not (co_dieu_khoan_giu_giay_to or co_dieu_khoan_dat_coc)
