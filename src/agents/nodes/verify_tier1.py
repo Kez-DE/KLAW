@@ -366,3 +366,14 @@ def tien_de_cau_hoi_sai(query: str, engine: Engine) -> str | None:
             if ton_tai is None:
                 return f"{ten} không có Điều {so_dieu}"
     return None
+
+
+def van_ban_neo_boi_ten(query: str, so_ky_hieu: str) -> bool:
+    """Câu hỏi có nhắc tên/viết tắt của `so_ky_hieu` (bảng `_VAN_BAN_BO_LUAT`
+    của phép kiểm thứ sáu) không — public wrapper để module khác (assemble.py,
+    phép kiểm thứ bảy) tái dùng bộ nhận diện mà không cần biết cấu trúc bảng
+    nội bộ. Chỉ khớp theo TỪ/VIẾT TẮT (6 Bộ luật); khớp theo số hiệu dạng
+    SỐ/NĂM (áp dụng cho nghị định/thông tư) là việc của caller.
+    """
+    q = normalize(query)
+    return any(sk == so_ky_hieu and rx.search(q) for rx, sk, _ten in _VAN_BAN_BO_LUAT)

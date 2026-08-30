@@ -236,3 +236,81 @@ def test_assemble_khong_ha_xuong_khi_khong_co_so_dieu_lech():
                   DB, FakeLlm(), "m")
     assert st["result_type"] is ResultType.answer
     assert st["traces"]["assemble_dieu_bi_loai"] == []
+
+
+# ══ Phép kiểm thứ bảy (coordinator, sau khi tự kiểm phép kiểm 6) — không dựng ═
+# câu trả lời từ các nguồn đã bị thay thế khi câu hỏi KHÔNG neo văn bản cụ thể.
+# Ca thật đo được: "mức lương tối thiểu vùng I HIỆN NAY" gộp 4.420.000/
+# 4.180.000/3.980.000/3.500.000 (bốn NĂM khác nhau, đều bi_thay_the) thành
+# "các phương án song song" — từng citation đúng, hành văn sai.
+
+
+def test_khong_neo_va_TOAN_BO_da_bi_thay_thi_abstain_0_token():
+    """0 token: LLM hành văn KHÔNG được gọi khi đã biết trước không còn nguồn
+    nào hợp lệ để dựng câu trả lời."""
+    class KhongDuocGoi(FakeLlm):
+        def chat(self, *a, **k):
+            raise AssertionError("không được gọi LLM khi mọi nguồn đã bị lọc hết")
+
+    db = {1: {"id": 1, "duong_dan": "90/2019/NĐ-CP > Điều 3", "so_ky_hieu": "90/2019/NĐ-CP", "ten": "x"}}
+    eff_thay = Effectivity(V.bi_thay_the, "trung_binh", "suy luận cùng chủ đề: 74/2024/NĐ-CP cùng chủ đề và đã có "
+                            "hiệu lực từ 2024-07-01")
+    t1 = Tier1Result(Claim("4.420.000 đồng/tháng vùng I.", 1, "4.420.000"), True, R.ok, eff_thay)
+    st = assemble({"intent": "tra_cuu", "query": "mức lương tối thiểu vùng I hiện nay là bao nhiêu",
+                   "expanded": [db[1]], "tier1": [t1], "tier2": [Tier2Verdict(0, True, "ok")],
+                   "abstain_threshold": 0.5}, db, KhongDuocGoi(), "m")
+    assert st["result_type"] is ResultType.abstain
+    assert "74/2024/NĐ-CP" in st["coverage_note"]
+    assert st["traces"]["assemble_nguon_bi_loc_khoi_prose"] == ["90/2019/NĐ-CP"]
+
+
+def test_neo_van_ban_thi_KHONG_loc_giu_nguyen_hanh_vi():
+    db = {1: {"id": 1, "duong_dan": "90/2019/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+              "so_ky_hieu": "90/2019/NĐ-CP", "ten": "x"}}
+    eff_thay = Effectivity(V.bi_thay_the, "trung_binh", "suy luận cùng chủ đề: 74/2024/NĐ-CP cùng chủ đề")
+    t1 = Tier1Result(Claim("Mức 4.420.000 đồng/tháng, áp dụng vùng I.", 1, "4.420.000"), True, R.ok, eff_thay)
+
+    class FakeLlmSo(FakeLlm):
+        def chat(self, model, messages, json_schema=None):
+            from src.services.llm import Usage
+            return json.dumps({"answer": "Theo Nghị định 90/2019, mức 4.420.000 đồng/tháng."}), Usage(1, 1, 0.0)
+
+    st = assemble({"intent": "tra_cuu", "query": "theo Nghị định 90/2019 lương tối thiểu vùng I bao nhiêu",
+                   "expanded": [db[1]], "tier1": [t1], "tier2": [Tier2Verdict(0, True, "ok")],
+                   "abstain_threshold": 0.5}, db, FakeLlmSo(), "m")
+    assert st["result_type"] is ResultType.answer
+    assert "4.420.000" in st["answer"]
+    assert st["warnings"], "cảnh báo hiệu lực vẫn phải còn dù đã neo văn bản"
+    assert st["traces"]["assemble_nguon_bi_loc_khoi_prose"] == []
+
+
+def test_mix_con_hieu_luc_va_bi_thay_the_prose_chi_dung_con_hieu_luc():
+    db = {1: {"id": 1, "duong_dan": "293/2025/NĐ-CP > Điều 3", "so_ky_hieu": "293/2025/NĐ-CP", "ten": "x"},
+          2: {"id": 2, "duong_dan": "90/2019/NĐ-CP > Điều 3", "so_ky_hieu": "90/2019/NĐ-CP", "ten": "y"}}
+    eff_con = Effectivity(V.con_hieu_luc, "thap", "không có tín hiệu chấm dứt nào")
+    eff_thay = Effectivity(V.bi_thay_the, "trung_binh", "suy luận cùng chủ đề: 293/2025/NĐ-CP cùng chủ đề")
+    t1a = Tier1Result(Claim("NOI DUNG CON HIEU LUC.", 1, "q1"), True, R.ok, eff_con)
+    t1b = Tier1Result(Claim("NOI DUNG DA BI THAY THE.", 2, "q2"), True, R.ok, eff_thay)
+
+    class Ghi(FakeLlm):
+        cau_hoi_gui = ""
+
+        def chat(self, model, messages, json_schema=None):
+            Ghi.cau_hoi_gui = messages[0]["content"]
+            from src.services.llm import Usage
+            return json.dumps({"answer": "NOI DUNG CON HIEU LUC."}), Usage(1, 1, 0.0)
+
+    st = assemble({"intent": "tra_cuu", "query": "mức lương tối thiểu hiện nay",
+                   "expanded": [db[1], db[2]], "tier1": [t1a, t1b],
+                   "tier2": [Tier2Verdict(0, True, "ok"), Tier2Verdict(1, True, "ok")],
+                   "abstain_threshold": 0.5}, db, Ghi(), "m")
+    assert "NOI DUNG CON HIEU LUC" in Ghi.cau_hoi_gui
+    assert "NOI DUNG DA BI THAY THE" not in Ghi.cau_hoi_gui, "prose không được nạp claim đã lọc"
+    assert st["result_type"] is ResultType.answer
+    assert st["traces"]["assemble_nguon_bi_loc_khoi_prose"] == ["90/2019/NĐ-CP"]
+
+
+def test_neo_vao_van_ban_va_ly_do_ke_nhiem_0_token():
+    from src.agents.nodes.assemble import _neo_vao_van_ban, _van_ban_ke_nhiem
+    assert set(inspect.signature(_neo_vao_van_ban).parameters) == {"query", "so_ky_hieu"}
+    assert set(inspect.signature(_van_ban_ke_nhiem).parameters) == {"ly_do"}

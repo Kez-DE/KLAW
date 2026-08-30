@@ -29,7 +29,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TypedDict
 
-from src.agents.nodes.verify_tier1 import normalize
+from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.llm import Usage
 
@@ -175,6 +175,57 @@ def _dieu_khong_duoc_chong_do(answer: str, citations: list) -> list[str]:
     return sorted(trong_answer - trong_citation, key=int)
 
 
+# ══ Phép kiểm thứ bảy (coordinator, sau khi tự kiểm phép kiểm 6) ════════════
+# Đo được: "mức lương tối thiểu vùng I HIỆN NAY" gộp bốn nghị định của BỐN NĂM
+# khác nhau (90/2019, 157/2018, 141/2017 — tất cả bi_thay_the) thành các
+# "phương án song song" trong VĂN XUÔI, dù mỗi citation đã được đánh dấu hiệu
+# lực ĐÚNG. Lỗi nằm ở TẦNG CAO HƠN phép kiểm hiệu lực một bậc: khâu hành văn
+# gộp nhiều phiên bản đã bị thay thế lại, không phải một citation sai riêng
+# lẻ nào. Vẫn TRA BẢNG trên `Effectivity.verdict`, 0 TOKEN.
+#
+# Có neo (câu hỏi nêu đích danh văn bản, vd. "theo Nghị định 90/2019") →
+# KHÔNG lọc — người dùng hỏi cụ thể văn bản đó, trả lời đúng nội dung của nó
+# kèm cảnh báo vẫn là hành vi ĐÚNG (hành vi hiện tại, giữ nguyên).
+LY_DO_NGUON_DEU_BI_THAY_THE = "moi_nguon_dung_cho_prose_da_bi_thay_the_khong_neo_van_ban"
+
+_VERDICT_BI_THAY = frozenset({V.bi_thay_the, V.het_hieu_luc})
+
+_RE_SO_KY_HIEU = re.compile(r"\d+/\d{4}/[A-ZĐ][\w-]*")
+
+
+def _neo_vao_van_ban(query: str, so_ky_hieu: str) -> bool:
+    """Câu hỏi có nêu ĐÍCH DANH `so_ky_hieu` không — tái dùng bộ nhận diện của
+    phép kiểm thứ sáu (`van_ban_neo_boi_ten`, khớp tên/viết tắt 6 Bộ luật)
+    CỘNG một quy tắc chung cho nghị định/thông tư: số hiệu dạng SỐ/NĂM xuất
+    hiện nguyên văn ("90/2019" khớp "90/2019/NĐ-CP" dù người dùng không gõ đủ
+    hậu tố loại văn bản — đúng cách viết thật trong trap.yaml)."""
+    so_rut_gon = "/".join(so_ky_hieu.split("/")[:2])
+    if so_rut_gon and so_rut_gon in normalize(query):
+        return True
+    return van_ban_neo_boi_ten(query, so_ky_hieu)
+
+
+def _van_ban_ke_nhiem(ly_do: str) -> str | None:
+    """Số hiệu văn bản KẾ NHIỆM nhắc trong `Effectivity.ly_do` — Mức 2a/2b đều
+    nêu nó (dạng "bị X thay thế" hoặc "suy luận cùng chủ đề: X..."); Mức 1
+    (hết hiệu lực đơn thuần, không cạnh kế nhiệm) không có gì để rút, trả None."""
+    m = _RE_SO_KY_HIEU.search(ly_do or "")
+    return m.group(0) if m else None
+
+
+def _ly_do_moi_nguon_bi_thay(qua_loc: list) -> str:
+    """coverage_note khi TOÀN BỘ citation dùng-được-cho-prose đã bị lọc — nêu
+    ĐÍCH DANH văn bản hiện hành (rút từ `ly_do`, không phải một câu chung
+    chung "không đủ căn cứ"). Không có `ly_do` nào nêu được kế nhiệm (Mức 1
+    hết hiệu lực không cạnh) thì nói rõ không xác định được, không bịa tên."""
+    ke_nhiem = sorted({m for r in qua_loc for m in [_van_ban_ke_nhiem(r.effectivity.ly_do)] if m})
+    if ke_nhiem:
+        return (f"Mọi nguồn tìm được đều đã bị thay thế; văn bản hiện hành là "
+                f"{', '.join(ke_nhiem)}, nội dung của nó không có trong corpus.")
+    return ("Mọi nguồn tìm được đều đã bị thay thế hoặc hết hiệu lực; không xác định được "
+            "văn bản hiện hành từ dữ liệu sẵn có.")
+
+
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> dict:
     if state.get("intent") == "ngoai_pham_vi":
         return _base(
@@ -238,6 +289,11 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
 
     citations: list[Citation] = []
     warnings: list[str] = []
+    # Phép kiểm thứ bảy: chỉ những claim ở đây mới được nạp vào lời nhắc hành
+    # văn (`claims_txt` bên dưới) — citations vẫn liệt kê ĐỦ mọi claim đã qua
+    # tầng 1+2, kể cả cái bị loại khỏi prose (kèm `hieu_luc` để phân biệt).
+    dung_cho_prose: list = []
+    nguon_bi_loc: list[str] = []
     for r in verified:
         # row_id = dòng THẬT hiển thị (xem docstring `Citation`) — ghi lại
         # NGUYÊN VẸN vào citation dưới tên `khop_tai_id`, tường minh, thay vì
@@ -249,12 +305,13 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         row_id = khop_tai if khop_tai is not None and khop_tai in db_provisions else r.claim.provision_id
         p = db_provisions.get(row_id, {})
         eff = r.effectivity
+        so_ky_hieu = p.get("so_ky_hieu", "")
         citations.append({
             "provision_id": r.claim.provision_id,
             "khop_tai_id": row_id,
             "duong_dan": p.get("duong_dan", ""),
             "bo_luat": p.get("ten", ""),
-            "so_ky_hieu": p.get("so_ky_hieu", ""),
+            "so_ky_hieu": so_ky_hieu,
             "quote": r.claim.quote,
             "hieu_luc": eff.verdict.value if eff else None,
             "tin_cay": eff.tin_cay if eff else None,
@@ -263,11 +320,25 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
             # `ly_do` NGUYÊN VĂN, không viết lại: nó nêu đích danh văn bản thay
             # thế (vd. "bị 38/2022/NĐ-CP thay thế từ ..."), một nhãn chung
             # chung như "đã bị thay thế" không mang thông tin đó.
-            msg = f"{p.get('so_ky_hieu', '')} {CANH_BAO_NHAN[eff.verdict]}: {eff.ly_do}"
+            msg = f"{so_ky_hieu} {CANH_BAO_NHAN[eff.verdict]}: {eff.ly_do}"
             if msg not in warnings:
                 warnings.append(msg)
 
-    claims_txt = "\n".join(f"- {r.claim.text}" for r in verified)
+        if eff and eff.verdict in _VERDICT_BI_THAY and not _neo_vao_van_ban(state.get("query", ""), so_ky_hieu):
+            nguon_bi_loc.append(so_ky_hieu)
+        else:
+            dung_cho_prose.append(r)
+
+    # Toàn bộ nguồn dùng-được-cho-prose đã bị lọc (mọi citation đều bi_thay_the/
+    # het_hieu_luc và câu hỏi không neo văn bản nào) → KHÔNG dựng câu trả lời
+    # tự tin. 0 TOKEN: không gọi LLM khi đã biết trước không có gì hợp lệ để
+    # hành văn.
+    if not dung_cho_prose:
+        ket = _base(state, ResultType.abstain, coverage_note=_ly_do_moi_nguon_bi_thay(verified))
+        ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
+        return ket
+
+    claims_txt = "\n".join(f"- {r.claim.text}" for r in dung_cho_prose)
     prompt = PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi=state.get("query", ""), claims=claims_txt)
     usage: Usage | None = None
     degraded = False
@@ -302,9 +373,11 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         )
         ket = _base(state, ResultType.abstain, usage=usage, degraded=degraded)
         ket["traces"]["assemble_dieu_bi_loai"] = dieu_bi_loai
+        ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
         return ket
 
     ket = _base(state, ResultType.answer, usage=usage, degraded=degraded,
                 answer=answer, citations=citations, warnings=warnings)
     ket["traces"]["assemble_dieu_bi_loai"] = []
+    ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
     return ket
