@@ -148,15 +148,26 @@ async def test_response_luon_co_trace_id_va_config_name(client):
 @pytest.mark.asyncio
 async def test_effectivity_tu_expand_duoc_dung_KHONG_tinh_lai_voi_canh_rong():
     """Regression: n_tier1 từng tính lại effectivity với cạnh đi vào rỗng, làm
-    Mức 2 không bao giờ kích hoạt và nhóm bẫy 'văn bản đã bị thay' fail im lặng."""
+    Mức 2 không bao giờ kích hoạt và nhóm bẫy 'văn bản đã bị thay' fail im lặng.
+
+    Sửa sau silent-failure review round 2: bản cũ chỉ assert TRONG nhánh
+    `if result_type == "answer"`, không nhánh else — từ khi phép kiểm thứ bảy
+    khiến câu hỏi này (không neo văn bản, mọi nguồn đều bi_thay_the) thường ra
+    `abstain`, nhánh `if` không chạy và test PASS mà KHÔNG kiểm gì. Giờ khoá
+    cả hai nhánh: `answer` phải có cảnh báo/toàn con_hieu_luc; `abstain` phải
+    nêu lý do (không phải từ chối trống rỗng)."""
     from src.agents.graph_tra_cuu import build_graph_tra_cuu
 
     st = await build_graph_tra_cuu().ainvoke(
         {"query": "mức lương tối thiểu vùng một hiện nay là bao nhiêu"})
-    if st["result_type"].value == "answer":
+    rt = st["result_type"].value
+    assert rt in ("answer", "abstain"), f"kỳ vọng answer hoặc abstain cho câu hỏi này, được {rt}"
+    if rt == "answer":
         assert any("thay thế" in w or "hết hiệu lực" in w for w in st["warnings"]) or \
             all(c["hieu_luc"] == "con_hieu_luc" for c in st["citations"]), \
             "citation từ văn bản đã bị thay mà không có cảnh báo"
+    else:
+        assert st["coverage_note"], "abstain phải nêu lý do, không phải từ chối trống rỗng"
 
 
 @pytest.mark.integration
