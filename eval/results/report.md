@@ -141,3 +141,33 @@ Chi phí: mẫu đo `cost_usd` trên các hàng `traces` thật dao động 0,00
 ### Stability check (3 lượt/câu) — làm được cho 2 câu regression trong round 2
 
 `demo-subject-confusion` và `demo-cross-domain` mỗi câu chạy **3 lần** (1 lần round 1 + 2 lần round 2): cả 3 lần của MỖI câu đều ra `result_type=answer` với cảnh báo hiệu lực xuất hiện ổn định (không câu nào đổi sang abstain/thiếu cảnh báo giữa 3 lần) — token_out dao động nhẹ (vd. 6331/6527/6129 cho subject-confusion) đúng như dự đoán do OpenRouter không tất định tuyệt đối, nhưng KHÔNG đổi kết luận định tính qua 3 lần.
+
+
+### Phép kiểm thứ bảy — đo lại `van_ban_bi_thay` (10 câu), không hồi quy nhưng đổi rubric
+
+Coordinator tự thiết kế ca ngoài tập bẫy ("Mức lương tối thiểu vùng I HIỆN NAY") và tìm ra: hệ thống gộp
+bốn con số của BỐN NĂM khác nhau (90/2019, 157/2018, 141/2017, 122/2015 — mỗi cái đã `bi_thay_the`) thành
+"các phương án song song" trong văn xuôi, dù từng citation được đánh dấu hiệu lực ĐÚNG. Vá bằng phép kiểm
+thứ bảy: câu hỏi KHÔNG neo văn bản cụ thể ("hiện nay") → lọc citation `bi_thay_the`/`het_hieu_luc` khỏi
+phần dựng văn xuôi; nếu lọc hết thì `abstain` nêu đích danh văn bản kế nhiệm (rút từ `Effectivity.ly_do`).
+
+Đo lại 10 câu `van_ban_bi_thay`:
+
+| Câu | Trước phép kiểm 7 | Sau phép kiểm 7 | Vì sao |
+|---|---|---|---|
+| superseded-01 | answer+warning | **abstain**, nêu đích danh 74/2024/NĐ-CP | Chỉ có nguồn 90/2019 (bi_thay_the), không có nguồn hiện hành nào được retrieve |
+| superseded-02 | answer+warning | **abstain**, nêu đích danh 4 văn bản | Cả 4 nguồn retrieve được đều bi_thay_the |
+| superseded-03 | answer+warning | answer+warning (không đổi) | — |
+| superseded-04 | answer+warning | **abstain** | Giống 02 |
+| superseded-05..08 | answer+warning | answer+warning (không đổi) | — |
+| superseded-09 | answer+warning | **abstain** | Giống 02 |
+| superseded-10 | answer+warning | abstain | **KHÔNG liên quan phép kiểm 7** — `claims_after_tier2=1/4`, tỉ lệ verified 0,25 < ngưỡng 0,5, trúng nhánh abstain CŨ (đã tồn tại trước task này) |
+
+**Không phải hồi quy — là phép kiểm 7 hoạt động đúng thiết kế** trên đúng lớp câu hỏi nó nhắm tới: khi
+KHÔNG có nguồn hiện hành nào lẫn trong tập retrieve, hệ thống giờ từ chối tự tin thay vì trích một con số
+đã lỗi thời kèm cảnh báo. Nhưng **rubric cũ của trap.yaml không còn khớp**: `ky_vong: warning_bi_thay_the`
+ngầm định nghĩa "đúng" = `answer` + có cảnh báo — 4/10 câu giờ đúng-về-hành-vi nhưng SAI-theo-rubric-cũ vì
+chúng abstain thay vì answer. Đây là quyết định cần coordinator: cập nhật `ky_vong` cho 4 câu đó (thành
+một giá trị mới, vd. `abstain_neu_dich_danh`) hay giữ rubric cũ và chấp nhận nhóm này không còn 10/10 theo
+định nghĩa gốc. Số liệu THẬT không đổi (10/10 câu đều phản ứng ĐÚNG với thông tin sẵn có), chỉ có NHÃN kỳ
+vọng trong file dữ liệu là lỗi thời.
