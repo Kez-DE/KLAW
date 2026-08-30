@@ -1,4 +1,5 @@
 import json
+import logging
 
 import pytest
 
@@ -83,6 +84,7 @@ def test_rewrite_ghi_traces_dung_khoa_rieng_va_ve_0_khi_loi():
     assert st["traces"]["route_token_in"] == 9  # traces của route không bị mất
     assert st["traces"]["rewrite_query_token_in"] == 1
     assert st["traces"]["rewrite_query_variants"] == 1
+    assert st["traces"]["rewrite_query_degraded"] is False  # đường thành công: không suy giảm
 
     class Bad(FakeLlm):
         def chat(self, *a, **k):
@@ -91,6 +93,27 @@ def test_rewrite_ghi_traces_dung_khoa_rieng_va_ve_0_khi_loi():
     st_loi = rewrite_query({"query": "abc"}, Bad({}), "m")
     assert st_loi["traces"]["rewrite_query_token_in"] == 0  # lỗi hạ tầng: 0 thật, không bịa số
     assert st_loi["traces"]["rewrite_query_variants"] == 0
+    assert st_loi["traces"]["rewrite_query_degraded"] is True  # Task 9 cần cờ này để loại/tính riêng
+
+
+def test_rewrite_loi_ha_tang_thi_bat_VA_dem_khong_im_lang(caplog):
+    """Ruling coordinator: fallback êm là đúng cho đường chạy thật (OpenRouter
+    đang trả 429 thật), nhưng KHÔNG được vô hình — nếu không, phép đo Recall@5
+    của Task 9 hỏng theo hướng khó phát hiện nhất (kết quả vẫn hợp lệ, chỉ tệ
+    hơn). Ba điều phải cùng đúng: còn nguyên query gốc, cờ degraded bật, và
+    có ĐÚNG MỘT bản ghi cảnh báo (không im lặng, không đếm trùng)."""
+
+    class Bad(FakeLlm):
+        def chat(self, *a, **k):
+            raise RuntimeError("api down")
+
+    with caplog.at_level(logging.WARNING, logger="src.agents.nodes.rewrite_query"):
+        st = rewrite_query({"query": "abc"}, Bad({}), "m")
+
+    assert st["queries"] == ["abc"]
+    assert st["traces"]["rewrite_query_degraded"] is True
+    canh_bao = [r for r in caplog.records if "rewrite_query" in r.getMessage()]
+    assert len(canh_bao) == 1, "lỗi hạ tầng phải được đếm đúng một lần, không được nuốt im lặng"
 
 
 # ══ Integration — mẫu thật, số liệu đầy đủ trong task-8-report.md ═════════

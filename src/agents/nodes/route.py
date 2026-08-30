@@ -4,6 +4,13 @@ Traces dùng khoá `route_*`, không phải token_in/token_out/cost_usd trần m
 generate_claims đã chiếm — cùng lý do verify_tier2 dùng `tier2_*` (xem
 verify_tier2.py): route chạy TRƯỚC generate_claims trong pipeline, khoá trần
 dùng chung sẽ bị node chạy sau ghi đè mất.
+
+Lỗi hạ tầng KHÔNG bị nuốt ở đây — khác `rewrite_query` (xem docstring
+rewrite_query.py), và đây là CHỦ ĐÍCH chứ không phải quên đối xứng: route là
+bước quyết định có tra cứu hay không, một 429 âm thầm rơi thành
+`ngoai_pham_vi` sẽ từ chối oan một câu hỏi hợp lệ mà không ai biết vì sao —
+nên lỗi hạ tầng (không nằm trong except bên dưới) phải NỔ RA NGOÀI, không
+được rơi êm vào nhánh mặc định.
 """
 
 import json
