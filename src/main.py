@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import router
 from src.config import get_settings
@@ -40,3 +42,11 @@ async def health():
     # thực không nên tiết lộ deployment đang chạy môi trường nào trước khi
     # Plan 4 deploy thật.
     return {"status": "ok"}
+
+
+# Static frontend (Vite build output). Mounted LAST — a StaticFiles mount at
+# "/" is a catch-all; every /api/* and /health route above must already be
+# registered or this would shadow them.
+STATIC = Path(__file__).parent / "static"
+if STATIC.exists():
+    app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

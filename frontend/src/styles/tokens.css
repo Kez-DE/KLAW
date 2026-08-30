@@ -1,0 +1,93 @@
+/*
+ * Design tokens — máy đọc vi phim (DESIGN.md is the visual authority).
+ * Vietnamese variable names for the color palette are part of the FE
+ * contract (fe-contract.md) and must not be renamed.
+ *
+ * This file only DEFINES tokens. Tailwind wiring (@theme) turns the ones
+ * Tailwind has a matching utility namespace for into classes; the rest
+ * (duration, z-index, 3D depth) stay plain custom properties, consumed via
+ * Tailwind's arbitrary-value syntax, e.g. duration-[var(--thoi-luong-cham)].
+ */
+
+:root {
+  /* ---- Bảng màu (DESIGN.md) — tên biến là hợp đồng, không đổi ---- */
+  --nen: #0f1113; /* mặt máy, ground */
+  --nen-cao: #171a1d; /* khay, thanh công cụ */
+  --phim: #f4f1ea; /* mặt phim được rọi — nền của văn bản luật */
+  --muc: #14171a; /* chữ trên phim */
+  --muc-nhat: #5a6169; /* chú thích, nhãn phụ */
+  --den-sang: #e8b34b; /* ánh đèn máy: tiêu điểm, khung đang xem, con trỏ */
+  --xanh-that: #3e8e6e; /* còn hiệu lực */
+  --do-thay: #c4553d; /* đã bị thay thế / hết hiệu lực */
+  --vang-mo: #c08a2e; /* một phần không xác định */
+  --xam-cho: #6b7280; /* ABSTAIN, cần đối chiếu tay — TRUNG TÍNH, không phải màu lỗi */
+
+  /* ---- Bố cục ---- */
+  --be-rong-doc-toi-da: 68ch; /* bề rộng đọc tối đa ở mặt đọc (DESIGN.md) */
+  --vung-cham-toi-thieu: 44px; /* vùng chạm tối thiểu */
+
+  /* ---- Ba lớp z của máy đọc vi phim ---- */
+  --z-mat-doc: 1; /* câu trả lời tiếng Việt thường */
+  --z-dai-khung: 10; /* dải trích dẫn, mỗi cái một khung phim */
+  --z-khung-roi-sang: 100; /* nguyên văn điều luật, mở toàn màn hình trên di động */
+
+  /* ---- Chiều sâu 3D (dải khung) — dùng cùng --perspective-dai-khung bên dưới ---- */
+  --sau-nghi: 0px; /* trạng thái nghỉ */
+  --sau-tien: 24px; /* translateZ khi một khung "tiến tới" tiêu điểm */
+
+  /* ---- Thời lượng chuyển động ---- */
+  --thoi-luong-nhanh: 120ms; /* phản hồi tức thời: nhấn nút, hover */
+  --thoi-luong-vua: 240ms; /* rọi tiêu điểm: câu trích sáng dần */
+  --thoi-luong-cham: 420ms; /* tiến tới khung: click-to-verify */
+  --thoi-luong-doi-khay: 480ms; /* đổi khay: chuyển màn hình */
+}
+
+/* prefers-reduced-motion: bỏ dịch chuyển 3D, GIỮ NGUYÊN phản hồi trạng thái
+   (thời lượng không bị ép về 0 — trạng thái chờ 10–60s vẫn phải thấy đang chạy). */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sau-tien: var(--sau-nghi);
+  }
+}
+
+@theme {
+  /* Màu — cho phép bg-nen, text-muc, border-do-thay… */
+  --color-nen: var(--nen);
+  --color-nen-cao: var(--nen-cao);
+  --color-phim: var(--phim);
+  --color-muc: var(--muc);
+  --color-muc-nhat: var(--muc-nhat);
+  --color-den-sang: var(--den-sang);
+  --color-xanh-that: var(--xanh-that);
+  --color-do-thay: var(--do-thay);
+  --color-vang-mo: var(--vang-mo);
+  --color-xam-cho: var(--xam-cho);
+
+  /* Chữ — font-doc (mặt đọc), font-phim (trên phim), font-dia-chi (so_ky_hieu/duong_dan) */
+  --font-doc: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+  --font-phim: 'Source Serif 4', ui-serif, Georgia, serif;
+  --font-dia-chi: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Bo góc */
+  --radius-nho: 4px;
+  --radius-vua: 8px;
+  --radius-lon: 16px;
+  --radius-tron: 999px;
+
+  /* Độ nổi (elevation) — ground tối nên box-shadow đơn thuần khó thấy;
+     --shadow-tieu-diem cộng thêm quầng --den-sang để mô phỏng đèn máy chiếu. */
+  --shadow-noi-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-noi-2: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-noi-3: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-tieu-diem:
+    0 0 0 1px rgba(232, 179, 75, 0.4),
+    0 8px 32px rgba(232, 179, 75, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.6);
+
+  /* Phối cảnh 3D — dải khung (không WebGL, thuần CSS perspective + translateZ) */
+  --perspective-dai-khung: 1200px;
+
+  /* Easing */
+  --ease-chuan: cubic-bezier(0.4, 0, 0.2, 1); /* dùng chung */
+  --ease-tien-toi: cubic-bezier(0.16, 1, 0.3, 1); /* giảm tốc dần — cảm giác phim advance vào đúng khung */
+}
