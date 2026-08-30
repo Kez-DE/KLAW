@@ -49,9 +49,12 @@ ANSWER_SCHEMA = {
 ABSTAIN_THRESHOLD_DEFAULT = 0.5
 
 # Ba verdict brief đòi hỏi tường minh (bi_thay_the/het_hieu_luc/mot_phan_khong_xac_dinh)
-# cộng chua_hieu_luc (chưa có hiệu lực — người hỏi cần biết) và can_doi_chieu_tay
-# (nghi lỗi dữ liệu MOJ). KHÔNG gồm con_hieu_luc (đúng nghĩa không cảnh báo) hay
-# chua_xac_dinh (xem CONCERN trong report — brief không liệt kê, giữ đúng brief).
+# cộng chua_hieu_luc (chưa có hiệu lực — người hỏi cần biết), can_doi_chieu_tay
+# (nghi lỗi dữ liệu MOJ), và chua_xac_dinh (RULING 2026-08-31: im lặng ở đây bị
+# đọc thành "ổn" — với một hệ thống bảo đảm nguồn gốc/nguyên văn nhưng KHÔNG bảo
+# đảm bản hiện hành, "tôi không biết còn hiệu lực không" PHẢI nói ra, không được
+# giấu bằng cách rơi vào nhánh im lặng). KHÔNG gồm con_hieu_luc — đúng nghĩa của
+# nó là "không có tín hiệu chấm dứt nào", không cảnh báo.
 #
 # Giá trị CHỈ LÀ NHÃN NGẮN để phân loại — câu cảnh báo THẬT ghép nhãn với
 # `eff.ly_do` NGUYÊN VĂN (xem chỗ dùng bên dưới), không phải chính câu cảnh
@@ -64,6 +67,7 @@ CANH_BAO_NHAN = {
     V.het_hieu_luc: "đã hết hiệu lực",
     V.chua_hieu_luc: "chưa có hiệu lực",
     V.can_doi_chieu_tay: "cần đối chiếu tay",
+    V.chua_xac_dinh: "chưa xác định được hiệu lực",
 }
 
 
@@ -144,15 +148,21 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
     if not tier1 or not qua_t1:
         return _base(state, ResultType.abstain)
 
+    # RULING 2026-08-31 (task-9 review) — brief gốc có một nhánh
+    # `if tier2 else not tier2` khiến "tier2 rỗng toàn bộ" mặc định COI NHƯ ĐÃ
+    # VERIFIED cho mọi claim qua tầng 1. Nhánh đó đã bị BỎ CÓ CHỦ Ý —
+    # ĐỪNG khôi phục lại cho khớp brief.
+    #
     # Khớp tier2 theo VỊ TRÍ trong qua_t1 (claim_index của Tier2Verdict được đánh
     # số lại từ 0 trên chính tập đã qua tầng 1 — xem verify_tier2._build_prompt).
     # Thiếu verdict cho một vị trí ⇒ KHÔNG verified, vô điều kiện — không có
     # nhánh "tier2 rỗng toàn bộ thì coi như đã qua": verify_tier2 luôn trả đúng
     # len(qua_t1) verdict khi qua_t1 khác rỗng (kể cả lỗi JSON, nó default
     # supported=False chứ không trả rỗng), nên tier2 rỗng trong khi qua_t1 khác
-    # rỗng chỉ có thể là caller quên nối tầng 2 — mặc định "coi như supported"
-    # ở đúng chỗ đó sẽ âm thầm bỏ qua tầng 2 cho toàn bộ batch, ngược hẳn quy tắc
-    # "mặc định false khi không chắc" mà verify_tier2 đã lập.
+    # rỗng chỉ có thể là caller QUÊN nối tầng 2 — coi đó là "đã verified" sẽ âm
+    # thầm tắt cả tầng 2 cho toàn bộ batch, đúng lớp lỗi mà cả dự án chống: mặc
+    # định an toàn khi THIẾU bộ kiểm phải là CHƯA kiểm chứng, không phải đã kiểm
+    # chứng — cùng quy tắc "mặc định false khi không chắc" mà verify_tier2 đã lập.
     verified = [r for pos, r in enumerate(qua_t1) if (v := tier2.get(pos)) is not None and v.supported]
     ty_le = len(verified) / len(tier1)
     if not verified or ty_le < float(state.get("abstain_threshold", ABSTAIN_THRESHOLD_DEFAULT)):

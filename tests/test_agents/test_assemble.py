@@ -119,19 +119,38 @@ def test_khop_tai_khac_provision_id_thi_duong_dan_theo_dong_that_chua_quote():
     )
 
 
-def test_canh_bao_mang_nguyen_van_ly_do_khong_phai_cau_chung_chung():
-    # Yêu cầu #1 của task: cảnh báo hiệu lực phải CHỊU TẢI — `ly_do` nêu đích
-    # danh văn bản thay thế, một câu mẫu chung chung ("đã bị thay thế.") xoá
-    # mất đúng thông tin đó. `test_hieu_luc_khong_chac_sinh_warning` (test hợp
-    # đồng của brief) chỉ kiểm `warnings` không rỗng, không kiểm NỘI DUNG — nên
-    # tự thêm test này để một bản tái phát (quay lại câu mẫu chung chung) không
-    # lọt qua CI.
-    ly_do_that = "đồ thị xác nhận: bị 38/2022/NĐ-CP thay thế từ 2022-07-01"
-    bi_thay_the = Effectivity(V.bi_thay_the, "cao", ly_do_that)
-    t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, bi_thay_the)
+def test_canh_bao_mang_nguyen_van_ly_do_ca_that_BLLD_45_2019():
+    # Yêu cầu #1 + ruling 2026-08-31: `ly_do` phải NGUYÊN VĂN, không phải câu
+    # mẫu chung chung ("đã bị thay thế."). Effectivity dưới đây KHÔNG bịa — là
+    # kết quả THẬT của `danh_gia_theo_id(get_engine(), "139264", date(2026, 8,
+    # 31))` chạy trên DB thật: chính 45/2019/QH14 (Bộ luật Lao động, văn bản
+    # trung tâm của khoá luận) bị 19/2023/QH15 sửa đổi, bổ sung từ 2024-07-01,
+    # đồ thị không có cạnh xác nhận cấp điều khoản nên rơi vào
+    # `mot_phan_khong_xac_dinh`. `test_hieu_luc_khong_chac_sinh_warning` (test
+    # hợp đồng của brief) chỉ kiểm `warnings` không rỗng, không kiểm NỘI DUNG —
+    # tự thêm test này để một tái phát (quay lại câu mẫu chung chung) không lọt
+    # qua CI.
+    ly_do_that = (
+        "bị 19/2023/QH15 sửa đổi, bổ sung từ 2024-07-01; CSDL quốc gia không công bố "
+        "dữ liệu cấp điều khoản nên không xác định được điều này còn hiệu lực hay không"
+    )
+    blld = Effectivity(V.mot_phan_khong_xac_dinh, "thap", ly_do_that)
+    t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, blld)
     st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1],
                    "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
                   DB, FakeLlm(), "m")
     assert any(ly_do_that in w for w in st["warnings"]), (
         f"ly_do nguyên văn phải xuất hiện trong warnings, thấy: {st['warnings']!r}"
     )
+
+
+def test_chua_xac_dinh_cung_sinh_canh_bao_khong_duoc_im_lang():
+    # Ruling 2026-08-31: brief không liệt kê chua_xac_dinh, nhưng im lặng ở
+    # verdict "hoàn toàn không biết" bị người dùng đọc thành "ổn" — ngược với
+    # lời hứa "bảo đảm nguồn gốc/nguyên văn, KHÔNG bảo đảm là bản hiện hành".
+    khong_biet = Effectivity(V.chua_xac_dinh, "thap", "thiếu ngày hiệu lực — không so được chiều thời gian")
+    t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, khong_biet)
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert st["warnings"], "chua_xac_dinh phải sinh cảnh báo, không được im lặng"

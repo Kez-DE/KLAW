@@ -57,9 +57,15 @@ from sqlalchemy import Engine, text
 
 from src.agents.nodes.verify_tier1 import effectivity_qua_provision
 
+# `d.ten` CHỈ để hiển thị cho người đọc ("Bộ luật Lao động" cạnh trích dẫn
+# 45/2019/QH14 — người dùng chưa chắc nhận ra so_ky_hieu là văn bản nào), KHÔNG
+# phải định danh: `so_ky_hieu` vẫn là khoá định danh DUY NHẤT (Global
+# Constraint) vì `ten` một mình có thể mơ hồ (vd. doc_id 96117 → "Hàng hải").
+# Ràng buộc "không định danh bằng ten/title" chỉ cấm dùng ten LÀM KHOÁ, không
+# cấm mang nó theo để hiển thị (task-9 ruling, 2026-08-31).
 _SQL_PROV = text(
     "SELECT p.id, p.document_id, p.parent_id, p.cap, p.so_hieu_cap, p.tieu_de,"
-    " p.noi_dung, p.duong_dan, d.so_ky_hieu, d.depth"
+    " p.noi_dung, p.duong_dan, d.so_ky_hieu, d.ten, d.depth"
     " FROM provisions p JOIN documents d ON d.id = p.document_id"
     " WHERE p.id = ANY(:ids)"
 )

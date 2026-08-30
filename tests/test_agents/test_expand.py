@@ -65,6 +65,19 @@ def test_moi_provision_mang_effectivity_va_so_ky_hieu_khong_mang_title():
     assert "effectivity" in p and "so_ky_hieu" in p
 
 
+# ── Task-9 ruling (2026-08-31): `d.ten` thêm vào `_SQL_PROV` để tầng assemble
+# hiển thị "Bộ luật Lao động" cạnh trích dẫn — CHỈ hiển thị, không định danh
+# (`so_ky_hieu` vẫn là khoá duy nhất, xem test trên). Không có `ten` thì
+# `assemble.Citation.bo_luat` luôn rỗng trên dữ liệu thật.
+@pytest.mark.integration
+def test_moi_provision_mang_ten_KHONG_RONG_de_hien_thi():
+    with get_engine().connect() as c:
+        pid = c.execute(text("SELECT id FROM provisions LIMIT 1")).scalar_one()
+    deep, _ = expand([pid], get_engine(), date(2026, 8, 27), hops=1)
+    p = deep[0]
+    assert p.get("ten"), "d.ten vắng hoặc rỗng — assemble sẽ hiển thị bo_luat rỗng"
+
+
 # ── Yêu cầu #3 (task-7 review): 'metadata' (36 văn bản, Plan 3 Task 1) không
 # có provisions thật trong DB hiện tại (đo được: 0/0), nhưng expand PHẢI tự
 # loại nó khỏi CẢ HAI danh sách một cách tường minh — không dựa vào bất biến
