@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import type { TraCuuResponse } from '../types';
 import { DaiKhung } from './DaiKhung';
 
@@ -48,6 +49,32 @@ function KhoiCanhBao({ warnings }: { warnings: string[] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Nhắc miễn trừ — CHỈ ở nhánh `answer` (site-spec.md).
+ *
+ * Ba nhánh kia đã tự nói ra giới hạn của chúng: `abstain` nói không đủ căn cứ,
+ * `partial_coverage` nói không diễn giải, `out_of_scope` nói ngoài phạm vi.
+ * `answer` là nhánh DUY NHẤT đưa ra một khẳng định pháp lý — và cũng là nhánh
+ * duy nhất người dùng có thể hành động theo mà không nhận ra corpus là văn bản
+ * GỐC chứ không phải bản hợp nhất. Nhắc ở chân trang là không đủ: người ta đọc
+ * câu trả lời rồi đóng tab.
+ */
+function NhacMienTru() {
+  return (
+    <p className="mt-6 mb-0 text-[0.8125rem] leading-5 text-muc-nhat">
+      Câu trả lời dựa trên văn bản gốc, không phải bản hợp nhất — KLAW bảo đảm nguồn gốc và đúng
+      nguyên văn, không bảo đảm đây là bản hiện hành.{' '}
+      <Link
+        to="/mien-tru"
+        className="underline underline-offset-4 hover:text-phim focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
+      >
+        Đọc miễn trừ trách nhiệm
+      </Link>
+      .
+    </p>
   );
 }
 
@@ -181,6 +208,7 @@ export function ResultCard({ ketQua, chiSoDangMo, onChonTrichDan }: ResultCardPr
         onChon={onChonTrichDan}
         warnings={warnings}
       />
+      <NhacMienTru />
     </section>
   );
 }

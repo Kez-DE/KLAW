@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { traCuu } from '../lib/api';
 import { chuyenCanh, dongKhung, moKhung } from '../lib/chuyenCanh';
@@ -30,7 +31,11 @@ function moTaKetQua(ketQua: TraCuuResponse): string {
 }
 
 export default function TraCuu() {
-  const [cauHoi, datCauHoi] = useState('');
+  // Ô hỏi ở hero trang giới thiệu là ô hỏi THẬT (DESIGN.md): nó điều hướng sang
+  // đây kèm `?q=`. Không đọc param thì người dùng gõ xong lại thấy ô trống —
+  // đúng cảm giác "bị xoá và gõ lại" mà luận đề chuyển động cấm.
+  const [thamSo] = useSearchParams();
+  const [cauHoi, datCauHoi] = useState(() => thamSo.get('q') ?? '');
   const [chiSoDangMo, datChiSoDangMo] = useState<number | null>(null);
   const chipTraTieuDiem = useRef<number | null>(null);
   const haiCot = useHaiCot();
