@@ -10,20 +10,31 @@ Dùng doc_id 95942 — Bộ luật Dân sự (91/2015/QH13), 689 Điều — vì
 văn bản LỚN NHẤT trong corpus, đúng ca "lazy quan trọng" mà endpoint này phải
 xử lý (không được kéo cả cây).
 
-Mốc dùng trong test (đã đo TRỰC TIẾP trên DB bằng psql trước khi viết test,
-không suy đoán):
-  - Điều 300 (id=129006) nằm giữa văn bản. 2 Điều liền trước theo `thu_tu` là
-    299, 298; 2 Điều liền sau là 301, 302. Khoản 1 của nó là id=129007.
-  - Điều 1 (id=127873) là Điều ĐẦU của BLDS — không có Điều nào trước.
-  - Điều 689 (id=130383) là Điều CUỐI — không có Điều nào sau.
-  - Điều 4 (id=127883) có đúng 4 Khoản con (Khoản 1..4), không có Điểm.
+Mốc dùng trong test là `duong_dan`, KHÔNG phải `provisions.id`:
+  - Điều 300 nằm giữa văn bản. 2 Điều liền trước theo `thu_tu` là 299, 298;
+    2 Điều liền sau là 301, 302.
+  - Điều 1 là Điều ĐẦU của BLDS — không có Điều nào trước.
+  - Điều 689 là Điều CUỐI — không có Điều nào sau.
+  - Điều 4 có đúng 4 Khoản con (Khoản 1..4), không có Điểm.
+  - Chương I (dưới Phần thứ nhất) có đúng 7 Điều.
   - doc_id 96117 (Bộ luật Hàng hải, 95/2015/QH13) dùng để kiểm around trỏ
     sang provision của MỘT VĂN BẢN KHÁC.
+
+Vì sao không ghi id: `provisions.id` là BIGSERIAL và `scripts.ingest` xoá-rồi-
+chèn mỗi document có checksum đổi, nên MỌI id dịch sau một lần sửa parser hay
+một lần mở rộng corpus. Bản trước ghim 129006/129007/127872/127873/127883/130383
+và cả 7 test này đỏ với `404` — đỏ vì một lý do KHÔNG liên quan tới điều chúng
+muốn khoá, đúng loại nhiễu làm người ta bỏ qua CI. `conftest.pid()` tra theo
+`duong_dan`, khoá canonical mà `ux_provisions_neo_trich_dan` (migration 004)
+bảo đảm duy nhất — và cũng là chuỗi người đọc thấy trong trích dẫn.
 """
 
 import pytest
 
+from tests.conftest import pid
+
 DOC_ID_BLDS = "95942"
+BLDS = "91/2015/QH13"
 
 
 # ══ ?around= — dạng FE dùng nhiều nhất ═══════════════════════════════════════
@@ -32,7 +43,7 @@ DOC_ID_BLDS = "95942"
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_around_dieu_giua_van_ban_tra_dung_5_dieu_mot_tam(client):
-    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"around": 129006})
+    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"around": pid(f"{BLDS} > Điều 300")})
     assert r.status_code == 200
     data = r.json()
     assert data["doc_id"] == DOC_ID_BLDS
@@ -50,10 +61,10 @@ async def test_around_dieu_giua_van_ban_tra_dung_5_dieu_mot_tam(client):
 @pytest.mark.asyncio
 async def test_around_lazy_gioi_han_so_dong_tra_ve(client):
     """Ràng buộc lazy cốt lõi: BLDS có 689 Điều, `?around=` KHÔNG được kéo cả
-    cây. Đo thật trên id=129006: đúng 13 dòng (5 Điều + Khoản con) — chặn ở
+    cây. Đo thật trên Điều 300: đúng 13 dòng (5 Điều + Khoản con) — chặn ở
     60 theo đúng ví dụ trong yêu cầu, dư biên độ lớn nên không giòn (flaky)
     nếu seed đổi nhẹ."""
-    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"around": 129006})
+    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"around": pid(f"{BLDS} > Điều 300")})
     assert r.status_code == 200
     assert len(r.json()["provisions"]) < 60
 
@@ -63,7 +74,7 @@ async def test_around_lazy_gioi_han_so_dong_tra_ve(client):
 async def test_around_dieu_dau_van_ban_cat_bien_dung_khong_loi(client):
     """Điều 1 không có Điều nào trước — cắt biên đúng, không lỗi 500, không
     bịa hàng xóm không tồn tại."""
-    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"around": 127873})
+    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"around": pid(f"{BLDS} > Điều 1")})
     assert r.status_code == 200
     dieu_rows = [p for p in r.json()["provisions"] if p["cap"] == "dieu"]
     assert [p["so_hieu_cap"] for p in dieu_rows] == ["1", "2", "3"]
@@ -73,7 +84,7 @@ async def test_around_dieu_dau_van_ban_cat_bien_dung_khong_loi(client):
 @pytest.mark.asyncio
 async def test_around_dieu_cuoi_van_ban_cat_bien_dung_khong_loi(client):
     """Điều 689 (Điều cuối BLDS) không có Điều nào sau — cắt biên đúng."""
-    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"around": 130383})
+    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"around": pid(f"{BLDS} > Điều 689")})
     assert r.status_code == 200
     dieu_rows = [p for p in r.json()["provisions"] if p["cap"] == "dieu"]
     assert [p["so_hieu_cap"] for p in dieu_rows] == ["687", "688", "689"]
@@ -84,8 +95,8 @@ async def test_around_dieu_cuoi_van_ban_cat_bien_dung_khong_loi(client):
 async def test_around_nhan_id_khoan_van_tim_dung_dieu_cha(client):
     """Ca THƯỜNG (73,6% số Điều chỉ có tiêu đề — xem verify_tier1._cay_con):
     FE gửi `khop_tai_id`, thường là id của một Khoản chứ không phải Điều.
-    id=129007 là Khoản 1 của Điều 300 — kết quả PHẢI giống hệt around=129006."""
-    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"around": 129007})
+    Neo Khoản 1 của Điều 300 phải cho kết quả giống hệt neo Điều 300."""
+    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"around": pid(f"{BLDS} > Điều 300 > Khoản 1")})
     assert r.status_code == 200
     data = r.json()
     dieu_rows = [p for p in data["provisions"] if p["cap"] == "dieu"]
@@ -101,7 +112,7 @@ async def test_around_provision_khac_van_ban_tra_404_khong_im_lang(client):
     hay trộn dữ liệu của văn bản đang hỏi với provision của văn bản khác."""
     ok = await client.get("/api/v1/van-ban/96117")  # sanity: 96117 tồn tại thật
     assert ok.status_code == 200
-    r = await client.get("/api/v1/van-ban/96117", params={"around": 129006})  # 129006 thuộc 95942
+    r = await client.get("/api/v1/van-ban/96117", params={"around": pid(f"{BLDS} > Điều 300")})  # thuộc 95942
     assert r.status_code == 404
 
 
@@ -159,7 +170,7 @@ async def test_so_dieu_va_around_cung_luc_tra_422(client):
     """Không chạm DB — chặn ở biên validate trước khi tới bất kỳ truy vấn
     nào, nên không cần `@pytest.mark.integration`."""
     r = await client.get(
-        f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"so_dieu": "1", "around": 127873}
+        f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"so_dieu": "1", "around": 1}
     )
     assert r.status_code == 422
 
@@ -170,16 +181,18 @@ async def test_so_dieu_va_around_cung_luc_tra_422(client):
 # màn hình đã TỪ CHỐI suy `id Chương + 1` — cách đó đúng hôm nay và sai lặng lẽ
 # ở lần seed sau.
 #
-# Mốc đo TRỰC TIẾP trên DB trước khi viết test: Chương I của BLDS (id=127872) có
-# đúng 7 Điều. Chương lớn nhất corpus có 156 Điều nhưng 1231 dòng hậu duệ — nên
-# endpoint trả TIÊU ĐỀ ĐIỀU, không kéo Khoản/Điểm.
-CHUONG_I_BLDS = 127872
+# Mốc đo TRỰC TIẾP trên DB trước khi viết test: Chương I của BLDS có đúng 7 Điều.
+# Chương lớn nhất corpus có 156 Điều nhưng 1231 dòng hậu duệ — nên endpoint trả
+# TIÊU ĐỀ ĐIỀU, không kéo Khoản/Điểm.
+# Neo Chương mang cả Phần cha: container KHÔNG bị lược khỏi `duong_dan` (chỉ cấp
+# trích dẫn được mới lược — xem `prov_parser._duong_dan`).
+CHUONG_I_BLDS = f"{BLDS} > Phần thứ nhất > Chương I"
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_trong_chuong_chi_tra_DIEU_khong_keo_ca_cay(client):
-    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"trong_chuong": CHUONG_I_BLDS})
+    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"trong_chuong": pid(CHUONG_I_BLDS)})
     assert r.status_code == 200
     ps = r.json()["provisions"]
     assert len(ps) == 7, "Chương I của BLDS có đúng 7 Điều (đo trên DB)"
@@ -193,13 +206,17 @@ async def test_trong_chuong_chi_tra_DIEU_khong_keo_ca_cay(client):
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_trong_chuong_tu_choi_id_khong_phai_chuong(client):
-    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"trong_chuong": 127873})
-    assert r.status_code == 422, "127873 là Điều 1, không phải Chương — nói thẳng thay vì trả rỗng"
+    dieu_1 = pid(f"{BLDS} > Điều 1")
+    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"trong_chuong": dieu_1})
+    assert r.status_code == 422, f"{dieu_1} là Điều 1, không phải Chương — nói thẳng thay vì trả rỗng"
 
 
 @pytest.mark.asyncio
 async def test_trong_chuong_khong_dung_chung_voi_tham_so_khac(client):
+    """Chặn ở biên validate, TRƯỚC mọi truy vấn — nên không `@integration` và
+    KHÔNG gọi `pid()`: một id bất kỳ là đủ, và gọi DB ở đây sẽ bắt CI (chạy
+    `-m "not integration"`, không có Postgres) phải dựng Postgres."""
     r = await client.get(
-        f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"trong_chuong": CHUONG_I_BLDS, "so_dieu": "1"}
+        f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"trong_chuong": 1, "so_dieu": "1"}
     )
     assert r.status_code == 422

@@ -175,14 +175,44 @@ def _gan_duong_dan_he_thong(engine: Engine, per_item: list[dict]) -> list[dict]:
     return [_giau(it) for it in per_item]
 
 
-def _load_golden_qa(s: Settings) -> list[dict]:
+def phan_giai_gold(engine: Engine, items: list[dict]) -> list[dict]:
+    """Ground truth của golden_qa là `duong_dan`, KHÔNG phải `provisions.id`.
+
+    `provisions.id` là BIGSERIAL và `scripts.ingest` xoá-rồi-chèn mỗi document
+    có checksum đổi, nên mọi id dịch sau một lần sửa parser hay một lần mở rộng
+    corpus. Khi id ghi cứng trong YAML chết đi, `_run_items` KHÔNG nổ — nó tính
+    Recall trên một tập gold không tồn tại và trả về 0,0. Bảng số liệu khoá luận
+    tụt mà không một dòng lỗi nào chỉ ra vì sao. Đó là lý do id được PHÂN GIẢI ở
+    đây, ngay trước khi chạy, và mọi `duong_dan` không phân giải được là một
+    ValueError — không phải một câu Recall=0 im lặng.
+
+    `duong_dan` là khoá canonical của dự án: unique index
+    `ux_provisions_neo_trich_dan` (migration 004) bắt nó duy nhất ở cấp trích
+    dẫn được, và nó cũng chính là chuỗi người đọc thấy trong trích dẫn.
+    """
+    can = sorted({dd for it in items for dd in it["duong_dan"]})
+    with engine.connect() as c:
+        m = dict(c.execute(
+            text("SELECT duong_dan, id FROM provisions WHERE duong_dan = ANY(:dd)"),
+            {"dd": can}).all())
+    thieu = [dd for dd in can if dd not in m]
+    if thieu:
+        raise ValueError(
+            f"{len(thieu)}/{len(can)} duong_dan trong golden_qa.yaml KHÔNG có trong DB — "
+            f"corpus chưa nạp, hoặc neo đã đổi: {thieu[:5]}")
+    return [it | {"provision_ids": [m[dd] for dd in it["duong_dan"]]} for it in items]
+
+
+def _load_golden_qa(s: Settings, engine: Engine) -> list[dict]:
     p = Path(s.eval_dataset_dir) / "golden_qa.yaml"
-    return yaml.safe_load(p.read_text(encoding="utf-8"))["items"]
+    items = yaml.safe_load(p.read_text(encoding="utf-8"))["items"]
+    return phan_giai_gold(engine, items)
 
 
 def evaluate(config_name: str) -> dict:
     s = overlay_settings(load_config(config_name))
-    items = _load_golden_qa(s)
+    engine = get_engine()
+    items = _load_golden_qa(s, engine)
 
     embedder = EmbeddingClient(
         api_key=s.openrouter_api_key,
@@ -190,7 +220,7 @@ def evaluate(config_name: str) -> dict:
         model=s.openrouter_embedding_model_name,
         dim=s.openrouter_embedding_dim,
     )
-    r = Retriever(get_engine(), embedder, s)
+    r = Retriever(engine, embedder, s)
 
     per_item, n_ok = _run_items(r, items, s)
     per_item = _gan_duong_dan_he_thong(r.engine, per_item)

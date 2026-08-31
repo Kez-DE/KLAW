@@ -275,6 +275,10 @@ def danh_gia(
       4. **Thứ bậc** (`_cung_thu_bac`, chỉ Mức 2b) — chỉ văn bản CÙNG loại mới
          thay thế được nhau. Một Nghị định hướng dẫn không khai tử được Bộ luật
          mà nó hướng dẫn.
+      5. **Chiều bằng chứng** (chỉ Mức 2b) — phỏng đoán từ tiêu đề không được
+         lật một khai báo CỤ THỂ của sổ đăng ký (MOJ khai `HHL1P` thì giữ
+         `mot_phan_khong_xac_dinh`, khẳng định yếu hơn và an toàn hơn), và
+         không áp lên chính văn bản ĐI SỬA — tiêu đề của nó rút về gần trắng.
 
     Guard 1, 3 và 4 KHÔNG phải trang trí: bản đầu tiên thiếu 1 và 4 đã tuyên
     nhầm 4 văn bản còn sống trong corpus là đã bị thay thế, trong đó có Bộ luật
@@ -325,6 +329,41 @@ def danh_gia(
     # Chọn ứng viên GIỐNG NHẤT (hoà thì sớm nhất) chứ không phải sớm nhất: tiêu
     # đề ngắn dễ chạm ngưỡng với một chủ đề lân cận, và lấy sớm nhất sẽ nêu tên
     # kẻ thay thế sai ngay cả khi phán quyết đúng.
+    #
+    # Guard 5 — **CHỈ suy luận khi MOJ nói CHL.** Mức 2b không có cạnh đồ thị
+    # nào: nó là phỏng đoán từ độ giống TIÊU ĐỀ. Nó tồn tại cho đúng một tình
+    # huống — MOJ khai "còn hiệu lực" cho một văn bản mà chính corpus mâu thuẫn
+    # (đo được: sai 4/6 trên chuỗi lương tối thiểu). Khi MOJ đã khai HHL1P thì
+    # sổ đăng ký ĐÃ nói một điều cụ thể, và `mot_phan_khong_xac_dinh` là khẳng
+    # định YẾU HƠN, an toàn hơn `bi_thay_the`; để phỏng đoán từ tiêu đề lật một
+    # khai báo của sổ đăng ký là đi ngược chiều mạnh-yếu của bằng chứng.
+    #
+    # ĐO 2026-09-01, ngay khi corpus mở từ 21 lên 47 văn bản toàn văn — hai ca
+    # tuyên nhầm, cả hai đều HHL1P và cả hai đều là văn bản ĐANG SỐNG:
+    #   67/2025/QH15 Thuế thu nhập DOANH NGHIỆP "bị thay bởi"
+    #     109/2025/QH15 Thuế thu nhập CÁ NHÂN            (Jaccard 0.5, đầu đề "thuế")
+    #   71/2025/QH15 Công nghiệp công nghệ số "bị thay bởi"
+    #     133/2025/QH15 "CÔNG NGHỆ CAO"                  (Jaccard 0.5, đầu đề "công")
+    # Không nới `NGUONG_CHU_DE` được: cặp cùng chủ đề THẬT thấp nhất trong corpus
+    # là 0.458, nằm DƯỚI cả hai ca sai. Ngưỡng không tách được chúng; chiều bằng
+    # chứng thì tách sạch — không ca đúng nào của Mức 2b mang tình trạng HHL1P.
+    # Chặn ĐÚNG chiều lật, không rộng hơn: `chua_xac_dinh` (36+ dòng chỉ-metadata
+    # nạp từ parquet, MOJ không khai gì) KHÔNG phải một khai báo, nên với chúng
+    # suy luận là tín hiệu DUY NHẤT có — chặn ở đó chỉ làm mù thêm. `HHL` đã bị
+    # Mức 1/Mức 3 bắt trước. Còn lại đúng một ca cần chặn: `HHL1P`.
+    #
+    # Vế thứ hai — **văn bản ĐI SỬA không phải chủ thể của Mức 2b.** `TU_BO` bỏ
+    # "sửa/đổi/bổ/sung/một/số/điều/của", nên tiêu đề một luật sửa đổi rút về
+    # gần như trắng và độ giống tính trên phần còn lại là ngẫu nhiên. Ca thật
+    # cùng ngày: "Luật Sửa đổi, bổ sung một số điều của Bộ luật Hình sự"
+    # (12/2017/QH14) rút về đúng {"hình"} — "sự" bị lọc vì ≤2 ký tự — và khớp
+    # 1.0 với "LUẬT THI HÀNH ÁN HÌNH SỰ" (127/2025/QH15), cũng rút về {"hình"}.
+    # `_la_van_ban_sua_doi` đã lọc phía ỨNG VIÊN từ trước; đây là cùng lý do,
+    # phía còn lại. Sửa ở đây chứ không siết `NGUONG_CHU_DE` hay bỏ bộ lọc
+    # ≤2 ký tự: cả hai đụng vào một ngưỡng đã hiệu chuẩn bằng số đo, và bỏ bộ
+    # lọc sẽ giết "Bộ luật Hình sự" — cũng rút về {"hình"} — một ca ĐÚNG.
+    if doc.get("tinh_trang") == "HHL1P" or _la_van_ban_sua_doi(ten_doc):
+        ung_vien_ke_nhiem = ()
     ke_nhiem = sorted(
         (
             (-_do_giong(ten_doc, u.get("ten")), u.get("ngay_hieu_luc"), u)

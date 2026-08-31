@@ -11,6 +11,7 @@ Hai nhóm test:
 """
 
 import logging
+import re
 import unicodedata
 from datetime import date
 
@@ -19,7 +20,13 @@ from sqlalchemy import text
 
 from src.services.db import get_engine
 from src.services.effectivity import EffectivityVerdict as V
-from src.services.effectivity import cung_chu_de, danh_gia, danh_gia_theo_id, nap_ngu_canh
+from src.services.effectivity import (
+    _do_giong,
+    cung_chu_de,
+    danh_gia,
+    danh_gia_theo_id,
+    nap_ngu_canh,
+)
 
 HOM_NAY = date(2026, 8, 27)
 # Ngày Kenz dùng khi tự đo tập chấp nhận trên DB — giữ nguyên để so được.
@@ -450,17 +457,30 @@ def test_canh_DI_RA_nang_tin_cay_len_CAO_tren_du_lieu_that():
     assert khong_di_ra.tin_cay == "trung_binh"
 
 
+# Cạnh có ngày mâu thuẫn đã BIẾT, ghi tường minh thay vì nới phép kiểm.
+# Bản đầu khẳng định "0 cạnh" — đo trên corpus 21 văn bản toàn văn. Mở corpus lên
+# 47 làm lộ một cạnh bẩn trong `relationships.parquet`: `09/2026/QH16` (hiệu lực
+# 2026-04-24) được ghi là sửa `109/2025/QH15` (hiệu lực 2026-07-01), tức văn bản
+# đi sửa có hiệu lực TRƯỚC văn bản bị sửa. Guard 1 bỏ cạnh đó và ghi log — hành
+# vi đúng. Điều phải giữ là "không có cạnh bẩn MỚI nào lọt vào mà không ai biết",
+# nên danh sách này liệt kê từng ca, giống danh sách ngoại lệ của migration 013.
+CANH_NGAY_MAU_THUAN_DA_BIET = {("109/2025/QH15", "09/2026/QH16")}
+
+
 @pytest.mark.integration
-def test_KHONG_canh_22_23_nao_trong_DB_co_ngay_mau_thuan(caplog):
-    """Đo lại trên cả 57 văn bản: 0 cạnh bị bỏ vì ngày mâu thuẫn. Test đỏ nếu
-    một parquet mới mang dữ liệu bẩn vào — lúc đó phải xem lại, không nuốt."""
+def test_chi_nhung_canh_ngay_mau_thuan_DA_BIET_moi_duoc_bo(caplog):
+    """Nguồn là crawl bên thứ ba, vintage không rõ — dữ liệu bẩn là chuyện có
+    thật. Test đỏ khi xuất hiện ca MỚI; lúc đó phải mở ra xem, không nuốt."""
     engine = get_engine()
     with engine.connect() as c:
         ids = [r[0] for r in c.execute(text("SELECT id FROM documents")).all()]
     with caplog.at_level(logging.WARNING, logger="src.services.effectivity"):
         for doc_id in ids:
             danh_gia_theo_id(engine, doc_id, NGAY_CHAP_NHAN)
-    assert [r.getMessage() for r in caplog.records if "ngày mâu thuẫn" in r.getMessage()] == []
+    thay = {tuple(re.findall(r"giữa (\S+) và (\S+):", r.getMessage())[0])
+            for r in caplog.records if "ngày mâu thuẫn" in r.getMessage()}
+    moi = thay - CANH_NGAY_MAU_THUAN_DA_BIET
+    assert not moi, f"cạnh ngày mâu thuẫn MỚI — mở dữ liệu ra xem trước khi thêm vào danh sách: {moi}"
 
 
 @pytest.mark.integration
@@ -474,7 +494,7 @@ def test_ND_90_2019_that_su_KHONG_co_canh_nao_de_dua_vao():
 
 @pytest.mark.integration
 def test_KHONG_van_ban_nao_TRONG_CORPUS_bi_tuyen_bua_la_da_chet():
-    """Quét cả 21 văn bản deep. Bản suy luận Mức 2b ĐẦU TIÊN tuyên nhầm 4 văn
+    """Quét MỌI văn bản toàn văn của corpus. Bản suy luận Mức 2b ĐẦU TIÊN tuyên nhầm 4 văn
     bản còn sống là đã bị thay thế — Bộ luật Lao động 45/2019 (bởi chính NĐ
     145/2020 hướng dẫn nó), Luật An toàn vệ sinh lao động 84/2015, Bộ luật Tố
     tụng dân sự 92/2015 (bởi Bộ luật Dân sự 91/2015) và Thông tư 09/2020.
@@ -483,15 +503,84 @@ def test_KHONG_van_ban_nao_TRONG_CORPUS_bi_tuyen_bua_la_da_chet():
     with engine.connect() as c:
         ids = [r[0] for r in c.execute(text(
             "SELECT id FROM documents WHERE depth <> 'metadata' ORDER BY id")).all()]
-    chet = set()
+    chet: dict[str, tuple[str, str, str]] = {}
     for doc_id in ids:
         doc, canh, ung_vien = nap_ngu_canh(engine, doc_id, NGAY_CHAP_NHAN)
         r = danh_gia(doc, canh, NGAY_CHAP_NHAN, ung_vien)
         if r.verdict is V.bi_thay_the:
-            chet.add(doc_id)
+            chet[doc_id] = (r.tin_cay, doc["tinh_trang"], r.ly_do)
             assert doc["so_ky_hieu"] not in r.ly_do, (
                 f"{doc_id} bị tuyên là tự thay thế chính mình: {r.ly_do}")
-    assert chet & {"139264", "70811", "96115", "152670"} == set(), (
+    assert chet.keys() & {"139264", "70811", "96115", "152670"} == set(), (
         f"tuyên nhầm văn bản còn sống là đã bị thay thế: {sorted(chet)}")
-    # Chỉ chuỗi lương tối thiểu mới thực sự bị thay trong corpus này.
-    assert chet == {"92898", "126319", "132862", "139094"}, sorted(chet)
+    # Chuỗi lương tối thiểu là 4 ca ĐÚNG đã đối chiếu tay — sàn, không phải trần:
+    # corpus lớn lên thì tập này được phép lớn theo, nên ghim `==` sẽ đỏ vì một
+    # lý do lành và cách sửa dễ dãi là chép lại tập mới.
+    assert {"92898", "126319", "132862", "139094"} <= chet.keys(), sorted(chet)
+    # Cái phải giữ là mỗi phán quyết `bi_thay_the` đều có CHỖ DỰA: hoặc một cạnh
+    # đồ thị (`cao`), hoặc suy luận Mức 2b — và Mức 2b chỉ được chạy khi MOJ nói
+    # CHL (guard 5). Thiếu ràng buộc này, mở corpus lên 47 văn bản đã tuyên nhầm
+    # 67/2025/QH15 (Thuế TNDN) "bị thay bởi" 109/2025/QH15 (Thuế TNCN) và
+    # 71/2025/QH15 (Công nghiệp công nghệ số) "bị thay bởi" 133/2025/QH15
+    # ("CÔNG NGHỆ CAO") — cả hai đều đang sống, cả hai đều Jaccard 0.5.
+    for doc_id, (tin_cay, tinh_trang, ly_do) in chet.items():
+        if tin_cay == "cao":
+            assert "đồ thị xác nhận" in ly_do, (doc_id, ly_do)
+        else:
+            assert tinh_trang != "HHL1P", (
+                f"{doc_id}: suy luận Mức 2b lật khai báo {tinh_trang!r} của MOJ bằng "
+                f"độ giống tiêu đề — {ly_do}")
+
+
+# ══ Guard 5 — suy luận từ tiêu đề không lật khai báo của sổ đăng ký ══════════
+# Hai ca dưới đây là hai ca THẬT đã tuyên nhầm khi corpus mở từ 21 lên 47 văn
+# bản toàn văn (2026-09-01). Chúng ở đây dưới dạng đơn vị, không cần Postgres.
+
+_TNDN = {"id": "179941", "so_ky_hieu": "67/2025/QH15", "loai_van_ban": "Luật",
+         "ten": "Luật Thuế thu nhập doanh nghiệp số 67/2025/QH15",
+         "ngay_hieu_luc": date(2025, 10, 1), "ngay_het_hieu_luc": None,
+         "tinh_trang": "HHL1P"}
+_TNCN = {"so_ky_hieu": "109/2025/QH15", "loai_van_ban": "Luật",
+         "ten": "Luật Thuế thu nhập cá nhân số 109/2025/QH15",
+         "ngay_hieu_luc": date(2026, 7, 1)}
+
+
+def test_nguong_chu_de_KHONG_tach_duoc_thue_TNDN_voi_thue_TNCN():
+    """Ghim lý do vì sao guard 5 phải là guard chứ không phải một ngưỡng khác:
+    hai luật thuế KHÁC HẲN nhau vẫn qua `cung_chu_de`, và độ giống của chúng
+    (0,5) CAO HƠN cặp cùng chủ đề thật thấp nhất trong corpus (0,458). Không
+    ngưỡng nào tách được hai tập đó."""
+    assert cung_chu_de(_TNDN["ten"], _TNCN["ten"])
+    assert _do_giong(_TNDN["ten"], _TNCN["ten"]) == 0.5
+
+
+def test_HHL1P_thi_Muc_2b_KHONG_chay_va_giu_mot_phan_khong_xac_dinh():
+    r = danh_gia(_TNDN, [], date(2026, 8, 30), [_TNCN])
+    assert r.verdict is V.mot_phan_khong_xac_dinh, r.ly_do
+    assert "109/2025/QH15" not in r.ly_do
+
+
+def test_CHL_thi_Muc_2b_VAN_chay_nhu_cu():
+    """Đối chứng: guard 5 chỉ chặn đúng chiều lật khai báo, không tắt Mức 2b."""
+    r = danh_gia(_TNDN | {"tinh_trang": "CHL"}, [], date(2026, 8, 30), [_TNCN])
+    assert r.verdict is V.bi_thay_the and r.tin_cay == "trung_binh"
+
+
+def test_van_ban_DI_SUA_khong_phai_chu_the_cua_Muc_2b():
+    """Ca thật: "Luật Sửa đổi, bổ sung một số điều của Bộ luật Hình sự" rút về
+    đúng {"hình"} ("sự" ≤2 ký tự nên bị lọc) và khớp 1.0 với "LUẬT THI HÀNH ÁN
+    HÌNH SỰ", cũng rút về {"hình"} — luật sửa BLHS bị tuyên là đã bị Luật Thi
+    hành án hình sự thay thế."""
+    sua = "Luật Sửa đổi, bổ sung một số điều của Bộ luật Hình sự số 100/2015/QH13 số 12/2017/QH14"
+    thi_hanh = "LUẬT THI HÀNH ÁN HÌNH SỰ SỐ 127/2025/QH15"
+    assert _do_giong(sua, thi_hanh) == 1.0, "vẫn khớp hoàn toàn — đó chính là vấn đề"
+    doc = _doc(loai_van_ban="Luật", ngay_hieu_luc=date(2018, 1, 1), ten=sua)
+    uv = [{"so_ky_hieu": "127/2025/QH15", "loai_van_ban": "Luật", "ten": thi_hanh,
+           "ngay_hieu_luc": date(2026, 7, 1)}]
+    assert danh_gia(doc, [], date(2026, 8, 30), uv).verdict is not V.bi_thay_the
+
+
+def test_bo_loc_2_ky_tu_KHONG_bi_go__vi_no_se_giet_mot_ca_dung():
+    """Vì sao không sửa ở `_danh_tu_chinh`: "Bộ luật Hình sự" cũng rút về đúng
+    {"hình"}, và Bộ luật Hình sự 2015 THẬT SỰ thay thế bản 1999."""
+    assert cung_chu_de("Bộ luật Hình sự", "Bộ luật Hình sự")
