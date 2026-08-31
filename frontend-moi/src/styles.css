@@ -173,6 +173,12 @@
 .thinking-dot:nth-child(2) { animation-delay: 0.15s; }
 .thinking-dot:nth-child(3) { animation-delay: 0.3s; }
 
+/* Bản không dịch chuyển, dùng dưới prefers-reduced-motion. */
+@keyframes thinking-dot-giam-chuyen-dong {
+  0%, 80%, 100% { opacity: 0.25; }
+  40% { opacity: 1; }
+}
+
 /* ---------- Landing design tokens ---------- */
 :root {
   --gradient-parchment: linear-gradient(
@@ -570,6 +576,38 @@
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+
+  /*
+    Hai ngoại lệ, và chỉ hai.
+
+    Luật `*` ở trên tắt mọi animation, kể cả `.thinking-dot` và `.brass-caret` —
+    tức là tắt luôn chỉ báo "đang xử lý" cho một lượt trả lời mất 10-60 giây.
+    Người bật prefers-reduced-motion khi đó ngồi nhìn một màn hình đứng im và
+    không có cách nào biết hệ thống còn sống. Đó không phải giảm chuyển động,
+    đó là gỡ phản hồi trạng thái.
+
+    prefers-reduced-motion nhắm vào CHUYỂN ĐỘNG (dịch chuyển, phóng to, parallax),
+    không nhắm vào mọi thay đổi theo thời gian. Nên hai chỉ báo này ở lại, đã gỡ
+    hết phần dịch chuyển:
+      - .thinking-dot đổi sang keyframe chỉ đổi opacity, bỏ translateY(-3px),
+        chậm lại còn 1,4s. Giữ nguyên animation-delay của nth-child nên ba chấm
+        vẫn nhấp so le — đó là thứ đọc ra "đang chạy".
+      - .brass-caret-blink vốn đã chỉ đổi opacity ở 1Hz, dưới xa ngưỡng 3Hz gây
+        co giật. Giữ nguyên, chậm lại còn 1,2s.
+
+    Selector hạng lớp thắng `*` nên chỉ cần khai lại ở đây, không cần đụng tới
+    luật gốc.
+  */
+  .thinking-dot {
+    animation-name: thinking-dot-giam-chuyen-dong !important;
+    animation-duration: 1.4s !important;
+    animation-iteration-count: infinite !important;
+  }
+  .brass-caret::after {
+    animation-duration: 1.2s !important;
+    animation-iteration-count: infinite !important;
+  }
+
   .reveal {
     opacity: 1 !important;
     transform: none !important;

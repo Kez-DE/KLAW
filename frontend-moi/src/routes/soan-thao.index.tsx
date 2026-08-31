@@ -13,6 +13,7 @@ import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
 import { MAU, NHOM, type NhomMau } from "@/lib/mau-van-ban";
 import { boDau } from "@/lib/van-ban";
 import { cn } from "@/lib/utils";
+import { SITE_ORIGIN } from "./__root";
 
 export const Route = createFileRoute("/soan-thao/")({
   head: () => ({
@@ -33,7 +34,7 @@ export const Route = createFileRoute("/soan-thao/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
-      { rel: "canonical", href: "https://legal-buddy-ai-00.lovable.app/soan-thao" },
+      { rel: "canonical", href: `${SITE_ORIGIN}/soan-thao` },
     ],
   }),
   component: ChonLoaiVanBan,

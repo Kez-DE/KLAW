@@ -35,6 +35,7 @@ import { TINH_THANH, capDuoiCua } from "@/lib/dia-gioi";
 import { MAU, laHopDongLaoDong, laThuViec, mauTheoId } from "@/lib/mau-van-ban";
 import { chiSo, dinhDangTien, docSoThanhChu } from "@/lib/tien-viet";
 import { cn } from "@/lib/utils";
+import { SITE_ORIGIN } from "./__root";
 
 export const Route = createFileRoute("/soan-thao/$loaiVanBan")({
   head: ({ params }) => {
@@ -62,7 +63,7 @@ export const Route = createFileRoute("/soan-thao/$loaiVanBan")({
       links: [
         {
           rel: "canonical",
-          href: `https://legal-buddy-ai-00.lovable.app/soan-thao/${params.loaiVanBan}`,
+          href: `${SITE_ORIGIN}/soan-thao/${encodeURIComponent(params.loaiVanBan)}`,
         },
       ],
     };
@@ -341,8 +342,9 @@ function KhongGianSoanThao() {
         dinhDang === "docx" ? "Đã tải tệp .docx." : "Đã tải tệp .pdf.",
         { id, description: "Bản thảo cần được pháp chế rà soát trước khi ký kết." },
       );
-    } catch (e) {
-      console.error(e);
+    } catch {
+      // Thất bại đi ra bằng toast, không bằng console: người dùng thấy được, và
+      // bản dựng công khai không nhả stack ra console trình duyệt.
       toast.error("Xuất tệp thất bại. Vui lòng thử lại.", { id });
     } finally {
       setDangXuat(null);
