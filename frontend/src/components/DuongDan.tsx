@@ -1,12 +1,11 @@
-import { Fragment } from 'react';
+import { dinhDangTrichDan, soKyHieuTuDuongDan } from '../lib/trichDanVN';
 
 interface DuongDanProps {
-  /** "45/2019/QH14 > Điều 127 > Khoản 2" — một địa chỉ, không phải văn xuôi. */
+  /** "45/2019/QH14 > Điều 127 > Khoản 2" — địa chỉ thô từ DB, chiều lớn → nhỏ. */
   duongDan?: string;
-  /** ĐỊNH DANH văn bản. Hiển thị cái này — không bao giờ hiển thị title/tên. */
+  /** ĐỊNH DANH văn bản. Khi không truyền, lấy lại từ đoạn đầu `duongDan`. */
   soKyHieu?: string;
-  /** Tên đầy đủ để người đọc nhận ra văn bản; luôn đi kèm, không thay thế
-   *  `soKyHieu`. */
+  /** `documents.ten` NGUYÊN VĂN; vào chuỗi trích dẫn qua `lib/trichDanVN.ts`. */
   boLuat?: string;
   /** true khi địa chỉ nằm TRÊN mặt phim (nền sáng) thay vì trên mặt máy. */
   trenPhim?: boolean;
@@ -14,8 +13,22 @@ interface DuongDanProps {
 }
 
 /**
- * Số hiệu và đường dẫn trích dẫn hiển thị bằng font địa chỉ (mono): người dùng
- * cần quét và so từng ký tự, đây không phải văn xuôi (DESIGN.md).
+ * Trích dẫn một điều khoản, theo thứ tự tiếng Việt (§6.2):
+ *
+ *   Khoản 2 Điều 127 Bộ Luật lao động 2019
+ *   45/2019/QH14
+ *
+ * Dòng trên là VĂN XUÔI: người đọc Việt đọc trích dẫn từ đơn vị nhỏ nhất tới
+ * lớn nhất, nên đó là một câu chứ không phải một địa chỉ máy — vì vậy không còn
+ * dùng font mono cho nó.
+ *
+ * Dòng dưới giữ font địa chỉ (mono): `so_ky_hieu` là khoá định danh DUY NHẤT
+ * của văn bản, thứ người dùng phải quét và so từng ký tự để tra lại. Nó không
+ * bao giờ được biến mất — kể cả ở những chỗ chỉ truyền `duongDan` (Soát, Soạn
+ * thảo), nơi nó được lấy lại từ đoạn đầu đường dẫn.
+ *
+ * MỌI trích dẫn trong sản phẩm đi qua component này. Đổi dạng hiển thị thì sửa
+ * ở đây và trong `lib/trichDanVN.ts`, không rải ra từng trang.
  */
 export function DuongDan({
   duongDan,
@@ -24,40 +37,29 @@ export function DuongDan({
   trenPhim = false,
   className = '',
 }: DuongDanProps) {
-  // `duong_dan` mở đầu bằng chính `so_ky_hieu`. Khi hiện cả hai, bỏ đoạn đầu
-  // của đường dẫn: định danh đã nằm ngay trên, lặp lại chỉ làm địa chỉ khó quét.
-  const doanDayDu = duongDan ? duongDan.split(' > ') : [];
-  const doan =
-    soKyHieu !== undefined && doanDayDu[0] === soKyHieu ? doanDayDu.slice(1) : doanDayDu;
+  const duong = duongDan ?? '';
+  const soHieu = soKyHieu ?? soKyHieuTuDuongDan(duong);
+  const trichDan = dinhDangTrichDan(duong, soHieu, boLuat ?? '');
+
   const mauChinh = trenPhim ? 'var(--muc)' : 'var(--phim)';
   const mauPhu = trenPhim ? 'color-mix(in srgb, var(--muc) 62%, transparent)' : 'var(--muc-nhat)';
 
   return (
     <span className={`block min-w-0 ${className}`}>
-      {soKyHieu !== undefined && (
+      {trichDan !== '' && (
         <span
-          className="dia-chi block text-[0.8125rem] leading-5 font-medium break-all"
+          className="block text-[0.8125rem] leading-5 font-medium break-words"
           style={{ color: mauChinh }}
         >
-          {soKyHieu}
+          {trichDan}
         </span>
       )}
-      {duongDan !== undefined && doan.length > 0 && (
+      {soHieu !== '' && (
         <span
-          className="dia-chi block text-[0.75rem] leading-5 break-words"
+          className="dia-chi mt-0.5 block text-[0.75rem] leading-5 break-all"
           style={{ color: mauPhu }}
         >
-          {doan.map((phan, i) => (
-            <Fragment key={`${phan}-${i}`}>
-              {i > 0 && <span> {'>'} </span>}
-              {phan}
-            </Fragment>
-          ))}
-        </span>
-      )}
-      {boLuat !== undefined && boLuat !== '' && (
-        <span className="mt-1 block text-[0.75rem] leading-5" style={{ color: mauPhu }}>
-          {boLuat}
+          {soHieu}
         </span>
       )}
     </span>

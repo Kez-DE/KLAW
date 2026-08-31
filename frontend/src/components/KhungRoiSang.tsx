@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { layVanBanQuanhDieu } from '../lib/api';
 import { useGoiApi, useHaiCot } from '../lib/hooks';
 import { catTheoTrichDan } from '../lib/trichDan';
-import type { VanBanAroundResponse } from '../types';
+import { chuoiDeSaoChep, soKyHieuTuDuongDan } from '../lib/trichDanVN';
+import type { HieuLuc, VanBanAroundResponse } from '../types';
 import { BaoLoi } from './BaoLoi';
 import { DuongDan } from './DuongDan';
 import { NguyenVanDieu } from './soat/NguyenVanDieu';
@@ -45,6 +46,9 @@ export interface DiaChiKhung {
   bo_luat?: string;
   /** Có → tô sáng trong nguyên văn. Không có → chỉ mở đúng Điều. */
   quote?: string | null;
+  /** Chỉ để ghi tình trạng vào chuỗi sao chép. `Citation` có sẵn nên màn Tra
+   *  cứu truyền thẳng; một `Finding` không có, và chuỗi sẽ bỏ phần ngoặc. */
+  hieu_luc?: HieuLuc | null;
 }
 
 /** Hai vai của cùng một panel — khác nhau ĐÚNG ở chữ, không ở hành vi. */
@@ -63,6 +67,9 @@ const VAI = {
   },
 } as const;
 
+/** Cùng nhịp với `soan-thao/VanBanKetQua.tsx` để hai chỗ chép hành xử như nhau. */
+const CHEP_XONG_MS = 2000;
+
 interface KhungRoiSangProps {
   diaChi: DiaChiKhung;
   vai: keyof typeof VAI;
@@ -77,6 +84,7 @@ export function KhungRoiSang({ diaChi, vai, onDong }: KhungRoiSangProps) {
   // Giữ CHÍNH phản hồi đã được rọi sáng, thay vì một cờ boolean phải tay reset:
   // phản hồi mới là một object mới, nên quầng đèn tự tắt rồi sáng lại.
   const [ketQuaDaRoi, datKetQuaDaRoi] = useState<VanBanAroundResponse | null>(null);
+  const [trangThaiChep, datTrangThaiChep] = useState<'nghi' | 'xong' | 'hong'>('nghi');
 
   const { doc_id: docId, khop_tai_id: khopTaiId } = diaChi;
   // Chuỗi rỗng KHÔNG phải một câu trích. Quy về null ngay ở đây, một lần, để
@@ -103,6 +111,13 @@ export function KhungRoiSang({ diaChi, vai, onDong }: KhungRoiSangProps) {
   useEffect(() => {
     tieuDe.current?.focus();
   }, []);
+
+  // Câu báo "đã chép" tự tắt, để nó không dính lại như một trạng thái thật.
+  useEffect(() => {
+    if (trangThaiChep === 'nghi') return;
+    const dong = setTimeout(() => datTrangThaiChep('nghi'), CHEP_XONG_MS);
+    return () => clearTimeout(dong);
+  }, [trangThaiChep]);
 
   // Một cột: panel phủ toàn màn hình, khoá cuộn nền phía sau.
   useEffect(() => {
@@ -137,6 +152,30 @@ export function KhungRoiSang({ diaChi, vai, onDong }: KhungRoiSangProps) {
     });
     return () => cancelAnimationFrame(khung);
   }, [ketQua]);
+
+  // Chuỗi sao chép PHẢI mang `so_ky_hieu`: người dán trích dẫn vào hồ sơ cần
+  // tra lại được văn bản gốc. Số hiệu ưu tiên lấy từ phản hồi, rồi tới địa chỉ,
+  // cuối cùng bóc từ đoạn đầu `duong_dan` — cùng thứ tự với phần hiển thị.
+  const duongDanKhung = diaChi.duong_dan ?? '';
+  const soKyHieuKhung =
+    ketQua?.so_ky_hieu ?? diaChi.so_ky_hieu ?? soKyHieuTuDuongDan(duongDanKhung);
+  const chuoiTrichDan = chuoiDeSaoChep(
+    duongDanKhung,
+    soKyHieuKhung,
+    ketQua?.bo_luat ?? diaChi.bo_luat ?? '',
+    diaChi.hieu_luc,
+  );
+
+  const chepTrichDan = async () => {
+    try {
+      await navigator.clipboard.writeText(chuoiTrichDan);
+      datTrangThaiChep('xong');
+    } catch {
+      // Clipboard API bị chặn (ngữ cảnh không bảo mật, quyền bị từ chối) — nói
+      // thẳng thay vì im lặng giả vờ đã chép.
+      datTrangThaiChep('hong');
+    }
+  };
 
   const daRoi = ketQua !== null && ketQuaDaRoi === ketQua;
   const dongKhop = ketQua?.provisions.find((dieuKhoan) => dieuKhoan.id === khopTaiId) ?? null;
@@ -177,6 +216,14 @@ export function KhungRoiSang({ diaChi, vai, onDong }: KhungRoiSangProps) {
           </h2>
           <button
             type="button"
+            onClick={() => void chepTrichDan()}
+            className="min-h-[var(--vung-cham-toi-thieu)] shrink-0 cursor-pointer rounded-vua border px-3 text-[0.875rem] text-phim transition-opacity duration-[var(--thoi-luong-nhanh)] ease-chuan hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
+            style={{ borderColor: 'var(--muc-nhat)' }}
+          >
+            Chép trích dẫn
+          </button>
+          <button
+            type="button"
             onClick={onDong}
             className="min-h-[var(--vung-cham-toi-thieu)] min-w-[var(--vung-cham-toi-thieu)] shrink-0 cursor-pointer rounded-vua border text-[0.875rem] text-phim transition-opacity duration-[var(--thoi-luong-nhanh)] ease-chuan hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
             style={{ borderColor: 'var(--muc-nhat)' }}
@@ -184,6 +231,20 @@ export function KhungRoiSang({ diaChi, vai, onDong }: KhungRoiSangProps) {
             Đóng
           </button>
         </header>
+
+        <p role="status" className="sr-only">
+          {trangThaiChep === 'xong' ? 'Đã chép trích dẫn.' : ''}
+        </p>
+        {trangThaiChep !== 'nghi' && (
+          <p
+            aria-hidden="true"
+            className="m-0 px-3 pt-2 text-[0.8125rem] leading-5 text-muc-nhat"
+          >
+            {trangThaiChep === 'xong'
+              ? 'Đã chép trích dẫn kèm số hiệu văn bản.'
+              : 'Không chép được — trình duyệt chặn quyền ghi bộ nhớ tạm.'}
+          </p>
+        )}
 
         <div
           ref={vungCuon}
