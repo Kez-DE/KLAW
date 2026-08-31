@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useKhungModalDangMo } from "@/hooks/use-khung-modal";
 
 const NAV = [
   { to: "/dung-thu", label: "Trợ lý KLAW", icon: Sparkles },
@@ -30,10 +31,15 @@ export function AppShell({
   topRight?: ReactNode;
   children: ReactNode;
 }) {
+  // Khung đối chiếu ở bố cục một cột khai `aria-modal`. Điều hướng và thanh
+  // dưới là anh em của <main>, nên chỉ vỏ này gỡ được chúng khỏi vòng Tab.
+  const modalMo = useKhungModalDangMo();
+
   return (
     <div className="flex min-h-screen bg-background">
       {/* Sidebar: 260px ≥1280px, 64px icon rail 768–1280px, bottom bar <768px */}
       <aside
+        inert={modalMo}
         aria-label="Điều hướng chính"
         className="sticky top-0 hidden h-screen w-16 shrink-0 flex-col border-r border-border bg-[var(--color-paper-50)] px-2 py-4 md:flex xl:w-[260px] xl:px-3"
       >
@@ -79,7 +85,10 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col pb-14 md:pb-0">
-        <header className="sticky top-0 z-30 flex items-center gap-4 border-b border-border bg-background/90 px-4 py-2.5 backdrop-blur">
+        <header
+          inert={modalMo}
+          className="sticky top-0 z-30 flex items-center gap-4 border-b border-border bg-background/90 px-4 py-2.5 backdrop-blur"
+        >
           <Link
             to="/"
             aria-label="KLAW — về trang chủ"
@@ -92,11 +101,14 @@ export function AppShell({
           </Link>
           <div className="ml-auto">{topRight}</div>
         </header>
-        <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+        <main id="noi-dung-chinh" className="flex min-w-0 flex-1 flex-col">
+          {children}
+        </main>
       </div>
 
       {/* Bottom navigation under 768px */}
       <nav
+        inert={modalMo}
         aria-label="Điều hướng chính (thu gọn)"
         className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-border bg-background/95 backdrop-blur md:hidden"
       >

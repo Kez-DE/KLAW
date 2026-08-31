@@ -448,11 +448,62 @@
   animation: brass-check 0.55s ease-out forwards;
 }
 
+/* Vòng tiêu điểm dùng chung. Trước đây là 1px brass-500 — 1,93:1 trên nền
+   trang, tức chỉ báo tiêu điểm bàn phím trượt xa ngưỡng 3:1 của WCAG 1.4.11
+   trên gần như mọi control của ứng dụng. Nay dùng --ring (3,20:1) và 2px:
+   một vòng 1px ở tương phản thấp là thứ người ta không thấy. */
 @utility focus-brass {
   &:focus-visible {
-    outline: 1px solid var(--color-brass-500);
+    outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+}
+
+/* ---------- Trợ năng cấp kiến trúc ---------- */
+
+/* Liên kết bỏ qua: ẩn cho tới khi nhận tiêu điểm bàn phím. Không dùng
+   `display:none` — thứ đó gỡ luôn khỏi vòng Tab, tức là gỡ luôn công dụng. */
+.bo-qua-lien-ket {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  transform: translateY(-200%);
+  border-radius: 0.5rem;
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--input);
+  box-shadow: var(--shadow-elegant, 0 8px 24px -8px oklch(0.25 0.03 250 / 0.3));
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.bo-qua-lien-ket:focus-visible {
+  transform: none;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Vùng đối chiếu: cả VÙNG `la_tam` (Điều tâm + mọi Khoản/Điểm con), không
+   phải một dòng. Điều lân cận mờ đi bằng `opacity` chứ KHÔNG đổi màu chữ —
+   chữ nguyên văn không bao giờ mang màu trạng thái. */
+.vung-doi-chieu {
+  background: color-mix(in oklab, var(--color-brass-500) 12%, transparent);
+  box-shadow: inset 3px 0 0 0 var(--ring);
+}
+.ngoai-vung-doi-chieu {
+  opacity: 0.55;
+}
+/* Câu trích đã định vị được trong nguyên văn. Nền vàng đồng + gạch chân: nếu
+   ai đó tắt màu, gạch chân vẫn chỉ đúng chỗ. */
+mark.cau-trich {
+  background: color-mix(in oklab, var(--color-brass-500) 34%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  text-decoration: underline;
+  text-decoration-color: var(--color-brass-600);
+  text-underline-offset: 3px;
 }
 
 /* ---------- Agent workspace (light paper) ---------- */

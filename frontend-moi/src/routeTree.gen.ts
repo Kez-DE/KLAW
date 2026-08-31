@@ -17,6 +17,7 @@ import { Route as DangNhapRouteImport } from './routes/dang-nhap'
 import { Route as DungThuRouteImport } from './routes/dung-thu'
 import { Route as HuongDanRouteImport } from './routes/huong-dan'
 import { Route as SoanThaoRouteImport } from './routes/soan-thao'
+import { Route as ThanhPhanRouteImport } from './routes/thanh-phan'
 import { Route as TraCuuRouteImport } from './routes/tra-cuu'
 import { Route as SoanThaoIndexRouteImport } from './routes/soan-thao.index'
 import { Route as SoanThaoLoaiVanBanRouteImport } from './routes/soan-thao.$loaiVanBan'
@@ -63,6 +64,11 @@ const SoanThaoRoute = SoanThaoRouteImport.update({
   path: '/soan-thao',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ThanhPhanRoute = ThanhPhanRouteImport.update({
+  id: '/thanh-phan',
+  path: '/thanh-phan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TraCuuRoute = TraCuuRouteImport.update({
   id: '/tra-cuu',
   path: '/tra-cuu',
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/dung-thu': typeof DungThuRoute
   '/huong-dan': typeof HuongDanRoute
   '/soan-thao': typeof SoanThaoRouteWithChildren
+  '/thanh-phan': typeof ThanhPhanRoute
   '/tra-cuu': typeof TraCuuRouteWithChildren
   '/soan-thao/$loaiVanBan': typeof SoanThaoLoaiVanBanRoute
   '/tra-cuu/$soHieu': typeof TraCuuSoHieuRoute
@@ -112,6 +119,7 @@ export interface FileRoutesByTo {
   '/dang-nhap': typeof DangNhapRoute
   '/dung-thu': typeof DungThuRoute
   '/huong-dan': typeof HuongDanRoute
+  '/thanh-phan': typeof ThanhPhanRoute
   '/soan-thao/$loaiVanBan': typeof SoanThaoLoaiVanBanRoute
   '/tra-cuu/$soHieu': typeof TraCuuSoHieuRoute
   '/soan-thao': typeof SoanThaoIndexRoute
@@ -127,6 +135,7 @@ export interface FileRoutesById {
   '/dung-thu': typeof DungThuRoute
   '/huong-dan': typeof HuongDanRoute
   '/soan-thao': typeof SoanThaoRouteWithChildren
+  '/thanh-phan': typeof ThanhPhanRoute
   '/tra-cuu': typeof TraCuuRouteWithChildren
   '/soan-thao/$loaiVanBan': typeof SoanThaoLoaiVanBanRoute
   '/tra-cuu/$soHieu': typeof TraCuuSoHieuRoute
@@ -144,6 +153,7 @@ export interface FileRouteTypes {
     | '/dung-thu'
     | '/huong-dan'
     | '/soan-thao'
+    | '/thanh-phan'
     | '/tra-cuu'
     | '/soan-thao/$loaiVanBan'
     | '/tra-cuu/$soHieu'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/dang-nhap'
     | '/dung-thu'
     | '/huong-dan'
+    | '/thanh-phan'
     | '/soan-thao/$loaiVanBan'
     | '/tra-cuu/$soHieu'
     | '/soan-thao'
@@ -172,6 +183,7 @@ export interface FileRouteTypes {
     | '/dung-thu'
     | '/huong-dan'
     | '/soan-thao'
+    | '/thanh-phan'
     | '/tra-cuu'
     | '/soan-thao/$loaiVanBan'
     | '/tra-cuu/$soHieu'
@@ -188,6 +200,7 @@ export interface RootRouteChildren {
   DungThuRoute: typeof DungThuRoute
   HuongDanRoute: typeof HuongDanRoute
   SoanThaoRoute: typeof SoanThaoRouteWithChildren
+  ThanhPhanRoute: typeof ThanhPhanRoute
   TraCuuRoute: typeof TraCuuRouteWithChildren
 }
 
@@ -247,6 +260,13 @@ declare module '@tanstack/react-router' {
       path: '/soan-thao'
       fullPath: '/soan-thao'
       preLoaderRoute: typeof SoanThaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/thanh-phan': {
+      id: '/thanh-phan'
+      path: '/thanh-phan'
+      fullPath: '/thanh-phan'
+      preLoaderRoute: typeof ThanhPhanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tra-cuu': {
@@ -323,6 +343,7 @@ const rootRouteChildren: RootRouteChildren = {
   DungThuRoute: DungThuRoute,
   HuongDanRoute: HuongDanRoute,
   SoanThaoRoute: SoanThaoRouteWithChildren,
+  ThanhPhanRoute: ThanhPhanRoute,
   TraCuuRoute: TraCuuRouteWithChildren,
 }
 export const routeTree = rootRouteImport

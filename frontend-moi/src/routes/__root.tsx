@@ -8,7 +8,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
 
@@ -163,12 +163,64 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Thông báo chuyển tuyến cho trình đọc màn hình.
+ *
+ * Đây là ứng dụng một trang: đổi tuyến không tải lại trang, nên trình đọc màn
+ * hình KHÔNG tự đọc gì cả. Người dùng bấm "Tra cứu luật" rồi ngồi im — không
+ * có tín hiệu nào nói đã tới nơi. Vùng `aria-live` này là tín hiệu đó.
+ *
+ * Đọc `document.title` chứ không đọc đường dẫn: tiêu đề là câu người dùng hiểu
+ * được, `/tra-cuu/$soHieu` thì không. Đợi một khung hình vì `HeadContent` của
+ * tuyến mới đặt `document.title` ở cùng lượt commit, và đọc quá sớm sẽ lấy
+ * nhầm tiêu đề của trang vừa rời.
+ *
+ * Nằm NGOÀI `<Outlet />` nên không bị gỡ mỗi lần đổi tuyến — một vùng
+ * `aria-live` vừa được gắn vào DOM thì nội dung đầu tiên của nó không được
+ * thông báo, và đó đúng là trường hợp ta cần thông báo.
+ */
+function ThongBaoChuyenTuyen({ pathname }: { pathname: string }) {
+  const [loiNhan, datLoiNhan] = useState("");
+  const tuyenDau = useRef(true);
+
+  useEffect(() => {
+    // Lần dựng đầu tiên là tải trang thật, trình duyệt đã tự đọc tiêu đề.
+    if (tuyenDau.current) {
+      tuyenDau.current = false;
+      return;
+    }
+    const khung = requestAnimationFrame(() => {
+      datLoiNhan(`Đã chuyển tới: ${document.title}`);
+    });
+    return () => cancelAnimationFrame(khung);
+  }, [pathname]);
+
+  return (
+    <div aria-live="polite" role="status" className="sr-only">
+      {loiNhan}
+    </div>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
     <QueryClientProvider client={queryClient}>
+      {/*
+        Liên kết bỏ qua: người dùng bàn phím và trình đọc màn hình không phải
+        Tab qua toàn bộ điều hướng ở MỌI trang trước khi tới nội dung. Mốc
+        `#noi-dung-chinh` nằm trên <main> của cả ba vỏ trang.
+
+        KHÔNG mang `inert` khi có khung modal: liên kết này nằm trước mọi thứ
+        khác trong vòng Tab, nên nó không phải đường thoát ra khỏi modal — và
+        một liên kết bỏ qua bị bịt lại thì tệ hơn là không có.
+      */}
+      <a href="#noi-dung-chinh" className="bo-qua-lien-ket">
+        Bỏ qua để tới nội dung chính
+      </a>
+      <ThongBaoChuyenTuyen pathname={pathname} />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <div key={pathname} className="route-enter">
         <Outlet />
