@@ -19,9 +19,9 @@ export function ChuaNoiBanner({ className }: { className?: string }) {
     >
       <Plug className="mt-0.5 size-3.5 shrink-0" />
       <p>
-        <span className="font-semibold text-foreground">Chưa nối dữ liệu.</span>{" "}
-        Bản dựng này mới có giao diện; kho văn bản pháp luật của KLAW chưa được
-        nối vào. Màn hình không hiển thị nội dung minh hoạ thay thế.
+        <span className="font-semibold text-foreground">Chưa nối dữ liệu.</span> Bản dựng này mới có
+        giao diện; kho văn bản pháp luật của KLAW chưa được nối vào. Màn hình không hiển thị nội
+        dung minh hoạ thay thế.
       </p>
     </div>
   );
@@ -42,13 +42,10 @@ export function CanCuChuaKiemBanner({ className }: { className?: string }) {
     >
       <Plug className="mt-0.5 size-3.5 shrink-0" />
       <p>
-        <span className="font-semibold text-foreground">
-          Căn cứ pháp lý chưa được đối chiếu.
-        </span>{" "}
-        Bản thảo được dựng và xuất tệp ngay trên máy bạn, nội dung không rời
-        trình duyệt. Nhưng các căn cứ pháp lý in trong mẫu là chuỗi viết cứng,
-        chưa kiểm với kho văn bản của KLAW và chưa kiểm hiệu lực — hãy tự đối
-        chiếu trước khi ký.
+        <span className="font-semibold text-foreground">Căn cứ pháp lý chưa được đối chiếu.</span>{" "}
+        Bản thảo được dựng và xuất tệp ngay trên máy bạn, nội dung không rời trình duyệt. Nhưng các
+        căn cứ pháp lý in trong mẫu là chuỗi viết cứng, chưa kiểm với kho văn bản của KLAW và chưa
+        kiểm hiệu lực — hãy tự đối chiếu trước khi ký.
       </p>
     </div>
   );

@@ -90,8 +90,8 @@ function Guide() {
             Hướng dẫn sử dụng KLAW
           </h1>
           <p className="animate-fade-up mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            Từ cách đặt câu hỏi cho đúng, cách tra cứu theo điều khoản, đến cách để
-            KLAW soạn một văn bản pháp lý hoàn chỉnh — tất cả trong 4 bước.
+            Từ cách đặt câu hỏi cho đúng, cách tra cứu theo điều khoản, đến cách để KLAW soạn một
+            văn bản pháp lý hoàn chỉnh — tất cả trong 4 bước.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link
@@ -125,12 +125,8 @@ function Guide() {
                   <s.icon className="size-5" />
                 </span>
                 <div>
-                  <h2 className="font-display text-lg font-semibold text-primary">
-                    {s.title}
-                  </h2>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    {s.body}
-                  </p>
+                  <h2 className="font-display text-lg font-semibold text-primary">{s.title}</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
                 </div>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -186,19 +182,17 @@ function Guide() {
           </h2>
           <ul className="mt-4 space-y-3 text-sm leading-relaxed text-muted-foreground">
             <li>
-              <strong className="text-primary">Luôn kiểm chứng dẫn chiếu.</strong> Văn
-              bản pháp luật có thể đã được sửa đổi, bổ sung hoặc bãi bỏ — hãy đối
-              chiếu điều khoản KLAW nêu với bản gốc còn hiệu lực.
+              <strong className="text-primary">Luôn kiểm chứng dẫn chiếu.</strong> Văn bản pháp luật
+              có thể đã được sửa đổi, bổ sung hoặc bãi bỏ — hãy đối chiếu điều khoản KLAW nêu với
+              bản gốc còn hiệu lực.
             </li>
             <li>
-              <strong className="text-primary">Bản thảo cần rà soát.</strong> Văn bản
-              KLAW soạn đúng thể thức, nhưng nội dung điều khoản phải khớp với thỏa
-              thuận thực tế của các bên.
+              <strong className="text-primary">Bản thảo cần rà soát.</strong> Văn bản KLAW soạn đúng
+              thể thức, nhưng nội dung điều khoản phải khớp với thỏa thuận thực tế của các bên.
             </li>
             <li>
-              <strong className="text-primary">Không thay thế luật sư.</strong> Với
-              tranh chấp, tố tụng hoặc giao dịch giá trị lớn, hãy để luật sư thẩm
-              định trước khi quyết định.
+              <strong className="text-primary">Không thay thế luật sư.</strong> Với tranh chấp, tố
+              tụng hoặc giao dịch giá trị lớn, hãy để luật sư thẩm định trước khi quyết định.
             </li>
           </ul>
         </section>
@@ -236,8 +230,7 @@ export const Route = createFileRoute("/huong-dan")({
       { property: "og:title", content: "Hướng dẫn sử dụng KLAW cho người mới" },
       {
         property: "og:description",
-        content:
-          "Bốn bước từ câu hỏi đầu tiên đến bản thảo văn bản pháp lý hoàn chỉnh cùng KLAW.",
+        content: "Bốn bước từ câu hỏi đầu tiên đến bản thảo văn bản pháp lý hoàn chỉnh cùng KLAW.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

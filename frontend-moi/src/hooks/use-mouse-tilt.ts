@@ -11,9 +11,7 @@ export function useMouseTilt() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     if (window.matchMedia("(hover: none)").matches) return;
 
-    const cards = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-tilt]"),
-    );
+    const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-tilt]"));
     const cleanups: (() => void)[] = [];
 
     cards.forEach((el) => {

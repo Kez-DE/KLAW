@@ -141,8 +141,7 @@ function Parallax({ frozen }: { frozen: boolean }) {
 
 export default function AuthScene() {
   const frozen =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   return (
     <Canvas

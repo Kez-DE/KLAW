@@ -54,8 +54,7 @@ export const Route = createFileRoute("/soan-thao/$loaiVanBan")({
         {
           property: "og:description",
           content:
-            m?.moTa ??
-            "Điền thông tin các bên, chọn điều khoản và xuất bản thảo hoàn chỉnh.",
+            m?.moTa ?? "Điền thông tin các bên, chọn điều khoản và xuất bản thảo hoàn chỉnh.",
         },
         { property: "og:type", content: "website" },
         { name: "twitter:card", content: "summary_large_image" },
@@ -200,13 +199,7 @@ const GIOI_HAN_THU_VIEC: Record<string, number> = {
   "Công việc dưới 01 tháng": 0,
 };
 
-const BUOC = [
-  "Loại văn bản",
-  "Thông tin các bên",
-  "Nội dung chính",
-  "Điều khoản",
-  "Xem trước",
-];
+const BUOC = ["Loại văn bản", "Thông tin các bên", "Nội dung chính", "Điều khoản", "Xem trước"];
 
 /* --------------------------------- page ---------------------------------- */
 
@@ -331,17 +324,15 @@ function KhongGianSoanThao() {
       return;
     }
     setDangXuat(dinhDang);
-    const id = toast.loading(
-      dinhDang === "docx" ? "Đang tạo tệp Word…" : "Đang tạo tệp PDF…",
-    );
+    const id = toast.loading(dinhDang === "docx" ? "Đang tạo tệp Word…" : "Đang tạo tệp PDF…");
     try {
       const { xuatWord, xuatPDF } = await import("@/lib/xuat-ban");
       if (dinhDang === "docx") await xuatWord(sheet, mau.ten);
       else await xuatPDF(sheet, mau.ten);
-      toast.success(
-        dinhDang === "docx" ? "Đã tải tệp .docx." : "Đã tải tệp .pdf.",
-        { id, description: "Bản thảo cần được pháp chế rà soát trước khi ký kết." },
-      );
+      toast.success(dinhDang === "docx" ? "Đã tải tệp .docx." : "Đã tải tệp .pdf.", {
+        id,
+        description: "Bản thảo cần được pháp chế rà soát trước khi ký kết.",
+      });
     } catch {
       // Thất bại đi ra bằng toast, không bằng console: người dùng thấy được, và
       // bản dựng công khai không nhả stack ra console trình duyệt.
@@ -362,7 +353,6 @@ function KhongGianSoanThao() {
       toast.error("Trình duyệt không cho phép truy cập clipboard.");
     }
   };
-
 
   return (
     <AppShell active="/soan-thao">
@@ -569,10 +559,7 @@ function KhongGianSoanThao() {
                       onClick={() =>
                         setND(
                           {
-                            dot: [
-                              ...draft.nd.dot,
-                              { id: Date.now(), tyLe: "", moc: "" },
-                            ],
+                            dot: [...draft.nd.dot, { id: Date.now(), tyLe: "", moc: "" }],
                           },
                           "nd.dot",
                         )
@@ -594,7 +581,9 @@ function KhongGianSoanThao() {
                             setND(
                               {
                                 dot: draft.nd.dot.map((x) =>
-                                  x.id === d.id ? { ...x, tyLe: e.target.value.replace(/\D/g, "") } : x,
+                                  x.id === d.id
+                                    ? { ...x, tyLe: e.target.value.replace(/\D/g, "") }
+                                    : x,
                                 ),
                               },
                               "nd.dot",
@@ -678,7 +667,9 @@ function KhongGianSoanThao() {
                         name="nd.luongChinhThuc"
                         label="Lương chính thức"
                         value={
-                          draft.nd.luongChinhThuc === "" ? "" : dinhDangTien(draft.nd.luongChinhThuc)
+                          draft.nd.luongChinhThuc === ""
+                            ? ""
+                            : dinhDangTien(draft.nd.luongChinhThuc)
                         }
                         onChange={(v) => setND({ luongChinhThuc: chiSo(v) }, "nd.luongChinhThuc")}
                         placeholder="20.000.000 ₫"
@@ -686,7 +677,9 @@ function KhongGianSoanThao() {
                       <TextField
                         name="nd.luongThuViec"
                         label="Lương thử việc"
-                        value={draft.nd.luongThuViec === "" ? "" : dinhDangTien(draft.nd.luongThuViec)}
+                        value={
+                          draft.nd.luongThuViec === "" ? "" : dinhDangTien(draft.nd.luongThuViec)
+                        }
                         onChange={(v) => setND({ luongThuViec: chiSo(v) }, "nd.luongThuViec")}
                         placeholder="17.000.000 ₫"
                       />
@@ -826,27 +819,27 @@ function KhongGianSoanThao() {
               >
                 <span className="flex items-center gap-2 text-[13px] font-semibold text-[var(--color-brass-600)]">
                   <AlertTriangle className="size-4" />
-                  Đối chiếu với 5 quy tắc viết cứng trong giao diện, không phải
-                  rà soát pháp lý — cần luật sư đọc trước khi ký.
+                  Đối chiếu với 5 quy tắc viết cứng trong giao diện, không phải rà soát pháp lý —
+                  cần luật sư đọc trước khi ký.
                 </span>
                 <span className="flex items-center gap-2">
                   <span className="font-jetbrains rounded-full bg-[var(--color-status-partial)]/25 px-2 text-[11px] text-[var(--color-brass-600)]">
                     {rui_ro.length}
                   </span>
                   <ChevronDown
-                    className={cn("size-4 text-[var(--color-brass-600)]", !riskOpen && "-rotate-90")}
+                    className={cn(
+                      "size-4 text-[var(--color-brass-600)]",
+                      !riskOpen && "-rotate-90",
+                    )}
                   />
                 </span>
               </button>
               {riskOpen && (
-                <div
-                  aria-live="polite"
-                  className="divide-y divide-border bg-background soft-fade"
-                >
+                <div aria-live="polite" className="divide-y divide-border bg-background soft-fade">
                   {rui_ro.length === 0 && (
                     <p className="px-4 py-3 text-[13px] text-muted-foreground">
-                      Chưa phát hiện rủi ro theo các quy tắc đang bật. Bộ quy tắc này không
-                      thay thế ý kiến của luật sư.
+                      Chưa phát hiện rủi ro theo các quy tắc đang bật. Bộ quy tắc này không thay thế
+                      ý kiến của luật sư.
                     </p>
                   )}
                   {rui_ro.map((c) => (
@@ -938,7 +931,11 @@ function KhongGianSoanThao() {
               </button>
             </div>
             <label className="flex items-center gap-2 text-[12px]">
-              <Toggle checked={chuThich} onChange={setChuThich} label="Hiển thị chú thích căn cứ pháp lý" />
+              <Toggle
+                checked={chuThich}
+                onChange={setChuThich}
+                label="Hiển thị chú thích căn cứ pháp lý"
+              />
               Hiển thị chú thích căn cứ pháp lý
             </label>
             <div className="ml-auto flex items-center gap-1">
@@ -1154,7 +1151,11 @@ function BenForm({
               disabled={dangTra || mstTra.length < 8}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-brass-500)] px-3 py-2 text-[12.5px] font-medium text-white disabled:opacity-45"
             >
-              {dangTra ? <Wand2 className="size-3.5 animate-pulse" /> : <Check className="size-3.5" />}
+              {dangTra ? (
+                <Wand2 className="size-3.5 animate-pulse" />
+              ) : (
+                <Check className="size-3.5" />
+              )}
               {dangTra ? "Đang tra…" : "Tra cứu"}
             </button>
           </div>
@@ -1386,11 +1387,13 @@ function A4({
       <Ph k={k} label={label} buoc={buoc} />
     );
 
-  const diaChi = (b: Ben) =>
-    [b.soNhaDuong, b.phuongXa, b.tinh].filter(Boolean).join(", ");
+  const diaChi = (b: Ben) => [b.soNhaDuong, b.phuongXa, b.tinh].filter(Boolean).join(", ");
 
-  const dieu: { ten: string; noiDung: React.ReactNode; canCu?: { soHieu: string; nhan: string } }[] =
-    [];
+  const dieu: {
+    ten: string;
+    noiDung: React.ReactNode;
+    canCu?: { soHieu: string; nhan: string };
+  }[] = [];
 
   dieu.push({
     ten: laHopDongLaoDong(mau) ? "Công việc và địa điểm làm việc" : "Nội dung và phạm vi công việc",
@@ -1400,7 +1403,8 @@ function A4({
     noiDung: (
       <>
         <p>
-          Bên B thực hiện: <V k="nd.tenDichVu" value={draft.nd.tenDichVu} label="Tên dịch vụ" buoc={3} />.
+          Bên B thực hiện:{" "}
+          <V k="nd.tenDichVu" value={draft.nd.tenDichVu} label="Tên dịch vụ" buoc={3} />.
         </p>
         <p>
           Phạm vi công việc:{" "}
@@ -1427,11 +1431,8 @@ function A4({
             label="Giá trị hợp đồng"
             buoc={3}
           />
-          {draft.nd.giaTri !== "" && (
-            <> (Bằng chữ: {docSoThanhChu(Number(draft.nd.giaTri))}) </>
-          )}
-          , thuế GTGT{" "}
-          <V k="nd.thueGTGT" value={draft.nd.thueGTGT} label="Thuế GTGT" buoc={3} />.
+          {draft.nd.giaTri !== "" && <> (Bằng chữ: {docSoThanhChu(Number(draft.nd.giaTri))}) </>},
+          thuế GTGT <V k="nd.thueGTGT" value={draft.nd.thueGTGT} label="Thuế GTGT" buoc={3} />.
         </p>
         <p>Thanh toán theo các đợt sau:</p>
         {draft.nd.dot.map((d, i) => (
@@ -1464,7 +1465,12 @@ function A4({
       noiDung: (
         <p>
           Bên vi phạm nghĩa vụ phải chịu phạt{" "}
-          <V k="nd.mucPhat" value={draft.nd.mucPhat ? `${draft.nd.mucPhat}%` : ""} label="mức phạt" buoc={4} />{" "}
+          <V
+            k="nd.mucPhat"
+            value={draft.nd.mucPhat ? `${draft.nd.mucPhat}%` : ""}
+            label="mức phạt"
+            buoc={4}
+          />{" "}
           giá trị phần nghĩa vụ hợp đồng bị vi phạm.
         </p>
       ),
@@ -1594,18 +1600,20 @@ function A4({
         const b = draft[p];
         return (
           <div key={p} style={{ marginTop: 16 }}>
-            <p style={{ fontWeight: 700 }}>BÊN {p}: {b.loai === "to-chuc" ? "(TỔ CHỨC)" : "(CÁ NHÂN)"}</p>
+            <p style={{ fontWeight: 700 }}>
+              BÊN {p}: {b.loai === "to-chuc" ? "(TỔ CHỨC)" : "(CÁ NHÂN)"}
+            </p>
             {b.loai === "to-chuc" ? (
               <>
                 <p>
-                  Tên tổ chức:{" "}
-                  <V k={`${p}.tenToChuc`} value={b.tenToChuc} label="Tên tổ chức" />
+                  Tên tổ chức: <V k={`${p}.tenToChuc`} value={b.tenToChuc} label="Tên tổ chức" />
                 </p>
                 <p>
                   Mã số thuế: <V k={`${p}.mst`} value={b.mst} label="Mã số thuế" />
                 </p>
                 <p>
-                  Địa chỉ trụ sở: <V k={`${p}.soNhaDuong`} value={diaChi(b)} label="Địa chỉ trụ sở" />
+                  Địa chỉ trụ sở:{" "}
+                  <V k={`${p}.soNhaDuong`} value={diaChi(b)} label="Địa chỉ trụ sở" />
                 </p>
                 <p>
                   Người đại diện theo pháp luật:{" "}
@@ -1619,8 +1627,8 @@ function A4({
                   Họ và tên: <V k={`${p}.hoTen`} value={b.hoTen} label="Họ và tên" />
                 </p>
                 <p>
-                  Sinh ngày: <V k={`${p}.ngaySinh`} value={ngayVN(b.ngaySinh)} label="Ngày sinh" /> —
-                  CCCD/Hộ chiếu số: <V k={`${p}.cccd`} value={b.cccd} label="Số CCCD" />, cấp ngày{" "}
+                  Sinh ngày: <V k={`${p}.ngaySinh`} value={ngayVN(b.ngaySinh)} label="Ngày sinh" />{" "}
+                  — CCCD/Hộ chiếu số: <V k={`${p}.cccd`} value={b.cccd} label="Số CCCD" />, cấp ngày{" "}
                   <V k={`${p}.ngayCap`} value={ngayVN(b.ngayCap)} label="Ngày cấp" /> tại{" "}
                   <V k={`${p}.noiCap`} value={b.noiCap} label="Nơi cấp" />
                 </p>
@@ -1635,16 +1643,14 @@ function A4({
               <V k={`${p}.email`} value={b.email} label="Email" />
             </p>
             <p>
-              Số tài khoản: <V k={`${p}.soTaiKhoan`} value={b.soTaiKhoan} label="Số tài khoản" /> tại{" "}
-              <V k={`${p}.nganHang`} value={b.nganHang} label="Ngân hàng" />
+              Số tài khoản: <V k={`${p}.soTaiKhoan`} value={b.soTaiKhoan} label="Số tài khoản" />{" "}
+              tại <V k={`${p}.nganHang`} value={b.nganHang} label="Ngân hàng" />
             </p>
           </div>
         );
       })}
 
-      <p style={{ marginTop: 18 }}>
-        Hai bên thống nhất ký kết hợp đồng với các điều khoản sau:
-      </p>
+      <p style={{ marginTop: 18 }}>Hai bên thống nhất ký kết hợp đồng với các điều khoản sau:</p>
 
       {dieu.map((d, i) => (
         <div key={d.ten} style={{ position: "relative" }}>

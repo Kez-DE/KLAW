@@ -18,11 +18,7 @@ const QUOTES = [
   },
 ];
 
-const STATS = [
-  "Trích dẫn tới cấp Điểm",
-  "Cập nhật hằng ngày",
-  "Hạ tầng đặt tại Việt Nam",
-];
+const STATS = ["Trích dẫn tới cấp Điểm", "Cập nhật hằng ngày", "Hạ tầng đặt tại Việt Nam"];
 
 function QuoteRotator() {
   const [i, setI] = useState(0);
@@ -37,12 +33,8 @@ function QuoteRotator() {
   return (
     <div className="min-h-[190px]">
       <div key={i} className="quote-slide">
-        <p className="font-display text-2xl leading-snug text-primary md:text-[28px]">
-          “{q.text}”
-        </p>
-        <p className="mt-4 text-[13px] leading-relaxed text-muted-foreground">
-          — {q.who}
-        </p>
+        <p className="font-display text-2xl leading-snug text-primary md:text-[28px]">“{q.text}”</p>
+        <p className="mt-4 text-[13px] leading-relaxed text-muted-foreground">— {q.who}</p>
       </div>
       <div className="mt-6 flex gap-1.5" aria-hidden>
         {QUOTES.map((_, idx) => (
@@ -69,9 +61,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           <span className="grid size-9 place-items-center rounded-lg bg-brass-500/20 text-brass-600">
             <Scale className="size-4.5" />
           </span>
-          <span className="font-display text-xl tracking-wide text-primary">
-            KLAW
-          </span>
+          <span className="font-display text-xl tracking-wide text-primary">KLAW</span>
         </Link>
         <Link
           to="/"
@@ -95,14 +85,11 @@ export function AuthShell({ children }: { children: ReactNode }) {
                 <p className="font-display text-lg text-brass-600">
                   {String(i + 1).padStart(2, "0")}
                 </p>
-                <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
-                  {s}
-                </p>
+                <p className="mt-1 text-[13px] leading-snug text-muted-foreground">{s}</p>
               </div>
             ))}
             <p className="col-span-3 text-[11px] text-muted-foreground">
-              Các mục trên mang tính minh họa cho định hướng sản phẩm, không phải
-              cam kết dịch vụ.
+              Các mục trên mang tính minh họa cho định hướng sản phẩm, không phải cam kết dịch vụ.
             </p>
           </div>
         </aside>

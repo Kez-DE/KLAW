@@ -15,9 +15,7 @@ export function ChatbotFab() {
     <div className="fixed right-5 bottom-5 z-50 flex flex-col items-end gap-3">
       {open && (
         <div className="animate-fade-up w-64 rounded-2xl border border-border bg-card p-3 shadow-elegant">
-          <p className="px-1 pb-2 font-display text-sm font-semibold text-primary">
-            Trợ lý KLAW
-          </p>
+          <p className="px-1 pb-2 font-display text-sm font-semibold text-primary">Trợ lý KLAW</p>
           <div className="space-y-1.5">
             {QUICK.map((q) => (
               <Link
@@ -40,11 +38,7 @@ export function ChatbotFab() {
         className="relative flex size-14 items-center justify-center rounded-full bg-gradient-ink text-primary-foreground shadow-elegant transition-transform hover:scale-105"
       >
         <span className="animate-pulse-ring absolute inset-0 rounded-full border border-accent/60" />
-        {open ? (
-          <X className="relative size-6" />
-        ) : (
-          <MessageCircle className="relative size-6" />
-        )}
+        {open ? <X className="relative size-6" /> : <MessageCircle className="relative size-6" />}
       </button>
     </div>
   );

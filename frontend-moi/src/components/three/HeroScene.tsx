@@ -1,18 +1,6 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import {
-  Environment,
-  Lightformer,
-  Html,
-  PresentationControls,
-} from "@react-three/drei";
-import {
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { Environment, Lightformer, Html, PresentationControls } from "@react-three/drei";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -79,8 +67,7 @@ function makeLabelTexture(text: string) {
   const ctx = canvas.getContext("2d")!;
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = "rgba(200,164,92,0.30)";
-  ctx.font =
-    '600 46px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+  ctx.font = '600 46px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(text, w / 2, h * 0.5);
@@ -244,9 +231,7 @@ function Slab({
       {isHovered && !isActive && doc ? (
         <Html center distanceFactor={7} position={[0, 1.35, 0.2]}>
           <div className="pointer-events-none w-52 rounded-lg border border-border bg-card/95 px-3 py-2 text-center shadow-elegant backdrop-blur">
-            <p className="text-[11px] leading-snug font-semibold text-primary">
-              {doc.ten}
-            </p>
+            <p className="text-[11px] leading-snug font-semibold text-primary">{doc.ten}</p>
             <span className="mt-1.5 inline-block rounded-full border border-accent/50 bg-accent/15 px-2 py-0.5 text-[9px] font-medium text-accent-foreground">
               {doc.trangThai}
             </span>
@@ -258,15 +243,9 @@ function Slab({
         <Html center distanceFactor={6} position={[0, -1.45, 0.25]}>
           <div className="w-72 rounded-xl border border-border bg-card/97 p-3.5 text-left shadow-elegant backdrop-blur">
             <p className="font-display text-xs font-bold text-primary">{doc.ten}</p>
-            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-              {doc.soHieu}
-            </p>
-            <p className="mt-2 text-[11px] leading-relaxed text-foreground">
-              “{doc.excerpt}”
-            </p>
-            <p className="mt-1.5 text-[10px] text-muted-foreground">
-              — {doc.trichDan}
-            </p>
+            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{doc.soHieu}</p>
+            <p className="mt-2 text-[11px] leading-relaxed text-foreground">“{doc.excerpt}”</p>
+            <p className="mt-1.5 text-[10px] text-muted-foreground">— {doc.trichDan}</p>
             <a
               href="/tra-cuu"
               className="mt-2.5 inline-flex text-[11px] font-semibold text-accent-foreground underline decoration-dotted"
@@ -306,9 +285,7 @@ function BrassField({
   useFrame((_, delta) => {
     if (!ref.current || paused.current || frozen) return;
     const dt = Math.min(delta, 0.05);
-    const attr = ref.current.geometry.attributes["position"] as
-      | THREE.BufferAttribute
-      | undefined;
+    const attr = ref.current.geometry.attributes["position"] as THREE.BufferAttribute | undefined;
     if (!attr) return;
     const pos = attr.array as Float32Array;
     for (let i = 1; i < pos.length; i += 3) {
@@ -356,10 +333,7 @@ function Helix({
   const spin = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState<number | null>(null);
 
-  const labels = useMemo(
-    () => DOCS.map((d) => makeLabelTexture(d.soHieu)),
-    [],
-  );
+  const labels = useMemo(() => DOCS.map((d) => makeLabelTexture(d.soHieu)), []);
 
   useEffect(() => {
     return () => {
@@ -422,11 +396,7 @@ function CameraRig({
     const base =
       p < 0.5
         ? new THREE.Vector3(0, -(p / 0.5) * 1.2, 8 - (p / 0.5) * 3)
-        : new THREE.Vector3(
-            0,
-            -1.2 - ((p - 0.5) / 0.5) * 1.3,
-            5 - ((p - 0.5) / 0.5) * 1.5,
-          );
+        : new THREE.Vector3(0, -1.2 - ((p - 0.5) / 0.5) * 1.3, 5 - ((p - 0.5) / 0.5) * 1.5);
 
     const wide = size.width >= 1024;
     target.set(
@@ -513,12 +483,7 @@ export default function HeroScene() {
 
         <Suspense fallback={null}>
           <Environment resolution={128} environmentIntensity={0.9}>
-            <Lightformer
-              intensity={2}
-              color="#FFFFFF"
-              position={[0, 5, -6]}
-              scale={[12, 6, 1]}
-            />
+            <Lightformer intensity={2} color="#FFFFFF" position={[0, 5, -6]} scale={[12, 6, 1]} />
             <Lightformer
               intensity={1.4}
               color="#DDEBFF"

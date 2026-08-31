@@ -3,13 +3,7 @@ import { ChevronDown, Info } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export function BasisChip({
-  soHieu,
-  label,
-}: {
-  soHieu: string;
-  label?: string;
-}) {
+export function BasisChip({ soHieu, label }: { soHieu: string; label?: string }) {
   return (
     <Link
       to="/tra-cuu/$soHieu"
@@ -182,7 +176,10 @@ export function Group({
           className="flex items-center gap-2 text-left font-display text-[15px] font-bold text-primary"
         >
           <ChevronDown
-            className={cn("size-4 text-[var(--color-brass-600)] transition-transform", !open && "-rotate-90")}
+            className={cn(
+              "size-4 text-[var(--color-brass-600)] transition-transform",
+              !open && "-rotate-90",
+            )}
           />
           {title}
         </button>

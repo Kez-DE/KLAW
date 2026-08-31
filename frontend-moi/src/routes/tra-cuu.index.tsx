@@ -81,9 +81,7 @@ function CheckList({
 }) {
   return (
     <div className="border-b border-border py-3">
-      <p className="mb-2 text-[12px] font-semibold tracking-wide text-primary uppercase">
-        {title}
-      </p>
+      <p className="mb-2 text-[12px] font-semibold tracking-wide text-primary uppercase">{title}</p>
       <div className="flex flex-col gap-1.5">
         {options.map((o) => (
           <label
@@ -107,12 +105,8 @@ function CheckList({
 function ResultCard({ kq, query }: { kq: KetQua; query: string }) {
   const { vb, dieu, khoan } = kq;
   const suaDoi = dieu.soVanBanSuaDoi ?? 0;
-  const doan = kq.diem
-    ? `${khoan.text} ${kq.diem.ky}) ${kq.diem.text}`
-    : khoan.text;
-  const diaChi = kq.diem
-    ? `Điểm ${kq.diem.ky} khoản ${khoan.so} Điều ${dieu.so}`
-    : kq.diaChi;
+  const doan = kq.diem ? `${khoan.text} ${kq.diem.ky}) ${kq.diem.text}` : khoan.text;
+  const diaChi = kq.diem ? `Điểm ${kq.diem.ky} khoản ${khoan.so} Điều ${dieu.so}` : kq.diaChi;
 
   return (
     <article className="rounded-xl border border-border bg-card p-4 transition-colors duration-150 hover:border-[var(--color-brass-500)]/50">
@@ -143,14 +137,8 @@ function ResultCard({ kq, query }: { kq: KetQua; query: string }) {
         <span className="text-border">·</span>
         <span>Ngày hiệu lực: {vb.ngayHieuLuc}</span>
         <span className="text-border">·</span>
-        <span
-          className={cn(
-            suaDoi > 0 && "font-medium text-[var(--color-brass-600)]",
-          )}
-        >
-          {suaDoi > 0
-            ? `${suaDoi} văn bản sửa đổi điều này`
-            : "Chưa có văn bản sửa đổi điều này"}
+        <span className={cn(suaDoi > 0 && "font-medium text-[var(--color-brass-600)]")}>
+          {suaDoi > 0 ? `${suaDoi} văn bản sửa đổi điều này` : "Chưa có văn bản sửa đổi điều này"}
         </span>
       </div>
 
@@ -200,58 +188,58 @@ type LocProps = {
 function FilterBody({ loc, toggle, setLoc }: LocProps) {
   return (
     <div>
-            <CheckList
-              title="Loại văn bản"
-              options={LOAI_VAN_BAN}
-              selected={loc.loai}
-              onToggle={(v) => toggle("loai", v)}
-            />
-            <CheckList
-              title="Cơ quan ban hành"
-              options={CO_QUAN}
-              selected={loc.coQuan}
-              onToggle={(v) => toggle("coQuan", v)}
-            />
-            <CheckList
-              title="Tình trạng hiệu lực"
-              options={TINH_TRANG}
-              selected={loc.tinhTrang}
-              onToggle={(v) => toggle("tinhTrang", v)}
-            />
-            <div className="py-3">
-              <p className="mb-2 text-[12px] font-semibold tracking-wide text-primary uppercase">
-                Khoảng thời gian ban hành
-              </p>
-              <p className="font-jetbrains text-[12px] text-muted-foreground">
-                {loc.namTu} — {loc.namDen}
-              </p>
-              <input
-                type="range"
-                min={NAM_MIN}
-                max={NAM_MAX}
-                value={loc.namTu}
-                onChange={(e) =>
-                  setLoc((p) => ({
-                    ...p,
-                    namTu: Math.min(Number(e.target.value), p.namDen),
-                  }))
-                }
-                className="mt-2 w-full accent-[var(--color-brass-500)]"
-              />
-              <input
-                type="range"
-                min={NAM_MIN}
-                max={NAM_MAX}
-                value={loc.namDen}
-                onChange={(e) =>
-                  setLoc((p) => ({
-                    ...p,
-                    namDen: Math.max(Number(e.target.value), p.namTu),
-                  }))
-                }
-                className="w-full accent-[var(--color-brass-500)]"
-              />
-            </div>
+      <CheckList
+        title="Loại văn bản"
+        options={LOAI_VAN_BAN}
+        selected={loc.loai}
+        onToggle={(v) => toggle("loai", v)}
+      />
+      <CheckList
+        title="Cơ quan ban hành"
+        options={CO_QUAN}
+        selected={loc.coQuan}
+        onToggle={(v) => toggle("coQuan", v)}
+      />
+      <CheckList
+        title="Tình trạng hiệu lực"
+        options={TINH_TRANG}
+        selected={loc.tinhTrang}
+        onToggle={(v) => toggle("tinhTrang", v)}
+      />
+      <div className="py-3">
+        <p className="mb-2 text-[12px] font-semibold tracking-wide text-primary uppercase">
+          Khoảng thời gian ban hành
+        </p>
+        <p className="font-jetbrains text-[12px] text-muted-foreground">
+          {loc.namTu} — {loc.namDen}
+        </p>
+        <input
+          type="range"
+          min={NAM_MIN}
+          max={NAM_MAX}
+          value={loc.namTu}
+          onChange={(e) =>
+            setLoc((p) => ({
+              ...p,
+              namTu: Math.min(Number(e.target.value), p.namDen),
+            }))
+          }
+          className="mt-2 w-full accent-[var(--color-brass-500)]"
+        />
+        <input
+          type="range"
+          min={NAM_MIN}
+          max={NAM_MAX}
+          value={loc.namDen}
+          onChange={(e) =>
+            setLoc((p) => ({
+              ...p,
+              namDen: Math.max(Number(e.target.value), p.namTu),
+            }))
+          }
+          className="w-full accent-[var(--color-brass-500)]"
+        />
+      </div>
     </div>
   );
 }
@@ -287,14 +275,12 @@ function TraCuuPage() {
     const rs = timKiem(term, loc);
     if (sort === "moi-nhat")
       return [...rs].sort(
-        (a, b) =>
-          Number(b.vb.ngayBanHanh.slice(-4)) - Number(a.vb.ngayBanHanh.slice(-4)),
+        (a, b) => Number(b.vb.ngayBanHanh.slice(-4)) - Number(a.vb.ngayBanHanh.slice(-4)),
       );
     if (sort === "hieu-luc")
       return [...rs].sort(
         (a, b) =>
-          (a.vb.tinhTrang === "Còn hiệu lực" ? 0 : 1) -
-          (b.vb.tinhTrang === "Còn hiệu lực" ? 0 : 1),
+          (a.vb.tinhTrang === "Còn hiệu lực" ? 0 : 1) - (b.vb.tinhTrang === "Còn hiệu lực" ? 0 : 1),
       );
     return rs;
   }, [term, loc, sort]);
@@ -412,8 +398,7 @@ function TraCuuPage() {
               Tra cứu văn bản pháp luật
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Tìm đến từng điều, khoản, điểm và sao chép trích dẫn theo đúng trật tự tiếng
-              Việt.
+              Tìm đến từng điều, khoản, điểm và sao chép trích dẫn theo đúng trật tự tiếng Việt.
             </p>
 
             <div className="relative mt-4">
@@ -469,9 +454,7 @@ function TraCuuPage() {
 
             {goiY.length > 0 && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="text-[12px] text-muted-foreground">
-                  Có thể bạn muốn tìm:
-                </span>
+                <span className="text-[12px] text-muted-foreground">Có thể bạn muốn tìm:</span>
                 {goiY.map((g) => (
                   <Chip
                     key={g}
@@ -499,13 +482,8 @@ function TraCuuPage() {
                 {KHO_DA_NOI ? (
                   <>
                     Tìm thấy{" "}
-                    <span className="font-medium text-foreground">
-                      {ketQua.length} điều khoản
-                    </span>{" "}
-                    trong{" "}
-                    <span className="font-medium text-foreground">
-                      {soVanBan} văn bản
-                    </span>
+                    <span className="font-medium text-foreground">{ketQua.length} điều khoản</span>{" "}
+                    trong <span className="font-medium text-foreground">{soVanBan} văn bản</span>
                     {term && (
                       <>
                         {" "}
@@ -543,14 +521,13 @@ function TraCuuPage() {
                 // giả lập mà pha này phải loại bỏ.
                 (KHO_DA_NOI ? (
                   <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                    Không tìm thấy điều khoản phù hợp. Thử bỏ bớt bộ lọc hoặc
-                    dùng từ khoá ngắn hơn (ví dụ “thu viec”, “BLLĐ”).
+                    Không tìm thấy điều khoản phù hợp. Thử bỏ bớt bộ lọc hoặc dùng từ khoá ngắn hơn
+                    (ví dụ “thu viec”, “BLLĐ”).
                   </p>
                 ) : (
                   <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                    Chưa có kết quả nào để hiện: bản dựng này chưa nối vào kho
-                    văn bản của KLAW. Ô tìm kiếm, bộ lọc và cách sắp xếp vẫn thao
-                    tác được để xem trước giao diện.
+                    Chưa có kết quả nào để hiện: bản dựng này chưa nối vào kho văn bản của KLAW. Ô
+                    tìm kiếm, bộ lọc và cách sắp xếp vẫn thao tác được để xem trước giao diện.
                   </p>
                 ))}
               {ketQua.map((kq, i) => (

@@ -94,11 +94,7 @@ function SignInPage() {
             </p>
 
             <div className="mt-7 space-y-3">
-              <SocialButton
-                icon={<GoogleMark />}
-                label="Tiếp tục với Google"
-                disabled={loading}
-              />
+              <SocialButton icon={<GoogleMark />} label="Tiếp tục với Google" disabled={loading} />
               <SocialButton
                 icon={<MicrosoftMark />}
                 label="Tiếp tục với Microsoft"
@@ -153,8 +149,8 @@ function SignInPage() {
             </form>
 
             <Fineprint>
-              Bằng việc đăng nhập, bạn đồng ý với Điều khoản sử dụng và Chính sách
-              bảo vệ dữ liệu cá nhân của KLAW.
+              Bằng việc đăng nhập, bạn đồng ý với Điều khoản sử dụng và Chính sách bảo vệ dữ liệu cá
+              nhân của KLAW.
             </Fineprint>
           </>
         )}

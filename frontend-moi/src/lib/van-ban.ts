@@ -142,16 +142,16 @@ export const boDau = (s: string) =>
     .toLowerCase();
 
 export const VIET_TAT: Record<string, string> = {
-  "bllđ": "Bộ luật Lao động",
+  bllđ: "Bộ luật Lao động",
   blld: "Bộ luật Lao động",
   blds: "Bộ luật Dân sự",
   blhs: "Bộ luật Hình sự",
   ldn: "Luật Doanh nghiệp",
   ltm: "Luật Thương mại",
-  "nđ": "Nghị định",
+  nđ: "Nghị định",
   nd: "Nghị định",
   tt: "Thông tư",
-  "qđ": "Quyết định",
+  qđ: "Quyết định",
   qd: "Quyết định",
   nq: "Nghị quyết",
   vbhn: "Văn bản hợp nhất",
@@ -195,12 +195,7 @@ export function goiYDongNghia(q: string): string[] {
 }
 
 /** Chuỗi trích dẫn tiếng Việt: đơn vị nhỏ nhất trước. */
-export function chuoiTrichDan(
-  vb: VanBan,
-  dieu: Dieu,
-  khoan?: Khoan,
-  diem?: Diem,
-): string {
+export function chuoiTrichDan(vb: VanBan, dieu: Dieu, khoan?: Khoan, diem?: Diem): string {
   const parts: string[] = [];
   if (diem) parts.push(`Điểm ${diem.ky}`);
   if (khoan) parts.push(`${diem ? "khoản" : "Khoản"} ${khoan.so}`);
@@ -245,9 +240,7 @@ export function timKiem(query: string, loc: BoLoc): KetQua[] {
       for (const dieu of ch.dieu) {
         for (const khoan of dieu.khoan) {
           const hayKhoan = boDau(`${dieu.tieuDe} ${khoan.text}`);
-          const diemHit = khoan.diem?.find((d) =>
-            terms.some((t) => boDau(d.text).includes(t)),
-          );
+          const diemHit = khoan.diem?.find((d) => terms.some((t) => boDau(d.text).includes(t)));
           let score = 0;
           if (!terms.length) score = 1;
           for (const t of terms) {
@@ -279,5 +272,4 @@ export const vanBanTheoSoHieu = (soHieu: string): VanBan | undefined => {
 };
 
 export const idDieu = (so: number) => `dieu-${so}`;
-export const idKhoan = (dieuSo: number, khoanSo: number) =>
-  `dieu-${dieuSo}-khoan-${khoanSo}`;
+export const idKhoan = (dieuSo: number, khoanSo: number) => `dieu-${dieuSo}-khoan-${khoanSo}`;

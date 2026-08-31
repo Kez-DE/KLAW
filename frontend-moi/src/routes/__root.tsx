@@ -5,7 +5,6 @@ import {
   createRootRouteWithContext,
   useRouter,
   useRouterState,
-
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -21,8 +20,7 @@ import appCss from "../styles.css?url";
  * trên tên miền của Lovable. Đặt VITE_SITE_ORIGIN khi triển khai; mặc định là
  * localhost để không có tên miền nào bị khẳng định nhầm.
  */
-export const SITE_ORIGIN =
-  import.meta.env["VITE_SITE_ORIGIN"] ?? "http://localhost:3000";
+export const SITE_ORIGIN = import.meta.env["VITE_SITE_ORIGIN"] ?? "http://localhost:3000";
 
 /** Two primary weights per family only, display=swap. */
 const FONT_CSS =
@@ -33,9 +31,7 @@ function NotFoundComponent() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">
-          Không tìm thấy trang
-        </h2>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">Không tìm thấy trang</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Đường dẫn này không tồn tại hoặc đã được chuyển đi nơi khác.
         </p>
@@ -94,15 +90,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "KLAW — Trợ lý AI Pháp luật Việt Nam" },
       {
         name: "description",
-        content:
-          "Tra cứu pháp luật Việt Nam và soạn thảo văn bản pháp lý với trợ lý AI KLAW.",
+        content: "Tra cứu pháp luật Việt Nam và soạn thảo văn bản pháp lý với trợ lý AI KLAW.",
       },
       { name: "author", content: "KLAW" },
       { property: "og:title", content: "KLAW — Trợ lý AI Pháp luật Việt Nam" },
       {
         property: "og:description",
-        content:
-          "Tra cứu pháp luật Việt Nam và soạn thảo văn bản pháp lý với trợ lý AI KLAW.",
+        content: "Tra cứu pháp luật Việt Nam và soạn thảo văn bản pháp lý với trợ lý AI KLAW.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -183,4 +177,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-

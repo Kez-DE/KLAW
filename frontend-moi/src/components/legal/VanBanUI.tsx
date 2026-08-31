@@ -15,13 +15,7 @@ const STATUS_STYLE: Record<TinhTrang, string> = {
     "border-[var(--color-status-expired)]/45 text-[var(--color-status-expired)] bg-[var(--color-status-expired)]/10",
 };
 
-export function StatusBadge({
-  status,
-  className,
-}: {
-  status: TinhTrang;
-  className?: string;
-}) {
+export function StatusBadge({ status, className }: { status: TinhTrang; className?: string }) {
   return (
     <span
       className={cn(
@@ -37,13 +31,7 @@ export function StatusBadge({
 }
 
 /** Tô sáng cụm từ khớp (không phân biệt dấu) với nền brass-300 ~25%. */
-export function Highlight({
-  text,
-  query,
-}: {
-  text: string;
-  query: string;
-}): ReactNode {
+export function Highlight({ text, query }: { text: string; query: string }): ReactNode {
   const terms = moRongTruyVan(query)
     .filter((t) => t.length >= 2)
     .sort((a, b) => b.length - a.length);

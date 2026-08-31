@@ -25,8 +25,7 @@ const SUGGESTIONS = [
 ];
 
 type Msg =
-  | { id: string; role: "user"; text: string }
-  | { id: string; role: "assistant"; kind: "chua-noi" };
+  { id: string; role: "user"; text: string } | { id: string; role: "assistant"; kind: "chua-noi" };
 
 const uid = () => Math.random().toString(36).slice(2);
 
@@ -38,10 +37,9 @@ function ChuaNoiBlock() {
         Chưa nối máy chủ KLAW
       </div>
       <p className="doc-prose mt-2 text-foreground">
-        Bản dựng này mới có giao diện. Câu hỏi của bạn chưa đi tới đâu, và màn
-        hình sẽ không dựng ra câu trả lời để lấp chỗ trống. Khi đường tra cứu
-        được nối, mỗi câu trả lời sẽ kèm điều, khoản, điểm và nhãn hiệu lực để
-        bạn tự đối chiếu với văn bản gốc.
+        Bản dựng này mới có giao diện. Câu hỏi của bạn chưa đi tới đâu, và màn hình sẽ không dựng ra
+        câu trả lời để lấp chỗ trống. Khi đường tra cứu được nối, mỗi câu trả lời sẽ kèm điều,
+        khoản, điểm và nhãn hiệu lực để bạn tự đối chiếu với văn bản gốc.
       </p>
       <div className="mt-4 flex flex-wrap gap-2 font-sans">
         <Link
@@ -88,10 +86,7 @@ function TrialAgent() {
     ]);
   };
 
-  const questions = messages.filter((m) => m.role === "user") as Extract<
-    Msg,
-    { role: "user" }
-  >[];
+  const questions = messages.filter((m) => m.role === "user") as Extract<Msg, { role: "user" }>[];
 
   return (
     <AppShell active="/dung-thu">
@@ -210,8 +205,7 @@ function TrialAgent() {
                 </div>
               </div>
               <p className="mt-1.5 text-[12px] text-muted-foreground">
-                KLAW có thể trả lời chưa đầy đủ. Luôn đối chiếu với văn bản gốc
-                trước khi sử dụng.
+                KLAW có thể trả lời chưa đầy đủ. Luôn đối chiếu với văn bản gốc trước khi sử dụng.
               </p>
             </div>
           </div>
@@ -265,8 +259,8 @@ function TrialAgent() {
                 {tab === "docs" ? (
                   <div className="mt-3 space-y-2">
                     <p className="text-[12px] text-muted-foreground">
-                      Văn bản được dẫn sẽ xuất hiện ở đây khi màn hình nối được
-                      vào kho văn bản của KLAW.
+                      Văn bản được dẫn sẽ xuất hiện ở đây khi màn hình nối được vào kho văn bản của
+                      KLAW.
                     </p>
                   </div>
                 ) : (

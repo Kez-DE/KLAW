@@ -41,7 +41,13 @@ export const TINH_THANH: Tinh[] = [
   },
   {
     ten: "Thành phố Hải Phòng",
-    capDuoi: ["Phường Hồng Bàng", "Phường Lê Chân", "Phường Ngô Quyền", "Xã An Dương", "Đặc khu Bạch Long Vĩ"],
+    capDuoi: [
+      "Phường Hồng Bàng",
+      "Phường Lê Chân",
+      "Phường Ngô Quyền",
+      "Xã An Dương",
+      "Đặc khu Bạch Long Vĩ",
+    ],
   },
   {
     ten: "Thành phố Cần Thơ",

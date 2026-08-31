@@ -111,9 +111,7 @@ export function AppShell({
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "focus-brass flex min-h-14 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px]",
-                isActive
-                  ? "font-medium text-primary"
-                  : "text-muted-foreground",
+                isActive ? "font-medium text-primary" : "text-muted-foreground",
               )}
             >
               <Icon className="size-[18px]" aria-hidden />

@@ -20,9 +20,7 @@ export function AppNav({ active }: { active?: string }) {
           <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-ink text-primary-foreground shadow-soft">
             <Scale className="size-4.5" />
           </span>
-          <span className="font-display text-lg font-bold tracking-tight text-primary">
-            KLAW
-          </span>
+          <span className="font-display text-lg font-bold tracking-tight text-primary">KLAW</span>
         </Link>
         <div className="ml-auto flex items-center gap-1 overflow-x-auto text-sm">
           {LINKS.map((l) => (

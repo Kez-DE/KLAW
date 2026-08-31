@@ -6,11 +6,7 @@
 // quyet_dinh_ky_luat trả 501; 22 mẫu còn lại chưa có kiểu backend nào. Danh
 // mục này vì thế đang hứa nhiều hơn hệ thống làm được — việc của pha nối FE.
 
-export type NhomMau =
-  | "lao-dong"
-  | "thuong-mai"
-  | "noi-bo"
-  | "to-tung";
+export type NhomMau = "lao-dong" | "thuong-mai" | "noi-bo" | "to-tung";
 
 export type MauVanBan = {
   id: string;

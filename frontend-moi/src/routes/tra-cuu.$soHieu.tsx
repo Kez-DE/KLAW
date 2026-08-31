@@ -15,14 +15,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { ChuaNoiBanner } from "@/components/legal/LegalBits";
 import { StatusBadge } from "@/components/legal/VanBanUI";
-import {
-  boDau,
-  idDieu,
-  idKhoan,
-  vanBanTheoSoHieu,
-  type Dieu,
-  type VanBan,
-} from "@/lib/van-ban";
+import { boDau, idDieu, idKhoan, vanBanTheoSoHieu, type Dieu, type VanBan } from "@/lib/van-ban";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/tra-cuu/$soHieu")({
@@ -65,9 +58,9 @@ function ChuaNoiKhoVanBan() {
           Chưa mở được toàn văn văn bản
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Bản dựng này chưa nối vào kho văn bản của KLAW, nên chưa có số hiệu nào
-          mở được toàn văn. Màn đọc — mục lục theo chương/điều, cuộn theo điều,
-          thanh chọn đoạn và ghi chú — sẽ chạy ngay khi đường dữ liệu được nối.
+          Bản dựng này chưa nối vào kho văn bản của KLAW, nên chưa có số hiệu nào mở được toàn văn.
+          Màn đọc — mục lục theo chương/điều, cuộn theo điều, thanh chọn đoạn và ghi chú — sẽ chạy
+          ngay khi đường dữ liệu được nối.
         </p>
         <Link
           to="/tra-cuu"
@@ -82,94 +75,88 @@ function ChuaNoiKhoVanBan() {
 
 /* ------------------------------- Tree ------------------------------------- */
 
-function TreeContent({
-  vb,
-  activeDieu,
-}: {
-  vb: VanBan;
-  activeDieu: string | null;
-}) {
+function TreeContent({ vb, activeDieu }: { vb: VanBan; activeDieu: string | null }) {
   const [filter, setFilter] = useState("");
   const [closed, setClosed] = useState<string[]>([]);
   const f = boDau(filter.trim());
 
   return (
     <div>
-        <div className="relative">
-          <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Lọc trong văn bản"
-            className="h-9 w-full rounded-lg border border-border bg-card pr-2 pl-8 text-[13px] outline-none focus:border-[var(--color-brass-500)]"
-          />
-        </div>
+      <div className="relative">
+        <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Lọc trong văn bản"
+          className="h-9 w-full rounded-lg border border-border bg-card pr-2 pl-8 text-[13px] outline-none focus:border-[var(--color-brass-500)]"
+        />
+      </div>
 
-        <nav className="mt-3">
-          {vb.chuong.map((ch) => {
-            const dieuList = ch.dieu.filter(
-              (d) =>
-                !f ||
-                boDau(`Điều ${d.so} ${d.tieuDe}`).includes(f) ||
-                d.khoan.some((k) => boDau(k.text).includes(f)),
-            );
-            if (!dieuList.length) return null;
-            const isClosed = closed.includes(ch.so);
-            return (
-              <div key={ch.so} className="mb-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setClosed((p) =>
-                      p.includes(ch.so) ? p.filter((x) => x !== ch.so) : [...p, ch.so],
-                    )
-                  }
-                  className="flex w-full items-start gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] font-semibold text-primary hover:bg-[var(--color-paper-100)]"
-                >
-                  {isClosed ? (
-                    <ChevronRight className="mt-0.5 size-3.5 shrink-0 text-[var(--color-brass-600)]" />
-                  ) : (
-                    <ChevronDown className="mt-0.5 size-3.5 shrink-0 text-[var(--color-brass-600)]" />
-                  )}
-                  <span>
-                    Chương {ch.so}. {ch.ten}
-                  </span>
-                </button>
-                {!isClosed && (
-                  <ul className="mt-1 ml-3 border-l border-border">
-                    {dieuList.map((d) => {
-                      const id = idDieu(d.so);
-                      const active = activeDieu === id;
-                      return (
-                        <li key={d.so} className="relative">
-                          {active && (
-                            <span className="spy-rail absolute top-0 -left-px h-full w-[2px] bg-[var(--color-brass-500)]" />
-                          )}
-                          {d.muc && (
-                            <p className="px-2.5 pt-2 text-[11px] tracking-wide text-muted-foreground uppercase">
-                              {d.muc}
-                            </p>
-                          )}
-                          <a
-                            href={`#${id}`}
-                            className={cn(
-                              "block px-2.5 py-1.5 text-[13px] transition-colors duration-150",
-                              active
-                                ? "font-medium text-[var(--color-brass-600)]"
-                                : "text-muted-foreground hover:text-foreground",
-                            )}
-                          >
-                            Điều {d.so}. {d.tieuDe}
-                          </a>
-                        </li>
-                      );
-                    })}
-                  </ul>
+      <nav className="mt-3">
+        {vb.chuong.map((ch) => {
+          const dieuList = ch.dieu.filter(
+            (d) =>
+              !f ||
+              boDau(`Điều ${d.so} ${d.tieuDe}`).includes(f) ||
+              d.khoan.some((k) => boDau(k.text).includes(f)),
+          );
+          if (!dieuList.length) return null;
+          const isClosed = closed.includes(ch.so);
+          return (
+            <div key={ch.so} className="mb-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setClosed((p) =>
+                    p.includes(ch.so) ? p.filter((x) => x !== ch.so) : [...p, ch.so],
+                  )
+                }
+                className="flex w-full items-start gap-1.5 rounded-md px-1.5 py-1 text-left text-[13px] font-semibold text-primary hover:bg-[var(--color-paper-100)]"
+              >
+                {isClosed ? (
+                  <ChevronRight className="mt-0.5 size-3.5 shrink-0 text-[var(--color-brass-600)]" />
+                ) : (
+                  <ChevronDown className="mt-0.5 size-3.5 shrink-0 text-[var(--color-brass-600)]" />
                 )}
-              </div>
-            );
-          })}
-        </nav>
+                <span>
+                  Chương {ch.so}. {ch.ten}
+                </span>
+              </button>
+              {!isClosed && (
+                <ul className="mt-1 ml-3 border-l border-border">
+                  {dieuList.map((d) => {
+                    const id = idDieu(d.so);
+                    const active = activeDieu === id;
+                    return (
+                      <li key={d.so} className="relative">
+                        {active && (
+                          <span className="spy-rail absolute top-0 -left-px h-full w-[2px] bg-[var(--color-brass-500)]" />
+                        )}
+                        {d.muc && (
+                          <p className="px-2.5 pt-2 text-[11px] tracking-wide text-muted-foreground uppercase">
+                            {d.muc}
+                          </p>
+                        )}
+                        <a
+                          href={`#${id}`}
+                          className={cn(
+                            "block px-2.5 py-1.5 text-[13px] transition-colors duration-150",
+                            active
+                              ? "font-medium text-[var(--color-brass-600)]"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          Điều {d.so}. {d.tieuDe}
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </nav>
     </div>
   );
 }
@@ -180,8 +167,7 @@ function DieuBlock({ vb, dieu }: { vb: VanBan; dieu: Dieu }) {
   return (
     <section id={idDieu(dieu.so)} className="scroll-mt-28 pt-8">
       <h3 className="font-display text-[20px] leading-snug font-semibold text-primary">
-        <span className="text-[var(--color-brass-600)]">Điều {dieu.so}.</span>{" "}
-        {dieu.tieuDe}
+        <span className="text-[var(--color-brass-600)]">Điều {dieu.so}.</span> {dieu.tieuDe}
       </h3>
       <div className="mt-2 flex flex-col gap-3">
         {dieu.khoan.map((k) => (
@@ -194,11 +180,7 @@ function DieuBlock({ vb, dieu }: { vb: VanBan; dieu: Dieu }) {
               k.suaDoiBoi && "border-l border-[var(--color-status-partial)] pl-3",
             )}
           >
-            <p
-              className={cn(
-                k.baiBo && "text-muted-foreground line-through opacity-55",
-              )}
-            >
+            <p className={cn(k.baiBo && "text-muted-foreground line-through opacity-55")}>
               <span className="font-semibold">{k.so}.</span> {k.text}
               {k.suaDoiBoi && (
                 <sup
@@ -257,101 +239,94 @@ function RelationsContent({
 }) {
   return (
     <div>
-            <div className="flex gap-1 rounded-full border border-border p-0.5 text-[12px]">
-              {(
-                [
-                  ["lien-quan", "Văn bản liên quan"],
-                  ["ghi-chu", "Ghi chú của tôi"],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setTab(id)}
-                  className={cn(
-                    "flex-1 rounded-full px-2 py-1 transition-colors duration-150",
-                    tab === id
-                      ? "bg-[var(--color-brass-500)]/15 font-medium text-[var(--color-brass-600)]"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {tab === "lien-quan" ? (
-              <div className="mt-4 flex flex-col gap-4">
-                {vb.quanHe.map((g) => (
-                  <div key={g.nhom}>
-                    <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                      {g.nhom}
-                    </p>
-                    <ul className="mt-1.5 flex flex-col gap-1.5">
-                      {g.items.map((it) => {
-                        const target = vanBanTheoSoHieu(it.soHieu);
-                        return (
-                          <li
-                            key={it.soHieu + it.ten}
-                            className="rounded-lg border border-border bg-card p-2.5"
-                          >
-                            <p className="font-jetbrains text-[11px] text-[var(--color-brass-600)]">
-                              {it.soHieu}
-                            </p>
-                            <p className="mt-0.5 text-[13px] text-foreground">{it.ten}</p>
-                            {target ? (
-                              <div className="mt-1.5 flex items-center justify-between gap-2">
-                                <StatusBadge status={target.tinhTrang} />
-                                <Link
-                                  to="/tra-cuu/$soHieu"
-                                  params={{ soHieu: target.soHieu }}
-                                  className="text-[12px] text-[var(--color-brass-600)] hover:underline"
-                                >
-                                  Xem toàn văn
-                                </Link>
-                              </div>
-                            ) : (
-                              <p className="mt-1.5 text-[11px] text-muted-foreground">
-                                Chưa có trong dữ liệu minh hoạ
-                              </p>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-4">
-                {notes.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-border p-4 text-[13px] text-muted-foreground">
-                    Chọn một đoạn trong văn bản rồi bấm “Ghi chú” để lưu lại cùng trích dẫn
-                    chuẩn.
-                  </p>
-                ) : (
-                  <ul className="flex flex-col gap-2">
-                    {notes.map((n, i) => (
-                      <li
-                        key={i}
-                        className="rounded-lg border border-border bg-card p-2.5 text-[13px]"
-                      >
-                        <p className="text-[11px] text-[var(--color-brass-600)]">
-                          {n.trichDan}
-                        </p>
-                        <p className="mt-1 text-muted-foreground">{n.text}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+      <div className="flex gap-1 rounded-full border border-border p-0.5 text-[12px]">
+        {(
+          [
+            ["lien-quan", "Văn bản liên quan"],
+            ["ghi-chu", "Ghi chú của tôi"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            className={cn(
+              "flex-1 rounded-full px-2 py-1 transition-colors duration-150",
+              tab === id
+                ? "bg-[var(--color-brass-500)]/15 font-medium text-[var(--color-brass-600)]"
+                : "text-muted-foreground hover:text-foreground",
             )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "lien-quan" ? (
+        <div className="mt-4 flex flex-col gap-4">
+          {vb.quanHe.map((g) => (
+            <div key={g.nhom}>
+              <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                {g.nhom}
+              </p>
+              <ul className="mt-1.5 flex flex-col gap-1.5">
+                {g.items.map((it) => {
+                  const target = vanBanTheoSoHieu(it.soHieu);
+                  return (
+                    <li
+                      key={it.soHieu + it.ten}
+                      className="rounded-lg border border-border bg-card p-2.5"
+                    >
+                      <p className="font-jetbrains text-[11px] text-[var(--color-brass-600)]">
+                        {it.soHieu}
+                      </p>
+                      <p className="mt-0.5 text-[13px] text-foreground">{it.ten}</p>
+                      {target ? (
+                        <div className="mt-1.5 flex items-center justify-between gap-2">
+                          <StatusBadge status={target.tinhTrang} />
+                          <Link
+                            to="/tra-cuu/$soHieu"
+                            params={{ soHieu: target.soHieu }}
+                            className="text-[12px] text-[var(--color-brass-600)] hover:underline"
+                          >
+                            Xem toàn văn
+                          </Link>
+                        </div>
+                      ) : (
+                        <p className="mt-1.5 text-[11px] text-muted-foreground">
+                          Chưa có trong dữ liệu minh hoạ
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-4">
+          {notes.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border p-4 text-[13px] text-muted-foreground">
+              Chọn một đoạn trong văn bản rồi bấm “Ghi chú” để lưu lại cùng trích dẫn chuẩn.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {notes.map((n, i) => (
+                <li key={i} className="rounded-lg border border-border bg-card p-2.5 text-[13px]">
+                  <p className="text-[11px] text-[var(--color-brass-600)]">{n.trichDan}</p>
+                  <p className="mt-1 text-muted-foreground">{n.text}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 /* ------------------------------ Page -------------------------------------- */
-
 
 function DocReader() {
   const { vb } = Route.useLoaderData();
@@ -361,14 +336,9 @@ function DocReader() {
   const [activeDieu, setActiveDieu] = useState<string | null>(null);
   const [notes, setNotes] = useState<{ trichDan: string; text: string }[]>([]);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const [sel, setSel] = useState<{ top: number; left: number; citation: string } | null>(
-    null,
-  );
+  const [sel, setSel] = useState<{ top: number; left: number; citation: string } | null>(null);
 
-  const dieuIds = useMemo(
-    () => vb.chuong.flatMap((c) => c.dieu.map((d) => idDieu(d.so))),
-    [vb],
-  );
+  const dieuIds = useMemo(() => vb.chuong.flatMap((c) => c.dieu.map((d) => idDieu(d.so))), [vb]);
 
   useEffect(() => {
     const obs = new IntersectionObserver(
@@ -395,8 +365,7 @@ function DocReader() {
         return;
       }
       const node = s.anchorNode;
-      const el =
-        node instanceof Element ? node : (node?.parentElement ?? null);
+      const el = node instanceof Element ? node : (node?.parentElement ?? null);
       if (!el || !bodyRef.current?.contains(el)) {
         setSel(null);
         return;
@@ -578,7 +547,6 @@ function DocReader() {
           </div>
         </div>
       )}
-
 
       {/* Selection toolbar */}
       {sel && (

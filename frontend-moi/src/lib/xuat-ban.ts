@@ -14,7 +14,7 @@ export type DongVanBan = {
   thutLe: number;
 };
 
-export type OKy = { ben: string[]; };
+export type OKy = { ben: string[] };
 
 export type NoiDungXuat = {
   dong: DongVanBan[];
@@ -56,13 +56,7 @@ export function docNoiDungTuDOM(sheet: HTMLElement): NoiDungXuat {
     const cs = getComputedStyle(el);
     const laDieu = el.classList.contains("dieu-head");
     const kieu: KieuDong =
-      el.tagName === "H1"
-        ? "tieuDe"
-        : laDieu
-          ? "dieu"
-          : /^Số:/.test(text)
-            ? "soHieu"
-            : "thuong";
+      el.tagName === "H1" ? "tieuDe" : laDieu ? "dieu" : /^Số:/.test(text) ? "soHieu" : "thuong";
 
     dong.push({
       text: cs.textTransform === "uppercase" ? text.toLocaleUpperCase("vi-VN") : text,
@@ -125,9 +119,7 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
       alignment: d.canhGiua ? AlignmentType.CENTER : AlignmentType.JUSTIFIED,
       ...(d.kieu === "tieuDe" ? { heading: HeadingLevel.HEADING_1 } : {}),
       spacing: { after: 120, line: 312 },
-      ...(d.thutLe > 0
-        ? { indent: { left: convertMillimetersToTwip(d.thutLe / 3.78) } }
-        : {}),
+      ...(d.thutLe > 0 ? { indent: { left: convertMillimetersToTwip(d.thutLe / 3.78) } } : {}),
       children: [
         new TextRun({
           text: d.text,
@@ -145,7 +137,14 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
       ? [
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
-            borders: { top: khong, bottom: khong, left: khong, right: khong, insideHorizontal: khong, insideVertical: khong },
+            borders: {
+              top: khong,
+              bottom: khong,
+              left: khong,
+              right: khong,
+              insideHorizontal: khong,
+              insideVertical: khong,
+            },
             rows: [
               new TableRow({
                 children: oKy.map(
@@ -153,20 +152,21 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
                     new TableCell({
                       width: { size: 50, type: WidthType.PERCENTAGE },
                       borders: { top: khong, bottom: khong, left: khong, right: khong },
-                      children: cot.map((t, i) =>
-                        new Paragraph({
-                          alignment: AlignmentType.CENTER,
-                          spacing: { before: i === cot.length - 1 ? 1200 : 0, after: 80 },
-                          children: [
-                            new TextRun({
-                              text: t,
-                              bold: i === 0 || i === cot.length - 1,
-                              italics: i === 1,
-                              size: 26,
-                              font: "Times New Roman",
-                            }),
-                          ],
-                        }),
+                      children: cot.map(
+                        (t, i) =>
+                          new Paragraph({
+                            alignment: AlignmentType.CENTER,
+                            spacing: { before: i === cot.length - 1 ? 1200 : 0, after: 80 },
+                            children: [
+                              new TextRun({
+                                text: t,
+                                bold: i === 0 || i === cot.length - 1,
+                                italics: i === 1,
+                                size: 26,
+                                font: "Times New Roman",
+                              }),
+                            ],
+                          }),
                       ),
                     }),
                 ),
@@ -197,11 +197,7 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
             },
           },
         },
-        children: [
-          ...dong.map(para),
-          new Paragraph({ text: "" }),
-          ...bangKy,
-        ],
+        children: [...dong.map(para), new Paragraph({ text: "" }), ...bangKy],
       },
     ],
   });
@@ -249,14 +245,7 @@ export async function xuatPDF(sheet: HTMLElement, tieuDe: string) {
     let trang = 0;
     while (daVe < caoAnh - 0.5) {
       if (trang > 0) pdf.addPage();
-      pdf.addImage(
-        canvas.toDataURL("image/jpeg", 0.94),
-        "JPEG",
-        0,
-        -daVe,
-        rongTrang,
-        caoAnh,
-      );
+      pdf.addImage(canvas.toDataURL("image/jpeg", 0.94), "JPEG", 0, -daVe, rongTrang, caoAnh);
       daVe += caoTrang;
       trang += 1;
       if (trang > 30) break;

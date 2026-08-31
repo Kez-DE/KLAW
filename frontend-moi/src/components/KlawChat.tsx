@@ -25,8 +25,7 @@ const SUGGESTIONS = [
   {
     icon: Search,
     title: "Tra cứu quy định",
-    prompt:
-      "Thời gian thử việc tối đa với công việc của người quản lý doanh nghiệp là bao lâu?",
+    prompt: "Thời gian thử việc tối đa với công việc của người quản lý doanh nghiệp là bao lâu?",
   },
   {
     icon: FileSignature,
@@ -72,9 +71,7 @@ export function KlawChat() {
             <Scale className="size-5" />
           </div>
           <div>
-            <h1 className="font-display text-xl font-bold tracking-tight text-primary">
-              KLAW
-            </h1>
+            <h1 className="font-display text-xl font-bold tracking-tight text-primary">KLAW</h1>
             <p className="text-xs text-muted-foreground">
               Trợ lý tra cứu pháp luật lao động &amp; soạn thảo văn bản
             </p>
@@ -92,13 +89,10 @@ export function KlawChat() {
             <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-md">
               <Scale className="size-8" />
             </div>
-            <h2 className="font-display text-3xl font-bold text-primary">
-              Xin chào, tôi là KLAW
-            </h2>
+            <h2 className="font-display text-3xl font-bold text-primary">Xin chào, tôi là KLAW</h2>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Tôi tra cứu quy định pháp luật lao động Việt Nam theo điều, khoản,
-              điểm và soạn thảo văn bản pháp lý. Mỗi câu trả lời nêu rõ văn bản
-              và điều khoản để bạn tự kiểm chứng.
+              Tôi tra cứu quy định pháp luật lao động Việt Nam theo điều, khoản, điểm và soạn thảo
+              văn bản pháp lý. Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn tự kiểm chứng.
             </p>
 
             <div
@@ -111,10 +105,9 @@ export function KlawChat() {
                   Trợ lý chưa được nối vào hệ thống KLAW.
                 </p>
                 <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
-                  Bản dựng này mới có giao diện. Đường trả lời sẽ nối vào máy chủ
-                  tra cứu của KLAW ở bước sau. Cho tới lúc đó, màn hình không đưa
-                  ra câu trả lời nào — kể cả câu trả lời mẫu — để không ai nhầm
-                  nội dung minh hoạ với quy định pháp luật thật.
+                  Bản dựng này mới có giao diện. Đường trả lời sẽ nối vào máy chủ tra cứu của KLAW ở
+                  bước sau. Cho tới lúc đó, màn hình không đưa ra câu trả lời nào — kể cả câu trả
+                  lời mẫu — để không ai nhầm nội dung minh hoạ với quy định pháp luật thật.
                 </p>
               </div>
             </div>
@@ -129,9 +122,7 @@ export function KlawChat() {
                 >
                   <div className="flex items-center gap-2 text-primary">
                     <s.icon className="size-4" />
-                    <span className="font-display text-sm font-semibold">
-                      {s.title}
-                    </span>
+                    <span className="font-display text-sm font-semibold">{s.title}</span>
                   </div>
                   <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                     {s.prompt}
@@ -184,8 +175,8 @@ export function KlawChat() {
           ) : null}
         </p>
         <p className="mx-auto max-w-4xl px-4 pt-1.5 pb-3 text-center text-[11px] text-muted-foreground">
-          KLAW cung cấp thông tin tham khảo, không thay thế tư vấn của luật sư.
-          Vui lòng kiểm chứng với văn bản quy phạm pháp luật đang có hiệu lực.
+          KLAW cung cấp thông tin tham khảo, không thay thế tư vấn của luật sư. Vui lòng kiểm chứng
+          với văn bản quy phạm pháp luật đang có hiệu lực.
         </p>
       </div>
     </div>

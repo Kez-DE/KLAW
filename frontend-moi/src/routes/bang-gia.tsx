@@ -126,8 +126,7 @@ function CheckBrass() {
 
 function Cell({ value }: { value: string | boolean }) {
   if (value === true) return <CheckBrass />;
-  if (value === false)
-    return <Minus className="mx-auto size-3.5 text-muted-foreground" />;
+  if (value === false) return <Minus className="mx-auto size-3.5 text-muted-foreground" />;
   return <span className="text-[13px] text-muted-foreground">{value}</span>;
 }
 
@@ -143,8 +142,7 @@ export const Route = createFileRoute("/bang-gia")({
       { property: "og:title", content: "Bảng giá KLAW — Gói tra cứu & soạn thảo pháp lý" },
       {
         property: "og:description",
-        content:
-          "Ba mức dự kiến: Cá nhân, Doanh nghiệp và Tổ chức lớn. Chưa mở thanh toán.",
+        content: "Ba mức dự kiến: Cá nhân, Doanh nghiệp và Tổ chức lớn. Chưa mở thanh toán.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -164,10 +162,9 @@ function BangGiaPage() {
           role="status"
           className="mx-auto mb-6 max-w-2xl rounded-xl border border-border bg-card px-4 py-3 text-[13px] leading-relaxed text-muted-foreground"
         >
-          <span className="font-semibold text-foreground">Bảng giá dự kiến.</span>{" "}
-          KLAW chưa mở thanh toán: chưa có cổng thanh toán, chưa có hạn mức được
-          thực thi, chưa có chính sách huỷ hay hoàn tiền có hiệu lực. Mọi con số
-          dưới đây là đề xuất và có thể thay đổi.
+          <span className="font-semibold text-foreground">Bảng giá dự kiến.</span> KLAW chưa mở
+          thanh toán: chưa có cổng thanh toán, chưa có hạn mức được thực thi, chưa có chính sách huỷ
+          hay hoàn tiền có hiệu lực. Mọi con số dưới đây là đề xuất và có thể thay đổi.
         </p>
         <p className="soft-fade text-[13px] uppercase tracking-[0.22em] text-brass-600/80">
           Bảng giá
@@ -176,8 +173,7 @@ function BangGiaPage() {
           Chọn gói phù hợp với công việc pháp lý của bạn
         </h1>
         <p className="soft-fade mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-          Bắt đầu dùng thử miễn phí. Nâng cấp bất cứ lúc nào — không ràng buộc
-          dài hạn.
+          Bắt đầu dùng thử miễn phí. Nâng cấp bất cứ lúc nào — không ràng buộc dài hạn.
         </p>
 
         {/* Billing toggle */}
@@ -202,9 +198,7 @@ function BangGiaPage() {
               {opt.id && (
                 <span
                   className={`ml-2 rounded-full px-1.5 py-0.5 text-[11px] ${
-                    annual
-                      ? "bg-primary/10 text-primary"
-                      : "bg-brass-500/15 text-brass-600"
+                    annual ? "bg-primary/10 text-primary" : "bg-brass-500/15 text-brass-600"
                   }`}
                 >
                   Tiết kiệm 20%
@@ -239,9 +233,7 @@ function BangGiaPage() {
 
             <div className="mt-5 flex items-baseline gap-1.5">
               {t.monthly == null ? (
-                <span className="font-display text-3xl text-brass-600">
-                  Liên hệ báo giá
-                </span>
+                <span className="font-display text-3xl text-brass-600">Liên hệ báo giá</span>
               ) : (
                 <>
                   <span className="font-display text-[34px] leading-none text-primary">
@@ -298,9 +290,7 @@ function BangGiaPage() {
 
       {/* Comparison table */}
       <section className="mx-auto max-w-6xl px-6 pb-4">
-        <h2 className="font-display text-3xl text-primary">
-          So sánh chi tiết các gói
-        </h2>
+        <h2 className="font-display text-3xl text-primary">So sánh chi tiết các gói</h2>
         <div className="mt-6 overflow-x-auto rounded-2xl border border-border/70">
           <table className="w-full min-w-[640px] border-collapse text-left">
             <thead>
@@ -326,9 +316,7 @@ function BangGiaPage() {
                   key={row.label}
                   className={`border-t border-border/60 ${i % 2 === 1 ? "bg-secondary/50" : ""}`}
                 >
-                  <td className="px-5 py-3.5 text-[14px] text-foreground/80">
-                    {row.label}
-                  </td>
+                  <td className="px-5 py-3.5 text-[14px] text-foreground/80">{row.label}</td>
                   {row.values.map((v, j) => (
                     <td key={j} className="px-5 py-3.5 text-center">
                       <Cell value={v} />
@@ -346,9 +334,7 @@ function BangGiaPage() {
 
       {/* FAQ */}
       <section className="mx-auto max-w-3xl px-6 pt-10 pb-20">
-        <h2 className="text-center font-display text-3xl text-primary">
-          Câu hỏi thường gặp
-        </h2>
+        <h2 className="text-center font-display text-3xl text-primary">Câu hỏi thường gặp</h2>
         <div className="mt-8 space-y-3">
           {FAQS.map((f, i) => {
             const open = openFaq === i;

@@ -1,13 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import {
-  Briefcase,
-  Building2,
-  FileSignature,
-  Gavel,
-  Search,
-  Stamp,
-} from "lucide-react";
+import { Briefcase, Building2, FileSignature, Gavel, Search, Stamp } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
 import { MAU, NHOM, type NhomMau } from "@/lib/mau-van-ban";
@@ -33,9 +26,7 @@ export const Route = createFileRoute("/soan-thao/")({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
-    links: [
-      { rel: "canonical", href: `${SITE_ORIGIN}/soan-thao` },
-    ],
+    links: [{ rel: "canonical", href: `${SITE_ORIGIN}/soan-thao` }],
   }),
   component: ChonLoaiVanBan,
 });
@@ -54,7 +45,9 @@ function ChonLoaiVanBan() {
   const ketQua = useMemo(() => {
     const k = boDau(q.trim());
     const trong = k.length === 0;
-    const list = MAU.filter((m) => (trong ? m.nhom === tab : boDau(`${m.ten} ${m.moTa}`).includes(k)));
+    const list = MAU.filter((m) =>
+      trong ? m.nhom === tab : boDau(`${m.ten} ${m.moTa}`).includes(k),
+    );
     return { list, dangTim: !trong };
   }, [q, tab]);
 

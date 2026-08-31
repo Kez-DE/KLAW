@@ -143,9 +143,7 @@ function Landing() {
             <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-ink text-primary-foreground shadow-soft">
               <Scale className="size-4.5" />
             </span>
-            <span className="font-display text-lg font-bold tracking-tight text-primary">
-              KLAW
-            </span>
+            <span className="font-display text-lg font-bold tracking-tight text-primary">KLAW</span>
           </Link>
           <div className="ml-auto hidden items-center gap-6 text-sm text-muted-foreground md:flex">
             <Link to="/tra-cuu" className="transition-colors hover:text-primary">
@@ -209,9 +207,9 @@ function Landing() {
             </h1>
 
             <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-              KLAW đọc câu hỏi của bạn, dẫn chiếu đúng điều, khoản, điểm trong
-              pháp luật lao động Việt Nam kèm nhãn hiệu lực, và soạn thảo văn bản
-              pháp lý đúng thể thức. Một lượt trả lời thường mất 10–60 giây.
+              KLAW đọc câu hỏi của bạn, dẫn chiếu đúng điều, khoản, điểm trong pháp luật lao động
+              Việt Nam kèm nhãn hiệu lực, và soạn thảo văn bản pháp lý đúng thể thức. Một lượt trả
+              lời thường mất 10–60 giây.
             </p>
 
             <div className="pointer-events-auto mt-9 flex flex-wrap items-center gap-3">
@@ -262,8 +260,7 @@ function Landing() {
               Một trợ lý, trọn quy trình pháp lý
             </h2>
             <p className="mt-4 text-muted-foreground">
-              Từ lúc bạn thắc mắc một quy định cho tới khi có bản thảo văn bản
-              hoàn chỉnh trong tay.
+              Từ lúc bạn thắc mắc một quy định cho tới khi có bản thảo văn bản hoàn chỉnh trong tay.
             </p>
           </div>
 
@@ -281,9 +278,7 @@ function Landing() {
                 <h3 className="tilt-lift mt-5 font-display text-lg font-semibold text-primary">
                   {f.title}
                 </h3>
-                <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
-                  {f.desc}
-                </p>
+                <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
               </article>
             ))}
           </div>
@@ -312,12 +307,8 @@ function Landing() {
                 <span className="animate-float-slow font-display bg-gradient-gold bg-clip-text text-5xl font-bold text-transparent">
                   {s.n}
                 </span>
-                <h3 className="mt-4 font-display text-lg font-semibold text-primary">
-                  {s.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {s.desc}
-                </p>
+                <h3 className="mt-4 font-display text-lg font-semibold text-primary">{s.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
                 {i < STEPS.length - 1 && (
                   <ArrowRight className="absolute top-1/2 -right-3 hidden size-6 text-accent md:block" />
                 )}
@@ -339,11 +330,10 @@ function Landing() {
                 Bao phủ những lĩnh vực bạn cần nhất
               </h2>
               <p className="mt-4 leading-relaxed text-muted-foreground">
-                KLAW truy hồi trên một kho văn bản pháp luật Việt Nam có giới hạn
-                rõ ràng, không phải một mô hình được huấn luyện trên toàn bộ pháp
-                luật. Chiều sâu không đều: cụm Lao động có luật, nghị định, thông
-                tư và chế tài; năm bộ luật còn lại hiện chỉ có bản thân bộ luật.
-                Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn kiểm chứng.
+                KLAW truy hồi trên một kho văn bản pháp luật Việt Nam có giới hạn rõ ràng, không
+                phải một mô hình được huấn luyện trên toàn bộ pháp luật. Chiều sâu không đều: cụm
+                Lao động có luật, nghị định, thông tư và chế tài; năm bộ luật còn lại hiện chỉ có
+                bản thân bộ luật. Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn kiểm chứng.
               </p>
               <Link
                 to="/chat"
@@ -395,9 +385,7 @@ function Landing() {
                   <span className="flex-1">{f.q}</span>
                   <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
                 </summary>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  {f.a}
-                </p>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{f.a}</p>
               </details>
             ))}
           </div>
@@ -416,8 +404,8 @@ function Landing() {
               Sẵn sàng tra cứu và soạn thảo?
             </h2>
             <p className="relative mx-auto mt-4 max-w-lg text-sm leading-relaxed text-primary-foreground/75">
-              Mở KLAW và đặt câu hỏi pháp lý đầu tiên của bạn. Không cần đăng ký,
-              không cần thuật ngữ chuyên ngành.
+              Mở KLAW và đặt câu hỏi pháp lý đầu tiên của bạn. Không cần đăng ký, không cần thuật
+              ngữ chuyên ngành.
             </p>
             <div className="relative mt-9 flex flex-wrap justify-center gap-3">
               <Link
@@ -460,9 +448,9 @@ function Landing() {
             </Link>
           </div>
           <p className="mt-8 border-t border-border pt-6 text-xs leading-relaxed text-muted-foreground">
-            ⚖️ KLAW cung cấp thông tin mang tính tham khảo, không thay thế tư vấn
-            pháp lý của luật sư hoặc tổ chức hành nghề luật. Vui lòng đối chiếu với
-            văn bản quy phạm pháp luật đang có hiệu lực trước khi sử dụng.
+            ⚖️ KLAW cung cấp thông tin mang tính tham khảo, không thay thế tư vấn pháp lý của luật
+            sư hoặc tổ chức hành nghề luật. Vui lòng đối chiếu với văn bản quy phạm pháp luật đang
+            có hiệu lực trước khi sử dụng.
           </p>
         </div>
       </footer>

@@ -39,14 +39,7 @@ export const Route = createFileRoute("/dang-ky")({
   component: SignUpPage,
 });
 
-const ROLES = [
-  "Luật sư",
-  "Pháp chế nội bộ",
-  "Nhân sự",
-  "Kế toán",
-  "Chủ doanh nghiệp",
-  "Khác",
-];
+const ROLES = ["Luật sư", "Pháp chế nội bộ", "Nhân sự", "Kế toán", "Chủ doanh nghiệp", "Khác"];
 
 const RULES = [
   { label: "Tối thiểu 8 ký tự", test: (v: string) => v.length >= 8 },
@@ -75,10 +68,7 @@ function StrengthMeter({ value }: { value: string }) {
       </p>
       <ul className="space-y-0.5 text-[12px]">
         {RULES.map((r) => (
-          <li
-            key={r.label}
-            className={r.test(value) ? "text-brass-600" : "text-muted-foreground"}
-          >
+          <li key={r.label} className={r.test(value) ? "text-brass-600" : "text-muted-foreground"}>
             {r.test(value) ? "✓" : "•"} {r.label}
           </li>
         ))}
@@ -102,14 +92,12 @@ function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  const set = (k: keyof typeof form) => (v: string) =>
-    setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     const next: Record<string, string> = {};
-    if (form.name.trim().length < 2)
-      next["name"] = "Vui lòng nhập họ và tên của bạn.";
+    if (form.name.trim().length < 2) next["name"] = "Vui lòng nhập họ và tên của bạn.";
     if (!EMAIL_RE.test(form.email.trim())) next["email"] = MSG_EMAIL;
     if (!PASSWORD_RE.test(form.password)) next["password"] = MSG_PASSWORD;
     setErrors(next);
@@ -152,11 +140,7 @@ function SignUpPage() {
             </p>
 
             <div className="mt-7 space-y-3">
-              <SocialButton
-                icon={<GoogleMark />}
-                label="Tiếp tục với Google"
-                disabled={loading}
-              />
+              <SocialButton icon={<GoogleMark />} label="Tiếp tục với Google" disabled={loading} />
               <SocialButton
                 icon={<MicrosoftMark />}
                 label="Tiếp tục với Microsoft"
@@ -228,23 +212,19 @@ function SignUpPage() {
                     onChange={(e) => setConsent(e.target.checked)}
                     className="focus-brass mt-0.5 size-4 shrink-0 rounded border-border bg-card accent-brass-500"
                   />
-                  Tôi đồng ý cho KLAW xử lý dữ liệu cá nhân của tôi theo Chính sách
-                  bảo vệ dữ liệu cá nhân.
+                  Tôi đồng ý cho KLAW xử lý dữ liệu cá nhân của tôi theo Chính sách bảo vệ dữ liệu
+                  cá nhân.
                 </label>
               </fieldset>
 
-              <BrassButton
-                loading={loading}
-                disabled={!consent}
-                loadingLabel="Đang xác thực…"
-              >
+              <BrassButton loading={loading} disabled={!consent} loadingLabel="Đang xác thực…">
                 Tạo tài khoản
               </BrassButton>
             </form>
 
             <Fineprint>
-              Bằng việc đăng ký, bạn đồng ý với Điều khoản sử dụng và Chính sách
-              bảo vệ dữ liệu cá nhân của KLAW.
+              Bằng việc đăng ký, bạn đồng ý với Điều khoản sử dụng và Chính sách bảo vệ dữ liệu cá
+              nhân của KLAW.
             </Fineprint>
           </>
         )}
