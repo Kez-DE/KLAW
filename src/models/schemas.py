@@ -116,12 +116,15 @@ class VanBanProvisionsResponse(BaseModel):
 # ══ POST /soan-thao, POST /soat, GET /mau/{loai} (Task 5) ═══════════════════
 # Request/response field names dùng NGUYÊN VĂN task-5-brief.md — FE đang dựng
 # song song theo đó. `FindingOut` là ngoại lệ có chủ đích: hợp nhất
-# `AuditFindingOut` gốc của brief (loai, mo_ta, dieu_khoan_lien_quan) VỚI
-# ràng buộc điều phối #3 (thong_diep, vi_tri, can_cu:str, doc_id, khop_tai_id)
-# — hai bản mô tả cùng một dữ liệu bằng tên khác nhau, giữ CẢ HAI khoá thay vì
-# chọn một, vì test bắt buộc của brief đọc `mo_ta` còn hợp đồng FE mới (đã
-# dựng xong màn Soát) đọc `thong_diep`/`vi_tri`/`doc_id`/`khop_tai_id`. Xem
-# task-5-report.md để biết lý do đầy đủ.
+# `FindingOut` là ngoại lệ có chủ đích: brief gốc đặt tên `mo_ta` +
+# `dieu_khoan_lien_quan`, ràng buộc điều phối #3 đặt `thong_diep` + `vi_tri`.
+# Bản đầu giữ CẢ BỐN khoá (mỗi cặp cùng một giá trị) — điều phối gỡ bỏ trùng
+# lặp: khoá trùng trong một API công khai là nợ chắc chắn mục, một cái được
+# cập nhật còn cái kia không, rồi bên tiêu thụ chia đôi.
+# Giữ `thong_diep` (chuỗi hiển thị cho người dùng — đúng hơn `mo_ta`) và
+# `dieu_khoan_lien_quan`. BỎ `vi_tri`: giá trị của nó là `noi_dung[:120]` của
+# điều khoản, tức một TRÍCH ĐOẠN, không phải một vị trí — `vi_tri` nói dối về
+# thứ nó chứa. Tên nội bộ (`AuditFinding.mo_ta`) không đổi.
 
 LoaiVanBan = Literal["hdld", "noi_quy", "quyet_dinh_ky_luat"]
 
@@ -143,10 +146,8 @@ class SoatRequest(BaseModel):
 class FindingOut(BaseModel):
     loai: str
     muc_do: str
-    mo_ta: str
-    thong_diep: str                       # = mo_ta — tên theo ràng buộc #3 (hợp đồng FE)
+    thong_diep: str
     dieu_khoan_lien_quan: str | None = None
-    vi_tri: str | None = None             # = dieu_khoan_lien_quan — tên theo ràng buộc #3
     can_cu: str | None = None             # duong_dan — CHUỖI (không phải dict brief gốc, theo ràng buộc #3)
     rule_id: str | None = None
     # Ràng buộc #3: thiếu hai trường này thì panel đối chiếu phía FE không mở

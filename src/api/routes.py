@@ -316,10 +316,8 @@ def _finding_out(f, duong_dan_index: dict[str, dict]) -> dict:
     return {
         "loai": f.loai,
         "muc_do": f.muc_do,
-        "mo_ta": f.mo_ta,
         "thong_diep": f.mo_ta,
         "dieu_khoan_lien_quan": f.dieu_khoan_lien_quan,
-        "vi_tri": f.dieu_khoan_lien_quan,
         "can_cu": duong_dan,
         "rule_id": f.rule_id,
         # None cho citation_khong_hop_le: chính can_cu đó không tồn tại, nên

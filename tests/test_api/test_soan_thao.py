@@ -71,7 +71,7 @@ async def test_thieu_vung_thi_audit_bao_khong_kiem_duoc_chu_khong_im_lang(client
     d = (await client.post("/api/v1/soan-thao",
                            json={"loai_van_ban": "hdld", "facts": f,
                                  "nganh": "thuong_mai"})).json()
-    assert any("không kiểm được" in x["mo_ta"] for x in d["audit_report"]["findings"])
+    assert any("không kiểm được" in x["thong_diep"] for x in d["audit_report"]["findings"])
 
     # Ràng buộc #3 — Finding PHẢI mang doc_id:str và khop_tai_id:int, không
     # chỉ can_cu dạng chuỗi, nếu không panel đối chiếu phía FE không mở được.
@@ -82,7 +82,10 @@ async def test_thieu_vung_thi_audit_bao_khong_kiem_duoc_chu_khong_im_lang(client
     assert isinstance(f_vung["doc_id"], str) and f_vung["doc_id"]
     assert isinstance(f_vung["khop_tai_id"], int)
     assert f_vung["can_cu"] == "293/2025/NĐ-CP > Điều 3 > Khoản 1"
-    assert f_vung["thong_diep"] == f_vung["mo_ta"], "thong_diep là bí danh của mo_ta cho hợp đồng FE mới"
+    assert "mo_ta" not in f_vung and "vi_tri" not in f_vung, (
+        "khoá trùng đã gỡ: `mo_ta`/`thong_diep` và `dieu_khoan_lien_quan`/`vi_tri` từng mang "
+        "cùng một giá trị dưới hai tên. Giữ cả hai thì một cái sẽ được cập nhật còn cái kia không."
+    )
 
 
 @pytest.mark.asyncio
