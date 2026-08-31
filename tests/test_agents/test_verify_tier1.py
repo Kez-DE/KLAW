@@ -26,6 +26,7 @@ from src.agents.nodes.verify_tier1 import Tier1Reason as R
 from src.agents.nodes.verify_tier1 import citation_precision, normalize, verify_tier1
 from src.services.effectivity import Effectivity
 from src.services.effectivity import EffectivityVerdict as V
+from tests.conftest import pid
 
 # ── Fixture: Điều 26 (có thân trong chính noi_dung — 26,4% số Điều) ───────────
 D26 = {"id": 11, "parent_id": None, "document_id": "139264",
@@ -386,10 +387,12 @@ def test_nap_provisions_lay_ca_HAU_DUE_cua_dieu_duoc_dan():
     from src.agents.nodes.verify_tier1 import nap_provisions
     from src.services.db import get_engine
 
-    db = nap_provisions(get_engine(), [141418])
-    assert 141418 in db, "phải có chính điều được dẫn"
-    assert {141419, 141420, 141421} <= set(db), "phải có cả ba Khoản con"
-    assert db[141418]["document_id"] == "139264"
+    d127 = pid("45/2019/QH14 > Điều 127")
+    khoan = {pid(f"45/2019/QH14 > Điều 127 > Khoản {n}") for n in (1, 2, 3)}
+    db = nap_provisions(get_engine(), [d127])
+    assert d127 in db, "phải có chính điều được dẫn"
+    assert khoan <= set(db), "phải có cả ba Khoản con"
+    assert db[d127]["document_id"] == "139264"
 
 
 @pytest.mark.integration
@@ -398,10 +401,11 @@ def test_DIEU_127_that_trong_DB_di_qua_duoc_phep_kiem_3():
     from src.agents.nodes.verify_tier1 import nap_provisions
     from src.services.db import get_engine
 
-    db = nap_provisions(get_engine(), [141418])
-    c = Claim("Cấm phạt tiền.", 141418, "Phạt tiền, cắt lương thay việc xử lý kỷ luật lao động.")
-    r = verify_tier1([c], [db[141418]], db, _eff)[0]
-    assert r.ok is True and r.khop_tai == 141420
+    d127, k2 = pid("45/2019/QH14 > Điều 127"), pid("45/2019/QH14 > Điều 127 > Khoản 2")
+    db = nap_provisions(get_engine(), [d127])
+    c = Claim("Cấm phạt tiền.", d127, "Phạt tiền, cắt lương thay việc xử lý kỷ luật lao động.")
+    r = verify_tier1([c], [db[d127]], db, _eff)[0]
+    assert r.ok is True and r.khop_tai == k2
 
 
 @pytest.mark.integration
@@ -411,9 +415,10 @@ def test_hieu_luc_doc_qua_danh_gia_theo_id_chu_khong_qua_tinh_trang():
     from src.agents.nodes.verify_tier1 import effectivity_qua_provision, nap_provisions
     from src.services.db import get_engine
 
-    db = nap_provisions(get_engine(), [141418])
+    d127 = pid("45/2019/QH14 > Điều 127")
+    db = nap_provisions(get_engine(), [d127])
     eff = effectivity_qua_provision(get_engine(), db, date(2026, 8, 30))
-    assert isinstance(eff(141418), Effectivity)
+    assert isinstance(eff(d127), Effectivity)
 
 
 # ══ Phép kiểm thứ sáu — tiền đề sai ở đầu vào (coordinator, sau phép kiểm thứ 5) ══
@@ -505,3 +510,67 @@ def test_tien_de_quet_ca_hai_chieu_quanh_dieu_N():
     assert tien_de_cau_hoi_sai("Theo BLLĐ thì Điều 999 quy định thế nào", eng) == (
         "Bộ luật Lao động không có Điều 999"
     )
+
+
+# ══ Câu trích lấy TỪ BẢNG phải qua được tầng 1 ══════════════════════════════
+#
+# Đây là lý do bảng được ghép vào `noi_dung` chứ không vào một cột/bảng riêng.
+# Nếu con số lương nằm ở nơi khác, một câu trích chứa nó KHÔNG BAO GIỜ verify
+# được, và cơ chế chống ảo giác mất tác dụng đúng chỗ nó cần nhất: câu hỏi
+# "lương tối thiểu vùng I bao nhiêu" là câu người lao động hỏi nhiều nhất, và
+# con số sai ở đó là thiệt hại tiền thật.
+#
+# Fixture đi QUA parser thật (không gõ tay dạng đã ghép) để test không thể xanh
+# giả nếu định dạng markdown của `prov_parser` đổi. Khoản 2 sau bảng là CÓ CHỦ Ý
+# và giống văn bản thật (293/2025 có Khoản 2–5 sau bảng lương): bảng đứng sau thẻ
+# prov-* CUỐI CÙNG là chữ đuôi, và parser cố ý đưa nó vào `phu_luc` chứ không vào
+# một neo trích dẫn — xem `test_bang_TIEU_NGU_va_bang_CHU_KY_khong_vao_neo_trich_dan`.
+
+_HTML_BANG_LUONG = """
+<div class="WordSection1">
+<p id="d1" class="MsoNormal prov-article"><b>Điều 3. Mức lương tối thiểu</b></p>
+<p id="k1" class="MsoNormal prov-clause">1. Quy định mức lương tối thiểu tháng đối với người lao động theo vùng như sau:</p>
+<table><tr><td>Vùng</td><td>Mức lương tối thiểu tháng (Đơn vị: đồng/tháng)</td></tr>
+<tr><td>Vùng I</td><td>5.310.000</td></tr>
+<tr><td>Vùng II</td><td>4.730.000</td></tr></table>
+<p id="k2" class="MsoNormal prov-clause">2. Danh mục địa bàn vùng quy định tại Phụ lục kèm theo.</p>
+</div>
+"""
+
+
+def _prov_bang_luong() -> dict:
+    from src.services.prov_parser import parse_provisions
+
+    rows = parse_provisions(_HTML_BANG_LUONG, "293/2025/NĐ-CP")
+    k1 = next(r for r in rows if r.duong_dan == "293/2025/NĐ-CP > Điều 3 > Khoản 1")
+    return {"id": 900, "parent_id": None, "document_id": "183939",
+            "duong_dan": k1.duong_dan, "noi_dung": k1.noi_dung}
+
+
+def test_quote_lay_TU_BANG_qua_duoc_tang_1():
+    p = _prov_bang_luong()
+    db = {p["id"]: p}
+    c = Claim("Mức lương tối thiểu tháng vùng I là 5.310.000 đồng.", 900,
+              "| Vùng I | 5.310.000 |")
+    r = verify_tier1([c], [p], db, _eff)[0]
+    assert r.ok is True, r.reason
+    assert r.reason is R.ok
+    assert r.khop_tai == 900
+
+
+def test_quote_bia_CON_SO_SAI_trong_bang_van_bi_loai():
+    """Phép kiểm chỉ có giá trị nếu nó còn LOẠI được. 5.310.000 là mức thật của
+    293/2025; 5.500.000 là con số mô hình có thể viết ra từ trí nhớ huấn luyện."""
+    p = _prov_bang_luong()
+    c = Claim("Vùng I là 5.500.000 đồng.", 900, "| Vùng I | 5.500.000 |")
+    r = verify_tier1([c], [p], {p["id"]: p}, _eff)[0]
+    assert r.ok is False and r.reason is R.quote_khong_khop
+
+
+def test_quote_vat_qua_van_xuoi_SANG_bang_van_khop():
+    """`normalize` gộp mọi khoảng trắng, nên dấu phân tách giữa văn xuôi và bảng
+    không tạo ra vết ghép mà quote thật phải né."""
+    p = _prov_bang_luong()
+    c = Claim("Bảng lương theo vùng.", 900, "theo vùng như sau: | Vùng | Mức lương tối thiểu tháng")
+    r = verify_tier1([c], [p], {p["id"]: p}, _eff)[0]
+    assert r.ok is True, r.reason

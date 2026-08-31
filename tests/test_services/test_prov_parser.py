@@ -668,3 +668,119 @@ def test_prov_content_RONG_sau_chu_duoi_van_tach_ra_PHU_LUC():
         d1 = next(r for r in rows if r.cap is Cap.dieu)
         assert "DUOI" not in d1.noi_dung, f"{the_rong!r}: chữ đuôi sập lại vào Điều 1"
         assert not parse_anomalies(html, SKH)[0], the_rong
+
+
+# ══ Bảng đi VÀO noi_dung — Plan 2, mục "bảng bị mất" ════════════════════════
+#
+# Trước vòng này `parse_tables()` KHÔNG có caller nào ngoài test của chính nó:
+# `parse_provisions` gọi `tbl.decompose()`, nên mọi <table> ra khỏi cây và biến
+# mất khỏi corpus. Đo được: 5 provision hứa một danh sách ("… như sau:") mà
+# không có con nào và không có bảng — trong đó có CẢ HAI bảng lương tối thiểu
+# vùng (293/2025 và 74/2024). Người hỏi "lương tối thiểu vùng I bao nhiêu" nhận
+# một trích dẫn tới điều luật KHÔNG CHỨA CON SỐ NÀO, còn mô hình thì có thể viết
+# ra con số từ trí nhớ huấn luyện và dẫn đúng Điều 3 Khoản 1 — trích dẫn đó qua
+# được cả hai tầng kiểm, vì điều luật có thật và câu văn xuôi khớp.
+#
+# Bảng ghép vào `noi_dung` (KHÔNG cột riêng, KHÔNG bảng riêng) vì đóng góp trung
+# tâm của khoá luận là "câu trích khớp nguyên văn điều luật": con số nằm ngoài
+# `noi_dung` thì một câu trích chứa nó KHÔNG BAO GIỜ verify được.
+
+HTML_BANG_TRONG_LUONG = """
+<div class="WordSection1">
+<table><tr><td>CHÍNH PHỦ</td><td>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do</td></tr></table>
+<p id="d1" class="MsoNormal prov-article"><b>Điều 3. Mức lương tối thiểu</b></p>
+<p id="k1" class="MsoNormal prov-clause">1. Quy định mức lương tối thiểu tháng đối với người lao động theo vùng như sau:</p>
+<table><tr><td>Vùng</td><td>Mức lương tối thiểu tháng</td></tr>
+<tr><td>Vùng I</td><td>5.310.000</td></tr>
+<tr><td>Vùng II</td><td>4.730.000</td></tr></table>
+<p id="k2" class="MsoNormal prov-clause">2. Danh mục địa bàn vùng I quy định tại Phụ lục kèm theo.</p>
+<p class="MsoNormal">Nơi nhận:</p>
+<table><tr><td>TM. CHÍNH PHỦ Hồ Đức Phớc</td></tr></table>
+</div>
+"""
+SKH_LUONG = "293/2025/NĐ-CP"
+
+
+def test_bang_duoc_GHEP_vao_noi_dung_cua_provision_gioi_thieu_no():
+    """Lỗi gốc: `parse_tables` không có caller trong đường sản xuất.
+
+    Test này ĐỎ ở bản cũ vì `parse_provisions` decompose() mọi <table> — con số
+    5.310.000 không tồn tại ở bất kỳ `noi_dung` nào.
+    """
+    rows = parse_provisions(HTML_BANG_TRONG_LUONG, SKH_LUONG)
+    k1 = next(r for r in rows if r.duong_dan == f"{SKH_LUONG} > Điều 3 > Khoản 1")
+    assert "5.310.000" in k1.noi_dung, "bảng lương biến mất khỏi Khoản giới thiệu nó"
+    assert "Vùng I" in k1.noi_dung
+
+    # Cùng MỘT hàm thuần sinh ra markdown ở cả hai đường: `parse_tables` không
+    # còn là nhánh chết song song với đường sản xuất.
+    bang_luong = next(t for t in parse_tables(HTML_BANG_TRONG_LUONG) if "5.310.000" in t)
+    assert bang_luong in k1.noi_dung, "noi_dung không chứa ĐÚNG markdown của parse_tables"
+
+
+def test_bang_ghep_vao_KHOAN_gioi_thieu_chu_KHONG_phai_DIEU_cha():
+    """73,6% số Điều có `noi_dung == tieu_de`; bảng thuộc Khoản thì phải ở Khoản.
+
+    Ghép nhầm lên Điều cha làm neo trích dẫn trỏ sai cấp, và làm `noi_dung` của
+    Điều không còn mở đầu-và-chỉ-chứa nhãn của chính nó.
+    """
+    rows = parse_provisions(HTML_BANG_TRONG_LUONG, SKH_LUONG)
+    d3 = next(r for r in rows if r.duong_dan == f"{SKH_LUONG} > Điều 3")
+    k2 = next(r for r in rows if r.duong_dan == f"{SKH_LUONG} > Điều 3 > Khoản 2")
+    assert "5.310.000" not in d3.noi_dung, "bảng của Khoản 1 leo lên Điều 3"
+    assert "5.310.000" not in k2.noi_dung, "bảng của Khoản 1 trôi xuống Khoản 2"
+
+
+def test_bang_TIEU_NGU_va_bang_CHU_KY_khong_vao_neo_trich_dan():
+    """133 <table> toàn corpus KHÔNG phải đều là nội dung quy phạm.
+
+    Bảng đầu văn bản là TIÊU NGỮ dàn trang ("CHÍNH PHỦ / CỘNG HÒA…"), bảng cuối
+    là khối chữ ký. Cả hai nằm ngoài mốc `cuoi`/đầu `mo_dau` nên phải rơi vào
+    hai bản ghi cấp TÀI LIỆU — vào một neo trích dẫn được thì một câu trích lấy
+    từ tiêu ngữ sẽ "kiểm chứng thành công" trên Điều 3, đúng véc-tơ tấn công mà
+    ruling C1 đã đóng cho chữ mồ côi.
+    """
+    rows = parse_provisions(HTML_BANG_TRONG_LUONG, SKH_LUONG)
+    for r in rows:
+        if r.cap in CITABLE:
+            assert "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" not in r.noi_dung, r.duong_dan
+            assert "Hồ Đức Phớc" not in r.noi_dung, r.duong_dan
+    md = next(r for r in rows if r.cap is Cap.mo_dau)
+    pl = next(r for r in rows if r.cap is Cap.phu_luc)
+    assert "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" in md.noi_dung
+    assert "Hồ Đức Phớc" in pl.noi_dung
+
+
+def test_bang_vao_noi_dung_van_GIU_phep_bao_toan_ky_tu():
+    """Cổng cấu trúc phải vẫn khít sau khi bảng vào `noi_dung`.
+
+    Phép bảo toàn so `_dem` của HTML đã strip tag với tổng `_dem(noi_dung)`.
+    Bảng thêm ký tự `|` phân tách — cả hai vế phải loại nó ra, nếu không cổng sẽ
+    báo lệch GIẢ và mọi build đỏ (hoặc tệ hơn: ai đó nới nó thành ngưỡng).
+    """
+    loi, _ = parse_anomalies(HTML_BANG_TRONG_LUONG, SKH_LUONG)
+    assert not loi, loi
+
+
+def test_bang_KHONG_lam_mat_chu_cua_provision_gioi_thieu():
+    """Ghép, không thay thế: văn xuôi dẫn vào bảng phải còn nguyên và đứng TRƯỚC."""
+    rows = parse_provisions(HTML_BANG_TRONG_LUONG, SKH_LUONG)
+    k1 = next(r for r in rows if r.duong_dan == f"{SKH_LUONG} > Điều 3 > Khoản 1")
+    assert k1.noi_dung.startswith("1. Quy định mức lương tối thiểu tháng")
+    assert "theo vùng như sau:" in k1.noi_dung
+    assert k1.noi_dung.index("như sau:") < k1.noi_dung.index("5.310.000")
+
+
+@pytest.mark.integration
+def test_ND_293_2025_that_co_bang_luong_trong_dieu_3_khoan_1():
+    """Ca thật đã đo trên DB: `293/2025/NĐ-CP > Điều 3 > Khoản 1` kết thúc bằng
+    dấu hai chấm, KHÔNG có con nào, và không chứa con số lương nào."""
+    p = Path("data/raw/moj/183939.json")
+    if not p.exists():
+        pytest.skip("chạy `python -m scripts.fetch_moj` trước")
+    html = json.loads(p.read_text(encoding="utf-8"))["documentContent"]["content"]
+    rows = parse_provisions(html, SKH_LUONG)
+    k1 = next(r for r in rows if r.duong_dan == f"{SKH_LUONG} > Điều 3 > Khoản 1")
+    for so in ("5.310.000", "4.730.000", "4.140.000", "3.700.000"):
+        assert so in k1.noi_dung, f"thiếu mức lương {so} trong {k1.duong_dan}"
+    assert "Vùng I" in k1.noi_dung

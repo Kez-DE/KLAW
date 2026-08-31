@@ -189,7 +189,14 @@ def test_moi_van_ban_co_nhieu_nhat_MOT_ban_ghi_phu_luc(provisions):
     # … thông qua" (132 ký tự). Thẻ rỗng đó đẩy mốc `cuoi` vượt qua khối đuôi nên
     # `duoi` thành rỗng và 132 ký tự đó sập lại vào provision đang mở. H2 KHÔNG
     # tiềm ẩn — nó đang hỏng thật trên corpus, chỉ nhỏ nên không cổng nào thấy.
-    assert len(pl) == 18, f"18 văn bản có chữ đuôi, thấy {len(pl)}"
+    #
+    # 18 → 21 khi <table> vào `noi_dung`: ba văn bản (90/2019/NĐ-CP, 12/2022/NĐ-CP,
+    # 337/2025/NĐ-CP) không có CHỮ nào sau thẻ prov-* cuối nhưng CÓ một bảng chữ
+    # ký ở đó. Bảng đó là chữ đuôi đúng nghĩa và phải nằm ở cấp KHÔNG trích dẫn
+    # được: để nó rơi vào Điều cuối thì một câu trích lấy từ khối chữ ký sẽ
+    # "kiểm chứng thành công" trên một neo Điều — đúng véc-tơ mà ruling chữ-đuôi
+    # đã đóng cho text và giờ đóng nốt cho bảng.
+    assert len(pl) == 21, f"21 văn bản có chữ/bảng đuôi, thấy {len(pl)}"
     assert len({p["duong_dan"] for p in pl}) == len(pl)
     for p in pl:
         assert p["parent_local_id"] is None, p["duong_dan"]
@@ -294,3 +301,48 @@ def test_checksums_json_khop_documents_jsonl(documents):
     làm `ingest` bỏ qua văn bản đã đổi."""
     cs = json.loads((SEED / "checksums.json").read_text(encoding="utf-8"))
     assert cs["documents"] == {d["id"]: d["checksum"] for d in documents}
+
+
+# ══ Bảng nằm TRONG noi_dung, không ở cột riêng ══════════════════════════════
+
+def test_bang_luong_toi_thieu_vung_co_trong_noi_dung(provisions):
+    """Ca hỏng đắt nhất của corpus: trước vòng này `parse_tables` không có caller
+    nào trong đường sản xuất nên toàn bộ <table> bị `decompose()` và biến mất.
+
+    Người lao động hỏi "lương tối thiểu vùng I bao nhiêu" nhận một trích dẫn tới
+    điều luật KHÔNG CHỨA CON SỐ NÀO — và mô hình có thể viết ra con số từ trí nhớ
+    huấn luyện rồi dẫn đúng Điều 3 Khoản 1, một trích dẫn qua được cả hai tầng
+    kiểm. Bảng phải ở trong `noi_dung` (không cột riêng, không bảng riêng) vì đó
+    là trường DUY NHẤT verifier tầng 1 đối chiếu câu trích vào.
+    """
+    theo_path = {p["duong_dan"]: p for p in provisions}
+    mong_doi = {
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1": ("5.310.000", "4.730.000", "4.140.000", "3.700.000"),
+        "74/2024/NĐ-CP > Điều 3 > Khoản 1": ("4.960.000", "4.410.000", "3.860.000", "3.450.000"),
+    }
+    for path, muc in mong_doi.items():
+        nd = theo_path[path]["noi_dung"]
+        assert "Vùng I" in nd, path
+        for so in muc:
+            assert so in nd, f"{path} thiếu mức lương {so}"
+
+
+def test_neo_trich_dan_hua_danh_sach_thi_phai_giao(provisions):
+    """Cùng phép kiểm mà `migrations/013` canh ở tầng DB, chạy ở tầng seed.
+
+    Ba ngoại lệ là KHIẾM KHUYẾT CỦA NGUỒN MOJ, đã mở HTML đọc tay: hai Khoản của
+    BLHS gõ ':' đáng lẽ là '.', còn 145/2020 Điều 56 Khoản 2 hứa công thức lương
+    làm đêm mà HTML nguồn có ĐÚNG 0 bảng trong phạm vi Điều 56.
+    """
+    loi_nguon = {
+        "100/2015/QH13 > Điều 200 > Khoản 3",
+        "100/2015/QH13 > Điều 236 > Khoản 3",
+        "145/2020/NĐ-CP > Điều 56 > Khoản 2",
+    }
+    co_con = {(p["document_id"], p["parent_local_id"]) for p in provisions}
+    tro_troi = [p["duong_dan"] for p in provisions
+                if p["cap"] in CITABLE
+                and p["noi_dung"].rstrip().endswith(":")
+                and (p["document_id"], p["local_id"]) not in co_con
+                and p["duong_dan"] not in loi_nguon]
+    assert not tro_troi, f"{len(tro_troi)} neo hứa danh sách mà không giao: {tro_troi[:5]}"

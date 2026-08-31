@@ -212,6 +212,11 @@ def _don_vi(node: Tag):
                 t = _text(child)
                 if t:
                     yield cap, t, child
+            elif child.name == "table":
+                # Bẫy #4: KHÔNG đi sâu vào bảng — ô của nó không phải prov-content
+                # rời. Yield chính thẻ để `parse_provisions` biết VỊ TRÍ của bảng
+                # trong văn bản, thứ quyết định bảng thuộc về provision nào.
+                yield None, "", child
             elif "prov-content" in (child.get("class") or []):
                 # CÙNG guard `if t:` như nhánh trên, vì cùng một lý do đo bằng
                 # vị trí: mốc `cuoi` của parse_provisions tính theo thẻ MANG
@@ -249,19 +254,49 @@ def _duong_dan(i: int, caps: list[Cap], so_hieu: list[str],
     return " > ".join([so_ky_hieu, *segments])
 
 
+def _la_bang(tag: Tag | None) -> bool:
+    return tag is not None and tag.name == "table"
+
+
+def _bang_md(tbl: Tag) -> str:
+    """Một <table> → một markdown table. Rỗng nếu bảng không có ô nào.
+
+    Đã kiểm trên cả 21 văn bản: 133 <table>, 0 lồng nhau — nên `find_all("tr")`
+    không thể nhặt phải hàng của một bảng con.
+    """
+    lines: list[str] = []
+    for tr in tbl.find_all("tr"):
+        cells = [_text(td) for td in tr.find_all(["td", "th"])]
+        if cells:
+            lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
 def parse_tables(html: str) -> list[str]:
-    """Bẫy #4: parse <table> riêng, mỗi bảng thành một markdown table."""
+    """Bẫy #4: parse <table> riêng, mỗi bảng thành một markdown table.
+
+    HÀM THUẦN, và cũng là nguồn markdown DUY NHẤT của `parse_provisions` (qua
+    `_bang_md`). Trước Plan 2 nó không có caller nào ngoài test của chính nó:
+    `parse_provisions` gọi `decompose()` nên mọi bảng ra khỏi cây và biến mất
+    khỏi corpus — xem docstring `parse_provisions`.
+    """
     soup = BeautifulSoup(html, "html.parser")
-    out: list[str] = []
-    for tbl in soup.find_all("table"):
-        lines: list[str] = []
-        for tr in tbl.find_all("tr"):
-            cells = [_text(td) for td in tr.find_all(["td", "th"])]
-            if cells:
-                lines.append("| " + " | ".join(cells) + " |")
-        if lines:
-            out.append("\n".join(lines))
-    return out
+    return [md for tbl in soup.find_all("table") if (md := _bang_md(tbl))]
+
+
+def _noi_dung(nhan: str, than: list[str], bang: list[str]) -> str:
+    """Văn xuôi TRƯỚC, bảng SAU, phân tách bằng dòng trống.
+
+    Bảng ghép SAU khi `_chuan_hoa` đã chạy trên phần văn xuôi, không trước:
+    `_chuan_hoa` gộp MỌI khoảng trắng (kể cả xuống dòng) nên áp nó lên chuỗi đã
+    ghép sẽ bẹp bảng thành một dòng `| a | b | | c | d |`. Từng Ô đã đi qua
+    `_text()` nên phần bảng vẫn ở dạng ĐƯỢC LƯU (NFC, gộp khoảng trắng trong ô).
+
+    Ghép ở CUỐI, không ở đầu: bất biến "neo trích dẫn mở đầu bằng nhãn của chính
+    nó" (ruling C1) đọc ký tự đầu của `noi_dung`.
+    """
+    van = _chuan_hoa(" ".join([nhan, *than]))
+    return "\n\n".join(x for x in [van, *bang] if x)
 
 
 def parse_anomalies(html: str, so_ky_hieu: str = "?") -> tuple[list[str], list[str]]:
@@ -295,18 +330,22 @@ def parse_anomalies(html: str, so_ky_hieu: str = "?") -> tuple[list[str], list[s
                      f"class={p.get('class')} id={p.get('id')} text={_text(p)[:60]!r}")
             (loi if cap in CITABLE else canh_bao).append(mo_ta)
 
-    for tbl in soup.find_all("table"):
-        tbl.decompose()
-
     # BẢO TOÀN KÝ TỰ. Đếm ký tự khác khoảng trắng, nên phép so không phụ thuộc
     # quy ước chèn dấu cách giữa các thẻ inline (<sup>/<b>/<a>) — thứ làm phép so
     # theo token báo lệch giả ở dấu câu và công thức "L[T(N)]".
     # So với `noi_dung` THÔI (không cộng `tieu_de`): mỗi đơn vị text đi vào đúng
     # MỘT `noi_dung`, nên đẳng thức phải khít tuyệt đối, không ngưỡng. Lệch ⇒ có
     # đơn vị bị bỏ (whitelist quay lại, `if stack:` không có else, thẻ bị skip).
+    # `soup` ở đây KHÔNG còn decompose bảng: từ Plan 2 chữ trong <table> đi vào
+    # `noi_dung`, nên nó phải nằm ở CẢ HAI vế — bỏ nó ở vế nguồn thì phép so
+    # báo thừa, và cách sửa dễ dãi là nới đẳng thức thành ngưỡng.
+    # Chỉ `|` bị loại khỏi hai vế: đó là ký tự DUY NHẤT `_bang_md` thêm vào mà
+    # nguồn không có (khoảng trắng thì `_dem` đã bỏ). Đã đếm trên cả 21 văn bản:
+    # `soup.get_text()` có ĐÚNG 0 ký tự `|`, nên phép loại này không che được
+    # mất mát nào có thật.
     rows = parse_provisions(html, so_ky_hieu)
-    goc = _dem(soup.get_text())
-    trong_rows = sum(_dem(r.noi_dung) for r in rows)
+    goc = _dem(soup.get_text().replace("|", ""))
+    trong_rows = sum(_dem(r.noi_dung.replace("|", "")) for r in rows)
     if goc != trong_rows:
         loi.append(f"KHÔNG BẢO TOÀN: HTML có {goc} ký tự, provisions.noi_dung giữ "
                    f"{trong_rows} — lệch {goc - trong_rows}")
@@ -317,20 +356,18 @@ def parse_anomalies(html: str, so_ky_hieu: str = "?") -> tuple[list[str], list[s
 def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
     soup = BeautifulSoup(html, "html.parser")
 
-    # Bẫy #4: bỏ hẳn <table> khỏi luồng prov-* để ô không lọt vào dạng prov-content rời
-    for tbl in soup.find_all("table"):
-        tbl.decompose()
-
     # ── Pha 1: gom khối theo thứ tự văn bản ────────────────────────────────
     # `nhan[i]` = text của (các) thẻ nhãn đã GỘP; `than[i]` = mọi text nối theo.
     # Số hiệu đọc SAU pha này, từ chuỗi đã ghép — đó là cả mục D.
     caps: list[Cap] = []
     nhan: list[str] = []
     than: list[list[str]] = []
+    bang: list[list[str]] = []  # markdown của <table> nằm TRONG node này
     src: list[str | None] = []
     parents: list[int | None] = []
     stack: list[int] = []
     mo_dau: list[str] = []  # text xuất hiện TRƯỚC node đầu tiên
+    bang_mo_dau: list[str] = []
 
     # TÁCH CHỮ MỒ CÔI THEO VỊ TRÍ. Đã đo phân bố so với thẻ prov-* CUỐI CÙNG:
     # 152668 có 42.636 ký tự ở đuôi / 647 xen giữa; 152670 25.316/560; 134611
@@ -348,12 +385,28 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
     # `prov-content` sau thẻ `prov-article` cuối vẫn là thân của Điều đó
     # (Điều 26 của BLLĐ) chứ không phải nội dung đuôi.
     units = list(_don_vi(soup))
+    # Mốc `cuoi` CỐ Ý bỏ qua <table>: nó phải giữ nguyên giá trị của bản trước
+    # khi bảng vào cây. NĐ 145/2020 có 40 bảng (Mẫu số của Phụ lục) nằm SAU thẻ
+    # prov-* cuối cùng; tính chúng vào mốc sẽ đẩy `cuoi` xuống tận cuối trang,
+    # `duoi` thành rỗng, và toàn bộ Phụ lục sập lại vào `Điều 115` — đúng bug
+    # 42.636 ký tự mà ruling chữ-đuôi đã chữa, chỉ là quay lại qua cửa khác.
     cuoi = max((i for i, (cap, _, tag) in enumerate(units)
-                if cap is not None or tag is not None), default=-1)
-    duoi = [t for _, t, _ in units[cuoi + 1:]]
+                if cap is not None or (tag is not None and not _la_bang(tag))), default=-1)
+    duoi = [t for _, t, tag in units[cuoi + 1:] if not _la_bang(tag)]
+    bang_duoi = [md for _, _, tag in units[cuoi + 1:]
+                 if _la_bang(tag) and (md := _bang_md(tag))]
 
     gop_khoan_diem = 0
     for cap, text, tag in units[:cuoi + 1]:
+        if _la_bang(tag):
+            # Bảng thuộc về node ĐANG MỞ tại vị trí của nó — cùng luật vị trí
+            # mà chữ mồ côi đang dùng, không phải một quy tắc thứ hai. Với 5 ca
+            # đo được ("… như sau:" rồi trỏ vào bảng) node đó chính là Khoản
+            # giới thiệu bảng, KHÔNG phải Điều cha: 73,6% số Điều có
+            # `noi_dung == tieu_de` nên ghép lên Điều là ghép sai cấp.
+            if md := _bang_md(tag):
+                (bang[stack[-1]] if stack else bang_mo_dau).append(md)
+            continue
         if cap is None:
             # Nguyên tắc 1: không bao giờ bỏ. Chưa có node nào mở → dồn vào
             # `mo_dau`, thành bản ghi riêng cấp TÀI LIỆU ở dưới. Không raise: cả
@@ -378,6 +431,7 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
         caps.append(cap)
         nhan.append(text)
         than.append([])
+        bang.append([])
         src.append(tag.get("id") if tag is not None else None)
         parents.append(stack[-1] if stack else None)
         stack.append(len(caps) - 1)
@@ -391,12 +445,12 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
             "hiệu vào sibling cùng cấp liền trước", stacklevel=2)
 
     if not caps:
-        con_lai = sum(len(t) for t in duoi + mo_dau)
+        con_lai = sum(len(t) for t in duoi + mo_dau + bang_duoi + bang_mo_dau)
         raise ValueError(
             f"{so_ky_hieu}: có {con_lai} ký tự nhưng KHÔNG có thẻ prov-<cấp> "
             "nào — không thể dựng cây provision")
 
-    if mo_dau:
+    if mo_dau or bang_mo_dau:
         # ĐỐI XỨNG với `phu_luc` dưới đây. Chữ trước thẻ prov-* đầu tiên (tiêu
         # ngữ "CHÍNH PHỦ / CỘNG HÒA…", số hiệu, tên văn bản, chuỗi "Căn cứ …")
         # không thuộc điều luật nào. Trước đây nó ghép vào `noi_dung` của row 0;
@@ -410,13 +464,21 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
         caps.append(Cap.mo_dau)
         nhan.append("")
         than.append(mo_dau)
+        # Bảng TIÊU NGỮ ("CHÍNH PHỦ / CỘNG HÒA…") là dàn trang Công báo, không
+        # phải quy phạm. Nó đứng trước thẻ prov-* đầu nên rơi vào đây — cấp
+        # KHÔNG trích dẫn được, nên một câu trích lấy từ tiêu ngữ không thể
+        # "kiểm chứng thành công" trên một neo Điều.
+        bang.append(bang_mo_dau)
         src.append(None)
         parents.append(None)  # cấp tài liệu, không treo vào cây quy phạm
 
-    if duoi:
+    if duoi or bang_duoi:
         caps.append(Cap.phu_luc)
         nhan.append("")   # nhãn nằm ở `tieu_de`; noi_dung chỉ chứa chữ NGUỒN,
         than.append(duoi)  # nếu không phép bảo toàn ký tự sẽ lệch
+        # 40 bảng Mẫu số của NĐ 145/2020 và các khối chữ ký nằm sau thẻ prov-*
+        # cuối cùng đi vào đây, KHÔNG vào Điều cuối của văn bản.
+        bang.append(bang_duoi)
         src.append(None)
         parents.append(None)  # cấp tài liệu, không treo vào cây quy phạm
 
@@ -445,7 +507,7 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
             tieu_de=nhan[i] if cap not in (Cap.khoan, Cap.diem, Cap.phu_luc,
                                            Cap.mo_dau)
             else f"{NHAN[cap]} {so_hieu[i]}".rstrip(),
-            noi_dung=_chuan_hoa(" ".join([nhan[i], *than[i]])),
+            noi_dung=_noi_dung(nhan[i], than[i], bang[i]),
             duong_dan=_duong_dan(i, caps, so_hieu, parents, so_ky_hieu),
             source_node_id=src[i],
             # `local_id` của `mo_dau` ở CUỐI (để `parent_local_id` của mọi node

@@ -45,3 +45,26 @@ def mock_llm():
     mock = AsyncMock()
     mock.ainvoke.return_value = AsyncMock(content="Mocked LLM response")
     return mock
+
+
+def pid(duong_dan: str) -> int:
+    """`provisions.id` của một neo trích dẫn, tra theo `duong_dan`.
+
+    `id` là BIGSERIAL và `scripts.ingest` XOÁ-RỒI-CHÈN mỗi document có checksum
+    đổi, nên số cụ thể KHÔNG bền qua một lần nạp lại: mọi test @integration viết
+    id cứng sẽ đỏ sau mỗi lần sửa parser — đỏ vì một lý do KHÔNG liên quan đến
+    điều nó muốn khoá, đúng loại nhiễu làm người ta bỏ qua CI.
+
+    `duong_dan` mới là neo canonical của dự án: unique index
+    `ux_provisions_neo_trich_dan` (migration 004) bắt nó duy nhất ở cấp trích
+    dẫn được, nên phép tra này xác định.
+    """
+    from sqlalchemy import text
+
+    from src.services.db import get_engine
+
+    with get_engine().connect() as c:
+        row = c.execute(text("SELECT id FROM provisions WHERE duong_dan = :d"),
+                        {"d": duong_dan}).one_or_none()
+    assert row is not None, f"không có provision nào ở {duong_dan!r} — corpus đã nạp chưa?"
+    return row[0]

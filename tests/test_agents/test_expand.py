@@ -6,6 +6,7 @@ from sqlalchemy import text
 from src.agents.nodes.expand import expand
 from src.services.db import get_engine
 from src.services.effectivity import EffectivityVerdict as V
+from tests.conftest import pid
 
 
 @pytest.mark.integration
@@ -127,22 +128,26 @@ def test_het_hieu_luc_van_O_LAI_khong_bi_LOAI_khoi_expand():
 # NGƯỢC LẠI, cho Điều 127 một mình → phải có CẢ Khoản 1 và Khoản 2 (mới thêm).
 @pytest.mark.integration
 def test_ca_DIEU_127_KHOAN_1_va_KHOAN_2_deu_keo_ve_DIEU_127_KHONG_TRUNG_LAP():
-    deep1, _ = expand([141419], get_engine(), date(2026, 8, 27), hops=1)
-    assert 141418 in {p["id"] for p in deep1}, "Khoản 1 không kéo được Điều 127"
+    d127 = pid("45/2019/QH14 > Điều 127")
+    k1 = pid("45/2019/QH14 > Điều 127 > Khoản 1")
+    k2 = pid("45/2019/QH14 > Điều 127 > Khoản 2")
 
-    deep2, _ = expand([141420], get_engine(), date(2026, 8, 27), hops=1)
-    assert 141418 in {p["id"] for p in deep2}, "Khoản 2 không kéo được Điều 127"
+    deep1, _ = expand([k1], get_engine(), date(2026, 8, 27), hops=1)
+    assert d127 in {p["id"] for p in deep1}, "Khoản 1 không kéo được Điều 127"
 
-    both, _ = expand([141419, 141420], get_engine(), date(2026, 8, 27), hops=1)
+    deep2, _ = expand([k2], get_engine(), date(2026, 8, 27), hops=1)
+    assert d127 in {p["id"] for p in deep2}, "Khoản 2 không kéo được Điều 127"
+
+    both, _ = expand([k1, k2], get_engine(), date(2026, 8, 27), hops=1)
     ids_both = [p["id"] for p in both]
-    assert {141418, 141419, 141420} <= set(ids_both)
-    assert ids_both.count(141418) == 1, "Điều 127 bị trùng lặp khi hai Khoản con cùng có mặt"
+    assert {d127, k1, k2} <= set(ids_both)
+    assert ids_both.count(d127) == 1, "Điều 127 bị trùng lặp khi hai Khoản con cùng có mặt"
 
     # chiều ngược: chỉ đưa Điều 127 (không đưa Khoản nào) — phải TỰ kéo về cả
     # Khoản 1 và Khoản 2, không chỉ giữ nguyên dòng tiêu đề trơ trọi.
-    deep3, _ = expand([141418], get_engine(), date(2026, 8, 27), hops=1)
+    deep3, _ = expand([d127], get_engine(), date(2026, 8, 27), hops=1)
     ids3 = {p["id"] for p in deep3}
-    assert {141418, 141419, 141420} <= ids3, "Điều 127 không kéo được Khoản 1 và Khoản 2 con"
+    assert {d127, k1, k2} <= ids3, "Điều 127 không kéo được Khoản 1 và Khoản 2 con"
 
 
 # ── Ca đo được trên đường chạy thật (task-7 review, 2026-08-31): retrieval
@@ -153,7 +158,9 @@ def test_ca_DIEU_127_KHOAN_1_va_KHOAN_2_deu_keo_ve_DIEU_127_KHONG_TRUNG_LAP():
 # một Khoản/Điểm con mang nội dung thật.
 @pytest.mark.integration
 def test_5_DIEU_that_tu_san_xuat_PHAI_co_it_nhat_mot_con_mang_noi_dung_that():
-    ids = [131372, 134938, 138449, 139141, 137741]  # 100/2015>Đ155,>Đ391; 101/2015>Đ73,>Đ186; 92/2015>Đ492
+    ids = [pid(d) for d in ("100/2015/QH13 > Điều 155", "100/2015/QH13 > Điều 391",
+                            "101/2015/QH13 > Điều 73", "101/2015/QH13 > Điều 186",
+                            "92/2015/QH13 > Điều 492")]
     deep, _ = expand(ids, get_engine(), date(2026, 8, 27), hops=1)
     con_that = [p for p in deep if p["id"] not in ids and len(p.get("noi_dung") or "") > 120]
     assert con_that, "expand không kéo được Khoản/Điểm con mang nội dung thật cho ca dieu-only thật"
