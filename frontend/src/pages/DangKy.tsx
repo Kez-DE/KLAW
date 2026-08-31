@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { NutBrass } from '../components/NutBrass';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { BaoLoi } from '../components/BaoLoi';
@@ -125,12 +126,12 @@ export default function DangKy() {
           <Link
             to="/dang-nhap"
             className="text-den-sang underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
-          >
+        >
             Đăng nhập
           </Link>
         </>
       }
-    >
+        >
       {trangThai === 'xong' ? (
         <BangXong cau="Đã nhận biểu mẫu đăng ký của bạn." />
       ) : (
@@ -176,7 +177,7 @@ export default function DangKy() {
               <label
                 htmlFor="dk-vai-tro"
                 className="mat-doc block max-w-none text-[0.9375rem] font-medium text-phim"
-              >
+        >
                 Vai trò
                 <span aria-hidden="true" className="ms-1 text-den-sang">
                   *
@@ -200,7 +201,7 @@ export default function DangKy() {
                       ? 'color-mix(in srgb, var(--muc-nhat) 55%, transparent)'
                       : 'var(--do-thay)',
                 }}
-              >
+        >
                 <option value="">— Chọn vai trò —</option>
                 {VAI_TRO.map((mot) => (
                   <option key={mot} value={mot}>
@@ -212,7 +213,7 @@ export default function DangKy() {
                 <p
                   id="dk-vai-tro-loi"
                   className="mt-1.5 mb-0 text-[0.8125rem] leading-5 text-do-thay"
-                >
+        >
                   {loi.vaiTro}
                 </p>
               )}
@@ -230,7 +231,7 @@ export default function DangKy() {
               loi={loi.matKhau}
               batBuoc
               tuDong="new-password"
-            >
+        >
               <ThanhDoMatKhau diem={doMatKhau(matKhau)} />
             </TruongNhap>
 
@@ -253,23 +254,21 @@ export default function DangKy() {
               <p
                 id="dk-dong-y-ghi-chu"
                 className="mt-2 mb-0 text-[0.8125rem] leading-5 text-muc-nhat"
-              >
+        >
                 Chính sách này đang được hoàn thiện; sẽ công bố trước khi KLAW mở đăng ký. Không thể
                 dẫn tới một văn bản chưa tồn tại, nên ở đây nói thẳng như vậy.
               </p>
             </div>
 
-            <button
+            <NutBrass
               type="submit"
               disabled={!dongY || dangGui}
               aria-busy={dangGui}
               // Vô hiệu tới khi ô đồng ý được tick (§14.3). `disabled` thật,
               // không phải một lớp mờ đi rồi vẫn gửi được.
-              className="min-h-[var(--vung-cham-toi-thieu)] cursor-pointer rounded-vua px-5 text-[0.9375rem] font-medium transition-opacity duration-[var(--thoi-luong-nhanh)] ease-chuan hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang disabled:cursor-not-allowed disabled:opacity-45"
-              style={{ background: 'var(--den-sang)', color: 'var(--muc)' }}
-            >
+        >
               {dangGui ? 'Đang xác thực…' : 'Tạo tài khoản'}
-            </button>
+            </NutBrass>
             {!dongY && (
               <p className="m-0 text-[0.8125rem] leading-5 text-muc-nhat">
                 Cần tick ô đồng ý ở trên trước khi tạo được tài khoản.
@@ -287,7 +286,7 @@ export default function DangKy() {
             <Link
               to="/mien-tru"
               className="underline underline-offset-4 hover:text-phim focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
-            >
+        >
               đọc giới hạn đầy đủ
             </Link>
             .

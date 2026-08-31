@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { NutBrass } from '../components/NutBrass';
 import type { FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { layDieu, layDieuTrongChuong, layMucLucVanBan } from '../lib/api';
@@ -113,7 +114,7 @@ export default function VanBan() {
           <div
             className="mt-4 rounded-lon border p-4"
             style={{ background: 'var(--nen-cao)', borderColor: 'var(--vien)' }}
-          >
+        >
             <DuongDan soKyHieu={mucLuc.ketQua.so_ky_hieu} boLuat={mucLuc.ketQua.bo_luat} />
           </div>
 
@@ -121,7 +122,7 @@ export default function VanBan() {
             <div
               className="mt-4 rounded-lon border-s-2 py-3 ps-4"
               style={{ borderColor: 'var(--vang-mo)', background: 'var(--nen-cao)' }}
-            >
+        >
               {/* `muc_luc` rỗng KHÔNG chứng minh văn bản thiếu toàn văn: đo
                   trên corpus thật, 8 trong 21 văn bản CÓ đủ điều khoản vẫn trả
                   mục lục rỗng vì chúng đánh số thẳng theo Điều (293/2025/NĐ-CP
@@ -153,7 +154,7 @@ export default function VanBan() {
                       onClick={() => moChuong(muc.id)}
                       className="flex min-h-[var(--vung-cham-toi-thieu)] w-full cursor-pointer items-center rounded-nho text-start text-[0.875rem] leading-6 transition-colors duration-[var(--thoi-luong-nhanh)] ease-chuan hover:text-den-sang focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
                       style={{ color: muc.id === chuongDangMo ? 'var(--den-sang)' : 'var(--phim)' }}
-                    >
+        >
                       {muc.tieu_de}
                     </button>
 
@@ -196,7 +197,7 @@ export default function VanBan() {
                                       );
                                     }}
                                     className="flex min-h-[var(--vung-cham-toi-thieu)] w-full cursor-pointer items-center rounded-nho text-start text-[0.8125rem] leading-5 text-muc-nhat transition-colors duration-[var(--thoi-luong-nhanh)] ease-chuan hover:text-phim focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
-                                  >
+        >
                                     {/* Tiêu đề Điều thôi. Endpoint cố ý không
                                         trả Khoản/Điểm và FE giữ nguyên ràng
                                         buộc đó. */}
@@ -247,14 +248,12 @@ export default function VanBan() {
             }}
           />
         </div>
-        <button
+        <NutBrass
           type="submit"
           disabled={soDieu.trim() === '' || dieu.dangChay}
-          className="min-h-[var(--vung-cham-toi-thieu)] cursor-pointer rounded-vua px-5 text-[0.9375rem] font-medium transition-opacity duration-[var(--thoi-luong-nhanh)] ease-chuan hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang disabled:cursor-not-allowed disabled:opacity-45"
-          style={{ background: 'var(--den-sang)', color: 'var(--muc)' }}
         >
           Mở
-        </button>
+        </NutBrass>
       </form>
 
       <p role="status" className="sr-only">
@@ -294,7 +293,7 @@ export default function VanBan() {
                 datSoDieu('');
               }}
               className="min-h-[var(--vung-cham-toi-thieu)] cursor-pointer text-[0.875rem] text-muc-nhat underline underline-offset-4 hover:text-phim focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
-            >
+        >
               Đóng Điều này
             </button>
           </div>
@@ -311,7 +310,7 @@ export default function VanBan() {
             ? 'grid grid-cols-[minmax(0,26rem)_minmax(0,1fr)] items-start gap-8'
             : 'grid grid-cols-1 gap-8'
         }
-      >
+        >
         {khungMucLuc}
         {khungDieu}
       </div>

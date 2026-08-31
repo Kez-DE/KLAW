@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { NutBrass } from '../components/NutBrass';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { traCuu } from '../lib/api';
 import { chuyenCanh, dongKhung, moKhung } from '../lib/chuyenCanh';
@@ -121,14 +122,12 @@ export default function TraCuu() {
         }}
       />
       <div className="mt-2 flex flex-wrap items-center gap-3">
-        <button
+        <NutBrass
           type="submit"
           disabled={cauHoi.trim() === '' || dangChay}
-          className="min-h-[var(--vung-cham-toi-thieu)] cursor-pointer rounded-vua px-5 text-[0.9375rem] font-medium transition-opacity duration-[var(--thoi-luong-nhanh)] ease-chuan hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang disabled:cursor-not-allowed disabled:opacity-45"
-          style={{ background: 'var(--den-sang)', color: 'var(--muc)' }}
         >
           Tra cứu
-        </button>
+        </NutBrass>
         <p id="goi-y-o-hoi" className="m-0 text-[0.75rem] leading-5 text-muc-nhat">
           Ctrl/⌘ + Enter để gửi. Một lượt tra cứu mất 10–60 giây.
         </p>
@@ -168,7 +167,7 @@ export default function TraCuu() {
               });
             }}
             className="mt-6 min-h-[var(--vung-cham-toi-thieu)] cursor-pointer text-[0.875rem] text-muc-nhat underline underline-offset-4 hover:text-phim focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
-          >
+        >
             Hỏi câu khác
           </button>
         </div>

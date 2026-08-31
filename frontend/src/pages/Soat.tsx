@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { NutBrass } from '../components/NutBrass';
 import type { FormEvent } from 'react';
 import { layMau, soat } from '../lib/api';
 import { dongKhung, moKhung } from '../lib/chuyenCanh';
@@ -140,7 +141,7 @@ export default function Soat() {
               <label
                 key={lua.giaTri}
                 className="flex min-h-[var(--vung-cham-toi-thieu)] cursor-pointer items-center gap-3 text-[0.9375rem] leading-6 text-phim"
-              >
+        >
                 <input
                   type="radio"
                   name="loai-van-ban-soat"
@@ -160,7 +161,7 @@ export default function Soat() {
           <div
             className="mt-4 rounded-lon border-s-2 py-3 ps-4"
             style={{ borderColor: 'var(--vang-mo)', background: 'var(--nen-cao)' }}
-          >
+        >
             <p className="mat-doc m-0 text-[0.9375rem] text-phim">
               Loại văn bản này chưa có nội dung pháp lý trong hệ thống.
             </p>
@@ -246,14 +247,12 @@ export default function Soat() {
         )}
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          <button
+          <NutBrass
             type="submit"
             disabled={!guiDuoc}
-            className="min-h-[var(--vung-cham-toi-thieu)] cursor-pointer rounded-vua px-5 text-[0.9375rem] font-medium transition-opacity duration-[var(--thoi-luong-nhanh)] ease-chuan hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang disabled:cursor-not-allowed disabled:opacity-45"
-            style={{ background: 'var(--den-sang)', color: 'var(--muc)' }}
-          >
+        >
             Soát văn bản
-          </button>
+          </NutBrass>
         </div>
       </form>
 
@@ -292,7 +291,7 @@ export default function Soat() {
             ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-8'
             : 'grid grid-cols-1 gap-8'
         }
-      >
+        >
         <div inert={panelMo && !haiCot} className="mx-auto w-full max-w-[46rem]">
           {cotChinh}
         </div>
