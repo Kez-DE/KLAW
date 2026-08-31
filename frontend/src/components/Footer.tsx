@@ -15,8 +15,12 @@ const MUC_CHAN: MucChan[] = [
   { duongDan: '/', nhan: 'Giới thiệu' },
   { duongDan: '/huong-dan', nhan: 'Hướng dẫn' },
   { duongDan: '/pham-vi', nhan: 'Phạm vi dữ liệu' },
+  { duongDan: '/bang-gia', nhan: 'Bảng giá' },
   { duongDan: '/mien-tru', nhan: 'Miễn trừ trách nhiệm' },
 ];
+// `/dang-nhap` và `/dang-ky` CỐ Ý không có ở đây. Chưa có backend xác thực,
+// nên một mục "Đăng nhập" trên vỏ chung mọi trang sẽ mời người dùng đi vào một
+// cửa chưa mở. Hai tuyến đó tới được từ `/bang-gia` và từ chính nhau.
 
 interface FooterProps {
   /** Bật khi có panel modal đang mở — xem `usePanelDangMo` trong App.tsx.

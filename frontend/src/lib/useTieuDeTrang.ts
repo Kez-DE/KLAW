@@ -60,6 +60,24 @@ const TUYEN: Record<string, MoTaTuyen> = {
     moTa:
       'KLAW không phải tư vấn pháp lý. Đọc rõ giới hạn của corpus và cách đối chiếu trước khi dựa vào một câu trả lời để hành động.',
   },
+  // Ba tuyến Persuade. Mô tả nói đúng hiện trạng — giá chưa chốt, xác thực
+  // chưa nối: một `og:description` hứa "đăng ký ngay" là lời hứa hộ ngay ở bề
+  // mặt chia sẻ, nơi không ai đọc được phần đính chính bên trong trang.
+  '/bang-gia': {
+    tieuDe: 'Bảng giá',
+    moTa:
+      'Ba gói dự kiến của KLAW, ghi rõ tính năng nào đang chạy hôm nay và tính năng nào chưa có. Giá dự kiến, chưa áp dụng và chưa bao gồm thuế GTGT.',
+  },
+  '/dang-nhap': {
+    tieuDe: 'Đăng nhập',
+    moTa:
+      'Đăng nhập vào KLAW — tra cứu pháp luật lao động Việt Nam có trích dẫn kiểm chứng được. Backend xác thực chưa được nối; KLAW hiện dùng được không cần tài khoản.',
+  },
+  '/dang-ky': {
+    tieuDe: 'Đăng ký',
+    moTa:
+      'Tạo tài khoản KLAW. Việc xử lý dữ liệu cá nhân cần bạn đồng ý rõ ràng; chính sách bảo vệ dữ liệu cá nhân sẽ công bố trước khi KLAW mở đăng ký.',
+  },
 };
 
 /**

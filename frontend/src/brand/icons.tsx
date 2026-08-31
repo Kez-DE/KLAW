@@ -172,3 +172,20 @@ export function IconDenMay(props: PropsBieuTuong) {
     </KhungSvg>
   );
 }
+
+/**
+ * Dấu tích — CHỈ dùng cho phản hồi "biểu mẫu đã gửi xong" trên hai tuyến xác
+ * thực (BUILD-SPEC §9.2 yêu cầu một dấu tích brass ở trạng thái thành công).
+ *
+ * GIỚI HẠN SỬ DỤNG, đọc trước khi tái dùng: biểu tượng này KHÔNG BAO GIỜ được
+ * dùng cho hiệu lực văn bản, cho kết quả soát, hay cho bất cứ thứ gì có thể bị
+ * đọc thành "văn bản này đạt". Đó chính là lý do `IconSoat` cố ý không có dấu
+ * tích. Ở đây nó chỉ nói một việc rất nhỏ: cú bấm gửi đã được ghi nhận.
+ */
+export function IconDaXong(props: PropsBieuTuong) {
+  return (
+    <KhungSvg {...props}>
+      <path d="M4.5 12.5 9.5 17.5 19.5 6.5" />
+    </KhungSvg>
+  );
+}
