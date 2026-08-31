@@ -349,3 +349,48 @@ class VanBanHieuLucResponse(BaseModel):
     # Mức 4 — chỉ những điều khoản CÓ bằng chứng cấp điều khoản. Rỗng là kết
     # quả HỢP LỆ (19.131/19.135 điều khoản không có bản ghi nào), không phải lỗi.
     dieu_khoan: list[DieuKhoanHieuLucOut]
+
+
+# ══ GET /van-ban/{doc_id}/lien-quan (Pha 2) ═════════════════════════════════
+# Bản đồ ĐIỀU HƯỚNG, KHÔNG phải phán quyết. Hiệu lực đi qua
+# `/van-ban/{doc_id}/hieu-luc` — đó là chỗ duy nhất `effectivity.py` chạy.
+
+
+class VanBanLienQuanOut(BaseModel):
+    # None khi văn bản đối diện KHÔNG có trong corpus (273/626 cạnh cấp văn
+    # bản). `so_ky_hieu` vẫn có (MOJ khai) nên vẫn nêu được định danh; `doc_id`
+    # None là thứ nói với FE rằng đừng dựng link — link đó sẽ ra 404.
+    doc_id: str | None
+    so_ky_hieu: str
+    bo_luat: str | None
+    trong_corpus: bool
+
+
+class NhomLienQuanOut(BaseModel):
+    loai: int
+    nhan: str
+    # `di_ra` = văn bản này đứng ở đầu `from` của cạnh; `di_vao` = ở đầu `to`.
+    chieu: Literal["di_ra", "di_vao"]
+    # Chiều NGỮ NGHĨA đã đo hay chưa. False cho mã MOJ: "Thay thế" trong danh
+    # sách của X có thể là "X thay thế Y" hoặc ngược lại, và 242 dòng đó chưa
+    # ai đo (xem `effectivity.TAC_DONG`). Hiển thị một nhãn quan hệ pháp lý có
+    # 50% khả năng ngược mà không nói ra là một khẳng định không kiểm chứng được.
+    chieu_da_do: bool
+    so_luong: int
+    van_ban: list[VanBanLienQuanOut]
+
+
+class DanChieuNoiBoOut(BaseModel):
+    so_luong: int
+    ghi_chu: str
+
+
+class VanBanLienQuanResponse(BaseModel):
+    doc_id: str
+    so_ky_hieu: str
+    bo_luat: str
+    nhom: list[NhomLienQuanOut]
+    # ĐO ĐƯỢC 2.971/2.971 dẫn chiếu cấp điều khoản nằm TRONG cùng một văn bản —
+    # chúng không phải "văn bản liên quan", và trộn vào `nhom` là chôn 8 quan hệ
+    # thật dưới 120 dòng trỏ về chính văn bản đang mở.
+    dan_chieu_noi_bo: DanChieuNoiBoOut
