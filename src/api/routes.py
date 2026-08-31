@@ -20,6 +20,9 @@ from src.agents.graph_tra_cuu import build_graph_tra_cuu
 from src.agents.nodes.draft_audit import draft_audit
 from src.config import get_settings
 from src.models.schemas import (
+    PhamViResponse,
+    TangPhamViOut,
+    VanBanPhamViOut,
     AuditReportOut,
     FactFieldOut,
     LoaiVanBan,
@@ -241,6 +244,48 @@ def _van_ban_sync(
         return VanBanProvisionsResponse(
             doc_id=doc_id, so_ky_hieu=doc["so_ky_hieu"], bo_luat=doc["ten"], provisions=provisions
         )
+
+
+_SQL_PHAM_VI = text(
+    "SELECT d.id, d.so_ky_hieu, d.ten, d.loai_van_ban, d.tinh_trang,"
+    "       count(p.id)::int AS so_dieu_khoan"
+    " FROM documents d LEFT JOIN provisions p ON p.document_id = d.id"
+    " GROUP BY d.id, d.so_ky_hieu, d.ten, d.loai_van_ban, d.tinh_trang"
+    " ORDER BY count(p.id) DESC, d.so_ky_hieu"
+)
+
+
+def _pham_vi() -> PhamViResponse:
+    with get_engine().connect() as c:
+        rows = c.execute(_SQL_PHAM_VI).mappings().all()
+
+    def ra(r) -> VanBanPhamViOut:
+        return VanBanPhamViOut(
+            doc_id=r["id"], so_ky_hieu=r["so_ky_hieu"], bo_luat=r["ten"] or "",
+            loai_van_ban=r["loai_van_ban"] or "", so_dieu_khoan=r["so_dieu_khoan"],
+            tinh_trang_moj=r["tinh_trang"],
+        )
+
+    # Phân tầng theo SỐ ĐIỀU KHOẢN THẬT, không theo cột `depth`: `depth` là ý
+    # định lúc thu thập, còn số điều khoản là kết quả. Nếu một văn bản đánh
+    # dấu 'deep' mà nạp hỏng thì nó thuộc tầng nông trên thực tế, và trang
+    # phạm vi phải nói ra thực tế đó.
+    sau = [ra(r) for r in rows if r["so_dieu_khoan"] > 0]
+    nong = [ra(r) for r in rows if r["so_dieu_khoan"] == 0]
+    return PhamViResponse(
+        sau=TangPhamViOut(so_van_ban=len(sau), so_dieu_khoan=sum(v.so_dieu_khoan for v in sau), van_ban=sau),
+        nong=TangPhamViOut(so_van_ban=len(nong), so_dieu_khoan=0, van_ban=nong),
+    )
+
+
+@router.get("/pham-vi", response_model=PhamViResponse)
+async def pham_vi() -> PhamViResponse:
+    """Phạm vi corpus, đếm từ DB — trang /pham-vi không được viết cứng con số.
+
+    Hai tầng vì corpus thật có hai tầng: `sau` có toàn văn (ra `answer`),
+    `nong` chỉ metadata và CHÍNH LÀ thứ sinh ra `partial_coverage`.
+    """
+    return await run_in_threadpool(_pham_vi)
 
 
 @router.get("/van-ban/{doc_id}", response_model=VanBanMucLucResponse | VanBanProvisionsResponse)

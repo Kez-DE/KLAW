@@ -192,3 +192,40 @@ class FactFieldOut(BaseModel):
 class MauResponse(BaseModel):
     loai_van_ban: str
     facts: list[FactFieldOut]
+
+
+# ══ GET /api/v1/pham-vi ══════════════════════════════════════════════════════
+# Trang /pham-vi bị CẤM viết cứng "21 văn bản / 19.135 điều khoản" vào JSX. Một
+# con số viết cứng sai ngay lần seed sau, và dự án này tồn tại để chống đúng
+# loại khẳng định không kiểm chứng được đó.
+
+
+class VanBanPhamViOut(BaseModel):
+    doc_id: str
+    so_ky_hieu: str  # ĐỊNH DANH (Global Constraint)
+    bo_luat: str  # = documents.ten — chỉ để hiển thị
+    loai_van_ban: str
+    so_dieu_khoan: int
+    # `tinh_trang_moj`, KHÔNG phải `tinh_trang`: đây là tuyên bố của CSDL quốc
+    # gia, không phải phán quyết của KLAW. MOJ đánh 4 nghị định lương tối thiểu
+    # đã bị thay thế là "còn hiệu lực"; KLAW sửa cả 4. Tên trần sẽ khiến người
+    # đọc tưởng KLAW xác nhận con số này.
+    tinh_trang_moj: str | None = None
+
+
+class TangPhamViOut(BaseModel):
+    so_van_ban: int
+    so_dieu_khoan: int
+    van_ban: list[VanBanPhamViOut]
+
+
+class PhamViResponse(BaseModel):
+    """Hai tầng, vì corpus thật có hai tầng.
+
+    `sau` — có toàn văn, trả lời được thành `answer`.
+    `nong` — chỉ metadata; CHÍNH LÀ thứ sinh ra `partial_coverage`. Giấu tầng
+    này đi là mô tả sai sản phẩm.
+    """
+
+    sau: TangPhamViOut
+    nong: TangPhamViOut
