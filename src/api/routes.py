@@ -4,7 +4,7 @@ import time
 import uuid
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from starlette.concurrency import run_in_threadpool
@@ -18,26 +18,28 @@ from src.agents.graph_soan_thao import (
 )
 from src.agents.graph_tra_cuu import build_graph_tra_cuu
 from src.agents.nodes.draft_audit import draft_audit
-from src.config import get_settings
+from src.config import as_of_hieu_luc, get_settings
 from src.models.schemas import (
-    PhamViResponse,
-    TangPhamViOut,
-    VanBanPhamViOut,
     AuditReportOut,
     FactFieldOut,
     LoaiVanBan,
     MauResponse,
     MucLucItem,
+    PhamViResponse,
     ProvisionOut,
     SoanThaoRequest,
     SoanThaoResponse,
     SoatRequest,
     SoatResponse,
+    TangPhamViOut,
     TraCuuRequest,
     TraCuuResponse,
     VanBanMucLucResponse,
+    VanBanPhamViOut,
     VanBanProvisionsResponse,
 )
+from src.services import cache_tra_loi
+from src.services.bao_ve import cong_bao_ve
 from src.services.db import get_engine
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
 
@@ -66,18 +68,69 @@ def _g():
     return _graph
 
 
-@router.post("/tra-cuu", response_model=TraCuuResponse)
+def _payload_cache(st: dict, rt: str) -> dict:
+    """Đúng những field của `TraCuuResponse` phụ thuộc NỘI DUNG câu trả lời.
+
+    KHÔNG gồm `trace_id` (mỗi request một cái — xem `_st_tu_cache`) và không gồm
+    `config_name` (đã nằm TRONG khoá cache, lưu lại chỉ tạo hai nguồn sự thật).
+    """
+    return {
+        "result_type": rt, "answer": st.get("answer"), "citations": st.get("citations") or [],
+        "warnings": st.get("warnings") or [], "coverage_note": st.get("coverage_note"),
+        "nguon": st.get("nguon") or [],
+    }
+
+
+def _st_tu_cache(payload: dict) -> dict:
+    """State tối thiểu để `_ghi_traces` ghi được dòng của một lượt CACHE HIT.
+
+    Mọi cột chi phí/claim của dòng đó là 0 THẬT: không lượt LLM nào chạy, không
+    provision nào được truy hồi, không claim nào được kiểm. `cache_hit=True`
+    (caller truyền) là thứ nói ra rằng chúng là 0 vì-không-chạy, chứ không phải
+    0 vì-quên-ghi — nếu không có cờ đó, chương đánh giá đọc dòng này thành "một
+    lượt tra cứu không tìm được gì".
+    """
+    return {"result_type": payload["result_type"], "traces": {}}
+
+
+@router.post("/tra-cuu", response_model=TraCuuResponse, dependencies=[Depends(cong_bao_ve)])
 async def tra_cuu(req: TraCuuRequest) -> TraCuuResponse:
     """spec 8.0a. `result_type` là enum bốn giá trị (không phải cờ `abstained`
     boolean): `partial_coverage` không thể ép vào "đã trả lời"/"đã từ chối" mà
     không mất thông tin, và ABSTAIN là hành vi ĐÚNG của hệ thống — không phải
     lỗi cần che giấu bằng một cờ nhị phân.
+
+    `Depends(cong_bao_ve)` — API key, rate limit theo IP, trần chi phí ngày —
+    chạy TRƯỚC thân hàm này. Endpoint này gọi LLM tối đa 5 lần, p95 50s, tới
+    $0,00735 một request; không cổng nào ở đó là phòng xa (xem `bao_ve.py`).
     """
     s = get_settings()
     trace_id = str(uuid.uuid4())
     bat_dau = time.monotonic()
+    config_name = req.config_name or s.eval_config_name
+    # Mốc hiệu lực GIẢI QUYẾT ngay tại đây, một lần: cùng giá trị đi vào khoá
+    # cache VÀ vào graph, nên không có cách nào cache khoá theo một ngày mà
+    # graph lọc hiệu lực theo ngày khác.
+    as_of = as_of_hieu_luc(req.as_of_date)
     try:
-        st = await _g().ainvoke({"query": req.query, "as_of_date": req.as_of_date, "trace_id": trace_id})
+        # Cache TRƯỚC graph. Lỗi ĐỌC cache cố ý KHÔNG được bắt riêng: nó rơi vào
+        # đúng hai khối except dưới đây (OperationalError → 503). Nếu bảng cache
+        # không đọc được thì Postgres đang không lành, và cả pipeline (truy hồi,
+        # verify, traces) đều cần Postgres — chạy tiếp là tiêu 5 lượt LLM cho
+        # một request gần như chắc chắn hỏng ở bước sau.
+        #
+        # `corpus_checksum()` gọi MỘT lần cho cả lượt đọc và lượt ghi: gọi lại
+        # sau khi graph chạy (10-60 giây) có thể nhận giá trị KHÁC nếu corpus
+        # vừa được seed lại giữa lúc đó, và khi ấy dòng cache được ghi dưới một
+        # khoá không ai tra được — một cache miss vĩnh viễn, im lặng.
+        checksum = await run_in_threadpool(cache_tra_loi.corpus_checksum)
+        khoa = cache_tra_loi.khoa_cache(req.query, config_name, as_of, checksum)
+        payload = await run_in_threadpool(cache_tra_loi.doc_cache, khoa)
+        tu_cache = payload is not None
+        if tu_cache:
+            st = _st_tu_cache(payload)
+        else:
+            st = await _g().ainvoke({"query": req.query, "as_of_date": as_of, "trace_id": trace_id})
     except (httpx.HTTPStatusError, httpx.TransportError, OperationalError) as e:
         # Lỗi hạ tầng NHẤT THỜI, nhận diện được theo LOẠI ngoại lệ — OpenRouter
         # 429/5xx cạn retry (httpx) hoặc Postgres không kết nối được
@@ -101,24 +154,40 @@ async def tra_cuu(req: TraCuuRequest) -> TraCuuResponse:
         raise HTTPException(status_code=500, detail=f"tra cứu thất bại: {type(e).__name__}") from e
     latency_ms = int((time.monotonic() - bat_dau) * 1000)
 
-    config_name = req.config_name or s.eval_config_name
+    if not tu_cache:
+        rt = st["result_type"]
+        payload = _payload_cache(st, rt.value if hasattr(rt, "value") else rt)
+        if payload["result_type"] in cache_tra_loi.KET_QUA_DUOC_CACHE:
+            # `abstain`/`out_of_scope` KHÔNG vào cache: một lần thiếu căn cứ do
+            # lỗi TẠM (OpenRouter 429 — đã xảy ra thật hôm nay) sẽ bị đóng băng
+            # 7 ngày thành "không tìm thấy căn cứ". `abstain` là hành vi ĐÚNG và
+            # được tính điểm, nhưng không phải thứ được phép hoá đá.
+            await run_in_threadpool(
+                cache_tra_loi.ghi_cache, khoa, req.query, config_name, as_of, checksum, payload
+            )
+
     try:
-        await run_in_threadpool(_ghi_traces, trace_id, "/api/v1/tra-cuu", req.query, config_name, st, latency_ms)
+        await run_in_threadpool(
+            _ghi_traces, trace_id, "/api/v1/tra-cuu", req.query, config_name, st, latency_ms,
+            # Cache hit vẫn ghi MỘT dòng (nó vẫn là một request thật, và traces
+            # là nơi đếm lưu lượng) — nhưng có cờ, để số liệu đánh giá của khoá
+            # luận không lẫn lượt cache vào lượt gọi LLM thật.
+            tu_cache,
+        )
     except Exception:
         # Telemetry hỏng không phải lý do từ chối người dùng một câu trả lời
         # đã tính ĐÚNG — khác lỗi hạ tầng của chính graph ở trên, cái đó PHẢI
         # nổ ra vì nó quyết định result_type; ghi traces không quyết định gì.
         logger.exception("tra_cuu: ghi traces thất bại (trace_id=%s) — KHÔNG chặn response", trace_id)
 
-    rt = st["result_type"]
     return TraCuuResponse(
-        result_type=rt.value if hasattr(rt, "value") else rt,
-        answer=st.get("answer"), citations=st.get("citations") or [],
-        warnings=st.get("warnings") or [], coverage_note=st.get("coverage_note"),
+        result_type=payload["result_type"],
+        answer=payload["answer"], citations=payload["citations"],
+        warnings=payload["warnings"], coverage_note=payload["coverage_note"],
         # `nguon` có mặc định `[]` trong model, nên quên truyền KHÔNG gây lỗi —
         # nó chỉ làm `partial_coverage` mất đường mở văn bản, im lặng. Ca thứ BA
         # của cùng một kiểu hỏng, sau `khop_tai_id` và `doc_id`.
-        nguon=st.get("nguon") or [],
+        nguon=payload["nguon"],
         trace_id=trace_id, config_name=config_name,
     )
 
@@ -459,11 +528,18 @@ def _render_markdown(loai_van_ban: str, clauses: list) -> str:
     return "\n".join(phan)
 
 
-@router.post("/soan-thao", response_model=SoanThaoResponse)
+@router.post("/soan-thao", response_model=SoanThaoResponse, dependencies=[Depends(cong_bao_ve)])
 async def soan_thao(req: SoanThaoRequest) -> SoanThaoResponse:
     """collect → retrieve_requirements → draft_generate → draft_audit
     (`build_graph_soan_thao`). `self_audit=True` luôn đúng ở đây — draft_generate
-    CHỈ được gọi trên đường sinh của hệ thống (xem docstring node đó)."""
+    CHỈ được gọi trên đường sinh của hệ thống (xem docstring node đó).
+
+    Cùng `Depends(cong_bao_ve)` với `/tra-cuu`: endpoint này cũng tốn một lượt
+    LLM thật (`draft_generate`). CỐ Ý không cache — output là một văn bản soạn
+    theo `facts` cụ thể của một quan hệ lao động cụ thể, tức khoá cache sẽ là
+    chính khối facts đó (tên, lương, thời hạn…), và cache nó là lưu dữ liệu cá
+    nhân thêm một chỗ nữa để đổi lấy một tỉ lệ hit gần như bằng không.
+    """
     _tu_choi_neu_chua_ho_tro(req.loai_van_ban)
     rules = load_rules_cached()
     _validate_facts(req.facts, rules)

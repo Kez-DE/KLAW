@@ -11,6 +11,12 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        # Các field cổng bảo vệ dùng `validation_alias="KLAW_*"`. KHÔNG có cờ
+        # này, một alias làm field chỉ nhận được từ tên env — và
+        # `Settings(_env_file=None, tran_chi_phi_ngay_usd=2.0)` (dạng mọi test
+        # trong repo đang dùng) sẽ âm thầm giữ mặc định. Đúng chế độ hỏng mà
+        # `__init__` dưới đây tồn tại để chặn, chỉ ở một cửa khác.
+        populate_by_name=True,
     )
 
     def __init__(self, **kw: object) -> None:
@@ -93,7 +99,54 @@ class Settings(BaseSettings):
     moj_api_base: str = "https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public"
     moj_rate_limit_sleep: float = Field(default=1.5, ge=0.0)
 
+    # ══ Cổng bảo vệ (Plan 4) — tiền tố KLAW_ để tách khỏi họ biến cũ ═════════
+    # Mặc định chọn theo SỐ ĐO trên DB thật, không theo cảm tính. Xem
+    # `migrations/010_cong_bao_ve.sql` và `hardening-report.md` cho phép tính.
+
+    # Rỗng = MỞ (dev local). Có giá trị = BẮT BUỘC header `X-API-Key` khớp trên
+    # các endpoint tốn LLM. Ai là người dùng / đăng ký thế nào / phân quyền ra
+    # sao là quyết định SẢN PHẨM chưa chốt — nên đây cố ý KHÔNG phải user/session.
+    api_key: str = Field(default="", validation_alias="KLAW_API_KEY")
+
+    # $2,00/ngày ≈ 10× ngày cao nhất đã đo ($0,18329 / 118 request, 2026-08-30)
+    # ≈ 272 request ở mức đắt nhất đã ghi nhận ($0,00735). 0 = TẮT (cần cho
+    # eval sweep chạy hàng trăm request qua HTTP) — phải đặt TAY, không phải
+    # mặc định: mặc định vô hạn là đúng thứ rà soát bảo mật đã liệt kê.
+    tran_chi_phi_ngay_usd: float = Field(
+        default=2.0, ge=0.0, validation_alias="KLAW_TRAN_CHI_PHI_NGAY_USD"
+    )
+
+    # 10 lượt/60s/IP: `/tra-cuu` có p50 10s (đo trên 204 dòng traces) nên một
+    # người dùng thật không vượt ~6 lượt/phút; 10 là 1,7× mức đó. Một vòng
+    # `curl` bị hãm còn 10/phút = $4,41/giờ ở mức đắt nhất — trần ngày ở trên
+    # dừng nó sau ~27 phút. Hai cổng CHỒNG nhau chứ không thay nhau.
+    rate_limit_so_luot: int = Field(default=10, ge=0, validation_alias="KLAW_RATE_LIMIT_SO_LUOT")
+    rate_limit_cua_so_giay: int = Field(
+        default=60, gt=0, validation_alias="KLAW_RATE_LIMIT_CUA_SO_GIAY"
+    )
+
+    # False = KHÔNG tin `X-Forwarded-For`. Bật CHỈ KHI thật sự có reverse proxy
+    # đặt header đó: nếu tin mà không có proxy, bất kỳ ai cũng gửi một IP giả
+    # mỗi request và rate limit theo IP trở thành trang trí.
+    tin_proxy_header: bool = Field(default=False, validation_alias="KLAW_TIN_PROXY_HEADER")
+
+    # 7 ngày. 0 = TẮT — bắt buộc phải có: `eval/run.py` đo latency/chi phí thật
+    # thì không được đo qua cache.
+    cache_ttl_ngay: int = Field(default=7, ge=0, validation_alias="KLAW_CACHE_TTL_NGAY")
+
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def as_of_hieu_luc(yeu_cau: date | None) -> date:
+    """Mốc thời gian TÍNH HIỆU LỰC cho một request: request → settings → hôm nay.
+
+    MỘT chỗ duy nhất quyết định quy tắc này, dùng bởi cả `graph_tra_cuu.n_expand`
+    (nơi mốc được ÁP DỤNG) và khoá cache (nơi mốc được GHI NHỚ). Hai bản sao của
+    quy tắc là cách chắc chắn để cache bắn nhầm: cache khoá theo một ngày, graph
+    lọc hiệu lực theo một ngày khác, và không tầng nào báo lỗi — chỉ trả về hiệu
+    lực sai. Cùng lý do `verify_tier1.normalize` được TÁI DÙNG chứ không viết lại.
+    """
+    return yeu_cau or get_settings().as_of_date or date.today()

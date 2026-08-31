@@ -7,8 +7,6 @@ route → rewrite_query → retrieve_hybrid → expand → generate_claims
 `ngoai_pham_vi` rẽ thẳng từ route sang assemble (0 token cho mọi bước sau).
 """
 
-from datetime import date
-
 from langgraph.graph import END, StateGraph
 from sqlalchemy import Engine, text
 
@@ -20,7 +18,7 @@ from src.agents.nodes.route import Intent, route
 from src.agents.nodes.verify_tier1 import nap_provisions, tien_de_cau_hoi_sai, verify_tier1
 from src.agents.nodes.verify_tier2 import verify_tier2_and_trace
 from src.agents.state import KLawState
-from src.config import get_settings
+from src.config import as_of_hieu_luc, get_settings
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
@@ -87,7 +85,11 @@ def build_graph_tra_cuu():
         return {**st, "retrieved": list(dict.fromkeys(ids))}
 
     def n_expand(st: KLawState) -> KLawState:
-        as_of = st.get("as_of_date") or s.as_of_date or date.today()
+        # MỘT chủ sở hữu cho quy tắc "mốc hiệu lực" (`config.as_of_hieu_luc`):
+        # khoá cache câu trả lời phải ghi nhớ ĐÚNG cái ngày mà node này lọc
+        # theo. Hai bản sao của quy tắc = cache khoá theo một ngày, graph lọc
+        # hiệu lực theo ngày khác, không tầng nào báo lỗi — chỉ trả hiệu lực sai.
+        as_of = as_of_hieu_luc(st.get("as_of_date"))
         before = st.get("retrieved") or []
         deep, shallow = expand(before, engine, as_of, s.expand_reference_hops)
         prior_traces = st.get("traces") or {}

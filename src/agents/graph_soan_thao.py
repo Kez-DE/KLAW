@@ -55,6 +55,10 @@ class SoanThaoState(TypedDict, total=False):
     usage_generate: object
     self_audit: bool
     audit_report: object
+    # BẮT BUỘC khai báo: LangGraph LỌC key không có trong schema state, nên
+    # thiếu dòng này thì `traces` do `n_generate` đặt bị vứt im lặng và
+    # `_ghi_traces` lại ghi $0 như trước.
+    traces: dict
 
 
 # ── Nạp rules/checklist + tra sẵn provision chúng cần — MỘT LẦN cho cả tiến
@@ -138,7 +142,28 @@ def build_graph_soan_thao():
         return {**st, "expanded": list(db_provisions.values()), "db_provisions": db_provisions}
 
     def n_generate(st: SoanThaoState) -> SoanThaoState:
-        return draft_generate(st, llm, generate_model())
+        """Nối usage của lượt LLM này vào `state["traces"]` — chỗ DUY NHẤT mà
+        `_tong_hop_traces` biết đọc.
+
+        `draft_generate` trả usage ở `state["usage_generate"]` (một `Usage`),
+        KHÔNG vào `state["traces"]`, nên `traces.cost_usd` của mọi request
+        `/soan-thao` là 0 — đo được trên DB: 32/32 dòng `/api/v1/soan-thao`
+        đang là $0,00000 dù mỗi request tốn một lượt LLM thật. Trần chi phí ngày
+        (Plan 4) đọc CHÍNH cột đó, nên không có ba khoá dưới đây thì trần KHÔNG
+        THẤY một trong hai endpoint tiêu tiền. Nối tại đây chứ không sửa
+        `draft_generate`: node đó đã được test, và `usage_generate` vẫn là
+        hình dạng state mà nơi khác đọc.
+        """
+        moi = draft_generate(st, llm, generate_model())
+        u = moi.get("usage_generate")
+        if u is None:  # lượt LLM không chạy → không có gì để cộng (không phải 0 bịa ra)
+            return moi
+        return {**moi, "traces": {
+            **(st.get("traces") or {}),
+            "draft_generate_token_in": u.token_in,
+            "draft_generate_token_out": u.token_out,
+            "draft_generate_cost_usd": u.cost_usd,
+        }}
 
     def n_audit(st: SoanThaoState) -> SoanThaoState:
         return draft_audit(st, rules, checklist, st.get("db_provisions") or {})

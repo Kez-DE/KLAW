@@ -74,6 +74,35 @@ uvicorn src.main:app --reload --port 8000
 
 📖 Mở **[Technical Guidebook](https://phoenix.note.transformerlabs.ai/technical-book)** và làm theo từng chương.
 
+## 🔒 Cổng bảo vệ trước khi mở công khai
+
+`/tra-cuu` gọi LLM **tối đa 5 lần** mỗi request (p50 10s, p95 50s, tới
+**$0,00735**); `/soan-thao` thêm một lượt. Đo trên chính DB của dự án: ngày cao
+nhất tới nay 118 request / **$0,18329**. Dự án đã gặp HTTP 429 từ OpenRouter khi
+nhiều tiến trình chạy song song. Các biến dưới đây (chú thích đầy đủ trong
+`.env.example`) là cái chặn một vòng `curl` rút cạn key trong một buổi.
+
+| Biến | Mặc định | Ý nghĩa |
+|---|---|---|
+| `KLAW_API_KEY` | rỗng = **MỞ** | Có giá trị ⇒ bắt buộc header `X-API-Key` khớp trên `/tra-cuu` và `/soan-thao`. `/pham-vi`, `/van-ban`, `/mau`, `/soat`, `/health` không cần. |
+| `KLAW_TRAN_CHI_PHI_NGAY_USD` | `2.0` | Trần chi phí/ngày (mốc UTC), cộng từ `traces.cost_usd`. Vượt ⇒ HTTP 429 nêu rõ lý do và mốc mở lại. `0` = tắt. |
+| `KLAW_RATE_LIMIT_SO_LUOT` / `_CUA_SO_GIAY` | `10` / `60` | Rate limit theo IP, cửa sổ trượt, bộ đếm trong Postgres. `0` lượt = tắt. |
+| `KLAW_TIN_PROXY_HEADER` | `false` | Chỉ bật khi **thật sự** có reverse proxy đặt `X-Forwarded-For`. Bật mà không có proxy ⇒ ai cũng giả được IP. |
+| `KLAW_CACHE_TTL_NGAY` | `7` | Cache câu trả lời trong bảng `answer_cache`. `0` = tắt — **bắt buộc tắt khi chạy eval**, nếu không số liệu đo được là số của cache. |
+
+**Trước khi deploy công khai, tối thiểu:** đặt `KLAW_API_KEY` bằng một giá trị
+ngẫu nhiên (`openssl rand -hex 32`), chốt `CORS_ORIGINS` về domain thật, bỏ port
+mapping `5432` khỏi `docker-compose.yml`, và đổi `POSTGRES_PASSWORD`. Danh sách
+còn lại: `.superpowers/sdd/2026-08-27-klaw-04-drafting-fe-deploy/hardening-report.md`.
+
+Cache chỉ giữ `answer` và `partial_coverage`. **`abstain` không vào cache**: một
+lần thiếu căn cứ do lỗi tạm (OpenRouter 429, DB chậm) mà bị cache 7 ngày sẽ hoá
+đá thành "không tìm thấy căn cứ" — `abstain` là hành vi đúng và được tính điểm,
+không phải thứ được phép đóng băng. Khoá cache gồm câu hỏi đã chuẩn hoá,
+`config_name`, `as_of_date` **đã giải quyết**, và một checksum corpus (suy từ
+`count(*)` của `provisions` + `max(crawled_at)` của `documents`) — nên seed lại
+corpus là cache tự hết hiệu lực, không cần ai nhớ xoá tay.
+
 ## 📁 Cấu trúc dự án
 
 ```

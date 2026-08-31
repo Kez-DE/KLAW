@@ -19,14 +19,25 @@ from src.services.db import get_engine
 # ngầm kiểu "mọi khoá kết thúc bằng _token_in", vì một khoá tương lai trùng
 # hậu tố mà không phải chi phí THẬT của request này sẽ bị cộng nhầm. Thêm một
 # node gọi LLM thứ 6 → sửa cả BA danh sách này (không sửa chỗ khác).
+#
+# Plan 4: `draft_generate_*` LÀ điểm gọi LLM thứ 6 đó — của graph `/soan-thao`.
+# Nó thiếu ở đây cho tới giờ, và hệ quả ĐO ĐƯỢC: 32/32 dòng `/api/v1/soan-thao`
+# trong `traces` có `cost_usd = 0` dù mỗi request tốn một lượt LLM thật. Điều đó
+# biến trần chi phí ngày — đọc CHÍNH cột này — thành một cổng không thấy một
+# trong hai endpoint tiêu tiền. `draft_generate` trả usage ở
+# `state["usage_generate"]` chứ không vào `state["traces"]`, nên
+# `graph_soan_thao.n_generate` nối nó vào đây, chỗ duy nhất hàm dưới biết đọc.
 _TOKEN_IN_KEYS = (
     "route_token_in", "rewrite_query_token_in", "token_in", "tier2_token_in", "assemble_token_in",
+    "draft_generate_token_in",
 )
 _TOKEN_OUT_KEYS = (
     "route_token_out", "rewrite_query_token_out", "token_out", "tier2_token_out", "assemble_token_out",
+    "draft_generate_token_out",
 )
 _COST_KEYS = (
     "route_cost_usd", "rewrite_query_cost_usd", "cost_usd", "tier2_cost_usd", "assemble_cost_usd",
+    "draft_generate_cost_usd",
 )
 
 
@@ -59,18 +70,29 @@ def _tong_hop_traces(traces: dict) -> dict:
 _SQL_INSERT_TRACE = text(
     "INSERT INTO traces (id, endpoint, query, config_name, result_type, retrieved_ids,"
     " claims_raw, claims_after_tier1, claims_after_tier2, latency_ms, token_in, token_out,"
-    " cost_usd, generate_model, judge_model, expand_before, expand_after)"
+    " cost_usd, generate_model, judge_model, expand_before, expand_after, cache_hit)"
     " VALUES (:id, :endpoint, :query, :config_name, :result_type, :retrieved_ids,"
     " :claims_raw, :claims_after_tier1, :claims_after_tier2, :latency_ms, :token_in, :token_out,"
-    " :cost_usd, :generate_model, :judge_model, :expand_before, :expand_after)"
+    " :cost_usd, :generate_model, :judge_model, :expand_before, :expand_after, :cache_hit)"
 )
 
 
-def _ghi_traces(trace_id: str, endpoint: str, query: str, config_name: str, st: dict, latency_ms: int) -> None:
+def _ghi_traces(
+    trace_id: str, endpoint: str, query: str, config_name: str, st: dict, latency_ms: int,
+    cache_hit: bool = False,
+) -> None:
     """Ghi MỘT hàng `traces` thật cho request này. Có thể raise — resilience
     (best-effort, không chặn response khi ghi lỗi) là quyết định của CALLER
     (`tra_cuu`), không phải của hàm ghi DB này (single responsibility: hàm
     này chỉ lo INSERT đúng, không tự quyết lỗi của nó nghiêm trọng tới đâu).
+
+    `cache_hit=True` cho lượt phục vụ TỪ CACHE. Lượt đó vẫn ghi một dòng — nó
+    vẫn là một request thật và bảng traces là nơi đếm lưu lượng — nhưng phải
+    phân biệt được: latency ~10ms và cost $0 của nó trộn vào cùng cột với lượt
+    gọi thật (p50 10s) sẽ kéo p50 và chi phí trung bình xuống một cách vô
+    nghĩa, và bảng số liệu của khoá luận thành số của cache. Mọi cột chi phí/
+    claim của dòng đó là 0 THẬT (không có lượt LLM nào chạy), không phải 0 vì
+    quên ghi — chính cờ này là thứ nói ra sự khác biệt đó.
     """
     traces = st.get("traces") or {}
     rt = st.get("result_type")
@@ -82,6 +104,7 @@ def _ghi_traces(trace_id: str, endpoint: str, query: str, config_name: str, st: 
         "claims_after_tier1": sum(1 for r in (st.get("tier1") or []) if r.ok),
         "claims_after_tier2": sum(1 for v in (st.get("tier2") or []) if v.supported),
         "latency_ms": latency_ms,
+        "cache_hit": cache_hit,
         **_tong_hop_traces(traces),
     }
     with get_engine().begin() as c:
