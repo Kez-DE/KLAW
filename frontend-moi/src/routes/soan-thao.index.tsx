@@ -9,9 +9,9 @@ import {
   Stamp,
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
-import { MockDataBanner } from "@/components/legal/LegalBits";
-import { MAU, NHOM, type NhomMau } from "@/lib/mock/mau-van-ban";
-import { boDau } from "@/lib/mock/vanban";
+import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
+import { MAU, NHOM, type NhomMau } from "@/lib/mau-van-ban";
+import { boDau } from "@/lib/van-ban";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/soan-thao/")({
@@ -60,7 +60,7 @@ function ChonLoaiVanBan() {
   return (
     <AppShell active="/soan-thao">
       <div className="mx-auto w-full max-w-6xl px-5 py-6 lg:px-8">
-        <MockDataBanner className="mb-5" />
+        <CanCuChuaKiemBanner className="mb-5" />
 
         <h1 className="font-display text-[36px] leading-tight font-bold text-primary">
           Bạn cần soạn văn bản gì?

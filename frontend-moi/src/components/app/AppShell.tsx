@@ -18,41 +18,8 @@ const NAV = [
   { to: "/huong-dan", label: "Hướng dẫn", icon: LifeBuoy },
 ] as const;
 
-export function TrialMeter({ used, total }: { used: number; total: number }) {
-  const left = Math.max(total - used, 0);
-  const pct = Math.min((used / total) * 100, 100);
-  return (
-    <div className="flex items-center gap-3">
-      <div className="min-w-[140px] sm:min-w-[190px]">
-        <p className="text-[12px] text-muted-foreground">
-          Bản dùng thử ·{" "}
-          <span className="font-medium text-foreground">
-            còn {left}/{total} lượt hỏi
-          </span>
-        </p>
-        <div
-          className="mt-1 h-[3px] w-full overflow-hidden rounded-full bg-[var(--color-paper-200)]"
-          role="progressbar"
-          aria-label="Số lượt hỏi còn lại của bản dùng thử"
-          aria-valuenow={left}
-          aria-valuemin={0}
-          aria-valuemax={total}
-        >
-          <div
-            className="h-full rounded-full bg-[var(--color-brass-500)] transition-[width] duration-150"
-            style={{ width: `${100 - pct}%` }}
-          />
-        </div>
-      </div>
-      <Link
-        to="/dang-ky"
-        className="focus-brass rounded-md border border-[var(--color-brass-500)]/50 px-2.5 py-1 text-[12px] font-medium text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/10"
-      >
-        Nâng cấp
-      </Link>
-    </div>
-  );
-}
+// TrialMeter đã gỡ: nó hiện "còn N/20 lượt hỏi" trong khi không có hệ thống
+// hạn mức nào — không ở FE, không ở backend. Dựng lại khi /han-muc có thật.
 
 export function AppShell({
   active,

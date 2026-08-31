@@ -30,9 +30,9 @@ import {
   fieldId,
   focusField,
 } from "@/components/draft/DraftBits";
-import { MockDataBanner } from "@/components/legal/LegalBits";
-import { TINH_THANH, capDuoiCua } from "@/lib/mock/dia-gioi";
-import { MAU, laHopDongLaoDong, laThuViec, mauTheoId } from "@/lib/mock/mau-van-ban";
+import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
+import { TINH_THANH, capDuoiCua } from "@/lib/dia-gioi";
+import { MAU, laHopDongLaoDong, laThuViec, mauTheoId } from "@/lib/mau-van-ban";
 import { chiSo, dinhDangTien, docSoThanhChu } from "@/lib/tien-viet";
 import { cn } from "@/lib/utils";
 
@@ -442,7 +442,7 @@ function KhongGianSoanThao() {
           </div>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
-            <MockDataBanner />
+            <CanCuChuaKiemBanner />
 
             {buoc === 1 && (
               <Group title="1 · Loại văn bản">

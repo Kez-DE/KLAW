@@ -1,4 +1,10 @@
-// SAMPLE DATA FOR UI DEMO ONLY — must be replaced by a licensed legal template library.
+// Định nghĩa 25 mẫu văn bản: nhóm, ký hiệu, số trường, căn cứ pháp lý.
+// Đây là CẤU HÌNH SẢN PHẨM, không phải dữ liệu pháp luật minh hoạ — nên nó ở
+// lại sau khi kho văn bản giả bị xoá.
+//
+// Cảnh báo còn mở: backend hiện chỉ có checklist cho 'hdld'; noi_quy và
+// quyet_dinh_ky_luat trả 501; 22 mẫu còn lại chưa có kiểu backend nào. Danh
+// mục này vì thế đang hứa nhiều hơn hệ thống làm được — việc của pha nối FE.
 
 export type NhomMau =
   | "lao-dong"
@@ -91,7 +97,10 @@ export const MAU: MauVanBan[] = [
     soTruong: 8,
     nhom: "lao-dong",
     kyHieu: "NDA",
-    canCu: [BLDS, { soHieu: "13/2023/NĐ-CP", ten: "Nghị định 13/2023/NĐ-CP" }],
+    // 13/2023/NĐ-CP đã hết hiệu lực toàn bộ từ 01/01/2026 và đã bị gỡ khỏi đây.
+    // Chưa thay bằng văn bản kế nhiệm: KLAW chưa có thẩm quyền trong kho để
+    // khẳng định văn bản nào đang điều chỉnh bảo vệ dữ liệu cá nhân.
+    canCu: [BLDS],
   },
 
   // Thương mại & dân sự

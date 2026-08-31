@@ -1,4 +1,6 @@
-// SAMPLE DATA FOR UI DEMO ONLY — must be replaced by the official administrative unit database.
+// Danh mục đơn vị hành chính dùng cho ô địa chỉ khi soạn thảo. Chưa đối chiếu
+// với danh mục chính thức của Tổng cục Thống kê — phải đối chiếu trước khi
+// bản thảo nào rời khỏi máy người dùng.
 // Cấu trúc chính quyền địa phương 2 cấp từ 01/7/2025:
 // Tỉnh/Thành phố trực thuộc trung ương → Phường/Xã/Đặc khu. KHÔNG còn cấp quận/huyện.
 

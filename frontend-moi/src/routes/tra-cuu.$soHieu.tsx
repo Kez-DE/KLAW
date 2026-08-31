@@ -12,8 +12,8 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { AppShell, TrialMeter } from "@/components/app/AppShell";
-import { MockDataBanner } from "@/components/legal/LegalBits";
+import { AppShell } from "@/components/app/AppShell";
+import { ChuaNoiBanner } from "@/components/legal/LegalBits";
 import { StatusBadge } from "@/components/legal/VanBanUI";
 import {
   boDau,
@@ -22,7 +22,7 @@ import {
   vanBanTheoSoHieu,
   type Dieu,
   type VanBan,
-} from "@/lib/mock/vanban";
+} from "@/lib/van-ban";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/tra-cuu/$soHieu")({
@@ -49,7 +49,36 @@ export const Route = createFileRoute("/tra-cuu/$soHieu")({
     };
   },
   component: DocReader,
+  notFoundComponent: ChuaNoiKhoVanBan,
 });
+
+/**
+ * Với kho rỗng, MỌI số hiệu đều rơi vào nhánh này. Trang 404 chung sẽ nói "không
+ * tìm thấy trang", tức là nói sai chỗ hỏng: trang tồn tại, dữ liệu thì chưa nối.
+ */
+function ChuaNoiKhoVanBan() {
+  return (
+    <AppShell active="/tra-cuu">
+      <ChuaNoiBanner />
+      <div className="mx-auto max-w-xl px-5 py-20 text-center">
+        <h1 className="font-display text-2xl font-semibold text-primary">
+          Chưa mở được toàn văn văn bản
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          Bản dựng này chưa nối vào kho văn bản của KLAW, nên chưa có số hiệu nào
+          mở được toàn văn. Màn đọc — mục lục theo chương/điều, cuộn theo điều,
+          thanh chọn đoạn và ghi chú — sẽ chạy ngay khi đường dữ liệu được nối.
+        </p>
+        <Link
+          to="/tra-cuu"
+          className="mt-6 inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:border-accent"
+        >
+          Quay lại tra cứu
+        </Link>
+      </div>
+    </AppShell>
+  );
+}
 
 /* ------------------------------- Tree ------------------------------------- */
 
@@ -398,8 +427,8 @@ function DocReader() {
   ];
 
   return (
-    <AppShell active="/tra-cuu" topRight={<TrialMeter used={8} total={20} />}>
-      <MockDataBanner />
+    <AppShell active="/tra-cuu">
+      <ChuaNoiBanner />
       <div className="flex min-w-0 flex-1">
         <aside
           aria-label="Mục lục văn bản"

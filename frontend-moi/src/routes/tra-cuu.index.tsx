@@ -11,12 +11,12 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { AppShell, TrialMeter } from "@/components/app/AppShell";
-import { MockDataBanner } from "@/components/legal/LegalBits";
+import { AppShell } from "@/components/app/AppShell";
+import { ChuaNoiBanner } from "@/components/legal/LegalBits";
 import { Chip, Highlight, StatusBadge } from "@/components/legal/VanBanUI";
 import {
   CO_QUAN,
-  LINH_VUC,
+  KHO_DA_NOI,
   LOAI_VAN_BAN,
   TINH_TRANG,
   goiYDongNghia,
@@ -25,7 +25,7 @@ import {
   timVanBanTheoSoHieu,
   type BoLoc,
   type KetQua,
-} from "@/lib/mock/vanban";
+} from "@/lib/van-ban";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/tra-cuu/")({
@@ -193,7 +193,7 @@ function ResultCard({ kq, query }: { kq: KetQua; query: string }) {
 
 type LocProps = {
   loc: BoLoc;
-  toggle: (key: "loai" | "coQuan" | "linhVuc" | "tinhTrang", v: string) => void;
+  toggle: (key: "loai" | "coQuan" | "tinhTrang", v: string) => void;
   setLoc: Dispatch<SetStateAction<BoLoc>>;
 };
 
@@ -211,12 +211,6 @@ function FilterBody({ loc, toggle, setLoc }: LocProps) {
               options={CO_QUAN}
               selected={loc.coQuan}
               onToggle={(v) => toggle("coQuan", v)}
-            />
-            <CheckList
-              title="Lĩnh vực"
-              options={LINH_VUC}
-              selected={loc.linhVuc}
-              onToggle={(v) => toggle("linhVuc", v)}
             />
             <CheckList
               title="Tình trạng hiệu lực"
@@ -276,7 +270,11 @@ function TraCuuPage() {
     loai: [],
     coQuan: [],
     linhVuc: [],
-    tinhTrang: ["Còn hiệu lực"],
+    // KHÔNG mặc định lọc "Còn hiệu lực". Cơ sở dữ liệu quốc gia gắn nhãn đó cho
+    // đúng bốn nghị định lương tối thiểu đã bị thay thế — những văn bản KLAW bắt
+    // được là sai. Bật sẵn bộ lọc này là giấu đi chính phát hiện trung tâm của
+    // hệ thống.
+    tinhTrang: [],
     namTu: NAM_MIN,
     namDen: NAM_MAX,
   });
@@ -303,16 +301,15 @@ function TraCuuPage() {
 
   const soVanBan = new Set(ketQua.map((k) => k.vb.soHieu)).size;
 
-  const toggle = (key: "loai" | "coQuan" | "linhVuc" | "tinhTrang", v: string) =>
+  const toggle = (key: "loai" | "coQuan" | "tinhTrang", v: string) =>
     setLoc((p) => ({
       ...p,
       [key]: p[key].includes(v) ? p[key].filter((x) => x !== v) : [...p[key], v],
     }));
 
-  const activeChips: { key: "loai" | "coQuan" | "linhVuc" | "tinhTrang"; v: string }[] = [
+  const activeChips: { key: "loai" | "coQuan" | "tinhTrang"; v: string }[] = [
     ...loc.loai.map((v) => ({ key: "loai" as const, v })),
     ...loc.coQuan.map((v) => ({ key: "coQuan" as const, v })),
-    ...loc.linhVuc.map((v) => ({ key: "linhVuc" as const, v })),
     ...loc.tinhTrang.map((v) => ({ key: "tinhTrang" as const, v })),
   ];
 
@@ -333,8 +330,8 @@ function TraCuuPage() {
   };
 
   return (
-    <AppShell active="/tra-cuu" topRight={<TrialMeter used={8} total={20} />}>
-      <MockDataBanner />
+    <AppShell active="/tra-cuu">
+      <ChuaNoiBanner />
       <div className="flex min-w-0 flex-1">
         {/* FILTER RAIL */}
         {railOpen ? (
@@ -499,17 +496,25 @@ function TraCuuPage() {
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
               <p className="text-[13px] text-muted-foreground">
-                Tìm thấy{" "}
-                <span className="font-medium text-foreground">
-                  {ketQua.length} điều khoản
-                </span>{" "}
-                trong{" "}
-                <span className="font-medium text-foreground">{soVanBan} văn bản</span>
-                {term && (
+                {KHO_DA_NOI ? (
                   <>
-                    {" "}
-                    cho “<span className="text-foreground">{term}</span>”
+                    Tìm thấy{" "}
+                    <span className="font-medium text-foreground">
+                      {ketQua.length} điều khoản
+                    </span>{" "}
+                    trong{" "}
+                    <span className="font-medium text-foreground">
+                      {soVanBan} văn bản
+                    </span>
+                    {term && (
+                      <>
+                        {" "}
+                        cho “<span className="text-foreground">{term}</span>”
+                      </>
+                    )}
                   </>
+                ) : (
+                  <>Kho văn bản chưa được nối</>
                 )}
               </p>
               <div className="flex items-center gap-1 rounded-full border border-border p-0.5">
@@ -532,12 +537,22 @@ function TraCuuPage() {
             </div>
 
             <div className="mt-4 flex flex-col gap-3 pb-16">
-              {ketQua.length === 0 && (
-                <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                  Không tìm thấy điều khoản phù hợp. Thử bỏ bớt bộ lọc hoặc dùng từ khoá
-                  ngắn hơn (ví dụ “thu viec”, “BLLĐ”, “NĐ 13/2023”).
-                </p>
-              )}
+              {ketQua.length === 0 &&
+                // "Không tìm thấy" và "chưa nối" là hai câu khác nhau, và nói
+                // nhầm câu thứ nhất khi đúng ra là câu thứ hai chính là kiểu
+                // giả lập mà pha này phải loại bỏ.
+                (KHO_DA_NOI ? (
+                  <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                    Không tìm thấy điều khoản phù hợp. Thử bỏ bớt bộ lọc hoặc
+                    dùng từ khoá ngắn hơn (ví dụ “thu viec”, “BLLĐ”).
+                  </p>
+                ) : (
+                  <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                    Chưa có kết quả nào để hiện: bản dựng này chưa nối vào kho
+                    văn bản của KLAW. Ô tìm kiếm, bộ lọc và cách sắp xếp vẫn thao
+                    tác được để xem trước giao diện.
+                  </p>
+                ))}
               {ketQua.map((kq, i) => (
                 <ResultCard
                   key={`${kq.vb.soHieu}-${kq.dieu.so}-${kq.khoan.so}-${i}`}

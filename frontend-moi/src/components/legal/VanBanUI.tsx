@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { boDau, moRongTruyVan, type TinhTrang } from "@/lib/mock/vanban";
+import { boDau, moRongTruyVan, type TinhTrang } from "@/lib/van-ban";
 
 const STATUS_STYLE: Record<TinhTrang, string> = {
   "Còn hiệu lực":
