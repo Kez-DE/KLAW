@@ -10,6 +10,7 @@
 import type {
   Citation,
   Finding,
+  Nguon,
   ResultType,
   SoanThaoRequest,
   SoanThaoResponse,
@@ -85,6 +86,14 @@ function isCitationArray(x: unknown): x is Citation[] {
   return Array.isArray(x) && x.every(isCitation);
 }
 
+function isNguon(x: unknown): x is Nguon {
+  if (!isRecord(x)) return false;
+  return isString(x.doc_id) && isString(x.so_ky_hieu) && isString(x.bo_luat);
+}
+function isNguonArray(x: unknown): x is Nguon[] {
+  return Array.isArray(x) && x.every(isNguon);
+}
+
 function isFinding(x: unknown): x is Finding {
   if (!isRecord(x)) return false;
   return (
@@ -108,6 +117,7 @@ function isTraCuuResponse(x: unknown): x is TraCuuResponse {
     RESULT_TYPES.includes(x.result_type as ResultType) &&
     isStringOrNull(x.answer) &&
     isCitationArray(x.citations) &&
+    isNguonArray(x.nguon) &&
     isStringArray(x.warnings) &&
     isStringOrNull(x.coverage_note) &&
     isString(x.trace_id) &&

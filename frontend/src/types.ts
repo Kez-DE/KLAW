@@ -41,6 +41,18 @@ export interface Citation {
   tin_cay: string | null;
 }
 
+/**
+ * Văn bản chi phối câu hỏi — KHÔNG phải trích dẫn đã kiểm chứng, không có quote.
+ * Chỉ `partial_coverage` điền. Nhánh đó luôn có `citations: []` theo thiết kế,
+ * nên đây là thứ DUY NHẤT cho phép mở được văn bản đang nói tới.
+ * Tuyệt đối không parse `coverage_note` để bịa link.
+ */
+export interface Nguon {
+  doc_id: string;
+  so_ky_hieu: string;
+  bo_luat: string;
+}
+
 export interface TraCuuRequest {
   /** 1..2000 ký tự. */
   query: string;
@@ -54,6 +66,7 @@ export interface TraCuuResponse {
   result_type: ResultType;
   answer: string | null;
   citations: Citation[];
+  nguon: Nguon[];
   warnings: string[];
   coverage_note: string | null;
   trace_id: string;

@@ -383,3 +383,30 @@ def test_citation_mang_doc_id_de_FE_mo_duoc_dieu_luat():
                    "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
                   db, FakeLlm(), "m")
     assert st["citations"][0]["doc_id"] == "139264"
+
+
+def test_partial_coverage_mang_nguon_co_doc_id_de_mo_duoc_van_ban():
+    # `partial_coverage` luôn có `citations: []` (đúng thiết kế: chưa kiểm chứng
+    # được thì không được dựng trích dẫn). Nhưng nếu response CHỈ có
+    # `coverage_note` dạng văn xuôi thì giao diện không mở nổi văn bản đang nói
+    # tới — người dùng nhận một ngõ cụt. FE không được phép parse chuỗi để bịa
+    # link. Nên nhánh này phải mang `nguon`: doc_id + so_ky_hieu, đủ để mở mục
+    # lục văn bản, KHÔNG kèm quote (chưa có gì được kiểm chứng để trích).
+    shallow = [
+        {"id": 5, "document_id": "84265", "duong_dan": "84/2015/QH13 > Điều 3",
+         "so_ky_hieu": "84/2015/QH13", "ten": "Luật An toàn, vệ sinh lao động"},
+        {"id": 6, "document_id": "84265", "duong_dan": "84/2015/QH13 > Điều 4",
+         "so_ky_hieu": "84/2015/QH13", "ten": "Luật An toàn, vệ sinh lao động"},
+    ]
+    st = assemble({"intent": "tra_cuu", "expanded": [], "hits_shallow": shallow}, DB, FakeLlm(), "m")
+    assert st["result_type"] is ResultType.partial_coverage
+    assert st["citations"] == [], "partial_coverage không được dựng trích dẫn chưa kiểm chứng"
+    assert st["nguon"] == [{"doc_id": "84265", "so_ky_hieu": "84/2015/QH13",
+                            "bo_luat": "Luật An toàn, vệ sinh lao động"}], (
+        "gộp theo doc_id — hai Điều cùng một văn bản là MỘT nguồn, không phải hai"
+    )
+
+
+def test_cac_nhanh_khac_co_nguon_rong():
+    st = assemble({"intent": "ngoai_pham_vi"}, DB, FakeLlm(), "m")
+    assert st["nguon"] == []

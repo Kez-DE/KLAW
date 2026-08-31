@@ -41,10 +41,26 @@ class CitationOut(BaseModel):
     tin_cay: str | None = None
 
 
+class NguonOut(BaseModel):
+    """Văn bản chi phối câu hỏi, KHÔNG phải trích dẫn đã kiểm chứng.
+
+    Chỉ `partial_coverage` điền. Nó tồn tại vì nhánh đó luôn có `citations: []`
+    theo thiết kế (chưa kiểm chứng được thì không dựng trích dẫn) — mà nếu
+    response chỉ còn `coverage_note` dạng văn xuôi thì giao diện không mở nổi
+    văn bản đang nói tới, và FE buộc phải parse chuỗi để bịa link. `doc_id` đủ
+    để mở mục lục qua `GET /van-ban/{doc_id}`.
+    """
+
+    doc_id: str
+    so_ky_hieu: str
+    bo_luat: str
+
+
 class TraCuuResponse(BaseModel):
     result_type: Literal["answer", "partial_coverage", "abstain", "out_of_scope"]
     answer: str | None
     citations: list[CitationOut]
+    nguon: list[NguonOut] = []
     warnings: list[str]
     coverage_note: str | None
     trace_id: str

@@ -121,6 +121,11 @@ def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: boo
         "result_type": rt,
         "answer": None,
         "citations": [],
+        # `nguon` KHÁC `citations`: citations là trích dẫn ĐÃ QUA hai tầng kiểm,
+        # nguon chỉ là "văn bản nào chi phối câu hỏi này" — đủ để mở mục lục,
+        # không kèm quote vì chưa có gì được kiểm chứng để trích. Chỉ nhánh
+        # `partial_coverage` điền; các nhánh khác giữ rỗng.
+        "nguon": [],
         "warnings": [],
         "coverage_note": None,
         "traces": {
@@ -255,7 +260,16 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
     if not deep and shallow:
         luat = sorted({f"{p['so_ky_hieu']} ({p.get('ten') or ''})".strip() for p in shallow})
         dieu = ", ".join(p["duong_dan"] for p in shallow[:3])
-        return _base(state, ResultType.partial_coverage, coverage_note=(
+        # Gộp theo doc_id: nhiều Điều của cùng một văn bản là MỘT nguồn. Không
+        # có doc_id thì bỏ qua dòng đó — thà thiếu một link còn hơn dựng một
+        # link hỏng, và giao diện đã có `coverage_note` nêu tên văn bản.
+        nguon: list[dict] = []
+        for p in shallow:
+            doc_id = str(p.get("document_id") or "")
+            if doc_id and not any(n["doc_id"] == doc_id for n in nguon):
+                nguon.append({"doc_id": doc_id, "so_ky_hieu": p.get("so_ky_hieu", ""),
+                              "bo_luat": p.get("ten") or ""})
+        return _base(state, ResultType.partial_coverage, nguon=nguon, coverage_note=(
             f"Câu hỏi thuộc {'; '.join(luat)} — liên quan {dieu}. "
             "KLAW phủ sâu 6 Bộ luật và các văn bản hướng dẫn về lao động; "
             "chưa phủ nghị định/thông tư hướng dẫn lĩnh vực này nên không diễn giải chi tiết."
