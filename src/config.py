@@ -133,6 +133,13 @@ class Settings(BaseSettings):
     # 7 ngày. 0 = TẮT — bắt buộc phải có: `eval/run.py` đo latency/chi phí thật
     # thì không được đo qua cache.
     cache_ttl_ngay: int = Field(default=7, ge=0, validation_alias="KLAW_CACHE_TTL_NGAY")
+    # 90 ngày: đủ dài để điều tra một sự cố hiệu năng hay chi phí bất thường
+    # (cửa sổ dài nhất từng cần trong phiên đo là vài ngày), đủ ngắn để không
+    # giữ câu hỏi GẮN TÊN của người dùng hàng năm trời. `0` = TẮT, theo đúng
+    # quy ước của các bộ đếm khác trong file này.
+    traces_an_danh_sau_ngay: int = Field(
+        default=90, ge=0, validation_alias="KLAW_TRACES_AN_DANH_SAU_NGAY"
+    )
 
     # ══ Auth Supabase (Plan 4b) ══════════════════════════════════════════════
     # Supabase chỉ làm AUTH (Google + Microsoft); dữ liệu ở lại Postgres này.

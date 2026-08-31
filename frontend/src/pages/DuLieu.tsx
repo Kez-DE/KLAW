@@ -25,7 +25,7 @@ const CAC_LUONG: Luong[] = [
   {
     man: 'Tra cứu',
     gui: 'Câu hỏi bạn gõ được gửi tới OpenRouter (nhà cung cấp mô hình, hạ tầng ngoài Việt Nam) để xử lý.',
-    luu: 'Câu hỏi được lưu trong bảng traces. Hiện CHƯA CÓ thời hạn lưu trữ. Câu trả lời được cache 7 ngày.',
+    luu: 'Câu hỏi được lưu trong bảng traces và tự động ẩn danh sau 90 ngày — nội dung câu hỏi và định danh người dùng bị bỏ, chỉ giữ số đo (chi phí, độ trễ, loại kết quả). Câu trả lời được cache 7 ngày.',
   },
   {
     man: 'Soạn thảo',
@@ -41,7 +41,7 @@ const CAC_LUONG: Luong[] = [
 ];
 
 const CHUA_CO = [
-  'Thời hạn lưu trữ cho bảng traces. Câu hỏi ở màn Tra cứu hiện được giữ vô thời hạn.',
+  'Bộ hẹn giờ tự động gọi việc ẩn danh 90 ngày. Cơ chế đã có và chạy được, nhưng hiện phải chạy tay — sẽ nối vào lịch lúc triển khai.',
   'Chính sách bảo vệ dữ liệu cá nhân chính thức, đã qua pháp chế.',
   'Quy trình để bạn yêu cầu xem, sửa, hoặc xoá dữ liệu của mình.',
   'Đăng nhập. Khi có, nó sẽ chạy qua Supabase — cũng là hạ tầng ngoài Việt Nam.',
