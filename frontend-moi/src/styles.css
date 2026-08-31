@@ -56,8 +56,14 @@
   --destructive: oklch(0.58 0.2 27);
   --destructive-foreground: oklch(0.985 0.008 100);
   --border: oklch(0.915 0.014 250);
-  --input: oklch(0.915 0.014 250);
-  --ring: oklch(0.7 0.1 90);
+  /* Ranh giới Ô NHẬP, không phải đường kẻ trang trí: WCAG 1.4.11 đòi 3:1 cho
+     ranh giới nào là cách DUY NHẤT nhận ra một control. Tách khỏi --border
+     (1,23:1) thay vì làm đậm mọi đường kẻ trong ứng dụng. Đo: 3,00:1 trên
+     --background, 3,13:1 trên --card. */
+  --input: oklch(0.658 0.014 250);
+  /* Vòng tiêu điểm: 3,20:1 trên --background, 3,00:1 trên --color-paper-100
+     (trước: 2,56:1 — trượt 1.4.11). Giữ nguyên hue vàng đồng, chỉ hạ L. */
+  --ring: oklch(0.642 0.1 90);
 }
 
 
@@ -403,10 +409,14 @@
   --color-ink-900: oklch(0.33 0.062 256);
   --color-ink-800: oklch(0.4 0.07 256);
   --color-ink-700: oklch(0.48 0.072 256);
-  --color-brass-600: oklch(0.66 0.115 80);
+  /* brass-600 là màu CHỮ (nhãn, liên kết, chip) — trước: 3,15:1 trên --card
+     và 2,83:1 trên --color-paper-100, trượt cả ngưỡng chữ 4,5 lẫn ngưỡng UI 3.
+     Sau: 5,35:1 trên --card, 4,81:1 trên --color-paper-100, 4,43:1 khi nằm
+     trên chính nó pha 10%. Giữ hue 80, chỉ hạ L. */
+  --color-brass-600: oklch(0.53 0.11 80);
+  /* 500 và 400 là NỀN/VIỀN, không bao giờ làm chữ — giữ nguyên. */
   --color-brass-500: oklch(0.78 0.118 85);
   --color-brass-400: oklch(0.87 0.1 90);
-  --color-status-expired: oklch(0.62 0.17 32);
 }
 
 @keyframes brass-drift {
@@ -450,9 +460,39 @@
   --color-paper-50: oklch(0.987 0.008 95);
   --color-paper-100: oklch(0.963 0.014 92);
   --color-paper-200: oklch(0.932 0.018 90);
-  --color-status-active: oklch(0.58 0.11 160);
-  --color-status-partial: oklch(0.74 0.13 78);
   --font-doc: "Source Serif 4", "Noto Serif", Georgia, serif;
+}
+
+/* ---------- Bốn màu hiệu lực ----------
+ *
+ * Ràng buộc KÉP, và cả hai đều bắt buộc:
+ *   (a) mỗi màu >= 4,5:1 khi làm CHỮ trên --card, --background, --color-paper-50
+ *       và --color-paper-100 — kể cả khi nền badge pha 10% chính màu đó;
+ *   (b) hai màu bất kỳ tách nhau >= 1,35:1 về độ sáng, để ảnh xám và mắt người
+ *       mù màu vẫn phân biệt được.
+ *
+ * Bộ cũ trượt cả hai: active 4,05 · partial 2,34 · expired 3,93, và
+ * active vs expired chỉ 1,03:1 — "còn hiệu lực" và "hết hiệu lực" TRÙNG độ
+ * sáng, tức hai trạng thái đối lập nhất trong sản phẩm trông y hệt nhau.
+ *
+ * Ép cả ba lên đúng 4,5 thì chúng bằng nhau về độ sáng (1,00:1) — sửa xong (a)
+ * lại làm hỏng (b). Bộ dưới đây giữ nguyên hue, chỉ hạ L (và hạ C xuống đúng
+ * biên sRGB để trình duyệt không phải tự ánh xạ gam, làm số đo trôi).
+ *
+ * Số đo do scripts/do-tuong-phan.py tính từ chính các chuỗi oklch() này.
+ * Sửa một dòng ở đây mà không chạy lại script thì self-check của script gãy. */
+@theme {
+  /* 7,64:1 trên --card · 6,87:1 trên paper-100 */
+  --color-status-active: oklch(0.432 0.098 160);
+  /* 13,97:1 trên --card · 12,56:1 trên paper-100 */
+  --color-status-partial: oklch(0.295 0.063 78);
+  /* 10,32:1 trên --card · 9,28:1 trên paper-100 */
+  --color-status-expired: oklch(0.39 0.149 32);
+  /* TRUNG TÍNH — abstain, can_doi_chieu_tay, "chưa nối".
+     abstain là hành vi ĐÚNG và được tính điểm: nó không bao giờ được mang màu
+     cảnh báo. Bằng đúng --muted-foreground, tham chiếu chứ không chép lại, để
+     hai giá trị không thể trôi khỏi nhau. 5,49:1 trên --card. */
+  --color-status-neutral: var(--muted-foreground);
 }
 
 .doc-prose {

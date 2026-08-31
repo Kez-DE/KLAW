@@ -57,10 +57,11 @@ Token nguồn ở `frontend-moi/src/styles.css`. Cột HEX và cột tỉ lệ d
 | `--primary` | `0.38 0.085 255` | `#20436E` | mực sapphire: tiêu đề, nút chính |
 | `--secondary` | `0.955 0.018 250` | `#E7F1FC` | nền phụ lạnh |
 | `--muted-foreground` | `0.52 0.032 255` | `#5D6A7C` | chú thích, nhãn phụ |
-| `--border` / `--input` | `0.915 0.014 250` | `#DCE4EC` | đường viền |
+| `--border` | `0.915 0.014 250` | `#DCE4EC` | đường kẻ **trang trí** |
+| `--input` | `0.658 0.014 250` | `#8B929A` | ranh giới **ô nhập** — 3,00:1 |
 | `--accent` | `0.83 0.115 88` | `#E6C36B` | vàng đồng, nền đặc |
 | `--accent-foreground` | `0.3 0.05 70` | `#3E290F` | chữ trên nền accent |
-| `--ring` | `0.7 0.1 90` | `#B79C51` | vòng tiêu điểm |
+| `--ring` | `0.642 0.1 90` | `#A48A3E` | vòng tiêu điểm — 3,20:1 |
 | `--destructive` | `0.58 0.2 27` | `#D73431` | lỗi hệ thống (không phải hiệu lực) |
 
 ### Giấy và mực đậm (dùng trong màn ứng dụng)
@@ -72,18 +73,22 @@ Token nguồn ở `frontend-moi/src/styles.css`. Cột HEX và cột tỉ lệ d
 | `--color-paper-200` | `#EDE8DB` | nhấn |
 | `--color-ink-950` | `#13243C` | chữ trên nền brass đặc |
 | `--color-ink-900` | `#1F3655` | bong bóng người dùng |
-| `--color-brass-600` | `#B78934` | accent làm **chữ** |
+| `--color-brass-600` | `#8D6300` | accent làm **chữ** — 5,35:1 trên `--card` |
 | `--color-brass-500` | `#DAB157` | accent làm **nền/viền** |
 | `--color-brass-400` | `#EBD5A0` | accent nhạt |
 
 ### Màu trạng thái hiệu lực
 
-| Token | HEX | Nhãn KLAW được gán |
-|---|---|---|
-| `--color-status-active` | `#308E63` | `con_hieu_luc` |
-| `--color-status-partial` | `#D7A03D` | `mot_phan_khong_xac_dinh` |
-| `--color-status-expired` | `#D9553F` | `het_hieu_luc` |
-| *(chưa có)* | — | `bi_thay_the`, `bi_sua_doi`, `can_doi_chieu_tay`, `abstain` |
+Bốn màu, **sáu nhãn**. Không phải mỗi nhãn một màu: xem "Bốn màu cho sáu nhãn"
+bên dưới để biết vì sao màu thứ năm là bất khả thi về số đo, và cái gì gánh
+phần phân biệt thay cho nó.
+
+| Token | oklch | HEX | Trên `--card` | Nhãn KLAW được gán |
+|---|---|---|---|---|
+| `--color-status-active` | `0.432 0.098 160` | `#00603D` | 7,64:1 | `con_hieu_luc` |
+| `--color-status-partial` | `0.295 0.063 78` | `#3E2800` | 13,97:1 | `mot_phan_khong_xac_dinh` · `bi_sua_doi` |
+| `--color-status-expired` | `0.39 0.149 32` | `#821100` | 10,32:1 | `het_hieu_luc` · `bi_thay_the` |
+| `--color-status-neutral` | `= --muted-foreground` | `#5D6A7C` | 5,49:1 | `can_doi_chieu_tay` · `abstain` |
 
 ---
 
@@ -110,52 +115,82 @@ này. Quy tắc bản cũ đặt ra và bản này giữ nguyên:
 | `--color-ink-950` trên nút `--color-brass-500` đặc | **7,72:1** |
 | `--destructive` trên `--background` | **4,54:1** |
 
-### Chưa đạt — nợ đã đo, phải trả ở pha dựng lại nhãn hiệu lực
+### Đã sửa ở pha 5 — trước / sau
 
-| Cặp | Tỉ lệ | Ngưỡng | Ghi chú |
+| Cặp | Trước | Sau | Ngưỡng |
 |---|---|---|---|
-| `--color-brass-600` làm chữ trên `--card` | **3,15:1** | 4,5 | dùng làm chữ ở rất nhiều nơi |
-| `--color-brass-600` trên `--color-paper-100` | **2,83:1** | 4,5 | trượt cả ngưỡng UI 3:1 |
-| `--color-brass-500` làm chữ trên `--background` | **1,93:1** | 4,5 | chỉ được dùng làm nền/viền |
-| `--color-status-active` làm chữ trên `--card` | **4,05:1** | 4,5 | |
-| `--color-status-partial` làm chữ trên `--card` | **2,34:1** | 4,5 | tệ nhất trong ba |
-| `--color-status-expired` làm chữ trên `--card` | **3,93:1** | 4,5 | |
-| `--ring` trên `--background` | **2,56:1** | 3,0 (WCAG 1.4.11) | vòng tiêu điểm |
-| `--border` trên `--background` | **1,23:1** | 3,0 khi là ranh giới ô nhập | `--input` dùng chung giá trị |
+| `--color-status-active` làm chữ trên `--card` | 4,05:1 | **7,64:1** | 4,5 |
+| `--color-status-partial` làm chữ trên `--card` | 2,34:1 | **13,97:1** | 4,5 |
+| `--color-status-expired` làm chữ trên `--card` | 3,93:1 | **10,32:1** | 4,5 |
+| `--color-brass-600` làm chữ trên `--card` | 3,15:1 | **5,35:1** | 4,5 |
+| `--color-brass-600` trên `--color-paper-100` | 2,83:1 | **4,81:1** | 4,5 |
+| `--ring` trên `--background` | 2,56:1 | **3,20:1** | 3,0 |
+| `--ring` trên `--color-paper-100` | 2,40:1 | **3,00:1** | 3,0 |
+| `--input` trên `--background` | 1,23:1 | **3,00:1** | 3,0 |
 
-### Tách độ sáng — chỗ hỏng nặng nhất
+Nền badge pha 10% chính màu chữ là mặt **tệ nhất** một nhãn phải đứng lên, nên
+nó được đo riêng: active **6,28:1** · partial **11,41:1** · expired **8,45:1** ·
+neutral **4,55:1** — cả bốn vẫn qua 4,5.
+
+### Còn để nguyên, có lý do
+
+| Cặp | Tỉ lệ | Vì sao không sửa |
+|---|---|---|
+| `--color-brass-500` làm chữ trên `--background` | 1,93:1 | nó **không phải** màu chữ; chỉ nền/viền. Sửa nó là hợp thức hoá một cách dùng sai |
+| `--border` trên `--background` | 1,23:1 | đường kẻ **trang trí**. WCAG 1.4.11 chỉ đòi 3:1 khi đường viền là cách DUY NHẤT nhận ra một control — nên `--input` tách ra và được sửa, còn đường kẻ thẻ giữ nguyên |
+
+### Tách độ sáng — chỗ hỏng nặng nhất, đã đóng
 
 Bản cũ coi **1,07:1** giữa `--do-thay` và `--xam-cho` là một khiếm khuyết và đã
-sửa lên 1,44:1. Bảng màu `Klaw_FE` tệ hơn hẳn ở đúng cặp nguy hiểm nhất:
+sửa lên 1,44:1. Bảng màu `Klaw_FE` tệ hơn hẳn ở đúng cặp nguy hiểm nhất, và pha
+5 sửa nó:
 
-| Cặp | Tách độ sáng |
-|---|---|
-| `status-active` vs `status-expired` | **1,03:1** |
-| `status-active` vs `muted-foreground` | 1,35:1 |
-| `status-expired` vs `muted-foreground` | 1,40:1 |
-| `status-partial` vs `status-expired` | 1,68:1 |
-| `status-active` vs `status-partial` | 1,73:1 |
+| Cặp | Trước | Sau |
+|---|---|---|
+| `status-active` vs `status-expired` | **1,03:1** | **1,35:1** |
+| `status-active` vs `status-neutral` | 1,35:1 | 1,39:1 |
+| `status-expired` vs `status-neutral` | 1,40:1 | 1,88:1 |
+| `status-partial` vs `status-expired` | 1,68:1 | 1,35:1 |
+| `status-active` vs `status-partial` | 1,73:1 | 1,83:1 |
+| `status-partial` vs `status-neutral` | — | 2,54:1 |
 
 **1,03:1 nghĩa là trong ảnh xám, "còn hiệu lực" và "hết hiệu lực" trông y hệt
 nhau** — hai trạng thái đối lập nhất trong sản phẩm. Với người mù màu
 deuteranopia, xanh 160° và đỏ 32° đều ngả vàng nâu, nên hue cũng không cứu được.
 
-### Bộ giá trị đã tính, đề xuất cho pha dựng lại
+### Cách tìm ra bộ số
 
-Ràng buộc kép: mỗi màu ≥ 4,5:1 làm chữ trên `--card`, **và** tách nhau ≥ 1,3:1.
-Ép cả ba xuống đúng 4,5:1 thì chúng bằng nhau về độ sáng (1,00:1) — tức là sửa
-xong AA lại làm hỏng tách xám. Bộ dưới đây thoả cả hai, giữ nguyên hue và
-chroma, chỉ hạ `L`:
+Ràng buộc kép: mỗi màu ≥ 4,5:1 làm chữ trên `--card`, `--background`,
+`--color-paper-50`, `--color-paper-100` **và** trên nền badge pha 10% chính nó;
+đồng thời hai màu bất kỳ tách nhau ≥ 1,35:1. Ép cả ba xuống đúng 4,5:1 thì chúng
+bằng nhau về độ sáng (1,00:1) — sửa xong AA lại làm hỏng tách xám.
 
-| Token | oklch đề xuất | HEX | Trên `--card` |
-|---|---|---|---|
-| `--color-status-active` | `0.432 0.11 160` | `#00623A` | 7,48:1 |
-| `--color-status-partial` | `0.30 0.13 78` | `#4F1E00` | 13,79:1 |
-| `--color-status-expired` | `0.39 0.17 32` | `#890000` | 10,13:1 |
-| `--color-status-neutral` | `0.52 0.032 255` | `#5D6A7C` | 5,49:1 |
+Bộ đang chạy giữ nguyên hue, chỉ hạ `L`, và hạ `C` xuống **đúng biên sRGB**.
+Điểm cuối đó không có trong bản đề xuất pha 0 và là một sửa lỗi thật: ba trong
+bốn giá trị đề xuất nằm **ngoài gam sRGB**, nên trình duyệt tự ánh xạ gam theo
+CSS Color 4 (giảm chroma, **giữ** L) trong khi script đo lại kẹp từng kênh —
+hai phép khác nhau, tức con số trong tài liệu sẽ không phải con số trên màn
+hình. Hạ `C` vào trong gam làm hai phép trùng nhau.
 
-Tách độ sáng nhỏ nhất giữa bốn màu: **1,35:1**. Đây là **đề xuất đã đo**, chưa
-áp dụng — pha 0 không render nhãn hiệu lực nào, nên áp dụng bây giờ là sửa mù.
+### Bốn màu cho sáu nhãn — vì sao không phải sáu
+
+Màu thứ năm là **bất khả thi về số đo**, không phải lười. Trên `--card`, ngưỡng
+4,5:1 chặn độ sáng tối đa ở `Y+0,05 = 0,2333`; đen tuyệt đối cho `0,05`. Toàn bộ
+dải khả dụng vì thế chỉ rộng **4,67:1**. Năm màu tách nhau ≥ 1,35 cần
+`1,35⁴ = 3,32` — vừa lọt, nhưng buộc màu tối nhất xuống ~**14,9:1**, tức đậm
+ngang `--foreground` (15,5:1). Một "màu trạng thái" trông y hệt chữ thân thì
+không còn là tín hiệu.
+
+Nên bốn màu, và **hình + chữ** gánh phần còn lại: hai nhãn dùng chung `expired`
+khác nhau ở chữ (*"Đã bị thay thế"* nêu đích danh văn bản thay thế, *"Hết hiệu
+lực"* thì không); hai nhãn dùng chung `partial` khác nhau ở chữ và ở **độ tin
+cậy nói ra** (*"Đã bị sửa đổi"* biết đích danh điều khoản và ngày; *"Một phần
+không xác định"* nói thẳng là không biết).
+
+Cái giá đã đo và ghi ra: `status-partial` cách `--foreground` chỉ **1,11:1** —
+trong ảnh xám nó gần như là chữ thân. Đó là hệ quả bắt buộc của việc kéo một
+hue vàng 78° lên 4,5:1. Nhãn `partial` vì thế **luôn** có viền và chữ, không bao
+giờ chỉ một chấm màu.
 
 **Bất biến không được nới, kể cả khi số đo tốt lên: không trạng thái nào được
 truyền đạt chỉ bằng màu.** Hình và chữ mang nghĩa; màu chỉ nhắc lại.
