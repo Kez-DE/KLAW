@@ -5,9 +5,46 @@ endpoint khác (`/soan-thao`, `/soat` — Task 5) dùng lại được thay vì
 copy-paste. Di chuyển nguyên khối, KHÔNG đổi hành vi, cột, hay thời điểm gọi.
 """
 
+import hashlib
+
 from sqlalchemy import text
 
+from src.agents.nodes.verify_tier1 import normalize
 from src.services.db import get_engine
+
+# ══ `/soat` — DẤU của tài liệu, không phải tài liệu ═════════════════════════
+
+
+def dau_van_ban(van_ban: str, so_clause: int) -> str:
+    """Thứ được ghi vào `traces.query` cho `/soat`, thay cho toàn văn tài liệu.
+
+    Hai endpoint, hai loại dữ liệu khác nhau, nên hai cách xử lý khác nhau:
+
+    * `/tra-cuu.query` là CÂU NGƯỜI DÙNG HỎI — dữ liệu của chính họ, ngắn (đo
+      trên DB: max 96 ký tự, trung bình 39), và eval cần nguyên văn. GIỮ.
+    * `/soat.text` là TÀI LIỆU của người dùng, và dữ liệu cá nhân trong đó
+      thường thuộc về NGƯỜI THỨ BA: người lao động có tên trong hợp đồng, số
+      CCCD của họ, mức lương của họ. Người đó chưa từng dùng KLAW và chưa đồng ý
+      gì cả — không ô checkbox nào trên giao diện xin phép được thay cho họ.
+      Đo trước khi sửa: 30 dòng, `max(length(query))` = 2.000.000 ký tự, trung
+      bình 66.793. KHÔNG LƯU.
+
+    Ba đại lượng dưới đây là đủ cho mọi thứ số liệu cần, và không một ký tự nội
+    dung nào:
+
+    * `sha256` của dạng đã chuẩn hoá — nhận ra hai lần soát CÙNG một tài liệu
+      (đo trùng lặp, và là khoá dùng được nếu sau này cache `/soat`). Chuẩn hoá
+      bằng CHÍNH `verify_tier1.normalize`, không viết hàm thứ hai.
+    * `len` — độ dài THÔ (không phải sau chuẩn hoá): nó trả lời "người dùng dán
+      vào bao lớn", tức đại lượng gắn với `latency_ms`.
+    * `clauses` — số Điều `extract_clauses` tách được, đại lượng còn lại giải
+      thích được độ trễ.
+
+    Hash là một chiều: không có đường nào từ dấu này về lại tài liệu.
+    """
+    h = hashlib.sha256(normalize(van_ban).encode("utf-8")).hexdigest()
+    return f"soat sha256={h} len={len(van_ban)} clauses={so_clause}"
+
 
 # ══ Quy ước cộng dồn traces (task-10, yêu cầu #3) ═══════════════════════════
 # 5 điểm gọi LLM trong pipeline — route, rewrite_query, generate_claims (khoá

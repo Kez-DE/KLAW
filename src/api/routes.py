@@ -44,7 +44,7 @@ from src.services.db import get_engine
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
 
 # _tong_hop_traces re-exported here: test_tra_cuu.py imports it from routes, not services.traces.
-from src.services.traces import _ghi_traces, _tong_hop_traces  # noqa: F401
+from src.services.traces import _ghi_traces, _tong_hop_traces, dau_van_ban  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -605,7 +605,17 @@ async def soat(req: SoatRequest) -> SoatResponse:
 
     config_name = get_settings().eval_config_name
     try:
-        await run_in_threadpool(_ghi_traces, trace_id, "/api/v1/soat", req.text, config_name, st, latency_ms)
+        # `dau_van_ban(...)`, KHÔNG `req.text`: tài liệu người dùng dán vào
+        # thường chứa dữ liệu cá nhân của NGƯỜI THỨ BA (người lao động có tên
+        # trong hợp đồng) — người chưa từng dùng KLAW và chưa đồng ý gì cả. Dấu
+        # (hash + độ dài + số clause) đủ cho mọi số liệu mà không giữ nội dung.
+        # Xem docstring `dau_van_ban`; `/tra-cuu` cố ý GIỮ nguyên văn `query`,
+        # vì ở đó đó là câu hỏi ngắn của chính người dùng và eval cần nó.
+        await run_in_threadpool(
+            _ghi_traces, trace_id, "/api/v1/soat",
+            dau_van_ban(req.text, len(st.get("clauses") or [])),
+            config_name, st, latency_ms,
+        )
     except Exception:
         logger.exception("soat: ghi traces thất bại (trace_id=%s) — KHÔNG chặn response", trace_id)
 
