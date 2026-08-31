@@ -63,14 +63,35 @@ MOJ đều chỉ có PDF scan, không có toàn văn máy đọc được). Hệ
 gốc** và **đúng nguyên văn**, **không** bảo đảm **là bản hiện hành**.
 
 Cơ sở dữ liệu quốc gia đánh **bốn** nghị định lương tối thiểu đã bị thay thế là "còn
-hiệu lực"; KLAW phát hiện và sửa cả bốn. Mỗi trích dẫn mang nhãn hiệu lực, và nhãn đó
+hiệu lực"; KLAW phát hiện và sửa cả bốn.
+
+**Cập nhật 2026-09-01 — giới hạn cấp điều khoản đã lùi một bước.** Trước đây tài
+liệu này ghi "CSDL quốc gia không công bố dữ liệu cấp điều khoản" như một ranh
+giới tuyệt đối. Đúng với API MOJ (`referenceProvisions` khác null: **0/272**),
+nhưng **không** đúng với Công báo: `congbao.chinhphu.vn` phát hành văn bản hợp
+nhất dạng `.docx` gốc, trong đó `<w:footnoteReference>` nằm trong chính đoạn văn
+là khoản bị sửa — neo **cấu trúc**, không phải suy diễn ngữ nghĩa.
+
+Đã chạy thật trên `18/VBHN-VPQH` (Bộ luật Lao động): **4/4 điểm sửa giải được, 0
+cần đối chiếu tay**, 3,67 giây, **0 token**. Ví dụ đo được: `Điều 139 > Khoản 1`
+đi từ *"không xác định được"* thành *"bị sửa bởi khoản 1 Điều 29 của
+113/2025/QH15 từ 01/7/2026"*. Khoản 2 kề bên **không** thừa hưởng nhãn — chỉ
+khoản thật sự bị sửa mới mang nó.
+
+**Giới hạn của chính cải tiến này, nói rõ:** chỉ áp dụng cho văn bản **có** bản
+hợp nhất trên Công báo (~2.900 VBHN tồn tại, hiện mới nạp **một**). Và hệ thống
+nay nói đúng rằng câu trả lời **không còn hiện hành** — nhưng vẫn **chưa nói được
+câu trả lời hiện hành là gì**, vì `113/2025/QH15` và `124/2025/QH15` chưa nằm
+trong corpus. Corpus vẫn là **văn bản gốc**; bản hợp nhất chỉ dùng để suy ra bản
+đồ sửa đổi, không thay thế nguyên văn. Mỗi trích dẫn mang nhãn hiệu lực, và nhãn đó
 phải **thấy được**, không nằm trong metadata.
 
 | Nhãn | Ý nghĩa |
 |---|---|
 | `con_hieu_luc` | còn hiệu lực |
 | `bi_thay_the` / `het_hieu_luc` | đã bị thay thế — kèm tên văn bản thay thế |
-| `mot_phan_khong_xac_dinh` | bị sửa một phần; CSDL quốc gia không công bố dữ liệu cấp điều khoản nên không xác định được điều này còn hiệu lực hay không |
+| `mot_phan_khong_xac_dinh` | bị sửa một phần; **chưa** xác định được điều này còn hiệu lực hay không |
+| `bi_sua_doi` | bị sửa một phần, và **biết đích danh** điều khoản nào, bởi văn bản nào, từ ngày nào |
 | `can_doi_chieu_tay` | cần người đối chiếu |
 
 ## Phạm vi corpus
