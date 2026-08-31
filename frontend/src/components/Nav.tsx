@@ -16,9 +16,16 @@ const MUC_DIEU_HUONG: MucDieuHuong[] = [
   { duongDan: '/soat', nhan: 'Soát', Bieu: IconSoat },
 ];
 
-export function Nav() {
+interface NavProps {
+  /** Bật khi có panel modal đang mở. App.tsx là nơi DUY NHẤT quyết định điều
+   *  này (xem `usePanelDangMo` ở đó): vỏ chung phải ngừng nhận tiêu điểm, nếu
+   *  không lời khai `aria-modal` của panel là một lời khai sai. */
+  inert?: boolean;
+}
+
+export function Nav({ inert = false }: NavProps) {
   return (
-    <nav aria-label="Điều hướng chính" className="border-b border-nen bg-nen-cao">
+    <nav inert={inert} aria-label="Điều hướng chính" className="border-b border-nen bg-nen-cao">
       <div className="mx-auto flex max-w-3xl items-center gap-3 px-2">
         {/* Tuyến "/" giờ là trang giới thiệu (site-spec.md), nên chữ hiệu dẫn
             về đó — không còn trùng đích với tab nào trong bảng tuyến. */}

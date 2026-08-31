@@ -48,6 +48,19 @@ body {
   font-family: var(--font-dia-chi);
 }
 
+/* Lưới an toàn của focus-reset (lib/useTieuDeTrang.ts): khi một tuyến chưa kịp
+   dựng h1 trong 1 giây, tiêu điểm rơi về chính <main>. Không có vòng tiêu điểm
+   ở đó thì người dùng bàn phím CÓ MẮT không biết mình đang đứng đâu sau khi
+   chuyển tuyến — đo được `outline-style: none`, vi phạm WCAG 2.4.7 (AA).
+
+   `:focus` chứ không `:focus-visible`: tiêu điểm ở đây do script đặt ngay sau
+   một cú bấm chuột vào Nav, và một số trình duyệt KHÔNG coi đó là "visible".
+   Offset ÂM để vòng nằm bên trong: <main> chiếm trọn bề ngang khung nhìn. */
+#noi-dung-chinh:focus {
+  outline: 2px solid var(--den-sang);
+  outline-offset: -4px;
+}
+
 /* Bỏ qua để tới nội dung chính — WCAG 2.4.1, ẩn tới khi được focus bằng bàn phím. */
 .bo-qua-lien-ket {
   position: fixed;

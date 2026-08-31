@@ -18,9 +18,16 @@ const MUC_CHAN: MucChan[] = [
   { duongDan: '/mien-tru', nhan: 'Miễn trừ trách nhiệm' },
 ];
 
-export function Footer() {
+interface FooterProps {
+  /** Bật khi có panel modal đang mở — xem `usePanelDangMo` trong App.tsx.
+   *  Chân trang nằm NGAY DƯỚI lớp phủ của panel ở bố cục một cột; để nó nhận
+   *  tiêu điểm là mở đường cho một cú Enter làm mất trắng cả lượt tra cứu. */
+  inert?: boolean;
+}
+
+export function Footer({ inert = false }: FooterProps) {
   return (
-    <footer className="border-t border-vien bg-nen-cao">
+    <footer inert={inert} className="border-t border-vien bg-nen-cao">
       <div className="mat-doc mx-auto flex max-w-[64rem] flex-col gap-4 px-4 py-6 text-muc-nhat sm:flex-row sm:items-center sm:justify-between">
         <p className="m-0 max-w-[38ch] text-[0.875rem]">
           KLAW tra cứu pháp luật lao động Việt Nam — mọi câu trả lời đều neo vào một trích dẫn

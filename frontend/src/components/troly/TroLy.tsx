@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { KeyboardEvent } from 'react';
+import '../../styles/tro-ly.css';
 
 /**
  * Trợ lý — NGƯỜI VẬN HÀNH MÁY, không phải bong bóng chat biết tuốt.
@@ -73,7 +74,13 @@ function ghiThuGon(thuGon: boolean): void {
   }
 }
 
-export function TroLy() {
+interface TroLyProps {
+  /** Bật khi có panel modal đang mở — xem `usePanelDangMo` trong App.tsx.
+   *  Trợ lý nổi trên mọi tuyến nên nó cũng nằm ngoài `inert` cấp trang. */
+  inert?: boolean;
+}
+
+export function TroLy({ inert = false }: TroLyProps) {
   // Đọc MỘT LẦN lúc dựng. Không có effect nào ghi ngược lại state này, nên
   // không tồn tại đường nào để trợ lý tự bật lại sau khi người dùng thu gọn.
   const [mo, datMo] = useState(() => !docThuGon());
@@ -99,7 +106,7 @@ export function TroLy() {
   }, []);
 
   return (
-    <div className="tl" onKeyDown={khiGoPhim}>
+    <div inert={inert} className="tl" onKeyDown={khiGoPhim}>
       <div id={ID_BANG} hidden={!mo} className="tl-bang" role="group" aria-label="Trợ lý KLAW">
         <h2 className="text-base leading-6 font-medium text-phim">Bạn cần tra điều gì?</h2>
         <p className="mt-2 text-[0.875rem] leading-6 text-muc-nhat">

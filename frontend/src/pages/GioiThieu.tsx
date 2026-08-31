@@ -3,7 +3,6 @@ import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CoMay } from '../components/gioi-thieu/CoMay';
 import { PhamViThat } from '../components/gioi-thieu/PhamViThat';
-import { TroLy } from '../components/troly/TroLy';
 import '../styles/gioi-thieu.css';
 
 /**
@@ -211,8 +210,6 @@ export default function GioiThieu() {
           </Link>
         </p>
       </section>
-
-      <TroLy />
     </div>
   );
 }

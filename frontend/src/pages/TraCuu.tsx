@@ -178,6 +178,19 @@ export default function TraCuu() {
 
   return (
     <div className="mx-auto w-full max-w-[104rem] px-4 py-6">
+      {/* Tuyến dùng nhiều nhất, và là tuyến DUY NHẤT từng không có h1 nào:
+          điều hướng theo heading (phím H của trình đọc màn hình) không có gì
+          để nhảy tới, và focus-reset sau mỗi lượt chuyển tuyến rơi về <main>.
+
+          Ẩn trực quan chứ không bỏ đi: DESIGN.md đặt ô hỏi ở giữa màn hình
+          trống làm điểm nhìn đầu tiên, một tiêu đề in đậm phía trên sẽ tranh
+          mất chỗ đó. `focus:not-sr-only` cho nó hiện ra ĐÚNG lúc nó nhận tiêu
+          điểm — cùng cách liên kết "Bỏ qua để tới nội dung chính" đang làm —
+          nên người dùng bàn phím vẫn thấy mình đang đứng ở đâu (WCAG 2.4.7). */}
+      <h1 className="mat-doc sr-only text-[1.5rem] leading-9 font-medium text-phim focus:not-sr-only focus:mb-4 focus:outline-2 focus:outline-offset-4 focus:outline-den-sang">
+        Tra cứu pháp luật
+      </h1>
+
       {!daBatDau && (
         <div className="grid min-h-[60svh] place-items-center">
           <div className="w-full max-w-[46rem]">

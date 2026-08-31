@@ -36,8 +36,51 @@ interface TrangThaiChoProps {
   onHuy: () => void;
 }
 
+/**
+ * Số khung hình chờ trước khi bỏ cuộc. Ô hỏi của màn Soát/Soạn thảo mang
+ * `disabled` trong lúc chạy, và React bỏ cờ đó ở một lượt commit KHÁC lượt
+ * huỷ — `focus()` gọi sớm một khung hình sẽ im lặng không làm gì (đã đo: tiêu
+ * điểm đứng nguyên tại chỗ cũ). Có trần rõ ràng, không có vòng lặp vô hạn.
+ */
+const SO_KHUNG_CHO_O_HOI = 5;
+
+/**
+ * Trả tiêu điểm về ô hỏi của màn hình đang mở.
+ *
+ * Tra ô hỏi SAU khi DOM đã cập nhật, không bắt tham chiếu từ trước: huỷ khi
+ * chưa có kết quả nào đưa màn Tra cứu về bố cục ô-hỏi-giữa-màn-hình, tức React
+ * thay hẳn nút DOM của ô hỏi, và `focus()` trên nút đã rời cây im lặng không
+ * làm gì. `textarea` trước `input` vì ở màn Soát các nút chọn loại văn bản
+ * đứng trước ô dán văn bản trong DOM.
+ */
+function traTieuDiemVeOHoi(conLai = SO_KHUNG_CHO_O_HOI): void {
+  requestAnimationFrame(() => {
+    const chinh = document.getElementById('noi-dung-chinh');
+    const oHoi =
+      chinh?.querySelector<HTMLElement>('textarea') ?? chinh?.querySelector<HTMLElement>('input');
+    if (oHoi == null) return;
+    oHoi.focus();
+    if (document.activeElement !== oHoi && conLai > 0) traTieuDiemVeOHoi(conLai - 1);
+  });
+}
+
 export function TrangThaiCho({ onHuy }: TrangThaiChoProps) {
   const [giay, datGiay] = useState<number | null>(null);
+
+  /**
+   * Huỷ xong thì khay này biến mất cùng cái nút vừa được bấm, và tiêu điểm rơi
+   * về `<body>` — người dùng bàn phím mất chỗ đứng, Tab tiếp lại bắt đầu từ
+   * đầu trang. Đo được: sau khi bấm Huỷ, `document.activeElement` là `<body>`
+   * suốt.
+   *
+   * Trả về Ô HỎI, không phải nút gửi: nút gửi bị `disabled` trong lúc chạy nên
+   * trình duyệt đã dời tiêu điểm khỏi nó từ trước — không có gì để "nhớ rồi
+   * trả lại". Ô hỏi cũng đúng chỗ hơn: huỷ là để sửa câu hỏi rồi gửi lại.
+   */
+  const huyVaTraTieuDiem = () => {
+    onHuy();
+    traTieuDiemVeOHoi();
+  };
 
   useEffect(() => {
     const batDau = Date.now();
@@ -129,7 +172,7 @@ export function TrangThaiCho({ onHuy }: TrangThaiChoProps) {
 
       <button
         type="button"
-        onClick={onHuy}
+        onClick={huyVaTraTieuDiem}
         className="mt-3 min-h-[var(--vung-cham-toi-thieu)] cursor-pointer rounded-vua border px-4 text-[0.9375rem] text-phim transition-colors duration-[var(--thoi-luong-nhanh)] ease-chuan hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
         style={{ borderColor: 'var(--muc-nhat)', background: 'transparent' }}
       >
