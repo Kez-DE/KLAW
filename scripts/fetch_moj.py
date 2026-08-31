@@ -31,6 +31,13 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "132862": ("deep", "157/2018/NĐ-CP"), # lương tối thiểu cũ — MOJ đánh sai "Còn hiệu lực"
     "126319": ("deep", "141/2017/NĐ-CP"), # lương tối thiểu cũ — MOJ đánh sai "Còn hiệu lực"
     "92898":  ("deep", "122/2015/NĐ-CP"), # lương tối thiểu cũ — MOJ đánh sai "Còn hiệu lực"
+    # ── Hai luật ĐANG SỬA Bộ luật Lao động (bản đồ `sua_doi_dieu_khoan`) ──
+    # Không có chúng, hệ thống nói đúng "Điều 139 Khoản 1 đã bị sửa từ 01/7/2026"
+    # nhưng không nói được nội dung mới là gì. `113/2025/QH15` mang doc_id kiểu
+    # UUID chứ không phải số: MOJ cấp UUID cho văn bản nhập sau (đo 2026-09-01,
+    # `/doc/<uuid>` trả JSON cùng shape). Đừng "sửa" nó thành số.
+    "6fa2fd20-597e-11f1-add2-7717d93a2118": ("deep", "113/2025/QH15"),  # Luật Dân số
+    "187742": ("deep", "124/2025/QH15"),  # Luật Giáo dục nghề nghiệp
 }
 
 if __name__ == "__main__":

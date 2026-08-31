@@ -784,3 +784,45 @@ def test_ND_293_2025_that_co_bang_luong_trong_dieu_3_khoan_1():
     for so in ("5.310.000", "4.730.000", "4.140.000", "3.700.000"):
         assert so in k1.noi_dung, f"thiếu mức lương {so} trong {k1.duong_dan}"
     assert "Vùng I" in k1.noi_dung
+
+
+# ══ Class của MOJ sai cấp — tin CHỮ, không tin class ═════════════════════════
+# Ca thật: `124/2025/QH15` (doc_id 187742) gắn `prov-part` cho "Chương I NHỮNG
+# QUY ĐỊNH CHUNG"; 9 Chương còn lại đều `prov-chapter`. Tin class thì node đó ra
+# `cap=phan, so_hieu_cap=''` và `provisions_so_hieu_cap_check` (migration 005)
+# ném CheckViolation, rollback CẢ lần ingest — lỗi nổ ở tầng DB, xa văn bản gây ra.
+HTML_CLASS_SAI_CAP = """
+<div class="WordSection1">
+<p id="c1" class="MsoNormal prov-part"><b>Chương I<br>NHỮNG QUY ĐỊNH CHUNG</b></p>
+<p id="c2" class="MsoNormal prov-article"><b>Điều 1. Phạm vi điều chỉnh</b></p>
+<p id="c3" class="MsoNormal prov-content">Luật này quy định về giáo dục nghề nghiệp.</p>
+<p id="c4" class="MsoNormal prov-chapter"><b>Chương II<br>TỔ CHỨC</b></p>
+<p id="c5" class="MsoNormal prov-chapter"><b>VÀ QUẢN TRỊ CƠ SỞ GIÁO DỤC NGHỀ NGHIỆP</b></p>
+<p id="c6" class="MsoNormal prov-article"><b>Điều 2. Giải thích từ ngữ</b></p>
+</div>
+"""
+
+
+def test_prov_part_mang_chu_Chuong_duoc_doc_lai_thanh_chuong():
+    rows = parse_provisions(HTML_CLASS_SAI_CAP, "124/2025/QH15")
+    c1 = next(r for r in rows if r.source_node_id == "c1")
+    assert c1.cap is Cap.chuong, "class prov-part nhưng chữ nói 'Chương' — chữ thắng"
+    assert c1.so_hieu_cap == "I", "đọc lại cấp thì phải đọc được cả số hiệu"
+
+
+def test_manh_tieu_de_tran_dong_KHONG_bi_doc_lai_cap():
+    """"VÀ QUẢN TRỊ…" không mang nhãn cấp nào nên phép đọc lại phải im lặng —
+    nó vẫn là phần tiếp nối tiêu đề Chương II, không phải một node mới."""
+    rows = parse_provisions(HTML_CLASS_SAI_CAP, "124/2025/QH15")
+    chuong = [r for r in rows if r.cap is Cap.chuong]
+    assert [r.so_hieu_cap for r in chuong] == ["I", "II"]
+    assert "QUẢN TRỊ" in next(r for r in chuong if r.so_hieu_cap == "II").tieu_de
+
+
+def test_phan_khong_co_so_hieu_bi_CHAN_o_parser_chu_khong_o_DB():
+    """Cổng parser phải HẸP BẰNG `provisions_so_hieu_cap_check` (migration 005).
+    Hẹp hơn một cấp thì lỗi chỉ lộ khi ingest rollback cả lần nạp."""
+    html = '<div><p class="prov-part"><b>MỘT KHỐI KHÔNG SỐ</b></p>' \
+           '<p class="prov-article"><b>Điều 1. X</b></p></div>'
+    with pytest.raises(ValueError, match="so_hieu_cap rỗng"):
+        parse_provisions(html, "x/2026/QH15")

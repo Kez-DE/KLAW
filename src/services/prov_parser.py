@@ -78,7 +78,11 @@ LABEL_LEVELS = {Cap.phan, Cap.chuong, Cap.muc, Cap.tieu_muc, Cap.dieu}
 # Cấp phải có số hiệu vì nhãn của chúng LUÔN kèm số trong văn bản nguồn. Rỗng =
 # node rác sẽ nhận nhầm con và làm duong_dan mất neo (Chương VIII của BLHS).
 # `phan` không nằm ở đây: nó theo tiêu chí ĐẠT của brief (dieu/chuong/muc/tieu_muc).
-SO_HIEU_BAT_BUOC = {Cap.dieu, Cap.chuong, Cap.muc, Cap.tieu_muc}
+# `phan` thêm 2026-09-01: `provisions_so_hieu_cap_check` (migration 005) đòi số
+# hiệu ở MỌI cấp cấu trúc, nên cổng parser hẹp hơn cổng DB đúng một cấp — và
+# chênh lệch đó chỉ lộ ra khi ingest ném CheckViolation và rollback cả lần nạp
+# 23 văn bản. Cổng phải chặn ở chỗ biết được văn bản nào gây lỗi.
+SO_HIEU_BAT_BUOC = {Cap.dieu, Cap.chuong, Cap.muc, Cap.tieu_muc, Cap.phan}
 
 # Điều/Khoản dùng chung quy ước hậu tố chữ cho điều/khoản bổ sung (vd. "Điều 33a"
 # của luật sửa đổi) — thiếu hậu tố này thì "Điều 33" và "Điều 33a" ra cùng
@@ -142,10 +146,35 @@ def _text(tag: Tag) -> str:
     return _chuan_hoa(tag.get_text())
 
 
+def _sua_cap_theo_nhan(cap: Cap, tag: Tag) -> Cap:
+    """Class của MOJ sai cấp thì tin CHỮ, không tin class.
+
+    `124/2025/QH15` gắn `prov-part` cho "Chương I NHỮNG QUY ĐỊNH CHUNG" — đúng
+    MỘT node, 9 Chương còn lại đều `prov-chapter`. Tin class thì node đó ra
+    `cap=phan, so_hieu_cap=''`, vi phạm `provisions_so_hieu_cap_check`
+    (migration 005) và làm ROLLBACK cả lần ingest — lỗi nổ ở tầng DB, cách xa
+    văn bản gây ra nó.
+
+    Chỉ áp cho cấp CHỨA (Phần/Chương/Mục/Tiểu mục): nhãn của chúng luôn là chữ
+    có trong text nên đọc lại được. KHÔNG áp cho Điều/Khoản/Điểm —
+    `_la_tiep_noi_tieu_de` đọc "regex trượt" làm dấu hiệu TIẾP NỐI tiêu đề, đổi
+    cấp ở đó sẽ phá phép gộp. Và chỉ đổi khi regex của chính cấp đó trượt VÀ
+    đúng MỘT cấp chứa khác khớp: mảnh tiêu đề tràn dòng ("TRONG GIÁO DỤC NGHỀ
+    NGHIỆP") không khớp cấp nào nên không bị đụng.
+    """
+    if cap not in CONTAINER_CAPS:
+        return cap
+    text = _khoa(_text(tag))
+    if RE_SO[cap].match(text):
+        return cap
+    khop = [c for c in CONTAINER_CAPS if c is not cap and RE_SO[c].match(text)]
+    return khop[0] if len(khop) == 1 else cap
+
+
 def _cap_of(tag: Tag) -> Cap | None:
     for cls in tag.get("class") or []:
         if cls in CLASS_TO_CAP:
-            return CLASS_TO_CAP[cls]
+            return _sua_cap_theo_nhan(CLASS_TO_CAP[cls], tag)
     return None
 
 

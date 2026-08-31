@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 from sqlalchemy import text
 
-from src.agents.nodes.expand import expand
+from src.agents.nodes.expand import _duong_dan_di_sua, expand
 from src.services.db import get_engine
 from src.services.effectivity import EffectivityVerdict as V
 from tests.conftest import pid
@@ -214,3 +214,51 @@ def test_thuan_sap_theo_do_uu_tien_ban_dau():
     rows = [{"id": 20, "depth": "deep"}, {"id": 10, "depth": "deep"}]
     deep, _ = _chia_deep_shallow(rows, lambda pid: None, {10: 0, 20: 1})
     assert [r["id"] for r in deep] == [10, 20]
+
+
+# ══ Bước 0 — điều khoản BỊ SỬA kéo theo điều khoản ĐI SỬA ════════════════════
+# `effectivity` nói được "Điều 139 Khoản 1 bị sửa bởi 113/2025/QH15 từ
+# 2026-07-01" từ trước; cái nó KHÔNG nói được là nội dung mới. Nội dung mới nằm
+# trong điều khoản đi sửa, và trước bước 0 nó chỉ vào context khi truy hồi tình
+# cờ bắt được. Đo 2026-09-01 trên 3 ca thật: 2 bắt được, 1 TRƯỢT.
+
+
+def test_thuan_doc_so_dieu_tu_cau_tieng_viet_cua_ban_do_sua_doi():
+    assert _duong_dan_di_sua([("113/2025/QH15", "khoản 1 Điều 29")]) == [
+        "113/2025/QH15 > Điều 29"]
+    assert _duong_dan_di_sua([("124/2025/QH15", "điểm a khoản 1 Điều 43")]) == [
+        "124/2025/QH15 > Điều 43"]
+
+
+def test_thuan_dieu_co_hau_to_chu_giu_nguyen_hau_to():
+    """"Điều 33a" là điều do luật sửa CHÈN. Cắt hậu tố sẽ neo sang Điều 33 —
+    một điều luật khác hẳn, và không ai thấy vì cả hai đều tồn tại."""
+    assert _duong_dan_di_sua([("x/2026/QH15", "khoản 2 Điều 33a")]) == [
+        "x/2026/QH15 > Điều 33a"]
+
+
+def test_thuan_khong_doc_duoc_so_dieu_thi_KHONG_neo_bua():
+    """`can_doi_chieu_tay` để `sua_boi_duong_dan` NULL và bị lọc ở SQL. Chuỗi
+    lệch khuôn lọt tới đây thì thà không mở rộng còn hơn đoán một Điều."""
+    assert _duong_dan_di_sua([("x/2026/QH15", "bãi bỏ toàn bộ")]) == []
+    assert _duong_dan_di_sua([("x/2026/QH15", "")]) == []
+
+
+@pytest.mark.integration
+def test_dieu_bi_sua_keo_theo_NOI_DUNG_MOI_o_luat_di_sua():
+    """Ca trung tâm: hỏi Điều 139 BLLĐ thì Điều 29 của 113/2025/QH15 — nơi chứa
+    câu "nghỉ thai sản … 07 tháng" — phải nằm trong context, và phải kéo được
+    cả Khoản con của nó (bước 0 chạy TRƯỚC bước cha→con)."""
+    goc = pid("45/2019/QH14 > Điều 139")
+    deep, _ = expand([goc], get_engine(), date(2026, 9, 1), hops=0)
+    dd = {p["duong_dan"] for p in deep}
+    assert "113/2025/QH15 > Điều 29" in dd
+    assert "113/2025/QH15 > Điều 29 > Khoản 1" in dd, "bước 0 phải chạy trước cha→con"
+
+
+@pytest.mark.integration
+def test_dieu_khong_co_ban_ghi_sua_doi_KHONG_keo_theo_gi_them():
+    """Đối chứng: bản đồ không lan sang điều khoản không có bản ghi. `Điều 140`
+    là em ruột của `Điều 139` trong cùng Chương."""
+    deep, _ = expand([pid("45/2019/QH14 > Điều 140")], get_engine(), date(2026, 9, 1), hops=0)
+    assert not [p for p in deep if p["duong_dan"].startswith("113/2025/QH15")]

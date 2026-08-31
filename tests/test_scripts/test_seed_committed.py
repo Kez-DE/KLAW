@@ -18,7 +18,7 @@ import pytest
 
 SEED = Path(__file__).resolve().parents[2] / "data" / "seed"
 CITABLE = {"dieu", "khoan", "diem"}
-SO_HIEU_BAT_BUOC = {"dieu", "chuong", "muc", "tieu_muc"}
+SO_HIEU_BAT_BUOC = {"dieu", "chuong", "muc", "tieu_muc", "phan"}
 
 # Đã kiểm tay trên dữ liệu thật: cả 6 Bộ luật liên tục hoàn hảo, thiếu 0, trùng 0.
 SO_DIEU_BO_LUAT = {
@@ -47,8 +47,14 @@ def documents() -> list[dict]:
     return _doc("documents")
 
 
-def test_seed_co_du_21_van_ban_va_khong_rong(documents, provisions):
-    assert len(documents) == 21, len(documents)
+def test_seed_co_du_van_ban_cua_DOC_IDS_va_khong_rong(documents, provisions):
+    """Số văn bản lấy từ `DOC_IDS` chứ KHÔNG viết cứng. Viết cứng thì mỗi lần mở
+    rộng corpus test này đỏ vì một lý do không liên quan tới điều nó khoá —
+    và cách sửa dễ dãi là bump con số, tức test không còn kiểm gì cả."""
+    from scripts.fetch_moj import DOC_IDS
+
+    assert len(documents) == len(DOC_IDS), len(documents)
+    assert {d["id"] for d in documents} == set(DOC_IDS)
     assert len(provisions) > 19_000, len(provisions)
     assert {p["document_id"] for p in provisions} == {d["id"] for d in documents}
 
@@ -178,7 +184,7 @@ def test_khong_provision_trich_dan_duoc_nao_om_ca_khoi_phu_luc(provisions):
     assert not to, f"neo trích dẫn còn ôm khối chữ đuôi: {to}"
 
 
-def test_moi_van_ban_co_nhieu_nhat_MOT_ban_ghi_phu_luc(provisions):
+def test_moi_van_ban_co_nhieu_nhat_MOT_ban_ghi_phu_luc(provisions, documents):
     """Một bản ghi mỗi văn bản nên `duong_dan` tự duy nhất — không đánh số thứ
     tự, đó là bịa ký hiệu không có trong nguồn."""
     dem = Counter(p["document_id"] for p in provisions if p["cap"] == "phu_luc")
@@ -196,7 +202,10 @@ def test_moi_van_ban_co_nhieu_nhat_MOT_ban_ghi_phu_luc(provisions):
     # được: để nó rơi vào Điều cuối thì một câu trích lấy từ khối chữ ký sẽ
     # "kiểm chứng thành công" trên một neo Điều — đúng véc-tơ mà ruling chữ-đuôi
     # đã đóng cho text và giờ đóng nốt cho bảng.
-    assert len(pl) == 21, f"21 văn bản có chữ/bảng đuôi, thấy {len(pl)}"
+    # Số lấy từ `documents` chứ không viết cứng: bất biến là "MỖI văn bản đúng
+    # một bản ghi phu_luc", không phải "có 21 bản ghi".
+    assert len(pl) == len(documents), \
+        f"{len(documents)} văn bản có chữ/bảng đuôi, thấy {len(pl)}"
     assert len({p["duong_dan"] for p in pl}) == len(pl)
     for p in pl:
         assert p["parent_local_id"] is None, p["duong_dan"]
@@ -253,7 +262,8 @@ def test_moi_van_ban_co_dung_MOT_ban_ghi_mo_dau(provisions, documents):
     hiệu, tên văn bản, chuỗi "Căn cứ …"). Một bản ghi mỗi văn bản nên `duong_dan`
     tự duy nhất — không đánh số thứ tự, đó là bịa ký hiệu không có trong nguồn."""
     md = [p for p in provisions if p["cap"] == "mo_dau"]
-    assert len(md) == 21, f"21 văn bản đều có chữ mở đầu, thấy {len(md)}"
+    assert len(md) == len(documents), \
+        f"{len(documents)} văn bản đều có chữ mở đầu, thấy {len(md)}"
     assert {p["document_id"] for p in md} == {d["id"] for d in documents}
     assert len({p["duong_dan"] for p in md}) == len(md)
     for p in md:
