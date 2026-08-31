@@ -162,3 +162,44 @@ async def test_so_dieu_va_around_cung_luc_tra_422(client):
         f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"so_dieu": "1", "around": 127873}
     )
     assert r.status_code == 422
+
+
+# ══ ?trong_chuong= — mục lục Chương bấm được ═════════════════════════════════
+# Trước bản này mục lục là danh sách CHẾT: `?around=<id Chương>` trả 404 ("không
+# thuộc Điều nào") và không endpoint nào liệt kê Điều của một Chương. Agent dựng
+# màn hình đã TỪ CHỐI suy `id Chương + 1` — cách đó đúng hôm nay và sai lặng lẽ
+# ở lần seed sau.
+#
+# Mốc đo TRỰC TIẾP trên DB trước khi viết test: Chương I của BLDS (id=127872) có
+# đúng 7 Điều. Chương lớn nhất corpus có 156 Điều nhưng 1231 dòng hậu duệ — nên
+# endpoint trả TIÊU ĐỀ ĐIỀU, không kéo Khoản/Điểm.
+CHUONG_I_BLDS = 127872
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_trong_chuong_chi_tra_DIEU_khong_keo_ca_cay(client):
+    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"trong_chuong": CHUONG_I_BLDS})
+    assert r.status_code == 200
+    ps = r.json()["provisions"]
+    assert len(ps) == 7, "Chương I của BLDS có đúng 7 Điều (đo trên DB)"
+    assert all(p["cap"] == "dieu" for p in ps), (
+        "chương lớn nhất corpus có 1231 dòng hậu duệ — kéo cả cây là phá đúng nguyên "
+        "tắc lazy mà endpoint này sinh ra để giữ"
+    )
+    assert all(p["la_tam"] is False for p in ps), "duyệt mục lục chưa chọn Điều nào làm tâm"
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_trong_chuong_tu_choi_id_khong_phai_chuong(client):
+    r = await client.get(f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"trong_chuong": 127873})
+    assert r.status_code == 422, "127873 là Điều 1, không phải Chương — nói thẳng thay vì trả rỗng"
+
+
+@pytest.mark.asyncio
+async def test_trong_chuong_khong_dung_chung_voi_tham_so_khac(client):
+    r = await client.get(
+        f"/api/v1/van-ban/{DOC_ID_BLDS}", params={"trong_chuong": CHUONG_I_BLDS, "so_dieu": "1"}
+    )
+    assert r.status_code == 422

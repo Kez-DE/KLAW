@@ -185,8 +185,22 @@ _SQL_VAN_BAN_CAY_DIEU = text(
 )
 
 
+_SQL_DIEU_TRONG_CHUONG = text(
+    "WITH RECURSIVE cay AS ("
+    "  SELECT id, cap, document_id FROM provisions WHERE id = :goc"
+    "  UNION ALL"
+    "  SELECT p.id, p.cap, p.document_id FROM provisions p JOIN cay ON p.parent_id = cay.id"
+    ")"
+    " SELECT p.id, p.cap, p.so_hieu_cap, p.duong_dan, p.tieu_de, p.noi_dung"
+    " FROM provisions p JOIN cay ON cay.id = p.id"
+    " WHERE p.cap = 'dieu' ORDER BY p.thu_tu"
+)
+
+_CAP_CHUA_DIEU = ("phan", "chuong", "muc", "tieu_muc")
+
+
 def _van_ban_sync(
-    doc_id: str, so_dieu: str | None, around: int | None
+    doc_id: str, so_dieu: str | None, around: int | None, trong_chuong: int | None = None
 ) -> VanBanMucLucResponse | VanBanProvisionsResponse:
     """Thân đồng bộ (SQLAlchemy sync) của GET /van-ban/{doc_id} — route PHẢI
     gọi qua `run_in_threadpool` (xem `_ghi_traces` ở trên: thiếu bọc này đã
@@ -197,6 +211,30 @@ def _van_ban_sync(
         doc = conn.execute(_SQL_VAN_BAN_DOC, {"doc_id": doc_id}).mappings().one_or_none()
         if doc is None:
             raise HTTPException(status_code=404, detail=f"văn bản '{doc_id}' không tồn tại")
+
+        if trong_chuong is not None:
+            goc = conn.execute(
+                _SQL_VAN_BAN_PROVISION_GOC, {"pid": trong_chuong}
+            ).mappings().one_or_none()
+            if goc is None or goc["document_id"] != doc_id:
+                raise HTTPException(status_code=404, detail=(
+                    f"provision {trong_chuong} không thuộc văn bản '{doc_id}'"
+                ))
+            if goc["cap"] not in _CAP_CHUA_DIEU:
+                # Nói thẳng thay vì trả rỗng: một danh sách rỗng ở đây không
+                # phân biệt được "Chương này không có Điều nào" với "bạn đưa
+                # nhầm id của một Điều".
+                raise HTTPException(status_code=422, detail=(
+                    f"provision {trong_chuong} có cap='{goc['cap']}' — trong_chuong chỉ nhận "
+                    f"cấp chứa Điều: {', '.join(_CAP_CHUA_DIEU)}"
+                ))
+            rows = conn.execute(_SQL_DIEU_TRONG_CHUONG, {"goc": trong_chuong}).mappings().all()
+            return VanBanProvisionsResponse(
+                doc_id=doc_id, so_ky_hieu=doc["so_ky_hieu"], bo_luat=doc["ten"],
+                # `la_tam=False` cho tất cả: đang DUYỆT mục lục, chưa chọn Điều
+                # nào làm tâm. Đánh dấu bừa một Điều là tâm sẽ rọi sáng nhầm.
+                provisions=[ProvisionOut(**dict(r), la_tam=False) for r in rows],
+            )
 
         if so_dieu is None and around is None:
             muc_luc = [
@@ -294,7 +332,10 @@ async def pham_vi() -> PhamViResponse:
 
 @router.get("/van-ban/{doc_id}", response_model=VanBanMucLucResponse | VanBanProvisionsResponse)
 async def van_ban(
-    doc_id: str, so_dieu: str | None = None, around: int | None = None
+    doc_id: str,
+    so_dieu: str | None = None,
+    around: int | None = None,
+    trong_chuong: int | None = None,
 ) -> VanBanMucLucResponse | VanBanProvisionsResponse:
     """Lazy — BLDS 689 điều, không trả cả cây (fe-contract.md).
 
@@ -304,12 +345,18 @@ async def van_ban(
                     con của nó (dạng FE dùng nhiều nhất — click-to-verify).
                     `pid` thường là id của một Khoản (`khop_tai_id`), không
                     phải Điều — 73,6% số Điều chỉ có tiêu đề (verify_tier1).
+    ?trong_chuong=<pid> → TIÊU ĐỀ các Điều của Chương/Mục đó, KHÔNG kèm
+                    Khoản/Điểm. Chương lớn nhất corpus có 156 Điều nhưng 1231
+                    dòng hậu duệ — kéo cả cây là phá đúng nguyên tắc lazy mà
+                    endpoint này sinh ra để giữ.
     """
-    if so_dieu is not None and around is not None:
+    da_chon = [t for t in (so_dieu, around, trong_chuong) if t is not None]
+    if len(da_chon) > 1:
         raise HTTPException(
-            status_code=422, detail="chỉ được chọn một trong hai: so_dieu hoặc around"
+            status_code=422,
+            detail="chỉ được chọn MỘT trong ba: so_dieu, around, trong_chuong",
         )
-    return await run_in_threadpool(_van_ban_sync, doc_id, so_dieu, around)
+    return await run_in_threadpool(_van_ban_sync, doc_id, so_dieu, around, trong_chuong)
 
 
 # ══ POST /soan-thao, POST /soat, GET /mau/{loai} (Task 5) ═══════════════════
