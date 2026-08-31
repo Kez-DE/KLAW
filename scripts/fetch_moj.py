@@ -51,6 +51,23 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "187601": ("deep", "143/2025/QH15"),   # Luật Đầu tư
     "179095": ("deep", "76/2025/QH15"),    # sửa đổi Luật Doanh nghiệp
     "178737": ("deep", "88/2025/QH15"),    # sửa đổi Luật Xử lý VPHC
+    # ── Đợt B — 13 văn bản HẾT HIỆU LỰC MỘT PHẦN ──
+    # Nạp có chủ đích: chúng làm dày nhánh `mot_phan_khong_xac_dinh`, và đó là
+    # phần trung thực nhất hệ thống nói được ở cấp điều khoản khi CSDL quốc gia
+    # không công bố dữ liệu sửa đổi cấp điều khoản (0/272 reference, đã đo).
+    "142881": ("deep", "59/2020/QH14"),    # Luật Doanh nghiệp (142847 đã chết)
+    "128706": ("deep", "04/2017/QH14"),    # Hỗ trợ doanh nghiệp nhỏ và vừa
+    "26117":  ("deep", "36/2005/QH11"),    # Luật Thương mại
+    "177815": ("deep", "31/2024/QH15"),    # Luật Đất đai
+    "170509": ("deep", "43/2024/QH15"),    # sửa đổi Luật Đất đai
+    "187045": ("deep", "109/2025/QH15"),   # Thuế thu nhập cá nhân
+    "179941": ("deep", "67/2025/QH15"),    # Thuế thu nhập doanh nghiệp
+    "166581": ("deep", "22/2023/QH15"),    # Luật Đấu thầu
+    "142882": ("deep", "64/2020/QH14"),    # Luật PPP (142841 đã chết)
+    "165913": ("deep", "20/2023/QH15"),    # Giao dịch điện tử
+    "179989": ("deep", "71/2025/QH15"),    # Công nghiệp công nghệ số
+    "27621":  ("deep", "15/2012/QH13"),    # Xử lý vi phạm hành chính
+    "96035":  ("deep", "93/2015/QH13"),    # Tố tụng hành chính
 }
 
 # ── KHÔNG NẠP, kèm lý do đo được (đừng thêm lại mà không đọc phần này) ──
