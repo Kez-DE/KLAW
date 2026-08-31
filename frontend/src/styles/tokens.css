@@ -16,7 +16,9 @@
   --vien: #2b2419; /* đường viền, cạnh khay — nâu sẫm hơn nền một bậc */
   --phim: #f3eee3; /* mặt phim được rọi — nền của văn bản luật */
   --muc: #1a1611; /* chữ trên phim */
-  --muc-nhat: #6b6154; /* chú thích, nhãn phụ — 5,2:1 trên --phim */
+  --muc-nhat: #a79c90; /* chú thích, nhãn phụ — LUÔN trên nền tối: 7,1:1 trên --nen,
+                          6,6:1 trên --nen-cao. Chữ phụ TRÊN PHIM không dùng token này,
+                          nó lấy color-mix từ --muc (xem DuongDan.tsx). */
   --den-sang: #f0bc5a; /* ánh đèn máy — LUÔN là quầng sáng, không bao giờ là nền đặc */
   --xanh-that: #4c9e78; /* còn hiệu lực */
   --do-thay: #e05a45; /* đã bị thay thế / hết hiệu lực — bão hoà hơn bản nền lạnh, xem DESIGN.md */

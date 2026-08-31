@@ -34,7 +34,7 @@ thư viện luật là gỗ và da. Xám xanh là màu của phần mềm, khôn
 --vien         #2B2419   đường viền, cạnh khay
 --phim         #F3EEE3   mặt phim được rọi — nền của văn bản luật
 --muc          #1A1611   chữ trên phim
---muc-nhat     #6B6154   chú thích, nhãn phụ
+--muc-nhat     #A79C90   chú thích, nhãn phụ — luôn trên nền tối
 --den-sang     #F0BC5A   ánh đèn máy: quầng sáng, tiêu điểm, con trỏ
 --xanh-that    #4C9E78   còn hiệu lực
 --do-thay      #E05A45   đã bị thay thế / hết hiệu lực
@@ -71,7 +71,7 @@ không chữ, `bi_thay_the` là viền **kèm tên văn bản thay thế**. Hìn
 nghĩa; màu chỉ nhắc lại.
 
 Độ tương phản đã **tính**, không phải ước: `--muc` trên `--phim` 15,6:1 ·
-`--phim` trên `--nen` 16,4:1 · `--muc-nhat` trên `--phim` 5,2:1 · `--xam-cho`
+`--phim` trên `--nen` 16,4:1 · `--muc-nhat` trên `--nen-cao` 6,6:1 · `--xam-cho`
 trên `--nen-cao` 5,2:1 · `--xanh-that` 5,4:1 · `--do-thay` 4,8:1 · `--vang-mo`
 6,4:1 · `--den-sang` 10,1:1. Tất cả đạt AA cho chữ thường.
 
