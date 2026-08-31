@@ -7,8 +7,11 @@ import { flushSync } from 'react-dom';
  * Ràng buộc của API: `view-transition-name` phải DUY NHẤT tại một thời điểm.
  * Chip trích dẫn mang tên ở ảnh chụp CŨ, khung trong panel mang tên ở ảnh chụp
  * MỚI — nên tên phải được gỡ khỏi chip ngay bên trong callback cập nhật DOM,
- * chứ không phải sau khi chuyển cảnh xong. Hai phần tử cùng tên trong một lượt
- * chuyển sẽ làm hỏng nó.
+ * chứ không phải sau khi chuyển cảnh xong.
+ *
+ * Ràng buộc đó nay được THI HÀNH bằng `datTenDuyNhat`, không còn dựa vào việc
+ * mỗi người gọi nhớ tự gỡ: `scripts/kiem-chuyen-canh.ts` chụp lại cả hai ảnh
+ * của cả ba kịch bản và hỏng nếu có ảnh nào chứa hai phần tử cùng tên.
  */
 const TEN_KHUNG_DANG_MO = 'khung-dang-mo';
 
@@ -42,6 +45,40 @@ function timChip(chiSo: number): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-khung="${chiSo}"]`);
 }
 
+/**
+ * Mọi phần tử ĐANG mang tên: chip (gán inline ở đây) và khung nguyên văn
+ * trong panel (gán bằng CSS, `.khung-nguyen-van`). Đọc computed style chứ
+ * không đọc `style.viewTransitionName`, vì nguồn gán của hai bên khác nhau.
+ */
+function dangMangTen(): HTMLElement[] {
+  const ungVien = document.querySelectorAll<HTMLElement>('[data-khung], .khung-nguyen-van');
+  return [...ungVien].filter(
+    (phanTu) => getComputedStyle(phanTu).viewTransitionName === TEN_KHUNG_DANG_MO,
+  );
+}
+
+/**
+ * Gán tên cho ĐÚNG một phần tử, gỡ khỏi mọi phần tử khác đang mang nó; trả về
+ * hàm hoàn nguyên.
+ *
+ * Vì sao phải có: khi panel ĐANG MỞ mà bấm sang trích dẫn khác, khung trong
+ * panel vẫn mang tên từ CSS còn chip sắp mang tên từ đây — hai phần tử cùng
+ * tên trong một ảnh chụp. Trình duyệt không animate mà HUỶ THẲNG cả lượt
+ * chuyển (`InvalidStateError: Transition was aborted because of invalid
+ * state`), nên từ lần chuyển thứ hai trở đi động tác trung tâm của sản phẩm
+ * biến mất. `'none'` (chứ không phải chuỗi rỗng) mới đè được lên khai báo
+ * CSS; chuỗi rỗng chỉ xoá lớp inline và để CSS thắng lại.
+ */
+function datTenDuyNhat(giu: HTMLElement | null): () => void {
+  const khac = dangMangTen().filter((phanTu) => phanTu !== giu);
+  for (const phanTu of khac) phanTu.style.viewTransitionName = 'none';
+  if (giu !== null) giu.style.viewTransitionName = TEN_KHUNG_DANG_MO;
+  return () => {
+    if (giu !== null) giu.style.viewTransitionName = '';
+    for (const phanTu of khac) phanTu.style.viewTransitionName = '';
+  };
+}
+
 /** Chuyển cảnh chung (ô hỏi trượt lên đầu, kết quả hiện ra…). */
 export function chuyenCanh(capNhat: () => void): void {
   if (!coTheChuyenCanh()) {
@@ -58,15 +95,18 @@ export function moKhung(chiSo: number, capNhat: () => void): void {
     capNhat();
     return;
   }
-  chip.style.viewTransitionName = TEN_KHUNG_DANG_MO; // có mặt ở ảnh CŨ
+  // Ảnh CŨ: chỉ chip mang tên — panel đang mở (nếu có) bị gỡ tên ở đây.
+  const hoanNguyen = datTenDuyNhat(chip);
   batDauChuyen(
     () => {
-      chip.style.viewTransitionName = ''; // gỡ trước khi chụp ảnh MỚI
+      // Ảnh MỚI: trả tên về cho khung trong panel, gỡ khỏi chip. Hoàn nguyên
+      // Ở ĐÂY chứ không ở `donDep`, vì `donDep` chạy SAU khi chụp ảnh mới —
+      // lúc đó khung mới đã bị chụp mà không có tên, tức không có gì để morph
+      // tới.
+      hoanNguyen();
       capNhat();
     },
-    () => {
-      chip.style.viewTransitionName = '';
-    },
+    hoanNguyen,
   );
 }
 
@@ -77,13 +117,14 @@ export function dongKhung(chiSo: number, capNhat: () => void): void {
     capNhat();
     return;
   }
+  let hoanNguyen = () => {};
   batDauChuyen(
     () => {
-      chip.style.viewTransitionName = TEN_KHUNG_DANG_MO; // có mặt ở ảnh MỚI
+      // `capNhat` gỡ panel trước, rồi chip mới nhận tên — thứ tự này bảo đảm
+      // ảnh MỚI cũng chỉ có đúng một phần tử mang tên.
       capNhat();
+      hoanNguyen = datTenDuyNhat(chip);
     },
-    () => {
-      chip.style.viewTransitionName = '';
-    },
+    () => hoanNguyen(),
   );
 }
