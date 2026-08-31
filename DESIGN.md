@@ -2,308 +2,321 @@
 
 <!-- impeccable:design-schema 1 -->
 
-## Thế giới thị giác: máy đọc vi phim
+Tài liệu này **đi theo giao diện, không dẫn giao diện**. Hướng thiết kế của KLAW
+đã đổi ba lần; bản này ghi lại hệ thống thị giác **có thật** trong
+`frontend-moi/src/styles.css`, chứ không suy ra một thế giới thị giác thứ tư.
+Mỗi con số dưới đây được **tính trong mã** (`oklch → Oklab → linear sRGB → Y →
+WCAG 2.1`), không ước lượng bằng mắt.
 
-Một cỗ máy tra cứu lưu trữ. Bạn gõ câu hỏi, máy tìm trong kho, **tiến tới đúng khung
-phim**, và rọi sáng nguyên văn điều luật lên mặt kính.
+Bản trước mô tả một sản phẩm nền tối, ẩn dụ "máy đọc vi phim", brass là accent
+duy nhất, font tự host, cấm WebGL. Sản phẩm đó vẫn còn trong git (29 commit chạm
+`frontend/`) và là **bản tham chiếu cho các bảo đảm** không được đánh mất. Nó
+không còn là mô tả của giao diện đang chạy. Hai hệ thiết kế không trộn từng phần
+được — hướng sáng, cơ chế chiều sâu và số màu trạng thái đều xung khắc — nên
+phải chọn một, và bản port đã chọn `Klaw_FE`.
 
-Ẩn dụ này được chọn vì nó mang đúng lời hứa của sản phẩm và không thể mang một lời hứa
-khác: *đây là nguyên văn, và đây là chỗ nó đến từ.* Một trợ lý pháp lý nói trôi chảy mà
-không chỉ được nguồn thì phản bội chính nó; một máy đọc vi phim **không thể** làm vậy —
-nó chỉ biết chiếu lại thứ có thật trên phim.
+Cái được **mang sang** từ bản cũ không phải màu, mà là **kỷ luật**: bốn màu
+trạng thái có `abstain` trung tính, và mọi cặp màu chữ/nền đều phải đo tỉ lệ
+tương phản rồi ghi lại con số cạnh token.
 
-Ba lớp, người dùng chọn đi sâu tới đâu:
+---
+
+## Thế giới thị giác: giấy ngà dưới ánh sáng lạnh
+
+Nền là **ngà sáng** — mặt giấy. Mực là **sapphire lạnh**. Accent là **vàng
+đồng** ấm. Chiều sâu đến từ **glass/blur + bóng đổ ba tầng**, không từ
+`perspective`/`translateZ`.
+
+Ẩn dụ vẫn phải mang đúng một lời hứa: *đây là nguyên văn, và đây là chỗ nó đến
+từ.* Giấy làm việc đó theo cách khác máy đọc vi phim — không phải rọi sáng một
+khung phim, mà là **đặt bản gốc lên bàn**. Ba lớp không đổi, người dùng chọn đi
+sâu tới đâu:
 
 | Lớp | Nội dung | Ai dùng nhiều nhất |
 |---|---|---|
-| **Mặt đọc** | Câu trả lời bằng tiếng Việt thường | người lao động |
-| **Dải khung** | Các trích dẫn, mỗi cái một khung phim có nhãn hiệu lực | nhân sự |
-| **Khung rọi sáng** | Nguyên văn điều luật, câu trích được đánh dấu | sinh viên luật |
+| **Câu trả lời** | Tiếng Việt thường, có trích dẫn | người lao động |
+| **Trích dẫn** | Chip dẫn tới điều, khoản, điểm, kèm nhãn hiệu lực | nhân sự |
+| **Toàn văn** | Nguyên văn văn bản, câu trích được đánh dấu | sinh viên luật |
 
 Một câu trả lời, ba lớp — không phải ba giao diện.
 
+---
+
 ## Bảng màu
 
-Ground tối là mặt máy; ánh sáng là thứ rọi qua phim. Nền là **ink-navy**, accent là
-**brass** — giá trị lấy từ `KLAW-BUILD-SPEC` §5.1, do chủ dự án chốt.
+Token nguồn ở `frontend-moi/src/styles.css`. Cột HEX và cột tỉ lệ do
+`scripts/` tính từ chính chuỗi `oklch()` trong tệp đó, không chép tay.
 
-Bản trước của mục này chọn **đen ngả nâu** và lập luận rằng "xám xanh là màu của
-phần mềm, không phải của kho lưu trữ". Lập luận đó không sai, nó chỉ bị **thay
-thế bằng một quyết định của chủ dự án** — ghi lại ở đây thay vì xoá, vì người đọc
-sau này cần biết bảng màu đã đổi có chủ đích chứ không phải trôi dạt. Ẩn dụ giữ
-nguyên, chỉ đổi vật liệu: cỗ máy giờ là **thép và kính** thay vì gỗ và da. Phần
-quan trọng của ẩn dụ chưa bao giờ nằm ở nhiệt độ màu — nó nằm ở chỗ *ánh sáng
-rọi qua phim*, và brass làm việc đó tốt như amber.
+### Nền, mực, khung
 
-**Tên biến là hợp đồng FE**, không đổi theo bảng màu. Chỉ giá trị đổi.
+| Token | oklch | HEX | Vai |
+|---|---|---|---|
+| `--background` | `0.985 0.008 100` | `#FBFAF4` | nền trang, ngà sáng |
+| `--card` / `--popover` | `1 0.002 100` | `#FFFFFE` | thẻ, lớp nổi |
+| `--foreground` | `0.26 0.03 250` | `#192532` | chữ thân |
+| `--primary` | `0.38 0.085 255` | `#20436E` | mực sapphire: tiêu đề, nút chính |
+| `--secondary` | `0.955 0.018 250` | `#E7F1FC` | nền phụ lạnh |
+| `--muted-foreground` | `0.52 0.032 255` | `#5D6A7C` | chú thích, nhãn phụ |
+| `--border` / `--input` | `0.915 0.014 250` | `#DCE4EC` | đường viền |
+| `--accent` | `0.83 0.115 88` | `#E6C36B` | vàng đồng, nền đặc |
+| `--accent-foreground` | `0.3 0.05 70` | `#3E290F` | chữ trên nền accent |
+| `--ring` | `0.7 0.1 90` | `#B79C51` | vòng tiêu điểm |
+| `--destructive` | `0.58 0.2 27` | `#D73431` | lỗi hệ thống (không phải hiệu lực) |
 
-```
---nen          #060D1A   ink-950 · mặt máy
---nen-cao      #0A1628   ink-900 · khay, thanh công cụ, thẻ
---vien         #14294A   ink-700 · đường viền, cạnh khay
---phim         #FAF9F6   paper-50 · mặt phim được rọi — nền của văn bản luật
---muc          #12203A   text-light · chữ trên phim
---muc-nhat     #A3AFC2   text-dark-muted · chú thích, nhãn phụ — LUÔN trên nền tối
---den-sang     #C8A45C   brass-500 · ánh đèn máy: quầng sáng, tiêu điểm, con trỏ
---xanh-that    #358F68   còn hiệu lực
---do-thay      #CA5F54   đã bị thay thế / hết hiệu lực
---vang-mo      #B4842B   một phần không xác định
---xam-cho      #949CA8   ABSTAIN, cần đối chiếu tay — TRUNG TÍNH
-```
+### Giấy và mực đậm (dùng trong màn ứng dụng)
 
-Ba bậc ink lấy đúng ba vai mà spec §5.3 đặt tên: nền trang · khay/thẻ · đường
-viền. `--nen` là ink-950 chứ không phải ink-900 vì đó là cách gán duy nhất cho cả
-ba token rơi đúng vai, và vì nó để `--nen-cao` ở ink-900 — ground sáng hơn, tức
-ràng buộc tương phản chặt hơn — được nhiều khoảng dư nhất cho bốn màu trạng thái.
+| Token | HEX | Vai |
+|---|---|---|
+| `--color-paper-50` | `#FCFBF5` | mặt đọc |
+| `--color-paper-100` | `#F6F3E8` | dải thông báo, hover |
+| `--color-paper-200` | `#EDE8DB` | nhấn |
+| `--color-ink-950` | `#13243C` | chữ trên nền brass đặc |
+| `--color-ink-900` | `#1F3655` | bong bóng người dùng |
+| `--color-brass-600` | `#B78934` | accent làm **chữ** |
+| `--color-brass-500` | `#DAB157` | accent làm **nền/viền** |
+| `--color-brass-400` | `#EBD5A0` | accent nhạt |
 
-**`--xam-cho` vẫn là quyết định quan trọng nhất của bảng màu này.** `abstain` là
-hành vi **đúng**, được tính điểm trong đánh giá. Nó không bao giờ được mang màu
-đỏ, không icon cảnh báo, không rung. Một hệ thống thà nói "tôi không đủ căn cứ"
-còn hơn bịa một điều luật — nếu giao diện tô đỏ câu đó, nó dạy người dùng rằng sự
-trung thực là thất bại. Vì vậy `--xam-cho` **không phải** một token `status-*` nào
-của spec: nó là hue của chính ground (217°) khử bão hoà xuống 10%, tức vẫn đúng
-lý lẽ cũ — *`abstain` nghĩa là máy không có gì để nói, nên nó mang màu của đồ đạc;
-và vì nó **là** đồ đạc, nó không thể bị đọc nhầm thành cảnh báo.*
+### Màu trạng thái hiệu lực
 
-Đỏ dành riêng cho **luật đã bị thay thế**. Đó mới là thứ khiến người dùng hành động sai.
+| Token | HEX | Nhãn KLAW được gán |
+|---|---|---|
+| `--color-status-active` | `#308E63` | `con_hieu_luc` |
+| `--color-status-partial` | `#D7A03D` | `mot_phan_khong_xac_dinh` |
+| `--color-status-expired` | `#D9553F` | `het_hieu_luc` |
+| *(chưa có)* | — | `bi_thay_the`, `bi_sua_doi`, `can_doi_chieu_tay`, `abstain` |
 
-**Nền navy đổi cách phải chỉnh ba màu trạng thái.** Trên nền nâu, vấn đề là *hue*:
-nâu chính là đỏ-cam khử bão hoà, nên đỏ cảnh báo chìm vào đồ đạc và `--do-thay`
-phải được đẩy bão hoà. Trên nền navy, hue tách miễn phí — đỏ ở 6° không thể lẫn
-vào ground ở 217°. Vấn đề chuyển thành *độ sáng*: đo ra thì ba màu `status-*` của
-spec **trượt AA** trên nền ink khi dùng làm màu chữ (đỏ 2,61:1 · xanh 3,63:1 ·
-xanh dương 2,64:1). Trong sản phẩm này chúng **là màu chữ** (`ResultCard`,
-`BadgeHieuLuc`), không chỉ là chấm 6px như spec §8 giả định. Nên cả ba được nâng
-độ sáng — giữ nguyên hue và saturation — theo đúng chỉ dẫn của chính spec §5.1:
-*"nếu fail thì làm sáng/tối chữ, tuyệt đối không hạ chuẩn."* `--vang-mo` giữ
-nguyên giá trị spec vì nó đã đạt 5,42:1.
+---
 
-`--den-sang` và `--vang-mo` cùng họ vàng và không tách nhau bằng màu. Chúng tách
-nhau bằng **hình**: đèn máy luôn là **quầng sáng** (radial-gradient, mờ dần), còn
-`--vang-mo` luôn là **đường viền đặc**.
+## Kỷ luật tương phản — đo, không đoán
 
-> Ngoại lệ duy nhất, có từ trước và giờ được ghi ra thay vì để ngầm: nút hành động
-> chính và liên kết "bỏ qua tới nội dung" dùng brass làm **nền đặc** với chữ
-> `--muc` (đo 6,9:1). Spec §8 (`BrassButton variant="solid"`) chủ động yêu cầu
-> đúng như vậy. Ngoài hai chỗ đó, đừng lấy `--den-sang` làm nền đặc.
+Đây là phần được mang từ bản cũ sang, và là phần quan trọng nhất của tài liệu
+này. Quy tắc bản cũ đặt ra và bản này giữ nguyên:
 
-Đỏ và xanh với người mù màu deuteranopia đều ngả vàng nâu. Đó là lý do nhãn hiệu
-lực **không bao giờ chỉ có màu**: `con_hieu_luc` là chấm không chữ, `bi_thay_the`
-là viền **kèm tên văn bản thay thế**. Hình và chữ mang nghĩa; màu chỉ nhắc lại.
+> Nếu một cặp trượt AA thì **làm sáng hoặc tối chữ, tuyệt đối không hạ chuẩn.**
 
-Độ tương phản đã **tính**, không phải ước — và đã đo lại trên trình duyệt thật
-bằng `getComputedStyle`, không chỉ tính trên giấy. Toàn bộ 18 cặp bắt buộc đạt AA
-cho chữ thường; bảng đầy đủ ở
-`.superpowers/sdd/2026-08-27-klaw-04-drafting-fe-deploy/palette-brass-report.md`:
+### Đã đạt
 
-`--muc` trên `--phim` 15,4:1 · `--phim` trên `--nen` 18,5:1 · `--muc-nhat` trên
-`--nen` 8,8:1 và trên `--nen-cao` 8,2:1 · `--xam-cho` trên `--nen` 7,0:1 và trên
-`--nen-cao` 6,5:1 · `--den-sang` trên `--nen-cao` 7,7:1 (vòng tiêu điểm) ·
-`--vang-mo` 5,42:1 · `--do-thay` 4,56:1 · `--xanh-that` 4,56:1.
-
-Kết quả đo cũ đáng cập nhật thay vì giấu đi: `--do-thay` và `--xam-cho` từng
-**gần như cùng độ sáng** (1,07:1) — trong ảnh xám, "đã bị thay thế" và "không đủ
-căn cứ" trông như nhau, mà đó lại là hai trạng thái đối lập nhất trong sản phẩm.
-Bảng ink-navy **cải thiện** con số này lên **1,44:1**, và hai màu giờ còn tách
-nhau bằng cả họ màu (navy trung tính so với salmon ấm) — đo được trên trình duyệt
-thật, xác nhận bằng mắt ở 390px. Dù vậy bất biến vẫn **không** được nới:
-**không trạng thái nào được truyền đạt chỉ bằng màu.** `bi_thay_the` luôn kèm câu
-nêu đích danh văn bản thay thế; `abstain` luôn kèm câu "Không tìm thấy căn cứ
-pháp lý cho câu hỏi này." Người đọc phân biệt được bằng chữ, kể cả khi màu nói dối
-họ. Một con số đo tốt hơn là lý do để bớt lo, không phải lý do để bỏ ràng buộc.
-
-Cuối cùng, một cạm bẫy đã gặp thật: `@theme` của Tailwind v4 **chỉ phát ra biến
-nào có utility dùng tới**, nên `var(--shadow-brass)` từng lặng lẽ không vẽ gì.
-Khối `@theme` trong `tokens.css` vì vậy phải là `@theme static` — một file token
-tồn tại để công bố bảng màu thì không được tuỳ hứng biến mất.
-
-## Chữ và bố cục
-
-Bốn vai, theo `KLAW-BUILD-SPEC` §5.2. Tất cả self-host qua `@fontsource`, đều có
-subset `vietnamese` đã kiểm bằng công cụ trên trình duyệt thật — chi tiết phép
-kiểm và cạm bẫy khi kiểm lại nằm ở `frontend/README.md`.
-
-- **Tiêu đề** (`--font-tieu-de`, Playfair Display 500/600): chỉ `h1` và `h2`.
-  **Cố ý không dùng cho `h3`** — mọi `h3` trong dự án render ở 13px, tức chúng là
-  **nhãn** (vai `caption` của spec), không phải vai `h3 24px`. Một serif tương
-  phản cao ở 13px mất hết nét mảnh và bó chặt dấu tiếng Việt xếp tầng.
-- **Mặt đọc** (`--font-doc`, Be Vietnam Pro): sans humanist đọc tốt tiếng Việt có
-  dấu, thân 17px trên di động và 18px trên desktop, dòng 1.7. Dấu tiếng Việt cần
-  chiều cao dòng rộng hơn tiếng Anh — **giữ nguyên hai con số này**, không hạ về
-  `body 16px` của spec.
-- **Trên phim** (`--font-phim`, Source Serif 4): serif, vì nguồn là văn bản in.
-  Chữ trên phim **không bao giờ** đổi màu theo trạng thái — phim là phim; trạng
-  thái sống ở nhãn và ở viền khung. Quy tắc này thắng cả quy tắc tiêu đề: một
-  `h3`/`h4` nằm trên phim vẫn là Source Serif 4.
-- **Số hiệu, đường dẫn trích dẫn** (`--font-dia-chi`, JetBrains Mono): mono, vì
-  `45/2019/QH14 > Điều 127 > Khoản 2` là một **địa chỉ**, không phải văn xuôi.
-  Người dùng cần quét và so từng ký tự.
-- Bề rộng đọc tối đa **68 ký tự** ở mặt đọc; dải khung không giới hạn ngang.
-- Thang chữ của spec §5.2 (hero 72 → caption 13) và thang bo góc §5.3
-  (6·10·16·24) đã có trong `@theme`. Thang chữ hiện là **đích để quy về dần** —
-  các trang vẫn dùng giá trị tuỳ ý; thêm token không đổi hiển thị hiện tại.
-
-## Cấu trúc và điều hướng
-
-Ba màn hình, một máy:
-
-- **Tra cứu** — ô hỏi ở giữa khi trống, trượt lên đầu khi có kết quả
-- **Soạn thảo** — nhập thông tin, máy sinh văn bản, mỗi điều khoản mang căn cứ riêng
-- **Soát** — dán văn bản có sẵn, máy trả danh sách phát hiện, mỗi cái neo vào một khung
-
-Chuyển giữa ba màn hình là **đổi khay phim**, không phải tải lại trang.
-
-## Trạng thái — bốn kết quả, bốn cách hiển thị
-
-| `result_type` | Giao diện |
+| Cặp | Tỉ lệ |
 |---|---|
-| `answer` | mặt đọc có văn bản; dải khung bên dưới; badge hiệu lực trên từng khung |
-| `partial_coverage` | mặt đọc **để trống có chủ đích** — không diễn giải. Chỉ nêu văn bản tìm thấy + đường dẫn tới nguyên văn |
-| `abstain` | *"Không tìm thấy căn cứ pháp lý cho câu hỏi này."* + gợi ý diễn đạt lại. Nền `--xam-cho`, chữ bình thường, **không icon lỗi** |
-| `out_of_scope` | nêu rõ phạm vi: 6 Bộ luật + cụm Lao động; liệt kê cái **không** phủ (thuế, đất đai, hôn nhân gia đình) |
+| `--foreground` trên `--background` | **14,87:1** |
+| `--foreground` trên `--card` | **15,50:1** |
+| `--primary` trên `--background` | **9,62:1** |
+| `--primary` trên `--card` | **10,03:1** |
+| `--muted-foreground` trên `--background` | **5,27:1** |
+| `--muted-foreground` trên `--card` | **5,49:1** |
+| `--muted-foreground` trên `--color-paper-100` | **4,94:1** |
+| `--background` trên nút `--primary` đặc | **9,62:1** |
+| `--accent-foreground` trên nút `--accent` đặc | **8,12:1** |
+| `--color-ink-950` trên nút `--color-brass-500` đặc | **7,72:1** |
+| `--destructive` trên `--background` | **4,54:1** |
 
-Badge hiệu lực trên mỗi khung, **luôn thấy được**, không nằm trong tooltip:
+### Chưa đạt — nợ đã đo, phải trả ở pha dựng lại nhãn hiệu lực
 
-| Nhãn | Hiển thị |
+| Cặp | Tỉ lệ | Ngưỡng | Ghi chú |
+|---|---|---|---|
+| `--color-brass-600` làm chữ trên `--card` | **3,15:1** | 4,5 | dùng làm chữ ở rất nhiều nơi |
+| `--color-brass-600` trên `--color-paper-100` | **2,83:1** | 4,5 | trượt cả ngưỡng UI 3:1 |
+| `--color-brass-500` làm chữ trên `--background` | **1,93:1** | 4,5 | chỉ được dùng làm nền/viền |
+| `--color-status-active` làm chữ trên `--card` | **4,05:1** | 4,5 | |
+| `--color-status-partial` làm chữ trên `--card` | **2,34:1** | 4,5 | tệ nhất trong ba |
+| `--color-status-expired` làm chữ trên `--card` | **3,93:1** | 4,5 | |
+| `--ring` trên `--background` | **2,56:1** | 3,0 (WCAG 1.4.11) | vòng tiêu điểm |
+| `--border` trên `--background` | **1,23:1** | 3,0 khi là ranh giới ô nhập | `--input` dùng chung giá trị |
+
+### Tách độ sáng — chỗ hỏng nặng nhất
+
+Bản cũ coi **1,07:1** giữa `--do-thay` và `--xam-cho` là một khiếm khuyết và đã
+sửa lên 1,44:1. Bảng màu `Klaw_FE` tệ hơn hẳn ở đúng cặp nguy hiểm nhất:
+
+| Cặp | Tách độ sáng |
 |---|---|
-| `con_hieu_luc` | chấm `--xanh-that`, không chữ |
-| `bi_thay_the` / `het_hieu_luc` | viền `--do-thay` + câu nêu **đích danh** văn bản thay thế |
-| `mot_phan_khong_xac_dinh` | viền `--vang-mo` + *"CSDL quốc gia không công bố dữ liệu cấp điều khoản"* |
-| `can_doi_chieu_tay` | chấm `--xam-cho` + *"cần đối chiếu tay"* |
+| `status-active` vs `status-expired` | **1,03:1** |
+| `status-active` vs `muted-foreground` | 1,35:1 |
+| `status-expired` vs `muted-foreground` | 1,40:1 |
+| `status-partial` vs `status-expired` | 1,68:1 |
+| `status-active` vs `status-partial` | 1,73:1 |
 
-## Chuyển động — giải thích quan hệ, không trang trí
+**1,03:1 nghĩa là trong ảnh xám, "còn hiệu lực" và "hết hiệu lực" trông y hệt
+nhau** — hai trạng thái đối lập nhất trong sản phẩm. Với người mù màu
+deuteranopia, xanh 160° và đỏ 32° đều ngả vàng nâu, nên hue cũng không cứu được.
 
-Bốn chuyển động, mỗi cái một việc:
+### Bộ giá trị đã tính, đề xuất cho pha dựng lại
 
-1. **Tiến tới khung** — bấm một trích dẫn, khung trượt vào tiêu điểm và sáng lên. Đây là
-   động tác trung tâm: nó *là* click-to-verify. `transform` + `opacity`, chạy trên
-   compositor.
-2. **Rọi tiêu điểm** — câu trích sáng dần trong nguyên văn, để mắt tìm được nó trong một
-   Điều dài.
-3. **Trạng thái chờ** — tra cứu mất **10–60 giây**. Không spinner. Máy đếm qua các bước
-   **có thật** trong đồ thị: *đang tìm → đang mở rộng → đang kiểm chứng → đang dựng câu
-   trả lời*. Người dùng thấy hệ thống đang làm gì, không phải một vòng tròn quay.
-   Trên ngưỡng 10 giây, một chỉ báo không xác định đọc như **treo máy**: phải có tên
-   bước đang chạy, tiến trình xác định, và **nút huỷ**. Hoãn 300–500ms trước khi hiện
-   chỉ báo để câu trả lời nhanh không làm loé rồi tắt. Luôn có timeout dẫn tới lỗi thật
-   kèm nút thử lại — không treo im lặng.
-4. **Đổi khay** — chuyển giữa ba màn hình, trượt ngang có chiều sâu.
+Ràng buộc kép: mỗi màu ≥ 4,5:1 làm chữ trên `--card`, **và** tách nhau ≥ 1,3:1.
+Ép cả ba xuống đúng 4,5:1 thì chúng bằng nhau về độ sáng (1,00:1) — tức là sửa
+xong AA lại làm hỏng tách xám. Bộ dưới đây thoả cả hai, giữ nguyên hue và
+chroma, chỉ hạ `L`:
 
-Chiều sâu 3D dùng `perspective` + `translateZ` ở dải khung, **không WebGL** — thư viện 3D
-nặng sẽ giết trải nghiệm trên điện thoại đời cũ, mà người lao động là một trong ba nhóm
-người dùng chính.
+| Token | oklch đề xuất | HEX | Trên `--card` |
+|---|---|---|---|
+| `--color-status-active` | `0.432 0.11 160` | `#00623A` | 7,48:1 |
+| `--color-status-partial` | `0.30 0.13 78` | `#4F1E00` | 13,79:1 |
+| `--color-status-expired` | `0.39 0.17 32` | `#890000` | 10,13:1 |
+| `--color-status-neutral` | `0.52 0.032 255` | `#5D6A7C` | 5,49:1 |
 
-`prefers-reduced-motion`: thay dịch chuyển bằng đổi opacity, **giữ nguyên** phản hồi
-trạng thái. Tắt hết không được — người dùng vẫn phải biết bước nào đang chạy trong 60
-giây đó.
+Tách độ sáng nhỏ nhất giữa bốn màu: **1,35:1**. Đây là **đề xuất đã đo**, chưa
+áp dụng — pha 0 không render nhãn hiệu lực nào, nên áp dụng bây giờ là sửa mù.
+
+**Bất biến không được nới, kể cả khi số đo tốt lên: không trạng thái nào được
+truyền đạt chỉ bằng màu.** Hình và chữ mang nghĩa; màu chỉ nhắc lại.
+
+---
+
+## Hai ràng buộc cứng — phải sửa ở pha sau
+
+### 1. `abstain` phải trung tính
+
+`abstain` là hành vi **đúng**, được tính điểm trong đánh giá. Nó không bao giờ
+được mang màu cảnh báo, không icon lỗi, không rung.
+
+`Klaw_FE` vi phạm: `dung-thu.tsx:248-269` tô nhánh "không đủ căn cứ" bằng
+`--color-status-partial` (cam) kèm icon `TriangleAlert`. Khối đó đã bị xoá ở pha
+0 cùng các câu trả lời đóng hộp, nên **vi phạm hiện không còn trong mã** — nhưng
+hệ thiết kế vẫn **chưa có token trung tính** để dựng lại cho đúng.
+`--color-status-neutral` ở bảng trên là chỗ dành sẵn cho nó.
+
+Nếu giao diện tô đỏ hoặc cam câu "tôi không đủ căn cứ", nó dạy người dùng rằng
+sự trung thực là thất bại. Đỏ chỉ dành cho **luật đã bị thay thế** — thứ duy
+nhất khiến người dùng hành động sai.
+
+### 2. `mot_phan_khong_xac_dinh` bị dịch mất nghĩa
+
+`van-ban.ts` và `VanBanUI.tsx` gọi nhãn này là **"Hết hiệu lực một phần"** — bỏ
+mất chữ **"không xác định"**, tức bỏ mất lời thú nhận giới hạn. Hai câu nói hai
+chuyện khác nhau:
+
+- *"Hết hiệu lực một phần"* — hệ thống **biết** phần nào hết hiệu lực.
+- *"Bị sửa một phần, chưa xác định được điều này còn hiệu lực hay không"* — hệ
+  thống **không biết**, và nói ra.
+
+Chỉ câu thứ hai là đúng với dữ liệu. Nhãn phải mang cả mệnh đề đó, không rút gọn
+cho vừa chip.
+
+### 3. Ba màu cho năm nhãn
+
+`PRODUCT.md` định nghĩa năm nhãn hiệu lực; `Klaw_FE` có ba màu trạng thái, bản
+cũ có bốn. Chưa có chỗ hiện cho `bi_thay_the` (khác `het_hieu_luc` ở chỗ **phải
+nêu đích danh văn bản thay thế**), `bi_sua_doi` (biết đích danh điều khoản, văn
+bản và ngày), và `can_doi_chieu_tay`. Cộng thêm `abstain` cần màu trung tính.
+
+Cách bản cũ giải bài này và nên giữ: **`switch` trên chuỗi, nhãn lạ rơi xuống
+`default` an toàn**, kèm `nhanDayDu` cho trình đọc màn hình — chứ không phải một
+`Record<>` ném lỗi khi backend thêm nhãn thứ sáu.
+
+---
+
+## Chữ
+
+Bốn họ, nạp qua **Google Fonts CDN**, `display=swap`, hai trọng lượng mỗi họ:
+
+| Token | Họ | Dùng cho |
+|---|---|---|
+| `--font-display` | Playfair Display 600/700 | tiêu đề |
+| `--font-sans` | Be Vietnam Pro 400/600 | giao diện |
+| `--font-doc` | Source Serif 4 400/600 | nguyên văn văn bản luật |
+| *(lớp `.font-jetbrains`)* | JetBrains Mono 400 | số hiệu văn bản |
+
+Bản cũ **tự host** qua `@fontsource`. Bản này phụ thuộc `fonts.googleapis.com` +
+`fonts.gstatic.com` — một phụ thuộc bên thứ ba trên đường tải trang chính, và
+một đường rò referrer. Đây là **khác biệt đã biết**, không phải sơ suất; đổi lại
+thì cần thêm bước build. Ghi ở đây để quyết định sau, không để trôi.
+
+Số hiệu văn bản (`45/2019/QH14`) luôn dùng chữ đơn cách. Nó là **định danh**,
+không phải văn xuôi.
+
+---
+
+## Hình khối, chiều sâu, chuyển động
+
+- **Bo góc**: `--radius: 0.75rem`, sáu bậc từ `sm` (`-4px`) tới `3xl` (`+12px`).
+- **Bóng đổ ba tầng**: `--shadow-soft` (nhấc nhẹ) · `--shadow-elegant` (lớp
+  nổi) · `--shadow-gold` (nhấn accent) · `--shadow-depth` (viền + đổ, dùng qua
+  `@utility surface-depth`).
+- **Bốn gradient**: `--gradient-parchment` · `--gradient-ink` · `--gradient-gold`
+  · `--gradient-aurora`.
+- **13 `@utility`** gói các tổ hợp trên lại: `bg-gradient-*`, `text-gradient-gold`,
+  `shadow-*`, `surface-depth`, `lift-hover`, `focus-brass`, `text-on-dark-muted`.
+- **19 `@keyframes`**. Chiều sâu là **glass/blur + shadow**, không `perspective`.
+  WebGL **được dùng** (three + R3F + drei ở hero và nền màn đăng nhập). Ràng buộc
+  "cấm WebGL" ở bản DESIGN.md trước đã bị chính KLAW-p4 phá trước khi có bản port
+  này; ràng buộc đó được gỡ ở đây thay vì giả vờ nó còn hiệu lực.
+
+### `prefers-reduced-motion` — giảm chuyển động, không gỡ phản hồi trạng thái
+
+`styles.css` giữ luật quét `*` làm lưới an toàn (animation mới thêm sau vẫn bị
+bắt), rồi **mở đúng hai ngoại lệ** bằng selector hạng lớp — hạng lớp thắng `*`
+nên không phải sửa luật gốc:
+
+- `.thinking-dot` chuyển sang keyframe **chỉ đổi opacity**, bỏ `translateY(-3px)`,
+  chậm còn 1,4s, giữ `animation-delay` của `nth-child` để ba chấm vẫn nhấp so le.
+- `.brass-caret` vốn đã chỉ đổi opacity ở 1Hz, dưới xa ngưỡng 3Hz gây co giật;
+  giữ, chậm còn 1,2s.
+
+Lý do là một con số của sản phẩm: **một lượt trả lời mất 10–60 giây.** Tắt sạch
+animation trong khoảng đó để người bật `prefers-reduced-motion` ngồi nhìn màn
+hình đứng im, không biết hệ thống còn sống hay đã treo. Đó không phải giảm
+chuyển động, đó là **gỡ phản hồi trạng thái**.
+
+Hai lớp này hiện **chưa có nơi gọi** trong JSX — giao diện phát token đi cùng
+các câu trả lời đóng hộp đã bị xoá. Hợp đồng CSS được giữ có chủ đích: pha nối
+backend cần đúng một trạng thái chờ cho lượt 10–60 giây, và đây là thứ nó phải
+dùng lại.
+
+Trên ngưỡng 10 giây, một chỉ báo không xác định đọc như treo máy: phải có **tên
+bước đang chạy**, tiến trình xác định, và **nút huỷ**. Hoãn 300–500ms trước khi
+hiện chỉ báo để câu trả lời nhanh không loé rồi tắt. Luôn có timeout dẫn tới lỗi
+thật kèm nút thử lại — không treo im lặng.
+`Klaw_FE` có **0 `AbortController`** trong toàn bộ `src/`: không nút huỷ, không
+timeout, không bước. Nợ đã biết.
+
+---
 
 ## Responsive
 
-- **Di động**: một cột. Mặt đọc trước, dải khung cuộn ngang bên dưới, khung rọi sáng mở
-  toàn màn hình. Vùng chạm tối thiểu 44px.
-- **Máy tính**: hai cột — mặt đọc trái, khung rọi sáng phải, dải khung dưới mặt đọc. Đọc
-  câu trả lời và nguyên văn **cùng lúc**, không chuyển qua lại.
-- Điểm gãy theo **nội dung**, không theo tên thiết bị: cột đôi khi đủ chỗ cho 68 ký tự
-  **và** một khung phim đọc được cạnh nhau.
+Đã kiểm bằng trình duyệt thật ở **390px** và **1440px** trên cả 11 màn hình:
+`document.scrollWidth === clientWidth` ở mọi trang, không trang nào tràn ngang.
+
+- **390px**: một cột. Dải lọc thu thành nút "Bộ lọc (n)" mở sheet; điều hướng
+  xuống thanh dưới; màn soạn thảo tách thành hai tab *Nhập thông tin* / *Xem
+  trước*. Vùng chạm tối thiểu 44px.
+- **1440px**: hai đến ba cột. Đọc câu trả lời và nguyên văn **cùng lúc**, không
+  chuyển qua lại.
+- Điểm gãy theo **nội dung**, không theo tên thiết bị.
+
+---
 
 ## Ràng buộc không được vi phạm
 
 - Định danh văn bản bằng `so_ky_hieu` **cho người đọc**; khoá duy nhất tuyệt đối
-  là `doc_id`. **Không bao giờ** định danh bằng tên.
-
-  Hai đính chính đo được trên DB (2026-08-31). Ràng buộc này trước đây được biện
-  minh bằng câu *"`doc_id 96117` có tên chỉ là 'Hàng hải'"* — **câu đó sai**, tên
-  thật là `Bộ luật Hàng hải số 95/2015/QH13`. Lý do thật: **54/57** văn bản nhúng
-  cả `số <so_ky_hieu>` vào `ten`, và `ten` không nhất quán hoa/thường, có bản
-  ALL-CAPS.
-
-  Và `so_ky_hieu` **không duy nhất trên toàn bảng**: `65/2006/QH11` thuộc hai văn
-  bản. Cả hai ở tầng metadata (0 điều khoản) nên **trích dẫn an toàn** — trích dẫn
-  chỉ sinh từ tầng sâu, nơi giá trị này duy nhất. Nhưng `/pham-vi` và `nguon` của
-  `partial_coverage` **có** chạm tầng nông, nên chúng phải khoá theo `doc_id`.
-  Khoá bởi `tests/test_infra/test_bat_bien_dinh_danh.py`.
-- Cảnh báo hiệu lực **không được** giấu vào tooltip hay metadata
-- `abstain` **không bao giờ** mang màu lỗi
-- `GET /van-ban/{id}` lazy — không tải cả cây 689 Điều
-- Chữ trên phim là nguyên văn từ CSDL: **không** rút gọn, **không** sửa chính tả
+  là `doc_id`. **Không bao giờ** định danh bằng tên. 54/57 văn bản nhúng cả
+  `số <so_ky_hieu>` vào `ten`, `ten` không nhất quán hoa/thường; và
+  `65/2006/QH11` thuộc **hai** văn bản khác nhau.
+- **Không bao giờ render `documents.tinh_trang` thô.** Cột đó gắn "Còn hiệu lực"
+  cho đúng bốn nghị định lương tối thiểu đã bị thay thế — những văn bản KLAW bắt
+  được là sai. Mọi trạng thái đi qua `effectivity.py`.
+- Cảnh báo hiệu lực **không được** giấu vào tooltip hay metadata.
+- `abstain` **không bao giờ** mang màu lỗi.
+- Không trạng thái nào được truyền đạt **chỉ bằng màu**.
+- Chữ nguyên văn từ CSDL: **không** rút gọn, **không** sửa chính tả.
+- Giao diện **không được ngụ ý mọi lĩnh vực được phủ như nhau**: cụm Lao động có
+  luật + nghị định + thông tư + chế tài; năm bộ luật còn lại chỉ có bản thân bộ
+  luật.
+- Số phạm vi corpus (số văn bản, số điều khoản, số lĩnh vực) lấy từ API ở
+  `/pham-vi`, **không viết cứng** trong giao diện.
 
 ---
 
-## Mã nhãn — KLAW
+## Nợ thiết kế đã biết, xếp theo mức
 
-Một **khung phim đang được rọi sáng**. Hình vuông bo góc là khung; hai khía răng
-cưa ở cạnh trái và phải là lỗ kéo phim; một vòng tròn ánh sáng ấm (`--den-sang`)
-lệch tâm bên trong là chỗ đèn máy rọi qua.
-
-Ràng buộc: ở 16px (favicon) chỉ còn **khung + chấm sáng** vẫn phải nhận ra được.
-Nếu phải nhìn kỹ mới thấy răng cưa thì răng cưa bị bỏ ở kích thước đó, không thu
-nhỏ tiếp.
-
-Chữ hiệu: `KLAW` bằng font địa chỉ (mono), giãn chữ nhẹ. Đặt cạnh mã nhãn, không
-lồng vào trong. Dưới nó, khi có chỗ: *Tra cứu pháp luật có trích dẫn kiểm chứng
-được* — đây là lời hứa của sản phẩm, không phải khẩu hiệu quảng cáo.
-
-**Không** dùng: búa thẩm phán, cán cân công lý, bộ não, người máy, tia lửa AI.
-Chúng nói "pháp luật" và "AI" một cách chung chung, không nói được điều duy nhất
-KLAW làm khác.
-
-## Bộ biểu tượng
-
-Nét (stroke) đồng nhất 1.5px ở 24px, đầu nét vuông — cùng họ với khung phim, chứ
-không phải biểu tượng bo tròn mềm. Vẽ tay bằng SVG inline, **không thư viện icon**
-(người lao động dùng mạng yếu; một bộ icon đầy đủ tốn nhiều hơn số icon thật dùng).
-
-Biểu tượng mang **nghĩa trạng thái** không bao giờ đứng một mình: `abstain` không
-có biểu tượng cảnh báo, và mọi nhãn hiệu lực đều kèm chữ hoặc màu, không chỉ hình
-— người mù màu phải đọc được trạng thái.
-
-## Màn hình giới thiệu — mode Persuade
-
-Đây là **bề mặt duy nhất** ở mode Persuade. Ba màn hình công cụ vẫn là Operate;
-đừng mang phong cách trang giới thiệu vào chúng.
-
-Người vào lần đầu chưa biết KLAW khác gì ChatGPT. Trang này trả lời đúng một câu
-hỏi đó, rồi để họ gõ câu hỏi thật ngay tại chỗ — ô hỏi ở hero **là** ô hỏi thật,
-không phải nút dẫn sang trang khác. Gõ xong chuyển sang `/tra-cuu` mang theo câu
-hỏi.
-
-Thứ tự nội dung, theo đúng thứ tự người ta cần biết:
-
-1. **Hero** — cỗ máy trong không gian 3D, ô hỏi thật, một câu nói KLAW làm gì
-2. **Vì sao khác** — trích dẫn bấm được, kiểm bằng tra bảng chứ không phải suy luận
-3. **Bốn kết quả** — nêu thẳng rằng *"không tìm thấy căn cứ"* là câu trả lời hợp lệ
-4. **Phạm vi thật** — 6 Bộ luật + cụm Lao động; **nói rõ cái không phủ**
-5. **Giới hạn** — corpus là văn bản gốc, không phải bản hợp nhất
-
-Mục 4 và 5 nằm trên trang giới thiệu **có chủ đích**. Một trang Persuade giấu giới
-hạn xuống footer là trang bán hàng; trang này bán được vì nó nói ra giới hạn.
-
-## Trợ lý — người vận hành máy, không phải bong bóng chat biết tuốt
-
-Sự hiện diện của AI trong giao diện là **người vận hành cỗ máy**: biết trong kho
-có gì, đưa được đúng khay phim, và nói thẳng khi thứ bạn hỏi không có trong kho.
-
-- Hình thái: ô đèn của máy — một vòng sáng `--den-sang` thở nhẹ khi rảnh, sáng ổn
-  định khi đang chạy. **Không** mặt người, **không** nhân vật hoạt hình.
-- Câu mở: *"Bạn cần tra điều gì?"* — kèm **câu hỏi mẫu có thật**, chạy được, lấy
-  từ phạm vi corpus thật. Không phải câu bịa cho đẹp.
-- Nó **nêu giới hạn trước khi bị hỏi**: khi câu hỏi chạm lĩnh vực không phủ, nói
-  ngay thay vì để người dùng chờ 60 giây rồi nhận `out_of_scope`.
-- Không bao giờ tự sinh nội dung pháp lý ngoài kết quả đã qua kiểm chứng. Nó dẫn
-  đường trong máy, không trả lời thay máy.
-- Thu gọn được, và trạng thái thu gọn được nhớ. Không bao giờ tự bật lại.
-
-## Tương tác chuột
-
-Chuột chỉ làm **một** việc: điều khiển ánh sáng của máy.
-
-- Con trỏ di trên dải khung → tâm quầng sáng đi theo (`--x`/`--y` cập nhật bằng
-  `pointermove`, đọc trong `radial-gradient`). Chỉ `opacity` và vị trí gradient.
-- Hero nghiêng nhẹ theo con trỏ — biên độ **tối đa 6°**, và tắt hẳn dưới 1024px
-  (màn cảm ứng không có con trỏ; đọc `@media (hover: hover) and (pointer: fine)`).
-- Cuộn trang giới thiệu → các mặt phẳng `translateZ` khác nhau trôi lệch nhau,
-  bằng `animation-timeline: scroll()`. **Không** JS nghe scroll.
-- Mọi thứ chuột làm được, bàn phím cũng phải làm được. Không có tính năng nào chỉ
-  tồn tại khi có con trỏ.
-- `pointermove` phải throttle theo `requestAnimationFrame`. Một handler chạy mỗi
-  sự kiện chuột là cách chắc chắn nhất để giết 60fps trên máy yếu.
+| Mức | Việc |
+|---|---|
+| Cao | Bốn màu trạng thái không đạt AA làm chữ; `status-active` vs `status-expired` tách 1,03:1 |
+| Cao | Chưa có token trung tính cho `abstain` và `can_doi_chieu_tay` |
+| Cao | `mot_phan_khong_xac_dinh` bị dịch thành "Hết hiệu lực một phần" |
+| Cao | `--ring` 2,56:1, dưới ngưỡng 3:1 của WCAG 1.4.11 cho vòng tiêu điểm |
+| Trung bình | `--color-brass-600` làm chữ 3,15:1 và đang dùng làm chữ khắp nơi |
+| Trung bình | `--input` dùng chung `--border` 1,23:1 — ranh giới ô nhập cần 3:1 |
+| Trung bình | Font qua CDN bên thứ ba thay vì tự host |
+| Trung bình | 0 `AbortController`: không nút huỷ, không timeout cho lượt 10–60 giây |
+| Thấp | Hero không có ô hỏi thật, chỉ hai nút CTA |
+| Thấp | `/dang-nhap` và `/dang-ky` không có `h1` |
