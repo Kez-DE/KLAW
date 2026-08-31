@@ -16,6 +16,9 @@ const HuongDan = lazy(() => import('./pages/HuongDan'));
 const PhamVi = lazy(() => import('./pages/PhamVi'));
 const MienTru = lazy(() => import('./pages/MienTru'));
 const KhongTimThay = lazy(() => import('./pages/KhongTimThay'));
+// Mục lục một văn bản — đích của `nguon` ở nhánh `partial_coverage`. Cũng
+// lazy: người dùng chỉ tới đây khi đã có một kết quả tra cứu trong tay.
+const VanBan = lazy(() => import('./pages/VanBan'));
 
 function DangTaiTuyen() {
   return (
@@ -51,6 +54,7 @@ export default function App() {
               <Route path="/huong-dan" element={<HuongDan />} />
               <Route path="/pham-vi" element={<PhamVi />} />
               <Route path="/mien-tru" element={<MienTru />} />
+              <Route path="/van-ban/:docId" element={<VanBan />} />
               <Route path="*" element={<KhongTimThay />} />
             </Routes>
           </Suspense>

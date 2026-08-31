@@ -100,40 +100,114 @@ export interface VanBanAroundResponse {
   provisions: Provision[];
 }
 
-/* ---- POST /soan-thao và POST /soat — Task 5, CHƯA TỒN TẠI khi Task 7 chạy ---- */
+/* ──────────── GET /van-ban/{doc_id} không tham số — mục lục ────────────── */
 
-export type LoaiVanBan = 'hop_dong_lao_dong' | 'noi_quy_lao_dong' | 'quyet_dinh_ky_luat';
+/** CHỈ bốn cấp cấu trúc tài liệu. Không bao giờ 'dieu': mục lục không kéo nội
+ *  dung Điều (BLDS có 689 Điều), đó chính là lý do endpoint này lazy. */
+export type CapMucLuc = 'phan' | 'chuong' | 'muc' | 'tieu_muc';
 
-export interface SoanThaoRequest {
-  loai: LoaiVanBan;
-  facts: Record<string, unknown>;
+export interface MucLucItem {
+  id: number;
+  cap: CapMucLuc;
+  so_hieu_cap: string;
+  tieu_de: string;
+  thu_tu: number;
 }
 
-export interface SoanThaoResponse {
-  markdown: string;
-  citations: Citation[];
-  findings: Finding[];
-  trace_id: string;
+export interface VanBanMucLucResponse {
+  doc_id: string;
+  so_ky_hieu: string;
+  bo_luat: string;
+  /** Rỗng với 36 văn bản tầng NÔNG (chỉ có metadata, chưa có toàn văn) —
+   *  trang phải nói ra sự thật đó, không được hiện như văn bản rỗng. */
+  muc_luc: MucLucItem[];
+}
+
+/* ── POST /soan-thao · POST /soat · GET /mau/{loai} — shape THẬT (Task 5) ─── */
+
+/** Chỉ `hdld` có nội dung pháp lý. Hai loại kia hợp lệ về kiểu nhưng
+ *  `/soan-thao` và `/soat` trả 501, còn `/mau` trả `facts: []`. */
+export type LoaiVanBan = 'hdld' | 'noi_quy' | 'quyet_dinh_ky_luat';
+
+/** Một trường của form nhập fact — SINH TỪ `config/rules.yaml`. Form phải dựng
+ *  từ danh sách này, không hardcode: hardcode sẽ trôi lệch khỏi YAML ngay lần
+ *  sửa rule đầu tiên. */
+export interface FactField {
+  key: string;
+  nhan: string;
+  /** "int" | "bool" | "str" theo `facts_meta:` trong YAML. Để nguyên `string`:
+   *  một kiểu mới thêm vào YAML phải rơi về ô chữ, không làm sập cả form. */
+  kieu: string;
+  bat_buoc: boolean;
+  lua_chon: string[] | null;
+}
+
+export interface MauResponse {
+  loai_van_ban: string;
+  facts: FactField[];
+}
+
+export interface SoanThaoRequest {
+  loai_van_ban: LoaiVanBan;
+  /** Fact VẮNG MẶT không phải lỗi: rule engine báo "không kiểm được" — một
+   *  kết quả hợp lệ. Chỉ fact CÓ MẶT mà sai giá trị mới bị 422. */
+  facts: Record<string, unknown>;
+  /** Mặc định "thuong_mai" ở server. */
+  nganh?: string;
+  config_name?: string;
 }
 
 export interface SoatRequest {
-  van_ban: string;
-  loai: string;
-  self_audit?: boolean;
+  loai_van_ban: LoaiVanBan;
+  /** >= 20 ký tự (server trả 422 nếu ngắn hơn). */
+  text: string;
+  facts?: Record<string, unknown>;
+  nganh?: string;
 }
 
-export interface SoatResponse {
+export interface Finding {
+  /** thieu_noi_dung | trai_luat | citation_khong_hop_le */
+  loai: string;
+  /** "chan" | "canh_bao" — giữ `string` để nhãn mới không làm sập danh sách. */
+  muc_do: string;
+  /** Câu hiển thị cho người dùng. */
+  thong_diep: string;
+  /** TRÍCH ĐOẠN 120 ký tự đầu của điều khoản TRONG VĂN BẢN ĐANG SOÁT —
+   *  KHÔNG phải vị trí, và cũng KHÔNG phải câu trích từ luật. Đừng hiển thị
+   *  nó như toạ độ, và đừng đưa nó vào chỗ chờ một `quote`. */
+  dieu_khoan_lien_quan: string | null;
+  /** `duong_dan` của điều luật căn cứ. */
+  can_cu: string | null;
+  rule_id: string | null;
+  /** Cùng `khop_tai_id` mở được panel đối chiếu. Cả hai `null` khi
+   *  `loai === 'citation_khong_hop_le'` — chính căn cứ đó không tồn tại, nên
+   *  KHÔNG dựng link hỏng. */
+  doc_id: string | null;
+  khop_tai_id: number | null;
+}
+
+export interface AuditReport {
+  dat: boolean;
+  /** 0..1 */
+  completeness: number;
+  so_dieu_khoan: number;
+  /** Do SERVER đặt, không phải client gửi lên: true khi đang soát output của
+   *  CHÍNH KLAW (bên trong /soan-thao), false khi soát văn bản người dùng dán
+   *  vào. Phân biệt này là số liệu đánh giá của khoá luận — phải hiển thị. */
+  self_audit: boolean;
   findings: Finding[];
+}
+
+export interface SoanThaoResponse {
+  /** Markdown thuần. */
+  document: string;
+  /** `list[dict]` ở server — không có schema chốt nên không dựng kiểu giả. */
+  clauses: unknown[];
+  audit_report: AuditReport;
   trace_id: string;
 }
 
-export type MucDoPhatHien = 'chan' | 'canh_bao' | 'goi_y';
-
-export interface Finding {
-  muc_do: MucDoPhatHien;
-  rule_id: string;
-  thong_diep: string;
-  /** duong_dan tới điều luật căn cứ — click được như citation. */
-  can_cu: string;
-  vi_tri?: string;
+export interface SoatResponse {
+  audit_report: AuditReport;
+  trace_id: string;
 }

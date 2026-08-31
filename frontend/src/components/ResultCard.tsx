@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import type { TraCuuResponse } from '../types';
+import type { Nguon, TraCuuResponse } from '../types';
 import { DaiKhung } from './DaiKhung';
+import { DuongDan } from './DuongDan';
 
 /**
  * Bốn `result_type`, bốn cách hiển thị — không thương lượng.
@@ -53,6 +54,41 @@ function KhoiCanhBao({ warnings }: { warnings: string[] }) {
 }
 
 /**
+ * Văn bản chi phối câu hỏi — CHỈ `partial_coverage` điền `nguon[]`.
+ *
+ * Nhánh đó luôn có `citations: []` theo thiết kế, nên đây là thứ DUY NHẤT cho
+ * phép mở được văn bản đang nói tới. `coverage_note` có nêu tên văn bản trong
+ * văn xuôi, nhưng cạo chuỗi đó ra để dựng link là bịa một địa chỉ — mỗi liên
+ * kết dưới đây đến từ `doc_id` server trả về, không từ phép đoán.
+ *
+ * Đây KHÔNG phải trích dẫn đã kiểm chứng: không có `quote`, không có nhãn hiệu
+ * lực. Câu dẫn phải nói đúng như vậy.
+ */
+function KhoiNguon({ nguon }: { nguon: Nguon[] }) {
+  if (nguon.length === 0) return null;
+  return (
+    <section aria-label="Văn bản chi phối câu hỏi" className="mt-4">
+      <h3 className="m-0 text-[0.8125rem] leading-5 text-muc-nhat">
+        Văn bản chi phối câu hỏi này — mở để tự đối chiếu
+      </h3>
+      <ul className="mt-2 mb-0 flex list-none flex-col gap-2 p-0">
+        {nguon.map((vanBan) => (
+          <li key={vanBan.doc_id}>
+            <Link
+              to={`/van-ban/${vanBan.doc_id}`}
+              className="block min-h-[var(--vung-cham-toi-thieu)] rounded-vua border p-3 transition-opacity duration-[var(--thoi-luong-nhanh)] ease-chuan hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
+              style={{ background: 'var(--nen-cao)', borderColor: 'var(--vien)' }}
+            >
+              <DuongDan soKyHieu={vanBan.so_ky_hieu} boLuat={vanBan.bo_luat} />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
  * Nhắc miễn trừ — CHỈ ở nhánh `answer` (site-spec.md).
  *
  * Ba nhánh kia đã tự nói ra giới hạn của chúng: `abstain` nói không đủ căn cứ,
@@ -90,7 +126,14 @@ interface ResultCardProps {
 }
 
 export function ResultCard({ ketQua, chiSoDangMo, onChonTrichDan }: ResultCardProps) {
-  const { result_type: loai, answer, citations, warnings, coverage_note: ghiChuPhamVi } = ketQua;
+  const {
+    result_type: loai,
+    answer,
+    citations,
+    nguon,
+    warnings,
+    coverage_note: ghiChuPhamVi,
+  } = ketQua;
 
   if (loai === 'abstain') {
     return (
@@ -167,6 +210,7 @@ export function ResultCard({ ketQua, chiSoDangMo, onChonTrichDan }: ResultCardPr
           </MatDoc>
         </div>
         <KhoiCanhBao warnings={warnings} />
+        <KhoiNguon nguon={nguon} />
         {/* Backend hiện luôn trả citations rỗng ở nhánh này (assemble.py::_base
             không gắn citation cho partial_coverage), nên dải khung tự ẩn. Giữ
             lời gọi để ngày endpoint kèm trích dẫn thì màn hình có sẵn chỗ, chứ

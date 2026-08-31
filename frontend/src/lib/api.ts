@@ -8,8 +8,12 @@
  * Cả hai trường hợp path tương đối "/api/v1/..." đều đúng — không cần base URL.
  */
 import type {
+  AuditReport,
   Citation,
+  FactField,
   Finding,
+  MauResponse,
+  MucLucItem,
   Nguon,
   ResultType,
   SoanThaoRequest,
@@ -19,6 +23,7 @@ import type {
   TraCuuRequest,
   TraCuuResponse,
   VanBanAroundResponse,
+  VanBanMucLucResponse,
   Provision,
 } from '../types';
 
@@ -26,7 +31,8 @@ export type ApiErrorKind =
   | 'network' // fetch() tự nó thất bại — mất mạng, DNS, CORS bị chặn…
   | 'timeout' // vượt quá thời gian chờ nội bộ (xem TIMEOUT_*_MS)
   | 'aborted' // AbortSignal do caller truyền vào bị huỷ chủ động
-  | 'not_implemented' // 404 trên /soan-thao hoặc /soat — Task 5 chưa xây
+  | 'not_implemented' // 501: loại văn bản chưa có nội dung pháp lý; hoặc 404 trên
+  //                     một route chưa được phục vụ (uvicorn cũ, chưa --reload)
   | 'not_found' // 404 có nghĩa "không có" (vd. tài liệu/provision không tồn tại)
   | 'invalid_request' // 4xx khác (vd. 422 sai định dạng as_of_date)
   | 'server_error' // 5xx
@@ -94,18 +100,37 @@ function isNguonArray(x: unknown): x is Nguon[] {
   return Array.isArray(x) && x.every(isNguon);
 }
 
+function isNumberOrNull(x: unknown): x is number | null {
+  return x === null || typeof x === 'number';
+}
+
 function isFinding(x: unknown): x is Finding {
   if (!isRecord(x)) return false;
   return (
+    isString(x.loai) &&
     isString(x.muc_do) &&
-    isString(x.rule_id) &&
     isString(x.thong_diep) &&
-    isString(x.can_cu) &&
-    (x.vi_tri === undefined || isString(x.vi_tri))
+    isStringOrNull(x.dieu_khoan_lien_quan) &&
+    isStringOrNull(x.can_cu) &&
+    isStringOrNull(x.rule_id) &&
+    isStringOrNull(x.doc_id) &&
+    isNumberOrNull(x.khop_tai_id)
   );
 }
-function isFindingArray(x: unknown): x is Finding[] {
-  return Array.isArray(x) && x.every(isFinding);
+
+function isAuditReport(x: unknown): x is AuditReport {
+  if (!isRecord(x)) return false;
+  return (
+    typeof x.dat === 'boolean' &&
+    isNumber(x.completeness) &&
+    isNumber(x.so_dieu_khoan) &&
+    // `self_audit` do SERVER đặt và là số liệu đánh giá của khoá luận: thiếu
+    // nó thì màn hình không phân biệt được "soát output của KLAW" với "soát
+    // văn bản người dùng", nên guard bắt buộc chứ không cho mặc định.
+    typeof x.self_audit === 'boolean' &&
+    Array.isArray(x.findings) &&
+    x.findings.every(isFinding)
+  );
 }
 
 const RESULT_TYPES: readonly string[] = ['answer', 'partial_coverage', 'abstain', 'out_of_scope'];
@@ -155,16 +180,57 @@ function isVanBanAroundResponse(x: unknown): x is VanBanAroundResponse {
 function isSoanThaoResponse(x: unknown): x is SoanThaoResponse {
   if (!isRecord(x)) return false;
   return (
-    isString(x.markdown) &&
-    isCitationArray(x.citations) &&
-    isFindingArray(x.findings) &&
+    isString(x.document) &&
+    Array.isArray(x.clauses) &&
+    isAuditReport(x.audit_report) &&
     isString(x.trace_id)
   );
 }
 
 function isSoatResponse(x: unknown): x is SoatResponse {
   if (!isRecord(x)) return false;
-  return isFindingArray(x.findings) && isString(x.trace_id);
+  return isAuditReport(x.audit_report) && isString(x.trace_id);
+}
+
+function isFactField(x: unknown): x is FactField {
+  if (!isRecord(x)) return false;
+  return (
+    isString(x.key) &&
+    isString(x.nhan) &&
+    isString(x.kieu) &&
+    typeof x.bat_buoc === 'boolean' &&
+    (x.lua_chon === null || isStringArray(x.lua_chon))
+  );
+}
+
+function isMauResponse(x: unknown): x is MauResponse {
+  if (!isRecord(x)) return false;
+  return isString(x.loai_van_ban) && Array.isArray(x.facts) && x.facts.every(isFactField);
+}
+
+function isMucLucItem(x: unknown): x is MucLucItem {
+  if (!isRecord(x)) return false;
+  return (
+    isNumber(x.id) &&
+    // enum thật, không phải string bất kỳ: mục lục KHÔNG BAO GIỜ chứa 'dieu'
+    // (đó là lý do endpoint này lazy). Guard lỏng sẽ để lọt một 'dieu' và
+    // trang mục lục âm thầm biến thành trang kéo cả cây 689 Điều.
+    (x.cap === 'phan' || x.cap === 'chuong' || x.cap === 'muc' || x.cap === 'tieu_muc') &&
+    isString(x.so_hieu_cap) &&
+    isString(x.tieu_de) &&
+    isNumber(x.thu_tu)
+  );
+}
+
+function isVanBanMucLucResponse(x: unknown): x is VanBanMucLucResponse {
+  if (!isRecord(x)) return false;
+  return (
+    isString(x.doc_id) &&
+    isString(x.so_ky_hieu) &&
+    isString(x.bo_luat) &&
+    Array.isArray(x.muc_luc) &&
+    x.muc_luc.every(isMucLucItem)
+  );
 }
 
 async function safeParseJson(res: Response): Promise<unknown> {
@@ -220,6 +286,20 @@ async function fetchJson<T>(
             message:
               on404 === 'not_implemented' ? 'Chức năng đang hoàn thiện.' : 'Không tìm thấy dữ liệu.',
             status: 404,
+            detail,
+          },
+        };
+      }
+      // 501 KHÔNG phải lỗi máy chủ: server đang từ chối TRUNG THỰC vì loại văn
+      // bản đó chưa có checklist/rule pháp lý. Gộp nó vào "server_error" sẽ
+      // biến một câu trả lời đúng thành một lời than vãn sai.
+      if (res.status === 501) {
+        return {
+          ok: false,
+          error: {
+            kind: 'not_implemented',
+            message: 'Máy chủ từ chối: loại văn bản này chưa có danh mục nội dung và bộ quy tắc riêng.',
+            status: 501,
             detail,
           },
         };
@@ -297,7 +377,77 @@ export async function layVanBanQuanhDieu(
   );
 }
 
-/** POST /api/v1/soan-thao — Task 5. 404 trước khi Task 5 xong -> "not_implemented". */
+/**
+ * GET /api/v1/van-ban/{docId} — KHÔNG tham số: metadata + danh mục
+ * Chương/Mục, không kéo nội dung Điều nào. Đây là dạng lazy bắt buộc cho một
+ * văn bản như BLDS (689 Điều).
+ *
+ * `muc_luc` RỖNG là chuyện bình thường, không phải lỗi: 36 văn bản tầng nông
+ * của corpus chỉ có metadata. Trang phải nói ra điều đó.
+ */
+export async function layMucLucVanBan(
+  docId: string,
+  signal?: AbortSignal,
+): Promise<ApiResult<VanBanMucLucResponse>> {
+  return fetchJson<VanBanMucLucResponse>(
+    `/api/v1/van-ban/${encodeURIComponent(docId)}`,
+    { method: 'GET' },
+    TIMEOUT_VAN_BAN_MS,
+    isVanBanMucLucResponse,
+    signal,
+  );
+}
+
+/**
+ * GET /api/v1/van-ban/{docId}?so_dieu={soDieu} — MỘT Điều kèm Khoản/Điểm con.
+ *
+ * `soDieu` là CHUỖI, không phải số: số hiệu Điều trong luật Việt Nam không
+ * liên tục và có dạng "27a". Ép về number sẽ mất đúng những Điều được thêm
+ * sau bằng luật sửa đổi.
+ */
+export async function layDieu(
+  docId: string,
+  soDieu: string,
+  signal?: AbortSignal,
+): Promise<ApiResult<VanBanAroundResponse>> {
+  return fetchJson<VanBanAroundResponse>(
+    `/api/v1/van-ban/${encodeURIComponent(docId)}?so_dieu=${encodeURIComponent(soDieu)}`,
+    { method: 'GET' },
+    TIMEOUT_VAN_BAN_MS,
+    isVanBanAroundResponse,
+    signal,
+  );
+}
+
+const TIMEOUT_MAU_MS = 10_000; // đọc YAML đã nạp sẵn, không gọi LLM
+
+/**
+ * GET /api/v1/mau/{loai} — mô tả form nhập fact, SINH TỪ `config/rules.yaml`.
+ *
+ * Form PHẢI dựng từ danh sách này. Hardcode danh sách trường ở FE sẽ trôi lệch
+ * khỏi YAML ngay lần sửa rule đầu tiên, và không ai phát hiện ra cho tới khi
+ * một rule im lặng không được kiểm.
+ *
+ * `facts: []` cho `noi_quy`/`quyet_dinh_ky_luat` là câu trả lời THẬT (hai loại
+ * đó chưa có checklist), không phải lỗi tải.
+ */
+export async function layMau(loai: string, signal?: AbortSignal): Promise<ApiResult<MauResponse>> {
+  return fetchJson<MauResponse>(
+    `/api/v1/mau/${encodeURIComponent(loai)}`,
+    { method: 'GET' },
+    TIMEOUT_MAU_MS,
+    isMauResponse,
+    signal,
+    'not_implemented',
+  );
+}
+
+/**
+ * POST /api/v1/soan-thao — gọi LLM, chờ lâu là bình thường.
+ *
+ * 501 với `noi_quy`/`quyet_dinh_ky_luat`: hai loại đó chưa có nội dung pháp
+ * lý. Hiện đúng câu từ chối, KHÔNG âm thầm soát bằng checklist HĐLĐ.
+ */
 export async function soanThao(
   req: SoanThaoRequest,
   signal?: AbortSignal,
@@ -312,7 +462,13 @@ export async function soanThao(
   );
 }
 
-/** POST /api/v1/soat — Task 5. 404 trước khi Task 5 xong -> "not_implemented". */
+/**
+ * POST /api/v1/soat — soát văn bản người dùng dán vào. Bốn phép kiểm đều tra
+ * bảng, không gọi LLM, nên nhanh; giữ chung ngưỡng chờ vì `extract_clauses`
+ * chạy trên văn bản dài tuỳ ý.
+ *
+ * Cùng quy tắc 501 như `/soan-thao`.
+ */
 export async function soat(req: SoatRequest, signal?: AbortSignal): Promise<ApiResult<SoatResponse>> {
   return fetchJson<SoatResponse>(
     '/api/v1/soat',
