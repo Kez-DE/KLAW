@@ -95,8 +95,9 @@ export default function PhamVi() {
             </li>
             <li>
               {ketQua.nong.so_van_ban.toLocaleString('vi-VN')} văn bản chỉ có metadata, chưa có
-              toàn văn — đây chính là nguồn sinh ra kết quả{' '}
-              <span className="dia-chi">partial_coverage</span>, không phải một nhánh lỗi.
+              toàn văn. KLAW biết chúng tồn tại và nêu tên được, nhưng{' '}
+              <strong>không truy hồi được nội dung</strong> — câu hỏi rơi vào phạm vi chúng sẽ ra{' '}
+              <span className="dia-chi">abstain</span>, không phải một câu trả lời mỏng.
             </li>
           </ul>
         )}

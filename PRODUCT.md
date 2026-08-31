@@ -47,7 +47,7 @@ trên, đầy đủ ở lớp dưới khi người dùng muốn đào sâu. Khô
 | Trạng thái | Nghĩa |
 |---|---|
 | `answer` | có căn cứ, đã qua cả hai tầng kiểm |
-| `partial_coverage` | chỉ trúng tầng nông — nêu văn bản, **không** diễn giải |
+| `partial_coverage` | chỉ trúng tầng nông — nêu văn bản, **không** diễn giải. **Hiện KHÔNG kích hoạt được** (xem dưới) |
 | `abstain` | không đủ căn cứ |
 | `out_of_scope` | ngoài phạm vi 6 Bộ luật + cụm Lao động |
 
@@ -99,6 +99,18 @@ Không phủ: thuế, đất đai, hôn nhân gia đình, doanh nghiệp, đầu
   văn bản (`Nghị quyết…` id 15074 và `Luật sư…` id 15076). Cả hai ở tầng
   metadata (0 điều khoản) nên trích dẫn an toàn — nhưng `/pham-vi` và `nguon`
   của `partial_coverage` CÓ chạm tầng nông, nên chúng phải khoá theo `doc_id`.
+
+**Đính chính 2026-08-31 — `partial_coverage` hiện là nhánh KHÔNG kích hoạt được.**
+Tôi đã nhiều lần nói "36 văn bản metadata chính là thứ sinh ra `partial_coverage`".
+**Sai.** Chuỗi kiểm: `expand.py:123-126` chỉ giữ `depth` là `deep` hoặc `shallow`
+và loại `metadata`; DB có `deep: 21`, `metadata: 36`, **`shallow: 0`**; và 36 văn
+bản metadata có **0 provision** nên truy hồi không bao giờ chạm tới. Điều kiện
+`assemble.py:260` `if not deep and shallow:` vì thế không bao giờ đúng.
+
+Nhánh này **được giữ lại** — nó đúng về hành vi, tốn 0 token, và sẽ kích hoạt
+ngay khi corpus có một văn bản `depth='shallow'`: đúng trường hợp một văn bản có
+metadata mà MOJ không công bố toàn văn máy đọc được. Việc mở rộng corpus có thể
+làm nó sống. Nhưng tới lúc đó, **đừng mô tả nó như một nhánh đang chạy**.
   Khoá duy nhất tuyệt đối là `doc_id`; `so_ky_hieu` là định danh CHO NGƯỜI ĐỌC.
 - `duong_dan` là chuỗi trích dẫn chính tắc: `45/2019/QH14 > Điều 127 > Khoản 2`
 - Một trích dẫn mang **hai** id: `provision_id` (điều luật mô hình dẫn) và
