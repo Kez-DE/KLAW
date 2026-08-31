@@ -18,9 +18,6 @@ import { Route as DungThuRouteImport } from './routes/dung-thu'
 import { Route as HuongDanRouteImport } from './routes/huong-dan'
 import { Route as SoanThaoRouteImport } from './routes/soan-thao'
 import { Route as TraCuuRouteImport } from './routes/tra-cuu'
-import { Route as ApiChatRouteImport } from './routes/api/chat'
-import { Route as ApiDraftRouteImport } from './routes/api/draft'
-import { Route as ApiLookupRouteImport } from './routes/api/lookup'
 import { Route as SoanThaoIndexRouteImport } from './routes/soan-thao.index'
 import { Route as SoanThaoLoaiVanBanRouteImport } from './routes/soan-thao.$loaiVanBan'
 import { Route as TraCuuIndexRouteImport } from './routes/tra-cuu.index'
@@ -71,21 +68,6 @@ const TraCuuRoute = TraCuuRouteImport.update({
   path: '/tra-cuu',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiChatRoute = ApiChatRouteImport.update({
-  id: '/api/chat',
-  path: '/api/chat',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiDraftRoute = ApiDraftRouteImport.update({
-  id: '/api/draft',
-  path: '/api/draft',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiLookupRoute = ApiLookupRouteImport.update({
-  id: '/api/lookup',
-  path: '/api/lookup',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SoanThaoIndexRoute = SoanThaoIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -117,9 +99,6 @@ export interface FileRoutesByFullPath {
   '/huong-dan': typeof HuongDanRoute
   '/soan-thao': typeof SoanThaoRouteWithChildren
   '/tra-cuu': typeof TraCuuRouteWithChildren
-  '/api/chat': typeof ApiChatRoute
-  '/api/draft': typeof ApiDraftRoute
-  '/api/lookup': typeof ApiLookupRoute
   '/soan-thao/$loaiVanBan': typeof SoanThaoLoaiVanBanRoute
   '/tra-cuu/$soHieu': typeof TraCuuSoHieuRoute
   '/soan-thao/': typeof SoanThaoIndexRoute
@@ -133,9 +112,6 @@ export interface FileRoutesByTo {
   '/dang-nhap': typeof DangNhapRoute
   '/dung-thu': typeof DungThuRoute
   '/huong-dan': typeof HuongDanRoute
-  '/api/chat': typeof ApiChatRoute
-  '/api/draft': typeof ApiDraftRoute
-  '/api/lookup': typeof ApiLookupRoute
   '/soan-thao/$loaiVanBan': typeof SoanThaoLoaiVanBanRoute
   '/tra-cuu/$soHieu': typeof TraCuuSoHieuRoute
   '/soan-thao': typeof SoanThaoIndexRoute
@@ -152,9 +128,6 @@ export interface FileRoutesById {
   '/huong-dan': typeof HuongDanRoute
   '/soan-thao': typeof SoanThaoRouteWithChildren
   '/tra-cuu': typeof TraCuuRouteWithChildren
-  '/api/chat': typeof ApiChatRoute
-  '/api/draft': typeof ApiDraftRoute
-  '/api/lookup': typeof ApiLookupRoute
   '/soan-thao/$loaiVanBan': typeof SoanThaoLoaiVanBanRoute
   '/tra-cuu/$soHieu': typeof TraCuuSoHieuRoute
   '/soan-thao/': typeof SoanThaoIndexRoute
@@ -172,9 +145,6 @@ export interface FileRouteTypes {
     | '/huong-dan'
     | '/soan-thao'
     | '/tra-cuu'
-    | '/api/chat'
-    | '/api/draft'
-    | '/api/lookup'
     | '/soan-thao/$loaiVanBan'
     | '/tra-cuu/$soHieu'
     | '/soan-thao/'
@@ -188,9 +158,6 @@ export interface FileRouteTypes {
     | '/dang-nhap'
     | '/dung-thu'
     | '/huong-dan'
-    | '/api/chat'
-    | '/api/draft'
-    | '/api/lookup'
     | '/soan-thao/$loaiVanBan'
     | '/tra-cuu/$soHieu'
     | '/soan-thao'
@@ -206,9 +173,6 @@ export interface FileRouteTypes {
     | '/huong-dan'
     | '/soan-thao'
     | '/tra-cuu'
-    | '/api/chat'
-    | '/api/draft'
-    | '/api/lookup'
     | '/soan-thao/$loaiVanBan'
     | '/tra-cuu/$soHieu'
     | '/soan-thao/'
@@ -225,9 +189,6 @@ export interface RootRouteChildren {
   HuongDanRoute: typeof HuongDanRoute
   SoanThaoRoute: typeof SoanThaoRouteWithChildren
   TraCuuRoute: typeof TraCuuRouteWithChildren
-  ApiChatRoute: typeof ApiChatRoute
-  ApiDraftRoute: typeof ApiDraftRoute
-  ApiLookupRoute: typeof ApiLookupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -293,27 +254,6 @@ declare module '@tanstack/react-router' {
       path: '/tra-cuu'
       fullPath: '/tra-cuu'
       preLoaderRoute: typeof TraCuuRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/chat': {
-      id: '/api/chat'
-      path: '/api/chat'
-      fullPath: '/api/chat'
-      preLoaderRoute: typeof ApiChatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/draft': {
-      id: '/api/draft'
-      path: '/api/draft'
-      fullPath: '/api/draft'
-      preLoaderRoute: typeof ApiDraftRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/lookup': {
-      id: '/api/lookup'
-      path: '/api/lookup'
-      fullPath: '/api/lookup'
-      preLoaderRoute: typeof ApiLookupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/soan-thao/': {
@@ -384,9 +324,6 @@ const rootRouteChildren: RootRouteChildren = {
   HuongDanRoute: HuongDanRoute,
   SoanThaoRoute: SoanThaoRouteWithChildren,
   TraCuuRoute: TraCuuRouteWithChildren,
-  ApiChatRoute: ApiChatRoute,
-  ApiDraftRoute: ApiDraftRoute,
-  ApiLookupRoute: ApiLookupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

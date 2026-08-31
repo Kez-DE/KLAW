@@ -222,6 +222,10 @@ function KhongGianSoanThao() {
   const [chuThich, setChuThich] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [riskOpen, setRiskOpen] = useState(true);
+  // Declared with the other hooks, above the "mẫu không tồn tại" early return.
+  // Sitting below that return made the hook order depend on whether the route
+  // param matched a template — the exact shape React refuses to render twice.
+  const [pane, setPane] = useState<"nhap" | "xem">("nhap");
   const undoRef = useRef<Draft[]>([]);
   const redoRef = useRef<Draft[]>([]);
   const [, forceTick] = useState(0);
@@ -314,8 +318,6 @@ function KhongGianSoanThao() {
       </AppShell>
     );
   }
-
-  const [pane, setPane] = useState<"nhap" | "xem">("nhap");
 
   const laLaoDong = laHopDongLaoDong(mau);
 
