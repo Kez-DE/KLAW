@@ -8,7 +8,7 @@ import { TrangThaiCho } from '../components/TrangThaiCho';
 import { FormFacts } from '../components/soan-thao/FormFacts';
 import { VanBanKetQua } from '../components/soan-thao/VanBanKetQua';
 import { BaoCaoSoat } from '../components/soat/BaoCaoSoat';
-import { KhungCanCu } from '../components/soat/KhungCanCu';
+import { KhungRoiSang } from '../components/KhungRoiSang';
 
 /**
  * Soạn thảo — nhập thông tin, máy sinh văn bản, rồi TỰ SOÁT chính văn bản đó
@@ -297,11 +297,12 @@ export default function SoanThao() {
           {cotChinh}
         </div>
         {docId !== null && khopTaiId !== null && (
-          <KhungCanCu
+          <KhungRoiSang
             key={`${docId}-${khopTaiId}`}
-            docId={docId}
-            khopTaiId={khopTaiId}
-            canCu={phatHienDangMo?.can_cu ?? null}
+            // Không có `quote`: một `Finding` chỉ dẫn tới một điều khoản căn
+            // cứ, nó KHÔNG mang câu trích của luật.
+            diaChi={{ doc_id: docId, khop_tai_id: khopTaiId, duong_dan: phatHienDangMo?.can_cu }}
+            vai="can-cu"
             onDong={dong}
           />
         )}

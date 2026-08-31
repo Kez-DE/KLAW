@@ -6,7 +6,7 @@ import type { LoaiVanBan, SoatResponse } from '../types';
 import { BaoLoi } from '../components/BaoLoi';
 import { TrangThaiCho } from '../components/TrangThaiCho';
 import { BaoCaoSoat } from '../components/soat/BaoCaoSoat';
-import { KhungCanCu } from '../components/soat/KhungCanCu';
+import { KhungRoiSang } from '../components/KhungRoiSang';
 
 /**
  * Soát — dán một văn bản có sẵn, máy trả danh sách phát hiện, mỗi cái neo vào
@@ -209,11 +209,12 @@ export default function Soat() {
           {cotChinh}
         </div>
         {docId !== null && khopTaiId !== null && (
-          <KhungCanCu
+          <KhungRoiSang
             key={`${docId}-${khopTaiId}`}
-            docId={docId}
-            khopTaiId={khopTaiId}
-            canCu={phatHienDangMo?.can_cu ?? null}
+            // Không có `quote`: một `Finding` chỉ dẫn tới một điều khoản căn
+            // cứ, nó KHÔNG mang câu trích của luật.
+            diaChi={{ doc_id: docId, khop_tai_id: khopTaiId, duong_dan: phatHienDangMo?.can_cu }}
+            vai="can-cu"
             onDong={dong}
           />
         )}

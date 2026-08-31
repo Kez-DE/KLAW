@@ -2,14 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { layVanBanQuanhDieu } from '../lib/api';
 import { useGoiApi, useHaiCot } from '../lib/hooks';
 import { catTheoTrichDan } from '../lib/trichDan';
-import type { Citation, Provision, VanBanAroundResponse } from '../types';
+import type { VanBanAroundResponse } from '../types';
 import { BaoLoi } from './BaoLoi';
 import { DuongDan } from './DuongDan';
+import { NguyenVanDieu } from './soat/NguyenVanDieu';
 
 /**
- * Khung rọi sáng — nguyên văn điều luật, câu trích được đánh dấu.
+ * Khung rọi sáng — nguyên văn điều luật, câu trích được đánh dấu khi CÓ câu
+ * trích.
  *
- * Đây LÀ click-to-verify, đóng góp trung tâm của đề tài. Hai điểm không được
+ * Đây LÀ click-to-verify, đóng góp trung tâm của đề tài. Ba điểm không được
  * làm sai:
  *
  * 1. Fetch bằng `khop_tai_id`, KHÔNG phải `provision_id`. `provision_id`
@@ -17,75 +19,57 @@ import { DuongDan } from './DuongDan';
  *    ở 73,6% số Điều.
  * 2. `la_tam=true` áp cho Điều tâm VÀ mọi Khoản/Điểm con của nó — rọi sáng cả
  *    VÙNG đó, không phải một dòng.
+ * 3. `quote` là TUỲ CHỌN. Một `Citation` có câu trích thật; một `Finding` thì
+ *    không (`can_cu` chỉ là địa chỉ điều luật). Trước đây Soát/Soạn thảo dùng
+ *    một panel riêng CHỈ VÌ điểm này, và bản sao đó lệch hành vi thật: thiếu
+ *    hẳn rọi sáng và khung "tiến tới". Nay chỉ còn một panel; không có quote
+ *    thì nó mở đúng Điều rồi im lặng — KHÔNG báo "không định vị được câu
+ *    trích: “”" về một câu trích chưa từng tồn tại.
  *
- * Panel tự lo vòng đời tải/lỗi/thử lại của chính nó, để hai màn hình còn lại
- * chỉ cần truyền vào một `Citation`.
+ * Panel tự lo vòng đời tải/lỗi/thử lại của chính nó, để ba màn hình gọi nó chỉ
+ * cần truyền vào một địa chỉ. `inert` phần còn lại và trả tiêu điểm khi đóng
+ * KHÔNG phải việc của nó: App.tsx lo vỏ chung, trang gọi lo cái nút của nó.
  */
 
-interface NhomDieu {
-  /** Dòng cấp `dieu`; null nếu phản hồi mở đầu bằng một Khoản mồ côi. */
-  dieu: Provision | null;
-  con: Provision[];
-  laTam: boolean;
+/**
+ * Cái tối thiểu để mở một khung. `Citation` khớp cấu trúc sẵn nên màn Tra cứu
+ * truyền thẳng; một `Finding` chỉ điền `doc_id`, `khop_tai_id`, `duong_dan`.
+ */
+export interface DiaChiKhung {
+  doc_id: string;
+  /** Dòng khớp THẬT SỰ — xem điểm 1 ở đầu file. */
+  khop_tai_id: number;
+  /** Hiện ở tiêu đề TRONG LÚC nguyên văn còn đang tải. */
+  duong_dan?: string | null;
+  so_ky_hieu?: string;
+  bo_luat?: string;
+  /** Có → tô sáng trong nguyên văn. Không có → chỉ mở đúng Điều. */
+  quote?: string | null;
 }
 
-function nhomTheoDieu(provisions: Provision[]): NhomDieu[] {
-  const nhom: NhomDieu[] = [];
-  for (const dieuKhoan of provisions) {
-    const laDieu = dieuKhoan.cap === 'dieu';
-    if (laDieu || nhom.length === 0) {
-      nhom.push({
-        dieu: laDieu ? dieuKhoan : null,
-        con: laDieu ? [] : [dieuKhoan],
-        laTam: dieuKhoan.la_tam,
-      });
-      continue;
-    }
-    const cuoi = nhom[nhom.length - 1];
-    cuoi.con.push(dieuKhoan);
-    cuoi.laTam = cuoi.laTam || dieuKhoan.la_tam;
-  }
-  return nhom;
-}
-
-const LE_THEO_CAP: Record<string, string | undefined> = {
-  dieu: '0rem',
-  khoan: '1rem',
-  diem: '2rem',
-};
-
-interface DongNguyenVanProps {
-  dieuKhoan: Provision;
-  /** Câu trích cần đánh dấu; chỉ truyền vào đúng dòng đã khớp (`khop_tai_id`). */
-  quote: string | null;
-}
-
-function DongNguyenVan({ dieuKhoan, quote }: DongNguyenVanProps) {
-  const lat = quote === null ? null : catTheoTrichDan(dieuKhoan.noi_dung, quote);
-  return (
-    <p
-      className="chu-tren-phim my-2 text-[1rem] leading-[1.75] whitespace-pre-wrap"
-      style={{ marginInlineStart: LE_THEO_CAP[dieuKhoan.cap] ?? '0rem' }}
-    >
-      {lat === null || !lat.timThay ? (
-        dieuKhoan.noi_dung.normalize('NFC')
-      ) : (
-        <>
-          {lat.truoc}
-          <mark className="cau-trich">{lat.trung}</mark>
-          {lat.sau}
-        </>
-      )}
-    </p>
-  );
-}
+/** Hai vai của cùng một panel — khác nhau ĐÚNG ở chữ, không ở hành vi. */
+const VAI = {
+  'trich-dan': {
+    nhan: 'Nguyên văn',
+    ariaLabel: 'Nguyên văn điều luật',
+    chuThich:
+      'Hiển thị Điều được dẫn cùng 2 Điều liền trước và liền sau. Nguyên văn lấy từ CSDL, không rút gọn, không sửa chính tả.',
+  },
+  'can-cu': {
+    nhan: 'Căn cứ pháp lý',
+    ariaLabel: 'Căn cứ pháp lý của phát hiện',
+    chuThich:
+      'Hiển thị Điều làm căn cứ cùng 2 Điều liền trước và liền sau. Nguyên văn lấy từ CSDL, không rút gọn, không sửa chính tả.',
+  },
+} as const;
 
 interface KhungRoiSangProps {
-  citation: Citation;
+  diaChi: DiaChiKhung;
+  vai: keyof typeof VAI;
   onDong: () => void;
 }
 
-export function KhungRoiSang({ citation, onDong }: KhungRoiSangProps) {
+export function KhungRoiSang({ diaChi, vai, onDong }: KhungRoiSangProps) {
   const haiCot = useHaiCot();
   const { dangChay, ketQua, loi, chay } = useGoiApi<VanBanAroundResponse>();
   const tieuDe = useRef<HTMLHeadingElement>(null);
@@ -94,7 +78,11 @@ export function KhungRoiSang({ citation, onDong }: KhungRoiSangProps) {
   // phản hồi mới là một object mới, nên quầng đèn tự tắt rồi sáng lại.
   const [ketQuaDaRoi, datKetQuaDaRoi] = useState<VanBanAroundResponse | null>(null);
 
-  const { doc_id: docId, khop_tai_id: khopTaiId, quote } = citation;
+  const { doc_id: docId, khop_tai_id: khopTaiId } = diaChi;
+  // Chuỗi rỗng KHÔNG phải một câu trích. Quy về null ngay ở đây, một lần, để
+  // không nhánh nào bên dưới phải tự nhớ phân biệt.
+  const quote = diaChi.quote?.trim() ? diaChi.quote : null;
+  const { nhan, ariaLabel, chuThich } = VAI[vai];
 
   useEffect(() => {
     // khop_tai_id, KHÔNG phải provision_id — xem ghi chú đầu file.
@@ -126,25 +114,41 @@ export function KhungRoiSang({ citation, onDong }: KhungRoiSangProps) {
     };
   }, [haiCot]);
 
-  // Rọi sáng: bật sau khi nguyên văn đã dựng xong, để `opacity` có cái để
-  // chuyển từ 0 lên 1 — câu trích sáng DẦN, không bật sẵn.
+  // Nguyên văn về kèm 2 Điều liền trước, nên mở ra là thấy Điều LÂN CẬN chứ
+  // không phải điều đang được kiểm chứng. Kéo vùng Điều tâm lên đầu khung đọc,
+  // và bật rọi sáng ở khung hình kế tiếp để `opacity` có cái để chuyển từ 0 lên
+  // 1 — câu trích sáng DẦN, không bật sẵn.
+  //
+  // Cuộn TAY thay vì `scrollIntoView`: hàm đó cuộn cả các vùng cuộn tổ tiên,
+  // tức là kéo luôn cả trang — người dùng vừa bấm một trích dẫn sẽ thấy trang
+  // nhảy đi chỗ khác, và panel `sticky` bị đẩy khỏi mép trên (mất nút Đóng).
+  // Đợi một khung hình: đo ngay trong lượt commit thì chiều cao khối nguyên văn
+  // chưa ổn định (chữ serif trên phim vừa được bố trí lại), và phép đo hụt đẩy
+  // khung đọc trượt quá vùng cần xem.
   useEffect(() => {
     if (ketQua === null) return;
-    const khung = requestAnimationFrame(() => datKetQuaDaRoi(ketQua));
-    vungCuon.current?.querySelector('[data-vung-tam]')?.scrollIntoView({ block: 'center' });
+    const khung = requestAnimationFrame(() => {
+      datKetQuaDaRoi(ketQua);
+      const boc = vungCuon.current;
+      if (boc === null) return;
+      const tam = boc.querySelector('[data-vung-tam]');
+      if (tam === null) return;
+      boc.scrollTop += tam.getBoundingClientRect().top - boc.getBoundingClientRect().top - 16;
+    });
     return () => cancelAnimationFrame(khung);
   }, [ketQua]);
 
   const daRoi = ketQua !== null && ketQuaDaRoi === ketQua;
-  const nhom = ketQua === null ? [] : nhomTheoDieu(ketQua.provisions);
   const dongKhop = ketQua?.provisions.find((dieuKhoan) => dieuKhoan.id === khopTaiId) ?? null;
-  const khongDinhVi = dongKhop !== null && !catTheoTrichDan(dongKhop.noi_dung, quote).timThay;
+  // Chỉ nói "không định vị được" khi CÓ một câu trích để định vị.
+  const khongDinhVi =
+    quote !== null && dongKhop !== null && !catTheoTrichDan(dongKhop.noi_dung, quote).timThay;
 
   return (
     <aside
       role={haiCot ? 'region' : 'dialog'}
       aria-modal={haiCot ? undefined : true}
-      aria-label="Nguyên văn điều luật"
+      aria-label={ariaLabel}
       className={
         haiCot
           ? 'sticky top-4 self-start'
@@ -164,11 +168,11 @@ export function KhungRoiSang({ citation, onDong }: KhungRoiSangProps) {
             tabIndex={-1}
             className="m-0 min-w-0 flex-1 text-[0.9375rem] leading-6 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
           >
-            <span className="mb-1 block text-[0.75rem] text-muc-nhat">Nguyên văn</span>
+            <span className="mb-1 block text-[0.75rem] text-muc-nhat">{nhan}</span>
             <DuongDan
-              soKyHieu={ketQua?.so_ky_hieu ?? citation.so_ky_hieu}
-              duongDan={citation.duong_dan}
-              boLuat={ketQua?.bo_luat ?? citation.bo_luat}
+              soKyHieu={ketQua?.so_ky_hieu ?? diaChi.so_ky_hieu}
+              duongDan={diaChi.duong_dan ?? undefined}
+              boLuat={ketQua?.bo_luat ?? diaChi.bo_luat}
             />
           </h2>
           <button
@@ -210,38 +214,14 @@ export function KhungRoiSang({ citation, onDong }: KhungRoiSangProps) {
               )}
 
               {/* Mặt phim: nền sáng, chữ serif, nguyên văn không rút gọn. */}
-              <div className="rounded-vua p-3" style={{ background: 'var(--phim)' }}>
-                {nhom.map((khoi, i) => (
-                  <section
-                    key={khoi.dieu?.id ?? khoi.con[0]?.id ?? i}
-                    data-vung-tam={khoi.laTam ? 'true' : undefined}
-                    data-roi={khoi.laTam && daRoi ? 'true' : 'false'}
-                    className={`rounded-vua px-2 py-1 ${khoi.laTam ? 'vung-roi-sang' : 'ngoai-vung-roi'}`}
-                  >
-                    {khoi.dieu !== null && (
-                      <>
-                        <DuongDan duongDan={khoi.dieu.duong_dan} trenPhim className="mt-2 mb-1" />
-                        <DongNguyenVan
-                          dieuKhoan={khoi.dieu}
-                          quote={khoi.dieu.id === khopTaiId ? quote : null}
-                        />
-                      </>
-                    )}
-                    {khoi.con.map((dieuKhoan) => (
-                      <DongNguyenVan
-                        key={dieuKhoan.id}
-                        dieuKhoan={dieuKhoan}
-                        quote={dieuKhoan.id === khopTaiId ? quote : null}
-                      />
-                    ))}
-                  </section>
-                ))}
-              </div>
+              <NguyenVanDieu
+                provisions={ketQua.provisions}
+                quote={quote}
+                khopTaiId={khopTaiId}
+                daRoi={daRoi}
+              />
 
-              <p className="mt-3 mb-0 text-[0.75rem] leading-5 text-muc-nhat">
-                Hiển thị Điều được dẫn cùng 2 Điều liền trước và liền sau. Nguyên văn lấy từ CSDL,
-                không rút gọn, không sửa chính tả.
-              </p>
+              <p className="mt-3 mb-0 text-[0.75rem] leading-5 text-muc-nhat">{chuThich}</p>
             </>
           )}
         </div>

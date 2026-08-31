@@ -227,7 +227,8 @@ export default function TraCuu() {
           {trichDanDangMo !== null && (
             <KhungRoiSang
               key={`${trichDanDangMo.doc_id}-${trichDanDangMo.khop_tai_id}`}
-              citation={trichDanDangMo}
+              diaChi={trichDanDangMo}
+              vai="trich-dan"
               onDong={dong}
             />
           )}
