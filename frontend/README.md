@@ -180,6 +180,14 @@ root produced a byte-identical chunk, so that weight is `three` + troika +
 R3F itself, not barrel-import waste. The main entry chunk is unchanged at
 313.09 kB / 95.37 kB gzip.
 
+**troika (drei `<Text>`) costs 41.99 kB gzip**, measured by a differential
+build: 297.47 kB gzip with `<Text>`, 255.48 kB without (1,060.81 kB vs
+945.26 kB raw). That is under the 60 kB line agreed for dropping it, so drei
+`<Text>` stays and §10.1 is followed literally. Hand-rolling canvas-2D label
+textures to save 42 kB would be a maintenance debt, not an optimisation — and
+it is worth knowing the number rather than guessing, because the intuition
+that troika is "most of the bundle" is wrong: `three` itself is.
+
 Console on load: zero errors, one warning (`THREE.Clock` deprecation, emitted
 from inside R3F).
 
@@ -245,10 +253,38 @@ excerpt).
 
 ### Re-running the checks
 
+The 768px gate is guarded by a self-check, because it is the one invariant whose
+regression is completely silent — nothing throws, types stay green, desktop looks
+identical, and mobile quietly starts downloading 297 kB. It asserts against the
+**build output**, not the source, since "the 3D chunk cannot reach a phone" is a
+property only the build can state:
+
+```bash
+npm run build && node scripts/kiem-cua-3d.ts
+```
+
+It checks that the eager graph (entry plus everything it `modulepreload`s, plus
+the transitive closure of their *static* imports) contains no `three`/drei/troika
+fingerprint; that the 3D chunk exists, does carry those fingerprints, and sits
+outside that graph; that nothing static-imports it while something dynamic-imports
+it; and that the width guard returns before `<KhoLuat>` is referenced, at the same
+`48rem` the stylesheet uses.
+
+It was verified by mutation — three deliberate breaks, each confirmed to turn it
+red. The third one initially **escaped**, which is the whole reason the mutation
+step exists: `includes('(min-width: 48rem)')` was matching the prose of the doc
+comment above the constant rather than the constant itself, so moving the real
+gate to 40rem stayed green. Assertions about source now strip comments first, and
+the threshold is read out of the constant that `matchMedia` actually receives.
+
+Manual browser checks, for what a script cannot assert:
+
 ```bash
 npm run build && npx vite preview --port 4317
-# 390px: confirm zero requests matching KhoLuat|three|drei|fiber
-# 1440px: confirm first WebGL draw < 2500ms and draws stop when scrolled away
+# 390px (device emulation, not window resize — Chrome floors real windows at 500px):
+#   confirm zero requests matching KhoLuat|three|drei|fiber
+# 1440px: confirm first WebGL draw < 2500ms, and that draw calls hit zero
+#   when the hero scrolls away and when document.hidden
 ```
 
 Note the prior art this overrides: `research-zoom-3d.md` §8 ruled Three.js out
