@@ -47,16 +47,45 @@ function KhungTrong() {
   return <div className="gt-o" aria-hidden="true" />;
 }
 
+/** Khoá "một lần mỗi phiên" (luận đề chuyển động).
+ *
+ * Không có nó, quay về `/` bằng router sẽ diễn lại chuỗi — không phải "lặp"
+ * hay "chạy lại khi cuộn ngược" (hai thứ bị cấm tường minh), nhưng vẫn sai
+ * chữ "một lần mỗi phiên": người dùng đi tra cứu rồi bấm chữ hiệu về trang chủ
+ * không cần được giải thích lại KLAW là gì.
+ *
+ * `sessionStorage` có thể ném (cửa sổ ẩn danh, trình duyệt chặn lưu trữ), nên
+ * mọi truy cập đều bọc try/catch: đọc hỏng → coi như chưa diễn (chuỗi vẫn
+ * chạy, không mất gì); ghi hỏng → chuỗi diễn lại ở lần sau, cũng không mất gì.
+ */
+const KHOA_DA_DIEN = 'klaw:gt-chuoi-da-dien';
+
+function daDienTrongPhien(): boolean {
+  try {
+    return window.sessionStorage.getItem(KHOA_DA_DIEN) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export function CoMay() {
   const { goc, khiGoPhim } = useAnhSangMay();
   // Chuỗi chạy MỘT LẦN rồi nghỉ: gỡ lớp là gỡ luôn cả animation lẫn
   // `will-change`, nên không có gì còn treo trên compositor sau 900ms.
-  const [dangDien, datDangDien] = useState(true);
+  const [dangDien, datDangDien] = useState(() => !daDienTrongPhien());
 
   useEffect(() => {
+    if (!dangDien) return;
+    // Ghi NGAY, không đợi chuỗi xong: người dùng rời trang giữa chừng vẫn tính
+    // là đã được xem lời giải thích.
+    try {
+      window.sessionStorage.setItem(KHOA_DA_DIEN, '1');
+    } catch {
+      /* trình duyệt chặn lưu trữ — chuỗi sẽ diễn lại lần sau, chấp nhận được */
+    }
     const dongHo = window.setTimeout(() => datDangDien(false), THOI_LUONG_CHUOI_MS);
     return () => window.clearTimeout(dongHo);
-  }, []);
+  }, [dangDien]);
 
   return (
     <div
