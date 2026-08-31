@@ -19,10 +19,30 @@ FastAPI backend at `/` (see `src/main.py`). In dev, `/api` proxies to
   wiring that exposes the color/font/radius/shadow/perspective/ease ones as
   utility classes. Source of truth: `../DESIGN.md`.
 - `src/types.ts` — TypeScript types mirroring the API contract 1:1.
-- `src/lib/api.ts` — typed fetch client for all four backend endpoints.
-- `src/pages/*` — one file per screen; each is currently an empty placeholder
-  for another agent/session to build out.
-- `src/components/Nav.tsx` — the persistent "đổi khay phim" tab bar.
+- `src/lib/api.ts` — typed fetch client for the backend endpoints, including
+  the still-hypothetical `GET /api/v1/pham-vi` (no contract exists yet — see
+  the doc comment on `layPhamVi`/`PhamViResponse`).
+- `src/lib/useTieuDeTrang.ts` — sets `<title>`/meta description/`og:*` per
+  route from one table in `App.tsx`, and does the SPA accessibility chores a
+  browser gives you for free on a real page load: resets keyboard focus to
+  the new page's `<h1>` and announces the route change via `aria-live`. Runs
+  centrally off `useLocation()` so it covers every route, including the three
+  screens this hook's own file may not touch.
+- `src/App.tsx` — all seven routes + a catch-all 404. The three Read routes
+  (`/huong-dan`, `/pham-vi`, `/mien-tru`) code-split with `React.lazy`; `/`
+  and `/tra-cuu` load eagerly.
+- `src/pages/*` — `TraCuu` is the built lookup screen. `HuongDan`, `PhamVi`,
+  `MienTru`, `KhongTimThay` are built Read pages. `GioiThieu` is a
+  deliberately minimal placeholder (an `<h1>` and a real question input into
+  `/tra-cuu`) for another session to design fully. `SoanThao`/`Soat` are
+  still empty placeholders pending their backend endpoints.
+- `src/components/Nav.tsx` — the persistent "đổi khay phim" tab bar (the
+  three Operate screens only).
+- `src/components/Footer.tsx` — on every route: links to Giới thiệu / Hướng
+  dẫn / Phạm vi dữ liệu / Miễn trừ trách nhiệm, plus a one-line description.
+- `src/components/ErrorBoundary.tsx` — wraps the whole app in `App.tsx` so a
+  render error shows a real message and a reload button instead of a blank
+  page.
 
 ## SEO limitation (SPA)
 
@@ -47,3 +67,12 @@ prerendering — neither is set up here. Options, not implemented:
 
 Do not build either speculatively; this note exists so the tradeoff is a
 documented decision, not a surprise.
+
+`public/sitemap.xml` lists all seven routes and `public/robots.txt` points to
+it, so crawlers can at least discover every URL — but neither solves the
+problem above. A sitemap only helps a crawler find a URL; it still needs to
+execute JS to see anything past the empty `#root` once it's there. Both files
+also use a placeholder `https://klaw.example.com` domain (no production
+domain exists yet — Task 8 deploy is out of scope for this session); replace
+it with the real domain at deploy time, same as the `url` field noted as
+TODO in `index.html`'s JSON-LD.

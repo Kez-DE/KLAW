@@ -323,3 +323,74 @@ export async function soat(req: SoatRequest, signal?: AbortSignal): Promise<ApiR
     'not_implemented',
   );
 }
+
+const TIMEOUT_PHAM_VI_MS = 10_000; // tra bảng đếm sẵn, không gọi LLM
+
+/**
+ * GET /api/v1/pham-vi — hợp đồng lấy từ `src/models/schemas.py` (commit
+ * bf60f7b, đã chốt trong lúc trang /pham-vi đang được viết). Hai tầng, vì
+ * corpus thật có hai tầng: `sau` có toàn văn (trả lời được thành `answer`),
+ * `nong` chỉ có metadata (chính là thứ sinh ra `partial_coverage`) — giấu
+ * tầng `nong` đi là mô tả sai sản phẩm. `on404` vẫn để "not_implemented" vì
+ * uvicorn dev đang chạy KHÔNG có --reload nên chưa phục vụ route mới ngay cả
+ * khi code đã có (bài học ghi trong progress.md); guard vẫn kiểm shape đầy đủ
+ * phòng khi hợp đồng đổi tiếp trước khi FE này được xem lại.
+ */
+export interface VanBanPhamVi {
+  doc_id: string;
+  so_ky_hieu: string;
+  bo_luat: string;
+  loai_van_ban: string;
+  so_dieu_khoan: number;
+  tinh_trang_moj: string | null;
+}
+
+export interface TangPhamVi {
+  so_van_ban: number;
+  so_dieu_khoan: number;
+  van_ban: VanBanPhamVi[];
+}
+
+export interface PhamViResponse {
+  sau: TangPhamVi;
+  nong: TangPhamVi;
+}
+
+function isVanBanPhamVi(x: unknown): x is VanBanPhamVi {
+  if (!isRecord(x)) return false;
+  return (
+    isString(x.doc_id) &&
+    isString(x.so_ky_hieu) &&
+    isString(x.bo_luat) &&
+    isString(x.loai_van_ban) &&
+    isNumber(x.so_dieu_khoan) &&
+    isStringOrNull(x.tinh_trang_moj)
+  );
+}
+
+function isTangPhamVi(x: unknown): x is TangPhamVi {
+  if (!isRecord(x)) return false;
+  return (
+    isNumber(x.so_van_ban) &&
+    isNumber(x.so_dieu_khoan) &&
+    Array.isArray(x.van_ban) &&
+    x.van_ban.every(isVanBanPhamVi)
+  );
+}
+
+function isPhamViResponse(x: unknown): x is PhamViResponse {
+  if (!isRecord(x)) return false;
+  return isTangPhamVi(x.sau) && isTangPhamVi(x.nong);
+}
+
+/** GET /api/v1/pham-vi. 404 -> "not_implemented" (trang tự hiện trạng thái trung thực). */
+export async function layPhamVi(signal?: AbortSignal): Promise<ApiResult<PhamViResponse>> {
+  return fetchJson<PhamViResponse>(
+    '/api/v1/pham-vi',
+    { method: 'GET' },
+    TIMEOUT_PHAM_VI_MS,
+    isPhamViResponse,
+    signal,
+    'not_implemented',
+  );
+}
