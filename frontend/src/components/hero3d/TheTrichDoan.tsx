@@ -19,7 +19,7 @@ import type { Phien } from './duLieuPhien';
 export function TenPhien({ phien }: { phien: Phien }) {
   return (
     <div
-      className="pointer-events-none w-max max-w-[15rem] rounded-vua border p-2"
+      className="pointer-events-none w-max max-w-[18rem] rounded-vua border p-2"
       style={{
         background: 'var(--nen-cao)',
         borderColor: 'color-mix(in srgb, var(--den-sang) 45%, transparent)',
@@ -29,7 +29,18 @@ export function TenPhien({ phien }: { phien: Phien }) {
       <span className="dia-chi block text-[0.75rem] leading-4 text-den-sang">
         {phien.soKyHieu}
       </span>
-      <span className="mat-doc mt-1 block text-[0.8125rem] leading-4 text-phim">{phien.ten}</span>
+      {/* Kẹp dòng: `documents.ten` dài tới ~250 ký tự, để nguyên thì tooltip
+          cao hơn cả khay và tràn ra ngoài vùng cắt, che mất chính số hiệu. Tên
+          đầy đủ vẫn còn ở thẻ trích đoạn và ở danh sách bàn phím.
+          Kẹp 2 dòng chứ không 3 vì tooltip phải nằm gọn trong khay 398px.
+          KHÔNG dùng `.mat-doc` ở đây: index.css cố ý đặt nó NGOÀI `@layer`, nên
+          nó thắng mọi utility Tailwind "bất kể specificity" — kèm `.mat-doc` thì
+          `text-[0.8125rem]` bị bỏ qua, chữ ra 18px/1.7 và tooltip cao 376px.
+          Đo được: 288×376, tràn 109px khỏi khay. Đây là nhãn giao diện, không
+          phải mặt đọc, nên nó không thuộc về `.mat-doc` ngay từ đầu.
+          Cũng không có `block`: `line-clamp-3` cần `display: -webkit-box`, thêm
+          `block` là ghi đè đúng thứ làm nên việc kẹp dòng. */}
+      <span className="mt-1 line-clamp-2 text-[0.8125rem] leading-4 text-phim">{phien.ten}</span>
       <span className="mt-1.5 block">
         <BadgeHieuLuc hieuLuc={phien.hieuLuc} />
       </span>
@@ -83,14 +94,14 @@ export function TheTrichDoan({ phien, moTraCuu, dong }: TheProps) {
             su.preventDefault();
             moTraCuu(phien.docId);
           }}
-          className="mat-doc inline-flex min-h-[var(--vung-cham-toi-thieu)] items-center text-[0.875rem] text-den-sang underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
+          className="inline-flex min-h-[var(--vung-cham-toi-thieu)] items-center text-[0.875rem] text-den-sang underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
         >
           Mở trong Tra cứu
         </a>
         <button
           type="button"
           onClick={dong}
-          className="mat-doc inline-flex min-h-[var(--vung-cham-toi-thieu)] cursor-pointer items-center text-[0.875rem] text-muc-nhat underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
+          className="inline-flex min-h-[var(--vung-cham-toi-thieu)] cursor-pointer items-center text-[0.875rem] text-muc-nhat underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
         >
           Đóng
         </button>

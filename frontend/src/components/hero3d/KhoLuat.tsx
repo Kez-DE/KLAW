@@ -5,6 +5,7 @@ import { BadgeHieuLuc } from '../BadgeHieuLuc';
 import { VoMay } from '../gioi-thieu/VoMay';
 import { PHIEN } from './duLieuPhien';
 import { Kho } from './Kho';
+import { TenPhien } from './TheTrichDoan';
 
 /**
  * Tầng mount của hero 3D. Đây là module ĐƯỢC TẢI ĐỘNG — nó và mọi thứ nó import
@@ -36,6 +37,7 @@ export default function KhoLuat() {
   const [tamDung, datTamDung] = useState(false);
   const [dongBang, datDongBang] = useState(false);
   const [chiSoChon, datChiSoChon] = useState<number | null>(null);
+  const [chiSoHover, datChiSoHover] = useState<number | null>(null);
   const dieuHuong = useNavigate();
 
   useEffect(() => {
@@ -109,7 +111,12 @@ export default function KhoLuat() {
           <Canvas
             dpr={[1, 1.75]}
             gl={{ antialias: false, powerPreference: 'high-performance' }}
-            camera={{ position: [0, 0, 8], fov: 42 }}
+            // fov KHÔNG có trong spec, và nó là con số quyết định cảnh có bị cắt
+            // hay không: khay hero rộng 798 cao 398 (tỉ lệ ~2:1), nên chiều dọc
+            // là chiều hẹp. Ở fov 42 tầm nhìn dọc tại z=8 chỉ ~6.1 đơn vị, mà
+            // xoắn cao 4.2 cộng phiến 2.0 là ~6.2 — hai đầu bị cắt. 55 cho ~8.3
+            // đơn vị, đủ chỗ cho cả xoắn và một vành khoảng trống quanh nó.
+            camera={{ position: [0, 0, 8], fov: 55 }}
             frameloop={nhip}
             onPointerMissed={() => datChiSoChon(null)}
           >
@@ -119,10 +126,32 @@ export default function KhoLuat() {
               dongBang={dongBang}
               chiSoChon={chiSoChon}
               datChiSoChon={datChiSoChon}
+              chiSoHover={chiSoHover}
+              datChiSoHover={datChiSoHover}
               moTraCuu={(docId) => dieuHuong(`/van-ban/${docId}`)}
             />
           </Canvas>
         </div>
+
+        {/*
+         * Bảng đọc tên văn bản đang ở dưới con trỏ. CỐ Ý không phải `<Html>` gắn
+         * vào phiến như §10.2 mô tả, và lý do là đo được: `.gt-khay` cắt cứng ở
+         * 398px, còn thẻ này cao 95–147px tuỳ độ dài `documents.ten` và tuỳ nhãn
+         * hiệu lực (nhãn "một phần không xác định" mang cả một câu giải thích).
+         * Neo nó vào một vật thể đang bay trong khay đó thì mọi lần chỉnh lệch
+         * chỉ đổi chỗ bị cắt: đo lần lượt 109px → 52px → 73px tràn. Một bảng đọc
+         * ĐỨNG YÊN trong khay thì không bao giờ tràn, luôn đọc đủ, và đúng ẩn dụ
+         * máy đọc vi phim — máy cho biết khung nào đang ở dưới ống kính.
+         *
+         * Liên kết giữa con trỏ và phiến KHÔNG mất: phiến được trỏ vào nâng lên
+         * 0.15 và viền brass của nó sáng lên (§10.2) — đó mới là chỗ spec đặt
+         * phản hồi thị giác, còn thẻ chỉ mang chữ.
+         */}
+        {chiSoHover !== null && chiSoChon === null && (
+          <div className="h3-doc-nhan">
+            <TenPhien phien={PHIEN[chiSoHover]} />
+          </div>
+        )}
 
         {/*
          * Đường bàn phím vào chính NỘI DUNG của cảnh. Một `<canvas>` không tab

@@ -2,7 +2,7 @@
 import fontDiaChi from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff?url';
 import { Html, PresentationControls, Text } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { RefObject } from 'react';
 import {
   BoxGeometry,
@@ -20,7 +20,7 @@ import {
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CO_NHAN, PHIEN } from './duLieuPhien';
 import { docMau } from './mauTuToken';
-import { TenPhien, TheTrichDoan } from './TheTrichDoan';
+import { TheTrichDoan } from './TheTrichDoan';
 
 /**
  * Về quy tắc `immutability` bị tắt ở dòng đầu file: mọi việc trong file này là
@@ -56,8 +56,10 @@ const RONG = 1.4;
 const CAO_PHIEN = 2.0;
 const DAY = 0.06;
 const BAN_KINH = 3.2;
-/** Chiều cao cột xoắn. Không có trong spec; chọn 5.0 để 8 bậc thưa đều trong khung nhìn. */
-const CAO_COT = 5.0;
+/** Chiều cao cột xoắn. Không có trong spec — đo trên khay thật (798×398) rồi
+ *  chọn: 5.0 làm hai đầu xoắn bị cắt, 4.2 thì tám bậc vừa khung và còn khoảng
+ *  trống quanh xoắn để nó đọc ra "lơ lửng" chứ không phải một bức tường. */
+const CAO_COT = 4.2;
 const SO_HAT = 800;
 /** Bán kính trong/ngoài của trường hạt: bọc quanh xoắn, không xuyên qua nó. */
 const HAT_TRONG = 1.6;
@@ -89,6 +91,9 @@ interface KhoProps {
   dongBang: boolean;
   chiSoChon: number | null;
   datChiSoChon: (i: number | null) => void;
+  /** Hover sống ở KhoLuat vì bảng đọc tên văn bản là DOM thường ngoài Canvas. */
+  chiSoHover: number | null;
+  datChiSoHover: (i: number | null) => void;
   moTraCuu: (docId: string) => void;
 }
 
@@ -109,6 +114,8 @@ export function Kho({
   dongBang,
   chiSoChon,
   datChiSoChon,
+  chiSoHover,
+  datChiSoHover,
   moTraCuu,
 }: KhoProps) {
   const { scene, gl, camera } = useThree();
@@ -116,7 +123,6 @@ export function Kho({
   const phienRefs = useRef<(Group | null)[]>([]);
   const chuRefs = useRef<(Object3D | null)[]>([]);
   const hatRef = useRef<Points>(null);
-  const [chiSoHover, datChiSoHover] = useState<number | null>(null);
 
   /** Đồng hồ RIÊNG, tích luỹ bằng `delta`. `state.clock` vẫn chạy trong lúc
    *  cảnh bị tạm dừng, nên đọc nó là cảnh nhảy một đoạn khi cuộn trở lại. */
@@ -354,19 +360,17 @@ export function Kho({
             </Text>
           )}
 
-          {i === chiSoHover && chiSoChon === null && (
-            <Html center position={[0, CAO_PHIEN / 2 + 0.35, 0.1]} zIndexRange={[20, 10]}>
-              <TenPhien phien={p} />
-            </Html>
-          )}
-
           {/* Thẻ trích đoạn treo dưới CHÍNH phiến đang được chọn. Bản trước đặt
               nó trong một nhóm riêng định vị bằng `quayRef.current` đọc lúc
               render — sai hai lần: ref đọc trong render là giá trị cũ, và nhóm
               đó không được cập nhật trong useFrame nên thẻ đứng im khi phiến bay
               ra giữa. Làm con của phiến thì nó theo phiến miễn phí. */}
+          {/* Thẻ đặt ĐÚNG TÂM phiến, không treo bên dưới: `.gt-khay` cắt
+              (`overflow: clip`) và thẻ cao ~250–300px trong khay 398px, nên treo
+              dưới là "Mở trong Tra cứu" bị cắt mất — đúng liên kết quan trọng
+              nhất của thẻ. Căn tâm thì thẻ luôn nằm trong khay. */}
           {i === chiSoChon && (
-            <Html center position={[0, -CAO_PHIEN / 2 - 0.5, 0.1]} zIndexRange={[40, 30]}>
+            <Html center position={[0, 0, 0.12]} zIndexRange={[40, 30]}>
               <TheTrichDoan phien={p} moTraCuu={moTraCuu} dong={() => datChiSoChon(null)} />
             </Html>
           )}
@@ -401,6 +405,15 @@ export function Kho({
           azimuth={[-0.5, 0.5]}
           snap
           damping={0.3}
+          // `global`: gắn cử chỉ kéo thẳng vào canvas bằng listener DOM, thay vì
+          // đi qua raycast của R3F. Cần thiết vì `onPointerOver` của từng phiến
+          // gọi `stopPropagation()` (để chỉ phiến GẦN NHẤT được hover, không
+          // phải mọi phiến nằm sau nó) — mà chặn lan truyền cũng chặn luôn
+          // `onHover`/`onDrag` của PresentationControls. Đo được: không có
+          // `global`, `canvas.style.cursor` không bao giờ đổi, tức cử chỉ chưa
+          // từng nhận được sự kiện. Kèm `global`, drei đặt `cursor: grab` ngay
+          // lúc mount, nên "kéo để xoay" ở chú thích mới là lời hứa có thật.
+          global
         >
           {canh}
         </PresentationControls>

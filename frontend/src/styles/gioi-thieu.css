@@ -382,10 +382,14 @@
    thấy thẻ trích đoạn mở ra mà không thấy tiêu điểm của mình ở đâu (WCAG 2.4.7).
    Chỉ một nút hiện tại một thời điểm nên nó không tranh chỗ với cảnh. */
 .h3-nut-phien:focus-visible {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: auto;
+  /* Cột, KHÔNG phải hàng: nhãn hiệu lực mang cả một câu giải thích, nhồi nó
+     cạnh số hiệu trong một hộp hẹp thì chữ vỡ thành từng từ một dòng. */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  width: max-content;
+  max-width: min(19rem, 58%);
   height: auto;
   min-height: var(--vung-cham-toi-thieu);
   margin: 0.6rem;
@@ -402,4 +406,17 @@
   outline: 2px solid var(--den-sang);
   outline-offset: 2px;
   z-index: 5;
+}
+
+/* Bảng đọc tên văn bản dưới con trỏ. Neo vào KHAY, không vào phiến — xem chú
+   thích trong KhoLuat.tsx để biết vì sao (thẻ neo vào vật thể bay luôn bị
+   `overflow: clip` của .gt-khay cắt mất một phần). `pointer-events: none` để nó
+   không chắn cử chỉ kéo xoay đang gắn trên canvas. */
+.h3-doc-nhan {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  max-width: min(20rem, 60%);
+  pointer-events: none;
+  z-index: 3;
 }
