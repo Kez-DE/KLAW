@@ -24,76 +24,124 @@ Một câu trả lời, ba lớp — không phải ba giao diện.
 
 ## Bảng màu
 
-Ground tối là mặt máy; ánh sáng là thứ rọi qua phim. Nền là **đen ngả nâu**, không
-phải xám lạnh — máy đọc vi phim là thiết bị lưu trữ thập niên 70, phim đã ngả màu,
-thư viện luật là gỗ và da. Xám xanh là màu của phần mềm, không phải của kho lưu trữ.
+Ground tối là mặt máy; ánh sáng là thứ rọi qua phim. Nền là **ink-navy**, accent là
+**brass** — giá trị lấy từ `KLAW-BUILD-SPEC` §5.1, do chủ dự án chốt.
+
+Bản trước của mục này chọn **đen ngả nâu** và lập luận rằng "xám xanh là màu của
+phần mềm, không phải của kho lưu trữ". Lập luận đó không sai, nó chỉ bị **thay
+thế bằng một quyết định của chủ dự án** — ghi lại ở đây thay vì xoá, vì người đọc
+sau này cần biết bảng màu đã đổi có chủ đích chứ không phải trôi dạt. Ẩn dụ giữ
+nguyên, chỉ đổi vật liệu: cỗ máy giờ là **thép và kính** thay vì gỗ và da. Phần
+quan trọng của ẩn dụ chưa bao giờ nằm ở nhiệt độ màu — nó nằm ở chỗ *ánh sáng
+rọi qua phim*, và brass làm việc đó tốt như amber.
+
+**Tên biến là hợp đồng FE**, không đổi theo bảng màu. Chỉ giá trị đổi.
 
 ```
---nen          #12100D   mặt máy — đen ngả nâu
---nen-cao      #1C1813   khay, thanh công cụ
---vien         #2B2419   đường viền, cạnh khay
---phim         #F3EEE3   mặt phim được rọi — nền của văn bản luật
---muc          #1A1611   chữ trên phim
---muc-nhat     #A79C90   chú thích, nhãn phụ — luôn trên nền tối
---den-sang     #F0BC5A   ánh đèn máy: quầng sáng, tiêu điểm, con trỏ
---xanh-that    #4C9E78   còn hiệu lực
---do-thay      #E05A45   đã bị thay thế / hết hiệu lực
---vang-mo      #C9922F   một phần không xác định
---xam-cho      #938981   ABSTAIN, cần đối chiếu tay — TRUNG TÍNH
+--nen          #060D1A   ink-950 · mặt máy
+--nen-cao      #0A1628   ink-900 · khay, thanh công cụ, thẻ
+--vien         #14294A   ink-700 · đường viền, cạnh khay
+--phim         #FAF9F6   paper-50 · mặt phim được rọi — nền của văn bản luật
+--muc          #12203A   text-light · chữ trên phim
+--muc-nhat     #A3AFC2   text-dark-muted · chú thích, nhãn phụ — LUÔN trên nền tối
+--den-sang     #C8A45C   brass-500 · ánh đèn máy: quầng sáng, tiêu điểm, con trỏ
+--xanh-that    #358F68   còn hiệu lực
+--do-thay      #CA5F54   đã bị thay thế / hết hiệu lực
+--vang-mo      #B4842B   một phần không xác định
+--xam-cho      #949CA8   ABSTAIN, cần đối chiếu tay — TRUNG TÍNH
 ```
 
-**`--xam-cho` là quyết định quan trọng nhất của bảng màu này.** `abstain` là hành vi
-**đúng**, được tính điểm trong đánh giá. Nó không bao giờ được mang màu đỏ, không icon
-cảnh báo, không rung. Một hệ thống thà nói "tôi không đủ căn cứ" còn hơn bịa một điều
-luật — nếu giao diện tô đỏ câu đó, nó dạy người dùng rằng sự trung thực là thất bại.
+Ba bậc ink lấy đúng ba vai mà spec §5.3 đặt tên: nền trang · khay/thẻ · đường
+viền. `--nen` là ink-950 chứ không phải ink-900 vì đó là cách gán duy nhất cho cả
+ba token rơi đúng vai, và vì nó để `--nen-cao` ở ink-900 — ground sáng hơn, tức
+ràng buộc tương phản chặt hơn — được nhiều khoảng dư nhất cho bốn màu trạng thái.
+
+**`--xam-cho` vẫn là quyết định quan trọng nhất của bảng màu này.** `abstain` là
+hành vi **đúng**, được tính điểm trong đánh giá. Nó không bao giờ được mang màu
+đỏ, không icon cảnh báo, không rung. Một hệ thống thà nói "tôi không đủ căn cứ"
+còn hơn bịa một điều luật — nếu giao diện tô đỏ câu đó, nó dạy người dùng rằng sự
+trung thực là thất bại. Vì vậy `--xam-cho` **không phải** một token `status-*` nào
+của spec: nó là hue của chính ground (217°) khử bão hoà xuống 10%, tức vẫn đúng
+lý lẽ cũ — *`abstain` nghĩa là máy không có gì để nói, nên nó mang màu của đồ đạc;
+và vì nó **là** đồ đạc, nó không thể bị đọc nhầm thành cảnh báo.*
 
 Đỏ dành riêng cho **luật đã bị thay thế**. Đó mới là thứ khiến người dùng hành động sai.
 
-**Nền nâu buộc phải chỉnh ba màu trạng thái, không chỉ đổi nền.** Nâu chính là
-đỏ-cam đã khử bão hoà — nên một màu đỏ cảnh báo vừa phải sẽ chìm vào chính đồ đạc
-xung quanh. `--do-thay` vì vậy được đẩy bão hoà và sáng hơn bản nền lạnh
-(`#C4553D` → `#E05A45`), đủ tách khỏi nền. Cảnh báo quan trọng nhất của sản phẩm
-không được phép trông như một phần của khung cảnh.
-
-`--xam-cho` giờ là **chính màu nền đã khử bão hoà**, không phải xám xanh mượn từ
-nơi khác. Điều đó đúng cả về khái niệm: `abstain` nghĩa là máy không có gì để nói,
-nên nó mang màu của đồ đạc — và vì nó *là* đồ đạc, nó không thể bị đọc nhầm thành
-cảnh báo.
+**Nền navy đổi cách phải chỉnh ba màu trạng thái.** Trên nền nâu, vấn đề là *hue*:
+nâu chính là đỏ-cam khử bão hoà, nên đỏ cảnh báo chìm vào đồ đạc và `--do-thay`
+phải được đẩy bão hoà. Trên nền navy, hue tách miễn phí — đỏ ở 6° không thể lẫn
+vào ground ở 217°. Vấn đề chuyển thành *độ sáng*: đo ra thì ba màu `status-*` của
+spec **trượt AA** trên nền ink khi dùng làm màu chữ (đỏ 2,61:1 · xanh 3,63:1 ·
+xanh dương 2,64:1). Trong sản phẩm này chúng **là màu chữ** (`ResultCard`,
+`BadgeHieuLuc`), không chỉ là chấm 6px như spec §8 giả định. Nên cả ba được nâng
+độ sáng — giữ nguyên hue và saturation — theo đúng chỉ dẫn của chính spec §5.1:
+*"nếu fail thì làm sáng/tối chữ, tuyệt đối không hạ chuẩn."* `--vang-mo` giữ
+nguyên giá trị spec vì nó đã đạt 5,42:1.
 
 `--den-sang` và `--vang-mo` cùng họ vàng và không tách nhau bằng màu. Chúng tách
 nhau bằng **hình**: đèn máy luôn là **quầng sáng** (radial-gradient, mờ dần), còn
-`--vang-mo` luôn là **đường viền đặc**. Nếu có lúc nào đèn máy bị dùng làm nền
-đặc, quy tắc này gãy — đừng làm vậy.
+`--vang-mo` luôn là **đường viền đặc**.
 
-Đỏ `#E05A45` và xanh `#4C9E78` với người mù màu deuteranopia đều ngả vàng nâu.
-Đó là lý do nhãn hiệu lực **không bao giờ chỉ có màu**: `con_hieu_luc` là chấm
-không chữ, `bi_thay_the` là viền **kèm tên văn bản thay thế**. Hình và chữ mang
-nghĩa; màu chỉ nhắc lại.
+> Ngoại lệ duy nhất, có từ trước và giờ được ghi ra thay vì để ngầm: nút hành động
+> chính và liên kết "bỏ qua tới nội dung" dùng brass làm **nền đặc** với chữ
+> `--muc` (đo 6,9:1). Spec §8 (`BrassButton variant="solid"`) chủ động yêu cầu
+> đúng như vậy. Ngoài hai chỗ đó, đừng lấy `--den-sang` làm nền đặc.
 
-Độ tương phản đã **tính**, không phải ước: `--muc` trên `--phim` 15,6:1 ·
-`--phim` trên `--nen` 16,4:1 · `--muc-nhat` trên `--nen-cao` 6,6:1 · `--xam-cho`
-trên `--nen-cao` 5,2:1 · `--xanh-that` 5,4:1 · `--do-thay` 4,8:1 · `--vang-mo`
-6,4:1 · `--den-sang` 10,1:1. Tất cả đạt AA cho chữ thường.
+Đỏ và xanh với người mù màu deuteranopia đều ngả vàng nâu. Đó là lý do nhãn hiệu
+lực **không bao giờ chỉ có màu**: `con_hieu_luc` là chấm không chữ, `bi_thay_the`
+là viền **kèm tên văn bản thay thế**. Hình và chữ mang nghĩa; màu chỉ nhắc lại.
 
-Một kết quả đo đáng nêu ra thay vì giấu đi: `--do-thay` và `--xam-cho` **gần như
-cùng độ sáng** (1,07:1 giữa hai màu). Trong ảnh xám, "đã bị thay thế" và "không
-đủ căn cứ" trông như nhau — mà đó lại là hai trạng thái đối lập nhất trong sản
-phẩm. Không chỉnh số này, vì chỉnh thì hoặc đỏ nhạt đi thành hồng cá hồi và mất
-sức nặng cảnh báo, hoặc xám tụt xuống dưới ngưỡng AA. Thay vào đó bất biến ở trên
-được nâng thành ràng buộc cứng: **không trạng thái nào được truyền đạt chỉ bằng
-màu.** `bi_thay_the` luôn kèm câu nêu đích danh văn bản thay thế; `abstain` luôn
-kèm câu "Không tìm thấy căn cứ pháp lý cho câu hỏi này." Người đọc phân biệt được
-bằng chữ, kể cả khi màu nói dối họ.
+Độ tương phản đã **tính**, không phải ước — và đã đo lại trên trình duyệt thật
+bằng `getComputedStyle`, không chỉ tính trên giấy. Toàn bộ 18 cặp bắt buộc đạt AA
+cho chữ thường; bảng đầy đủ ở
+`.superpowers/sdd/2026-08-27-klaw-04-drafting-fe-deploy/palette-brass-report.md`:
+
+`--muc` trên `--phim` 15,4:1 · `--phim` trên `--nen` 18,5:1 · `--muc-nhat` trên
+`--nen` 8,8:1 và trên `--nen-cao` 8,2:1 · `--xam-cho` trên `--nen` 7,0:1 và trên
+`--nen-cao` 6,5:1 · `--den-sang` trên `--nen-cao` 7,7:1 (vòng tiêu điểm) ·
+`--vang-mo` 5,42:1 · `--do-thay` 4,56:1 · `--xanh-that` 4,56:1.
+
+Kết quả đo cũ đáng cập nhật thay vì giấu đi: `--do-thay` và `--xam-cho` từng
+**gần như cùng độ sáng** (1,07:1) — trong ảnh xám, "đã bị thay thế" và "không đủ
+căn cứ" trông như nhau, mà đó lại là hai trạng thái đối lập nhất trong sản phẩm.
+Bảng ink-navy **cải thiện** con số này lên **1,44:1**, và hai màu giờ còn tách
+nhau bằng cả họ màu (navy trung tính so với salmon ấm) — đo được trên trình duyệt
+thật, xác nhận bằng mắt ở 390px. Dù vậy bất biến vẫn **không** được nới:
+**không trạng thái nào được truyền đạt chỉ bằng màu.** `bi_thay_the` luôn kèm câu
+nêu đích danh văn bản thay thế; `abstain` luôn kèm câu "Không tìm thấy căn cứ
+pháp lý cho câu hỏi này." Người đọc phân biệt được bằng chữ, kể cả khi màu nói dối
+họ. Một con số đo tốt hơn là lý do để bớt lo, không phải lý do để bỏ ràng buộc.
+
+Cuối cùng, một cạm bẫy đã gặp thật: `@theme` của Tailwind v4 **chỉ phát ra biến
+nào có utility dùng tới**, nên `var(--shadow-brass)` từng lặng lẽ không vẽ gì.
+Khối `@theme` trong `tokens.css` vì vậy phải là `@theme static` — một file token
+tồn tại để công bố bảng màu thì không được tuỳ hứng biến mất.
 
 ## Chữ và bố cục
 
-- **Mặt đọc**: sans humanist đọc tốt tiếng Việt có dấu, thân 17px trên di động và 18px
-  trên desktop, dòng 1.7. Dấu tiếng Việt cần chiều cao dòng rộng hơn tiếng Anh.
-- **Trên phim**: serif, vì nguồn là văn bản in. Chữ trên phim **không bao giờ** đổi màu
-  theo trạng thái — phim là phim; trạng thái sống ở nhãn và ở viền khung.
-- **Số hiệu, đường dẫn trích dẫn**: mono, vì `45/2019/QH14 > Điều 127 > Khoản 2` là một
-  **địa chỉ**, không phải văn xuôi. Người dùng cần quét và so từng ký tự.
+Bốn vai, theo `KLAW-BUILD-SPEC` §5.2. Tất cả self-host qua `@fontsource`, đều có
+subset `vietnamese` đã kiểm bằng công cụ trên trình duyệt thật — chi tiết phép
+kiểm và cạm bẫy khi kiểm lại nằm ở `frontend/README.md`.
+
+- **Tiêu đề** (`--font-tieu-de`, Playfair Display 500/600): chỉ `h1` và `h2`.
+  **Cố ý không dùng cho `h3`** — mọi `h3` trong dự án render ở 13px, tức chúng là
+  **nhãn** (vai `caption` của spec), không phải vai `h3 24px`. Một serif tương
+  phản cao ở 13px mất hết nét mảnh và bó chặt dấu tiếng Việt xếp tầng.
+- **Mặt đọc** (`--font-doc`, Be Vietnam Pro): sans humanist đọc tốt tiếng Việt có
+  dấu, thân 17px trên di động và 18px trên desktop, dòng 1.7. Dấu tiếng Việt cần
+  chiều cao dòng rộng hơn tiếng Anh — **giữ nguyên hai con số này**, không hạ về
+  `body 16px` của spec.
+- **Trên phim** (`--font-phim`, Source Serif 4): serif, vì nguồn là văn bản in.
+  Chữ trên phim **không bao giờ** đổi màu theo trạng thái — phim là phim; trạng
+  thái sống ở nhãn và ở viền khung. Quy tắc này thắng cả quy tắc tiêu đề: một
+  `h3`/`h4` nằm trên phim vẫn là Source Serif 4.
+- **Số hiệu, đường dẫn trích dẫn** (`--font-dia-chi`, JetBrains Mono): mono, vì
+  `45/2019/QH14 > Điều 127 > Khoản 2` là một **địa chỉ**, không phải văn xuôi.
+  Người dùng cần quét và so từng ký tự.
 - Bề rộng đọc tối đa **68 ký tự** ở mặt đọc; dải khung không giới hạn ngang.
+- Thang chữ của spec §5.2 (hero 72 → caption 13) và thang bo góc §5.3
+  (6·10·16·24) đã có trong `@theme`. Thang chữ hiện là **đích để quy về dần** —
+  các trang vẫn dùng giá trị tuỳ ý; thêm token không đổi hiển thị hiện tại.
 
 ## Cấu trúc và điều hướng
 

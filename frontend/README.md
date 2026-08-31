@@ -44,6 +44,61 @@ FastAPI backend at `/` (see `src/main.py`). In dev, `/api` proxies to
   render error shows a real message and a reload button instead of a blank
   page.
 
+## Fonts — four roles, all self-hosted, Vietnamese coverage verified
+
+Four roles per `KLAW-BUILD-SPEC` §5.2, wired as `--font-*` tokens in
+`src/styles/tokens.css` and imported in `src/index.css`:
+
+| Token | Role | Family | Weights loaded |
+|---|---|---|---|
+| `--font-tieu-de` | headings (`h1`, `h2`) | Playfair Display | 500, 600 |
+| `--font-doc` | body & UI | Be Vietnam Pro | 400, 500, 600, 700 |
+| `--font-phim` | statute text on the film surface | Source Serif 4 | 400, 700 |
+| `--font-dia-chi` | document numbers / citation paths | JetBrains Mono | 400, 500 |
+
+All four are self-hosted via `@fontsource`. **Not** `next/font` — this is Vite,
+not Next.js — and not the Google Fonts CDN, because a slow-network user should
+not depend on a third-party host. Each `@fontsource/<family>/<weight>.css`
+declares every subset with its own `unicode-range`, so the browser downloads
+only the subsets a page actually needs.
+
+Only weights with a real consumer are imported. Playfair 700 is deliberately
+skipped: no heading uses `font-bold`. Be Vietnam Pro 600 was **added** here —
+`font-semibold` is used on six `h1`s but the 600 face was previously missing,
+so the browser was synthesising it.
+
+`h3` deliberately does **not** get Playfair: every `h3` in this codebase renders
+at 13px (`text-[0.8125rem]`), which is the spec's `caption` role, not its
+`h3 24px` role. A high-contrast display serif at 13px loses its hairlines and
+crowds stacked Vietnamese diacritics. See the comment in `src/index.css` for why
+the heading rule needs its apparently-redundant `h1.mat-doc, h2.mat-doc` branch.
+
+### Mandatory glyph test (spec §5.2) — passed, no Noto substitution needed
+
+Test string: `Ưu đãi thuế đối với doanh nghiệp — Điều 25, khoản 2, điểm ạ ẫ ộ ữ ỹ`
+
+Verified two independent ways in a real browser (Chrome, via devtools), not by
+assumption:
+
+1. `document.fonts.check('500 16px "<family>"', <test string>)` returned true
+   for all four families, and also for the stacked-diacritic set `ạẫộữỹếốớệ`
+   on its own.
+2. Canvas `measureText` of the hard-diacritic set in each family differs from
+   the same string measured with a deliberately non-existent family (which
+   forces the generic fallback) — confirming the glyphs really come from the
+   intended font rather than silently from a fallback.
+
+**No glyph fell back, so no family was replaced with `Noto Serif`/`Noto Sans`.**
+
+One gotcha worth knowing before re-running this check: `document.fonts.check()`
+returns **false** for a family whose `vietnamese` subset has not been downloaded
+yet, because subsets load lazily and only when a glyph in their `unicode-range`
+is actually painted. JetBrains Mono initially reported false on `/` for exactly
+this reason — that route renders document numbers (`45/2019/QH14`) which are
+pure ASCII, so its Vietnamese subset was never requested. Call
+`await document.fonts.load('500 16px "JetBrains Mono"', <string>)` first, then
+check. A false here is not by itself evidence of a missing glyph.
+
 ## SEO limitation (SPA)
 
 This is a client-rendered single-page app: `index.html` ships an empty
