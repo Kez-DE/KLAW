@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './styles/tokens.css';
+@import './styles/may-doc.css';
 
 /* Self-hosted webfonts — đủ glyph tiếng Việt (subset "vietnamese" xác nhận qua
    Fontsource). Không phụ thuộc Google Fonts CDN — người dùng ở mạng yếu. */
