@@ -14,13 +14,13 @@ Buộc giao diện vào hình dạng một câu tiếng Việt là buộc nó v�
 câu thông báo là làm hỏng phân loại, và không test nào đỏ.
 """
 
+from pathlib import Path
+
 import pytest
 
 from src.agents.nodes.draft_audit import draft_audit
 from src.services.checklist import load_checklist
 from src.services.rules import load_rules
-
-from pathlib import Path
 
 RULES = load_rules(Path("config/rules.yaml"))
 CHECKLIST = load_checklist(Path("config/checklist_hdld.yaml"))
@@ -36,6 +36,7 @@ def test_finding_mang_co_khong_kiem_duoc_khi_thieu_fact():
     )
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_co_song_sot_qua_bien_HTTP(client):
     r = await client.post("/api/v1/soat", json={

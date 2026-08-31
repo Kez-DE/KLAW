@@ -208,7 +208,20 @@ giây đó.
 
 ## Ràng buộc không được vi phạm
 
-- Định danh văn bản bằng `so_ky_hieu`, **không bao giờ** bằng tên
+- Định danh văn bản bằng `so_ky_hieu` **cho người đọc**; khoá duy nhất tuyệt đối
+  là `doc_id`. **Không bao giờ** định danh bằng tên.
+
+  Hai đính chính đo được trên DB (2026-08-31). Ràng buộc này trước đây được biện
+  minh bằng câu *"`doc_id 96117` có tên chỉ là 'Hàng hải'"* — **câu đó sai**, tên
+  thật là `Bộ luật Hàng hải số 95/2015/QH13`. Lý do thật: **54/57** văn bản nhúng
+  cả `số <so_ky_hieu>` vào `ten`, và `ten` không nhất quán hoa/thường, có bản
+  ALL-CAPS.
+
+  Và `so_ky_hieu` **không duy nhất trên toàn bảng**: `65/2006/QH11` thuộc hai văn
+  bản. Cả hai ở tầng metadata (0 điều khoản) nên **trích dẫn an toàn** — trích dẫn
+  chỉ sinh từ tầng sâu, nơi giá trị này duy nhất. Nhưng `/pham-vi` và `nguon` của
+  `partial_coverage` **có** chạm tầng nông, nên chúng phải khoá theo `doc_id`.
+  Khoá bởi `tests/test_infra/test_bat_bien_dinh_danh.py`.
 - Cảnh báo hiệu lực **không được** giấu vào tooltip hay metadata
 - `abstain` **không bao giờ** mang màu lỗi
 - `GET /van-ban/{id}` lazy — không tải cả cây 689 Điều
