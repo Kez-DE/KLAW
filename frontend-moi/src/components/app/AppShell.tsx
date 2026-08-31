@@ -1,0 +1,160 @@
+import { Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
+import {
+  BookOpenText,
+  FileSignature,
+  LifeBuoy,
+  MessagesSquare,
+  Scale,
+  Sparkles,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const NAV = [
+  { to: "/dung-thu", label: "Trợ lý KLAW", icon: Sparkles },
+  { to: "/tra-cuu", label: "Tra cứu luật", icon: BookOpenText },
+  { to: "/soan-thao", label: "Soạn thảo", icon: FileSignature },
+  { to: "/chat", label: "Trò chuyện", icon: MessagesSquare },
+  { to: "/huong-dan", label: "Hướng dẫn", icon: LifeBuoy },
+] as const;
+
+export function TrialMeter({ used, total }: { used: number; total: number }) {
+  const left = Math.max(total - used, 0);
+  const pct = Math.min((used / total) * 100, 100);
+  return (
+    <div className="flex items-center gap-3">
+      <div className="min-w-[140px] sm:min-w-[190px]">
+        <p className="text-[12px] text-muted-foreground">
+          Bản dùng thử ·{" "}
+          <span className="font-medium text-foreground">
+            còn {left}/{total} lượt hỏi
+          </span>
+        </p>
+        <div
+          className="mt-1 h-[3px] w-full overflow-hidden rounded-full bg-[var(--color-paper-200)]"
+          role="progressbar"
+          aria-label="Số lượt hỏi còn lại của bản dùng thử"
+          aria-valuenow={left}
+          aria-valuemin={0}
+          aria-valuemax={total}
+        >
+          <div
+            className="h-full rounded-full bg-[var(--color-brass-500)] transition-[width] duration-150"
+            style={{ width: `${100 - pct}%` }}
+          />
+        </div>
+      </div>
+      <Link
+        to="/dang-ky"
+        className="focus-brass rounded-md border border-[var(--color-brass-500)]/50 px-2.5 py-1 text-[12px] font-medium text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/10"
+      >
+        Nâng cấp
+      </Link>
+    </div>
+  );
+}
+
+export function AppShell({
+  active,
+  topRight,
+  children,
+}: {
+  active?: string;
+  topRight?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-screen bg-background">
+      {/* Sidebar: 260px ≥1280px, 64px icon rail 768–1280px, bottom bar <768px */}
+      <aside
+        aria-label="Điều hướng chính"
+        className="sticky top-0 hidden h-screen w-16 shrink-0 flex-col border-r border-border bg-[var(--color-paper-50)] px-2 py-4 md:flex xl:w-[260px] xl:px-3"
+      >
+        <Link
+          to="/"
+          aria-label="KLAW — về trang chủ"
+          className="focus-brass mb-6 flex items-center justify-center gap-2.5 rounded-lg xl:justify-start xl:px-2"
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-ink text-primary-foreground shadow-soft">
+            <Scale className="size-4.5" />
+          </span>
+          <span className="hidden font-display text-lg font-bold tracking-tight text-primary xl:inline">
+            KLAW
+          </span>
+        </Link>
+        <nav className="flex flex-col gap-0.5">
+          {NAV.map((item) => {
+            const Icon = item.icon;
+            const isActive = active === item.to;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                aria-label={item.label}
+                aria-current={isActive ? "page" : undefined}
+                title={item.label}
+                className={cn(
+                  "focus-brass flex items-center justify-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm transition-colors xl:justify-start",
+                  isActive
+                    ? "bg-[var(--color-paper-200)] font-medium text-primary"
+                    : "text-muted-foreground hover:bg-[var(--color-paper-100)] hover:text-primary",
+                )}
+              >
+                <Icon className="size-4 shrink-0" aria-hidden />
+                <span className="hidden xl:inline">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="mt-auto hidden rounded-lg border border-border bg-card p-3 text-[12px] text-muted-foreground xl:block">
+          KLAW là trợ lý pháp lý, không thay thế ý kiến của luật sư.
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col pb-14 md:pb-0">
+        <header className="sticky top-0 z-30 flex items-center gap-4 border-b border-border bg-background/90 px-4 py-2.5 backdrop-blur">
+          <Link
+            to="/"
+            aria-label="KLAW — về trang chủ"
+            className="focus-brass flex items-center gap-2 rounded-lg md:hidden"
+          >
+            <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-ink text-primary-foreground">
+              <Scale className="size-4" aria-hidden />
+            </span>
+            <span className="font-display font-bold text-primary">KLAW</span>
+          </Link>
+          <div className="ml-auto">{topRight}</div>
+        </header>
+        <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+      </div>
+
+      {/* Bottom navigation under 768px */}
+      <nav
+        aria-label="Điều hướng chính (thu gọn)"
+        className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-border bg-background/95 backdrop-blur md:hidden"
+      >
+        {NAV.map((item) => {
+          const Icon = item.icon;
+          const isActive = active === item.to;
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              aria-label={item.label}
+              aria-current={isActive ? "page" : undefined}
+              className={cn(
+                "focus-brass flex min-h-14 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px]",
+                isActive
+                  ? "font-medium text-primary"
+                  : "text-muted-foreground",
+              )}
+            >
+              <Icon className="size-[18px]" aria-hidden />
+              <span className="truncate">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}
