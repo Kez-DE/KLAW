@@ -72,6 +72,7 @@ function isCitation(x: unknown): x is Citation {
   return (
     isNumber(x.provision_id) &&
     isNumber(x.khop_tai_id) &&
+    isString(x.doc_id) &&
     isString(x.duong_dan) &&
     isString(x.bo_luat) &&
     isString(x.so_ky_hieu) &&
@@ -118,7 +119,10 @@ function isProvision(x: unknown): x is Provision {
   if (!isRecord(x)) return false;
   return (
     isNumber(x.id) &&
-    isString(x.cap) &&
+    // enum, không phải string bất kỳ: endpoint dạng ?around= chỉ trả ba cấp
+    // này (mục lục dùng response khác). Guard lỏng sẽ để 'chuong' lọt qua và
+    // vi phạm chính kiểu nó đang khẳng định.
+    (x.cap === 'dieu' || x.cap === 'khoan' || x.cap === 'diem') &&
     isString(x.so_hieu_cap) &&
     isString(x.duong_dan) &&
     isString(x.tieu_de) &&
@@ -130,7 +134,7 @@ function isProvision(x: unknown): x is Provision {
 function isVanBanAroundResponse(x: unknown): x is VanBanAroundResponse {
   if (!isRecord(x)) return false;
   return (
-    isNumber(x.doc_id) &&
+    isString(x.doc_id) &&
     isString(x.so_ky_hieu) &&
     isString(x.bo_luat) &&
     Array.isArray(x.provisions) &&
@@ -270,12 +274,12 @@ export async function traCuu(req: TraCuuRequest, signal?: AbortSignal): Promise<
  * hiện trạng thái tải/lỗi tử tế, KHÔNG mock dữ liệu giả.
  */
 export async function layVanBanQuanhDieu(
-  docId: number,
+  docId: string,
   provisionId: number,
   signal?: AbortSignal,
 ): Promise<ApiResult<VanBanAroundResponse>> {
   return fetchJson<VanBanAroundResponse>(
-    `/api/v1/van-ban/${docId}?around=${provisionId}`,
+    `/api/v1/van-ban/${encodeURIComponent(docId)}?around=${provisionId}`,
     { method: 'GET' },
     TIMEOUT_VAN_BAN_MS,
     isVanBanAroundResponse,

@@ -233,6 +233,7 @@ async def test_khop_tai_id_khong_bi_loc_o_bien_HTTP(client, monkeypatch):
                 "answer": "x",
                 "citations": [{
                     "provision_id": 141418, "khop_tai_id": 141420,
+                    "doc_id": "139264",
                     "duong_dan": "45/2019/QH14 > Điều 127 > Khoản 2",
                     "bo_luat": "Bộ Luật lao động", "so_ky_hieu": "45/2019/QH14",
                     "quote": "Phạt tiền...", "hieu_luc": "con_hieu_luc", "tin_cay": "cao",
@@ -246,6 +247,11 @@ async def test_khop_tai_id_khong_bi_loc_o_bien_HTTP(client, monkeypatch):
     c = r.json()["citations"][0]
     assert c["provision_id"] == 141418
     assert c["khop_tai_id"] == 141420
+    assert c["doc_id"] == "139264", (
+        "cùng một lỗi, cùng một chỗ: thiếu `doc_id` trong CitationOut thì pydantic vứt nó ở "
+        "biên HTTP và FE mất khoá DUY NHẤT dựng được URL /van-ban/{doc_id}?around= — "
+        "click-to-verify chết mà không lỗi nào nổ"
+    )
     assert "Khoản 2" in c["duong_dan"], "duong_dan phải khớp khop_tai_id (dòng THẬT), không phải provision_id"
 
 

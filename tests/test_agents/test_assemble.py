@@ -370,3 +370,16 @@ def test_CRITICAL_tier2_RONG_HOAN_TOAN_khong_duoc_coi_la_da_verified():
     assert st["result_type"] is not ResultType.answer
     assert st["result_type"] is ResultType.abstain
     assert st["citations"] == [] and st["answer"] is None
+
+
+def test_citation_mang_doc_id_de_FE_mo_duoc_dieu_luat():
+    # Click-to-verify gọi `GET /api/v1/van-ban/{doc_id}?around=<khop_tai_id>`.
+    # Trước bản này citation KHÔNG mang `doc_id`: FE chỉ có `so_ky_hieu` và
+    # không dựng nổi URL, nên panel đối chiếu — đóng góp trung tâm của đề tài —
+    # không mở được. `documents.id` là TEXT (xem VanBanProvisionsResponse), nên
+    # citation phải mang str, không phải int.
+    db = {11: {**DB[11], "document_id": "139264"}}
+    st = assemble({"intent": "tra_cuu", "expanded": [db[11]], "tier1": [_pass()],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  db, FakeLlm(), "m")
+    assert st["citations"][0]["doc_id"] == "139264"

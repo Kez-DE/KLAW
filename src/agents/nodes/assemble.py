@@ -97,6 +97,10 @@ class Citation(TypedDict):
 
     provision_id: int
     khop_tai_id: int
+    # `documents.id` (TEXT). FE dựng URL click-to-verify từ đây:
+    # `GET /api/v1/van-ban/{doc_id}?around={khop_tai_id}`. Không có nó, citation
+    # chỉ có `so_ky_hieu` — không đủ để mở panel đối chiếu.
+    doc_id: str
     duong_dan: str
     bo_luat: str
     so_ky_hieu: str
@@ -315,6 +319,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         citations.append({
             "provision_id": r.claim.provision_id,
             "khop_tai_id": row_id,
+            "doc_id": str(p.get("document_id") or ""),
             "duong_dan": p.get("duong_dan", ""),
             "bo_luat": p.get("ten", ""),
             "so_ky_hieu": so_ky_hieu,

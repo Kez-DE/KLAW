@@ -29,6 +29,10 @@ class CitationOut(BaseModel):
     # Điều chỉ có tiêu đề, xem verify_tier1._cay_con), và đúng lệch mà
     # assemble.py (commit 4d46a3f) đã tách bạch ở tầng trong.
     khop_tai_id: int
+    # Thiếu field này thì pydantic (`extra="ignore"`) vứt nó ở biên HTTP đúng
+    # như đã xảy ra với `khop_tai_id` — và FE mất khoá duy nhất dựng được URL
+    # `GET /van-ban/{doc_id}?around=`. `str` vì `documents.id` là TEXT.
+    doc_id: str
     duong_dan: str
     bo_luat: str
     so_ky_hieu: str

@@ -28,6 +28,9 @@ export interface Citation {
   /** Dòng câu trích THẬT SỰ khớp — khác provision_id ở 73,6% số Điều.
    *  Panel click-to-verify PHẢI fetch bằng field này, không phải provision_id. */
   khop_tai_id: number;
+  /** `documents.id` — TEXT ở DB, nên STRING chứ không phải number.
+   *  URL click-to-verify: `/api/v1/van-ban/{doc_id}?around={khop_tai_id}`. */
+  doc_id: string;
   /** "45/2019/QH14 > Điều 127 > Khoản 2" — một địa chỉ, hiển thị bằng font-dia-chi. */
   duong_dan: string;
   bo_luat: string;
@@ -62,19 +65,23 @@ export interface TraCuuResponse {
  * (Endpoint cũng có dạng không tham số và dạng ?so_dieu=, nhưng FE không tiêu
  * thụ hai dạng đó nên không model ở đây — YAGNI.)
  */
+export type CapProvision = 'dieu' | 'khoan' | 'diem';
+
 export interface Provision {
   id: number;
-  cap: string;
+  cap: CapProvision;
   so_hieu_cap: string;
   duong_dan: string;
   tieu_de: string;
   noi_dung: string;
-  /** true cho Điều được hỏi (provision ở giữa, 2 Điều trước/sau bao quanh). */
+  /** true cho Điều được hỏi VÀ mọi Khoản/Điểm con của nó — dùng để tô cả
+   *  VÙNG đang xem, không phải một dòng đơn lẻ. false cho 4 Điều lân cận. */
   la_tam: boolean;
 }
 
 export interface VanBanAroundResponse {
-  doc_id: number;
+  /** TEXT ở DB (`documents.id`, vd "95942") — KHÔNG ép number. */
+  doc_id: string;
   so_ky_hieu: string;
   bo_luat: string;
   provisions: Provision[];
