@@ -202,7 +202,7 @@ function Landing() {
               Tra cứu pháp luật.
               <br />
               <span className="animate-shimmer bg-gradient-gold bg-clip-text text-transparent">
-                Soạn thảo có căn cứ.
+                Soạn thảo có căn&nbsp;cứ.
               </span>
             </h1>
 

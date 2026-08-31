@@ -20,8 +20,8 @@ const STEPS = [
     icon: MessageSquareQuote,
     title: "1. Mô tả tình huống thật của bạn",
     body: "Không cần dùng thuật ngữ pháp lý. Hãy kể bối cảnh: bạn là ai trong quan hệ đó, chuyện gì đã xảy ra, thời điểm nào, bạn muốn đạt được gì.",
-    good: "Tôi thuê nhà từ tháng 3/2025, chủ nhà đòi tăng giá giữa hợp đồng 12 tháng. Tôi có quyền từ chối không?",
-    bad: "Luật nhà ở?",
+    good: "Tôi ký hợp đồng lao động 12 tháng từ tháng 3/2025, công ty muốn chuyển tôi sang vị trí khác và giảm lương. Tôi có quyền từ chối không?",
+    bad: "Luật lao động?",
   },
   {
     icon: Search,

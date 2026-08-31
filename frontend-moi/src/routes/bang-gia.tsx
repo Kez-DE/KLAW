@@ -173,7 +173,8 @@ function BangGiaPage() {
           Chọn gói phù hợp với công việc pháp lý của bạn
         </h1>
         <p className="soft-fade mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-          Bắt đầu dùng thử miễn phí. Nâng cấp bất cứ lúc nào — không ràng buộc dài hạn.
+          Ba mức đang được cân nhắc cho ba nhóm người dùng. Cấu trúc gói có thể thay đổi trước khi
+          mở bán.
         </p>
 
         {/* Billing toggle */}
@@ -247,7 +248,7 @@ function BangGiaPage() {
               <p className="mt-1.5 text-[12px] text-muted-foreground">
                 {annual
                   ? `Thanh toán theo năm — ${vnd(t.annual! * 12)} / năm`
-                  : "Thanh toán hàng tháng, hủy bất cứ lúc nào"}
+                  : "Mức dự kiến, tính theo tháng"}
               </p>
             )}
             {t.monthly == null && (

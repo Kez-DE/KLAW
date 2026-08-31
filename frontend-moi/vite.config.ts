@@ -1,4 +1,4 @@
-// The six plugins below used to be hidden inside @lovable.dev/vite-tanstack-config.
+// The five plugins below used to be hidden inside @lovable.dev/vite-tanstack-config.
 // They are declared here because that package also chose nitro's *cloudflare*
 // preset, which is wrong for KLAW: the Node SSR tier has to sit next to the
 // FastAPI process, not on a Workers runtime.
@@ -12,12 +12,12 @@ import { defineConfig } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import tsConfigPaths from "vite-tsconfig-paths";
 import { nitro } from "nitro/vite";
 
 export default defineConfig({
+  // Vite 8 tự phân giải `paths` của tsconfig, nên không cần vite-tsconfig-paths.
+  resolve: { tsconfigPaths: true },
   plugins: [
-    tsConfigPaths({ projects: ["./tsconfig.json"] }),
     tailwindcss(),
     nitro({ preset: "node-server" }),
     // Redirect TanStack Start's bundled server entry to src/server.ts, our SSR

@@ -42,9 +42,9 @@ function createSupabaseClient() {
       ...(!SUPABASE_URL ? ["SUPABASE_URL"] : []),
       ...(!SUPABASE_PUBLISHABLE_KEY ? ["SUPABASE_PUBLISHABLE_KEY"] : []),
     ];
-    const message = `Thiếu biến môi trường Supabase: ${missing.join(", ")}. Xem frontend-moi/.env.example.`;
-    console.error(`[Supabase] ${message}`);
-    throw new Error(message);
+    throw new Error(
+      `Thiếu biến môi trường Supabase: ${missing.join(", ")}. Xem frontend-moi/.env.example.`,
+    );
   }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
@@ -59,12 +59,22 @@ function createSupabaseClient() {
 }
 
 let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
+let _loiCauHinh: Error | undefined;
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
+// Nhớ CẢ thất bại, không chỉ thành công. Proxy cũ gọi lại
+// createSupabaseClient() ở mỗi lần truy cập thuộc tính, nên khi thiếu biến môi
+// trường nó ném lại — và log lại — không giới hạn số lần.
 export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
   get(_, prop, receiver) {
-    if (!_supabase) _supabase = createSupabaseClient();
+    if (_loiCauHinh) throw _loiCauHinh;
+    if (!_supabase) {
+      try {
+        _supabase = createSupabaseClient();
+      } catch (error) {
+        _loiCauHinh = error instanceof Error ? error : new Error(String(error));
+        throw _loiCauHinh;
+      }
+    }
     return Reflect.get(_supabase, prop, receiver);
   },
 });

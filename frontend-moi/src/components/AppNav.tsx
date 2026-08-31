@@ -11,7 +11,7 @@ const LINKS = [
 ] as const;
 
 export function AppNav({ active }: { active?: string }) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, chuaCauHinh } = useAuth();
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">
@@ -37,7 +37,15 @@ export function AppNav({ active }: { active?: string }) {
               {l.label}
             </Link>
           ))}
-          {user ? (
+          {chuaCauHinh ? (
+            <span
+              role="status"
+              className="ml-1 shrink-0 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground"
+              title="Thiếu VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY — xem frontend-moi/.env.example"
+            >
+              Chưa cấu hình đăng nhập
+            </span>
+          ) : user ? (
             <button
               onClick={() => signOut()}
               className="ml-1 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-primary"

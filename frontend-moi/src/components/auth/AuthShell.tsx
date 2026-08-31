@@ -18,7 +18,10 @@ const QUOTES = [
   },
 ];
 
-const STATS = ["Trích dẫn tới cấp Điểm", "Cập nhật hằng ngày", "Hạ tầng đặt tại Việt Nam"];
+// "Cập nhật hằng ngày" đã gỡ: kho văn bản là một ảnh chụp tĩnh, không có
+// đường cập nhật hằng ngày nào. Hai mục còn lại vẫn kèm dòng miễn trừ ngay
+// bên dưới, nói rõ đây là định hướng chứ không phải cam kết dịch vụ.
+const STATS = ["Trích dẫn tới cấp Điểm, Khoản, Điều", "Hạ tầng đặt tại Việt Nam"];
 
 function QuoteRotator() {
   const [i, setI] = useState(0);
