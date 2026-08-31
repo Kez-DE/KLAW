@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { KhoiLuuY } from '../components/KhoiLuuY';
 import { NutBrass } from '../components/NutBrass';
 import type { FormEvent } from 'react';
 import { layMau, soat } from '../lib/api';
@@ -158,10 +159,7 @@ export default function Soat() {
         </fieldset>
 
         {loai !== 'hdld' && (
-          <div
-            className="mt-4 rounded-lon border-s-2 py-3 ps-4"
-            style={{ borderColor: 'var(--vang-mo)', background: 'var(--nen-cao)' }}
-        >
+          <KhoiLuuY className="mt-4">
             <p className="mat-doc m-0 text-[0.9375rem] text-phim">
               Loại văn bản này chưa có nội dung pháp lý trong hệ thống.
             </p>
@@ -169,7 +167,7 @@ export default function Soat() {
               Máy chủ sẽ từ chối yêu cầu thay vì soát bằng danh mục của hợp đồng lao động — soát
               nhầm bộ quy tắc còn tệ hơn không soát.
             </p>
-          </div>
+          </KhoiLuuY>
         )}
 
         <div className="mt-6">

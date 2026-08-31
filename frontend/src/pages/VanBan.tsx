@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { KhoiLuuY } from '../components/KhoiLuuY';
 import { NutBrass } from '../components/NutBrass';
 import type { FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
@@ -119,10 +120,7 @@ export default function VanBan() {
           </div>
 
           {mucLuc.ketQua.muc_luc.length === 0 ? (
-            <div
-              className="mt-4 rounded-lon border-s-2 py-3 ps-4"
-              style={{ borderColor: 'var(--vang-mo)', background: 'var(--nen-cao)' }}
-        >
+            <KhoiLuuY className="mt-4">
               {/* `muc_luc` rỗng KHÔNG chứng minh văn bản thiếu toàn văn: đo
                   trên corpus thật, 8 trong 21 văn bản CÓ đủ điều khoản vẫn trả
                   mục lục rỗng vì chúng đánh số thẳng theo Điều (293/2025/NĐ-CP
@@ -137,7 +135,7 @@ export default function VanBan() {
                 thống mới nạp metadata chứ chưa nạp toàn văn. Mở thử một Điều theo số để biết
                 chắc: không Điều nào mở được thì đây là trường hợp thứ hai.
               </p>
-            </div>
+            </KhoiLuuY>
           ) : (
             <>
               <h2 className="mt-8 mb-2 text-[1rem] leading-6 font-medium text-phim">Mục lục</h2>

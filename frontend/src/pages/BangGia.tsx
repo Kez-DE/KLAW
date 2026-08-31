@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { KhoiLuuY } from '../components/KhoiLuuY';
 import { Link } from 'react-router-dom';
 import { IconDaXong } from '../brand/icons';
 import { HoiDapGia } from '../components/bang-gia/HoiDapGia';
@@ -231,17 +232,13 @@ export default function BangGia() {
       </p>
 
       {/* ── Giá chưa chốt: nói ở đây, không giấu xuống chân trang ────────── */}
-      <div
-        role="note"
-        className="mt-6 rounded-lon border-s-4 p-4"
-        style={{ background: 'var(--nen-cao)', borderColor: 'var(--den-sang)' }}
-      >
+      <KhoiLuuY role="note" nhanManh className="mt-6">
         <p className="mat-doc m-0 font-medium text-phim">Giá dự kiến, chưa áp dụng.</p>
         <p className="mat-doc mt-2 mb-0 text-[0.9375rem] text-phim">
           KLAW chưa mở đăng ký và chưa nhận thanh toán. Các con số và hạn mức dưới đây là dự kiến,
           sẽ chốt và công bố trước khi mở bán. Giá hiển thị chưa bao gồm thuế GTGT.
         </p>
-      </div>
+      </KhoiLuuY>
 
       {/* ── Chu kỳ thanh toán ────────────────────────────────────────────── */}
       <fieldset className="mt-8 border-0 p-0">

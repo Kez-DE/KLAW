@@ -67,7 +67,7 @@ export default function DuLieu() {
       {CAC_LUONG.map((l) => (
         <section
           key={l.man}
-          className="mt-4 rounded-lon border-s-2 py-3 ps-4"
+          className="mt-4 rounded-lon border p-4"
           style={{ borderColor: 'var(--vien)', background: 'var(--nen-cao)' }}
         >
           <h3 className="m-0 text-[0.9375rem] leading-6 font-medium text-phim">{l.man}</h3>

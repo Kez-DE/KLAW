@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { KhoiLuuY } from '../components/KhoiLuuY';
 import { NutBrass } from '../components/NutBrass';
 import type { FormEvent } from 'react';
 import { layMau, soanThao } from '../lib/api';
@@ -176,10 +177,7 @@ export default function SoanThao() {
           )}
 
           {truongNhap !== null && truongNhap.length === 0 && (
-            <div
-              className="rounded-lon border-s-2 py-3 ps-4"
-              style={{ borderColor: 'var(--vang-mo)', background: 'var(--nen-cao)' }}
-        >
+            <KhoiLuuY>
               <p className="mat-doc m-0 text-[0.9375rem] text-phim">
                 Loại văn bản này chưa có nội dung pháp lý trong hệ thống.
               </p>
@@ -189,7 +187,7 @@ export default function SoanThao() {
                 buộc của chúng hoàn toàn khác Điều 21 Bộ luật Lao động. Máy chủ sẽ từ chối yêu cầu
                 thay vì soạn bằng danh mục của hợp đồng lao động.
               </p>
-            </div>
+            </KhoiLuuY>
           )}
 
           {truongNhap !== null && truongNhap.length > 0 && (
