@@ -39,7 +39,7 @@ from src.models.schemas import (
     VanBanProvisionsResponse,
 )
 from src.services.db import get_engine
-from src.services.rules import Rule, enum_facts, mo_ta_facts
+from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
 
 # _tong_hop_traces re-exported here: test_tra_cuu.py imports it from routes, not services.traces.
 from src.services.traces import _ghi_traces, _tong_hop_traces  # noqa: F401
@@ -115,6 +115,10 @@ async def tra_cuu(req: TraCuuRequest) -> TraCuuResponse:
         result_type=rt.value if hasattr(rt, "value") else rt,
         answer=st.get("answer"), citations=st.get("citations") or [],
         warnings=st.get("warnings") or [], coverage_note=st.get("coverage_note"),
+        # `nguon` có mặc định `[]` trong model, nên quên truyền KHÔNG gây lỗi —
+        # nó chỉ làm `partial_coverage` mất đường mở văn bản, im lặng. Ca thứ BA
+        # của cùng một kiểu hỏng, sau `khop_tai_id` và `doc_id`.
+        nguon=st.get("nguon") or [],
         trace_id=trace_id, config_name=config_name,
     )
 
@@ -338,6 +342,12 @@ def _validate_facts(facts: dict, rules: list[Rule]) -> None:
     Fact VẮNG MẶT không đi qua đây — đó là "không kiểm được" (`None`), một kết
     quả HỢP LỆ rules.py đã tự xử lý, không phải input sai cần 422.
     """
+    trung = sorted(set(facts) & ten_tham_so(rules))
+    if trung:
+        raise HTTPException(status_code=422, detail=(
+            f"facts chứa khoá trùng tên tham số của rule: {trung}. "
+            "Tham số rule là dữ liệu của hệ thống, không nhận từ request."
+        ))
     for key, allowed in enum_facts(rules).items():
         if key in facts and facts[key] not in allowed:
             raise HTTPException(status_code=422, detail=(
@@ -456,11 +466,17 @@ async def soat(req: SoatRequest) -> SoatResponse:
     trace_id = str(uuid.uuid4())
     bat_dau = time.monotonic()
     rules, checklist, db_provisions = requirements()
-    clauses = extract_clauses(req.text, checklist, db_provisions)
-    st = draft_audit(
-        {"clauses": clauses, "facts": req.facts, "nganh": req.nganh, "self_audit": False},
-        rules, checklist, db_provisions,
-    )
+    # Đồng bộ và có thể tốn CPU trên văn bản dài. KHÔNG phải node LangGraph nên
+    # không được tự đẩy sang threadpool như các node trong graph — thiếu bọc này
+    # là chặn event loop cho mọi request khác.
+    def _soat_dong_bo():
+        clauses = extract_clauses(req.text, checklist, db_provisions)
+        return draft_audit(
+            {"clauses": clauses, "facts": req.facts, "nganh": req.nganh, "self_audit": False},
+            rules, checklist, db_provisions,
+        )
+
+    st = await run_in_threadpool(_soat_dong_bo)
     latency_ms = int((time.monotonic() - bat_dau) * 1000)
 
     config_name = get_settings().eval_config_name

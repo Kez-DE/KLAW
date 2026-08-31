@@ -229,9 +229,26 @@ def check(rule: Rule, facts: dict[str, Any]) -> bool | None:
     if any(k not in facts for k in rule.can_facts):
         return None
     tham_so = {k: v for k, v in rule.cfg.items() if k not in _TRUONG_KHONG_PHAI_THAM_SO}
-    ns = {**tham_so, **facts}
+    # THAM SỐ SAU, không phải trước: `{**tham_so, **facts}` để input HTTP đè lên
+    # bảng tra do đội ngũ kiểm soát — gửi kèm `bang_thang` toàn số 0 là rule
+    # lương tối thiểu luôn "đạt" bất kể lương thật. Rule là DỮ LIỆU CỦA ĐỘI NGŨ;
+    # người dùng cấp fact, không cấp luật. Biên HTTP còn từ chối khoá trùng tên
+    # (`_validate_facts`) để việc bỏ qua không diễn ra im lặng.
+    ns = {**facts, **tham_so}
     ket_qua = _tinh_bieu_thuc(ast.parse(rule.kiem, mode="eval"), ns)
     return bool(ket_qua)
+
+
+def ten_tham_so(rules: list[Rule]) -> set[str]:
+    """Mọi tên tham số YAML trong tập rule — biên HTTP dùng để từ chối `facts`
+    mang khoá trùng. Suy THẲNG từ rules.yaml, không danh sách tay nào lệch được.
+    """
+    return {
+        k
+        for rule in rules
+        for k in rule.cfg
+        if k not in _TRUONG_KHONG_PHAI_THAM_SO
+    }
 
 
 # ══ Mô tả fact cho form (Task 5, GET /api/v1/mau/{loai}) ═══════════════════

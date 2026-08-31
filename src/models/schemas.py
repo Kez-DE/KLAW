@@ -138,7 +138,10 @@ class SoanThaoRequest(BaseModel):
 
 class SoatRequest(BaseModel):
     loai_van_ban: LoaiVanBan
-    text: str = Field(..., min_length=20)
+    # `max_length` BẮT BUỘC: `extract_clauses`/`draft_audit` chạy đồng bộ, và
+    # một payload vài chục MB treo cả tiến trình uvicorn (một worker) cho MỌI
+    # người dùng khác. 500k ký tự ~ dài gấp nhiều lần Bộ luật Lao động.
+    text: str = Field(..., min_length=20, max_length=500_000)
     facts: dict = Field(default_factory=dict)
     nganh: str = "thuong_mai"
 
