@@ -111,8 +111,20 @@ def _ghi_dong(params: dict, ttl: int) -> None:
         c.execute(_SQL_GHI, params)
 
 
-def doc_cache(khoa: str) -> dict | None:
-    """Payload đã cache, hoặc None (miss / cache đã tắt).
+def tra_cache(cau_hoi: str, config_name: str, as_of: date) -> tuple[str | None, str | None, dict | None]:
+    """Toàn bộ đường ĐỌC cache: `(khoa, checksum, payload)`.
+
+    Cache tắt (`KLAW_CACHE_TTL_NGAY=0`) → `(None, None, None)` và **KHÔNG một
+    truy vấn DB nào**. Đây là lý do hàm này gộp cả `corpus_checksum()` vào trong
+    thay vì để caller gọi riêng: bản trước tính checksum TRƯỚC khi kiểm TTL, nên
+    mỗi request vẫn trả một `count(*)` trên 19.135 dòng dù cache đã tắt. Hai hệ
+    quả thật, đo được: (a) `eval/run.py` chạy không-cache — đúng cấu hình phải
+    dùng để đo — vẫn phải trả round-trip đó mỗi lượt; (b) toàn bộ test không-DB
+    của `/tra-cuu` bỗng cần Postgres, tức CI (`-m "not integration"`, không có
+    Postgres) đỏ. MỘT chỗ quyết định cache bật/tắt, và nó là chỗ này.
+
+    `khoa` khác None là tín hiệu cho caller biết đường GHI có nghĩa hay không —
+    không cần hỏi lại settings ở đó.
 
     CÓ THỂ RAISE. Lỗi ĐỌC cache không được nuốt: nếu bảng cache không đọc được
     thì Postgres đang không lành, và Postgres là dependency của cả pipeline
@@ -122,8 +134,10 @@ def doc_cache(khoa: str) -> dict | None:
     """
     ttl = get_settings().cache_ttl_ngay
     if ttl <= 0:
-        return None
-    return _doc_dong(khoa, ttl)
+        return None, None, None
+    checksum = corpus_checksum()
+    khoa = khoa_cache(cau_hoi, config_name, as_of, checksum)
+    return khoa, checksum, _doc_dong(khoa, ttl)
 
 
 def ghi_cache(

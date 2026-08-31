@@ -119,13 +119,17 @@ async def tra_cuu(req: TraCuuRequest) -> TraCuuResponse:
         # verify, traces) đều cần Postgres — chạy tiếp là tiêu 5 lượt LLM cho
         # một request gần như chắc chắn hỏng ở bước sau.
         #
-        # `corpus_checksum()` gọi MỘT lần cho cả lượt đọc và lượt ghi: gọi lại
-        # sau khi graph chạy (10-60 giây) có thể nhận giá trị KHÁC nếu corpus
-        # vừa được seed lại giữa lúc đó, và khi ấy dòng cache được ghi dưới một
-        # khoá không ai tra được — một cache miss vĩnh viễn, im lặng.
-        checksum = await run_in_threadpool(cache_tra_loi.corpus_checksum)
-        khoa = cache_tra_loi.khoa_cache(req.query, config_name, as_of, checksum)
-        payload = await run_in_threadpool(cache_tra_loi.doc_cache, khoa)
+        # `tra_cache` trả về `checksum` nó ĐÃ dùng để dựng khoá, và lượt ghi
+        # dưới đây dùng lại đúng giá trị đó: tính lại sau khi graph chạy (10-60
+        # giây) có thể nhận giá trị KHÁC nếu corpus vừa được seed lại giữa lúc
+        # đó, và khi ấy dòng cache được ghi dưới một khoá không ai tra được —
+        # một cache miss vĩnh viễn, im lặng.
+        #
+        # `khoa is None` = cache đã tắt; khi đó `tra_cache` không chạm DB lần
+        # nào (xem docstring của nó) nên đường này không cần Postgres.
+        khoa, checksum, payload = await run_in_threadpool(
+            cache_tra_loi.tra_cache, req.query, config_name, as_of
+        )
         tu_cache = payload is not None
         if tu_cache:
             st = _st_tu_cache(payload)
@@ -157,7 +161,7 @@ async def tra_cuu(req: TraCuuRequest) -> TraCuuResponse:
     if not tu_cache:
         rt = st["result_type"]
         payload = _payload_cache(st, rt.value if hasattr(rt, "value") else rt)
-        if payload["result_type"] in cache_tra_loi.KET_QUA_DUOC_CACHE:
+        if khoa is not None and payload["result_type"] in cache_tra_loi.KET_QUA_DUOC_CACHE:
             # `abstain`/`out_of_scope` KHÔNG vào cache: một lần thiếu căn cứ do
             # lỗi TẠM (OpenRouter 429 — đã xảy ra thật hôm nay) sẽ bị đóng băng
             # 7 ngày thành "không tìm thấy căn cứ". `abstain` là hành vi ĐÚNG và

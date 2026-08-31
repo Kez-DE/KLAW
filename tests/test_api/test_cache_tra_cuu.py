@@ -169,9 +169,18 @@ def test_corpus_checksum_doc_duoc_tu_DB_that():
     assert cs == cache_tra_loi.corpus_checksum(), "checksum phải tất định trên cùng một corpus"
 
 
-def test_cache_TAT_thi_khong_doc_khong_ghi(monkeypatch):
-    """TTL 0 = TẮT. Cần thật: `eval/run.py` đo latency/chi phí phải chạy được
-    không-cache, nếu không bảng số liệu của khoá luận là số của cache."""
+def test_cache_TAT_thi_KHONG_MOT_truy_van_DB_nao(monkeypatch):
+    """TTL 0 = TẮT, và tắt nghĩa là **không chạm DB**, không phải "vẫn hỏi DB
+    rồi bỏ kết quả".
+
+    Regression: bản đầu tính `corpus_checksum()` TRƯỚC khi kiểm TTL, nên mỗi
+    request vẫn trả một `count(*)` trên 19.135 dòng dù cache đã tắt. Hai hệ quả
+    thật: `eval/run.py` (chạy không-cache, đúng cấu hình để đo) phải trả
+    round-trip đó mỗi lượt, và MỌI test không-DB của `/tra-cuu` bỗng cần
+    Postgres — CI chạy `-m "not integration"` không có Postgres nên đỏ 6 test,
+    4 trong đó là test đã tồn tại từ trước. `corpus_checksum` nằm trong danh
+    sách chặn dưới đây chính vì nó là hàm đã lọt lần đó.
+    """
     monkeypatch.setattr(cache_tra_loi, "get_settings", lambda: Settings(_env_file=None, cache_ttl_ngay=0))
 
     def khong_duoc_goi(*a, **k):
@@ -179,5 +188,7 @@ def test_cache_TAT_thi_khong_doc_khong_ghi(monkeypatch):
 
     monkeypatch.setattr(cache_tra_loi, "_doc_dong", khong_duoc_goi)
     monkeypatch.setattr(cache_tra_loi, "_ghi_dong", khong_duoc_goi)
-    assert cache_tra_loi.doc_cache("khoa-bat-ky") is None
+    monkeypatch.setattr(cache_tra_loi, "corpus_checksum", khong_duoc_goi)
+
+    assert cache_tra_loi.tra_cache("q", "full", date(2026, 8, 31)) == (None, None, None)
     cache_tra_loi.ghi_cache("khoa-bat-ky", "q", "full", date(2026, 8, 31), "cs", {})
