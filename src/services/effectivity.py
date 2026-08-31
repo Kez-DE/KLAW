@@ -625,6 +625,47 @@ _SQL_SUA_DOI = text(
 )
 
 
+# Cùng phép "là chính nó HOẶC là tổ tiên của nó" như `_SQL_SUA_DOI`, nhưng lái
+# ngược: từ 4 dòng `sua_doi_dieu_khoan` của MỘT văn bản ra tập điều khoản bị ảnh
+# hưởng, thay vì từ một tập id cho trước. `/van-ban/{id}/hieu-luc` cần chiều này
+# — nó không biết trước điều khoản nào bị sửa, đó chính là câu hỏi nó trả lời.
+#
+# Quy tắc tiền tố nằm ở ĐÂY, cạnh `_SQL_SUA_DOI`, chứ không ở tầng route: hai
+# bản sao của phép "là hậu duệ" sẽ lệch nhau ở đúng ca `"Điều 13"` là tiền tố
+# chuỗi của `"Điều 139"` mà không phải tổ tiên nó.
+_SQL_SUA_DOI_VAN_BAN = text(
+    "SELECT p.id AS provision_id, p.duong_dan, p.cap, p.so_hieu_cap, p.tieu_de, p.thu_tu,"
+    " s.vi_tri, s.sua_boi_so_ky_hieu, s.sua_boi_duong_dan, s.tu_ngay, s.nguon, s.do_tin_cay"
+    " FROM sua_doi_dieu_khoan s"
+    " JOIN provisions t ON t.id = s.provision_id"
+    " JOIN provisions p ON p.document_id = t.document_id"
+    "   AND (p.id = t.id OR t.duong_dan LIKE p.duong_dan || ' > %')"
+    " WHERE t.document_id = :doc_id"
+    " ORDER BY p.thu_tu, s.id"
+)
+
+
+def nap_sua_doi_theo_van_ban(engine: Engine, doc_id: str) -> list[tuple[dict, list[dict]]]:
+    """Điều khoản bị ảnh hưởng của `doc_id` → bản ghi sửa đổi áp cho nó.
+
+    Giữ THỨ TỰ CÂY (`thu_tu`) để giao diện đánh dấu theo đúng trình tự đọc.
+    Mỗi phần tử là `(dòng provisions, danh sách bản ghi)`; danh sách bản ghi
+    đúng hình dạng `ap_sua_doi` nhận.
+    """
+    ra: dict[int, tuple[dict, list[dict]]] = {}
+    with engine.connect() as conn:
+        for r in conn.execute(_SQL_SUA_DOI_VAN_BAN, {"doc_id": doc_id}).mappings().all():
+            row = dict(r)
+            pid = row["provision_id"]
+            if pid not in ra:
+                ra[pid] = ({k: row[k] for k in
+                            ("provision_id", "duong_dan", "cap", "so_hieu_cap", "tieu_de")}, [])
+            ra[pid][1].append({k: row[k] for k in
+                               ("vi_tri", "sua_boi_so_ky_hieu", "sua_boi_duong_dan",
+                                "tu_ngay", "nguon", "do_tin_cay")})
+    return list(ra.values())
+
+
 def nap_sua_doi(engine: Engine, provision_ids: Sequence[int]) -> dict[int, list[dict]]:
     """`provisions.id` → bản ghi sửa đổi của nó và của hậu duệ nó.
 

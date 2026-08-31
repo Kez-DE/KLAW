@@ -304,3 +304,48 @@ class TimKiemResponse(BaseModel):
     offset: int
     sap_xep: str
     ket_qua: list[KetQuaTimKiem]
+
+
+# ══ GET /van-ban/{doc_id}/hieu-luc (Pha 2) ══════════════════════════════════
+# KHÔNG có trường `tinh_trang` ở bất kỳ đâu trong nhóm model này, và đó là
+# quyết định thiết kế chính: CSDL quốc gia đánh bốn nghị định lương tối thiểu
+# đã bị thay là "còn hiệu lực", FE Lovable render trường đó ở 11 vị trí, và
+# một trường JSON là đủ để lật ngược đóng góp trung tâm của hệ thống.
+
+
+class SuaBoiOut(BaseModel):
+    """Một điểm sửa, có CẤU TRÚC — không phải một câu văn xuôi để FE tự bóc.
+
+    `vi_tri` là vị trí VBHN nêu ("Điều 154 > Khoản 8a"), có thể KHÁC
+    `duong_dan` của điều khoản mang nhãn: khoản mới thêm ("8a") phân giải về
+    Điều cha vì nó chưa tồn tại trong bản gốc.
+    """
+
+    vi_tri: str
+    so_ky_hieu: str | None
+    duong_dan: str | None
+    tu_ngay: date | None
+    nguon: str
+    do_tin_cay: str
+
+
+class DieuKhoanHieuLucOut(BaseModel):
+    provision_id: int
+    duong_dan: str
+    cap: str
+    so_hieu_cap: str
+    tieu_de: str
+    hieu_luc: HieuLucOut
+    sua_boi: list[SuaBoiOut]
+
+
+class VanBanHieuLucResponse(BaseModel):
+    doc_id: str
+    so_ky_hieu: str
+    bo_luat: str
+    as_of: date
+    # Mức 1/2/3 — `effectivity.danh_gia`.
+    van_ban: HieuLucOut
+    # Mức 4 — chỉ những điều khoản CÓ bằng chứng cấp điều khoản. Rỗng là kết
+    # quả HỢP LỆ (19.131/19.135 điều khoản không có bản ghi nào), không phải lỗi.
+    dieu_khoan: list[DieuKhoanHieuLucOut]
