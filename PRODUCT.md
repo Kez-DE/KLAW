@@ -90,6 +90,16 @@ Không phủ: thuế, đất đai, hôn nhân gia đình, doanh nghiệp, đầu
 
 - Định danh văn bản bằng **`so_ky_hieu`** (`45/2019/QH14`), **không bao giờ** bằng tên.
   Tên chỉ để hiển thị cho người đọc (`Bộ Luật lao động số 45/2019/QH14`).
+- **Đính chính 2026-08-31:** ràng buộc này trước đây được biện minh bằng câu
+  "`doc_id 96117` có tên chỉ là 'Hàng hải'". **Câu đó SAI** — tên thật là
+  `Bộ luật Hàng hải số 95/2015/QH13`. Ràng buộc vẫn giữ, nhưng lý do thật khác:
+  54/57 văn bản nhúng cả `số <so_ky_hieu>` vào `ten`, và `ten` không nhất quán
+  về hoa/thường (`Bộ Luật lao động`) lẫn có bản ALL-CAPS.
+- **Và `so_ky_hieu` KHÔNG duy nhất trên toàn bảng**: `65/2006/QH11` thuộc hai
+  văn bản (`Nghị quyết…` id 15074 và `Luật sư…` id 15076). Cả hai ở tầng
+  metadata (0 điều khoản) nên trích dẫn an toàn — nhưng `/pham-vi` và `nguon`
+  của `partial_coverage` CÓ chạm tầng nông, nên chúng phải khoá theo `doc_id`.
+  Khoá duy nhất tuyệt đối là `doc_id`; `so_ky_hieu` là định danh CHO NGƯỜI ĐỌC.
 - `duong_dan` là chuỗi trích dẫn chính tắc: `45/2019/QH14 > Điều 127 > Khoản 2`
 - Một trích dẫn mang **hai** id: `provision_id` (điều luật mô hình dẫn) và
   `khop_tai_id` (dòng câu trích thật sự khớp). Chúng khác nhau ở **73,6%** số Điều,
