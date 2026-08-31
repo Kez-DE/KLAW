@@ -49,6 +49,12 @@ khong_bat_buoc:
 # nào dùng) trong config/rules.yaml.
 quy_tac_dinh_dang:
   can_cu: "10/2020/TT-BLĐTBXH > Điều 3 > Khoản 5 > Điểm c"
+  # RULING 2026-08-31 (coordinator, đáp lại concern Task 3 mục 9): giữ đây là
+  # phép TRA BẢNG 0 token — draft_audit (Task 4) tra `noi_dung` của từng
+  # clause theo đúng danh sách từ khoá này, KHÔNG nhường cho LLM phán đoán
+  # ngữ nghĩa. Danh sách lấy nguyên từ ghi_chu bên dưới — thêm/sửa từ khoá là
+  # sửa YAML, không đụng code.
+  tu_khoa: ["thưởng", "ăn giữa ca", "xăng xe", "điện thoại", "nhà ở", "giữ trẻ"]
   ghi_chu: >
     Phúc lợi khác (thưởng, ăn giữa ca, xăng xe, điện thoại, nhà ở, giữ trẻ)
     phải GHI THÀNH MỤC RIÊNG, không được gộp chung.
