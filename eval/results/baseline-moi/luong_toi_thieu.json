@@ -1,0 +1,177 @@
+{
+  "cau_hoi": "lương tối thiểu vùng I là bao nhiêu",
+  "commit_hash": "7050deb74ab367d1cacf189576847d742aaec471",
+  "tong_hop": {
+    "n": 10,
+    "answer": 7,
+    "abstain": 3,
+    "co_so_dung": 7,
+    "trich_dan_dung_bang": 7,
+    "co_it_nhat_mot_canh_bao": 7
+  },
+  "tung_lan": [
+    {
+      "result_type": "answer",
+      "co_so_dung": true,
+      "trich_dan_dung_bang": true,
+      "canh_bao_van_ban_chet": [
+        "122/2015/NĐ-CP",
+        "141/2017/NĐ-CP",
+        "157/2018/NĐ-CP",
+        "74/2024/NĐ-CP",
+        "90/2019/NĐ-CP"
+      ],
+      "n_citations": 6,
+      "neo": [
+        "74/2024/NĐ-CP > Điều 3 > Khoản 1",
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1",
+        "90/2019/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "157/2018/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "122/2015/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "141/2017/NĐ-CP > Điều 3 > Khoản 1 > Điểm a"
+      ]
+    },
+    {
+      "result_type": "abstain",
+      "co_so_dung": false,
+      "trich_dan_dung_bang": false,
+      "canh_bao_van_ban_chet": [],
+      "n_citations": 0,
+      "neo": []
+    },
+    {
+      "result_type": "abstain",
+      "co_so_dung": false,
+      "trich_dan_dung_bang": false,
+      "canh_bao_van_ban_chet": [],
+      "n_citations": 0,
+      "neo": []
+    },
+    {
+      "result_type": "answer",
+      "co_so_dung": true,
+      "trich_dan_dung_bang": true,
+      "canh_bao_van_ban_chet": [
+        "122/2015/NĐ-CP",
+        "141/2017/NĐ-CP",
+        "157/2018/NĐ-CP",
+        "74/2024/NĐ-CP",
+        "90/2019/NĐ-CP"
+      ],
+      "n_citations": 6,
+      "neo": [
+        "74/2024/NĐ-CP > Điều 3 > Khoản 1",
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1",
+        "90/2019/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "157/2018/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "122/2015/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "141/2017/NĐ-CP > Điều 3 > Khoản 1 > Điểm a"
+      ]
+    },
+    {
+      "result_type": "answer",
+      "co_so_dung": true,
+      "trich_dan_dung_bang": true,
+      "canh_bao_van_ban_chet": [
+        "157/2018/NĐ-CP",
+        "74/2024/NĐ-CP",
+        "90/2019/NĐ-CP"
+      ],
+      "n_citations": 4,
+      "neo": [
+        "74/2024/NĐ-CP > Điều 3 > Khoản 1",
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1",
+        "90/2019/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "157/2018/NĐ-CP > Điều 3 > Khoản 1 > Điểm a"
+      ]
+    },
+    {
+      "result_type": "answer",
+      "co_so_dung": true,
+      "trich_dan_dung_bang": true,
+      "canh_bao_van_ban_chet": [
+        "122/2015/NĐ-CP",
+        "141/2017/NĐ-CP",
+        "157/2018/NĐ-CP",
+        "74/2024/NĐ-CP",
+        "90/2019/NĐ-CP"
+      ],
+      "n_citations": 6,
+      "neo": [
+        "74/2024/NĐ-CP > Điều 3 > Khoản 1",
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1",
+        "90/2019/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "157/2018/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "122/2015/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "141/2017/NĐ-CP > Điều 3 > Khoản 1 > Điểm a"
+      ]
+    },
+    {
+      "result_type": "answer",
+      "co_so_dung": true,
+      "trich_dan_dung_bang": true,
+      "canh_bao_van_ban_chet": [
+        "122/2015/NĐ-CP",
+        "141/2017/NĐ-CP",
+        "157/2018/NĐ-CP",
+        "74/2024/NĐ-CP",
+        "90/2019/NĐ-CP"
+      ],
+      "n_citations": 6,
+      "neo": [
+        "74/2024/NĐ-CP > Điều 3 > Khoản 1",
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1",
+        "90/2019/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "157/2018/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "122/2015/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "141/2017/NĐ-CP > Điều 3 > Khoản 1 > Điểm a"
+      ]
+    },
+    {
+      "result_type": "answer",
+      "co_so_dung": true,
+      "trich_dan_dung_bang": true,
+      "canh_bao_van_ban_chet": [
+        "122/2015/NĐ-CP",
+        "141/2017/NĐ-CP",
+        "157/2018/NĐ-CP",
+        "74/2024/NĐ-CP",
+        "90/2019/NĐ-CP"
+      ],
+      "n_citations": 6,
+      "neo": [
+        "74/2024/NĐ-CP > Điều 3 > Khoản 1",
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1",
+        "90/2019/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "157/2018/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "122/2015/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "141/2017/NĐ-CP > Điều 3 > Khoản 1 > Điểm a"
+      ]
+    },
+    {
+      "result_type": "answer",
+      "co_so_dung": true,
+      "trich_dan_dung_bang": true,
+      "canh_bao_van_ban_chet": [
+        "157/2018/NĐ-CP",
+        "74/2024/NĐ-CP",
+        "90/2019/NĐ-CP"
+      ],
+      "n_citations": 4,
+      "neo": [
+        "74/2024/NĐ-CP > Điều 3 > Khoản 1",
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1",
+        "90/2019/NĐ-CP > Điều 3 > Khoản 1 > Điểm a",
+        "157/2018/NĐ-CP > Điều 3 > Khoản 1 > Điểm a"
+      ]
+    },
+    {
+      "result_type": "abstain",
+      "co_so_dung": false,
+      "trich_dan_dung_bang": false,
+      "canh_bao_van_ban_chet": [],
+      "n_citations": 0,
+      "neo": []
+    }
+  ]
+}

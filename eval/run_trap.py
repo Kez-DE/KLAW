@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import yaml
@@ -44,11 +45,28 @@ def commit_hash() -> str:
 
 
 async def chay(items: list[dict]) -> dict:
+    """Chạy từng câu bẫy. MỘT câu lỗi KHÔNG được làm mất cả lượt chạy.
+
+    Cùng khuôn với `eval.run._run_items`, và vì cùng lý do: lỗi hạ tầng phải ghi
+    RIÊNG, không cộng vào cột sai — một câu crash không phải một câu trả lời sai.
+    Lý do cụ thể ở đây: đo được 2026-09-01, HAI lượt chạy 45 câu mất trắng vì
+    đúng một câu ăn HTTP 429. `LlmClient._post_with_retry` CÓ retry 429, nhưng
+    ngân sách backoff chỉ 0,2+0,4+0,8 ≈ 1,4 s — quá ngắn so với cửa sổ giới hạn
+    theo PHÚT của OpenRouter; hết retry là raise, cuốn theo ~5 phút chi phí LLM
+    đã tiêu và toàn bộ dữ liệu chưa ghi.
+    """
     g = build_graph_tra_cuu()
     theo_nhom: dict[str, list[int]] = {}
     chi_tiet = []
     for it in items:
-        st = await g.ainvoke({"query": it["cau_hoi"]})
+        try:
+            st = await g.ainvoke({"query": it["cau_hoi"]})
+        except Exception as e:  # noqa: BLE001 - cố ý bắt rộng để KHÔNG làm sập cả lượt, xem docstring
+            print(f"[trap] LỖI câu {it['id']!r}: {type(e).__name__}: {e}", file=sys.stderr)
+            chi_tiet.append(
+                {"id": it["id"], "nhom": it["nhom"], "error_type": type(e).__name__, "error": str(e)}
+            )
+            continue
         rt = st["result_type"].value if hasattr(st["result_type"], "value") else st["result_type"]
         d = dung(it, st)
         cap = theo_nhom.setdefault(it["nhom"], [0, 0])
@@ -80,6 +98,12 @@ def main() -> None:
         tong_cau += tong
     if tong_cau:
         print(f"TỔNG: {tong_dung}/{tong_cau} = {tong_dung / tong_cau:.0%}")
+    loi = [c for c in ket["chi_tiet"] if "error" in c]
+    if loi:
+        print(
+            f"LỖI: {len(loi)}/{len(items)} câu không chạy được (KHÔNG tính vào cột sai) — "
+            + ", ".join(f"{c['id']}({c['error_type']})" for c in loi)
+        )
 
 
 if __name__ == "__main__":
