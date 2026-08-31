@@ -107,6 +107,7 @@ class EffectivityVerdict(StrEnum):
     chua_hieu_luc = "chua_hieu_luc"
     het_hieu_luc = "het_hieu_luc"
     bi_thay_the = "bi_thay_the"
+    bi_sua_doi = "bi_sua_doi"
     mot_phan_khong_xac_dinh = "mot_phan_khong_xac_dinh"
     can_doi_chieu_tay = "can_doi_chieu_tay"
     chua_xac_dinh = "chua_xac_dinh"
@@ -460,3 +461,142 @@ def nap_ngu_canh(engine: Engine, doc_id: str, as_of: date) -> tuple[dict, list[d
 def danh_gia_theo_id(engine: Engine, doc_id: str, as_of: date) -> Effectivity:
     doc, canh, ung_vien = nap_ngu_canh(engine, doc_id, as_of)
     return danh_gia(doc, canh, as_of, ung_vien)
+
+
+# ══ Mức 4 — bản đồ sửa đổi CẤP ĐIỀU KHOẢN (nguồn: Công báo, VBHN) ═══════════
+#
+# Ba mức trên đều phán quyết ở cấp VĂN BẢN, vì CSDL quốc gia chỉ công bố tới đó:
+# `referenceProvisions` của MOJ khác null đúng 0/272. Nên `HHL1P` chỉ nói "hết
+# hiệu lực một phần" mà không nói PHẦN NÀO, và Mức 3 buộc phải trả
+# `mot_phan_khong_xac_dinh` cho cả 220 Điều của Bộ luật Lao động — kể cả 216
+# Điều không ai đụng tới, lẫn 4 Điều thật sự đã đổi.
+#
+# Văn bản hợp nhất của Công báo lấp đúng khoảng trống đó, và lấp bằng CẤU TRÚC:
+# `<w:footnoteReference>` nằm trong `<w:p>` nào thì `<w:p>` đó CHÍNH LÀ khoản bị
+# sửa (xem `vbhn_parser.py`). Không LLM ở bất kỳ bước nào.
+#
+# `ap_sua_doi` là một LỚP PHỦ, không phải cơ chế thứ hai: nó nhận phán quyết cấp
+# văn bản của `danh_gia` rồi làm nó CỤ THỂ hơn khi — và chỉ khi — có bằng chứng
+# cấp điều khoản. Không có bản ghi thì trả về ĐÚNG object cũ (`is base`), nên
+# 19.131/19.135 điều khoản không đổi một ký tự nào.
+
+# Phán quyết đã dứt khoát ở cấp văn bản: sửa đổi cấp khoản không lật lại được.
+# Một Điều của văn bản đã bị thay thế toàn bộ thì đã chết, bất kể footnote VBHN
+# nói gì; và một văn bản chưa tới ngày hiệu lực thì chưa có gì để sửa.
+_KHOA_O_CAP_VAN_BAN = frozenset({
+    EffectivityVerdict.bi_thay_the,
+    EffectivityVerdict.het_hieu_luc,
+    EffectivityVerdict.chua_hieu_luc,
+})
+
+_THU_TU_TIN_CAY = ("cao", "trung_binh", "thap")
+
+
+def _ke_sua_boi(b: dict) -> str:
+    """Nêu ĐÍCH DANH văn bản đi sửa. Không có số hiệu thì nói là không có —
+    `f"{None}"` in ra chữ "None" và người đọc sẽ tưởng đó là tên văn bản."""
+    sk = b.get("sua_boi_so_ky_hieu")
+    if not sk:
+        return "một văn bản chưa đọc được số hiệu"
+    dd = b.get("sua_boi_duong_dan")
+    return f"{dd} của {sk}" if dd else sk
+
+
+def ap_sua_doi(base: Effectivity, ban_ghi: Sequence[dict], as_of: date) -> Effectivity:
+    """Làm CỤ THỂ phán quyết cấp văn bản bằng bản đồ sửa đổi cấp điều khoản.
+
+    `ban_ghi` — dòng `sua_doi_dieu_khoan` của CHÍNH điều khoản này và của hậu
+    duệ nó (xem `nap_sua_doi`), mỗi dòng có `vi_tri`, `sua_boi_so_ky_hieu`,
+    `sua_boi_duong_dan`, `tu_ngay`, `nguon`, `do_tin_cay`.
+
+    Ba nhánh, theo đúng thứ tự cấp thiết:
+
+      1. **Đã tới ngày** ⇒ `bi_sua_doi`. Nguyên văn trong CSDL là bản TRƯỚC sửa
+         đổi: trích dẫn vẫn đúng nguồn gốc, nhưng KHÔNG còn là bản hiện hành, và
+         `ly_do` phải nói ra cả hai vế đó.
+      2. **Chưa đọc được ngày** ⇒ `can_doi_chieu_tay`. Biết có sửa nhưng không
+         biết từ bao giờ thì KHÔNG được mặc định là đã tới — cùng mặc định an
+         toàn với cả file này.
+      3. **Ngày còn ở tương lai** ⇒ `con_hieu_luc` kèm cảnh báo "sẽ bị". Nói "đã
+         bị sửa" lúc này là sai theo chiều ngược lại: văn bản gốc đang ĐÚNG, và
+         người dùng cần biết nó sắp đổi chứ không phải nó đã hỏng.
+    """
+    if not ban_ghi or base.verdict in _KHOA_O_CAP_VAN_BAN:
+        return base
+
+    da_toi = sorted((b for b in ban_ghi if b.get("tu_ngay") and b["tu_ngay"] <= as_of),
+                    key=lambda b: b["tu_ngay"], reverse=True)
+    chua_ro_ngay = [b for b in ban_ghi if not b.get("tu_ngay")]
+    sap_toi = sorted((b for b in ban_ghi if b.get("tu_ngay") and b["tu_ngay"] > as_of),
+                     key=lambda b: b["tu_ngay"])
+
+    if da_toi:
+        ke = "; ".join(
+            f"{b['vi_tri']} bị sửa bởi {_ke_sua_boi(b)} từ {b['tu_ngay']}" for b in da_toi)
+        return Effectivity(
+            EffectivityVerdict.bi_sua_doi, _tin_cay_thap_nhat(da_toi),
+            f"{ke} (nguồn: {_nguon(da_toi)}). Nguyên văn trong CSDL là bản TRƯỚC sửa đổi — "
+            "trích dẫn đúng văn bản gốc nhưng KHÔNG phải bản hiện hành")
+
+    if chua_ro_ngay:
+        ke = "; ".join(f"{b['vi_tri']} bị sửa bởi {_ke_sua_boi(b)}" for b in chua_ro_ngay)
+        return Effectivity(
+            EffectivityVerdict.can_doi_chieu_tay, "thap",
+            f"{ke} (nguồn: {_nguon(chua_ro_ngay)}), nhưng KHÔNG đọc được ngày hiệu lực từ "
+            "ghi chú hợp nhất — không kết luận được điều khoản này đã đổi hay chưa")
+
+    ke = "; ".join(f"{b['vi_tri']} sẽ bị {_ke_sua_boi(b)} sửa từ {b['tu_ngay']}"
+                   for b in sap_toi)
+    return Effectivity(
+        EffectivityVerdict.con_hieu_luc, _tin_cay_thap_nhat(sap_toi),
+        f"nguyên văn còn đúng tại {as_of}; {ke} (nguồn: {_nguon(sap_toi)})")
+
+
+def _tin_cay_thap_nhat(ban_ghi: Sequence[dict]) -> str:
+    """Một phán quyết dựa trên nhiều bản ghi không thể chắc hơn bản ghi yếu nhất."""
+    muc = [b.get("do_tin_cay") for b in ban_ghi]
+    return next((t for t in reversed(_THU_TU_TIN_CAY) if t in muc), "thap")
+
+
+def _nguon(ban_ghi: Sequence[dict]) -> str:
+    """Công báo yêu cầu ghi rõ nguồn khi phát hành lại thông tin — `ly_do` đi
+    thẳng ra câu trả lời người dùng, nên nguồn phải nằm trong đó."""
+    return ", ".join(dict.fromkeys(b.get("nguon") or "?" for b in ban_ghi))
+
+
+# `t.id = p.id OR ...` — bản ghi của CHÍNH nó và của HẬU DUỆ nó, không phải của
+# tổ tiên. Vì sao cần hậu duệ: câu trả lời thường dẫn cả "Điều 139", còn bản ghi
+# lại neo ở "Điều 139 > Khoản 1"; tra đúng `provision_id` thôi thì claim dẫn cấp
+# Điều đi qua mà không một cảnh báo nào — đúng lỗ hổng im lặng mà Mức 4 tồn tại
+# để bịt. Vì sao KHÔNG lấy của tổ tiên: khoản 8a mới thêm neo về Điều 154 cha;
+# lan ngược xuống sẽ dán nhãn "bị sửa" lên cả 9 khoản không ai đụng tới.
+#
+# `duong_dan` là đường dẫn phân cấp có thật (`"45/2019/QH14 > Điều 139 > Khoản 1"`)
+# nên tiền tố + `' > '` là phép "là hậu duệ của". Nối thêm `' > '` chứ không chỉ
+# `'%'`: `"Điều 13"` là tiền tố chuỗi của `"Điều 139"` nhưng KHÔNG phải tổ tiên nó.
+# ĐÃ ĐO: 0/19.135 `duong_dan` chứa `%` hay `_`, nên LIKE không cần escape.
+_SQL_SUA_DOI = text(
+    "SELECT p.id AS provision_id, s.vi_tri, s.sua_boi_so_ky_hieu, s.sua_boi_duong_dan,"
+    " s.tu_ngay, s.nguon, s.do_tin_cay"
+    " FROM provisions p"
+    " JOIN provisions t ON t.id = p.id"
+    "   OR (t.document_id = p.document_id AND t.duong_dan LIKE p.duong_dan || ' > %')"
+    " JOIN sua_doi_dieu_khoan s ON s.provision_id = t.id"
+    " WHERE p.id = ANY(:ids)"
+)
+
+
+def nap_sua_doi(engine: Engine, provision_ids: Sequence[int]) -> dict[int, list[dict]]:
+    """`provisions.id` → bản ghi sửa đổi của nó và của hậu duệ nó.
+
+    Một truy vấn cho CẢ tập id (thường là toàn bộ provision của một câu trả
+    lời), không phải một truy vấn mỗi claim.
+    """
+    ids = list(provision_ids)
+    if not ids:
+        return {}
+    ra: dict[int, list[dict]] = {}
+    with engine.connect() as conn:
+        for r in conn.execute(_SQL_SUA_DOI, {"ids": ids}).mappings().all():
+            ra.setdefault(r["provision_id"], []).append(dict(r))
+    return ra

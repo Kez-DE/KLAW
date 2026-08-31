@@ -410,3 +410,38 @@ def test_partial_coverage_mang_nguon_co_doc_id_de_mo_duoc_van_ban():
 def test_cac_nhanh_khac_co_nguon_rong():
     st = assemble({"intent": "ngoai_pham_vi"}, DB, FakeLlm(), "m")
     assert st["nguon"] == []
+
+
+def test_bi_sua_doi_sinh_warning_neu_dich_danh_van_ban_sua():
+    """Bẫy whitelist: `CANH_BAO_NHAN` liệt kê verdict được cảnh báo, nên một
+    verdict MỚI mặc định IM LẶNG. `bi_sua_doi` (Mức 4, bản đồ sửa đổi cấp điều
+    khoản từ VBHN Công báo) chính xác hơn `mot_phan_khong_xac_dinh` mà nó thay
+    — nêu đích danh văn bản sửa và ngày — nên để nó rơi khỏi whitelist là biến
+    một cải tiến thành HỒI QUY: điều khoản trước đây có cảnh báo mơ hồ nay
+    không còn cảnh báo nào.
+    """
+    eff = Effectivity(V.bi_sua_doi, "trung_binh",
+                      "Điều 139 > Khoản 1 bị sửa bởi khoản 1 Điều 29 của 113/2025/QH15 "
+                      "từ 2026-07-01 (nguồn: congbao.chinhphu.vn — 18/VBHN-VPQH)")
+    t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, eff)
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert st["warnings"], "điều khoản đã bị sửa đổi phải sinh cảnh báo"
+    (w,) = st["warnings"]
+    assert "113/2025/QH15" in w and "2026-07-01" in w, (
+        "cảnh báo phải mang `ly_do` NGUYÊN VĂN — nhãn ngắn một mình xoá mất "
+        "đúng thông tin mà Mức 4 sinh ra để cung cấp")
+
+
+def test_bi_sua_doi_KHONG_bi_loc_khoi_prose():
+    """Điều khoản bị sửa vẫn là điều khoản CÓ THẬT và trích dẫn nguyên văn của
+    nó vẫn đúng nguồn gốc — chỉ kèm cảnh báo. Chỉ văn bản CHẾT HẲN
+    (`bi_thay_the`/`het_hieu_luc`) mới bị loại khỏi prose."""
+    eff = Effectivity(V.bi_sua_doi, "trung_binh", "... 113/2025/QH15 từ 2026-07-01")
+    t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, eff)
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert st["result_type"] is ResultType.answer
+    assert st["citations"], "trích dẫn vẫn phải được phát ra"

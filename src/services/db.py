@@ -20,9 +20,20 @@ def get_engine() -> Engine:
     return _engine
 
 
-def run_migrations() -> list[str]:
-    """Chạy mọi file migrations/*.sql theo thứ tự tên. Idempotent nhờ IF NOT EXISTS."""
-    files = sorted(p for p in MIGRATIONS_DIR.glob("*.sql"))
+def run_migrations(chi: str | None = None) -> list[str]:
+    """Chạy mọi file migrations/*.sql theo thứ tự tên. Idempotent nhờ IF NOT EXISTS.
+
+    `chi` — chỉ chạy file có tên bắt đầu bằng tiền tố này (vd `"014"`). Mặc định
+    `None` = chạy hết, đúng hành vi cũ; đây là đường khởi động của ứng dụng.
+
+    Vì sao cần lọc: mọi file chạy trong MỘT transaction, nên một migration-cổng
+    đang đỏ (loại `RAISE EXCEPTION` khi corpus vi phạm bất biến) làm rollback cả
+    những file DDL chả liên quan. Đúng như thiết kế cho ứng dụng — cổng phải chặn
+    khởi động. Nhưng một script nạp dữ liệu chỉ cần đúng BẢNG CỦA NÓ tồn tại,
+    và một test đo tính idempotent của migration X không được đỏ vì migration Y.
+    """
+    files = sorted(p for p in MIGRATIONS_DIR.glob("*.sql")
+                   if chi is None or p.name.startswith(chi))
     applied: list[str] = []
     with get_engine().begin() as conn:
         for f in files:

@@ -65,6 +65,13 @@ ABSTAIN_THRESHOLD_DEFAULT = 0.5
 # tin đó, nên KHÔNG được dùng làm toàn bộ câu cảnh báo.
 CANH_BAO_NHAN = {
     V.mot_phan_khong_xac_dinh: "hết hiệu lực một phần",
+    # Mức 4 — bản đồ sửa đổi cấp điều khoản (VBHN của Công báo). Đây là bản
+    # CHÍNH XÁC HƠN của `mot_phan_khong_xac_dinh` ngay trên: nó nêu đích danh
+    # điều khoản nào, bị văn bản nào sửa, từ ngày nào. Bảng này là WHITELIST nên
+    # verdict mới mặc định IM LẶNG — thiếu dòng này thì đúng những điều khoản ta
+    # biết rõ nhất lại thành những điều khoản duy nhất không cảnh báo gì, tức
+    # một cải tiến biến thành hồi quy.
+    V.bi_sua_doi: "đã bị sửa đổi",
     V.bi_thay_the: "đã bị thay thế",
     V.het_hieu_luc: "đã hết hiệu lực",
     V.chua_hieu_luc: "chưa có hiệu lực",
