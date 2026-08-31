@@ -69,13 +69,28 @@ def test_load_from_parquet_RAISE_khi_thieu_metadata_khong_am_tham_bo_qua(tmp_pat
 
 
 @pytest.mark.integration
-def test_nap_dung_46_canh_phan_theo_4_loai_va_BLLD_co_3_canh():
-    """Đo trực tiếp trên `relationships.parquet` (2026-08-30): 46 cạnh hiệu lực đi
-    vào 21 văn bản corpus — 23 Sửa đổi/bổ sung (loai 20), 5 Thay thế (21), 13 hết
-    hiệu lực (22), 5 hết hiệu lực 1 phần (23). BLLĐ (139264) nhận 3 trong số đó."""
+def test_nap_dung_moi_canh_hieu_luc_di_vao_corpus_va_BLLD_co_3_canh():
+    """Số cạnh là hàm của (parquet × corpus), KHÔNG phải hằng số.
+
+    Bản đầu ghim `n == 46` và `{20: 23, 21: 5, 22: 13, 23: 5}` — đo trên corpus
+    21 văn bản ngày 2026-08-30. Mở corpus lên 32 văn bản làm nó thành 55, và
+    "sửa" bằng cách bump con số thì test không còn kiểm gì: nó chỉ chép lại kết
+    quả của lần chạy gần nhất. Kỳ vọng vì thế tính LẠI từ chính hàm THUẦN
+    `_canh_hieu_luc_di_vao` trên parquet thật + corpus thật, và phép kiểm là
+    "loader ghi vào DB đúng bằng cái hàm thuần nói" — bất biến đó đúng ở mọi cỡ
+    corpus.
+
+    `BLLĐ có 3 cạnh` thì GIỮ nguyên số: nó neo vào một văn bản cố định và một
+    file parquet cố định, không phụ thuộc corpus lớn bao nhiêu.
+    """
     run_migrations()
+    with get_engine().connect() as c:
+        corpus = {r[0] for r in c.execute(text("SELECT id FROM documents WHERE depth <> 'metadata'"))}
+    rel = pd.read_parquet(RAW / "relationships.parquet")
+    mong_doi = _canh_hieu_luc_di_vao(rel, corpus)
+
     n = load_from_parquet(RAW / "relationships.parquet", get_engine())
-    assert n == 46, f"tổng cạnh hiệu lực đi vào phải 46, được {n}"
+    assert n == len(mong_doi), f"loader ghi {n} cạnh, hàm thuần nói {len(mong_doi)}"
     with get_engine().connect() as c:
         theo_loai = dict(c.execute(text(
             'SELECT loai, count(*) FROM "references" WHERE loai IN (20,21,22,23) GROUP BY loai'
@@ -83,7 +98,7 @@ def test_nap_dung_46_canh_phan_theo_4_loai_va_BLLD_co_3_canh():
         blld = c.execute(text(
             "SELECT count(*) FROM \"references\" WHERE to_document_id = '139264'"
             " AND loai IN (20,21,22,23)")).scalar_one()
-    assert theo_loai == {20: 23, 21: 5, 22: 13, 23: 5}, theo_loai
+    assert theo_loai == dict(mong_doi["loai"].value_counts()), theo_loai
     assert blld == 3, f"BLLĐ (139264) phải có 3 cạnh hiệu lực đi vào, được {blld}"
 
 
@@ -136,7 +151,20 @@ def test_van_ban_ngoai_corpus_duoc_chen_metadata_va_van_ban_that_khong_bi_dung()
             " AND (depth != 'metadata' OR tinh_trang != 'chua_xac_dinh')")).scalar_one()
         that = c.execute(text(
             "SELECT depth, checksum FROM documents WHERE id = '139264'")).one()
-    assert n_metadata == 36, f"phải có đúng 36 văn bản ngoài corpus chỉ-metadata, được {n_metadata}"
+    # Số dòng chỉ-metadata = số `from_document_id` KHÔNG thuộc corpus, tính lại
+    # từ chính cạnh vừa nạp. Ghim 36 là ghim cỡ corpus ngày 2026-08-30: mở corpus
+    # ra 32 văn bản làm nó thành 44, và bump con số thì test chỉ còn chép lại kết
+    # quả lần chạy gần nhất.
+    with get_engine().connect() as c:
+        ngoai = c.execute(text(
+            'SELECT count(DISTINCT r.from_document_id) FROM "references" r'
+            " WHERE r.loai IN (20,21,22,23)"
+            "   AND NOT EXISTS (SELECT 1 FROM documents d"
+            "                   WHERE d.id = r.from_document_id AND d.depth <> 'metadata')"
+        )).scalar_one()
+    assert n_metadata == ngoai, \
+        f"{ngoai} văn bản ngoài corpus đi sửa corpus, nhưng có {n_metadata} dòng chỉ-metadata"
+    assert n_metadata > 0, "0 dòng chỉ-metadata — loader không chèn gì, phép kiểm rỗng"
     assert sai_dau == 0, "dòng chỉ-metadata phải có depth='metadata' và tinh_trang='chua_xac_dinh'"
     assert that.depth == "deep" and that.checksum != "metadata-only", (
         "BLLĐ (139264) là văn bản THẬT của corpus — không được ghi đè bằng dòng chỉ-metadata")

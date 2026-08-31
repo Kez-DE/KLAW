@@ -38,6 +38,33 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     # `/doc/<uuid>` trả JSON cùng shape). Đừng "sửa" nó thành số.
     "6fa2fd20-597e-11f1-add2-7717d93a2118": ("deep", "113/2025/QH15"),  # Luật Dân số
     "187742": ("deep", "124/2025/QH15"),  # Luật Giáo dục nghề nghiệp
+    # ── Đợt A — 10 văn bản CÒN HIỆU LỰC, lấp 7 lĩnh vực trống của bộ lọc ──
+    # Chọn đợt A trước vì đây là phần TRẢ LỜI ĐƯỢC kèm trích dẫn và KHẲNG ĐỊNH
+    # ĐƯỢC là hiện hành; văn bản HHL một phần (đợt B) chỉ làm dày nhánh
+    # `mot_phan_khong_xac_dinh`. Xem `.superpowers/sdd/khao-sat-mo-rong-corpus.md`.
+    "179252": ("deep", "91/2025/QH15"),    # Luật Bảo vệ dữ liệu cá nhân
+    "187276": ("deep", "356/2025/NĐ-CP"),  # hướng dẫn BVDLCN
+    "132957": ("deep", "24/2018/QH14"),    # Luật An ninh mạng
+    "161263": ("deep", "19/2023/QH15"),    # Bảo vệ quyền lợi người tiêu dùng
+    "133401": ("deep", "23/2018/QH14"),    # Luật Cạnh tranh
+    "187043": ("deep", "108/2025/QH15"),   # Luật Quản lý thuế
+    "187601": ("deep", "143/2025/QH15"),   # Luật Đầu tư
+    "179095": ("deep", "76/2025/QH15"),    # sửa đổi Luật Doanh nghiệp
+    "178737": ("deep", "88/2025/QH15"),    # sửa đổi Luật Xử lý VPHC
+}
+
+# ── KHÔNG NẠP, kèm lý do đo được (đừng thêm lại mà không đọc phần này) ──
+# Mỗi dòng ở đây là một văn bản đã fetch được toàn văn nhưng KHÔNG qua được một
+# bất biến của parser vì KHIẾM KHUYẾT CỦA NGUỒN. Ghi ra thay vì im lặng bỏ: lần
+# sau ai đó mở rộng corpus sẽ gặp lại đúng những văn bản này.
+KHONG_NAP: dict[str, tuple[str, str]] = {
+    # MOJ ghi HAI điểm liên tiếp cùng nhãn "i)" trong Điều 31 Khoản 2 (bảng chữ
+    # cái pháp lý VN đi a…h, i, k — điểm thứ hai lẽ ra là "k)"). Hai neo trích
+    # dẫn trùng nhau ⇒ một claim sai được "kiểm chứng thành công" trên điểm kia,
+    # đúng thứ `_kiem_bat_bien` tồn tại để chặn. Không tự đặt nhãn thay nguồn:
+    # đó là bịa ký hiệu, và cách sửa (bỏ văn bản / thêm hậu tố vị trí / đối chiếu
+    # Công báo rồi ghi bản sửa) là một CHÍNH SÁCH TRÍCH DẪN cần người quyết.
+    "27325": ("02/2011/QH13", "Điều 31 Khoản 2 có hai Điểm cùng nhãn 'i)'"),
 }
 
 if __name__ == "__main__":

@@ -225,7 +225,12 @@ def test_phu_luc_khong_bao_gio_la_cha_cua_provision_nao(provisions):
 # Tiêu ngữ chỉ có ở khối mở đầu văn bản. KHÔNG dùng "Căn cứ" làm dấu hiệu: nó
 # xuất hiện hợp lệ trong 83 điều luật thật ("Căn cứ vào …"), nên nó không phân
 # biệt được lời mở đầu với nội dung quy phạm.
-TIEU_NGU = ("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", "Độc lập")
+#
+# Cùng lý do đó, "Độc lập" một mình cũng KHÔNG dùng được — nó là một từ tiếng
+# Việt bình thường: `19/2023/QH15 > Điều 50 > Khoản 1 > Điểm e` mở đầu bằng
+# "Độc lập khảo sát, thử nghiệm…" và bị báo oan. Dấu hiệu phải là NGUYÊN cụm
+# tiêu ngữ "Độc lập - Tự do - Hạnh phúc", thứ không xuất hiện trong điều luật.
+TIEU_NGU = ("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", "Độc lập - Tự do - Hạnh phúc")
 
 
 def test_noi_dung_cap_trich_dan_duoc_MO_DAU_bang_nhan_cua_chinh_no(provisions):
@@ -294,6 +299,14 @@ def test_tieu_ngu_van_ban_KHONG_con_trong_bat_ky_neo_trich_dan_nao(provisions):
     xau = [(p["document_id"], p["duong_dan"]) for p in provisions
            if p["cap"] in CITABLE and any(t in p["noi_dung"] for t in TIEU_NGU)]
     assert not xau, f"{len(xau)} neo trích dẫn còn chứa tiêu ngữ văn bản: {xau[:5]}"
+
+    # ĐỐI CHỨNG: siết dấu hiệu ở trên chỉ hợp lệ nếu dấu hiệu MỚI vẫn tìm thấy
+    # tiêu ngữ ở nơi nó thật sự nằm. Không có dòng này, một cụm gõ sai sẽ biến
+    # phép kiểm thành luôn-xanh mà không ai thấy.
+    co = {p["document_id"] for p in provisions
+          if p["cap"] == "mo_dau" and any(t in p["noi_dung"] for t in TIEU_NGU)}
+    assert len(co) > len({p["document_id"] for p in provisions}) // 2, \
+        f"dấu hiệu tiêu ngữ chỉ khớp {len(co)} văn bản — nhiều khả năng nó đã gõ sai"
 
 
 def test_khoan_va_diem_LUON_co_so_hieu_cap(provisions):

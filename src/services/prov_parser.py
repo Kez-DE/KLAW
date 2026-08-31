@@ -37,7 +37,7 @@ import re
 import unicodedata
 import warnings
 
-from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4 import BeautifulSoup, CData, NavigableString, Tag
 
 from src.models.domain import Cap, ProvisionRow
 
@@ -229,6 +229,19 @@ def _don_vi(node: Tag):
     """
     for child in node.children:
         if isinstance(child, NavigableString):
+            # `type(...) in` chứ KHÔNG `isinstance`: Doctype/Comment/Stylesheet/
+            # Script đều là lớp CON của NavigableString, và `soup.get_text()` —
+            # vế NGUỒN của phép BẢO TOÀN KÝ TỰ ở `parse_anomalies` — bỏ đúng bốn
+            # lớp đó. `isinstance` nhặt chúng, nên hai vế lệch nhau.
+            # Ca thật: MOJ trả `88/2025/QH15` (178737) dưới dạng TRANG HTML đầy
+            # đủ (`<!DOCTYPE html><head><style>…`) chứ không phải mảnh
+            # `<div class="WordSection1">` như 22 văn bản trước. CSS trong
+            # `<style>` (79 ký tự) cộng chuỗi "html" của Doctype (4) đi thẳng vào
+            # `noi_dung` của bản ghi `mo_dau` và làm cổng bảo toàn báo lệch -83.
+            # CSS không phải văn bản quy phạm; để nó trong `noi_dung` là mở một
+            # neo cho câu trích lấy từ markup.
+            if type(child) not in (NavigableString, CData):
+                continue
             t = _chuan_hoa(str(child))
             if t:
                 yield None, t, None
