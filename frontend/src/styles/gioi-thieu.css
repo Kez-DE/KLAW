@@ -320,3 +320,86 @@
   outline-offset: 4px;
   border-radius: var(--radius-lon);
 }
+
+/* ═══ 4. Slot 3D — vỏ WebGL ══════════════════════════════════════════════
+ *
+ * Cảnh WebGL KHÔNG nằm trong chuỗi `preserve-3d` ở mục 1, và đó là cố ý: một
+ * `<canvas>` đặt trong `.gt-doi-hinh` sẽ bị `rotateY/rotateX` của media query
+ * nghiêng-theo-chuột xoay như một tấm ảnh phẳng, cộng thêm parallax camera bên
+ * trong cảnh → hai lớp trôi dạt đè nhau. Cảnh 3D thật tự lo phối cảnh của nó.
+ *
+ * Cái được giữ lại từ cỗ máy CSS là `.gt-khay`: cùng viền, cùng bo góc, cùng
+ * `min-height` (22rem · 25rem từ 768px). Nhờ vậy đổi giữa cỗ máy CSS, vỏ chờ và
+ * cảnh 3D không dịch bố cục một pixel nào (§10.4).
+ */
+
+/* Tấm nền phía sau — placeholder gradient lúc chunk `three` đang tải, và nền
+   tĩnh của cảnh 3D sau đó. Cùng công thức với .gt-mat--sau nhưng KHÔNG có
+   translateZ: ngoài chuỗi preserve-3d thì độ sâu không có nghĩa, và alpha đã hạ
+   sẵn nên không cần filter brightness. */
+.h3-nen {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 44px,
+      color-mix(in srgb, var(--phim) 3%, transparent) 44px 45px
+    ),
+    linear-gradient(180deg, color-mix(in srgb, var(--phim) 4%, transparent), transparent 62%);
+}
+
+.h3-canh {
+  position: absolute;
+  inset: 0;
+}
+
+/* Danh sách bàn phím: `<ul>` không chiếm chỗ, từng nút ẩn về thị giác. */
+.h3-ban-phim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Cùng kỹ thuật clip của .sr-only: ẩn khỏi mắt, GIỮ trong thứ tự tab. */
+.h3-nut-phien {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+
+/* Nút ĐANG nhận tiêu điểm hiện ra. Không có khối này thì người dùng bàn phím
+   thấy thẻ trích đoạn mở ra mà không thấy tiêu điểm của mình ở đâu (WCAG 2.4.7).
+   Chỉ một nút hiện tại một thời điểm nên nó không tranh chỗ với cảnh. */
+.h3-nut-phien:focus-visible {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: auto;
+  height: auto;
+  min-height: var(--vung-cham-toi-thieu);
+  margin: 0.6rem;
+  padding: 0.4rem 0.7rem;
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
+  border-radius: var(--radius-vua);
+  background: var(--nen-cao);
+  color: var(--phim);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  cursor: pointer;
+  outline: 2px solid var(--den-sang);
+  outline-offset: 2px;
+  z-index: 5;
+}

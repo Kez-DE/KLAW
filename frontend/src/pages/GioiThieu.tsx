@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CoMay } from '../components/gioi-thieu/CoMay';
+import { SlotBaChieu } from '../components/gioi-thieu/SlotBaChieu';
 import { PhamViThat } from '../components/gioi-thieu/PhamViThat';
 import '../styles/gioi-thieu.css';
 
@@ -102,11 +102,7 @@ export default function GioiThieu() {
         </form>
 
         <div className="mt-8">
-          <CoMay />
-          <p className="mt-3 text-[0.8125rem] leading-5 text-muc-nhat">
-            Cỗ máy vừa tiến một khung: dải phim trượt, một khung dừng dưới đèn và sáng lên. Đó là
-            toàn bộ việc KLAW làm — đưa câu hỏi tới đúng một khung phim, rọi sáng, rồi để bạn đọc.
-          </p>
+          <SlotBaChieu />
         </div>
       </section>
 
