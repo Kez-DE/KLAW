@@ -11,16 +11,17 @@
 
 :root {
   /* ---- Bảng màu (DESIGN.md) — tên biến là hợp đồng, không đổi ---- */
-  --nen: #0f1113; /* mặt máy, ground */
-  --nen-cao: #171a1d; /* khay, thanh công cụ */
-  --phim: #f4f1ea; /* mặt phim được rọi — nền của văn bản luật */
-  --muc: #14171a; /* chữ trên phim */
-  --muc-nhat: #5a6169; /* chú thích, nhãn phụ */
-  --den-sang: #e8b34b; /* ánh đèn máy: tiêu điểm, khung đang xem, con trỏ */
-  --xanh-that: #3e8e6e; /* còn hiệu lực */
-  --do-thay: #c4553d; /* đã bị thay thế / hết hiệu lực */
-  --vang-mo: #c08a2e; /* một phần không xác định */
-  --xam-cho: #6b7280; /* ABSTAIN, cần đối chiếu tay — TRUNG TÍNH, không phải màu lỗi */
+  --nen: #12100d; /* mặt máy — đen ngả nâu, không phải xám lạnh */
+  --nen-cao: #1c1813; /* khay, thanh công cụ */
+  --vien: #2b2419; /* đường viền, cạnh khay — nâu sẫm hơn nền một bậc */
+  --phim: #f3eee3; /* mặt phim được rọi — nền của văn bản luật */
+  --muc: #1a1611; /* chữ trên phim */
+  --muc-nhat: #6b6154; /* chú thích, nhãn phụ — 5,2:1 trên --phim */
+  --den-sang: #f0bc5a; /* ánh đèn máy — LUÔN là quầng sáng, không bao giờ là nền đặc */
+  --xanh-that: #4c9e78; /* còn hiệu lực */
+  --do-thay: #e05a45; /* đã bị thay thế / hết hiệu lực — bão hoà hơn bản nền lạnh, xem DESIGN.md */
+  --vang-mo: #c9922f; /* một phần không xác định */
+  --xam-cho: #938981; /* ABSTAIN — chính màu nền đã khử bão hoà. TRUNG TÍNH, không phải màu lỗi */
 
   /* ---- Bố cục ---- */
   --be-rong-doc-toi-da: 68ch; /* bề rộng đọc tối đa ở mặt đọc (DESIGN.md) */
@@ -54,6 +55,7 @@
   /* Màu — cho phép bg-nen, text-muc, border-do-thay… */
   --color-nen: var(--nen);
   --color-nen-cao: var(--nen-cao);
+  --color-vien: var(--vien);
   --color-phim: var(--phim);
   --color-muc: var(--muc);
   --color-muc-nhat: var(--muc-nhat);
