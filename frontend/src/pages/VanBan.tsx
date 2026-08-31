@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { layDieu, layMucLucVanBan } from '../lib/api';
+import { layDieu, layDieuTrongChuong, layMucLucVanBan } from '../lib/api';
 import { useGoiApi, useHaiCot } from '../lib/hooks';
+import { useTieuDeDong } from '../lib/useTieuDeTrang';
 import type { CapMucLuc, VanBanAroundResponse, VanBanMucLucResponse } from '../types';
 import { BaoLoi } from '../components/BaoLoi';
 import { DuongDan } from '../components/DuongDan';
@@ -16,13 +17,16 @@ import { NguyenVanDieu } from '../components/soat/NguyenVanDieu';
  * `GET /van-ban/{doc_id}` không tham số — chỉ metadata + danh mục Chương/Mục,
  * KHÔNG kéo nội dung Điều nào — rồi `?so_dieu=` cho đúng Điều người dùng mở.
  *
- * Vì sao Chương/Mục KHÔNG bấm được: mục lục trả `id` của Chương, nhưng không
- * endpoint nào liệt kê các Điều thuộc một Chương (`?around=<id Chương>` trả
- * 404 — "provision không thuộc Điều nào", đã thử trên dữ liệu thật). Suy id
- * Điều đầu tiên từ `id Chương + 1` thì "đúng" trên dữ liệu hôm nay và sai
- * lặng lẽ ở lần seed sau — đúng loại khẳng định không kiểm chứng được mà dự
- * án này tồn tại để chống. Nên mục lục ở đây là cấu trúc để đọc, và ô "Mở
- * Điều" là đường đi thật tới nguyên văn.
+ * Chương/Mục bấm được từ khi có `?trong_chuong=<provision_id>`: endpoint đó
+ * trả TIÊU ĐỀ các Điều trực thuộc, không kèm Khoản/Điểm. Trước đó mục lục là
+ * một danh sách chết — `?around=<id Chương>` trả 404 và không endpoint nào
+ * liệt kê Điều của một Chương. Suy id Điều đầu tiên từ `id Chương + 1` thì
+ * "đúng" trên dữ liệu hôm nay và sai lặng lẽ ở lần seed sau, nên màn hình này
+ * đã đúng khi từ chối làm vậy và chờ một đường đi thật.
+ *
+ * Ràng buộc giữ nguyên ở FE: duyệt mục lục chỉ hiện tiêu đề Điều. Chương lớn
+ * nhất corpus có 156 Điều nhưng 1.231 dòng hậu duệ — mở cả cây ở đây là phá
+ * đúng cái lazy mà cả trang này dựng lên để bảo vệ.
  */
 
 const LE_THEO_CAP: Record<CapMucLuc, string> = {
@@ -35,11 +39,14 @@ const LE_THEO_CAP: Record<CapMucLuc, string> = {
 export default function VanBan() {
   const { docId } = useParams<{ docId: string }>();
   const [soDieu, datSoDieu] = useState('');
+  const [chuongDangMo, datChuongDangMo] = useState<number | null>(null);
   const haiCot = useHaiCot();
 
   const mucLuc = useGoiApi<VanBanMucLucResponse>();
+  const dsDieu = useGoiApi<VanBanAroundResponse>();
   const dieu = useGoiApi<VanBanAroundResponse>();
   const { chay: chayMucLuc } = mucLuc;
+  const { chay: chayDsDieu, datLai: datLaiDsDieu } = dsDieu;
   const { chay: chayDieu, datLai: datLaiDieu } = dieu;
 
   useEffect(() => {
@@ -47,23 +54,37 @@ export default function VanBan() {
     void chayMucLuc((signal) => layMucLucVanBan(docId, signal));
   }, [chayMucLuc, docId]);
 
-  // `lib/useTieuDeTrang.ts` (ngoài phạm vi task này) chưa biết tuyến
-  // `/van-ban/:docId`, nên nó đặt tiêu đề thành "Không tìm thấy trang". Đặt
-  // lại bằng ĐỊNH DANH thật sau khi metadata về — effect này luôn chạy sau
-  // effect của App vì nó chờ một lượt fetch.
-  const soKyHieu = mucLuc.ketQua?.so_ky_hieu;
-  useEffect(() => {
-    if (soKyHieu === undefined) return;
-    document.title = `${soKyHieu} — KLAW`;
-    const vungThongBao = document.getElementById('thong-bao-chuyen-trang');
-    if (vungThongBao !== null) vungThongBao.textContent = `Đã chuyển đến văn bản ${soKyHieu}`;
-  }, [soKyHieu]);
+  // Định danh thật của văn bản chỉ biết sau khi metadata về. Nộp cho gốc
+  // (`useTieuDeTrang.ts`) chứ không tự vá `document.title` ở đây: bản vá cục
+  // bộ cũ để `og:title`, `og:description` và `meta description` nằm nguyên ở
+  // "Không tìm thấy trang" — tức chia sẻ một trích dẫn thật lên Zalo/Facebook
+  // hiện preview nói trang này không tồn tại.
+  useTieuDeDong(
+    mucLuc.ketQua?.so_ky_hieu ?? null,
+    mucLuc.ketQua === null
+      ? null
+      : `Mục lục Chương/Mục và nguyên văn từng Điều của ${mucLuc.ketQua.so_ky_hieu} (${mucLuc.ketQua.bo_luat}) — lấy thẳng từ cơ sở dữ liệu KLAW, không rút gọn, không sửa chính tả.`,
+  );
 
   const moDieu = (su: FormEvent<HTMLFormElement>) => {
     su.preventDefault();
     const sach = soDieu.trim();
     if (sach === '' || docId === undefined || dieu.dangChay) return;
     void chayDieu((signal) => layDieu(docId, sach, signal));
+  };
+
+  // Bấm một mục trong mục lục: liệt kê TIÊU ĐỀ các Điều của Chương/Mục đó.
+  // Không kéo cả cây — Chương lớn nhất corpus có 156 Điều nhưng 1.231 dòng hậu
+  // duệ, nên nội dung chỉ được tải khi người dùng mở đúng một Điều.
+  const moChuong = (id: number) => {
+    if (docId === undefined) return;
+    if (id === chuongDangMo) {
+      datChuongDangMo(null);
+      datLaiDsDieu();
+      return;
+    }
+    datChuongDangMo(id);
+    void chayDsDieu((signal) => layDieuTrongChuong(docId, id, signal));
   };
 
   if (docId === undefined) return null;
@@ -120,17 +141,74 @@ export default function VanBan() {
             <>
               <h2 className="mt-8 mb-2 text-[1rem] leading-6 font-medium text-phim">Mục lục</h2>
               <p className="mt-0 mb-3 text-[0.8125rem] leading-5 text-muc-nhat">
-                Danh mục Chương và Mục. Nội dung từng Điều chỉ được tải khi bạn mở, để không kéo
-                cả cây điều khoản về máy.
+                Bấm một Chương hoặc Mục để xem danh sách Điều trong đó. Nội dung từng Điều chỉ
+                được tải khi bạn mở, để không kéo cả cây điều khoản về máy.
               </p>
               <ol className="m-0 flex list-none flex-col gap-1 p-0">
                 {mucLuc.ketQua.muc_luc.map((muc) => (
-                  <li
-                    key={muc.id}
-                    className="text-[0.875rem] leading-6 text-phim"
-                    style={{ marginInlineStart: LE_THEO_CAP[muc.cap] }}
-                  >
-                    {muc.tieu_de}
+                  <li key={muc.id} style={{ marginInlineStart: LE_THEO_CAP[muc.cap] }}>
+                    <button
+                      type="button"
+                      aria-expanded={muc.id === chuongDangMo}
+                      onClick={() => moChuong(muc.id)}
+                      className="flex min-h-[var(--vung-cham-toi-thieu)] w-full cursor-pointer items-center rounded-nho text-start text-[0.875rem] leading-6 transition-colors duration-[var(--thoi-luong-nhanh)] ease-chuan hover:text-den-sang focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
+                      style={{ color: muc.id === chuongDangMo ? 'var(--den-sang)' : 'var(--phim)' }}
+                    >
+                      {muc.tieu_de}
+                    </button>
+
+                    {muc.id === chuongDangMo && (
+                      <div className="mb-2 ms-3 border-s ps-3" style={{ borderColor: 'var(--vien)' }}>
+                        {dsDieu.dangChay && (
+                          <p role="status" className="my-1 text-[0.8125rem] text-muc-nhat">
+                            Đang tải danh sách Điều…
+                          </p>
+                        )}
+
+                        {/* 422 ở đây có nghĩa: cấp này không chứa Điều. Nói
+                            thẳng ra — nuốt nó thành "chương này rỗng" là biến
+                            một lỗi hợp đồng thành một khẳng định sai về dữ
+                            liệu. */}
+                        {!dsDieu.dangChay && dsDieu.loi !== null && (
+                          <BaoLoi
+                            loi={dsDieu.loi}
+                            onThuLai={() => {
+                              void chayDsDieu((signal) => layDieuTrongChuong(docId, muc.id, signal));
+                            }}
+                          />
+                        )}
+
+                        {!dsDieu.dangChay && dsDieu.ketQua !== null && (
+                          dsDieu.ketQua.provisions.length === 0 ? (
+                            <p className="my-1 text-[0.8125rem] leading-5 text-muc-nhat">
+                              Không có Điều nào trực thuộc mục này.
+                            </p>
+                          ) : (
+                            <ol className="m-0 flex list-none flex-col p-0">
+                              {dsDieu.ketQua.provisions.map((dieuTrong) => (
+                                <li key={dieuTrong.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      datSoDieu(dieuTrong.so_hieu_cap);
+                                      void chayDieu((signal) =>
+                                        layDieu(docId, dieuTrong.so_hieu_cap, signal),
+                                      );
+                                    }}
+                                    className="flex min-h-[var(--vung-cham-toi-thieu)] w-full cursor-pointer items-center rounded-nho text-start text-[0.8125rem] leading-5 text-muc-nhat transition-colors duration-[var(--thoi-luong-nhanh)] ease-chuan hover:text-phim focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
+                                  >
+                                    {/* Tiêu đề Điều thôi. Endpoint cố ý không
+                                        trả Khoản/Điểm và FE giữ nguyên ràng
+                                        buộc đó. */}
+                                    {dieuTrong.tieu_de}
+                                  </button>
+                                </li>
+                              ))}
+                            </ol>
+                          )
+                        )}
+                      </div>
+                    )}
                   </li>
                 ))}
               </ol>

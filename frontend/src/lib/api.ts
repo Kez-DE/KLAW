@@ -419,6 +419,36 @@ export async function layDieu(
   );
 }
 
+/**
+ * GET /api/v1/van-ban/{docId}?trong_chuong={provisionId} — TIÊU ĐỀ các Điều
+ * thuộc một Chương/Mục, KHÔNG kèm Khoản/Điểm.
+ *
+ * Đây là đường đi thật để mục lục bấm được. Trước khi endpoint này tồn tại,
+ * `?around=<id Chương>` trả 404 và không có cách nào liệt kê Điều của một
+ * Chương — mục lục là một danh sách chết.
+ *
+ * Endpoint cố ý chỉ trả cấp Điều: Chương lớn nhất corpus có 156 Điều nhưng
+ * 1.231 dòng hậu duệ. FE giữ nguyên ràng buộc đó — duyệt mục lục thì hiện tiêu
+ * đề Điều, nội dung chỉ tải khi người dùng mở đúng một Điều.
+ *
+ * 422 (đưa nhầm id của một Điều, hay một cấp không chứa Điều) là một câu trả
+ * lời có nghĩa, KHÔNG được nuốt thành "chương này rỗng" — `fetchJson` để nó
+ * nổi lên thành lỗi thật.
+ */
+export async function layDieuTrongChuong(
+  docId: string,
+  provisionId: number,
+  signal?: AbortSignal,
+): Promise<ApiResult<VanBanAroundResponse>> {
+  return fetchJson<VanBanAroundResponse>(
+    `/api/v1/van-ban/${encodeURIComponent(docId)}?trong_chuong=${provisionId}`,
+    { method: 'GET' },
+    TIMEOUT_VAN_BAN_MS,
+    isVanBanAroundResponse,
+    signal,
+  );
+}
+
 const TIMEOUT_MAU_MS = 10_000; // đọc YAML đã nạp sẵn, không gọi LLM
 
 /**
@@ -539,9 +569,20 @@ function isPhamViResponse(x: unknown): x is PhamViResponse {
   return isTangPhamVi(x.sau) && isTangPhamVi(x.nong);
 }
 
+/**
+ * Nhớ trong PHIÊN: `/` (mục "Phạm vi thật") và `/pham-vi` cùng hỏi endpoint
+ * này, và số liệu corpus không đổi giữa hai lần bấm trong một phiên — gọi lại
+ * chỉ tốn một vòng mạng để nhận đúng con số cũ.
+ *
+ * CHỈ nhớ lượt THÀNH CÔNG. Nhớ cả lỗi thì nút "Thử lại" của trang trở thành
+ * nút giả: nó sẽ trả về đúng lỗi cũ mà không hỏi lại máy chủ lần nào.
+ */
+let phamViDaNho: PhamViResponse | null = null;
+
 /** GET /api/v1/pham-vi. 404 -> "not_implemented" (trang tự hiện trạng thái trung thực). */
 export async function layPhamVi(signal?: AbortSignal): Promise<ApiResult<PhamViResponse>> {
-  return fetchJson<PhamViResponse>(
+  if (phamViDaNho !== null) return { ok: true, data: phamViDaNho };
+  const ketQua = await fetchJson<PhamViResponse>(
     '/api/v1/pham-vi',
     { method: 'GET' },
     TIMEOUT_PHAM_VI_MS,
@@ -549,4 +590,6 @@ export async function layPhamVi(signal?: AbortSignal): Promise<ApiResult<PhamViR
     signal,
     'not_implemented',
   );
+  if (ketQua.ok) phamViDaNho = ketQua.data;
+  return ketQua;
 }

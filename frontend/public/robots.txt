@@ -1,5 +1,10 @@
 User-agent: *
 Allow: /
 
+# API và health-check không phải trang để đọc: cho index thì kết quả tìm kiếm
+# hiện JSON thô, và mỗi lượt crawl một endpoint tra cứu là một lượt gọi LLM.
+Disallow: /api/
+Disallow: /health
+
 # Domain thật điền vào lúc deploy — xem chú thích trong sitemap.xml.
 Sitemap: https://klaw.example.com/sitemap.xml
