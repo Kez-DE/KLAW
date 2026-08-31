@@ -1,0 +1,213 @@
+"""Graph soạn thảo (Task 5) — collect → retrieve_requirements → draft_generate
+→ draft_audit.
+
+`retrieve_requirements` tra CHÍNH XÁC các provision theo `duong_dan` mà
+checklist (Task 3) + rules (Task 2) đã dẫn — KHÔNG retrieval ngữ nghĩa, vì căn
+cứ pháp lý của một HĐLĐ đã biết trước (Điều 21 BLLĐ, Điều 25/26/127/17...),
+khác hẳn graph tra cứu (`graph_tra_cuu.py`) nơi câu hỏi tự do cần truy hồi.
+
+Chỉ `loai_van_ban == "hdld"` có checklist thật (Task 3 chỉ xây
+`config/checklist_hdld.yaml`) — `noi_quy`/`quyet_dinh_ky_luat` là hai giá trị
+enum hợp lệ ở tầng Pydantic (FE có thể cần trước) nhưng CHƯA có checklist nội
+dung riêng; route gọi module này phải từ chối trung thực (501) thay vì áp
+nhầm checklist HĐLĐ lên một loại văn bản khác.
+"""
+
+import re
+from functools import lru_cache
+from pathlib import Path
+from typing import TypedDict
+
+from langgraph.graph import END, StateGraph
+from sqlalchemy import Engine, text
+
+from src.agents.nodes.draft_audit import draft_audit
+from src.agents.nodes.draft_generate import DraftClause, draft_generate
+from src.agents.nodes.verify_tier1 import normalize
+from src.services.checklist import Checklist, cac_can_cu, load_checklist
+from src.services.db import get_engine
+from src.services.llm import from_settings as llm_from_settings
+from src.services.llm import generate_model
+from src.services.rules import Rule, load_facts_meta, load_rules
+
+RULES_PATH = Path("config/rules.yaml")
+CHECKLIST_PATH = Path("config/checklist_hdld.yaml")
+
+# Nhãn tự nhiên đưa vào prompt (prompts/draft_generate.v1.md: "Soạn
+# {loai_van_ban} theo pháp luật lao động...") — PHẢI là cụm từ tiếng Việt tự
+# nhiên, không phải mã enum "hdld" của request.
+TEN_LOAI_VAN_BAN = {
+    "hdld": "hợp đồng lao động",
+    "noi_quy": "nội quy lao động",
+    "quyet_dinh_ky_luat": "quyết định kỷ luật lao động",
+}
+
+
+class SoanThaoState(TypedDict, total=False):
+    loai_van_ban: str
+    facts: dict
+    nganh: str
+    muc: list[dict]
+    expanded: list[dict]
+    db_provisions: dict[int, dict]
+    clauses: list[DraftClause]
+    schema_error: bool
+    usage_generate: object
+    self_audit: bool
+    audit_report: object
+
+
+# ── Nạp rules/checklist + tra sẵn provision chúng cần — MỘT LẦN cho cả tiến
+# trình (lru_cache), dùng chung bởi lifespan (kiểm can_cu lúc boot),
+# build_graph_soan_thao() (/soan-thao), và route /soat (gọi draft_audit trực
+# tiếp, không qua graph, vì không có bước sinh văn bản). ─────────────────────
+
+_SQL_PROVISIONS_BY_DUONG_DAN = text(
+    "SELECT id, document_id, duong_dan, tieu_de, noi_dung FROM provisions WHERE duong_dan = ANY(:paths)"
+)
+_SQL_DOCUMENTS_BY_ID = text("SELECT id, so_ky_hieu, ten FROM documents WHERE id = ANY(:ids)")
+
+
+@lru_cache
+def load_rules_cached() -> list[Rule]:
+    """Chỉ đọc YAML — KHÔNG chạm DB. Dùng cho validate facts ở biên HTTP
+    (ràng buộc #1) và GET /api/v1/mau/{loai} (ràng buộc #4), để hai đường đó
+    không kéo theo một round-trip Postgres không cần thiết.
+    """
+    return load_rules(RULES_PATH)
+
+
+@lru_cache
+def load_checklist_cached() -> Checklist:
+    return load_checklist(CHECKLIST_PATH)
+
+
+@lru_cache
+def load_facts_meta_cached() -> dict[str, dict[str, str]]:
+    return load_facts_meta(RULES_PATH)
+
+
+def _requirement_provisions(engine: Engine, duong_dan: set[str]) -> dict[int, dict]:
+    """`provisions.id` -> dòng (kèm `so_ky_hieu`/`ten` văn bản), cho MỌI
+    `can_cu` mà checklist + rules đã dẫn. Đây là toàn bộ "văn bản nguồn" đưa
+    vào prompt `draft_generate` (qua `build_context`, cùng hàm graph tra cứu
+    dùng) VÀ là tập đích hợp lệ cho phép kiểm citation của `draft_audit` —
+    một `can_cu_provision_id` mà draft_generate trả về chỉ hợp lệ nếu nó nằm
+    trong đúng tập điều luật đã được cho xem, cùng nguyên tắc phép kiểm 2 của
+    verify_tier1.
+    """
+    if not duong_dan:
+        return {}
+    with engine.connect() as c:
+        rows = c.execute(_SQL_PROVISIONS_BY_DUONG_DAN, {"paths": list(duong_dan)}).mappings().all()
+    doc_ids = {r["document_id"] for r in rows}
+    with engine.connect() as c:
+        docs = {r["id"]: {"so_ky_hieu": r["so_ky_hieu"], "ten": r["ten"]}
+                for r in c.execute(_SQL_DOCUMENTS_BY_ID, {"ids": list(doc_ids)}).mappings().all()}
+    return {r["id"]: {**dict(r), **docs.get(r["document_id"], {})} for r in rows}
+
+
+def load_requirements(engine: Engine) -> tuple[list[Rule], Checklist, dict[int, dict]]:
+    rules = load_rules_cached()
+    checklist = load_checklist_cached()
+    can_cu_all = cac_can_cu(checklist) | {r.can_cu for r in rules}
+    return rules, checklist, _requirement_provisions(engine, can_cu_all)
+
+
+@lru_cache
+def requirements() -> tuple[list[Rule], Checklist, dict[int, dict]]:
+    return load_requirements(get_engine())
+
+
+# ── /soan-thao — graph 4 node ────────────────────────────────────────────────
+
+
+def build_graph_soan_thao():
+    llm = llm_from_settings()
+    rules, checklist, db_provisions = requirements()
+
+    def n_collect(st: SoanThaoState) -> SoanThaoState:
+        return {
+            **st,
+            "muc": checklist.muc,
+            "nganh": st.get("nganh") or "thuong_mai",
+            "loai_van_ban": TEN_LOAI_VAN_BAN.get(st.get("loai_van_ban"), st.get("loai_van_ban")),
+        }
+
+    def n_retrieve(st: SoanThaoState) -> SoanThaoState:
+        return {**st, "expanded": list(db_provisions.values()), "db_provisions": db_provisions}
+
+    def n_generate(st: SoanThaoState) -> SoanThaoState:
+        return draft_generate(st, llm, generate_model())
+
+    def n_audit(st: SoanThaoState) -> SoanThaoState:
+        return draft_audit(st, rules, checklist, st.get("db_provisions") or {})
+
+    g = StateGraph(SoanThaoState)
+    g.add_node("collect", n_collect)
+    g.add_node("retrieve_requirements", n_retrieve)
+    g.add_node("draft_generate", n_generate)
+    g.add_node("draft_audit", n_audit)
+    g.set_entry_point("collect")
+    g.add_edge("collect", "retrieve_requirements")
+    g.add_edge("retrieve_requirements", "draft_generate")
+    g.add_edge("draft_generate", "draft_audit")
+    g.add_edge("draft_audit", END)
+    return g.compile()
+
+
+# ── /soat — tách clause từ text dán vào, KHÔNG gọi LLM ──────────────────────
+
+_RE_DIEU_HEADER = re.compile(r"(?m)^\s*Điều\s+\d+\.")
+
+
+def _split_dieu(van_ban: str) -> list[str]:
+    """Cắt `van_ban` theo từng dòng bắt đầu "Điều N." — giữ nguyên tiêu đề
+    trong cùng khối với thân điều, vì tiêu đề thường mang từ khoá cần cho
+    việc map `key` bên dưới (vd. "Điều 1. Công việc..." → khớp "công việc").
+    """
+    diem_bat_dau = [m.start() for m in _RE_DIEU_HEADER.finditer(van_ban)]
+    if not diem_bat_dau:
+        return [van_ban.strip()] if van_ban.strip() else []
+    diem_bat_dau.append(len(van_ban))
+    return [
+        van_ban[a:b].strip()
+        for a, b in zip(diem_bat_dau, diem_bat_dau[1:])
+        if van_ban[a:b].strip()
+    ]
+
+
+def extract_clauses(van_ban: str, checklist: Checklist, db_provisions: dict[int, dict]) -> list[DraftClause]:
+    """Tách `van_ban` (văn bản người dùng dán vào) thành `DraftClause`, map
+    `key` bằng từ khoá (`checklist.muc[*].tu_khoa`, YAML — KHÔNG hardcode
+    trong Python, cùng nguyên tắc rules.yaml). Không khớp được từ khoá nào
+    thì `key=None` — `check_completeness` coi mục đó là THIẾU, đúng hành vi
+    mong muốn (task-5-brief.md), không phải lỗi.
+
+    `can_cu_provision_id`: người dùng dán văn bản thô, không tự đánh số
+    provision_id nào — không có gì để phép kiểm 4 của `draft_audit` xác minh.
+    Gán căn cứ TỔNG của checklist (`can_cu_goc`, BLLĐ Điều 21 Khoản 1 — điều
+    luật buộc các mục này phải có mặt) cho MỌI clause: đây là một khẳng định
+    THẬT ("mục này thuộc phạm vi Điều 21.1"), không phải trích dẫn bịa, nên
+    phép kiểm citation không bao giờ báo sai cho một hợp đồng viết tay không
+    tự trích dẫn provision — phép kiểm đó tồn tại để bắt MÔ HÌNH bịa trích
+    dẫn (draft_generate), không phải để đòi người dùng tự đánh số điều luật.
+    """
+    can_cu_provision_id = next(
+        (pid for pid, row in db_provisions.items() if row["duong_dan"] == checklist.can_cu_goc), 0
+    )
+    ung_vien = [(m["key"], m["ten"], m.get("tu_khoa") or []) for m in checklist.muc]
+
+    clauses: list[DraftClause] = []
+    for chunk in _split_dieu(van_ban):
+        chuan_hoa = normalize(chunk).lower()
+        key, ten = None, chunk.splitlines()[0][:80]
+        for muc_key, muc_ten, tu_khoa in ung_vien:
+            if any(normalize(tk).lower() in chuan_hoa for tk in tu_khoa):
+                key, ten = muc_key, muc_ten
+                break
+        # ponytail: key=None hợp lệ tại runtime dù type hint DraftClause.key
+        # là `str` (dataclass thường không ép kiểu) — đúng ý brief "không map
+        # được thì để None". Nâng cấp nếu DraftClause đổi sang pydantic dataclass.
+        clauses.append(DraftClause(key=key, ten=ten, noi_dung=chunk, can_cu_provision_id=can_cu_provision_id))
+    return clauses

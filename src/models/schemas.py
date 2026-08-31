@@ -111,3 +111,83 @@ class VanBanProvisionsResponse(BaseModel):
     so_ky_hieu: str
     bo_luat: str
     provisions: list[ProvisionOut]
+
+
+# ══ POST /soan-thao, POST /soat, GET /mau/{loai} (Task 5) ═══════════════════
+# Request/response field names dùng NGUYÊN VĂN task-5-brief.md — FE đang dựng
+# song song theo đó. `FindingOut` là ngoại lệ có chủ đích: hợp nhất
+# `AuditFindingOut` gốc của brief (loai, mo_ta, dieu_khoan_lien_quan) VỚI
+# ràng buộc điều phối #3 (thong_diep, vi_tri, can_cu:str, doc_id, khop_tai_id)
+# — hai bản mô tả cùng một dữ liệu bằng tên khác nhau, giữ CẢ HAI khoá thay vì
+# chọn một, vì test bắt buộc của brief đọc `mo_ta` còn hợp đồng FE mới (đã
+# dựng xong màn Soát) đọc `thong_diep`/`vi_tri`/`doc_id`/`khop_tai_id`. Xem
+# task-5-report.md để biết lý do đầy đủ.
+
+LoaiVanBan = Literal["hdld", "noi_quy", "quyet_dinh_ky_luat"]
+
+
+class SoanThaoRequest(BaseModel):
+    loai_van_ban: LoaiVanBan
+    facts: dict
+    nganh: str = "thuong_mai"
+    config_name: str | None = None
+
+
+class SoatRequest(BaseModel):
+    loai_van_ban: LoaiVanBan
+    text: str = Field(..., min_length=20)
+    facts: dict = Field(default_factory=dict)
+    nganh: str = "thuong_mai"
+
+
+class FindingOut(BaseModel):
+    loai: str
+    muc_do: str
+    mo_ta: str
+    thong_diep: str                       # = mo_ta — tên theo ràng buộc #3 (hợp đồng FE)
+    dieu_khoan_lien_quan: str | None = None
+    vi_tri: str | None = None             # = dieu_khoan_lien_quan — tên theo ràng buộc #3
+    can_cu: str | None = None             # duong_dan — CHUỖI (không phải dict brief gốc, theo ràng buộc #3)
+    rule_id: str | None = None
+    # Ràng buộc #3: thiếu hai trường này thì panel đối chiếu phía FE không mở
+    # được (can_cu một mình chỉ là chuỗi duong_dan). None cho
+    # citation_khong_hop_le — chính bản thân can_cu đó không tồn tại nên
+    # không có gì để mở.
+    doc_id: str | None = None
+    khop_tai_id: int | None = None
+
+
+class AuditReportOut(BaseModel):
+    dat: bool
+    completeness: float
+    so_dieu_khoan: int
+    self_audit: bool
+    findings: list[FindingOut]
+
+
+class SoanThaoResponse(BaseModel):
+    document: str                    # Markdown
+    clauses: list[dict]
+    audit_report: AuditReportOut
+    trace_id: str
+
+
+class SoatResponse(BaseModel):
+    audit_report: AuditReportOut
+    trace_id: str
+
+
+class FactFieldOut(BaseModel):
+    """Một trường của form nhập fact — sinh từ config/rules.yaml
+    (rules.mo_ta_facts), KHÔNG hardcode danh sách trường (ràng buộc #4)."""
+
+    key: str
+    nhan: str
+    kieu: str
+    bat_buoc: bool
+    lua_chon: list[str] | None = None
+
+
+class MauResponse(BaseModel):
+    loai_van_ban: str
+    facts: list[FactFieldOut]

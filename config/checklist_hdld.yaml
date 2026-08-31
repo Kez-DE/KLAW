@@ -12,16 +12,16 @@ can_cu_goc: "45/2019/QH14 > Điều 21 > Khoản 1"
 can_cu_chi_tiet: "10/2020/TT-BLĐTBXH > Điều 3"
 
 muc:
-  - {stt: 1,  key: nsdld,      ten: "Tên, địa chỉ NSDLĐ và họ tên, chức danh người giao kết", diem: a,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm a"}
-  - {stt: 2,  key: nld,        ten: "Họ tên, ngày sinh, giới tính, nơi cư trú, số CCCD của NLĐ", diem: b,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm b"}
-  - {stt: 3,  key: cong_viec,  ten: "Công việc và địa điểm làm việc", diem: c,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm c"}
-  - {stt: 4,  key: thoi_han,   ten: "Thời hạn của hợp đồng lao động", diem: d,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm d"}
-  - {stt: 5,  key: luong,      ten: "Mức lương, hình thức trả, thời hạn trả, phụ cấp", diem: đ,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm đ"}
-  - {stt: 6,  key: nang_luong, ten: "Chế độ nâng bậc, nâng lương", diem: e,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm e"}
-  - {stt: 7,  key: thoi_gio,   ten: "Thời giờ làm việc, thời giờ nghỉ ngơi", diem: g,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm g"}
-  - {stt: 8,  key: bao_ho,     ten: "Trang bị bảo hộ lao động", diem: h,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm h"}
-  - {stt: 9,  key: bao_hiem,   ten: "BHXH, BHYT, BHTN", diem: i,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm i"}
-  - {stt: 10, key: dao_tao,    ten: "Đào tạo, bồi dưỡng, nâng cao trình độ kỹ năng nghề", diem: k,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm k"}
+  - {stt: 1,  key: nsdld,      ten: "Tên, địa chỉ NSDLĐ và họ tên, chức danh người giao kết", diem: a,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm a", tu_khoa: ["người sử dụng lao động", "nsdlđ"]}
+  - {stt: 2,  key: nld,        ten: "Họ tên, ngày sinh, giới tính, nơi cư trú, số CCCD của NLĐ", diem: b,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm b", tu_khoa: ["người lao động", "nlđ", "cccd"]}
+  - {stt: 3,  key: cong_viec,  ten: "Công việc và địa điểm làm việc", diem: c,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm c", tu_khoa: ["công việc", "địa điểm làm việc"]}
+  - {stt: 4,  key: thoi_han,   ten: "Thời hạn của hợp đồng lao động", diem: d,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm d", tu_khoa: ["thời hạn hợp đồng", "thời hạn"]}
+  - {stt: 5,  key: luong,      ten: "Mức lương, hình thức trả, thời hạn trả, phụ cấp", diem: đ,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm đ", tu_khoa: ["mức lương", "tiền lương", "phụ cấp"]}
+  - {stt: 6,  key: nang_luong, ten: "Chế độ nâng bậc, nâng lương", diem: e,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm e", tu_khoa: ["nâng bậc", "nâng lương"]}
+  - {stt: 7,  key: thoi_gio,   ten: "Thời giờ làm việc, thời giờ nghỉ ngơi", diem: g,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm g", tu_khoa: ["thời giờ làm việc", "thời giờ nghỉ ngơi"]}
+  - {stt: 8,  key: bao_ho,     ten: "Trang bị bảo hộ lao động", diem: h,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm h", tu_khoa: ["bảo hộ lao động", "trang bị bảo hộ"]}
+  - {stt: 9,  key: bao_hiem,   ten: "BHXH, BHYT, BHTN", diem: i,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm i", tu_khoa: ["bảo hiểm xã hội", "bhxh", "bảo hiểm y tế", "bhyt", "bảo hiểm thất nghiệp", "bhtn"]}
+  - {stt: 10, key: dao_tao,    ten: "Đào tạo, bồi dưỡng, nâng cao trình độ kỹ năng nghề", diem: k,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm k", tu_khoa: ["đào tạo", "bồi dưỡng", "nâng cao trình độ", "kỹ năng nghề"]}
 
 # Ngoại lệ 1 (Đ21.3): nông/lâm/ngư/diêm nghiệp được giảm một số mục, nhưng
 # phải thêm điều khoản thiên tai → denominator đổi theo ngành.

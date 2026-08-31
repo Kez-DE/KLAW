@@ -62,3 +62,21 @@ rules:
     mo_ta: "Có điều khoản giữ bản chính giấy tờ hoặc buộc đặt cọc"
     can_facts: [co_dieu_khoan_giu_giay_to, co_dieu_khoan_dat_coc]
     kiem: not (co_dieu_khoan_giu_giay_to or co_dieu_khoan_dat_coc)
+
+# Nhãn tiếng Việt + kiểu dữ liệu cho từng fact — phần DUY NHẤT không thể suy
+# ra từ cấu trúc `kiem:` (nhãn là văn bản người viết, không phải dữ liệu có
+# thể tính). Tập giá trị hợp lệ (vd. vung: I..IV) KHÔNG lặp lại ở đây — suy
+# thẳng từ `bang_thang`/`gioi_han` ở trên bằng `rules.enum_facts()`, để một
+# vùng mới thêm vào `bang_thang` không cần sửa hai chỗ. Dùng bởi
+# GET /api/v1/mau/{loai} (Task 5) — sinh mô tả form KHÔNG hardcode trong
+# Python; thêm/sửa nhãn là sửa YAML này.
+facts_meta:
+  thoi_gian_thu_viec_ngay:   {nhan: "Thời gian thử việc (ngày)", kieu: int}
+  nhom_chuc_danh:            {nhan: "Nhóm chức danh", kieu: str}
+  luong_thu_viec:            {nhan: "Lương thử việc (đồng/tháng)", kieu: int}
+  luong_chinh_thuc:          {nhan: "Lương chính thức (đồng/tháng)", kieu: int}
+  luong_thang:               {nhan: "Lương tháng (đồng/tháng)", kieu: int}
+  vung:                      {nhan: "Vùng lương tối thiểu", kieu: str}
+  co_dieu_khoan_phat_tien:   {nhan: "Có điều khoản phạt tiền người lao động", kieu: bool}
+  co_dieu_khoan_giu_giay_to: {nhan: "Có điều khoản giữ giấy tờ tuỳ thân", kieu: bool}
+  co_dieu_khoan_dat_coc:     {nhan: "Có điều khoản buộc đặt cọc", kieu: bool}

@@ -234,6 +234,69 @@ def check(rule: Rule, facts: dict[str, Any]) -> bool | None:
     return bool(ket_qua)
 
 
+# ══ Mô tả fact cho form (Task 5, GET /api/v1/mau/{loai}) ═══════════════════
+#
+# `facts` là input tự do (dict) — nếu frontend tự hardcode danh sách trường,
+# nó trôi lệch khỏi rules.yaml ngay lần sửa YAML đầu tiên. Hai hàm dưới đây
+# giữ đúng cam kết "rules là DỮ LIỆU": tập giá trị hợp lệ (`enum_facts`) suy
+# THẲNG từ cấu trúc `kiem:` đã có (KHÔNG một danh sách tay nào có thể lệch
+# khỏi rule thật); chỉ nhãn tiếng Việt là nội dung con người viết, không suy
+# ra được từ cấu trúc, nên nằm ở `facts_meta:` trong YAML.
+
+
+def enum_facts(rules: list[Rule]) -> dict[str, list[str]]:
+    """fact -> tập giá trị hợp lệ, cho MỌI fact được dùng làm khoá tra bảng
+    kiểu `bang[fact]` trong `kiem:` của một rule nào đó (vd. `vung` tra
+    `bang_thang`, `nhom_chuc_danh` tra `gioi_han`).
+
+    Đây chính là danh sách fact có nguy cơ ném KeyError nếu người gọi đưa một
+    giá trị lạ — dùng để CHẶN Ở BIÊN HTTP trước khi rule engine chạy (rule
+    engine không phải validator, xem docstring module), và để liệt kê
+    `lua_chon` cho `GET /api/v1/mau/{loai}`.
+    """
+    ra: dict[str, list[str]] = {}
+    for r in rules:
+        cay = ast.parse(r.kiem, mode="eval")
+        for n in ast.walk(cay):
+            if isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name) and isinstance(n.slice, ast.Name):
+                bang = r.cfg.get(n.value.id)
+                if isinstance(bang, dict):
+                    ra.setdefault(n.slice.id, sorted(bang.keys()))
+    return ra
+
+
+def load_facts_meta(path: Path) -> dict[str, dict[str, str]]:
+    """Đọc khoá `facts_meta:` của `path` — fact -> {nhan, kieu}. Nhãn tiếng
+    Việt là nội dung con người viết, không suy ra được từ cấu trúc rule như
+    `enum_facts` — đây là phần YAML còn lại không thể derive.
+    """
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return (data or {}).get("facts_meta", {})
+
+
+def mo_ta_facts(rules: list[Rule], facts_meta: dict[str, dict[str, str]]) -> list[dict[str, Any]]:
+    """Mô tả từng fact mà `rules` cần — dữ liệu cho `GET /api/v1/mau/{loai}`.
+    Thứ tự fact: theo thứ tự xuất hiện trong `can_facts` của từng rule, không
+    trùng lặp.
+    """
+    khoa: list[str] = []
+    for r in rules:
+        for k in r.can_facts:
+            if k not in khoa:
+                khoa.append(k)
+    lua_chon = enum_facts(rules)
+    return [
+        {
+            "key": k,
+            "nhan": facts_meta.get(k, {}).get("nhan", k),
+            "kieu": facts_meta.get(k, {}).get("kieu", "str"),
+            "bat_buoc": True,
+            "lua_chon": lua_chon.get(k),
+        }
+        for k in khoa
+    ]
+
+
 def run_rules(rules: list[Rule], facts: dict[str, Any]) -> list[Violation]:
     """Evaluate every rule against one set of facts."""
     out: list[Violation] = []

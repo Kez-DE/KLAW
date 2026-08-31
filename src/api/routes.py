@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import time
 import uuid
@@ -8,21 +9,47 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from starlette.concurrency import run_in_threadpool
 
+from src.agents.graph_soan_thao import (
+    build_graph_soan_thao,
+    extract_clauses,
+    load_facts_meta_cached,
+    load_rules_cached,
+    requirements,
+)
 from src.agents.graph_tra_cuu import build_graph_tra_cuu
+from src.agents.nodes.draft_audit import draft_audit
 from src.config import get_settings
 from src.models.schemas import (
+    AuditReportOut,
+    FactFieldOut,
+    LoaiVanBan,
+    MauResponse,
     MucLucItem,
     ProvisionOut,
+    SoanThaoRequest,
+    SoanThaoResponse,
+    SoatRequest,
+    SoatResponse,
     TraCuuRequest,
     TraCuuResponse,
     VanBanMucLucResponse,
     VanBanProvisionsResponse,
 )
 from src.services.db import get_engine
+from src.services.rules import Rule, enum_facts, mo_ta_facts
+
 # _tong_hop_traces re-exported here: test_tra_cuu.py imports it from routes, not services.traces.
 from src.services.traces import _ghi_traces, _tong_hop_traces  # noqa: F401
 
 logger = logging.getLogger(__name__)
+
+# Chỉ "hdld" có checklist nội dung thật (Task 3 mới xây
+# config/checklist_hdld.yaml) — "noi_quy"/"quyet_dinh_ky_luat" là hai giá trị
+# LoaiVanBan hợp lệ ở tầng Pydantic (dự phòng cho FE/tương lai) nhưng CHƯA có
+# checklist riêng; áp nhầm checklist HĐLĐ lên chúng sẽ cho một audit report
+# trông hợp lệ nhưng SAI loại văn bản — từ chối trung thực bằng 501 thay vì
+# giả vờ hỗ trợ.
+_LOAI_CO_CHECKLIST = {"hdld"}
 
 router = APIRouter()
 
@@ -234,3 +261,188 @@ async def van_ban(
             status_code=422, detail="chỉ được chọn một trong hai: so_dieu hoặc around"
         )
     return await run_in_threadpool(_van_ban_sync, doc_id, so_dieu, around)
+
+
+# ══ POST /soan-thao, POST /soat, GET /mau/{loai} (Task 5) ═══════════════════
+
+_graph_soan_thao = None
+
+
+def _g_soan_thao():
+    global _graph_soan_thao
+    if _graph_soan_thao is None:
+        _graph_soan_thao = build_graph_soan_thao()
+    return _graph_soan_thao
+
+
+def _tu_choi_neu_chua_ho_tro(loai_van_ban: str) -> None:
+    if loai_van_ban not in _LOAI_CO_CHECKLIST:
+        raise HTTPException(status_code=501, detail=(
+            f"loai_van_ban='{loai_van_ban}' chưa có checklist/rules riêng "
+            f"(hiện chỉ hỗ trợ: {sorted(_LOAI_CO_CHECKLIST)})"
+        ))
+
+
+def _validate_facts(facts: dict, rules: list[Rule]) -> None:
+    """Chặn TẠI BIÊN giá trị fact CÓ MẶT nhưng SAI (vd. vung='V') — rule
+    engine không phải validator và sẽ không sửa (ràng buộc #1): một giá trị lạ
+    dùng làm khoá `bang[khoa]` trong `kiem:` ném KeyError, thành HTTP 500 nếu
+    lọt qua đây. `enum_facts` suy tập giá trị hợp lệ THẲNG từ rules.yaml —
+    không danh sách tay nào lệch được khỏi rule thật.
+
+    Fact VẮNG MẶT không đi qua đây — đó là "không kiểm được" (`None`), một kết
+    quả HỢP LỆ rules.py đã tự xử lý, không phải input sai cần 422.
+    """
+    for key, allowed in enum_facts(rules).items():
+        if key in facts and facts[key] not in allowed:
+            raise HTTPException(status_code=422, detail=(
+                f"facts.{key} không hợp lệ: {facts[key]!r} — giá trị hợp lệ: {allowed}"
+            ))
+
+
+def _duong_dan_index(db_provisions: dict[int, dict]) -> dict[str, dict]:
+    """duong_dan -> dòng provisions — tra ngược `AuditFinding.can_cu`
+    (`{"duong_dan": ...}`) thành `(doc_id, khop_tai_id)` cho `FindingOut`
+    (ràng buộc #3). Mọi can_cu của rule/checklist ĐÃ được xác nhận tồn tại
+    trong DB (test tích hợp Task 2/3) và nằm trong `db_provisions` (đây chính
+    là tập `retrieve_requirements` tra về) nên tra luôn ra id thật.
+    """
+    return {row["duong_dan"]: row for row in db_provisions.values()}
+
+
+def _finding_out(f, duong_dan_index: dict[str, dict]) -> dict:
+    duong_dan = (f.can_cu or {}).get("duong_dan")
+    khop = duong_dan_index.get(duong_dan) if duong_dan else None
+    return {
+        "loai": f.loai,
+        "muc_do": f.muc_do,
+        "mo_ta": f.mo_ta,
+        "thong_diep": f.mo_ta,
+        "dieu_khoan_lien_quan": f.dieu_khoan_lien_quan,
+        "vi_tri": f.dieu_khoan_lien_quan,
+        "can_cu": duong_dan,
+        "rule_id": f.rule_id,
+        # None cho citation_khong_hop_le: chính can_cu đó không tồn tại, nên
+        # không có gì để panel đối chiếu mở.
+        "doc_id": khop["document_id"] if khop else None,
+        "khop_tai_id": khop["id"] if khop else None,
+    }
+
+
+def _audit_report_out(r, duong_dan_index: dict[str, dict]) -> AuditReportOut:
+    return AuditReportOut(
+        dat=r.dat,
+        completeness=r.completeness,
+        so_dieu_khoan=r.so_dieu_khoan,
+        self_audit=r.self_audit,
+        findings=[_finding_out(f, duong_dan_index) for f in r.findings],
+    )
+
+
+_TIEU_DE_VAN_BAN = {
+    "hdld": "HỢP ĐỒNG LAO ĐỘNG",
+    "noi_quy": "NỘI QUY LAO ĐỘNG",
+    "quyet_dinh_ky_luat": "QUYẾT ĐỊNH KỶ LUẬT LAO ĐỘNG",
+}
+
+
+def _render_markdown(loai_van_ban: str, clauses: list) -> str:
+    """Markdown thuần — KHÔNG python-docx, không LaTeX (ràng buộc toàn dự
+    án). Đánh số Điều theo THỨ TỰ clause được sinh, không theo `stt` của
+    checklist: draft_generate có thể bỏ một mục (schema_error, thiếu can_cu
+    phù hợp) nên thứ tự thật của output mới là thứ tự đáng tin.
+    """
+    phan = [f"# {_TIEU_DE_VAN_BAN.get(loai_van_ban, loai_van_ban.upper())}", ""]
+    for i, c in enumerate(clauses, 1):
+        phan.append(f"## Điều {i}. {c.ten}\n\n{c.noi_dung}\n")
+    return "\n".join(phan)
+
+
+@router.post("/soan-thao", response_model=SoanThaoResponse)
+async def soan_thao(req: SoanThaoRequest) -> SoanThaoResponse:
+    """collect → retrieve_requirements → draft_generate → draft_audit
+    (`build_graph_soan_thao`). `self_audit=True` luôn đúng ở đây — draft_generate
+    CHỈ được gọi trên đường sinh của hệ thống (xem docstring node đó)."""
+    _tu_choi_neu_chua_ho_tro(req.loai_van_ban)
+    rules = load_rules_cached()
+    _validate_facts(req.facts, rules)
+
+    trace_id = str(uuid.uuid4())
+    bat_dau = time.monotonic()
+    try:
+        st = await _g_soan_thao().ainvoke(
+            {"loai_van_ban": req.loai_van_ban, "facts": req.facts, "nganh": req.nganh}
+        )
+    except (httpx.HTTPStatusError, httpx.TransportError, OperationalError) as e:
+        # Cùng phân loại lỗi hạ tầng nhất thời như tra_cuu() — xem docstring ở đó.
+        logger.exception("soan_thao: lỗi hạ tầng nhất thời khi chạy graph (trace_id=%s)", trace_id)
+        raise HTTPException(status_code=503, detail=f"soạn thảo thất bại: {type(e).__name__}") from e
+    except Exception as e:
+        logger.exception("soan_thao: lỗi không xác định khi chạy graph (trace_id=%s)", trace_id)
+        raise HTTPException(status_code=500, detail=f"soạn thảo thất bại: {type(e).__name__}") from e
+    latency_ms = int((time.monotonic() - bat_dau) * 1000)
+
+    config_name = req.config_name or get_settings().eval_config_name
+    try:
+        await run_in_threadpool(
+            _ghi_traces, trace_id, "/api/v1/soan-thao", req.loai_van_ban, config_name, st, latency_ms
+        )
+    except Exception:
+        logger.exception("soan_thao: ghi traces thất bại (trace_id=%s) — KHÔNG chặn response", trace_id)
+
+    clauses = st.get("clauses") or []
+    _, _, db_provisions = requirements()
+    return SoanThaoResponse(
+        document=_render_markdown(req.loai_van_ban, clauses),
+        clauses=[dataclasses.asdict(c) for c in clauses],
+        audit_report=_audit_report_out(st["audit_report"], _duong_dan_index(db_provisions)),
+        trace_id=trace_id,
+    )
+
+
+@router.post("/soat", response_model=SoatResponse)
+async def soat(req: SoatRequest) -> SoatResponse:
+    """Soát văn bản NGƯỜI DÙNG dán vào — tách `clauses` bằng từ khoá
+    (`extract_clauses`, KHÔNG LLM), rồi chạy CHÍNH rule engine đã soát output
+    của draft_generate (`draft_audit`). `self_audit=False` luôn đúng ở đây.
+    """
+    _tu_choi_neu_chua_ho_tro(req.loai_van_ban)
+    rules = load_rules_cached()
+    _validate_facts(req.facts, rules)
+
+    trace_id = str(uuid.uuid4())
+    bat_dau = time.monotonic()
+    rules, checklist, db_provisions = requirements()
+    clauses = extract_clauses(req.text, checklist, db_provisions)
+    st = draft_audit(
+        {"clauses": clauses, "facts": req.facts, "nganh": req.nganh, "self_audit": False},
+        rules, checklist, db_provisions,
+    )
+    latency_ms = int((time.monotonic() - bat_dau) * 1000)
+
+    config_name = get_settings().eval_config_name
+    try:
+        await run_in_threadpool(_ghi_traces, trace_id, "/api/v1/soat", req.text, config_name, st, latency_ms)
+    except Exception:
+        logger.exception("soat: ghi traces thất bại (trace_id=%s) — KHÔNG chặn response", trace_id)
+
+    return SoatResponse(
+        audit_report=_audit_report_out(st["audit_report"], _duong_dan_index(db_provisions)),
+        trace_id=trace_id,
+    )
+
+
+@router.get("/mau/{loai}", response_model=MauResponse)
+async def mau(loai: LoaiVanBan) -> MauResponse:
+    """Mô tả các fact cần nhập cho `loai` — sinh TỪ config/rules.yaml
+    (`rules.mo_ta_facts`), không hardcode danh sách trường trong Python (ràng
+    buộc #4): frontend dựng form theo đây, sửa YAML là đủ khi rule đổi.
+
+    `noi_quy`/`quyet_dinh_ky_luat` trả `facts: []` — chưa có checklist riêng
+    (chỉ hdld có, Task 3), tái dùng nhầm fact của HĐLĐ sẽ sai loại văn bản.
+    """
+    if loai not in _LOAI_CO_CHECKLIST:
+        return MauResponse(loai_van_ban=loai, facts=[])
+    rules = load_rules_cached()
+    facts = [FactFieldOut(**f) for f in mo_ta_facts(rules, load_facts_meta_cached())]
+    return MauResponse(loai_van_ban=loai, facts=facts)
