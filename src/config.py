@@ -134,6 +134,34 @@ class Settings(BaseSettings):
     # thì không được đo qua cache.
     cache_ttl_ngay: int = Field(default=7, ge=0, validation_alias="KLAW_CACHE_TTL_NGAY")
 
+    # ══ Auth Supabase (Plan 4b) ══════════════════════════════════════════════
+    # Supabase chỉ làm AUTH (Google + Microsoft); dữ liệu ở lại Postgres này.
+    #
+    # RỖNG = auth TẮT, hệ thống hoạt động ĐÚNG NHƯ TRƯỚC. Đây là công tắc bảo vệ
+    # số liệu khoá luận: `eval/run.py` chạy hàng trăm lượt và không được cần một
+    # tài khoản Supabase. Có giá trị (`https://<ref>.supabase.co`) ⇒ `/tra-cuu`
+    # và `/soan-thao` BẮT BUỘC `Authorization: Bearer <JWT>`, và hạn mức chuyển
+    # từ theo-IP sang theo-NGƯỜI.
+    #
+    # `iss` và URL JWKS SUY RA từ đây (`xac_thuc.issuer`/`jwks_url`), không phải
+    # hai biến riêng: hai biến phải-khớp-nhau là một biến cộng một cách cấu hình
+    # sai (pin `iss` sang project khác project đang phát khoá → từ chối tất cả).
+    supabase_url: str = Field(default="", validation_alias="KLAW_SUPABASE_URL")
+
+    # `aud` của access token Supabase là `authenticated` cho người đã đăng nhập
+    # (`anon` là token KHÁCH — cố ý không chấp nhận). Để cấu hình được vì đây là
+    # giá trị của nhà cung cấp, không phải bất biến của dự án này.
+    supabase_jwt_aud: str = Field(
+        default="authenticated", validation_alias="KLAW_SUPABASE_JWT_AUD"
+    )
+
+    # 600s = đúng TTL cache JWKS ở tầng edge của Supabase, để không dựng một tầng
+    # cache lệch pha với nhà cung cấp. Ngắn hơn = khoá bị thu hồi lan nhanh hơn
+    # nhưng thêm round-trip trên đường request nóng.
+    supabase_jwks_ttl_giay: int = Field(
+        default=600, gt=0, validation_alias="KLAW_SUPABASE_JWKS_TTL_GIAY"
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

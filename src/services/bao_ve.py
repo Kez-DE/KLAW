@@ -1,4 +1,4 @@
-"""Ba cổng trước ví tiền, chạy TRƯỚC khi một token nào bị tiêu.
+"""Các cổng trước ví tiền, chạy TRƯỚC khi một token nào bị tiêu.
 
 Bối cảnh ĐO ĐƯỢC trên chính DB của dự án (không phải giả thuyết):
   * `/tra-cuu` gọi LLM tối đa 5 lần; p50 10.000ms, p95 50.289ms (204 dòng traces)
@@ -8,15 +8,23 @@ Bối cảnh ĐO ĐƯỢC trên chính DB của dự án (không phải giả th
 Mở 8 endpoint ra công khai nguyên trạng thì một người với một vòng `curl` rút
 cạn key trong một buổi.
 
-Ba cổng CHỒNG nhau chứ không thay nhau:
+Các cổng CHỒNG nhau chứ không thay nhau:
   1. **API key** (0 truy vấn) — chặn người không được phép, nếu đã cấu hình.
-  2. **Rate limit theo IP** (Postgres) — hãm nhịp, giữ tải trong ngưỡng các
-     mặc định của threadpool/connection pool còn chịu được.
-  3. **Trần chi phí ngày** (Postgres, đọc `traces`) — cổng CUỐI trước ví tiền.
+  2. **Danh tính** (`xac_thuc`, JWT Supabase) — CHỈ khi đã cấu hình Supabase.
+  3. **Rate limit** (Postgres) — hãm NHỊP. Khoá đếm là `sub` khi đã đăng nhập,
+     IP khi chưa: hai người sau cùng một NAT dùng chung một giỏ IP, nên người
+     thứ hai bị hãm vì lưu lượng của người thứ nhất.
+  4. **Hạn mức tháng theo NGƯỜI DÙNG** (Postgres, đọc `traces`) — hãm TỔNG. Chỉ
+     khi đã đăng nhập; đây là thứ cưỡng chế được con số trên trang bảng giá.
+  5. **Trần chi phí ngày** (Postgres, đọc `traces`) — cổng CUỐI trước ví tiền,
+     toàn hệ thống, không phân biệt người dùng.
+
+Nhịp và tổng là HAI đại lượng khác nhau, nên (3) không bị bỏ khi (4) bật: hạn
+mức tháng không ngăn được một chùm 50 request song song trong ba giây.
 
 Nguyên tắc chung: **hỏng ở tầng đếm là TỪ CHỐI, không phải mở cửa.** Nếu không
-đếm được thì không biết còn bao nhiêu tiền, và cho qua là hành xử như thể trần
-chi phí không tồn tại.
+đếm được thì không biết còn bao nhiêu tiền (hay còn bao nhiêu suất), và cho qua
+là hành xử như thể cổng đó không tồn tại.
 
 Bộ đếm nằm trong Postgres, KHÔNG in-process: in-process chỉ đúng khi có MỘT
 worker (`Dockerfile` hiện đúng vậy, nhưng đó là trạng thái tạm), và một rate
@@ -26,17 +34,31 @@ limit đúng-cho-đến-khi-scale là một rate limit sai.
 import logging
 import secrets
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
+from pathlib import Path
 
+import yaml
 from fastapi import HTTPException, Request
 from sqlalchemy import text
 from starlette.concurrency import run_in_threadpool
 
 from src.config import get_settings
+from src.services import xac_thuc
 from src.services.db import get_engine
 
 logger = logging.getLogger(__name__)
 
 TEN_HEADER_KEY = "X-API-Key"
+
+# Hạn mức là DỮ LIỆU, không phải code — cùng khuôn `config/rules.yaml`. Xem
+# chính file đó cho lý do (giá và giới hạn CHƯA CHỐT).
+HAN_MUC_PATH = Path("config/han_muc.yaml")
+
+# Hai endpoint TIÊU TIỀN. Liệt kê TƯỜNG MINH thay vì đếm mọi dòng traces: `/soat`
+# cũng ghi traces nhưng không gọi LLM một lần nào, và trừ lượt của người dùng cho
+# nó là bán cho họ một thứ hệ thống không hề mua. Thêm một endpoint gọi LLM →
+# thêm vào đây (cùng kỷ luật với ba danh sách khoá chi phí trong `traces.py`).
+ENDPOINT_TON_LLM = ("/api/v1/tra-cuu", "/api/v1/soan-thao")
 
 # Nhãn RIÊNG khi ASGI scope không mang `client`. Không dùng chuỗi rỗng: rỗng gộp
 # mọi request không xác định được IP vào MỘT giỏ, và một người dùng làm cạn hạn
@@ -58,6 +80,37 @@ _SQL_GHI_LUOT = text("INSERT INTO rate_limit_luot (ip) VALUES (:ip)")
 _SQL_DEM_LUOT = text(
     "SELECT count(*) FROM rate_limit_luot"
     " WHERE ip = :ip AND ts >= now() - make_interval(secs => :cua_so)"
+)
+
+# JIT provisioning: dòng `users` sinh ra ở lần đăng nhập ĐẦU, không cần một
+# webhook từ Supabase (một đường đồng bộ nữa là một đường nữa để lệch pha).
+# MỘT câu lệnh làm cả ba việc — tạo nếu chưa có, cập nhật `last_seen_at`, và
+# TRẢ VỀ `plan` — thay vì SELECT rồi INSERT: hai câu thì hai request song song
+# của cùng người dùng mới đều thấy "chưa có" và đều INSERT, một cái nổ.
+#
+# `COALESCE(EXCLUDED.email, users.email)` chứ không `EXCLUDED.email`: đăng nhập
+# lần sau bằng phương thức không mang email (số điện thoại) sẽ ghi NULL lên
+# email đã biết — mất dữ liệu liên hệ, im lặng.
+_SQL_UPSERT_USER = text(
+    "INSERT INTO users (sub, email) VALUES (:sub, :email)"
+    " ON CONFLICT (sub) DO UPDATE SET last_seen_at = now(),"
+    " email = COALESCE(EXCLUDED.email, users.email)"
+    " RETURNING plan"
+)
+
+# Đếm SỐ LƯỢT gọi LLM thật của một `sub` trong tháng.
+#
+# `NOT cache_hit` — cache hit không gọi LLM và không tốn một xu (đo được ở vòng
+# hardening: $0 và 3ms, so với ~$0,0004 và ~6,9s một lượt thật).
+#
+# Đếm `count(*)`, KHÔNG `cost_usd > 0`: chi phí là một đại lượng ĐO ĐƯỢC và có
+# thể bằng 0 vì một lỗi ghi nhận — đã xảy ra thật, 32/32 dòng `/soan-thao` từng
+# ghi $0 dù mỗi request tốn một lượt LLM. "Đã gọi hay chưa" không phụ thuộc việc
+# cột chi phí có được cộng đúng, nên hạn mức của người dùng cũng không được.
+_SQL_DEM_LUOT_THANG = text(
+    "SELECT count(*) FROM traces"
+    " WHERE user_sub = :sub AND ts >= :bat_dau"
+    " AND NOT cache_hit AND endpoint = ANY(:endpoints)"
 )
 
 
@@ -215,25 +268,183 @@ def kiem_tran_chi_phi() -> None:
         )
 
 
+# ── Cổng 4: danh tính + hạn mức THÁNG theo NGƯỜI DÙNG ───────────────────────
+
+
+@lru_cache
+def _doc_han_muc() -> dict:
+    """Đọc `config/han_muc.yaml`. Fail loud — một hạn mức không đọc được KHÔNG
+    được lặng lẽ thành một mặc định trong Python, vì đó đúng là thứ file YAML
+    tồn tại để ngăn.
+    """
+    d = yaml.safe_load(HAN_MUC_PATH.read_text(encoding="utf-8"))
+    if not isinstance(d, dict) or not isinstance(d.get("goi"), dict):
+        raise ValueError(f"{HAN_MUC_PATH}: cần khoá 'goi' kiểu mapping ở gốc file")
+    if d.get("goi_mac_dinh") not in d["goi"]:
+        raise ValueError(f"{HAN_MUC_PATH}: 'goi_mac_dinh' phải là một khoá trong 'goi'")
+    return d
+
+
+def han_muc_thang(plan: str) -> int:
+    """Số lượt LLM/tháng của `plan`, đọc từ YAML.
+
+    Gói lạ (bị đổi tên, sửa tay trong DB) rơi về gói MẶC ĐỊNH, không phải "không
+    giới hạn": hỏng theo hướng CHẶN. Một `plan` không khớp là dấu hiệu cấu hình
+    lệch, và lúc đó phát không giới hạn là hướng hỏng đắt nhất có thể chọn.
+    """
+    d = _doc_han_muc()
+    if plan not in d["goi"]:
+        logger.warning("han_muc_thang: gói %r không có trong YAML — dùng gói mặc định", plan)
+        return int(d["goi"][d["goi_mac_dinh"]])
+    return int(d["goi"][plan])
+
+
+def _dau_thang_utc() -> datetime:
+    """Nửa đêm ngày 1 tháng này, UTC tường minh — cùng lý lẽ `_dau_ngay_utc`."""
+    return datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+def _dau_thang_sau_utc() -> datetime:
+    """Mốc hạn mức mở lại. `day=28 + 4 ngày` rồi ép về ngày 1: đúng cho cả tháng
+    28/29/30/31 ngày mà không cần `calendar.monthrange`.
+    """
+    d = _dau_thang_utc()
+    return (d.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+
+def ghi_nhan_nguoi_dung(sub: str, email: str | None) -> str:
+    """Upsert dòng `users` và trả `plan`. CÓ THỂ RAISE (caller từ chối).
+
+    Chỉ ghi `sub`/`email`/`last_seen_at` — xem `migrations/012` cho lý do từng
+    cột và lý do KHÔNG có `ho_ten`/`avatar_url`/`provider`.
+    """
+    with get_engine().begin() as c:
+        return c.execute(_SQL_UPSERT_USER, {"sub": sub, "email": email}).scalar_one()
+
+
+def dem_luot_thang(sub: str) -> int:
+    """Số lượt LLM thật của `sub` trong tháng này. CÓ THỂ RAISE (caller từ chối)."""
+    with get_engine().connect() as c:
+        return int(
+            c.execute(
+                _SQL_DEM_LUOT_THANG,
+                {
+                    "sub": sub,
+                    "bat_dau": _dau_thang_utc(),
+                    "endpoints": list(ENDPOINT_TON_LLM),
+                },
+            ).scalar_one()
+        )
+
+
+def kiem_han_muc_thang(sub: str, plan: str) -> None:
+    """Vượt hạn mức tháng → 429 nêu đúng GÓI và MỐC RESET. Không đếm được → 503.
+
+    Cùng nguyên tắc với trần chi phí: không đếm được thì không biết còn bao nhiêu
+    suất, và cho qua là hành xử như thể hạn mức không tồn tại.
+    """
+    han_muc = han_muc_thang(plan)
+    try:
+        da_dung = dem_luot_thang(sub)
+    except Exception as e:
+        logger.exception("kiem_han_muc_thang: không đếm được lượt trong tháng — TỪ CHỐI")
+        raise HTTPException(
+            status_code=503,
+            detail="Không kiểm được hạn mức của tài khoản, tạm thời từ chối yêu cầu. Vui lòng thử lại.",
+        ) from e
+
+    if da_dung >= han_muc:
+        mo_lai = _dau_thang_sau_utc()
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"Đã dùng hết hạn mức tháng của gói {plan}: {da_dung}/{han_muc} lượt hỏi AI. "
+                f"Hạn mức đặt lại vào {mo_lai.strftime('%d/%m/%Y')} (00:00 UTC). "
+                "Lượt trả lời lấy từ bộ đệm không tính vào hạn mức."
+            ),
+            headers={"Retry-After": str(int((mo_lai - datetime.now(UTC)).total_seconds()))},
+        )
+
+
+def xac_thuc_nguoi_goi(request: Request) -> dict | None:
+    """Trả `{"sub", "email"}` của người gọi, hoặc None khi auth CHƯA cấu hình.
+
+    Trả cả `email` chứ không chỉ `sub`: `email` là cột LIÊN HỆ của `users` và
+    nguồn duy nhất của nó là token này. Bỏ nó ở đây thì cột kia vĩnh viễn NULL.
+
+    Chưa cấu hình Supabase ⇒ None và không một truy vấn nào: hệ thống hoạt động
+    đúng như trước, và `eval/run.py` không cần tài khoản nào.
+
+    401 nói MỘT câu duy nhất cho mọi nguyên nhân. Client không được biết token
+    của họ sai ở `aud`, ở `iss`, ở chữ ký, hay đã hết hạn — mỗi sự phân biệt là
+    một mũi chỉ đường cho người đang thăm dò. Lý do thật nằm trong log.
+    """
+    if not xac_thuc.da_cau_hinh():
+        return None
+    token = xac_thuc.token_tu_header(request.headers.get(xac_thuc.TEN_HEADER.lower()))
+    if token is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Cần đăng nhập để dùng tính năng này.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        return xac_thuc.xac_minh(token)
+    except xac_thuc.XacMinhError as e:
+        raise HTTPException(
+            status_code=401,
+            detail="Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from e
+
+
 # ── Dependency dùng ở các endpoint tốn LLM ──────────────────────────────────
 
 
-async def cong_bao_ve(request: Request) -> None:
-    """Thứ tự: API key (0 truy vấn) → rate limit → trần chi phí.
+async def cong_bao_ve(request: Request) -> str | None:
+    """Trả `sub` người gọi (None khi auth chưa cấu hình) — handler cần nó để ghi
+    `traces.user_sub`, và không ghi được thì lượt đó không đếm vào hạn mức của ai.
+
+    Thứ tự: API key (0 truy vấn) → danh tính → nhịp → hạn mức tháng → trần chi phí.
 
     API key trước vì nó không tốn truy vấn nào: một request không có quyền không
     nên được phép làm hệ thống ghi một dòng DB.
 
-    Trần chi phí kiểm TRƯỚC cache (cache nằm trong handler): cache hit tốn $0
-    nên chặn nó khi đã cạn trần là một từ chối OAN — nhưng đó là hướng hỏng CÓ
-    CHỦ Ý. Đạt trần $2/ngày trong khi ngày cao nhất đo được là $0,18 nghĩa là
-    có điều bất thường đang xảy ra, và lúc đó đóng hẳn endpoint đúng hơn là
-    phục vụ chọn lọc. Nghi ngờ giữa "chặn" và "cho qua" thì chặn.
+    **Nhịp đếm theo `sub` khi đã đăng nhập, theo IP khi chưa.** Đây là chỗ sửa
+    đúng lỗ hổng của lượt trước: hai người sau cùng một NAT dùng chung một giỏ
+    IP, nên người thứ hai bị hãm vì lưu lượng của người thứ nhất. Khoá đếm là
+    danh tính khi có danh tính. Rate limit KHÔNG bị bỏ khi đã đăng nhập — nó hãm
+    NHỊP (một chùm song song), còn hạn mức tháng hãm TỔNG; hai đại lượng khác nhau.
 
-    Hai kiểm tra sau đọc/ghi Postgres ĐỒNG BỘ (SQLAlchemy) trong một `async def`
-    → phải qua `run_in_threadpool`, nếu không chúng chặn event loop cho MỌI
-    request khác. Dự án đã dính đúng lỗi này hai lần (`_ghi_traces`, `/soat`).
+    Ba cổng cuối đọc/ghi Postgres ĐỒNG BỘ (SQLAlchemy) trong một `async def` →
+    phải qua `run_in_threadpool`, nếu không chúng chặn event loop cho MỌI request
+    khác. Dự án đã dính đúng lỗi này hai lần (`_ghi_traces`, `/soat`).
+    `xac_minh` cũng vào threadpool: nó có thể gọi mạng (nạp JWKS khi TTL hết).
     """
     kiem_api_key(request)
-    await run_in_threadpool(kiem_rate_limit, ip_goi(request))
+    nguoi = await run_in_threadpool(xac_thuc_nguoi_goi, request)
+
+    if nguoi is None:
+        await run_in_threadpool(kiem_rate_limit, ip_goi(request))
+        await run_in_threadpool(kiem_tran_chi_phi)
+        return None
+
+    sub = nguoi["sub"]
+    # Tiền tố `user:` để một `sub` không bao giờ trùng giỏ với một IP dạng chuỗi.
+    await run_in_threadpool(kiem_rate_limit, f"user:{sub}")
+    # `plan` đọc trong CÙNG câu upsert đã ghi `last_seen_at` — một round-trip.
+    # Lỗi ở đây là TỪ CHỐI (503), không phải "cho qua với gói mặc định": gói
+    # quyết định hạn mức, và đoán nó là tự phát hạn mức cho một người mà hệ
+    # thống vừa mất khả năng tra cứu.
+    try:
+        plan = await run_in_threadpool(ghi_nhan_nguoi_dung, sub, nguoi["email"])
+    except Exception as e:
+        logger.exception("cong_bao_ve: không đọc/ghi được dòng users — TỪ CHỐI")
+        raise HTTPException(
+            status_code=503,
+            detail="Không đọc được thông tin tài khoản, tạm thời từ chối yêu cầu. Vui lòng thử lại.",
+        ) from e
+
+    await run_in_threadpool(kiem_han_muc_thang, sub, plan)
     await run_in_threadpool(kiem_tran_chi_phi)
+    return sub

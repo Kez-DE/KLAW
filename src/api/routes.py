@@ -93,16 +93,22 @@ def _st_tu_cache(payload: dict) -> dict:
     return {"result_type": payload["result_type"], "traces": {}}
 
 
-@router.post("/tra-cuu", response_model=TraCuuResponse, dependencies=[Depends(cong_bao_ve)])
-async def tra_cuu(req: TraCuuRequest) -> TraCuuResponse:
+@router.post("/tra-cuu", response_model=TraCuuResponse)
+async def tra_cuu(req: TraCuuRequest, user_sub: str | None = Depends(cong_bao_ve)) -> TraCuuResponse:
     """spec 8.0a. `result_type` là enum bốn giá trị (không phải cờ `abstained`
     boolean): `partial_coverage` không thể ép vào "đã trả lời"/"đã từ chối" mà
     không mất thông tin, và ABSTAIN là hành vi ĐÚNG của hệ thống — không phải
     lỗi cần che giấu bằng một cờ nhị phân.
 
-    `Depends(cong_bao_ve)` — API key, rate limit theo IP, trần chi phí ngày —
-    chạy TRƯỚC thân hàm này. Endpoint này gọi LLM tối đa 5 lần, p95 50s, tới
-    $0,00735 một request; không cổng nào ở đó là phòng xa (xem `bao_ve.py`).
+    `cong_bao_ve` là tham số (không còn `dependencies=[...]`) vì nó TRẢ VỀ `sub`
+    người gọi, và `traces.user_sub` cần giá trị đó: hạn mức tháng đếm chính cột
+    ấy, nên một lượt LLM ghi thiếu `sub` là một lượt dùng miễn phí. None khi
+    Supabase chưa cấu hình (eval, dev local).
+
+    `Depends(cong_bao_ve)` — API key, danh tính, rate limit (theo `sub` khi đã
+    đăng nhập, theo IP khi chưa), hạn mức tháng của người dùng, trần chi phí
+    ngày — chạy TRƯỚC thân hàm này. Endpoint này gọi LLM tối đa 5 lần, p95 50s,
+    tới $0,00735 một request; không cổng nào ở đó là phòng xa (xem `bao_ve.py`).
     """
     s = get_settings()
     trace_id = str(uuid.uuid4())
@@ -175,8 +181,9 @@ async def tra_cuu(req: TraCuuRequest) -> TraCuuResponse:
             _ghi_traces, trace_id, "/api/v1/tra-cuu", req.query, config_name, st, latency_ms,
             # Cache hit vẫn ghi MỘT dòng (nó vẫn là một request thật, và traces
             # là nơi đếm lưu lượng) — nhưng có cờ, để số liệu đánh giá của khoá
-            # luận không lẫn lượt cache vào lượt gọi LLM thật.
-            tu_cache,
+            # luận không lẫn lượt cache vào lượt gọi LLM thật. Cùng cờ đó giữ
+            # cho cache hit KHÔNG trừ hạn mức tháng của người dùng.
+            tu_cache, user_sub,
         )
     except Exception:
         # Telemetry hỏng không phải lý do từ chối người dùng một câu trả lời
@@ -532,8 +539,10 @@ def _render_markdown(loai_van_ban: str, clauses: list) -> str:
     return "\n".join(phan)
 
 
-@router.post("/soan-thao", response_model=SoanThaoResponse, dependencies=[Depends(cong_bao_ve)])
-async def soan_thao(req: SoanThaoRequest) -> SoanThaoResponse:
+@router.post("/soan-thao", response_model=SoanThaoResponse)
+async def soan_thao(
+    req: SoanThaoRequest, user_sub: str | None = Depends(cong_bao_ve)
+) -> SoanThaoResponse:
     """collect → retrieve_requirements → draft_generate → draft_audit
     (`build_graph_soan_thao`). `self_audit=True` luôn đúng ở đây — draft_generate
     CHỈ được gọi trên đường sinh của hệ thống (xem docstring node đó).
@@ -566,7 +575,11 @@ async def soan_thao(req: SoanThaoRequest) -> SoanThaoResponse:
     config_name = req.config_name or get_settings().eval_config_name
     try:
         await run_in_threadpool(
-            _ghi_traces, trace_id, "/api/v1/soan-thao", req.loai_van_ban, config_name, st, latency_ms
+            _ghi_traces, trace_id, "/api/v1/soan-thao", req.loai_van_ban, config_name, st,
+            # `cache_hit=False` LUÔN đúng ở đây — `/soan-thao` cố ý không cache.
+            # Truyền tường minh vì `user_sub` là tham số sau nó, và hạn mức tháng
+            # đếm cả hai cột.
+            latency_ms, False, user_sub,
         )
     except Exception:
         logger.exception("soan_thao: ghi traces thất bại (trace_id=%s) — KHÔNG chặn response", trace_id)

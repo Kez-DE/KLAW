@@ -107,16 +107,17 @@ def _tong_hop_traces(traces: dict) -> dict:
 _SQL_INSERT_TRACE = text(
     "INSERT INTO traces (id, endpoint, query, config_name, result_type, retrieved_ids,"
     " claims_raw, claims_after_tier1, claims_after_tier2, latency_ms, token_in, token_out,"
-    " cost_usd, generate_model, judge_model, expand_before, expand_after, cache_hit)"
+    " cost_usd, generate_model, judge_model, expand_before, expand_after, cache_hit, user_sub)"
     " VALUES (:id, :endpoint, :query, :config_name, :result_type, :retrieved_ids,"
     " :claims_raw, :claims_after_tier1, :claims_after_tier2, :latency_ms, :token_in, :token_out,"
-    " :cost_usd, :generate_model, :judge_model, :expand_before, :expand_after, :cache_hit)"
+    " :cost_usd, :generate_model, :judge_model, :expand_before, :expand_after, :cache_hit,"
+    " :user_sub)"
 )
 
 
 def _ghi_traces(
     trace_id: str, endpoint: str, query: str, config_name: str, st: dict, latency_ms: int,
-    cache_hit: bool = False,
+    cache_hit: bool = False, user_sub: str | None = None,
 ) -> None:
     """Ghi MỘT hàng `traces` thật cho request này. Có thể raise — resilience
     (best-effort, không chặn response khi ghi lỗi) là quyết định của CALLER
@@ -130,6 +131,12 @@ def _ghi_traces(
     nghĩa, và bảng số liệu của khoá luận thành số của cache. Mọi cột chi phí/
     claim của dòng đó là 0 THẬT (không có lượt LLM nào chạy), không phải 0 vì
     quên ghi — chính cờ này là thứ nói ra sự khác biệt đó.
+
+    `user_sub` = `sub` Supabase của người gọi, None khi auth chưa cấu hình (eval,
+    dev local) hoặc endpoint không xác thực. KHÔNG chỉ là số liệu: hạn mức tháng
+    ĐẾM chính cột này (`bao_ve.dem_luot_thang`), nên một lượt LLM ghi thiếu
+    `user_sub` là một lượt người dùng được dùng miễn phí. `cache_hit` là cột còn
+    lại của phép đếm đó — cache hit không gọi LLM nên không trừ lượt.
     """
     traces = st.get("traces") or {}
     rt = st.get("result_type")
@@ -142,6 +149,7 @@ def _ghi_traces(
         "claims_after_tier2": sum(1 for v in (st.get("tier2") or []) if v.supported),
         "latency_ms": latency_ms,
         "cache_hit": cache_hit,
+        "user_sub": user_sub,
         **_tong_hop_traces(traces),
     }
     with get_engine().begin() as c:
