@@ -46,7 +46,10 @@ class Settings(BaseSettings):
     openrouter_model_name: str = "mistralai/mistral-nemo"
     openrouter_generate_model_name: str = "google/gemini-2.5-flash-lite"
     openrouter_judge_model_name: str = "mistralai/mistral-small-3.2-24b-instruct"
-    openrouter_embedding_model_name: str = "baai/bge-m3"
+    # `voyage-4-lite`, KHÔNG `bge-m3` (đo lại 2026-09-01 trên corpus 36.710 điều
+    # khoản): Recall@5 0,7273 vs 0,5974. Cộng với bm25_topk=0 dưới đây, mặc định
+    # cũ (`hybrid` + `bge-m3`) đo được 0,4740 — tức tổ hợp TỆ NHẤT trong bốn ô.
+    openrouter_embedding_model_name: str = "voyageai/voyage-4-lite"
     openrouter_embedding_dim: int = Field(default=1024, gt=0)
     openrouter_rerank_model_name: str = "cohere/rerank-4-fast"
     openrouter_rerank_enabled: bool = False
@@ -61,7 +64,15 @@ class Settings(BaseSettings):
     chunk_max_tokens: int = Field(default=1500, gt=0)
     # ge=0 (không phải gt=0): eval ablation (Task 9) tắt hẳn một nhánh bằng 0
     # để đo bm25_only/dense_only — 0 là giá trị hợp lệ, không phải lỗi cấu hình.
-    retrieve_bm25_topk: int = Field(default=20, ge=0)
+    # `0` = TẮT nhánh từ vựng. Không phải phỏng đoán: `scripts/sweep_fusion.py`
+    # cho cực đại đúng tại `bm25_topk=0`, và CHỈ MỘT ứng viên từ vựng đã kéo
+    # MRR@5 từ 0,4286 xuống 0,2604. `rrf` cộng đều (không có alpha để chỉnh),
+    # nên không có cách "pha loãng" nhánh này — chỉ bật hoặc tắt.
+    #
+    # Vì sao tin được hướng này dù bộ golden chưa ai duyệt: bỏ rò rỉ từ vựng
+    # khỏi golden làm nhánh lexical XẤU ĐI, tức nó CỦNG CỐ kết luận chứ không
+    # tạo ra kết luận. Con số tuyệt đối vẫn chờ người duyệt 77 câu.
+    retrieve_bm25_topk: int = Field(default=0, ge=0)
     retrieve_dense_topk: int = Field(default=20, ge=0)
     rrf_k: int = Field(default=60, gt=0)
     # ts_rank normalization bitmask (0=không chuẩn hoá, 1=chia 1+log(len),
