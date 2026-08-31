@@ -17,6 +17,7 @@ const MUC_CHAN: MucChan[] = [
   { duongDan: '/pham-vi', nhan: 'Phạm vi dữ liệu' },
   { duongDan: '/bang-gia', nhan: 'Bảng giá' },
   { duongDan: '/mien-tru', nhan: 'Miễn trừ trách nhiệm' },
+  { duongDan: '/du-lieu', nhan: 'Dữ liệu KLAW xử lý' },
 ];
 // `/dang-nhap` và `/dang-ky` CỐ Ý không có ở đây. Chưa có backend xác thực,
 // nên một mục "Đăng nhập" trên vỏ chung mọi trang sẽ mời người dùng đi vào một

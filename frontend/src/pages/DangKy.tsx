@@ -254,9 +254,17 @@ export default function DangKy() {
               <p
                 id="dk-dong-y-ghi-chu"
                 className="mt-2 mb-0 text-[0.8125rem] leading-5 text-muc-nhat"
-        >
-                Chính sách này đang được hoàn thiện; sẽ công bố trước khi KLAW mở đăng ký. Không thể
-                dẫn tới một văn bản chưa tồn tại, nên ở đây nói thẳng như vậy.
+              >
+                Chính sách này đang được hoàn thiện; sẽ công bố trước khi KLAW mở đăng ký. Trong lúc
+                đó,{' '}
+                <Link
+                  to="/du-lieu"
+                  className="underline underline-offset-4 hover:text-phim focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
+                >
+                  bản kê dữ liệu KLAW xử lý
+                </Link>{' '}
+                nói rõ hệ thống chạm tới dữ liệu gì, gửi đi đâu, lưu bao lâu — và những gì chưa có.
+                Đó là bản kê, không phải chính sách.
               </p>
             </div>
 

@@ -55,6 +55,11 @@ const TUYEN: Record<string, MoTaTuyen> = {
     moTa:
       'Corpus của KLAW gồm sáu Bộ luật và cụm văn bản dưới luật về Lao động — phạm vi thật, độ sâu không đều, và những lĩnh vực chưa được phủ.',
   },
+  '/du-lieu': {
+    tieuDe: 'Dữ liệu KLAW xử lý',
+    moTa:
+      'Bản kê dữ liệu hệ thống thật sự chạm tới: gửi đi đâu, lưu bao lâu, và những gì chưa có. Không phải chính sách — chính sách chính thức chưa công bố.',
+  },
   '/mien-tru': {
     tieuDe: 'Miễn trừ trách nhiệm',
     moTa:

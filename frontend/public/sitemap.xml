@@ -11,6 +11,7 @@
   <url><loc>https://klaw.example.com/huong-dan</loc></url>
   <url><loc>https://klaw.example.com/pham-vi</loc></url>
   <url><loc>https://klaw.example.com/mien-tru</loc></url>
+  <url><loc>https://klaw.example.com/du-lieu</loc></url>
   <!-- `/dang-nhap` và `/dang-ky` cố ý KHÔNG liệt kê: hai trang xác thực
        không có giá trị tìm kiếm, và chưa có backend nào phía sau chúng. -->
   <url><loc>https://klaw.example.com/bang-gia</loc></url>
