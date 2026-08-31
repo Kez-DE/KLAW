@@ -159,6 +159,11 @@ class FindingOut(BaseModel):
     # không có gì để mở.
     doc_id: str | None = None
     khop_tai_id: int | None = None
+    # True = rule KHÔNG được kiểm (thiếu fact), KHÔNG phải văn bản sai. Trước
+    # bản này giao diện phải suy lại từ chuỗi `thong_diep`, nên một rule chưa hề
+    # được kiểm từng đeo nhãn "Trái quy định" — nói với người dùng rằng văn bản
+    # của họ SAI LUẬT trong khi máy chỉ thiếu dữ liệu.
+    khong_kiem_duoc: bool = False
 
 
 class AuditReportOut(BaseModel):

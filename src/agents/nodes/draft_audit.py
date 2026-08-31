@@ -39,6 +39,11 @@ class AuditFinding:
     dieu_khoan_lien_quan: str | None = None
     can_cu: dict | None = None
     rule_id: str | None = None
+    # Cờ đi KÈM finding, không để tầng trên suy lại từ chuỗi `chi_tiet`.
+    # `rules.Violation` đã phân biệt "chưa biết" (`None`) với "vi phạm thật"
+    # (`False`); bỏ cờ ở đây buộc frontend khớp hình dạng một câu tiếng Việt —
+    # sửa câu thông báo là làm hỏng phân loại, và không test nào đỏ.
+    khong_kiem_duoc: bool = False
 
 
 @dataclass(frozen=True)
@@ -89,7 +94,8 @@ def draft_audit(state: dict, rules: list[Rule], checklist: Checklist,
     for v in run_rules(rules, state.get("facts") or {}):
         findings.append(AuditFinding(
             "trai_luat", v.muc_do, f"{v.mo_ta} — {v.chi_tiet}",
-            can_cu={"duong_dan": v.can_cu}, rule_id=v.rule_id))
+            can_cu={"duong_dan": v.can_cu}, rule_id=v.rule_id,
+            khong_kiem_duoc=v.khong_kiem_duoc))
 
     # 4 — citation: cùng nguyên tắc verify tầng 1 — tra bảng, không suy luận.
     for c in clauses:

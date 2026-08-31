@@ -426,6 +426,7 @@ def _finding_out(f, duong_dan_index: dict[str, dict]) -> dict:
         # không có gì để panel đối chiếu mở.
         "doc_id": khop["document_id"] if khop else None,
         "khop_tai_id": khop["id"] if khop else None,
+        "khong_kiem_duoc": getattr(f, "khong_kiem_duoc", False),
     }
 
 
