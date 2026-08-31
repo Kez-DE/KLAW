@@ -8,7 +8,7 @@ export const Route = createFileRoute("/soan-thao")({
       {
         name: "description",
         content:
-          "Chọn mẫu hợp đồng, quyết định, đơn từ và soạn thảo với biểu mẫu thông minh, xem trước A4 và rà soát rủi ro tự động.",
+          "Chọn mẫu hợp đồng, quyết định, đơn từ; điền biểu mẫu theo bước, xem trước khổ A4 và xuất Word/PDF ngay trên máy bạn.",
       },
       { property: "og:title", content: "Soạn thảo văn bản pháp lý cùng KLAW" },
       {

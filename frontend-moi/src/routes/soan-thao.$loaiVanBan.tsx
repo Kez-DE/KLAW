@@ -14,7 +14,7 @@ import {
   Plus,
   Redo2,
   Save,
-  Sparkles,
+  ListPlus,
   Undo2,
   Wand2,
 } from "lucide-react";
@@ -515,7 +515,7 @@ function KhongGianSoanThao() {
                       }
                       className="inline-flex items-center gap-1 rounded-md border border-[var(--color-brass-500)]/50 px-2 py-1 text-[11.5px] font-medium text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/12"
                     >
-                      <Sparkles className="size-3" /> AI gợi ý phạm vi
+                      <ListPlus className="size-3" /> Chèn dàn ý mẫu
                     </button>
                   }
                 />
@@ -824,7 +824,8 @@ function KhongGianSoanThao() {
               >
                 <span className="flex items-center gap-2 text-[13px] font-semibold text-[var(--color-brass-600)]">
                   <AlertTriangle className="size-4" />
-                  Cảnh báo tự động — cần luật sư rà soát trước khi ký.
+                  Đối chiếu với 5 quy tắc viết cứng trong giao diện, không phải
+                  rà soát pháp lý — cần luật sư đọc trước khi ký.
                 </span>
                 <span className="flex items-center gap-2">
                   <span className="font-jetbrains rounded-full bg-[var(--color-status-partial)]/25 px-2 text-[11px] text-[var(--color-brass-600)]">
@@ -842,7 +843,7 @@ function KhongGianSoanThao() {
                 >
                   {rui_ro.length === 0 && (
                     <p className="px-4 py-3 text-[13px] text-muted-foreground">
-                      Chưa phát hiện rủi ro theo các quy tắc đang bật. Việc rà soát tự động không
+                      Chưa phát hiện rủi ro theo các quy tắc đang bật. Bộ quy tắc này không
                       thay thế ý kiến của luật sư.
                     </p>
                   )}
@@ -1480,7 +1481,11 @@ function A4({
   if (draft.dk.baoMat)
     dieu.push({
       ten: "Bảo mật thông tin",
-      canCu: { soHieu: "13/2023/NĐ-CP", nhan: "Điều 3" },
+      // Trước đây dẫn 13/2023/NĐ-CP Điều 3 — nghị định đã hết hiệu lực toàn bộ
+      // từ 01/01/2026, và điều khoản bảo mật này là thoả thuận giữa hai bên chứ
+      // không phát sinh từ nghị định đó. Bỏ căn cứ thay vì thay bằng một văn bản
+      // mà kho của KLAW chưa có để xác nhận.
+
       noiDung: (
         <p>
           Các bên cam kết giữ bí mật toàn bộ thông tin trao đổi trong quá trình thực hiện hợp đồng
@@ -1793,6 +1798,10 @@ function ngayVN(iso: string) {
   return `${dd}/${m}/${y}`;
 }
 
+/**
+ * Năm dòng hằng, chèn tên dịch vụ vào dòng đầu. Không có mô hình nào ở đây, nên
+ * nút gọi nó cũng không được gắn nhãn AI.
+ */
 function goiYPhamVi(ten: string) {
   const t = ten || "dịch vụ theo yêu cầu của Bên A";
   return [

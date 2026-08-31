@@ -44,7 +44,6 @@ const TIERS: {
       "500 lượt hỏi AI/tháng",
       "Bản thảo không giới hạn",
       "Thư viện biểu mẫu của tổ chức",
-      "Theo dõi hiệu lực văn bản",
       "Hỗ trợ ưu tiên",
     ],
     cta: "Dùng thử miễn phí",
@@ -61,7 +60,6 @@ const TIERS: {
       "Tích hợp hệ thống nội bộ (API)",
       "Triển khai riêng",
       "Quản trị phân quyền",
-      "Cam kết SLA",
       "Đào tạo và hỗ trợ chuyên trách",
     ],
     cta: "Liên hệ báo giá",
@@ -91,30 +89,26 @@ const COMPARISON: Row[] = [
   { label: "Trích dẫn chuẩn tới Điểm, Khoản, Điều", values: [true, true, true] },
   { label: "Số người dùng", values: ["1", "5", "Không giới hạn"] },
   { label: "Thư viện biểu mẫu của tổ chức", values: [false, true, true] },
-  { label: "Theo dõi hiệu lực văn bản", values: [false, true, true] },
   { label: "Hỗ trợ", values: ["Chuẩn", "Ưu tiên", "Chuyên trách"] },
   { label: "Tích hợp hệ thống nội bộ (API)", values: [false, false, true] },
   { label: "Triển khai riêng", values: [false, false, true] },
   { label: "Quản trị phân quyền", values: [false, false, true] },
-  { label: "Cam kết SLA", values: [false, false, true] },
 ];
 
-const FAQS = [
+// Bốn câu hỏi thường gặp cũ mô tả một hệ thống thanh toán chưa tồn tại: hình
+// thức thanh toán, xuất hoá đơn GTGT, huỷ gói trong Cài đặt tài khoản, hạn mức
+// làm mới theo chu kỳ, và cam kết hoàn tiền 7 ngày. Không có cái nào được dựng —
+// không có cổng thanh toán, không có trang cài đặt tài khoản, không có bảng hạn
+// mức. Một cam kết hoàn tiền là lời hứa với người tiêu dùng, nên nó là chuỗi
+// nguy hiểm nhất trên trang này.
+const FAQS: { q: string; a: string }[] = [
   {
-    q: "Tôi có thể thanh toán bằng hình thức nào?",
-    a: "KLAW hỗ trợ thanh toán bằng chuyển khoản ngân hàng, thẻ nội địa và thẻ quốc tế. Với gói Doanh nghiệp và Tổ chức lớn, chúng tôi xuất hóa đơn GTGT theo yêu cầu của tổ chức.",
+    q: "Có đăng ký được ngay không?",
+    a: "Chưa. Bảng giá này là dự kiến. KLAW chưa mở thanh toán: chưa có cổng thanh toán, chưa có hoá đơn, chưa có chính sách huỷ hay hoàn tiền có hiệu lực. Các mức giá dưới đây để tham khảo và có thể thay đổi.",
   },
   {
-    q: "Làm thế nào để hủy gói đăng ký?",
-    a: "Bạn có thể hủy đăng ký bất cứ lúc nào trong phần Cài đặt tài khoản. Gói sẽ tiếp tục hoạt động đến hết kỳ thanh toán đã trả, và không tự gia hạn ở kỳ tiếp theo.",
-  },
-  {
-    q: "Lượt hỏi AI không dùng hết có cộng dồn sang tháng sau không?",
-    a: "Không. Lượt hỏi AI được làm mới vào đầu mỗi chu kỳ thanh toán. Nếu bạn thường xuyên dùng hết hạn mức, hệ thống sẽ gợi ý nâng cấp gói phù hợp.",
-  },
-  {
-    q: "Tôi có được hoàn tiền nếu gói không phù hợp?",
-    a: "Có. Với lần đăng ký đầu tiên của mỗi tài khoản, bạn được hoàn tiền trong vòng 7 ngày kể từ ngày thanh toán nếu gói không phù hợp nhu cầu. Vui lòng liên hệ hỗ trợ để được xử lý.",
+    q: "Hạn mức lượt hỏi tính thế nào?",
+    a: "Chưa tính. Hệ thống hạn mức chưa được dựng ở cả giao diện lẫn máy chủ, nên các con số lượt hỏi trong bảng là dự kiến chứ chưa được thực thi.",
   },
 ];
 
@@ -144,13 +138,13 @@ export const Route = createFileRoute("/bang-gia")({
       {
         name: "description",
         content:
-          "Bảng giá các gói dịch vụ KLAW cho cá nhân, doanh nghiệp và tổ chức lớn. Tra cứu pháp luật không giới hạn, hỏi AI, soạn thảo văn bản.",
+          "Bảng giá dự kiến của KLAW cho cá nhân, doanh nghiệp và tổ chức lớn. Chưa mở đăng ký và chưa mở thanh toán.",
       },
       { property: "og:title", content: "Bảng giá KLAW — Gói tra cứu & soạn thảo pháp lý" },
       {
         property: "og:description",
         content:
-          "Chọn gói phù hợp: Cá nhân, Doanh nghiệp hoặc Tổ chức lớn. Tiết kiệm 20% khi thanh toán theo năm.",
+          "Ba mức dự kiến: Cá nhân, Doanh nghiệp và Tổ chức lớn. Chưa mở thanh toán.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -166,6 +160,15 @@ function BangGiaPage() {
   return (
     <MarketingShell>
       <section className="mx-auto max-w-6xl px-6 pt-16 pb-6 text-center">
+        <p
+          role="status"
+          className="mx-auto mb-6 max-w-2xl rounded-xl border border-border bg-card px-4 py-3 text-[13px] leading-relaxed text-muted-foreground"
+        >
+          <span className="font-semibold text-foreground">Bảng giá dự kiến.</span>{" "}
+          KLAW chưa mở thanh toán: chưa có cổng thanh toán, chưa có hạn mức được
+          thực thi, chưa có chính sách huỷ hay hoàn tiền có hiệu lực. Mọi con số
+          dưới đây là đề xuất và có thể thay đổi.
+        </p>
         <p className="soft-fade text-[13px] uppercase tracking-[0.22em] text-brass-600/80">
           Bảng giá
         </p>

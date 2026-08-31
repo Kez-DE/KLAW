@@ -26,7 +26,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "KLAW là trợ lý AI giúp tra cứu quy định pháp luật Việt Nam theo điều khoản và soạn thảo hợp đồng, đơn từ, công văn đúng thể thức trong vài giây.",
+          "KLAW tra cứu pháp luật lao động Việt Nam theo điều, khoản, điểm — mỗi câu trả lời kèm trích dẫn kiểm chứng được và nhãn hiệu lực — và soạn thảo văn bản pháp lý đúng thể thức.",
       },
       {
         property: "og:title",
@@ -52,23 +52,23 @@ const FEATURES = [
   },
   {
     icon: FileSignature,
-    title: "Soạn thảo tự động",
-    desc: "Hợp đồng, đơn từ, công văn, thỏa thuận — đầy đủ quốc hiệu, căn cứ pháp lý, điều khoản và phần ký kết.",
+    title: "Soạn thảo theo mẫu",
+    desc: "Hợp đồng, đơn từ, công văn, thỏa thuận — đầy đủ quốc hiệu, căn cứ pháp lý, điều khoản và phần ký kết. Bạn điền, KLAW dựng khung và xuất Word/PDF ngay trên máy bạn.",
   },
   {
     icon: MessageSquareQuote,
-    title: "Giải thích dễ hiểu",
-    desc: "Diễn giải điều luật phức tạp thành ngôn ngữ thường ngày, kèm ví dụ áp dụng thực tế.",
+    title: "Nói rõ khi không đủ căn cứ",
+    desc: "Không tìm được căn cứ thì KLAW nói thẳng là không đủ căn cứ, thay vì dựng ra một điều luật nghe hợp lý.",
   },
   {
     icon: ShieldCheck,
-    title: "Cảnh báo rủi ro",
-    desc: "Chỉ ra điều khoản bất lợi, thời hạn bắt buộc và những nội dung cần cân nhắc trước khi ký.",
+    title: "Nhãn hiệu lực đi kèm trích dẫn",
+    desc: "Mỗi trích dẫn mang nhãn hiệu lực thấy được, kể cả khi nhãn đó là “chưa xác định được”.",
   },
   {
     icon: Landmark,
-    title: "Thủ tục hành chính",
-    desc: "Hướng dẫn từng bước hồ sơ, cơ quan tiếp nhận và thời hạn giải quyết theo quy định hiện hành.",
+    title: "Kiểm chứng bằng nguyên văn",
+    desc: "Bấm vào trích dẫn để mở đúng đoạn trong toàn văn văn bản gốc, không phải bản diễn giải.",
   },
   {
     icon: Users,
@@ -95,19 +95,20 @@ const STEPS = [
   },
 ];
 
+// Sáu lĩnh vực này là phạm vi corpus THẬT theo PRODUCT.md. Bản Lovable liệt 12,
+// trong đó Đất đai, Hôn nhân & Gia đình, Thuế, Sở hữu trí tuệ, Đầu tư và Doanh
+// nghiệp là đúng những lĩnh vực PRODUCT.md nói KHÔNG phủ.
+//
+// Danh sách vẫn đang viết cứng, nên nó sẽ lệch khi corpus mở rộng. Chỗ đúng cho
+// những con số này là trang /pham-vi lấy từ API — một trong các bảo đảm của bản
+// FE cũ mà bản này chưa dựng lại.
 const AREAS = [
-  "Dân sự",
-  "Doanh nghiệp",
-  "Lao động",
-  "Đất đai & Nhà ở",
-  "Hôn nhân & Gia đình",
-  "Thuế",
-  "Hành chính",
-  "Hình sự",
-  "Sở hữu trí tuệ",
-  "Đầu tư",
-  "Hợp đồng thương mại",
-  "Bảo hiểm xã hội",
+  { ten: "Lao động", sau: true },
+  { ten: "Dân sự", sau: false },
+  { ten: "Hình sự", sau: false },
+  { ten: "Tố tụng dân sự", sau: false },
+  { ten: "Tố tụng hình sự", sau: false },
+  { ten: "Hàng hải", sau: false },
 ];
 
 const FAQS = [
@@ -121,11 +122,11 @@ const FAQS = [
   },
   {
     q: "KLAW dựa trên nguồn nào?",
-    a: "KLAW trả lời dựa trên hệ thống pháp luật Việt Nam và luôn nêu rõ tên văn bản, điều khoản để bạn tự kiểm chứng với văn bản gốc còn hiệu lực.",
+    a: "KLAW truy hồi trên một kho văn bản gốc lấy từ Cơ sở dữ liệu quốc gia về văn bản quy phạm pháp luật, tập trung vào pháp luật lao động, và luôn nêu tên văn bản kèm điều, khoản, điểm để bạn tự kiểm chứng. Kho là văn bản GỐC, không phải bản hợp nhất — KLAW bảo đảm đúng nguyên văn, không bảo đảm đó là bản hiện hành, và nói rõ khi không xác định được.",
   },
   {
     q: "Tôi có cần biết thuật ngữ pháp lý không?",
-    a: "Không cần. Bạn cứ mô tả tình huống bằng lời thường ngày, KLAW sẽ hỏi thêm thông tin còn thiếu và diễn giải bằng ngôn ngữ dễ hiểu.",
+    a: "Không cần. Bạn cứ mô tả tình huống bằng lời thường ngày. Nếu câu hỏi quá rộng để dẫn được một điều khoản cụ thể, KLAW sẽ nói là chưa đủ căn cứ thay vì đoán.",
   },
 ];
 
@@ -203,14 +204,14 @@ function Landing() {
               Tra cứu pháp luật.
               <br />
               <span className="animate-shimmer bg-gradient-gold bg-clip-text text-transparent">
-                Soạn thảo tức thì.
+                Soạn thảo có căn cứ.
               </span>
             </h1>
 
             <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-              KLAW đọc hiểu câu hỏi của bạn, dẫn chiếu đúng điều khoản trong hệ
-              thống pháp luật Việt Nam và soạn thảo văn bản pháp lý chuẩn thể thức
-              chỉ trong vài giây.
+              KLAW đọc câu hỏi của bạn, dẫn chiếu đúng điều, khoản, điểm trong
+              pháp luật lao động Việt Nam kèm nhãn hiệu lực, và soạn thảo văn bản
+              pháp lý đúng thể thức. Một lượt trả lời thường mất 10–60 giây.
             </p>
 
             <div className="pointer-events-auto mt-9 flex flex-wrap items-center gap-3">
@@ -230,18 +231,13 @@ function Landing() {
               </a>
             </div>
 
-            <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-sm">
-              {[
-                ["12+", "lĩnh vực pháp luật"],
-                ["30+", "mẫu văn bản pháp lý"],
-                ["< 10s", "cho một bản dự thảo"],
-              ].map(([v, l]) => (
-                <div key={l}>
-                  <p className="font-display text-2xl font-bold text-primary">{v}</p>
-                  <p className="text-xs text-muted-foreground">{l}</p>
-                </div>
-              ))}
-            </div>
+            {/*
+              Dòng chỉ số cũ ghi "12+ lĩnh vực", "30+ mẫu", "< 10s cho một bản dự
+              thảo": lĩnh vực thật là 6, mẫu định nghĩa là 25, và một lượt trả lời
+              mất 10–60 giây. Không thay bằng bộ số viết cứng khác — số phạm vi
+              corpus phải lấy từ API ở trang /pham-vi, nếu không nó sẽ sai ngay lần
+              mở rộng corpus đầu tiên.
+            */}
           </div>
         </div>
 
@@ -343,9 +339,11 @@ function Landing() {
                 Bao phủ những lĩnh vực bạn cần nhất
               </h2>
               <p className="mt-4 leading-relaxed text-muted-foreground">
-                KLAW được huấn luyện để làm việc với các nhóm quy định phổ biến
-                nhất trong đời sống và hoạt động doanh nghiệp tại Việt Nam. Mỗi câu
-                trả lời đều nêu rõ văn bản và điều khoản để bạn kiểm chứng.
+                KLAW truy hồi trên một kho văn bản pháp luật Việt Nam có giới hạn
+                rõ ràng, không phải một mô hình được huấn luyện trên toàn bộ pháp
+                luật. Chiều sâu không đều: cụm Lao động có luật, nghị định, thông
+                tư và chế tài; năm bộ luật còn lại hiện chỉ có bản thân bộ luật.
+                Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn kiểm chứng.
               </p>
               <Link
                 to="/chat"
@@ -359,11 +357,14 @@ function Landing() {
             <ul className="-mx-5 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-5 pb-2 md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
               {AREAS.map((a, i) => (
                 <li
-                  key={a}
+                  key={a.ten}
                   className="reveal shrink-0 snap-start rounded-full border border-border bg-card px-4 py-2 text-sm whitespace-nowrap text-primary shadow-soft transition-all hover:-translate-y-0.5 hover:border-accent hover:bg-accent/10 md:shrink"
                   data-reveal-delay={i * 45}
                 >
-                  {a}
+                  {a.ten}
+                  <span className="ml-1.5 text-xs text-muted-foreground">
+                    {a.sau ? "luật + văn bản dưới luật" : "chỉ bộ luật"}
+                  </span>
                 </li>
               ))}
             </ul>
