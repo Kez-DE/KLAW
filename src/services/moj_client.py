@@ -30,8 +30,22 @@ class MojClient:
         return payload["data"]
 
     def fetch_related(self, doc_id: str) -> list[dict]:
+        """Rỗng THẬT khác với MOJ đổi shape.
+
+        `(payload.get("data") or {}).get("items") or []` gộp hai thứ đó làm một:
+        một lần đổi tên/lồng khoá bên MOJ sẽ âm thầm cho ra 0 quan hệ trên TOÀN
+        corpus, làm cạnh đồ thị nuôi Mức 2a của `effectivity.py` co lại mà không
+        dòng log nào chỉ ra nguyên nhân. `fetch_doc` ngay trên đã raise tường
+        minh cho đúng tình huống này — làm cho khớp.
+        """
         payload = self._get(f"/doc/{doc_id}/related?pageNumber=0&pageSize=200")
-        return (payload.get("data") or {}).get("items") or []
+        data = payload.get("data")
+        if data is None:
+            raise ValueError(f"response related cho doc {doc_id} thiếu 'data'")
+        items = data.get("items")
+        if items is None:
+            raise ValueError(f"response related cho doc {doc_id} thiếu 'data.items'")
+        return items
 
     def fetch_many(self, doc_ids: list[str], dest: Path) -> dict[str, Path]:
         dest.mkdir(parents=True, exist_ok=True)

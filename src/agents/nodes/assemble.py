@@ -327,7 +327,17 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         # nghĩa "không có Khoản con nào khác để tách".
         khop_tai = r.khop_tai
         row_id = khop_tai if khop_tai is not None and khop_tai in db_provisions else r.claim.provision_id
-        p = db_provisions.get(row_id, {})
+        # KHÔNG `.get(row_id, {})`: một id thiếu ở đây là bất biến bị vỡ, không
+        # phải dữ liệu vắng. Rơi về `{}` phát ra citation `duong_dan`/`so_ky_hieu`
+        # RỖNG nhưng vẫn đếm là "đã kiểm chứng" — nó vào tỉ lệ quyết định abstain
+        # và hiện ra cạnh một `quote` thật. Trên sản phẩm này, một trích dẫn rỗng
+        # đội lốt đã-kiểm-chứng là kiểu hỏng tệ nhất có thể có, nên nó phải NỔ.
+        if row_id not in db_provisions:
+            raise KeyError(
+                f"db_provisions thiếu provisions.id={row_id} mà claim đã qua tầng 1 đang dẫn "
+                f"(provision_id={r.claim.provision_id}, khop_tai={r.khop_tai}) — bất biến vỡ"
+            )
+        p = db_provisions[row_id]
         eff = r.effectivity
         so_ky_hieu = p.get("so_ky_hieu", "")
         citations.append({
