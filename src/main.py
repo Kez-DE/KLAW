@@ -9,6 +9,7 @@ from starlette.exceptions import HTTPException
 
 from src.agents import graph_soan_thao as soan_thao_graph
 from src.api.routes import router
+from src.api.routes_tai_khoan import router as router_tai_khoan
 from src.api.routes_tim_kiem import router as router_tim_kiem
 from src.api.routes_van_ban import router as router_van_ban
 from src.config import get_settings
@@ -54,6 +55,7 @@ app.include_router(router, prefix="/api/v1")
 # khác nhau. Cùng prefix nên hợp đồng URL không đổi.
 app.include_router(router_tim_kiem, prefix="/api/v1")
 app.include_router(router_van_ban, prefix="/api/v1")
+app.include_router(router_tai_khoan, prefix="/api/v1")
 
 
 @app.get("/health")

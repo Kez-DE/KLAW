@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -394,3 +394,31 @@ class VanBanLienQuanResponse(BaseModel):
     # chúng không phải "văn bản liên quan", và trộn vào `nhom` là chôn 8 quan hệ
     # thật dưới 120 dòng trỏ về chính văn bản đang mở.
     dan_chieu_noi_bo: DanChieuNoiBoOut
+
+
+# ══ GET /han-muc, POST /nguoi-dung (Pha 2) ══════════════════════════════════
+
+
+class HanMucResponse(BaseModel):
+    """Hạn mức tháng CÒN LẠI của người đang đăng nhập.
+
+    `ap_dung=False` khi Supabase chưa cấu hình: hệ thống không đếm theo người,
+    nên bốn trường số là None chứ KHÔNG phải 0 — 0 đọc thành "bạn chưa dùng lượt
+    nào", một khẳng định sai về một thứ không hề được đo.
+    """
+
+    ap_dung: bool
+    plan: str | None
+    han_muc: int | None
+    da_dung: int | None
+    con_lai: int | None
+    # Có cả khi `ap_dung=False`: mốc reset là thuộc tính của LỊCH, không phải
+    # của người dùng, và giao diện vẫn cần nó để nói "đặt lại vào ngày…".
+    dat_lai_luc: datetime
+    ghi_chu: str
+
+
+class NguoiDungResponse(BaseModel):
+    sub: str
+    email: str | None
+    plan: str
