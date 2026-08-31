@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { layMau, soanThao } from '../lib/api';
+import { dongKhung, moKhung } from '../lib/chuyenCanh';
+import { banNhanFact, dungFacts, oSoHong } from '../lib/facts';
 import { useGoiApi, useHaiCot } from '../lib/hooks';
 import type { FactField, LoaiVanBan, MauResponse, SoanThaoResponse } from '../types';
 import { BaoLoi } from '../components/BaoLoi';
@@ -32,41 +34,6 @@ const CAC_LOAI: LuaChonLoai[] = [
   { giaTri: 'noi_quy', nhan: 'Nội quy lao động' },
   { giaTri: 'quyet_dinh_ky_luat', nhan: 'Quyết định kỷ luật lao động' },
 ];
-
-/**
- * Đổi giá trị ô nhập (luôn là chuỗi) sang kiểu server chờ.
- *
- * Ô trống bị BỎ HẲN khỏi `facts` thay vì gửi chuỗi rỗng: fact vắng mặt là một
- * input hợp lệ — rule engine trả "không kiểm được: thiếu …", một kết quả thật.
- * Gửi `""` sẽ biến nó thành một giá trị sai và nhận 422.
- */
-function dungFacts(facts: FactField[], giaTri: Record<string, string>): Record<string, unknown> {
-  const ra: Record<string, unknown> = {};
-  for (const truong of facts) {
-    const tho = (giaTri[truong.key] ?? '').trim();
-    if (truong.kieu === 'bool') {
-      ra[truong.key] = tho === 'true';
-      continue;
-    }
-    if (tho === '') continue;
-    if (truong.kieu === 'int') {
-      ra[truong.key] = Number(tho);
-      continue;
-    }
-    ra[truong.key] = tho;
-  }
-  return ra;
-}
-
-/** Chặn tại biên: một ô số không đọc được thì NÓI RA, không lặng lẽ bỏ đi. */
-function oSoHong(facts: FactField[], giaTri: Record<string, string>): FactField | null {
-  for (const truong of facts) {
-    if (truong.kieu !== 'int') continue;
-    const tho = (giaTri[truong.key] ?? '').trim();
-    if (tho !== '' && !Number.isFinite(Number(tho))) return truong;
-  }
-  return null;
-}
 
 export default function SoanThao() {
   const [loai, datLoai] = useState<LoaiVanBan>('hdld');
@@ -116,8 +83,14 @@ export default function SoanThao() {
     );
   };
 
+  // Tiến tới khung — cùng động tác, cùng cơ chế với /tra-cuu và /soat.
   const dong = useCallback(() => {
-    datChiSoDangMo(null);
+    const chiSo = nutTraTieuDiem.current;
+    if (chiSo === null) {
+      datChiSoDangMo(null);
+      return;
+    }
+    dongKhung(chiSo, () => datChiSoDangMo(null));
   }, []);
 
   const chonPhatHien = useCallback(
@@ -127,7 +100,7 @@ export default function SoanThao() {
         return;
       }
       nutTraTieuDiem.current = chiSo;
-      datChiSoDangMo(chiSo);
+      moKhung(chiSo, () => datChiSoDangMo(chiSo));
     },
     [chiSoDangMo, dong],
   );
@@ -138,7 +111,7 @@ export default function SoanThao() {
     const chiSo = nutTraTieuDiem.current;
     if (chiSo === null) return;
     nutTraTieuDiem.current = null;
-    document.querySelector<HTMLElement>(`[data-phat-hien="${chiSo}"]`)?.focus();
+    document.querySelector<HTMLElement>(`[data-khung="${chiSo}"]`)?.focus();
   }, [chiSoDangMo]);
 
   const phatHienDangMo =
@@ -275,6 +248,7 @@ export default function SoanThao() {
           <BaoCaoSoat
             baoCao={ketQua.ketQua.audit_report}
             chiSoDangMo={chiSoDangMo}
+            nhanFact={banNhanFact(truongNhap)}
             onChonPhatHien={chonPhatHien}
           />
         </div>

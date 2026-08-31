@@ -1,3 +1,4 @@
+import { nhanHoaFact } from '../../lib/facts';
 import type { AuditReport, Finding } from '../../types';
 import { DuongDan } from '../DuongDan';
 
@@ -15,6 +16,23 @@ import { DuongDan } from '../DuongDan';
  * màu chỉ nhắc lại — cùng bất biến "không trạng thái nào được truyền đạt chỉ
  * bằng màu".
  */
+
+/**
+ * Dấu hiệu một rule KHÔNG ĐƯỢC KIỂM, do `src/services/rules.py` tự ghép vào
+ * `chi_tiet` khi `check()` trả `None`.
+ *
+ * Phân biệt "thiếu dữ liệu" với "văn bản sai" là bất biến của cả dự án
+ * (`check() -> bool | None`), nhưng `FindingOut` không mang cờ
+ * `khong_kiem_duoc` — nó chết ở `services/rules.py`. Nên chỗ này phải đọc lại
+ * từ chính câu backend đã cam kết viết ra. Đây là một mối buộc vào chuỗi, có
+ * chủ ý và được ghi lại: cách sửa đúng ở tầng dưới là đưa `khong_kiem_duoc`
+ * vào `FindingOut` rồi đọc cờ đó thay cho chuỗi này.
+ *
+ * Không đọc được cờ thì giao diện gắn nhãn "Trái quy định" cho một quy tắc
+ * CHƯA HỀ được kiểm — tức nói văn bản sai trong khi máy chỉ đang thiếu dữ
+ * liệu. Đó là đúng lời nói dối mà phân biệt `None`/`False` sinh ra để tránh.
+ */
+const MOC_KHONG_KIEM = ' — không kiểm được: thiếu ';
 
 interface MucDo {
   chu: string;
@@ -55,11 +73,22 @@ interface DongPhatHienProps {
   phatHien: Finding;
   chiSo: number;
   dangMo: boolean;
+  /** `key` → nhãn người đọc được, từ `GET /api/v1/mau/{loai}`. */
+  nhanFact: Record<string, string>;
   onChon: (chiSo: number) => void;
 }
 
-function DongPhatHien({ phatHien, chiSo, dangMo, onChon }: DongPhatHienProps) {
-  const mucDo = docMucDo(phatHien.muc_do);
+function DongPhatHien({ phatHien, chiSo, dangMo, nhanFact, onChon }: DongPhatHienProps) {
+  const [truocMoc, sauMoc] = phatHien.thong_diep.split(MOC_KHONG_KIEM);
+  const canThongTin = sauMoc === undefined ? null : nhanHoaFact(sauMoc, nhanFact);
+  const mucDo =
+    canThongTin === null
+      ? docMucDo(phatHien.muc_do)
+      : {
+          chu: 'Chưa kiểm được',
+          mau: 'var(--xam-cho)',
+          giaiThich: 'Máy chưa có đủ thông tin để chạy quy tắc này — KHÔNG phải văn bản sai.',
+        };
   // Mở được panel đối chiếu CHỈ khi có đủ hai id. Cả hai null nghĩa là chính
   // căn cứ đó không tồn tại trong CSDL — dựng link ở đó là dựng link hỏng.
   const moDuoc = phatHien.doc_id !== null && phatHien.khop_tai_id !== null;
@@ -74,10 +103,19 @@ function DongPhatHien({ phatHien, chiSo, dangMo, onChon }: DongPhatHienProps) {
           {mucDo.chu}
         </span>
         <span className="text-[0.75rem] leading-5 text-muc-nhat">
-          {TEN_LOAI[phatHien.loai] ?? phatHien.loai}
+          {canThongTin === null ? (TEN_LOAI[phatHien.loai] ?? phatHien.loai) : 'Cần thông tin'}
         </span>
       </span>
-      <span className="mat-doc mt-2 block text-[0.9375rem] text-phim">{phatHien.thong_diep}</span>
+      <span className="mat-doc mt-2 block text-[0.9375rem] text-phim">
+        {canThongTin === null ? nhanHoaFact(phatHien.thong_diep, nhanFact) : truocMoc}
+      </span>
+      {canThongTin !== null && (
+        <span className="mt-1 block text-[0.8125rem] leading-5 text-muc-nhat">
+          {/* Câu này hiện ở CẢ /soan-thao lẫn /soat, nên không được nêu tên một
+              khối chỉ tồn tại ở một trong hai màn hình. */}
+          Cần thông tin: {canThongTin}. Điền những ô đó rồi chạy lại để máy kiểm được quy tắc này.
+        </span>
+      )}
       {phatHien.can_cu !== null && (
         <span className="mt-2 block">
           <DuongDan duongDan={phatHien.can_cu} />
@@ -94,7 +132,7 @@ function DongPhatHien({ phatHien, chiSo, dangMo, onChon }: DongPhatHienProps) {
       {moDuoc ? (
         <button
           type="button"
-          data-phat-hien={chiSo}
+          data-khung={chiSo}
           aria-expanded={dangMo}
           onClick={() => onChon(chiSo)}
           className="block w-full cursor-pointer rounded-vua p-1 text-start transition-opacity duration-[var(--thoi-luong-nhanh)] ease-chuan hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang"
@@ -128,10 +166,13 @@ interface BaoCaoSoatProps {
   baoCao: AuditReport;
   /** Chỉ số phát hiện đang mở panel đối chiếu, hoặc null. */
   chiSoDangMo: number | null;
+  /** `key` → nhãn, từ mẫu `/mau/{loai}`. Rỗng khi mẫu chưa về: thông điệp giữ
+   *  nguyên tên máy thay vì hiện một nhãn đoán bừa. */
+  nhanFact: Record<string, string>;
   onChonPhatHien: (chiSo: number) => void;
 }
 
-export function BaoCaoSoat({ baoCao, chiSoDangMo, onChonPhatHien }: BaoCaoSoatProps) {
+export function BaoCaoSoat({ baoCao, chiSoDangMo, nhanFact, onChonPhatHien }: BaoCaoSoatProps) {
   const tyLe = Math.round(baoCao.completeness * 100);
 
   return (
@@ -174,6 +215,7 @@ export function BaoCaoSoat({ baoCao, chiSoDangMo, onChonPhatHien }: BaoCaoSoatPr
               phatHien={phatHien}
               chiSo={chiSo}
               dangMo={chiSo === chiSoDangMo}
+              nhanFact={nhanFact}
               onChon={onChonPhatHien}
             />
           ))}

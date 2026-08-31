@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { soat } from '../lib/api';
+import { layMau, soat } from '../lib/api';
+import { dongKhung, moKhung } from '../lib/chuyenCanh';
+import { banNhanFact, dungFacts, oSoHong } from '../lib/facts';
 import { useGoiApi, useHaiCot } from '../lib/hooks';
-import type { LoaiVanBan, SoatResponse } from '../types';
+import type { FactField, LoaiVanBan, MauResponse, SoatResponse } from '../types';
 import { BaoLoi } from '../components/BaoLoi';
 import { TrangThaiCho } from '../components/TrangThaiCho';
+import { FormFacts } from '../components/soan-thao/FormFacts';
 import { BaoCaoSoat } from '../components/soat/BaoCaoSoat';
 import { KhungRoiSang } from '../components/KhungRoiSang';
 
@@ -34,10 +37,27 @@ const DAI_TOI_THIEU = 20;
 export default function Soat() {
   const [loai, datLoai] = useState<LoaiVanBan>('hdld');
   const [vanBan, datVanBan] = useState('');
+  const [giaTri, datGiaTri] = useState<Record<string, string>>({});
+  const [loiNhap, datLoiNhap] = useState<string | null>(null);
   const [chiSoDangMo, datChiSoDangMo] = useState<number | null>(null);
   const nutTraTieuDiem = useRef<number | null>(null);
   const haiCot = useHaiCot();
   const { dangChay, ketQua, loi, chay, huy } = useGoiApi<SoatResponse>();
+
+  // Cùng nguồn form với /soan-thao: sinh từ `config/rules.yaml` qua
+  // `GET /api/v1/mau/{loai}`. Không dựng form thứ hai, không chép cứng trường.
+  const mau = useGoiApi<MauResponse>();
+  const { chay: chayMau } = mau;
+  useEffect(() => {
+    void chayMau((signal) => layMau(loai, signal));
+  }, [chayMau, loai]);
+
+  // Mẫu của lượt gọi TRƯỚC còn nằm trong state cho tới khi lượt mới xong —
+  // đối chiếu `loai_van_ban` để không bao giờ dựng form của loại này bằng
+  // trường của loại khác.
+  const truongNhap: FactField[] | null =
+    mau.ketQua !== null && mau.ketQua.loai_van_ban === loai ? mau.ketQua.facts : null;
+  const nhanFact = banNhanFact(truongNhap);
 
   const conThieu = DAI_TOI_THIEU - vanBan.trim().length;
   const guiDuoc = conThieu <= 0 && !dangChay;
@@ -45,13 +65,32 @@ export default function Soat() {
   const gui = (su: FormEvent<HTMLFormElement>) => {
     su.preventDefault();
     if (!guiDuoc) return;
+    const hong = oSoHong(truongNhap ?? [], giaTri);
+    if (hong !== null) {
+      datLoiNhap(`Ô “${hong.nhan}” chưa phải một con số đọc được.`);
+      return;
+    }
+    datLoiNhap(null);
     datChiSoDangMo(null);
     nutTraTieuDiem.current = null;
-    void chay((signal) => soat({ loai_van_ban: loai, text: vanBan.trim() }, signal));
+    void chay((signal) =>
+      soat(
+        { loai_van_ban: loai, text: vanBan.trim(), facts: dungFacts(truongNhap ?? [], giaTri) },
+        signal,
+      ),
+    );
   };
 
+  // Tiến tới khung — cùng động tác, cùng cơ chế với /tra-cuu. Bấm một căn cứ ở
+  // đây mà khung bật ra chỗ khác, trong khi ở /tra-cuu nó morph tới, là hai
+  // sản phẩm khác nhau đội cùng một cái tên.
   const dong = useCallback(() => {
-    datChiSoDangMo(null);
+    const chiSo = nutTraTieuDiem.current;
+    if (chiSo === null) {
+      datChiSoDangMo(null);
+      return;
+    }
+    dongKhung(chiSo, () => datChiSoDangMo(null));
   }, []);
 
   const chonPhatHien = useCallback(
@@ -61,7 +100,7 @@ export default function Soat() {
         return;
       }
       nutTraTieuDiem.current = chiSo;
-      datChiSoDangMo(chiSo);
+      moKhung(chiSo, () => datChiSoDangMo(chiSo));
     },
     [chiSoDangMo, dong],
   );
@@ -72,7 +111,7 @@ export default function Soat() {
     const chiSo = nutTraTieuDiem.current;
     if (chiSo === null) return;
     nutTraTieuDiem.current = null;
-    document.querySelector<HTMLElement>(`[data-phat-hien="${chiSo}"]`)?.focus();
+    document.querySelector<HTMLElement>(`[data-khung="${chiSo}"]`)?.focus();
   }, [chiSoDangMo]);
 
   const phatHienDangMo =
@@ -158,6 +197,54 @@ export default function Soat() {
           </p>
         </div>
 
+        {/* Thu gọn bằng <details>/<summary> gốc trình duyệt: mở/đóng, bàn
+            phím và ngữ nghĩa cho trình đọc màn hình đều có sẵn, không cần một
+            mảnh state hay một dòng JS nào. Mặc định ĐÓNG — dán văn bản rồi bấm
+            soát vẫn là đường đi chính. */}
+        {truongNhap !== null && truongNhap.length > 0 && (
+          <details className="mt-6 rounded-lon border" style={{ borderColor: 'var(--vien)' }}>
+            <summary className="flex min-h-[var(--vung-cham-toi-thieu)] cursor-pointer items-center px-3 text-[0.9375rem] leading-6 font-medium text-phim focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-den-sang">
+              Thông tin hợp đồng (không bắt buộc)
+            </summary>
+            <div className="border-t px-3 pt-3 pb-4" style={{ borderColor: 'var(--vien)' }}>
+              {/* Con số lấy từ chính mẫu vừa tải, không chép cứng: số quy tắc
+                  và số trường đều sinh từ `config/rules.yaml`, nên viết tay
+                  một con số ở đây là một khẳng định sẽ sai ở lần sửa rule kế
+                  tiếp. */}
+              <p className="mat-doc mt-0 mb-3 text-[0.875rem] leading-6 text-muc-nhat">
+                Máy đọc được điều khoản trong văn bản bạn dán, nhưng KHÔNG đoán lương, thời gian
+                thử việc hay vùng lương tối thiểu từ đó — đoán sai một con số rồi báo “vi phạm”
+                còn tệ hơn nói “chưa kiểm được”. Điền {truongNhap.length} thông tin dưới đây để máy
+                đối chiếu được các quy tắc về lương, thử việc và giữ giấy tờ. Để trống cũng được:
+                báo cáo sẽ ghi rõ từng quy tắc chưa kiểm được vì thiếu thông tin nào.
+              </p>
+              <FormFacts
+                facts={truongNhap}
+                giaTri={giaTri}
+                voHieu={dangChay}
+                onDoi={(key, moi) => datGiaTri((cu) => ({ ...cu, [key]: moi }))}
+              />
+            </div>
+          </details>
+        )}
+
+        {mau.loi !== null && (
+          <div className="mt-6">
+            <BaoLoi
+              loi={mau.loi}
+              onThuLai={() => {
+                void chayMau((signal) => layMau(loai, signal));
+              }}
+            />
+          </div>
+        )}
+
+        {loiNhap !== null && (
+          <p role="alert" className="mt-3 mb-0 text-[0.875rem] leading-6 text-phim">
+            {loiNhap}
+          </p>
+        )}
+
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <button
             type="submit"
@@ -189,6 +276,7 @@ export default function Soat() {
           <BaoCaoSoat
             baoCao={ketQua.audit_report}
             chiSoDangMo={chiSoDangMo}
+            nhanFact={nhanFact}
             onChonPhatHien={chonPhatHien}
           />
         </div>
