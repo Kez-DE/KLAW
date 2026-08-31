@@ -1,7 +1,7 @@
 """Test CHẤT LƯỢNG tập golden_qa, không chỉ schema (spec 11.1, Task 8).
 
-`test_moi_item_da_qua_review_cua_nguoi` cố ý đỏ/deselect: script sinh ứng
-viên và agent chỉ được ghi `da_review: false` — chỉ chủ dự án (người) mới có
+`test_moi_item_da_qua_review_cua_NGUOI` cố ý đỏ/deselect. Trường `duyet_boi`
+(`chua-ai` | `agent` | `nguoi`) mang sự thật về AI đã duyệt; chỉ chủ dự án mới có
 quyền đặt `true` sau khi tự đọc từng câu. Đánh dấu `pending_review` để không
 chặn CI trước khi việc review tay đó xảy ra; xem pyproject.toml.
 
@@ -54,9 +54,27 @@ def test_it_nhat_80_phan_tram_cau_hoi_khong_dung_thuat_ngu_phap_ly():
 
 
 @pytest.mark.pending_review
-def test_moi_item_da_qua_review_cua_nguoi():
-    chua = [i["id"] for i in _load() if not i.get("da_review")]
-    assert not chua, f"chưa review: {chua}"
+def test_moi_item_da_qua_review_cua_NGUOI():
+    """`da_review: true` KHÔNG còn nghĩa là người duyệt.
+
+    Một agent đã duyệt 66/77 câu (2026-09-01) và đặt `da_review: true`. Nếu test
+    này chỉ kiểm `da_review` thì nó xanh cho 66 câu **không người nào đọc** —
+    một test mang tên "review của người" mà không kiểm điều đó là một lời nói
+    dối, và khóa luận sẽ trích dẫn con số nó tạo ra.
+
+    `duyet_boi` mang sự thật: `chua-ai` | `agent` | `nguoi`. Test này chỉ xanh
+    khi CON NGƯỜI đã xác nhận — hiện đỏ trên cả 77, đúng như thực tế.
+    """
+    chua = [i["id"] for i in _load() if i.get("duyet_boi") != "nguoi"]
+    assert not chua, f"chưa có người duyệt ({len(chua)}/77): {chua[:8]}…"
+
+
+@pytest.mark.pending_review
+def test_moi_item_da_qua_review_cua_AI_DO():
+    """Cổng yếu hơn: đã có ai đó (agent hoặc người) duyệt. Đỏ trên 11 câu
+    SAI/THIẾU mà agent cố ý không tự quyết — chúng cần phán quyết pháp lý."""
+    chua = [i["id"] for i in _load() if i.get("duyet_boi") == "chua-ai"]
+    assert not chua, f"chưa ai duyệt: {chua}"
 
 
 def test_dot_1_co_it_nhat_50_cau_va_toan_bo_thuoc_lao_dong():
