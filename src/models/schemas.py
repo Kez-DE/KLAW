@@ -237,3 +237,70 @@ class PhamViResponse(BaseModel):
 
     sau: TangPhamViOut
     nong: TangPhamViOut
+
+
+# ══ GET /bo-loc, GET /tim-kiem (Pha 2) ══════════════════════════════════════
+# Cùng lý lẽ với `PhamViResponse`: giao diện không được viết cứng thứ nó không
+# đo được. FE Lovable hardcode 11 loại văn bản / 8 cơ quan / 10 lĩnh vực; DB
+# thật có 8 loại, 3 cơ quan (+79 văn bản KHÔNG có cơ quan) và KHÔNG CÓ cột lĩnh
+# vực nào. Ba con số bịa, và mỗi cái bịa ra một chip bấm vào trả về rỗng.
+
+
+class GiaTriLoc(BaseModel):
+    gia_tri: str
+    so_van_ban: int
+
+
+class BoLocResponse(BaseModel):
+    """Từ vựng bộ lọc, ĐẾM TỪ DB. Không khoá `linh_vuc` (không có cột), không
+    khoá `tinh_trang` (lọc theo tuyên bố sai của MOJ là đúng lỗi Mức 2 mà dự án
+    tồn tại để chữa — lọc hiệu lực đi qua `sap_xep`, xem `TimKiemRequest`)."""
+
+    tong_van_ban: int
+    loai_van_ban: list[GiaTriLoc]
+    co_quan_ban_hanh: list[GiaTriLoc]
+    # Số văn bản KHÔNG khai cơ quan. Nói ra thay vì lặng lẽ bỏ qua: 79/126 văn
+    # bản tầng metadata rơi vào đây, nên tổng theo cơ quan KHÔNG bằng tổng
+    # corpus và giao diện phải biết điều đó trước khi vẽ biểu đồ tròn.
+    co_quan_khong_ro: int
+    nam_min: int | None
+    nam_max: int | None
+    sap_xep: list[str]
+
+
+class HieuLucOut(BaseModel):
+    """Phán quyết của KLAW (`effectivity.Effectivity`), KHÔNG PHẢI
+    `documents.tinh_trang`. Tên `verdict` giữ nguyên chuỗi của `EffectivityVerdict`
+    để FE `switch` trên nó và để nhãn mới rơi vào `default` an toàn."""
+
+    verdict: str
+    tin_cay: str
+    ly_do: str
+
+
+class KetQuaTimKiem(BaseModel):
+    provision_id: int
+    doc_id: str
+    so_ky_hieu: str
+    bo_luat: str
+    loai_van_ban: str
+    co_quan_ban_hanh: str | None
+    ngay_ban_hanh: date | None
+    cap: str
+    so_hieu_cap: str
+    duong_dan: str
+    tieu_de: str
+    trich: str
+    score: float
+    hieu_luc: HieuLucOut
+
+
+class TimKiemResponse(BaseModel):
+    q: str
+    # Của TOÀN tập khớp, không phải của trang — "N điều khoản trong M văn bản".
+    tong_dieu_khoan: int
+    tong_van_ban: int
+    limit: int
+    offset: int
+    sap_xep: str
+    ket_qua: list[KetQuaTimKiem]

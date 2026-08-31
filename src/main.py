@@ -9,6 +9,7 @@ from starlette.exceptions import HTTPException
 
 from src.agents import graph_soan_thao as soan_thao_graph
 from src.api.routes import router
+from src.api.routes_tim_kiem import router as router_tim_kiem
 from src.config import get_settings
 from src.services import checklist as checklist_svc
 from src.services import rules as rules_svc
@@ -47,6 +48,10 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api/v1")
+# Router tách theo nhóm chức năng (Pha 2): `routes.py` đã ở ngưỡng độ dài
+# tối đa của dự án, và tìm kiếm / hiệu lực / tài khoản là ba mối bận tâm
+# khác nhau. Cùng prefix nên hợp đồng URL không đổi.
+app.include_router(router_tim_kiem, prefix="/api/v1")
 
 
 @app.get("/health")

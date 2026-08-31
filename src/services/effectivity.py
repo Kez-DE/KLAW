@@ -639,3 +639,86 @@ def nap_sua_doi(engine: Engine, provision_ids: Sequence[int]) -> dict[int, list[
         for r in conn.execute(_SQL_SUA_DOI, {"ids": ids}).mappings().all():
             ra.setdefault(r["provision_id"], []).append(dict(r))
     return ra
+
+
+# ══ Phán quyết HÀNG LOẠT — một lượt cho cả corpus ═══════════════════════════
+#
+# `danh_gia_theo_id` chạy 3 truy vấn cho MỘT văn bản. `/tim-kiem` cần phán quyết
+# của MỌI văn bản khớp (để xếp `sap_xep=con_hieu_luc_truoc` trên TOÀN tập, không
+# chỉ trong trang hiện tại) nên gọi nó theo vòng lặp là 126 × 3 = 378 truy vấn
+# mỗi request. Hàm dưới đây làm đúng cùng phép tính bằng 2 truy vấn + Python
+# thuần: ĐO ĐƯỢC 20,7ms SQL + 8,1ms Python cho cả 126 văn bản (2026-09-01).
+#
+# ponytail: KHÔNG cache. 29ms cho toàn corpus rẻ hơn một cache phải nghĩ cách
+# vô hiệu hoá sau mỗi lần seed lại — thêm cache khi corpus lên hàng nghìn văn
+# bản và số đo nói rằng nó đáng.
+#
+# `ung_vien_ke_nhiem` lọc TRONG Python (không phải `_SQL_UNG_VIEN` mỗi văn bản):
+# cùng một tập `documents` đã nằm sẵn trong bộ nhớ, và điều kiện là hai phép so
+# ngày. Quy tắc chủ đề/thứ bậc vẫn ở đúng một chỗ — `danh_gia`.
+
+_SQL_DOC_TAT_CA = text(
+    "SELECT id, so_ky_hieu, loai_van_ban, ten, ngay_hieu_luc, ngay_het_hieu_luc,"
+    " tinh_trang FROM documents"
+)
+
+# Cùng hai chiều với `_SQL_CANH`, nhưng cho MỌI văn bản: thêm cột `chu` = văn
+# bản mà cạnh này nói VỀ (chủ thể của phán quyết), để gom nhóm trong Python.
+_SQL_CANH_TAT_CA = text(
+    "SELECT r.to_document_id AS chu, r.loai, 'di_vao' AS chieu, d2.ten AS from_ten,"
+    " d2.so_ky_hieu AS from_so_ky_hieu, d2.ngay_hieu_luc AS from_ngay_hieu_luc"
+    ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.from_document_id'
+    " WHERE r.loai IN (20, 21)"
+    " UNION ALL"
+    " SELECT r.from_document_id, r.loai, 'di_ra', d2.ten,"
+    " d2.so_ky_hieu, d2.ngay_hieu_luc"
+    ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.to_document_id'
+    " WHERE r.loai IN (22, 23)"
+)
+
+
+def danh_gia_toan_bo(engine: Engine, as_of: date) -> dict[str, Effectivity]:
+    """`documents.id` → phán quyết hiệu lực tại `as_of`, cho TOÀN BỘ corpus.
+
+    Cùng `danh_gia` mà `danh_gia_theo_id` gọi — không phải một đường phán quyết
+    thứ hai. Hai đường sẽ lệch nhau và không cách nào biết bên nào đúng.
+    """
+    with engine.connect() as conn:
+        docs = [dict(r) for r in conn.execute(_SQL_DOC_TAT_CA).mappings().all()]
+        canh_tat_ca = [dict(r) for r in conn.execute(_SQL_CANH_TAT_CA).mappings().all()]
+
+    canh_cua: dict[str, list[dict]] = {}
+    for c in canh_tat_ca:
+        canh_cua.setdefault(c["chu"], []).append(c)
+
+    co_ngay = [d for d in docs if d["ngay_hieu_luc"] is not None]
+    ra: dict[str, Effectivity] = {}
+    for d in docs:
+        bd = d["ngay_hieu_luc"]
+        ung_vien = (
+            [u for u in co_ngay if u["id"] != d["id"] and bd < u["ngay_hieu_luc"] <= as_of]
+            if bd is not None else []
+        )
+        ra[d["id"]] = danh_gia(d, canh_cua.get(d["id"], []), as_of, ung_vien)
+    return ra
+
+
+# Ba bậc dùng cho `sap_xep=con_hieu_luc_truoc`. KHÔNG phải hai: gộp
+# `mot_phan_khong_xac_dinh` vào "đã chết" là vứt 27/126 văn bản còn hiệu lực
+# phần lớn xuống đáy, còn gộp vào "còn sống" là hứa một điều KLAW cố ý không
+# hứa. Bậc giữa nói đúng thứ đang biết: chưa kết luận được.
+BAC_CON_SONG = 0
+BAC_CHUA_RO = 1
+BAC_DA_CHET = 2
+
+_VERDICT_DA_CHET = frozenset({
+    EffectivityVerdict.bi_thay_the,
+    EffectivityVerdict.het_hieu_luc,
+    EffectivityVerdict.chua_hieu_luc,
+})
+
+
+def bac_con_song(e: Effectivity) -> int:
+    if e.verdict == EffectivityVerdict.con_hieu_luc:
+        return BAC_CON_SONG
+    return BAC_DA_CHET if e.verdict in _VERDICT_DA_CHET else BAC_CHUA_RO
