@@ -68,6 +68,12 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "179989": ("deep", "71/2025/QH15"),    # Công nghiệp công nghệ số
     "27621":  ("deep", "15/2012/QH13"),    # Xử lý vi phạm hành chính
     "96035":  ("deep", "93/2015/QH13"),    # Tố tụng hành chính
+    # ── Đợt C — 2 văn bản HẾT HIỆU LỰC TOÀN BỘ, nạp LÀM BẪY ──
+    # Cùng vai trò với 4 nghị định lương tối thiểu ở trên: có ích VÌ đã chết.
+    # `13/2023/NĐ-CP` đặc biệt đáng nạp — FE dẫn nó như luật hiện hành, song song
+    # với chính cặp `91/2025/QH15` + `356/2025/NĐ-CP` đã thay thế nó.
+    "161106": ("deep", "13/2023/NĐ-CP"),   # BVDLCN cũ — chết từ 01/01/2026
+    "15066":  ("deep", "67/2006/QH11"),    # Luật Công nghệ thông tin
 }
 
 # ── KHÔNG NẠP, kèm lý do đo được (đừng thêm lại mà không đọc phần này) ──
