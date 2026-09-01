@@ -82,6 +82,29 @@ rules:
       bất kỳ mẫu nào khác, và con số 20 nằm ở YAML để sửa được khi mức trần đổi
       mà không đụng Python.
 
+  - id: so_dai_dien_doi_thoai_nsdld_toi_thieu
+    can_cu: "145/2020/NĐ-CP > Điều 38 > Khoản 1"
+    muc_do: chan
+    mo_ta: "Số đại diện bên người sử dụng lao động tham gia đối thoại dưới mức tối thiểu 03 người"
+    can_facts: [so_dai_dien_doi_thoai_nsdld]
+    toi_thieu: 3
+    kiem: so_dai_dien_doi_thoai_nsdld >= toi_thieu
+    ghi_chu: >
+      Đ38.1: người sử dụng lao động "quyết định số lượng, thành phần đại diện
+      cho mình để tham gia đối thoại BẢO ĐẢM ÍT NHẤT 03 NGƯỜI, trong đó có
+      người đại diện theo pháp luật ... và quy định trong quy chế dân chủ ở cơ
+      sở tại nơi làm việc". Sàn cứng, nên `chan`.
+
+      Vế "trong đó có người đại diện theo pháp luật" CỐ Ý không được kiểm ở
+      đây. Nó chỉ kiểm được bằng một ô tick người dùng tự khai, mà kiểm một
+      lời khai bằng chính nó không chứng minh gì — cùng lý do
+      checklist_bien_ban_hop_hdqt.yaml không dựng rule tỷ lệ dự họp.
+
+      Sàn theo quy mô lao động của BÊN NGƯỜI LAO ĐỘNG (Đ38.2 điểm a, sáu bậc
+      a1-a6) cũng chưa dựng: bốn bậc giữa cho một KHOẢNG ("ít nhất từ 04 đến
+      08 người"), nên một con số nằm ngoài khoảng không có nghĩa xác định là
+      vi phạm, và đoán bừa cận trên là dựng ra một giới hạn luật không đặt.
+
 # Nhãn tiếng Việt + kiểu dữ liệu cho từng fact — phần DUY NHẤT không thể suy
 # ra từ cấu trúc `kiem:` (nhãn là văn bản người viết, không phải dữ liệu có
 # thể tính). Tập giá trị hợp lệ (vd. vung: I..IV) KHÔNG lặp lại ở đây — suy
@@ -100,3 +123,4 @@ facts_meta:
   co_dieu_khoan_giu_giay_to: {nhan: "Có điều khoản giữ giấy tờ tuỳ thân", kieu: bool}
   co_dieu_khoan_dat_coc:     {nhan: "Có điều khoản buộc đặt cọc", kieu: bool}
   lai_suat_nam_phan_tram:    {nhan: "Lãi suất vay (%/năm)", kieu: float}
+  so_dai_dien_doi_thoai_nsdld: {nhan: "Số đại diện bên người sử dụng lao động tham gia đối thoại (người)", kieu: int}
