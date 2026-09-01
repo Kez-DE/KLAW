@@ -300,7 +300,21 @@ function TheDong({ dong, q }: { dong: DongTimKiem; q: string }) {
           `ghiChu` tô đỏ vì nó dành cho câu nêu ĐÍCH DANH văn bản thay thế, còn
           đây là một LÝ DO. Đưa lý do của một nhãn hổ phách vào khay đỏ là dán
           mức báo động của nhãn nặng nhất lên mọi nhãn. */}
-      <BadgeHieuLuc hieuLuc={dong.hieu_luc.verdict} gonGang className="mt-2" />
+      {/* PHẠM VI của nhãn nằm ngay trước nhãn, không nằm trong một chú thích ở
+          cuối trang. `/tim-kiem` kết luận hiệu lực ở mức VĂN BẢN (`hieu_luc` là
+          của `documents`, không phải của `provisions`), nên một Điều còn nguyên
+          vẹn trong một văn bản `mot_phan_khong_xac_dinh` vẫn đeo nhãn của cả
+          văn bản. Đúng hợp đồng, và đọc nhầm được khi lướt một danh sách 20
+          thẻ — người lướt thấy chip trước, thấy chú thích sau, nếu có. Bốn chữ
+          "Cả văn bản 293/2025/NĐ-CP" đứng cùng dòng với chip là chỗ rẻ nhất
+          nói ra điều đó, và nó lặp lại số hiệu nên nhãn không thể bị đọc thành
+          nhãn của dòng trích ngay dưới. */}
+      <p className="m-0 mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        <span className="text-[12px] leading-5 text-muted-foreground">
+          Cả văn bản <span className="font-jetbrains">{dong.so_ky_hieu}</span>:
+        </span>
+        <BadgeHieuLuc hieuLuc={dong.hieu_luc.verdict} gonGang />
+      </p>
       <p className="m-0 mt-1 line-clamp-2 text-[12px] leading-5 text-muted-foreground">
         {dong.hieu_luc.ly_do}
       </p>
@@ -483,6 +497,21 @@ function ManTimKiem() {
               Tìm theo <strong className="font-semibold">từ khoá</strong> tới từng điều, khoản,
               điểm. Không dấu cũng ra.
             </p>
+            {/* Ô này khớp trên `provisions`, nên nó chỉ với tới tầng CÓ TOÀN
+                VĂN. Kho còn một tầng nữa chỉ có thông tin văn bản; gõ tên một
+                văn bản ở tầng đó ra 0 kết quả, và không nói ra điều này thì 0
+                kết quả đọc thành "văn bản đó không có trong kho". Con số lấy từ
+                `/bo-loc`, không viết cứng. */}
+            {boLoc !== null && (
+              <p className="mt-1 text-[12.5px] text-muted-foreground">
+                Ô này tìm trong {boLoc.tong_van_ban} văn bản có toàn văn. Kho còn một tầng chỉ có
+                thông tin văn bản, không tìm theo từ khoá được —{" "}
+                <Link to="/du-lieu" className="focus-brass rounded underline underline-offset-2">
+                  xem kho lấy từ đâu
+                </Link>
+                .
+              </p>
+            )}
 
             <div className="relative mt-4">
               <Search

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { goi } from "@/lib/api";
 import type { ApiError, ApiResult } from "@/lib/klaw";
 
 /**
@@ -88,4 +89,25 @@ export function useGoiApi<T>(): TrangThaiGoi<T> {
   }, []);
 
   return { dangChay, ketQua, loi, chay, huy, datLai };
+}
+
+/**
+ * Tải MỘT endpoint đọc thuần, một lần, khi màn hình dựng.
+ *
+ * Vỏ mỏng quanh `useGoiApi`, không phải một cơ chế thứ hai: cùng
+ * `AbortController`, cùng hạn giờ, cùng cách phân loại lỗi. Có nó vì ba trang
+ * thông tin (`/mien-tru`, `/du-lieu`) chỉ cần đúng hành vi này, và chép tay
+ * `useEffect` + `goi` ở mỗi trang là cách một trang lặng lẽ quên `signal` rồi
+ * set state trên cây đã gỡ.
+ *
+ * `kiem` phải là hàm ở cấp module (mọi type guard trong `lib/klaw.ts` đều
+ * vậy), nếu không hiệu ứng chạy lại mỗi lần dựng.
+ */
+export function useTaiMot<T>(duongDan: string, kiem: (x: unknown) => x is T): TrangThaiGoi<T> {
+  const trangThai = useGoiApi<T>();
+  const { chay } = trangThai;
+  useEffect(() => {
+    void chay((signal) => goi(duongDan, kiem, { signal }));
+  }, [chay, duongDan, kiem]);
+  return trangThai;
 }

@@ -463,6 +463,26 @@ function Landing() {
             sư hoặc tổ chức hành nghề luật. Vui lòng đối chiếu với văn bản quy phạm pháp luật đang
             có hiệu lực trước khi sử dụng.
           </p>
+          <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+            <Link
+              to="/mien-tru"
+              className="focus-brass rounded text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+            >
+              Giới hạn và miễn trừ
+            </Link>
+            <Link
+              to="/du-lieu"
+              className="focus-brass rounded text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+            >
+              Nguồn dữ liệu
+            </Link>
+            <Link
+              to="/bang-gia"
+              className="focus-brass rounded text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+            >
+              Bảng giá
+            </Link>
+          </p>
         </div>
       </footer>
 

@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { BookOpenText, FileSearch, Info } from "lucide-react";
 import type { Citation, Nguon, TraCuuKetQua } from "@/lib/klaw";
 import { cn } from "@/lib/utils";
@@ -221,7 +222,11 @@ function NhacMienTru() {
   return (
     <p className="mt-6 mb-0 text-[13px] leading-5 text-muted-foreground">
       Câu trả lời dựa trên văn bản gốc, không phải bản hợp nhất — KLAW bảo đảm nguồn gốc và đúng
-      nguyên văn, không bảo đảm đây là bản hiện hành.
+      nguyên văn, không bảo đảm đây là bản hiện hành.{" "}
+      <Link to="/mien-tru" className="focus-brass rounded underline underline-offset-2">
+        Giới hạn của hệ thống
+      </Link>
+      .
     </p>
   );
 }

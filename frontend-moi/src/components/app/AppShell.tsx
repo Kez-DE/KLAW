@@ -81,6 +81,20 @@ export function AppShell({
         </nav>
         <div className="mt-auto hidden rounded-lg border border-border bg-card p-3 text-[12px] text-muted-foreground xl:block">
           KLAW là trợ lý pháp lý, không thay thế ý kiến của luật sư.
+          <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+            <Link
+              to="/mien-tru"
+              className="focus-brass rounded underline underline-offset-2 hover:text-primary"
+            >
+              Giới hạn
+            </Link>
+            <Link
+              to="/du-lieu"
+              className="focus-brass rounded underline underline-offset-2 hover:text-primary"
+            >
+              Nguồn dữ liệu
+            </Link>
+          </span>
         </div>
       </aside>
 

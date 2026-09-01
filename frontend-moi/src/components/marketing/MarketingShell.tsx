@@ -40,6 +40,23 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               KLAW tạo ra chỉ mang tính tham khảo; luôn đối chiếu với văn bản gốc và rà soát bởi
               luật sư trước khi sử dụng.
             </p>
+            {/* Hai trang này nói ra giới hạn của hệ thống và nguồn của kho.
+                Chúng phải tới được từ MỌI trang, không nằm sâu trong một menu:
+                người đọc chỉ tìm chúng sau khi đã tin một câu trả lời. */}
+            <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
+              <Link
+                to="/mien-tru"
+                className="focus-brass rounded text-muted-foreground underline-offset-2 hover:text-brass-600 hover:underline"
+              >
+                Giới hạn và miễn trừ
+              </Link>
+              <Link
+                to="/du-lieu"
+                className="focus-brass rounded text-muted-foreground underline-offset-2 hover:text-brass-600 hover:underline"
+              >
+                Nguồn dữ liệu
+              </Link>
+            </p>
           </div>
         </footer>
       </div>
