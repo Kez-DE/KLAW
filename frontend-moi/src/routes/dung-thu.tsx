@@ -312,7 +312,7 @@ function ManHoiKlaw() {
                   không thư viện lịch: nó đã có bàn phím, trình đọc màn hình,
                   định dạng theo locale và lịch gốc của hệ điều hành. */}
               <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5">
-                <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-muted-foreground">
                   <CalendarClock
                     className="size-3.5 shrink-0 text-[var(--color-brass-600)]"
                     aria-hidden
@@ -335,7 +335,7 @@ function ManHoiKlaw() {
                       onClick={() => datNgayHieuLuc("")}
                       disabled={traCuu.dangChay}
                       aria-label="Bỏ ngày đã chọn, quay về hôm nay"
-                      className="focus-brass inline-flex cursor-pointer items-center gap-0.5 rounded-md px-1 py-0.5 text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/10 disabled:cursor-default disabled:opacity-60"
+                      className="focus-brass inline-flex min-h-6 cursor-pointer items-center gap-0.5 rounded-md px-1 py-0.5 text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/10 disabled:cursor-default disabled:opacity-60"
                     >
                       <X className="size-3" aria-hidden />
                       <span id="ngay-hieu-luc-mo-ta">về hôm nay</span>
