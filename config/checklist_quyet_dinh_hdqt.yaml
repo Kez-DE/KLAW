@@ -1,0 +1,91 @@
+# Checklist THỂ THỨC của NGHỊ QUYẾT, QUYẾT ĐỊNH CỦA HỘI ĐỒNG QUẢN TRỊ —
+# NĐ 30/2020 Đ8.2 a-i. Đ7 là mắt xích bắc cầu: nó liệt kê "Nghị quyết (cá
+# biệt)" và "quyết định (cá biệt)" trong danh sách văn bản hành chính, và chính
+# vì thế Đ8.2 mới với tới loại này.
+#
+# ══ PHẢI ĐỌC TRƯỚC KHI TIN CON SỐ COMPLETENESS CỦA MẪU NÀY ══
+#
+# 1. MẪU NÀY SOÁT HÌNH THỨC, KHÔNG SOÁT NỘI DUNG. completeness 1.0 ở đây nghĩa
+#    là "đủ chín thành phần thể thức", KHÔNG nghĩa là "nghị quyết này quyết
+#    đúng việc, đúng thẩm quyền, đúng tỷ lệ biểu quyết".
+#
+# 2. LUẬT DOANH NGHIỆP KHÔNG QUY ĐỊNH NỘI DUNG CỦA NGHỊ QUYẾT HĐQT. Đã tra hết
+#    cụm điều liên quan, ghi ra đây để lần sau không ai phải tra lại:
+#      • Đ153.1-2  — HĐQT là cơ quan quản lý; 17 điểm QUYỀN VÀ NGHĨA VỤ. Đây là
+#                    danh mục THẨM QUYỀN (được quyết việc gì), không phải danh
+#                    mục nội dung (văn bản phải ghi gì).
+#      • Đ153.3    — CÁCH thông qua (biểu quyết tại cuộc họp, lấy ý kiến bằng
+#                    văn bản, hoặc hình thức khác do Điều lệ quy định).
+#      • Đ153.4    — hậu quả khi nghị quyết trái luật: thành viên tán thành
+#                    liên đới chịu trách nhiệm. Là chế tài, không phải nội dung.
+#      • Đ157.12   — TỶ LỆ thông qua (đa số thành viên dự họp tán thành).
+#      • Đ158      — nội dung của BIÊN BẢN HỌP, một văn bản KHÁC. Mẫu cho nó là
+#                    `bien_ban_hop_hdqt`. Đừng ánh xạ mẫu này vào đó.
+#      • Đ156.3.c  — Chủ tịch HĐQT tổ chức việc thông qua nghị quyết. Thủ tục.
+#    Đối chiếu để thấy khác biệt là thật: LDN Đ208.1 nói thẳng "Nghị quyết,
+#    quyết định giải thể doanh nghiệp phải bao gồm các NỘI DUNG CHỦ YẾU sau
+#    đây" rồi liệt kê. Khi Quốc hội muốn quy định nội dung một nghị quyết, họ
+#    viết như vậy. Với nghị quyết HĐQT nói chung, họ không viết.
+#
+# 3. PHẠM VI ÁP DỤNG HẸP HƠN TÊN GỌI. NĐ 30/2020 Đ2.1: áp dụng đối với "cơ
+#    quan, tổ chức nhà nước và doanh nghiệp nhà nước". CÔNG TY CỔ PHẦN TƯ NHÂN
+#    KHÔNG NẰM TRONG PHẠM VI ĐÓ — mà HĐQT là thiết chế của công ty cổ phần, nên
+#    trên thực tế PHẦN LỚN người dùng mẫu này ở ngoài phạm vi Nghị định. Với
+#    họ, chín thành phần dưới đây là CHUẨN MỰC HÀNH CHÍNH phổ biến, không phải
+#    nghĩa vụ pháp lý. `muc_do_thieu: chan` đúng cho đối tượng trong phạm vi
+#    Đ2.1; với công ty cổ phần tư nhân hãy đọc nó là "lệch chuẩn", không phải
+#    "trái luật". Giới hạn này gắt hơn ở `cong_van` — đọc kỹ trước khi hiển thị.
+#
+# 4. PHỤ LỤC I KHÔNG CÓ TRONG KHO. Đ8.4 và Đ9 đẩy toàn bộ chi tiết trình bày
+#    sang Phụ lục I; bản đã nạp chỉ giữ được khối ký tên (48 ký tự). Quy tắc
+#    riêng về cách trình bày một nghị quyết (viện dẫn căn cứ, bố cục "Điều 1.
+#    … Điều 2. …") nằm ở đó nên KHÔNG trích dẫn được. Mẫu này vì thế KHÔNG đòi
+#    mục "căn cứ ban hành" — đòi một thứ không trích dẫn được là bịa căn cứ.
+#
+# 5. SOÁT VĂN BẢN DÁN VÀO CHỈ ĐÚNG VỚI VĂN BẢN CÓ ĐÁNH MỤC. Giới hạn CHUNG của
+#    mọi mẫu trong repo, xem đầu `checklist_cong_van.yaml`.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '30/2020/NĐ-CP > Điều 8 > Khoản 2%'
+#       OR duong_dan IN ('30/2020/NĐ-CP > Điều 7', '30/2020/NĐ-CP > Điều 2 > Khoản 1');
+loai: quyet_dinh_hdqt
+ten: "nghị quyết, quyết định của Hội đồng quản trị"
+tieu_de: "NGHỊ QUYẾT CỦA HỘI ĐỒNG QUẢN TRỊ"
+
+# "Thành phần", không "Điều": Đ8.1 gọi đúng chín thứ dưới đây là "các thành
+# phần cấu thành văn bản". Đơn vị này cũng nói thẳng với người đọc rằng cái
+# /soan-thao trả về là một BỘ KHUNG THỂ THỨC, không phải một nghị quyết đã
+# quyết xong việc.
+don_vi_muc: "Thành phần"
+
+# `chan`: Đ8.2 dùng chữ "bao gồm các thành phần chính". Đọc kèm giới hạn phạm
+# vi số 3 ở đầu file — với công ty cổ phần tư nhân, đọc là "lệch chuẩn".
+muc_do_thieu: chan
+
+# Không rule nào. Hai con số của LDN sờ được ở đây đều KHÔNG kiểm được trên văn
+# bản thành phẩm: Đ157.8 (họp hợp lệ khi có từ ba phần tư tổng số thành viên dự
+# họp) và Đ157.12 (thông qua khi đa số thành viên dự họp tán thành) là dữ kiện
+# của CUỘC HỌP, và nơi ghi chúng là biên bản họp (Đ158), không phải nghị quyết.
+# Kiểm chúng bằng một ô người dùng tự khai là kiểm một lời khai bằng chính nó.
+rules: []
+
+can_cu_goc: "30/2020/NĐ-CP > Điều 8 > Khoản 2"
+# Đ7 chứ không phải Đ9: Đ7 là điều DUY NHẤT nối chữ "nghị quyết (cá biệt),
+# quyết định (cá biệt)" vào chế định này. Không có nó, Đ8.2 chỉ nói về "văn bản
+# hành chính" nói chung và mẫu này thiếu mắt xích chứng minh nó áp cho đúng
+# loại văn bản đang soạn.
+can_cu_chi_tiet: "30/2020/NĐ-CP > Điều 7"
+
+# Chín thành phần CHÍNH của Đ8.2. Bốn thành phần BỔ SUNG của Đ8.3 cố ý không có
+# mặt: chính văn Đ8.3 nói "văn bản CÓ THỂ bổ sung".
+muc:
+  - {stt: 1, key: quoc_hieu, ten: "Quốc hiệu và Tiêu ngữ", diem: a, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm a", tu_khoa: ["quốc hiệu", "cộng hoà xã hội chủ nghĩa việt nam", "cộng hòa xã hội chủ nghĩa việt nam", "độc lập - tự do - hạnh phúc"]}
+  - {stt: 2, key: ten_co_quan, ten: "Tên công ty ban hành văn bản", diem: b, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm b", tu_khoa: ["tên công ty ban hành", "công ty ban hành", "tên cơ quan, tổ chức ban hành", "cơ quan, tổ chức ban hành", "tên công ty", "hội đồng quản trị công ty"]}
+  - {stt: 3, key: so_ky_hieu, ten: "Số, ký hiệu của văn bản", diem: c, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm c", tu_khoa: ["số, ký hiệu của văn bản", "số và ký hiệu", "số, ký hiệu", "ký hiệu", "số văn bản"]}
+  - {stt: 4, key: dia_danh_thoi_gian, ten: "Địa danh và thời gian ban hành văn bản", diem: d, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm d", tu_khoa: ["địa danh và thời gian ban hành", "địa danh, thời gian ban hành", "thời gian ban hành", "địa danh"]}
+  - {stt: 5, key: trich_yeu, ten: "Tên loại và trích yếu nội dung văn bản", diem: đ, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm đ", tu_khoa: ["trích yếu nội dung", "trích yếu", "về việc", "v/v"]}
+  - {stt: 6, key: noi_dung, ten: "Nội dung văn bản — vấn đề được quyết nghị", diem: e, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm e", tu_khoa: ["nội dung văn bản", "vấn đề được quyết nghị", "quyết nghị", "nội dung chính", "nội dung"]}
+  - {stt: 7, key: chuc_vu_chu_ky, ten: "Chức vụ, họ tên và chữ ký của người có thẩm quyền", diem: g, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm g", tu_khoa: ["chữ ký của người có thẩm quyền", "chức vụ, họ tên và chữ ký", "họ tên và chữ ký", "người có thẩm quyền", "chủ tịch hội đồng quản trị ký", "người ký văn bản"]}
+  - {stt: 8, key: dau_chu_ky_so, ten: "Dấu, chữ ký số của công ty", diem: h, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm h", tu_khoa: ["chữ ký số của công ty", "dấu, chữ ký số", "chữ ký số", "đóng dấu", "con dấu"]}
+  - {stt: 9, key: noi_nhan, ten: "Nơi nhận", diem: i, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm i", tu_khoa: ["nơi nhận"]}
