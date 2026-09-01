@@ -202,7 +202,7 @@ function Landing() {
               <h1 className="mt-6 font-display text-[40px] leading-[1.05] font-bold tracking-tight text-primary md:text-6xl lg:text-7xl">
                 Tra cứu pháp luật.
                 <br />
-                <span className="animate-shimmer bg-gradient-gold bg-clip-text text-transparent">
+                <span className="animate-shimmer text-gradient-gold-chu">
                   Soạn thảo có căn&nbsp;cứ.
                 </span>
               </h1>
@@ -306,7 +306,7 @@ function Landing() {
                   className="reveal relative rounded-2xl border border-border bg-card p-7 shadow-soft"
                   data-reveal-delay={i * 120}
                 >
-                  <span className="animate-float-slow font-display bg-gradient-gold bg-clip-text text-5xl font-bold text-transparent">
+                  <span className="animate-float-slow font-display text-gradient-gold-chu text-5xl font-bold">
                     {s.n}
                   </span>
                   <h3 className="mt-4 font-display text-lg font-semibold text-primary">

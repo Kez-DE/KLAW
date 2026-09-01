@@ -198,11 +198,24 @@
     oklch(0.44 0.09 255) 0%,
     oklch(0.33 0.07 258) 100%
   );
+  /* NỀN (nút, mảng màu): giữ sáng. Chữ `accent-foreground` nằm TRÊN nó đo
+     6,34–10,23:1 — làm tối gradient này sẽ kéo xuống 4,36:1, trượt AA. */
   --gradient-gold: linear-gradient(
     100deg,
     oklch(0.76 0.12 82) 0%,
     oklch(0.9 0.1 94) 50%,
     oklch(0.76 0.12 82) 100%
+  );
+  /* CHỮ (`bg-clip-text`): phải tối hơn. Cùng một gradient dùng cả hai kiểu có
+     hai yêu cầu NGƯỢC NHAU — chữ trên nền sáng cần tối, nền nút mang chữ tối
+     cần sáng. Bản sáng đo 2,08:1 ở hai chặn ngoài và 1,29:1 ở chặn giữa, tức
+     dòng chữ lớn nhất trang chủ gần như vô hình; chữ lớn cần 3:1.
+     L hạ tới biên: 0,660 / 0,656 → 3,02:1 cả ba chặn. */
+  --gradient-gold-chu: linear-gradient(
+    100deg,
+    oklch(0.66 0.12 82) 0%,
+    oklch(0.656 0.1 94) 50%,
+    oklch(0.66 0.12 82) 100%
   );
   --gradient-aurora: radial-gradient(
       120% 90% at 12% 8%,
@@ -260,6 +273,12 @@
 @utility bg-gradient-gold {
   background-image: var(--gradient-gold);
 }
+@utility text-gradient-gold-chu {
+  background-image: var(--gradient-gold-chu);
+  background-clip: text;
+  color: transparent;
+}
+
 @utility text-gradient-gold {
   background-image: var(--gradient-gold);
   background-clip: text;
