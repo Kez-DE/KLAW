@@ -197,24 +197,33 @@ truyền đạt chỉ bằng màu.** Hình và chữ mang nghĩa; màu chỉ nh�
 
 ---
 
-## Hai ràng buộc cứng — phải sửa ở pha sau
+## Ba ràng buộc cứng — đã dựng ở pha 5
 
-### 1. `abstain` phải trung tính
+Ba mục dưới đây từng là nợ. Chúng nay có thành phần thi hành, và mỗi mục ghi
+tên file để lần sau ai sửa còn biết chỗ nào là chỗ giữ lời hứa.
+
+### 1. `abstain` phải trung tính — `TheKetQua.tsx`
 
 `abstain` là hành vi **đúng**, được tính điểm trong đánh giá. Nó không bao giờ
 được mang màu cảnh báo, không icon lỗi, không rung.
 
 `Klaw_FE` vi phạm: `dung-thu.tsx:248-269` tô nhánh "không đủ căn cứ" bằng
 `--color-status-partial` (cam) kèm icon `TriangleAlert`. Khối đó đã bị xoá ở pha
-0 cùng các câu trả lời đóng hộp, nên **vi phạm hiện không còn trong mã** — nhưng
-hệ thiết kế vẫn **chưa có token trung tính** để dựng lại cho đúng.
-`--color-status-neutral` ở bảng trên là chỗ dành sẵn cho nó.
+0 cùng các câu trả lời đóng hộp.
+
+Nay `abstain` **và** `out_of_scope` dùng CHUNG một khay `--color-status-neutral`,
+cùng hình dạng, khác đúng ở chữ: hai nhánh "hệ thống không trả lời" phải đọc như
+cùng một loại sự việc, không phải hai mức báo động. `answer` là nhánh duy nhất
+mang nhắc miễn trừ, vì cũng là nhánh duy nhất đưa ra một khẳng định pháp lý.
 
 Nếu giao diện tô đỏ hoặc cam câu "tôi không đủ căn cứ", nó dạy người dùng rằng
-sự trung thực là thất bại. Đỏ chỉ dành cho **luật đã bị thay thế** — thứ duy
-nhất khiến người dùng hành động sai.
+sự trung thực là thất bại. Đỏ chỉ dành cho **luật không dùng được nữa** — thứ
+duy nhất khiến người dùng hành động sai. Tám nhánh lỗi hệ thống trong
+`BaoLoi.tsx` vì vậy cũng KHÔNG mượn màu hiệu lực: một lỗi mạng mang cùng tín
+hiệu với một điều luật đã bị thay thế thì lần sau người dùng lướt qua cảnh báo
+thật.
 
-### 2. `mot_phan_khong_xac_dinh` bị dịch mất nghĩa
+### 2. `mot_phan_khong_xac_dinh` bị dịch mất nghĩa — `BadgeHieuLuc.tsx`
 
 `van-ban.ts` và `VanBanUI.tsx` gọi nhãn này là **"Hết hiệu lực một phần"** — bỏ
 mất chữ **"không xác định"**, tức bỏ mất lời thú nhận giới hạn. Hai câu nói hai
@@ -224,19 +233,35 @@ chuyện khác nhau:
 - *"Bị sửa một phần, chưa xác định được điều này còn hiệu lực hay không"* — hệ
   thống **không biết**, và nói ra.
 
-Chỉ câu thứ hai là đúng với dữ liệu. Nhãn phải mang cả mệnh đề đó, không rút gọn
-cho vừa chip.
+`BadgeHieuLuc` hiện chip *"Một phần không xác định"*, `nhanDayDu` cho trình đọc
+màn hình mang trọn mệnh đề thứ hai, và ngay dưới chip là câu nói ra lý do: CSDL
+quốc gia không công bố dữ liệu cấp điều khoản.
 
-### 3. Ba màu cho năm nhãn
+**Còn nợ, ghi rõ:** `van-ban.ts` và `VanBanUI.tsx` **chưa** đổi. Năm chuỗi trong
+`TinhTrang` là giá trị thô của cột `documents.tinh_trang` do MOJ cấp, không phải
+nhãn KLAW — đổi tên chúng sẽ làm chúng thôi khớp với dữ liệu nguồn. Việc đúng
+không phải dịch lại chúng mà là **thay hẳn**: mọi trạng thái đi qua
+`effectivity.py` rồi hiện bằng `BadgeHieuLuc`. Đó là việc của pha nối FE; hiện
+`VAN_BAN` rỗng nên `StatusBadge` không render gì.
 
-`PRODUCT.md` định nghĩa năm nhãn hiệu lực; `Klaw_FE` có ba màu trạng thái, bản
-cũ có bốn. Chưa có chỗ hiện cho `bi_thay_the` (khác `het_hieu_luc` ở chỗ **phải
-nêu đích danh văn bản thay thế**), `bi_sua_doi` (biết đích danh điều khoản, văn
-bản và ngày), và `can_doi_chieu_tay`. Cộng thêm `abstain` cần màu trung tính.
+### 3. Bốn màu cho sáu nhãn — `BadgeHieuLuc.tsx`
 
-Cách bản cũ giải bài này và nên giữ: **`switch` trên chuỗi, nhãn lạ rơi xuống
-`default` an toàn**, kèm `nhanDayDu` cho trình đọc màn hình — chứ không phải một
-`Record<>` ném lỗi khi backend thêm nhãn thứ sáu.
+`PRODUCT.md` định nghĩa năm nhãn hiệu lực, backend vừa thêm `bi_sua_doi`
+(`do_tin_cay: cao`) là sáu; `Klaw_FE` có ba màu, bản cũ có bốn. Nay đủ sáu nhãn
+trên bốn màu — xem "Bốn màu cho sáu nhãn" ở phần bảng màu để biết vì sao màu
+thứ năm là bất khả thi về số đo.
+
+Cách bản cũ giải bài này và pha 5 giữ nguyên: **`switch` trên chuỗi, nhãn lạ rơi
+xuống `default` an toàn** (hiện nguyên chuỗi, màu trung tính), kèm `nhanDayDu`
+cho trình đọc màn hình — chứ không phải một `Record<>` ném lỗi khi backend thêm
+nhãn thứ bảy.
+
+**Một chỗ pha 5 cố ý làm khác bản cũ:** bản cũ để `con_hieu_luc` chỉ là một
+CHẤM MÀU, chữ chỉ có trong `sr-only`. Cơ chế `nhanDayDu` được giữ, nhưng biến
+thể chấm-trần thì không: một chấm xanh không kèm chữ **là** trạng thái truyền
+đạt chỉ bằng màu, đúng thứ bất biến ở trên cấm. Mọi nhãn nay đều có chữ nhìn
+thấy được; `nhanDayDu` chỉ bổ sung khi chữ hiển thị là bản rút gọn của mệnh đề
+đầy đủ.
 
 ---
 
@@ -292,17 +317,56 @@ animation trong khoảng đó để người bật `prefers-reduced-motion` ng�
 hình đứng im, không biết hệ thống còn sống hay đã treo. Đó không phải giảm
 chuyển động, đó là **gỡ phản hồi trạng thái**.
 
-Hai lớp này hiện **chưa có nơi gọi** trong JSX — giao diện phát token đi cùng
-các câu trả lời đóng hộp đã bị xoá. Hợp đồng CSS được giữ có chủ đích: pha nối
-backend cần đúng một trạng thái chờ cho lượt 10–60 giây, và đây là thứ nó phải
-dùng lại.
+`.thinking-dot` nay **có nơi gọi**: `TrangThaiCho.tsx` dùng nó cho chấm của bước
+đang chạy. Hợp đồng CSS được giữ ở pha 0 có chủ đích, và đây đúng là thứ dùng
+lại nó.
 
-Trên ngưỡng 10 giây, một chỉ báo không xác định đọc như treo máy: phải có **tên
-bước đang chạy**, tiến trình xác định, và **nút huỷ**. Hoãn 300–500ms trước khi
-hiện chỉ báo để câu trả lời nhanh không loé rồi tắt. Luôn có timeout dẫn tới lỗi
-thật kèm nút thử lại — không treo im lặng.
-`Klaw_FE` có **0 `AbortController`** trong toàn bộ `src/`: không nút huỷ, không
-timeout, không bước. Nợ đã biết.
+Trên ngưỡng 10 giây, một chỉ báo không xác định đọc như treo máy, nên
+`TrangThaiCho` có đủ: **tên bước đang chạy**, tiến trình **xác định** theo bước
+(1..4, `role="progressbar"` kèm `aria-valuetext`), hoãn **400ms** trước khi hiện
+để câu trả lời nhanh không loé rồi tắt, và một **nút huỷ thật** — `useGoiApi`
+giữ `AbortController`, nên huỷ là huỷ lượt gọi chứ không phải ẩn khay đi. Huỷ
+xong tiêu điểm quay về ô hỏi thay vì rơi về `<body>`.
+
+Ba trạng thái bước phân biệt bằng **hình**, không bằng màu: dấu tích (xong),
+chấm đặc (đang chạy), vòng rỗng (chưa tới).
+
+Tiến trình là **ước lượng theo thời gian đã trôi**, và khay nói thẳng điều đó
+với người dùng: bốn bước có thật trong đồ thị xử lý, nhưng máy chủ trả một lần
+chứ không stream. Một thanh tiến trình giả vờ là dữ liệu đo được sẽ phản bội
+chính luận điểm của sản phẩm.
+
+**Còn nợ:** timeout THẬT chưa có. `useGoiApi` huỷ được nhưng chưa ai đặt hạn
+giờ, vì hạn giờ thuộc tầng gọi API — chưa tồn tại ở pha 5. Khi nối: 60 giây cho
+tra cứu, dẫn tới `ApiError { kind: "timeout" }` rồi hiện qua `BaoLoi` kèm nút
+thử lại. Không treo im lặng.
+
+---
+
+## Trợ năng cấp kiến trúc
+
+Ba thứ dưới đây không thuộc về một màn hình nào, nên chúng nằm ở vỏ trang và ở
+gốc — sửa ở cấp trang thì mỗi màn mới lại phải nhớ nối dây một lần nữa.
+
+- **`useKhungModalDangMo`** (`hooks/use-khung-modal.ts`) — `MutationObserver`
+  theo dõi `aria-modal="true"` trong DOM, rồi `AppShell` / `MarketingShell` bọc
+  `inert` quanh điều hướng, đầu trang và chân trang. Khai `aria-modal` là nói
+  với công nghệ hỗ trợ rằng phần còn lại của trang không tồn tại, nhưng lời khai
+  đó **không** chặn phím Tab: ở một cột, Tab vài lần là tiêu điểm ra một liên
+  kết đang nằm khuất sau lớp phủ đặc. Một cơ chế đọc thẳng lời khai trong DOM,
+  nên lời khai và việc thi hành không thể lệch nhau, và khung modal thêm sau tự
+  động được phủ. Cột nội dung là con của `<main>` nên trang gọi tự bọc `inert`
+  cho nó — xem `thanh-phan.tsx`.
+- **Liên kết bỏ qua** (`__root.tsx` + `.bo-qua-lien-ket`) — ẩn tới khi nhận tiêu
+  điểm, trỏ tới `#noi-dung-chinh`. Cả **10 tuyến** đều có đúng một `<main>` mang
+  mốc đó; đã đo bằng trình duyệt. Liên kết này **không** mang `inert` khi có
+  modal: nó đứng trước mọi thứ khác trong vòng Tab nên không phải đường thoát
+  khỏi modal, và một liên kết bỏ qua bị bịt lại thì tệ hơn là không có.
+- **Thông báo chuyển tuyến** (`__root.tsx`) — vùng `aria-live="polite"` đọc
+  `document.title` sau mỗi lần đổi tuyến. Đây là ứng dụng một trang: đổi tuyến
+  không tải lại trang nên trình đọc màn hình không tự đọc gì cả. Vùng này nằm
+  NGOÀI `<Outlet />` để không bị gỡ mỗi lần đổi tuyến — một vùng `aria-live` vừa
+  gắn vào DOM thì nội dung đầu tiên của nó không được thông báo.
 
 ---
 
@@ -345,13 +409,16 @@ timeout, không bước. Nợ đã biết.
 
 | Mức | Việc |
 |---|---|
-| Cao | Bốn màu trạng thái không đạt AA làm chữ; `status-active` vs `status-expired` tách 1,03:1 |
-| Cao | Chưa có token trung tính cho `abstain` và `can_doi_chieu_tay` |
-| Cao | `mot_phan_khong_xac_dinh` bị dịch thành "Hết hiệu lực một phần" |
-| Cao | `--ring` 2,56:1, dưới ngưỡng 3:1 của WCAG 1.4.11 cho vòng tiêu điểm |
-| Trung bình | `--color-brass-600` làm chữ 3,15:1 và đang dùng làm chữ khắp nơi |
-| Trung bình | `--input` dùng chung `--border` 1,23:1 — ranh giới ô nhập cần 3:1 |
+| ~~Cao~~ | ~~Bốn màu trạng thái không đạt AA; `status-active` vs `status-expired` 1,03:1~~ — pha 5 |
+| ~~Cao~~ | ~~Chưa có token trung tính cho `abstain`~~ — `--color-status-neutral`, pha 5 |
+| ~~Cao~~ | ~~`mot_phan_khong_xac_dinh` bị dịch mất nghĩa~~ — `BadgeHieuLuc`, pha 5 (còn `van-ban.ts`, xem mục 2) |
+| ~~Cao~~ | ~~`--ring` 2,56:1~~ — 3,20:1, pha 5. Kèm `focus-brass` 1,93:1 → dùng `--ring` |
+| ~~Trung bình~~ | ~~`--color-brass-600` làm chữ 3,15:1~~ — 5,35:1, pha 5 |
+| ~~Trung bình~~ | ~~`--input` dùng chung `--border` 1,23:1~~ — tách ra, 3,00:1, pha 5 |
+| ~~Trung bình~~ | ~~0 `AbortController`~~ — `useGoiApi` + `TrangThaiCho`, pha 5 |
+| Cao | `van-ban.ts` / `VanBanUI.tsx` còn render `tinh_trang` thô của MOJ — thay bằng `BadgeHieuLuc` ở pha nối FE |
+| Trung bình | Timeout THẬT chưa có: `useGoiApi` huỷ được nhưng chưa ai đặt hạn giờ; hạn 60s thuộc tầng gọi API, pha nối FE |
 | Trung bình | Font qua CDN bên thứ ba thay vì tự host |
-| Trung bình | 0 `AbortController`: không nút huỷ, không timeout cho lượt 10–60 giây |
+| Trung bình | Tuyến mở văn bản định danh bằng `so_ky_hieu` (`/tra-cuu/$soHieu`), mà `65/2006/QH11` thuộc hai văn bản — khoá đúng là `doc_id` |
 | Thấp | Hero không có ô hỏi thật, chỉ hai nút CTA |
 | Thấp | `/dang-nhap` và `/dang-ky` không có `h1` |

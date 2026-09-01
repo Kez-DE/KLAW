@@ -277,7 +277,18 @@ function TrangThanhPhan() {
 
   return (
     <AppShell>
-      <div className="mx-auto w-full max-w-3xl px-4 py-8">
+      {/*
+        Ở bố cục MỘT CỘT, khung đối chiếu phủ kín màn hình và khai `aria-modal`.
+        `useKhungModalDangMo` trong vỏ trang đã bọc `inert` quanh điều hướng và
+        thanh dưới, nhưng cột nội dung này là con của <main> nên nằm ngoài tầm
+        với của vỏ — trang gọi phải tự gỡ nó khỏi vòng Tab. Nếu không, Tab vài
+        lần là tiêu điểm rơi xuống một nút đang nằm khuất sau lớp phủ đặc.
+        Khung đối chiếu nằm NGOÀI div này nên không tự bọc `inert` lên chính nó.
+      */}
+      <div
+        inert={trichDanDangMo !== null && !haiCot}
+        className="mx-auto w-full max-w-3xl px-4 py-8"
+      >
         <header>
           <h1 className="font-display text-2xl font-bold text-primary">Thành phần giao diện</h1>
           <div

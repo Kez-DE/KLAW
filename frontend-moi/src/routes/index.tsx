@@ -180,252 +180,257 @@ function Landing() {
         </nav>
       </header>
 
-      {/* ---------- Hero with interactive 3D ---------- */}
-      <section className="relative flex min-h-[100svh] max-h-[1000px] items-center overflow-hidden pt-16">
-        <div className="absolute inset-0">
-          <HeroCanvas />
-        </div>
-        {/* readability veil, does not block the 3D pointer interaction */}
-        <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background via-background/80 via-40% to-transparent md:bg-gradient-to-r md:via-background/85 md:via-45%"
-          aria-hidden
-        />
+      <main id="noi-dung-chinh">
+        {/* ---------- Hero with interactive 3D ---------- */}
+        <section className="relative flex min-h-[100svh] max-h-[1000px] items-center overflow-hidden pt-16">
+          <div className="absolute inset-0">
+            <HeroCanvas />
+          </div>
+          {/* readability veil, does not block the 3D pointer interaction */}
+          <div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background via-background/80 via-40% to-transparent md:bg-gradient-to-r md:via-background/85 md:via-45%"
+            aria-hidden
+          />
 
-        <div className="pointer-events-none relative mx-auto w-full max-w-6xl px-5 pb-20">
-          <div className="max-w-xl">
-            <span className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-accent/50 bg-accent/15 px-3.5 py-1.5 text-xs font-medium text-accent-foreground">
-              <Sparkles className="size-3.5" />
-              Trợ lý AI pháp luật Việt Nam
-            </span>
-
-            <h1 className="mt-6 font-display text-[40px] leading-[1.05] font-bold tracking-tight text-primary md:text-6xl lg:text-7xl">
-              Tra cứu pháp luật.
-              <br />
-              <span className="animate-shimmer bg-gradient-gold bg-clip-text text-transparent">
-                Soạn thảo có căn&nbsp;cứ.
+          <div className="pointer-events-none relative mx-auto w-full max-w-6xl px-5 pb-20">
+            <div className="max-w-xl">
+              <span className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-accent/50 bg-accent/15 px-3.5 py-1.5 text-xs font-medium text-accent-foreground">
+                <Sparkles className="size-3.5" />
+                Trợ lý AI pháp luật Việt Nam
               </span>
-            </h1>
 
-            <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-              KLAW đọc câu hỏi của bạn, dẫn chiếu đúng điều, khoản, điểm trong pháp luật lao động
-              Việt Nam kèm nhãn hiệu lực, và soạn thảo văn bản pháp lý đúng thể thức. Một lượt trả
-              lời thường mất 10–60 giây.
-            </p>
+              <h1 className="mt-6 font-display text-[40px] leading-[1.05] font-bold tracking-tight text-primary md:text-6xl lg:text-7xl">
+                Tra cứu pháp luật.
+                <br />
+                <span className="animate-shimmer bg-gradient-gold bg-clip-text text-transparent">
+                  Soạn thảo có căn&nbsp;cứ.
+                </span>
+              </h1>
 
-            <div className="pointer-events-auto mt-9 flex flex-wrap items-center gap-3">
-              <Link
-                to="/chat"
-                className="group relative inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-elegant transition-all hover:-translate-y-0.5"
-              >
-                Bắt đầu trò chuyện
-                <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-              <a
-                href="#tinh-nang"
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-card/80 px-6 py-3.5 text-sm font-semibold text-primary backdrop-blur transition-all hover:-translate-y-0.5 hover:border-accent hover:shadow-soft"
-              >
-                <BookOpenText className="size-4" />
-                Tìm hiểu thêm
-              </a>
-            </div>
+              <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
+                KLAW đọc câu hỏi của bạn, dẫn chiếu đúng điều, khoản, điểm trong pháp luật lao động
+                Việt Nam kèm nhãn hiệu lực, và soạn thảo văn bản pháp lý đúng thể thức. Một lượt trả
+                lời thường mất 10–60 giây.
+              </p>
 
-            {/*
+              <div className="pointer-events-auto mt-9 flex flex-wrap items-center gap-3">
+                <Link
+                  to="/chat"
+                  className="group relative inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-elegant transition-all hover:-translate-y-0.5"
+                >
+                  Bắt đầu trò chuyện
+                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+                <a
+                  href="#tinh-nang"
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-card/80 px-6 py-3.5 text-sm font-semibold text-primary backdrop-blur transition-all hover:-translate-y-0.5 hover:border-accent hover:shadow-soft"
+                >
+                  <BookOpenText className="size-4" />
+                  Tìm hiểu thêm
+                </a>
+              </div>
+
+              {/*
               Dòng chỉ số cũ ghi "12+ lĩnh vực", "30+ mẫu", "< 10s cho một bản dự
               thảo": lĩnh vực thật là 6, mẫu định nghĩa là 25, và một lượt trả lời
               mất 10–60 giây. Không thay bằng bộ số viết cứng khác — số phạm vi
               corpus phải lấy từ API ở trang /pham-vi, nếu không nó sẽ sai ngay lần
               mở rộng corpus đầu tiên.
             */}
-          </div>
-        </div>
-
-        {/* interaction hint */}
-        <div className="pointer-events-none absolute right-6 bottom-24 hidden items-center gap-2 rounded-full border border-border bg-card/85 px-4 py-2 text-xs text-muted-foreground shadow-soft backdrop-blur lg:flex">
-          <MousePointer2 className="size-3.5 text-accent-foreground" />
-          Kéo chuột để xoay và cuộn để phóng khung cảnh 3D
-        </div>
-        <div className="pointer-events-none absolute bottom-7 left-1/2 -translate-x-1/2 text-muted-foreground">
-          <ChevronDown className="animate-scroll-hint size-5" />
-        </div>
-      </section>
-
-      {/* ---------- Features ---------- */}
-      <section id="tinh-nang" className="relative py-24">
-        <div className="mx-auto max-w-6xl px-5">
-          <div className="reveal mx-auto max-w-2xl text-center">
-            <p className="font-display text-sm font-semibold tracking-[0.2em] text-accent-foreground uppercase">
-              Tính năng
-            </p>
-            <h2 className="mt-3 font-display text-3xl font-bold text-primary sm:text-4xl">
-              Một trợ lý, trọn quy trình pháp lý
-            </h2>
-            <p className="mt-4 text-muted-foreground">
-              Từ lúc bạn thắc mắc một quy định cho tới khi có bản thảo văn bản hoàn chỉnh trong tay.
-            </p>
+            </div>
           </div>
 
-          <div className="tilt-stage mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f, i) => (
-              <article
-                key={f.title}
-                data-tilt
-                className="reveal tilt-card rounded-2xl border border-border bg-card p-6 shadow-soft"
-                data-reveal-delay={i * 70}
-              >
-                <span className="tilt-lift inline-flex size-11 items-center justify-center rounded-xl bg-gradient-ink text-primary-foreground shadow-soft">
-                  <f.icon className="size-5" />
-                </span>
-                <h3 className="tilt-lift mt-5 font-display text-lg font-semibold text-primary">
-                  {f.title}
-                </h3>
-                <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
-              </article>
-            ))}
+          {/* interaction hint */}
+          <div className="pointer-events-none absolute right-6 bottom-24 hidden items-center gap-2 rounded-full border border-border bg-card/85 px-4 py-2 text-xs text-muted-foreground shadow-soft backdrop-blur lg:flex">
+            <MousePointer2 className="size-3.5 text-accent-foreground" />
+            Kéo chuột để xoay và cuộn để phóng khung cảnh 3D
           </div>
-        </div>
-      </section>
-
-      {/* ---------- How it works ---------- */}
-      <section id="quy-trinh" className="paper-texture border-y border-border py-24">
-        <div className="mx-auto max-w-6xl px-5">
-          <div className="reveal mx-auto max-w-2xl text-center">
-            <p className="font-display text-sm font-semibold tracking-[0.2em] text-accent-foreground uppercase">
-              Quy trình
-            </p>
-            <h2 className="mt-3 font-display text-3xl font-bold text-primary sm:text-4xl">
-              Ba bước tới câu trả lời
-            </h2>
+          <div className="pointer-events-none absolute bottom-7 left-1/2 -translate-x-1/2 text-muted-foreground">
+            <ChevronDown className="animate-scroll-hint size-5" />
           </div>
+        </section>
 
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {STEPS.map((s, i) => (
-              <div
-                key={s.n}
-                className="reveal relative rounded-2xl border border-border bg-card p-7 shadow-soft"
-                data-reveal-delay={i * 120}
-              >
-                <span className="animate-float-slow font-display bg-gradient-gold bg-clip-text text-5xl font-bold text-transparent">
-                  {s.n}
-                </span>
-                <h3 className="mt-4 font-display text-lg font-semibold text-primary">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
-                {i < STEPS.length - 1 && (
-                  <ArrowRight className="absolute top-1/2 -right-3 hidden size-6 text-accent md:block" />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- Practice areas ---------- */}
-      <section id="linh-vuc" className="py-24">
-        <div className="mx-auto max-w-6xl px-5">
-          <div className="grid items-center gap-12 lg:grid-cols-2">
-            <div className="reveal">
+        {/* ---------- Features ---------- */}
+        <section id="tinh-nang" className="relative py-24">
+          <div className="mx-auto max-w-6xl px-5">
+            <div className="reveal mx-auto max-w-2xl text-center">
               <p className="font-display text-sm font-semibold tracking-[0.2em] text-accent-foreground uppercase">
-                Lĩnh vực
+                Tính năng
               </p>
               <h2 className="mt-3 font-display text-3xl font-bold text-primary sm:text-4xl">
-                Bao phủ những lĩnh vực bạn cần nhất
+                Một trợ lý, trọn quy trình pháp lý
               </h2>
-              <p className="mt-4 leading-relaxed text-muted-foreground">
-                KLAW truy hồi trên một kho văn bản pháp luật Việt Nam có giới hạn rõ ràng, không
-                phải một mô hình được huấn luyện trên toàn bộ pháp luật. Chiều sâu không đều: cụm
-                Lao động có luật, nghị định, thông tư và chế tài; năm bộ luật còn lại hiện chỉ có
-                bản thân bộ luật. Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn kiểm chứng.
+              <p className="mt-4 text-muted-foreground">
+                Từ lúc bạn thắc mắc một quy định cho tới khi có bản thảo văn bản hoàn chỉnh trong
+                tay.
               </p>
-              <Link
-                to="/chat"
-                className="mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-elegant"
-              >
-                <Gavel className="size-4" />
-                Hỏi KLAW một câu
-              </Link>
             </div>
 
-            <ul className="-mx-5 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-5 pb-2 md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
-              {AREAS.map((a, i) => (
-                <li
-                  key={a.ten}
-                  className="reveal shrink-0 snap-start rounded-full border border-border bg-card px-4 py-2 text-sm whitespace-nowrap text-primary shadow-soft transition-all hover:-translate-y-0.5 hover:border-accent hover:bg-accent/10 md:shrink"
-                  data-reveal-delay={i * 45}
+            <div className="tilt-stage mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {FEATURES.map((f, i) => (
+                <article
+                  key={f.title}
+                  data-tilt
+                  className="reveal tilt-card rounded-2xl border border-border bg-card p-6 shadow-soft"
+                  data-reveal-delay={i * 70}
                 >
-                  {a.ten}
-                  <span className="ml-1.5 text-xs text-muted-foreground">
-                    {a.sau ? "luật + văn bản dưới luật" : "chỉ bộ luật"}
+                  <span className="tilt-lift inline-flex size-11 items-center justify-center rounded-xl bg-gradient-ink text-primary-foreground shadow-soft">
+                    <f.icon className="size-5" />
                   </span>
-                </li>
+                  <h3 className="tilt-lift mt-5 font-display text-lg font-semibold text-primary">
+                    {f.title}
+                  </h3>
+                  <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
+                </article>
               ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- FAQ ---------- */}
-      <section id="faq" className="paper-texture border-t border-border py-24">
-        <div className="mx-auto max-w-3xl px-5">
-          <div className="reveal text-center">
-            <p className="font-display text-sm font-semibold tracking-[0.2em] text-accent-foreground uppercase">
-              Hỏi đáp
-            </p>
-            <h2 className="mt-3 font-display text-3xl font-bold text-primary sm:text-4xl">
-              Những câu hỏi thường gặp
-            </h2>
-          </div>
-
-          <div className="mt-12 space-y-3">
-            {FAQS.map((f, i) => (
-              <details
-                key={f.q}
-                className="reveal group rounded-xl border border-border bg-card px-5 py-4 shadow-soft transition-colors open:border-accent"
-                data-reveal-delay={i * 80}
-              >
-                <summary className="flex cursor-pointer list-none items-center gap-3 font-medium text-primary">
-                  <span className="flex-1">{f.q}</span>
-                  <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
-                </summary>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{f.a}</p>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- CTA ---------- */}
-      <section className="relative overflow-hidden py-24">
-        <div className="mx-auto max-w-4xl px-5">
-          <div className="reveal relative overflow-hidden rounded-3xl bg-gradient-ink px-8 py-16 text-center shadow-elegant">
-            <span className="animate-pulse-ring absolute top-1/2 left-1/2 size-40 -translate-x-1/2 -translate-y-1/2 rounded-full border border-accent/40" />
-            <span className="relative inline-flex size-14 items-center justify-center rounded-2xl bg-accent/20 text-accent shadow-gold">
-              <Scale className="size-7" />
-            </span>
-            <h2 className="relative mt-6 font-display text-3xl font-bold text-primary-foreground sm:text-4xl">
-              Sẵn sàng tra cứu và soạn thảo?
-            </h2>
-            <p className="relative mx-auto mt-4 max-w-lg text-sm leading-relaxed text-primary-foreground/75">
-              Mở KLAW và đặt câu hỏi pháp lý đầu tiên của bạn. Không cần đăng ký, không cần thuật
-              ngữ chuyên ngành.
-            </p>
-            <div className="relative mt-9 flex flex-wrap justify-center gap-3">
-              <Link
-                to="/chat"
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-gold px-7 py-3.5 text-sm font-bold text-accent-foreground shadow-gold transition-transform hover:-translate-y-0.5"
-              >
-                Trò chuyện với KLAW
-                <ArrowRight className="size-4" />
-              </Link>
-              <Link
-                to="/huong-dan"
-                className="inline-flex items-center gap-2 rounded-xl border border-primary-foreground/30 px-7 py-3.5 text-sm font-semibold text-primary-foreground transition-colors hover:border-accent"
-              >
-                <BookOpenText className="size-4" />
-                Xem hướng dẫn
-              </Link>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        {/* ---------- How it works ---------- */}
+        <section id="quy-trinh" className="paper-texture border-y border-border py-24">
+          <div className="mx-auto max-w-6xl px-5">
+            <div className="reveal mx-auto max-w-2xl text-center">
+              <p className="font-display text-sm font-semibold tracking-[0.2em] text-accent-foreground uppercase">
+                Quy trình
+              </p>
+              <h2 className="mt-3 font-display text-3xl font-bold text-primary sm:text-4xl">
+                Ba bước tới câu trả lời
+              </h2>
+            </div>
+
+            <div className="mt-14 grid gap-6 md:grid-cols-3">
+              {STEPS.map((s, i) => (
+                <div
+                  key={s.n}
+                  className="reveal relative rounded-2xl border border-border bg-card p-7 shadow-soft"
+                  data-reveal-delay={i * 120}
+                >
+                  <span className="animate-float-slow font-display bg-gradient-gold bg-clip-text text-5xl font-bold text-transparent">
+                    {s.n}
+                  </span>
+                  <h3 className="mt-4 font-display text-lg font-semibold text-primary">
+                    {s.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
+                  {i < STEPS.length - 1 && (
+                    <ArrowRight className="absolute top-1/2 -right-3 hidden size-6 text-accent md:block" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- Practice areas ---------- */}
+        <section id="linh-vuc" className="py-24">
+          <div className="mx-auto max-w-6xl px-5">
+            <div className="grid items-center gap-12 lg:grid-cols-2">
+              <div className="reveal">
+                <p className="font-display text-sm font-semibold tracking-[0.2em] text-accent-foreground uppercase">
+                  Lĩnh vực
+                </p>
+                <h2 className="mt-3 font-display text-3xl font-bold text-primary sm:text-4xl">
+                  Bao phủ những lĩnh vực bạn cần nhất
+                </h2>
+                <p className="mt-4 leading-relaxed text-muted-foreground">
+                  KLAW truy hồi trên một kho văn bản pháp luật Việt Nam có giới hạn rõ ràng, không
+                  phải một mô hình được huấn luyện trên toàn bộ pháp luật. Chiều sâu không đều: cụm
+                  Lao động có luật, nghị định, thông tư và chế tài; năm bộ luật còn lại hiện chỉ có
+                  bản thân bộ luật. Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn kiểm chứng.
+                </p>
+                <Link
+                  to="/chat"
+                  className="mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-elegant"
+                >
+                  <Gavel className="size-4" />
+                  Hỏi KLAW một câu
+                </Link>
+              </div>
+
+              <ul className="-mx-5 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-5 pb-2 md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
+                {AREAS.map((a, i) => (
+                  <li
+                    key={a.ten}
+                    className="reveal shrink-0 snap-start rounded-full border border-border bg-card px-4 py-2 text-sm whitespace-nowrap text-primary shadow-soft transition-all hover:-translate-y-0.5 hover:border-accent hover:bg-accent/10 md:shrink"
+                    data-reveal-delay={i * 45}
+                  >
+                    {a.ten}
+                    <span className="ml-1.5 text-xs text-muted-foreground">
+                      {a.sau ? "luật + văn bản dưới luật" : "chỉ bộ luật"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- FAQ ---------- */}
+        <section id="faq" className="paper-texture border-t border-border py-24">
+          <div className="mx-auto max-w-3xl px-5">
+            <div className="reveal text-center">
+              <p className="font-display text-sm font-semibold tracking-[0.2em] text-accent-foreground uppercase">
+                Hỏi đáp
+              </p>
+              <h2 className="mt-3 font-display text-3xl font-bold text-primary sm:text-4xl">
+                Những câu hỏi thường gặp
+              </h2>
+            </div>
+
+            <div className="mt-12 space-y-3">
+              {FAQS.map((f, i) => (
+                <details
+                  key={f.q}
+                  className="reveal group rounded-xl border border-border bg-card px-5 py-4 shadow-soft transition-colors open:border-accent"
+                  data-reveal-delay={i * 80}
+                >
+                  <summary className="flex cursor-pointer list-none items-center gap-3 font-medium text-primary">
+                    <span className="flex-1">{f.q}</span>
+                    <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
+                  </summary>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- CTA ---------- */}
+        <section className="relative overflow-hidden py-24">
+          <div className="mx-auto max-w-4xl px-5">
+            <div className="reveal relative overflow-hidden rounded-3xl bg-gradient-ink px-8 py-16 text-center shadow-elegant">
+              <span className="animate-pulse-ring absolute top-1/2 left-1/2 size-40 -translate-x-1/2 -translate-y-1/2 rounded-full border border-accent/40" />
+              <span className="relative inline-flex size-14 items-center justify-center rounded-2xl bg-accent/20 text-accent shadow-gold">
+                <Scale className="size-7" />
+              </span>
+              <h2 className="relative mt-6 font-display text-3xl font-bold text-primary-foreground sm:text-4xl">
+                Sẵn sàng tra cứu và soạn thảo?
+              </h2>
+              <p className="relative mx-auto mt-4 max-w-lg text-sm leading-relaxed text-primary-foreground/75">
+                Mở KLAW và đặt câu hỏi pháp lý đầu tiên của bạn. Không cần đăng ký, không cần thuật
+                ngữ chuyên ngành.
+              </p>
+              <div className="relative mt-9 flex flex-wrap justify-center gap-3">
+                <Link
+                  to="/chat"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-gold px-7 py-3.5 text-sm font-bold text-accent-foreground shadow-gold transition-transform hover:-translate-y-0.5"
+                >
+                  Trò chuyện với KLAW
+                  <ArrowRight className="size-4" />
+                </Link>
+                <Link
+                  to="/huong-dan"
+                  className="inline-flex items-center gap-2 rounded-xl border border-primary-foreground/30 px-7 py-3.5 text-sm font-semibold text-primary-foreground transition-colors hover:border-accent"
+                >
+                  <BookOpenText className="size-4" />
+                  Xem hướng dẫn
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
 
       {/* ---------- Footer ---------- */}
       <footer className="border-t border-border bg-card">

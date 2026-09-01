@@ -34,6 +34,17 @@ interface Nhan {
   nhanDayDu: string;
   /** Câu nói ra giới hạn của chính nhãn. Hiện dưới nhãn, không giấu đi. */
   giaiThich?: string;
+  /**
+   * Nền chip, khi nền pha từ chính `mau` mất hết sắc.
+   *
+   * `--color-status-partial` phải xuống `L 0.295` mới đạt 4,5:1 làm chữ, và ở
+   * độ sáng đó hue vàng 78° gần như không còn chroma: pha 10% lên nền trắng ra
+   * một mảng XÁM ẤM, không phải một chip màu hổ phách. Tín hiệu "coi chừng" mất
+   * sạch dù số đo vẫn đẹp. Nên hai nhãn dùng màu đó lấy nền từ
+   * `--color-brass-400` — nền KHÔNG cần đạt ngưỡng tương phản, chỉ chữ cần, và
+   * chữ trên nền này đo được **12,16:1**.
+   */
+  nenNhat?: string;
 }
 
 const MAU = {
@@ -73,6 +84,7 @@ export function docNhanHieuLuc(hieuLuc: string): Nhan {
       return {
         kieu: "vien",
         mau: MAU.partial,
+        nenNhat: "color-mix(in oklab, var(--color-brass-400) 40%, var(--card))",
         chu: "Đã bị sửa đổi",
         nhanDayDu: "Đã bị sửa đổi, đã xác định được điều khoản sửa",
         giaiThich: "Điều khoản sửa đổi đã xác định được — đọc kèm văn bản sửa.",
@@ -87,6 +99,7 @@ export function docNhanHieuLuc(hieuLuc: string): Nhan {
       return {
         kieu: "vien",
         mau: MAU.partial,
+        nenNhat: "color-mix(in oklab, var(--color-brass-400) 40%, var(--card))",
         chu: "Một phần không xác định",
         nhanDayDu: "Bị sửa một phần, chưa xác định được điều này còn hiệu lực hay không",
         giaiThich:
@@ -137,7 +150,7 @@ export function BadgeHieuLuc({ hieuLuc, ghiChu, gonGang, className }: BadgeHieuL
           ...(nhan.kieu === "vien"
             ? {
                 borderColor: `color-mix(in oklab, ${nhan.mau} 45%, transparent)`,
-                background: `color-mix(in oklab, ${nhan.mau} 10%, var(--card))`,
+                background: nhan.nenNhat ?? `color-mix(in oklab, ${nhan.mau} 10%, var(--card))`,
               }
             : {}),
         }}

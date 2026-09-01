@@ -83,7 +83,7 @@ export function KlawChat() {
         </div>
       </header>
 
-      <div className="paper-texture flex-1 overflow-y-auto">
+      <main id="noi-dung-chinh" className="paper-texture flex-1 overflow-y-auto">
         <div className="mx-auto max-w-4xl px-4 py-6">
           <div className="animate-fade-up mx-auto mt-8 max-w-2xl text-center">
             <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-md">
@@ -135,7 +135,7 @@ export function KlawChat() {
             </p>
           </div>
         </div>
-      </div>
+      </main>
 
       <div className="border-t border-border bg-card/90 backdrop-blur">
         <form

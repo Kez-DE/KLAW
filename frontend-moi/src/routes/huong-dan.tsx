@@ -112,7 +112,7 @@ function Guide() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-14">
+      <main id="noi-dung-chinh" className="mx-auto max-w-4xl px-4 py-14">
         <section className="space-y-5">
           {STEPS.map((s, i) => (
             <article
