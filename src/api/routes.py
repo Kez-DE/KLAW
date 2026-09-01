@@ -24,10 +24,12 @@ from src.agents.nodes.draft_audit import draft_audit
 from src.config import as_of_hieu_luc, get_settings
 from src.models.schemas import (
     AuditReportOut,
+    CauTrucMauOut,
     FactFieldOut,
     LoaiVanBan,
     MauResponse,
     MucLucItem,
+    MucMauOut,
     PhamViResponse,
     ProvisionOut,
     SoanThaoRequest,
@@ -43,6 +45,7 @@ from src.models.schemas import (
 )
 from src.services import cache_tra_loi
 from src.services.bao_ve import cong_bao_ve, cong_nhe
+from src.services.checklist import Checklist
 from src.services.db import get_engine
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
 
@@ -822,6 +825,46 @@ async def mau(loai: LoaiVanBan) -> MauResponse:
     fact của HĐLĐ sẽ sai loại văn bản.
     """
     if loai not in cac_loai():
-        return MauResponse(loai_van_ban=loai, ho_tro=False, facts=[])
+        return MauResponse(loai_van_ban=loai, ho_tro=False, facts=[], cau_truc=None)
     facts = [FactFieldOut(**f) for f in mo_ta_facts(rules_cho(loai), load_facts_meta_cached())]
-    return MauResponse(loai_van_ban=loai, ho_tro=True, facts=facts)
+    return MauResponse(
+        loai_van_ban=loai, ho_tro=True, facts=facts,
+        cau_truc=_cau_truc_mau(load_checklist_cached(loai), bool(facts)),
+    )
+
+
+def _cau_truc_mau(cl: Checklist, co_rule: bool) -> CauTrucMauOut:
+    """Checklist → cấu trúc cho frontend. ĐỌC THẲNG từ đối tượng checklist đã
+    nạp; không có bản mô tả thứ hai nào để lệch.
+
+    Vì sao khoá này phải tồn tại: frontend dựng bản xem trước TỨC THỜI khi
+    người dùng gõ, nên nó không thể gọi `/soan-thao` (một lượt LLM mỗi phím).
+    Trước khi có `cau_truc`, thứ duy nhất nó nhận được là `facts` và `ho_tro` —
+    không đủ để biết văn bản gồm những mục nào, nên nó phải ĐOÁN, và cái nó
+    đoán là khuôn hợp đồng thương mại hai bên cho MỌI loại. Đó là cách một công
+    văn mọc ra "BÊN A / BÊN B / Mã số thuế / Điều 4. Phạt vi phạm hợp đồng".
+    """
+    khong_bat_buoc = set(cl.khong_bat_buoc.get("keys") or ())
+    return CauTrucMauOut(
+        ten=cl.ten,
+        tieu_de=cl.tieu_de,
+        don_vi_muc=cl.don_vi_muc,
+        muc_do_thieu=cl.muc_do_thieu,
+        pham_vi_soat=cl.pham_vi_soat,
+        # `co_rule` suy từ chính `facts` vừa dựng ở trên chứ không đọc lại
+        # `cl.rules`: `facts` là thứ bên gọi THẤY, nên cờ này luôn nhất quán với
+        # đáp ứng thay vì với một trường thứ hai họ không nhìn thấy.
+        chi_soat_the_thuc=(cl.pham_vi_soat == "the_thuc" and not co_rule),
+        can_cu_goc=cl.can_cu_goc,
+        can_cu_chi_tiet=cl.can_cu_chi_tiet,
+        muc=[
+            MucMauOut(
+                stt=m.get("stt", i),
+                key=m["key"],
+                ten=m["ten"],
+                can_cu=m["can_cu"],
+                bat_buoc=m["key"] not in khong_bat_buoc,
+            )
+            for i, m in enumerate(cl.muc, 1)
+        ],
+    )

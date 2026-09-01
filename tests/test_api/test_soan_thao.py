@@ -164,11 +164,19 @@ async def test_mau_hdld_mo_ta_fact_sinh_tu_yaml(client):
 @pytest.mark.asyncio
 async def test_mau_loai_khong_ho_tro_tra_danh_sach_rong_khong_bia(client, gia_vo_chua_ho_tro):
     """Một `LoaiVanBan` hợp lệ nhưng CHƯA có config/checklist_<loai>.yaml phải
-    trả rỗng trung thực, thay vì tái dùng nhầm fact của một loại khác."""
+    trả rỗng trung thực, thay vì tái dùng nhầm fact của một loại khác.
+
+    `cau_truc: None` chứ KHÔNG phải `{}` hay một cấu trúc rỗng: không có
+    checklist thì không có mục nào, và một `cau_truc` rỗng trông y hệt một mẫu
+    hợp lệ không có mục — frontend sẽ dựng một văn bản trắng thay vì báo chưa
+    hỗ trợ. Vẫn so khớp TOÀN BỘ dict (không `>=`), để một khoá mới lặng lẽ chui
+    vào đáp ứng thì test này đỏ chứ không bỏ qua.
+    """
     gia_vo_chua_ho_tro("noi_quy")
     r = await client.get("/api/v1/mau/noi_quy")
     assert r.status_code == 200
-    assert r.json() == {"loai_van_ban": "noi_quy", "ho_tro": False, "facts": []}
+    assert r.json() == {
+        "loai_van_ban": "noi_quy", "ho_tro": False, "facts": [], "cau_truc": None}
 
 
 @pytest.mark.asyncio

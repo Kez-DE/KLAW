@@ -58,6 +58,11 @@ loai: quyet_dinh_bo_nhiem
 ten: "quyết định bổ nhiệm"
 tieu_de: "QUYẾT ĐỊNH BỔ NHIỆM"
 don_vi_muc: "Thành phần"
+# Lộ ra `GET /mau/{loai}` để frontend gắn nhãn đúng thay vì viết cứng một
+# danh sách tên loại. Xem giới hạn ở đầu file: các MỤC dưới đây là thành phần
+# trình bày của NĐ 30/2020 Đ8.2, không phải nội dung nghiệp vụ.
+pham_vi_soat: the_thuc
+
 muc_do_thieu: chan
 
 rules: [nhiem_ky_bo_nhiem_toi_da]

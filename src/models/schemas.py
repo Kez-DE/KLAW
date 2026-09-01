@@ -271,6 +271,56 @@ class FactFieldOut(BaseModel):
     lua_chon: list[str] | None = None
 
 
+class MucMauOut(BaseModel):
+    """Một mục của checklist, đủ để frontend dựng khung văn bản KHÔNG gọi LLM."""
+
+    stt: int
+    key: str
+    ten: str
+    can_cu: str
+    # Suy từ `khong_bat_buoc.keys` của chính checklist, KHÔNG phải một cột thứ
+    # hai trong YAML: hai nguồn sẽ lệch vào ngày ai đó thêm một mục vào khối
+    # ngoại lệ mà quên đổi cột. Đây cũng đúng tập mà `check_completeness` dùng
+    # làm mẫu số, nên khung frontend dựng và con số /soat trả về nói cùng một
+    # chuyện.
+    bat_buoc: bool
+
+
+class CauTrucMauOut(BaseModel):
+    """Cấu trúc một loại văn bản — ĐỌC THẲNG từ `config/checklist_<loai>.yaml`,
+    cùng file mà `/soan-thao` và `/soat` dùng. Không có bản mô tả thứ hai.
+
+    ĐỦ ĐỂ DỰNG LẠI ĐÚNG THỨ `/soan-thao` TRẢ VỀ. `_render_markdown` của
+    routes.py sinh đúng hai thứ và không gì khác:
+
+        # {tieu_de}
+        ## {don_vi_muc} {i}. {muc[i].ten}
+
+    Không có khối "khung" nào khác — không quốc hiệu, không khối ký, không khối
+    hai bên — vì backend không có thẩm quyền nào để dựng chúng. Với `cong_van`
+    và ba mẫu thể thức khác, quốc hiệu / nơi nhận / chữ ký CHÍNH LÀ các `muc`
+    (chín thành phần NĐ 30/2020 Đ8.2). Với `hdld` chúng KHÔNG có mặt, vì BLLĐ
+    Đ21 không đòi — nên bất kỳ khối "BÊN A / BÊN B / Mã số thuế" nào frontend
+    vẽ thêm là phát minh của frontend, không phải yêu cầu của luật, và tuyệt
+    đối không được dựng cho một loại văn bản không phải hợp đồng.
+    """
+
+    ten: str
+    tieu_de: str
+    don_vi_muc: str
+    muc_do_thieu: str
+    # "noi_dung" | "the_thuc" — xem `PHAM_VI_SOAT` ở src/services/checklist.py.
+    pham_vi_soat: str
+    # TRẢ LỜI THẲNG câu "mẫu này có chỉ soát thể thức không". Tính ở server để
+    # frontend không phải tự ghép `pham_vi_soat == "the_thuc" and not facts` và
+    # ghép sai. `quyet_dinh_bo_nhiem` là mẫu LAI: pham_vi_soat="the_thuc" nhưng
+    # có rule nhiệm kỳ, nên cờ này là False và nhãn phải nói cả hai vế.
+    chi_soat_the_thuc: bool
+    can_cu_goc: str
+    can_cu_chi_tiet: str | None
+    muc: list[MucMauOut]
+
+
 class MauResponse(BaseModel):
     loai_van_ban: str
     # `facts: []` một mình MƠ HỒ: nó vừa là "loại này chưa có checklist" vừa là
@@ -281,6 +331,11 @@ class MauResponse(BaseModel):
     # rỗng.
     ho_tro: bool
     facts: list[FactFieldOut]
+    # THÊM MỚI, không phá hợp đồng cũ: `loai_van_ban`, `ho_tro`, `facts` giữ
+    # nguyên hình dạng. `None` khi `ho_tro=False` — không có checklist thì không
+    # có cấu trúc, và một `cau_truc` rỗng sẽ trông y hệt một mẫu hợp lệ không có
+    # mục nào.
+    cau_truc: CauTrucMauOut | None = None
 
 
 # ══ GET /api/v1/pham-vi ══════════════════════════════════════════════════════

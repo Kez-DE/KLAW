@@ -180,3 +180,77 @@ def test_khop_dai_nhat_thang_khop_ngan_hon_o_muc_dung_truoc():
         "## Điều 6. Mục đích sử dụng tài sản vay\n\nBên vay dùng khoản vay để mua thiết bị.\n"
     )
     assert [c.key for c in extract_clauses(van_ban, cl, {})] == ["tai_san_vay", "muc_dich_su_dung"]
+
+
+# ══ Cấu trúc mẫu lộ ra `GET /mau/{loai}` (2026-09-02) ══
+#
+# Frontend dựng bản xem trước TỨC THỜI khi người dùng gõ nên không gọi được
+# `/soan-thao` (một lượt LLM mỗi phím). Trước khi có `cau_truc`, nó chỉ nhận
+# `facts` + `ho_tro` — không đủ để biết văn bản gồm mục nào, nên nó đoán, và cái
+# nó đoán là khuôn hợp đồng thương mại hai bên cho MỌI loại: một công văn mọc ra
+# "BÊN A / BÊN B / Điều 4. Phạt vi phạm hợp đồng". Bốn test dưới khoá đường đó.
+
+
+@pytest.mark.parametrize("loai", MOI_LOAI)
+def test_cau_truc_khong_rong_va_dung_thu_tu(loai):
+    """Mọi loại đều dựng được khung. Rỗng = frontend không có gì để vẽ và sẽ
+    quay lại đoán."""
+    from src.api.routes import _cau_truc_mau
+
+    ct = _cau_truc_mau(load_checklist_cached(loai), co_rule=False)
+    assert ct.muc, f"{loai}: cau_truc.muc rỗng"
+    assert ct.tieu_de and ct.don_vi_muc and ct.ten
+    assert [m.key for m in ct.muc] == [m["key"] for m in load_checklist_cached(loai).muc], \
+        f"{loai}: thứ tự mục của cau_truc lệch khỏi checklist"
+
+
+@pytest.mark.parametrize("loai", MOI_LOAI)
+def test_cau_truc_bat_buoc_khop_khoi_khong_bat_buoc(loai):
+    """`bat_buoc` phải suy TỪ `khong_bat_buoc.keys` của chính checklist — cùng
+    tập mà `check_completeness` dùng làm mẫu số. Lệch nhau thì khung frontend
+    dựng và con số `/soat` trả về nói hai chuyện khác nhau."""
+    from src.api.routes import _cau_truc_mau
+
+    cl = load_checklist_cached(loai)
+    mien = set(cl.khong_bat_buoc.get("keys") or ())
+    ct = _cau_truc_mau(cl, co_rule=False)
+    for m in ct.muc:
+        assert m.bat_buoc == (m.key not in mien), f"{loai}: mục {m.key!r} sai cờ bat_buoc"
+
+
+@pytest.mark.parametrize("loai", MOI_LOAI)
+def test_pham_vi_soat_hop_le_va_co_le_dung_cho_mau_lai(loai):
+    """`chi_soat_the_thuc` phải là `the_thuc` VÀ không rule. `quyet_dinh_bo_nhiem`
+    là mẫu LAI (chín mục thể thức + rule nhiệm kỳ LDN Đ162.2): gắn nhãn nó "chỉ
+    soát thể thức" là giấu mất một phát hiện nội dung THẬT."""
+    from src.api.routes import _cau_truc_mau
+    from src.services.checklist import PHAM_VI_SOAT
+
+    cl = load_checklist_cached(loai)
+    assert cl.pham_vi_soat in PHAM_VI_SOAT
+    co_rule = bool(cl.rules)
+    ct = _cau_truc_mau(cl, co_rule=co_rule)
+    assert ct.chi_soat_the_thuc == (cl.pham_vi_soat == "the_thuc" and not co_rule)
+    if loai == "quyet_dinh_bo_nhiem":
+        assert cl.pham_vi_soat == "the_thuc" and co_rule
+        assert ct.chi_soat_the_thuc is False
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("loai", MOI_LOAI)
+def test_moi_can_cu_trong_cau_truc_phan_giai_duoc(loai):
+    """Cổng thứ hai, trên chính thứ frontend HIỂN THỊ. `test_can_cu_ton_tai_that`
+    ở trên kiểm can_cu của checklist; cái này kiểm can_cu đã đi qua
+    `_cau_truc_mau` — một lỗi ánh xạ ở đó (lấy nhầm khoá, nuốt mất trường) sẽ
+    lọt qua cổng kia."""
+    from src.api.routes import _cau_truc_mau
+
+    ct = _cau_truc_mau(load_checklist_cached(loai), co_rule=False)
+    can_cu = {m.can_cu for m in ct.muc} | {ct.can_cu_goc}
+    if ct.can_cu_chi_tiet:
+        can_cu.add(ct.can_cu_chi_tiet)
+    with get_engine().connect() as conn:
+        co_that = {r[0] for r in conn.execute(
+            text("SELECT duong_dan FROM provisions WHERE duong_dan = ANY(:dd)"),
+            {"dd": sorted(can_cu)})}
+    assert can_cu <= co_that, f"{loai}: can_cu KHÔNG có trong DB: {sorted(can_cu - co_that)}"

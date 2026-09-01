@@ -48,6 +48,11 @@ loai: quy_che_noi_bo
 ten: "quy chế nội bộ"
 tieu_de: "QUY CHẾ NỘI BỘ"
 don_vi_muc: "Thành phần"
+# Lộ ra `GET /mau/{loai}` để frontend gắn nhãn đúng thay vì viết cứng một
+# danh sách tên loại. Xem giới hạn ở đầu file: các MỤC dưới đây là thành phần
+# trình bày của NĐ 30/2020 Đ8.2, không phải nội dung nghiệp vụ.
+pham_vi_soat: the_thuc
+
 muc_do_thieu: chan
 
 # Không rule nào. Không có ngưỡng số học hay điều cấm nào của luật áp lên nội

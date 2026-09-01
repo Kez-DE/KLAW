@@ -48,6 +48,15 @@ from sqlalchemy import text
 
 from src.services.db import get_engine
 
+# Hai giá trị, cố ý KHÔNG có giá trị thứ ba cho mẫu "lai". `quyet_dinh_bo_nhiem`
+# có chín mục thể thức CỘNG một rule nội dung: `pham_vi_soat` mô tả các MỤC, còn
+# phần nội dung của nó nằm ở `rules` và lộ ra API qua `facts`. Bên gọi ghép hai
+# thứ đó: `the_thuc` + `facts` rỗng = CHỈ soát thể thức; `the_thuc` + có `facts`
+# = thể thức cộng quy tắc. Thêm một enum "the_thuc_va_quy_tac" sẽ là dữ liệu
+# suy được từ hai trường đã có, và nó sẽ lệch vào ngày ai đó thêm rule mà quên
+# đổi enum.
+PHAM_VI_SOAT = frozenset({"noi_dung", "the_thuc"})
+
 
 @dataclass(frozen=True)
 class Checklist:
@@ -73,6 +82,19 @@ class Checklist:
     # là hợp đồng SƠ SÀI, không phải hợp đồng TRÁI LUẬT, và gọi nó là trái luật
     # đúng bằng loại khẳng định sai mà hệ thống này tồn tại để không mắc phải.
     muc_do_thieu: str = "chan"
+    # `the_thuc` khi các MỤC của checklist là thành phần trình bày (quốc hiệu,
+    # số ký hiệu, nơi nhận — NĐ 30/2020 Đ8.2), `noi_dung` khi chúng là nội dung
+    # nghiệp vụ luật đòi (BLLĐ Đ21.1, Đ118.2, BLTTDS Đ189.4, Luật Khiếu nại
+    # Đ8.2). Mặc định `noi_dung` vì đó là đa số và vì đoán nhầm theo hướng đó
+    # AN TOÀN HƠN: gắn nhãn "chỉ soát thể thức" cho một mẫu soát nội dung làm
+    # người dùng coi nhẹ một phát hiện thật.
+    #
+    # Trường này TỒN TẠI ĐỂ LỘ RA API. Trước nó, giới hạn "1.0 nghĩa là đủ chín
+    # thành phần, không phải viết đúng việc" chỉ nằm trong COMMENT đầu file
+    # checklist_cong_van.yaml — người đọc YAML thấy, `GET /mau/{loai}` không
+    # thấy, nên frontend không có cách nào gắn nhãn đúng ngoài việc viết cứng
+    # một danh sách tên loại và để nó lệch vào ngày thêm mẫu.
+    pham_vi_soat: str = "noi_dung"
     rules: list[str] = field(default_factory=list)
     can_cu_chi_tiet: str | None = None
     nganh_duoc_giam: dict[str, Any] = field(default_factory=dict)
@@ -102,6 +124,13 @@ def load_checklist(path: Path) -> Checklist:
     trung = _key_trung_lap([m["key"] for m in d["muc"]])
     if trung:
         raise ValueError(f"{path}: key mục trùng lặp {trung} — completeness sẽ đếm sai")
+    pham_vi = d.get("pham_vi_soat") or "noi_dung"
+    if pham_vi not in PHAM_VI_SOAT:
+        # Không im lặng rơi về mặc định: một giá trị gõ sai ("the_thức",
+        # "hinh_thuc") sẽ thành `noi_dung` và mẫu chỉ soát bìa thư được gắn
+        # nhãn soát nội dung — đúng lời hứa sai mà trường này sinh ra để chặn.
+        raise ValueError(
+            f"{path}: pham_vi_soat={pham_vi!r} không hợp lệ, phải là một trong {sorted(PHAM_VI_SOAT)}")
     return Checklist(
         loai=d["loai"],
         ten=d["ten"],
@@ -110,6 +139,7 @@ def load_checklist(path: Path) -> Checklist:
         muc=d["muc"],
         don_vi_muc=d.get("don_vi_muc") or "Điều",
         muc_do_thieu=d.get("muc_do_thieu") or "chan",
+        pham_vi_soat=pham_vi,
         rules=list(d.get("rules") or []),
         can_cu_chi_tiet=d.get("can_cu_chi_tiet"),
         nganh_duoc_giam=d.get("nganh_duoc_giam") or {},

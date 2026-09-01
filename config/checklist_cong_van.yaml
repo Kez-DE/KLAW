@@ -62,6 +62,11 @@ don_vi_muc: "Thành phần"
 # `chan`: Đ8.2 dùng chữ "bao gồm các thành phần chính", không phải "có thể gồm"
 # (đối chiếu BLDS Đ398.2 ở checklist hợp đồng nguyên tắc, nơi mức đúng là
 # canh_bao). Đọc kèm giới hạn phạm vi số 2 ở đầu file.
+# Lộ ra `GET /mau/{loai}` để frontend gắn nhãn đúng thay vì viết cứng một
+# danh sách tên loại. Xem giới hạn ở đầu file: các MỤC dưới đây là thành phần
+# trình bày của NĐ 30/2020 Đ8.2, không phải nội dung nghiệp vụ.
+pham_vi_soat: the_thuc
+
 muc_do_thieu: chan
 
 # Không rule nào. NĐ 30/2020 không đặt một ngưỡng số học hay điều cấm nào có
