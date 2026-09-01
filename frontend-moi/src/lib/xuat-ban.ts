@@ -59,7 +59,16 @@ export function docNoiDungTuDOM(sheet: HTMLElement): NoiDungXuat {
   const dong: DongVanBan[] = [];
   const oKy: DongVanBan[][] = [];
 
-  const khoiKy = sheet.querySelector<HTMLElement>('[data-xuat="ky"]');
+  /**
+   * Khối ký chỉ tách ra thành BẢNG khi nó thật sự có hai cột cạnh nhau.
+   *
+   * Bảng ấy được ghép vào CUỐI tệp, nên tách một khối ký MỘT cột ra là đẩy nó
+   * xuống dưới cùng: công văn có chữ ký ở Thành phần 7 trên màn hình lại ký sau
+   * Thành phần 9 trong tệp `.docx` tải về. Một cột thì để nó chảy theo đúng thứ
+   * tự văn bản như mọi đoạn khác.
+   */
+  const khoiHaiCot = sheet.querySelector<HTMLElement>('[data-xuat="ky"]');
+  const khoiKy = khoiHaiCot && khoiHaiCot.children.length >= 2 ? khoiHaiCot : null;
   if (khoiKy) {
     for (const cot of Array.from(khoiKy.children) as HTMLElement[]) {
       const dongCot = Array.from(cot.querySelectorAll("p"))
