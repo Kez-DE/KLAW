@@ -105,6 +105,25 @@ rules:
       08 người"), nên một con số nằm ngoài khoảng không có nghĩa xác định là
       vi phạm, và đoán bừa cận trên là dựng ra một giới hạn luật không đặt.
 
+  - id: nhiem_ky_bo_nhiem_toi_da
+    can_cu: "59/2020/QH14 > Điều 162 > Khoản 2"
+    muc_do: chan
+    mo_ta: "Nhiệm kỳ bổ nhiệm vượt trần 05 năm của Luật Doanh nghiệp"
+    can_facts: [co_tran_nhiem_ky_05_nam, nhiem_ky_thang]
+    tran_thang: 60
+    kiem: (not co_tran_nhiem_ky_05_nam) or nhiem_ky_thang <= tran_thang
+    ghi_chu: >
+      Trần 05 năm KHÔNG áp cho mọi quyết định bổ nhiệm. Đ162.2 đặt nó cho Giám
+      đốc/Tổng giám đốc CÔNG TY CỔ PHẦN (Điều 162 nằm trong chương công ty cổ
+      phần); Đ154.2 đặt trần cùng mức cho thành viên Hội đồng quản trị. Bổ
+      nhiệm một trưởng phòng, một kế toán trưởng hay một người quản lý của công
+      ty TNHH KHÔNG có trần nhiệm kỳ luật định nào — nên rule hỏi thẳng
+      `co_tran_nhiem_ky_05_nam` thay vì tra bảng theo chức danh.
+      Vì sao không dùng `tran[chuc_danh]` như `thu_viec_toi_da`: bảng đó buộc
+      phải có một hàng cho "chức danh khác", và con số điền vào đó sẽ là một
+      trần do tôi bịa, không phải trần của luật. Một fact bool nói đúng thứ
+      luật phân biệt: có trần hay không có trần.
+
 # Nhãn tiếng Việt + kiểu dữ liệu cho từng fact — phần DUY NHẤT không thể suy
 # ra từ cấu trúc `kiem:` (nhãn là văn bản người viết, không phải dữ liệu có
 # thể tính). Tập giá trị hợp lệ (vd. vung: I..IV) KHÔNG lặp lại ở đây — suy
@@ -124,3 +143,5 @@ facts_meta:
   co_dieu_khoan_dat_coc:     {nhan: "Có điều khoản buộc đặt cọc", kieu: bool}
   lai_suat_nam_phan_tram:    {nhan: "Lãi suất vay (%/năm)", kieu: float}
   so_dai_dien_doi_thoai_nsdld: {nhan: "Số đại diện bên người sử dụng lao động tham gia đối thoại (người)", kieu: int}
+  co_tran_nhiem_ky_05_nam:   {nhan: "Chức danh được bổ nhiệm là Giám đốc/Tổng giám đốc công ty cổ phần hoặc thành viên Hội đồng quản trị (có trần nhiệm kỳ 05 năm)", kieu: bool}
+  nhiem_ky_thang:            {nhan: "Nhiệm kỳ bổ nhiệm (tháng)", kieu: int}
