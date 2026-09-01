@@ -371,8 +371,16 @@
   animation: fade-up 0.35s ease-out both;
 }
 
+/*
+  Sàn độ mờ là 0,75, KHÔNG phải 0,25.
+
+  Ba chấm này nay là chỉ báo DUY NHẤT rằng hệ thống còn sống (bảng chín bước đã
+  gỡ), nên chúng là đồ hoạ MANG NGHĨA và WCAG 1.4.11 đòi 3:1. Ở sàn 0,25, chấm
+  pha trên nền --card đo được 1,42:1 — khung mờ nhất gần như vô hình. Ở 0,75:
+  3,24:1, đo trên DOM thật. Nhịp vẫn đọc ra được vì ba chấm lệch pha nhau.
+*/
 @keyframes thinking-dot {
-  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  0%, 80%, 100% { opacity: 0.75; transform: translateY(0); }
   40% { opacity: 1; transform: translateY(-3px); }
 }
 
@@ -384,7 +392,7 @@
 
 /* Bản không dịch chuyển, dùng dưới prefers-reduced-motion. */
 @keyframes thinking-dot-giam-chuyen-dong {
-  0%, 80%, 100% { opacity: 0.25; }
+  0%, 80%, 100% { opacity: 0.75; }
   40% { opacity: 1; }
 }
 

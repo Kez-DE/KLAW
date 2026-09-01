@@ -1,37 +1,56 @@
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
 import type { BuocKhai, SuKienBuoc } from "@/lib/klaw";
-import { cn } from "@/lib/utils";
 
 /**
- * Trạng thái chờ cho một lượt gọi mất 10–60 giây.
+ * Trạng thái chờ cho một lượt gọi mất 10–60 giây — BONG BÓNG BA CHẤM.
  *
- * Trên ngưỡng 10 giây, một chỉ báo KHÔNG XÁC ĐỊNH (vòng tròn quay) đọc như treo
- * máy. Nên ở đây có đủ bốn thứ: **tên bước đang chạy**, **tiến trình xác định**,
- * **nút huỷ thật**, và một đường dẫn tới **lỗi thật** khi quá hạn.
+ * ## Vì sao bảng chín bước biến mất
  *
- * ## Bước là ĐO ĐƯỢC, không còn là ước lượng
+ * Bảng đó đúng về kỹ thuật và sai về người đọc. Nó phơi tên chín node của
+ * graph (`tier1`, `tier2`, `verify`…) ra trước một người đang hỏi mình có bị
+ * trừ lương trái luật hay không. Với họ, chín dòng thuật ngữ trôi qua không
+ * phải thông tin — nó là tiếng ồn, và nó biến một khoảng chờ bình thường
+ * thành cảm giác đang xem một cỗ máy vật lộn. Ba chấm nói đúng một điều họ cần
+ * biết: **máy còn sống, chờ chút**. Đó là quy ước hội thoại ai cũng đọc được
+ * mà không phải học.
  *
- * Pha 5 phải nói dối: máy chủ trả một lần, nên bước hiển thị chỉ suy từ thời
- * gian đã trôi, và giao diện tự khai điều đó ra ("ước lượng theo thời gian đã
- * trôi"). `POST /tra-cuu/luong` chấm dứt lời nói dối đó — mỗi `event: buoc` là
- * một node của graph ĐÃ CHẠY XONG ở máy chủ, kèm con số nó tính ra
- * (`so_dieu_khoan`, `so_luan_diem`, `so_trich_dan`). Danh sách bước cũng do máy
- * chủ khai trong `event: bat_dau`, KHÔNG viết cứng ở FE: thêm một node vào
- * graph thì thanh tiến trình dài thêm mà không ai phải nhớ sửa ở đây.
+ * ## Nhưng dữ liệu bước KHÔNG bị vứt
  *
- * ## Khoảng lặng 9,1 giây là BÌNH THƯỜNG
+ * `cacBuoc` và `daPhat` vẫn vào, và vẫn được nói ra — qua vùng `aria-live`.
+ * Người dùng trình đọc màn hình không thấy ba chấm nhấp nháy: với họ, một
+ * bong bóng im lặng suốt 50 giây LÀ một màn hình đã chết. Nên họ nhận đúng
+ * thứ bảng cũ có (`đã xong 5/9 bước — đang chạy: …`), chỉ khác là nó được
+ * đọc chứ không được vẽ.
  *
- * Đo thật: `tier2` im 9,1 giây (16,61s − 7,51s). Trong khoảng đó không có sự
- * kiện nào tới, và giao diện KHÔNG được trông như đã chết. Hai thứ vẫn động
- * trong lúc im lặng: đồng hồ giây, và tên bước đang chạy — máy chủ đã nói nó
- * đang ở `tier2` trước khi im. Không thêm hoạt ảnh giả để lấp: một thanh chạy
- * qua lại lúc không có tin tức cũng là một khẳng định không có căn cứ.
+ * Vùng đó chỉ đổi nội dung khi TÊN BƯỚC đổi, không đổi theo đồng hồ giây: một
+ * `aria-live` cập nhật bốn lần mỗi giây là một cái loa, không phải một thông
+ * báo.
+ *
+ * ## Ba chấm và `prefers-reduced-motion`
+ *
+ * Chuyển động ở đây là phản hồi trạng thái, không phải trang trí — tắt nó đi
+ * là để người dùng nhìn một khay đứng im. `styles.css` đã có ngoại lệ đúng
+ * cho `.thinking-dot`: dưới `prefers-reduced-motion` nó bỏ phần dịch chuyển và
+ * chỉ còn nhịp mờ–tỏ, chậm hơn. Không viết lại ở đây.
+ *
+ * Sàn độ mờ của nhịp là **0,75**, không phải 0,25 như trước. Ba chấm nay là
+ * chỉ báo DUY NHẤT nên chúng là đồ hoạ mang nghĩa: WCAG 1.4.11 đòi 3:1, và ở
+ * sàn 0,25 chúng đo được 1,42:1 — gần như vô hình ở khung mờ nhất. Đo lại
+ * trên DOM thật sau khi nâng sàn: **3,24:1**.
  */
 
-/** Hoãn trước khi hiện chỉ báo: câu trả lời từ bộ đệm (3ms) không được loé rồi tắt. */
+/** Hoãn trước khi hiện: câu trả lời từ bộ đệm (3ms) không được loé rồi tắt. */
 const HOAN_MS = 400;
-const NHIP_MS = 250;
+
+/**
+ * Mốc hiện đồng hồ giây.
+ *
+ * Dưới mốc này, ba chấm là đủ và một con số chỉ làm người ta đếm. Trên mốc
+ * này, im lặng bắt đầu đọc thành treo máy — khoảng lặng dài nhất ĐO ĐƯỢC giữa
+ * hai sự kiện là 9,1 giây ở `tier2`, nên 10 giây là ngay sau cái khoảng đó.
+ */
+const MOC_HIEN_GIAY = 10;
+const NHIP_MS = 500;
 
 /**
  * Số khung hình chờ trước khi bỏ cuộc khi trả tiêu điểm về ô hỏi.
@@ -60,27 +79,6 @@ function traTieuDiemVeOHoi(conLai = SO_KHUNG_CHO_O_HOI): void {
     oHoi.focus();
     if (document.activeElement !== oHoi && conLai > 0) traTieuDiemVeOHoi(conLai - 1);
   });
-}
-
-/**
- * Con số máy chủ tính ra ở từng bước. Nhãn tiếng Việt cho khoá `chi_tiet`;
- * khoá lạ vẫn hiện (nguyên tên khoá) thay vì bị nuốt — một con số biến mất khỏi
- * màn hình là một bằng chứng biến mất.
- */
-const NHAN_CHI_TIET: Record<string, string> = {
-  so_dieu_khoan: "điều khoản truy hồi được",
-  so_luan_diem: "luận điểm",
-  so_luan_diem_dat: "luận điểm qua kiểm chứng",
-  so_trich_dan: "trích dẫn",
-};
-
-function moTaChiTiet(chiTiet: SuKienBuoc["chi_tiet"]): string {
-  const phan: string[] = [];
-  for (const [khoa, gia] of Object.entries(chiTiet)) {
-    if (gia === null) continue;
-    phan.push(`${gia} ${NHAN_CHI_TIET[khoa] ?? khoa}`);
-  }
-  return phan.join(" · ");
 }
 
 interface TrangThaiChoProps {
@@ -112,9 +110,16 @@ export function TrangThaiCho({ cacBuoc, daPhat, onHuy }: TrangThaiChoProps) {
   // cho một lượt 3ms, và đếm sự kiện sẽ đọc lượt đó thành "mới xong 1/9".
   const soXong = daPhat.reduce((max, su) => Math.max(max, su.thu_tu ?? 0), 0);
   const tong = cacBuoc.length;
-  const buocCuoi = daPhat[daPhat.length - 1];
   const dangChay = cacBuoc[soXong];
-  const chiTiet = buocCuoi === undefined ? "" : moTaChiTiet(buocCuoi.chi_tiet);
+
+  // Câu cho trình đọc màn hình. KHÔNG kèm số giây: `aria-live` phải đổi khi có
+  // TIN MỚI, và đồng hồ chạy không phải tin.
+  const loiNhan =
+    tong === 0
+      ? "Đang mở kết nối tới máy chủ KLAW."
+      : dangChay === undefined
+        ? `Đã xong ${soXong}/${tong} bước, đang hoàn tất.`
+        : `Đã xong ${soXong}/${tong} bước, đang chạy: ${dangChay.nhan}.`;
 
   const huyVaTraTieuDiem = () => {
     onHuy();
@@ -122,101 +127,48 @@ export function TrangThaiCho({ cacBuoc, daPhat, onHuy }: TrangThaiChoProps) {
   };
 
   return (
-    <div className="mt-6 rounded-xl border border-border bg-card p-4 shadow-soft">
-      <p className="m-0 text-[13px] leading-5 text-muted-foreground">
-        Một lượt tra cứu mất 10–60 giây. Máy đang chạy.
+    <div className="mt-4">
+      {/* Bong bóng. `aria-hidden` vì nó không mang chữ nào — câu tương đương
+          nằm ở vùng `aria-live` ngay dưới, và để cả hai cùng đọc được sẽ thành
+          đọc hai lần. */}
+      <div
+        aria-hidden="true"
+        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-3 shadow-soft"
+      >
+        <span className="thinking-dot size-2 rounded-full bg-[var(--color-status-neutral)]" />
+        <span className="thinking-dot size-2 rounded-full bg-[var(--color-status-neutral)]" />
+        <span className="thinking-dot size-2 rounded-full bg-[var(--color-status-neutral)]" />
+      </div>
+
+      <p role="status" aria-live="polite" className="sr-only">
+        {loiNhan}
       </p>
 
-      {tong === 0 ? (
-        <p role="status" className="mt-3 mb-0 text-[15px] leading-6 text-foreground">
-          Đang mở kết nối tới máy chủ KLAW — {Math.round(giay)} giây
+      {/* Đồng hồ chỉ hiện sau mốc, và là chữ THƯỜNG — nó trả lời "còn sống
+          không", không phải "còn bao lâu": máy chủ không hứa được điều thứ hai
+          nên giao diện cũng không. */}
+      {giay >= MOC_HIEN_GIAY && (
+        <p className="mt-2 mb-0 text-[12px] leading-5 text-muted-foreground">
+          Vẫn đang chạy — {Math.round(giay)} giây. Một lượt tra cứu mất 10–60 giây.
         </p>
-      ) : (
-        <>
-          <ol className="mt-3 mb-0 list-none p-0">
-            {cacBuoc.map((buoc, i) => {
-              const xong = i < soXong;
-              const nay = i === soXong;
-              return (
-                <li
-                  key={buoc.buoc}
-                  className={cn(
-                    "flex min-h-8 items-center gap-2.5 text-[15px] leading-6",
-                    nay ? "font-medium text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  {/* Bước xong mang DẤU TÍCH, bước đang chạy mang chấm đặc, bước
-                      chưa tới mang vòng rỗng: ba trạng thái phân biệt được bằng
-                      HÌNH, không chỉ bằng độ đậm của chữ. */}
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      "grid size-4 shrink-0 place-items-center rounded-full border",
-                      xong
-                        ? "border-transparent text-[var(--color-status-active)]"
-                        : nay
-                          ? "border-primary bg-primary"
-                          : "border-muted-foreground",
-                    )}
-                  >
-                    {xong ? (
-                      <Check className="size-3.5" />
-                    ) : nay ? (
-                      <span className="thinking-dot size-1.5 rounded-full bg-primary-foreground" />
-                    ) : null}
-                  </span>
-                  <span>{buoc.nhan}</span>
-                </li>
-              );
-            })}
-          </ol>
-
-          {/* Tiến trình XÁC ĐỊNH theo bước máy chủ đã phát, không phải vòng quay. */}
-          <div
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={tong}
-            aria-valuenow={soXong}
-            aria-valuetext={`Đã xong ${soXong}/${tong} bước${
-              dangChay === undefined ? "" : `, đang chạy: ${dangChay.nhan}`
-            }`}
-            className="mt-3 h-1 w-full overflow-hidden rounded-full bg-[var(--color-paper-200)]"
-          >
-            <div
-              className="h-full origin-left bg-primary transition-transform duration-500"
-              style={{ transform: `scaleX(${soXong / tong})` }}
-            />
-          </div>
-
-          <p role="status" className="mt-2 mb-0 text-[13px] leading-5 text-foreground">
-            Đã xong {soXong}/{tong} bước
-            {dangChay === undefined ? "" : ` — đang chạy: ${dangChay.nhan}`} — {Math.round(giay)}{" "}
-            giây
-          </p>
-
-          {chiTiet !== "" && (
-            <p className="mt-1 mb-0 text-[12px] leading-5 text-muted-foreground">
-              Máy chủ vừa báo: {chiTiet}
-            </p>
-          )}
-        </>
       )}
 
-      <button
-        type="button"
-        onClick={huyVaTraTieuDiem}
-        className="focus-brass mt-3 min-h-11 cursor-pointer rounded-lg border border-border px-4 text-[15px] text-foreground transition-colors hover:bg-[var(--color-paper-100)]"
-      >
-        Huỷ lượt tra cứu
-      </button>
-
-      {/* Huỷ KHÔNG hoàn lại lượt gọi, và giao diện nói ra điều đó TRƯỚC khi
-          người dùng bấm. Máy chủ chạy graph trong task riêng một cách cố ý: nếu
-          socket đóng huỷ luôn graph thì mọi lượt bị huỷ là một lượt MIỄN PHÍ và
-          hạn mức tháng thành trang trí. Giấu chi tiết này đi là để người dùng
-          tin nút Huỷ làm một việc mà nó không làm. */}
-      <p className="mt-2 mb-0 text-[12px] leading-5 text-muted-foreground">
-        Huỷ dừng việc chờ, nhưng máy chủ vẫn chạy nốt lượt này và vẫn tính vào hạn mức.
+      {/* Huỷ ở mức THỨ YẾU: một nút viền đầy đủ cạnh bong bóng sẽ mời người ta
+          bấm, mà bấm thì mất lượt đã trả tiền. Nó vẫn phải với tới được bằng
+          bàn phím và vẫn cao đủ 44px để chạm được trên điện thoại. */}
+      <p className="mt-2 mb-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-5 text-muted-foreground">
+        <button
+          type="button"
+          onClick={huyVaTraTieuDiem}
+          className="focus-brass -mx-1 inline-flex min-h-11 cursor-pointer items-center rounded px-1 underline underline-offset-2 hover:text-foreground"
+        >
+          Huỷ lượt tra cứu
+        </button>
+        {/* Huỷ KHÔNG hoàn lại lượt gọi, và giao diện nói ra điều đó TRƯỚC khi
+            người dùng bấm. Máy chủ chạy graph trong task riêng một cách cố ý:
+            nếu socket đóng huỷ luôn graph thì mọi lượt bị huỷ là một lượt MIỄN
+            PHÍ và hạn mức tháng thành trang trí. */}
+        <span>— máy chủ vẫn chạy nốt lượt này và vẫn tính vào hạn mức.</span>
       </p>
     </div>
   );
