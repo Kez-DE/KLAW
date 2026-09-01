@@ -437,7 +437,13 @@ export interface CauTruc {
   pham_vi_soat: string;
   chi_soat_the_thuc: boolean;
   can_cu_goc: string;
-  can_cu_chi_tiet: string;
+  /**
+   * `null` được — ĐO TRÊN MÁY CHỦ ĐANG CHẠY: `hop_dong_thu_viec`,
+   * `hop_dong_thue_tai_san`, `hop_dong_vay` và `don_khoi_kien` đều trả về
+   * `null` ở khoá này. Khai `string` là nói dối kiểu, và nơi đầu tiên đọc nó
+   * mà không kiểm sẽ in ra chữ "null" giữa một văn bản pháp lý.
+   */
+  can_cu_chi_tiet: string | null;
   muc: MucCauTruc[];
 }
 
