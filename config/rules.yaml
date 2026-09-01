@@ -63,6 +63,25 @@ rules:
     can_facts: [co_dieu_khoan_giu_giay_to, co_dieu_khoan_dat_coc]
     kiem: not (co_dieu_khoan_giu_giay_to or co_dieu_khoan_dat_coc)
 
+  - id: lai_suat_vay_toi_da
+    can_cu: "91/2015/QH13 > Điều 468 > Khoản 1"
+    muc_do: chan
+    mo_ta: "Lãi suất vay thoả thuận vượt trần 20%/năm của khoản tiền vay"
+    can_facts: [lai_suat_nam_phan_tram]
+    tran_phan_tram: 20
+    kiem: lai_suat_nam_phan_tram <= tran_phan_tram
+    ghi_chu: >
+      Đ468.1 đặt trần 20%/năm cho lãi suất THOẢ THUẬN, và tuyên phần vượt quá
+      "không có hiệu lực" — nên đây là rule `chan`, không phải cảnh báo.
+
+      Chính điều luật chừa hai lối: "trừ trường hợp luật khác có liên quan quy
+      định khác" (hợp đồng tín dụng của tổ chức tín dụng theo Luật Các tổ chức
+      tín dụng KHÔNG chịu trần này), và Uỷ ban thường vụ Quốc hội có thể điều
+      chỉnh mức trần. Vì vậy rule này chỉ được khai báo ở checklist của hợp
+      đồng VAY TÀI SẢN giữa các bên dân sự — nó không nằm trong `rules:` của
+      bất kỳ mẫu nào khác, và con số 20 nằm ở YAML để sửa được khi mức trần đổi
+      mà không đụng Python.
+
 # Nhãn tiếng Việt + kiểu dữ liệu cho từng fact — phần DUY NHẤT không thể suy
 # ra từ cấu trúc `kiem:` (nhãn là văn bản người viết, không phải dữ liệu có
 # thể tính). Tập giá trị hợp lệ (vd. vung: I..IV) KHÔNG lặp lại ở đây — suy
@@ -80,3 +99,4 @@ facts_meta:
   co_dieu_khoan_phat_tien:   {nhan: "Có điều khoản phạt tiền người lao động", kieu: bool}
   co_dieu_khoan_giu_giay_to: {nhan: "Có điều khoản giữ giấy tờ tuỳ thân", kieu: bool}
   co_dieu_khoan_dat_coc:     {nhan: "Có điều khoản buộc đặt cọc", kieu: bool}
+  lai_suat_nam_phan_tram:    {nhan: "Lãi suất vay (%/năm)", kieu: float}

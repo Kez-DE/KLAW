@@ -18,18 +18,45 @@ import pytest
 import yaml
 from sqlalchemy import text
 
+from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.services.db import get_engine
 from src.services.rules import Rule, check, kiem_tra_can_cu_ton_tai, load_rules, run_rules
 
-RULES = load_rules(Path("config/rules.yaml"))
+RULES_PATH = Path("config/rules.yaml")
+RULES = load_rules(RULES_PATH)
 
 
 # ══ Given rules load correctly, ids unique ══════════════════════════════════
 
 
-def test_du_5_rule_va_id_duy_nhat():
+def test_id_duy_nhat_va_KHONG_RULE_NAO_NAM_CHET():
+    """id không trùng, và mỗi rule được ÍT NHẤT MỘT checklist khai áp dụng.
+
+    Đếm cứng "đủ 5 rule" là một con số phải sửa mỗi lần thêm rule, và nó không
+    khoá được điều đáng khoá. Điều đáng khoá là: rules.yaml là THƯ VIỆN, còn
+    checklist mới quyết định rule nào chạy — nên một rule không checklist nào
+    khai là một phép kiểm KHÔNG BAO GIỜ CHẠY, nằm trong kho trông như đang bảo
+    vệ ai đó.
+    """
     ids = [r.id for r in RULES]
-    assert len(ids) == 5 and len(set(ids)) == 5
+    assert len(ids) == len(set(ids)), f"id trùng lặp trong {RULES_PATH}"
+    da_dung = {i for loai in cac_loai() for i in load_checklist_cached(loai).rules}
+    assert not set(ids) - da_dung, (
+        f"rule không checklist nào khai áp dụng (sẽ không bao giờ chạy): {sorted(set(ids) - da_dung)}"
+    )
+
+
+# ══ lai_suat_vay_toi_da (BLDS Đ468.1) ════════════════════════════════════
+
+
+def test_lai_suat_20_phan_tram_la_HOP_PHAP_bien_dung():
+    v = run_rules(RULES, {"lai_suat_nam_phan_tram": 20})
+    assert not any(x.rule_id == "lai_suat_vay_toi_da" for x in v)
+
+
+def test_lai_suat_20_01_phan_tram_la_VI_PHAM_bien_dung():
+    v = run_rules(RULES, {"lai_suat_nam_phan_tram": 20.01})
+    assert any(x.rule_id == "lai_suat_vay_toi_da" and x.muc_do == "chan" for x in v)
 
 
 # ══ thu_viec_toi_da ══════════════════════════════════════════════════════

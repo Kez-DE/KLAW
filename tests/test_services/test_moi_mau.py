@@ -163,3 +163,20 @@ def test_muc_do_thieu_la_mot_trong_hai_gia_tri_hop_le(loai):
     chặn, và báo cáo soát nói "đạt" cho một văn bản thiếu nội dung bắt buộc.
     """
     assert load_checklist_cached(loai).muc_do_thieu in {"chan", "canh_bao"}
+
+
+def test_khop_dai_nhat_thang_khop_ngan_hon_o_muc_dung_truoc():
+    """Từ khoá bao hàm nhau giữa hai mục là chuyện bình thường; cụm DÀI HƠN nói
+    đúng chủ đề của điều khoản, nên nó thắng — không phải mục đứng trước.
+
+    Ca thật đo được trên hợp đồng vay tài sản do hệ thống sinh ra: tiêu đề "Mục
+    đích sử dụng tài sản vay" chứa cả "tài sản vay" (mục 1) lẫn "mục đích sử
+    dụng" (mục 6). Ưu tiên theo thứ tự trao nó cho mục 1, và buộc người viết
+    checklist phải làm què từ khoá của chính mình để né.
+    """
+    cl = load_checklist_cached("hop_dong_vay")
+    van_ban = (
+        "## Điều 1. Tài sản vay\n\nBên cho vay giao 500.000.000 đồng.\n\n"
+        "## Điều 6. Mục đích sử dụng tài sản vay\n\nBên vay dùng khoản vay để mua thiết bị.\n"
+    )
+    assert [c.key for c in extract_clauses(van_ban, cl, {})] == ["tai_san_vay", "muc_dich_su_dung"]

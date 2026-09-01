@@ -272,7 +272,11 @@ def extract_clauses(van_ban: str, checklist: Checklist, db_provisions: dict[int,
     can_cu_provision_id = next(
         (pid for pid, row in db_provisions.items() if row["duong_dan"] == checklist.can_cu_goc), 0
     )
-    ung_vien = [(m["key"], m["ten"], m.get("tu_khoa") or []) for m in checklist.muc]
+    # Chuẩn hoá từ khoá MỘT LẦN, không mỗi chunk một lần.
+    ung_vien = [
+        (m["key"], m["ten"], [normalize(tk).lower() for tk in (m.get("tu_khoa") or [])])
+        for m in checklist.muc
+    ]
 
     clauses: list[DraftClause] = []
     for chunk in _split_dieu(van_ban, checklist.don_vi_muc):
@@ -287,11 +291,21 @@ def extract_clauses(van_ban: str, checklist: Checklist, db_provisions: dict[int,
         # không có tiêu đề vẫn khớp đúng như trước.
         for nguon in (dong_tieu_de, chunk):
             chuan_hoa = normalize(nguon).lower()
-            for muc_key, muc_ten, tu_khoa in ung_vien:
-                if any(normalize(tk).lower() in chuan_hoa for tk in tu_khoa):
-                    key, ten = muc_key, muc_ten
-                    break
-            if key:
+            # KHỚP DÀI NHẤT thắng, KHÔNG phải mục đứng trước trong checklist.
+            # Từ khoá của các mục chồng nhau theo kiểu bao hàm là chuyện bình
+            # thường, không phải lỗi soạn checklist: tiêu đề "Mục đích sử dụng
+            # tài sản vay" chứa cả "mục đích sử dụng" (mục 6) lẫn "tài sản vay"
+            # (mục 1), và cụm DÀI HƠN là cụm nói đúng chủ đề của điều khoản.
+            # Ưu tiên theo thứ tự sẽ luôn trao nó cho mục 1 và buộc người viết
+            # checklist phải cố tình làm què từ khoá của mình để né.
+            khop = [
+                (len(tk), muc_key, muc_ten)
+                for muc_key, muc_ten, tu_khoa in ung_vien
+                for tk in tu_khoa
+                if tk in chuan_hoa
+            ]
+            if khop:
+                _, key, ten = max(khop, key=lambda x: x[0])
                 break
         # ponytail: key=None hợp lệ tại runtime dù type hint DraftClause.key
         # là `str` (dataclass thường không ép kiểu) — đúng ý brief "không map
