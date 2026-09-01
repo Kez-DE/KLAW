@@ -172,6 +172,7 @@ LoaiVanBan = Literal[
     "hop_dong_thu_viec",
     "noi_quy",
     "quyet_dinh_ky_luat",
+    "thoa_thuan_bao_mat",
 ]
 
 
