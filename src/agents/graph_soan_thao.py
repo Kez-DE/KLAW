@@ -276,11 +276,22 @@ def extract_clauses(van_ban: str, checklist: Checklist, db_provisions: dict[int,
 
     clauses: list[DraftClause] = []
     for chunk in _split_dieu(van_ban, checklist.don_vi_muc):
-        chuan_hoa = normalize(chunk).lower()
-        key, ten = None, chunk.splitlines()[0][:80]
-        for muc_key, muc_ten, tu_khoa in ung_vien:
-            if any(normalize(tk).lower() in chuan_hoa for tk in tu_khoa):
-                key, ten = muc_key, muc_ten
+        dong_tieu_de = chunk.splitlines()[0]
+        key, ten = None, dong_tieu_de[:80]
+        # DÒNG TIÊU ĐỀ TRƯỚC, thân điều sau. Tiêu đề là lời tự khai của người
+        # soạn về chủ đề của điều khoản; thân điều nhắc tới nhiều chủ đề khác
+        # nhân thể. Đo được: một điều "Điều kiện chấm dứt hợp tác" có thân nhắc
+        # "hết thời hạn hợp tác" từng bị gán cho mục "Mục đích, thời hạn hợp
+        # tác" — mục chấm dứt báo thiếu trong khi nó là chính điều vừa bị cướp.
+        # Chỉ khi KHÔNG mục nào khớp tiêu đề mới đọc tới thân, nên văn bản
+        # không có tiêu đề vẫn khớp đúng như trước.
+        for nguon in (dong_tieu_de, chunk):
+            chuan_hoa = normalize(nguon).lower()
+            for muc_key, muc_ten, tu_khoa in ung_vien:
+                if any(normalize(tk).lower() in chuan_hoa for tk in tu_khoa):
+                    key, ten = muc_key, muc_ten
+                    break
+            if key:
                 break
         # ponytail: key=None hợp lệ tại runtime dù type hint DraftClause.key
         # là `str` (dataclass thường không ép kiểu) — đúng ý brief "không map

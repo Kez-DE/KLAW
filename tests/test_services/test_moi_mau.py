@@ -125,3 +125,31 @@ def test_soan_ra_roi_soat_lai_tach_dung_tung_muc(loai):
         f"{loai}: soạn ra rồi soát lại không trả về đúng thứ tự mục — "
         f"tách sai hoặc từ khoá chồng lấn"
     )
+
+
+def test_dong_tieu_de_thang_than_dieu_khi_ca_hai_cung_khop():
+    """Hai mục cùng khớp một điều khoản thì DÒNG TIÊU ĐỀ quyết định, không phải
+    mục đứng trước trong checklist.
+
+    Ca thật đo được trên hợp đồng hợp tác kinh doanh do hệ thống sinh ra: điều
+    "Điều kiện chấm dứt hợp tác" có thân nhắc "hết thời hạn hợp tác", nên mục
+    "Mục đích, thời hạn hợp tác" — đứng trước — cướp mất nó, và mục chấm dứt bị
+    báo thiếu dù nó chính là điều vừa bị cướp. completeness tụt 1.0 → 0.8 trên
+    văn bản hệ thống vừa tự chấm 1.0.
+    """
+    cl = load_checklist_cached("hop_dong_hop_tac")
+    van_ban = (
+        "## Điều 1. Mục đích và thời hạn hợp tác\n\nHai bên hợp tác trong 05 năm.\n\n"
+        "## Điều 2. Điều kiện chấm dứt hợp tác\n\n"
+        "Hợp đồng chấm dứt khi hết thời hạn hợp tác hoặc các bên thoả thuận.\n"
+    )
+    assert [c.key for c in extract_clauses(van_ban, cl, {})] == ["muc_dich_thoi_han", "cham_dut"]
+
+
+def test_khong_co_dong_tieu_de_thi_van_doc_than_dieu():
+    """Văn bản không đặt tiêu đề cho điều khoản vẫn khớp như trước — ưu tiên
+    tiêu đề là một bước THÊM, không phải một điều kiện bắt buộc mới.
+    """
+    cl = load_checklist_cached("hop_dong_hop_tac")
+    van_ban = "## Điều 1.\n\nCác bên thoả thuận phương thức phân chia lợi nhuận theo tỷ lệ góp vốn.\n"
+    assert [c.key for c in extract_clauses(van_ban, cl, {})] == ["phan_chia"]
