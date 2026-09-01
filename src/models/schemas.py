@@ -170,6 +170,7 @@ class VanBanProvisionsResponse(VanBanMetaMixin):
 LoaiVanBan = Literal[
     "bien_ban_hop_hdqt",
     "don_khoi_kien",
+    "don_yeu_cau",
     "hdld",
     "hop_dong_hop_tac",
     "hop_dong_thu_viec",
