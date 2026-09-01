@@ -316,6 +316,28 @@ class CauTrucMauOut(BaseModel):
     # ghép sai. `quyet_dinh_bo_nhiem` là mẫu LAI: pham_vi_soat="the_thuc" nhưng
     # có rule nhiệm kỳ, nên cờ này là False và nhãn phải nói cả hai vế.
     chi_soat_the_thuc: bool
+    # `True` khi mẫu dựng trên chế định HỢP ĐỒNG (BLDS Đ385). Chỉ khi đó văn
+    # bản mới có giải phẫu hai bên + chỗ ký.
+    #
+    # KHÔNG suy được ở phía bên gọi, đã đo: `can_cu_goc` không phân biệt được
+    # (91/2015/QH13 chứa cả Đ430 hợp đồng mua bán lẫn Đ138 giấy uỷ quyền;
+    # 45/2019/QH14 chứa cả Đ21 HĐLĐ lẫn Đ118 nội quy), và suy từ `muc` sai cả
+    # hai chiều — `giay_uy_quyen` có `ben_uy_quyen`/`ben_duoc_uy_quyen` nhưng là
+    # hành vi MỘT bên (đúng lý do nó không được ánh xạ sang `hop_dong_uy_quyen`),
+    # còn `hdld`, `hop_dong_thu_viec`, `thoa_thuan_bao_mat`, `hop_dong_mua_ban`
+    # không có mục nào nhắc "bên".
+    la_hop_dong: bool
+    # Khối các bên + chỗ ký, kèm can_cu thật (Đ385, Đ400.4). `None` khi
+    # `la_hop_dong=False`.
+    #
+    # TÁCH KHỎI `muc` CÓ CHỦ Ý: hai khối này KHÔNG nằm trong mẫu số của
+    # `check_completeness`. Gộp chúng vào `muc` sẽ làm tỷ lệ hiển thị lệch khỏi
+    # con số `/soat` trả về trên cùng một văn bản.
+    #
+    # Phục vụ ở đây thay vì để frontend viết cứng hai chuỗi can_cu: một can_cu
+    # nằm trong frontend không bao giờ đi qua cổng phân giải
+    # `provisions.duong_dan` — mà đó là bất biến trung tâm của cả dự án.
+    khung_hop_dong: list[MucMauOut] | None
     can_cu_goc: str
     can_cu_chi_tiet: str | None
     muc: list[MucMauOut]

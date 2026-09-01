@@ -45,7 +45,7 @@ from src.models.schemas import (
 )
 from src.services import cache_tra_loi
 from src.services.bao_ve import cong_bao_ve, cong_nhe
-from src.services.checklist import Checklist
+from src.services.checklist import KHUNG_HOP_DONG, Checklist
 from src.services.db import get_engine
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
 
@@ -833,6 +833,28 @@ async def mau(loai: LoaiVanBan) -> MauResponse:
     )
 
 
+def _khung_hop_dong(cl: Checklist) -> list[MucMauOut] | None:
+    """Khối các bên + chỗ ký, CHỈ những khối checklist chưa tự có.
+
+    `hop_dong_hop_tac` là ca thật: BLDS Đ505.2 liệt kê "họ, tên, nơi cư trú của
+    cá nhân; tên, trụ sở của pháp nhân" là NỘI DUNG CHỦ YẾU, nên nó đã có mục
+    `cac_ben` riêng — nằm TRONG mẫu số completeness và dẫn điều luật RIÊNG của
+    chế định hợp tác. Phát thêm khối Đ385 chung cho nó sẽ vẽ mục "các bên" hai
+    lần, một lần được tính vào tỷ lệ và một lần không.
+    Mục của checklist THẮNG: nó cụ thể hơn và nó là thứ `/soat` thật sự đếm.
+
+    Đánh số RIÊNG từ 1 và tách khỏi `muc`: đây là khối trình bày bao quanh văn
+    bản, không phải mục nội dung thứ n. `bat_buoc=True` vì Đ400.4 làm chữ ký
+    thành điều kiện GIAO KẾT — hợp đồng bằng văn bản chưa ký thì chưa tồn tại,
+    không phải "thiếu một mục".
+    """
+    if not cl.la_hop_dong:
+        return None
+    da_co = {m["key"] for m in cl.muc}
+    con_lai = [k for k in KHUNG_HOP_DONG if k["key"] not in da_co]
+    return [MucMauOut(stt=i, bat_buoc=True, **k) for i, k in enumerate(con_lai, 1)] or None
+
+
 def _cau_truc_mau(cl: Checklist, co_rule: bool) -> CauTrucMauOut:
     """Checklist → cấu trúc cho frontend. ĐỌC THẲNG từ đối tượng checklist đã
     nạp; không có bản mô tả thứ hai nào để lệch.
@@ -855,6 +877,12 @@ def _cau_truc_mau(cl: Checklist, co_rule: bool) -> CauTrucMauOut:
         # `cl.rules`: `facts` là thứ bên gọi THẤY, nên cờ này luôn nhất quán với
         # đáp ứng thay vì với một trường thứ hai họ không nhìn thấy.
         chi_soat_the_thuc=(cl.pham_vi_soat == "the_thuc" and not co_rule),
+        la_hop_dong=cl.la_hop_dong,
+        # Đánh số RIÊNG từ 1 và tách khỏi `muc`: đây là khối trình bày bao quanh
+        # văn bản, không phải mục nội dung thứ n. `bat_buoc=True` vì Đ400.4 làm
+        # chữ ký thành điều kiện GIAO KẾT — hợp đồng bằng văn bản chưa ký thì
+        # chưa tồn tại, không phải "thiếu một mục".
+        khung_hop_dong=_khung_hop_dong(cl),
         can_cu_goc=cl.can_cu_goc,
         can_cu_chi_tiet=cl.can_cu_chi_tiet,
         muc=[

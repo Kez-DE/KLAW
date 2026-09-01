@@ -57,6 +57,33 @@ from src.services.db import get_engine
 # đổi enum.
 PHAM_VI_SOAT = frozenset({"noi_dung", "the_thuc"})
 
+# Hai phần mà MỌI hợp đồng bằng văn bản phải có nhưng KHÔNG checklist nào liệt
+# kê — vì các checklist dựng trên điều luật quy định NỘI DUNG bắt buộc (Đ398.2,
+# Đ430, Đ21…), không quy định giải phẫu của một văn bản hợp đồng.
+#
+# Không phải khung trang trí, cả hai có căn cứ thật:
+#   Đ385   — "Hợp đồng là sự thoả thuận GIỮA CÁC BÊN…". Không nêu các bên thì
+#            không xác định được ai thoả thuận với ai.
+#   Đ400.4 — "Thời điểm giao kết hợp đồng BẰNG VĂN BẢN là thời điểm BÊN SAU
+#            CÙNG KÝ vào văn bản…". Với hợp đồng bằng văn bản, chữ ký là thứ
+#            LÀM NÊN việc giao kết — chưa ký thì chưa có hợp đồng.
+#
+# Ở đây chứ không trong 12 file YAML: hai điều này giống hệt nhau ở mọi hợp
+# đồng, nên chép 12 lần là 12 chỗ để lệch. Và ở đây chứ không trong frontend:
+# một can_cu nằm trong frontend sẽ không bao giờ đi qua cổng
+# `test_moi_can_cu_trong_cau_truc_phan_giai_duoc`.
+#
+# CỐ Ý KHÔNG phải là `muc`: chúng không nằm trong mẫu số của
+# `check_completeness`, nên tỷ lệ trên giao diện khớp đúng con số `/soat` trả về.
+KHUNG_HOP_DONG: tuple[dict[str, str], ...] = (
+    {"key": "cac_ben",
+     "ten": "Thông tin các bên giao kết hợp đồng",
+     "can_cu": "91/2015/QH13 > Điều 385"},
+    {"key": "chu_ky",
+     "ten": "Chữ ký, đóng dấu của các bên",
+     "can_cu": "91/2015/QH13 > Điều 400 > Khoản 4"},
+)
+
 
 @dataclass(frozen=True)
 class Checklist:
@@ -95,6 +122,22 @@ class Checklist:
     # thấy, nên frontend không có cách nào gắn nhãn đúng ngoài việc viết cứng
     # một danh sách tên loại và để nó lệch vào ngày thêm mẫu.
     pham_vi_soat: str = "noi_dung"
+    # `True` khi checklist dựng trên CHẾ ĐỊNH HỢP ĐỒNG (BLDS Đ385: "sự thoả
+    # thuận GIỮA CÁC BÊN"). Chỉ khi đó văn bản mới có giải phẫu hai bên + chỗ ký
+    # — xem `KHUNG_HOP_DONG` dưới đây.
+    #
+    # Mặc định `False`, và hướng mặc định đó CÓ CHỦ Ý: một mẫu mới quên khai cờ
+    # sẽ KHÔNG mọc ra khối "BÊN A / BÊN B" — thiếu một khối là lỗi trình bày,
+    # thêm nhầm một khối vào đơn khiếu nại hay quyết định kỷ luật là sai thể
+    # loại văn bản.
+    #
+    # Phải là một trường TRONG YAML chứ không phải danh sách tên loại trong
+    # Python, cùng lý do với `pham_vi_soat`: danh sách viết cứng lệch đúng vào
+    # ngày thêm mẫu. Và KHÔNG suy được từ `can_cu_goc` — cùng một văn bản gốc
+    # chứa cả hai loại (91/2015/QH13 có Đ430 hợp đồng mua bán VÀ Đ138 giấy uỷ
+    # quyền; 45/2019/QH14 có Đ21 HĐLĐ VÀ Đ118 nội quy) — cũng không suy được từ
+    # `muc` (giay_uy_quyen có `ben_uy_quyen` nhưng là hành vi MỘT bên).
+    la_hop_dong: bool = False
     rules: list[str] = field(default_factory=list)
     can_cu_chi_tiet: str | None = None
     nganh_duoc_giam: dict[str, Any] = field(default_factory=dict)
@@ -140,6 +183,7 @@ def load_checklist(path: Path) -> Checklist:
         don_vi_muc=d.get("don_vi_muc") or "Điều",
         muc_do_thieu=d.get("muc_do_thieu") or "chan",
         pham_vi_soat=pham_vi,
+        la_hop_dong=bool(d.get("la_hop_dong")),
         rules=list(d.get("rules") or []),
         can_cu_chi_tiet=d.get("can_cu_chi_tiet"),
         nganh_duoc_giam=d.get("nganh_duoc_giam") or {},

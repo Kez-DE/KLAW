@@ -254,3 +254,69 @@ def test_moi_can_cu_trong_cau_truc_phan_giai_duoc(loai):
             text("SELECT duong_dan FROM provisions WHERE duong_dan = ANY(:dd)"),
             {"dd": sorted(can_cu)})}
     assert can_cu <= co_that, f"{loai}: can_cu KHÔNG có trong DB: {sorted(can_cu - co_that)}"
+
+
+@pytest.mark.parametrize("loai", MOI_LOAI)
+def test_khung_hop_dong_co_dung_khi_la_hop_dong(loai):
+    """`khung_hop_dong` xuất hiện KHI VÀ CHỈ KHI `la_hop_dong`. Lệch một chiều
+    nào cũng hỏng: thiếu thì 12 hợp đồng dựng ra bản thảo không có tên các bên
+    và không có chỗ ký; thừa thì một đơn khiếu nại hay quyết định kỷ luật mọc ra
+    khối "BÊN A / BÊN B" — sai thể loại văn bản.
+    """
+    from src.api.routes import _cau_truc_mau
+    from src.services.checklist import KHUNG_HOP_DONG
+
+    cl = load_checklist_cached(loai)
+    ct = _cau_truc_mau(cl, co_rule=False)
+    assert isinstance(ct.la_hop_dong, bool)
+    if not cl.la_hop_dong:
+        assert ct.khung_hop_dong is None
+        return
+    # Chỉ những khối checklist CHƯA tự có — mục riêng của checklist thắng, vì nó
+    # cụ thể hơn và nó nằm trong mẫu số completeness (xem `_khung_hop_dong`).
+    da_co = {m["key"] for m in cl.muc}
+    assert [m.key for m in ct.khung_hop_dong or []] == \
+        [k["key"] for k in KHUNG_HOP_DONG if k["key"] not in da_co]
+    assert all(m.bat_buoc for m in ct.khung_hop_dong or [])
+
+
+@pytest.mark.parametrize("loai", MOI_LOAI)
+def test_khung_hop_dong_KHONG_vao_mau_so_completeness(loai):
+    """Ràng buộc cứng: `la_hop_dong` không được đụng `check_completeness`.
+
+    `cac_ben`/`chu_ky` không được là `key` của một `muc` nào — nếu lọt vào,
+    mẫu số đổi và tỷ lệ frontend hiển thị lệch khỏi con số `/soat` trả về trên
+    cùng một văn bản.
+    """
+
+    from src.api.routes import _cau_truc_mau
+
+    cl = load_checklist_cached(loai)
+    ct = _cau_truc_mau(cl, co_rule=False)
+    trung = {m.key for m in ct.khung_hop_dong or []} & {m["key"] for m in cl.muc}
+    assert not trung, (
+        f"{loai}: khung hợp đồng phát trùng key {trung} với muc — frontend sẽ vẽ "
+        "mục đó hai lần, một lần được tính vào completeness và một lần không")
+
+
+def test_giay_uy_quyen_KHONG_phai_hop_dong():
+    """Hành vi MỘT bên — đúng lý do nó không được ánh xạ sang `hop_dong_uy_quyen`
+    (BLDS Đ562, thoả thuận HAI bên). Suy máy móc từ `muc` sẽ cho dương tính giả
+    vì nó có `ben_uy_quyen` và `ben_duoc_uy_quyen`; test này khoá kết luận đúng.
+    """
+    assert load_checklist_cached("giay_uy_quyen").la_hop_dong is False
+    assert load_checklist_cached("hop_dong_uy_quyen").la_hop_dong is True
+
+
+@pytest.mark.integration
+def test_can_cu_khung_hop_dong_phan_giai_duoc():
+    """Hai can_cu của khung cũng phải là `provisions.duong_dan` THẬT — cùng cổng
+    với mọi can_cu khác. Đây là lý do chúng được phục vụ từ server thay vì viết
+    cứng trong frontend."""
+    from src.services.checklist import KHUNG_HOP_DONG
+
+    can_cu = sorted(k["can_cu"] for k in KHUNG_HOP_DONG)
+    with get_engine().connect() as conn:
+        co_that = {r[0] for r in conn.execute(
+            text("SELECT duong_dan FROM provisions WHERE duong_dan = ANY(:dd)"), {"dd": can_cu})}
+    assert set(can_cu) <= co_that, f"can_cu khung KHÔNG có trong DB: {sorted(set(can_cu) - co_that)}"
