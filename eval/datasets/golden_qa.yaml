@@ -408,11 +408,11 @@ items:
   cau_hoi: Tôi làm việc tự do, có ký hợp đồng điện tử với công ty thì có được bảo
     vệ không?
   duong_dan:
-  - 337/2025/NĐ-CP > Điều 2
+  - 337/2025/NĐ-CP > Điều 4
   bo_luat: Lao động
-  nguon: llm-gen
-  da_review: false
-  duyet_boi: chua-ai
+  nguon: llm-gen+agent-sua-neo
+  da_review: true
+  duyet_boi: agent
 - id: lao-031-1
   cau_hoi: Công ty tôi muốn thuê người làm việc qua mạng và ký hợp đồng online, có
     được phép không?
