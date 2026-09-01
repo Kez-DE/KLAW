@@ -250,6 +250,27 @@ function ManHoiKlaw() {
                           }}
                         />
                       )}
+                      {/* Lượt đã dừng mà KHÔNG có kết quả và KHÔNG có lỗi.
+                          Ba nhánh trên đều là `false` sau khi người dùng bấm
+                          Huỷ, và cũng sau khi luồng SSE chết giữa chừng — cả
+                          hai lần đều để lại câu hỏi nằm trơ một mình, không
+                          khác gì một lượt đang chờ mãi mãi. Không đoán xem
+                          nguyên nhân nào: nói đúng điều quan sát được, rồi
+                          đưa lại đường chạy lại đúng câu đó. */}
+                      {!traCuu.dangChay && traCuu.loi === null && traCuu.ketQua === null && (
+                        <div className="rounded-xl border border-dashed border-border px-4 py-3">
+                          <p className="m-0 text-[14px] leading-6 text-muted-foreground">
+                            Lượt tra cứu này đã dừng, chưa có câu trả lời.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={traCuu.thuLai}
+                            className="focus-brass mt-2 inline-flex min-h-9 cursor-pointer items-center rounded-lg border border-border px-3 text-[13px] font-medium text-primary transition-colors hover:bg-[var(--color-paper-100)]"
+                          >
+                            Hỏi lại câu này
+                          </button>
+                        </div>
+                      )}
                     </Luot>
                   )}
                 </div>

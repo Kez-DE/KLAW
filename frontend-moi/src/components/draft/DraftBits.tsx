@@ -11,7 +11,7 @@ export function BasisChip({ soHieu, label }: { soHieu: string; label?: string })
     <Link
       to="/tra-cuu"
       title={soHieu}
-      className="inline-flex items-baseline gap-1 rounded-md border border-[var(--color-brass-500)]/45 bg-[var(--color-brass-500)]/10 px-1.5 py-px font-sans text-[11px] font-medium text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/20"
+      className="inline-flex min-h-6 items-center gap-1 rounded-md border border-[var(--color-brass-500)]/45 bg-[var(--color-brass-500)]/10 px-1.5 py-px font-sans text-[11px] font-medium text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/20"
     >
       <span className="font-jetbrains text-[10px]">{soHieu}</span>
       {label && <span>{label}</span>}
@@ -175,7 +175,7 @@ export function Group({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-2 text-left font-display text-[15px] font-bold text-primary"
+          className="flex min-h-6 items-center gap-2 text-left font-display text-[15px] font-bold text-primary"
         >
           <ChevronDown
             className={cn(

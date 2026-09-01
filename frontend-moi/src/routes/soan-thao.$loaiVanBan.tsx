@@ -418,7 +418,7 @@ function KhongGianSoanThao() {
           <div className="shrink-0 border-b border-border bg-background px-5 pt-4 pb-3">
             <Link
               to="/soan-thao"
-              className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground"
+              className="inline-flex min-h-6 items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="size-3.5" /> Tất cả mẫu văn bản
             </Link>
