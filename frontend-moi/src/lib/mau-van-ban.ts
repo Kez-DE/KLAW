@@ -277,11 +277,19 @@ export const laThuViec = (m: MauVanBan) => m.id === "hop-dong-thu-viec";
 /**
  * Mẫu nào soát được với KLAW, và mẫu nào KHÔNG.
  *
- * Backend nhận đúng ba `loai_van_ban` (`hdld`, `noi_quy`, `quyet_dinh_ky_luat`)
- * và hiện chỉ `hdld` có checklist + rules thật (`_LOAI_CO_CHECKLIST = {"hdld"}`);
- * hai loại kia trả **501**. Danh mục 25 mẫu ở trên là cấu hình sản phẩm, không
- * phải lời hứa về năng lực soát — nên bản đồ này nói ra chính xác chỗ hai thứ
- * đó lệch nhau, thay vì để màn soạn thảo mời người dùng bấm một nút chỉ ra lỗi.
+ * Bản đồ này chỉ chứa mẫu máy chủ THẬT SỰ soát được, và đó là một ràng buộc
+ * hẹp hơn "máy chủ nhận `loai_van_ban` này".
+ *
+ * `POST /soat` khai ba giá trị (`hdld`, `noi_quy`, `quyet_dinh_ky_luat`) nhưng
+ * chỉ `hdld` có checklist; ĐO TRÊN MÁY CHỦ ĐANG CHẠY hôm nay, `noi_quy` trả
+ * **501** kèm câu `chưa có checklist/rules riêng (hiện chỉ hỗ trợ: ['hdld'])`,
+ * và `GET /mau/noi_quy` trả `facts: []`. `noi-quy-lao-dong` từng nằm trong bản
+ * đồ này và vì thế đeo nhãn "Soát được với KLAW" trong danh mục — một lời hứa
+ * mà người dùng chỉ phát hiện là sai SAU khi soạn xong cả bản thảo rồi bấm
+ * nút. Nó đã bị gỡ; thêm lại đúng vào ngày `config/rules.yaml` có rule cho nó.
+ *
+ * Hệ quả con số: **3/25 mẫu soát được**, 22 mẫu chưa. Danh mục đếm từ chính
+ * bản đồ này nên con số không thể trôi khỏi sự thật.
  *
  * KHÔNG ánh xạ `quyet-dinh-cham-dut-hop-dong-lao-dong` sang
  * `quyet_dinh_ky_luat`: chấm dứt hợp đồng và xử lý kỷ luật là hai chế định khác
@@ -292,7 +300,6 @@ export const LOAI_BACKEND: Record<string, LoaiVanBanBackend> = {
   "hop-dong-lao-dong-xac-dinh-thoi-han": "hdld",
   "hop-dong-lao-dong-khong-xac-dinh-thoi-han": "hdld",
   "hop-dong-thu-viec": "hdld",
-  "noi-quy-lao-dong": "noi_quy",
 };
 
 export type LoaiVanBanBackend = "hdld" | "noi_quy" | "quyet_dinh_ky_luat";

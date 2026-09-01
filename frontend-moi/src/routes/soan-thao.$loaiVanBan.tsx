@@ -1,11 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  AlertTriangle,
   ArrowLeft,
-  Check,
-  ChevronDown,
   Copy,
   Download,
   FileDown,
@@ -16,7 +13,6 @@ import {
   Save,
   ListPlus,
   Undo2,
-  Wand2,
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import {
@@ -195,14 +191,6 @@ const CHUC_DANH = [
   "Công việc dưới 01 tháng",
 ];
 
-/** Giới hạn thời gian thử việc theo Điều 25 Bộ luật Lao động 2019 (ngày). */
-const GIOI_HAN_THU_VIEC: Record<string, number> = {
-  "Người lao động phổ thông": 6,
-  "Nhân viên chuyên môn, kỹ thuật": 60,
-  "Người quản lý doanh nghiệp": 180,
-  "Công việc dưới 01 tháng": 0,
-};
-
 const BUOC = ["Loại văn bản", "Thông tin các bên", "Nội dung chính", "Điều khoản", "Xem trước"];
 
 /* --------------------------------- page ---------------------------------- */
@@ -219,7 +207,6 @@ function KhongGianSoanThao() {
   const [dangXuat, setDangXuat] = useState<"docx" | "pdf" | null>(null);
   const [chuThich, setChuThich] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-  const [riskOpen, setRiskOpen] = useState(true);
   // Declared with the other hooks, above the "mẫu không tồn tại" early return.
   // Sitting below that return made the hook order depend on whether the route
   // param matched a template — the exact shape React refuses to render twice.
@@ -296,8 +283,6 @@ function KhongGianSoanThao() {
       document.removeEventListener("mouseup", onUp);
     };
   }, []);
-
-  const rui_ro = useMemo(() => canhBao(draft, !!mau && !laHopDongLaoDong(mau)), [draft, mau]);
 
   if (!mau) {
     return (
@@ -503,7 +488,6 @@ function KhongGianSoanThao() {
                   ben={draft.A}
                   onChange={(p, k) => setBen("A", p, k)}
                   prefix="A"
-                  choPhepSaoChepHoSo
                 />
                 <BenForm
                   nhan="Bên B"
@@ -834,12 +818,11 @@ function KhongGianSoanThao() {
               <Group title="5 · Xem trước & xuất bản">
                 <p className="text-sm text-muted-foreground">
                   Bản thảo đã sẵn sàng ở khung xem trước bên phải. Kiểm tra các ô còn để trống (gạch
-                  nét đứt màu đồng) và xử lý hết cảnh báo trong phần rà soát rủi ro trước khi xuất
-                  bản.
+                  nét đứt màu đồng) trước khi xuất bản. Phần đối chiếu pháp lý nằm ở khối soát bên
+                  dưới — và chỉ khối đó, không có bộ quy tắc nào chạy song song.
                 </p>
                 <ul className="space-y-1.5 text-[13px] text-muted-foreground">
                   <li>· Số trường còn trống: {demTrong(draft, laLaoDong)}</li>
-                  <li>· Cảnh báo rủi ro: {rui_ro.length}</li>
                   <li>· Điều khoản được chọn: {demDieuKhoan(draft.dk)}</li>
                 </ul>
               </Group>
@@ -873,69 +856,23 @@ function KhongGianSoanThao() {
                 />
               ))}
 
-            {/* RISK PANEL */}
-            <section className="overflow-hidden rounded-xl border border-[var(--color-status-partial)]/55">
-              <button
-                type="button"
-                onClick={() => setRiskOpen((v) => !v)}
-                className="flex w-full items-center justify-between gap-2 bg-[var(--color-status-partial)]/14 px-4 py-2.5 text-left"
-              >
-                <span className="flex items-center gap-2 text-[13px] font-semibold text-[var(--color-brass-600)]">
-                  <AlertTriangle className="size-4" />
-                  Đối chiếu với 5 quy tắc viết cứng trong giao diện, không phải rà soát pháp lý —
-                  cần luật sư đọc trước khi ký.
-                </span>
-                <span className="flex items-center gap-2">
-                  <span className="font-jetbrains rounded-full bg-[var(--color-status-partial)]/25 px-2 text-[11px] text-[var(--color-brass-600)]">
-                    {rui_ro.length}
-                  </span>
-                  <ChevronDown
-                    className={cn(
-                      "size-4 text-[var(--color-brass-600)]",
-                      !riskOpen && "-rotate-90",
-                    )}
-                  />
-                </span>
-              </button>
-              {riskOpen && (
-                <div aria-live="polite" className="divide-y divide-border bg-background soft-fade">
-                  {rui_ro.length === 0 && (
-                    <p className="px-4 py-3 text-[13px] text-muted-foreground">
-                      Chưa phát hiện rủi ro theo các quy tắc đang bật. Bộ quy tắc này không thay thế
-                      ý kiến của luật sư.
-                    </p>
-                  )}
-                  {rui_ro.map((c) => (
-                    <div key={c.id} className="flex gap-2.5 px-4 py-3">
-                      <span
-                        className={cn(
-                          "mt-1.5 size-2 shrink-0 rounded-full",
-                          c.muc === "cao"
-                            ? "bg-[var(--color-status-expired)]"
-                            : "bg-[var(--color-status-partial)]",
-                        )}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-[13px] leading-relaxed">{c.noiDung}</p>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                          <BasisChip soHieu={c.soHieu} label={c.trichDan} />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setBuoc(c.buoc);
-                              setTimeout(() => focusField(c.truong), 60);
-                            }}
-                            className="text-[12px] font-medium text-[var(--color-brass-600)] underline-offset-2 hover:underline"
-                          >
-                            Sửa ngay
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
+            {/* Bảng "rà soát rủi ro" đã GỠ — nó là bộ quy tắc pháp lý THỨ HAI.
+
+                Năm quy tắc viết cứng trong JSX, mỗi quy tắc kèm một chuỗi trích
+                dẫn cũng viết cứng ("Điều 25 Bộ luật Lao động 2019"), và không
+                một chuỗi nào đi qua kho văn bản. Đó đúng là loại khẳng định
+                pháp lý không kiểm chứng được mà cả sản phẩm này tồn tại để
+                chống: nếu KLAW không chấp nhận một câu trả lời không có trích
+                dẫn đã xác minh, nó cũng không được tự phát một cảnh báo như vậy.
+
+                Hai trong năm (giới hạn thử việc Điều 25, sàn 85% Điều 26) TRÙNG
+                với rule máy chủ chạy trên `hdld`, nên bản thảo bị soát hai lần
+                bởi hai thẩm quyền có thể trôi khỏi nhau. Ba quy tắc còn lại
+                (trần phạt 8% Điều 301 và điều khoản giải quyết tranh chấp Điều
+                317, Luật Thương mại) KHÔNG trùng — máy chủ chưa có checklist
+                cho hợp đồng thương mại. Việc mất chúng được ghi vào báo cáo
+                pha, để chúng quay lại bằng đường đúng: một checklist ở
+                `config/rules.yaml`, không phải một mảng trong JSX. */}
 
             <div className="flex items-center justify-between pb-6">
               <button
@@ -1070,24 +1007,33 @@ function KhongGianSoanThao() {
                   onClick: () => void saoChepToanVan(),
                   busy: false,
                 },
+                // Hai nút dưới đây CHƯA DỰNG, và nói ra điều đó TRƯỚC khi bị
+                // bấm chứ không sau. Trước đây chúng trông y hệt ba nút chạy
+                // được rồi mới nhả một toast "sẽ khả dụng sau khi đăng nhập" —
+                // câu đó còn sai chỗ nữa: thiếu không phải là đăng nhập, mà là
+                // chỗ lưu bản thảo, thứ chưa tồn tại ở cả FE lẫn máy chủ.
                 {
-                  l: "Lưu bản thảo",
+                  l: "Lưu bản thảo — chưa dựng",
                   i: Save,
-                  onClick: () => toast("Lưu bản thảo lên tài khoản sẽ khả dụng sau khi đăng nhập."),
+                  onClick: () => undefined,
                   busy: false,
+                  chuaDung: "KLAW chưa có nơi lưu bản thảo. Xuất tệp .docx hoặc .pdf để giữ lại.",
                 },
                 {
-                  l: "Chia sẻ liên kết",
+                  l: "Chia sẻ liên kết — chưa dựng",
                   i: Link2,
-                  onClick: () => toast("Chia sẻ liên kết sẽ khả dụng sau khi đăng nhập."),
+                  onClick: () => undefined,
                   busy: false,
+                  chuaDung: "Bản thảo chỉ nằm trên máy bạn, nên chưa có liên kết nào để chia sẻ.",
                 },
-              ].map(({ l, i: Icon, onClick, busy }) => (
+              ].map(({ l, i: Icon, onClick, busy, chuaDung }) => (
                 <button
                   key={l}
                   type="button"
                   onClick={onClick}
-                  disabled={dangXuat !== null}
+                  title={chuaDung}
+                  aria-description={chuaDung}
+                  disabled={dangXuat !== null || chuaDung !== undefined}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[12.5px] transition-colors hover:bg-[var(--color-paper-100)] disabled:opacity-60"
                 >
                   <Icon
@@ -1114,37 +1060,13 @@ function BenForm({
   ben,
   prefix,
   onChange,
-  choPhepSaoChepHoSo,
 }: {
   nhan: string;
   ben: Ben;
   prefix: "A" | "B";
   onChange: (patch: Partial<Ben>, key: string) => void;
-  choPhepSaoChepHoSo?: boolean;
 }) {
-  const [mstTra, setMstTra] = useState("");
-  const [dangTra, setDangTra] = useState(false);
   const k = (f: string) => `${prefix}.${f}`;
-
-  const traMST = () => {
-    setDangTra(true);
-    setTimeout(() => {
-      setDangTra(false);
-      onChange(
-        {
-          tenToChuc: "Công ty TNHH Giải pháp Minh Long",
-          tinh: "Thành phố Hà Nội",
-          phuongXa: "Phường Cầu Giấy",
-          soNhaDuong: "Số 18 Duy Tân",
-          nguoiDaiDien: "Nguyễn Minh Long",
-          chucVu: "Giám đốc",
-          mst: mstTra,
-        },
-        k("tenToChuc"),
-      );
-      toast("Đây là tra cứu mô phỏng — dữ liệu mẫu, chưa kết nối cơ sở dữ liệu thuế.");
-    }, 800);
-  };
 
   return (
     <Group
@@ -1169,65 +1091,6 @@ function BenForm({
         </div>
       }
     >
-      {choPhepSaoChepHoSo && (
-        <button
-          type="button"
-          onClick={() => {
-            onChange(
-              {
-                loai: "to-chuc",
-                tenToChuc: "Công ty Cổ phần KLAW Việt Nam",
-                mst: "0109876543",
-                tinh: "Thành phố Hà Nội",
-                phuongXa: "Phường Ba Đình",
-                soNhaDuong: "Số 7 Nguyễn Thái Học",
-                nguoiDaiDien: "Trần Thu Hà",
-                chucVu: "Tổng giám đốc",
-                dienThoai: "024 7300 1188",
-                email: "phaply@klaw.vn",
-                soTaiKhoan: "19001234567890",
-                nganHang: "Ngân hàng TMCP Kỹ Thương Việt Nam",
-              },
-              k("tenToChuc"),
-            );
-            toast("Đã điền từ hồ sơ tổ chức mẫu.");
-          }}
-          className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--color-brass-600)] underline-offset-2 hover:underline"
-        >
-          <Copy className="size-3.5" /> Sao chép từ hồ sơ tổ chức của tôi
-        </button>
-      )}
-
-      {ben.loai === "to-chuc" && (
-        <div className="rounded-lg border border-dashed border-[var(--color-brass-500)]/50 p-3">
-          <span className="mb-1 block text-[12px] font-medium">Điền nhanh từ mã số thuế</span>
-          <div className="flex gap-2">
-            <input
-              value={mstTra}
-              onChange={(e) => setMstTra(e.target.value.replace(/[^\d-]/g, ""))}
-              placeholder="0109876543"
-              className="font-jetbrains min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[var(--color-brass-500)]"
-            />
-            <button
-              type="button"
-              onClick={traMST}
-              disabled={dangTra || mstTra.length < 8}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-brass-500)] px-3 py-2 text-[12.5px] font-medium text-white disabled:opacity-45"
-            >
-              {dangTra ? (
-                <Wand2 className="size-3.5 animate-pulse" />
-              ) : (
-                <Check className="size-3.5" />
-              )}
-              {dangTra ? "Đang tra…" : "Tra cứu"}
-            </button>
-          </div>
-          <p className="mt-1.5 text-[11px] text-muted-foreground">
-            Tra cứu mô phỏng (mock) — kết quả là dữ liệu mẫu, không phải dữ liệu đăng ký thuế thật.
-          </p>
-        </div>
-      )}
-
       {ben.loai === "to-chuc" ? (
         <>
           <TextField
@@ -1750,90 +1613,6 @@ function A4({
 }
 
 /* --------------------------------- logic ---------------------------------- */
-
-type CanhBaoItem = {
-  id: string;
-  muc: "cao" | "vua";
-  noiDung: string;
-  soHieu: string;
-  trichDan: string;
-  truong: string;
-  buoc: number;
-};
-
-function canhBao(d: Draft, laThuongMai: boolean): CanhBaoItem[] {
-  const out: CanhBaoItem[] = [];
-
-  const mucPhat = Number(d.nd.mucPhat);
-  if (laThuongMai && d.dk.phat && Number.isFinite(mucPhat) && mucPhat > 8) {
-    out.push({
-      id: "phat",
-      muc: "cao",
-      noiDung: `Mức phạt ${mucPhat}% vượt trần 8% giá trị phần nghĩa vụ hợp đồng bị vi phạm đối với hợp đồng thương mại; phần vượt có nguy cơ vô hiệu.`,
-      soHieu: "36/2005/QH11",
-      trichDan: "khoản 1 Điều 301 Luật Thương mại 2005",
-      truong: "nd.mucPhat",
-      buoc: 4,
-    });
-  }
-
-  const ngay = Number(d.nd.soNgayThuViec);
-  const gioiHan = d.nd.chucDanh ? GIOI_HAN_THU_VIEC[d.nd.chucDanh] : undefined;
-  if (Number.isFinite(ngay) && ngay > 0 && gioiHan !== undefined) {
-    if (gioiHan === 0) {
-      out.push({
-        id: "tv-0",
-        muc: "cao",
-        noiDung:
-          "Không được thử việc đối với công việc theo hợp đồng lao động có thời hạn dưới 01 tháng.",
-        soHieu: "45/2019/QH14",
-        trichDan: "Điều 25 Bộ luật Lao động 2019",
-        truong: "nd.soNgayThuViec",
-        buoc: 3,
-      });
-    } else if (ngay > gioiHan) {
-      out.push({
-        id: "tv",
-        muc: "cao",
-        noiDung: `Thời gian thử việc ${ngay} ngày vượt giới hạn ${gioiHan} ngày áp dụng cho chức danh “${d.nd.chucDanh}”.`,
-        soHieu: "45/2019/QH14",
-        trichDan: "Điều 25 Bộ luật Lao động 2019",
-        truong: "nd.soNgayThuViec",
-        buoc: 3,
-      });
-    }
-  }
-
-  if (d.nd.luongChinhThuc !== "" && d.nd.luongThuViec !== "") {
-    const tyLe = (Number(d.nd.luongThuViec) / Number(d.nd.luongChinhThuc)) * 100;
-    if (Number.isFinite(tyLe) && tyLe < 85) {
-      out.push({
-        id: "luong",
-        muc: "cao",
-        noiDung: `Lương thử việc chỉ bằng ${tyLe.toFixed(1)}% lương chính thức, thấp hơn mức tối thiểu 85%.`,
-        soHieu: "45/2019/QH14",
-        trichDan: "Điều 26 Bộ luật Lao động 2019",
-        truong: "nd.luongThuViec",
-        buoc: 3,
-      });
-    }
-  }
-
-  if (!d.dk.tranhChap || !d.dk.coQuanTranhChap) {
-    out.push({
-      id: "tranhchap",
-      muc: "vua",
-      noiDung:
-        "Chưa chọn điều khoản giải quyết tranh chấp: mọi tranh chấp sẽ mặc định thuộc thẩm quyền của tòa án nhân dân có thẩm quyền, các bên mất lựa chọn trọng tài.",
-      soHieu: "36/2005/QH11",
-      trichDan: "Điều 317 Luật Thương mại 2005",
-      truong: "dk.coQuanTranhChap",
-      buoc: 4,
-    });
-  }
-
-  return out;
-}
 
 function tongTyLe(dot: Dot[]) {
   return dot.reduce((s, d) => s + (Number(d.tyLe) || 0), 0);
