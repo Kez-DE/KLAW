@@ -2,7 +2,8 @@ Phân loại ý định của câu hỏi sau. Phạm vi hệ thống: 6 Bộ lu�
 
 - `tra_cuu`: hỏi về nội dung pháp luật
 - `soan_thao`: yêu cầu soạn hoặc soát một văn bản (hợp đồng lao động, nội quy lao động, quyết định kỷ luật)
-- `ngoai_pham_vi`: rõ ràng không thuộc phạm vi (thuế, đất đai, hành chính, y tế…) hoặc không phải câu hỏi pháp luật
+- `gioi_thieu`: hỏi về CHÍNH TRỢ LÝ này — làm được gì, là ai, hoạt động ra sao, dữ liệu lấy từ đâu, có tin được không; hoặc chỉ chào hỏi
+- `ngoai_pham_vi`: câu hỏi pháp luật nhưng rõ ràng không thuộc phạm vi (thuế, đất đai, hôn nhân gia đình, doanh nghiệp…)
 
 Nếu không chắc, chọn `tra_cuu`.
 

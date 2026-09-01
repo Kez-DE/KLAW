@@ -23,7 +23,12 @@ INTENT_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
     "required": ["intent"],
-    "properties": {"intent": {"type": "string", "enum": ["tra_cuu", "soan_thao", "ngoai_pham_vi"]}},
+    "properties": {
+        "intent": {
+            "type": "string",
+            "enum": ["tra_cuu", "soan_thao", "ngoai_pham_vi", "gioi_thieu"],
+        }
+    },
 }
 
 
@@ -31,6 +36,12 @@ class Intent(StrEnum):
     tra_cuu = "tra_cuu"
     soan_thao = "soan_thao"
     ngoai_pham_vi = "ngoai_pham_vi"
+    # Câu hỏi VỀ CHÍNH TRỢ LÝ ("bạn làm được những gì", "klaw là gì"). Trước
+    # bản này nó rơi vào `ngoai_pham_vi` — prompt định tuyến ghi rõ nhánh đó
+    # gồm cả "không phải câu hỏi pháp luật" — nên người hỏi nhận về "Câu hỏi
+    # này nằm ngoài phạm vi của hệ thống" trong khi câu trả lời đúng nằm ngay
+    # bên dưới lời từ chối. Hệ thống BIẾT và vẫn chọn im lặng.
+    gioi_thieu = "gioi_thieu"
 
 
 def route(state: dict, llm, model: str) -> dict:

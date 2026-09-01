@@ -85,6 +85,12 @@ class ResultType(StrEnum):
     partial_coverage = "partial_coverage"
     abstain = "abstain"
     out_of_scope = "out_of_scope"
+    # Loại thứ NĂM. Bốn loại kia mô tả điều gì đã xảy ra với một lượt TRA CỨU;
+    # loại này nói rằng câu hỏi không phải một lượt tra cứu. Tách ra thay vì
+    # mượn `out_of_scope` vì hai câu dưới đây đáng nhận hai lời đáp khác nhau:
+    #   "Thuế thu nhập cá nhân tính thế nào?" → ngoài phạm vi thật, từ chối đúng
+    #   "bạn làm được những gì"               → hỏi về trợ lý, phải trả lời
+    gioi_thieu = "gioi_thieu"
 
 
 class Citation(TypedDict):
@@ -242,7 +248,44 @@ def _ly_do_moi_nguon_bi_thay(qua_loc: list) -> str:
             "văn bản hiện hành từ dữ liệu sẵn có.")
 
 
+# Câu trả lời cho `intent == gioi_thieu`. CỐ Ý không nhúng số liệu corpus (số
+# văn bản, số điều khoản): chúng đổi mỗi lần mở rộng kho, và một con số cũ nằm
+# trong lời tự giới thiệu là kiểu sai khó phát hiện nhất — không test nào đỏ,
+# không ai đọc lại. `/pham-vi` đọc thẳng từ DB, nên chỗ đó mới là chỗ nói số.
+#
+# Nói được mình làm gì mà không nói được mình KHÔNG làm gì thì là quảng cáo,
+# không phải câu trả lời trung thực — nên đoạn giới hạn nằm ngay trong này chứ
+# không nằm ở một trang khác người hỏi phải tự tìm.
+GIOI_THIEU = (
+    "Chào bạn. Tôi tra cứu pháp luật Việt Nam và soạn thảo văn bản pháp lý lao động.\n"
+    "\n"
+    "Điều tôi làm khác các trợ lý khác: mỗi câu tôi nói đều neo vào một trích dẫn "
+    "bạn bấm được để mở đúng nguyên văn điều luật, và trước khi hiển thị, câu trích "
+    "đó đã được đối chiếu từng chữ với văn bản gốc. Nếu không đủ căn cứ, tôi nói "
+    "thẳng là không đủ — tôi không đoán.\n"
+    "\n"
+    "Bạn hỏi được: quyền lợi khi bị trừ lương hay cho nghỉ việc, thời giờ làm việc "
+    "và nghỉ phép, hợp đồng lao động, kỷ luật lao động, an toàn lao động, và nội "
+    "dung của sáu Bộ luật (Dân sự, Hình sự, Tố tụng dân sự, Tố tụng hình sự, Lao "
+    "động, Hàng hải). Tôi soạn được hợp đồng lao động, nội quy lao động và quyết "
+    "định kỷ luật.\n"
+    "\n"
+    "Tôi chưa phủ: thuế, đất đai, hôn nhân gia đình, doanh nghiệp, đầu tư, sở hữu "
+    "trí tuệ. Chiều sâu cũng không đều — riêng Lao động mới có đủ luật, nghị định, "
+    "thông tư và chế tài.\n"
+    "\n"
+    "Một điều nữa bạn nên biết: kho của tôi là văn bản gốc, không phải bản hợp "
+    "nhất. Tôi bảo đảm trích dẫn đúng nguyên văn và đúng nguồn, và tôi gắn nhãn "
+    "hiệu lực cho từng trích dẫn — nhưng bạn vẫn nên đối chiếu bản hiện hành trước "
+    "khi dùng vào việc quan trọng."
+)
+
+
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> dict:
+    if state.get("intent") == "gioi_thieu":
+        # 0 TOKEN: nội dung là sự thật về hệ thống, không phải thứ cần suy luận.
+        return _base(state, ResultType.gioi_thieu, answer=GIOI_THIEU)
+
     if state.get("intent") == "ngoai_pham_vi":
         return _base(
             state, ResultType.out_of_scope,
