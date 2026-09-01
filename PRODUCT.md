@@ -47,7 +47,7 @@ trên, đầy đủ ở lớp dưới khi người dùng muốn đào sâu. Khô
 | Trạng thái | Nghĩa |
 |---|---|
 | `answer` | có căn cứ, đã qua cả hai tầng kiểm |
-| `partial_coverage` | chỉ trúng tầng nông — nêu văn bản, **không** diễn giải. **Hiện KHÔNG kích hoạt được** (xem dưới) |
+| `partial_coverage` | chỉ trúng tầng nông — nêu văn bản, **không** diễn giải. **Đã sống từ 2026-09-01** (xem dưới) |
 | `abstain` | không đủ căn cứ |
 | `out_of_scope` | ngoài phạm vi 6 Bộ luật + cụm Lao động |
 
@@ -121,7 +121,26 @@ Không phủ: thuế, đất đai, hôn nhân gia đình, doanh nghiệp, đầu
   metadata (0 điều khoản) nên trích dẫn an toàn — nhưng `/pham-vi` và `nguon`
   của `partial_coverage` CÓ chạm tầng nông, nên chúng phải khoá theo `doc_id`.
 
-**Đính chính 2026-08-31 — `partial_coverage` hiện là nhánh KHÔNG kích hoạt được.**
+**Cập nhật 2026-09-01 — `partial_coverage` ĐÃ SỐNG.** 74 văn bản tầng nông nay
+mỗi văn bản có một hàng `mo_dau` mang tên nó, và bộ chia chunk đánh chỉ mục hàng
+đó — CHỈ cho tầng nông, vì tiền tố của 47 văn bản tầng sâu là letterhead lặp lại
+(trung bình 467 ký tự) và 47 chunk gần trùng là nhiễu tệ nhất khi `ts_rank` không
+có IDF.
+
+Đánh chỉ mục chưa đủ. Đo được: "Nghị định 95/2026 quy định gì?" truy hồi 18 nguồn
+— 16 tầng sâu KHÔNG liên quan và 2 tầng nông ĐÚNG — nên điều kiện cũ
+`not deep and shallow` bỏ qua, rồi 16 nguồn kia sinh 0 luận điểm và người hỏi
+nhận `abstain` trơ trong khi hệ thống đang cầm tên nghị định. Điều kiện nay kích
+thêm khi **không luận điểm nào sống sót nhưng có nguồn tầng nông**; nó chỉ NÂNG
+CẤP một `abstain`, không bao giờ chen chỗ câu trả lời thật.
+
+Lời hứa "nêu văn bản, KHÔNG diễn giải" do SCHEMA giữ, không cần code:
+`ux_provisions_neo_trich_dan` và `provisions_noi_dung_citable_check` chỉ phủ
+`dieu`/`khoan`/`diem`, nên hàng `mo_dau` không bao giờ thành trích dẫn nguyên văn.
+
+Giữ lại chẩn đoán cũ vì nó vẫn đúng về nguyên nhân:
+
+**Đính chính 2026-08-31 — `partial_coverage` khi đó là nhánh KHÔNG kích hoạt được.**
 Tôi đã nhiều lần nói "36 văn bản metadata chính là thứ sinh ra `partial_coverage`".
 **Sai.** Chuỗi kiểm: `expand.py:123-126` chỉ giữ `depth` là `deep` hoặc `shallow`
 và loại `metadata`; DB có `deep: 21`, `metadata: 36`, **`shallow: 0`**; và 36 văn
