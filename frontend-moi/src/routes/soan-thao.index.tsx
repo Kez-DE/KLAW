@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
-import { MAU, NHOM, loaiBackendCua, type NhomMau } from "@/lib/mau-van-ban";
+import { CHI_SOAT_HINH_THUC, MAU, NHOM, loaiBackendCua, type NhomMau } from "@/lib/mau-van-ban";
 import { boDau } from "@/lib/khong-dau";
 import { cn } from "@/lib/utils";
 import { SITE_ORIGIN } from "./__root";
@@ -141,6 +141,14 @@ function ChonLoaiVanBan() {
                   {loaiBackendCua(m.id) === undefined ? (
                     <span className="inline-flex items-center gap-1 rounded-full border border-border bg-[var(--color-paper-100)] px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground">
                       <Stamp className="size-3" aria-hidden /> Soạn được, chưa soát được
+                    </span>
+                  ) : CHI_SOAT_HINH_THUC.has(m.id) ? (
+                    // Nhãn THỨ BA. Gộp nó vào "Soát được với KLAW" là hứa rằng
+                    // KLAW đọc được nội dung công văn — nó chỉ đếm đủ 9 thành
+                    // phần thể thức. Ba năng lực khác nhau thì ba nhãn.
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-[var(--color-paper-100)] px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground">
+                      <ScanSearch className="size-3" aria-hidden /> Soát thể thức, không soát nội
+                      dung
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-brass-500)]/45 bg-[var(--color-brass-500)]/10 px-2 py-0.5 text-[10.5px] font-medium text-[var(--color-brass-600)]">

@@ -289,7 +289,7 @@ export const laThuViec = (m: MauVanBan) => m.id === "hop-dong-thu-viec";
  * nút.
  *
  * 2026-09-01: nó có checklist thật (BLLĐ Đ118.2 a–i) nên đã quay lại, cùng 12
- * mẫu khác. **15/25 mẫu soát được.** Danh mục đếm từ chính bản đồ này nên con
+ * mẫu khác. **16/25 mẫu soát được** (một trong đó chỉ soát thể thức). Danh mục đếm từ chính bản đồ này nên con
  * số không thể trôi khỏi sự thật.
  *
  * KHÔNG ánh xạ `quyet-dinh-cham-dut-hop-dong-lao-dong` sang
@@ -321,7 +321,29 @@ export const LOAI_BACKEND: Record<string, LoaiVanBanBackend> = {
   "bien-ban-hop": "bien_ban_hop_hdqt",
   "don-khoi-kien": "don_khoi_kien",
   "don-de-nghi": "don_yeu_cau",
+  // CHỈ SOÁT THỂ THỨC — xem `CHI_SOAT_HINH_THUC` ngay dưới.
+  "cong-van": "cong_van",
 };
+
+/**
+ * Mẫu mà KLAW chỉ soát được THỂ THỨC, không soát nội dung.
+ *
+ * NĐ 30/2020 Đ8.2 cho cả 29 loại văn bản hành chính CHUNG một danh mục 9 thành
+ * phần (quốc hiệu, số hiệu, nơi nhận, chữ ký…), và không quy định nội dung
+ * nghiệp vụ của loại nào. Với công văn thì đó KHÔNG phải thiếu sót: luật không
+ * đặt nội dung bắt buộc nào cho công văn — thân văn bản là văn xuôi tự do —
+ * nên "đủ 9 thành phần" đúng là toàn bộ những gì luật đòi.
+ *
+ * Nhưng nhãn phải nói ra. Thẻ này nằm cạnh những mẫu soát nội dung thật (nội
+ * quy lao động, quyết định kỷ luật), nên một nhãn "Soát được với KLAW" giống
+ * hệt sẽ khiến người dùng tưởng KLAW đọc được nội dung công văn của họ. Nó
+ * không đọc.
+ *
+ * Một giới hạn nữa, không hiện trên thẻ vì thuộc về ai phải tuân: NĐ 30/2020
+ * Đ2.1 chỉ áp cho cơ quan, tổ chức nhà nước và doanh nghiệp nhà nước. Với
+ * doanh nghiệp tư nhân đây là chuẩn mực tham khảo, không phải nghĩa vụ.
+ */
+export const CHI_SOAT_HINH_THUC: ReadonlySet<string> = new Set(["cong-van"]);
 
 /**
  * Ba mẫu CỐ Ý không ánh xạ dù backend có kiểu trông na ná — cùng lý lẽ đã dùng
@@ -357,7 +379,8 @@ export type LoaiVanBanBackend =
   | "hop_dong_uy_quyen"
   | "bien_ban_hop_hdqt"
   | "don_khoi_kien"
-  | "don_yeu_cau";
+  | "don_yeu_cau"
+  | "cong_van";
 
 /** `undefined` = KLAW chưa có kiểu nào cho mẫu này, nên chưa soát được. */
 export const loaiBackendCua = (id: string): LoaiVanBanBackend | undefined => LOAI_BACKEND[id];
