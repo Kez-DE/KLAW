@@ -169,6 +169,7 @@ class VanBanProvisionsResponse(VanBanMetaMixin):
 # gọi tới mẫu đó được, một tên ở đây không có file thì route trả 501.
 LoaiVanBan = Literal[
     "bien_ban_hop_hdqt",
+    "cong_van",
     "don_khoi_kien",
     "don_yeu_cau",
     "hdld",
