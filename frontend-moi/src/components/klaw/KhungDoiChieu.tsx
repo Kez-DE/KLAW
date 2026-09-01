@@ -127,6 +127,8 @@ export function KhungDoiChieu({
   const haiCot = useHaiCot();
   const tieuDe = useRef<HTMLHeadingElement>(null);
   const vungCuon = useRef<HTMLDivElement>(null);
+  /** Chip đã mở khung — nơi tiêu điểm phải quay về khi khung đóng. */
+  const noiMo = useRef<HTMLElement | null>(null);
 
   // Chuỗi rỗng KHÔNG phải một câu trích. Quy về null một lần ở đây để không
   // nhánh nào bên dưới phải tự nhớ phân biệt.
@@ -141,11 +143,29 @@ export function KhungDoiChieu({
     return () => window.removeEventListener("keydown", nghe);
   }, [onDong]);
 
-  // Mở khung: đưa tiêu điểm vào tiêu đề của nó. Trả tiêu điểm về đúng cái chip
-  // vừa bấm khi đóng là việc của nơi gọi — chỉ nơi đó biết chip nào.
+  // Mở khung — hoặc đổi sang một trích dẫn khác khi khung đang mở: ghi lại
+  // phần tử vừa mở nó (lúc bấm, chính chip đó đang giữ tiêu điểm) rồi đưa tiêu
+  // điểm vào tiêu đề. Đổi trích dẫn mà KHÔNG dời tiêu điểm là đổi nội dung
+  // khung trong im lặng — trình đọc màn hình không có gì báo là đã đổi.
   useEffect(() => {
+    const dangGiu = document.activeElement;
+    if (dangGiu instanceof HTMLElement && dangGiu !== tieuDe.current && dangGiu !== document.body) {
+      noiMo.current = dangGiu;
+    }
     tieuDe.current?.focus();
-  }, []);
+  }, [khopTaiId]);
+
+  // Đóng khung: trả tiêu điểm về đúng cái chip đã mở nó. Không trả thì tiêu
+  // điểm rơi về `<body>`, và người dùng bàn phím phải Tab lại từ đầu trang qua
+  // toàn bộ điều hướng để về chỗ cũ. Chip có thể đã biến mất (lượt tra cứu
+  // mới), nên kiểm `isConnected` trước khi gọi.
+  useEffect(
+    () => () => {
+      const ve = noiMo.current;
+      if (ve !== null && ve.isConnected) ve.focus();
+    },
+    [],
+  );
 
   // Một cột: khung phủ toàn màn hình nên khoá cuộn nền phía sau.
   useEffect(() => {
