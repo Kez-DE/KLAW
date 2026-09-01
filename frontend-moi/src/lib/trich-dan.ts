@@ -149,3 +149,22 @@ export function xepTrichDan<T extends { hieu_luc: string | null }>(
     .map((trichDan, chiSoGoc) => ({ trichDan, chiSoGoc }))
     .sort((a, b) => nhomHieuLuc(a.trichDan.hieu_luc) - nhomHieuLuc(b.trichDan.hieu_luc));
 }
+
+/**
+ * Câu cảnh báo của ĐÚNG văn bản này trong `warnings[]`, nếu có.
+ *
+ * `Citation` không mang ngày — đo trên backend thật, chín trường và không
+ * trường nào là ngày hiệu lực. Ngày chỉ tồn tại trong câu cảnh báo:
+ * "293/2025/NĐ-CP chưa có hiệu lực: ngày hiệu lực 2026-01-01 còn ở tương lai
+ * so với 2019-06-01". Nên nhãn "Chưa có hiệu lực" muốn nói ra TỪ BAO GIỜ thì
+ * phải lấy câu đó.
+ *
+ * Trả về nguyên câu, KHÔNG cạo ngày ra: định dạng câu này do backend viết và
+ * có thể đổi, một bộ tách ngày sẽ hỏng trong im lặng còn câu nguyên thì không.
+ *
+ * Khớp bằng `so_ky_hieu` kèm dấu cách để "90/2019/NĐ-CP" không nuốt câu của
+ * một số hiệu khác dài hơn có cùng phần đầu.
+ */
+export function ghiChuHieuLuc(soKyHieu: string, warnings: readonly string[]): string | undefined {
+  return warnings.find((canhBao) => canhBao.startsWith(`${soKyHieu} `));
+}

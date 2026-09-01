@@ -15,7 +15,7 @@
  * Chạy: `npm run kiem-xep-trich-dan` (Node 22 đọc thẳng TypeScript, 0 thư viện).
  */
 import assert from "node:assert/strict";
-import { nhomHieuLuc, xepTrichDan } from "../src/lib/trich-dan.ts";
+import { ghiChuHieuLuc, nhomHieuLuc, xepTrichDan } from "../src/lib/trich-dan.ts";
 
 /** Đủ hình dạng cho `xepTrichDan` — nó chỉ đọc `hieu_luc`. */
 const td = (ten: string, hieu_luc: string | null) => ({ ten, hieu_luc });
@@ -103,4 +103,18 @@ const td = (ten: string, hieu_luc: string | null) => ({ ten, hieu_luc });
   assert.deepEqual(xepTrichDan([]), []);
 }
 
-console.log("kiem-xep-trich-dan: 6 nhóm kiểm — ĐẠT");
+// 7. `ghiChuHieuLuc` lấy đúng câu của văn bản mình, và không nuốt câu của một
+//    số hiệu khác có cùng phần đầu. Câu cảnh báo là nơi DUY NHẤT có ngày hiệu
+//    lực — `Citation` không mang trường ngày nào.
+{
+  const canhBao = [
+    "293/2025/NĐ-CP chưa có hiệu lực: ngày hiệu lực 2026-01-01 còn ở tương lai so với 2019-06-01",
+    "90/2019/NĐ-CP chưa có hiệu lực: ngày hiệu lực 2020-01-01 còn ở tương lai so với 2019-06-01",
+  ];
+  assert.match(ghiChuHieuLuc("90/2019/NĐ-CP", canhBao) ?? "", /2020-01-01/);
+  assert.equal(ghiChuHieuLuc("157/2018/NĐ-CP", canhBao), undefined);
+  assert.equal(ghiChuHieuLuc("0/2019/NĐ-CP", canhBao), undefined);
+  assert.equal(ghiChuHieuLuc("293/2025/NĐ-CP", []), undefined);
+}
+
+console.log("kiem-xep-trich-dan: 7 nhóm kiểm — ĐẠT");

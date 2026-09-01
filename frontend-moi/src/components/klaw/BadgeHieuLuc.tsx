@@ -187,10 +187,11 @@ export function BadgeHieuLuc({ hieuLuc, ghiChu, gonGang, className }: BadgeHieuL
       )}
 
       {!gonGang && ghiChu !== undefined && ghiChu !== "" && (
-        <span
-          className="mt-1 block text-[12px] leading-5"
-          style={{ color: "var(--color-status-expired)" }}
-        >
+        // Màu của CHÍNH nhãn, không phải đỏ cố định. Với `bi_thay_the` và
+        // `het_hieu_luc` hai màu trùng nhau nên không đổi gì; với
+        // `chua_hieu_luc` thì đỏ là sai — đỏ dành riêng cho luật đã chết, còn
+        // đây là luật sắp có hiệu lực.
+        <span className="mt-1 block text-[12px] leading-5" style={{ color: nhan.mau }}>
           {ghiChu}
         </span>
       )}
