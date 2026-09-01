@@ -1,0 +1,44 @@
+# Checklist nội dung bắt buộc của HỢP ĐỒNG THỬ VIỆC — BLLĐ Đ24.2, dẫn thẳng:
+# "Nội dung chủ yếu của hợp đồng thử việc gồm thời gian thử việc và nội dung
+# quy định tại các điểm a, b, c, đ, g và h khoản 1 Điều 21 của Bộ luật này."
+#
+# Bảy mục dưới đây là ĐÚNG bảy mục Đ24.2 kể ra, không hơn. Ba điểm còn lại của
+# Đ21.1 (d thời hạn hợp đồng, e nâng bậc nâng lương, i BHXH, k đào tạo) CỐ Ý
+# vắng mặt: Đ24.2 không dẫn tới chúng, và bắt một hợp đồng thử việc phải có
+# điều khoản nâng bậc lương là báo thiếu một nội dung luật không đòi.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan FROM provisions
+#    WHERE duong_dan LIKE '45/2019/QH14 > Điều 2[1456]%';
+loai: hop_dong_thu_viec
+ten: "hợp đồng thử việc"
+tieu_de: "HỢP ĐỒNG THỬ VIỆC"
+
+# Đ25 (thời gian thử việc tối đa theo chức danh) và Đ26 (lương thử việc ≥ 85%)
+# là hai điều luật nói THẲNG về thử việc — hai rule duy nhất áp dụng chắc chắn.
+#
+# `cam_giu_giay_to_dat_coc` CỐ Ý vắng mặt dù nó là một điều cấm mạnh: tiêu đề
+# Đ17 tự giới hạn phạm vi vào "khi giao kết, thực hiện HỢP ĐỒNG LAO ĐỘNG", mà
+# Đ24 tách hợp đồng thử việc thành một văn bản riêng. Suy rộng Đ17 sang đây là
+# một lập luận pháp lý, không phải một phép tra bảng — và một finding "chan"
+# dựng trên lập luận suy rộng nói với người dùng rằng văn bản của họ TRÁI LUẬT
+# với một độ chắc mà hệ thống không có. Cùng lý do với `cam_phat_tien_nld`
+# (Đ127 chỉ áp khi XỬ LÝ KỶ LUẬT) và `luong_toi_thieu_vung` (NĐ 293/2025 Đ3
+# đặt mức cho người làm việc theo hợp đồng lao động).
+rules:
+  - thu_viec_toi_da
+  - luong_thu_viec_toi_thieu
+
+can_cu_goc: "45/2019/QH14 > Điều 24 > Khoản 2"
+
+# ponytail: tu_khoa là phép khớp chuỗi, không phải hiểu ngữ nghĩa. Giữ chúng
+# HẸP và không chồng lấn — "thử việc" một mình sẽ nuốt mọi điều khoản của một
+# hợp đồng thử việc về mục đầu tiên. Nâng cấp khi có ca đo được cần nó.
+muc:
+  - {stt: 1, key: thoi_gian_thu_viec, ten: "Thời gian thử việc", can_cu: "45/2019/QH14 > Điều 25", tu_khoa: ["thời gian thử việc", "thời hạn thử việc"]}
+  - {stt: 2, key: nsdld,      ten: "Tên, địa chỉ NSDLĐ và họ tên, chức danh người giao kết", diem: a, can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm a", tu_khoa: ["người sử dụng lao động", "nsdlđ"]}
+  - {stt: 3, key: nld,        ten: "Họ tên, ngày sinh, giới tính, nơi cư trú, số CCCD của NLĐ", diem: b, can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm b", tu_khoa: ["người lao động", "nlđ", "cccd"]}
+  - {stt: 4, key: cong_viec,  ten: "Công việc và địa điểm làm việc", diem: c, can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm c", tu_khoa: ["địa điểm làm việc", "công việc phải làm", "chức danh chuyên môn"]}
+  - {stt: 5, key: luong,      ten: "Mức lương thử việc, hình thức trả, thời hạn trả, phụ cấp", diem: đ, can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm đ", tu_khoa: ["mức lương", "tiền lương", "phụ cấp lương"]}
+  - {stt: 6, key: thoi_gio,   ten: "Thời giờ làm việc, thời giờ nghỉ ngơi", diem: g, can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm g", tu_khoa: ["thời giờ làm việc", "thời giờ nghỉ ngơi"]}
+  - {stt: 7, key: bao_ho,     ten: "Trang bị bảo hộ lao động", diem: h, can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm h", tu_khoa: ["bảo hộ lao động", "trang bị bảo hộ"]}

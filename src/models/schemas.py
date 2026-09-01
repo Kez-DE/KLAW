@@ -164,7 +164,15 @@ class VanBanProvisionsResponse(VanBanMetaMixin):
 # điều khoản, tức một TRÍCH ĐOẠN, không phải một vị trí — `vi_tri` nói dối về
 # thứ nó chứa. Tên nội bộ (`AuditFinding.mo_ta`) không đổi.
 
-LoaiVanBan = Literal["hdld", "noi_quy", "quyet_dinh_ky_luat"]
+# PHẢI khớp tập `config/checklist_*.yaml` — tests/test_services/test_moi_mau.py
+# khoá hai chiều: một file không có tên ở đây thì Pydantic trả 422 và không ai
+# gọi tới mẫu đó được, một tên ở đây không có file thì route trả 501.
+LoaiVanBan = Literal[
+    "hdld",
+    "hop_dong_thu_viec",
+    "noi_quy",
+    "quyet_dinh_ky_luat",
+]
 
 
 class SoanThaoRequest(BaseModel):
