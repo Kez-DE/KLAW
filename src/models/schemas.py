@@ -173,6 +173,7 @@ class VanBanProvisionsResponse(VanBanMetaMixin):
 # khoá hai chiều: một file không có tên ở đây thì Pydantic trả 422 và không ai
 # gọi tới mẫu đó được, một tên ở đây không có file thì route trả 501.
 LoaiVanBan = Literal[
+    "ban_tu_khai",
     "bien_ban_hop_hdqt",
     "cong_van",
     "don_khieu_nai",
