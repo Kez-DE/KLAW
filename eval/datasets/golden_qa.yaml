@@ -80,12 +80,12 @@ items:
   da_review: true
   duyet_boi: agent
 - id: lao-005-1
-  cau_hoi: Tôi làm ở công ty này được 5 năm, giờ bị cho nghỉ việc, thì tôi sẽ được
-    nhận bao nhiêu tiền hỗ trợ mất việc?
+  cau_hoi: Công ty em sáp nhập vào một chỗ khác rồi cắt bớt người, em làm ở đây được
+    5 năm mà giờ bị cho thôi, em được nhận bao nhiêu tiền?
   duong_dan:
   - 45/2019/QH14 > Điều 47
   bo_luat: Lao động
-  nguon: llm-gen+agent-duyet
+  nguon: llm-gen+agent-viet-lai
   da_review: true
   duyet_boi: agent
 - id: lao-006-0
@@ -662,9 +662,9 @@ items:
   - 45/2019/QH14 > Điều 91
   - 293/2025/NĐ-CP > Điều 3
   bo_luat: Lao động
-  nguon: llm-gen
-  da_review: false
-  duyet_boi: chua-ai
+  nguon: nguoi-viet+agent-duyet
+  da_review: true
+  duyet_boi: agent
 - id: lao-hand-06
   cau_hoi: Tôi bị tai nạn khi đang làm việc, công ty có phải lo tiền viện phí và trả
     lương những ngày tôi nghỉ điều trị không?
@@ -684,11 +684,11 @@ items:
   da_review: true
   duyet_boi: agent
 - id: lao-hand-08
-  cau_hoi: Công ty bắt làm thêm giờ liên tục, một tháng tối đa được bắt làm thêm bao
-    nhiêu tiếng?
+  cau_hoi: Xưởng em nhận hàng gia công theo đơn đặt hàng, vào mùa cao điểm sếp bắt
+    tăng ca liên tục, một tháng tối đa được bắt tăng ca bao nhiêu tiếng?
   duong_dan:
   - 18/2021/TT-BLĐTBXH > Điều 6
   bo_luat: Lao động
-  nguon: llm-gen
-  da_review: false
-  duyet_boi: chua-ai
+  nguon: nguoi-viet+agent-viet-lai
+  da_review: true
+  duyet_boi: agent
