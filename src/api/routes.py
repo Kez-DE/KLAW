@@ -59,6 +59,32 @@ _LOAI_CO_CHECKLIST = {"hdld"}
 
 router = APIRouter()
 
+
+async def _ghi_traces_nhe(
+    trace_id: str, endpoint: str, query: str, config_name: str, st: dict, latency_ms: int,
+    cache_hit: bool = False, user_sub: str | None = None,
+) -> None:
+    """`_ghi_traces` nhưng KHÔNG BAO GIỜ raise.
+
+    Telemetry hỏng không phải lý do từ chối một câu trả lời đã tính ĐÚNG — khác
+    lỗi hạ tầng của chính graph, cái đó PHẢI nổ vì nó quyết định `result_type`;
+    ghi traces không quyết định gì.
+
+    Một chỗ, không phải ba khối `try/except` chép tay: hàm này cũng được gọi
+    TRONG `finally` của đường lỗi, và ở đó một ngoại lệ thoát ra sẽ THAY THẾ
+    ngoại lệ thật đang lan lên — nuốt mất nguyên nhân gốc của sự cố.
+    """
+    try:
+        await run_in_threadpool(
+            _ghi_traces, trace_id, endpoint, query, config_name, st, latency_ms,
+            cache_hit, user_sub,
+        )
+    except Exception:
+        logger.exception(
+            "ghi traces thất bại (trace_id=%s, endpoint=%s) — KHÔNG chặn response",
+            trace_id, endpoint,
+        )
+
 _graph = None
 
 
@@ -163,6 +189,12 @@ async def chay_tra_cuu(
     # cache VÀ vào graph, nên không có cách nào cache khoá theo một ngày mà
     # graph lọc hiệu lực theo ngày khác.
     as_of = as_of_hieu_luc(req.as_of_date)
+    # Khởi tạo TRƯỚC `try` để khối `finally` dưới đây luôn có thứ để ghi. Đường
+    # SSE gom state theo từng node, nên khi graph nổ ở lượt LLM thứ 5 thì chi
+    # phí của 4 lượt đầu VẪN nằm trong `st` — ghi lại được đúng phần đã tiêu.
+    st: dict = {}
+    tu_cache = False
+    loi: str | None = None
     try:
         # Cache TRƯỚC graph. Lỗi ĐỌC cache cố ý KHÔNG được bắt riêng: nó rơi vào
         # đúng hai khối except dưới đây (OperationalError → 503). Nếu bảng cache
@@ -212,8 +244,9 @@ async def chay_tra_cuu(
         # giờ đưa OPENROUTER_API_KEY vào message ngoại lệ, nhưng response vẫn
         # chỉ mang TÊN loại lỗi, không mang str(e), để không mở rộng bề mặt rò
         # rỉ nếu một ngoại lệ tương lai vô tình mang theo dữ liệu nhạy cảm).
+        loi = type(e).__name__
         logger.exception("tra_cuu: lỗi hạ tầng nhất thời khi chạy graph (trace_id=%s)", trace_id)
-        raise HTTPException(status_code=503, detail=f"tra cứu thất bại: {type(e).__name__}") from e
+        raise HTTPException(status_code=503, detail=f"tra cứu thất bại: {loi}") from e
     except Exception as e:
         # Không thuộc hai loại rõ ràng-nhất-thời ở trên — bug thật (KeyError,
         # AttributeError...) hoặc ValueError của chính LlmClient khi OpenRouter
@@ -223,8 +256,25 @@ async def chay_tra_cuu(
         # dùng ValueError trần (không phải exception riêng) nên không tách
         # được khỏi ValueError từ một bug thật bằng KIỂU — nâng cấp lên một
         # exception riêng nếu cần tách rạch hơn.
+        loi = type(e).__name__
         logger.exception("tra_cuu: lỗi không xác định khi chạy graph (trace_id=%s)", trace_id)
-        raise HTTPException(status_code=500, detail=f"tra cứu thất bại: {type(e).__name__}") from e
+        raise HTTPException(status_code=500, detail=f"tra cứu thất bại: {loi}") from e
+    finally:
+        # Ghi TRONG `finally`, không phải sau `try`: `chay_tra_cuu` raise trước
+        # khi tới lượt ghi ở dưới, nên mọi request hỏng từng biến mất khỏi sổ —
+        # mà `/tra-cuu` gọi LLM tối đa 5 lần, và chế độ hỏng này kích hoạt đúng
+        # lúc OpenRouter trả 429/5xx, tức đúng lúc trần chi phí ngày và hạn mức
+        # tháng (cả hai ĐỌC bảng này) cần chính xác nhất.
+        #
+        # `result_type='loi'` là một giá trị MỚI của cột: `dem_luot_thang` đếm
+        # `count(*)` nên dòng này trừ đúng một lượt hạn mức, còn phép lọc theo
+        # `result_type` của chương đánh giá vẫn tách được nó khỏi lượt thành công.
+        if loi is not None:
+            await _ghi_traces_nhe(
+                trace_id, "/api/v1/tra-cuu", req.query, config_name,
+                {**st, "result_type": "loi"},
+                int((time.monotonic() - bat_dau) * 1000), tu_cache, user_sub,
+            )
     latency_ms = int((time.monotonic() - bat_dau) * 1000)
 
     if not tu_cache:
@@ -239,20 +289,14 @@ async def chay_tra_cuu(
                 cache_tra_loi.ghi_cache, khoa, req.query, config_name, as_of, checksum, payload
             )
 
-    try:
-        await run_in_threadpool(
-            _ghi_traces, trace_id, "/api/v1/tra-cuu", req.query, config_name, st, latency_ms,
-            # Cache hit vẫn ghi MỘT dòng (nó vẫn là một request thật, và traces
-            # là nơi đếm lưu lượng) — nhưng có cờ, để số liệu đánh giá của khoá
-            # luận không lẫn lượt cache vào lượt gọi LLM thật. Cùng cờ đó giữ
-            # cho cache hit KHÔNG trừ hạn mức tháng của người dùng.
-            tu_cache, user_sub,
-        )
-    except Exception:
-        # Telemetry hỏng không phải lý do từ chối người dùng một câu trả lời
-        # đã tính ĐÚNG — khác lỗi hạ tầng của chính graph ở trên, cái đó PHẢI
-        # nổ ra vì nó quyết định result_type; ghi traces không quyết định gì.
-        logger.exception("tra_cuu: ghi traces thất bại (trace_id=%s) — KHÔNG chặn response", trace_id)
+    # Cache hit vẫn ghi MỘT dòng (nó vẫn là một request thật, và traces là nơi
+    # đếm lưu lượng) — nhưng có cờ, để số liệu đánh giá của khoá luận không lẫn
+    # lượt cache vào lượt gọi LLM thật. Cùng cờ đó giữ cho cache hit KHÔNG trừ
+    # hạn mức tháng của người dùng.
+    await _ghi_traces_nhe(
+        trace_id, "/api/v1/tra-cuu", req.query, config_name, st, latency_ms,
+        tu_cache, user_sub,
+    )
 
     return payload, config_name
 
@@ -674,30 +718,40 @@ async def soan_thao(
 
     trace_id = str(uuid.uuid4())
     bat_dau = time.monotonic()
+    config_name = req.config_name or get_settings().eval_config_name
+    st: dict = {}
+    loi: str | None = None
     try:
         st = await _g_soan_thao().ainvoke(
             {"loai_van_ban": req.loai_van_ban, "facts": req.facts, "nganh": req.nganh}
         )
     except (httpx.HTTPStatusError, httpx.TransportError, OperationalError) as e:
         # Cùng phân loại lỗi hạ tầng nhất thời như tra_cuu() — xem docstring ở đó.
+        loi = type(e).__name__
         logger.exception("soan_thao: lỗi hạ tầng nhất thời khi chạy graph (trace_id=%s)", trace_id)
-        raise HTTPException(status_code=503, detail=f"soạn thảo thất bại: {type(e).__name__}") from e
+        raise HTTPException(status_code=503, detail=f"soạn thảo thất bại: {loi}") from e
     except Exception as e:
+        loi = type(e).__name__
         logger.exception("soan_thao: lỗi không xác định khi chạy graph (trace_id=%s)", trace_id)
-        raise HTTPException(status_code=500, detail=f"soạn thảo thất bại: {type(e).__name__}") from e
+        raise HTTPException(status_code=500, detail=f"soạn thảo thất bại: {loi}") from e
+    finally:
+        # Cùng lý lẽ với `chay_tra_cuu`: `/soan-thao` cũng tốn một lượt LLM thật
+        # (`draft_generate`), nên một request hỏng cũng không được là một
+        # request miễn phí. Xem khối `finally` ở đó cho lý do đầy đủ.
+        if loi is not None:
+            await _ghi_traces_nhe(
+                trace_id, "/api/v1/soan-thao", req.loai_van_ban, config_name,
+                {**st, "result_type": "loi"},
+                int((time.monotonic() - bat_dau) * 1000), False, user_sub,
+            )
     latency_ms = int((time.monotonic() - bat_dau) * 1000)
 
-    config_name = req.config_name or get_settings().eval_config_name
-    try:
-        await run_in_threadpool(
-            _ghi_traces, trace_id, "/api/v1/soan-thao", req.loai_van_ban, config_name, st,
-            # `cache_hit=False` LUÔN đúng ở đây — `/soan-thao` cố ý không cache.
-            # Truyền tường minh vì `user_sub` là tham số sau nó, và hạn mức tháng
-            # đếm cả hai cột.
-            latency_ms, False, user_sub,
-        )
-    except Exception:
-        logger.exception("soan_thao: ghi traces thất bại (trace_id=%s) — KHÔNG chặn response", trace_id)
+    # `cache_hit=False` LUÔN đúng ở đây — `/soan-thao` cố ý không cache. Truyền
+    # tường minh vì `user_sub` là tham số sau nó, và hạn mức tháng đếm cả hai cột.
+    await _ghi_traces_nhe(
+        trace_id, "/api/v1/soan-thao", req.loai_van_ban, config_name, st, latency_ms,
+        False, user_sub,
+    )
 
     clauses = st.get("clauses") or []
     _, _, db_provisions = requirements()
