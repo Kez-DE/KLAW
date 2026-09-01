@@ -136,6 +136,25 @@ class Settings(BaseSettings):
         default=60, gt=0, validation_alias="KLAW_RATE_LIMIT_CUA_SO_GIAY"
     )
 
+    # Giỏ RIÊNG cho lá chắn chạy TRƯỚC xác thực (xem `bao_ve.cong_bao_ve`).
+    # Nó có một việc: chặn lụt token rác, mỗi token `kid` lạ ép một round-trip
+    # JWKS và giữ một luồng threadpool 5 giây (anyio mặc định 40 luồng). Nó
+    # KHÔNG phải hạn mức của người dùng — hạn mức đó là `rate_limit_so_luot`,
+    # đếm theo `sub` sau khi đã biết danh tính.
+    #
+    # Vì vậy nó phải RỘNG hơn nhiều: giỏ này đếm theo IP, mà một văn phòng sau
+    # NAT là NHIỀU người trên MỘT IP — siết nó bằng hạn mức cá nhân là để người
+    # thứ hai bị hãm vì lưu lượng của người thứ nhất (dự án đã có test khoá đúng
+    # tính chất này). 60/60s: cần ~480/phút từ MỘT IP mới giữ nổi 40 luồng, nên
+    # 60 hạ trần một-IP xuống ~5 luồng mà không chạm lưu lượng thật.
+    #
+    # `rate_limit_so_luot = 0` TẮT luôn cả giỏ này — MỘT công tắc cho cả tầng
+    # nhịp, để `eval/run.py` không phải nhớ hai biến (quên một biến là bão 429
+    # giữa một lượt đo).
+    rate_limit_ip_so_luot: int = Field(
+        default=60, ge=0, validation_alias="KLAW_RATE_LIMIT_IP_SO_LUOT"
+    )
+
     # False = KHÔNG tin `X-Forwarded-For`. Bật CHỈ KHI thật sự có reverse proxy
     # đặt header đó: nếu tin mà không có proxy, bất kỳ ai cũng gửi một IP giả
     # mỗi request và rate limit theo IP trở thành trang trí.

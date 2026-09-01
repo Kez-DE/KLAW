@@ -67,7 +67,7 @@ def chan_nhip(monkeypatch):
     """Cổng nhịp đã ĐẦY: mọi lượt gọi đều 429."""
     khoa_da_dem = []
 
-    def chan(khoa):
+    def chan(khoa, so_luot=None):
         khoa_da_dem.append(khoa)
         raise bao_ve.HTTPException(status_code=429, detail="quá nhịp")
 
@@ -97,7 +97,7 @@ async def test_kid_la_THAT_SU_ep_mot_luot_nap_JWKS(client, cai_dat, dem_jwks, kh
     """Chứng minh đường tấn công có thật, không phải giả thuyết: khi cổng nhịp
     KHÔNG chặn, mỗi `kid` lạ đúng là một lượt ra mạng."""
     cai_dat(supabase_url=_URL)
-    monkeypatch.setattr(bao_ve, "kiem_rate_limit", lambda khoa: None)
+    monkeypatch.setattr(bao_ve, "kiem_rate_limit", lambda khoa, so_luot=None: None)
     khoa, dem = dem_jwks
 
     for _ in range(3):
@@ -120,13 +120,15 @@ async def test_nguoi_da_dang_nhap_van_bi_dem_theo_ca_IP_va_sub(
     cai_dat(supabase_url=_URL)
     khoa, _ = dem_jwks
     khoa_dem: list[str] = []
-    monkeypatch.setattr(bao_ve, "kiem_rate_limit", lambda k: khoa_dem.append(k))
+    monkeypatch.setattr(
+        bao_ve, "kiem_rate_limit", lambda k, so_luot=None: khoa_dem.append(k)
+    )
 
     r = await client.post("/api/v1/tra-cuu", json=_CAU_HOI, headers=_token(khoa, "khoa-that"))
 
     assert r.status_code == 200
     assert len(khoa_dem) == 2, f"đếm nhịp {len(khoa_dem)} lượt: {khoa_dem}"
-    assert not khoa_dem[0].startswith("user:"), "lượt ĐẦU phải theo IP (chưa biết danh tính)"
+    assert khoa_dem[0].startswith("chan-ip:"), "lượt ĐẦU phải là lá chắn theo IP"
     assert khoa_dem[1].startswith("user:"), "lượt SAU phải theo sub"
 
 
@@ -135,7 +137,7 @@ async def test_chua_cau_hinh_auth_van_ham_nhip_theo_IP_truoc(client, cai_dat, ch
     cai_dat(supabase_url="")
     r = await client.post("/api/v1/tra-cuu", json=_CAU_HOI)
     assert r.status_code == 429
-    assert chan_nhip and not chan_nhip[0].startswith("user:")
+    assert chan_nhip and chan_nhip[0].startswith("chan-ip:")
 
 
 async def test_API_key_sai_van_dung_TRUOC_ca_cong_nhip(client, cai_dat, chan_nhip):

@@ -184,8 +184,12 @@ def kiem_api_key(request: Request) -> None:
 # ── Cổng 2: rate limit theo IP ──────────────────────────────────────────────
 
 
-def kiem_rate_limit(ip: str) -> None:
+def kiem_rate_limit(ip: str, so_luot: int | None = None) -> None:
     """Cửa sổ TRƯỢT trong Postgres. Vượt → 429.
+
+    `so_luot` None = dùng `rate_limit_so_luot` (hạn mức NHỊP của một người).
+    Truyền tường minh cho giỏ có mục đích khác — lá chắn trước xác thực dùng
+    `rate_limit_ip_so_luot`, rộng hơn nhiều; xem `cong_bao_ve`.
 
     Cửa sổ trượt, không phải cửa sổ cố định theo phút: cửa sổ cố định cho phép
     gấp đôi hạn mức quanh mốc chuyển phút (10 lượt cuối phút này + 10 lượt đầu
@@ -195,7 +199,11 @@ def kiem_rate_limit(ip: str) -> None:
     request thứ (hạn mức + 1). Lỗi DB ở đây là TỪ CHỐI (503), không phải mở cửa.
     """
     s = get_settings()
-    if s.rate_limit_so_luot <= 0:  # 0 = TẮT (eval sweep qua HTTP)
+    if s.rate_limit_so_luot <= 0:  # 0 = TẮT cả tầng nhịp (eval sweep qua HTTP)
+        return
+    if so_luot is None:
+        so_luot = s.rate_limit_so_luot
+    if so_luot <= 0:
         return
     cua_so = s.rate_limit_cua_so_giay
     try:
@@ -203,7 +211,7 @@ def kiem_rate_limit(ip: str) -> None:
             c.execute(_SQL_KHOA_IP, {"ip": ip})
             c.execute(_SQL_DON_LUOT, {"cua_so": cua_so})
             c.execute(_SQL_GHI_LUOT, {"ip": ip})
-            so_luot = c.execute(_SQL_DEM_LUOT, {"ip": ip, "cua_so": cua_so}).scalar_one()
+            da_dung = c.execute(_SQL_DEM_LUOT, {"ip": ip, "cua_so": cua_so}).scalar_one()
     except Exception as e:
         logger.exception("kiem_rate_limit: không đếm được lượt gọi (ip=%s) — TỪ CHỐI", ip)
         raise HTTPException(
@@ -211,11 +219,11 @@ def kiem_rate_limit(ip: str) -> None:
             detail="Không kiểm được giới hạn tần suất, tạm thời từ chối yêu cầu. Vui lòng thử lại.",
         ) from e
 
-    if so_luot > s.rate_limit_so_luot:
+    if da_dung > so_luot:
         raise HTTPException(
             status_code=429,
             detail=(
-                f"Vượt giới hạn tần suất: tối đa {s.rate_limit_so_luot} lượt "
+                f"Vượt giới hạn tần suất: tối đa {so_luot} lượt "
                 f"trong {cua_so} giây cho mỗi địa chỉ IP. Vui lòng thử lại sau {cua_so} giây."
             ),
             headers={"Retry-After": str(cua_so)},
@@ -440,8 +448,9 @@ async def cong_bao_ve(request: Request) -> str | None:
     """Trả `sub` người gọi (None khi auth chưa cấu hình) — handler cần nó để ghi
     `traces.user_sub`, và không ghi được thì lượt đó không đếm vào hạn mức của ai.
 
-    Thứ tự: API key (0 truy vấn) → nhịp theo IP → danh tính → nhịp theo `sub` →
-    hạn mức tháng → trần chi phí. Cổng RẺ đứng trước cổng ĐẮT, không có ngoại lệ.
+    Thứ tự: API key (0 truy vấn) → LÁ CHẮN theo IP → danh tính → nhịp theo `sub`
+    (hoặc theo IP khi chưa cấu hình auth) → hạn mức tháng → trần chi phí. Cổng
+    RẺ đứng trước cổng ĐẮT, không có ngoại lệ.
 
     API key trước vì nó không tốn truy vấn nào: một request không có quyền không
     nên được phép làm hệ thống ghi một dòng DB.
@@ -454,17 +463,25 @@ async def cong_bao_ve(request: Request) -> str | None:
     40 request/giây với `kid` ngẫu nhiên làm cạn threadpool và treo mọi endpoint
     khác — bằng một token không ai ký, khi cổng nhịp còn chưa được chạy.
 
-    **Đếm LẠI theo `sub` sau khi biết danh tính.** Hai giỏ, hai mục đích: giỏ IP
-    là lá chắn duy nhất dùng được KHI CHƯA BIẾT người gọi là ai, giỏ `sub` là
-    hạn mức thật của người đó. Rate limit KHÔNG bị bỏ khi đã đăng nhập — nó hãm
-    NHỊP (một chùm song song), còn hạn mức tháng hãm TỔNG; hai đại lượng khác nhau.
+    **HAI giỏ, HAI mục đích — và hai hạn mức khác nhau.** Đây là chỗ dễ làm sai
+    nhất, vì gộp chúng lại thì một trong hai tính chất luôn gãy:
 
-    ĐÁNH ĐỔI đã biết: giỏ IP nay áp cho cả người đã đăng nhập, nên hai người sau
-    cùng một NAT lại dùng chung một giỏ — đúng vấn đề mà lượt trước đã bỏ giỏ IP
-    đi để tránh. Không tránh được: không thể đếm theo danh tính trước khi xác
-    minh danh tính, mà xác minh chính là thứ cần được che. Nếu NAT thành vấn đề
-    đo được, nới hạn mức của giỏ IP (lá chắn chống lụt) và giữ chặt giỏ `sub`
-    (hạn mức thật) — đừng bỏ giỏ IP.
+    * `chan-ip:{ip}` (`rate_limit_ip_so_luot`, mặc định 60/60s) — LÁ CHẮN. Việc
+      duy nhất của nó là chặn lụt trước khi tới `xac_thuc_nguoi_goi`. Nó RỘNG,
+      vì nó đếm theo IP mà một văn phòng sau NAT là nhiều người trên một IP.
+    * `user:{sub}` (`rate_limit_so_luot`, mặc định 10/60s) — HẠN MỨC NHỊP THẬT
+      của một người, chạy sau khi đã biết người đó là ai.
+
+    Siết lá chắn bằng hạn mức cá nhân là để người thứ hai sau cùng một NAT bị
+    hãm vì lưu lượng của người thứ nhất — dự án có test khoá đúng tính chất này
+    (`test_hai_nguoi_dung_sau_CUNG_mot_IP_khong_lam_can_han_muc_cua_nhau`), và
+    nó đỏ ngay khi hai giỏ dùng chung một con số.
+
+    Chưa cấu hình auth ⇒ không có `sub` nào để đếm, nên giỏ chặt quay về đếm
+    theo IP, đúng như trước.
+
+    Rate limit KHÔNG bị bỏ khi đã đăng nhập — nó hãm NHỊP (một chùm song song),
+    còn hạn mức tháng hãm TỔNG; hai đại lượng khác nhau.
 
     Ba cổng cuối đọc/ghi Postgres ĐỒNG BỘ (SQLAlchemy) trong một `async def` →
     phải qua `run_in_threadpool`, nếu không chúng chặn event loop cho MỌI request
@@ -472,13 +489,19 @@ async def cong_bao_ve(request: Request) -> str | None:
     `xac_minh` cũng vào threadpool: nó có thể gọi mạng (nạp JWKS khi TTL hết).
     """
     kiem_api_key(request)
-    # TRƯỚC `xac_thuc_nguoi_goi`: xem docstring — một `kid` bịa mua được một
-    # round-trip HTTPS và 5 giây của một luồng threadpool, và cổng phải đứng
-    # trước thứ nó bảo vệ mới có nghĩa.
-    await run_in_threadpool(kiem_rate_limit, ip_goi(request))
+    # Lá chắn, TRƯỚC `xac_thuc_nguoi_goi`: xem docstring — một `kid` bịa mua
+    # được một round-trip HTTPS và 5 giây của một luồng threadpool, và một cổng
+    # đứng SAU thứ nó bảo vệ thì không bảo vệ gì. Tiền tố `chan-ip:` để giỏ này
+    # không bao giờ trộn số đếm với giỏ chặt bên dưới.
+    ip = ip_goi(request)
+    await run_in_threadpool(
+        kiem_rate_limit, f"chan-ip:{ip}", get_settings().rate_limit_ip_so_luot
+    )
     nguoi = await run_in_threadpool(xac_thuc_nguoi_goi, request)
 
     if nguoi is None:
+        # Chưa cấu hình auth: không có danh tính để đếm, giỏ chặt quay về IP.
+        await run_in_threadpool(kiem_rate_limit, ip)
         await run_in_threadpool(kiem_tran_chi_phi)
         return None
 
