@@ -38,8 +38,8 @@ export function apiGoc(): string {
 }
 
 /**
- * Endpoint đọc thuần. Đo được: `/bo-loc` ~30ms, `/tim-kiem` 118ms,
- * `/van-ban/*​/tim` 9,2ms. 15 giây không phải ngưỡng "chậm" mà là ngưỡng
+ * Endpoint đọc thuần. Đo được: `/bo-loc` ~30ms, `/tim-kiem` 118ms, ô lọc mục
+ * lục 9,2ms. 15 giây không phải ngưỡng "chậm" mà là ngưỡng
  * "đường truyền đã chết" — dưới mức đó thì thà chờ còn hơn báo lỗi sai.
  */
 export const HAN_GIO_DOC = 15_000;
@@ -147,7 +147,12 @@ function loiTheoStatus(status: number, cau: string | null, tho: unknown): ApiErr
     // KHÔNG dùng `cau` cho 5xx: `detail` ở dải này mang tên lớp ngoại lệ
     // ("tra cứu thất bại: TransportError") — thông tin gỡ lỗi, không phải câu
     // nói được với người dùng.
-    return { kind: "server_error", status, message: "Máy chủ KLAW gặp lỗi khi xử lý.", detail: tho };
+    return {
+      kind: "server_error",
+      status,
+      message: "Máy chủ KLAW gặp lỗi khi xử lý.",
+      detail: tho,
+    };
   }
   return chung("invalid_request", "Yêu cầu gửi lên máy chủ KLAW chưa hợp lệ.");
 }
@@ -194,14 +199,24 @@ export async function goi<T>(
   } catch (loi) {
     return {
       ok: false,
-      error: { kind: "invalid_response", message: LOI_HINH_DANG, status: phanHoi.status, detail: loi },
+      error: {
+        kind: "invalid_response",
+        message: LOI_HINH_DANG,
+        status: phanHoi.status,
+        detail: loi,
+      },
     };
   }
 
   if (!kiem(than)) {
     return {
       ok: false,
-      error: { kind: "invalid_response", message: LOI_HINH_DANG, status: phanHoi.status, detail: than },
+      error: {
+        kind: "invalid_response",
+        message: LOI_HINH_DANG,
+        status: phanHoi.status,
+        detail: than,
+      },
     };
   }
   return { ok: true, data: than };
@@ -234,12 +249,7 @@ export function thamSo(cap: [string, string | number | undefined | null][]): str
  * còn việc của tầng này là không tự ý bỏ cuộc giữa khoảng lặng ấy.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-import {
-  laTraCuuKetQua,
-  type SuKienBatDau,
-  type SuKienBuoc,
-  type TraCuuKetQua,
-} from "./klaw";
+import { laTraCuuKetQua, type SuKienBatDau, type SuKienBuoc, type TraCuuKetQua } from "./klaw";
 import { catCacKhung } from "./sse-khung";
 
 export interface YeuCauTraCuu {
@@ -280,7 +290,11 @@ export async function traCuuLuong(
     phanHoi = await fetch(`${apiGoc()}/tra-cuu/luong`, {
       method: "POST",
       signal: tinHieu,
-      headers: { ...(await tieuDeXacThuc()), "Content-Type": "application/json", Accept: "text/event-stream" },
+      headers: {
+        ...(await tieuDeXacThuc()),
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
       body: JSON.stringify(yeuCau),
     });
   } catch (loi) {

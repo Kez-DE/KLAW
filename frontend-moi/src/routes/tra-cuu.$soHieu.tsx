@@ -14,7 +14,6 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { ChuaNoiBanner } from "@/components/legal/LegalBits";
-import { StatusBadge } from "@/components/legal/VanBanUI";
 import { boDau, idDieu, idKhoan, vanBanTheoSoHieu, type Dieu, type VanBan } from "@/lib/van-ban";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +27,7 @@ export const Route = createFileRoute("/tra-cuu/$soHieu")({
     const vb = loaderData?.vb;
     const title = vb ? `${vb.ten} ${vb.soHieu} — toàn văn | KLAW` : "Văn bản — KLAW";
     const desc = vb
-      ? `${vb.loai} ${vb.soHieu} do ${vb.coQuan} ban hành ngày ${vb.ngayBanHanh}, tình trạng: ${vb.tinhTrang}. Đọc toàn văn theo điều, khoản, điểm.`
+      ? `${vb.loai} ${vb.soHieu} do ${vb.coQuan} ban hành ngày ${vb.ngayBanHanh}. Đọc toàn văn theo điều, khoản, điểm.`
       : "Đọc toàn văn văn bản pháp luật theo điều, khoản, điểm trên KLAW.";
     return {
       meta: [
@@ -282,8 +281,7 @@ function RelationsContent({
                       </p>
                       <p className="mt-0.5 text-[13px] text-foreground">{it.ten}</p>
                       {target ? (
-                        <div className="mt-1.5 flex items-center justify-between gap-2">
-                          <StatusBadge status={target.tinhTrang} />
+                        <div className="mt-1.5 flex items-center justify-end gap-2">
                           <Link
                             to="/tra-cuu/$soHieu"
                             params={{ soHieu: target.soHieu }}
@@ -392,7 +390,9 @@ function DocReader() {
     ["Ngày có hiệu lực", vb.ngayHieuLuc],
     ["Ngày hết hiệu lực", vb.ngayHetHieuLuc ?? "—"],
     ["Lĩnh vực", vb.linhVuc],
-    ["Tình trạng hiệu lực", vb.tinhTrang],
+    // KHÔNG có dòng "Tình trạng hiệu lực" ở bảng metadata. `GET /van-ban/{id}`
+    // cố ý không trả trường đó dù nó nằm cùng dòng `documents`; hiệu lực là
+    // phán quyết của `effectivity.py` và chỉ hiện qua `BadgeHieuLuc`.
   ];
 
   return (
@@ -418,7 +418,6 @@ function DocReader() {
                 </Link>
                 <span>/</span>
                 <span className="font-jetbrains text-foreground">{vb.soHieu}</span>
-                <StatusBadge status={vb.tinhTrang} />
               </div>
               <h1 className="mt-1 font-display text-[22px] leading-tight font-bold text-primary">
                 {vb.ten}

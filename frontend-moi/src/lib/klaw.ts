@@ -452,12 +452,7 @@ export interface SuKienBuoc {
 const laBanGhi = (x: unknown): x is Record<string, unknown> =>
   typeof x === "object" && x !== null && !Array.isArray(x);
 
-const LOAI_KET_QUA: readonly string[] = [
-  "answer",
-  "partial_coverage",
-  "abstain",
-  "out_of_scope",
-];
+const LOAI_KET_QUA: readonly string[] = ["answer", "partial_coverage", "abstain", "out_of_scope"];
 
 export function laTraCuuKetQua(x: unknown): x is TraCuuKetQua {
   return (

@@ -1,34 +1,10 @@
 import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { boDau, moRongTruyVan, type TinhTrang } from "@/lib/van-ban";
 
-const STATUS_STYLE: Record<TinhTrang, string> = {
-  "Còn hiệu lực":
-    "border-[var(--color-status-active)]/45 text-[var(--color-status-active)] bg-[var(--color-status-active)]/10",
-  "Chưa có hiệu lực":
-    "border-[var(--color-brass-500)]/55 text-[var(--color-brass-600)] bg-[var(--color-brass-500)]/12",
-  "Hết hiệu lực một phần":
-    "border-[var(--color-status-partial)]/60 text-[var(--color-brass-600)] bg-[var(--color-status-partial)]/14",
-  "Đã sửa đổi, bổ sung":
-    "border-[var(--color-status-partial)]/60 text-[var(--color-brass-600)] bg-[var(--color-status-partial)]/14",
-  "Hết hiệu lực":
-    "border-[var(--color-status-expired)]/45 text-[var(--color-status-expired)] bg-[var(--color-status-expired)]/10",
-};
-
-export function StatusBadge({ status, className }: { status: TinhTrang; className?: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap",
-        STATUS_STYLE[status],
-        className,
-      )}
-    >
-      <span className="size-1.5 rounded-full bg-current" />
-      {status}
-    </span>
-  );
-}
+// StatusBadge đã bị xoá cùng `TinhTrang` — xem ghi chú trong `lib/van-ban.ts`.
+// Nhãn hiệu lực duy nhất của ứng dụng là `components/klaw/BadgeHieuLuc.tsx`,
+// và nguồn duy nhất của nó là `GET /van-ban/{doc_id}/hieu-luc`.
+import { boDau, moRongTruyVan } from "@/lib/van-ban";
 
 /** Tô sáng cụm từ khớp (không phân biệt dấu) với nền brass-300 ~25%. */
 export function Highlight({ text, query }: { text: string; query: string }): ReactNode {

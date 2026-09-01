@@ -13,12 +13,11 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { ChuaNoiBanner } from "@/components/legal/LegalBits";
-import { Chip, Highlight, StatusBadge } from "@/components/legal/VanBanUI";
+import { Chip, Highlight } from "@/components/legal/VanBanUI";
 import {
   CO_QUAN,
   KHO_DA_NOI,
   LOAI_VAN_BAN,
-  TINH_TRANG,
   goiYDongNghia,
   laSoHieu,
   timKiem,
@@ -111,7 +110,6 @@ function ResultCard({ kq, query }: { kq: KetQua; query: string }) {
   return (
     <article className="rounded-xl border border-border bg-card p-4 transition-colors duration-150 hover:border-[var(--color-brass-500)]/50">
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-muted-foreground">
-        <StatusBadge status={vb.tinhTrang} />
         <span className="font-jetbrains text-[12px] text-foreground">{vb.soHieu}</span>
         <span className="text-border">·</span>
         <span>{vb.loai}</span>
@@ -181,7 +179,7 @@ function ResultCard({ kq, query }: { kq: KetQua; query: string }) {
 
 type LocProps = {
   loc: BoLoc;
-  toggle: (key: "loai" | "coQuan" | "tinhTrang", v: string) => void;
+  toggle: (key: "loai" | "coQuan", v: string) => void;
   setLoc: Dispatch<SetStateAction<BoLoc>>;
 };
 
@@ -200,12 +198,9 @@ function FilterBody({ loc, toggle, setLoc }: LocProps) {
         selected={loc.coQuan}
         onToggle={(v) => toggle("coQuan", v)}
       />
-      <CheckList
-        title="Tình trạng hiệu lực"
-        options={TINH_TRANG}
-        selected={loc.tinhTrang}
-        onToggle={(v) => toggle("tinhTrang", v)}
-      />
+      {/* KHÔNG có nhóm lọc "Tình trạng hiệu lực". `/bo-loc` cố ý không trả
+          khoá đó: lọc theo tuyên bố của CSDL quốc gia là đúng lỗi hệ thống này
+          tồn tại để chữa. Lọc hiệu lực đi qua `sap_xep=con_hieu_luc_truoc`. */}
       <div className="py-3">
         <p className="mb-2 text-[12px] font-semibold tracking-wide text-primary uppercase">
           Khoảng thời gian ban hành
@@ -258,11 +253,6 @@ function TraCuuPage() {
     loai: [],
     coQuan: [],
     linhVuc: [],
-    // KHÔNG mặc định lọc "Còn hiệu lực". Cơ sở dữ liệu quốc gia gắn nhãn đó cho
-    // đúng bốn nghị định lương tối thiểu đã bị thay thế — những văn bản KLAW bắt
-    // được là sai. Bật sẵn bộ lọc này là giấu đi chính phát hiện trung tâm của
-    // hệ thống.
-    tinhTrang: [],
     namTu: NAM_MIN,
     namDen: NAM_MAX,
   });
@@ -277,26 +267,23 @@ function TraCuuPage() {
       return [...rs].sort(
         (a, b) => Number(b.vb.ngayBanHanh.slice(-4)) - Number(a.vb.ngayBanHanh.slice(-4)),
       );
-    if (sort === "hieu-luc")
-      return [...rs].sort(
-        (a, b) =>
-          (a.vb.tinhTrang === "Còn hiệu lực" ? 0 : 1) - (b.vb.tinhTrang === "Còn hiệu lực" ? 0 : 1),
-      );
+    // "Còn hiệu lực trước" là một phép sắp xếp của MÁY CHỦ
+    // (`sap_xep=con_hieu_luc_truoc`, ba bậc), không phải một phép so sánh trên
+    // một cột tình trạng ở FE. Đường dữ liệu thật được nối ở bước sau.
     return rs;
   }, [term, loc, sort]);
 
   const soVanBan = new Set(ketQua.map((k) => k.vb.soHieu)).size;
 
-  const toggle = (key: "loai" | "coQuan" | "tinhTrang", v: string) =>
+  const toggle = (key: "loai" | "coQuan", v: string) =>
     setLoc((p) => ({
       ...p,
       [key]: p[key].includes(v) ? p[key].filter((x) => x !== v) : [...p[key], v],
     }));
 
-  const activeChips: { key: "loai" | "coQuan" | "tinhTrang"; v: string }[] = [
+  const activeChips: { key: "loai" | "coQuan"; v: string }[] = [
     ...loc.loai.map((v) => ({ key: "loai" as const, v })),
     ...loc.coQuan.map((v) => ({ key: "coQuan" as const, v })),
-    ...loc.tinhTrang.map((v) => ({ key: "tinhTrang" as const, v })),
   ];
 
   const submit = () => {

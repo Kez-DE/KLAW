@@ -42,20 +42,18 @@ export const CO_QUAN = [
 // Đầu tư, Sở hữu trí tuệ — đúng những lĩnh vực PRODUCT.md nói KLAW KHÔNG phủ.
 // Cơ sở dữ liệu cũng chưa có cột linh_vuc nào (việc của pha 1).
 
-export type TinhTrang =
-  | "Còn hiệu lực"
-  | "Chưa có hiệu lực"
-  | "Hết hiệu lực một phần"
-  | "Đã sửa đổi, bổ sung"
-  | "Hết hiệu lực";
-
-export const TINH_TRANG: TinhTrang[] = [
-  "Còn hiệu lực",
-  "Chưa có hiệu lực",
-  "Hết hiệu lực một phần",
-  "Đã sửa đổi, bổ sung",
-  "Hết hiệu lực",
-];
+// TinhTrang / TINH_TRANG / StatusBadge đã bị XOÁ, không đổi tên.
+//
+// Năm chuỗi đó là giá trị thô của cột `documents.tinh_trang` — tuyên bố của
+// CSDL quốc gia, không phải phán quyết của KLAW. Đổi tên chúng chỉ làm chúng
+// thôi khớp nguồn mà vẫn để nguyên vi phạm; giữ chúng thì đúng vào ngày nối dữ
+// liệu thật, giao diện sẽ dán "Còn hiệu lực" lên các nghị định lương tối thiểu
+// mà KLAW phát hiện là đã bị thay. Một trường JSON đủ để lật ngược đóng góp
+// trung tâm của hệ thống.
+//
+// Hiệu lực đi qua ĐÚNG MỘT đường: `GET /van-ban/{doc_id}/hieu-luc`
+// (`effectivity.py`) → `BadgeHieuLuc`. `/bo-loc` cố ý KHÔNG có khoá
+// `tinh_trang`; lọc hiệu lực đi qua `sap_xep=con_hieu_luc_truoc`.
 
 export type Diem = {
   ky: string; // a, b, c
@@ -110,7 +108,6 @@ export type VanBan = {
   ngayHieuLuc: string;
   ngayHetHieuLuc?: string;
   linhVuc: string;
-  tinhTrang: TinhTrang;
   canhBao?: string;
   chuong: Chuong[];
   quanHe: QuanHe[];
@@ -217,7 +214,6 @@ export type BoLoc = {
   loai: string[];
   coQuan: string[];
   linhVuc: string[];
-  tinhTrang: string[];
   namTu: number;
   namDen: number;
 };
@@ -231,7 +227,6 @@ export function timKiem(query: string, loc: BoLoc): KetQua[] {
     if (loc.loai.length && !loc.loai.includes(vb.loai)) continue;
     if (loc.coQuan.length && !loc.coQuan.includes(vb.coQuan)) continue;
     if (loc.linhVuc.length && !loc.linhVuc.includes(vb.linhVuc)) continue;
-    if (loc.tinhTrang.length && !loc.tinhTrang.includes(vb.tinhTrang)) continue;
     if (nam < loc.namTu || nam > loc.namDen) continue;
 
     const meta = boDau(`${vb.soHieu} ${vb.ten} ${vb.tenNgan} ${vb.linhVuc} ${vb.coQuan}`);
