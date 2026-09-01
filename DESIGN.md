@@ -416,6 +416,7 @@ gốc — sửa ở cấp trang thì mỗi màn mới lại phải nhớ nối d
 | ~~Trung bình~~ | ~~`--color-brass-600` làm chữ 3,15:1~~ — 5,35:1, pha 5 |
 | ~~Trung bình~~ | ~~`--input` dùng chung `--border` 1,23:1~~ — tách ra, 3,00:1, pha 5 |
 | ~~Trung bình~~ | ~~0 `AbortController`~~ — `useGoiApi` + `TrangThaiCho`, pha 5 |
+| Cao | `h1` trang chủ dòng hai (`bg-gradient-gold` + `bg-clip-text`, 72px) đo **2,08:1** ở hai chặn ngoài và **1,29:1** ở chặn giữa — chữ lớn cần 3:1. Sửa được bằng cách hạ `L` hai chặn xuống ≤ 0,661 (hue 82) và ≤ 0,658 (hue 94), nhưng đó là đổi diện mạo hero nên cần chủ thiết kế quyết, không phải sửa lặng |
 | Cao | `van-ban.ts` / `VanBanUI.tsx` còn render `tinh_trang` thô của MOJ — thay bằng `BadgeHieuLuc` ở pha nối FE |
 | Trung bình | Timeout THẬT chưa có: `useGoiApi` huỷ được nhưng chưa ai đặt hạn giờ; hạn 60s thuộc tầng gọi API, pha nối FE |
 | Trung bình | Font qua CDN bên thứ ba thay vì tự host |
