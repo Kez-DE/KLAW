@@ -22,9 +22,9 @@ import appCss from "../styles.css?url";
  */
 export const SITE_ORIGIN = import.meta.env["VITE_SITE_ORIGIN"] ?? "http://localhost:3000";
 
-/** Two primary weights per family only, display=swap. */
-const FONT_CSS =
-  "https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600&family=JetBrains+Mono:wght@400&family=Playfair+Display:wght@600;700&family=Source+Serif+4:ital,wght@0,400;0,600&display=swap";
+// Chữ nay tự host: bốn `@font-face` ở đầu `styles.css`, tệp trong
+// `public/fonts/`. Bốn thẻ <link> tới CDN chữ bên thứ ba (hai `preconnect`,
+// một `preload`, một `stylesheet`) đã gỡ cùng lúc — xem ghi chú ở `styles.css`.
 
 function NotFoundComponent() {
   return (
@@ -102,21 +102,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
       {
-        rel: "preconnect",
-        href: "https://fonts.gstatic.com",
+        rel: "stylesheet",
+        href: appCss,
+      },
+      // Tập chữ thân bài, cùng gốc. Nạp trước đúng HAI tệp vì chúng nằm trên
+      // đường tới nét chữ đầu tiên của mọi trang; ba họ còn lại chờ được.
+      // `crossOrigin` bắt buộc kể cả cùng gốc: không có nó trình duyệt tải
+      // tệp HAI lần (một cho preload, một cho @font-face).
+      {
+        rel: "preload",
+        as: "font",
+        type: "font/woff2",
+        href: "/fonts/be-vietnam-pro-400-latin.woff2",
         crossOrigin: "anonymous",
       },
       {
         rel: "preload",
-        as: "style",
-        href: FONT_CSS,
-      },
-      { rel: "stylesheet", href: FONT_CSS },
-      {
-        rel: "stylesheet",
-        href: appCss,
+        as: "font",
+        type: "font/woff2",
+        href: "/fonts/be-vietnam-pro-400-vietnamese.woff2",
+        crossOrigin: "anonymous",
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
