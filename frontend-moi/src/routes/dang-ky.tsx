@@ -147,11 +147,15 @@ function SignUpPage() {
             </p>
 
             <div className="mt-7 space-y-3">
-              <SocialButton icon={<GoogleMark />} label="Tiếp tục với Google" disabled={loading} />
+              <SocialButton
+                icon={<GoogleMark />}
+                label="Tiếp tục với Google"
+                chuaDung="KLAW chưa dựng đăng nhập bằng tài khoản bên thứ ba. Dùng email và mật khẩu ở dưới."
+              />
               <SocialButton
                 icon={<MicrosoftMark />}
                 label="Tiếp tục với Microsoft"
-                disabled={loading}
+                chuaDung="KLAW chưa dựng đăng nhập bằng tài khoản bên thứ ba. Dùng email và mật khẩu ở dưới."
               />
             </div>
 

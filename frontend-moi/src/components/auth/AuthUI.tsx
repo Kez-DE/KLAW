@@ -35,26 +35,41 @@ export function MicrosoftMark() {
   );
 }
 
-export function SocialButton({
-  icon,
-  label,
-  onClick,
-  disabled,
-}: {
+/**
+ * Nút đăng nhập bằng bên thứ ba — bảo đảm #10.
+ *
+ * `onClick` từng là TUỲ CHỌN, và không một nơi gọi nào truyền nó. Bốn nút
+ * (Google + Microsoft, trên cả `/dang-nhap` lẫn `/dang-ky`) vì thế hiện ra
+ * đầy đủ màu thương hiệu, có hover, có vòng tiêu điểm, nằm NGAY TRÊN biểu mẫu
+ * email như lối vào chính — và bấm vào thì không xảy ra gì. Không lỗi, không
+ * chuyển trang, không một dấu hiệu nào.
+ *
+ * Đây đúng là chế độ hỏng mà `lib/xac-thuc.ts` đã gỡ cho đường mật khẩu: màn
+ * đăng nhập nói sai về chính phiên của người dùng. Đường mật khẩu được chữa,
+ * đường mạng xã hội thì không.
+ *
+ * Kiểu dưới đây bắt buộc CHỌN MỘT: hoặc có `onClick` thật, hoặc khai `chuaDung`
+ * và nút tự hiện ra là chưa dựng. Không còn trạng thái thứ ba "trông bấm được
+ * nhưng không làm gì" — nó là lỗi biên dịch, không phải một thứ phải nhớ.
+ */
+type SocialButtonProps = {
   icon: ReactNode;
   label: string;
-  onClick?: () => void;
   disabled?: boolean;
-}) {
+} & ({ onClick: () => void; chuaDung?: never } | { onClick?: never; chuaDung: string });
+
+export function SocialButton({ icon, label, onClick, disabled, chuaDung }: SocialButtonProps) {
+  const chuaCo = chuaDung !== undefined;
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="focus-brass flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-background/60 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-brass-500/50 hover:bg-brass-500/10 disabled:opacity-50"
+      {...(onClick === undefined ? {} : { onClick })}
+      disabled={disabled === true || chuaCo}
+      {...(chuaCo ? { title: chuaDung, "aria-description": chuaDung } : {})}
+      className="focus-brass flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-background/60 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-brass-500/50 hover:bg-brass-500/10 disabled:cursor-default disabled:opacity-50 disabled:hover:border-border disabled:hover:bg-background/60"
     >
       {icon}
-      {label}
+      {chuaCo ? `${label} — chưa dựng` : label}
     </button>
   );
 }
