@@ -84,9 +84,9 @@ function SignInPage() {
           <SuccessCheck label="Xác thực thành công. Đang mở phiên dùng thử…" />
         ) : (
           <>
-            <h2 className="font-display text-[36px] leading-tight text-primary">
+            <h1 className="font-display text-[36px] leading-tight text-primary">
               Đăng nhập vào KLAW
-            </h2>
+            </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Chưa có tài khoản?{" "}
               <Link

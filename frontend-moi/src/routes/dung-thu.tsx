@@ -169,6 +169,12 @@ function ManHoiKlaw() {
             sau lớp phủ đặc, và Enter ở đó thay cả nội dung khung. */}
         <div inert={doiChieu.dang !== null && !haiCot} className="flex min-w-0 flex-1 flex-col">
           <div className="mx-auto flex w-full max-w-[860px] flex-1 flex-col px-4">
+            {/* Tiêu đề cấp 1 BỀN, không nhìn thấy. Tiêu đề duy nhất của màn này
+                nằm trong trạng thái rỗng ngay dưới và biến mất sau câu hỏi đầu
+                tiên, nên nâng nó lên h1 sẽ để lại một trang không có h1 đúng
+                lúc trang có nhiều nội dung nhất. Trình đọc màn hình nhảy theo
+                h1 để biết mình đang ở đâu. */}
+            <h1 className="sr-only">Trợ lý KLAW — tra cứu pháp luật lao động</h1>
             {chuaHoiGiCa ? (
               <div className="soft-fade flex flex-1 flex-col items-center justify-center py-14">
                 <span className="bg-gradient-ink flex size-14 items-center justify-center rounded-2xl text-primary-foreground shadow-soft">

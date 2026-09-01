@@ -133,9 +133,9 @@ function SignUpPage() {
           <SuccessCheck label="Tạo tài khoản thành công. Đang mở phiên dùng thử…" />
         ) : (
           <>
-            <h2 className="font-display text-[36px] leading-tight text-primary">
+            <h1 className="font-display text-[36px] leading-tight text-primary">
               Đăng ký tài khoản KLAW
-            </h2>
+            </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Đã có tài khoản?{" "}
               <Link
