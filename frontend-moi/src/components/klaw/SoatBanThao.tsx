@@ -6,6 +6,7 @@ import { laMau, type BaoCaoSoat, type Mau, type PhatHien, type TruongFact } from
 import { cn } from "@/lib/utils";
 import { useGoiApi } from "@/hooks/use-goi-api";
 import { BaoLoi } from "./BaoLoi";
+import { MaTruyVet } from "./MaTruyVet";
 
 /**
  * Soát bản thảo với KLAW — `GET /mau/{loai}` + `POST /soat`.
@@ -366,10 +367,8 @@ export function SoatBanThao({ loaiBackend, layToanVan, factTuBieuMau = {} }: Soa
           {goiSoat.loi !== null && <BaoLoi loi={goiSoat.loi} onThuLai={soat} />}
           {goiSoat.ketQua !== null && <KetQuaSoat baoCao={goiSoat.ketQua.audit_report} />}
           {goiSoat.ketQua !== null && (
-            <p
-              className={cn("font-jetbrains mt-3 mb-0 text-[11px] break-all text-muted-foreground")}
-            >
-              trace {goiSoat.ketQua.trace_id}
+            <p className="mt-3 mb-0 text-[12px] text-muted-foreground">
+              <MaTruyVet traceId={goiSoat.ketQua.trace_id} />
             </p>
           )}
         </>

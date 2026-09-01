@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { CalendarClock, Check, ChevronRight, Copy, Paperclip, Scale, Send, X } from "lucide-react";
+import { CalendarClock, ChevronRight, Paperclip, Scale, Send, X } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
+import { MaTruyVet } from "@/components/klaw/MaTruyVet";
 import { KhungDoiChieu, useHaiCot } from "@/components/klaw/KhungDoiChieu";
 import { TheKetQua } from "@/components/klaw/TheKetQua";
 import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
@@ -43,54 +44,6 @@ interface LuotDaXong {
   ketQua: TraCuuKetQua;
   /** Ngày hiệu lực của LƯỢT đó, không phải của ô chọn ngày lúc này. */
   asOfDate: string | null;
-}
-
-/**
- * `trace_id` của máy chủ — bảo đảm #17.
- *
- * Cố ý nhỏ và câm: nó không phải thông tin người dùng cần khi mọi thứ chạy
- * đúng. Nhưng khi một câu trả lời sai, đây là thứ DUY NHẤT nối màn hình của họ
- * với dòng tương ứng trong bảng `traces` — không có nó thì một báo lỗi chỉ là
- * "hôm qua tôi hỏi gì đó và nó sai".
- *
- * Mã hiện dưới dạng CHỮ chọn được, nút chép chỉ là lối tắt: `clipboard` cần
- * secure context và có thể bị chính sách trình duyệt chặn, nên nó không được
- * là đường duy nhất lấy được mã. Chép hỏng thì KHÔNG báo "đã chép".
- */
-function MaTruyVet({ traceId }: { traceId: string }) {
-  const [daChep, datDaChep] = useState(false);
-
-  useEffect(() => {
-    if (!daChep) return;
-    const hen = setTimeout(() => datDaChep(false), 2000);
-    return () => clearTimeout(hen);
-  }, [daChep]);
-
-  return (
-    <span className="inline-flex items-center gap-1">
-      <span className="font-jetbrains break-all">trace {traceId}</span>
-      <button
-        type="button"
-        onClick={() => {
-          void navigator.clipboard.writeText(traceId).then(
-            () => datDaChep(true),
-            () => datDaChep(false),
-          );
-        }}
-        aria-label={`Chép mã truy vết ${traceId}`}
-        className="focus-brass cursor-pointer rounded p-0.5 text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/10"
-      >
-        {daChep ? (
-          <Check className="size-3" aria-hidden />
-        ) : (
-          <Copy className="size-3" aria-hidden />
-        )}
-      </button>
-      <span role="status" className="sr-only">
-        {daChep ? "Đã chép mã truy vết" : ""}
-      </span>
-    </span>
-  );
 }
 
 /** Một lượt hỏi–đáp trong dòng hội thoại. */
