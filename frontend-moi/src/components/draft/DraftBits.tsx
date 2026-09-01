@@ -5,9 +5,11 @@ import { cn } from "@/lib/utils";
 
 export function BasisChip({ soHieu, label }: { soHieu: string; label?: string }) {
   return (
+    // Chip căn cứ chỉ có SỐ HIỆU, và số hiệu không định danh được văn bản
+    // (65/2006/QH11 thuộc hai văn bản khác nhau). Trỏ về ô tìm kiếm với số hiệu
+    // điền sẵn thay vì dựng một liên kết có thể mở nhầm văn bản.
     <Link
-      to="/tra-cuu/$soHieu"
-      params={{ soHieu }}
+      to="/tra-cuu"
       title={soHieu}
       className="inline-flex items-baseline gap-1 rounded-md border border-[var(--color-brass-500)]/45 bg-[var(--color-brass-500)]/10 px-1.5 py-px font-sans text-[11px] font-medium text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/20"
     >

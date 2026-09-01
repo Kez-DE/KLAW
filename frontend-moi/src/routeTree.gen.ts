@@ -22,7 +22,7 @@ import { Route as TraCuuRouteImport } from './routes/tra-cuu'
 import { Route as SoanThaoIndexRouteImport } from './routes/soan-thao.index'
 import { Route as SoanThaoLoaiVanBanRouteImport } from './routes/soan-thao.$loaiVanBan'
 import { Route as TraCuuIndexRouteImport } from './routes/tra-cuu.index'
-import { Route as TraCuuSoHieuRouteImport } from './routes/tra-cuu.$soHieu'
+import { Route as TraCuuDocIdRouteImport } from './routes/tra-cuu.$docId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -89,9 +89,9 @@ const TraCuuIndexRoute = TraCuuIndexRouteImport.update({
   path: '/',
   getParentRoute: () => TraCuuRoute,
 } as any)
-const TraCuuSoHieuRoute = TraCuuSoHieuRouteImport.update({
-  id: '/$soHieu',
-  path: '/$soHieu',
+const TraCuuDocIdRoute = TraCuuDocIdRouteImport.update({
+  id: '/$docId',
+  path: '/$docId',
   getParentRoute: () => TraCuuRoute,
 } as any)
 
@@ -107,7 +107,7 @@ export interface FileRoutesByFullPath {
   '/thanh-phan': typeof ThanhPhanRoute
   '/tra-cuu': typeof TraCuuRouteWithChildren
   '/soan-thao/$loaiVanBan': typeof SoanThaoLoaiVanBanRoute
-  '/tra-cuu/$soHieu': typeof TraCuuSoHieuRoute
+  '/tra-cuu/$docId': typeof TraCuuDocIdRoute
   '/soan-thao/': typeof SoanThaoIndexRoute
   '/tra-cuu/': typeof TraCuuIndexRoute
 }
@@ -121,7 +121,7 @@ export interface FileRoutesByTo {
   '/huong-dan': typeof HuongDanRoute
   '/thanh-phan': typeof ThanhPhanRoute
   '/soan-thao/$loaiVanBan': typeof SoanThaoLoaiVanBanRoute
-  '/tra-cuu/$soHieu': typeof TraCuuSoHieuRoute
+  '/tra-cuu/$docId': typeof TraCuuDocIdRoute
   '/soan-thao': typeof SoanThaoIndexRoute
   '/tra-cuu': typeof TraCuuIndexRoute
 }
@@ -138,7 +138,7 @@ export interface FileRoutesById {
   '/thanh-phan': typeof ThanhPhanRoute
   '/tra-cuu': typeof TraCuuRouteWithChildren
   '/soan-thao/$loaiVanBan': typeof SoanThaoLoaiVanBanRoute
-  '/tra-cuu/$soHieu': typeof TraCuuSoHieuRoute
+  '/tra-cuu/$docId': typeof TraCuuDocIdRoute
   '/soan-thao/': typeof SoanThaoIndexRoute
   '/tra-cuu/': typeof TraCuuIndexRoute
 }
@@ -156,7 +156,7 @@ export interface FileRouteTypes {
     | '/thanh-phan'
     | '/tra-cuu'
     | '/soan-thao/$loaiVanBan'
-    | '/tra-cuu/$soHieu'
+    | '/tra-cuu/$docId'
     | '/soan-thao/'
     | '/tra-cuu/'
   fileRoutesByTo: FileRoutesByTo
@@ -170,7 +170,7 @@ export interface FileRouteTypes {
     | '/huong-dan'
     | '/thanh-phan'
     | '/soan-thao/$loaiVanBan'
-    | '/tra-cuu/$soHieu'
+    | '/tra-cuu/$docId'
     | '/soan-thao'
     | '/tra-cuu'
   id:
@@ -186,7 +186,7 @@ export interface FileRouteTypes {
     | '/thanh-phan'
     | '/tra-cuu'
     | '/soan-thao/$loaiVanBan'
-    | '/tra-cuu/$soHieu'
+    | '/tra-cuu/$docId'
     | '/soan-thao/'
     | '/tra-cuu/'
   fileRoutesById: FileRoutesById
@@ -297,11 +297,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TraCuuIndexRouteImport
       parentRoute: typeof TraCuuRoute
     }
-    '/tra-cuu/$soHieu': {
-      id: '/tra-cuu/$soHieu'
-      path: '/$soHieu'
-      fullPath: '/tra-cuu/$soHieu'
-      preLoaderRoute: typeof TraCuuSoHieuRouteImport
+    '/tra-cuu/$docId': {
+      id: '/tra-cuu/$docId'
+      path: '/$docId'
+      fullPath: '/tra-cuu/$docId'
+      preLoaderRoute: typeof TraCuuDocIdRouteImport
       parentRoute: typeof TraCuuRoute
     }
   }
@@ -322,12 +322,12 @@ const SoanThaoRouteWithChildren = SoanThaoRoute._addFileChildren(
 )
 
 interface TraCuuRouteChildren {
-  TraCuuSoHieuRoute: typeof TraCuuSoHieuRoute
+  TraCuuDocIdRoute: typeof TraCuuDocIdRoute
   TraCuuIndexRoute: typeof TraCuuIndexRoute
 }
 
 const TraCuuRouteChildren: TraCuuRouteChildren = {
-  TraCuuSoHieuRoute: TraCuuSoHieuRoute,
+  TraCuuDocIdRoute: TraCuuDocIdRoute,
   TraCuuIndexRoute: TraCuuIndexRoute,
 }
 

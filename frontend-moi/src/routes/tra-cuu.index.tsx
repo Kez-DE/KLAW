@@ -118,7 +118,7 @@ function ResultCard({ kq, query }: { kq: KetQua; query: string }) {
       </div>
 
       <h3 className="mt-2 font-display text-[20px] leading-snug font-semibold text-primary">
-        <Link to="/tra-cuu/$soHieu" params={{ soHieu: vb.soHieu }} className="hover:underline">
+        <Link to="/tra-cuu" params={{ soHieu: vb.soHieu }} className="hover:underline">
           <Highlight text={`${vb.ten} ${vb.soHieu}`} query={query} />
         </Link>
       </h3>
@@ -142,8 +142,7 @@ function ResultCard({ kq, query }: { kq: KetQua; query: string }) {
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3 text-[12px]">
         <Link
-          to="/tra-cuu/$soHieu"
-          params={{ soHieu: vb.soHieu }}
+          to="/tra-cuu"
           hash={`dieu-${dieu.so}-khoan-${khoan.so}`}
           className="inline-flex items-center gap-1 font-medium text-[var(--color-brass-600)] hover:underline"
         >
@@ -291,7 +290,7 @@ function TraCuuPage() {
     if (!t) return;
     const vb = laSoHieu(t) ? timVanBanTheoSoHieu(t) : undefined;
     if (vb && mode !== "noi-dung") {
-      void navigate({ to: "/tra-cuu/$soHieu", params: { soHieu: vb.soHieu } });
+      void navigate({ to: "/tra-cuu" });
       return;
     }
     if (mode === "hoi-klaw") {
@@ -426,8 +425,7 @@ function TraCuuPage() {
 
             {soHieuMatch && (
               <Link
-                to="/tra-cuu/$soHieu"
-                params={{ soHieu: soHieuMatch.soHieu }}
+                to="/tra-cuu"
                 className="mt-3 flex items-center gap-2 rounded-lg border border-[var(--color-brass-500)]/50 bg-[var(--color-brass-500)]/10 px-3 py-2 text-[13px] text-foreground"
               >
                 <ArrowRight className="size-4 text-[var(--color-brass-600)]" />
