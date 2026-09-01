@@ -13,5 +13,7 @@ F811 (ruff đọc `def test_x(cai_dat)` là định nghĩa lại tên đã impor
 
 from tests.test_api.test_xac_thuc_han_muc import (  # noqa: F401
     cai_dat,
+    graph_gia_lap,
     khoa_ky,
+    khong_dung_db,
 )

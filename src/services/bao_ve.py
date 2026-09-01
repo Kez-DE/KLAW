@@ -440,16 +440,31 @@ async def cong_bao_ve(request: Request) -> str | None:
     """Trả `sub` người gọi (None khi auth chưa cấu hình) — handler cần nó để ghi
     `traces.user_sub`, và không ghi được thì lượt đó không đếm vào hạn mức của ai.
 
-    Thứ tự: API key (0 truy vấn) → danh tính → nhịp → hạn mức tháng → trần chi phí.
+    Thứ tự: API key (0 truy vấn) → nhịp theo IP → danh tính → nhịp theo `sub` →
+    hạn mức tháng → trần chi phí. Cổng RẺ đứng trước cổng ĐẮT, không có ngoại lệ.
 
     API key trước vì nó không tốn truy vấn nào: một request không có quyền không
     nên được phép làm hệ thống ghi một dòng DB.
 
-    **Nhịp đếm theo `sub` khi đã đăng nhập, theo IP khi chưa.** Đây là chỗ sửa
-    đúng lỗ hổng của lượt trước: hai người sau cùng một NAT dùng chung một giỏ
-    IP, nên người thứ hai bị hãm vì lưu lượng của người thứ nhất. Khoá đếm là
-    danh tính khi có danh tính. Rate limit KHÔNG bị bỏ khi đã đăng nhập — nó hãm
+    **Nhịp theo IP chạy TRƯỚC xác thực.** Xác thực là cổng ĐẮT NHẤT trên đường
+    này: PyJWT bỏ qua TTL cache khi `kid` không khớp khoá đang cache
+    (`get_signing_key` → `get_signing_keys(refresh=True)`), nên mỗi token mang
+    một `kid` bịa ép MỘT round-trip HTTPS ra Supabase và giữ một luồng
+    threadpool tới `TIMEOUT_JWKS_GIAY` = 5 giây. Anyio mặc định 40 luồng, nên
+    40 request/giây với `kid` ngẫu nhiên làm cạn threadpool và treo mọi endpoint
+    khác — bằng một token không ai ký, khi cổng nhịp còn chưa được chạy.
+
+    **Đếm LẠI theo `sub` sau khi biết danh tính.** Hai giỏ, hai mục đích: giỏ IP
+    là lá chắn duy nhất dùng được KHI CHƯA BIẾT người gọi là ai, giỏ `sub` là
+    hạn mức thật của người đó. Rate limit KHÔNG bị bỏ khi đã đăng nhập — nó hãm
     NHỊP (một chùm song song), còn hạn mức tháng hãm TỔNG; hai đại lượng khác nhau.
+
+    ĐÁNH ĐỔI đã biết: giỏ IP nay áp cho cả người đã đăng nhập, nên hai người sau
+    cùng một NAT lại dùng chung một giỏ — đúng vấn đề mà lượt trước đã bỏ giỏ IP
+    đi để tránh. Không tránh được: không thể đếm theo danh tính trước khi xác
+    minh danh tính, mà xác minh chính là thứ cần được che. Nếu NAT thành vấn đề
+    đo được, nới hạn mức của giỏ IP (lá chắn chống lụt) và giữ chặt giỏ `sub`
+    (hạn mức thật) — đừng bỏ giỏ IP.
 
     Ba cổng cuối đọc/ghi Postgres ĐỒNG BỘ (SQLAlchemy) trong một `async def` →
     phải qua `run_in_threadpool`, nếu không chúng chặn event loop cho MỌI request
@@ -457,10 +472,13 @@ async def cong_bao_ve(request: Request) -> str | None:
     `xac_minh` cũng vào threadpool: nó có thể gọi mạng (nạp JWKS khi TTL hết).
     """
     kiem_api_key(request)
+    # TRƯỚC `xac_thuc_nguoi_goi`: xem docstring — một `kid` bịa mua được một
+    # round-trip HTTPS và 5 giây của một luồng threadpool, và cổng phải đứng
+    # trước thứ nó bảo vệ mới có nghĩa.
+    await run_in_threadpool(kiem_rate_limit, ip_goi(request))
     nguoi = await run_in_threadpool(xac_thuc_nguoi_goi, request)
 
     if nguoi is None:
-        await run_in_threadpool(kiem_rate_limit, ip_goi(request))
         await run_in_threadpool(kiem_tran_chi_phi)
         return None
 
