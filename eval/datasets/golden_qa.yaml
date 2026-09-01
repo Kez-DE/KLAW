@@ -74,11 +74,11 @@ items:
   cau_hoi: Nếu công ty tôi đóng cửa và tôi bị mất việc, tôi có được nhận tiền hỗ trợ
     gì không và bao nhiêu?
   duong_dan:
-  - 45/2019/QH14 > Điều 47
+  - 45/2019/QH14 > Điều 46
   bo_luat: Lao động
-  nguon: llm-gen
-  da_review: false
-  duyet_boi: chua-ai
+  nguon: llm-gen+agent-sua-neo
+  da_review: true
+  duyet_boi: agent
 - id: lao-005-1
   cau_hoi: Tôi làm ở công ty này được 5 năm, giờ bị cho nghỉ việc, thì tôi sẽ được
     nhận bao nhiêu tiền hỗ trợ mất việc?
@@ -415,11 +415,11 @@ items:
   cau_hoi: Công ty tôi muốn thuê người làm việc qua mạng và ký hợp đồng online, có
     được phép không?
   duong_dan:
-  - 337/2025/NĐ-CP > Điều 2
+  - 337/2025/NĐ-CP > Điều 6
   bo_luat: Lao động
-  nguon: llm-gen
-  da_review: false
-  duyet_boi: chua-ai
+  nguon: llm-gen+agent-sua-neo
+  da_review: true
+  duyet_boi: agent
 - id: lao-033-0
   cau_hoi: Nếu công ty em với công nhân đang có chuyện bất đồng về lương mà bên hòa
     giải không giải quyết được thì công nhân có được phép nghỉ làm hết không ạ?
