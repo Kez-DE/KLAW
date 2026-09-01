@@ -64,9 +64,12 @@ def draft_audit(state: dict, rules: list[Rule], checklist: Checklist,
     comp = check_completeness(checklist, [{"key": c.key} for c in clauses],
                                nganh=state.get("nganh", "thuong_mai"))
     ten_theo_key = {m["key"]: m["ten"] for m in checklist.muc}
+    # `checklist.muc_do_thieu`, KHÔNG viết cứng "chan": xem docstring trường đó
+    # trong services/checklist.py — luật nói "PHẢI CÓ" thì chặn, nói "CÓ THỂ
+    # gồm" thì cảnh báo.
     for k in comp.thieu:
         findings.append(AuditFinding(
-            "thieu_noi_dung", "chan",
+            "thieu_noi_dung", checklist.muc_do_thieu,
             f"Thiếu nội dung bắt buộc: {ten_theo_key.get(k, k)}",
             can_cu={"duong_dan": checklist.can_cu_goc}))
 

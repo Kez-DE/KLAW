@@ -66,6 +66,13 @@ class Checklist:
     # CHÍNH đơn vị này, nên soạn ra rồi đem soát lại vẫn tách đúng số mục.
     muc: list[dict]
     don_vi_muc: str = "Điều"
+    # Mức độ của finding khi một mục bắt buộc VẮNG MẶT. "chan" khi luật liệt kê
+    # nội dung bằng chữ "PHẢI CÓ"/"bao gồm những nội dung chủ yếu" (Đ21.1 HĐLĐ,
+    # Đ118.2 nội quy, Đ189.4 đơn khởi kiện). "canh_bao" khi luật nói "CÓ THỂ
+    # gồm" (BLDS Đ398.2 — nội dung của hợp đồng nói chung): ở đó một mục thiếu
+    # là hợp đồng SƠ SÀI, không phải hợp đồng TRÁI LUẬT, và gọi nó là trái luật
+    # đúng bằng loại khẳng định sai mà hệ thống này tồn tại để không mắc phải.
+    muc_do_thieu: str = "chan"
     rules: list[str] = field(default_factory=list)
     can_cu_chi_tiet: str | None = None
     nganh_duoc_giam: dict[str, Any] = field(default_factory=dict)
@@ -102,6 +109,7 @@ def load_checklist(path: Path) -> Checklist:
         can_cu_goc=d["can_cu_goc"],
         muc=d["muc"],
         don_vi_muc=d.get("don_vi_muc") or "Điều",
+        muc_do_thieu=d.get("muc_do_thieu") or "chan",
         rules=list(d.get("rules") or []),
         can_cu_chi_tiet=d.get("can_cu_chi_tiet"),
         nganh_duoc_giam=d.get("nganh_duoc_giam") or {},

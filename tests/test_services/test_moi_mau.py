@@ -153,3 +153,13 @@ def test_khong_co_dong_tieu_de_thi_van_doc_than_dieu():
     cl = load_checklist_cached("hop_dong_hop_tac")
     van_ban = "## Điều 1.\n\nCác bên thoả thuận phương thức phân chia lợi nhuận theo tỷ lệ góp vốn.\n"
     assert [c.key for c in extract_clauses(van_ban, cl, {})] == ["phan_chia"]
+
+
+@pytest.mark.parametrize("loai", MOI_LOAI)
+def test_muc_do_thieu_la_mot_trong_hai_gia_tri_hop_le(loai):
+    """`muc_do_thieu` đi thẳng vào `AuditFinding.muc_do`, và `dat` được tính
+    bằng `any(f.muc_do == "chan")` — một giá trị gõ sai (vd. "canh bao" thiếu
+    gạch dưới) không nổ ở đâu cả, nó chỉ lặng lẽ biến mọi mục thiếu thành không
+    chặn, và báo cáo soát nói "đạt" cho một văn bản thiếu nội dung bắt buộc.
+    """
+    assert load_checklist_cached(loai).muc_do_thieu in {"chan", "canh_bao"}
