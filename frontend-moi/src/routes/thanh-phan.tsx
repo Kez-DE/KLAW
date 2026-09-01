@@ -173,7 +173,7 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
     },
   },
   {
-    nhan: "partial_coverage — chỉ có văn bản, KHÔNG diễn giải (63% kho rơi vào đây)",
+    nhan: "partial_coverage — chỉ có văn bản, KHÔNG diễn giải (79/126 văn bản của kho chỉ có tầng metadata)",
     ketQua: {
       result_type: "partial_coverage",
       answer: null,

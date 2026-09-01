@@ -7,7 +7,8 @@ import { BadgeHieuLuc } from "./BadgeHieuLuc";
  * Bốn `result_type`, bốn cách hiển thị — không thương lượng.
  *
  * Bản Klaw_FE co bốn nhánh còn hai (`answer` | `nobasis`), làm mất
- * `partial_coverage` — nhánh của 36/57 văn bản, tức 63% kho — cùng `nguon[]`,
+ * `partial_coverage` — nhánh của tầng metadata, ĐO LẠI hôm nay là 79/126 văn
+ * bản trong kho — cùng `nguon[]`,
  * thứ DUY NHẤT mở được văn bản ở nhánh đó; và mất luôn `out_of_scope`.
  *
  * `abstain` là hành vi ĐÚNG và được tính điểm trong đánh giá: một hệ thống thà
