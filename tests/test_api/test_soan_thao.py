@@ -162,9 +162,10 @@ async def test_mau_hdld_mo_ta_fact_sinh_tu_yaml(client):
 
 
 @pytest.mark.asyncio
-async def test_mau_loai_khong_ho_tro_tra_danh_sach_rong_khong_bia(client):
-    """noi_quy/quyet_dinh_ky_luat chưa có checklist riêng (chỉ hdld có, Task
-    3) — trả rỗng trung thực thay vì tái dùng nhầm fact của HĐLĐ."""
+async def test_mau_loai_khong_ho_tro_tra_danh_sach_rong_khong_bia(client, gia_vo_chua_ho_tro):
+    """Một `LoaiVanBan` hợp lệ nhưng CHƯA có config/checklist_<loai>.yaml phải
+    trả rỗng trung thực, thay vì tái dùng nhầm fact của một loại khác."""
+    gia_vo_chua_ho_tro("noi_quy")
     r = await client.get("/api/v1/mau/noi_quy")
     assert r.status_code == 200
     assert r.json()["facts"] == []
@@ -176,12 +177,30 @@ async def test_mau_loai_la_thi_422(client):
     assert r.status_code == 422
 
 
-# ══ Ràng buộc: noi_quy/quyet_dinh_ky_luat chưa có checklist → soạn/soát phải
-# từ chối trung thực, không âm thầm áp checklist HĐLĐ sai loại văn bản.
+# ══ Ràng buộc: một `LoaiVanBan` chưa có checklist → soạn/soát phải từ chối
+# trung thực, không âm thầm áp checklist của loại khác lên sai loại văn bản.
+#
+# Test KHÔNG dựa vào việc một loại cụ thể nào đó tình cờ chưa được dựng: mỗi
+# mẫu mới thêm vào sẽ làm một test như thế mục im lặng (nó vẫn xanh, nhưng
+# không còn kiểm cái nó nói là kiểm). `gia_vo_chua_ho_tro` gỡ loại đang xét ra
+# khỏi `cac_loai()` — chính cái cổng mà route hỏi — nên phép kiểm nhắm vào cơ
+# chế, không vào tình trạng nhất thời của thư mục config.
+
+
+@pytest.fixture
+def gia_vo_chua_ho_tro(monkeypatch):
+    from src.api import routes
+
+    def _bo(loai: str):
+        con_lai = frozenset(routes.cac_loai()) - {loai}
+        monkeypatch.setattr(routes, "cac_loai", lambda: con_lai)
+
+    return _bo
 
 
 @pytest.mark.asyncio
-async def test_soan_thao_loai_chua_ho_tro_tra_loi_trung_thuc_khong_gia_lap(client):
+async def test_soan_thao_loai_chua_ho_tro_tra_loi_trung_thuc_khong_gia_lap(client, gia_vo_chua_ho_tro):
+    gia_vo_chua_ho_tro("noi_quy")
     r = await client.post("/api/v1/soan-thao", json={"loai_van_ban": "noi_quy", "facts": {}})
     assert r.status_code == 501
 
