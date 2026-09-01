@@ -1,0 +1,82 @@
+# Checklist nội dung của HỢP ĐỒNG MUA BÁN TÀI SẢN — chế định mua bán tài sản
+# của Bộ luật Dân sự (Đ430-441), KHÔNG phải mua bán hàng hoá của Luật Thương
+# mại.
+#
+# ══ VÌ SAO MẪU NÀY TỒN TẠI RIÊNG, KHÔNG PHẢI BẢN SAO CỦA `hop_dong_mua_ban` ══
+#
+# Mẫu FE `hop-dong-chuyen-nhuong-quyen-so-huu` mô tả "chuyển nhượng quyền sở
+# hữu tài sản, QUYỀN TÀI SẢN". BLDS Đ430 định nghĩa đúng việc đó khi có đối
+# giá: "bên bán chuyển quyền sở hữu tài sản cho bên mua và bên mua trả tiền cho
+# bên bán". Nên về chế định, "chuyển nhượng quyền sở hữu có đối giá" = mua bán
+# tài sản — đó là lý do KHÔNG dựng một chế định "chuyển nhượng" tự chế.
+#
+# Nhưng ánh xạ thẳng sang `hop_dong_mua_ban` là SAI, và sai theo hướng tệ nhất:
+# mẫu đó dựng trên Luật Thương mại Đ24-62, phạm vi "mua bán HÀNG HOÁ giữa
+# THƯƠNG NHÂN". Sáu trên mười mục của nó — giao hàng và chứng từ (LTM Đ34), địa
+# điểm giao hàng (Đ35), thời hạn giao hàng (Đ37), kiểm tra hàng hoá (Đ44), bảo
+# hành (Đ49), chuyển rủi ro (Đ57) — là khái niệm GIAO HÀNG HỮU HÌNH. Đem soát
+# một hợp đồng chuyển nhượng quyền đòi nợ, quyền sở hữu trí tuệ hay phần vốn
+# góp thì sáu mục đó không bao giờ khớp, và `/soat` sẽ báo THIẾU sáu nội dung
+# mà văn bản đúng luật không có lý do gì phải có. Đó là phát hiện SAI, tệ hơn
+# hẳn không soát — cùng lý lẽ FE đã dùng khi từ chối ghép cặp chấm-dứt/kỷ-luật.
+#
+# Ba chế định KHÁC cũng chuyển quyền sở hữu nhưng KHÔNG dùng mẫu này:
+#   • Tặng cho (Đ457) — "không yêu cầu đền bù". Không có giá, không có thanh
+#     toán; mục 4 và mục 5 dưới đây sẽ báo thiếu cho một hợp đồng đúng luật.
+#   • Trao đổi (Đ455) — hai bên giao tài sản cho nhau, mỗi bên vừa bán vừa mua.
+#     Đ455.4 mới là điều dẫn chiếu ngược lại Đ430-439.
+#   • Mua bán hàng hoá giữa thương nhân — dùng `hop_dong_mua_ban` (LTM).
+#
+# muc_do_thieu: canh_bao — BLDS KHÔNG có điều nào liệt kê nội dung bắt buộc của
+# hợp đồng mua bán tài sản. Đ398.2 (nội dung hợp đồng nói chung) dùng chữ "CÓ
+# THỂ có các nội dung sau đây". Tám mục dưới đây là những nội dung CÓ ĐIỀU LUẬT
+# RIÊNG điều chỉnh, không phải một danh mục luật định — thiếu một mục là hợp
+# đồng SƠ SÀI, không phải hợp đồng TRÁI LUẬT.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan ~ '^91/2015/QH13 > Điều (430|431|432|433|434|435|441|450)';
+loai: hop_dong_mua_ban_tai_san
+ten: "hợp đồng mua bán tài sản"
+tieu_de: "HỢP ĐỒNG MUA BÁN TÀI SẢN"
+muc_do_thieu: canh_bao
+
+# Không rule nào. BLDS không đặt ngưỡng số học hay điều cấm nào kiểm được bằng
+# fact trong chế định này: Đ431.1 nói tài sản bị cấm/hạn chế chuyển nhượng phải
+# "phù hợp với các quy định đó" — mà "các quy định đó" nằm ở luật chuyên ngành
+# khác (đất đai, chứng khoán, sở hữu trí tuệ), không phải một con số kiểm được.
+rules: []
+
+can_cu_goc: "91/2015/QH13 > Điều 430"
+can_cu_chi_tiet: "91/2015/QH13 > Điều 431"
+
+# Năm mục điều kiện, mỗi mục một lý do RIÊNG chứ không gộp làm một:
+#   • chat_luong (Đ432.3), thoi_han (Đ434.2), dia_diem_giao (Đ435),
+#     rui_ro (Đ441.1) — luật có QUY TẮC MẶC ĐỊNH khi các bên không thoả thuận,
+#     nên hợp đồng im lặng vẫn có đủ quy tắc điều chỉnh.
+#   • giay_to_quyen_tai_san, thoi_diem_chuyen_quyen_tai_san, bao_dam_doi_no
+#     (Đ450) — chỉ đặt ra KHI đối tượng là quyền tài sản. Với một chiếc xe hay
+#     một lô máy móc, ba mục đó vô nghĩa.
+khong_bat_buoc:
+  can_cu: "91/2015/QH13 > Điều 450"
+  ghi_chu: >
+    Chất lượng (Đ432.3), thời hạn (Đ434.2), địa điểm giao (Đ435) và thời điểm
+    chịu rủi ro (Đ441.1) đều có quy tắc mặc định của luật khi các bên không
+    thoả thuận. Ba mục Đ450 (chuyển giấy tờ, thời điểm chuyển quyền sở hữu đối
+    với quyền tài sản, bảo đảm khả năng thanh toán của quyền đòi nợ) chỉ đặt ra
+    khi đối tượng hợp đồng là QUYỀN TÀI SẢN. Vắng mặt không được báo là thiếu.
+  keys: [chat_luong, thoi_han, dia_diem_giao, rui_ro,
+         giay_to_quyen_tai_san, thoi_diem_chuyen_quyen_tai_san, bao_dam_doi_no]
+
+muc:
+  - {stt: 1, key: doi_tuong, ten: "Đối tượng của hợp đồng (tài sản hoặc quyền tài sản được bán)", can_cu: "91/2015/QH13 > Điều 431 > Khoản 1", tu_khoa: ["đối tượng của hợp đồng", "đối tượng hợp đồng", "tài sản mua bán", "tài sản được bán", "quyền tài sản"]}
+  - {stt: 2, key: quyen_ban, ten: "Cam kết tài sản thuộc sở hữu của bên bán hoặc bên bán có quyền bán", can_cu: "91/2015/QH13 > Điều 431 > Khoản 2", tu_khoa: ["thuộc sở hữu của bên bán", "có quyền bán", "quyền sở hữu hợp pháp", "cam kết về quyền sở hữu", "không có tranh chấp"]}
+  - {stt: 3, key: chat_luong, ten: "Chất lượng của tài sản mua bán", can_cu: "91/2015/QH13 > Điều 432 > Khoản 1", tu_khoa: ["chất lượng của tài sản", "chất lượng tài sản", "tiêu chuẩn chất lượng", "chất lượng"]}
+  - {stt: 4, key: gia, ten: "Giá và phương thức thanh toán", can_cu: "91/2015/QH13 > Điều 433 > Khoản 1", tu_khoa: ["giá và phương thức thanh toán", "giá chuyển nhượng", "giá mua bán", "tổng giá trị hợp đồng", "phương thức thanh toán", "đơn giá"]}
+  - {stt: 5, key: thoi_han_thanh_toan, ten: "Thời hạn thanh toán tiền mua", can_cu: "91/2015/QH13 > Điều 434 > Khoản 3", tu_khoa: ["thời hạn thanh toán", "thời gian thanh toán", "tiến độ thanh toán"]}
+  - {stt: 6, key: thoi_han, ten: "Thời hạn thực hiện hợp đồng, thời hạn giao tài sản", can_cu: "91/2015/QH13 > Điều 434 > Khoản 1", tu_khoa: ["thời hạn thực hiện hợp đồng", "thời hạn giao tài sản", "thời hạn bàn giao", "thời điểm bàn giao"]}
+  - {stt: 7, key: dia_diem_giao, ten: "Địa điểm giao tài sản", can_cu: "91/2015/QH13 > Điều 435", tu_khoa: ["địa điểm giao tài sản", "địa điểm bàn giao", "nơi giao tài sản"]}
+  - {stt: 8, key: rui_ro, ten: "Thời điểm chịu rủi ro đối với tài sản", can_cu: "91/2015/QH13 > Điều 441 > Khoản 1", tu_khoa: ["chịu rủi ro", "thời điểm chịu rủi ro", "rủi ro đối với tài sản", "chuyển rủi ro"]}
+  - {stt: 9, key: giay_to_quyen_tai_san, ten: "Chuyển giấy tờ và làm thủ tục chuyển quyền sở hữu (khi đối tượng là quyền tài sản)", can_cu: "91/2015/QH13 > Điều 450 > Khoản 1", tu_khoa: ["chuyển giấy tờ", "thủ tục chuyển quyền sở hữu", "bàn giao giấy tờ", "hồ sơ chuyển nhượng", "đăng ký chuyển quyền"]}
+  - {stt: 10, key: thoi_diem_chuyen_quyen_tai_san, ten: "Thời điểm chuyển quyền sở hữu đối với quyền tài sản", can_cu: "91/2015/QH13 > Điều 450 > Khoản 3", tu_khoa: ["thời điểm chuyển quyền sở hữu", "thời điểm chuyển giao quyền", "hiệu lực chuyển quyền sở hữu"]}
+  - {stt: 11, key: bao_dam_doi_no, ten: "Cam kết bảo đảm khả năng thanh toán của người mắc nợ (khi quyền tài sản là quyền đòi nợ)", can_cu: "91/2015/QH13 > Điều 450 > Khoản 2", tu_khoa: ["khả năng thanh toán của người mắc nợ", "bảo đảm khả năng thanh toán", "quyền đòi nợ", "liên đới chịu trách nhiệm thanh toán"]}
