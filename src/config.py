@@ -141,6 +141,17 @@ class Settings(BaseSettings):
     # mỗi request và rate limit theo IP trở thành trang trí.
     tin_proxy_header: bool = Field(default=False, validation_alias="KLAW_TIN_PROXY_HEADER")
 
+    # Số proxy TIN CẬY đứng trước ứng dụng. Chỉ có nghĩa khi `tin_proxy_header`
+    # bật. Mỗi proxy NỐI THÊM địa chỉ nó thấy vào CUỐI `X-Forwarded-For`, nên
+    # phần tử ĐẦU là phần kẻ gọi tự viết và không được tin bao giờ; client thật
+    # nằm ở vị trí thứ N từ PHẢI với N = số hop này. Đặt sai theo hướng LỚN hơn
+    # thực tế thì `ip_goi` rơi về địa chỉ peer (chặn), đặt sai theo hướng NHỎ
+    # hơn thì nó đọc trúng địa chỉ một proxy — cả hai đều không cho kẻ gọi tự
+    # chọn giỏ đếm của mình, khác hẳn việc lấy phần tử đầu.
+    so_hop_proxy_tin_cay: int = Field(
+        default=1, ge=1, validation_alias="KLAW_SO_HOP_PROXY_TIN_CAY"
+    )
+
     # 7 ngày. 0 = TẮT — bắt buộc phải có: `eval/run.py` đo latency/chi phí thật
     # thì không được đo qua cache.
     cache_ttl_ngay: int = Field(default=7, ge=0, validation_alias="KLAW_CACHE_TTL_NGAY")

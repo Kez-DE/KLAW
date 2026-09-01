@@ -123,13 +123,28 @@ def ip_goi(request: Request) -> str:
     `X-Forwarded-For` CHỈ được tin khi `KLAW_TIN_PROXY_HEADER=true`. Mặc định
     KHÔNG tin, vì nếu tin mà thực tế không có reverse proxy đặt header đó thì
     bất kỳ ai cũng gửi một IP giả khác nhau mỗi request và rate limit theo IP
-    trở thành trang trí. Khi tin thì lấy phần tử ĐẦU (client gốc) — các phần tử
-    sau là chuỗi proxy.
+    trở thành trang trí.
+
+    Khi tin thì lấy từ PHẢI sang, KHÔNG phải phần tử đầu. Mỗi proxy NỐI THÊM
+    địa chỉ nó thấy vào cuối, nên phần tử đầu là phần kẻ gọi tự viết — lấy nó
+    là tin đúng thứ duy nhất trong header mà không ai trong chuỗi tin cậy đã
+    ghi. Với `so_hop_proxy_tin_cay = N`, client thật ở vị trí thứ N từ phải:
+    hop cuối do proxy sát ứng dụng ghi, và cứ lùi một hop là lùi một proxy.
+
+    Header NGẮN hơn N phần tử ⇒ chuỗi proxy không như cấu hình mô tả; rơi về
+    địa chỉ peer thay vì đoán, cùng hướng hỏng-thì-CHẶN với cả module này.
+
+    Lưu ý tầng dưới: uvicorn mặc định `proxy_headers=True` và tự thay
+    `scope["client"]` bằng chính header này TRƯỚC khi hàm này chạy, nên chính
+    sách ở đây chỉ có hiệu lực khi tiến trình chạy kèm `--no-proxy-headers`
+    (xem `Dockerfile` và `tests/test_infra/test_uvicorn_proxy_headers.py`).
     """
     if get_settings().tin_proxy_header:
-        xff = request.headers.get("x-forwarded-for")
-        if xff and xff.split(",")[0].strip():
-            return xff.split(",")[0].strip()
+        phan = [p.strip() for p in (request.headers.get("x-forwarded-for") or "").split(",")]
+        phan = [p for p in phan if p]
+        n = get_settings().so_hop_proxy_tin_cay
+        if len(phan) >= n:
+            return phan[-n]
     return request.client.host if request.client else IP_KHONG_XAC_DINH
 
 

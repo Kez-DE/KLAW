@@ -133,9 +133,17 @@ def test_X_Forwarded_For_KHONG_duoc_tin_khi_khong_co_proxy(cai_dat):
 
 
 def test_X_Forwarded_For_duoc_tin_khi_cau_hinh_noi_co_proxy(cai_dat):
-    cai_dat(tin_proxy_header=True)
-    ip = bao_ve.ip_goi(_request_gia_lap("10.0.0.1", {"X-Forwarded-For": "1.2.3.4, 10.0.0.1"}))
-    assert ip == "1.2.3.4"
+    """Lấy từ PHẢI sang: proxy nối thêm vào cuối, nên phần tử cuối là phần do
+    proxy tin cậy ghi. Phần tử ĐẦU do kẻ gọi tự viết — tin nó là đưa cho kẻ gọi
+    quyền tự chọn giỏ đếm rate limit của mình.
+
+    Chi tiết đầy đủ (nhiều hop, header ngắn hơn khai báo, và tầng
+    `ProxyHeadersMiddleware` của uvicorn ở dưới) ở
+    `tests/test_infra/test_uvicorn_proxy_headers.py`.
+    """
+    cai_dat(tin_proxy_header=True, so_hop_proxy_tin_cay=1)
+    ip = bao_ve.ip_goi(_request_gia_lap("10.0.0.1", {"X-Forwarded-For": "1.2.3.4, 203.0.113.9"}))
+    assert ip == "203.0.113.9"
 
 
 def test_khong_co_client_thi_KHONG_gop_moi_nguoi_vao_mot_gio(cai_dat):
