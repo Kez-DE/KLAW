@@ -48,13 +48,22 @@ def documents() -> list[dict]:
 
 
 def test_seed_co_du_van_ban_cua_DOC_IDS_va_khong_rong(documents, provisions):
-    """Số văn bản lấy từ `DOC_IDS` chứ KHÔNG viết cứng. Viết cứng thì mỗi lần mở
-    rộng corpus test này đỏ vì một lý do không liên quan tới điều nó khoá —
-    và cách sửa dễ dãi là bump con số, tức test không còn kiểm gì cả."""
+    """Số văn bản lấy từ BẢNG KHAI BÁO của từng nguồn chứ KHÔNG viết cứng. Viết
+    cứng thì mỗi lần mở rộng corpus test này đỏ vì một lý do không liên quan tới
+    điều nó khoá — và cách sửa dễ dãi là bump con số, tức test không còn kiểm gì
+    cả.
+
+    Hai nguồn từ 2026-09-02: `DOC_IDS` (API MOJ) và `VAN_BAN`
+    (vanban.chinhphu.vn, chỉ cho văn bản mà bản MOJ hỏng). CỘNG hai tập chứ
+    không nới thành `>=`: bất biến ở đây là "seed chứa ĐÚNG những văn bản đã
+    khai báo, không thừa không thiếu", và `>=` sẽ bỏ lọt một văn bản rơi rụng.
+    """
+    from scripts.fetch_chinhphu import VAN_BAN
     from scripts.fetch_moj import DOC_IDS
 
-    assert len(documents) == len(DOC_IDS), len(documents)
-    assert {d["id"] for d in documents} == set(DOC_IDS)
+    mong_doi = set(DOC_IDS) | {f"cp-{k}" for k in VAN_BAN}
+    assert len(documents) == len(mong_doi), len(documents)
+    assert {d["id"] for d in documents} == mong_doi
     assert len(provisions) > 19_000, len(provisions)
     assert {p["document_id"] for p in provisions} == {d["id"] for d in documents}
 
