@@ -57,7 +57,13 @@ class NguonOut(BaseModel):
 
 
 class TraCuuResponse(BaseModel):
-    result_type: Literal["answer", "partial_coverage", "abstain", "out_of_scope"]
+    # Phải khớp ĐỦ `ResultType` ở `assemble.py`. Một loại có ở enum mà thiếu ở
+    # đây thì graph dựng đúng kết quả rồi chết ở khâu tuần tự hoá — đã xảy ra
+    # với `gioi_thieu` 2026-09-01. `test_response_model_biet_moi_gia_tri_cua_ResultType`
+    # so hai tập nên lần sau nó đỏ ngay.
+    result_type: Literal[
+        "answer", "partial_coverage", "abstain", "out_of_scope", "gioi_thieu"
+    ]
     answer: str | None
     citations: list[CitationOut]
     nguon: list[NguonOut] = []

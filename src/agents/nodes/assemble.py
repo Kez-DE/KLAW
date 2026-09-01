@@ -307,7 +307,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
 
     # PARTIAL_COVERAGE — nhánh xác định, KHÔNG gọi LLM: chỉ trúng tầng nông thì
     # nêu luật liên quan chứ không được diễn giải nội dung chưa được kiểm chứng.
-    if not deep and shallow:
+    def _phu_mot_phan() -> dict:
         luat = sorted({f"{p['so_ky_hieu']} ({p.get('ten') or ''})".strip() for p in shallow})
         dieu = ", ".join(p["duong_dan"] for p in shallow[:3])
         # Gộp theo doc_id: nhiều Điều của cùng một văn bản là MỘT nguồn. Không
@@ -325,7 +325,23 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
             "chưa phủ nghị định/thông tư hướng dẫn lĩnh vực này nên không diễn giải chi tiết."
         ))
 
+    # Gọi khi truy hồi CHỈ chạm tầng nông.
+    if not deep and shallow:
+        return _phu_mot_phan()
+
     if state.get("insufficient_evidence"):
+        # ĐO ĐƯỢC 2026-09-01: "Nghị định 95/2026 quy định gì?" truy hồi 18 kết
+        # quả — 16 tầng sâu KHÔNG LIÊN QUAN và 2 tầng nông ĐÚNG. Điều kiện
+        # `not deep` ở trên thấy `deep` khác rỗng nên bỏ qua, rồi
+        # `generate_claims` sinh 0 luận điểm từ 16 nguồn kia, và người hỏi nhận
+        # một `abstain` trơ — trong khi hệ thống đang cầm đúng tên văn bản chi
+        # phối câu hỏi.
+        #
+        # Nhánh này chỉ NÂNG CẤP một `abstain`. Nó không thể chen chỗ một câu
+        # trả lời thật: mọi đường có luận điểm dùng được đều nằm phía dưới và
+        # không đi qua đây.
+        if shallow:
+            return _phu_mot_phan()
         return _base(state, ResultType.abstain)
 
     tier1 = state.get("tier1") or []

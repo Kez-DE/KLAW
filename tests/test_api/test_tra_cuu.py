@@ -294,3 +294,26 @@ async def test_ghi_traces_khong_chan_event_loop(client, monkeypatch):
     assert tong < sleep_s * 1.7, (
         f"hai request đồng thời mất {tong:.2f}s — nghi _ghi_traces chặn tuần tự (≈{2 * sleep_s:.2f}s nếu vậy)"
     )
+
+
+def test_response_model_biet_moi_gia_tri_cua_ResultType():
+    """Biên API phải biết MỌI loại kết quả — nếu không, một nhánh đúng ở graph
+    thành 500 ở HTTP.
+
+    ĐO ĐƯỢC 2026-09-01: `gioi_thieu` được thêm vào `ResultType` nhưng không
+    thêm vào `Literal` của `TraCuuResponse`, nên `/tra-cuu` cho câu "bạn làm
+    được những gì" dựng đúng kết quả rồi chết ở khâu tuần tự hoá. Nó lọt vì
+    tôi xác minh bằng bảng `traces` — mà traces ghi TRƯỚC response, nên nó
+    xanh trong khi HTTP đỏ.
+
+    Test này so hai tập, không liệt kê tay: thêm một loại mới mà quên biên API
+    sẽ làm nó đỏ ngay.
+    """
+    import typing
+
+    from src.agents.nodes.assemble import ResultType
+    from src.models.schemas import TraCuuResponse
+
+    o_model = set(typing.get_args(TraCuuResponse.model_fields["result_type"].annotation))
+    o_enum = {r.value for r in ResultType}
+    assert o_model == o_enum, f"lệch: enum có {o_enum - o_model}, model có {o_model - o_enum}"
