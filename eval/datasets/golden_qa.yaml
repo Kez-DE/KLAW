@@ -21,11 +21,11 @@ items:
   cau_hoi: Nếu sếp em cứ chửi bới, xúc phạm em trước mặt mọi người thì có được không
     ạ?
   duong_dan:
-  - 45/2019/QH14 > Điều 127
+  - 45/2019/QH14 > Điều 8
   bo_luat: Lao động
-  nguon: llm-gen
-  da_review: false
-  duyet_boi: chua-ai
+  nguon: llm-gen+agent-sua-neo
+  da_review: true
+  duyet_boi: agent
 - id: lao-001-1
   cau_hoi: Công ty có được trừ thẳng tiền lương của em vì đi muộn vài lần không ạ?
   duong_dan:
@@ -173,10 +173,11 @@ items:
     nào?
   duong_dan:
   - 45/2019/QH14 > Điều 12
+  - 145/2020/NĐ-CP > Điều 4
   bo_luat: Lao động
-  nguon: llm-gen
-  da_review: false
-  duyet_boi: chua-ai
+  nguon: llm-gen+agent-sua-neo
+  da_review: true
+  duyet_boi: agent
 - id: lao-014-0
   cau_hoi: Công ty nhận tôi vào học việc, có được thu tiền học việc của tôi không?
   duong_dan:
@@ -196,20 +197,20 @@ items:
 - id: lao-015-0
   cau_hoi: Nếu tôi làm việc mà sếp không trả lương thì tôi phải làm sao?
   duong_dan:
-  - 45/2019/QH14 > Điều 97
-  - 12/2022/NĐ-CP > Điều 17
+  - 45/2019/QH14 > Điều 187
+  - 45/2019/QH14 > Điều 188
   bo_luat: Lao động
-  nguon: llm-gen
-  da_review: false
-  duyet_boi: chua-ai
+  nguon: llm-gen+agent-sua-neo
+  da_review: true
+  duyet_boi: agent
 - id: lao-015-1
   cau_hoi: Tôi đi học nghề mà họ không trả tiền công cho tôi thì có được không?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 4 > Khoản 7
+  - 45/2019/QH14 > Điều 61
   bo_luat: Lao động
-  nguon: llm-gen
-  da_review: false
-  duyet_boi: chua-ai
+  nguon: llm-gen+agent-sua-neo
+  da_review: true
+  duyet_boi: agent
 - id: lao-017-0
   cau_hoi: Công ty tôi sắp cắt giảm nhân sự, họ phải thông báo cho chúng tôi biết
     những gì về việc ai sẽ ở lại, ai sẽ nghỉ việc và quyền lợi của chúng tôi ra sao?
@@ -325,11 +326,12 @@ items:
   cau_hoi: Nếu công ty em muốn đình công thì ai là người có quyền quyết định và phải
     làm những gì trước khi đình công ạ?
   duong_dan:
-  - 45/2019/QH14 > Điều 201
+  - 45/2019/QH14 > Điều 198
+  - 45/2019/QH14 > Điều 200
   bo_luat: Lao động
-  nguon: llm-gen
-  da_review: false
-  duyet_boi: chua-ai
+  nguon: llm-gen+agent-sua-neo
+  da_review: true
+  duyet_boi: agent
 - id: lao-026-0
   cau_hoi: Tôi muốn mở công ty cho thuê lại lao động, tôi cần mang giấy tờ đến đâu
     để xin phép và mất bao lâu thì có giấy phép?
@@ -586,11 +588,11 @@ items:
   cau_hoi: Đi làm mà em có em bé dưới 1 tuổi, em có được nghỉ thêm giờ nào trong ngày
     không ạ?
   duong_dan:
-  - 145/2020/NĐ-CP > Điều 58
+  - 45/2019/QH14 > Điều 137
   bo_luat: Lao động
-  nguon: llm-gen
-  da_review: false
-  duyet_boi: chua-ai
+  nguon: llm-gen+agent-sua-neo
+  da_review: true
+  duyet_boi: agent
 - id: lao-043-1
   cau_hoi: Nếu công ty bắt em đi học lớp nghiệp vụ, thì thời gian đi học đó có được
     tính là đi làm và có lương không ạ?
