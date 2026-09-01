@@ -336,18 +336,18 @@ items:
   cau_hoi: Tôi muốn mở công ty cho thuê lại lao động, tôi cần mang giấy tờ đến đâu
     để xin phép và mất bao lâu thì có giấy phép?
   duong_dan:
-  - 29/2019/NĐ-CP > Điều 9
+  - 145/2020/NĐ-CP > Điều 25
   bo_luat: Lao động
-  nguon: llm-gen+agent-duyet
+  nguon: llm-gen+agent-sua-neo
   da_review: true
   duyet_boi: agent
 - id: lao-026-1
   cau_hoi: Nếu công ty tôi nộp hồ sơ xin phép cho thuê lại lao động mà bị thiếu giấy
     tờ, thì bao lâu tôi sẽ nhận được thông báo để bổ sung?
   duong_dan:
-  - 29/2019/NĐ-CP > Điều 9
+  - 145/2020/NĐ-CP > Điều 25
   bo_luat: Lao động
-  nguon: llm-gen+agent-duyet
+  nguon: llm-gen+agent-sua-neo
   da_review: true
   duyet_boi: agent
 - id: lao-028-0
@@ -525,9 +525,9 @@ items:
   cau_hoi: Nếu công ty tôi có công đoàn thì khi làm nội quy có cần xin ý kiến của
     họ không?
   duong_dan:
-  - 45/2019/QH14 > Điều 120
+  - 45/2019/QH14 > Điều 118
   bo_luat: Lao động
-  nguon: llm-gen+agent-duyet
+  nguon: llm-gen+agent-sua-neo
   da_review: true
   duyet_boi: agent
 - id: lao-040-0
