@@ -12,7 +12,8 @@
     "kiem-trich-dan": "node scripts/kiem-trich-dan.ts",
     "format": "prettier --write .",
     "kiem-sse": "node scripts/kiem-sse.ts",
-    "kiem-font": "node scripts/kiem-font.ts"
+    "kiem-font": "node scripts/kiem-font.ts",
+    "kiem-van-xuoi": "node scripts/kiem-van-xuoi.ts"
   },
   "overrides": {
     "rolldown": "1.2.1"

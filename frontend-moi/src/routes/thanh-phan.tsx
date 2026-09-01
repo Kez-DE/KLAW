@@ -137,11 +137,15 @@ const DA_PHAT_MAU: SuKienBuoc[] = [
 
 const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
   {
-    nhan: "answer — có căn cứ, có trích dẫn kiểm chứng được",
+    nhan: "answer — có căn cứ, trích dẫn kiểm chứng được, và danh sách trong lời văn",
     ketQua: {
       result_type: "answer",
+      // Hình dạng THẬT của giọng luật sư máy chủ phát ra từ 2026-09-01: mở
+      // bằng lời chào, dẫn số hiệu trong câu, đóng bằng dấu ngoặc chứa căn cứ,
+      // và có danh sách gạch đầu dòng. Mẫu này ở đây để nhánh <ul> của
+      // `catDoan` luôn có một chỗ nhìn được bằng mắt, không chỉ có một assert.
       answer:
-        "Đoạn câu trả lời mẫu để xem bố cục và khoảng thở giữa các đoạn. Nội dung này không phải nội dung pháp luật.\nĐoạn thứ hai, để thấy khoảng cách giữa hai đoạn trong mặt đọc.",
+        "Chào bạn, theo văn bản mẫu số 00/0000/QH00, đoạn này tồn tại để xem bố cục và khoảng thở giữa các đoạn (Điều 1, Khoản 1). Nội dung này không phải nội dung pháp luật.\nDưới đây là 03 điều kiện mẫu:\n- Điều kiện thứ nhất, đủ dài để thấy nó xuống dòng ra sao trong một mục danh sách (Điều 2, Khoản 1).\n- Điều kiện thứ hai.\n- Điều kiện thứ ba, có nhắc Bộ Lao động - Thương binh và Xã hội để thấy dấu gạch GIỮA câu không bị đọc thành gạch đầu dòng.\nĐoạn cuối, để thấy khoảng cách giữa danh sách và đoạn kế tiếp.",
       citations: [
         {
           provision_id: 1,

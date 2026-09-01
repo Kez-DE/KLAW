@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { BookOpenText, FileSearch, Info } from "lucide-react";
 import type { Citation, Nguon, TraCuuKetQua } from "@/lib/klaw";
 import { cn } from "@/lib/utils";
+import { catDoan } from "@/lib/van-xuoi";
 import { BadgeHieuLuc } from "./BadgeHieuLuc";
 
 /**
@@ -348,14 +349,25 @@ export function TheKetQua({
             </span>
           </p>
         ) : (
-          answer
-            .split("\n")
-            .filter((doan) => doan.trim() !== "")
-            .map((doan, i) => (
-              <p key={`${i}-${doan.slice(0, 24)}`} className={i === 0 ? "m-0" : "mt-3 mb-0"}>
-                {doan}
+          // `catDoan` chỉ CẮT, không sửa chữ: câu trả lời nay mang số Điều ngay
+          // trong lời văn (`… (Điều 25, Khoản 1)`) và đó là căn cứ, không phải
+          // trang trí. Danh sách gạch đầu dòng máy chủ phát ra thành <ul> thật
+          // chứ không thành bốn đoạn rời — xem `lib/van-xuoi.ts`.
+          catDoan(answer).map((doan, i) =>
+            doan.kieu === "danh_sach" ? (
+              <ul key={`ds-${i}`} className={cn("list-disc pl-5", i === 0 ? "m-0" : "mt-3 mb-0")}>
+                {doan.muc.map((muc, j) => (
+                  <li key={`${j}-${muc.slice(0, 24)}`} className={j === 0 ? "" : "mt-1"}>
+                    {muc}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p key={`d-${i}`} className={i === 0 ? "m-0" : "mt-3 mb-0"}>
+                {doan.chu}
               </p>
-            ))
+            ),
+          )
         )}
       </div>
       <KhoiCanhBao warnings={warnings} />
