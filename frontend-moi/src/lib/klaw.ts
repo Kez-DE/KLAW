@@ -12,7 +12,16 @@
  */
 
 /** Bốn `result_type` — bốn cách hiển thị, không thương lượng. */
-export type ResultType = "answer" | "partial_coverage" | "abstain" | "out_of_scope";
+export type ResultType =
+  | "answer"
+  | "partial_coverage"
+  | "abstain"
+  | "out_of_scope"
+  // Loại thứ NĂM: câu hỏi về CHÍNH TRỢ LÝ ("bạn làm được những gì"). Bốn
+  // loại trên mô tả điều đã xảy ra với một lượt TRA CỨU; loại này nói rằng
+  // câu hỏi không phải một lượt tra cứu. Trước bản này nó về `out_of_scope`
+  // và người hỏi nhận "Câu hỏi này nằm ngoài phạm vi của hệ thống".
+  | "gioi_thieu";
 
 /**
  * Sáu nhãn hiệu lực.
@@ -472,7 +481,13 @@ export interface SuKienBuoc {
 const laBanGhi = (x: unknown): x is Record<string, unknown> =>
   typeof x === "object" && x !== null && !Array.isArray(x);
 
-const LOAI_KET_QUA: readonly string[] = ["answer", "partial_coverage", "abstain", "out_of_scope"];
+const LOAI_KET_QUA: readonly string[] = [
+  "answer",
+  "partial_coverage",
+  "abstain",
+  "out_of_scope",
+  "gioi_thieu",
+];
 
 export function laTraCuuKetQua(x: unknown): x is TraCuuKetQua {
   return (

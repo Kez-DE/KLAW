@@ -281,6 +281,52 @@ export function TheKetQua({
     );
   }
 
+  /**
+   * Văn xuôi máy chủ trả về, cắt thành đoạn và danh sách.
+   *
+   * Dùng ở HAI nhánh (`answer` và `gioi_thieu`). Tách ra thay vì chép: đây là
+   * chỗ duy nhất biết `catDoan` trả về hai loại đoạn, và hai bản sao của tri
+   * thức đó sẽ lệch nhau đúng lúc thêm loại thứ ba.
+   *
+   * `catDoan` chỉ CẮT, không sửa chữ: câu trả lời mang số Điều ngay trong lời
+   * văn (`… (Điều 25, Khoản 1)`) và đó là căn cứ, không phải trang trí.
+   */
+  function KhoiVanXuoi({ chu }: { chu: string }) {
+    return (
+      <>
+        {catDoan(chu).map((doan, i) =>
+          doan.kieu === "danh_sach" ? (
+            <ul key={`ds-${i}`} className={cn("list-disc pl-5", i === 0 ? "m-0" : "mt-3 mb-0")}>
+              {doan.muc.map((muc, j) => (
+                <li key={`${j}-${muc.slice(0, 24)}`} className={j === 0 ? "" : "mt-1"}>
+                  {muc}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p key={`d-${i}`} className={i === 0 ? "m-0" : "mt-3 mb-0"}>
+              {doan.chu}
+            </p>
+          ),
+        )}
+      </>
+    );
+  }
+
+  // `gioi_thieu` KHÔNG mượn `KhayTrungTinh`. Khay đó nói "hệ thống không trả
+  // lời được" — dùng nó ở đây là vẫn đóng khung một câu trả lời hợp lệ như một
+  // lời từ chối, tức vẫn phạm đúng lỗi vừa sửa ở backend, chỉ dịch xuống một
+  // tầng. Đây là câu trả lời, nên nó trông như câu trả lời.
+  if (loai === "gioi_thieu") {
+    return (
+      <section aria-label="Giới thiệu trợ lý">
+        <div className="doc-prose text-foreground">
+          <KhoiVanXuoi chu={ketQua.answer ?? ""} />
+        </div>
+      </section>
+    );
+  }
+
   if (loai === "out_of_scope") {
     return (
       <section aria-label="Kết quả tra cứu">
@@ -349,25 +395,7 @@ export function TheKetQua({
             </span>
           </p>
         ) : (
-          // `catDoan` chỉ CẮT, không sửa chữ: câu trả lời nay mang số Điều ngay
-          // trong lời văn (`… (Điều 25, Khoản 1)`) và đó là căn cứ, không phải
-          // trang trí. Danh sách gạch đầu dòng máy chủ phát ra thành <ul> thật
-          // chứ không thành bốn đoạn rời — xem `lib/van-xuoi.ts`.
-          catDoan(answer).map((doan, i) =>
-            doan.kieu === "danh_sach" ? (
-              <ul key={`ds-${i}`} className={cn("list-disc pl-5", i === 0 ? "m-0" : "mt-3 mb-0")}>
-                {doan.muc.map((muc, j) => (
-                  <li key={`${j}-${muc.slice(0, 24)}`} className={j === 0 ? "" : "mt-1"}>
-                    {muc}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p key={`d-${i}`} className={i === 0 ? "m-0" : "mt-3 mb-0"}>
-                {doan.chu}
-              </p>
-            ),
-          )
+          <KhoiVanXuoi chu={answer} />
         )}
       </div>
       <KhoiCanhBao warnings={warnings} />
