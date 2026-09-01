@@ -1,3 +1,5 @@
+import type { PhamViSoat } from "./khung-van-ban";
+
 // Định nghĩa 25 mẫu văn bản: nhóm, ký hiệu, số trường, căn cứ pháp lý.
 // Đây là CẤU HÌNH SẢN PHẨM, không phải dữ liệu pháp luật minh hoạ — nên nó ở
 // lại sau khi kho văn bản giả bị xoá.
@@ -275,60 +277,90 @@ export const laHopDongThuongMai = (m: MauVanBan) => m.nhom === "thuong-mai";
 export const laThuViec = (m: MauVanBan) => m.id === "hop-dong-thu-viec";
 
 /**
- * Mẫu nào soát được với KLAW, và mẫu nào KHÔNG.
+ * Mẫu nào soát được với KLAW, soát được ĐẾN ĐÂU, và mẫu nào chưa nối.
  *
  * Bản đồ này chỉ chứa mẫu máy chủ THẬT SỰ soát được, và đó là một ràng buộc
  * hẹp hơn "máy chủ nhận `loai_van_ban` này".
  *
- * `POST /soat` khai ba giá trị (`hdld`, `noi_quy`, `quyet_dinh_ky_luat`) nhưng
- * chỉ `hdld` có checklist; ĐO TRÊN MÁY CHỦ ĐANG CHẠY hôm nay, `noi_quy` trả
- * **501** kèm câu `chưa có checklist/rules riêng (hiện chỉ hỗ trợ: ['hdld'])`,
- * và `GET /mau/noi_quy` trả `facts: []`. `noi-quy-lao-dong` từng bị gỡ khỏi bản
- * đồ này vì lý do đó — nó đeo nhãn "Soát được với KLAW" trong danh mục, một lời
- * hứa mà người dùng chỉ phát hiện là sai SAU khi soạn xong cả bản thảo rồi bấm
- * nút.
+ * 2026-09-02: **25/25 mẫu đã nối backend** — 21 soát NỘI DUNG, 3 chỉ soát THỂ
+ * THỨC, 1 (`quyet_dinh_bo_nhiem`) soát thể thức KÈM một quy tắc nhiệm kỳ. Danh
+ * mục đếm cả ba con số từ chính bản đồ này nên chúng không thể trôi khỏi sự
+ * thật — con số viết tay trong chú thích thì có, và đã trôi đúng một lần: dòng
+ * này từng ghi 16 khi bản đồ đã có 17.
  *
- * 2026-09-01: nó có checklist thật (BLLĐ Đ118.2 a–i) nên đã quay lại, cùng 12
- * mẫu khác. **17/25 mẫu nối được backend: 16 soát NỘI DUNG, 1 (`cong-van`) chỉ
- * soát THỂ THỨC.** Danh mục đếm cả hai con số từ chính bản đồ này nên chúng
- * không thể trôi khỏi sự thật — con số viết tay trong chú thích thì có, và đã
- * trôi đúng một lần: dòng này từng ghi 16 khi bản đồ đã có 17.
+ * `phamVi` là BẮT BUỘC trên mỗi dòng, và đó là chủ ý. Trước đây nó nằm trong
+ * một `Set` riêng (`CHI_SOAT_HINH_THUC`) đặt cách bản đồ này gần trăm dòng, tức
+ * là thêm một mẫu mà quên cập nhật `Set` thì mẫu mới lặng lẽ đeo nhãn "Soát
+ * được với KLAW" — một lời hứa sai, không có gì đỏ lên. Nay bỏ sót `phamVi` là
+ * một lỗi biên dịch. `npm run kiem-khung` đối chiếu tiếp từng dòng với cờ
+ * `chi_soat_the_thuc` / `pham_vi_soat` mà máy chủ tính ra, nên bản đồ không
+ * lệch được khỏi checklist mà không ai biết.
  *
  * KHÔNG ánh xạ `quyet-dinh-cham-dut-hop-dong-lao-dong` sang
  * `quyet_dinh_ky_luat`: chấm dứt hợp đồng và xử lý kỷ luật là hai chế định khác
  * nhau của Bộ luật Lao động, và soát một quyết định chấm dứt bằng checklist kỷ
  * luật sẽ sinh ra phát hiện sai — tệ hơn hẳn không soát.
  */
-export const LOAI_BACKEND: Record<string, LoaiVanBanBackend> = {
-  "hop-dong-lao-dong-xac-dinh-thoi-han": "hdld",
-  "hop-dong-lao-dong-khong-xac-dinh-thoi-han": "hdld",
+export type NoiBackend = { loai: LoaiVanBanBackend; phamVi: PhamViSoat };
+
+export const LOAI_BACKEND: Record<string, NoiBackend> = {
+  "hop-dong-lao-dong-xac-dinh-thoi-han": { loai: "hdld", phamVi: "noi_dung" },
+  "hop-dong-lao-dong-khong-xac-dinh-thoi-han": { loai: "hdld", phamVi: "noi_dung" },
   // `hop_dong_thu_viec` chứ KHÔNG còn `hdld`: thử việc nay có checklist riêng
   // trên BLLĐ Đ24.2 (4 nội dung bắt buộc), khác hẳn Đ21.1 (10 nội dung của
   // HĐLĐ). Soát bản thử việc bằng checklist HĐLĐ báo thiếu sáu mục luật không
   // đòi.
-  "hop-dong-thu-viec": "hop_dong_thu_viec",
-  "quyet-dinh-cham-dut-hop-dong-lao-dong": "quyet_dinh_cham_dut_hdld",
-  "noi-quy-lao-dong": "noi_quy",
-  "thoa-thuan-bao-mat-nda": "thoa_thuan_bao_mat",
-  "hop-dong-mua-ban-hang-hoa": "hop_dong_mua_ban",
-  "hop-dong-dich-vu": "hop_dong_dich_vu",
-  "hop-dong-nguyen-tac": "hop_dong_nguyen_tac",
-  "hop-dong-gia-cong": "hop_dong_gia_cong",
+  "hop-dong-thu-viec": { loai: "hop_dong_thu_viec", phamVi: "noi_dung" },
+  "quyet-dinh-cham-dut-hop-dong-lao-dong": {
+    loai: "quyet_dinh_cham_dut_hdld",
+    phamVi: "noi_dung",
+  },
+  "noi-quy-lao-dong": { loai: "noi_quy", phamVi: "noi_dung" },
+  "thoa-thuan-bao-mat-nda": { loai: "thoa_thuan_bao_mat", phamVi: "noi_dung" },
+  "hop-dong-mua-ban-hang-hoa": { loai: "hop_dong_mua_ban", phamVi: "noi_dung" },
+  "hop-dong-dich-vu": { loai: "hop_dong_dich_vu", phamVi: "noi_dung" },
+  "hop-dong-nguyen-tac": { loai: "hop_dong_nguyen_tac", phamVi: "noi_dung" },
+  "hop-dong-gia-cong": { loai: "hop_dong_gia_cong", phamVi: "noi_dung" },
   // Giới hạn phạm vi: checklist này dựng trên BLDS Đ472–482 (thuê TÀI SẢN).
   // Đúng cho mặt bằng; KHÔNG tự nhận đủ cho thuê NHÀ Ở, vì Luật Nhà ở không
   // có trong kho nên phần riêng của nhà ở không soát được.
-  "hop-dong-thue-nha-mat-bang": "hop_dong_thue_tai_san",
-  "hop-dong-vay-tai-san": "hop_dong_vay",
-  "hop-dong-hop-tac-kinh-doanh": "hop_dong_hop_tac",
-  "bien-ban-hop": "bien_ban_hop_hdqt",
-  "don-khoi-kien": "don_khoi_kien",
-  "don-de-nghi": "don_yeu_cau",
-  // CHỈ SOÁT THỂ THỨC — xem `CHI_SOAT_HINH_THUC` ngay dưới.
-  "cong-van": "cong_van",
+  "hop-dong-thue-nha-mat-bang": { loai: "hop_dong_thue_tai_san", phamVi: "noi_dung" },
+  "hop-dong-vay-tai-san": { loai: "hop_dong_vay", phamVi: "noi_dung" },
+  "hop-dong-hop-tac-kinh-doanh": { loai: "hop_dong_hop_tac", phamVi: "noi_dung" },
+  "bien-ban-hop": { loai: "bien_ban_hop_hdqt", phamVi: "noi_dung" },
+  "don-khoi-kien": { loai: "don_khoi_kien", phamVi: "noi_dung" },
+  "don-de-nghi": { loai: "don_yeu_cau", phamVi: "noi_dung" },
+  "cong-van": { loai: "cong_van", phamVi: "the_thuc" },
+
+  // Tám mẫu nối thêm 2026-09-02, đưa danh mục lên 25/25.
+  //
+  // `hop-dong-chuyen-nhuong-quyen-so-huu` → `hop_dong_mua_ban_tai_san`: chuyển
+  // nhượng quyền sở hữu không phải một loại hợp đồng có tên riêng trong luật,
+  // nó CHÍNH LÀ mua bán tài sản (BLDS Đ430), nên checklist Đ431–450 áp đúng.
+  "hop-dong-chuyen-nhuong-quyen-so-huu": {
+    loai: "hop_dong_mua_ban_tai_san",
+    phamVi: "noi_dung",
+  },
+  // `giay_uy_quyen` nay là checklist RIÊNG dựng trên BLDS Đ138 (đại diện theo
+  // uỷ quyền), không phải `hop_dong_uy_quyen` (Đ562, thoả thuận HAI BÊN). Đây
+  // đúng là lý do trước kia mẫu này cố ý bị bỏ trống.
+  "giay-uy-quyen": { loai: "giay_uy_quyen", phamVi: "noi_dung" },
+  // Tương tự: `quyet_dinh_hdqt` là checklist của NGHỊ QUYẾT, tách khỏi
+  // `bien_ban_hop_hdqt` (LDN Đ158 quy định nội dung BIÊN BẢN).
+  "quyet-dinh-hoi-dong-quan-tri": { loai: "quyet_dinh_hdqt", phamVi: "the_thuc" },
+  "don-khieu-nai": { loai: "don_khieu_nai", phamVi: "noi_dung" },
+  // Ca LAI, và bản đồ phải nói ra: máy chủ trả `pham_vi_soat: "the_thuc"` nhưng
+  // `chi_soat_the_thuc: false`, vì ngoài 9 thành phần thể thức nó còn một quy
+  // tắc nhiệm kỳ thật (LDN Đ162.2, trần 05 năm) chạy trên hai fact
+  // `co_tran_nhiem_ky_05_nam` và `nhiem_ky_thang`.
+  "quyet-dinh-bo-nhiem": { loai: "quyet_dinh_bo_nhiem", phamVi: "the_thuc_kem_rule" },
+  "quy-che-noi-bo": { loai: "quy_che_noi_bo", phamVi: "the_thuc" },
+  "ban-tu-khai": { loai: "ban_tu_khai", phamVi: "noi_dung" },
+  "van-ban-giai-trinh": { loai: "van_ban_giai_trinh", phamVi: "noi_dung" },
 };
 
 /**
- * Mẫu mà KLAW chỉ soát được THỂ THỨC, không soát nội dung.
+ * Ba mẫu chỉ soát THỂ THỨC, và nhãn phải nói ra điều đó.
  *
  * NĐ 30/2020 Đ8.2 cho cả 29 loại văn bản hành chính CHUNG một danh mục 9 thành
  * phần (quốc hiệu, số hiệu, nơi nhận, chữ ký…), và không quy định nội dung
@@ -336,33 +368,13 @@ export const LOAI_BACKEND: Record<string, LoaiVanBanBackend> = {
  * đặt nội dung bắt buộc nào cho công văn — thân văn bản là văn xuôi tự do —
  * nên "đủ 9 thành phần" đúng là toàn bộ những gì luật đòi.
  *
- * Nhưng nhãn phải nói ra. Thẻ này nằm cạnh những mẫu soát nội dung thật (nội
- * quy lao động, quyết định kỷ luật), nên một nhãn "Soát được với KLAW" giống
- * hệt sẽ khiến người dùng tưởng KLAW đọc được nội dung công văn của họ. Nó
- * không đọc.
+ * Nhưng ba thẻ này nằm cạnh những mẫu soát nội dung thật (nội quy lao động,
+ * quyết định kỷ luật), nên một nhãn "Soát được với KLAW" giống hệt sẽ khiến
+ * người dùng tưởng KLAW đọc được nội dung công văn của họ. Nó không đọc.
  *
  * Một giới hạn nữa, không hiện trên thẻ vì thuộc về ai phải tuân: NĐ 30/2020
  * Đ2.1 chỉ áp cho cơ quan, tổ chức nhà nước và doanh nghiệp nhà nước. Với
  * doanh nghiệp tư nhân đây là chuẩn mực tham khảo, không phải nghĩa vụ.
- */
-export const CHI_SOAT_HINH_THUC: ReadonlySet<string> = new Set(["cong-van"]);
-
-/**
- * Ba mẫu CỐ Ý không ánh xạ dù backend có kiểu trông na ná — cùng lý lẽ đã dùng
- * cho cặp chấm-dứt/kỷ-luật ở trên: soát bằng checklist của một chế định khác
- * sinh ra phát hiện SAI, tệ hơn hẳn không soát.
- *
- * `giay-uy-quyen` ↛ `hop_dong_uy_quyen` — giấy uỷ quyền là hành vi MỘT BÊN;
- *   hợp đồng uỷ quyền là thoả thuận HAI BÊN (BLDS Đ562). Checklist hợp đồng
- *   đòi chữ ký bên nhận uỷ quyền, mà giấy uỷ quyền không có bên đó.
- * `quyet-dinh-hoi-dong-quan-tri` ↛ `bien_ban_hop_hdqt` — nghị quyết và biên
- *   bản họp là hai văn bản khác nhau; LDN Đ158 quy định nội dung BIÊN BẢN.
- * `hop-dong-chuyen-nhuong-quyen-so-huu` — không phải loại hợp đồng có tên
- *   trong luật, trùng mua bán tài sản (BLDS Đ430).
- *
- * Còn lại chưa có backend vì kho thiếu văn bản nguồn: `cong-van` (NĐ 30/2020
- * văn thư), `don-khieu-nai` (Luật Khiếu nại 02/2011), `quy-che-noi-bo`,
- * `ban-tu-khai`, `van-ban-giai-trinh`, `quyet-dinh-bo-nhiem`.
  */
 export type LoaiVanBanBackend =
   | "hdld"
@@ -382,7 +394,18 @@ export type LoaiVanBanBackend =
   | "bien_ban_hop_hdqt"
   | "don_khoi_kien"
   | "don_yeu_cau"
-  | "cong_van";
+  | "cong_van"
+  | "hop_dong_mua_ban_tai_san"
+  | "giay_uy_quyen"
+  | "quyet_dinh_hdqt"
+  | "don_khieu_nai"
+  | "quyet_dinh_bo_nhiem"
+  | "quy_che_noi_bo"
+  | "ban_tu_khai"
+  | "van_ban_giai_trinh";
 
 /** `undefined` = KLAW chưa có kiểu nào cho mẫu này, nên chưa soát được. */
-export const loaiBackendCua = (id: string): LoaiVanBanBackend | undefined => LOAI_BACKEND[id];
+export const loaiBackendCua = (id: string): LoaiVanBanBackend | undefined => LOAI_BACKEND[id]?.loai;
+
+/** `undefined` = chưa nối backend. Ba giá trị còn lại là ba nhãn khác nhau. */
+export const phamViSoatCuaMau = (id: string): PhamViSoat | undefined => LOAI_BACKEND[id]?.phamVi;

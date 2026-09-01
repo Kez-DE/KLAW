@@ -14,11 +14,18 @@ export type DongVanBan = {
   thutLe: number;
 };
 
-export type OKy = { ben: string[] };
-
 export type NoiDungXuat = {
   dong: DongVanBan[];
-  oKy: string[][];
+  /**
+   * Các cột của khối ký. MỘT cột là hợp lệ, không phải hai.
+   *
+   * Trước đây `xuatWord` chỉ dựng bảng ký khi `oKy.length === 2`, vì bộ dựng
+   * thân văn bản cũ luôn ra đúng hai bên. Nay khối ký chỉ hiện khi chính
+   * `cau_truc` có mục chữ ký, và với công văn hay đơn khiếu nại thì mục ấy có
+   * MỘT người ký. Giữ điều kiện `=== 2` sẽ nuốt trọn khối ký ra khỏi tệp `.docx`
+   * người dùng tải về, mà trên màn hình vẫn thấy nó.
+   */
+  oKy: DongVanBan[][];
 };
 
 const BO_QUA = new Set(["SCRIPT", "STYLE"]);
@@ -31,18 +38,34 @@ function laCanhGiua(el: HTMLElement) {
   return getComputedStyle(el).textAlign === "center";
 }
 
+/** Đọc một thẻ thành dòng có định dạng, lấy đậm/nghiêng từ chính CSS đang áp. */
+function docDong(el: HTMLElement): DongVanBan {
+  const text = chuanHoa(el.textContent ?? "");
+  const cs = getComputedStyle(el);
+  const laDieu = el.classList.contains("dieu-head");
+  return {
+    text: cs.textTransform === "uppercase" ? text.toLocaleUpperCase("vi-VN") : text,
+    kieu:
+      el.tagName === "H1" ? "tieuDe" : laDieu ? "dieu" : /^Số:/.test(text) ? "soHieu" : "thuong",
+    canhGiua: laCanhGiua(el),
+    inDam: Number(cs.fontWeight) >= 600 || laDieu,
+    inNghieng: cs.fontStyle === "italic",
+    thutLe: Math.round(parseFloat(cs.marginLeft || "0")),
+  };
+}
+
 /** Đọc nội dung hiển thị của khung A4 thành danh sách dòng có định dạng. */
 export function docNoiDungTuDOM(sheet: HTMLElement): NoiDungXuat {
   const dong: DongVanBan[] = [];
-  const oKy: string[][] = [];
+  const oKy: DongVanBan[][] = [];
 
   const khoiKy = sheet.querySelector<HTMLElement>('[data-xuat="ky"]');
   if (khoiKy) {
     for (const cot of Array.from(khoiKy.children) as HTMLElement[]) {
       const dongCot = Array.from(cot.querySelectorAll("p"))
-        .map((p) => chuanHoa(p.textContent ?? ""))
-        .filter(Boolean);
-      oKy.push(dongCot);
+        .map(docDong)
+        .filter((d) => d.text !== "");
+      if (dongCot.length > 0) oKy.push(dongCot);
     }
   }
 
@@ -50,22 +73,9 @@ export function docNoiDungTuDOM(sheet: HTMLElement): NoiDungXuat {
   for (const el of Array.from(blocks)) {
     if (BO_QUA.has(el.tagName)) continue;
     if (khoiKy && khoiKy.contains(el)) continue;
-    const text = chuanHoa(el.textContent ?? "");
-    if (!text) continue;
-
-    const cs = getComputedStyle(el);
-    const laDieu = el.classList.contains("dieu-head");
-    const kieu: KieuDong =
-      el.tagName === "H1" ? "tieuDe" : laDieu ? "dieu" : /^Số:/.test(text) ? "soHieu" : "thuong";
-
-    dong.push({
-      text: cs.textTransform === "uppercase" ? text.toLocaleUpperCase("vi-VN") : text,
-      kieu,
-      canhGiua: laCanhGiua(el),
-      inDam: Number(cs.fontWeight) >= 600 || laDieu,
-      inNghieng: cs.fontStyle === "italic",
-      thutLe: Math.round(parseFloat(cs.marginLeft || "0")),
-    });
+    const d = docDong(el);
+    if (d.text === "") continue;
+    dong.push(d);
   }
 
   return { dong, oKy };
@@ -133,7 +143,7 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
 
   const khong = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
   const bangKy =
-    oKy.length === 2
+    oKy.length > 0
       ? [
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
@@ -150,18 +160,18 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
                 children: oKy.map(
                   (cot) =>
                     new TableCell({
-                      width: { size: 50, type: WidthType.PERCENTAGE },
+                      width: { size: 100 / oKy.length, type: WidthType.PERCENTAGE },
                       borders: { top: khong, bottom: khong, left: khong, right: khong },
                       children: cot.map(
-                        (t, i) =>
+                        (d, i) =>
                           new Paragraph({
                             alignment: AlignmentType.CENTER,
                             spacing: { before: i === cot.length - 1 ? 1200 : 0, after: 80 },
                             children: [
                               new TextRun({
-                                text: t,
-                                bold: i === 0 || i === cot.length - 1,
-                                italics: i === 1,
+                                text: d.text,
+                                bold: d.inDam,
+                                italics: d.inNghieng,
                                 size: 26,
                                 font: "Times New Roman",
                               }),
@@ -262,6 +272,6 @@ export async function xuatPDF(sheet: HTMLElement, tieuDe: string) {
 export function toanVan(sheet: HTMLElement) {
   const { dong, oKy } = docNoiDungTuDOM(sheet);
   const than = dong.map((d) => d.text).join("\n");
-  const ky = oKy.map((cot) => cot.join("\n")).join("\n\n");
+  const ky = oKy.map((cot) => cot.map((d) => d.text).join("\n")).join("\n\n");
   return ky ? `${than}\n\n${ky}\n` : `${than}\n`;
 }

@@ -30,6 +30,9 @@ import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
 import { SoatBanThao } from "@/components/klaw/SoatBanThao";
 import { TINH_THANH, capDuoiCua } from "@/lib/dia-gioi";
 import { MAU, laHopDongLaoDong, laThuViec, loaiBackendCua, mauTheoId } from "@/lib/mau-van-ban";
+import { MUC_BEN, MUC_KY, MUC_ND, dungKhung, type PhanND } from "@/lib/khung-van-ban";
+import { laMau, type CauTruc } from "@/lib/klaw";
+import { goi } from "@/lib/api";
 // `toanVan` tĩnh được: `docx` và `jspdf` nằm sau `await import()` bên trong
 // `xuat-ban.ts`, nên nhập hàm này KHÔNG kéo hai thư viện nặng vào gói đầu tiên.
 import { toanVan } from "@/lib/xuat-ban";
@@ -254,6 +257,35 @@ function KhongGianSoanThao() {
     });
     forceTick((t) => t + 1);
   };
+
+  /**
+   * Bộ khung của loại văn bản này, đọc MỘT LẦN từ `GET /mau/{loai}`.
+   *
+   * Gọi ở đây chứ không ở mỗi phím gõ: `cau_truc` chỉ phụ thuộc LOẠI văn bản,
+   * nên tải một lần rồi dựng lại khung tại chỗ giữ được xem trước tức thời khi
+   * gõ mà không chạm mạng lần nào nữa — và không gọi mô hình nào.
+   */
+  const loaiBackendKhung = loaiBackendCua(loaiVanBan);
+  const [cauTruc, datCauTruc] = useState<CauTruc | null>(null);
+  const [dangTaiKhung, datDangTaiKhung] = useState(loaiBackendKhung !== undefined);
+
+  useEffect(() => {
+    if (loaiBackendKhung === undefined) {
+      datCauTruc(null);
+      datDangTaiKhung(false);
+      return;
+    }
+    const dieuKhien = new AbortController();
+    datDangTaiKhung(true);
+    void goi(`/mau/${encodeURIComponent(loaiBackendKhung)}`, laMau, {
+      signal: dieuKhien.signal,
+    }).then((kq) => {
+      if (dieuKhien.signal.aborted) return;
+      datCauTruc(kq.ok ? kq.data.cau_truc : null);
+      datDangTaiKhung(false);
+    });
+    return () => dieuKhien.abort();
+  }, [loaiBackendKhung]);
 
   // draggable divider
   useEffect(() => {
@@ -970,6 +1002,8 @@ function KhongGianSoanThao() {
                 <A4
                   draft={draft}
                   mau={mau}
+                  cauTruc={cauTruc}
+                  dangTaiKhung={dangTaiKhung}
                   flash={flash}
                   chuThich={chuThich}
                   onGoto={(truong, buocDich) => {
@@ -1279,12 +1313,16 @@ type MauT = NonNullable<ReturnType<typeof mauTheoId>>;
 function A4({
   draft,
   mau,
+  cauTruc,
+  dangTaiKhung,
   flash,
   chuThich,
   onGoto,
 }: {
   draft: Draft;
   mau: MauT;
+  cauTruc: CauTruc | null;
+  dangTaiKhung: boolean;
   flash: string | null;
   chuThich: boolean;
   onGoto: (truong: string, buoc: number) => void;
@@ -1314,301 +1352,248 @@ function A4({
 
   const diaChi = (b: Ben) => [b.soNhaDuong, b.phuongXa, b.tinh].filter(Boolean).join(", ");
 
-  const dieu: {
-    ten: string;
-    noiDung: React.ReactNode;
-    canCu?: { soHieu: string; nhan: string };
-  }[] = [];
+  /**
+   * Chưa có khung thì NÓI ra, không dựng bừa một khuôn nào khác.
+   *
+   * Đây chính là chỗ lỗi cũ sinh ra: khi không biết dựng gì, bộ dựng cũ rơi về
+   * khuôn hợp đồng thương mại hai bên và in nó dưới tiêu đề CÔNG VĂN. Một khung
+   * trống có lời giải thích thì người dùng sửa được; một bản hợp đồng sai loại
+   * thì họ mang đi dùng.
+   */
+  if (!cauTruc) {
+    return (
+      <article className="a4-sheet">
+        <div style={{ textAlign: "center" }}>
+          <h1
+            className="font-display"
+            style={{ marginTop: 34, fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}
+          >
+            {mau.ten}
+          </h1>
+        </div>
+        <p style={{ marginTop: 28 }}>
+          {dangTaiKhung
+            ? "Đang tải bộ khung của loại văn bản này từ máy chủ…"
+            : "Chưa lấy được bộ khung của loại văn bản này từ máy chủ, nên khung xem trước để trống. Bộ khung quyết định văn bản gồm những mục nào và mỗi mục dựa trên điều luật nào — dựng thân văn bản mà thiếu nó thì bản thảo sẽ sai loại. Kiểm tra kết nối rồi tải lại trang."}
+        </p>
+      </article>
+    );
+  }
 
-  dieu.push({
-    ten: laHopDongLaoDong(mau) ? "Công việc và địa điểm làm việc" : "Nội dung và phạm vi công việc",
-    canCu: laHopDongLaoDong(mau)
-      ? { soHieu: "45/2019/QH14", nhan: "Điều 21" }
-      : { soHieu: "36/2005/QH11", nhan: "Điều 74" },
-    noiDung: (
+  const muc = dungKhung(cauTruc);
+
+  const khoiBen = (p: "A" | "B") => {
+    const b = draft[p];
+    return (
       <>
-        <p>
-          Bên B thực hiện:{" "}
-          <V k="nd.tenDichVu" value={draft.nd.tenDichVu} label="Tên dịch vụ" buoc={3} />.
-        </p>
-        <p>
-          Phạm vi công việc:{" "}
-          <V k="nd.phamVi" value={draft.nd.phamVi} label="Phạm vi công việc" buoc={3} />
-        </p>
-        <p>
-          Địa điểm thực hiện:{" "}
-          <V k="nd.diaDiem" value={draft.nd.diaDiem} label="Địa điểm thực hiện" buoc={3} />.
-        </p>
-      </>
-    ),
-  });
-
-  dieu.push({
-    ten: "Giá trị hợp đồng và phương thức thanh toán",
-    canCu: { soHieu: "91/2015/QH13", nhan: "Điều 398" },
-    noiDung: (
-      <>
-        <p>
-          Tổng giá trị hợp đồng:{" "}
-          <V
-            k="nd.giaTri"
-            value={draft.nd.giaTri === "" ? "" : dinhDangTien(draft.nd.giaTri)}
-            label="Giá trị hợp đồng"
-            buoc={3}
-          />
-          {draft.nd.giaTri !== "" && <> (Bằng chữ: {docSoThanhChu(Number(draft.nd.giaTri))}) </>},
-          thuế GTGT <V k="nd.thueGTGT" value={draft.nd.thueGTGT} label="Thuế GTGT" buoc={3} />.
-        </p>
-        <p>Thanh toán theo các đợt sau:</p>
-        {draft.nd.dot.map((d, i) => (
-          <p key={d.id} style={{ marginLeft: 32 }}>
-            {i + 1}. {d.tyLe || "…"}% giá trị hợp đồng — {d.moc || "…"}
-          </p>
-        ))}
-      </>
-    ),
-  });
-
-  dieu.push({
-    ten: "Thời hạn thực hiện",
-    noiDung: (
-      <p>
-        Hợp đồng được thực hiện từ ngày{" "}
-        <V k="nd.tuNgay" value={ngayVietNam(draft.nd.tuNgay)} label="ngày bắt đầu" buoc={3} /> đến
-        ngày{" "}
-        <V k="nd.denNgay" value={ngayVietNam(draft.nd.denNgay)} label="ngày kết thúc" buoc={3} />.
-        {laHopDongLaoDong(mau) && draft.nd.soNgayThuViec && (
-          <> Thời gian thử việc: {draft.nd.soNgayThuViec} ngày.</>
+        {b.loai === "to-chuc" ? (
+          <>
+            <p>
+              Tên tổ chức: <V k={`${p}.tenToChuc`} value={b.tenToChuc} label="Tên tổ chức" />
+            </p>
+            <p>
+              Mã số thuế: <V k={`${p}.mst`} value={b.mst} label="Mã số thuế" />
+            </p>
+            <p>
+              Địa chỉ trụ sở: <V k={`${p}.soNhaDuong`} value={diaChi(b)} label="Địa chỉ trụ sở" />
+            </p>
+            <p>
+              Người đại diện theo pháp luật:{" "}
+              <V k={`${p}.nguoiDaiDien`} value={b.nguoiDaiDien} label="Người đại diện" /> — Chức vụ:{" "}
+              <V k={`${p}.chucVu`} value={b.chucVu} label="Chức vụ" />
+            </p>
+          </>
+        ) : (
+          <>
+            <p>
+              Họ và tên: <V k={`${p}.hoTen`} value={b.hoTen} label="Họ và tên" />
+            </p>
+            <p>
+              Sinh ngày: <V k={`${p}.ngaySinh`} value={ngayVietNam(b.ngaySinh)} label="Ngày sinh" />{" "}
+              — CCCD/Hộ chiếu số: <V k={`${p}.cccd`} value={b.cccd} label="Số CCCD" />, cấp ngày{" "}
+              <V k={`${p}.ngayCap`} value={ngayVietNam(b.ngayCap)} label="Ngày cấp" /> tại{" "}
+              <V k={`${p}.noiCap`} value={b.noiCap} label="Nơi cấp" />
+            </p>
+            <p>
+              Địa chỉ thường trú:{" "}
+              <V k={`${p}.soNhaDuong`} value={diaChi(b)} label="Địa chỉ thường trú" />
+            </p>
+          </>
         )}
-      </p>
-    ),
-  });
+        <p>
+          Điện thoại: <V k={`${p}.dienThoai`} value={b.dienThoai} label="Điện thoại" /> — Email:{" "}
+          <V k={`${p}.email`} value={b.email} label="Email" />
+        </p>
+      </>
+    );
+  };
 
-  if (draft.dk.phat)
-    dieu.push({
-      ten: "Phạt vi phạm hợp đồng",
-      canCu: { soHieu: "36/2005/QH11", nhan: "khoản 1 Điều 301" },
-      noiDung: (
-        <p>
-          Bên vi phạm nghĩa vụ phải chịu phạt{" "}
-          <V
-            k="nd.mucPhat"
-            value={draft.nd.mucPhat ? `${draft.nd.mucPhat}%` : ""}
-            label="mức phạt"
-            buoc={4}
-          />{" "}
-          giá trị phần nghĩa vụ hợp đồng bị vi phạm.
-        </p>
-      ),
-    });
-  if (draft.dk.boiThuong)
-    dieu.push({
-      ten: "Bồi thường thiệt hại",
-      canCu: { soHieu: "36/2005/QH11", nhan: "Điều 302" },
-      noiDung: (
-        <p>
-          Bên vi phạm phải bồi thường toàn bộ tổn thất thực tế, trực tiếp mà bên bị vi phạm phải
-          chịu và khoản lợi trực tiếp đáng lẽ được hưởng.
-        </p>
-      ),
-    });
-  if (draft.dk.baoMat)
-    dieu.push({
-      ten: "Bảo mật thông tin",
-      // Trước đây dẫn 13/2023/NĐ-CP Điều 3 — nghị định đã hết hiệu lực toàn bộ
-      // từ 01/01/2026, và điều khoản bảo mật này là thoả thuận giữa hai bên chứ
-      // không phát sinh từ nghị định đó. Bỏ căn cứ thay vì thay bằng một văn bản
-      // mà kho của KLAW chưa có để xác nhận.
+  const khoiND = (phan: PhanND): React.ReactNode => {
+    switch (phan) {
+      case "cong_viec":
+        return (
+          <>
+            <p>
+              Vị trí công việc:{" "}
+              <V k="nd.tenDichVu" value={draft.nd.tenDichVu} label="Vị trí công việc" buoc={3} />.
+            </p>
+            <p>
+              Địa điểm làm việc:{" "}
+              <V k="nd.diaDiem" value={draft.nd.diaDiem} label="Địa điểm làm việc" buoc={3} />.
+            </p>
+          </>
+        );
+      case "dich_vu":
+        return (
+          <>
+            <p>
+              Bên cung ứng thực hiện:{" "}
+              <V k="nd.tenDichVu" value={draft.nd.tenDichVu} label="Tên dịch vụ" buoc={3} />.
+            </p>
+            <p>
+              Phạm vi công việc:{" "}
+              <V k="nd.phamVi" value={draft.nd.phamVi} label="Phạm vi công việc" buoc={3} />
+            </p>
+            <p>
+              Địa điểm thực hiện:{" "}
+              <V k="nd.diaDiem" value={draft.nd.diaDiem} label="Địa điểm thực hiện" buoc={3} />.
+            </p>
+          </>
+        );
+      case "thoi_han":
+        return (
+          <p>
+            Từ ngày{" "}
+            <V k="nd.tuNgay" value={ngayVietNam(draft.nd.tuNgay)} label="ngày bắt đầu" buoc={3} />{" "}
+            đến ngày{" "}
+            <V
+              k="nd.denNgay"
+              value={ngayVietNam(draft.nd.denNgay)}
+              label="ngày kết thúc"
+              buoc={3}
+            />
+            .
+          </p>
+        );
+      case "thu_viec":
+        return (
+          <p>
+            Thời gian thử việc:{" "}
+            <V
+              k="nd.soNgayThuViec"
+              value={draft.nd.soNgayThuViec ? `${draft.nd.soNgayThuViec} ngày` : ""}
+              label="số ngày thử việc"
+              buoc={3}
+            />
+            .
+          </p>
+        );
+      case "luong": {
+        const luong = draft.nd.luongChinhThuc;
+        const thu = draft.nd.luongThuViec;
+        return (
+          <>
+            <p>
+              Mức lương:{" "}
+              <V
+                k="nd.luongChinhThuc"
+                value={luong === "" ? "" : `${dinhDangTien(luong)} đồng/tháng`}
+                label="mức lương"
+                buoc={3}
+              />
+              .
+            </p>
+            {thu !== "" && <p>Mức lương thử việc: {dinhDangTien(thu)} đồng/tháng.</p>}
+          </>
+        );
+      }
+      case "tien":
+        return (
+          <>
+            <p>
+              Tổng giá trị:{" "}
+              <V
+                k="nd.giaTri"
+                value={draft.nd.giaTri === "" ? "" : dinhDangTien(draft.nd.giaTri)}
+                label="giá trị hợp đồng"
+                buoc={3}
+              />
+              {draft.nd.giaTri !== "" && (
+                <> (Bằng chữ: {docSoThanhChu(Number(draft.nd.giaTri))}) </>
+              )}
+              , thuế GTGT <V k="nd.thueGTGT" value={draft.nd.thueGTGT} label="Thuế GTGT" buoc={3} />
+              .
+            </p>
+            <p>Thanh toán theo các đợt sau:</p>
+            {draft.nd.dot.map((d, i) => (
+              <p key={d.id} style={{ marginLeft: 32 }}>
+                {i + 1}. {d.tyLe || "…"}% giá trị — {d.moc || "…"}
+              </p>
+            ))}
+          </>
+        );
+      default: {
+        // Thêm một `PhanND` mà quên viết khối hiển thị cho nó là LỖI BIÊN DỊCH
+        // ở đây, không phải một mục lặng lẽ trống trên bản thảo tải về.
+        const chuaXuLy: never = phan;
+        return chuaXuLy;
+      }
+    }
+  };
 
-      noiDung: (
-        <p>
-          Các bên cam kết giữ bí mật toàn bộ thông tin trao đổi trong quá trình thực hiện hợp đồng
-          và trong 03 năm kể từ ngày hợp đồng chấm dứt.
-        </p>
-      ),
-    });
-  if (draft.dk.batKhaKhang)
-    dieu.push({
-      ten: "Bất khả kháng",
-      canCu: { soHieu: "91/2015/QH13", nhan: "khoản 1 Điều 156" },
-      noiDung: (
-        <p>
-          Bên bị ảnh hưởng bởi sự kiện bất khả kháng được miễn trách nhiệm nếu thông báo bằng văn
-          bản cho bên còn lại trong 07 ngày kể từ ngày xảy ra sự kiện.
-        </p>
-      ),
-    });
-  if (draft.dk.chamDutTruocHan)
-    dieu.push({
-      ten: "Chấm dứt hợp đồng trước hạn",
-      canCu: { soHieu: "91/2015/QH13", nhan: "Điều 428" },
-      noiDung: (
-        <p>
-          Mỗi bên có quyền đơn phương chấm dứt hợp đồng khi bên kia vi phạm nghiêm trọng nghĩa vụ,
-          với điều kiện thông báo trước 15 ngày làm việc.
-        </p>
-      ),
-    });
-  if (draft.dk.sohuuTriTue)
-    dieu.push({
-      ten: "Sở hữu trí tuệ",
-      noiDung: (
-        <p>
-          Toàn bộ sản phẩm, tài liệu do Bên B tạo ra theo hợp đồng này thuộc quyền sở hữu của Bên A
-          kể từ thời điểm Bên A thanh toán đầy đủ.
-        </p>
-      ),
-    });
-  if (draft.dk.tranhChap)
-    dieu.push({
-      ten: "Luật áp dụng và giải quyết tranh chấp",
-      canCu: { soHieu: "36/2005/QH11", nhan: "Điều 317" },
-      noiDung: (
-        <p>
-          Hợp đồng được điều chỉnh bởi pháp luật Việt Nam. Tranh chấp trước hết được giải quyết bằng
-          thương lượng; nếu không thành, tranh chấp được giải quyết tại{" "}
-          {draft.dk.coQuanTranhChap === "trong-tai" ? (
-            "Trung tâm Trọng tài Quốc tế Việt Nam (VIAC) theo quy tắc tố tụng của trung tâm này"
-          ) : draft.dk.coQuanTranhChap === "toa-an" ? (
-            "Tòa án nhân dân có thẩm quyền"
-          ) : (
-            <Ph k="dk.coQuanTranhChap" label="cơ quan giải quyết tranh chấp" buoc={4} />
-          )}
-          .
-        </p>
-      ),
-    });
-  if (draft.dk.hieuLuc)
-    dieu.push({
-      ten: "Hiệu lực thi hành",
-      noiDung: (
-        <p>
-          Hợp đồng có hiệu lực kể từ ngày ký, được lập thành {draft.dk.soBan || "…"} bản có giá trị
-          pháp lý như nhau, mỗi bên giữ số bản bằng nhau.
-        </p>
-      ),
-    });
+  const nguoiKy = draft.A.loai === "to-chuc" ? draft.A.nguoiDaiDien : draft.A.hoTen;
 
   return (
     <article className="a4-sheet">
       <div style={{ textAlign: "center" }}>
-        <p style={{ fontWeight: 700, letterSpacing: "0.02em" }}>
-          CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
-        </p>
-        <p style={{ fontWeight: 700 }}>Độc lập – Tự do – Hạnh phúc</p>
-        <p>————————————</p>
         <h1
           className="font-display"
-          style={{ marginTop: 34, fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}
+          style={{ marginTop: 8, fontSize: 22, fontWeight: 700, textTransform: "uppercase" }}
         >
-          {mau.ten}
+          {cauTruc.tieu_de}
         </h1>
         <p className="font-jetbrains" style={{ fontSize: 13, marginTop: 6 }}>
           Số: …/{mau.kyHieu}
         </p>
       </div>
 
-      <div style={{ marginTop: 28 }}>
-        {mau.canCu.map((c) => (
-          <p key={c.soHieu} style={{ fontStyle: "italic" }}>
-            Căn cứ {c.ten} (số {c.soHieu});
-          </p>
-        ))}
-        <p style={{ fontStyle: "italic" }}>Căn cứ nhu cầu và khả năng của các bên;</p>
-      </div>
-
-      <p style={{ marginTop: 20 }}>
-        Hôm nay, ngày … tháng … năm ……, tại{" "}
-        <V k="nd.diaDiem" value={draft.nd.diaDiem} label="địa điểm" buoc={3} />, chúng tôi gồm:
-      </p>
-
-      {(["A", "B"] as const).map((p) => {
-        const b = draft[p];
+      {muc.map((m) => {
+        const ben = MUC_BEN[m.key];
+        const phan = MUC_ND[m.key];
+        const laKy = MUC_KY.has(m.key);
         return (
-          <div key={p} style={{ marginTop: 16 }}>
-            <p style={{ fontWeight: 700 }}>
-              BÊN {p}: {b.loai === "to-chuc" ? "(TỔ CHỨC)" : "(CÁ NHÂN)"}
+          <div key={m.key} style={{ position: "relative", marginTop: 14 }}>
+            <p className="dieu-head">
+              <span style={{ color: "var(--color-brass-600)" }}>
+                {cauTruc.don_vi_muc} {m.stt}.
+              </span>{" "}
+              {m.ten}
             </p>
-            {b.loai === "to-chuc" ? (
-              <>
-                <p>
-                  Tên tổ chức: <V k={`${p}.tenToChuc`} value={b.tenToChuc} label="Tên tổ chức" />
-                </p>
-                <p>
-                  Mã số thuế: <V k={`${p}.mst`} value={b.mst} label="Mã số thuế" />
-                </p>
-                <p>
-                  Địa chỉ trụ sở:{" "}
-                  <V k={`${p}.soNhaDuong`} value={diaChi(b)} label="Địa chỉ trụ sở" />
-                </p>
-                <p>
-                  Người đại diện theo pháp luật:{" "}
-                  <V k={`${p}.nguoiDaiDien`} value={b.nguoiDaiDien} label="Người đại diện" /> — Chức
-                  vụ: <V k={`${p}.chucVu`} value={b.chucVu} label="Chức vụ" />
-                </p>
-              </>
-            ) : (
-              <>
-                <p>
-                  Họ và tên: <V k={`${p}.hoTen`} value={b.hoTen} label="Họ và tên" />
-                </p>
-                <p>
-                  Sinh ngày:{" "}
-                  <V k={`${p}.ngaySinh`} value={ngayVietNam(b.ngaySinh)} label="Ngày sinh" /> —
-                  CCCD/Hộ chiếu số: <V k={`${p}.cccd`} value={b.cccd} label="Số CCCD" />, cấp ngày{" "}
-                  <V k={`${p}.ngayCap`} value={ngayVietNam(b.ngayCap)} label="Ngày cấp" /> tại{" "}
-                  <V k={`${p}.noiCap`} value={b.noiCap} label="Nơi cấp" />
-                </p>
-                <p>
-                  Địa chỉ thường trú:{" "}
-                  <V k={`${p}.soNhaDuong`} value={diaChi(b)} label="Địa chỉ thường trú" />
-                </p>
-              </>
+
+            {ben !== undefined && khoiBen(ben)}
+            {phan !== undefined && khoiND(phan)}
+            {laKy && (
+              <div data-xuat="ky" style={{ marginTop: 10 }}>
+                <div style={{ width: "45%", marginLeft: "auto", textAlign: "center" }}>
+                  <p style={{ fontStyle: "italic", fontSize: 13 }}>(Ký, ghi rõ họ tên, đóng dấu)</p>
+                  <p style={{ marginTop: 60, fontWeight: 700 }}>{nguoiKy || "…………………"}</p>
+                </div>
+              </div>
             )}
-            <p>
-              Điện thoại: <V k={`${p}.dienThoai`} value={b.dienThoai} label="Điện thoại" /> — Email:{" "}
-              <V k={`${p}.email`} value={b.email} label="Email" />
-            </p>
-            <p>
-              Số tài khoản: <V k={`${p}.soTaiKhoan`} value={b.soTaiKhoan} label="Số tài khoản" />{" "}
-              tại <V k={`${p}.nganHang`} value={b.nganHang} label="Ngân hàng" />
-            </p>
+            {ben === undefined && phan === undefined && !laKy && (
+              <p>
+                <Ph k={`muc.${m.key}`} label={`nội dung mục “${m.ten}”`} buoc={3} />
+              </p>
+            )}
+
+            {chuThich && m.canCu && (
+              <p style={{ marginTop: 4 }}>
+                <BasisChip soHieu={m.canCu.soHieu} label={m.canCu.nhan} />
+              </p>
+            )}
           </div>
         );
       })}
-
-      <p style={{ marginTop: 18 }}>Hai bên thống nhất ký kết hợp đồng với các điều khoản sau:</p>
-
-      {dieu.map((d, i) => (
-        <div key={d.ten} style={{ position: "relative" }}>
-          <p className="dieu-head">
-            <span style={{ color: "var(--color-brass-600)" }}>Điều {i + 1}.</span> {d.ten}
-          </p>
-          {d.noiDung}
-          {chuThich && d.canCu && (
-            <p style={{ marginTop: 4 }}>
-              <BasisChip soHieu={d.canCu.soHieu} label={d.canCu.nhan} />
-            </p>
-          )}
-        </div>
-      ))}
-
-      <div
-        data-xuat="ky"
-        style={{ display: "flex", justifyContent: "space-between", marginTop: 44 }}
-      >
-        {(["A", "B"] as const).map((p) => (
-          <div key={p} style={{ width: "45%", textAlign: "center" }}>
-            <p style={{ fontWeight: 700 }}>ĐẠI DIỆN BÊN {p}</p>
-            <p style={{ fontStyle: "italic", fontSize: 13 }}>(Ký, ghi rõ họ tên, đóng dấu)</p>
-            <p style={{ marginTop: 66, fontWeight: 700 }}>
-              {draft[p].loai === "to-chuc"
-                ? draft[p].nguoiDaiDien || "…………………"
-                : draft[p].hoTen || "…………………"}
-            </p>
-          </div>
-        ))}
-      </div>
     </article>
   );
 }

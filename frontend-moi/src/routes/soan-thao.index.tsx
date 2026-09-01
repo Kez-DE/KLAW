@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
-import { CHI_SOAT_HINH_THUC, MAU, NHOM, loaiBackendCua, type NhomMau } from "@/lib/mau-van-ban";
+import { MAU, NHOM, loaiBackendCua, phamViSoatCuaMau, type NhomMau } from "@/lib/mau-van-ban";
+import { NHAN_PHAM_VI, type PhamViSoat } from "@/lib/khung-van-ban";
 import { boDau } from "@/lib/khong-dau";
 import { cn } from "@/lib/utils";
 import { SITE_ORIGIN } from "./__root";
@@ -42,18 +43,16 @@ export const Route = createFileRoute("/soan-thao/")({
 /**
  * Đếm từ chính bản đồ, không viết cứng: thêm một ánh xạ là con số tự đúng.
  *
- * HAI con số, không một. Thẻ mẫu đã tách ba năng lực thành ba nhãn, vì gộp
+ * BA con số, không một. Thẻ mẫu đã tách ba năng lực thành ba nhãn, vì gộp
  * `cong-van` vào "Soát được với KLAW" là hứa rằng KLAW đọc được nội dung công
  * văn — nó chỉ đếm đủ 9 thành phần thể thức. Một con số gộp ở câu dẫn dựng lại
- * đúng lời hứa mà nhãn vừa từ chối đưa ra, và người đếm nhãn trên màn hình ra
- * 16 chứ không phải 17.
+ * đúng lời hứa mà nhãn vừa từ chối đưa ra.
  */
-const SO_SOAT_NOI_DUNG = MAU.filter(
-  (m) => loaiBackendCua(m.id) !== undefined && !CHI_SOAT_HINH_THUC.has(m.id),
-).length;
-const SO_SOAT_THE_THUC = MAU.filter(
-  (m) => loaiBackendCua(m.id) !== undefined && CHI_SOAT_HINH_THUC.has(m.id),
-).length;
+const dem = (pv: PhamViSoat) => MAU.filter((m) => phamViSoatCuaMau(m.id) === pv).length;
+
+const SO_SOAT_NOI_DUNG = dem("noi_dung");
+const SO_SOAT_THE_THUC = dem("the_thuc");
+const SO_SOAT_LAI = dem("the_thuc_kem_rule");
 
 const NHOM_ICON: Record<NhomMau, typeof Briefcase> = {
   "lao-dong": Briefcase,
@@ -88,9 +87,11 @@ function ChonLoaiVanBan() {
           trước bản A4 theo thể thức văn bản Việt Nam. Toàn bộ diễn ra trên máy bạn.
         </p>
         <p className="mt-2 max-w-2xl text-[13px] text-muted-foreground">
-          {SO_SOAT_NOI_DUNG}/{MAU.length} mẫu soát được nội dung với kho văn bản của KLAW
-          {SO_SOAT_THE_THUC > 0 && <>, thêm {SO_SOAT_THE_THUC} mẫu chỉ soát thể thức</>}. Những mẫu
-          còn lại vẫn soạn và xuất tệp bình thường, nhưng phần đối chiếu pháp lý phải do người làm.
+          Cả {MAU.length}/{MAU.length} mẫu đều nối được kho văn bản của KLAW, nhưng KHÔNG cùng một
+          mức: {SO_SOAT_NOI_DUNG} mẫu soát nội dung
+          {SO_SOAT_THE_THUC > 0 && <>, {SO_SOAT_THE_THUC} mẫu chỉ soát thể thức</>}
+          {SO_SOAT_LAI > 0 && <>, {SO_SOAT_LAI} mẫu soát thể thức kèm một quy tắc nhiệm kỳ</>}. Nhãn
+          trên từng thẻ nói rõ mẫu đó thuộc mức nào; phần nào ngoài mức ấy vẫn phải do người làm.
         </p>
 
         <div className="relative mt-5 max-w-xl">
@@ -151,23 +152,30 @@ function ChonLoaiVanBan() {
                       soạn và xuất tệp được ngay trên máy; chỉ một số ít soát
                       được với kho văn bản, và danh mục phải nói ra chỗ đó thay
                       vì để 25 thẻ trông giống hệt nhau. */}
-                  {loaiBackendCua(m.id) === undefined ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-[var(--color-paper-100)] px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground">
-                      <Stamp className="size-3" aria-hidden /> Soạn được, chưa soát được
-                    </span>
-                  ) : CHI_SOAT_HINH_THUC.has(m.id) ? (
-                    // Nhãn THỨ BA. Gộp nó vào "Soát được với KLAW" là hứa rằng
-                    // KLAW đọc được nội dung công văn — nó chỉ đếm đủ 9 thành
-                    // phần thể thức. Ba năng lực khác nhau thì ba nhãn.
-                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-[var(--color-paper-100)] px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground">
-                      <ScanSearch className="size-3" aria-hidden /> Soát thể thức, không soát nội
-                      dung
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-brass-500)]/45 bg-[var(--color-brass-500)]/10 px-2 py-0.5 text-[10.5px] font-medium text-[var(--color-brass-600)]">
-                      <ScanSearch className="size-3" aria-hidden /> Soát được với KLAW
-                    </span>
-                  )}
+                  {(() => {
+                    const pv = phamViSoatCuaMau(m.id);
+                    if (pv === undefined)
+                      return (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-[var(--color-paper-100)] px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground">
+                          <Stamp className="size-3" aria-hidden /> Soạn được, chưa soát được
+                        </span>
+                      );
+                    // Nhãn nhạt cho hai phạm vi HẸP hơn. Gộp chúng vào "Soát
+                    // được với KLAW" là hứa rằng KLAW đọc được nội dung công
+                    // văn — nó chỉ đếm đủ 9 thành phần thể thức. Ba năng lực
+                    // khác nhau thì ba nhãn.
+                    if (pv !== "noi_dung")
+                      return (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-[var(--color-paper-100)] px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground">
+                          <ScanSearch className="size-3" aria-hidden /> {NHAN_PHAM_VI[pv]}
+                        </span>
+                      );
+                    return (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-brass-500)]/45 bg-[var(--color-brass-500)]/10 px-2 py-0.5 text-[10.5px] font-medium text-[var(--color-brass-600)]">
+                        <ScanSearch className="size-3" aria-hidden /> {NHAN_PHAM_VI[pv]}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <h2 className="mt-3 font-display text-[16.5px] leading-snug font-bold text-primary">
                   {m.ten}

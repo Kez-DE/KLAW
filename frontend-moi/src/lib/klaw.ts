@@ -407,9 +407,45 @@ export interface TruongFact {
   lua_chon: string[] | null;
 }
 
+/** Một mục bắt buộc của văn bản, kèm căn cứ pháp lý của riêng nó. */
+export interface MucCauTruc {
+  stt: number;
+  key: string;
+  ten: string;
+  /** Đường dẫn căn cứ, ví dụ `45/2019/QH14 > Điều 21 > Khoản 1 > Điểm a`. */
+  can_cu: string;
+  bat_buoc: boolean;
+}
+
+/**
+ * Bộ khung của một loại văn bản, đọc từ chính `checklist_*.yaml` mà `/soan-thao`
+ * và `/soat` dùng — MỘT nguồn sự thật cho cả dựng lẫn soát.
+ *
+ * KHÔNG có phần khung nào ngoài `muc`. Máy chủ sinh đúng `# {tieu_de}` rồi
+ * `## {don_vi_muc} {stt}. {ten}`. Với `cong_van`, quốc hiệu / nơi nhận / chữ ký
+ * CHÍNH LÀ các `muc`; với `hdld` chúng vắng mặt vì BLLĐ Điều 21 không đòi. Mọi
+ * khối `BÊN A / BÊN B / Mã số thuế` dựng thêm ở giao diện đều là phát minh của
+ * giao diện, không có thẩm quyền pháp lý nào.
+ */
+export interface CauTruc {
+  ten: string;
+  tieu_de: string;
+  /** Đơn vị đánh số mục: `Điều`, `Mục`, hay `Thành phần`. */
+  don_vi_muc: string;
+  muc_do_thieu: string;
+  /** `the_thuc` hoặc `noi_dung`. */
+  pham_vi_soat: string;
+  chi_soat_the_thuc: boolean;
+  can_cu_goc: string;
+  can_cu_chi_tiet: string;
+  muc: MucCauTruc[];
+}
+
 export interface Mau {
   loai_van_ban: string;
   facts: TruongFact[];
+  /** `null` khi `ho_tro=false` — loại văn bản chưa có checklist nào. */
+  cau_truc: CauTruc | null;
 }
 
 export interface PhatHien {
