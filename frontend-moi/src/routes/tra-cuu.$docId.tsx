@@ -50,9 +50,17 @@ interface DuLieuTai {
 }
 
 export const Route = createFileRoute("/tra-cuu/$docId")({
-  validateSearch: (tho: Record<string, unknown>): { dieu?: string } => {
+  validateSearch: (tho: Record<string, unknown>): { dieu?: string; quanh?: string } => {
     const dieu = tho["dieu"];
-    return typeof dieu === "string" && dieu !== "" ? { dieu } : {};
+    // `quanh` mang `provision_id` — khoá máy chủ khuyên dùng để mở nguyên văn
+    // quanh một kết quả tìm kiếm. Không bóc số Điều ra từ `duong_dan`: dòng
+    // khớp thường là một Khoản, và bóc chuỗi ở đây là dựng lại bằng tay đúng
+    // phép phân giải mà `?around=` đã làm sẵn phía máy chủ.
+    const quanh = tho["quanh"];
+    return {
+      ...(typeof dieu === "string" && dieu !== "" ? { dieu } : {}),
+      ...(typeof quanh === "string" && quanh !== "" ? { quanh } : {}),
+    };
   },
   // Tải ở tầng route (chạy cả khi dựng phía máy chủ) chứ không trong hiệu ứng:
   // thẻ <title> và mô tả của trang phải mang đúng tên văn bản. Chỉ metadata +
@@ -356,7 +364,10 @@ function NguyenVanDieu({
             )}
             {nhan !== undefined && (
               <div className="mt-2">
-                <BadgeHieuLuc hieuLuc={nhan.hieu_luc.verdict} ghiChu={nhan.hieu_luc.ly_do} />
+                <BadgeHieuLuc hieuLuc={nhan.hieu_luc.verdict} gonGang />
+                <p className="mt-1 mb-0 text-[12px] leading-5 text-muted-foreground">
+                  {nhan.hieu_luc.ly_do}
+                </p>
                 {nhan.sua_boi.map((sua) => (
                   <p
                     key={`${sua.vi_tri}-${sua.so_ky_hieu ?? ""}`}
@@ -457,7 +468,7 @@ function KhoiLienQuan({ lienQuan }: { lienQuan: VanBanLienQuan }) {
 
 function ManDocVanBan() {
   const { vanBan } = Route.useLoaderData();
-  const { dieu: soDieuTrenUrl } = Route.useSearch();
+  const { dieu: soDieuTrenUrl, quanh: quanhTrenUrl } = Route.useSearch();
   const { docId } = Route.useParams();
   const navigate = useNavigate();
 
@@ -485,7 +496,16 @@ function ManDocVanBan() {
   }, [docId]);
 
   useEffect(() => {
-    if (soDieuTrenUrl === undefined) {
+    // `?quanh=` (một `provision_id`) đi qua `?around=`: máy chủ tự phân giải về
+    // Điều cha rồi trả thêm 2 Điều trước/sau, và đánh dấu `la_tam` cho đúng
+    // vùng người dùng vừa bấm vào. `?dieu=` mở đúng một Điều.
+    const truyVan =
+      quanhTrenUrl !== undefined
+        ? thamSo([["around", quanhTrenUrl]])
+        : soDieuTrenUrl !== undefined
+          ? thamSo([["so_dieu", soDieuTrenUrl]])
+          : null;
+    if (truyVan === null) {
       datNoiDung(null);
       datLoiNoiDung(null);
       return;
@@ -493,16 +513,14 @@ function ManDocVanBan() {
     const dieuKhien = new AbortController();
     datNoiDung(null);
     datLoiNoiDung(null);
-    void goi(
-      `/van-ban/${encodeURIComponent(docId)}${thamSo([["so_dieu", soDieuTrenUrl]])}`,
-      laVanBanProvisions,
-      { signal: dieuKhien.signal },
-    ).then((kq) => {
+    void goi(`/van-ban/${encodeURIComponent(docId)}${truyVan}`, laVanBanProvisions, {
+      signal: dieuKhien.signal,
+    }).then((kq) => {
       if (kq.ok) datNoiDung(kq.data);
       else if (kq.error.kind !== "aborted") datLoiNoiDung(kq.error);
     });
     return () => dieuKhien.abort();
-  }, [docId, soDieuTrenUrl]);
+  }, [docId, soDieuTrenUrl, quanhTrenUrl]);
 
   const chonDieu = useCallback(
     (soDieu: string) => {
@@ -623,7 +641,14 @@ function ManDocVanBan() {
               {/* Nhãn hiệu lực CẤP VĂN BẢN — nguồn duy nhất là `/hieu-luc`. */}
               {hieuLuc !== null && (
                 <div className="mt-2">
-                  <BadgeHieuLuc hieuLuc={hieuLuc.van_ban.verdict} ghiChu={hieuLuc.van_ban.ly_do} />
+                  <BadgeHieuLuc hieuLuc={hieuLuc.van_ban.verdict} gonGang />
+                  {/* `ly_do` là LÝ DO, không phải cảnh báo. Prop `ghiChu` tô đỏ
+                      vì nó dành cho câu nêu đích danh văn bản thay thế; đưa lý
+                      do của một nhãn hổ phách vào khay đỏ là dán mức báo động
+                      của nhãn nặng nhất lên mọi nhãn. */}
+                  <p className="mt-1 mb-0 text-[13px] leading-5 text-muted-foreground">
+                    {hieuLuc.van_ban.ly_do}
+                  </p>
                   <p className="mt-1 mb-0 text-[11px] text-muted-foreground">
                     Đánh giá tại ngày {hieuLuc.as_of} · độ tin cậy: {hieuLuc.van_ban.tin_cay}
                   </p>
@@ -672,25 +697,35 @@ function ManDocVanBan() {
                 )}
               </div>
 
-              {soDieuTrenUrl === undefined && (
+              {soDieuTrenUrl === undefined && quanhTrenUrl === undefined && (
                 <p className="mt-8 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
                   Chọn một Điều ở mục lục bên trái để đọc nguyên văn. Kho không tải cả văn bản một
                   lượt: văn bản lớn nhất có 689 Điều.
                 </p>
               )}
               {loiNoiDung !== null && <BaoLoi loi={loiNoiDung} />}
-              {soDieuTrenUrl !== undefined && noiDung === null && loiNoiDung === null && (
-                <p role="status" className="mt-8 text-center text-sm text-muted-foreground">
-                  Đang mở Điều {soDieuTrenUrl}…
-                </p>
-              )}
+              {(soDieuTrenUrl !== undefined || quanhTrenUrl !== undefined) &&
+                noiDung === null &&
+                loiNoiDung === null && (
+                  <p role="status" className="mt-8 text-center text-sm text-muted-foreground">
+                    Đang mở nguyên văn…
+                  </p>
+                )}
               {noiDung !== null && (
                 <>
                   <div className="mt-6 flex justify-end">
                     <button
                       type="button"
                       onClick={() => {
-                        const chuoi = `Điều ${soDieuTrenUrl} ${vanBan.so_ky_hieu}`;
+                        // Dựng từ `duong_dan` của dòng tâm — dữ liệu máy chủ
+                        // trả về — chứ không từ tham số trên URL: ở dạng
+                        // `?quanh=` không có số Điều nào trên URL cả.
+                        const tam = noiDung.provisions.find((dk) => dk.la_tam);
+                        const dau = tam ?? noiDung.provisions[0];
+                        const chuoi =
+                          dau === undefined
+                            ? vanBan.so_ky_hieu
+                            : `${dau.duong_dan.replace(`${vanBan.so_ky_hieu} > `, "")} ${vanBan.so_ky_hieu}`;
                         void navigator.clipboard?.writeText(chuoi);
                         toast.success("Đã sao chép trích dẫn", { description: chuoi });
                       }}
