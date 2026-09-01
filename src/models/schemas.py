@@ -175,6 +175,7 @@ LoaiVanBan = Literal[
     "hop_dong_dich_vu",
     "hop_dong_hop_tac",
     "hop_dong_thu_viec",
+    "hop_dong_thue_tai_san",
     "hop_dong_vay",
     "noi_quy",
     "quyet_dinh_ky_luat",
