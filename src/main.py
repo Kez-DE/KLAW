@@ -2,9 +2,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
 
 from src.agents import graph_soan_thao as soan_thao_graph
@@ -60,6 +63,60 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# 2 MB. Mọi payload HỢP LỆ nhỏ hơn thế rất nhiều: `SoatRequest.text` tối đa
+# 500k ký tự, còn `/tra-cuu.query` và `facts` của `/soan-thao` thì bé.
+BODY_TOI_DA = 2 * 1024 * 1024
+
+
+class GioiHanKichThuoc:
+    """Từ chối request quá lớn TRƯỚC khi đọc một byte thân nào.
+
+    Đo được trước khi có lớp này: gửi 50 MB tới `POST /api/v1/soat` nhận **422
+    kèm phản hồi 50,00 MB** — handler mặc định cho `RequestValidationError` trả
+    nguyên `input`. Kẻ gọi biến mỗi byte upload thành một byte download, không
+    tốn một lượt LLM nào và không để lại một dòng `traces` nào để đếm.
+
+    Middleware ASGI thuần, KHÔNG `BaseHTTPMiddleware`: cái sau đệm response và
+    đã biết là làm hỏng SSE — mà `/tra-cuu/luong` chính là SSE.
+
+    Thêm TRƯỚC `CORSMiddleware` để CORS bọc NGOÀI (Starlette dựng ngăn xếp theo
+    thứ tự ngược: cái thêm sau nằm ngoài cùng). Nếu không, 413 trả về không
+    mang header CORS và trình duyệt không đọc nổi lý do bị từ chối.
+    """
+
+    def __init__(self, app, toi_da: int = BODY_TOI_DA) -> None:
+        self.app = app
+        self.toi_da = toi_da
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        h = Headers(scope=scope)
+        # `chunked` là cách DUY NHẤT gửi thân mà không khai `Content-Length`
+        # trong HTTP/1.1 — tức cách duy nhất đi vòng qua phép kiểm dưới đây.
+        # 411 là mã đúng cho "khai độ dài đi rồi hẵng gửi"; không client hợp lệ
+        # nào của dự án dùng chunked (FE gửi JSON qua `fetch`, luôn có độ dài).
+        if "chunked" in h.get("transfer-encoding", "").lower():
+            return await self._tu_choi(
+                scope, receive, send, 411,
+                f"Cần khai Content-Length; tối đa {self.toi_da // (1024 * 1024)} MB.",
+            )
+        cl = h.get("content-length")
+        if cl and cl.isdigit() and int(cl) > self.toi_da:
+            return await self._tu_choi(
+                scope, receive, send, 413,
+                f"Thân yêu cầu vượt {self.toi_da // (1024 * 1024)} MB.",
+            )
+        return await self.app(scope, receive, send)
+
+    async def _tu_choi(self, scope, receive, send, ma: int, ly_do: str):
+        # KHÔNG đọc thân trước khi trả lời: đọc nó là làm đúng việc mà lớp này
+        # tồn tại để tránh.
+        await JSONResponse({"detail": ly_do}, status_code=ma)(scope, receive, send)
+
+
+app.add_middleware(GioiHanKichThuoc)
+
 settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
@@ -77,6 +134,25 @@ app.include_router(router_tim_kiem, prefix="/api/v1")
 app.include_router(router_van_ban, prefix="/api/v1")
 app.include_router(router_tai_khoan, prefix="/api/v1")
 app.include_router(router_luong, prefix="/api/v1")
+
+
+@app.exception_handler(RequestValidationError)
+async def loi_xac_thuc_khong_phan_chieu(request, exc: RequestValidationError):
+    """422 nói SAI Ở ĐÂU, không đọc lại thứ người dùng vừa gửi.
+
+    Handler mặc định của FastAPI đưa nguyên khoá `input` của mỗi lỗi vào phản
+    hồi. Hai hệ quả: một request 50 MB bị từ chối vẫn tốn 50 MB băng thông ra
+    (đo được), và ở mọi kích thước, dữ liệu người dùng đi vòng lại qua log của
+    mọi proxy trên đường. `loc`/`msg`/`type` là đủ để sửa một request sai.
+    """
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": jsonable_encoder(
+                [{k: v for k, v in e.items() if k != "input"} for e in exc.errors()]
+            )
+        },
+    )
 
 
 @app.get("/health")

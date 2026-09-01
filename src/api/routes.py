@@ -40,7 +40,7 @@ from src.models.schemas import (
     VanBanProvisionsResponse,
 )
 from src.services import cache_tra_loi
-from src.services.bao_ve import cong_bao_ve
+from src.services.bao_ve import cong_bao_ve, cong_nhe
 from src.services.db import get_engine
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
 
@@ -710,7 +710,7 @@ async def soan_thao(
 
 
 @router.post("/soat", response_model=SoatResponse)
-async def soat(req: SoatRequest) -> SoatResponse:
+async def soat(req: SoatRequest, _=Depends(cong_nhe)) -> SoatResponse:
     """Soát văn bản NGƯỜI DÙNG dán vào — tách `clauses` bằng từ khoá
     (`extract_clauses`, KHÔNG LLM), rồi chạy CHÍNH rule engine đã soát output
     của draft_generate (`draft_audit`). `self_audit=False` luôn đúng ở đây.

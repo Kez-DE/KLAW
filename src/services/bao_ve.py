@@ -413,6 +413,26 @@ def xac_thuc_nguoi_goi(request: Request) -> dict | None:
         ) from e
 
 
+# ── Dependency cho endpoint tốn CPU nhưng KHÔNG gọi LLM ─────────────────────
+
+
+async def cong_nhe(request: Request) -> None:
+    """API key + nhịp. KHÔNG danh tính, KHÔNG hạn mức tháng, KHÔNG trần chi phí.
+
+    Dành cho `/soat`: nó không gọi LLM một lần nào (nên `ENDPOINT_TON_LLM` cố ý
+    loại nó, và trừ lượt của người dùng cho nó là bán thứ hệ thống không hề
+    mua), nhưng nó tách clause + chạy cả rule engine ĐỒNG BỘ trên văn bản người
+    dùng dán vào, và ghi một dòng `traces`. Không cổng nào thì một vòng `curl`
+    làm treo tiến trình một-worker cho mọi người dùng khác — không tốn của kẻ
+    gọi một xu, cũng không để lại một hạn mức nào chặn được họ.
+
+    Nhịp đếm theo IP: endpoint này không yêu cầu danh tính nên không có khoá
+    nào khác. Xem `cong_bao_ve` cho đường đầy đủ của endpoint tiêu tiền.
+    """
+    kiem_api_key(request)
+    await run_in_threadpool(kiem_rate_limit, ip_goi(request))
+
+
 # ── Dependency dùng ở các endpoint tốn LLM ──────────────────────────────────
 
 
