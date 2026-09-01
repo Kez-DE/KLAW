@@ -198,7 +198,7 @@ async def test_lifespan_fail_nhanh_neu_can_cu_chet(monkeypatch):
     from src.services.rules import Rule
 
     rule_gia = Rule("gia", "khong/ton/tai > Điều 999", "chan", "x", [], "True", {})
-    monkeypatch.setattr(main.soan_thao_graph, "requirements", lambda: ([rule_gia], None, {}))
+    monkeypatch.setattr(main.soan_thao_graph, "requirements", lambda loai: ([rule_gia], None, {}))
 
     def bom(rules):
         raise ValueError(f"can_cu không tồn tại trong provisions.duong_dan: {[r.can_cu for r in rules]}")

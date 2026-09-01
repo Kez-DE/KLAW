@@ -42,7 +42,7 @@ def bo_qua_can_cu(monkeypatch):
     """
     import src.main as main
 
-    monkeypatch.setattr(main.soan_thao_graph, "requirements", lambda: ([], [], []))
+    monkeypatch.setattr(main.soan_thao_graph, "requirements", lambda loai: ([], [], []))
     monkeypatch.setattr(main.rules_svc, "kiem_tra_can_cu_ton_tai", lambda *a: None)
     monkeypatch.setattr(main.checklist_svc, "kiem_tra_can_cu_ton_tai", lambda *a: None)
 

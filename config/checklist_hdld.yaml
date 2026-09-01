@@ -8,6 +8,20 @@
 # Test tích hợp trong tests/test_services/test_checklist.py chặn đứng bất kỳ
 # can_cu nào không khớp một provisions.duong_dan đang có (cùng khuôn với
 # config/rules.yaml + kiem_tra_can_cu_ton_tai của Task 2).
+loai: hdld
+ten: "hợp đồng lao động"
+tieu_de: "HỢP ĐỒNG LAO ĐỘNG"
+
+# Rule của config/rules.yaml áp dụng cho loại văn bản này. Rule là THƯ VIỆN
+# DÙNG CHUNG, checklist chọn cái nào áp dụng — một checklist mới KHÔNG thừa
+# hưởng rule của HĐLĐ chỉ vì chúng nằm chung một file.
+rules:
+  - thu_viec_toi_da
+  - luong_thu_viec_toi_thieu
+  - luong_toi_thieu_vung
+  - cam_phat_tien_nld
+  - cam_giu_giay_to_dat_coc
+
 can_cu_goc: "45/2019/QH14 > Điều 21 > Khoản 1"
 can_cu_chi_tiet: "10/2020/TT-BLĐTBXH > Điều 3"
 

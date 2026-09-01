@@ -6,11 +6,12 @@ checklist (Task 3) + rules (Task 2) đã dẫn — KHÔNG retrieval ngữ nghĩa
 cứ pháp lý của một HĐLĐ đã biết trước (Điều 21 BLLĐ, Điều 25/26/127/17...),
 khác hẳn graph tra cứu (`graph_tra_cuu.py`) nơi câu hỏi tự do cần truy hồi.
 
-Chỉ `loai_van_ban == "hdld"` có checklist thật (Task 3 chỉ xây
-`config/checklist_hdld.yaml`) — `noi_quy`/`quyet_dinh_ky_luat` là hai giá trị
-enum hợp lệ ở tầng Pydantic (FE có thể cần trước) nhưng CHƯA có checklist nội
-dung riêng; route gọi module này phải từ chối trung thực (501) thay vì áp
-nhầm checklist HĐLĐ lên một loại văn bản khác.
+Một loại văn bản = MỘT file `config/checklist_<loai>.yaml`. `cac_loai()` suy
+tập loại được hỗ trợ THẲNG từ những file đang có trên đĩa — không một danh sách
+viết tay nào trong Python có thể lệch khỏi sự thật, và thêm một mẫu soạn thảo
+là thêm một file YAML. Một `loai` không có file phải bị từ chối trung thực
+(501) thay vì áp nhầm checklist của loại khác lên nó: một audit report trông
+hợp lệ nhưng soát sai loại văn bản tệ hơn hẳn việc không soát.
 """
 
 import re
@@ -31,19 +32,31 @@ from src.services.llm import generate_model
 from src.services.rules import Rule, load_facts_meta, load_rules
 
 RULES_PATH = Path("config/rules.yaml")
-CHECKLIST_PATH = Path("config/checklist_hdld.yaml")
+CONFIG_DIR = Path("config")
+_TIEN_TO_CHECKLIST = "checklist_"
 
-# Nhãn tự nhiên đưa vào prompt (prompts/draft_generate.v1.md: "Soạn
-# {loai_van_ban} theo pháp luật lao động...") — PHẢI là cụm từ tiếng Việt tự
-# nhiên, không phải mã enum "hdld" của request.
-TEN_LOAI_VAN_BAN = {
-    "hdld": "hợp đồng lao động",
-    "noi_quy": "nội quy lao động",
-    "quyet_dinh_ky_luat": "quyết định kỷ luật lao động",
-}
+
+def cac_loai() -> frozenset[str]:
+    """Tập `loai` được hỗ trợ — suy từ `config/checklist_*.yaml` đang có, KHÔNG
+    một danh sách viết tay nào. Cũng là hàng rào duy nhất giữa một chuỗi từ
+    HTTP và một đường dẫn file: `duong_dan_checklist` chỉ dựng path sau khi
+    `loai` đã được đối chiếu với tập này, nên không có `../` nào đi xa được.
+    """
+    return frozenset(p.stem[len(_TIEN_TO_CHECKLIST):] for p in CONFIG_DIR.glob(f"{_TIEN_TO_CHECKLIST}*.yaml"))
+
+
+def duong_dan_checklist(loai: str) -> Path:
+    if loai not in cac_loai():
+        raise ValueError(f"loai không có checklist: {loai!r} (có: {sorted(cac_loai())})")
+    return CONFIG_DIR / f"{_TIEN_TO_CHECKLIST}{loai}.yaml"
 
 
 class SoanThaoState(TypedDict, total=False):
+    # `loai` là MÃ enum ("hdld"), `loai_van_ban` là NHÃN tiếng Việt tự nhiên
+    # ("hợp đồng lao động") mà n_collect đặt vào cho prompt draft_generate. Hai
+    # khoá tách bạch vì n_collect ghi đè `loai_van_ban`, nên các node sau nó
+    # không còn cách nào biết mã enum để tra đúng checklist/rules.
+    loai: str
     loai_van_ban: str
     facts: dict
     nganh: str
@@ -74,16 +87,36 @@ _SQL_DOCUMENTS_BY_ID = text("SELECT id, so_ky_hieu, ten FROM documents WHERE id 
 
 @lru_cache
 def load_rules_cached() -> list[Rule]:
-    """Chỉ đọc YAML — KHÔNG chạm DB. Dùng cho validate facts ở biên HTTP
-    (ràng buộc #1) và GET /api/v1/mau/{loai} (ràng buộc #4), để hai đường đó
-    không kéo theo một round-trip Postgres không cần thiết.
+    """MỌI rule trong config/rules.yaml — thư viện đầy đủ, chưa lọc theo loại
+    văn bản. Chỉ đọc YAML, KHÔNG chạm DB, để validate facts ở biên HTTP (ràng
+    buộc #1) và GET /api/v1/mau/{loai} (ràng buộc #4) không kéo theo một
+    round-trip Postgres không cần thiết. Người gọi theo loại dùng `rules_cho`.
     """
     return load_rules(RULES_PATH)
 
 
 @lru_cache
-def load_checklist_cached() -> Checklist:
-    return load_checklist(CHECKLIST_PATH)
+def load_checklist_cached(loai: str) -> Checklist:
+    cl = load_checklist(duong_dan_checklist(loai))
+    if cl.loai != loai:
+        raise ValueError(f"checklist_{loai}.yaml khai `loai: {cl.loai}` — tên file và nội dung phải khớp")
+    return cl
+
+
+def rules_cho(loai: str) -> list[Rule]:
+    """Rule áp dụng cho `loai`, theo danh sách id mà checklist của nó khai báo.
+
+    Một id không có trong rules.yaml là LỖI NẠP, không phải một rule bị bỏ qua
+    im lặng: checklist khai "văn bản này phải chịu rule X" mà X không tồn tại
+    nghĩa là một phép kiểm người viết TIN là đang chạy thì thực ra không —
+    cùng hạng lỗi với một `can_cu` trỏ vào điều luật không có thật.
+    """
+    theo_id = {r.id: r for r in load_rules_cached()}
+    khai_bao = load_checklist_cached(loai).rules
+    thieu = sorted(set(khai_bao) - set(theo_id))
+    if thieu:
+        raise ValueError(f"checklist_{loai}.yaml khai rule không có trong {RULES_PATH}: {thieu}")
+    return [theo_id[i] for i in khai_bao]
 
 
 @lru_cache
@@ -111,34 +144,41 @@ def _requirement_provisions(engine: Engine, duong_dan: set[str]) -> dict[int, di
     return {r["id"]: {**dict(r), **docs.get(r["document_id"], {})} for r in rows}
 
 
-def load_requirements(engine: Engine) -> tuple[list[Rule], Checklist, dict[int, dict]]:
-    rules = load_rules_cached()
-    checklist = load_checklist_cached()
+def load_requirements(engine: Engine, loai: str) -> tuple[list[Rule], Checklist, dict[int, dict]]:
+    rules = rules_cho(loai)
+    checklist = load_checklist_cached(loai)
     can_cu_all = cac_can_cu(checklist) | {r.can_cu for r in rules}
     return rules, checklist, _requirement_provisions(engine, can_cu_all)
 
 
 @lru_cache
-def requirements() -> tuple[list[Rule], Checklist, dict[int, dict]]:
-    return load_requirements(get_engine())
+def requirements(loai: str) -> tuple[list[Rule], Checklist, dict[int, dict]]:
+    return load_requirements(get_engine(), loai)
 
 
 # ── /soan-thao — graph 4 node ────────────────────────────────────────────────
 
 
 def build_graph_soan_thao():
+    """Graph dùng CHUNG cho mọi loại văn bản. Checklist/rules/provision được tra
+    theo `st["loai"]` TRONG node, không bắt sẵn lúc build: một graph bắt sẵn
+    checklist HĐLĐ sẽ soạn mọi loại văn bản bằng checklist HĐLĐ, và `_graph_soan_thao`
+    là một global dựng một lần cho cả tiến trình. `requirements` có lru_cache
+    nên tra trong node vẫn là một lần cho mỗi loại.
+    """
     llm = llm_from_settings()
-    rules, checklist, db_provisions = requirements()
 
     def n_collect(st: SoanThaoState) -> SoanThaoState:
+        checklist = load_checklist_cached(st["loai"])
         return {
             **st,
             "muc": checklist.muc,
             "nganh": st.get("nganh") or "thuong_mai",
-            "loai_van_ban": TEN_LOAI_VAN_BAN.get(st.get("loai_van_ban"), st.get("loai_van_ban")),
+            "loai_van_ban": checklist.ten,
         }
 
     def n_retrieve(st: SoanThaoState) -> SoanThaoState:
+        db_provisions = requirements(st["loai"])[2]
         return {**st, "expanded": list(db_provisions.values()), "db_provisions": db_provisions}
 
     def n_generate(st: SoanThaoState) -> SoanThaoState:
@@ -166,6 +206,7 @@ def build_graph_soan_thao():
         }}
 
     def n_audit(st: SoanThaoState) -> SoanThaoState:
+        rules, checklist, _ = requirements(st["loai"])
         return draft_audit(st, rules, checklist, st.get("db_provisions") or {})
 
     g = StateGraph(SoanThaoState)

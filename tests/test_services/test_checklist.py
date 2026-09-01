@@ -120,6 +120,7 @@ def test_KHONG_BAT_BUOC_loai_tru_khoi_bat_buoc_du_key_co_mat_trong_muc():
     của việc config/checklist_hdld.yaml hiện tại không chứa key trùng.
     """
     cl_gia = Checklist(
+        loai="gia", ten="văn bản giả", tieu_de="VĂN BẢN GIẢ",
         can_cu_goc="test",
         can_cu_chi_tiet="test",
         muc=[{"key": "a", "can_cu": "test"}, {"key": "tuy_chon", "can_cu": "test"}],
@@ -163,6 +164,7 @@ def test_load_checklist_khong_lam_rot_can_cu_chi_tiet():
 
 def test_can_cu_gia_bi_bat_KHONG_can_DB_that():
     cl_gia = Checklist(
+        loai=CL.loai, ten=CL.ten, tieu_de=CL.tieu_de,
         can_cu_goc="00/0000/XX-YY > Điều 0",
         can_cu_chi_tiet=CL.can_cu_chi_tiet,
         muc=CL.muc,

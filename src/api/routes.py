@@ -12,10 +12,12 @@ from starlette.concurrency import run_in_threadpool
 
 from src.agents.graph_soan_thao import (
     build_graph_soan_thao,
+    cac_loai,
     extract_clauses,
+    load_checklist_cached,
     load_facts_meta_cached,
-    load_rules_cached,
     requirements,
+    rules_cho,
 )
 from src.agents.graph_tra_cuu import build_graph_tra_cuu
 from src.agents.nodes.draft_audit import draft_audit
@@ -49,13 +51,11 @@ from src.services.traces import _ghi_traces, _tong_hop_traces, dau_van_ban  # no
 
 logger = logging.getLogger(__name__)
 
-# Chỉ "hdld" có checklist nội dung thật (Task 3 mới xây
-# config/checklist_hdld.yaml) — "noi_quy"/"quyet_dinh_ky_luat" là hai giá trị
-# LoaiVanBan hợp lệ ở tầng Pydantic (dự phòng cho FE/tương lai) nhưng CHƯA có
-# checklist riêng; áp nhầm checklist HĐLĐ lên chúng sẽ cho một audit report
-# trông hợp lệ nhưng SAI loại văn bản — từ chối trung thực bằng 501 thay vì
-# giả vờ hỗ trợ.
-_LOAI_CO_CHECKLIST = {"hdld"}
+# Loại văn bản hỗ trợ được = loại CÓ `config/checklist_<loai>.yaml` — suy thẳng
+# từ đĩa (`cac_loai()`), không một danh sách viết tay nào trong Python. Một giá
+# trị `LoaiVanBan` hợp lệ ở tầng Pydantic nhưng chưa có file checklist vẫn bị từ
+# chối trung thực bằng 501: áp nhầm checklist của loại khác lên nó sẽ cho một
+# audit report trông hợp lệ nhưng SAI loại văn bản.
 
 router = APIRouter()
 
@@ -611,10 +611,10 @@ def _g_soan_thao():
 
 
 def _tu_choi_neu_chua_ho_tro(loai_van_ban: str) -> None:
-    if loai_van_ban not in _LOAI_CO_CHECKLIST:
+    if loai_van_ban not in cac_loai():
         raise HTTPException(status_code=501, detail=(
             f"loai_van_ban='{loai_van_ban}' chưa có checklist/rules riêng "
-            f"(hiện chỉ hỗ trợ: {sorted(_LOAI_CO_CHECKLIST)})"
+            f"(hiện chỉ hỗ trợ: {sorted(cac_loai())})"
         ))
 
 
@@ -679,20 +679,16 @@ def _audit_report_out(r, duong_dan_index: dict[str, dict]) -> AuditReportOut:
     )
 
 
-_TIEU_DE_VAN_BAN = {
-    "hdld": "HỢP ĐỒNG LAO ĐỘNG",
-    "noi_quy": "NỘI QUY LAO ĐỘNG",
-    "quyet_dinh_ky_luat": "QUYẾT ĐỊNH KỶ LUẬT LAO ĐỘNG",
-}
-
-
 def _render_markdown(loai_van_ban: str, clauses: list) -> str:
     """Markdown thuần — KHÔNG python-docx, không LaTeX (ràng buộc toàn dự
     án). Đánh số Điều theo THỨ TỰ clause được sinh, không theo `stt` của
     checklist: draft_generate có thể bỏ một mục (schema_error, thiếu can_cu
     phù hợp) nên thứ tự thật của output mới là thứ tự đáng tin.
+
+    Tiêu đề lấy từ `checklist.tieu_de` (YAML), không từ một dict viết cứng —
+    thêm một mẫu là thêm một file, không sửa module này.
     """
-    phan = [f"# {_TIEU_DE_VAN_BAN.get(loai_van_ban, loai_van_ban.upper())}", ""]
+    phan = [f"# {load_checklist_cached(loai_van_ban).tieu_de}", ""]
     for i, c in enumerate(clauses, 1):
         phan.append(f"## Điều {i}. {c.ten}\n\n{c.noi_dung}\n")
     return "\n".join(phan)
@@ -713,8 +709,7 @@ async def soan_thao(
     nhân thêm một chỗ nữa để đổi lấy một tỉ lệ hit gần như bằng không.
     """
     _tu_choi_neu_chua_ho_tro(req.loai_van_ban)
-    rules = load_rules_cached()
-    _validate_facts(req.facts, rules)
+    _validate_facts(req.facts, rules_cho(req.loai_van_ban))
 
     trace_id = str(uuid.uuid4())
     bat_dau = time.monotonic()
@@ -723,7 +718,8 @@ async def soan_thao(
     loi: str | None = None
     try:
         st = await _g_soan_thao().ainvoke(
-            {"loai_van_ban": req.loai_van_ban, "facts": req.facts, "nganh": req.nganh}
+            {"loai": req.loai_van_ban, "loai_van_ban": req.loai_van_ban,
+             "facts": req.facts, "nganh": req.nganh}
         )
     except (httpx.HTTPStatusError, httpx.TransportError, OperationalError) as e:
         # Cùng phân loại lỗi hạ tầng nhất thời như tra_cuu() — xem docstring ở đó.
@@ -754,7 +750,7 @@ async def soan_thao(
     )
 
     clauses = st.get("clauses") or []
-    _, _, db_provisions = requirements()
+    _, _, db_provisions = requirements(req.loai_van_ban)
     return SoanThaoResponse(
         document=_render_markdown(req.loai_van_ban, clauses),
         clauses=[dataclasses.asdict(c) for c in clauses],
@@ -770,12 +766,11 @@ async def soat(req: SoatRequest, _=Depends(cong_nhe)) -> SoatResponse:
     của draft_generate (`draft_audit`). `self_audit=False` luôn đúng ở đây.
     """
     _tu_choi_neu_chua_ho_tro(req.loai_van_ban)
-    rules = load_rules_cached()
+    rules, checklist, db_provisions = requirements(req.loai_van_ban)
     _validate_facts(req.facts, rules)
 
     trace_id = str(uuid.uuid4())
     bat_dau = time.monotonic()
-    rules, checklist, db_provisions = requirements()
     # Đồng bộ và có thể tốn CPU trên văn bản dài. KHÔNG phải node LangGraph nên
     # không được tự đẩy sang threadpool như các node trong graph — thiếu bọc này
     # là chặn event loop cho mọi request khác.
@@ -817,11 +812,15 @@ async def mau(loai: LoaiVanBan) -> MauResponse:
     (`rules.mo_ta_facts`), không hardcode danh sách trường trong Python (ràng
     buộc #4): frontend dựng form theo đây, sửa YAML là đủ khi rule đổi.
 
-    `noi_quy`/`quyet_dinh_ky_luat` trả `facts: []` — chưa có checklist riêng
-    (chỉ hdld có, Task 3), tái dùng nhầm fact của HĐLĐ sẽ sai loại văn bản.
+    Chỉ trả fact của những rule mà CHECKLIST CỦA CHÍNH LOẠI NÀY khai báo
+    (`rules_cho`): hỏi `vung`/`luong_thang` cho một hợp đồng vay tài sản là hỏi
+    người dùng dữ liệu của một chế định khác, và câu trả lời của họ sẽ được đem
+    đi kiểm bằng một rule không áp dụng cho văn bản họ đang soạn.
+
+    Loại chưa có `config/checklist_<loai>.yaml` trả `facts: []` — tái dùng nhầm
+    fact của HĐLĐ sẽ sai loại văn bản.
     """
-    if loai not in _LOAI_CO_CHECKLIST:
+    if loai not in cac_loai():
         return MauResponse(loai_van_ban=loai, facts=[])
-    rules = load_rules_cached()
-    facts = [FactFieldOut(**f) for f in mo_ta_facts(rules, load_facts_meta_cached())]
+    facts = [FactFieldOut(**f) for f in mo_ta_facts(rules_cho(loai), load_facts_meta_cached())]
     return MauResponse(loai_van_ban=loai, facts=facts)

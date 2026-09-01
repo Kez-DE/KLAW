@@ -1,10 +1,15 @@
-"""Checklist nội dung bắt buộc của HĐLĐ (BLLĐ Đ21.1 × TT 10/2020 Đ3).
+"""Checklist nội dung bắt buộc của một loại văn bản — DỮ LIỆU, không phải mã.
 
-Checklist nạp từ config/checklist_hdld.yaml — DỮ LIỆU, không phải mã nguồn, cùng
-khuôn với config/rules.yaml + src/services/rules.py (Task 2): sửa checklist
-là sửa YAML, không đụng module này.
+Mỗi loại văn bản là MỘT file `config/checklist_<loai>.yaml`; thêm một mẫu soạn
+thảo mới là thêm một file, không đụng module này. Cùng khuôn với
+config/rules.yaml + src/services/rules.py (Task 2).
 
-Ba ngoại lệ, nếu bỏ qua sẽ báo sai (can_cu của từng ngoại lệ nằm trong
+Ba khối ngoại lệ (`nganh_duoc_giam`, `khong_bat_buoc`, `quy_tac_dinh_dang`) là
+TUỲ CHỌN — chúng encode ba ngoại lệ RIÊNG của hợp đồng lao động, và một checklist
+khác (nội quy lao động, đơn khởi kiện, hợp đồng vay…) không có lý do gì phải khai
+báo chúng rỗng để nạp được. Vắng mặt = ngoại lệ đó không áp dụng cho loại này.
+
+Ba ngoại lệ của HĐLĐ, nếu bỏ qua sẽ báo sai (can_cu của từng ngoại lệ nằm trong
 config/checklist_hdld.yaml):
   Đ21.3  nông/lâm/ngư/diêm nghiệp ĐƯỢC GIẢM một số mục, và phải THÊM điều
          khoản thiên tai → denominator (tong_muc) đổi theo ngành, KHÔNG cố
@@ -25,8 +30,15 @@ Giá trị `nganh` lạ (không có trong nganh_duoc_giam.danh_sach) KHÔNG ném
 phép kiểm dùng `in` trên một danh sách, không tra từ điển theo khoá, nên
 không có nguy cơ KeyError như `bang_thang[vung]` của Task 2 — một ngành lạ
 đơn giản là một ngành không được giảm mục nào.
+
+`rules:` liệt kê ID các rule của config/rules.yaml áp dụng cho loại văn bản này.
+Rule là một THƯ VIỆN DÙNG CHUNG, checklist chọn cái nào áp dụng: chạy
+`thu_viec_toi_da` (thời gian thử việc theo BLLĐ Đ25) lên một hợp đồng vay tài
+sản là vô nghĩa, và một checklist mới không được thừa hưởng rule của HĐLĐ chỉ
+vì chúng nằm chung một file.
 """
 
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -39,12 +51,21 @@ from src.services.db import get_engine
 
 @dataclass(frozen=True)
 class Checklist:
+    loai: str
+    # `ten` đi thẳng vào prompt draft_generate ("Soạn {loai_van_ban}…") nên PHẢI
+    # là cụm tiếng Việt tự nhiên; `tieu_de` là dòng tiêu đề Markdown của văn bản
+    # sinh ra. Cả hai từng là hai dict viết cứng trong Python (TEN_LOAI_VAN_BAN,
+    # _TIEU_DE_VAN_BAN) — nghĩa là thêm một mẫu phải sửa hai file mã nguồn ngoài
+    # YAML, đúng thứ khuôn "checklist là DỮ LIỆU" tồn tại để tránh.
+    ten: str
+    tieu_de: str
     can_cu_goc: str
-    can_cu_chi_tiet: str
     muc: list[dict]
-    nganh_duoc_giam: dict[str, Any]
-    khong_bat_buoc: dict[str, Any]
-    quy_tac_dinh_dang: dict[str, Any]
+    rules: list[str] = field(default_factory=list)
+    can_cu_chi_tiet: str | None = None
+    nganh_duoc_giam: dict[str, Any] = field(default_factory=dict)
+    khong_bat_buoc: dict[str, Any] = field(default_factory=dict)
+    quy_tac_dinh_dang: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -63,26 +84,41 @@ def load_checklist(path: Path) -> Checklist:
     không được ép buộc phải có kết nối Postgres.
     """
     d = yaml.safe_load(path.read_text(encoding="utf-8"))
+    thieu = [k for k in ("loai", "ten", "tieu_de", "can_cu_goc", "muc") if not d.get(k)]
+    if thieu:
+        raise ValueError(f"{path}: thiếu khoá bắt buộc {thieu}")
+    trung = _key_trung_lap([m["key"] for m in d["muc"]])
+    if trung:
+        raise ValueError(f"{path}: key mục trùng lặp {trung} — completeness sẽ đếm sai")
     return Checklist(
+        loai=d["loai"],
+        ten=d["ten"],
+        tieu_de=d["tieu_de"],
         can_cu_goc=d["can_cu_goc"],
-        can_cu_chi_tiet=d["can_cu_chi_tiet"],
         muc=d["muc"],
-        nganh_duoc_giam=d["nganh_duoc_giam"],
-        khong_bat_buoc=d["khong_bat_buoc"],
-        quy_tac_dinh_dang=d["quy_tac_dinh_dang"],
+        rules=list(d.get("rules") or []),
+        can_cu_chi_tiet=d.get("can_cu_chi_tiet"),
+        nganh_duoc_giam=d.get("nganh_duoc_giam") or {},
+        khong_bat_buoc=d.get("khong_bat_buoc") or {},
+        quy_tac_dinh_dang=d.get("quy_tac_dinh_dang") or {},
     )
 
 
+def _key_trung_lap(keys: list[str]) -> list[str]:
+    return sorted(k for k, n in Counter(keys).items() if n > 1)
+
+
 def cac_can_cu(cl: Checklist) -> set[str]:
-    """Mọi can_cu mà checklist này trích dẫn: 10 mục + 3 ngoại lệ + can_cu chi
-    tiết cấp checklist. Dùng bởi `kiem_tra_can_cu_ton_tai`.
+    """Mọi can_cu mà checklist này trích dẫn: từng mục + mọi khối ngoại lệ CÓ
+    khai báo + can_cu gốc/chi tiết cấp checklist. Dùng bởi
+    `kiem_tra_can_cu_ton_tai` — một khối ngoại lệ vắng mặt không đóng góp can_cu
+    nào, chứ không phải một can_cu rỗng lọt qua phép kiểm.
     """
+    ngoai_le = (cl.nganh_duoc_giam, cl.khong_bat_buoc, cl.quy_tac_dinh_dang)
     return {
         cl.can_cu_goc,
-        cl.can_cu_chi_tiet,
-        cl.nganh_duoc_giam["can_cu"],
-        cl.khong_bat_buoc["can_cu"],
-        cl.quy_tac_dinh_dang["can_cu"],
+        *([cl.can_cu_chi_tiet] if cl.can_cu_chi_tiet else []),
+        *(k["can_cu"] for k in ngoai_le if k.get("can_cu")),
         *(m["can_cu"] for m in cl.muc),
     }
 
@@ -107,11 +143,11 @@ def check_completeness(cl: Checklist, clauses: list[dict], nganh: str) -> Comple
     với danh sách mục bắt buộc, áp dụng ngoại lệ Đ21.2 và Đ21.3.
     """
     co = {c["key"] for c in clauses if c.get("key")}
-    khong_bat_buoc_keys = set(cl.khong_bat_buoc["keys"])
+    khong_bat_buoc_keys = set(cl.khong_bat_buoc.get("keys") or [])
     bat_buoc = [m["key"] for m in cl.muc if m["key"] not in khong_bat_buoc_keys]
 
     duoc_giam: list[str] = []
-    if nganh in cl.nganh_duoc_giam["danh_sach"]:
+    if nganh in (cl.nganh_duoc_giam.get("danh_sach") or []):
         duoc_giam = list(cl.nganh_duoc_giam["duoc_giam_muc"])
         bat_buoc = [k for k in bat_buoc if k not in duoc_giam]
         bat_buoc.append(cl.nganh_duoc_giam["bat_buoc_them"]["key"])
