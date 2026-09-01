@@ -448,3 +448,27 @@ class NguoiDungResponse(BaseModel):
     sub: str
     email: str | None
     plan: str
+
+
+# ══ GET /van-ban/{doc_id}/tim (Pha 2) ═══════════════════════════════════════
+
+
+class DongTimTrongVanBan(BaseModel):
+    provision_id: int
+    cap: str
+    so_hieu_cap: str
+    duong_dan: str
+    tieu_de: str
+    trich: str
+    # Thứ tự trong cây — FE cuộn tới đúng chỗ và giữ được vị trí người đọc đang
+    # đứng. Cũng là khoá sắp xếp: đây là mục lục, không phải bảng xếp hạng.
+    thu_tu: int
+
+
+class TimTrongVanBanResponse(BaseModel):
+    doc_id: str
+    so_ky_hieu: str
+    q: str
+    tong: int
+    limit: int
+    ket_qua: list[DongTimTrongVanBan]

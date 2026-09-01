@@ -36,10 +36,12 @@ from starlette.concurrency import run_in_threadpool
 from src.config import as_of_hieu_luc, get_settings
 from src.models.schemas import (
     BoLocResponse,
+    DongTimTrongVanBan,
     GiaTriLoc,
     HieuLucOut,
     KetQuaTimKiem,
     TimKiemResponse,
+    TimTrongVanBanResponse,
 )
 from src.services.db import get_engine
 from src.services.effectivity import bac_con_song, danh_gia_toan_bo
@@ -298,3 +300,89 @@ async def tim_kiem(
         _tim_kiem_sync, q, loai, co_quan, tu_nam, den_nam, sap_xep, limit, offset,
         as_of_hieu_luc(as_of_date),
     )
+
+
+# ══ GET /van-ban/{doc_id}/tim — ô lọc mục lục ═══════════════════════════════
+#
+# Ba khác biệt so với `/tim-kiem`, cả ba theo sau từ việc đây là một Ô LỌC:
+#
+#   1. Khớp CHUỖI CON (`ILIKE`), không phải lexeme. Người dùng gõ dần và mong
+#      danh sách hẹp lại từ "thai s"; `to_tsquery` chỉ khớp trọn lexeme nên một
+#      chuỗi dở dang không khớp gì và ô lọc trông như hỏng.
+#   2. Xếp theo `thu_tu` (thứ tự văn bản), không theo điểm — xáo mục lục theo độ
+#      liên quan là làm người đọc mất chỗ đang đứng.
+#   3. Quét `provisions`, không quét `chunks`: `chunks` phủ 6.067/36.710 điều
+#      khoản (0 Điểm, 0 Chương/Mục), nên lọc qua nó thì gõ tên một Chương ra
+#      rỗng. ĐO ĐƯỢC 9,2ms trên văn bản lớn nhất (2.515 dòng, index
+#      `ix_provisions_document_id` lọc trước rồi mới ILIKE) — rẻ hơn nhiều so
+#      với dựng một cột `tsv` thứ hai cho một ô lọc.
+#
+# ponytail: ILIKE tuyến tính trong phạm vi MỘT văn bản. Nếu về sau có văn bản
+# hàng chục nghìn điều khoản thì thêm index trigram (`pg_trgm`) trên
+# `klaw_tsv`-style biểu thức; hôm nay đó là index cho một truy vấn 9ms.
+
+_SQL_TIM_TRONG_VB = (
+    " FROM provisions p"
+    " WHERE p.document_id = :doc_id"
+    "   AND unaccent(p.tieu_de || ' ' || p.noi_dung)"
+    "       ILIKE '%' || unaccent(:q) || '%' ESCAPE '\\'"
+)
+_SQL_TIM_TRONG_VB_DEM = text("SELECT count(*)::int" + _SQL_TIM_TRONG_VB)
+_SQL_TIM_TRONG_VB_TRANG = text(
+    "SELECT p.id AS provision_id, p.cap, p.so_hieu_cap, p.duong_dan, p.tieu_de,"
+    " p.noi_dung, p.thu_tu" + _SQL_TIM_TRONG_VB + " ORDER BY p.thu_tu LIMIT :limit"
+)
+
+_SQL_DOC_TOI_THIEU = text("SELECT so_ky_hieu FROM documents WHERE id = :doc_id")
+
+
+def _thoat_like(q: str) -> str:
+    r"""`%` và `_` trong truy vấn là CHỮ CỦA NGƯỜI DÙNG, không phải toán tử.
+
+    Không thoát thì gõ `%` khớp MỌI điều khoản — một ô lọc "không lọc gì" mà
+    không thông báo nào, và `_` khớp một ký tự bất kỳ cho kết quả sai lặng lẽ.
+    `\` phải thoát TRƯỚC hai ký tự kia, nếu không nó thoát mất chính dấu thoát
+    vừa chèn.
+    """
+    return q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _tim_trong_van_ban_sync(doc_id: str, q: str, limit: int) -> TimTrongVanBanResponse:
+    mau = _thoat_like(q)
+    with get_engine().connect() as c:
+        so_ky_hieu = c.execute(_SQL_DOC_TOI_THIEU, {"doc_id": doc_id}).scalar_one_or_none()
+        if so_ky_hieu is None:
+            raise HTTPException(status_code=404, detail=f"văn bản '{doc_id}' không tồn tại")
+        tham_so = {"doc_id": doc_id, "q": mau}
+        tong = c.execute(_SQL_TIM_TRONG_VB_DEM, tham_so).scalar_one()
+        rows = c.execute(
+            _SQL_TIM_TRONG_VB_TRANG, {**tham_so, "limit": limit}
+        ).mappings().all()
+
+    return TimTrongVanBanResponse(
+        doc_id=doc_id, so_ky_hieu=so_ky_hieu, q=q, tong=tong, limit=limit,
+        ket_qua=[
+            DongTimTrongVanBan(
+                provision_id=r["provision_id"], cap=r["cap"], so_hieu_cap=r["so_hieu_cap"],
+                duong_dan=r["duong_dan"], tieu_de=r["tieu_de"], thu_tu=r["thu_tu"],
+                # Chương/Mục có `noi_dung` rỗng theo thiết kế (chúng là nhãn cấu
+                # trúc); rơi về `tieu_de` để dòng kết quả không trống trơn.
+                trich=_trich(r["noi_dung"] or r["tieu_de"], ""),
+            )
+            for r in rows
+        ],
+    )
+
+
+@router.get("/van-ban/{doc_id}/tim", response_model=TimTrongVanBanResponse)
+async def tim_trong_van_ban(
+    doc_id: str,
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> TimTrongVanBanResponse:
+    """Lọc mục lục + nội dung của MỘT văn bản theo chuỗi con, không dấu cũng khớp.
+
+    `tong` là số dòng khớp trong CẢ văn bản (không phải trong trang), để ô lọc
+    hiển thị được "112 kết quả" ngay cả khi chỉ vẽ 100 dòng đầu.
+    """
+    return await run_in_threadpool(_tim_trong_van_ban_sync, doc_id, q, limit)
