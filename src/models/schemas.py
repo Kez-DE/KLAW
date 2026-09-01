@@ -62,7 +62,12 @@ class TraCuuResponse(BaseModel):
     # với `gioi_thieu` 2026-09-01. `test_response_model_biet_moi_gia_tri_cua_ResultType`
     # so hai tập nên lần sau nó đỏ ngay.
     result_type: Literal[
-        "answer", "partial_coverage", "abstain", "out_of_scope", "gioi_thieu"
+        "answer",
+        "partial_coverage",
+        "abstain",
+        "out_of_scope",
+        "gioi_thieu",
+        "huong_dan_soan_thao",
     ]
     answer: str | None
     citations: list[CitationOut]

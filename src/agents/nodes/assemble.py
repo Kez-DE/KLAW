@@ -91,6 +91,11 @@ class ResultType(StrEnum):
     #   "Thuế thu nhập cá nhân tính thế nào?" → ngoài phạm vi thật, từ chối đúng
     #   "bạn làm được những gì"               → hỏi về trợ lý, phải trả lời
     gioi_thieu = "gioi_thieu"
+    # Xin SOẠN một văn bản. Trước bản này `intent == soan_thao` không có nhánh
+    # riêng nên rơi thẳng vào đường tra cứu, và người hỏi "soạn cho tôi hợp
+    # đồng lao động" nhận về một bài giảng về Điều 20 — đúng luật, và không
+    # phải thứ họ xin.
+    huong_dan_soan_thao = "huong_dan_soan_thao"
 
 
 class Citation(TypedDict):
@@ -281,9 +286,44 @@ GIOI_THIEU = (
 )
 
 
+# Câu trả lời cho `intent == soan_thao`.
+#
+# KHÔNG soạn ở đây, và đó là chủ đích. Một bản thảo dựng từ văn xuôi tự do sẽ có
+# những điều khoản không neo được vào căn cứ nào — đúng thứ dự án tồn tại để
+# không làm. `SoanThaoRequest` đòi `loai_van_ban` (chọn checklist) và `facts`
+# (điền, rồi chạy rule) chính vì thế; một câu như "soạn hợp đồng cho tôi" không
+# cho hệ thống hai thứ đó.
+#
+# CỐ Ý không liệt kê các loại soạn được ở đây. Tên hiển thị của chúng sống ở
+# `mau-van-ban.ts` phía FE, và một bản sao thứ hai trong chuỗi Python này sẽ
+# lệch pha đúng vào ngày ai đó thêm mẫu mới — màn soạn thảo tự liệt kê được.
+HUONG_DAN_SOAN_THAO = (
+    "Việc này tôi soạn được, nhưng không phải ở ô hỏi này.\n"
+    "\n"
+    "Để mỗi điều khoản trong bản thảo neo được vào một căn cứ pháp lý riêng, tôi "
+    "cần biết loại văn bản và các dữ kiện cụ thể — các bên, thời hạn, mức lương, "
+    "công việc. Một câu văn xuôi không cho tôi đủ, và tôi không muốn dựng cho bạn "
+    "một văn bản mà chính tôi không chứng minh được nó dựa vào đâu.\n"
+    "\n"
+    "Bạn mở màn Soạn thảo, chọn loại văn bản rồi điền biểu mẫu. Tôi dựng bản thảo "
+    "kèm căn cứ cho từng điều khoản, đối chiếu lại nó với luật trong kho, rồi bạn "
+    "tải về .docx hoặc .pdf."
+)
+
+
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> dict:
+    if state.get("intent") == "soan_thao":
+        # `graph_tra_cuu._RE_TAT` rẽ ý định này thẳng tới đây ngay sau `route`,
+        # nên KHÔNG có truy hồi, không sinh luận điểm, không hai tầng kiểm.
+        # Chú thích "0 token" chỉ đúng khi đường rẽ đó còn — nếu ai gỡ nó, khâu
+        # này vẫn không gọi LLM nhưng cả graph phía trước thì có.
+        return _base(state, ResultType.huong_dan_soan_thao, answer=HUONG_DAN_SOAN_THAO)
+
     if state.get("intent") == "gioi_thieu":
-        # 0 TOKEN: nội dung là sự thật về hệ thống, không phải thứ cần suy luận.
+        # Xem chú thích ở nhánh `soan_thao` ngay trên: rẻ được là nhờ đường rẽ
+        # tắt trong `graph_tra_cuu`, không nhờ riêng khâu này không gọi LLM.
+        # ĐO ĐƯỢC 2026-09-02, TRƯỚC khi có đường rẽ: nhánh này tiêu 8.975 token
+        # và dựng 15 luận điểm qua cả hai tầng rồi vứt sạch.
         return _base(state, ResultType.gioi_thieu, answer=GIOI_THIEU)
 
     if state.get("intent") == "ngoai_pham_vi":
