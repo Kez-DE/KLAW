@@ -16,7 +16,20 @@ def get_engine() -> Engine:
         # Ensure psycopg3 driver is used
         if db_url.startswith("postgresql://"):
             db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
-        _engine = create_engine(db_url, future=True)
+        # Pool TƯỜNG MINH. Mặc định của SQLAlchemy (5 + 10 overflow,
+        # `pool_timeout=30`) là mặc định của thư viện, không phải một quyết định
+        # của dự án — và nó đã đo được là sai với hình dạng tải ở đây: 20 + 20
+        # phục vụ được lượng request đồng thời mà một trang tìm kiếm tạo ra,
+        # còn `pool_timeout=5` biến "cạn pool" từ 30 GIÂY TREO thành một lỗi
+        # nhanh mà người dùng và log đều đọc được ngay.
+        #
+        # `pool_pre_ping`: kết nối nằm không qua đêm bị Postgres (hoặc một
+        # NAT/proxy ở giữa) đóng phía server, và lần dùng lại đầu tiên nổ
+        # `OperationalError` — một lỗi 503 cho người dùng đầu tiên mỗi sáng.
+        _engine = create_engine(
+            db_url, future=True,
+            pool_size=20, max_overflow=20, pool_timeout=5, pool_pre_ping=True,
+        )
     return _engine
 
 

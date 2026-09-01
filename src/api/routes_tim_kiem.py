@@ -237,16 +237,25 @@ def _tim_kiem_sync(
         "tu_ngay": date(tu_nam, 1, 1) if tu_nam else None,
         "den_ngay": date(den_nam, 12, 31) if den_nam else None,
     }
+    # Phán quyết hiệu lực của TOÀN corpus: cần cho cột `hieu_luc` của mỗi dòng,
+    # và (khi sap_xep=con_hieu_luc_truoc) cho cả thứ tự. Một lượt, 2 truy vấn —
+    # xem `danh_gia_toan_bo`.
+    #
+    # Chạy TRƯỚC `with ... connect()`, không phải bên trong. `danh_gia_toan_bo`
+    # tự mở kết nối của nó, nên gọi nó khi đang giữ kết nối #1 làm MỘT request
+    # chiếm HAI suất pool cùng lúc — pool phục vụ được một nửa số request đồng
+    # thời so với cỡ của nó, và phần còn lại chờ hết `pool_timeout` rồi 500.
+    # Đo được (concurrency 24, máy chủ dev): median 30,181s kèm 500, và
+    # `/api/v1/bo-loc` — endpoint không liên quan, bình thường 0,005s — bị kéo
+    # lên 29,832s vì cạn pool làm chết đói toàn bộ tầng DB.
+    eff = danh_gia_toan_bo(get_engine(), as_of)
+
     with get_engine().connect() as c:
         _kiem_gia_tri_loc(c, "loai_van_ban", loai)
         _kiem_gia_tri_loc(c, "co_quan_ban_hanh", co_quan)
 
         tong = c.execute(_SQL_TONG, tham_so).mappings().one()
 
-        # Phán quyết hiệu lực của TOÀN corpus: cần cho cột `hieu_luc` của mỗi
-        # dòng, và (khi sap_xep=con_hieu_luc_truoc) cho cả thứ tự. Một lượt,
-        # 2 truy vấn — xem `danh_gia_toan_bo`.
-        eff = danh_gia_toan_bo(get_engine(), as_of)
         if sap_xep == "con_hieu_luc_truoc":
             tham_so["thu_tu_doc"] = [
                 doc_id for doc_id, e in sorted(eff.items(), key=lambda kv: bac_con_song(kv[1]))
