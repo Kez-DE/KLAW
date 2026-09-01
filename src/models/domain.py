@@ -38,6 +38,11 @@ class DocumentRow(BaseModel):
     ngay_hieu_luc: date | None = None
     ngay_het_hieu_luc: date | None = None
     tinh_trang: str = Field(..., min_length=1)
+    # `documentIssues[].personName`/`jobTitleName` của response MOJ — đã tải
+    # sẵn từ lần `fetch_moj` đầu, lấy lại là 0 request phát sinh (migration
+    # 015). None cho văn bản không khai người ký; CHECK của DB chặn chuỗi rỗng.
+    nguoi_ky: str | None = None
+    chuc_danh_nguoi_ky: str | None = None
     depth: Literal["deep", "shallow"] = "deep"
     nguon_url: str | None = None
     checksum: str = Field(..., min_length=1)

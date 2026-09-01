@@ -6,6 +6,7 @@ import warnings
 from pathlib import Path
 
 from scripts.fetch_moj import DOC_IDS
+from scripts.nap_nguoi_ky import nguoi_ky_tu_response
 from src.models.domain import DocumentRow
 from src.services.prov_parser import parse_anomalies, parse_provisions
 
@@ -52,6 +53,7 @@ def build(raw: Path, out: Path) -> dict[str, int]:
         canh_bao_tong.extend(f"{doc_id} ({so_ky_hieu}): {c}" for c in canh_bao)
 
         prov_rows = [r.model_dump(mode="json") for r in parse_provisions(html, so_ky_hieu)]
+        nguoi_ky, chuc_danh = nguoi_ky_tu_response(d)
 
         # Checksum băm HTML *VÀ* các dòng provision sinh ra từ nó. Nếu chỉ băm
         # HTML thì có một kênh dữ liệu cũ ÂM THẦM: sửa parser → rebuild seed →
@@ -73,6 +75,12 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             ngay_hieu_luc=_date(d.get("effFrom")),
             ngay_het_hieu_luc=_date(d.get("effTo")),
             tinh_trang=TINH_TRANG_MAP.get((d.get("effStatus") or {}).get("code", ""), "chua_xac_dinh"),
+            # `documentIssues[]` đã nằm trong response, chỉ chưa ai đọc. Xem
+            # `scripts/nap_nguoi_ky` — module đó là CHỦ SỞ HỮU quy tắc trích
+            # (lấy orderIndex nhỏ nhất, không chuẩn hoá hoa/thường, "" → None),
+            # và nó cũng là đường nạp cho DB đã seed sẵn: thêm một cột metadata
+            # không làm `checksum` đổi nên `ingest` sẽ bỏ qua mọi document.
+            nguoi_ky=nguoi_ky, chuc_danh_nguoi_ky=chuc_danh,
             depth=depth,
             nguon_url=f"vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/{doc_id}",
             checksum=checksum,

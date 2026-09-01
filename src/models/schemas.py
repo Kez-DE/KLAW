@@ -97,19 +97,45 @@ class ProvisionOut(BaseModel):
     la_tam: bool
 
 
-class VanBanMucLucResponse(BaseModel):
+class VanBanMetaMixin(BaseModel):
+    """Metadata dùng chung cho CẢ BA dạng lazy của `GET /van-ban/{doc_id}`.
+
+    FE đi thẳng vào `?so_dieu=` khi mở một liên kết chia sẻ; nếu chỉ dạng mục
+    lục mang metadata thì trang đó hiện tiêu đề trống cho tới khi người dùng
+    bấm ngược lên mục lục.
+
+    KHÔNG có `tinh_trang`, dù nó nằm cùng dòng `documents` và thêm vào là một
+    dòng code. Đó là dòng code khiến trang đọc văn bản dán nhãn "Còn hiệu lực"
+    lên bốn nghị định lương tối thiểu đã bị thay. Hiệu lực đi qua
+    `GET /van-ban/{doc_id}/hieu-luc`, chỗ duy nhất `effectivity.py` chạy.
+    """
+
     # `doc_id` là TEXT ở DB (`documents.id`, moj doc_id — vd "95942"), KHÔNG
     # PHẢI int: ép int sẽ vỡ nếu MOJ từng cấp một id không thuần số.
     doc_id: str
     so_ky_hieu: str
     bo_luat: str  # = documents.ten — HIỂN THỊ, không phải khoá định danh (xem assemble.py)
+    loai_van_ban: str
+    # NULL trên đúng 79/126 dòng (tầng metadata nạp từ parquet, không có trường
+    # nào tương ứng). NULL = KHÔNG BIẾT, không phải "không có".
+    co_quan_ban_hanh: str | None = None
+    ngay_ban_hanh: date | None = None
+    ngay_hieu_luc: date | None = None
+    # NULL trên 95/126 dòng: phần lớn văn bản chưa có ngày hết hiệu lực. Đây là
+    # trường của CHÍNH CSDL quốc gia và tin được (Mức 1 của `effectivity.py`
+    # dùng đúng nó) — khác hẳn `tinh_trang`, thứ sai 4/6 trên chuỗi nghị định
+    # lương tối thiểu.
+    ngay_het_hieu_luc: date | None = None
+    # Từ `documentIssues[]` của response MOJ đã tải sẵn (migration 015).
+    nguoi_ky: str | None = None
+    chuc_danh_nguoi_ky: str | None = None
+
+
+class VanBanMucLucResponse(VanBanMetaMixin):
     muc_luc: list[MucLucItem]
 
 
-class VanBanProvisionsResponse(BaseModel):
-    doc_id: str
-    so_ky_hieu: str
-    bo_luat: str
+class VanBanProvisionsResponse(VanBanMetaMixin):
     provisions: list[ProvisionOut]
 
 

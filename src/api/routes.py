@@ -216,7 +216,31 @@ async def agent_status():
 # trước/sau" của `around` được tính theo THỨ TỰ TRONG CÂY (`thu_tu`), KHÔNG
 # PHẢI phép toán số học trên `so_hieu_cap` — cùng lý do.
 
-_SQL_VAN_BAN_DOC = text("SELECT so_ky_hieu, ten FROM documents WHERE id = :doc_id")
+# KHÔNG chọn `tinh_trang`, dù nó nằm cùng dòng: một cột không được đọc thì
+# không có đường nào rò ra response. Hiệu lực đi qua
+# `GET /van-ban/{doc_id}/hieu-luc` (routes_van_ban.py), chỗ duy nhất
+# `effectivity.py` chạy.
+_SQL_VAN_BAN_DOC = text(
+    "SELECT so_ky_hieu, ten, loai_van_ban, co_quan_ban_hanh, ngay_ban_hanh,"
+    " ngay_hieu_luc, ngay_het_hieu_luc, nguoi_ky, chuc_danh_nguoi_ky"
+    " FROM documents WHERE id = :doc_id"
+)
+
+
+def _meta(doc_id: str, doc) -> dict:
+    """Metadata dùng chung cho CẢ BA dạng lazy (`VanBanMetaMixin`).
+
+    Một chỗ duy nhất dựng bộ trường này: ba lời gọi constructor riêng lẻ đã
+    từng lệch nhau ở `nguon`/`khop_tai_id`/`doc_id` — ba lần, cùng một kiểu
+    hỏng, mỗi lần là một trường im lặng biến mất ở đúng một nhánh.
+    """
+    return {
+        "doc_id": doc_id, "so_ky_hieu": doc["so_ky_hieu"], "bo_luat": doc["ten"],
+        "loai_van_ban": doc["loai_van_ban"], "co_quan_ban_hanh": doc["co_quan_ban_hanh"],
+        "ngay_ban_hanh": doc["ngay_ban_hanh"], "ngay_hieu_luc": doc["ngay_hieu_luc"],
+        "ngay_het_hieu_luc": doc["ngay_het_hieu_luc"],
+        "nguoi_ky": doc["nguoi_ky"], "chuc_danh_nguoi_ky": doc["chuc_danh_nguoi_ky"],
+    }
 
 _SQL_VAN_BAN_MUC_LUC = text(
     "SELECT id, cap, so_hieu_cap, tieu_de, thu_tu FROM provisions"
@@ -310,7 +334,7 @@ def _van_ban_sync(
                 ))
             rows = conn.execute(_SQL_DIEU_TRONG_CHUONG, {"goc": trong_chuong}).mappings().all()
             return VanBanProvisionsResponse(
-                doc_id=doc_id, so_ky_hieu=doc["so_ky_hieu"], bo_luat=doc["ten"],
+                **_meta(doc_id, doc),
                 # `la_tam=False` cho tất cả: đang DUYỆT mục lục, chưa chọn Điều
                 # nào làm tâm. Đánh dấu bừa một Điều là tâm sẽ rọi sáng nhầm.
                 provisions=[ProvisionOut(**dict(r), la_tam=False) for r in rows],
@@ -321,9 +345,7 @@ def _van_ban_sync(
                 MucLucItem(**dict(r))
                 for r in conn.execute(_SQL_VAN_BAN_MUC_LUC, {"doc_id": doc_id}).mappings().all()
             ]
-            return VanBanMucLucResponse(
-                doc_id=doc_id, so_ky_hieu=doc["so_ky_hieu"], bo_luat=doc["ten"], muc_luc=muc_luc
-            )
+            return VanBanMucLucResponse(**_meta(doc_id, doc), muc_luc=muc_luc)
 
         if so_dieu is not None:
             tam_id = conn.execute(
@@ -363,9 +385,7 @@ def _van_ban_sync(
             rows = conn.execute(_SQL_VAN_BAN_CAY_DIEU, {"dieu_id": dieu_id}).mappings().all()
             provisions.extend(ProvisionOut(**dict(r), la_tam=(dieu_id == tam_id)) for r in rows)
 
-        return VanBanProvisionsResponse(
-            doc_id=doc_id, so_ky_hieu=doc["so_ky_hieu"], bo_luat=doc["ten"], provisions=provisions
-        )
+        return VanBanProvisionsResponse(**_meta(doc_id, doc), provisions=provisions)
 
 
 _SQL_PHAM_VI = text(
