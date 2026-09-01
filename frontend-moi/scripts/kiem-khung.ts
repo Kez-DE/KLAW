@@ -23,6 +23,8 @@
 import assert from "node:assert/strict";
 import {
   MUC_BEN,
+  MUC_CA_NHAN,
+  MUC_CHI_TEN,
   MUC_KY,
   MUC_ND,
   NHAN_PHAM_VI,
@@ -143,6 +145,19 @@ assert.ok(
   !khungCV.some((m) => MUC_ND[m.key] !== undefined),
   "không mục nào của công văn được đổ nội dung hợp đồng thương mại vào",
 );
+// Cơ quan ban hành công văn chỉ in ĐÚNG CÁI TÊN. NĐ 30/2020 Điều 8 khoản 2
+// điểm b không đòi mã số thuế, điện thoại hay người đại diện — những dòng ấy
+// chỉ hợp đồng thương mại mới cần, và chúng chính là thứ vừa bị gỡ.
+assert.ok(MUC_CHI_TEN.has("ten_co_quan"));
+assert.ok(!MUC_CHI_TEN.has("nsdld"), "HĐLĐ vẫn cần địa chỉ và người giao kết (BLLĐ Đ21.1.a)");
+
+// Người lao động là một THỂ NHÂN, luôn luôn. Nếu ô chọn của biểu mẫu quyết
+// định được chỗ này thì mặc định "tổ chức" in ra một HĐLĐ ký với doanh nghiệp,
+// kèm "Người đại diện theo pháp luật" ở đúng chỗ BLLĐ Đ21.1.b đòi ngày sinh và
+// số CCCD.
+assert.ok(MUC_CA_NHAN.has("nld"));
+assert.ok(!MUC_CA_NHAN.has("nsdld"), "người sử dụng lao động thì có thể là tổ chức");
+
 // Chữ ký công văn là MỘT người ký, và nó phải được nhận ra để `.docx` giữ lại.
 assert.deepEqual(
   khungCV.filter((m) => MUC_KY.has(m.key)).map((m) => m.key),

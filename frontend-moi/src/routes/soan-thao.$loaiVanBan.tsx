@@ -30,7 +30,15 @@ import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
 import { SoatBanThao } from "@/components/klaw/SoatBanThao";
 import { TINH_THANH, capDuoiCua } from "@/lib/dia-gioi";
 import { MAU, laHopDongLaoDong, laThuViec, loaiBackendCua, mauTheoId } from "@/lib/mau-van-ban";
-import { MUC_BEN, MUC_KY, MUC_ND, dungKhung, type PhanND } from "@/lib/khung-van-ban";
+import {
+  MUC_BEN,
+  MUC_CA_NHAN,
+  MUC_CHI_TEN,
+  MUC_KY,
+  MUC_ND,
+  dungKhung,
+  type PhanND,
+} from "@/lib/khung-van-ban";
 import { laMau, type CauTruc } from "@/lib/klaw";
 import { goi } from "@/lib/api";
 // `toanVan` tĩnh được: `docx` và `jspdf` nằm sau `await import()` bên trong
@@ -1382,17 +1390,27 @@ function A4({
 
   const muc = dungKhung(cauTruc);
 
-  const khoiBen = (p: "A" | "B") => {
+  const khoiBen = (p: "A" | "B", chiTen: boolean, buocLaCaNhan: boolean) => {
     const b = draft[p];
+    const laToChuc = b.loai === "to-chuc" && !buocLaCaNhan;
+    // Mục chỉ đòi cái tên thì in đúng cái tên. Mã số thuế, điện thoại và người
+    // đại diện không có trong NĐ 30/2020 Điều 8 khoản 2 điểm b.
+    if (chiTen)
+      return (
+        <p>
+          <V
+            k={laToChuc ? `${p}.tenToChuc` : `${p}.hoTen`}
+            value={laToChuc ? b.tenToChuc : b.hoTen}
+            label="Tên cơ quan, tổ chức"
+          />
+        </p>
+      );
     return (
       <>
-        {b.loai === "to-chuc" ? (
+        {laToChuc ? (
           <>
             <p>
               Tên tổ chức: <V k={`${p}.tenToChuc`} value={b.tenToChuc} label="Tên tổ chức" />
-            </p>
-            <p>
-              Mã số thuế: <V k={`${p}.mst`} value={b.mst} label="Mã số thuế" />
             </p>
             <p>
               Địa chỉ trụ sở: <V k={`${p}.soNhaDuong`} value={diaChi(b)} label="Địa chỉ trụ sở" />
@@ -1570,7 +1588,7 @@ function A4({
               {m.ten}
             </p>
 
-            {ben !== undefined && khoiBen(ben)}
+            {ben !== undefined && khoiBen(ben, MUC_CHI_TEN.has(m.key), MUC_CA_NHAN.has(m.key))}
             {phan !== undefined && khoiND(phan)}
             {laKy && (
               <div data-xuat="ky" style={{ marginTop: 10 }}>

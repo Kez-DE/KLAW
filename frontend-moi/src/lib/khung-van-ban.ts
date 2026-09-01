@@ -115,6 +115,30 @@ export const MUC_BEN: Record<string, "A" | "B"> = {
   ten_doanh_nghiep: "A",
 };
 
+/**
+ * Mục nào chỉ đòi CÁI TÊN, không đòi hồ sơ đầy đủ của bên đó.
+ *
+ * NĐ 30/2020 Điều 8 khoản 2 điểm b đòi đúng "tên cơ quan, tổ chức ban hành văn
+ * bản" — không mã số thuế, không số điện thoại, không người đại diện. Đổ cả
+ * khối hồ sơ doanh nghiệp vào đấy là dựng lại đúng thói quen vừa gỡ: in lên
+ * công văn những dòng chỉ hợp đồng thương mại mới cần.
+ */
+export const MUC_CHI_TEN = new Set(["ten_co_quan", "ten_doanh_nghiep"]);
+
+/**
+ * Mục nào LUÔN LUÔN là một thể nhân, bất kể ô "loại bên" trên biểu mẫu chọn gì.
+ *
+ * BLLĐ Điều 21 khoản 1 điểm b đòi "họ tên, ngày sinh, giới tính, nơi cư trú, số
+ * CCCD của NGƯỜI LAO ĐỘNG" — người lao động không thể là một tổ chức. Để ô chọn
+ * của biểu mẫu quyết định chỗ này thì mặc định "tổ chức" sẽ in ra một hợp đồng
+ * lao động ký với một doanh nghiệp, kèm mục "Người đại diện theo pháp luật" ở
+ * đúng chỗ luật đòi ngày sinh và số CCCD.
+ *
+ * Chỉ `nld` nằm ở đây. Người khởi kiện, người khiếu nại, bên uỷ quyền đều có
+ * thể là tổ chức, nên chúng vẫn theo ô chọn của biểu mẫu.
+ */
+export const MUC_CA_NHAN = new Set(["nld"]);
+
 /** Mục nào là ô ký. Chỉ những mục này mới dựng khối chữ ký. */
 export const MUC_KY = new Set(["chu_ky", "ky_ten", "chuc_vu_chu_ky"]);
 
