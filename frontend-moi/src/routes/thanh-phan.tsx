@@ -8,7 +8,7 @@ import { KhungDoiChieu, useHaiCot } from "@/components/klaw/KhungDoiChieu";
 import { TheKetQua } from "@/components/klaw/TheKetQua";
 import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { useGoiApi } from "@/hooks/use-goi-api";
-import type { ApiErrorKind, TraCuuKetQua, VanBanQuanhDieu } from "@/lib/klaw";
+import type { ApiErrorKind, BuocKhai, SuKienBuoc, TraCuuKetQua, VanBanQuanhDieu } from "@/lib/klaw";
 import { cn } from "@/lib/utils";
 
 /**
@@ -87,6 +87,53 @@ const MA_HTTP: Partial<Record<ApiErrorKind, number>> = {
   server_error: 500,
   invalid_response: 200,
 };
+
+/**
+ * Chín bước máy chủ khai trong `event: bat_dau`, chép từ một lượt đo THẬT
+ * (`pha2-endpoint-report.md` §8). Ở màn hình thật, danh sách này KHÔNG viết
+ * cứng — nó đến từ stream, nên thêm một node vào graph là thanh tiến trình dài
+ * thêm mà không ai phải sửa FE. Bản chụp ở đây chỉ để xem trước thành phần.
+ */
+const CHIN_BUOC: BuocKhai[] = [
+  { buoc: "route", nhan: "Phân loại câu hỏi", thu_tu: 1 },
+  { buoc: "tien_de", nhan: "Kiểm tiền đề câu hỏi", thu_tu: 2 },
+  { buoc: "rewrite", nhan: "Viết lại truy vấn", thu_tu: 3 },
+  { buoc: "retrieve", nhan: "Truy hồi điều khoản", thu_tu: 4 },
+  { buoc: "expand", nhan: "Mở rộng dẫn chiếu", thu_tu: 5 },
+  { buoc: "generate", nhan: "Sinh luận điểm", thu_tu: 6 },
+  { buoc: "tier1", nhan: "Kiểm chứng tầng 1 — đối chiếu nguyên văn", thu_tu: 7 },
+  { buoc: "tier2", nhan: "Kiểm chứng tầng 2 — mô hình thẩm định", thu_tu: 8 },
+  { buoc: "assemble", nhan: "Dựng câu trả lời", thu_tu: 9 },
+];
+
+/** Dừng ở cuối `tier1` (7,51s) — tức đang trong đúng khoảng lặng 9,1 giây của `tier2`. */
+const DA_PHAT_MAU: SuKienBuoc[] = [
+  { buoc: "route", nhan: "Phân loại câu hỏi", thu_tu: 1, tong: 9, chi_tiet: {} },
+  { buoc: "tien_de", nhan: "Kiểm tiền đề câu hỏi", thu_tu: 2, tong: 9, chi_tiet: {} },
+  { buoc: "rewrite", nhan: "Viết lại truy vấn", thu_tu: 3, tong: 9, chi_tiet: {} },
+  {
+    buoc: "retrieve",
+    nhan: "Truy hồi điều khoản",
+    thu_tu: 4,
+    tong: 9,
+    chi_tiet: { so_dieu_khoan: 13 },
+  },
+  {
+    buoc: "expand",
+    nhan: "Mở rộng dẫn chiếu",
+    thu_tu: 5,
+    tong: 9,
+    chi_tiet: { so_dieu_khoan: 175 },
+  },
+  { buoc: "generate", nhan: "Sinh luận điểm", thu_tu: 6, tong: 9, chi_tiet: { so_luan_diem: 3 } },
+  {
+    buoc: "tier1",
+    nhan: "Kiểm chứng tầng 1 — đối chiếu nguyên văn",
+    thu_tu: 7,
+    tong: 9,
+    chi_tiet: { so_luan_diem_dat: 3 },
+  },
+];
 
 const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
   {
@@ -367,11 +414,11 @@ function TrangThanhPhan() {
 
           <Muc
             so="03"
-            tieuDe="Trạng thái chờ — bốn bước, tiến trình xác định, huỷ thật"
-            chuThich="Nút huỷ gọi abort() trên một AbortController thật, không chỉ ẩn khay đi. Bấm 'Gửi thử' rồi bấm 'Huỷ lượt tra cứu' — tiêu điểm phải quay về ô nhập, không rơi về đầu trang."
+            tieuDe="Trạng thái chờ — bước THẬT từ SSE, tiến trình xác định, huỷ thật"
+            chuThich="Trên màn thật, cacBuoc và daPhat đến từ POST /tra-cuu/luong: mỗi bước là một node của graph đã chạy xong ở máy chủ, không phải ước lượng theo thời gian. Danh sách dưới đây là bản chụp của một lượt đo thật (9 bước, dừng ở tier2 — đúng khoảng lặng 9,1 giây). Nút huỷ gọi abort() trên một AbortController thật."
           >
             {cho.dangChay ? (
-              <TrangThaiCho onHuy={cho.huy} />
+              <TrangThaiCho cacBuoc={CHIN_BUOC} daPhat={DA_PHAT_MAU} onHuy={cho.huy} />
             ) : (
               <div className="flex flex-wrap items-center gap-3">
                 <label className="sr-only" htmlFor="o-hoi-mau">
