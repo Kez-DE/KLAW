@@ -68,6 +68,12 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "179989": ("deep", "71/2025/QH15"),    # Công nghiệp công nghệ số
     "27621":  ("deep", "15/2012/QH13"),    # Xử lý vi phạm hành chính
     "96035":  ("deep", "93/2015/QH13"),    # Tố tụng hành chính
+
+    # ── Đợt C 2026-09-01 — mở khoá mẫu soạn thảo ──
+    # Thể thức văn bản hành chính (công văn, quyết định, biên bản…) nằm trọn ở
+    # đây; không có nó thì sáu mẫu cuối không có căn cứ nào để soát. Qua cổng
+    # cấu trúc sạch: 0 lỗi, 0 cảnh báo, 262 điều khoản.
+    "141142": ("deep", "30/2020/NĐ-CP"),   # Công tác văn thư
     # ── Đợt C — 2 văn bản HẾT HIỆU LỰC TOÀN BỘ, nạp LÀM BẪY ──
     # Cùng vai trò với 4 nghị định lương tối thiểu ở trên: có ích VÌ đã chết.
     # `13/2023/NĐ-CP` đặc biệt đáng nạp — FE dẫn nó như luật hiện hành, song song
