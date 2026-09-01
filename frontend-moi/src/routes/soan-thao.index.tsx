@@ -39,8 +39,21 @@ export const Route = createFileRoute("/soan-thao/")({
   component: ChonLoaiVanBan,
 });
 
-/** Đếm từ chính bản đồ, không viết cứng: thêm một ánh xạ là con số tự đúng. */
-const SO_SOAT_DUOC = MAU.filter((m) => loaiBackendCua(m.id) !== undefined).length;
+/**
+ * Đếm từ chính bản đồ, không viết cứng: thêm một ánh xạ là con số tự đúng.
+ *
+ * HAI con số, không một. Thẻ mẫu đã tách ba năng lực thành ba nhãn, vì gộp
+ * `cong-van` vào "Soát được với KLAW" là hứa rằng KLAW đọc được nội dung công
+ * văn — nó chỉ đếm đủ 9 thành phần thể thức. Một con số gộp ở câu dẫn dựng lại
+ * đúng lời hứa mà nhãn vừa từ chối đưa ra, và người đếm nhãn trên màn hình ra
+ * 16 chứ không phải 17.
+ */
+const SO_SOAT_NOI_DUNG = MAU.filter(
+  (m) => loaiBackendCua(m.id) !== undefined && !CHI_SOAT_HINH_THUC.has(m.id),
+).length;
+const SO_SOAT_THE_THUC = MAU.filter(
+  (m) => loaiBackendCua(m.id) !== undefined && CHI_SOAT_HINH_THUC.has(m.id),
+).length;
 
 const NHOM_ICON: Record<NhomMau, typeof Briefcase> = {
   "lao-dong": Briefcase,
@@ -75,9 +88,9 @@ function ChonLoaiVanBan() {
           trước bản A4 theo thể thức văn bản Việt Nam. Toàn bộ diễn ra trên máy bạn.
         </p>
         <p className="mt-2 max-w-2xl text-[13px] text-muted-foreground">
-          {SO_SOAT_DUOC}/{MAU.length} mẫu soát được với kho văn bản của KLAW — bộ soát hiện mới có
-          rule và checklist cho hợp đồng lao động. Những mẫu còn lại vẫn soạn và xuất tệp bình
-          thường, nhưng phần đối chiếu pháp lý phải do người làm.
+          {SO_SOAT_NOI_DUNG}/{MAU.length} mẫu soát được nội dung với kho văn bản của KLAW
+          {SO_SOAT_THE_THUC > 0 && <>, thêm {SO_SOAT_THE_THUC} mẫu chỉ soát thể thức</>}. Những mẫu
+          còn lại vẫn soạn và xuất tệp bình thường, nhưng phần đối chiếu pháp lý phải do người làm.
         </p>
 
         <div className="relative mt-5 max-w-xl">

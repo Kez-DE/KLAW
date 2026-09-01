@@ -843,9 +843,8 @@ function KhongGianSoanThao() {
                     <span className="font-semibold text-foreground">
                       KLAW chưa soát được loại văn bản này.
                     </span>{" "}
-                    Bộ soát của hệ thống hiện chỉ dựng rule và checklist cho hợp đồng lao động. Bản
-                    thảo vẫn soạn và xuất tệp bình thường — nhưng phần đối chiếu pháp lý phải do
-                    người làm.
+                    Bộ soát chưa dựng rule và checklist cho loại văn bản này. Bản thảo vẫn soạn và
+                    xuất tệp bình thường — nhưng phần đối chiếu pháp lý phải do người làm.
                   </p>
                 </section>
               ) : (

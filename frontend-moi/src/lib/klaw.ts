@@ -567,3 +567,25 @@ export function laPhamVi(x: unknown): x is PhamVi {
   const nong = laBanGhi(x) ? x["nong"] : null;
   return laBanGhi(sau) && laBanGhi(nong) && Array.isArray(sau["van_ban"]);
 }
+
+/**
+ * `tin_cay` / `do_tin_cay` là ĐỊNH DANH MÁY, không phải chữ cho người đọc.
+ *
+ * Backend gửi `trung_binh`; in thẳng lên màn hình thì người dùng đọc được dấu
+ * gạch dưới của một enum ngay dưới nhãn hiệu lực — đúng chỗ sản phẩm đang xin
+ * người ta tin mình. Lược đồ khai trường này là `string` tự do, nên nhãn lạ
+ * trả về NGUYÊN CHUỖI: cùng lối an toàn với `BadgeHieuLuc`, không đoán nghĩa
+ * một giá trị mình chưa biết.
+ */
+export function docDoTinCay(giaTri: string): string {
+  switch (giaTri) {
+    case "cao":
+      return "cao";
+    case "trung_binh":
+      return "trung bình";
+    case "thap":
+      return "thấp";
+    default:
+      return giaTri;
+  }
+}

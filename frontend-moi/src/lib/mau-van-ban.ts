@@ -289,8 +289,10 @@ export const laThuViec = (m: MauVanBan) => m.id === "hop-dong-thu-viec";
  * nút.
  *
  * 2026-09-01: nó có checklist thật (BLLĐ Đ118.2 a–i) nên đã quay lại, cùng 12
- * mẫu khác. **16/25 mẫu soát được** (một trong đó chỉ soát thể thức). Danh mục đếm từ chính bản đồ này nên con
- * số không thể trôi khỏi sự thật.
+ * mẫu khác. **17/25 mẫu nối được backend: 16 soát NỘI DUNG, 1 (`cong-van`) chỉ
+ * soát THỂ THỨC.** Danh mục đếm cả hai con số từ chính bản đồ này nên chúng
+ * không thể trôi khỏi sự thật — con số viết tay trong chú thích thì có, và đã
+ * trôi đúng một lần: dòng này từng ghi 16 khi bản đồ đã có 17.
  *
  * KHÔNG ánh xạ `quyet-dinh-cham-dut-hop-dong-lao-dong` sang
  * `quyet_dinh_ky_luat`: chấm dứt hợp đồng và xử lý kỷ luật là hai chế định khác

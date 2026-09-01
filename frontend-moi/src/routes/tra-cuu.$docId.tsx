@@ -8,6 +8,7 @@ import { BaoLoi } from "@/components/klaw/BaoLoi";
 import { goi, thamSo } from "@/lib/api";
 import {
   CAP_CHUA_DIEU,
+  docDoTinCay,
   laTimTrongVanBan,
   laVanBanHieuLuc,
   laVanBanLienQuan,
@@ -409,7 +410,7 @@ function NguyenVanDieu({
                     {sua.vi_tri} — sửa bởi {sua.so_ky_hieu ?? "văn bản chưa rõ số hiệu"}
                     {sua.duong_dan === null ? "" : ` (${sua.duong_dan})`}
                     {sua.tu_ngay === null ? "" : ` từ ${sua.tu_ngay}`} · nguồn: {sua.nguon} · độ tin
-                    cậy: {sua.do_tin_cay}
+                    cậy: {docDoTinCay(sua.do_tin_cay)}
                   </p>
                 ))}
               </div>
@@ -696,7 +697,8 @@ function ManDocVanBan() {
                     {hieuLuc.van_ban.ly_do}
                   </p>
                   <p className="mt-1 mb-0 text-[11px] text-muted-foreground">
-                    Đánh giá tại ngày {hieuLuc.as_of} · độ tin cậy: {hieuLuc.van_ban.tin_cay}
+                    Đánh giá tại ngày {hieuLuc.as_of} · độ tin cậy:{" "}
+                    {docDoTinCay(hieuLuc.van_ban.tin_cay)}
                   </p>
                 </div>
               )}
