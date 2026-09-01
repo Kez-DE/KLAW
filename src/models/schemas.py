@@ -245,6 +245,13 @@ class FactFieldOut(BaseModel):
 
 class MauResponse(BaseModel):
     loai_van_ban: str
+    # `facts: []` một mình MƠ HỒ: nó vừa là "loại này chưa có checklist" vừa là
+    # "loại này có checklist nhưng không rule nào cần fact" (thoả thuận bảo mật,
+    # biên bản họp — completeness là toàn bộ phép soát, không có ngưỡng số nào
+    # để kiểm). Frontend đọc rỗng thành "chưa có backend" sẽ giấu mất một mẫu
+    # đã dựng xong. `ho_tro` nói thẳng, không bắt bên gọi suy từ một danh sách
+    # rỗng.
+    ho_tro: bool
     facts: list[FactFieldOut]
 
 

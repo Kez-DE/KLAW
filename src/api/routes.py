@@ -821,6 +821,6 @@ async def mau(loai: LoaiVanBan) -> MauResponse:
     fact của HĐLĐ sẽ sai loại văn bản.
     """
     if loai not in cac_loai():
-        return MauResponse(loai_van_ban=loai, facts=[])
+        return MauResponse(loai_van_ban=loai, ho_tro=False, facts=[])
     facts = [FactFieldOut(**f) for f in mo_ta_facts(rules_cho(loai), load_facts_meta_cached())]
-    return MauResponse(loai_van_ban=loai, facts=facts)
+    return MauResponse(loai_van_ban=loai, ho_tro=True, facts=facts)

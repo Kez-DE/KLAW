@@ -168,7 +168,7 @@ async def test_mau_loai_khong_ho_tro_tra_danh_sach_rong_khong_bia(client, gia_vo
     gia_vo_chua_ho_tro("noi_quy")
     r = await client.get("/api/v1/mau/noi_quy")
     assert r.status_code == 200
-    assert r.json()["facts"] == []
+    assert r.json() == {"loai_van_ban": "noi_quy", "ho_tro": False, "facts": []}
 
 
 @pytest.mark.asyncio
