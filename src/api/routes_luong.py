@@ -125,6 +125,34 @@ async def _chay_nen(
         await hang.put(None)
 
 
+# Khoảng lặng ĐO ĐƯỢC giữa hai bước: `tier2` mất **9,1 giây** không phát gì.
+# Nhiều reverse proxy đóng kết nối rảnh sớm hơn thế dưới cấu hình chặt, và khi
+# đó người dùng thấy tiến trình đứng rồi mất kết nối — trong khi graph vẫn chạy
+# tới cùng và VẪN TÍNH TIỀN lượt đó. 15 giây đủ thưa để không tốn gì, đủ dày để
+# giữ ống nước có nước chảy.
+_NHIP_GIAY = 15.0
+
+
+async def phat_sse(hang: asyncio.Queue):
+    """Bơm hàng đợi ra SSE, chèn `: ping` khi im lặng quá `_NHIP_GIAY`.
+
+    `: ping` là **comment** của giao thức SSE — `EventSource` bỏ qua hoàn toàn,
+    không sinh sự kiện, không lọt vào `onmessage`. Nó không phải một loại sự
+    kiện thứ tư mà FE phải xử lý.
+
+    Tách khỏi `tra_cuu_luong` để test được mà không phải dựng cả graph.
+    """
+    while True:
+        try:
+            muc = await asyncio.wait_for(hang.get(), timeout=_NHIP_GIAY)
+        except TimeoutError:
+            yield ": ping\n\n"
+            continue
+        if muc is None:
+            return
+        yield _sse(*muc)
+
+
 @router.post("/tra-cuu/luong")
 async def tra_cuu_luong(
     req: TraCuuRequest, user_sub: str | None = Depends(cong_bao_ve)
@@ -158,8 +186,4 @@ async def tra_cuu_luong(
     _DANG_CHAY.add(task)
     task.add_done_callback(_DANG_CHAY.discard)
 
-    async def sinh():
-        while (muc := await hang.get()) is not None:
-            yield _sse(*muc)
-
-    return StreamingResponse(sinh(), media_type="text/event-stream", headers=_HEADER)
+    return StreamingResponse(phat_sse(hang), media_type="text/event-stream", headers=_HEADER)
