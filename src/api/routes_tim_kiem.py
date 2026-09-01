@@ -60,20 +60,35 @@ LIMIT_MAX = 100
 TRICH_MAX = 400
 
 
+# `depth = 'deep'` ở CẢ BA truy vấn — từ vựng của bộ lọc phải mô tả đúng tập
+# hợp mà bộ lọc tìm trong đó. `/tim-kiem` khớp trên `provisions`, nên 79 bản
+# ghi tầng metadata (0 điều khoản) là thứ nó không bao giờ trả về; đếm chúng
+# vào đây khiến mỗi chip hứa nhiều hơn thứ bấm vào nhận được. Đo 2026-09-01:
+# "Luật" hứa 75 / với tới 25, "Bộ luật" 12 / 6, và bốn nhóm (Quyết định, Pháp
+# lệnh, Nghị quyết, Thông tư liên tịch) chào tổng cộng 11 văn bản mà bấm vào
+# LUÔN ra rỗng.
+#
+# `depth` trùng khít với "có điều khoản" (đo: deep=47 đều có, metadata=79 đều
+# không), nên dùng cột đã đánh chỉ mục thay cho `EXISTS` một truy vấn con.
+#
+# Tầng metadata KHÔNG bị giấu: `/pham-vi` công bố riêng cả hai tầng (`sau` 47
+# và `nong` 79) — đó là chỗ đúng để nói ra, không phải bộ lọc.
+_DEEP = " WHERE depth = 'deep'"
+
 _SQL_BO_LOC = text(
     "SELECT count(*)::int AS tong,"
     " count(*) FILTER (WHERE co_quan_ban_hanh IS NULL)::int AS khong_ro_co_quan,"
     " min(extract(year FROM ngay_ban_hanh))::int AS nam_min,"
     " max(extract(year FROM ngay_ban_hanh))::int AS nam_max"
-    " FROM documents"
+    " FROM documents" + _DEEP
 )
 _SQL_LOAI = text(
     "SELECT loai_van_ban AS gia_tri, count(*)::int AS so_van_ban FROM documents"
-    " GROUP BY 1 ORDER BY 2 DESC, 1"
+    + _DEEP + " GROUP BY 1 ORDER BY 2 DESC, 1"
 )
 _SQL_CO_QUAN = text(
     "SELECT co_quan_ban_hanh AS gia_tri, count(*)::int AS so_van_ban FROM documents"
-    " WHERE co_quan_ban_hanh IS NOT NULL GROUP BY 1 ORDER BY 2 DESC, 1"
+    + _DEEP + " AND co_quan_ban_hanh IS NOT NULL GROUP BY 1 ORDER BY 2 DESC, 1"
 )
 
 

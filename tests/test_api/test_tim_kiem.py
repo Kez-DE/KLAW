@@ -41,11 +41,51 @@ async def test_bo_loc_dem_tu_db_khong_phai_hang_so(client):
     assert tong == d["tong_van_ban"], (
         "tổng theo loại phải bằng tổng corpus — lệch nghĩa là một nhánh đang bịa"
     )
-    # Cơ quan KHÔNG cộng đủ: 79/126 văn bản (tầng metadata) không có cơ quan.
-    # Con số đó phải được NÓI RA, không được giấu bằng cách bỏ qua.
+    # `co_quan_khong_ro` giữ lại dù nay bằng 0: nếu sau này một văn bản CÓ
+    # điều khoản mà thiếu cơ quan ban hành, con số đó phải được nói ra chứ
+    # không được giấu bằng cách bỏ qua. Tầng metadata thì đã có `/pham-vi`
+    # công bố riêng (`nong`), không phải việc của bộ lọc.
     assert d["co_quan_khong_ro"] == d["tong_van_ban"] - sum(
         v["so_van_ban"] for v in d["co_quan_ban_hanh"]
     )
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_bo_loc_chi_mo_ta_van_ban_tim_kiem_toi_duoc(client):
+    """Từ vựng của bộ lọc phải mô tả ĐÚNG tập hợp mà bộ lọc tìm trong đó.
+
+    `/tim-kiem` khớp trên `provisions`, nên 79 bản ghi tầng metadata (0 điều
+    khoản) là thứ nó KHÔNG BAO GIỜ trả về. Trước bản này `/bo-loc` đếm cả
+    chúng, nên nó hứa "Luật: 75" trong khi tìm kiếm chỉ với tới 25, "Bộ luật:
+    12" trong khi thật là 6 — và chào bốn nhóm (Quyết định, Pháp lệnh, Nghị
+    quyết, Thông tư liên tịch) luôn luôn ra rỗng khi bấm.
+
+    Test cũ ngay bên trên ĐÃ nêu đúng luật ("một giá trị lọc 0 văn bản là một
+    chip bấm vào ra rỗng") nhưng đo nhầm đại lượng: `so_van_ban > 0` tính cả
+    bản ghi metadata, nên đúng bốn cái chip rỗng ấy lọt qua.
+
+    Không neo vào con số 47 — corpus còn lớn lên. Neo vào bất biến: mỗi giá
+    trị lọc phải đếm đúng số văn bản CÓ điều khoản mang giá trị đó.
+    """
+    from sqlalchemy import text as _text
+
+    from src.services.db import get_engine
+
+    d = (await client.get("/api/v1/bo-loc")).json()
+
+    with get_engine().connect() as c:
+        that = dict(c.execute(_text(
+            "SELECT loai_van_ban, count(*)::int FROM documents d"
+            " WHERE EXISTS (SELECT 1 FROM provisions p WHERE p.document_id = d.id)"
+            " GROUP BY 1"
+        )).all())
+
+    tra_ve = {v["gia_tri"]: v["so_van_ban"] for v in d["loai_van_ban"]}
+    assert tra_ve == that, (
+        "mỗi chip phải đếm đúng số văn bản tìm kiếm với tới được"
+    )
+    assert d["tong_van_ban"] == sum(that.values())
 
 
 @pytest.mark.integration
