@@ -23,12 +23,14 @@
 import assert from "node:assert/strict";
 import {
   MUC_BEN,
+  MUC_CA_BEN,
   MUC_CA_NHAN,
   MUC_CHI_TEN,
   MUC_KY,
   MUC_ND,
   NHAN_PHAM_VI,
   dungKhung,
+  dungKhungHopDong,
   phamViSoatCua,
   tachCanCu,
   tieuDeMuc,
@@ -77,6 +79,8 @@ const congVan: CauTruc = {
   muc_do_thieu: "chan",
   pham_vi_soat: "the_thuc",
   chi_soat_the_thuc: true,
+  la_hop_dong: false,
+  khung_hop_dong: [],
   can_cu_goc: "30/2020/NĐ-CP > Điều 8 > Khoản 2",
   can_cu_chi_tiet: "30/2020/NĐ-CP > Điều 7",
   muc: [
@@ -204,6 +208,97 @@ assert.deepEqual(
 assert.equal(khungLD[0]?.tieuDe, "Điều 1. Tên, địa chỉ NSDLĐ");
 assert.deepEqual(khungLD[2]?.canCu, { soHieu: "45/2019/QH14", nhan: "Điều 21, Khoản 1, Điểm c" });
 
+/* ── 3b. Khối hợp đồng: theo MẢNG trả về, không giả định hai phần tử ──────── */
+
+const CAC_BEN = {
+  stt: 1,
+  key: "cac_ben",
+  ten: "Thông tin các bên giao kết hợp đồng",
+  can_cu: "91/2015/QH13 > Điều 385",
+  bat_buoc: true,
+};
+const CHU_KY_HD = {
+  stt: 2,
+  key: "chu_ky",
+  ten: "Chữ ký, đóng dấu của các bên",
+  can_cu: "91/2015/QH13 > Điều 400 > Khoản 4",
+  bat_buoc: true,
+};
+
+// `la_hop_dong=false` thì KHÔNG dựng gì thêm — công văn, đơn, quyết định, biên
+// bản, nội quy, quy chế, bản tự khai, văn bản giải trình, và giấy uỷ quyền.
+assert.equal(congVan.la_hop_dong, false);
+assert.deepEqual(dungKhungHopDong(congVan), []);
+// `null` là giá trị THẬT của máy chủ cho 15 loại không-hợp-đồng, không phải `[]`.
+// Gọi `.map()` thẳng vào nó ném `TypeError` trên mọi công văn, đơn, quyết định.
+assert.deepEqual(dungKhungHopDong({ ...congVan, khung_hop_dong: null }), []);
+
+// Hợp đồng thường: hai mục, căn cứ lấy TỪ MẢNG chứ không viết cứng trong FE.
+// Một `can_cu` sống trong FE không bao giờ đi qua cổng phân giải
+// `provisions.duong_dan`; phục vụ từ server thì nó qua cổng.
+{
+  const hd = { ...hdld, la_hop_dong: true, khung_hop_dong: [CAC_BEN, CHU_KY_HD] };
+  const k = dungKhungHopDong(hd);
+  assert.deepEqual(
+    k.map((m) => m.key),
+    ["cac_ben", "chu_ky"],
+  );
+  assert.deepEqual(k[0]?.canCu, { soHieu: "91/2015/QH13", nhan: "Điều 385" });
+  assert.deepEqual(k[1]?.canCu, { soHieu: "91/2015/QH13", nhan: "Điều 400, Khoản 4" });
+  // Không đánh số: `stt` của mảng không phải số Điều của văn bản.
+  assert.equal(k[0]?.tieuDe, CAC_BEN.ten);
+  assert.ok(!k[0]?.tieuDe.startsWith("Điều"));
+}
+
+// CA MỘT PHẦN TỬ — `hop_dong_hop_tac`. Checklist ĐÃ CÓ `cac_ben` riêng (BLDS
+// Đ505.2) và mục đó nằm trong mẫu số completeness, nên máy chủ chỉ gửi `chu_ky`
+// kèm `stt=1`. Giả định hai phần tử sẽ vẽ "các bên" hai lần: một lần được tính
+// vào tỷ lệ, một lần không.
+{
+  const hopTac = {
+    ...hdld,
+    la_hop_dong: true,
+    muc: [
+      {
+        stt: 1,
+        key: "muc_dich_thoi_han",
+        ten: "Mục đích, thời hạn",
+        can_cu: "91/2015/QH13 > Điều 504",
+        bat_buoc: true,
+      },
+      {
+        stt: 2,
+        key: "cac_ben",
+        ten: "Các bên hợp tác",
+        can_cu: "91/2015/QH13 > Điều 505 > Khoản 2",
+        bat_buoc: true,
+      },
+    ],
+    khung_hop_dong: [{ ...CHU_KY_HD, stt: 1 }],
+  };
+  const k = dungKhungHopDong(hopTac);
+  assert.equal(k.length, 1);
+  assert.equal(k[0]?.key, "chu_ky");
+  assert.ok(
+    !k.some((m) => MUC_CA_BEN.has(m.key)),
+    "khung KHÔNG được mang cac_ben khi checklist đã tự có",
+  );
+  // Mục `cac_ben` của checklist phải tự dựng được khối hai bên, nếu không thì
+  // hợp đồng hợp tác mất hẳn phần các bên.
+  const tuChecklist = dungKhung(hopTac).filter((m) => MUC_CA_BEN.has(m.key));
+  assert.equal(tuChecklist.length, 1);
+  assert.deepEqual(tuChecklist[0]?.canCu, { soHieu: "91/2015/QH13", nhan: "Điều 505, Khoản 2" });
+  // Đúng MỘT nguồn dựng khối các bên — không đường nào vẽ hai lần.
+  assert.equal(tuChecklist.length + k.filter((m) => MUC_CA_BEN.has(m.key)).length, 1);
+}
+
+// Khung KHÔNG được cộng vào số mục của checklist — mẫu số completeness là
+// `cau_truc.muc`, và tỷ lệ giao diện phải khớp thứ `/soat` trả về.
+{
+  const hd = { ...hdld, la_hop_dong: true, khung_hop_dong: [CAC_BEN, CHU_KY_HD] };
+  assert.equal(dungKhung(hd).length, hd.muc.length);
+}
+
 /* ── 4. Ba phạm vi soát, và ca lai phải tách riêng ────────────────────────── */
 
 assert.equal(phamViSoatCua(congVan), "the_thuc");
@@ -236,6 +331,30 @@ async function doiChieuMayChu() {
       console.error(`  ✗ ${id} → ${loai}: bản đồ ghi "${phamVi}", máy chủ tính ra "${that}"`);
       lech += 1;
     }
+    // `la_hop_dong=false` PHẢI đi kèm khung rỗng, và ngược lại khung chỉ được
+    // chứa hai khoá đã biết. `giay_uy_quyen` là ca canh chừng: nó có mục
+    // `ben_*` nên mọi heuristic đều nhận nhầm là hợp đồng.
+    // `null` là hợp lệ và là giá trị THẬT của 15 loại không-hợp-đồng; chỉ hợp
+    // đồng mới bắt buộc có mảng.
+    const kh = body.cau_truc.khung_hop_dong ?? [];
+    if (!body.cau_truc.la_hop_dong) {
+      assert.equal(kh.length, 0, `/mau/${loai} không phải hợp đồng mà vẫn có khung`);
+    } else {
+      assert.ok(
+        Array.isArray(body.cau_truc.khung_hop_dong),
+        `/mau/${loai} là hợp đồng mà khung không phải mảng`,
+      );
+      assert.ok(kh.length >= 1 && kh.length <= 2, `/mau/${loai} khung dài ${kh.length}`);
+      for (const x of kh) {
+        assert.ok(["cac_ben", "chu_ky"].includes(x.key), `khung lạ: ${x.key}`);
+        assert.ok(tachCanCu(x.can_cu), `khung ${x.key} của ${loai} thiếu căn cứ`);
+      }
+      const khoaMuc = new Set(body.cau_truc.muc.map((m) => m.key));
+      for (const x of kh) {
+        assert.ok(!khoaMuc.has(x.key), `${loai}: "${x.key}" có ở CẢ checklist lẫn khung`);
+      }
+    }
+
     // Khung rỗng nghĩa là thân văn bản sẽ rỗng — mẫu đó không dùng được.
     assert.ok(body.cau_truc.muc.length > 0, `/mau/${loai} có cau_truc nhưng KHÔNG có mục nào`);
   }
@@ -243,11 +362,27 @@ async function doiChieuMayChu() {
   return dong.length;
 }
 
-let daDoiChieu = 0;
+/**
+ * CHỈ phép thăm dò mới được bọc try/catch.
+ *
+ * Bọc cả `doiChieuMayChu()` là biến một sai lệch THẬT thành dòng chữ "máy chủ
+ * không với tới được" — cổng vẫn xanh, drift vẫn lọt, đúng kiểu thất bại thầm
+ * lặng mà kiểm này sinh ra để chặn. Đã dính đúng một lần khi viết.
+ */
+let mayChuSong = false;
 try {
-  await fetch(`${GOC.replace(/\/api\/v1$/, "")}/health`, { signal: AbortSignal.timeout(2500) });
-  daDoiChieu = await doiChieuMayChu();
+  const res = await fetch(`${GOC.replace(/\/api\/v1$/, "")}/health`, {
+    signal: AbortSignal.timeout(2500),
+  });
+  mayChuSong = res.ok;
 } catch {
+  mayChuSong = false;
+}
+
+let daDoiChieu = 0;
+if (mayChuSong) {
+  daDoiChieu = await doiChieuMayChu();
+} else {
   console.warn(
     `kiem-khung: BỎ QUA phần đối chiếu máy chủ (${GOC} không với tới được). ` +
       `Phần thuần dữ liệu đã chạy đủ. Chạy lại khi backend lên để canh bản đồ mẫu.`,

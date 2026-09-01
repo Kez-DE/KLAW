@@ -32,11 +32,13 @@ import { TINH_THANH, capDuoiCua } from "@/lib/dia-gioi";
 import { MAU, laHopDongLaoDong, laThuViec, loaiBackendCua, mauTheoId } from "@/lib/mau-van-ban";
 import {
   MUC_BEN,
+  MUC_CA_BEN,
   MUC_CA_NHAN,
   MUC_CHI_TEN,
   MUC_KY,
   MUC_ND,
   dungKhung,
+  dungKhungHopDong,
   type PhanND,
 } from "@/lib/khung-van-ban";
 import { laMau, type CauTruc } from "@/lib/klaw";
@@ -1389,6 +1391,7 @@ function A4({
   }
 
   const muc = dungKhung(cauTruc);
+  const khungHD = dungKhungHopDong(cauTruc);
 
   const khoiBen = (p: "A" | "B", chiTen: boolean, buocLaCaNhan: boolean) => {
     const b = draft[p];
@@ -1559,7 +1562,40 @@ function A4({
     }
   };
 
-  const nguoiKy = draft.A.loai === "to-chuc" ? draft.A.nguoiDaiDien : draft.A.hoTen;
+  const tenKy = (p: "A" | "B") =>
+    (draft[p].loai === "to-chuc" ? draft[p].nguoiDaiDien : draft[p].hoTen) || "…………………";
+
+  const nguoiKy = tenKy("A");
+
+  /** Cả hai bên trong một khối — dùng cho `cac_ben`, dù đến từ checklist hay khung. */
+  const khoiCaBen = () => (
+    <>
+      {(["A", "B"] as const).map((p) => (
+        <div key={p} style={{ marginTop: 8 }}>
+          <p style={{ fontWeight: 700 }}>
+            BÊN {p}: {draft[p].loai === "to-chuc" ? "(TỔ CHỨC)" : "(CÁ NHÂN)"}
+          </p>
+          {khoiBen(p, false, false)}
+        </div>
+      ))}
+    </>
+  );
+
+  /**
+   * Ô ký HAI CỘT — chỉ cho hợp đồng. BLDS Điều 400 khoản 4: hợp đồng bằng văn
+   * bản giao kết vào thời điểm BÊN SAU CÙNG ký, nên cả hai bên phải có chỗ ký.
+   */
+  const khoiKyHaiBen = () => (
+    <div data-xuat="ky" style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
+      {(["A", "B"] as const).map((p) => (
+        <div key={p} style={{ width: "45%", textAlign: "center" }}>
+          <p style={{ fontWeight: 700 }}>ĐẠI DIỆN BÊN {p}</p>
+          <p style={{ fontStyle: "italic", fontSize: 13 }}>(Ký, ghi rõ họ tên, đóng dấu)</p>
+          <p style={{ marginTop: 60, fontWeight: 700 }}>{tenKy(p)}</p>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <article className="a4-sheet">
@@ -1588,6 +1624,7 @@ function A4({
               {m.ten}
             </p>
 
+            {MUC_CA_BEN.has(m.key) && khoiCaBen()}
             {ben !== undefined && khoiBen(ben, MUC_CHI_TEN.has(m.key), MUC_CA_NHAN.has(m.key))}
             {phan !== undefined && khoiND(phan)}
             {laKy && (
@@ -1598,7 +1635,7 @@ function A4({
                 </div>
               </div>
             )}
-            {ben === undefined && phan === undefined && !laKy && (
+            {ben === undefined && phan === undefined && !laKy && !MUC_CA_BEN.has(m.key) && (
               <p>
                 <Ph k={`muc.${m.key}`} label={`nội dung mục “${m.ten}”`} buoc={3} />
               </p>
@@ -1612,6 +1649,19 @@ function A4({
           </div>
         );
       })}
+
+      {khungHD.map((m) => (
+        <div key={`khung-${m.key}`} style={{ marginTop: 14 }}>
+          <p className="dieu-head">{m.ten}</p>
+          {MUC_CA_BEN.has(m.key) && khoiCaBen()}
+          {m.key === "chu_ky" && khoiKyHaiBen()}
+          {m.canCu && chuThich && (
+            <p style={{ marginTop: 4 }}>
+              <BasisChip soHieu={m.canCu.soHieu} label={m.canCu.nhan} />
+            </p>
+          )}
+        </div>
+      ))}
     </article>
   );
 }

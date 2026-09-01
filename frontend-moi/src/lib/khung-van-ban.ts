@@ -74,6 +74,32 @@ export function tieuDeMuc(donViMuc: string, m: MucCauTruc): string {
   return `${donViMuc} ${m.stt}. ${m.ten}`;
 }
 
+/**
+ * Khối hợp đồng: các bên giao kết và chữ ký, dựng THEO MẢNG máy chủ trả về.
+ *
+ * Không đánh số. `stt` trong `khung_hop_dong` đánh theo mảng chứ không theo văn
+ * bản — `chu_ky` của `hop_dong_hop_tac` mang `stt=1` dù nó là mục cuối của một
+ * hợp đồng chín Điều — nên dùng nó làm số Điều sẽ in ra "Điều 1. Chữ ký" ngay
+ * dưới "Điều 9". Hai mục này cũng KHÔNG nằm trong mẫu số completeness của
+ * `/soat`, nên đánh số chúng lẫn vào các Điều của checklist là mời người đọc
+ * đếm ra một tỷ lệ khác với tỷ lệ máy chủ trả về.
+ *
+ * Độ dài mảng là 0, 1 hoặc 2 — đừng giả định 2. Máy chủ lọc bỏ key mà checklist
+ * đã tự có, nên `hop_dong_hop_tac` chỉ nhận `chu_ky`.
+ */
+export function dungKhungHopDong(c: CauTruc): MucKhung[] {
+  // `null` chứ không phải `[]` khi không phải hợp đồng — gọi thẳng `.map()` ở
+  // đây từng ném `TypeError` trên mọi công văn, đơn và quyết định.
+  return (c.khung_hop_dong ?? []).map((m) => ({
+    key: m.key,
+    stt: m.stt,
+    tieuDe: m.ten,
+    ten: m.ten,
+    batBuoc: m.bat_buoc,
+    canCu: tachCanCu(m.can_cu),
+  }));
+}
+
 /** Toàn bộ thân văn bản, theo đúng thứ tự và cách đánh số của `cau_truc`. */
 export function dungKhung(c: CauTruc): MucKhung[] {
   return c.muc.map((m) => ({
@@ -138,6 +164,15 @@ export const MUC_CHI_TEN = new Set(["ten_co_quan", "ten_doanh_nghiep"]);
  * thể là tổ chức, nên chúng vẫn theo ô chọn của biểu mẫu.
  */
 export const MUC_CA_NHAN = new Set(["nld"]);
+
+/**
+ * Mục nào dựng CẢ HAI bên trong một khối.
+ *
+ * Một khoá, hai nguồn: `hop_dong_hop_tac` có `cac_ben` ngay trong checklist
+ * (BLDS Đ505.2), mọi hợp đồng khác nhận nó qua `khung_hop_dong` (Đ385). Cùng
+ * một khối hiển thị phục vụ cả hai, nên không có đường nào vẽ các bên hai lần.
+ */
+export const MUC_CA_BEN = new Set(["cac_ben"]);
 
 /** Mục nào là ô ký. Chỉ những mục này mới dựng khối chữ ký. */
 export const MUC_KY = new Set(["chu_ky", "ky_ten", "chuc_vu_chu_ky"]);

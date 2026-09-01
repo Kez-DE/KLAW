@@ -436,6 +436,35 @@ export interface CauTruc {
   /** `the_thuc` hoặc `noi_dung`. */
   pham_vi_soat: string;
   chi_soat_the_thuc: boolean;
+  /**
+   * `true` = checklist này dựng trên chế định hợp đồng. Tính ở SERVER, vì chỉ ở
+   * đó mới biết: `can_cu_goc` không phân biệt được (BLDS `91/2015/QH13` chứa cả
+   * Đ430 mua bán lẫn Đ138 giấy uỷ quyền; BLLĐ chứa cả Đ21 HĐLĐ lẫn Đ118 nội
+   * quy), và suy từ `muc` sai cả hai chiều (`giay_uy_quyen` có mục `ben_*` mà
+   * KHÔNG phải hợp đồng; `hdld` và `hop_dong_mua_ban` không có mục nào nhắc
+   * "bên" mà vẫn là hợp đồng).
+   */
+  la_hop_dong: boolean;
+  /**
+   * Hai mục mà mọi hợp đồng bằng văn bản cần nhưng checklist riêng không liệt
+   * kê: các bên giao kết (BLDS Đ385) và chữ ký (BLDS Đ400.4 — chưa ký thì chưa
+   * giao kết).
+   *
+   * **ĐỪNG giả định hai phần tử.** Máy chủ lọc bỏ key mà checklist đã tự có:
+   * `hop_dong_hop_tac` chỉ nhận `chu_ky`, vì nó đã có mục `cac_ben` riêng với
+   * căn cứ cụ thể hơn (Đ505.2) và mục đó NẰM TRONG mẫu số completeness. Vẽ
+   * thêm một khối "các bên" nữa là in hai lần, một lần được tính vào tỷ lệ và
+   * một lần không.
+   *
+   * `stt` ở đây đánh số theo MẢNG, không phải theo văn bản — `chu_ky` của
+   * `hop_dong_hop_tac` mang `stt=1`. Đừng dùng nó làm số Điều.
+   *
+   * **`null`, không phải `[]`, khi `la_hop_dong=false`** — ĐO TRÊN MÁY CHỦ ĐANG
+   * CHẠY, cả 15 loại không-hợp-đồng đều trả `null`. Khai `MucCauTruc[]` rồi gọi
+   * `.map()` là ném `TypeError` trên mọi công văn, đơn và quyết định. Đây là lần
+   * THỨ HAI kiểu ở FE chặt hơn API thật (xem `can_cu_chi_tiet`).
+   */
+  khung_hop_dong: MucCauTruc[] | null;
   can_cu_goc: string;
   /**
    * `null` được — ĐO TRÊN MÁY CHỦ ĐANG CHẠY: `hop_dong_thu_viec`,
