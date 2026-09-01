@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { CalendarClock, ChevronRight, Paperclip, Scale, Send, X } from "lucide-react";
+import { ChevronRight, Paperclip, Scale, Send } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
 import { MaTruyVet } from "@/components/klaw/MaTruyVet";
@@ -10,7 +10,7 @@ import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { useTraCuu } from "@/hooks/use-tra-cuu";
 import type { Citation, TraCuuKetQua } from "@/lib/klaw";
-import { cn, ngayVietNam } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 /**
  * Màn hỏi KLAW — nối vào `POST /api/v1/tra-cuu/luong` (SSE).
@@ -42,48 +42,33 @@ const GOI_Y = [
 interface LuotDaXong {
   cauHoi: string;
   ketQua: TraCuuKetQua;
-  /** Ngày hiệu lực của LƯỢT đó, không phải của ô chọn ngày lúc này. */
-  asOfDate: string | null;
 }
 
-/** Một lượt hỏi–đáp trong dòng hội thoại. */
+/**
+ * Một lượt hỏi–đáp trong dòng hội thoại.
+ *
+ * `trace_id` đi vào `data-trace` chứ KHÔNG hiện thành chữ. Người dùng bình
+ * thường không cần nó, và một chuỗi UUID dưới mỗi câu trả lời là tiếng ồn.
+ * Nhưng nó vẫn nằm trong DOM, nên khi có ai báo một câu trả lời sai thì vẫn
+ * đối chiếu được với bảng `traces` — không mất gì, không chiếm một pixel nào.
+ */
 function Luot({
   cauHoi,
-  asOfDate,
   traceId,
   children,
 }: {
   cauHoi: string;
-  asOfDate: string | null;
   traceId: string | null;
   children?: React.ReactNode;
 }) {
   return (
-    <div>
+    <div {...(traceId === null ? {} : { "data-trace": traceId })}>
       <div className="flex justify-end">
         <p className="max-w-[70%] rounded-2xl rounded-br-sm bg-[var(--color-ink-900)] px-4 py-2.5 text-sm leading-relaxed text-white">
           {cauHoi}
         </p>
       </div>
       <div className="mt-4">{children}</div>
-
-      {/* Chân lượt: phạm vi thời gian của các nhãn hiệu lực ở trên, rồi mã truy
-          vết. Câu ngày KHÔNG phải trang trí — ĐO ĐƯỢC trên backend thật: hỏi
-          cùng một câu tại 2019-06-01 thì 157/2018/NĐ-CP mang nhãn "Còn hiệu
-          lực", còn hôm nay nó mang nhãn "Đã bị thay thế". Không nói ra ngày,
-          nhãn xanh kia đọc thành một lời khẳng định về HÔM NAY. */}
-      {(asOfDate !== null || traceId !== null) && (
-        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
-          {asOfDate !== null && (
-            <span>
-              Nhãn hiệu lực tính tại ngày{" "}
-              <strong className="font-semibold text-foreground">{ngayVietNam(asOfDate)}</strong>,
-              không phải hôm nay.
-            </span>
-          )}
-          {traceId !== null && <MaTruyVet traceId={traceId} />}
-        </p>
-      )}
     </div>
   );
 }
@@ -95,13 +80,6 @@ function ManHoiKlaw() {
   const haiCot = useHaiCot();
 
   const [nhap, datNhap] = useState("");
-  /**
-   * Ô chọn ngày hiệu lực — bảo đảm #15, `as_of_date` của `POST /tra-cuu`.
-   * Chuỗi rỗng = chưa chọn = hỏi tại HÔM NAY (máy chủ tự lấy ngày hiện tại).
-   * Không đặt sẵn ngày hôm nay vào ô: một ô đã điền sẵn đọc thành "người dùng
-   * đã chọn", và sẽ được gửi đi như một lựa chọn có chủ đích.
-   */
-  const [ngayHieuLuc, datNgayHieuLuc] = useState("");
   const [luuTru, datLuuTru] = useState<LuotDaXong[]>([]);
   const [panelMo, datPanelMo] = useState(true);
   /** Trích dẫn đang mở, định danh theo `trace_id` của thẻ + chỉ số trong thẻ. */
@@ -143,16 +121,13 @@ function ManHoiKlaw() {
     const cauHoiCu = traCuu.cauHoi;
     const ketQuaCu = traCuu.ketQua;
     if (cauHoiCu !== null && ketQuaCu !== null) {
-      datLuuTru((truoc) => [
-        ...truoc,
-        { cauHoi: cauHoiCu, ketQua: ketQuaCu, asOfDate: traCuu.asOfDate },
-      ]);
+      datLuuTru((truoc) => [...truoc, { cauHoi: cauHoiCu, ketQua: ketQuaCu }]);
     }
 
     datDangMo(null);
     doiChieu.dong();
     datNhap("");
-    traCuu.hoi(noiDung, ngayHieuLuc);
+    traCuu.hoi(noiDung);
   };
 
   const chonTrichDan = (ketQua: TraCuuKetQua, chiSo: number) => {
@@ -226,7 +201,6 @@ function ManHoiKlaw() {
                     <Luot
                       key={luot.ketQua.trace_id}
                       cauHoi={luot.cauHoi}
-                      asOfDate={luot.asOfDate}
                       traceId={luot.ketQua.trace_id}
                     >
                       <TheKetQua
@@ -238,11 +212,7 @@ function ManHoiKlaw() {
                   ))}
 
                   {traCuu.cauHoi !== null && (
-                    <Luot
-                      cauHoi={traCuu.cauHoi}
-                      asOfDate={traCuu.asOfDate}
-                      traceId={traCuu.traceId}
-                    >
+                    <Luot cauHoi={traCuu.cauHoi} traceId={traCuu.traceId}>
                       {traCuu.dangChay && (
                         <TrangThaiCho
                           cacBuoc={traCuu.cacBuoc}
@@ -250,7 +220,20 @@ function ManHoiKlaw() {
                           onHuy={traCuu.huy}
                         />
                       )}
-                      {traCuu.loi !== null && <BaoLoi loi={traCuu.loi} onThuLai={traCuu.thuLai} />}
+                      {traCuu.loi !== null && (
+                        <>
+                          <BaoLoi loi={traCuu.loi} onThuLai={traCuu.thuLai} />
+                          {/* Ngoại lệ DUY NHẤT còn hiện mã truy vết. Đây đúng
+                              là lúc người dùng đi báo lỗi, và một mã chép được
+                              là thứ biến "hôm qua nó hỏng" thành một dòng tra
+                              được trong bảng `traces`. */}
+                          {traCuu.traceId !== null && (
+                            <p className="mt-2 mb-0 text-[12px] text-muted-foreground">
+                              Kèm mã này khi báo lỗi: <MaTruyVet traceId={traCuu.traceId} />
+                            </p>
+                          )}
+                        </>
+                      )}
                       {traCuu.ketQua !== null && (
                         <TheKetQua
                           ketQua={traCuu.ketQua}
@@ -308,45 +291,10 @@ function ManHoiKlaw() {
                   <Send className="size-4" aria-hidden />
                 </button>
               </div>
-              {/* Ô chọn ngày hiệu lực — `<input type="date">` của trình duyệt,
-                  không thư viện lịch: nó đã có bàn phím, trình đọc màn hình,
-                  định dạng theo locale và lịch gốc của hệ điều hành. */}
-              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5">
-                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-muted-foreground">
-                  <CalendarClock
-                    className="size-3.5 shrink-0 text-[var(--color-brass-600)]"
-                    aria-hidden
-                  />
-                  <label htmlFor="ngay-hieu-luc">Tính hiệu lực tại ngày</label>
-                  <input
-                    id="ngay-hieu-luc"
-                    type="date"
-                    value={ngayHieuLuc}
-                    disabled={traCuu.dangChay}
-                    onChange={(su) => datNgayHieuLuc(su.target.value)}
-                    aria-describedby="ngay-hieu-luc-mo-ta"
-                    className="focus-brass rounded-md border border-border bg-card px-1.5 py-0.5 font-jetbrains text-[12px] text-foreground disabled:opacity-60"
-                  />
-                  {ngayHieuLuc === "" ? (
-                    <span id="ngay-hieu-luc-mo-ta">— để trống là hôm nay</span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => datNgayHieuLuc("")}
-                      disabled={traCuu.dangChay}
-                      aria-label="Bỏ ngày đã chọn, quay về hôm nay"
-                      className="focus-brass inline-flex min-h-6 cursor-pointer items-center gap-0.5 rounded-md px-1 py-0.5 text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/10 disabled:cursor-default disabled:opacity-60"
-                    >
-                      <X className="size-3" aria-hidden />
-                      <span id="ngay-hieu-luc-mo-ta">về hôm nay</span>
-                    </button>
-                  )}
-                </div>
-                <p className="m-0 text-[12px] text-muted-foreground">
-                  Kho văn bản là bản GỐC, không phải bản hợp nhất. Luôn đối chiếu nguyên văn trước
-                  khi sử dụng.
-                </p>
-              </div>
+              <p className="mt-1.5 text-[12px] text-muted-foreground">
+                Kho văn bản là bản GỐC, không phải bản hợp nhất. Luôn đối chiếu nguyên văn trước khi
+                sử dụng.
+              </p>
             </div>
           </div>
         </div>
@@ -430,14 +378,6 @@ function ManHoiKlaw() {
                       ))
                     )}
                   </div>
-                  {/* `trace_id` của máy chủ. Không phải trang trí: đây là khoá
-                      duy nhất đối chiếu được một câu trả lời trên màn hình với
-                      dòng tương ứng trong bảng `traces`. */}
-                  {traCuu.traceId !== null && (
-                    <p className="mt-3 font-jetbrains text-[11px] break-all text-muted-foreground">
-                      trace {traCuu.traceId}
-                    </p>
-                  )}
                 </div>
               )}
             </div>

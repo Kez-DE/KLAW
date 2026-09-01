@@ -4,6 +4,10 @@ import type { BuocKhai, SuKienBuoc } from "@/lib/klaw";
 /**
  * Trạng thái chờ cho một lượt gọi mất 10–60 giây — BONG BÓNG BA CHẤM.
  *
+ * Nhìn thấy được đúng HAI thứ: ba chấm, và nút "Huỷ lượt tra cứu" ngay dưới.
+ * Không thanh tiến trình, không đồng hồ giây, không mã truy vết, không câu
+ * giải thích. Quyết định của chủ dự án.
+ *
  * ## Vì sao bảng chín bước biến mất
  *
  * Bảng đó đúng về kỹ thuật và sai về người đọc. Nó phơi tên chín node của
@@ -41,16 +45,6 @@ import type { BuocKhai, SuKienBuoc } from "@/lib/klaw";
 
 /** Hoãn trước khi hiện: câu trả lời từ bộ đệm (3ms) không được loé rồi tắt. */
 const HOAN_MS = 400;
-
-/**
- * Mốc hiện đồng hồ giây.
- *
- * Dưới mốc này, ba chấm là đủ và một con số chỉ làm người ta đếm. Trên mốc
- * này, im lặng bắt đầu đọc thành treo máy — khoảng lặng dài nhất ĐO ĐƯỢC giữa
- * hai sự kiện là 9,1 giây ở `tier2`, nên 10 giây là ngay sau cái khoảng đó.
- */
-const MOC_HIEN_GIAY = 10;
-const NHIP_MS = 500;
 
 /**
  * Số khung hình chờ trước khi bỏ cuộc khi trả tiêu điểm về ô hỏi.
@@ -91,19 +85,17 @@ interface TrangThaiChoProps {
 }
 
 export function TrangThaiCho({ cacBuoc, daPhat, onHuy }: TrangThaiChoProps) {
-  const [giay, datGiay] = useState<number | null>(null);
+  const [hienRa, datHienRa] = useState(false);
 
+  // Chỉ còn MỘT hẹn giờ. Nhịp 500ms trước đây tồn tại để chạy đồng hồ giây;
+  // đồng hồ đã bỏ, nên giữ nhịp lại là dựng lại component hai lần mỗi giây
+  // suốt 50 giây để vẽ đúng cùng một khung hình.
   useEffect(() => {
-    const batDau = Date.now();
-    const hoan = setTimeout(() => datGiay((Date.now() - batDau) / 1000), HOAN_MS);
-    const nhip = setInterval(() => datGiay((Date.now() - batDau) / 1000), NHIP_MS);
-    return () => {
-      clearTimeout(hoan);
-      clearInterval(nhip);
-    };
+    const hoan = setTimeout(() => datHienRa(true), HOAN_MS);
+    return () => clearTimeout(hoan);
   }, []);
 
-  if (giay === null) return null; // còn trong khoảng hoãn
+  if (!hienRa) return null; // còn trong khoảng hoãn
 
   // Đếm theo `thu_tu` LỚN NHẤT đã phát, không theo SỐ sự kiện: lượt lấy từ bộ
   // đệm phát ĐÚNG MỘT bước (`cache`, `thu_tu: 9`) thay vì giả vờ chạy chín node
@@ -144,19 +136,15 @@ export function TrangThaiCho({ cacBuoc, daPhat, onHuy }: TrangThaiChoProps) {
         {loiNhan}
       </p>
 
-      {/* Đồng hồ chỉ hiện sau mốc, và là chữ THƯỜNG — nó trả lời "còn sống
-          không", không phải "còn bao lâu": máy chủ không hứa được điều thứ hai
-          nên giao diện cũng không. */}
-      {giay >= MOC_HIEN_GIAY && (
-        <p className="mt-2 mb-0 text-[12px] leading-5 text-muted-foreground">
-          Vẫn đang chạy — {Math.round(giay)} giây. Một lượt tra cứu mất 10–60 giây.
-        </p>
-      )}
-
       {/* Huỷ ở mức THỨ YẾU: một nút viền đầy đủ cạnh bong bóng sẽ mời người ta
           bấm, mà bấm thì mất lượt đã trả tiền. Nó vẫn phải với tới được bằng
           bàn phím và vẫn cao đủ 44px để chạm được trên điện thoại. */}
-      <p className="mt-2 mb-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-5 text-muted-foreground">
+      {/* HÀNH VI không đổi: nút này chỉ `abort()` phía trình duyệt. Nó KHÔNG
+          gửi thêm request nào để cố huỷ phía máy chủ, và máy chủ vẫn chạy nốt
+          graph trong task riêng để lượt đã trả tiền vẫn ghi được `traces`. Câu
+          nói ra điều đó đã gỡ theo quyết định của chủ dự án — chỉ gỡ CHỮ, đừng
+          gỡ luôn ghi chú này rồi tưởng huỷ là miễn phí. */}
+      <p className="mt-2 mb-0 text-[12px] leading-5 text-muted-foreground">
         <button
           type="button"
           onClick={huyVaTraTieuDiem}
@@ -164,11 +152,6 @@ export function TrangThaiCho({ cacBuoc, daPhat, onHuy }: TrangThaiChoProps) {
         >
           Huỷ lượt tra cứu
         </button>
-        {/* Huỷ KHÔNG hoàn lại lượt gọi, và giao diện nói ra điều đó TRƯỚC khi
-            người dùng bấm. Máy chủ chạy graph trong task riêng một cách cố ý:
-            nếu socket đóng huỷ luôn graph thì mọi lượt bị huỷ là một lượt MIỄN
-            PHÍ và hạn mức tháng thành trang trí. */}
-        <span>— máy chủ vẫn chạy nốt lượt này và vẫn tính vào hạn mức.</span>
       </p>
     </div>
   );

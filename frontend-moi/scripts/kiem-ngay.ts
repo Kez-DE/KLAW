@@ -2,11 +2,14 @@
  * Kiểm chạy được cho `ngayVietNam` — đổi ngày ISO của máy chủ sang cách viết
  * Việt Nam.
  *
- * Vì sao một hàm bốn dòng đáng có kiểm riêng: nó đứng dưới ô chọn
- * `as_of_date`, và ĐO ĐƯỢC trên backend thật là cùng một câu hỏi tại
- * 2019-06-01 cho `157/2018/NĐ-CP` nhãn "Còn hiệu lực", còn tại hôm nay cho
- * nhãn "Đã bị thay thế". Ngày in ra là thứ duy nhất nói cho người đọc biết
- * nhãn nào đang áp dụng — lệch một ngày là chỉ sang một mặt pháp luật khác.
+ * Vì sao một hàm bốn dòng đáng có kiểm riêng: nó in NGÀY TRONG VĂN BẢN PHÁP
+ * LÝ — ngày bắt đầu và kết thúc hợp đồng, ngày sinh, ngày cấp giấy tờ
+ * (`soan-thao.$loaiVanBan.tsx`). Lệch một ngày ở đó là một hợp đồng sai, và
+ * cái sai đó đi thẳng vào bản thảo người dùng tải về.
+ *
+ * Lý do ban đầu là ô chọn `as_of_date` — ô đó đã gỡ theo quyết định của chủ
+ * dự án, nhưng hàm và kiểm này thì không mất giá trị: chỗ dùng thật đã đổi,
+ * hệ quả của việc in sai thì không.
  *
  * Chạy: `npm run kiem-ngay`.
  */

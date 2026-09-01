@@ -7,7 +7,6 @@ import { trangThaiSoat } from "@/lib/soat";
 import { cn } from "@/lib/utils";
 import { useGoiApi } from "@/hooks/use-goi-api";
 import { BaoLoi } from "./BaoLoi";
-import { MaTruyVet } from "./MaTruyVet";
 
 /**
  * Soát bản thảo với KLAW — `GET /mau/{loai}` + `POST /soat`.
@@ -334,7 +333,13 @@ export function SoatBanThao({ loaiBackend, layToanVan, factTuBieuMau = {} }: Soa
   const thieu = (mau?.facts ?? []).filter((truong) => truong.bat_buoc && !(truong.key in fact));
 
   return (
-    <section aria-label="Soát bản thảo với KLAW" className="rounded-xl border border-border p-4">
+    <section
+      aria-label="Soát bản thảo với KLAW"
+      // `trace_id` ở đây cũng vào `data-trace`, không thành chữ — cùng lý do
+      // với màn tra cứu.
+      {...(goiSoat.ketQua === null ? {} : { "data-trace": goiSoat.ketQua.trace_id })}
+      className="rounded-xl border border-border p-4"
+    >
       <h3 className="font-display m-0 flex items-center gap-2 text-[15px] font-semibold text-primary">
         <ScanSearch className="size-4 text-[var(--color-brass-600)]" aria-hidden />
         Soát với kho văn bản của KLAW
@@ -392,11 +397,6 @@ export function SoatBanThao({ loaiBackend, layToanVan, factTuBieuMau = {} }: Soa
 
           {goiSoat.loi !== null && <BaoLoi loi={goiSoat.loi} onThuLai={soat} />}
           {goiSoat.ketQua !== null && <KetQuaSoat baoCao={goiSoat.ketQua.audit_report} />}
-          {goiSoat.ketQua !== null && (
-            <p className="mt-3 mb-0 text-[12px] text-muted-foreground">
-              <MaTruyVet traceId={goiSoat.ketQua.trace_id} />
-            </p>
-          )}
         </>
       )}
     </section>
