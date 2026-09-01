@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { CheckCircle2, HelpCircle, ScanSearch, TriangleAlert } from "lucide-react";
 import { goi, HAN_GIO_TRA_CUU } from "@/lib/api";
 import { laMau, type BaoCaoSoat, type Mau, type PhatHien, type TruongFact } from "@/lib/klaw";
+import { trangThaiSoat } from "@/lib/soat";
 import { cn } from "@/lib/utils";
 import { useGoiApi } from "@/hooks/use-goi-api";
 import { BaoLoi } from "./BaoLoi";
@@ -185,40 +186,65 @@ function KetQuaSoat({ baoCao }: { baoCao: BaoCaoSoat }) {
   const chuaKiem = baoCao.findings.filter((mot) => mot.khong_kiem_duoc);
   const thatSu = baoCao.findings.filter((mot) => !mot.khong_kiem_duoc);
 
+  // Ba trạng thái, ba hình dạng. Xem `lib/soat.ts`: `dat` một mình không đủ,
+  // vì nó im lặng về số rule đã KHÔNG chạy được.
+  const trangThai = trangThaiSoat(baoCao.dat, chuaKiem.length);
+
+  const MAU_KHAY = {
+    dat: "var(--color-status-active)",
+    dat_mot_phan: "var(--color-status-neutral)",
+    khong_dat: "var(--color-status-expired)",
+  } as const;
+
+  const TIEU_DE = {
+    dat: "Bản thảo qua toàn bộ rule của KLAW.",
+    // KHÔNG viết "qua toàn bộ rule đã kiểm được" rồi thôi: mệnh đề phụ đó đúng
+    // về mặt chữ nghĩa nhưng đọc lướt vẫn ra "đạt". Phải nói ra con số.
+    dat_mot_phan: `Không thấy vi phạm trong phần soát được — còn ${chuaKiem.length} rule CHƯA kiểm được.`,
+    khong_dat: `${thatSu.length} điểm cần sửa trước khi ký.`,
+  } as const;
+
   return (
     <div className="mt-4">
       <div
         className="flex items-start gap-2 rounded-lg border-l-2 bg-[var(--color-paper-50)] p-3"
-        style={{
-          borderLeftColor: baoCao.dat
-            ? "var(--color-status-active)"
-            : "var(--color-status-expired)",
-        }}
+        style={{ borderLeftColor: MAU_KHAY[trangThai] }}
       >
-        {baoCao.dat ? (
+        {trangThai === "dat" ? (
           <CheckCircle2
             className="mt-0.5 size-4 shrink-0"
-            style={{ color: "var(--color-status-active)" }}
+            style={{ color: MAU_KHAY.dat }}
+            aria-hidden
+          />
+        ) : trangThai === "dat_mot_phan" ? (
+          // Dấu hỏi, KHÔNG dấu tích và KHÔNG tam giác cảnh báo: bản thảo chưa
+          // được tuyên là sạch, mà cũng chưa bị phát hiện sai điều gì.
+          <HelpCircle
+            className="mt-0.5 size-4 shrink-0"
+            style={{ color: MAU_KHAY.dat_mot_phan }}
             aria-hidden
           />
         ) : (
           <TriangleAlert
             className="mt-0.5 size-4 shrink-0"
-            style={{ color: "var(--color-status-expired)" }}
+            style={{ color: MAU_KHAY.khong_dat }}
             aria-hidden
           />
         )}
         <div>
           <p className="m-0 text-[14px] leading-6 font-medium text-foreground">
-            {baoCao.dat
-              ? "Bản thảo qua toàn bộ rule đã kiểm được."
-              : `${thatSu.length} điểm cần sửa trước khi ký.`}
+            {TIEU_DE[trangThai]}
           </p>
           <p className="m-0 mt-1 text-[12px] leading-5 text-muted-foreground">
             Máy chủ đọc được {baoCao.so_dieu_khoan} điều khoản trong bản thảo · độ đầy đủ so với
             checklist: {Math.round(baoCao.completeness * 100)}%
-            {chuaKiem.length > 0 && ` · ${chuaKiem.length} rule chưa kiểm được vì thiếu dữ kiện`}
           </p>
+          {trangThai === "dat_mot_phan" && (
+            <p className="m-0 mt-1 text-[12px] leading-5 text-muted-foreground">
+              Độ đầy đủ nói bản thảo có đủ các nội dung bắt buộc hay không. Nó KHÔNG nói những rule
+              dưới đây đã chạy — điền nốt dữ kiện chúng cần rồi soát lại.
+            </p>
+          )}
         </div>
       </div>
 
