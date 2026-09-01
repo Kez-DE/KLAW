@@ -2,6 +2,7 @@ import dataclasses
 import logging
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -93,25 +94,69 @@ def _st_tu_cache(payload: dict) -> dict:
     return {"result_type": payload["result_type"], "traces": {}}
 
 
-@router.post("/tra-cuu", response_model=TraCuuResponse)
-async def tra_cuu(req: TraCuuRequest, user_sub: str | None = Depends(cong_bao_ve)) -> TraCuuResponse:
-    """spec 8.0a. `result_type` là enum bốn giá trị (không phải cờ `abstained`
+# Chín node THẬT của `build_graph_tra_cuu`, theo thứ tự của đường đi đầy đủ, kèm
+# nhãn tiếng Việt cho giao diện. Đường SSE (`routes_luong.py`) phát ĐÚNG danh
+# sách này; `test_tra_cuu_luong.py` khoá nó khớp với graph đã compile, để thêm
+# một node mà quên cập nhật ở đây không âm thầm biến mất khỏi thanh tiến trình.
+BUOC_TRA_CUU: tuple[tuple[str, str], ...] = (
+    ("route", "Phân loại câu hỏi"),
+    ("tien_de", "Kiểm tiền đề câu hỏi"),
+    ("rewrite", "Viết lại truy vấn"),
+    ("retrieve", "Truy hồi điều khoản"),
+    ("expand", "Mở rộng dẫn chiếu"),
+    ("generate", "Sinh luận điểm"),
+    ("tier1", "Kiểm chứng tầng 1 — đối chiếu nguyên văn"),
+    ("tier2", "Kiểm chứng tầng 2 — mô hình thẩm định"),
+    ("assemble", "Dựng câu trả lời"),
+)
+
+
+def chi_tiet_buoc(ten: str, st: dict) -> dict:
+    """Con số đã tính được tại bước `ten`, lấy từ state — 0 phép tính thêm.
+
+    "Truy hồi điều khoản — 10 điều khoản" là tiến trình; "Truy hồi điều khoản"
+    một mình vẫn là một cái tên không nói gì về việc đã xong tới đâu.
+    """
+    if ten == "retrieve":
+        return {"so_dieu_khoan": len(st.get("retrieved") or [])}
+    if ten == "expand":
+        return {"so_dieu_khoan": len(st.get("expanded") or [])}
+    if ten == "generate":
+        return {"so_luan_diem": len(st.get("draft_claims") or [])}
+    if ten == "tier1":
+        return {"so_luan_diem_dat": sum(1 for r in (st.get("tier1") or []) if getattr(r, "ok", False))}
+    if ten == "tier2":
+        return {"so_luan_diem_dat": len(st.get("tier2") or [])}
+    if ten == "assemble":
+        return {"so_trich_dan": len(st.get("citations") or [])}
+    return {}
+
+
+async def chay_tra_cuu(
+    req: TraCuuRequest,
+    user_sub: str | None,
+    trace_id: str,
+    phat: Callable[[str, dict], Awaitable[None]] | None = None,
+) -> tuple[dict, str]:
+    """Thân dùng chung của `/tra-cuu` và `/tra-cuu/luong`: cache → graph →
+    ghi cache → ghi traces. Trả `(payload, config_name)`.
+
+    `phat` — callback `(ten_buoc, chi_tiet)` gọi mỗi khi một node xong. `None`
+    (đường POST) chạy `ainvoke` y NGUYÊN như trước; chỉ khi có callback mới đổi
+    sang `astream`. Hai lời gọi graph thay vì một là CỐ Ý: `eval/run.py` gọi
+    POST và bảng số liệu của khoá luận phụ thuộc nó, nên đường đó không được
+    đổi cơ chế để phục vụ một tính năng giao diện.
+
+    spec 8.0a. `result_type` là enum bốn giá trị (không phải cờ `abstained`
     boolean): `partial_coverage` không thể ép vào "đã trả lời"/"đã từ chối" mà
     không mất thông tin, và ABSTAIN là hành vi ĐÚNG của hệ thống — không phải
     lỗi cần che giấu bằng một cờ nhị phân.
 
-    `cong_bao_ve` là tham số (không còn `dependencies=[...]`) vì nó TRẢ VỀ `sub`
-    người gọi, và `traces.user_sub` cần giá trị đó: hạn mức tháng đếm chính cột
+    `user_sub` — `traces.user_sub` cần giá trị đó: hạn mức tháng đếm chính cột
     ấy, nên một lượt LLM ghi thiếu `sub` là một lượt dùng miễn phí. None khi
     Supabase chưa cấu hình (eval, dev local).
-
-    `Depends(cong_bao_ve)` — API key, danh tính, rate limit (theo `sub` khi đã
-    đăng nhập, theo IP khi chưa), hạn mức tháng của người dùng, trần chi phí
-    ngày — chạy TRƯỚC thân hàm này. Endpoint này gọi LLM tối đa 5 lần, p95 50s,
-    tới $0,00735 một request; không cổng nào ở đó là phòng xa (xem `bao_ve.py`).
     """
     s = get_settings()
-    trace_id = str(uuid.uuid4())
     bat_dau = time.monotonic()
     config_name = req.config_name or s.eval_config_name
     # Mốc hiệu lực GIẢI QUYẾT ngay tại đây, một lần: cùng giá trị đi vào khoá
@@ -139,8 +184,26 @@ async def tra_cuu(req: TraCuuRequest, user_sub: str | None = Depends(cong_bao_ve
         tu_cache = payload is not None
         if tu_cache:
             st = _st_tu_cache(payload)
-        else:
+            if phat is not None:
+                # Giả vờ chạy chín node cho một lượt 3ms là dựng một thanh tiến
+                # trình bịa. Một bước, đúng tên việc đã làm.
+                await phat("cache", {})
+        elif phat is None:
             st = await _g().ainvoke({"query": req.query, "as_of_date": as_of, "trace_id": trace_id})
+        else:
+            # `stream_mode="updates"` phát `{ten_node: output}`. Mọi node trong
+            # `graph_tra_cuu` trả `{**st, ...}` (state ĐẦY ĐỦ), nhưng gộp bằng
+            # `update` thay vì lấy chunk cuối để một node tương lai trả state
+            # RIÊNG PHẦN không âm thầm xoá trắng những gì các node trước ghi.
+            st = {}
+            async for chunk in _g().astream(
+                {"query": req.query, "as_of_date": as_of, "trace_id": trace_id},
+                stream_mode="updates",
+            ):
+                for ten, ra in chunk.items():
+                    if isinstance(ra, dict):
+                        st.update(ra)
+                    await phat(ten, chi_tiet_buoc(ten, st))
     except (httpx.HTTPStatusError, httpx.TransportError, OperationalError) as e:
         # Lỗi hạ tầng NHẤT THỜI, nhận diện được theo LOẠI ngoại lệ — OpenRouter
         # 429/5xx cạn retry (httpx) hoặc Postgres không kết nối được
@@ -191,6 +254,12 @@ async def tra_cuu(req: TraCuuRequest, user_sub: str | None = Depends(cong_bao_ve
         # nổ ra vì nó quyết định result_type; ghi traces không quyết định gì.
         logger.exception("tra_cuu: ghi traces thất bại (trace_id=%s) — KHÔNG chặn response", trace_id)
 
+    return payload, config_name
+
+
+def tra_cuu_response(payload: dict, trace_id: str, config_name: str) -> TraCuuResponse:
+    """`payload` của `chay_tra_cuu` → model HTTP. MỘT chỗ dựng cho cả hai đường,
+    nên `/tra-cuu/luong` không thể trả một shape khác `/tra-cuu`."""
     return TraCuuResponse(
         result_type=payload["result_type"],
         answer=payload["answer"], citations=payload["citations"],
@@ -201,6 +270,18 @@ async def tra_cuu(req: TraCuuRequest, user_sub: str | None = Depends(cong_bao_ve
         nguon=payload["nguon"],
         trace_id=trace_id, config_name=config_name,
     )
+
+
+@router.post("/tra-cuu", response_model=TraCuuResponse)
+async def tra_cuu(req: TraCuuRequest, user_sub: str | None = Depends(cong_bao_ve)) -> TraCuuResponse:
+    """`Depends(cong_bao_ve)` — API key, danh tính, rate limit (theo `sub` khi
+    đã đăng nhập, theo IP khi chưa), hạn mức tháng của người dùng, trần chi phí
+    ngày — chạy TRƯỚC thân hàm này. Endpoint này gọi LLM tối đa 5 lần, p95 50s,
+    tới $0,00735 một request; không cổng nào ở đó là phòng xa (xem `bao_ve.py`).
+    """
+    trace_id = str(uuid.uuid4())
+    payload, config_name = await chay_tra_cuu(req, user_sub, trace_id)
+    return tra_cuu_response(payload, trace_id, config_name)
 
 
 @router.get("/status")

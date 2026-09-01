@@ -1,0 +1,165 @@
+"""`POST /tra-cuu/luong` — SSE phát BƯỚC THẬT của graph (Pha 2).
+
+## Phán quyết: stream BƯỚC, không stream token
+
+Graph chạy `route → tien_de → rewrite → retrieve → expand → generate → tier1 →
+tier2 → assemble`, và văn xuôi chỉ sinh ở bước CUỐI. Stream token vì vậy cho
+đúng một trải nghiệm: **im lặng ~50 giây rồi chảy chữ ~10 giây** (p95 đo được
+50.289ms trên 204 dòng traces) — tệ hơn cả chỉ báo bước hiện có, vì nó thay một
+thanh tiến trình bằng một màn hình trắng đúng lúc người dùng cần biết máy còn
+sống hay không.
+
+Stream bước biến chỉ báo "ước lượng theo thời gian" mà giao diện đang phải nói
+dối thành tiến trình THẬT, kèm con số đã tính được ở từng bước.
+
+## POST, không phải GET/EventSource
+
+`EventSource` chỉ gửi được GET và **không đặt được header**, nên nó không mang
+nổi `Authorization: Bearer` mà `cong_bao_ve` yêu cầu. FE buộc phải dùng
+`fetch` + `ReadableStream` (hoặc `@microsoft/fetch-event-source`); đã vậy thì
+POST là lựa chọn đúng — nó cũng giữ câu hỏi ra khỏi URL, khỏi lịch sử trình
+duyệt và khỏi log của mọi proxy trên đường.
+
+## Graph chạy trong TASK RIÊNG, không phải con của request
+
+Đây là phần dễ bỏ sót nhất và cũng đắt nhất. Nếu graph là con của request thì
+client đóng socket (bấm nút Huỷ) sẽ huỷ luôn nó — mà LLM ĐÃ tiêu tiền trước
+đó, và dòng `traces` thì chưa kịp ghi. Hệ quả: mọi lượt bị huỷ là một lượt
+MIỄN PHÍ, và hạn mức tháng (`bao_ve.dem_luot_thang` đếm chính bảng `traces`)
+trở thành trang trí — một lỗ hổng bấm được bằng một nút bấm có sẵn trên giao
+diện.
+
+Chạy trong task riêng cũng giữ được lượt ghi cache: câu trả lời đã tốn tiền
+vẫn nằm lại cho request sau, thay vì bị vứt cùng cái socket.
+"""
+
+import asyncio
+import json
+import logging
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+
+from src.api.routes import BUOC_TRA_CUU, chay_tra_cuu, tra_cuu_response
+from src.config import get_settings
+from src.models.schemas import TraCuuRequest
+from src.services.bao_ve import cong_bao_ve
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+_TONG = len(BUOC_TRA_CUU)
+_THU_TU = {ten: i for i, (ten, _) in enumerate(BUOC_TRA_CUU, start=1)}
+_NHAN = dict(BUOC_TRA_CUU)
+
+# Bước "cache" không phải một node của graph — nó là nhánh KHÔNG chạy node nào.
+_NHAN["cache"] = "Lấy câu trả lời từ bộ đệm"
+_THU_TU["cache"] = _TONG
+
+# Giữ tham chiếu mạnh tới task đang chạy: `asyncio.create_task` chỉ giữ tham
+# chiếu YẾU, nên một task không được ai giữ có thể bị thu gom giữa chừng — và
+# lượt LLM đó biến mất khỏi `traces` đúng như thể client đã rời đi.
+_DANG_CHAY: set[asyncio.Task] = set()
+
+# Header chống đệm. Không có chúng, một reverse proxy gom cả stream rồi giao
+# một lần — tức biến SSE thành một response bình thường đến muộn, mất trắng lý
+# do endpoint này tồn tại.
+_HEADER = {
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+}
+
+
+def _sse(ten: str, du_lieu: dict) -> str:
+    """Một khung SSE. `json.dumps` không sinh ký tự xuống dòng thật nên payload
+    luôn nằm gọn trên MỘT dòng `data:` — nhiều dòng sẽ bị client nối lại bằng
+    `\\n` và JSON vẫn parse được, nhưng chỉ vì may."""
+    return f"event: {ten}\ndata: {json.dumps(du_lieu, ensure_ascii=False)}\n\n"
+
+
+async def _chay_nen(
+    req: TraCuuRequest, user_sub: str | None, trace_id: str, hang: asyncio.Queue
+) -> None:
+    """Chạy graph tới cùng và đẩy sự kiện vào `hang`. KHÔNG dừng khi client rời.
+
+    `hang` không giới hạn kích thước nên `put` không bao giờ chặn — client bỏ
+    đi giữa chừng thì hàng đợi giữ vài sự kiện nhỏ rồi bị thu gom cùng task.
+    """
+
+    async def phat(ten: str, chi_tiet: dict) -> None:
+        await hang.put(("buoc", {
+            "buoc": ten,
+            # Node lạ (thêm vào graph mà quên khai trong `BUOC_TRA_CUU`) vẫn
+            # được phát, kèm nhãn nói thẳng là chưa khai — nuốt nó đi làm một
+            # bước thật biến mất khỏi thanh tiến trình mà không ai biết.
+            "nhan": _NHAN.get(ten, f"Bước {ten} (chưa khai nhãn)"),
+            "thu_tu": _THU_TU.get(ten),
+            "tong": _TONG,
+            "chi_tiet": chi_tiet,
+        }))
+
+    try:
+        payload, config_name = await chay_tra_cuu(req, user_sub, trace_id, phat)
+        # Dựng qua CHÍNH model của `/tra-cuu`: shape của hai đường không thể
+        # lệch nhau, và một payload dị dạng nổ ở đây thành `event: loi` chứ
+        # không thành một JSON thiếu trường mà FE tự đoán.
+        resp = tra_cuu_response(payload, trace_id, config_name)
+        await hang.put(("ket_qua", resp.model_dump(mode="json")))
+    except HTTPException as e:
+        # `chay_tra_cuu` đã phân loại 503 (hạ tầng nhất thời) / 500 (bug thật)
+        # và `detail` của nó chỉ mang TÊN loại ngoại lệ, không mang `str(e)`.
+        await hang.put(("loi", {
+            "status": e.status_code, "detail": e.detail, "trace_id": trace_id,
+        }))
+    except Exception:
+        logger.exception("tra_cuu_luong: lỗi ngoài dự kiến (trace_id=%s)", trace_id)
+        await hang.put(("loi", {
+            "status": 500, "detail": "tra cứu thất bại", "trace_id": trace_id,
+        }))
+    finally:
+        # Sentinel đóng stream. Trong `finally` để một lỗi ở chính lượt `put`
+        # phía trên cũng không treo client vô hạn.
+        await hang.put(None)
+
+
+@router.post("/tra-cuu/luong")
+async def tra_cuu_luong(
+    req: TraCuuRequest, user_sub: str | None = Depends(cong_bao_ve)
+) -> StreamingResponse:
+    """Như `POST /tra-cuu`, nhưng phát tiến trình theo BƯỚC qua SSE.
+
+    Ba loại sự kiện:
+      * `bat_dau` — `{trace_id, config_name, cac_buoc: [{buoc, nhan, thu_tu}]}`,
+        gửi NGAY. Không có nó, FE lại phải tự ước lượng danh sách bước — đúng
+        thứ endpoint này sinh ra để thay thế.
+      * `buoc` — một node vừa xong: `{buoc, nhan, thu_tu, tong, chi_tiet}`.
+      * `ket_qua` — payload y hệt `TraCuuResponse` của `POST /tra-cuu`;
+        hoặc `loi` — `{status, detail, trace_id}`.
+
+    Tham số sai vẫn ra **422 bình thường** (pydantic chạy trước thân hàm), và
+    cổng `cong_bao_ve` vẫn ra 401/429/503 bình thường — chỉ lỗi phát sinh SAU
+    khi stream đã mở mới đi qua `event: loi`, vì lúc đó mã HTTP đã gửi rồi.
+    """
+    trace_id = str(uuid.uuid4())
+    hang: asyncio.Queue = asyncio.Queue()
+    hang.put_nowait(("bat_dau", {
+        "trace_id": trace_id,
+        "config_name": req.config_name or get_settings().eval_config_name,
+        "cac_buoc": [
+            {"buoc": ten, "nhan": nhan, "thu_tu": i}
+            for i, (ten, nhan) in enumerate(BUOC_TRA_CUU, start=1)
+        ],
+    }))
+
+    task = asyncio.create_task(_chay_nen(req, user_sub, trace_id, hang))
+    _DANG_CHAY.add(task)
+    task.add_done_callback(_DANG_CHAY.discard)
+
+    async def sinh():
+        while (muc := await hang.get()) is not None:
+            yield _sse(*muc)
+
+    return StreamingResponse(sinh(), media_type="text/event-stream", headers=_HEADER)
