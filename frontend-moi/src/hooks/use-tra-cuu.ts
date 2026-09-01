@@ -27,7 +27,15 @@ export interface TrangThaiTraCuu {
   loi: ApiError | null;
   /** Của máy chủ, dùng để đối chiếu với bảng `traces` khi cần truy vết. */
   traceId: string | null;
-  hoi: (cauHoi: string) => void;
+  /**
+   * Ngày dùng để tính hiệu lực cho lượt đang chạy, ISO `2026-09-01`. `null` là
+   * "hôm nay" — máy chủ tự lấy ngày hiện tại và FE KHÔNG gửi trường này.
+   *
+   * Giữ lại theo LƯỢT chứ không đọc thẳng từ ô chọn ngày: người dùng đổi ngày
+   * sau khi đã hỏi thì câu trả lời cũ vẫn phải khai đúng ngày nó được tính.
+   */
+  asOfDate: string | null;
+  hoi: (cauHoi: string, asOfDate?: string) => void;
   huy: () => void;
   /** Hỏi lại ĐÚNG câu vừa rồi. Không có câu nào thì không làm gì. */
   thuLai: () => void;
@@ -42,16 +50,21 @@ export function useTraCuu(): TrangThaiTraCuu {
   const [cacBuoc, datCacBuoc] = useState<BuocKhai[]>([]);
   const [daPhat, datDaPhat] = useState<SuKienBuoc[]>([]);
   const [traceId, datTraceId] = useState<string | null>(null);
+  const [asOfDate, datAsOfDate] = useState<string | null>(null);
   const luot = useRef(0);
 
   const hoi = useCallback(
-    (noiDungTho: string) => {
+    (noiDungTho: string, ngay?: string) => {
       const noiDung = noiDungTho.trim();
       if (noiDung === "") return;
+      // Chuỗi rỗng của <input type="date"> nghĩa là "chưa chọn", không phải một
+      // ngày. Gửi nó đi sẽ ăn 422 từ pydantic.
+      const asOf = ngay !== undefined && ngay !== "" ? ngay : null;
 
       luot.current += 1;
       const luotNay = luot.current;
 
+      datAsOfDate(asOf);
       datCauHoi(noiDung);
       datCacBuoc([]);
       datDaPhat([]);
@@ -63,7 +76,10 @@ export function useTraCuu(): TrangThaiTraCuu {
 
       void chay((signal) =>
         traCuuLuong(
-          { query: noiDung },
+          // Không có ngày thì KHÔNG gửi khoá: `as_of_date: null` và khoá vắng
+          // mặt đều về "hôm nay" ở pydantic, nhưng khoá vắng mặt là thứ duy
+          // nhất nói đúng rằng người dùng chưa chọn gì.
+          { query: noiDung, ...(asOf === null ? {} : { as_of_date: asOf }) },
           {
             onBatDau: (su) => {
               if (luotNay !== luot.current) return;
@@ -88,8 +104,10 @@ export function useTraCuu(): TrangThaiTraCuu {
   }, [huyGoi]);
 
   const thuLai = useCallback(() => {
-    if (cauHoi !== null) hoi(cauHoi);
-  }, [cauHoi, hoi]);
+    // Hỏi lại ĐÚNG câu vừa rồi nghĩa là hỏi lại cả ở đúng ngày vừa rồi. Bỏ
+    // `asOfDate` ở đây sẽ âm thầm đổi câu hỏi thành một câu khác.
+    if (cauHoi !== null) hoi(cauHoi, asOfDate ?? undefined);
+  }, [asOfDate, cauHoi, hoi]);
 
   const datLai = useCallback(() => {
     luot.current += 1;
@@ -97,6 +115,7 @@ export function useTraCuu(): TrangThaiTraCuu {
     datCacBuoc([]);
     datDaPhat([]);
     datTraceId(null);
+    datAsOfDate(null);
     datLaiGoi();
   }, [datLaiGoi]);
 
@@ -108,6 +127,7 @@ export function useTraCuu(): TrangThaiTraCuu {
     ketQua: goi.ketQua,
     loi: goi.loi,
     traceId,
+    asOfDate,
     hoi,
     huy,
     thuLai,

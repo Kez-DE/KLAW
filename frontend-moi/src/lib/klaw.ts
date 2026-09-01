@@ -27,6 +27,10 @@ export type ResultType = "answer" | "partial_coverage" | "abstain" | "out_of_sco
  */
 export type HieuLuc =
   | "con_hieu_luc"
+  // Chỉ với `as_of_date` trong QUÁ KHỨ mới gặp: văn bản có ngày hiệu lực SAU
+  // ngày được hỏi. ĐO ĐƯỢC trên backend thật — hỏi mức lương tối thiểu tại
+  // 2019-06-01 trả về ba trích dẫn mang nhãn này (293/2025, 74/2024, 90/2019).
+  | "chua_hieu_luc"
   | "bi_thay_the"
   | "bi_sua_doi"
   | "het_hieu_luc"

@@ -34,7 +34,7 @@ import { MAU, laHopDongLaoDong, laThuViec, loaiBackendCua, mauTheoId } from "@/l
 // `xuat-ban.ts`, nên nhập hàm này KHÔNG kéo hai thư viện nặng vào gói đầu tiên.
 import { toanVan } from "@/lib/xuat-ban";
 import { chiSo, dinhDangTien, docSoThanhChu } from "@/lib/tien-viet";
-import { cn } from "@/lib/utils";
+import { cn, ngayVietNam } from "@/lib/utils";
 import { SITE_ORIGIN } from "./__root";
 
 export const Route = createFileRoute("/soan-thao/$loaiVanBan")({
@@ -1375,8 +1375,9 @@ function A4({
     noiDung: (
       <p>
         Hợp đồng được thực hiện từ ngày{" "}
-        <V k="nd.tuNgay" value={ngayVN(draft.nd.tuNgay)} label="ngày bắt đầu" buoc={3} /> đến ngày{" "}
-        <V k="nd.denNgay" value={ngayVN(draft.nd.denNgay)} label="ngày kết thúc" buoc={3} />.
+        <V k="nd.tuNgay" value={ngayVietNam(draft.nd.tuNgay)} label="ngày bắt đầu" buoc={3} /> đến
+        ngày{" "}
+        <V k="nd.denNgay" value={ngayVietNam(draft.nd.denNgay)} label="ngày kết thúc" buoc={3} />.
         {laHopDongLaoDong(mau) && draft.nd.soNgayThuViec && (
           <> Thời gian thử việc: {draft.nd.soNgayThuViec} ngày.</>
         )}
@@ -1553,9 +1554,10 @@ function A4({
                   Họ và tên: <V k={`${p}.hoTen`} value={b.hoTen} label="Họ và tên" />
                 </p>
                 <p>
-                  Sinh ngày: <V k={`${p}.ngaySinh`} value={ngayVN(b.ngaySinh)} label="Ngày sinh" />{" "}
-                  — CCCD/Hộ chiếu số: <V k={`${p}.cccd`} value={b.cccd} label="Số CCCD" />, cấp ngày{" "}
-                  <V k={`${p}.ngayCap`} value={ngayVN(b.ngayCap)} label="Ngày cấp" /> tại{" "}
+                  Sinh ngày:{" "}
+                  <V k={`${p}.ngaySinh`} value={ngayVietNam(b.ngaySinh)} label="Ngày sinh" /> —
+                  CCCD/Hộ chiếu số: <V k={`${p}.cccd`} value={b.cccd} label="Số CCCD" />, cấp ngày{" "}
+                  <V k={`${p}.ngayCap`} value={ngayVietNam(b.ngayCap)} label="Ngày cấp" /> tại{" "}
                   <V k={`${p}.noiCap`} value={b.noiCap} label="Nơi cấp" />
                 </p>
                 <p>
@@ -1639,13 +1641,6 @@ function demTrong(d: Draft, laLaoDong: boolean) {
   const nd = [d.nd.tenDichVu, d.nd.phamVi, String(d.nd.giaTri), d.nd.thueGTGT, d.nd.diaDiem];
   const ld = laLaoDong ? [d.nd.chucDanh, d.nd.soNgayThuViec] : [];
   return [...ben(d.A), ...ben(d.B), ...nd, ...ld].filter((v) => !v || v === "").length;
-}
-
-function ngayVN(iso: string) {
-  if (!iso) return "";
-  const [y, m, dd] = iso.split("-");
-  if (!y || !m || !dd) return iso;
-  return `${dd}/${m}/${y}`;
 }
 
 /**

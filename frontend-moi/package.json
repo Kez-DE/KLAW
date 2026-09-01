@@ -13,7 +13,8 @@
     "format": "prettier --write .",
     "kiem-sse": "node scripts/kiem-sse.ts",
     "kiem-font": "node scripts/kiem-font.ts",
-    "kiem-van-xuoi": "node scripts/kiem-van-xuoi.ts"
+    "kiem-van-xuoi": "node scripts/kiem-van-xuoi.ts",
+    "kiem-ngay": "node scripts/kiem-ngay.ts"
   },
   "overrides": {
     "rolldown": "1.2.1"

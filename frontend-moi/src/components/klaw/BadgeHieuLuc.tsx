@@ -59,6 +59,22 @@ export function docNhanHieuLuc(hieuLuc: string): Nhan {
     case "con_hieu_luc":
       return { kieu: "cham", mau: MAU.active, chu: "Còn hiệu lực", nhanDayDu: "Còn hiệu lực" };
 
+    case "chua_hieu_luc":
+      // Nhãn của một câu hỏi đặt ở QUÁ KHỨ: văn bản này có thật, nhưng tại
+      // ngày được hỏi nó chưa có hiệu lực. KHÔNG dùng đỏ — đỏ dành riêng cho
+      // luật đã bị thay thế hoặc đã hết hiệu lực, và trộn hai thứ vào nhau sẽ
+      // dạy người đọc lướt qua cả hai. Cũng KHÔNG dùng xanh: dựa vào một văn
+      // bản chưa có hiệu lực tại ngày đang xét là sai luật y như dựa vào một
+      // văn bản đã hết.
+      return {
+        kieu: "vien",
+        mau: MAU.partial,
+        nenNhat: "color-mix(in oklab, var(--color-brass-400) 40%, var(--card))",
+        chu: "Chưa có hiệu lực",
+        nhanDayDu: "Chưa có hiệu lực tại ngày được hỏi",
+        giaiThich: "Ngày hiệu lực của văn bản này nằm sau ngày bạn đang tra.",
+      };
+
     case "bi_thay_the":
       // Khác `het_hieu_luc` ở chỗ CÓ văn bản kế nhiệm và phải nêu đích danh nó.
       // Câu đó đi qua prop `ghiChu`, lấy từ `warnings[]` của cùng văn bản —
