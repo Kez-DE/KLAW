@@ -31,8 +31,12 @@ import {
   focusField,
 } from "@/components/draft/DraftBits";
 import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
+import { SoatBanThao } from "@/components/klaw/SoatBanThao";
 import { TINH_THANH, capDuoiCua } from "@/lib/dia-gioi";
-import { MAU, laHopDongLaoDong, laThuViec, mauTheoId } from "@/lib/mau-van-ban";
+import { MAU, laHopDongLaoDong, laThuViec, loaiBackendCua, mauTheoId } from "@/lib/mau-van-ban";
+// `toanVan` tĩnh được: `docx` và `jspdf` nằm sau `await import()` bên trong
+// `xuat-ban.ts`, nên nhập hàm này KHÔNG kéo hai thư viện nặng vào gói đầu tiên.
+import { toanVan } from "@/lib/xuat-ban";
 import { chiSo, dinhDangTien, docSoThanhChu } from "@/lib/tien-viet";
 import { cn } from "@/lib/utils";
 import { SITE_ORIGIN } from "./__root";
@@ -316,6 +320,37 @@ function KhongGianSoanThao() {
   const laLaoDong = laHopDongLaoDong(mau);
 
   const layKhung = () => khungRef.current?.querySelector<HTMLElement>(".a4-sheet") ?? null;
+
+  const loaiBackend = loaiBackendCua(mau.id);
+
+  /** Toàn văn bản thảo, đọc từ chính khung xem trước người dùng đang nhìn. */
+  const layToanVanBanThao = (): string | null => {
+    const sheet = layKhung();
+    if (sheet === null) return null;
+    return toanVan(sheet);
+  };
+
+  /**
+   * Dữ kiện suy từ biểu mẫu — CHỈ những khoá ánh xạ một–một.
+   *
+   * Cố ý KHÔNG suy `nhom_chuc_danh`: bốn nhãn của biểu mẫu ("Nhân viên chuyên
+   * môn, kỹ thuật") không khớp một–một với bốn giá trị của `rules.yaml`
+   * (`cao_dang_tro_len` / `trung_cap_cnkt_nghiep_vu`), và đoán sai giữa hai giá
+   * trị đó là đổi giới hạn thử việc từ 60 ngày thành 30 ngày — một phán quyết
+   * sai sinh ra từ một phép đoán của giao diện. Người dùng chọn ở khối soát.
+   *
+   * Cũng KHÔNG suy `co_dieu_khoan_phat_tien` từ `dk.phat`: `dk.phat` là phạt vi
+   * phạm hợp đồng thương mại, còn khoá kia là phạt tiền NGƯỜI LAO ĐỘNG (Điều 17
+   * cấm). Hai chế định khác nhau mang tên gần giống nhau.
+   */
+  const factTuBieuMau: Record<string, string | number | boolean> = {};
+  if (draft.nd.soNgayThuViec !== "") {
+    factTuBieuMau["thoi_gian_thu_viec_ngay"] = Number(draft.nd.soNgayThuViec);
+  }
+  if (draft.nd.luongThuViec !== "") factTuBieuMau["luong_thu_viec"] = draft.nd.luongThuViec;
+  if (draft.nd.luongChinhThuc !== "") {
+    factTuBieuMau["luong_chinh_thuc"] = draft.nd.luongChinhThuc;
+  }
 
   const xuatTep = async (dinhDang: "docx" | "pdf") => {
     const sheet = layKhung();
@@ -809,6 +844,34 @@ function KhongGianSoanThao() {
                 </ul>
               </Group>
             )}
+
+            {/* Soát THẬT với kho văn bản. Khác hẳn khối "rà soát rủi ro" ngay
+                dưới: khối đó là năm quy tắc viết cứng trong giao diện, khối này
+                gọi `POST /soat` và đối chiếu với rule + checklist dựng từ chính
+                văn bản gốc trong CSDL. Hai khối để tách bạch, không trộn, vì
+                nguồn thẩm quyền của chúng khác nhau. */}
+            {buoc === 5 &&
+              (loaiBackend === undefined ? (
+                <section
+                  aria-label="Soát bản thảo với KLAW"
+                  className="rounded-xl border border-dashed border-border p-4"
+                >
+                  <p className="m-0 text-[13px] leading-5 text-muted-foreground">
+                    <span className="font-semibold text-foreground">
+                      KLAW chưa soát được loại văn bản này.
+                    </span>{" "}
+                    Bộ soát của hệ thống hiện chỉ dựng rule và checklist cho hợp đồng lao động. Bản
+                    thảo vẫn soạn và xuất tệp bình thường — nhưng phần đối chiếu pháp lý phải do
+                    người làm.
+                  </p>
+                </section>
+              ) : (
+                <SoatBanThao
+                  loaiBackend={loaiBackend}
+                  layToanVan={layToanVanBanThao}
+                  factTuBieuMau={factTuBieuMau}
+                />
+              ))}
 
             {/* RISK PANEL */}
             <section className="overflow-hidden rounded-xl border border-[var(--color-status-partial)]/55">

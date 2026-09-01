@@ -273,3 +273,29 @@ export const mauTheoId = (id: string) => MAU.find((m) => m.id === id);
 export const laHopDongLaoDong = (m: MauVanBan) => m.nhom === "lao-dong";
 export const laHopDongThuongMai = (m: MauVanBan) => m.nhom === "thuong-mai";
 export const laThuViec = (m: MauVanBan) => m.id === "hop-dong-thu-viec";
+
+/**
+ * Mẫu nào soát được với KLAW, và mẫu nào KHÔNG.
+ *
+ * Backend nhận đúng ba `loai_van_ban` (`hdld`, `noi_quy`, `quyet_dinh_ky_luat`)
+ * và hiện chỉ `hdld` có checklist + rules thật (`_LOAI_CO_CHECKLIST = {"hdld"}`);
+ * hai loại kia trả **501**. Danh mục 25 mẫu ở trên là cấu hình sản phẩm, không
+ * phải lời hứa về năng lực soát — nên bản đồ này nói ra chính xác chỗ hai thứ
+ * đó lệch nhau, thay vì để màn soạn thảo mời người dùng bấm một nút chỉ ra lỗi.
+ *
+ * KHÔNG ánh xạ `quyet-dinh-cham-dut-hop-dong-lao-dong` sang
+ * `quyet_dinh_ky_luat`: chấm dứt hợp đồng và xử lý kỷ luật là hai chế định khác
+ * nhau của Bộ luật Lao động, và soát một quyết định chấm dứt bằng checklist kỷ
+ * luật sẽ sinh ra phát hiện sai — tệ hơn hẳn không soát.
+ */
+export const LOAI_BACKEND: Record<string, LoaiVanBanBackend> = {
+  "hop-dong-lao-dong-xac-dinh-thoi-han": "hdld",
+  "hop-dong-lao-dong-khong-xac-dinh-thoi-han": "hdld",
+  "hop-dong-thu-viec": "hdld",
+  "noi-quy-lao-dong": "noi_quy",
+};
+
+export type LoaiVanBanBackend = "hdld" | "noi_quy" | "quyet_dinh_ky_luat";
+
+/** `undefined` = KLAW chưa có kiểu nào cho mẫu này, nên chưa soát được. */
+export const loaiBackendCua = (id: string): LoaiVanBanBackend | undefined => LOAI_BACKEND[id];

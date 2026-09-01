@@ -1,9 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Briefcase, Building2, FileSignature, Gavel, Search, Stamp } from "lucide-react";
+import {
+  Briefcase,
+  Building2,
+  FileSignature,
+  Gavel,
+  ScanSearch,
+  Search,
+  Stamp,
+} from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
-import { MAU, NHOM, type NhomMau } from "@/lib/mau-van-ban";
+import { MAU, NHOM, loaiBackendCua, type NhomMau } from "@/lib/mau-van-ban";
 import { boDau } from "@/lib/van-ban";
 import { cn } from "@/lib/utils";
 import { SITE_ORIGIN } from "./__root";
@@ -30,6 +38,9 @@ export const Route = createFileRoute("/soan-thao/")({
   }),
   component: ChonLoaiVanBan,
 });
+
+/** Đếm từ chính bản đồ, không viết cứng: thêm một ánh xạ là con số tự đúng. */
+const SO_SOAT_DUOC = MAU.filter((m) => loaiBackendCua(m.id) !== undefined).length;
 
 const NHOM_ICON: Record<NhomMau, typeof Briefcase> = {
   "lao-dong": Briefcase,
@@ -61,7 +72,12 @@ function ChonLoaiVanBan() {
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
           Chọn một mẫu để mở không gian soạn thảo: điền thông tin các bên, chọn điều khoản và xem
-          trước bản A4 theo thể thức văn bản Việt Nam.
+          trước bản A4 theo thể thức văn bản Việt Nam. Toàn bộ diễn ra trên máy bạn.
+        </p>
+        <p className="mt-2 max-w-2xl text-[13px] text-muted-foreground">
+          {SO_SOAT_DUOC}/{MAU.length} mẫu soát được với kho văn bản của KLAW — bộ soát hiện mới có
+          rule và checklist cho hợp đồng lao động. Những mẫu còn lại vẫn soạn và xuất tệp bình
+          thường, nhưng phần đối chiếu pháp lý phải do người làm.
         </p>
 
         <div className="relative mt-5 max-w-xl">
@@ -118,9 +134,19 @@ function ChonLoaiVanBan() {
                   <span className="flex size-9 items-center justify-center rounded-lg bg-[var(--color-brass-500)]/12 text-[var(--color-brass-600)]">
                     <Icon className="size-4" />
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-brass-500)]/45 bg-[var(--color-brass-500)]/10 px-2 py-0.5 text-[10.5px] font-medium text-[var(--color-brass-600)]">
-                    <Stamp className="size-3" /> Mẫu tham chiếu
-                  </span>
+                  {/* Hai nhãn KHÁC NHAU, vì hai năng lực khác nhau. Mọi mẫu đều
+                      soạn và xuất tệp được ngay trên máy; chỉ một số ít soát
+                      được với kho văn bản, và danh mục phải nói ra chỗ đó thay
+                      vì để 25 thẻ trông giống hệt nhau. */}
+                  {loaiBackendCua(m.id) === undefined ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-[var(--color-paper-100)] px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground">
+                      <Stamp className="size-3" aria-hidden /> Soạn được, chưa soát được
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-brass-500)]/45 bg-[var(--color-brass-500)]/10 px-2 py-0.5 text-[10.5px] font-medium text-[var(--color-brass-600)]">
+                      <ScanSearch className="size-3" aria-hidden /> Soát được với KLAW
+                    </span>
+                  )}
                 </div>
                 <h2 className="mt-3 font-display text-[16.5px] leading-snug font-bold text-primary">
                   {m.ten}
