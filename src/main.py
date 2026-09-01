@@ -22,6 +22,25 @@ from src.services import rules as rules_svc
 async def lifespan(app: FastAPI):
     settings = get_settings()
     print(f"Starting {settings.app_name} in {settings.app_env} mode")
+    # Production PHẢI có ít nhất MỘT cách biết người gọi là ai. `cong_bao_ve`
+    # coi `nguoi is None` (Supabase chưa cấu hình) là một đường ĐI TIẾP, và cả
+    # `KLAW_API_KEY` lẫn `KLAW_SUPABASE_URL` đều mặc định RỖNG = MỞ — nên quên
+    # đặt cả hai không phát ra một tín hiệu nào, và ba endpoint tiêu tiền chạy
+    # công khai. Đo được trước khi có guard này: 768/768 dòng traces của
+    # `/tra-cuu` có `user_sub` NULL, bảng `users` 0 dòng — hạn mức tháng chưa
+    # từng trừ của ai một lượt nào.
+    #
+    # Đặt TRƯỚC phần kiểm can_cu bên dưới: đây là lỗi CẤU HÌNH, biết được mà
+    # không cần một truy vấn nào, và một deployment sai cấu hình không nên chạy
+    # xa tới mức mở kết nối Postgres. Cùng khuôn fail-fast với
+    # `kiem_tra_can_cu_ton_tai` — hỏng lúc khởi động, không hỏng giữa lúc người
+    # dùng đang chờ.
+    if settings.app_env == "production" and not (settings.api_key or settings.supabase_url):
+        raise RuntimeError(
+            "production mà KHÔNG đặt KLAW_API_KEY lẫn KLAW_SUPABASE_URL: ba endpoint "
+            "tiêu tiền (/tra-cuu, /tra-cuu/luong, /soan-thao) sẽ mở công khai và hạn "
+            "mức tháng không trừ được của ai. Đặt ít nhất một trong hai rồi khởi động lại."
+        )
     # Task 5, ràng buộc #2: kiểm can_cu LÚC KHỞI ĐỘNG, không phải lúc người
     # dùng gọi /soan-thao hay /soat. Một can_cu chết (rule hoặc mục checklist
     # trích dẫn điều luật không tồn tại) phải làm app fail nhanh ngay đây —
