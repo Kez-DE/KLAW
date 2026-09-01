@@ -12,7 +12,7 @@ import {
 import { AppShell } from "@/components/app/AppShell";
 import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
 import { MAU, NHOM, loaiBackendCua, type NhomMau } from "@/lib/mau-van-ban";
-import { boDau } from "@/lib/van-ban";
+import { boDau } from "@/lib/khong-dau";
 import { cn } from "@/lib/utils";
 import { SITE_ORIGIN } from "./__root";
 

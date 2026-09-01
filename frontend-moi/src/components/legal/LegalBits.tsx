@@ -8,24 +8,8 @@ import { cn } from "@/lib/utils";
 // không phải từ một enum ba giá trị viết trong FE. Dựng lại ở pha nối FE, theo
 // hợp đồng thật.
 
-/** Nói thẳng là màn hình chưa có đường dữ liệu — khác hẳn "không có kết quả". */
-export function ChuaNoiBanner({ className }: { className?: string }) {
-  return (
-    <div
-      className={cn(
-        "flex items-start gap-2 border-b border-border bg-[var(--color-paper-100)] px-4 py-2 text-[12px] text-muted-foreground",
-        className,
-      )}
-    >
-      <Plug className="mt-0.5 size-3.5 shrink-0" />
-      <p>
-        <span className="font-semibold text-foreground">Chưa nối dữ liệu.</span> Bản dựng này mới có
-        giao diện; kho văn bản pháp luật của KLAW chưa được nối vào. Màn hình không hiển thị nội
-        dung minh hoạ thay thế.
-      </p>
-    </div>
-  );
-}
+// ChuaNoiBanner đã gỡ: mọi màn hình nay nối vào máy chủ thật, nên một dải nói
+// "chưa nối dữ liệu" sẽ là lời khai sai theo chiều ngược lại.
 
 /**
  * Màn soạn thảo chạy thật và chạy hoàn toàn trên máy người dùng — nói "chưa nối

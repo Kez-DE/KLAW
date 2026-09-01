@@ -21,8 +21,10 @@ import type { ApiError, ApiResult } from "@/lib/klaw";
  * - **Tháo component thì huỷ.** Rời trang giữa chừng không để lại một lượt gọi
  *   treo, và không set state trên một cây đã gỡ.
  *
- * Pha 5 chưa nối máy chủ, nên chưa có hàm `fetch` nào ở đây: `chay` nhận vào
- * một hàm gọi và chỉ lo vòng đời. Ngày nối endpoint, phần này không đổi.
+ * Hook này CHỈ lo vòng đời: `chay` nhận vào một hàm gọi bất kỳ trả về
+ * `ApiResult`. Lời gọi `fetch` thật nằm ở `lib/api.ts`, và hạn giờ đi kèm nó —
+ * nên hai mối bận tâm không trộn vào nhau, và pha nối backend không phải sửa
+ * một dòng nào ở đây.
  */
 export interface TrangThaiGoi<T> {
   dangChay: boolean;

@@ -1,10 +1,12 @@
 import { Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-// StatusBadge đã bị xoá cùng `TinhTrang` — xem ghi chú trong `lib/van-ban.ts`.
+// StatusBadge đã bị xoá cùng `TinhTrang`: năm chuỗi đó là giá trị thô của cột
+// `documents.tinh_trang` — tuyên bố của CSDL quốc gia, không phải phán quyết của
+// KLAW.
 // Nhãn hiệu lực duy nhất của ứng dụng là `components/klaw/BadgeHieuLuc.tsx`,
 // và nguồn duy nhất của nó là `GET /van-ban/{doc_id}/hieu-luc`.
-import { boDau, moRongTruyVan } from "@/lib/van-ban";
+import { boDau, moRongTruyVan } from "@/lib/khong-dau";
 
 /** Tô sáng cụm từ khớp (không phân biệt dấu) với nền brass-300 ~25%. */
 export function Highlight({ text, query }: { text: string; query: string }): ReactNode {

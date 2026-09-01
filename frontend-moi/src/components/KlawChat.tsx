@@ -105,12 +105,12 @@ export function KlawChat() {
               <Plug className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  Trợ lý chưa được nối vào hệ thống KLAW.
+                  Câu hỏi được chuyển sang màn trợ lý.
                 </p>
                 <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
-                  Bản dựng này mới có giao diện. Đường trả lời sẽ nối vào máy chủ tra cứu của KLAW ở
-                  bước sau. Cho tới lúc đó, màn hình không đưa ra câu trả lời nào — kể cả câu trả
-                  lời mẫu — để không ai nhầm nội dung minh hoạ với quy định pháp luật thật.
+                  Ở đó câu trả lời tới kèm điều, khoản, điểm, nhãn hiệu lực và nguyên văn để bạn tự
+                  đối chiếu. Một lượt mất 10–60 giây; màn hình hiện từng bước máy chủ đã chạy xong
+                  chứ không phải một vòng quay.
                 </p>
               </div>
             </div>

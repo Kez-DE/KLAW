@@ -1,10 +1,10 @@
 /**
  * Kiểu dữ liệu của hợp đồng KLAW ↔ FE.
  *
- * Pha 5 dựng THÀNH PHẦN TRÌNH BÀY, chưa nối máy chủ: chưa có hàm fetch nào ở
- * đây, và cũng chưa có type guard runtime. Cái có mặt là hình dạng dữ liệu mà
- * các thành phần nhận qua props, để ngày nối endpoint không phải sửa lại giao
- * diện — chỉ điền nguồn.
+ * Chỉ HÌNH DẠNG dữ liệu và các type guard runtime kiểm hình dạng đó. Lời gọi
+ * `fetch` nằm ở `lib/api.ts`; mọi lời gọi ở đó bắt buộc truyền một guard trong
+ * file này, nên `invalid_response` là một nhánh có người thi hành chứ không
+ * phải một dòng chú thích.
  *
  * Nguyên tắc giữ khi nối: KHÔNG thu hẹp một trường mà hợp đồng để `string`.
  * Backend thêm nhãn thứ bảy là chuyện bình thường; nó phải rơi vào nhánh an

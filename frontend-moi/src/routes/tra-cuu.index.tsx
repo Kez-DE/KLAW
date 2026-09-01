@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { BadgeHieuLuc } from "@/components/klaw/BadgeHieuLuc";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
-import { Chip } from "@/components/legal/VanBanUI";
+import { Chip, Highlight } from "@/components/legal/VanBanUI";
 import { goi, thamSo } from "@/lib/api";
 import {
   laBoLoc,
@@ -266,7 +266,7 @@ function ThanBoLoc({
 
 /* ─────────────────────────────── Một kết quả ───────────────────────────── */
 
-function TheDong({ dong }: { dong: DongTimKiem }) {
+function TheDong({ dong, q }: { dong: DongTimKiem; q: string }) {
   const trichDan = `${dong.duong_dan.replace(`${dong.so_ky_hieu} > `, "")} ${dong.so_ky_hieu}`;
   return (
     <article className="rounded-xl border border-border bg-card p-4 transition-colors duration-150 hover:border-[var(--color-brass-500)]/50">
@@ -320,7 +320,11 @@ function TheDong({ dong }: { dong: DongTimKiem }) {
       </p>
 
       <div className="mt-2.5 border-l-2 border-[var(--color-brass-500)] pl-3">
-        <p className="serif-body m-0 text-[15px] leading-[1.8] text-foreground">{dong.trich}</p>
+        {/* Tô sáng làm phía CLIENT, cố ý. `chunks.tsv` dựng trên `unaccent(...)`
+            nên `ts_headline` của máy chủ sẽ trả về tiếng Việt mất dấu. */}
+        <p className="serif-body m-0 text-[15px] leading-[1.8] text-foreground">
+          <Highlight text={dong.trich} query={q} />
+        </p>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-3 text-[12px]">
@@ -625,7 +629,7 @@ function ManTimKiem() {
                 </p>
               )}
               {ketQua?.ket_qua.map((dong) => (
-                <TheDong key={`${dong.doc_id}-${dong.provision_id}`} dong={dong} />
+                <TheDong key={`${dong.doc_id}-${dong.provision_id}`} dong={dong} q={q} />
               ))}
 
               {tongTrang > 1 && (
