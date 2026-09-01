@@ -1,0 +1,47 @@
+# Checklist nội dung bắt buộc của NỘI QUY LAO ĐỘNG — BLLĐ Đ118.2 a-i, đối
+# chiếu NĐ 145/2020/NĐ-CP Đ69.2 (cùng chín điểm, có chi tiết hoá). Mỗi mục có
+# can_cu RIÊNG để một audit finding trích dẫn đúng điểm luật.
+#
+# Mọi can_cu bên dưới đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan FROM provisions
+#    WHERE duong_dan LIKE '45/2019/QH14 > Điều 118%'
+#       OR duong_dan LIKE '145/2020/NĐ-CP > Điều 69%';
+# tests/test_services/test_moi_mau.py chặn đứng bất kỳ can_cu nào không khớp
+# một provisions.duong_dan đang có, và src/main.py kiểm lại lúc khởi động.
+#
+# KHÔNG có ngoại lệ nào ở đây: Đ118.2 nói "bao gồm những nội dung chủ yếu sau
+# đây" và liệt kê đủ chín điểm, không điểm nào là quyền thoả thuận (khác Đ21.2
+# của HĐLĐ) và không ngành nào được giảm (khác Đ21.3). Ba khối ngoại lệ của
+# checklist_hdld.yaml vì thế vắng mặt — vắng, chứ không khai rỗng.
+loai: noi_quy
+ten: "nội quy lao động"
+tieu_de: "NỘI QUY LAO ĐỘNG"
+
+# Chỉ hai rule: Đ127.2 (cấm phạt tiền/cắt lương thay xử lý kỷ luật) và Đ17
+# (cấm giữ giấy tờ gốc, buộc đặt cọc) là hai điều cấm mà một bản nội quy vi
+# phạm thường xuyên nhất, và cả hai kiểm được bằng chính fact đã có.
+# `thu_viec_toi_da`, `luong_thu_viec_toi_thieu`, `luong_toi_thieu_vung` KHÔNG
+# áp dụng: nội quy lao động không thoả thuận thời gian thử việc hay mức lương
+# của một người cụ thể — hỏi người dùng ba fact đó rồi soát bằng chúng là soát
+# một văn bản bằng chế định của một văn bản khác.
+rules:
+  - cam_phat_tien_nld
+  - cam_giu_giay_to_dat_coc
+
+can_cu_goc: "45/2019/QH14 > Điều 118 > Khoản 2"
+can_cu_chi_tiet: "145/2020/NĐ-CP > Điều 69"
+
+# tu_khoa: cố ý KHÔNG chồng lấn giữa mục g và mục i. `extract_clauses` lấy mục
+# ĐẦU TIÊN khớp, nên nếu g mang từ khoá chung "kỷ luật lao động" thì một điều
+# khoản về thẩm quyền xử lý kỷ luật sẽ bị gán nhầm cho g và mục i vĩnh viễn bị
+# báo thiếu.
+muc:
+  - {stt: 1, key: thoi_gio,        ten: "Thời giờ làm việc, thời giờ nghỉ ngơi", diem: a,  can_cu: "45/2019/QH14 > Điều 118 > Khoản 2 > Điểm a", tu_khoa: ["thời giờ làm việc", "thời giờ nghỉ ngơi", "giờ làm việc", "nghỉ hằng tuần"]}
+  - {stt: 2, key: trat_tu,         ten: "Trật tự tại nơi làm việc", diem: b,  can_cu: "45/2019/QH14 > Điều 118 > Khoản 2 > Điểm b", tu_khoa: ["trật tự tại nơi làm việc", "trật tự nơi làm việc", "văn hóa ứng xử", "trang phục"]}
+  - {stt: 3, key: an_toan,         ten: "An toàn, vệ sinh lao động tại nơi làm việc", diem: c,  can_cu: "45/2019/QH14 > Điều 118 > Khoản 2 > Điểm c", tu_khoa: ["an toàn, vệ sinh lao động", "an toàn lao động", "vệ sinh lao động", "phương tiện bảo vệ cá nhân"]}
+  - {stt: 4, key: quay_roi,        ten: "Phòng, chống quấy rối tình dục tại nơi làm việc", diem: d,  can_cu: "45/2019/QH14 > Điều 118 > Khoản 2 > Điểm d", tu_khoa: ["quấy rối tình dục", "phòng, chống quấy rối"]}
+  - {stt: 5, key: bao_ve_tai_san,  ten: "Bảo vệ tài sản, bí mật kinh doanh, bí mật công nghệ, sở hữu trí tuệ", diem: đ,  can_cu: "45/2019/QH14 > Điều 118 > Khoản 2 > Điểm đ", tu_khoa: ["bảo vệ tài sản", "bí mật kinh doanh", "bí mật công nghệ", "sở hữu trí tuệ"]}
+  - {stt: 6, key: chuyen_viec,     ten: "Trường hợp được tạm thời chuyển người lao động làm việc khác", diem: e,  can_cu: "45/2019/QH14 > Điều 118 > Khoản 2 > Điểm e", tu_khoa: ["tạm thời chuyển người lao động", "chuyển làm công việc khác", "điều chuyển công việc"]}
+  - {stt: 7, key: hanh_vi_vi_pham, ten: "Các hành vi vi phạm kỷ luật lao động và các hình thức xử lý kỷ luật", diem: g,  can_cu: "45/2019/QH14 > Điều 118 > Khoản 2 > Điểm g", tu_khoa: ["hành vi vi phạm kỷ luật", "hình thức xử lý kỷ luật", "khiển trách", "sa thải"]}
+  - {stt: 8, key: trach_nhiem_vc,  ten: "Trách nhiệm vật chất", diem: h,  can_cu: "45/2019/QH14 > Điều 118 > Khoản 2 > Điểm h", tu_khoa: ["trách nhiệm vật chất", "bồi thường thiệt hại", "làm hư hỏng dụng cụ"]}
+  - {stt: 9, key: tham_quyen_kl,   ten: "Người có thẩm quyền xử lý kỷ luật lao động", diem: i,  can_cu: "45/2019/QH14 > Điều 118 > Khoản 2 > Điểm i", tu_khoa: ["thẩm quyền xử lý kỷ luật", "người có thẩm quyền xử lý"]}
