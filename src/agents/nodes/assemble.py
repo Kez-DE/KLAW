@@ -381,7 +381,19 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
         return ket
 
-    claims_txt = "\n".join(f"- {r.claim.text}" for r in dung_cho_prose)
+    # Kèm `duong_dan` ĐÃ XÁC MINH của từng khẳng định: prompt hành văn nay cho
+    # phép dẫn số Điều ngay trong lời văn (giọng luật sư), và cách duy nhất để
+    # việc đó an toàn là mô hình chỉ nhìn thấy đúng những số Điều đã qua tầng
+    # 1+2. `_dieu_khong_duoc_chong_do` vẫn là lưới cuối: nhắc một số Điều ngoài
+    # tập này thì cả câu trả lời bị hạ xuống abstain.
+    #
+    # `strict=True` khoá bất biến hai danh sách khớp chỉ số — chúng được append
+    # cùng một nhánh `else` ở vòng lặp trên, và nếu ai đó tách chúng ra thì lỗi
+    # phải nổ ở đây chứ không phải hiện thành một trích dẫn gắn nhầm khẳng định.
+    claims_txt = "\n".join(
+        f"- {r.claim.text}\n  (căn cứ: {c['duong_dan']} — {c['bo_luat']})"
+        for r, c in zip(dung_cho_prose, citations_dung_cho_prose, strict=True)
+    )
     prompt = PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi=state.get("query", ""), claims=claims_txt)
     usage: Usage | None = None
     degraded = False
