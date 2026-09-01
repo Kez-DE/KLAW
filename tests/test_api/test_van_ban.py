@@ -132,6 +132,35 @@ async def test_khong_tham_so_tra_muc_luc_khong_co_dieu(client):
     assert caps <= {"phan", "chuong", "muc", "tieu_muc"}
 
 
+# Nghị định 293/2025 — mức lương tối thiểu ĐANG hiệu lực, và một trong 11 văn
+# bản không có Chương/Mục nào. Mục lục theo nghĩa hẹp (`phan`/`chuong`/`muc`/
+# `tieu_muc`) của nó là RỖNG, nên trước bản này người mở nó thấy một trang
+# trắng và chỉ tìm ra Điều nếu tự gõ vào ô lọc. Cả sáu nghị định lương tối
+# thiểu đều phẳng như vậy — đúng nhóm văn bản người dùng mở nhiều nhất.
+DOC_ID_LTT = "183939"
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_van_ban_phang_tra_danh_sach_dieu_lam_muc_luc(client):
+    """Văn bản không có Chương thì cấu trúc duyệt được CHÍNH LÀ danh sách Điều.
+
+    Giữ nguyên hình dạng `VanBanMucLucResponse` thay vì trả `provisions`: mọi
+    client gọi endpoint này không tham số đều đang chờ `muc_luc`, và đổi hình
+    dạng sẽ biến một trang rỗng thành một lỗi phân tích — tệ hơn, không phải
+    tốt hơn.
+    """
+    r = await client.get(f"/api/v1/van-ban/{DOC_ID_LTT}")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["so_ky_hieu"] == "293/2025/NĐ-CP"
+    assert len(data["muc_luc"]) == 5, "nghị định này có đúng 5 Điều"
+    assert {m["cap"] for m in data["muc_luc"]} == {"dieu"}
+    assert [m["so_hieu_cap"] for m in data["muc_luc"]] == ["1", "2", "3", "4", "5"], (
+        "phải theo thu_tu, không phải thứ tự ngẫu nhiên của bảng"
+    )
+
+
 # ══ ?so_dieu= — một Điều + Khoản/Điểm con ════════════════════════════════════
 
 

@@ -74,12 +74,18 @@ class TraCuuResponse(BaseModel):
 
 
 class MucLucItem(BaseModel):
-    # Chỉ 4 cấp TÀI LIỆU-cấu-trúc — KHÔNG BAO GIỜ 'dieu' (đó là lý do dạng
-    # không tham số lazy: mục lục không kéo nội dung Điều). Ràng buộc kiểu ở
-    # đây là lớp kiểm THỨ HAI, độc lập với `WHERE cap IN (...)` trong SQL —
-    # nếu SQL từng nới lỏng sai, response vẫn bị chặn ở biên pydantic.
+    # `'dieu'` được nhận từ 2026-09-01, cho 11/47 văn bản KHÔNG có Chương/Mục
+    # nào (sáu nghị định lương tối thiểu nằm trong đó). Với chúng, cấu trúc
+    # duyệt được của văn bản CHÍNH LÀ danh sách Điều; loại nó ra chỉ khiến
+    # người mở thấy trang trắng.
+    #
+    # Bất biến thật mà model này giữ KHÔNG PHẢI là "cap không bao giờ là dieu"
+    # — mà là **mục lục không bao giờ mang `noi_dung`**, tức dạng không tham số
+    # luôn lazy. Bất biến đó được cưỡng chế bằng thứ mạnh hơn một Literal:
+    # `noi_dung` không phải là trường của model này, nên không truy vấn nào
+    # nhét được nội dung Điều vào đây dù `cap` nhận giá trị gì.
     id: int
-    cap: Literal["phan", "chuong", "muc", "tieu_muc"]
+    cap: Literal["phan", "chuong", "muc", "tieu_muc", "dieu"]
     so_hieu_cap: str
     tieu_de: str
     thu_tu: int

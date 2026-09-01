@@ -329,6 +329,17 @@ _SQL_VAN_BAN_MUC_LUC = text(
     " ORDER BY thu_tu"
 )
 
+# Dự phòng cho 11/47 văn bản KHÔNG có Chương/Mục nào (đo 2026-09-01: nhiều
+# nhất 10 Điều, trung bình 5,8 — trong đó có cả sáu nghị định lương tối thiểu).
+# Với chúng, `_SQL_VAN_BAN_MUC_LUC` trả rỗng và người mở thấy một trang trắng.
+# Cấu trúc duyệt được của một văn bản phẳng CHÍNH LÀ danh sách Điều của nó, nên
+# trả đúng thứ đó — cùng năm cột, cùng `MucLucItem`, client không phải học gì mới.
+_SQL_VAN_BAN_DIEU_PHANG = text(
+    "SELECT id, cap, so_hieu_cap, tieu_de, thu_tu FROM provisions"
+    " WHERE document_id = :doc_id AND cap = 'dieu'"
+    " ORDER BY thu_tu"
+)
+
 _SQL_VAN_BAN_DIEU_BY_SO_HIEU = text(
     "SELECT id FROM provisions WHERE document_id = :doc_id AND cap = 'dieu' AND so_hieu_cap = :so_dieu"
 )
@@ -422,10 +433,13 @@ def _van_ban_sync(
             )
 
         if so_dieu is None and around is None:
-            muc_luc = [
-                MucLucItem(**dict(r))
-                for r in conn.execute(_SQL_VAN_BAN_MUC_LUC, {"doc_id": doc_id}).mappings().all()
-            ]
+            rows = conn.execute(_SQL_VAN_BAN_MUC_LUC, {"doc_id": doc_id}).mappings().all()
+            if not rows:
+                # Truy vấn thứ hai CHỈ chạy khi truy vấn đầu không ra gì, nên
+                # 36/47 văn bản có Chương không trả thêm đồng nào. Văn bản tầng
+                # metadata (0 điều khoản) vẫn đúng: cả hai đều rỗng.
+                rows = conn.execute(_SQL_VAN_BAN_DIEU_PHANG, {"doc_id": doc_id}).mappings().all()
+            muc_luc = [MucLucItem(**dict(r)) for r in rows]
             return VanBanMucLucResponse(**_meta(doc_id, doc), muc_luc=muc_luc)
 
         if so_dieu is not None:
