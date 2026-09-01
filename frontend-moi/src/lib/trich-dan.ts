@@ -96,3 +96,56 @@ export function catTheoTrichDan(noiDung: string, quote: string): LatCatTrichDan 
     timThay: true,
   };
 }
+
+/**
+ * Bốn nhóm theo mức liên quan tới HIỆN TẠI. Số nhỏ đọc trước.
+ *
+ * Backend trả `citations[]` KHÔNG lọc và KHÔNG sắp — cố ý, để nó làm vết kiểm
+ * toán đầy đủ. Nhưng người hỏi "lương tối thiểu bao nhiêu" đọc dải trích dẫn
+ * từ trên xuống như đọc câu trả lời, nên một lượt trả bốn mức lương đã chết
+ * xếp TRƯỚC mức đang áp dụng sẽ đọc ra bốn câu trả lời mâu thuẫn cho một câu
+ * hỏi. Hình dạng danh sách truyền đi sự lộn xộn đó trước cả khi ai kịp đọc
+ * nhãn hiệu lực.
+ *
+ * Sắp lại, KHÔNG xoá: mấy nghị định lương tối thiểu bị CSDL quốc gia đánh sai
+ * hiệu lực là phát hiện trung tâm của dự án. Giấu chúng đi là vứt mất đúng thứ
+ * cần chứng minh; việc phải làm chỉ là thôi để chúng đứng đầu.
+ *
+ * Kiểm chạy được: `npm run kiem-xep-trich-dan`.
+ */
+export function nhomHieuLuc(hieuLuc: string | null): 1 | 2 | 3 | 4 {
+  switch (hieuLuc) {
+    case "con_hieu_luc":
+      return 1;
+    case "chua_hieu_luc":
+      return 2;
+    case "bi_thay_the":
+    case "het_hieu_luc":
+      return 4;
+    default:
+      // `bi_sua_doi`, `mot_phan_khong_xac_dinh`, `can_doi_chieu_tay`, `null`,
+      // và MỌI nhãn backend thêm sau. Không rơi xuống nhóm 4: nhóm đó tuyên bố
+      // "đã hết hiệu lực hoặc bị thay thế", và tuyên bố ấy về một nhãn mình
+      // không hiểu là bịa. Nhóm 3 chỉ nói "còn dùng được nhưng có điều kiện".
+      return 3;
+  }
+}
+
+/**
+ * Sắp trích dẫn theo nhóm, giữ nguyên thứ tự tương đối trong mỗi nhóm.
+ *
+ * `chiSoGoc` đi kèm vì `onChon`/`chiSoDangMo` đánh số theo MẢNG GỐC — nơi gọi
+ * tra `ketQua.citations[chiSo]`. Sắp lại mà quên mang chỉ số gốc theo thì bấm
+ * một chip sẽ mở nguyên văn của một điều KHÁC: đúng thứ sản phẩm này tồn tại
+ * để không bao giờ xảy ra.
+ *
+ * `Array.prototype.sort` ổn định theo đặc tả từ ES2019, nên thứ tự liên quan
+ * mà backend đã xếp bên trong từng nhóm được giữ nguyên.
+ */
+export function xepTrichDan<T extends { hieu_luc: string | null }>(
+  citations: readonly T[],
+): { trichDan: T; chiSoGoc: number }[] {
+  return citations
+    .map((trichDan, chiSoGoc) => ({ trichDan, chiSoGoc }))
+    .sort((a, b) => nhomHieuLuc(a.trichDan.hieu_luc) - nhomHieuLuc(b.trichDan.hieu_luc));
+}

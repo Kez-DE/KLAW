@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { BookOpenText, FileSearch, Info } from "lucide-react";
 import type { Citation, Nguon, TraCuuKetQua } from "@/lib/klaw";
+import { nhomHieuLuc, xepTrichDan } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { catDoan } from "@/lib/van-xuoi";
 import { BadgeHieuLuc } from "./BadgeHieuLuc";
@@ -173,40 +175,85 @@ function DaiTrichDan({
   chiSoDangMo: number | null;
   onChon: (chiSo: number) => void;
 }) {
+  const [moLichSu, datMoLichSu] = useState(false);
+
+  const daSap = xepTrichDan(citations);
+  const conDung = daSap.filter((muc) => nhomHieuLuc(muc.trichDan.hieu_luc) !== 4);
+  const lichSu = daSap.filter((muc) => nhomHieuLuc(muc.trichDan.hieu_luc) === 4);
+
+  // Chỉ thu gọn khi CÒN thứ khác để đọc. Một lượt mà mọi trích dẫn đều đã chết
+  // vẫn phải bày bằng chứng ra — thu gọn hết thì người dùng không còn gì.
+  const chiCoLichSu = conDung.length === 0;
+  const hienLichSu = chiCoLichSu || moLichSu || lichSu.some((muc) => muc.chiSoGoc === chiSoDangMo);
+
   if (citations.length === 0) return null;
+
+  const chip = ({ trichDan, chiSoGoc }: { trichDan: Citation; chiSoGoc: number }) => (
+    <li key={`${trichDan.doc_id}-${trichDan.khop_tai_id}`}>
+      <button
+        type="button"
+        onClick={() => onChon(chiSoGoc)}
+        aria-expanded={chiSoDangMo === chiSoGoc}
+        className={cn(
+          "focus-brass block w-full cursor-pointer rounded-lg border p-3 text-left transition-colors",
+          chiSoDangMo === chiSoGoc
+            ? "border-[var(--ring)] bg-[var(--color-paper-100)]"
+            : "border-border bg-card hover:bg-[var(--color-paper-50)]",
+        )}
+      >
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-jetbrains text-[13px] text-foreground">{trichDan.so_ky_hieu}</span>
+          <span className="text-[13px] text-muted-foreground">{trichDan.duong_dan}</span>
+        </span>
+        <BadgeHieuLuc hieuLuc={trichDan.hieu_luc} className="mt-1.5" />
+        <span className="serif-body mt-1.5 block text-[14px] leading-6 text-foreground">
+          “{trichDan.quote}”
+        </span>
+      </button>
+    </li>
+  );
+
   return (
     <section aria-label="Trích dẫn đã kiểm chứng" className="mt-4">
       <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">
         Trích dẫn — bấm để mở nguyên văn và tự đối chiếu
       </h3>
-      <ul className="mt-2 mb-0 flex list-none flex-col gap-2 p-0">
-        {citations.map((trichDan, i) => (
-          <li key={`${trichDan.doc_id}-${trichDan.khop_tai_id}`}>
+
+      {conDung.length > 0 && (
+        <ul className="mt-2 mb-0 flex list-none flex-col gap-2 p-0">{conDung.map(chip)}</ul>
+      )}
+
+      {lichSu.length > 0 && (
+        <div className={cn(conDung.length > 0 && "mt-4")}>
+          {/* Nhóm lịch sử luôn mang tiêu đề nói rõ nó là gì, kể cả khi đang mở:
+              một chip "Đã bị thay thế" lẫn giữa các chip khác chỉ khác nhau ở
+              màu nhãn, còn một mục nằm dưới tiêu đề này thì không đọc nhầm
+              thành câu trả lời được. */}
+          {chiCoLichSu ? (
+            <h4 className="m-0 text-[13px] leading-5 font-semibold text-muted-foreground">
+              Quy định cũ — đã hết hiệu lực hoặc bị thay thế ({lichSu.length})
+            </h4>
+          ) : (
             <button
               type="button"
-              onClick={() => onChon(i)}
-              aria-expanded={chiSoDangMo === i}
-              className={cn(
-                "focus-brass block w-full cursor-pointer rounded-lg border p-3 text-left transition-colors",
-                chiSoDangMo === i
-                  ? "border-[var(--ring)] bg-[var(--color-paper-100)]"
-                  : "border-border bg-card hover:bg-[var(--color-paper-50)]",
-              )}
+              onClick={() => datMoLichSu((truoc) => !truoc)}
+              aria-expanded={hienLichSu}
+              className="focus-brass -mx-1 min-h-6 cursor-pointer rounded px-1 text-left text-[13px] leading-5 font-semibold text-muted-foreground underline underline-offset-2"
             >
-              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="font-jetbrains text-[13px] text-foreground">
-                  {trichDan.so_ky_hieu}
-                </span>
-                <span className="text-[13px] text-muted-foreground">{trichDan.duong_dan}</span>
-              </span>
-              <BadgeHieuLuc hieuLuc={trichDan.hieu_luc} className="mt-1.5" />
-              <span className="serif-body mt-1.5 block text-[14px] leading-6 text-foreground">
-                “{trichDan.quote}”
-              </span>
+              Quy định cũ — đã hết hiệu lực hoặc bị thay thế ({lichSu.length})
             </button>
-          </li>
-        ))}
-      </ul>
+          )}
+          {chiCoLichSu && (
+            <p className="mt-1 mb-0 text-[13px] leading-5 text-muted-foreground">
+              Lượt này không tìm được điều khoản nào còn hiệu lực. Dưới đây là những gì tìm được —
+              đối chiếu văn bản thay thế trước khi dùng.
+            </p>
+          )}
+          {hienLichSu && (
+            <ul className="mt-2 mb-0 flex list-none flex-col gap-2 p-0">{lichSu.map(chip)}</ul>
+          )}
+        </div>
+      )}
     </section>
   );
 }
