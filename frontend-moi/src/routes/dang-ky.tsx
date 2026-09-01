@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { dangKy } from "@/lib/xac-thuc";
 import {
   BrassButton,
   Divider,
@@ -105,16 +106,22 @@ function SignUpPage() {
     if (Object.keys(next).length > 0) return;
 
     setLoading(true);
-    // TODO: replace with real authentication endpoint.
-    setTimeout(() => {
+    // Đăng ký THẬT qua Supabase — xem ghi chú trong `lib/xac-thuc.ts`.
+    void dangKy(form.email.trim(), form.password, form.name.trim()).then((ketQua) => {
       setLoading(false);
-      if (form.email.trim().toLowerCase() === "trung@klaw.vn") {
-        setBanner("Email hoặc mật khẩu không đúng.");
+      if (ketQua.trangThai !== "xong") {
+        setBanner(ketQua.thongDiep);
+        return;
+      }
+      if (ketQua.canXacNhanEmail) {
+        // Dự án bật xác nhận email thì CHƯA có phiên. Đẩy sang màn hỏi lúc này
+        // là để cổng bảo vệ trả 401 cho một tài khoản vừa tạo thành công.
+        setBanner("Đã tạo tài khoản. Kiểm tra hộp thư và bấm liên kết xác nhận, sau đó đăng nhập.");
         return;
       }
       setDone(true);
       setTimeout(() => navigate({ to: "/dung-thu" }), 900);
-    }, 1200);
+    });
   };
 
   return (

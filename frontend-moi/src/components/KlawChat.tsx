@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   BookOpenText,
@@ -12,14 +12,16 @@ import {
   Gavel,
 } from "lucide-react";
 
-// Pha 0 của bản port: KLAW chưa nối backend.
+// `/chat` là CỬA VÀO, không phải một màn hỏi thứ hai.
 //
 // Bản Lovable gọi `/api/chat` — một lượt LLM trần, không truy hồi, không kiểm
-// chứng nguồn. Route đó đã bị xoá cùng `ai-gateway.server.ts`. Cho tới khi màn
-// này nối vào FastAPI, ô soạn câu hỏi vẫn dùng được nhưng KHÔNG trả lời: không
-// có câu trả lời đóng hộp, không có dòng token giả, không có trích dẫn dựng sẵn.
-// Một trợ lý pháp luật im lặng và nói rõ vì sao thì trung thực; một trợ lý diễn
-// vai đang trả lời thì không.
+// chứng nguồn. Route đó đã bị xoá cùng `ai-gateway.server.ts`. Ở pha nối
+// backend, câu hỏi gõ ở đây được giao cho `/dung-thu`, nơi có đủ SSE, bốn
+// `result_type`, nhãn hiệu lực và khung đối chiếu nguyên văn.
+//
+// Dựng một dòng hội thoại thứ hai ở đây sẽ là hai bản cài đặt của cùng một
+// việc, và bản nào cũng có thể quên một trong bốn nhánh kết quả. Một cửa vào
+// thì không quên được gì.
 
 const SUGGESTIONS = [
   {
@@ -49,11 +51,12 @@ const SUGGESTIONS = [
 
 export function KlawChat() {
   const [input, setInput] = useState("");
-  const [daThu, setDaThu] = useState(false);
+  const dieuHuong = useNavigate();
 
   const submit = (text: string) => {
-    if (!text.trim()) return;
-    setDaThu(true);
+    const cauHoi = text.trim();
+    if (cauHoi === "") return;
+    void dieuHuong({ to: "/dung-thu", search: { q: cauHoi } });
   };
 
   return (
@@ -167,13 +170,6 @@ export function KlawChat() {
             <SendHorizonal className="size-4.5" />
           </button>
         </form>
-        <p aria-live="polite" className="mx-auto max-w-4xl px-4 text-center text-xs">
-          {daThu ? (
-            <span className="text-foreground">
-              Chưa gửi được: trợ lý chưa nối vào máy chủ KLAW trong bản dựng này.
-            </span>
-          ) : null}
-        </p>
         <p className="mx-auto max-w-4xl px-4 pt-1.5 pb-3 text-center text-[11px] text-muted-foreground">
           KLAW cung cấp thông tin tham khảo, không thay thế tư vấn của luật sư. Vui lòng kiểm chứng
           với văn bản quy phạm pháp luật đang có hiệu lực.

@@ -58,6 +58,7 @@ function Luot({ cauHoi, children }: { cauHoi: string; children?: React.ReactNode
 }
 
 function ManHoiKlaw() {
+  const { q: cauHoiTrenUrl } = Route.useSearch();
   const traCuu = useTraCuu();
   const doiChieu = useDoiChieu();
   const haiCot = useHaiCot();
@@ -74,6 +75,17 @@ function ManHoiKlaw() {
   useLayoutEffect(() => {
     cuoi.current?.scrollIntoView({ block: "end" });
   }, [luuTru, traCuu.ketQua, traCuu.dangChay]);
+
+  // Chạy đúng MỘT lần cho mỗi giá trị `?q=`. `hoi` ổn định giữa các lần dựng
+  // lại (`useCallback`), nên hiệu ứng này không tự kích hoạt lại và không biến
+  // một câu hỏi thành một chuỗi lượt gọi tính tiền.
+  const { hoi } = traCuu;
+  const daHoiTuUrl = useRef<string | null>(null);
+  useEffect(() => {
+    if (cauHoiTrenUrl === undefined || daHoiTuUrl.current === cauHoiTrenUrl) return;
+    daHoiTuUrl.current = cauHoiTrenUrl;
+    hoi(cauHoiTrenUrl);
+  }, [cauHoiTrenUrl, hoi]);
 
   const tuGian = () => {
     const el = oHoi.current;
@@ -352,6 +364,13 @@ function ManHoiKlaw() {
 }
 
 export const Route = createFileRoute("/dung-thu")({
+  // `?q=` là câu hỏi người dùng vừa gõ ở một cửa vào khác (`/chat`, hoặc một
+  // liên kết được chia sẻ). Nó chạy NGAY, vì gõ câu hỏi rồi bấm gửi đã là sự
+  // đồng ý — bắt bấm gửi lần thứ hai chỉ để giữ một quy tắc hình thức.
+  validateSearch: (tho: Record<string, unknown>): { q?: string } => {
+    const q = tho["q"];
+    return typeof q === "string" && q.trim() !== "" ? { q } : {};
+  },
   component: ManHoiKlaw,
   head: () => {
     const title = "Hỏi KLAW — tra cứu pháp luật lao động có trích dẫn kiểm chứng được";

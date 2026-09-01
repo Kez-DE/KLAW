@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { HeroCanvas } from "@/components/three/HeroCanvas";
+import { PhamViKho } from "@/components/klaw/PhamViKho";
 import { useMouseTilt } from "@/hooks/use-mouse-tilt";
 import { ChatbotFab } from "@/components/ChatbotFab";
 import { useReveal } from "@/hooks/use-reveal";
@@ -99,9 +100,9 @@ const STEPS = [
 // trong đó Đất đai, Hôn nhân & Gia đình, Thuế, Sở hữu trí tuệ, Đầu tư và Doanh
 // nghiệp là đúng những lĩnh vực PRODUCT.md nói KHÔNG phủ.
 //
-// Danh sách vẫn đang viết cứng, nên nó sẽ lệch khi corpus mở rộng. Chỗ đúng cho
-// những con số này là trang /pham-vi lấy từ API — một trong các bảo đảm của bản
-// FE cũ mà bản này chưa dựng lại.
+// Danh sách TÊN vẫn viết cứng, và đó là chỗ đúng của nó: phạm vi sản phẩm do
+// PRODUCT.md quyết, không phải do dữ liệu hôm nay. Còn SỐ ĐẾM thì đi qua API —
+// xem `PhamViKho` ngay dưới danh sách này.
 const AREAS = [
   { ten: "Lao động", sau: true },
   { ten: "Dân sự", sau: false },
@@ -362,6 +363,11 @@ function Landing() {
                   </li>
                 ))}
               </ul>
+
+              {/* Con số ĐẾM TỪ MÁY CHỦ. Không có bộ số dự phòng viết cứng:
+                    một con số chỉ xuất hiện lúc mạng hỏng là một con số không
+                    ai kiểm được. */}
+              <PhamViKho className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-5 sm:grid-cols-3" />
             </div>
           </div>
         </section>

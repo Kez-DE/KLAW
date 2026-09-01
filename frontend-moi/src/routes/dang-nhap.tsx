@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { dangNhap } from "@/lib/xac-thuc";
 import {
   BrassButton,
   Divider,
@@ -59,16 +60,19 @@ function SignInPage() {
     if (Object.keys(next).length > 0) return;
 
     setLoading(true);
-    // TODO: replace with real authentication endpoint.
-    setTimeout(() => {
+    // Đăng nhập THẬT qua Supabase. Trước bản này, chỗ đây là một
+    // `setTimeout(1200)` rồi báo "Xác thực thành công" cho mọi mật khẩu trừ
+    // chuỗi "sai" — nói dối người dùng về chính phiên của họ, rồi đẩy họ sang
+    // một màn hỏi mà cổng bảo vệ sẽ từ chối.
+    void dangNhap(email.trim(), password).then((ketQua) => {
       setLoading(false);
-      if (password.toLowerCase() === "sai") {
-        setBanner("Email hoặc mật khẩu không đúng.");
+      if (ketQua.trangThai !== "xong") {
+        setBanner(ketQua.thongDiep);
         return;
       }
       setDone(true);
       setTimeout(() => navigate({ to: "/dung-thu" }), 900);
-    }, 1200);
+    });
   };
 
   return (
