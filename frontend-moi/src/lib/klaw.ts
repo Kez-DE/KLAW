@@ -297,11 +297,27 @@ export interface VanBanMeta {
 
 export interface MucLucItem {
   id: number;
-  cap: "phan" | "chuong" | "muc" | "tieu_muc";
+  /**
+   * `string`, KHÔNG một union đóng — cùng lý do với `hieu_luc`.
+   *
+   * Mục lục từng chỉ mang bốn cấp CHỨA Điều. Backend nay trả thêm `"dieu"` cho
+   * 11/47 văn bản không chia Chương/Mục, và union đóng đã không chặn được điều
+   * đó (`laVanBanMucLuc` chỉ kiểm mảng): `?trong_chuong=` nhận id của một Điều
+   * và ăn 422. Cấp thứ sáu nào backend thêm sau cũng phải rơi vào nhánh AN
+   * TOÀN — xem `CAP_CHUA_DIEU`.
+   */
+  cap: string;
   so_hieu_cap: string;
   tieu_de: string;
   thu_tu: number;
 }
+
+/**
+ * Cấp mở tiếp được bằng `?trong_chuong=`. Mọi cấp khác là LÁ: đi tới bằng
+ * `?dieu=<so_hieu_cap>` — đường đó không bao giờ 422 vì nó không khẳng định
+ * mục này chứa Điều nào.
+ */
+export const CAP_CHUA_DIEU = new Set(["phan", "chuong", "muc", "tieu_muc"]);
 
 export type VanBanMucLuc = VanBanMeta & { muc_luc: MucLucItem[] };
 export type VanBanProvisions = VanBanMeta & { provisions: Provision[] };

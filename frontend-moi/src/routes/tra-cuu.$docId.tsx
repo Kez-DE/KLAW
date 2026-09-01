@@ -7,6 +7,7 @@ import { BadgeHieuLuc } from "@/components/klaw/BadgeHieuLuc";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
 import { goi, thamSo } from "@/lib/api";
 import {
+  CAP_CHUA_DIEU,
   laTimTrongVanBan,
   laVanBanHieuLuc,
   laVanBanLienQuan,
@@ -126,9 +127,11 @@ function KhongCoVanBan() {
 /**
  * Danh mục Chương/Mục, mở từng nhánh bằng `?trong_chuong=`.
  *
- * ĐO ĐƯỢC 11/47 văn bản có toàn văn KHÔNG có Chương/Mục nào trong CSDL (nghị
- * định, thông tư ngắn). Với chúng `muc_luc` rỗng, và cách đi tới từng Điều là ô
- * lọc — trang nói thẳng điều đó thay vì hiện một mục lục trống trông như lỗi.
+ * ĐO ĐƯỢC 11/47 văn bản có toàn văn KHÔNG chia Chương/Mục (nghị định, thông tư
+ * ngắn — gồm cả sáu nghị định lương tối thiểu). Với chúng backend trả thẳng
+ * DANH SÁCH ĐIỀU trong `muc_luc`, cùng hình dạng nhưng `cap === "dieu"`. Một
+ * Điều là LÁ: nó không chứa Điều nào, nên `?trong_chuong=` với id của nó là
+ * một câu hỏi vô nghĩa và máy chủ trả 422 — đúng. Xem `MucLa` ngay dưới.
  */
 function NhanhChuong({
   docId,
@@ -195,24 +198,54 @@ function NhanhChuong({
             </p>
           )}
           {dsDieu?.map((dieu) => (
-            <button
+            <MucLa
               key={dieu.id}
-              type="button"
-              onClick={() => onChonDieu(dieu.so_hieu_cap)}
-              aria-current={dieuDangMo === dieu.so_hieu_cap ? "true" : undefined}
-              className={cn(
-                "focus-brass block w-full px-2.5 py-1.5 text-left text-[13px] transition-colors",
-                dieuDangMo === dieu.so_hieu_cap
-                  ? "border-l-2 border-[var(--color-brass-500)] font-medium text-[var(--color-brass-600)]"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {dieu.tieu_de === "" ? `Điều ${dieu.so_hieu_cap}` : dieu.tieu_de}
-            </button>
+              soHieuCap={dieu.so_hieu_cap}
+              tieuDe={dieu.tieu_de}
+              dieuDangMo={dieuDangMo}
+              onChonDieu={onChonDieu}
+            />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Một Điều trong mục lục — LÁ, không mở tiếp được.
+ *
+ * Dùng ở hai chỗ: dưới một Chương đã mở, và ở gốc mục lục của 11 văn bản
+ * không chia Chương/Mục. Cùng một đích đến (`?dieu=<so_hieu_cap>`) ở cả hai,
+ * nên cùng một thành phần — một Điều mở từ mục lục phẳng phải cho ra đúng
+ * trang với một Điều mở từ trong Chương.
+ */
+function MucLa({
+  soHieuCap,
+  tieuDe,
+  dieuDangMo,
+  onChonDieu,
+}: {
+  soHieuCap: string;
+  tieuDe: string;
+  dieuDangMo: string | null;
+  onChonDieu: (soDieu: string) => void;
+}) {
+  const dangMo = dieuDangMo === soHieuCap;
+  return (
+    <button
+      type="button"
+      onClick={() => onChonDieu(soHieuCap)}
+      aria-current={dangMo ? "true" : undefined}
+      className={cn(
+        "focus-brass block w-full px-2.5 py-1.5 text-left text-[13px] transition-colors",
+        dangMo
+          ? "border-l-2 border-[var(--color-brass-500)] font-medium text-[var(--color-brass-600)]"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {tieuDe === "" ? `Điều ${soHieuCap}` : tieuDe}
+    </button>
   );
 }
 
@@ -573,22 +606,35 @@ function ManDocVanBan() {
           <OLoc docId={docId} onChonDieu={chonDieu} />
           <nav className="mt-3" aria-label="Mục lục văn bản">
             {vanBan.muc_luc.length === 0 ? (
-              // 11/47 văn bản có toàn văn không có Chương/Mục nào trong CSDL.
-              // Nói ra sự thật đó thay vì hiện một mục lục trống trông như lỗi.
+              // Nay chỉ còn văn bản TẦNG METADATA rơi vào đây: 0 điều khoản,
+              // nên không có gì để liệt. 11 văn bản không chia Chương/Mục
+              // KHÔNG còn rỗng — backend trả thẳng danh sách Điều.
               <p className="m-0 text-[12px] leading-5 text-muted-foreground">
-                CSDL quốc gia không chia văn bản này thành Chương/Mục. Dùng ô lọc bên trên để đi tới
-                từng Điều — gõ một từ trong nội dung, hoặc gõ “Điều” để liệt kê.
+                Kho chỉ có phần thông tin của văn bản này, chưa có toàn văn máy đọc được — nên không
+                có mục lục để mở.
               </p>
             ) : (
-              vanBan.muc_luc.map((muc) => (
-                <NhanhChuong
-                  key={muc.id}
-                  docId={docId}
-                  muc={muc}
-                  dieuDangMo={soDieuTrenUrl ?? null}
-                  onChonDieu={chonDieu}
-                />
-              ))
+              vanBan.muc_luc.map((muc) =>
+                // Cấp CHỨA Điều mới mở tiếp được bằng `?trong_chuong=`. Mọi cấp
+                // khác (hôm nay là `dieu`) là lá và đi thẳng bằng `?dieu=`.
+                CAP_CHUA_DIEU.has(muc.cap) ? (
+                  <NhanhChuong
+                    key={muc.id}
+                    docId={docId}
+                    muc={muc}
+                    dieuDangMo={soDieuTrenUrl ?? null}
+                    onChonDieu={chonDieu}
+                  />
+                ) : (
+                  <MucLa
+                    key={muc.id}
+                    soHieuCap={muc.so_hieu_cap}
+                    tieuDe={muc.tieu_de}
+                    dieuDangMo={soDieuTrenUrl ?? null}
+                    onChonDieu={chonDieu}
+                  />
+                ),
+              )
             )}
           </nav>
         </div>
