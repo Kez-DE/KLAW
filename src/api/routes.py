@@ -688,9 +688,10 @@ def _render_markdown(loai_van_ban: str, clauses: list) -> str:
     Tiêu đề lấy từ `checklist.tieu_de` (YAML), không từ một dict viết cứng —
     thêm một mẫu là thêm một file, không sửa module này.
     """
-    phan = [f"# {load_checklist_cached(loai_van_ban).tieu_de}", ""]
+    cl = load_checklist_cached(loai_van_ban)
+    phan = [f"# {cl.tieu_de}", ""]
     for i, c in enumerate(clauses, 1):
-        phan.append(f"## Điều {i}. {c.ten}\n\n{c.noi_dung}\n")
+        phan.append(f"## {cl.don_vi_muc} {i}. {c.ten}\n\n{c.noi_dung}\n")
     return "\n".join(phan)
 
 

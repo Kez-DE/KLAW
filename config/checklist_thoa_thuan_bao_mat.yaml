@@ -31,7 +31,7 @@ can_cu_chi_tiet: "45/2019/QH14 > Điều 21 > Khoản 2"
 muc:
   - {stt: 1, key: danh_muc_bi_mat, ten: "Danh mục bí mật kinh doanh, bí mật công nghệ", diem: a, can_cu: "10/2020/TT-BLĐTBXH > Điều 4 > Khoản 2 > Điểm a", tu_khoa: ["danh mục bí mật", "danh mục thông tin mật", "thông tin được bảo vệ"]}
   - {stt: 2, key: pham_vi_su_dung, ten: "Phạm vi sử dụng bí mật kinh doanh, bí mật công nghệ", diem: b, can_cu: "10/2020/TT-BLĐTBXH > Điều 4 > Khoản 2 > Điểm b", tu_khoa: ["phạm vi sử dụng", "mục đích sử dụng thông tin"]}
-  - {stt: 3, key: thoi_han_bao_ve, ten: "Thời hạn bảo vệ bí mật kinh doanh, bí mật công nghệ", diem: c, can_cu: "10/2020/TT-BLĐTBXH > Điều 4 > Khoản 2 > Điểm c", tu_khoa: ["thời hạn bảo vệ", "thời hạn bảo mật"]}
+  - {stt: 3, key: thoi_han_bao_ve, ten: "Thời hạn bảo vệ bí mật kinh doanh, bí mật công nghệ", diem: c, can_cu: "10/2020/TT-BLĐTBXH > Điều 4 > Khoản 2 > Điểm c", tu_khoa: ["thời hạn bảo vệ bí mật", "thời hạn bảo mật"]}
   - {stt: 4, key: phuong_thuc_bao_ve, ten: "Phương thức bảo vệ bí mật kinh doanh, bí mật công nghệ", diem: d, can_cu: "10/2020/TT-BLĐTBXH > Điều 4 > Khoản 2 > Điểm d", tu_khoa: ["phương thức bảo vệ", "biện pháp bảo vệ", "biện pháp bảo mật"]}
   - {stt: 5, key: quyen_nghia_vu, ten: "Quyền, nghĩa vụ, trách nhiệm của NLĐ và NSDLĐ trong thời hạn bảo vệ", diem: đ, can_cu: "10/2020/TT-BLĐTBXH > Điều 4 > Khoản 2 > Điểm đ", tu_khoa: ["quyền, nghĩa vụ", "trách nhiệm của các bên", "nghĩa vụ của người lao động"]}
   - {stt: 6, key: xu_ly_vi_pham, ten: "Xử lý vi phạm thoả thuận bảo vệ bí mật kinh doanh, bí mật công nghệ", diem: e, can_cu: "10/2020/TT-BLĐTBXH > Điều 4 > Khoản 2 > Điểm e", tu_khoa: ["xử lý vi phạm", "chế tài", "bồi thường thiệt hại"]}

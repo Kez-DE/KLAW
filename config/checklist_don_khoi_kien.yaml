@@ -8,6 +8,7 @@
 loai: don_khoi_kien
 ten: "đơn khởi kiện vụ án dân sự"
 tieu_de: "ĐƠN KHỞI KIỆN"
+don_vi_muc: "Mục"
 
 # KHÔNG rule nào. Năm rule hiện có đều đo một ngưỡng của quan hệ lao động; một
 # đơn khởi kiện không có ngưỡng số nào để tra bảng. Thời hiệu khởi kiện (BLDS

@@ -32,6 +32,7 @@ from sqlalchemy import text
 from src.agents.graph_soan_thao import (
     cac_loai,
     duong_dan_checklist,
+    extract_clauses,
     load_checklist_cached,
     rules_cho,
 )
@@ -97,3 +98,30 @@ def test_MOI_can_cu_TON_TAI_trong_DB(loai):
         co_that = {r[0] for r in conn.execute(text("SELECT duong_dan FROM provisions")).all()}
     thieu = sorted(cac_can_cu(load_checklist_cached(loai)) - co_that)
     assert not thieu, f"config/checklist_{loai}.yaml dẫn can_cu không có trong provisions: {thieu}"
+
+
+@pytest.mark.parametrize("loai", MOI_LOAI)
+def test_soan_ra_roi_soat_lai_tach_dung_tung_muc(loai):
+    """Đường soạn-rồi-soát: dựng đúng khuôn Markdown mà `_render_markdown` sinh
+    ra, rồi cho `extract_clauses` đọc lại. Mỗi mục phải quay về ĐÚNG key của nó.
+
+    Hai hỏng hóc test này chặn, cả hai đều im lặng khi xảy ra:
+
+    * Tách sai — `_split_dieu` không nhận tiền tố "## " của Markdown, hoặc
+      `don_vi_muc` của checklist không khớp đơn vị `_render_markdown` in ra, thì
+      cả văn bản gộp thành một khối và completeness sập về gần 0 trên chính
+      văn bản hệ thống vừa chấm 1.0.
+    * Va chạm từ khoá — `extract_clauses` lấy mục ĐẦU TIÊN khớp, nên một từ khoá
+      quá rộng ở mục trên sẽ nuốt điều khoản của mục dưới, và mục dưới bị báo
+      thiếu vĩnh viễn dù nó có mặt.
+    """
+    cl = load_checklist_cached(loai)
+    van_ban = f"# {cl.tieu_de}\n\n" + "\n".join(
+        f"## {cl.don_vi_muc} {i}. {m['ten']}\n\n{m['tu_khoa'][0]} — nội dung điều khoản.\n"
+        for i, m in enumerate(cl.muc, 1)
+    )
+    clauses = extract_clauses(van_ban, cl, {})
+    assert [c.key for c in clauses] == [m["key"] for m in cl.muc], (
+        f"{loai}: soạn ra rồi soát lại không trả về đúng thứ tự mục — "
+        f"tách sai hoặc từ khoá chồng lấn"
+    )

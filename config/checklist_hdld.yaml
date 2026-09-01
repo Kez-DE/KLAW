@@ -29,7 +29,7 @@ muc:
   - {stt: 1,  key: nsdld,      ten: "Tên, địa chỉ NSDLĐ và họ tên, chức danh người giao kết", diem: a,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm a", tu_khoa: ["người sử dụng lao động", "nsdlđ"]}
   - {stt: 2,  key: nld,        ten: "Họ tên, ngày sinh, giới tính, nơi cư trú, số CCCD của NLĐ", diem: b,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm b", tu_khoa: ["người lao động", "nlđ", "cccd"]}
   - {stt: 3,  key: cong_viec,  ten: "Công việc và địa điểm làm việc", diem: c,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm c", tu_khoa: ["công việc", "địa điểm làm việc"]}
-  - {stt: 4,  key: thoi_han,   ten: "Thời hạn của hợp đồng lao động", diem: d,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm d", tu_khoa: ["thời hạn hợp đồng", "thời hạn"]}
+  - {stt: 4,  key: thoi_han,   ten: "Thời hạn của hợp đồng lao động", diem: d,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm d", tu_khoa: ["thời hạn hợp đồng", "thời hạn của hợp đồng"]}
   - {stt: 5,  key: luong,      ten: "Mức lương, hình thức trả, thời hạn trả, phụ cấp", diem: đ,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm đ", tu_khoa: ["mức lương", "tiền lương", "phụ cấp"]}
   - {stt: 6,  key: nang_luong, ten: "Chế độ nâng bậc, nâng lương", diem: e,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm e", tu_khoa: ["nâng bậc", "nâng lương"]}
   - {stt: 7,  key: thoi_gio,   ten: "Thời giờ làm việc, thời giờ nghỉ ngơi", diem: g,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm g", tu_khoa: ["thời giờ làm việc", "thời giờ nghỉ ngơi"]}

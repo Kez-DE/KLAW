@@ -224,15 +224,25 @@ def build_graph_soan_thao():
 
 # ── /soat — tách clause từ text dán vào, KHÔNG gọi LLM ──────────────────────
 
-_RE_DIEU_HEADER = re.compile(r"(?m)^\s*Điều\s+\d+\.")
+@lru_cache
+def _re_dau_muc(don_vi: str) -> re.Pattern[str]:
+    """Dòng mở đầu một mục: "Điều 3." / "Mục 3." / "## Điều 3.".
 
-
-def _split_dieu(van_ban: str) -> list[str]:
-    """Cắt `van_ban` theo từng dòng bắt đầu "Điều N." — giữ nguyên tiêu đề
-    trong cùng khối với thân điều, vì tiêu đề thường mang từ khoá cần cho
-    việc map `key` bên dưới (vd. "Điều 1. Công việc..." → khớp "công việc").
+    `#*` KHÔNG thừa: `_render_markdown` sinh tiêu đề mục dưới dạng "## Điều N."
+    nên nếu không nhận tiền tố Markdown thì soạn ra rồi dán lại vào `POST /soat`
+    tách được ĐÚNG MỘT khối cho cả văn bản — completeness sập về gần 0 trên
+    chính văn bản hệ thống vừa chấm 1.0. Đường soạn-rồi-soát là đường người dùng
+    đi nhiều nhất, và trước bản này nó hỏng im lặng.
     """
-    diem_bat_dau = [m.start() for m in _RE_DIEU_HEADER.finditer(van_ban)]
+    return re.compile(rf"(?m)^[ \t]*#*[ \t]*{re.escape(don_vi)}\s+\d+\.")
+
+
+def _split_dieu(van_ban: str, don_vi: str = "Điều") -> list[str]:
+    """Cắt `van_ban` theo từng dòng mở đầu một mục — giữ nguyên tiêu đề trong
+    cùng khối với thân mục, vì tiêu đề thường mang từ khoá cần cho việc map
+    `key` bên dưới (vd. "Điều 1. Công việc..." → khớp "công việc").
+    """
+    diem_bat_dau = [m.start() for m in _re_dau_muc(don_vi).finditer(van_ban)]
     if not diem_bat_dau:
         return [van_ban.strip()] if van_ban.strip() else []
     diem_bat_dau.append(len(van_ban))
@@ -265,7 +275,7 @@ def extract_clauses(van_ban: str, checklist: Checklist, db_provisions: dict[int,
     ung_vien = [(m["key"], m["ten"], m.get("tu_khoa") or []) for m in checklist.muc]
 
     clauses: list[DraftClause] = []
-    for chunk in _split_dieu(van_ban):
+    for chunk in _split_dieu(van_ban, checklist.don_vi_muc):
         chuan_hoa = normalize(chunk).lower()
         key, ten = None, chunk.splitlines()[0][:80]
         for muc_key, muc_ten, tu_khoa in ung_vien:

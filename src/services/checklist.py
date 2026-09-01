@@ -60,7 +60,12 @@ class Checklist:
     ten: str
     tieu_de: str
     can_cu_goc: str
+    # Đơn vị đánh số mục của văn bản sinh ra: "Điều" cho hợp đồng và nội quy,
+    # "Mục" cho đơn từ và biên bản — một lá đơn khởi kiện chia thành "Điều 1."
+    # đọc sai thể loại ngay từ dòng đầu. `extract_clauses` cắt văn bản theo
+    # CHÍNH đơn vị này, nên soạn ra rồi đem soát lại vẫn tách đúng số mục.
     muc: list[dict]
+    don_vi_muc: str = "Điều"
     rules: list[str] = field(default_factory=list)
     can_cu_chi_tiet: str | None = None
     nganh_duoc_giam: dict[str, Any] = field(default_factory=dict)
@@ -96,6 +101,7 @@ def load_checklist(path: Path) -> Checklist:
         tieu_de=d["tieu_de"],
         can_cu_goc=d["can_cu_goc"],
         muc=d["muc"],
+        don_vi_muc=d.get("don_vi_muc") or "Điều",
         rules=list(d.get("rules") or []),
         can_cu_chi_tiet=d.get("can_cu_chi_tiet"),
         nganh_duoc_giam=d.get("nganh_duoc_giam") or {},
