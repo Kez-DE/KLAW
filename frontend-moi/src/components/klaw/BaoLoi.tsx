@@ -40,6 +40,16 @@ function goiY(kind: ApiErrorKind): string | null {
       return "Chức năng này chưa có nội dung pháp lý trong hệ thống, nên chưa có kết quả thật để hiển thị.";
     case "not_found":
       return "Không tìm thấy văn bản hoặc điều khoản này trong kho.";
+    case "unauthorized":
+      // KHÔNG khuyên "kiểm tra lại nội dung đã nhập": nội dung không liên
+      // quan gì. Cổng bảo vệ chặn vì thiếu quyền, và người dùng không sửa
+      // được điều đó bằng cách viết lại câu hỏi.
+      return "Lượt gọi bị từ chối vì thiếu quyền truy cập, không phải vì câu hỏi. Đăng nhập rồi thử lại; nếu đã đăng nhập thì phiên có thể đã hết hạn.";
+    case "rate_limited":
+      // Ba nguyên nhân cùng mang mã 429 (quá nhịp, hết hạn mức tháng, trần chi
+      // phí ngày) và máy chủ đã nói rõ là cái nào trong `message`. Câu ở đây
+      // chỉ nói phần chung: chờ, chứ đừng sửa câu hỏi.
+      return "Hệ thống đang giới hạn số lượt gọi. Chờ một lát rồi thử lại — câu hỏi của bạn không có gì sai.";
     case "invalid_request":
       return "Yêu cầu gửi lên chưa hợp lệ. Kiểm tra lại nội dung đã nhập rồi thử lại.";
     case "server_error":

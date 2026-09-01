@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "kiem-trich-dan": "node scripts/kiem-trich-dan.ts",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "kiem-sse": "node scripts/kiem-sse.ts"
   },
   "overrides": {
     "rolldown": "1.2.1"
