@@ -22,6 +22,13 @@ Quan sát được qua giao diện thật, sau khi xong:
    thế tư vấn của luật sư."
 6. Bộ golden 77 câu lao động có số liệu **trước và sau** khi mở kho, chênh lệch
    được ghi lại. Đây là điều kiện phải có, không phải mục phụ.
+7. `bạn là ai` và `bạn là gì` trả về **hai** câu trả lời khác nhau. Câu thứ hai
+   nói rõ KLAW không phải luật sư, không phải thẩm phán, không phải cơ quan nhà
+   nước, và nói được điều một LLM thô không nói được: mỗi trích dẫn đã qua hai
+   tầng kiểm.
+8. `soạn hộ tôi văn bản nghỉ việc` dựng được biểu mẫu, và tải được `.docx`.
+9. Bài năng lực khai đúng **27** loại văn bản soạn được, không phải 3, và con số
+   đọc từ `config/checklist_*.yaml` chứ không viết cứng.
 
 ## Context
 
@@ -171,6 +178,7 @@ không thay thế tư vấn của luật sư." Button: hỏi chủ dự án trư
 - [ ] P4 · `bang` trong response + component `<Bang>` ở FE.
 - [ ] P5 · Nhận diện ý "xin dạng bảng", 0 token.
 - [ ] P6 · Câu đóng; hỏi chủ dự án về button.
+- [ ] T6 · checklist `don_xin_nghi_viec` + `LoaiVanBan` + test can_cu tồn tại.
 - [ ] Đo lại eval, ghi delta, kết luận có tụt hay không.
 
 ## Decisions
@@ -188,6 +196,47 @@ không thay thế tư vấn của luật sư." Button: hỏi chủ dự án trư
 - 2026-09-02: Bảng đi bằng **dữ liệu có kiểu**, không bằng markdown trong
   `answer`. Đúng nguyên tắc "tra bảng xác định" của đề tài, và tránh nhúng một
   markdown parser vào đường render.
+
+- 2026-09-02: `bạn là ai` (hỏi VAI) và `bạn là gì` (hỏi BẢN CHẤT) là HAI dạng
+  riêng. Chủ dự án nêu đích danh hai câu này. Quy tắc tách: `là ai`/`tên gì` →
+  `DANH_TINH`; `là gì`/`là cái gì`/`có phải luật sư không` → `BAN_CHAT`.
+- 2026-09-02: "Đơn xin nghỉ việc" thêm bằng MỘT checklist YAML, không phải một
+  đường soạn thảo mới. `config/` đã có 27 checklist cùng khuôn, và ba nút "Tải
+  Word (.docx)" / "Tải PDF" / "Sao chép toàn văn" đã chạy ở
+  `frontend/src/routes/soan-thao.$loaiVanBan.tsx:1036-1049` qua
+  `frontend/src/lib/xuat-ban.ts` (`docx@9.7.1` + `jspdf@4.2.1` đã cài). Nên câu
+  trả lời cho "tải được ko" là: KLAW ĐÃ làm được — thiếu loại văn bản, không
+  thiếu nút.
+- 2026-09-02: `NANG_LUC` đang khai KLAW ÍT hơn thực tế (3 loại văn bản, thực tế
+  27). Sửa cùng chiều với việc sửa tuyên bố phạm vi, và đếm từ `config/` lúc
+  chạy — cùng lý do `_model()` tra tên model từ config thay vì viết cứng.
+- 2026-09-02: KHÔNG chạy song song hai implementer trên cùng branch (tranh index
+  git). Nếu cần song song thật thì dùng `git worktree`. Chọn tuần tự + gộp task,
+  vì phần lớn việc mới là tái dùng thứ đã có.
+
+## Đối chiếu bản tham chiếu — hai lỗi đã tìm được
+
+Bản Lovable (`~/Downloads/luật`, agent là một lệnh gọi LLM thô qua
+`src/lib/ai-gateway.server.ts`, không có kho, không có verifier) được chủ dự án
+nêu làm mẫu. Hình thức thì tốt và đã lấy làm mẫu. Nội dung thì đã tra DB và thấy
+hai lỗi, cả hai đều thuộc lớp mà tầng kiểm của KLAW tồn tại để chặn:
+
+1. Nó viết "Trưởng phòng … thử việc tối đa 60 ngày theo Khoản 2 Điều 25".
+   Khoản 2 nguyên văn là "công việc có chức danh nghề nghiệp cần trình độ chuyên
+   môn, kỹ thuật từ cao đẳng trở lên" — 60 ngày phụ thuộc TRÌNH ĐỘ công việc đòi
+   hỏi, không phụ thuộc chức danh. Công việc chỉ cần trung cấp rơi vào Khoản 3,
+   30 ngày. Nó làm phẳng một điều kiện thành một khẳng định.
+2. Nghiêm trọng hơn: mẫu đơn nghỉ việc của nó chỉ nói "phải báo trước 45/30/3
+   ngày, không thì bồi thường theo Điều 40", và KHÔNG hề nhắc Điều 35 Khoản 2 —
+   bảy trường hợp NLĐ được nghỉ NGAY không cần báo trước, gồm bị nợ lương hoặc
+   trả lương không đúng hạn (điểm b), bị ngược đãi/đánh đập/nhục mạ/cưỡng bức
+   lao động (điểm c), bị quấy rối tình dục (điểm d), lao động nữ mang thai phải
+   nghỉ theo Đ138.1 (điểm đ). Một người đang bị quấy rối đọc mẫu đó sẽ tưởng
+   mình phải ở lại 45 ngày. Nó cũng bỏ Điểm d Khoản 1 (ngành nghề đặc thù thì
+   thời hạn theo quy định của Chính phủ), tức ba con số kia không phổ quát.
+
+Kết luận đưa vào thiết kế: lấy HÌNH THỨC của bản tham chiếu, kiểm chứng NỘI DUNG.
+Mọi `can_cu` trong T6 đã tự tra `provisions` chứ không chép từ bản tham chiếu.
 
 ## Validation
 
