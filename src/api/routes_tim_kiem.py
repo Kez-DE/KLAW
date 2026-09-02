@@ -60,35 +60,40 @@ LIMIT_MAX = 100
 TRICH_MAX = 400
 
 
-# `depth = 'deep'` ở CẢ BA truy vấn — từ vựng của bộ lọc phải mô tả đúng tập
-# hợp mà bộ lọc tìm trong đó. `/tim-kiem` khớp trên `provisions`, nên 79 bản
-# ghi tầng metadata (0 điều khoản) là thứ nó không bao giờ trả về; đếm chúng
-# vào đây khiến mỗi chip hứa nhiều hơn thứ bấm vào nhận được. Đo 2026-09-01:
-# "Luật" hứa 75 / với tới 25, "Bộ luật" 12 / 6, và bốn nhóm (Quyết định, Pháp
-# lệnh, Nghị quyết, Thông tư liên tịch) chào tổng cộng 11 văn bản mà bấm vào
-# LUÔN ra rỗng.
+# Loại `depth = 'metadata'` ở CẢ BA truy vấn — từ vựng của bộ lọc phải mô tả
+# đúng tập hợp mà bộ lọc tìm trong đó. `/tim-kiem` khớp trên `provisions`, nên
+# bản ghi tầng metadata (0 điều khoản) là thứ nó không bao giờ trả về; đếm
+# chúng vào đây khiến mỗi chip hứa nhiều hơn thứ bấm vào nhận được.
 #
-# `depth` trùng khít với "có điều khoản" (đo: deep=47 đều có, metadata=79 đều
-# không), nên dùng cột đã đánh chỉ mục thay cho `EXISTS` một truy vấn con.
+# Sửa 2026-09-02: trước đây lọc `depth = 'deep'`, đo đúng lúc corpus chỉ có
+# hai tầng `deep`/`metadata` (deep=47 đều có điều khoản, metadata=79 đều
+# không). Mở kho ra 8 lĩnh vực thêm tầng `shallow` (87 văn bản, mỗi văn bản 1
+# provision `cap='mo_dau'` — tên văn bản, không phải điều khoản thật) — và
+# provision đó CÓ chunk, nên `/tim-kiem` VẪN với tới được nó (khớp trên tên
+# văn bản). Lọc `depth = 'deep'` từ đó bỏ sót 87 văn bản mà bộ lọc lẽ ra phải
+# đếm, tái diễn đúng lỗi mà comment này từng sửa. Đo 2026-09-02: mọi văn bản
+# có `depth <> 'metadata'` đều có provision (141/141), mọi văn bản `metadata`
+# đều không (0/4) — đổi điều kiện sang phủ định `depth = 'metadata'` để bất
+# biến này không vỡ lại lần nữa khi thêm một tầng độ sâu mới.
 #
-# Tầng metadata KHÔNG bị giấu: `/pham-vi` công bố riêng cả hai tầng (`sau` 47
-# và `nong` 79) — đó là chỗ đúng để nói ra, không phải bộ lọc.
-_DEEP = " WHERE depth = 'deep'"
+# Tầng metadata KHÔNG bị giấu: `/pham-vi` công bố riêng cả ba tầng — đó là
+# chỗ đúng để nói ra, không phải bộ lọc.
+_KHONG_METADATA = " WHERE depth <> 'metadata'"
 
 _SQL_BO_LOC = text(
     "SELECT count(*)::int AS tong,"
     " count(*) FILTER (WHERE co_quan_ban_hanh IS NULL)::int AS khong_ro_co_quan,"
     " min(extract(year FROM ngay_ban_hanh))::int AS nam_min,"
     " max(extract(year FROM ngay_ban_hanh))::int AS nam_max"
-    " FROM documents" + _DEEP
+    " FROM documents" + _KHONG_METADATA
 )
 _SQL_LOAI = text(
     "SELECT loai_van_ban AS gia_tri, count(*)::int AS so_van_ban FROM documents"
-    + _DEEP + " GROUP BY 1 ORDER BY 2 DESC, 1"
+    + _KHONG_METADATA + " GROUP BY 1 ORDER BY 2 DESC, 1"
 )
 _SQL_CO_QUAN = text(
     "SELECT co_quan_ban_hanh AS gia_tri, count(*)::int AS so_van_ban FROM documents"
-    + _DEEP + " AND co_quan_ban_hanh IS NOT NULL GROUP BY 1 ORDER BY 2 DESC, 1"
+    + _KHONG_METADATA + " AND co_quan_ban_hanh IS NOT NULL GROUP BY 1 ORDER BY 2 DESC, 1"
 )
 
 

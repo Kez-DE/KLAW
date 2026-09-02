@@ -55,11 +55,20 @@ def _canh_hieu_luc_di_vao(rel: pd.DataFrame, corpus: set[str]) -> pd.DataFrame:
     thế/...), `other_doc_id` (bên BỊ tác động), `relationship` (tên quan hệ tiếng
     Việt). Cạnh ĐI VÀO corpus là cạnh có `other_doc_id` nằm trong corpus — hướng
     ngược với "đi ra" mà API trả.
+
+    Loại cạnh TỰ TRỎ (`doc_id == other_doc_id`, "văn bản X thay thế/sửa đổi
+    chính X") — rác của nguồn crawl bên thứ ba (xem cảnh báo đầu file), không
+    phải một quan hệ pháp lý có thật. Đo được 2026-09-02 sau khi mở corpus
+    (`other_doc_id` giờ phủ cả 87 văn bản tầng `shallow`, không chỉ 53 văn
+    bản `deep` của `DOC_IDS`): đúng 3 cạnh loại này lộ ra, cả ba đều trỏ vào
+    một văn bản `shallow` (`2322`, `146541`, `132170`) — trước đó bị lọc mất
+    tình cờ vì `other_doc_id` của chúng chưa từng nằm trong corpus hẹp.
     """
     df = rel[["doc_id", "other_doc_id", "relationship"]].copy()
     df["doc_id"] = df["doc_id"].astype(str)
     df["other_doc_id"] = df["other_doc_id"].astype(str)
-    df = df[df["other_doc_id"].isin(corpus) & df["relationship"].isin(QUAN_HE_HIEU_LUC)]
+    df = df[df["other_doc_id"].isin(corpus) & df["relationship"].isin(QUAN_HE_HIEU_LUC)
+            & (df["doc_id"] != df["other_doc_id"])]
     df["loai"] = df["relationship"].map(QUAN_HE_HIEU_LUC)
     return df.rename(columns={"doc_id": "from_document_id", "other_doc_id": "to_document_id",
                                "relationship": "raw_text"})
@@ -83,8 +92,37 @@ def load_from_parquet(path: Path, engine: Engine) -> int:
     Trả số cạnh đã ghi. RAISE trước khi chạm DB nếu có cạnh trỏ tới văn bản
     ngoài corpus mà `metadata.parquet` không có — không tự bịa dữ liệu, không
     âm thầm bỏ qua (yêu cầu #3).
+
+    `corpus`: khi có `engine`, đọc TRỰC TIẾP từ `documents` (`depth <>
+    'metadata'`) — sửa 2026-09-02. Trước đó dùng `set(DOC_IDS)` (danh sách 53
+    văn bản `deep` mà `fetch_moj.py` tải toàn văn), đúng lúc corpus THẬT chỉ
+    có đúng ngần ấy văn bản; mở kho ra 8 lĩnh vực thêm 87 văn bản tầng
+    `shallow` vào `documents` mà KHÔNG thêm vào `DOC_IDS` (chúng không tải
+    toàn văn), nên "corpus" của loader tụt lại phía sau "corpus" thật — cạnh
+    đi vào các văn bản `shallow` bị loại oan, và văn bản `shallow` đóng vai
+    `from_document_id` bị coi nhầm là ngoài corpus. `DOC_IDS` giữ lại làm
+    phương án lùi khi `engine=None` (test đơn vị dựng tay, không có DB).
+
+    ĐỌC corpus TRƯỚC khi gọi `run_migrations()` ở dưới — KHÔNG đảo thứ tự.
+    `run_migrations()` (qua `016_tang_nong.sql`) nâng cấp `depth='metadata'`
+    thành `'shallow'` cho văn bản chỉ-metadata đủ điều kiện, mà CHÍNH HÀM
+    NÀY vừa chèn những văn bản chỉ-metadata đó ở lần gọi TRƯỚC. Gọi
+    `run_migrations()` rồi mới đọc corpus tạo một vòng phản hồi: mỗi lần gọi
+    lại nâng cấp lô văn bản chỉ-metadata của lần gọi trước thành `shallow`
+    (⇒ vào corpus), corpus phình ra, kéo thêm cạnh mới, tạo thêm văn bản
+    chỉ-metadata mới cho lần gọi kế — không bao giờ dừng, và
+    `test_idempotent_chay_hai_lan_cung_so_dong` bắt được ngay (683→776 dòng
+    chỉ-metadata chỉ sau một lần gọi lại). Đọc corpus TRƯỚC giữ nó là một ẢNH
+    CHỤP của `documents` tại thời điểm gọi, độc lập với tác dụng phụ của
+    chính lần gọi này.
     """
-    corpus = set(DOC_IDS)
+    if engine is not None:
+        with engine.connect() as c:
+            corpus = {r[0] for r in c.execute(
+                text("SELECT id FROM documents WHERE depth <> 'metadata'")
+            )}
+    else:
+        corpus = set(DOC_IDS)
     rel = pd.read_parquet(path)
     canh = _canh_hieu_luc_di_vao(rel, corpus)
 

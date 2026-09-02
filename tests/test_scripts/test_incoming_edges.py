@@ -138,34 +138,55 @@ def test_khong_tu_tro_vao_chinh_no():
 def test_van_ban_ngoai_corpus_duoc_chen_metadata_va_van_ban_that_khong_bi_dung():
     """FK `references_from_document_fk` bắt `from_document_id` phải có trong
     `documents`, mà cạnh đi vào xuất phát từ văn bản NGOÀI corpus — chèn trước
-    36 dòng chỉ-metadata (Ruling 2) là cách gỡ. Văn bản THẬT của corpus (đã
+    dòng chỉ-metadata (Ruling 2) là cách gỡ. Văn bản THẬT của corpus (đã
     ingest đầy đủ provisions) không được đụng tới, kể cả khi nó cũng xuất hiện
-    làm `from_document_id` của một cạnh (BLLĐ sửa BLDS, vẫn trong corpus)."""
+    làm `from_document_id` của một cạnh (BLLĐ sửa BLDS, vẫn trong corpus).
+
+    Sửa 2026-09-02: bản trước ghim `n_metadata == ngoai` (đếm TẤT CẢ dòng
+    `checksum='metadata-only'` trong `documents`, so với số văn bản ngoài
+    corpus của LẦN NẠP HIỆN TẠI). DB sống, không dọn giữa các lần chạy, và
+    `INSERT ... ON CONFLICT DO NOTHING` không bao giờ xoá — mỗi lần corpus mở
+    rộng (21 → 32 → 53 văn bản deep → +87 shallow), một số văn bản từng "ngoài
+    corpus" nay đã ở TRONG corpus (dưới định nghĩa mới), nhưng dòng chỉ-metadata
+    được chèn TỪ LẦN CHẠY CŨ vẫn còn nằm lại — rác lịch sử không liên quan gì
+    tới lần nạp hôm nay. Đếm-bằng-đếm vì thế ghim cỡ corpus tại thời điểm chạy,
+    đúng lỗi mà comment cũ ở đây đã cảnh báo (ghim 36).
+    Bất biến thật không cần đếm KHỚP — nó cần MỖI văn bản ngoài corpus của lần
+    nạp hôm nay có một dòng chỉ-metadata đứng chỗ cho nó (bao phủ), không cần
+    dòng chỉ-metadata nào khác trong bảng phải biến mất.
+
+    `sai_dau` cũng sửa cùng đợt: bản trước đòi MỌI dòng `checksum='metadata-only'`
+    giữ nguyên `depth='metadata'` mãi mãi — đúng lúc `016_tang_nong.sql` (tầng
+    `shallow`, cho văn bản chỉ-metadata đủ dài tên một hàng `mo_dau` để tìm
+    được bằng tên) CHƯA áp cho bất kỳ dòng nào. Nó là một tính năng CÓ CHỦ Ý,
+    không phải suy thoái: `016` chỉ đổi `depth` (`'metadata'` → `'shallow'`),
+    KHÔNG bao giờ đổi `tinh_trang`. Bất biến còn đứng được là "chưa từng thành
+    `deep`" (đổi thành `deep` nghĩa là bị ghi đè bởi một văn bản thật — đúng
+    thứ Ruling 2 cấm) và "tinh_trang không đổi", không phải "depth không đổi".
+    """
     run_migrations()
     load_from_parquet(RAW / "relationships.parquet", get_engine())
     with get_engine().connect() as c:
-        n_metadata = c.execute(text(
-            "SELECT count(*) FROM documents WHERE checksum = 'metadata-only'")).scalar_one()
         sai_dau = c.execute(text(
             "SELECT count(*) FROM documents WHERE checksum = 'metadata-only'"
-            " AND (depth != 'metadata' OR tinh_trang != 'chua_xac_dinh')")).scalar_one()
+            " AND (depth = 'deep' OR tinh_trang != 'chua_xac_dinh')")).scalar_one()
         that = c.execute(text(
             "SELECT depth, checksum FROM documents WHERE id = '139264'")).one()
-    # Số dòng chỉ-metadata = số `from_document_id` KHÔNG thuộc corpus, tính lại
-    # từ chính cạnh vừa nạp. Ghim 36 là ghim cỡ corpus ngày 2026-08-30: mở corpus
-    # ra 32 văn bản làm nó thành 44, và bump con số thì test chỉ còn chép lại kết
-    # quả lần chạy gần nhất.
-    with get_engine().connect() as c:
-        ngoai = c.execute(text(
-            'SELECT count(DISTINCT r.from_document_id) FROM "references" r'
+        co_metadata = {r[0] for r in c.execute(text(
+            "SELECT id FROM documents WHERE checksum = 'metadata-only'")).all()}
+        ngoai_ids = {r[0] for r in c.execute(text(
+            'SELECT DISTINCT r.from_document_id FROM "references" r'
             " WHERE r.loai IN (20,21,22,23)"
             "   AND NOT EXISTS (SELECT 1 FROM documents d"
             "                   WHERE d.id = r.from_document_id AND d.depth <> 'metadata')"
-        )).scalar_one()
-    assert n_metadata == ngoai, \
-        f"{ngoai} văn bản ngoài corpus đi sửa corpus, nhưng có {n_metadata} dòng chỉ-metadata"
-    assert n_metadata > 0, "0 dòng chỉ-metadata — loader không chèn gì, phép kiểm rỗng"
-    assert sai_dau == 0, "dòng chỉ-metadata phải có depth='metadata' và tinh_trang='chua_xac_dinh'"
+        )).all()}
+    assert ngoai_ids, "0 văn bản ngoài corpus đi sửa corpus — phép kiểm rỗng"
+    assert ngoai_ids <= co_metadata, (
+        f"{ngoai_ids - co_metadata} văn bản ngoài corpus đi sửa corpus nhưng KHÔNG có "
+        "dòng chỉ-metadata đứng chỗ")
+    assert sai_dau == 0, (
+        "dòng chỉ-metadata không được thành depth='deep' (bị ghi đè) hay đổi "
+        "tinh_trang khỏi 'chua_xac_dinh'")
     assert that.depth == "deep" and that.checksum != "metadata-only", (
         "BLLĐ (139264) là văn bản THẬT của corpus — không được ghi đè bằng dòng chỉ-metadata")
 
