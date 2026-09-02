@@ -9,7 +9,9 @@ trong `usage` — đã xác nhận bằng gọi API thật (xem task-3-report.md
 trường này thì `Usage` sẽ phải bịa số, việc `chat()` cấm làm (raise thay vì đoán).
 """
 
+import json
 import logging
+import math
 import time
 from dataclasses import dataclass
 
@@ -20,6 +22,16 @@ from src.config import get_settings
 logger = logging.getLogger(__name__)
 
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+
+class _ContentRongError(Exception):
+    """Nội bộ: HTTP 200 nhưng `message.content` rỗng.
+
+    Tầng HTTP thấy 200 và không có gì để bắt, nên retry cũ (chỉ phủ
+    HTTPStatusError/TransportError) bỏ qua hẳn ca này. Đo được 2026-09-02:
+    `mistralai/mistral-nemo` rỗng 2/5 lần trên prompt `route` — mỗi lần là một
+    HTTP 500 ở node ĐẦU TIÊN của graph, trong khi lần gọi ngay sau thành công.
+    """
 
 
 @dataclass(frozen=True)
@@ -40,6 +52,12 @@ class LlmClient:
         self.temperature = temperature
         self.max_retries = 3
         self.retry_backoff_base = 0.2  # giây; cạn retry vẫn raise, không swallow (cùng khuôn EmbeddingClient)
+        # 429 cần chờ lâu hơn lỗi máy chủ thường: 0,2 + 0,4 + 0,8 = 1,4 giây rồi
+        # bỏ cuộc là gần như không thử lại, và đã đo được một 429 xuyên thủng cả
+        # bốn lần thử. Là HỆ SỐ NHÂN chứ không phải hằng số riêng, để test nào
+        # đặt `retry_backoff_base = 0` vẫn chạy tức thì.
+        self.retry_429_nhan = 10
+        self.retry_cho_toi_da = 30.0  # trần; `Retry-After: 3600` sẽ treo request một tiếng
         self._base_url = base_url.rstrip("/")
         self._http = httpx.Client(
             base_url=self._base_url,
@@ -47,23 +65,132 @@ class LlmClient:
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         )
 
-    def _post_with_retry(self, body: dict) -> httpx.Response:
-        # URL tuyệt đối: test thay `_http` bằng client chỉ có MockTransport (không
-        # set base_url) sẽ vỡ trên httpx>=0.28 nếu POST bằng path tương đối — cùng
-        # lý do EmbeddingClient._post_with_retry đã né bằng URL tuyệt đối.
+    def _cho_bao_lau(self, resp: httpx.Response, thuong: float) -> float:
+        """Bao lâu trước lần thử kế. 429 chờ lâu hơn, và nếu máy chủ nói rõ
+        chờ bấy lâu thì tin nó — đoán một con số khác chỉ tạo thêm 429 hoặc chờ
+        vô ích.
+
+        `Retry-After` do máy chủ ngoài gửi nên KHÔNG tin hình dạng, và
+        `float()` một mình KHÔNG đủ để kiểm: nó nhận "-5", "nan", "-inf" mà
+        không raise gì cả. Ba giá trị đó lọt qua `min()` (`min(nan, 30.0)` trả
+        về `nan` — mọi so sánh với NaN đều False nên `min` giữ tham số đầu, trần
+        không chặn được) rồi tới `time.sleep()`, chỗ nằm NGOÀI mọi try/except
+        của vòng lặp: `time.sleep(-5.0)` nổ "sleep length must be non-negative",
+        `time.sleep(nan)` nổ "Invalid value NaN". Kết quả là một lỗi không liên
+        quan gì tới nguyên nhân thật (header xấu), đẩy chẩn đoán đi sai hướng.
+
+        Nên: parse xong còn phải hữu hạn và không âm. Không đạt thì rơi về
+        backoff thường — cùng đường với dạng HTTP-date hợp-lệ-theo-RFC
+        ("Wed, 21 Oct 2026 07:28:00 GMT") mà `float()` không đọc được.
+
+        Có trần vì `Retry-After: 3600` sẽ treo request một tiếng.
+
+        `thuong` (backoff thường) NHẬN VÀO chứ không tính lại: vòng lặp đã tính
+        đúng giá trị đó ở đầu mỗi lượt, và hai bản sao của cùng một công thức sẽ
+        lệch nhau ngay khi ai đó thêm jitter vào một bên.
+        """
+        if resp.status_code != 429:
+            return thuong
+        # MỌI đường ra đều qua trần. Trước bản này chỉ nhánh đọc được header bị
+        # chặn, nhánh dự phòng thì không — nên bất biến "chờ 429 luôn ≤ trần" chỉ
+        # đúng nhờ trùng hợp số hiện tại (0,2 × 10 × 2² = 8s < 30s), không nhờ cấu
+        # trúc. Ai tăng `retry_backoff_base` hay `max_retries` vì một lý do khác là
+        # nhánh này tự phình qua trần mà không ai chủ ý.
+        du_phong = min(thuong * self.retry_429_nhan, self.retry_cho_toi_da)
+        # Chỉ `ValueError`: `headers.get(k, "")` luôn trả `str`, nên `TypeError`
+        # từ `float()` là nhánh không tới được — bỏ đi thay vì để lại một cái
+        # bắt-cho-chắc gợi ý sai về hình dạng dữ liệu thật.
+        try:
+            giay = float(resp.headers.get("Retry-After", ""))
+        except ValueError:
+            return du_phong
+        if not math.isfinite(giay) or giay < 0:
+            logger.warning("Retry-After vô nghĩa (%r) — dùng backoff thường", giay)
+            return du_phong
+        return min(giay, self.retry_cho_toi_da)
+
+    @staticmethod
+    def _boc_content(data: dict) -> tuple[str, str]:
+        """Trả (content, finish_reason).
+
+        `message` có thể là `null` (có khoá, giá trị None) chứ không chỉ thiếu
+        khoá, và `.get("message", {})` KHÔNG áp default cho ca đó — `.get()` kế
+        tiếp sẽ chạy trên `None` và nổ `AttributeError` không mang tên model,
+        lệch hẳn khuôn raise của cả file. `or {}` phủ cả hai hình dạng.
+
+        `finish_reason` được bóc ra vì nó phân biệt bốn nguyên nhân rất khác
+        nhau của content rỗng: bộ lọc nội dung, hết token (`length`), model gọi
+        tool thay vì trả nội dung, và lỗi provider ngẫu nhiên (ca đã đo với
+        mistral-nemo). Thiếu nó thì cả bốn trông giống nhau trong log.
+        """
+        choice = (data.get("choices") or [{}])[0] or {}
+        content = (choice.get("message") or {}).get("content") or ""
+        return content, str(choice.get("finish_reason") or "?")
+
+    def _goi_va_lay_content(self, body: dict, model: str) -> tuple[str, dict]:
+        """Gọi + bóc content TRONG CÙNG vòng retry.
+
+        Bóc content ở đây chứ không ở `chat()` là điều kiện để content rỗng được
+        thử lại: nếu vòng lặp chỉ trả `Response` thì lúc phát hiện rỗng đã ra
+        ngoài vòng, không còn lần thử nào.
+
+        URL tuyệt đối: test thay `_http` bằng client chỉ có MockTransport (không
+        set base_url) sẽ vỡ trên httpx>=0.28 nếu POST bằng path tương đối — cùng
+        lý do EmbeddingClient._post_with_retry đã né bằng URL tuyệt đối.
+        """
         url = f"{self._base_url}/chat/completions"
         for attempt in range(self.max_retries + 1):
+            cho = self.retry_backoff_base * (2**attempt)
             try:
                 r = self._http.post(url, json=body)
                 r.raise_for_status()
-                return r
+                data = r.json()
+                content, ly_do_dung = self._boc_content(data)
+                if not content.strip():
+                    raise _ContentRongError(ly_do_dung)
+                return content, data
+            except _ContentRongError as e:
+                # Cạn retry vẫn NỔ, không trả chuỗi rỗng: node gọi nó (`route`,
+                # `generate_claims`) sẽ nhận một câu trả lời hợp lệ-về-hình-dạng mà
+                # trống nội dung — đúng lớp lỗi im lặng cả dự án chống.
+                if attempt == self.max_retries:
+                    raise ValueError(
+                        f"model {model} trả content rỗng sau {attempt + 1} lần thử "
+                        f"(finish_reason={e})"
+                    ) from None
+                logger.warning(
+                    "model %s trả content rỗng (finish_reason=%s), thử lại (lần %d)",
+                    model, e, attempt + 2,
+                )
+            except json.JSONDecodeError:
+                # HTTP 200 kèm body không phải JSON là cùng lớp lỗi tạm thời với
+                # content rỗng — gateway/proxy trả một trang HTML lỗi kèm mã 200.
+                # Cạn retry vẫn để nó nổ nguyên trạng.
+                if attempt == self.max_retries:
+                    raise
+                logger.warning(
+                    "model %s: HTTP 200 nhưng body không phải JSON, thử lại (lần %d)",
+                    model, attempt + 2,
+                )
             except httpx.HTTPStatusError as e:
                 if e.response.status_code not in _RETRYABLE_STATUS or attempt == self.max_retries:
                     raise
-            except httpx.TransportError:
+                cho = self._cho_bao_lau(e.response, cho)
+                # Log ở CẢ hai nhánh này, đối xứng với nhánh content rỗng: thiếu nó,
+                # một request có thể chờ tới ~90 giây (ba lần `Retry-After: 30` bị
+                # chặn trần) mà không để lại một dấu vết nào.
+                logger.warning(
+                    "model %s: HTTP %d, chờ %.1fs rồi thử lại (lần %d)",
+                    model, e.response.status_code, cho, attempt + 2,
+                )
+            except httpx.TransportError as e:
                 if attempt == self.max_retries:
                     raise
-            time.sleep(self.retry_backoff_base * (2**attempt))
+                logger.warning(
+                    "model %s: lỗi mạng %s, chờ %.1fs rồi thử lại (lần %d)",
+                    model, type(e).__name__, cho, attempt + 2,
+                )
+            time.sleep(cho)
         raise AssertionError("unreachable")  # vòng lặp luôn raise hoặc return ở trên
 
     def chat(self, model: str, messages: list[dict], json_schema: dict | None = None) -> tuple[str, Usage]:
@@ -78,11 +205,7 @@ class LlmClient:
                 "type": "json_schema",
                 "json_schema": {"name": "klaw", "strict": True, "schema": json_schema},
             }
-        r = self._post_with_retry(body)
-        data = r.json()
-        content = (data.get("choices") or [{}])[0].get("message", {}).get("content") or ""
-        if not content.strip():
-            raise ValueError(f"model {model} trả content rỗng")
+        content, data = self._goi_va_lay_content(body, model)
         return content, self._usage_from(model, data)
 
     @staticmethod
