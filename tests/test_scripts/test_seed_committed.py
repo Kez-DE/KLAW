@@ -337,26 +337,45 @@ def test_checksums_json_khop_documents_jsonl(documents):
 
 # ══ Bảng nằm TRONG noi_dung, không ở cột riêng ══════════════════════════════
 
-def test_bang_luong_toi_thieu_vung_co_trong_noi_dung(provisions):
-    """Ca hỏng đắt nhất của corpus: trước vòng này `parse_tables` không có caller
-    nào trong đường sản xuất nên toàn bộ <table> bị `decompose()` và biến mất.
+def test_bang_luong_toi_thieu_vung_MOI_VUNG_MOT_NEO(provisions):
+    """Ca hỏng đắt nhất của corpus, đã đi qua HAI vòng sửa.
 
-    Người lao động hỏi "lương tối thiểu vùng I bao nhiêu" nhận một trích dẫn tới
-    điều luật KHÔNG CHỨA CON SỐ NÀO — và mô hình có thể viết ra con số từ trí nhớ
-    huấn luyện rồi dẫn đúng Điều 3 Khoản 1, một trích dẫn qua được cả hai tầng
-    kiểm. Bảng phải ở trong `noi_dung` (không cột riêng, không bảng riêng) vì đó
-    là trường DUY NHẤT verifier tầng 1 đối chiếu câu trích vào.
+    Vòng 1 (`c5c2c17`): `parse_tables` không có caller nào trong đường sản xuất
+    nên mọi <table> bị `decompose()` và biến mất — người lao động hỏi "lương tối
+    thiểu vùng I bao nhiêu" nhận một trích dẫn tới điều luật KHÔNG CHỨA CON SỐ
+    NÀO. Bảng được đưa vào `noi_dung` vì đó là trường DUY NHẤT verifier tầng 1
+    đối chiếu câu trích vào.
+
+    Vòng 2 (`migrations/017`): cả bảng trong MỘT `noi_dung` nghĩa là bốn vùng
+    dùng chung MỘT neo, nên mô hình trích hai hàng rồi kết luận "pháp luật quy
+    định HAI mức lương tối thiểu" và bảy phép kiểm vẫn xanh — hai citation trỏ
+    cùng một `khop_tai_id` nên phép so tập con không có gì để so (trace
+    cbd9f317). Nay MỖI VÙNG MỘT NEO.
+
+    Bất biến của vòng 1 không mất: con số vẫn ở trong `noi_dung`, chỉ là
+    `noi_dung` của đúng hàng nó thuộc về.
     """
     theo_path = {p["duong_dan"]: p for p in provisions}
     mong_doi = {
-        "293/2025/NĐ-CP > Điều 3 > Khoản 1": ("5.310.000", "4.730.000", "4.140.000", "3.700.000"),
-        "74/2024/NĐ-CP > Điều 3 > Khoản 1": ("4.960.000", "4.410.000", "3.860.000", "3.450.000"),
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1": {
+            "Vùng I": "5.310.000", "Vùng II": "4.730.000",
+            "Vùng III": "4.140.000", "Vùng IV": "3.700.000"},
+        "74/2024/NĐ-CP > Điều 3 > Khoản 1": {
+            "Vùng I": "4.960.000", "Vùng II": "4.410.000",
+            "Vùng III": "3.860.000", "Vùng IV": "3.450.000"},
     }
     for path, muc in mong_doi.items():
-        nd = theo_path[path]["noi_dung"]
-        assert "Vùng I" in nd, path
-        for so in muc:
-            assert so in nd, f"{path} thiếu mức lương {so}"
+        # Hàng TIÊU ĐỀ ở lại Khoản cha — bỏ nó thì tên cột biến mất.
+        assert "| Vùng |" in theo_path[path]["noi_dung"], path
+        for vung, so in muc.items():
+            neo = f"{path} > {vung}"
+            assert neo in theo_path, f"thiếu neo {neo}"
+            hang = theo_path[neo]
+            assert hang["cap"] == "hang_bang", neo
+            assert so in hang["noi_dung"], f"{neo} thiếu mức lương {so}"
+            # Và KHÔNG còn ở cha: còn thì một quote hàng khớp ở cả hai dòng,
+            # `_tim_quote` trả về cha, và hai vùng lại chung một neo.
+            assert so not in theo_path[path]["noi_dung"], f"{so} vẫn nằm ở {path}"
 
 
 def test_neo_trich_dan_hua_danh_sach_thi_phai_giao(provisions):
