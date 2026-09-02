@@ -319,6 +319,31 @@ def test_response_model_biet_moi_gia_tri_cua_ResultType():
     assert o_model == o_enum, f"lệch: enum có {o_enum - o_model}, model có {o_model - o_enum}"
 
 
+def test_moi_field_TraCuuResponse_deu_duoc_KLawState_khai():
+    """Phép canh CHUNG (fix round 1, finding 1) — cùng tinh thần test ngay
+    trên, nhưng cho lớp lỗi RỘNG hơn: `KLawState` là `TypedDict` làm SCHEMA
+    KÊNH của LangGraph, nên một field `TraCuuResponse` cần đọc từ state mà
+    quên khai ở đây sẽ bị `.invoke()`/`.ainvoke()` LOẠI ÂM THẦM — dự án đã bị
+    cắn bởi đúng lớp lỗi này BỐN lần trên bốn field khác nhau (`khop_tai_id`,
+    `doc_id`, `bang`, và `nguon` — round 1 này sửa `nguon`).
+
+    So HAI TẬP, không liệt kê tay: mọi field của `TraCuuResponse` phải nằm
+    trong tập khoá `KLawState` khai (rẻ — chỉ introspect hai class, không cần
+    Postgres/LLM) — thêm field mới vào response mà quên khai ở state sẽ làm
+    test này đỏ ngay, thay vì im lặng cho tới khi ai đó đo được trên HTTP thật.
+    """
+    from src.agents.state import KLawState
+    from src.models.schemas import TraCuuResponse
+
+    can = set(TraCuuResponse.model_fields)
+    khai = set(KLawState.__annotations__)
+    thieu = can - khai
+    assert not thieu, (
+        f"TraCuuResponse cần field {thieu} nhưng KLawState chưa khai — "
+        "LangGraph sẽ loại âm thầm khỏi state trả về của invoke()/ainvoke()"
+    )
+
+
 @pytest.mark.integration
 def test_hoi_ve_kho_di_het_duong_graph_ra_HTTP_khong_ton_mot_token(monkeypatch):
     """Bốn chỗ sync của một `result_type` mới đã sập HAI LẦN vì mỗi test chỉ
@@ -378,6 +403,108 @@ def test_hoi_ve_kho_xin_bang_di_het_duong_graph_ra_HTTP_khong_ton_mot_token(monk
     assert len(res.bang) == 2
     assert res.bang[0].cot == ["Loại văn bản", "Tổng", "Có toàn văn", "Chỉ có số hiệu và tên"]
     assert res.bang[1].cot == ["Lĩnh vực", "Số văn bản", "Độ sâu"]
+
+
+@pytest.mark.integration
+def test_hoi_ve_kho_xin_bang_luot_noi_tiep_doc_cau_da_giai_nghia(monkeypatch):
+    """Fix round 1, finding 2 — test T4 ngay trên gọi graph với `lich_su` RỖNG
+    (lượt đầu): `giai_nghia` không chạy, `cau_hoi_day_du` giữ `None`, và
+    `n_assemble` chỉ đi qua NỬA biểu thức
+    `cau_hoi = st.get("cau_hoi_day_du") or st["query"]` (`graph_tra_cuu.py`,
+    trong `n_assemble`) — nửa `st["query"]`. Đúng ca brief mở đầu (câu NỐI TIẾP,
+    ý "bảng" chỉ lộ ra sau khi giải nghĩa) chưa hề được đi qua graph thật.
+
+    Ép lượt NỐI TIẾP bằng cách khống chế `giai_nghia` trả `cau_hoi_day_du` mang
+    ý "bảng" trong khi CỐ Ý giữ nguyên `query` KHÔNG khớp cụm kích hoạt nào —
+    khác chính hành vi `giai_nghia` thật (nó đồng bộ `query` = `cau_hoi_day_du`
+    khi giải nghĩa thành công). Tách hai giá trị ra để pin đúng dòng mã đọc
+    `cau_hoi_day_du` TRƯỚC — nếu test dựa vào bất biến đồng bộ đó (để `query`
+    tự nhiên bằng `cau_hoi_day_du`), một bug xoá mất ưu tiên đọc
+    `cau_hoi_day_du` vẫn có thể lọt qua vì `query` tình cờ đúng."""
+    import src.agents.graph_tra_cuu as g
+    from src.agents.nodes.route import Intent
+    from src.api.routes import _payload_cache, tra_cuu_response
+
+    cau_da_giai_nghia = ("Đưa cho tôi bảng hiển thị 130 văn bản pháp lý trong kho "
+                        "của KLAW để xem dễ hơn")
+
+    def fake_giai_nghia(st, llm, model):
+        return {**st, "cau_hoi_goc": st["query"], "cau_hoi_day_du": cau_da_giai_nghia,
+                "traces": {**(st.get("traces") or {}), "giai_nghia_token_in": 0}}
+
+    monkeypatch.setattr(g, "giai_nghia", fake_giai_nghia)
+    monkeypatch.setattr(g, "route", lambda st, llm, model: {
+        **st, "intent": Intent.hoi_ve_kho, "traces": {"route_token_in": 0}})
+
+    st = g.build_graph_tra_cuu().invoke({
+        # KHÔNG khớp cụm kích hoạt nào — chỉ câu ĐÃ giải nghĩa mới khớp
+        # ("bảng hiển thị"/"xem dễ hơn"); xem `xin_dang_bang` (services/kho.py).
+        "query": "cho tôi xem cho dễ",
+        "lich_su": [{"cau_hoi": "kho có bao nhiêu văn bản?",
+                     "tra_loi": "Kho hiện có 130 văn bản.", "duong_dan": []}],
+        "as_of_date": None,
+    })
+
+    assert st["result_type"] is ResultType.hoi_ve_kho
+    assert st["query"] == "cho tôi xem cho dễ", "test tự kiểm: fake giai_nghia không sửa query"
+    assert len(st["bang"]) == 2, (
+        f"bang rỗng — n_assemble đang đọc st['query'] (không khớp cụm nào) thay vì "
+        f"st['cau_hoi_day_du'] (khớp 'bảng hiển thị'/'xem dễ hơn'): {st['bang']}"
+    )
+
+    res = tra_cuu_response(_payload_cache(st, st["result_type"].value), "t", "c")
+    assert len(res.bang) == 2
+
+
+@pytest.mark.integration
+def test_partial_coverage_giu_duoc_nguon_di_het_duong_graph_ra_HTTP(monkeypatch):
+    """Fix round 1, finding 1 — `nguon` mang ĐÚNG lỗi mất khoá ở biên LangGraph
+    như `bang` (T4) đã đo: `KLawState` không khai `nguon` nên `.invoke()` loại
+    âm thầm khỏi state trả về, dù `assemble()` gọi riêng (test đơn vị
+    `test_partial_coverage_mang_nguon_co_doc_id_de_mo_duoc_van_ban` ở
+    test_assemble.py) đã set đúng khoá này — test đó gọi `assemble()` TRỰC
+    TIẾP, hàm thuần, nên không thể thấy chỗ mất ở biên `.invoke()`.
+
+    Cùng khuôn hai test `hoi_ve_kho` ngay trên: khống chế `route`/`rewrite_query`
+    /`Retriever` để ép nhánh `partial_coverage` một cách XÁC ĐỊNH (không phụ
+    thuộc nội dung corpus đang nạp song song) — `expand` bị thay để trả đúng
+    `expanded=[]`, `hits_shallow=[...]`, tái hiện chính điều kiện
+    `not deep and shallow` mà `assemble._phu_mot_phan` xét. `hoi_lai` (nửa sau
+    của mọi ngõ cụt) vẫn gọi LLM thật theo thiết kế (partial_coverage không còn
+    0 token từ Pha 2) — khống chế luôn `llm_from_settings` để test không phụ
+    thuộc mạng/API key, cùng lý do khống chế `route` ở hai test trên."""
+    import json
+
+    import src.agents.graph_tra_cuu as g
+    from src.agents.nodes.route import Intent
+    from src.api.routes import _payload_cache, tra_cuu_response
+    from src.services.llm import Usage
+
+    class FakeLlmHoiLai:
+        def chat(self, model, messages, json_schema=None):
+            return json.dumps({"chieu": [{"ma": "chu_the", "cau": "Bạn ở phía nào?"}]}), Usage(1, 1, 0.0)
+
+    monkeypatch.setattr(g, "llm_from_settings", lambda: FakeLlmHoiLai())
+    monkeypatch.setattr(g, "route", lambda st, llm, model: {
+        **st, "intent": Intent.tra_cuu, "traces": {"route_token_in": 0}})
+    monkeypatch.setattr(g, "rewrite_query", lambda st, llm, model: {
+        **st, "queries": [st["query"]]})
+    monkeypatch.setattr(g.Retriever, "hybrid", lambda self, q: [])
+    monkeypatch.setattr(g.Retriever, "provision_ids", lambda self, hits: [])
+    monkeypatch.setattr(g, "expand", lambda before, engine, as_of, hops: (
+        [], [{"id": 5, "document_id": "84265", "duong_dan": "84/2015/QH13 > Điều 3",
+              "so_ky_hieu": "84/2015/QH13", "ten": "Luật An toàn, vệ sinh lao động"}]))
+
+    st = g.build_graph_tra_cuu().invoke(
+        {"query": "an toàn lao động quy định thế nào", "as_of_date": None})
+
+    assert st["result_type"] is ResultType.partial_coverage
+    assert st["nguon"] == [{"doc_id": "84265", "so_ky_hieu": "84/2015/QH13",
+                            "bo_luat": "Luật An toàn, vệ sinh lao động"}], st["nguon"]
+
+    res = tra_cuu_response(_payload_cache(st, st["result_type"].value), "t", "c")
+    assert len(res.nguon) == 1
+    assert res.nguon[0].doc_id == "84265"
 
 
 def test_tra_cuu_response_bang_mac_dinh_rong_khi_payload_cu_thieu_khoa():
