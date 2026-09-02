@@ -18,7 +18,8 @@
     "kiem-ngay": "node scripts/kiem-ngay.ts",
     "kiem-soat": "node scripts/kiem-soat.ts",
     "kiem-khung": "node scripts/kiem-khung.ts",
-    "kiem": "npm run typecheck && npm run lint && npm run kiem-trich-dan && npm run kiem-xep-trich-dan && npm run kiem-sse && npm run kiem-font && npm run kiem-van-xuoi && npm run kiem-ngay && npm run kiem-soat && npm run kiem-khung && python3 scripts/do-tuong-phan.py && npm run build"
+    "kiem-bang": "node scripts/kiem-bang.ts",
+    "kiem": "npm run typecheck && npm run lint && npm run kiem-trich-dan && npm run kiem-xep-trich-dan && npm run kiem-sse && npm run kiem-font && npm run kiem-van-xuoi && npm run kiem-ngay && npm run kiem-soat && npm run kiem-khung && npm run kiem-bang && python3 scripts/do-tuong-phan.py && npm run build"
   },
   "overrides": {
     "rolldown": "1.2.1"

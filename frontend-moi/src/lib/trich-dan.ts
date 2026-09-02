@@ -98,6 +98,31 @@ export function catTheoTrichDan(noiDung: string, quote: string): LatCatTrichDan 
 }
 
 /**
+ * Câu trích đã định vị, dưới dạng KHOẢNG VỊ TRÍ `[đầu, cuối)` trong bản NFC của
+ * `noiDung` — thay cho ba lát cắt chuỗi.
+ *
+ * Ba lát cắt chỉ dùng được khi cả `noi_dung` render thành MỘT khối chữ. Từ khi
+ * nguyên văn có bảng, cùng một `noi_dung` vỡ ra thành đoạn văn xuôi và nhiều ô
+ * `<td>` rời nhau; mỗi mảnh cần biết phần nào của RIÊNG nó nằm trong câu trích.
+ * Một khoảng vị trí trả lời được câu hỏi đó cho mọi mảnh, ba lát cắt thì không.
+ *
+ * `truoc`/`trung` là lát cắt của chính bản NFC ấy, nên độ dài của chúng CHÍNH
+ * LÀ vị trí — không có phép quy đổi nào ở đây để mà lệch.
+ *
+ * Trả `null` khi không có câu trích, hoặc có mà không định vị được. Nơi gọi vẫn
+ * PHẢI nói thật là chưa tô sáng được (xem `catTheoTrichDan`); `null` ở đây chỉ
+ * mang nghĩa "không có gì để tô".
+ */
+export type VungTrichDan = readonly [number, number] | null;
+
+export function vungTrichDan(noiDung: string, quote: string | null): VungTrichDan {
+  if (quote === null || quote.trim() === "") return null;
+  const lat = catTheoTrichDan(noiDung, quote);
+  if (!lat.timThay) return null;
+  return [lat.truoc.length, lat.truoc.length + lat.trung.length];
+}
+
+/**
  * Bốn nhóm theo mức liên quan tới HIỆN TẠI. Số nhỏ đọc trước.
  *
  * Backend trả `citations[]` KHÔNG lọc và KHÔNG sắp — cố ý, để nó làm vết kiểm

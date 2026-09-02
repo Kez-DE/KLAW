@@ -234,6 +234,7 @@ const VAN_BAN_MAU: VanBanQuanhDieu = {
       duong_dan: `${SO_HIEU_GIA} > Điều 1`,
       tieu_de: "Điều lân cận phía trước",
       noi_dung: "Đoạn nguyên văn mẫu của một điều lân cận, để thấy nó mờ đi so với vùng đang xem.",
+      parent_id: null,
       la_tam: false,
     },
     {
@@ -243,6 +244,7 @@ const VAN_BAN_MAU: VanBanQuanhDieu = {
       duong_dan: `${SO_HIEU_GIA} > Điều 2`,
       tieu_de: "Điều đang được kiểm chứng",
       noi_dung: "Điều này chỉ có tiêu đề; nội dung thật nằm ở các Khoản con bên dưới.",
+      parent_id: null,
       la_tam: true,
     },
     {
@@ -253,6 +255,7 @@ const VAN_BAN_MAU: VanBanQuanhDieu = {
       tieu_de: "",
       noi_dung:
         "Đây là dòng mang câu trích: câu trích mẫu nằm trong nguyên văn mẫu, và phần được đánh dấu phải trùng khít với câu trích trên chip.",
+      parent_id: 11,
       la_tam: true,
     },
     {
@@ -262,6 +265,7 @@ const VAN_BAN_MAU: VanBanQuanhDieu = {
       duong_dan: `${SO_HIEU_GIA} > Điều 2 > Khoản 2 > Điểm a`,
       tieu_de: "",
       noi_dung: "Điểm con vẫn nằm trong vùng rọi sáng vì cùng thuộc Điều đang xem.",
+      parent_id: 12,
       la_tam: true,
     },
     {
@@ -271,6 +275,7 @@ const VAN_BAN_MAU: VanBanQuanhDieu = {
       duong_dan: `${SO_HIEU_GIA} > Điều 3`,
       tieu_de: "Điều lân cận phía sau",
       noi_dung: "Một điều lân cận nữa, cũng nằm ngoài vùng rọi sáng.",
+      parent_id: null,
       la_tam: false,
     },
   ],

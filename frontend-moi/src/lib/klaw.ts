@@ -89,7 +89,17 @@ export interface TraCuuKetQua {
   trace_id: string;
 }
 
-export type CapProvision = "dieu" | "khoan" | "diem";
+/**
+ * `string`, KHÔNG một union đóng — cùng bài học đã ghi ở `MucLucItem.cap`.
+ *
+ * Union ba cấp `dieu | khoan | diem` đã thiếu ngay lúc viết: cùng endpoint này
+ * còn trả `mo_dau` và `phu_luc` (đo trên kho thật), và nay thêm `hang_bang`.
+ * Union đóng không chặn được gì — `laVanBanProvisions` chỉ kiểm mảng — nó chỉ
+ * khiến TypeScript từ chối đúng phép so sánh cần viết khi cấp mới xuất hiện.
+ * Cấp thứ bảy nào backend thêm sau cũng phải rơi vào nhánh AN TOÀN của nơi gọi
+ * (`LE_THEO_CAP[cap] ?? "0rem"`), chứ không phải làm đỏ kiểu.
+ */
+export type CapProvision = string;
 
 export interface Provision {
   id: number;
@@ -98,6 +108,11 @@ export interface Provision {
   duong_dan: string;
   tieu_de: string;
   noi_dung: string;
+  /**
+   * Dòng cha; NULL ở cấp Điều. Thu `hang_bang` về đúng bảng của nó đi qua
+   * trường này — xem `gomHangBang` trong `lib/bang.ts`.
+   */
+  parent_id: number | null;
   /**
    * true cho Điều được hỏi VÀ mọi Khoản/Điểm con của nó. Dùng để tô cả **VÙNG**
    * đang xem, không phải một dòng đơn lẻ. false cho các Điều lân cận.
