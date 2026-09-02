@@ -1,5 +1,7 @@
 # Duyệt golden_qa — 77 câu
 
+> **Trạng thái 2026-09-02: XONG.** Chủ dự án đã duyệt cả 77 câu; `duyet_boi: nguoi` trên toàn bộ và `test_moi_item_da_qua_review_cua_NGUOI` đã xanh.
+
 Mỗi mục: câu hỏi, điều luật gold, và **toàn văn** điều đó (gồm Khoản/Điểm con).
 
 Cách duyệt: đọc câu hỏi → đọc điều luật → hỏi *điều này có trả lời được câu kia không?*

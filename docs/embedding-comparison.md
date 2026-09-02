@@ -1,5 +1,7 @@
 # So sánh embedding model trên golden_qa (Task 10, Plan 2)
 
+> **Cập nhật 2026-09-02:** chủ dự án đã duyệt tay toàn bộ 77 câu (`duyet_boi: nguoi`). Vẫn là ĐÚNG 77 câu hỏi đã dùng để đo dưới đây — không câu nào bị thêm hay bớt — nên số liệu này giờ đứng trên một tập đã được người xác nhận. Cờ `golden_qa_da_review` trong `eval/run.py` nay đọc từ dữ liệu, không hardcode, nên báo cáo sinh sau mốc này không còn in cảnh báo cũ.
+>
 > **CẢNH BÁO:** golden_qa.yaml CHƯA được người duyệt tay (da_review: false trên toàn bộ câu, Task 8) — con số dưới đây là CHỈ BÁO cho hướng phát triển, KHÔNG phải kết quả công bố được.
 
 Đo bằng cấu hình **`dense_only`**, không phải `hybrid`: hybrid trộn thêm nhánh `lexical_only` (Recall@5 0,3117 — xem `docs/bm25-tuning.md` và `eval/results/report.md`), nên chất lượng embedding bị nhiễu bởi một biến không liên quan. Dense thuần là nơi nó hiện ra rõ nhất.

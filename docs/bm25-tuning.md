@@ -1,5 +1,7 @@
 # Nhánh `lexical_only`: đo rồi mới chọn (H1, review cuối Plan 2)
 
+> **Cập nhật 2026-09-02:** chủ dự án đã duyệt tay toàn bộ 77 câu (`duyet_boi: nguoi`). Vẫn là ĐÚNG 77 câu hỏi đã dùng để đo dưới đây — không câu nào bị thêm hay bớt — nên số liệu này giờ đứng trên một tập đã được người xác nhận. Cờ `golden_qa_da_review` trong `eval/run.py` nay đọc từ dữ liệu, không hardcode, nên báo cáo sinh sau mốc này không còn in cảnh báo cũ.
+>
 > **CẢNH BÁO:** `golden_qa.yaml` (77 câu) toàn bộ đang `da_review: false` — chưa ai,
 > kể cả chủ dự án, duyệt tay từng câu (Task 8). Mọi con số dưới đây là **CHỈ BÁO cho
 > hướng phát triển**, KHÔNG phải kết quả công bố được trong khóa luận cho tới khi

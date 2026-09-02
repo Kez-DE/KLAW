@@ -7,9 +7,11 @@ thẳng vào kết quả (yêu cầu #2, #5).
 `--config all` chạy cả ba preset và ghi `eval/results/report.md` — đây là câu
 lệnh sinh bảng ablation cho chương kết quả khóa luận.
 
-golden_qa.yaml đang 100% `da_review: false` (Task 8, chưa ai duyệt tay) — mọi
-kết quả ở đây mang cảnh báo `canh_bao`/`golden_qa_da_review` (yêu cầu #4): CHỈ
-BÁO, không phải kết quả công bố được.
+Cờ `golden_qa_da_review` và cảnh báo `canh_bao` ĐỌC TỪ DỮ LIỆU (`duyet_boi`
+trong golden_qa.yaml), không hardcode: một cờ hằng số chỉ đúng ở một phía của
+cái mốc nó mô tả. Trước 2026-09-02 nó là `False` cứng, nên sau khi chủ dự án
+duyệt xong 77 câu thì mọi báo cáo vẫn in "CHƯA được người duyệt tay" — một câu
+sai sự thật in vào đúng chương đánh giá (yêu cầu #4).
 """
 
 import argparse
@@ -43,6 +45,20 @@ _METRIC_FNS: dict[str, Any] = {
     "ndcg@5": partial(ndcg_at_k, k=5),
     "ndcg@10": partial(ndcg_at_k, k=10),
 }
+
+def da_nguoi_duyet(items: list[dict]) -> bool:
+    """Toàn bộ tập đã qua mắt NGƯỜI chưa (`duyet_boi == "nguoi"`).
+
+    Hàm THUẦN để test được không cần Postgres. Ba mặc định an toàn:
+    - MỘT câu chưa người duyệt ⇒ cả tập chưa duyệt. "Công bố được" là một bit,
+      không phải một tỉ lệ, nên không có ngưỡng "gần đủ".
+    - THIẾU trường ⇒ chưa duyệt. Cùng quy tắc cả repo: không biết thì mặc định
+      là chưa kiểm chứng, không bao giờ mặc định là hợp lệ.
+    - Tập RỖNG ⇒ chưa duyệt. `all()` trên tập rỗng trả True, và "không có câu
+      nào" mà báo là "đã duyệt hết" là đúng cái bẫy `all()` hay gài.
+    """
+    return bool(items) and all(i.get("duyet_boi") == "nguoi" for i in items)
+
 
 _CANH_BAO_CHUA_DUYET = (
     "golden_qa.yaml CHƯA được người duyệt tay (da_review: false trên toàn bộ {n} câu, "
@@ -203,16 +219,23 @@ def phan_giai_gold(engine: Engine, items: list[dict]) -> list[dict]:
     return [it | {"provision_ids": [m[dd] for dd in it["duong_dan"]]} for it in items]
 
 
-def _load_golden_qa(s: Settings, engine: Engine) -> list[dict]:
+def _load_golden_qa(s: Settings, engine: Engine) -> tuple[list[dict], bool]:
+    """Trả (items đã phân giải, đã-người-duyệt).
+
+    Cờ đọc từ items THÔ, trước `phan_giai_gold` — hàm đó dựng lại bản ghi cho
+    mục đích tính metric và không có hợp đồng nào buộc nó giữ `duyet_boi`. Đọc
+    sau khi biến đổi là đặt một khẳng định về xuất xứ dữ liệu lên một hàm không
+    hứa gì về nó.
+    """
     p = Path(s.eval_dataset_dir) / "golden_qa.yaml"
     items = yaml.safe_load(p.read_text(encoding="utf-8"))["items"]
-    return phan_giai_gold(engine, items)
+    return phan_giai_gold(engine, items), da_nguoi_duyet(items)
 
 
 def evaluate(config_name: str) -> dict:
     s = overlay_settings(load_config(config_name))
     engine = get_engine()
-    items = _load_golden_qa(s, engine)
+    items, da_duyet = _load_golden_qa(s, engine)
 
     embedder = EmbeddingClient(
         api_key=s.openrouter_api_key,
@@ -243,8 +266,11 @@ def evaluate(config_name: str) -> dict:
         "bm25_strip_stopwords": s.bm25_strip_stopwords,
         "commit_hash": _commit_hash(),
         "ts": datetime.now(UTC).isoformat(),
-        "golden_qa_da_review": False,
-        "canh_bao": _CANH_BAO_CHUA_DUYET.format(n=n),
+        "golden_qa_da_review": da_duyet,
+        # Cảnh báo BIẾN MẤT khi đã duyệt, không chỉ đổi chữ: nó tồn tại để chặn
+        # việc trích một con số chưa ai xác nhận, và giữ nó lại sau khi đã xác
+        # nhận thì lần sau không ai còn tin cảnh báo nào nữa.
+        "canh_bao": None if da_duyet else _CANH_BAO_CHUA_DUYET.format(n=n),
     }
 
     res_dir = Path(s.eval_result_dir)
@@ -299,15 +325,24 @@ def write_report(results: dict[str, dict]) -> str:
     """Sinh nội dung report.md từ evaluate() của (thường là) cả 3 preset. Hàm
     THUẦN — không đụng DB/file — để test được _nhanh_chet/_cau_hoi_te_nhat mà
     không cần Postgres."""
-    lines: list[str] = [
-        "# Eval Report — Retrieval Ablation (Plan 2, Task 9)",
-        "",
-        "> **CẢNH BÁO:** `golden_qa.yaml` (77 câu) toàn bộ đang `da_review: false` — "
-        "chưa ai, kể cả chủ dự án, duyệt tay từng câu (Task 8). Mọi con số dưới đây là "
-        "**CHỈ BÁO cho hướng phát triển**, KHÔNG phải kết quả công bố được trong khóa luận "
-        "cho tới khi review xong.",
-        "",
-    ]
+    lines: list[str] = ["# Eval Report — Retrieval Ablation (Plan 2, Task 9)", ""]
+
+    # Cảnh báo dựng từ CỜ TRONG SUMMARY, và dùng lại ĐÚNG MỘT bản của câu chữ
+    # (`_CANH_BAO_CHUA_DUYET`). Trước bản này câu ấy nằm hardcode ở HAI nơi —
+    # summary và report — nên khi trạng thái thật đổi, cả hai đều sai và không
+    # chỗ nào đọc chỗ nào. Hai bản sao của một khẳng định về dữ liệu là cách
+    # chắc chắn nhất để chúng lệch nhau.
+    #
+    # Thiếu khoá ⇒ coi như CHƯA duyệt: file summary ghi trước 2026-09-02 không
+    # có khoá đó, và đọc lại chúng phải ra "chưa duyệt", không phải "đã duyệt".
+    mau_co = next(iter(results.values()), {})
+    if not mau_co.get("golden_qa_da_review", False):
+        lines += [
+            "> **CẢNH BÁO:** "
+            + _CANH_BAO_CHUA_DUYET.format(n=mau_co.get("n_queries", "?"))
+            + " Chưa ai, kể cả chủ dự án, duyệt tay từng câu.",
+            "",
+        ]
 
     canh_bao = _nhanh_chet(results)
     if canh_bao:

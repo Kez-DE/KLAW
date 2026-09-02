@@ -211,10 +211,28 @@ def test_evaluate_tra_ve_du_metric_va_ghi_file():
 
 
 @pytest.mark.integration
-def test_evaluate_canh_bao_golden_qa_chua_duoc_duyet():
+def test_evaluate_co_duyet_khop_voi_du_lieu_that():
+    """So cờ với DỮ LIỆU, không với một giá trị cố định.
+
+    Bản trước khẳng định `golden_qa_da_review is False` — đúng cho tới
+    2026-09-02, khi chủ dự án duyệt xong 77 câu; rồi nó thành một test canh một
+    sự thật đã hết hạn. Test này đọc `duyet_boi` từ chính file dataset nên nó
+    đúng ở CẢ HAI phía của cái mốc đó, và vẫn đỏ nếu cờ tuột khỏi dữ liệu.
+    """
+    import yaml
+
+    from eval.run import da_nguoi_duyet
+
     r = _evaluate_hoac_bo_qua("lexical_only")
-    assert r["golden_qa_da_review"] is False
-    assert "chưa" in r["canh_bao"].lower()
+    items = yaml.safe_load(Path("eval/datasets/golden_qa.yaml").read_text(encoding="utf-8"))["items"]
+    mong_doi = da_nguoi_duyet(items)
+    assert r["golden_qa_da_review"] is mong_doi
+    # Cảnh báo và cờ phải nói CÙNG một điều — một bên nói đã duyệt mà bên kia
+    # vẫn in "chưa" là đúng lỗi bản này đi sửa.
+    if mong_doi:
+        assert r["canh_bao"] is None
+    else:
+        assert r["canh_bao"] and "chưa" in r["canh_bao"].lower()
 
 
 @pytest.mark.integration
@@ -279,3 +297,72 @@ def test_ten_file_ket_qua_an_toan_cho_ten_file():
     ten = _ten_file_ket_qua("dense_only", "voyageai/voyage-4-lite", 77)
     assert ten == "dense_only-voyageai_voyage-4-lite-77.json"
     assert "/" not in ten
+
+
+# ══ Pha 0c — cờ "người đã duyệt" phải ĐỌC TỪ DỮ LIỆU ═══════════════════════
+#
+# Trước bản này `summary["golden_qa_da_review"]` là hằng số `False` và câu cảnh
+# báo cũng là hằng số. Sau khi chủ dự án duyệt xong 77 câu (2026-09-02,
+# `duyet_boi: nguoi`), mọi báo cáo eval vẫn in "CHƯA được người duyệt tay" —
+# một câu SAI SỰ THẬT in vào đúng chương đánh giá. Cờ hardcode không bao giờ
+# đúng được hai lần.
+
+
+def _items(*duyet: str) -> list[dict]:
+    return [{"id": f"q-{i}", "duyet_boi": d} for i, d in enumerate(duyet)]
+
+
+def _summary(**ghi_de) -> dict:
+    """Summary tối thiểu mà `write_report` đọc được — mọi khoá metric trong
+    `_BANG_METRIC_KEYS` cộng n_ok/n_queries, vì hàm dựng bảng đọc chúng bằng
+    `r['...']` chứ không `.get()`."""
+    goc = {k: 0.5 for k in ("recall@5", "recall@10", "mrr@5", "mrr@10", "ndcg@5", "ndcg@10")}
+    return {**goc, "n_ok": 77, "n_queries": 77, "n_errors": 0, **ghi_de}
+
+
+def test_da_nguoi_duyet_dung_khi_toan_bo_la_nguoi():
+    from eval.run import da_nguoi_duyet
+
+    assert da_nguoi_duyet(_items("nguoi", "nguoi", "nguoi")) is True
+
+
+def test_da_nguoi_duyet_sai_khi_con_mot_cau_chi_agent_duyet():
+    """MỘT câu chưa người duyệt là chưa duyệt. Không có 'gần đủ' ở đây: con số
+    công bố được hay không là một bit, không phải một tỉ lệ."""
+    from eval.run import da_nguoi_duyet
+
+    assert da_nguoi_duyet(_items("nguoi", "agent", "nguoi")) is False
+
+
+def test_da_nguoi_duyet_sai_khi_thieu_han_truong():
+    """Thiếu trường KHÔNG được hiểu là đã duyệt — mặc định an toàn là chưa."""
+    from eval.run import da_nguoi_duyet
+
+    assert da_nguoi_duyet([{"id": "q-0"}]) is False
+    assert da_nguoi_duyet([]) is False, "tập rỗng không phải 'đã duyệt hết'"
+
+
+def test_report_giu_canh_bao_khi_chua_nguoi_duyet():
+    from eval.run import write_report
+
+    txt = write_report({"hybrid": _summary(golden_qa_da_review=False)})
+    assert "CHƯA" in txt
+
+
+def test_report_bo_canh_bao_khi_da_nguoi_duyet():
+    """Cảnh báo phải BIẾN MẤT, không chỉ đổi chữ — nó tồn tại để chặn việc trích
+    một con số chưa được người xác nhận, và giữ nó lại sau khi đã xác nhận thì
+    lần sau không ai còn tin cảnh báo nào nữa."""
+    from eval.run import write_report
+
+    txt = write_report({"hybrid": _summary(golden_qa_da_review=True)})
+    assert "CHƯA được người duyệt tay" not in txt
+    assert "chưa ai, kể cả chủ dự án" not in txt
+
+
+def test_report_thieu_co_thi_coi_nhu_chua_duyet():
+    """Summary cũ (đã ghi ra file trước bản này) không có khoá đó — đọc lại phải
+    ra 'chưa duyệt', không phải 'đã duyệt'."""
+    from eval.run import write_report
+
+    assert "CHƯA" in write_report({"hybrid": _summary()})
