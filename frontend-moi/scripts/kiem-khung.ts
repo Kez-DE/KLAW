@@ -427,6 +427,6 @@ if (mayChuSong) {
 
 console.info(
   daDoiChieu > 0
-    ? `kiem-khung: đạt · 25 phép kiểm khung + ${daDoiChieu}/25 mẫu khớp cờ máy chủ`
+    ? `kiem-khung: đạt · 25 phép kiểm khung + ${daDoiChieu}/${MAU.length} mẫu khớp cờ máy chủ`
     : "kiem-khung: đạt · 25 phép kiểm khung (chưa đối chiếu máy chủ)",
 );
