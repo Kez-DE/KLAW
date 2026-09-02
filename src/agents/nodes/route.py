@@ -26,7 +26,7 @@ INTENT_SCHEMA = {
     "properties": {
         "intent": {
             "type": "string",
-            "enum": ["tra_cuu", "soan_thao", "ngoai_pham_vi", "gioi_thieu"],
+            "enum": ["tra_cuu", "soan_thao", "ngoai_pham_vi", "gioi_thieu", "hoi_ve_kho"],
         }
     },
 }
@@ -42,6 +42,13 @@ class Intent(StrEnum):
     # này nằm ngoài phạm vi của hệ thống" trong khi câu trả lời đúng nằm ngay
     # bên dưới lời từ chối. Hệ thống BIẾT và vẫn chọn im lặng.
     gioi_thieu = "gioi_thieu"
+    # Câu hỏi VỀ CHÍNH KHO DỮ LIỆU ("hiện có bao nhiêu bộ luật", "kho của bạn
+    # phủ những gì", "có Nghị định 145/2020 không"). Trước bản này nó rơi vào
+    # `tra_cuu` — prompt tự dặn "không chắc thì chọn tra_cuu" — nên câu hỏi về
+    # KHO bị đem đi truy hồi NỘI DUNG luật: 30 điều khoản tầng sâu, 0 luận
+    # điểm, `answer` rỗng. Câu trả lời là một phép `count(*)` chứ không phải
+    # một lượt suy luận, nên nó có đường riêng: xem `src/services/kho.py`.
+    hoi_ve_kho = "hoi_ve_kho"
 
 
 def route(state: dict, llm, model: str) -> dict:

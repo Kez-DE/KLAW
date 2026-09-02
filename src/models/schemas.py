@@ -68,6 +68,7 @@ class TraCuuResponse(BaseModel):
         "out_of_scope",
         "gioi_thieu",
         "huong_dan_soan_thao",
+        "hoi_ve_kho",
     ]
     answer: str | None
     citations: list[CitationOut]

@@ -22,6 +22,7 @@ from src.config import as_of_hieu_luc, get_settings
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
+from src.services.kho import tra_loi_ve_kho
 from src.services.llm import from_settings as llm_from_settings
 from src.services.llm import generate_model, judge_model, router_model
 from src.services.retrieval import Retriever
@@ -61,7 +62,7 @@ def _db_provisions(ids: list[int], engine: Engine) -> dict[int, dict]:
     return {pid: {**row, **docs.get(row["document_id"], {})} for pid, row in goc.items()}
 
 
-# Ba ý định KHÔNG cần tra cứu gì để trả lời. Chúng rẽ tắt ngay sau `route`,
+# Mọi ý định KHÔNG cần tra cứu gì để trả lời. Chúng rẽ tắt ngay sau `route`,
 # bỏ qua truy hồi, mở rộng, sinh luận điểm và hai tầng kiểm chứng.
 #
 # ĐO ĐƯỢC 2026-09-02: trước bản này chỉ `ngoai_pham_vi` rẽ tắt, còn `gioi_thieu`
@@ -70,8 +71,14 @@ def _db_provisions(ids: list[int], engine: Engine) -> dict[int, dict]:
 # chú thích "0 TOKEN" và chú thích ấy đúng về `assemble` mà sai về thứ người đọc
 # hiểu: `assemble` là node CUỐI.
 #
+# `hoi_ve_kho` rẽ tắt vì cùng lý do, không phải vì rẻ: câu trả lời về kho là một
+# phép tra bảng trên `documents` (xem `services/kho.py`), nên một lượt truy hồi
+# NỘI DUNG luật không đóng góp gì cho nó — nó chỉ tìm được những văn bản có chữ
+# "Luật" trong tiêu đề, đúng cách lỗi 30-điều-khoản-0-luận-điểm đã xảy ra.
+#
 # `tra_cuu` và mọi giá trị lạ đi đường đầy đủ — mặc định an toàn là tra cứu.
-_RE_TAT = frozenset({Intent.ngoai_pham_vi, Intent.gioi_thieu, Intent.soan_thao})
+_RE_TAT = frozenset({Intent.ngoai_pham_vi, Intent.gioi_thieu, Intent.soan_thao,
+                     Intent.hoi_ve_kho})
 
 
 def _re_sau_route(st: dict) -> str:
@@ -157,6 +164,24 @@ def build_graph_tra_cuu():
         return {**st, "tier2": verdicts, "traces": traces}
 
     def n_assemble(st: KLawState) -> KLawState:
+        if st.get("intent") == Intent.hoi_ve_kho:
+            # SQL cho câu hỏi về kho chạy Ở ĐÂY, không trong `assemble`.
+            #
+            # `assemble` KHÔNG có `engine` — và đúng ra là không nên có: nó đã
+            # nhận `db_provisions` do chính node này nạp sẵn, tức hợp đồng hiện
+            # hành là "node lo phần DB, assemble lo phần dựng lời". Đưa chuỗi
+            # đã tính vào state là CÙNG hình dạng với `db_provisions`; truyền
+            # thêm `engine` xuống thì đổi chữ ký mà hơn 40 chỗ gọi `assemble`
+            # trong test đang dùng, để phục vụ đúng một nhánh. Chọn cách không
+            # đụng chữ ký nào.
+            #
+            # `as_of_hieu_luc` chứ không phải `date.today()`: cùng một chủ sở
+            # hữu quy tắc mốc hiệu lực với `n_expand` và với khoá cache (xem
+            # chú thích ở `n_expand`) — số Bộ luật "đang dùng" phụ thuộc mốc
+            # thời gian, nên hai bản sao của quy tắc sẽ cho hai con số khác
+            # nhau mà không tầng nào báo lỗi.
+            st = {**st, "tra_loi_kho": tra_loi_ve_kho(
+                engine, st["query"], as_of_hieu_luc(st.get("as_of_date")))}
         ids = [r.claim.provision_id for r in (st.get("tier1") or [])]
         return assemble({**st, "abstain_threshold": s.abstain_threshold},
                         _db_provisions(ids, engine), llm, generate_model())

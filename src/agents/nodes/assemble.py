@@ -96,6 +96,10 @@ class ResultType(StrEnum):
     # đồng lao động" nhận về một bài giảng về Điều 20 — đúng luật, và không
     # phải thứ họ xin.
     huong_dan_soan_thao = "huong_dan_soan_thao"
+    # Câu hỏi về CHÍNH KHO. Cùng lý do tách như `gioi_thieu` ngay trên: nó
+    # không phải một lượt tra cứu, và câu trả lời là một phép TRA BẢNG xác
+    # định (`services/kho.py`) chứ không phải một luận điểm cần hai tầng kiểm.
+    hoi_ve_kho = "hoi_ve_kho"
 
 
 class Citation(TypedDict):
@@ -325,6 +329,19 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         # ĐO ĐƯỢC 2026-09-02, TRƯỚC khi có đường rẽ: nhánh này tiêu 8.975 token
         # và dựng 15 luận điểm qua cả hai tầng rồi vứt sạch.
         return _base(state, ResultType.gioi_thieu, answer=GIOI_THIEU)
+
+    if state.get("intent") == "hoi_ve_kho":
+        # Chuỗi do `graph_tra_cuu.n_assemble` tính SẴN bằng SQL — khâu này chỉ
+        # dán nó vào `answer`. Xem chú thích ở `n_assemble` để biết vì sao SQL
+        # nằm ở đó chứ không ở đây (tóm lại: `assemble` không có `engine`, và
+        # hợp đồng hiện hành đã là "node lo phần DB, assemble lo phần dựng lời"
+        # — `db_provisions` cũng do node nạp sẵn).
+        #
+        # `state["tra_loi_kho"]` chứ không phải `.get(...) or ""`: thiếu khoá
+        # này là một lỗi NỐI DÂY, và một `answer` rỗng chính là chế độ hỏng mà
+        # cả nhánh này tồn tại để bỏ đi. Thà nổ ra một KeyError nhìn thấy được
+        # còn hơn trả lại đúng cái màn hình trắng cũ.
+        return _base(state, ResultType.hoi_ve_kho, answer=state["tra_loi_kho"])
 
     if state.get("intent") == "ngoai_pham_vi":
         return _base(

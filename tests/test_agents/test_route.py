@@ -201,3 +201,25 @@ def test_rewrite_tren_mau_that_giu_goc_va_khong_bia_thuat_ngu():
             print(f"  - {q}")
         assert st["queries"][0] == cau_hoi
         assert 1 <= len(st["queries"]) <= 3
+
+
+def test_moi_Intent_deu_co_mat_trong_PROMPT_va_trong_JSON_SCHEMA():
+    """Chỗ hỏng IM LẶNG NHẤT của việc thêm một ý định: `Intent` có thành viên
+    mới, `_RE_TAT` có, `assemble` có nhánh, `TraCuuResponse` có `Literal` — mà
+    `prompts/route.v1.md` không tả nó và `INTENT_SCHEMA` không cho phép nó.
+
+    Không test nào ở trên đỏ, không log nào bật lên: model chỉ đơn giản không
+    bao giờ chọn được giá trị đó (JSON schema chặn), rồi `route` nuốt lỗi bằng
+    mặc định `tra_cuu` — đúng nhánh mặc định an toàn — và cả tính năng thành mã
+    chết. So HAI TẬP, không liệt kê tay.
+    """
+    from src.agents.nodes.route import INTENT_SCHEMA, PROMPT_PATH
+
+    trong_schema = set(INTENT_SCHEMA["properties"]["intent"]["enum"])
+    assert trong_schema == {i.value for i in Intent}, (
+        f"lệch: Intent có { {i.value for i in Intent} - trong_schema}, "
+        f"schema có {trong_schema - {i.value for i in Intent}}"
+    )
+    prompt = PROMPT_PATH.read_text(encoding="utf-8")
+    thieu = [i.value for i in Intent if f"`{i.value}`" not in prompt]
+    assert not thieu, f"{thieu} không được mô tả trong {PROMPT_PATH}"

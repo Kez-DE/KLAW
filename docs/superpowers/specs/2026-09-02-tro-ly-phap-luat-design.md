@@ -71,16 +71,31 @@ giờ phát biểu thay cho nền pháp luật Việt Nam. "Việt Nam hiện c�
 
 ## 3. Bẫy đồng bộ — chặn bằng test ngay từ đầu
 
-Thêm một `result_type` mới đòi sửa **bốn** chỗ:
+Thêm một ý định mới đòi sửa **SÁU** chỗ (bản đầu của spec này ghi bốn — thiếu
+hai, xem bên dưới):
 
 1. `prompts/route.v1.md` — mô tả intent
-2. `src/agents/graph_tra_cuu.py` — `_RE_TAT` nếu intent rẽ tắt
-3. `src/agents/nodes/assemble.py` — nhánh dựng kết quả
-4. `src/models/schemas.py` — `Literal` của `TraCuuResponse.result_type`
+2. `src/agents/nodes/route.py` — giá trị trong `Intent`
+3. `src/agents/nodes/route.py` — giá trị trong `INTENT_SCHEMA`
+4. `src/agents/graph_tra_cuu.py` — `_RE_TAT` nếu intent rẽ tắt
+5. `src/agents/nodes/assemble.py` — nhánh dựng kết quả
+6. `src/models/schemas.py` — `Literal` của `TraCuuResponse.result_type`
 
-Thiếu chỗ 4 thì **traces ghi xanh còn HTTP trả 500**, vì traces được ghi trước
-khi response được serialize. Đã sập hai lần. Test bắt buộc: so khớp tập
-`ResultType` với tập trong `Literal`, fail khi lệch.
+Thiếu chỗ 6 thì **traces ghi xanh còn HTTP trả 500**, vì traces được ghi trước
+khi response được serialize. Đã sập hai lần.
+
+Thiếu chỗ 3 thì tệ hơn và im lặng hơn: `INTENT_SCHEMA` đi vào
+`llm.chat(json_schema=…)`, nên **JSON schema chặn model chọn ý định mới**, rồi
+`route` nuốt giá trị lạ bằng mặc định `tra_cuu`. Cả tính năng thành mã chết —
+không test nào đỏ, không log nào bật, không HTTP nào lỗi. Phát hiện 2026-09-02
+trong lúc thi công Pha 1, sau khi brief giao việc chỉ liệt kê năm chỗ.
+
+Hai test bắt buộc, cả hai SO HAI TẬP thay vì liệt kê tay — mọi lần lỗi này lọt
+đều là vì một test đếm tên cụ thể:
+- `test_response_model_biet_moi_gia_tri_cua_ResultType` — `ResultType` vs `Literal`
+- `test_moi_Intent_deu_co_mat_trong_PROMPT_va_trong_JSON_SCHEMA` — `Intent` vs
+  `INTENT_SCHEMA` vs prompt
+- `test_moi_y_dinh_KHONG_PHAI_tra_cuu_deu_phai_re_tat` — `_RE_TAT` vs `set(Intent)`
 
 FE không cần nhánh mới cho `hoi_ve_kho`: nó mang `answer` nên rơi đúng nhánh mặc
 định của `TheKetQua.tsx`.
@@ -217,6 +232,26 @@ Chạy `eval/run.py` (77 golden) + `eval/run_trap.py` sau **Pha 1** và **Pha 3*
 Bỏ qua sau Pha 0 và Pha 2 (không đổi nội dung câu trả lời).
 
 Mốc so sánh: kết quả trước khi bắt đầu, chụp một lần ở đầu Pha 1.
+
+## 9b. Món nợ phát hiện trong lúc thi công (2026-09-02)
+
+**`/pham-vi` đang báo sai cho người dùng.** `src/api/routes.py:563` (`_pham_vi`)
+phân tầng theo SỐ ĐIỀU KHOẢN THẬT, và ruling ở đó viết rõ lý do. Ruling ấy nay
+lạc hậu: migration `016_tang_nong.sql` chèn cho MỖI văn bản `shallow` đúng một
+hàng `mo_dau`, nên `so_dieu_khoan > 0` không còn tách được hai tầng. Kết quả:
+trang xếp **125** văn bản vào tầng "có toàn văn" khi thật ra chỉ **49** —
+phóng đại độ phủ 2,5 lần, và đó là con số đưa cho khách xem. Cần task riêng.
+
+**`ly_do` của effectivity không tất định giữa hai đường.** Với văn bản bị NHIỀU
+văn bản khác sửa, `danh_gia_theo_id` và `danh_gia_toan_bo` nêu tên một văn bản
+sửa KHÁC nhau trong cùng tập — cùng verdict, cả hai câu đều đúng sự thật, nhưng
+cùng một văn bản hiện hai lý do khác nhau tuỳ người dùng đi qua màn nào
+(`routes_tim_kiem.py` vốn dùng đường gộp, `expand`/`tier1` dùng đường từng-cái).
+Đo được 5/130 văn bản 2026-09-02. Có TỪ TRƯỚC đợt này. Hướng sửa: nêu văn bản
+sửa MỚI NHẤT, tất định — nhưng đụng `effectivity.py` nên cần task riêng.
+
+**`65/2006/QH11` trùng hai dòng trong `documents`.** Lỗi dữ liệu, phát hiện khi
+dựng phép khớp số hiệu. Ngoài phạm vi.
 
 ## 10. Ngoài phạm vi đợt này
 

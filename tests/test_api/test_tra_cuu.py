@@ -317,3 +317,35 @@ def test_response_model_biet_moi_gia_tri_cua_ResultType():
     o_model = set(typing.get_args(TraCuuResponse.model_fields["result_type"].annotation))
     o_enum = {r.value for r in ResultType}
     assert o_model == o_enum, f"lệch: enum có {o_enum - o_model}, model có {o_model - o_enum}"
+
+
+@pytest.mark.integration
+def test_hoi_ve_kho_di_het_duong_graph_ra_HTTP_khong_ton_mot_token(monkeypatch):
+    """Bốn chỗ sync của một `result_type` mới đã sập HAI LẦN vì mỗi test chỉ
+    canh được một chỗ. Test này chạy GRAPH THẬT rồi tuần tự hoá bằng ĐÚNG hai
+    hàm mà endpoint dùng (`_payload_cache` → `tra_cuu_response`), nên nó bắt cả
+    năm chỗ trong một lượt — kể cả chế độ hỏng đặc trưng: traces ghi xanh còn
+    HTTP trả 500, vì traces được ghi TRƯỚC khi response được serialize.
+
+    0 token: `route` bị thay bằng một hàm thuần, và `hoi_ve_kho` rẽ tắt ngay sau
+    đó nên không node nào gọi LLM. Cái duy nhất thật ở đây là Postgres — đúng
+    thứ câu trả lời về kho được dựng từ.
+    """
+    import src.agents.graph_tra_cuu as g
+    from src.agents.nodes.route import Intent
+    from src.api.routes import _payload_cache, tra_cuu_response
+    from src.services.kho import CAU_GIOI_HAN
+
+    monkeypatch.setattr(g, "route", lambda st, llm, model: {
+        **st, "intent": Intent.hoi_ve_kho, "traces": {"route_token_in": 0}})
+
+    st = g.build_graph_tra_cuu().invoke(
+        {"query": "hiện tại có bao nhiêu bộ luật?", "as_of_date": None})
+
+    assert st["result_type"] is ResultType.hoi_ve_kho
+    assert "Bộ luật: 6" in st["answer"], st["answer"]
+    assert CAU_GIOI_HAN in st["answer"]
+    assert st["traces"]["assemble_token_in"] == 0
+
+    res = tra_cuu_response(_payload_cache(st, st["result_type"].value), "t", "c")
+    assert res.result_type == "hoi_ve_kho" and res.answer == st["answer"]
