@@ -701,21 +701,39 @@ HTML_BANG_TRONG_LUONG = """
 SKH_LUONG = "293/2025/NĐ-CP"
 
 
-def test_bang_duoc_GHEP_vao_noi_dung_cua_provision_gioi_thieu_no():
-    """Lỗi gốc: `parse_tables` không có caller trong đường sản xuất.
+def _cay_con_cua(rows, duong_dan):
+    """`noi_dung` của một provision + mọi hậu duệ, nối lại — đúng phạm vi mà
+    `verify_tier1._cay_con` đối chiếu quote vào."""
+    goc = next(r for r in rows if r.duong_dan == duong_dan)
+    con = {goc.local_id}
+    ra = [goc.noi_dung]
+    for r in rows:
+        if r.parent_local_id in con:
+            con.add(r.local_id)
+            ra.append(r.noi_dung)
+    return "\n".join(ra)
 
-    Test này ĐỎ ở bản cũ vì `parse_provisions` decompose() mọi <table> — con số
-    5.310.000 không tồn tại ở bất kỳ `noi_dung` nào.
+
+def test_bang_duoc_GHEP_vao_CAY_CON_cua_provision_gioi_thieu_no():
+    """Lỗi gốc: `parse_tables` không có caller trong đường sản xuất — bản cũ
+    decompose() mọi <table> và con số 5.310.000 không tồn tại ở đâu cả.
+
+    Từ 2026-09-02 nó nằm ở một dòng `hang_bang` CON thay vì trong `noi_dung` của
+    chính Khoản (migrations/017). Phạm vi phải kiểm vì thế là CÂY CON — đúng
+    phạm vi `verify_tier1._cay_con` đối chiếu quote vào, nên bất biến "con số
+    phải tra được từ neo Khoản 1" không hề yếu đi.
     """
     rows = parse_provisions(HTML_BANG_TRONG_LUONG, SKH_LUONG)
-    k1 = next(r for r in rows if r.duong_dan == f"{SKH_LUONG} > Điều 3 > Khoản 1")
-    assert "5.310.000" in k1.noi_dung, "bảng lương biến mất khỏi Khoản giới thiệu nó"
-    assert "Vùng I" in k1.noi_dung
+    cay = _cay_con_cua(rows, f"{SKH_LUONG} > Điều 3 > Khoản 1")
+    assert "5.310.000" in cay, "bảng lương biến mất khỏi cây con của Khoản 1"
+    assert "Vùng I" in cay
 
     # Cùng MỘT hàm thuần sinh ra markdown ở cả hai đường: `parse_tables` không
-    # còn là nhánh chết song song với đường sản xuất.
+    # còn là nhánh chết song song với đường sản xuất. So THEO TỪNG HÀNG vì các
+    # hàng nay nằm ở những dòng provision khác nhau.
     bang_luong = next(t for t in parse_tables(HTML_BANG_TRONG_LUONG) if "5.310.000" in t)
-    assert bang_luong in k1.noi_dung, "noi_dung không chứa ĐÚNG markdown của parse_tables"
+    for dong in bang_luong.split("\n"):
+        assert dong in cay, f"cây con thiếu hàng {dong!r} của parse_tables"
 
 
 def test_bang_ghep_vao_KHOAN_gioi_thieu_chu_KHONG_phai_DIEU_cha():
@@ -763,12 +781,18 @@ def test_bang_vao_noi_dung_van_GIU_phep_bao_toan_ky_tu():
 
 
 def test_bang_KHONG_lam_mat_chu_cua_provision_gioi_thieu():
-    """Ghép, không thay thế: văn xuôi dẫn vào bảng phải còn nguyên và đứng TRƯỚC."""
+    """Ghép, không thay thế: văn xuôi dẫn vào bảng phải còn nguyên và đứng TRƯỚC.
+
+    Sau khi tách hàng, `noi_dung` của Khoản còn văn xuôi + HÀNG TIÊU ĐỀ — tiêu
+    đề ở lại vì bỏ nó đi thì tên cột biến mất và không ai dựng lại được bảng.
+    """
     rows = parse_provisions(HTML_BANG_TRONG_LUONG, SKH_LUONG)
     k1 = next(r for r in rows if r.duong_dan == f"{SKH_LUONG} > Điều 3 > Khoản 1")
     assert k1.noi_dung.startswith("1. Quy định mức lương tối thiểu tháng")
     assert "theo vùng như sau:" in k1.noi_dung
-    assert k1.noi_dung.index("như sau:") < k1.noi_dung.index("5.310.000")
+    assert k1.noi_dung.index("như sau:") < k1.noi_dung.index("Mức lương tối thiểu tháng |")
+    cay = _cay_con_cua(rows, f"{SKH_LUONG} > Điều 3 > Khoản 1")
+    assert cay.index("như sau:") < cay.index("5.310.000")
 
 
 @pytest.mark.integration
@@ -780,10 +804,14 @@ def test_ND_293_2025_that_co_bang_luong_trong_dieu_3_khoan_1():
         pytest.skip("chạy `python -m scripts.fetch_moj` trước")
     html = json.loads(p.read_text(encoding="utf-8"))["documentContent"]["content"]
     rows = parse_provisions(html, SKH_LUONG)
-    k1 = next(r for r in rows if r.duong_dan == f"{SKH_LUONG} > Điều 3 > Khoản 1")
-    for so in ("5.310.000", "4.730.000", "4.140.000", "3.700.000"):
-        assert so in k1.noi_dung, f"thiếu mức lương {so} trong {k1.duong_dan}"
-    assert "Vùng I" in k1.noi_dung
+    # Mỗi vùng MỘT neo riêng: đó là toàn bộ điểm của cấp `hang_bang`. Bốn mức
+    # trong một `noi_dung` chính là ca hỏng cbd9f317 ("hai mức lương tối thiểu").
+    hang = {r.so_hieu_cap: r for r in rows if r.cap is Cap.hang_bang}
+    assert set(hang) == {"Vùng I", "Vùng II", "Vùng III", "Vùng IV"}
+    for vung, so in (("Vùng I", "5.310.000"), ("Vùng II", "4.730.000"),
+                     ("Vùng III", "4.140.000"), ("Vùng IV", "3.700.000")):
+        assert so in hang[vung].noi_dung, f"thiếu mức lương {so} ở neo {vung}"
+        assert hang[vung].duong_dan == f"{SKH_LUONG} > Điều 3 > Khoản 1 > {vung}"
 
 
 # ══ Class của MOJ sai cấp — tin CHỮ, không tin class ═════════════════════════
@@ -1009,10 +1037,10 @@ def test_parse_anomalies_chi_CANH_BAO_khi_nguon_thieu_han_mot_nhan():
     assert any("ĐỨT DÃY" in x and "'đ'" in x for x in canh_bao), canh_bao
 
 
-def test_parse_anomalies_CANH_BAO_bang_nhieu_hang_ket_trong_mot_neo():
-    """Bảng lương tối thiểu vùng: 4 hàng dữ liệu nằm trong `noi_dung` của MỘT
-    Khoản, không có dòng con. Mô hình trích được hai hàng rồi kết luận "hai mức
-    lương tối thiểu" mà cả bảy phép kiểm vẫn qua sạch."""
+def test_bang_luong_KHONG_con_bao_BANG_KET_vi_da_duoc_tach():
+    """Nghịch đảo của cảnh báo: bảng lương từng là ca `BẢNG KẸT` nặng nhất
+    (4 hàng trong MỘT neo → "hai mức lương tối thiểu"). Nay nó được tách nên
+    cảnh báo phải TẮT — cảnh báo còn kêu ở đây nghĩa là phép tách đã hỏng."""
     html = ('<div><p class="prov-article"><b>Điều 3. Mức lương tối thiểu</b></p>'
             '<p class="prov-clause">1. Quy định mức lương tối thiểu tháng theo '
             'vùng như sau:</p>'
@@ -1023,7 +1051,9 @@ def test_parse_anomalies_CANH_BAO_bang_nhieu_hang_ket_trong_mot_neo():
             'định.</p></div>')
     loi, canh_bao = parse_anomalies(html, "293/2025/NĐ-CP")
     assert loi == []
-    assert any("BẢNG KẸT" in x for x in canh_bao), canh_bao
+    assert not any("BẢNG KẸT" in x for x in canh_bao), canh_bao
+    assert [r.so_hieu_cap for r in parse_provisions(html, "293/2025/NĐ-CP")
+            if r.cap is Cap.hang_bang] == ["Vùng I", "Vùng II"]
 
 
 def test_AM_TINH_bang_MOT_hang_khong_bi_bao_la_danh_sach():
@@ -1071,3 +1101,139 @@ def test_AM_TINH_prov_content_mo_dau_bang_so_o_DIEU_da_co_khoan():
     khoan = [r for r in rows if r.cap is Cap.khoan]
     assert [r.so_hieu_cap for r in khoan] == ["1"]
     assert "áp dụng cho cá nhân" in khoan[0].noi_dung
+
+
+# ── hang_bang: mỗi HÀNG DỮ LIỆU của bảng là một neo trích dẫn riêng ─────────
+# Quyết định 2026-09-02 của chủ dự án. `so_hieu_cap` đọc từ CỘT 1 của chính
+# bảng, không mượn nhãn Điểm — xem migrations/017.
+
+HTML_BANG_LUONG = """
+<div class="WordSection1">
+<p class="prov-article"><b>Điều 3. Mức lương tối thiểu</b></p>
+<p class="prov-clause">1. Quy định mức lương tối thiểu tháng và mức lương tối thiểu giờ theo vùng như sau:</p>
+<table>
+<tr><td>Vùng</td><td>Mức lương tối thiểu tháng</td><td>Mức lương tối thiểu giờ</td></tr>
+<tr><td>Vùng I</td><td>5.310.000</td><td>25.500</td></tr>
+<tr><td>Vùng II</td><td>4.730.000</td><td>22.700</td></tr>
+<tr><td>Vùng III</td><td>4.140.000</td><td>20.000</td></tr>
+<tr><td>Vùng IV</td><td>3.700.000</td><td>17.800</td></tr>
+</table>
+<p class="prov-clause">2. Danh mục địa bàn vùng do Chính phủ quy định.</p>
+</div>
+"""
+
+
+def test_bang_luong_thanh_BON_neo_trich_dan_rieng():
+    """Ca hỏng gốc: bốn vùng là MỘT neo nên mô hình trích hai hàng rồi kết luận
+    "hai mức lương tối thiểu", và bảy phép kiểm vẫn xanh."""
+    rows = parse_provisions(HTML_BANG_LUONG, "293/2025/NĐ-CP")
+    hang = [r for r in rows if r.cap is Cap.hang_bang]
+    assert [r.so_hieu_cap for r in hang] == ["Vùng I", "Vùng II", "Vùng III", "Vùng IV"]
+    assert hang[2].duong_dan == "293/2025/NĐ-CP > Điều 3 > Khoản 1 > Vùng III"
+    # `noi_dung` LÀ hàng markdown: đúng chuỗi mô hình trích và verify_tier1 đối
+    # chiếu vào. Đo được từ trace 13f3a5ec.
+    assert hang[2].noi_dung == "| Vùng III | 4.140.000 | 20.000 |"
+
+
+def test_hang_bang_treo_vao_KHOAN_gioi_thieu_bang():
+    rows = parse_provisions(HTML_BANG_LUONG, "293/2025/NĐ-CP")
+    khoan1 = next(r for r in rows if r.duong_dan.endswith("Khoản 1"))
+    hang = [r for r in rows if r.cap is Cap.hang_bang]
+    assert {r.parent_local_id for r in hang} == {khoan1.local_id}
+    # Khoản 2 đứng SAU bảng vẫn là con của Điều, không của hàng bảng cuối —
+    # hàng bảng cố ý không vào stack.
+    khoan2 = next(r for r in rows if r.duong_dan.endswith("Khoản 2"))
+    assert khoan2.parent_local_id == next(
+        r for r in rows if r.cap is Cap.dieu).local_id
+
+
+def test_hang_TIEU_DE_o_lai_Khoan_cha_va_KHONG_thanh_neo():
+    """Hàng tiêu đề là nhãn cột, không phải văn bản quy phạm — nó không được
+    thành neo. Nhưng bỏ hẳn thì tên cột biến mất và không ai dựng lại được bảng,
+    nên nó ở lại `noi_dung` của Khoản cha."""
+    rows = parse_provisions(HTML_BANG_LUONG, "293/2025/NĐ-CP")
+    assert "Vùng" not in [r.so_hieu_cap for r in rows if r.cap is Cap.hang_bang]
+    khoan1 = next(r for r in rows if r.duong_dan.endswith("Khoản 1"))
+    assert "| Vùng | Mức lương tối thiểu tháng | Mức lương tối thiểu giờ |" in khoan1.noi_dung
+    # Hàng DỮ LIỆU thì KHÔNG còn ở cha: nếu còn, một quote hàng khớp ở CẢ HAI
+    # dòng, `_tim_quote` trả về cha, và hai citation lại chung một khop_tai_id —
+    # đúng lỗi đang chữa, chỉ là quay lại qua cửa khác.
+    assert "4.140.000" not in khoan1.noi_dung
+
+
+def test_o_cot_1_khong_tu_mo_ta_thi_ghep_TIEU_DE_COT():
+    """Bảng thuế ghi cột 1 là `1`. Neo `… > Khoản 2 > 1` không phân biệt được
+    với Khoản 1 hay Điểm 1; ghép tiêu đề cột thành `Bậc thuế 1` — cũng đúng cách
+    người Việt dẫn biểu thuế luỹ tiến."""
+    html = ('<div><p class="prov-article"><b>Điều 9. Biểu thuế</b></p>'
+            '<p class="prov-clause">2. Biểu thuế luỹ tiến từng phần như sau:</p>'
+            '<table><tr><td>Bậc thuế</td><td>Thu nhập</td><td>Thuế suất</td></tr>'
+            '<tr><td>1</td><td>Đến 120</td><td>5</td></tr>'
+            '<tr><td>2</td><td>Trên 120 đến 360</td><td>10</td></tr></table>'
+            '<p class="prov-clause">3. Chính phủ quy định chi tiết.</p></div>')
+    rows = parse_provisions(html, "109/2025/QH15")
+    hang = [r for r in rows if r.cap is Cap.hang_bang]
+    assert [r.so_hieu_cap for r in hang] == ["Bậc thuế 1", "Bậc thuế 2"]
+    assert hang[0].duong_dan == "109/2025/QH15 > Điều 9 > Khoản 2 > Bậc thuế 1"
+
+
+def test_AM_TINH_bang_tieu_de_HAI_TANG_khong_bi_ep_tach():
+    """`135/2020/NĐ-CP > Điều 4 > Khoản 2` (lộ trình hưu nam/nữ): hàng đầu 2 ô,
+    16 hàng sau 4 ô, và 7 hàng cuối có cột 1 RỖNG vì ô gộp bẹp khi sang markdown.
+    Ép tách sẽ đẻ ra 7 neo `so_hieu_cap` rỗng — thứ
+    `provisions_so_hieu_cap_check` chặn. Thà để nguyên và ghi ra."""
+    html = ('<div><p class="prov-article"><b>Điều 4. Lộ trình</b></p>'
+            '<p class="prov-clause">2. Lộ trình theo bảng dưới đây:</p>'
+            '<table>'
+            '<tr><td>Lao động nam</td><td>Lao động nữ</td></tr>'
+            '<tr><td>Năm nghỉ hưu</td><td>Tuổi</td><td>Năm nghỉ hưu</td><td>Tuổi</td></tr>'
+            '<tr><td>2021</td><td>60 tuổi 3 tháng</td><td>2021</td><td>55 tuổi 4 tháng</td></tr>'
+            '<tr><td></td><td></td><td>2029</td><td>58 tuổi</td></tr>'
+            '</table>'
+            '<p class="prov-clause">3. Bộ trưởng hướng dẫn.</p></div>')
+    rows = parse_provisions(html, "135/2020/NĐ-CP")
+    assert [r for r in rows if r.cap is Cap.hang_bang] == []
+    khoan2 = next(r for r in rows if r.duong_dan.endswith("Khoản 2"))
+    assert "60 tuổi 3 tháng" in khoan2.noi_dung, "để nguyên nghĩa là KHÔNG mất chữ"
+    _, canh_bao = parse_anomalies(html, "135/2020/NĐ-CP")
+    assert any("BẢNG KẸT" in c and "số ô không đều" in c for c in canh_bao), canh_bao
+
+
+def test_AM_TINH_bang_MOT_hang_du_lieu_khong_bi_tach():
+    """`31/2024/QH15 > Điều 243 > Khoản 4`: tiêu đề + đúng 1 hàng. Không có anh
+    em nào để phép so tập con đối chiếu, nên tách chỉ thêm một tầng cây."""
+    html = ('<div><p class="prov-article"><b>Điều 243. Sửa Phụ lục II</b></p>'
+            '<p class="prov-clause">4. Bổ sung quy hoạch số thứ tự 1a như sau:</p>'
+            '<table><tr><td>STT</td><td>TÊN QUY HOẠCH</td></tr>'
+            '<tr><td>1a.</td><td>Quy hoạch sử dụng đất cấp tỉnh</td></tr></table>'
+            '<p class="prov-clause">5. Điều khoản thi hành.</p></div>')
+    rows = parse_provisions(html, "31/2024/QH15")
+    assert [r for r in rows if r.cap is Cap.hang_bang] == []
+    _, canh_bao = parse_anomalies(html, "31/2024/QH15")
+    assert any("chỉ 1 hàng dữ liệu" in c for c in canh_bao), canh_bao
+
+
+def test_AM_TINH_cong_thuc_trong_bang_khong_bi_tach():
+    """`145/2020 > Điều 55 > Khoản 1` xếp một CÔNG THỨC vào ô bảng. Một hàng, và
+    tách nó thành 'điểm con' là dựng năm neo không có trong Nghị định."""
+    html = ('<div><p class="prov-article"><b>Điều 55. Tiền lương làm thêm giờ</b></p>'
+            '<p class="prov-clause">1. Tiền lương làm thêm giờ tính như sau:</p>'
+            '<table><tr><td>Tiền lương làm thêm giờ</td><td>=</td>'
+            '<td>Tiền lương giờ thực trả</td><td>x</td><td>150%</td></tr></table>'
+            '<p class="prov-clause">2. Áp dụng tương tự cho lương sản phẩm.</p></div>')
+    rows = parse_provisions(html, "145/2020/NĐ-CP")
+    assert [r for r in rows if r.cap is Cap.hang_bang] == []
+
+
+def test_tach_bang_KHONG_lam_lech_phep_bao_toan_ky_tu():
+    """Hàng dữ liệu chuyển từ cha sang con, tiêu đề ở lại — tổng ký tự không đổi,
+    nên cổng bảo toàn vẫn khít tuyệt đối."""
+    loi, _ = parse_anomalies(HTML_BANG_LUONG, "293/2025/NĐ-CP")
+    assert loi == []
+
+
+def test_hang_bang_la_cap_TRICH_DAN_DUOC():
+    """Cả mục đích của cấp này là để mỗi hàng thành một neo kiểm chứng được, nên
+    nó phải chịu ĐÚNG hai bất biến của cấp trích dẫn được (migrations/017)."""
+    from src.services.prov_parser import CITABLE
+    assert Cap.hang_bang in CITABLE

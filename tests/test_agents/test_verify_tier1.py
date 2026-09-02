@@ -538,39 +538,68 @@ _HTML_BANG_LUONG = """
 """
 
 
-def _prov_bang_luong() -> dict:
-    from src.services.prov_parser import parse_provisions
+def _prov_bang_luong() -> list[dict]:
+    """Khoản 1 + các dòng `hang_bang` con, đúng hình dạng parser sinh ra.
+
+    Từ 2026-09-02 mỗi HÀNG của bảng là một provision riêng (migrations/017), nên
+    fixture phải là CÂY chứ không phải một dòng — `verify_tier1` tìm quote theo
+    `_cay_con`, và một fixture phẳng sẽ kiểm một hình dạng dữ liệu không còn tồn
+    tại trong DB.
+    """
+    from src.services.prov_parser import Cap, parse_provisions
 
     rows = parse_provisions(_HTML_BANG_LUONG, "293/2025/NĐ-CP")
     k1 = next(r for r in rows if r.duong_dan == "293/2025/NĐ-CP > Điều 3 > Khoản 1")
-    return {"id": 900, "parent_id": None, "document_id": "183939",
-            "duong_dan": k1.duong_dan, "noi_dung": k1.noi_dung}
+    ra = [{"id": 900, "parent_id": None, "document_id": "183939",
+           "duong_dan": k1.duong_dan, "noi_dung": k1.noi_dung}]
+    for i, r in enumerate((x for x in rows if x.cap is Cap.hang_bang), start=901):
+        ra.append({"id": i, "parent_id": 900, "document_id": "183939",
+                   "duong_dan": r.duong_dan, "noi_dung": r.noi_dung})
+    return ra
 
 
 def test_quote_lay_TU_BANG_qua_duoc_tang_1():
-    p = _prov_bang_luong()
-    db = {p["id"]: p}
-    c = Claim("Mức lương tối thiểu tháng vùng I là 5.310.000 đồng.", 900,
-              "| Vùng I | 5.310.000 |")
-    r = verify_tier1([c], [p], db, _eff)[0]
-    assert r.ok is True, r.reason
-    assert r.reason is R.ok
-    assert r.khop_tai == 900
+    """Và `khop_tai` phải trỏ vào ĐÚNG HÀNG, không phải Khoản cha.
+
+    Đó là toàn bộ lý do cấp `hang_bang` tồn tại: trước nó, hai citation về hai
+    vùng khác nhau cùng trả `khop_tai = 900`, nên phép so tập con không phân biệt
+    được "trích 2 trong 4 hàng" với "trích cả bảng" — trace cbd9f317 trả lời
+    "pháp luật quy định HAI mức lương tối thiểu" và bảy phép kiểm đều xanh.
+    """
+    ps = _prov_bang_luong()
+    db = {p["id"]: p for p in ps}
+    c1 = Claim("Mức lương tối thiểu tháng vùng I là 5.310.000 đồng.", 900,
+               "| Vùng I | 5.310.000 |")
+    c2 = Claim("Mức lương tối thiểu tháng vùng II là 4.730.000 đồng.", 900,
+               "| Vùng II | 4.730.000 |")
+    r1, r2 = verify_tier1([c1, c2], ps, db, _eff)
+    assert r1.ok is True and r1.reason is R.ok, r1.reason
+    assert r2.ok is True and r2.reason is R.ok, r2.reason
+    assert r1.khop_tai != 900 and r2.khop_tai != 900, "vẫn neo vào Khoản cha"
+    assert r1.khop_tai != r2.khop_tai, "hai vùng phải là HAI neo khác nhau"
+    assert db[r1.khop_tai]["duong_dan"].endswith("Vùng I")
+    assert db[r2.khop_tai]["duong_dan"].endswith("Vùng II")
 
 
 def test_quote_bia_CON_SO_SAI_trong_bang_van_bi_loai():
     """Phép kiểm chỉ có giá trị nếu nó còn LOẠI được. 5.310.000 là mức thật của
     293/2025; 5.500.000 là con số mô hình có thể viết ra từ trí nhớ huấn luyện."""
-    p = _prov_bang_luong()
+    ps = _prov_bang_luong()
     c = Claim("Vùng I là 5.500.000 đồng.", 900, "| Vùng I | 5.500.000 |")
-    r = verify_tier1([c], [p], {p["id"]: p}, _eff)[0]
+    r = verify_tier1([c], ps, {p["id"]: p for p in ps}, _eff)[0]
     assert r.ok is False and r.reason is R.quote_khong_khop
 
 
-def test_quote_vat_qua_van_xuoi_SANG_bang_van_khop():
-    """`normalize` gộp mọi khoảng trắng, nên dấu phân tách giữa văn xuôi và bảng
-    không tạo ra vết ghép mà quote thật phải né."""
-    p = _prov_bang_luong()
+def test_quote_vat_qua_van_xuoi_SANG_HANG_TIEU_DE_van_khop():
+    """`normalize` gộp mọi khoảng trắng, nên dấu phân tách giữa văn xuôi và hàng
+    tiêu đề không tạo ra vết ghép mà quote thật phải né.
+
+    Hàng TIÊU ĐỀ cố ý ở lại `noi_dung` của Khoản (không thành neo, vì nhãn cột
+    không phải văn bản quy phạm) — nên quote vắt từ câu dẫn sang tên cột vẫn nằm
+    gọn trong MỘT dòng corpus, đúng bất biến của `_tim_quote`.
+    """
+    ps = _prov_bang_luong()
     c = Claim("Bảng lương theo vùng.", 900, "theo vùng như sau: | Vùng | Mức lương tối thiểu tháng")
-    r = verify_tier1([c], [p], {p["id"]: p}, _eff)[0]
+    r = verify_tier1([c], ps, {p["id"]: p for p in ps}, _eff)[0]
     assert r.ok is True, r.reason
+    assert r.khop_tai == 900, "quote vắt qua tiêu đề thì neo ĐÚNG là Khoản cha"

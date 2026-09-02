@@ -9,8 +9,13 @@ def test_cap_co_dung_cac_bac():
     gộp tiêu đề tách thẻ). Thiếu cấp này thì chúng mất trắng."""
     assert [c.value for c in Cap] == [
         "phan", "chuong", "muc", "tieu_muc", "dieu", "khoan", "diem",
-        # Hai cấp TÀI LIỆU, đứng cuối enum để `bac` của 7 cấp cây không dịch:
-        # chữ ở ĐUÔI văn bản và chữ ở ĐẦU văn bản, cả hai không trích dẫn được.
+        # `hang_bang` (một HÀNG dữ liệu của bảng) đứng NGAY SAU `diem`: nó là
+        # cấp sâu nhất của cây quy phạm, và `bac` quyết định parser pop stack ở
+        # đâu. Đặt nó sau `phu_luc` sẽ làm một hàng bảng "nông hơn" Điểm.
+        "hang_bang",
+        # Hai cấp TÀI LIỆU, đứng cuối enum: chữ ở ĐUÔI văn bản và chữ ở ĐẦU văn
+        # bản, cả hai không trích dẫn được. `bac` của chúng dịch khi thêm cấp
+        # cây mới và điều đó vô hại — chúng không bao giờ vào stack.
         "phu_luc", "mo_dau"]
 
 

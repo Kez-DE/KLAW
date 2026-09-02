@@ -53,15 +53,19 @@ CLASS_TO_CAP = {
     "prov-item": Cap.diem,
 }
 
+# `hang_bang` là cấp DUY NHẤT có nhãn rỗng: nhãn của nó không phải một từ cố
+# định mà là chữ của chính bảng ("Vùng I", "Bậc thuế 1"), nên nó nằm trọn trong
+# `so_hieu_cap`. Xem `_nhan_hang`.
 NHAN = {Cap.phan: "Phần", Cap.chuong: "Chương", Cap.muc: "Mục",
         Cap.tieu_muc: "Tiểu mục", Cap.dieu: "Điều", Cap.khoan: "Khoản",
-        Cap.diem: "Điểm", Cap.phu_luc: "Phụ lục", Cap.mo_dau: "Mở đầu"}
+        Cap.diem: "Điểm", Cap.hang_bang: "", Cap.phu_luc: "Phụ lục",
+        Cap.mo_dau: "Mở đầu"}
 
 # Cấp TRÍCH DẪN ĐƯỢC — nơi verifier tầng 1 đối chiếu câu trích vào văn bản.
 # `noi_dung` rỗng ở đây nghĩa là phép kiểm "câu trích khớp nguyên văn" không có
 # gì để đối chiếu: hoặc luôn thất bại (hệ thống ABSTAIN mọi câu hỏi), hoặc được
 # viết cho "rỗng thì bỏ qua" và khi đó nó không kiểm gì cả. Nên nó là RAISE.
-CITABLE = {Cap.dieu, Cap.khoan, Cap.diem}
+CITABLE = {Cap.dieu, Cap.khoan, Cap.diem, Cap.hang_bang}
 
 # Phần/Chương/Mục/Tiểu mục là tiêu đề mục lục, không phải neo trích dẫn: Điều
 # được đánh số duy nhất trong toàn văn bản nên duong_dan bỏ qua các tổ tiên này
@@ -488,7 +492,10 @@ def _duong_dan(i: int, caps: list[Cap], so_hieu: list[str],
     j: int | None = i
     while j is not None:
         if j == i or not (bo_container and caps[j] in CONTAINER_CAPS):
-            segments.append(f"{NHAN[caps[j]]} {so_hieu[j]}".rstrip())
+            # `.strip()` chứ không `.rstrip()`: `hang_bang` có nhãn RỖNG nên
+            # `f"{''} {'Vùng I'}"` để lại khoảng trắng ở ĐẦU, và một đường dẫn
+            # `"… >  Vùng I"` hai khoảng trắng là một neo khác với neo đúng.
+            segments.append(f"{NHAN[caps[j]]} {so_hieu[j]}".strip())
         j = parents[j]
     segments.reverse()
     return " > ".join([so_ky_hieu, *segments])
@@ -510,6 +517,68 @@ def _bang_md(tbl: Tag) -> str:
         if cells:
             lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
+
+
+def _o(dong: str) -> list[str]:
+    """Một dòng markdown `| a | b | c |` → `["a", "b", "c"]`."""
+    return [c.strip() for c in dong.strip().strip("|").split("|")]
+
+
+def _nhan_hang(tieu_de_cot1: str, o1: str) -> str:
+    """Nhãn của một hàng bảng, ghép TỪ CHÍNH BẢNG — không đặt hộ ký hiệu nào.
+
+    Ô cột 1 một mình không phải lúc nào cũng đọc được như một neo: bảng lương
+    ghi `Vùng I` (tự mô tả), bảng thuế ghi `1` (một chữ số trơ, không phân biệt
+    được với Khoản 1 hay Điểm 1 trong cùng đường dẫn). Nên nhãn = TIÊU ĐỀ CỘT 1
+    + ô, và bỏ tiêu đề khi ô đã mở đầu bằng chính nó:
+
+      | Vùng     | … |  +  | Vùng I | … |  →  "Vùng I"      (không "Vùng Vùng I")
+      | Bậc thuế | … |  +  | 1      | … |  →  "Bậc thuế 1"
+
+    Cả hai vế đều là chữ nguồn tự in ra. "Bậc thuế 1" cũng đúng cách người Việt
+    dẫn biểu thuế luỹ tiến trên thực tế.
+    """
+    if not tieu_de_cot1 or _khoa(o1).lower().startswith(_khoa(tieu_de_cot1).lower()):
+        return o1
+    return f"{tieu_de_cot1} {o1}"
+
+
+def _tach_bang(md: str) -> tuple[str, list[tuple[str, str]]] | None:
+    """Bảng markdown → `(hàng tiêu đề, [(nhãn, hàng dữ liệu)…])`, hoặc None.
+
+    None = bảng KHÔNG tách được, để nguyên trong `noi_dung` của Khoản cha. Bốn
+    điều kiện, mỗi cái loại một hình dạng đã đo trên corpus — và đây là chỗ
+    "thà 2 bảng đúng còn hơn 6 bảng có 4 bảng méo" được thi hành:
+
+    1. **≥ 3 hàng** (tiêu đề + ít nhất 2 hàng dữ liệu). Bảng một hàng dữ liệu
+       không phải một liệt kê: không có anh em nào để phép so tập con đối chiếu,
+       nên tách nó chỉ thêm một tầng cây mà không chặn được sai nào.
+       (`31/2024/QH15 > Điều 243 > Khoản 4`: đúng 1 hàng, sửa Phụ lục luật khác.)
+    2. **Mọi hàng cùng số ô.** `135/2020/NĐ-CP > Điều 4/5 > Khoản 2` có hàng đầu
+       2 ô (`| Lao động nam | Lao động nữ |`) rồi 16 hàng 4 ô — tiêu đề hai
+       tầng, ô gộp đã mất khi sang markdown.
+    3. **Ô cột 1 của mọi hàng dữ liệu khác rỗng.** Cùng hai bảng đó: 7 hàng cuối
+       có cột 1 rỗng vì ô gộp bị bẹp — tách ra sẽ ra 7 neo `so_hieu_cap` rỗng,
+       thứ `provisions_so_hieu_cap_check` chặn, và một neo `"… > Khoản 2 > "`
+       không tra được.
+    4. **Nhãn không trùng nhau.** Neo trích dẫn trùng = một claim sai được
+       "kiểm chứng thành công" trên hàng kia.
+
+    Hàng TIÊU ĐỀ không thành neo: nó là nhãn cột, không phải văn bản quy phạm.
+    Nó ở lại `noi_dung` của Khoản cha — nếu bỏ hẳn thì tên cột biến mất và không
+    ai (kể cả FE) dựng lại được cái bảng.
+    """
+    dong = [d for d in md.split("\n") if d.strip().startswith("|")]
+    if len(dong) < 3:
+        return None
+    o = [_o(d) for d in dong]
+    if len({len(x) for x in o}) != 1:
+        return None
+    tieu_de_cot1 = o[0][0]
+    nhan = [_nhan_hang(tieu_de_cot1, x[0]) for x in o[1:]]
+    if not all(nhan) or len(set(nhan)) != len(nhan):
+        return None
+    return dong[0], list(zip(nhan, dong[1:], strict=True))
 
 
 def parse_tables(html: str) -> list[str]:
@@ -634,12 +703,12 @@ def _do_bang_ket(rows: list[ProvisionRow]) -> list[str]:
     sạch — phép so tập con không có gì để so, vì hai citation trỏ cùng một
     `khop_tai_id` chứ không phải hai hàng anh em.
 
-    CẢNH BÁO, không phải lỗi, và KHÔNG tự tách: `so_hieu_cap` cho một hàng bảng
-    là một CHÍNH SÁCH TRÍCH DẪN cần người quyết, cùng loại với hai Điểm trùng
-    nhãn "i)" đã ghi trong `KHONG_NAP`. Luật không đặt nhãn Điểm cho hàng bảng
-    lương; đặt hộ `a) b) c) d)` là dựng bốn neo không tồn tại trong văn bản —
-    đúng loại sai mà cả dự án tồn tại để không mắc. Cảnh báo này giữ 13 ca đó ở
-    trạng thái ĐỂ NGUYÊN CÓ CHỦ ĐÍCH thay vì bị bỏ sót im lặng.
+    Từ 2026-09-02, bảng ĐỦ SẠCH được `_tach_bang` tách thành các dòng
+    `hang_bang` con, nên chúng không còn rơi vào đây. Cảnh báo này giờ chỉ còn
+    kể tên những bảng `_tach_bang` TỪ CHỐI tách — và đó là mục đích của nó: giữ
+    chúng ở trạng thái ĐỂ NGUYÊN CÓ CHỦ ĐÍCH thay vì bị bỏ sót im lặng. Bốn điều
+    kiện từ chối nằm ở docstring `_tach_bang`; ép tách một bảng méo sẽ đẻ ra neo
+    `so_hieu_cap` rỗng hoặc trùng, tệ hơn hẳn việc để nguyên.
     """
     co_con = {r.parent_local_id for r in rows}
     canh_bao: list[str] = []
@@ -651,9 +720,24 @@ def _do_bang_ket(rows: list[ProvisionRow]) -> list[str]:
             canh_bao.append(
                 f"BẢNG KẸT trong neo {r.duong_dan!r}: {len(hang)} hàng nằm trong "
                 f"noi_dung của MỘT provision, không có dòng con nào — một câu trả "
-                f"lời trích được vài hàng vẫn qua sạch mọi phép kiểm. Tách hàng "
-                f"bảng thành dòng con cần quyết định ký hiệu neo (xem KHONG_NAP).")
+                f"lời trích được vài hàng vẫn qua sạch mọi phép kiểm. "
+                f"`_tach_bang` từ chối tách: {_vi_sao_khong_tach(hang)}.")
     return canh_bao
+
+
+def _vi_sao_khong_tach(hang: list[str]) -> str:
+    """Câu ngắn nói vì sao `_tach_bang` trả None — để cảnh báo tự giải thích."""
+    if len(hang) < 3:
+        return "chỉ 1 hàng dữ liệu, không phải một liệt kê"
+    o = [_o(d) for d in hang]
+    if len({len(x) for x in o}) != 1:
+        return f"số ô không đều ({sorted({len(x) for x in o})}), tiêu đề nhiều tầng"
+    nhan = [_nhan_hang(o[0][0], x[0]) for x in o[1:]]
+    if not all(nhan):
+        return f"{sum(1 for n in nhan if not n)} hàng có ô cột 1 RỖNG (ô gộp bị bẹp)"
+    if len(set(nhan)) != len(nhan):
+        return "nhãn hàng TRÙNG nhau"
+    return "không rõ"
 
 
 def parse_anomalies(html: str, so_ky_hieu: str = "?") -> tuple[list[str], list[str]]:
@@ -761,6 +845,10 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
     # Điều đã có ít nhất một Khoản con. Chỉ Điều CHƯA có Khoản nào mới nhận được
     # một `prov-content` mở đầu bằng "1." như Khoản 1 bị gắn nhầm class.
     co_con_khoan: set[int] = set()
+    # Nhãn ÉP cho `hang_bang`: pha 2 đọc số hiệu bằng regex trên `nhan[i]`, mà
+    # nhãn hàng bảng cần TIÊU ĐỀ CỘT (một ô khác) nên không regex ra được từ
+    # riêng dòng đó. Ghi sẵn ở pha 1, nơi còn nhìn thấy cả bảng.
+    so_hieu_ep: dict[int, str] = {}
     for cap, text, tag in units[:cuoi + 1]:
         if _la_bang(tag):
             # Bảng thuộc về node ĐANG MỞ tại vị trí của nó — cùng luật vị trí
@@ -768,8 +856,34 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
             # đo được ("… như sau:" rồi trỏ vào bảng) node đó chính là Khoản
             # giới thiệu bảng, KHÔNG phải Điều cha: 73,6% số Điều có
             # `noi_dung == tieu_de` nên ghép lên Điều là ghép sai cấp.
-            if md := _bang_md(tag):
-                (bang[stack[-1]] if stack else bang_mo_dau).append(md)
+            md = _bang_md(tag)
+            if not md:
+                continue
+            dinh = stack[-1] if stack else None
+            tach = (_tach_bang(md) if dinh is not None and caps[dinh] in CITABLE
+                    else None)
+            if tach is None:
+                (bang[dinh] if dinh is not None else bang_mo_dau).append(md)
+                continue
+            # Mỗi HÀNG DỮ LIỆU thành một neo trích dẫn riêng. Không tách thì cả
+            # bảng là MỘT `noi_dung`: mô hình trích hai trong bốn hàng lương tối
+            # thiểu rồi kết luận "pháp luật quy định hai mức", và bảy phép kiểm
+            # đều xanh vì hai citation trỏ cùng một `khop_tai_id` — không có hai
+            # anh em nào để phép so tập con đối chiếu (trace cbd9f317).
+            dau, hangs = tach
+            bang[dinh].append(dau)
+            for nhan_hang, dong in hangs:
+                caps.append(Cap.hang_bang)
+                nhan.append(dong)     # noi_dung = ĐÚNG hàng markdown, vì đó là
+                than.append([])       # thứ mô hình trích và verify_tier1 đối
+                bang.append([])       # chiếu vào.
+                # Không có node HTML riêng: hàng là một `<tr>` bên trong thẻ
+                # `<table>`, không phải một thẻ `prov-*` mang id.
+                src.append(None)
+                parents.append(dinh)
+                so_hieu_ep[len(caps) - 1] = nhan_hang
+            # CỐ Ý không push vào `stack`: hàng bảng không nhận con, và một
+            # `prov-content` đứng sau bảng vẫn là thân của Khoản giới thiệu nó.
             continue
         if cap is None:
             # Nguyên tắc 1: không bao giờ bỏ. Chưa có node nào mở → dồn vào
@@ -858,7 +972,8 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
         parents.append(None)  # cấp tài liệu, không treo vào cây quy phạm
 
     # ── Pha 2: đọc số hiệu từ chuỗi ĐÃ GỘP, rồi dựng row ───────────────────
-    so_hieu = [_so_hieu(caps[i], nhan[i]) for i in range(len(caps))]
+    so_hieu = [so_hieu_ep.get(i) or _so_hieu(caps[i], nhan[i])
+               for i in range(len(caps))]
 
     thieu_so = [(caps[i].value, nhan[i][:60]) for i in range(len(caps))
                 if caps[i] in SO_HIEU_BAT_BUOC and not so_hieu[i]]
@@ -879,9 +994,9 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
             so_hieu_cap=so_hieu[i],
             # `tieu_de` là NHÃN NGẮN. Khoản/Điểm không có tiêu đề riêng trong
             # nguồn (thẻ nhãn chứa toàn văn), nên nhãn ngắn là chính số hiệu.
-            tieu_de=nhan[i] if cap not in (Cap.khoan, Cap.diem, Cap.phu_luc,
-                                           Cap.mo_dau)
-            else f"{NHAN[cap]} {so_hieu[i]}".rstrip(),
+            tieu_de=nhan[i] if cap not in (Cap.khoan, Cap.diem, Cap.hang_bang,
+                                           Cap.phu_luc, Cap.mo_dau)
+            else f"{NHAN[cap]} {so_hieu[i]}".strip(),
             noi_dung=_noi_dung(nhan[i], than[i], bang[i]),
             duong_dan=_duong_dan(i, caps, so_hieu, parents, so_ky_hieu),
             source_node_id=src[i],
