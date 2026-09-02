@@ -74,10 +74,18 @@ def test_rewrite_loi_thi_van_con_query_goc():
 
 
 def test_route_ngoai_pham_vi_la_hanh_vi_dung_duoc_tinh_diem():
-    """ngoai_pham_vi KHÔNG phải lỗi cần chặn — câu hỏi rõ ràng ngoài phạm vi (6
-    Bộ luật + cụm Lao động) phải được route giữ nguyên, không bị ép về
-    tra_cuu như nhánh 'không nhận ra giá trị' ở trên."""
-    st = route({"query": "thuế thu nhập cá nhân tính thế nào"},
+    """ngoai_pham_vi KHÔNG phải lỗi cần chặn — câu hỏi rõ ràng ngoài phạm vi
+    (8 lĩnh vực, xem `prompts/route.v1.md`) phải được route giữ nguyên, không
+    bị ép về tra_cuu như nhánh 'không nhận ra giá trị' ở trên.
+
+    Sửa 2026-09-02: ví dụ cũ ("thuế thu nhập cá nhân") hết đúng sau khi T1 mở
+    phạm vi — Thuế nay TRONG phạm vi (`prompts/route.v1.md`). Đổi sang bảo
+    hiểm y tế: kho không có Luật Bảo hiểm y tế nào mang toàn văn (tự kiểm
+    `SELECT ... FROM documents WHERE ten ILIKE '%bảo hiểm y tế%'` — cả ba bản
+    đều `depth='shallow'`, 1 provision `mo_dau`/bản, không điều khoản thật).
+    `FakeLlm` ép sẵn `intent="ngoai_pham_vi"` nên câu hỏi chỉ mang tính minh
+    hoạ, không đổi cơ chế test."""
+    st = route({"query": "khám bảo hiểm y tế trái tuyến có được thanh toán không"},
                FakeLlm({"intent": "ngoai_pham_vi"}), "m")
     assert st["intent"] is Intent.ngoai_pham_vi
 
@@ -153,11 +161,34 @@ _MAU_THAT_ROUTE = [
     ("soạn giúp tôi một bản hợp đồng lao động thời vụ 6 tháng", Intent.soan_thao),
     ("viết nội quy lao động cho công ty 20 nhân viên", Intent.soan_thao),
     ("giúp tôi soạn quyết định kỷ luật sa thải nhân viên vi phạm", Intent.soan_thao),
-    # ngoai_pham_vi — rõ ràng ngoài 6 Bộ luật + cụm Lao động (yêu cầu #1)
-    ("thuế thu nhập cá nhân tính như thế nào", Intent.ngoai_pham_vi),
-    ("tranh chấp ranh giới đất đai giải quyết ở đâu", Intent.ngoai_pham_vi),
-    ("thủ tục ly hôn đơn phương cần giấy tờ gì", Intent.ngoai_pham_vi),
+    # tra_cuu — T1 mở phạm vi 2026-09-02 (xem prompts/route.v1.md): ba câu dưới
+    # ĐÃ TỪNG khai ngoai_pham_vi ở đây, nhưng Thuế/Đất đai/Hôn nhân gia đình
+    # nay có luật gốc trong kho (Luật Thuế TNCN 187045, Luật Đất đai 177815,
+    # Luật HN&GĐ 36870) nên router trả tra_cuu là ĐÚNG, không phải lỗi. Nhãn
+    # cũ hạ oan độ chính xác 3/15 = 20 điểm phần trăm — sửa để đo đúng.
+    ("thuế thu nhập cá nhân tính như thế nào", Intent.tra_cuu),
+    ("tranh chấp ranh giới đất đai giải quyết ở đâu", Intent.tra_cuu),
+    ("thủ tục ly hôn đơn phương cần giấy tờ gì", Intent.tra_cuu),
+    # ngoai_pham_vi — rõ ràng ngoài cả 8 lĩnh vực (xem prompts/route.v1.md).
+    # Luật Bảo hiểm y tế: kho không có bản nào mang toàn văn (tự kiểm — cả ba
+    # bản đều depth='shallow', 1 provision mo_dau/bản).
     ("khám bảo hiểm y tế trái tuyến có được thanh toán không", Intent.ngoai_pham_vi),
+    # Hai ca dưới do coordinator chỉ định 2026-09-02 (review vừa xong), thay
+    # cho việc tôi tự chọn một câu ngoài phạm vi — đây là hai ca RỦI RO NHẤT
+    # đang có trong hệ thống, không phải hai ca ngẫu nhiên: `route.v1.md` liệt
+    # "Đất đai, Kinh doanh bất động sản" trong phạm vi mà KHÔNG nhắc Nhà ở, và
+    # BHXH nằm sát cụm Lao động (đã trong phạm vi) — cả hai đều dễ bị model
+    # gộp nhầm vào một lĩnh vực họ hàng đã mở, rồi trả lời (kèm trích dẫn đã
+    # xác minh) từ SAI luật. Tự kiểm bằng
+    # `SELECT id, so_ky_hieu, ten, depth, (SELECT count(*) FROM provisions p
+    # WHERE p.document_id = d.id) AS n FROM documents d WHERE ten ILIKE
+    # '%nhà ở%' OR ten ILIKE '%bảo hiểm xã hội%'` trước khi tin dòng này:
+    # Luật Nhà ở 27/2023/QH15 (169032) — depth='shallow', n=1 (chỉ mo_dau).
+    # Luật Bảo hiểm xã hội 41/2024/QH15 (175027) — depth='metadata', n=0.
+    # Cả hai được fetch nhưng KHÔNG tải được toàn văn nên bị loại khỏi kho có
+    # chủ đích (xem task-1) — không văn bản nào trả lời được câu dưới.
+    ("mua nhà ở xã hội cần điều kiện gì", Intent.ngoai_pham_vi),
+    ("đóng bảo hiểm xã hội bao nhiêu năm thì được hưởng lương hưu", Intent.ngoai_pham_vi),
 ]
 
 
