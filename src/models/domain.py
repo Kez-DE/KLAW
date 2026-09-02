@@ -56,6 +56,9 @@ class DocumentRow(BaseModel):
     # 015). None cho văn bản không khai người ký; CHECK của DB chặn chuỗi rỗng.
     nguoi_ky: str | None = None
     chuc_danh_nguoi_ky: str | None = None
+    # Lĩnh vực pháp luật, verbatim từ `metadata.parquet` (cột `linh_vuc`, rỗng
+    # thì lấy `nganh`) — migration 018. None khi nguồn không có cả hai.
+    linh_vuc: str | None = None
     depth: Literal["deep", "shallow"] = "deep"
     nguon_url: str | None = None
     checksum: str = Field(..., min_length=1)
