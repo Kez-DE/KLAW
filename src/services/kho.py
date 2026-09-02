@@ -42,6 +42,7 @@ from datetime import date
 
 from sqlalchemy import Engine, text
 
+from src.models.schemas import Bang
 from src.services.effectivity import Effectivity, danh_gia_toan_bo
 from src.services.effectivity import EffectivityVerdict as V
 
@@ -113,7 +114,8 @@ _NHAN_MAC_DINH = "chưa xác định được hiệu lực"
 _RE_SO_HIEU = re.compile(r"(?<![\d/])(\d{1,4}/\d{4})\b")
 
 _SQL_KHO = text(
-    "SELECT id, so_ky_hieu, ten, loai_van_ban, depth FROM documents ORDER BY so_ky_hieu"
+    "SELECT id, so_ky_hieu, ten, loai_van_ban, depth, linh_vuc "
+    "FROM documents ORDER BY so_ky_hieu"
 )
 
 _CO_TOAN_VAN = "deep"
@@ -133,6 +135,38 @@ def moi_so_hieu_trong(cau_hoi: str) -> list[str]:
     145/2020/NĐ-CP" nhắc một văn bản hai lần, không phải hai văn bản.
     """
     return list(dict.fromkeys(_RE_SO_HIEU.findall(cau_hoi)))
+
+
+# Ba cụm này là DANH TỪ pháp lý trong nội dung câu hỏi, không phải yêu cầu
+# trình bày — "cho tôi bảng lương", "đưa bảng chấm công", "kẻ bảng giá" KHÔNG
+# được khớp dù bốn cụm xin-bảng bên dưới đều là tiền tố đúng nghĩa của chúng.
+# Lookahead chặn NGAY SAU "bảng", không chặn xa hơn — chỗ dễ sai nhất của quy
+# tắc này (task-4-brief.md).
+_KHONG_PHAI_BANG_TRINH_BAY = r"(?!\s*(?:lương|chấm\s*công|giá)\b)"
+
+# Cùng lối `_RE_SO_HIEU`: một biểu thức chính quy ở tầng thuần, 0 token. Bốn
+# cụm kết thúc bằng "bảng" mang lookahead phủ định ở trên; năm cụm còn lại
+# (không kết thúc bằng "bảng") không cần, vì không cụm nào trong ba danh từ
+# loại trừ bắt đầu bằng "dạng cột"/"xem dễ hơn"/"bảng hiển thị"/"table"/
+# "liệt kê".
+_RE_XIN_BANG = re.compile(
+    r"dạng bảng" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
+    r"cho tôi bảng" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
+    r"đưa bảng" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
+    r"kẻ bảng" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
+    r"dạng cột|xem dễ hơn|bảng hiển thị|\btable\b|liệt kê",
+    re.IGNORECASE,
+)
+
+
+def xin_dang_bang(cau_hoi: str) -> bool:
+    """Câu hỏi về kho có xin trình bày DẠNG BẢNG không — quy tắc, 0 token,
+    chạy TRƯỚC khi quyết định gọi `dung_bang` thay vì `dung_cau_tra_loi`.
+
+    Gọi trên câu ĐÃ GIẢI NGHĨA (`cau_hoi_day_du`) khi có, câu người dùng gõ
+    (`query`) khi không — xem chỗ gọi ở `graph_tra_cuu.n_assemble`.
+    """
+    return _RE_XIN_BANG.search(cau_hoi) is not None
 
 
 def _khop_so_hieu(so: str, so_ky_hieu: str) -> bool:
@@ -292,9 +326,40 @@ def _nhieu_van_ban(sos: list[str], kho: list[dict]) -> str:
     return "\n\n".join(khoi)
 
 
-def _dong_theo_loai(loai: str, nhom: list[dict]) -> str:
+def _van_ban_dang_dung(kho: list[dict]) -> list[dict]:
+    """Văn bản CÒN DÙNG ĐƯỢC — loại hai verdict dứt khoát (`_LOAI_BO`). Tách
+    riêng vì cả `_tom_tat` (văn xuôi) lẫn `dung_bang` (Bảng 1/2) đều lọc trên
+    đúng tập này; một bản lọc lặp lại ở `dung_bang` sẽ lệch khỏi văn xuôi đúng
+    vào ngày ai đó sửa một bên."""
+    return [r for r in kho if r["hieu_luc"].verdict not in _LOAI_BO]
+
+
+def _nhom_theo_loai(dang_dung: list[dict]) -> dict[str, list[dict]]:
+    """`dang_dung` gộp theo `loai_van_ban` — DÙNG CHUNG cho văn xuôi và Bảng 1,
+    cùng lý do tách của `_van_ban_dang_dung`."""
+    nhom: dict[str, list[dict]] = {}
+    for r in dang_dung:
+        nhom.setdefault(r["loai_van_ban"] or "Chưa rõ loại", []).append(r)
+    return nhom
+
+
+def _sap_xep_loai(nhom: dict[str, list[dict]]) -> list[tuple[str, list[dict]]]:
+    """Thứ tự hiển thị CHUNG cho văn xuôi và Bảng 1 — giảm dần theo số lượng,
+    rồi theo tên. Một hàm riêng để hai nơi không rời rạc hai bản sao của cùng
+    một khoá sắp xếp."""
+    return sorted(nhom.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+
+
+def _dem_theo_loai(nhom: list[dict]) -> tuple[int, int, int]:
+    """`(tổng, có toàn văn, chỉ có số hiệu và tên)` của MỘT loại văn bản —
+    DÙNG CHUNG cho dòng văn xuôi (`_dong_theo_loai`) và hàng Bảng 1
+    (`dung_bang`), để hai nơi không có hai bản đếm lệch nhau."""
     sau = sum(1 for r in nhom if r["depth"] == _CO_TOAN_VAN)
-    nong = len(nhom) - sau
+    return len(nhom), sau, len(nhom) - sau
+
+
+def _dong_theo_loai(loai: str, nhom: list[dict]) -> str:
+    tong, sau, nong = _dem_theo_loai(nhom)
     # `deep` và `shallow` gộp thành một con số là nói quá mức phủ: một văn bản
     # `shallow` chỉ có MỘT hàng `mo_dau` mang tên nó (migration 016), không có
     # điều khoản nào trích dẫn được.
@@ -302,16 +367,14 @@ def _dong_theo_loai(loai: str, nhom: list[dict]) -> str:
         f"{sau} có toàn văn" if sau else "",
         f"{nong} chỉ có số hiệu và tên" if nong else "",
     ) if x)
-    return f"- {loai}: {len(nhom)} — {muc}"
+    return f"- {loai}: {tong} — {muc}"
 
 
 def _tom_tat(kho: list[dict]) -> str:
-    dang_dung = [r for r in kho if r["hieu_luc"].verdict not in _LOAI_BO]
+    dang_dung = _van_ban_dang_dung(kho)
     da_thay = len(kho) - len(dang_dung)
 
-    nhom: dict[str, list[dict]] = {}
-    for r in dang_dung:
-        nhom.setdefault(r["loai_van_ban"] or "Chưa rõ loại", []).append(r)
+    nhom = _nhom_theo_loai(dang_dung)
 
     # Tách ba nhóm thay vì hai. Gộp "xác định được" với "chưa xác định" thành một
     # con số là chỗ dự án này dễ nói mềm nhất: khoảng cách giữa "đã kiểm và ổn" và
@@ -342,8 +405,7 @@ def _tom_tat(kho: list[dict]) -> str:
         + (f" {da_thay} bản đã hết hiệu lực hoặc đã bị thay thế thì mình vẫn giữ,"
            " để đối chiếu khi câu hỏi thuộc về thời điểm cũ." if da_thay else ""),
         "Phân theo loại văn bản:\n" + "\n".join(
-            _dong_theo_loai(loai, ns)
-            for loai, ns in sorted(nhom.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+            _dong_theo_loai(loai, ns) for loai, ns in _sap_xep_loai(nhom)
         ),
     ]
 
@@ -373,6 +435,100 @@ def dung_cau_tra_loi(cau_hoi: str, kho: list[dict]) -> str:
     if not sos:
         return _tom_tat(kho)
     return _mot_van_ban(sos[0], kho) if len(sos) == 1 else _nhieu_van_ban(sos, kho)
+
+
+# Câu dẫn khi câu hỏi xin bảng — NGẮN, không lặp lại số liệu của bảng thành
+# văn xuôi (người đọc không cần cùng một con số hai lần). Ghép với
+# `CAU_GIOI_HAN` y hệt mọi nhánh khác của module này (`loi_dan_bang`).
+CAU_DAN_BANG = (
+    "Mình dựng hai bảng dưới đây từ kho hiện có: một bảng phân theo loại văn "
+    "bản, một bảng phân theo lĩnh vực."
+)
+
+
+def loi_dan_bang() -> str:
+    """`answer` cho lượt xin bảng — câu dẫn ngắn ở trên rồi đóng bằng
+    `CAU_GIOI_HAN`, cùng khuôn `_mot_van_ban`/`_nhieu_van_ban`/`_tom_tat`."""
+    return "\n\n".join((CAU_DAN_BANG, CAU_GIOI_HAN))
+
+
+# Ba tầng gốc của hệ thống văn bản pháp luật Việt Nam mà "Độ sâu" (Bảng 2) suy
+# ra từ dữ liệu — Luật/Bộ luật ở trên, Nghị định ở giữa, Thông tư ở dưới. Nêu
+# TƯỜNG MINH ở đây (không suy từ tên lĩnh vực) để một lĩnh vực mới xuất hiện
+# vẫn tự ra đúng câu, không cần sửa mã.
+_TANG_GOC: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("luật", ("Luật", "Bộ luật")),
+    ("nghị định", ("Nghị định",)),
+    ("thông tư", ("Thông tư",)),
+)
+
+
+def _do_sau_linh_vuc(nhom: list[dict]) -> str:
+    """"Độ sâu" đọc được của MỘT lĩnh vực — suy từ các tầng gốc (`_TANG_GOC`)
+    đã có TOÀN VĂN trong nhóm, không viết cứng theo tên lĩnh vực.
+
+    Ba câu brief nêu tên (`đủ luật, nghị định, thông tư` / `chỉ luật gốc` /
+    `chỉ số hiệu và tên`) là BA CA CỦA cùng một hàm, không phải ba nhánh gõ
+    tay: `tang` là tập tầng gốc có toàn văn, và ba câu đó ứng với `tang` đủ ba,
+    `tang` chỉ có "luật", và không văn bản nào trong nhóm có toàn văn.
+
+    # ponytail: tổ hợp `tang` khác ba ca trên (vd. chỉ "nghị định", hoặc
+    # "luật"+"nghị định" thiếu "thông tư") rơi vào câu chung "có <tầng>,
+    # <tầng>" — chưa xảy ra trên DB thật (mọi văn bản `deep` hiện có đều thuộc
+    # đúng ba tầng này), nâng cấp thành câu riêng nếu đo được một tổ hợp cần
+    # lời khác.
+    """
+    if not any(r["depth"] == _CO_TOAN_VAN for r in nhom):
+        return "chỉ số hiệu và tên"
+    tang = [ten for ten, loai in _TANG_GOC
+            if any(r["depth"] == _CO_TOAN_VAN and r["loai_van_ban"] in loai for r in nhom)]
+    if tang == [t for t, _ in _TANG_GOC]:
+        return "đủ luật, nghị định, thông tư"
+    if tang == ["luật"]:
+        return "chỉ luật gốc"
+    return "có " + ", ".join(tang) if tang else "có toàn văn"
+
+
+def dung_bang(cau_hoi: str, kho: list[dict]) -> list[Bang]:
+    """Tầng THUẦN — không DB, không LLM, cùng tầng và cùng tham số với
+    `dung_cau_tra_loi`. `cau_hoi` không lọc gì ở đây hôm nay (hai bảng dưới
+    LUÔN tóm tắt TOÀN kho, giống `_tom_tat`) — giữ tham số để chữ ký khớp
+    `dung_cau_tra_loi` và không phải đổi lần sau nếu có bảng lọc theo câu hỏi.
+
+    Dựng từ CÙNG `kho: list[dict]` mà `_tom_tat` dùng — không truy vấn DB
+    thứ hai. Đọc docstring `dung_cau_tra_loi` để biết vì sao tầng này tách
+    khỏi `nap_kho`: guard chống ảo giác phải chạy được trong bộ test mặc định.
+
+    Bảng 1 dùng LẠI đúng phép đếm/sắp xếp mà `_tom_tat`/`_dong_theo_loai`
+    dùng (`_van_ban_dang_dung`/`_nhom_theo_loai`/`_sap_xep_loai`/
+    `_dem_theo_loai`) — hai bản đếm sẽ lệch đúng vào ngày ai đó sửa một bên.
+
+    Bảng 2 gộp theo GIÁ TRỊ NGUYÊN VĂN của `linh_vuc`, không tách chuỗi nhiều
+    lĩnh vực cách nhau bằng dấu phẩy — dữ liệu nguồn (`metadata.parquet`, T1)
+    vốn vậy, không phải lỗi cần "làm sạch". `linh_vuc IS NULL` gộp về khoá
+    `""`: KHÔNG bịa một nhãn ("Chưa phân loại" đã bị `nap_linh_vuc.py` coi là
+    rỗng đúng vì lý do này — xem `_CHUA_PHAN_LOAI` ở đó); một ô trống nói đúng
+    "không có giá trị", một nhãn bịa nói một điều không kiểm được.
+    """
+    dang_dung = _van_ban_dang_dung(kho)
+
+    bang_loai = Bang(
+        tieu_de="Phân theo loại văn bản",
+        cot=["Loại văn bản", "Tổng", "Có toàn văn", "Chỉ có số hiệu và tên"],
+        dong=[[loai, *map(str, _dem_theo_loai(ns))]
+              for loai, ns in _sap_xep_loai(_nhom_theo_loai(dang_dung))],
+    )
+
+    nhom_linh_vuc: dict[str, list[dict]] = {}
+    for r in dang_dung:
+        nhom_linh_vuc.setdefault(r["linh_vuc"] or "", []).append(r)
+    bang_linh_vuc = Bang(
+        tieu_de="Phân theo lĩnh vực",
+        cot=["Lĩnh vực", "Số văn bản", "Độ sâu"],
+        dong=[[linh_vuc, str(len(rs)), _do_sau_linh_vuc(rs)]
+              for linh_vuc, rs in sorted(nhom_linh_vuc.items(), key=lambda kv: (-len(kv[1]), kv[0]))],
+    )
+    return [bang_loai, bang_linh_vuc]
 
 
 def tra_loi_ve_kho(engine: Engine, cau_hoi: str, as_of: date) -> str:

@@ -47,3 +47,11 @@ class KLawState(TypedDict, total=False):
     warnings: list[str]
     coverage_note: str | None
     trace_id: str
+    # T4 — bảng dữ liệu (`services/kho.dung_bang`, `list[Bang]` đã `model_dump`)
+    # cho lượt `hoi_ve_kho` xin trình bày dạng bảng. KHÔNG khai báo ở đây thì
+    # LangGraph loại bỏ khoá này khỏi state trả về của `invoke`/`ainvoke` — nó
+    # chỉ CARRY những khoá có tên trong `KLawState` qua khỏi node cuối, và
+    # `n_assemble`/`assemble()` đã set khoá này ĐÚNG nhưng biến mất câm trước
+    # khi tới `_payload_cache` (ĐO ĐƯỢC: test graph-thật báo `KeyError: 'bang'`
+    # ở `st["bang"]` dù `assemble()` gọi riêng đã trả đúng khoá).
+    bang: list[dict]

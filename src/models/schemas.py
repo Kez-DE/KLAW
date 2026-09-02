@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 
 class LuotTruoc(BaseModel):
@@ -92,6 +92,34 @@ class NguonOut(BaseModel):
     bo_luat: str
 
 
+class Bang(BaseModel):
+    """Một bảng dữ liệu CÓ KIỂU — trả kèm `answer` khi câu hỏi về kho xin trình
+    bày dạng bảng (`services/kho.dung_bang`), để giao diện dựng bảng thật thay
+    vì người dùng tự bẻ gạch đầu dòng ra thành cột.
+
+    `dong[i]` phải cùng độ dài với `cot`: một bảng lệch cột là lỗi hiện ra
+    thành giao diện méo (ô rỗng hoặc dồn sai cột), không thành exception nào ở
+    tầng Python nếu không chặn — validator dưới đây chặn nó ở BIÊN, trước khi
+    rời khỏi tầng thuần của `kho.py`.
+    """
+
+    tieu_de: str
+    cot: list[str]
+    dong: list[list[str]]
+
+    @model_validator(mode="after")
+    def _dong_khop_so_cot(self) -> "Bang":
+        so_cot = len(self.cot)
+        lech = [i for i, hang in enumerate(self.dong) if len(hang) != so_cot]
+        if lech:
+            i = lech[0]
+            raise ValueError(
+                f"bảng '{self.tieu_de}': hàng {i} có {len(self.dong[i])} ô, "
+                f"cần {so_cot} (khớp `cot`) — {len(lech)} hàng lệch"
+            )
+        return self
+
+
 class TraCuuResponse(BaseModel):
     # Phải khớp ĐỦ `ResultType` ở `assemble.py`. Một loại có ở enum mà thiếu ở
     # đây thì graph dựng đúng kết quả rồi chết ở khâu tuần tự hoá — đã xảy ra
@@ -111,6 +139,14 @@ class TraCuuResponse(BaseModel):
     nguon: list[NguonOut] = []
     warnings: list[str]
     coverage_note: str | None
+    # Trình bày `hoi_ve_kho` dạng BẢNG khi câu hỏi xin (`services/kho.
+    # xin_dang_bang`) — `list[Bang]`, KHÔNG `Bang | None`: một câu trả lời về
+    # kho tự nhiên có HAI bảng (phân theo loại văn bản, phân theo lĩnh vực).
+    # Mặc định `[]`: rỗng cho mọi `result_type` khác, cho `hoi_ve_kho` khi câu
+    # hỏi không xin bảng, VÀ giữ tuần tự hoá được cho mọi payload cache đã ghi
+    # TRƯỚC field này tồn tại (payload không có khoá `bang` — cùng lý do với
+    # `cau_hoi_day_du` ngay dưới).
+    bang: list[Bang] = []
     # Câu hỏi sau khi giải nghĩa tham chiếu từ `lich_su`. `None` ở lượt đầu và
     # khi không giải nghĩa được. Giao diện ghi một dòng "Mình hiểu câu hỏi của
     # bạn là: …" CHỈ khi nó khác câu người dùng gõ.

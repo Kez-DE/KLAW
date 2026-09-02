@@ -351,6 +351,69 @@ def test_hoi_ve_kho_di_het_duong_graph_ra_HTTP_khong_ton_mot_token(monkeypatch):
     assert res.result_type == "hoi_ve_kho" and res.answer == st["answer"]
 
 
+@pytest.mark.integration
+def test_hoi_ve_kho_xin_bang_di_het_duong_graph_ra_HTTP_khong_ton_mot_token(monkeypatch):
+    """T4 — cùng khuôn test ngay trên, cho nhánh XIN BẢNG: `bang` phải KHÔNG
+    rỗng và `answer` phải là câu dẫn ngắn, không phải bài văn xuôi đầy đủ như
+    nhánh không xin bảng (test ngay trên, `answer` chứa "Bộ luật: 6")."""
+    import src.agents.graph_tra_cuu as g
+    from src.agents.nodes.route import Intent
+    from src.api.routes import _payload_cache, tra_cuu_response
+    from src.services.kho import CAU_GIOI_HAN
+
+    monkeypatch.setattr(g, "route", lambda st, llm, model: {
+        **st, "intent": Intent.hoi_ve_kho, "traces": {"route_token_in": 0}})
+
+    st = g.build_graph_tra_cuu().invoke(
+        {"query": "cho tôi bảng hiển thị các văn bản trong kho", "as_of_date": None})
+
+    assert st["result_type"] is ResultType.hoi_ve_kho
+    assert CAU_GIOI_HAN in st["answer"]
+    assert st["traces"]["assemble_token_in"] == 0
+    assert len(st["bang"]) == 2, st["bang"]
+    assert [b["tieu_de"] for b in st["bang"]] == [
+        "Phân theo loại văn bản", "Phân theo lĩnh vực"]
+
+    res = tra_cuu_response(_payload_cache(st, st["result_type"].value), "t", "c")
+    assert len(res.bang) == 2
+    assert res.bang[0].cot == ["Loại văn bản", "Tổng", "Có toàn văn", "Chỉ có số hiệu và tên"]
+    assert res.bang[1].cot == ["Lĩnh vực", "Số văn bản", "Độ sâu"]
+
+
+def test_tra_cuu_response_bang_mac_dinh_rong_khi_payload_cu_thieu_khoa():
+    """T4 — một dòng `answer_cache` ghi TRƯỚC khi `bang` tồn tại không có khoá
+    này trong JSON (cùng lớp với `cau_hoi_day_du` ngay dưới nó ở
+    `tra_cuu_response`). Phải dựng được response mà không `KeyError` — `bang`
+    mặc định rỗng, không phải một cache hit hoá thành HTTP 500."""
+    from src.api.routes import tra_cuu_response
+
+    payload_cu = {
+        "result_type": "hoi_ve_kho", "answer": "Trong kho của mình…",
+        "citations": [], "warnings": [], "coverage_note": None, "nguon": [],
+    }
+    res = tra_cuu_response(payload_cu, "t", "c")
+    assert res.bang == []
+
+
+def test_payload_cache_va_tra_cuu_response_giu_nguyen_bang():
+    """T4 — vòng tròn `_payload_cache` → `tra_cuu_response` (đúng hai hàm
+    endpoint dùng) giữ nguyên `bang`, và pydantic tự dựng lại `list[Bang]` từ
+    `list[dict]` — cùng cách `citations` đã làm."""
+    from src.api.routes import _payload_cache, tra_cuu_response
+
+    st = {
+        "result_type": "hoi_ve_kho", "answer": "Mình dựng hai bảng…",
+        "citations": [], "warnings": [], "coverage_note": None, "nguon": [],
+        "bang": [{"tieu_de": "Phân theo loại văn bản",
+                  "cot": ["Loại văn bản", "Tổng"], "dong": [["Luật", "1"]]}],
+    }
+    payload = _payload_cache(st, "hoi_ve_kho")
+    res = tra_cuu_response(payload, "t", "c")
+    assert len(res.bang) == 1
+    assert res.bang[0].tieu_de == "Phân theo loại văn bản"
+    assert res.bang[0].dong == [["Luật", "1"]]
+
+
 def test_FE_biet_moi_gia_tri_ResultType_cua_backend():
     """Điểm đồng bộ thứ BẢY, và nó ở phía FE.
 

@@ -22,15 +22,23 @@ from datetime import date
 
 import pytest
 
+from src.models.schemas import Bang
 from src.services.effectivity import Effectivity
 from src.services.effectivity import EffectivityVerdict as V
-from src.services.kho import CAU_GIOI_HAN, dung_cau_tra_loi, moi_so_hieu_trong, tra_loi_ve_kho
+from src.services.kho import (
+    CAU_GIOI_HAN,
+    dung_bang,
+    dung_cau_tra_loi,
+    moi_so_hieu_trong,
+    tra_loi_ve_kho,
+    xin_dang_bang,
+)
 
 
 def _vb(so, ten, loai="Bộ luật", depth="deep", verdict=V.con_hieu_luc,
-        tin_cay="cao", ly_do="không có tín hiệu chấm dứt nào"):
+        tin_cay="cao", ly_do="không có tín hiệu chấm dứt nào", linh_vuc=None):
     return {"so_ky_hieu": so, "ten": ten, "loai_van_ban": loai, "depth": depth,
-            "hieu_luc": Effectivity(verdict, tin_cay, ly_do)}
+            "hieu_luc": Effectivity(verdict, tin_cay, ly_do), "linh_vuc": linh_vuc}
 
 
 # Sáu Bộ luật hiện hành: một `con_hieu_luc`, năm `mot_phan_khong_xac_dinh` —
@@ -475,3 +483,169 @@ def test_so_hieu_di_dang_KHONG_xuat_hien_trong_chuoi_nguoi_dung_doc():
     out = dung_cau_tra_loi(CAU_HOI_TOM_TAT, kho_thu)
     assert "Không số" not in out, f"vẫn hiện số hiệu dị dạng:\n{out}"
     assert "Luật Thương mại" in out, f"cắt số hiệu dị dạng mà mất luôn văn bản:\n{out}"
+
+
+# ══ T4 — nhận diện "xin bảng" (0 token, tầng thuần) ═════════════════════════
+
+
+@pytest.mark.parametrize("cau_hoi", [
+    "cho tôi xem dạng bảng nhé",
+    # Câu tái hiện đúng lỗi ĐO ĐƯỢC trong task-4-brief.md.
+    "đưa cho tôi bảng hiển thị để xem dễ hơn",
+    "đưa bảng cho mình với",
+    "liệt kê hết ra cho mình",
+    "trình bày dạng cột được không",
+    "có cách nào xem dễ hơn không",
+    "cho ra table luôn",
+    "kẻ bảng giúp mình",
+    "cho tôi bảng được không",
+])
+def test_xin_dang_bang_bat_dung_cau_xin_trinh_bay(cau_hoi):
+    assert xin_dang_bang(cau_hoi), cau_hoi
+
+
+@pytest.mark.parametrize("cau_hoi", [
+    "bảng lương của tôi tính thế nào",
+    "cho tôi bảng lương tháng này",
+    "đưa bảng chấm công cho tôi xem",
+    "kẻ bảng giá đất mới nhất cho tôi",
+    CAU_HOI_TOM_TAT,
+    "kho có Nghị định 145/2020 không?",
+])
+def test_xin_dang_bang_KHONG_bat_danh_tu_phap_ly_chua_chu_bang(cau_hoi):
+    """Chỗ dễ sai nhất của T4 (brief tự nêu): "bảng lương"/"bảng chấm
+    công"/"bảng giá" là danh từ pháp lý trong NỘI DUNG câu hỏi, không phải
+    yêu cầu trình bày — kể cả khi đứng ngay sau các cụm xin-bảng ("cho tôi
+    bảng", "đưa bảng", "kẻ bảng")."""
+    assert not xin_dang_bang(cau_hoi), cau_hoi
+
+
+def test_loi_dan_bang_khong_lap_lai_noi_dung_bang_thanh_van_xuoi():
+    """`answer` khi xin bảng phải là câu dẫn NGẮN rồi đóng bằng `CAU_GIOI_HAN`
+    — không lặp lại số liệu của bảng thành văn xuôi (người đọc không cần
+    cùng một con số hai lần)."""
+    from src.services.kho import loi_dan_bang
+
+    tra_loi = loi_dan_bang()
+    assert CAU_GIOI_HAN in tra_loi
+    assert "Bộ luật" not in tra_loi, "không được liệt kê văn bản như `_tom_tat`"
+    assert len(tra_loi) < 400, "câu dẫn phải NGẮN, không phải một bài văn xuôi"
+
+
+# ══ T4 — dung_bang, Bảng 1 (loại văn bản): dùng LẠI phép đếm của _tom_tat ═══
+
+
+def test_dung_bang_tra_ve_dung_hai_bang():
+    bang = dung_bang(CAU_HOI_TOM_TAT, KHO)
+    assert len(bang) == 2
+    assert [b.tieu_de for b in bang] == ["Phân theo loại văn bản", "Phân theo lĩnh vực"]
+
+
+def test_dung_bang_bang_1_dung_dung_cot_theo_brief():
+    b1 = dung_bang(CAU_HOI_TOM_TAT, KHO)[0]
+    assert b1.cot == ["Loại văn bản", "Tổng", "Có toàn văn", "Chỉ có số hiệu và tên"]
+
+
+def test_dung_bang_bang_1_dung_lai_dung_phep_dem_voi_van_xuoi():
+    """Đúng số mà `test_dem_bo_luat_ra_6_khong_phai_12` và
+    `test_muc_phu_theo_depth_duoc_noi_ra` đã canh ở văn xuôi trên CÙNG `KHO` —
+    hai phép đếm, một con số, vì `dung_bang` dùng lại `_dem_theo_loai`/
+    `_sap_xep_loai` của `_tom_tat`, không viết lại."""
+    b1 = dung_bang(CAU_HOI_TOM_TAT, KHO)[0]
+    assert b1.dong == [
+        ["Bộ luật", "6", "6", "0"],
+        ["Luật", "2", "1", "1"],
+        ["Nghị định", "1", "1", "0"],
+    ]
+
+
+# ══ T4 — dung_bang, Bảng 2 (lĩnh vực) ════════════════════════════════════════
+
+_LV_DU_BA_TANG = "Lao động - Thương binh và Xã hội"
+_LV_CHI_LUAT_GOC = "Dân sự"
+_LV_CHI_SHALLOW = "Thương mại"
+# 76 ký tự — giá trị THẬT dài nhất đo được trên DB (ruling task-4-brief.md),
+# không phải một chuỗi dựng tay cho gọn.
+_LV_DAI = "Chính sách thuế Quản lý thuế, phí, lệ phí và thu khác của ngân sách nhà nước"
+_LV_NHIEU = "Bảo vệ và chăm sóc trẻ em, An toàn lao động"
+
+KHO_LINH_VUC = [
+    _vb("1/2020/QH14", "Luật A", loai="Luật", linh_vuc=_LV_DU_BA_TANG),
+    _vb("2/2020/NĐ-CP", "Nghị định B", loai="Nghị định", linh_vuc=_LV_DU_BA_TANG),
+    _vb("3/2020/TT-BLĐTBXH", "Thông tư C", loai="Thông tư", linh_vuc=_LV_DU_BA_TANG),
+    _vb("4/2020/QH14", "Luật D", loai="Luật", linh_vuc=_LV_CHI_LUAT_GOC),
+    _vb("5/2020/QH14", "Luật E", loai="Luật", depth="shallow", linh_vuc=_LV_CHI_SHALLOW),
+    _vb("6/2020/QH14", "Luật F", loai="Luật", linh_vuc=_LV_DAI),
+    _vb("7/2020/QH14", "Luật G", loai="Luật", linh_vuc=_LV_NHIEU),
+    _vb("8/2020/QH14", "Luật H", loai="Luật", linh_vuc=None),
+]
+
+
+def test_dung_bang_bang_2_dung_dung_cot_theo_brief():
+    b2 = dung_bang(CAU_HOI_TOM_TAT, KHO_LINH_VUC)[1]
+    assert b2.tieu_de == "Phân theo lĩnh vực"
+    assert b2.cot == ["Lĩnh vực", "Số văn bản", "Độ sâu"]
+
+
+def test_do_sau_du_ba_tang_khi_co_ca_luat_nghi_dinh_thong_tu():
+    b2 = dung_bang(CAU_HOI_TOM_TAT, KHO_LINH_VUC)[1]
+    hang = next(h for h in b2.dong if h[0] == _LV_DU_BA_TANG)
+    assert hang == [_LV_DU_BA_TANG, "3", "đủ luật, nghị định, thông tư"]
+
+
+def test_do_sau_chi_luat_goc_khi_khong_co_nghi_dinh_thong_tu_toan_van():
+    b2 = dung_bang(CAU_HOI_TOM_TAT, KHO_LINH_VUC)[1]
+    hang = next(h for h in b2.dong if h[0] == _LV_CHI_LUAT_GOC)
+    assert hang == [_LV_CHI_LUAT_GOC, "1", "chỉ luật gốc"]
+
+
+def test_do_sau_chi_so_hieu_va_ten_khi_toan_shallow():
+    b2 = dung_bang(CAU_HOI_TOM_TAT, KHO_LINH_VUC)[1]
+    hang = next(h for h in b2.dong if h[0] == _LV_CHI_SHALLOW)
+    assert hang == [_LV_CHI_SHALLOW, "1", "chỉ số hiệu và tên"]
+
+
+def test_linh_vuc_null_khong_bia_nhan_ma_de_o_rong():
+    """`linh_vuc IS NULL` gộp về khoá `""`, KHÔNG một nhãn bịa như "Chưa phân
+    loại" — chính nhãn đó đã bị `scripts/nap_linh_vuc.py` coi là rỗng vì lý do
+    này (`_CHUA_PHAN_LOAI`), và T1 phải gỡ nó khỏi một chỗ khác vì lý do y hệt
+    (ruling task-4-brief.md)."""
+    b2 = dung_bang(CAU_HOI_TOM_TAT, KHO_LINH_VUC)[1]
+    nhan = [h[0] for h in b2.dong]
+    assert "" in nhan
+    assert not any(n and ("chưa" in n.lower() or "phân loại" in n.lower()) for n in nhan)
+
+
+def test_linh_vuc_dai_hien_verbatim_khong_cat_ngan():
+    """Cắt ngắn tên lĩnh vực là nói dối về nó; bảng đã có cuộn ngang ở FE cho
+    nội dung rộng (xem lịch sử `bang`/`nguyen-van`), nên backend không cần và
+    không được tự rút gọn."""
+    b2 = dung_bang(CAU_HOI_TOM_TAT, KHO_LINH_VUC)[1]
+    assert len(_LV_DAI) == 76
+    assert _LV_DAI in [h[0] for h in b2.dong]
+
+
+def test_linh_vuc_nhieu_gia_tri_cach_nhau_bang_phay_KHONG_bi_tach():
+    """Dữ liệu nguồn (`metadata.parquet`, T1) có chuỗi nhiều lĩnh vực cách
+    nhau bằng dấu phẩy trong CÙNG một giá trị — nguyên văn, không phải lỗi cần
+    "làm sạch". Tách nó thành hai lĩnh vực là suy diễn, không phải đọc dữ liệu."""
+    b2 = dung_bang(CAU_HOI_TOM_TAT, KHO_LINH_VUC)[1]
+    nhan = [h[0] for h in b2.dong]
+    assert _LV_NHIEU in nhan
+    for ve in _LV_NHIEU.split(", "):
+        assert ve not in nhan, f"'{_LV_NHIEU}' bị tách thành lĩnh vực riêng '{ve}'"
+
+
+# ══ T4 — `Bang.dong[i]` phải khớp số cột với `Bang.cot` ═════════════════════
+
+
+def test_bang_chan_hang_lech_so_cot():
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        Bang(tieu_de="X", cot=["a", "b"], dong=[["1", "2", "3"]])
+
+
+def test_bang_hop_le_khong_bi_chan():
+    b = Bang(tieu_de="X", cot=["a", "b"], dong=[["1", "2"], ["3", "4"]])
+    assert b.dong == [["1", "2"], ["3", "4"]]

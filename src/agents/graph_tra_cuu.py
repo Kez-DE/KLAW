@@ -29,7 +29,7 @@ from src.config import as_of_hieu_luc, get_settings
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
-from src.services.kho import tra_loi_ve_kho
+from src.services.kho import dung_bang, loi_dan_bang, nap_kho, tra_loi_ve_kho, xin_dang_bang
 from src.services.llm import from_settings as llm_from_settings
 from src.services.llm import generate_model, judge_model, router_model
 from src.services.retrieval import Retriever
@@ -216,8 +216,30 @@ def build_graph_tra_cuu():
             # chú thích ở `n_expand`) — số Bộ luật "đang dùng" phụ thuộc mốc
             # thời gian, nên hai bản sao của quy tắc sẽ cho hai con số khác
             # nhau mà không tầng nào báo lỗi.
-            st = {**st, "tra_loi_kho": tra_loi_ve_kho(
-                engine, st["query"], as_of_hieu_luc(st.get("as_of_date")))}
+            as_of = as_of_hieu_luc(st.get("as_of_date"))
+            # Ý "xin bảng" (T4) chạy trên câu ĐÃ GIẢI NGHĨA khi có — một lượt
+            # nối tiếp như "cho tôi dạng bảng" chỉ tự đứng được sau bước đó;
+            # lượt đầu không qua `giai_nghia` nên `cau_hoi_day_du` luôn None,
+            # rơi về `query`.
+            cau_hoi = st.get("cau_hoi_day_du") or st["query"]
+            if xin_dang_bang(cau_hoi):
+                # `nap_kho` MỘT LẦN, y hệt `tra_loi_ve_kho` bên dưới — nhánh
+                # nào chạy cũng chỉ một truy vấn kho, không phải hai.
+                bang = dung_bang(cau_hoi, nap_kho(engine, as_of))
+                tra_loi = loi_dan_bang()
+            else:
+                bang = []
+                # `st["query"]` NGUYÊN VĂN, không phải `cau_hoi` ở trên: đổi
+                # biến ở đây đổi luôn văn xuôi mà ba mươi test của
+                # `test_kho.py` đang canh — một hồi quy không nhánh bảng nào
+                # đòi hỏi.
+                tra_loi = tra_loi_ve_kho(engine, st["query"], as_of)
+            # Pydantic → dict THUẦN trước khi vào state, cùng quy ước
+            # `_state_vao` đã lập cho `LuotTruoc` (`lich_su`): LangGraph state
+            # là dữ liệu thuần, và một `Bang` lẫn vào đó không tuần tự hoá
+            # được thẳng bằng `json.dumps` ở tầng cache (`cache_tra_loi`).
+            st = {**st, "tra_loi_kho": tra_loi,
+                  "tra_loi_kho_bang": [b.model_dump() for b in bang]}
         ids = [r.claim.provision_id for r in (st.get("tier1") or [])]
         return assemble({**st, "abstain_threshold": s.abstain_threshold},
                         _db_provisions(ids, engine), llm, generate_model())

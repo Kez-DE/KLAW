@@ -468,7 +468,14 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         # này là một lỗi NỐI DÂY, và một `answer` rỗng chính là chế độ hỏng mà
         # cả nhánh này tồn tại để bỏ đi. Thà nổ ra một KeyError nhìn thấy được
         # còn hơn trả lại đúng cái màn hình trắng cũ.
-        return _base(state, ResultType.hoi_ve_kho, answer=state["tra_loi_kho"])
+        #
+        # `bang` (T4) NGƯỢC LẠI dùng `.get(...) or []`: khác `answer`, một
+        # `bang` rỗng là giá trị ĐÚNG cho phần lớn lượt hỏi về kho (câu hỏi
+        # không xin bảng) — thiếu khoá không phải chế độ hỏng cần nổ ra, và
+        # test cũ gọi `assemble()` với state chưa mang khoá này (trước T4)
+        # vẫn phải chạy được.
+        return _base(state, ResultType.hoi_ve_kho, answer=state["tra_loi_kho"],
+                     bang=state.get("tra_loi_kho_bang") or [])
 
     if state.get("intent") == "ngoai_pham_vi":
         return _base(state, ResultType.out_of_scope, coverage_note=NGOAI_PHAM_VI)
