@@ -1,12 +1,23 @@
 import json
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from scripts import build_seed
 from scripts.fetch_moj import DOC_IDS
 from src.models.domain import Cap
 from src.services import prov_parser
+
+
+def _metadata_rong(raw: Path) -> None:
+    """`build()` giờ đọc `data/raw/metadata.parquet` cho `linh_vuc` (T1, 8 lĩnh
+    vực) — test ở đây soi vòng lặp MOJ/chinhphu, không soi tra cứu linh_vực,
+    nên chỉ cần file tồn tại đúng schema, không cần dữ liệu thật."""
+    pd.DataFrame({"id": pd.array([], dtype="string"),
+                  "nganh": pd.array([], dtype="string"),
+                  "linh_vuc": pd.array([], dtype="string")}).to_parquet(
+        raw / "metadata.parquet")
 
 
 def test_du_6_bo_luat_o_tang_sau():
@@ -43,6 +54,7 @@ def test_build_ghi_du_ba_file_va_checksums(tmp_path, monkeypatch):
     """`build()` chưa có test nào trước vòng này."""
     raw = tmp_path / "raw" / "moj"
     raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
     (raw / "9001.json").write_text(json.dumps({
         "title": "Nghị định thử",
         "docType": {"name": "Nghị định"},
@@ -81,6 +93,7 @@ def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
     thật — build_seed không gọi nó. Đó là lý do cả bốn lỗi kia lọt được."""
     raw = tmp_path / "raw" / "moj"
     raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
     (raw / "9002.json").write_text(json.dumps({
         "docType": {"name": "Nghị định"}, "effStatus": {"code": "CHL"},
         "documentContent": {"content":
@@ -108,6 +121,7 @@ def test_checksum_DOI_khi_parser_doi_du_HTML_khong_doi(tmp_path, monkeypatch):
     Chữa: checksum băm HTML VÀ chính các dòng provision sinh ra từ nó."""
     raw = tmp_path / "raw" / "moj"
     raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
     (raw / "9003.json").write_text(json.dumps({
         "docType": {"name": "Nghị định"}, "effStatus": {"code": "CHL"},
         "documentContent": {"content":
@@ -144,6 +158,7 @@ def test_build_nap_duoc_nguon_chinhphu(tmp_path, monkeypatch):
     """
     raw = tmp_path / "raw" / "chinhphu"
     raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
     (raw / "777.html").write_text(
         '<html><body><div id="block_detail">'
         "<p>QUỐC HỘI</p>"

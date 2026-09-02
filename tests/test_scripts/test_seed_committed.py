@@ -68,6 +68,38 @@ def test_seed_co_du_van_ban_cua_DOC_IDS_va_khong_rong(documents, provisions):
     assert {p["document_id"] for p in provisions} == {d["id"] for d in documents}
 
 
+def test_11_van_ban_T1_dung_bo_ba_va_doc_id_toan_so(documents):
+    """T1 (8 lĩnh vực, `.superpowers/sdd/tro-ly-8-linh-vuc/task-1-brief.md`) —
+    canh KHÔNG qua `metadata.parquet` (gitignored, đỏ trên CI/clone mới — Bẫy
+    2 của brief), chỉ qua seed đã commit và `DOC_IDS`/`TIEU_DE_DOI_CHIEU`
+    (nguồn khai báo, đã verify tay).
+
+    11/13: `169032` (Luật Nhà ở, giới hạn parser với tiêu đề Chương xuống dòng
+    thành hai node) và `175027` (Luật Bảo hiểm xã hội, lỗi chính tả nguồn
+    "Điêu 38") bị cổng cấu trúc `parse_anomalies` chặn khi build seed — KHÔNG
+    phải id sai — nên bị loại khỏi `DOC_IDS`/`TIEU_DE_DOI_CHIEU`. Xem
+    `KHONG_NAP` ở `scripts/fetch_moj.py`. Domain "Nhà ở" và "Bảo hiểm xã hội"
+    tạm 0 văn bản mới.
+
+    Bộ ba (doc_id, so_ky_hieu, loai_van_ban): doc_id+so_ky_hieu đối chiếu
+    `DOC_IDS`; `loai_van_ban == "Luật"` là lưới an toàn cấu trúc THỨ HAI cho
+    đúng bẫy id-trùng-số-hiệu mà `TIEU_DE_DOI_CHIEU` đã chặn ở tầng fetch (nạp
+    nhầm một Nghị quyết dưới tên một Luật thì `loai_van_ban` sẽ không phải
+    "Luật" nữa). Cộng khẳng định mọi doc_id là chuỗi số.
+    """
+    from scripts.fetch_moj import DOC_IDS, TIEU_DE_DOI_CHIEU
+
+    by_id = {d["id"]: d for d in documents}
+    assert len(TIEU_DE_DOI_CHIEU) == 11
+    for doc_id, manh in TIEU_DE_DOI_CHIEU.items():
+        assert doc_id.isdigit(), f"doc_id {doc_id} không phải chuỗi số"
+        assert doc_id in DOC_IDS, f"{doc_id} thiếu trong DOC_IDS"
+        d = by_id[doc_id]
+        assert d["so_ky_hieu"] == DOC_IDS[doc_id][1], doc_id
+        assert d["loai_van_ban"] == "Luật", (doc_id, d["loai_van_ban"])
+        assert manh in d["ten"], f"{doc_id}: ten={d['ten']!r} thiếu mảnh {manh!r}"
+
+
 def test_noi_dung_KHONG_RONG_o_moi_cap_trich_dan_duoc(provisions):
     """Trước vòng này: rỗng ở 17.813/19.077 (93,4%). Đây là trường verifier tầng
     1 đối chiếu câu trích vào — rỗng nghĩa là phép kiểm không kiểm gì cả."""
