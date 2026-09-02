@@ -355,6 +355,8 @@ const GOC = process.env["KLAW_API"] ?? "http://localhost:8000/api/v1";
 async function doiChieuMayChu() {
   const dong = Object.entries(LOAI_BACKEND);
   let lech = 0;
+  let tongMuc = 0;
+  let mucCoChiTiet = 0;
   for (const [id, { loai, phamVi }] of dong) {
     const res = await fetch(`${GOC}/mau/${encodeURIComponent(loai)}`, {
       signal: AbortSignal.timeout(8000),
@@ -393,8 +395,25 @@ async function doiChieuMayChu() {
 
     // Khung rỗng nghĩa là thân văn bản sẽ rỗng — mẫu đó không dùng được.
     assert.ok(body.cau_truc.muc.length > 0, `/mau/${loai} có cau_truc nhưng KHÔNG có mục nào`);
+
+    for (const m of body.cau_truc.muc) {
+      tongMuc += 1;
+      if (m.can_cu_chi_tiet) mucCoChiTiet += 1;
+    }
   }
   assert.equal(lech, 0, `${lech} mẫu lệch phạm vi soát so với máy chủ`);
+
+  // Mốc cho câu cảnh báo "Căn cứ pháp lý chưa được đối chiếu" (LegalBits.tsx).
+  // Đo 2026-09-02: mọi mục đều có `can_cu` dạng chuỗi, KHÔNG mục nào có
+  // `can_cu_chi_tiet` — nên chú thích dưới từng điều vẫn là tham chiếu chưa
+  // phân giải, và cảnh báo phải phủ cả thân văn bản chứ không riêng cấp thẻ.
+  // Phép kiểm này đỏ = máy chủ đã bắt đầu phân giải căn cứ từng mục; lúc đó
+  // thu hẹp câu cảnh báo lại cho đúng, đừng tắt phép kiểm.
+  assert.equal(
+    mucCoChiTiet,
+    0,
+    `${mucCoChiTiet}/${tongMuc} mục nay có can_cu_chi_tiet — máy chủ đã phân giải căn cứ, hãy sửa CanCuChuaKiemBanner cho khớp`,
+  );
   return dong.length;
 }
 
