@@ -165,3 +165,51 @@ dụng chỉ thấy `public`.
 `public.chunks` có 12.508 dòng = **6.254 chunk × 2 model embedding**
 (`voyageai/voyage-4-lite` hiện dùng, `baai/bge-m3` trước đó), cả hai `dim=1024`.
 `retrieval.py` lọc theo `embedding_model`, nên không có đếm trùng.
+
+> **Kho đã lớn lên sau lượt đo này.** Con số 130 văn bản / 6.254 chunk ở trên là
+> trạng thái kho **tại `commit_hash=7ff7b6d`**, không phải trạng thái hiện thời.
+> Đo lúc 20:10 ngày 2026-09-02, kho sống đã là **133 văn bản / 13.273 dòng
+> chunk** và đang tăng: một phiên nạp 13 bộ luật đang chạy
+> (`docs/plans/active/tro-ly-8-linh-vuc.md`). Vậy 40/45 chỉ so được với một lượt
+> chạy khác **trên cùng kho**. Lượt đo sau khi nạp xong phải ghi ra file mới,
+> giữ `trap_run.json` làm mốc "trước", và phải nói rõ kho đã hơn gấp đôi — một
+> delta trần trụi giữa hai kho khác nhau không đọc được.
+
+## 8. Khiếm khuyết tiềm ẩn phát hiện khi kiểm chứng lượt đo này
+
+Xoá một văn bản (`scripts/ingest.py:74` — `DELETE FROM documents WHERE id = :id`,
+**từng văn bản**, và chỉ khi `checksum` đổi) cascade vào
+`migrations/014_sua_doi_dieu_khoan.sql:56`
+(`provision_id BIGINT NOT NULL REFERENCES provisions(id) ON DELETE CASCADE`).
+
+Những dòng sửa đổi đó **do một script RIÊNG nạp** — `scripts/nap_sua_doi_vbhn.py`,
+không phải `ingest.py` — và chúng nuôi `src/services/effectivity.py`, tức **phép
+kiểm thứ bảy**. Nên re-ingest một văn bản xoá sạch dữ liệu sửa đổi của nó,
+**không có gì chạy lại script kia, không có cảnh báo nào**, và verdict hiệu lực
+tụt về `chua_xac_dinh` mà không lỗi ở đâu. Một phép kiểm cốt lõi bị hạ cấp trong
+im lặng bởi một thao tác bảo trì bình thường.
+
+**Bán kính hiện tại: một văn bản.** Bảng `sua_doi_dieu_khoan` có đúng **4 dòng,
+cả 4 treo trên `45/2019/QH14`** (Bộ luật Lao động). Nên đây là khiếm khuyết
+**tiềm ẩn có mồi châm đã biết**, không phải đang cháy: nó nổ đúng ngày ai đó
+re-fetch Bộ luật Lao động — mà đó lại chính là văn bản dễ được fetch lại nhất khi
+nó bị sửa đổi.
+
+Cũng vỡ theo: `traces.retrieved_ids BIGINT[]` (`001_init.sql:83`) lưu
+`provisions.id`, nên hồ sơ "truy vấn này đã truy hồi những provision nào" của mọi
+lượt chạy cũ thành sai trong im lặng. Đó là bản ghi tái lập được của chương đánh
+giá.
+
+**Không vỡ, đính chính một framing sai của tôi trong phiên này:** trích dẫn
+**không** neo vào khoá surrogate. `traces` không có cột citation nào — trích dẫn
+trả trong response, không lưu DB. Và `duong_dan` là khoá neo **được DB cưỡng
+chế**, không phải chỉ "có sẵn": `migrations/017_cap_hang_bang.sql:48` dựng
+`ux_provisions_neo_trich_dan` là UNIQUE index trên `duong_dan` giới hạn ở đúng
+các cấp trích dẫn được (`dieu`, `khoan`, `diem`, `hang_bang`) — xác nhận trên DB
+sống. `CitationOut` (`schemas.py:59-75`) trả cả `duong_dan`, `doc_id`,
+`so_ky_hieu`. Trích dẫn sống sót qua rebuild; chỉ `traces.retrieved_ids` thì không.
+
+Không sửa trong phiên này. Cách duy trì dữ liệu sửa đổi qua re-ingest là một
+chính sách quan sát được từ ngoài, cần thẩm quyền của repo, và còn mấy thiết kế
+khác nhau đang mở: gọi loader từ chính `ingest`; đổi FK thành `RESTRICT` để một
+lần xoá phải nói ra; hoặc khoá amendment theo `duong_dan` thay vì `provision_id`.
