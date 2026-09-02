@@ -1,9 +1,11 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { X } from "lucide-react";
-import type { ApiError, Provision, VanBanQuanhDieu } from "@/lib/klaw";
+import type { ApiError, VanBanQuanhDieu } from "@/lib/klaw";
+import { gomHangBang, type DongCoBang } from "@/lib/bang";
 import { catTheoTrichDan } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { BaoLoi } from "./BaoLoi";
+import { NoiDungDieuKhoan } from "./NoiDungDieuKhoan";
 
 /**
  * Khung đối chiếu — nguyên văn điều luật, câu trích được đánh dấu.
@@ -63,38 +65,24 @@ const LE_THEO_CAP: Record<string, string> = {
 
 interface Khoi {
   laTam: boolean;
-  dong: Provision[];
+  dong: DongCoBang[];
 }
 
-/** Gộp các dòng liên tiếp cùng trạng thái `la_tam` thành một VÙNG. */
-function tachTheoTam(provisions: Provision[]): Khoi[] {
+/**
+ * Gộp các dòng liên tiếp cùng trạng thái `la_tam` thành một VÙNG.
+ *
+ * Chạy SAU `gomHangBang`: hàng bảng mang đúng `la_tam` của dòng cha (đã đo trên
+ * kho thật), nên thu hàng về cha trước rồi mới chia vùng thì không vùng nào bị
+ * cắt đôi giữa một cái bảng.
+ */
+function tachTheoTam(dong: readonly DongCoBang[]): Khoi[] {
   const khoi: Khoi[] = [];
-  for (const dieuKhoan of provisions) {
+  for (const mot of dong) {
     const cuoi = khoi[khoi.length - 1];
-    if (cuoi !== undefined && cuoi.laTam === dieuKhoan.la_tam) cuoi.dong.push(dieuKhoan);
-    else khoi.push({ laTam: dieuKhoan.la_tam, dong: [dieuKhoan] });
+    if (cuoi !== undefined && cuoi.laTam === mot.dieuKhoan.la_tam) cuoi.dong.push(mot);
+    else khoi.push({ laTam: mot.dieuKhoan.la_tam, dong: [mot] });
   }
   return khoi;
-}
-
-function DongNguyenVan({ dieuKhoan, quote }: { dieuKhoan: Provision; quote: string | null }) {
-  const lat = quote === null ? null : catTheoTrichDan(dieuKhoan.noi_dung, quote);
-  return (
-    <p
-      className="my-2 text-[16px] leading-[1.75] whitespace-pre-wrap"
-      style={{ marginInlineStart: LE_THEO_CAP[dieuKhoan.cap] ?? "0rem" }}
-    >
-      {lat === null || !lat.timThay ? (
-        dieuKhoan.noi_dung.normalize("NFC")
-      ) : (
-        <>
-          {lat.truoc}
-          <mark className="cau-trich">{lat.trung}</mark>
-          {lat.sau}
-        </>
-      )}
-    </p>
-  );
 }
 
 export interface KhungDoiChieuProps {
@@ -268,19 +256,19 @@ export function KhungDoiChieu({
               )}
 
               <div className="doc-reader rounded-lg bg-[var(--color-paper-50)] p-3 text-foreground">
-                {tachTheoTam(vanBan.provisions).map((khoi) => {
+                {tachTheoTam(gomHangBang(vanBan.provisions)).map((khoi) => {
                   const dauKhoi = khoi.dong[0];
                   if (dauKhoi === undefined) return null;
                   return (
                     <section
-                      key={dauKhoi.id}
+                      key={dauKhoi.dieuKhoan.id}
                       data-vung-tam={khoi.laTam ? "true" : undefined}
                       className={cn(
                         "rounded-lg px-2 py-1",
                         khoi.laTam ? "vung-doi-chieu" : "ngoai-vung-doi-chieu",
                       )}
                     >
-                      {khoi.dong.map((dieuKhoan) => (
+                      {khoi.dong.map(({ dieuKhoan, hangCon }) => (
                         <div key={dieuKhoan.id}>
                           {dieuKhoan.cap === "dieu" && (
                             <p className="mt-2 mb-1 font-sans text-[13px] font-semibold text-muted-foreground">
@@ -288,9 +276,26 @@ export function KhungDoiChieu({
                               {dieuKhoan.tieu_de !== "" && ` — ${dieuKhoan.tieu_de}`}
                             </p>
                           )}
-                          <DongNguyenVan
+                          <NoiDungDieuKhoan
                             dieuKhoan={dieuKhoan}
-                            quote={dieuKhoan.id === khopTaiId ? cauTrich : null}
+                            noiDung={dieuKhoan.noi_dung}
+                            hangCon={hangCon}
+                            // Trích dẫn có thể trỏ thẳng vào MỘT HÀNG bảng
+                            // (`hang_bang` là dòng thật, có `duong_dan` riêng).
+                            // Hàng đó nay nằm trong khối của dòng cha, nên câu
+                            // trích phải đi vào cả khối; `vungTrichDan` tự tìm
+                            // ra nó nằm ở mảnh nào.
+                            quote={
+                              dieuKhoan.id === khopTaiId ||
+                              hangCon.some((hang) => hang.id === khopTaiId)
+                                ? cauTrich
+                                : null
+                            }
+                            // KHÔNG dựng liên kết ở đây: khung này là chỗ kiểm
+                            // chứng một câu trả lời, và bấm một hàng để rời
+                            // trang là vứt mất câu trả lời đang kiểm. Hàng vẫn
+                            // neo được bằng `id="dk-<id>"`.
+                            style={{ marginInlineStart: LE_THEO_CAP[dieuKhoan.cap] ?? "0rem" }}
                           />
                         </div>
                       ))}

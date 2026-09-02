@@ -3,9 +3,11 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Copy, ListTree, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
+import { NoiDungDieuKhoan } from "@/components/klaw/NoiDungDieuKhoan";
 import { BadgeHieuLuc } from "@/components/klaw/BadgeHieuLuc";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
 import { goi, thamSo } from "@/lib/api";
+import { gomHangBang } from "@/lib/bang";
 import {
   CAP_CHUA_DIEU,
   docDoTinCay,
@@ -365,10 +367,12 @@ function khongLapTieuDe(dieuKhoan: Provision): string {
 }
 
 function NguyenVanDieu({
+  docId,
   vanBan,
   hieuLuc,
   soKyHieu,
 }: {
+  docId: string;
   vanBan: VanBanProvisions;
   hieuLuc: VanBanHieuLuc | null;
   soKyHieu: string;
@@ -380,7 +384,11 @@ function NguyenVanDieu({
 
   return (
     <article className="doc-reader mt-6 text-foreground">
-      {vanBan.provisions.map((dieuKhoan) => {
+      {/* `gomHangBang` thu `hang_bang` về dòng cha để chúng ra một cái BẢNG chứ
+          không phải mấy dòng `| … |` rời. Mỗi hàng vẫn giữ nguyên neo riêng —
+          `id="dk-<id>"` và liên kết `?quanh=<id>` — vì đó chính là lý do
+          backend tách bảng ra. */}
+      {gomHangBang(vanBan.provisions).map(({ dieuKhoan, hangCon }) => {
         const nhan = nhanTheoId.get(dieuKhoan.id);
         const trichDan = `${dieuKhoan.duong_dan.replace(`${soKyHieu} > `, "")} ${soKyHieu}`;
         return (
@@ -415,9 +423,12 @@ function NguyenVanDieu({
                 ))}
               </div>
             )}
-            <p className="my-2 text-[16px] leading-[1.75] whitespace-pre-wrap">
-              {khongLapTieuDe(dieuKhoan)}
-            </p>
+            <NoiDungDieuKhoan
+              dieuKhoan={dieuKhoan}
+              noiDung={khongLapTieuDe(dieuKhoan)}
+              hangCon={hangCon}
+              docId={docId}
+            />
           </section>
         );
       })}
@@ -782,7 +793,12 @@ function ManDocVanBan() {
                       <Copy className="size-3.5" aria-hidden /> Sao chép trích dẫn
                     </button>
                   </div>
-                  <NguyenVanDieu vanBan={noiDung} hieuLuc={hieuLuc} soKyHieu={vanBan.so_ky_hieu} />
+                  <NguyenVanDieu
+                    docId={docId}
+                    vanBan={noiDung}
+                    hieuLuc={hieuLuc}
+                    soKyHieu={vanBan.so_ky_hieu}
+                  />
                 </>
               )}
 
