@@ -109,7 +109,7 @@ export const MAU: MauVanBan[] = [
   },
   {
     id: "thoa-thuan-bao-mat-nda",
-    ten: "Thỏa thuận bảo mật thông tin (NDA)",
+    ten: "Thoả thuận bảo vệ bí mật kinh doanh (NDA)",
     moTa: "Bảo vệ thông tin kinh doanh, dữ liệu và bí mật công nghệ.",
     soTruong: 8,
     nhom: "lao-dong",
@@ -172,7 +172,7 @@ export const MAU: MauVanBan[] = [
   },
   {
     id: "hop-dong-thue-nha-mat-bang",
-    ten: "Hợp đồng thuê nhà, mặt bằng",
+    ten: "Hợp đồng thuê tài sản (nhà, mặt bằng)",
     moTa: "Thuê nhà ở hoặc mặt bằng kinh doanh, có đặt cọc.",
     soTruong: 10,
     nhom: "thuong-mai",
@@ -199,7 +199,7 @@ export const MAU: MauVanBan[] = [
   },
   {
     id: "hop-dong-chuyen-nhuong-quyen-so-huu",
-    ten: "Hợp đồng chuyển nhượng quyền sở hữu",
+    ten: "Hợp đồng mua bán tài sản",
     moTa: "Chuyển nhượng quyền sở hữu tài sản, quyền tài sản.",
     soTruong: 10,
     nhom: "thuong-mai",
@@ -210,7 +210,7 @@ export const MAU: MauVanBan[] = [
   // Nội bộ
   {
     id: "quyet-dinh-hoi-dong-quan-tri",
-    ten: "Quyết định của Hội đồng quản trị",
+    ten: "Nghị quyết của Hội đồng quản trị",
     moTa: "Nghị quyết, quyết định thuộc thẩm quyền Hội đồng quản trị.",
     soTruong: 7,
     nhom: "noi-bo",
@@ -219,7 +219,7 @@ export const MAU: MauVanBan[] = [
   },
   {
     id: "bien-ban-hop",
-    ten: "Biên bản họp",
+    ten: "Biên bản họp Hội đồng quản trị",
     moTa: "Ghi nhận diễn biến, ý kiến và kết quả biểu quyết.",
     soTruong: 8,
     nhom: "noi-bo",
@@ -266,7 +266,7 @@ export const MAU: MauVanBan[] = [
   },
   {
     id: "don-de-nghi",
-    ten: "Đơn đề nghị",
+    ten: "Đơn yêu cầu giải quyết việc dân sự",
     moTa: "Đề nghị cơ quan, tổ chức giải quyết một yêu cầu.",
     soTruong: 7,
     nhom: "to-tung",
