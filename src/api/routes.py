@@ -539,12 +539,19 @@ def _van_ban_sync(
         return VanBanProvisionsResponse(**_meta(doc_id, doc), provisions=provisions)
 
 
+# `cap <> 'mo_dau'`: đếm điều khoản TRÍCH DẪN ĐƯỢC, không đếm số dòng trong bảng.
+# `migrations/016_tang_nong.sql` chèn cho MỌI văn bản không-metadata đúng một hàng
+# `cap='mo_dau'` mang tên văn bản — 125 hàng, đúng bằng 49 (deep) + 76 (shallow).
+# Hàng đó không phải một điều khoản: nó không có nội dung để dẫn.
+#
+# `count(...) FILTER` trên LEFT JOIN: văn bản không có provision nào cho `p.cap`
+# NULL, `NULL <> 'mo_dau'` ra NULL, không được đếm — ra 0, đúng ý.
 _SQL_PHAM_VI = text(
     "SELECT d.id, d.so_ky_hieu, d.ten, d.loai_van_ban, d.tinh_trang,"
-    "       count(p.id)::int AS so_dieu_khoan"
+    "       count(p.id) FILTER (WHERE p.cap <> 'mo_dau')::int AS so_dieu_khoan"
     " FROM documents d LEFT JOIN provisions p ON p.document_id = d.id"
     " GROUP BY d.id, d.so_ky_hieu, d.ten, d.loai_van_ban, d.tinh_trang"
-    " ORDER BY count(p.id) DESC, d.so_ky_hieu"
+    " ORDER BY count(p.id) FILTER (WHERE p.cap <> 'mo_dau') DESC, d.so_ky_hieu"
 )
 
 
@@ -563,6 +570,16 @@ def _pham_vi() -> PhamViResponse:
     # định lúc thu thập, còn số điều khoản là kết quả. Nếu một văn bản đánh
     # dấu 'deep' mà nạp hỏng thì nó thuộc tầng nông trên thực tế, và trang
     # phạm vi phải nói ra thực tế đó.
+    #
+    # ĐO ĐƯỢC 2026-09-02: nguyên tắc trên đúng, nhưng phép đo của nó đã bị
+    # `migrations/016_tang_nong.sql` phá — 016 chèn một hàng `mo_dau` cho MỌI văn
+    # bản không-metadata, nên `count(p.id) > 0` thành đúng cho cả hai tầng và
+    # trang xếp **125** văn bản vào tầng "có toàn văn" khi thật ra chỉ **49**.
+    # Phóng đại độ phủ 2,5 lần, trên đúng con số đưa cho khách xem.
+    #
+    # `_SQL_PHAM_VI` nay đếm điều khoản trích dẫn được (loại `mo_dau`), nên
+    # nguyên tắc gốc còn nguyên: một văn bản `deep` nạp hỏng vẫn ra 0 và vẫn rơi
+    # vào tầng nông. Chỉ phép đo được sửa, không phải quy tắc.
     sau = [ra(r) for r in rows if r["so_dieu_khoan"] > 0]
     nong = [ra(r) for r in rows if r["so_dieu_khoan"] == 0]
     return PhamViResponse(

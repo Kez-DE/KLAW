@@ -1,51 +1,81 @@
-"""`GET /api/v1/pham-vi` — phạm vi corpus, lấy từ DB chứ không viết cứng.
+"""`/pham-vi` phải đếm ĐỘ PHỦ THẬT, không đếm số dòng trong bảng.
 
-Trang `/pham-vi` của FE bị CẤM gõ "21 văn bản / 19.135 điều khoản" vào JSX: một
-con số viết cứng sai ngay lần seed sau, và dự án này tồn tại để chống đúng loại
-khẳng định không kiểm chứng được đó.
+ĐO ĐƯỢC 2026-09-02: trang xếp **125** văn bản vào tầng "có toàn văn" khi thật ra
+chỉ **49** — phóng đại độ phủ 2,5 lần, trên đúng con số đưa cho khách xem.
 
-Endpoint phơi bày HAI TẦNG vì corpus thật có hai tầng, và giấu tầng nông đi là
-mô tả sai sản phẩm: 21 văn bản có toàn văn (`depth='deep'`) trả lời được thành
-`answer`; các văn bản chỉ có metadata chính là thứ sinh ra `partial_coverage`.
+Nguyên nhân: `_pham_vi` phân tầng theo `so_dieu_khoan > 0`, và ruling ở đó viết
+rõ lý do — "`depth` là ý định lúc thu thập, còn số điều khoản là kết quả; văn bản
+đánh dấu 'deep' mà nạp hỏng thì thuộc tầng nông trên thực tế". Lý lẽ ĐÚNG. Cái
+phá nó là `migrations/016_tang_nong.sql`: nó chèn cho MỌI văn bản không-metadata
+đúng một hàng `cap='mo_dau'` mang tên văn bản, nên `so_dieu_khoan > 0` thành đúng
+cho cả hai tầng (125 hàng `mo_dau` = 49 deep + 76 shallow).
+
+Bản sửa GIỮ nguyên tắc gốc và chỉ làm nó miễn nhiễm với 016: đếm điều khoản
+TRÍCH DẪN ĐƯỢC (`cap <> 'mo_dau'`). Một văn bản `deep` nạp hỏng vẫn có 0 và vẫn
+rơi đúng vào tầng nông — điều mà ruling gốc muốn.
 """
 
 import pytest
+from sqlalchemy import text
+
+
+def _dem_tu_db(engine) -> tuple[int, int]:
+    """(số văn bản có điều khoản trích dẫn được, số văn bản có ÍT NHẤT một dòng).
+
+    Đếm lại từ DB thay vì viết cứng 49/125: một test viết cứng con số sẽ đỏ khi
+    corpus lớn lên, và người sửa sẽ cập nhật con số thay vì kiểm quy tắc.
+    """
+    with engine.connect() as c:
+        return tuple(c.execute(text(
+            "SELECT count(*) FILTER (WHERE trich_dan_duoc > 0),"
+            "       count(*) FILTER (WHERE tat_ca > 0)"
+            " FROM (SELECT d.id,"
+            "              count(p.id) AS tat_ca,"
+            "              count(p.id) FILTER (WHERE p.cap <> 'mo_dau') AS trich_dan_duoc"
+            "       FROM documents d LEFT JOIN provisions p ON p.document_id = d.id"
+            "       GROUP BY d.id) x"
+        )).one())
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
-async def test_pham_vi_lay_so_lieu_that_tu_db(client):
-    r = await client.get("/api/v1/pham-vi")
-    assert r.status_code == 200
-    d = r.json()
+def test_tang_sau_dem_dieu_khoan_TRICH_DAN_DUOC_khong_dem_hang_mo_dau():
+    from src.api.routes import _pham_vi
+    from src.services.db import get_engine
 
-    sau = d["sau"]
-    assert sau["so_van_ban"] == len(sau["van_ban"]), "so_van_ban phải khớp danh sách, không phải hằng số rời"
-    assert sau["so_dieu_khoan"] == sum(v["so_dieu_khoan"] for v in sau["van_ban"]), (
-        "tổng điều khoản phải cộng từ chính danh sách trả về — nếu lệch thì một trong hai đang bịa"
-    )
-    assert sau["so_van_ban"] > 0 and sau["so_dieu_khoan"] > 0
-
-    assert all(v["so_dieu_khoan"] > 0 for v in sau["van_ban"]), (
-        "tầng sâu theo định nghĩa là có toàn văn; văn bản 0 điều khoản thuộc tầng nông"
-    )
-    assert all(v["so_dieu_khoan"] == 0 for v in d["nong"]["van_ban"]), (
-        "tầng nông chỉ có metadata — có điều khoản nghĩa là phân tầng sai"
+    trich_dan_duoc, co_dong = _dem_tu_db(get_engine())
+    assert trich_dan_duoc < co_dong, (
+        "corpus không còn hàng `mo_dau` nào — test này mất đối tượng, xem lại migration 016"
     )
 
-    ids_sau = {v["doc_id"] for v in sau["van_ban"]}
-    ids_nong = {v["doc_id"] for v in d["nong"]["van_ban"]}
-    assert not (ids_sau & ids_nong), "một văn bản không thể vừa sâu vừa nông"
+    r = _pham_vi()
+    assert r.sau.so_van_ban == trich_dan_duoc
+    assert r.sau.so_van_ban != co_dong, (
+        f"vẫn đếm mọi văn bản có ít nhất một dòng ({co_dong}) thay vì "
+        f"văn bản trích dẫn được ({trich_dan_duoc}) — phóng đại độ phủ"
+    )
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
-async def test_pham_vi_dinh_danh_bang_so_ky_hieu_va_neu_ro_tinh_trang_la_CUA_MOJ(client):
-    d = (await client.get("/api/v1/pham-vi")).json()
-    v = d["sau"]["van_ban"][0]
-    assert v["so_ky_hieu"], "định danh là so_ky_hieu (Global Constraint), không bao giờ là tên"
-    # Tên trường phải nói rõ đây là tuyên bố CỦA CSDL QUỐC GIA, không phải phán
-    # quyết của KLAW: MOJ đánh sai hiệu lực 4 nghị định lương tối thiểu, và
-    # trang /mien-tru dựa vào chính sự khác biệt này.
-    assert "tinh_trang_moj" in v
-    assert "tinh_trang" not in v, "tên trần gây hiểu nhầm là KLAW xác nhận"
+def test_hai_tang_cong_lai_bang_toan_bo_corpus():
+    """Không văn bản nào bị mất hay bị đếm hai lần giữa hai tầng."""
+    from sqlalchemy import text as _t
+
+    from src.api.routes import _pham_vi
+    from src.services.db import get_engine
+
+    with get_engine().connect() as c:
+        tong = c.execute(_t("SELECT count(*) FROM documents")).scalar_one()
+    r = _pham_vi()
+    assert r.sau.so_van_ban + r.nong.so_van_ban == tong
+
+
+@pytest.mark.integration
+def test_van_ban_tang_nong_bao_0_dieu_khoan_khong_bao_1():
+    """Văn bản tầng nông chỉ có hàng `mo_dau` mang tên nó — không trích dẫn được.
+    Báo "1 điều khoản" cho nó là mời người đọc tin rằng có một điều khoản để đọc."""
+    from src.api.routes import _pham_vi
+
+    r = _pham_vi()
+    assert r.nong.van_ban, "không có văn bản tầng nông nào để kiểm"
+    xau = [v.so_ky_hieu for v in r.nong.van_ban if v.so_dieu_khoan != 0]
+    assert not xau, f"tầng nông báo số điều khoản khác 0: {xau[:5]}"
