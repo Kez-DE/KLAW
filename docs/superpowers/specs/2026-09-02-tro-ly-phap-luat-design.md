@@ -205,13 +205,55 @@ ngăn bằng `---`. Hiệu lực lấy lại từ `state["expanded"]` — `expan
 ngoại lệ, và chế tài trong tập đang có. Giữ nguyên tinh thần "thiếu căn cứ là
 câu trả lời đúng" — chỉ dựng một ngưỡng cửa trước lối thoát đó.
 
-**3c — vòng cứu.** Khi `claims == 0` mà `expanded` khác rỗng: chạy
-`generate_claims` **đúng một lần nữa** với khung khác (yêu cầu model nêu từng
-điều khoản bác bỏ hoặc hỗ trợ câu hỏi ra sao trước khi kết luận). Một lần, không
-lặp — trần chi phí phải hữu hạn và nhìn thấy được. Ghi `traces.vong_cuu` để đo
-tần suất.
+**3c — vòng cứu: KHÔNG DỰNG.** Quyết định 2026-09-02, có lý do đo được.
+
+Kế hoạch ban đầu: khi `claims == 0` mà `expanded` khác rỗng, chạy
+`generate_claims` một lần nữa với khung khác.
+
+Nó bị bỏ vì **không còn ca nào tái hiện `claims == 0` với nguồn dùng được**. Ca
+duy nhất từng cho `claims=0` là "Hiện tại có bao nhiêu bộ luật?" — và Pha 1 đã
+lấy câu đó ra khỏi đường này hoàn toàn (nó đi `hoi_ve_kho`, tra bảng, không qua
+`generate_claims`). Ba câu đo của Pha 3 đều đã ra `answer` với 5–9 claims TRƯỚC
+khi sửa; không câu nào tái hiện chỗ nghẽn.
+
+Dựng 3c khi đó là thêm MỘT LƯỢT LLM trên MỌI đường abstain để giải một vấn đề
+không có ca tái hiện. Nếu sau này cổng đo cho ra một câu `claims == 0` mà
+`expanded` khác rỗng, dựng lại — kèm ca đó làm test.
 
 Không đụng `abstain_threshold` (giữ 0.5) và không đụng `assemble.v1.md`.
+
+### 7.1 Số đo của 3a — thí nghiệm cô lập, 2026-09-02
+
+Tập điều khoản **CỐ ĐỊNH** (không truy hồi, không route, không tier2), nên chênh
+lệch duy nhất giữa hai nhánh là bố cục bối cảnh: Điều 3 + Điều 4 của ba nghị định
+lương tối thiểu chồng nhau — `90/2019/NĐ-CP` (đã bị thay), `74/2024/NĐ-CP`,
+`293/2025/NĐ-CP` — sau `expand` là 51 điều khoản. Câu hỏi: "lương tối thiểu vùng
+I là bao nhiêu". Một lượt LLM mỗi nhánh mỗi lần, n=6 mỗi nhánh, đo đủ 12/12.
+
+| | kéo nghị định ĐÃ BỊ THAY vào claims | claims TB | token_in TB |
+|---|---|---|---|
+| bối cảnh CŨ | **4/6** | 5,2 | 6.351 |
+| bối cảnh MỚI | **0/6** | 3,5 | 6.033 |
+
+`insufficient_evidence` là `False` ở **cả 12 lượt** — nhãn hiệu lực trong bối cảnh
+KHÔNG làm model ngờ vực nguồn rồi abstain nhiều hơn (rủi ro chính của 3a, vì
+verdict áp đảo trên corpus là `mot_phan_khong_xac_dinh` chứ không `con_hieu_luc`).
+
+Đây là lần đầu lỗi lương tối thiểu của Plan 1 có một TỈ LỆ: 67% số lượt, không
+phải một ca biên.
+
+**Đánh đổi phải ghi ra:** claims TB tụt 5,2 → 3,5. Phần lớn là vì bối cảnh cũ
+sinh thêm claims TỪ CHÍNH các nghị định đã chết. Nhưng so riêng các lượt cũ sạch
+(4 claims) với lượt mới (3,5), vẫn có mức giảm thật ~0,5. Đổi nửa luận điểm lấy
+việc không dẫn văn bản hết hiệu lực là đổi đúng — một luận điểm dựa trên nghị
+định đã bị thay tệ hơn không có luận điểm nào — nhưng nó là đánh đổi, không phải
+cải thiện thuần.
+
+**Chi phí token phụ thuộc TẬP, không phải một con số:** −5,0% trên tập nghị định
+này (phần gộp dòng `tieu_de` trùng khít `noi_dung` lấn phần thêm trường), +7,5%
+trên một tập 76 điều khoản của Bộ luật Lao động. Đại khái hoà.
+
+n=6 là chỉ báo mạnh, KHÔNG phải một kiểm định thống kê.
 
 ## 8. Pha 4 — hỏi nối tiếp
 

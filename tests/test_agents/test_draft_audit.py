@@ -118,3 +118,27 @@ def test_phuc_loi_khac_co_muc_rieng_thi_khong_sinh_finding():
     st = draft_audit({"clauses": clauses, "nganh": "thuong_mai",
                       "facts": FACTS_HOP_PHAP, "self_audit": True}, RULES, CL, DB)
     assert not any("Phúc lợi khác" in x.mo_ta for x in st["audit_report"].findings)
+
+
+def test_prompt_soan_thao_cam_viet_ve_hieu_luc_vao_dieu_khoan():
+    """`draft_generate` dùng CHUNG `build_context` với `generate_claims`
+    (`draft_generate.py:15,43`), nên từ Pha 3a bối cảnh soạn thảo cũng mang
+    `hieu_luc=` mỗi điều khoản — mà prompt soạn thảo chưa từng mô tả bố cục bối
+    cảnh, và không có quy tắc nào cấm model viết về hiệu lực.
+
+    Một điều khoản hợp đồng khẳng định căn cứ của nó "còn hiệu lực" là một khẳng
+    định hệ thống CHƯA kiểm ở cấp điều khoản (CSDL quốc gia chỉ công bố tới cấp
+    văn bản — xem `effectivity.py` Mức 4), và nó đứng trong văn bản người ta đem
+    đi ký, không phải trong một câu trả lời tra cứu có thể đọc kèm cảnh báo.
+
+    Test quét prompt vì đó là chỗ DUY NHẤT model đọc được lệnh cấm này — không
+    có tầng mã nào chặn nó.
+    """
+    from src.agents.nodes.draft_generate import PROMPT_PATH
+
+    prompt = PROMPT_PATH.read_text(encoding="utf-8")
+    assert "hieu_luc" in prompt, "bối cảnh mang hieu_luc mà prompt không nói tới nó"
+    assert "KHÔNG viết bất kỳ câu nào về hiệu lực" in prompt
+    # Không được biến hiệu lực thành cớ bỏ căn cứ: verdict áp đảo trên corpus
+    # thật là `mot_phan_khong_xac_dinh`, không phải `con_hieu_luc`.
+    assert "mot_phan_khong_xac_dinh" in prompt

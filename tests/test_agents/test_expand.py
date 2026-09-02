@@ -262,3 +262,17 @@ def test_dieu_khong_co_ban_ghi_sua_doi_KHONG_keo_theo_gi_them():
     là em ruột của `Điều 139` trong cùng Chương."""
     deep, _ = expand([pid("45/2019/QH14 > Điều 140")], get_engine(), date(2026, 9, 1), hops=0)
     assert not [p for p in deep if p["duong_dan"].startswith("113/2025/QH15")]
+
+
+# ══ Pha 3a (spec 2026-09-02 §7) ══════════════════════════════════════════════
+@pytest.mark.integration
+def test_moi_provision_mang_loai_van_ban_de_generate_claims_ap_thu_bac():
+    """`_SQL_PROV` phải select `d.loai_van_ban`: `build_context` cần nó để model
+    phân biệt Bộ luật với Thông tư mà áp thứ bậc hiệu lực. Đây là NGUỒN duy nhất
+    — không có cột này trong bản ghi thì bối cảnh không thể có, bất kể prompt
+    viết gì. Như `d.ten`, nó CHỈ để model đọc, `so_ky_hieu` vẫn là khoá định
+    danh duy nhất."""
+    with get_engine().connect() as c:
+        p_id = c.execute(text("SELECT id FROM provisions LIMIT 1")).scalar_one()
+    deep, _ = expand([p_id], get_engine(), date(2026, 8, 27), hops=1)
+    assert deep[0].get("loai_van_ban"), "d.loai_van_ban vắng hoặc rỗng — build_context không có gì để đưa"

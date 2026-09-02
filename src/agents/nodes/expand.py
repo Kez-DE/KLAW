@@ -75,9 +75,15 @@ from src.services.xref import find_xrefs
 # Constraint) vì `ten` một mình có thể mơ hồ (vd. doc_id 96117 → "Hàng hải").
 # Ràng buộc "không định danh bằng ten/title" chỉ cấm dùng ten LÀM KHOÁ, không
 # cấm mang nó theo để hiển thị (task-9 ruling, 2026-08-31).
+#
+# `d.loai_van_ban` (Pha 3a, spec 2026-09-02 §7) cùng loại: chỉ để MODEL ĐỌC.
+# `generate_claims.build_context` cần nó để model phân biệt Bộ luật với Thông tư
+# mà áp thứ bậc hiệu lực khi hai nguồn nói khác nhau — thiếu cột này thì bối cảnh
+# không thể có, bất kể prompt viết gì. Không phải khoá định danh, không phải tín
+# hiệu xếp hạng: expand vẫn không đụng điểm truy hồi.
 _SQL_PROV = text(
     "SELECT p.id, p.document_id, p.parent_id, p.cap, p.so_hieu_cap, p.tieu_de,"
-    " p.noi_dung, p.duong_dan, d.so_ky_hieu, d.ten, d.depth"
+    " p.noi_dung, p.duong_dan, d.so_ky_hieu, d.ten, d.loai_van_ban, d.depth"
     " FROM provisions p JOIN documents d ON d.id = p.document_id"
     " WHERE p.id = ANY(:ids)"
 )

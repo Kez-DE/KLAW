@@ -7,6 +7,9 @@ dist/
 build/
 .eggs/
 
+# Scratch — subagent để báo cáo/kịch bản đo ở đây; KHÔNG BAO GIỜ commit
+scratchpad/
+
 # Virtual environments
 venv/
 .venv/
