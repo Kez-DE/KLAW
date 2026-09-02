@@ -1,5 +1,6 @@
 """Tải toàn văn 21 văn bản từ API MOJ vào data/raw/moj/*.json."""
 
+import json
 from pathlib import Path
 
 from src.config import get_settings
@@ -80,7 +81,52 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     # với chính cặp `91/2025/QH15` + `356/2025/NĐ-CP` đã thay thế nó.
     "161106": ("deep", "13/2023/NĐ-CP"),   # BVDLCN cũ — chết từ 01/01/2026
     "15066":  ("deep", "67/2006/QH11"),    # Luật Công nghệ thông tin
+
+    # ── Task 1 (T1) — mở kho sang 8 lĩnh vực, `.superpowers/sdd/tro-ly-8-linh-vuc/` ──
+    # 13 id đã VERIFY TAY qua metadata.parquet + API live (task-1-brief.md); 6
+    # trong số đó (177815, 142881, 26117, 187045, 96035, 27621) đã có mặt ở
+    # trên — 5 dòng dưới đây là THÊM MỚI (11/13; `169032` và `175027` bị chặn
+    # ở cổng cấu trúc, xem `KHONG_NAP` bên dưới). `TIEU_DE_DOI_CHIEU` đối
+    # chiếu tiêu đề response cho ĐỦ 11, kể cả 6 đã có: số hiệu trùng nhau giữa
+    # các loại văn bản (`50/2005/QH11` trả một Nghị quyết, không phải Luật Sở
+    # hữu trí tuệ) nên id đúng vẫn cần đối chiếu, không chỉ id mới thêm.
+    "169027": ("deep", "29/2023/QH15"),    # Luật Kinh doanh bất động sản
+    "36870":  ("deep", "52/2014/QH13"),    # Luật Hôn nhân và gia đình
+    "142867": ("deep", "61/2020/QH14"),    # Luật Đầu tư
+    "16748":  ("deep", "50/2005/QH11"),    # Luật Sở hữu trí tuệ
+    "136036": ("deep", "38/2019/QH14"),    # Luật Quản lý thuế
 }
+
+# Mảnh tiêu đề đối chiếu TRƯỚC KHI GHI file raw — 11/13 id của T1 (169032,
+# 175027 bị loại, xem KHONG_NAP), đã verify tay. Lệch → `_doi_chieu_tieu_de`
+# ném `ValueError` nêu rõ id, tiêu đề nhận được, mảnh mong đợi. Không cảnh báo
+# êm: nạp sai văn bản dưới đúng cái tên là lớp sai không phục hồi được (xem ví
+# dụ `16748`/`50/2005/QH11` ở trên).
+TIEU_DE_DOI_CHIEU: dict[str, str] = {
+    "177815": "Đất đai",
+    "169027": "Kinh doanh bất động sản",
+    "36870": "Hôn nhân và gia đình",
+    "142881": "doanh nghiệp",
+    "142867": "đầu tư",
+    "26117": "Thương mại",
+    "16748": "Sở hữu trí tuệ",
+    "136036": "Quản lý thuế",
+    "187045": "Thuế thu nhập cá nhân",
+    "96035": "Tố tụng hành chính",
+    "27621": "Xử lý vi phạm hành chính",
+}
+
+
+def _doi_chieu_tieu_de(doc_id: str, tieu_de: str | None) -> None:
+    """`tieu_de` (response MOJ) phải CHỨA mảnh mong đợi trong `TIEU_DE_DOI_CHIEU`.
+
+    `doc_id` không có trong bảng → không kiểm, không phải lỗi. Lệch → ném NGAY,
+    trước khi bất kỳ byte nào ghi ra `data/raw/moj/`.
+    """
+    manh = TIEU_DE_DOI_CHIEU.get(doc_id)
+    if manh is not None and manh not in (tieu_de or ""):
+        raise ValueError(
+            f"doc {doc_id}: tiêu đề nhận được {tieu_de!r} không chứa mảnh mong đợi {manh!r}")
 
 # ── KHÔNG NẠP, kèm lý do đo được (đừng thêm lại mà không đọc phần này) ──
 # Mỗi dòng ở đây là một văn bản đã fetch được toàn văn nhưng KHÔNG qua được một
@@ -94,9 +140,55 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
     # đó là bịa ký hiệu, và cách sửa (bỏ văn bản / thêm hậu tố vị trí / đối chiếu
     # Công báo rồi ghi bản sửa) là một CHÍNH SÁCH TRÍCH DẪN cần người quyết.
     "27325": ("02/2011/QH13", "Điều 31 Khoản 2 có hai Điểm cùng nhãn 'i)'"),
+    # T1 (8 lĩnh vực) — KHÁC ba dòng trên: đây là GIỚI HẠN CỦA PARSER, không
+    # phải khiếm khuyết nguồn. HTML hợp lệ: "Chương III" đứng riêng một
+    # `<p class="prov-chapter">`, rồi tiêu đề Chương xuống dòng thành HAI thẻ
+    # `<p class="prov-chapter">` KHÁC — "CHIẾN LƯỢC PHÁT TRIỂN NHÀ Ở QUỐC GIA,"
+    # rồi "CHƯƠNG TRÌNH, KẾ HOẠCH PHÁT TRIỂN NHÀ Ở CẤP TỈNH" — cả ba cùng một
+    # `id` HTML. `_la_tiep_noi_tieu_de` nhận diện mảnh tiêu đề tiếp nối bằng
+    # `not text.lower().startswith("chương")`; dòng tiêu đề thứ hai TỰ NÓ mở
+    # đầu bằng "CHƯƠNG TRÌNH" (nghĩa "program", không phải nhãn "Chương") nên
+    # bị đọc nhầm thành một Chương MỚI không số hiệu — cổng `parse_anomalies`
+    # đúng khi chặn. Sửa là việc của người sở hữu `src/services/prov_parser.py`
+    # (ngoài phạm vi T1: chỉ được đụng migration/model/scripts đã liệt kê),
+    # không vá tại đây. Loại khỏi DOC_IDS — domain "Nhà ở" tạm 0 văn bản.
+    "169032": ("27/2023/QH15", "tiêu đề Chương III xuống dòng thành node "
+               "'CHƯƠNG TRÌNH, KẾ HOẠCH...' không số hiệu — parser đọc nhầm nhãn"),
+    # T1 (8 lĩnh vực) — CÙNG loại với `27325`: khiếm khuyết NGUỒN thật, không
+    # phải parser. HTML MOJ viết "<strong>Điêu 38. Chậm đóng…</strong>" — thiếu
+    # dấu, đúng ra là "Điều 38" (Đ-i-ề-u, không phải Đ-i-ê-u). Nhãn "Điêu" (viết
+    # sai chính tả) không khớp regex nhãn "Điều" của cấp `dieu`, nên node rơi
+    # xuống thành trẻ mồ côi không số hiệu — `parse_anomalies` đúng khi chặn.
+    # KHÔNG tự sửa chính tả nguồn tại đây: đó là bịa chữ thay Công báo, đúng
+    # điều đoạn trên đã từ chối làm cho `27325` — cần người đối chiếu Công báo
+    # rồi quyết cách ghi. Loại khỏi DOC_IDS — domain "Bảo hiểm xã hội" tạm 0
+    # văn bản.
+    "175027": ("41/2024/QH15", "Điều 38 viết sai chính tả 'Điêu 38' trong HTML "
+               "nguồn MOJ — nhãn không khớp regex cấp dieu"),
 }
+
+
+def fetch_va_doi_chieu(client: MojClient, doc_ids: list[str], dest: Path) -> dict[str, Path]:
+    """Như `MojClient.fetch_many`, cộng đối chiếu tiêu đề TRƯỚC KHI GHI file —
+    cho đúng những id có mặt trong `TIEU_DE_DOI_CHIEU`. Giữ nguyên cơ chế cache
+    (bỏ qua id đã có file) và nhịp nghỉ (`client.fetch_doc`) của `fetch_many`.
+    """
+    dest.mkdir(parents=True, exist_ok=True)
+    out: dict[str, Path] = {}
+    for did in doc_ids:
+        p = dest / f"{did}.json"
+        if p.exists():
+            out[did] = p
+            continue
+        data = client.fetch_doc(did)
+        _doi_chieu_tieu_de(did, data.get("title"))
+        p.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        print(f"[ok] {did} → {p.name}")
+        out[did] = p
+    return out
+
 
 if __name__ == "__main__":
     s = get_settings()
     client = MojClient(base=s.moj_api_base, sleep=s.moj_rate_limit_sleep)
-    client.fetch_many(list(DOC_IDS), Path(s.data_raw_dir) / "moj")
+    fetch_va_doi_chieu(client, list(DOC_IDS), Path(s.data_raw_dir) / "moj")

@@ -5,9 +5,12 @@ import json
 import warnings
 from pathlib import Path
 
+import pandas as pd
+
 from scripts.fetch_chinhphu import VAN_BAN as VAN_BAN_CHINHPHU
 from scripts.fetch_chinhphu import url_chi_tiet
 from scripts.fetch_moj import DOC_IDS
+from scripts.nap_linh_vuc import linh_vuc_tu_hang
 from scripts.nap_nguoi_ky import nguoi_ky_tu_response
 from src.models.domain import DocumentRow
 from src.services.chinhphu_parser import sang_html_prov
@@ -62,6 +65,23 @@ def _soat_va_bam(html: str, so_ky_hieu: str, doc_id: str,
     return prov_rows, checksum
 
 
+def _linh_vuc_theo_id(raw: Path) -> dict[str, str | None]:
+    """`documents.id` (MOJ) → `linh_vuc`, đọc MỘT LẦN từ `metadata.parquet`.
+
+    Đọc lúc SEED (ở đây), không lúc chạy: `metadata.parquet` không nằm trong
+    git (`.gitignore:35`), nên API không thể đọc nó lúc phục vụ request. Thiếu
+    file là LỖI cùng kiểu với thiếu `data/raw/moj/<doc_id>.json` — không đoán.
+    """
+    p = raw / "metadata.parquet"
+    if not p.exists():
+        raise FileNotFoundError(
+            f"chưa có {p}; chạy `python -m scripts.download_data` trước")
+    meta = pd.read_parquet(p, columns=["id", "nganh", "linh_vuc"])
+    meta["id"] = meta["id"].astype(str)
+    return {r.id: linh_vuc_tu_hang({"linh_vuc": r.linh_vuc, "nganh": r.nganh})
+            for r in meta.itertuples(index=False)}
+
+
 def build(raw: Path, out: Path) -> dict[str, int]:
     out.mkdir(parents=True, exist_ok=True)
     docs: list[dict] = []
@@ -69,6 +89,7 @@ def build(raw: Path, out: Path) -> dict[str, int]:
     refs: list[dict] = []
     checksums: dict[str, str] = {}
     canh_bao_tong: list[str] = []
+    linh_vuc_theo_id = _linh_vuc_theo_id(raw)
 
     for doc_id, (depth, so_ky_hieu) in DOC_IDS.items():
         p = raw / "moj" / f"{doc_id}.json"
@@ -99,6 +120,11 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             # và nó cũng là đường nạp cho DB đã seed sẵn: thêm một cột metadata
             # không làm `checksum` đổi nên `ingest` sẽ bỏ qua mọi document.
             nguoi_ky=nguoi_ky, chuc_danh_nguoi_ky=chuc_danh,
+            # Verbatim từ `metadata.parquet` (`linh_vuc`, rỗng thì `nganh`) —
+            # xem `_linh_vuc_theo_id`/`scripts.nap_linh_vuc.linh_vuc_tu_hang`.
+            # None khi id không có mặt trong metadata.parquet hoặc cả hai cột
+            # đều rỗng ở đó — KHÔNG đoán.
+            linh_vuc=linh_vuc_theo_id.get(doc_id),
             depth=depth,
             nguon_url=f"vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/{doc_id}",
             checksum=checksum,
@@ -148,6 +174,12 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             # tương đương. None chứ không phải chuỗi rỗng — "không biết người
             # ký" khác "người ký là chuỗi rỗng".
             nguoi_ky=None, chuc_danh_nguoi_ky=None,
+            # KHÔNG tra `metadata.parquet` bằng `docid` trần: id đó có thể
+            # trùng một văn bản HOÀN TOÀN KHÁC trong dải id số của MOJ (đo
+            # được: `162374` trong metadata.parquet là một Nghị quyết HĐND,
+            # không phải Luật Khiếu nại của `docid` này) — tra nhầm gán sai
+            # linh_vực còn hơn không gán. None ở đây là KHÔNG BIẾT thật.
+            linh_vuc=None,
             depth=meta["depth"],
             nguon_url=url_chi_tiet(docid),
             checksum=checksum,
