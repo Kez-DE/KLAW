@@ -6,6 +6,8 @@ from src.agents.nodes.generate_claims import (
     build_context,
     generate_claims,
 )
+from src.agents.nodes.verify_tier1 import Tier1Reason as R
+from src.agents.nodes.verify_tier1 import verify_tier1
 from src.services.effectivity import Effectivity
 from src.services.effectivity import EffectivityVerdict as V
 
@@ -279,3 +281,89 @@ def test_prompt_giu_phep_kiem_TRA_LOI_DUOC_khong_ha_xuong_CO_LIEN_QUAN():
     assert "câu trả lời ĐÚNG, không phải thất bại" in prompt, "mất lời khẳng định abstain là đúng"
     # Ngưỡng chủ đề bị loại tường minh, để lần sau ai viết lại prompt thấy ngay.
     assert 'KHÔNG phải "có liên quan tới chủ đề"' in prompt
+
+
+# ══ Regression — Task 1 (2026-09-02): "vùng ba" abstain SAI dù nguồn có thật ═
+# Số liệu THẬT lấy từ DB (khớp task-1-brief.md): 293/2025/NĐ-CP > Điều 3 >
+# Khoản 1 > Vùng III, provision_id=258773, hieu_luc=con_hieu_luc. TRƯỚC bản sửa
+# này, build_context() in `tieu_de` tổng hợp ("Vùng III") thành một dòng RIÊNG
+# đứng trước `noi_dung`, dù prov_parser.py tài liệu hoá rõ (dòng 21):
+# "`noi_dung` là TOÀN VĂN điều luật (nhãn + thân)" — với hang_bang/khoan/diem,
+# `tieu_de` = nhãn TỔNG HỢP (`f"{NHAN[cap]} {so_hieu_cap}"`, prov_parser.py
+# dòng 995-999), KHÔNG phải một dòng tồn tại tách biệt trong nguồn.
+#
+# Đo được (task-1-report.md, 5 lần chạy graph thật): 3/5 lần model chép NGUYÊN
+# CẢ HAI dòng vào `quote`, và tầng 1 loại đúng — quote đó KHÔNG PHẢI substring
+# của `noi_dung` — nhưng vì lý do SAI: build_context tự thêm một dòng không có
+# trong nguồn, không phải vì model bịa nội dung. Khi tất cả 9 claim của một
+# lượt đều dính lỗi này, `qua_t1` rỗng và graph abstain dù nguồn có thật.
+#
+# Test dưới đây KHÔNG hard-code quote: nó dùng ĐÚNG `generate_claims()` (đi
+# qua build_context + JSON schema thật), chỉ giả LLM bằng một "model trung
+# thực" — chép NGUYÊN VĂN khối build_context in ra cho provision đó, không
+# bịa không rút gọn. Đây là hành vi TỆ NHẤT còn hợp lệ theo quy tắc 3 của
+# prompt ("quote phải NGUYÊN VĂN copy"), nên nếu build_context còn lẫn một
+# dòng không-verbatim vào khối, test này bắt được — và nếu ai sau này thêm lại
+# một dòng metadata tương tự, test sẽ đỏ lại đúng cách nó đã đỏ ở Task 1.
+_VUNG_III = {
+    "id": 258773,
+    "document_id": "183939",
+    "so_ky_hieu": "293/2025/NĐ-CP",
+    "loai_van_ban": "Nghị định",
+    "duong_dan": "293/2025/NĐ-CP > Điều 3 > Khoản 1 > Vùng III",
+    "tieu_de": "Vùng III",
+    "noi_dung": "| Vùng III | 4.140.000 | 20.000 |",
+    "effectivity": Effectivity(V.con_hieu_luc, "thap", "NĐ 293/2025/NĐ-CP còn hiệu lực"),
+}
+
+
+def _quote_mo_hinh_trung_thuc_chep(prompt: str, provision_id: int) -> str:
+    """Mô phỏng một model TRUNG THỰC: chép nguyên khối văn bản `build_context`
+    in ra cho `provision_id` — không bịa, không rút gọn. Nếu `build_context`
+    còn lẫn một dòng KHÔNG-verbatim (nhãn tổng hợp) vào khối đó, hàm này chép
+    luôn dòng đó, đúng cơ chế thật đã đo ở Task 1."""
+    marker = f"[provision_id={provision_id}] "
+    dong_meta_ket_thuc = prompt.index("\n", prompt.index(marker))
+    return prompt[dong_meta_ket_thuc + 1 :].rstrip()
+
+
+def test_model_trung_thuc_chep_dung_khoi_VUNG_III_van_qua_duoc_tang_1():
+    """RED trước bản sửa (quote_khong_khop vì build_context lẫn "Vùng III\\n"
+    vào một dòng riêng), GREEN sau bản sửa. Dùng generate_claims() + verify_tier1()
+    THẬT — chỉ LLM bị giả — nên đây là phép kiểm HÀNH VI (claim sống sót qua
+    tầng 1 để thành citation), không phải kiểm build_context trả về gì."""
+
+    class ModHinhChepDung:
+        def chat(self, model, messages, json_schema=None):
+            from src.services.llm import Usage
+
+            quote = _quote_mo_hinh_trung_thuc_chep(messages[0]["content"], 258773)
+            payload = {
+                "insufficient_evidence": False,
+                "claims": [
+                    {
+                        "text": "Mức lương tối thiểu vùng III hiện nay là 4.140.000 đồng/tháng.",
+                        "provision_id": 258773,
+                        "quote": quote,
+                    }
+                ],
+            }
+            return json.dumps(payload), Usage(10, 5, 0.0001)
+
+    st = generate_claims(
+        {"query": "lương tối thiểu vùng ba hiện nay quy định thế nào", "expanded": [_VUNG_III]},
+        ModHinhChepDung(),
+        "m",
+    )
+    assert len(st["draft_claims"]) == 1
+
+    db_provisions = {_VUNG_III["id"]: {**_VUNG_III, "parent_id": 258770}}
+    r = verify_tier1(
+        st["draft_claims"], [_VUNG_III], db_provisions,
+        lambda pid: Effectivity(V.con_hieu_luc, "thap", "x"),
+    )[0]
+    assert r.ok is True and r.reason is R.ok, (
+        f"claim đúng nội dung (293/2025/NĐ-CP, Vùng III) bị loại vì lý do "
+        f"KHÔNG PHẢI ảo giác: {r.reason} — quote={st['draft_claims'][0].quote!r}"
+    )
+    assert r.khop_tai == 258773

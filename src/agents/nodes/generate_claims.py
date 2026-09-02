@@ -105,16 +105,21 @@ def build_context(provisions: list[dict]) -> str:
             # "còn hiệu lực" là chế độ hỏng nguy hiểm nhất của cả đề tài
             # (src/services/effectivity.py; graph_tra_cuu.n_tier1 chặn đúng ca này).
             verdict = getattr(p.get("effectivity"), "verdict", None) or EffectivityVerdict.chua_xac_dinh
-            # 72,1-73,6% số Điều trong corpus có `noi_dung` CHỈ LÀ TIÊU ĐỀ (đo ở
-            # `verify_tier1._cay_con`), nên với phần lớn khối Điều hai trường này
-            # trùng khít và in cả hai là lặp nguyên một dòng — nhân với 272 điều
-            # khoản của một ca thật thì đó là nhiễu thật, không phải chi tiết.
-            tieu_de = (p.get("tieu_de") or "").strip()
+            # KHÔNG in `tieu_de` — Task 1 (2026-09-02) review: `prov_parser.py`
+            # (dòng 21) tài liệu hoá `noi_dung` ĐÃ LÀ toàn văn (nhãn + thân).
+            # Với hang_bang/khoan/diem, `tieu_de` là nhãn TỔNG HỢP
+            # (`f"{NHAN[cap]} {so_hieu_cap}"`, `prov_parser.py` dòng 995-999,
+            # vd. "Khoản 1", "Vùng III") — KHÔNG phải một dòng tồn tại tách
+            # biệt trong nguồn. In nó thành dòng RIÊNG đứng trước `noi_dung`
+            # (bản trước bản này) khiến một model chép "nguyên văn" cả hai dòng
+            # tạo ra `quote` không còn là substring của `noi_dung` — tầng 1 loại
+            # đúng, nhưng vì build_context tự thêm chữ không có trong nguồn, chứ
+            # không phải model bịa (task-1-report.md: 3/5 lần chạy thật dính ca
+            # này, mọi claim của lượt đó rớt sạch → abstain dù nguồn có thật).
+            # `duong_dan` trên dòng metadata đã đủ cho model biết đây là Khoản/
+            # Vùng nào — không mất thông tin nào khi bỏ dòng tieu_de.
             noi_dung = (p.get("noi_dung") or "").strip()
-            than.append(
-                f"[provision_id={p['id']}] duong_dan={p['duong_dan']} hieu_luc={verdict}\n"
-                + (noi_dung if tieu_de == noi_dung else f"{tieu_de}\n{noi_dung}").strip()
-            )
+            than.append(f"[provision_id={p['id']}] duong_dan={p['duong_dan']} hieu_luc={verdict}\n{noi_dung}")
         # `so_ky_hieu` và `loai_van_ban` lấy của dòng đầu nhóm — nhóm nay khoá theo
         # `document_id` nên MỌI dòng trong nhóm chắc chắn cùng một văn bản, cùng một
         # số hiệu, cùng một loại (JOIN documents trong `expand._SQL_PROV`). Rỗng/NULL

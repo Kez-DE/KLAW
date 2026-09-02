@@ -370,3 +370,170 @@ def test_body_khong_phai_json_duoc_thu_lai():
     content, _ = c.chat("m", [{"role": "user", "content": "x"}])
     assert content == "ok"
     assert calls["n"] == 2
+
+
+# ══ Task 1 (2026-09-02) — structured output bị CẮT GIỮA CHỪNG ═══════════════
+# Đo được trong 45-trap run: `rewrite_query` (json_schema=QUERIES_SCHEMA) ăn
+# JSONDecodeError "Unterminated string" 2/45 lần. Content KHÔNG rỗng (nhánh
+# `_ContentRongError` cũ không bắt được ca này) nhưng cũng KHÔNG PHẢI JSON đầy
+# đủ — `finish_reason=length` nghĩa là provider cắt response giữa chừng.
+# Không có `max_tokens` nào được đặt ở tầng này (đọc `chat()` — xác nhận), nên
+# ngân sách output hoàn toàn phụ thuộc mặc định phía provider; "length" khi
+# caller đã xin `response_format=json_schema` LUÔN nghĩa là JSON dở dang — decision
+# xác định (không có ca "length nhưng vẫn đủ" ở structured mode), nên phải thử
+# lại, cùng khuôn với content rỗng.
+
+
+def test_json_schema_bi_cat_giua_chung_length_duoc_thu_lai():
+    """`finish_reason=length` + đã xin structured output ⇒ JSON chắc chắn dở
+    dang dù content không rỗng — phải thử lại, không được trả thẳng cho caller
+    tự vỡ ở JSONDecodeError. Review round 1 (2026-09-02): phục hồi phải xảy ra
+    trong ĐÚNG MỘT lần thử lại (2 lần gọi tổng) — không phải "thử tới khi nào
+    max_retries cho phép"."""
+    calls = {"n": 0}
+
+    def h(req):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [{"message": {"content": '{"queries": ["a'}, "finish_reason": "length"}],
+                    "usage": _USAGE_OK,
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": '{"queries": ["a", "b"]}'}, "finish_reason": "stop"}],
+                "usage": _USAGE_OK,
+            },
+        )
+
+    c = _c(h)
+    c.retry_backoff_base = 0
+    content, _ = c.chat("m", [{"role": "user", "content": "x"}], json_schema={"type": "object"})
+    assert content == '{"queries": ["a", "b"]}'
+    assert calls["n"] == 2, f"phải phục hồi trong ĐÚNG 1 lần thử lại (2 lần gọi): {calls['n']}"
+
+
+def test_json_schema_do_dang_chi_thu_lai_MOT_lan_khong_an_het_max_retries():
+    """Review round 1 [Important] (2026-09-02): nếu cắt là CẤU TRÚC (schema +
+    ngữ cảnh cần nhiều token hơn provider chịu phát cho request đó) thì MỌI
+    lần thử lại đều cắt y hệt. `generate_claims` là node ĐẮT NHẤT của graph
+    (nhiều claim, mỗi claim kèm quote dài) — ăn hết max_retries=3 (4 lần gọi)
+    ở đây là 4x chi phí + 4x độ trễ trên đường chờ người dùng rồi vẫn thất
+    bại. Ngân sách RIÊNG cho ca này: MỘT lần thử lại (2 lần gọi tổng), không
+    ăn hết max_retries như content rỗng/429/5xx."""
+    calls = {"n": 0}
+
+    def h(req):
+        calls["n"] += 1
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": '{"queries": ["a'}, "finish_reason": "length"}],
+                "usage": _USAGE_OK,
+            },
+        )
+
+    c = _c(h)
+    c.retry_backoff_base = 0
+    with pytest.raises(ValueError, match="length"):
+        c.chat("m", [{"role": "user", "content": "x"}], json_schema={"type": "object"})
+    assert calls["n"] == 2, f"phải dừng sau 2 lần gọi (1 lần thử lại), không ăn hết max_retries: {calls['n']}"
+
+
+def test_json_schema_can_retry_van_cat_thi_nem_khong_tra_JSON_do_dang():
+    """Cạn NGÂN SÁCH RIÊNG (1 lần thử lại) vẫn phải nổ — không được trả JSON
+    dở dang để caller tự JSONDecodeError ở một tầng không biết gì về
+    finish_reason, cùng lý do content rỗng cạn retry phải nổ."""
+
+    def h(req):
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": '{"queries": ["a'}, "finish_reason": "length"}],
+                "usage": _USAGE_OK,
+            },
+        )
+
+    c = _c(h)
+    c.retry_backoff_base = 0
+    with pytest.raises(ValueError, match="length"):
+        c.chat("m", [{"role": "user", "content": "x"}], json_schema={"type": "object"})
+
+
+def test_length_KHONG_xin_structured_output_thi_KHONG_bi_ep_thu_lai():
+    """Không xin `json_schema` thì `length` có thể là một câu trả lời dài hợp
+    lệ bị cắt theo đúng ý caller (vd. hành văn tự do) — không được ép thử lại
+    một hành vi caller không xin, tự thêm round-trip vô ích."""
+
+    def h(req):
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "một câu trả lời dài bị cắt"}, "finish_reason": "length"}],
+                "usage": _USAGE_OK,
+            },
+        )
+
+    c = _c(h)
+    c.retry_backoff_base = 0
+    content, _ = c.chat("m", [{"role": "user", "content": "x"}])  # KHÔNG có json_schema
+    assert content == "một câu trả lời dài bị cắt"
+
+
+def test_usage_cong_don_qua_cac_lan_thu_lai():
+    """Review round 1 [Minor, folded in] (2026-09-02): `_usage_from` dựng
+    `Usage` từ response THÀNH CÔNG cuối cùng — token của các lần thử TRƯỚC
+    (rỗng, length-cắt...) bị mất, dù OpenRouter đã tính phí cho chúng
+    (`usage.include=true`). Áp dụng cho MỌI lý do thử lại, không riêng
+    length+schema — số `cost_usd` lên thẳng một khoá luận, không được hiểu
+    thấp chi phí thật."""
+    calls = {"n": 0}
+
+    def h(req):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [{"message": {"content": ""}}],
+                    "usage": {"prompt_tokens": 5, "completion_tokens": 0, "cost": 0.00001},
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "ok"}}],
+                "usage": {"prompt_tokens": 5, "completion_tokens": 3, "cost": 0.00002},
+            },
+        )
+
+    c = _c(h)
+    c.retry_backoff_base = 0
+    _, usage = c.chat("m", [{"role": "user", "content": "x"}])
+    assert usage.token_in == 10, f"phải cộng dồn 5+5=10, không chỉ lấy lần cuối: {usage.token_in}"
+    assert usage.token_out == 3, f"lần đầu completion_tokens=0 nên tổng vẫn 0+3=3: {usage.token_out}"
+    assert usage.cost_usd == pytest.approx(0.00003), f"phải cộng dồn 0.00001+0.00002: {usage.cost_usd}"
+
+
+def test_usage_thieu_truong_van_KHONG_bi_bia_sau_khi_cong_don():
+    """Cộng dồn KHÔNG được biến một khoá 'usage' vắng mặt (hoặc thiếu trường)
+    thành một số 0 giả — bất biến "không bịa số" của `_usage_from` phải sống
+    sót qua bản cộng dồn (round 1 review)."""
+
+    def h(req):
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "ok"}}],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1},  # thiếu 'cost'
+            },
+        )
+
+    c = _c(h)
+    c.retry_backoff_base = 0
+    with pytest.raises(ValueError, match="cost"):
+        c.chat("m", [{"role": "user", "content": "x"}])

@@ -34,6 +34,21 @@ class _ContentRongError(Exception):
     """
 
 
+class _JsonDoDangError(Exception):
+    """Nội bộ: content KHÔNG rỗng nhưng bị CẮT GIỮA CHỪNG khi caller đã xin
+    structured output (`finish_reason=length` + `response_format`).
+
+    TÁCH RIÊNG khỏi `_ContentRongError` (review round 1, 2026-09-02) vì ngân
+    sách thử lại phải khác: nếu cắt là CẤU TRÚC (schema + ngữ cảnh cần nhiều
+    token hơn provider chịu phát cho request đó — khác content rỗng, vốn
+    thường là chập chờn provider) thì MỌI lần thử lại đều cắt y hệt. Thử tới
+    `max_retries` trên node ĐẮT NHẤT của graph (`generate_claims`, schema
+    nhiều claim + quote dài) chỉ nhân chi phí và độ trễ trên đường chờ người
+    dùng rồi vẫn thất bại. MỘT lần thử lại đủ bắt ca TẠM THỜI; quá đó là lãng
+    phí đã đo được (review round 1).
+    """
+
+
 @dataclass(frozen=True)
 class Usage:
     token_in: int
@@ -139,15 +154,45 @@ class LlmClient:
         lý do EmbeddingClient._post_with_retry đã né bằng URL tuyệt đối.
         """
         url = f"{self._base_url}/chat/completions"
+        # Ngân sách RIÊNG cho JSON cắt giữa chừng (structural truncation, xem
+        # `_JsonDoDangError`) — ĐỘC LẬP với `attempt`/`max_retries`: một request
+        # có thể ăn vài lần 503 rồi một lần length-cắt, và lần length đó vẫn
+        # chỉ được đúng MỘT cơ hội thử lại, không phải phần ngân sách còn lại
+        # của max_retries.
+        so_lan_length_cat = 0
+        # Cộng dồn usage qua MỌI lần thử — kể cả lần bị loại (content rỗng/JSON
+        # cắt giữa chừng vẫn tốn token thật, `usage.include=true` ở `chat()`).
+        # Không cộng dồn thì `cost_usd` chỉ phản ánh lần cuối, hiểu thấp chi phí
+        # thật mỗi khi có thử lại — số này lên thẳng một khoá luận (review
+        # round 1, Minor, 2026-09-02). Chỉ GHI ĐÈ khoá đã có trong `usage` của
+        # lần cuối, KHÔNG thêm khoá mới: một khoá vắng mặt (vd. thiếu 'cost')
+        # vẫn phải vắng mặt, để `_usage_from` còn raise đúng chỗ thay vì nhận
+        # một số 0 bịa ra.
+        tong: dict[str, int | float] = {"prompt_tokens": 0, "completion_tokens": 0, "cost": 0.0}
         for attempt in range(self.max_retries + 1):
             cho = self.retry_backoff_base * (2**attempt)
             try:
                 r = self._http.post(url, json=body)
                 r.raise_for_status()
                 data = r.json()
+                u = data.get("usage") or {}
+                for k in tong:
+                    tong[k] += u.get(k) or 0
                 content, ly_do_dung = self._boc_content(data)
                 if not content.strip():
                     raise _ContentRongError(ly_do_dung)
+                # Task 1 (2026-09-02): `length` + ĐÃ xin `response_format`
+                # (structured output) ⇒ JSON chắc chắn dở dang, dù `content`
+                # không rỗng — không có "length nhưng vẫn đủ JSON" ở chế độ
+                # này. Đo được trong 45-trap run: `rewrite_query` ăn
+                # JSONDecodeError "Unterminated string" 2/45 lần theo đúng
+                # hình dạng này. Không ép caller KHÔNG xin schema (hành văn tự
+                # do có thể cố ý bị cắt dài) — chỉ structured output mới coi
+                # `length` là lỗi tạm thời cần thử lại, cùng khuôn content rỗng.
+                if ly_do_dung == "length" and "response_format" in body:
+                    raise _JsonDoDangError(ly_do_dung)
+                if u:
+                    data = {**data, "usage": {**u, **{k: v for k, v in tong.items() if k in u}}}
                 return content, data
             except _ContentRongError as e:
                 # Cạn retry vẫn NỔ, không trả chuỗi rỗng: node gọi nó (`route`,
@@ -160,6 +205,18 @@ class LlmClient:
                     ) from None
                 logger.warning(
                     "model %s trả content rỗng (finish_reason=%s), thử lại (lần %d)",
+                    model, e, attempt + 2,
+                )
+            except _JsonDoDangError as e:
+                so_lan_length_cat += 1
+                if so_lan_length_cat > 1 or attempt == self.max_retries:
+                    raise ValueError(
+                        f"model {model}: JSON bị cắt giữa chừng (finish_reason={e}) sau "
+                        f"{so_lan_length_cat} lần thử — có vẻ CẤU TRÚC (schema + ngữ cảnh cần "
+                        f"nhiều token hơn provider chịu phát), không thử thêm"
+                    ) from None
+                logger.warning(
+                    "model %s: JSON bị cắt giữa chừng (finish_reason=%s), thử lại 1 lần (lần %d)",
                     model, e, attempt + 2,
                 )
             except json.JSONDecodeError:
