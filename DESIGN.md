@@ -4,7 +4,7 @@
 
 Tài liệu này **đi theo giao diện, không dẫn giao diện**. Hướng thiết kế của KLAW
 đã đổi ba lần; bản này ghi lại hệ thống thị giác **có thật** trong
-`frontend-moi/src/styles.css`, chứ không suy ra một thế giới thị giác thứ tư.
+`frontend/src/styles.css`, chứ không suy ra một thế giới thị giác thứ tư.
 Mỗi con số dưới đây được **tính trong mã** (`oklch → Oklab → linear sRGB → Y →
 WCAG 2.1`), không ước lượng bằng mắt.
 
@@ -44,7 +44,7 @@ Một câu trả lời, ba lớp — không phải ba giao diện.
 
 ## Bảng màu
 
-Token nguồn ở `frontend-moi/src/styles.css`. Cột HEX và cột tỉ lệ do
+Token nguồn ở `frontend/src/styles.css`. Cột HEX và cột tỉ lệ do
 `scripts/` tính từ chính chuỗi `oklch()` trong tệp đó, không chép tay.
 
 ### Nền, mực, khung

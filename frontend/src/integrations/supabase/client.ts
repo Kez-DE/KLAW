@@ -43,7 +43,7 @@ function createSupabaseClient() {
       ...(!SUPABASE_PUBLISHABLE_KEY ? ["SUPABASE_PUBLISHABLE_KEY"] : []),
     ];
     throw new Error(
-      `Thiếu biến môi trường Supabase: ${missing.join(", ")}. Xem frontend-moi/.env.example.`,
+      `Thiếu biến môi trường Supabase: ${missing.join(", ")}. Xem frontend/.env.example.`,
     );
   }
 

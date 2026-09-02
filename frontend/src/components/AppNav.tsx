@@ -41,7 +41,7 @@ export function AppNav({ active }: { active?: string }) {
             <span
               role="status"
               className="ml-1 shrink-0 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground"
-              title="Thiếu VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY — xem frontend-moi/.env.example"
+              title="Thiếu VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY — xem frontend/.env.example"
             >
               Chưa cấu hình đăng nhập
             </span>

@@ -15,7 +15,7 @@
 import assert from "node:assert/strict";
 
 import { TOI_DA_LUOT_LICH_SU, TOI_DA_TRA_LOI_LICH_SU } from "../src/lib/klaw.ts";
-import { dungLichSu, type LuotDaXong } from "../src/lib/lich-su.ts";
+import { dungLichSu, TOI_DA_DUONG_DAN_LICH_SU, type LuotDaXong } from "../src/lib/lich-su.ts";
 
 const kq = (answer: string | null, duongDan: string[] = []) =>
   ({
@@ -63,6 +63,48 @@ const kq = (answer: string | null, duongDan: string[] = []) =>
     { cauHoi: "c", ketQua: kq("đ", ["45/2019/QH14 > Điều 35", "45/2019/QH14 > Điều 36"]) },
   ]);
   assert.deepEqual(l?.duong_dan, ["45/2019/QH14 > Điều 35", "45/2019/QH14 > Điều 36"]);
+}
+
+// `duong_dan` khử TRÙNG LẶP CHÍNH XÁC, giữ thứ tự xuất hiện ĐẦU TIÊN — không
+// sort, không gộp theo phần con.
+{
+  const [l] = dungLichSu([
+    {
+      cauHoi: "c",
+      ketQua: kq("đ", [
+        "45/2019/QH14 > Điều 35",
+        "45/2019/QH14 > Điều 36",
+        "45/2019/QH14 > Điều 35", // trùng lặp CHÍNH XÁC, phải bị loại
+      ]),
+    },
+  ]);
+  assert.deepEqual(l?.duong_dan, ["45/2019/QH14 > Điều 35", "45/2019/QH14 > Điều 36"]);
+}
+
+// Trần `duong_dan`: máy chủ 422 (không truncate) nếu quá `max_length=50`.
+// PHẢI khử trùng TRƯỚC rồi mới cắt — nếu thiếu trần này, một lượt 71 trích
+// dẫn (đo được thật trên `traces`) làm MỌI lượt nối tiếp 422 cho tới khi lượt
+// đó trôi khỏi cửa sổ 3 lượt.
+{
+  const trung = Array.from({ length: TOI_DA_DUONG_DAN_LICH_SU * 2 }, () => "lặp/Điều 1");
+  const [chiMotPhanTu] = dungLichSu([{ cauHoi: "c", ketQua: kq("đ", trung) }]);
+  assert.deepEqual(
+    chiMotPhanTu?.duong_dan,
+    ["lặp/Điều 1"],
+    "khử trùng phải gộp mọi bản sao về đúng MỘT phần tử, không đụng trần",
+  );
+
+  const phanBiet = Array.from(
+    { length: TOI_DA_DUONG_DAN_LICH_SU + 10 },
+    (_, i) => `phân biệt/Điều ${i}`,
+  );
+  const [daCat] = dungLichSu([{ cauHoi: "c", ketQua: kq("đ", phanBiet) }]);
+  assert.equal(daCat?.duong_dan.length, TOI_DA_DUONG_DAN_LICH_SU, "phải cắt còn đúng trần");
+  assert.deepEqual(
+    daCat?.duong_dan,
+    phanBiet.slice(0, TOI_DA_DUONG_DAN_LICH_SU),
+    "phải giữ các phần tử PHÂN BIỆT xuất hiện trước, đúng thứ tự cũ",
+  );
 }
 
 // Hội thoại rỗng ⇒ mảng rỗng, để nơi gọi bỏ hẳn khoá `lich_su` (lượt đầu 0 token).

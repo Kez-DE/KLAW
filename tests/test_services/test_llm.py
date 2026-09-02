@@ -464,6 +464,37 @@ def test_json_schema_can_retry_van_cat_thi_nem_khong_tra_JSON_do_dang():
         c.chat("m", [{"role": "user", "content": "x"}], json_schema={"type": "object"})
 
 
+def test_content_rong_VA_length_VA_schema_dung_ngan_sach_length_khong_phai_content_rong():
+    """Review round 2 [Important] (2026-09-02): cắt TOÀN BỘ — model tiêu hết
+    ngân sách output cho suy luận + schema lớn, phát ra 0 ký tự — vẫn có
+    `finish_reason=length` + `response_format`, tức content RỖNG. Trước bản
+    này nhánh content rỗng (`_ContentRongError`, ngân sách ĐẦY ĐỦ
+    `max_retries`) bắt ca này TRƯỚC khi nhánh length-cắt (`_JsonDoDangError`,
+    ngân sách MỘT lần thử lại) kịp thấy — nên đúng ca CẤU TRÚC nhất trong hai
+    lớp lại ăn 4 lần gọi thay vì 2, trên `generate_claims`, node đắt nhất của
+    graph, trên đường người dùng đang chờ."""
+    calls = {"n": 0}
+
+    def h(req):
+        calls["n"] += 1
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": ""}, "finish_reason": "length"}],
+                "usage": _USAGE_OK,
+            },
+        )
+
+    c = _c(h)
+    c.retry_backoff_base = 0
+    with pytest.raises(ValueError, match="length"):
+        c.chat("m", [{"role": "user", "content": "x"}], json_schema={"type": "object"})
+    assert calls["n"] == 2, (
+        f"phải dừng sau 2 lần gọi (ngân sách RIÊNG của length-cắt), không ăn hết "
+        f"max_retries=4 lần gọi như nhánh content rỗng thường: {calls['n']}"
+    )
+
+
 def test_length_KHONG_xin_structured_output_thi_KHONG_bi_ep_thu_lai():
     """Không xin `json_schema` thì `length` có thể là một câu trả lời dài hợp
     lệ bị cắt theo đúng ý caller (vd. hành văn tự do) — không được ép thử lại

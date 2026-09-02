@@ -179,8 +179,6 @@ class LlmClient:
                 for k in tong:
                     tong[k] += u.get(k) or 0
                 content, ly_do_dung = self._boc_content(data)
-                if not content.strip():
-                    raise _ContentRongError(ly_do_dung)
                 # Task 1 (2026-09-02): `length` + ĐÃ xin `response_format`
                 # (structured output) ⇒ JSON chắc chắn dở dang, dù `content`
                 # không rỗng — không có "length nhưng vẫn đủ JSON" ở chế độ
@@ -189,8 +187,19 @@ class LlmClient:
                 # hình dạng này. Không ép caller KHÔNG xin schema (hành văn tự
                 # do có thể cố ý bị cắt dài) — chỉ structured output mới coi
                 # `length` là lỗi tạm thời cần thử lại, cùng khuôn content rỗng.
+                #
+                # PHẢI đứng TRƯỚC nhánh content rỗng ngay dưới: cắt TOÀN BỘ
+                # (model tiêu hết ngân sách cho suy luận + schema lớn, phát ra
+                # 0 ký tự) vẫn có finish_reason=length + response_format, và đó
+                # là ca CẤU TRÚC nhất — review round 2 (2026-09-02): nếu nhánh
+                # content rỗng bắt trước, ca này ăn hẳn max_retries (4 lần gọi
+                # HTTP trên `generate_claims`, node đắt nhất graph) thay vì
+                # ngân sách RIÊNG một-lần-thử-lại mà lớp lỗi CẤU TRÚC này được
+                # thiết kế để dùng (2 lần gọi).
                 if ly_do_dung == "length" and "response_format" in body:
                     raise _JsonDoDangError(ly_do_dung)
+                if not content.strip():
+                    raise _ContentRongError(ly_do_dung)
                 if u:
                     data = {**data, "usage": {**u, **{k: v for k, v in tong.items() if k in u}}}
                 return content, data

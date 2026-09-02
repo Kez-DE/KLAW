@@ -36,7 +36,13 @@ export function useAuth() {
         // được ghi TRƯỚC khi điều hướng; gọi hai lần ở đó là vô hại vì
         // `POST /nguoi-dung` idempotent. Thà gọi thừa một lượt còn hơn để một
         // đường đăng nhập không được đếm.
-        if (e === "SIGNED_IN" && s !== null) void ghiNhanNguoiDung().catch(() => {});
+        if (e === "SIGNED_IN" && s !== null)
+          void ghiNhanNguoiDung().catch((loi: unknown) =>
+            console.warn(
+              "ghiNhanNguoiDung thất bại — hạn mức theo-người sẽ không áp cho lượt này:",
+              loi,
+            ),
+          );
       });
       huy = () => data.subscription.unsubscribe();
       void supabase.auth.getSession().then(({ data: d }) => {

@@ -50,6 +50,10 @@ export function useTraCuu(): TrangThaiTraCuu {
   const [daPhat, datDaPhat] = useState<SuKienBuoc[]>([]);
   const [traceId, datTraceId] = useState<string | null>(null);
   const luot = useRef(0);
+  // `lichSu` của lượt VỪA hỏi, giữ bên cạnh `cauHoi` để `thuLai` phát lại
+  // ĐÚNG cùng đối số — thiếu nó thì hỏi lại một câu nối tiếp mất `lich_su`,
+  // `_vao_graph` coi như câu ĐỘC LẬP và tái hiện đúng lỗi ban đầu.
+  const lichSuGanNhat = useRef<LuotTruoc[] | undefined>(undefined);
 
   const hoi = useCallback(
     (noiDungTho: string, lichSu?: LuotTruoc[]) => {
@@ -59,6 +63,7 @@ export function useTraCuu(): TrangThaiTraCuu {
       luot.current += 1;
       const luotNay = luot.current;
 
+      lichSuGanNhat.current = lichSu;
       datCauHoi(noiDung);
       datCacBuoc([]);
       datDaPhat([]);
@@ -106,7 +111,7 @@ export function useTraCuu(): TrangThaiTraCuu {
   }, [huyGoi]);
 
   const thuLai = useCallback(() => {
-    if (cauHoi !== null) hoi(cauHoi);
+    if (cauHoi !== null) hoi(cauHoi, lichSuGanNhat.current);
   }, [cauHoi, hoi]);
 
   const datLai = useCallback(() => {
