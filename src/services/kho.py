@@ -151,6 +151,39 @@ def _nhan(hieu_luc) -> str:
     return _NHAN.get(hieu_luc.verdict, _NHAN_MAC_DINH)
 
 
+def hien_van_ban(so_ky_hieu: str, ten: str) -> tuple[str, str]:
+    """`(số hiệu, tên)` như NGƯỜI ĐỌC được thấy — MỘT chỗ quyết định cho cả
+    `kho.py` lẫn `assemble.py`.
+
+    ĐO ĐƯỢC 2026-09-02 trên mặt người dùng: `documents` id 8532 mang
+    `so_ky_hieu = 'Không số'` và `ten = 'Luật Thương mại số Không số'` (crawler
+    ghép `ten + " số " + so_ky_hieu`), và câu trả lời hiện ra "Không số (Luật
+    Thương mại số Không số)". Hai lời nói sai trong một dòng: `Không số` được
+    trình bày như một định danh tra được, và cái tên thì lặp lại nó.
+
+    Kiểm bằng CHỮ SỐ, KHÔNG bằng danh sách giá trị xấu: mọi số hiệu văn bản pháp
+    luật Việt Nam đều mang năm ban hành, nên phép kiểm này không loại oan một số
+    hiệu thật nào — và nó bắt được cả dạng dị dạng chưa từng xuất hiện, thứ mà
+    một danh sách `{'Không số'}` sẽ bỏ sót đúng vào lần crawl sau.
+
+    Cắt hậu tố theo QUY TẮC (`" số " + so_ky_hieu`), không theo chuỗi cứng
+    `" số Không số"`, vì đó chính là cách crawler dựng `ten`. Chỉ cắt trong
+    nhánh DỊ DẠNG: "Bộ luật Dân sự số 91/2015/QH13" thì thừa chứ không sai, và
+    cắt nó là sửa lời một dòng đang đúng.
+
+    KHÔNG đụng `so_ky_hieu` trong DB hay trong `duong_dan` — đó là khoá dữ liệu,
+    sửa nó là sửa neo trích dẫn.
+    """
+    so = (so_ky_hieu or "").strip()
+    ten = (ten or "").strip()
+    if any(c.isdigit() for c in so):
+        return so, ten
+    hau_to = f" số {so}"
+    if so and ten.endswith(hau_to):
+        ten = ten[: -len(hau_to)].strip()
+    return "", ten
+
+
 def nap_kho(engine: Engine, as_of: date) -> list[dict]:
     """TOÀN BỘ `documents` kèm phán quyết hiệu lực — kể cả bản đã bị thay.
 
@@ -200,7 +233,7 @@ def _dong_van_ban(r: dict) -> str:
     """Một văn bản, ba dòng. `ly_do` NGUYÊN VĂN của effectivity, không tóm lại:
     nó là chỗ nêu ĐÍCH DANH văn bản đi thay hoặc đi sửa ("bị 19/2023/QH15 sửa
     đổi… từ 2024-07-01"), và một nhãn chung chung xoá mất đúng thông tin đó."""
-    return (f"- {r['so_ky_hieu']} — {r['ten']}\n"
+    return (f"- {' — '.join(x for x in hien_van_ban(r['so_ky_hieu'], r['ten']) if x)}\n"
             f"  Mức phủ: {_muc_phu(r['depth'])}.\n"
             f"  Hiệu lực: {_nhan(r['hieu_luc'])} — {r['hieu_luc'].ly_do}.")
 
@@ -224,7 +257,8 @@ def _khoi_mot_so(so: str, kho: list[dict]) -> list[str]:
     if len(khop) == 1:
         r = khop[0]
         return [
-            f"Có. Trong kho của mình có {r['so_ky_hieu']} — {r['ten']}.",
+            "Có. Trong kho của mình có "
+            f"{' — '.join(x for x in hien_van_ban(r['so_ky_hieu'], r['ten']) if x)}.",
             f"Mức phủ: {_muc_phu(r['depth'])}.",
             f"Hiệu lực: {_nhan(r['hieu_luc'])} — {r['hieu_luc'].ly_do}.",
         ]
@@ -320,7 +354,8 @@ def _tom_tat(kho: list[dict]) -> str:
         # bị sửa đổi một phần — liệt kê chúng như văn bản nguyên vẹn là bỏ đúng
         # cái người đọc cần biết.
         khoi.append(f"{len(bo_luat)} Bộ luật đang có trong kho:\n" + "\n".join(
-            f"- {r['ten']} — {_nhan(r['hieu_luc'])}" for r in bo_luat))
+            f"- {hien_van_ban(r['so_ky_hieu'], r['ten'])[1]} — {_nhan(r['hieu_luc'])}"
+            for r in bo_luat))
 
     khoi.append(CAU_GIOI_HAN)
     return "\n\n".join(khoi)

@@ -29,9 +29,11 @@ from pathlib import Path
 import pytest
 
 from src.agents.nodes import assemble as m_assemble
+from src.agents.nodes import gioi_thieu as m_gioi_thieu
 from src.agents.nodes import hoi_lai as m_hoi_lai
 from src.agents.nodes.assemble import ResultType, assemble
 from src.agents.nodes.generate_claims import Claim
+from src.agents.nodes.gioi_thieu import cau_gioi_thieu
 from src.agents.nodes.hoi_lai import CAU_DAN
 from src.agents.nodes.verify_tier1 import Tier1Reason as R
 from src.agents.nodes.verify_tier1 import Tier1Result
@@ -51,7 +53,10 @@ CUM_BI_CAM = (
     "máy chủ trả về",
 )
 
-TSX = Path(__file__).resolve().parents[2] / "frontend-moi/src/components/klaw/TheKetQua.tsx"
+TSX = Path(__file__).resolve().parents[2] / "frontend/src/components/klaw/TheKetQua.tsx"
+# Đổi tên `frontend-moi/` → `frontend/` (2026-09-02) làm hai test ở đây đỏ với
+# một lỗi đọc file khó hiểu. Assert này biến lần sau thành một câu nói rõ.
+assert TSX.exists(), f"không thấy {TSX} — thư mục frontend đã đổi tên?"
 
 DB = {11: {"id": 11, "document_id": "139264", "cap": "dieu",
            "duong_dan": "45/2019/QH14 > Điều 26", "so_ky_hieu": "45/2019/QH14",
@@ -81,7 +86,11 @@ def _chuoi_trong(x: object) -> list[str]:
     return []
 
 
-@pytest.mark.parametrize("mo_dun", [m_assemble, m_hoi_lai], ids=["assemble", "hoi_lai"])
+# `m_gioi_thieu` có trong danh sách vì các hằng số lời tự giới thiệu ĐÃ CHUYỂN
+# khỏi `assemble` sang đó 2026-09-02 (`GIOI_THIEU` → năm dạng). Thiếu nó, phép
+# quét này lặng lẽ mất đúng những chuỗi nó vốn đang canh.
+@pytest.mark.parametrize("mo_dun", [m_assemble, m_gioi_thieu, m_hoi_lai],
+                         ids=["assemble", "gioi_thieu", "hoi_lai"])
 def test_hang_so_cua_mo_dun_khong_mang_giong_he_thong(mo_dun):
     """Quét HẰNG SỐ THẬT qua `vars(module)`, không chép lại chuỗi cần tìm: một
     test liệt kê tay đúng những câu hôm nay có sẽ mù với câu thêm vào mai."""
@@ -206,3 +215,15 @@ def test_nhanh_khong_co_cau_tra_loi_van_hien_duoc_coverage_note_nhieu_doan():
     assert ma.count("<KhoiVanXuoi chu={ghiChuPhamVi}") == 2, (
         "nhánh abstain và partial_coverage phải cùng hiện coverage_note qua catDoan"
     )
+
+
+# Dạng 3 (model nào / chạy bằng gì) được DỰNG LÚC CHẠY từ config, nên nó không
+# phải một hằng số cấp module và phép quét `vars(...)` ở trên mù với nó. Quét
+# chính ĐẦU RA của bộ chọn dạng, cùng lý do các nhánh ngõ cụt được quét ở đầu ra.
+@pytest.mark.parametrize("cau_hoi", [
+    "chào bạn", "bạn làm được những gì", "model của bạn là gì",
+    "dữ liệu của bạn lấy từ đâu", "cảm ơn bạn",
+])
+def test_moi_dang_gioi_thieu_khong_mang_giong_he_thong(cau_hoi):
+    chu = cau_gioi_thieu(cau_hoi)
+    assert not _cum_vuong(chu), f"{cau_hoi!r} mang {_cum_vuong(chu)}: {chu!r}"

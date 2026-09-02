@@ -41,7 +41,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
-from src.api.routes import BUOC_TRA_CUU, chay_tra_cuu, tra_cuu_response
+from src.api.routes import BUOC_TRA_CUU, buoc_cua_luot, chay_tra_cuu, tra_cuu_response
 from src.config import get_settings
 from src.models.schemas import TraCuuRequest
 from src.services.bao_ve import cong_bao_ve
@@ -50,13 +50,24 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_TONG = len(BUOC_TRA_CUU)
-_THU_TU = {ten: i for i, (ten, _) in enumerate(BUOC_TRA_CUU, start=1)}
 _NHAN = dict(BUOC_TRA_CUU)
 
 # Bước "cache" không phải một node của graph — nó là nhánh KHÔNG chạy node nào.
 _NHAN["cache"] = "Lấy câu trả lời từ bộ đệm"
-_THU_TU["cache"] = _TONG
+
+
+def _thu_tu_va_tong(req: TraCuuRequest) -> tuple[dict[str, int], int]:
+    """Số thứ tự và tổng số bước của LƯỢT NÀY.
+
+    Per-request, không phải hằng số module: `giai_nghia` chỉ chạy ở lượt hỏi nối
+    tiếp (`routes.buoc_cua_luot`), nên một bảng thứ tự dùng chung sẽ cho lượt đầu
+    một thanh tiến trình mở màn ở "bước 2/10" với một bước 1 không bao giờ tới.
+    `_NHAN` thì vẫn dùng chung — nhãn của một bước không phụ thuộc lượt nào.
+    """
+    buoc = buoc_cua_luot(req)
+    thu_tu = {ten: i for i, (ten, _) in enumerate(buoc, start=1)}
+    thu_tu["cache"] = len(buoc)
+    return thu_tu, len(buoc)
 
 # Giữ tham chiếu mạnh tới task đang chạy: `asyncio.create_task` chỉ giữ tham
 # chiếu YẾU, nên một task không được ai giữ có thể bị thu gom giữa chừng — và
@@ -89,6 +100,8 @@ async def _chay_nen(
     đi giữa chừng thì hàng đợi giữ vài sự kiện nhỏ rồi bị thu gom cùng task.
     """
 
+    thu_tu, tong = _thu_tu_va_tong(req)
+
     async def phat(ten: str, chi_tiet: dict) -> None:
         await hang.put(("buoc", {
             "buoc": ten,
@@ -96,8 +109,8 @@ async def _chay_nen(
             # được phát, kèm nhãn nói thẳng là chưa khai — nuốt nó đi làm một
             # bước thật biến mất khỏi thanh tiến trình mà không ai biết.
             "nhan": _NHAN.get(ten, f"Bước {ten} (chưa khai nhãn)"),
-            "thu_tu": _THU_TU.get(ten),
-            "tong": _TONG,
+            "thu_tu": thu_tu.get(ten),
+            "tong": tong,
             "chi_tiet": chi_tiet,
         }))
 
@@ -178,7 +191,7 @@ async def tra_cuu_luong(
         "config_name": req.config_name or get_settings().eval_config_name,
         "cac_buoc": [
             {"buoc": ten, "nhan": nhan, "thu_tu": i}
-            for i, (ten, nhan) in enumerate(BUOC_TRA_CUU, start=1)
+            for i, (ten, nhan) in enumerate(buoc_cua_luot(req), start=1)
         ],
     }))
 

@@ -219,3 +219,16 @@ def test_bo_loc_chan_ca_MOC_VIET_BANG_CHU(cau):
 ])
 def test_bo_loc_KHONG_loai_oan_cau_hoi_du_kien(cau):
     assert not bi_loai(cau), f"loại oan một câu hỏi dữ kiện: {cau!r}"
+
+
+@pytest.mark.parametrize("cau", [
+    # `lăm`/`mốt` là DẠNG GHÉP bắt buộc của tiếng Việt: 5 trong số ghép luôn là
+    # "lăm", 1 là "mốt". Thiếu chúng khỏi `_SO_BANG_CHU` thì "bốn mươi lăm ngày"
+    # lọt trong khi "bốn mươi năm ngày" — cách không ai viết — bị bắt. Lỗ này
+    # nằm trong chính bản mở rộng bộ lọc của sáng 2026-09-02.
+    "Bạn có được báo trước bốn mươi lăm ngày không?",
+    "Bạn đã làm mười lăm tháng chưa?",
+    "Hợp đồng của bạn có thời hạn hai mươi mốt tháng không?",
+])
+def test_bo_loc_chan_dang_so_GHEP_lam_va_mot(cau):
+    assert bi_loai(cau), f"lọt qua bộ lọc: {cau!r}"

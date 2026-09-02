@@ -46,9 +46,11 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TypedDict
 
+from src.agents.nodes.gioi_thieu import cau_gioi_thieu
 from src.agents.nodes.hoi_lai import hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
 from src.services.effectivity import EffectivityVerdict as V
+from src.services.kho import hien_van_ban
 from src.services.llm import Usage
 
 logger = logging.getLogger(__name__)
@@ -295,6 +297,24 @@ KHONG_TIM_DUOC = ("Trong kho của mình không có văn bản nào khớp đư�
                   "chưa có gì chắc chắn để nói. Kho là tập văn bản mình đã nạp, vậy nên đây "
                   "không phải kết luận rằng pháp luật không quy định về việc bạn hỏi.")
 
+# Nửa đầu khi câu hỏi NỐI TIẾP không giải nghĩa được (`giai_nghia` trả None, rẽ
+# thẳng vào đây). Nhánh đó chưa chạy truy hồi, nên nửa đầu MẶC ĐỊNH
+# (`KHONG_TIM_DUOC`) sẽ nói "kho không có văn bản nào khớp" — một câu SAI: kho
+# chưa được tra lần nào, và cái thiếu là mình chưa biết câu hỏi trỏ vào đâu.
+# Cùng lớp lỗi với "văn bản chi phối" ở `_phu_mot_phan`, chỉ khác chiều.
+CHUA_GIAI_NGHIA_DUOC = (
+    "Câu hỏi này của bạn nối tiếp câu trước, mà mình chưa chắc nó đang trỏ về phần nào "
+    "trong những gì mình vừa nói, nên mình không đi tra vội — tra theo một phỏng đoán "
+    "thì mình sẽ trả lời một câu bạn không hỏi mà bạn cũng không có cách nào biết."
+)
+
+
+def _nhan_van_ban(so_ky_hieu: str, ten: str) -> str:
+    """`"<số hiệu> (<tên>)"` — dạng hiển thị của module này, dựng từ cặp đã được
+    `hien_van_ban` làm sạch. Rỗng khi không còn gì nói được về văn bản đó."""
+    so, ten = hien_van_ban(so_ky_hieu, ten)
+    return f"{so} ({ten})" if so and ten else (so or ten)
+
 
 def _van_ban_va_vi_tri(hits: list[dict]) -> tuple[list[str], list[str]]:
     """`(tên văn bản, vị trí điều khoản)` — nửa đầu của mọi ngõ cụt, rút từ
@@ -304,9 +324,14 @@ def _van_ban_va_vi_tri(hits: list[dict]) -> tuple[list[str], list[str]]:
     bản `shallow` đúng một hàng mang `duong_dan = '<số hiệu> > Mở đầu'`, nên nêu
     nó ra cho người hỏi vừa vô nghĩa vừa GỢI SAI — nó trông như một vị trí điều
     khoản trong khi văn bản đó chưa có điều khoản nào được nạp.
+
+    Nhãn văn bản đi qua `hien_van_ban` (`services/kho.py`, xem docstring ở đó):
+    `so_ky_hieu = 'Không số'` từng ra tới màn hình thành "Không số (Luật Thương
+    mại số Không số)". Bỏ hẳn dòng không còn nhãn nào — thà thiếu một tên còn
+    hơn in ra một chuỗi rỗng đội lốt định danh.
     """
-    ten = sorted({f"{p['so_ky_hieu']} ({t})" if (t := (p.get("ten") or "").strip())
-                  else str(p["so_ky_hieu"]) for p in hits if p.get("so_ky_hieu")})
+    ten = sorted({nhan for p in hits
+                  if (nhan := _nhan_van_ban(p.get("so_ky_hieu") or "", p.get("ten") or ""))})
     vi_tri = list(dict.fromkeys(p["duong_dan"] for p in hits
                                 if p.get("duong_dan") and p.get("cap") != "mo_dau"))[:3]
     return ten, vi_tri
@@ -318,13 +343,18 @@ def _da_biet(state: dict) -> str:
     Phải KIỂM trước khi nói không biết gì — `expanded` và `hits_shallow` thường
     KHÁC RỖNG ngay cả khi `claims == 0`. Đo được 2026-09-02: `deep=30`,
     `claims=0`, và người hỏi nhận một màn hình trắng trong lúc hệ thống đang cầm
-    ba mươi điều khoản cùng tên các văn bản chi phối câu hỏi.
+    ba mươi điều khoản cùng tên các văn bản đã khớp câu hỏi.
+
+    Nói "KHỚP TỪ NGỮ", không nói "chi phối câu hỏi của bạn" — cùng lý do với
+    `_phu_mot_phan`, xem chú thích ở đó. Khi không dựng nổi một luận điểm nào
+    thì chính điều chưa biết là văn bản đó CÓ chi phối câu hỏi hay không, nên
+    khẳng định nó ở đây là phát biểu đúng cái mình vừa không chứng minh được.
     """
     ten, vi_tri = _van_ban_va_vi_tri([*(state.get("expanded") or []),
                                       *(state.get("hits_shallow") or [])])
     if not ten:
         return KHONG_TIM_DUOC
-    return (f"Câu hỏi của bạn nằm trong {'; '.join(ten)}"
+    return (f"Mình tìm được {'; '.join(ten)} khớp từ ngữ với câu hỏi của bạn"
             + (f", và mình đọc được tới {', '.join(vi_tri)}" if vi_tri else "")
             + ". Mình chưa đối chiếu được điều khoản nào trong đó thành một câu trả lời "
               "mình dám nói chắc với bạn, nên mình dừng ở đây thay vì đoán.")
@@ -368,37 +398,11 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
     return ket
 
 
-# Câu trả lời cho `intent == gioi_thieu`. CỐ Ý không nhúng số liệu corpus (số
-# văn bản, số điều khoản): chúng đổi mỗi lần mở rộng kho, và một con số cũ nằm
-# trong lời tự giới thiệu là kiểu sai khó phát hiện nhất — không test nào đỏ,
-# không ai đọc lại. `/pham-vi` đọc thẳng từ DB, nên chỗ đó mới là chỗ nói số.
-#
-# Nói được mình làm gì mà không nói được mình KHÔNG làm gì thì là quảng cáo,
-# không phải câu trả lời trung thực — nên đoạn giới hạn nằm ngay trong này chứ
-# không nằm ở một trang khác người hỏi phải tự tìm.
-GIOI_THIEU = (
-    "Chào bạn. Tôi tra cứu pháp luật Việt Nam và soạn thảo văn bản pháp lý lao động.\n"
-    "\n"
-    "Điều tôi làm khác các trợ lý khác: mỗi câu tôi nói đều neo vào một trích dẫn "
-    "bạn bấm được để mở đúng nguyên văn điều luật, và trước khi hiển thị, câu trích "
-    "đó đã được đối chiếu từng chữ với văn bản gốc. Nếu không đủ căn cứ, tôi nói "
-    "thẳng là không đủ — tôi không đoán.\n"
-    "\n"
-    "Bạn hỏi được: quyền lợi khi bị trừ lương hay cho nghỉ việc, thời giờ làm việc "
-    "và nghỉ phép, hợp đồng lao động, kỷ luật lao động, an toàn lao động, và nội "
-    "dung của sáu Bộ luật (Dân sự, Hình sự, Tố tụng dân sự, Tố tụng hình sự, Lao "
-    "động, Hàng hải). Tôi soạn được hợp đồng lao động, nội quy lao động và quyết "
-    "định kỷ luật.\n"
-    "\n"
-    "Tôi chưa phủ: thuế, đất đai, hôn nhân gia đình, doanh nghiệp, đầu tư, sở hữu "
-    "trí tuệ. Chiều sâu cũng không đều — riêng Lao động mới có đủ luật, nghị định, "
-    "thông tư và chế tài.\n"
-    "\n"
-    "Một điều nữa bạn nên biết: kho của tôi là văn bản gốc, không phải bản hợp "
-    "nhất. Tôi bảo đảm trích dẫn đúng nguyên văn và đúng nguồn, và tôi gắn nhãn "
-    "hiệu lực cho từng trích dẫn — nhưng bạn vẫn nên đối chiếu bản hiện hành trước "
-    "khi dùng vào việc quan trọng."
-)
+# Câu trả lời cho `intent == gioi_thieu` sống ở `nodes/gioi_thieu.py`, KHÔNG ở
+# đây. Trước 2026-09-02 nó là một hằng số `GIOI_THIEU` duy nhất, và hai câu hỏi
+# khác nhau ("bạn làm được những gì" 09:21:36, "model của bạn là gì" 09:22:22 —
+# bảng `traces`) nhận về đúng cùng 1.104 ký tự đó, từng chữ một. Nay câu hỏi được
+# tách thành dạng bằng quy tắc; đây vẫn là MỘT `result_type`, chỉ `answer` đổi.
 
 
 # Câu trả lời cho `intent == soan_thao`.
@@ -439,7 +443,19 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         # tắt trong `graph_tra_cuu`, không nhờ riêng khâu này không gọi LLM.
         # ĐO ĐƯỢC 2026-09-02, TRƯỚC khi có đường rẽ: nhánh này tiêu 8.975 token
         # và dựng 15 luận điểm qua cả hai tầng rồi vứt sạch.
-        return _base(state, ResultType.gioi_thieu, answer=GIOI_THIEU)
+        #
+        # `cau_gioi_thieu` chọn lời đáp theo DẠNG câu hỏi bằng quy tắc — vẫn 0
+        # token, và cố ý KHÔNG nhận `llm`: model không biết nó đang chạy trên
+        # model nào hay kho có gì, nên để nó tự sinh câu trả lời về chính mình
+        # là mời đúng loại ảo giác hai tầng kiểm không bắt được (không có trích
+        # dẫn nào để đối chiếu).
+        #
+        # `.get(...) or ""` chứ không phải `state["query"]`: câu rỗng rơi về bài
+        # năng lực — mặc định an toàn — thay vì nổ ở một nhánh vốn không cần
+        # truy vấn gì. Khác `tra_loi_kho` ngay dưới, nơi khoá thiếu LÀ lỗi nối
+        # dây và một `answer` rỗng chính là chế độ hỏng cần nổ ra.
+        return _base(state, ResultType.gioi_thieu,
+                     answer=cau_gioi_thieu(state.get("query") or ""))
 
     if state.get("intent") == "hoi_ve_kho":
         # Chuỗi do `graph_tra_cuu.n_assemble` tính SẴN bằng SQL — khâu này chỉ
@@ -466,6 +482,19 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
     if state.get("tien_de_sai"):
         return _ngo_cut(state, llm, model, ResultType.abstain, ghi_chu=state["tien_de_sai"])
 
+    # Câu hỏi nối tiếp không giải nghĩa được — cùng hình dạng với `tien_de_sai`
+    # ngay trên: một vấn đề ở tầng ĐẦU VÀO, biết trước khi tra, và nhánh này chỉ
+    # cấp một nửa đầu ĐÚNG cho ngõ cụt.
+    #
+    # Phải kiểm CẢ `lich_su`: `cau_hoi_day_du is None` một mình cũng đúng cho
+    # lượt ĐẦU (nó không chạy `giai_nghia` bao giờ), và một lượt đầu không tìm
+    # được gì thì `KHONG_TIM_DUOC` mới là câu đúng.
+    #
+    # KHÔNG đổi `result_type` và không thêm loại mới: pha này đổi LỜI của ngõ
+    # cụt, không đổi KHI NÀO ngõ cụt.
+    if state.get("lich_su") and state.get("cau_hoi_day_du") is None:
+        return _ngo_cut(state, llm, model, ResultType.abstain, ghi_chu=CHUA_GIAI_NGHIA_DUOC)
+
     deep = state.get("expanded") or []
     shallow = state.get("hits_shallow") or []
 
@@ -475,22 +504,40 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
     # Nửa đầu KHÔNG nêu `duong_dan` nữa: mọi dòng tầng nông đều là hàng `mo_dau`
     # của migration 016, nên câu cũ in ra "liên quan 84/2015/QH13 > Mở đầu" —
     # một vị trí không tồn tại như một vị trí. Xem `_van_ban_va_vi_tri`.
+    #
+    # Và nửa đầu KHÔNG còn nói "Câu hỏi của bạn nằm trong X". ĐO ĐƯỢC
+    # 2026-09-02: "liệt kê bảng cho tôi" khớp NHIỄU hai văn bản `shallow` —
+    # 120/2025/QH15 (Luật Phòng chống ma túy) và 8532 (Luật Thương mại) — và
+    # người hỏi nhận về một câu khẳng định rằng câu hỏi của họ nằm trong Luật
+    # Phòng chống ma túy. Đó là một lời nói SAI, không phải một lời nói mềm.
+    #
+    # Điều đúng được nói ra thay: mấy văn bản này KHỚP TỪ NGỮ trong câu hỏi, và
+    # mình chưa có toàn văn để đọc. KHÔNG dựng bộ phân loại "câu hỏi có nội dung
+    # pháp lý hay không" để chặn khớp nhiễu ở gốc — đó lại là một danh sách từ
+    # khoá pháp lý cần thẩm quyền domain, đúng thứ đã bị từ chối cho bộ lọc
+    # `hoi_lai`. Và điểm RRF không tới được tầng này: `KLawState.retrieved` là
+    # `list[int]`, `Retriever.provision_ids()` bỏ điểm.
     def _phu_mot_phan() -> dict:
         ten, _ = _van_ban_va_vi_tri(shallow)
         # Gộp theo doc_id: nhiều Điều của cùng một văn bản là MỘT nguồn. Không
         # có doc_id thì bỏ qua dòng đó — thà thiếu một link còn hơn dựng một
         # link hỏng, và giao diện đã có `coverage_note` nêu tên văn bản.
+        #
+        # `so_ky_hieu`/`bo_luat` đi qua `hien_van_ban`: hai trường này là thứ
+        # giao diện IN RA cạnh nút mở văn bản gốc, còn khoá dựng URL là `doc_id`
+        # — nên làm sạch chúng không đụng tới đường tra cứu nào.
         nguon: list[dict] = []
         for p in shallow:
             doc_id = str(p.get("document_id") or "")
             if doc_id and not any(n["doc_id"] == doc_id for n in nguon):
-                nguon.append({"doc_id": doc_id, "so_ky_hieu": p.get("so_ky_hieu", ""),
-                              "bo_luat": p.get("ten") or ""})
+                so, ten_vb = hien_van_ban(p.get("so_ky_hieu") or "", p.get("ten") or "")
+                nguon.append({"doc_id": doc_id, "so_ky_hieu": so, "bo_luat": ten_vb})
         return _ngo_cut(state, llm, model, ResultType.partial_coverage, nguon=nguon, ghi_chu=(
-            f"Câu hỏi của bạn nằm trong {'; '.join(ten)}. "
+            f"Mình tìm được {'; '.join(ten)} khớp từ ngữ với câu hỏi của bạn. "
             f"{'Văn bản này' if len(ten) == 1 else 'Những văn bản này'} mình mới có tên, "
             "số hiệu và tình trạng hiệu lực — chưa có toàn văn tới từng điều khoản, nên "
-            "mình chưa đọc được nội dung để nói với bạn điều gì chắc chắn. Bạn mở được "
+            "mình chưa đọc được nội dung để nói với bạn điều gì chắc chắn, và cũng chưa "
+            "chắc được nó có đúng là chỗ trả lời câu hỏi của bạn hay không. Bạn mở được "
             "văn bản gốc ngay dưới đây."
         ))
 
@@ -590,7 +637,12 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
             # `ly_do` NGUYÊN VĂN, không viết lại: nó nêu đích danh văn bản thay
             # thế (vd. "bị 38/2022/NĐ-CP thay thế từ ..."), một nhãn chung
             # chung như "đã bị thay thế" không mang thông tin đó.
-            msg = f"{so_ky_hieu} {CANH_BAO_NHAN[eff.verdict]}: {eff.ly_do}"
+            # Nhãn ĐỌC ĐƯỢC, không phải khoá dữ liệu: `so_ky_hieu` thật thì đi
+            # qua nguyên vẹn, còn 'Không số' rơi về tên văn bản (`hien_van_ban`).
+            # `citations[].so_ky_hieu` ngay trên thì GIỮ NGUYÊN giá trị DB — nó
+            # là khoá, và `_neo_vao_van_ban` bên dưới so trên chính giá trị đó.
+            so_hien, ten_hien = hien_van_ban(so_ky_hieu, p.get("ten") or "")
+            msg = f"{so_hien or ten_hien} {CANH_BAO_NHAN[eff.verdict]}: {eff.ly_do}"
             if msg not in warnings:
                 warnings.append(msg)
 

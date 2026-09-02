@@ -417,3 +417,61 @@ def test_can_doi_chieu_tay_KHONG_bi_mo_ta_la_khong_co_tin_hieu():
     tl = dung_cau_tra_loi(CAU_HOI_TOM_TAT, kho_thu)
     assert "không có tín hiệu nào" not in tl, f"mô tả sai can_doi_chieu_tay:\n{tl}"
     assert "đối chiếu tay" in tl.lower(), f"không nói ra vì sao chưa kết luận được:\n{tl}"
+
+
+# ══ `so_ky_hieu` dị dạng — không trình bày "Không số" như một định danh ═════
+# ĐO ĐƯỢC 2026-09-02 trên mặt người dùng: `documents` id 8532 có
+# `so_ky_hieu = 'Không số'` và `ten = 'Luật Thương mại số Không số'` (crawler
+# ghép `ten + " số " + so_ky_hieu`), và câu trả lời hiện ra
+# "Không số (Luật Thương mại số Không số)" — hai lời nói sai trong một dòng.
+
+
+def test_hien_van_ban_giu_nguyen_so_hieu_that():
+    from src.services.kho import hien_van_ban
+
+    assert hien_van_ban("145/2020/NĐ-CP", "Nghị định 145/2020/NĐ-CP") == (
+        "145/2020/NĐ-CP", "Nghị định 145/2020/NĐ-CP")
+
+
+def test_hien_van_ban_bo_so_hieu_khong_co_chu_so_nao():
+    """Kiểm bằng CHỮ SỐ, không bằng danh sách giá trị xấu: mọi số hiệu văn bản
+    pháp luật Việt Nam đều mang năm ban hành, nên phép kiểm này không loại oan
+    một số hiệu thật nào — và nó bắt được cả dạng dị dạng chưa từng xuất hiện."""
+    from src.services.kho import hien_van_ban
+
+    so, ten = hien_van_ban("Không số", "Luật Thương mại số Không số")
+    assert so == "", "'Không số' không phải một số hiệu, không được hiện như định danh"
+    assert ten == "Luật Thương mại", "hậu tố crawler ghép vào phải bị cắt"
+
+
+def test_hien_van_ban_cat_hau_to_theo_QUY_TAC_khong_theo_chuoi_cung():
+    """Viết cứng `" số Không số"` sẽ bỏ sót dòng thứ hai xuất hiện với một dạng
+    dị dạng khác — mà `documents` là dữ liệu crawl, dạng thứ hai là chuyện khi
+    nào chứ không phải có hay không."""
+    from src.services.kho import hien_van_ban
+
+    assert hien_van_ban("Chưa rõ", "Nghị quyết số Chưa rõ") == ("", "Nghị quyết")
+    assert hien_van_ban("KHÔNG SỐ", "Thông tư số KHÔNG SỐ") == ("", "Thông tư")
+
+
+def test_hien_van_ban_khong_cat_khi_ten_khong_lap_so_hieu():
+    from src.services.kho import hien_van_ban
+
+    assert hien_van_ban("Không số", "Luật Thương mại") == ("", "Luật Thương mại")
+
+
+def test_so_hieu_di_dang_KHONG_xuat_hien_trong_chuoi_nguoi_dung_doc():
+    """Phép canh ở tầng CHUỖI THẬT, không chỉ ở hàm thuần: `dung_cau_tra_loi`
+    ghép nhiều nhánh, và một nhánh quên gọi `hien_van_ban` vẫn đưa được
+    'Không số' tới màn hình."""
+    # `loai_van_ban='Bộ luật'` là đường DUY NHẤT một văn bản dị dạng ra tới mặt
+    # người đọc qua module này: `_tom_tat` nêu đích danh từng Bộ luật, còn hai
+    # nhánh tra-một-số-hiệu thì không tới được ('Không số' không phải `số/năm`
+    # nên `moi_so_hieu_trong` không bao giờ khớp nó).
+    kho_thu = [
+        _vb("Không số", "Luật Thương mại số Không số", depth="shallow"),
+        _vb("45/2019/QH14", "Bộ Luật lao động số 45/2019/QH14"),
+    ]
+    out = dung_cau_tra_loi(CAU_HOI_TOM_TAT, kho_thu)
+    assert "Không số" not in out, f"vẫn hiện số hiệu dị dạng:\n{out}"
+    assert "Luật Thương mại" in out, f"cắt số hiệu dị dạng mà mất luôn văn bản:\n{out}"

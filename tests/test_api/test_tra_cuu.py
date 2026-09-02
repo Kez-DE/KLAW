@@ -349,3 +349,49 @@ def test_hoi_ve_kho_di_het_duong_graph_ra_HTTP_khong_ton_mot_token(monkeypatch):
 
     res = tra_cuu_response(_payload_cache(st, st["result_type"].value), "t", "c")
     assert res.result_type == "hoi_ve_kho" and res.answer == st["answer"]
+
+
+def test_FE_biet_moi_gia_tri_ResultType_cua_backend():
+    """Điểm đồng bộ thứ BẢY, và nó ở phía FE.
+
+    ĐO ĐƯỢC 2026-09-02 trên UI thật: câu "các bộ luật hiện có là" cho backend trả
+    `hoi_ve_kho` THÀNH CÔNG — trace 8e32221d, 6.490ms, ghi đủ vào bảng `traces` —
+    nhưng người hỏi nhận "Máy chủ trả về dữ liệu không đúng hình dạng đã thoả
+    thuận nên không hiển thị được". Nguyên nhân: `LOAI_KET_QUA` trong
+    `frontend/src/lib/klaw.ts` chỉ có năm giá trị, nên `laTraCuuKetQua` từ chối cả
+    response.
+
+    `huong_dan_soan_thao` cũng thiếu ở đó — đường bàn giao sang soạn thảo đã hỏng
+    trên FE từ TRƯỚC đợt này, không ai biết.
+
+    Đúng chế độ hỏng đã xảy ra ba lần trong dự án: traces xanh, HTTP xanh, FE đỏ.
+    Spec đợt này ghi "FE không cần nhánh mới vì `hoi_ve_kho` mang `answer` nên rơi
+    đúng nhánh mặc định" — đúng về RENDER, sai về KIỂM HÌNH DẠNG. Hai test so-hai-
+    tập đã có (`ResultType` vs `Literal`, `Intent` vs `INTENT_SCHEMA`) đều nằm
+    trong Python nên không cái nào thấy được biên này.
+
+    Test đọc thẳng file `.ts`, KHÔNG nhân bản danh sách sang một fixture thứ hai —
+    một bản sao thứ ba sẽ lệch pha đúng vào ngày ai đó thêm loại thứ tám.
+    """
+    import re
+    from pathlib import Path
+
+    from src.agents.nodes.assemble import ResultType
+
+    ts = Path(__file__).resolve().parents[2] / "frontend/src/lib/klaw.ts"
+    assert ts.exists(), f"không thấy {ts} — thư mục frontend đã đổi tên?"
+    noi_dung = ts.read_text(encoding="utf-8")
+
+    khoi = re.search(r"const LOAI_KET_QUA: readonly string\[\] = \[(.*?)\];", noi_dung, re.S)
+    assert khoi, "không tìm thấy LOAI_KET_QUA trong klaw.ts — đổi tên biến?"
+    o_fe = set(re.findall(r'"([a-z_]+)"', khoi.group(1)))
+    o_be = {r.value for r in ResultType}
+
+    assert o_be == o_fe, (
+        f"thiếu ở FE: {sorted(o_be - o_fe)}; lạ ở FE: {sorted(o_fe - o_be)}"
+    )
+
+    # Union `ResultType` của TypeScript cũng phải biết, không chỉ danh sách runtime:
+    # thiếu ở union thì `tsc` không cảnh báo chỗ nào quên xử lý loại mới.
+    thieu_union = [v for v in o_be if f'"{v}"' not in noi_dung.split("const LOAI_KET_QUA")[0]]
+    assert not thieu_union, f"thiếu trong union ResultType của TS: {sorted(thieu_union)}"

@@ -1,10 +1,16 @@
-"""Graph tra cứu (spec mục 6) — nối chín node đã build (Task 1-9) thành một
-đồ thị chạy được.
+"""Graph tra cứu (spec mục 6) — nối các node đã build thành một đồ thị chạy được.
 
-route → rewrite_query → retrieve_hybrid → expand → generate_claims
-      → verify_tier1 → verify_tier2 → assemble
+[giai_nghia] → route → tien_de → rewrite_query → retrieve_hybrid → expand
+             → generate_claims → verify_tier1 → verify_tier2 → assemble
 
-`ngoai_pham_vi` rẽ thẳng từ route sang assemble (0 token cho mọi bước sau).
+`giai_nghia` CHỈ chạy khi `lich_su` khác rỗng (lượt hỏi nối tiếp), nên lượt đầu
+của mỗi hội thoại không tốn thêm một token nào.
+
+Ba đường rẽ tắt, tất cả đổ về `assemble`:
+* `ngoai_pham_vi`/`gioi_thieu`/`soan_thao`/`hoi_ve_kho` — rẽ ngay sau `route`;
+* `tien_de_sai` — phép kiểm thứ sáu, rẽ trước rewrite/retrieve;
+* `cau_hoi_day_du is None` — không giải nghĩa được câu nối tiếp, rẽ ngay sau
+  `giai_nghia` vào đúng đường ngõ cụt đã có.
 """
 
 from langgraph.graph import END, StateGraph
@@ -13,6 +19,7 @@ from sqlalchemy import Engine, text
 from src.agents.nodes.assemble import assemble
 from src.agents.nodes.expand import expand
 from src.agents.nodes.generate_claims import generate_claims
+from src.agents.nodes.giai_nghia import giai_nghia
 from src.agents.nodes.rewrite_query import rewrite_query
 from src.agents.nodes.route import Intent, route
 from src.agents.nodes.verify_tier1 import nap_provisions, tien_de_cau_hoi_sai, verify_tier1
@@ -85,11 +92,40 @@ def _re_sau_route(st: dict) -> str:
     return "assemble" if st.get("intent") in _RE_TAT else "tien_de"
 
 
+def _vao_graph(st: dict) -> str:
+    """Lượt ĐẦU (lịch sử rỗng) vào thẳng `route` — không tốn thêm một token nào.
+
+    Lượt nối tiếp đi qua `giai_nghia` TRƯỚC `route`, vì routing dựa trên câu ĐÃ
+    giải nghĩa: "còn model nào khác" sau một lượt `gioi_thieu` là câu hỏi về trợ
+    lý, không phải một câu tra cứu — và `route` chỉ thấy được điều đó khi tham
+    chiếu đã được giải.
+    """
+    return "giai_nghia" if st.get("lich_su") else "route"
+
+
+def _re_sau_giai_nghia(st: dict) -> str:
+    """Không giải nghĩa được → `assemble`, tức ĐƯỜNG NGÕ CỤT ĐÃ CÓ (`_ngo_cut` +
+    `hoi_lai`: nói cái đã biết rồi hỏi lại đúng dữ kiện còn thiếu). Không dựng
+    đường thứ hai cho cùng một việc.
+
+    Rẽ đường đó cũng bỏ qua truy hồi, và đấy là nửa còn lại của giá trị: một câu
+    rỗng nội dung pháp lý ("liệt kê bảng cho tôi") đi vào truy hồi thì khớp
+    NHIỄU — đo được 2026-09-02: Luật Phòng chống ma túy và Luật Thương mại.
+    """
+    return "route" if st.get("cau_hoi_day_du") else "assemble"
+
+
 def build_graph_tra_cuu():
     s = get_settings()
     llm = llm_from_settings()
     engine = get_engine()
     retriever = Retriever(engine, embedder_from_settings(), s)
+
+    def n_giai_nghia(st: KLawState) -> KLawState:
+        # Model ROUTE (`gemini-2.5-flash-lite`, đo 1,56s), không phải model
+        # generate: đây là một phép biến đổi câu hỏi có ràng buộc chặt, cùng
+        # hạng việc với `route`/`rewrite_query`, không phải một lượt hành văn.
+        return giai_nghia(st, llm, router_model())
 
     def n_route(st: KLawState) -> KLawState:
         return route(st, llm, router_model())
@@ -187,12 +223,21 @@ def build_graph_tra_cuu():
                         _db_provisions(ids, engine), llm, generate_model())
 
     g = StateGraph(KLawState)
-    for name, fn in (("route", n_route), ("tien_de", n_tien_de), ("rewrite", n_rewrite), ("retrieve", n_retrieve),
+    # Thứ tự khai node = thứ tự `get_graph().nodes`, mà `routes.BUOC_TRA_CUU`
+    # được khoá khớp với nó (`test_BUOC_TRA_CUU_khop_dung_node_cua_graph_da_compile`)
+    # — nên `giai_nghia` đứng đầu ở cả hai chỗ.
+    for name, fn in (("giai_nghia", n_giai_nghia), ("route", n_route), ("tien_de", n_tien_de),
+                     ("rewrite", n_rewrite), ("retrieve", n_retrieve),
                      ("expand", n_expand), ("generate", n_generate), ("tier1", n_tier1),
                      ("tier2", n_tier2), ("assemble", n_assemble)):
         g.add_node(name, fn)
 
-    g.set_entry_point("route")
+    # Nhánh vào có ĐIỀU KIỆN, không phải một node luôn chạy rồi tự bỏ qua: lượt
+    # đầu của mỗi hội thoại không được ghé qua `giai_nghia` một lần nào, kể cả
+    # một lần không gọi LLM (nó vẫn là một bước trong thanh tiến trình SSE nói
+    # rằng có việc đã làm, trong khi không có việc nào).
+    g.set_conditional_entry_point(_vao_graph)
+    g.add_conditional_edges("giai_nghia", _re_sau_giai_nghia)
     g.add_conditional_edges("route", _re_sau_route)
     g.add_conditional_edges("tien_de", lambda st: (
         "assemble" if st.get("tien_de_sai") else "rewrite"))

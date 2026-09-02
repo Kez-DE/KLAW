@@ -82,8 +82,12 @@ CAU_DAN = "Để trả lời chắc chắn, mình cần bạn cho biết thêm:"
 # Tập từ số tiếng Việt là tập ĐÓNG, liệt kê được — nên mở rộng theo hướng này
 # giữ đúng bản chất "quy tắc, 0 token" của bộ lọc, không biến nó thành một danh
 # sách từ khoá pháp lý mở (xem docstring `bi_loai` về vì sao KHÔNG làm thế).
+# `lăm` và `mốt` là DẠNG GHÉP bắt buộc của tiếng Việt, không phải biến thể tuỳ
+# chọn: 5 trong số ghép luôn là "lăm" ("mười lăm", "bốn mươi lăm"), 1 là "mốt"
+# ("hai mươi mốt"). Thiếu chúng thì "bốn mươi lăm ngày" lọt qua trong khi "bốn
+# mươi năm ngày" — cách không ai viết — bị bắt. Đo được 2026-09-02.
 _SO_BANG_CHU = (
-    "không|một|hai|ba|bốn|tư|năm|sáu|bảy|bẩy|tám|chín|mười|mươi"
+    "không|một|mốt|hai|ba|bốn|tư|năm|lăm|sáu|bảy|bẩy|tám|chín|mười|mươi"
     "|trăm|nghìn|ngàn|triệu|tỷ|tỉ|nửa|rưỡi"
 )
 # Đơn vị mang MỐC PHÁP LÝ trong luật lao động (thời hạn báo trước, thử việc, mức
@@ -133,6 +137,31 @@ class KetQuaHoiLai(NamedTuple):
     cau: str
     usage: Usage | None
     nguon: str  # "llm" | "loi"
+
+
+# Một bộ nhận diện cho CẢ HAI nơi cần "mốc pháp lý trong một câu": bộ lọc câu
+# hỏi lại ở dưới, và `giai_nghia.dinh_danh_bia`. Từ vựng số/đơn vị đã sống ở
+# đây, nên hàm sống cùng nó — bản thứ hai của cùng quy tắc sẽ lệch pha đúng vào
+# ngày ai đó thêm một đơn vị.
+_RE_MOC = (
+    re.compile(rf"(\d+)\s*({_DON_VI_MOC}|%)", re.IGNORECASE),
+    re.compile(rf"\b((?:(?:{_SO_BANG_CHU})\s+)+)({_DON_VI_MOC})\b", re.IGNORECASE),
+)
+
+
+def moc_phap_ly_trong(chu: str) -> set[str]:
+    """Tập mốc pháp lý xuất hiện trong `chu`, đã chuẩn hoá về `"<số> <đơn vị>"`.
+
+    Chuẩn hoá vì hai nơi gọi cần SO TẬP, không cần vị trí: `"45 ngày"` trong câu
+    đã giải nghĩa phải khớp `"45  ngày"` trong lịch sử, còn không thì phép trừ
+    tập sẽ báo bịa cho một mốc người dùng đã nhắc.
+    """
+    ra: set[str] = set()
+    for r in _RE_MOC:
+        for m in r.finditer(chu):
+            so = " ".join(m.group(1).split()).lower()
+            ra.add(f"{so} {m.group(2).lower()}")
+    return ra
 
 
 def bi_loai(cau: str) -> bool:

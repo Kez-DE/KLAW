@@ -64,17 +64,24 @@ def dau_van_ban(van_ban: str, so_clause: int) -> str:
 # trong hai endpoint tiêu tiền. `draft_generate` trả usage ở
 # `state["usage_generate"]` chứ không vào `state["traces"]`, nên
 # `graph_soan_thao.n_generate` nối nó vào đây, chỗ duy nhất hàm dưới biết đọc.
+#
+# 2026-09-02: `giai_nghia_*` là điểm gọi LLM thứ 7 — node đầu vào của lượt hỏi
+# NỐI TIẾP (`nodes/giai_nghia.py`). Nó ghi khoá riêng chứ không dùng chung với
+# `route_*` vì nó chạy TRƯỚC `route`, nên khoá dùng chung sẽ bị `route` ghi đè
+# mất. Vắng ở ba danh sách này thì mỗi lượt hỏi nối tiếp là một lượt LLM VÔ HÌNH
+# với trần chi phí ngày — đúng chế độ hỏng mà `draft_generate_*` đã gây ra một
+# lần (32/32 dòng `/soan-thao` mang `cost_usd = 0`).
 _TOKEN_IN_KEYS = (
     "route_token_in", "rewrite_query_token_in", "token_in", "tier2_token_in", "assemble_token_in",
-    "draft_generate_token_in",
+    "draft_generate_token_in", "giai_nghia_token_in",
 )
 _TOKEN_OUT_KEYS = (
     "route_token_out", "rewrite_query_token_out", "token_out", "tier2_token_out", "assemble_token_out",
-    "draft_generate_token_out",
+    "draft_generate_token_out", "giai_nghia_token_out",
 )
 _COST_KEYS = (
     "route_cost_usd", "rewrite_query_cost_usd", "cost_usd", "tier2_cost_usd", "assemble_cost_usd",
-    "draft_generate_cost_usd",
+    "draft_generate_cost_usd", "giai_nghia_cost_usd",
 )
 
 

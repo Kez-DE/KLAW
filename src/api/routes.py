@@ -3,6 +3,7 @@ import logging
 import time
 import uuid
 from collections.abc import Awaitable, Callable
+from datetime import date
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -108,6 +109,29 @@ def _payload_cache(st: dict, rt: str) -> dict:
         "result_type": rt, "answer": st.get("answer"), "citations": st.get("citations") or [],
         "warnings": st.get("warnings") or [], "coverage_note": st.get("coverage_note"),
         "nguon": st.get("nguon") or [],
+        # Đi vào payload dù lượt nối tiếp KHÔNG được cache (xem `chay_tra_cuu`):
+        # payload là MỘT hình dạng cho cả hai đường, và `tra_cuu_response` đọc
+        # đúng dict này. Ở đường không-cache nó luôn là `None`.
+        "cau_hoi_day_du": st.get("cau_hoi_day_du"),
+    }
+
+
+def _state_vao(req: TraCuuRequest, as_of: date, trace_id: str) -> dict:
+    """State đầu vào của graph — MỘT chỗ dựng cho cả đường POST và đường SSE.
+
+    `query` là câu người dùng GÕ, không phải câu đã giải nghĩa: node `giai_nghia`
+    tự thay nó bên trong graph, và endpoint này không được biết trước kết quả của
+    một bước chạy sau nó.
+
+    `lich_su` xuống dạng `dict` (`model_dump`), cùng hình dạng với `expanded`/
+    `hits_shallow` trong state — LangGraph state là dữ liệu thuần, một model
+    pydantic đi lẫn vào đó là một kiểu thứ hai cho cùng một thứ.
+    """
+    return {
+        "query": req.query,
+        "lich_su": [luot.model_dump() for luot in req.lich_su],
+        "as_of_date": as_of,
+        "trace_id": trace_id,
     }
 
 
@@ -123,11 +147,16 @@ def _st_tu_cache(payload: dict) -> dict:
     return {"result_type": payload["result_type"], "traces": {}}
 
 
-# Chín node THẬT của `build_graph_tra_cuu`, theo thứ tự của đường đi đầy đủ, kèm
+# MỌI node THẬT của `build_graph_tra_cuu`, theo thứ tự của đường đi đầy đủ, kèm
 # nhãn tiếng Việt cho giao diện. Đường SSE (`routes_luong.py`) phát ĐÚNG danh
 # sách này; `test_tra_cuu_luong.py` khoá nó khớp với graph đã compile, để thêm
 # một node mà quên cập nhật ở đây không âm thầm biến mất khỏi thanh tiến trình.
+#
+# `giai_nghia` chỉ chạy ở lượt hỏi NỐI TIẾP, nên ở lượt đầu thanh tiến trình
+# không bao giờ phát bước này — danh sách là tập MỌI bước có thể, không phải
+# tập bước của mỗi lượt (`tien_de`, `rewrite`… cũng đã vắng ở các đường rẽ tắt).
 BUOC_TRA_CUU: tuple[tuple[str, str], ...] = (
+    ("giai_nghia", "Giải nghĩa câu hỏi nối tiếp"),
     ("route", "Phân loại câu hỏi"),
     ("tien_de", "Kiểm tiền đề câu hỏi"),
     ("rewrite", "Viết lại truy vấn"),
@@ -138,6 +167,24 @@ BUOC_TRA_CUU: tuple[tuple[str, str], ...] = (
     ("tier2", "Kiểm chứng tầng 2 — mô hình thẩm định"),
     ("assemble", "Dựng câu trả lời"),
 )
+
+
+def buoc_cua_luot(req: TraCuuRequest) -> tuple[tuple[str, str], ...]:
+    """`BUOC_TRA_CUU` bỏ bước mà lượt NÀY chắc chắn không chạy.
+
+    Chỉ có một bước như vậy: `giai_nghia` không chạy khi `lich_su` rỗng, và điều
+    đó biết được TRƯỚC khi graph chạy (nhánh vào của graph quyết định bằng đúng
+    phép kiểm này). Không có hàm này thì lượt đầu — tức phần lớn lượt — nhận một
+    thanh tiến trình bắt đầu ở "bước 2/10" và không bao giờ có bước 1: đúng thứ
+    thanh tiến trình bịa mà endpoint SSE sinh ra để thay thế.
+
+    Các bước còn lại (`tien_de`, `rewrite`…) cũng có thể không chạy, nhưng điều
+    đó chỉ biết được GIỮA đường (sau `route`, sau phép kiểm tiền đề) — dự đoán
+    chúng ở đây sẽ là đoán, nên chúng ở lại danh sách.
+    """
+    if req.lich_su:
+        return BUOC_TRA_CUU
+    return tuple(b for b in BUOC_TRA_CUU if b[0] != "giai_nghia")
 
 
 def chi_tiet_buoc(ten: str, st: dict) -> dict:
@@ -213,8 +260,16 @@ async def chay_tra_cuu(
         #
         # `khoa is None` = cache đã tắt; khi đó `tra_cache` không chạm DB lần
         # nào (xem docstring của nó) nên đường này không cần Postgres.
-        khoa, checksum, payload = await run_in_threadpool(
-            cache_tra_loi.tra_cache, req.query, config_name, as_of
+        #
+        # Lượt hỏi NỐI TIẾP không đi qua cache, cả đọc lẫn ghi. `khoa_cache`
+        # dựng từ `query` GỐC và không có lịch sử trong đó, nên hai hội thoại
+        # khác nhau cùng gõ "liệt kê bảng cho tôi" tra CÙNG một khoá — người thứ
+        # hai sẽ nhận câu trả lời của cuộc hội thoại người thứ nhất. Bỏ cache là
+        # cách rẻ nhất đóng lỗ đó, và không mất gì đo được: khoá phải mang cả
+        # lịch sử mới đúng, mà lịch sử đổi mỗi lượt nên tỉ lệ trúng gần 0.
+        khoa, checksum, payload = (
+            (None, None, None) if req.lich_su
+            else await run_in_threadpool(cache_tra_loi.tra_cache, req.query, config_name, as_of)
         )
         tu_cache = payload is not None
         if tu_cache:
@@ -224,7 +279,7 @@ async def chay_tra_cuu(
                 # trình bịa. Một bước, đúng tên việc đã làm.
                 await phat("cache", {})
         elif phat is None:
-            st = await _g().ainvoke({"query": req.query, "as_of_date": as_of, "trace_id": trace_id})
+            st = await _g().ainvoke(_state_vao(req, as_of, trace_id))
         else:
             # `stream_mode="updates"` phát `{ten_node: output}`. Mọi node trong
             # `graph_tra_cuu` trả `{**st, ...}` (state ĐẦY ĐỦ), nhưng gộp bằng
@@ -232,8 +287,7 @@ async def chay_tra_cuu(
             # RIÊNG PHẦN không âm thầm xoá trắng những gì các node trước ghi.
             st = {}
             async for chunk in _g().astream(
-                {"query": req.query, "as_of_date": as_of, "trace_id": trace_id},
-                stream_mode="updates",
+                _state_vao(req, as_of, trace_id), stream_mode="updates",
             ):
                 for ten, ra in chunk.items():
                     if isinstance(ra, dict):
@@ -315,6 +369,10 @@ def tra_cuu_response(payload: dict, trace_id: str, config_name: str) -> TraCuuRe
         # nó chỉ làm `partial_coverage` mất đường mở văn bản, im lặng. Ca thứ BA
         # của cùng một kiểu hỏng, sau `khop_tai_id` và `doc_id`.
         nguon=payload["nguon"],
+        # `.get`, KHÔNG `[...]`: một dòng `answer_cache` ghi TRƯỚC bản này không
+        # có khoá này trong JSON, và một KeyError ở đây sẽ biến mọi cache hit cũ
+        # thành HTTP 500 cho tới khi TTL 7 ngày trôi hết.
+        cau_hoi_day_du=payload.get("cau_hoi_day_du"),
         trace_id=trace_id, config_name=config_name,
     )
 

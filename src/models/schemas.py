@@ -1,7 +1,38 @@
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
+
+
+class LuotTruoc(BaseModel):
+    """Một lượt hỏi-đáp ĐÃ XONG, do client gửi lên để giải nghĩa câu nối tiếp.
+
+    Cả ba trường đã có sẵn trong `LuotDaXong` phía giao diện
+    (`frontend/src/routes/dung-thu.tsx`) — lịch sử vốn nằm ở client, nó chỉ chưa
+    được gửi lên. Không có session phía server, và không cần: lịch sử chỉ dùng
+    để làm câu hỏi TỰ ĐỨNG ĐƯỢC, nó không chống đỡ khẳng định nào, nên một lịch
+    sử bịa cũng chỉ tạo ra một câu hỏi khác — câu đó vẫn phải qua đủ hai tầng
+    kiểm chứng (xem docstring `agents/nodes/giai_nghia.py`).
+
+    `tra_loi` cần vì `"liệt kê bảng cho tôi"` phải biết câu trả lời trước CÓ một
+    cái bảng; `duong_dan` là thứ định danh chính xác điều khoản lượt trước đã
+    dẫn. Cả hai bị cắt còn `giai_nghia.TOI_DA_TRA_LOI` ký tự khi dựng prompt —
+    trần ở đây chỉ để một body dị thường không đi xa hơn biên HTTP.
+    """
+
+    # `min_length=1` cùng khuôn `TraCuuRequest.query`: `cau_hoi=""` từng hợp lệ,
+    # nên một `lich_su` toàn rỗng vẫn truthy → kích hoạt `giai_nghia` và tắt cache
+    # dù không có nội dung thật nào.
+    cau_hoi: str = Field(..., min_length=1, max_length=2000)  # cùng trần với `query`
+    tra_loi: str = Field("", max_length=2000)
+    # `max_length` trên `list[str]` giới hạn SỐ PHẦN TỬ, KHÔNG giới hạn độ dài
+    # từng chuỗi. ĐO ĐƯỢC 2026-09-02 (review): `duong_dan=["A"*2_000_000]*50`
+    # được chấp nhận — ~100 MB đi thẳng vào prompt `giai_nghia`, không qua bước
+    # cắt nào (`ngu_canh` cắt `tra_loi` mà không cắt trường này). Trần 500 vì một
+    # `duong_dan` thật dài nhất trong corpus dưới 100 ký tự.
+    duong_dan: list[Annotated[str, StringConstraints(max_length=500)]] = Field(
+        default_factory=list, max_length=50
+    )
 
 
 class TraCuuRequest(BaseModel):
@@ -18,6 +49,11 @@ class TraCuuRequest(BaseModel):
     # field DUY NHẤT không ràng buộc gì, trong khi `query` có min/max_length
     # và `as_of_date` là `date`.
     config_name: str | None = Field(default=None, max_length=100)
+    # Ba lượt gần nhất, không hơn. `max_length` (⇒ 422) chứ không cắt im lặng:
+    # một client gửi 20 lượt đang hiểu sai hợp đồng, và cắt lặng lẽ thì nó chạy
+    # tiếp mãi với một ngữ cảnh khác cái nó tưởng — cùng lựa chọn với `query`
+    # (422 khi quá 2000 ký tự, không truncate).
+    lich_su: list[LuotTruoc] = Field(default_factory=list, max_length=3)
 
 
 class CitationOut(BaseModel):
@@ -75,6 +111,16 @@ class TraCuuResponse(BaseModel):
     nguon: list[NguonOut] = []
     warnings: list[str]
     coverage_note: str | None
+    # Câu hỏi sau khi giải nghĩa tham chiếu từ `lich_su`. `None` ở lượt đầu và
+    # khi không giải nghĩa được. Giao diện ghi một dòng "Mình hiểu câu hỏi của
+    # bạn là: …" CHỈ khi nó khác câu người dùng gõ.
+    #
+    # Bắt buộc phải trả ra, không phải một trường tiện lợi: giải nghĩa sai là chế
+    # độ hỏng chắc chắn xảy ra, và không có trường này thì người dùng nhận câu
+    # trả lời cho một câu HỌ KHÔNG HỎI mà không có cách nào biết, cũng không có
+    # cách nào sửa. Mặc định `None` để một dòng cache ghi trước bản này (payload
+    # không có khoá này) vẫn tuần tự hoá được.
+    cau_hoi_day_du: str | None = None
     trace_id: str
     config_name: str
 

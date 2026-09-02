@@ -1,6 +1,11 @@
 import json
 
-from src.agents.nodes.assemble import ANSWER_SCHEMA, ResultType, assemble
+from src.agents.nodes.assemble import (
+    ANSWER_SCHEMA,
+    CHUA_GIAI_NGHIA_DUOC,
+    ResultType,
+    assemble,
+)
 from src.agents.nodes.generate_claims import Claim
 from src.agents.nodes.hoi_lai import HOI_LAI_SCHEMA
 from src.agents.nodes.verify_tier1 import Tier1Reason as R
@@ -495,3 +500,104 @@ def test_hoi_ve_kho_dung_chuoi_da_tinh_san_va_KHONG_goi_LLM():
     assert st["result_type"] is ResultType.hoi_ve_kho
     assert st["answer"] == "Trong kho của mình…"
     assert st["traces"]["assemble_token_in"] == 0
+
+
+# ══ Thôi khẳng định điều chưa chứng minh (spec mục 5) ═══════════════════════
+# ĐO ĐƯỢC 2026-09-02: "liệt kê bảng cho tôi" khớp NHIỄU hai văn bản shallow
+# (Luật Phòng chống ma túy, Luật Thương mại) và người hỏi nhận về "Mình tìm được
+# **văn bản chi phối** câu hỏi của bạn". Luật Phòng chống ma túy không chi phối
+# "liệt kê bảng cho tôi" — đó là một lời nói SAI, không phải một lời nói mềm.
+#
+# Cái được nói ở đây là điều đúng được: mấy văn bản này KHỚP TỪ NGỮ trong câu
+# hỏi, và mình chưa có toàn văn để đọc. KHÔNG dựng bộ phân loại "câu hỏi có nội
+# dung pháp lý hay không" — đó lại là một danh sách từ khoá pháp lý cần thẩm
+# quyền domain, đúng thứ đã bị từ chối cho bộ lọc `hoi_lai`.
+
+_NHIEU = {"id": 5, "document_id": "8532", "cap": "mo_dau",
+          "duong_dan": "120/2025/QH15 > Mở đầu", "so_ky_hieu": "120/2025/QH15",
+          "ten": "LUẬT PHÒNG, CHỐNG MA TÚY"}
+
+
+def test_partial_coverage_KHONG_khang_dinh_van_ban_chi_phoi_cau_hoi():
+    st = assemble({"intent": "tra_cuu", "query": "liệt kê bảng cho tôi",
+                   "expanded": [], "hits_shallow": [_NHIEU]}, DB, FakeLlm(), "m")
+    ghi_chu = st["coverage_note"]
+    assert st["result_type"] is ResultType.partial_coverage
+    assert "khớp từ ngữ" in ghi_chu, f"chưa nói ra mức độ thật của phép khớp:\n{ghi_chu}"
+    for sai in ("chi phối", "nằm trong"):
+        assert sai not in ghi_chu, f"vẫn khẳng định {sai!r} cho một khớp nhiễu:\n{ghi_chu}"
+    assert "120/2025/QH15" in ghi_chu, "vẫn phải nêu đích danh văn bản đã khớp"
+
+
+def test_abstain_co_nguon_cung_KHONG_khang_dinh_van_ban_chi_phoi():
+    """`_da_biet` — nửa đầu MẶC ĐỊNH của mọi ngõ cụt — viết cùng một câu ấy, nên
+    sửa một mình `_phu_mot_phan` chỉ vá đúng đường mà bảng `traces` tình cờ ghi
+    lại. Cùng lời nói sai, cùng phải sửa."""
+    st = assemble({"intent": "tra_cuu", "query": "liệt kê bảng cho tôi",
+                   "expanded": [DB[11]], "tier1": [], "tier2": [],
+                   "abstain_threshold": 0.5}, DB, FakeLlm(), "m")
+    ghi_chu = st["coverage_note"]
+    assert st["result_type"] is ResultType.abstain
+    for sai in ("chi phối", "nằm trong"):
+        assert sai not in ghi_chu, f"vẫn khẳng định {sai!r} khi chưa dựng nổi luận điểm:\n{ghi_chu}"
+    assert "45/2019/QH14" in ghi_chu, "vẫn phải nêu cái đã biết"
+
+
+# ══ `so_ky_hieu` dị dạng KHÔNG ra tới mặt người đọc (spec mục 6) ════════════
+
+_DI_DANG = {"id": 6, "document_id": "8532", "cap": "mo_dau",
+            "duong_dan": "Không số > Mở đầu", "so_ky_hieu": "Không số",
+            "ten": "Luật Thương mại số Không số"}
+
+
+def test_coverage_note_khong_trinh_bay_Khong_so_nhu_mot_dinh_danh():
+    st = assemble({"intent": "tra_cuu", "query": "liệt kê bảng cho tôi",
+                   "expanded": [], "hits_shallow": [_DI_DANG]}, DB, FakeLlm(), "m")
+    ghi_chu = st["coverage_note"]
+    assert "Không số" not in ghi_chu, f"'Không số' hiện ra như một số hiệu:\n{ghi_chu}"
+    assert "Luật Thương mại" in ghi_chu, f"cắt số hiệu dị dạng mà mất luôn văn bản:\n{ghi_chu}"
+
+
+def test_nguon_khong_mang_so_hieu_di_dang():
+    """`nguon` là thứ giao diện in ra cạnh nút mở văn bản gốc — `doc_id` mới là
+    khoá dựng URL, `so_ky_hieu`/`bo_luat` chỉ để đọc."""
+    st = assemble({"intent": "tra_cuu", "query": "liệt kê bảng cho tôi",
+                   "expanded": [], "hits_shallow": [_DI_DANG]}, DB, FakeLlm(), "m")
+    (n,) = st["nguon"]
+    assert n["doc_id"] == "8532", "khoá dữ liệu không được đụng tới"
+    assert n["so_ky_hieu"] == "", "không có số hiệu thật thì để trống, không bịa một cái"
+    assert n["bo_luat"] == "Luật Thương mại"
+
+
+def test_khong_giai_nghia_duoc_thi_noi_DUNG_dieu_do_khong_noi_kho_thieu_van_ban():
+    """Giải nghĩa thất bại rẽ thẳng sang đây, nên `expanded`/`hits_shallow` đều
+    rỗng và nửa đầu mặc định rơi vào `KHONG_TIM_DUOC` — một câu SAI ở nhánh này:
+    không phải kho thiếu văn bản, mà là mình chưa hiểu câu hỏi nối tiếp trỏ vào
+    đâu. Cùng lỗi lớp với "văn bản chi phối" ở trên: khẳng định một điều chưa
+    kiểm, chỉ khác chiều.
+
+    Vẫn là `abstain`, KHÔNG loại kết quả mới: pha này đổi LỜI của ngõ cụt, không
+    đổi KHI NÀO ngõ cụt.
+    """
+    st = assemble({"intent": "tra_cuu", "query": "còn nó thì sao",
+                   "lich_su": [{"cau_hoi": "chào", "tra_loi": "", "duong_dan": []}],
+                   "cau_hoi_day_du": None, "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    ghi_chu = st["coverage_note"]
+    assert st["result_type"] is ResultType.abstain
+    assert "không có văn bản nào khớp" not in ghi_chu, f"nói sai vì sao dừng:\n{ghi_chu}"
+    # So với chính HẰNG SỐ, không chép lại lời: sửa câu chữ ở `assemble` không
+    # làm test đỏ oan — chỉ gỡ nó khỏi nhánh này mới làm.
+    assert CHUA_GIAI_NGHIA_DUOC in ghi_chu, f"chưa nói ra điều thật:\n{ghi_chu}"
+    assert st["traces"].get("assemble_hoi_lai") == "llm", "ngõ cụt này vẫn phải có nửa sau"
+
+
+def test_luot_dau_KHONG_roi_vao_nhanh_chua_giai_nghia_duoc():
+    """`cau_hoi_day_du is None` một mình KHÔNG phải tín hiệu thất bại — lượt đầu
+    cũng None (nó không chạy `giai_nghia`). Phân biệt bằng `lich_su`."""
+    st = assemble({"intent": "tra_cuu", "query": "thử việc bao lâu",
+                   "expanded": [], "hits_shallow": [], "insufficient_evidence": True,
+                   "abstain_threshold": 0.5}, DB, FakeLlm(), "m")
+    assert "không có văn bản nào khớp" in st["coverage_note"], (
+        "lượt đầu không tìm được gì thì câu ĐÚNG vẫn là kho không có văn bản khớp"
+    )
