@@ -4,9 +4,26 @@ luận (nguồn gốc + nguyên văn, KHÔNG bảo đảm là bản hiện hành
 phản bội.
 
 answer            : có claim qua cả hai tầng, tỉ lệ verified ≥ ngưỡng
-partial_coverage  : chỉ trúng tầng nông → nêu luật, KHÔNG diễn giải. 0 TOKEN
-abstain           : không đủ căn cứ. HÀNH VI ĐÚNG, không phải lỗi
+partial_coverage  : chỉ trúng tầng nông → nêu luật, không dựng lời giải thích
+abstain           : không có căn cứ dùng được. HÀNH VI ĐÚNG, không phải lỗi
 out_of_scope      : route xác định ngoài phạm vi. 0 TOKEN
+
+Từ 2026-09-02 mọi ngõ cụt đi qua `_ngo_cut` và có HAI NỬA: nửa đầu nói cái ĐÃ
+biết (tên văn bản chi phối, vị trí điều khoản đọc được), nửa sau hỏi lại đúng
+dữ kiện tình huống còn thiếu (`hoi_lai.py`). Trước đó `abstain` trả về
+`answer=None`, `coverage_note=None`, `nguon=[]` — một MÀN HÌNH TRẮNG, đo được
+trên câu "Hiện tại có bao nhiêu bộ luật?" với `deep=30`, `claims=0`.
+
+Đổi này làm `partial_coverage` và các nhánh abstain KHÔNG còn 0 token: mỗi ngõ
+cụt nay tiêu MỘT lượt gọi để sinh câu hỏi lại. Chú thích "0 TOKEN" ở hai nhánh
+ấy đã bị gỡ có chủ ý, không phải bỏ sót. Cái KHÔNG đổi: LLM hành văn vẫn không
+bao giờ được gọi trên một ngõ cụt (`test_*_KHONG_goi_LLM_hanh_van`) — một lượt
+không có căn cứ tuyệt đối không được dựng ra văn xuôi giải thích pháp luật.
+
+Và cái tuyệt đối không đổi: pha này đổi LỜI của abstain, KHÔNG đổi KHI NÀO
+abstain. `abstain_threshold` và mọi điều kiện quyết định `result_type` giữ
+nguyên từng chữ — việc hệ thống dừng lại khi thiếu căn cứ là đóng góp trung tâm
+của đề tài, và một lời lẽ dễ nghe hơn không được phép mua bằng cách nới nó.
 
 `intent == soan_thao` KHÔNG có nhánh riêng — nó rơi vào đúng pipeline
 tra_cuu-shaped bên dưới (chỉ `ngoai_pham_vi` mới lập tức ra out_of_scope):
@@ -29,6 +46,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TypedDict
 
+from src.agents.nodes.hoi_lai import hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.llm import Usage
@@ -132,10 +150,14 @@ class Citation(TypedDict):
 
 
 def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: bool = False, **kw: object) -> dict:
-    """Khung chung cho cả bốn loại kết quả — MỌI nhánh đều ghi `traces`
-    (Global Constraint), kể cả ba nhánh 0 token: `assemble_token_*=0` không chỉ
-    là giá trị mặc định, nó là BẰNG CHỨNG đo được cho tuyên bố "0 TOKEN" trong
-    docstring module, không phải một lời khẳng định suông.
+    """Khung chung cho mọi loại kết quả — MỌI nhánh đều ghi `traces` (Global
+    Constraint), kể cả các nhánh 0 token: `assemble_token_*=0` không chỉ là giá
+    trị mặc định, nó là BẰNG CHỨNG đo được cho tuyên bố "0 TOKEN" trong docstring
+    module, không phải một lời khẳng định suông.
+
+    Bốn nhánh còn 0 token sau Pha 2: `out_of_scope`, `gioi_thieu`,
+    `huong_dan_soan_thao`, `hoi_ve_kho`. Các ngõ cụt (`abstain`,
+    `partial_coverage`) nay tiêu một lượt sinh câu hỏi lại — xem `_ngo_cut`.
     """
     prior_traces = state.get("traces") or {}
     return {
@@ -247,14 +269,103 @@ def _van_ban_ke_nhiem(ly_do: str) -> str | None:
 def _ly_do_moi_nguon_bi_thay(qua_loc: list) -> str:
     """coverage_note khi TOÀN BỘ citation dùng-được-cho-prose đã bị lọc — nêu
     ĐÍCH DANH văn bản hiện hành (rút từ `ly_do`, không phải một câu chung
-    chung "không đủ căn cứ"). Không có `ly_do` nào nêu được kế nhiệm (Mức 1
-    hết hiệu lực không cạnh) thì nói rõ không xác định được, không bịa tên."""
+    chung). Không có `ly_do` nào nêu được kế nhiệm (Mức 1 hết hiệu lực không
+    cạnh) thì nói rõ không xác định được, không bịa tên."""
     ke_nhiem = sorted({m for r in qua_loc for m in [_van_ban_ke_nhiem(r.effectivity.ly_do)] if m})
     if ke_nhiem:
-        return (f"Mọi nguồn tìm được đều đã bị thay thế; văn bản hiện hành là "
-                f"{', '.join(ke_nhiem)}, nội dung của nó không có trong corpus.")
-    return ("Mọi nguồn tìm được đều đã bị thay thế hoặc hết hiệu lực; không xác định được "
-            "văn bản hiện hành từ dữ liệu sẵn có.")
+        return (f"Những gì mình tìm được cho câu hỏi này đều đã bị thay thế. Văn bản đi thay "
+                f"là {', '.join(ke_nhiem)}, và nội dung của nó thì mình chưa nạp vào kho, "
+                f"nên mình chưa đọc được để nói với bạn nó quy định thế nào.")
+    return ("Những gì mình tìm được cho câu hỏi này đều đã bị thay thế hoặc đã hết hiệu lực, "
+            "và từ những gì mình đang có thì mình chưa xác định được văn bản nào đi thay.")
+
+
+# `intent == ngoai_pham_vi`. HẰNG SỐ để phép quét giọng (`test_giong_tra_loi`)
+# nhìn thấy được — một chuỗi viết thẳng vào lời gọi `_base` thì không hằng số
+# nào tồn tại để quét.
+NGOAI_PHAM_VI = ("Câu hỏi này nằm ngoài phạm vi mình phủ: mình chỉ tra được 6 Bộ luật của "
+                 "Việt Nam, và chỉ soạn thảo trong lĩnh vực lao động.")
+
+# Nửa đầu khi truy hồi KHÔNG cầm được gì. Nói thẳng là không biết — nhưng nói
+# đúng mức: kho là tập văn bản đã nạp cho đề tài, nên "mình không có" KHÔNG
+# đồng nghĩa "pháp luật không quy định". Cùng khuôn `kho._khoi_mot_so`, và cùng
+# lý do: sai chế độ tệ nhất ở đây không phải "không biết", mà là phát biểu thay
+# cho nền pháp luật Việt Nam.
+KHONG_TIM_DUOC = ("Trong kho của mình không có văn bản nào khớp được với câu hỏi này, nên mình "
+                  "chưa có gì chắc chắn để nói. Kho là tập văn bản mình đã nạp, vậy nên đây "
+                  "không phải kết luận rằng pháp luật không quy định về việc bạn hỏi.")
+
+
+def _van_ban_va_vi_tri(hits: list[dict]) -> tuple[list[str], list[str]]:
+    """`(tên văn bản, vị trí điều khoản)` — nửa đầu của mọi ngõ cụt, rút từ
+    chính các dòng đang cầm.
+
+    Bỏ dòng `cap == 'mo_dau'` khỏi phần vị trí: migration 016 chèn cho MỖI văn
+    bản `shallow` đúng một hàng mang `duong_dan = '<số hiệu> > Mở đầu'`, nên nêu
+    nó ra cho người hỏi vừa vô nghĩa vừa GỢI SAI — nó trông như một vị trí điều
+    khoản trong khi văn bản đó chưa có điều khoản nào được nạp.
+    """
+    ten = sorted({f"{p['so_ky_hieu']} ({t})" if (t := (p.get("ten") or "").strip())
+                  else str(p["so_ky_hieu"]) for p in hits if p.get("so_ky_hieu")})
+    vi_tri = list(dict.fromkeys(p["duong_dan"] for p in hits
+                                if p.get("duong_dan") and p.get("cap") != "mo_dau"))[:3]
+    return ten, vi_tri
+
+
+def _da_biet(state: dict) -> str:
+    """Nửa đầu MẶC ĐỊNH: cái đã biết, cho nhánh không tự mang lý do riêng.
+
+    Phải KIỂM trước khi nói không biết gì — `expanded` và `hits_shallow` thường
+    KHÁC RỖNG ngay cả khi `claims == 0`. Đo được 2026-09-02: `deep=30`,
+    `claims=0`, và người hỏi nhận một màn hình trắng trong lúc hệ thống đang cầm
+    ba mươi điều khoản cùng tên các văn bản chi phối câu hỏi.
+    """
+    ten, vi_tri = _van_ban_va_vi_tri([*(state.get("expanded") or []),
+                                      *(state.get("hits_shallow") or [])])
+    if not ten:
+        return KHONG_TIM_DUOC
+    return (f"Câu hỏi của bạn nằm trong {'; '.join(ten)}"
+            + (f", và mình đọc được tới {', '.join(vi_tri)}" if vi_tri else "")
+            + ". Mình chưa đối chiếu được điều khoản nào trong đó thành một câu trả lời "
+              "mình dám nói chắc với bạn, nên mình dừng ở đây thay vì đoán.")
+
+
+def _gop_usage(*us: Usage | None) -> Usage | None:
+    """Cộng token của lượt hành văn và lượt sinh câu hỏi lại vào MỘT `usage`.
+
+    Cố ý KHÔNG thêm khoá `hoi_lai_cost_usd` riêng: trần chi phí ngày
+    (`bao_ve.tong_chi_phi_hom_nay`) đọc `traces.cost_usd`, mà cột đó do
+    `traces._COST_KEYS` cộng từ một danh sách khoá CỐ ĐỊNH — một khoá mới không
+    có trong danh sách ấy là một lượt gọi LLM vô hình với trần chi phí, đúng lớp
+    lỗi mà chú thích ở `traces.py:62` đã ghi lại một lần.
+    """
+    co = [u for u in us if u is not None]
+    if not co:
+        return None
+    return Usage(token_in=sum(u.token_in for u in co), token_out=sum(u.token_out for u in co),
+                 cost_usd=sum(u.cost_usd for u in co))
+
+
+def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None = None,
+             usage: Usage | None = None, degraded: bool = False, **kw: object) -> dict:
+    """MỌI nhánh không có câu trả lời đi qua đây — hai nửa, không có ngoại lệ.
+
+    Một lối vào duy nhất chứ không phải một câu vá ở từng nhánh: sáu chỗ trong
+    hàm `assemble` từng trả về `_base(state, ResultType.abstain)` trơ, và một
+    nhánh thứ bảy thêm sau này sẽ lại là màn hình trắng nếu việc ghép hai nửa
+    nằm rải ở từng chỗ gọi.
+
+    `ghi_chu` là nửa đầu RIÊNG của nhánh (tiền đề sai, mọi nguồn đã bị thay,
+    chỉ có tầng nông) — nhánh nào không có thì rơi về `_da_biet`. `out_of_scope`
+    KHÔNG đi qua đây: câu hỏi nằm ngoài kho thì thêm dữ kiện tình huống cũng
+    không đưa nó vào trong, và nhánh đó giữ 0 token.
+    """
+    hl = hoi_lai(state.get("query", ""), llm, model)
+    ket = _base(state, rt, usage=_gop_usage(usage, hl.usage), degraded=degraded,
+                coverage_note="\n\n".join(x for x in (ghi_chu or _da_biet(state), hl.cau) if x),
+                **kw)
+    ket["traces"]["assemble_hoi_lai"] = hl.nguon
+    return ket
 
 
 # Câu trả lời cho `intent == gioi_thieu`. CỐ Ý không nhúng số liệu corpus (số
@@ -344,11 +455,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         return _base(state, ResultType.hoi_ve_kho, answer=state["tra_loi_kho"])
 
     if state.get("intent") == "ngoai_pham_vi":
-        return _base(
-            state, ResultType.out_of_scope,
-            coverage_note="Câu hỏi ngoài phạm vi hệ thống: 6 Bộ luật của Việt Nam; "
-                          "soạn thảo chỉ trong lĩnh vực lao động.",
-        )
+        return _base(state, ResultType.out_of_scope, coverage_note=NGOAI_PHAM_VI)
 
     # Phép kiểm thứ sáu (coordinator, ở tầng ĐẦU VÀO — verify_tier1.tien_de_cau_hoi_sai,
     # chạy TRƯỚC rewrite/retrieve/generate trong graph). Câu hỏi tự nêu một
@@ -357,16 +464,19 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
     # (vd. "Bộ luật Lao động không có Điều 999"), không phải một câu chung
     # chung "không đủ căn cứ".
     if state.get("tien_de_sai"):
-        return _base(state, ResultType.abstain, coverage_note=state["tien_de_sai"])
+        return _ngo_cut(state, llm, model, ResultType.abstain, ghi_chu=state["tien_de_sai"])
 
     deep = state.get("expanded") or []
     shallow = state.get("hits_shallow") or []
 
-    # PARTIAL_COVERAGE — nhánh xác định, KHÔNG gọi LLM: chỉ trúng tầng nông thì
-    # nêu luật liên quan chứ không được diễn giải nội dung chưa được kiểm chứng.
+    # PARTIAL_COVERAGE — KHÔNG gọi LLM hành văn: chỉ trúng tầng nông thì nêu luật
+    # liên quan chứ không được dựng lời giải thích từ nội dung chưa kiểm chứng.
+    #
+    # Nửa đầu KHÔNG nêu `duong_dan` nữa: mọi dòng tầng nông đều là hàng `mo_dau`
+    # của migration 016, nên câu cũ in ra "liên quan 84/2015/QH13 > Mở đầu" —
+    # một vị trí không tồn tại như một vị trí. Xem `_van_ban_va_vi_tri`.
     def _phu_mot_phan() -> dict:
-        luat = sorted({f"{p['so_ky_hieu']} ({p.get('ten') or ''})".strip() for p in shallow})
-        dieu = ", ".join(p["duong_dan"] for p in shallow[:3])
+        ten, _ = _van_ban_va_vi_tri(shallow)
         # Gộp theo doc_id: nhiều Điều của cùng một văn bản là MỘT nguồn. Không
         # có doc_id thì bỏ qua dòng đó — thà thiếu một link còn hơn dựng một
         # link hỏng, và giao diện đã có `coverage_note` nêu tên văn bản.
@@ -376,10 +486,12 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
             if doc_id and not any(n["doc_id"] == doc_id for n in nguon):
                 nguon.append({"doc_id": doc_id, "so_ky_hieu": p.get("so_ky_hieu", ""),
                               "bo_luat": p.get("ten") or ""})
-        return _base(state, ResultType.partial_coverage, nguon=nguon, coverage_note=(
-            f"Câu hỏi thuộc {'; '.join(luat)} — liên quan {dieu}. "
-            "KLAW phủ sâu 6 Bộ luật và các văn bản hướng dẫn về lao động; "
-            "chưa phủ nghị định/thông tư hướng dẫn lĩnh vực này nên không diễn giải chi tiết."
+        return _ngo_cut(state, llm, model, ResultType.partial_coverage, nguon=nguon, ghi_chu=(
+            f"Câu hỏi của bạn nằm trong {'; '.join(ten)}. "
+            f"{'Văn bản này' if len(ten) == 1 else 'Những văn bản này'} mình mới có tên, "
+            "số hiệu và tình trạng hiệu lực — chưa có toàn văn tới từng điều khoản, nên "
+            "mình chưa đọc được nội dung để nói với bạn điều gì chắc chắn. Bạn mở được "
+            "văn bản gốc ngay dưới đây."
         ))
 
     # Gọi khi truy hồi CHỈ chạm tầng nông.
@@ -399,14 +511,14 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         # không đi qua đây.
         if shallow:
             return _phu_mot_phan()
-        return _base(state, ResultType.abstain)
+        return _ngo_cut(state, llm, model, ResultType.abstain)
 
     tier1 = state.get("tier1") or []
     tier2 = {v.claim_index: v for v in (state.get("tier2") or [])}
     qua_t1 = [r for r in tier1 if r.ok]
 
     if not tier1 or not qua_t1:
-        return _base(state, ResultType.abstain)
+        return _ngo_cut(state, llm, model, ResultType.abstain)
 
     # RULING 2026-08-31 (task-9 review) — brief gốc có một nhánh
     # `if tier2 else not tier2` khiến "tier2 rỗng toàn bộ" mặc định COI NHƯ ĐÃ
@@ -426,7 +538,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
     verified = [r for pos, r in enumerate(qua_t1) if (v := tier2.get(pos)) is not None and v.supported]
     ty_le = len(verified) / len(tier1)
     if not verified or ty_le < float(state.get("abstain_threshold", ABSTAIN_THRESHOLD_DEFAULT)):
-        return _base(state, ResultType.abstain)
+        return _ngo_cut(state, llm, model, ResultType.abstain)
 
     citations: list[Citation] = []
     warnings: list[str] = []
@@ -490,10 +602,12 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
 
     # Toàn bộ nguồn dùng-được-cho-prose đã bị lọc (mọi citation đều bi_thay_the/
     # het_hieu_luc và câu hỏi không neo văn bản nào) → KHÔNG dựng câu trả lời
-    # tự tin. 0 TOKEN: không gọi LLM khi đã biết trước không có gì hợp lệ để
-    # hành văn.
+    # tự tin. LLM HÀNH VĂN không được gọi ở đây: đã biết trước không có gì hợp
+    # lệ để hành văn. (Câu hỏi lại trong `_ngo_cut` là một lượt gọi KHÁC, với
+    # schema khác, và nó không dựng khẳng định pháp luật nào.)
     if not dung_cho_prose:
-        ket = _base(state, ResultType.abstain, coverage_note=_ly_do_moi_nguon_bi_thay(verified))
+        ket = _ngo_cut(state, llm, model, ResultType.abstain,
+                       ghi_chu=_ly_do_moi_nguon_bi_thay(verified))
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
         return ket
 
@@ -546,7 +660,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
             "assemble: answer nhắc Điều %s không có trong citations đã xác minh — hạ xuống abstain (%s)",
             ", ".join(dieu_bi_loai), LY_DO_DIEU_KHONG_CHONG_DO,
         )
-        ket = _base(state, ResultType.abstain, usage=usage, degraded=degraded)
+        ket = _ngo_cut(state, llm, model, ResultType.abstain, usage=usage, degraded=degraded)
         ket["traces"]["assemble_dieu_bi_loai"] = dieu_bi_loai
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
         return ket

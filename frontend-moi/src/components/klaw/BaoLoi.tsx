@@ -37,7 +37,14 @@ function goiY(kind: ApiErrorKind): string | null {
       // nơi nào lỡ hiện nó ra thì nó vẫn đọc như một sự việc bình thường.
       return "Lượt tra cứu đã dừng theo yêu cầu của bạn.";
     case "not_implemented":
-      return "Chức năng này chưa có nội dung pháp lý trong hệ thống, nên chưa có kết quả thật để hiển thị.";
+      // Nhánh DUY NHẤT trong tệp này không nói về lỗi hạ tầng: 501 phát ra khi
+      // một loại văn bản chưa có checklist/căn cứ riêng, hoặc khi xác thực chưa
+      // được cấu hình — cả hai là "chưa dựng xong", không phải "vừa hỏng". Câu
+      // cũ ("chưa có nội dung pháp lý trong hệ thống") là một phát biểu về ĐỘ
+      // PHỦ đội lốt thông báo lỗi, nên nó nói bằng giọng của người trả lời.
+      // Không nêu đích danh nguyên nhân: `loi.message` ngay trên đã mang
+      // `detail` của máy chủ, và đoán sai giữa hai nguyên nhân thì tệ hơn im.
+      return "Phần này mình chưa dựng xong nên chưa có kết quả thật để đưa cho bạn — không phải lỗi ở phía bạn.";
     case "not_found":
       return "Không tìm thấy văn bản hoặc điều khoản này trong kho.";
     case "unauthorized":

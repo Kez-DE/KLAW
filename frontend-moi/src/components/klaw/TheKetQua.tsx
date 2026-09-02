@@ -54,7 +54,7 @@ const GOI_Y_DIEN_DAT_LAI = [
  * Khay trung tính dùng cho `abstain` và `out_of_scope`.
  *
  * Cùng một hình dạng với khay `partial_coverage` ngay dưới, khác đúng ở màu
- * viền — để hai nhánh "hệ thống không trả lời" đọc như cùng một loại sự việc,
+ * viền — để hai nhánh không có câu trả lời đọc như cùng một loại sự việc,
  * không phải như hai mức báo động.
  */
 function KhayTrungTinh({ tieuDe, children }: { tieuDe: string; children?: React.ReactNode }) {
@@ -289,10 +289,43 @@ function NhacMienTru() {
       Câu trả lời dựa trên văn bản gốc, không phải bản hợp nhất — KLAW bảo đảm nguồn gốc và đúng
       nguyên văn, không bảo đảm đây là bản hiện hành.{" "}
       <Link to="/mien-tru" className="focus-brass rounded underline underline-offset-2">
-        Giới hạn của hệ thống
+        Giới hạn của KLAW
       </Link>
       .
     </p>
+  );
+}
+
+/**
+ * Văn xuôi máy chủ gửi về, cắt thành đoạn và danh sách.
+ *
+ * Dùng ở BỐN nhánh (`answer`, `gioi_thieu`, và `coverage_note` của `abstain` +
+ * `partial_coverage`). Nằm ở cấp module chứ không trong thân component: từ
+ * 2026-09-02 `coverage_note` có HAI NỬA ngăn bằng dòng trắng cộng một danh sách
+ * gạch đầu dòng, mà hai nhánh cần nó lại `return` TRƯỚC chỗ khai báo cũ.
+ *
+ * `catDoan` chỉ CẮT, không sửa chữ: câu trả lời mang số Điều ngay trong lời văn
+ * (`… (Điều 25, Khoản 1)`) và đó là căn cứ, không phải trang trí.
+ */
+function KhoiVanXuoi({ chu }: { chu: string }) {
+  return (
+    <>
+      {catDoan(chu).map((doan, i) =>
+        doan.kieu === "danh_sach" ? (
+          <ul key={`ds-${i}`} className={cn("list-disc pl-5", i === 0 ? "m-0" : "mt-3 mb-0")}>
+            {doan.muc.map((muc, j) => (
+              <li key={`${j}-${muc.slice(0, 24)}`} className={j === 0 ? "" : "mt-1"}>
+                {muc}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p key={`d-${i}`} className={i === 0 ? "m-0" : "mt-3 mb-0"}>
+            {doan.chu}
+          </p>
+        ),
+      )}
+    </>
   );
 }
 
@@ -324,16 +357,28 @@ export function TheKetQua({
   if (loai === "abstain") {
     return (
       <section aria-label="Kết quả tra cứu">
-        <KhayTrungTinh tieuDe="Không tìm thấy căn cứ pháp lý cho câu hỏi này.">
-          <p className="mt-2 mb-0 text-[14px] leading-6 text-muted-foreground">
-            Hệ thống dừng ở đây thay vì suy đoán. Đây là hành vi được thiết kế, không phải lỗi.
-          </p>
+        {/* Câu "Hệ thống dừng ở đây thay vì suy đoán. Đây là hành vi được thiết
+            kế, không phải lỗi." đã gỡ: từ 2026-09-02 `coverage_note` tự nói
+            việc đó bằng giọng người trả lời ("nên mình dừng ở đây thay vì
+            đoán"), và một hệ thống tự thuật về thiết kế của chính nó là đúng
+            giọng mà pha này bỏ. Khay vẫn TRUNG TÍNH — abstain là hành vi đúng,
+            không phải một mức báo động. */}
+        <KhayTrungTinh tieuDe="Mình chưa trả lời chắc được câu hỏi này.">
           {ghiChuPhamVi !== null && ghiChuPhamVi !== "" && (
-            <p className="mt-2 mb-0 text-[14px] leading-6 text-muted-foreground">{ghiChuPhamVi}</p>
+            <div className="mt-2 text-[14px] leading-6 text-muted-foreground">
+              <KhoiVanXuoi chu={ghiChuPhamVi} />
+            </div>
           )}
         </KhayTrungTinh>
+        {/* Đứng SAU câu hỏi lại, và mang chữ "Hoặc": `coverage_note` nay đã hỏi
+            đúng dữ kiện còn thiếu của chính câu hỏi này, nên bốn gợi ý chung
+            dưới đây là một lối KHÁC chứ không phải một chỉ dẫn thứ hai tranh
+            chỗ với nó. Vẫn giữ vì chúng nói được thứ câu hỏi lại không nói:
+            cách viết lại câu hỏi. */}
         <div className="mt-4">
-          <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">Thử diễn đạt lại</h3>
+          <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">
+            Hoặc thử diễn đạt lại câu hỏi
+          </h3>
           <ul className="doc-prose mt-1 mb-0 list-disc pl-5 text-foreground">
             {GOI_Y_DIEN_DAT_LAI.map((goiY) => (
               <li key={goiY}>{goiY}</li>
@@ -345,42 +390,10 @@ export function TheKetQua({
     );
   }
 
-  /**
-   * Văn xuôi máy chủ trả về, cắt thành đoạn và danh sách.
-   *
-   * Dùng ở HAI nhánh (`answer` và `gioi_thieu`). Tách ra thay vì chép: đây là
-   * chỗ duy nhất biết `catDoan` trả về hai loại đoạn, và hai bản sao của tri
-   * thức đó sẽ lệch nhau đúng lúc thêm loại thứ ba.
-   *
-   * `catDoan` chỉ CẮT, không sửa chữ: câu trả lời mang số Điều ngay trong lời
-   * văn (`… (Điều 25, Khoản 1)`) và đó là căn cứ, không phải trang trí.
-   */
-  function KhoiVanXuoi({ chu }: { chu: string }) {
-    return (
-      <>
-        {catDoan(chu).map((doan, i) =>
-          doan.kieu === "danh_sach" ? (
-            <ul key={`ds-${i}`} className={cn("list-disc pl-5", i === 0 ? "m-0" : "mt-3 mb-0")}>
-              {doan.muc.map((muc, j) => (
-                <li key={`${j}-${muc.slice(0, 24)}`} className={j === 0 ? "" : "mt-1"}>
-                  {muc}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p key={`d-${i}`} className={i === 0 ? "m-0" : "mt-3 mb-0"}>
-              {doan.chu}
-            </p>
-          ),
-        )}
-      </>
-    );
-  }
-
-  // `gioi_thieu` KHÔNG mượn `KhayTrungTinh`. Khay đó nói "hệ thống không trả
-  // lời được" — dùng nó ở đây là vẫn đóng khung một câu trả lời hợp lệ như một
-  // lời từ chối, tức vẫn phạm đúng lỗi vừa sửa ở backend, chỉ dịch xuống một
-  // tầng. Đây là câu trả lời, nên nó trông như câu trả lời.
+  // `gioi_thieu` KHÔNG mượn `KhayTrungTinh`. Khay đó nói "chưa trả lời được" —
+  // dùng nó ở đây là vẫn đóng khung một câu trả lời hợp lệ như một lời từ chối,
+  // tức vẫn phạm đúng lỗi vừa sửa ở backend, chỉ dịch xuống một tầng. Đây là
+  // câu trả lời, nên nó trông như câu trả lời.
   if (loai === "gioi_thieu") {
     return (
       <section aria-label="Giới thiệu trợ lý">
@@ -394,19 +407,19 @@ export function TheKetQua({
   if (loai === "out_of_scope") {
     return (
       <section aria-label="Kết quả tra cứu">
-        <KhayTrungTinh tieuDe="Câu hỏi này nằm ngoài phạm vi của hệ thống.">
+        <KhayTrungTinh tieuDe="Câu hỏi này nằm ngoài phạm vi mình phủ.">
           {ghiChuPhamVi !== null && ghiChuPhamVi !== "" && (
             <p className="mt-2 mb-0 text-[14px] leading-6 text-muted-foreground">{ghiChuPhamVi}</p>
           )}
         </KhayTrungTinh>
         <div className="mt-4 text-[14px] leading-6 text-foreground">
           <p className="m-0">
-            Hệ thống phủ <strong className="font-semibold">6 Bộ luật</strong>:{" "}
+            Mình tra được <strong className="font-semibold">6 Bộ luật</strong>:{" "}
             {SAU_BO_LUAT.join(", ")} — cùng cụm văn bản dưới luật về Lao động.
           </p>
           <p className="mt-2 mb-0 text-muted-foreground">
-            Không phủ: {KHONG_PHU.join(", ")}. Chiều sâu cũng không đều giữa các lĩnh vực: chỉ riêng
-            Lao động có đủ luật, nghị định, thông tư và chế tài.
+            Mình chưa phủ: {KHONG_PHU.join(", ")}. Chiều sâu cũng không đều giữa các lĩnh vực: chỉ
+            riêng Lao động có đủ luật, nghị định, thông tư và chế tài.
           </p>
         </div>
         <KhoiCanhBao warnings={warnings} />
@@ -428,13 +441,14 @@ export function TheKetQua({
               aria-hidden
             />
             <span>
-              Chỉ tìm được văn bản liên quan, chưa đủ căn cứ để diễn giải thành câu trả lời. Hệ
-              thống KHÔNG diễn giải trong trường hợp này — văn bản gốc được nêu đích danh dưới đây
-              để bạn tự đối chiếu.
+              Mình tìm được văn bản chi phối câu hỏi của bạn, nhưng chưa đọc được nội dung của nó
+              nên chưa giải thích được cho bạn.
             </span>
           </p>
           {ghiChuPhamVi !== null && ghiChuPhamVi !== "" && (
-            <p className="doc-prose mt-2 mb-0 text-foreground">{ghiChuPhamVi}</p>
+            <div className="doc-prose mt-2 text-foreground">
+              <KhoiVanXuoi chu={ghiChuPhamVi} />
+            </div>
           )}
         </div>
         <KhoiCanhBao warnings={warnings} />
@@ -459,8 +473,8 @@ export function TheKetQua({
           <p className="m-0 flex items-start gap-2 text-muted-foreground">
             <FileSearch className="mt-1 size-4 shrink-0" aria-hidden />
             <span>
-              Máy chủ trả về trạng thái có căn cứ nhưng không kèm nội dung câu trả lời. Đọc nguyên
-              văn các trích dẫn bên dưới.
+              Lượt này mình đối chiếu được trích dẫn nhưng chưa viết ra được lời giải thích. Bạn đọc
+              nguyên văn các điều khoản ngay dưới đây.
             </span>
           </p>
         ) : (

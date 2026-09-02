@@ -1,7 +1,8 @@
 import json
 
-from src.agents.nodes.assemble import ResultType, assemble
+from src.agents.nodes.assemble import ANSWER_SCHEMA, ResultType, assemble
 from src.agents.nodes.generate_claims import Claim
+from src.agents.nodes.hoi_lai import HOI_LAI_SCHEMA
 from src.agents.nodes.verify_tier1 import Tier1Reason as R
 from src.agents.nodes.verify_tier1 import Tier1Result
 from src.agents.nodes.verify_tier2 import Tier2Verdict
@@ -14,9 +15,33 @@ EFF = Effectivity(V.con_hieu_luc, "trung_binh", "x")
 
 
 class FakeLlm:
+    """GHI LẠI schema của từng lượt gọi, không chỉ trả nội dung.
+
+    Từ 2026-09-02 `assemble` gọi LLM ở HAI vai khác nhau: hành văn
+    (`ANSWER_SCHEMA`) và sinh câu hỏi lại cho một ngõ cụt (`HOI_LAI_SCHEMA`).
+    Cách canh cũ — một fake `raise AssertionError` khi bị gọi — nay là một LƯỚI
+    CHẾT: `hoi_lai` bắt `Exception` để một ngõ cụt không bao giờ thành HTTP 500,
+    nên nó nuốt luôn AssertionError của fake và test PASS mà không canh gì. Đếm
+    theo schema thì không nuốt được.
+    """
+
+    def __init__(self) -> None:
+        self.schema_da_goi: list[dict | None] = []
+
     def chat(self, model, messages, json_schema=None):
         from src.services.llm import Usage
+        self.schema_da_goi.append(json_schema)
+        if json_schema is HOI_LAI_SCHEMA:
+            return json.dumps({"chieu": [{"ma": "chu_the", "cau": "Bạn ở phía nào?"}]}), Usage(1, 1, 0.0)
         return json.dumps({"answer": "Ít nhất 85% mức lương."}), Usage(1, 1, 0.0)
+
+    @property
+    def so_lan_hanh_van(self) -> int:
+        return sum(1 for s in self.schema_da_goi if s is ANSWER_SCHEMA)
+
+    @property
+    def so_lan_hoi_lai(self) -> int:
+        return sum(1 for s in self.schema_da_goi if s is HOI_LAI_SCHEMA)
 
 
 def _pass(pid=11):
@@ -32,17 +57,22 @@ def test_ngoai_pham_vi_tra_out_of_scope_va_KHONG_goi_LLM():
     assert st["result_type"] is ResultType.out_of_scope and st["answer"] is None
 
 
-def test_deep_rong_shallow_co_thi_partial_coverage_va_KHONG_goi_LLM():
-    class Never(FakeLlm):
-        def chat(self, *a, **k):
-            raise AssertionError("PARTIAL_COVERAGE phải là nhánh 0 token")
-
-    st = assemble({"intent": "tra_cuu", "expanded": [], "hits_shallow": [
-        {"id": 5, "duong_dan": "84/2015/QH13 > Điều 3", "so_ky_hieu": "84/2015/QH13",
-         "ten": "Luật An toàn, vệ sinh lao động"}]}, DB, Never(), "m")
+def test_deep_rong_shallow_co_thi_partial_coverage_va_KHONG_goi_LLM_hanh_van():
+    """`partial_coverage` không còn là nhánh 0 token — nó tiêu MỘT lượt sinh câu
+    hỏi lại (Pha 2, cố ý). Cái KHÔNG đổi: nó tuyệt đối không được gọi LLM HÀNH
+    VĂN, vì hành văn ở đây nghĩa là dựng lời giải thích pháp luật từ nội dung
+    chưa qua tầng nào kiểm chứng."""
+    llm = FakeLlm()
+    st = assemble({"intent": "tra_cuu", "query": "an toàn lao động quy định thế nào",
+                   "expanded": [], "hits_shallow": [
+                       {"id": 5, "duong_dan": "84/2015/QH13 > Điều 3",
+                        "so_ky_hieu": "84/2015/QH13",
+                        "ten": "Luật An toàn, vệ sinh lao động"}]}, DB, llm, "m")
     assert st["result_type"] is ResultType.partial_coverage
     assert st["answer"] is None
     assert "84/2015/QH13" in st["coverage_note"]
+    assert llm.so_lan_hanh_van == 0, "không được dựng lời giải thích khi chưa kiểm chứng gì"
+    assert llm.so_lan_hoi_lai == 1, "ngõ cụt phải hỏi lại, không được dừng ở một danh sách"
 
 
 def test_khong_claim_nao_qua_tang_1_thi_abstain():
@@ -75,12 +105,19 @@ def test_tang_2_bac_thi_claim_bi_loai_khoi_citation():
 
 
 def test_answer_mang_citation_co_bo_luat_va_so_ky_hieu_khong_mang_title():
+    llm = FakeLlm()
     st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [_pass()],
                    "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
-                  DB, FakeLlm(), "m")
+                  DB, llm, "m")
     assert st["result_type"] is ResultType.answer
     c = st["citations"][0]
     assert c["so_ky_hieu"] == "45/2019/QH14" and c["duong_dan"].startswith("45/2019/QH14")
+    # Nhánh CÓ câu trả lời không được hỏi lại (review 2026-09-02: chiều ngược của
+    # `so_lan_hanh_van == 0` trên nhánh ngõ cụt chưa có lưới nào). Một lượt
+    # `hoi_lai` "phòng hờ" ở đây chỉ tốn token mà không đổi kết quả, nên không
+    # assertion nào khác bắt được.
+    assert llm.so_lan_hoi_lai == 0, "nhánh answer không được gọi hỏi lại"
+    assert llm.so_lan_hanh_van == 1, "nhánh answer phải hành văn đúng MỘT lần"
 
 
 def test_hieu_luc_khong_chac_sinh_warning():
@@ -245,23 +282,22 @@ def test_assemble_khong_ha_xuong_khi_khong_co_so_dieu_lech():
 # "các phương án song song" — từng citation đúng, hành văn sai.
 
 
-def test_khong_neo_va_TOAN_BO_da_bi_thay_thi_abstain_0_token():
-    """0 token: LLM hành văn KHÔNG được gọi khi đã biết trước không còn nguồn
-    nào hợp lệ để dựng câu trả lời."""
-    class KhongDuocGoi(FakeLlm):
-        def chat(self, *a, **k):
-            raise AssertionError("không được gọi LLM khi mọi nguồn đã bị lọc hết")
-
+def test_khong_neo_va_TOAN_BO_da_bi_thay_thi_abstain_KHONG_hanh_van():
+    """LLM hành văn KHÔNG được gọi khi đã biết trước không còn nguồn nào hợp lệ
+    để dựng câu trả lời. (Lượt sinh câu hỏi lại là một vai KHÁC và vẫn chạy —
+    xem `FakeLlm`.)"""
+    llm = FakeLlm()
     db = {1: {"id": 1, "duong_dan": "90/2019/NĐ-CP > Điều 3", "so_ky_hieu": "90/2019/NĐ-CP", "ten": "x"}}
     eff_thay = Effectivity(V.bi_thay_the, "trung_binh", "suy luận cùng chủ đề: 74/2024/NĐ-CP cùng chủ đề và đã có "
                             "hiệu lực từ 2024-07-01")
     t1 = Tier1Result(Claim("4.420.000 đồng/tháng vùng I.", 1, "4.420.000"), True, R.ok, eff_thay)
     st = assemble({"intent": "tra_cuu", "query": "mức lương tối thiểu vùng I hiện nay là bao nhiêu",
                    "expanded": [db[1]], "tier1": [t1], "tier2": [Tier2Verdict(0, True, "ok")],
-                   "abstain_threshold": 0.5}, db, KhongDuocGoi(), "m")
+                   "abstain_threshold": 0.5}, db, llm, "m")
     assert st["result_type"] is ResultType.abstain
-    assert "74/2024/NĐ-CP" in st["coverage_note"]
+    assert "74/2024/NĐ-CP" in st["coverage_note"], "phải nêu ĐÍCH DANH văn bản đi thay"
     assert st["traces"]["assemble_nguon_bi_loc_khoi_prose"] == ["90/2019/NĐ-CP"]
+    assert llm.so_lan_hanh_van == 0
 
 
 def test_neo_van_ban_thi_KHONG_loc_giu_nguyen_hanh_vi():
@@ -359,17 +395,15 @@ def test_CRITICAL_tier2_RONG_HOAN_TOAN_khong_duoc_coi_la_da_verified():
     vì không test nào canh nhánh này — một comment ruling không phải một phép
     kiểm. Tier 1 CÓ 2 claim pass, tier2 RỖNG HOÀN TOÀN (không phải thiếu vài
     verdict — không có lấy MỘT cái)."""
-    class KhongDuocGoi(FakeLlm):
-        def chat(self, *a, **k):
-            raise AssertionError("verified rỗng thì không được gọi LLM hành văn")
-
+    llm = FakeLlm()
     t1a = Tier1Result(Claim("a", 11, "85%"), True, R.ok, EFF)
     t1b = Tier1Result(Claim("b", 11, "85%"), True, R.ok, EFF)
     st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1a, t1b],
-                   "tier2": [], "abstain_threshold": 0.5}, DB, KhongDuocGoi(), "m")
+                   "tier2": [], "abstain_threshold": 0.5}, DB, llm, "m")
     assert st["result_type"] is not ResultType.answer
     assert st["result_type"] is ResultType.abstain
     assert st["citations"] == [] and st["answer"] is None
+    assert llm.so_lan_hanh_van == 0, "verified rỗng thì không được gọi LLM hành văn"
 
 
 def test_citation_mang_doc_id_de_FE_mo_duoc_dieu_luat():
