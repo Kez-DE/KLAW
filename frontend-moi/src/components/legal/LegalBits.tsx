@@ -46,9 +46,9 @@ export function CanCuChuaKiemBanner({ className }: { className?: string }) {
       <p>
         <span className="font-semibold text-foreground">Căn cứ pháp lý chưa được đối chiếu.</span>{" "}
         Bản thảo được dựng và xuất tệp ngay trên máy bạn, nội dung không rời trình duyệt. Căn cứ in
-        trong bản thảo — cả dòng “Căn cứ pháp lý mẫu” lẫn chú thích dưới từng điều — mới là tham chiếu
-        tới số hiệu, điều, khoản, điểm; chúng chưa được phân giải tới điều khoản trong kho văn bản
-        của KLAW và chưa kiểm hiệu lực. Hãy tự đối chiếu trước khi ký.
+        trong bản thảo — cả dòng “Căn cứ pháp lý mẫu” lẫn chú thích dưới từng điều — mới là tham
+        chiếu tới số hiệu, điều, khoản, điểm; chúng chưa được phân giải tới điều khoản trong kho văn
+        bản của KLAW và chưa kiểm hiệu lực. Hãy tự đối chiếu trước khi ký.
       </p>
     </div>
   );
