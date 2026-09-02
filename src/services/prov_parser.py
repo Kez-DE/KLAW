@@ -252,8 +252,9 @@ def _re_nuot(cap: Cap, nhan_sau: str) -> re.Pattern[str]:
 def _tach_lien(cap: Cap, text: str) -> list[str]:
     """Một thẻ `prov-*` gói NHIỀU điều khoản → từng đoạn một.
 
-    Nguồn MOJ có 17 thẻ (12 `prov-item`, 5 `prov-clause`) chứa cả điều khoản kế
-    tiếp trong cùng một `<p>`. Parser đọc cấp bậc từ class nên không tách được:
+    Đã đếm trên cả 49 văn bản: 6 thẻ (5 `prov-item`, 1 `prov-clause`) chứa cả
+    điều khoản kế tiếp — có thẻ chứa tới ba — nên phép tách này khôi phục 11
+    provision. Parser đọc cấp bậc từ class nên không tách được:
     cả điều khoản sau rơi vào `noi_dung` của điều khoản trước và KHÔNG tồn tại —
     không `id`, không `duong_dan`. Đó là chế độ hỏng nặng nhất của bảng tra: mô
     hình trích đúng nguyên văn Điểm d rồi dẫn Điểm c, và verifier tầng 1 BÁO ĐẠT
