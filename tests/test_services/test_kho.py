@@ -511,12 +511,21 @@ def test_xin_dang_bang_bat_dung_cau_xin_trinh_bay(cau_hoi):
     "kẻ bảng giá đất mới nhất cho tôi",
     CAU_HOI_TOM_TAT,
     "kho có Nghị định 145/2020 không?",
+    # Fix round 1 (finding 3): ba cụm KHÔNG kết thúc bằng "bảng" — danh từ pháp
+    # lý đứng CÁCH cụm kích hoạt một hoặc hai từ nối, không phải ngay sau nó.
+    # Bản trước chỉ gác bốn cụm kết thúc bằng "bảng" nên cả ba câu này lọt qua
+    # kích hoạt sai (đo được: "liệt kê bảng lương của tôi" từng bật chế độ bảng
+    # cho một câu hỏi NỘI DUNG về bảng lương).
+    "liệt kê bảng lương",
+    "xem dễ hơn bảng chấm công",
+    "dạng cột của bảng giá",
 ])
 def test_xin_dang_bang_KHONG_bat_danh_tu_phap_ly_chua_chu_bang(cau_hoi):
     """Chỗ dễ sai nhất của T4 (brief tự nêu): "bảng lương"/"bảng chấm
     công"/"bảng giá" là danh từ pháp lý trong NỘI DUNG câu hỏi, không phải
     yêu cầu trình bày — kể cả khi đứng ngay sau các cụm xin-bảng ("cho tôi
-    bảng", "đưa bảng", "kẻ bảng")."""
+    bảng", "đưa bảng", "kẻ bảng"), hay cách một từ nối sau các cụm còn lại
+    ("liệt kê", "dạng cột", "xem dễ hơn")."""
     assert not xin_dang_bang(cau_hoi), cau_hoi
 
 

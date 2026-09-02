@@ -140,21 +140,32 @@ def moi_so_hieu_trong(cau_hoi: str) -> list[str]:
 # Ba cụm này là DANH TỪ pháp lý trong nội dung câu hỏi, không phải yêu cầu
 # trình bày — "cho tôi bảng lương", "đưa bảng chấm công", "kẻ bảng giá" KHÔNG
 # được khớp dù bốn cụm xin-bảng bên dưới đều là tiền tố đúng nghĩa của chúng.
-# Lookahead chặn NGAY SAU "bảng", không chặn xa hơn — chỗ dễ sai nhất của quy
-# tắc này (task-4-brief.md).
-_KHONG_PHAI_BANG_TRINH_BAY = r"(?!\s*(?:lương|chấm\s*công|giá)\b)"
+#
+# Fix round 1 (finding 3): lookahead BẢN TRƯỚC chỉ chặn NGAY SAU "bảng", nên chỉ
+# phủ bốn cụm KẾT THÚC bằng "bảng" — năm cụm còn lại ("liệt kê", "dạng cột",
+# "xem dễ hơn", "bảng hiển thị", "table") không có gác nào, và "liệt kê bảng
+# lương"/"dạng cột của bảng giá" lọt qua kích hoạt sai. Hai nhóm tuỳ chọn
+# ("của "/"bảng ") cho phép lookahead bỏ qua từ nối GIỮA cụm kích hoạt và danh
+# từ pháp lý ("liệt kê [bảng] lương", "dạng cột [của] [bảng] giá") — cả hai đều
+# rỗng được nên cụm áp sát danh từ ("cho tôi bảng lương") vẫn bị chặn như cũ.
+_KHONG_PHAI_BANG_TRINH_BAY = r"(?!\s*(?:của\s+)?(?:bảng\s*)?(?:lương|chấm\s*công|giá)\b)"
 
-# Cùng lối `_RE_SO_HIEU`: một biểu thức chính quy ở tầng thuần, 0 token. Bốn
-# cụm kết thúc bằng "bảng" mang lookahead phủ định ở trên; năm cụm còn lại
-# (không kết thúc bằng "bảng") không cần, vì không cụm nào trong ba danh từ
-# loại trừ bắt đầu bằng "dạng cột"/"xem dễ hơn"/"bảng hiển thị"/"table"/
-# "liệt kê".
+# Cùng lối `_RE_SO_HIEU`: một biểu thức chính quy ở tầng thuần, 0 token. Chín
+# cụm kích hoạt (task-4-brief.md) — MỌI cụm đều mang lookahead ở trên (fix round
+# 1: không chỉ bốn cụm kết thúc bằng "bảng"), vì "bảng hiển thị"/"table" không
+# tự va với ba danh từ loại trừ (không cụm nào bắt đầu bằng "hiển thị"/"table")
+# nên gác thêm ở đó không chặn oan yêu cầu trình bày thật nào — chỉ đóng nốt lỗ
+# hổng đối xứng.
 _RE_XIN_BANG = re.compile(
     r"dạng bảng" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
     r"cho tôi bảng" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
     r"đưa bảng" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
     r"kẻ bảng" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
-    r"dạng cột|xem dễ hơn|bảng hiển thị|\btable\b|liệt kê",
+    r"dạng cột" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
+    r"xem dễ hơn" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
+    r"bảng hiển thị" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
+    r"\btable\b" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
+    r"liệt kê" + _KHONG_PHAI_BANG_TRINH_BAY,
     re.IGNORECASE,
 )
 
