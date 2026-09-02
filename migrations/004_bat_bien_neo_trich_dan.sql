@@ -21,31 +21,21 @@
 -- Cả ba câu lệnh dưới đây DROP trước rồi ADD, nên chúng chạy lại được nhiều lần
 -- trên bảng CÓ dữ liệu: `ADD` kiểm lại dữ liệu đang có và dữ liệu đúng thì qua.
 
-ALTER TABLE provisions DROP CONSTRAINT IF EXISTS provisions_cap_check;
-
-DO $$ BEGIN
-    ALTER TABLE provisions ADD CONSTRAINT provisions_cap_check
-        CHECK (cap IN ('phan', 'chuong', 'muc', 'tieu_muc', 'dieu', 'khoan',
-                       'diem', 'phu_luc', 'mo_dau'));
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- Neo trích dẫn duy nhất Ở CẤP TRÍCH DẪN ĐƯỢC. Partial index vì cấp Chương có
--- một ngoại lệ đã chấp nhận: NĐ 145/2020 thật sự đánh số hai Chương cùng là
--- "Chương XI", và bịa "XII" để né là bịa ký hiệu không có trong nguồn. Partial
--- index làm trùng ở cấp trích dẫn được thành BẤT KHẢ THI VỀ MẶT VẬT LÝ, không
--- phụ thuộc việc ai có nhớ chạy Cổng A hay không.
-CREATE UNIQUE INDEX IF NOT EXISTS ux_provisions_neo_trich_dan
-    ON provisions (duong_dan) WHERE cap IN ('dieu', 'khoan', 'diem');
-
--- `noi_dung` rỗng ở cấp trích dẫn được = phép kiểm "câu trích khớp nguyên văn"
--- không có gì để đối chiếu: hoặc luôn thất bại (ABSTAIN mọi câu hỏi), hoặc được
--- viết cho "rỗng thì bỏ qua" và khi đó nó không kiểm gì cả. `btrim` vì một chuỗi
--- chỉ có khoảng trắng cũng rỗng theo nghĩa này.
-ALTER TABLE provisions DROP CONSTRAINT IF EXISTS provisions_noi_dung_citable_check;
-
-DO $$ BEGIN
-    ALTER TABLE provisions ADD CONSTRAINT provisions_noi_dung_citable_check
-        CHECK (cap NOT IN ('dieu', 'khoan', 'diem') OR btrim(noi_dung) <> '');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+-- ─────────────────────────────────────────────────────────────────────────────
+-- FILE NÀY CỐ Ý KHÔNG CÒN CÂU LỆNH NÀO (2026-09-02), cùng lý do đã ghi ở
+-- `002_cap_tieu_muc.sql` và `003_cap_phu_luc.sql`, và cùng cái bẫy mà chính
+-- phần đầu file này mô tả — lần này nó nổ thật.
+--
+-- Cả BA vật thể dưới đây giờ do `017_cap_hang_bang.sql` — file MỚI NHẤT — sở
+-- hữu, và chỉ nó:
+--   * `provisions_cap_check`
+--   * `ux_provisions_neo_trich_dan`
+--   * `provisions_noi_dung_citable_check`
+--
+-- Đường vỡ đã đo: `run_migrations()` chạy LẠI MỌI file mỗi lần và đi qua 004
+-- TRƯỚC 017. Sau khi ingest nạp 13 dòng `hang_bang`, bản HẸP ở đây `DROP` rồi
+-- `ADD` lại tập giá trị cũ, `ADD CONSTRAINT` kiểm ngay dữ liệu đang có và ném
+-- `CheckViolation` trên đúng những dòng 017 vừa cho phép — `scripts.build_chunks`
+-- đỏ ngay ở `run_migrations()`, trước khi chạm tới một chunk nào.
+--
+-- Quy tắc: MỘT constraint thì MỘT file sở hữu, và đó là file mới nhất.
