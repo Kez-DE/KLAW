@@ -21,7 +21,14 @@ export type ResultType =
   // loại trên mô tả điều đã xảy ra với một lượt TRA CỨU; loại này nói rằng
   // câu hỏi không phải một lượt tra cứu. Trước bản này nó về `out_of_scope`
   // và người hỏi nhận "Câu hỏi này nằm ngoài phạm vi của hệ thống".
-  | "gioi_thieu";
+  | "gioi_thieu"
+  // Loại thứ SÁU và thứ BẢY. Thiếu chúng ở đây là lỗi ĐO ĐƯỢC 2026-09-02: backend
+  // trả `hoi_ve_kho` thành công (trace 8e32221d, 6.490ms, ghi vào `traces`) nhưng
+  // `laTraCuuKetQua` từ chối cả response, và người hỏi nhận "Máy chủ trả về dữ
+  // liệu không đúng hình dạng đã thoả thuận". `huong_dan_soan_thao` cũng thiếu,
+  // nghĩa là đường bàn giao sang soạn thảo đã hỏng ở đây từ trước đó.
+  | "huong_dan_soan_thao"
+  | "hoi_ve_kho";
 
 /**
  * Sáu nhãn hiệu lực.
@@ -87,7 +94,36 @@ export interface TraCuuKetQua {
   warnings: string[];
   coverage_note: string | null;
   trace_id: string;
+  /**
+   * Câu hỏi sau khi máy chủ giải nghĩa một lượt hỏi NỐI TIẾP, hoặc `null` khi
+   * không giải nghĩa (lượt đầu) hoặc không cần.
+   *
+   * PHẢI hiện ra khi nó khác câu người dùng gõ. Giải nghĩa sai là chuyện chắc
+   * chắn xảy ra, và không có dòng này thì người hỏi nhận câu trả lời cho một câu
+   * HỌ KHÔNG HỎI mà không có cách nào biết, cũng không có cách nào sửa.
+   */
+  cau_hoi_day_du: string | null;
 }
+
+/**
+ * Một lượt hỏi-đáp ĐÃ XONG, gửi lên để máy chủ giải nghĩa câu nối tiếp.
+ *
+ * Khớp `LuotTruoc` của `src/models/schemas.py`. Lịch sử CHỈ dùng để làm câu hỏi
+ * tự đứng được — nó không chống đỡ khẳng định nào, nên câu đã giải nghĩa vẫn
+ * phải qua đủ hai tầng kiểm chứng như một câu hỏi mới.
+ */
+export interface LuotTruoc {
+  cau_hoi: string;
+  tra_loi: string;
+  duong_dan: string[];
+}
+
+/** Trần của `TraCuuRequest.lich_su` phía máy chủ — quá là **422**, không truncate. */
+export const TOI_DA_LUOT_LICH_SU = 3;
+/** Khớp `giai_nghia.TOI_DA_TRA_LOI`: máy chủ cắt còn đúng bấy nhiêu khi dựng
+ *  prompt, nên gửi nhiều hơn là tiêu băng thông cho chữ bị bỏ — và một câu trả
+ *  lời ba tầng dài hơn 2.000 ký tự sẽ làm cả lượt nối tiếp bị 422. */
+export const TOI_DA_TRA_LOI_LICH_SU = 400;
 
 /**
  * `string`, KHÔNG một union đóng — cùng bài học đã ghi ở `MucLucItem.cap`.
@@ -567,19 +603,38 @@ export interface SuKienBuoc {
 const laBanGhi = (x: unknown): x is Record<string, unknown> =>
   typeof x === "object" && x !== null && !Array.isArray(x);
 
+/** Bảy loại backend biết trả. So khớp với `ResultType` của `src/models/schemas.py`
+ *  bằng `test_FE_biet_moi_gia_tri_ResultType_cua_backend` (Python đọc file này). */
 const LOAI_KET_QUA: readonly string[] = [
   "answer",
   "partial_coverage",
   "abstain",
   "out_of_scope",
   "gioi_thieu",
+  "huong_dan_soan_thao",
+  "hoi_ve_kho",
 ];
 
 export function laTraCuuKetQua(x: unknown): x is TraCuuKetQua {
+  // `result_type` chỉ cần là CHUỖI KHÔNG RỖNG — cố ý KHÔNG đòi nằm trong
+  // `LOAI_KET_QUA`. Bản trước đòi, và một loại backend biết trả mà danh sách này
+  // chưa biết làm cả response bị từ chối: người hỏi nhận "Máy chủ trả về dữ liệu
+  // không đúng hình dạng" trong khi backend đã dựng xong câu trả lời (đo được
+  // 2026-09-02, trace 8e32221d, `hoi_ve_kho`).
+  //
+  // FE và BE nay deploy RIÊNG (SPA mount đã gỡ khỏi `src/main.py`), nên backend đi
+  // trước một nhịp là chuyện bình thường — và một nhãn lạ phải suy biến, đúng như
+  // docstring đầu file này vẫn hứa, chứ không làm sập cả thẻ kết quả.
+  //
+  // Lo ngại cũ ("loại lạ rơi vào nhánh answer và hiện một câu trả lời rỗng như
+  // thể đó là câu trả lời") nay do NHÁNH MẶC ĐỊNH của `TheKetQua` chịu: nó chỉ
+  // hành văn khi có `answer`, còn không thì nói thật là chưa có. `LOAI_KET_QUA`
+  // vẫn giữ để `test_FE_biet_moi_gia_tri_ResultType_cua_backend` so hai tập —
+  // lỗi thiếu nhãn bị bắt ở CI, không bị bắt trên mặt người dùng.
   return (
     laBanGhi(x) &&
     typeof x["result_type"] === "string" &&
-    LOAI_KET_QUA.includes(x["result_type"]) &&
+    x["result_type"].trim() !== "" &&
     Array.isArray(x["citations"]) &&
     Array.isArray(x["warnings"]) &&
     typeof x["trace_id"] === "string"

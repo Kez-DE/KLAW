@@ -31,8 +31,43 @@ const CHUA_CAU_HINH =
  * chủ KLAW chưa đếm hạn mức theo tài khoản. Nuốt lặng thì cũng được, nhưng
  * không được biến nó thành một thông báo đăng nhập thất bại.
  */
-async function ghiNhanNguoiDung(): Promise<void> {
+export async function ghiNhanNguoiDung(): Promise<void> {
   await goi("/nguoi-dung", (x): x is unknown => x !== undefined, { method: "POST" });
+}
+
+/** Ba provider chủ dự án chốt (2026-09-02). Tên là tên của SUPABASE, không phải
+ *  tên thương hiệu: Microsoft là `azure` (Microsoft Entra ID). Dùng union thay
+ *  vì `string` để `tsc` chặn một tên provider viết sai — Supabase trả
+ *  "Unsupported provider" lúc CHẠY, và đó là lỗi lẽ ra bắt được lúc biên dịch. */
+export type NhaCungCapOAuth = "google" | "azure" | "facebook";
+
+/**
+ * Đăng nhập bằng bên thứ ba (OAuth).
+ *
+ * KHÔNG gọi `ghiNhanNguoiDung()` ở đây, và đó là chỗ dễ sai nhất của luồng này:
+ * `signInWithOAuth` CHUYỂN HƯỚNG cả trang, nên không một dòng nào sau nó chạy.
+ * Phiên chỉ xuất hiện SAU khi browser quay về, và chỗ duy nhất thấy được lúc đó
+ * là `onAuthStateChange` trong `use-auth.ts` — nơi đã móc `ghiNhanNguoiDung`.
+ *
+ * Thiếu móc đó thì người dùng đăng nhập THÀNH CÔNG mà KLAW không bao giờ ghi
+ * nhận họ: hạn mức theo-người không áp, và không có lỗi nào hiện ra.
+ *
+ * `redirectTo` phải nằm trong Redirect URLs của project Supabase, nếu không
+ * Supabase từ chối và người dùng thấy trang lỗi của Supabase chứ không của KLAW.
+ */
+export async function dangNhapOAuth(nhaCungCap: NhaCungCapOAuth): Promise<KetQuaXacThuc> {
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: nhaCungCap,
+      options: { redirectTo: `${window.location.origin}/dung-thu` },
+    });
+    if (error !== null) return { trangThai: "loi", thongDiep: error.message };
+  } catch {
+    return { trangThai: "chua-cau-hinh", thongDiep: CHUA_CAU_HINH };
+  }
+  // Tới được đây nghĩa là chuyển hướng chưa xảy ra (hiếm) — không khẳng định
+  // đã có phiên, vì chưa có.
+  return { trangThai: "xong", canXacNhanEmail: false };
 }
 
 export async function dangNhap(email: string, matKhau: string): Promise<KetQuaXacThuc> {

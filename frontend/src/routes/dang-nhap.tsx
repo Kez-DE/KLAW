@@ -1,7 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { useState, type FormEvent } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
-import { dangNhap } from "@/lib/xac-thuc";
+import type { NhaCungCapOAuth } from "@/lib/xac-thuc";
+import { dangNhap, dangNhapOAuth } from "@/lib/xac-thuc";
 import {
   BrassButton,
   Divider,
@@ -9,10 +11,11 @@ import {
   ErrorBanner,
   Field,
   Fineprint,
+  FacebookMark,
   GoogleMark,
+  MicrosoftMark,
   MSG_EMAIL,
   MSG_PASSWORD,
-  MicrosoftMark,
   PASSWORD_RE,
   PasswordField,
   SocialButton,
@@ -40,6 +43,15 @@ export const Route = createFileRoute("/dang-nhap")({
   component: SignInPage,
 });
 
+// Tên `ma` là tên của SUPABASE, không phải tên thương hiệu: Microsoft là
+// `azure` (Microsoft Entra ID). Một mảng, một nguồn sự thật cho cả nhãn, icon và
+// mã provider — ba khối JSX viết tay là ba chỗ để chúng lệch nhau.
+const OAUTH: readonly { ma: NhaCungCapOAuth; ten: string; icon: ReactNode }[] = [
+  { ma: "google", ten: "Google", icon: <GoogleMark /> },
+  { ma: "azure", ten: "Microsoft", icon: <MicrosoftMark /> },
+  { ma: "facebook", ten: "Facebook", icon: <FacebookMark /> },
+];
+
 function SignInPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -49,6 +61,21 @@ function SignInPage() {
   const [banner, setBanner] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  // `signInWithOAuth` chuyển hướng cả trang, nên không có nhánh "thành công" ở
+  // đây để điều hướng — chỉ có nhánh THẤT BẠI. `setLoading(false)` chạy đúng
+  // khi chuyển hướng KHÔNG xảy ra (provider chưa bật ở Supabase, redirect URL
+  // chưa whitelist), và lúc đó thông điệp của Supabase được hiện NGUYÊN VĂN:
+  // "Unsupported provider" nói đúng vấn đề, còn một câu chung chung của KLAW
+  // sẽ khiến người dùng thử lại mãi.
+  const onOAuth = (nhaCungCap: NhaCungCapOAuth) => {
+    setBanner(null);
+    setLoading(true);
+    void dangNhapOAuth(nhaCungCap).then((ketQua) => {
+      setLoading(false);
+      if (ketQua.trangThai !== "xong") setBanner(ketQua.thongDiep);
+    });
+  };
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -98,16 +125,18 @@ function SignInPage() {
             </p>
 
             <div className="mt-7 space-y-3">
-              <SocialButton
-                icon={<GoogleMark />}
-                label="Tiếp tục với Google"
-                chuaDung="KLAW chưa dựng đăng nhập bằng tài khoản bên thứ ba. Dùng email và mật khẩu ở dưới."
-              />
-              <SocialButton
-                icon={<MicrosoftMark />}
-                label="Tiếp tục với Microsoft"
-                chuaDung="KLAW chưa dựng đăng nhập bằng tài khoản bên thứ ba. Dùng email và mật khẩu ở dưới."
-              />
+              {/* Ba provider chủ dự án chốt (2026-09-02). Dựng từ `OAUTH` chứ
+                  không viết tay ba khối gần giống nhau — thêm provider thứ tư là
+                  thêm MỘT dòng vào mảng, và không có bản sao nào lệch pha. */}
+              {OAUTH.map((n) => (
+                <SocialButton
+                  key={n.ma}
+                  icon={n.icon}
+                  label={`Tiếp tục với ${n.ten}`}
+                  disabled={loading}
+                  onClick={() => onOAuth(n.ma)}
+                />
+              ))}
             </div>
 
             <Divider label="hoặc đăng nhập bằng email" />

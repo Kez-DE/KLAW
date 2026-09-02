@@ -10,6 +10,8 @@ import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { useTraCuu } from "@/hooks/use-tra-cuu";
 import type { Citation, TraCuuKetQua } from "@/lib/klaw";
+import type { LuotDaXong } from "@/lib/lich-su";
+import { dungLichSu } from "@/lib/lich-su";
 import { cn } from "@/lib/utils";
 
 /**
@@ -38,11 +40,6 @@ const GOI_Y = [
   "Mức lương tối thiểu vùng đang áp dụng cho vùng I là bao nhiêu?",
   "Người lao động được nghỉ hằng năm bao nhiêu ngày và tính lương thế nào?",
 ];
-
-interface LuotDaXong {
-  cauHoi: string;
-  ketQua: TraCuuKetQua;
-}
 
 /**
  * Một lượt hỏi–đáp trong dòng hội thoại.
@@ -120,6 +117,10 @@ function ManHoiKlaw() {
     // tham chiếu đổi và sẽ đẩy trùng một câu trả lời vào dòng hội thoại.
     const cauHoiCu = traCuu.cauHoi;
     const ketQuaCu = traCuu.ketQua;
+    const luotTruoc: LuotDaXong[] =
+      cauHoiCu !== null && ketQuaCu !== null
+        ? [...luuTru, { cauHoi: cauHoiCu, ketQua: ketQuaCu }]
+        : luuTru;
     if (cauHoiCu !== null && ketQuaCu !== null) {
       datLuuTru((truoc) => [...truoc, { cauHoi: cauHoiCu, ketQua: ketQuaCu }]);
     }
@@ -127,7 +128,11 @@ function ManHoiKlaw() {
     datDangMo(null);
     doiChieu.dong();
     datNhap("");
-    traCuu.hoi(noiDung);
+    // Dựng lịch sử từ `luotTruoc` (đã gồm lượt đang hiện) chứ KHÔNG từ `luuTru`:
+    // `datLuuTru` là setState, giá trị mới chưa có trong lượt render này, nên đọc
+    // `luuTru` ở đây sẽ luôn thiếu ĐÚNG lượt vừa xong — tức câu nối tiếp đầu tiên
+    // sau mỗi câu trả lời mất chính ngữ cảnh nó cần nhất.
+    traCuu.hoi(noiDung, dungLichSu(luotTruoc));
   };
 
   const chonTrichDan = (ketQua: TraCuuKetQua, chiSo: number) => {
@@ -211,6 +216,7 @@ function ManHoiKlaw() {
                     >
                       <TheKetQua
                         ketQua={luot.ketQua}
+                        cauHoiGoc={luot.cauHoi}
                         chiSoDangMo={chiSoDangMoCua(luot.ketQua)}
                         onChonTrichDan={(chiSo) => chonTrichDan(luot.ketQua, chiSo)}
                       />
@@ -243,6 +249,7 @@ function ManHoiKlaw() {
                       {traCuu.ketQua !== null && (
                         <TheKetQua
                           ketQua={traCuu.ketQua}
+                          {...(traCuu.cauHoi !== null ? { cauHoiGoc: traCuu.cauHoi } : {})}
                           chiSoDangMo={chiSoDangMoCua(traCuu.ketQua)}
                           onChonTrichDan={(chiSo) => {
                             const kq = traCuu.ketQua;

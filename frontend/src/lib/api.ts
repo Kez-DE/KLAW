@@ -249,7 +249,13 @@ export function thamSo(cap: [string, string | number | undefined | null][]): str
  * còn việc của tầng này là không tự ý bỏ cuộc giữa khoảng lặng ấy.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-import { laTraCuuKetQua, type SuKienBatDau, type SuKienBuoc, type TraCuuKetQua } from "./klaw";
+import {
+  laTraCuuKetQua,
+  type LuotTruoc,
+  type SuKienBatDau,
+  type SuKienBuoc,
+  type TraCuuKetQua,
+} from "./klaw";
 import { catCacKhung } from "./sse-khung";
 
 export interface YeuCauTraCuu {
@@ -257,6 +263,14 @@ export interface YeuCauTraCuu {
   /** ISO "2026-09-01". Sai định dạng → 422 từ pydantic, không nuốt. */
   as_of_date?: string;
   config_name?: string;
+  /**
+   * Tối đa `TOI_DA_LUOT_LICH_SU` lượt gần nhất, mới nhất SAU CÙNG. Quá trần là
+   * **422**, không truncate — nên nơi gọi phải tự cắt (`dungLichSu`).
+   *
+   * Vắng mặt hoặc rỗng ⇒ máy chủ KHÔNG chạy `giai_nghia`, tức lượt đầu không
+   * tốn thêm một token nào.
+   */
+  lich_su?: LuotTruoc[];
 }
 
 export interface XuLyLuong {

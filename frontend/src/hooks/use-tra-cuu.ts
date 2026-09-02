@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { traCuuLuong } from "@/lib/api";
+import type { LuotTruoc } from "@/lib/klaw";
 import type { ApiError, BuocKhai, SuKienBuoc, TraCuuKetQua } from "@/lib/klaw";
 import { useGoiApi } from "./use-goi-api";
 
@@ -30,7 +31,10 @@ export interface TrangThaiTraCuu {
    * khối kết quả và vào màn báo lỗi, nơi một mã chép được là thứ có ích thật.
    */
   traceId: string | null;
-  hoi: (cauHoi: string) => void;
+  /** `lichSu`: các lượt ĐÃ XONG, mới nhất SAU CÙNG. Rỗng/vắng ⇒ máy chủ không
+   *  chạy `giai_nghia`, tức lượt đầu không tốn thêm token. Nơi gọi tự cắt
+   *  bằng `dungLichSu` — quá trần là 422, máy chủ KHÔNG truncate. */
+  hoi: (cauHoi: string, lichSu?: LuotTruoc[]) => void;
   huy: () => void;
   /** Hỏi lại ĐÚNG câu vừa rồi. Không có câu nào thì không làm gì. */
   thuLai: () => void;
@@ -48,7 +52,7 @@ export function useTraCuu(): TrangThaiTraCuu {
   const luot = useRef(0);
 
   const hoi = useCallback(
-    (noiDungTho: string) => {
+    (noiDungTho: string, lichSu?: LuotTruoc[]) => {
       const noiDung = noiDungTho.trim();
       if (noiDung === "") return;
 
@@ -71,7 +75,13 @@ export function useTraCuu(): TrangThaiTraCuu {
           // đã có nghĩa "tính hiệu lực tới hôm nay" — đúng thứ người dùng muốn
           // mà không phải chọn gì. Gửi một ngày do FE tự tính chỉ thêm một
           // nguồn sai lệch (đồng hồ máy khách, múi giờ) cho cùng một kết quả.
-          { query: noiDung },
+          // `lich_su` chỉ đi kèm khi THẬT SỰ có lượt trước: gửi `[]` cũng vô hại
+          // (máy chủ kiểm `if req.lich_su`) nhưng khoá vắng mặt nói đúng hơn
+          // rằng đây là lượt đầu.
+          {
+            query: noiDung,
+            ...(lichSu !== undefined && lichSu.length > 0 ? { lich_su: lichSu } : {}),
+          },
           {
             onBatDau: (su) => {
               if (luotNay !== luot.current) return;

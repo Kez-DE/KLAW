@@ -174,6 +174,8 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
       warnings: [`${SO_HIEU_GIA} đã bị thay thế bởi một văn bản mẫu khác kể từ 01/01/2000.`],
       coverage_note: null,
       trace_id: "mau-answer",
+      cau_hoi_day_du:
+        "liệt kê bảng tóm lại thời hạn báo trước khi đơn phương chấm dứt hợp đồng lao động theo từng loại hợp đồng cho tôi",
     },
   },
   {
@@ -190,6 +192,7 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
       coverage_note:
         "Kho có văn bản chi phối câu hỏi này nhưng chưa có toàn văn tới cấp điều khoản, nên hệ thống dừng ở việc nêu đích danh văn bản.",
       trace_id: "mau-partial",
+      cau_hoi_day_du: null,
     },
   },
   {
@@ -202,6 +205,7 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
       warnings: [],
       coverage_note: null,
       trace_id: "mau-abstain",
+      cau_hoi_day_du: null,
     },
   },
   {
@@ -214,6 +218,7 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
       warnings: [],
       coverage_note: null,
       trace_id: "mau-out",
+      cau_hoi_day_du: null,
     },
   },
 ];

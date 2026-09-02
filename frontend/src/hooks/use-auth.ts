@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { ghiNhanNguoiDung } from "@/lib/xac-thuc";
 
 /**
  * Điểm duy nhất trong FE chạm tới Supabase client, nên cũng là chỗ duy nhất
@@ -22,9 +23,20 @@ export function useAuth() {
   useEffect(() => {
     let huy: (() => void) | undefined;
     try {
-      const { data } = supabase.auth.onAuthStateChange((_e, s) => {
+      const { data } = supabase.auth.onAuthStateChange((e, s) => {
         setSession(s);
         setLoading(false);
+        // Đường DUY NHẤT ghi nhận người dùng sau OAuth: `signInWithOAuth`
+        // chuyển hướng cả trang nên handler bấm nút không chạy tiếp được, và
+        // phiên chỉ xuất hiện ở đây khi browser quay về. Thiếu dòng này thì
+        // đăng nhập Google thành công mà hạn mức theo-người không bao giờ áp,
+        // im lặng hoàn toàn.
+        //
+        // Luồng mật khẩu VẪN tự gọi và `await` (xem `xac-thuc.ts`) để hạn mức
+        // được ghi TRƯỚC khi điều hướng; gọi hai lần ở đó là vô hại vì
+        // `POST /nguoi-dung` idempotent. Thà gọi thừa một lượt còn hơn để một
+        // đường đăng nhập không được đếm.
+        if (e === "SIGNED_IN" && s !== null) void ghiNhanNguoiDung().catch(() => {});
       });
       huy = () => data.subscription.unsubscribe();
       void supabase.auth.getSession().then(({ data: d }) => {

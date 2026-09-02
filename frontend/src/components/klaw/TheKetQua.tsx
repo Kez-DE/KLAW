@@ -336,14 +336,45 @@ interface TheKetQuaProps {
   onChonTrichDan?: (chiSo: number) => void;
   /** Nhận `doc_id` — khoá duy nhất tuyệt đối. Xem ghi chú ở `KhoiNguon`. */
   onMoVanBan?: (docId: string) => void;
+  /** Câu người dùng GÕ. Cần để so với `cau_hoi_day_du` — xem `CauHoiDaHieu`. */
+  cauHoiGoc?: string;
 }
 
-export function TheKetQua({
-  ketQua,
-  chiSoDangMo = null,
-  onChonTrichDan,
-  onMoVanBan,
-}: TheKetQuaProps) {
+/**
+ * "Mình hiểu câu hỏi của bạn là…" — chỉ hiện khi máy chủ ĐÃ giải nghĩa lại câu
+ * hỏi, và câu đó KHÁC câu người dùng gõ.
+ *
+ * Vì sao bắt buộc có: một lượt hỏi nối tiếp ("liệt kê bảng cho tôi") được máy
+ * chủ viết lại thành một câu tự đứng được trước khi đi tra. Giải nghĩa sai là
+ * chuyện chắc chắn xảy ra, và không có dòng này thì người hỏi nhận câu trả lời
+ * cho một câu HỌ KHÔNG HỎI mà không có cách nào biết — cũng không có cách nào
+ * sửa. Hiện nó ra là biến một lỗi im lặng thành một lỗi họ đọc được và gõ lại.
+ *
+ * So sau khi chuẩn hoá khoảng trắng: máy chủ trả về câu đã qua LLM nên khác biệt
+ * duy nhất là một dấu cách cuối câu vẫn sẽ hiện một dòng nói "mình hiểu là" kèm
+ * đúng câu người ta vừa gõ — nhiễu, không phải thông tin.
+ */
+function CauHoiDaHieu({ goc, dayDu }: { goc: string | undefined; dayDu: string | null }) {
+  if (dayDu === null || dayDu.trim() === "") return null;
+  const gon = (x: string) => x.trim().replace(/\s+/g, " ");
+  if (goc !== undefined && gon(goc) === gon(dayDu)) return null;
+  return (
+    <p className="mb-3 text-[13px] leading-6 text-muted-foreground">
+      Mình hiểu câu hỏi của bạn là: <span className="text-foreground italic">{dayDu}</span>
+    </p>
+  );
+}
+
+export function TheKetQua(props: TheKetQuaProps) {
+  return (
+    <>
+      <CauHoiDaHieu goc={props.cauHoiGoc} dayDu={props.ketQua.cau_hoi_day_du} />
+      <NoiDungKetQua {...props} />
+    </>
+  );
+}
+
+function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan }: TheKetQuaProps) {
   const {
     result_type: loai,
     answer,
@@ -473,8 +504,9 @@ export function TheKetQua({
           <p className="m-0 flex items-start gap-2 text-muted-foreground">
             <FileSearch className="mt-1 size-4 shrink-0" aria-hidden />
             <span>
-              Lượt này mình đối chiếu được trích dẫn nhưng chưa viết ra được lời giải thích. Bạn đọc
-              nguyên văn các điều khoản ngay dưới đây.
+              {citations.length > 0
+                ? "Lượt này mình đối chiếu được trích dẫn nhưng chưa viết ra được lời giải thích. Bạn đọc nguyên văn các điều khoản ngay dưới đây."
+                : "Lượt này mình chưa có nội dung nào để hiển thị. Bạn thử hỏi lại bằng cách khác, hoặc mô tả cụ thể hơn tình huống của bạn."}
             </span>
           </p>
         ) : (
