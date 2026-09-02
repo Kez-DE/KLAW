@@ -1,0 +1,1008 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * Chữ TỰ HOST — 15 tệp woff2 trong `public/fonts/`, 288 KB tổng.
+ *
+ * Trước đây bốn họ chữ này tới từ CDN chữ của Google. Ba lý do đổi, xếp
+ * theo mức quan trọng:
+ *
+ * 1. **Chuyện riêng của người đọc.** Mỗi lượt mở một trang luật lao động là
+ *    một lượt gọi tới máy chủ của bên thứ ba, mang theo IP và Referer. Người
+ *    đang tra "bị đuổi việc có được trợ cấp không" không nên để lại dấu vết ấy
+ *    ở một nơi họ chưa từng nghe tên.
+ * 2. **Một điểm chết bớt đi.** CDN đó bị chặn hoặc chậm thì chữ hiện muộn ở
+ *    MỌI trang. Người dùng của KLAW gồm người lao động dùng máy cũ, mạng yếu.
+ * 3. **Bớt một vòng bắt tay.** Cùng gốc với ứng dụng: không DNS, không TLS
+ *    riêng, không `preconnect` phải đoán trước.
+ *
+ * Chỉ giữ ba tập ký tự — `vietnamese`, `latin-ext`, `latin`. Bỏ cyrillic và
+ * greek: sản phẩm chỉ có tiếng Việt. `unicode-range` giữ nguyên của Google, và
+ * trình duyệt chỉ tải tập nào trang thật sự dùng tới.
+ *
+ * Playfair Display và Source Serif 4 là font BIẾN THIÊN: hai mức đậm dùng
+ * chung một tệp (`-var-`), nên khai hai `@font-face` trỏ cùng một `url` —
+ * đúng như bảng CSS gốc của Google.
+ *
+ * `scripts/kiem-font.ts` gãy nếu có ai đưa host bên thứ ba trở lại, dùng một
+ * họ chữ chưa khai, hoặc trỏ vào một tệp không tồn tại — ba lỗi đều KHÔNG hiện
+ * ra mắt thường: trình duyệt lặng lẽ tụt xuống font hệ điều hành.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/be-vietnam-pro-400-vietnamese.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/be-vietnam-pro-400-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/be-vietnam-pro-400-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/be-vietnam-pro-600-vietnamese.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/be-vietnam-pro-600-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Be Vietnam Pro";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/be-vietnam-pro-600-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-400-vietnamese.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-400-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-400-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/playfair-display-var-vietnamese.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/playfair-display-var-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/playfair-display-var-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/playfair-display-var-vietnamese.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/playfair-display-var-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/playfair-display-var-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/source-serif-4-var-vietnamese.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/source-serif-4-var-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/source-serif-4-var-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/source-serif-4-var-vietnamese.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/source-serif-4-var-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/source-serif-4-var-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-display: "Playfair Display", "Noto Serif", serif;
+  --font-sans: "Be Vietnam Pro", system-ui, sans-serif;
+}
+
+:root {
+  --radius: 0.75rem;
+  /* Bright ivory paper with a cool light bloom */
+  --background: oklch(0.985 0.008 100);
+  --foreground: oklch(0.26 0.03 250);
+  --card: oklch(1 0.002 100);
+  --card-foreground: oklch(0.26 0.03 250);
+  --popover: oklch(1 0.002 100);
+  --popover-foreground: oklch(0.26 0.03 250);
+  /* Elegant sapphire ink */
+  --primary: oklch(0.38 0.085 255);
+  --primary-foreground: oklch(0.985 0.008 100);
+  --secondary: oklch(0.955 0.018 250);
+  --secondary-foreground: oklch(0.38 0.085 255);
+  --muted: oklch(0.962 0.012 250);
+  --muted-foreground: oklch(0.52 0.032 255);
+  /* Warm luminous gold */
+  --accent: oklch(0.83 0.115 88);
+  --accent-foreground: oklch(0.3 0.05 70);
+  --destructive: oklch(0.58 0.2 27);
+  --destructive-foreground: oklch(0.985 0.008 100);
+  --border: oklch(0.915 0.014 250);
+  /* Ranh giới Ô NHẬP, không phải đường kẻ trang trí: WCAG 1.4.11 đòi 3:1 cho
+     ranh giới nào là cách DUY NHẤT nhận ra một control. Tách khỏi --border
+     (1,23:1) thay vì làm đậm mọi đường kẻ trong ứng dụng. Đo: 3,00:1 trên
+     --background, 3,13:1 trên --card. */
+  --input: oklch(0.658 0.014 250);
+  /* Vòng tiêu điểm: 3,20:1 trên --background, 3,00:1 trên --color-paper-100
+     (trước: 2,56:1 — trượt 1.4.11). Giữ nguyên hue vàng đồng, chỉ hạ L. */
+  --ring: oklch(0.642 0.1 90);
+}
+
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+  }
+}
+
+@layer components {
+  /* Ruled-paper texture for the chat surface */
+  .paper-texture {
+    background-image:
+      radial-gradient(oklch(0.9 0.02 90 / 0.35) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  .chat-prose {
+    line-height: 1.75;
+    font-size: 0.925rem;
+  }
+  .chat-prose h1,
+  .chat-prose h2,
+  .chat-prose h3,
+  .chat-prose h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    margin-top: 1.1em;
+    margin-bottom: 0.4em;
+    color: var(--color-primary);
+  }
+  .chat-prose h1 { font-size: 1.3rem; }
+  .chat-prose h2 { font-size: 1.2rem; }
+  .chat-prose h3 { font-size: 1.05rem; }
+  .chat-prose p { margin: 0.5em 0; }
+  .chat-prose ul,
+  .chat-prose ol {
+    margin: 0.5em 0;
+    padding-left: 1.4em;
+  }
+  .chat-prose ul { list-style: disc; }
+  .chat-prose ol { list-style: decimal; }
+  .chat-prose li { margin: 0.25em 0; }
+  .chat-prose strong { font-weight: 600; }
+  .chat-prose blockquote {
+    border-left: 3px solid var(--color-accent);
+    padding-left: 0.9em;
+    margin: 0.6em 0;
+    color: var(--color-muted-foreground);
+    font-style: italic;
+  }
+  .chat-prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.7em 0;
+    font-size: 0.85rem;
+  }
+  .chat-prose th,
+  .chat-prose td {
+    border: 1px solid var(--color-border);
+    padding: 0.45em 0.7em;
+    text-align: left;
+  }
+  .chat-prose th {
+    background: var(--color-secondary);
+    font-weight: 600;
+  }
+  .chat-prose code {
+    background: var(--color-muted);
+    border-radius: 0.3em;
+    padding: 0.1em 0.35em;
+    font-size: 0.85em;
+  }
+  .chat-prose hr {
+    border-color: var(--color-border);
+    margin: 1em 0;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.35s ease-out both;
+}
+
+/*
+  Sàn độ mờ là 0,75, KHÔNG phải 0,25.
+
+  Ba chấm này nay là chỉ báo DUY NHẤT rằng hệ thống còn sống (bảng chín bước đã
+  gỡ), nên chúng là đồ hoạ MANG NGHĨA và WCAG 1.4.11 đòi 3:1. Ở sàn 0,25, chấm
+  pha trên nền --card đo được 1,42:1 — khung mờ nhất gần như vô hình. Ở 0,75:
+  3,24:1, đo trên DOM thật. Nhịp vẫn đọc ra được vì ba chấm lệch pha nhau.
+*/
+@keyframes thinking-dot {
+  0%, 80%, 100% { opacity: 0.75; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+
+.thinking-dot {
+  animation: thinking-dot 1.1s infinite ease-in-out;
+}
+.thinking-dot:nth-child(2) { animation-delay: 0.15s; }
+.thinking-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* Bản không dịch chuyển, dùng dưới prefers-reduced-motion. */
+@keyframes thinking-dot-giam-chuyen-dong {
+  0%, 80%, 100% { opacity: 0.75; }
+  40% { opacity: 1; }
+}
+
+/* ---------- Landing design tokens ---------- */
+:root {
+  --gradient-parchment: linear-gradient(
+    160deg,
+    oklch(1 0.004 100) 0%,
+    oklch(0.975 0.018 250) 48%,
+    oklch(0.955 0.03 95) 100%
+  );
+  --gradient-ink: linear-gradient(
+    145deg,
+    oklch(0.44 0.09 255) 0%,
+    oklch(0.33 0.07 258) 100%
+  );
+  /* NỀN (nút, mảng màu): giữ sáng. Chữ `accent-foreground` nằm TRÊN nó đo
+     6,34–10,23:1 — làm tối gradient này sẽ kéo xuống 4,36:1, trượt AA. */
+  --gradient-gold: linear-gradient(
+    100deg,
+    oklch(0.76 0.12 82) 0%,
+    oklch(0.9 0.1 94) 50%,
+    oklch(0.76 0.12 82) 100%
+  );
+  /* CHỮ (`bg-clip-text`): phải tối hơn. Cùng một gradient dùng cả hai kiểu có
+     hai yêu cầu NGƯỢC NHAU — chữ trên nền sáng cần tối, nền nút mang chữ tối
+     cần sáng. Bản sáng đo 2,08:1 ở hai chặn ngoài và 1,29:1 ở chặn giữa, tức
+     dòng chữ lớn nhất trang chủ gần như vô hình; chữ lớn cần 3:1.
+     L hạ tới biên: 0,660 / 0,656 → 3,02:1 cả ba chặn. */
+  --gradient-gold-chu: linear-gradient(
+    100deg,
+    oklch(0.66 0.12 82) 0%,
+    oklch(0.656 0.1 94) 50%,
+    oklch(0.66 0.12 82) 100%
+  );
+  --gradient-aurora: radial-gradient(
+      120% 90% at 12% 8%,
+      color-mix(in oklab, var(--primary) 14%, transparent) 0%,
+      transparent 58%
+    ),
+    radial-gradient(
+      110% 80% at 92% 22%,
+      color-mix(in oklab, var(--accent) 26%, transparent) 0%,
+      transparent 60%
+    ),
+    var(--gradient-parchment);
+  --shadow-elegant: 0 24px 60px -26px color-mix(in oklab, var(--primary) 40%, transparent),
+    0 2px 6px -2px color-mix(in oklab, var(--primary) 14%, transparent);
+  --shadow-gold: 0 14px 38px -14px color-mix(in oklab, var(--accent) 62%, transparent);
+  --shadow-soft: 0 2px 10px -4px color-mix(in oklab, var(--primary) 14%, transparent);
+  --shadow-depth: 0 1px 1px color-mix(in oklab, var(--primary) 6%, transparent),
+    0 4px 10px -3px color-mix(in oklab, var(--primary) 10%, transparent),
+    0 18px 40px -20px color-mix(in oklab, var(--primary) 22%, transparent);
+}
+
+@utility bg-gradient-aurora {
+  background-image: var(--gradient-aurora);
+}
+@utility shadow-depth {
+  box-shadow: var(--shadow-depth);
+}
+/* Layered glass surface with an inner light edge — reads as real depth */
+@utility surface-depth {
+  background: color-mix(in oklab, var(--card) 88%, transparent);
+  backdrop-filter: blur(14px);
+  border: 1px solid color-mix(in oklab, var(--border) 90%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 70%, transparent),
+    var(--shadow-depth);
+}
+@utility lift-hover {
+  transition:
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.45s ease,
+    border-color 0.45s ease;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-elegant);
+  }
+}
+
+
+@utility bg-gradient-parchment {
+  background-image: var(--gradient-parchment);
+}
+@utility bg-gradient-ink {
+  background-image: var(--gradient-ink);
+}
+@utility bg-gradient-gold {
+  background-image: var(--gradient-gold);
+}
+@utility text-gradient-gold-chu {
+  background-image: var(--gradient-gold-chu);
+  background-clip: text;
+  color: transparent;
+}
+
+@utility text-gradient-gold {
+  background-image: var(--gradient-gold);
+  background-clip: text;
+  color: transparent;
+}
+@utility shadow-elegant {
+  box-shadow: var(--shadow-elegant);
+}
+@utility shadow-gold {
+  box-shadow: var(--shadow-gold);
+}
+@utility shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+
+/* ---------- Landing animations ---------- */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+.animate-float-slow { animation: float-slow 6s ease-in-out infinite; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background-size: 200% auto;
+  animation: shimmer 6s linear infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  70% { transform: scale(1.5); opacity: 0; }
+  100% { opacity: 0; }
+}
+.animate-pulse-ring { animation: pulse-ring 2.8s ease-out infinite; }
+
+@keyframes scroll-hint {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(7px); opacity: 1; }
+}
+.animate-scroll-hint { animation: scroll-hint 1.9s ease-in-out infinite; }
+
+/* Scroll reveal, driven by IntersectionObserver adding .is-visible */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* 3D tilt cards */
+.tilt-stage { perspective: 1000px; }
+.tilt-card {
+  transform-style: preserve-3d;
+  transition:
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.5s ease;
+}
+.tilt-card:hover {
+  transform: rotateX(6deg) rotateY(-7deg) translateY(-8px) scale(1.02);
+  box-shadow: var(--shadow-elegant);
+}
+.tilt-card:hover .tilt-lift {
+  transform: translateZ(28px);
+}
+.tilt-lift { transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* Mouse-tracked 3D tilt for mockups (CSS transforms only, no WebGL) */
+.tilt-stage { perspective: 1200px; }
+.tilt-card[data-tilt] {
+  --tx: 0deg;
+  --ty: 0deg;
+  --mx: 50%;
+  --my: 50%;
+  position: relative;
+  transform: rotateX(var(--tx)) rotateY(var(--ty));
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease;
+}
+.tilt-card[data-tilt].is-tilting {
+  transition:
+    transform 0.08s linear,
+    box-shadow 0.35s ease;
+  box-shadow: var(--shadow-elegant);
+}
+.tilt-card[data-tilt]:hover {
+  transform: rotateX(var(--tx)) rotateY(var(--ty)) translateY(-6px) scale(1.01);
+}
+/* brass specular highlight following the cursor */
+.tilt-card[data-tilt]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: radial-gradient(
+    260px circle at var(--mx) var(--my),
+    rgba(200, 164, 92, 0.22),
+    rgba(200, 164, 92, 0.05) 45%,
+    transparent 70%
+  );
+}
+.tilt-card[data-tilt].is-tilting::after { opacity: 1; }
+
+/* Mobile hero art — animated gradient + brass grain, no three.js */
+.hero-mobile-gradient {
+  background:
+    radial-gradient(120% 90% at 20% 15%, rgba(200, 164, 92, 0.28), transparent 60%),
+    radial-gradient(110% 80% at 85% 80%, rgba(15, 31, 56, 0.35), transparent 62%),
+    var(--gradient-parchment, linear-gradient(160deg, #fbf7ec, #f1e9d6));
+  background-size: 180% 180%, 180% 180%, 100% 100%;
+  animation: hero-gradient-drift 18s ease-in-out infinite alternate;
+}
+.hero-brass-grain {
+  opacity: 0.16;
+  background-image: radial-gradient(rgba(200, 164, 92, 0.9) 0.6px, transparent 0.7px);
+  background-size: 5px 5px;
+  animation: hero-grain-shift 9s steps(6) infinite;
+}
+@keyframes hero-gradient-drift {
+  0% { background-position: 0% 0%, 100% 100%, 0 0; }
+  100% { background-position: 60% 40%, 40% 60%, 0 0; }
+}
+@keyframes hero-grain-shift {
+  0% { background-position: 0 0; }
+  100% { background-position: 5px 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-mobile-gradient,
+  .hero-brass-grain { animation: none; }
+}
+
+
+/* ---------- Auth (dark ink + brass) ---------- */
+@theme {
+  --color-ink-950: oklch(0.26 0.05 256);
+  --color-ink-900: oklch(0.33 0.062 256);
+  --color-ink-800: oklch(0.4 0.07 256);
+  --color-ink-700: oklch(0.48 0.072 256);
+  /* brass-600 là màu CHỮ (nhãn, liên kết, chip) — trước: 3,15:1 trên --card
+     và 2,83:1 trên --color-paper-100, trượt cả ngưỡng chữ 4,5 lẫn ngưỡng UI 3.
+     Sau: 5,35:1 trên --card, 4,81:1 trên --color-paper-100, 4,43:1 khi nằm
+     trên chính nó pha 10%. Giữ hue 80, chỉ hạ L. */
+  --color-brass-600: oklch(0.53 0.11 80);
+  /* 500 và 400 là NỀN/VIỀN, không bao giờ làm chữ — giữ nguyên. */
+  --color-brass-500: oklch(0.78 0.118 85);
+  --color-brass-400: oklch(0.87 0.1 90);
+}
+
+@keyframes brass-drift {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 220px 220px, -220px 220px; }
+}
+.brass-lines {
+  background-image:
+    repeating-linear-gradient(45deg, var(--color-brass-500) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(-45deg, var(--color-brass-500) 0 1px, transparent 1px 34px);
+  opacity: 0.04;
+  animation: brass-drift 40s linear infinite;
+}
+
+@keyframes quote-cross {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.quote-slide {
+  animation: quote-cross 0.6s ease-out both;
+}
+
+@keyframes brass-check {
+  0% { stroke-dashoffset: 48; }
+  100% { stroke-dashoffset: 0; }
+}
+.brass-check path {
+  stroke-dasharray: 48;
+  animation: brass-check 0.55s ease-out forwards;
+}
+
+/* Vòng tiêu điểm dùng chung. Trước đây là 1px brass-500 — 1,93:1 trên nền
+   trang, tức chỉ báo tiêu điểm bàn phím trượt xa ngưỡng 3:1 của WCAG 1.4.11
+   trên gần như mọi control của ứng dụng. Nay dùng --ring (3,20:1) và 2px:
+   một vòng 1px ở tương phản thấp là thứ người ta không thấy. */
+@utility focus-brass {
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------- Trợ năng cấp kiến trúc ---------- */
+
+/* Liên kết bỏ qua: ẩn cho tới khi nhận tiêu điểm bàn phím. Không dùng
+   `display:none` — thứ đó gỡ luôn khỏi vòng Tab, tức là gỡ luôn công dụng. */
+.bo-qua-lien-ket {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  transform: translateY(-200%);
+  border-radius: 0.5rem;
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--input);
+  box-shadow: var(--shadow-elegant, 0 8px 24px -8px oklch(0.25 0.03 250 / 0.3));
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.bo-qua-lien-ket:focus-visible {
+  transform: none;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Vùng đối chiếu: cả VÙNG `la_tam` (Điều tâm + mọi Khoản/Điểm con), không
+   phải một dòng. Điều lân cận mờ đi bằng `opacity` chứ KHÔNG đổi màu chữ —
+   chữ nguyên văn không bao giờ mang màu trạng thái. */
+.vung-doi-chieu {
+  background: color-mix(in oklab, var(--color-brass-500) 12%, transparent);
+  box-shadow: inset 3px 0 0 0 var(--ring);
+}
+.ngoai-vung-doi-chieu {
+  opacity: 0.55;
+}
+/* Câu trích đã định vị được trong nguyên văn. Nền vàng đồng + gạch chân: nếu
+   ai đó tắt màu, gạch chân vẫn chỉ đúng chỗ. */
+mark.cau-trich {
+  background: color-mix(in oklab, var(--color-brass-500) 34%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  text-decoration: underline;
+  text-decoration-color: var(--color-brass-600);
+  text-underline-offset: 3px;
+}
+
+/* ---------- Agent workspace (light paper) ---------- */
+@theme {
+  --color-paper-50: oklch(0.987 0.008 95);
+  --color-paper-100: oklch(0.963 0.014 92);
+  --color-paper-200: oklch(0.932 0.018 90);
+  --font-doc: "Source Serif 4", "Noto Serif", Georgia, serif;
+}
+
+/* ---------- Bốn màu hiệu lực ----------
+ *
+ * Ràng buộc KÉP, và cả hai đều bắt buộc:
+ *   (a) mỗi màu >= 4,5:1 khi làm CHỮ trên --card, --background, --color-paper-50
+ *       và --color-paper-100 — kể cả khi nền badge pha 10% chính màu đó;
+ *   (b) hai màu bất kỳ tách nhau >= 1,35:1 về độ sáng, để ảnh xám và mắt người
+ *       mù màu vẫn phân biệt được.
+ *
+ * Bộ cũ trượt cả hai: active 4,05 · partial 2,34 · expired 3,93, và
+ * active vs expired chỉ 1,03:1 — "còn hiệu lực" và "hết hiệu lực" TRÙNG độ
+ * sáng, tức hai trạng thái đối lập nhất trong sản phẩm trông y hệt nhau.
+ *
+ * Ép cả ba lên đúng 4,5 thì chúng bằng nhau về độ sáng (1,00:1) — sửa xong (a)
+ * lại làm hỏng (b). Bộ dưới đây giữ nguyên hue, chỉ hạ L (và hạ C xuống đúng
+ * biên sRGB để trình duyệt không phải tự ánh xạ gam, làm số đo trôi).
+ *
+ * Số đo do scripts/do-tuong-phan.py tính từ chính các chuỗi oklch() này.
+ * Sửa một dòng ở đây mà không chạy lại script thì self-check của script gãy. */
+@theme {
+  /* 7,64:1 trên --card · 6,87:1 trên paper-100 */
+  --color-status-active: oklch(0.432 0.098 160);
+  /* 13,97:1 trên --card · 12,56:1 trên paper-100 */
+  --color-status-partial: oklch(0.295 0.063 78);
+  /* 10,32:1 trên --card · 9,28:1 trên paper-100 */
+  --color-status-expired: oklch(0.39 0.149 32);
+  /* TRUNG TÍNH — abstain, can_doi_chieu_tay, "chưa nối".
+     abstain là hành vi ĐÚNG và được tính điểm: nó không bao giờ được mang màu
+     cảnh báo. Bằng đúng --muted-foreground, tham chiếu chứ không chép lại, để
+     hai giá trị không thể trôi khỏi nhau. 5,49:1 trên --card. */
+  --color-status-neutral: var(--muted-foreground);
+}
+
+.doc-prose {
+  font-family: var(--font-doc);
+  font-size: 17px;
+  line-height: 1.85;
+}
+.doc-prose p { margin: 0 0 0.85em; }
+.doc-prose p:last-child { margin-bottom: 0; }
+
+.brass-caret::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -0.16em;
+  background: var(--color-brass-500);
+  animation: brass-caret-blink 1s steps(2, start) infinite;
+}
+@keyframes brass-caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.rise-in { animation: rise-in 0.25s ease-out both; }
+
+@keyframes soft-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.soft-fade { animation: soft-fade 0.15s ease-out both; }
+
+/* ---------- Tra cứu / đọc văn bản ---------- */
+.font-jetbrains {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  font-feature-settings: "tnum";
+}
+.doc-reader {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-size: 17px;
+  line-height: 1.85;
+}
+.doc-reader ::selection,
+.doc-reader::selection {
+  background: color-mix(in oklab, var(--color-brass-500) 20%, transparent);
+}
+.serif-body {
+  font-family: "Source Serif 4", Georgia, serif;
+}
+.spy-rail {
+  transition: transform 150ms ease, height 150ms ease;
+}
+
+/* ---------- Soạn thảo: A4 preview ---------- */
+@keyframes flash-brass {
+  0% { background: color-mix(in oklab, var(--color-brass-500) 38%, transparent); }
+  100% { background: transparent; }
+}
+.flash-brass { animation: flash-brass 400ms ease-out both; border-radius: 3px; }
+
+.a4-sheet {
+  width: 794px;
+  min-height: 1123px;
+  background: #fff;
+  padding: 76px 72px;
+  box-shadow: 0 18px 48px -18px oklch(0.25 0.03 80 / 0.32), 0 2px 8px -2px oklch(0.25 0.03 80 / 0.18);
+  font-family: "Source Serif 4", Georgia, serif;
+  font-size: 15.5px;
+  line-height: 1.8;
+  color: oklch(0.22 0.02 80);
+}
+.a4-sheet .dieu-head {
+  font-family: var(--font-display, "Playfair Display", serif);
+  font-size: 17px;
+  font-weight: 700;
+  margin-top: 1.25em;
+  margin-bottom: 0.2em;
+}
+.ph-slot {
+  border-bottom: 1px dashed var(--color-brass-500);
+  color: var(--color-brass-600);
+  cursor: pointer;
+  padding: 0 2px;
+}
+.ph-slot:hover { background: color-mix(in oklab, var(--color-brass-500) 14%, transparent); }
+.drag-divider { cursor: col-resize; }
+
+/* ---------- Final pass: focus visibility, on-dark text, reduced motion ---------- */
+:root {
+  /* Verified 5.5:1 on --color-ink-900 (AA for body text) */
+  --text-on-dark-muted: #97a3b6;
+}
+@utility text-on-dark-muted {
+  color: var(--text-on-dark-muted);
+}
+
+/* Visible brass focus ring on every keyboard-focusable element */
+:where(a, button, input, select, textarea, summary, details, [tabindex], [role="button"], [role="tab"], [role="checkbox"], [role="switch"]):focus-visible {
+  outline: 2px solid var(--color-brass-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Citation strings stay pronounceable: mono is visual only, no letter-spacing tricks */
+.font-jetbrains {
+  letter-spacing: normal;
+  word-spacing: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /*
+    Hai ngoại lệ, và chỉ hai.
+
+    Luật `*` ở trên tắt mọi animation, kể cả `.thinking-dot` và `.brass-caret` —
+    tức là tắt luôn chỉ báo "đang xử lý" cho một lượt trả lời mất 10-60 giây.
+    Người bật prefers-reduced-motion khi đó ngồi nhìn một màn hình đứng im và
+    không có cách nào biết hệ thống còn sống. Đó không phải giảm chuyển động,
+    đó là gỡ phản hồi trạng thái.
+
+    prefers-reduced-motion nhắm vào CHUYỂN ĐỘNG (dịch chuyển, phóng to, parallax),
+    không nhắm vào mọi thay đổi theo thời gian. Nên hai chỉ báo này ở lại, đã gỡ
+    hết phần dịch chuyển:
+      - .thinking-dot đổi sang keyframe chỉ đổi opacity, bỏ translateY(-3px),
+        chậm lại còn 1,4s. Giữ nguyên animation-delay của nth-child nên ba chấm
+        vẫn nhấp so le — đó là thứ đọc ra "đang chạy".
+      - .brass-caret-blink vốn đã chỉ đổi opacity ở 1Hz, dưới xa ngưỡng 3Hz gây
+        co giật. Giữ nguyên, chậm lại còn 1,2s.
+
+    Selector hạng lớp thắng `*` nên chỉ cần khai lại ở đây, không cần đụng tới
+    luật gốc.
+  */
+  .thinking-dot {
+    animation-name: thinking-dot-giam-chuyen-dong !important;
+    animation-duration: 1.4s !important;
+    animation-iteration-count: infinite !important;
+  }
+  .brass-caret::after {
+    animation-duration: 1.2s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .tilt-card,
+  .tilt-card[data-tilt],
+  .tilt-card[data-tilt]:hover {
+    transform: none !important;
+  }
+  .tilt-card[data-tilt]::after {
+    display: none;
+  }
+}
+
+/* ── Nền sáng cho trang đăng nhập / đăng ký ─────────────────────── */
+.auth-wash {
+  background:
+    radial-gradient(120% 90% at 18% 12%, #FFFFFF 0%, #F3F8FF 42%, #EAF2FB 100%);
+}
+.auth-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  opacity: 0.55;
+  animation: auth-orb-drift 18s ease-in-out infinite alternate;
+}
+.auth-orb-a { width: 34rem; height: 34rem; left: -8rem; top: -6rem; background: #CFE4FF; }
+.auth-orb-b { width: 28rem; height: 28rem; right: -6rem; top: 18%; background: #FFE9BE; animation-delay: -6s; }
+.auth-orb-c { width: 30rem; height: 30rem; left: 22%; bottom: -10rem; background: #CBEBDD; animation-delay: -11s; }
+
+@keyframes auth-orb-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(3rem, -2rem, 0) scale(1.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-orb { animation: none; }
+}
+
+
+/* ---------- Depth + scene transitions ---------- */
+/* Smooth cross-section transitions: each section eases in with a slight z-lift */
+.section-enter {
+  animation: section-enter 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes section-enter {
+  from { opacity: 0; transform: translate3d(0, 26px, -60px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Route-level transition applied by the root layout */
+.route-enter {
+  animation: route-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes route-enter {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Soft luminous divider between sections */
+.section-seam {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--color-brass-500) 55%, transparent),
+    transparent
+  );
+}
+
+.reveal { transform: translate3d(0, 26px, -40px); }
+.reveal.is-visible { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .section-enter,
+  .route-enter { animation: none !important; }
+}

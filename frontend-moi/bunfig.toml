@@ -1,0 +1,9 @@
+[install]
+saveTextLockfile = true
+# 24h supply-chain guard: skip package versions published less than a day ago.
+# This blocks the most common npm attack shape — publish a malicious version,
+# pull it within hours.
+minimumReleaseAge = 86400
+# No minimumReleaseAgeExcludes. Lovable shipped four @lovable.dev/* exemptions,
+# one of them the package that drove the whole build, and three of the four were
+# not even installed. Do not re-add an exemption without a written reason.
