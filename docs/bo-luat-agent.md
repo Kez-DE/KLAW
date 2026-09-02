@@ -14,7 +14,7 @@ trong đánh giá. Mọi quy tắc dưới đây phải tương thích với đi
 |---|---|---|---|---|
 | 1 | Câu hỏi pháp luật trong phạm vi | "Thử việc tối đa bao lâu?" | `intent=tra_cuu` → 7 phép kiểm | ✅ |
 | 2 | Yêu cầu soạn / soát văn bản | "Soạn hợp đồng lao động" | `intent=soan_thao` | ✅ |
-| 3 | Câu hỏi pháp luật NGOÀI phạm vi | "Thuế TNCN tính sao?" | `intent=ngoai_pham_vi` → `out_of_scope` | ✅ |
+| 3 | Câu hỏi pháp luật NGOÀI phạm vi | "Luật Giáo dục quy định độ tuổi nhập học lớp 1 là bao nhiêu?" | `intent=ngoai_pham_vi` → `out_of_scope` | ✅ 2026-09-02 (ví dụ cũ "Thuế TNCN tính sao?" đã VÀO phạm vi từ T1 mở 8 lĩnh vực — đổi sang ví dụ thật sự ngoài phạm vi, xem `prompts/route.v1.md`) |
 | 4 | Hỏi về chính trợ lý | "bạn làm được những gì" | `intent=gioi_thieu` → `gioi_thieu`, 0 token | ✅ 2026-09-01 |
 | 5 | Chào hỏi, cảm ơn | "chào bạn", "cảm ơn" | cùng `intent=gioi_thieu` | ✅ 2026-09-01 |
 | 6 | Tiền đề sai | "Điều 999 BLLĐ nói gì?" | `verify_tier1.tien_de_cau_hoi_sai` | ✅ |

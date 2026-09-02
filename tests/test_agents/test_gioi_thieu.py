@@ -14,6 +14,8 @@ Hai câu này khác hẳn nhau và trước bản này dùng chung một lời �
 là sự thật về hệ thống, đọc từ DB, nên 0 token cho khâu hành văn.
 """
 
+from pathlib import Path
+
 import pytest
 
 from src.agents.nodes.assemble import ResultType, assemble
@@ -37,16 +39,19 @@ def test_hoi_ve_tro_ly_KHONG_ra_out_of_scope():
 
 
 def test_gioi_thieu_tra_loi_thay_vi_tu_choi():
-    st = assemble({"query": "bạn là ai", "intent": "gioi_thieu"}, {}, None, "")
+    # Trước bản này câu hỏi ở đây là "bạn là ai" — T3 tách nó sang `DANH_TINH`
+    # (xem test_giong_tra_loi_khac_nhau_chi_mot_tu ở dưới), nên đổi sang đúng
+    # dạng bài này canh: "làm được những gì".
+    st = assemble({"query": "bạn làm được những gì", "intent": "gioi_thieu"}, {}, None, "")
     ans = st["answer"] or ""
     assert ans, "phải CÓ câu trả lời, không được để rỗng như abstain"
     assert "ngoài phạm vi" not in ans, "không được mở bằng lời từ chối"
-    # Nêu được cả hai việc nó làm, và nêu ra ranh giới — nói được mình làm gì
-    # mà không nói được mình KHÔNG làm gì thì vẫn là quảng cáo, không phải
+    # Nêu được cả hai việc nó làm, và nêu ra giới hạn thật — nói được mình làm
+    # gì mà không nói được mình CHƯA SÂU tới đâu vẫn là quảng cáo, không phải
     # câu trả lời trung thực.
     assert "tra cứu" in ans.lower()
     assert "soạn thảo" in ans.lower()
-    assert "thuế" in ans.lower(), "phải nêu thứ KHÔNG phủ, không chỉ khoe thứ phủ"
+    assert "thuế" in ans.lower(), "phải nêu một lĩnh vực mới mở (kho đã hết chưa phủ thuế)"
 
 
 def test_gioi_thieu_khong_ton_token():
@@ -82,14 +87,18 @@ def _tra_loi(cau_hoi: str) -> str:
     return st["answer"] or ""
 
 
-# Bốn dạng brief đòi, cộng "cảm ơn" — dạng thứ năm `docs/bo-luat-agent.md` (dòng
-# 5) ghi là cũng rơi vào `intent=gioi_thieu`.
+# Bốn dạng brief gốc đòi, cộng "cảm ơn" (dạng thứ năm, `docs/bo-luat-agent.md`
+# dòng 5 ghi là cũng rơi vào `intent=gioi_thieu`), cộng "danh tính"/"bản chất"
+# (T3 tách khỏi năng lực — trước bản này "bạn là ai" và "klaw là gì" đều rơi về
+# `nang_luc`).
 DANG = {
     "chao": "chào bạn",
     "nang_luc": "bạn làm được những gì",
     "model": "model của bạn là gì",
     "nguon": "dữ liệu của bạn lấy từ đâu",
     "cam_on": "cảm ơn bạn nhiều",
+    "danh_tinh": "bạn là ai",
+    "ban_chat": "bạn là gì",
 }
 
 
@@ -161,12 +170,54 @@ def test_cau_hoi_ve_nguon_neu_TEN_nguon_va_KHONG_in_URL():
     assert "moj.gov.vn" not in ans
 
 
-def test_dang_LA_roi_ve_bai_nang_luc_chu_khong_roi_vao_im_lang():
-    """Mặc định an toàn hiện nay là dạng 2 — câu không khớp dạng nào vẫn nhận
-    được lời đáp đầy đủ nhất, không nhận màn hình trắng."""
+def test_cau_khong_khop_dang_nao_roi_ve_bai_nang_luc_chu_khong_im_lang():
+    """Đổi tên (trước đây tên này còn canh CẢ "bạn là ai" và "klaw là gì" rơi về
+    đây — nay hai câu đó có lời đáp RIÊNG, `DANH_TINH`/`BAN_CHAT`, xem
+    `test_la_ai_va_la_gi_khac_nhau_chi_mot_tu` bên dưới). Mặc định an toàn hiện
+    nay vẫn là dạng năng lực — câu không khớp dạng nào (kể cả danh tính/bản
+    chất) vẫn nhận được lời đáp đầy đủ nhất, không nhận màn hình trắng."""
     nang_luc = _tra_loi(DANG["nang_luc"])
-    for cau in ("bạn hoạt động ra sao", "klaw là gì", "bạn là ai", ""):
+    for cau in ("bạn hoạt động ra sao", "bạn giúp được gì", "bạn có bao nhiêu văn bản", ""):
         assert _tra_loi(cau) == nang_luc, f"{cau!r} phải rơi về bài năng lực"
+
+
+def test_la_ai_va_la_gi_khac_nhau_chi_mot_tu():
+    """Phép canh TRUNG TÂM của T3: "bạn là ai" và "bạn là gì" chỉ khác một từ,
+    và chủ dự án nêu đích danh hai câu này phải ra hai lời đáp khác nhau —
+    trước bản này cả hai đều rơi về `NANG_LUC`."""
+    danh_tinh, ban_chat = _tra_loi(DANG["danh_tinh"]), _tra_loi(DANG["ban_chat"])
+    assert danh_tinh != ban_chat
+    assert danh_tinh.startswith("Xin chào! Tôi là KLAW")
+    assert "luật sư" in ban_chat.lower() and "không phải" in ban_chat.lower()
+
+
+def test_model_va_nguon_khong_bi_la_ai_la_gi_cuop_mat():
+    """`model của bạn là ai` phải vẫn ra bảng model (không phải `DANH_TINH`), và
+    `bạn chạy bằng mô hình gì` phải vẫn ra bảng model (không phải `BAN_CHAT`) —
+    ba biểu thức không tranh nhau nhờ thứ tự kiểm trong `cau_gioi_thieu`."""
+    bang_model = _tra_loi(DANG["model"])
+    tu_la_ai = _tra_loi("model của bạn là ai")
+    tu_la_gi = _tra_loi("bạn chạy bằng mô hình gì")
+    assert tu_la_ai == bang_model and tu_la_ai != _tra_loi(DANG["danh_tinh"])
+    assert tu_la_gi == bang_model and tu_la_gi != _tra_loi(DANG["ban_chat"])
+
+
+def test_nang_luc_khong_con_noi_chua_phu_thue():
+    """Trước bản này `NANG_LUC` nói "chưa phủ: thuế, ..." — nay kho đã có luật
+    gốc cho các lĩnh vực đó nên câu đó SAI. Canh rằng không còn cả hai chuỗi
+    cùng lúc, tránh hồi quy về đúng câu bịa cũ (tuyên bố phạm vi đã ĐỒNG BỘ,
+    không phải chỉ hứa là đã đồng bộ)."""
+    ans = _tra_loi(DANG["nang_luc"])
+    assert not ("chưa phủ" in ans and "thuế" in ans)
+
+
+def test_nang_luc_neu_dung_so_loai_van_ban_dem_luc_chay():
+    """Trước bản này lời tự giới thiệu ghi cứng "ba loại" trong khi
+    `config/checklist_*.yaml` đã có 27 file. Đếm THẬT lúc chạy TEST (không
+    chép số 27 vào đây) nên phép canh này tự đỏ ngay khi ai thêm một checklist
+    mà quên sửa lời giới thiệu."""
+    so_file = len(list(Path("config").glob("checklist_*.yaml")))
+    assert str(so_file) in _tra_loi(DANG["nang_luc"])
 
 
 @pytest.mark.parametrize("cau_hoi", list(DANG.values()), ids=list(DANG))
