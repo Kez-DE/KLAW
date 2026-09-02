@@ -45,7 +45,7 @@ phải thất bại."* Một lối thoát rộng đặt ngay cạnh một nhiệ
 đó, và không có vòng nào thử lại.
 
 **K4 — giọng hệ thống và ngõ cụt.** `assemble.py:363` và
-`frontend-moi/src/components/klaw/TheKetQua.tsx:431` đều nói bằng giọng một hệ
+`frontend/src/components/klaw/TheKetQua.tsx:431` đều nói bằng giọng một hệ
 thống tự thuật về giới hạn của mình. Mọi nhánh abstain/partial kết thúc bằng một
 danh sách văn bản: không nhánh nào nói *cái đã biết*, không nhánh nào hỏi *dữ
 kiện còn thiếu*.
