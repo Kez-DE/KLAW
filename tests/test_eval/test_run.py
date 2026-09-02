@@ -366,3 +366,47 @@ def test_report_thieu_co_thi_coi_nhu_chua_duyet():
     from eval.run import write_report
 
     assert "CHƯA" in write_report({"hybrid": _summary()})
+
+
+# ══ Cổng đo lương tối thiểu — MỘT lượt lỗi không được làm mất cả phép đo ═══
+
+
+def test_chay_luong_co_lap_loi_tung_luot_khong_mat_trang():
+    """ĐO ĐƯỢC 2026-09-02: cổng đo mất trắng vì đúng một lượt ăn HTTP 429.
+
+    `eval/run_trap.py` đã học bài này (docstring của nó ghi "HAI lượt chạy 45 câu
+    mất trắng vì đúng một câu ăn HTTP 429") nhưng bài học không được áp sang
+    `run_luong_toi_thieu.py` — vòng `for` ở đó không có try/except, nên một 429
+    giết cả 10 lượt và không ghi ra file nào. Cổng đo biến mất đúng lúc cần nó.
+
+    Lỗi hạ tầng phải ghi RIÊNG, không cộng vào `abstain`: một lượt crash không
+    phải một lượt hệ thống chọn im lặng, và gộp chúng làm con số abstain — đóng
+    góp trung tâm của khoá luận — trông tệ hơn sự thật.
+    """
+    import asyncio
+
+    import eval.run_luong_toi_thieu as m
+
+    goi = {"n": 0}
+
+    class GraphGiaLap:
+        async def ainvoke(self, _):
+            goi["n"] += 1
+            if goi["n"] == 2:  # đúng một lượt giữa chừng nổ
+                raise RuntimeError("429 giả lập")
+            return {"result_type": "abstain", "citations": [], "answer": None, "warnings": []}
+
+    goc = m.build_graph_tra_cuu
+    m.build_graph_tra_cuu = lambda: GraphGiaLap()
+    try:
+        kq = asyncio.run(m.chay(3))
+    finally:
+        m.build_graph_tra_cuu = goc
+
+    t = kq["tong_hop"]
+    assert t["n"] == 3, "phải ghi lại số lượt ĐÃ ĐỊNH chạy"
+    assert t["n_do_duoc"] == 2, "hai lượt chạy được phải còn nguyên, không mất trắng"
+    assert t["n_loi"] == 1
+    # Lượt crash KHÔNG được đếm thành abstain.
+    assert t["abstain"] == 2, f"lượt lỗi bị cộng vào abstain: {t}"
+    assert kq["loi"][0]["error_type"] == "RuntimeError"
