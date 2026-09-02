@@ -106,6 +106,20 @@ RE_SO = {
     Cap.phan: re.compile(r"^Phần\s+(thứ\s+\S+|\S+)", re.IGNORECASE),
 }
 
+# Bảng chữ cái Điểm của văn bản quy phạm Việt Nam. KHÔNG phải a–z: bỏ f/j/w/z,
+# và `đ` đứng NGAY SAU `d` (không phải sau `e` như thứ tự ASCII). Đã xác nhận
+# trên cả 49 văn bản: 23 nhãn phân biệt, không nhãn nào ngoài bảng này. Quét
+# đứt quãng theo thứ tự ASCII cho 419 nhóm "có gap" — toàn bộ là dương tính giả
+# vì `đ` U+0111 xếp sau `z`.
+BANG_CHU_DIEM = ("a", "b", "c", "d", "đ", "e", "g", "h", "i", "k", "l", "m",
+                 "n", "o", "p", "q", "r", "s", "t", "u", "v", "x", "y")
+
+# Nhãn Khoản ở dạng CHẶT: số rồi BẮT BUỘC có `.` hoặc `)`. Hẹp hơn `RE_SO[khoan]`
+# (vốn nhận cả `23 ` chỉ có khoảng trắng) và cố ý vậy — nó chỉ dùng để KẾT LUẬN
+# "thẻ này bị gắn sai class", nên một mảnh tiếp nối mở đầu bằng số ("10 ngày kể
+# từ…") không được phép bị đọc thành Khoản 10.
+_RE_KHOAN_CHAT = re.compile(r"^\d+[a-zA-ZđĐ]*\s*[.)]")
+
 # Chuẩn hoá CHỈ ĐỂ SO KHỚP, không đổi text lưu.
 #   U+200B/U+FEFF: zero-width, vô hình nhưng làm hai chuỗi "khác nhau".
 #   Ð U+00D0 (LATIN CAPITAL LETTER ETH) ≠ Đ U+0110 — đã có đúng 2 lần trong
@@ -113,6 +127,13 @@ RE_SO = {
 #   số rỗng và một Điều thật bị gộp mất.
 _MAP_KHOA = str.maketrans({"​": "", "﻿": "",
                            "Ð": "Đ", "ð": "đ"})
+
+# Cùng phép chuẩn hoá, nhưng GIỮ NGUYÊN ĐỘ DÀI: zero-width thành khoảng trắng
+# thay vì bị xoá. `_tach_lien` cắt chuỗi GỐC theo offset tìm được trên chuỗi đã
+# chuẩn hoá, nên một ký tự biến mất giữa chừng sẽ làm hai chuỗi lệch chỉ số và
+# vết cắt trượt sang giữa từ.
+_MAP_KHOA_GIU_DAI = str.maketrans({"​": " ", "﻿": " ",
+                                   "Ð": "Đ", "ð": "đ"})
 
 
 def _chuan_hoa(s: str) -> str:
@@ -171,10 +192,164 @@ def _sua_cap_theo_nhan(cap: Cap, tag: Tag) -> Cap:
     return khop[0] if len(khop) == 1 else cap
 
 
+def _sua_cap_khoan_diem(cap: Cap, text: str) -> Cap:
+    """`prov-clause`/`prov-item` gắn sai cấp thì tin NHÃN, không tin class.
+
+    Đối xứng với `_sua_cap_theo_nhan`, nhưng cho hai cấp trích dẫn được — và với
+    một điều kiện chặt hơn hẳn: chỉ đổi khi regex của cấp KIA khớp, tức thẻ có
+    nhãn thật, chỉ sai tầng. Vì thế nó KHÔNG đụng vào nhánh
+    `_la_tiep_noi_tieu_de`, vốn đọc "không parse được số hiệu NÀO" làm dấu hiệu
+    tiếp nối: một mảnh tiếp nối không có nhãn nên không cấp nào khớp.
+
+    Hai ca đo được trên 49 văn bản, cả hai đều làm MẤT một neo trích dẫn vì thẻ
+    sai cấp không đọc được số hiệu rồi bị gộp vào anh em liền trước:
+      - `88/2025/QH15`: "10. Bổ sung khoản 3 vào sau khoản 2 Điều 59 như sau:"
+        mang class `prov-item` → cả Khoản 10 chui vào Điều 1 > Khoản 9 > Điểm c.
+      - `13/2023/NĐ-CP`: "a) Biện pháp quản lý do tổ chức…" mang class
+        `prov-clause` → Điểm a của Điều 26 Khoản 2 biến mất, dãy còn b…đ.
+    """
+    t = _khoa(text)
+    if cap is Cap.diem and not RE_SO[Cap.diem].match(t) and _RE_KHOAN_CHAT.match(t):
+        return Cap.khoan
+    if cap is Cap.khoan and not RE_SO[Cap.khoan].match(t) and RE_SO[Cap.diem].match(t):
+        return Cap.diem
+    return cap
+
+
+def _nhan_ke_tiep(cap: Cap, so: str) -> str | None:
+    """Nhãn LIỀN SAU `so` trong dãy của cấp đó. None nếu `so` không đọc được."""
+    if cap is Cap.diem:
+        i = BANG_CHU_DIEM.index(so.lower()) if so.lower() in BANG_CHU_DIEM else -1
+        return BANG_CHU_DIEM[i + 1] if 0 <= i < len(BANG_CHU_DIEM) - 1 else None
+    if cap is Cap.khoan and so.isdigit():
+        return str(int(so) + 1)
+    return None
+
+
+def _re_nuot(cap: Cap, nhan_sau: str) -> re.Pattern[str]:
+    """Regex tìm nhãn `nhan_sau` NẰM GIỮA THÂN một điều khoản.
+
+    Ba ràng buộc, mỗi cái loại một họ dương tính giả đã đo trên corpus:
+
+    1. Đứng ngay sau `;` hoặc `.` + khoảng trắng. Loại mọi dẫn chiếu nội văn
+       ("quy định tại khoản 3 Điều 6", "ngày 01 tháng 3 năm 2020", "60 tuổi 3
+       tháng", ô bảng "| 3 |") — đó là 40+ ca trên corpus và là đúng cái lỗi
+       NGƯỢC mà nới regex quá tay sẽ gây ra.
+    2. KHÔNG nhận dấu mở ngoặc kép trước nhãn. Luật sửa đổi trích nguyên văn
+       điều khoản mới trong “ ” ("Sửa đổi khoản 1 như sau: “c) Trường hợp…");
+       nhãn trong đó thuộc luật KHÁC, không phải anh em ruột.
+    3. Ký tự đầu của phần thân phải VIẾT HOA. Soạn thảo văn bản quy phạm luôn
+       viết hoa sau nhãn Khoản/Điểm; một con số giữa câu thì không.
+
+    Với Khoản, dấu `.`/`)` sau số là TÙY CHỌN: `93/2015/QH13 > Điều 55` viết
+    "23 Đề nghị…" không có dấu chấm. Ràng buộc 1 và 3 gánh phần an toàn.
+    """
+    duoi = r"\s*\)" if cap is Cap.diem else r"\s*[.)]?"
+    return re.compile(r"[;.]\s+(" + re.escape(nhan_sau) + r")" + duoi
+                      + r"\s+(?=[A-ZĐÀ-Ỹ])")
+
+
+def _tach_lien(cap: Cap, text: str) -> list[str]:
+    """Một thẻ `prov-*` gói NHIỀU điều khoản → từng đoạn một.
+
+    Nguồn MOJ có 17 thẻ (12 `prov-item`, 5 `prov-clause`) chứa cả điều khoản kế
+    tiếp trong cùng một `<p>`. Parser đọc cấp bậc từ class nên không tách được:
+    cả điều khoản sau rơi vào `noi_dung` của điều khoản trước và KHÔNG tồn tại —
+    không `id`, không `duong_dan`. Đó là chế độ hỏng nặng nhất của bảng tra: mô
+    hình trích đúng nguyên văn Điểm d rồi dẫn Điểm c, và verifier tầng 1 BÁO ĐẠT
+    vì câu trích nằm trong cây con của neo. Một trích dẫn sai nguồn được đóng
+    dấu đã-kiểm-chứng.
+
+    Tách lặp: `100/2015/QH13 > Điều 175 > Khoản 2` có `c) …; d) …; đ) …` trong
+    một thẻ. Dấu `;`/`.` phân cách ở lại với đoạn TRƯỚC (nó là dấu câu của đoạn
+    đó); chỉ khoảng trắng bị bỏ, nên phép BẢO TOÀN KÝ TỰ của `parse_anomalies`
+    vẫn khít tuyệt đối.
+    """
+    if cap not in (Cap.khoan, Cap.diem):
+        return [text]
+    doan: list[str] = []
+    con_lai = text
+    while (nhan_sau := _nhan_ke_tiep(cap, _so_hieu(cap, con_lai))) is not None:
+        m = _re_nuot(cap, nhan_sau).search(con_lai.translate(_MAP_KHOA_GIU_DAI))
+        if m is None or m.start() == 0:
+            break
+        doan.append(con_lai[:m.start() + 1])
+        con_lai = con_lai[m.start(1):]
+    doan.append(con_lai)
+    return doan
+
+
+def _trong_trich_dan(s: str) -> bool:
+    """Cuối chuỗi `s` có đang nằm TRONG một đoạn trích dẫn chưa đóng?
+
+    Đây là phép phân biệt DUY NHẤT tách "điều khoản bị nuốt" khỏi "luật sửa đổi
+    chép nguyên văn điều khoản mới của luật khác". Cả hai đều là một nhãn
+    Khoản/Điểm nằm trong thân của một điều khoản; khác nhau ở chỗ nhãn thứ hai
+    thuộc VĂN BẢN KHÁC nên nó KHÔNG phải anh em ruột và tách nó ra là dựng một
+    neo trích dẫn không có thật.
+
+    Bốn ca đo được, tất cả đều mở bằng “ và đóng bằng ”:
+    `31/2024/QH15 > Điều 248 > Khoản 6/7/8 > Điểm b` (chép khoản 2 và khoản 5
+    Luật Lâm nghiệp) và `88/2025/QH15 > Điều 1 > Khoản 25 > Điểm c` (chép khoản
+    4 Điều 125 Luật XLVPHC). Nếu chỉ lọc bằng "anh em cùng nhãn đã tồn tại" —
+    phép lọc của vòng thẩm định — bốn ca này lọt, vì luật sửa đổi thường chỉ
+    trích MỘT điểm nên anh em thật không tồn tại.
+
+    Ngoặc kép thẳng `"` không phân biệt mở/đóng nên đếm theo tính chẵn lẻ.
+    """
+    sau = 0
+    thang = False
+    for ch in s:
+        if ch == "\u201c":
+            sau += 1
+        elif ch == "\u201d":
+            sau = max(0, sau - 1)
+        elif ch == '"':
+            thang = not thang
+    return sau > 0 or thang
+
+
+def _la_dieu_khoan_bi_nuot(cap: Cap, da_co: str, text: str) -> bool:
+    """Khối `prov-content` này thật ra là điều khoản KẾ TIẾP, không phải thân?
+
+    MOJ gắn `prov-content` (= "thân của node đang mở") cho một số thẻ vốn là
+    Khoản/Điểm thật. Parser tin class nên nối chúng vào `noi_dung` của anh em
+    liền trước và điều khoản đó BIẾN MẤT khỏi bảng tra — không `id`, không
+    `duong_dan`, nhưng nguyên văn vẫn nằm trong cây con của một neo khác. Đó là
+    dạng hỏng tệ nhất: verifier tầng 1 báo ĐẠT cho một trích dẫn sai nguồn.
+
+    Ba ràng buộc, không nới cái nào:
+      1. Node đang mở phải là Khoản/Điểm — chỉ hai cấp này có dãy nhãn đọc được.
+      2. `text` phải MỞ ĐẦU bằng đúng nhãn LIỀN SAU nhãn của node đang mở. Không
+         phải "một nhãn bất kỳ": một khối thân bắt đầu bằng "10 ngày kể từ…" chỉ
+         bị đọc là Khoản 10 khi node đang mở là Khoản 9.
+      3. Chỗ nối KHÔNG được nằm trong một đoạn trích dẫn đang mở (xem
+         `_trong_trich_dan`).
+    """
+    if cap not in (Cap.khoan, Cap.diem):
+        return False
+    nhan_sau = _nhan_ke_tiep(cap, _so_hieu(cap, da_co))
+    if nhan_sau is None:
+        return False
+    t = _khoa(text)
+    if _so_hieu(cap, t) != nhan_sau:
+        return False
+    # Khoản: đòi dấu `.`/`)` sau số. Biến thể chỉ có khoảng trắng ("23 Đề nghị")
+    # là thật, nhưng ở ĐẦU một thẻ prov-content nó không phân biệt được với một
+    # đoạn thân mở đầu bằng số, nên ở vị trí này quy tắc chặt hơn ở `_tach_lien`
+    # (nơi còn có dấu `;`/`.` phía trước làm chứng).
+    if cap is Cap.khoan and not _RE_KHOAN_CHAT.match(t):
+        return False
+    return not _trong_trich_dan(da_co)
+
+
 def _cap_of(tag: Tag) -> Cap | None:
     for cls in tag.get("class") or []:
         if cls in CLASS_TO_CAP:
-            return _sua_cap_theo_nhan(CLASS_TO_CAP[cls], tag)
+            cap = CLASS_TO_CAP[cls]
+            if cap in (Cap.khoan, Cap.diem):
+                return _sua_cap_khoan_diem(cap, _text(tag))
+            return _sua_cap_theo_nhan(cap, tag)
     return None
 
 
@@ -253,7 +428,13 @@ def _don_vi(node: Tag):
                 # noi_dung rỗng và duong_dan mất số hiệu. Không chữ = không mất gì.
                 t = _text(child)
                 if t:
-                    yield cap, t, child
+                    # Một thẻ có thể gói NHIỀU điều khoản (xem `_tach_lien`).
+                    # `tag` chỉ đi kèm đoạn ĐẦU: các đoạn sau không có node
+                    # tương ứng trong nguồn nên `source_node_id` của chúng phải
+                    # là None — bịa lại id của thẻ cha sẽ làm hai provision
+                    # khác nhau cùng trỏ về một node HTML.
+                    for k, doan in enumerate(_tach_lien(cap, t)):
+                        yield cap, doan, (child if k == 0 else None)
             elif child.name == "table":
                 # Bẫy #4: KHÔNG đi sâu vào bảng — ô của nó không phải prov-content
                 # rời. Yield chính thẻ để `parse_provisions` biết VỊ TRÍ của bảng
@@ -341,6 +522,87 @@ def _noi_dung(nhan: str, than: list[str], bang: list[str]) -> str:
     return "\n\n".join(x for x in [van, *bang] if x)
 
 
+def _thu_tu_nhan(cap: Cap, so: str) -> int | None:
+    """Vị trí của nhãn `so` trong dãy của cấp đó (0-based). None nếu không đọc được."""
+    if cap is Cap.diem:
+        return BANG_CHU_DIEM.index(so.lower()) if so.lower() in BANG_CHU_DIEM else None
+    return int(so) - 1 if cap is Cap.khoan and so.isdigit() else None
+
+
+def _do_nuot_anh_em(rows: list[ProvisionRow]) -> list[str]:
+    """Điều khoản KẾ TIẾP còn nằm trong `noi_dung` của anh em liền trước?
+
+    Đây là cổng cho đúng chế độ hỏng mà `_tach_lien`,
+    `_la_dieu_khoan_bi_nuot` và `_sua_cap_khoan_diem` vừa chữa: điều khoản bị
+    nuốt KHÔNG tồn tại (không `id`, không `duong_dan`) nhưng nguyên văn của nó
+    vẫn nằm trong cây con của một neo khác, nên verifier tầng 1 báo ĐẠT cho một
+    trích dẫn SAI NGUỒN. Cổng nội dung (bảo toàn ký tự) mù với nó — không ký tự
+    nào mất, chúng chỉ bị gán sai neo.
+
+    LỖI chứ không phải cảnh báo, và chạy TRƯỚC khi ghi seed: cả ba cơ chế trên
+    đọc hình dạng của nguồn, nên lần MOJ đổi hình dạng lần nữa thì đây là chỗ
+    duy nhất biết được — im lặng ở đây là ship lại đúng lỗi cũ.
+
+    Hai phép lọc dương tính giả, cả hai đều cần (đo trên 49 văn bản):
+      - nhãn kế tiếp ĐÃ tồn tại như anh em ruột → thân chỉ đang dẫn chiếu;
+      - chỗ nối nằm trong một trích dẫn chưa đóng → luật sửa đổi chép nguyên văn
+        điều khoản của luật khác (4 ca; xem `_trong_trich_dan`).
+    """
+    anh_em: dict[tuple[int | None, Cap], set[str]] = {}
+    for r in rows:
+        anh_em.setdefault((r.parent_local_id, r.cap), set()).add(r.so_hieu_cap.lower())
+
+    loi: list[str] = []
+    for r in rows:
+        if r.cap not in (Cap.khoan, Cap.diem):
+            continue
+        nhan_sau = _nhan_ke_tiep(r.cap, r.so_hieu_cap)
+        if nhan_sau is None or nhan_sau in anh_em[(r.parent_local_id, r.cap)]:
+            continue
+        m = _re_nuot(r.cap, nhan_sau).search(r.noi_dung.translate(_MAP_KHOA_GIU_DAI))
+        if m is None or m.start() == 0 or _trong_trich_dan(r.noi_dung[:m.start()]):
+            continue
+        loi.append(
+            f"NUỐT ANH EM: {r.duong_dan!r} chứa nguyên văn {NHAN[r.cap]} "
+            f"{nhan_sau} trong thân — điều khoản đó không có neo trích dẫn riêng "
+            f"nên một câu trích của nó sẽ 'kiểm chứng thành công' trên neo này: "
+            f"…{r.noi_dung[max(0, m.start() - 30):m.start() + 40]!r}")
+    return loi
+
+
+def _do_dut_quang(rows: list[ProvisionRow]) -> list[str]:
+    """Dãy nhãn anh em có lỗ hổng — điều khoản mất HẲN nhãn.
+
+    Bổ trợ cho `_do_nuot_anh_em`, vốn chỉ thấy được ca mà nhãn kế tiếp CÒN nguyên
+    trong thân. Khi nhãn mất luôn (nguồn không ship nó), dấu vết duy nhất là lỗ
+    trong dãy `a b c d đ e g h …` hoặc `1 2 3 …`.
+
+    CẢNH BÁO chứ không phải lỗi: đã đo `100/2015/QH13 > Điều 278 > Khoản 2` —
+    HTML nguồn nhảy thẳng từ `d)` sang `e)`, không thẻ nào chứa Điểm đ. Parser
+    không dựng lại được thứ nguồn không có, và raise ở đây sẽ chặn vĩnh viễn cả
+    Bộ luật Hình sự vì một khiếm khuyết của MOJ.
+    """
+    nhom: dict[tuple[int | None, Cap], list[str]] = {}
+    for r in rows:
+        if r.cap in (Cap.khoan, Cap.diem):
+            nhom.setdefault((r.parent_local_id, r.cap), []).append(r.so_hieu_cap)
+
+    duong_dan = {r.local_id: r.duong_dan for r in rows}
+    canh_bao: list[str] = []
+    for (cha, cap), nhan_list in nhom.items():
+        thu_tu = sorted(t for t in (_thu_tu_nhan(cap, n) for n in nhan_list) if t is not None)
+        if len(thu_tu) < 2:
+            continue
+        thieu = [t for t in range(0, thu_tu[-1] + 1) if t not in set(thu_tu)]
+        if not thieu:
+            continue
+        ten = [BANG_CHU_DIEM[t] if cap is Cap.diem else str(t + 1) for t in thieu]
+        canh_bao.append(
+            f"ĐỨT DÃY {NHAN[cap]} trong {duong_dan.get(cha, '<gốc>')!r}: thiếu "
+            f"{ten} (có {sorted(nhan_list)})")
+    return canh_bao
+
+
 def parse_anomalies(html: str, so_ky_hieu: str = "?") -> tuple[list[str], list[str]]:
     """Cổng CẤU TRÚC: đường mất dữ liệu mà cổng nội dung (token) không thấy.
 
@@ -391,6 +653,9 @@ def parse_anomalies(html: str, so_ky_hieu: str = "?") -> tuple[list[str], list[s
     if goc != trong_rows:
         loi.append(f"KHÔNG BẢO TOÀN: HTML có {goc} ký tự, provisions.noi_dung giữ "
                    f"{trong_rows} — lệch {goc - trong_rows}")
+
+    loi.extend(_do_nuot_anh_em(rows))
+    canh_bao.extend(_do_dut_quang(rows))
 
     return loi, canh_bao
 
@@ -456,8 +721,15 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
             # raise sẽ chặn toàn bộ corpus. `mo_dau` KHÔNG phải cấp bịa: nó là
             # một khối có thật trong văn bản nguồn, chỉ không trích dẫn được —
             # đúng như `phu_luc` ở đầu bên kia.
-            (than[stack[-1]] if stack else mo_dau).append(text)
-            continue
+            dinh = stack[-1] if stack else None
+            if dinh is None or not _la_dieu_khoan_bi_nuot(
+                    caps[dinh], " ".join([nhan[dinh], *than[dinh]]), text):
+                (than[dinh] if dinh is not None else mo_dau).append(text)
+                continue
+            # Thẻ này là điều khoản kế tiếp bị gắn nhầm class → rơi xuống nhánh
+            # tạo node mới. `tag` vẫn là thẻ prov-content nên `src` giữ đúng id
+            # nguồn của nó.
+            cap = caps[dinh]
 
         so = _so_hieu(cap, text)
         if stack and caps[stack[-1]] is cap and _la_tiep_noi_tieu_de(text, cap, so):

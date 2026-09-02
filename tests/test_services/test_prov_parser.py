@@ -826,3 +826,184 @@ def test_phan_khong_co_so_hieu_bi_CHAN_o_parser_chu_khong_o_DB():
            '<p class="prov-article"><b>Điều 1. X</b></p></div>'
     with pytest.raises(ValueError, match="so_hieu_cap rỗng"):
         parse_provisions(html, "x/2026/QH15")
+
+
+# ── NUỐT ANH EM: điều khoản kế tiếp bị gộp vào noi_dung của hàng liền trước ──
+# Đây là chế độ hỏng nặng nhất của bảng tra: điều khoản bị nuốt KHÔNG có `id`,
+# KHÔNG có `duong_dan`, nhưng nguyên văn của nó nằm trong cây con của neo liền
+# trước — nên verifier tầng 1 báo ĐẠT cho một trích dẫn SAI NGUỒN. Ba cơ chế
+# tách biệt, mỗi cái một ca dương tính và một ca ÂM TÍNH.
+
+HTML_GOI_NHIEU_DIEM = """
+<div class="WordSection1">
+<p id="n1" class="prov-article"><b>Điều 175. Tội lạm dụng tín nhiệm</b></p>
+<p id="n2" class="prov-clause">2. Phạm tội thuộc một trong các trường hợp sau đây:</p>
+<p id="n3" class="prov-item">b) Có tính chất chuyên nghiệp;</p>
+<p id="n4" class="prov-item">c) Chiếm đoạt tài sản trị giá từ 50.000.000 đồng đến dưới 200.000.000 đồng; d) Lợi dụng chức vụ, quyền hạn hoặc lợi dụng danh nghĩa cơ quan, tổ chức; đ) Dùng thủ đoạn xảo quyệt;</p>
+<p id="n5" class="prov-item">e) Tái phạm nguy hiểm.</p>
+</div>
+"""
+
+
+def test_mot_the_goi_BA_DIEM_duoc_tach_thanh_BA_NEO():
+    """`100/2015/QH13 > Điều 175 > Khoản 2`: nguồn MOJ nhét c), d), đ) vào MỘT
+    thẻ `prov-item`. Trước khi vá, Điểm d và đ không tồn tại và một câu trích
+    nguyên văn Điểm d được 'kiểm chứng thành công' trên neo Điểm c."""
+    rows = parse_provisions(HTML_GOI_NHIEU_DIEM, "100/2015/QH13")
+    diem = [r for r in rows if r.cap is Cap.diem]
+    assert [r.so_hieu_cap for r in diem] == ["b", "c", "d", "đ", "e"]
+    c = next(r for r in diem if r.so_hieu_cap == "c")
+    assert "Lợi dụng chức vụ" not in c.noi_dung, "Điểm d phải RỜI khỏi thân Điểm c"
+    assert next(r for r in diem if r.so_hieu_cap == "d").noi_dung.startswith("d) Lợi dụng")
+    # Đoạn tách ra không có node nguồn riêng — bịa lại id của thẻ cha sẽ làm hai
+    # provision cùng trỏ về một node HTML.
+    assert next(r for r in diem if r.so_hieu_cap == "d").source_node_id is None
+
+
+def test_khoan_viet_KHONG_DAU_CHAM_van_duoc_tach():
+    """`93/2015/QH13 > Điều 55 > Khoản 22` viết "…của Tòa án; 23 Đề nghị…" —
+    nguồn không có dấu chấm sau 23. Dấu `;` phía trước và chữ hoa phía sau là
+    hai bằng chứng đủ; đòi thêm dấu chấm thì mất cả Khoản 23."""
+    html = ('<div><p class="prov-article"><b>Điều 55. Quyền của đương sự</b></p>'
+            '<p class="prov-clause">22. Kháng cáo, khiếu nại bản án, quyết định '
+            'của Tòa án; 23 Đề nghị người có thẩm quyền kháng nghị theo thủ tục '
+            'giám đốc thẩm.</p></div>')
+    rows = parse_provisions(html, "93/2015/QH13")
+    assert [r.so_hieu_cap for r in rows if r.cap is Cap.khoan] == ["22", "23"]
+
+
+def test_AM_TINH_dan_chieu_noi_van_KHONG_bi_cat_thanh_khoan_moi():
+    """Ca ÂM TÍNH của phép tách. "quy định tại khoản 3 Điều 6" và "ngày 01 tháng
+    3 năm 2020" đều có số 3 đứng sau Khoản 2 đang mở. Nới regex quá tay sẽ đẻ ra
+    một "Khoản 3" giả — dựng neo trích dẫn không có trong luật, đúng loại sai
+    ngược lại và nặng ngang."""
+    html = ('<div><p class="prov-article"><b>Điều 62. Thẩm quyền</b></p>'
+            '<p class="prov-clause">2. Thực hiện theo quy định tại khoản 3 Điều 6 '
+            'Nghị định này và Nghị định số 28/2020/NĐ-CP ngày 01 tháng 3 năm 2020 '
+            'của Chính phủ; mức phạt tối đa 3 lần giá trị.</p></div>')
+    rows = parse_provisions(html, "12/2022/NĐ-CP")
+    assert [r.so_hieu_cap for r in rows if r.cap is Cap.khoan] == ["2"]
+
+
+def test_AM_TINH_luat_sua_doi_chep_nguyen_van_dieu_khoan_luat_khac():
+    """Ca ÂM TÍNH thứ hai. `31/2024/QH15 > Điều 248 > Khoản 6 > Điểm b` chép
+    nguyên văn khoản 2 Luật Lâm nghiệp trong “ ”, kèm cả a) b) c) của luật ĐÓ.
+    Chúng thuộc văn bản khác nên tách ra là dựng neo giả — dấu “ chưa đóng là
+    phép phân biệt duy nhất, vì anh em thật không tồn tại để mà lọc bằng."""
+    html = ('<div><p class="prov-article"><b>Điều 248. Sửa đổi Luật Lâm nghiệp</b></p>'
+            '<p class="prov-clause">6. Sửa đổi, bổ sung Điều 102 như sau:</p>'
+            '<p class="prov-item">a) Sửa đổi, bổ sung khoản 1 như sau:</p>'
+            '<p class="prov-item">b) Sửa đổi, bổ sung khoản 2 như sau:</p>'
+            '<p class="prov-content">“2. Thẩm quyền của Ủy ban nhân dân cấp huyện '
+            'được quy định như sau:</p>'
+            '<p class="prov-content">a) Giao rừng đối với hộ gia đình, cá nhân;</p>'
+            '<p class="prov-content">b) Giao rừng đối với cộng đồng dân cư;</p>'
+            '<p class="prov-content">c) Thu hồi rừng theo quy định của Luật Đất đai.”.</p>'
+            '</div>')
+    rows = parse_provisions(html, "31/2024/QH15")
+    assert [r.so_hieu_cap for r in rows if r.cap is Cap.diem] == ["a", "b"]
+    assert "c) Thu hồi rừng" in next(
+        r for r in rows if r.cap is Cap.diem and r.so_hieu_cap == "b").noi_dung
+
+
+def test_prov_content_thuc_ra_la_KHOAN_ke_tiep_duoc_nang_len():
+    """`108/2025/QH15 > Điều 4`: Khoản 6 mang class `prov-content` nên bị nối vào
+    thân Khoản 5 và biến mất khỏi bảng tra."""
+    html = ('<div><p class="prov-article"><b>Điều 4. Giải thích từ ngữ</b></p>'
+            '<p class="prov-clause">5. Hệ thống thông tin quản lý thuế là hệ thống '
+            'xử lý tập trung.</p>'
+            '<p class="prov-content">6. Trụ sở của người nộp thuế là địa điểm người '
+            'nộp thuế tiến hành hoạt động kinh doanh.</p>'
+            '<p class="prov-clause">7. Mã số thuế là dãy số.</p></div>')
+    rows = parse_provisions(html, "108/2025/QH15")
+    assert [r.so_hieu_cap for r in rows if r.cap is Cap.khoan] == ["5", "6", "7"]
+
+
+def test_AM_TINH_prov_content_mo_dau_bang_so_KHONG_thanh_khoan_moi():
+    """Ca ÂM TÍNH của phép nâng cấp: một khối thân mở đầu bằng số chỉ bị đọc là
+    Khoản khi số đó ĐÚNG BẰNG nhãn liền sau Khoản đang mở."""
+    html = ('<div><p class="prov-article"><b>Điều 9. Thời hạn</b></p>'
+            '<p class="prov-clause">5. Thời hạn giải quyết được quy định như sau.</p>'
+            '<p class="prov-content">10 ngày kể từ ngày nhận đủ hồ sơ hợp lệ.</p>'
+            '<p class="prov-content">30. Trường hợp phức tạp thì kéo dài.</p></div>')
+    rows = parse_provisions(html, "x/2026/QH15")
+    assert [r.so_hieu_cap for r in rows if r.cap is Cap.khoan] == ["5"]
+    assert "10 ngày kể từ ngày" in rows[1].noi_dung
+    assert "30. Trường hợp phức tạp" in rows[1].noi_dung
+
+
+def test_class_prov_item_mang_nhan_KHOAN_duoc_doc_lai_thanh_khoan():
+    """`88/2025/QH15 > Điều 1`: "10. Bổ sung khoản 3…" mang class `prov-item`.
+    Không đọc lại cấp thì nó không có số hiệu Điểm nào, bị gộp vào Điểm c liền
+    trước, và CẢ Khoản 10 biến mất."""
+    html = ('<div><p class="prov-article"><b>Điều 1. Sửa đổi</b></p>'
+            '<p class="prov-clause">9. Sửa đổi Điều 58 như sau:</p>'
+            '<p class="prov-item">c) Sửa đổi, bổ sung khoản 5 như sau:</p>'
+            '<p class="prov-item">10. Bổ sung khoản 3 vào sau khoản 2 Điều 59 '
+            'như sau:</p>'
+            '<p class="prov-clause">11. Sửa đổi khoản 3 Điều 60 như sau:</p></div>')
+    rows = parse_provisions(html, "88/2025/QH15")
+    assert [r.so_hieu_cap for r in rows if r.cap is Cap.khoan] == ["9", "10", "11"]
+    assert "Bổ sung khoản 3" not in next(
+        r for r in rows if r.cap is Cap.diem).noi_dung
+
+
+def test_class_prov_clause_mang_nhan_DIEM_duoc_doc_lai_thanh_diem():
+    """`13/2023/NĐ-CP > Điều 26 > Khoản 2`: "a) Biện pháp quản lý…" mang class
+    `prov-clause` → Điểm a mất neo, dãy còn b…đ."""
+    html = ('<div><p class="prov-article"><b>Điều 26. Biện pháp bảo vệ</b></p>'
+            '<p class="prov-clause">2. Các biện pháp bảo vệ, bao gồm:</p>'
+            '<p class="prov-clause">a) Biện pháp quản lý do tổ chức thực hiện;</p>'
+            '<p class="prov-item">b) Biện pháp kỹ thuật do tổ chức thực hiện;</p>'
+            '</div>')
+    rows = parse_provisions(html, "13/2023/NĐ-CP")
+    assert [r.so_hieu_cap for r in rows if r.cap is Cap.diem] == ["a", "b"]
+    assert [r.so_hieu_cap for r in rows if r.cap is Cap.khoan] == ["2"]
+
+
+def test_AM_TINH_manh_tiep_noi_khong_co_nhan_van_duoc_gop_nhu_cu():
+    """Phép đọc lại cấp chỉ được chạm vào thẻ CÓ nhãn, chỉ sai tầng. Một mảnh
+    tiếp nối thật (không nhãn nào cả) vẫn phải gộp vào anh em liền trước —
+    không gộp thì Khoản cha bị cắt cụt và một trích dẫn ĐÚNG thất bại tầng 1."""
+    html = ('<div><p class="prov-article"><b>Điều 5. Thử nghiệm</b></p>'
+            '<p class="prov-clause">2. Việc thử nghiệm phải được đồng ý.</p>'
+            '<p class="prov-clause">Trường hợp người được thử nghiệm là người chưa '
+            'thành niên thì phải được cha, mẹ đồng ý.</p></div>')
+    rows = parse_provisions(html, "91/2015/QH13")
+    khoan = [r for r in rows if r.cap is Cap.khoan]
+    assert len(khoan) == 1
+    assert "Trường hợp người được thử nghiệm" in khoan[0].noi_dung
+
+
+def test_parse_anomalies_NO_khi_dieu_khoan_bi_nuot():
+    """Cổng cấu trúc chạy TRƯỚC khi ghi seed, nên đây là chỗ đúng để chặn. Cổng
+    nội dung (bảo toàn ký tự) mù với lỗi này: không ký tự nào mất, chúng chỉ bị
+    gán sai neo."""
+    import src.services.prov_parser as pp
+    html = ('<div><p class="prov-article"><b>Điều 175. Tội lạm dụng</b></p>'
+            '<p class="prov-clause">2. Phạm tội trong trường hợp:</p>'
+            '<p class="prov-item">c) Chiếm đoạt tài sản; d) Lợi dụng chức vụ, '
+            'quyền hạn;</p></div>')
+    # Tắt phép tách để dựng lại đúng trạng thái hỏng cũ.
+    goc = pp._tach_lien
+    pp._tach_lien = lambda cap, text: [text]
+    try:
+        loi, _ = parse_anomalies(html, "100/2015/QH13")
+    finally:
+        pp._tach_lien = goc
+    assert len(loi) == 1, loi
+    assert "NUỐT ANH EM" in loi[0] and "Điểm d" in loi[0]
+
+
+def test_parse_anomalies_chi_CANH_BAO_khi_nguon_thieu_han_mot_nhan():
+    """`100/2015/QH13 > Điều 278 > Khoản 2`: HTML nguồn nhảy từ d) sang e), không
+    thẻ nào chứa Điểm đ. Parser không dựng lại được thứ nguồn không có, nên đây
+    phải là CẢNH BÁO — raise sẽ chặn vĩnh viễn cả Bộ luật Hình sự."""
+    html = ('<div><p class="prov-article"><b>Điều 278. Tội cản trở</b></p>'
+            '<p class="prov-clause">2. Phạm tội trong trường hợp:</p>'
+            '<p class="prov-item">c) Gây thương tích;</p>'
+            '<p class="prov-item">d) Gây thiệt hại về tài sản;</p>'
+            '<p class="prov-item">e) Là người có trách nhiệm.</p></div>')
+    loi, canh_bao = parse_anomalies(html, "100/2015/QH13")
+    assert loi == []
+    assert any("ĐỨT DÃY" in x and "'đ'" in x for x in canh_bao), canh_bao
