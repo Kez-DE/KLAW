@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import type { Provision } from "@/lib/klaw";
 import { soCot, tachDoan, type O } from "@/lib/bang";
 import { vungTrichDan, type VungTrichDan } from "@/lib/trich-dan";
+import { cn } from "@/lib/utils";
 
 /**
  * Nguyên văn MỘT dòng điều khoản: văn xuôi ra `<p>`, bảng ra `<table>` thật.
@@ -56,10 +57,30 @@ interface NeoHang {
   duongDan: string;
 }
 
-function ODuLieu({ o, vung, neo }: { o: O; vung: VungTrichDan; neo: NeoHang | null }) {
+function ODuLieu({
+  o,
+  vung,
+  neo,
+  nhanHang,
+}: {
+  o: O;
+  vung: VungTrichDan;
+  neo: NeoHang | null;
+  /** Ô đầu của một hàng ĐÃ TÁCH — ô mang định danh của hàng. */
+  nhanHang: boolean;
+}) {
   const chu = <ChuCoTo text={o.text} tu={o.tu} vung={vung} />;
   return (
-    <td className="border border-border px-2.5 py-1.5 align-top tabular-nums">
+    <td
+      className={cn(
+        "border border-border px-2.5 py-1.5 align-top tabular-nums",
+        // Nhãn hàng ("Vùng II", "Bậc thuế 3") là ĐỊNH DANH của hàng, và ở dạng
+        // A nó cũng là chỗ bấm. Để nó gãy làm hai dòng ở màn hẹp là bẻ đôi một
+        // nhãn pháp lý. Chỉ nhãn hàng mới nowrap — ô dữ liệu dài vẫn xuống dòng
+        // bình thường, và dạng B không có nhãn hàng nào để mà giữ.
+        nhanHang && "whitespace-nowrap",
+      )}
+    >
       {neo === null || o.text === "" ? (
         chu
       ) : (
@@ -116,7 +137,13 @@ function Bang({
       aria-label={nhan}
       className="focus-brass my-3 max-w-full overflow-x-auto rounded-lg border border-border"
     >
-      <table className="w-full border-collapse text-[14px] leading-[1.6]">
+      {/* `min-w` là thứ BIẾN vùng cuộn trên thành cuộn thật. Không có nó, bảng
+          co lại vừa 332px của màn 390px và "Vùng I" gãy làm hai dòng — một nhãn
+          pháp lý bị bẻ đôi. 30rem cho mỗi cột đủ chỗ cho một mốc lương trên một
+          dòng; rộng hơn nữa thì bảng ba cột phải cuộn hết hai màn mới đọc xong.
+          ponytail: một ngưỡng chung cho mọi bảng — nếu sau này có bảng nhiều cột
+          hơn cần ngưỡng riêng thì tính theo số cột. */}
+      <table className="w-full min-w-[30rem] border-collapse text-[14px] leading-[1.6]">
         {tieuDe !== null && (
           <thead>
             <tr className="bg-[var(--color-paper-100)]">
@@ -147,6 +174,7 @@ function Bang({
                     // ô số tiền thành liên kết thì bảng đọc thành một rừng gạch
                     // chân.
                     neo={i === 0 ? hang.neo : null}
+                    nhanHang={i === 0 && hang.id !== null}
                   />
                 ),
               )}
