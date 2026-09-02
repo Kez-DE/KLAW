@@ -309,8 +309,11 @@ def _trong_trich_dan(s: str) -> bool:
     return sau > 0 or thang
 
 
-def _la_dieu_khoan_bi_nuot(cap: Cap, da_co: str, text: str) -> bool:
+def _la_dieu_khoan_bi_nuot(cap: Cap, da_co: str, text: str,
+                           co_con_khoan: bool = False) -> Cap | None:
     """Khối `prov-content` này thật ra là điều khoản KẾ TIẾP, không phải thân?
+
+    Trả về CẤP của điều khoản bị nuốt, hoặc None nếu đây đúng là thân.
 
     MOJ gắn `prov-content` (= "thân của node đang mở") cho một số thẻ vốn là
     Khoản/Điểm thật. Parser tin class nên nối chúng vào `noi_dung` của anh em
@@ -325,22 +328,35 @@ def _la_dieu_khoan_bi_nuot(cap: Cap, da_co: str, text: str) -> bool:
          bị đọc là Khoản 10 khi node đang mở là Khoản 9.
       3. Chỗ nối KHÔNG được nằm trong một đoạn trích dẫn đang mở (xem
          `_trong_trich_dan`).
+
+    Node đang mở là ĐIỀU là ca riêng của ràng buộc 2: Điều chưa có Khoản nào thì
+    nhãn liền sau nó là "Khoản 1". Hai ca đo được — `84/2015/QH13 > Điều 33` và
+    `91/2015/QH13 > Điều 490` — gắn `prov-content` cho Khoản 1 ngay dưới dòng
+    tiêu đề, nên Khoản 1 mất neo VÀ mọi Điểm của nó bị treo thẳng vào Điều. Đòi
+    "chưa có Khoản nào" chứ không phải "nhãn kế tiếp": một Điều đã có Khoản 1..n
+    thì khối thân mở đầu bằng số là văn xuôi, không phải Khoản n+1 lạc chỗ.
     """
-    if cap not in (Cap.khoan, Cap.diem):
-        return False
-    nhan_sau = _nhan_ke_tiep(cap, _so_hieu(cap, da_co))
-    if nhan_sau is None:
-        return False
+    if cap is Cap.dieu:
+        if co_con_khoan:
+            return None
+        cap_moi, nhan_sau = Cap.khoan, "1"
+    elif cap in (Cap.khoan, Cap.diem):
+        cap_moi = cap
+        nhan_sau = _nhan_ke_tiep(cap, _so_hieu(cap, da_co))
+        if nhan_sau is None:
+            return None
+    else:
+        return None
     t = _khoa(text)
-    if _so_hieu(cap, t) != nhan_sau:
-        return False
+    if _so_hieu(cap_moi, t) != nhan_sau:
+        return None
     # Khoản: đòi dấu `.`/`)` sau số. Biến thể chỉ có khoảng trắng ("23 Đề nghị")
     # là thật, nhưng ở ĐẦU một thẻ prov-content nó không phân biệt được với một
     # đoạn thân mở đầu bằng số, nên ở vị trí này quy tắc chặt hơn ở `_tach_lien`
     # (nơi còn có dấu `;`/`.` phía trước làm chứng).
-    if cap is Cap.khoan and not _RE_KHOAN_CHAT.match(t):
-        return False
-    return not _trong_trich_dan(da_co)
+    if cap_moi is Cap.khoan and not _RE_KHOAN_CHAT.match(t):
+        return None
+    return None if _trong_trich_dan(da_co) else cap_moi
 
 
 def _cap_of(tag: Tag) -> Cap | None:
@@ -741,6 +757,9 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
                  if _la_bang(tag) and (md := _bang_md(tag))]
 
     gop_khoan_diem = 0
+    # Điều đã có ít nhất một Khoản con. Chỉ Điều CHƯA có Khoản nào mới nhận được
+    # một `prov-content` mở đầu bằng "1." như Khoản 1 bị gắn nhầm class.
+    co_con_khoan: set[int] = set()
     for cap, text, tag in units[:cuoi + 1]:
         if _la_bang(tag):
             # Bảng thuộc về node ĐANG MỞ tại vị trí của nó — cùng luật vị trí
@@ -759,14 +778,16 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
             # một khối có thật trong văn bản nguồn, chỉ không trích dẫn được —
             # đúng như `phu_luc` ở đầu bên kia.
             dinh = stack[-1] if stack else None
-            if dinh is None or not _la_dieu_khoan_bi_nuot(
-                    caps[dinh], " ".join([nhan[dinh], *than[dinh]]), text):
+            bi_nuot = None if dinh is None else _la_dieu_khoan_bi_nuot(
+                caps[dinh], " ".join([nhan[dinh], *than[dinh]]), text,
+                dinh in co_con_khoan)
+            if bi_nuot is None:
                 (than[dinh] if dinh is not None else mo_dau).append(text)
                 continue
             # Thẻ này là điều khoản kế tiếp bị gắn nhầm class → rơi xuống nhánh
             # tạo node mới. `tag` vẫn là thẻ prov-content nên `src` giữ đúng id
             # nguồn của nó.
-            cap = caps[dinh]
+            cap = bi_nuot
 
         so = _so_hieu(cap, text)
         if stack and caps[stack[-1]] is cap and _la_tiep_noi_tieu_de(text, cap, so):
@@ -785,6 +806,8 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
         bang.append([])
         src.append(tag.get("id") if tag is not None else None)
         parents.append(stack[-1] if stack else None)
+        if cap is Cap.khoan and stack:
+            co_con_khoan.add(stack[-1])
         stack.append(len(caps) - 1)
 
     if gop_khoan_diem:

@@ -1041,3 +1041,33 @@ def test_AM_TINH_bang_MOT_hang_khong_bi_bao_la_danh_sach():
             'sản phẩm thì áp dụng tương tự.</p></div>')
     _, canh_bao = parse_anomalies(html, "145/2020/NĐ-CP")
     assert not any("BẢNG KẸT" in x for x in canh_bao), canh_bao
+
+
+def test_prov_content_thuc_ra_la_KHOAN_1_cua_dieu_duoc_nang_len():
+    """`84/2015/QH13 > Điều 33` và `91/2015/QH13 > Điều 490` gắn `prov-content`
+    cho Khoản 1 ngay dưới dòng tiêu đề Điều. Không nâng thì Khoản 1 mất neo VÀ
+    mọi Điểm của nó treo thẳng vào Điều — `duong_dan` của chúng nhảy mất một
+    tầng ("Điều 33 > Điểm a" thay vì "Điều 33 > Khoản 1 > Điểm a")."""
+    html = ('<div><p class="prov-article"><b>Điều 33. Trách nhiệm của các bộ</b></p>'
+            '<p class="prov-content">1. Các bộ có trách nhiệm quản lý nhà nước '
+            'như sau:</p>'
+            '<p class="prov-item">a) Bộ Y tế chịu trách nhiệm;</p>'
+            '<p class="prov-clause">2. Bộ Lao động chủ trì.</p></div>')
+    rows = parse_provisions(html, "84/2015/QH13")
+    assert [r.so_hieu_cap for r in rows if r.cap is Cap.khoan] == ["1", "2"]
+    assert next(r for r in rows if r.cap is Cap.diem).duong_dan == \
+        "84/2015/QH13 > Điều 33 > Khoản 1 > Điểm a"
+
+
+def test_AM_TINH_prov_content_mo_dau_bang_so_o_DIEU_da_co_khoan():
+    """Ca ÂM TÍNH: điều kiện là "Điều CHƯA có Khoản nào", không phải "mở đầu
+    bằng 1.". Một Điều đã có Khoản thì khối thân mở đầu bằng số là văn xuôi —
+    tách nó ra là dựng một Khoản 1 thứ hai, tức một neo trùng."""
+    html = ('<div><p class="prov-article"><b>Điều 7. Mức phạt</b></p>'
+            '<p class="prov-clause">1. Phạt tiền theo khung sau đây.</p>'
+            '<p class="prov-content">1. đến 5. của khung này áp dụng cho cá nhân.</p>'
+            '</div>')
+    rows = parse_provisions(html, "x/2026/QH15")
+    khoan = [r for r in rows if r.cap is Cap.khoan]
+    assert [r.so_hieu_cap for r in khoan] == ["1"]
+    assert "áp dụng cho cá nhân" in khoan[0].noi_dung
