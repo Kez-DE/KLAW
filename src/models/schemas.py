@@ -104,8 +104,22 @@ class MucLucItem(BaseModel):
 
 class ProvisionOut(BaseModel):
     id: int
-    cap: Literal["dieu", "khoan", "diem"]
+    # `hang_bang` = MỘT HÀNG dữ liệu của bảng (migrations/017). `noi_dung` của
+    # nó là đúng một dòng markdown `| ô | ô | ô |`; hàng TIÊU ĐỀ ở lại
+    # `noi_dung` của Khoản cha, nên FE dựng lại bảng bằng: lấy dòng `|…|` cuối
+    # trong `noi_dung` của cha làm tên cột, rồi mỗi con `hang_bang` là một hàng.
+    #
+    # `Literal` chứ không phải `str`: nó là hợp đồng với FE, và một cấp mới lọt
+    # ra API mà FE chưa biết render thì tốt nhất là nổ ở biên. Đã nổ thật —
+    # 500 trên `GET /van-ban/183939?so_dieu=3` ngay sau khi ingest 13 dòng
+    # `hang_bang` đầu tiên, trước khi dòng này được thêm.
+    cap: Literal["dieu", "khoan", "diem", "hang_bang"]
     so_hieu_cap: str
+    # Quan hệ cha–con TƯỜNG MINH. Trước `hang_bang` thứ tự trả về là đủ để FE
+    # suy ra cây (Điều → Khoản → Điểm, mỗi cấp một lần); với hàng bảng thì FE
+    # phải GOM đúng các hàng vào đúng Khoản để dựng lại một cái bảng, và suy ra
+    # từ thứ tự là một quy ước ngầm sẽ vỡ im lặng khi thứ tự đổi.
+    parent_id: int | None = None
     duong_dan: str
     tieu_de: str
     noi_dung: str

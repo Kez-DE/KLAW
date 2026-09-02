@@ -417,14 +417,22 @@ _SQL_VAN_BAN_DIEU_SAU = text(
     " ORDER BY thu_tu ASC LIMIT 2"
 )
 
-# Một Điều + TOÀN BỘ Khoản/Điểm con — con trực tiếp (Khoản, hoặc Điểm nếu nó
-# nằm thẳng dưới Điều) HOẶC cháu trực tiếp (Điểm dưới Khoản). Không cần đệ quy
-# sâu hơn: `dieu > khoan > diem` là đáy của cây (xem `Cap` trong domain.py).
+# Một Điều + TOÀN BỘ hậu duệ. ĐỆ QUY, không phải hai tầng cứng: từ khi có cấp
+# `hang_bang` (migrations/017) cây sâu tới `Điều > Khoản > Điểm > hàng bảng`, và
+# một truy vấn hai tầng sẽ IM LẶNG bỏ rơi các hàng của một bảng nằm trong Điểm.
+# Hôm nay chưa có bảng nào ở đó, nhưng "chưa có" là thứ đổi theo văn bản mới,
+# còn cách hỏng thì không ai thấy: trang đọc văn bản chỉ thiếu vài dòng.
+# Cùng khuôn `WITH RECURSIVE` mà `_SQL_DIEU_TRONG_CHUONG` ngay dưới đã dùng.
 _SQL_VAN_BAN_CAY_DIEU = text(
-    "SELECT id, cap, so_hieu_cap, duong_dan, tieu_de, noi_dung FROM provisions"
-    " WHERE id = :dieu_id OR parent_id = :dieu_id"
-    "    OR parent_id IN (SELECT id FROM provisions WHERE parent_id = :dieu_id)"
-    " ORDER BY thu_tu"
+    "WITH RECURSIVE cay AS ("
+    "  SELECT id FROM provisions WHERE id = :dieu_id"
+    "  UNION ALL"
+    "  SELECT p.id FROM provisions p JOIN cay ON p.parent_id = cay.id"
+    ")"
+    " SELECT p.id, p.cap, p.so_hieu_cap, p.parent_id, p.duong_dan, p.tieu_de,"
+    "        p.noi_dung"
+    " FROM provisions p JOIN cay ON cay.id = p.id"
+    " ORDER BY p.thu_tu"
 )
 
 
@@ -434,7 +442,8 @@ _SQL_DIEU_TRONG_CHUONG = text(
     "  UNION ALL"
     "  SELECT p.id, p.cap, p.document_id FROM provisions p JOIN cay ON p.parent_id = cay.id"
     ")"
-    " SELECT p.id, p.cap, p.so_hieu_cap, p.duong_dan, p.tieu_de, p.noi_dung"
+    " SELECT p.id, p.cap, p.so_hieu_cap, p.parent_id, p.duong_dan, p.tieu_de,"
+    "        p.noi_dung"
     " FROM provisions p JOIN cay ON cay.id = p.id"
     " WHERE p.cap = 'dieu' ORDER BY p.thu_tu"
 )
