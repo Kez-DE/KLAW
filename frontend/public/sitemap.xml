@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Domain là placeholder (example.com, dành riêng cho tài liệu — IANA) vì
+     chưa có domain thật lúc Task 7 chạy (Task 8 deploy chưa làm). Điền domain
+     thật vào tất cả <loc> bên dưới khi deploy, cùng lúc với index.html
+     (xem chú thích "JSON-LD" trong index.html — cùng một việc còn lại). -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://klaw.example.com/</loc></url>
+  <url><loc>https://klaw.example.com/tra-cuu</loc></url>
+  <url><loc>https://klaw.example.com/soan-thao</loc></url>
+  <url><loc>https://klaw.example.com/soat</loc></url>
+  <url><loc>https://klaw.example.com/huong-dan</loc></url>
+  <url><loc>https://klaw.example.com/pham-vi</loc></url>
+  <url><loc>https://klaw.example.com/mien-tru</loc></url>
+  <url><loc>https://klaw.example.com/du-lieu</loc></url>
+  <!-- `/dang-nhap` và `/dang-ky` cố ý KHÔNG liệt kê: hai trang xác thực
+       không có giá trị tìm kiếm, và chưa có backend nào phía sau chúng. -->
+  <url><loc>https://klaw.example.com/bang-gia</loc></url>
+</urlset>

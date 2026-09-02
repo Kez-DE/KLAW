@@ -1,0 +1,51 @@
+# Checklist nội dung của HỢP ĐỒNG UỶ QUYỀN (giấy uỷ quyền) — BLDS Đ562-569.
+#
+# muc_do_thieu: canh_bao — BLDS không liệt kê nội dung bắt buộc của hợp đồng uỷ
+# quyền; bốn mục bắt buộc dưới đây là những nội dung có điều luật riêng điều
+# chỉnh.
+#
+# GỘP CÓ CHỦ Ý: Đ565/Đ566 tách "nghĩa vụ" và "quyền" của bên được uỷ quyền
+# thành hai điều, Đ567/Đ568 cũng vậy cho bên uỷ quyền. Văn bản thật viết chúng
+# thành MỘT điều khoản "Quyền và nghĩa vụ của Bên …", nên tách thành bốn mục sẽ
+# luôn báo thiếu hai mục ở mọi hợp đồng đúng chuẩn. Mỗi bên một mục, dẫn điều
+# đặt ra NGHĨA VỤ — phần ràng buộc, và cũng là phần một bản uỷ quyền thiếu sót
+# hay bỏ quên.
+#
+# Từ khoá khai CẢ HAI lối viết "uỷ"/"ủy": `normalize` cố ý GIỮ DẤU (xem
+# docstring của nó trong verify_tier1.py — trong tiếng Việt dấu là chữ), nên
+# hai lối viết là hai chuỗi khác nhau khi so khớp.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, tieu_de FROM provisions
+#    WHERE duong_dan ~ '^91/2015/QH13 > Điều 56[2-9]$';
+loai: hop_dong_uy_quyen
+ten: "hợp đồng uỷ quyền"
+tieu_de: "HỢP ĐỒNG UỶ QUYỀN"
+muc_do_thieu: canh_bao
+
+# Dựng trên chế định HỢP ĐỒNG (BLDS Đ385 "sự thoả thuận giữa các bên"), nên
+# `GET /mau/{loai}` kèm thêm khối các bên + chỗ ký (`cau_truc.khung_hop_dong`).
+# Hai khối đó KHÔNG phải `muc` và KHÔNG vào mẫu số completeness.
+la_hop_dong: true
+
+rules: []
+
+can_cu_goc: "91/2015/QH13 > Điều 562"
+
+# Uỷ quyền lại (Đ564) chỉ đặt ra khi bên uỷ quyền cho phép; quyền đơn phương
+# chấm dứt (Đ569) là quyền luật định, có hay không ghi vào hợp đồng cũng không
+# mất.
+khong_bat_buoc:
+  can_cu: "91/2015/QH13 > Điều 564"
+  ghi_chu: >
+    Uỷ quyền lại (Đ564) là thoả thuận tuỳ chọn; đơn phương chấm dứt (Đ569) là
+    quyền luật định. Vắng mặt không được báo là thiếu.
+  keys: [uy_quyen_lai, don_phuong_cham_dut]
+
+muc:
+  - {stt: 1, key: cong_viec_uy_quyen, ten: "Công việc uỷ quyền và phạm vi uỷ quyền", can_cu: "91/2015/QH13 > Điều 562", tu_khoa: ["phạm vi uỷ quyền", "phạm vi ủy quyền", "công việc uỷ quyền", "công việc ủy quyền", "nội dung uỷ quyền", "nội dung ủy quyền"]}
+  - {stt: 2, key: thoi_han_uy_quyen, ten: "Thời hạn uỷ quyền", can_cu: "91/2015/QH13 > Điều 563", tu_khoa: ["thời hạn uỷ quyền", "thời hạn ủy quyền"]}
+  - {stt: 3, key: nghia_vu_ben_duoc_uy_quyen, ten: "Quyền và nghĩa vụ của bên được uỷ quyền", can_cu: "91/2015/QH13 > Điều 565", tu_khoa: ["nghĩa vụ của bên được uỷ quyền", "nghĩa vụ của bên được ủy quyền", "quyền và nghĩa vụ của bên được uỷ quyền", "quyền và nghĩa vụ của bên được ủy quyền"]}
+  - {stt: 4, key: nghia_vu_ben_uy_quyen, ten: "Quyền và nghĩa vụ của bên uỷ quyền", can_cu: "91/2015/QH13 > Điều 567", tu_khoa: ["nghĩa vụ của bên uỷ quyền", "nghĩa vụ của bên ủy quyền", "quyền và nghĩa vụ của bên uỷ quyền", "quyền và nghĩa vụ của bên ủy quyền"]}
+  - {stt: 5, key: uy_quyen_lai, ten: "Uỷ quyền lại (nếu được bên uỷ quyền đồng ý)", can_cu: "91/2015/QH13 > Điều 564", tu_khoa: ["uỷ quyền lại", "ủy quyền lại"]}
+  - {stt: 6, key: don_phuong_cham_dut, ten: "Đơn phương chấm dứt thực hiện hợp đồng uỷ quyền", can_cu: "91/2015/QH13 > Điều 569", tu_khoa: ["đơn phương chấm dứt"]}

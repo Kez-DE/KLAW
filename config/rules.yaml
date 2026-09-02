@@ -1,0 +1,147 @@
+# Bộ quy tắc kiểm tính hợp pháp — mỗi rule là DỮ LIỆU, không phải mã nguồn.
+# Người chỉnh sửa file này không cần biết lập trình: thêm hoặc sửa một rule
+# là sửa YAML, không đụng tới src/services/rules.py.
+#
+# can_cu PHẢI khớp CHÍNH XÁC một `provisions.duong_dan` đang có trong DB —
+# test tích hợp trong tests/test_services/test_rules.py chặn đứng bất kỳ rule
+# nào viện dẫn một điều luật không tồn tại. Đã tự tra DB (không chép từ trí
+# nhớ) để lấy đúng từng can_cu bên dưới.
+#
+# `kiem` là một công thức nhỏ — so sánh (<= < >= > == !=), and/or/not, + - * /,
+# tra bảng bằng `bang[khoa]` — được rules.py đọc và TÍNH TRỰC TIẾP, không phải
+# chú thích suông. Chỉ được dùng: tên fact khai báo ở `can_facts`, và tên
+# trường khác của chính rule này (vd. `gioi_han`, `ty_le_toi_thieu`,
+# `bang_thang`). Không gọi hàm, không truy cập thuộc tính — biểu thức bị từ
+# chối ngay lúc nạp nếu chứa cú pháp ngoài danh sách này.
+rules:
+  - id: thu_viec_toi_da
+    can_cu: "45/2019/QH14 > Điều 25"
+    muc_do: chan
+    mo_ta: "Thời gian thử việc vượt mức tối đa theo chức danh"
+    can_facts: [thoi_gian_thu_viec_ngay, nhom_chuc_danh]
+    gioi_han:
+      quan_ly_doanh_nghiep: 180
+      cao_dang_tro_len: 60
+      trung_cap_cnkt_nghiep_vu: 30
+      cong_viec_khac: 6
+    kiem: thoi_gian_thu_viec_ngay <= gioi_han[nhom_chuc_danh]
+
+  - id: luong_thu_viec_toi_thieu
+    can_cu: "45/2019/QH14 > Điều 26"
+    muc_do: chan
+    mo_ta: "Tiền lương thử việc thấp hơn 85% mức lương của công việc"
+    can_facts: [luong_thu_viec, luong_chinh_thuc]
+    ty_le_toi_thieu: 0.85
+    kiem: luong_thu_viec >= ty_le_toi_thieu * luong_chinh_thuc
+
+  - id: luong_toi_thieu_vung
+    can_cu: "293/2025/NĐ-CP > Điều 3 > Khoản 1"
+    muc_do: chan
+    mo_ta: "Mức lương tháng thấp hơn lương tối thiểu vùng"
+    can_facts: [luong_thang, vung]
+    bang_thang: {I: 5310000, II: 4730000, III: 4140000, IV: 3700000}
+    bang_gio:   {I: 25500,   II: 22700,   III: 20000,   IV: 17800}
+    kiem: luong_thang >= bang_thang[vung]
+    ghi_chu: >
+      Danh mục địa bàn vùng I–IV nằm ở Phụ lục NĐ 293/2025, KHÔNG có trong
+      documentContent và endpoint tải file trả 401 → `vung` PHẢI là input
+      người dùng, không suy ra từ địa chỉ. `bang_gio` là mức theo giờ cùng
+      Khoản 1, chưa có rule nào dùng — giữ lại làm dữ liệu tham chiếu cho
+      rule tương lai về lao động tính lương theo giờ.
+
+  - id: cam_phat_tien_nld
+    can_cu: "45/2019/QH14 > Điều 127 > Khoản 2"
+    muc_do: chan
+    mo_ta: "Có điều khoản phạt tiền hoặc cắt lương thay xử lý kỷ luật"
+    can_facts: [co_dieu_khoan_phat_tien]
+    kiem: not co_dieu_khoan_phat_tien
+
+  - id: cam_giu_giay_to_dat_coc
+    can_cu: "45/2019/QH14 > Điều 17"
+    muc_do: chan
+    mo_ta: "Có điều khoản giữ bản chính giấy tờ hoặc buộc đặt cọc"
+    can_facts: [co_dieu_khoan_giu_giay_to, co_dieu_khoan_dat_coc]
+    kiem: not (co_dieu_khoan_giu_giay_to or co_dieu_khoan_dat_coc)
+
+  - id: lai_suat_vay_toi_da
+    can_cu: "91/2015/QH13 > Điều 468 > Khoản 1"
+    muc_do: chan
+    mo_ta: "Lãi suất vay thoả thuận vượt trần 20%/năm của khoản tiền vay"
+    can_facts: [lai_suat_nam_phan_tram]
+    tran_phan_tram: 20
+    kiem: lai_suat_nam_phan_tram <= tran_phan_tram
+    ghi_chu: >
+      Đ468.1 đặt trần 20%/năm cho lãi suất THOẢ THUẬN, và tuyên phần vượt quá
+      "không có hiệu lực" — nên đây là rule `chan`, không phải cảnh báo.
+
+      Chính điều luật chừa hai lối: "trừ trường hợp luật khác có liên quan quy
+      định khác" (hợp đồng tín dụng của tổ chức tín dụng theo Luật Các tổ chức
+      tín dụng KHÔNG chịu trần này), và Uỷ ban thường vụ Quốc hội có thể điều
+      chỉnh mức trần. Vì vậy rule này chỉ được khai báo ở checklist của hợp
+      đồng VAY TÀI SẢN giữa các bên dân sự — nó không nằm trong `rules:` của
+      bất kỳ mẫu nào khác, và con số 20 nằm ở YAML để sửa được khi mức trần đổi
+      mà không đụng Python.
+
+  - id: so_dai_dien_doi_thoai_nsdld_toi_thieu
+    can_cu: "145/2020/NĐ-CP > Điều 38 > Khoản 1"
+    muc_do: chan
+    mo_ta: "Số đại diện bên người sử dụng lao động tham gia đối thoại dưới mức tối thiểu 03 người"
+    can_facts: [so_dai_dien_doi_thoai_nsdld]
+    toi_thieu: 3
+    kiem: so_dai_dien_doi_thoai_nsdld >= toi_thieu
+    ghi_chu: >
+      Đ38.1: người sử dụng lao động "quyết định số lượng, thành phần đại diện
+      cho mình để tham gia đối thoại BẢO ĐẢM ÍT NHẤT 03 NGƯỜI, trong đó có
+      người đại diện theo pháp luật ... và quy định trong quy chế dân chủ ở cơ
+      sở tại nơi làm việc". Sàn cứng, nên `chan`.
+
+      Vế "trong đó có người đại diện theo pháp luật" CỐ Ý không được kiểm ở
+      đây. Nó chỉ kiểm được bằng một ô tick người dùng tự khai, mà kiểm một
+      lời khai bằng chính nó không chứng minh gì — cùng lý do
+      checklist_bien_ban_hop_hdqt.yaml không dựng rule tỷ lệ dự họp.
+
+      Sàn theo quy mô lao động của BÊN NGƯỜI LAO ĐỘNG (Đ38.2 điểm a, sáu bậc
+      a1-a6) cũng chưa dựng: bốn bậc giữa cho một KHOẢNG ("ít nhất từ 04 đến
+      08 người"), nên một con số nằm ngoài khoảng không có nghĩa xác định là
+      vi phạm, và đoán bừa cận trên là dựng ra một giới hạn luật không đặt.
+
+  - id: nhiem_ky_bo_nhiem_toi_da
+    can_cu: "59/2020/QH14 > Điều 162 > Khoản 2"
+    muc_do: chan
+    mo_ta: "Nhiệm kỳ bổ nhiệm vượt trần 05 năm của Luật Doanh nghiệp"
+    can_facts: [co_tran_nhiem_ky_05_nam, nhiem_ky_thang]
+    tran_thang: 60
+    kiem: (not co_tran_nhiem_ky_05_nam) or nhiem_ky_thang <= tran_thang
+    ghi_chu: >
+      Trần 05 năm KHÔNG áp cho mọi quyết định bổ nhiệm. Đ162.2 đặt nó cho Giám
+      đốc/Tổng giám đốc CÔNG TY CỔ PHẦN (Điều 162 nằm trong chương công ty cổ
+      phần); Đ154.2 đặt trần cùng mức cho thành viên Hội đồng quản trị. Bổ
+      nhiệm một trưởng phòng, một kế toán trưởng hay một người quản lý của công
+      ty TNHH KHÔNG có trần nhiệm kỳ luật định nào — nên rule hỏi thẳng
+      `co_tran_nhiem_ky_05_nam` thay vì tra bảng theo chức danh.
+      Vì sao không dùng `tran[chuc_danh]` như `thu_viec_toi_da`: bảng đó buộc
+      phải có một hàng cho "chức danh khác", và con số điền vào đó sẽ là một
+      trần do tôi bịa, không phải trần của luật. Một fact bool nói đúng thứ
+      luật phân biệt: có trần hay không có trần.
+
+# Nhãn tiếng Việt + kiểu dữ liệu cho từng fact — phần DUY NHẤT không thể suy
+# ra từ cấu trúc `kiem:` (nhãn là văn bản người viết, không phải dữ liệu có
+# thể tính). Tập giá trị hợp lệ (vd. vung: I..IV) KHÔNG lặp lại ở đây — suy
+# thẳng từ `bang_thang`/`gioi_han` ở trên bằng `rules.enum_facts()`, để một
+# vùng mới thêm vào `bang_thang` không cần sửa hai chỗ. Dùng bởi
+# GET /api/v1/mau/{loai} (Task 5) — sinh mô tả form KHÔNG hardcode trong
+# Python; thêm/sửa nhãn là sửa YAML này.
+facts_meta:
+  thoi_gian_thu_viec_ngay:   {nhan: "Thời gian thử việc (ngày)", kieu: int}
+  nhom_chuc_danh:            {nhan: "Nhóm chức danh", kieu: str}
+  luong_thu_viec:            {nhan: "Lương thử việc (đồng/tháng)", kieu: int}
+  luong_chinh_thuc:          {nhan: "Lương chính thức (đồng/tháng)", kieu: int}
+  luong_thang:               {nhan: "Lương tháng (đồng/tháng)", kieu: int}
+  vung:                      {nhan: "Vùng lương tối thiểu", kieu: str}
+  co_dieu_khoan_phat_tien:   {nhan: "Có điều khoản phạt tiền người lao động", kieu: bool}
+  co_dieu_khoan_giu_giay_to: {nhan: "Có điều khoản giữ giấy tờ tuỳ thân", kieu: bool}
+  co_dieu_khoan_dat_coc:     {nhan: "Có điều khoản buộc đặt cọc", kieu: bool}
+  lai_suat_nam_phan_tram:    {nhan: "Lãi suất vay (%/năm)", kieu: float}
+  so_dai_dien_doi_thoai_nsdld: {nhan: "Số đại diện bên người sử dụng lao động tham gia đối thoại (người)", kieu: int}
+  co_tran_nhiem_ky_05_nam:   {nhan: "Chức danh được bổ nhiệm là Giám đốc/Tổng giám đốc công ty cổ phần hoặc thành viên Hội đồng quản trị (có trần nhiệm kỳ 05 năm)", kieu: bool}
+  nhiem_ky_thang:            {nhan: "Nhiệm kỳ bổ nhiệm (tháng)", kieu: int}

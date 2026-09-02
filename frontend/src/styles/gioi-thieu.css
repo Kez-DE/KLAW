@@ -1,0 +1,422 @@
+/*
+ * Trang giới thiệu (/) — mode Persuade. Đây là bề mặt DUY NHẤT được phép có
+ * chuỗi chuyển động trọng tâm (site-spec.md · motion-spec.md "Luận đề chuyển
+ * động"). Đừng mang bất cứ thứ gì trong file này sang ba màn hình Operate.
+ *
+ * Nạp qua `import` trong pages/GioiThieu.tsx, KHÔNG qua index.css — file này
+ * chỉ tồn tại cho một tuyến, và index.css nằm ngoài ranh giới của tác vụ dựng
+ * trang này.
+ *
+ * Chỉ animate `transform` và `opacity`. Không thư viện animation, không WebGL.
+ * `prefers-reduced-motion` bọc TỪNG khai báo animation riêng, không override
+ * toàn cục — cùng lối viết với styles/may-doc.css.
+ */
+
+/* ═══ 1. Cỗ máy — CẤU TRÚC 4 TẦNG BẮT BUỘC ══════════════════════════════
+ *
+ *   .gt-khay      cắt dải phim (overflow). KHÔNG có preserve-3d.
+ *   .gt-canh      perspective. KHÔNG overflow / filter / opacity / blend.
+ *   .gt-doi-hinh  transform-style: preserve-3d — chuỗi 3D thật.
+ *   .gt-mat       translateZ. CHỈ Ở ĐÂY được đặt opacity/filter/clip-path,
+ *                 vì mặt lá không cần giữ con cháu trong không gian 3D.
+ *
+ * Nguồn: research-zoom-3d.md §2.1. Đặt `overflow`/`filter`/`opacity` lên
+ * .gt-canh hay .gt-doi-hinh sẽ ép `transform-style` về `flat` — cảnh 3D bẹp
+ * xuống 2D và KHÔNG có lỗi console nào báo. Đây là hành vi đúng đặc tả, không
+ * phải bug trình duyệt: đừng "sửa" bằng cách thêm !important.
+ */
+
+.gt-may {
+  /* Tâm quầng sáng, đơn vị %. lib/anhSangMay.ts ghi đè hai biến này theo con
+     trỏ (đã throttle bằng requestAnimationFrame) và theo phím mũi tên. */
+  --x: 50;
+  --y: 44;
+  position: relative;
+}
+
+.gt-khay {
+  position: relative;
+  min-height: 22rem;
+  border: 1px solid var(--vien);
+  border-radius: var(--radius-lon);
+  background: var(--nen-cao);
+  /* `hidden` cho trình duyệt cũ, `clip` cho trình duyệt mới — thứ tự hai dòng
+     này có nghĩa. `clip` KHÔNG tạo scroll container, nên `animation-timeline:
+     view()` ở tầng .gt-mat vẫn neo vào viewport thay vì neo vào chính cái khay
+     (neo nhầm thì parallax đứng im mà không báo lỗi). Cả hai giá trị đều nằm
+     ngoài danh sách "ép phẳng" vì .gt-khay không có preserve-3d. */
+  overflow: hidden;
+  overflow: clip;
+}
+
+@media (min-width: 48rem) {
+  .gt-khay {
+    min-height: 25rem;
+  }
+}
+
+.gt-canh {
+  position: absolute;
+  inset: 0;
+  perspective: var(--perspective-dai-khung);
+  transform: scale(1);
+}
+
+.gt-doi-hinh {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+/* Hero nghiêng theo con trỏ — biên độ TỐI ĐA 6° (|50| × 0.12deg), tắt hẳn dưới
+   1024px và trên thiết bị không có con trỏ tinh (DESIGN.md "Tương tác chuột").
+   Cổng nằm ở CSS chứ không ở JS: JS chỉ ghi --x/--y, còn dùng chúng để nghiêng
+   hay không là quyết định của media query. Nhờ vậy phím mũi tên vẫn đổi được
+   ánh sáng ở mọi khổ màn hình mà không cần nhánh JS riêng. */
+@media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
+  .gt-doi-hinh {
+    transform: rotateY(calc((var(--x) - 50) * 0.12deg)) rotateX(calc((50 - var(--y)) * 0.12deg));
+    transition: transform 90ms linear;
+  }
+}
+
+/* Bốn slot transform cố định cho mọi mặt phẳng: giữ nguyên DANH SÁCH HÀM ở cả
+   base lẫn keyframes để trình duyệt nội suy theo từng thành phần thay vì rơi
+   về nội suy ma trận. */
+.gt-mat {
+  position: absolute;
+  inset: 0;
+  transform: translateZ(var(--z, 0px)) scale(var(--bu, 1)) translateX(var(--truot, 0px))
+    translateY(var(--doc, 0px));
+}
+
+/* Mặt máy phía sau. Falloff sáng/bão hoà TĨNH theo độ sâu (research-zoom-3d.md
+   §2.2): rẻ nhất, không JS, và làm cảnh có chiều sâu cả lúc ĐỨNG YÊN chứ không
+   chỉ lúc cuộn. `filter` an toàn ở đây vì .gt-mat là mặt lá. */
+.gt-mat--sau {
+  --z: -140px;
+  --bu: 1.12;
+  filter: brightness(0.66) saturate(0.8);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 44px,
+      color-mix(in srgb, var(--phim) 5%, transparent) 44px 45px
+    ),
+    linear-gradient(180deg, color-mix(in srgb, var(--phim) 6%, transparent), transparent 62%);
+}
+
+/* Đèn máy. BẤT BIẾN (DESIGN.md § Bảng màu): --den-sang LUÔN là quầng sáng mờ
+   dần, KHÔNG BAO GIỜ là nền đặc — đó là thứ duy nhất tách nó khỏi --vang-mo
+   cùng họ vàng. Nếu có lúc nào biến này thành một mảng màu đặc, quy tắc gãy. */
+.gt-mat--den {
+  --z: -84px;
+  --bu: 1.07;
+  background: radial-gradient(
+    circle at calc(var(--x) * 1%) calc(var(--y) * 1%),
+    color-mix(in srgb, var(--den-sang) 42%, transparent) 0%,
+    color-mix(in srgb, var(--den-sang) 13%, transparent) 33%,
+    transparent 66%
+  );
+}
+
+/* Dải phim. Các khung tràn ra hai bên rồi bị .gt-khay cắt — đó là lý do tầng
+   cắt phải nằm NGOÀI chuỗi 3D. */
+.gt-mat--dai {
+  --z: -12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+/* Lỗ kéo phim: hai dải răng cưa trên/dưới, chạy tràn khỏi khay. */
+.gt-mat--dai::before,
+.gt-mat--dai::after {
+  content: '';
+  position: absolute;
+  left: -30%;
+  right: -30%;
+  height: 7px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--phim) 24%, transparent) 0 9px,
+    transparent 9px 26px
+  );
+}
+.gt-mat--dai::before {
+  top: 7%;
+}
+.gt-mat--dai::after {
+  bottom: 7%;
+}
+
+/* Cửa đọc — vành kim loại trước mặt phim, đánh dấu chỗ đèn rọi qua. */
+.gt-mat--cua {
+  --z: 40px;
+  --bu: 0.965;
+  inset: 9% 6%;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--den-sang) 24%, transparent);
+  border-radius: var(--radius-vua);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nen) 65%, transparent);
+}
+
+/* Khung chưa được rọi: phim trắng, không chữ. Chúng KHÔNG mang nội dung giả —
+   một trang tồn tại để chống khẳng định không kiểm chứng được thì không được
+   in chữ mẫu lên mặt phim. */
+.gt-o {
+  flex: 0 0 auto;
+  width: 4.5rem;
+  height: 58%;
+  border: 1px solid color-mix(in srgb, var(--muc-nhat) 20%, transparent);
+  border-radius: var(--radius-nho);
+  background: color-mix(in srgb, var(--phim) 7%, transparent);
+}
+
+@media (min-width: 48rem) {
+  .gt-o {
+    width: 6rem;
+  }
+}
+
+/* Khung đang được rọi — Điều luật CÓ THẬT, `duong_dan` THẬT. Nền tối như
+   CitationChip ở màn Tra cứu: nhãn hiệu lực phải nằm trên --nen-cao mới đạt
+   tương phản AA, đặt nó lên mặt phim sáng thì --vang-mo chỉ còn 2,4:1. */
+.gt-o--sang {
+  flex: 0 0 auto;
+  width: min(19.5rem, 80vw);
+  /* Ghi đè `height` của .gt-o: khung được rọi sáng cao theo NỘI DUNG THẬT của
+     nó. Để nó kế thừa 58% là cách nội dung tràn ra ngoài viền khung. */
+  height: auto;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.7rem;
+  border: 1px solid var(--den-sang);
+  border-radius: var(--radius-vua);
+  background: var(--nen-cao);
+  box-shadow: var(--shadow-tieu-diem);
+  transform: none;
+}
+
+/* Mặt phim: nền sáng, chữ serif, màu chữ KHÔNG đổi theo trạng thái — phim là
+   phim, trạng thái sống ở nhãn và ở viền khung (DESIGN.md). */
+.gt-phim {
+  border-radius: var(--radius-nho);
+  background: var(--phim);
+  padding: 0.55rem 0.65rem;
+}
+
+/* ═══ 2. Khoảnh khắc trọng tâm — cỗ máy TIẾN MỘT KHUNG ═══════════════════
+ *
+ * Ống kính đẩy vào, dải phim trượt ngang, một khung dừng dưới đèn và sáng lên.
+ * Chạy MỘT LẦN khi tải (~800ms) rồi nghỉ: lớp `.gt-may--chay` bị gỡ sau đó,
+ * nên không có gì neo vào cuộn và không có gì lặp.
+ *
+ * Trạng thái MẶC ĐỊNH của mọi phần tử ở đây LÀ trạng thái kết thúc; keyframes
+ * chỉ mô tả điểm XUẤT PHÁT. CSS không tải, animation bị bỏ qua, hay lớp không
+ * bao giờ được gắn: khung vẫn hiện đủ nội dung, đọc được.
+ */
+
+@keyframes gt-day-ong-kinh {
+  from {
+    transform: scale(0.93);
+  }
+}
+
+@keyframes gt-truot-phim {
+  from {
+    transform: translateZ(-12px) scale(1) translateX(26%) translateY(0px);
+  }
+}
+
+@keyframes gt-len-den {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes gt-sang-khung {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* `will-change` CHỈ trong lúc chuỗi thật sự chạy. Lớp --chay được gỡ khi
+     xong nên không cần dọn tay ở JS. */
+  .gt-may--chay .gt-canh {
+    will-change: transform;
+    animation: gt-day-ong-kinh 800ms var(--ease-tien-toi) both;
+  }
+  .gt-may--chay .gt-mat--dai {
+    will-change: transform;
+    animation: gt-truot-phim 660ms var(--ease-tien-toi) both;
+  }
+  .gt-may--chay .gt-mat--den {
+    animation: gt-len-den 420ms 380ms ease-out both;
+  }
+  .gt-may--chay .gt-o--sang {
+    animation: gt-sang-khung 420ms 380ms var(--ease-tien-toi) both;
+  }
+}
+
+/* Giảm, KHÔNG tắt: bỏ toàn bộ dịch chuyển, giữ đúng phần mang nghĩa — "khung
+   dừng dưới đèn và SÁNG LÊN" — bằng opacity (motion-spec.md §6). */
+@media (prefers-reduced-motion: reduce) {
+  .gt-may--chay .gt-mat--den,
+  .gt-may--chay .gt-o--sang {
+    animation: gt-len-den 400ms ease-out both;
+  }
+}
+
+/* ═══ 3. Cuộn — các mặt phẳng trôi lệch nhau ═════════════════════════════
+ *
+ * CHỈ `animation-timeline`, KHÔNG JS nghe scroll (DESIGN.md). Neo vào `exit`
+ * nên ở đầu trang tiến trình = 0: chuỗi trọng tâm chạy trên nền đứng yên,
+ * không bị parallax kéo ngược. Trình duyệt không hỗ trợ thì @supports bỏ qua
+ * cả khối — cảnh vẫn đúng, chỉ mất trôi dạt.
+ */
+
+@keyframes gt-troi-xa {
+  to {
+    transform: translateZ(-140px) scale(1.12) translateX(0px) translateY(-8%);
+  }
+}
+
+@keyframes gt-troi-gan {
+  to {
+    transform: translateZ(40px) scale(1.06) translateX(0px) translateY(10%);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .gt-mat--sau,
+    .gt-mat--cua {
+      animation-duration: auto;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: view();
+      animation-range: exit;
+    }
+    .gt-mat--sau {
+      animation-name: gt-troi-xa;
+    }
+    .gt-mat--cua {
+      animation-name: gt-troi-gan;
+    }
+  }
+}
+
+/* Vòng tiêu điểm của cỗ máy: nó nhận được tiêu điểm bàn phím vì phím mũi tên
+   điều khiển đèn — mọi thứ chuột làm được, bàn phím phải làm được. */
+.gt-may:focus-visible {
+  outline: 2px solid var(--den-sang);
+  outline-offset: 4px;
+  border-radius: var(--radius-lon);
+}
+
+/* ═══ 4. Slot 3D — vỏ WebGL ══════════════════════════════════════════════
+ *
+ * Cảnh WebGL KHÔNG nằm trong chuỗi `preserve-3d` ở mục 1, và đó là cố ý: một
+ * `<canvas>` đặt trong `.gt-doi-hinh` sẽ bị `rotateY/rotateX` của media query
+ * nghiêng-theo-chuột xoay như một tấm ảnh phẳng, cộng thêm parallax camera bên
+ * trong cảnh → hai lớp trôi dạt đè nhau. Cảnh 3D thật tự lo phối cảnh của nó.
+ *
+ * Cái được giữ lại từ cỗ máy CSS là `.gt-khay`: cùng viền, cùng bo góc, cùng
+ * `min-height` (22rem · 25rem từ 768px). Nhờ vậy đổi giữa cỗ máy CSS, vỏ chờ và
+ * cảnh 3D không dịch bố cục một pixel nào (§10.4).
+ */
+
+/* Tấm nền phía sau — placeholder gradient lúc chunk `three` đang tải, và nền
+   tĩnh của cảnh 3D sau đó. Cùng công thức với .gt-mat--sau nhưng KHÔNG có
+   translateZ: ngoài chuỗi preserve-3d thì độ sâu không có nghĩa, và alpha đã hạ
+   sẵn nên không cần filter brightness. */
+.h3-nen {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 44px,
+      color-mix(in srgb, var(--phim) 3%, transparent) 44px 45px
+    ),
+    linear-gradient(180deg, color-mix(in srgb, var(--phim) 4%, transparent), transparent 62%);
+}
+
+.h3-canh {
+  position: absolute;
+  inset: 0;
+}
+
+/* Danh sách bàn phím: `<ul>` không chiếm chỗ, từng nút ẩn về thị giác. */
+.h3-ban-phim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Cùng kỹ thuật clip của .sr-only: ẩn khỏi mắt, GIỮ trong thứ tự tab. */
+.h3-nut-phien {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  background: none;
+  color: inherit;
+}
+
+/* Nút ĐANG nhận tiêu điểm hiện ra. Không có khối này thì người dùng bàn phím
+   thấy thẻ trích đoạn mở ra mà không thấy tiêu điểm của mình ở đâu (WCAG 2.4.7).
+   Chỉ một nút hiện tại một thời điểm nên nó không tranh chỗ với cảnh. */
+.h3-nut-phien:focus-visible {
+  /* Cột, KHÔNG phải hàng: nhãn hiệu lực mang cả một câu giải thích, nhồi nó
+     cạnh số hiệu trong một hộp hẹp thì chữ vỡ thành từng từ một dòng. */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  width: max-content;
+  max-width: min(19rem, 58%);
+  height: auto;
+  min-height: var(--vung-cham-toi-thieu);
+  margin: 0.6rem;
+  padding: 0.4rem 0.7rem;
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
+  border-radius: var(--radius-vua);
+  background: var(--nen-cao);
+  color: var(--phim);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  cursor: pointer;
+  outline: 2px solid var(--den-sang);
+  outline-offset: 2px;
+  z-index: 5;
+}
+
+/* Bảng đọc tên văn bản dưới con trỏ. Neo vào KHAY, không vào phiến — xem chú
+   thích trong KhoLuat.tsx để biết vì sao (thẻ neo vào vật thể bay luôn bị
+   `overflow: clip` của .gt-khay cắt mất một phần). `pointer-events: none` để nó
+   không chắn cử chỉ kéo xoay đang gắn trên canvas. */
+.h3-doc-nhan {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  max-width: min(20rem, 60%);
+  pointer-events: none;
+  z-index: 3;
+}

@@ -117,3 +117,128 @@ Muốn có baseline BM25 đúng nghĩa thì phải cài `pg_search`/ParadeDB ho�
 File kết quả cũ `eval/results/bm25_only-baai_bge-m3-77.json` **giữ nguyên tên**: nó là
 hồ sơ của lần chạy đã xảy ra dưới tên cũ, không phải thứ để viết lại. Lần chạy sau
 sinh `lexical_only-*`.
+
+---
+
+# Phụ lục — đo lại trên corpus 47 văn bản (2026-09-01)
+
+Corpus mở từ **21 → 47 văn bản toàn văn** (19.138 → 36.710 điều khoản, 3.283 →
+6.067 chunk mỗi model). Mọi số ở §1–§5 đo trên corpus 21 văn bản và **không còn
+đúng**. Đo lại bằng đúng script cũ (`python -m scripts.sweep_bm25`, $0) và bằng
+`_run_items` cho ba preset; **không ghi đè `eval/results/*.json`** — chúng là hồ
+sơ của lần chạy đã xảy ra.
+
+## A. Sweep hai biến, corpus 47 văn bản
+
+| normalization | lọc hư từ | Recall@5 | MRR@5 | nDCG@5 | Recall@10 |
+|---|---|---|---|---|---|
+| 0 | không | 0,0260 | 0,0195 | 0,0212 | 0,0649 |
+| 0 | có | 0,0779 | 0,0498 | 0,0553 | 0,1169 |
+| **1** | **có** | **0,1818** | **0,1030** | **0,1209** | **0,2208** |
+| 1 | không | 0,0974 | 0,0463 | 0,0581 | 0,1104 |
+| 2 | có | 0,0130 | 0,0130 | 0,0130 | 0,0260 |
+| 4 | có | 0,0779 | 0,0498 | 0,0553 | 0,1169 |
+| 33 | có | 0,1818 | 0,1030 | 0,1209 | 0,2208 |
+
+Xếp hạng giữa các cấu hình **không đổi**: `1` vẫn tốt nhất, `2` vẫn sụp, `4` vẫn
+là no-op của `0`, `33` vẫn trùng `1`. Kết luận §3 đứng vững. Cái đổi là **mức**.
+
+## B. Ba preset, trước và sau khi mở corpus
+
+| preset | Recall@5 (21 vb) | Recall@5 (47 vb) | Δ tương đối |
+|---|---|---|---|
+| `lexical_only` | 0,3117 | **0,1818** | **−42 %** |
+| `dense_only` | 0,6494 | **0,5974** | −8 % |
+| `hybrid` | 0,5455 | **0,4740** | −13 % |
+
+Tập golden vẫn là 77 câu **chỉ về lao động**; corpus thì nay trải 7 lĩnh vực
+khác. Đó chính là phép thử: thêm nhiễu ngoài lĩnh vực, nhánh nào chịu được?
+
+**Nhánh từ vựng chịu kém nhất, và nó đang KÉO hybrid xuống dưới dense thuần**
+(0,474 < 0,597). Điều này đã đúng ở corpus 21 văn bản (0,5455 < 0,6494) nhưng
+khoảng cách rộng ra. Đây là số liệu cho một quyết định cấu hình — dùng hybrid
+hay dense thuần — **không tự đổi** ở đây: nó là hành vi quan sát được của sản
+phẩm và cần người quyết.
+
+## C. Nghị định hết hiệu lực xếp TRÊN nghị định hiện hành — chẩn đoán
+
+Đo trên truy vấn `"lương tối thiểu vùng"` (`normalization=1`, đã lọc hư từ):
+
+| # | ts_rank | token | `tinh_trang` MOJ | neo |
+|---|---|---|---|---|
+| 1 | 0,012916 | 85 | HHL1P | `145/2020/NĐ-CP > Điều 49` |
+| 2 | 0,012090 | 217 | **CHL** | `157/2018/NĐ-CP > Điều 3` |
+| 3 | 0,012090 | 217 | **CHL** | `141/2017/NĐ-CP > Điều 3` |
+| 4 | 0,012090 | 217 | **CHL** | `90/2019/NĐ-CP > Điều 3` |
+| 5 | 0,011781 | 162 | **CHL** | `122/2015/NĐ-CP > Điều 3` |
+| … | | | | |
+| 10 | 0,011294 | **484** | CHL | `293/2025/NĐ-CP > Điều 3` ← **văn bản hiện hành** |
+
+Ba điều đọc được thẳng từ bảng này:
+
+1. **`documents.tinh_trang` KHÔNG phân biệt được gì cả.** Cả bốn nghị định đã
+   chết lẫn nghị định hiện hành đều mang `CHL`. Đây chính là lỗi MOJ mà Mức 2
+   của `effectivity.py` sinh ra để chữa. Xếp hạng theo `tinh_trang` sẽ **không
+   đổi một dòng nào** của bảng trên.
+2. **Bốn nghị định đã chết cho ĐIỂM BẰNG NHAU tới 6 chữ số** (0,012090 ×3). Chúng
+   là bản sao gần đúng của nhau về mặt văn bản. `ts_rank` **không có IDF** (§5)
+   nên không có cơ chế nào phạt một cụm từ xuất hiện trong năm văn bản giống nhau.
+3. **`293/2025` bị phạt vì CHỨA câu trả lời.** Nó dài 484 token thay vì 217 đúng
+   bởi bản vá `parse_tables` đã đưa BẢNG LƯƠNG vào `noi_dung`. Chuẩn hoá
+   `1+log(len)` chỉ bù được một phần: log(484)/log(217) ≈ 1,15.
+
+## D. Quyết định: KHÔNG trộn tín hiệu hiệu lực vào điểm truy hồi
+
+Bốn lý do, theo thứ tự sức nặng:
+
+1. **Nó sẽ không chữa được ca này.** Tín hiệu hiệu lực rẻ duy nhất có ở tầng truy
+   hồi là `documents.tinh_trang`, và §C.1 đo được rằng nó bằng `CHL` cho cả năm
+   văn bản. Phán quyết ĐÚNG phải đi qua `effectivity.danh_gia` — cần cạnh đồ thị
+   và suy luận cho từng văn bản, tức chạy tầng hiệu lực bên trong vòng xếp hạng.
+2. **Corpus CỐ Ý chứa văn bản đã chết làm BẪY.** Sáu nghị định lương tối thiểu
+   cũ và hai văn bản đợt C có ích *vì* đã chết: chúng đo được Mức 1/Mức 2 có
+   cảnh báo đúng không. Hạ hạng chúng ở tầng truy hồi là giấu bẫy đi và làm cho
+   chính phép đo đó không thực hiện được.
+3. **Hai tầng dính nhau thì không gỡ ra được nữa.** Truy hồi trả lời "điều khoản
+   nào NÓI VỀ chuyện này"; tầng hiệu lực trả lời "điều khoản đó CÒN ĐÚNG không".
+   Trộn lại thì một câu trả lời tồi không còn chỉ ra được nó tồi ở đâu, và bảng
+   ablation của khoá luận mất khả năng quy trách nhiệm.
+4. **Nguyên nhân đo được nằm ở hàm xếp hạng, không ở hiệu lực.** Không IDF, không
+   tách từ tiếng Việt (§4). Chỗ sửa đúng là một ranker từ vựng thật
+   (`pg_search`/ParadeDB, hoặc IDF tự tính) — dòng ablation đã có tên ở §4, chưa
+   làm.
+
+**Cái đang giữ cho hệ thống không nói sai** là tầng dưới, và nó đang chạy: mọi
+provision đi qua `expand` đều mang `effectivity`, bốn nghị định trên ra
+`bi_thay_the`/`het_hieu_luc`, và `assemble` sinh cảnh báo. Thứ hạng thô sai
+hướng là một vấn đề về CHẤT LƯỢNG XẾP HẠNG, không phải một lỗ hổng về tính đúng.
+
+## E. `"vùng 1"` (số Ả Rập) trượt `"Vùng I"` (số La Mã) — ghi lại, KHÔNG sửa
+
+Đo được:
+
+```
+to_tsvector('simple', unaccent('Vùng I …'))  →  'i':2 'vung':1
+plainto_tsquery('simple', unaccent('vùng 1')) →  'vung' & '1'   (mã đổi & thành |)
+```
+
+Lexeme `1` không bao giờ khớp `i`, nên truy vấn thoái hoá về đúng một từ `vung`
+và **mất toàn bộ khả năng phân biệt Vùng I với Vùng IV**. Trong corpus: 3 điều
+khoản viết `Vùng <La Mã>`, **0** viết `Vùng <Ả Rập>`.
+
+Vì sao **không** sửa ở vòng này:
+
+- **Không mất câu trả lời.** Đo cả bốn dạng truy vấn (`vùng 1`, `vùng I`, có/không
+  "mức"): `293/2025/NĐ-CP > Điều 3 > Khoản 1` — chunk chứa bảng lương —
+  **luôn nằm trong context** sau `expand`, vì truy hồi bắt ở cấp Điều rồi bước
+  cha→con kéo Khoản xuống. Cái đổi chỉ là THỨ HẠNG THÔ.
+- **Chữa nó là đặc cách cho 6/6.067 chunk.** `tsv @@ 'vung <-> i'` khớp đúng 6
+  chunk. Còn thêm lexeme `i` trần vào truy vấn OR thì đụng **220/6.067 chunk**
+  (3,6 %) — "Chương I", "Mục I", "Phụ lục I" — tức đổi một lỗi hẹp lấy một nguồn
+  nhiễu rộng, trên nhánh đang có Recall@5 = 0,18.
+- **Đúng chỗ của nó là bộ phân tích, không phải truy vấn.** Gấp số La Mã ↔ Ả Rập
+  phải áp cho **cả hai phía** (corpus và truy vấn) mới nhất quán, và đó là việc
+  của lần thay ranker từ vựng ở §4 — cùng chỗ với tách từ tiếng Việt.
+
+Xếp cùng danh sách với "không tách từ" và "`ts_rank` không có IDF": biết tên, đo
+được, chưa xử lý — không phải quên.

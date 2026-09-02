@@ -1,0 +1,28 @@
+# Hạn mức LƯỢT GỌI LLM mỗi THÁNG theo gói. Khuôn giống config/rules.yaml: đây là
+# DỮ LIỆU, không phải code — sửa hạn mức là sửa file này, không sửa Python.
+#
+# ⚠ GIÁ VÀ GIỚI HẠN CHƯA CHỐT. Trang bảng giá của frontend đang ghi "50 lượt hỏi
+# AI/tháng", nhưng đó là một con số NHÁP của một trang giới thiệu, chưa phải một
+# quyết định sản phẩm. Nó nằm ở đây chính vì thế: viết cứng 50 vào Python là biến
+# một con số nháp thành hành vi hệ thống, và người chốt giá sau này sẽ phải đọc
+# code để biết mình đang bán cái gì.
+#
+# Đơn vị: SỐ REQUEST gọi LLM thật trong tháng dương lịch (UTC), theo `sub`.
+# KHÔNG tính:
+#   * cache hit — không gọi LLM, không tốn tiền (traces.cache_hit = true)
+#   * endpoint đọc thuần (/pham-vi, /van-ban, /mau, /soat, /health)
+# Đếm bằng SỐ LƯỢT, không bằng `cost_usd > 0`: chi phí là một đại lượng đo được
+# và có thể bằng 0 vì một lỗi ghi nhận (đã xảy ra thật — 32/32 dòng
+# `/soan-thao` từng ghi $0 dù mỗi request tốn một lượt LLM), còn "đã gọi hay
+# chưa" thì không phụ thuộc việc cột chi phí có được cộng đúng.
+#
+# 0 = KHÔNG CHO LƯỢT NÀO (nghĩa đen), KHÔNG phải "không giới hạn". "Không giới
+# hạn" cố ý không biểu đạt được ở đây: một số 0 gõ nhầm phải hỏng theo hướng
+# CHẶN, không phải hướng mở. Cần gói không giới hạn thì đặt một số lớn.
+
+# Gói dùng cho người dùng mới, và là mức rơi về khi `users.plan` không có ở dưới.
+goi_mac_dinh: free
+
+goi:
+  free: 50
+  pro: 500

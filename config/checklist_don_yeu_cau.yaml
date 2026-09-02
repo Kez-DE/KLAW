@@ -1,0 +1,39 @@
+# Checklist nội dung của ĐƠN YÊU CẦU TOÀ ÁN GIẢI QUYẾT VIỆC DÂN SỰ — BLTTDS
+# Đ362.2 a-g, bảy điểm, mỗi mục một điểm luật riêng.
+#
+# VIỆC dân sự, không phải VỤ ÁN dân sự: không có tranh chấp giữa hai bên, người
+# yêu cầu đề nghị Toà án công nhận hoặc không công nhận một sự kiện pháp lý.
+# Đơn khởi kiện một vụ án tranh chấp là mẫu `don_khoi_kien` (Đ189.4) — dùng
+# nhầm mẫu sẽ đòi tên người bị kiện ở một việc không có ai bị kiện.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '92/2015/QH13 > Điều 362%';
+loai: don_yeu_cau
+ten: "đơn yêu cầu Toà án giải quyết việc dân sự"
+tieu_de: "ĐƠN YÊU CẦU GIẢI QUYẾT VIỆC DÂN SỰ"
+don_vi_muc: "Mục"
+
+rules: []
+
+can_cu_goc: "92/2015/QH13 > Điều 362 > Khoản 2"
+can_cu_chi_tiet: "92/2015/QH13 > Điều 362 > Khoản 3"
+
+# Hai mục điều kiện theo chính văn Đ362.2: điểm đ ghi "nếu có", điểm e ghi "các
+# thông tin khác mà NGƯỜI YÊU CẦU XÉT THẤY CẦN THIẾT" — luật giao cho người
+# viết đơn quyết định, nên vắng mặt không phải khuyết điểm.
+khong_bat_buoc:
+  can_cu: "92/2015/QH13 > Điều 362 > Khoản 2"
+  ghi_chu: >
+    Điểm đ ghi "nếu có"; điểm e do người yêu cầu tự xét thấy cần thiết. Vắng mặt
+    không được báo là thiếu.
+  keys: [nguoi_lien_quan, thong_tin_khac]
+
+muc:
+  - {stt: 1, key: ngay_lam_don,    ten: "Ngày, tháng, năm làm đơn", diem: a, can_cu: "92/2015/QH13 > Điều 362 > Khoản 2 > Điểm a", tu_khoa: ["ngày, tháng, năm làm đơn", "ngày làm đơn"]}
+  - {stt: 2, key: toa_an,          ten: "Tên Toà án có thẩm quyền giải quyết việc dân sự", diem: b, can_cu: "92/2015/QH13 > Điều 362 > Khoản 2 > Điểm b", tu_khoa: ["kính gửi", "toà án nhân dân", "tòa án nhân dân"]}
+  - {stt: 3, key: nguoi_yeu_cau,   ten: "Tên, địa chỉ, số điện thoại, thư điện tử của người yêu cầu", diem: c, can_cu: "92/2015/QH13 > Điều 362 > Khoản 2 > Điểm c", tu_khoa: ["thông tin người yêu cầu", "họ tên người yêu cầu", "địa chỉ của người yêu cầu", "người yêu cầu là"]}
+  - {stt: 4, key: noi_dung_yeu_cau, ten: "Vấn đề yêu cầu Toà án giải quyết và lý do, mục đích, căn cứ", diem: d, can_cu: "92/2015/QH13 > Điều 362 > Khoản 2 > Điểm d", tu_khoa: ["yêu cầu toà án giải quyết", "yêu cầu tòa án giải quyết", "lý do, mục đích", "nội dung yêu cầu"]}
+  - {stt: 5, key: nguoi_lien_quan, ten: "Tên, địa chỉ của những người có liên quan (nếu có)", diem: đ, can_cu: "92/2015/QH13 > Điều 362 > Khoản 2 > Điểm đ", tu_khoa: ["người có liên quan", "những người liên quan"]}
+  - {stt: 6, key: thong_tin_khac,  ten: "Các thông tin khác người yêu cầu xét thấy cần thiết", diem: e, can_cu: "92/2015/QH13 > Điều 362 > Khoản 2 > Điểm e", tu_khoa: ["thông tin khác", "thông tin bổ sung"]}
+  - {stt: 7, key: chu_ky,          ten: "Chữ ký hoặc điểm chỉ của người yêu cầu, hoặc của người đại diện hợp pháp", diem: g, can_cu: "92/2015/QH13 > Điều 362 > Khoản 2 > Điểm g", tu_khoa: ["ký tên hoặc điểm chỉ", "chữ ký của người yêu cầu", "người làm đơn ký"]}

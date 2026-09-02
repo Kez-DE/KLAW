@@ -1,0 +1,77 @@
+# Checklist nội dung của QUY CHẾ DÂN CHỦ Ở CƠ SỞ TẠI NƠI LÀM VIỆC — NĐ 145/2020
+# Đ37.2 a-g, bảy điểm, cộng ba nội dung mà ba điều khác của chính Nghị định đó
+# ĐẨY THẲNG vào quy chế này (Đ43.2, Đ44.2, Đ47.3).
+#
+# ĐÂY KHÔNG PHẢI "quy chế nội bộ" nói chung. Mẫu FE `quy-che-noi-bo` nhắm tới
+# một quy chế tuỳ nghi của doanh nghiệp (chi tiêu nội bộ, quản lý tài sản,
+# lương thưởng) — KHÔNG văn bản nào trong kho quy định nội dung của thứ đó, và
+# nó vẫn không dựng được. Cái dựng được là quy chế DÂN CHỦ Ở CƠ SỞ: một loại
+# quy chế cụ thể mà Đ48.1 buộc MỌI người sử dụng lao động phải ban hành, và
+# Đ37.2 liệt kê thẳng nội dung của nó.
+#
+# Đây là một mẫu SOÁT NỘI DUNG, không phải soát hình thức: mọi mục dưới đây là
+# một nội dung nghiệp vụ luật đòi phải có mặt, không phải một thành phần thể
+# thức. Đối chiếu `cong_van` (NĐ 30/2020 Đ8.2) — mẫu đó chỉ soát được thể thức
+# và nói rõ giới hạn đó ngay đầu file của nó.
+#
+# GIỚI HẠN PHẠM VI PHẢI NÓI RÕ: quy chế này chỉ phủ quan hệ ĐỐI THOẠI VÀ DÂN
+# CHỦ Ở CƠ SỞ. Một doanh nghiệp gộp quy chế dân chủ với quy chế lương thưởng,
+# quy chế chi tiêu… vào một văn bản duy nhất thì mẫu này chỉ soát được phần
+# dân chủ; nó KHÔNG biết gì về phần còn lại và không được đọc là đã soát xong
+# cả văn bản.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '145/2020/NĐ-CP > Điều 37 > Khoản 2%'
+#       OR duong_dan IN ('145/2020/NĐ-CP > Điều 38 > Khoản 1',
+#                        '145/2020/NĐ-CP > Điều 43 > Khoản 2',
+#                        '145/2020/NĐ-CP > Điều 44 > Khoản 2',
+#                        '145/2020/NĐ-CP > Điều 47 > Khoản 3',
+#                        '145/2020/NĐ-CP > Điều 48 > Khoản 1');
+loai: quy_che_dan_chu
+ten: "quy chế dân chủ ở cơ sở tại nơi làm việc"
+tieu_de: "QUY CHẾ DÂN CHỦ Ở CƠ SỞ TẠI NƠI LÀM VIỆC"
+
+# `chan`: Đ37.2 mở đầu bằng "người sử dụng lao động CÓ TRÁCH NHIỆM quy định cụ
+# thể trong quy chế dân chủ ở cơ sở tại nơi làm việc CÁC NỘI DUNG CHỦ YẾU SAU"
+# — cùng ngữ khí "phải có / nội dung chủ yếu" của BLLĐ Đ118.2 (nội quy lao
+# động), không phải "có thể gồm" của BLDS Đ398.2.
+muc_do_thieu: chan
+
+rules: [so_dai_dien_doi_thoai_nsdld_toi_thieu]
+
+can_cu_goc: "145/2020/NĐ-CP > Điều 37 > Khoản 2"
+# Đ48.1 là điều buộc ban hành quy chế này; không có nó thì Đ37.2 chỉ là một
+# danh sách nội dung của một văn bản chưa ai bắt phải tồn tại.
+can_cu_chi_tiet: "145/2020/NĐ-CP > Điều 48 > Khoản 1"
+
+# Điểm g của chính Đ37.2 ghi "Nội dung khác (NẾU CÓ)" — luật tự đánh dấu nó là
+# tuỳ nghi, nên vắng mặt không được báo là thiếu.
+khong_bat_buoc:
+  can_cu: "145/2020/NĐ-CP > Điều 37 > Khoản 2 > Điểm g"
+  ghi_chu: >
+    Đ37.2 điểm g ghi "Nội dung khác (nếu có)" — luật để ngỏ, không đòi.
+  keys: [noi_dung_khac]
+
+# Sáu mục đầu là a-e của Đ37.2 (đối thoại tại nơi làm việc). Mục 7 là điểm g.
+# Ba mục cuối KHÔNG nằm trong Đ37.2 nhưng có căn cứ riêng, mỗi cái là một điều
+# khoản tự nói rằng nội dung đó phải nằm trong CHÍNH quy chế này:
+#   Đ43.2 "…lựa chọn hình thức sau đây và THỂ HIỆN TRONG quy chế dân chủ ở cơ
+#          sở tại nơi làm việc theo quy định tại Điều 48 Nghị định này"
+#   Đ44.2 "…căn cứ vào … VÀ QUY CHẾ DÂN CHỦ ở cơ sở tại nơi làm việc để lựa
+#          chọn hình thức sau đây"
+#   Đ47.3 "Hình thức tổ chức hội nghị, nội dung, thành phần tham gia, thời
+#          gian, địa điểm, quy trình, trách nhiệm tổ chức thực hiện và hình
+#          thức phổ biến kết quả hội nghị người lao động THỰC HIỆN THEO QUY CHẾ
+#          DÂN CHỦ ở cơ sở tại nơi làm việc quy định tại Điều 48 Nghị định này"
+muc:
+  - {stt: 1, key: nguyen_tac_doi_thoai, ten: "Nguyên tắc đối thoại tại nơi làm việc", diem: a, can_cu: "145/2020/NĐ-CP > Điều 37 > Khoản 2 > Điểm a", tu_khoa: ["nguyên tắc đối thoại"]}
+  - {stt: 2, key: thanh_phan_doi_thoai, ten: "Số lượng, thành phần tham gia đối thoại của mỗi bên", diem: b, can_cu: "145/2020/NĐ-CP > Điều 37 > Khoản 2 > Điểm b", tu_khoa: ["số lượng, thành phần tham gia đối thoại", "thành phần tham gia đối thoại", "số lượng đại diện đối thoại"]}
+  - {stt: 3, key: so_lan_doi_thoai, ten: "Số lần, thời gian tổ chức đối thoại định kỳ hằng năm", diem: c, can_cu: "145/2020/NĐ-CP > Điều 37 > Khoản 2 > Điểm c", tu_khoa: ["số lần, thời gian tổ chức đối thoại", "số lần đối thoại", "đối thoại định kỳ"]}
+  - {stt: 4, key: cach_thuc_doi_thoai, ten: "Cách thức tổ chức đối thoại định kỳ, khi có yêu cầu và khi có vụ việc", diem: d, can_cu: "145/2020/NĐ-CP > Điều 37 > Khoản 2 > Điểm d", tu_khoa: ["cách thức tổ chức đối thoại", "đối thoại khi có vụ việc", "đối thoại khi có yêu cầu"]}
+  - {stt: 5, key: trach_nhiem_cac_ben, ten: "Trách nhiệm của các bên khi tham gia đối thoại", diem: đ, can_cu: "145/2020/NĐ-CP > Điều 37 > Khoản 2 > Điểm đ", tu_khoa: ["trách nhiệm của các bên khi tham gia đối thoại", "trách nhiệm của các bên", "trách nhiệm khi đối thoại"]}
+  - {stt: 6, key: bao_ve_dai_dien, ten: "Áp dụng Điều 176 Bộ luật Lao động cho thành viên đại diện đối thoại bên người lao động", diem: e, can_cu: "145/2020/NĐ-CP > Điều 37 > Khoản 2 > Điểm e", tu_khoa: ["thành viên đại diện đối thoại", "điều 176", "bảo vệ thành viên đại diện"]}
+  - {stt: 7, key: noi_dung_khac, ten: "Nội dung khác (nếu có)", diem: g, can_cu: "145/2020/NĐ-CP > Điều 37 > Khoản 2 > Điểm g", tu_khoa: ["nội dung khác"]}
+  - {stt: 8, key: hinh_thuc_cong_khai, ten: "Hình thức công khai thông tin tới người lao động", can_cu: "145/2020/NĐ-CP > Điều 43 > Khoản 2", tu_khoa: ["hình thức công khai", "công khai thông tin", "niêm yết công khai"]}
+  - {stt: 9, key: hinh_thuc_y_kien, ten: "Hình thức người lao động tham gia ý kiến", can_cu: "145/2020/NĐ-CP > Điều 44 > Khoản 2", tu_khoa: ["hình thức tham gia ý kiến", "tham gia ý kiến", "góp ý, kiến nghị"]}
+  - {stt: 10, key: hoi_nghi_nld, ten: "Tổ chức hội nghị người lao động", can_cu: "145/2020/NĐ-CP > Điều 47 > Khoản 3", tu_khoa: ["hội nghị người lao động", "hội nghị toàn thể", "hội nghị đại biểu"]}

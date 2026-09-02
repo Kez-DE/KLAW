@@ -94,12 +94,19 @@ def _dieu_luat_cho_judge(r: Tier1Result, db_provisions: dict[int, dict]) -> str:
     điều được dẫn làm ngữ cảnh — nhưng CHỈ dòng đó, không gộp cả cây con: judge
     cần thấy quote khớp ở ĐÚNG DÒNG nào, đúng tinh thần so-từng-dòng của tầng 1.
     """
-    khop = db_provisions.get(r.khop_tai, {})
-    dong = f"({khop.get('duong_dan', '?')}) {khop.get('noi_dung', '')}"
-    if r.khop_tai == r.claim.provision_id:
+    def _dong(pid: int) -> str:
+        # Judge chấm một khẳng định dựa trên điều luật RỖNG sẽ trả verdict vô
+        # nghĩa mà vẫn được tin dùng — tệ hơn không gọi judge. Id thiếu là bất
+        # biến vỡ, phải nổ chứ không âm thầm đưa "(?) " cho mô hình.
+        if pid not in db_provisions:
+            raise KeyError(f"db_provisions thiếu provisions.id={pid} cần cho judge — bất biến vỡ")
+        p = db_provisions[pid]
+        return f"({p.get('duong_dan', '?')}) {p.get('noi_dung', '')}"
+
+    dong = _dong(r.khop_tai if r.khop_tai is not None else r.claim.provision_id)
+    if r.khop_tai is None or r.khop_tai == r.claim.provision_id:
         return dong
-    goc = db_provisions.get(r.claim.provision_id, {})
-    tieu_de = f"({goc.get('duong_dan', '?')}) {goc.get('noi_dung', '')}"
+    tieu_de = _dong(r.claim.provision_id)
     return f"{tieu_de}\n{dong}"
 
 

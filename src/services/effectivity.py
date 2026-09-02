@@ -107,6 +107,7 @@ class EffectivityVerdict(StrEnum):
     chua_hieu_luc = "chua_hieu_luc"
     het_hieu_luc = "het_hieu_luc"
     bi_thay_the = "bi_thay_the"
+    bi_sua_doi = "bi_sua_doi"
     mot_phan_khong_xac_dinh = "mot_phan_khong_xac_dinh"
     can_doi_chieu_tay = "can_doi_chieu_tay"
     chua_xac_dinh = "chua_xac_dinh"
@@ -274,6 +275,10 @@ def danh_gia(
       4. **Thứ bậc** (`_cung_thu_bac`, chỉ Mức 2b) — chỉ văn bản CÙNG loại mới
          thay thế được nhau. Một Nghị định hướng dẫn không khai tử được Bộ luật
          mà nó hướng dẫn.
+      5. **Chiều bằng chứng** (chỉ Mức 2b) — phỏng đoán từ tiêu đề không được
+         lật một khai báo CỤ THỂ của sổ đăng ký (MOJ khai `HHL1P` thì giữ
+         `mot_phan_khong_xac_dinh`, khẳng định yếu hơn và an toàn hơn), và
+         không áp lên chính văn bản ĐI SỬA — tiêu đề của nó rút về gần trắng.
 
     Guard 1, 3 và 4 KHÔNG phải trang trí: bản đầu tiên thiếu 1 và 4 đã tuyên
     nhầm 4 văn bản còn sống trong corpus là đã bị thay thế, trong đó có Bộ luật
@@ -324,6 +329,41 @@ def danh_gia(
     # Chọn ứng viên GIỐNG NHẤT (hoà thì sớm nhất) chứ không phải sớm nhất: tiêu
     # đề ngắn dễ chạm ngưỡng với một chủ đề lân cận, và lấy sớm nhất sẽ nêu tên
     # kẻ thay thế sai ngay cả khi phán quyết đúng.
+    #
+    # Guard 5 — **CHỈ suy luận khi MOJ nói CHL.** Mức 2b không có cạnh đồ thị
+    # nào: nó là phỏng đoán từ độ giống TIÊU ĐỀ. Nó tồn tại cho đúng một tình
+    # huống — MOJ khai "còn hiệu lực" cho một văn bản mà chính corpus mâu thuẫn
+    # (đo được: sai 4/6 trên chuỗi lương tối thiểu). Khi MOJ đã khai HHL1P thì
+    # sổ đăng ký ĐÃ nói một điều cụ thể, và `mot_phan_khong_xac_dinh` là khẳng
+    # định YẾU HƠN, an toàn hơn `bi_thay_the`; để phỏng đoán từ tiêu đề lật một
+    # khai báo của sổ đăng ký là đi ngược chiều mạnh-yếu của bằng chứng.
+    #
+    # ĐO 2026-09-01, ngay khi corpus mở từ 21 lên 47 văn bản toàn văn — hai ca
+    # tuyên nhầm, cả hai đều HHL1P và cả hai đều là văn bản ĐANG SỐNG:
+    #   67/2025/QH15 Thuế thu nhập DOANH NGHIỆP "bị thay bởi"
+    #     109/2025/QH15 Thuế thu nhập CÁ NHÂN            (Jaccard 0.5, đầu đề "thuế")
+    #   71/2025/QH15 Công nghiệp công nghệ số "bị thay bởi"
+    #     133/2025/QH15 "CÔNG NGHỆ CAO"                  (Jaccard 0.5, đầu đề "công")
+    # Không nới `NGUONG_CHU_DE` được: cặp cùng chủ đề THẬT thấp nhất trong corpus
+    # là 0.458, nằm DƯỚI cả hai ca sai. Ngưỡng không tách được chúng; chiều bằng
+    # chứng thì tách sạch — không ca đúng nào của Mức 2b mang tình trạng HHL1P.
+    # Chặn ĐÚNG chiều lật, không rộng hơn: `chua_xac_dinh` (36+ dòng chỉ-metadata
+    # nạp từ parquet, MOJ không khai gì) KHÔNG phải một khai báo, nên với chúng
+    # suy luận là tín hiệu DUY NHẤT có — chặn ở đó chỉ làm mù thêm. `HHL` đã bị
+    # Mức 1/Mức 3 bắt trước. Còn lại đúng một ca cần chặn: `HHL1P`.
+    #
+    # Vế thứ hai — **văn bản ĐI SỬA không phải chủ thể của Mức 2b.** `TU_BO` bỏ
+    # "sửa/đổi/bổ/sung/một/số/điều/của", nên tiêu đề một luật sửa đổi rút về
+    # gần như trắng và độ giống tính trên phần còn lại là ngẫu nhiên. Ca thật
+    # cùng ngày: "Luật Sửa đổi, bổ sung một số điều của Bộ luật Hình sự"
+    # (12/2017/QH14) rút về đúng {"hình"} — "sự" bị lọc vì ≤2 ký tự — và khớp
+    # 1.0 với "LUẬT THI HÀNH ÁN HÌNH SỰ" (127/2025/QH15), cũng rút về {"hình"}.
+    # `_la_van_ban_sua_doi` đã lọc phía ỨNG VIÊN từ trước; đây là cùng lý do,
+    # phía còn lại. Sửa ở đây chứ không siết `NGUONG_CHU_DE` hay bỏ bộ lọc
+    # ≤2 ký tự: cả hai đụng vào một ngưỡng đã hiệu chuẩn bằng số đo, và bỏ bộ
+    # lọc sẽ giết "Bộ luật Hình sự" — cũng rút về {"hình"} — một ca ĐÚNG.
+    if doc.get("tinh_trang") == "HHL1P" or _la_van_ban_sua_doi(ten_doc):
+        ung_vien_ke_nhiem = ()
     ke_nhiem = sorted(
         (
             (-_do_giong(ten_doc, u.get("ten")), u.get("ngay_hieu_luc"), u)
@@ -460,3 +500,266 @@ def nap_ngu_canh(engine: Engine, doc_id: str, as_of: date) -> tuple[dict, list[d
 def danh_gia_theo_id(engine: Engine, doc_id: str, as_of: date) -> Effectivity:
     doc, canh, ung_vien = nap_ngu_canh(engine, doc_id, as_of)
     return danh_gia(doc, canh, as_of, ung_vien)
+
+
+# ══ Mức 4 — bản đồ sửa đổi CẤP ĐIỀU KHOẢN (nguồn: Công báo, VBHN) ═══════════
+#
+# Ba mức trên đều phán quyết ở cấp VĂN BẢN, vì CSDL quốc gia chỉ công bố tới đó:
+# `referenceProvisions` của MOJ khác null đúng 0/272. Nên `HHL1P` chỉ nói "hết
+# hiệu lực một phần" mà không nói PHẦN NÀO, và Mức 3 buộc phải trả
+# `mot_phan_khong_xac_dinh` cho cả 220 Điều của Bộ luật Lao động — kể cả 216
+# Điều không ai đụng tới, lẫn 4 Điều thật sự đã đổi.
+#
+# Văn bản hợp nhất của Công báo lấp đúng khoảng trống đó, và lấp bằng CẤU TRÚC:
+# `<w:footnoteReference>` nằm trong `<w:p>` nào thì `<w:p>` đó CHÍNH LÀ khoản bị
+# sửa (xem `vbhn_parser.py`). Không LLM ở bất kỳ bước nào.
+#
+# `ap_sua_doi` là một LỚP PHỦ, không phải cơ chế thứ hai: nó nhận phán quyết cấp
+# văn bản của `danh_gia` rồi làm nó CỤ THỂ hơn khi — và chỉ khi — có bằng chứng
+# cấp điều khoản. Không có bản ghi thì trả về ĐÚNG object cũ (`is base`), nên
+# 19.131/19.135 điều khoản không đổi một ký tự nào.
+
+# Phán quyết đã dứt khoát ở cấp văn bản: sửa đổi cấp khoản không lật lại được.
+# Một Điều của văn bản đã bị thay thế toàn bộ thì đã chết, bất kể footnote VBHN
+# nói gì; và một văn bản chưa tới ngày hiệu lực thì chưa có gì để sửa.
+_KHOA_O_CAP_VAN_BAN = frozenset({
+    EffectivityVerdict.bi_thay_the,
+    EffectivityVerdict.het_hieu_luc,
+    EffectivityVerdict.chua_hieu_luc,
+})
+
+_THU_TU_TIN_CAY = ("cao", "trung_binh", "thap")
+
+
+def _ke_sua_boi(b: dict) -> str:
+    """Nêu ĐÍCH DANH văn bản đi sửa. Không có số hiệu thì nói là không có —
+    `f"{None}"` in ra chữ "None" và người đọc sẽ tưởng đó là tên văn bản."""
+    sk = b.get("sua_boi_so_ky_hieu")
+    if not sk:
+        return "một văn bản chưa đọc được số hiệu"
+    dd = b.get("sua_boi_duong_dan")
+    return f"{dd} của {sk}" if dd else sk
+
+
+def ap_sua_doi(base: Effectivity, ban_ghi: Sequence[dict], as_of: date) -> Effectivity:
+    """Làm CỤ THỂ phán quyết cấp văn bản bằng bản đồ sửa đổi cấp điều khoản.
+
+    `ban_ghi` — dòng `sua_doi_dieu_khoan` của CHÍNH điều khoản này và của hậu
+    duệ nó (xem `nap_sua_doi`), mỗi dòng có `vi_tri`, `sua_boi_so_ky_hieu`,
+    `sua_boi_duong_dan`, `tu_ngay`, `nguon`, `do_tin_cay`.
+
+    Ba nhánh, theo đúng thứ tự cấp thiết:
+
+      1. **Đã tới ngày** ⇒ `bi_sua_doi`. Nguyên văn trong CSDL là bản TRƯỚC sửa
+         đổi: trích dẫn vẫn đúng nguồn gốc, nhưng KHÔNG còn là bản hiện hành, và
+         `ly_do` phải nói ra cả hai vế đó.
+      2. **Chưa đọc được ngày** ⇒ `can_doi_chieu_tay`. Biết có sửa nhưng không
+         biết từ bao giờ thì KHÔNG được mặc định là đã tới — cùng mặc định an
+         toàn với cả file này.
+      3. **Ngày còn ở tương lai** ⇒ `con_hieu_luc` kèm cảnh báo "sẽ bị". Nói "đã
+         bị sửa" lúc này là sai theo chiều ngược lại: văn bản gốc đang ĐÚNG, và
+         người dùng cần biết nó sắp đổi chứ không phải nó đã hỏng.
+    """
+    if not ban_ghi or base.verdict in _KHOA_O_CAP_VAN_BAN:
+        return base
+
+    da_toi = sorted((b for b in ban_ghi if b.get("tu_ngay") and b["tu_ngay"] <= as_of),
+                    key=lambda b: b["tu_ngay"], reverse=True)
+    chua_ro_ngay = [b for b in ban_ghi if not b.get("tu_ngay")]
+    sap_toi = sorted((b for b in ban_ghi if b.get("tu_ngay") and b["tu_ngay"] > as_of),
+                     key=lambda b: b["tu_ngay"])
+
+    if da_toi:
+        ke = "; ".join(
+            f"{b['vi_tri']} bị sửa bởi {_ke_sua_boi(b)} từ {b['tu_ngay']}" for b in da_toi)
+        return Effectivity(
+            EffectivityVerdict.bi_sua_doi, _tin_cay_thap_nhat(da_toi),
+            f"{ke} (nguồn: {_nguon(da_toi)}). Nguyên văn trong CSDL là bản TRƯỚC sửa đổi — "
+            "trích dẫn đúng văn bản gốc nhưng KHÔNG phải bản hiện hành")
+
+    if chua_ro_ngay:
+        ke = "; ".join(f"{b['vi_tri']} bị sửa bởi {_ke_sua_boi(b)}" for b in chua_ro_ngay)
+        return Effectivity(
+            EffectivityVerdict.can_doi_chieu_tay, "thap",
+            f"{ke} (nguồn: {_nguon(chua_ro_ngay)}), nhưng KHÔNG đọc được ngày hiệu lực từ "
+            "ghi chú hợp nhất — không kết luận được điều khoản này đã đổi hay chưa")
+
+    ke = "; ".join(f"{b['vi_tri']} sẽ bị {_ke_sua_boi(b)} sửa từ {b['tu_ngay']}"
+                   for b in sap_toi)
+    return Effectivity(
+        EffectivityVerdict.con_hieu_luc, _tin_cay_thap_nhat(sap_toi),
+        f"nguyên văn còn đúng tại {as_of}; {ke} (nguồn: {_nguon(sap_toi)})")
+
+
+def _tin_cay_thap_nhat(ban_ghi: Sequence[dict]) -> str:
+    """Một phán quyết dựa trên nhiều bản ghi không thể chắc hơn bản ghi yếu nhất."""
+    muc = [b.get("do_tin_cay") for b in ban_ghi]
+    return next((t for t in reversed(_THU_TU_TIN_CAY) if t in muc), "thap")
+
+
+def _nguon(ban_ghi: Sequence[dict]) -> str:
+    """Công báo yêu cầu ghi rõ nguồn khi phát hành lại thông tin — `ly_do` đi
+    thẳng ra câu trả lời người dùng, nên nguồn phải nằm trong đó."""
+    return ", ".join(dict.fromkeys(b.get("nguon") or "?" for b in ban_ghi))
+
+
+# `t.id = p.id OR ...` — bản ghi của CHÍNH nó và của HẬU DUỆ nó, không phải của
+# tổ tiên. Vì sao cần hậu duệ: câu trả lời thường dẫn cả "Điều 139", còn bản ghi
+# lại neo ở "Điều 139 > Khoản 1"; tra đúng `provision_id` thôi thì claim dẫn cấp
+# Điều đi qua mà không một cảnh báo nào — đúng lỗ hổng im lặng mà Mức 4 tồn tại
+# để bịt. Vì sao KHÔNG lấy của tổ tiên: khoản 8a mới thêm neo về Điều 154 cha;
+# lan ngược xuống sẽ dán nhãn "bị sửa" lên cả 9 khoản không ai đụng tới.
+#
+# `duong_dan` là đường dẫn phân cấp có thật (`"45/2019/QH14 > Điều 139 > Khoản 1"`)
+# nên tiền tố + `' > '` là phép "là hậu duệ của". Nối thêm `' > '` chứ không chỉ
+# `'%'`: `"Điều 13"` là tiền tố chuỗi của `"Điều 139"` nhưng KHÔNG phải tổ tiên nó.
+# ĐÃ ĐO: 0/19.135 `duong_dan` chứa `%` hay `_`, nên LIKE không cần escape.
+_SQL_SUA_DOI = text(
+    "SELECT p.id AS provision_id, s.vi_tri, s.sua_boi_so_ky_hieu, s.sua_boi_duong_dan,"
+    " s.tu_ngay, s.nguon, s.do_tin_cay"
+    " FROM provisions p"
+    " JOIN provisions t ON t.id = p.id"
+    "   OR (t.document_id = p.document_id AND t.duong_dan LIKE p.duong_dan || ' > %')"
+    " JOIN sua_doi_dieu_khoan s ON s.provision_id = t.id"
+    " WHERE p.id = ANY(:ids)"
+)
+
+
+# Cùng phép "là chính nó HOẶC là tổ tiên của nó" như `_SQL_SUA_DOI`, nhưng lái
+# ngược: từ 4 dòng `sua_doi_dieu_khoan` của MỘT văn bản ra tập điều khoản bị ảnh
+# hưởng, thay vì từ một tập id cho trước. `/van-ban/{id}/hieu-luc` cần chiều này
+# — nó không biết trước điều khoản nào bị sửa, đó chính là câu hỏi nó trả lời.
+#
+# Quy tắc tiền tố nằm ở ĐÂY, cạnh `_SQL_SUA_DOI`, chứ không ở tầng route: hai
+# bản sao của phép "là hậu duệ" sẽ lệch nhau ở đúng ca `"Điều 13"` là tiền tố
+# chuỗi của `"Điều 139"` mà không phải tổ tiên nó.
+_SQL_SUA_DOI_VAN_BAN = text(
+    "SELECT p.id AS provision_id, p.duong_dan, p.cap, p.so_hieu_cap, p.tieu_de, p.thu_tu,"
+    " s.vi_tri, s.sua_boi_so_ky_hieu, s.sua_boi_duong_dan, s.tu_ngay, s.nguon, s.do_tin_cay"
+    " FROM sua_doi_dieu_khoan s"
+    " JOIN provisions t ON t.id = s.provision_id"
+    " JOIN provisions p ON p.document_id = t.document_id"
+    "   AND (p.id = t.id OR t.duong_dan LIKE p.duong_dan || ' > %')"
+    " WHERE t.document_id = :doc_id"
+    " ORDER BY p.thu_tu, s.id"
+)
+
+
+def nap_sua_doi_theo_van_ban(engine: Engine, doc_id: str) -> list[tuple[dict, list[dict]]]:
+    """Điều khoản bị ảnh hưởng của `doc_id` → bản ghi sửa đổi áp cho nó.
+
+    Giữ THỨ TỰ CÂY (`thu_tu`) để giao diện đánh dấu theo đúng trình tự đọc.
+    Mỗi phần tử là `(dòng provisions, danh sách bản ghi)`; danh sách bản ghi
+    đúng hình dạng `ap_sua_doi` nhận.
+    """
+    ra: dict[int, tuple[dict, list[dict]]] = {}
+    with engine.connect() as conn:
+        for r in conn.execute(_SQL_SUA_DOI_VAN_BAN, {"doc_id": doc_id}).mappings().all():
+            row = dict(r)
+            pid = row["provision_id"]
+            if pid not in ra:
+                ra[pid] = ({k: row[k] for k in
+                            ("provision_id", "duong_dan", "cap", "so_hieu_cap", "tieu_de")}, [])
+            ra[pid][1].append({k: row[k] for k in
+                               ("vi_tri", "sua_boi_so_ky_hieu", "sua_boi_duong_dan",
+                                "tu_ngay", "nguon", "do_tin_cay")})
+    return list(ra.values())
+
+
+def nap_sua_doi(engine: Engine, provision_ids: Sequence[int]) -> dict[int, list[dict]]:
+    """`provisions.id` → bản ghi sửa đổi của nó và của hậu duệ nó.
+
+    Một truy vấn cho CẢ tập id (thường là toàn bộ provision của một câu trả
+    lời), không phải một truy vấn mỗi claim.
+    """
+    ids = list(provision_ids)
+    if not ids:
+        return {}
+    ra: dict[int, list[dict]] = {}
+    with engine.connect() as conn:
+        for r in conn.execute(_SQL_SUA_DOI, {"ids": ids}).mappings().all():
+            ra.setdefault(r["provision_id"], []).append(dict(r))
+    return ra
+
+
+# ══ Phán quyết HÀNG LOẠT — một lượt cho cả corpus ═══════════════════════════
+#
+# `danh_gia_theo_id` chạy 3 truy vấn cho MỘT văn bản. `/tim-kiem` cần phán quyết
+# của MỌI văn bản khớp (để xếp `sap_xep=con_hieu_luc_truoc` trên TOÀN tập, không
+# chỉ trong trang hiện tại) nên gọi nó theo vòng lặp là 126 × 3 = 378 truy vấn
+# mỗi request. Hàm dưới đây làm đúng cùng phép tính bằng 2 truy vấn + Python
+# thuần: ĐO ĐƯỢC 20,7ms SQL + 8,1ms Python cho cả 126 văn bản (2026-09-01).
+#
+# ponytail: KHÔNG cache. 29ms cho toàn corpus rẻ hơn một cache phải nghĩ cách
+# vô hiệu hoá sau mỗi lần seed lại — thêm cache khi corpus lên hàng nghìn văn
+# bản và số đo nói rằng nó đáng.
+#
+# `ung_vien_ke_nhiem` lọc TRONG Python (không phải `_SQL_UNG_VIEN` mỗi văn bản):
+# cùng một tập `documents` đã nằm sẵn trong bộ nhớ, và điều kiện là hai phép so
+# ngày. Quy tắc chủ đề/thứ bậc vẫn ở đúng một chỗ — `danh_gia`.
+
+_SQL_DOC_TAT_CA = text(
+    "SELECT id, so_ky_hieu, loai_van_ban, ten, ngay_hieu_luc, ngay_het_hieu_luc,"
+    " tinh_trang FROM documents"
+)
+
+# Cùng hai chiều với `_SQL_CANH`, nhưng cho MỌI văn bản: thêm cột `chu` = văn
+# bản mà cạnh này nói VỀ (chủ thể của phán quyết), để gom nhóm trong Python.
+_SQL_CANH_TAT_CA = text(
+    "SELECT r.to_document_id AS chu, r.loai, 'di_vao' AS chieu, d2.ten AS from_ten,"
+    " d2.so_ky_hieu AS from_so_ky_hieu, d2.ngay_hieu_luc AS from_ngay_hieu_luc"
+    ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.from_document_id'
+    " WHERE r.loai IN (20, 21)"
+    " UNION ALL"
+    " SELECT r.from_document_id, r.loai, 'di_ra', d2.ten,"
+    " d2.so_ky_hieu, d2.ngay_hieu_luc"
+    ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.to_document_id'
+    " WHERE r.loai IN (22, 23)"
+)
+
+
+def danh_gia_toan_bo(engine: Engine, as_of: date) -> dict[str, Effectivity]:
+    """`documents.id` → phán quyết hiệu lực tại `as_of`, cho TOÀN BỘ corpus.
+
+    Cùng `danh_gia` mà `danh_gia_theo_id` gọi — không phải một đường phán quyết
+    thứ hai. Hai đường sẽ lệch nhau và không cách nào biết bên nào đúng.
+    """
+    with engine.connect() as conn:
+        docs = [dict(r) for r in conn.execute(_SQL_DOC_TAT_CA).mappings().all()]
+        canh_tat_ca = [dict(r) for r in conn.execute(_SQL_CANH_TAT_CA).mappings().all()]
+
+    canh_cua: dict[str, list[dict]] = {}
+    for c in canh_tat_ca:
+        canh_cua.setdefault(c["chu"], []).append(c)
+
+    co_ngay = [d for d in docs if d["ngay_hieu_luc"] is not None]
+    ra: dict[str, Effectivity] = {}
+    for d in docs:
+        bd = d["ngay_hieu_luc"]
+        ung_vien = (
+            [u for u in co_ngay if u["id"] != d["id"] and bd < u["ngay_hieu_luc"] <= as_of]
+            if bd is not None else []
+        )
+        ra[d["id"]] = danh_gia(d, canh_cua.get(d["id"], []), as_of, ung_vien)
+    return ra
+
+
+# Ba bậc dùng cho `sap_xep=con_hieu_luc_truoc`. KHÔNG phải hai: gộp
+# `mot_phan_khong_xac_dinh` vào "đã chết" là vứt 27/126 văn bản còn hiệu lực
+# phần lớn xuống đáy, còn gộp vào "còn sống" là hứa một điều KLAW cố ý không
+# hứa. Bậc giữa nói đúng thứ đang biết: chưa kết luận được.
+BAC_CON_SONG = 0
+BAC_CHUA_RO = 1
+BAC_DA_CHET = 2
+
+_VERDICT_DA_CHET = frozenset({
+    EffectivityVerdict.bi_thay_the,
+    EffectivityVerdict.het_hieu_luc,
+    EffectivityVerdict.chua_hieu_luc,
+})
+
+
+def bac_con_song(e: Effectivity) -> int:
+    if e.verdict == EffectivityVerdict.con_hieu_luc:
+        return BAC_CON_SONG
+    return BAC_DA_CHET if e.verdict in _VERDICT_DA_CHET else BAC_CHUA_RO

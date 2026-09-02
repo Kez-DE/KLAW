@@ -1,0 +1,51 @@
+# Checklist nội dung của HỢP ĐỒNG NGUYÊN TẮC — BLDS Đ398.2 a-g, khung nội dung
+# chung của mọi hợp đồng, và Đ385 (khái niệm hợp đồng).
+#
+# PHẢI NÓI THẲNG: "hợp đồng nguyên tắc" KHÔNG phải một loại hợp đồng có tên
+# trong luật. Nó là một tập quán thương mại — một khung thoả thuận dài hạn, chi
+# tiết để lại cho từng đơn hàng. Vì vậy nó không có chế định riêng nào để dẫn,
+# và checklist này dùng đúng cái luật thật sự đặt ra cho nó: khung nội dung
+# chung của hợp đồng tại Đ398.2. Không có mẫu nào ở đây được dựng trên một điều
+# luật bịa ra cho vừa tên gọi thương mại của nó.
+#
+# muc_do_thieu: canh_bao, và ở mẫu này đó là mức ĐÚNG chứ không phải mức nhẹ
+# tay: Đ398.1 nói "các bên trong hợp đồng có QUYỀN thoả thuận về nội dung trong
+# hợp đồng", Đ398.2 nói hợp đồng "CÓ THỂ có các nội dung sau đây". Luật trao
+# quyền, không áp nghĩa vụ — một finding "chan" ở đây sẽ nói ngược lại luật.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '91/2015/QH13 > Điều 398%' OR duong_dan = '91/2015/QH13 > Điều 385';
+loai: hop_dong_nguyen_tac
+ten: "hợp đồng nguyên tắc"
+tieu_de: "HỢP ĐỒNG NGUYÊN TẮC"
+muc_do_thieu: canh_bao
+
+# Dựng trên chế định HỢP ĐỒNG (BLDS Đ385 "sự thoả thuận giữa các bên"), nên
+# `GET /mau/{loai}` kèm thêm khối các bên + chỗ ký (`cau_truc.khung_hop_dong`).
+# Hai khối đó KHÔNG phải `muc` và KHÔNG vào mẫu số completeness.
+la_hop_dong: true
+
+rules: []
+
+can_cu_goc: "91/2015/QH13 > Điều 398 > Khoản 2"
+can_cu_chi_tiet: "91/2015/QH13 > Điều 385"
+
+# Số lượng, chất lượng là thứ hợp đồng nguyên tắc CỐ Ý không chốt — chốt theo
+# từng đơn hàng, từng phụ lục. Báo thiếu ở đây là báo thiếu đúng cái đặc điểm
+# làm nên loại hợp đồng này.
+khong_bat_buoc:
+  can_cu: "91/2015/QH13 > Điều 398 > Khoản 2"
+  ghi_chu: >
+    Hợp đồng nguyên tắc để số lượng, chất lượng lại cho từng đơn hàng hoặc phụ
+    lục — đó là đặc điểm của loại hợp đồng này, không phải khuyết thiếu.
+  keys: [so_luong_chat_luong]
+
+muc:
+  - {stt: 1, key: doi_tuong, ten: "Đối tượng của hợp đồng", diem: a, can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm a", tu_khoa: ["đối tượng của hợp đồng", "phạm vi hợp tác", "nội dung hợp tác"]}
+  - {stt: 2, key: so_luong_chat_luong, ten: "Số lượng, chất lượng", diem: b, can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm b", tu_khoa: ["số lượng, chất lượng", "số lượng và chất lượng"]}
+  - {stt: 3, key: gia_thanh_toan, ten: "Giá, phương thức thanh toán", diem: c, can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm c", tu_khoa: ["giá, phương thức thanh toán", "giá và phương thức thanh toán", "phương thức thanh toán"]}
+  - {stt: 4, key: thoi_han_thuc_hien, ten: "Thời hạn, địa điểm, phương thức thực hiện hợp đồng", diem: d, can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm d", tu_khoa: ["thời hạn, địa điểm", "thời hạn thực hiện", "phương thức thực hiện hợp đồng", "hiệu lực hợp đồng"]}
+  - {stt: 5, key: quyen_nghia_vu, ten: "Quyền, nghĩa vụ của các bên", diem: đ, can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm đ", tu_khoa: ["quyền, nghĩa vụ của các bên", "quyền và nghĩa vụ của các bên", "quyền và nghĩa vụ của mỗi bên"]}
+  - {stt: 6, key: trach_nhiem_vi_pham, ten: "Trách nhiệm do vi phạm hợp đồng", diem: e, can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm e", tu_khoa: ["trách nhiệm do vi phạm", "phạt vi phạm", "bồi thường thiệt hại"]}
+  - {stt: 7, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", diem: g, can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}

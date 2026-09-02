@@ -1,0 +1,83 @@
+# Checklist của QUYẾT ĐỊNH BỔ NHIỆM — LAI: chín thành phần THỂ THỨC của
+# NĐ 30/2020 Đ8.2, cộng MỘT quy tắc NỘI DUNG kiểm được của Luật Doanh nghiệp.
+#
+# ══ ĐỌC MỤC NÀY TRƯỚC KHI TIN CON SỐ COMPLETENESS ══
+#
+# 1. `completeness` CỦA MẪU NÀY CHỈ NÓI VỀ THỂ THỨC. Chín mục dưới đây là chín
+#    thành phần cấu thành văn bản hành chính (quốc hiệu, số ký hiệu, nơi
+#    nhận…). completeness 1.0 nghĩa là "đủ chín thành phần", KHÔNG nghĩa là
+#    "bổ nhiệm đúng người, đúng thẩm quyền, đúng trình tự".
+#
+# 2. NHƯNG MẪU NÀY KHÔNG CHỈ SOÁT THỂ THỨC — nó có một rule nội dung THẬT:
+#    `nhiem_ky_bo_nhiem_toi_da` (LDN Đ162.2, và Đ154.2 cùng mức cho thành viên
+#    HĐQT). Đó là một phát biểu về NỘI DUNG quyết định, không phải về bìa thư:
+#    một quyết định bổ nhiệm Tổng giám đốc công ty cổ phần với nhiệm kỳ 07 năm
+#    là TRÁI LUẬT dù chín thành phần thể thức có đủ cả chín.
+#    ⇒ Về nhãn hiển thị: đây KHÔNG phải mẫu "chỉ soát thể thức". Nhãn đúng là
+#    "Soát thể thức + 01 quy tắc nhiệm kỳ", xem báo cáo mo-rong-mau-report.md.
+#
+# 3. LUẬT DOANH NGHIỆP KHÔNG QUY ĐỊNH NỘI DUNG CỦA QUYẾT ĐỊNH BỔ NHIỆM. Đã tra
+#    lại, ghi ra để lần sau không ai phải tra lại:
+#      • Đ153.2.i — HĐQT có quyền "bổ nhiệm, miễn nhiệm… Giám đốc hoặc Tổng
+#        giám đốc và người quản lý quan trọng khác". THẨM QUYỀN, không phải nội
+#        dung.
+#      • Đ162.1  — "Hội đồng quản trị bổ nhiệm một thành viên HĐQT hoặc thuê
+#        người khác làm Giám đốc hoặc Tổng giám đốc". Ai bổ nhiệm, không phải
+#        quyết định phải ghi gì.
+#      • Đ162.3.đ — Giám đốc/TGĐ bổ nhiệm các chức danh quản lý khác. Thẩm quyền.
+#      • Đ63.2, Đ55.2.đ, Đ156.5, Đ195 — thẩm quyền bổ nhiệm ở các loại hình
+#        khác. Không điều nào liệt kê nội dung.
+#      • NĐ 30/2020 Đ8.2 — chín thành phần thể thức, giống HỆT công văn.
+#    Thứ DUY NHẤT tra được mà nói về nội dung là trần nhiệm kỳ ở Đ162.2/Đ154.2,
+#    và nó đã thành rule chứ không thành mục checklist: nó là một NGƯỠNG SỐ
+#    HỌC, kiểm bằng fact, không phải một mục có mặt hay vắng mặt trong văn bản.
+#
+# 4. TRẦN NHIỆM KỲ KHÔNG ÁP CHO MỌI QUYẾT ĐỊNH BỔ NHIỆM. Đ162 nằm trong chương
+#    CÔNG TY CỔ PHẦN, nên trần 05 năm áp cho Giám đốc/Tổng giám đốc công ty cổ
+#    phần; Đ154.2 áp cùng mức cho thành viên HĐQT. Bổ nhiệm trưởng phòng, kế
+#    toán trưởng, hay người quản lý công ty TNHH KHÔNG có trần luật định. Rule
+#    vì thế hỏi `co_tran_nhiem_ky_05_nam` trước — không khai fact đó thì
+#    `rules.check()` trả None ("chưa kiểm được"), KHÔNG trả một dấu tick giả.
+#
+# 5. PHẠM VI ÁP DỤNG CỦA CHÍN MỤC HẸP HƠN TÊN GỌI. NĐ 30/2020 Đ2.1: chỉ áp cho
+#    "cơ quan, tổ chức nhà nước và doanh nghiệp nhà nước". Với doanh nghiệp tư
+#    nhân, chín thành phần là CHUẨN MỰC HÀNH CHÍNH, không phải nghĩa vụ pháp
+#    lý. `muc_do_thieu: chan` đúng cho đối tượng trong phạm vi Đ2.1; ngoài phạm
+#    vi hãy đọc là "lệch chuẩn", không phải "trái luật". Rule nhiệm kỳ thì
+#    NGƯỢC LẠI — Luật Doanh nghiệp áp cho mọi doanh nghiệp, không phân biệt.
+#
+# 6. PHỤ LỤC I KHÔNG CÓ TRONG KHO, nên mẫu này KHÔNG đòi mục "căn cứ ban hành"
+#    dù mọi quyết định thật đều mở bằng "Căn cứ…". Quy tắc đó nằm ở Phụ lục I,
+#    không trích dẫn được — đòi nó là bịa căn cứ.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '30/2020/NĐ-CP > Điều 8 > Khoản 2%'
+#       OR duong_dan IN ('30/2020/NĐ-CP > Điều 7', '59/2020/QH14 > Điều 162 > Khoản 2');
+loai: quyet_dinh_bo_nhiem
+ten: "quyết định bổ nhiệm"
+tieu_de: "QUYẾT ĐỊNH BỔ NHIỆM"
+don_vi_muc: "Thành phần"
+# Lộ ra `GET /mau/{loai}` để frontend gắn nhãn đúng thay vì viết cứng một
+# danh sách tên loại. Xem giới hạn ở đầu file: các MỤC dưới đây là thành phần
+# trình bày của NĐ 30/2020 Đ8.2, không phải nội dung nghiệp vụ.
+pham_vi_soat: the_thuc
+
+muc_do_thieu: chan
+
+rules: [nhiem_ky_bo_nhiem_toi_da]
+
+can_cu_goc: "30/2020/NĐ-CP > Điều 8 > Khoản 2"
+# Đ7 là mắt xích DUY NHẤT nối chữ "quyết định (cá biệt)" vào chế định này.
+can_cu_chi_tiet: "30/2020/NĐ-CP > Điều 7"
+
+muc:
+  - {stt: 1, key: quoc_hieu, ten: "Quốc hiệu và Tiêu ngữ", diem: a, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm a", tu_khoa: ["quốc hiệu", "cộng hoà xã hội chủ nghĩa việt nam", "cộng hòa xã hội chủ nghĩa việt nam", "độc lập - tự do - hạnh phúc"]}
+  - {stt: 2, key: ten_co_quan, ten: "Tên cơ quan, tổ chức ban hành văn bản", diem: b, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm b", tu_khoa: ["tên cơ quan, tổ chức ban hành", "cơ quan, tổ chức ban hành", "tên cơ quan", "cơ quan ban hành", "đơn vị ban hành"]}
+  - {stt: 3, key: so_ky_hieu, ten: "Số, ký hiệu của văn bản", diem: c, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm c", tu_khoa: ["số, ký hiệu của văn bản", "số và ký hiệu", "số, ký hiệu", "ký hiệu", "số văn bản"]}
+  - {stt: 4, key: dia_danh_thoi_gian, ten: "Địa danh và thời gian ban hành văn bản", diem: d, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm d", tu_khoa: ["địa danh và thời gian ban hành", "địa danh, thời gian ban hành", "thời gian ban hành", "địa danh"]}
+  - {stt: 5, key: trich_yeu, ten: "Tên loại và trích yếu nội dung văn bản", diem: đ, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm đ", tu_khoa: ["trích yếu nội dung", "trích yếu", "về việc", "v/v"]}
+  - {stt: 6, key: noi_dung, ten: "Nội dung văn bản — người được bổ nhiệm, chức vụ, thời điểm và nhiệm kỳ", diem: e, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm e", tu_khoa: ["nội dung văn bản", "người được bổ nhiệm", "bổ nhiệm ông", "bổ nhiệm bà", "giữ chức vụ", "nhiệm kỳ", "nội dung"]}
+  - {stt: 7, key: chuc_vu_chu_ky, ten: "Chức vụ, họ tên và chữ ký của người có thẩm quyền", diem: g, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm g", tu_khoa: ["chữ ký của người có thẩm quyền", "chức vụ, họ tên và chữ ký", "họ tên và chữ ký", "người có thẩm quyền", "người ký văn bản"]}
+  - {stt: 8, key: dau_chu_ky_so, ten: "Dấu, chữ ký số của cơ quan, tổ chức", diem: h, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm h", tu_khoa: ["chữ ký số của cơ quan", "dấu, chữ ký số", "chữ ký số", "đóng dấu", "con dấu"]}
+  - {stt: 9, key: noi_nhan, ten: "Nơi nhận", diem: i, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm i", tu_khoa: ["nơi nhận"]}

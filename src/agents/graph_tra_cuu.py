@@ -7,8 +7,6 @@ route → rewrite_query → retrieve_hybrid → expand → generate_claims
 `ngoai_pham_vi` rẽ thẳng từ route sang assemble (0 token cho mọi bước sau).
 """
 
-from datetime import date
-
 from langgraph.graph import END, StateGraph
 from sqlalchemy import Engine, text
 
@@ -20,7 +18,7 @@ from src.agents.nodes.route import Intent, route
 from src.agents.nodes.verify_tier1 import nap_provisions, tien_de_cau_hoi_sai, verify_tier1
 from src.agents.nodes.verify_tier2 import verify_tier2_and_trace
 from src.agents.state import KLawState
-from src.config import get_settings
+from src.config import as_of_hieu_luc, get_settings
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
@@ -63,6 +61,23 @@ def _db_provisions(ids: list[int], engine: Engine) -> dict[int, dict]:
     return {pid: {**row, **docs.get(row["document_id"], {})} for pid, row in goc.items()}
 
 
+# Ba ý định KHÔNG cần tra cứu gì để trả lời. Chúng rẽ tắt ngay sau `route`,
+# bỏ qua truy hồi, mở rộng, sinh luận điểm và hai tầng kiểm chứng.
+#
+# ĐO ĐƯỢC 2026-09-02: trước bản này chỉ `ngoai_pham_vi` rẽ tắt, còn `gioi_thieu`
+# đi hết graph rồi mới bị `assemble` chuyển hướng — **8.975 token vào, 15 luận
+# điểm qua cả hai tầng, vứt sạch**. Đắt hơn `out_of_scope` 65 lần. Nhánh đó có
+# chú thích "0 TOKEN" và chú thích ấy đúng về `assemble` mà sai về thứ người đọc
+# hiểu: `assemble` là node CUỐI.
+#
+# `tra_cuu` và mọi giá trị lạ đi đường đầy đủ — mặc định an toàn là tra cứu.
+_RE_TAT = frozenset({Intent.ngoai_pham_vi, Intent.gioi_thieu, Intent.soan_thao})
+
+
+def _re_sau_route(st: dict) -> str:
+    return "assemble" if st.get("intent") in _RE_TAT else "tien_de"
+
+
 def build_graph_tra_cuu():
     s = get_settings()
     llm = llm_from_settings()
@@ -87,7 +102,11 @@ def build_graph_tra_cuu():
         return {**st, "retrieved": list(dict.fromkeys(ids))}
 
     def n_expand(st: KLawState) -> KLawState:
-        as_of = st.get("as_of_date") or s.as_of_date or date.today()
+        # MỘT chủ sở hữu cho quy tắc "mốc hiệu lực" (`config.as_of_hieu_luc`):
+        # khoá cache câu trả lời phải ghi nhớ ĐÚNG cái ngày mà node này lọc
+        # theo. Hai bản sao của quy tắc = cache khoá theo một ngày, graph lọc
+        # hiệu lực theo ngày khác, không tầng nào báo lỗi — chỉ trả hiệu lực sai.
+        as_of = as_of_hieu_luc(st.get("as_of_date"))
         before = st.get("retrieved") or []
         deep, shallow = expand(before, engine, as_of, s.expand_reference_hops)
         prior_traces = st.get("traces") or {}
@@ -149,8 +168,7 @@ def build_graph_tra_cuu():
         g.add_node(name, fn)
 
     g.set_entry_point("route")
-    g.add_conditional_edges("route", lambda st: (
-        "assemble" if st.get("intent") == Intent.ngoai_pham_vi else "tien_de"))
+    g.add_conditional_edges("route", _re_sau_route)
     g.add_conditional_edges("tien_de", lambda st: (
         "assemble" if st.get("tien_de_sai") else "rewrite"))
     for a, b in (("rewrite", "retrieve"), ("retrieve", "expand"), ("expand", "generate"),

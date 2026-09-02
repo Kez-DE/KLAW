@@ -105,3 +105,43 @@ def test_ingest_CHAP_NHAN_seed_da_commit(tmp_path):
     đường lành. Chỉ chạy phép kiểm toàn vẹn, không cần DB."""
     from scripts.ingest import _kiem_toan_ven
     _kiem_toan_ven(_seed_tam(tmp_path))
+
+
+@pytest.mark.integration
+def test_ingest_dung_lai_canh_cap_dieu_khoan():
+    """`ingest` phải tự dựng lại dẫn chiếu cấp điều khoản, không chờ ai gọi tay.
+
+    Trước bản này `xref.resolve_all` KHÔNG được gọi từ chỗ nào trong `src/` hay
+    `scripts/` — 2.971 cạnh cấp điều khoản trong DB tồn tại thuần tuý vì có
+    người đã chạy `tests/test_services/test_xref.py`. Một lần triển khai sạch
+    nạp xong sẽ có 0 cạnh, và `/van-ban/{id}/lien-quan` bình thản báo "0 dẫn
+    chiếu nội bộ" cho mọi văn bản — trông y hệt một câu trả lời đúng.
+
+    Nặng hơn: `ingest` XOÁ mọi cạnh của một văn bản trước khi nạp lại nó
+    (`DELETE FROM "references" WHERE from_document_id = :id`), nên nạp lại một
+    văn bản đang âm thầm phá dẫn chiếu của chính nó.
+
+    Test XOÁ trước rồi mới nạp: chỉ đếm thôi thì nó xanh nhờ đúng cái tác dụng
+    phụ đang bị vá, và không chứng minh gì cả.
+    """
+    if not (SEED / "documents.jsonl").exists():
+        pytest.skip("chạy `python -m scripts.build_seed` trước")
+
+    from sqlalchemy import text as _text
+
+    from src.services.db import get_engine
+
+    eng = get_engine()
+    with eng.begin() as conn:
+        conn.execute(_text('DELETE FROM "references" WHERE from_provision_id IS NOT NULL'))
+        assert conn.execute(
+            _text('SELECT count(*) FROM "references" WHERE from_provision_id IS NOT NULL')
+        ).scalar_one() == 0
+
+    ingest(SEED)
+
+    with eng.connect() as conn:
+        con_lai = conn.execute(
+            _text('SELECT count(*) FROM "references" WHERE from_provision_id IS NOT NULL')
+        ).scalar_one()
+    assert con_lai > 2000, f"ingest phải dựng lại cạnh cấp điều khoản, chỉ thấy {con_lai}"

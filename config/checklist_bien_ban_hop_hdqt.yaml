@@ -1,0 +1,39 @@
+# Checklist nội dung của BIÊN BẢN HỌP HỘI ĐỒNG QUẢN TRỊ — Luật Doanh nghiệp
+# Đ158.1 a-i, chín điểm, mỗi mục một điểm luật riêng.
+#
+# CỐ Ý hẹp vào biên bản họp HĐQT của công ty cổ phần, không phải "biên bản họp"
+# nói chung: Luật Doanh nghiệp quy định BA danh mục nội dung khác nhau cho ba
+# loại cuộc họp — Đ158.1 (HĐQT), Đ150.1 (Đại hội đồng cổ đông), Đ60 (Hội đồng
+# thành viên công ty TNHH). Gộp chúng thành một mẫu chung sẽ soát một biên bản
+# ĐHĐCĐ bằng danh mục của HĐQT và báo thiếu những nội dung luật không đòi ở đó.
+# Hai loại kia dựng được bằng đúng khuôn này khi cần, mỗi loại một file.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '59/2020/QH14 > Điều 158%';
+loai: bien_ban_hop_hdqt
+ten: "biên bản họp Hội đồng quản trị"
+tieu_de: "BIÊN BẢN HỌP HỘI ĐỒNG QUẢN TRỊ"
+don_vi_muc: "Mục"
+
+# KHÔNG rule nào. Điều kiện tiến hành họp (Đ157.8: ít nhất ba phần tư tổng số
+# thành viên dự họp) và tỷ lệ thông qua (Đ157.12: đa số thành viên dự họp tán
+# thành) VỀ NGUYÊN TẮC là hai rule số học đúng khuôn `kiem:` — nhưng cả hai cần
+# tổng số thành viên HĐQT và số thành viên dự họp làm fact, và biên bản là văn
+# bản khai hai con số đó. Kiểm chúng bằng chính con số người dùng gõ vào là
+# kiểm một lời khai bằng chính nó. Chưa dựng ở đây, không phải quên.
+rules: []
+
+can_cu_goc: "59/2020/QH14 > Điều 158 > Khoản 1"
+can_cu_chi_tiet: "59/2020/QH14 > Điều 157"
+
+muc:
+  - {stt: 1, key: ten_doanh_nghiep, ten: "Tên, địa chỉ trụ sở chính, mã số doanh nghiệp", diem: a, can_cu: "59/2020/QH14 > Điều 158 > Khoản 1 > Điểm a", tu_khoa: ["mã số doanh nghiệp", "trụ sở chính"]}
+  - {stt: 2, key: thoi_gian_dia_diem, ten: "Thời gian, địa điểm họp", diem: b, can_cu: "59/2020/QH14 > Điều 158 > Khoản 1 > Điểm b", tu_khoa: ["thời gian, địa điểm họp", "địa điểm họp", "thời gian họp"]}
+  - {stt: 3, key: chuong_trinh, ten: "Mục đích, chương trình và nội dung họp", diem: c, can_cu: "59/2020/QH14 > Điều 158 > Khoản 1 > Điểm c", tu_khoa: ["chương trình họp", "nội dung họp", "mục đích cuộc họp"]}
+  - {stt: 4, key: thanh_vien_du_hop, ten: "Họ tên thành viên dự họp, cách thức dự họp; thành viên không dự họp và lý do", diem: d, can_cu: "59/2020/QH14 > Điều 158 > Khoản 1 > Điểm d", tu_khoa: ["cách thức dự họp", "thành viên không dự họp", "danh sách thành viên dự họp"]}
+  - {stt: 5, key: van_de_thao_luan, ten: "Vấn đề được thảo luận và biểu quyết tại cuộc họp", diem: đ, can_cu: "59/2020/QH14 > Điều 158 > Khoản 1 > Điểm đ", tu_khoa: ["vấn đề được thảo luận", "nội dung thảo luận"]}
+  - {stt: 6, key: y_kien_phat_bieu, ten: "Tóm tắt phát biểu ý kiến của từng thành viên dự họp", diem: e, can_cu: "59/2020/QH14 > Điều 158 > Khoản 1 > Điểm e", tu_khoa: ["tóm tắt phát biểu", "ý kiến phát biểu"]}
+  - {stt: 7, key: ket_qua_bieu_quyet, ten: "Kết quả biểu quyết: tán thành, không tán thành, không có ý kiến", diem: g, can_cu: "59/2020/QH14 > Điều 158 > Khoản 1 > Điểm g", tu_khoa: ["kết quả biểu quyết", "số phiếu tán thành"]}
+  - {stt: 8, key: van_de_thong_qua, ten: "Vấn đề đã được thông qua và tỷ lệ biểu quyết thông qua tương ứng", diem: h, can_cu: "59/2020/QH14 > Điều 158 > Khoản 1 > Điểm h", tu_khoa: ["đã được thông qua", "tỷ lệ biểu quyết thông qua"]}
+  - {stt: 9, key: chu_ky, ten: "Họ, tên, chữ ký chủ toạ và người ghi biên bản", diem: i, can_cu: "59/2020/QH14 > Điều 158 > Khoản 1 > Điểm i", tu_khoa: ["chữ ký chủ toạ", "chữ ký chủ tọa", "người ghi biên bản"]}

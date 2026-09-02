@@ -353,3 +353,68 @@ def test_check_so_hieu_cap_CHAN_moi_cap_cau_truc_va_CHO_hai_cap_tai_lieu():
     finally:
         with eng.begin() as c:
             c.execute(text("DELETE FROM documents WHERE id = 'sh-test'"))
+
+
+# ══ 013 — cổng "hứa một danh sách thì phải giao" ════════════════════════════
+
+_DOC_THU = ("INSERT INTO documents (id, so_ky_hieu, loai_van_ban, ten, tinh_trang, checksum)"
+            " VALUES ('__bang__', 'x/2020', 'Nghị định', 'x', 'chua_xac_dinh', 'c')"
+            " ON CONFLICT (id) DO NOTHING")
+_PROV_THU = ("INSERT INTO provisions (document_id, cap, so_hieu_cap, tieu_de, noi_dung,"
+             " duong_dan, thu_tu) VALUES ('__bang__', 'khoan', '1', 'Khoản 1', :nd,"
+             " '__bang__ > Điều 3 > Khoản 1', 1) RETURNING id")
+
+
+def _don_doc_thu() -> None:
+    """Dọn ở transaction RIÊNG. Xoá trong CÙNG transaction là đúng ca mà trigger
+    deferred cố ý bỏ qua, nên nó sẽ không chứng minh được điều test muốn."""
+    with get_engine().begin() as c:
+        c.execute(text("DELETE FROM documents WHERE id = '__bang__'"))
+
+
+@pytest.mark.integration
+def test_013_chan_neo_hua_danh_sach_ma_khong_giao():
+    """Đúng lỗi đã ship: `parse_tables` không có caller nên bảng lương biến mất
+    và Điều 3 Khoản 1 chỉ còn "… theo vùng như sau:" — không con số nào."""
+    run_migrations()
+    with pytest.raises(Exception, match="BẢNG BỊ MẤT"):
+        with get_engine().begin() as c:
+            c.execute(text(_DOC_THU))
+            c.execute(text(_PROV_THU),
+                      {"nd": "1. Quy định mức lương tối thiểu tháng theo vùng như sau:"})
+    _don_doc_thu()
+
+
+@pytest.mark.integration
+def test_013_cho_qua_khi_bang_da_nam_trong_noi_dung():
+    """Cổng phải còn CHO QUA được, nếu không nó chỉ là một phép chặn mù.
+
+    Provision có bảng kết thúc bằng '|' nên nó tự rơi khỏi tập vi phạm — không
+    cần một điều kiện thứ hai, và đó là lý do phép kiểm dùng đúng truy vấn đã
+    dùng để đo thiệt hại chứ không phải một phép xấp xỉ của nó.
+    """
+    run_migrations()
+    with get_engine().begin() as c:
+        c.execute(text(_DOC_THU))
+        c.execute(text(_PROV_THU),
+                  {"nd": "1. Quy định mức lương tối thiểu tháng theo vùng như sau:\n\n"
+                         "| Vùng | Mức tháng |\n| Vùng I | 5.310.000 |"})
+    _don_doc_thu()
+
+
+@pytest.mark.integration
+def test_013_deferred_nen_cha_chen_truoc_con_van_qua():
+    """Vì sao trigger phải DEFERRABLE INITIALLY DEFERRED: `ingest` chèn cha TRƯỚC
+    con, nên tại INSERT của Khoản thì Điểm con chưa tồn tại. Trigger thường sẽ
+    ném ở đây và chặn mọi lần nạp — chính phản đối mà `004` nêu ra."""
+    run_migrations()
+    with get_engine().begin() as c:
+        c.execute(text(_DOC_THU))
+        pid = c.execute(text(_PROV_THU),
+                        {"nd": "1. Hợp đồng phải có các nội dung sau đây:"}).scalar_one()
+        c.execute(text(
+            "INSERT INTO provisions (document_id, parent_id, cap, so_hieu_cap, tieu_de,"
+            " noi_dung, duong_dan, thu_tu) VALUES ('__bang__', :p, 'diem', 'a', 'Điểm a',"
+            " 'a) Tên, địa chỉ của người sử dụng lao động;',"
+            " '__bang__ > Điều 3 > Khoản 1 > Điểm a', 2)"), {"p": pid})
+        c.execute(text("DELETE FROM documents WHERE id = '__bang__'"))

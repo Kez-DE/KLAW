@@ -40,7 +40,12 @@ from enum import StrEnum
 from sqlalchemy import Engine, text
 
 from src.agents.nodes.generate_claims import Claim
-from src.services.effectivity import Effectivity, danh_gia_theo_id
+from src.services.effectivity import (
+    Effectivity,
+    ap_sua_doi,
+    danh_gia_theo_id,
+    nap_sua_doi,
+)
 
 # Chuẩn hoá CHỈ ĐỂ SO KHỚP. Cùng bộ ba mà `prov_parser._khoa` đã phải trả giá ở
 # Plan 1: zero-width vô hình nhưng làm hai chuỗi "khác nhau"; Ð U+00D0 (LATIN
@@ -289,14 +294,25 @@ def effectivity_qua_provision(
     Nhớ theo `document_id`: hiệu lực là thuộc tính của VĂN BẢN, còn một câu trả
     lời thường dẫn nhiều điều của cùng một văn bản — không nhớ thì mỗi claim là
     một lượt ba truy vấn lặp lại y hệt.
+
+    **Mức 4 phá đúng giả định "một văn bản, một phán quyết" đó, và cố ý.** Bản
+    đồ sửa đổi từ văn bản hợp nhất của Công báo neo ở CẤP ĐIỀU KHOẢN: trong cùng
+    Bộ luật Lao động, Khoản 1 Điều 139 đã bị 113/2025/QH15 sửa từ 01/7/2026 còn
+    Điều 140 thì không. Nên cache cấp văn bản được GIỮ (nó là phần đắt — ba truy
+    vấn), rồi `ap_sua_doi` phủ lên phần cấp điều khoản. Bản đồ nạp MỘT LẦN cho
+    cả tập provision, không phải một truy vấn mỗi claim.
+
+    Điều khoản không có bản ghi sửa đổi nhận lại ĐÚNG object cũ — 19.131/19.135
+    dòng không đổi một ký tự, nên bảng số liệu cũ vẫn so được.
     """
     da_biet: dict[str, Effectivity] = {}
+    ban_do = nap_sua_doi(engine, list(db_provisions))
 
     def tra(provision_id: int) -> Effectivity:
         doc_id = db_provisions[provision_id]["document_id"]
         if doc_id not in da_biet:
             da_biet[doc_id] = danh_gia_theo_id(engine, doc_id, as_of)
-        return da_biet[doc_id]
+        return ap_sua_doi(da_biet[doc_id], ban_do.get(provision_id, ()), as_of)
 
     return tra
 

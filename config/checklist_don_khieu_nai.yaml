@@ -1,0 +1,96 @@
+# Checklist NỘI DUNG của ĐƠN KHIẾU NẠI hành chính — Luật Khiếu nại
+# 02/2011/QH13 Điều 8 Khoản 2.
+#
+# Đây là mẫu SOÁT NỘI DUNG, không phải soát thể thức. Đ8.2 liệt kê thẳng những
+# gì "trong đơn khiếu nại PHẢI GHI RÕ", nên completeness ở đây là một phát biểu
+# về chất lượng nội dung — cùng hạng với `noi_quy` (BLLĐ Đ118.2) và
+# `don_khoi_kien` (BLTTDS Đ189.4), khác hẳn `cong_van` (chỉ bìa thư).
+#
+# ══ TOÀN BỘ CHECKLIST NẰM TRONG MỘT KHOẢN, VÀ ĐÓ LÀ LÝ DO can_cu GIỐNG NHAU ══
+#
+# Đ8.2 là một câu văn xuôi liệt kê bằng dấu chấm phẩy, KHÔNG chia thành điểm
+# a) b) c). Nguyên văn:
+#
+#   "2. Trường hợp khiếu nại được thực hiện bằng đơn thì trong đơn khiếu nại
+#   phải ghi rõ ngày, tháng, năm khiếu nại; tên, địa chỉ của người khiếu nại;
+#   tên, địa chỉ của cơ quan, tổ chức, cá nhân bị khiếu nại; nội dung, lý do
+#   khiếu nại, tài liệu liên quan đến nội dung khiếu nại và yêu cầu giải quyết
+#   của người khiếu nại. Đơn khiếu nại phải do người khiếu nại ký tên hoặc
+#   điểm chỉ."
+#
+# Bảy mục dưới đây là bảy vế của chính câu đó, nên tất cả cùng trỏ về
+# `Điều 8 > Khoản 2`. Không có đường dẫn nào sâu hơn để trỏ tới — bịa ra
+# `Điểm a` cho vế thứ nhất là bịa ký hiệu mà nguồn không có.
+#
+# ══ VĂN BẢN NÀY KHÔNG LẤY TỪ MOJ, VÀ ĐÓ LÀ CHỦ Ý ══
+#
+# Bản MOJ (doc_id 27325) bị TƯỜNG PHÍ: 86 chỗ trong toàn văn bị thay bằng
+# `<a class="clsBookmark clsopentLogin">`, câu cụt giữa chừng — nằm trong
+# `KHONG_NAP` của scripts/fetch_moj.py. Bản đang dùng lấy từ
+# `vanban.chinhphu.vn` (robots.txt `Allow: /`), qua adapter
+# `src/services/chinhphu_parser.py` rồi vào ĐÚNG parser và ĐÚNG cổng cấu trúc
+# như mọi văn bản MOJ khác: 0 lỗi, 0 cảnh báo, 380 điều khoản, 70 Điều (khớp số
+# điều thật của Luật Khiếu nại).
+#
+# Bản Chính phủ còn ĐÚNG HƠN ở một chỗ đã đo: Điều 31 Khoản 2 bản MOJ có HAI
+# Điểm cùng nhãn `i)`; bản này ghi `i)` rồi `k)` — đúng bảng chữ cái pháp lý
+# Việt Nam (a…h, i, k, không có j). Đã kiểm sau khi nạp:
+#   Đ31 K2 → ['a','b','c','d','đ','e','g','h','i','k'].
+#
+# ══ PHẠM VI: KHIẾU NẠI HÀNH CHÍNH, KHÔNG PHẢI KHIẾU NẠI TRONG TỐ TỤNG ══
+#
+# Đ1: Luật này quy định về khiếu nại và giải quyết khiếu nại đối với QUYẾT ĐỊNH
+# HÀNH CHÍNH, HÀNH VI HÀNH CHÍNH của cơ quan hành chính nhà nước. Ba chế định
+# khác mang cùng chữ "khiếu nại" nhưng KHÔNG dùng mẫu này:
+#   • BLTTDS Đ499-502 — khiếu nại trong tố tụng dân sự.
+#   • Luật Tố tụng hành chính 93/2015/QH13 — KHỞI KIỆN vụ án hành chính ra Toà,
+#     một con đường khác với khiếu nại lên cơ quan hành chính.
+#   • Luật Cạnh tranh 23/2018/QH14 Đ97 — đơn khiếu nại quyết định xử lý vụ việc
+#     cạnh tranh, gửi Chủ tịch Uỷ ban Cạnh tranh Quốc gia. Điều đó CŨNG liệt kê
+#     nội dung bắt buộc (5 điểm a-đ) và gần giống danh mục dưới đây, nhưng là
+#     một chế định riêng với thời hạn riêng (30 ngày). Nếu sau này cần, nó dựng
+#     được thành một mẫu riêng — đừng gộp vào mẫu này.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '02/2011/QH13 > Điều 8%'
+#       OR duong_dan = '02/2011/QH13 > Điều 12 > Khoản 2 > Điểm a';
+loai: don_khieu_nai
+ten: "đơn khiếu nại"
+tieu_de: "ĐƠN KHIẾU NẠI"
+don_vi_muc: "Mục"
+
+# `chan`: Đ8.2 dùng chữ "PHẢI GHI RÕ", và Đ8.2 câu cuối dùng "PHẢI do người
+# khiếu nại ký tên hoặc điểm chỉ". Không phải "có thể gồm" — đối chiếu BLDS
+# Đ398.2 ở checklist hợp đồng nguyên tắc, nơi mức đúng là canh_bao.
+muc_do_thieu: chan
+
+# Không rule nào. Luật Khiếu nại CÓ những con số kiểm được (Đ9: thời hiệu khiếu
+# nại 90 ngày kể từ ngày nhận được quyết định hành chính; Đ7: thời hạn khiếu
+# nại lần hai 30 ngày), nhưng chúng là thời hiệu của HÀNH VI khiếu nại, tính từ
+# một mốc — ngày nhận được quyết định bị khiếu nại — mà bản thân lá đơn không
+# buộc phải ghi. Kiểm chúng cần một fact người dùng tự khai; đặt vào đây sẽ là
+# kiểm một lời khai bằng chính nó. Để mở, xem mục "việc còn mở" của báo cáo.
+rules: []
+
+can_cu_goc: "02/2011/QH13 > Điều 8 > Khoản 2"
+# Đ12.2.a: người khiếu nại có NGHĨA VỤ "khiếu nại đến đúng người có thẩm quyền
+# giải quyết" — mắt xích cho mục `nguoi_bi_khieu_nai`, giải thích vì sao lá đơn
+# phải nêu đích danh bên bị khiếu nại chứ không chỉ mô tả sự việc.
+# (Đ12.1 là QUYỀN của người khiếu nại, không phải nghĩa vụ — đừng dẫn nhầm.)
+can_cu_chi_tiet: "02/2011/QH13 > Điều 12 > Khoản 2 > Điểm a"
+
+muc:
+  - {stt: 1, key: ngay_thang, ten: "Ngày, tháng, năm khiếu nại", can_cu: "02/2011/QH13 > Điều 8 > Khoản 2", tu_khoa: ["ngày, tháng, năm khiếu nại", "ngày tháng năm khiếu nại", "ngày làm đơn", "ngày viết đơn"]}
+  - {stt: 2, key: nguoi_khieu_nai, ten: "Tên, địa chỉ của người khiếu nại", can_cu: "02/2011/QH13 > Điều 8 > Khoản 2", tu_khoa: ["tên, địa chỉ của người khiếu nại", "người khiếu nại", "họ và tên người khiếu nại", "địa chỉ người khiếu nại"]}
+  - {stt: 3, key: nguoi_bi_khieu_nai, ten: "Tên, địa chỉ của cơ quan, tổ chức, cá nhân bị khiếu nại", can_cu: "02/2011/QH13 > Điều 8 > Khoản 2", tu_khoa: ["bị khiếu nại", "cơ quan, tổ chức, cá nhân bị khiếu nại", "đối tượng bị khiếu nại", "người bị khiếu nại"]}
+  - {stt: 4, key: noi_dung_ly_do, ten: "Nội dung, lý do khiếu nại", can_cu: "02/2011/QH13 > Điều 8 > Khoản 2", tu_khoa: ["nội dung, lý do khiếu nại", "nội dung khiếu nại", "lý do khiếu nại", "nội dung và lý do"]}
+  # `ten` CỐ Ý viết "kèm theo đơn" thay vì nguyên văn "liên quan đến nội dung
+  # khiếu nại" của Đ8.2: cụm "nội dung khiếu nại" là từ khoá của mục 4, và
+  # `extract_clauses` lấy mục ĐẦU TIÊN khớp, nên giữ nguyên văn sẽ để mục 4
+  # nuốt mất điều khoản này — mục 5 báo thiếu vĩnh viễn dù có mặt.
+  # `test_soan_ra_roi_soat_lai_tach_dung_tung_muc` bắt đúng lỗi đó. Nguyên văn
+  # Đ8.2 vẫn được trích đủ ở đầu file.
+  - {stt: 5, key: tai_lieu, ten: "Tài liệu liên quan kèm theo đơn", can_cu: "02/2011/QH13 > Điều 8 > Khoản 2", tu_khoa: ["tài liệu liên quan", "tài liệu kèm theo", "chứng cứ kèm theo", "danh mục tài liệu"]}
+  - {stt: 6, key: yeu_cau, ten: "Yêu cầu giải quyết của người khiếu nại", can_cu: "02/2011/QH13 > Điều 8 > Khoản 2", tu_khoa: ["yêu cầu giải quyết", "yêu cầu của người khiếu nại", "đề nghị giải quyết", "kiến nghị giải quyết"]}
+  - {stt: 7, key: ky_ten, ten: "Chữ ký hoặc điểm chỉ của người làm đơn", can_cu: "02/2011/QH13 > Điều 8 > Khoản 2", tu_khoa: ["ký tên hoặc điểm chỉ", "chữ ký", "điểm chỉ", "người làm đơn ký"]}

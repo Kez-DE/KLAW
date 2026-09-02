@@ -1,0 +1,132 @@
+@import 'tailwindcss';
+@import './styles/tokens.css';
+@import './styles/may-doc.css';
+
+/* Self-hosted webfonts — bốn vai của spec §5.2. Mọi họ dưới đây đã kiểm có
+   subset "vietnamese" và phủ đủ glyph của chuỗi kiểm bắt buộc (xem README.md);
+   không họ nào phải thay bằng Noto. Self-host qua @fontsource, KHÔNG next/font
+   (đây là Vite) và không phụ thuộc Google Fonts CDN — người dùng ở mạng yếu.
+   Mỗi file `<weight>.css` khai đủ các subset kèm unicode-range, nên trình duyệt
+   chỉ tải đúng subset nó cần. Chỉ nạp weight thật có chỗ dùng. */
+@import '@fontsource/playfair-display/500.css'; /* h1/h2 font-medium */
+@import '@fontsource/playfair-display/600.css'; /* h1 font-semibold */
+@import '@fontsource/be-vietnam-pro/400.css';
+@import '@fontsource/be-vietnam-pro/500.css';
+@import '@fontsource/be-vietnam-pro/600.css'; /* font-semibold: trước đây thiếu face này */
+@import '@fontsource/be-vietnam-pro/700.css';
+@import '@fontsource/source-serif-4/400.css';
+@import '@fontsource/source-serif-4/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--nen);
+  color: var(--phim);
+  font-family: var(--font-doc);
+}
+
+/* Tiêu đề — Playfair Display (spec §5.2). Chỉ h1/h2, CỐ Ý không h3: đo được
+   mọi h3 trong dự án render ở 13px (`text-[0.8125rem]`, 4 chỗ) — chúng là NHÃN,
+   đúng vai `caption 13px` của spec, không phải vai `h3 24px`. Một serif tương
+   phản cao ở 13px làm mất nét mảnh và bó chặt dấu tiếng Việt xếp tầng (ế, ộ).
+   h1/h2 render ở 16–30px, đúng khổ của Playfair.
+
+   Vì sao có nhánh `hN.mat-doc` trông như thừa: 13 trong 35 tiêu đề mang class
+   `.mat-doc` (0,1,0) để lấy khổ đọc, và nó đặt `font-family` — thắng selector
+   phần tử trần (0,0,1). Không có nhánh này thì 13 tiêu đề đó lặng lẽ ở lại
+   Be Vietnam Pro và hệ tiêu đề vỡ làm hai. ĐỪNG gộp lại cho gọn.
+   Không dùng @layer base: `.mat-doc`/`.chu-tren-phim` nằm ngoài layer nên sẽ
+   thắng mọi thứ trong layer, bất kể specificity.
+   `.chu-tren-phim` (0,1,0) vẫn thắng `h1, h2` — nguyên văn luật trên phim giữ
+   Source Serif 4, đúng DESIGN.md ("phim là phim"). */
+h1,
+h2,
+h1.mat-doc,
+h2.mat-doc {
+  font-family: var(--font-tieu-de);
+}
+
+/* Mặt đọc — thân 17px/di động, 18px/desktop, dòng 1.7 (DESIGN.md).
+   Dấu tiếng Việt cần dòng rộng hơn tiếng Anh nên line-height không hạ thấp hơn. */
+.mat-doc {
+  font-family: var(--font-doc);
+  font-size: 17px;
+  line-height: 1.7;
+  max-width: var(--be-rong-doc-toi-da);
+}
+@media (min-width: 768px) {
+  .mat-doc {
+    font-size: 18px;
+  }
+}
+
+/* Chữ trên phim không bao giờ đổi màu theo trạng thái — trạng thái sống ở
+   nhãn/viền khung, không phải ở màu chữ (DESIGN.md). */
+.chu-tren-phim {
+  font-family: var(--font-phim);
+  color: var(--muc);
+}
+
+.dia-chi {
+  font-family: var(--font-dia-chi);
+}
+
+/* Lưới an toàn của focus-reset (lib/useTieuDeTrang.ts): khi một tuyến chưa kịp
+   dựng h1 trong 1 giây, tiêu điểm rơi về chính <main>. Không có vòng tiêu điểm
+   ở đó thì người dùng bàn phím CÓ MẮT không biết mình đang đứng đâu sau khi
+   chuyển tuyến — đo được `outline-style: none`, vi phạm WCAG 2.4.7 (AA).
+
+   `:focus` chứ không `:focus-visible`: tiêu điểm ở đây do script đặt ngay sau
+   một cú bấm chuột vào Nav, và một số trình duyệt KHÔNG coi đó là "visible".
+   Offset ÂM để vòng nằm bên trong: <main> chiếm trọn bề ngang khung nhìn. */
+#noi-dung-chinh:focus {
+  outline: 2px solid var(--den-sang);
+  outline-offset: -4px;
+}
+
+/* Bỏ qua để tới nội dung chính — WCAG 2.4.1, ẩn tới khi được focus bằng bàn phím. */
+.bo-qua-lien-ket {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-khung-roi-sang);
+  padding: 0.75rem 1rem;
+  background: var(--den-sang);
+  color: var(--muc);
+  transform: translateY(-100%);
+  transition: transform var(--thoi-luong-nhanh) var(--ease-chuan);
+}
+.bo-qua-lien-ket:focus {
+  transform: translateY(0);
+}
+
+/* Đổi khay phim — chuyển giữa 3 màn hình bằng View Transitions API gốc của
+   trình duyệt (react-router-dom's `viewTransition` prop), không thư viện
+   animation. Trình duyệt không hỗ trợ (điện thoại đời cũ) tự động rơi về
+   chuyển trang tức thời — không lỗi, chỉ mất hiệu ứng. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: doi-khay-ra var(--thoi-luong-doi-khay) var(--ease-tien-toi) both;
+  }
+  ::view-transition-new(root) {
+    animation: doi-khay-vao var(--thoi-luong-doi-khay) var(--ease-tien-toi) both;
+  }
+}
+
+@keyframes doi-khay-ra {
+  to {
+    transform: translateX(-2%) translateZ(calc(var(--sau-tien) * -1));
+    opacity: 0;
+  }
+}
+@keyframes doi-khay-vao {
+  from {
+    transform: translateX(2%) translateZ(calc(var(--sau-tien) * -1));
+    opacity: 0;
+  }
+}

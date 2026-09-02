@@ -31,4 +31,11 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --no-proxy-headers: uvicorn defaults to proxy_headers=True with
+# forwarded_allow_ips="127.0.0.1", so ProxyHeadersMiddleware replaces
+# scope["client"] with the caller-supplied X-Forwarded-For value BEFORE any
+# line of src/ runs. That silently defeats bao_ve.ip_goi's do-not-trust
+# policy one layer below it, turning per-IP rate limiting into decoration.
+# Re-enable only behind a real reverse proxy, and then via
+# KLAW_TIN_PROXY_HEADER + KLAW_SO_HOP_PROXY_TIN_CAY so one place decides.
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-proxy-headers"]

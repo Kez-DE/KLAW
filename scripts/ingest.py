@@ -8,6 +8,7 @@ from pathlib import Path
 from sqlalchemy import text
 
 from src.services.db import get_engine, run_migrations
+from src.services.xref import resolve_all
 
 TEP_SEED = ("documents.jsonl", "provisions.jsonl", "references.jsonl")
 
@@ -106,6 +107,23 @@ def ingest(seed: Path) -> dict[str, int]:
                     'INSERT INTO "references" (from_document_id, to_document_id, loai, raw_text)'
                     " VALUES (:from_document_id, :to_document_id, :loai, :raw_text)"), r)
                 written["references"] += 1
+
+    # NGOÀI khối `begin()` ở trên: `resolve_all` mở giao dịch riêng của nó, nên
+    # gọi từ bên trong sẽ lồng giao dịch.
+    #
+    # Vì sao ở đây chứ không để người chạy tay: dẫn chiếu cấp điều khoản là thứ
+    # `/van-ban/{id}/lien-quan` đọc, và tới 2026-09-01 `resolve_all` không được
+    # gọi từ chỗ nào trong `src/` hay `scripts/` — 2.971 cạnh trong DB có mặt
+    # thuần tuý vì ai đó đã chạy bộ test. Một lần triển khai sạch sẽ có 0 cạnh
+    # và endpoint báo "0 dẫn chiếu nội bộ" cho MỌI văn bản: một con số sai
+    # trông y hệt một con số đúng.
+    #
+    # Và vòng lặp trên vừa `DELETE ... WHERE from_document_id = :id` cho mỗi
+    # văn bản được nạp lại — xoá luôn cạnh cấp điều khoản của nó. Không dựng
+    # lại ở đây thì mỗi lần nạp lại là một lần âm thầm phá dữ liệu.
+    #
+    # Idempotent (có test riêng): chạy hai lần ra cùng số cạnh, không nhân đôi.
+    written["canh_dieu_khoan"] = resolve_all(eng)
 
     return written
 

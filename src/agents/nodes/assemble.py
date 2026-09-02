@@ -65,6 +65,13 @@ ABSTAIN_THRESHOLD_DEFAULT = 0.5
 # tin đó, nên KHÔNG được dùng làm toàn bộ câu cảnh báo.
 CANH_BAO_NHAN = {
     V.mot_phan_khong_xac_dinh: "hết hiệu lực một phần",
+    # Mức 4 — bản đồ sửa đổi cấp điều khoản (VBHN của Công báo). Đây là bản
+    # CHÍNH XÁC HƠN của `mot_phan_khong_xac_dinh` ngay trên: nó nêu đích danh
+    # điều khoản nào, bị văn bản nào sửa, từ ngày nào. Bảng này là WHITELIST nên
+    # verdict mới mặc định IM LẶNG — thiếu dòng này thì đúng những điều khoản ta
+    # biết rõ nhất lại thành những điều khoản duy nhất không cảnh báo gì, tức
+    # một cải tiến biến thành hồi quy.
+    V.bi_sua_doi: "đã bị sửa đổi",
     V.bi_thay_the: "đã bị thay thế",
     V.het_hieu_luc: "đã hết hiệu lực",
     V.chua_hieu_luc: "chưa có hiệu lực",
@@ -78,6 +85,17 @@ class ResultType(StrEnum):
     partial_coverage = "partial_coverage"
     abstain = "abstain"
     out_of_scope = "out_of_scope"
+    # Loại thứ NĂM. Bốn loại kia mô tả điều gì đã xảy ra với một lượt TRA CỨU;
+    # loại này nói rằng câu hỏi không phải một lượt tra cứu. Tách ra thay vì
+    # mượn `out_of_scope` vì hai câu dưới đây đáng nhận hai lời đáp khác nhau:
+    #   "Thuế thu nhập cá nhân tính thế nào?" → ngoài phạm vi thật, từ chối đúng
+    #   "bạn làm được những gì"               → hỏi về trợ lý, phải trả lời
+    gioi_thieu = "gioi_thieu"
+    # Xin SOẠN một văn bản. Trước bản này `intent == soan_thao` không có nhánh
+    # riêng nên rơi thẳng vào đường tra cứu, và người hỏi "soạn cho tôi hợp
+    # đồng lao động" nhận về một bài giảng về Điều 20 — đúng luật, và không
+    # phải thứ họ xin.
+    huong_dan_soan_thao = "huong_dan_soan_thao"
 
 
 class Citation(TypedDict):
@@ -97,6 +115,10 @@ class Citation(TypedDict):
 
     provision_id: int
     khop_tai_id: int
+    # `documents.id` (TEXT). FE dựng URL click-to-verify từ đây:
+    # `GET /api/v1/van-ban/{doc_id}?around={khop_tai_id}`. Không có nó, citation
+    # chỉ có `so_ky_hieu` — không đủ để mở panel đối chiếu.
+    doc_id: str
     duong_dan: str
     bo_luat: str
     so_ky_hieu: str
@@ -117,6 +139,11 @@ def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: boo
         "result_type": rt,
         "answer": None,
         "citations": [],
+        # `nguon` KHÁC `citations`: citations là trích dẫn ĐÃ QUA hai tầng kiểm,
+        # nguon chỉ là "văn bản nào chi phối câu hỏi này" — đủ để mở mục lục,
+        # không kèm quote vì chưa có gì được kiểm chứng để trích. Chỉ nhánh
+        # `partial_coverage` điền; các nhánh khác giữ rỗng.
+        "nguon": [],
         "warnings": [],
         "coverage_note": None,
         "traces": {
@@ -226,7 +253,79 @@ def _ly_do_moi_nguon_bi_thay(qua_loc: list) -> str:
             "văn bản hiện hành từ dữ liệu sẵn có.")
 
 
+# Câu trả lời cho `intent == gioi_thieu`. CỐ Ý không nhúng số liệu corpus (số
+# văn bản, số điều khoản): chúng đổi mỗi lần mở rộng kho, và một con số cũ nằm
+# trong lời tự giới thiệu là kiểu sai khó phát hiện nhất — không test nào đỏ,
+# không ai đọc lại. `/pham-vi` đọc thẳng từ DB, nên chỗ đó mới là chỗ nói số.
+#
+# Nói được mình làm gì mà không nói được mình KHÔNG làm gì thì là quảng cáo,
+# không phải câu trả lời trung thực — nên đoạn giới hạn nằm ngay trong này chứ
+# không nằm ở một trang khác người hỏi phải tự tìm.
+GIOI_THIEU = (
+    "Chào bạn. Tôi tra cứu pháp luật Việt Nam và soạn thảo văn bản pháp lý lao động.\n"
+    "\n"
+    "Điều tôi làm khác các trợ lý khác: mỗi câu tôi nói đều neo vào một trích dẫn "
+    "bạn bấm được để mở đúng nguyên văn điều luật, và trước khi hiển thị, câu trích "
+    "đó đã được đối chiếu từng chữ với văn bản gốc. Nếu không đủ căn cứ, tôi nói "
+    "thẳng là không đủ — tôi không đoán.\n"
+    "\n"
+    "Bạn hỏi được: quyền lợi khi bị trừ lương hay cho nghỉ việc, thời giờ làm việc "
+    "và nghỉ phép, hợp đồng lao động, kỷ luật lao động, an toàn lao động, và nội "
+    "dung của sáu Bộ luật (Dân sự, Hình sự, Tố tụng dân sự, Tố tụng hình sự, Lao "
+    "động, Hàng hải). Tôi soạn được hợp đồng lao động, nội quy lao động và quyết "
+    "định kỷ luật.\n"
+    "\n"
+    "Tôi chưa phủ: thuế, đất đai, hôn nhân gia đình, doanh nghiệp, đầu tư, sở hữu "
+    "trí tuệ. Chiều sâu cũng không đều — riêng Lao động mới có đủ luật, nghị định, "
+    "thông tư và chế tài.\n"
+    "\n"
+    "Một điều nữa bạn nên biết: kho của tôi là văn bản gốc, không phải bản hợp "
+    "nhất. Tôi bảo đảm trích dẫn đúng nguyên văn và đúng nguồn, và tôi gắn nhãn "
+    "hiệu lực cho từng trích dẫn — nhưng bạn vẫn nên đối chiếu bản hiện hành trước "
+    "khi dùng vào việc quan trọng."
+)
+
+
+# Câu trả lời cho `intent == soan_thao`.
+#
+# KHÔNG soạn ở đây, và đó là chủ đích. Một bản thảo dựng từ văn xuôi tự do sẽ có
+# những điều khoản không neo được vào căn cứ nào — đúng thứ dự án tồn tại để
+# không làm. `SoanThaoRequest` đòi `loai_van_ban` (chọn checklist) và `facts`
+# (điền, rồi chạy rule) chính vì thế; một câu như "soạn hợp đồng cho tôi" không
+# cho hệ thống hai thứ đó.
+#
+# CỐ Ý không liệt kê các loại soạn được ở đây. Tên hiển thị của chúng sống ở
+# `mau-van-ban.ts` phía FE, và một bản sao thứ hai trong chuỗi Python này sẽ
+# lệch pha đúng vào ngày ai đó thêm mẫu mới — màn soạn thảo tự liệt kê được.
+HUONG_DAN_SOAN_THAO = (
+    "Việc này tôi soạn được, nhưng không phải ở ô hỏi này.\n"
+    "\n"
+    "Để mỗi điều khoản trong bản thảo neo được vào một căn cứ pháp lý riêng, tôi "
+    "cần biết loại văn bản và các dữ kiện cụ thể — các bên, thời hạn, mức lương, "
+    "công việc. Một câu văn xuôi không cho tôi đủ, và tôi không muốn dựng cho bạn "
+    "một văn bản mà chính tôi không chứng minh được nó dựa vào đâu.\n"
+    "\n"
+    "Bạn mở màn Soạn thảo, chọn loại văn bản rồi điền biểu mẫu. Tôi dựng bản thảo "
+    "kèm căn cứ cho từng điều khoản, đối chiếu lại nó với luật trong kho, rồi bạn "
+    "tải về .docx hoặc .pdf."
+)
+
+
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> dict:
+    if state.get("intent") == "soan_thao":
+        # `graph_tra_cuu._RE_TAT` rẽ ý định này thẳng tới đây ngay sau `route`,
+        # nên KHÔNG có truy hồi, không sinh luận điểm, không hai tầng kiểm.
+        # Chú thích "0 token" chỉ đúng khi đường rẽ đó còn — nếu ai gỡ nó, khâu
+        # này vẫn không gọi LLM nhưng cả graph phía trước thì có.
+        return _base(state, ResultType.huong_dan_soan_thao, answer=HUONG_DAN_SOAN_THAO)
+
+    if state.get("intent") == "gioi_thieu":
+        # Xem chú thích ở nhánh `soan_thao` ngay trên: rẻ được là nhờ đường rẽ
+        # tắt trong `graph_tra_cuu`, không nhờ riêng khâu này không gọi LLM.
+        # ĐO ĐƯỢC 2026-09-02, TRƯỚC khi có đường rẽ: nhánh này tiêu 8.975 token
+        # và dựng 15 luận điểm qua cả hai tầng rồi vứt sạch.
+        return _base(state, ResultType.gioi_thieu, answer=GIOI_THIEU)
+
     if state.get("intent") == "ngoai_pham_vi":
         return _base(
             state, ResultType.out_of_scope,
@@ -248,16 +347,41 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
 
     # PARTIAL_COVERAGE — nhánh xác định, KHÔNG gọi LLM: chỉ trúng tầng nông thì
     # nêu luật liên quan chứ không được diễn giải nội dung chưa được kiểm chứng.
-    if not deep and shallow:
+    def _phu_mot_phan() -> dict:
         luat = sorted({f"{p['so_ky_hieu']} ({p.get('ten') or ''})".strip() for p in shallow})
         dieu = ", ".join(p["duong_dan"] for p in shallow[:3])
-        return _base(state, ResultType.partial_coverage, coverage_note=(
+        # Gộp theo doc_id: nhiều Điều của cùng một văn bản là MỘT nguồn. Không
+        # có doc_id thì bỏ qua dòng đó — thà thiếu một link còn hơn dựng một
+        # link hỏng, và giao diện đã có `coverage_note` nêu tên văn bản.
+        nguon: list[dict] = []
+        for p in shallow:
+            doc_id = str(p.get("document_id") or "")
+            if doc_id and not any(n["doc_id"] == doc_id for n in nguon):
+                nguon.append({"doc_id": doc_id, "so_ky_hieu": p.get("so_ky_hieu", ""),
+                              "bo_luat": p.get("ten") or ""})
+        return _base(state, ResultType.partial_coverage, nguon=nguon, coverage_note=(
             f"Câu hỏi thuộc {'; '.join(luat)} — liên quan {dieu}. "
             "KLAW phủ sâu 6 Bộ luật và các văn bản hướng dẫn về lao động; "
             "chưa phủ nghị định/thông tư hướng dẫn lĩnh vực này nên không diễn giải chi tiết."
         ))
 
+    # Gọi khi truy hồi CHỈ chạm tầng nông.
+    if not deep and shallow:
+        return _phu_mot_phan()
+
     if state.get("insufficient_evidence"):
+        # ĐO ĐƯỢC 2026-09-01: "Nghị định 95/2026 quy định gì?" truy hồi 18 kết
+        # quả — 16 tầng sâu KHÔNG LIÊN QUAN và 2 tầng nông ĐÚNG. Điều kiện
+        # `not deep` ở trên thấy `deep` khác rỗng nên bỏ qua, rồi
+        # `generate_claims` sinh 0 luận điểm từ 16 nguồn kia, và người hỏi nhận
+        # một `abstain` trơ — trong khi hệ thống đang cầm đúng tên văn bản chi
+        # phối câu hỏi.
+        #
+        # Nhánh này chỉ NÂNG CẤP một `abstain`. Nó không thể chen chỗ một câu
+        # trả lời thật: mọi đường có luận điểm dùng được đều nằm phía dưới và
+        # không đi qua đây.
+        if shallow:
+            return _phu_mot_phan()
         return _base(state, ResultType.abstain)
 
     tier1 = state.get("tier1") or []
@@ -309,12 +433,23 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         # nghĩa "không có Khoản con nào khác để tách".
         khop_tai = r.khop_tai
         row_id = khop_tai if khop_tai is not None and khop_tai in db_provisions else r.claim.provision_id
-        p = db_provisions.get(row_id, {})
+        # KHÔNG `.get(row_id, {})`: một id thiếu ở đây là bất biến bị vỡ, không
+        # phải dữ liệu vắng. Rơi về `{}` phát ra citation `duong_dan`/`so_ky_hieu`
+        # RỖNG nhưng vẫn đếm là "đã kiểm chứng" — nó vào tỉ lệ quyết định abstain
+        # và hiện ra cạnh một `quote` thật. Trên sản phẩm này, một trích dẫn rỗng
+        # đội lốt đã-kiểm-chứng là kiểu hỏng tệ nhất có thể có, nên nó phải NỔ.
+        if row_id not in db_provisions:
+            raise KeyError(
+                f"db_provisions thiếu provisions.id={row_id} mà claim đã qua tầng 1 đang dẫn "
+                f"(provision_id={r.claim.provision_id}, khop_tai={r.khop_tai}) — bất biến vỡ"
+            )
+        p = db_provisions[row_id]
         eff = r.effectivity
         so_ky_hieu = p.get("so_ky_hieu", "")
         citations.append({
             "provision_id": r.claim.provision_id,
             "khop_tai_id": row_id,
+            "doc_id": str(p.get("document_id") or ""),
             "duong_dan": p.get("duong_dan", ""),
             "bo_luat": p.get("ten", ""),
             "so_ky_hieu": so_ky_hieu,
@@ -345,7 +480,19 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
         return ket
 
-    claims_txt = "\n".join(f"- {r.claim.text}" for r in dung_cho_prose)
+    # Kèm `duong_dan` ĐÃ XÁC MINH của từng khẳng định: prompt hành văn nay cho
+    # phép dẫn số Điều ngay trong lời văn (giọng luật sư), và cách duy nhất để
+    # việc đó an toàn là mô hình chỉ nhìn thấy đúng những số Điều đã qua tầng
+    # 1+2. `_dieu_khong_duoc_chong_do` vẫn là lưới cuối: nhắc một số Điều ngoài
+    # tập này thì cả câu trả lời bị hạ xuống abstain.
+    #
+    # `strict=True` khoá bất biến hai danh sách khớp chỉ số — chúng được append
+    # cùng một nhánh `else` ở vòng lặp trên, và nếu ai đó tách chúng ra thì lỗi
+    # phải nổ ở đây chứ không phải hiện thành một trích dẫn gắn nhầm khẳng định.
+    claims_txt = "\n".join(
+        f"- {r.claim.text}\n  (căn cứ: {c['duong_dan']} — {c['bo_luat']})"
+        for r, c in zip(dung_cho_prose, citations_dung_cho_prose, strict=True)
+    )
     prompt = PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi=state.get("query", ""), claims=claims_txt)
     usage: Usage | None = None
     degraded = False

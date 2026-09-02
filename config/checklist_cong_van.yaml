@@ -1,0 +1,98 @@
+# Checklist THỂ THỨC của CÔNG VĂN — NĐ 30/2020 Đ8.2 a-i, chín điểm, mỗi mục
+# một điểm luật riêng. Đ7 là mắt xích bắc cầu: nó liệt kê "công văn" trong danh
+# sách văn bản hành chính, và chính vì thế Đ8.2 mới với tới được loại này.
+#
+# ══ PHẢI ĐỌC TRƯỚC KHI TIN CON SỐ COMPLETENESS CỦA MẪU NÀY ══
+#
+# 1. MẪU NÀY SOÁT HÌNH THỨC, KHÔNG SOÁT NỘI DUNG. NĐ 30/2020 quy định THỂ THỨC
+#    (quốc hiệu, số ký hiệu, nơi nhận, chữ ký…), không quy định nghiệp vụ mà
+#    một công văn phải nói. completeness 1.0 ở đây nghĩa là "đủ chín thành phần
+#    thể thức", KHÔNG nghĩa là "công văn này viết đúng việc".
+#
+#    Khác với `noi_quy` (BLLĐ Đ118.2) hay `don_khoi_kien` (BLTTDS Đ189.4) —
+#    ở hai mẫu đó luật liệt kê NỘI DUNG, nên completeness là một phát biểu về
+#    chất lượng nội dung. Ở đây nó là một phát biểu về bìa thư.
+#
+#    Công văn là loại văn bản DUY NHẤT trong nhóm này mà giới hạn đó không phải
+#    một khuyết thiếu: luật không đặt ra nội dung bắt buộc nào cho công văn —
+#    thân công văn là văn xuôi tự do — nên thể thức đúng là TOÀN BỘ những gì
+#    pháp luật đòi ở nó. Với `quyết định bổ nhiệm` hay `quy chế nội bộ` thì
+#    ngược lại, và đó là lý do hai loại đó KHÔNG được dựng bằng Đ8.2 (xem
+#    .superpowers/sdd/mo-rong-mau-report.md).
+#
+# 2. PHẠM VI ÁP DỤNG HẸP HƠN TÊN GỌI. Đ2.1: Nghị định này áp dụng đối với "cơ
+#    quan, tổ chức nhà nước và doanh nghiệp nhà nước". Đ2.2 mở cho tổ chức
+#    chính trị - xã hội "áp dụng cho phù hợp". DOANH NGHIỆP TƯ NHÂN KHÔNG NẰM
+#    TRONG PHẠM VI ĐÓ: với họ, chín thành phần dưới đây là CHUẨN MỰC HÀNH CHÍNH
+#    phổ biến (và là thứ cơ quan nhà nước nhận công văn mong đợi), không phải
+#    một nghĩa vụ pháp lý. `muc_do_thieu: chan` bên dưới đúng cho đối tượng
+#    trong phạm vi Đ2.1; với doanh nghiệp tư nhân hãy đọc nó là "lệch chuẩn",
+#    không phải "trái luật".
+#
+# 3. PHỤ LỤC I KHÔNG CÓ TRONG KHO. Đ8.4 và Đ9 đẩy toàn bộ chi tiết trình bày
+#    (khổ giấy, phông chữ, vị trí từng thành phần, và các quy tắc riêng cho
+#    từng loại văn bản) sang Phụ lục I. Bản đã nạp chỉ giữ được khối ký tên của
+#    Phụ lục (48 ký tự), không có nội dung. Hệ quả cụ thể: quy tắc "công văn
+#    KHÔNG ghi tên loại, chỉ ghi trích yếu dưới số ký hiệu" nằm ở Phụ lục I nên
+#    KHÔNG trích dẫn được. Mục `trich_yeu` dưới đây vì thế nhận trích yếu
+#    ("V/v…") là đủ và không đòi thêm tên loại — đòi thêm sẽ báo thiếu cho một
+#    công văn viết ĐÚNG.
+#
+# 4. SOÁT VĂN BẢN DÁN VÀO CHỈ ĐÚNG VỚI VĂN BẢN CÓ ĐÁNH MỤC. `extract_clauses`
+#    cắt văn bản theo dòng "Thành phần N."; một công văn thật trình bày theo
+#    khối trên giấy, không đánh số, nên dán nguyên vào POST /soat sẽ cho MỘT
+#    khối và completeness ~1/9. Đây là giới hạn CHUNG của mọi mẫu trong repo
+#    (đơn khởi kiện, biên bản họp cũng vậy), không riêng mẫu này; đường đi đúng
+#    là POST /soan-thao rồi soát lại chính markdown nó trả về.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '30/2020/NĐ-CP > Điều 8 > Khoản 2%'
+#       OR duong_dan IN ('30/2020/NĐ-CP > Điều 7', '30/2020/NĐ-CP > Điều 2 > Khoản 1');
+loai: cong_van
+ten: "công văn"
+tieu_de: "CÔNG VĂN"
+
+# "Thành phần", không "Điều"/"Mục": Đ8.1 gọi đúng chín thứ dưới đây là "các
+# thành phần cấu thành văn bản". Đơn vị này cũng nói thẳng với người đọc rằng
+# cái /soan-thao trả về là một BỘ KHUNG THỂ THỨC, không phải một công văn đã
+# viết xong — gọi nó là "Điều 1." sẽ khiến nó trông như một bản hoàn chỉnh.
+don_vi_muc: "Thành phần"
+
+# `chan`: Đ8.2 dùng chữ "bao gồm các thành phần chính", không phải "có thể gồm"
+# (đối chiếu BLDS Đ398.2 ở checklist hợp đồng nguyên tắc, nơi mức đúng là
+# canh_bao). Đọc kèm giới hạn phạm vi số 2 ở đầu file.
+# Lộ ra `GET /mau/{loai}` để frontend gắn nhãn đúng thay vì viết cứng một
+# danh sách tên loại. Xem giới hạn ở đầu file: các MỤC dưới đây là thành phần
+# trình bày của NĐ 30/2020 Đ8.2, không phải nội dung nghiệp vụ.
+pham_vi_soat: the_thuc
+
+muc_do_thieu: chan
+
+# Không rule nào. NĐ 30/2020 không đặt một ngưỡng số học hay điều cấm nào có
+# thể kiểm bằng fact: Đ13 (thẩm quyền ký), Đ11 (duyệt bản thảo), Đ12 (kiểm tra
+# trước khi ký) đều là quy trình nội bộ của cơ quan ban hành, và văn bản thành
+# phẩm không mang bằng chứng nào cho biết quy trình đó đã chạy hay chưa. Kiểm
+# chúng bằng một ô tick người dùng tự khai là kiểm một lời khai bằng chính nó.
+rules: []
+
+can_cu_goc: "30/2020/NĐ-CP > Điều 8 > Khoản 2"
+# Đ7 chứ không phải Đ9: Đ7 là điều DUY NHẤT nối chữ "công văn" vào chế định
+# này. Không có nó, Đ8.2 chỉ nói về "văn bản hành chính" nói chung và mẫu này
+# thiếu mắt xích chứng minh nó áp cho đúng loại văn bản đang soạn.
+can_cu_chi_tiet: "30/2020/NĐ-CP > Điều 7"
+
+# Chín thành phần CHÍNH của Đ8.2. Bốn thành phần BỔ SUNG của Đ8.3 (phụ lục,
+# dấu chỉ độ mật, ký hiệu người soạn thảo, địa chỉ/email/điện thoại) CỐ Ý không
+# có mặt ở đây: chính văn Đ8.3 nói "văn bản CÓ THỂ bổ sung", nên đưa chúng vào
+# rồi đánh dấu khong_bat_buoc chỉ thêm bốn dòng không thay đổi phép soát nào.
+muc:
+  - {stt: 1, key: quoc_hieu, ten: "Quốc hiệu và Tiêu ngữ", diem: a, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm a", tu_khoa: ["quốc hiệu", "cộng hoà xã hội chủ nghĩa việt nam", "cộng hòa xã hội chủ nghĩa việt nam", "độc lập - tự do - hạnh phúc"]}
+  - {stt: 2, key: ten_co_quan, ten: "Tên cơ quan, tổ chức ban hành văn bản", diem: b, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm b", tu_khoa: ["tên cơ quan, tổ chức ban hành", "cơ quan, tổ chức ban hành", "tên cơ quan", "cơ quan ban hành", "tổ chức ban hành", "đơn vị ban hành"]}
+  - {stt: 3, key: so_ky_hieu, ten: "Số, ký hiệu của văn bản", diem: c, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm c", tu_khoa: ["số, ký hiệu của văn bản", "số và ký hiệu", "số, ký hiệu", "ký hiệu", "số văn bản"]}
+  - {stt: 4, key: dia_danh_thoi_gian, ten: "Địa danh và thời gian ban hành văn bản", diem: d, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm d", tu_khoa: ["địa danh và thời gian ban hành", "địa danh, thời gian ban hành", "thời gian ban hành", "địa danh"]}
+  - {stt: 5, key: trich_yeu, ten: "Tên loại và trích yếu nội dung văn bản", diem: đ, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm đ", tu_khoa: ["trích yếu nội dung", "trích yếu", "v/v"]}
+  - {stt: 6, key: noi_dung, ten: "Nội dung văn bản", diem: e, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm e", tu_khoa: ["nội dung văn bản", "nội dung chính", "nội dung", "kính gửi"]}
+  - {stt: 7, key: chuc_vu_chu_ky, ten: "Chức vụ, họ tên và chữ ký của người có thẩm quyền", diem: g, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm g", tu_khoa: ["chữ ký của người có thẩm quyền", "chức vụ, họ tên và chữ ký", "họ tên và chữ ký", "người có thẩm quyền", "người ký văn bản"]}
+  - {stt: 8, key: dau_chu_ky_so, ten: "Dấu, chữ ký số của cơ quan, tổ chức", diem: h, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm h", tu_khoa: ["chữ ký số của cơ quan", "dấu, chữ ký số", "chữ ký số", "đóng dấu", "con dấu"]}
+  - {stt: 9, key: noi_nhan, ten: "Nơi nhận", diem: i, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm i", tu_khoa: ["nơi nhận"]}

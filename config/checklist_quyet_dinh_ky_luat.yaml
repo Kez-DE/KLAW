@@ -1,0 +1,42 @@
+# Checklist nội dung của QUYẾT ĐỊNH XỬ LÝ KỶ LUẬT LAO ĐỘNG — BLLĐ Đ122-124,
+# Đ127 và NĐ 145/2020 Đ70.
+#
+# KHÁC MỌI MẪU CÒN LẠI Ở MỘT ĐIỂM PHẢI NÓI RÕ: luật KHÔNG liệt kê "nội dung của
+# quyết định xử lý kỷ luật" thành một danh mục như Đ21.1 (HĐLĐ), Đ118.2 (nội
+# quy) hay Đ189.4 (đơn khởi kiện). Cái luật liệt kê là những điều PHẢI ĐÚNG thì
+# việc xử lý kỷ luật mới hợp pháp — chứng minh được lỗi, có tổ chức đại diện
+# tham gia, người lao động được bào chữa, lập biên bản, đúng hình thức, trong
+# thời hiệu, đúng thẩm quyền. Tám mục dưới đây là tám điều kiện đó, mỗi mục dẫn
+# đúng điều khoản đặt ra nó.
+#
+# Hệ quả cho người đọc báo cáo soát: một mục thiếu ở đây nghĩa là quyết định
+# KHÔNG THỂ HIỆN được điều kiện luật đòi, chứ không phải nó thiếu một đề mục
+# hình thức. Đó là một khẳng định mạnh hơn, và nó chính là thứ đáng soát ở loại
+# văn bản này — một quyết định sa thải sai trình tự bị tuyên huỷ.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '45/2019/QH14 > Điều 12[2347]%'
+#       OR duong_dan LIKE '145/2020/NĐ-CP > Điều 70%';
+loai: quyet_dinh_ky_luat
+ten: "quyết định xử lý kỷ luật lao động"
+tieu_de: "QUYẾT ĐỊNH XỬ LÝ KỶ LUẬT LAO ĐỘNG"
+
+# Đ127.2 cấm "phạt tiền, cắt lương thay việc xử lý kỷ luật lao động" — điều cấm
+# nhắm THẲNG vào chính văn bản này, không phải suy rộng từ chế định khác. Đây
+# là loại văn bản mà rule đó được viết ra để soát.
+rules:
+  - cam_phat_tien_nld
+
+can_cu_goc: "45/2019/QH14 > Điều 122"
+can_cu_chi_tiet: "145/2020/NĐ-CP > Điều 70"
+
+muc:
+  - {stt: 1, key: hanh_vi_vi_pham,   ten: "Hành vi vi phạm kỷ luật lao động và lỗi của người lao động", can_cu: "45/2019/QH14 > Điều 122 > Khoản 1 > Điểm a", tu_khoa: ["hành vi vi phạm", "lỗi của người lao động"]}
+  - {stt: 2, key: can_cu_noi_quy,    ten: "Điều khoản của nội quy lao động làm căn cứ xử lý", can_cu: "45/2019/QH14 > Điều 127 > Khoản 3", tu_khoa: ["nội quy lao động"]}
+  - {stt: 3, key: hinh_thuc,         ten: "Hình thức xử lý kỷ luật được áp dụng", can_cu: "45/2019/QH14 > Điều 124", tu_khoa: ["hình thức xử lý kỷ luật", "khiển trách", "kéo dài thời hạn nâng lương", "cách chức", "sa thải"]}
+  - {stt: 4, key: thoi_hieu,         ten: "Thời điểm xảy ra hành vi và thời hiệu xử lý kỷ luật", can_cu: "45/2019/QH14 > Điều 123 > Khoản 1", tu_khoa: ["thời hiệu"]}
+  - {stt: 5, key: to_chuc_dai_dien,  ten: "Sự tham gia của tổ chức đại diện người lao động tại cơ sở", can_cu: "45/2019/QH14 > Điều 122 > Khoản 1 > Điểm b", tu_khoa: ["tổ chức đại diện người lao động", "công đoàn cơ sở"]}
+  - {stt: 6, key: quyen_bao_chua,    ten: "Người lao động có mặt và được tự bào chữa", can_cu: "45/2019/QH14 > Điều 122 > Khoản 1 > Điểm c", tu_khoa: ["tự bào chữa", "bào chữa"]}
+  - {stt: 7, key: bien_ban,          ten: "Biên bản cuộc họp xử lý kỷ luật lao động", can_cu: "45/2019/QH14 > Điều 122 > Khoản 1 > Điểm d", tu_khoa: ["biên bản cuộc họp", "ghi thành biên bản", "biên bản họp xử lý"]}
+  - {stt: 8, key: tham_quyen,        ten: "Người có thẩm quyền ban hành quyết định xử lý kỷ luật", can_cu: "145/2020/NĐ-CP > Điều 70 > Khoản 4", tu_khoa: ["thẩm quyền ban hành", "người có thẩm quyền xử lý", "người ký quyết định"]}

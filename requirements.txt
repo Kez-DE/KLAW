@@ -14,6 +14,16 @@ langgraph>=0.2.0
 sqlalchemy>=2.0.0
 psycopg[binary]>=3.2.0
 
+# Config
+pyyaml>=6.0.0
+
+# Auth — xác minh JWT do Supabase phát. KHÔNG tự viết hàm xác minh JWT.
+# Extra `[crypto]` kéo `cryptography`, BẮT BUỘC cho ES256/RS256: Supabase ký bất
+# đối xứng (mặc định của mọi project mới từ 01/10/2025) và pyjwt trần chỉ làm
+# được HMAC — thiếu extra này thì mọi token bị từ chối với `InvalidKeyError`,
+# tức fail closed nhưng vì lý do sai.
+pyjwt[crypto]>=2.10.0
+
 # Data
 pandas>=2.2.0
 pyarrow>=17.0.0

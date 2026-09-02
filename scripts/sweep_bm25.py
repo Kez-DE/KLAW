@@ -43,7 +43,8 @@ def _do(norm: int, loc: bool) -> dict:
         api_key="", base_url=s.openrouter_base_url,
         model=s.openrouter_embedding_model_name, dim=s.openrouter_embedding_dim,
     )
-    per_item, n_ok = _run_items(Retriever(get_engine(), e, s), _load_golden_qa(s), s)
+    engine = get_engine()
+    per_item, n_ok = _run_items(Retriever(engine, e, s), _load_golden_qa(s, engine), s)
     ok = [it for it in per_item if "error" not in it]
     return {k: round(sum(it[k] for it in ok) / n_ok, 4) for k in _METRIC_FNS} | {"n_ok": n_ok}
 

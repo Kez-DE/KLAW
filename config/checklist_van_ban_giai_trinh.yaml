@@ -1,0 +1,103 @@
+# Checklist của VĂN BẢN GIẢI TRÌNH trong xử phạt vi phạm hành chính —
+# Luật Xử lý vi phạm hành chính 15/2012/QH13 Điều 61.
+#
+# ══ CẢNH BÁO HIỆU LỰC — ĐỌC TRƯỚC MỌI THỨ KHÁC ══
+#
+# 15/2012/QH13 mang trạng thái **HHL1P (hết hiệu lực một phần)** trong kho, và
+# kho KHÔNG có dữ liệu sửa đổi ở cấp điều khoản cho văn bản này. Đã đo:
+#   • Bảng `sua_doi_dieu_khoan` có 4 dòng, TẤT CẢ cho Bộ luật Lao động. Không
+#     dòng nào cho 15/2012.
+#   • Đồ thị `references` cho thấy SÁU văn bản quan hệ "Sửa đổi, bổ sung" tới
+#     15/2012 (doc_id 160606, 146541, 170446, 187033, 126307, 178737). Chỉ MỘT
+#     trong sáu có trong kho: 178737 = 88/2025/QH15.
+#   • Đã soi 88/2025/QH15 Điều 1: nó sửa các Điều 6, 18a, 24, 37a, 52, 53, 54,
+#     56, 58, 59, 60, 62, 63, 70, 71, 87, 99-104, 110, 123, 125, 126… — Khoản
+#     11 sửa Điều 60, Khoản 12 nhảy sang Điều 62. **Điều 61 KHÔNG bị 88/2025
+#     sửa.** Tra bằng `noi_dung ILIKE '%Điều 61%'` trên toàn văn 178737: 0 kết
+#     quả.
+#   • Nhưng NĂM văn bản sửa đổi còn lại KHÔNG có trong kho, nên KHÔNG khẳng
+#     định được Điều 61 còn nguyên vẹn. Đây đúng nhánh `mot_phan_khong_xac_dinh`
+#     mà hệ thống vốn thiết kế để nói thật thay vì đoán.
+#
+# HỆ QUẢ CỤ THỂ, VÀ LÝ DO KHÔNG CÓ RULE THỜI HẠN:
+# Đ61.2 của bản trong kho ghi thời hạn gửi văn bản giải trình là **không quá 05
+# ngày kể từ ngày lập biên bản vi phạm hành chính**, gia hạn thêm không quá 05
+# ngày. Con số đó dựng được thành một rule kiểm bằng ngày tháng — và đã CỐ Ý
+# KHÔNG dựng. Một rule `muc_do: chan` tuyên "quá hạn, trái luật" dựa trên một
+# ngưỡng có thể đã bị sửa bởi một trong năm văn bản vắng mặt là đúng loại
+# khẳng định sai mà repo này tồn tại để không mắc phải. Dựng lại khi nào nạp đủ
+# năm văn bản kia hoặc nạp được bản hợp nhất — xem "việc còn mở" của báo cáo.
+#
+# ══ NĐ 30/2020 KHÔNG VỚI TỚI VĂN BẢN NÀY — HAI LÝ DO ĐỘC LẬP ══
+#
+# Khác với `cong_van`, `quyet_dinh_bo_nhiem`, `quy_che_noi_bo`, mẫu này KHÔNG
+# dựng được phần thể thức:
+#   1. "Văn bản giải trình" KHÔNG nằm trong danh sách 29 loại của Đ7. Đã đọc
+#      nguyên văn Đ7: nghị quyết, quyết định, chỉ thị, quy chế, quy định, thông
+#      cáo, thông báo, hướng dẫn, chương trình, kế hoạch, phương án, đề án, dự
+#      án, báo cáo, biên bản, tờ trình, hợp đồng, công văn, công điện, bản ghi
+#      nhớ, bản thỏa thuận, giấy uỷ quyền, giấy mời, giấy giới thiệu, giấy nghỉ
+#      phép, phiếu gửi, phiếu chuyển, phiếu báo, thư công. Không có giải trình.
+#      Thiếu mắt xích Đ7 thì Đ8.2 không áp được cho loại này.
+#   2. Kể cả có, Đ2.1 buộc "cơ quan, tổ chức nhà nước và doanh nghiệp nhà nước"
+#      — tức bên BAN HÀNH văn bản hành chính. Văn bản giải trình do bên BỊ XỬ
+#      PHẠT viết gửi lên. Nghị định không với tới người viết nó.
+#
+# ══ ĐIỀU 61 KHÔNG LIỆT KÊ NỘI DUNG. BỐN MỤC DƯỚI ĐÂY SUY TỪ ĐÂU ══
+#
+# Đ61 quy định QUYỀN giải trình, THỜI HẠN và HÌNH THỨC — không có câu nào dạng
+# "văn bản giải trình phải ghi rõ: a) … b) …". Bốn mục dưới đây là bốn thành
+# phần mà chính câu chữ của Đ61 xác định, không phải một danh mục chép sẵn:
+#   • `nguoi_giai_trinh` ← Đ61.2 "cá nhân, tổ chức vi phạm hành chính phải gửi
+#     văn bản giải trình"; câu cuối Đ61.2 cho phép uỷ quyền cho người đại diện
+#     hợp pháp, nên tư cách người viết là thứ văn bản phải nói rõ.
+#   • `nguoi_co_tham_quyen` ← Đ61.2 "gửi… cho NGƯỜI CÓ THẨM QUYỀN XỬ PHẠT vi
+#     phạm hành chính". Nơi nhận là một phần của chính nghĩa vụ gửi.
+#   • `bien_ban_vphc` ← Đ61.2 "kể từ ngày LẬP BIÊN BẢN vi phạm hành chính".
+#     Biên bản là mốc pháp lý của toàn bộ thủ tục; không dẫn nó thì người có
+#     thẩm quyền không gắn được văn bản vào vụ việc nào.
+#   • `y_kien_giai_trinh` ← Đ61.1 "Người có thẩm quyền xử phạt có trách nhiệm
+#     xem xét Ý KIẾN GIẢI TRÌNH của cá nhân, tổ chức vi phạm hành chính trước
+#     khi ra quyết định xử phạt". Ý kiến giải trình là thứ duy nhất luật nói
+#     người có thẩm quyền phải ĐỌC — nên nó là phần thân bắt buộc.
+#
+# KHÔNG thêm mục "chứng cứ kèm theo" dù Đ61.3 có nhắc "đưa ra ý kiến, chứng cứ
+# để bảo vệ quyền và lợi ích hợp pháp": Đ61.3 quy định phiên giải trình TRỰC
+# TIẾP, một hình thức khác với giải trình bằng văn bản của Đ61.2. Mượn câu của
+# khoản điều chỉnh hình thức khác là dẫn sai điều luật.
+#
+# ══ PHẠM VI: KHÔNG PHẢI VI PHẠM NÀO CŨNG CÓ QUYỀN GIẢI TRÌNH ══
+#
+# Đ61.1 giới hạn quyền giải trình vào các vi phạm bị áp dụng hình thức tước
+# quyền sử dụng giấy phép/chứng chỉ hành nghề có thời hạn, đình chỉ hoạt động
+# có thời hạn, hoặc mức phạt tiền TỐI ĐA của khung từ 15.000.000 đồng trở lên
+# với cá nhân / 30.000.000 đồng trở lên với tổ chức. Ngoài các trường hợp đó,
+# không có quyền giải trình để mà soạn văn bản. Mẫu này KHÔNG kiểm điều kiện
+# đó — nó là điều kiện của VỤ VIỆC, không phải nội dung của văn bản.
+#
+# muc_do_thieu: canh_bao — Đ61 không dùng "phải ghi rõ" cho nội dung văn bản
+# (chữ "phải" của Đ61.2 gắn với hành vi GỬI và thời hạn, không gắn với nội
+# dung). Cộng thêm cảnh báo hiệu lực ở đầu file: tuyên "trái luật" dựa trên một
+# điều có thể đã bị sửa là vượt quá thứ chứng minh được.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '15/2012/QH13 > Điều 61%';
+loai: van_ban_giai_trinh
+ten: "văn bản giải trình trong xử phạt vi phạm hành chính"
+tieu_de: "VĂN BẢN GIẢI TRÌNH"
+don_vi_muc: "Mục"
+muc_do_thieu: canh_bao
+
+# Không rule nào — xem "HỆ QUẢ CỤ THỂ" ở đầu file. Thời hạn 05 ngày của Đ61.2
+# kiểm được về mặt kỹ thuật nhưng không khẳng định được về mặt hiệu lực.
+rules: []
+
+can_cu_goc: "15/2012/QH13 > Điều 61 > Khoản 2"
+can_cu_chi_tiet: "15/2012/QH13 > Điều 61 > Khoản 1"
+
+muc:
+  - {stt: 1, key: nguoi_giai_trinh, ten: "Cá nhân, tổ chức vi phạm hành chính thực hiện giải trình (hoặc người đại diện hợp pháp được uỷ quyền)", can_cu: "15/2012/QH13 > Điều 61 > Khoản 2", tu_khoa: ["cá nhân, tổ chức vi phạm", "người giải trình", "bên giải trình", "tôi là", "đại diện hợp pháp"]}
+  - {stt: 2, key: nguoi_co_tham_quyen, ten: "Người có thẩm quyền xử phạt được gửi văn bản (nơi nhận)", can_cu: "15/2012/QH13 > Điều 61 > Khoản 2", tu_khoa: ["người có thẩm quyền xử phạt", "kính gửi", "nơi nhận", "gửi đến"]}
+  - {stt: 3, key: bien_ban_vphc, ten: "Biên bản vi phạm hành chính làm căn cứ (số, ngày lập)", can_cu: "15/2012/QH13 > Điều 61 > Khoản 2", tu_khoa: ["biên bản vi phạm hành chính", "biên bản số", "ngày lập biên bản", "căn cứ biên bản"]}
+  - {stt: 4, key: y_kien_giai_trinh, ten: "Ý kiến giải trình về hành vi bị lập biên bản", can_cu: "15/2012/QH13 > Điều 61 > Khoản 1", tu_khoa: ["ý kiến giải trình", "nội dung giải trình", "giải trình về hành vi", "trình bày ý kiến"]}

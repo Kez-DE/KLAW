@@ -52,6 +52,9 @@ node_modules/
 out/
 .nuxt/
 
+# Frontend build artifact (Vite outDir -> FastAPI static mount)
+src/static/
+
 # Build
 *.pyc
 *.pyo

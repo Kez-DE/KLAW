@@ -1,0 +1,76 @@
+# Checklist của BẢN TỰ KHAI của đương sự — BLTTDS Đ98 Khoản 1.
+#
+# ══ MẪU TỐI THIỂU. BA MỤC, VÀ ĐÓ LÀ TẤT CẢ LUẬT ĐÒI ══
+#
+# Đây là mẫu NGHÈO NHẤT trong kho, có chủ ý. Nguyên văn phần Đ98.1 nói về bản
+# khai — đọc kỹ vì cả file này dựng trên đúng hai câu:
+#
+#   "Thẩm phán chỉ tiến hành lấy lời khai của đương sự khi đương sự CHƯA CÓ BẢN
+#   KHAI hoặc NỘI DUNG BẢN KHAI CHƯA ĐẦY ĐỦ, RÕ RÀNG. Đương sự phải TỰ VIẾT bản
+#   khai và KÝ TÊN của mình."
+#
+# Rút ra được đúng ba điều, không hơn:
+#   1. Bản khai phải do CHÍNH đương sự tự viết  → mục `tu_viet`
+#   2. Bản khai phải có chữ ký của đương sự      → mục `ky_ten`
+#   3. Nội dung phải ĐẦY ĐỦ, RÕ RÀNG về tình tiết → mục `noi_dung`
+#      (suy từ vế "hoặc nội dung bản khai chưa đầy đủ, rõ ràng": đó là CHUẨN mà
+#      luật đặt ra cho bản khai, phát biểu dưới dạng điều kiện để Thẩm phán
+#      phải can thiệp. Không phải một danh mục nội dung, nhưng là một yêu cầu
+#      thật về chất lượng nội dung.)
+#
+# ĐIỀU 98 KHÔNG LIỆT KÊ NỘI DUNG BẢN TỰ KHAI. Không có "bản tự khai phải ghi
+# rõ: a) … b) …" ở bất kỳ đâu trong BLTTDS. Ba mục trên là TẤT CẢ những gì rút
+# được, và mẫu này KHÔNG bịa thêm mục "quan hệ với các đương sự khác", "yêu cầu
+# cụ thể", "danh mục tài liệu kèm theo" — dù mọi bản tự khai thực tế đều có —
+# vì không điều luật nào đòi chúng. Đối chiếu `don_khoi_kien`: BLTTDS Đ189.4
+# liệt kê thẳng tám nội dung của đơn khởi kiện. Khi nhà làm luật muốn quy định
+# nội dung một giấy tờ tố tụng, họ viết như vậy. Với bản tự khai, họ không viết.
+#
+# ══ ĐỪNG NHẦM VỚI BIÊN BẢN GHI LỜI KHAI (Đ98.2) ══
+#
+# Đ98.2 quy định BIÊN BẢN GHI LỜI KHAI — văn bản do TOÀ ÁN lập khi Thẩm phán
+# lấy lời khai, và nó CÓ danh mục yêu cầu thật (người khai tự đọc lại hoặc nghe
+# đọc lại, ký tên hoặc điểm chỉ, chữ ký người lấy lời khai, chữ ký người ghi
+# biên bản, đóng dấu Toà án, ký từng trang nếu nhiều trang rời, và nếu lập
+# ngoài trụ sở Toà thì phải có người làm chứng hoặc xác nhận của UBND cấp xã).
+# Đó là văn bản của TOÀ, không phải của đương sự — người dùng KLAW không soạn
+# nó. Đưa danh mục Đ98.2 vào mẫu này sẽ đòi đương sự đóng dấu Toà án lên bản tự
+# khai của chính mình.
+#
+# ══ VÌ SAO canh_bao CHỨ KHÔNG PHẢI chan ══
+#
+# Đ98.1 dùng chữ "phải" cho `tu_viet` và `ky_ten`, nên hai mục đó đủ mạnh cho
+# `chan`. Nhưng `muc_do_thieu` áp CHUNG cho cả checklist, và mục `noi_dung`
+# được suy ra từ một mệnh đề điều kiện chứ không từ một câu mệnh lệnh. Đặt
+# `chan` sẽ tuyên một bản tự khai sơ sài là TRÁI LUẬT, trong khi hệ quả thật mà
+# Đ98.1 quy định chỉ là Thẩm phán sẽ tiến hành lấy lời khai — một bước tố tụng,
+# không phải một chế tài. Chọn mức thấp hơn khi hai mục không cùng độ mạnh.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '92/2015/QH13 > Điều 98%';
+loai: ban_tu_khai
+ten: "bản tự khai của đương sự"
+tieu_de: "BẢN TỰ KHAI"
+don_vi_muc: "Mục"
+muc_do_thieu: canh_bao
+
+# Không rule nào. Đ98 không có một ngưỡng số học hay điều cấm nào: không thời
+# hạn, không giới hạn số trang, không mức tiền. Ba mục dưới đây đều là có/không
+# có, đúng thứ `check_completeness` xử lý, không phải thứ `rules.check` xử lý.
+rules: []
+
+can_cu_goc: "92/2015/QH13 > Điều 98 > Khoản 1"
+# Đ98 (điều gốc) là mắt xích nói bản khai này thuộc thủ tục tố tụng dân sự nào.
+can_cu_chi_tiet: "92/2015/QH13 > Điều 98"
+
+# ĐÚNG BA MỤC. Một mục "họ tên, địa chỉ, tư cách tham gia tố tụng của người
+# khai" đã được cân nhắc và LOẠI: không điều nào đòi nó. Đã tra tận nơi —
+# Đ94.3 chỉ liệt kê "lời khai của đương sự" là một nguồn chứng cứ, Đ95.5 chỉ
+# đòi nó "được ghi bằng văn bản" để thành chứng cứ; cả hai không nói bản khai
+# phải nêu danh tính người khai. Mọi bản tự khai thật đều mở đầu bằng họ tên,
+# nhưng đó là tập quán, không phải điều luật — và mẫu này chỉ đòi thứ luật đòi.
+muc:
+  - {stt: 1, key: noi_dung, ten: "Trình bày đầy đủ, rõ ràng các tình tiết của vụ việc", can_cu: "92/2015/QH13 > Điều 98 > Khoản 1", tu_khoa: ["trình bày", "tình tiết", "nội dung sự việc", "diễn biến sự việc", "đầy đủ, rõ ràng"]}
+  - {stt: 2, key: tu_viet, ten: "Xác nhận bản khai do đương sự tự viết", can_cu: "92/2015/QH13 > Điều 98 > Khoản 1", tu_khoa: ["tự viết", "tôi tự viết", "do tôi tự khai", "tự nguyện khai"]}
+  - {stt: 3, key: ky_ten, ten: "Chữ ký của người khai", can_cu: "92/2015/QH13 > Điều 98 > Khoản 1", tu_khoa: ["chữ ký", "ký tên", "điểm chỉ"]}

@@ -18,7 +18,7 @@ import pytest
 
 SEED = Path(__file__).resolve().parents[2] / "data" / "seed"
 CITABLE = {"dieu", "khoan", "diem"}
-SO_HIEU_BAT_BUOC = {"dieu", "chuong", "muc", "tieu_muc"}
+SO_HIEU_BAT_BUOC = {"dieu", "chuong", "muc", "tieu_muc", "phan"}
 
 # Đã kiểm tay trên dữ liệu thật: cả 6 Bộ luật liên tục hoàn hảo, thiếu 0, trùng 0.
 SO_DIEU_BO_LUAT = {
@@ -47,8 +47,23 @@ def documents() -> list[dict]:
     return _doc("documents")
 
 
-def test_seed_co_du_21_van_ban_va_khong_rong(documents, provisions):
-    assert len(documents) == 21, len(documents)
+def test_seed_co_du_van_ban_cua_DOC_IDS_va_khong_rong(documents, provisions):
+    """Số văn bản lấy từ BẢNG KHAI BÁO của từng nguồn chứ KHÔNG viết cứng. Viết
+    cứng thì mỗi lần mở rộng corpus test này đỏ vì một lý do không liên quan tới
+    điều nó khoá — và cách sửa dễ dãi là bump con số, tức test không còn kiểm gì
+    cả.
+
+    Hai nguồn từ 2026-09-02: `DOC_IDS` (API MOJ) và `VAN_BAN`
+    (vanban.chinhphu.vn, chỉ cho văn bản mà bản MOJ hỏng). CỘNG hai tập chứ
+    không nới thành `>=`: bất biến ở đây là "seed chứa ĐÚNG những văn bản đã
+    khai báo, không thừa không thiếu", và `>=` sẽ bỏ lọt một văn bản rơi rụng.
+    """
+    from scripts.fetch_chinhphu import VAN_BAN
+    from scripts.fetch_moj import DOC_IDS
+
+    mong_doi = set(DOC_IDS) | {f"cp-{k}" for k in VAN_BAN}
+    assert len(documents) == len(mong_doi), len(documents)
+    assert {d["id"] for d in documents} == mong_doi
     assert len(provisions) > 19_000, len(provisions)
     assert {p["document_id"] for p in provisions} == {d["id"] for d in documents}
 
@@ -178,7 +193,7 @@ def test_khong_provision_trich_dan_duoc_nao_om_ca_khoi_phu_luc(provisions):
     assert not to, f"neo trích dẫn còn ôm khối chữ đuôi: {to}"
 
 
-def test_moi_van_ban_co_nhieu_nhat_MOT_ban_ghi_phu_luc(provisions):
+def test_moi_van_ban_co_nhieu_nhat_MOT_ban_ghi_phu_luc(provisions, documents):
     """Một bản ghi mỗi văn bản nên `duong_dan` tự duy nhất — không đánh số thứ
     tự, đó là bịa ký hiệu không có trong nguồn."""
     dem = Counter(p["document_id"] for p in provisions if p["cap"] == "phu_luc")
@@ -189,7 +204,17 @@ def test_moi_van_ban_co_nhieu_nhat_MOT_ban_ghi_phu_luc(provisions):
     # … thông qua" (132 ký tự). Thẻ rỗng đó đẩy mốc `cuoi` vượt qua khối đuôi nên
     # `duoi` thành rỗng và 132 ký tự đó sập lại vào provision đang mở. H2 KHÔNG
     # tiềm ẩn — nó đang hỏng thật trên corpus, chỉ nhỏ nên không cổng nào thấy.
-    assert len(pl) == 18, f"18 văn bản có chữ đuôi, thấy {len(pl)}"
+    #
+    # 18 → 21 khi <table> vào `noi_dung`: ba văn bản (90/2019/NĐ-CP, 12/2022/NĐ-CP,
+    # 337/2025/NĐ-CP) không có CHỮ nào sau thẻ prov-* cuối nhưng CÓ một bảng chữ
+    # ký ở đó. Bảng đó là chữ đuôi đúng nghĩa và phải nằm ở cấp KHÔNG trích dẫn
+    # được: để nó rơi vào Điều cuối thì một câu trích lấy từ khối chữ ký sẽ
+    # "kiểm chứng thành công" trên một neo Điều — đúng véc-tơ mà ruling chữ-đuôi
+    # đã đóng cho text và giờ đóng nốt cho bảng.
+    # Số lấy từ `documents` chứ không viết cứng: bất biến là "MỖI văn bản đúng
+    # một bản ghi phu_luc", không phải "có 21 bản ghi".
+    assert len(pl) == len(documents), \
+        f"{len(documents)} văn bản có chữ/bảng đuôi, thấy {len(pl)}"
     assert len({p["duong_dan"] for p in pl}) == len(pl)
     for p in pl:
         assert p["parent_local_id"] is None, p["duong_dan"]
@@ -209,7 +234,12 @@ def test_phu_luc_khong_bao_gio_la_cha_cua_provision_nao(provisions):
 # Tiêu ngữ chỉ có ở khối mở đầu văn bản. KHÔNG dùng "Căn cứ" làm dấu hiệu: nó
 # xuất hiện hợp lệ trong 83 điều luật thật ("Căn cứ vào …"), nên nó không phân
 # biệt được lời mở đầu với nội dung quy phạm.
-TIEU_NGU = ("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", "Độc lập")
+#
+# Cùng lý do đó, "Độc lập" một mình cũng KHÔNG dùng được — nó là một từ tiếng
+# Việt bình thường: `19/2023/QH15 > Điều 50 > Khoản 1 > Điểm e` mở đầu bằng
+# "Độc lập khảo sát, thử nghiệm…" và bị báo oan. Dấu hiệu phải là NGUYÊN cụm
+# tiêu ngữ "Độc lập - Tự do - Hạnh phúc", thứ không xuất hiện trong điều luật.
+TIEU_NGU = ("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", "Độc lập - Tự do - Hạnh phúc")
 
 
 def test_noi_dung_cap_trich_dan_duoc_MO_DAU_bang_nhan_cua_chinh_no(provisions):
@@ -246,7 +276,8 @@ def test_moi_van_ban_co_dung_MOT_ban_ghi_mo_dau(provisions, documents):
     hiệu, tên văn bản, chuỗi "Căn cứ …"). Một bản ghi mỗi văn bản nên `duong_dan`
     tự duy nhất — không đánh số thứ tự, đó là bịa ký hiệu không có trong nguồn."""
     md = [p for p in provisions if p["cap"] == "mo_dau"]
-    assert len(md) == 21, f"21 văn bản đều có chữ mở đầu, thấy {len(md)}"
+    assert len(md) == len(documents), \
+        f"{len(documents)} văn bản đều có chữ mở đầu, thấy {len(md)}"
     assert {p["document_id"] for p in md} == {d["id"] for d in documents}
     assert len({p["duong_dan"] for p in md}) == len(md)
     for p in md:
@@ -278,6 +309,14 @@ def test_tieu_ngu_van_ban_KHONG_con_trong_bat_ky_neo_trich_dan_nao(provisions):
            if p["cap"] in CITABLE and any(t in p["noi_dung"] for t in TIEU_NGU)]
     assert not xau, f"{len(xau)} neo trích dẫn còn chứa tiêu ngữ văn bản: {xau[:5]}"
 
+    # ĐỐI CHỨNG: siết dấu hiệu ở trên chỉ hợp lệ nếu dấu hiệu MỚI vẫn tìm thấy
+    # tiêu ngữ ở nơi nó thật sự nằm. Không có dòng này, một cụm gõ sai sẽ biến
+    # phép kiểm thành luôn-xanh mà không ai thấy.
+    co = {p["document_id"] for p in provisions
+          if p["cap"] == "mo_dau" and any(t in p["noi_dung"] for t in TIEU_NGU)}
+    assert len(co) > len({p["document_id"] for p in provisions}) // 2, \
+        f"dấu hiệu tiêu ngữ chỉ khớp {len(co)} văn bản — nhiều khả năng nó đã gõ sai"
+
 
 def test_khoan_va_diem_LUON_co_so_hieu_cap(provisions):
     """H3. `"… > Điều 33 > Khoản"` không phải một dẫn chiếu pháp luật Việt Nam:
@@ -294,3 +333,67 @@ def test_checksums_json_khop_documents_jsonl(documents):
     làm `ingest` bỏ qua văn bản đã đổi."""
     cs = json.loads((SEED / "checksums.json").read_text(encoding="utf-8"))
     assert cs["documents"] == {d["id"]: d["checksum"] for d in documents}
+
+
+# ══ Bảng nằm TRONG noi_dung, không ở cột riêng ══════════════════════════════
+
+def test_bang_luong_toi_thieu_vung_MOI_VUNG_MOT_NEO(provisions):
+    """Ca hỏng đắt nhất của corpus, đã đi qua HAI vòng sửa.
+
+    Vòng 1 (`c5c2c17`): `parse_tables` không có caller nào trong đường sản xuất
+    nên mọi <table> bị `decompose()` và biến mất — người lao động hỏi "lương tối
+    thiểu vùng I bao nhiêu" nhận một trích dẫn tới điều luật KHÔNG CHỨA CON SỐ
+    NÀO. Bảng được đưa vào `noi_dung` vì đó là trường DUY NHẤT verifier tầng 1
+    đối chiếu câu trích vào.
+
+    Vòng 2 (`migrations/017`): cả bảng trong MỘT `noi_dung` nghĩa là bốn vùng
+    dùng chung MỘT neo, nên mô hình trích hai hàng rồi kết luận "pháp luật quy
+    định HAI mức lương tối thiểu" và bảy phép kiểm vẫn xanh — hai citation trỏ
+    cùng một `khop_tai_id` nên phép so tập con không có gì để so (trace
+    cbd9f317). Nay MỖI VÙNG MỘT NEO.
+
+    Bất biến của vòng 1 không mất: con số vẫn ở trong `noi_dung`, chỉ là
+    `noi_dung` của đúng hàng nó thuộc về.
+    """
+    theo_path = {p["duong_dan"]: p for p in provisions}
+    mong_doi = {
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1": {
+            "Vùng I": "5.310.000", "Vùng II": "4.730.000",
+            "Vùng III": "4.140.000", "Vùng IV": "3.700.000"},
+        "74/2024/NĐ-CP > Điều 3 > Khoản 1": {
+            "Vùng I": "4.960.000", "Vùng II": "4.410.000",
+            "Vùng III": "3.860.000", "Vùng IV": "3.450.000"},
+    }
+    for path, muc in mong_doi.items():
+        # Hàng TIÊU ĐỀ ở lại Khoản cha — bỏ nó thì tên cột biến mất.
+        assert "| Vùng |" in theo_path[path]["noi_dung"], path
+        for vung, so in muc.items():
+            neo = f"{path} > {vung}"
+            assert neo in theo_path, f"thiếu neo {neo}"
+            hang = theo_path[neo]
+            assert hang["cap"] == "hang_bang", neo
+            assert so in hang["noi_dung"], f"{neo} thiếu mức lương {so}"
+            # Và KHÔNG còn ở cha: còn thì một quote hàng khớp ở cả hai dòng,
+            # `_tim_quote` trả về cha, và hai vùng lại chung một neo.
+            assert so not in theo_path[path]["noi_dung"], f"{so} vẫn nằm ở {path}"
+
+
+def test_neo_trich_dan_hua_danh_sach_thi_phai_giao(provisions):
+    """Cùng phép kiểm mà `migrations/013` canh ở tầng DB, chạy ở tầng seed.
+
+    Ba ngoại lệ là KHIẾM KHUYẾT CỦA NGUỒN MOJ, đã mở HTML đọc tay: hai Khoản của
+    BLHS gõ ':' đáng lẽ là '.', còn 145/2020 Điều 56 Khoản 2 hứa công thức lương
+    làm đêm mà HTML nguồn có ĐÚNG 0 bảng trong phạm vi Điều 56.
+    """
+    loi_nguon = {
+        "100/2015/QH13 > Điều 200 > Khoản 3",
+        "100/2015/QH13 > Điều 236 > Khoản 3",
+        "145/2020/NĐ-CP > Điều 56 > Khoản 2",
+    }
+    co_con = {(p["document_id"], p["parent_local_id"]) for p in provisions}
+    tro_troi = [p["duong_dan"] for p in provisions
+                if p["cap"] in CITABLE
+                and p["noi_dung"].rstrip().endswith(":")
+                and (p["document_id"], p["local_id"]) not in co_con
+                and p["duong_dan"] not in loi_nguon]
+    assert not tro_troi, f"{len(tro_troi)} neo hứa danh sách mà không giao: {tro_troi[:5]}"

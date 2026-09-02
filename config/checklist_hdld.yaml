@@ -1,0 +1,79 @@
+# Checklist nội dung bắt buộc của hợp đồng lao động — BLLĐ Đ21.1.a-k, đối
+# chiếu TT 10/2020/TT-BLĐTBXH Đ3 (spec 7.2). Mỗi mục và mỗi ngoại lệ có
+# can_cu RIÊNG để một audit finding có thể trích dẫn đúng điều khoản.
+#
+# Mọi can_cu bên dưới đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan FROM provisions WHERE duong_dan LIKE '45/2019/QH14%Điều 21%'
+#      OR duong_dan LIKE '%10/2020/TT-BLĐTBXH%Điều 3%'
+# Test tích hợp trong tests/test_services/test_checklist.py chặn đứng bất kỳ
+# can_cu nào không khớp một provisions.duong_dan đang có (cùng khuôn với
+# config/rules.yaml + kiem_tra_can_cu_ton_tai của Task 2).
+loai: hdld
+ten: "hợp đồng lao động"
+tieu_de: "HỢP ĐỒNG LAO ĐỘNG"
+
+# Rule của config/rules.yaml áp dụng cho loại văn bản này. Rule là THƯ VIỆN
+# DÙNG CHUNG, checklist chọn cái nào áp dụng — một checklist mới KHÔNG thừa
+# hưởng rule của HĐLĐ chỉ vì chúng nằm chung một file.
+# Dựng trên chế định HỢP ĐỒNG (BLDS Đ385 "sự thoả thuận giữa các bên"), nên
+# `GET /mau/{loai}` kèm thêm khối các bên + chỗ ký (`cau_truc.khung_hop_dong`).
+# Hai khối đó KHÔNG phải `muc` và KHÔNG vào mẫu số completeness.
+la_hop_dong: true
+
+rules:
+  - thu_viec_toi_da
+  - luong_thu_viec_toi_thieu
+  - luong_toi_thieu_vung
+  - cam_phat_tien_nld
+  - cam_giu_giay_to_dat_coc
+
+can_cu_goc: "45/2019/QH14 > Điều 21 > Khoản 1"
+can_cu_chi_tiet: "10/2020/TT-BLĐTBXH > Điều 3"
+
+muc:
+  - {stt: 1,  key: nsdld,      ten: "Tên, địa chỉ NSDLĐ và họ tên, chức danh người giao kết", diem: a,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm a", tu_khoa: ["người sử dụng lao động", "nsdlđ"]}
+  - {stt: 2,  key: nld,        ten: "Họ tên, ngày sinh, giới tính, nơi cư trú, số CCCD của NLĐ", diem: b,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm b", tu_khoa: ["người lao động", "nlđ", "cccd"]}
+  - {stt: 3,  key: cong_viec,  ten: "Công việc và địa điểm làm việc", diem: c,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm c", tu_khoa: ["công việc", "địa điểm làm việc"]}
+  - {stt: 4,  key: thoi_han,   ten: "Thời hạn của hợp đồng lao động", diem: d,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm d", tu_khoa: ["thời hạn hợp đồng", "thời hạn của hợp đồng"]}
+  - {stt: 5,  key: luong,      ten: "Mức lương, hình thức trả, thời hạn trả, phụ cấp", diem: đ,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm đ", tu_khoa: ["mức lương", "tiền lương", "phụ cấp"]}
+  - {stt: 6,  key: nang_luong, ten: "Chế độ nâng bậc, nâng lương", diem: e,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm e", tu_khoa: ["nâng bậc", "nâng lương"]}
+  - {stt: 7,  key: thoi_gio,   ten: "Thời giờ làm việc, thời giờ nghỉ ngơi", diem: g,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm g", tu_khoa: ["thời giờ làm việc", "thời giờ nghỉ ngơi"]}
+  - {stt: 8,  key: bao_ho,     ten: "Trang bị bảo hộ lao động", diem: h,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm h", tu_khoa: ["bảo hộ lao động", "trang bị bảo hộ"]}
+  - {stt: 9,  key: bao_hiem,   ten: "BHXH, BHYT, BHTN", diem: i,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm i", tu_khoa: ["bảo hiểm xã hội", "bhxh", "bảo hiểm y tế", "bhyt", "bảo hiểm thất nghiệp", "bhtn"]}
+  - {stt: 10, key: dao_tao,    ten: "Đào tạo, bồi dưỡng, nâng cao trình độ kỹ năng nghề", diem: k,  can_cu: "45/2019/QH14 > Điều 21 > Khoản 1 > Điểm k", tu_khoa: ["đào tạo", "bồi dưỡng", "nâng cao trình độ", "kỹ năng nghề"]}
+
+# Ngoại lệ 1 (Đ21.3): nông/lâm/ngư/diêm nghiệp được giảm một số mục, nhưng
+# phải thêm điều khoản thiên tai → denominator đổi theo ngành.
+nganh_duoc_giam:
+  can_cu: "45/2019/QH14 > Điều 21 > Khoản 3"
+  danh_sach: [nong_nghiep, lam_nghiep, ngu_nghiep, diem_nghiep]
+  duoc_giam_muc: [bao_ho, nang_luong, dao_tao]
+  bat_buoc_them:
+    key: thien_tai
+    ten: "Phương thức xử lý khi chịu ảnh hưởng thiên tai, hỏa hoạn, thời tiết"
+
+# Ngoại lệ 2 (Đ21.2): bí mật kinh doanh/công nghệ là QUYỀN thỏa thuận, không
+# phải nội dung bắt buộc — vắng mặt không được báo là thiếu.
+khong_bat_buoc:
+  can_cu: "45/2019/QH14 > Điều 21 > Khoản 2"
+  ghi_chu: "Điều khoản bí mật KD/công nghệ là QUYỀN thỏa thuận, KHÔNG bắt buộc — đừng báo thiếu"
+  keys: [bi_mat_kinh_doanh]
+
+# Ngoại lệ 3 (TT10 Đ3.5.c): phúc lợi khác phải ghi thành mục riêng, không
+# được gộp chung. Đây là quy tắc ĐỊNH DẠNG văn bản, không phải nội dung
+# có/thiếu như 10 mục ở trên — check_completeness(clauses, nganh) chỉ nhận
+# danh sách khoá hiện diện, không có đủ thông tin cấu trúc (mục nào gộp mục
+# nào) để kiểm tự động ở dạng đó. Giữ can_cu đã xác thực trong DB làm dữ liệu
+# tham chiếu cho một rule tương lai — cùng vai trò với `bang_gio` (chưa rule
+# nào dùng) trong config/rules.yaml.
+quy_tac_dinh_dang:
+  can_cu: "10/2020/TT-BLĐTBXH > Điều 3 > Khoản 5 > Điểm c"
+  # RULING 2026-08-31 (coordinator, đáp lại concern Task 3 mục 9): giữ đây là
+  # phép TRA BẢNG 0 token — draft_audit (Task 4) tra `noi_dung` của từng
+  # clause theo đúng danh sách từ khoá này, KHÔNG nhường cho LLM phán đoán
+  # ngữ nghĩa. Danh sách lấy nguyên từ ghi_chu bên dưới — thêm/sửa từ khoá là
+  # sửa YAML, không đụng code.
+  tu_khoa: ["thưởng", "ăn giữa ca", "xăng xe", "điện thoại", "nhà ở", "giữ trẻ"]
+  ghi_chu: >
+    Phúc lợi khác (thưởng, ăn giữa ca, xăng xe, điện thoại, nhà ở, giữ trẻ)
+    phải GHI THÀNH MỤC RIÊNG, không được gộp chung.

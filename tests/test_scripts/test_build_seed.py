@@ -57,6 +57,9 @@ def test_build_ghi_du_ba_file_va_checksums(tmp_path, monkeypatch):
     }, ensure_ascii=False), encoding="utf-8")
 
     monkeypatch.setattr(build_seed, "DOC_IDS", {"9001": ("deep", "1/2020/NĐ-CP")})
+    # Nguồn thứ hai tắt: mỗi test ở đây soi RIÊNG vòng lặp MOJ. Không tắt thì
+    # build đi tìm data/raw/chinhphu và đỏ vì một lý do không liên quan.
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
     out = tmp_path / "seed"
     assert build_seed.build(tmp_path / "raw", out) == {
         "documents": 1, "provisions": 2, "references": 1}
@@ -89,6 +92,9 @@ def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
     }, ensure_ascii=False), encoding="utf-8")
 
     monkeypatch.setattr(build_seed, "DOC_IDS", {"9002": ("deep", "2/2020/NĐ-CP")})
+    # Nguồn thứ hai tắt: mỗi test ở đây soi RIÊNG vòng lặp MOJ. Không tắt thì
+    # build đi tìm data/raw/chinhphu và đỏ vì một lý do không liên quan.
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
     with pytest.raises(ValueError, match="bất thường cấu trúc"):
         build_seed.build(tmp_path / "raw", tmp_path / "seed")
 
@@ -110,6 +116,9 @@ def test_checksum_DOI_khi_parser_doi_du_HTML_khong_doi(tmp_path, monkeypatch):
             '<p class="prov-clause">1. Nội dung khoản một.</p></div>'},
     }, ensure_ascii=False), encoding="utf-8")
     monkeypatch.setattr(build_seed, "DOC_IDS", {"9003": ("deep", "3/2020/NĐ-CP")})
+    # Nguồn thứ hai tắt: mỗi test ở đây soi RIÊNG vòng lặp MOJ. Không tắt thì
+    # build đi tìm data/raw/chinhphu và đỏ vì một lý do không liên quan.
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
 
     def _checksum(out: Path) -> str:
         build_seed.build(tmp_path / "raw", out)
@@ -123,3 +132,47 @@ def test_checksum_DOI_khi_parser_doi_du_HTML_khong_doi(tmp_path, monkeypatch):
     sau = _checksum(tmp_path / "s2")
 
     assert truoc != sau, "checksum không đổi khi parser đổi — ingest sẽ giữ dữ liệu cũ"
+
+
+def test_build_nap_duoc_nguon_chinhphu(tmp_path, monkeypatch):
+    """Vòng lặp nguồn thứ hai: HTML phẳng của trang Chính phủ → seed, qua ĐÚNG
+    cổng `_soat_va_bam` như nguồn MOJ.
+
+    Khoá ba thứ mà nguồn này dễ sai và sai im lặng: id mang tiền tố `cp-` (không
+    va vào dải id thuần số của MOJ), `nguon_url` trỏ về trang thật (nghĩa vụ ghi
+    nguồn), và khối chữ ký nằm ở `phu_luc` chứ KHÔNG chui vào Điều cuối.
+    """
+    raw = tmp_path / "raw" / "chinhphu"
+    raw.mkdir(parents=True)
+    (raw / "777.html").write_text(
+        '<html><body><div id="block_detail">'
+        "<p>QUỐC HỘI</p>"
+        "<p>Điều 1. Phạm vi</p>"
+        "<p>1. Nội dung khoản một.</p>"
+        "<p>Luật này đã được Quốc hội khóa XIII thông qua ngày 11 tháng 11 năm 2011.</p>"
+        "<p>CHỦ TỊCH QUỐC HỘI</p>"
+        "</div></body></html>", encoding="utf-8")
+
+    monkeypatch.setattr(build_seed, "DOC_IDS", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {"777": {
+        "so_ky_hieu": "9/2011/QH13", "ten": "Luật thử", "loai_van_ban": "Luật",
+        "co_quan_ban_hanh": "Quốc hội", "ngay_ban_hanh": "2011-11-11",
+        "ngay_hieu_luc": "2012-07-01", "ngay_het_hieu_luc": None,
+        "tinh_trang": "CHL", "depth": "deep"}})
+
+    out = tmp_path / "seed"
+    dem = build_seed.build(tmp_path / "raw", out)
+    assert dem["documents"] == 1 and dem["references"] == 0
+
+    docs = [json.loads(x) for x in (out / "documents.jsonl").read_text(
+        encoding="utf-8").splitlines()]
+    assert docs[0]["id"] == "cp-777"
+    assert "vanban.chinhphu.vn" in docs[0]["nguon_url"]
+
+    provs = [json.loads(x) for x in (out / "provisions.jsonl").read_text(
+        encoding="utf-8").splitlines()]
+    theo_cap = {p["cap"]: p["noi_dung"] for p in provs}
+    assert "CHỦ TỊCH QUỐC HỘI" in theo_cap["phu_luc"]
+    dieu = next(p for p in provs if p["cap"] == "dieu")
+    assert "CHỦ TỊCH QUỐC HỘI" not in dieu["noi_dung"], \
+        "khối chữ ký chui vào Điều — neo trích dẫn giả"

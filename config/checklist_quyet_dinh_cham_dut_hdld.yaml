@@ -1,0 +1,48 @@
+# Checklist nội dung của QUYẾT ĐỊNH / THÔNG BÁO CHẤM DỨT HỢP ĐỒNG LAO ĐỘNG —
+# BLLĐ Đ34, Đ36, Đ45, Đ46, Đ48.
+#
+# KHÔNG DÙNG CHUNG với `quyet_dinh_ky_luat`: chấm dứt hợp đồng và xử lý kỷ luật
+# là hai chế định khác nhau của Bộ luật Lao động, đi theo hai trình tự khác
+# nhau và hai bộ điều kiện khác nhau. Soát một quyết định chấm dứt bằng
+# checklist kỷ luật sẽ đòi biên bản họp xử lý kỷ luật ở một văn bản không cần
+# nó, và bỏ qua nghĩa vụ thanh toán trong 14 ngày mà chính nó phải có.
+#
+# Như `quyet_dinh_ky_luat`, luật KHÔNG liệt kê "nội dung của quyết định chấm
+# dứt". Cái luật đặt ra là những nghĩa vụ PHẢI ĐƯỢC THỰC HIỆN, và ba mục bắt
+# buộc dưới đây là ba nghĩa vụ VÔ ĐIỀU KIỆN — nên muc_do_thieu là `chan`.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, tieu_de FROM provisions
+#    WHERE duong_dan ~ '^45/2019/QH14 > Điều (34|36|45|46|48)';
+loai: quyet_dinh_cham_dut_hdld
+ten: "quyết định chấm dứt hợp đồng lao động"
+tieu_de: "QUYẾT ĐỊNH CHẤM DỨT HỢP ĐỒNG LAO ĐỘNG"
+
+rules: []
+
+can_cu_goc: "45/2019/QH14 > Điều 34"
+can_cu_chi_tiet: "45/2019/QH14 > Điều 45"
+
+# Ba mục CHỈ đặt ra ở một số trường hợp chấm dứt, và báo "chan" cho chúng sẽ
+# dựng khuyết điểm chặn ở những quyết định hoàn toàn hợp pháp:
+#   Đ36 và Đ36.2  chỉ áp khi NGƯỜI SỬ DỤNG LAO ĐỘNG ĐƠN PHƯƠNG chấm dứt. Hợp
+#                 đồng hết hạn (Đ34.1) hay hai bên thoả thuận (Đ34.3) không có
+#                 lý do đơn phương nào để nêu và không có thời hạn báo trước.
+#   Đ46           trợ cấp thôi việc có điều kiện riêng ở chính Đ46.1 (thời gian
+#                 làm việc thường xuyên từ đủ 12 tháng, và KHÔNG áp dụng cho
+#                 trường hợp bị sa thải hay đủ điều kiện hưởng lương hưu).
+khong_bat_buoc:
+  can_cu: "45/2019/QH14 > Điều 36"
+  ghi_chu: >
+    Lý do và thời hạn báo trước (Đ36) chỉ đặt ra khi NSDLĐ đơn phương chấm dứt;
+    trợ cấp thôi việc (Đ46) có điều kiện riêng tại Đ46.1. Vắng mặt ở một quyết
+    định chấm dứt do hết hạn hoặc do thoả thuận không được báo là thiếu.
+  keys: [ly_do_don_phuong, thoi_han_bao_truoc, tro_cap_thoi_viec]
+
+muc:
+  - {stt: 1, key: can_cu_cham_dut, ten: "Trường hợp chấm dứt hợp đồng lao động được áp dụng", can_cu: "45/2019/QH14 > Điều 34", tu_khoa: ["trường hợp chấm dứt", "căn cứ chấm dứt", "lý do chấm dứt hợp đồng"]}
+  - {stt: 2, key: thong_bao_van_ban, ten: "Thông báo bằng văn bản cho người lao động về việc chấm dứt", can_cu: "45/2019/QH14 > Điều 45 > Khoản 1", tu_khoa: ["thông báo bằng văn bản", "thời điểm chấm dứt hợp đồng"]}
+  - {stt: 3, key: ly_do_don_phuong, ten: "Lý do đơn phương chấm dứt của người sử dụng lao động", can_cu: "45/2019/QH14 > Điều 36", tu_khoa: ["đơn phương chấm dứt"]}
+  - {stt: 4, key: thoi_han_bao_truoc, ten: "Thời hạn báo trước theo loại hợp đồng lao động", can_cu: "45/2019/QH14 > Điều 36 > Khoản 2", tu_khoa: ["thời hạn báo trước", "báo trước"]}
+  - {stt: 5, key: tro_cap_thoi_viec, ten: "Trợ cấp thôi việc (nếu đủ điều kiện tại Đ46.1)", can_cu: "45/2019/QH14 > Điều 46", tu_khoa: ["trợ cấp thôi việc"]}
+  - {stt: 6, key: thanh_toan_tra_giay_to, ten: "Thanh toán các khoản còn lại và hoàn trả giấy tờ, hồ sơ trong 14 ngày", can_cu: "45/2019/QH14 > Điều 48", tu_khoa: ["thanh toán đầy đủ", "hoàn thành thủ tục", "trả lại giấy tờ", "14 ngày làm việc"]}

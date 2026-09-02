@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="KLAW — Tra cứu pháp luật có trích dẫn kiểm chứng được">
+  <title>KLAW — Tra cứu pháp luật có trích dẫn kiểm chứng được</title>
+  <!--
+    Ảnh chia sẻ. Bảng màu thật (DESIGN.md § Bảng màu), mã nhãn thật, chữ tiếng Việt.
+    `og.png` được rasterise từ chính file này bằng Chrome, với webfont của ứng dụng
+    nạp vào (xem brand-report.md). File này giữ font-family stack nên mở riêng vẫn đọc được.
+  -->
+  <defs>
+    <radialGradient id="den-may">
+      <stop offset="0" stop-color="#F0BC5A" stop-opacity="1"/>
+      <stop offset=".58" stop-color="#F0BC5A" stop-opacity="1"/>
+      <stop offset=".76" stop-color="#F0BC5A" stop-opacity=".5"/>
+      <stop offset="1" stop-color="#F0BC5A" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="quang-nen">
+      <stop offset="0" stop-color="#F0BC5A" stop-opacity=".10"/>
+      <stop offset="1" stop-color="#F0BC5A" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="khia" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
+      <rect width="32" height="32" fill="#fff"/>
+      <rect x="2" y="11" width="4" height="2" rx=".4" fill="#000"/>
+      <rect x="2" y="19" width="4" height="2" rx=".4" fill="#000"/>
+      <rect x="26" y="11" width="4" height="2" rx=".4" fill="#000"/>
+      <rect x="26" y="19" width="4" height="2" rx=".4" fill="#000"/>
+    </mask>
+    <g id="khung-trong">
+      <rect x="4" y="4" width="24" height="24" rx="4" fill="none" stroke="#2B2419" stroke-width="2.5" mask="url(#khia)"/>
+    </g>
+    <g id="ma-nhan">
+      <rect x="4" y="4" width="24" height="24" rx="4" fill="none" stroke="#F3EEE3" stroke-width="2.5" mask="url(#khia)"/>
+      <circle cx="13.5" cy="13.5" r="6.8" fill="url(#den-may)"/>
+    </g>
+  </defs>
+
+  <rect width="1200" height="630" fill="#12100D"/>
+  <ellipse cx="250" cy="140" rx="720" ry="560" fill="url(#quang-nen)"/>
+
+  <!-- Dải khung chạy tiếp vào trong kho, mờ dần -->
+  <use href="#khung-trong" transform="translate(762 77) scale(2.7)" opacity=".9"/>
+  <use href="#khung-trong" transform="translate(862 77) scale(2.7)" opacity=".68"/>
+  <use href="#khung-trong" transform="translate(962 77) scale(2.7)" opacity=".46"/>
+  <use href="#khung-trong" transform="translate(1062 77) scale(2.7)" opacity=".26"/>
+
+  <!-- Mã nhãn + chữ hiệu -->
+  <use href="#ma-nhan" transform="translate(88 66) scale(3.375)"/>
+  <text x="226" y="142" font-family="'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace"
+        font-size="58" font-weight="500" letter-spacing="13" fill="#F3EEE3">KLAW</text>
+
+  <!-- Lời hứa của sản phẩm, nguyên văn DESIGN.md — không phải khẩu hiệu quảng cáo -->
+  <text font-family="'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif"
+        font-size="62" font-weight="700" fill="#F3EEE3">
+    <tspan x="88" y="304">Tra cứu pháp luật có trích dẫn</tspan>
+    <tspan x="88" y="384">kiểm chứng được.</tspan>
+  </text>
+
+  <text x="88" y="442" font-family="'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif"
+        font-size="26" font-weight="400" fill="#F3EEE3" fill-opacity=".62">Mỗi khẳng định neo vào nguyên văn điều luật, kèm nhãn hiệu lực.</text>
+
+  <!-- Một địa chỉ trích dẫn thật, đúng định dạng app dùng. KHÔNG kèm nhãn hiệu
+       lực: ảnh chia sẻ không được khẳng định một điều luật còn hiệu lực hay không. -->
+  <rect x="88" y="500" width="566" height="66" rx="12" fill="#1C1813" stroke="#2B2419" stroke-width="1.5"/>
+  <text x="120" y="541" font-family="'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace"
+        font-size="24" fill="#F3EEE3">45/2019/QH14<tspan fill="#6B6154"> &gt; </tspan>Điều 127<tspan fill="#6B6154"> &gt; </tspan>Khoản 2</text>
+</svg>

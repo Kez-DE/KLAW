@@ -7,10 +7,30 @@ def test_temperature_mac_dinh_la_0_khong_phai_0_7():
     assert s.llm_temperature == 0.0
 
 
-def test_embedding_mac_dinh_la_bge_m3_dim_1024():
+def test_embedding_mac_dinh_la_voyage_4_lite_dim_1024():
+    """Đổi từ `bge-m3` sang `voyage-4-lite` (2026-09-01) — đo trên corpus
+    36.710 điều khoản: Recall@5 **0,7273 vs 0,5974**.
+
+    Dim vẫn 1024 — đã hỏi chính dữ liệu đã nhúng (`vector_dims`) chứ không tin
+    tài liệu nhà cung cấp: cả hai model đều 1024, nên đổi mặc định không cần
+    nhúng lại và không đụng schema `vector(1024)`.
+    """
     s = Settings(_env_file=None)
-    assert s.openrouter_embedding_model_name == "baai/bge-m3"
+    assert s.openrouter_embedding_model_name == "voyageai/voyage-4-lite"
     assert s.openrouter_embedding_dim == 1024
+
+
+def test_nhanh_tu_vung_TAT_mac_dinh():
+    """`bm25_topk=0` = tắt nhánh từ vựng.
+
+    `scripts/sweep_fusion.py` cho cực đại đúng tại 0, và CHỈ MỘT ứng viên từ
+    vựng kéo MRR@5 từ 0,4286 xuống 0,2604. `rrf` cộng đều — không có alpha để
+    pha loãng, chỉ bật hoặc tắt. Mặc định cũ (`hybrid` + `bge-m3`) đo được
+    0,4740, tức tổ hợp TỆ NHẤT trong bốn ô đã chạy.
+    """
+    s = Settings(_env_file=None)
+    assert s.retrieve_bm25_topk == 0
+    assert s.retrieve_dense_topk > 0, "tắt cả hai nhánh thì truy hồi trả rỗng"
 
 
 def test_generate_va_judge_khac_provider_mac_dinh():

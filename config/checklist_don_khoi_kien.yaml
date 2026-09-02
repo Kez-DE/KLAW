@@ -1,0 +1,51 @@
+# Checklist nội dung của ĐƠN KHỞI KIỆN vụ án dân sự — BLTTDS Đ189.4 a-i, chín
+# điểm, mỗi mục một điểm luật riêng.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '92/2015/QH13 > Điều 189%'
+#       OR duong_dan LIKE '92/2015/QH13 > Điều 68%';
+loai: don_khoi_kien
+ten: "đơn khởi kiện vụ án dân sự"
+tieu_de: "ĐƠN KHỞI KIỆN"
+don_vi_muc: "Mục"
+
+# KHÔNG rule nào. Năm rule hiện có đều đo một ngưỡng của quan hệ lao động; một
+# đơn khởi kiện không có ngưỡng số nào để tra bảng. Thời hiệu khởi kiện (BLDS
+# Đ429, Đ588) VỀ NGUYÊN TẮC kiểm được, nhưng nó cần ngày phát sinh tranh chấp
+# và loại quan hệ tranh chấp — hai fact không suy ra được từ đơn, và đoán sai
+# một trong hai thì hệ thống nói với người dùng rằng họ đã mất quyền khởi kiện.
+# Chưa dựng ở đây, không phải quên.
+rules: []
+
+can_cu_goc: "92/2015/QH13 > Điều 189 > Khoản 4"
+
+# Ba mục điều kiện, vắng mặt KHÔNG phải khuyết điểm của lá đơn:
+#   h  "(nếu có)" nằm nguyên văn trong điểm h.
+#   d, e  gọi tên hai tư cách đương sự CHỈ TỒN TẠI Ở MỘT SỐ VỤ: Đ68.4 định
+#         nghĩa người có quyền lợi, nghĩa vụ liên quan là người "tuy không khởi
+#         kiện, không bị kiện" mà việc giải quyết vụ án liên quan tới quyền lợi
+#         của họ — một tranh chấp hai bên đơn thuần không có ai như vậy, và
+#         người khởi kiện tự mình đứng đơn thì cũng không có "người có quyền và
+#         lợi ích được bảo vệ" nào khác.
+# Báo "chan" cho ba mục này sẽ dựng một khuyết điểm chặn ở gần như MỌI lá đơn
+# hai bên — một dương tính giả trên đường phổ biến nhất, tệ hơn hẳn việc không
+# soát chúng.
+khong_bat_buoc:
+  can_cu: "92/2015/QH13 > Điều 189 > Khoản 4"
+  ghi_chu: >
+    Ba mục điều kiện theo chính văn Đ189.4 (điểm h ghi "nếu có") và theo Đ68.4
+    (tư cách người có quyền lợi, nghĩa vụ liên quan chỉ phát sinh ở một số vụ).
+    Vắng mặt không được báo là thiếu.
+  keys: [nguoi_duoc_bao_ve, nguoi_lien_quan, nguoi_lam_chung]
+
+muc:
+  - {stt: 1, key: ngay_lam_don,     ten: "Ngày, tháng, năm làm đơn khởi kiện", diem: a, can_cu: "92/2015/QH13 > Điều 189 > Khoản 4 > Điểm a", tu_khoa: ["ngày, tháng, năm làm đơn", "ngày làm đơn"]}
+  - {stt: 2, key: toa_an,           ten: "Tên Toà án nhận đơn khởi kiện", diem: b, can_cu: "92/2015/QH13 > Điều 189 > Khoản 4 > Điểm b", tu_khoa: ["kính gửi", "toà án nhân dân"]}
+  - {stt: 3, key: nguoi_khoi_kien,  ten: "Tên, nơi cư trú, làm việc của người khởi kiện", diem: c, can_cu: "92/2015/QH13 > Điều 189 > Khoản 4 > Điểm c", tu_khoa: ["người khởi kiện", "nguyên đơn"]}
+  - {stt: 4, key: nguoi_duoc_bao_ve, ten: "Tên, nơi cư trú của người có quyền và lợi ích được bảo vệ", diem: d, can_cu: "92/2015/QH13 > Điều 189 > Khoản 4 > Điểm d", tu_khoa: ["người có quyền và lợi ích được bảo vệ"]}
+  - {stt: 5, key: nguoi_bi_kien,    ten: "Tên, nơi cư trú, làm việc của người bị kiện", diem: đ, can_cu: "92/2015/QH13 > Điều 189 > Khoản 4 > Điểm đ", tu_khoa: ["người bị kiện", "bị đơn"]}
+  - {stt: 6, key: nguoi_lien_quan,  ten: "Tên, nơi cư trú của người có quyền lợi, nghĩa vụ liên quan", diem: e, can_cu: "92/2015/QH13 > Điều 189 > Khoản 4 > Điểm e", tu_khoa: ["người có quyền lợi, nghĩa vụ liên quan"]}
+  - {stt: 7, key: yeu_cau,          ten: "Quyền, lợi ích bị xâm phạm và những vấn đề cụ thể yêu cầu Toà án giải quyết", diem: g, can_cu: "92/2015/QH13 > Điều 189 > Khoản 4 > Điểm g", tu_khoa: ["yêu cầu toà án giải quyết", "nội dung khởi kiện", "bị xâm phạm"]}
+  - {stt: 8, key: nguoi_lam_chung,  ten: "Họ, tên, địa chỉ của người làm chứng (nếu có)", diem: h, can_cu: "92/2015/QH13 > Điều 189 > Khoản 4 > Điểm h", tu_khoa: ["người làm chứng"]}
+  - {stt: 9, key: tai_lieu,         ten: "Danh mục tài liệu, chứng cứ kèm theo đơn khởi kiện", diem: i, can_cu: "92/2015/QH13 > Điều 189 > Khoản 4 > Điểm i", tu_khoa: ["danh mục tài liệu", "tài liệu, chứng cứ kèm theo", "chứng cứ kèm theo"]}

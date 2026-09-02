@@ -1,0 +1,74 @@
+# Checklist THỂ THỨC của QUY CHẾ NỘI BỘ — NĐ 30/2020 Đ8.2 a-i. Đ7 là mắt xích
+# bắc cầu: "quy chế" nằm trong danh sách 29 loại văn bản hành chính của Đ7, và
+# chính vì thế Đ8.2 mới với tới loại này.
+#
+# ══ PHẢI ĐỌC TRƯỚC KHI TIN CON SỐ COMPLETENESS CỦA MẪU NÀY ══
+#
+# 1. MẪU NÀY SOÁT HÌNH THỨC, KHÔNG SOÁT NỘI DUNG. completeness 1.0 nghĩa là "đủ
+#    chín thành phần thể thức", KHÔNG nghĩa là "quy chế này quy định đúng và đủ
+#    những gì nó cần quy định". Một quy chế chi tiêu nội bộ thiếu hẳn phần định
+#    mức vẫn có thể đạt 1.0 ở đây.
+#
+# 2. KHÔNG VĂN BẢN NÀO QUY ĐỊNH NỘI DUNG CỦA MỘT QUY CHẾ NỘI BỘ TUỲ NGHI. Đã
+#    tra, ghi ra để lần sau không ai phải tra lại:
+#      • LDN Đ153.2.l — HĐQT "quyết định cơ cấu tổ chức, QUY CHẾ QUẢN LÝ NỘI BỘ
+#        của công ty". Trao THẨM QUYỀN ban hành, không nói quy chế chứa gì.
+#      • LDN Đ162.3.d — Giám đốc "kiến nghị phương án cơ cấu tổ chức, quy chế
+#        quản lý nội bộ". Cũng là thẩm quyền.
+#      • LDN Đ24.2  — liệt kê nội dung chủ yếu của ĐIỀU LỆ công ty. Điều lệ là
+#        một văn bản KHÁC, bắt buộc theo luật, có danh mục nội dung riêng.
+#        Dựng quy chế nội bộ bằng Đ24 sẽ đòi vốn điều lệ, cổ phần, thể thức
+#        thông qua nghị quyết — những thứ một quy chế chi tiêu không có.
+#      • NĐ 30/2020 Đ8.2 — chín thành phần thể thức, giống HỆT công văn.
+#
+# 3. HAI LOẠI "QUY CHẾ" CÓ LUẬT RIÊNG, ĐỪNG DÙNG MẪU NÀY CHO CHÚNG:
+#      • Quy chế dân chủ ở cơ sở tại nơi làm việc → `quy_che_dan_chu`
+#        (NĐ 145/2020 Đ37.2 a-g liệt kê NỘI DUNG, nên mẫu đó soát nội dung
+#        thật). Ánh xạ nhầm vào đây là hạ cấp một mẫu soát nội dung thành soát
+#        bìa thư.
+#      • Nội quy lao động → `noi_quy` (BLLĐ Đ118.2 liệt kê nội dung).
+#    Mẫu này dành cho quy chế tuỳ nghi: chi tiêu, quản lý tài sản, lương
+#    thưởng, công tác phí — loại mà doanh nghiệp tự đặt ra và luật không can
+#    thiệp vào nội dung.
+#
+# 4. PHẠM VI ÁP DỤNG HẸP HƠN TÊN GỌI. NĐ 30/2020 Đ2.1: chỉ áp cho "cơ quan, tổ
+#    chức nhà nước và doanh nghiệp nhà nước". Quy chế nội bộ lại là văn bản của
+#    MỌI doanh nghiệp, nên phần lớn người dùng mẫu này nằm NGOÀI phạm vi Nghị
+#    định. Với họ, chín thành phần là CHUẨN MỰC HÀNH CHÍNH, không phải nghĩa vụ
+#    pháp lý. `muc_do_thieu: chan` đúng cho đối tượng trong phạm vi Đ2.1; ngoài
+#    phạm vi hãy đọc là "lệch chuẩn", không phải "trái luật".
+#
+# 5. PHỤ LỤC I KHÔNG CÓ TRONG KHO — xem `checklist_cong_van.yaml` mục 3.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan LIKE '30/2020/NĐ-CP > Điều 8 > Khoản 2%'
+#       OR duong_dan IN ('30/2020/NĐ-CP > Điều 7', '30/2020/NĐ-CP > Điều 2 > Khoản 1');
+loai: quy_che_noi_bo
+ten: "quy chế nội bộ"
+tieu_de: "QUY CHẾ NỘI BỘ"
+don_vi_muc: "Thành phần"
+# Lộ ra `GET /mau/{loai}` để frontend gắn nhãn đúng thay vì viết cứng một
+# danh sách tên loại. Xem giới hạn ở đầu file: các MỤC dưới đây là thành phần
+# trình bày của NĐ 30/2020 Đ8.2, không phải nội dung nghiệp vụ.
+pham_vi_soat: the_thuc
+
+muc_do_thieu: chan
+
+# Không rule nào. Không có ngưỡng số học hay điều cấm nào của luật áp lên nội
+# dung một quy chế tuỳ nghi — đó chính là điều mục 2 ở trên nói.
+rules: []
+
+can_cu_goc: "30/2020/NĐ-CP > Điều 8 > Khoản 2"
+can_cu_chi_tiet: "30/2020/NĐ-CP > Điều 7"
+
+muc:
+  - {stt: 1, key: quoc_hieu, ten: "Quốc hiệu và Tiêu ngữ", diem: a, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm a", tu_khoa: ["quốc hiệu", "cộng hoà xã hội chủ nghĩa việt nam", "cộng hòa xã hội chủ nghĩa việt nam", "độc lập - tự do - hạnh phúc"]}
+  - {stt: 2, key: ten_co_quan, ten: "Tên cơ quan, tổ chức ban hành văn bản", diem: b, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm b", tu_khoa: ["tên cơ quan, tổ chức ban hành", "cơ quan, tổ chức ban hành", "tên cơ quan", "cơ quan ban hành", "đơn vị ban hành"]}
+  - {stt: 3, key: so_ky_hieu, ten: "Số, ký hiệu của văn bản", diem: c, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm c", tu_khoa: ["số, ký hiệu của văn bản", "số và ký hiệu", "số, ký hiệu", "ký hiệu", "số văn bản"]}
+  - {stt: 4, key: dia_danh_thoi_gian, ten: "Địa danh và thời gian ban hành văn bản", diem: d, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm d", tu_khoa: ["địa danh và thời gian ban hành", "địa danh, thời gian ban hành", "thời gian ban hành", "địa danh"]}
+  - {stt: 5, key: trich_yeu, ten: "Tên loại và trích yếu nội dung văn bản", diem: đ, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm đ", tu_khoa: ["trích yếu nội dung", "trích yếu", "về việc", "v/v"]}
+  - {stt: 6, key: noi_dung, ten: "Nội dung văn bản — phạm vi điều chỉnh, đối tượng áp dụng và các quy định cụ thể", diem: e, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm e", tu_khoa: ["nội dung văn bản", "phạm vi điều chỉnh", "đối tượng áp dụng", "quy định chung", "nội dung"]}
+  - {stt: 7, key: chuc_vu_chu_ky, ten: "Chức vụ, họ tên và chữ ký của người có thẩm quyền", diem: g, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm g", tu_khoa: ["chữ ký của người có thẩm quyền", "chức vụ, họ tên và chữ ký", "họ tên và chữ ký", "người có thẩm quyền", "người ký văn bản"]}
+  - {stt: 8, key: dau_chu_ky_so, ten: "Dấu, chữ ký số của cơ quan, tổ chức", diem: h, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm h", tu_khoa: ["chữ ký số của cơ quan", "dấu, chữ ký số", "chữ ký số", "đóng dấu", "con dấu"]}
+  - {stt: 9, key: noi_nhan, ten: "Nơi nhận", diem: i, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm i", tu_khoa: ["nơi nhận"]}

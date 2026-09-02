@@ -1,0 +1,50 @@
+# Checklist nội dung của HỢP ĐỒNG THUÊ TÀI SẢN (thuê mặt bằng, thuê tài sản
+# phục vụ kinh doanh) — BLDS Đ472-482, kèm Đ328 cho khoản đặt cọc.
+#
+# PHẠM VI PHẢI NÓI RÕ: mẫu này dựa trên chế định THUÊ TÀI SẢN của Bộ luật Dân
+# sự. Thuê NHÀ Ở còn chịu Luật Nhà ở (điều kiện nhà ở được cho thuê, hợp đồng
+# thuê nhà ở, quyền của bên thuê khi bên cho thuê bán nhà) — văn bản đó KHÔNG
+# có trong kho, nên mẫu này không tự nhận là đủ cho hợp đồng thuê nhà ở. Dùng
+# cho mặt bằng và tài sản là đúng phạm vi căn cứ đang có.
+#
+# muc_do_thieu: canh_bao — BLDS không liệt kê nội dung bắt buộc của hợp đồng
+# thuê; tám mục bắt buộc dưới đây là những nội dung có điều luật riêng điều
+# chỉnh.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, tieu_de FROM provisions
+#    WHERE duong_dan ~ '^91/2015/QH13 > Điều (32[8]|47[2-9]|48[0-2])$';
+loai: hop_dong_thue_tai_san
+ten: "hợp đồng thuê tài sản"
+tieu_de: "HỢP ĐỒNG THUÊ TÀI SẢN"
+muc_do_thieu: canh_bao
+
+# Dựng trên chế định HỢP ĐỒNG (BLDS Đ385 "sự thoả thuận giữa các bên"), nên
+# `GET /mau/{loai}` kèm thêm khối các bên + chỗ ký (`cau_truc.khung_hop_dong`).
+# Hai khối đó KHÔNG phải `muc` và KHÔNG vào mẫu số completeness.
+la_hop_dong: true
+
+rules: []
+
+can_cu_goc: "91/2015/QH13 > Điều 472"
+
+# Cho thuê lại (Đ475) chỉ đặt ra khi các bên muốn cho phép; đặt cọc (Đ328) là
+# một biện pháp bảo đảm TUỲ CHỌN, không phải điều kiện của hợp đồng thuê.
+khong_bat_buoc:
+  can_cu: "91/2015/QH13 > Điều 475"
+  ghi_chu: >
+    Cho thuê lại (Đ475) và đặt cọc (Đ328) là thoả thuận tuỳ chọn. Một hợp đồng
+    thuê không có hai điều khoản này vẫn đầy đủ; vắng mặt không báo là thiếu.
+  keys: [cho_thue_lai, dat_coc]
+
+muc:
+  - {stt: 1, key: tai_san_thue, ten: "Tài sản thuê và mục đích thuê", can_cu: "91/2015/QH13 > Điều 472", tu_khoa: ["tài sản thuê", "đối tượng thuê", "đối tượng của hợp đồng thuê", "mặt bằng cho thuê"]}
+  - {stt: 2, key: thoi_han_thue, ten: "Thời hạn thuê", can_cu: "91/2015/QH13 > Điều 474", tu_khoa: ["thời hạn thuê", "thời hạn cho thuê"]}
+  - {stt: 3, key: gia_thue, ten: "Giá thuê", can_cu: "91/2015/QH13 > Điều 473", tu_khoa: ["giá thuê", "tiền thuê"]}
+  - {stt: 4, key: tra_tien_thue, ten: "Phương thức và kỳ hạn trả tiền thuê", can_cu: "91/2015/QH13 > Điều 481", tu_khoa: ["trả tiền thuê", "thanh toán tiền thuê", "kỳ hạn thanh toán"]}
+  - {stt: 5, key: giao_tai_san, ten: "Giao tài sản thuê", can_cu: "91/2015/QH13 > Điều 476", tu_khoa: ["giao tài sản thuê", "bàn giao tài sản", "bàn giao mặt bằng"]}
+  - {stt: 6, key: nghia_vu_ben_cho_thue, ten: "Nghĩa vụ bảo đảm giá trị sử dụng của tài sản thuê", can_cu: "91/2015/QH13 > Điều 477", tu_khoa: ["bảo đảm giá trị sử dụng", "nghĩa vụ của bên cho thuê"]}
+  - {stt: 7, key: nghia_vu_ben_thue, ten: "Nghĩa vụ sử dụng tài sản thuê đúng công dụng, mục đích", can_cu: "91/2015/QH13 > Điều 480", tu_khoa: ["đúng công dụng", "nghĩa vụ của bên thuê", "sử dụng tài sản thuê"]}
+  - {stt: 8, key: tra_lai_tai_san, ten: "Trả lại tài sản thuê khi hết thời hạn", can_cu: "91/2015/QH13 > Điều 482", tu_khoa: ["trả lại tài sản thuê", "hoàn trả mặt bằng", "trả lại mặt bằng"]}
+  - {stt: 9, key: cho_thue_lai, ten: "Cho thuê lại (nếu có thoả thuận)", can_cu: "91/2015/QH13 > Điều 475", tu_khoa: ["cho thuê lại"]}
+  - {stt: 10, key: dat_coc, ten: "Đặt cọc bảo đảm thực hiện hợp đồng (nếu có)", can_cu: "91/2015/QH13 > Điều 328", tu_khoa: ["đặt cọc", "tiền đặt cọc"]}

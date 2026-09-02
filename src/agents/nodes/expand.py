@@ -3,6 +3,17 @@
 Bốn việc (xem task-7-brief.md; việc #2 thêm SAU khi review Task 7 đo trên
 đường chạy thật — xem "Sửa 2026-08-31" cuối docstring):
 
+  0. Điều khoản BỊ SỬA → điều khoản ĐI SỬA, qua bản đồ `sua_doi_dieu_khoan`
+     (Công báo/VBHN). Chạy TRƯỚC #2 để Khoản/Điểm của điều đi sửa cũng được kéo
+     xuống. Vì sao cần: `effectivity` đã nói được "Điều 139 Khoản 1 bị sửa bởi
+     113/2025/QH15 từ 2026-07-01", nhưng NỘI DUNG MỚI chỉ vào được context nếu
+     truy hồi tình cờ bắt được điều đi sửa. ĐO 2026-09-01 trên 3 ca thật: 2 ca
+     truy hồi bắt được (hạng 6/10), 1 ca TRƯỢT ("trách nhiệm đào tạo nghề của
+     người sử dụng lao động" → `124/2025/QH15 > Điều 43` không vào top-10) —
+     nên đây là cạnh CẤU TRÚC, không để cho may rủi từ vựng lo.
+     KHÔNG phải tín hiệu xếp hạng: expand không đụng điểm truy hồi, nó chỉ thêm
+     điều khoản vào tập context, và mọi thứ thêm vào vẫn đi qua đúng tầng hiệu
+     lực như mọi provision khác.
   1. Khoản/Điểm → Điều cha — khớp ở Khoản thì đưa cả Điều cho model đọc, MỘT
      CHIỀU (con → cha). 72,1-73,6% số Điều trong corpus có `noi_dung` chỉ là
      tiêu đề (xem `verify_tier1._cay_con` — cùng con số, đo độc lập ở
@@ -56,6 +67,7 @@ from datetime import date
 from sqlalchemy import Engine, text
 
 from src.agents.nodes.verify_tier1 import effectivity_qua_provision
+from src.services.xref import find_xrefs
 
 # `d.ten` CHỈ để hiển thị cho người đọc ("Bộ luật Lao động" cạnh trích dẫn
 # 45/2019/QH14 — người dùng chưa chắc nhận ra so_ky_hieu là văn bản nào), KHÔNG
@@ -82,6 +94,22 @@ _SQL_HOP = text(
     " WHERE from_provision_id = ANY(:ids) AND to_provision_id IS NOT NULL"
 )
 
+# Bản đồ sửa đổi cấp điều khoản → điều khoản ĐI SỬA. Mệnh đề JOIN hậu duệ giống
+# hệt `effectivity._SQL_SUA_DOI` và vì cùng một lý do: truy hồi trả về "Điều
+# 139" còn bản ghi neo ở "Điều 139 > Khoản 1". Không lấy của TỔ TIÊN (xem ghi
+# chú ở `_SQL_SUA_DOI`).
+_SQL_NEO_SUA = text(
+    "SELECT DISTINCT s.sua_boi_so_ky_hieu, s.sua_boi_duong_dan"
+    " FROM provisions p"
+    " JOIN provisions t ON t.id = p.id"
+    "   OR (t.document_id = p.document_id AND t.duong_dan LIKE p.duong_dan || ' > %')"
+    " JOIN sua_doi_dieu_khoan s ON s.provision_id = t.id"
+    " WHERE p.id = ANY(:ids)"
+    "   AND s.sua_boi_so_ky_hieu IS NOT NULL AND s.sua_boi_duong_dan IS NOT NULL"
+)
+
+_SQL_THEO_DUONG_DAN = text("SELECT id FROM provisions WHERE duong_dan = ANY(:dd)")
+
 
 # ══ Logic THUẦN (silent-failure review — CRITICAL 2) ═════════════════════════
 # expand.py trước bản này gộp SQL và Python trong một hàm, nên 0% được unit
@@ -90,6 +118,23 @@ _SQL_HOP = text(
 # node này được kiểm). Ba hàm dưới đây nhận dữ liệu ĐÃ LẤY SẴN (list/dict
 # thường), không chạm DB — tách theo đúng khuôn `verify_tier1`/`effectivity.py`
 # đã dùng (hàm thuần tách khỏi lớp DB).
+
+
+def _duong_dan_di_sua(canh: list[tuple[str, str]]) -> list[str]:
+    """Bước 0 THUẦN: `("113/2025/QH15", "khoản 1 Điều 29")` → `"113/2025/QH15 > Điều 29"`.
+
+    Neo ở cấp ĐIỀU, không ở cấp Khoản: bước #2 ngay sau đó kéo toàn bộ Khoản/
+    Điểm con xuống, nên neo Điều là đủ và không phải dựng lại `duong_dan` nhiều
+    cấp từ một chuỗi tiếng Việt. Dùng `xref.find_xrefs` — chính bộ regex đã kiểm
+    "Điều 33a" (điều do luật sửa chèn) và ký tự `Ð` U+00D0 — thay vì viết regex
+    thứ hai cho cùng cú pháp.
+
+    Chuỗi không đọc được số Điều thì KHÔNG sinh neo nào: `can_doi_chieu_tay` đã
+    để `sua_boi_duong_dan` NULL và bị lọc ở SQL, còn ở đây thà không mở rộng
+    còn hơn mở rộng sang một Điều đoán bừa.
+    """
+    return [f"{sk} > Điều {h.so_dieu}{h.hau_to}"
+            for sk, dd in canh for h in find_xrefs(dd or "")]
 
 
 def _mo_rong_cha(ids: set[int], cha_moi: list[int]) -> set[int]:
@@ -145,6 +190,11 @@ def expand(provision_ids: list[int], engine: Engine, as_of: date, hops: int) -> 
     ids = set(provision_ids)
 
     with engine.connect() as conn:
+        # 0 — điều khoản ĐI SỬA, qua bản đồ `sua_doi_dieu_khoan` (xem docstring #0)
+        canh = [(r[0], r[1]) for r in conn.execute(_SQL_NEO_SUA, {"ids": list(ids)}).all()]
+        if dd_sua := _duong_dan_di_sua(canh):
+            ids.update(conn.execute(_SQL_THEO_DUONG_DAN, {"dd": dd_sua}).scalars().all())
+
         # 1 — Khoản/Điểm → Điều cha
         parents = conn.execute(_SQL_PARENT, {"ids": list(ids)}).scalars().all()
         ids = _mo_rong_cha(ids, parents)

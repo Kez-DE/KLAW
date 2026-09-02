@@ -1,0 +1,91 @@
+# Checklist nội dung của GIẤY UỶ QUYỀN — chế định ĐẠI DIỆN của Bộ luật Dân sự
+# (Đ134-143), KHÔNG phải chế định hợp đồng uỷ quyền (Đ562-569).
+#
+# ══ GIẤY UỶ QUYỀN ≠ HỢP ĐỒNG UỶ QUYỀN. ĐỪNG GỘP HAI MẪU NÀY ══
+#
+# `hop_dong_uy_quyen` dựng trên Đ562: "sự thoả thuận giữa các bên, theo đó bên
+# được uỷ quyền có NGHĨA VỤ thực hiện công việc". Hai bên, hai chữ ký, có thể
+# có thù lao. Giấy uỷ quyền là hành vi MỘT BÊN: bên uỷ quyền tuyên bố trao
+# quyền đại diện, bên được uỷ quyền không ký và không gánh nghĩa vụ nào từ
+# chính tờ giấy. Soát một giấy uỷ quyền bằng checklist Đ562 sẽ báo thiếu chữ ký
+# bên nhận và thiếu thoả thuận thù lao — hai thứ mà một giấy uỷ quyền đúng luật
+# KHÔNG có. Đó là lý do mẫu này tồn tại riêng thay vì ánh xạ.
+#
+# ══ MỘT MỤC BẮT BUỘC THẬT, KHÔNG CÓ QUY TẮC MẶC ĐỊNH CỨU ══
+#
+# `pham_vi` (mục 3) là mục quan trọng nhất file này, và nó KHÔNG có mặc định:
+#   Đ141.1: "Người đại diện CHỈ ĐƯỢC xác lập, thực hiện giao dịch dân sự trong
+#   phạm vi đại diện theo căn cứ sau đây: … c) NỘI DUNG UỶ QUYỀN".
+#   Đ141.2 có cho một mặc định khi không xác định được phạm vi — nhưng đọc kỹ,
+#   mặc định đó chỉ áp cho "người đại diện theo PHÁP LUẬT". Với đại diện theo
+#   UỶ QUYỀN, luật không cấp phạm vi thay các bên.
+# Hệ quả đo được: một giấy uỷ quyền không ghi phạm vi để người được uỷ quyền
+# không có thẩm quyền nào xác định được, và mọi giao dịch họ xác lập rơi vào
+# Đ142 (không có quyền đại diện) hoặc Đ143 (vượt quá phạm vi) — không làm phát
+# sinh quyền, nghĩa vụ cho bên uỷ quyền. Thiếu mục này thì tờ giấy vô dụng.
+#
+# ══ MỤC 5 (CHỮ KÝ) LÀ MỤC THỂ THỨC, PHẠM VI HẸP HƠN BỐN MỤC KIA ══
+#
+# Bốn mục đầu dẫn Bộ luật Dân sự — áp cho MỌI người, cá nhân lẫn pháp nhân.
+# Mục 5 dẫn NĐ 30/2020 Đ8.2.g, và Nghị định đó Đ2.1 chỉ áp cho "cơ quan, tổ
+# chức nhà nước và doanh nghiệp nhà nước". Với một giấy uỷ quyền giữa hai cá
+# nhân, chữ ký là điều kiện chứng minh trên thực tế (không ký thì không có gì
+# chứng minh quyền đại diện trước Đ142), KHÔNG phải một nghĩa vụ do Nghị định
+# này đặt ra. Mắt xích bắc cầu là Đ7: "giấy uỷ quyền" nằm trong danh sách 29
+# loại văn bản hành chính của Đ7, và chính vì thế Đ8.2 mới với tới loại này.
+#
+# Vì sao KHÔNG bê cả chín thành phần Đ8.2 vào: làm vậy biến mẫu này thành
+# `cong_van` đổi tiêu đề — chín mục bìa thư nhấn chìm bốn mục nội dung, và
+# completeness sẽ chủ yếu nói về quốc hiệu chứ không nói về quyền đại diện.
+# Nơi soát đủ chín thành phần thể thức là `cong_van`.
+#
+# muc_do_thieu: canh_bao — không điều nào liệt kê "giấy uỷ quyền phải có các
+# nội dung sau". Bốn mục nội dung dưới đây là những thứ CÓ ĐIỀU LUẬT RIÊNG điều
+# chỉnh, suy ra từ điều luật nói về hệ quả khi thiếu, không phải chép từ một
+# danh mục luật định.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, noi_dung FROM provisions
+#    WHERE duong_dan ~ '^91/2015/QH13 > Điều (135|138|140|141)'
+#       OR duong_dan LIKE '30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm g'
+#       OR duong_dan = '30/2020/NĐ-CP > Điều 7';
+loai: giay_uy_quyen
+ten: "giấy uỷ quyền"
+tieu_de: "GIẤY UỶ QUYỀN"
+don_vi_muc: "Mục"
+muc_do_thieu: canh_bao
+
+# Không rule nào. Đ140.2.b có một con số (01 năm) nhưng nó là QUY TẮC MẶC ĐỊNH
+# cấp cho trường hợp im lặng, không phải một TRẦN mà văn bản có thể vượt: một
+# giấy uỷ quyền ghi thời hạn 03 năm hoàn toàn hợp pháp. Không có ngưỡng nào để
+# kiểm.
+rules: []
+
+can_cu_goc: "91/2015/QH13 > Điều 138 > Khoản 1"
+can_cu_chi_tiet: "91/2015/QH13 > Điều 141 > Khoản 1 > Điểm c"
+
+# Một mục điều kiện. Đ140.2.b cấp thời hạn mặc định 01 năm kể từ thời điểm phát
+# sinh quyền đại diện khi văn bản không ghi, và Đ140.2.a cấp mốc "đến thời điểm
+# chấm dứt giao dịch" khi quyền đại diện gắn với một giao dịch cụ thể. Giấy uỷ
+# quyền im lặng về thời hạn vẫn có quy tắc điều chỉnh — im lặng ở đó không phải
+# khuyết thiếu. Phạm vi uỷ quyền thì KHÔNG có mặc định nào, nên không nằm đây.
+khong_bat_buoc:
+  can_cu: "91/2015/QH13 > Điều 140 > Khoản 2"
+  ghi_chu: >
+    Thời hạn uỷ quyền có quy tắc mặc định: Đ140.2.a tính đến thời điểm chấm dứt
+    giao dịch dân sự cụ thể, Đ140.2.b cho 01 năm kể từ thời điểm phát sinh
+    quyền đại diện. Vắng mặt không được báo là thiếu. Lưu ý KHÔNG áp mặc định
+    này cho phạm vi uỷ quyền — Đ141.2 chỉ cấp mặc định cho đại diện theo pháp
+    luật, không cấp cho đại diện theo uỷ quyền.
+  keys: [thoi_han]
+
+muc:
+  - {stt: 1, key: ben_uy_quyen, ten: "Bên uỷ quyền (người được đại diện): họ tên hoặc tên tổ chức, giấy tờ pháp lý, địa chỉ", can_cu: "91/2015/QH13 > Điều 138 > Khoản 1", tu_khoa: ["bên uỷ quyền", "bên ủy quyền", "người uỷ quyền", "người ủy quyền", "người được đại diện", "bên giao uỷ quyền"]}
+  - {stt: 2, key: ben_duoc_uy_quyen, ten: "Bên được uỷ quyền (người đại diện): họ tên hoặc tên tổ chức, giấy tờ pháp lý, địa chỉ", can_cu: "91/2015/QH13 > Điều 138 > Khoản 1", tu_khoa: ["bên được uỷ quyền", "bên được ủy quyền", "người được uỷ quyền", "người được ủy quyền", "người đại diện theo uỷ quyền", "người nhận uỷ quyền"]}
+  - {stt: 3, key: pham_vi, ten: "Nội dung uỷ quyền — phạm vi công việc, giao dịch mà người đại diện được xác lập, thực hiện", can_cu: "91/2015/QH13 > Điều 141 > Khoản 1 > Điểm c", tu_khoa: ["nội dung uỷ quyền", "nội dung ủy quyền", "phạm vi uỷ quyền", "phạm vi ủy quyền", "phạm vi đại diện", "công việc uỷ quyền", "nội dung công việc"]}
+  - {stt: 4, key: thoi_han, ten: "Thời hạn uỷ quyền", can_cu: "91/2015/QH13 > Điều 140 > Khoản 1", tu_khoa: ["thời hạn uỷ quyền", "thời hạn ủy quyền", "thời hạn đại diện", "thời hạn của giấy uỷ quyền", "hiệu lực của giấy uỷ quyền"]}
+  # `ten` của mục này CỐ Ý không chứa cụm "bên uỷ quyền": đó là từ khoá của mục
+  # 1, và `extract_clauses` lấy mục ĐẦU TIÊN khớp, nên viết "chữ ký của bên uỷ
+  # quyền" sẽ để mục 1 nuốt mất điều khoản này — mục 5 báo thiếu vĩnh viễn dù
+  # có mặt. `test_soan_ra_roi_soat_lai_tach_dung_tung_muc` bắt đúng lỗi đó.
+  - {stt: 5, key: chu_ky, ten: "Chữ ký và họ tên của người ký giấy (kèm dấu, nếu là tổ chức)", can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm g", tu_khoa: ["chữ ký", "họ tên và chữ ký", "ký tên", "đóng dấu"]}

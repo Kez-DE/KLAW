@@ -44,6 +44,30 @@ def _text_of(p: dict) -> str:
 
 
 def build_chunks(provisions: list[dict], max_tokens: int) -> list[ChunkRow]:
+    # TẦNG NÔNG trước, và nó KHÔNG đi qua `citable`: một văn bản tầng nông là
+    # văn bản ta biết là có mà không có toàn văn máy đọc được, nên thứ duy nhất
+    # đánh chỉ mục được là TÊN nó, nằm ở hàng `mo_dau`. Không có hàng này thì
+    # 79 văn bản metadata vô hình với truy hồi, và nhánh `partial_coverage` —
+    # thiết kế đúng cho đúng trường hợp này — không bao giờ kích được.
+    #
+    # CHỈ tầng nông. `mo_dau` của 47 văn bản tầng sâu là letterhead lặp lại
+    # ("CHÍNH PHỦ / CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM / Căn cứ…", trung bình
+    # 467 ký tự); đánh chỉ mục chúng là thêm 47 chunk gần trùng nhau, đúng loại
+    # nhiễu tệ nhất khi `ts_rank` không có IDF.
+    #
+    # Lời hứa "nêu văn bản, KHÔNG diễn giải" không cần code nào giữ: schema đã
+    # giữ. `ux_provisions_neo_trich_dan` và `provisions_noi_dung_citable_check`
+    # chỉ phủ `dieu`/`khoan`/`diem`, nên một hàng `mo_dau` không bao giờ trở
+    # thành một trích dẫn nguyên văn được.
+    out: list[ChunkRow] = []
+    for p in provisions:
+        if p.get("cap") != "mo_dau" or p.get("depth") != "shallow":
+            continue
+        ten = _text_of(p)
+        if not ten:
+            continue
+        out.append(ChunkRow(p["id"], ten, dem_token(ten)))
+
     citable = [p for p in provisions if p.get("cap") in CITABLE]
     con: dict[int, list[dict]] = {}
     for p in citable:
@@ -57,7 +81,6 @@ def build_chunks(provisions: list[dict], max_tokens: int) -> list[ChunkRow]:
             acc.append(gom(c))
         return " ".join(x for x in acc if x).strip()
 
-    out: list[ChunkRow] = []
     for p in citable:
         if p["cap"] != "dieu":
             continue
@@ -99,7 +122,11 @@ def load_provisions(engine: Engine) -> list[dict]:
     """Đọc provision từ DB thành dict cho build_chunks()."""
     with engine.connect() as conn:
         rows = conn.execute(text(
-            "SELECT id, document_id, parent_id, cap, so_hieu_cap, noi_dung, duong_dan"
-            " FROM provisions ORDER BY document_id, thu_tu"
+            # `depth` join từ `documents`: `build_chunks` cần biết văn bản
+            # thuộc tầng nào để quyết định có đánh chỉ mục `mo_dau` hay không.
+            "SELECT p.id, p.document_id, p.parent_id, p.cap, p.so_hieu_cap,"
+            " p.noi_dung, p.duong_dan, d.depth"
+            " FROM provisions p JOIN documents d ON d.id = p.document_id"
+            " ORDER BY p.document_id, p.thu_tu"
         )).mappings().all()
         return [dict(r) for r in rows]
