@@ -1,12 +1,13 @@
 import type { PhamViSoat } from "./khung-van-ban";
 
-// Định nghĩa 25 mẫu văn bản: nhóm, ký hiệu, số trường, căn cứ pháp lý.
+// Định nghĩa 27 mẫu văn bản: nhóm, ký hiệu, số trường, căn cứ pháp lý.
 // Đây là CẤU HÌNH SẢN PHẨM, không phải dữ liệu pháp luật minh hoạ — nên nó ở
 // lại sau khi kho văn bản giả bị xoá.
 //
-// Cảnh báo còn mở: backend hiện chỉ có checklist cho 'hdld'; noi_quy và
-// quyet_dinh_ky_luat trả 501; 22 mẫu còn lại chưa có kiểu backend nào. Danh
-// mục này vì thế đang hứa nhiều hơn hệ thống làm được — việc của pha nối FE.
+// 2026-09-02: **27/27 mẫu nối được backend**, khớp đúng 27 loại `/soan-thao`
+// nhận. Danh mục không còn hứa nhiều hơn hệ thống làm được, và cũng không còn
+// giấu mẫu nào: `quy_che_dan_chu` và `hop_dong_uy_quyen` từng dựng được, soát
+// được, mà không có thẻ nào bấm tới.
 
 export type NhomMau = "lao-dong" | "thuong-mai" | "noi-bo" | "to-tung";
 
@@ -31,6 +32,10 @@ const BLLD = { soHieu: "45/2019/QH14", ten: "Bộ luật Lao động 2019" };
 const BLDS = { soHieu: "91/2015/QH13", ten: "Bộ luật Dân sự 2015" };
 const LTM = { soHieu: "36/2005/QH11", ten: "Luật Thương mại 2005" };
 const LDN = { soHieu: "59/2020/QH14", ten: "Luật Doanh nghiệp 2020" };
+const ND145 = {
+  soHieu: "145/2020/NĐ-CP",
+  ten: "Nghị định 145/2020/NĐ-CP hướng dẫn Bộ luật Lao động",
+};
 
 export const MAU: MauVanBan[] = [
   // Lao động & nhân sự
@@ -80,6 +85,20 @@ export const MAU: MauVanBan[] = [
     canCu: [BLLD],
   },
   {
+    // KHÔNG phải `quy-che-noi-bo`. Quy chế nội bộ (nghĩa chung, soát THỂ THỨC
+    // theo NĐ 30/2020) và quy chế dân chủ ở cơ sở là HAI văn bản khác nhau:
+    // cái sau có nội dung bắt buộc riêng trong NĐ 145/2020 Đ37.2 điểm a–g và
+    // soát được NỘI DUNG. Trỏ chung một kiểu backend là soát cái này bằng
+    // checklist của cái kia.
+    id: "quy-che-dan-chu-co-so",
+    ten: "Quy chế dân chủ ở cơ sở tại nơi làm việc",
+    moTa: "Nội dung đối thoại, công khai và tham gia ý kiến tại nơi làm việc.",
+    soTruong: 10,
+    nhom: "lao-dong",
+    kyHieu: "QCDC",
+    canCu: [ND145, BLLD],
+  },
+  {
     id: "noi-quy-lao-dong",
     ten: "Nội quy lao động",
     moTa: "Quy định thời giờ làm việc, kỷ luật, an toàn lao động.",
@@ -110,6 +129,19 @@ export const MAU: MauVanBan[] = [
     nhom: "thuong-mai",
     kyHieu: "HĐMB",
     canCu: [LTM, BLDS],
+  },
+  {
+    // KHÔNG gộp với `giay-uy-quyen`. Giấy uỷ quyền là hành vi MỘT BÊN; hợp đồng
+    // uỷ quyền là thoả thuận HAI BÊN (BLDS Đ562) — chính vì thế backend trả
+    // `la_hop_dong=false` cho cái trước và `true` cho cái sau, nên chỉ cái sau
+    // mới dựng khối các bên và bảng ký hai cột.
+    id: "hop-dong-uy-quyen",
+    ten: "Hợp đồng ủy quyền",
+    moTa: "Thoả thuận hai bên về việc thực hiện công việc nhân danh bên uỷ quyền.",
+    soTruong: 8,
+    nhom: "thuong-mai",
+    kyHieu: "HĐUQ",
+    canCu: [BLDS],
   },
   {
     id: "hop-dong-dich-vu",
@@ -282,7 +314,7 @@ export const laThuViec = (m: MauVanBan) => m.id === "hop-dong-thu-viec";
  * Bản đồ này chỉ chứa mẫu máy chủ THẬT SỰ soát được, và đó là một ràng buộc
  * hẹp hơn "máy chủ nhận `loai_van_ban` này".
  *
- * 2026-09-02: **25/25 mẫu đã nối backend** — 21 soát NỘI DUNG, 3 chỉ soát THỂ
+ * 2026-09-02: **27/27 mẫu đã nối backend** — 23 soát NỘI DUNG, 3 chỉ soát THỂ
  * THỨC, 1 (`quyet_dinh_bo_nhiem`) soát thể thức KÈM một quy tắc nhiệm kỳ. Danh
  * mục đếm cả ba con số từ chính bản đồ này nên chúng không thể trôi khỏi sự
  * thật — con số viết tay trong chú thích thì có, và đã trôi đúng một lần: dòng
@@ -357,6 +389,16 @@ export const LOAI_BACKEND: Record<string, NoiBackend> = {
   "quy-che-noi-bo": { loai: "quy_che_noi_bo", phamVi: "the_thuc" },
   "ban-tu-khai": { loai: "ban_tu_khai", phamVi: "noi_dung" },
   "van-ban-giai-trinh": { loai: "van_ban_giai_trinh", phamVi: "noi_dung" },
+
+  // Hai mẫu nối 2026-09-02, đưa danh mục lên 27/27 — khớp đúng 27 loại
+  // `/soan-thao` nhận. Trước đó cả hai dựng được, soát được, mà không có thẻ
+  // nào bấm tới.
+  //
+  // `quy_che_dan_chu` soát NỘI DUNG (NĐ 145/2020 Đ37.2 a–g, cộng Đ43.2, Đ44.2,
+  // Đ47.3), KHÔNG phải thể thức — và nó có một rule thật
+  // (`so_dai_dien_doi_thoai_nsdld_toi_thieu`, sàn 03 người theo Đ38.1).
+  "quy-che-dan-chu-co-so": { loai: "quy_che_dan_chu", phamVi: "noi_dung" },
+  "hop-dong-uy-quyen": { loai: "hop_dong_uy_quyen", phamVi: "noi_dung" },
 };
 
 /**
@@ -402,7 +444,8 @@ export type LoaiVanBanBackend =
   | "quyet_dinh_bo_nhiem"
   | "quy_che_noi_bo"
   | "ban_tu_khai"
-  | "van_ban_giai_trinh";
+  | "van_ban_giai_trinh"
+  | "quy_che_dan_chu";
 
 /** `undefined` = KLAW chưa có kiểu nào cho mẫu này, nên chưa soát được. */
 export const loaiBackendCua = (id: string): LoaiVanBanBackend | undefined => LOAI_BACKEND[id]?.loai;

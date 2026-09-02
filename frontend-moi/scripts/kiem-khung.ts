@@ -35,7 +35,7 @@ import {
   tachCanCu,
   tieuDeMuc,
 } from "../src/lib/khung-van-ban.ts";
-import { LOAI_BACKEND } from "../src/lib/mau-van-ban.ts";
+import { LOAI_BACKEND, MAU } from "../src/lib/mau-van-ban.ts";
 import type { CauTruc } from "../src/lib/klaw.ts";
 
 /* ── 1. Tách căn cứ: chip phải trỏ đúng văn bản, không đoán ──────────────── */
@@ -311,6 +311,42 @@ assert.equal(
   "the_thuc_kem_rule",
 );
 assert.equal(new Set(Object.values(NHAN_PHAM_VI)).size, 3, "ba phạm vi thì ba nhãn KHÁC nhau");
+
+/* ── 4b. Mọi thẻ đều bấm tới được, và hai cặp dễ gộp phải tách ───────────── */
+
+// Thẻ không có ánh xạ = mẫu bấm vào thì không soạn được. Ánh xạ không có thẻ =
+// mẫu backend dựng được, soát được, mà KHÔNG AI BẤM TỚI ĐƯỢC — đúng chỗ
+// `quy_che_dan_chu` và `hop_dong_uy_quyen` đã nằm im cho tới 2026-09-02.
+{
+  const idThe = new Set(MAU.map((m) => m.id));
+  const idAnhXa = new Set(Object.keys(LOAI_BACKEND));
+  assert.deepEqual(
+    [...idAnhXa].filter((id) => !idThe.has(id)),
+    [],
+    "ánh xạ mồ côi: có ánh xạ mà không có thẻ",
+  );
+  assert.deepEqual(
+    [...idThe].filter((id) => !idAnhXa.has(id)),
+    [],
+    "thẻ chưa nối: bấm vào sẽ không soạn được",
+  );
+  assert.equal(MAU.length, 27);
+}
+
+// HAI CẶP dễ gộp nhầm, và gộp là soát văn bản này bằng checklist văn bản kia.
+//
+// Quy chế nội bộ (nghĩa chung, thể thức NĐ 30/2020) ≠ quy chế dân chủ ở cơ sở
+// (nội dung bắt buộc riêng, NĐ 145/2020 Đ37.2 a–g).
+assert.notEqual(LOAI_BACKEND["quy-che-noi-bo"]?.loai, LOAI_BACKEND["quy-che-dan-chu-co-so"]?.loai);
+assert.equal(LOAI_BACKEND["quy-che-noi-bo"]?.loai, "quy_che_noi_bo");
+assert.equal(LOAI_BACKEND["quy-che-dan-chu-co-so"]?.loai, "quy_che_dan_chu");
+
+// Giấy uỷ quyền là hành vi MỘT BÊN; hợp đồng uỷ quyền là thoả thuận HAI BÊN
+// (BLDS Đ562). Backend trả `la_hop_dong=false` / `true` tương ứng, nên gộp
+// chúng là dựng khối các bên và bảng ký hai cột lên một văn bản một bên.
+assert.notEqual(LOAI_BACKEND["giay-uy-quyen"]?.loai, LOAI_BACKEND["hop-dong-uy-quyen"]?.loai);
+assert.equal(LOAI_BACKEND["giay-uy-quyen"]?.loai, "giay_uy_quyen");
+assert.equal(LOAI_BACKEND["hop-dong-uy-quyen"]?.loai, "hop_dong_uy_quyen");
 
 /* ── 5. Bản đồ mẫu phải khớp cờ máy chủ tính ra ───────────────────────────── */
 
