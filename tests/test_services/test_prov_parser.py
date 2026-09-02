@@ -1007,3 +1007,37 @@ def test_parse_anomalies_chi_CANH_BAO_khi_nguon_thieu_han_mot_nhan():
     loi, canh_bao = parse_anomalies(html, "100/2015/QH13")
     assert loi == []
     assert any("ĐỨT DÃY" in x and "'đ'" in x for x in canh_bao), canh_bao
+
+
+def test_parse_anomalies_CANH_BAO_bang_nhieu_hang_ket_trong_mot_neo():
+    """Bảng lương tối thiểu vùng: 4 hàng dữ liệu nằm trong `noi_dung` của MỘT
+    Khoản, không có dòng con. Mô hình trích được hai hàng rồi kết luận "hai mức
+    lương tối thiểu" mà cả bảy phép kiểm vẫn qua sạch."""
+    html = ('<div><p class="prov-article"><b>Điều 3. Mức lương tối thiểu</b></p>'
+            '<p class="prov-clause">1. Quy định mức lương tối thiểu tháng theo '
+            'vùng như sau:</p>'
+            '<table><tr><td>Vùng</td><td>Mức lương tối thiểu tháng</td></tr>'
+            '<tr><td>Vùng I</td><td>5.310.000</td></tr>'
+            '<tr><td>Vùng II</td><td>4.730.000</td></tr></table>'
+            '<p class="prov-clause">2. Danh mục địa bàn vùng do Chính phủ quy '
+            'định.</p></div>')
+    loi, canh_bao = parse_anomalies(html, "293/2025/NĐ-CP")
+    assert loi == []
+    assert any("BẢNG KẸT" in x for x in canh_bao), canh_bao
+
+
+def test_AM_TINH_bang_MOT_hang_khong_bi_bao_la_danh_sach():
+    """Ca ÂM TÍNH: công thức tính lương làm thêm giờ (`145/2020 > Điều 55 >
+    Khoản 1`) cũng được dàn trang bằng <table>, nhưng nó là MỘT hàng — không
+    phải liệt kê. Báo nó là "bảng kẹt" sẽ dẫn tới tách một công thức thành năm
+    'điểm con', tức dựng năm neo không có trong luật."""
+    html = ('<div><p class="prov-article"><b>Điều 55. Tiền lương làm thêm giờ</b></p>'
+            '<p class="prov-clause">1. Đối với người lao động hưởng lương theo '
+            'thời gian, tiền lương làm thêm giờ được tính như sau:</p>'
+            '<table><tr><td>Tiền lương làm thêm giờ</td><td>=</td>'
+            '<td>Tiền lương giờ thực trả</td><td>x</td><td>Mức ít nhất 150%</td>'
+            '</tr></table>'
+            '<p class="prov-clause">2. Đối với người lao động hưởng lương theo '
+            'sản phẩm thì áp dụng tương tự.</p></div>')
+    _, canh_bao = parse_anomalies(html, "145/2020/NĐ-CP")
+    assert not any("BẢNG KẸT" in x for x in canh_bao), canh_bao

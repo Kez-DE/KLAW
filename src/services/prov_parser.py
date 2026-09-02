@@ -603,6 +603,42 @@ def _do_dut_quang(rows: list[ProvisionRow]) -> list[str]:
     return canh_bao
 
 
+def _do_bang_ket(rows: list[ProvisionRow]) -> list[str]:
+    """Neo trích dẫn giữ nguyên một BẢNG NHIỀU HÀNG mà không có con nào.
+
+    Kho phân rã mọi liệt kê thành dòng con — 17.160 Khoản, 13.725 Điểm. Đúng 13
+    neo trích dẫn thoát khỏi quy tắc đó, và cả 13 vì cùng một lý do: liệt kê của
+    chúng được nguồn dàn trang bằng `<table>` nên nó nằm gọn trong `noi_dung`
+    của MỘT dòng thay vì thành các dòng anh em.
+
+    Hậu quả đã đo (`trace_id` cbd9f317): mô hình trích hai trong bốn hàng của
+    bảng lương tối thiểu vùng rồi kết luận "pháp luật quy định HAI mức lương tối
+    thiểu tháng". Mọi trích dẫn đều đúng nguyên văn nên cả bảy phép kiểm đi qua
+    sạch — phép so tập con không có gì để so, vì hai citation trỏ cùng một
+    `khop_tai_id` chứ không phải hai hàng anh em.
+
+    CẢNH BÁO, không phải lỗi, và KHÔNG tự tách: `so_hieu_cap` cho một hàng bảng
+    là một CHÍNH SÁCH TRÍCH DẪN cần người quyết, cùng loại với hai Điểm trùng
+    nhãn "i)" đã ghi trong `KHONG_NAP`. Luật không đặt nhãn Điểm cho hàng bảng
+    lương; đặt hộ `a) b) c) d)` là dựng bốn neo không tồn tại trong văn bản —
+    đúng loại sai mà cả dự án tồn tại để không mắc. Cảnh báo này giữ 13 ca đó ở
+    trạng thái ĐỂ NGUYÊN CÓ CHỦ ĐÍCH thay vì bị bỏ sót im lặng.
+    """
+    co_con = {r.parent_local_id for r in rows}
+    canh_bao: list[str] = []
+    for r in rows:
+        if r.cap not in CITABLE or r.local_id in co_con:
+            continue
+        hang = [d for d in r.noi_dung.split("\n") if d.lstrip().startswith("|")]
+        if len(hang) > 1:
+            canh_bao.append(
+                f"BẢNG KẸT trong neo {r.duong_dan!r}: {len(hang)} hàng nằm trong "
+                f"noi_dung của MỘT provision, không có dòng con nào — một câu trả "
+                f"lời trích được vài hàng vẫn qua sạch mọi phép kiểm. Tách hàng "
+                f"bảng thành dòng con cần quyết định ký hiệu neo (xem KHONG_NAP).")
+    return canh_bao
+
+
 def parse_anomalies(html: str, so_ky_hieu: str = "?") -> tuple[list[str], list[str]]:
     """Cổng CẤU TRÚC: đường mất dữ liệu mà cổng nội dung (token) không thấy.
 
@@ -656,6 +692,7 @@ def parse_anomalies(html: str, so_ky_hieu: str = "?") -> tuple[list[str], list[s
 
     loi.extend(_do_nuot_anh_em(rows))
     canh_bao.extend(_do_dut_quang(rows))
+    canh_bao.extend(_do_bang_ket(rows))
 
     return loi, canh_bao
 
