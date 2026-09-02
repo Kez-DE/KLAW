@@ -1,14 +1,11 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from starlette.datastructures import Headers
-from starlette.exceptions import HTTPException
 
 from src.agents import graph_soan_thao as soan_thao_graph
 from src.api.routes import router
@@ -164,48 +161,3 @@ async def health():
     # thực không nên tiết lộ deployment đang chạy môi trường nào trước khi
     # Plan 4 deploy thật.
     return {"status": "ok"}
-
-
-# Static frontend (Vite build output). Mounted LAST — a StaticFiles mount at
-# "/" is a catch-all; every /api/* and /health route above must already be
-# registered or this would shadow them.
-STATIC = Path(__file__).parent / "static"
-
-# Tuyến do router phía client giữ. Chúng không tương ứng file nào trên đĩa, nên
-# `StaticFiles` trần ném 404 thật — bấm F5, mở bookmark, hay bấm link được chia
-# sẻ đều ra trang lỗi. Danh sách chép từ `frontend/src/App.tsx`; thêm tuyến mới
-# ở đó thì thêm ở đây.
-TUYEN_CLIENT = frozenset(
-    {"/", "/tra-cuu", "/soan-thao", "/soat", "/huong-dan", "/pham-vi", "/mien-tru"}
-)
-TIEN_TO_CLIENT = ("/van-ban/",)
-
-
-class StaticSPA(StaticFiles):
-    """Trả `index.html` cho tuyến phía client, nhưng KHÔNG nói dối mã trạng thái.
-
-    Tuyến có thật → 200. Đường dẫn không tồn tại → **404 kèm HTML**, để React
-    dựng được trang 404 tử tế mà máy tìm kiếm vẫn đọc đúng tín hiệu. Trả 200 cho
-    mọi thứ là nói dối với crawler; trả 404 rỗng là nói dối với người dùng.
-
-    Asset thiếu vẫn hỏng RÕ RÀNG: trả `index.html` cho một file `.js` không tồn
-    tại làm trình duyệt nuốt HTML như JavaScript và báo lỗi cú pháp khó hiểu.
-    """
-
-    async def get_response(self, path: str, scope):
-        try:
-            return await super().get_response(path, scope)
-        except HTTPException as e:
-            if e.status_code != 404:
-                raise
-            duong_dan = "/" + path.lstrip("/")
-            if "." in Path(path).name:  # trông như một tệp — để nó hỏng rõ ràng
-                raise
-            la_tuyen = duong_dan in TUYEN_CLIENT or duong_dan.startswith(TIEN_TO_CLIENT)
-            return FileResponse(
-                STATIC / "index.html", status_code=200 if la_tuyen else 404
-            )
-
-
-if STATIC.exists():
-    app.mount("/", StaticSPA(directory=STATIC, html=True), name="static")
