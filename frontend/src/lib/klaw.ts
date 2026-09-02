@@ -11,7 +11,7 @@
  * toàn chứ không làm sập cả thẻ kết quả.
  */
 
-/** Bốn `result_type` — bốn cách hiển thị, không thương lượng. */
+/** Bảy `result_type` — bảy cách hiển thị, không thương lượng. */
 export type ResultType =
   | "answer"
   | "partial_coverage"
@@ -86,6 +86,24 @@ export interface Nguon {
   bo_luat: string;
 }
 
+/**
+ * Một bảng của nhánh `hoi_ve_kho` xin bảng — khớp `Bang` của
+ * `src/models/schemas.py:95`. `dung_bang` (`src/services/kho.py:492`) luôn trả
+ * HAI bảng cho một câu hỏi xin bảng: một phân theo loại văn bản, một phân theo
+ * lĩnh vực pháp luật.
+ *
+ * Bảng lĩnh vực gộp `linh_vuc IS NULL` về khoá `""` (cố ý — xem `dung_bang`:
+ * một ô trống nói đúng "không có giá trị", một nhãn bịa nói một điều không
+ * kiểm được), nên `cot`/`dong` của Bảng đó có thể mang một hàng với ô đầu là
+ * chuỗi rỗng. Đây là dữ liệu kho THẬT, không phải lỗi cần "sửa" ở tầng hiển
+ * thị — `BangKetQua` render nguyên ô trống đó, không tự bịa nhãn thay thế.
+ */
+export interface Bang {
+  tieu_de: string;
+  cot: string[];
+  dong: string[][];
+}
+
 export interface TraCuuKetQua {
   result_type: ResultType;
   answer: string | null;
@@ -103,6 +121,13 @@ export interface TraCuuKetQua {
    * HỌ KHÔNG HỎI mà không có cách nào biết, cũng không có cách nào sửa.
    */
   cau_hoi_day_du: string | null;
+  /**
+   * Hai bảng của nhánh xin bảng, `[]` ở mọi nhánh khác. Máy chủ nay LUÔN gửi
+   * khoá này, nhưng `laTraCuuKetQua` vẫn khoan dung khi nó vắng mặt — một
+   * response cũ nằm trong cache (dựng trước khi trường này tồn tại) phải đọc
+   * được thay vì làm sập cả thẻ kết quả.
+   */
+  bang: Bang[];
 }
 
 /**
@@ -615,6 +640,26 @@ const LOAI_KET_QUA: readonly string[] = [
   "hoi_ve_kho",
 ];
 
+/**
+ * Một `Bang` hợp lệ: `dong` phải khớp SỐ CỘT của `cot`, hàng nào lệch bị loại
+ * ở đây — xem lời gọi trong `laTraCuuKetQua`.
+ */
+function laBang(x: unknown): x is Bang {
+  if (!laBanGhi(x) || typeof x["tieu_de"] !== "string" || !Array.isArray(x["cot"])) return false;
+  const cot = x["cot"];
+  if (!cot.every((o) => typeof o === "string")) return false;
+  const dong = x["dong"];
+  return (
+    Array.isArray(dong) &&
+    dong.every(
+      (hang) =>
+        Array.isArray(hang) &&
+        hang.length === cot.length &&
+        hang.every((o) => typeof o === "string"),
+    )
+  );
+}
+
 export function laTraCuuKetQua(x: unknown): x is TraCuuKetQua {
   // `result_type` chỉ cần là CHUỖI KHÔNG RỖNG — cố ý KHÔNG đòi nằm trong
   // `LOAI_KET_QUA`. Bản trước đòi, và một loại backend biết trả mà danh sách này
@@ -631,14 +676,25 @@ export function laTraCuuKetQua(x: unknown): x is TraCuuKetQua {
   // hành văn khi có `answer`, còn không thì nói thật là chưa có. `LOAI_KET_QUA`
   // vẫn giữ để `test_FE_biet_moi_gia_tri_ResultType_cua_backend` so hai tập —
   // lỗi thiếu nhãn bị bắt ở CI, không bị bắt trên mặt người dùng.
-  return (
-    laBanGhi(x) &&
-    typeof x["result_type"] === "string" &&
-    x["result_type"].trim() !== "" &&
-    Array.isArray(x["citations"]) &&
-    Array.isArray(x["warnings"]) &&
-    typeof x["trace_id"] === "string"
-  );
+  if (
+    !laBanGhi(x) ||
+    typeof x["result_type"] !== "string" ||
+    x["result_type"].trim() === "" ||
+    !Array.isArray(x["citations"]) ||
+    !Array.isArray(x["warnings"]) ||
+    typeof x["trace_id"] !== "string"
+  ) {
+    return false;
+  }
+
+  // `bang` (T5) — khoan dung khi vắng mặt (cache cũ, xem doc `TraCuuKetQua`),
+  // rơi về `[]`. Một `Bang` có `dong` lệch số cột bị loại NGUYÊN CẢ BẢNG ở
+  // đây, không đẩy xuống component: một hàng thiếu ô hiện ra thành bảng méo
+  // chứ không thành lỗi và không ai biết, còn một bảng biến mất thì thấy ngay.
+  const bangTho = x["bang"];
+  x["bang"] = Array.isArray(bangTho) ? bangTho.filter(laBang) : [];
+
+  return true;
 }
 
 export function laVanBanProvisions(x: unknown): x is VanBanProvisions {

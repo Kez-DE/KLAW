@@ -176,6 +176,35 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
       trace_id: "mau-answer",
       cau_hoi_day_du:
         "liệt kê bảng tóm lại thời hạn báo trước khi đơn phương chấm dứt hợp đồng lao động theo từng loại hợp đồng cho tôi",
+      // Hình dạng THẬT của `dung_bang` (`src/services/kho.py:492`): luôn HAI
+      // bảng. Bảng lĩnh vực ở đây cố ý mang một nhãn dài 76 ký tự (đo trên kho
+      // thật) và một hàng "lĩnh vực chưa biết" (`linh_vuc IS NULL` gộp về ô
+      // rỗng, không bịa nhãn) — để trang này có chỗ nhìn được bằng mắt cho cả
+      // hai ca `BangKetQua` phải chịu được, không chỉ có một assert.
+      bang: [
+        {
+          tieu_de: "Phân theo loại văn bản",
+          cot: ["Loại văn bản", "Tổng", "Có toàn văn", "Chỉ có số hiệu và tên"],
+          dong: [
+            ["Bộ luật", "2", "2", "0"],
+            ["Nghị định", "5", "3", "2"],
+            ["Thông tư", "3", "1", "2"],
+          ],
+        },
+        {
+          tieu_de: "Phân theo lĩnh vực",
+          cot: ["Lĩnh vực", "Số văn bản", "Độ sâu"],
+          dong: [
+            ["Lao động", "42", "đủ luật, nghị định, thông tư"],
+            [
+              "Bồi thường thiệt hại ngoài hợp đồng do vi phạm pháp luật lao động và an toàn",
+              "3",
+              "chỉ luật gốc",
+            ],
+            ["", "1", "chỉ số hiệu và tên"],
+          ],
+        },
+      ],
     },
   },
   {
@@ -193,6 +222,7 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
         "Kho có văn bản chi phối câu hỏi này nhưng chưa có toàn văn tới cấp điều khoản, nên hệ thống dừng ở việc nêu đích danh văn bản.",
       trace_id: "mau-partial",
       cau_hoi_day_du: null,
+      bang: [],
     },
   },
   {
@@ -206,6 +236,7 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
       coverage_note: null,
       trace_id: "mau-abstain",
       cau_hoi_day_du: null,
+      bang: [],
     },
   },
   {
@@ -219,6 +250,7 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
       coverage_note: null,
       trace_id: "mau-out",
       cau_hoi_day_du: null,
+      bang: [],
     },
   },
 ];

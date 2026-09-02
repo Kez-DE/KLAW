@@ -6,6 +6,7 @@ import { ghiChuHieuLuc, nhomHieuLuc, xepTrichDan } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { catDoan } from "@/lib/van-xuoi";
 import { BadgeHieuLuc } from "./BadgeHieuLuc";
+import { BangKetQua } from "./BangKetQua";
 
 /**
  * Bốn `result_type`, bốn cách hiển thị — không thương lượng.
@@ -292,6 +293,8 @@ function NhacMienTru() {
         Giới hạn của KLAW
       </Link>
       .
+      <br />
+      ⚖️ Thông tin chỉ mang tính tham khảo, không thay thế tư vấn của luật sư.
     </p>
   );
 }
@@ -382,6 +385,7 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
     nguon,
     warnings,
     coverage_note: ghiChuPhamVi,
+    bang,
   } = ketQua;
   const chon = onChonTrichDan ?? (() => undefined);
 
@@ -520,6 +524,13 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
         chiSoDangMo={chiSoDangMo}
         onChon={chon}
       />
+      {bang.length > 0 && (
+        <div className="mt-4 space-y-3">
+          {bang.map((mot) => (
+            <BangKetQua key={mot.tieu_de} bang={mot} />
+          ))}
+        </div>
+      )}
       <NhacMienTru />
     </section>
   );
