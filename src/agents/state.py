@@ -44,6 +44,17 @@ class KLawState(TypedDict, total=False):
     result_type: object
     answer: str | None
     citations: list[dict]
+    # `list[NguonOut]` đã `model_dump` — văn bản CHI PHỐI câu hỏi, chỉ nhánh
+    # `partial_coverage` điền (`assemble._phu_mot_phan`). LỖI CÓ SẴN, KHÔNG PHẢI
+    # do T4 gây ra: field này được thêm ở commit 4488cb5 (trước T4), đi qua
+    # `**kw` của `assemble._base()` đúng đường `bang` đi, nhưng CHƯA TỪNG được
+    # khai ở đây — nên với mọi request HTTP thật, LangGraph loại bỏ khoá này
+    # khỏi state trả về của `invoke`/`ainvoke` (cùng cơ chế đã ghi ở `bang` ngay
+    # dưới), và `routes.py:111` biến `st.get("nguon")` thành `[]` vô điều kiện.
+    # Tính năng "mở văn bản chi phối từ câu trả lời partial_coverage" đã chết
+    # câm trong production từ 2026-08-31 tới khi fix round 1 (task-4) sửa dòng
+    # này — xem `task-4-fix-round-1.md` finding 1.
+    nguon: list[dict]
     warnings: list[str]
     coverage_note: str | None
     trace_id: str
