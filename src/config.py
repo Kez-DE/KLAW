@@ -2,13 +2,17 @@ from datetime import date
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # `.env.local` là bản chạy trên máy (gitignored) và THẮNG `.env`: pydantic
+        # đọc theo thứ tự, file sau ghi đè file trước. Trước bản này chỉ đọc
+        # `.env` — file đó không tồn tại trong repo nên MỌI biến rơi về mặc định
+        # trong code (sai DATABASE_URL, không có API key) mà không một dòng lỗi nào.
+        env_file=(".env", ".env.local"),
         env_file_encoding="utf-8",
         extra="ignore",
         # Các field cổng bảo vệ dùng `validation_alias="KLAW_*"`. KHÔNG có cờ
@@ -98,6 +102,17 @@ class Settings(BaseSettings):
     verify_tier2_enabled: bool = True
     abstain_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
     as_of_date: date | None = None
+
+    @field_validator("as_of_date", mode="before")
+    @classmethod
+    def _rong_la_hom_nay(cls, v):
+        """`AS_OF_DATE=` để trống = dùng ngày hôm nay — đúng như `.env.example`
+        ghi. Không có chỗ này, cách dùng ĐƯỢC TÀI LIỆU HOÁ lại làm app chết ngay
+        lúc khởi động: pydantic nhận chuỗi rỗng từ dotenv và `date | None` không
+        ép '' về None. Lỗi hiện ra là ValidationError khó đọc ở tầng Settings,
+        không phải một câu nói rõ biến nào sai.
+        """
+        return None if isinstance(v, str) and not v.strip() else v
 
     # Eval
     eval_config_name: str = "full"

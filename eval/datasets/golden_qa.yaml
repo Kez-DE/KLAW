@@ -7,7 +7,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-000-1
   cau_hoi: Nếu công ty tôi có 150 nhân viên, trong đó có 50 nữ, thì có được coi là
     công ty sử dụng nhiều lao động nữ không?
@@ -16,7 +16,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-001-0
   cau_hoi: Nếu sếp em cứ chửi bới, xúc phạm em trước mặt mọi người thì có được không
     ạ?
@@ -25,7 +25,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-sua-neo
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-001-1
   cau_hoi: Công ty có được trừ thẳng tiền lương của em vì đi muộn vài lần không ạ?
   duong_dan:
@@ -33,7 +33,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-002-0
   cau_hoi: Từ ngày 1/1/2026, công ty tôi có được giảm lương của nhân viên làm thêm
     giờ hay không?
@@ -42,7 +42,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-002-1
   cau_hoi: Nếu lương tối thiểu vùng mới thấp hơn lương cũ, công ty tôi có phải trả
     lương cũ cho nhân viên đã làm từ trước không?
@@ -51,7 +51,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-004-0
   cau_hoi: Tôi ký hợp đồng với công ty hôm nay, vậy là từ lúc nào tôi bắt đầu đi làm
     chính thức?
@@ -60,7 +60,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-004-1
   cau_hoi: Nếu tôi và công ty thỏa thuận là hợp đồng có hiệu lực vào tuần sau, thì
     có được không?
@@ -69,7 +69,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-005-0
   cau_hoi: Nếu công ty tôi đóng cửa và tôi bị mất việc, tôi có được nhận tiền hỗ trợ
     gì không và bao nhiêu?
@@ -78,7 +78,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-sua-neo
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-005-1
   cau_hoi: Công ty em sáp nhập vào một chỗ khác rồi cắt bớt người, em làm ở đây được
     5 năm mà giờ bị cho thôi, em được nhận bao nhiêu tiền?
@@ -87,7 +87,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-006-0
   cau_hoi: Nếu tôi thuê người giúp việc mà không làm giấy tờ gì cả, có bị phạt không?
   duong_dan:
@@ -95,7 +95,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-006-1
   cau_hoi: Nếu tôi đuổi việc người giúp việc mà không cho tiền xe về quê thì có bị
     phạt không?
@@ -104,7 +104,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-009-0
   cau_hoi: Nếu tôi làm sai gì đó ở nước ngoài, thì cán bộ ở Đại sứ quán Việt Nam có
     thể phạt tôi bao nhiêu tiền?
@@ -113,7 +113,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-009-1
   cau_hoi: Tôi có thể bị phạt tối đa bao nhiêu nếu tôi vi phạm quy định nào đó khi
     làm việc với cơ quan đại diện của Việt Nam ở nước ngoài?
@@ -122,7 +122,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-010-0
   cau_hoi: Tôi muốn làm việc chỉ 4 tiếng một ngày thôi thì có được không ạ?
   duong_dan:
@@ -130,7 +130,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-010-1
   cau_hoi: Nếu tôi làm việc nửa ngày thì lương có bị cắt hết không ạ?
   duong_dan:
@@ -138,7 +138,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-011-0
   cau_hoi: Nghe nói công ty với công đoàn đã ký một bản cam kết chung cho cả xưởng
     từ năm ngoái, mà tới giờ chưa ai trong chúng tôi được đọc. Công ty giấu như vậy
@@ -148,7 +148,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-011-1
   cau_hoi: Công ty tôi từ chối ngồi lại nói chuyện với đại diện nhân viên để bàn về
     quyền lợi chung thì có bị phạt không?
@@ -157,7 +157,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-013-0
   cau_hoi: Công ty tôi mới mở, tôi cần phải làm gì với mấy bạn nhân viên mới ngay
     từ đầu để đúng quy định của nhà nước?
@@ -166,7 +166,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-013-1
   cau_hoi: Nếu công ty tôi có thay đổi về nhân sự, ví dụ có người nghỉ việc hay có
     người mới vào, thì tôi có cần báo cáo cho cơ quan chức năng không và báo cáo khi
@@ -177,7 +177,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-sua-neo
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-014-0
   cau_hoi: Công ty nhận tôi vào học việc, có được thu tiền học việc của tôi không?
   duong_dan:
@@ -185,7 +185,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-014-1
   cau_hoi: Nếu tôi đi học nghề ở công ty thì có được trả lương không?
   duong_dan:
@@ -193,7 +193,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-015-0
   cau_hoi: Nếu tôi làm việc mà sếp không trả lương thì tôi phải làm sao?
   duong_dan:
@@ -202,7 +202,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-sua-neo
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-015-1
   cau_hoi: Tôi đi học nghề mà họ không trả tiền công cho tôi thì có được không?
   duong_dan:
@@ -210,7 +210,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-sua-neo
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-017-0
   cau_hoi: Công ty tôi sắp cắt giảm nhân sự, họ phải thông báo cho chúng tôi biết
     những gì về việc ai sẽ ở lại, ai sẽ nghỉ việc và quyền lợi của chúng tôi ra sao?
@@ -219,7 +219,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-017-1
   cau_hoi: Nếu công ty tôi muốn cho một số người nghỉ việc, họ có cần bàn bạc với
     đại diện của chúng tôi trước không và phải báo cho mọi người biết kế hoạch này
@@ -229,7 +229,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-018-0
   cau_hoi: Chồng tôi đi lò than mười lăm năm nay, sức khoẻ yếu rồi. Muốn về hưu trước
     tuổi thì phải đóng đủ mấy năm và phải bao nhiêu tuổi ạ?
@@ -238,7 +238,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-018-1
   cau_hoi: Em làm điều dưỡng, bị kim của bệnh nhân đâm phải rồi dương tính HIV. Em
     đóng đủ hai mươi năm rồi, giờ có được lãnh lương hưu chưa ạ?
@@ -247,7 +247,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-020-0
   cau_hoi: Bên môi giới hứa với cơ quan cấp phép một đằng, sang tới nơi tôi làm một
     nẻo, khác hẳn giấy tờ họ nộp lúc xin phép. Họ bị phạt cỡ bao nhiêu ạ?
@@ -256,7 +256,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-020-1
   cau_hoi: Công ty môi giới xuất khẩu lao động mà quảng cáo sai sự thật về lương hoặc
     điều kiện làm việc cho tôi thì có bị phạt không? Nếu có thì phạt bao nhiêu?
@@ -265,7 +265,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-022-0
   cau_hoi: Nếu tôi muốn thay đổi một vài điều khoản trong hợp đồng lao động với công
     ty thì phải làm thế nào?
@@ -274,7 +274,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-022-1
   cau_hoi: Công ty tôi muốn giảm lương của tôi, họ có được làm ngay không hay phải
     báo trước bao lâu?
@@ -283,7 +283,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-023-0
   cau_hoi: Nếu công ty tôi cử tôi đi làm ở nước ngoài mà xảy ra chuyện gì đó với tôi,
     ví dụ như tai nạn hay bị bệnh nặng, mà công ty không lo liệu gì hết thì có bị
@@ -293,7 +293,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-023-1
   cau_hoi: Nếu tôi đi làm ở nước ngoài mà gặp chuyện không may, ví dụ như bị tai nạn
     lao động, mà công ty không báo cho đại sứ quán Việt Nam để họ giúp đỡ thì có bị
@@ -303,7 +303,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-024-0
   cau_hoi: Nếu công ty tôi đột nhiên đóng cửa mấy ngày vì lý do kinh doanh, tôi có
     được nhận lương không và bao nhiêu?
@@ -312,7 +312,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-024-1
   cau_hoi: Nếu tôi không đi làm được vì công ty bị ngập nước, tôi có được trả lương
     không?
@@ -321,7 +321,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-025-0
   cau_hoi: Nếu công ty em muốn đình công thì ai là người có quyền quyết định và phải
     làm những gì trước khi đình công ạ?
@@ -331,7 +331,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-sua-neo
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-026-0
   cau_hoi: Tôi muốn mở công ty cho thuê lại lao động, tôi cần mang giấy tờ đến đâu
     để xin phép và mất bao lâu thì có giấy phép?
@@ -340,7 +340,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-sua-neo
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-026-1
   cau_hoi: Nếu công ty tôi nộp hồ sơ xin phép cho thuê lại lao động mà bị thiếu giấy
     tờ, thì bao lâu tôi sẽ nhận được thông báo để bổ sung?
@@ -349,7 +349,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-sua-neo
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-028-0
   cau_hoi: Công ty có thể cho tôi nghỉ việc ngay lập tức nếu tôi vắng mặt ở chỗ làm
     quá 5 ngày mà không có lý do chính đáng không?
@@ -358,7 +358,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-028-1
   cau_hoi: Nếu tôi làm việc không tốt và công ty có quy định đánh giá, họ có thể sa
     thải tôi mà không cần báo trước không?
@@ -367,7 +367,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-029-0
   cau_hoi: Em đi xuất khẩu lao động rồi làm sai luật bên đó. Ông đứng đầu Cục quản
     lý mảng này có quyền phạt em nhiều nhất bao nhiêu tiền?
@@ -376,7 +376,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-029-1
   cau_hoi: Em bị Cục quản lý mảng xuất khẩu lao động xử lý vì làm sai. Ngoài đóng
     tiền ra em còn chịu thêm gì nữa không ạ?
@@ -385,7 +385,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-030-0
   cau_hoi: Hết hạn hợp đồng bên Nhật nhưng em tự ý trốn ở lại, không ai ép em cả.
     Nếu bị phát hiện thì ai là người viết giấy ghi lỗi của em ạ?
@@ -394,7 +394,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-030-1
   cau_hoi: Em đã bị ghi giấy vì trốn ở lại bên Hàn sau khi hết hạn. Tờ giấy đó rồi
     chuyển đi đâu và ai là người chốt mức phạt em ạ?
@@ -403,7 +403,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-031-0
   cau_hoi: Tôi làm việc tự do, có ký hợp đồng điện tử với công ty thì có được bảo
     vệ không?
@@ -412,7 +412,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-sua-neo
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-031-1
   cau_hoi: Công ty tôi muốn thuê người làm việc qua mạng và ký hợp đồng online, có
     được phép không?
@@ -421,7 +421,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-sua-neo
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-033-0
   cau_hoi: Nếu công ty em với công nhân đang có chuyện bất đồng về lương mà bên hòa
     giải không giải quyết được thì công nhân có được phép nghỉ làm hết không ạ?
@@ -430,7 +430,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-033-1
   cau_hoi: Nếu công ty em với công nhân đang có chuyện bất đồng về lương mà công ty
     không chịu làm theo quyết định của bên trọng tài thì công nhân có được phép nghỉ
@@ -440,7 +440,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-034-0
   cau_hoi: Khi đi làm, tôi cần biết những thông tin gì về công ty và công việc của
     mình được ghi trong giấy tờ?
@@ -449,7 +449,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-034-1
   cau_hoi: Chỗ em làm nắm công thức pha chế của hãng. Sếp bảo phải ký thêm một tờ
     cam kết không tiết lộ — tờ đó cần ghi những gì ạ?
@@ -458,7 +458,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-035-0
   cau_hoi: Nếu tôi lén đưa 5 người đi làm ở Đài Loan mà không có giấy tờ hợp lệ thì
     bị phạt bao nhiêu tiền?
@@ -467,7 +467,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-035-1
   cau_hoi: Công ty tôi bị phát hiện đưa 20 người sang Nhật làm việc chui, không đúng
     danh sách, thì sẽ bị phạt nặng cỡ nào?
@@ -476,7 +476,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-036-0
   cau_hoi: Tôi làm việc 8 tiếng một ngày thì có được nghỉ giải lao giữa giờ không,
     và nếu có thì được nghỉ bao lâu?
@@ -485,7 +485,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-036-1
   cau_hoi: Nếu tôi làm ca đêm thì có được nghỉ dài hơn không ạ?
   duong_dan:
@@ -493,7 +493,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-037-0
   cau_hoi: Chỗ tôi mấy năm nay chủ chưa lần nào ngồi lại với ban chấp hành công đoàn
     để trao đổi. Luật có bắt phải làm việc đó theo kỳ không?
@@ -502,7 +502,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-037-1
   cau_hoi: Nếu công ty tổ chức họp với đại diện người lao động thì cần có bao nhiêu
     người đại diện của chúng tôi tham gia thì cuộc họp mới hợp lệ?
@@ -511,7 +511,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-039-0
   cau_hoi: Tôi muốn làm nội quy cho công ty thì cần chuẩn bị những giấy tờ gì để nộp
     lên cơ quan có thẩm quyền?
@@ -520,7 +520,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-039-1
   cau_hoi: Nếu công ty tôi có công đoàn thì khi làm nội quy có cần xin ý kiến của
     họ không?
@@ -529,7 +529,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-sua-neo
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-040-0
   cau_hoi: Anh em xưởng em muốn lập công đoàn, có người bên liên đoàn quận xuống hướng
     dẫn nhưng bảo vệ chặn ngoài cổng không cho vào. Sếp làm vậy có sao không?
@@ -538,7 +538,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-040-1
   cau_hoi: Chị tổ trưởng công đoàn xưởng tôi vừa bị cho nghỉ, mà bên công đoàn không
     hề được hỏi ý trước, cũng chẳng có giấy tờ gì. Công ty làm thế có bị gì không?
@@ -547,7 +547,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-041-0
   cau_hoi: Công ty em mới vào làm, sếp bắt làm việc gấp đôi mọi người mà lương vẫn
     vậy, có đúng không ạ?
@@ -556,7 +556,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-041-1
   cau_hoi: Công ty em có bảng lương mới, nhưng em thấy có vẻ không hợp lý, họ có cần
     hỏi ý kiến mọi người trước khi áp dụng không ạ?
@@ -565,7 +565,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-042-0
   cau_hoi: Công ty tôi mở xưởng bên Lào, tự đưa mấy chục thợ của mình sang đó làm.
     Bên tôi cho họ bay thẳng, không qua lớp học nào trước, như vậy có sao không?
@@ -574,7 +574,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-042-1
   cau_hoi: Bên tôi đầu tư nhà máy ở Campuchia và cử thợ của mình sang. Lúc tuyển,
     bên tôi chưa nói rõ trả bao nhiêu, ăn ở thế nào, chế độ ra sao. Có bị gì không?
@@ -583,7 +583,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-043-0
   cau_hoi: Đi làm mà em có em bé dưới 1 tuổi, em có được nghỉ thêm giờ nào trong ngày
     không ạ?
@@ -592,7 +592,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-sua-neo
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-043-1
   cau_hoi: Nếu công ty bắt em đi học lớp nghiệp vụ, thì thời gian đi học đó có được
     tính là đi làm và có lương không ạ?
@@ -601,7 +601,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-044-0
   cau_hoi: Bên môi giới thu của tôi ba mươi triệu tiền phí, giờ mới biết là họ thu
     quá mức cho phép. Tôi lấy lại được không, có tính thêm lãi mấy năm qua không?
@@ -610,7 +610,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-044-1
   cau_hoi: Công ty môi giới đưa tôi sang Hàn nhưng làm hỏng hồ sơ nên tôi mất mấy
     tháng lương với tiền vé. Tôi đòi họ đền được không ạ?
@@ -619,7 +619,7 @@ items:
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-hand-01
   cau_hoi: Một ngày mình phải làm việc bao nhiêu tiếng thì đúng luật?
   duong_dan:
@@ -627,7 +627,7 @@ items:
   bo_luat: Lao động
   nguon: nguoi-viet+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-hand-02
   cau_hoi: Tôi muốn nghỉ việc thì phải báo cho công ty biết trước bao nhiêu ngày?
   duong_dan:
@@ -635,7 +635,7 @@ items:
   bo_luat: Lao động
   nguon: nguoi-viet+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-hand-03
   cau_hoi: Đi làm thêm giờ thì có được trả thêm tiền không, tính thế nào, và công
     ty được bắt làm thêm tối đa mấy giờ?
@@ -645,7 +645,7 @@ items:
   bo_luat: Lao động
   nguon: nguoi-viet+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-hand-04
   cau_hoi: Bị công ty cho nghỉ việc mà không có lý do gì thì phải kiện ai để đòi quyền
     lợi?
@@ -655,7 +655,7 @@ items:
   bo_luat: Lao động
   nguon: nguoi-viet+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-hand-05
   cau_hoi: Lương tối thiểu vùng bây giờ là bao nhiêu một tháng?
   duong_dan:
@@ -664,7 +664,7 @@ items:
   bo_luat: Lao động
   nguon: nguoi-viet+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-hand-06
   cau_hoi: Tôi bị tai nạn khi đang làm việc, công ty có phải lo tiền viện phí và trả
     lương những ngày tôi nghỉ điều trị không?
@@ -673,7 +673,7 @@ items:
   bo_luat: Lao động
   nguon: nguoi-viet+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-hand-07
   cau_hoi: Bây giờ bao nhiêu tuổi thì được nghỉ hưu?
   duong_dan:
@@ -682,7 +682,7 @@ items:
   bo_luat: Lao động
   nguon: nguoi-viet+agent-duyet
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
 - id: lao-hand-08
   cau_hoi: Xưởng em nhận hàng gia công theo đơn đặt hàng, vào mùa cao điểm sếp bắt
     tăng ca liên tục, một tháng tối đa được bắt tăng ca bao nhiêu tiếng?
@@ -691,4 +691,4 @@ items:
   bo_luat: Lao động
   nguon: nguoi-viet+agent-viet-lai
   da_review: true
-  duyet_boi: agent
+  duyet_boi: nguoi
