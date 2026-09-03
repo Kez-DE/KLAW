@@ -58,6 +58,20 @@ def test_loai_khop_ten_file_va_nam_trong_enum(loai):
     )
 
 
+def test_moi_gia_tri_LoaiVanBan_deu_co_file_checklist():
+    """Chiều NGƯỢC của `test_loai_khop_ten_file_va_nam_trong_enum`: file không
+    tên trong enum đã bị khoá ở đó, còn một tên TRONG enum mà không có file thì
+    Pydantic vẫn nhận request (không 422) nhưng route trả 501 — enum hứa một
+    loại văn bản mà không ai soạn được. Hai danh sách lệch pha là lớp lỗi rẻ để
+    chặn ở một test, không cần đợi ai bấm thử trên UI.
+    """
+    thieu_file = sorted(set(get_args(LoaiVanBan)) - set(MOI_LOAI))
+    assert not thieu_file, (
+        f"LoaiVanBan khai các loại sau nhưng không có config/checklist_<loai>.yaml: "
+        f"{thieu_file} — POST /soan-thao sẽ trả 501 cho chúng"
+    )
+
+
 @pytest.mark.parametrize("loai", MOI_LOAI)
 def test_ten_va_tieu_de_la_van_ban_nguoi_doc_duoc(loai):
     cl = load_checklist_cached(loai)

@@ -1,0 +1,99 @@
+# Checklist nội dung của ĐƠN XIN NGHỈ VIỆC — phía NGƯỜI LAO ĐỘNG đơn phương
+# chấm dứt hợp đồng lao động. BLLĐ Đ35, Đ40, Đ46, Đ48.
+#
+# KHÔNG DÙNG CHUNG can_cu với `quyet_dinh_cham_dut_hdld`: file đó là quyết định
+# của NGƯỜI SỬ DỤNG LAO ĐỘNG (Đ34, Đ36, Đ45, Đ46, Đ48) — hai phía có hai bộ điều
+# kiện khác nhau của cùng một chương BLLĐ. Đ36 quy định lý do NSDLĐ được đơn
+# phương chấm dứt; Đ35 quy định QUYỀN của NLĐ, và quyền đó rộng hơn hẳn: NLĐ chỉ
+# cần báo trước, không cần chứng minh lý do như NSDLĐ phải làm ở Đ36.1.
+#
+# Mọi can_cu đã tự tra DB thật (không chép từ trí nhớ):
+#   SELECT duong_dan, cap, length(btrim(noi_dung)),
+#          btrim(noi_dung) = btrim(tieu_de) AS rong_than
+#     FROM provisions WHERE duong_dan = ANY(:cac_can_cu);
+# Cả 9 đường dẫn dưới đây đã chạy qua phép canh này: rong_than = false cho tất
+# cả — không cái nào chỉ có dòng tiêu đề. Ba đường (Đ40, Đ46, Đ48) đã bị hạ
+# xuống cấp Khoản 1/Khoản 2 so với bản nháp đầu (Điều trần RỖNG THÂN, xem
+# task-6-brief.md mục "SỬA 2026-09-03") — giữ nguyên can_cu ở cấp Khoản, đừng
+# lùi lại cấp Điều dù trông gọn hơn.
+loai: don_xin_nghi_viec
+ten: "đơn xin nghỉ việc"
+tieu_de: "ĐƠN XIN NGHỈ VIỆC"
+don_vi_muc: "Mục"
+
+# KHÔNG rule nào. Năm rule của config/rules.yaml đều đo ngưỡng của HĐLĐ đang
+# GIAO KẾT (lương vùng, thời gian thử việc…); một đơn xin nghỉ việc không mở
+# ra ngưỡng số nào mới để tra bảng — nó chấm dứt quan hệ đó, không định nghĩa
+# lại nó.
+rules: []
+
+# Đ35.1 là điều khoản GỐC: câu mở đầu xác lập quyền đơn phương chấm dứt của
+# NLĐ và đặt nghĩa vụ báo trước — ba trong bốn mục bắt buộc dưới đây (tự định
+# danh, loại HĐLĐ, ý chí đơn phương chấm dứt) đều là hệ quả trực tiếp của
+# chính câu này, không phải suy diễn xa.
+can_cu_goc: "45/2019/QH14 > Điều 35 > Khoản 1"
+# Đ40.2: hậu quả nếu NLĐ chấm dứt TRÁI luật (không báo đủ thời hạn Đ35.1 và
+# không rơi vào ngoại lệ Đ35.2) — nửa tháng lương + tiền những ngày không báo
+# trước. Không phải một mục người dùng phải tự điền vào đơn (không có "mục
+# bồi thường" nào ở đây), nhưng là căn cứ NGỮ CẢNH quan trọng: nó giải thích vì
+# sao đơn phải nêu đúng loại HĐLĐ và ngày dự kiến nghỉ (để NSDLĐ/hệ thống tính
+# được đơn có tuân thủ Đ35.1 hay có rơi vào Đ35.2 hay không), và LLM soạn thảo
+# nhận được điều khoản này trong ngữ cảnh để không bịa một mức bồi thường khác.
+can_cu_chi_tiet: "45/2019/QH14 > Điều 40 > Khoản 2"
+
+# Bốn mục bắt buộc dưới đây là bốn nội dung KHÔNG PHỤ THUỘC trường hợp — mọi
+# đơn xin nghỉ việc, dù thuộc diện báo trước (Đ35.1) hay nghỉ ngay (Đ35.2),
+# đều phải tự định danh người làm đơn, nêu loại HĐLĐ đang thực hiện, nêu ngày
+# dự kiến chấm dứt, và bày tỏ ý chí đơn phương chấm dứt — không có phiên bản
+# nào của lá đơn này thiếu được một trong bốn. Nên muc_do_thieu là `chan`.
+muc_do_thieu: chan
+
+# HAI NHÓM ngoại lệ, và báo "chan" cho một trong hai sẽ dựng khuyết điểm chặn
+# ở một lá đơn hoàn toàn hợp pháp:
+#
+#   thoi_han_bao_truoc  Đ35.1 chỉ đặt thời hạn báo trước cho NGƯỜI THUỘC DIỆN
+#                       Đ35.1 (phải báo trước 45/30/3 ngày tuỳ loại HĐLĐ). Một
+#                       đơn rơi vào Đ35.2 (bảy trường hợp nghỉ ngay) KHÔNG có
+#                       thời hạn báo trước nào để nêu — đòi nó là đòi quá luật
+#                       cho đúng nhóm người luật cố ý MIỄN nghĩa vụ báo trước.
+#
+#   truong_hop_nghi_ngay  Ngược lại: không phải đơn nào cũng thuộc diện Đ35.2,
+#                       nên đây KHÔNG được là mục bắt buộc — phần lớn đơn xin
+#                       nghỉ việc đi theo đường báo trước thường (Đ35.1) và
+#                       không viện dẫn ngoại lệ nào cả.
+#
+#   ban_giao_cong_viec /
+#   de_nghi_quyen_loi   Đ35 không đặt nghĩa vụ bàn giao công việc lên NLĐ, và
+#                       trợ cấp thôi việc (Đ46) + quyết toán trong 14 ngày
+#                       (Đ48) là NGHĨA VỤ CỦA NSDLĐ, không phải nội dung NLĐ
+#                       buộc phải tự đề nghị trong đơn của mình. Đòi hai mục
+#                       này là đòi quá luật, dù nêu chúng là thực hành tốt.
+#
+# ĐIỀU QUAN TRỌNG NHẤT CỦA FILE NÀY: Đ35.2 cho NLĐ quyền nghỉ NGAY, không cần
+# báo trước, trong bảy trường hợp (a-g), trong đó có: không được trả đủ lương
+# hoặc trả lương không đúng hạn (điểm b), bị ngược đãi/đánh đập/nhục mạ/cưỡng
+# bức lao động (điểm c), bị quấy rối tình dục tại nơi làm việc (điểm d), lao
+# động nữ mang thai phải nghỉ theo Đ138.1 (điểm đ). Một checklist chỉ nói "phải
+# báo trước 45 ngày" sẽ giữ một người đang bị quấy rối hoặc bị nợ lương ở lại
+# thêm 45 ngày mà họ không buộc phải ở — nên `truong_hop_nghi_ngay` PHẢI có mặt
+# trong `muc`, dù không bắt buộc.
+khong_bat_buoc:
+  can_cu: "45/2019/QH14 > Điều 35 > Khoản 2"
+  ghi_chu: >
+    Thời hạn báo trước (Đ35.1) chỉ áp khi đơn KHÔNG rơi vào bảy trường hợp
+    nghỉ ngay của Đ35.2 — trong đó có bị nợ lương/trả lương trễ (điểm b), bị
+    ngược đãi/cưỡng bức lao động (điểm c), bị quấy rối tình dục (điểm d), lao
+    động nữ phải nghỉ theo Đ138.1 (điểm đ). Bàn giao công việc và đề nghị
+    trợ cấp/quyết toán (Đ46, Đ48) không phải nghĩa vụ của NLĐ theo Đ35. Vắng
+    mặt bất kỳ mục nào trong bốn mục này không được báo là thiếu.
+  keys: [thoi_han_bao_truoc, truong_hop_nghi_ngay, ban_giao_cong_viec, de_nghi_quyen_loi]
+
+muc:
+  - {stt: 1, key: nguoi_lam_don, ten: "Người làm đơn tự định danh: họ tên, chức vụ, bộ phận công tác", can_cu: "45/2019/QH14 > Điều 35 > Khoản 1", tu_khoa: ["kính gửi", "tôi tên là", "bộ phận công tác"]}
+  - {stt: 2, key: loai_hdld, ten: "Loại hợp đồng lao động đang thực hiện", can_cu: "45/2019/QH14 > Điều 35 > Khoản 1", tu_khoa: ["loại hợp đồng lao động", "hợp đồng lao động không xác định thời hạn", "hợp đồng lao động xác định thời hạn"]}
+  - {stt: 3, key: ngay_du_kien_nghi, ten: "Ngày dự kiến chấm dứt hợp đồng lao động", can_cu: "45/2019/QH14 > Điều 35 > Khoản 1", tu_khoa: ["ngày dự kiến chấm dứt hợp đồng lao động", "kể từ ngày", "ngày có hiệu lực"]}
+  - {stt: 4, key: y_chi_don_phuong, ten: "Bày tỏ ý chí đơn phương chấm dứt hợp đồng lao động", can_cu: "45/2019/QH14 > Điều 35 > Khoản 1", tu_khoa: ["đơn phương chấm dứt hợp đồng lao động", "xin nghỉ việc", "xin thôi việc"]}
+  - {stt: 5, key: thoi_han_bao_truoc, ten: "Thời hạn báo trước trước khi chính thức nghỉ việc", can_cu: "45/2019/QH14 > Điều 35 > Khoản 1", tu_khoa: ["thời hạn báo trước", "báo trước ít nhất"]}
+  - {stt: 6, key: truong_hop_nghi_ngay, ten: "Trường hợp được nghỉ việc ngay, không cần báo trước (Điều 35 Khoản 2)", can_cu: "45/2019/QH14 > Điều 35 > Khoản 2", tu_khoa: ["không cần báo trước", "nghỉ việc ngay"]}
+  - {stt: 7, key: ban_giao_cong_viec, ten: "Đề nghị bàn giao công việc và hoàn trả giấy tờ, hồ sơ liên quan", can_cu: "45/2019/QH14 > Điều 48 > Khoản 1", tu_khoa: ["bàn giao công việc", "hoàn trả giấy tờ", "hoàn trả hồ sơ"]}
+  - {stt: 8, key: de_nghi_quyen_loi, ten: "Đề nghị chi trả trợ cấp thôi việc và thanh toán đầy đủ các khoản quyền lợi còn lại", can_cu: "45/2019/QH14 > Điều 46 > Khoản 1", tu_khoa: ["trợ cấp thôi việc", "thanh toán đầy đủ các khoản"]}

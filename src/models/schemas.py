@@ -275,6 +275,7 @@ LoaiVanBan = Literal[
     "cong_van",
     "don_khieu_nai",
     "don_khoi_kien",
+    "don_xin_nghi_viec",
     "don_yeu_cau",
     "giay_uy_quyen",
     "hdld",
