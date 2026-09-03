@@ -875,9 +875,24 @@ mark.cau-trich {
   color: var(--text-on-dark-muted);
 }
 
-/* Visible brass focus ring on every keyboard-focusable element */
+/* Visible brass focus ring on every keyboard-focusable element.
+   Quy tắc này KHÔNG nằm trong @layer nào — cố ý, và đó là lý do nó thắng.
+   `@utility focus-brass` (685) biên dịch vào layer `utilities` của Tailwind
+   v4; theo spec cascade layers, CSS không-layer luôn thắng CSS có-layer bất
+   kể specificity. Vì `focus-brass` chưa từng thắng được quy tắc này (dù
+   được gắn ở 86 chỗ), --color-brass-500 mới là màu thật sự vẽ vòng tiêu
+   điểm khắp app — nhưng đó là token NỀN/VIỀN (2,01:1), không phải token
+   tiêu điểm đã được đo đạt 3:1 (xem --ring, dòng 267-269). Sửa bằng cách
+   đổi token tham chiếu, không đổi layer: nhiều input/textarea (KlawChat,
+   DraftBits, soan-thao.*, dung-thu.tsx — không có `focus-brass`, class
+   `outline-none` sống trong layer `utilities`) đang GIỮ được vòng tiêu điểm
+   chính nhờ quy tắc này không-layer. Đưa quy tắc vào @layer base sẽ để
+   `outline-none` (cùng-hoặc-cao-hơn layer) thắng, xoá sạch vòng tiêu điểm ở
+   những input đó — hồi quy nặng hơn cả lỗi đang sửa. Nên `focus-brass` vẫn
+   là 86 lệnh gọi vô dụng (nợ kiến trúc đã biết), đổi lại toàn app đạt 3:1
+   mà không đụng file nào ngoài styles.css. */
 :where(a, button, input, select, textarea, summary, details, [tabindex], [role="button"], [role="tab"], [role="checkbox"], [role="switch"]):focus-visible {
-  outline: 2px solid var(--color-brass-500);
+  outline: 2px solid var(--ring);
   outline-offset: 2px;
   border-radius: 4px;
 }
