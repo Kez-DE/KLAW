@@ -529,6 +529,25 @@ def test_xin_dang_bang_KHONG_bat_danh_tu_phap_ly_chua_chu_bang(cau_hoi):
     assert not xin_dang_bang(cau_hoi), cau_hoi
 
 
+@pytest.mark.parametrize(("cau_hoi", "ky_vong"), [
+    # Chiều 1 — guard CÒN hiệu lực (bảy cụm): "bảng"/từ nối đứng NGAY TRƯỚC
+    # danh từ pháp lý, đọc được thành danh từ ghép nội dung → phải chặn.
+    ("liệt kê bảng lương của tôi", False),
+    ("xem dễ hơn bảng chấm công", False),
+    ("dạng cột của bảng giá", False),
+    # Chiều 2 — guard đã GỠ (hai cụm): "bảng hiển thị"/"table" luôn cần một
+    # chủ đề theo sau, không tự ghép thành danh từ pháp lý với lương/chấm
+    # công/giá → đây LÀ yêu cầu trình bày thật, không được chặn oan. Đây
+    # chính là hồi quy fix round 1 đã gây ra (guard bản trước phủ cả chín
+    # cụm, hai câu này từng trả về False sai) — chiều này là chiều mà fix
+    # round 1 KHÔNG có test nào canh, nên hồi quy lọt qua không ai biết.
+    ("bảng hiển thị lương của nhân viên theo tháng", True),
+    ("table lương nhân viên tháng này", True),
+])
+def test_xin_dang_bang_gac_chi_o_bay_cum_khong_phai_chin(cau_hoi, ky_vong):
+    assert xin_dang_bang(cau_hoi) is ky_vong, cau_hoi
+
+
 def test_loi_dan_bang_khong_lap_lai_noi_dung_bang_thanh_van_xuoi():
     """`answer` khi xin bảng phải là câu dẫn NGẮN rồi đóng bằng `CAU_GIOI_HAN`
     — không lặp lại số liệu của bảng thành văn xuôi (người đọc không cần

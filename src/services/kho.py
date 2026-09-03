@@ -150,12 +150,29 @@ def moi_so_hieu_trong(cau_hoi: str) -> list[str]:
 # rỗng được nên cụm áp sát danh từ ("cho tôi bảng lương") vẫn bị chặn như cũ.
 _KHONG_PHAI_BANG_TRINH_BAY = r"(?!\s*(?:của\s+)?(?:bảng\s*)?(?:lương|chấm\s*công|giá)\b)"
 
-# Cùng lối `_RE_SO_HIEU`: một biểu thức chính quy ở tầng thuần, 0 token. Chín
-# cụm kích hoạt (task-4-brief.md) — MỌI cụm đều mang lookahead ở trên (fix round
-# 1: không chỉ bốn cụm kết thúc bằng "bảng"), vì "bảng hiển thị"/"table" không
-# tự va với ba danh từ loại trừ (không cụm nào bắt đầu bằng "hiển thị"/"table")
-# nên gác thêm ở đó không chặn oan yêu cầu trình bày thật nào — chỉ đóng nốt lỗ
-# hổng đối xứng.
+# Fix round 2: fix round 1 gắn guard ở trên vào ĐỦ CHÍN cụm kích hoạt — đó
+# CHÍNH LÀ hồi quy fix round 2 sửa, không phải một lựa chọn còn tranh cãi.
+# Bảy cụm dưới đây mang guard; "bảng hiển thị" và "\btable\b" thì KHÔNG.
+#
+# ĐỪNG "dọn cho đều" bằng cách gắn guard vào hai cụm còn lại. Guard chỉ có lý
+# do tồn tại ở chỗ câu tiếng Việt THẬT SỰ mơ hồ: khi chữ ngay trước
+# "lương"/"chấm công"/"giá" là (hoặc có thể là) chính chữ "bảng", câu vừa đọc
+# được thành DANH TỪ GHÉP pháp lý — "bảng lương" = nội dung câu hỏi ("cho tôi
+# bảng lương tháng này" hỏi VỀ bảng lương) — vừa đọc được thành "một bảng, chủ
+# đề lương" (yêu cầu trình bày). Bốn cụm kết thúc bằng chính chữ "bảng" tạo ra
+# đúng cấu trúc mơ hồ đó; "liệt kê"/"dạng cột"/"xem dễ hơn" cũng vậy vì chúng
+# đứng cách "bảng lương/chấm công/giá" đúng một từ nối — guard cần cho cả bảy.
+#
+# "bảng hiển thị" và "table" thì KHÔNG có cấu trúc mơ hồ đó. "hiển thị" và
+# "table" đều BẮT BUỘC phải có một chủ đề theo sau — không tồn tại danh từ
+# ghép pháp lý nào là "hiển thị lương" hay "table lương". Chữ theo sau hai cụm
+# này luôn LÀ chủ đề của cái bảng, không bao giờ là một phần của "bảng
+# lương/chấm công/giá". Gắn guard vào đó không chặn được ca mơ hồ nào (không
+# có ca nào để chặn) — nó chỉ chặn OAN mọi câu xin bảng thật trùng chủ đề với
+# ba danh từ loại trừ, đúng hồi quy ĐÃ ĐO ĐƯỢC ở fix round 1:
+#   xin_dang_bang("bảng hiển thị lương của nhân viên theo tháng")  # → False, SAI
+#   xin_dang_bang("table lương nhân viên tháng này")               # → False, SAI
+# cả hai phải là True — xem cặp test cùng tên chiều-ngược ở test_kho.py.
 _RE_XIN_BANG = re.compile(
     r"dạng bảng" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
     r"cho tôi bảng" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
@@ -163,8 +180,8 @@ _RE_XIN_BANG = re.compile(
     r"kẻ bảng" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
     r"dạng cột" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
     r"xem dễ hơn" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
-    r"bảng hiển thị" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
-    r"\btable\b" + _KHONG_PHAI_BANG_TRINH_BAY + r"|"
+    r"bảng hiển thị|"
+    r"\btable\b|"
     r"liệt kê" + _KHONG_PHAI_BANG_TRINH_BAY,
     re.IGNORECASE,
 )
