@@ -660,6 +660,23 @@ function laBang(x: unknown): x is Bang {
   );
 }
 
+/**
+ * Chuẩn hoá trường `bang` trên một bản ghi thô — THUẦN: trả về bản ghi MỚI,
+ * không sửa `x`. Trường vắng mặt hoặc không phải mảng rơi về `[]`; một `Bang`
+ * có `dong` lệch số cột với `cot` bị loại NGUYÊN CẢ BẢNG (xem `laBang`) — một
+ * hàng thiếu ô hiện ra thành bảng méo chứ không thành lỗi và không ai biết,
+ * còn một bảng biến mất thì thấy ngay.
+ *
+ * Gọi hàm này ở CHỖ GỌI (api.ts), TRƯỚC khi đưa kết quả cho `laTraCuuKetQua` —
+ * xem doc ngay trên guard đó vì sao việc chuẩn hoá không còn nằm bên trong nó.
+ * `x` không phải bản ghi thì trả nguyên `x`, để `laTraCuuKetQua` tự từ chối.
+ */
+export function chuanHoaBang(x: unknown): unknown {
+  if (!laBanGhi(x)) return x;
+  const bangTho = x["bang"];
+  return { ...x, bang: Array.isArray(bangTho) ? bangTho.filter(laBang) : [] };
+}
+
 export function laTraCuuKetQua(x: unknown): x is TraCuuKetQua {
   // `result_type` chỉ cần là CHUỖI KHÔNG RỖNG — cố ý KHÔNG đòi nằm trong
   // `LOAI_KET_QUA`. Bản trước đòi, và một loại backend biết trả mà danh sách này
@@ -676,25 +693,20 @@ export function laTraCuuKetQua(x: unknown): x is TraCuuKetQua {
   // hành văn khi có `answer`, còn không thì nói thật là chưa có. `LOAI_KET_QUA`
   // vẫn giữ để `test_FE_biet_moi_gia_tri_ResultType_cua_backend` so hai tập —
   // lỗi thiếu nhãn bị bắt ở CI, không bị bắt trên mặt người dùng.
-  if (
-    !laBanGhi(x) ||
-    typeof x["result_type"] !== "string" ||
-    x["result_type"].trim() === "" ||
-    !Array.isArray(x["citations"]) ||
-    !Array.isArray(x["warnings"]) ||
-    typeof x["trace_id"] !== "string"
-  ) {
-    return false;
-  }
-
-  // `bang` (T5) — khoan dung khi vắng mặt (cache cũ, xem doc `TraCuuKetQua`),
-  // rơi về `[]`. Một `Bang` có `dong` lệch số cột bị loại NGUYÊN CẢ BẢNG ở
-  // đây, không đẩy xuống component: một hàng thiếu ô hiện ra thành bảng méo
-  // chứ không thành lỗi và không ai biết, còn một bảng biến mất thì thấy ngay.
-  const bangTho = x["bang"];
-  x["bang"] = Array.isArray(bangTho) ? bangTho.filter(laBang) : [];
-
-  return true;
+  //
+  // THUẦN — không sửa `x`. `bang` (T5) cố ý KHÔNG kiểm ở đây: hình dạng của nó
+  // là việc của `chuanHoaBang`, hàm chuẩn hoá chạy Ở CHỖ GỌI trước khi `x` tới
+  // được đây (xem `api.ts`). Một predicate mà tự sửa đối tượng nó đang kiểm là
+  // mìn cho người sau — ai gọi một hàm `laX` trong `.filter()` hoặc để thăm dò
+  // không cam kết sẽ không ngờ nó đổi dữ liệu.
+  return (
+    laBanGhi(x) &&
+    typeof x["result_type"] === "string" &&
+    x["result_type"].trim() !== "" &&
+    Array.isArray(x["citations"]) &&
+    Array.isArray(x["warnings"]) &&
+    typeof x["trace_id"] === "string"
+  );
 }
 
 export function laVanBanProvisions(x: unknown): x is VanBanProvisions {

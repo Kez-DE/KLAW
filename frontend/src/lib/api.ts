@@ -250,6 +250,7 @@ export function thamSo(cap: [string, string | number | undefined | null][]): str
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 import {
+  chuanHoaBang,
   laTraCuuKetQua,
   type LuotTruoc,
   type SuKienBatDau,
@@ -352,7 +353,12 @@ export async function traCuuLuong(
         } else if (khung.ten === "ket_qua") {
           // Cùng một type guard với `POST /tra-cuu`: hai đường KHÔNG được phép
           // có hai mức nghiêm ngặt khác nhau.
-          if (laTraCuuKetQua(du)) ketQua = du;
+          //
+          // `chuanHoaBang` chạy TRƯỚC guard — guard là một predicate thuần,
+          // không sửa `du`, nên chuẩn hoá `bang` (thiếu khoá → `[]`, bảng lệch
+          // cột → loại) phải làm ở đây, chỗ raw JSON biến thành `TraCuuKetQua`.
+          const duChuanHoa = chuanHoaBang(du);
+          if (laTraCuuKetQua(duChuanHoa)) ketQua = duChuanHoa;
           else loiTrongLuong = { kind: "invalid_response", message: LOI_HINH_DANG, detail: du };
         } else if (khung.ten === "loi" && laBanGhiTho(du)) {
           const status = du["status"];

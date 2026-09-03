@@ -16,11 +16,21 @@ import type { Bang } from "@/lib/klaw";
  * chủ) có nhãn dài tới 76 ký tự trên kho thật, và để chữ tự xuống dòng trong
  * ô là đủ giữ bảng đọc được — không cần thêm CSS riêng cho ca đó. Nhóm "lĩnh
  * vực chưa biết" mang ô đầu là chuỗi rỗng (`linh_vuc IS NULL` gộp về `""`,
- * cố ý không bịa nhãn — xem doc `Bang`); ô đó render trống nguyên như vậy.
+ * cố ý không bịa nhãn — xem doc `Bang`); một ô trống KHÔNG render trống thật
+ * sự (không phân biệt được với lỗi render) — hiện gạch ngang dài `—` mờ màu
+ * kèm tên khả truy cập riêng, không phải một chuỗi đọc được thành hạng mục.
+ *
+ * `role="region"` trên khung cuộn: một `<div>` trần map sang role `generic`,
+ * và role đó CẤM tính tên khả truy cập từ `aria-label` — `region` (+
+ * `tabIndex={0}` + `aria-label`) là kỹ thuật W3C cho một vùng cuộn nhận focus,
+ * để tên được đọc NGAY khi khung nhận focus.
  */
+const GHI_CHU_LINH_VUC_TRONG = "Không xác định lĩnh vực";
+
 export function BangKetQua({ bang }: { bang: Bang }) {
   return (
     <div
+      role="region"
       tabIndex={0}
       aria-label={bang.tieu_de}
       className="focus-brass overflow-x-auto rounded-lg border border-border bg-card"
@@ -45,11 +55,20 @@ export function BangKetQua({ bang }: { bang: Bang }) {
         <tbody>
           {bang.dong.map((hang, i) => (
             <tr key={i} className="border-b border-border last:border-0">
-              {hang.map((o, j) => (
-                <td key={j} className="px-3 py-2 align-top text-foreground">
-                  {o}
-                </td>
-              ))}
+              {hang.map((o, j) =>
+                o === "" ? (
+                  <td key={j} className="px-3 py-2 align-top text-foreground">
+                    <span className="text-muted-foreground" aria-hidden="true">
+                      —
+                    </span>
+                    <span className="sr-only">{GHI_CHU_LINH_VUC_TRONG}</span>
+                  </td>
+                ) : (
+                  <td key={j} className="px-3 py-2 align-top text-foreground">
+                    {o}
+                  </td>
+                ),
+              )}
             </tr>
           ))}
         </tbody>
