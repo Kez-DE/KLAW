@@ -18,14 +18,16 @@ import type { Bang } from "@/lib/klaw";
  * vực chưa biết" mang ô đầu là chuỗi rỗng (`linh_vuc IS NULL` gộp về `""`,
  * cố ý không bịa nhãn — xem doc `Bang`); một ô trống KHÔNG render trống thật
  * sự (không phân biệt được với lỗi render) — hiện gạch ngang dài `—` mờ màu
- * kèm tên khả truy cập riêng, không phải một chuỗi đọc được thành hạng mục.
+ * kèm tên khả truy cập riêng. Câu `sr-only` đó trung tính về cột (component
+ * không biết ngữ nghĩa cột nào cho phép ô trống), không phải một nhãn phân
+ * loại như "không xác định lĩnh vực" gán cứng cho MỌI ô rỗng.
  *
  * `role="region"` trên khung cuộn: một `<div>` trần map sang role `generic`,
  * và role đó CẤM tính tên khả truy cập từ `aria-label` — `region` (+
  * `tabIndex={0}` + `aria-label`) là kỹ thuật W3C cho một vùng cuộn nhận focus,
  * để tên được đọc NGAY khi khung nhận focus.
  */
-const GHI_CHU_LINH_VUC_TRONG = "Không xác định lĩnh vực";
+const GHI_CHU_O_TRONG = "Không có dữ liệu cho ô này";
 
 export function BangKetQua({ bang }: { bang: Bang }) {
   return (
@@ -61,7 +63,7 @@ export function BangKetQua({ bang }: { bang: Bang }) {
                     <span className="text-muted-foreground" aria-hidden="true">
                       —
                     </span>
-                    <span className="sr-only">{GHI_CHU_LINH_VUC_TRONG}</span>
+                    <span className="sr-only">{GHI_CHU_O_TRONG}</span>
                   </td>
                 ) : (
                   <td key={j} className="px-3 py-2 align-top text-foreground">

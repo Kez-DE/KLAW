@@ -96,7 +96,9 @@ export interface Nguon {
  * một ô trống nói đúng "không có giá trị", một nhãn bịa nói một điều không
  * kiểm được), nên `cot`/`dong` của Bảng đó có thể mang một hàng với ô đầu là
  * chuỗi rỗng. Đây là dữ liệu kho THẬT, không phải lỗi cần "sửa" ở tầng hiển
- * thị — `BangKetQua` render nguyên ô trống đó, không tự bịa nhãn thay thế.
+ * thị — `BangKetQua` hiện gạch ngang `—` mờ kèm tên khả truy cập `sr-only` cho
+ * ô đó (không để trống thật, dễ lẫn với lỗi render), và câu `sr-only` đó trung
+ * tính về cột chứ không tự bịa nhãn phân loại thay cho dữ liệu thiếu.
  */
 export interface Bang {
   tieu_de: string;

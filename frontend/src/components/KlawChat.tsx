@@ -5,7 +5,6 @@ import {
   BookOpenText,
   FileSignature,
   Landmark,
-  Plug,
   Scale,
   Search,
   SendHorizonal,
@@ -65,7 +64,7 @@ export function KlawChat() {
         <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3.5">
           <Link
             to="/"
-            className="flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-primary"
+            className="focus-brass flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-primary"
             aria-label="Về trang giới thiệu"
           >
             <ArrowLeft className="size-4" />
@@ -98,30 +97,13 @@ export function KlawChat() {
               văn bản pháp lý. Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn tự kiểm chứng.
             </p>
 
-            <div
-              role="status"
-              className="mt-6 flex items-start gap-2.5 rounded-xl border border-border bg-card px-4 py-3.5 text-left shadow-sm"
-            >
-              <Plug className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  Câu hỏi được chuyển sang màn trợ lý.
-                </p>
-                <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
-                  Ở đó câu trả lời tới kèm điều, khoản, điểm, nhãn hiệu lực và nguyên văn để bạn tự
-                  đối chiếu. Một lượt mất 10–60 giây; màn hình hiện từng bước máy chủ đã chạy xong
-                  chứ không phải một vòng quay.
-                </p>
-              </div>
-            </div>
-
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s.title}
                   type="button"
                   onClick={() => setInput(s.prompt)}
-                  className="group rounded-xl border border-border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent hover:shadow-md"
+                  className="focus-brass group cursor-pointer rounded-xl border border-border bg-card p-4 text-left shadow-sm transition-all duration-150 hover:-translate-y-1 hover:border-[var(--color-brass-500)]/60 hover:shadow-lg motion-reduce:hover:translate-y-0"
                 >
                   <div className="flex items-center gap-2 text-primary">
                     <s.icon className="size-4" />
@@ -164,7 +146,7 @@ export function KlawChat() {
           <button
             type="submit"
             disabled={!input.trim()}
-            className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="focus-brass flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
             aria-label="Gửi"
           >
             <SendHorizonal className="size-4.5" />

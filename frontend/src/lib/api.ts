@@ -351,8 +351,11 @@ export async function traCuuLuong(
         } else if (khung.ten === "buoc" && laBanGhiTho(du)) {
           if (typeof du["buoc"] === "string") xuLy.onBuoc?.(du as unknown as SuKienBuoc);
         } else if (khung.ten === "ket_qua") {
-          // Cùng một type guard với `POST /tra-cuu`: hai đường KHÔNG được phép
-          // có hai mức nghiêm ngặt khác nhau.
+          // FE chỉ còn gọi `/tra-cuu/luong` (không còn call site FE nào gọi
+          // `/tra-cuu` không-streaming) nhưng máy chủ vẫn phục vụ cả hai
+          // (`src/api/routes.py`), cùng response shape. Guard này giữ mức
+          // nghiêm ngặt khớp với `laTraCuuKetQua` dùng cho `/tra-cuu`, để hai
+          // endpoint phía máy chủ không lệch hình dạng dữ liệu được chấp nhận.
           //
           // `chuanHoaBang` chạy TRƯỚC guard — guard là một predicate thuần,
           // không sửa `du`, nên chuẩn hoá `bang` (thiếu khoá → `[]`, bảng lệch
