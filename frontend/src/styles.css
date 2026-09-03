@@ -880,8 +880,8 @@ mark.cau-trich {
    `@utility focus-brass` (685) biên dịch vào layer `utilities` của Tailwind
    v4; theo spec cascade layers, CSS không-layer luôn thắng CSS có-layer bất
    kể specificity. Vì `focus-brass` chưa từng thắng được quy tắc này (dù
-   được gắn ở 86 chỗ), --color-brass-500 mới là màu thật sự vẽ vòng tiêu
-   điểm khắp app — nhưng đó là token NỀN/VIỀN (2,01:1), không phải token
+   được gắn ở khá nhiều chỗ), --color-brass-500 mới là màu thật sự vẽ vòng
+   tiêu điểm khắp app — nhưng đó là token NỀN/VIỀN (2,01:1), không phải token
    tiêu điểm đã được đo đạt 3:1 (xem --ring, dòng 267-269). Sửa bằng cách
    đổi token tham chiếu, không đổi layer: nhiều input/textarea (KlawChat,
    DraftBits, soan-thao.*, dung-thu.tsx — không có `focus-brass`, class
@@ -889,12 +889,20 @@ mark.cau-trich {
    chính nhờ quy tắc này không-layer. Đưa quy tắc vào @layer base sẽ để
    `outline-none` (cùng-hoặc-cao-hơn layer) thắng, xoá sạch vòng tiêu điểm ở
    những input đó — hồi quy nặng hơn cả lỗi đang sửa. Nên `focus-brass` vẫn
-   là 86 lệnh gọi vô dụng (nợ kiến trúc đã biết), đổi lại toàn app đạt 3:1
-   mà không đụng file nào ngoài styles.css. */
+   là lệnh gọi vô dụng ở MỌI chỗ nó xuất hiện (nợ kiến trúc đã biết), đổi lại
+   toàn app đạt 3:1 mà không đụng file nào ngoài styles.css.
+   Số chỗ gọi KHÔNG chép tay ở đây nữa — con số cũ "86" đã lỗi thời ngay khi
+   commit 734a500 tự gắn thêm ba chỗ, rồi bị chép qua ba report và đóng băng
+   vào chú thích này lẫn message của 68879f9 (số đúng tại 68879f9 là 88, không
+   phải 86). Một con số mới ở đây sẽ lỗi thời y hệt vào lần gắn thêm tiếp theo;
+   đếm lại bất cứ lúc nào bằng `git grep -c 'focus-brass'` trên mọi *.tsx và
+   *.ts trong frontend/src (đệ quy), cộng dồn cột cuối mỗi dòng kết quả — 88
+   tại 2026-09-03, khi chú thích này được sửa. (Không chép nguyên lệnh có
+   dấu hoa thị-gạch-chéo vào chú thích CSS: chuỗi đó tự đóng comment giữa
+   chừng — chính là lỗi khiến bản sửa đầu tiên của đoạn này làm vỡ build.) */
 :where(a, button, input, select, textarea, summary, details, [tabindex], [role="button"], [role="tab"], [role="checkbox"], [role="switch"]):focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
-  border-radius: 4px;
 }
 
 /* Citation strings stay pronounceable: mono is visual only, no letter-spacing tricks */

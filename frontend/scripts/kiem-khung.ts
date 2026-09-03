@@ -330,7 +330,7 @@ assert.equal(new Set(Object.values(NHAN_PHAM_VI)).size, 3, "ba phạm vi thì ba
     [],
     "thẻ chưa nối: bấm vào sẽ không soạn được",
   );
-  assert.equal(MAU.length, 27);
+  assert.equal(MAU.length, 28);
 }
 
 // HAI CẶP dễ gộp nhầm, và gộp là soát văn bản này bằng checklist văn bản kia.

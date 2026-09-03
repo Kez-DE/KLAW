@@ -1,13 +1,15 @@
 import type { PhamViSoat } from "./khung-van-ban";
 
-// Định nghĩa 27 mẫu văn bản: nhóm, ký hiệu, số trường, căn cứ pháp lý.
+// Định nghĩa 28 mẫu văn bản: nhóm, ký hiệu, số trường, căn cứ pháp lý.
 // Đây là CẤU HÌNH SẢN PHẨM, không phải dữ liệu pháp luật minh hoạ — nên nó ở
 // lại sau khi kho văn bản giả bị xoá.
 //
-// 2026-09-02: **27/27 mẫu nối được backend**, khớp đúng 27 loại `/soan-thao`
-// nhận. Danh mục không còn hứa nhiều hơn hệ thống làm được, và cũng không còn
-// giấu mẫu nào: `quy_che_dan_chu` và `hop_dong_uy_quyen` từng dựng được, soát
-// được, mà không có thẻ nào bấm tới.
+// 2026-09-03: **28/28 mẫu nối được backend**, khớp đúng 28 loại `/soan-thao`
+// nhận — thêm `don_xin_nghi_viec` (đơn xin nghỉ việc, phía người lao động),
+// đối trọng của `quyet_dinh_cham_dut_hdld` (phía người sử dụng lao động) vốn
+// đã có sẵn. Danh mục không còn hứa nhiều hơn hệ thống làm được, và cũng
+// không còn giấu mẫu nào: `quy_che_dan_chu` và `hop_dong_uy_quyen` từng dựng
+// được, soát được, mà không có thẻ nào bấm tới.
 
 export type NhomMau = "lao-dong" | "thuong-mai" | "noi-bo" | "to-tung";
 
@@ -82,6 +84,18 @@ export const MAU: MauVanBan[] = [
     soTruong: 8,
     nhom: "lao-dong",
     kyHieu: "QĐ",
+    canCu: [BLLD],
+  },
+  {
+    // Đối trọng phía NGƯỜI LAO ĐỘNG của mẫu ngay trên (phía người sử dụng lao
+    // động): cùng chương BLLĐ, hai bộ điều kiện khác nhau (BLLĐ Đ35 thay vì
+    // Đ34/Đ36), nên KHÔNG dùng chung `LOAI_BACKEND` bên dưới.
+    id: "don-xin-nghi-viec",
+    ten: "Đơn xin nghỉ việc",
+    moTa: "Người lao động đơn phương chấm dứt hợp đồng lao động, nêu thời hạn báo trước.",
+    soTruong: 9,
+    nhom: "lao-dong",
+    kyHieu: "ĐXNV",
     canCu: [BLLD],
   },
   {
@@ -314,7 +328,7 @@ export const laThuViec = (m: MauVanBan) => m.id === "hop-dong-thu-viec";
  * Bản đồ này chỉ chứa mẫu máy chủ THẬT SỰ soát được, và đó là một ràng buộc
  * hẹp hơn "máy chủ nhận `loai_van_ban` này".
  *
- * 2026-09-02: **27/27 mẫu đã nối backend** — 23 soát NỘI DUNG, 3 chỉ soát THỂ
+ * 2026-09-03: **28/28 mẫu đã nối backend** — 24 soát NỘI DUNG, 3 chỉ soát THỂ
  * THỨC, 1 (`quyet_dinh_bo_nhiem`) soát thể thức KÈM một quy tắc nhiệm kỳ. Danh
  * mục đếm cả ba con số từ chính bản đồ này nên chúng không thể trôi khỏi sự
  * thật — con số viết tay trong chú thích thì có, và đã trôi đúng một lần: dòng
@@ -399,6 +413,17 @@ export const LOAI_BACKEND: Record<string, NoiBackend> = {
   // (`so_dai_dien_doi_thoai_nsdld_toi_thieu`, sàn 03 người theo Đ38.1).
   "quy-che-dan-chu-co-so": { loai: "quy_che_dan_chu", phamVi: "noi_dung" },
   "hop-dong-uy-quyen": { loai: "hop_dong_uy_quyen", phamVi: "noi_dung" },
+
+  // Một mẫu nối 2026-09-03, đưa danh mục lên 28/28 — khớp đúng 28 loại
+  // `/soan-thao` nhận. Backend đã nhận `don_xin_nghi_viec` từ trước (checklist
+  // + `LoaiVanBan`); giao diện thiếu thẻ này nên route 404.
+  //
+  // Soát NỘI DUNG (BLLĐ Đ35.1 — bốn mục bắt buộc bất kể trường hợp; Đ35.2 —
+  // nhóm nghỉ-ngay không bắt buộc, không được báo thiếu). KHÔNG dùng chung
+  // `quyet_dinh_cham_dut_hdld` (mẫu trên): đó là quyết định của NGƯỜI SỬ DỤNG
+  // LAO ĐỘNG (Đ34/Đ36/Đ45/Đ46/Đ48), còn đây là đơn của NGƯỜI LAO ĐỘNG (Đ35) —
+  // hai bộ điều kiện khác nhau của cùng một chương.
+  "don-xin-nghi-viec": { loai: "don_xin_nghi_viec", phamVi: "noi_dung" },
 };
 
 /**
@@ -445,7 +470,8 @@ export type LoaiVanBanBackend =
   | "quy_che_noi_bo"
   | "ban_tu_khai"
   | "van_ban_giai_trinh"
-  | "quy_che_dan_chu";
+  | "quy_che_dan_chu"
+  | "don_xin_nghi_viec";
 
 /** `undefined` = KLAW chưa có kiểu nào cho mẫu này, nên chưa soát được. */
 export const loaiBackendCua = (id: string): LoaiVanBanBackend | undefined => LOAI_BACKEND[id]?.loai;
