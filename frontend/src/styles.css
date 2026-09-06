@@ -828,10 +828,6 @@ mark.cau-trich {
 .serif-body {
   font-family: "Source Serif 4", Georgia, serif;
 }
-.spy-rail {
-  transition: transform 150ms ease, height 150ms ease;
-}
-
 /* ---------- Soạn thảo: A4 preview ---------- */
 @keyframes flash-brass {
   0% { background: color-mix(in oklab, var(--color-brass-500) 38%, transparent); }
