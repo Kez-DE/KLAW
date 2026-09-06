@@ -36,10 +36,10 @@ QUERIES_SCHEMA = {
 }
 
 
-def rewrite_query(state: dict, llm, model: str) -> dict:
+def rewrite_query(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict:
     prior_traces = state.get("traces") or {}
     goc = state["query"]
-    prompt = PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi=goc)
+    prompt = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8").format(cau_hoi=goc)
     usage = None
     degraded = False
     try:

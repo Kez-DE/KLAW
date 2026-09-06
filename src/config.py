@@ -101,6 +101,14 @@ class Settings(BaseSettings):
     # Verifier
     verify_tier2_enabled: bool = True
     abstain_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
+    # Prompt hành văn và viết lại truy vấn — đường dẫn file (spec 2026-09-06
+    # §5.2). Đổi qua env để A/B mà không sửa code:
+    #   ASSEMBLE_PROMPT=prompts/assemble.v2.md REWRITE_PROMPT=prompts/rewrite_query.v2.md
+    assemble_prompt: str = "prompts/assemble.v1.md"
+    rewrite_prompt: str = "prompts/rewrite_query.v1.md"
+    # Cộng điểm mềm theo lĩnh vực sau RRF (spec §6). 0 = TẮT. Chỉ bật mặc định
+    # sau một lượt đo graph-thật cho thấy Recall@10 không tụt.
+    linh_vuc_bonus: float = Field(default=0.0, ge=0.0)
     as_of_date: date | None = None
 
     @field_validator("as_of_date", mode="before")

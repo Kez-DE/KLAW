@@ -601,3 +601,32 @@ def test_luot_dau_KHONG_roi_vao_nhanh_chua_giai_nghia_duoc():
     assert "không có văn bản nào khớp" in st["coverage_note"], (
         "lượt đầu không tìm được gì thì câu ĐÚNG vẫn là kho không có văn bản khớp"
     )
+
+
+def test_assemble_doc_prompt_tu_prompt_path_khi_duoc_truyen(tmp_path):
+    """Task 4 (spec §5.2): graph truyền đường dẫn từ Settings; không truyền thì
+    giữ hằng cũ — hơn 40 chỗ gọi trong test không đổi."""
+    mau = tmp_path / "p.md"
+    mau.write_text("MAU-RIENG {cau_hoi}\n{claims}", encoding="utf-8")
+
+    class GhiPrompt(FakeLlm):
+        def chat(self, model, messages, json_schema=None):
+            self.prompt_cuoi = messages[-1]["content"]
+            return super().chat(model, messages, json_schema)
+
+    llm = GhiPrompt()
+    st = assemble(
+        {
+            "intent": "tra_cuu",
+            "expanded": [DB[11]],
+            "tier1": [_pass()],
+            "tier2": [Tier2Verdict(0, True, "ok")],
+            "abstain_threshold": 0.5,
+        },
+        DB,
+        llm,
+        "m",
+        prompt_path=mau,
+    )
+    assert st["result_type"] is ResultType.answer
+    assert llm.prompt_cuoi.startswith("MAU-RIENG")

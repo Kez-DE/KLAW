@@ -13,6 +13,8 @@ Ba đường rẽ tắt, tất cả đổ về `assemble`:
   `giai_nghia` vào đúng đường ngõ cụt đã có.
 """
 
+from pathlib import Path
+
 from langgraph.graph import END, StateGraph
 from sqlalchemy import Engine, text
 
@@ -60,11 +62,23 @@ def _db_provisions(ids: list[int], engine: Engine) -> dict[int, dict]:
     doc_ids = {r["document_id"] for r in goc.values()}
     with engine.connect() as c:
         docs = {
-            r["id"]: {"so_ky_hieu": r["so_ky_hieu"], "ten": r["ten"]}
+            r["id"]: {
+                "so_ky_hieu": r["so_ky_hieu"],
+                "ten": r["ten"],
+                "loai_van_ban": r["loai_van_ban"],
+                "link_vbpl": r["link_vbpl"],
+                "link_chinhphu": r["link_chinhphu"],
+                "link_tvpl": r["link_tvpl"],
+            }
             for r in c.execute(
-                text("SELECT id, so_ky_hieu, ten FROM documents WHERE id = ANY(:ids)"),
+                text(
+                    "SELECT id, so_ky_hieu, ten, loai_van_ban, link_vbpl, link_chinhphu, link_tvpl"
+                    " FROM documents WHERE id = ANY(:ids)"
+                ),
                 {"ids": list(doc_ids)},
-            ).mappings().all()
+            )
+            .mappings()
+            .all()
         }
     return {pid: {**row, **docs.get(row["document_id"], {})} for pid, row in goc.items()}
 
@@ -136,7 +150,7 @@ def build_graph_tra_cuu():
         return {**st, "tien_de_sai": tien_de_cau_hoi_sai(st["query"], engine)}
 
     def n_rewrite(st: KLawState) -> KLawState:
-        return rewrite_query(st, llm, router_model())
+        return rewrite_query(st, llm, router_model(), prompt_path=Path(s.rewrite_prompt))
 
     def n_retrieve(st: KLawState) -> KLawState:
         ids: list[int] = []
@@ -241,8 +255,13 @@ def build_graph_tra_cuu():
             st = {**st, "tra_loi_kho": tra_loi,
                   "tra_loi_kho_bang": [b.model_dump() for b in bang]}
         ids = [r.claim.provision_id for r in (st.get("tier1") or [])]
-        return assemble({**st, "abstain_threshold": s.abstain_threshold},
-                        _db_provisions(ids, engine), llm, generate_model())
+        return assemble(
+            {**st, "abstain_threshold": s.abstain_threshold},
+            _db_provisions(ids, engine),
+            llm,
+            generate_model(),
+            prompt_path=Path(s.assemble_prompt),
+        )
 
     g = StateGraph(KLawState)
     # Thứ tự khai node = thứ tự `get_graph().nodes`, mà `routes.BUOC_TRA_CUU`

@@ -487,8 +487,7 @@ def test_partial_coverage_giu_duoc_nguon_di_het_duong_graph_ra_HTTP(monkeypatch)
     monkeypatch.setattr(g, "llm_from_settings", lambda: FakeLlmHoiLai())
     monkeypatch.setattr(g, "route", lambda st, llm, model: {
         **st, "intent": Intent.tra_cuu, "traces": {"route_token_in": 0}})
-    monkeypatch.setattr(g, "rewrite_query", lambda st, llm, model: {
-        **st, "queries": [st["query"]]})
+    monkeypatch.setattr(g, "rewrite_query", lambda st, llm, model, prompt_path=None: {**st, "queries": [st["query"]]})
     monkeypatch.setattr(g.Retriever, "hybrid", lambda self, q: [])
     monkeypatch.setattr(g.Retriever, "provision_ids", lambda self, hits: [])
     monkeypatch.setattr(g, "expand", lambda before, engine, as_of, hops: (

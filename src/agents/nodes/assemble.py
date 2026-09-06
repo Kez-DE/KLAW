@@ -430,7 +430,7 @@ HUONG_DAN_SOAN_THAO = (
 )
 
 
-def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> dict:
+def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, prompt_path: Path | None = None) -> dict:
     if state.get("intent") == "soan_thao":
         # `graph_tra_cuu._RE_TAT` rẽ ý định này thẳng tới đây ngay sau `route`,
         # nên KHÔNG có truy hồi, không sinh luận điểm, không hai tầng kiểm.
@@ -683,7 +683,11 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str) -> di
         f"- {r.claim.text}\n  (căn cứ: {c['duong_dan']} — {c['bo_luat']})"
         for r, c in zip(dung_cho_prose, citations_dung_cho_prose, strict=True)
     )
-    prompt = PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi=state.get("query", ""), claims=claims_txt)
+    prompt = (
+        (prompt_path or PROMPT_PATH)
+        .read_text(encoding="utf-8")
+        .format(cau_hoi=state.get("query", ""), claims=claims_txt)
+    )
     usage: Usage | None = None
     degraded = False
     try:
