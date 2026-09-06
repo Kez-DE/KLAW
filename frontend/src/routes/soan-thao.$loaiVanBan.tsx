@@ -206,6 +206,16 @@ const CHUC_DANH = [
 
 const BUOC = ["Loại văn bản", "Thông tin các bên", "Nội dung chính", "Điều khoản", "Xem trước"];
 
+/** `rule_id` → số bước wizard chứa trường mà rule đó kiểm, cho nút "Sửa ngay"
+ * của `SoatBanThao`. CHỈ khai rule có trường nguồn nằm ở một bước KHÁC bước 5:
+ * mọi fact khác chỉ tồn tại trong chính form động của bước 5 (dựng từ
+ * `GET /mau/{loai}`), nên nhảy "về bước 5" từ bước 5 không đưa người dùng tới
+ * đâu — thiếu một liên kết còn hơn một liên kết không đi đâu. */
+const RULE_ID_TO_BUOC: Record<string, number> = {
+  thu_viec_toi_da: 3,
+  luong_thu_viec_toi_thieu: 3,
+};
+
 /* --------------------------------- page ---------------------------------- */
 
 function KhongGianSoanThao() {
@@ -894,6 +904,8 @@ function KhongGianSoanThao() {
                   loaiBackend={loaiBackend}
                   layToanVan={layToanVanBanThao}
                   factTuBieuMau={factTuBieuMau}
+                  ruleIdToBuoc={RULE_ID_TO_BUOC}
+                  onNhayBuoc={setBuoc}
                 />
               ))}
 

@@ -44,6 +44,11 @@ interface SoatBanThaoProps {
    * khoá mơ hồ để trống cho người dùng chọn.
    */
   factTuBieuMau?: Record<string, GiaTriFact>;
+  /** `rule_id` → số bước wizard cha chứa trường mà rule đó kiểm — nút "Sửa
+   * ngay" của một khuyết điểm chỉ hiện khi `rule_id` của nó có mặt ở đây. */
+  ruleIdToBuoc?: Record<string, number> | undefined;
+  /** Đổi bước hiện tại của wizard cha. Không có thì nút "Sửa ngay" không hiện. */
+  onNhayBuoc?: ((buoc: number) => void) | undefined;
 }
 
 const MUC_DO_NANG = new Set(["chan", "cao", "nghiem_trong"]);
@@ -129,7 +134,15 @@ function OFact({
   );
 }
 
-function DongPhatHien({ phatHien }: { phatHien: PhatHien }) {
+function DongPhatHien({
+  phatHien,
+  ruleIdToBuoc,
+  onNhayBuoc,
+}: {
+  phatHien: PhatHien;
+  ruleIdToBuoc?: Record<string, number> | undefined;
+  onNhayBuoc?: ((buoc: number) => void) | undefined;
+}) {
   const chuaKiem = phatHien.khong_kiem_duoc;
   const nang = !chuaKiem && MUC_DO_NANG.has(phatHien.muc_do);
   const mau = chuaKiem
@@ -143,6 +156,9 @@ function DongPhatHien({ phatHien }: { phatHien: PhatHien }) {
   // để cả hai là null — chính căn cứ đó không tồn tại, nên không có gì để mở.
   const docId = phatHien.doc_id;
   const khopTaiId = phatHien.khop_tai_id;
+  // Chỉ hiện "Sửa ngay" khi rule này có một trường sửa được ở bước KHÁC bước
+  // 5 — xem ghi chú của `RULE_ID_TO_BUOC` ở route soan-thao.
+  const buocSua = phatHien.rule_id === null ? undefined : ruleIdToBuoc?.[phatHien.rule_id];
 
   return (
     <li
@@ -165,23 +181,44 @@ function DongPhatHien({ phatHien }: { phatHien: PhatHien }) {
           Căn cứ: {phatHien.can_cu}
         </p>
       )}
-      {docId !== null && khopTaiId !== null && (
-        <Link
-          to="/tra-cuu/$docId"
-          params={{ docId }}
-          // `khop_tai_id`, KHÔNG `provision_id` — cùng lý do với trích dẫn của
-          // `/tra-cuu`. `PhatHien` thậm chí không mang `provision_id`.
-          search={{ quanh: String(khopTaiId) }}
-          className="focus-brass mt-1.5 inline-block rounded text-[12px] font-medium text-[var(--color-brass-600)] hover:underline"
-        >
-          Mở nguyên văn điều luật
-        </Link>
-      )}
+      {(docId !== null && khopTaiId !== null) || buocSua !== undefined ? (
+        <p className="m-0 mt-1.5 flex items-center gap-3">
+          {docId !== null && khopTaiId !== null && (
+            <Link
+              to="/tra-cuu/$docId"
+              params={{ docId }}
+              // `khop_tai_id`, KHÔNG `provision_id` — cùng lý do với trích dẫn
+              // của `/tra-cuu`. `PhatHien` thậm chí không mang `provision_id`.
+              search={{ quanh: String(khopTaiId) }}
+              className="focus-brass inline-block rounded text-[12px] font-medium text-[var(--color-brass-600)] hover:underline"
+            >
+              Mở nguyên văn điều luật
+            </Link>
+          )}
+          {buocSua !== undefined && onNhayBuoc !== undefined && (
+            <button
+              type="button"
+              onClick={() => onNhayBuoc(buocSua)}
+              className="focus-brass inline-block cursor-pointer rounded text-[12px] font-medium text-[var(--color-brass-600)] hover:underline"
+            >
+              Sửa ngay
+            </button>
+          )}
+        </p>
+      ) : null}
     </li>
   );
 }
 
-function KetQuaSoat({ baoCao }: { baoCao: BaoCaoSoat }) {
+function KetQuaSoat({
+  baoCao,
+  ruleIdToBuoc,
+  onNhayBuoc,
+}: {
+  baoCao: BaoCaoSoat;
+  ruleIdToBuoc?: Record<string, number> | undefined;
+  onNhayBuoc?: ((buoc: number) => void) | undefined;
+}) {
   const chuaKiem = baoCao.findings.filter((mot) => mot.khong_kiem_duoc);
   const thatSu = baoCao.findings.filter((mot) => !mot.khong_kiem_duoc);
 
@@ -200,7 +237,8 @@ function KetQuaSoat({ baoCao }: { baoCao: BaoCaoSoat }) {
     // KHÔNG viết "qua toàn bộ rule đã kiểm được" rồi thôi: mệnh đề phụ đó đúng
     // về mặt chữ nghĩa nhưng đọc lướt vẫn ra "đạt". Phải nói ra con số.
     dat_mot_phan: `Không thấy vi phạm trong phần soát được — còn ${chuaKiem.length} rule CHƯA kiểm được.`,
-    khong_dat: `${thatSu.length} điểm cần sửa trước khi ký.`,
+    // Nhãn chủ dự án yêu cầu, NGUYÊN VĂN — không diễn giải lại thành câu khác.
+    khong_dat: `Cảnh báo tự động — cần luật sư rà soát trước khi ký. ${thatSu.length} điểm cần sửa.`,
   } as const;
 
   return (
@@ -253,6 +291,8 @@ function KetQuaSoat({ baoCao }: { baoCao: BaoCaoSoat }) {
             <DongPhatHien
               key={`${mot.loai}-${mot.rule_id ?? i}-${mot.thong_diep.slice(0, 24)}`}
               phatHien={mot}
+              ruleIdToBuoc={ruleIdToBuoc}
+              onNhayBuoc={onNhayBuoc}
             />
           ))}
         </ul>
@@ -268,6 +308,8 @@ function KetQuaSoat({ baoCao }: { baoCao: BaoCaoSoat }) {
               <DongPhatHien
                 key={`ck-${mot.rule_id ?? i}-${mot.thong_diep.slice(0, 24)}`}
                 phatHien={mot}
+                ruleIdToBuoc={ruleIdToBuoc}
+                onNhayBuoc={onNhayBuoc}
               />
             ))}
           </ul>
@@ -282,7 +324,13 @@ function KetQuaSoat({ baoCao }: { baoCao: BaoCaoSoat }) {
   );
 }
 
-export function SoatBanThao({ loaiBackend, layToanVan, factTuBieuMau = {} }: SoatBanThaoProps) {
+export function SoatBanThao({
+  loaiBackend,
+  layToanVan,
+  factTuBieuMau = {},
+  ruleIdToBuoc,
+  onNhayBuoc,
+}: SoatBanThaoProps) {
   const [mau, datMau] = useState<Mau | null>(null);
   const [fact, datFact] = useState<Record<string, GiaTriFact>>({});
   const goiSoat = useGoiApi<{ audit_report: BaoCaoSoat; trace_id: string }>();
@@ -396,7 +444,13 @@ export function SoatBanThao({ loaiBackend, layToanVan, factTuBieuMau = {} }: Soa
           </button>
 
           {goiSoat.loi !== null && <BaoLoi loi={goiSoat.loi} onThuLai={soat} />}
-          {goiSoat.ketQua !== null && <KetQuaSoat baoCao={goiSoat.ketQua.audit_report} />}
+          {goiSoat.ketQua !== null && (
+            <KetQuaSoat
+              baoCao={goiSoat.ketQua.audit_report}
+              ruleIdToBuoc={ruleIdToBuoc}
+              onNhayBuoc={onNhayBuoc}
+            />
+          )}
         </>
       )}
     </section>
