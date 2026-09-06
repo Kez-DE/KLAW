@@ -278,6 +278,40 @@ def _dieu_khong_duoc_chong_do(answer: str, citations: list) -> list[str]:
     return sorted(trong_answer - trong_citation, key=int)
 
 
+# ══ Phép kiểm thứ TÁM và thứ CHÍN (spec 2026-09-06 §5.4) — thẻ và URL ═════════
+# Mô hình chỉ đặt `[chữ](doc:ID)` / `[chữ](cite:K)`; backend tra bảng rằng ID
+# nằm trong tập văn bản đã dùng, K nằm trong [1, n] và "Điều N" trong chữ hiển
+# thị trùng Điều của chính căn cứ K. Một URL trong `answer` LUÔN là lỗi: đường
+# dẫn cổng luật do DB điền vào `documents[].links`, không bao giờ do mô hình.
+# Vẫn 0 token, vẫn tra bảng — không suy luận ngữ nghĩa.
+LY_DO_THE_KHONG_HOP_LE = "the_hoac_url_trong_answer_khong_hop_le"
+
+_RE_THE = re.compile(r"\[([^\]]+)\]\((doc|cite):([^)\s]+)\)")
+_RE_URL = re.compile(r"https?://|www\.|\b[a-z0-9-]+\.(?:vn|com|net|org|gov)\b", re.I)
+
+
+def _the_khong_hop_le(answer: str, citations_prose: list[dict], doc_ids: set[str]) -> list[str]:
+    """Danh sách lỗi; rỗng = hợp lệ. Mỗi mục là nhãn tra được trong traces:
+    `url`, `doc:<ID>`, `cite:<K>`, `cite:<K>≠[<Điều của căn cứ K>]`."""
+    loi: list[str] = []
+    van = answer or ""
+    if _RE_URL.search(van):
+        loi.append("url")
+    for chu, loai, khoa in _RE_THE.findall(van):
+        if loai == "doc":
+            if khoa not in doc_ids:
+                loi.append(f"doc:{khoa}")
+            continue
+        if not khoa.isdigit() or not 1 <= int(khoa) <= len(citations_prose):
+            loi.append(f"cite:{khoa}")
+            continue
+        dieu_the = _so_dieu_trong(chu)
+        dieu_can_cu = _so_dieu_trong(citations_prose[int(khoa) - 1].get("duong_dan", ""))
+        if dieu_the and not dieu_the <= dieu_can_cu:
+            loi.append(f"cite:{khoa}≠{sorted(dieu_can_cu, key=int)}")
+    return loi
+
+
 # ══ Phép kiểm thứ bảy (coordinator, sau khi tự kiểm phép kiểm 6) ════════════
 # Đo được: "mức lương tối thiểu vùng I HIỆN NAY" gộp bốn nghị định của BỐN NĂM
 # khác nhau (90/2019, 157/2018, 141/2017 — tất cả bi_thay_the) thành các
@@ -773,6 +807,20 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         answer = " ".join(r.claim.text for r in verified)
         degraded = True
 
+    # Phép kiểm thứ tám + chín — chạy trên CẢ đường LLM và đường fallback (fallback
+    # nối claim.text không có thẻ, nhưng phép kiểm không giả định đường nào an toàn).
+    the_loi = _the_khong_hop_le(answer, citations_dung_cho_prose, {c["doc_id"] for c in citations_dung_cho_prose})
+    if the_loi:
+        logger.warning(
+            "assemble: thẻ/URL không hợp lệ trong answer — hạ xuống abstain (%s): %s",
+            LY_DO_THE_KHONG_HOP_LE,
+            the_loi,
+        )
+        ket = _ngo_cut(state, llm, model, ResultType.abstain, usage=usage, degraded=degraded)
+        ket["traces"]["assemble_the_loi"] = the_loi
+        ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
+        return ket
+
     # Phép kiểm thứ năm — xem docstring `_dieu_khong_duoc_chong_do`. Chạy SAU
     # khi có `answer` thật (kể cả đường fallback ở trên): fallback nối
     # nguyên văn claim.text nên về lý thuyết không tự bịa số Điều, nhưng kiểm
@@ -791,10 +839,12 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         ket = _ngo_cut(state, llm, model, ResultType.abstain, usage=usage, degraded=degraded)
         ket["traces"]["assemble_dieu_bi_loai"] = dieu_bi_loai
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
+        ket["traces"]["assemble_the_loi"] = []
         return ket
 
     ket = _base(state, ResultType.answer, usage=usage, degraded=degraded,
                 answer=answer, citations=citations, warnings=warnings, documents=documents)
     ket["traces"]["assemble_dieu_bi_loai"] = []
     ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
+    ket["traces"]["assemble_the_loi"] = []
     return ket

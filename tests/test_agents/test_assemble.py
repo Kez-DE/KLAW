@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from src.agents.nodes.assemble import (
     ANSWER_SCHEMA,
     CHUA_GIAI_NGHIA_DUOC,
@@ -731,3 +733,51 @@ def test_v1_giu_dinh_dang_claims_cu_nhung_van_co_k_va_documents():
     assert "[1] " not in llm.prompt_cuoi
     assert [c["k"] for c in st["citations"]] == [1, 2]
     assert len(st["documents"]) == 2
+
+
+class LlmTraLoi(FakeLlm):
+    """Hành văn trả đúng chuỗi `answer` cho sẵn — để bẫy từng loại thẻ sai."""
+
+    def __init__(self, answer: str) -> None:
+        super().__init__()
+        self.answer = answer
+
+    def chat(self, model, messages, json_schema=None):
+        from src.services.llm import Usage
+        self.schema_da_goi.append(json_schema)
+        if json_schema is HOI_LAI_SCHEMA:
+            return json.dumps({"chieu": [{"ma": "chu_the", "cau": "Bạn ở phía nào?"}]}), Usage(1, 1, 0.0)
+        return json.dumps({"answer": self.answer}), Usage(1, 1, 0.0)
+
+
+def test_the_hop_le_tra_answer_va_trace_rong():
+    st = assemble(_st_hai_can_cu(), DB_V2,
+                  LlmTraLoi("Theo [Bộ luật Lao động 2019](doc:139264), bạn được 85% [Điều 26](cite:1)."),
+                  "m")
+    assert st["result_type"] is ResultType.answer
+    assert st["traces"]["assemble_the_loi"] == []
+
+
+@pytest.mark.parametrize("answer, loi", [
+    ("Xem [Nghị định 126](doc:999999).", ["doc:999999"]),                 # doc lạ
+    ("Bạn được 85% [Điều 26](cite:7).", ["cite:7"]),                       # K ngoài tập
+    ("Bạn được 85% [Điều 26](cite:x).", ["cite:x"]),                       # K không phải số
+    ("Bạn được 85% [Điều 99](cite:1).", ["cite:1≠['26']"]),               # Điều lệch căn cứ
+    ("Xem thêm tại vbpl.vn nhé.", ["url"]),                                # URL trần
+    ("Xem https://thuvienphapluat.vn/x [Điều 26](cite:1).", ["url"]),      # URL đầy đủ
+])
+def test_the_hoac_url_sai_ha_xuong_abstain_va_ghi_trace(answer, loi):
+    st = assemble(_st_hai_can_cu(), DB_V2, LlmTraLoi(answer), "m")
+    assert st["result_type"] is ResultType.abstain, answer
+    assert st["traces"]["assemble_the_loi"] == loi
+
+
+def test_ngoac_vuong_khong_phai_the_thi_khong_bi_bat():
+    st = assemble(_st_hai_can_cu(), DB_V2, LlmTraLoi("Nguyên văn [sic] nói 85% [Điều 26](cite:1)."), "m")
+    assert st["result_type"] is ResultType.answer
+
+
+def test_so_ky_hieu_va_so_tien_khong_bi_coi_la_url():
+    from src.agents.nodes.assemble import _RE_URL
+    for s in ("45/2019/QH14", "10/2020/TT-BLĐTBXH", "4.420.000 đồng/tháng", "Điều 5. Phạm vi"):
+        assert not _RE_URL.search(s), s
