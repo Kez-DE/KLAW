@@ -1,7 +1,7 @@
 import { Fragment, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { BookOpenText, FileSearch, Info } from "lucide-react";
-import type { Citation, Nguon, TraCuuKetQua } from "@/lib/klaw";
+import type { Citation, LinkVanBan, Nguon, TraCuuKetQua, VanBanTraLoi } from "@/lib/klaw";
 import { chiSoDauCuaVanBan, ghiChuHieuLuc, nhomHieuLuc, xepTrichDan } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { catDoan, catManh, type Manh } from "@/lib/van-xuoi";
@@ -157,6 +157,51 @@ function KhoiNguon({
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+/** Thứ tự và nhãn cổng — vbpl → chinhphu → tvpl (spec §4.3). Biểu tượng là của
+ *  giao diện; `assemble.v2` quy tắc 17 cấm mô hình dùng chúng. */
+const NHAN_CONG: ReadonlyArray<[keyof LinkVanBan, string]> = [
+  ["vbpl", "Cơ sở dữ liệu quốc gia về văn bản pháp luật (Bộ Tư pháp)"],
+  ["chinhphu", "Cổng Thông tin điện tử Chính phủ"],
+  ["tvpl", "Thư Viện Pháp Luật"],
+];
+
+/**
+ * Liên kết toàn văn tới cổng luật, dựng từ `documents[].links` — DB điền, mô
+ * hình không bao giờ viết URL (phép kiểm thứ chín). Dòng nào `null` thì không
+ * render; không văn bản nào có link thì cả khối ẩn.
+ */
+function KhoiLienKet({ documents }: { documents: VanBanTraLoi[] }) {
+  const dong = documents.flatMap((d) =>
+    NHAN_CONG.flatMap(([khoa, nhan]) => {
+      const url = d.links[khoa];
+      return url ? [{ key: `${d.doc_id}-${khoa}`, url, ten: d.ten, nhan }] : [];
+    }),
+  );
+  if (dong.length === 0) return null;
+  return (
+    <section aria-label="Liên kết tra cứu toàn văn" className="mt-4">
+      <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">
+        📖 Liên kết tra cứu toàn văn
+      </h3>
+      <ol className="mt-1 mb-0 list-decimal pl-5 text-[13px] leading-6">
+        {dong.map((d) => (
+          <li key={d.key}>
+            🔗{" "}
+            <a
+              href={d.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="focus-brass rounded underline underline-offset-2"
+            >
+              Toàn văn {d.ten} — {d.nhan}
+            </a>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
@@ -556,6 +601,7 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
           chiSoDangMo={chiSoDangMo}
           onChon={chon}
         />
+        <NhacMienTru />
       </section>
     );
   }
@@ -577,6 +623,7 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
         )}
       </div>
       <KhoiCanhBao warnings={warnings} />
+      <KhoiLienKet documents={ketQua.documents} />
       <DaiTrichDan
         citations={citations}
         warnings={warnings}
