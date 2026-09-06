@@ -9,7 +9,7 @@ tập mà `/bo-loc` đếm.
 
 import pytest
 
-BAC = {"con_hieu_luc": 0, "het_hieu_luc": 2, "bi_thay_the": 2}
+BAC = {"con_hieu_luc": 0, "het_hieu_luc": 2, "bi_thay_the": 2, "chua_hieu_luc": 2}
 
 
 @pytest.mark.integration

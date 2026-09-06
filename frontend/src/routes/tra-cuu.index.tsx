@@ -54,6 +54,14 @@ const NHAN_SAP_XEP: Record<string, string> = {
   con_hieu_luc_truoc: "Còn hiệu lực trước",
 };
 
+/** Cách sắp xếp thực sự áp dụng: không từ khoá thì không có "liên quan" (máy chủ
+ * từ chối `lien_quan` cho `/van-ban`), nên rơi về `moi_nhat`. Dùng cho CẢ request
+ * và chip đang sáng — hai chỗ lệch nhau là chip không sáng cái nào. */
+function sapXepHieuLuc(q: string, sapXep: string | undefined): string {
+  if (q.trim() === "") return sapXep === undefined || sapXep === "lien_quan" ? "moi_nhat" : sapXep;
+  return sapXep ?? "lien_quan";
+}
+
 interface BoLocUrl {
   q?: string;
   loai?: string[];
@@ -464,7 +472,7 @@ function ManTimKiem() {
       datKetQua(null);
       const dieuKhien = new AbortController();
       datDangChay(true);
-      const sapXepDuyet = sapXep === undefined || sapXep === "lien_quan" ? "moi_nhat" : sapXep;
+      const sapXepDuyet = sapXepHieuLuc(q, sapXep);
       void goi(`/van-ban${thamSo([...locChung, ["sap_xep", sapXepDuyet]])}`, laDanhSachVanBan, {
         signal: dieuKhien.signal,
       }).then((kq) => {
@@ -695,8 +703,7 @@ function ManTimKiem() {
               {sapXepHienThi.length > 0 && (
                 <div className="flex items-center gap-1 rounded-full border border-border p-0.5">
                   {sapXepHienThi.map((cach) => {
-                    const dangBat =
-                      (sapXep ?? (q.trim() === "" ? "moi_nhat" : "lien_quan")) === cach;
+                    const dangBat = sapXepHieuLuc(q, sapXep) === cach;
                     return (
                       <button
                         key={cach}

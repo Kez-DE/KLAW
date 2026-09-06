@@ -414,8 +414,8 @@ function Landing() {
                 Sẵn sàng tra cứu và soạn thảo?
               </h2>
               <p className="relative mx-auto mt-4 max-w-lg text-sm leading-relaxed text-primary-foreground/75">
-                Mở KLAW và đặt câu hỏi pháp lý đầu tiên của bạn. Không cần đăng ký, không cần thuật
-                ngữ chuyên ngành.
+                Mở KLAW và đặt câu hỏi pháp lý đầu tiên của bạn. Tài khoản Miễn phí tạo trong một
+                phút, không cần thuật ngữ chuyên ngành.
               </p>
               <div className="relative mt-9 flex flex-wrap justify-center gap-3">
                 <Link

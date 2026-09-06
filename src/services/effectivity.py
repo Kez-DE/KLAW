@@ -31,6 +31,8 @@ khi không biết luôn là `chua_xac_dinh` với `tin_cay` thấp, KHÔNG BAO G
 
 import logging
 import re
+import threading
+import time
 import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -690,9 +692,11 @@ def nap_sua_doi(engine: Engine, provision_ids: Sequence[int]) -> dict[int, list[
 # mỗi request. Hàm dưới đây làm đúng cùng phép tính bằng 2 truy vấn + Python
 # thuần: ĐO ĐƯỢC 20,7ms SQL + 8,1ms Python cho cả 126 văn bản (2026-09-01).
 #
-# ponytail: KHÔNG cache. 29ms cho toàn corpus rẻ hơn một cache phải nghĩ cách
-# vô hiệu hoá sau mỗi lần seed lại — thêm cache khi corpus lên hàng nghìn văn
-# bản và số đo nói rằng nó đáng.
+# Memo ngắn cho phán quyết toàn kho. Đo 2026-09-06: 1634 văn bản → ~0,6 s mỗi
+# lần; `/van-ban` (màn mặc định của Tra cứu) và `/tim-kiem` gọi nó MỌI request,
+# nên không memo là mỗi lần lật trang chờ 0,6 s. 60 s là đủ ngắn để một lần seed
+# mới chỉ "trễ" một phút, và đủ dài để một phiên duyệt kho chỉ tính một lần.
+# Khoá theo URL engine + as_of: test dùng engine khác không ăn nhầm cache của nhau.
 #
 # `ung_vien_ke_nhiem` lọc TRONG Python (không phải `_SQL_UNG_VIEN` mỗi văn bản):
 # cùng một tập `documents` đã nằm sẵn trong bộ nhớ, và điều kiện là hai phép so
@@ -718,7 +722,7 @@ _SQL_CANH_TAT_CA = text(
 )
 
 
-def danh_gia_toan_bo(engine: Engine, as_of: date) -> dict[str, Effectivity]:
+def _danh_gia_toan_bo_tinh(engine: Engine, as_of: date) -> dict[str, Effectivity]:
     """`documents.id` → phán quyết hiệu lực tại `as_of`, cho TOÀN BỘ corpus.
 
     Cùng `danh_gia` mà `danh_gia_theo_id` gọi — không phải một đường phán quyết
@@ -742,6 +746,32 @@ def danh_gia_toan_bo(engine: Engine, as_of: date) -> dict[str, Effectivity]:
         )
         ra[d["id"]] = danh_gia(d, canh_cua.get(d["id"], []), as_of, ung_vien)
     return ra
+
+
+_TTL_TOAN_BO_GIAY = 60.0
+_cache_toan_bo: dict[tuple[str, date], tuple[float, dict[str, Effectivity]]] = {}
+_khoa_cache_toan_bo = threading.Lock()
+
+
+def xoa_cache_danh_gia_toan_bo() -> None:
+    """Cho script seed và test: quên mọi phán quyết đã memo."""
+    with _khoa_cache_toan_bo:
+        _cache_toan_bo.clear()
+
+
+def danh_gia_toan_bo(engine: Engine, as_of: date) -> dict[str, Effectivity]:
+    """`documents.id` → phán quyết hiệu lực tại `as_of`, cho TOÀN BỘ corpus, memo
+    60 s theo (engine, as_of). Xem `_danh_gia_toan_bo_tinh` cho phần tính."""
+    khoa = (str(engine.url), as_of)
+    bay_gio = time.monotonic()
+    with _khoa_cache_toan_bo:
+        hit = _cache_toan_bo.get(khoa)
+        if hit is not None and bay_gio - hit[0] < _TTL_TOAN_BO_GIAY:
+            return hit[1]
+    ket_qua = _danh_gia_toan_bo_tinh(engine, as_of)
+    with _khoa_cache_toan_bo:
+        _cache_toan_bo[khoa] = (bay_gio, ket_qua)
+    return ket_qua
 
 
 # Ba bậc dùng cho `sap_xep=con_hieu_luc_truoc`. KHÔNG phải hai: gộp
