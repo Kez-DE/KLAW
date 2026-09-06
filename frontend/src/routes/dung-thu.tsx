@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronRight, Paperclip, Send } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
@@ -6,8 +6,10 @@ import { BaoLoi } from "@/components/klaw/BaoLoi";
 import { ManChao } from "@/components/klaw/ManChao";
 import { MaTruyVet } from "@/components/klaw/MaTruyVet";
 import { KhungDoiChieu, useHaiCot } from "@/components/klaw/KhungDoiChieu";
+import { TheDangNhap } from "@/components/klaw/TheDangNhap";
 import { TheKetQua } from "@/components/klaw/TheKetQua";
 import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
+import { useAuth } from "@/hooks/use-auth";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { useTraCuu } from "@/hooks/use-tra-cuu";
 import type { Citation, TraCuuKetQua } from "@/lib/klaw";
@@ -69,6 +71,11 @@ function ManHoiKlaw() {
   const traCuu = useTraCuu();
   const doiChieu = useDoiChieu();
   const haiCot = useHaiCot();
+  const navigate = useNavigate();
+  const { user, loading: dangKiemPhien, chuaCauHinh } = useAuth();
+  // Cổng chỉ đóng khi máy chủ cũng đóng: Supabase đã cấu hình mà chưa có phiên
+  // (spec 2026-09-06 §5.1). Chưa cấu hình (máy dev) thì backend cho ẩn danh.
+  const canDangNhap = !chuaCauHinh && !dangKiemPhien && user === null;
 
   const [nhap, datNhap] = useState("");
   const [luuTru, datLuuTru] = useState<LuotDaXong[]>([]);
@@ -89,10 +96,16 @@ function ManHoiKlaw() {
   const { hoi } = traCuu;
   const daHoiTuUrl = useRef<string | null>(null);
   useEffect(() => {
-    if (cauHoiTrenUrl === undefined || daHoiTuUrl.current === cauHoiTrenUrl) return;
+    if (
+      cauHoiTrenUrl === undefined ||
+      dangKiemPhien ||
+      canDangNhap ||
+      daHoiTuUrl.current === cauHoiTrenUrl
+    )
+      return;
     daHoiTuUrl.current = cauHoiTrenUrl;
     hoi(cauHoiTrenUrl);
-  }, [cauHoiTrenUrl, hoi]);
+  }, [cauHoiTrenUrl, hoi, dangKiemPhien, canDangNhap]);
 
   const tuGian = () => {
     const el = oHoi.current;
@@ -131,6 +144,10 @@ function ManHoiKlaw() {
 
   // Gợi ý chỉ ĐIỀN, không gửi — người dùng còn sửa câu (spec 2026-09-06 §4.1).
   const dienGoiY = (cau: string) => {
+    if (canDangNhap) {
+      void navigate({ to: "/dang-nhap", search: { next: "/dung-thu" } });
+      return;
+    }
     datNhap(cau);
     oHoi.current?.focus();
   };
@@ -267,42 +284,48 @@ function ManHoiKlaw() {
           {/* Ô soạn câu hỏi */}
           <div className="sticky bottom-0 border-t border-border bg-background/95 backdrop-blur">
             <div className="mx-auto w-full max-w-[860px] px-4 py-3">
-              <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 shadow-soft">
-                <button
-                  type="button"
-                  title="Đính kèm văn bản — chưa có trong hệ thống"
-                  aria-label="Đính kèm văn bản (chưa có trong hệ thống)"
-                  disabled
-                  className="mb-0.5 rounded-lg p-2 text-muted-foreground disabled:opacity-40"
-                >
-                  <Paperclip className="size-4" aria-hidden />
-                </button>
-                <textarea
-                  ref={oHoi}
-                  rows={1}
-                  value={nhap}
-                  disabled={traCuu.dangChay}
-                  onChange={(su) => datNhap(su.target.value)}
-                  onKeyDown={(su) => {
-                    if (su.key === "Enter" && !su.shiftKey) {
-                      su.preventDefault();
-                      gui();
-                    }
-                  }}
-                  aria-label="Câu hỏi pháp lý"
-                  placeholder="Hỏi về quy định pháp luật hoặc yêu cầu soạn văn bản…"
-                  className="max-h-[176px] flex-1 resize-none bg-transparent py-2 text-sm leading-[26px] outline-none placeholder:text-muted-foreground disabled:opacity-60"
-                />
-                <button
-                  type="button"
-                  onClick={() => gui()}
-                  disabled={nhap.trim() === "" || traCuu.dangChay}
-                  aria-label="Gửi câu hỏi"
-                  className="focus-brass bg-gradient-ink mb-0.5 cursor-pointer rounded-lg p-2 text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-40"
-                >
-                  <Send className="size-4" aria-hidden />
-                </button>
-              </div>
+              {dangKiemPhien && !chuaCauHinh ? (
+                <div aria-hidden className="min-h-[56px] rounded-xl border border-border bg-card" />
+              ) : canDangNhap ? (
+                <TheDangNhap next="/dung-thu" />
+              ) : (
+                <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 shadow-soft">
+                  <button
+                    type="button"
+                    title="Đính kèm văn bản — chưa có trong hệ thống"
+                    aria-label="Đính kèm văn bản (chưa có trong hệ thống)"
+                    disabled
+                    className="mb-0.5 rounded-lg p-2 text-muted-foreground disabled:opacity-40"
+                  >
+                    <Paperclip className="size-4" aria-hidden />
+                  </button>
+                  <textarea
+                    ref={oHoi}
+                    rows={1}
+                    value={nhap}
+                    disabled={traCuu.dangChay}
+                    onChange={(su) => datNhap(su.target.value)}
+                    onKeyDown={(su) => {
+                      if (su.key === "Enter" && !su.shiftKey) {
+                        su.preventDefault();
+                        gui();
+                      }
+                    }}
+                    aria-label="Câu hỏi pháp lý"
+                    placeholder="Hỏi về quy định pháp luật hoặc yêu cầu soạn văn bản…"
+                    className="max-h-[176px] flex-1 resize-none bg-transparent py-2 text-sm leading-[26px] outline-none placeholder:text-muted-foreground disabled:opacity-60"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => gui()}
+                    disabled={nhap.trim() === "" || traCuu.dangChay}
+                    aria-label="Gửi câu hỏi"
+                    className="focus-brass bg-gradient-ink mb-0.5 cursor-pointer rounded-lg p-2 text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-40"
+                  >
+                    <Send className="size-4" aria-hidden />
+                  </button>
+                </div>
+              )}
               <p className="mt-1.5 text-[12px] text-muted-foreground">
                 KLAW cung cấp thông tin tham khảo, không thay thế tư vấn của luật sư. Vui lòng kiểm
                 chứng với văn bản quy phạm pháp luật đang có hiệu lực.

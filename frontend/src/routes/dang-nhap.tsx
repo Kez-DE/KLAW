@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useState, type FormEvent } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
+import { locNext, type DichQuayLai } from "@/lib/quay-lai";
 import type { NhaCungCapOAuth } from "@/lib/xac-thuc";
 import { dangNhap, dangNhapOAuth } from "@/lib/xac-thuc";
 import {
@@ -40,6 +41,10 @@ export const Route = createFileRoute("/dang-nhap")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  validateSearch: (tho: Record<string, unknown>): { next?: DichQuayLai } => {
+    const next = locNext(tho["next"]);
+    return next === undefined ? {} : { next };
+  },
   component: SignInPage,
 });
 
@@ -54,6 +59,10 @@ const OAUTH: readonly { ma: NhaCungCapOAuth; ten: string; icon: ReactNode }[] = 
 
 function SignInPage() {
   const navigate = useNavigate();
+  // Đặt tên khác `next` — `onSubmit` bên dưới đã dùng `next` cho object lỗi
+  // xác thực, và shadow biến này sẽ khiến `navigate` gọi sai kiểu (không lỗi
+  // biên dịch rõ ràng: TS suy luận theo biến local rồi báo lệch kiểu ở dòng gọi).
+  const { next: dichQuayVe } = Route.useSearch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
@@ -98,7 +107,7 @@ function SignInPage() {
         return;
       }
       setDone(true);
-      setTimeout(() => navigate({ to: "/dung-thu" }), 900);
+      setTimeout(() => navigate({ to: dichQuayVe ?? "/dung-thu" }), 900);
     });
   };
 
@@ -108,7 +117,7 @@ function SignInPage() {
 
       <div className="rounded-2xl border border-transparent p-0">
         {done ? (
-          <SuccessCheck label="Xác thực thành công. Đang mở phiên dùng thử…" />
+          <SuccessCheck label="Xác thực thành công. Đang mở trợ lý KLAW…" />
         ) : (
           <>
             <h1 className="font-display text-[36px] leading-tight text-primary">
