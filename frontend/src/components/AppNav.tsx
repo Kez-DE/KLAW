@@ -7,7 +7,7 @@ const LINKS = [
   { to: "/tra-cuu", label: "Tra cứu luật" },
   { to: "/soan-thao", label: "Soạn thảo" },
   { to: "/huong-dan", label: "Hướng dẫn" },
-  { to: "/chat", label: "Trò chuyện" },
+  { to: "/dung-thu", label: "Trợ lý KLAW" },
 ] as const;
 
 export function AppNav({ active }: { active?: string }) {

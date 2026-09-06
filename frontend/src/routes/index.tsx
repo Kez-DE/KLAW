@@ -171,10 +171,10 @@ function Landing() {
               Đăng nhập
             </Link>
             <Link
-              to="/chat"
+              to="/dung-thu"
               className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-elegant"
             >
-              Dùng thử agent
+              Mở trợ lý KLAW
               <ArrowRight className="size-4" />
             </Link>
           </div>
@@ -216,10 +216,10 @@ function Landing() {
 
               <div className="pointer-events-auto mt-9 flex flex-wrap items-center gap-3">
                 <Link
-                  to="/chat"
+                  to="/dung-thu"
                   className="group relative inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-elegant transition-all hover:-translate-y-0.5"
                 >
-                  Bắt đầu trò chuyện
+                  Hỏi KLAW
                   <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <a
@@ -341,7 +341,7 @@ function Landing() {
                   bản thân bộ luật. Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn kiểm chứng.
                 </p>
                 <Link
-                  to="/chat"
+                  to="/dung-thu"
                   className="mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-elegant"
                 >
                   <Gavel className="size-4" />
@@ -419,10 +419,10 @@ function Landing() {
               </p>
               <div className="relative mt-9 flex flex-wrap justify-center gap-3">
                 <Link
-                  to="/chat"
+                  to="/dung-thu"
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-gold px-7 py-3.5 text-sm font-bold text-accent-foreground shadow-gold transition-transform hover:-translate-y-0.5"
                 >
-                  Trò chuyện với KLAW
+                  Mở trợ lý KLAW
                   <ArrowRight className="size-4" />
                 </Link>
                 <Link
@@ -452,7 +452,7 @@ function Landing() {
               </p>
             </div>
             <Link
-              to="/chat"
+              to="/dung-thu"
               className="ml-auto text-sm font-medium text-primary underline-offset-4 hover:underline"
             >
               Mở trợ lý

@@ -1,13 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import {
-  BookOpenText,
-  FileSignature,
-  LifeBuoy,
-  MessagesSquare,
-  Scale,
-  Sparkles,
-} from "lucide-react";
+import { BookOpenText, FileSignature, LifeBuoy, Scale, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKhungModalDangMo } from "@/hooks/use-khung-modal";
 
@@ -15,7 +8,6 @@ const NAV = [
   { to: "/dung-thu", label: "Trợ lý KLAW", icon: Sparkles },
   { to: "/tra-cuu", label: "Tra cứu luật", icon: BookOpenText },
   { to: "/soan-thao", label: "Soạn thảo", icon: FileSignature },
-  { to: "/chat", label: "Trò chuyện", icon: MessagesSquare },
   { to: "/huong-dan", label: "Hướng dẫn", icon: LifeBuoy },
 ] as const;
 

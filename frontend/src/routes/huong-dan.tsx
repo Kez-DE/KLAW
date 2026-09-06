@@ -95,10 +95,10 @@ function Guide() {
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link
-              to="/chat"
+              to="/dung-thu"
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-elegant transition-all hover:-translate-y-0.5"
             >
-              Thử ngay với KLAW
+              Mở trợ lý KLAW
               <ArrowRight className="size-4" />
             </Link>
             <Link

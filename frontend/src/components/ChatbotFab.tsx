@@ -3,7 +3,7 @@ import { useState } from "react";
 import { MessageCircle, X, Scale, Search, FileSignature } from "lucide-react";
 
 const QUICK = [
-  { to: "/chat", icon: Scale, label: "Hỏi KLAW ngay" },
+  { to: "/dung-thu", icon: Scale, label: "Hỏi KLAW ngay" },
   { to: "/tra-cuu", icon: Search, label: "Tra cứu điều luật" },
   { to: "/soan-thao", icon: FileSignature, label: "Soạn văn bản" },
 ] as const;
