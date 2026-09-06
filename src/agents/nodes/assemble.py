@@ -71,6 +71,53 @@ ANSWER_SCHEMA = {
 # chỉ là fallback khi state không mang nó (vd. gọi assemble() đơn lẻ).
 ABSTAIN_THRESHOLD_DEFAULT = 0.5
 
+# Spec 2026-09-06 §5.3 — hai lời mở cho `{mo_dau}` của assemble.v2. Chào chỉ ở
+# lượt đầu; bẫy `chao_dung_luot` (eval/run_trap) đo điều này.
+MO_DAU_LUOT_DAU = (
+    "Đây là lượt đầu của cuộc trò chuyện: mở bằng một cụm chào ngắn, tự nhiên "
+    '("Chào bạn,") nối LIỀN vào câu trả lời thẳng — không thành câu riêng, không '
+    '"rất vui được hỗ trợ".'
+)
+MO_DAU_NOI_TIEP = "Đây là lượt nối tiếp: KHÔNG chào, vào thẳng câu trả lời."
+
+
+def _van_ban_dung_cho_prose(citations_prose: list[dict], db: dict[int, dict]) -> list[tuple[dict, dict]]:
+    """`(citation, dòng db)` của văn bản ĐẦU TIÊN xuất hiện theo `doc_id`, khử
+    trùng, giữ thứ tự — tập mô hình được phép đặt thẻ `doc`."""
+    ra, da = [], set()
+    for c in citations_prose:
+        if c["doc_id"] in da:
+            continue
+        da.add(c["doc_id"])
+        ra.append((c, db[c["khop_tai_id"]]))
+    return ra
+
+
+def _khoi_van_ban(citations_prose: list[dict], db: dict[int, dict]) -> str:
+    """Khối `{van_ban}`: `[doc:ID] tên — số hiệu — loại văn bản`. KHÔNG có ngày
+    (Q2) — ngày hiệu lực của văn bản gốc đứng cạnh nhãn `bi_sua_doi` gây hiểu
+    nhầm, và nhãn cạnh trích dẫn đã nói đủ."""
+    return "\n".join(
+        f"[doc:{c['doc_id']}] {c['bo_luat']} — {c['so_ky_hieu']} — {p.get('loai_van_ban') or ''}"
+        for c, p in _van_ban_dung_cho_prose(citations_prose, db)
+    )
+
+
+def _dung_documents(citations_prose: list[dict], db: dict[int, dict]) -> list[dict]:
+    """`documents[]` của response (khớp `schemas.DocumentOut`). Link lấy từ ba
+    cột migration 019; NULL đi nguyên qua để giao diện bỏ dòng đó."""
+    return [
+        {
+            "doc_id": c["doc_id"],
+            "ten": c["bo_luat"],
+            "so_ky_hieu": c["so_ky_hieu"],
+            "loai_van_ban": p.get("loai_van_ban") or "",
+            "links": {"vbpl": p.get("link_vbpl"), "chinhphu": p.get("link_chinhphu"), "tvpl": p.get("link_tvpl")},
+        }
+        for c, p in _van_ban_dung_cho_prose(citations_prose, db)
+    ]
+
+
 # Ba verdict brief đòi hỏi tường minh (bi_thay_the/het_hieu_luc/mot_phan_khong_xac_dinh)
 # cộng chua_hieu_luc (chưa có hiệu lực — người hỏi cần biết), can_doi_chieu_tay
 # (nghi lỗi dữ liệu MOJ), và chua_xac_dinh (RULING 2026-08-31: im lặng ở đây bị
@@ -640,6 +687,8 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             "quote": r.claim.quote,
             "hieu_luc": eff.verdict.value if eff else None,
             "tin_cay": eff.tin_cay if eff else None,
+            # Spec 2026-09-06 §3: gán số sau vòng lặp, chỉ cho căn cứ dùng hành văn.
+            "k": None,
         })
         if eff and eff.verdict in CANH_BAO_NHAN:
             # `ly_do` NGUYÊN VĂN, không viết lại: nó nêu đích danh văn bản thay
@@ -680,14 +729,29 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     # `strict=True` khoá bất biến hai danh sách khớp chỉ số — chúng được append
     # cùng một nhánh `else` ở vòng lặp trên, và nếu ai đó tách chúng ra thì lỗi
     # phải nổ ở đây chứ không phải hiện thành một trích dẫn gắn nhầm khẳng định.
-    claims_txt = "\n".join(
-        f"- {r.claim.text}\n  (căn cứ: {c['duong_dan']} — {c['bo_luat']})"
-        for r, c in zip(dung_cho_prose, citations_dung_cho_prose, strict=True)
-    )
-    prompt = (
-        (prompt_path or PROMPT_PATH)
-        .read_text(encoding="utf-8")
-        .format(cau_hoi=state.get("query", ""), claims=claims_txt)
+    for so, c in enumerate(citations_dung_cho_prose, start=1):
+        c["k"] = so
+    documents = _dung_documents(citations_dung_cho_prose, db_provisions)
+
+    mau = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8")
+    # Template có `{van_ban}` là template biết thẻ (v2): căn cứ đánh số [K] để
+    # mô hình đặt `cite:K`. Template v1 giữ NGUYÊN định dạng cũ — A/B v1-v2
+    # phải đo đúng prompt cũ, không phải một v1 đã bị đổi ruột.
+    if "{van_ban}" in mau:
+        claims_txt = "\n".join(
+            f"[{c['k']}] {c['duong_dan']} — {c['bo_luat']}\n    {r.claim.text}"
+            for r, c in zip(dung_cho_prose, citations_dung_cho_prose, strict=True)
+        )
+    else:
+        claims_txt = "\n".join(
+            f"- {r.claim.text}\n  (căn cứ: {c['duong_dan']} — {c['bo_luat']})"
+            for r, c in zip(dung_cho_prose, citations_dung_cho_prose, strict=True)
+        )
+    prompt = mau.format(
+        cau_hoi=state.get("query", ""),
+        mo_dau=MO_DAU_NOI_TIEP if state.get("lich_su") else MO_DAU_LUOT_DAU,
+        van_ban=_khoi_van_ban(citations_dung_cho_prose, db_provisions),
+        claims=claims_txt,
     )
     usage: Usage | None = None
     degraded = False
@@ -730,7 +794,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         return ket
 
     ket = _base(state, ResultType.answer, usage=usage, degraded=degraded,
-                answer=answer, citations=citations, warnings=warnings)
+                answer=answer, citations=citations, warnings=warnings, documents=documents)
     ket["traces"]["assemble_dieu_bi_loai"] = []
     ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
     return ket

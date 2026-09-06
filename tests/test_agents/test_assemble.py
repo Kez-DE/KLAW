@@ -630,3 +630,104 @@ def test_assemble_doc_prompt_tu_prompt_path_khi_duoc_truyen(tmp_path):
     )
     assert st["result_type"] is ResultType.answer
     assert llm.prompt_cuoi.startswith("MAU-RIENG")
+
+
+DB_V2 = {
+    11: {
+        "id": 11,
+        "document_id": "139264",
+        "duong_dan": "45/2019/QH14 > Điều 26",
+        "so_ky_hieu": "45/2019/QH14",
+        "ten": "Bộ Luật lao động",
+        "loai_van_ban": "Bộ luật",
+        "link_vbpl": "https://vbpl.vn/TW/Pages/vbpq-toanvan.aspx?ItemID=139264",
+        "link_chinhphu": None,
+        "link_tvpl": None,
+        "noi_dung": "…85%…",
+    },
+    21: {
+        "id": 21,
+        "document_id": "152668",
+        "duong_dan": "145/2020/NĐ-CP > Điều 74",
+        "so_ky_hieu": "145/2020/NĐ-CP",
+        "ten": "Nghị định 145",
+        "loai_van_ban": "Nghị định",
+        "link_vbpl": None,
+        "link_chinhphu": None,
+        "link_tvpl": None,
+        "noi_dung": "…",
+    },
+}
+MAU_V2 = "{mo_dau}\n===\n{van_ban}\n===\n{claims}\n===\n{cau_hoi}"
+
+
+class GhiPromptV2(FakeLlm):
+    def chat(self, model, messages, json_schema=None):
+        self.prompt_cuoi = messages[-1]["content"]
+        return super().chat(model, messages, json_schema)
+
+
+def _st_hai_can_cu():
+    return {
+        "intent": "tra_cuu",
+        "expanded": [DB_V2[11], DB_V2[21]],
+        "tier1": [_pass(11), _pass(21)],
+        "tier2": [Tier2Verdict(0, True, "ok"), Tier2Verdict(1, True, "ok")],
+        "abstain_threshold": 0.5,
+    }
+
+
+def test_v2_danh_so_k_va_dung_documents_khu_trung(tmp_path):
+    mau = tmp_path / "v2.md"
+    mau.write_text(MAU_V2, encoding="utf-8")
+    st = assemble(_st_hai_can_cu(), DB_V2, GhiPromptV2(), "m", prompt_path=mau)
+    assert st["result_type"] is ResultType.answer
+    assert [c["k"] for c in st["citations"]] == [1, 2]
+    assert [d["doc_id"] for d in st["documents"]] == ["139264", "152668"]
+    assert st["documents"][0]["links"] == {
+        "vbpl": "https://vbpl.vn/TW/Pages/vbpq-toanvan.aspx?ItemID=139264",
+        "chinhphu": None,
+        "tvpl": None,
+    }
+    assert st["documents"][0]["loai_van_ban"] == "Bộ luật"
+    assert "ngay" not in json.dumps(st["documents"]), "Q2: documents không mang ngày"
+
+
+def test_v2_prompt_mang_mo_dau_theo_lich_su_va_khoi_van_ban(tmp_path):
+    from src.agents.nodes.assemble import MO_DAU_LUOT_DAU, MO_DAU_NOI_TIEP
+
+    mau = tmp_path / "v2.md"
+    mau.write_text(MAU_V2, encoding="utf-8")
+
+    llm = GhiPromptV2()
+    assemble(_st_hai_can_cu(), DB_V2, llm, "m", prompt_path=mau)
+    assert MO_DAU_LUOT_DAU in llm.prompt_cuoi
+    assert "[doc:139264] Bộ Luật lao động — 45/2019/QH14 — Bộ luật" in llm.prompt_cuoi
+    assert "[1] 45/2019/QH14 > Điều 26 — Bộ Luật lao động" in llm.prompt_cuoi
+
+    llm2 = GhiPromptV2()
+    # `cau_hoi_day_du` phải đi kèm `lich_su`: thiếu nó, dòng 549 (kiểm tiền đề
+    # ĐẦU VÀO — "câu hỏi nối tiếp không giải nghĩa được") rẽ thẳng sang nhánh
+    # abstain/hoi_lai TRƯỚC khi tới khối dựng `{mo_dau}`, nên `llm2.prompt_cuoi`
+    # sẽ là prompt của `hoi_lai`, không phải `mau`. Ở đây câu nối tiếp coi như
+    # ĐÃ giải nghĩa xong để bài test đi tới đúng nhánh nó muốn canh.
+    assemble(
+        {**_st_hai_can_cu(), "lich_su": [{"cau_hoi": "a", "tra_loi": "b", "duong_dan": []}], "cau_hoi_day_du": "a"},
+        DB_V2,
+        llm2,
+        "m",
+        prompt_path=mau,
+    )
+    assert MO_DAU_NOI_TIEP in llm2.prompt_cuoi
+
+
+def test_v1_giu_dinh_dang_claims_cu_nhung_van_co_k_va_documents():
+    """Template v1 không có `{van_ban}` → claims dạng gạch đầu dòng như cũ, để
+    A/B v1-v2 đo đúng prompt cũ. `k`/`documents` vẫn được dựng (FE dùng được
+    khối liên kết dù prompt nào)."""
+    llm = GhiPromptV2()
+    st = assemble(_st_hai_can_cu(), DB_V2, llm, "m")
+    assert "(căn cứ: 45/2019/QH14 > Điều 26" in llm.prompt_cuoi
+    assert "[1] " not in llm.prompt_cuoi
+    assert [c["k"] for c in st["citations"]] == [1, 2]
+    assert len(st["documents"]) == 2
