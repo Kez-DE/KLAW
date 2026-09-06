@@ -4,7 +4,7 @@ Date: 2026-09-06
 
 ## Status
 
-Active
+Completed
 
 ## Outcome
 
@@ -46,7 +46,7 @@ bẫy; FE: card/tách component/khung) → Bước 2 gộp, đo bẫy với
 - [x] Bước 0: Task 1–2
 - [x] Bước 1 BE: Task 3–5
 - [x] Bước 1 FE: Task 6–8
-- [ ] Bước 2: Task 9 — [x] 9a (gộp, đo bẫy, đổi mặc định) · [ ] 9b (kiểm
+- [x] Bước 2: Task 9 — [x] 9a (gộp, đo bẫy, đổi mặc định) · [x] 9b (kiểm
       Chrome, đóng plan — controller)
 
 ## Decisions
@@ -103,8 +103,9 @@ Task 9a (2026-09-07), đo tại commit `4c0ef96` (sau gộp `wt-be-soan` +
   đổi tên/kỳ vọng test `tests/test_config.py::test_route_prompt_mac_dinh_v1`
   → `test_route_prompt_mac_dinh_v2`. `pytest tests/test_config.py -q`: 13
   passed.
-- Chưa làm trong 9a (thuộc 9b, do controller): kiểm bằng mắt trên
-  `/dung-thu` qua Chrome, ảnh `.tham-dinh-shots/12-*.png`/`13-*.png`, `git mv`
-  plan này sang `docs/plans/completed/`, Status → Completed.
+Task 9b (2026-09-07), kiểm bằng mắt qua Chrome:
 
-Chưa xong.
+- Chrome (hồ sơ mới, chưa đăng nhập, :3000 auth bật): ô hỏi được thay bằng thẻ "Đăng nhập để hỏi KLAW. Tài khoản mới dùng gói Miễn phí." với hai nút mang `?next=/dung-thu` — đóng luôn mục còn nợ của gói trước. Ảnh `.tham-dinh-shots/09b-man-chao-khoa-dang-nhap.png`.
+- Chrome (cặp server phụ :3001/:8001, auth tắt để không cần đăng nhập): gõ "soạn cho tôi hợp đồng nghỉ việc" → card "Gợi ý soạn thảo": "Tôi hiểu bạn cần đơn xin nghỉ việc: …", nút "Soạn ngay tại đây", chip "Thoả thuận chấm dứt hợp đồng lao động", nút "Chọn loại văn bản". Ảnh `12-card-goi-y-soan-thao.png`.
+- Bấm "Soạn ngay tại đây" → khung soạn thảo mở bên cạnh chat (URL không đổi), tiêu điểm vào nút Đóng, năm bước + xem trước + nút tải .docx/.pdf, lịch sử phiên ẩn. Ảnh `13-khung-soan-thao-ben-canh.png`. Escape đóng khung và trả tiêu điểm về nút mở. Bấm chip → khung remount sang mẫu "Thoả thuận chấm dứt hợp đồng lao động" (7 Điều).
+- Ghi nhận để xử lý sau: `ly_do` do router sinh viết ở ngôi thứ ba ("Người dùng yêu cầu…") trong câu "tôi/bạn"; mẫu thoả thuận đang gán Bên B là "(TỔ CHỨC)" trong khi người lao động là cá nhân.
