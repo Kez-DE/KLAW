@@ -762,6 +762,7 @@ def test_the_hop_le_tra_answer_va_trace_rong():
     ("Xem [Nghị định 126](doc:999999).", ["doc:999999"]),                 # doc lạ
     ("Bạn được 85% [Điều 26](cite:7).", ["cite:7"]),                       # K ngoài tập
     ("Bạn được 85% [Điều 26](cite:x).", ["cite:x"]),                       # K không phải số
+    ("Bạn được 85% [Điều 26](cite:²).", ["cite:²"]),                       # ký tự số Unicode không phải Nd — isdigit() nhận, int() nổ
     ("Bạn được 85% [Điều 99](cite:1).", ["cite:1≠['26']"]),               # Điều lệch căn cứ
     ("Xem thêm tại vbpl.vn nhé.", ["url"]),                                # URL trần
     ("Xem https://thuvienphapluat.vn/x [Điều 26](cite:1).", ["url"]),      # URL đầy đủ

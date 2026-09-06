@@ -302,7 +302,7 @@ def _the_khong_hop_le(answer: str, citations_prose: list[dict], doc_ids: set[str
             if khoa not in doc_ids:
                 loi.append(f"doc:{khoa}")
             continue
-        if not khoa.isdigit() or not 1 <= int(khoa) <= len(citations_prose):
+        if not khoa.isdecimal() or not 1 <= int(khoa) <= len(citations_prose):
             loi.append(f"cite:{khoa}")
             continue
         dieu_the = _so_dieu_trong(chu)
@@ -818,6 +818,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         )
         ket = _ngo_cut(state, llm, model, ResultType.abstain, usage=usage, degraded=degraded)
         ket["traces"]["assemble_the_loi"] = the_loi
+        ket["traces"]["assemble_dieu_bi_loai"] = []
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
         return ket
 
