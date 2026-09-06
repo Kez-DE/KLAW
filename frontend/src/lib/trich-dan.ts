@@ -15,6 +15,8 @@
  * Kiểm chạy được: `npm run kiem-trich-dan`.
  */
 
+import type { Citation } from "./klaw";
+
 interface BanChuanHoa {
   chuoi: string;
   /** `banDo[i]` = vị trí trong bản NFC của ký tự thứ i trong `chuoi`. */
@@ -192,4 +194,25 @@ export function xepTrichDan<T extends { hieu_luc: string | null }>(
  */
 export function ghiChuHieuLuc(soKyHieu: string, warnings: readonly string[]): string | undefined {
   return warnings.find((canhBao) => canhBao.startsWith(`${soKyHieu} `));
+}
+
+/**
+ * Chỉ số trích dẫn mở khi bấm thẻ `doc:ID`: trích dẫn có `k` nhỏ nhất của văn
+ * bản đó (điều khoản đầu tiên mô hình dẫn), rơi về trích dẫn đầu tiên cùng
+ * `doc_id` khi không có `k` (payload cache cũ), `-1` khi văn bản không có mặt.
+ * Thuần — `documents[]` luôn dựng từ chính `citations`, nên một `doc` hợp lệ
+ * luôn có ít nhất một trích dẫn.
+ */
+export function chiSoDauCuaVanBan(citations: readonly Citation[], docId: string): number {
+  let tot = -1;
+  let kTot = Number.POSITIVE_INFINITY;
+  citations.forEach((c, i) => {
+    if (c.doc_id !== docId) return;
+    const k = typeof c.k === "number" ? c.k : Number.POSITIVE_INFINITY;
+    if (tot === -1 || k < kTot) {
+      tot = i;
+      kTot = k;
+    }
+  });
+  return tot;
 }

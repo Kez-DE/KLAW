@@ -8,7 +8,7 @@
  * thêm thư viện nào).
  */
 import assert from "node:assert/strict";
-import { catTheoTrichDan } from "../src/lib/trich-dan.ts";
+import { catTheoTrichDan, chiSoDauCuaVanBan } from "../src/lib/trich-dan.ts";
 
 // 1. Khớp thẳng: ba mảnh ghép lại phải bằng đúng nguyên văn.
 {
@@ -64,4 +64,27 @@ for (const rong of ["", "   ", "\n\t"]) {
   assert.equal(lat.trung, "theo vùng.");
 }
 
-console.info("kiem-trich-dan: 6/6 đạt");
+// 7. Thẻ `doc:ID` mở điều khoản ĐẦU của văn bản đó theo `k` (Q5, spec §7.2).
+{
+  const cit = [
+    { doc_id: "152668", k: 3 },
+    { doc_id: "139264", k: 2 },
+    { doc_id: "139264", k: 1 },
+    { doc_id: "139264", k: null },
+  ] as unknown as import("../src/lib/klaw.ts").Citation[];
+  assert.equal(
+    chiSoDauCuaVanBan(cit, "139264"),
+    2,
+    "k nhỏ nhất của văn bản, không phải vị trí đầu",
+  );
+  assert.equal(chiSoDauCuaVanBan(cit, "152668"), 0);
+  assert.equal(chiSoDauCuaVanBan(cit, "000"), -1);
+  // Không có k nào (payload cũ) → trích dẫn đầu tiên của văn bản.
+  const cu = [
+    { doc_id: "1" },
+    { doc_id: "2" },
+  ] as unknown as import("../src/lib/klaw.ts").Citation[];
+  assert.equal(chiSoDauCuaVanBan(cu, "2"), 1);
+}
+
+console.info("kiem-trich-dan: 7/7 đạt");
