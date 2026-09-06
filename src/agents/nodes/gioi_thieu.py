@@ -300,7 +300,7 @@ def _model() -> str:
             f"- Thẩm định lại từng luận điểm: {judge_model()}",
         )),
         "Chỗ đáng nói không phải ba cái tên mà là dòng thứ ba: model thẩm định cố ý "
-        "khác HỌ với model sinh. Một model đọc lại bài của chính nó thì thiên "
+        "khác HỌ với model sinh. Một model đọc lại bài của chính họ thì thiên "
         "vị chính nó, và tầng thẩm định trở thành một sự yên tâm giả.",
         "Tầng kiểm trước đó thì không phải model nào cả: mỗi câu trích được so từng "
         "chữ với nguyên văn điều khoản trong kho. Đó là một phép so chuỗi — nó không "

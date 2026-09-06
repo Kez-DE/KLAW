@@ -151,7 +151,7 @@ def test_moi_duong_tra_loi_deu_dong_bang_cau_gioi_han_pham_vi(cau_hoi):
 
 
 @pytest.mark.parametrize("cau_hoi", MOI_DANG_CAU_HOI)
-def test_moi_duong_tra_loi_deu_xung_trong_kho_cua_minh(cau_hoi):
+def test_moi_duong_tra_loi_deu_xung_trong_kho_cua_toi(cau_hoi):
     assert "kho của tôi" in dung_cau_tra_loi(cau_hoi, KHO)
 
 
