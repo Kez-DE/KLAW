@@ -191,10 +191,11 @@ function ManHoiKlaw() {
     dangMo !== null && dangMo.trace === ketQua.trace_id ? dangMo.chiSo : null;
 
   const dangMoSoanThao = soanThao !== null;
-  // Nhại `KhungDoiChieu` (components/klaw/KhungDoiChieu.tsx:129-169): Esc đóng,
-  // tiêu điểm vào control đầu tiên trong khung rồi trả về đúng nơi đã mở, khoá
-  // cuộn nền khi phủ toàn màn (một cột). Gộp làm MỘT effect vì khung này không
-  // cần dời tiêu điểm lần hai khi đổi loại đang mở — việc đó `key` đã lo.
+  // Nhại `KhungDoiChieu` (components/klaw/KhungDoiChieu.tsx:129-169) — TÁCH làm
+  // hai effect như bản gốc, không gộp: `haiCot` đổi theo resize (media query
+  // sống), nếu chung effect với Esc/tiêu điểm thì mỗi lần vượt ngưỡng 68rem lúc
+  // khung đang mở sẽ chạy lại cleanup+effect và giật tiêu điểm ra khỏi ô đang gõ
+  // dở về control đầu khung — đây chính là lỗi round 1 để lại.
   useEffect(() => {
     if (!dangMoSoanThao) return;
     const noiMo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -205,12 +206,20 @@ function ManHoiKlaw() {
       if (su.key === "Escape") datSoanThao(null);
     };
     window.addEventListener("keydown", nghe);
-    const cuCuon = document.body.style.overflow;
-    if (!haiCot) document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", nghe);
-      if (!haiCot) document.body.style.overflow = cuCuon;
       if (noiMo !== null && noiMo.isConnected) noiMo.focus();
+    };
+  }, [dangMoSoanThao]);
+
+  // Khoá cuộn nền RIÊNG, chỉ theo `haiCot`: resize qua ngưỡng không được đụng
+  // tới tiêu điểm ở effect trên.
+  useEffect(() => {
+    if (!dangMoSoanThao || haiCot) return;
+    const cuCuon = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = cuCuon;
     };
   }, [dangMoSoanThao, haiCot]);
 
