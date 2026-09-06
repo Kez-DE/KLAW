@@ -25,7 +25,8 @@ rules:
   - luong_thu_viec_toi_thieu
   - luong_toi_thieu_vung
   - cam_phat_tien_nld
-  - cam_giu_giay_to_dat_coc
+  - cam_giu_giay_to
+  - cam_dat_coc
 
 can_cu_goc: "45/2019/QH14 > Điều 21 > Khoản 1"
 can_cu_chi_tiet: "10/2020/TT-BLĐTBXH > Điều 3"

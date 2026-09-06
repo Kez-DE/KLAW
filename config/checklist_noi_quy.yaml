@@ -17,16 +17,18 @@ loai: noi_quy
 ten: "nội quy lao động"
 tieu_de: "NỘI QUY LAO ĐỘNG"
 
-# Chỉ hai rule: Đ127.2 (cấm phạt tiền/cắt lương thay xử lý kỷ luật) và Đ17
-# (cấm giữ giấy tờ gốc, buộc đặt cọc) là hai điều cấm mà một bản nội quy vi
-# phạm thường xuyên nhất, và cả hai kiểm được bằng chính fact đã có.
+# Ba rule: Đ127.2 (cấm phạt tiền/cắt lương thay xử lý kỷ luật) và Đ17 (cấm giữ
+# giấy tờ gốc — Khoản 1, cấm buộc đặt cọc — Khoản 2, tách hai rule vì một
+# can_cu không trỏ đúng được cả hai hành vi) là những điều cấm mà một bản nội
+# quy vi phạm thường xuyên nhất, và cả ba kiểm được bằng chính fact đã có.
 # `thu_viec_toi_da`, `luong_thu_viec_toi_thieu`, `luong_toi_thieu_vung` KHÔNG
 # áp dụng: nội quy lao động không thoả thuận thời gian thử việc hay mức lương
 # của một người cụ thể — hỏi người dùng ba fact đó rồi soát bằng chúng là soát
 # một văn bản bằng chế định của một văn bản khác.
 rules:
   - cam_phat_tien_nld
-  - cam_giu_giay_to_dat_coc
+  - cam_giu_giay_to
+  - cam_dat_coc
 
 can_cu_goc: "45/2019/QH14 > Điều 118 > Khoản 2"
 can_cu_chi_tiet: "145/2020/NĐ-CP > Điều 69"
