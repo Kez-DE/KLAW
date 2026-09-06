@@ -358,18 +358,13 @@ def test_moi_field_TraCuuResponse_deu_duoc_KLawState_khai():
 
     can = set(TraCuuResponse.model_fields)
     khai = set(KLawState.__annotations__)
-    # `soan_thao` (response) ĐỔI TÊN có chủ đích khỏi `soan_thao_goi_y` (state,
-    # spec 2026-09-06 §4.3): state giữ gợi ý THÔ của router, response mang bản
-    # đã kiểm/làm đầy ở `assemble` — `_payload_cache` là nơi DUY NHẤT nối hai
-    # tên (`"soan_thao": st.get("soan_thao_goi_y")`), không phải một field bị
-    # LangGraph loại âm thầm như bốn ca mà test này canh.
-    thieu = can - khai - {"soan_thao"}
+    # Trường response đổi tên so với khoá state: nêu ĐÍCH DANH ở đây, và khoá
+    # state tương ứng vẫn phải được KLawState khai — LangGraph vẫn rơi nó nếu không.
+    alias = {"soan_thao": "soan_thao_goi_y"}
+    thieu = {f for f in can if alias.get(f, f) not in khai}
     assert not thieu, (
         f"TraCuuResponse cần field {thieu} nhưng KLawState chưa khai — "
         "LangGraph sẽ loại âm thầm khỏi state trả về của invoke()/ainvoke()"
-    )
-    assert "soan_thao_goi_y" in khai, (
-        "response.soan_thao đổi tên từ state.soan_thao_goi_y — khoá đó phải tồn tại"
     )
 
 
