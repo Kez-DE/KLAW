@@ -111,6 +111,24 @@ export interface VanBanTraLoi {
   links: LinkVanBan;
 }
 
+export interface LoaiGoiY {
+  loai: string;
+  ten: string;
+}
+
+/**
+ * Gợi ý loại văn bản khi `result_type === "huong_dan_soan_thao"` — khớp
+ * `SoanThaoGoiYOut` của `src/models/schemas.py`. `loai` là mã checklist phía
+ * máy chủ; đổi sang slug thẻ bằng `slugCuaLoai()` trong `lib/mau-van-ban.ts`.
+ */
+export interface SoanThaoGoiY {
+  loai: string | null;
+  ten: string | null;
+  ly_do: string;
+  thay_the: LoaiGoiY[];
+  ho_tro: boolean;
+}
+
 /**
  * Một bảng của nhánh `hoi_ve_kho` xin bảng — khớp `Bang` của
  * `src/models/schemas.py:95`. `dung_bang` (`src/services/kho.py:492`) luôn trả
@@ -157,6 +175,8 @@ export interface TraCuuKetQua {
   bang: Bang[];
   /** `[]` ở mọi nhánh trừ `answer`; `chuanHoaDocuments` điền khi máy chủ cũ không gửi. */
   documents: VanBanTraLoi[];
+  /** Chỉ nhánh `huong_dan_soan_thao`; vắng/null ở mọi nhánh khác và với payload cache cũ. */
+  soan_thao?: SoanThaoGoiY | null;
 }
 
 /**

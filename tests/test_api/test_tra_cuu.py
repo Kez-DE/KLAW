@@ -358,10 +358,18 @@ def test_moi_field_TraCuuResponse_deu_duoc_KLawState_khai():
 
     can = set(TraCuuResponse.model_fields)
     khai = set(KLawState.__annotations__)
-    thieu = can - khai
+    # `soan_thao` (response) ĐỔI TÊN có chủ đích khỏi `soan_thao_goi_y` (state,
+    # spec 2026-09-06 §4.3): state giữ gợi ý THÔ của router, response mang bản
+    # đã kiểm/làm đầy ở `assemble` — `_payload_cache` là nơi DUY NHẤT nối hai
+    # tên (`"soan_thao": st.get("soan_thao_goi_y")`), không phải một field bị
+    # LangGraph loại âm thầm như bốn ca mà test này canh.
+    thieu = can - khai - {"soan_thao"}
     assert not thieu, (
         f"TraCuuResponse cần field {thieu} nhưng KLawState chưa khai — "
         "LangGraph sẽ loại âm thầm khỏi state trả về của invoke()/ainvoke()"
+    )
+    assert "soan_thao_goi_y" in khai, (
+        "response.soan_thao đổi tên từ state.soan_thao_goi_y — khoá đó phải tồn tại"
     )
 
 
@@ -382,7 +390,7 @@ def test_hoi_ve_kho_di_het_duong_graph_ra_HTTP_khong_ton_mot_token(monkeypatch):
     from src.api.routes import _payload_cache, tra_cuu_response
     from src.services.kho import CAU_GIOI_HAN
 
-    monkeypatch.setattr(g, "route", lambda st, llm, model: {
+    monkeypatch.setattr(g, "route", lambda st, llm, model, prompt_path=None: {
         **st, "intent": Intent.hoi_ve_kho, "traces": {"route_token_in": 0}})
 
     st = g.build_graph_tra_cuu().invoke(
@@ -407,7 +415,7 @@ def test_hoi_ve_kho_xin_bang_di_het_duong_graph_ra_HTTP_khong_ton_mot_token(monk
     from src.api.routes import _payload_cache, tra_cuu_response
     from src.services.kho import CAU_GIOI_HAN
 
-    monkeypatch.setattr(g, "route", lambda st, llm, model: {
+    monkeypatch.setattr(g, "route", lambda st, llm, model, prompt_path=None: {
         **st, "intent": Intent.hoi_ve_kho, "traces": {"route_token_in": 0}})
 
     st = g.build_graph_tra_cuu().invoke(
@@ -454,7 +462,7 @@ def test_hoi_ve_kho_xin_bang_luot_noi_tiep_doc_cau_da_giai_nghia(monkeypatch):
                 "traces": {**(st.get("traces") or {}), "giai_nghia_token_in": 0}}
 
     monkeypatch.setattr(g, "giai_nghia", fake_giai_nghia)
-    monkeypatch.setattr(g, "route", lambda st, llm, model: {
+    monkeypatch.setattr(g, "route", lambda st, llm, model, prompt_path=None: {
         **st, "intent": Intent.hoi_ve_kho, "traces": {"route_token_in": 0}})
 
     st = g.build_graph_tra_cuu().invoke({
@@ -506,7 +514,7 @@ def test_partial_coverage_giu_duoc_nguon_di_het_duong_graph_ra_HTTP(monkeypatch)
             return json.dumps({"chieu": [{"ma": "chu_the", "cau": "Bạn ở phía nào?"}]}), Usage(1, 1, 0.0)
 
     monkeypatch.setattr(g, "llm_from_settings", lambda: FakeLlmHoiLai())
-    monkeypatch.setattr(g, "route", lambda st, llm, model: {
+    monkeypatch.setattr(g, "route", lambda st, llm, model, prompt_path=None: {
         **st, "intent": Intent.tra_cuu, "traces": {"route_token_in": 0}})
     monkeypatch.setattr(g, "rewrite_query", lambda st, llm, model, prompt_path=None: {**st, "queries": [st["query"]]})
     monkeypatch.setattr(g.Retriever, "hybrid", lambda self, q: [])
@@ -661,3 +669,37 @@ def test_tra_cuu_response_chap_nhan_payload_cache_cu_khong_co_k_va_documents():
     r = tra_cuu_response(payload, "trace", "full")
     assert r.documents == []
     assert r.citations[0].k is None
+
+
+async def test_soan_thao_goi_y_khong_bi_loc_o_bien_HTTP(client, monkeypatch):
+    """Spec 2026-09-06 (soạn thảo trong chat) §4.3: gợi ý loại văn bản phải
+    sống qua pydantic ở biên — cùng lớp lỗi khop_tai_id/doc_id/bang/nguon/documents."""
+    from src.agents.nodes.assemble import ResultType
+    from src.api import routes
+
+    class FakeGraph:
+        async def ainvoke(self, *a, **k):
+            return {
+                "result_type": ResultType.huong_dan_soan_thao, "answer": "Tôi hiểu bạn cần đơn xin nghỉ việc.",
+                "citations": [], "warnings": [],
+                "soan_thao_goi_y": {
+                    "loai": "don_xin_nghi_viec", "ten": "đơn xin nghỉ việc", "ly_do": "bạn là người lao động muốn nghỉ",
+                    "thay_the": [{"loai": "thoa_thuan_cham_dut_hdld", "ten": "thoả thuận chấm dứt hợp đồng lao động"}],
+                    "ho_tro": True,
+                },
+            }
+
+    monkeypatch.setattr(routes, "_g", lambda: FakeGraph())
+    r = await client.post("/api/v1/tra-cuu", json={"query": "soạn cho tôi đơn nghỉ việc"})
+    assert r.status_code == 200
+    gy = r.json()["soan_thao"]
+    assert gy["loai"] == "don_xin_nghi_viec" and gy["ho_tro"] is True
+    assert gy["thay_the"][0]["loai"] == "thoa_thuan_cham_dut_hdld"
+
+
+def test_tra_cuu_response_chap_nhan_payload_cache_cu_khong_co_soan_thao():
+    from src.api.routes import tra_cuu_response
+
+    payload = {"result_type": "huong_dan_soan_thao", "answer": "x", "warnings": [],
+               "coverage_note": None, "nguon": [], "citations": []}
+    assert tra_cuu_response(payload, "t", "full").soan_thao is None

@@ -119,6 +119,7 @@ def _payload_cache(st: dict, rt: str) -> dict:
         "bang": st.get("bang") or [],
         # `documents` (spec 2026-09-06) — list[dict] thuần, cùng khuôn `bang`.
         "documents": st.get("documents") or [],
+        "soan_thao": st.get("soan_thao_goi_y"),
     }
 
 
@@ -385,6 +386,7 @@ def tra_cuu_response(payload: dict, trace_id: str, config_name: str) -> TraCuuRe
         bang=payload.get("bang") or [],
         # Cùng lý do `bang`: dòng cache ghi trước 2026-09-06 không có khoá này.
         documents=payload.get("documents") or [],
+        soan_thao=payload.get("soan_thao"),
         trace_id=trace_id, config_name=config_name,
     )
 

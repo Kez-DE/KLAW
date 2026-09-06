@@ -254,3 +254,17 @@ def test_moi_Intent_deu_co_mat_trong_PROMPT_va_trong_JSON_SCHEMA():
     prompt = PROMPT_PATH.read_text(encoding="utf-8")
     thieu = [i.value for i in Intent if f"`{i.value}`" not in prompt]
     assert not thieu, f"{thieu} không được mô tả trong {PROMPT_PATH}"
+
+
+def test_route_doc_template_tu_prompt_path_khi_duoc_truyen(tmp_path):
+    mau = tmp_path / "r.md"
+    mau.write_text("MAU-RIENG {cau_hoi}", encoding="utf-8")
+
+    class Ghi(FakeLlm):
+        def chat(self, model, messages, json_schema=None):
+            self.prompt_cuoi = messages[-1]["content"]
+            return super().chat(model, messages, json_schema)
+
+    llm = Ghi({"intent": "tra_cuu"})
+    st = route({"query": "x"}, llm, "m", prompt_path=mau)
+    assert st["intent"] is Intent.tra_cuu and llm.prompt_cuoi.startswith("MAU-RIENG")

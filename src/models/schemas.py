@@ -119,6 +119,24 @@ class DocumentOut(BaseModel):
     links: LinkVanBanOut = LinkVanBanOut()
 
 
+class LoaiGoiYOut(BaseModel):
+    loai: str
+    ten: str
+
+
+class SoanThaoGoiYOut(BaseModel):
+    """Gợi ý loại văn bản cho `result_type == huong_dan_soan_thao` (spec
+    2026-09-06 soạn thảo trong chat §4.3). `loai` là mã checklist trên đĩa
+    (`graph_soan_thao.cac_loai()`), None khi router không chắc hoặc loại
+    không có mẫu; FE mở khung soạn thảo theo `loai`, chip theo `thay_the`."""
+
+    loai: str | None
+    ten: str | None
+    ly_do: str
+    thay_the: list[LoaiGoiYOut] = []
+    ho_tro: bool
+
+
 class Bang(BaseModel):
     """Một bảng dữ liệu CÓ KIỂU — trả kèm `answer` khi câu hỏi về kho xin trình
     bày dạng bảng (`services/kho.dung_bang`), để giao diện dựng bảng thật thay
@@ -177,6 +195,9 @@ class TraCuuResponse(BaseModel):
     # Văn bản mô hình được phép gắn thẻ `doc:ID` + link cổng luật từ DB. Mặc
     # định `[]` cùng lý do `bang`: payload cache cũ không có khoá này.
     documents: list[DocumentOut] = []
+    # Chỉ nhánh `huong_dan_soan_thao` điền; mặc định None cùng lý do `bang`/
+    # `documents` (payload cache cũ không có khoá).
+    soan_thao: SoanThaoGoiYOut | None = None
     # Câu hỏi sau khi giải nghĩa tham chiếu từ `lich_su`. `None` ở lượt đầu và
     # khi không giải nghĩa được. Giao diện ghi một dòng "Mình hiểu câu hỏi của
     # bạn là: …" CHỈ khi nó khác câu người dùng gõ.

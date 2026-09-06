@@ -51,9 +51,9 @@ class Intent(StrEnum):
     hoi_ve_kho = "hoi_ve_kho"
 
 
-def route(state: dict, llm, model: str) -> dict:
+def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict:
     prior_traces = state.get("traces") or {}
-    prompt = PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi=state["query"])
+    prompt = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8").format(cau_hoi=state["query"])
     # llm.chat(...) NẰM NGOÀI try: lỗi hạ tầng thật (content rỗng, usage thiếu
     # — xem ValueError ở llm.py chat()/_usage_from()) phải NỔ RA NGOÀI, đúng
     # ruling gốc của module này (docstring đầu file). Bọc nó CÙNG phần parse

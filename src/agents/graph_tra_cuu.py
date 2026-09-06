@@ -142,7 +142,7 @@ def build_graph_tra_cuu():
         return giai_nghia(st, llm, router_model())
 
     def n_route(st: KLawState) -> KLawState:
-        return route(st, llm, router_model())
+        return route(st, llm, router_model(), prompt_path=Path(s.route_prompt))
 
     def n_tien_de(st: KLawState) -> KLawState:
         # Phép kiểm thứ sáu (0 token) — TRƯỚC rewrite/retrieve/generate, để
