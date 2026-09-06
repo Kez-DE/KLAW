@@ -54,8 +54,8 @@ from src.services.effectivity import EffectivityVerdict as V
 # Cố ý KHÔNG chứa cụm "Việt Nam có <số>": nó nói kho KHÔNG phải nền pháp luật,
 # chứ không phát biểu gì về nền pháp luật.
 CAU_GIOI_HAN = (
-    "Đây là phạm vi kho của mình, không phải toàn bộ văn bản pháp luật Việt Nam — "
-    "kho là tập văn bản mình đã nạp cho đề tài này, và còn nhiều văn bản mình chưa có."
+    "Đây là phạm vi kho của tôi, không phải toàn bộ văn bản pháp luật Việt Nam — "
+    "kho là tập văn bản tôi đã nạp cho đề tài này, và còn nhiều văn bản tôi chưa có."
 )
 
 # Hai verdict DỨT KHOÁT là "không còn dùng được". Mọi verdict khác được ĐẾM vào
@@ -288,7 +288,7 @@ def nap_kho(engine: Engine, as_of: date) -> list[dict]:
 
 def _muc_phu(depth: str) -> str:
     return ("có toàn văn, tra được tới từng điều khoản" if depth == _CO_TOAN_VAN
-            else "mình chỉ có số hiệu, tên và hiệu lực — chưa có toàn văn")
+            else "tôi chỉ có số hiệu, tên và hiệu lực — chưa có toàn văn")
 
 
 def _dong_van_ban(r: dict) -> str:
@@ -312,14 +312,14 @@ def _khoi_mot_so(so: str, kho: list[dict]) -> list[str]:
         # KHÔNG kéo một văn bản gần giống vào chỗ này. Sai chế độ tệ nhất ở đây
         # không phải "không biết" — mà là gán cho kho một văn bản nó không có.
         return [
-            f"Trong kho của mình không có văn bản nào mang số hiệu {so}.",
-            "Văn bản đó có thể tồn tại mà mình chưa nạp — mình chỉ nói được về "
-            "những gì mình có, nên đây không phải kết luận rằng nó không tồn tại.",
+            f"Trong kho của tôi không có văn bản nào mang số hiệu {so}.",
+            "Văn bản đó có thể tồn tại mà tôi chưa nạp — tôi chỉ nói được về "
+            "những gì tôi có, nên đây không phải kết luận rằng nó không tồn tại.",
         ]
     if len(khop) == 1:
         r = khop[0]
         return [
-            "Có. Trong kho của mình có "
+            "Có. Trong kho của tôi có "
             f"{' — '.join(x for x in hien_van_ban(r['so_ky_hieu'], r['ten']) if x)}.",
             f"Mức phủ: {_muc_phu(r['depth'])}.",
             f"Hiệu lực: {_nhan(r['hieu_luc'])} — {r['hieu_luc'].ly_do}.",
@@ -329,7 +329,7 @@ def _khoi_mot_so(so: str, kho: list[dict]) -> list[str]:
     # Lấy `khop[0]` rồi im lặng về phần còn lại là một phát biểu THIẾU về chính
     # kho: người hỏi tin rằng kho có đúng một văn bản mang số hiệu đó. Nêu hết.
     return [
-        f"Có. Trong kho của mình có {len(khop)} văn bản mang số hiệu {so}:",
+        f"Có. Trong kho của tôi có {len(khop)} văn bản mang số hiệu {so}:",
         *(_dong_van_ban(r) for r in khop),
     ]
 
@@ -346,7 +346,7 @@ def _nhieu_van_ban(sos: list[str], kho: list[dict]) -> str:
     chữ nào về 90/2019, không cảnh báo phạm vi. Câu trả lời TRÔNG đầy đủ trong
     khi đã bỏ mất một nửa câu hỏi.
     """
-    khoi: list[str] = [f"Bạn hỏi về {len(sos)} số hiệu — mình trả lời từng cái:"]
+    khoi: list[str] = [f"Bạn hỏi về {len(sos)} số hiệu — tôi trả lời từng cái:"]
     for so in sos:
         khoi.append(f"**{so}**")
         khoi.extend(_khoi_mot_so(so, kho))
@@ -419,18 +419,18 @@ def _tom_tat(kho: list[dict]) -> str:
     chua_ro = len(dang_dung) - len(xac_dinh) - len(can_nguoi)
 
     khoi = [
-        f"Trong kho của mình hiện có {len(kho)} văn bản."
-        + (f" {len(xac_dinh)} văn bản mình xác định được tình trạng hiệu lực — còn"
+        f"Trong kho của tôi hiện có {len(kho)} văn bản."
+        + (f" {len(xac_dinh)} văn bản tôi xác định được tình trạng hiệu lực — còn"
            " hiệu lực, sắp có hiệu lực, hoặc còn hiệu lực nhưng đã bị sửa đổi." if xac_dinh else "")
         # "chưa kết luận được", KHÔNG "không có tín hiệu nào": một verdict mới
         # thêm vào enum mà chưa ai xét ở đây cũng rơi vào nhóm này, và khẳng định
         # "không có tín hiệu" thay cho nó lại là một phát biểu chưa kiểm.
-        + (f" {chua_ro} văn bản mình chưa kết luận được về hiệu lực — đồ thị văn"
+        + (f" {chua_ro} văn bản tôi chưa kết luận được về hiệu lực — đồ thị văn"
            " bản không có tín hiệu nào, hoặc tín hiệu chưa đủ để chốt."
            if chua_ro else "")
-        + (f" {len(can_nguoi)} văn bản cần đối chiếu tay: mình biết có văn bản"
+        + (f" {len(can_nguoi)} văn bản cần đối chiếu tay: tôi biết có văn bản"
            " sửa nhưng chưa đọc được ngày, nên không tự chốt." if can_nguoi else "")
-        + (f" {da_thay} bản đã hết hiệu lực hoặc đã bị thay thế thì mình vẫn giữ,"
+        + (f" {da_thay} bản đã hết hiệu lực hoặc đã bị thay thế thì tôi vẫn giữ,"
            " để đối chiếu khi câu hỏi thuộc về thời điểm cũ." if da_thay else ""),
         "Phân theo loại văn bản:\n" + "\n".join(
             _dong_theo_loai(loai, ns) for loai, ns in _sap_xep_loai(nhom)
@@ -469,7 +469,7 @@ def dung_cau_tra_loi(cau_hoi: str, kho: list[dict]) -> str:
 # văn xuôi (người đọc không cần cùng một con số hai lần). Ghép với
 # `CAU_GIOI_HAN` y hệt mọi nhánh khác của module này (`loi_dan_bang`).
 CAU_DAN_BANG = (
-    "Mình dựng hai bảng dưới đây từ kho hiện có: một bảng phân theo loại văn "
+    "Tôi dựng hai bảng dưới đây từ kho hiện có: một bảng phân theo loại văn "
     "bản, một bảng phân theo lĩnh vực."
 )
 

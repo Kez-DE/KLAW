@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from src.agents.nodes.assemble import ResultType, assemble
+from src.agents.nodes.gioi_thieu import cau_gioi_thieu
 from src.agents.nodes.route import Intent
 from src.config import get_settings
 from src.services.llm import generate_model, judge_model, router_model
@@ -228,3 +229,39 @@ def test_moi_dang_deu_giu_0_TOKEN(cau_hoi):
     assert st["result_type"] == ResultType.gioi_thieu
     assert st["traces"]["assemble_token_in"] == 0
     assert st["traces"]["assemble_token_out"] == 0
+
+
+def test_Q1_moi_chuoi_hien_thi_xung_toi_khong_xung_minh():
+    """Quyết định Q1 (spec 2026-09-06 §2): một giọng duy nhất.
+
+    Quét MỌI chuỗi ký tự trong mã của bốn module có lời đáp cho người đọc (kể
+    cả f-string trong thân hàm như `_ly_do_moi_nguon_bi_thay`), bỏ docstring và
+    chú thích — một hằng số chữ hoa không phải nơi duy nhất câu chữ sống.
+    `services/kho.py` nằm trong danh sách vì `CAU_GIOI_HAN` của nó được
+    `gioi_thieu.NGUON` nhúng thẳng vào câu trả lời cho người dùng.
+    """
+    import ast
+    import re
+    from pathlib import Path
+
+    minh = re.compile(r"\b[Mm]ình\b")
+    src = Path(__file__).resolve().parents[2] / "src"
+
+    def chuoi_trong_ma(duong: Path) -> list[str]:
+        cay = ast.parse(duong.read_text(encoding="utf-8"))
+        docstring: set[int] = set()
+        for n in ast.walk(cay):
+            if isinstance(n, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if n.body and isinstance(n.body[0], ast.Expr) and isinstance(n.body[0].value, ast.Constant):
+                    docstring.add(id(n.body[0].value))
+        return [n.value for n in ast.walk(cay)
+                if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docstring]
+
+    for duong_tuong_doi in ("agents/nodes/gioi_thieu.py", "agents/nodes/hoi_lai.py",
+                            "agents/nodes/assemble.py", "services/kho.py"):
+        for s in chuoi_trong_ma(src / duong_tuong_doi):
+            assert not minh.search(s), f"{duong_tuong_doi} còn xưng 'mình': {s[:80]!r}"
+
+    for cau in ("chào bạn", "cảm ơn", "bạn là ai", "bạn là gì", "bạn làm được những gì",
+                "bạn dùng model gì", "nguồn dữ liệu của bạn là gì"):
+        assert not minh.search(cau_gioi_thieu(cau)), f"{cau!r} còn xưng 'mình'"

@@ -1,8 +1,8 @@
-# Tập bẫy (Task 10) — 45 câu THIẾT KẾ ĐỂ LÀM HỆ THỐNG SAI, khác `golden_qa.yaml`
+# Tập bẫy (Task 10) — 51 câu THIẾT KẾ ĐỂ LÀM HỆ THỐNG SAI, khác `golden_qa.yaml`
 # (câu hỏi thật, muốn hệ thống trả lời đúng). Đây là tập BÁO CÁO — không tinh
 # chỉnh ABSTAIN_THRESHOLD trên tập này (Global Constraint, xem AGENTS.md/report).
 #
-# Ba nhóm, 20+15+10 = 45:
+# Bốn nhóm, 20+15+10+6 = 51:
 #   dieu_khong_ton_tai — số Điều vượt quá số Điều thật của chính Bộ luật đó
 #     (đo trực tiếp trên DB, `MAX(so_hieu_cap::int)` theo từng Bộ luật deep:
 #     Lao động 45/2019/QH14=220, Dân sự 91/2015/QH13=689, Hình sự
@@ -35,6 +35,10 @@
 #     nhưng bảng số liệu của nó cũng KHÔNG có trong corpus (Plan 2 để lại),
 #     nên một câu hỏi "hiện nay/mới nhất" mà hệ thống trả lời được con số cụ
 #     thể gần như chắc chắn đang dùng một trong năm văn bản đã bị thay ở trên.
+#   giong_va_the — giọng và thẻ trích dẫn của `answer` (spec 2026-09-06 §8.3):
+#     không lộ URL, thẻ `doc:`/`cite:` hợp lệ, không câu miễn trừ trách nhiệm,
+#     chào đúng lượt đầu/im lặng đúng lượt nối tiếp, và không trích văn bản
+#     ngoài kho khi hỏi về lĩnh vực corpus không phủ. Chạy được cả v1 và v2.
 
 items:
   # ── Nhóm 1: điều luật KHÔNG TỒN TẠI (15 câu) — tầng 1 phải loại → abstain ──
@@ -235,3 +239,35 @@ items:
     nhom: van_ban_bi_thay
     doc_id_bay: "139094"
     ky_vong: warning_bi_thay_the
+
+  # ── Nhóm 4: giọng và thẻ (spec 2026-09-06 §8.3) — chạy được cả v1 và v2;
+  #    `the_hop_le` với v1 đúng tầm thường (không thẻ), có ý nghĩa khi v2 bật ──
+  - id: trap-soul-01
+    cau_hoi: "Công ty tôi muốn trừ lương nhân viên vì đi muộn, luật có cho phép không?"
+    nhom: giong_va_the
+    ky_vong: khong_url
+  - id: trap-soul-02
+    cau_hoi: "Công ty tôi muốn trừ lương nhân viên vì đi muộn, luật có cho phép không?"
+    nhom: giong_va_the
+    ky_vong: the_hop_le
+  - id: trap-soul-03
+    cau_hoi: "Công ty tôi muốn trừ lương nhân viên vì đi muộn, luật có cho phép không?"
+    nhom: giong_va_the
+    ky_vong: khong_mien_tru
+  - id: trap-soul-04
+    cau_hoi: "Thời gian thử việc tối đa với công việc cần trình độ cao đẳng là bao lâu?"
+    nhom: giong_va_the
+    ky_vong: co_chao
+  - id: trap-soul-05
+    cau_hoi: "Còn với công việc cần trình độ trung cấp thì sao?"
+    lich_su:
+      - cau_hoi: "Thời gian thử việc tối đa với công việc cần trình độ cao đẳng là bao lâu?"
+        tra_loi: "Bạn được thử việc tối đa 60 ngày với công việc cần trình độ cao đẳng trở lên."
+        duong_dan: ["45/2019/QH14 > Điều 25 > Khoản 2"]
+    nhom: giong_va_the
+    ky_vong: khong_chao
+  - id: trap-soul-06
+    cau_hoi: "Vợ chồng ly hôn thì tài sản chung được chia theo nguyên tắc nào?"
+    nhom: giong_va_the
+    ky_vong: van_ban_ngoai_kho
+    cam_nhac: ["126/2014", "01/2016"]

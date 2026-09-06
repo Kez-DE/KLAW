@@ -336,3 +336,31 @@ def test_normalization_do_dai_lam_top10_bot_thien_lech_ve_chunk_dai():
         return float(n)
 
     assert _dai_tb(2) < _dai_tb(0)
+
+
+def test_cong_diem_linh_vuc_tat_khi_bonus_0_hoac_khong_co_linh_vuc():
+    from src.services.retrieval import cong_diem_linh_vuc
+
+    ids = [3, 1, 2]
+    lv = {3: "Dân sự", 1: "Lao động", 2: None}
+    assert cong_diem_linh_vuc(ids, lv, "lao_dong", 0.0) == ids
+    assert cong_diem_linh_vuc(ids, lv, None, 0.5) == ids
+
+
+def test_cong_diem_linh_vuc_day_cung_linh_vuc_len_va_giu_thu_tu_on_dinh():
+    from src.services.retrieval import cong_diem_linh_vuc
+
+    # hạng 0..3 → điểm 1, 1/2, 1/3, 1/4; bonus 0.5 cho "Lao động"
+    ids = [3, 1, 2, 4]
+    lv = {3: "Dân sự", 1: "Lao động", 2: None, 4: "Lao động"}
+    ra = cong_diem_linh_vuc(ids, lv, "lao_dong", 0.5)
+    # 1: 0.5+0.5=1.0 ; 3: 1.0 ; 4: 0.25+0.5=0.75 ; 2: 0.333
+    assert ra == [3, 1, 4, 2], "bằng điểm (3 và 1) giữ thứ tự cũ; 4 vượt 2 nhờ bonus; không loại ai"
+
+
+def test_chuan_linh_vuc_so_duoc_ma_snake_voi_nhan_co_dau():
+    from src.services.retrieval import chuan_linh_vuc
+
+    assert chuan_linh_vuc("Lao động") == chuan_linh_vuc("lao_dong") == "lao_dong"
+    assert chuan_linh_vuc("Hôn nhân gia đình") == "hon_nhan_gia_dinh"
+    assert chuan_linh_vuc(None) == ""

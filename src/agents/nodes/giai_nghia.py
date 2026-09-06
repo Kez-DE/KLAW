@@ -50,6 +50,7 @@ from src.agents.nodes.assemble import _so_dieu_trong
 from src.agents.nodes.hoi_lai import moc_phap_ly_trong
 from src.services.kho import moi_so_hieu_trong
 from src.services.llm import Usage
+from src.services.prompts import messages
 
 logger = logging.getLogger(__name__)
 
@@ -159,8 +160,7 @@ def _goi(cau_hoi: str, lich_su: list[dict], llm, model: str) -> KetQuaGiaiNghia:
         cau_hoi=cau_hoi, lich_su=ngu_canh(lich_su))
     # NGOÀI try — xem docstring module: lỗi hạ tầng ở một bước quyết định phải
     # nổ ra ngoài, không được rơi êm thành "không đủ ngữ cảnh".
-    raw, usage = llm.chat(model, [{"role": "user", "content": prompt}],
-                          json_schema=GIAI_NGHIA_SCHEMA)
+    raw, usage = llm.chat(model, messages(prompt), json_schema=GIAI_NGHIA_SCHEMA)
     try:
         ra = json.loads(raw)
         day_du = " ".join(str(ra.get("cau_hoi_day_du") or "").split())

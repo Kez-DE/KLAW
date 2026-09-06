@@ -35,7 +35,7 @@ class FakeLlm:
         }
 
     def chat(self, model, messages, json_schema=None):
-        FakeLlm.cau_gui = messages[0]["content"]
+        FakeLlm.cau_gui = messages[-1]["content"]
         return json.dumps(self.payload), Usage(7, 3, 0.001)
 
 

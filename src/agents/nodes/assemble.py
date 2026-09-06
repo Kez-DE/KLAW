@@ -52,6 +52,7 @@ from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.kho import hien_van_ban
 from src.services.llm import Usage
+from src.services.prompts import messages
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,53 @@ ANSWER_SCHEMA = {
 # riêng). state["abstain_threshold"] ghi đè được cho graph thật; hằng số này
 # chỉ là fallback khi state không mang nó (vd. gọi assemble() đơn lẻ).
 ABSTAIN_THRESHOLD_DEFAULT = 0.5
+
+# Spec 2026-09-06 §5.3 — hai lời mở cho `{mo_dau}` của assemble.v2. Chào chỉ ở
+# lượt đầu; bẫy `chao_dung_luot` (eval/run_trap) đo điều này.
+MO_DAU_LUOT_DAU = (
+    "Đây là lượt đầu của cuộc trò chuyện: mở bằng một cụm chào ngắn, tự nhiên "
+    '("Chào bạn,") nối LIỀN vào câu trả lời thẳng — không thành câu riêng, không '
+    '"rất vui được hỗ trợ".'
+)
+MO_DAU_NOI_TIEP = "Đây là lượt nối tiếp: KHÔNG chào, vào thẳng câu trả lời."
+
+
+def _van_ban_dung_cho_prose(citations_prose: list[dict], db: dict[int, dict]) -> list[tuple[dict, dict]]:
+    """`(citation, dòng db)` của văn bản ĐẦU TIÊN xuất hiện theo `doc_id`, khử
+    trùng, giữ thứ tự — tập mô hình được phép đặt thẻ `doc`."""
+    ra, da = [], set()
+    for c in citations_prose:
+        if c["doc_id"] in da:
+            continue
+        da.add(c["doc_id"])
+        ra.append((c, db[c["khop_tai_id"]]))
+    return ra
+
+
+def _khoi_van_ban(citations_prose: list[dict], db: dict[int, dict]) -> str:
+    """Khối `{van_ban}`: `[doc:ID] tên — số hiệu — loại văn bản`. KHÔNG có ngày
+    (Q2) — ngày hiệu lực của văn bản gốc đứng cạnh nhãn `bi_sua_doi` gây hiểu
+    nhầm, và nhãn cạnh trích dẫn đã nói đủ."""
+    return "\n".join(
+        f"[doc:{c['doc_id']}] {c['bo_luat']} — {c['so_ky_hieu']} — {p.get('loai_van_ban') or ''}"
+        for c, p in _van_ban_dung_cho_prose(citations_prose, db)
+    )
+
+
+def _dung_documents(citations_prose: list[dict], db: dict[int, dict]) -> list[dict]:
+    """`documents[]` của response (khớp `schemas.DocumentOut`). Link lấy từ ba
+    cột migration 019; NULL đi nguyên qua để giao diện bỏ dòng đó."""
+    return [
+        {
+            "doc_id": c["doc_id"],
+            "ten": c["bo_luat"],
+            "so_ky_hieu": c["so_ky_hieu"],
+            "loai_van_ban": p.get("loai_van_ban") or "",
+            "links": {"vbpl": p.get("link_vbpl"), "chinhphu": p.get("link_chinhphu"), "tvpl": p.get("link_tvpl")},
+        }
+        for c, p in _van_ban_dung_cho_prose(citations_prose, db)
+    ]
+
 
 # Ba verdict brief đòi hỏi tường minh (bi_thay_the/het_hieu_luc/mot_phan_khong_xac_dinh)
 # cộng chua_hieu_luc (chưa có hiệu lực — người hỏi cần biết), can_doi_chieu_tay
@@ -230,6 +278,40 @@ def _dieu_khong_duoc_chong_do(answer: str, citations: list) -> list[str]:
     return sorted(trong_answer - trong_citation, key=int)
 
 
+# ══ Phép kiểm thứ TÁM và thứ CHÍN (spec 2026-09-06 §5.4) — thẻ và URL ═════════
+# Mô hình chỉ đặt `[chữ](doc:ID)` / `[chữ](cite:K)`; backend tra bảng rằng ID
+# nằm trong tập văn bản đã dùng, K nằm trong [1, n] và "Điều N" trong chữ hiển
+# thị trùng Điều của chính căn cứ K. Một URL trong `answer` LUÔN là lỗi: đường
+# dẫn cổng luật do DB điền vào `documents[].links`, không bao giờ do mô hình.
+# Vẫn 0 token, vẫn tra bảng — không suy luận ngữ nghĩa.
+LY_DO_THE_KHONG_HOP_LE = "the_hoac_url_trong_answer_khong_hop_le"
+
+_RE_THE = re.compile(r"\[([^\]]+)\]\((doc|cite):([^)\s]+)\)")
+_RE_URL = re.compile(r"https?://|www\.|\b[a-z0-9-]+\.(?:vn|com|net|org|gov)\b", re.I)
+
+
+def _the_khong_hop_le(answer: str, citations_prose: list[dict], doc_ids: set[str]) -> list[str]:
+    """Danh sách lỗi; rỗng = hợp lệ. Mỗi mục là nhãn tra được trong traces:
+    `url`, `doc:<ID>`, `cite:<K>`, `cite:<K>≠[<Điều của căn cứ K>]`."""
+    loi: list[str] = []
+    van = answer or ""
+    if _RE_URL.search(van):
+        loi.append("url")
+    for chu, loai, khoa in _RE_THE.findall(van):
+        if loai == "doc":
+            if khoa not in doc_ids:
+                loi.append(f"doc:{khoa}")
+            continue
+        if not khoa.isdecimal() or not 1 <= int(khoa) <= len(citations_prose):
+            loi.append(f"cite:{khoa}")
+            continue
+        dieu_the = _so_dieu_trong(chu)
+        dieu_can_cu = _so_dieu_trong(citations_prose[int(khoa) - 1].get("duong_dan", ""))
+        if dieu_the and not dieu_the <= dieu_can_cu:
+            loi.append(f"cite:{khoa}≠{sorted(dieu_can_cu, key=int)}")
+    return loi
+
+
 # ══ Phép kiểm thứ bảy (coordinator, sau khi tự kiểm phép kiểm 6) ════════════
 # Đo được: "mức lương tối thiểu vùng I HIỆN NAY" gộp bốn nghị định của BỐN NĂM
 # khác nhau (90/2019, 157/2018, 141/2017 — tất cả bi_thay_the) thành các
@@ -275,17 +357,17 @@ def _ly_do_moi_nguon_bi_thay(qua_loc: list) -> str:
     cạnh) thì nói rõ không xác định được, không bịa tên."""
     ke_nhiem = sorted({m for r in qua_loc for m in [_van_ban_ke_nhiem(r.effectivity.ly_do)] if m})
     if ke_nhiem:
-        return (f"Những gì mình tìm được cho câu hỏi này đều đã bị thay thế. Văn bản đi thay "
-                f"là {', '.join(ke_nhiem)}, và nội dung của nó thì mình chưa nạp vào kho, "
-                f"nên mình chưa đọc được để nói với bạn nó quy định thế nào.")
-    return ("Những gì mình tìm được cho câu hỏi này đều đã bị thay thế hoặc đã hết hiệu lực, "
-            "và từ những gì mình đang có thì mình chưa xác định được văn bản nào đi thay.")
+        return (f"Những gì tôi tìm được cho câu hỏi này đều đã bị thay thế. Văn bản đi thay "
+                f"là {', '.join(ke_nhiem)}, và nội dung của nó thì tôi chưa nạp vào kho, "
+                f"nên tôi chưa đọc được để nói với bạn nó quy định thế nào.")
+    return ("Những gì tôi tìm được cho câu hỏi này đều đã bị thay thế hoặc đã hết hiệu lực, "
+            "và từ những gì tôi đang có thì tôi chưa xác định được văn bản nào đi thay.")
 
 
 # `intent == ngoai_pham_vi`. HẰNG SỐ để phép quét giọng (`test_giong_tra_loi`)
 # nhìn thấy được — một chuỗi viết thẳng vào lời gọi `_base` thì không hằng số
 # nào tồn tại để quét.
-NGOAI_PHAM_VI = ("Câu hỏi này nằm ngoài phạm vi mình phủ: mình chỉ tra được 6 Bộ luật của "
+NGOAI_PHAM_VI = ("Câu hỏi này nằm ngoài phạm vi tôi phủ: tôi chỉ tra được 6 Bộ luật của "
                  "Việt Nam, và chỉ soạn thảo trong lĩnh vực lao động.")
 
 # Nửa đầu khi truy hồi KHÔNG cầm được gì. Nói thẳng là không biết — nhưng nói
@@ -293,8 +375,8 @@ NGOAI_PHAM_VI = ("Câu hỏi này nằm ngoài phạm vi mình phủ: mình ch�
 # đồng nghĩa "pháp luật không quy định". Cùng khuôn `kho._khoi_mot_so`, và cùng
 # lý do: sai chế độ tệ nhất ở đây không phải "không biết", mà là phát biểu thay
 # cho nền pháp luật Việt Nam.
-KHONG_TIM_DUOC = ("Trong kho của mình không có văn bản nào khớp được với câu hỏi này, nên mình "
-                  "chưa có gì chắc chắn để nói. Kho là tập văn bản mình đã nạp, vậy nên đây "
+KHONG_TIM_DUOC = ("Trong kho của tôi không có văn bản nào khớp được với câu hỏi này, nên tôi "
+                  "chưa có gì chắc chắn để nói. Kho là tập văn bản tôi đã nạp, vậy nên đây "
                   "không phải kết luận rằng pháp luật không quy định về việc bạn hỏi.")
 
 # Nửa đầu khi câu hỏi NỐI TIẾP không giải nghĩa được (`giai_nghia` trả None, rẽ
@@ -303,9 +385,9 @@ KHONG_TIM_DUOC = ("Trong kho của mình không có văn bản nào khớp đư�
 # chưa được tra lần nào, và cái thiếu là mình chưa biết câu hỏi trỏ vào đâu.
 # Cùng lớp lỗi với "văn bản chi phối" ở `_phu_mot_phan`, chỉ khác chiều.
 CHUA_GIAI_NGHIA_DUOC = (
-    "Câu hỏi này của bạn nối tiếp câu trước, mà mình chưa chắc nó đang trỏ về phần nào "
-    "trong những gì mình vừa nói, nên mình không đi tra vội — tra theo một phỏng đoán "
-    "thì mình sẽ trả lời một câu bạn không hỏi mà bạn cũng không có cách nào biết."
+    "Câu hỏi này của bạn nối tiếp câu trước, mà tôi chưa chắc nó đang trỏ về phần nào "
+    "trong những gì tôi vừa nói, nên tôi không đi tra vội — tra theo một phỏng đoán "
+    "thì tôi sẽ trả lời một câu bạn không hỏi mà bạn cũng không có cách nào biết."
 )
 
 
@@ -354,10 +436,10 @@ def _da_biet(state: dict) -> str:
                                       *(state.get("hits_shallow") or [])])
     if not ten:
         return KHONG_TIM_DUOC
-    return (f"Mình tìm được {'; '.join(ten)} khớp từ ngữ với câu hỏi của bạn"
-            + (f", và mình đọc được tới {', '.join(vi_tri)}" if vi_tri else "")
-            + ". Mình chưa đối chiếu được điều khoản nào trong đó thành một câu trả lời "
-              "mình dám nói chắc với bạn, nên mình dừng ở đây thay vì đoán.")
+    return (f"Tôi tìm được {'; '.join(ten)} khớp từ ngữ với câu hỏi của bạn"
+            + (f", và tôi đọc được tới {', '.join(vi_tri)}" if vi_tri else "")
+            + ". Tôi chưa đối chiếu được điều khoản nào trong đó thành một câu trả lời "
+              "tôi dám nói chắc với bạn, nên tôi dừng ở đây thay vì đoán.")
 
 
 def _gop_usage(*us: Usage | None) -> Usage | None:
@@ -540,10 +622,10 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
                 so, ten_vb = hien_van_ban(p.get("so_ky_hieu") or "", p.get("ten") or "")
                 nguon.append({"doc_id": doc_id, "so_ky_hieu": so, "bo_luat": ten_vb})
         return _ngo_cut(state, llm, model, ResultType.partial_coverage, nguon=nguon, ghi_chu=(
-            f"Mình tìm được {'; '.join(ten)} khớp từ ngữ với câu hỏi của bạn. "
-            f"{'Văn bản này' if len(ten) == 1 else 'Những văn bản này'} mình mới có tên, "
+            f"Tôi tìm được {'; '.join(ten)} khớp từ ngữ với câu hỏi của bạn. "
+            f"{'Văn bản này' if len(ten) == 1 else 'Những văn bản này'} tôi mới có tên, "
             "số hiệu và tình trạng hiệu lực — chưa có toàn văn tới từng điều khoản, nên "
-            "mình chưa đọc được nội dung để nói với bạn điều gì chắc chắn, và cũng chưa "
+            "tôi chưa đọc được nội dung để nói với bạn điều gì chắc chắn, và cũng chưa "
             "chắc được nó có đúng là chỗ trả lời câu hỏi của bạn hay không. Bạn mở được "
             "văn bản gốc ngay dưới đây."
         ))
@@ -639,6 +721,8 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             "quote": r.claim.quote,
             "hieu_luc": eff.verdict.value if eff else None,
             "tin_cay": eff.tin_cay if eff else None,
+            # Spec 2026-09-06 §3: gán số sau vòng lặp, chỉ cho căn cứ dùng hành văn.
+            "k": None,
         })
         if eff and eff.verdict in CANH_BAO_NHAN:
             # `ly_do` NGUYÊN VĂN, không viết lại: nó nêu đích danh văn bản thay
@@ -679,19 +763,34 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     # `strict=True` khoá bất biến hai danh sách khớp chỉ số — chúng được append
     # cùng một nhánh `else` ở vòng lặp trên, và nếu ai đó tách chúng ra thì lỗi
     # phải nổ ở đây chứ không phải hiện thành một trích dẫn gắn nhầm khẳng định.
-    claims_txt = "\n".join(
-        f"- {r.claim.text}\n  (căn cứ: {c['duong_dan']} — {c['bo_luat']})"
-        for r, c in zip(dung_cho_prose, citations_dung_cho_prose, strict=True)
-    )
-    prompt = (
-        (prompt_path or PROMPT_PATH)
-        .read_text(encoding="utf-8")
-        .format(cau_hoi=state.get("query", ""), claims=claims_txt)
+    for so, c in enumerate(citations_dung_cho_prose, start=1):
+        c["k"] = so
+    documents = _dung_documents(citations_dung_cho_prose, db_provisions)
+
+    mau = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8")
+    # Template có `{van_ban}` là template biết thẻ (v2): căn cứ đánh số [K] để
+    # mô hình đặt `cite:K`. Template v1 giữ NGUYÊN định dạng cũ — A/B v1-v2
+    # phải đo đúng prompt cũ, không phải một v1 đã bị đổi ruột.
+    if "{van_ban}" in mau:
+        claims_txt = "\n".join(
+            f"[{c['k']}] {c['duong_dan']} — {c['bo_luat']}\n    {r.claim.text}"
+            for r, c in zip(dung_cho_prose, citations_dung_cho_prose, strict=True)
+        )
+    else:
+        claims_txt = "\n".join(
+            f"- {r.claim.text}\n  (căn cứ: {c['duong_dan']} — {c['bo_luat']})"
+            for r, c in zip(dung_cho_prose, citations_dung_cho_prose, strict=True)
+        )
+    prompt = mau.format(
+        cau_hoi=state.get("query", ""),
+        mo_dau=MO_DAU_NOI_TIEP if state.get("lich_su") else MO_DAU_LUOT_DAU,
+        van_ban=_khoi_van_ban(citations_dung_cho_prose, db_provisions),
+        claims=claims_txt,
     )
     usage: Usage | None = None
     degraded = False
     try:
-        raw, usage = llm.chat(model, [{"role": "user", "content": prompt}], json_schema=ANSWER_SCHEMA)
+        raw, usage = llm.chat(model, messages(prompt), json_schema=ANSWER_SCHEMA)
         answer = json.loads(raw)["answer"]
     except Exception as e:
         # Suy biến AN TOÀN, không phải lỗi im lặng: nội dung fallback là chính
@@ -707,6 +806,21 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         )
         answer = " ".join(r.claim.text for r in verified)
         degraded = True
+
+    # Phép kiểm thứ tám + chín — chạy trên CẢ đường LLM và đường fallback (fallback
+    # nối claim.text không có thẻ, nhưng phép kiểm không giả định đường nào an toàn).
+    the_loi = _the_khong_hop_le(answer, citations_dung_cho_prose, {c["doc_id"] for c in citations_dung_cho_prose})
+    if the_loi:
+        logger.warning(
+            "assemble: thẻ/URL không hợp lệ trong answer — hạ xuống abstain (%s): %s",
+            LY_DO_THE_KHONG_HOP_LE,
+            the_loi,
+        )
+        ket = _ngo_cut(state, llm, model, ResultType.abstain, usage=usage, degraded=degraded)
+        ket["traces"]["assemble_the_loi"] = the_loi
+        ket["traces"]["assemble_dieu_bi_loai"] = []
+        ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
+        return ket
 
     # Phép kiểm thứ năm — xem docstring `_dieu_khong_duoc_chong_do`. Chạy SAU
     # khi có `answer` thật (kể cả đường fallback ở trên): fallback nối
@@ -726,10 +840,12 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         ket = _ngo_cut(state, llm, model, ResultType.abstain, usage=usage, degraded=degraded)
         ket["traces"]["assemble_dieu_bi_loai"] = dieu_bi_loai
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
+        ket["traces"]["assemble_the_loi"] = []
         return ket
 
     ket = _base(state, ResultType.answer, usage=usage, degraded=degraded,
-                answer=answer, citations=citations, warnings=warnings)
+                answer=answer, citations=citations, warnings=warnings, documents=documents)
     ket["traces"]["assemble_dieu_bi_loai"] = []
     ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
+    ket["traces"]["assemble_the_loi"] = []
     return ket

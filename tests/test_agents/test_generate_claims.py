@@ -337,7 +337,7 @@ def test_model_trung_thuc_chep_dung_khoi_VUNG_III_van_qua_duoc_tang_1():
         def chat(self, model, messages, json_schema=None):
             from src.services.llm import Usage
 
-            quote = _quote_mo_hinh_trung_thuc_chep(messages[0]["content"], 258773)
+            quote = _quote_mo_hinh_trung_thuc_chep(messages[-1]["content"], 258773)
             payload = {
                 "insufficient_evidence": False,
                 "claims": [

@@ -57,7 +57,7 @@ class FakeLlm:
 
     def chat(self, model, messages, json_schema=None):
         self.schema_da_goi.append(json_schema)
-        self.prompt_da_goi.append(messages[0]["content"])
+        self.prompt_da_goi.append(messages[-1]["content"])
         raw = self._ra if isinstance(self._ra, str) else json.dumps(self._ra, ensure_ascii=False)
         return raw, Usage(10, 5, 0.00005)
 
