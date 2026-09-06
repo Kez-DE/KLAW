@@ -201,3 +201,7 @@ def estimate_cost(input_tokens: int, output_tokens: int, model: str = "gpt-4o-mi
 | Cache responses | 50-80% repeated queries | Trung bình |
 
 > 🔑 **ĐIỂM CHÍNH:** Tổng chi phí cho toàn bộ AI20K với gpt-4o-mini chỉ khoảng **$5-10** — rất hợp lý cho sinh viên. Áp dụng các chiến lược trên để không bị bất ngờ với bill.
+
+---
+
+> Xem thêm: đo token SOUL + assemble.v2 bằng `eval.run_trap` (2026-09-06) tại `docs/guide/cost-management-2026-09-06.md`.

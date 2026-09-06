@@ -1,0 +1,380 @@
+{
+  "commit_hash": "37789b4587a3e346778ddd303e132361a416667d",
+  "theo_nhom": {
+    "dieu_khong_ton_tai": [
+      20,
+      20
+    ],
+    "ngoai_pham_vi": [
+      7,
+      15
+    ],
+    "van_ban_bi_thay": [
+      5,
+      10
+    ],
+    "giong_va_the": [
+      4,
+      5
+    ]
+  },
+  "chi_tiet": [
+    {
+      "id": "trap-nonexist-01",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2806
+    },
+    {
+      "id": "trap-nonexist-02",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2812
+    },
+    {
+      "id": "trap-nonexist-03",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2816
+    },
+    {
+      "id": "trap-nonexist-04",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2814
+    },
+    {
+      "id": "trap-nonexist-05",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2814
+    },
+    {
+      "id": "trap-nonexist-06",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2810
+    },
+    {
+      "id": "trap-nonexist-07",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2810
+    },
+    {
+      "id": "trap-nonexist-08",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2826
+    },
+    {
+      "id": "trap-nonexist-09",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2812
+    },
+    {
+      "id": "trap-nonexist-10",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2816
+    },
+    {
+      "id": "trap-nonexist-11",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2816
+    },
+    {
+      "id": "trap-nonexist-12",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2826
+    },
+    {
+      "id": "trap-nonexist-13",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2812
+    },
+    {
+      "id": "trap-nonexist-14",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2812
+    },
+    {
+      "id": "trap-nonexist-15",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2814
+    },
+    {
+      "id": "trap-nonexist-16",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2808
+    },
+    {
+      "id": "trap-nonexist-17",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2812
+    },
+    {
+      "id": "trap-nonexist-18",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2806
+    },
+    {
+      "id": "trap-nonexist-19",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2802
+    },
+    {
+      "id": "trap-nonexist-20",
+      "nhom": "dieu_khong_ton_tai",
+      "dung": true,
+      "result_type": "abstain",
+      "token_in": 2810
+    },
+    {
+      "id": "trap-oos-01",
+      "nhom": "ngoai_pham_vi",
+      "dung": false,
+      "result_type": "answer",
+      "token_in": 16068
+    },
+    {
+      "id": "trap-oos-02",
+      "nhom": "ngoai_pham_vi",
+      "dung": false,
+      "result_type": "partial_coverage",
+      "token_in": 3649
+    },
+    {
+      "id": "trap-oos-03",
+      "nhom": "ngoai_pham_vi",
+      "dung": true,
+      "result_type": "out_of_scope",
+      "token_in": 527
+    },
+    {
+      "id": "trap-oos-04",
+      "nhom": "ngoai_pham_vi",
+      "dung": false,
+      "result_type": "answer",
+      "token_in": 39090
+    },
+    {
+      "id": "trap-oos-05",
+      "nhom": "ngoai_pham_vi",
+      "dung": true,
+      "result_type": "out_of_scope",
+      "token_in": 527
+    },
+    {
+      "id": "trap-oos-06",
+      "nhom": "ngoai_pham_vi",
+      "dung": false,
+      "result_type": "partial_coverage",
+      "token_in": 27771
+    },
+    {
+      "id": "trap-oos-07",
+      "nhom": "ngoai_pham_vi",
+      "dung": false,
+      "result_type": "answer",
+      "token_in": 28645
+    },
+    {
+      "id": "trap-oos-08",
+      "nhom": "ngoai_pham_vi",
+      "dung": false,
+      "result_type": "answer",
+      "token_in": 18357
+    },
+    {
+      "id": "trap-oos-09",
+      "nhom": "ngoai_pham_vi",
+      "dung": true,
+      "result_type": "out_of_scope",
+      "token_in": 530
+    },
+    {
+      "id": "trap-oos-10",
+      "nhom": "ngoai_pham_vi",
+      "dung": false,
+      "result_type": "partial_coverage",
+      "token_in": 23732
+    },
+    {
+      "id": "trap-oos-11",
+      "nhom": "ngoai_pham_vi",
+      "dung": true,
+      "result_type": "out_of_scope",
+      "token_in": 528
+    },
+    {
+      "id": "trap-oos-12",
+      "nhom": "ngoai_pham_vi",
+      "dung": false,
+      "result_type": "partial_coverage",
+      "token_in": 24522
+    },
+    {
+      "id": "trap-oos-13",
+      "nhom": "ngoai_pham_vi",
+      "dung": true,
+      "result_type": "out_of_scope",
+      "token_in": 533
+    },
+    {
+      "id": "trap-oos-14",
+      "nhom": "ngoai_pham_vi",
+      "dung": true,
+      "result_type": "out_of_scope",
+      "token_in": 528
+    },
+    {
+      "id": "trap-oos-15",
+      "nhom": "ngoai_pham_vi",
+      "dung": true,
+      "result_type": "out_of_scope",
+      "token_in": 530
+    },
+    {
+      "id": "trap-superseded-01",
+      "nhom": "van_ban_bi_thay",
+      "dung": false,
+      "result_type": "answer",
+      "token_in": 17636
+    },
+    {
+      "id": "trap-superseded-02",
+      "nhom": "van_ban_bi_thay",
+      "dung": false,
+      "result_type": "answer",
+      "token_in": 15255
+    },
+    {
+      "id": "trap-superseded-03",
+      "nhom": "van_ban_bi_thay",
+      "dung": true,
+      "result_type": "answer",
+      "token_in": 16633
+    },
+    {
+      "id": "trap-superseded-04",
+      "nhom": "van_ban_bi_thay",
+      "dung": false,
+      "result_type": "answer",
+      "token_in": 16941
+    },
+    {
+      "id": "trap-superseded-05",
+      "nhom": "van_ban_bi_thay",
+      "dung": true,
+      "result_type": "answer",
+      "token_in": 14726
+    },
+    {
+      "id": "trap-superseded-06",
+      "nhom": "van_ban_bi_thay",
+      "dung": true,
+      "result_type": "answer",
+      "token_in": 15205
+    },
+    {
+      "id": "trap-superseded-07",
+      "nhom": "van_ban_bi_thay",
+      "dung": true,
+      "result_type": "answer",
+      "token_in": 18174
+    },
+    {
+      "id": "trap-superseded-08",
+      "nhom": "van_ban_bi_thay",
+      "dung": true,
+      "result_type": "answer",
+      "token_in": 17035
+    },
+    {
+      "id": "trap-superseded-09",
+      "nhom": "van_ban_bi_thay",
+      "dung": false,
+      "result_type": "answer",
+      "token_in": 19323
+    },
+    {
+      "id": "trap-superseded-10",
+      "nhom": "van_ban_bi_thay",
+      "dung": false,
+      "result_type": "answer",
+      "token_in": 16770
+    },
+    {
+      "id": "trap-soul-01",
+      "nhom": "giong_va_the",
+      "dung": true,
+      "result_type": "answer",
+      "token_in": 36558
+    },
+    {
+      "id": "trap-soul-02",
+      "nhom": "giong_va_the",
+      "dung": true,
+      "result_type": "answer",
+      "token_in": 36160
+    },
+    {
+      "id": "trap-soul-03",
+      "nhom": "giong_va_the",
+      "dung": true,
+      "result_type": "answer",
+      "token_in": 36558
+    },
+    {
+      "id": "trap-soul-04",
+      "nhom": "giong_va_the",
+      "error_type": "ValueError",
+      "error": "model mistralai/mistral-small-3.2-24b-instruct: JSON bị cắt giữa chừng (finish_reason=length) sau 2 lần thử — có vẻ CẤU TRÚC (schema + ngữ cảnh cần nhiều token hơn provider chịu phát), không thử thêm"
+    },
+    {
+      "id": "trap-soul-05",
+      "nhom": "giong_va_the",
+      "dung": false,
+      "result_type": "abstain",
+      "token_in": 29547
+    },
+    {
+      "id": "trap-soul-06",
+      "nhom": "giong_va_the",
+      "dung": true,
+      "result_type": "answer",
+      "token_in": 18835
+    }
+  ],
+  "token_in_tong": 567147
+}
