@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronRight, Paperclip, Scale, Send } from "lucide-react";
+import { ChevronRight, Paperclip, Send } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
+import { ManChao } from "@/components/klaw/ManChao";
 import { MaTruyVet } from "@/components/klaw/MaTruyVet";
 import { KhungDoiChieu, useHaiCot } from "@/components/klaw/KhungDoiChieu";
 import { TheKetQua } from "@/components/klaw/TheKetQua";
@@ -33,13 +34,6 @@ import { cn } from "@/lib/utils";
  *    gắn nhãn "Còn hiệu lực", trong khi nghị định đó hết hiệu lực toàn bộ từ
  *    01/01/2026. Mọi chữ trên màn này nay đến từ máy chủ.
  */
-
-const GOI_Y = [
-  "Thời gian thử việc tối đa với công việc của người quản lý doanh nghiệp là bao lâu?",
-  "Người sử dụng lao động phải báo trước bao nhiêu ngày khi đơn phương chấm dứt hợp đồng lao động?",
-  "Mức lương tối thiểu vùng đang áp dụng cho vùng I là bao nhiêu?",
-  "Người lao động được nghỉ hằng năm bao nhiêu ngày và tính lương thế nào?",
-];
 
 /**
  * Một lượt hỏi–đáp trong dòng hội thoại.
@@ -135,6 +129,12 @@ function ManHoiKlaw() {
     traCuu.hoi(noiDung, dungLichSu(luotTruoc));
   };
 
+  // Gợi ý chỉ ĐIỀN, không gửi — người dùng còn sửa câu (spec 2026-09-06 §4.1).
+  const dienGoiY = (cau: string) => {
+    datNhap(cau);
+    oHoi.current?.focus();
+  };
+
   const chonTrichDan = (ketQua: TraCuuKetQua, chiSo: number) => {
     const trichDan: Citation | undefined = ketQua.citations[chiSo];
     if (trichDan === undefined) return;
@@ -182,30 +182,7 @@ function ManHoiKlaw() {
                 h1 để biết mình đang ở đâu. */}
             <h1 className="sr-only">Trợ lý KLAW — tra cứu pháp luật lao động</h1>
             {chuaHoiGiCa ? (
-              <div className="soft-fade flex flex-1 flex-col items-center justify-center py-14">
-                <span className="bg-gradient-ink flex size-14 items-center justify-center rounded-2xl text-primary-foreground shadow-soft">
-                  <Scale className="size-7" aria-hidden />
-                </span>
-                <h2 className="font-display mt-5 max-w-xl text-center text-3xl font-semibold text-primary">
-                  Bạn cần tra cứu điều gì hôm nay?
-                </h2>
-                <p className="mt-2 max-w-lg text-center text-sm text-muted-foreground">
-                  Mỗi câu trả lời kèm điều, khoản, điểm và nhãn hiệu lực để bạn tự đối chiếu với văn
-                  bản gốc. Hệ thống dừng lại khi không đủ căn cứ thay vì suy đoán.
-                </p>
-                <div className="mt-7 grid w-full gap-3 sm:grid-cols-2">
-                  {GOI_Y.map((cau) => (
-                    <button
-                      key={cau}
-                      type="button"
-                      onClick={() => gui(cau)}
-                      className="focus-brass cursor-pointer border-l-2 border-[var(--color-brass-500)] bg-[var(--color-paper-100)] px-4 py-3.5 text-left text-sm leading-relaxed text-foreground transition-colors hover:bg-[var(--color-paper-200)]"
-                    >
-                      {cau}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <ManChao onChonGoiY={dienGoiY} />
             ) : (
               <div aria-live="polite" aria-label="Hội thoại với KLAW" className="flex-1 py-8">
                 <div className="flex flex-col gap-8">
@@ -313,7 +290,7 @@ function ManHoiKlaw() {
                     }
                   }}
                   aria-label="Câu hỏi pháp lý"
-                  placeholder="Nhập câu hỏi pháp lý — ví dụ: thời gian thử việc tối đa là bao lâu?"
+                  placeholder="Hỏi về quy định pháp luật hoặc yêu cầu soạn văn bản…"
                   className="max-h-[176px] flex-1 resize-none bg-transparent py-2 text-sm leading-[26px] outline-none placeholder:text-muted-foreground disabled:opacity-60"
                 />
                 <button
@@ -327,8 +304,8 @@ function ManHoiKlaw() {
                 </button>
               </div>
               <p className="mt-1.5 text-[12px] text-muted-foreground">
-                Kho văn bản là bản GỐC, không phải bản hợp nhất. Luôn đối chiếu nguyên văn trước khi
-                sử dụng.
+                KLAW cung cấp thông tin tham khảo, không thay thế tư vấn của luật sư. Vui lòng kiểm
+                chứng với văn bản quy phạm pháp luật đang có hiệu lực.
               </p>
             </div>
           </div>
