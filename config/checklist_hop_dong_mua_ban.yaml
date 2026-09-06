@@ -24,7 +24,16 @@ muc_do_thieu: canh_bao
 # Hai khối đó KHÔNG phải `muc` và KHÔNG vào mẫu số completeness.
 la_hop_dong: true
 
-rules: []
+# Hai rule dùng chung của config/rules.yaml, khai RIÊNG ở đây — không khai ở
+# checklist_hop_dong_dich_vu.yaml hay bất kỳ mẫu nào khác:
+#   tran_phat_vi_pham_hop_dong (Đ301) chừa lối trừ Đ266 cho hợp đồng DỊCH VỤ
+#   GIÁM ĐỊNH (mức phạt khác, không phải 8%) — khai rule này ở checklist dịch
+#   vụ chung sẽ áp nhầm trần 8% lên đúng loại hợp đồng luật miễn trừ.
+#   thieu_dieu_khoan_giai_quyet_tranh_chap (Đ317.3) là cảnh báo chung cho hợp
+#   đồng thương mại, không riêng gì mua bán hàng hoá, nhưng khai ở đây trước vì
+#   đây là mẫu hợp đồng thương mại đầu tiên có checklist đủ chi tiết — cùng lối
+#   `lai_suat_vay_toi_da` chỉ khai ở một checklist dù luật áp dụng rộng hơn.
+rules: [tran_phat_vi_pham_hop_dong, thieu_dieu_khoan_giai_quyet_tranh_chap]
 
 can_cu_goc: "91/2015/QH13 > Điều 430"
 can_cu_chi_tiet: "36/2005/QH11 > Điều 24"

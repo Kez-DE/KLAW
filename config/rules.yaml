@@ -56,12 +56,36 @@ rules:
     can_facts: [co_dieu_khoan_phat_tien]
     kiem: not co_dieu_khoan_phat_tien
 
-  - id: cam_giu_giay_to_dat_coc
-    can_cu: "45/2019/QH14 > Điều 17"
+  - id: cam_giu_giay_to
+    can_cu: "45/2019/QH14 > Điều 17 > Khoản 1"
     muc_do: chan
-    mo_ta: "Có điều khoản giữ bản chính giấy tờ hoặc buộc đặt cọc"
-    can_facts: [co_dieu_khoan_giu_giay_to, co_dieu_khoan_dat_coc]
-    kiem: not (co_dieu_khoan_giu_giay_to or co_dieu_khoan_dat_coc)
+    mo_ta: "Có điều khoản giữ bản chính giấy tờ tuỳ thân, văn bằng, chứng chỉ của người lao động"
+    can_facts: [co_dieu_khoan_giu_giay_to]
+    kiem: not co_dieu_khoan_giu_giay_to
+    ghi_chu: >
+      Tách khỏi `cam_dat_coc` (trước gộp chung một rule `cam_giu_giay_to_dat_coc`
+      trỏ `Điều 17` trần — RỖNG THÂN, `len(btrim(noi_dung))=96` bằng đúng tiêu
+      đề "Điều 17. Hành vi người sử dụng lao động không được làm khi giao kết,
+      thực hiện hợp đồng lao động", không mang câu cấm nào). Một rule khẳng
+      định HAI hành vi cấm (giữ giấy tờ, buộc đặt cọc) không có một can_cu nào
+      trỏ đúng cả hai, nên nó buộc phải trỏ lên Điều cha — đúng nguyên nhân
+      khiến trích dẫn đó rỗng, không phải một chỗ gõ vội. Tách rule theo đúng
+      Khoản là cách sửa, không phải chọn đại một Khoản con cho một rule vẫn
+      còn khẳng định hai việc: ghim rule "chan" hai việc vào trích dẫn của một
+      việc sẽ đọc ra một độ chính xác trích dẫn không có thật.
+
+  - id: cam_dat_coc
+    can_cu: "45/2019/QH14 > Điều 17 > Khoản 2"
+    muc_do: chan
+    mo_ta: "Có điều khoản buộc người lao động thực hiện biện pháp bảo đảm bằng tiền hoặc tài sản khác cho việc thực hiện hợp đồng lao động"
+    can_facts: [co_dieu_khoan_dat_coc]
+    kiem: not co_dieu_khoan_dat_coc
+    ghi_chu: >
+      Đ17 còn Khoản 3 ("buộc người lao động thực hiện hợp đồng lao động để trả
+      nợ") — CHƯA có rule nào phủ khoản này. Khoản 3 không kiểm được bằng hai
+      fact đã có (`co_dieu_khoan_giu_giay_to`, `co_dieu_khoan_dat_coc`) vì nó
+      là một hành vi cấm KHÁC, cần fact riêng — để lại cho một rule sau, không
+      dựng ở đây bằng cách tái dùng nhầm fact của hai rule này.
 
   - id: lai_suat_vay_toi_da
     can_cu: "91/2015/QH13 > Điều 468 > Khoản 1"
@@ -124,6 +148,55 @@ rules:
       trần do tôi bịa, không phải trần của luật. Một fact bool nói đúng thứ
       luật phân biệt: có trần hay không có trần.
 
+  - id: tran_phat_vi_pham_hop_dong
+    can_cu: "36/2005/QH11 > Điều 301"
+    muc_do: chan
+    mo_ta: "Mức phạt vi phạm hợp đồng thương mại vượt trần 8% giá trị phần nghĩa vụ hợp đồng bị vi phạm"
+    can_facts: [muc_phat_thoa_thuan, gia_tri_phan_nghia_vu_bi_vi_pham]
+    ty_le_phat_toi_da: 0.08
+    kiem: muc_phat_thoa_thuan <= ty_le_phat_toi_da * gia_tri_phan_nghia_vu_bi_vi_pham
+    ghi_chu: >
+      Đ301: mức phạt "không quá 8% GIÁ TRỊ PHẦN NGHĨA VỤ HỢP ĐỒNG BỊ VI PHẠM"
+      — mẫu số là phần bị vi phạm, KHÔNG phải tổng giá trị hợp đồng. Hai fact
+      tách riêng (`muc_phat_thoa_thuan`, `gia_tri_phan_nghia_vu_bi_vi_pham`) vì
+      lý do đó: gộp thành một fact "tỷ lệ phần trăm" do người dùng tự tính sẽ
+      để mẫu số sai lọt qua mà rule không thấy được. "nhưng không quá" là một
+      trần luật định, mức cao hơn là TRÁI LUẬT chứ không phải một lựa chọn tệ,
+      nên `chan` là mức đúng.
+
+      Chính Đ301 chừa lối trừ: "trừ trường hợp quy định tại Điều 266 của Luật
+      này". Đã tra: `Điều 266` trần RỖNG THÂN (`len(btrim(noi_dung))=83`,
+      bằng đúng tiêu đề) — câu thật nằm ở Khoản 1: hợp đồng DỊCH VỤ GIÁM ĐỊNH
+      chịu một mức phạt khác (tối đa mười lần thù lao dịch vụ giám định, không
+      phải 8% giá trị phần vi phạm). Vì lối trừ đó, rule này CHỈ khai ở
+      checklist của hợp đồng mua bán hàng hoá
+      (`config/checklist_hop_dong_mua_ban.yaml`) — không khai ở
+      `checklist_hop_dong_dich_vu.yaml`, cùng lối `lai_suat_vay_toi_da` chỉ
+      khai ở checklist hợp đồng vay vì luật khác quy định khác cho tổ chức tín
+      dụng.
+
+  - id: thieu_dieu_khoan_giai_quyet_tranh_chap
+    can_cu: "36/2005/QH11 > Điều 317 > Khoản 3"
+    muc_do: canh_bao
+    mo_ta: "Hợp đồng không có điều khoản chọn Trọng tài hoặc Toà án giải quyết tranh chấp — tranh chấp mặc định thuộc thẩm quyền Toà án, các bên mất lựa chọn Trọng tài"
+    can_facts: [co_dieu_khoan_giai_quyet_tranh_chap]
+    kiem: co_dieu_khoan_giai_quyet_tranh_chap
+    ghi_chu: >
+      `canh_bao`, KHÔNG `chan`: Đ317 chỉ LIỆT KÊ bốn hình thức giải quyết
+      tranh chấp (Khoản 1 thương lượng, Khoản 2 hoà giải, Khoản 3 trọng tài
+      hoặc toà án) — nó không đặt ra nghĩa vụ hợp đồng phải CHỨA một điều
+      khoản giải quyết tranh chấp. Mã hoá việc thiếu thành `chan` là dựng một
+      khẳng định pháp lý mà điều luật không đặt ra, đúng loại đòi quá luật hệ
+      thống này tồn tại để chặn (cùng lý do BLDS không có điều nào liệt kê nội
+      dung bắt buộc của hợp đồng nói chung). `mo_ta` nói hệ quả — mất quyền
+      chọn Trọng tài, mặc định về Toà án — chứ không nói "trái luật".
+
+      can_cu trỏ Khoản 3, KHÔNG trỏ `Điều 317` trần: đã tra, `Điều 317` trần
+      chỉ có dòng tiêu đề (`len(btrim(noi_dung))=41`, bằng đúng tiêu đề "Điều
+      317. Hình thức giải quyết tranh chấp"), trong khi Khoản 3 mới mang câu
+      thật nêu đích danh Trọng tài và Toà án — đúng hai cơ quan cảnh báo này
+      nói các bên sẽ mất quyền chọn.
+
 # Nhãn tiếng Việt + kiểu dữ liệu cho từng fact — phần DUY NHẤT không thể suy
 # ra từ cấu trúc `kiem:` (nhãn là văn bản người viết, không phải dữ liệu có
 # thể tính). Tập giá trị hợp lệ (vd. vung: I..IV) KHÔNG lặp lại ở đây — suy
@@ -145,3 +218,6 @@ facts_meta:
   so_dai_dien_doi_thoai_nsdld: {nhan: "Số đại diện bên người sử dụng lao động tham gia đối thoại (người)", kieu: int}
   co_tran_nhiem_ky_05_nam:   {nhan: "Chức danh được bổ nhiệm là Giám đốc/Tổng giám đốc công ty cổ phần hoặc thành viên Hội đồng quản trị (có trần nhiệm kỳ 05 năm)", kieu: bool}
   nhiem_ky_thang:            {nhan: "Nhiệm kỳ bổ nhiệm (tháng)", kieu: int}
+  muc_phat_thoa_thuan:              {nhan: "Mức phạt vi phạm thoả thuận trong hợp đồng (đồng)", kieu: int}
+  gia_tri_phan_nghia_vu_bi_vi_pham: {nhan: "Giá trị phần nghĩa vụ hợp đồng bị vi phạm (đồng)", kieu: int}
+  co_dieu_khoan_giai_quyet_tranh_chap: {nhan: "Có điều khoản chọn Trọng tài hoặc Toà án giải quyết tranh chấp", kieu: bool}
