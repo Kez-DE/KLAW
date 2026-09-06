@@ -16,6 +16,7 @@
  */
 
 import type { Citation } from "./klaw";
+import { catManh, type Manh } from "./van-xuoi.ts";
 
 interface BanChuanHoa {
   chuoi: string;
@@ -178,25 +179,6 @@ export function xepTrichDan<T extends { hieu_luc: string | null }>(
 }
 
 /**
- * Câu cảnh báo của ĐÚNG văn bản này trong `warnings[]`, nếu có.
- *
- * `Citation` không mang ngày — đo trên backend thật, chín trường và không
- * trường nào là ngày hiệu lực. Ngày chỉ tồn tại trong câu cảnh báo:
- * "293/2025/NĐ-CP chưa có hiệu lực: ngày hiệu lực 2026-01-01 còn ở tương lai
- * so với 2019-06-01". Nên nhãn "Chưa có hiệu lực" muốn nói ra TỪ BAO GIỜ thì
- * phải lấy câu đó.
- *
- * Trả về nguyên câu, KHÔNG cạo ngày ra: định dạng câu này do backend viết và
- * có thể đổi, một bộ tách ngày sẽ hỏng trong im lặng còn câu nguyên thì không.
- *
- * Khớp bằng `so_ky_hieu` kèm dấu cách để "90/2019/NĐ-CP" không nuốt câu của
- * một số hiệu khác dài hơn có cùng phần đầu.
- */
-export function ghiChuHieuLuc(soKyHieu: string, warnings: readonly string[]): string | undefined {
-  return warnings.find((canhBao) => canhBao.startsWith(`${soKyHieu} `));
-}
-
-/**
  * Chỉ số trích dẫn mở khi bấm thẻ `doc:ID`: trích dẫn có `k` nhỏ nhất của văn
  * bản đó (điều khoản đầu tiên mô hình dẫn), rơi về trích dẫn đầu tiên cùng
  * `doc_id` khi không có `k` (payload cache cũ), `-1` khi văn bản không có mặt.
@@ -215,4 +197,33 @@ export function chiSoDauCuaVanBan(citations: readonly Citation[], docId: string)
     }
   });
   return tot;
+}
+
+/**
+ * Căn cứ được hiện trong card: bỏ nhóm 4 (hết hiệu lực / bị thay thế) — spec
+ * 2026-09-06 §7: câu trả lời chỉ dẫn luật còn hiệu lực. Giữ `chiSoGoc` để nút
+ * mở đúng khung theo chỉ số trong `citations` thật.
+ */
+export function canCuConHieuLuc(
+  citations: readonly Citation[],
+): { trichDan: Citation; chiSoGoc: number }[] {
+  return xepTrichDan(citations).filter((m) => nhomHieuLuc(m.trichDan.hieu_luc) !== 4);
+}
+
+/** Chỉ số citation mà một thẻ trỏ tới; −1 khi không trỏ được. Dùng chung cho
+ * nút thẻ trong văn xuôi và cho `coTagBamDuoc`, để hai chỗ không lệch nhau. */
+export function chiSoCuaThe(
+  manh: Extract<Manh, { kieu: "the" }>,
+  citations: readonly Citation[],
+): number {
+  return manh.loai === "cite"
+    ? citations.findIndex((c) => c.k === Number(manh.khoa))
+    : chiSoDauCuaVanBan(citations, manh.khoa);
+}
+
+/** Văn xuôi có ít nhất một thẻ bấm được? `catManh` chạy trên toàn `answer`:
+ * nó chỉ tách thẻ, không cần tách đoạn trước. */
+export function coTagBamDuoc(answer: string | null, citations: readonly Citation[]): boolean {
+  if (answer === null) return false;
+  return catManh(answer).some((m) => m.kieu === "the" && chiSoCuaThe(m, citations) >= 0);
 }

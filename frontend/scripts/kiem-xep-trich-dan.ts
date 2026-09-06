@@ -15,7 +15,8 @@
  * Chạy: `npm run kiem-xep-trich-dan` (Node 22 đọc thẳng TypeScript, 0 thư viện).
  */
 import assert from "node:assert/strict";
-import { ghiChuHieuLuc, nhomHieuLuc, xepTrichDan } from "../src/lib/trich-dan.ts";
+import { canCuConHieuLuc, coTagBamDuoc, nhomHieuLuc, xepTrichDan } from "../src/lib/trich-dan.ts";
+import type { Citation } from "../src/lib/klaw.ts";
 
 /** Đủ hình dạng cho `xepTrichDan` — nó chỉ đọc `hieu_luc`. */
 const td = (ten: string, hieu_luc: string | null) => ({ ten, hieu_luc });
@@ -103,18 +104,54 @@ const td = (ten: string, hieu_luc: string | null) => ({ ten, hieu_luc });
   assert.deepEqual(xepTrichDan([]), []);
 }
 
-// 7. `ghiChuHieuLuc` lấy đúng câu của văn bản mình, và không nuốt câu của một
-//    số hiệu khác có cùng phần đầu. Câu cảnh báo là nơi DUY NHẤT có ngày hiệu
-//    lực — `Citation` không mang trường ngày nào.
+// Dựng Citation đủ trường — `canCuConHieuLuc`/`coTagBamDuoc` nhận kiểu thật.
+const trich = (
+  so_ky_hieu: string,
+  hieu_luc: string | null,
+  them: Partial<Citation> = {},
+): Citation => ({
+  provision_id: 1,
+  khop_tai_id: 1,
+  doc_id: "d",
+  duong_dan: `${so_ky_hieu} > Điều 1`,
+  bo_luat: "Bộ luật",
+  so_ky_hieu,
+  quote: "…",
+  hieu_luc: hieu_luc as Citation["hieu_luc"],
+  tin_cay: null,
+  k: null,
+  ...them,
+});
+
+// 7. `canCuConHieuLuc` bỏ nhóm 4 (hết hiệu lực / bị thay thế) nhưng giữ chỉ số
+//    GỐC — nút "Căn cứ" mở khung theo chỉ số trong `citations` thật.
 {
-  const canhBao = [
-    "293/2025/NĐ-CP chưa có hiệu lực: ngày hiệu lực 2026-01-01 còn ở tương lai so với 2019-06-01",
-    "90/2019/NĐ-CP chưa có hiệu lực: ngày hiệu lực 2020-01-01 còn ở tương lai so với 2019-06-01",
+  const cs = [
+    trich("A", "het_hieu_luc"),
+    trich("B", "con_hieu_luc"),
+    trich("C", "bi_thay_the"),
+    trich("D", null),
   ];
-  assert.match(ghiChuHieuLuc("90/2019/NĐ-CP", canhBao) ?? "", /2020-01-01/);
-  assert.equal(ghiChuHieuLuc("157/2018/NĐ-CP", canhBao), undefined);
-  assert.equal(ghiChuHieuLuc("0/2019/NĐ-CP", canhBao), undefined);
-  assert.equal(ghiChuHieuLuc("293/2025/NĐ-CP", []), undefined);
+  const con = canCuConHieuLuc(cs);
+  assert.deepEqual(
+    con.map((m) => m.trichDan.so_ky_hieu),
+    ["B", "D"],
+  );
+  assert.deepEqual(
+    con.map((m) => m.chiSoGoc),
+    [1, 3],
+  );
 }
 
-console.log("kiem-xep-trich-dan: 7 nhóm kiểm — ĐẠT");
+// 8. `coTagBamDuoc`: thẻ cite trỏ đúng `k`, thẻ doc trỏ đúng `doc_id`; thẻ trỏ
+//    lệch hoặc không có thẻ → false — khi đó card mới hiện khối "Căn cứ".
+{
+  const cs = [trich("B", "con_hieu_luc", { k: 1, doc_id: "d1" })];
+  assert.equal(coTagBamDuoc("xem [Điều 1](cite:1).", cs), true);
+  assert.equal(coTagBamDuoc("xem [Luật](doc:d1).", cs), true);
+  assert.equal(coTagBamDuoc("xem [Điều 9](cite:9) và [X](doc:khac).", cs), false);
+  assert.equal(coTagBamDuoc("không có thẻ nào", cs), false);
+  assert.equal(coTagBamDuoc(null, cs), false);
+}
+
+console.log("kiem-xep-trich-dan: 8 nhóm kiểm — ĐẠT");

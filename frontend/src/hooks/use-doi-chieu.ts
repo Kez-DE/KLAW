@@ -26,6 +26,8 @@ export interface MoDoiChieu {
    * của bộ soát chỉ có địa chỉ điều luật, không có câu trích nào để định vị.
    */
   quote?: string | null;
+  /** Nhãn hiệu lực của căn cứ đang mở — hiện ở header khung (spec 2026-09-06 §7). */
+  hieuLuc?: string | null;
 }
 
 export interface TrangThaiDoiChieu {

@@ -152,6 +152,7 @@ function ManHoiKlaw() {
       khopTaiId: trichDan.khop_tai_id,
       duongDan: trichDan.duong_dan,
       quote: trichDan.quote,
+      hieuLuc: trichDan.hieu_luc,
     });
   };
 
@@ -349,6 +350,7 @@ function ManHoiKlaw() {
                 ? {}
                 : { duongDan: doiChieu.dang.duongDan })}
               quote={doiChieu.dang.quote ?? null}
+              hieuLuc={doiChieu.dang.hieuLuc ?? null}
               trangThai={doiChieu.trangThai}
               vanBan={doiChieu.vanBan}
               loi={doiChieu.loi}

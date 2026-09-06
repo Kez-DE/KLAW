@@ -2,7 +2,7 @@ import { Fragment, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { BookOpenText, FileSearch, Info } from "lucide-react";
 import type { Citation, LinkVanBan, Nguon, TraCuuKetQua, VanBanTraLoi } from "@/lib/klaw";
-import { chiSoDauCuaVanBan, ghiChuHieuLuc, nhomHieuLuc, xepTrichDan } from "@/lib/trich-dan";
+import { chiSoDauCuaVanBan, nhomHieuLuc, xepTrichDan } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { catDoan, catManh, type Manh } from "@/lib/van-xuoi";
 import { BadgeHieuLuc } from "./BadgeHieuLuc";
@@ -259,21 +259,7 @@ function DaiTrichDan({
           <span className="font-jetbrains text-[13px] text-foreground">{trichDan.so_ky_hieu}</span>
           <span className="text-[13px] text-muted-foreground">{trichDan.duong_dan}</span>
         </span>
-        {/* Ghi chú CHỈ cho `chua_hieu_luc`. Nhãn đó nói "chưa", và câu hỏi kế
-            tiếp luôn là "từ bao giờ" — ngày chỉ có trong `warnings[]`. Các
-            nhãn khác không lặp lại câu cảnh báo: khối "Cảnh báo hiệu lực" ngay
-            phía trên đã liệt kê đủ, và nhóm lịch sử đã có tiêu đề tự giải
-            thích. */}
-        <BadgeHieuLuc
-          hieuLuc={trichDan.hieu_luc}
-          className="mt-1.5"
-          {...(trichDan.hieu_luc === "chua_hieu_luc"
-            ? (() => {
-                const ghiChu = ghiChuHieuLuc(trichDan.so_ky_hieu, warnings);
-                return ghiChu === undefined ? {} : { ghiChu };
-              })()
-            : {})}
-        />
+        <BadgeHieuLuc hieuLuc={trichDan.hieu_luc} className="mt-1.5" />
         <span className="serif-body mt-1.5 block text-[14px] leading-6 text-foreground">
           “{trichDan.quote}”
         </span>

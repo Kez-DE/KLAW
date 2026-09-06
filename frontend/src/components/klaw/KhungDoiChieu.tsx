@@ -4,6 +4,7 @@ import type { ApiError, VanBanQuanhDieu } from "@/lib/klaw";
 import { gomHangBang, type DongCoBang } from "@/lib/bang";
 import { catTheoTrichDan } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
+import { BadgeHieuLuc } from "./BadgeHieuLuc";
 import { BaoLoi } from "./BaoLoi";
 import { NoiDungDieuKhoan } from "./NoiDungDieuKhoan";
 
@@ -95,6 +96,7 @@ export interface KhungDoiChieuProps {
   duongDan?: string;
   /** Có → tô sáng câu trích. Không có → chỉ mở đúng Điều, và im lặng. */
   quote?: string | null;
+  hieuLuc?: string | null;
   trangThai: "dang-tai" | "loi" | "xong";
   vanBan?: VanBanQuanhDieu | null;
   loi?: ApiError | null;
@@ -106,6 +108,7 @@ export function KhungDoiChieu({
   khopTaiId,
   duongDan,
   quote = null,
+  hieuLuc = null,
   trangThai,
   vanBan = null,
   loi = null,
@@ -213,6 +216,10 @@ export function KhungDoiChieu({
             <span className="font-jetbrains block text-[13px] text-foreground">
               {vanBan?.so_ky_hieu ?? ""}
             </span>
+            {/* Nhãn hiệu lực ở ĐÂY, không ở card: câu trả lời chỉ dẫn luật còn
+                hiệu lực (spec 2026-09-06 §7), nên ai mở nguyên văn mới cần biết
+                văn bản này đang ở trạng thái nào. `BadgeHieuLuc` tự ẩn khi null. */}
+            <BadgeHieuLuc hieuLuc={hieuLuc} gonGang className="mt-1" />
             {duongDan !== undefined && duongDan !== "" && (
               <span className="block text-[13px] font-normal text-muted-foreground">
                 {duongDan}
