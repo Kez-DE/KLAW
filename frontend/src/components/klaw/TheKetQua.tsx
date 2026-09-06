@@ -206,7 +206,7 @@ function KhoiCanCu({
       <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">Căn cứ</h3>
       <ul className="mt-2 mb-0 flex list-none flex-col gap-2 p-0">
         {canCu.map(({ trichDan, chiSoGoc }) => (
-          <li key={`${trichDan.doc_id}-${trichDan.khop_tai_id}`}>
+          <li key={`${trichDan.doc_id}-${trichDan.khop_tai_id}-${chiSoGoc}`}>
             <button
               type="button"
               onClick={() => onChon(chiSoGoc)}
@@ -496,9 +496,10 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
           )}
         </div>
         <KhoiNguon nguon={nguon} {...(onMoVanBan ? { onMoVanBan } : {})} />
-        {/* Backend hiện luôn trả citations rỗng ở nhánh này, nên dải tự ẩn. Giữ
-            lời gọi để ngày endpoint kèm trích dẫn thì màn hình có sẵn chỗ —
-            KHÔNG dựng liên kết giả từ chuỗi coverage_note. */}
+        {/* Backend hiện luôn trả citations rỗng ở nhánh này, nên KhoiCanCu (danh
+            sách căn cứ dự phòng, chỉ còn hiệu lực) tự ẩn. Giữ lời gọi để ngày
+            endpoint kèm trích dẫn thì màn hình có sẵn chỗ — KHÔNG dựng liên kết
+            giả từ chuỗi coverage_note. */}
         <KhoiCanCu ketQua={ketQua} chiSoDangMo={chiSoDangMo} onChon={chon} />
         <NhacMienTru />
       </section>
@@ -512,7 +513,7 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
           <p className="m-0 flex items-start gap-2 text-muted-foreground">
             <FileSearch className="mt-1 size-4 shrink-0" aria-hidden />
             <span>
-              {citations.length > 0
+              {canCuConHieuLuc(citations).length > 0
                 ? "Lượt này tôi đối chiếu được trích dẫn nhưng chưa viết ra được lời giải thích. Bạn đọc nguyên văn các điều khoản ngay dưới đây."
                 : "Lượt này tôi chưa có nội dung nào để hiển thị. Bạn thử hỏi lại bằng cách khác, hoặc mô tả cụ thể hơn tình huống của bạn."}
             </span>
