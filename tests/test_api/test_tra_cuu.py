@@ -585,3 +585,59 @@ def test_FE_biet_moi_gia_tri_ResultType_cua_backend():
     # thiếu ở union thì `tsc` không cảnh báo chỗ nào quên xử lý loại mới.
     thieu_union = [v for v in o_be if f'"{v}"' not in noi_dung.split("const LOAI_KET_QUA")[0]]
     assert not thieu_union, f"thiếu trong union ResultType của TS: {sorted(thieu_union)}"
+
+
+async def test_k_va_documents_khong_bi_loc_o_bien_HTTP(client, monkeypatch):
+    """Spec 2026-09-06 §3.2: hai trường mới của thẻ bấm được phải sống qua
+    pydantic ở biên HTTP — cùng lớp lỗi `khop_tai_id`/`doc_id`/`bang`/`nguon`."""
+    from src.agents.nodes.assemble import ResultType
+    from src.api import routes
+
+    class FakeGraph:
+        async def ainvoke(self, *a, **k):
+            return {
+                "result_type": ResultType.answer,
+                "answer": "x [Điều 127](cite:1)",
+                "citations": [{
+                    "provision_id": 141418, "khop_tai_id": 141420, "doc_id": "139264",
+                    "duong_dan": "45/2019/QH14 > Điều 127 > Khoản 2",
+                    "bo_luat": "Bộ Luật lao động", "so_ky_hieu": "45/2019/QH14",
+                    "quote": "Phạt tiền...", "hieu_luc": "con_hieu_luc", "tin_cay": "cao",
+                    "k": 1,
+                }],
+                "warnings": [],
+                "documents": [{
+                    "doc_id": "139264", "ten": "Bộ Luật lao động",
+                    "so_ky_hieu": "45/2019/QH14", "loai_van_ban": "Bộ luật",
+                    "links": {"vbpl": "https://vbpl.vn/TW/Pages/vbpq-toanvan.aspx?ItemID=139264",
+                              "chinhphu": None, "tvpl": None},
+                }],
+            }
+
+    monkeypatch.setattr(routes, "_g", lambda: FakeGraph())
+    r = await client.post("/api/v1/tra-cuu", json={"query": "x"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["citations"][0]["k"] == 1
+    assert body["documents"][0]["doc_id"] == "139264"
+    assert body["documents"][0]["links"]["vbpl"].startswith("https://vbpl.vn/")
+    assert body["documents"][0]["links"]["tvpl"] is None
+
+
+def test_tra_cuu_response_chap_nhan_payload_cache_cu_khong_co_k_va_documents():
+    """Một dòng `answer_cache` ghi TRƯỚC bản này không có `documents` và
+    citation không có `k` — phải dựng được, không 500 cho tới hết TTL."""
+    from src.api.routes import tra_cuu_response
+
+    payload = {
+        "result_type": "answer", "answer": "x", "warnings": [], "coverage_note": None,
+        "nguon": [],
+        "citations": [{
+            "provision_id": 1, "khop_tai_id": 1, "doc_id": "139264",
+            "duong_dan": "45/2019/QH14 > Điều 1", "bo_luat": "B", "so_ky_hieu": "45/2019/QH14",
+            "quote": "q",
+        }],
+    }
+    r = tra_cuu_response(payload, "trace", "full")
+    assert r.documents == []
+    assert r.citations[0].k is None

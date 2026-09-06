@@ -75,6 +75,10 @@ class CitationOut(BaseModel):
     quote: str
     hieu_luc: str | None = None
     tin_cay: str | None = None
+    # Số thứ tự căn cứ trong văn xuôi (thẻ `cite:K`, spec 2026-09-06 §3). None =
+    # trích dẫn nằm trong vết kiểm toán nhưng KHÔNG được dùng để hành văn (bị
+    # phép kiểm thứ bảy lọc) — hoặc payload cache ghi trước khi trường này có.
+    k: int | None = None
 
 
 class NguonOut(BaseModel):
@@ -90,6 +94,29 @@ class NguonOut(BaseModel):
     doc_id: str
     so_ky_hieu: str
     bo_luat: str
+
+
+class LinkVanBanOut(BaseModel):
+    """Ba cổng luật, mỗi cột NULL khi chưa có link đã kiểm (migration 019).
+    Mô hình không bao giờ thấy các URL này — backend điền từ `documents`."""
+
+    vbpl: str | None = None
+    chinhphu: str | None = None
+    tvpl: str | None = None
+
+
+class DocumentOut(BaseModel):
+    """Văn bản được dùng để hành văn — đúng tập mô hình được phép đặt thẻ `doc`.
+
+    KHÔNG mang `ngay_ban_hanh`/`ngay_hieu_luc` (quyết định Q2, spec §2): nhãn
+    hiệu lực cạnh trích dẫn là nơi duy nhất nói về hiệu lực.
+    """
+
+    doc_id: str
+    ten: str
+    so_ky_hieu: str
+    loai_van_ban: str
+    links: LinkVanBanOut = LinkVanBanOut()
 
 
 class Bang(BaseModel):
@@ -147,6 +174,9 @@ class TraCuuResponse(BaseModel):
     # TRƯỚC field này tồn tại (payload không có khoá `bang` — cùng lý do với
     # `cau_hoi_day_du` ngay dưới).
     bang: list[Bang] = []
+    # Văn bản mô hình được phép gắn thẻ `doc:ID` + link cổng luật từ DB. Mặc
+    # định `[]` cùng lý do `bang`: payload cache cũ không có khoá này.
+    documents: list[DocumentOut] = []
     # Câu hỏi sau khi giải nghĩa tham chiếu từ `lich_su`. `None` ở lượt đầu và
     # khi không giải nghĩa được. Giao diện ghi một dòng "Mình hiểu câu hỏi của
     # bạn là: …" CHỈ khi nó khác câu người dùng gõ.

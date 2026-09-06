@@ -117,6 +117,8 @@ def _payload_cache(st: dict, rt: str) -> dict:
         # `model_dump()`), nên `json.dumps` ở `cache_tra_loi.ghi_cache` tuần
         # tự hoá được thẳng, không cần bước chuyển nào ở đây.
         "bang": st.get("bang") or [],
+        # `documents` (spec 2026-09-06) — list[dict] thuần, cùng khuôn `bang`.
+        "documents": st.get("documents") or [],
     }
 
 
@@ -381,6 +383,8 @@ def tra_cuu_response(payload: dict, trace_id: str, config_name: str) -> TraCuuRe
         # khoá `bang`. Pydantic tự dựng lại `list[Bang]` từ list[dict] này
         # (cùng cách `citations=payload["citations"]` dựng `list[CitationOut]`).
         bang=payload.get("bang") or [],
+        # Cùng lý do `bang`: dòng cache ghi trước 2026-09-06 không có khoá này.
+        documents=payload.get("documents") or [],
         trace_id=trace_id, config_name=config_name,
     )
 

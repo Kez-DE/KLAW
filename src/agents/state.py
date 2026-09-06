@@ -66,3 +66,10 @@ class KLawState(TypedDict, total=False):
     # khi tới `_payload_cache` (ĐO ĐƯỢC: test graph-thật báo `KeyError: 'bang'`
     # ở `st["bang"]` dù `assemble()` gọi riêng đã trả đúng khoá).
     bang: list[dict]
+    # Spec 2026-09-06 §3.2 — `list[DocumentOut]` đã `model_dump`. Cùng bẫy với
+    # `bang`/`nguon` ngay trên: KHÔNG khai ở đây thì LangGraph loại khoá này khỏi
+    # state trả về và `documents[]` rỗng câm trong production.
+    documents: list[dict]
+    # `rewrite_query.v2` đoán lĩnh vực (`lao_dong`, `dan_su`…). Dùng để cộng
+    # điểm mềm sau RRF (`retrieval.cong_diem_linh_vuc`), không loại gì.
+    linh_vuc_du_doan: str | None
