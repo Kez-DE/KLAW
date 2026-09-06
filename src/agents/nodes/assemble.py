@@ -52,6 +52,7 @@ from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.kho import hien_van_ban
 from src.services.llm import Usage
+from src.services.prompts import messages
 
 logger = logging.getLogger(__name__)
 
@@ -691,7 +692,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     usage: Usage | None = None
     degraded = False
     try:
-        raw, usage = llm.chat(model, [{"role": "user", "content": prompt}], json_schema=ANSWER_SCHEMA)
+        raw, usage = llm.chat(model, messages(prompt), json_schema=ANSWER_SCHEMA)
         answer = json.loads(raw)["answer"]
     except Exception as e:
         # Suy biến AN TOÀN, không phải lỗi im lặng: nội dung fallback là chính

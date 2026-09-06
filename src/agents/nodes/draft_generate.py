@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.agents.nodes.generate_claims import build_context
+from src.services.prompts import messages
 
 PROMPT_PATH = Path("prompts/draft_generate.v1.md")
 
@@ -42,7 +43,7 @@ def draft_generate(state: dict, llm, model: str) -> dict:
         muc=json.dumps([m["key"] for m in state["muc"]], ensure_ascii=False),
         context=build_context(state.get("expanded") or []),
     )
-    raw, usage = llm.chat(model, [{"role": "user", "content": prompt}], json_schema=CLAUSES_SCHEMA)
+    raw, usage = llm.chat(model, messages(prompt), json_schema=CLAUSES_SCHEMA)
     try:
         clauses = [DraftClause(**c) for c in json.loads(raw).get("clauses", [])]
         schema_error = False

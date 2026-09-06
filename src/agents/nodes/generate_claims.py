@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.services.effectivity import EffectivityVerdict
+from src.services.prompts import messages
 
 PROMPT_PATH = Path("prompts/generate_claims.v1.md")
 
@@ -144,7 +145,7 @@ def generate_claims(state: dict, llm, model: str) -> dict:
         }
 
     prompt = PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi=state["query"], context=build_context(expanded))
-    raw, usage = llm.chat(model, [{"role": "user", "content": prompt}], json_schema=CLAIMS_SCHEMA)
+    raw, usage = llm.chat(model, messages(prompt), json_schema=CLAIMS_SCHEMA)
     try:
         data = json.loads(raw)
         claims = [Claim(**c) for c in data.get("claims", [])]

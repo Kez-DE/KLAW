@@ -337,7 +337,7 @@ def test_mix_con_hieu_luc_va_bi_thay_the_prose_chi_dung_con_hieu_luc():
         cau_hoi_gui = ""
 
         def chat(self, model, messages, json_schema=None):
-            Ghi.cau_hoi_gui = messages[0]["content"]
+            Ghi.cau_hoi_gui = messages[-1]["content"]
             from src.services.llm import Usage
             return json.dumps({"answer": "NOI DUNG CON HIEU LUC."}), Usage(1, 1, 0.0)
 

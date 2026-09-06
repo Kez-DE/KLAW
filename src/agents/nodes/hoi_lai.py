@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from src.services.llm import Usage
+from src.services.prompts import messages
 
 logger = logging.getLogger(__name__)
 
@@ -229,8 +230,7 @@ def hoi_lai(cau_hoi: str, llm, model: str) -> KetQuaHoiLai:
     )
     usage: Usage | None = None
     try:
-        raw, usage = llm.chat(model, [{"role": "user", "content": prompt}],
-                              json_schema=HOI_LAI_SCHEMA)
+        raw, usage = llm.chat(model, messages(prompt), json_schema=HOI_LAI_SCHEMA)
         chon = json.loads(raw)["chieu"]
         if not isinstance(chon, list):
             raise TypeError(f"'chieu' phải là list, được {type(chon).__name__}")
