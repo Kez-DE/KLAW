@@ -829,6 +829,29 @@ def test_soan_thao_loai_la_thanh_khong_ho_tro_va_neu_gan_nhat():
     assert "đơn xin nghỉ việc" in st["answer"]
 
 
+def test_soan_thao_loai_la_va_khong_co_thay_the_thi_moi_mo_ta_ro_hon():
+    from src.agents.nodes.assemble import GAN_NHAT_KHONG
+
+    class Never(FakeLlm):
+        def chat(self, *a, **k):
+            raise AssertionError("nhánh soan_thao không gọi LLM")
+
+    st = assemble(
+        {
+            "intent": "soan_thao",
+            "query": "x",
+            "soan_thao_goi_y": {"loai": "loai_khong_co", "ly_do": "y", "thay_the": []},
+        },
+        {},
+        Never(),
+        "m",
+    )
+    assert st["result_type"] is ResultType.huong_dan_soan_thao
+    gy = st["soan_thao_goi_y"]
+    assert gy["loai"] is None and gy["ho_tro"] is False and gy["thay_the"] == []
+    assert GAN_NHAT_KHONG in st["answer"]
+
+
 def test_soan_thao_khong_goi_y_giu_huong_dan_cu():
     from src.agents.nodes.assemble import HUONG_DAN_SOAN_THAO
 
