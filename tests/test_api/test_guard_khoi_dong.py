@@ -42,6 +42,7 @@ def bo_qua_can_cu(monkeypatch):
     """
     import src.main as main
 
+    monkeypatch.setattr(main.db_svc, "run_migrations", lambda *a, **kw: [])
     monkeypatch.setattr(main.soan_thao_graph, "requirements", lambda loai: ([], [], []))
     monkeypatch.setattr(main.rules_svc, "kiem_tra_can_cu_ton_tai", lambda *a: None)
     monkeypatch.setattr(main.checklist_svc, "kiem_tra_can_cu_ton_tai", lambda *a: None)
@@ -75,3 +76,20 @@ async def test_development_van_mo_toang_duoc(cai_dat, bo_qua_can_cu):
     cai_dat(app_env="development", api_key="", supabase_url="")
     async with lifespan(app):
         pass
+
+
+async def test_lifespan_ap_migration_019_truoc_khi_kiem_can_cu(cai_dat, bo_qua_can_cu, monkeypatch):
+    """Migration 019 (`link_vbpl`/`link_chinhphu`/`link_tvpl`) phải chạy ở
+    lifespan: `graph_tra_cuu.py` SELECT ba cột này VÔ ĐIỀU KIỆN trên đường
+    nóng của mọi câu trả lời có trích dẫn, và trước bản vá này không caller
+    nào trong `src/` gọi `run_migrations` — một DB chưa áp 019 làm mọi lượt
+    `/tra-cuu` có căn cứ nổ `UndefinedColumn` (Important A, final review
+    2026-09-06)."""
+    import src.main as main
+
+    cai_dat(app_env="development", api_key="", supabase_url="")
+    goi: list[str | None] = []
+    monkeypatch.setattr(main.db_svc, "run_migrations", lambda chi=None: goi.append(chi) or [])
+    async with lifespan(app):
+        pass
+    assert goi == ["019"]

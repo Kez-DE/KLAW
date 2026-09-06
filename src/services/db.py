@@ -37,7 +37,9 @@ def run_migrations(chi: str | None = None) -> list[str]:
     """Chạy mọi file migrations/*.sql theo thứ tự tên. Idempotent nhờ IF NOT EXISTS.
 
     `chi` — chỉ chạy file có tên bắt đầu bằng tiền tố này (vd `"014"`). Mặc định
-    `None` = chạy hết, đúng hành vi cũ; đây là đường khởi động của ứng dụng.
+    `None` = chạy hết. `src/main.py` lifespan gọi `run_migrations("019")` lúc
+    khởi động (migration duy nhất một cột SELECT vô điều kiện phụ thuộc); mọi
+    migration khác vẫn chỉ do `scripts/*.py` gọi.
 
     Vì sao cần lọc: mọi file chạy trong MỘT transaction, nên một migration-cổng
     đang đỏ (loại `RAISE EXCEPTION` khi corpus vi phạm bất biến) làm rollback cả

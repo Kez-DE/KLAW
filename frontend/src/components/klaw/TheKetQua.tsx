@@ -178,7 +178,11 @@ function KhoiLienKet({ documents }: { documents: VanBanTraLoi[] }) {
   const dong = documents.flatMap((d) =>
     NHAN_CONG.flatMap(([khoa, nhan]) => {
       const url = d.links[khoa];
-      return url ? [{ key: `${d.doc_id}-${khoa}`, url, ten: d.ten, nhan }] : [];
+      // Phòng thủ chiều sâu cho một <a target="_blank">: chỉ render nếu url
+      // đúng là chuỗi https, dù DB/loader đã đảm bảo điều đó ở tầng trước.
+      return typeof url === "string" && url.startsWith("https://")
+        ? [{ key: `${d.doc_id}-${khoa}`, url, ten: d.ten, nhan }]
+        : [];
     }),
   );
   if (dong.length === 0) return null;
@@ -198,6 +202,7 @@ function KhoiLienKet({ documents }: { documents: VanBanTraLoi[] }) {
               className="focus-brass rounded underline underline-offset-2"
             >
               Toàn văn {d.ten} — {d.nhan}
+              <span className="sr-only"> (mở tab mới)</span>
             </a>
           </li>
         ))}

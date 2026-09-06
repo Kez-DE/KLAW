@@ -15,6 +15,7 @@ from src.api.routes_tim_kiem import router as router_tim_kiem
 from src.api.routes_van_ban import router as router_van_ban
 from src.config import get_settings
 from src.services import checklist as checklist_svc
+from src.services import db as db_svc
 from src.services import rules as rules_svc
 
 
@@ -41,6 +42,14 @@ async def lifespan(app: FastAPI):
             "tiêu tiền (/tra-cuu, /tra-cuu/luong, /soan-thao) sẽ mở công khai và hạn "
             "mức tháng không trừ được của ai. Đặt ít nhất một trong hai rồi khởi động lại."
         )
+    # Migration 019 (link_vbpl/link_chinhphu/link_tvpl) PHẢI áp trước khi
+    # `graph_tra_cuu.py` SELECT ba cột này — SELECT đó vô điều kiện, trên đường
+    # nóng của MỌI câu trả lời có trích dẫn (Important A, final review
+    # 2026-09-06): một DB chưa áp 019 làm `_db_provisions` nổ
+    # `UndefinedColumn`, tức HTTP 500 cho mọi answer có căn cứ. File .sql dùng
+    # `ADD COLUMN IF NOT EXISTS` nên idempotent — an toàn chạy lại mỗi lần
+    # khởi động, cùng khuôn fail-fast với hai guard bên dưới.
+    db_svc.run_migrations("019")
     # Task 5, ràng buộc #2: kiểm can_cu LÚC KHỞI ĐỘNG, không phải lúc người
     # dùng gọi /soan-thao hay /soat. Một can_cu chết (rule hoặc mục checklist
     # trích dẫn điều luật không tồn tại) phải làm app fail nhanh ngay đây —

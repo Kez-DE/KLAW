@@ -197,6 +197,8 @@ class Citation(TypedDict):
     quote: str
     hieu_luc: str | None
     tin_cay: str | None
+    # Số thứ tự căn cứ trong văn xuôi (thẻ `cite:K`) — khớp `schemas.CitationOut.k`.
+    k: int | None
 
 
 def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: bool = False, **kw: object) -> dict:
