@@ -61,7 +61,10 @@ function Luot({
           {cauHoi}
         </p>
       </div>
-      <div className="mt-4">{children}</div>
+      {/* Card cho MỌI câu trả lời (spec soạn-thảo-trong-chat §5.1): bọc ở đây
+          nên TheKetQua, TrangThaiCho, BaoLoi cùng hưởng; --card và shadow-soft
+          đã đo tương phản trong DESIGN.md. */}
+      <div className="mt-4 rounded-xl border border-border bg-card p-5 shadow-soft">{children}</div>
     </div>
   );
 }
