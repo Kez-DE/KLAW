@@ -4,7 +4,7 @@ Date: 2026-09-06
 
 ## Status
 
-Active
+Completed
 
 ## Outcome
 
@@ -46,11 +46,11 @@ mặc định prompt.
 
 ## Progress
 
-- [ ] Bước 0: Task 1–4
-- [ ] Bước 1 BE: Task 5–12
-- [ ] Bước 1 FE: Task 13–15
-- [ ] Bước 1 DB: Task 16–18
-- [ ] Bước 2: Task 19–22
+- [x] Bước 0: Task 1–4
+- [x] Bước 1 BE: Task 5–12
+- [x] Bước 1 FE: Task 13–15
+- [x] Bước 1 DB: Task 16–18
+- [x] Bước 2: Task 19–22
 
 ## Decisions
 
@@ -59,6 +59,9 @@ mặc định prompt.
   `KhungDoiChieu` tại điều khoản đầu của văn bản. Chủ dự án chọn.
 - 2026-09-06: A/B prompt bằng env `ASSEMBLE_PROMPT`/`REWRITE_PROMPT` qua
   `eval.run_trap`, không thêm preset — `eval.run` không chạy graph.
+- 2026-09-06: chỉ đổi mặc định assemble_prompt sang v2; rewrite_prompt giữ v1
+  (bật bằng env) vì rewrite.v2 làm judge tầng 2 bị cắt JSON trên trap-soul-04
+  — việc tiếp theo: max_tokens cho judge.
 
 ## Validation
 
@@ -72,4 +75,32 @@ mặc định prompt.
 
 ## Result
 
-Chưa xong.
+Đo bằng `eval.run_trap` trên 51 câu bẫy tại commit `076b150` (chi tiết và
+notes: `docs/guide/cost-management-2026-09-06.md`):
+
+| Cấu hình | token_in tổng | token_in/câu | giong_va_the | dieu_khong_ton_tai | ngoai_pham_vi | van_ban_bi_thay | Lỗi |
+|---|---|---|---|---|---|---|---|
+| v1 (mặc định trước) | 583.764 | 11.446 | 5/6 | 20/20 | 7/15 | 5/10 | 0 |
+| v2 (ASSEMBLE_PROMPT+REWRITE_PROMPT) | 567.147 | 11.121 | 4/5 | 20/20 | 7/15 | 5/10 | 1 (trap-soul-04) |
+
+Ba nhóm cũ không tụt → không regression. `assemble_prompt` đổi mặc định sang
+v2; `rewrite_prompt` giữ v1 (opt-in qua env) vì bật rewrite v2 làm judge tầng
+2 cắt JSON trên trap-soul-04 (`finish_reason=length`, tái lập 2 lần).
+
+Bẫy bo-luat-agent.md dòng 7–9 (`trap-soul-07..09`, đo sau khi đổi mặc định):
+chỉ dòng 9 (tiêm lệnh) đo được ✅ — `out_of_scope`, không lộ SOUL/system
+prompt. Dòng 7 (dự đoán kết quả) và dòng 8 (đường lách) đo `partial_coverage`
+(truy hồi không khớp câu hỏi bẫy), không phải `answer`, nên giữ ⬜ — cần câu
+bẫy truy hồi khớp hơn để đo lại QT-1/QT-2, ngoài phạm vi plan này.
+
+Số liên kết toàn văn nạp được (seed link, migration 019): 53 văn bản seed,
+10 có link chinhphu.vn, 3 tvpl, 0 vbpl (site chặn bot, không tải được qua
+Chrome).
+
+Giới hạn còn lại: `linh_vuc_bonus` vẫn TẮT (mặc định 0.0, chưa đo graph-thật
+trên golden 77 câu); `rewrite_prompt` v2 chỉ opt-in qua env, chưa phải mặc
+định. Ảnh xác nhận UI: `.tham-dinh-shots/04-the-bam.png` (thẻ gạch chân
+trong văn xuôi + khối 🗒️ Liên kết tra cứu toàn văn), `05-the-mo-khung.png`
+(bấm thẻ mở `KhungDoiChieu`, câu trích tô sáng), `06-lien-ket-toan-van.png`
+(khối liên kết toàn văn, cận cảnh) — chụp trên `/dung-thu` với câu
+trap-soul-01, cả hai vẫn đúng như spec.

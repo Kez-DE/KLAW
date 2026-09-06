@@ -117,6 +117,6 @@ def test_prompt_path_va_linh_vuc_bonus_co_mac_dinh_an_toan():
     from src.config import Settings
 
     s = Settings(_env_file=None)
-    assert s.assemble_prompt == "prompts/assemble.v1.md"
+    assert s.assemble_prompt == "prompts/assemble.v2.md"
     assert s.rewrite_prompt == "prompts/rewrite_query.v1.md"
     assert s.linh_vuc_bonus == 0.0, "cộng điểm lĩnh vực phải TẮT mặc định cho tới khi đo được"
