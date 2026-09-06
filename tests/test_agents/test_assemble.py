@@ -782,3 +782,79 @@ def test_so_ky_hieu_va_so_tien_khong_bi_coi_la_url():
     from src.agents.nodes.assemble import _RE_URL
     for s in ("45/2019/QH14", "10/2020/TT-BLĐTBXH", "4.420.000 đồng/tháng", "Điều 5. Phạm vi"):
         assert not _RE_URL.search(s), s
+
+
+def test_soan_thao_co_goi_y_dung_ten_tu_checklist_va_loc_thay_the():
+    class Never(FakeLlm):
+        def chat(self, *a, **k):
+            raise AssertionError("nhánh soan_thao không gọi LLM")
+
+    st = assemble(
+        {
+            "intent": "soan_thao",
+            "query": "soạn cho tôi hợp đồng nghỉ việc",
+            "soan_thao_goi_y": {
+                "loai": "don_xin_nghi_viec",
+                "ly_do": "bạn là người lao động muốn nghỉ",
+                "thay_the": ["thoa_thuan_cham_dut_hdld", "loai_khong_co", "don_xin_nghi_viec"],
+            },
+        },
+        {},
+        Never(),
+        "m",
+    )
+    assert st["result_type"] is ResultType.huong_dan_soan_thao
+    gy = st["soan_thao_goi_y"]
+    assert gy["loai"] == "don_xin_nghi_viec" and gy["ten"] == "đơn xin nghỉ việc" and gy["ho_tro"] is True
+    assert [t["loai"] for t in gy["thay_the"]] == ["thoa_thuan_cham_dut_hdld"]
+    assert st["answer"].startswith("Tôi hiểu bạn cần đơn xin nghỉ việc: bạn là người lao động muốn nghỉ")
+    assert "khung bên cạnh" in st["answer"]
+    assert st["traces"]["assemble_token_in"] == 0
+
+
+def test_soan_thao_loai_la_thanh_khong_ho_tro_va_neu_gan_nhat():
+    st = assemble(
+        {
+            "intent": "soan_thao",
+            "query": "x",
+            "soan_thao_goi_y": {"loai": "loai_khong_co", "ly_do": "", "thay_the": ["don_xin_nghi_viec"]},
+        },
+        {},
+        FakeLlm(),
+        "m",
+    )
+    gy = st["soan_thao_goi_y"]
+    assert gy["loai"] is None and gy["ho_tro"] is False
+    assert st["answer"].startswith("Kho mẫu của tôi chưa có loại văn bản này.")
+    assert "đơn xin nghỉ việc" in st["answer"]
+
+
+def test_soan_thao_loai_la_va_khong_co_thay_the_thi_moi_mo_ta_ro_hon():
+    from src.agents.nodes.assemble import GAN_NHAT_KHONG
+
+    class Never(FakeLlm):
+        def chat(self, *a, **k):
+            raise AssertionError("nhánh soan_thao không gọi LLM")
+
+    st = assemble(
+        {
+            "intent": "soan_thao",
+            "query": "x",
+            "soan_thao_goi_y": {"loai": "loai_khong_co", "ly_do": "y", "thay_the": []},
+        },
+        {},
+        Never(),
+        "m",
+    )
+    assert st["result_type"] is ResultType.huong_dan_soan_thao
+    gy = st["soan_thao_goi_y"]
+    assert gy["loai"] is None and gy["ho_tro"] is False and gy["thay_the"] == []
+    assert GAN_NHAT_KHONG in st["answer"]
+
+
+def test_soan_thao_khong_goi_y_giu_huong_dan_cu():
+    from src.agents.nodes.assemble import HUONG_DAN_SOAN_THAO
+
+    st = assemble({"intent": "soan_thao", "query": "x"}, {}, FakeLlm(), "m")
+    assert st["answer"] == HUONG_DAN_SOAN_THAO and st["soan_thao_goi_y"] is None
+    assert "Chọn loại văn bản" in HUONG_DAN_SOAN_THAO

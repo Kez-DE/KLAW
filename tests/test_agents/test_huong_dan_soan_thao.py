@@ -33,7 +33,7 @@ def test_noi_duoc_viec_nay_soan_duoc_va_chi_duong():
                   {}, None, "")
     ans = (st["answer"] or "").lower()
     assert ans, "phải CÓ câu trả lời, không để rỗng như abstain"
-    assert "soạn thảo" in ans, "phải chỉ đường sang màn soạn thảo"
+    assert "chọn loại văn bản" in ans, "phải chỉ đường sang màn soạn thảo"
     # Nói VÌ SAO cần biểu mẫu. Thiếu câu này thì việc chuyển hướng đọc như một
     # lời từ chối có trang trí.
     assert any(t in ans for t in ("biểu mẫu", "dữ kiện")), "phải nói vì sao cần biểu mẫu"

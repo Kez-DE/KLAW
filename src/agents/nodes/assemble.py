@@ -46,6 +46,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TypedDict
 
+from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.agents.nodes.gioi_thieu import cau_gioi_thieu
 from src.agents.nodes.hoi_lai import hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
@@ -508,10 +509,56 @@ HUONG_DAN_SOAN_THAO = (
     "công việc. Một câu văn xuôi không cho tôi đủ, và tôi không muốn dựng cho bạn "
     "một văn bản mà chính tôi không chứng minh được nó dựa vào đâu.\n"
     "\n"
-    "Bạn mở màn Soạn thảo, chọn loại văn bản rồi điền biểu mẫu. Tôi dựng bản thảo "
+    "Bạn bấm Chọn loại văn bản bên dưới rồi điền biểu mẫu. Tôi dựng bản thảo "
     "kèm căn cứ cho từng điều khoản, đối chiếu lại nó với luật trong kho, rồi bạn "
     "tải về .docx hoặc .pdf."
 )
+
+
+# Spec soạn-thảo-trong-chat §4.2 — lời đáp khi router (v2) đã đoán được loại.
+# Không nêu số Điều ở đây: căn cứ nằm trong từng mục của checklist, hiện ở khung
+# soạn thảo, không phải trong câu mời.
+GOI_Y_SOAN_THAO = (
+    "Tôi hiểu bạn cần {ten}: {ly_do}\n"
+    "\n"
+    "Bạn điền dữ kiện ở khung bên cạnh, tôi dựng bản thảo kèm căn cứ cho từng mục, "
+    "soát lại theo luật trong kho, rồi bạn tải .docx hoặc .pdf ngay tại đây."
+)
+GOI_Y_SOAN_THAO_CHUA_CO = "Kho mẫu của tôi chưa có loại văn bản này. {gan_nhat}"
+GAN_NHAT_CO = "Gần nhất là {ten_thay_the} — bạn chọn một loại để tôi mở biểu mẫu."
+GAN_NHAT_KHONG = (
+    "Bạn mô tả rõ hơn văn bản cần soạn — ai lập, gửi cho ai, về việc gì — hoặc bấm Chọn loại văn bản bên dưới."
+)
+LY_DO_MAC_DINH = "đây là loại văn bản khớp với điều bạn mô tả."
+
+
+def _ten_loai(loai: str) -> str:
+    return load_checklist_cached(loai).ten
+
+
+def _goi_y_soan_thao(tho: dict | None) -> tuple[dict | None, str]:
+    """Kiểm 0 token gợi ý của router rồi dựng `soan_thao_goi_y` + `answer`.
+    `loai` phải là checklist THẬT trên đĩa; `thay_the` lọc còn loại thật, khác
+    `loai`, tối đa hai. Không có gợi ý (route v1) → lời hướng dẫn cũ."""
+    if tho is None:
+        return None, HUONG_DAN_SOAN_THAO
+    co = cac_loai()
+    loai = tho.get("loai") if tho.get("loai") in co else None
+    thay_the = [
+        {"loai": t, "ten": _ten_loai(t)} for t in dict.fromkeys(tho.get("thay_the") or []) if t in co and t != loai
+    ][:2]
+    ly_do = " ".join(str(tho.get("ly_do") or "").split())[:300]
+    if loai is None:
+        gan = GAN_NHAT_CO.format(ten_thay_the=" hoặc ".join(t["ten"] for t in thay_the)) if thay_the else GAN_NHAT_KHONG
+        return (
+            {"loai": None, "ten": None, "ly_do": ly_do, "thay_the": thay_the, "ho_tro": False},
+            GOI_Y_SOAN_THAO_CHUA_CO.format(gan_nhat=gan),
+        )
+    ten = _ten_loai(loai)
+    return (
+        {"loai": loai, "ten": ten, "ly_do": ly_do, "thay_the": thay_the, "ho_tro": True},
+        GOI_Y_SOAN_THAO.format(ten=ten, ly_do=ly_do or LY_DO_MAC_DINH),
+    )
 
 
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, prompt_path: Path | None = None) -> dict:
@@ -520,7 +567,8 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         # nên KHÔNG có truy hồi, không sinh luận điểm, không hai tầng kiểm.
         # Chú thích "0 token" chỉ đúng khi đường rẽ đó còn — nếu ai gỡ nó, khâu
         # này vẫn không gọi LLM nhưng cả graph phía trước thì có.
-        return _base(state, ResultType.huong_dan_soan_thao, answer=HUONG_DAN_SOAN_THAO)
+        goi_y, answer = _goi_y_soan_thao(state.get("soan_thao_goi_y"))
+        return _base(state, ResultType.huong_dan_soan_thao, answer=answer, soan_thao_goi_y=goi_y)
 
     if state.get("intent") == "gioi_thieu":
         # Xem chú thích ở nhánh `soan_thao` ngay trên: rẻ được là nhờ đường rẽ

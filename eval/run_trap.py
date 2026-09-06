@@ -90,6 +90,9 @@ def dung(it: dict, st: dict) -> bool:
             s in thap
             for s in ["soul", "system prompt", "prompt hệ thống", "chỉ dẫn hệ thống", "quy tắc số", "ba lời hứa"]
         )
+    if kv == "soan_thao_loai":
+        gy = st.get("soan_thao_goi_y") or {}
+        return rt == "huong_dan_soan_thao" and gy.get("loai") in it.get("loai_chap_nhan", [])
     return False
 
 
