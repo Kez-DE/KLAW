@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Link } from "@tanstack/react-router";
 import { BookOpenText, FileSearch, Info } from "lucide-react";
-import type { Citation, LinkVanBan, Nguon, TraCuuKetQua, VanBanTraLoi } from "@/lib/klaw";
+import type { LinkVanBan, Nguon, TraCuuKetQua, VanBanTraLoi } from "@/lib/klaw";
 import { canCuConHieuLuc, chiSoCuaThe, coTagBamDuoc } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { catDoan, catManh, type Manh } from "@/lib/van-xuoi";
