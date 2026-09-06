@@ -99,6 +99,18 @@ export const MAU: MauVanBan[] = [
     canCu: [BLLD],
   },
   {
+    // Mặt thứ ba của chấm dứt HĐLĐ: NLĐ đơn phương (Đ35, đơn xin nghỉ việc),
+    // NSDLĐ đơn phương (Đ34/Đ36, quyết định chấm dứt) — và đây là HAI BÊN cùng
+    // thoả thuận (Đ34.3). Backend `thoa_thuan_cham_dut_hdld`, checklist riêng.
+    id: "thoa-thuan-cham-dut-hop-dong-lao-dong",
+    ten: "Thoả thuận chấm dứt hợp đồng lao động",
+    moTa: "Hai bên cùng thoả thuận chấm dứt hợp đồng lao động: thời điểm, các khoản thanh toán, giấy tờ.",
+    soTruong: 8,
+    nhom: "lao-dong",
+    kyHieu: "TTCD",
+    canCu: [BLLD],
+  },
+  {
     // KHÔNG phải `quy-che-noi-bo`. Quy chế nội bộ (nghĩa chung, soát THỂ THỨC
     // theo NĐ 30/2020) và quy chế dân chủ ở cơ sở là HAI văn bản khác nhau:
     // cái sau có nội dung bắt buộc riêng trong NĐ 145/2020 Đ37.2 điểm a–g và
@@ -424,6 +436,7 @@ export const LOAI_BACKEND: Record<string, NoiBackend> = {
   // LAO ĐỘNG (Đ34/Đ36/Đ45/Đ46/Đ48), còn đây là đơn của NGƯỜI LAO ĐỘNG (Đ35) —
   // hai bộ điều kiện khác nhau của cùng một chương.
   "don-xin-nghi-viec": { loai: "don_xin_nghi_viec", phamVi: "noi_dung" },
+  "thoa-thuan-cham-dut-hop-dong-lao-dong": { loai: "thoa_thuan_cham_dut_hdld", phamVi: "noi_dung" },
 };
 
 /**
@@ -471,7 +484,8 @@ export type LoaiVanBanBackend =
   | "ban_tu_khai"
   | "van_ban_giai_trinh"
   | "quy_che_dan_chu"
-  | "don_xin_nghi_viec";
+  | "don_xin_nghi_viec"
+  | "thoa_thuan_cham_dut_hdld";
 
 /** `undefined` = KLAW chưa có kiểu nào cho mẫu này, nên chưa soát được. */
 export const loaiBackendCua = (id: string): LoaiVanBanBackend | undefined => LOAI_BACKEND[id]?.loai;

@@ -327,6 +327,7 @@ LoaiVanBan = Literal[
     "quy_che_noi_bo",
     "quyet_dinh_ky_luat",
     "thoa_thuan_bao_mat",
+    "thoa_thuan_cham_dut_hdld",
     "van_ban_giai_trinh",
 ]
 
