@@ -9,6 +9,7 @@ import { KhungDoiChieu, useHaiCot } from "@/components/klaw/KhungDoiChieu";
 import { TheDangNhap } from "@/components/klaw/TheDangNhap";
 import { TheKetQua } from "@/components/klaw/TheKetQua";
 import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
+import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
 import { useAuth } from "@/hooks/use-auth";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { useTraCuu } from "@/hooks/use-tra-cuu";
@@ -85,6 +86,13 @@ function ManHoiKlaw() {
   const [panelMo, datPanelMo] = useState(true);
   /** Trích dẫn đang mở, định danh theo `trace_id` của thẻ + chỉ số trong thẻ. */
   const [dangMo, datDangMo] = useState<{ trace: string; chiSo: number } | null>(null);
+  /** Khung soạn thảo bên phải; loại trừ với khung đối chiếu — một khung một lúc. */
+  const [soanThao, datSoanThao] = useState<{ slug: string | null } | null>(null);
+  const moSoanThao = (slug: string | null) => {
+    datDangMo(null);
+    doiChieu.dong();
+    datSoanThao({ slug });
+  };
 
   const oHoi = useRef<HTMLTextAreaElement | null>(null);
   const cuoi = useRef<HTMLDivElement | null>(null);
@@ -166,6 +174,7 @@ function ManHoiKlaw() {
       return;
     }
     datDangMo({ trace: ketQua.trace_id, chiSo });
+    datSoanThao(null);
     doiChieu.mo({
       docId: trichDan.doc_id,
       // `khop_tai_id`, KHÔNG `provision_id`: hai id khác nhau ở 73,6% số Điều.
@@ -193,7 +202,13 @@ function ManHoiKlaw() {
             cột hội thoại là CON của <main> nên chỉ trang này gỡ được nó — nếu
             không, Tab vài lần là tiêu điểm đi vào một chip trích dẫn nằm khuất
             sau lớp phủ đặc, và Enter ở đó thay cả nội dung khung. */}
-        <div inert={doiChieu.dang !== null && !haiCot} className="flex min-w-0 flex-1 flex-col">
+        <div
+          inert={(doiChieu.dang !== null || soanThao !== null) && !haiCot}
+          className={cn(
+            "flex min-w-0 flex-1 flex-col",
+            soanThao !== null && haiCot && "max-w-[440px]",
+          )}
+        >
           <div className="mx-auto flex w-full max-w-[860px] flex-1 flex-col px-4">
             {/* Tiêu đề cấp 1 BỀN, không nhìn thấy. Tiêu đề duy nhất của màn này
                 nằm trong trạng thái rỗng ngay dưới và biến mất sau câu hỏi đầu
@@ -217,6 +232,7 @@ function ManHoiKlaw() {
                         cauHoiGoc={luot.cauHoi}
                         chiSoDangMo={chiSoDangMoCua(luot.ketQua)}
                         onChonTrichDan={(chiSo) => chonTrichDan(luot.ketQua, chiSo)}
+                        onSoanThao={moSoanThao}
                       />
                     </Luot>
                   ))}
@@ -253,6 +269,7 @@ function ManHoiKlaw() {
                             const kq = traCuu.ketQua;
                             if (kq !== null) chonTrichDan(kq, chiSo);
                           }}
+                          onSoanThao={moSoanThao}
                         />
                       )}
                       {/* Lượt đã dừng mà KHÔNG có kết quả và KHÔNG có lỗi.
@@ -366,9 +383,31 @@ function ManHoiKlaw() {
           </div>
         )}
 
+        {/* Khung soạn thảo (spec soạn-thảo-trong-chat §5.3). Hai cột: chiếm phần
+            còn lại vì màn soạn thảo có hai pane; dưới 68rem: phủ toàn màn như
+            KhungDoiChieu. */}
+        {soanThao !== null && (
+          <div
+            className={cn(
+              haiCot
+                ? "min-w-[640px] flex-1 border-l border-border bg-[var(--color-paper-50)]"
+                : "fixed inset-0 z-50 overflow-y-auto bg-background",
+            )}
+            role={haiCot ? undefined : "dialog"}
+            aria-modal={haiCot ? undefined : true}
+            aria-label="Soạn thảo văn bản"
+          >
+            <KhongGianSoanThao
+              loaiVanBan={soanThao.slug}
+              trongKhung
+              onDong={() => datSoanThao(null)}
+            />
+          </div>
+        )}
+
         {/* Lịch sử phiên. Nhường chỗ cho khung nguyên văn khi khung mở — hai cột
             phụ cạnh nhau đẩy mặt đọc xuống dưới bề rộng đọc được. */}
-        {doiChieu.dang === null && (
+        {doiChieu.dang === null && soanThao === null && (
           <aside
             aria-label="Lịch sử phiên"
             className={cn(
