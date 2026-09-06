@@ -82,6 +82,33 @@ def _dedup_giu_hang_tot_nhat(chunk_ids: list[int], provision_cua: dict[int, int]
     return out
 
 
+def chuan_linh_vuc(s: str | None) -> str:
+    """`rewrite_query.v2` trả mã snake ("lao_dong"); `documents.linh_vuc` là nhãn
+    có dấu từ metadata.parquet ("Lao động"). So bằng cùng một khuôn: bỏ dấu,
+    thường hoá, khoảng trắng/gạch → `_`.
+    # ponytail: so bằng chuẩn hoá chuỗi; nhãn DB dạng "Hôn nhân và gia đình" sẽ
+    # không khớp "hon_nhan_gia_dinh" — thêm bảng ánh xạ khi đo được ca lệch."""
+    if not s:
+        return ""
+    return "_".join(_bo_dau(s).lower().replace("-", " ").split())
+
+
+def cong_diem_linh_vuc(
+    provision_ids: list[int], linh_vuc_cua: dict[int, str | None], linh_vuc: str | None, bonus: float
+) -> list[int]:
+    """Spec 2026-09-06 §6 — sau RRF, KHÔNG loại ai. `provision_ids` chỉ có thứ
+    tự, không có điểm, nên điểm dựng lại từ vị trí: 1/(hạng+1); cộng `bonus`
+    cho provision cùng lĩnh vực; `sorted` ổn định nên bằng điểm giữ thứ tự cũ."""
+    if not linh_vuc or bonus <= 0:
+        return list(provision_ids)
+    muc = chuan_linh_vuc(linh_vuc)
+    diem = {
+        pid: 1.0 / (hang + 1) + (bonus if chuan_linh_vuc(linh_vuc_cua.get(pid)) == muc else 0.0)
+        for hang, pid in enumerate(provision_ids)
+    }
+    return sorted(provision_ids, key=lambda pid: -diem[pid])
+
+
 class Retriever:
     def __init__(self, engine: Engine, embedder: EmbeddingClient, settings: Settings) -> None:
         self.engine = engine
@@ -160,6 +187,20 @@ class Retriever:
             ).all()
         provision_cua = dict(rows)
         return _dedup_giu_hang_tot_nhat(chunk_ids, provision_cua)
+
+    def linh_vuc_cua(self, provision_ids: list[int]) -> dict[int, str | None]:
+        """`provisions.id → documents.linh_vuc` (migration 018) cho tập ứng viên."""
+        if not provision_ids:
+            return {}
+        with self.engine.connect() as c:
+            rows = c.execute(
+                text(
+                    "SELECT p.id, d.linh_vuc FROM provisions p"
+                    " JOIN documents d ON d.id = p.document_id WHERE p.id = ANY(:ids)"
+                ),
+                {"ids": provision_ids},
+            ).all()
+        return dict(rows)
 
     def hybrid_provisions(self, q: str) -> list[int]:
         """Như .hybrid() nhưng trả provisions.id — xem .provision_ids()."""
