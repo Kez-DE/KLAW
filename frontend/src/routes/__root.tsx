@@ -143,7 +143,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             "@type": "Offer",
             price: "0",
             priceCurrency: "VND",
-            description: "Bản dùng thử miễn phí",
+            description: "Gói Miễn phí",
           },
         }),
       },

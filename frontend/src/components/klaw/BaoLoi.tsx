@@ -1,4 +1,5 @@
 import { RotateCcw } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import type { ApiError, ApiErrorKind } from "@/lib/klaw";
 
 /**
@@ -51,7 +52,7 @@ function goiY(kind: ApiErrorKind): string | null {
       // KHÔNG khuyên "kiểm tra lại nội dung đã nhập": nội dung không liên
       // quan gì. Cổng bảo vệ chặn vì thiếu quyền, và người dùng không sửa
       // được điều đó bằng cách viết lại câu hỏi.
-      return "Lượt gọi bị từ chối vì thiếu quyền truy cập, không phải vì câu hỏi. Đăng nhập rồi thử lại; nếu đã đăng nhập thì phiên có thể đã hết hạn.";
+      return "Bạn chưa đăng nhập hoặc phiên đã hết hạn. Đăng nhập rồi hỏi lại — câu hỏi của bạn không có gì sai.";
     case "rate_limited":
       // Ba nguyên nhân cùng mang mã 429 (quá nhịp, hết hạn mức tháng, trần chi
       // phí ngày) và máy chủ đã nói rõ là cái nào trong `message`. Câu ở đây
@@ -85,6 +86,15 @@ export function BaoLoi({ loi, onThuLai }: BaoLoiProps) {
       <p className="doc-prose m-0 text-foreground">{loi.message}</p>
       {them !== null && (
         <p className="mt-2 mb-0 text-[14px] leading-6 text-muted-foreground">{them}</p>
+      )}
+      {loi.kind === "unauthorized" && (
+        <Link
+          to="/dang-nhap"
+          search={{ next: "/dung-thu" }}
+          className="focus-brass mt-3 inline-flex min-h-11 items-center rounded-lg border border-border px-4 text-[15px] font-medium text-primary transition-colors hover:bg-[var(--color-paper-100)]"
+        >
+          Đăng nhập
+        </Link>
       )}
       {loi.status !== undefined && (
         <p className="mt-2 mb-0 font-jetbrains text-[12px] text-muted-foreground">

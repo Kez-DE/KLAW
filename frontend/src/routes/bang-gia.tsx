@@ -4,7 +4,7 @@ import { Check, Minus, ChevronDown } from "lucide-react";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { HanMucThang } from "@/components/klaw/HanMucThang";
 
-type TierId = "ca-nhan" | "doanh-nghiep" | "to-chuc";
+type TierId = "mien-phi" | "ca-nhan" | "doanh-nghiep" | "to-chuc";
 
 const TIERS: {
   id: TierId;
@@ -13,10 +13,21 @@ const TIERS: {
   monthly: number | null;
   annual: number | null;
   popular?: boolean;
+  sapRaMat?: boolean;
   features: string[];
   cta: string;
   ctaTo: string;
 }[] = [
+  {
+    id: "mien-phi",
+    name: "Miễn phí",
+    tagline: "Cho người mới bắt đầu — không cần thẻ",
+    monthly: 0,
+    annual: 0,
+    features: ["Tra cứu không giới hạn", "50 lượt hỏi AI/tháng", "Xuất Word, PDF"],
+    cta: "Tạo tài khoản",
+    ctaTo: "/dang-ky",
+  },
   {
     id: "ca-nhan",
     name: "Cá nhân",
@@ -25,11 +36,12 @@ const TIERS: {
     annual: 399_000,
     features: [
       "Tra cứu không giới hạn",
-      "50 lượt hỏi AI/tháng",
+      "500 lượt hỏi AI/tháng",
       "10 bản thảo/tháng",
       "Xuất Word, PDF",
     ],
-    cta: "Dùng thử miễn phí",
+    cta: "Sắp ra mắt",
+    sapRaMat: true,
     ctaTo: "/dang-ky",
   },
   {
@@ -47,7 +59,8 @@ const TIERS: {
       "Thư viện biểu mẫu của tổ chức",
       "Hỗ trợ ưu tiên",
     ],
-    cta: "Dùng thử miễn phí",
+    cta: "Sắp ra mắt",
+    sapRaMat: true,
     ctaTo: "/dang-ky",
   },
   {
@@ -70,30 +83,30 @@ const TIERS: {
 
 type Row = {
   label: string;
-  values: [string | boolean, string | boolean, string | boolean];
+  values: [string | boolean, string | boolean, string | boolean, string | boolean];
 };
 
 const COMPARISON: Row[] = [
   {
     label: "Tra cứu văn bản pháp luật",
-    values: [true, true, true],
+    values: [true, true, true, true],
   },
   {
     label: "Lượt hỏi AI mỗi tháng",
-    values: ["50", "500", "Không giới hạn"],
+    values: ["50", "500", "500", "Không giới hạn"],
   },
   {
     label: "Bản thảo soạn thảo mỗi tháng",
-    values: ["10", "Không giới hạn", "Không giới hạn"],
+    values: ["Tính vào lượt hỏi AI", "10", "Không giới hạn", "Không giới hạn"],
   },
-  { label: "Xuất Word, PDF", values: [true, true, true] },
-  { label: "Trích dẫn chuẩn tới Điểm, Khoản, Điều", values: [true, true, true] },
-  { label: "Số người dùng", values: ["1", "5", "Không giới hạn"] },
-  { label: "Thư viện biểu mẫu của tổ chức", values: [false, true, true] },
-  { label: "Hỗ trợ", values: ["Chuẩn", "Ưu tiên", "Chuyên trách"] },
-  { label: "Tích hợp hệ thống nội bộ (API)", values: [false, false, true] },
-  { label: "Triển khai riêng", values: [false, false, true] },
-  { label: "Quản trị phân quyền", values: [false, false, true] },
+  { label: "Xuất Word, PDF", values: [true, true, true, true] },
+  { label: "Trích dẫn chuẩn tới Điểm, Khoản, Điều", values: [true, true, true, true] },
+  { label: "Số người dùng", values: ["1", "1", "5", "Không giới hạn"] },
+  { label: "Thư viện biểu mẫu của tổ chức", values: [false, false, true, true] },
+  { label: "Hỗ trợ", values: ["Cộng đồng", "Chuẩn", "Ưu tiên", "Chuyên trách"] },
+  { label: "Tích hợp hệ thống nội bộ (API)", values: [false, false, false, true] },
+  { label: "Triển khai riêng", values: [false, false, false, true] },
+  { label: "Quản trị phân quyền", values: [false, false, false, true] },
 ];
 
 // Bốn câu hỏi thường gặp cũ mô tả một hệ thống thanh toán chưa tồn tại: hình
@@ -105,11 +118,11 @@ const COMPARISON: Row[] = [
 const FAQS: { q: string; a: string }[] = [
   {
     q: "Có đăng ký được ngay không?",
-    a: "Chưa. Bảng giá này là dự kiến. KLAW chưa mở thanh toán: chưa có cổng thanh toán, chưa có hoá đơn, chưa có chính sách huỷ hay hoàn tiền có hiệu lực. Các mức giá dưới đây để tham khảo và có thể thay đổi.",
+    a: "Có tài khoản Miễn phí ngay: bấm Tạo tài khoản, không cần thẻ. Gói trả phí chưa mở thanh toán — chưa có cổng thanh toán, hoá đơn, chính sách huỷ hay hoàn tiền; mức giá chỉ để tham khảo.",
   },
   {
     q: "Hạn mức lượt hỏi tính thế nào?",
-    a: "Chưa tính. Hệ thống hạn mức chưa được dựng ở cả giao diện lẫn máy chủ, nên các con số lượt hỏi trong bảng là dự kiến chứ chưa được thực thi.",
+    a: "Gói Miễn phí có 50 lượt hỏi AI mỗi tháng, đếm ở máy chủ theo tài khoản và đặt lại đầu tháng; soạn một bản thảo cũng tính một lượt. Gói trả phí chưa mở.",
   },
 ];
 
@@ -218,7 +231,7 @@ function BangGiaPage() {
       </section>
 
       {/* Tier cards */}
-      <section className="mx-auto grid max-w-6xl gap-6 px-6 pb-14 lg:grid-cols-3">
+      <section className="mx-auto grid max-w-6xl gap-6 px-6 pb-14 lg:grid-cols-4">
         {TIERS.map((t) => (
           <div
             key={t.id}
@@ -240,7 +253,9 @@ function BangGiaPage() {
             </p>
 
             <div className="mt-5 flex items-baseline gap-1.5">
-              {t.monthly == null ? (
+              {t.monthly === 0 ? (
+                <span className="font-display text-[34px] leading-none text-primary">Miễn phí</span>
+              ) : t.monthly == null ? (
                 <span className="font-display text-3xl text-brass-600">Liên hệ báo giá</span>
               ) : (
                 <>
@@ -251,7 +266,10 @@ function BangGiaPage() {
                 </>
               )}
             </div>
-            {t.monthly != null && (
+            {t.monthly === 0 && (
+              <p className="mt-1.5 text-[12px] text-muted-foreground">Không cần thẻ thanh toán</p>
+            )}
+            {t.monthly != null && t.monthly !== 0 && (
               <p className="mt-1.5 text-[12px] text-muted-foreground">
                 {annual
                   ? `Thanh toán theo năm — ${vnd(t.annual! * 12)} / năm`
@@ -280,6 +298,15 @@ function BangGiaPage() {
               >
                 {t.cta}
               </a>
+            ) : t.sapRaMat ? (
+              <button
+                type="button"
+                disabled
+                aria-disabled
+                className="mt-7 inline-flex h-11 cursor-default items-center justify-center rounded-lg border border-border text-[14px] font-medium text-muted-foreground opacity-70"
+              >
+                {t.cta}
+              </button>
             ) : (
               <Link
                 to={t.ctaTo}

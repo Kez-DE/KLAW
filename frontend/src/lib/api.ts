@@ -134,7 +134,7 @@ function loiTheoStatus(status: number, cau: string | null, tho: unknown): ApiErr
   });
 
   if (status === 401 || status === 403) {
-    return chung("unauthorized", "Máy chủ KLAW từ chối yêu cầu vì thiếu quyền truy cập.");
+    return chung("unauthorized", "Bạn cần đăng nhập để dùng tính năng này.");
   }
   if (status === 404) return chung("not_found", "Không tìm thấy trong kho văn bản của KLAW.");
   if (status === 429) {
