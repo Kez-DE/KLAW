@@ -1,0 +1,48 @@
+{
+  "commit_hash": "845f1df",
+  "route_prompt": "prompts/route.v2.md",
+  "items": [
+    {
+      "id": "trap-soan-01",
+      "result_type": "huong_dan_soan_thao",
+      "soan_thao_goi_y": {
+        "loai": "don_xin_nghi_viec",
+        "ten": "đơn xin nghỉ việc",
+        "ly_do": "bạn muốn soạn một văn bản để chấm dứt hợp đồng lao động, nên đơn xin nghỉ việc là loại phù hợp nhất.",
+        "thay_the": [
+          {
+            "loai": "thoa_thuan_cham_dut_hdld",
+            "ten": "thoả thuận chấm dứt hợp đồng lao động"
+          }
+        ],
+        "ho_tro": true
+      },
+      "dung": true
+    },
+    {
+      "id": "trap-soan-02",
+      "result_type": "huong_dan_soan_thao",
+      "soan_thao_goi_y": {
+        "loai": "hdld",
+        "ten": "hợp đồng lao động",
+        "ly_do": "Bạn yêu cầu soạn một hợp đồng lao động có thời hạn xác định, đây là loại văn bản phù hợp nhất.",
+        "thay_the": [],
+        "ho_tro": true
+      },
+      "dung": true
+    },
+    {
+      "id": "trap-soan-03",
+      "result_type": "huong_dan_soan_thao",
+      "soan_thao_goi_y": {
+        "loai": null,
+        "ten": null,
+        "ly_do": "bản kiểm điểm cá nhân thường được sử dụng trong các quy trình đánh giá, xem xét hoặc kỷ luật, nhưng không có loại văn bản nào trong danh sách mô tả chính xác mục đích này.",
+        "thay_the": [],
+        "ho_tro": false
+      },
+      "dung": true
+    }
+  ],
+  "ghi_chu": "đo trước commit, trên cây có sửa M1"
+}

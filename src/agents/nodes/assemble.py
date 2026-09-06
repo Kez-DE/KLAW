@@ -548,6 +548,10 @@ def _goi_y_soan_thao(tho: dict | None) -> tuple[dict | None, str]:
         {"loai": t, "ten": _ten_loai(t)} for t in dict.fromkeys(tho.get("thay_the") or []) if t in co and t != loai
     ][:2]
     ly_do = " ".join(str(tho.get("ly_do") or "").split())[:300]
+    # ly_do là văn xuôi LLM duy nhất né phép kiểm 8/9 — không có bề mặt bấm được,
+    # nhưng một URL hay thẻ trong đó vẫn HIỆN ra dạng chữ, trái quy tắc SOUL.
+    if _RE_URL.search(ly_do) or _RE_THE.search(ly_do):
+        ly_do = ""
     if loai is None:
         gan = GAN_NHAT_CO.format(ten_thay_the=" hoặc ".join(t["ten"] for t in thay_the)) if thay_the else GAN_NHAT_KHONG
         return (

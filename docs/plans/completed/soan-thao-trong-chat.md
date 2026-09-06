@@ -109,3 +109,5 @@ Task 9b (2026-09-07), kiểm bằng mắt qua Chrome:
 - Chrome (cặp server phụ :3001/:8001, auth tắt để không cần đăng nhập): gõ "soạn cho tôi hợp đồng nghỉ việc" → card "Gợi ý soạn thảo": "Tôi hiểu bạn cần đơn xin nghỉ việc: …", nút "Soạn ngay tại đây", chip "Thoả thuận chấm dứt hợp đồng lao động", nút "Chọn loại văn bản". Ảnh `12-card-goi-y-soan-thao.png`.
 - Bấm "Soạn ngay tại đây" → khung soạn thảo mở bên cạnh chat (URL không đổi), tiêu điểm vào nút Đóng, năm bước + xem trước + nút tải .docx/.pdf, lịch sử phiên ẩn. Ảnh `13-khung-soan-thao-ben-canh.png`. Escape đóng khung và trả tiêu điểm về nút mở. Bấm chip → khung remount sang mẫu "Thoả thuận chấm dứt hợp đồng lao động" (7 Điều).
 - Ghi nhận để xử lý sau: `ly_do` do router sinh viết ở ngôi thứ ba ("Người dùng yêu cầu…") trong câu "tôi/bạn"; mẫu thoả thuận đang gán Bên B là "(TỔ CHỨC)" trong khi người lao động là cá nhân.
+
+Final fix wave (2026-09-07), sau khi neo giọng `ly_do` trong `prompts/route.v2.md` (gọi "bạn", không mở đầu bằng "Người dùng"/"Yêu cầu"): đo lại 3 câu bẫy `soan_thao`, kết quả 3/3 `dung=True` (`eval/results/trap_soan_thao_final_fix.json`).

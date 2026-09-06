@@ -203,7 +203,12 @@ function ManHoiKlaw() {
       ?.querySelector<HTMLElement>("button, [href], input, textarea, select")
       ?.focus();
     const nghe = (su: KeyboardEvent) => {
-      if (su.key === "Escape") datSoanThao(null);
+      // Escape trong ô nhập/chọn của biểu mẫu là để đóng dropdown hay bỏ gõ — không
+      // phải để huỷ bản thảo đang điền (không có nơi lưu). Chỉ đóng khung khi phím
+      // đến từ ngoài các ô đó và chưa bị ai xử lý.
+      if (su.key !== "Escape" || su.defaultPrevented) return;
+      if (su.target instanceof HTMLElement && su.target.closest("input, textarea, select")) return;
+      datSoanThao(null);
     };
     window.addEventListener("keydown", nghe);
     return () => {

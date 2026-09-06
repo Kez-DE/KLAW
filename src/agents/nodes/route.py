@@ -33,7 +33,8 @@ INTENT_SCHEMA = {
     },
 }
 
-_INTENT_ENUM = ["tra_cuu", "soan_thao", "ngoai_pham_vi", "gioi_thieu", "hoi_ve_kho"]
+# một nguồn, thêm Intent mới chỉ sửa một chỗ
+_INTENT_ENUM = INTENT_SCHEMA["properties"]["intent"]["enum"]
 
 
 def schema_v2() -> dict:

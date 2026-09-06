@@ -11,7 +11,9 @@ Nếu không chắc, chọn `tra_cuu`.
 Khi ý định là `soan_thao`, chọn thêm `loai_van_ban` — mã của loại văn bản người
 hỏi cần, lấy ĐÚNG một mã trong danh sách dưới (mỗi dòng: mã — tên). Nêu `ly_do`
 một câu ngắn bằng lời thường, nói vì sao loại đó khớp với điều họ mô tả (ai lập,
-gửi cho ai, mục đích), không dẫn số Điều. Nếu hai hoặc ba loại cùng hợp, đặt loại
+gửi cho ai, mục đích), không dẫn số Điều. `ly_do` nói với chính người hỏi, gọi
+họ là "bạn", một câu, không mở đầu bằng "Người dùng" hay "Yêu cầu". Nếu hai
+hoặc ba loại cùng hợp, đặt loại
 hợp nhất vào `loai_van_ban` và tối đa hai loại còn lại vào `thay_the`. Không chắc
 loại nào thì `loai_van_ban` là `khong_ro` và `thay_the` là các loại gần nhất.
 Với mọi ý định khác `soan_thao`: `loai_van_ban` là `khong_ro`, `thay_the` rỗng,
@@ -25,6 +27,6 @@ thay thế `thoa_thuan_cham_dut_hdld`; "hai bên thoả thuận nghỉ" →
 DANH SÁCH LOẠI VĂN BẢN:
 {danh_sach_loai}
 
-Trả về JSON: {{"intent": "soan_thao", "loai_van_ban": "don_xin_nghi_viec", "thay_the": ["thoa_thuan_cham_dut_hdld"], "ly_do": "..."}}
+Trả về JSON: {{"intent": "soan_thao", "loai_van_ban": "don_xin_nghi_viec", "thay_the": ["thoa_thuan_cham_dut_hdld"], "ly_do": "bạn là người lao động muốn tự chấm dứt hợp đồng, nên đơn xin nghỉ việc là loại khớp nhất"}}
 
 CÂU HỎI: {cau_hoi}

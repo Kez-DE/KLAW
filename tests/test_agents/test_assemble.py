@@ -852,6 +852,31 @@ def test_soan_thao_loai_la_va_khong_co_thay_the_thi_moi_mo_ta_ro_hon():
     assert GAN_NHAT_KHONG in st["answer"]
 
 
+def test_soan_thao_ly_do_co_url_hay_the_bi_loc_ve_mac_dinh():
+    from src.agents.nodes.assemble import LY_DO_MAC_DINH
+
+    class Never(FakeLlm):
+        def chat(self, *a, **k):
+            raise AssertionError("nhánh soan_thao không gọi LLM")
+
+    st = assemble(
+        {
+            "intent": "soan_thao",
+            "query": "x",
+            "soan_thao_goi_y": {
+                "loai": "don_xin_nghi_viec",
+                "ly_do": "xem [Điều 1](cite:1) tại https://x.vn",
+                "thay_the": [],
+            },
+        },
+        {},
+        Never(),
+        "m",
+    )
+    assert LY_DO_MAC_DINH in st["answer"]
+    assert "https://" not in st["answer"] and "cite:" not in st["answer"]
+
+
 def test_soan_thao_khong_goi_y_giu_huong_dan_cu():
     from src.agents.nodes.assemble import HUONG_DAN_SOAN_THAO
 
