@@ -1,0 +1,47 @@
+{
+  "commit_hash": "4c0ef96",
+  "route_prompt": "prompts/route.v2.md",
+  "items": [
+    {
+      "id": "trap-soan-01",
+      "result_type": "huong_dan_soan_thao",
+      "soan_thao_goi_y": {
+        "loai": "don_xin_nghi_viec",
+        "ten": "đơn xin nghỉ việc",
+        "ly_do": "Người dùng yêu cầu soạn thảo một văn bản liên quan đến việc nghỉ việc, có thể là đơn xin nghỉ việc hoặc thỏa thuận chấm dứt hợp đồng lao động.",
+        "thay_the": [
+          {
+            "loai": "thoa_thuan_cham_dut_hdld",
+            "ten": "thoả thuận chấm dứt hợp đồng lao động"
+          }
+        ],
+        "ho_tro": true
+      },
+      "dung": true
+    },
+    {
+      "id": "trap-soan-02",
+      "result_type": "huong_dan_soan_thao",
+      "soan_thao_goi_y": {
+        "loai": "hdld",
+        "ten": "hợp đồng lao động",
+        "ly_do": "Yêu cầu soạn thảo hợp đồng lao động có thời hạn xác định cho vị trí nhân viên kinh doanh.",
+        "thay_the": [],
+        "ho_tro": true
+      },
+      "dung": true
+    },
+    {
+      "id": "trap-soan-03",
+      "result_type": "huong_dan_soan_thao",
+      "soan_thao_goi_y": {
+        "loai": null,
+        "ten": null,
+        "ly_do": "Người dùng yêu cầu viết bản kiểm điểm cá nhân, đây là một loại văn bản hành chính nội bộ nhưng không có trong danh sách các loại văn bản được cung cấp.",
+        "thay_the": [],
+        "ho_tro": false
+      },
+      "dung": true
+    }
+  ]
+}

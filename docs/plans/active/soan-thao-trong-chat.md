@@ -43,16 +43,23 @@ bẫy; FE: card/tách component/khung) → Bước 2 gộp, đo bẫy với
 
 ## Progress
 
-- [ ] Bước 0: Task 1–2
-- [ ] Bước 1 BE: Task 3–5
-- [ ] Bước 1 FE: Task 6–8
-- [ ] Bước 2: Task 9
+- [x] Bước 0: Task 1–2
+- [x] Bước 1 BE: Task 3–5
+- [x] Bước 1 FE: Task 6–8
+- [ ] Bước 2: Task 9 — [x] 9a (gộp, đo bẫy, đổi mặc định) · [ ] 9b (kiểm
+      Chrome, đóng plan — controller)
 
 ## Decisions
 
 - 2026-09-06: Q1 mức B (biểu mẫu + bản thảo, không LLM viết điều khoản); Q2
   router LLM chọn loại; Q3 thêm mẫu thoả thuận chấm dứt; Q4 PA1 khung bên
   cạnh; Q5 card cho mọi trả lời. Chủ dự án chọn.
+- 2026-09-07 (Task 9a): gộp `wt-be-soan` trước `wt-fe-soan` (BE router/bẫy
+  trước, FE tiêu thụ `soan_thao_goi_y` sau) — không xung đột, đúng dự kiến
+  addendum.
+- 2026-09-07 (Task 9a): `route_prompt` mặc định đổi sang
+  `prompts/route.v2.md` — cả `trap-soan-01` và `trap-soan-02` đo `dung=True`,
+  đạt ngưỡng bật.
 
 ## Validation
 
@@ -64,5 +71,40 @@ bẫy; FE: card/tách component/khung) → Bước 2 gộp, đo bẫy với
 - Repository-required checks: `make lint`, pytest rộng, `npm run typecheck && npm run lint && npm run build`.
 
 ## Result
+
+Task 9a (2026-09-07), đo tại commit `4c0ef96` (sau gộp `wt-be-soan` +
+`wt-fe-soan`, trước commit đổi mặc định này):
+
+- Gộp: `git merge --no-ff wt-be-soan` (`8a949f7`) rồi
+  `git merge --no-ff wt-fe-soan` (`4c0ef96`) trên `feat/tro-ly-phap-luat` —
+  không xung đột (đúng dự kiến; `mau-van-ban.ts` auto-merge sạch).
+- `make lint`: đạt (`ruff check src/ tests/` — All checks passed!).
+- `python -m pytest -q --ignore=tests/test_infra
+  --ignore=tests/test_services/test_effectivity.py`: 1563 passed, 1 failed, 1
+  xfailed. Fail duy nhất là `test_KHONG_THEM_muc_moi_tu_khoa_khong_khop_than`
+  trong `tests/test_services/test_moi_mau.py` — file test đang bẩn (chưa
+  commit) của chủ dự án, không phải do gộp; không sửa, không stage. 1 xfailed
+  là baseline đã biết (`test_han_muc_thang_KHONG_ro_khi_co_chum_song_song`).
+- `cd frontend && npm run kiem`: đạt toàn bộ (`typecheck`, `eslint` — 0 lỗi/5
+  warning fast-refresh không liên quan, 12 script `kiem-*` đều "đạt"/"OK",
+  đối chiếu tương phản màu tự-kiểm OK, `vite build` client+ssr+nitro thành
+  công).
+- Đo bẫy `soan_thao` với `ROUTE_PROMPT=prompts/route.v2.md`
+  (`eval/results/trap_soan_thao_4c0ef96.json`):
+
+  | id | result_type | soan_thao_goi_y.loai | dung |
+  |---|---|---|---|
+  | trap-soan-01 | huong_dan_soan_thao | don_xin_nghi_viec (thay_the: thoa_thuan_cham_dut_hdld) | True |
+  | trap-soan-02 | huong_dan_soan_thao | hdld | True |
+  | trap-soan-03 | huong_dan_soan_thao | null (đúng — ngoài danh sách mẫu) | True |
+
+  Ngưỡng bật (`trap-soan-01` và `trap-soan-02` đều `dung=True`) đạt → đổi
+  `route_prompt` mặc định sang `prompts/route.v2.md` trong `src/config.py`;
+  đổi tên/kỳ vọng test `tests/test_config.py::test_route_prompt_mac_dinh_v1`
+  → `test_route_prompt_mac_dinh_v2`. `pytest tests/test_config.py -q`: 13
+  passed.
+- Chưa làm trong 9a (thuộc 9b, do controller): kiểm bằng mắt trên
+  `/dung-thu` qua Chrome, ảnh `.tham-dinh-shots/12-*.png`/`13-*.png`, `git mv`
+  plan này sang `docs/plans/completed/`, Status → Completed.
 
 Chưa xong.

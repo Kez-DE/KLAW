@@ -106,9 +106,9 @@ class Settings(BaseSettings):
     # judge tầng 2 (verify_tier2) bị cắt JSON trên trap-soul-04 khi bật.
     assemble_prompt: str = "prompts/assemble.v2.md"
     rewrite_prompt: str = "prompts/rewrite_query.v1.md"
-    # Router v2 trả thêm loại văn bản khi ý định là soạn thảo. Đổi qua env
-    # `ROUTE_PROMPT=prompts/route.v2.md` để A/B; đổi mặc định sau khi bẫy xanh.
-    route_prompt: str = "prompts/route.v1.md"
+    # Router v2 trả thêm loại văn bản khi ý định là soạn thảo. Bẫy xanh
+    # (trap-soan-01, trap-soan-02) trên commit 4c0ef96 → v2 là mặc định.
+    route_prompt: str = "prompts/route.v2.md"
     # Cộng điểm mềm theo lĩnh vực sau RRF (spec §6). 0 = TẮT. Chỉ bật mặc định
     # sau một lượt đo graph-thật cho thấy Recall@10 không tụt.
     linh_vuc_bonus: float = Field(default=0.0, ge=0.0)
