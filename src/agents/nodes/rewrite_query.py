@@ -35,16 +35,48 @@ QUERIES_SCHEMA = {
     "properties": {"queries": {"type": "array", "items": {"type": "string"}, "maxItems": 3}},
 }
 
+# v2 (spec 2026-09-06 §5.5): "luật sư nghĩ trước khi mở sách". `llm.chat` gửi
+# schema với `strict: True`, và chế độ strict đòi MỌI property nằm trong
+# `required` — nên đây là schema RIÊNG, chọn theo template, không phải v1 cộng
+# vài khoá optional (strict sẽ từ chối, v2 fail im lặng rồi rơi về fallback).
+QUERIES_V2_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["quan_he", "vai", "linh_vuc", "ba_lop", "du_kien_van_ban", "queries"],
+    "properties": {
+        "quan_he": {"type": "string"},
+        "vai": {"type": "string"},
+        "linh_vuc": {"type": "string"},
+        "ba_lop": {"type": "array", "items": {"type": "string"}},
+        "du_kien_van_ban": {"type": "array", "items": {"type": "string"}},
+        "queries": {"type": "array", "items": {"type": "string"}, "maxItems": 3},
+    },
+}
+_KHOA_NHAN_DIEN = ("quan_he", "vai", "ba_lop", "du_kien_van_ban")
+
 
 def rewrite_query(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict:
     prior_traces = state.get("traces") or {}
     goc = state["query"]
-    prompt = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8").format(cau_hoi=goc)
+    mau = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8")
+    prompt = mau.format(cau_hoi=goc)
+    # Template nhắc tới `quan_he` là template v2 — chọn schema theo NỘI DUNG
+    # template, không theo tên file, để một bản v3 cùng hình dạng vẫn chạy.
+    la_v2 = "quan_he" in mau
     usage = None
     degraded = False
+    linh_vuc: str | None = None
+    nhan_dien: dict = {}
     try:
-        raw, usage = llm.chat(model, [{"role": "user", "content": prompt}], json_schema=QUERIES_SCHEMA)
-        them = [q for q in json.loads(raw).get("queries", []) if q and q.strip() != goc.strip()]
+        raw, usage = llm.chat(
+            model, [{"role": "user", "content": prompt}], json_schema=QUERIES_V2_SCHEMA if la_v2 else QUERIES_SCHEMA
+        )
+        data = json.loads(raw)
+        them = [q for q in data.get("queries", []) if q and q.strip() != goc.strip()]
+        if la_v2:
+            lv = data.get("linh_vuc")
+            linh_vuc = lv.strip() if isinstance(lv, str) and lv.strip() else None
+            nhan_dien = {k: data.get(k) for k in _KHOA_NHAN_DIEN}
     except Exception as e:
         logger.warning(
             "rewrite_query: lỗi khi gọi LLM (%s: %s) — bỏ qua, fallback về query gốc, không bịa biến thể",
@@ -56,6 +88,7 @@ def rewrite_query(state: dict, llm, model: str, prompt_path: Path | None = None)
     return {
         **state,
         "queries": queries,
+        "linh_vuc_du_doan": linh_vuc,
         "traces": {
             **prior_traces,
             "rewrite_query_model": model,
@@ -64,5 +97,6 @@ def rewrite_query(state: dict, llm, model: str, prompt_path: Path | None = None)
             "rewrite_query_token_in": usage.token_in if usage else 0,
             "rewrite_query_token_out": usage.token_out if usage else 0,
             "rewrite_query_cost_usd": usage.cost_usd if usage else 0.0,
+            **({"rewrite_query_nhan_dien": nhan_dien} if nhan_dien else {}),
         },
     }
