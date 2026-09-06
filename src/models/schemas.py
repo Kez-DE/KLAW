@@ -592,6 +592,30 @@ class TimKiemResponse(BaseModel):
     ket_qua: list[KetQuaTimKiem]
 
 
+# ══ GET /van-ban — danh sách văn bản theo bộ lọc (duyệt kho, không từ khoá) ═══
+class VanBanTomTat(BaseModel):
+    """Một dòng của `GET /van-ban`. `hieu_luc` là phán quyết KLAW cấp văn bản
+    (`effectivity.danh_gia_toan_bo`), KHÔNG PHẢI `documents.tinh_trang`."""
+
+    doc_id: str
+    so_ky_hieu: str
+    bo_luat: str
+    loai_van_ban: str
+    co_quan_ban_hanh: str | None
+    ngay_ban_hanh: date | None
+    hieu_luc: HieuLucOut
+
+
+class DanhSachVanBanResponse(BaseModel):
+    # `tong` của TOÀN tập khớp bộ lọc, không phải của trang — trang Tra cứu hiện
+    # "696 văn bản · Nghị định" và phải trùng số cạnh ô tick của `/bo-loc`.
+    tong: int
+    limit: int
+    offset: int
+    sap_xep: str
+    ket_qua: list[VanBanTomTat]
+
+
 # ══ GET /van-ban/{doc_id}/hieu-luc (Pha 2) ══════════════════════════════════
 # KHÔNG có trường `tinh_trang` ở bất kỳ đâu trong nhóm model này, và đó là
 # quyết định thiết kế chính: CSDL quốc gia đánh bốn nghị định lương tối thiểu

@@ -21,14 +21,17 @@ Không LLM, không embedding ⇒ không cổng `cong_bao_ve` (endpoint đọc th
 
 import logging
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import text
 from starlette.concurrency import run_in_threadpool
 
+from src.api.routes_tim_kiem import kiem_gia_tri_loc
 from src.config import as_of_hieu_luc
 from src.models.schemas import (
     DanChieuNoiBoOut,
+    DanhSachVanBanResponse,
     DieuKhoanHieuLucOut,
     HieuLucOut,
     NhomLienQuanOut,
@@ -36,12 +39,15 @@ from src.models.schemas import (
     VanBanHieuLucResponse,
     VanBanLienQuanOut,
     VanBanLienQuanResponse,
+    VanBanTomTat,
 )
 from src.services.db import get_engine
 from src.services.effectivity import (
     Effectivity,
     ap_sua_doi,
+    bac_con_song,
     danh_gia_theo_id,
+    danh_gia_toan_bo,
     nap_sua_doi_theo_van_ban,
 )
 
@@ -56,6 +62,106 @@ _SQL_DOC = text("SELECT id, so_ky_hieu, ten FROM documents WHERE id = :doc_id")
 
 def _ra(e: Effectivity) -> HieuLucOut:
     return HieuLucOut(verdict=e.verdict.value, tin_cay=e.tin_cay, ly_do=e.ly_do)
+
+
+# ── GET /van-ban — duyệt kho theo bộ lọc, không từ khoá ──────────────────────
+#
+# Cùng bốn mệnh đề lọc với `loc` trong `/tim-kiem` để một chip lọc cho ra cùng
+# tập ở hai chế độ. `depth <> 'metadata'` là tập `/bo-loc` đếm: văn bản chỉ có
+# thông tin không mở được nguyên văn nên không nằm trong danh sách bấm được.
+_LOC_VAN_BAN = (
+    " FROM documents d"
+    " WHERE d.depth <> 'metadata'"
+    "   AND (CAST(:loai AS text[]) IS NULL OR d.loai_van_ban = ANY(CAST(:loai AS text[])))"
+    "   AND (CAST(:co_quan AS text[]) IS NULL"
+    "        OR d.co_quan_ban_hanh = ANY(CAST(:co_quan AS text[])))"
+    "   AND (CAST(:tu_ngay AS date) IS NULL OR d.ngay_ban_hanh >= CAST(:tu_ngay AS date))"
+    "   AND (CAST(:den_ngay AS date) IS NULL OR d.ngay_ban_hanh <= CAST(:den_ngay AS date))"
+)
+_SQL_DEM_VAN_BAN = text("SELECT count(*)::int AS tong" + _LOC_VAN_BAN)
+_COT_VAN_BAN = (
+    "SELECT d.id AS doc_id, d.so_ky_hieu, d.ten AS bo_luat, d.loai_van_ban,"
+    " d.co_quan_ban_hanh, d.ngay_ban_hanh"
+)
+# Chốt đuôi `d.id` ở mọi nhánh: ORDER BY không tất định thì hai trang lặp/sót.
+_SAP_XEP_VAN_BAN = {
+    "moi_nhat": " ORDER BY d.ngay_ban_hanh DESC NULLS LAST, d.so_ky_hieu, d.id",
+    "con_hieu_luc_truoc": (
+        " ORDER BY array_position(CAST(:thu_tu_doc AS text[]), d.id),"
+        " d.ngay_ban_hanh DESC NULLS LAST, d.so_ky_hieu, d.id"
+    ),
+}
+_SQL_TRANG_VAN_BAN = {
+    k: text(_COT_VAN_BAN + _LOC_VAN_BAN + v + " LIMIT :limit OFFSET :offset")
+    for k, v in _SAP_XEP_VAN_BAN.items()
+}
+SapXepVanBan = Literal["moi_nhat", "con_hieu_luc_truoc"]
+_THIEU = HieuLucOut(
+    verdict="chua_xac_dinh", tin_cay="thap",
+    ly_do="không đánh giá được hiệu lực của văn bản này",
+)
+
+
+def _danh_sach_van_ban_sync(
+    loai: list[str] | None, co_quan: list[str] | None,
+    tu_nam: int | None, den_nam: int | None, sap_xep: str,
+    limit: int, offset: int, as_of: date,
+) -> DanhSachVanBanResponse:
+    tham_so: dict = {
+        "loai": loai,
+        "co_quan": co_quan,
+        "tu_ngay": date(tu_nam, 1, 1) if tu_nam else None,
+        "den_ngay": date(den_nam, 12, 31) if den_nam else None,
+    }
+    # TRƯỚC `connect()`, như `/tim-kiem`: `danh_gia_toan_bo` tự mở connection.
+    eff = danh_gia_toan_bo(get_engine(), as_of)
+    with get_engine().connect() as c:
+        kiem_gia_tri_loc(c, "loai_van_ban", loai)
+        kiem_gia_tri_loc(c, "co_quan_ban_hanh", co_quan)
+        tong = c.execute(_SQL_DEM_VAN_BAN, tham_so).mappings().one()["tong"]
+        if sap_xep == "con_hieu_luc_truoc":
+            tham_so["thu_tu_doc"] = [
+                doc_id for doc_id, e in sorted(eff.items(), key=lambda kv: bac_con_song(kv[1]))
+            ]
+        rows = c.execute(
+            _SQL_TRANG_VAN_BAN[sap_xep], {**tham_so, "limit": limit, "offset": offset}
+        ).mappings().all()
+    return DanhSachVanBanResponse(
+        tong=tong, limit=limit, offset=offset, sap_xep=sap_xep,
+        ket_qua=[
+            VanBanTomTat(
+                doc_id=r["doc_id"], so_ky_hieu=r["so_ky_hieu"], bo_luat=r["bo_luat"],
+                loai_van_ban=r["loai_van_ban"], co_quan_ban_hanh=r["co_quan_ban_hanh"],
+                ngay_ban_hanh=r["ngay_ban_hanh"],
+                hieu_luc=_ra(e) if (e := eff.get(r["doc_id"])) is not None else _THIEU,
+            )
+            for r in rows
+        ],
+    )
+
+
+@router.get("/van-ban", response_model=DanhSachVanBanResponse)
+async def danh_sach_van_ban(
+    loai: list[str] | None = Query(default=None),
+    co_quan: list[str] | None = Query(default=None),
+    tu_nam: int | None = Query(default=None, ge=1900, le=2100),
+    den_nam: int | None = Query(default=None, ge=1900, le=2100),
+    sap_xep: SapXepVanBan = "moi_nhat",
+    limit: int = Query(default=20, ge=1, le=50),
+    offset: int = Query(default=0, ge=0),
+    as_of_date: date | None = None,
+) -> DanhSachVanBanResponse:
+    """Danh sách văn bản có toàn văn theo bộ lọc, cho trang Tra cứu khi ô từ
+    khoá rỗng (spec 2026-09-06 §6). Không LLM ⇒ không `cong_bao_ve`. Không có
+    `lien_quan`: không có từ khoá thì không có gì để xếp theo độ liên quan."""
+    if tu_nam and den_nam and tu_nam > den_nam:
+        raise HTTPException(
+            status_code=422, detail=f"tu_nam ({tu_nam}) lớn hơn den_nam ({den_nam})"
+        )
+    return await run_in_threadpool(
+        _danh_sach_van_ban_sync, loai, co_quan, tu_nam, den_nam, sap_xep, limit, offset,
+        as_of_hieu_luc(as_of_date),
+    )
 
 
 def _hieu_luc_sync(doc_id: str, as_of: date) -> VanBanHieuLucResponse:

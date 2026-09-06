@@ -208,7 +208,7 @@ def _trich(noi_dung: str, chunk: str) -> str:
     return than[:TRICH_MAX] + "…" if len(than) > TRICH_MAX else than
 
 
-def _kiem_gia_tri_loc(conn, cot: str, gia_tri: list[str] | None) -> None:
+def kiem_gia_tri_loc(conn, cot: str, gia_tri: list[str] | None) -> None:
     """Từ chối một giá trị lọc không có trong DB, nêu tên các giá trị THẬT."""
     if not gia_tri:
         return
@@ -256,8 +256,8 @@ def _tim_kiem_sync(
     eff = danh_gia_toan_bo(get_engine(), as_of)
 
     with get_engine().connect() as c:
-        _kiem_gia_tri_loc(c, "loai_van_ban", loai)
-        _kiem_gia_tri_loc(c, "co_quan_ban_hanh", co_quan)
+        kiem_gia_tri_loc(c, "loai_van_ban", loai)
+        kiem_gia_tri_loc(c, "co_quan_ban_hanh", co_quan)
 
         tong = c.execute(_SQL_TONG, tham_so).mappings().one()
 
