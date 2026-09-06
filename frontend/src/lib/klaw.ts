@@ -689,17 +689,6 @@ function laBang(x: unknown): x is Bang {
   );
 }
 
-/**
- * Chuẩn hoá trường `bang` trên một bản ghi thô — THUẦN: trả về bản ghi MỚI,
- * không sửa `x`. Trường vắng mặt hoặc không phải mảng rơi về `[]`; một `Bang`
- * có `dong` lệch số cột với `cot` bị loại NGUYÊN CẢ BẢNG (xem `laBang`) — một
- * hàng thiếu ô hiện ra thành bảng méo chứ không thành lỗi và không ai biết,
- * còn một bảng biến mất thì thấy ngay.
- *
- * Gọi hàm này ở CHỖ GỌI (api.ts), TRƯỚC khi đưa kết quả cho `laTraCuuKetQua` —
- * xem doc ngay trên guard đó vì sao việc chuẩn hoá không còn nằm bên trong nó.
- * `x` không phải bản ghi thì trả nguyên `x`, để `laTraCuuKetQua` tự từ chối.
- */
 export function laVanBanTraLoi(x: unknown): x is VanBanTraLoi {
   return (
     laBanGhi(x) &&
@@ -721,6 +710,17 @@ export function chuanHoaDocuments(x: unknown): unknown {
   return { ...x, documents: Array.isArray(tho) ? tho.filter(laVanBanTraLoi) : [] };
 }
 
+/**
+ * Chuẩn hoá trường `bang` trên một bản ghi thô — THUẦN: trả về bản ghi MỚI,
+ * không sửa `x`. Trường vắng mặt hoặc không phải mảng rơi về `[]`; một `Bang`
+ * có `dong` lệch số cột với `cot` bị loại NGUYÊN CẢ BẢNG (xem `laBang`) — một
+ * hàng thiếu ô hiện ra thành bảng méo chứ không thành lỗi và không ai biết,
+ * còn một bảng biến mất thì thấy ngay.
+ *
+ * Gọi hàm này ở CHỖ GỌI (api.ts), TRƯỚC khi đưa kết quả cho `laTraCuuKetQua` —
+ * xem doc ngay trên guard đó vì sao việc chuẩn hoá không còn nằm bên trong nó.
+ * `x` không phải bản ghi thì trả nguyên `x`, để `laTraCuuKetQua` tự từ chối.
+ */
 export function chuanHoaBang(x: unknown): unknown {
   if (!laBanGhi(x)) return x;
   const bangTho = x["bang"];

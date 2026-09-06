@@ -361,6 +361,8 @@ export async function traCuuLuong(
           // `chuanHoaBang` chạy TRƯỚC guard — guard là một predicate thuần,
           // không sửa `du`, nên chuẩn hoá `bang` (thiếu khoá → `[]`, bảng lệch
           // cột → loại) phải làm ở đây, chỗ raw JSON biến thành `TraCuuKetQua`.
+          // Cùng quy tắc chỗ gọi áp dụng cho `documents` — `chuanHoaDocuments`
+          // cũng chạy trước guard, ở ngoài này.
           const duChuanHoa = chuanHoaDocuments(chuanHoaBang(du));
           if (laTraCuuKetQua(duChuanHoa)) ketQua = duChuanHoa;
           else loiTrongLuong = { kind: "invalid_response", message: LOI_HINH_DANG, detail: du };
