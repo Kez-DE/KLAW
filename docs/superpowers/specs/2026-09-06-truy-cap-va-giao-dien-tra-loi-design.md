@@ -105,9 +105,9 @@ về một văn bản đã bị thay thế (backend vẫn cho vào văn xuôi kh
   - Con số "50 lượt" KHÔNG viết cứng trong thẻ khoá: nguồn số là
     `config/han_muc.yaml`, và `HanMucThang` đã hiện nó sau đăng nhập. Viết cứng
     là lặp lại lỗi `TrialMeter` "còn N/20 lượt" mà mã đã gỡ.
-- `/dang-nhap` và `/dang-ky` nhận `next` qua `validateSearch`; chỉ chấp nhận
-  đúng `"/dung-thu"` hoặc chuỗi bắt đầu bằng `"/soan-thao"` và không chứa
-  `"//"`; giá trị khác bị bỏ. Sau khi thành công điều hướng tới `next`, mặc
+- `/dang-nhap` và `/dang-ky` nhận `next` qua `validateSearch`; danh sách trắng
+  đúng hai giá trị `"/dung-thu"` và `"/soan-thao"` (`lib/quay-lai.ts`); giá trị
+  khác bị bỏ — không kiểm tiền tố, để `navigate({ to })` vẫn được kiểm kiểu. Sau khi thành công điều hướng tới `next`, mặc
   định `/dung-thu` như hiện nay. Câu "Đang mở phiên dùng thử…" đổi thành "Đang
   mở trợ lý KLAW…" ở cả hai trang.
 - Lỗi 401/403 từ API: `lib/api.ts` đổi thông điệp "Máy chủ KLAW từ chối yêu
@@ -127,6 +127,11 @@ về một văn bản đã bị thay thế (backend vẫn cho vào văn xuôi kh
     `pro` trong `han_muc.yaml`; 50 trùng gói Miễn phí là mâu thuẫn).
   - Gói "Cá nhân" và "Doanh nghiệp": nút "Sắp ra mắt", `disabled` +
     `aria-disabled`, không link. Gói "Tổ chức lớn" giữ "Liên hệ báo giá".
+  - Thẻ Miễn phí hiện chữ "Miễn phí" thay giá "0 ₫" và dòng phụ "Không cần thẻ
+    thanh toán". Bảng so sánh thêm cột Miễn phí (bốn cột). Hai câu hỏi thường
+    gặp "Có đăng ký được ngay không?" và "Hạn mức lượt hỏi tính thế nào?" viết
+    lại: có tài khoản Miễn phí ngay; 50 lượt/tháng đếm ở máy chủ, soạn bản thảo
+    cũng tính một lượt; gói trả phí chưa mở.
   - `HanMucThang` đã có ở trang này, giữ nguyên.
   - Con số "50"/"500" trong danh sách tính năng là chữ tiếp thị của trang giá,
     cùng loại với "5 người dùng"; khác với thẻ khoá ở `/dung-thu`, nó không tự
@@ -137,7 +142,9 @@ về một văn bản đã bị thay thế (backend vẫn cho vào văn xuôi kh
 `frontend/src/routes/dung-thu.tsx`, `frontend/src/components/klaw/TheDangNhap.tsx`
 (mới), `frontend/src/routes/dang-nhap.tsx`, `frontend/src/routes/dang-ky.tsx`,
 `frontend/src/lib/api.ts`, `frontend/src/components/klaw/BaoLoi.tsx`,
-`frontend/src/routes/__root.tsx`, `frontend/src/routes/bang-gia.tsx`.
+`frontend/src/routes/__root.tsx`, `frontend/src/routes/bang-gia.tsx`,
+`frontend/src/lib/quay-lai.ts` (mới), `frontend/scripts/kiem-quay-lai.ts` (mới),
+`frontend/package.json`.
 Backend: không đổi.
 
 ### 5.3 Kiểm
@@ -250,7 +257,7 @@ sách thu hẹp, bấm một dòng → `/tra-cuu/$docId`.
 | `frontend/src/hooks/use-doi-chieu.ts` | `MoDoiChieu.hieuLuc?: string \| null`, đưa xuống trạng thái để `KhungDoiChieu` nhận. |
 | `frontend/src/components/klaw/KhungDoiChieu.tsx` | Prop `hieuLuc?: string \| null`; render `BadgeHieuLuc` trong header khi có. Ghi chú thay cho câu "KHÔNG BAO GIỜ giấu vào tooltip": trạng thái hiệu lực nay nằm ở nhãn này. |
 | `frontend/src/routes/dung-thu.tsx` | `chonTrichDan` và đường `doc:` (mở tại căn cứ đầu) truyền `hieuLuc: trichDan.hieu_luc`. |
-| `frontend/scripts/kiem-khung.ts` | Thêm một trường hợp: khung có `hieuLuc` thì có nhãn; không có thì không. |
+| (không có script render cho `KhungDoiChieu`) | Nhãn trong header kiểm bằng typecheck và Chrome thật ở Phần 5; `kiem-khung.ts` là kiểm của khung soạn thảo, không liên quan. |
 
 Backend: không đổi. `docs/bo-luat-agent.md` không có quy tắc nào về khối cảnh
 báo; chính sách mới ghi tại spec này.
