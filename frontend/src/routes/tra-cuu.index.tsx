@@ -9,17 +9,21 @@ import { Chip, Highlight } from "@/components/legal/VanBanUI";
 import { goi, thamSo } from "@/lib/api";
 import {
   laBoLoc,
+  laDanhSachVanBan,
   laTimKiem,
   type ApiError,
   type BoLoc,
+  type DanhSachVanBan,
   type DongTimKiem,
   type GiaTriLoc,
   type TimKiem,
+  type VanBanTomTat,
 } from "@/lib/klaw";
 import { cn } from "@/lib/utils";
 
 /**
- * Tìm kiếm điều khoản — `GET /tim-kiem` + `GET /bo-loc`.
+ * Tìm kiếm điều khoản — `GET /tim-kiem` + `GET /bo-loc`. Ô từ khoá rỗng thì
+ * gọi `GET /van-ban` — duyệt kho theo bộ lọc (spec 2026-09-06 §6).
  *
  * ## Đây là tìm kiếm TỪ KHOÁ, và trang nói thẳng như vậy
  *
@@ -365,6 +369,51 @@ function TheDong({ dong, q }: { dong: DongTimKiem; q: string }) {
   );
 }
 
+/** Một văn bản ở chế độ duyệt kho (chưa có từ khoá). Nhãn hiệu lực là của cả
+ * văn bản — cùng nguồn `effectivity` với `TheDong`, không phải `tinh_trang`. */
+function TheVanBan({ vanBan }: { vanBan: VanBanTomTat }) {
+  const nam = vanBan.ngay_ban_hanh === null ? null : vanBan.ngay_ban_hanh.slice(0, 4);
+  return (
+    <article className="rounded-xl border border-border bg-card p-4 transition-colors duration-150 hover:border-[var(--color-brass-500)]/50">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-muted-foreground">
+        <span className="font-jetbrains text-[12px] text-foreground">{vanBan.so_ky_hieu}</span>
+        <span className="text-border" aria-hidden>
+          ·
+        </span>
+        <span>{vanBan.loai_van_ban}</span>
+        {vanBan.co_quan_ban_hanh !== null && (
+          <>
+            <span className="text-border" aria-hidden>
+              ·
+            </span>
+            <span>{vanBan.co_quan_ban_hanh}</span>
+          </>
+        )}
+        {nam !== null && (
+          <>
+            <span className="text-border" aria-hidden>
+              ·
+            </span>
+            <span>{nam}</span>
+          </>
+        )}
+      </div>
+      <h3 className="font-display mt-2 text-[18px] leading-snug font-semibold text-primary">
+        <Link
+          to="/tra-cuu/$docId"
+          params={{ docId: vanBan.doc_id }}
+          className="focus-brass rounded hover:underline"
+        >
+          {vanBan.bo_luat}
+        </Link>
+      </h3>
+      <p className="m-0 mt-2">
+        <BadgeHieuLuc hieuLuc={vanBan.hieu_luc.verdict} gonGang />
+      </p>
+    </article>
+  );
+}
+
 /* ──────────────────────────────── Trang ────────────────────────────────── */
 
 function ManTimKiem() {
@@ -373,6 +422,7 @@ function ManTimKiem() {
 
   const [boLoc, datBoLoc] = useState<BoLoc | null>(null);
   const [ketQua, datKetQua] = useState<TimKiem | null>(null);
+  const [danhSach, datDanhSach] = useState<DanhSachVanBan | null>(null);
   const [loi, datLoi] = useState<ApiError | null>(null);
   const [dangChay, datDangChay] = useState(false);
   const [nhap, datNhap] = useState(timTrenUrl.q ?? "");
@@ -399,25 +449,41 @@ function ManTimKiem() {
   const { tu_nam: tuNam, den_nam: denNam, sap_xep: sapXep } = timTrenUrl;
 
   useEffect(() => {
-    if (q.trim() === "") {
-      datKetQua(null);
-      datLoi(null);
-      return;
-    }
-    const dieuKhien = new AbortController();
-    datDangChay(true);
-    const duongDan = `/tim-kiem${thamSo([
-      ["q", q],
+    const locChung: [string, string | number | undefined][] = [
       ...(loaiKhoa === "" ? [] : loaiKhoa.split("|").map((v): [string, string] => ["loai", v])),
       ...(coQuanKhoa === ""
         ? []
         : coQuanKhoa.split("|").map((v): [string, string] => ["co_quan", v])),
       ["tu_nam", tuNam],
       ["den_nam", denNam],
-      ["sap_xep", sapXep],
       ["limit", MOI_TRANG],
       ["offset", (trang - 1) * MOI_TRANG],
-    ])}`;
+    ];
+    if (q.trim() === "") {
+      // Duyệt kho (spec 2026-09-06 §6.2): không từ khoá thì không có "liên quan".
+      datKetQua(null);
+      const dieuKhien = new AbortController();
+      datDangChay(true);
+      const sapXepDuyet = sapXep === undefined || sapXep === "lien_quan" ? "moi_nhat" : sapXep;
+      void goi(`/van-ban${thamSo([...locChung, ["sap_xep", sapXepDuyet]])}`, laDanhSachVanBan, {
+        signal: dieuKhien.signal,
+      }).then((kq) => {
+        datDangChay(false);
+        if (kq.ok) {
+          datDanhSach(kq.data);
+          datLoi(null);
+          return;
+        }
+        if (kq.error.kind === "aborted") return;
+        datDanhSach(null);
+        datLoi(kq.error);
+      });
+      return () => dieuKhien.abort();
+    }
+    datDanhSach(null);
+    const dieuKhien = new AbortController();
+    datDangChay(true);
+    const duongDan = `/tim-kiem${thamSo([["q", q], ...locChung, ["sap_xep", sapXep]])}`;
     void goi(duongDan, laTimKiem, { signal: dieuKhien.signal }).then((kq) => {
       datDangChay(false);
       if (kq.ok) {
@@ -471,9 +537,12 @@ function ManTimKiem() {
       .map((dong) => [dong.doc_id, dong] as const),
   );
 
-  const tongTrang =
-    ketQua === null ? 0 : Math.max(1, Math.ceil(ketQua.tong_dieu_khoan / MOI_TRANG));
+  const tongMuc = ketQua?.tong_dieu_khoan ?? danhSach?.tong ?? null;
+  const tongTrang = tongMuc === null ? 0 : Math.max(1, Math.ceil(tongMuc / MOI_TRANG));
   const sapXepCoThe = boLoc?.sap_xep ?? [];
+  // Duyệt kho không có "liên quan" — không có từ khoá để liên quan tới.
+  const sapXepHienThi =
+    q.trim() === "" ? sapXepCoThe.filter((c) => c !== "lien_quan") : sapXepCoThe;
 
   return (
     <AppShell active="/tra-cuu">
@@ -590,10 +659,21 @@ function ManTimKiem() {
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
               <p className="m-0 text-[13px] text-muted-foreground">
-                {q.trim() === "" ? (
-                  "Nhập từ khoá để bắt đầu."
-                ) : dangChay ? (
-                  "Đang tìm…"
+                {dangChay ? (
+                  q.trim() === "" ? (
+                    "Đang tải…"
+                  ) : (
+                    "Đang tìm…"
+                  )
+                ) : q.trim() === "" ? (
+                  danhSach === null ? (
+                    ""
+                  ) : (
+                    <>
+                      <span className="font-medium text-foreground">{danhSach.tong} văn bản</span>
+                      {chipDangBat.length > 0 && ` · ${chipDangBat.map((c) => c.gia).join(" · ")}`}
+                    </>
+                  )
                 ) : ketQua === null ? (
                   ""
                 ) : (
@@ -610,11 +690,13 @@ function ManTimKiem() {
                 )}
               </p>
 
-              {/* Cách sắp xếp do MÁY CHỦ khai (`/bo-loc.sap_xep`), không viết cứng. */}
-              {sapXepCoThe.length > 0 && (
+              {/* Cách sắp xếp do MÁY CHỦ khai (`/bo-loc.sap_xep`), không viết cứng.
+                  "Liên quan nhất" không có nghĩa khi duyệt kho không từ khoá. */}
+              {sapXepHienThi.length > 0 && (
                 <div className="flex items-center gap-1 rounded-full border border-border p-0.5">
-                  {sapXepCoThe.map((cach) => {
-                    const dangBat = (sapXep ?? "lien_quan") === cach;
+                  {sapXepHienThi.map((cach) => {
+                    const dangBat =
+                      (sapXep ?? (q.trim() === "" ? "moi_nhat" : "lien_quan")) === cach;
                     return (
                       <button
                         key={cach}
@@ -659,6 +741,15 @@ function ManTimKiem() {
               )}
               {ketQua?.ket_qua.map((dong) => (
                 <TheDong key={`${dong.doc_id}-${dong.provision_id}`} dong={dong} q={q} />
+              ))}
+
+              {danhSach !== null && danhSach.ket_qua.length === 0 && (
+                <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                  Không có văn bản nào khớp bộ lọc này. Bỏ bớt một chip hoặc nới khoảng năm.
+                </p>
+              )}
+              {danhSach?.ket_qua.map((vb) => (
+                <TheVanBan key={vb.doc_id} vanBan={vb} />
               ))}
 
               {tongTrang > 1 && (

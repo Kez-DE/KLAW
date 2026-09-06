@@ -328,6 +328,25 @@ export interface TimKiem {
   ket_qua: DongTimKiem[];
 }
 
+/* ── GET /van-ban — danh sách văn bản theo bộ lọc, không cần từ khoá ─────── */
+export interface VanBanTomTat {
+  doc_id: string;
+  so_ky_hieu: string;
+  bo_luat: string;
+  loai_van_ban: string;
+  co_quan_ban_hanh: string | null;
+  ngay_ban_hanh: string | null;
+  hieu_luc: HieuLucChiTiet;
+}
+
+export interface DanhSachVanBan {
+  tong: number;
+  limit: number;
+  offset: number;
+  sap_xep: string;
+  ket_qua: VanBanTomTat[];
+}
+
 /* ── GET /van-ban/{doc_id}/hieu-luc — nguồn hiệu lực DUY NHẤT ────────────── */
 
 export interface SuaBoi {
@@ -788,6 +807,10 @@ export function laTimKiem(x: unknown): x is TimKiem {
     typeof x["tong_dieu_khoan"] === "number" &&
     typeof x["tong_van_ban"] === "number"
   );
+}
+
+export function laDanhSachVanBan(x: unknown): x is DanhSachVanBan {
+  return laBanGhi(x) && Array.isArray(x["ket_qua"]) && typeof x["tong"] === "number";
 }
 
 export function laBoLoc(x: unknown): x is BoLoc {
