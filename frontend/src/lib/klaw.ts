@@ -72,6 +72,12 @@ export interface Citation {
   quote: string;
   hieu_luc: HieuLuc | null;
   tin_cay: string | null;
+  /**
+   * Số thứ tự căn cứ trong văn xuôi — thẻ `[Điều N](cite:K)` trỏ vào đây.
+   * `null`/vắng = trích dẫn nằm trong vết kiểm toán nhưng không dùng để hành
+   * văn, hoặc payload cache dựng trước 2026-09-06.
+   */
+  k?: number | null;
 }
 
 /**
@@ -84,6 +90,25 @@ export interface Nguon {
   doc_id: string;
   so_ky_hieu: string;
   bo_luat: string;
+}
+
+/** Ba cổng luật; `null` = chưa có link đã kiểm. Giao diện bỏ dòng null. */
+export interface LinkVanBan {
+  vbpl: string | null;
+  chinhphu: string | null;
+  tvpl: string | null;
+}
+
+/**
+ * Văn bản mô hình được phép gắn thẻ `doc:ID` — khớp `DocumentOut` của
+ * `src/models/schemas.py`. Không có ngày hiệu lực (quyết định Q2).
+ */
+export interface VanBanTraLoi {
+  doc_id: string;
+  ten: string;
+  so_ky_hieu: string;
+  loai_van_ban: string;
+  links: LinkVanBan;
 }
 
 /**
@@ -130,6 +155,8 @@ export interface TraCuuKetQua {
    * được thay vì làm sập cả thẻ kết quả.
    */
   bang: Bang[];
+  /** `[]` ở mọi nhánh trừ `answer`; `chuanHoaDocuments` điền khi máy chủ cũ không gửi. */
+  documents: VanBanTraLoi[];
 }
 
 /**
@@ -673,6 +700,27 @@ function laBang(x: unknown): x is Bang {
  * xem doc ngay trên guard đó vì sao việc chuẩn hoá không còn nằm bên trong nó.
  * `x` không phải bản ghi thì trả nguyên `x`, để `laTraCuuKetQua` tự từ chối.
  */
+export function laVanBanTraLoi(x: unknown): x is VanBanTraLoi {
+  return (
+    laBanGhi(x) &&
+    typeof x["doc_id"] === "string" &&
+    typeof x["ten"] === "string" &&
+    typeof x["so_ky_hieu"] === "string" &&
+    typeof x["loai_van_ban"] === "string" &&
+    laBanGhi(x["links"])
+  );
+}
+
+/**
+ * Cùng khuôn `chuanHoaBang`: chạy TRƯỚC `laTraCuuKetQua`, thuần, không sửa `x`.
+ * Khoá vắng → `[]` (payload cache cũ); phần tử sai hình dạng → loại.
+ */
+export function chuanHoaDocuments(x: unknown): unknown {
+  if (!laBanGhi(x)) return x;
+  const tho = x["documents"];
+  return { ...x, documents: Array.isArray(tho) ? tho.filter(laVanBanTraLoi) : [] };
+}
+
 export function chuanHoaBang(x: unknown): unknown {
   if (!laBanGhi(x)) return x;
   const bangTho = x["bang"];

@@ -205,6 +205,7 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
           ],
         },
       ],
+      documents: [],
     },
   },
   {
@@ -223,6 +224,7 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
       trace_id: "mau-partial",
       cau_hoi_day_du: null,
       bang: [],
+      documents: [],
     },
   },
   {
@@ -237,6 +239,7 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
       trace_id: "mau-abstain",
       cau_hoi_day_du: null,
       bang: [],
+      documents: [],
     },
   },
   {
@@ -251,6 +254,7 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
       trace_id: "mau-out",
       cau_hoi_day_du: null,
       bang: [],
+      documents: [],
     },
   },
 ];

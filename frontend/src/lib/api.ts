@@ -251,6 +251,7 @@ export function thamSo(cap: [string, string | number | undefined | null][]): str
 
 import {
   chuanHoaBang,
+  chuanHoaDocuments,
   laTraCuuKetQua,
   type LuotTruoc,
   type SuKienBatDau,
@@ -360,7 +361,7 @@ export async function traCuuLuong(
           // `chuanHoaBang` chạy TRƯỚC guard — guard là một predicate thuần,
           // không sửa `du`, nên chuẩn hoá `bang` (thiếu khoá → `[]`, bảng lệch
           // cột → loại) phải làm ở đây, chỗ raw JSON biến thành `TraCuuKetQua`.
-          const duChuanHoa = chuanHoaBang(du);
+          const duChuanHoa = chuanHoaDocuments(chuanHoaBang(du));
           if (laTraCuuKetQua(duChuanHoa)) ketQua = duChuanHoa;
           else loiTrongLuong = { kind: "invalid_response", message: LOI_HINH_DANG, detail: du };
         } else if (khung.ten === "loi" && laBanGhiTho(du)) {
