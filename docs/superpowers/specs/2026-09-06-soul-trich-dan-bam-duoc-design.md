@@ -117,7 +117,8 @@ NULL nghĩa là "chưa có link đã kiểm". Giao diện không render dòng NU
 
 ### 4.2 Seed và loader
 
-`data/link_cong_luat.yaml` (giá trị minh hoạ, không phải dữ liệu thật):
+`data/seed/link_cong_luat.yaml` — phải nằm trong `data/seed/` vì `.gitignore`
+loại `data/*` trừ thư mục đó (giá trị minh hoạ, không phải dữ liệu thật):
 
 ```yaml
 "139264":                         # Bộ luật Lao động 45/2019/QH14
@@ -177,10 +178,14 @@ canh `messages()[0]["role"] == "system"` và `co_soul=False` không có system.
 ### 5.2 Chọn prompt bằng Settings
 
 `src/config.py` thêm `assemble_prompt: str = "prompts/assemble.v1.md"` và
-`rewrite_prompt: str = "prompts/rewrite_query.v1.md"`. Hai node đọc đường dẫn
-từ Settings thay cho hằng `PROMPT_PATH`. Preset `eval/configs/soul_v2.yaml` ghi
-đè sang v2 — `eval.run.overlay_settings` đã có nên A/B không cần code mới. Đổi
-mặc định sang v2 ở bước 2 của §9, sau khi eval xanh.
+`rewrite_prompt: str = "prompts/rewrite_query.v1.md"`. `graph_tra_cuu` đọc hai
+khoá này và truyền vào node qua tham số `prompt_path` (mặc định giữ hằng cũ, nên
+hơn 40 chỗ gọi `assemble()` trong test không đổi). Pydantic `BaseSettings` đọc
+biến môi trường theo tên field, nên A/B chạy bằng
+`ASSEMBLE_PROMPT=prompts/assemble.v2.md REWRITE_PROMPT=prompts/rewrite_query.v2.md
+python -m eval.run_trap` — không cần preset mới. `eval/configs/*.yaml` chỉ dành
+cho `eval.run` (đo truy hồi thuần, không chạy graph, không thấy prompt). Đổi mặc
+định sang v2 ở bước 2 của §9, sau khi bẫy xanh.
 
 ### 5.3 `assemble` với v2
 
@@ -244,8 +249,12 @@ Với `rewrite_prompt` = v1, các khoá mới vắng mặt và node hành xử y
 3. Không loại provision khác lĩnh vực — mô hình đoán sai lĩnh vực thì truy hồi
    vẫn cứu được.
 
-`linh_vuc_bonus` mặc định `0.0` (tắt). Preset `eval/configs/hybrid_linh_vuc.yaml`
-bật để đo trên golden 77 câu. Chỉ đổi mặc định khi Recall@10 không tụt.
+`linh_vuc_bonus` mặc định `0.0` (tắt), bật bằng biến môi trường
+`LINH_VUC_BONUS`. Hàm cộng điểm là hàm thuần, test đơn vị được. **Đo lường để
+bật mặc định nằm ngoài sub-project này**: `eval.run` không chạy graph nên không
+thấy `linh_vuc_du_doan`, và golden 77 câu không có trường `linh_vuc`. Chỉ đổi
+mặc định sau khi có một lượt đo graph-thật trên golden cho thấy Recall@10 không
+tụt — ghi vào plan như việc tiếp theo, không làm ở đây.
 
 ## 7. Giao diện
 
@@ -331,9 +340,10 @@ Năm ca `catManh` trong `kiem-van-xuoi.ts`; `kiem-khung` cập nhật nếu đ�
 
 ### 8.4 Chi phí
 
-Golden 77 câu với `soul_v2.yaml` so với `hybrid.yaml`: ghi token đầu vào/lượt
-trước–sau vào `docs/cost-management.md`. Kỳ vọng tăng ~6.000–8.000 token đầu vào
-cho một lượt `tra_cuu` đủ 5 node có SOUL.
+`eval/run_trap.py` ghi thêm `token_in` mỗi câu (cộng bảy khoá trong
+`traces._TOKEN_IN_KEYS`) và tổng theo lượt chạy. Chạy hai lần, mặc định v1 và
+biến môi trường v2, ghi hai tổng vào `docs/guide/cost-management.md`. Kỳ vọng
+tăng ~6.000–8.000 token đầu vào cho một lượt `tra_cuu` đủ 5 node có SOUL.
 
 ## 9. Thi công (Q4)
 
@@ -361,8 +371,9 @@ tiếng Anh cho commit, `make check`, không sửa file ngoài phạm vi worktre
 
 **Bước 2 — gộp và bật.** Rebase lần lượt BE → FE → DB lên nhánh hiện tại.
 `make check`, `npm run kiem`, test graph-thật. Chạy `scripts/nap_link_cong_luat.py`.
-Chạy golden 77 + trap với v1 và `soul_v2.yaml`; ghi delta. Nếu không tụt: đổi
-mặc định `assemble_prompt`/`rewrite_prompt` sang v2. Chụp `.tham-dinh-shots`.
+Chạy `eval.run_trap` hai lần (mặc định v1, rồi biến môi trường v2) và
+`eval.run` preset `hybrid` một lần để chắc truy hồi không đổi; ghi delta. Nếu bẫy
+không tụt: đổi mặc định `assemble_prompt`/`rewrite_prompt` sang v2. Chụp `.tham-dinh-shots`.
 Chuyển ⬜ → ✅ dòng 7–9 của `docs/bo-luat-agent.md` **chỉ sau khi** bẫy tương
 ứng đo được. Chuyển plan sang `docs/plans/completed/`.
 
