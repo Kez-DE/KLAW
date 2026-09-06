@@ -492,3 +492,14 @@ export const loaiBackendCua = (id: string): LoaiVanBanBackend | undefined => LOA
 
 /** `undefined` = chưa nối backend. Ba giá trị còn lại là ba nhãn khác nhau. */
 export const phamViSoatCuaMau = (id: string): PhamViSoat | undefined => LOAI_BACKEND[id]?.phamVi;
+
+/**
+ * Đảo `LOAI_BACKEND`: mã checklist máy chủ → các slug thẻ. `hdld` trả hai slug
+ * vì HĐLĐ xác định và không xác định thời hạn dùng chung checklist; loại chưa
+ * có thẻ (vd. `quyet_dinh_ky_luat`) trả [] — card gợi ý rơi về nút chọn tay.
+ */
+export function slugCuaLoai(loai: string): string[] {
+  return Object.entries(LOAI_BACKEND)
+    .filter(([, v]) => v.loai === loai)
+    .map(([slug]) => slug);
+}

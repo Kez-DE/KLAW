@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { Link } from "@tanstack/react-router";
 import { BookOpenText, FileSearch, Info } from "lucide-react";
 import type { LinkVanBan, Nguon, TraCuuKetQua, VanBanTraLoi } from "@/lib/klaw";
+import { mauTheoId, slugCuaLoai } from "@/lib/mau-van-ban";
 import { canCuConHieuLuc, chiSoCuaThe, coTagBamDuoc } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { catDoan, catManh, type Manh } from "@/lib/van-xuoi";
@@ -351,6 +352,61 @@ function KhoiVanXuoi({
   );
 }
 
+/**
+ * Card gợi ý soạn thảo (spec soạn-thảo-trong-chat §5.2). Văn xuôi của máy chủ
+ * nói loại và lý do; nút chính mở khung bên cạnh với slug của loại đó, chip mở
+ * loại thay thế, nút cuối mở lưới chọn tay. `hdld` có hai thẻ → hai nút.
+ */
+function TheGoiYSoanThao({
+  ketQua,
+  onSoanThao,
+}: {
+  ketQua: TraCuuKetQua;
+  onSoanThao?: ((slug: string | null) => void) | undefined;
+}) {
+  const gy = ketQua.soan_thao ?? null;
+  const chinh = gy?.ho_tro && gy.loai ? slugCuaLoai(gy.loai) : [];
+  const nutPhu =
+    "focus-brass cursor-pointer rounded-full border border-border bg-card px-3 py-1.5 text-[13px] text-foreground hover:bg-[var(--color-paper-100)]";
+  return (
+    <section aria-label="Gợi ý soạn thảo">
+      <div className="doc-prose text-foreground">
+        <KhoiVanXuoi chu={ketQua.answer ?? ""} />
+      </div>
+      {onSoanThao && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {chinh.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onSoanThao(s)}
+              className="focus-brass bg-gradient-ink cursor-pointer rounded-lg px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              {chinh.length > 1 ? `Soạn ${mauTheoId(s)?.ten ?? s}` : "Soạn ngay tại đây"}
+            </button>
+          ))}
+          {(gy?.thay_the ?? []).flatMap((t) =>
+            slugCuaLoai(t.loai)
+              .filter((s) => !chinh.includes(s))
+              .map((s) => (
+                <button key={s} type="button" onClick={() => onSoanThao(s)} className={nutPhu}>
+                  {mauTheoId(s)?.ten ?? t.ten}
+                </button>
+              )),
+          )}
+          <button
+            type="button"
+            onClick={() => onSoanThao(null)}
+            className={cn(nutPhu, "text-muted-foreground")}
+          >
+            Chọn loại văn bản
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 interface TheKetQuaProps {
   ketQua: TraCuuKetQua;
   /** Chỉ số trích dẫn đang mở trong panel đối chiếu, hoặc null. */
@@ -360,6 +416,8 @@ interface TheKetQuaProps {
   onMoVanBan?: (docId: string) => void;
   /** Câu người dùng GÕ. Cần để so với `cau_hoi_day_du` — xem `CauHoiDaHieu`. */
   cauHoiGoc?: string;
+  /** Mở khung soạn thảo bên cạnh với slug thẻ, hoặc `null` để chọn loại tại chỗ. */
+  onSoanThao?: ((slug: string | null) => void) | undefined;
 }
 
 /**
@@ -396,7 +454,13 @@ export function TheKetQua(props: TheKetQuaProps) {
   );
 }
 
-function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan }: TheKetQuaProps) {
+function NoiDungKetQua({
+  ketQua,
+  chiSoDangMo = null,
+  onChonTrichDan,
+  onMoVanBan,
+  onSoanThao,
+}: TheKetQuaProps) {
   const { result_type: loai, answer, citations, nguon, coverage_note: ghiChuPhamVi, bang } = ketQua;
   const chon = onChonTrichDan ?? (() => undefined);
 
@@ -469,6 +533,10 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
         </div>
       </section>
     );
+  }
+
+  if (loai === "huong_dan_soan_thao") {
+    return <TheGoiYSoanThao ketQua={ketQua} onSoanThao={onSoanThao} />;
   }
 
   if (loai === "partial_coverage") {
