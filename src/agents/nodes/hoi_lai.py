@@ -69,7 +69,7 @@ CHIEU = {
 MAC_DINH = ("chu_the", "loai_hop_dong", "thoi_diem")
 
 # Câu dẫn — HẰNG SỐ, không do model sinh, cùng lý do với `kho.CAU_GIOI_HAN`.
-CAU_DAN = "Để trả lời chắc chắn, mình cần bạn cho biết thêm:"
+CAU_DAN = "Để trả lời chắc chắn, tôi cần bạn cho biết thêm:"
 
 # Ba dạng đều là một PHÁT BIỂU VỀ LUẬT đội lốt câu hỏi. `Ð` U+00D0 nằm cạnh `Đ`
 # U+0110 vì corpus có cả hai và một bộ lọc chỉ biết một chữ sẽ để lọt dạng còn

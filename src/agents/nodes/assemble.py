@@ -276,17 +276,17 @@ def _ly_do_moi_nguon_bi_thay(qua_loc: list) -> str:
     cạnh) thì nói rõ không xác định được, không bịa tên."""
     ke_nhiem = sorted({m for r in qua_loc for m in [_van_ban_ke_nhiem(r.effectivity.ly_do)] if m})
     if ke_nhiem:
-        return (f"Những gì mình tìm được cho câu hỏi này đều đã bị thay thế. Văn bản đi thay "
-                f"là {', '.join(ke_nhiem)}, và nội dung của nó thì mình chưa nạp vào kho, "
-                f"nên mình chưa đọc được để nói với bạn nó quy định thế nào.")
-    return ("Những gì mình tìm được cho câu hỏi này đều đã bị thay thế hoặc đã hết hiệu lực, "
-            "và từ những gì mình đang có thì mình chưa xác định được văn bản nào đi thay.")
+        return (f"Những gì tôi tìm được cho câu hỏi này đều đã bị thay thế. Văn bản đi thay "
+                f"là {', '.join(ke_nhiem)}, và nội dung của nó thì tôi chưa nạp vào kho, "
+                f"nên tôi chưa đọc được để nói với bạn nó quy định thế nào.")
+    return ("Những gì tôi tìm được cho câu hỏi này đều đã bị thay thế hoặc đã hết hiệu lực, "
+            "và từ những gì tôi đang có thì tôi chưa xác định được văn bản nào đi thay.")
 
 
 # `intent == ngoai_pham_vi`. HẰNG SỐ để phép quét giọng (`test_giong_tra_loi`)
 # nhìn thấy được — một chuỗi viết thẳng vào lời gọi `_base` thì không hằng số
 # nào tồn tại để quét.
-NGOAI_PHAM_VI = ("Câu hỏi này nằm ngoài phạm vi mình phủ: mình chỉ tra được 6 Bộ luật của "
+NGOAI_PHAM_VI = ("Câu hỏi này nằm ngoài phạm vi tôi phủ: tôi chỉ tra được 6 Bộ luật của "
                  "Việt Nam, và chỉ soạn thảo trong lĩnh vực lao động.")
 
 # Nửa đầu khi truy hồi KHÔNG cầm được gì. Nói thẳng là không biết — nhưng nói
@@ -294,8 +294,8 @@ NGOAI_PHAM_VI = ("Câu hỏi này nằm ngoài phạm vi mình phủ: mình ch�
 # đồng nghĩa "pháp luật không quy định". Cùng khuôn `kho._khoi_mot_so`, và cùng
 # lý do: sai chế độ tệ nhất ở đây không phải "không biết", mà là phát biểu thay
 # cho nền pháp luật Việt Nam.
-KHONG_TIM_DUOC = ("Trong kho của mình không có văn bản nào khớp được với câu hỏi này, nên mình "
-                  "chưa có gì chắc chắn để nói. Kho là tập văn bản mình đã nạp, vậy nên đây "
+KHONG_TIM_DUOC = ("Trong kho của tôi không có văn bản nào khớp được với câu hỏi này, nên tôi "
+                  "chưa có gì chắc chắn để nói. Kho là tập văn bản tôi đã nạp, vậy nên đây "
                   "không phải kết luận rằng pháp luật không quy định về việc bạn hỏi.")
 
 # Nửa đầu khi câu hỏi NỐI TIẾP không giải nghĩa được (`giai_nghia` trả None, rẽ
@@ -304,9 +304,9 @@ KHONG_TIM_DUOC = ("Trong kho của mình không có văn bản nào khớp đư�
 # chưa được tra lần nào, và cái thiếu là mình chưa biết câu hỏi trỏ vào đâu.
 # Cùng lớp lỗi với "văn bản chi phối" ở `_phu_mot_phan`, chỉ khác chiều.
 CHUA_GIAI_NGHIA_DUOC = (
-    "Câu hỏi này của bạn nối tiếp câu trước, mà mình chưa chắc nó đang trỏ về phần nào "
-    "trong những gì mình vừa nói, nên mình không đi tra vội — tra theo một phỏng đoán "
-    "thì mình sẽ trả lời một câu bạn không hỏi mà bạn cũng không có cách nào biết."
+    "Câu hỏi này của bạn nối tiếp câu trước, mà tôi chưa chắc nó đang trỏ về phần nào "
+    "trong những gì tôi vừa nói, nên tôi không đi tra vội — tra theo một phỏng đoán "
+    "thì tôi sẽ trả lời một câu bạn không hỏi mà bạn cũng không có cách nào biết."
 )
 
 
@@ -355,10 +355,10 @@ def _da_biet(state: dict) -> str:
                                       *(state.get("hits_shallow") or [])])
     if not ten:
         return KHONG_TIM_DUOC
-    return (f"Mình tìm được {'; '.join(ten)} khớp từ ngữ với câu hỏi của bạn"
-            + (f", và mình đọc được tới {', '.join(vi_tri)}" if vi_tri else "")
-            + ". Mình chưa đối chiếu được điều khoản nào trong đó thành một câu trả lời "
-              "mình dám nói chắc với bạn, nên mình dừng ở đây thay vì đoán.")
+    return (f"Tôi tìm được {'; '.join(ten)} khớp từ ngữ với câu hỏi của bạn"
+            + (f", và tôi đọc được tới {', '.join(vi_tri)}" if vi_tri else "")
+            + ". Tôi chưa đối chiếu được điều khoản nào trong đó thành một câu trả lời "
+              "tôi dám nói chắc với bạn, nên tôi dừng ở đây thay vì đoán.")
 
 
 def _gop_usage(*us: Usage | None) -> Usage | None:
@@ -541,10 +541,10 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
                 so, ten_vb = hien_van_ban(p.get("so_ky_hieu") or "", p.get("ten") or "")
                 nguon.append({"doc_id": doc_id, "so_ky_hieu": so, "bo_luat": ten_vb})
         return _ngo_cut(state, llm, model, ResultType.partial_coverage, nguon=nguon, ghi_chu=(
-            f"Mình tìm được {'; '.join(ten)} khớp từ ngữ với câu hỏi của bạn. "
-            f"{'Văn bản này' if len(ten) == 1 else 'Những văn bản này'} mình mới có tên, "
+            f"Tôi tìm được {'; '.join(ten)} khớp từ ngữ với câu hỏi của bạn. "
+            f"{'Văn bản này' if len(ten) == 1 else 'Những văn bản này'} tôi mới có tên, "
             "số hiệu và tình trạng hiệu lực — chưa có toàn văn tới từng điều khoản, nên "
-            "mình chưa đọc được nội dung để nói với bạn điều gì chắc chắn, và cũng chưa "
+            "tôi chưa đọc được nội dung để nói với bạn điều gì chắc chắn, và cũng chưa "
             "chắc được nó có đúng là chỗ trả lời câu hỏi của bạn hay không. Bạn mở được "
             "văn bản gốc ngay dưới đây."
         ))

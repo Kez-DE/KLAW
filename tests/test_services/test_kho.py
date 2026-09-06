@@ -152,7 +152,7 @@ def test_moi_duong_tra_loi_deu_dong_bang_cau_gioi_han_pham_vi(cau_hoi):
 
 @pytest.mark.parametrize("cau_hoi", MOI_DANG_CAU_HOI)
 def test_moi_duong_tra_loi_deu_xung_trong_kho_cua_minh(cau_hoi):
-    assert "kho của mình" in dung_cau_tra_loi(cau_hoi, KHO)
+    assert "kho của tôi" in dung_cau_tra_loi(cau_hoi, KHO)
 
 
 # ══ Có/không một văn bản cụ thể ═════════════════════════════════════════════
@@ -289,8 +289,8 @@ def test_chua_xac_dinh_khong_bi_gop_vao_so_van_ban_dung_duoc():
     # BA nhóm, không hai và không một: 2 xác định được (con_hieu_luc +
     # mot_phan_khong_xac_dinh), 2 chưa kết luận được (chua_xac_dinh), 1 cần đối
     # chiếu tay (can_doi_chieu_tay — CÓ tín hiệu, thiếu ngày), 1 đã hết hiệu lực.
-    assert "2 văn bản mình xác định được" in tl, f"thiếu nhóm xác định được:\n{tl}"
-    assert "2 văn bản mình chưa kết luận được" in tl, f"thiếu nhóm chưa kết luận:\n{tl}"
+    assert "2 văn bản tôi xác định được" in tl, f"thiếu nhóm xác định được:\n{tl}"
+    assert "2 văn bản tôi chưa kết luận được" in tl, f"thiếu nhóm chưa kết luận:\n{tl}"
     assert "1 văn bản cần đối chiếu tay" in tl, f"thiếu nhóm cần người:\n{tl}"
     # Không được gộp cả năm thành một con số rồi trình bày như nhau.
     assert "5 văn bản chưa ghi nhận" not in tl, f"vẫn gộp:\n{tl}"

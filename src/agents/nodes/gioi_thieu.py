@@ -132,18 +132,18 @@ def _chuan(cau_hoi: str) -> str:
 # `test_loi_chao_KHONG_doi_ca_bai_nang_luc_vao_mat_nguoi_ta` khoá tỉ lệ độ dài
 # (< 1/3 bài năng lực) thay vì khoá lời, để sửa câu chữ không làm nó đỏ oan.
 CHAO = (
-    "Chào bạn. Mình tra cứu pháp luật lao động Việt Nam và soạn thảo văn bản pháp "
+    "Chào bạn. Tôi tra cứu pháp luật lao động Việt Nam và soạn thảo văn bản pháp "
     "lý lao động.\n"
     "\n"
-    "Bạn cứ kể thẳng chuyện đang gặp, càng cụ thể càng tốt — mình trả lời kèm điều "
-    "luật bạn bấm được để đọc nguyên văn. Muốn biết mình làm được những gì thì hỏi "
+    "Bạn cứ kể thẳng chuyện đang gặp, càng cụ thể càng tốt — tôi trả lời kèm điều "
+    "luật bạn bấm được để đọc nguyên văn. Muốn biết tôi làm được những gì thì hỏi "
     "luôn câu đó."
 )
 
 # Dạng 5 — cảm ơn.
 CAM_ON = (
     "Không có gì. Chỗ nào trong câu trả lời bạn thấy chưa chắc thì bấm vào trích "
-    "dẫn để đọc nguyên văn điều luật — hoặc hỏi tiếp, mình còn ở đây."
+    "dẫn để đọc nguyên văn điều luật — hoặc hỏi tiếp, tôi còn ở đây."
 )
 
 # Dạng 6 — danh tính ("là ai" hỏi VAI). Mở đúng câu chủ dự án yêu cầu nguyên
@@ -152,13 +152,13 @@ CAM_ON = (
 # quảng cáo, và KHÔNG thêm việc thứ tư.
 DANH_TINH = "\n\n".join((
     "Xin chào! Tôi là KLAW — trợ lý AI chuyên về pháp luật Việt Nam.",
-    "Mình giúp bạn ba việc:",
+    "Tôi giúp bạn ba việc:",
     "\n".join((
         "- 📖 Tra cứu pháp luật — nêu quy định kèm trích dẫn tới đúng điều, khoản, điểm của văn bản gốc.",
         "- 📝 Soạn thảo văn bản — hợp đồng lao động, nội quy lao động, quyết định kỷ luật.",
         "- 🔍 Rà soát văn bản — đối chiếu nội dung bắt buộc theo luật và chỉ ra điều khoản trái luật.",
     )),
-    "Điều mình khác các trợ lý khác: mỗi câu mình nói đều neo vào một trích dẫn bạn bấm được, và trước khi hiển thị, câu trích đó đã được đối chiếu từng chữ với văn bản gốc trong kho. Không đủ căn cứ thì mình nói thẳng là không đủ — mình không đoán.",
+    "Điều tôi khác các trợ lý khác: mỗi câu tôi nói đều neo vào một trích dẫn bạn bấm được, và trước khi hiển thị, câu trích đó đã được đối chiếu từng chữ với văn bản gốc trong kho. Không đủ căn cứ thì tôi nói thẳng là không đủ — tôi không đoán.",
     "Bạn đang cần tra cứu vấn đề gì, hay cần soạn văn bản nào?",
 ))
 
@@ -167,13 +167,13 @@ DANH_TINH = "\n\n".join((
 # kiểm), và đó là lý do dạng này tồn tại riêng thay vì dội bài danh tính hay
 # bài năng lực vào câu hỏi "là gì". Đừng cắt đoạn đó cho ngắn.
 BAN_CHAT = "\n\n".join((
-    "Về bản chất, mình là một chương trình — một trợ lý AI làm riêng cho pháp luật Việt Nam, tên KLAW.",
+    "Về bản chất, tôi là một chương trình — một trợ lý AI làm riêng cho pháp luật Việt Nam, tên KLAW.",
     "\n".join((
-        "- Mình không phải luật sư, không phải thẩm phán, không phải cơ quan nhà nước. Mình không có quyền ra phán quyết, và không đại diện cho bạn tại toà.",
-        "- Mình chạy trên mô hình ngôn ngữ, nhưng câu trả lời không thành hình vì mô hình tự tin. Mỗi trích dẫn phải qua hai tầng kiểm mới được hiện ra: tầng một so từng chữ câu trích với nguyên văn điều khoản trong kho — một phép so chuỗi thuần, nó không có cách nào tự thuyết phục được chính nó; tầng hai để một model khác họ đọc lại xem điều khoản đó có chống đỡ được câu đó không.",
-        "- Không đủ căn cứ thì mình nói thẳng là không đủ, không viết cho đủ bài.",
+        "- Tôi không phải luật sư, không phải thẩm phán, không phải cơ quan nhà nước. Tôi không có quyền ra phán quyết, và không đại diện cho bạn tại toà.",
+        "- Tôi chạy trên mô hình ngôn ngữ, nhưng câu trả lời không thành hình vì mô hình tự tin. Mỗi trích dẫn phải qua hai tầng kiểm mới được hiện ra: tầng một so từng chữ câu trích với nguyên văn điều khoản trong kho — một phép so chuỗi thuần, nó không có cách nào tự thuyết phục được chính nó; tầng hai để một model khác họ đọc lại xem điều khoản đó có chống đỡ được câu đó không.",
+        "- Không đủ căn cứ thì tôi nói thẳng là không đủ, không viết cho đủ bài.",
     )),
-    "Việc quan trọng thì bạn vẫn nên đưa trích dẫn mình dẫn cho luật sư xem cùng.",
+    "Việc quan trọng thì bạn vẫn nên đưa trích dẫn tôi dẫn cho luật sư xem cùng.",
 ))
 
 _TIEN_TO_CHECKLIST = "checklist_"
@@ -231,19 +231,19 @@ def _loai_soan_thao() -> str:
 # trước bảng model hay trước câu trả lời về nguồn dữ liệu là đúng chỗ người đọc
 # thấy máy móc.
 _NANG_LUC_MAU = "\n\n".join((
-    "Mình tra cứu pháp luật Việt Nam và soạn thảo văn bản pháp lý lao động.",
-    "Điều mình làm khác các trợ lý khác: mỗi câu mình nói đều neo vào một trích dẫn "
+    "Tôi tra cứu pháp luật Việt Nam và soạn thảo văn bản pháp lý lao động.",
+    "Điều tôi làm khác các trợ lý khác: mỗi câu tôi nói đều neo vào một trích dẫn "
     "bạn bấm được để mở đúng nguyên văn điều luật, và trước khi hiển thị, câu trích "
-    "đó đã được đối chiếu từng chữ với văn bản gốc. Không đủ căn cứ thì mình nói "
-    "thẳng là không đủ — mình không đoán.",
+    "đó đã được đối chiếu từng chữ với văn bản gốc. Không đủ căn cứ thì tôi nói "
+    "thẳng là không đủ — tôi không đoán.",
     "Bạn hỏi được: quyền lợi khi bị trừ lương hay cho nghỉ việc, thời giờ làm việc "
     "và nghỉ phép, hợp đồng lao động, kỷ luật lao động, an toàn lao động, và nội "
     "dung của sáu Bộ luật (Dân sự, Hình sự, Tố tụng dân sự, Tố tụng hình sự, Lao "
-    "động, Hàng hải). Mình soạn được {soan_thao}, hỏi cụ thể loại nào để biết "
+    "động, Hàng hải). Tôi soạn được {soan_thao}, hỏi cụ thể loại nào để biết "
     "checklist chi tiết.",
     "Chiều sâu không đều: riêng Lao động có đủ luật, nghị định, thông tư và chế "
     "tài. Các lĩnh vực khác — như thuế, đất đai, hôn nhân gia đình, doanh nghiệp — "
-    "hiện chỉ có luật gốc, chưa có văn bản hướng dẫn. Và kho của mình là văn bản "
+    "hiện chỉ có luật gốc, chưa có văn bản hướng dẫn. Và kho của tôi là văn bản "
     "gốc, không phải bản hợp nhất, nên việc quan trọng thì bạn vẫn nên đối chiếu "
     "bản hiện hành.",
 ))
@@ -265,17 +265,17 @@ def _nang_luc() -> str:
 # câu giới hạn phạm vi, và một bản sao thứ hai sẽ lệch pha đúng vào ngày ai đó
 # sửa một trong hai.
 NGUON = "\n\n".join((
-    "Kho của mình dựng từ cơ sở dữ liệu quốc gia về văn bản pháp luật — bản công "
+    "Kho của tôi dựng từ cơ sở dữ liệu quốc gia về văn bản pháp luật — bản công "
     "bố của cơ quan nhà nước, không phải một bản chép lại trên mạng.",
     "Hai điều bạn nên biết trước khi tin:",
-    "- Kho là văn bản GỐC, không phải bản hợp nhất. Mình bảo đảm trích đúng nguyên "
+    "- Kho là văn bản GỐC, không phải bản hợp nhất. Tôi bảo đảm trích đúng nguyên "
     "văn và đúng nguồn, và gắn nhãn hiệu lực cho từng trích dẫn — nhưng bản gốc "
     "không tự mang theo các lần sửa đổi về sau, nên việc quan trọng thì bạn vẫn "
     "nên đối chiếu bản hiện hành.\n"
-    "- Mỗi câu mình nói phải qua hai tầng kiểm mới được hiện ra: tầng một so từng "
+    "- Mỗi câu tôi nói phải qua hai tầng kiểm mới được hiện ra: tầng một so từng "
     "chữ câu trích với điều khoản trong kho, tầng hai để một model khác đọc lại "
     "xem điều khoản đó có thật sự chống đỡ được câu đó không. Không qua được thì "
-    "mình nói thẳng là không đủ, không viết cho đủ bài.",
+    "tôi nói thẳng là không đủ, không viết cho đủ bài.",
     CAU_GIOI_HAN,
 ))
 
@@ -292,7 +292,7 @@ def _model() -> str:
     chống ảo giác, không phải một chi tiết kỹ thuật.
     """
     return "\n\n".join((
-        "Mình không phải một model. Mình là một đường trả lời có ba model đứng ở ba "
+        "Tôi không phải một model. Tôi là một đường trả lời có ba model đứng ở ba "
         "vai khác nhau:",
         "\n".join((
             f"- Định tuyến câu hỏi: {router_model()}",
@@ -300,7 +300,7 @@ def _model() -> str:
             f"- Thẩm định lại từng luận điểm: {judge_model()}",
         )),
         "Chỗ đáng nói không phải ba cái tên mà là dòng thứ ba: model thẩm định cố ý "
-        "khác HỌ với model sinh. Một model đọc lại bài của chính họ mình thì thiên "
+        "khác HỌ với model sinh. Một model đọc lại bài của chính nó thì thiên "
         "vị chính nó, và tầng thẩm định trở thành một sự yên tâm giả.",
         "Tầng kiểm trước đó thì không phải model nào cả: mỗi câu trích được so từng "
         "chữ với nguyên văn điều khoản trong kho. Đó là một phép so chuỗi — nó không "
