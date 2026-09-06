@@ -111,10 +111,11 @@ const COMPARISON: Row[] = [
 
 // Bốn câu hỏi thường gặp cũ mô tả một hệ thống thanh toán chưa tồn tại: hình
 // thức thanh toán, xuất hoá đơn GTGT, huỷ gói trong Cài đặt tài khoản, hạn mức
-// làm mới theo chu kỳ, và cam kết hoàn tiền 7 ngày. Không có cái nào được dựng —
-// không có cổng thanh toán, không có trang cài đặt tài khoản, không có bảng hạn
-// mức. Một cam kết hoàn tiền là lời hứa với người tiêu dùng, nên nó là chuỗi
-// nguy hiểm nhất trên trang này.
+// làm mới theo chu kỳ, và cam kết hoàn tiền 7 ngày. Cổng thanh toán và trang cài
+// đặt tài khoản chưa có; hạn mức THÌ CÓ — máy chủ đếm lượt theo tài khoản
+// (`GET /han-muc`, `HanMucThang` ngay trên trang này) — nên FAQ chỉ nói thật về
+// hai thứ còn thiếu. Một cam kết hoàn tiền là lời hứa với người tiêu dùng, nên
+// nó là chuỗi nguy hiểm nhất trên trang này.
 const FAQS: { q: string; a: string }[] = [
   {
     q: "Có đăng ký được ngay không?",
@@ -302,8 +303,7 @@ function BangGiaPage() {
               <button
                 type="button"
                 disabled
-                aria-disabled
-                className="mt-7 inline-flex h-11 cursor-default items-center justify-center rounded-lg border border-border text-[14px] font-medium text-muted-foreground opacity-70"
+                className="mt-7 inline-flex h-11 cursor-default items-center justify-center rounded-lg border border-border text-[14px] font-medium text-muted-foreground"
               >
                 {t.cta}
               </button>

@@ -131,6 +131,17 @@ export function docNhanHieuLuc(hieuLuc: string): Nhan {
         nhanDayDu: "Cần đối chiếu tay với văn bản gốc",
       };
 
+    case "chua_xac_dinh":
+      // CSDL quốc gia không có mã tình trạng cho văn bản này (thường là văn bản
+      // mới ban hành). Trung tính: "chưa biết", không phải "đã chết" — nên không
+      // đỏ, không xanh.
+      return {
+        kieu: "cham",
+        mau: MAU.neutral,
+        chu: "Chưa xác định",
+        nhanDayDu: "Chưa xác định được hiệu lực",
+      };
+
     default:
       // Nhãn backend thêm sau. Hiện nguyên chuỗi, màu trung tính, không đoán
       // nghĩa và không tô màu cảnh báo cho một thứ mình không hiểu.
