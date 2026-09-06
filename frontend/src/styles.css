@@ -784,6 +784,26 @@ mark.cau-trich {
 .doc-prose p { margin: 0 0 0.85em; }
 .doc-prose p:last-child { margin-bottom: 0; }
 
+/* Thẻ trích dẫn trong văn xuôi (spec 2026-09-06 §7.2). Là <button> để bàn phím
+   dùng được; trông như liên kết vì hành vi là "mở nguyên văn bên cạnh". Màu
+   chữ --color-ink-800 trên nền giấy, gạch chân vàng đồng như .ph-slot. */
+.the-luat {
+  all: unset;
+  cursor: pointer;
+  color: var(--color-ink-800);
+  text-decoration: underline;
+  text-decoration-color: var(--color-brass-600);
+  text-underline-offset: 3px;
+  border-radius: 2px;
+}
+.the-luat:hover {
+  text-decoration-thickness: 2px;
+}
+.the-luat:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 .brass-caret::after {
   content: "";
   display: inline-block;

@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { BookOpenText, FileSearch, Info } from "lucide-react";
 import type { Citation, Nguon, TraCuuKetQua } from "@/lib/klaw";
-import { ghiChuHieuLuc, nhomHieuLuc, xepTrichDan } from "@/lib/trich-dan";
+import { chiSoDauCuaVanBan, ghiChuHieuLuc, nhomHieuLuc, xepTrichDan } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
-import { catDoan } from "@/lib/van-xuoi";
+import { catDoan, catManh, type Manh } from "@/lib/van-xuoi";
 import { BadgeHieuLuc } from "./BadgeHieuLuc";
 import { BangKetQua } from "./BangKetQua";
 
@@ -310,7 +310,66 @@ function NhacMienTru() {
  * `catDoan` chỉ CẮT, không sửa chữ: câu trả lời mang số Điều ngay trong lời văn
  * (`… (Điều 25, Khoản 1)`) và đó là căn cứ, không phải trang trí.
  */
-function KhoiVanXuoi({ chu }: { chu: string }) {
+
+/**
+ * Một thẻ trong văn xuôi. `cite:K` → trích dẫn có `k === K`; `doc:ID` → trích dẫn
+ * đầu của văn bản đó (Q5). Cả hai đi qua ĐÚNG `onChon(chiSo)` mà dải trích dẫn
+ * đang dùng, nên `dangMo`/`aria-expanded` trong `dung-thu.tsx` dùng lại nguyên.
+ * Thẻ không khớp gì (backend đã chặn; đây là lưới phụ) rơi về chữ thường.
+ */
+function TheTrichDan({
+  manh,
+  ketQua,
+  onChon,
+}: {
+  manh: Extract<Manh, { kieu: "the" }>;
+  ketQua?: TraCuuKetQua | undefined;
+  onChon?: ((chiSo: number) => void) | undefined;
+}) {
+  if (ketQua === undefined || onChon === undefined) return <>{manh.chu}</>;
+  const chiSo =
+    manh.loai === "cite"
+      ? ketQua.citations.findIndex((c) => c.k === Number(manh.khoa))
+      : chiSoDauCuaVanBan(ketQua.citations, manh.khoa);
+  if (chiSo < 0) return <>{manh.chu}</>;
+  return (
+    <button type="button" className="the-luat" onClick={() => onChon(chiSo)}>
+      {manh.chu}
+    </button>
+  );
+}
+
+function ManhVanXuoi({
+  chu,
+  ketQua,
+  onChon,
+}: {
+  chu: string;
+  ketQua?: TraCuuKetQua | undefined;
+  onChon?: ((chiSo: number) => void) | undefined;
+}) {
+  return (
+    <>
+      {catManh(chu).map((m, i) =>
+        m.kieu === "chu" ? (
+          <Fragment key={i}>{m.chu}</Fragment>
+        ) : (
+          <TheTrichDan key={i} manh={m} ketQua={ketQua} onChon={onChon} />
+        ),
+      )}
+    </>
+  );
+}
+
+function KhoiVanXuoi({
+  chu,
+  ketQua,
+  onChon,
+}: {
+  chu: string;
+  ketQua?: TraCuuKetQua | undefined;
+  onChon?: ((chiSo: number) => void) | undefined;
+}) {
   return (
     <>
       {catDoan(chu).map((doan, i) =>
@@ -318,13 +377,13 @@ function KhoiVanXuoi({ chu }: { chu: string }) {
           <ul key={`ds-${i}`} className={cn("list-disc pl-5", i === 0 ? "m-0" : "mt-3 mb-0")}>
             {doan.muc.map((muc, j) => (
               <li key={`${j}-${muc.slice(0, 24)}`} className={j === 0 ? "" : "mt-1"}>
-                {muc}
+                <ManhVanXuoi chu={muc} ketQua={ketQua} onChon={onChon} />
               </li>
             ))}
           </ul>
         ) : (
           <p key={`d-${i}`} className={i === 0 ? "m-0" : "mt-3 mb-0"}>
-            {doan.chu}
+            <ManhVanXuoi chu={doan.chu} ketQua={ketQua} onChon={onChon} />
           </p>
         ),
       )}
@@ -363,7 +422,7 @@ function CauHoiDaHieu({ goc, dayDu }: { goc: string | undefined; dayDu: string |
   if (goc !== undefined && gon(goc) === gon(dayDu)) return null;
   return (
     <p className="mb-3 text-[13px] leading-6 text-muted-foreground">
-      Mình hiểu câu hỏi của bạn là: <span className="text-foreground italic">{dayDu}</span>
+      Tôi hiểu câu hỏi của bạn là: <span className="text-foreground italic">{dayDu}</span>
     </p>
   );
 }
@@ -398,7 +457,7 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
             đoán"), và một hệ thống tự thuật về thiết kế của chính nó là đúng
             giọng mà pha này bỏ. Khay vẫn TRUNG TÍNH — abstain là hành vi đúng,
             không phải một mức báo động. */}
-        <KhayTrungTinh tieuDe="Mình chưa trả lời chắc được câu hỏi này.">
+        <KhayTrungTinh tieuDe="Tôi chưa trả lời chắc được câu hỏi này.">
           {ghiChuPhamVi !== null && ghiChuPhamVi !== "" && (
             <div className="mt-2 text-[14px] leading-6 text-muted-foreground">
               <KhoiVanXuoi chu={ghiChuPhamVi} />
@@ -442,18 +501,18 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
   if (loai === "out_of_scope") {
     return (
       <section aria-label="Kết quả tra cứu">
-        <KhayTrungTinh tieuDe="Câu hỏi này nằm ngoài phạm vi mình phủ.">
+        <KhayTrungTinh tieuDe="Câu hỏi này nằm ngoài phạm vi tôi phủ.">
           {ghiChuPhamVi !== null && ghiChuPhamVi !== "" && (
             <p className="mt-2 mb-0 text-[14px] leading-6 text-muted-foreground">{ghiChuPhamVi}</p>
           )}
         </KhayTrungTinh>
         <div className="mt-4 text-[14px] leading-6 text-foreground">
           <p className="m-0">
-            Mình tra được <strong className="font-semibold">6 Bộ luật</strong>:{" "}
+            Tôi tra được <strong className="font-semibold">6 Bộ luật</strong>:{" "}
             {SAU_BO_LUAT.join(", ")} — cùng cụm văn bản dưới luật về Lao động.
           </p>
           <p className="mt-2 mb-0 text-muted-foreground">
-            Mình chưa phủ: {KHONG_PHU.join(", ")}. Chiều sâu cũng không đều giữa các lĩnh vực: chỉ
+            Tôi chưa phủ: {KHONG_PHU.join(", ")}. Chiều sâu cũng không đều giữa các lĩnh vực: chỉ
             riêng Lao động có đủ luật, nghị định, thông tư và chế tài.
           </p>
         </div>
@@ -476,8 +535,8 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
               aria-hidden
             />
             <span>
-              Mình tìm được văn bản chi phối câu hỏi của bạn, nhưng chưa đọc được nội dung của nó
-              nên chưa giải thích được cho bạn.
+              Tôi tìm được văn bản chi phối câu hỏi của bạn, nhưng chưa đọc được nội dung của nó nên
+              chưa giải thích được cho bạn.
             </span>
           </p>
           {ghiChuPhamVi !== null && ghiChuPhamVi !== "" && (
@@ -509,12 +568,12 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
             <FileSearch className="mt-1 size-4 shrink-0" aria-hidden />
             <span>
               {citations.length > 0
-                ? "Lượt này mình đối chiếu được trích dẫn nhưng chưa viết ra được lời giải thích. Bạn đọc nguyên văn các điều khoản ngay dưới đây."
-                : "Lượt này mình chưa có nội dung nào để hiển thị. Bạn thử hỏi lại bằng cách khác, hoặc mô tả cụ thể hơn tình huống của bạn."}
+                ? "Lượt này tôi đối chiếu được trích dẫn nhưng chưa viết ra được lời giải thích. Bạn đọc nguyên văn các điều khoản ngay dưới đây."
+                : "Lượt này tôi chưa có nội dung nào để hiển thị. Bạn thử hỏi lại bằng cách khác, hoặc mô tả cụ thể hơn tình huống của bạn."}
             </span>
           </p>
         ) : (
-          <KhoiVanXuoi chu={answer} />
+          <KhoiVanXuoi chu={answer} ketQua={ketQua} onChon={chon} />
         )}
       </div>
       <KhoiCanhBao warnings={warnings} />
