@@ -17,6 +17,8 @@ import json
 from enum import StrEnum
 from pathlib import Path
 
+from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
+
 PROMPT_PATH = Path("prompts/route.v1.md")
 
 INTENT_SCHEMA = {
@@ -30,6 +32,32 @@ INTENT_SCHEMA = {
         }
     },
 }
+
+_INTENT_ENUM = ["tra_cuu", "soan_thao", "ngoai_pham_vi", "gioi_thieu", "hoi_ve_kho"]
+
+
+def schema_v2() -> dict:
+    """Schema strict của template v2 (spec soạn-thảo-trong-chat §4.1). Enum loại
+    dựng LÚC GỌI từ checklist trên đĩa — thêm một file YAML là router biết ngay,
+    không có danh sách viết tay để lệch. Strict đòi mọi khoá `required`, nên đây
+    là schema riêng thay vì v1 cộng khoá optional (cùng lý do QUERIES_V2_SCHEMA)."""
+    loai = sorted(cac_loai())
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["intent", "loai_van_ban", "thay_the", "ly_do"],
+        "properties": {
+            "intent": {"type": "string", "enum": _INTENT_ENUM},
+            "loai_van_ban": {"type": "string", "enum": [*loai, "khong_ro"]},
+            "thay_the": {"type": "array", "items": {"type": "string", "enum": loai}, "maxItems": 2},
+            "ly_do": {"type": "string"},
+        },
+    }
+
+
+def danh_sach_loai() -> str:
+    """Một dòng `mã — tên` cho mỗi checklist, điền vào `{danh_sach_loai}` của v2."""
+    return "\n".join(f"- `{loai}` — {load_checklist_cached(loai).ten}" for loai in sorted(cac_loai()))
 
 
 class Intent(StrEnum):
@@ -53,7 +81,10 @@ class Intent(StrEnum):
 
 def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict:
     prior_traces = state.get("traces") or {}
-    prompt = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8").format(cau_hoi=state["query"])
+    mau = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8")
+    # Template nhắc `loai_van_ban` là template v2 — chọn theo NỘI DUNG, không theo tên file.
+    la_v2 = "loai_van_ban" in mau
+    prompt = mau.format(cau_hoi=state["query"], danh_sach_loai=danh_sach_loai() if la_v2 else "")
     # llm.chat(...) NẰM NGOÀI try: lỗi hạ tầng thật (content rỗng, usage thiếu
     # — xem ValueError ở llm.py chat()/_usage_from()) phải NỔ RA NGOÀI, đúng
     # ruling gốc của module này (docstring đầu file). Bọc nó CÙNG phần parse
@@ -61,16 +92,30 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
     # rơi vào MỘT nhánh fallback tra_cuu như nhau — hai chế độ hỏng khác nhau
     # mà số liệu độ chính xác route sau này không tách lại được (silent-failure
     # review, sau task-10).
-    raw, usage = llm.chat(model, [{"role": "user", "content": prompt}], json_schema=INTENT_SCHEMA)
+    raw, usage = llm.chat(
+        model, [{"role": "user", "content": prompt}], json_schema=schema_v2() if la_v2 else INTENT_SCHEMA
+    )
+    data: dict = {}
     try:
-        intent = Intent(json.loads(raw)["intent"])
+        data = json.loads(raw)
+        intent = Intent(data["intent"])
     except (json.JSONDecodeError, KeyError, ValueError, TypeError, RuntimeError):
         # Route sai sang ngoai_pham_vi làm hệ thống từ chối oan.
         # Mặc định tra_cuu, để verifier và abstain quyết định.
         intent = Intent.tra_cuu
+        data = data if isinstance(data, dict) else {}
+    goi_y: dict | None = None
+    if la_v2 and intent is Intent.soan_thao:
+        lv = data.get("loai_van_ban")
+        goi_y = {
+            "loai": lv if isinstance(lv, str) and lv != "khong_ro" else None,
+            "ly_do": str(data.get("ly_do") or "")[:300],
+            "thay_the": [t for t in (data.get("thay_the") or []) if isinstance(t, str)][:2],
+        }
     return {
         **state,
         "intent": intent,
+        **({"soan_thao_goi_y": goi_y} if la_v2 else {}),
         "traces": {
             **prior_traces,
             "route_model": model,

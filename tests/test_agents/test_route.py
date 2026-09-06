@@ -268,3 +268,86 @@ def test_route_doc_template_tu_prompt_path_khi_duoc_truyen(tmp_path):
     llm = Ghi({"intent": "tra_cuu"})
     st = route({"query": "x"}, llm, "m", prompt_path=mau)
     assert st["intent"] is Intent.tra_cuu and llm.prompt_cuoi.startswith("MAU-RIENG")
+
+
+# ══ Task 3 — router v2: chọn loại văn bản trong cùng lượt gọi ══════════════
+
+V2_MAU = "Phân loại. Khi soan_thao chọn loai_van_ban trong:\n{danh_sach_loai}\nCÂU HỎI: {cau_hoi}"
+
+
+def _v2(tmp_path):
+    p = tmp_path / "route.v2.md"
+    p.write_text(V2_MAU, encoding="utf-8")
+    return p
+
+
+def test_v2_schema_enum_dung_tu_checklist_tren_dia():
+    from src.agents.graph_soan_thao import cac_loai
+    from src.agents.nodes.route import schema_v2
+
+    enum = schema_v2()["properties"]["loai_van_ban"]["enum"]
+    assert set(enum) == set(cac_loai()) | {"khong_ro"}
+    assert "thoa_thuan_cham_dut_hdld" in enum
+    assert schema_v2()["required"] == ["intent", "loai_van_ban", "thay_the", "ly_do"]
+
+
+def test_v2_danh_sach_loai_co_ten_doc_duoc():
+    from src.agents.nodes.route import danh_sach_loai
+
+    ds = danh_sach_loai()
+    assert "`don_xin_nghi_viec` — đơn xin nghỉ việc" in ds
+    assert ds.count("\n") >= 28
+
+
+def test_v2_soan_thao_ghi_goi_y_vao_state(tmp_path):
+    class Ghi(FakeLlm):
+        def chat(self, model, messages, json_schema=None):
+            self.schema = json_schema
+            self.prompt = messages[-1]["content"]
+            return super().chat(model, messages, json_schema)
+
+    llm = Ghi(
+        {
+            "intent": "soan_thao",
+            "loai_van_ban": "don_xin_nghi_viec",
+            "thay_the": ["thoa_thuan_cham_dut_hdld"],
+            "ly_do": "bạn là người lao động muốn nghỉ",
+        }
+    )
+    st = route({"query": "soạn cho tôi hợp đồng nghỉ việc"}, llm, "m", prompt_path=_v2(tmp_path))
+    assert st["intent"] is Intent.soan_thao
+    assert st["soan_thao_goi_y"] == {
+        "loai": "don_xin_nghi_viec",
+        "ly_do": "bạn là người lao động muốn nghỉ",
+        "thay_the": ["thoa_thuan_cham_dut_hdld"],
+    }
+    assert llm.schema["required"][0] == "intent" and "loai_van_ban" in llm.schema["properties"]
+    assert "`don_xin_nghi_viec` — " in llm.prompt, "danh sách loại phải được điền vào template"
+
+
+def test_v2_khong_ro_thanh_None_va_intent_khac_khong_goi_y(tmp_path):
+    st = route(
+        {"query": "x"},
+        FakeLlm({"intent": "soan_thao", "loai_van_ban": "khong_ro", "thay_the": [], "ly_do": ""}),
+        "m",
+        prompt_path=_v2(tmp_path),
+    )
+    assert st["soan_thao_goi_y"] == {"loai": None, "ly_do": "", "thay_the": []}
+    st2 = route(
+        {"query": "x"},
+        FakeLlm({"intent": "tra_cuu", "loai_van_ban": "khong_ro", "thay_the": [], "ly_do": ""}),
+        "m",
+        prompt_path=_v2(tmp_path),
+    )
+    assert st2["intent"] is Intent.tra_cuu and st2["soan_thao_goi_y"] is None
+
+
+def test_v1_khong_dat_khoa_goi_y():
+    st = route({"query": "soạn hợp đồng"}, FakeLlm({"intent": "soan_thao"}), "m")
+    assert "soan_thao_goi_y" not in st
+
+
+def test_v2_khong_tiem_soul():
+    from pathlib import Path
+
+    assert "src.services.prompts" not in Path("src/agents/nodes/route.py").read_text(encoding="utf-8")
