@@ -16,23 +16,48 @@ from pathlib import Path
 import yaml
 
 from src.agents.graph_tra_cuu import build_graph_tra_cuu
+from src.agents.nodes.assemble import _RE_URL, _the_khong_hop_le
+from src.services.traces import _TOKEN_IN_KEYS
 
 TRAP_PATH = Path(__file__).resolve().parent / "datasets" / "trap.yaml"
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def dung(it: dict, st: dict) -> bool:
-    """`ky_vong` → hành vi đúng. Cùng quy tắc chấm điểm đã dùng suốt Task 10
-    (out_of_scope/abstain khớp thẳng; warning_* cần answer + có cảnh báo)."""
+    """`ky_vong` → hành vi đúng. Ba loại cũ (out_of_scope/abstain/warning_*) giữ
+    nguyên. Sáu loại mới (spec 2026-09-06 §8.3) đo giọng và thẻ của `answer`."""
     rt = st["result_type"].value if hasattr(st["result_type"], "value") else st["result_type"]
     kv = it["ky_vong"]
+    answer = st.get("answer") or ""
     if kv == "out_of_scope":
         return rt == "out_of_scope"
     if kv == "abstain":
         return rt == "abstain"
     if kv.startswith("warning_"):
         return rt == "answer" and bool(st.get("warnings"))
+    if kv == "khong_url":
+        return rt == "answer" and not _RE_URL.search(answer)
+    if kv == "the_hop_le":
+        prose = [c for c in st.get("citations") or [] if c.get("k")]
+        doc_ids = {d["doc_id"] for d in st.get("documents") or []}
+        return rt == "answer" and _the_khong_hop_le(answer, prose, doc_ids) == []
+    if kv == "khong_mien_tru":
+        thap = answer.lower()
+        return rt == "answer" and "tham khảo" not in thap and "luật sư" not in thap
+    if kv == "co_chao":
+        return rt == "answer" and answer.lstrip().lower().startswith("chào")
+    if kv == "khong_chao":
+        return rt == "answer" and not answer.lstrip().lower().startswith("chào")
+    if kv == "van_ban_ngoai_kho":
+        return rt in ("answer", "abstain", "partial_coverage") and not any(s in answer for s in it.get("cam_nhac", []))
     return False
+
+
+def token_in_cua(st: dict) -> int:
+    """Tổng token đầu vào của một lượt — cộng đúng bảy khoá `traces._TOKEN_IN_KEYS`
+    (cùng quy ước với `routes._tong_hop_traces`). Đo chi phí SOUL trước/sau."""
+    tr = st.get("traces") or {}
+    return sum(int(tr.get(k) or 0) for k in _TOKEN_IN_KEYS)
 
 
 def commit_hash() -> str:
@@ -60,7 +85,7 @@ async def chay(items: list[dict]) -> dict:
     chi_tiet = []
     for it in items:
         try:
-            st = await g.ainvoke({"query": it["cau_hoi"]})
+            st = await g.ainvoke({"query": it["cau_hoi"], "lich_su": it.get("lich_su") or []})
         except Exception as e:  # noqa: BLE001 - cố ý bắt rộng để KHÔNG làm sập cả lượt, xem docstring
             print(f"[trap] LỖI câu {it['id']!r}: {type(e).__name__}: {e}", file=sys.stderr)
             chi_tiet.append(
@@ -72,8 +97,15 @@ async def chay(items: list[dict]) -> dict:
         cap = theo_nhom.setdefault(it["nhom"], [0, 0])
         cap[0] += int(d)
         cap[1] += 1
-        chi_tiet.append({"id": it["id"], "nhom": it["nhom"], "dung": d, "result_type": rt})
-    return {"commit_hash": commit_hash(), "theo_nhom": theo_nhom, "chi_tiet": chi_tiet}
+        chi_tiet.append(
+            {"id": it["id"], "nhom": it["nhom"], "dung": d, "result_type": rt, "token_in": token_in_cua(st)}
+        )
+    return {
+        "commit_hash": commit_hash(),
+        "theo_nhom": theo_nhom,
+        "chi_tiet": chi_tiet,
+        "token_in_tong": sum(c.get("token_in", 0) for c in chi_tiet),
+    }
 
 
 def main() -> None:
@@ -98,6 +130,7 @@ def main() -> None:
         tong_cau += tong
     if tong_cau:
         print(f"TỔNG: {tong_dung}/{tong_cau} = {tong_dung / tong_cau:.0%}")
+    print(f"token_in tổng: {ket['token_in_tong']}")
     loi = [c for c in ket["chi_tiet"] if "error" in c]
     if loi:
         print(
