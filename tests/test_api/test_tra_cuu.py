@@ -208,6 +208,27 @@ async def test_effectivity_tu_expand_duoc_dung_KHONG_tinh_lai_voi_canh_rong():
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+async def test_documents_va_k_song_qua_graph_that_khi_answer():
+    """Bẫy đã sập bốn lần: khoá không khai trong KLawState bị `ainvoke` loại âm
+    thầm. Chạy graph thật với câu hỏi lao động có căn cứ chắc; nếu ra `answer`
+    thì `documents` phải khác rỗng và mọi `k` hợp lệ. Ra `abstain` vì hạ tầng
+    (429) thì bỏ qua — test này canh hình dạng, không canh độ phủ."""
+    from src.agents.graph_tra_cuu import build_graph_tra_cuu
+
+    st = await build_graph_tra_cuu().ainvoke(
+        {"query": "Thời gian thử việc tối đa với công việc cần trình độ cao đẳng là bao lâu?", "lich_su": []}
+    )
+    rt = st["result_type"].value if hasattr(st["result_type"], "value") else st["result_type"]
+    if rt != "answer":
+        pytest.skip(f"graph ra {rt} — không đo được hình dạng answer lượt này")
+    assert st["documents"], "documents rỗng sau ainvoke — kiểm KLawState.documents"
+    k = [c["k"] for c in st["citations"] if c.get("k")]
+    assert k == list(range(1, len(k) + 1))
+    assert {d["doc_id"] for d in st["documents"]} <= {c["doc_id"] for c in st["citations"]}
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
 async def test_citation_khong_bao_gio_thieu_duong_dan(client):
     d = (await client.post("/api/v1/tra-cuu", json={"query": "thử việc lương bao nhiêu"})).json()
     assert all(c["duong_dan"] and c["so_ky_hieu"] for c in d["citations"])
