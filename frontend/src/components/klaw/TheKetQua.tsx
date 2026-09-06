@@ -185,12 +185,12 @@ function KhoiLienKet({ documents }: { documents: VanBanTraLoi[] }) {
   return (
     <section aria-label="Liên kết tra cứu toàn văn" className="mt-4">
       <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">
-        📖 Liên kết tra cứu toàn văn
+        <span aria-hidden="true">📖</span> Liên kết tra cứu toàn văn
       </h3>
       <ol className="mt-1 mb-0 list-decimal pl-5 text-[13px] leading-6">
         {dong.map((d) => (
           <li key={d.key}>
-            🔗{" "}
+            <span aria-hidden="true">🔗</span>{" "}
             <a
               href={d.url}
               target="_blank"
@@ -322,12 +322,16 @@ function DaiTrichDan({
 }
 
 /**
- * Nhắc miễn trừ — CHỈ ở nhánh `answer`.
+ * Nhắc miễn trừ — ở nhánh `answer` VÀ `partial_coverage`.
  *
- * Ba nhánh kia đã tự nói ra giới hạn của chúng. `answer` là nhánh DUY NHẤT đưa
- * ra một khẳng định pháp lý, và cũng là nhánh duy nhất người dùng hành động
- * theo mà không nhận ra kho là văn bản GỐC chứ không phải bản hợp nhất. Nhắc ở
- * chân trang là không đủ: người ta đọc câu trả lời rồi đóng tab.
+ * Đây là hai nhánh DUY NHẤT nêu tên một văn bản pháp luật cụ thể mà người dùng
+ * có thể hành động theo (answer bằng khẳng định pháp lý, partial_coverage
+ * bằng `nguon[]`) mà không nhận ra kho là văn bản GỐC chứ không phải bản hợp
+ * nhất. `abstain`/`out_of_scope`/`gioi_thieu` không nêu tên văn bản nào nên
+ * không cần nhắc này. Nhắc ở chân trang là không đủ: người ta đọc rồi đóng
+ * tab, nên nó lặp lại ở mỗi nhánh có nêu văn bản, không dồn về một chỗ chung.
+ * Dòng ⚖️ là hằng số giao diện, không bao giờ là lời mô hình sinh ra (spec
+ * 2026-09-06 §7.3).
  */
 function NhacMienTru() {
   return (
