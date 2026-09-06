@@ -105,7 +105,7 @@ export const MAU: MauVanBan[] = [
     id: "thoa-thuan-cham-dut-hop-dong-lao-dong",
     ten: "Thoả thuận chấm dứt hợp đồng lao động",
     moTa: "Hai bên cùng thoả thuận chấm dứt hợp đồng lao động: thời điểm, các khoản thanh toán, giấy tờ.",
-    soTruong: 8,
+    soTruong: 7,
     nhom: "lao-dong",
     kyHieu: "TTCD",
     canCu: [BLLD],
