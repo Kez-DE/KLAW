@@ -7,10 +7,17 @@
 # (BLDS Đ385/Đ400.4, xem `routes._khung_hop_dong`), nên không lặp mục `cac_ben`.
 #
 # Mọi can_cu đã tra DB 2026-09-06 bằng phép canh rong_than của
-# `checklist_don_xin_nghi_viec.yaml` — cả sáu đường có thân (rong_than = false):
+# `checklist_don_xin_nghi_viec.yaml` — cả năm đường có thân (rong_than = false):
 #   Đ34.3 (49 ký tự: "Hai bên thỏa thuận chấm dứt hợp đồng lao động."), Đ46.1,
-#   Đ48.1 (hạn 14 ngày), Đ48.2 (các khoản ưu tiên), Đ48.3.a (BHXH + trả giấy
-#   tờ), Đ48.3.b (bản sao hồ sơ). Đ34 trần RỖNG THÂN — không dẫn.
+#   Đ48.1 (hạn 14 ngày), Đ48.3.a (BHXH + trả giấy tờ), Đ48.3.b (bản sao hồ
+#   sơ). Đ34 trần RỖNG THÂN — không dẫn.
+#
+# Fix round 1 (review task-1-review.md): bỏ mục `cac_khoan_uu_tien` (Đ48.2) —
+# Đ48.2 là quy tắc ưu tiên thanh toán CHỈ áp dụng khi doanh nghiệp/hợp tác xã
+# chấm dứt hoạt động, giải thể, phá sản, không phải danh mục khoản phải trả
+# cho MỌI trường hợp chấm dứt hợp đồng. Thoả thuận hai bên (Đ34.3) không giả
+# định doanh nghiệp giải thể; mục `thanh_toan_14_ngay` (Đ48.1) đã bao quát
+# nghĩa vụ thanh toán chung.
 loai: thoa_thuan_cham_dut_hdld
 ten: "thoả thuận chấm dứt hợp đồng lao động"
 tieu_de: "THOẢ THUẬN CHẤM DỨT HỢP ĐỒNG LAO ĐỘNG"
@@ -32,7 +39,6 @@ muc:
   - {stt: 2, key: y_chi_thoa_thuan, ten: "Ý chí tự nguyện của cả hai bên về việc chấm dứt hợp đồng lao động", can_cu: "45/2019/QH14 > Điều 34 > Khoản 3", tu_khoa: ["thỏa thuận chấm dứt", "thoả thuận chấm dứt", "hai bên thống nhất", "tự nguyện"]}
   - {stt: 3, key: thoi_diem_cham_dut, ten: "Thời điểm chấm dứt và ngày làm việc cuối cùng", can_cu: "45/2019/QH14 > Điều 34 > Khoản 3", tu_khoa: ["kể từ ngày", "ngày làm việc cuối cùng", "chấm dứt kể từ"]}
   - {stt: 4, key: thanh_toan_14_ngay, ten: "Thanh toán đầy đủ các khoản liên quan đến quyền lợi của mỗi bên trong 14 ngày làm việc", can_cu: "45/2019/QH14 > Điều 48 > Khoản 1", tu_khoa: ["14 ngày làm việc", "thanh toán đầy đủ"]}
-  - {stt: 5, key: cac_khoan_uu_tien, ten: "Tiền lương, bảo hiểm xã hội, bảo hiểm y tế, bảo hiểm thất nghiệp, trợ cấp và các quyền lợi khác của người lao động", can_cu: "45/2019/QH14 > Điều 48 > Khoản 2", tu_khoa: ["tiền lương", "bảo hiểm xã hội", "quyền lợi khác"]}
-  - {stt: 6, key: tro_cap_thoi_viec, ten: "Trợ cấp thôi việc khi người lao động đã làm việc thường xuyên từ đủ 12 tháng", can_cu: "45/2019/QH14 > Điều 46 > Khoản 1", tu_khoa: ["trợ cấp thôi việc"]}
-  - {stt: 7, key: chot_bhxh_tra_giay_to, ten: "Người sử dụng lao động xác nhận thời gian đóng bảo hiểm và trả lại bản chính giấy tờ đã giữ", can_cu: "45/2019/QH14 > Điều 48 > Khoản 3 > Điểm a", tu_khoa: ["xác nhận thời gian đóng bảo hiểm", "trả lại bản chính giấy tờ", "sổ bảo hiểm xã hội"]}
-  - {stt: 8, key: ban_sao_ho_so, ten: "Cung cấp bản sao tài liệu liên quan đến quá trình làm việc khi người lao động yêu cầu, chi phí do người sử dụng lao động trả", can_cu: "45/2019/QH14 > Điều 48 > Khoản 3 > Điểm b", tu_khoa: ["bản sao các tài liệu", "quá trình làm việc"]}
+  - {stt: 5, key: tro_cap_thoi_viec, ten: "Trợ cấp thôi việc khi người lao động đã làm việc thường xuyên từ đủ 12 tháng", can_cu: "45/2019/QH14 > Điều 46 > Khoản 1", tu_khoa: ["trợ cấp thôi việc"]}
+  - {stt: 6, key: chot_bhxh_tra_giay_to, ten: "Người sử dụng lao động xác nhận thời gian đóng bảo hiểm và trả lại bản chính giấy tờ đã giữ", can_cu: "45/2019/QH14 > Điều 48 > Khoản 3 > Điểm a", tu_khoa: ["xác nhận thời gian đóng bảo hiểm", "trả lại bản chính giấy tờ", "sổ bảo hiểm xã hội"]}
+  - {stt: 7, key: ban_sao_ho_so, ten: "Cung cấp bản sao tài liệu liên quan đến quá trình làm việc khi người lao động yêu cầu, chi phí do người sử dụng lao động trả", can_cu: "45/2019/QH14 > Điều 48 > Khoản 3 > Điểm b", tu_khoa: ["bản sao các tài liệu", "quá trình làm việc"]}
