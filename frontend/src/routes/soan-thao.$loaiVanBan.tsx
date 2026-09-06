@@ -38,5 +38,7 @@ export const Route = createFileRoute("/soan-thao/$loaiVanBan")({
 
 function TrangSoanThao() {
   const { loaiVanBan } = Route.useParams();
-  return <KhongGianSoanThao loaiVanBan={loaiVanBan} />;
+  // `slug` bên trong là state khởi tạo từ prop `loaiVanBan`, chỉ đọc MỘT LẦN
+  // lúc mount. `key` buộc remount khi đổi tham số route, vì router không tự remount.
+  return <KhongGianSoanThao key={loaiVanBan} loaiVanBan={loaiVanBan} />;
 }
