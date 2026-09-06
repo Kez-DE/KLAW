@@ -21,4 +21,7 @@ def test_soul_la_file_that_va_khong_co_ngoac_nhon():
     s = soul()
     assert len(s) > 1000
     assert "{" not in s and "}" not in s
-    assert "tôi" in s.lower() and "mình" not in s.lower(), "Q1: SOUL xưng 'tôi'"
+    # Q1: SOUL phải NÊU quy tắc xưng "tôi" cho câu trả lời. Không cấm chữ "mình"
+    # nói chung — trong chỉ dẫn gọi mô hình là "bạn", "mình" là phản thân
+    # ("tự nhắc mình"), không phải cách xưng hô với người đọc.
+    assert 'tự xưng "tôi"' in s, "Q1: SOUL thiếu quy tắc tự xưng 'tôi'"
