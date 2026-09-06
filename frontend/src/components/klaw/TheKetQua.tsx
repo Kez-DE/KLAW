@@ -1,11 +1,10 @@
-import { Fragment, useState } from "react";
+import { Fragment } from "react";
 import { Link } from "@tanstack/react-router";
 import { BookOpenText, FileSearch, Info } from "lucide-react";
 import type { Citation, LinkVanBan, Nguon, TraCuuKetQua, VanBanTraLoi } from "@/lib/klaw";
-import { chiSoDauCuaVanBan, nhomHieuLuc, xepTrichDan } from "@/lib/trich-dan";
+import { canCuConHieuLuc, chiSoCuaThe, coTagBamDuoc } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { catDoan, catManh, type Manh } from "@/lib/van-xuoi";
-import { BadgeHieuLuc } from "./BadgeHieuLuc";
 import { BangKetQua } from "./BangKetQua";
 
 /**
@@ -67,33 +66,6 @@ function KhayTrungTinh({ tieuDe, children }: { tieuDe: string; children?: React.
       <p className="doc-prose m-0 text-foreground">{tieuDe}</p>
       {children}
     </div>
-  );
-}
-
-/**
- * Cảnh báo hiệu lực — KHÔNG BAO GIỜ giấu vào tooltip hay metadata.
- * Đây là chỗ duy nhất trong thẻ kết quả được dùng màu đỏ.
- */
-function KhoiCanhBao({ warnings }: { warnings: string[] }) {
-  if (warnings.length === 0) return null;
-  return (
-    <section
-      aria-label="Cảnh báo hiệu lực"
-      className="mt-4 rounded-lg border-l-2 bg-[var(--color-paper-50)] py-2 pl-3"
-      style={{ borderLeftColor: "var(--color-status-expired)" }}
-    >
-      <h3
-        className="m-0 text-[13px] leading-5 font-semibold"
-        style={{ color: "var(--color-status-expired)" }}
-      >
-        Cảnh báo hiệu lực
-      </h3>
-      <ul className="mt-1 mb-0 list-disc pl-4 text-[14px] leading-6 text-foreground">
-        {warnings.map((canhBao) => (
-          <li key={canhBao}>{canhBao}</li>
-        ))}
-      </ul>
-    </section>
   );
 }
 
@@ -212,102 +184,53 @@ function KhoiLienKet({ documents }: { documents: VanBanTraLoi[] }) {
 }
 
 /**
- * Dải trích dẫn. Mỗi chip mở panel đối chiếu bằng `khop_tai_id` — xem
- * `KhungDoiChieu`. Nhãn hiệu lực nằm NGAY trên chip, không phải trong panel:
- * người đọc phải thấy "điều này đã bị thay thế" trước khi quyết định có mở ra
- * đọc hay không.
+ * Chốt an toàn cho căn cứ (spec 2026-09-06 §7.1): chỉ hiện khi văn xuôi KHÔNG
+ * có thẻ nào bấm được — mô hình quên gắn thẻ thì bằng chứng vẫn còn đường mở.
+ * Chỉ căn cứ còn hiệu lực; nhóm đã hết hiệu lực/bị thay thế không hiện ở đâu
+ * trong card. Không nhãn hiệu lực ở đây: nhãn nằm trong khung khi mở.
  */
-function DaiTrichDan({
-  citations,
-  warnings,
+function KhoiCanCu({
+  ketQua,
   chiSoDangMo,
   onChon,
 }: {
-  citations: Citation[];
-  /** Nguồn DUY NHẤT có ngày hiệu lực — `Citation` không mang trường ngày nào. */
-  warnings: string[];
+  ketQua: TraCuuKetQua;
   chiSoDangMo: number | null;
   onChon: (chiSo: number) => void;
 }) {
-  const [moLichSu, datMoLichSu] = useState(false);
-
-  const daSap = xepTrichDan(citations);
-  const conDung = daSap.filter((muc) => nhomHieuLuc(muc.trichDan.hieu_luc) !== 4);
-  const lichSu = daSap.filter((muc) => nhomHieuLuc(muc.trichDan.hieu_luc) === 4);
-
-  // Chỉ thu gọn khi CÒN thứ khác để đọc. Một lượt mà mọi trích dẫn đều đã chết
-  // vẫn phải bày bằng chứng ra — thu gọn hết thì người dùng không còn gì.
-  const chiCoLichSu = conDung.length === 0;
-  const hienLichSu = chiCoLichSu || moLichSu || lichSu.some((muc) => muc.chiSoGoc === chiSoDangMo);
-
-  if (citations.length === 0) return null;
-
-  const chip = ({ trichDan, chiSoGoc }: { trichDan: Citation; chiSoGoc: number }) => (
-    <li key={`${trichDan.doc_id}-${trichDan.khop_tai_id}`}>
-      <button
-        type="button"
-        onClick={() => onChon(chiSoGoc)}
-        aria-expanded={chiSoDangMo === chiSoGoc}
-        className={cn(
-          "focus-brass block w-full cursor-pointer rounded-lg border p-3 text-left transition-colors",
-          chiSoDangMo === chiSoGoc
-            ? "border-[var(--ring)] bg-[var(--color-paper-100)]"
-            : "border-border bg-card hover:bg-[var(--color-paper-50)]",
-        )}
-      >
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-jetbrains text-[13px] text-foreground">{trichDan.so_ky_hieu}</span>
-          <span className="text-[13px] text-muted-foreground">{trichDan.duong_dan}</span>
-        </span>
-        <BadgeHieuLuc hieuLuc={trichDan.hieu_luc} className="mt-1.5" />
-        <span className="serif-body mt-1.5 block text-[14px] leading-6 text-foreground">
-          “{trichDan.quote}”
-        </span>
-      </button>
-    </li>
-  );
-
+  if (coTagBamDuoc(ketQua.answer, ketQua.citations)) return null;
+  const canCu = canCuConHieuLuc(ketQua.citations);
+  if (canCu.length === 0) return null;
   return (
-    <section aria-label="Trích dẫn đã kiểm chứng" className="mt-4">
-      <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">
-        Trích dẫn — bấm để mở nguyên văn và tự đối chiếu
-      </h3>
-
-      {conDung.length > 0 && (
-        <ul className="mt-2 mb-0 flex list-none flex-col gap-2 p-0">{conDung.map(chip)}</ul>
-      )}
-
-      {lichSu.length > 0 && (
-        <div className={cn(conDung.length > 0 && "mt-4")}>
-          {/* Nhóm lịch sử luôn mang tiêu đề nói rõ nó là gì, kể cả khi đang mở:
-              một chip "Đã bị thay thế" lẫn giữa các chip khác chỉ khác nhau ở
-              màu nhãn, còn một mục nằm dưới tiêu đề này thì không đọc nhầm
-              thành câu trả lời được. */}
-          {chiCoLichSu ? (
-            <h4 className="m-0 text-[13px] leading-5 font-semibold text-muted-foreground">
-              Quy định cũ — đã hết hiệu lực hoặc bị thay thế ({lichSu.length})
-            </h4>
-          ) : (
+    <section aria-label="Căn cứ" className="mt-4">
+      <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">Căn cứ</h3>
+      <ul className="mt-2 mb-0 flex list-none flex-col gap-2 p-0">
+        {canCu.map(({ trichDan, chiSoGoc }) => (
+          <li key={`${trichDan.doc_id}-${trichDan.khop_tai_id}`}>
             <button
               type="button"
-              onClick={() => datMoLichSu((truoc) => !truoc)}
-              aria-expanded={hienLichSu}
-              className="focus-brass -mx-1 min-h-6 cursor-pointer rounded px-1 text-left text-[13px] leading-5 font-semibold text-muted-foreground underline underline-offset-2"
+              onClick={() => onChon(chiSoGoc)}
+              aria-expanded={chiSoDangMo === chiSoGoc}
+              className={cn(
+                "focus-brass block w-full cursor-pointer rounded-lg border p-3 text-left transition-colors",
+                chiSoDangMo === chiSoGoc
+                  ? "border-[var(--ring)] bg-[var(--color-paper-100)]"
+                  : "border-border bg-card hover:bg-[var(--color-paper-50)]",
+              )}
             >
-              Quy định cũ — đã hết hiệu lực hoặc bị thay thế ({lichSu.length})
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="font-jetbrains text-[13px] text-foreground">
+                  {trichDan.so_ky_hieu}
+                </span>
+                <span className="text-[13px] text-muted-foreground">{trichDan.duong_dan}</span>
+              </span>
+              <span className="serif-body mt-1.5 block text-[14px] leading-6 text-foreground">
+                “{trichDan.quote}”
+              </span>
             </button>
-          )}
-          {chiCoLichSu && (
-            <p className="mt-1 mb-0 text-[13px] leading-5 text-muted-foreground">
-              Lượt này không tìm được điều khoản nào còn hiệu lực. Dưới đây là những gì tìm được —
-              đối chiếu văn bản thay thế trước khi dùng.
-            </p>
-          )}
-          {hienLichSu && (
-            <ul className="mt-2 mb-0 flex list-none flex-col gap-2 p-0">{lichSu.map(chip)}</ul>
-          )}
-        </div>
-      )}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -367,10 +290,7 @@ function TheTrichDan({
   onChon?: ((chiSo: number) => void) | undefined;
 }) {
   if (ketQua === undefined || onChon === undefined) return <>{manh.chu}</>;
-  const chiSo =
-    manh.loai === "cite"
-      ? ketQua.citations.findIndex((c) => c.k === Number(manh.khoa))
-      : chiSoDauCuaVanBan(ketQua.citations, manh.khoa);
+  const chiSo = chiSoCuaThe(manh, ketQua.citations);
   if (chiSo < 0) return <>{manh.chu}</>;
   return (
     <button type="button" className="the-luat" onClick={() => onChon(chiSo)}>
@@ -477,15 +397,7 @@ export function TheKetQua(props: TheKetQuaProps) {
 }
 
 function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan }: TheKetQuaProps) {
-  const {
-    result_type: loai,
-    answer,
-    citations,
-    nguon,
-    warnings,
-    coverage_note: ghiChuPhamVi,
-    bang,
-  } = ketQua;
+  const { result_type: loai, answer, citations, nguon, coverage_note: ghiChuPhamVi, bang } = ketQua;
   const chon = onChonTrichDan ?? (() => undefined);
 
   if (loai === "abstain") {
@@ -519,7 +431,6 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
             ))}
           </ul>
         </div>
-        <KhoiCanhBao warnings={warnings} />
       </section>
     );
   }
@@ -556,7 +467,6 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
             riêng Lao động có đủ luật, nghị định, thông tư và chế tài.
           </p>
         </div>
-        <KhoiCanhBao warnings={warnings} />
       </section>
     );
   }
@@ -585,17 +495,11 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
             </div>
           )}
         </div>
-        <KhoiCanhBao warnings={warnings} />
         <KhoiNguon nguon={nguon} {...(onMoVanBan ? { onMoVanBan } : {})} />
         {/* Backend hiện luôn trả citations rỗng ở nhánh này, nên dải tự ẩn. Giữ
             lời gọi để ngày endpoint kèm trích dẫn thì màn hình có sẵn chỗ —
             KHÔNG dựng liên kết giả từ chuỗi coverage_note. */}
-        <DaiTrichDan
-          citations={citations}
-          warnings={warnings}
-          chiSoDangMo={chiSoDangMo}
-          onChon={chon}
-        />
+        <KhoiCanCu ketQua={ketQua} chiSoDangMo={chiSoDangMo} onChon={chon} />
         <NhacMienTru />
       </section>
     );
@@ -617,14 +521,8 @@ function NoiDungKetQua({ ketQua, chiSoDangMo = null, onChonTrichDan, onMoVanBan 
           <KhoiVanXuoi chu={answer} ketQua={ketQua} onChon={chon} />
         )}
       </div>
-      <KhoiCanhBao warnings={warnings} />
       <KhoiLienKet documents={ketQua.documents} />
-      <DaiTrichDan
-        citations={citations}
-        warnings={warnings}
-        chiSoDangMo={chiSoDangMo}
-        onChon={chon}
-      />
+      <KhoiCanCu ketQua={ketQua} chiSoDangMo={chiSoDangMo} onChon={chon} />
       {bang.length > 0 && (
         <div className="mt-4 space-y-3">
           {bang.map((mot) => (
