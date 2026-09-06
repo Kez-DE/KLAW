@@ -12,7 +12,7 @@
  * Chạy: `npm run kiem-van-xuoi` (Node 22 đọc thẳng TypeScript, 0 thư viện mới).
  */
 import assert from "node:assert/strict";
-import { catDoan } from "../src/lib/van-xuoi.ts";
+import { catDoan, catManh } from "../src/lib/van-xuoi.ts";
 
 // 1. Một đoạn trơn vẫn là một đoạn.
 {
@@ -102,4 +102,49 @@ import { catDoan } from "../src/lib/van-xuoi.ts";
   assert.deepEqual(catDoan(cau), [{ kieu: "doan", chu: cau }]);
 }
 
-console.info("kiem-van-xuoi: 10/10 đạt");
+// 11. Thẻ giữa câu: chữ trước, thẻ, chữ sau — không mất một ký tự.
+{
+  assert.deepEqual(catManh("Bạn được 85% [Điều 26](cite:1) của lương."), [
+    { kieu: "chu", chu: "Bạn được 85% " },
+    { kieu: "the", loai: "cite", khoa: "1", chu: "Điều 26" },
+    { kieu: "chu", chu: " của lương." },
+  ]);
+}
+
+// 12. Hai thẻ liền nhau, thẻ doc rồi thẻ cite.
+{
+  assert.deepEqual(catManh("[Bộ luật Lao động 2019](doc:139264)[Điều 26](cite:1)"), [
+    { kieu: "the", loai: "doc", khoa: "139264", chu: "Bộ luật Lao động 2019" },
+    { kieu: "the", loai: "cite", khoa: "1", chu: "Điều 26" },
+  ]);
+}
+
+// 13. Thẻ trong một mục danh sách: catDoan cắt mục, catManh cắt thẻ trong mục.
+{
+  const dd = catDoan(
+    "Luật chia hai mức:\n- 60 ngày [Khoản 2 Điều 25](cite:1).\n- 30 ngày [Khoản 3 Điều 25](cite:2).",
+  );
+  assert.equal(dd[1]?.kieu, "danh_sach");
+  const muc = dd[1]!.kieu === "danh_sach" ? dd[1]!.muc : [];
+  assert.deepEqual(catManh(muc[0]!), [
+    { kieu: "chu", chu: "60 ngày " },
+    { kieu: "the", loai: "cite", khoa: "1", chu: "Khoản 2 Điều 25" },
+    { kieu: "chu", chu: "." },
+  ]);
+}
+
+// 14. Ngoặc vuông không phải thẻ ([sic], [1]) là chữ thường, giữ nguyên ký tự.
+{
+  assert.deepEqual(catManh("Nguyên văn [sic] ghi vậy [1]."), [
+    { kieu: "chu", chu: "Nguyên văn [sic] ghi vậy [1]." },
+  ]);
+}
+
+// 15. Thẻ lỗi cú pháp (khoá rỗng, khoá có khoảng trắng, loại lạ) là chữ thường.
+{
+  for (const cau of ["[Điều 1](cite:)", "[Điều 1](doc:a b)", "[Điều 1](ref:1)"]) {
+    assert.deepEqual(catManh(cau), [{ kieu: "chu", chu: cau }], cau);
+  }
+}
+
+console.info("kiem-van-xuoi: 15/15 đạt");

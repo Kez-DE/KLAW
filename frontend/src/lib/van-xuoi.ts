@@ -65,3 +65,30 @@ export function catDoan(vanXuoi: string): Doan[] {
   chot();
   return ra;
 }
+
+/**
+ * Một mảnh của một đoạn: chữ thường, hoặc một thẻ trích dẫn bấm được.
+ *
+ * Cú pháp thẻ (hợp đồng với `assemble.v2`, spec 2026-09-06 §3.1):
+ * `[chữ hiển thị](cite:K)` mở điều khoản thứ K của lượt, `[chữ hiển thị](doc:ID)`
+ * mở văn bản `ID`. Bất biến "không sửa chữ" của file này giữ nguyên: hàm chỉ
+ * CẮT, và ký tự duy nhất biến mất là cú pháp thẻ — chữ hiển thị đi nguyên.
+ */
+export type Manh =
+  { kieu: "chu"; chu: string } | { kieu: "the"; loai: "cite" | "doc"; khoa: string; chu: string };
+
+/** Khoá không rỗng, không khoảng trắng — khớp `_RE_THE` phía backend. */
+const THE = /\[([^\]]+)\]\((doc|cite):([^)\s]+)\)/g;
+
+export function catManh(chu: string): Manh[] {
+  const ra: Manh[] = [];
+  let cuoi = 0;
+  for (const m of chu.matchAll(THE)) {
+    const batDau = m.index ?? 0;
+    if (batDau > cuoi) ra.push({ kieu: "chu", chu: chu.slice(cuoi, batDau) });
+    ra.push({ kieu: "the", loai: m[2] as "cite" | "doc", khoa: m[3]!, chu: m[1]! });
+    cuoi = batDau + m[0].length;
+  }
+  if (cuoi < chu.length) ra.push({ kieu: "chu", chu: chu.slice(cuoi) });
+  return ra;
+}
