@@ -386,11 +386,13 @@ function TheGoiYSoanThao({
             </button>
           ))}
           {(gy?.thay_the ?? []).flatMap((t) =>
-            slugCuaLoai(t.loai).map((s) => (
-              <button key={s} type="button" onClick={() => onSoanThao(s)} className={nutPhu}>
-                {mauTheoId(s)?.ten ?? t.ten}
-              </button>
-            )),
+            slugCuaLoai(t.loai)
+              .filter((s) => !chinh.includes(s))
+              .map((s) => (
+                <button key={s} type="button" onClick={() => onSoanThao(s)} className={nutPhu}>
+                  {mauTheoId(s)?.ten ?? t.ten}
+                </button>
+              )),
           )}
           <button
             type="button"

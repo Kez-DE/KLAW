@@ -96,6 +96,8 @@ function ManHoiKlaw() {
 
   const oHoi = useRef<HTMLTextAreaElement | null>(null);
   const cuoi = useRef<HTMLDivElement | null>(null);
+  /** Bọc khung soạn thảo — dò control focus được đầu tiên khi khung mở. */
+  const khungSoanThao = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {
     cuoi.current?.scrollIntoView({ block: "end" });
@@ -188,6 +190,30 @@ function ManHoiKlaw() {
   const chiSoDangMoCua = (ketQua: TraCuuKetQua) =>
     dangMo !== null && dangMo.trace === ketQua.trace_id ? dangMo.chiSo : null;
 
+  const dangMoSoanThao = soanThao !== null;
+  // Nhại `KhungDoiChieu` (components/klaw/KhungDoiChieu.tsx:129-169): Esc đóng,
+  // tiêu điểm vào control đầu tiên trong khung rồi trả về đúng nơi đã mở, khoá
+  // cuộn nền khi phủ toàn màn (một cột). Gộp làm MỘT effect vì khung này không
+  // cần dời tiêu điểm lần hai khi đổi loại đang mở — việc đó `key` đã lo.
+  useEffect(() => {
+    if (!dangMoSoanThao) return;
+    const noiMo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    khungSoanThao.current
+      ?.querySelector<HTMLElement>("button, [href], input, textarea, select")
+      ?.focus();
+    const nghe = (su: KeyboardEvent) => {
+      if (su.key === "Escape") datSoanThao(null);
+    };
+    window.addEventListener("keydown", nghe);
+    const cuCuon = document.body.style.overflow;
+    if (!haiCot) document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", nghe);
+      if (!haiCot) document.body.style.overflow = cuCuon;
+      if (noiMo !== null && noiMo.isConnected) noiMo.focus();
+    };
+  }, [dangMoSoanThao, haiCot]);
+
   const chuaHoiGiCa = luuTru.length === 0 && traCuu.cauHoi === null;
   const lichSu = [
     ...luuTru.map((luot) => luot.cauHoi),
@@ -206,7 +232,7 @@ function ManHoiKlaw() {
           inert={(doiChieu.dang !== null || soanThao !== null) && !haiCot}
           className={cn(
             "flex min-w-0 flex-1 flex-col",
-            soanThao !== null && haiCot && "max-w-[440px]",
+            soanThao !== null && haiCot && "max-w-[420px]",
           )}
         >
           <div className="mx-auto flex w-full max-w-[860px] flex-1 flex-col px-4">
@@ -388,6 +414,7 @@ function ManHoiKlaw() {
             KhungDoiChieu. */}
         {soanThao !== null && (
           <div
+            ref={khungSoanThao}
             className={cn(
               haiCot
                 ? "min-w-[640px] flex-1 border-l border-border bg-[var(--color-paper-50)]"
@@ -397,7 +424,10 @@ function ManHoiKlaw() {
             aria-modal={haiCot ? undefined : true}
             aria-label="Soạn thảo văn bản"
           >
+            {/* slug là state khởi tạo từ prop bên trong; key buộc remount khi
+                bấm loại khác trên card đang hiện */}
             <KhongGianSoanThao
+              key={soanThao.slug ?? "luoi"}
               loaiVanBan={soanThao.slug}
               trongKhung
               onDong={() => datSoanThao(null)}
