@@ -138,8 +138,19 @@ export function useTraCuu(): TrangThaiTraCuu {
   }, [huyGoi]);
 
   const thuLai = useCallback(() => {
-    if (cauHoi !== null) hoi(cauHoi, tuyChonGanNhat.current);
-  }, [cauHoi, hoi]);
+    // Lượt vừa hỏi có thể đã CÓ `hoi_thoai_id` (từ `bat_dau`) mà chưa kịp vào
+    // `tuyChonGanNhat` (lượt đầu của một phiên gửi `{}`) — thiếu bước merge
+    // này thì hỏi lại một lượt vừa chết giữa chừng sẽ tạo phiên MỚI thay vì
+    // ghi tiếp vào phiên máy chủ vừa mở. Ẩn danh luôn có `hoiThoaiId === null`
+    // nên đường hỏi lại của họ không đổi.
+    if (cauHoi !== null)
+      hoi(
+        cauHoi,
+        hoiThoaiId !== null && tuyChonGanNhat.current?.hoiThoaiId === undefined
+          ? { ...tuyChonGanNhat.current, hoiThoaiId }
+          : tuyChonGanNhat.current,
+      );
+  }, [cauHoi, hoi, hoiThoaiId]);
 
   const datLai = useCallback(() => {
     luot.current += 1;

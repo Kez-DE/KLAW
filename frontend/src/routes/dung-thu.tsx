@@ -227,9 +227,20 @@ function ManHoiKlaw() {
     oHoi.current?.focus();
   };
 
-  // Task 7 (cột phiên) gắn hai callback này vào `CotPhien`.
+  // Task 7 (cột phiên) gắn hai callback này vào `CotPhien`. `chonPhien` không
+  // cần tự `datLaiTraCuu()`: `search.phien` luôn có giá trị nên effect (2)
+  // (ghim URL) luôn thoát sớm ở `phienId !== undefined`, bất kể `traCuu.hoiThoaiId`
+  // cũ chưa kịp xoá; effect (1) (đồng bộ `?phien=`) tự lo phần dọn dẹp.
   const chonPhien = (id: string) => void navigate({ to: "/dung-thu", search: { phien: id } });
-  const phienMoi = () => void navigate({ to: "/dung-thu", search: {} });
+  // `phienMoi` PHẢI tự xoá `traCuu.hoiThoaiId` cùng lúc chuyển `?phien=` về
+  // rỗng: nếu chỉ đổi URL, `traCuu.hoiThoaiId` cũ (khác `null`) còn sống qua
+  // hết lượt effect của lần render đó, và effect (2) sẽ thấy `phienId ===
+  // undefined` + `hoiThoaiId !== null` rồi bật ngược URL về phiên vừa rời —
+  // "Phiên mới" lặng lẽ ghi tiếp vào phiên cũ (có thể đã bị xoá).
+  const phienMoi = () => {
+    datLaiTraCuu();
+    void navigate({ to: "/dung-thu", search: {} });
+  };
 
   const chonTrichDan = (ketQua: TraCuuKetQua, chiSo: number) => {
     const trichDan: Citation | undefined = ketQua.citations[chiSo];
