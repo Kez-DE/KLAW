@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import type { User } from "@supabase/supabase-js";
+import { ModalNangGoi } from "@/components/tai-khoan/ModalNangGoi";
 import { useAuth } from "@/hooks/use-auth";
 import { useHanMuc, type TrangThaiHanMuc } from "@/hooks/use-han-muc";
 import { useHoiThoai, type TrangThaiHoiThoai } from "@/hooks/use-hoi-thoai";
@@ -104,9 +105,7 @@ export function TaiKhoanProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={gia}>
       {children}
-      {/* Task 9 gắn <ModalNangGoi /> vào ĐÚNG chỗ này: modal đọc `nangGoiMo` và
-          `dongNangGoi` từ context nên phải nằm trong Provider, và nằm sau
-          `children` để lớp phủ vẽ trên mọi trang. */}
+      <ModalNangGoi />
     </Ctx.Provider>
   );
 }
