@@ -309,7 +309,7 @@ nút → tiêu đề danh sách → danh sách tính năng có icon (lucide). N�
 | Giá | ₫0 / tháng | ₫499.000 / 30 ngày (số từ `bang-gia.tsx`, cùng nguồn dữ liệu) |
 | Nút | Free: viền mờ, khoá, "Gói hiện tại của bạn". Pro: không hiện nút. | Free: nút đặc "Yêu cầu nâng lên Cá nhân" → `POST /nang-goi/yeu-cau`; sau khi gửi hoặc đã có yêu cầu: khoá, "Đang chờ duyệt". Pro còn > 7 ngày: viền mờ, khoá, "Gói hiện tại · còn 12 ngày". Pro ≤ 7 ngày hoặc đã hết hạn: nút đặc "Gia hạn 30 ngày". |
 | Tiêu đề danh sách | Bắt đầu với những điều cơ bản: | Mọi thứ trong gói Miễn phí, cộng thêm: |
-| Danh sách | 200 lượt hỏi đáp mỗi ngày · 20 lượt mỗi phiên · 3 bản thảo mỗi ngày, 20 mỗi tháng · Phiên và lịch sử không giới hạn · Tra cứu luật, soát văn bản không giới hạn · Xuất Word, PDF | Hỏi đáp không giới hạn ngày và tháng (dấu sao: lá chắn chống lạm dụng 500 lượt/ngày, ghi ở FAQ) · 50 lượt mỗi phiên · 20 bản thảo mỗi ngày, không giới hạn tháng · Hiệu lực 30 ngày, gia hạn khi hết |
+| Danh sách | 200 lượt hỏi đáp mỗi ngày · 20 lượt mỗi phiên · 3 bản thảo mỗi ngày, 20 mỗi tháng · Phiên và lịch sử không giới hạn · Tra cứu luật, soát văn bản không giới hạn · Xuất Word, PDF | Hỏi đáp không giới hạn ngày và tháng (dấu sao: lá chắn chống lạm dụng 500 lượt/ngày, ghi ở FAQ) · 50 lượt mỗi phiên · 20 bản thảo mỗi ngày, không giới hạn tháng · Trí nhớ hoàn cảnh xuyên phiên (sắp có) · Hiệu lực 30 ngày, gia hạn khi hết |
 
 Dưới nút của card Cá nhân, chữ nhỏ: "Chưa có thanh toán trực tuyến. Tôi sẽ báo qua
 email khi gói được mở." Số trong danh sách lấy từ một hằng dùng chung với `/bang-gia`
@@ -453,6 +453,16 @@ Một plan, hai luồng song song như gói 1: backend (§4–§6, worktree riê
 `HanMucResponse`, kiểu TS, migration 021, header `X-Khach-Id`). Ước lượng 12–14 task.
 
 ## 13. Ngoài phạm vi (2B và sau)
+
+- Trí nhớ xuyên phiên cho Pro (gói 3, đã chốt hướng 2026-09-07): Free mỗi phiên là một bối
+  cảnh độc lập; Pro có "Trí nhớ" kiểu saved memories của ChatGPT: sau mỗi lượt Pro, một lời
+  gọi LLM nhỏ rút 0–3 sự thật bền về HOÀN CẢNH người dùng (vai trò, quy mô công ty, loại hợp
+  đồng, địa bàn), lưu bảng `tri_nho` theo tài khoản, tối đa 50 mục, xem/xoá từng mục và công
+  tắc tắt trong Cá nhân hoá; phiên mới nạp 10 mục gần nhất vào bối cảnh viết lại và sinh
+  câu trả lời; dưới câu trả lời hiện chip "Đã dùng bối cảnh: …" và nút "Không dùng cho
+  phiên này". Ràng buộc: chỉ nhớ hoàn cảnh, không nhớ kết luận pháp lý; cần vòng đánh giá
+  xác nhận độ chính xác trích dẫn không giảm. Không dùng cách tìm lại lượt cũ bằng embedding
+  (câu trả lời cũ có thể dẫn luật hết hiệu lực). Ước 6–8 task, chi phí thêm ~0,1 cent/lượt Pro.
 
 Vai trò admin và trang duyệt yêu cầu; xoá tài khoản (cần service-role key); ngôn ngữ;
 thanh toán; thưởng tuần đầu, mời bạn; nâng trần chi phí hệ thống (biến môi trường,
