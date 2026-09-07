@@ -145,14 +145,22 @@ function ManHoiKlaw() {
   ]);
 
   // Sau `bat_dau` của phiên MỚI (có danh tính, chưa có `?phien=`) → ghim id lên
-  // URL. Hết stream → tải lại danh sách phiên: máy chủ ghi lượt TRƯỚC khi đóng
-  // stream, nên lúc `dangChay` về `false` danh sách đã có lượt mới.
+  // URL, ĐÚNG MỘT LẦN cho mỗi id (`daGhim`). Thiếu chốt một-lần này thì bấm
+  // Back từ `?phien=B` về `/dung-thu` (`phienId` → `undefined`, nhưng
+  // `traCuu.hoiThoaiId` vẫn còn B) sẽ bị hiệu ứng này hiểu nhầm là "phiên mới
+  // vừa `bat_dau`" và ghim ngược URL về lại B — Back không đưa được người
+  // dùng ra khỏi B.
+  const daGhim = useRef<string | null>(null);
   useEffect(() => {
-    if (!daDangNhap || traCuu.hoiThoaiId === null || phienId !== undefined) return;
+    if (!daDangNhap || traCuu.hoiThoaiId === null || traCuu.hoiThoaiId === daGhim.current) return;
+    daGhim.current = traCuu.hoiThoaiId; // mỗi id chỉ ghim MỘT lần — Back về /dung-thu không bị kéo lại
+    if (phienId !== undefined) return; // đang mở phiên có sẵn: id đã ở trên URL
     phienDangHien.current = traCuu.hoiThoaiId; // để effect trên không xoá dòng đang chạy
     void navigate({ to: "/dung-thu", search: { phien: traCuu.hoiThoaiId }, replace: true });
   }, [daDangNhap, traCuu.hoiThoaiId, phienId, navigate]);
 
+  // Hết stream → tải lại danh sách phiên: máy chủ ghi lượt TRƯỚC khi đóng
+  // stream, nên lúc `dangChay` về `false` danh sách đã có lượt mới.
   const { taiLai } = hoiThoai;
   useEffect(() => {
     if (daDangNhap && !traCuu.dangChay && traCuu.cauHoi !== null) taiLai();
