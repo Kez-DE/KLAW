@@ -35,10 +35,8 @@ import { cauPhienAn, tenGoi, thoiGianTuongDoi } from "../src/lib/phien.ts";
 // 3. Predicate: đủ trường thì qua, thiếu `items`/`luot` thì chặn.
 {
   const phien = { id: "a", tieu_de: "t", so_luot: 1, tao_luc: "x", cap_nhat_luc: "y" };
-  assert.ok(
-    laDanhSachPhien({ plan: "free", gioi_han: 10, tong_hien: 1, tong_an: 0, items: [phien] }),
-  );
-  assert.equal(laDanhSachPhien({ plan: "free", tong_hien: 1 }), false);
+  assert.ok(laDanhSachPhien({ plan: "free", luot_moi_phien: 10, tong: 1, items: [phien] }));
+  assert.equal(laDanhSachPhien({ plan: "free", tong: 1 }), false);
   assert.equal(laDanhSachPhien(null), false);
   assert.ok(laChiTietPhien({ id: "a", tieu_de: "t", tao_luc: "x", cap_nhat_luc: "y", luot: [] }));
   assert.equal(laChiTietPhien({ id: "a" }), false);

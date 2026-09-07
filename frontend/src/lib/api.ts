@@ -23,6 +23,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { KHACH_HEADER, layKhachId } from "./khach";
 import type { ApiError, ApiResult } from "./klaw";
 
 /**
@@ -71,11 +72,13 @@ async function tieuDeXacThuc(): Promise<Record<string, string>> {
   try {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
-    return token === undefined || token === "" ? {} : { Authorization: `Bearer ${token}` };
+    return token === undefined || token === ""
+      ? { [KHACH_HEADER]: layKhachId() }
+      : { Authorization: `Bearer ${token}` };
   } catch {
     // Supabase chưa cấu hình. Đọc thuần vẫn chạy (5 endpoint không có cổng);
     // đường tốn LLM sẽ nhận 401 THẬT nếu deployment bật xác thực.
-    return {};
+    return { [KHACH_HEADER]: layKhachId() };
   }
 }
 

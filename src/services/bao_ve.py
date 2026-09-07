@@ -33,9 +33,11 @@ limit đúng-cho-đến-khi-scale là một rate limit sai.
 
 import logging
 import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 from fastapi import HTTPException, Request
@@ -95,7 +97,7 @@ _SQL_UPSERT_USER = text(
     "INSERT INTO users (sub, email) VALUES (:sub, :email)"
     " ON CONFLICT (sub) DO UPDATE SET last_seen_at = now(),"
     " email = COALESCE(EXCLUDED.email, users.email)"
-    " RETURNING plan"
+    " RETURNING plan, plan_het_han"
 )
 
 # Đếm SỐ LƯỢT gọi LLM thật của một `sub` trong tháng.
@@ -294,59 +296,122 @@ def kiem_tran_chi_phi() -> None:
 # ── Cổng 4: danh tính + hạn mức THÁNG theo NGƯỜI DÙNG ───────────────────────
 
 
+KHOA_GOI = ("hoi_dap_ngay", "soan_thao_ngay", "soan_thao_thang", "luot_moi_phien")
+KHOA_LA_CHAN = ("free_hoi_dap_thang", "pro_hoi_dap_ngay", "ip_ngay")
+KHOA_KHACH = ("hoi_dap_24h", "ip_24h")
+KHACH_HEADER = "x-khach-id"
+
+
 @lru_cache
 def _doc_han_muc() -> dict:
-    """Đọc `config/han_muc.yaml`. Fail loud — một hạn mức không đọc được KHÔNG
-    được lặng lẽ thành một mặc định trong Python, vì đó đúng là thứ file YAML
-    tồn tại để ngăn.
-    """
+    """Đọc `config/han_muc.yaml` (hình v3). Fail loud — một hạn mức không đọc được
+    KHÔNG được lặng lẽ thành một mặc định trong Python."""
     d = yaml.safe_load(HAN_MUC_PATH.read_text(encoding="utf-8"))
-    if not isinstance(d, dict) or not isinstance(d.get("goi"), dict):
-        raise ValueError(f"{HAN_MUC_PATH}: cần khoá 'goi' kiểu mapping ở gốc file")
+    if not isinstance(d, dict) or not isinstance(d.get("goi"), dict) or not d["goi"]:
+        raise ValueError(f"{HAN_MUC_PATH}: cần khoá 'goi' kiểu mapping (không rỗng) ở gốc file")
     if d.get("goi_mac_dinh") not in d["goi"]:
         raise ValueError(f"{HAN_MUC_PATH}: 'goi_mac_dinh' phải là một khoá trong 'goi'")
-    pl = d.get("phien_luu")
-    if not isinstance(pl, dict) or set(pl) != set(d["goi"]):
-        raise ValueError(
-            f"{HAN_MUC_PATH}: cần khoá 'phien_luu' kiểu mapping với ĐÚNG các gói của 'goi' "
-            f"(thiếu/lạ: {sorted(set(d['goi']) ^ set(pl or {}))})"
-        )
+    if "phien_luu" in d:
+        raise ValueError(f"{HAN_MUC_PATH}: khoá 'phien_luu' không còn dùng (cơ chế ẩn phiên đã gỡ)")
+    try:
+        ZoneInfo(str(d.get("mui_gio")))
+    except (ZoneInfoNotFoundError, TypeError, ValueError) as e:
+        raise ValueError(f"{HAN_MUC_PATH}: 'mui_gio' không phải tên vùng hợp lệ") from e
+    for ten, khoi in d["goi"].items():
+        thieu = [k for k in KHOA_GOI if not isinstance(khoi, dict) or k not in khoi]
+        if thieu:
+            raise ValueError(f"{HAN_MUC_PATH}: gói '{ten}' thiếu khoá {thieu}")
+    for nhom, khoa in (("la_chan", KHOA_LA_CHAN), ("khach", KHOA_KHACH)):
+        khoi = d.get(nhom)
+        thieu = [k for k in khoa if not isinstance(khoi, dict) or k not in khoi]
+        if thieu:
+            raise ValueError(f"{HAN_MUC_PATH}: '{nhom}' thiếu khoá {thieu}")
+    if not isinstance(d.get("chu_ky_pro_ngay"), int) or d["chu_ky_pro_ngay"] <= 0:
+        raise ValueError(f"{HAN_MUC_PATH}: cần 'chu_ky_pro_ngay' là số nguyên dương")
     return d
 
 
-def han_muc_thang(plan: str) -> int:
-    """Số lượt LLM/tháng của `plan`, đọc từ YAML.
-
-    Gói lạ (bị đổi tên, sửa tay trong DB) rơi về gói MẶC ĐỊNH, không phải "không
-    giới hạn": hỏng theo hướng CHẶN. Một `plan` không khớp là dấu hiệu cấu hình
-    lệch, và lúc đó phát không giới hạn là hướng hỏng đắt nhất có thể chọn.
-    """
+def han_muc(plan: str, khoa: str) -> int:
+    """Trần `khoa` của `plan`. Gói lạ → gói mặc định (hỏng theo hướng CHẶT); khoá lạ → KeyError."""
     d = _doc_han_muc()
+    if khoa not in KHOA_GOI:
+        raise KeyError(khoa)
     if plan not in d["goi"]:
-        logger.warning("han_muc_thang: gói %r không có trong YAML — dùng gói mặc định", plan)
-        return int(d["goi"][d["goi_mac_dinh"]])
-    return int(d["goi"][plan])
+        logger.warning("han_muc: gói %r không có trong YAML — dùng gói mặc định", plan)
+        plan = d["goi_mac_dinh"]
+    return int(d["goi"][plan][khoa])
+
+
+def la_chan(khoa: str) -> int:
+    return int(_doc_han_muc()["la_chan"][khoa])
+
+
+def mui_gio() -> ZoneInfo:
+    return ZoneInfo(str(_doc_han_muc()["mui_gio"]))
+
+
+def moc_ngay(now: datetime | None = None) -> datetime:
+    t = (now or datetime.now(UTC)).astimezone(mui_gio())
+    return t.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def moc_ngay_sau(now: datetime | None = None) -> datetime:
+    return moc_ngay(now) + timedelta(days=1)
+
+
+def moc_thang(now: datetime | None = None) -> datetime:
+    return moc_ngay(now).replace(day=1)
+
+
+def moc_thang_sau(now: datetime | None = None) -> datetime:
+    d = moc_thang(now)
+    return (d.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+
+def plan_hieu_luc_tu(plan: str, het_han: datetime | None) -> str:
+    """Gói HIỆU LỰC: `plan` khi chưa hết hạn, ngược lại gói mặc định. NULL = không hết hạn."""
+    if het_han is not None and het_han <= datetime.now(UTC):
+        return str(_doc_han_muc()["goi_mac_dinh"])
+    return plan
+
+
+_SQL_PLAN_HIEU_LUC = text("SELECT plan, plan_het_han FROM users WHERE sub = :sub")
+
+
+def plan_hieu_luc(sub: str) -> str:
+    """Gói hiệu lực của `sub`; chưa có dòng `users` → gói mặc định (đọc không được tạo)."""
+    with get_engine().connect() as c:
+        r = c.execute(_SQL_PLAN_HIEU_LUC, {"sub": sub}).mappings().one_or_none()
+    if r is None:
+        return str(_doc_han_muc()["goi_mac_dinh"])
+    return plan_hieu_luc_tu(str(r["plan"]), r["plan_het_han"])
+
+
+def khach_id_tu_request(request: Request) -> str | None:
+    """`X-Khach-Id` hợp lệ (UUID) hoặc None. Không phải danh tính — chỉ là khoá đếm."""
+    tho = request.headers.get(KHACH_HEADER)
+    if tho is None:
+        return None
+    try:
+        return str(uuid.UUID(tho))
+    except ValueError:
+        return None
+
+
+def han_muc_thang(plan: str) -> int:
+    """Tương thích tạm cho Task 2–3: lá chắn tháng của free; "không giới hạn" của pro."""
+    return la_chan("free_hoi_dap_thang") if plan == "free" else 100_000
 
 
 def phien_luu_toi_da(plan: str) -> int:
-    """Số phiên hội thoại gần nhất được hiện cho `plan` (`han_muc.yaml: phien_luu`).
-    Gói lạ rơi về gói mặc định — hỏng theo hướng CHẶT, như `han_muc_thang`."""
-    d = _doc_han_muc()
-    if plan not in d["phien_luu"]:
-        logger.warning("phien_luu_toi_da: gói %r không có trong YAML — dùng gói mặc định", plan)
-        return int(d["phien_luu"][d["goi_mac_dinh"]])
-    return int(d["phien_luu"][plan])
-
-
-_SQL_PLAN_CUA = text("SELECT plan FROM users WHERE sub = :sub")
+    """Tương thích tạm: cơ chế ẩn phiên bị gỡ ở Task 2 — không bao giờ ẩn."""
+    return 100_000
 
 
 def plan_cua(sub: str) -> str:
     """Gói hiện tại của `sub`; chưa có dòng `users` thì gói mặc định (JIT provisioning
     xảy ra ở `ghi_nhan_nguoi_dung`, không ở đây — đọc không được tạo)."""
-    with get_engine().connect() as c:
-        r = c.execute(_SQL_PLAN_CUA, {"sub": sub}).scalar_one_or_none()
-    return str(r) if r is not None else str(_doc_han_muc()["goi_mac_dinh"])
+    return plan_hieu_luc(sub)
 
 
 def _dau_thang_utc() -> datetime:
@@ -363,13 +428,14 @@ def _dau_thang_sau_utc() -> datetime:
 
 
 def ghi_nhan_nguoi_dung(sub: str, email: str | None) -> str:
-    """Upsert dòng `users` và trả `plan`. CÓ THỂ RAISE (caller từ chối).
+    """Upsert dòng `users` và trả gói HIỆU LỰC (đã xét `plan_het_han`). CÓ THỂ RAISE.
 
     Chỉ ghi `sub`/`email`/`last_seen_at` — xem `migrations/012` cho lý do từng
     cột và lý do KHÔNG có `ho_ten`/`avatar_url`/`provider`.
     """
     with get_engine().begin() as c:
-        return c.execute(_SQL_UPSERT_USER, {"sub": sub, "email": email}).scalar_one()
+        r = c.execute(_SQL_UPSERT_USER, {"sub": sub, "email": email}).mappings().one()
+    return plan_hieu_luc_tu(str(r["plan"]), r["plan_het_han"])
 
 
 def dem_luot_thang(sub: str) -> int:

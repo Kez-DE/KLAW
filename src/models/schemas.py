@@ -736,22 +736,29 @@ class VanBanLienQuanResponse(BaseModel):
 # ══ GET /han-muc, POST /nguoi-dung (Pha 2) ══════════════════════════════════
 
 
-class HanMucResponse(BaseModel):
-    """Hạn mức tháng CÒN LẠI của người đang đăng nhập.
+class MucHanMuc(BaseModel):
+    khoa: str
+    nhan: str
+    da_dung: int
+    han_muc: int  # >= 100000 nghĩa là không giới hạn
+    dat_lai_luc: datetime | None
 
-    `ap_dung=False` khi Supabase chưa cấu hình: hệ thống không đếm theo người,
-    nên bốn trường số là None chứ KHÔNG phải 0 — 0 đọc thành "bạn chưa dùng lượt
-    nào", một khẳng định sai về một thứ không hề được đo.
-    """
+
+class PhienHanMuc(BaseModel):
+    luot_toi_da: int | None
+
+
+class HanMucResponse(BaseModel):
+    """Hạn mức của người gọi (spec 2026-09-07 §6.1). `ap_dung=False` khi Supabase chưa
+    cấu hình: không đếm theo ai, `muc` rỗng — không bịa số 0."""
 
     ap_dung: bool
     plan: str | None
-    han_muc: int | None
-    da_dung: int | None
-    con_lai: int | None
-    # Có cả khi `ap_dung=False`: mốc reset là thuộc tính của LỊCH, không phải
-    # của người dùng, và giao diện vẫn cần nó để nói "đặt lại vào ngày…".
-    dat_lai_luc: datetime
+    ten_goi: str | None
+    mui_gio: str
+    muc: list[MucHanMuc]
+    phien: PhienHanMuc
+    het_han_luc: datetime | None
     ghi_chu: str
 
 
@@ -772,9 +779,8 @@ class PhienTomTatOut(BaseModel):
 
 class DanhSachPhienResponse(BaseModel):
     plan: str
-    gioi_han: int
-    tong_hien: int
-    tong_an: int
+    luot_moi_phien: int
+    tong: int
     items: list[PhienTomTatOut]
 
 
@@ -822,3 +828,58 @@ class TimTrongVanBanResponse(BaseModel):
     tong: int
     limit: int
     ket_qua: list[DongTimTrongVanBan]
+
+
+# ══ /han-muc v2, /ho-so, /nang-goi, /hoi-thoai/nhap (spec 2026-09-07 §6-8) ══
+
+
+class HoatDongNgay(BaseModel):
+    ngay: date
+    so_luot: int
+
+
+class PhanLoai(BaseModel):
+    khoa: str
+    nhan: str
+    so: int
+
+
+class HoSoResponse(BaseModel):
+    email: str | None
+    plan: str
+    ten_goi: str
+    tao_luc: datetime
+    het_han_luc: datetime | None
+    so_phien: int
+    tong_hoi_dap: int
+    tong_ban_thao: int
+    hoat_dong: list[HoatDongNgay]
+    phan_loai: list[PhanLoai]
+
+
+class YeuCauNangGoiRequest(BaseModel):
+    goi_muon: str = Field(..., min_length=1, max_length=32)
+
+
+class YeuCauNangGoiOut(BaseModel):
+    id: int
+    loai: str
+    goi_hien_tai: str
+    goi_muon: str
+    trang_thai: str
+    tao_luc: datetime
+    xu_ly_luc: datetime | None
+
+
+class LuotNhap(BaseModel):
+    cau_hoi: str = Field(..., min_length=1, max_length=2000)
+    tra_loi: TraCuuResponse
+    trace_id: str | None = None
+
+
+class NhapPhienRequest(BaseModel):
+    luot: list[LuotNhap] = Field(..., min_length=1, max_length=10)
+
+
+class NhapPhienResponse(BaseModel):
+    id: str

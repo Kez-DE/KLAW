@@ -1,0 +1,71 @@
+"""`config/han_muc.yaml` v3 + gói hiệu lực (spec 2026-09-07 §4.1, §5)."""
+
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from src.services import bao_ve
+
+YAML_OK = (
+    "goi_mac_dinh: free\nmui_gio: Asia/Ho_Chi_Minh\n"
+    "goi:\n  free: {hoi_dap_ngay: 200, soan_thao_ngay: 3, soan_thao_thang: 20, luot_moi_phien: 20}\n"
+    "  pro: {hoi_dap_ngay: 100000, soan_thao_ngay: 20, soan_thao_thang: 100000, luot_moi_phien: 50}\n"
+    "la_chan: {free_hoi_dap_thang: 2000, pro_hoi_dap_ngay: 500, ip_ngay: 400}\n"
+    "khach: {hoi_dap_24h: 10, ip_24h: 30}\nchu_ky_pro_ngay: 30\n"
+)
+
+
+@pytest.fixture
+def yaml_tam(tmp_path, monkeypatch):
+    def _dat(noi_dung: str):
+        f = tmp_path / "han_muc.yaml"
+        f.write_text(noi_dung, encoding="utf-8")
+        monkeypatch.setattr(bao_ve, "HAN_MUC_PATH", f)
+        bao_ve._doc_han_muc.cache_clear()
+
+    yield _dat
+    bao_ve._doc_han_muc.cache_clear()
+
+
+def test_yaml_that_doc_duoc_va_dung_so():
+    bao_ve._doc_han_muc.cache_clear()
+    assert bao_ve.han_muc("free", "hoi_dap_ngay") == 200
+    assert bao_ve.han_muc("free", "luot_moi_phien") == 20
+    assert bao_ve.han_muc("pro", "hoi_dap_ngay") >= 100_000
+    assert bao_ve.han_muc("goi-la", "soan_thao_ngay") == bao_ve.han_muc("free", "soan_thao_ngay")
+    assert bao_ve.la_chan("ip_ngay") == 400
+    assert str(bao_ve.mui_gio()) == "Asia/Ho_Chi_Minh"
+    with pytest.raises(KeyError):
+        bao_ve.han_muc("free", "khoa-la")
+
+
+@pytest.mark.parametrize(
+    "hong, khop",
+    [
+        (YAML_OK.replace("chu_ky_pro_ngay: 30\n", ""), "chu_ky_pro_ngay"),
+        (YAML_OK.replace("mui_gio: Asia/Ho_Chi_Minh\n", "mui_gio: Sao/Hoa\n"), "mui_gio"),
+        (YAML_OK.replace(", luot_moi_phien: 20}", "}"), "luot_moi_phien"),
+        (YAML_OK.replace("la_chan: {free_hoi_dap_thang: 2000, ", "la_chan: {"), "free_hoi_dap_thang"),
+        (YAML_OK + "phien_luu: {free: 10}\n", "phien_luu"),
+    ],
+)
+def test_yaml_hong_thi_fail_loud(yaml_tam, hong, khop):
+    yaml_tam(hong)
+    with pytest.raises(ValueError, match=khop):
+        bao_ve._doc_han_muc()
+
+
+def test_moc_ngay_thang_theo_gio_viet_nam():
+    # 23:30 UTC ngày 7 = 06:30 ngày 8 giờ VN → mốc ngày là 00:00 ngày 8 (+07:00)
+    luc = datetime(2026, 9, 7, 23, 30, tzinfo=UTC)
+    assert bao_ve.moc_ngay(luc).isoformat() == "2026-09-08T00:00:00+07:00"
+    assert bao_ve.moc_ngay_sau(luc).isoformat() == "2026-09-09T00:00:00+07:00"
+    assert bao_ve.moc_thang(luc).isoformat() == "2026-09-01T00:00:00+07:00"
+    assert bao_ve.moc_thang_sau(luc).isoformat() == "2026-10-01T00:00:00+07:00"
+
+
+def test_plan_hieu_luc_tu_het_han():
+    assert bao_ve.plan_hieu_luc_tu("pro", None) == "pro"
+    assert bao_ve.plan_hieu_luc_tu("pro", datetime.now(UTC) + timedelta(days=1)) == "pro"
+    assert bao_ve.plan_hieu_luc_tu("pro", datetime.now(UTC) - timedelta(seconds=1)) == "free"
+    assert bao_ve.plan_hieu_luc_tu("free", None) == "free"

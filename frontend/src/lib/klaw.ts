@@ -503,14 +503,22 @@ export interface TimTrongVanBan {
 
 /* ── GET /han-muc ───────────────────────────────────────────────────────── */
 
+export interface MucHanMuc {
+  khoa: string;
+  nhan: string;
+  da_dung: number;
+  han_muc: number;
+  dat_lai_luc: string | null;
+}
+
 export interface HanMuc {
-  /** false ⇒ ẨN widget hạn mức. Bốn trường số là `null`, KHÔNG phải 0. */
   ap_dung: boolean;
   plan: string | null;
-  han_muc: number | null;
-  da_dung: number | null;
-  con_lai: number | null;
-  dat_lai_luc: string;
+  ten_goi: string | null;
+  mui_gio: string;
+  muc: MucHanMuc[];
+  phien: { luot_toi_da: number | null };
+  het_han_luc: string | null;
   ghi_chu: string;
 }
 
@@ -695,10 +703,32 @@ export interface PhienTomTat {
 
 export interface DanhSachPhien {
   plan: string;
-  gioi_han: number;
-  tong_hien: number;
-  tong_an: number;
+  luot_moi_phien: number;
+  tong: number;
   items: PhienTomTat[];
+}
+
+export interface HoSo {
+  email: string | null;
+  plan: string;
+  ten_goi: string;
+  tao_luc: string;
+  het_han_luc: string | null;
+  so_phien: number;
+  tong_hoi_dap: number;
+  tong_ban_thao: number;
+  hoat_dong: { ngay: string; so_luot: number }[];
+  phan_loai: { khoa: string; nhan: string; so: number }[];
+}
+
+export interface YeuCauNangGoi {
+  id: number;
+  loai: "nang_goi" | "gia_han";
+  goi_hien_tai: string;
+  goi_muon: string;
+  trang_thai: "cho_duyet" | "da_duyet" | "tu_choi";
+  tao_luc: string;
+  xu_ly_luc: string | null;
 }
 
 export interface LuotDaLuu {
@@ -860,7 +890,28 @@ export function laVanBanLienQuan(x: unknown): x is VanBanLienQuan {
 }
 
 export function laDanhSachPhien(x: unknown): x is DanhSachPhien {
-  return laBanGhi(x) && Array.isArray(x["items"]) && typeof x["tong_hien"] === "number";
+  return laBanGhi(x) && Array.isArray(x["items"]) && typeof x["luot_moi_phien"] === "number";
+}
+
+export function laHoSo(x: unknown): x is HoSo {
+  return (
+    laBanGhi(x) &&
+    Array.isArray(x["hoat_dong"]) &&
+    Array.isArray(x["phan_loai"]) &&
+    typeof x["plan"] === "string"
+  );
+}
+
+export function laYeuCauNangGoi(x: unknown): x is YeuCauNangGoi {
+  return laBanGhi(x) && typeof x["id"] === "number" && typeof x["trang_thai"] === "string";
+}
+
+export function laYeuCauNangGoiHoacNull(x: unknown): x is YeuCauNangGoi | null {
+  return x === null || laYeuCauNangGoi(x);
+}
+
+export function laNhapPhien(x: unknown): x is { id: string } {
+  return laBanGhi(x) && typeof x["id"] === "string";
 }
 
 export function laPhienTomTat(x: unknown): x is PhienTomTat {
@@ -935,7 +986,12 @@ export function laSoanThaoKetQua(x: unknown): x is SoanThaoKetQua {
 }
 
 export function laHanMuc(x: unknown): x is HanMuc {
-  return laBanGhi(x) && typeof x["ap_dung"] === "boolean";
+  return (
+    laBanGhi(x) &&
+    typeof x["ap_dung"] === "boolean" &&
+    Array.isArray(x["muc"]) &&
+    laBanGhi(x["phien"])
+  );
 }
 
 export function laPhamVi(x: unknown): x is PhamVi {

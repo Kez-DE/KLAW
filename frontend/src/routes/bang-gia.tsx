@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Check, Minus, ChevronDown } from "lucide-react";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
-import { HanMucThang } from "@/components/klaw/HanMucThang";
 
 type TierId = "mien-phi" | "ca-nhan" | "doanh-nghiep" | "to-chuc";
 
@@ -196,8 +195,6 @@ function BangGiaPage() {
             Bảng giá phía dưới là dự kiến; dòng này là sự thật hôm nay, và hai
             thứ đó phải phân biệt được. `ap_dung: false` thì thành phần nói ra
             là hệ thống chưa đếm theo tài khoản, KHÔNG hiện một con số 0. */}
-        <HanMucThang className="soft-fade mx-auto mt-6 max-w-xl rounded-xl border border-border bg-card p-4 text-left" />
-
         {/* Billing toggle */}
         <div className="mt-8 inline-flex items-center gap-1 rounded-full border border-border/70 bg-card/80 p-1">
           {(

@@ -1,9 +1,8 @@
-import { Link } from "@tanstack/react-router";
 import { Check, ChevronRight, MessageSquare, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { TrangThaiHoiThoai } from "@/hooks/use-hoi-thoai";
 import type { PhienTomTat } from "@/lib/klaw";
-import { cauPhienAn, thoiGianTuongDoi } from "@/lib/phien";
+import { thoiGianTuongDoi } from "@/lib/phien";
 import { cn } from "@/lib/utils";
 
 /**
@@ -247,17 +246,6 @@ function ThanDanhSach({ hoiThoai, phienDangMo, onChon, onPhienMoi, onDaXoa }: Pr
               />
             ))}
           </ul>
-          {danhSach.tong_an > 0 && (
-            <p className="mt-3 border-t border-border pt-2 text-[12px] text-muted-foreground">
-              {cauPhienAn(danhSach.plan, danhSach.gioi_han, danhSach.tong_an)}{" "}
-              <Link
-                to="/bang-gia"
-                className="focus-brass text-[var(--color-brass-600)] underline-offset-2 hover:underline"
-              >
-                Xem bảng giá
-              </Link>
-            </p>
-          )}
         </>
       )}
     </div>
