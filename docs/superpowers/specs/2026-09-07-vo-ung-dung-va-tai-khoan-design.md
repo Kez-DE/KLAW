@@ -7,7 +7,8 @@ Ngày: 2026-09-07 · Trạng thái: chờ chủ sản phẩm duyệt · Gói tr�
 Người đã đăng nhập thấy một vỏ ứng dụng kiểu ChatGPT (sidebar trái với "Phiên mới",
 "Gần đây", thẻ tài khoản), có menu tài khoản với Hồ sơ, Nâng cấp gói, Cá nhân hoá,
 Trợ giúp, Đăng xuất; và hạn mức gói Free/Cá nhân được tính theo ngày, tháng và tính
-năng, hiển thị bằng thanh đo "đã dùng x% · đặt lại lúc …" ở cả hai gói. Người chưa
+năng, hiển thị bằng thanh đo "đã dùng x% · đặt lại lúc …" ở cả hai gói; gói Cá nhân bán
+theo chu kỳ 30 ngày, hết hạn tự về Miễn phí và gia hạn bằng yêu cầu. Người chưa
 đăng nhập dùng thử được 10 lượt hỏi đáp mỗi 24 giờ như ChatGPT, không lưu; đăng nhập
 thì đoạn chat đang có được đưa vào tài khoản.
 
@@ -29,20 +30,18 @@ thì đoạn chat đang có được đưa vào tài khoản.
 
 - Không dùng cửa sổ trượt kiểu "N lượt/5 giờ". Hạn mức theo ngày (chống lạm dụng,
   bảo vệ trần chi phí chung) và theo tháng (ranh giới cá nhân/công việc).
-- Free: 15 lượt hỏi đáp/ngày, 300/tháng; 3 bản thảo/ngày và 20/tháng. Cá nhân (`pro`):
-  100 lượt hỏi đáp/ngày (lá chắn chống chia sẻ tài khoản và script: 100 lượt là 30 phút
-  chờ máy, không người dùng thật nào chạm; không hạn ngày thì một tài khoản đốt được
-  2,7 USD/ngày, vượt trần chi phí chung), 1000/tháng; 20 bản thảo/ngày, không hạn tháng. Mọi gói:
-  tối đa 50 lượt trong một phiên (lý do kỹ thuật, ngữ cảnh chỉ nạp 3 lượt). Số phiên và
-  lịch sử không giới hạn.
-- Căn cứ khảo sát (09/2026): các trợ lý AI lớn đặt hạn free theo NGÀY, đặt lại giờ cố
-  định (Claude ~30–50 tin/ngày, Perplexity ~5 tìm kiếm Pro/ngày, Copilot 50 chat/tháng);
-  người chạm hạn mức chuyển đổi cao gấp 6,2 lần (ProfitWell 2025), nhưng hạ trần với
-  người không bao giờ chạm chỉ gây rời bỏ; điểm nâng gói phải nằm trong luồng làm việc.
-  Với KLAW: người lao động hỏi theo đợt 3–10 câu (không được chặn buổi đầu), nhân sự và
-  pháp chế hỏi 5–20 câu/ngày và soạn văn bản (nhóm trả tiền, nhóm duy nhất nên chạm trần).
-  Trần tháng cho bản thảo tồn tại vì soạn thảo là việc trả tiền rõ nhất; thiếu nó, một
-  pháp chế soạn 90 bản thảo/tháng miễn phí.
+- Chiến lược chốt lần cuối (2026-09-07): hỏi đáp rẻ (0,27 cent/lượt) nên Free hỏi RỘNG,
+  Pro bán bằng soạn thảo, phiên dài hơn và các tính năng công việc (Perplexity làm cùng
+  cách: tìm kiếm cơ bản không giới hạn, trả tiền cho phần nặng).
+- Free: 200 lượt hỏi đáp/ngày (một giờ chờ máy; người thật không chạm, chỉ chặn bot),
+  20 lượt mỗi phiên (đến trần báo mở phiên mới kiểu ChatGPT), 3 bản thảo/ngày và
+  20/tháng. Cá nhân (`pro`): hỏi đáp không giới hạn ngày và tháng, 50 lượt mỗi phiên,
+  20 bản thảo/ngày không hạn tháng; hiệu lực 30 ngày kể từ khi duyệt, hết hạn tự về
+  Free (lịch sử phiên giữ nguyên), gia hạn bằng yêu cầu mới.
+- Lá chắn chống lạm dụng, KHÔNG hiện thành thanh đo, chỉ chặn với câu 429 thật: Free
+  2000 lượt/tháng; Pro 500 lượt/ngày (tám giờ chờ máy liên tục, chỉ script hoặc tài khoản
+  bị lộ mới chạm; ghi ở FAQ như dấu sao "không giới hạn" của ChatGPT); mọi IP 400
+  lượt/ngày (chặn trại tài khoản). Mọi gói: số phiên và lịch sử không giới hạn.
 - Không tính lượt: câu trả lời từ bộ đệm, câu ngoài phạm vi, lượt lỗi máy chủ.
 - Free và Cá nhân đều có thanh đo mức dùng: tiêu đề, thanh tiến độ, "x% đã dùng",
   "Đặt lại HH:MM (Asia/Ho_Chi_Minh)".
@@ -73,26 +72,32 @@ mui_gio: Asia/Ho_Chi_Minh
 # 0 = không cho lượt nào; "không giới hạn" = một số lớn (cùng quy ước cũ).
 goi:
   free:
-    hoi_dap_ngay: 15
-    hoi_dap_thang: 300
+    hoi_dap_ngay: 200
     soan_thao_ngay: 3
     soan_thao_thang: 20
-    luot_moi_phien: 50
+    luot_moi_phien: 20
   pro:
-    hoi_dap_ngay: 100
-    hoi_dap_thang: 1000
+    hoi_dap_ngay: 100000
     soan_thao_ngay: 20
     soan_thao_thang: 100000
     luot_moi_phien: 50
+# Lá chắn chống lạm dụng: cưỡng chế với 429 nói thật, nhưng KHÔNG hiện thanh đo (người
+# thật không chạm; đây không phải lời hứa bán hàng).
+la_chan:
+  free_hoi_dap_thang: 2000
+  pro_hoi_dap_ngay: 500
+  ip_ngay: 400              # mọi tài khoản và khách sau cùng một IP
 # Khách chưa đăng nhập (chỉ khi Supabase đã cấu hình): đếm theo cửa sổ 24 giờ trượt,
 # vì khách không có mốc "ngày" nào gắn với tài khoản.
 khach:
   hoi_dap_24h: 10      # theo mã khách của trình duyệt
   ip_24h: 30           # lá chắn: mọi mã khách sau cùng một IP
+# Chu kỳ gói trả phí, tính từ lúc duyệt yêu cầu.
+chu_ky_pro_ngay: 30
 ```
 
-`_doc_han_muc` fail loud khi: thiếu `goi`/`goi_mac_dinh`/`mui_gio`/`khach` (hai khoá); một gói thiếu
-bất kỳ khoá nào trong năm khoá; `mui_gio` không phải tên vùng hợp lệ. Khoá `phien_luu`
+`_doc_han_muc` fail loud khi: thiếu `goi`/`goi_mac_dinh`/`mui_gio`/`khach` (hai khoá)/
+`la_chan` (ba khoá)/`chu_ky_pro_ngay`; một gói thiếu bất kỳ khoá nào trong bốn khoá; `mui_gio` không phải tên vùng hợp lệ. Khoá `phien_luu`
 bị gỡ; nếu còn trong file → lỗi rõ "khoá không còn dùng".
 
 ### 4.2 Đếm
@@ -108,13 +113,16 @@ bị gỡ; nếu còn trong file → lỗi rõ "khoá không còn dùng".
   `mui_gio`. Hàm `moc_ngay(now)`, `moc_thang(now)`, `moc_ngay_sau`, `moc_thang_sau`
   trong `bao_ve` dùng `zoneinfo`.
 - Kiểm TRƯỚC khi chạy graph, trong `cong_bao_ve`, thay `kiem_han_muc_thang`:
-  `kiem_han_muc(sub, plan, endpoint)`: với `/tra-cuu` kiểm ngày rồi tháng; với
-  `/soan-thao` cũng kiểm ngày rồi tháng. Vượt → 429 với `detail` một câu tiếng Việt nêu mốc mở lại
-  ("Hôm nay bạn đã dùng 15 lượt hỏi đáp của gói Miễn phí. Mở lại lúc 00:00 ngày
+  `kiem_han_muc(sub, plan, endpoint)`: với `/tra-cuu` kiểm `goi.<plan>.hoi_dap_ngay` rồi
+  lá chắn (`free_hoi_dap_thang` cho free, `pro_hoi_dap_ngay` cho pro); với `/soan-thao`
+  kiểm ngày rồi tháng. Trước mọi thứ, lá chắn `ip-ngay:{ip}` (`la_chan.ip_ngay`, cửa sổ
+  86400 giây, cùng `kiem_rate_limit`) áp cho cả tài khoản và khách. Vượt → 429 với
+  `detail` một câu tiếng Việt nêu mốc mở lại
+  ("Hôm nay bạn đã dùng 200 lượt hỏi đáp của gói Miễn phí. Mở lại lúc 00:00 ngày
   08/09.") và header `Retry-After` = giây tới mốc. Lỗi DB khi đếm → 503 (như cũ).
 - Trần lượt mỗi phiên kiểm trong `routes._chuan_bi_phien` khi có `hoi_thoai_id`:
   `count(luot_hoi_thoai) >= luot_moi_phien(plan)` → 403 `hoi_thoai.LOI_PHIEN_DAY`
-  = "Phiên này đã đủ 50 lượt. Mở phiên mới để tiếp tục." (số lấy từ YAML).
+  = "Phiên này đã đủ {n} lượt. Mở phiên mới để tiếp tục." với `n` của gói (Free 20, Pro 50).
 - Kết quả cache hit, ngoài phạm vi, lỗi vẫn được ghi `traces` như cũ; chỉ khác ở
   câu đếm.
 
@@ -144,9 +152,17 @@ CREATE TABLE IF NOT EXISTS yeu_cau_nang_goi (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_yeu_cau_nang_goi_cho_duyet
     ON yeu_cau_nang_goi(user_sub) WHERE trang_thai = 'cho_duyet';
+-- Chu kỳ gói trả phí: NULL = không hết hạn (free, hoặc pro cấp tay vô thời hạn).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_het_han TIMESTAMPTZ;
 ```
 
-`lifespan` áp `("019", "020", "021")`. Không đổi `users`, `hoi_thoai`, `traces`.
+`yeu_cau_nang_goi` có thêm cột `loai TEXT NOT NULL CHECK (loai IN ('nang_goi','gia_han'))`.
+`lifespan` áp `("019", "020", "021")`. Không đổi `hoi_thoai`, `traces`. Gói HIỆU LỰC
+(`bao_ve.plan_hieu_luc(sub) -> str`) = `users.plan` khi `plan_het_han IS NULL OR
+plan_het_han > now()`, ngược lại `goi_mac_dinh`; mọi chỗ đọc gói (`cong_bao_ve`,
+`_chuan_bi_phien`, `/han-muc`, `/ho-so`, `/hoi-thoai`) dùng hàm này, không đọc cột thô.
+Duyệt yêu cầu (2B, tạm SQL) đặt `plan='pro'`, `plan_het_han = greatest(now(),
+coalesce(plan_het_han, now())) + chu_ky_pro_ngay`.
 
 ## 6. Backend
 
@@ -161,17 +177,19 @@ Cổng như cũ (`_nguoi_goi`: ẩn danh → `ap_dung=false`). Có danh tính:
   "ten_goi": "Miễn phí",
   "mui_gio": "Asia/Ho_Chi_Minh",
   "muc": [
-    {"khoa": "hoi_dap_ngay",   "nhan": "Hỏi đáp hôm nay",   "da_dung": 9,   "han_muc": 15,  "dat_lai_luc": "2026-09-08T00:00:00+07:00"},
-    {"khoa": "hoi_dap_thang",  "nhan": "Hỏi đáp tháng này", "da_dung": 120, "han_muc": 300, "dat_lai_luc": "2026-10-01T00:00:00+07:00"},
+    {"khoa": "hoi_dap_ngay",   "nhan": "Hỏi đáp hôm nay",   "da_dung": 9,   "han_muc": 200, "dat_lai_luc": "2026-09-08T00:00:00+07:00"},
     {"khoa": "soan_thao_ngay", "nhan": "Bản thảo hôm nay",  "da_dung": 1,   "han_muc": 3,   "dat_lai_luc": "2026-09-08T00:00:00+07:00"},
     {"khoa": "soan_thao_thang", "nhan": "Bản thảo tháng này", "da_dung": 4,  "han_muc": 20,  "dat_lai_luc": "2026-10-01T00:00:00+07:00"}
   ],
-  "phien": {"luot_toi_da": 50},
+  "phien": {"luot_toi_da": 20},
+  "het_han_luc": null,
   "ghi_chu": "Lượt trả lời từ bộ đệm, câu ngoài phạm vi và lượt lỗi không tính. Tra cứu luật, soát văn bản không bao giờ tính."
 }
 ```
 
-`han_muc >= 100000` nghĩa là không giới hạn; FE quyết định cách hiển thị. Model
+`muc` chỉ gồm các khoá trong `goi.<plan>` (không gồm lá chắn); `het_han_luc` là
+`users.plan_het_han` với Pro, `null` với Free. `han_muc >= 100000` nghĩa là không giới hạn;
+FE quyết định cách hiển thị. Model
 `HanMucResponse` viết lại theo hình này; `HanMucThang.tsx` và `laHanMuc` cũ bị gỡ,
 `/bang-gia` hiện `ThuocMucDung` (§7.2) ở đúng chỗ đó.
 
@@ -179,7 +197,7 @@ Cổng như cũ (`_nguoi_goi`: ẩn danh → `ap_dung=false`). Có danh tính:
 
 ```json
 {
-  "email": "…", "plan": "free", "ten_goi": "Miễn phí", "tao_luc": "…",
+  "email": "…", "plan": "free", "ten_goi": "Miễn phí", "tao_luc": "…", "het_han_luc": null,
   "so_phien": 12, "tong_hoi_dap": 87, "tong_ban_thao": 4,
   "hoat_dong": [{"ngay": "2026-09-07", "so_luot": 3}],
   "phan_loai": [
@@ -197,17 +215,19 @@ Cổng như cũ (`_nguoi_goi`: ẩn danh → `ap_dung=false`). Có danh tính:
 
 ### 6.3 Nâng gói
 
-- `POST /nang-goi/yeu-cau` body `{goi_muon}`: `goi_muon` phải là khoá trong YAML và
-  khác gói hiện tại (422); đã có yêu cầu `cho_duyet` → 409 với `detail` "Bạn đã có một
-  yêu cầu đang chờ duyệt."; thành công 201 trả `YeuCauNangGoiOut{id, goi_hien_tai,
-  goi_muon, trang_thai, tao_luc, xu_ly_luc}`.
+- `POST /nang-goi/yeu-cau` body `{goi_muon}`: `goi_muon` phải là khoá trong YAML (422);
+  máy chủ suy ra `loai`: `nang_goi` khi gói hiệu lực là free, `gia_han` khi đang pro và
+  còn ≤ 7 ngày; đang pro còn > 7 ngày → 422 "Gói còn hiệu lực, gia hạn được từ 7 ngày
+  trước khi hết hạn."; đã có yêu cầu `cho_duyet` → 409 "Bạn đã có một yêu cầu đang chờ
+  duyệt."; thành công 201 trả `YeuCauNangGoiOut{id, loai, goi_hien_tai, goi_muon,
+  trang_thai, tao_luc, xu_ly_luc}`.
 - `GET /nang-goi/yeu-cau`: yêu cầu mới nhất của người gọi hoặc `null`.
 - Router `src/api/routes_tai_khoan.py` mở rộng (đã có `/han-muc`, `/nguoi-dung`).
 
 ### 6.4 Phiên
 
 `GET /hoi-thoai` trả thêm `luot_moi_phien`; `PhienTomTatOut.so_luot` đã có nên FE khoá
-được trước khi gửi. `/tra-cuu*` 403 `LOI_PHIEN_DAY` tại lượt thứ 51.
+được trước khi gửi. `/tra-cuu*` 403 `LOI_PHIEN_DAY` tại lượt thứ 21 (Free) hoặc 51 (Pro).
 
 ## 7. Frontend
 
@@ -239,19 +259,25 @@ Cổng như cũ (`_nguoi_goi`: ẩn danh → `ap_dung=false`). Có danh tính:
 Một dòng cho mỗi mục trong `han_muc.muc`: tiêu đề (`nhan`), thanh tiến độ, "x% đã
 dùng", "Đặt lại HH:MM DD/MM (Asia/Ho_Chi_Minh)". Màu: <80% brass, 80–99% amber,
 100% `destructive`. `han_muc >= 100000` → chữ "Không giới hạn", không có thanh.
-Nơi hiện: trang Hồ sơ (đủ bốn dòng + "Phiên này: 12/50 lượt" khi có phiên mở);
+Với Pro có thêm dòng "Gói Cá nhân còn 12 ngày · hết hạn 07/10" (đỏ khi ≤ 7 ngày, kèm
+nút Gia hạn). Nơi hiện: trang Hồ sơ (đủ các dòng của `muc` + "Phiên này: 12/20 lượt" khi
+có phiên mở);
 `MenuTaiKhoan` (dòng đầu tiên chưa đủ 100%, rút gọn); chip cạnh ô soạn câu hỏi
 "Còn 6 lượt hôm nay" (đổi màu theo ngưỡng). Hook `useHanMuc()` gọi `/han-muc` khi
 đăng nhập và sau mỗi lượt hỏi/soạn kết thúc (`!dangChay`).
 
 ### 7.3 Ba trạng thái hết hạn mức (đều có nút hành động)
 
-- Phiên đủ 50 lượt: ô nhập khoá, thẻ "Phiên này đã đủ 50 lượt. Mở phiên mới để tiếp
-  tục." + nút Phiên mới. Từ lượt 30 hiện dòng nhỏ "Phiên dài rồi, mở phiên mới để câu
+- Phiên đủ trần (Free 20, Pro 50, số từ `/hoi-thoai.luot_moi_phien`): ô nhập khoá, thẻ
+  "Phiên này đã đủ 20 lượt. Mở phiên mới để tiếp tục." + nút Phiên mới. Từ 75% trần hiện
+  dòng nhỏ "Phiên dài rồi, mở phiên mới để câu
   trả lời bám sát hơn".
-- 429 ngày/tháng: `BaoLoi` hiện `detail` máy chủ (đã có mốc mở lại) + nút "Nâng cấp"
-  (Free) hoặc chỉ mốc mở lại (Cá nhân, kể cả khi chạm 100/ngày). Không có nút "Thử lại"
+- 429 ngày/tháng/lá chắn: `BaoLoi` hiện `detail` máy chủ (đã có mốc mở lại) + nút "Nâng
+  cấp" (Free) hoặc chỉ mốc mở lại (Cá nhân chạm lá chắn 500/ngày). Không có nút "Thử lại"
   cho 429.
+- Pro hết hạn: về Free tự động; lần tải kế tiếp hiện thẻ trên đầu dòng chat "Gói Cá nhân
+  đã hết hạn ngày 07/10. Gia hạn 30 ngày để tiếp tục hỏi không giới hạn và soạn 20 bản
+  thảo mỗi ngày." + nút Gia hạn (mở `ModalNangGoi`).
 - Bản thảo hết lượt ngày: cùng khuôn ở màn Soạn thảo.
 Tra cứu luật, soát văn bản, xem lại phiên, xuất Word/PDF không bao giờ bị khoá.
 
@@ -280,10 +306,10 @@ nút → tiêu đề danh sách → danh sách tính năng có icon (lucide). N�
 | Nhãn | Miễn phí | Cá nhân |
 | Tiêu đề | Dùng thử KLAW | Dùng cho công việc |
 | Mô tả | Hỏi pháp luật lao động và nhận câu trả lời có căn cứ kiểm chứng được, soạn văn bản mẫu, tra cứu luật. | Cho luật sư, chuyên viên nhân sự và pháp chế hỏi nhiều mỗi ngày và soạn văn bản thường xuyên. |
-| Giá | ₫0 / tháng | ₫499.000 / tháng (số từ `bang-gia.tsx`, cùng nguồn dữ liệu) |
-| Nút | Free: viền mờ, khoá, "Gói hiện tại của bạn". Pro: không hiện nút. | Free: nút đặc "Yêu cầu nâng lên Cá nhân" → `POST /nang-goi/yeu-cau`; sau khi gửi hoặc đã có yêu cầu: khoá, "Đang chờ duyệt". Pro: viền mờ, khoá, "Gói hiện tại của bạn". |
+| Giá | ₫0 / tháng | ₫499.000 / 30 ngày (số từ `bang-gia.tsx`, cùng nguồn dữ liệu) |
+| Nút | Free: viền mờ, khoá, "Gói hiện tại của bạn". Pro: không hiện nút. | Free: nút đặc "Yêu cầu nâng lên Cá nhân" → `POST /nang-goi/yeu-cau`; sau khi gửi hoặc đã có yêu cầu: khoá, "Đang chờ duyệt". Pro còn > 7 ngày: viền mờ, khoá, "Gói hiện tại · còn 12 ngày". Pro ≤ 7 ngày hoặc đã hết hạn: nút đặc "Gia hạn 30 ngày". |
 | Tiêu đề danh sách | Bắt đầu với những điều cơ bản: | Mọi thứ trong gói Miễn phí, cộng thêm: |
-| Danh sách | 15 lượt hỏi đáp mỗi ngày, 300 mỗi tháng · 3 bản thảo mỗi ngày, 20 mỗi tháng · Phiên và lịch sử không giới hạn · Tra cứu luật, soát văn bản không giới hạn · Xuất Word, PDF | 100 lượt hỏi đáp mỗi ngày, 1000 mỗi tháng · 20 bản thảo mỗi ngày, không giới hạn tháng |
+| Danh sách | 200 lượt hỏi đáp mỗi ngày · 20 lượt mỗi phiên · 3 bản thảo mỗi ngày, 20 mỗi tháng · Phiên và lịch sử không giới hạn · Tra cứu luật, soát văn bản không giới hạn · Xuất Word, PDF | Hỏi đáp không giới hạn ngày và tháng (dấu sao: lá chắn chống lạm dụng 500 lượt/ngày, ghi ở FAQ) · 50 lượt mỗi phiên · 20 bản thảo mỗi ngày, không giới hạn tháng · Hiệu lực 30 ngày, gia hạn khi hết |
 
 Dưới nút của card Cá nhân, chữ nhỏ: "Chưa có thanh toán trực tuyến. Tôi sẽ báo qua
 email khi gói được mở." Số trong danh sách lấy từ một hằng dùng chung với `/bang-gia`
@@ -293,9 +319,11 @@ tiêu điểm quay về nơi mở.
 
 ### 7.6 Bảng giá
 
-`bang-gia.tsx`: Miễn phí = "15 lượt hỏi/ngày, 300 lượt/tháng · 3 bản thảo/ngày, 20/tháng
-· Phiên và lịch sử không giới hạn · Tra cứu, soát văn bản không giới hạn"; Cá nhân =
-"100 lượt hỏi/ngày, 1000/tháng · 20 bản thảo/ngày, không hạn tháng · …"; hàng so sánh "Phiên lưu" bỏ
+`bang-gia.tsx`: Miễn phí = "200 lượt hỏi/ngày · 20 lượt mỗi phiên · 3 bản thảo/ngày,
+20/tháng · Phiên và lịch sử không giới hạn · Tra cứu, soát văn bản không giới hạn"; Cá nhân
+= "Hỏi đáp không giới hạn* · 50 lượt mỗi phiên · 20 bản thảo/ngày, không hạn tháng · Gói 30
+ngày"; FAQ thêm dấu sao "Không giới hạn trong sử dụng bình thường; lá chắn chống lạm dụng
+500 lượt/ngày."; giá gói Cá nhân hiển thị "/ 30 ngày"; hàng so sánh "Phiên lưu" bỏ
 số 10 → "Không giới hạn"; FAQ hạn mức viết lại theo §4. Giá tiền giữ nguyên.
 `tenGoi("pro")` → "Cá nhân".
 
@@ -331,7 +359,7 @@ Chưa cấu hình Supabase (máy dev, eval): mọi thứ như trước, không �
 Không bearer, có `X-Khach-Id` → `{ap_dung: true, plan: "khach", ten_goi: "Dùng thử",
 muc: [{khoa: "khach_24h", nhan: "Lượt thử 24 giờ", da_dung, han_muc: 10, dat_lai_luc:
 <lượt cũ nhất + 24h, hoặc null khi chưa dùng>}], phien: {luot_toi_da: 10}, ghi_chu:
-"Đăng nhập miễn phí để có 15 lượt mỗi ngày, lưu phiên và soạn văn bản."}`.
+"Đăng nhập miễn phí để có 200 lượt mỗi ngày, lưu phiên và soạn văn bản."}`.
 
 ### 8.4 Mang đoạn chat vào tài khoản
 
@@ -359,7 +387,7 @@ và xoá sessionStorage (không lặp).
   Không có Gần đây.
 - Ô hỏi mở; chip "Còn 7/10 lượt thử trong 24 giờ" từ `/han-muc`. Hết lượt: thẻ trong
   dòng chat "Bạn đã dùng 10 lượt thử. Đăng nhập miễn phí để tiếp tục, lưu đoạn chat này
-  và có 15 lượt mỗi ngày." + hai nút; ô hỏi khoá. Khoá này KHÔNG áp cho tra cứu luật,
+  và có 200 lượt mỗi ngày." + hai nút; ô hỏi khoá. Khoá này KHÔNG áp cho tra cứu luật,
   soát văn bản.
 - Màn Soạn thảo cho khách: xem biểu mẫu được, nút "Soạn bản thảo" → `TheDangNhap`
   (giữ component hiện có).
@@ -386,7 +414,9 @@ và xoá sessionStorage (không lặp).
 - pytest: YAML thiếu khoá/`phien_luu` còn sót/`mui_gio` sai → lỗi rõ; mốc ngày/tháng
   theo `Asia/Ho_Chi_Minh` (23:30 UTC = 06:30 hôm sau VN); đếm loại `loi`,
   `out_of_scope`, cache hit; 429 ngày trước tháng, `detail` chứa mốc, `Retry-After`;
-  `soan-thao` 429 theo ngày rồi tháng; 403 tại lượt 51; `/han-muc` hình mới; `/ho-so` tổng hợp;
+  `soan-thao` 429 theo ngày rồi tháng; lá chắn `free_hoi_dap_thang`, `pro_hoi_dap_ngay`,
+  `ip_ngay` 429 với câu riêng; 403 tại lượt 21 (Free) và 51 (Pro); `plan_hieu_luc` về free
+  khi `plan_het_han` quá khứ; `gia_han` chỉ khi ≤ 7 ngày; `/han-muc` hình mới; `/ho-so` tổng hợp;
   yêu cầu nâng gói 201/409/422; test gói 1 cập nhật sau khi gỡ ẩn phiên; khách: thiếu
   `X-Khach-Id` → 401, lượt 11 trong 24h → 429 kèm `Retry-After`, `/soan-thao` khách → 401,
   `kiem_rate_limit` hai khoá khác cửa sổ không dọn dữ liệu nhau, `/han-muc` khách, `/hoi-thoai/nhap`
@@ -409,7 +439,8 @@ và xoá sessionStorage (không lặp).
   chặn người dùng một lần rồi mất họ thì nới trước. Đây là dữ liệu, không phải mã: chỉ
   đổi YAML.
 - Điều kiện vận hành trước khi mở đăng ký rộng: `KLAW_TRAN_CHI_PHI_NGAY_USD` nâng lên
-  khoảng 10 (ở 2 USD, 50 tài khoản free dùng hết hạn ngày là mọi người khác bị chặn);
+  20–30 (một tài khoản Free đốt hết 200 lượt là 0,54 USD; ở 2 USD chỉ cần 4 tài khoản như
+  vậy là mọi người khác bị chặn);
   Supabase bật xác nhận email khi đăng ký (chống tài khoản rác đẻ hàng loạt); lá chắn IP
   và nhịp 10 lượt/phút theo tài khoản giữ nguyên.
 - Điểm nâng gói nằm trong luồng: thẻ 429 và thẻ đủ 50 lượt mở thẳng `ModalNangGoi`,
