@@ -26,3 +26,11 @@ goi_mac_dinh: free
 goi:
   free: 50
   pro: 500
+
+# Số phiên hội thoại gần nhất được HIỆN cho mỗi gói (spec 2026-09-07 §4.2). Phiên
+# cũ hơn không bị xoá — chỉ ẩn khỏi danh sách và không mở/hỏi tiếp được; nâng
+# gói thì hiện lại. Cùng quy ước với `goi`: 0 = không hiện phiên nào; "không
+# giới hạn" cố ý không biểu đạt được — cần thì đặt một số lớn.
+phien_luu:
+  free: 10
+  pro: 100000

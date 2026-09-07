@@ -49,7 +49,8 @@ async def lifespan(app: FastAPI):
     # `UndefinedColumn`, tức HTTP 500 cho mọi answer có căn cứ. File .sql dùng
     # `ADD COLUMN IF NOT EXISTS` nên idempotent — an toàn chạy lại mỗi lần
     # khởi động, cùng khuôn fail-fast với hai guard bên dưới.
-    db_svc.run_migrations("019")
+    for mig in ("019", "020"):
+        db_svc.run_migrations(mig)
     # Task 5, ràng buộc #2: kiểm can_cu LÚC KHỞI ĐỘNG, không phải lúc người
     # dùng gọi /soan-thao hay /soat. Một can_cu chết (rule hoặc mục checklist
     # trích dẫn điều luật không tồn tại) phải làm app fail nhanh ngay đây —

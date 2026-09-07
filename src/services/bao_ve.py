@@ -305,6 +305,12 @@ def _doc_han_muc() -> dict:
         raise ValueError(f"{HAN_MUC_PATH}: cần khoá 'goi' kiểu mapping ở gốc file")
     if d.get("goi_mac_dinh") not in d["goi"]:
         raise ValueError(f"{HAN_MUC_PATH}: 'goi_mac_dinh' phải là một khoá trong 'goi'")
+    pl = d.get("phien_luu")
+    if not isinstance(pl, dict) or set(pl) != set(d["goi"]):
+        raise ValueError(
+            f"{HAN_MUC_PATH}: cần khoá 'phien_luu' kiểu mapping với ĐÚNG các gói của 'goi' "
+            f"(thiếu/lạ: {sorted(set(d['goi']) ^ set(pl or {}))})"
+        )
     return d
 
 
@@ -320,6 +326,27 @@ def han_muc_thang(plan: str) -> int:
         logger.warning("han_muc_thang: gói %r không có trong YAML — dùng gói mặc định", plan)
         return int(d["goi"][d["goi_mac_dinh"]])
     return int(d["goi"][plan])
+
+
+def phien_luu_toi_da(plan: str) -> int:
+    """Số phiên hội thoại gần nhất được hiện cho `plan` (`han_muc.yaml: phien_luu`).
+    Gói lạ rơi về gói mặc định — hỏng theo hướng CHẶT, như `han_muc_thang`."""
+    d = _doc_han_muc()
+    if plan not in d["phien_luu"]:
+        logger.warning("phien_luu_toi_da: gói %r không có trong YAML — dùng gói mặc định", plan)
+        return int(d["phien_luu"][d["goi_mac_dinh"]])
+    return int(d["phien_luu"][plan])
+
+
+_SQL_PLAN_CUA = text("SELECT plan FROM users WHERE sub = :sub")
+
+
+def plan_cua(sub: str) -> str:
+    """Gói hiện tại của `sub`; chưa có dòng `users` thì gói mặc định (JIT provisioning
+    xảy ra ở `ghi_nhan_nguoi_dung`, không ở đây — đọc không được tạo)."""
+    with get_engine().connect() as c:
+        r = c.execute(_SQL_PLAN_CUA, {"sub": sub}).scalar_one_or_none()
+    return str(r) if r is not None else str(_doc_han_muc()["goi_mac_dinh"])
 
 
 def _dau_thang_utc() -> datetime:
@@ -439,6 +466,22 @@ async def cong_nhe(request: Request) -> None:
     """
     kiem_api_key(request)
     await run_in_threadpool(kiem_rate_limit, ip_goi(request))
+
+
+async def nguoi_dung_bat_buoc(request: Request) -> dict:
+    """Danh tính BẮT BUỘC cho dữ liệu theo người (phiên hội thoại). Khác `cong_bao_ve`
+    ở một điểm: không có `sub` thì 401 kể cả khi Supabase chưa cấu hình — không có
+    ai để gán phiên. Trả `{"sub", "email"}`."""
+    kiem_api_key(request)
+    await run_in_threadpool(kiem_rate_limit, ip_goi(request))
+    nguoi = await run_in_threadpool(xac_thuc_nguoi_goi, request)
+    if nguoi is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Cần đăng nhập để dùng tính năng này.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return nguoi
 
 
 # ── Dependency dùng ở các endpoint tốn LLM ──────────────────────────────────

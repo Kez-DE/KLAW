@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
@@ -54,6 +55,9 @@ class TraCuuRequest(BaseModel):
     # tiếp mãi với một ngữ cảnh khác cái nó tưởng — cùng lựa chọn với `query`
     # (422 khi quá 2000 ký tự, không truncate).
     lich_su: list[LuotTruoc] = Field(default_factory=list, max_length=3)
+    # Spec 2026-09-07 §5.2: phiên hội thoại để máy chủ nạp `lich_su` và ghi lượt. Chỉ
+    # có ý nghĩa khi có danh tính; ẩn danh thì bị bỏ qua.
+    hoi_thoai_id: UUID | None = None
 
 
 class CitationOut(BaseModel):
@@ -754,6 +758,43 @@ class NguoiDungResponse(BaseModel):
     sub: str
     email: str | None
     plan: str
+
+
+# ══ /hoi-thoai — phiên hội thoại theo tài khoản (spec 2026-09-07 §5.3) ═════════
+class PhienTomTatOut(BaseModel):
+    id: str
+    tieu_de: str
+    so_luot: int
+    tao_luc: datetime
+    cap_nhat_luc: datetime
+
+
+class DanhSachPhienResponse(BaseModel):
+    plan: str
+    gioi_han: int
+    tong_hien: int
+    tong_an: int
+    items: list[PhienTomTatOut]
+
+
+class LuotDaLuuOut(BaseModel):
+    thu_tu: int
+    cau_hoi: str
+    tra_loi: dict  # nguyên payload TraCuuResponse lúc trả lời
+    trace_id: str | None
+    tao_luc: datetime
+
+
+class ChiTietPhienResponse(BaseModel):
+    id: str
+    tieu_de: str
+    tao_luc: datetime
+    cap_nhat_luc: datetime
+    luot: list[LuotDaLuuOut]
+
+
+class DoiTenPhienRequest(BaseModel):
+    tieu_de: str = Field(..., min_length=1, max_length=120)
 
 
 # ══ GET /van-ban/{doc_id}/tim (Pha 2) ═══════════════════════════════════════

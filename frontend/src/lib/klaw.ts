@@ -673,6 +673,7 @@ export interface SuKienBatDau {
   trace_id: string;
   config_name: string;
   cac_buoc: BuocKhai[];
+  hoi_thoai_id: string | null;
 }
 
 export interface SuKienBuoc {
@@ -681,6 +682,44 @@ export interface SuKienBuoc {
   thu_tu: number | null;
   tong: number;
   chi_tiet: Record<string, number | string | null>;
+}
+
+/* ── /hoi-thoai — phiên hội thoại theo tài khoản (spec 2026-09-07) ─────────── */
+export interface PhienTomTat {
+  id: string;
+  tieu_de: string;
+  so_luot: number;
+  tao_luc: string;
+  cap_nhat_luc: string;
+}
+
+export interface DanhSachPhien {
+  plan: string;
+  gioi_han: number;
+  tong_hien: number;
+  tong_an: number;
+  items: PhienTomTat[];
+}
+
+export interface LuotDaLuu {
+  thu_tu: number;
+  cau_hoi: string;
+  tra_loi: unknown;
+  trace_id: string | null;
+  tao_luc: string;
+}
+
+export interface ChiTietPhien {
+  id: string;
+  tieu_de: string;
+  tao_luc: string;
+  cap_nhat_luc: string;
+  luot: LuotDaLuu[];
+}
+
+export interface SuKienLoiLuu {
+  hoi_thoai_id: string;
+  detail: string;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -818,6 +857,32 @@ export function laVanBanHieuLuc(x: unknown): x is VanBanHieuLuc {
 
 export function laVanBanLienQuan(x: unknown): x is VanBanLienQuan {
   return laBanGhi(x) && Array.isArray(x["nhom"]) && laBanGhi(x["dan_chieu_noi_bo"]);
+}
+
+export function laDanhSachPhien(x: unknown): x is DanhSachPhien {
+  return laBanGhi(x) && Array.isArray(x["items"]) && typeof x["tong_hien"] === "number";
+}
+
+export function laChiTietPhien(x: unknown): x is ChiTietPhien {
+  return laBanGhi(x) && typeof x["id"] === "string" && Array.isArray(x["luot"]);
+}
+
+/** Một lượt đã lưu → lượt render được. `tra_loi` đi đúng đường chuẩn hoá của stream
+ *  (`chuanHoaBang` → `chuanHoaDocuments` → `laTraCuuKetQua`); payload cũ thiếu trường
+ *  thì `ketQua: null` và card không render — không bịa. */
+export function chuanHoaLuot(l: LuotDaLuu): {
+  thuTu: number;
+  cauHoi: string;
+  ketQua: TraCuuKetQua | null;
+  traceId: string | null;
+} {
+  const du = chuanHoaDocuments(chuanHoaBang(l.tra_loi));
+  return {
+    thuTu: l.thu_tu,
+    cauHoi: l.cau_hoi,
+    ketQua: laTraCuuKetQua(du) ? du : null,
+    traceId: l.trace_id,
+  };
 }
 
 export function laTimKiem(x: unknown): x is TimKiem {

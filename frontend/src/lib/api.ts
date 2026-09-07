@@ -256,6 +256,7 @@ import {
   type LuotTruoc,
   type SuKienBatDau,
   type SuKienBuoc,
+  type SuKienLoiLuu,
   type TraCuuKetQua,
 } from "./klaw";
 import { catCacKhung } from "./sse-khung";
@@ -273,6 +274,9 @@ export interface YeuCauTraCuu {
    * tốn thêm một token nào.
    */
   lich_su?: LuotTruoc[];
+  /** Phiên hội thoại để máy chủ nạp `lich_su` và ghi lượt (spec 2026-09-07 §5.2).
+   *  Chỉ có ý nghĩa khi có danh tính; ẩn danh thì bị bỏ qua. */
+  hoi_thoai_id?: string;
 }
 
 export interface XuLyLuong {
@@ -280,6 +284,8 @@ export interface XuLyLuong {
   onBatDau?: (su: SuKienBatDau) => void;
   /** Một bước đã chạy xong ở máy chủ — không phải ước lượng theo thời gian. */
   onBuoc?: (su: SuKienBuoc) => void;
+  /** Máy chủ đã trả kết quả nhưng KHÔNG ghi được lượt vào `hoi_thoai_id`. */
+  onLoiLuu?: (su: SuKienLoiLuu) => void;
 }
 
 const laBanGhiTho = (x: unknown): x is Record<string, unknown> =>
@@ -346,11 +352,23 @@ export async function traCuuLuong(
       for (const khung of cat.khung) {
         const du = khung.duLieu;
         if (khung.ten === "bat_dau" && laBanGhiTho(du)) {
-          if (typeof du["trace_id"] === "string" && Array.isArray(du["cac_buoc"])) {
-            xuLy.onBatDau?.(du as unknown as SuKienBatDau);
+          if (
+            typeof du["trace_id"] === "string" &&
+            typeof du["config_name"] === "string" &&
+            Array.isArray(du["cac_buoc"])
+          ) {
+            xuLy.onBatDau?.({
+              trace_id: du["trace_id"],
+              config_name: du["config_name"],
+              cac_buoc: du["cac_buoc"] as SuKienBatDau["cac_buoc"],
+              hoi_thoai_id: typeof du["hoi_thoai_id"] === "string" ? du["hoi_thoai_id"] : null,
+            });
           }
         } else if (khung.ten === "buoc" && laBanGhiTho(du)) {
           if (typeof du["buoc"] === "string") xuLy.onBuoc?.(du as unknown as SuKienBuoc);
+        } else if (khung.ten === "loi_luu" && laBanGhiTho(du)) {
+          if (typeof du["hoi_thoai_id"] === "string" && typeof du["detail"] === "string")
+            xuLy.onLoiLuu?.({ hoi_thoai_id: du["hoi_thoai_id"], detail: du["detail"] });
         } else if (khung.ten === "ket_qua") {
           // FE chỉ còn gọi `/tra-cuu/luong` (không còn call site FE nào gọi
           // `/tra-cuu` không-streaming) nhưng máy chủ vẫn phục vụ cả hai
