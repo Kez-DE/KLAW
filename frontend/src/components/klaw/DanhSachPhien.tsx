@@ -113,7 +113,11 @@ function MotPhien({
             <X className="size-4" aria-hidden />
           </button>
         </div>
-        {loi !== null && <p className="m-0 mt-1 text-[12px] text-destructive">{loi}</p>}
+        {loi !== null && (
+          <p role="alert" className="m-0 mt-1 text-[12px] text-destructive">
+            {loi}
+          </p>
+        )}
       </li>
     );
   }
@@ -138,7 +142,11 @@ function MotPhien({
             Giữ lại
           </button>
         </div>
-        {loi !== null && <p className="m-0 mt-1 text-destructive">{loi}</p>}
+        {loi !== null && (
+          <p role="alert" className="m-0 mt-1 text-destructive">
+            {loi}
+          </p>
+        )}
       </li>
     );
   }
