@@ -65,7 +65,6 @@ export function ModalNangGoi() {
   const { chay } = yeuCauApi;
   const hopThoai = useRef<HTMLDivElement | null>(null);
   const nutDong = useRef<HTMLButtonElement | null>(null);
-  const focusTruoc = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!nangGoiMo) return;
@@ -74,12 +73,13 @@ export function ModalNangGoi() {
 
   useEffect(() => {
     if (!nangGoiMo) return;
-    focusTruoc.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const truoc = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     nutDong.current?.focus();
     return () => {
-      focusTruoc.current?.focus();
-      focusTruoc.current = null;
+      // `useKhungModalDangMo` giữ `inert` trên chrome còn lại thêm một khung hình
+      // sau khi dialog gỡ khỏi DOM (cùng lý do `SheetDuoi.tsx`) — focus() đồng bộ
+      // ở đây rơi vào lúc đích vẫn còn `inert` nên lặng lẽ không làm gì.
+      requestAnimationFrame(() => truoc?.focus());
     };
   }, [nangGoiMo]);
 

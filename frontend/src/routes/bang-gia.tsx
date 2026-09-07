@@ -36,7 +36,8 @@ const TIERS: {
     name: "Cá nhân",
     tagline: "Dành cho luật sư và chuyên viên độc lập",
     monthly: 499_000,
-    annual: 399_000,
+    // Chu kỳ 30 ngày cố định, không phải thuê bao năm — không có giá năm để bịa.
+    annual: null,
     chuKy: "30 ngày",
     features: GOI_CARD.pro.danhSach.map((d) => d.chu),
     cta: "Sắp ra mắt",
@@ -91,15 +92,18 @@ const COMPARISON: Row[] = [
     values: [true, true, true, true],
   },
   {
-    label: "Lượt hỏi AI mỗi tháng",
-    values: ["50", "500", "500", "Không giới hạn"],
+    // Khung theo NGÀY (quota v3), không phải tháng — Miễn phí 200/ngày, Cá nhân
+    // không giới hạn trong dùng bình thường (dấu * → lá chắn 500/ngày, giải
+    // thích ở FAQ ngay dưới). Doanh nghiệp/Tổ chức còn "Sắp ra mắt", giữ nguyên
+    // số cũ vì chúng chưa bị quota v3 chi phối.
+    label: "Lượt hỏi đáp mỗi ngày",
+    values: ["200", "Không giới hạn*", "500", "Không giới hạn"],
   },
   {
-    // Gói Cá nhân nay là 20 bản thảo/ngày, KHÔNG có trần theo tháng (quota v3) —
-    // "10" cũ mô tả một trần tháng đã bỏ, giữ nó ở đây là bịa một giới hạn không
-    // còn tồn tại.
+    // Miễn phí có bộ đếm bản thảo RIÊNG (3/ngày, 20/tháng), không dùng chung
+    // với lượt hỏi đáp — "Tính vào lượt hỏi AI" là claim cũ, sai với quota v3.
     label: "Bản thảo soạn thảo mỗi tháng",
-    values: ["Tính vào lượt hỏi AI", "Không giới hạn", "Không giới hạn", "Không giới hạn"],
+    values: ["20", "Không giới hạn", "Không giới hạn", "Không giới hạn"],
   },
   { label: "Xuất Word, PDF", values: [true, true, true, true] },
   { label: "Trích dẫn chuẩn tới Điểm, Khoản, Điều", values: [true, true, true, true] },
@@ -279,7 +283,9 @@ function BangGiaPage() {
               ) : (
                 <>
                   <span className="font-display text-[34px] leading-none text-primary">
-                    {vnd(annual ? t.annual! : t.monthly)}
+                    {/* Tier có `chuKy` (Cá nhân) hiệu lực theo chu kỳ cố định, không
+                        phải thuê bao tháng/năm — bỏ qua nút "Theo năm" cho tier này. */}
+                    {vnd(t.chuKy === undefined && annual ? t.annual! : t.monthly)}
                   </span>
                   <span className="text-[13px] text-muted-foreground">
                     {t.chuKy !== undefined ? `/ ${t.chuKy}` : "/tháng"}
@@ -292,7 +298,7 @@ function BangGiaPage() {
             )}
             {t.monthly != null && t.monthly !== 0 && (
               <p className="mt-1.5 text-[12px] text-muted-foreground">
-                {annual
+                {t.chuKy === undefined && annual
                   ? `Thanh toán theo năm — ${vnd(t.annual! * 12)} / năm`
                   : "Mức dự kiến, tính theo tháng"}
               </p>
