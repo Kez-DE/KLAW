@@ -28,7 +28,7 @@ from sqlalchemy import text
 
 from src.agents.nodes.assemble import ResultType
 from src.config import Settings
-from src.services import bao_ve, xac_thuc
+from src.services import bao_ve, hoi_thoai, xac_thuc
 from src.services.db import get_engine
 
 _URL = "https://abcdefghijklmnop.supabase.co"
@@ -110,9 +110,16 @@ def khong_dung_db(monkeypatch):
     """Tách QUYẾT ĐỊNH hạn mức khỏi phần ĐỌC DB, để test wiring/thông điệp chạy
     được ở CI (`-m "not integration"`, không có Postgres). Phần SQL thật có test
     integration riêng ở cuối file.
+
+    `ghi_nhan_nguoi_dung` giả không ghi dòng `users` thật, nhưng `/tra-cuu` (Task 3)
+    giờ LUÔN gọi `hoi_thoai.tao_phien` cho request có danh tính không mang
+    `hoi_thoai_id` — insert đó có FK vào `users`. Giả luôn `tao_phien`/`ghi_luot`
+    ở đây để mọi test dùng fixture này không chạm Postgres cho bảng `hoi_thoai`.
     """
     monkeypatch.setattr(bao_ve, "ghi_nhan_nguoi_dung", lambda sub, email: "free")
     monkeypatch.setattr(bao_ve, "dem_luot_thang", lambda sub: 0)
+    monkeypatch.setattr(hoi_thoai, "tao_phien", lambda *a, **k: "00000000-0000-0000-0000-000000000000")
+    monkeypatch.setattr(hoi_thoai, "ghi_luot", lambda *a, **k: 1)
 
 
 # ══ 1. Chưa cấu hình Supabase ⇒ hành vi KHÔNG ĐỔI (bảo vệ eval) ═════════════
@@ -251,7 +258,10 @@ def test_han_muc_doc_tu_CONFIG_khong_hardcode(monkeypatch, tmp_path):
     nháp của trang bảng giá thành hành vi hệ thống — sửa nó phải là sửa YAML.
     """
     f = tmp_path / "han_muc.yaml"
-    f.write_text("goi_mac_dinh: free\ngoi:\n  free: 7\n  pro: 999\n", encoding="utf-8")
+    f.write_text(
+        "goi_mac_dinh: free\ngoi:\n  free: 7\n  pro: 999\nphien_luu:\n  free: 3\n  pro: 20\n",
+        encoding="utf-8",
+    )
     monkeypatch.setattr(bao_ve, "HAN_MUC_PATH", f)
     bao_ve._doc_han_muc.cache_clear()
     assert bao_ve.han_muc_thang("free") == 7
@@ -264,7 +274,7 @@ def test_goi_la_khong_roi_ve_muc_THAP_NHAT_khong_phai_vo_han(monkeypatch, tmp_pa
     rơi về gói mặc định, KHÔNG phải "không giới hạn" — hỏng theo hướng an toàn.
     """
     f = tmp_path / "han_muc.yaml"
-    f.write_text("goi_mac_dinh: free\ngoi:\n  free: 7\n", encoding="utf-8")
+    f.write_text("goi_mac_dinh: free\ngoi:\n  free: 7\nphien_luu:\n  free: 3\n", encoding="utf-8")
     monkeypatch.setattr(bao_ve, "HAN_MUC_PATH", f)
     bao_ve._doc_han_muc.cache_clear()
     assert bao_ve.han_muc_thang("goi-khong-ton-tai") == 7
