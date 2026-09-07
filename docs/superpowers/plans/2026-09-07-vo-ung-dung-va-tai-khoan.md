@@ -69,7 +69,7 @@ Thứ tự: Task 1 (main) → worktree `../KLAW-be4` (`wt-be-tk`): 2 → 3 → 4
 - Produces (BE): `bao_ve.han_muc(plan: str, khoa: str) -> int` (gói lạ → gói mặc định; khoá lạ → `KeyError`); `bao_ve.la_chan(khoa: str) -> int`; `bao_ve.mui_gio() -> ZoneInfo`; `bao_ve.moc_ngay(now=None) -> datetime`, `moc_ngay_sau`, `moc_thang`, `moc_thang_sau` (aware, theo `mui_gio`); `bao_ve.plan_hieu_luc_tu(plan, het_han: datetime | None) -> str`; `bao_ve.plan_hieu_luc(sub) -> str`; `bao_ve.ghi_nhan_nguoi_dung(sub, email) -> str` trả gói HIỆU LỰC; `bao_ve.KHACH_HEADER = "x-khach-id"`; `bao_ve.khach_id_tu_request(request) -> str | None`. Models: `MucHanMuc{khoa, nhan, da_dung, han_muc, dat_lai_luc: datetime | None}`, `PhienHanMuc{luot_toi_da: int | None}`, `HanMucResponse{ap_dung, plan, ten_goi, mui_gio, muc, phien, het_han_luc, ghi_chu}`, `HoatDongNgay{ngay: date, so_luot}`, `PhanLoai{khoa, nhan, so}`, `HoSoResponse{email, plan, ten_goi, tao_luc, het_han_luc, so_phien, tong_hoi_dap, tong_ban_thao, hoat_dong, phan_loai}`, `YeuCauNangGoiRequest{goi_muon}`, `YeuCauNangGoiOut{id, loai, goi_hien_tai, goi_muon, trang_thai, tao_luc, xu_ly_luc}`, `LuotNhap{cau_hoi, tra_loi: TraCuuResponse, trace_id}`, `NhapPhienRequest{luot: 1–10}`, `NhapPhienResponse{id}`, `DanhSachPhienResponse{plan, luot_moi_phien, tong, items}`.
 - Produces (FE): `MucHanMuc`, `HanMuc` v2, `laHanMuc`, `HoSo`, `laHoSo`, `YeuCauNangGoi`, `laYeuCauNangGoi`, `laYeuCauNangGoiHoacNull`, `laNhapPhien`, `DanhSachPhien` v2, `laDanhSachPhien`; `lib/khach.ts`: `KHACH_HEADER`, `layKhachId()`; `api.ts` gửi `X-Khach-Id` khi không có bearer (cả `goi` và `traCuuLuong`).
 
-- [ ] **Step 1: Plan bền** `docs/plans/active/vo-ung-dung-va-tai-khoan.md`
+- [x] **Step 1: Plan bền** `docs/plans/active/vo-ung-dung-va-tai-khoan.md`
 
 ```markdown
 # Execution Plan: Vỏ ứng dụng, tài khoản và hạn mức ngày/tháng (gói 2A)
@@ -87,17 +87,17 @@ Active
 
 ## Progress
 
-- [ ] Task 1 hợp đồng: YAML v3, gói hiệu lực, migration 021, schema, header khách
-- [ ] Task 2 gỡ ẩn phiên, trần lượt mỗi phiên
-- [ ] Task 3 hạn mức ngày/tháng/lá chắn, cổng khách
-- [ ] Task 4 /han-muc v2, /ho-so, /nang-goi, /hoi-thoai/nhap
-- [ ] Task 5 FE khách + hạn mức + thanh đo
-- [ ] Task 6 TaiKhoanProvider + AppShell ChatGPT
-- [ ] Task 7 /dung-thu: khách, trần phiên, 429, hết hạn
-- [ ] Task 8 /tai-khoan, cá nhân hoá, bỏ Vai trò
-- [ ] Task 9 ModalNangGoi + bảng giá
-- [ ] Task 10 soạn thảo: khách → đăng nhập
-- [ ] Task 11 gộp, kiểm, Chrome, đóng
+- [x] Task 1 hợp đồng: YAML v3, gói hiệu lực, migration 021, schema, header khách
+- [x] Task 2 gỡ ẩn phiên, trần lượt mỗi phiên
+- [x] Task 3 hạn mức ngày/tháng/lá chắn, cổng khách
+- [x] Task 4 /han-muc v2, /ho-so, /nang-goi, /hoi-thoai/nhap
+- [x] Task 5 FE khách + hạn mức + thanh đo
+- [x] Task 6 TaiKhoanProvider + AppShell ChatGPT
+- [x] Task 7 /dung-thu: khách, trần phiên, 429, hết hạn
+- [x] Task 8 /tai-khoan, cá nhân hoá, bỏ Vai trò
+- [x] Task 9 ModalNangGoi + bảng giá
+- [x] Task 10 soạn thảo: khách → đăng nhập
+- [x] Task 11 gộp, kiểm, Chrome, đóng
 
 ## Decisions
 
@@ -108,7 +108,7 @@ Active
 (điền ở Task 11)
 ```
 
-- [ ] **Step 2: Test đỏ** `tests/test_api/test_han_muc_yaml.py`
+- [x] **Step 2: Test đỏ** `tests/test_api/test_han_muc_yaml.py`
 
 ```python
 """`config/han_muc.yaml` v3 + gói hiệu lực (spec 2026-09-07 §4.1, §5)."""
@@ -184,9 +184,9 @@ def test_plan_hieu_luc_tu_het_han():
     assert bao_ve.plan_hieu_luc_tu("free", None) == "free"
 ```
 
-- [ ] **Step 3: Đỏ** — `.venv/bin/python -m pytest tests/test_api/test_han_muc_yaml.py -q` → AttributeError (`han_muc`, `la_chan`, `moc_ngay`…).
+- [x] **Step 3: Đỏ** — `.venv/bin/python -m pytest tests/test_api/test_han_muc_yaml.py -q` → AttributeError (`han_muc`, `la_chan`, `moc_ngay`…).
 
-- [ ] **Step 4: `config/han_muc.yaml`** — thay toàn bộ nội dung:
+- [x] **Step 4: `config/han_muc.yaml`** — thay toàn bộ nội dung:
 
 ```yaml
 # Hạn mức theo gói (spec 2026-09-07 vo-ung-dung-va-tai-khoan §4). Đây là DỮ LIỆU,
@@ -230,7 +230,7 @@ khach:
 chu_ky_pro_ngay: 30
 ```
 
-- [ ] **Step 5: `src/services/bao_ve.py`** — import thêm `import uuid` và `from zoneinfo import ZoneInfo, ZoneInfoNotFoundError`. Thay `_doc_han_muc` và thêm các hàm mới ngay sau nó:
+- [x] **Step 5: `src/services/bao_ve.py`** — import thêm `import uuid` và `from zoneinfo import ZoneInfo, ZoneInfoNotFoundError`. Thay `_doc_han_muc` và thêm các hàm mới ngay sau nó:
 
 ```python
 KHOA_GOI = ("hoi_dap_ngay", "soan_thao_ngay", "soan_thao_thang", "luot_moi_phien")
@@ -360,7 +360,7 @@ def ghi_nhan_nguoi_dung(sub: str, email: str | None) -> str:
 
 `plan_cua(sub)` giữ tên, thân trở thành `return plan_hieu_luc(sub)` (Task 2 xoá hẳn).
 
-- [ ] **Step 6: Migration** `migrations/021_nang_goi.sql`
+- [x] **Step 6: Migration** `migrations/021_nang_goi.sql`
 
 ```sql
 -- Spec 2026-09-07 vo-ung-dung-va-tai-khoan §5 — yêu cầu nâng/gia hạn gói và chu kỳ
@@ -387,7 +387,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_het_han TIMESTAMPTZ;
 
 Áp DB local: `.venv/bin/python -c "from src.services.db import run_migrations; print(run_migrations('021'))"`. `src/main.py:53`: `for mig in ("019", "020", "021"):`; cập nhật kỳ vọng trong `tests/test_api/test_guard_khoi_dong.py` thành `["019", "020", "021"]`.
 
-- [ ] **Step 7: `src/models/schemas.py`** — thay `HanMucResponse` (dòng ~739) và `DanhSachPhienResponse` (~773); thêm các model sau ở CUỐI file (vì `LuotNhap` tham chiếu `TraCuuResponse`):
+- [x] **Step 7: `src/models/schemas.py`** — thay `HanMucResponse` (dòng ~739) và `DanhSachPhienResponse` (~773); thêm các model sau ở CUỐI file (vì `LuotNhap` tham chiếu `TraCuuResponse`):
 
 ```python
 class MucHanMuc(BaseModel):
@@ -477,7 +477,7 @@ class DanhSachPhienResponse(BaseModel):
 
 (Xoá định nghĩa `HanMucResponse` và `DanhSachPhienResponse` cũ ở vị trí cũ.)
 
-- [ ] **Step 8: Frontend kiểu** — `frontend/src/lib/klaw.ts`: thay `HanMuc` (~506) và `laHanMuc` (~937), `DanhSachPhien` (~696) và `laDanhSachPhien` (~862); thêm `HoSo`, `YeuCauNangGoi` và guard:
+- [x] **Step 8: Frontend kiểu** — `frontend/src/lib/klaw.ts`: thay `HanMuc` (~506) và `laHanMuc` (~937), `DanhSachPhien` (~696) và `laDanhSachPhien` (~862); thêm `HoSo`, `YeuCauNangGoi` và guard:
 
 ```ts
 export interface MucHanMuc {
@@ -577,7 +577,7 @@ export function layKhachId(): string {
 
 `frontend/src/lib/api.ts` `tieuDeXacThuc` (dòng ~70): khi không có token (cả nhánh không session và nhánh `catch`) trả `{ [KHACH_HEADER]: layKhachId() }` thay `{}` (import từ `./khach`). `goi` và `traCuuLuong` đều đi qua hàm này. `frontend/src/routes/bang-gia.tsx`: xoá import `HanMucThang` (dòng 5) và dòng render `<HanMucThang …/>` (~199); xoá file `HanMucThang.tsx` (Task 9 đặt `ThuocMucDung` vào chỗ đó).
 
-- [ ] **Step 9: Xanh**
+- [x] **Step 9: Xanh**
 
 ```bash
 .venv/bin/ruff check src/ tests/ && .venv/bin/ruff format --check src/services/bao_ve.py src/models/schemas.py tests/test_api/test_han_muc_yaml.py && .venv/bin/python -m pytest tests/test_api/test_han_muc_yaml.py tests/test_api/test_guard_khoi_dong.py tests/test_api/test_hoi_thoai.py tests/test_api/test_tra_cuu_phien.py tests/test_services/test_hoi_thoai.py -q
@@ -586,7 +586,7 @@ cd frontend && npm run typecheck && npm run lint && npm run kiem-sse && npm run 
 
 Kỳ vọng: xanh. `tests/test_api/test_tai_khoan.py` và các test `han_muc_thang`/`phien_luu` trong `test_xac_thuc_han_muc.py`, `test_hoi_thoai.py` (`gioi_han/tong_an`) sẽ đỏ cho tới Task 2–4 — chạy chúng, ghi số đỏ vào report, KHÔNG sửa ở đây (Task 2–4 viết lại). Riêng `test_hoi_thoai.py` test `gioi_han == 10` và `tong_an` đỏ ngay: chấp nhận đỏ tạm, ghi rõ.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add config/han_muc.yaml migrations/021_nang_goi.sql src/services/bao_ve.py src/models/schemas.py src/main.py tests/test_api/test_han_muc_yaml.py tests/test_api/test_guard_khoi_dong.py frontend/src/lib/klaw.ts frontend/src/lib/api.ts frontend/src/lib/khach.ts frontend/src/routes/bang-gia.tsx docs/plans/active/vo-ung-dung-va-tai-khoan.md
@@ -596,7 +596,7 @@ git commit -m "feat(api): quota config v3, effective plan with expiry, migration
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 11: Worktree**
+- [x] **Step 11: Worktree**
 
 ```bash
 git worktree add ../KLAW-be4 -b wt-be-tk && git worktree add ../KLAW-fe4 -b wt-fe-tk
@@ -621,7 +621,7 @@ Mọi lệnh chạy từ gốc worktree với `.venv/bin/python` / `.venv/bin/ru
 - Consumes: `bao_ve.han_muc(plan, "luot_moi_phien")`, `bao_ve.plan_hieu_luc(sub)`, `DanhSachPhienResponse{plan, luot_moi_phien, tong, items}` (Task 1).
 - Produces: `hoi_thoai.LOI_PHIEN_DAY = "Phiên này đã đủ {n} lượt. Mở phiên mới để tiếp tục."`; `hoi_thoai.dem_luot(id: str) -> int`; `hoi_thoai.danh_sach(sub, limit, offset) -> tuple[list[dict], int]` (items, tong); `hoi_thoai.nhap_phien(sub, luot: list[dict]) -> str` (mỗi dict `{cau_hoi, tra_loi: dict, trace_id}`); `routes._chuan_bi_phien` 403 khi đủ trần; router `/hoi-thoai` không còn 403 ẩn.
 
-- [ ] **Step 1: Sửa test thành đỏ**
+- [x] **Step 1: Sửa test thành đỏ**
 
 `tests/test_services/test_hoi_thoai.py`: xoá `test_free_giu_N_phien_gan_nhat_va_xoa_thi_hien_lai`; thêm:
 
@@ -684,9 +684,9 @@ async def test_phien_nguoi_khac_404_va_phien_day_403(client, cai_dat, khoa_ky, g
     assert r.status_code == 403 and "đã đủ 2 lượt" in r.json()["detail"]
 ```
 
-- [ ] **Step 2: Đỏ** — `.venv/bin/python -m pytest tests/test_services/test_hoi_thoai.py tests/test_api/test_hoi_thoai.py tests/test_api/test_tra_cuu_phien.py -q`.
+- [x] **Step 2: Đỏ** — `.venv/bin/python -m pytest tests/test_services/test_hoi_thoai.py tests/test_api/test_hoi_thoai.py tests/test_api/test_tra_cuu_phien.py -q`.
 
-- [ ] **Step 3: `src/services/hoi_thoai.py`** — xoá `from src.services.bao_ve import phien_luu_toi_da`, `LOI_PHIEN_AN`, `_SQL_HANG`, `phien_bi_an`; sửa docstring module (bỏ câu về "ẩn"); thêm/sửa:
+- [x] **Step 3: `src/services/hoi_thoai.py`** — xoá `from src.services.bao_ve import phien_luu_toi_da`, `LOI_PHIEN_AN`, `_SQL_HANG`, `phien_bi_an`; sửa docstring module (bỏ câu về "ẩn"); thêm/sửa:
 
 ```python
 LOI_PHIEN_DAY = "Phiên này đã đủ {n} lượt. Mở phiên mới để tiếp tục."
@@ -729,7 +729,7 @@ def nhap_phien(sub: str, luot: list[dict]) -> str:
     return pid
 ```
 
-- [ ] **Step 4: `src/api/routes.py` `_chuan_bi_phien`** — thay hai dòng `plan_cua`/`phien_bi_an` bằng:
+- [x] **Step 4: `src/api/routes.py` `_chuan_bi_phien`** — thay hai dòng `plan_cua`/`phien_bi_an` bằng:
 
 ```python
     plan = await run_in_threadpool(plan_hieu_luc, user_sub)
@@ -740,7 +740,7 @@ def nhap_phien(sub: str, luot: list[dict]) -> str:
 
 Import `han_muc, plan_hieu_luc` từ `src.services.bao_ve` (bỏ `plan_cua`). Docstring: bỏ "kiểm ẩn theo gói (403)", thêm "đủ trần lượt của gói → 403".
 
-- [ ] **Step 5: `src/api/routes_hoi_thoai.py`** — `_phien_mo_duoc` chỉ còn kiểm 404; import `han_muc, nguoi_dung_bat_buoc, plan_hieu_luc`; `danh_sach`:
+- [x] **Step 5: `src/api/routes_hoi_thoai.py`** — `_phien_mo_duoc` chỉ còn kiểm 404; import `han_muc, nguoi_dung_bat_buoc, plan_hieu_luc`; `danh_sach`:
 
 ```python
     sub = nguoi["sub"]
@@ -756,13 +756,13 @@ Import `han_muc, plan_hieu_luc` từ `src.services.bao_ve` (bỏ `plan_cua`). Do
 
 Docstring module: bỏ "phiên ẩn theo gói là 403". `src/services/bao_ve.py`: xoá `phien_luu_toi_da`, `plan_cua`, `_SQL_PLAN_CUA`. Kiểm `grep -rn "phien_luu_toi_da\|plan_cua\|phien_bi_an\|LOI_PHIEN_AN" src tests` rỗng.
 
-- [ ] **Step 6: Xanh**
+- [x] **Step 6: Xanh**
 
 ```bash
 .venv/bin/ruff check src/ tests/ && .venv/bin/ruff format --check src/services/hoi_thoai.py src/api/routes_hoi_thoai.py && .venv/bin/python -m pytest tests/test_services/test_hoi_thoai.py tests/test_api/test_hoi_thoai.py tests/test_api/test_tra_cuu_phien.py tests/test_api/test_han_muc_yaml.py -q
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/services/hoi_thoai.py src/api/routes.py src/api/routes_hoi_thoai.py src/services/bao_ve.py tests/test_services/test_hoi_thoai.py tests/test_api/test_hoi_thoai.py tests/test_api/test_tra_cuu_phien.py
@@ -783,7 +783,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: Task 1 `han_muc`, `la_chan`, `moc_*`, `plan_hieu_luc_tu`, `khach_id_tu_request`, `KHACH_HEADER`, `mui_gio`.
 - Produces: `bao_ve.kiem_rate_limit(khoa: str, so_luot: int | None = None, cua_so_giay: int | None = None) -> None`; `bao_ve.dem_luot(sub, endpoint, tu_luc: datetime) -> int`; `bao_ve.kiem_han_muc(sub, plan, endpoint) -> None`; `bao_ve.mo_ta_muc(sub, plan) -> list[dict]` (`[{khoa, nhan, da_dung, han_muc, dat_lai_luc}]`, chỉ ba khoá `goi`); `bao_ve.dem_cua_so(khoa, cua_so_giay) -> tuple[int, datetime | None]`; `bao_ve.het_han_cua(sub) -> datetime | None`; `bao_ve.ten_goi(plan) -> str` ("Miễn phí"/"Cá nhân"/mã); `bao_ve.xac_thuc_nguoi_goi_hoac_none(request) -> dict | None`; `bao_ve.cong_bao_ve` (không cho khách) và `bao_ve.cong_bao_ve_khach` (cho khách); `bao_ve.LOI_KHACH_DANG_NHAP = "Cần đăng nhập để dùng tính năng này."`; `bao_ve.LOI_SOAN_THAO_DANG_NHAP = "Cần đăng nhập để soạn văn bản."`; `bao_ve.NHAN_MUC`.
 
-- [ ] **Step 1: Test đỏ** `tests/test_api/test_han_muc_ngay.py`
+- [x] **Step 1: Test đỏ** `tests/test_api/test_han_muc_ngay.py`
 
 ```python
 """Hạn mức ngày/tháng/lá chắn trên `traces` theo giờ VN (spec 2A §4.2)."""
@@ -968,9 +968,9 @@ def test_kiem_rate_limit_hai_cua_so_khong_don_nhau():
     assert e.value.status_code == 429 and int(e.value.headers["Retry-After"]) <= 86400
 ```
 
-- [ ] **Step 2: Đỏ** — chạy hai file → AttributeError / 401 sai chỗ.
+- [x] **Step 2: Đỏ** — chạy hai file → AttributeError / 401 sai chỗ.
 
-- [ ] **Step 3: `bao_ve.py` — `kiem_rate_limit` theo khoá + cửa sổ**
+- [x] **Step 3: `bao_ve.py` — `kiem_rate_limit` theo khoá + cửa sổ**
 
 ```python
 _SQL_DON_LUOT = text(
@@ -1038,7 +1038,7 @@ def dem_cua_so(khoa: str, cua_so_giay: int) -> tuple[int, datetime | None]:
 
 (Giữ tên tham số `:ip` ở `_SQL_KHOA_IP`/`_SQL_GHI_LUOT`/`_SQL_DEM_LUOT`; cột `ip` nay chứa khoá bất kỳ — sửa chú thích cạnh bảng.) `kiem_tran_chi_phi` giữ nguyên.
 
-- [ ] **Step 4: `bao_ve.py` — đếm và kiểm hạn mức mới; xoá hàm tháng cũ**
+- [x] **Step 4: `bao_ve.py` — đếm và kiểm hạn mức mới; xoá hàm tháng cũ**
 
 ```python
 _SQL_DEM_LUOT_TU = text(
@@ -1122,7 +1122,7 @@ def mo_ta_muc(sub: str, plan: str) -> list[dict]:
 
 Xoá `han_muc_thang`, `dem_luot_thang`, `kiem_han_muc_thang`, `_dau_thang_utc`, `_dau_thang_sau_utc`, `_SQL_DEM_LUOT_THANG`, `ENDPOINT_TON_LLM` (nếu chỉ còn dùng ở đó — `grep` trước). `routes_tai_khoan.py`: đổi import sang `moc_thang_sau`, `han_muc`, `mo_ta_muc` và thân `/han-muc` tạm trả `HanMucResponse(ap_dung=True, plan=plan, ten_goi=ten_goi(plan), mui_gio=str(mui_gio()), muc=[MucHanMuc(**m) for m in mo_ta_muc(sub, plan)], phien=PhienHanMuc(luot_toi_da=han_muc(plan, "luot_moi_phien")), het_han_luc=None, ghi_chu=GHI_CHU_CACHE)` — Task 4 hoàn thiện (khách, `het_han_luc`).
 
-- [ ] **Step 5: `bao_ve.py` — cổng hai biến thể**
+- [x] **Step 5: `bao_ve.py` — cổng hai biến thể**
 
 Thêm cạnh `xac_thuc_nguoi_goi`:
 
@@ -1188,11 +1188,11 @@ cong_bao_ve_khach = _cong(cho_khach=True)
 
 `routes.py:433` (`/tra-cuu`) và `routes_luong.py:188` (`/tra-cuu/luong`) → `Depends(cong_bao_ve_khach)`; `/soan-thao` giữ `cong_bao_ve`. Cập nhật import ở hai file.
 
-- [ ] **Step 6: Sửa test cũ**
+- [x] **Step 6: Sửa test cũ**
 
 `tests/test_api/test_xac_thuc_han_muc.py`: fixture `khong_dung_db` dòng 120 → `monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 0)`; test 256–300 dùng `YAML_OK` import từ `tests.test_api.test_han_muc_yaml` và kiểm `bao_ve.han_muc("free", "hoi_dap_ngay") == 200`, `han_muc("goi-khong-ton-tai", "hoi_dap_ngay") == 200`; `test_thong_diep_429_neu_ro_GOI_va_MOC_RESET`: monkeypatch `han_muc` → 50, `dem_luot` → 50, gọi `kiem_han_muc("s", "free", "/api/v1/tra-cuu")`, assert 429, "Miễn phí" và "Mở lại lúc" trong detail, `Retry-After` > 0; mọi `kiem_han_muc_thang(sub, plan)` → `kiem_han_muc(sub, plan, "/api/v1/tra-cuu")`; test 336 (`vuot_han_muc_chan_TRUOC_khi_graph_chay`) monkeypatch `dem_luot` thay `dem_luot_thang`. `tests/test_api/test_han_muc_dua.py`: `han_muc_thang` → `han_muc` (lambda plan, khoa), `kiem_han_muc_thang` → `kiem_han_muc(sub, "free", "/api/v1/tra-cuu")`. `tests/test_api/test_tai_khoan.py` fixture dòng 12 → `dem_luot`. Test hai người sau cùng IP (dòng 479) và các test khoá `chan-ip:` phải còn xanh.
 
-- [ ] **Step 7: Xanh**
+- [x] **Step 7: Xanh**
 
 ```bash
 .venv/bin/ruff check src/ tests/ && .venv/bin/ruff format --check tests/test_api/test_han_muc_ngay.py tests/test_api/test_khach.py && .venv/bin/python -m pytest tests/test_api/test_han_muc_ngay.py tests/test_api/test_khach.py tests/test_api/test_xac_thuc_han_muc.py tests/test_api/test_han_muc_dua.py tests/test_api/test_thu_tu_cong.py tests/test_api/test_tra_cuu_phien.py tests/test_api/test_tra_cuu.py tests/test_api/test_tai_khoan.py -q
@@ -1200,7 +1200,7 @@ cong_bao_ve_khach = _cong(cho_khach=True)
 
 (`test_tai_khoan.py` có thể còn đỏ ở hình `/han-muc` — Task 4 sửa; ghi rõ trong report.)
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/services/bao_ve.py src/api/routes.py src/api/routes_luong.py src/api/routes_tai_khoan.py tests/test_api/test_han_muc_ngay.py tests/test_api/test_khach.py tests/test_api/test_xac_thuc_han_muc.py tests/test_api/test_han_muc_dua.py tests/test_api/test_tai_khoan.py
@@ -1221,7 +1221,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: Task 1 models; Task 2 `hoi_thoai.nhap_phien`; Task 3 `mo_ta_muc`, `dem_cua_so`, `het_han_cua`, `ten_goi`, `xac_thuc_nguoi_goi_hoac_none`, `khach_id_tu_request`, `han_muc`, `mui_gio`, `plan_hieu_luc_tu`.
 - Produces: `ho_so.tong_hop(sub) -> dict | None`; `nang_goi.tao_yeu_cau(sub, goi_muon) -> dict` raise `nang_goi.GoiKhongHopLe | GoiConHieuLuc | DangCho`; `nang_goi.moi_nhat(sub) -> dict | None`; endpoints spec §6.1–6.4, §8.3, §8.4.
 
-- [ ] **Step 1: Test đỏ**
+- [x] **Step 1: Test đỏ**
 
 `tests/test_api/test_tai_khoan.py`: hai test đầu theo hình mới — `d["muc"][0]["khoa"] == "hoi_dap_ngay"`, `d["muc"][0]["han_muc"] == 200`, `d["phien"]["luot_toi_da"] == 20`, `d["het_han_luc"] is None`, `d["ten_goi"] == "Miễn phí"` (fixture `khong_dung_db` monkeypatch `dem_luot` → 7 nên `da_dung == 7`); test chưa cấu hình: `ap_dung is False and d["muc"] == [] and d["plan"] is None`; thêm test khách: `cai_dat(supabase_url=SUPABASE)`, `GET /han-muc` với `X-Khach-Id` (monkeypatch `bao_ve.dem_cua_so` → `(3, None)`) → `plan == "khach"`, `muc[0]["khoa"] == "khach_24h"`, `han_muc == 10`, `da_dung == 3`, `phien.luot_toi_da == 10`; không header → 401.
 
@@ -1320,9 +1320,9 @@ async def test_nhap_phien_201_va_422(client, khoa_ky, nguoi):
     assert (await client.post("/api/v1/hoi-thoai/nhap", json={"luot": []}, headers=h)).status_code == 422
 ```
 
-- [ ] **Step 2: Đỏ.**
+- [x] **Step 2: Đỏ.**
 
-- [ ] **Step 3: `src/services/ho_so.py`**
+- [x] **Step 3: `src/services/ho_so.py`**
 
 ```python
 """Tổng hợp hồ sơ tài khoản (spec 2A §6.2) — chỉ đọc, chỉ của `sub`."""
@@ -1451,7 +1451,7 @@ def moi_nhat(sub: str) -> dict | None:
     return dict(r) if r is not None else None
 ```
 
-- [ ] **Step 4: `src/api/routes_tai_khoan.py`** — imports: `Depends`, models mới, `from src.services import bao_ve, ho_so, nang_goi, xac_thuc`, `nguoi_dung_bat_buoc`. `GHI_CHU_CACHE = "Lượt trả lời từ bộ đệm, câu ngoài phạm vi và lượt lỗi không tính. Tra cứu luật, soát văn bản không bao giờ tính."`. Viết lại `/han-muc`:
+- [x] **Step 4: `src/api/routes_tai_khoan.py`** — imports: `Depends`, models mới, `from src.services import bao_ve, ho_so, nang_goi, xac_thuc`, `nguoi_dung_bat_buoc`. `GHI_CHU_CACHE = "Lượt trả lời từ bộ đệm, câu ngoài phạm vi và lượt lỗi không tính. Tra cứu luật, soát văn bản không bao giờ tính."`. Viết lại `/han-muc`:
 
 ```python
 @router.get("/han-muc", response_model=HanMucResponse)
@@ -1535,7 +1535,7 @@ async def nhap(body: NhapPhienRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc
     return NhapPhienResponse(id=await run_in_threadpool(hoi_thoai.nhap_phien, nguoi["sub"], luot))
 ```
 
-- [ ] **Step 5: Xanh**
+- [x] **Step 5: Xanh**
 
 ```bash
 .venv/bin/ruff check src/ tests/ && .venv/bin/ruff format --check src/services/ho_so.py src/services/nang_goi.py tests/test_api/test_ho_so_nang_goi.py && .venv/bin/python -m pytest tests/test_api/test_tai_khoan.py tests/test_api/test_ho_so_nang_goi.py tests/test_api/test_hoi_thoai.py tests/test_api/test_khach.py -q
@@ -1544,7 +1544,7 @@ async def nhap(body: NhapPhienRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc
 
 (Chỉ `tests/test_services/test_moi_mau.py` bẩn được đỏ.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/services/ho_so.py src/services/nang_goi.py src/services/bao_ve.py src/api/routes_tai_khoan.py src/api/routes_hoi_thoai.py tests/test_api/test_ho_so_nang_goi.py tests/test_api/test_tai_khoan.py
@@ -1569,7 +1569,7 @@ Chạy song song với BƯỚC 1: BE chỉ sửa `src/`, `tests/`; FE chỉ sử
 - Consumes: Task 1 `HanMuc`, `MucHanMuc`, `laHanMuc`, `LuotDaXong` (`lib/lich-su.ts`), `useGoiApi`.
 - Produces: `khach.ts`: `catThreadKhach(luot: LuotDaXong[]): void`, `layThreadKhach(): LuotDaXong[] | null`, `xoaThreadKhach(): void` (sessionStorage `klaw.khach_thread`); `han-muc.ts`: `KHONG_GIOI_HAN = 100000`, `laKhongGioiHan(hanMuc: number): boolean`, `phanTram(m: MucHanMuc): number` (0–100, không giới hạn → 0), `mucMau(pt): "brass" | "amber" | "do"` (<80 / 80–99 / ≥100), `dinhDangMoc(iso: string | null, muiGio: string): string` ("00:00 08/09", rỗng khi null), `mucRangBuoc(hm: HanMuc | null): MucHanMuc | null` (mục đầu tiên có trần thật), `cauChip(m: MucHanMuc): string`, `soNgayCon(iso: string | null): number | null`; `goi.ts`: `tenGoi(plan): string` ("Miễn phí"/"Cá nhân"/"Dùng thử" cho `khach`/mã), `GIA_PRO = 499_000`, `GOI_CARD: Record<"free" | "pro", { nhan: string; tieuDe: string; moTa: string; gia: string; tieuDeDanhSach: string; danhSach: { icon: LucideIcon; chu: string }[] }>` đúng chữ spec §7.5; `useHanMuc(kichHoat: boolean) → { hanMuc: HanMuc | null; dangTai: boolean; loi: ApiError | null; taiLai(): void }`; `ThuocMucDung({ muc, muiGio, gon? })`.
 
-- [ ] **Step 1: Kiểm đỏ** `frontend/scripts/kiem-han-muc.ts`
+- [x] **Step 1: Kiểm đỏ** `frontend/scripts/kiem-han-muc.ts`
 
 ```ts
 /** Thanh đo hạn mức (spec 2A §7.2): phần trăm, ngưỡng màu, "Không giới hạn", mốc theo VN,
@@ -1616,9 +1616,9 @@ console.info("kiem-han-muc: 4/4 đạt");
 
 `package.json`: `"kiem-han-muc": "node scripts/kiem-han-muc.ts"`, nối `&& npm run kiem-han-muc` sau `npm run kiem-phien`. `kiem-phien.ts`: bỏ nhóm kiểm `tenGoi`/`cauPhienAn`, sửa dòng cuối thành "kiem-phien: 3/3 đạt".
 
-- [ ] **Step 2: Đỏ** — `npm run kiem-han-muc` → ERR_MODULE_NOT_FOUND.
+- [x] **Step 2: Đỏ** — `npm run kiem-han-muc` → ERR_MODULE_NOT_FOUND.
 
-- [ ] **Step 3: `lib/han-muc.ts`**
+- [x] **Step 3: `lib/han-muc.ts`**
 
 ```ts
 import type { HanMuc, MucHanMuc } from "./klaw";
@@ -1782,9 +1782,9 @@ export function ThuocMucDung({ muc, muiGio, gon = false }: { muc: MucHanMuc[]; m
 }
 ```
 
-- [ ] **Step 4: Xanh** — `npm run typecheck && npm run lint && npm run kiem-han-muc && npm run kiem-phien && npx prettier --check src/lib/han-muc.ts src/lib/goi.ts src/lib/khach.ts src/lib/phien.ts src/hooks/use-han-muc.ts src/components/tai-khoan/ThuocMucDung.tsx scripts/kiem-han-muc.ts scripts/kiem-phien.ts src/components/klaw/DanhSachPhien.tsx`.
+- [x] **Step 4: Xanh** — `npm run typecheck && npm run lint && npm run kiem-han-muc && npm run kiem-phien && npx prettier --check src/lib/han-muc.ts src/lib/goi.ts src/lib/khach.ts src/lib/phien.ts src/hooks/use-han-muc.ts src/components/tai-khoan/ThuocMucDung.tsx scripts/kiem-han-muc.ts scripts/kiem-phien.ts src/components/klaw/DanhSachPhien.tsx`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/lib/han-muc.ts frontend/src/lib/goi.ts frontend/src/lib/khach.ts frontend/src/lib/phien.ts frontend/src/hooks/use-han-muc.ts frontend/src/components/tai-khoan/ThuocMucDung.tsx frontend/scripts/kiem-han-muc.ts frontend/scripts/kiem-phien.ts frontend/package.json frontend/src/components/klaw/DanhSachPhien.tsx
@@ -1805,7 +1805,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `useAuth`, `useHoiThoai` (gói 1), `useHanMuc` (Task 5), `catThreadKhach`, `locNext`.
 - Produces: `useTaiKhoan(): { user: User | null; dangKiemPhien: boolean; chuaCauHinh: boolean; daDangNhap: boolean; laKhach: boolean; hoiThoai: TrangThaiHoiThoai; hanMuc: TrangThaiHanMuc; nangGoiMo: boolean; moNangGoi(): void; dongNangGoi(): void; signOut(): Promise<void>; datHanhDongPhienMoi(fn: (() => void) | null): void; phienMoi(): void; datLayThreadKhach(fn: (() => LuotDaXong[]) | null): void; catThreadTruocKhiRoi(): void }`; `DanhSachPhien({ hoiThoai, phienDangMo, onChon, onPhienMoi, onDaXoa })`; `dichQuayLaiTu(pathname: string): DichQuayLai`; `AppShell({ active?, topRight?, children })` giữ chữ ký.
 
-- [ ] **Step 1: Context** `frontend/src/contexts/tai-khoan.tsx`
+- [x] **Step 1: Context** `frontend/src/contexts/tai-khoan.tsx`
 
 ```tsx
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
@@ -1884,17 +1884,17 @@ export function useTaiKhoan(): TaiKhoan {
 
 `__root.tsx` (`RootComponent`): bọc phần `<a href="#noi-dung-chinh">…` tới `<Toaster/>` trong `<TaiKhoanProvider>` (bên trong `QueryClientProvider`; `RootComponent` là con của router nên `useNavigate` dùng được).
 
-- [ ] **Step 2: `quay-lai.ts`** — thêm `export function dichQuayLaiTu(pathname: string): DichQuayLai { return locNext(pathname) ?? "/dung-thu"; }`.
+- [x] **Step 2: `quay-lai.ts`** — thêm `export function dichQuayLaiTu(pathname: string): DichQuayLai { return locNext(pathname) ?? "/dung-thu"; }`.
 
-- [ ] **Step 3: `DanhSachPhien.tsx`** — xoá `CotPhien`, sheet, nút "Phiên"; đổi `ThanDanhSach` thành `export function DanhSachPhien(props: Props)`; bỏ nút "Phiên mới" bên trong (AppShell có nút riêng) nhưng giữ prop `onPhienMoi` cho sheet mobile; giữ `MotPhien`, đổi tên/xoá, trạng thái tải/lỗi/rỗng.
+- [x] **Step 3: `DanhSachPhien.tsx`** — xoá `CotPhien`, sheet, nút "Phiên"; đổi `ThanDanhSach` thành `export function DanhSachPhien(props: Props)`; bỏ nút "Phiên mới" bên trong (AppShell có nút riêng) nhưng giữ prop `onPhienMoi` cho sheet mobile; giữ `MotPhien`, đổi tên/xoá, trạng thái tải/lỗi/rỗng.
 
-- [ ] **Step 4: `TheTaiKhoan.tsx`, `MenuTaiKhoan.tsx`**
+- [x] **Step 4: `TheTaiKhoan.tsx`, `MenuTaiKhoan.tsx`**
 
 `TheTaiKhoan({ gon }: { gon: boolean })`: đọc `useTaiKhoan()`; vòng chữ cái đầu của `user.user_metadata.ten_hien_thi ?? user.user_metadata.ho_ten ?? user.email`; tên và nhãn `tenGoi(hanMuc.hanMuc?.plan ?? "free")`; `gon` (rail) chỉ vòng chữ; nút "Nâng cấp" (`moNangGoi`) ẩn khi plan là `pro`. Bấm thẻ mở `MenuTaiKhoan`.
 
 `MenuTaiKhoan({ mo, onDong, nutMo }: { mo: boolean; onDong(): void; nutMo: RefObject<HTMLButtonElement | null> })`: popover định vị trên thẻ, `role="menu"`, mục `role="menuitem"`, đóng bằng Escape/click ngoài/chọn mục, trả tiêu điểm về `nutMo`. Đầu menu: tên + email + nhãn gói; `ThuocMucDung gon` cho `[mucRangBuoc(hanMuc)]` (nếu có); Pro: dòng "Còn N ngày · hết hạn DD/MM" (`soNgayCon`, `dinhDangMoc`), đỏ khi ≤7 kèm nút "Gia hạn" (`moNangGoi`). Mục: Hồ sơ → `/tai-khoan`; Nâng cấp gói → `moNangGoi()` (ẩn khi pro); Cá nhân hoá → `/tai-khoan/ca-nhan-hoa`; Trợ giúp → `/huong-dan`; Đăng xuất → `await signOut(); navigate({ to: "/" })`.
 
-- [ ] **Step 5: `AppShell.tsx` viết lại** — giữ chữ ký, `useKhungModalDangMo`/`inert`, mốc `#noi-dung-chinh`.
+- [x] **Step 5: `AppShell.tsx` viết lại** — giữ chữ ký, `useKhungModalDangMo`/`inert`, mốc `#noi-dung-chinh`.
 
 ```tsx
 const NAV = [
@@ -1910,9 +1910,9 @@ Header: nếu `laKhach` và không truyền `topRight` → góc phải hai nút:
 
 Thanh dưới (`<md`): ba mục NAV + "Tài khoản" (`UserRound`) mở sheet: `daDangNhap` → các mục của `MenuTaiKhoan` dạng danh sách + Gần đây; `laKhach` → hai nút Đăng nhập/Đăng ký + hai liên kết. Mục "Hướng dẫn" rời NAV (Trợ giúp trong menu); `/huong-dan` vẫn dùng `AppShell active="/huong-dan"` — không mục nào sáng, chấp nhận.
 
-- [ ] **Step 6: Xanh** — xoá import và khối mount `CotPhien` (dòng ~604–616) trong `dung-thu.tsx`; `npm run typecheck && npm run lint && npm run kiem-khung && npm run build && npx prettier --check src/contexts/tai-khoan.tsx src/components/app/AppShell.tsx src/components/tai-khoan/*.tsx src/components/klaw/DanhSachPhien.tsx src/routes/__root.tsx src/lib/quay-lai.ts src/routes/dung-thu.tsx`. Nếu `scripts/kiem-khung.ts` kiểm cấu trúc AppShell cũ, cập nhật kỳ vọng và ghi vào report.
+- [x] **Step 6: Xanh** — xoá import và khối mount `CotPhien` (dòng ~604–616) trong `dung-thu.tsx`; `npm run typecheck && npm run lint && npm run kiem-khung && npm run build && npx prettier --check src/contexts/tai-khoan.tsx src/components/app/AppShell.tsx src/components/tai-khoan/*.tsx src/components/klaw/DanhSachPhien.tsx src/routes/__root.tsx src/lib/quay-lai.ts src/routes/dung-thu.tsx`. Nếu `scripts/kiem-khung.ts` kiểm cấu trúc AppShell cũ, cập nhật kỳ vọng và ghi vào report.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/contexts/tai-khoan.tsx frontend/src/components/tai-khoan/TheTaiKhoan.tsx frontend/src/components/tai-khoan/MenuTaiKhoan.tsx frontend/src/components/app/AppShell.tsx frontend/src/components/klaw/DanhSachPhien.tsx frontend/src/routes/__root.tsx frontend/src/routes/dung-thu.tsx frontend/src/lib/quay-lai.ts frontend/scripts/kiem-khung.ts
@@ -1933,9 +1933,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `useTaiKhoan` (Task 6), `mucRangBuoc`, `cauChip`, `phanTram`, `mucMau`, `soNgayCon`, `dinhDangMoc` (Task 5), `layThreadKhach/xoaThreadKhach`, `laNhapPhien`, `goi`.
 - Produces: `TheHetLuot({ loai: "khach" | "phien" | "het_han"; chiTiet: string; onPhienMoi?: () => void; onNangGoi?: () => void; onCatThread?: () => void })`; `BaoLoi` prop `onNangGoi?: () => void`.
 
-- [ ] **Step 1: Dọn** — xoá aside "Lịch sử phiên" trong bộ nhớ, `panelMo`, import `ChevronRight`, khối `TheDangNhap` khoá ô hỏi, `useAuth`, `useHoiThoai` trực tiếp; lấy `{ daDangNhap, laKhach, chuaCauHinh, dangKiemPhien, hoiThoai, hanMuc, moNangGoi, datHanhDongPhienMoi, datLayThreadKhach, catThreadTruocKhiRoi }` từ `useTaiKhoan()`. Bỏ nhánh `status === 403` "Xem bảng giá" trong khối `loiChiTiet` (chỉ còn `message` + "Phiên mới"). `dienGoiY` không chuyển tới đăng nhập nữa. Giữ nguyên `phienDangHien`, `daGhim`, `phienMoi` (bọc `useCallback([datLaiTraCuu, navigate])`), `thuLai`.
+- [x] **Step 1: Dọn** — xoá aside "Lịch sử phiên" trong bộ nhớ, `panelMo`, import `ChevronRight`, khối `TheDangNhap` khoá ô hỏi, `useAuth`, `useHoiThoai` trực tiếp; lấy `{ daDangNhap, laKhach, chuaCauHinh, dangKiemPhien, hoiThoai, hanMuc, moNangGoi, datHanhDongPhienMoi, datLayThreadKhach, catThreadTruocKhiRoi }` từ `useTaiKhoan()`. Bỏ nhánh `status === 403` "Xem bảng giá" trong khối `loiChiTiet` (chỉ còn `message` + "Phiên mới"). `dienGoiY` không chuyển tới đăng nhập nữa. Giữ nguyên `phienDangHien`, `daGhim`, `phienMoi` (bọc `useCallback([datLaiTraCuu, navigate])`), `thuLai`.
 
-- [ ] **Step 2: Đăng ký với context**
+- [x] **Step 2: Đăng ký với context**
 
 ```ts
 useEffect(() => {
@@ -1953,7 +1953,7 @@ useEffect(() => {
 }, [datLayThreadKhach, luuTru, traCuu.cauHoi, traCuu.ketQua]);
 ```
 
-- [ ] **Step 3: Mang đoạn chat khách vào tài khoản**
+- [x] **Step 3: Mang đoạn chat khách vào tài khoản**
 
 ```ts
 const daNhap = useRef(false);
@@ -1979,7 +1979,7 @@ useEffect(() => {
 
 `loiNhap` hiện `role="status"` trên đầu dòng chat; xoá khi gửi câu mới.
 
-- [ ] **Step 4: Trần lượt mỗi phiên, chip, ba thẻ**
+- [x] **Step 4: Trần lượt mỗi phiên, chip, ba thẻ**
 
 ```ts
 const tranPhien = hanMuc.hanMuc?.phien.luot_toi_da ?? null; // khách 10, free 20, pro 50
@@ -2002,11 +2002,11 @@ Thẻ trong dòng chat:
 
 `TheHetLuot.tsx`: `<div role="status" className="rounded-xl border border-dashed border-border px-4 py-3">` + `<p>{chiTiet}</p>` + hàng nút theo `loai` (phien: "Phiên mới"; khach: "Đăng nhập" đặc + "Đăng ký miễn phí" viền; het_han: "Gia hạn 30 ngày"). Chữ chỉ qua text node.
 
-- [ ] **Step 5: Khách và `?q=`** — effect `?q=` bỏ điều kiện `canDangNhap`. Khách (Supabase cấu hình, chưa đăng nhập) và ẩn danh dev đều gửi `lichSu: dungLichSu(luotTruoc)`; chỉ tài khoản gửi `hoiThoaiId`.
+- [x] **Step 5: Khách và `?q=`** — effect `?q=` bỏ điều kiện `canDangNhap`. Khách (Supabase cấu hình, chưa đăng nhập) và ẩn danh dev đều gửi `lichSu: dungLichSu(luotTruoc)`; chỉ tài khoản gửi `hoiThoaiId`.
 
-- [ ] **Step 6: Xanh** — `npm run typecheck && npm run lint && npm run kiem-lich-su && npm run kiem-sse && npm run build && npx prettier --check src/routes/dung-thu.tsx src/components/klaw/TheHetLuot.tsx src/components/klaw/BaoLoi.tsx src/components/klaw/TheDangNhap.tsx`.
+- [x] **Step 6: Xanh** — `npm run typecheck && npm run lint && npm run kiem-lich-su && npm run kiem-sse && npm run build && npx prettier --check src/routes/dung-thu.tsx src/components/klaw/TheHetLuot.tsx src/components/klaw/BaoLoi.tsx src/components/klaw/TheDangNhap.tsx`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/routes/dung-thu.tsx frontend/src/components/klaw/TheHetLuot.tsx frontend/src/components/klaw/BaoLoi.tsx frontend/src/components/klaw/TheDangNhap.tsx
@@ -2027,9 +2027,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `useTaiKhoan`, `useTaiMot` (`use-goi-api.ts`), `laHoSo`, `ThuocMucDung`, `soNgayCon`, `dinhDangMoc`, `tenGoi`, `supabase` (`@/integrations/supabase/client`), `dichQuayLaiTu`.
 - Produces: routes `/tai-khoan`, `/tai-khoan/ca-nhan-hoa`; `DICH_QUAY_LAI = ["/dung-thu", "/soan-thao", "/tai-khoan", "/tai-khoan/ca-nhan-hoa"]`; `LichHoatDong({ hoatDong: { ngay: string; so_luot: number }[] })`.
 
-- [ ] **Step 1: `quay-lai.ts` + kiểm** — mở rộng `DICH_QUAY_LAI`; `kiem-quay-lai.ts`: `assert.deepEqual([...DICH_QUAY_LAI], ["/dung-thu", "/soan-thao", "/tai-khoan", "/tai-khoan/ca-nhan-hoa"])` và `assert.equal(locNext("/tai-khoan/ca-nhan-hoa"), "/tai-khoan/ca-nhan-hoa")`. `npm run kiem-quay-lai` đỏ rồi xanh.
+- [x] **Step 1: `quay-lai.ts` + kiểm** — mở rộng `DICH_QUAY_LAI`; `kiem-quay-lai.ts`: `assert.deepEqual([...DICH_QUAY_LAI], ["/dung-thu", "/soan-thao", "/tai-khoan", "/tai-khoan/ca-nhan-hoa"])` và `assert.equal(locNext("/tai-khoan/ca-nhan-hoa"), "/tai-khoan/ca-nhan-hoa")`. `npm run kiem-quay-lai` đỏ rồi xanh.
 
-- [ ] **Step 2: Layout** `tai-khoan.tsx`
+- [x] **Step 2: Layout** `tai-khoan.tsx`
 
 ```tsx
 import { Outlet, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
@@ -2058,11 +2058,11 @@ function TaiKhoanLayout() {
 }
 ```
 
-- [ ] **Step 3: Hồ sơ** `tai-khoan.index.tsx` — `const hoSo = useTaiMot("/ho-so", laHoSo); const { hanMuc, moNangGoi, user } = useTaiKhoan();`. Bố cục trong `mx-auto max-w-3xl px-4 py-8`: thẻ định danh (vòng chữ cái, tên hiển thị `user?.user_metadata.ten_hien_thi` hoặc email, email, nhãn `ten_goi`, "Tham gia DD/MM/YYYY" từ `tao_luc`); Pro: "Còn N ngày · hết hạn DD/MM" (đỏ ≤7, nút Gia hạn → `moNangGoi`); Free đã hết hạn Pro (`het_han_luc` quá khứ): dòng "Gói Cá nhân đã hết hạn ngày DD/MM" + Gia hạn; `<ThuocMucDung muc={hanMuc.hanMuc?.muc ?? []} muiGio={hanMuc.hanMuc?.mui_gio ?? "Asia/Ho_Chi_Minh"} />`; bốn ô số: `so_phien` "Phiên", `tong_hoi_dap` "Lượt hỏi đáp", `tong_ban_thao` "Bản thảo", "30 ngày qua" = tổng `so_luot` của `hoat_dong` trong 30 ngày gần nhất; `<LichHoatDong hoatDong={hoSo.ketQua.hoat_dong} />`; bảng `phan_loai` (nhãn · số); nút "Nâng cấp" (Free) và "Cá nhân hoá". Trạng thái tải: ô xám `aria-hidden`; lỗi: `BaoLoi loi={hoSo.loi} onThuLai={…}`.
+- [x] **Step 3: Hồ sơ** `tai-khoan.index.tsx` — `const hoSo = useTaiMot("/ho-so", laHoSo); const { hanMuc, moNangGoi, user } = useTaiKhoan();`. Bố cục trong `mx-auto max-w-3xl px-4 py-8`: thẻ định danh (vòng chữ cái, tên hiển thị `user?.user_metadata.ten_hien_thi` hoặc email, email, nhãn `ten_goi`, "Tham gia DD/MM/YYYY" từ `tao_luc`); Pro: "Còn N ngày · hết hạn DD/MM" (đỏ ≤7, nút Gia hạn → `moNangGoi`); Free đã hết hạn Pro (`het_han_luc` quá khứ): dòng "Gói Cá nhân đã hết hạn ngày DD/MM" + Gia hạn; `<ThuocMucDung muc={hanMuc.hanMuc?.muc ?? []} muiGio={hanMuc.hanMuc?.mui_gio ?? "Asia/Ho_Chi_Minh"} />`; bốn ô số: `so_phien` "Phiên", `tong_hoi_dap` "Lượt hỏi đáp", `tong_ban_thao` "Bản thảo", "30 ngày qua" = tổng `so_luot` của `hoat_dong` trong 30 ngày gần nhất; `<LichHoatDong hoatDong={hoSo.ketQua.hoat_dong} />`; bảng `phan_loai` (nhãn · số); nút "Nâng cấp" (Free) và "Cá nhân hoá". Trạng thái tải: ô xám `aria-hidden`; lỗi: `BaoLoi loi={hoSo.loi} onThuLai={…}`.
 
 `LichHoatDong.tsx`: lưới 53 cột × 7 hàng (`grid grid-flow-col grid-rows-7 gap-[3px]`), tuần bắt đầu thứ Hai, 365 ngày lùi từ hôm nay (ngày theo chuỗi `ngay` `YYYY-MM-DD` của máy chủ, không dùng `Date` giờ máy để tính ngày trong ô); 5 mức: 0 → `bg-[var(--color-paper-200)]`, còn lại 4 mức theo tứ phân vị của `so_luot > 0` bằng `bg-[var(--color-brass-500)]/{25,50,75,100}`; ô `size-2.5 rounded-[2px]` với `title="07/09: 3 lượt"`; nhãn tháng dưới lưới, mỗi tháng một lần; `aria-label="Lịch hoạt động 52 tuần"`.
 
-- [ ] **Step 4: Cá nhân hoá** `tai-khoan.ca-nhan-hoa.tsx`
+- [x] **Step 4: Cá nhân hoá** `tai-khoan.ca-nhan-hoa.tsx`
 
 ```tsx
 const { user } = useTaiKhoan();
@@ -2085,11 +2085,11 @@ async function doiMatKhau() {
 
 Form tên (1–60 ký tự, `maxLength={60}`), khối đổi mật khẩu chỉ khi `laEmail` (mật khẩu mới + nhập lại, `autoComplete="new-password"`), thông báo `role="status"`; dòng cuối "Xoá tài khoản và ngôn ngữ: sắp có." Sau lưu tên, `useAuth` nhận `USER_UPDATED` qua `onAuthStateChange` (session mới) → thẻ tài khoản đổi tên; nếu không, gọi `supabase.auth.refreshSession()` sau khi lưu.
 
-- [ ] **Step 5: `dang-ky.tsx`** — xoá `ROLES` (dòng 51), trường `role` trong state `form` (108), khối `<label htmlFor="role">…</select>` (230–245). `dangKy(email, password, name)` không đổi.
+- [x] **Step 5: `dang-ky.tsx`** — xoá `ROLES` (dòng 51), trường `role` trong state `form` (108), khối `<label htmlFor="role">…</select>` (230–245). `dangKy(email, password, name)` không đổi.
 
-- [ ] **Step 6: Xanh** — `npm run typecheck && npm run lint && npm run kiem-quay-lai && npm run build && npx prettier --check src/routes/tai-khoan.tsx src/routes/tai-khoan.index.tsx src/routes/tai-khoan.ca-nhan-hoa.tsx src/components/tai-khoan/LichHoatDong.tsx src/routes/dang-ky.tsx src/lib/quay-lai.ts scripts/kiem-quay-lai.ts`.
+- [x] **Step 6: Xanh** — `npm run typecheck && npm run lint && npm run kiem-quay-lai && npm run build && npx prettier --check src/routes/tai-khoan.tsx src/routes/tai-khoan.index.tsx src/routes/tai-khoan.ca-nhan-hoa.tsx src/components/tai-khoan/LichHoatDong.tsx src/routes/dang-ky.tsx src/lib/quay-lai.ts scripts/kiem-quay-lai.ts`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/routes/tai-khoan.tsx frontend/src/routes/tai-khoan.index.tsx frontend/src/routes/tai-khoan.ca-nhan-hoa.tsx frontend/src/components/tai-khoan/LichHoatDong.tsx frontend/src/routes/dang-ky.tsx frontend/src/lib/quay-lai.ts frontend/scripts/kiem-quay-lai.ts frontend/src/routeTree.gen.ts
@@ -2110,7 +2110,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `useTaiKhoan` (`nangGoiMo`, `dongNangGoi`, `hanMuc`, `daDangNhap`, `moNangGoi`), `GOI_CARD`, `laYeuCauNangGoiHoacNull`, `laYeuCauNangGoi`, `soNgayCon`, `ThuocMucDung`, `useGoiApi`, `goi`.
 - Produces: `ModalNangGoi()`; `/bang-gia` dùng `GOI_CARD` cho hai gói đầu và hiện `ThuocMucDung` sau đăng nhập.
 
-- [ ] **Step 1: Modal** — `role="dialog" aria-modal="true" aria-labelledby="nang-goi-tieu-de"`, mở khi `nangGoiMo`; nền `bg-[var(--color-ink-950)]/45` click đóng; Escape đóng; nút X; tiêu điểm vào nút đóng khi mở, trả về `document.activeElement` lúc mở khi đóng. Khi mở: `useGoiApi<YeuCauNangGoi | null>` gọi `goi("/nang-goi/yeu-cau", laYeuCauNangGoiHoacNull)`. Hai card (`grid gap-4 md:grid-cols-2`) theo khuôn spec §7.5: nhãn nhỏ, tiêu đề `font-display text-2xl`, mô tả, giá lớn, nút, tiêu đề danh sách, `ul` icon + chữ.
+- [x] **Step 1: Modal** — `role="dialog" aria-modal="true" aria-labelledby="nang-goi-tieu-de"`, mở khi `nangGoiMo`; nền `bg-[var(--color-ink-950)]/45` click đóng; Escape đóng; nút X; tiêu điểm vào nút đóng khi mở, trả về `document.activeElement` lúc mở khi đóng. Khi mở: `useGoiApi<YeuCauNangGoi | null>` gọi `goi("/nang-goi/yeu-cau", laYeuCauNangGoiHoacNull)`. Hai card (`grid gap-4 md:grid-cols-2`) theo khuôn spec §7.5: nhãn nhỏ, tiêu đề `font-display text-2xl`, mô tả, giá lớn, nút, tiêu đề danh sách, `ul` icon + chữ.
 
 ```tsx
 const plan = hanMuc.hanMuc?.plan ?? "free";
@@ -2126,11 +2126,11 @@ const dangCho = yeuCau?.trang_thai === "cho_duyet";
 
 POST qua `goi("/nang-goi/yeu-cau", laYeuCauNangGoi, { method: "POST", body: { goi_muon: "pro" } })`: 201 → `yeuCau` = data; 409 → tải lại GET; 422/khác → hiện `loi.message`. Dòng nhỏ dưới nút Cá nhân: "Chưa có thanh toán trực tuyến. Tôi sẽ báo qua email khi gói được mở." Khách (`laKhach`) mở modal → nút Cá nhân là `Link /dang-ky` "Đăng ký miễn phí để nâng gói". Render `<ModalNangGoi />` sau `{children}` trong `Ctx.Provider`.
 
-- [ ] **Step 2: `bang-gia.tsx`** — `TIERS[0].features = GOI_CARD.free.danhSach.map((d) => d.chu)`, `TIERS[1].features = GOI_CARD.pro.danhSach.map((d) => d.chu)`; thêm trường `chuKy?: "30 ngày"` cho tier Cá nhân và hiển thị hậu tố "/ 30 ngày" thay "/ tháng" khi có; `COMPARISON` hàng "Phiên lưu" (~100): giá trị đầu `"Không giới hạn"`; FAQ hạn mức (~125) viết lại: "Gói Miễn phí có 200 lượt hỏi đáp mỗi ngày, 20 lượt mỗi phiên, 3 bản thảo mỗi ngày (20 mỗi tháng); đếm ở máy chủ theo tài khoản, đặt lại 0h giờ Việt Nam. Gói Cá nhân hỏi đáp không giới hạn trong sử dụng bình thường (lá chắn chống lạm dụng 500 lượt/ngày), 20 bản thảo mỗi ngày, hiệu lực 30 ngày. Chưa có thanh toán trực tuyến: bạn gửi yêu cầu, tôi duyệt và báo qua email."; chỗ `HanMucThang` cũ (~199): `const { hanMuc, daDangNhap, moNangGoi } = useTaiKhoan();` và `{hanMuc.hanMuc?.ap_dung && hanMuc.hanMuc.plan !== null && (<div className="soft-fade mx-auto mt-6 max-w-xl rounded-xl border border-border bg-card p-4 text-left"><p className="m-0 mb-2 text-[13px] font-semibold text-primary">Gói {hanMuc.hanMuc.ten_goi}</p><ThuocMucDung muc={hanMuc.hanMuc.muc} muiGio={hanMuc.hanMuc.mui_gio} /></div>)}`; CTA tier Cá nhân khi `daDangNhap` → nút gọi `moNangGoi()` ("Yêu cầu nâng lên Cá nhân") thay "Sắp ra mắt".
+- [x] **Step 2: `bang-gia.tsx`** — `TIERS[0].features = GOI_CARD.free.danhSach.map((d) => d.chu)`, `TIERS[1].features = GOI_CARD.pro.danhSach.map((d) => d.chu)`; thêm trường `chuKy?: "30 ngày"` cho tier Cá nhân và hiển thị hậu tố "/ 30 ngày" thay "/ tháng" khi có; `COMPARISON` hàng "Phiên lưu" (~100): giá trị đầu `"Không giới hạn"`; FAQ hạn mức (~125) viết lại: "Gói Miễn phí có 200 lượt hỏi đáp mỗi ngày, 20 lượt mỗi phiên, 3 bản thảo mỗi ngày (20 mỗi tháng); đếm ở máy chủ theo tài khoản, đặt lại 0h giờ Việt Nam. Gói Cá nhân hỏi đáp không giới hạn trong sử dụng bình thường (lá chắn chống lạm dụng 500 lượt/ngày), 20 bản thảo mỗi ngày, hiệu lực 30 ngày. Chưa có thanh toán trực tuyến: bạn gửi yêu cầu, tôi duyệt và báo qua email."; chỗ `HanMucThang` cũ (~199): `const { hanMuc, daDangNhap, moNangGoi } = useTaiKhoan();` và `{hanMuc.hanMuc?.ap_dung && hanMuc.hanMuc.plan !== null && (<div className="soft-fade mx-auto mt-6 max-w-xl rounded-xl border border-border bg-card p-4 text-left"><p className="m-0 mb-2 text-[13px] font-semibold text-primary">Gói {hanMuc.hanMuc.ten_goi}</p><ThuocMucDung muc={hanMuc.hanMuc.muc} muiGio={hanMuc.hanMuc.mui_gio} /></div>)}`; CTA tier Cá nhân khi `daDangNhap` → nút gọi `moNangGoi()` ("Yêu cầu nâng lên Cá nhân") thay "Sắp ra mắt".
 
-- [ ] **Step 3: Xanh** — `npm run typecheck && npm run lint && npm run build && npx prettier --check src/components/tai-khoan/ModalNangGoi.tsx src/contexts/tai-khoan.tsx src/routes/bang-gia.tsx`.
+- [x] **Step 3: Xanh** — `npm run typecheck && npm run lint && npm run build && npx prettier --check src/components/tai-khoan/ModalNangGoi.tsx src/contexts/tai-khoan.tsx src/routes/bang-gia.tsx`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/components/tai-khoan/ModalNangGoi.tsx frontend/src/contexts/tai-khoan.tsx frontend/src/routes/bang-gia.tsx
@@ -2149,13 +2149,13 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `useTaiKhoan().laKhach`, `hanMuc`, `moNangGoi`; `BaoLoi onNangGoi` (Task 7); `TheDangNhap`.
 
-- [ ] **Step 1** — Tìm nút bắt đầu soạn (`grep -n "onClick\|Soạn" <file>` quanh lời gọi `/soan-thao`). Nếu `laKhach`: thay nút đó bằng `<TheDangNhap next="/soan-thao" />` (một điểm; không đụng logic checklist/biểu mẫu). `TheDangNhap`: khi `next === "/soan-thao"` câu là "Đăng nhập để soạn văn bản. Tài khoản Miễn phí soạn được 3 bản thảo mỗi ngày."; các `next` khác giữ câu cũ.
+- [x] **Step 1** — Tìm nút bắt đầu soạn (`grep -n "onClick\|Soạn" <file>` quanh lời gọi `/soan-thao`). Nếu `laKhach`: thay nút đó bằng `<TheDangNhap next="/soan-thao" />` (một điểm; không đụng logic checklist/biểu mẫu). `TheDangNhap`: khi `next === "/soan-thao"` câu là "Đăng nhập để soạn văn bản. Tài khoản Miễn phí soạn được 3 bản thảo mỗi ngày."; các `next` khác giữ câu cũ.
 
-- [ ] **Step 2** — Nơi hiện lỗi của lời gọi `/soan-thao`: nếu là `BaoLoi`, truyền `onNangGoi={hanMuc.hanMuc?.plan === "free" ? moNangGoi : undefined}` (429 có nút Nâng cấp); 401 khách hiện câu máy chủ ("Cần đăng nhập để soạn văn bản.") kèm liên kết đăng nhập (`BaoLoi` đã có cho `unauthorized`).
+- [x] **Step 2** — Nơi hiện lỗi của lời gọi `/soan-thao`: nếu là `BaoLoi`, truyền `onNangGoi={hanMuc.hanMuc?.plan === "free" ? moNangGoi : undefined}` (429 có nút Nâng cấp); 401 khách hiện câu máy chủ ("Cần đăng nhập để soạn văn bản.") kèm liên kết đăng nhập (`BaoLoi` đã có cho `unauthorized`).
 
-- [ ] **Step 3: Xanh** — `npm run typecheck && npm run lint && npm run build && npx prettier --check <các file đã sửa>`.
+- [x] **Step 3: Xanh** — `npm run typecheck && npm run lint && npm run build && npx prettier --check <các file đã sửa>`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/components/soan-thao/KhongGianSoanThao.tsx frontend/src/components/klaw/TheDangNhap.tsx
@@ -2175,7 +2175,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Files:**
 - Modify: `docs/plans/active/vo-ung-dung-va-tai-khoan.md` → `docs/plans/completed/`, plan này (tick), `.tham-dinh-shots/22-…29-….png`.
 
-- [ ] **Step 1: Gộp**
+- [x] **Step 1: Gộp**
 
 ```bash
 git merge --no-ff wt-be-tk -m "merge: backend quotas v3, account endpoints, guest gate (wt-be-tk)" && git merge --no-ff wt-fe-tk -m "merge: frontend shell, account pages, guest mode (wt-fe-tk)"
@@ -2183,7 +2183,7 @@ git branch --merged HEAD | grep -E "wt-(be|fe)-tk"
 git worktree remove --force ../KLAW-be4 && git worktree remove --force ../KLAW-fe4 && git branch -d wt-be-tk wt-fe-tk
 ```
 
-- [ ] **Step 2: Kiểm toàn bộ**
+- [x] **Step 2: Kiểm toàn bộ**
 
 ```bash
 .venv/bin/ruff check src/ tests/ && .venv/bin/python -m pytest -q --ignore=tests/test_infra --ignore=tests/test_services/test_effectivity.py
@@ -2192,13 +2192,13 @@ cd frontend && npm run kiem
 
 Kỳ vọng: pytest chỉ đỏ ở `test_moi_mau.py` bẩn; `npm run kiem` exit 0 (gồm `kiem-han-muc`, `kiem-quay-lai`).
 
-- [ ] **Step 3: Khởi động lại backend** (uvicorn :8000 không có `--reload`): `kill $(lsof -ti tcp:8000)`; `KLAW_SUPABASE_URL=<project url> .venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 8000 --log-level warning` (nền). Vite :3000 HMR tự cập nhật.
+- [x] **Step 3: Khởi động lại backend** (uvicorn :8000 không có `--reload`): `kill $(lsof -ti tcp:8000)`; `KLAW_SUPABASE_URL=<project url> .venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 8000 --log-level warning` (nền). Vite :3000 HMR tự cập nhật.
 
-- [ ] **Step 4: Chrome khách** (cửa sổ ẩn danh, `http://localhost:3000/dung-thu`): header có "Đăng nhập" + "Đăng ký miễn phí", sidebar khách, chip "Còn 10/10 lượt thử"; hỏi một câu → chip giảm, Network có `X-Khach-Id`; tải lại → đoạn chat mất, chip vẫn 9; hạ tạm `khach.hoi_dap_24h: 2` (+ khởi động lại backend) → lượt 3 thấy thẻ hết lượt; bấm Đăng nhập từ thẻ (KHÔNG nhập thông tin đăng nhập, dừng ở màn đăng nhập; đường nhập thread đã có pytest). Trả YAML. Ảnh `22-khach-header-chip.png`, `23-khach-het-luot.png`.
+- [x] **Step 4: Chrome khách** (cửa sổ ẩn danh, `http://localhost:3000/dung-thu`): header có "Đăng nhập" + "Đăng ký miễn phí", sidebar khách, chip "Còn 10/10 lượt thử"; hỏi một câu → chip giảm, Network có `X-Khach-Id`; tải lại → đoạn chat mất, chip vẫn 9; hạ tạm `khach.hoi_dap_24h: 2` (+ khởi động lại backend) → lượt 3 thấy thẻ hết lượt; bấm Đăng nhập từ thẻ (KHÔNG nhập thông tin đăng nhập, dừng ở màn đăng nhập; đường nhập thread đã có pytest). Trả YAML. Ảnh `22-khach-header-chip.png`, `23-khach-het-luot.png`.
 
-- [ ] **Step 5: Chrome tài khoản** (tab đã đăng nhập của chủ dự án): sidebar (Phiên mới, Gần đây, thẻ tài khoản), menu tài khoản, `/tai-khoan` với lịch hoạt động, `/tai-khoan/ca-nhan-hoa` đổi tên hiển thị, modal nâng gói hai card → "Yêu cầu nâng lên Cá nhân" → "Đang chờ duyệt"; hạ tạm `goi.free.luot_moi_phien: 2` và `goi.free.hoi_dap_ngay: 2` (+ khởi động lại) để thấy thẻ đủ phiên và 429 có nút Nâng cấp; trả YAML. Duyệt tay: `UPDATE users SET plan='pro', plan_het_han = now() + interval '30 days' WHERE sub = '<sub>'` → thẻ "Cá nhân", menu "Còn 30 ngày"; `UPDATE users SET plan_het_han = now() - interval '1 day'` → thẻ "đã hết hạn" + Gia hạn; trả `plan='free', plan_het_han=NULL`, xoá dòng `yeu_cau_nang_goi` thử. Ảnh `24-sidebar-chatgpt.png`, `25-menu-tai-khoan.png`, `26-ho-so.png`, `27-modal-nang-goi.png`, `28-phien-day.png`, `29-het-han-pro.png`. Kiểm 375px: thanh dưới có Tài khoản, sheet mở.
+- [x] **Step 5: Chrome tài khoản** (tab đã đăng nhập của chủ dự án): sidebar (Phiên mới, Gần đây, thẻ tài khoản), menu tài khoản, `/tai-khoan` với lịch hoạt động, `/tai-khoan/ca-nhan-hoa` đổi tên hiển thị, modal nâng gói hai card → "Yêu cầu nâng lên Cá nhân" → "Đang chờ duyệt"; hạ tạm `goi.free.luot_moi_phien: 2` và `goi.free.hoi_dap_ngay: 2` (+ khởi động lại) để thấy thẻ đủ phiên và 429 có nút Nâng cấp; trả YAML. Duyệt tay: `UPDATE users SET plan='pro', plan_het_han = now() + interval '30 days' WHERE sub = '<sub>'` → thẻ "Cá nhân", menu "Còn 30 ngày"; `UPDATE users SET plan_het_han = now() - interval '1 day'` → thẻ "đã hết hạn" + Gia hạn; trả `plan='free', plan_het_han=NULL`, xoá dòng `yeu_cau_nang_goi` thử. Ảnh `24-sidebar-chatgpt.png`, `25-menu-tai-khoan.png`, `26-ho-so.png`, `27-modal-nang-goi.png`, `28-phien-day.png`, `29-het-han-pro.png`. Kiểm 375px: thanh dưới có Tài khoản, sheet mở.
 
-- [ ] **Step 6: Đóng** — tick mọi `- [ ]` plan này; plan bền: Status Completed, Decisions (rulings ledger), Result (commit gộp, số test, ảnh), Nợ: admin duyệt yêu cầu (2B), xoá tài khoản, ngôn ngữ, trí nhớ (gói 3), Hướng dẫn rời NAV, `routes.py`/`bao_ve.py` vượt 800 dòng; `git mv` sang `completed/`; commit `docs(plans): close account-shell plan with evidence`.
+- [x] **Step 6: Đóng** — tick mọi `- [ ]` plan này; plan bền: Status Completed, Decisions (rulings ledger), Result (commit gộp, số test, ảnh), Nợ: admin duyệt yêu cầu (2B), xoá tài khoản, ngôn ngữ, trí nhớ (gói 3), Hướng dẫn rời NAV, `routes.py`/`bao_ve.py` vượt 800 dòng; `git mv` sang `completed/`; commit `docs(plans): close account-shell plan with evidence`.
 
 ---
 
