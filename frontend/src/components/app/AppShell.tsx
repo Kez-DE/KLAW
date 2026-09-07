@@ -288,7 +288,10 @@ export function AppShell({
             <span className="font-display font-bold text-primary">KLAW</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">
-            {daDangNhap && !rong && pathname === "/dung-thu" && (
+            {/* `coCotTrai`: dưới 48rem thanh dưới đã có "Tài khoản", và sheet
+                đó chứa luôn "Gần đây" — không có nút này thì hai sheet cùng mở
+                được một lúc, mỗi cái khai `aria-modal`. */}
+            {daDangNhap && coCotTrai && !rong && pathname === "/dung-thu" && (
               <button
                 type="button"
                 onClick={() => datSheetPhien(true)}

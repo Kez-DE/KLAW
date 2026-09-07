@@ -17,9 +17,9 @@ const CAU_MO: Record<DichQuayLai, string> = {
  * Câu mở đi theo `next` vì đó là việc người dùng ĐANG định làm; một câu chung
  * ("đăng nhập để dùng KLAW") bắt họ tự suy ra vì sao mình bị chặn.
  *
- * KHÔNG viết cứng số lượt: nguồn số là `config/han_muc.yaml`, và `HanMucThang`
- * hiện nó sau đăng nhập — một con số chép tay ở đây là đồng hồ "còn N/20 lượt"
- * mà mã đã phải gỡ một lần.
+ * KHÔNG viết cứng số lượt: nguồn số là `config/han_muc.yaml`, và `ThuocMucDung`
+ * (đọc `GET /han-muc`) hiện nó sau đăng nhập — một con số chép tay ở đây là
+ * đồng hồ "còn N/20 lượt" mà mã đã phải gỡ một lần.
  */
 export function TheDangNhap({ next }: { next: DichQuayLai }) {
   return (

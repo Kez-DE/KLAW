@@ -47,8 +47,12 @@ export function ThuocMucDung({
                 </div>
                 {!gon && (
                   <p className="m-0 mt-1 text-[12px] text-muted-foreground">
-                    {m.da_dung}/{m.han_muc} · Đặt lại {dinhDangMoc(m.dat_lai_luc, muiGio)} ({muiGio}
-                    )
+                    {m.da_dung}/{m.han_muc}
+                    {/* `dat_lai_luc` null (giỏ khách chưa có lượt nào) thì
+                        `dinhDangMoc` trả chuỗi rỗng, và mệnh đề còn lại đọc
+                        thành "Đặt lại  (Asia/Ho_Chi_Minh)" — một nhãn treo. */}
+                    {m.dat_lai_luc !== null &&
+                      ` · Đặt lại ${dinhDangMoc(m.dat_lai_luc, muiGio)} (${muiGio})`}
                   </p>
                 )}
               </>

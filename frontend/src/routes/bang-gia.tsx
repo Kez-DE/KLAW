@@ -194,8 +194,8 @@ function BangGiaPage() {
           className="mx-auto mb-6 max-w-2xl rounded-xl border border-border bg-card px-4 py-3 text-[13px] leading-relaxed text-muted-foreground"
         >
           <span className="font-semibold text-foreground">Bảng giá dự kiến.</span> KLAW chưa mở
-          thanh toán: chưa có cổng thanh toán, chưa có hạn mức được thực thi, chưa có chính sách huỷ
-          hay hoàn tiền có hiệu lực. Mọi con số dưới đây là đề xuất và có thể thay đổi.
+          thanh toán: chưa có cổng thanh toán, chưa có chính sách huỷ hay hoàn tiền có hiệu lực. Mọi
+          con số dưới đây là đề xuất và có thể thay đổi.
         </p>
         <p className="soft-fade text-[13px] uppercase tracking-[0.22em] text-brass-600/80">
           Bảng giá
@@ -298,9 +298,14 @@ function BangGiaPage() {
             )}
             {t.monthly != null && t.monthly !== 0 && (
               <p className="mt-1.5 text-[12px] text-muted-foreground">
-                {t.chuKy === undefined && annual
-                  ? `Thanh toán theo năm — ${vnd(t.annual! * 12)} / năm`
-                  : "Mức dự kiến, tính theo tháng"}
+                {/* Tier có `chuKy` (Cá nhân) KHÔNG phải thuê bao tháng: nhánh
+                    ba ("tính theo tháng") nằm dưới dòng "₫499.000 / 30 ngày"
+                    thì tự mâu thuẫn với chính nó. */}
+                {t.chuKy !== undefined
+                  ? `Mức dự kiến, chu kỳ ${t.chuKy}`
+                  : annual
+                    ? `Thanh toán theo năm — ${vnd(t.annual! * 12)} / năm`
+                    : "Mức dự kiến, tính theo tháng"}
               </p>
             )}
             {t.monthly == null && (

@@ -6,15 +6,31 @@ import type { LuotDaXong } from "./lich-su";
 export const KHACH_HEADER = "X-Khach-Id";
 const KHOA = "klaw.khach_id";
 
+/** Mã tạm của tab hiện tại. CACHE, không sinh mới mỗi lần gọi: mã này là KHOÁ ĐẾM
+ *  của giỏ 10 lượt/24 giờ, nên một mã mới mỗi request nghĩa là khách ở cửa sổ ẩn
+ *  danh không bao giờ tích vào đúng giỏ của mình. */
+let tam: string | undefined;
+
+function moiId(): string {
+  // `crypto.randomUUID` KHÔNG tồn tại ở ngữ cảnh không bảo mật (http://192.168.x.x:…,
+  // tức mọi lần mở trên điện thoại cùng mạng LAN). Không có nhánh này thì
+  // `layKhachId` ném ở dòng try, ném LẠI trong catch, và lỗi thoát khỏi
+  // `tieuDeXacThuc()` — mọi lời gọi API của ứng dụng hỏng, kể cả những endpoint
+  // trước nhánh này vốn chạy được mà không cần đăng nhập.
+  return typeof crypto?.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 export function layKhachId(): string {
   try {
     const cu = localStorage.getItem(KHOA);
     if (cu !== null && cu !== "") return cu;
-    const moi = crypto.randomUUID();
+    const moi = moiId();
     localStorage.setItem(KHOA, moi);
     return moi;
   } catch {
-    return crypto.randomUUID(); // không có localStorage: mã tạm cho tab này
+    return (tam ??= moiId()); // không có localStorage: một mã tạm cho cả tab này
   }
 }
 
