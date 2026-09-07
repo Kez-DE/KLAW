@@ -41,7 +41,14 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
-from src.api.routes import BUOC_TRA_CUU, buoc_cua_luot, chay_tra_cuu, tra_cuu_response
+from src.api.routes import (
+    BUOC_TRA_CUU,
+    _chuan_bi_phien,
+    _ghi_luot_nhe,
+    buoc_cua_luot,
+    chay_tra_cuu,
+    tra_cuu_response,
+)
 from src.config import get_settings
 from src.models.schemas import TraCuuRequest
 from src.services.bao_ve import cong_bao_ve
@@ -92,7 +99,11 @@ def _sse(ten: str, du_lieu: dict) -> str:
 
 
 async def _chay_nen(
-    req: TraCuuRequest, user_sub: str | None, trace_id: str, hang: asyncio.Queue
+    req: TraCuuRequest,
+    user_sub: str | None,
+    trace_id: str,
+    hang: asyncio.Queue,
+    hoi_thoai_id: str | None,
 ) -> None:
     """Chạy graph tới cùng và đẩy sự kiện vào `hang`. KHÔNG dừng khi client rời.
 
@@ -121,6 +132,10 @@ async def _chay_nen(
         # không thành một JSON thiếu trường mà FE tự đoán.
         resp = tra_cuu_response(payload, trace_id, config_name)
         await hang.put(("ket_qua", resp.model_dump(mode="json")))
+        if hoi_thoai_id is not None:
+            loi_luu = await _ghi_luot_nhe(hoi_thoai_id, req.query, resp.model_dump(mode="json"), trace_id)
+            if loi_luu is not None:
+                await hang.put(("loi_luu", {"hoi_thoai_id": hoi_thoai_id, "detail": loi_luu}))
     except HTTPException as e:
         # `chay_tra_cuu` đã phân loại 503 (hạ tầng nhất thời) / 500 (bug thật)
         # và `detail` của nó chỉ mang TÊN loại ngoại lệ, không mang `str(e)`.
@@ -172,30 +187,38 @@ async def tra_cuu_luong(
 ) -> StreamingResponse:
     """Như `POST /tra-cuu`, nhưng phát tiến trình theo BƯỚC qua SSE.
 
-    Ba loại sự kiện:
-      * `bat_dau` — `{trace_id, config_name, cac_buoc: [{buoc, nhan, thu_tu}]}`,
-        gửi NGAY. Không có nó, FE lại phải tự ước lượng danh sách bước — đúng
-        thứ endpoint này sinh ra để thay thế.
+    Bốn loại sự kiện:
+      * `bat_dau` — `{trace_id, config_name, hoi_thoai_id, cac_buoc: [{buoc,
+        nhan, thu_tu}]}`, gửi NGAY. Không có nó, FE lại phải tự ước lượng danh
+        sách bước — đúng thứ endpoint này sinh ra để thay thế. `hoi_thoai_id`
+        là phiên vừa tạo/mở (spec 2026-09-07 §5.2); `null` khi ẩn danh.
       * `buoc` — một node vừa xong: `{buoc, nhan, thu_tu, tong, chi_tiet}`.
       * `ket_qua` — payload y hệt `TraCuuResponse` của `POST /tra-cuu`;
         hoặc `loi` — `{status, detail, trace_id}`.
+      * `loi_luu` — `{hoi_thoai_id, detail}`, phát SAU `ket_qua` khi câu trả lời
+        đã tính xong nhưng ghi vào phiên thất bại. Câu trả lời không mất, chỉ
+        chưa lưu được vào lịch sử.
 
     Tham số sai vẫn ra **422 bình thường** (pydantic chạy trước thân hàm), và
     cổng `cong_bao_ve` vẫn ra 401/429/503 bình thường — chỉ lỗi phát sinh SAU
     khi stream đã mở mới đi qua `event: loi`, vì lúc đó mã HTTP đã gửi rồi.
+    `_chuan_bi_phien` chạy TRƯỚC khi mở stream nên 404/403 của nó cũng ra mã
+    HTTP thường, không phải `event: loi`.
     """
     trace_id = str(uuid.uuid4())
+    req, hoi_thoai_id = await _chuan_bi_phien(req, user_sub)
     hang: asyncio.Queue = asyncio.Queue()
     hang.put_nowait(("bat_dau", {
         "trace_id": trace_id,
         "config_name": req.config_name or get_settings().eval_config_name,
+        "hoi_thoai_id": hoi_thoai_id,
         "cac_buoc": [
             {"buoc": ten, "nhan": nhan, "thu_tu": i}
             for i, (ten, nhan) in enumerate(buoc_cua_luot(req), start=1)
         ],
     }))
 
-    task = asyncio.create_task(_chay_nen(req, user_sub, trace_id, hang))
+    task = asyncio.create_task(_chay_nen(req, user_sub, trace_id, hang, hoi_thoai_id))
     _DANG_CHAY.add(task)
     task.add_done_callback(_DANG_CHAY.discard)
 

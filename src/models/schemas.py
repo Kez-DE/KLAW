@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 
 class LuotTruoc(BaseModel):
@@ -794,6 +794,8 @@ class ChiTietPhienResponse(BaseModel):
 
 
 class DoiTenPhienRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     tieu_de: str = Field(..., min_length=1, max_length=120)
 
 

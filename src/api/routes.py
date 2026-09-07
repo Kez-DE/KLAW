@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 from datetime import date
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from starlette.concurrency import run_in_threadpool
@@ -28,6 +28,7 @@ from src.models.schemas import (
     CauTrucMauOut,
     FactFieldOut,
     LoaiVanBan,
+    LuotTruoc,
     MauResponse,
     MucLucItem,
     MucMauOut,
@@ -45,7 +46,8 @@ from src.models.schemas import (
     VanBanProvisionsResponse,
 )
 from src.services import cache_tra_loi
-from src.services.bao_ve import cong_bao_ve, cong_nhe
+from src.services import hoi_thoai as hoi_thoai_svc
+from src.services.bao_ve import cong_bao_ve, cong_nhe, plan_cua
 from src.services.checklist import KHUNG_HOP_DONG, Checklist
 from src.services.db import get_engine
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
@@ -140,6 +142,35 @@ def _state_vao(req: TraCuuRequest, as_of: date, trace_id: str) -> dict:
         "as_of_date": as_of,
         "trace_id": trace_id,
     }
+
+
+async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[TraCuuRequest, str | None]:
+    """Gắn lượt hỏi vào một phiên (spec 2026-09-07 §5.2). Ẩn danh → bỏ qua `hoi_thoai_id`.
+    Có danh tính: chưa có id → tạo phiên; có id → kiểm chủ (404), kiểm ẩn theo gói
+    (403), nạp `lich_su` từ máy chủ và BỎ `lich_su` client gửi."""
+    if user_sub is None:
+        return req, None
+    if req.hoi_thoai_id is None:
+        return req, await run_in_threadpool(hoi_thoai_svc.tao_phien, user_sub, req.query)
+    pid = str(req.hoi_thoai_id)
+    if await run_in_threadpool(hoi_thoai_svc.lay_phien, user_sub, pid) is None:
+        raise HTTPException(status_code=404, detail=hoi_thoai_svc.LOI_KHONG_THAY)
+    plan = await run_in_threadpool(plan_cua, user_sub)
+    if await run_in_threadpool(hoi_thoai_svc.phien_bi_an, user_sub, plan, pid):
+        raise HTTPException(status_code=403, detail=hoi_thoai_svc.LOI_PHIEN_AN)
+    lich_su = await run_in_threadpool(hoi_thoai_svc.lich_su_gan_nhat, pid)
+    return req.model_copy(update={"lich_su": [LuotTruoc(**luot) for luot in lich_su]}), pid
+
+
+async def _ghi_luot_nhe(hoi_thoai_id: str, cau_hoi: str, payload: dict, trace_id: str) -> str | None:
+    """Ghi lượt vào phiên; lỗi → log + trả thông điệp cho `loi_luu`. KHÔNG nuốt im lặng,
+    KHÔNG làm mất câu trả lời đã tính."""
+    try:
+        await run_in_threadpool(hoi_thoai_svc.ghi_luot, hoi_thoai_id, cau_hoi, payload, trace_id)
+        return None
+    except Exception:
+        logger.exception("hoi_thoai: không ghi được lượt (phien=%s, trace=%s)", hoi_thoai_id, trace_id)
+        return "Lượt này chưa lưu được vào phiên."
 
 
 def _st_tu_cache(payload: dict) -> dict:
@@ -392,15 +423,22 @@ def tra_cuu_response(payload: dict, trace_id: str, config_name: str) -> TraCuuRe
 
 
 @router.post("/tra-cuu", response_model=TraCuuResponse)
-async def tra_cuu(req: TraCuuRequest, user_sub: str | None = Depends(cong_bao_ve)) -> TraCuuResponse:
+async def tra_cuu(
+    req: TraCuuRequest, response: Response, user_sub: str | None = Depends(cong_bao_ve)
+) -> TraCuuResponse:
     """`Depends(cong_bao_ve)` — API key, danh tính, rate limit (theo `sub` khi
     đã đăng nhập, theo IP khi chưa), hạn mức tháng của người dùng, trần chi phí
     ngày — chạy TRƯỚC thân hàm này. Endpoint này gọi LLM tối đa 5 lần, p95 50s,
     tới $0,00735 một request; không cổng nào ở đó là phòng xa (xem `bao_ve.py`).
     """
     trace_id = str(uuid.uuid4())
+    req, hoi_thoai_id = await _chuan_bi_phien(req, user_sub)
     payload, config_name = await chay_tra_cuu(req, user_sub, trace_id)
-    return tra_cuu_response(payload, trace_id, config_name)
+    resp = tra_cuu_response(payload, trace_id, config_name)
+    if hoi_thoai_id is not None:
+        response.headers["X-Hoi-Thoai-Id"] = hoi_thoai_id
+        await _ghi_luot_nhe(hoi_thoai_id, req.query, resp.model_dump(mode="json"), trace_id)
+    return resp
 
 
 @router.get("/status")
