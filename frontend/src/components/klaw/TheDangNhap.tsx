@@ -5,6 +5,8 @@ import type { DichQuayLai } from "@/lib/quay-lai";
 const CAU_MO: Record<DichQuayLai, string> = {
   "/dung-thu": "Đăng nhập để hỏi KLAW. Tài khoản mới dùng gói Miễn phí.",
   "/soan-thao": "Đăng nhập để soạn văn bản. Tài khoản mới dùng gói Miễn phí.",
+  "/tai-khoan": "Đăng nhập để xem hồ sơ. Tài khoản mới dùng gói Miễn phí.",
+  "/tai-khoan/ca-nhan-hoa": "Đăng nhập để cá nhân hoá tài khoản. Tài khoản mới dùng gói Miễn phí.",
 };
 
 /**

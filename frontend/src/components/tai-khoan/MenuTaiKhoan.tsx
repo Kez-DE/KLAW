@@ -86,14 +86,10 @@ export function ThanTaiKhoan({ onChon }: { onChon: () => void }) {
       )}
 
       <div role="menu" aria-label="Tài khoản" className="border-t border-border pt-1">
-        {/* `/tai-khoan` và `/tai-khoan/ca-nhan-hoa` do Task 8 dựng; tới lúc đó bộ
-            định tuyến chưa khai chúng nên `Link to` chưa kiểm kiểu được. Thẻ `a`
-            thật vẫn tới đúng nơi, đổi lại một lượt tải trang — Task 8 đổi sang
-            `Link` là xong. */}
-        <a href="/tai-khoan" role="menuitem" onClick={onChon} className={MUC}>
+        <Link to="/tai-khoan" role="menuitem" onClick={onChon} className={MUC}>
           <CircleUserRound className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           Hồ sơ
-        </a>
+        </Link>
         {plan !== "pro" && (
           <button
             type="button"
@@ -108,10 +104,10 @@ export function ThanTaiKhoan({ onChon }: { onChon: () => void }) {
             Nâng cấp gói
           </button>
         )}
-        <a href="/tai-khoan/ca-nhan-hoa" role="menuitem" onClick={onChon} className={MUC}>
+        <Link to="/tai-khoan/ca-nhan-hoa" role="menuitem" onClick={onChon} className={MUC}>
           <Settings2 className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           Cá nhân hoá
-        </a>
+        </Link>
         <Link to="/huong-dan" role="menuitem" onClick={onChon} className={MUC}>
           <LifeBuoy className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           Trợ giúp
