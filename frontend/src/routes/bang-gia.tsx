@@ -54,7 +54,7 @@ const TIERS: {
     features: [
       "Mọi tính năng gói Cá nhân",
       "5 người dùng",
-      "500 lượt hỏi AI/tháng",
+      "Hạn mức công bố khi mở bán",
       "Bản thảo không giới hạn",
       "Thư viện biểu mẫu của tổ chức",
       "Hỗ trợ ưu tiên",
@@ -93,11 +93,11 @@ const COMPARISON: Row[] = [
   },
   {
     // Khung theo NGÀY (quota v3), không phải tháng — Miễn phí 200/ngày, Cá nhân
-    // không giới hạn trong dùng bình thường (dấu * → lá chắn 500/ngày, giải
-    // thích ở FAQ ngay dưới). Doanh nghiệp/Tổ chức còn "Sắp ra mắt", giữ nguyên
-    // số cũ vì chúng chưa bị quota v3 chi phối.
+    // không giới hạn trong dùng bình thường (dấu * → xem chú thích dưới bảng).
+    // Doanh nghiệp/Tổ chức còn "Sắp ra mắt": quota v3 chưa có số cho hai gói
+    // này, nên KHÔNG bịa một con số — "Sắp công bố" thay vì số tháng cũ.
     label: "Lượt hỏi đáp mỗi ngày",
-    values: ["200", "Không giới hạn*", "500", "Không giới hạn"],
+    values: ["200", "Không giới hạn*", "Sắp công bố", "Sắp công bố"],
   },
   {
     // Miễn phí có bộ đếm bản thảo RIÊNG (3/ngày, 20/tháng), không dùng chung
@@ -386,6 +386,9 @@ function BangGiaPage() {
           </table>
         </div>
         <p className="mt-3 text-[12px] text-muted-foreground">
+          * Không giới hạn trong sử dụng bình thường; có lá chắn chống lạm dụng 500 lượt/ngày.
+        </p>
+        <p className="mt-1 text-[12px] text-muted-foreground">
           Giá hiển thị chưa bao gồm thuế GTGT.
         </p>
       </section>
