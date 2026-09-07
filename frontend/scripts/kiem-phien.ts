@@ -1,25 +1,14 @@
 /**
- * Kiểm chạy được cho phần phiên hội thoại (spec 2026-09-07 §8): câu "đang ẩn"
- * theo số, thời gian tương đối tất định, và hai predicate hình dạng với payload
- * thiếu trường — 2xx sai hình dạng phải rơi về `invalid_response`, không hiển
- * thị một danh sách rỗng trông như thật. Chạy: `npm run kiem-phien`.
+ * Kiểm chạy được cho phần phiên hội thoại (spec 2026-09-07 §8): thời gian
+ * tương đối tất định, và hai predicate hình dạng với payload thiếu trường —
+ * 2xx sai hình dạng phải rơi về `invalid_response`, không hiển thị một danh
+ * sách rỗng trông như thật. Chạy: `npm run kiem-phien`.
  */
 import assert from "node:assert/strict";
 import { chuanHoaLuot, laChiTietPhien, laDanhSachPhien } from "../src/lib/klaw.ts";
-import { cauPhienAn, tenGoi, thoiGianTuongDoi } from "../src/lib/phien.ts";
+import { thoiGianTuongDoi } from "../src/lib/phien.ts";
 
-// 1. Tên gói và câu ẩn.
-{
-  assert.equal(tenGoi("free"), "Miễn phí");
-  assert.equal(tenGoi("pro"), "Pro");
-  assert.equal(tenGoi("la"), "la");
-  assert.equal(
-    cauPhienAn("free", 10, 3),
-    "Gói Miễn phí giữ 10 phiên gần nhất. 3 phiên cũ hơn đang ẩn.",
-  );
-}
-
-// 2. Thời gian tương đối — mốc cố định để kiểm không lệch theo giờ chạy.
+// 1. Thời gian tương đối — mốc cố định để kiểm không lệch theo giờ chạy.
 {
   const moc = Date.parse("2026-09-07T10:00:00Z");
   const luc = (giay: number) => new Date(moc - giay * 1000).toISOString();
@@ -32,7 +21,7 @@ import { cauPhienAn, tenGoi, thoiGianTuongDoi } from "../src/lib/phien.ts";
   assert.equal(thoiGianTuongDoi("không phải ngày", moc), "");
 }
 
-// 3. Predicate: đủ trường thì qua, thiếu `items`/`luot` thì chặn.
+// 2. Predicate: đủ trường thì qua, thiếu `items`/`luot` thì chặn.
 {
   const phien = { id: "a", tieu_de: "t", so_luot: 1, tao_luc: "x", cap_nhat_luc: "y" };
   assert.ok(laDanhSachPhien({ plan: "free", luot_moi_phien: 10, tong: 1, items: [phien] }));
@@ -42,7 +31,7 @@ import { cauPhienAn, tenGoi, thoiGianTuongDoi } from "../src/lib/phien.ts";
   assert.equal(laChiTietPhien({ id: "a" }), false);
 }
 
-// 4. `chuanHoaLuot`: payload thiếu trường → `ketQua: null`, câu hỏi vẫn giữ.
+// 3. `chuanHoaLuot`: payload thiếu trường → `ketQua: null`, câu hỏi vẫn giữ.
 {
   const l = chuanHoaLuot({
     thu_tu: 1,
@@ -55,4 +44,4 @@ import { cauPhienAn, tenGoi, thoiGianTuongDoi } from "../src/lib/phien.ts";
   assert.equal(l.cauHoi, "Hỏi?");
   assert.equal(l.thuTu, 1);
 }
-console.info("kiem-phien: 4/4 đạt");
+console.info("kiem-phien: 3/3 đạt");

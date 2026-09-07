@@ -23,9 +23,10 @@
     "kiem-documents": "node scripts/kiem-documents.ts",
     "kiem-quay-lai": "node scripts/kiem-quay-lai.ts",
     "kiem-goi-y-soan-thao": "node scripts/kiem-goi-y-soan-thao.ts",
-    "kiem": "npm run typecheck && npm run lint && npm run kiem-trich-dan && npm run kiem-xep-trich-dan && npm run kiem-sse && npm run kiem-font && npm run kiem-lich-su && npm run kiem-van-xuoi && npm run kiem-ngay && npm run kiem-soat && npm run kiem-khung && npm run kiem-bang && npm run kiem-bang-ket-qua && npm run kiem-documents && npm run kiem-goi-y-soan-thao && npm run kiem-quay-lai && npm run kiem-phien && python3 scripts/do-tuong-phan.py && npm run build",
+    "kiem": "npm run typecheck && npm run lint && npm run kiem-trich-dan && npm run kiem-xep-trich-dan && npm run kiem-sse && npm run kiem-font && npm run kiem-lich-su && npm run kiem-van-xuoi && npm run kiem-ngay && npm run kiem-soat && npm run kiem-khung && npm run kiem-bang && npm run kiem-bang-ket-qua && npm run kiem-documents && npm run kiem-goi-y-soan-thao && npm run kiem-quay-lai && npm run kiem-phien && npm run kiem-han-muc && python3 scripts/do-tuong-phan.py && npm run build",
     "kiem-lich-su": "node scripts/kiem-lich-su.ts",
-    "kiem-phien": "node scripts/kiem-phien.ts"
+    "kiem-phien": "node scripts/kiem-phien.ts",
+    "kiem-han-muc": "node scripts/kiem-han-muc.ts"
   },
   "overrides": {
     "rolldown": "1.2.1"
