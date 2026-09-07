@@ -130,6 +130,19 @@ async def test_han_muc_khach_khong_header_401(client, cai_dat):
     assert (await client.get("/api/v1/han-muc")).status_code == 401
 
 
+async def test_han_muc_khach_khong_dem_duoc_thi_TU_CHOI_503_khong_mo_cua(client, cai_dat, monkeypatch):
+    """Cùng bất biến với nhánh đã đăng nhập: hỏng ở tầng đếm là TỪ CHỐI, không phải 500 rơi tự do."""
+    cai_dat(supabase_url=SUPABASE)
+
+    def no(khoa, cua_so_giay):
+        raise RuntimeError("Postgres ngã")
+
+    monkeypatch.setattr(bao_ve, "dem_cua_so", no)
+    kid = str(uuid.uuid4())
+    r = await client.get("/api/v1/han-muc", headers={"X-Khach-Id": kid})
+    assert r.status_code == 503
+
+
 async def test_han_muc_khong_dem_duoc_thi_TU_CHOI_503_khong_mo_cua(client, cai_dat, khoa_ky, monkeypatch):
     """Hỏng ở tầng đếm là TỪ CHỐI, không phải trả một con số đoán.
 

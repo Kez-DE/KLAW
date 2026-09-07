@@ -69,6 +69,16 @@ async def test_yeu_cau_nang_goi_201_409_422(client, khoa_ky, nguoi):
 
 
 @pytest.mark.asyncio
+async def test_yeu_cau_nang_goi_sub_chua_co_ho_so_404(client, cai_dat, khoa_ky):
+    """JWT hợp lệ nhưng chưa từng đăng nhập qua `POST /nguoi-dung` hay `cong_bao_ve`
+    ⇒ không có dòng `users` ⇒ 404, không phải 500 từ `NoResultFound`."""
+    cai_dat(supabase_url=SUPABASE)
+    sub = str(uuid.uuid4())
+    r = await client.post("/api/v1/nang-goi/yeu-cau", json={"goi_muon": "pro"}, headers=_bearer(khoa_ky, sub))
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_gia_han_chi_khi_con_7_ngay(client, khoa_ky, nguoi):
     h = _bearer(khoa_ky, nguoi)
     with get_engine().begin() as c:

@@ -23,6 +23,10 @@ class DangCho(ValueError):  # noqa: N818
     pass
 
 
+class ChuaCoHoSo(ValueError):  # noqa: N818
+    pass
+
+
 _SQL_USER = text("SELECT plan, plan_het_han FROM users WHERE sub = :sub")
 _SQL_TAO = text(
     "INSERT INTO yeu_cau_nang_goi (user_sub, loai, goi_hien_tai, goi_muon) VALUES (:sub, :loai, :ht, :muon)"
@@ -39,7 +43,9 @@ def tao_yeu_cau(sub: str, goi_muon: str) -> dict:
     if goi_muon not in d["goi"] or goi_muon == d["goi_mac_dinh"]:
         raise GoiKhongHopLe(goi_muon)
     with get_engine().connect() as c:
-        u = c.execute(_SQL_USER, {"sub": sub}).mappings().one()
+        u = c.execute(_SQL_USER, {"sub": sub}).mappings().one_or_none()
+    if u is None:  # JWT hợp lệ nhưng chưa có dòng `users` (`nguoi_dung_bat_buoc` không tự tạo)
+        raise ChuaCoHoSo()
     hieu_luc = plan_hieu_luc_tu(str(u["plan"]), u["plan_het_han"])
     if hieu_luc == goi_muon:
         het = u["plan_het_han"]

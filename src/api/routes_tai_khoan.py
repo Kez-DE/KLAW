@@ -86,7 +86,14 @@ async def han_muc_cua_toi(request: Request) -> HanMucResponse:
         if kid is None:
             raise HTTPException(status_code=401, detail=bao_ve.LOI_KHACH_DANG_NHAP)
         k = bao_ve._doc_han_muc()["khach"]
-        da_dung, mo_lai = await run_in_threadpool(bao_ve.dem_cua_so, f"khach:{kid}", 86400)
+        try:
+            da_dung, mo_lai = await run_in_threadpool(bao_ve.dem_cua_so, f"khach:{kid}", 86400)
+        except Exception as e:
+            logger.exception("han_muc: không đếm được lượt thử của khách %s — TỪ CHỐI", kid)
+            raise HTTPException(
+                status_code=503,
+                detail="Không đọc được lượt dùng thử, vui lòng thử lại.",
+            ) from e
         return HanMucResponse(
             ap_dung=True,
             plan="khach",
@@ -168,6 +175,8 @@ async def gui_yeu_cau(body: YeuCauNangGoiRequest, nguoi: dict = Depends(nguoi_du
         ) from e
     except nang_goi.DangCho as e:
         raise HTTPException(status_code=409, detail="Bạn đã có một yêu cầu đang chờ duyệt.") from e
+    except nang_goi.ChuaCoHoSo as e:
+        raise HTTPException(status_code=404, detail="Chưa có hồ sơ cho tài khoản này.") from e
 
 
 @router.get("/nang-goi/yeu-cau", response_model=YeuCauNangGoiOut | None)
