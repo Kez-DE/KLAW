@@ -9,7 +9,7 @@
 
 Người thứ hai vào khoá đã thấy hàng của người thứ nhất.
 
-`kiem_han_muc_thang` đọc `traces`, mà `traces` chỉ được ghi ở CUỐI một request
+`kiem_han_muc` đọc `traces`, mà `traces` chỉ được ghi ở CUỐI một request
 dài 10–50 giây, trong một transaction KHÁC, không khoá. Khoá lượt đọc vì thế chỉ
 xếp hàng các lượt đọc: cả chùm vẫn đọc đúng con số TRƯỚC chùm, vì chưa ai trong
 chùm kịp ghi gì. Đo được, cùng kịch bản (đã dùng 9/10, 25 request song song):
@@ -67,7 +67,7 @@ def test_han_muc_thang_KHONG_ro_khi_co_chum_song_song(monkeypatch):
     Ai làm phần đặt chỗ chỉ cần gỡ `xfail` — test này đã mô tả sẵn tiêu chí đạt.
     """
     sub = str(uuid.uuid4())
-    monkeypatch.setattr(bao_ve, "han_muc_thang", lambda plan: _HAN_MUC)
+    monkeypatch.setattr(bao_ve, "han_muc", lambda plan, khoa: _HAN_MUC)
 
     try:
         with get_engine().begin() as c:
@@ -76,7 +76,7 @@ def test_han_muc_thang_KHONG_ro_khi_co_chum_song_song(monkeypatch):
 
         def mot() -> bool:
             try:
-                bao_ve.kiem_han_muc_thang(sub, "free")
+                bao_ve.kiem_han_muc(sub, "free", "/api/v1/tra-cuu")
                 return True
             except HTTPException:
                 return False

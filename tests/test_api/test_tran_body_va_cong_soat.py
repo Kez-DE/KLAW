@@ -121,13 +121,13 @@ async def test_soat_di_qua_cong_rate_limit(client, cai_dat, monkeypatch):
     assert goi, "kiem_rate_limit không hề được gọi trên đường /soat"
 
 
-async def test_soat_KHONG_tru_han_muc_thang(client, cai_dat, monkeypatch):
+async def test_soat_KHONG_tru_han_muc_cua_tai_khoan(client, cai_dat, monkeypatch):
     """`ENDPOINT_TON_LLM` cố ý loại `/soat` — nó không gọi LLM một lần nào, và
     trừ lượt của người dùng cho nó là bán cho họ thứ hệ thống không hề mua."""
     cai_dat(api_key="khoa-that")
     monkeypatch.setattr(
-        bao_ve, "kiem_han_muc_thang",
-        lambda *a: pytest.fail("/soat không được đụng tới hạn mức tháng"),
+        bao_ve, "kiem_han_muc",
+        lambda *a: pytest.fail("/soat không được đụng tới hạn mức của tài khoản"),
     )
     await client.post("/api/v1/soat", json=_HOP_LE)
     assert "/api/v1/soat" not in bao_ve.ENDPOINT_TON_LLM

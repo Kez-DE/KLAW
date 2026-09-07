@@ -287,7 +287,9 @@ async def test_vuot_rate_limit_chan_TRUOC_khi_graph_chay(client, cai_dat, monkey
     assert (await client.post("/api/v1/tra-cuu", json=_CAU_HOI, headers=h)).status_code == 200
     r = await client.post("/api/v1/tra-cuu", json=_CAU_HOI, headers=h)
     assert r.status_code == 429
-    assert r.headers.get("Retry-After") == "60"
+    # `Retry-After` là số giây tới khi lượt CŨ NHẤT rời cửa sổ trượt, không phải
+    # cả cửa sổ: lượt thứ nhất đã ở trong giỏ vài trăm ms nên 59 cũng đúng như 60.
+    assert 0 < int(r.headers["Retry-After"]) <= 60
 
 
 @pytest.mark.integration

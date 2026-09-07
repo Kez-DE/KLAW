@@ -67,7 +67,7 @@ def chan_nhip(monkeypatch):
     """Cổng nhịp đã ĐẦY: mọi lượt gọi đều 429."""
     khoa_da_dem = []
 
-    def chan(khoa, so_luot=None):
+    def chan(khoa, so_luot=None, cua_so_giay=None):
         khoa_da_dem.append(khoa)
         raise bao_ve.HTTPException(status_code=429, detail="quá nhịp")
 
@@ -97,7 +97,7 @@ async def test_kid_la_THAT_SU_ep_mot_luot_nap_JWKS(client, cai_dat, dem_jwks, kh
     """Chứng minh đường tấn công có thật, không phải giả thuyết: khi cổng nhịp
     KHÔNG chặn, mỗi `kid` lạ đúng là một lượt ra mạng."""
     cai_dat(supabase_url=_URL)
-    monkeypatch.setattr(bao_ve, "kiem_rate_limit", lambda khoa, so_luot=None: None)
+    monkeypatch.setattr(bao_ve, "kiem_rate_limit", lambda khoa, so_luot=None, cua_so_giay=None: None)
     khoa, dem = dem_jwks
 
     for _ in range(3):
@@ -116,20 +116,25 @@ async def test_nguoi_da_dang_nhap_van_bi_dem_theo_ca_IP_va_sub(
     Hai giỏ, hai mục đích: giỏ IP là lá chắn chạy được TRƯỚC khi biết ai đang
     gọi, giỏ `sub` là hạn mức thật của người đó. Bỏ giỏ thứ hai là để hai người
     sau cùng một NAT dùng chung một hạn mức.
+
+    Giỏ thứ ba (`ip-ngay:`) nằm GIỮA hai giỏ kia và chỉ có khi auth đã bật: nó
+    chặn một người thay `X-Khach-Id` mỗi request để mua vô hạn lượt khách.
     """
     cai_dat(supabase_url=_URL)
     khoa, _ = dem_jwks
     khoa_dem: list[str] = []
     monkeypatch.setattr(
-        bao_ve, "kiem_rate_limit", lambda k, so_luot=None: khoa_dem.append(k)
+        bao_ve, "kiem_rate_limit",
+        lambda k, so_luot=None, cua_so_giay=None: khoa_dem.append(k),
     )
 
     r = await client.post("/api/v1/tra-cuu", json=_CAU_HOI, headers=_token(khoa, "khoa-that"))
 
     assert r.status_code == 200
-    assert len(khoa_dem) == 2, f"đếm nhịp {len(khoa_dem)} lượt: {khoa_dem}"
+    assert len(khoa_dem) == 3, f"đếm nhịp {len(khoa_dem)} lượt: {khoa_dem}"
     assert khoa_dem[0].startswith("chan-ip:"), "lượt ĐẦU phải là lá chắn theo IP"
-    assert khoa_dem[1].startswith("user:"), "lượt SAU phải theo sub"
+    assert khoa_dem[1].startswith("ip-ngay:"), "lượt GIỮA phải là lá chắn ngày theo IP"
+    assert khoa_dem[2].startswith("user:"), "lượt SAU phải theo sub"
 
 
 async def test_chua_cau_hinh_auth_van_ham_nhip_theo_IP_truoc(client, cai_dat, chan_nhip,

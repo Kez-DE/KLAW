@@ -1,46 +1,50 @@
-"""`GET /han-muc` · `POST /nguoi-dung` — tài khoản người dùng (Pha 2).
+"""`GET /han-muc` · `POST /nguoi-dung` · `GET /ho-so` · `GET|POST /nang-goi/yeu-cau`
+— tài khoản người dùng (spec 2026-09-07 §6).
 
-`bao_ve.kiem_han_muc_thang` đã cưỡng chế "50 lượt hỏi AI/tháng" từ Plan 4b,
+`bao_ve.kiem_han_muc` cưỡng chế hạn mức ngày/tháng của gói (spec 2A §4.2),
 nhưng người dùng không có cách nào biết mình còn bao nhiêu cho tới khi bị 429
-giữa một câu hỏi. Hai endpoint này lấp đúng khoảng đó, và cả hai chỉ ĐỌC LẠI
-thứ cổng bảo vệ đã đếm — không bộ đếm thứ hai nào được dựng. Hai bộ đếm sẽ lệch
-nhau và không cách nào biết bên nào đúng; cùng lý lẽ đã khiến
-`bao_ve.chi_phi_hom_nay` đọc thẳng `traces` thay vì nuôi một biến riêng.
+giữa một câu hỏi. Các endpoint này lấp đúng khoảng đó, và chỉ ĐỌC LẠI thứ cổng
+bảo vệ đã đếm — không bộ đếm thứ hai nào được dựng. Hai bộ đếm sẽ lệch nhau và
+không cách nào biết bên nào đúng; cùng lý lẽ đã khiến `bao_ve.chi_phi_hom_nay`
+đọc thẳng `traces` thay vì nuôi một biến riêng.
 
-## Vì sao KHÔNG dùng `Depends(cong_bao_ve)`
+## Vì sao `/han-muc` KHÔNG dùng `Depends(cong_bao_ve)`
 
-`cong_bao_ve` ném 429 khi hết hạn mức tháng. Đặt nó trước `/han-muc` nghĩa là
+`cong_bao_ve` ném 429 khi hết hạn mức. Đặt nó trước `/han-muc` nghĩa là
 đúng endpoint sinh ra để nói "bạn hết lượt rồi" sẽ tự khoá mình lại ĐÚNG LÚC
 người dùng cần nó nhất. Nó cũng ghi một lượt vào `rate_limit_luot` cho mỗi lần
 mở trang tài khoản — xem hạn mức không phải là dùng hạn mức.
 
-Cái được giữ lại là hai cổng đầu (`kiem_api_key` → danh tính), vì cả hai
-endpoint đều nói về MỘT người cụ thể và không trả lời được nếu không biết đó là
-ai. Không cổng nào bị bỏ vì lười: hai endpoint này không gọi LLM, không gọi
-embedding, và đọc đúng hai dòng DB.
+Cái được giữ lại là hai cổng đầu (`kiem_api_key` → danh tính), vì endpoint đều
+nói về MỘT người cụ thể và không trả lời được nếu không biết đó là ai. Không
+cổng nào bị bỏ vì lười: các endpoint này không gọi LLM, không gọi embedding.
 """
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
 
-from src.models.schemas import HanMucResponse, NguoiDungResponse
-from src.services import bao_ve
-from src.services.bao_ve import (
-    _dau_thang_sau_utc,
-    han_muc_thang,
-    kiem_api_key,
-    xac_thuc_nguoi_goi,
+from src.models.schemas import (
+    HanMucResponse,
+    HoatDongNgay,
+    HoSoResponse,
+    MucHanMuc,
+    NguoiDungResponse,
+    PhanLoai,
+    PhienHanMuc,
+    YeuCauNangGoiOut,
+    YeuCauNangGoiRequest,
 )
+from src.services import bao_ve, ho_so, nang_goi, xac_thuc
+from src.services.bao_ve import kiem_api_key, nguoi_dung_bat_buoc, xac_thuc_nguoi_goi
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 GHI_CHU_CACHE = (
-    "Chỉ lượt gọi LLM thật mới tính. Lượt trả lời lấy từ bộ đệm KHÔNG tính vào "
-    "hạn mức (traces.cache_hit), và các trang tra cứu văn bản thì không tính bao giờ."
+    "Lượt trả lời từ bộ đệm, câu ngoài phạm vi và lượt lỗi không tính. Tra cứu luật, soát văn bản không bao giờ tính."
 )
 GHI_CHU_TAT = (
     "Hạn mức theo người dùng chưa bật trên bản triển khai này (Supabase auth chưa "
@@ -61,13 +65,52 @@ async def _nguoi_goi(request: Request) -> dict | None:
 
 
 @router.get("/han-muc", response_model=HanMucResponse)
-async def han_muc(request: Request) -> HanMucResponse:
-    """Hạn mức tháng còn lại. KHÔNG đi qua `cong_bao_ve` — xem docstring module."""
-    nguoi = await _nguoi_goi(request)
-    if nguoi is None:
+async def han_muc_cua_toi(request: Request) -> HanMucResponse:
+    """Hạn mức của người gọi. KHÔNG đi qua `cong_bao_ve` (không tốn lượt, không tự khoá)."""
+    bao_ve.kiem_api_key(request)
+    tz = str(bao_ve.mui_gio())
+    nguoi = await run_in_threadpool(bao_ve.xac_thuc_nguoi_goi_hoac_none, request)
+    if nguoi is None and not xac_thuc.da_cau_hinh():
         return HanMucResponse(
-            ap_dung=False, plan=None, han_muc=None, da_dung=None, con_lai=None,
-            dat_lai_luc=_dau_thang_sau_utc(), ghi_chu=GHI_CHU_TAT,
+            ap_dung=False,
+            plan=None,
+            ten_goi=None,
+            mui_gio=tz,
+            muc=[],
+            phien=PhienHanMuc(luot_toi_da=None),
+            het_han_luc=None,
+            ghi_chu=GHI_CHU_TAT,
+        )
+    if nguoi is None:
+        kid = bao_ve.khach_id_tu_request(request)
+        if kid is None:
+            raise HTTPException(status_code=401, detail=bao_ve.LOI_KHACH_DANG_NHAP)
+        k = bao_ve._doc_han_muc()["khach"]
+        try:
+            da_dung, mo_lai = await run_in_threadpool(bao_ve.dem_cua_so, f"khach:{kid}", 86400)
+        except Exception as e:
+            logger.exception("han_muc: không đếm được lượt thử của khách %s — TỪ CHỐI", kid)
+            raise HTTPException(
+                status_code=503,
+                detail="Không đọc được lượt dùng thử, vui lòng thử lại.",
+            ) from e
+        return HanMucResponse(
+            ap_dung=True,
+            plan="khach",
+            ten_goi="Dùng thử",
+            mui_gio=tz,
+            muc=[
+                MucHanMuc(
+                    khoa="khach_24h",
+                    nhan="Lượt thử 24 giờ",
+                    da_dung=da_dung,
+                    han_muc=int(k["hoi_dap_24h"]),
+                    dat_lai_luc=mo_lai,
+                )
+            ],
+            phien=PhienHanMuc(luot_toi_da=int(k["hoi_dap_24h"])),
+            het_han_luc=None,
+            ghi_chu="Đăng nhập miễn phí để có 200 lượt mỗi ngày, lưu phiên và soạn văn bản.",
         )
 
     # Gọi qua `bao_ve.<tên>` chứ không tên đã import: `monkeypatch.setattr` của
@@ -76,25 +119,70 @@ async def han_muc(request: Request) -> HanMucResponse:
     sub = nguoi["sub"]
     try:
         plan = await run_in_threadpool(bao_ve.ghi_nhan_nguoi_dung, sub, nguoi["email"])
-        da_dung = await run_in_threadpool(bao_ve.dem_luot_thang, sub)
+        muc = await run_in_threadpool(bao_ve.mo_ta_muc, sub, plan)
+        het_han = await run_in_threadpool(bao_ve.het_han_cua, sub)
     except Exception as e:
         # Hỏng ở tầng đếm là TỪ CHỐI, không phải trả một con số đoán. Một
-        # `con_lai` bịa ra khi DB hỏng tệ hơn một lỗi — người dùng tin nó, rồi
-        # gõ câu hỏi thứ 51 và nhận 429 mà không hiểu vì sao.
+        # `da_dung` bịa ra khi DB hỏng tệ hơn một lỗi — người dùng tin nó, rồi
+        # gõ câu hỏi tiếp theo và nhận 429 mà không hiểu vì sao.
         logger.exception("han_muc: không đọc được hạn mức của %s — TỪ CHỐI", sub)
         raise HTTPException(
             status_code=503,
             detail="Không đọc được hạn mức của tài khoản, vui lòng thử lại.",
         ) from e
 
-    muc = han_muc_thang(plan)
     return HanMucResponse(
-        ap_dung=True, plan=plan, han_muc=muc, da_dung=da_dung,
-        # `max(0, ...)`: hạn mức có thể bị hạ (đổi gói) sau khi người dùng đã
-        # tiêu quá — "còn -949 lượt" không phải một câu tiếng Việt có nghĩa.
-        con_lai=max(0, muc - da_dung),
-        dat_lai_luc=_dau_thang_sau_utc(), ghi_chu=GHI_CHU_CACHE,
+        ap_dung=True,
+        plan=plan,
+        ten_goi=bao_ve.ten_goi(plan),
+        mui_gio=tz,
+        muc=[MucHanMuc(**m) for m in muc],
+        phien=PhienHanMuc(luot_toi_da=bao_ve.han_muc(plan, "luot_moi_phien")),
+        het_han_luc=het_han,
+        ghi_chu=GHI_CHU_CACHE,
     )
+
+
+@router.get("/ho-so", response_model=HoSoResponse)
+async def ho_so_cua_toi(nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> HoSoResponse:
+    d = await run_in_threadpool(ho_so.tong_hop, nguoi["sub"])
+    if d is None:
+        raise HTTPException(status_code=404, detail="Chưa có hồ sơ cho tài khoản này.")
+    plan = bao_ve.plan_hieu_luc_tu(d["plan_tho"], d["plan_het_han"])
+    return HoSoResponse(
+        email=d["email"],
+        plan=plan,
+        ten_goi=bao_ve.ten_goi(plan),
+        tao_luc=d["tao_luc"],
+        het_han_luc=d["plan_het_han"],
+        so_phien=d["so_phien"],
+        tong_hoi_dap=d["tong_hoi_dap"],
+        tong_ban_thao=d["tong_ban_thao"],
+        hoat_dong=[HoatDongNgay(**h) for h in d["hoat_dong"]],
+        phan_loai=[PhanLoai(**p) for p in d["phan_loai"]],
+    )
+
+
+@router.post("/nang-goi/yeu-cau", response_model=YeuCauNangGoiOut, status_code=201)
+async def gui_yeu_cau(body: YeuCauNangGoiRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> YeuCauNangGoiOut:
+    try:
+        return YeuCauNangGoiOut(**await run_in_threadpool(nang_goi.tao_yeu_cau, nguoi["sub"], body.goi_muon))
+    except nang_goi.GoiKhongHopLe as e:
+        raise HTTPException(status_code=422, detail="Gói không hợp lệ.") from e
+    except nang_goi.GoiConHieuLuc as e:
+        raise HTTPException(
+            status_code=422, detail="Gói còn hiệu lực, gia hạn được từ 7 ngày trước khi hết hạn."
+        ) from e
+    except nang_goi.DangCho as e:
+        raise HTTPException(status_code=409, detail="Bạn đã có một yêu cầu đang chờ duyệt.") from e
+    except nang_goi.ChuaCoHoSo as e:
+        raise HTTPException(status_code=404, detail="Chưa có hồ sơ cho tài khoản này.") from e
+
+
+@router.get("/nang-goi/yeu-cau", response_model=YeuCauNangGoiOut | None)
+async def yeu_cau_moi_nhat(nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> YeuCauNangGoiOut | None:
+    r = await run_in_threadpool(nang_goi.moi_nhat, nguoi["sub"])
+    return YeuCauNangGoiOut(**r) if r is not None else None
 
 
 @router.post("/nguoi-dung", response_model=NguoiDungResponse)
@@ -114,13 +202,11 @@ async def nguoi_dung(request: Request) -> NguoiDungResponse:
         # KHÔNG 200 với một `sub` bịa: đó là dữ liệu rác vĩnh viễn trong đúng
         # bảng mà hạn mức tháng đếm theo. 501 nói đúng sự thật — tính năng này
         # cần một thứ bản triển khai hiện tại không có.
-        raise HTTPException(status_code=501, detail=(
-            "Chưa cấu hình xác thực (Supabase) — không có danh tính nào để ghi nhận."
-        ))
-    try:
-        plan = await run_in_threadpool(
-            bao_ve.ghi_nhan_nguoi_dung, nguoi["sub"], nguoi["email"]
+        raise HTTPException(
+            status_code=501, detail=("Chưa cấu hình xác thực (Supabase) — không có danh tính nào để ghi nhận.")
         )
+    try:
+        plan = await run_in_threadpool(bao_ve.ghi_nhan_nguoi_dung, nguoi["sub"], nguoi["email"])
     except Exception as e:
         logger.exception("nguoi_dung: không ghi được dòng users (%s)", nguoi["sub"])
         raise HTTPException(

@@ -74,19 +74,30 @@ def test_phien_cua_nguoi_khac_la_None(nguoi):
     assert hoi_thoai.xoa_mem(str(uuid.uuid4()), pid) is False
 
 
-def test_free_giu_N_phien_gan_nhat_va_xoa_thi_hien_lai(nguoi, monkeypatch):
-    monkeypatch.setattr(hoi_thoai, "phien_luu_toi_da", lambda plan: 3)  # gói thu nhỏ để test nhanh
-    ids = [hoi_thoai.tao_phien(nguoi, f"câu {i}") for i in range(5)]
-    for pid in ids:  # cập nhật cap_nhat_luc tăng dần theo thứ tự tạo
+def test_danh_sach_khong_an_va_dem_luot(nguoi):
+    ids = [hoi_thoai.tao_phien(nguoi, f"câu {i}") for i in range(3)]
+    for pid in ids:
         hoi_thoai.ghi_luot(pid, "q", PAYLOAD, None)
-    items, tong_hien, tong_an = hoi_thoai.danh_sach(nguoi, "free", limit=20, offset=0)
-    assert (tong_hien, tong_an) == (3, 2)
-    assert [i["id"] for i in items] == list(reversed(ids[2:]))
-    assert hoi_thoai.phien_bi_an(nguoi, "free", ids[0]) is True
-    assert hoi_thoai.phien_bi_an(nguoi, "free", ids[4]) is False
-    assert hoi_thoai.xoa_mem(nguoi, ids[4]) is True
-    items, tong_hien, tong_an = hoi_thoai.danh_sach(nguoi, "free", limit=20, offset=0)
-    assert (tong_hien, tong_an) == (3, 1) and hoi_thoai.phien_bi_an(nguoi, "free", ids[1]) is False
+    hoi_thoai.ghi_luot(ids[2], "q2", PAYLOAD, None)
+    items, tong = hoi_thoai.danh_sach(nguoi, limit=20, offset=0)
+    assert tong == 3 and [i["id"] for i in items] == list(reversed(ids))
+    assert hoi_thoai.dem_luot(ids[2]) == 2 and hoi_thoai.dem_luot(ids[0]) == 1
+
+
+def test_nhap_phien_tao_phien_va_ghi_dung_thu_tu(nguoi):
+    pid = hoi_thoai.nhap_phien(
+        nguoi,
+        [
+            {"cau_hoi": "Câu một?", "tra_loi": PAYLOAD, "trace_id": "t1"},
+            {"cau_hoi": "Câu hai?", "tra_loi": PAYLOAD, "trace_id": None},
+        ],
+    )
+    ct = hoi_thoai.chi_tiet(nguoi, pid)
+    assert ct["tieu_de"] == "Câu một?"
+    assert [(lu["thu_tu"], lu["cau_hoi"], lu["trace_id"]) for lu in ct["luot"]] == [
+        (1, "Câu một?", "t1"),
+        (2, "Câu hai?", None),
+    ]
 
 
 def test_doi_ten_va_xoa_mem(nguoi):
@@ -94,4 +105,4 @@ def test_doi_ten_va_xoa_mem(nguoi):
     assert hoi_thoai.doi_ten(nguoi, pid, "Tên mới")["tieu_de"] == "Tên mới"
     assert hoi_thoai.xoa_mem(nguoi, pid) is True
     assert hoi_thoai.lay_phien(nguoi, pid) is None
-    assert hoi_thoai.danh_sach(nguoi, "free", 20, 0)[1] == 0
+    assert hoi_thoai.danh_sach(nguoi, 20, 0)[1] == 0

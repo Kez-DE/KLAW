@@ -45,9 +45,9 @@ from src.models.schemas import (
     VanBanPhamViOut,
     VanBanProvisionsResponse,
 )
-from src.services import cache_tra_loi
+from src.services import bao_ve, cache_tra_loi
 from src.services import hoi_thoai as hoi_thoai_svc
-from src.services.bao_ve import cong_bao_ve, cong_nhe, plan_cua
+from src.services.bao_ve import cong_bao_ve, cong_bao_ve_khach, cong_nhe
 from src.services.checklist import KHUNG_HOP_DONG, Checklist
 from src.services.db import get_engine
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
@@ -146,8 +146,8 @@ def _state_vao(req: TraCuuRequest, as_of: date, trace_id: str) -> dict:
 
 async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[TraCuuRequest, str | None]:
     """Gắn lượt hỏi vào một phiên (spec 2026-09-07 §5.2). Ẩn danh → bỏ qua `hoi_thoai_id`.
-    Có danh tính: chưa có id → tạo phiên; có id → kiểm chủ (404), kiểm ẩn theo gói
-    (403), nạp `lich_su` từ máy chủ và BỎ `lich_su` client gửi.
+    Có danh tính: chưa có id → tạo phiên; có id → kiểm chủ (404), kiểm đủ trần lượt
+    của gói → 403, nạp `lich_su` từ máy chủ và BỎ `lich_su` client gửi.
 
     Lỗi DB ở đây KHÔNG bị nuốt: 500 tại chỗ này nghĩa là chính Postgres vốn đã gác
     request ở `cong_bao_ve` đang chết, và âm thầm đánh rơi một lượt của người đã
@@ -161,9 +161,10 @@ async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[Tra
     pid = str(req.hoi_thoai_id)
     if await run_in_threadpool(hoi_thoai_svc.lay_phien, user_sub, pid) is None:
         raise HTTPException(status_code=404, detail=hoi_thoai_svc.LOI_KHONG_THAY)
-    plan = await run_in_threadpool(plan_cua, user_sub)
-    if await run_in_threadpool(hoi_thoai_svc.phien_bi_an, user_sub, plan, pid):
-        raise HTTPException(status_code=403, detail=hoi_thoai_svc.LOI_PHIEN_AN)
+    plan = await run_in_threadpool(bao_ve.plan_hieu_luc, user_sub)
+    tran = bao_ve.han_muc(plan, "luot_moi_phien")
+    if await run_in_threadpool(hoi_thoai_svc.dem_luot, pid) >= tran:
+        raise HTTPException(status_code=403, detail=hoi_thoai_svc.LOI_PHIEN_DAY.format(n=tran))
     lich_su = await run_in_threadpool(hoi_thoai_svc.lich_su_gan_nhat, pid)
     return req.model_copy(update={"lich_su": [LuotTruoc(**luot) for luot in lich_su]}), pid
 
@@ -367,9 +368,10 @@ async def chay_tra_cuu(
         # lúc OpenRouter trả 429/5xx, tức đúng lúc trần chi phí ngày và hạn mức
         # tháng (cả hai ĐỌC bảng này) cần chính xác nhất.
         #
-        # `result_type='loi'` là một giá trị MỚI của cột: `dem_luot_thang` đếm
-        # `count(*)` nên dòng này trừ đúng một lượt hạn mức, còn phép lọc theo
-        # `result_type` của chương đánh giá vẫn tách được nó khỏi lượt thành công.
+        # `result_type='loi'` là một giá trị MỚI của cột, và `dem_luot` CỐ Ý loại
+        # nó khỏi phép đếm hạn mức: một lượt hỏng không phải thứ người dùng mua.
+        # Dòng vẫn được ghi vì trần chi phí ngày và chương đánh giá đều cần nó —
+        # `result_type` là thứ tách nó khỏi một lượt thành công ở cả hai chỗ.
         if loi is not None:
             await _ghi_traces_nhe(
                 trace_id, "/api/v1/tra-cuu", req.query, config_name,
@@ -430,11 +432,11 @@ def tra_cuu_response(payload: dict, trace_id: str, config_name: str) -> TraCuuRe
 
 @router.post("/tra-cuu", response_model=TraCuuResponse)
 async def tra_cuu(
-    req: TraCuuRequest, response: Response, user_sub: str | None = Depends(cong_bao_ve)
+    req: TraCuuRequest, response: Response, user_sub: str | None = Depends(cong_bao_ve_khach)
 ) -> TraCuuResponse:
-    """`Depends(cong_bao_ve)` — API key, danh tính, rate limit (theo `sub` khi
-    đã đăng nhập, theo IP khi chưa), hạn mức tháng của người dùng, trần chi phí
-    ngày — chạy TRƯỚC thân hàm này. Endpoint này gọi LLM tối đa 5 lần, p95 50s,
+    """`Depends(cong_bao_ve_khach)` — API key, danh tính, rate limit (theo `sub` khi
+    đã đăng nhập, theo `khach:{id}` khi là khách, theo IP khi auth chưa cấu hình),
+    hạn mức ngày/tháng của người dùng, trần chi phí ngày — chạy TRƯỚC thân hàm này. Endpoint này gọi LLM tối đa 5 lần, p95 50s,
     tới $0,00735 một request; không cổng nào ở đó là phòng xa (xem `bao_ve.py`).
     """
     trace_id = str(uuid.uuid4())
@@ -848,8 +850,10 @@ async def soan_thao(
     (`build_graph_soan_thao`). `self_audit=True` luôn đúng ở đây — draft_generate
     CHỈ được gọi trên đường sinh của hệ thống (xem docstring node đó).
 
-    Cùng `Depends(cong_bao_ve)` với `/tra-cuu`: endpoint này cũng tốn một lượt
-    LLM thật (`draft_generate`). CỐ Ý không cache — output là một văn bản soạn
+    `Depends(cong_bao_ve)`, KHÔNG phải bản `_khach` của `/tra-cuu`: endpoint này
+    cũng tốn một lượt LLM thật (`draft_generate`), nhưng một bản thảo phải thuộc
+    về một tài khoản để người ta còn mở lại được nó — khách chưa đăng nhập nhận
+    401 ở đây thay vì một cửa sổ thử. CỐ Ý không cache — output là một văn bản soạn
     theo `facts` cụ thể của một quan hệ lao động cụ thể, tức khoá cache sẽ là
     chính khối facts đó (tên, lương, thời hạn…), và cache nó là lưu dữ liệu cá
     nhân thêm một chỗ nữa để đổi lấy một tỉ lệ hit gần như bằng không.

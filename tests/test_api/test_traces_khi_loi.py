@@ -5,12 +5,13 @@ mất khỏi sổ. Đường `/tra-cuu` gọi LLM tối đa 5 lần: hỏng ở 
 lượt ĐÃ TRẢ TIỀN không để lại một dòng nào.
 
 Chế độ hỏng này kích hoạt đúng lúc OpenRouter trả 429/5xx — tức đúng lúc trần
-chi phí ngày và hạn mức tháng cần chính xác nhất, vì cả hai ĐỌC bảng `traces`.
-Càng hỏng nhiều thì hai cổng đó càng đếm thiếu, theo đúng hướng nguy hiểm.
+chi phí ngày cần chính xác nhất, vì nó ĐỌC bảng `traces`. Càng hỏng nhiều thì
+cổng đó càng đếm thiếu, theo đúng hướng nguy hiểm.
 
-`_tong_hop_traces` dùng `.get(k) or 0` nên một dòng `loi` thiếu khoá không nổ;
-và `dem_luot_thang` đếm `count(*)`, nên dòng đó TRỪ đúng một lượt hạn mức tháng
-— chính là điều làm request hỏng thôi miễn phí.
+`_tong_hop_traces` dùng `.get(k) or 0` nên một dòng `loi` thiếu khoá không nổ.
+Dòng đó KHÔNG trừ hạn mức của người dùng (`dem_luot` loại `result_type='loi'`
+— một lượt hỏng không phải thứ họ mua), nhưng chi phí các node ĐÃ chạy thì có
+thật và phải vào trần chi phí ngày.
 """
 
 import httpx
@@ -78,7 +79,7 @@ async def test_tra_cuu_hong_van_GHI_mot_dong_traces(client, so_sach, monkeypatch
     assert len(so_sach) == 1, "request hỏng không để lại dòng traces nào"
     assert so_sach[0]["endpoint"] == "/api/v1/tra-cuu"
     assert so_sach[0]["st"]["result_type"] == "loi"
-    # `cache_hit=False` là điều kiện để `dem_luot_thang` ĐẾM dòng này.
+    # `cache_hit=False` là một trong các điều kiện `dem_luot` xét khi ĐẾM.
     assert so_sach[0]["cache_hit"] is False
 
 
@@ -166,8 +167,9 @@ async def test_dong_loi_that_su_nam_trong_bang_traces(client, monkeypatch):
     """Không giả lập `_ghi_traces`: ghi thật, rồi ĐỌC LẠI từ Postgres.
 
     Test spy ở trên chứng minh đường gọi; test này chứng minh cột `result_type`
-    nhận được giá trị mới và dòng đó đếm được — tức hạn mức tháng
-    (`dem_luot_thang`, `count(*)`) thật sự trừ một lượt cho request hỏng.
+    thật sự nhận được giá trị mới trong Postgres — đó là thứ `dem_luot` dựa vào
+    để KHÔNG trừ một lượt hạn mức cho request hỏng, và là thứ chương đánh giá
+    dùng để tách lượt hỏng khỏi lượt thành công.
     """
     from sqlalchemy import text
 
