@@ -73,10 +73,19 @@ function goiY(kind: ApiErrorKind): string | null {
 interface BaoLoiProps {
   loi: ApiError;
   onThuLai?: () => void;
+  /**
+   * Mở màn nâng gói. Chỉ truyền khi 429 đến từ HẠN MỨC đã cạn và người dùng
+   * đang ở một gói nâng lên được — nút này không có nghĩa gì với lỗi mạng.
+   */
+  onNangGoi?: () => void;
 }
 
-export function BaoLoi({ loi, onThuLai }: BaoLoiProps) {
+export function BaoLoi({ loi, onThuLai, onNangGoi }: BaoLoiProps) {
   const them = goiY(loi.kind);
+  // 429 KHÔNG kèm nút thử lại: bấm lại ngay chỉ nhận đúng 429 đó thêm một lần.
+  // Ba nguyên nhân của mã này (quá nhịp, hết hạn mức, trần chi phí) đều cần
+  // thời gian hoặc một gói khác, không cần thêm một cú bấm.
+  const hienThuLai = onThuLai !== undefined && loi.kind !== "rate_limited";
   return (
     <div
       role="alert"
@@ -101,15 +110,28 @@ export function BaoLoi({ loi, onThuLai }: BaoLoiProps) {
           Mã lỗi HTTP {loi.status} · {loi.kind}
         </p>
       )}
-      {onThuLai !== undefined && (
-        <button
-          type="button"
-          onClick={onThuLai}
-          className="focus-brass mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-primary px-4 text-[15px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          <RotateCcw className="size-4" aria-hidden />
-          Thử lại
-        </button>
+      {(hienThuLai || onNangGoi !== undefined) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {hienThuLai && (
+            <button
+              type="button"
+              onClick={onThuLai}
+              className="focus-brass inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-primary px-4 text-[15px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <RotateCcw className="size-4" aria-hidden />
+              Thử lại
+            </button>
+          )}
+          {onNangGoi !== undefined && (
+            <button
+              type="button"
+              onClick={onNangGoi}
+              className="focus-brass inline-flex min-h-11 cursor-pointer items-center rounded-lg bg-primary px-4 text-[15px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Nâng cấp
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
