@@ -35,6 +35,5 @@ export function thoiGianTuongDoi(iso: string, bayGio: number = Date.now()): stri
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-    timeZone: "UTC",
   }).format(t);
 }

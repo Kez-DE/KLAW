@@ -73,8 +73,14 @@ function Luot({
   );
 }
 
+/** `?phien=` chỉ nhận UUID. Dùng ở CẢ `validateSearch` và lúc đọc trong component. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function ManHoiKlaw() {
-  const { q: cauHoiTrenUrl, phien: phienId } = Route.useSearch();
+  const { q: cauHoiTrenUrl, phien: phienTho } = Route.useSearch();
+  // Router (TanStack 1.170, non-strict search) trộn search THÔ của route cha ĐÈ lên
+  // kết quả `validateSearch`, nên `?phien=rac` vẫn tới đây — kiểm lại trước khi gọi API.
+  const phienId = typeof phienTho === "string" && UUID.test(phienTho) ? phienTho : undefined;
   const traCuu = useTraCuu();
   const doiChieu = useDoiChieu();
   const haiCot = useHaiCot();
@@ -509,7 +515,7 @@ function ManHoiKlaw() {
                     ref={oHoi}
                     rows={1}
                     value={nhap}
-                    disabled={traCuu.dangChay}
+                    disabled={traCuu.dangChay || hoiThoai.loiChiTiet !== null}
                     onChange={(su) => datNhap(su.target.value)}
                     onKeyDown={(su) => {
                       if (su.key === "Enter" && !su.shiftKey) {
@@ -524,7 +530,7 @@ function ManHoiKlaw() {
                   <button
                     type="button"
                     onClick={() => gui()}
-                    disabled={nhap.trim() === "" || traCuu.dangChay}
+                    disabled={nhap.trim() === "" || traCuu.dangChay || hoiThoai.loiChiTiet !== null}
                     aria-label="Gửi câu hỏi"
                     className="focus-brass bg-gradient-ink mb-0.5 cursor-pointer rounded-lg p-2 text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-40"
                   >
@@ -676,7 +682,6 @@ export const Route = createFileRoute("/dung-thu")({
   // `?phien=` là id phiên hội thoại (UUID) cần mở — sai định dạng thì bị bỏ,
   // KHÔNG gửi lên máy chủ để nhận về một 404/422 vô nghĩa.
   validateSearch: (tho: Record<string, unknown>): { q?: string; phien?: string } => {
-    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const q = tho["q"];
     const phien = tho["phien"];
     return {

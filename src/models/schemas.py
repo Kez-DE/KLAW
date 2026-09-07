@@ -10,10 +10,11 @@ class LuotTruoc(BaseModel):
 
     Cả ba trường đã có sẵn trong `LuotDaXong` phía giao diện
     (`frontend/src/routes/dung-thu.tsx`) — lịch sử vốn nằm ở client, nó chỉ chưa
-    được gửi lên. Không có session phía server, và không cần: lịch sử chỉ dùng
-    để làm câu hỏi TỰ ĐỨNG ĐƯỢC, nó không chống đỡ khẳng định nào, nên một lịch
-    sử bịa cũng chỉ tạo ra một câu hỏi khác — câu đó vẫn phải qua đủ hai tầng
-    kiểm chứng (xem docstring `agents/nodes/giai_nghia.py`).
+    được gửi lên. Có danh tính thì máy chủ tự nạp từ phiên
+    (`hoi_thoai.lich_su_gan_nhat`) và bỏ qua trường client gửi; ẩn danh vẫn gửi từ
+    client. Lịch sử chỉ dùng để làm câu hỏi TỰ ĐỨNG ĐƯỢC, nó không chống đỡ khẳng
+    định nào, nên một lịch sử bịa cũng chỉ tạo ra một câu hỏi khác — câu đó vẫn
+    phải qua đủ hai tầng kiểm chứng (xem docstring `agents/nodes/giai_nghia.py`).
 
     `tra_loi` cần vì `"liệt kê bảng cho tôi"` phải biết câu trả lời trước CÓ một
     cái bảng; `duong_dan` là thứ định danh chính xác điều khoản lượt trước đã

@@ -131,9 +131,11 @@ async def _chay_nen(
         # lệch nhau, và một payload dị dạng nổ ở đây thành `event: loi` chứ
         # không thành một JSON thiếu trường mà FE tự đoán.
         resp = tra_cuu_response(payload, trace_id, config_name)
-        await hang.put(("ket_qua", resp.model_dump(mode="json")))
+        # MỘT lần dump: cái phát ra và cái lưu vào phiên là cùng một JSON.
+        du = resp.model_dump(mode="json")
+        await hang.put(("ket_qua", du))
         if hoi_thoai_id is not None:
-            loi_luu = await _ghi_luot_nhe(hoi_thoai_id, req.query, resp.model_dump(mode="json"), trace_id)
+            loi_luu = await _ghi_luot_nhe(hoi_thoai_id, req.query, du, trace_id)
             if loi_luu is not None:
                 await hang.put(("loi_luu", {"hoi_thoai_id": hoi_thoai_id, "detail": loi_luu}))
     except HTTPException as e:

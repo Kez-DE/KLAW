@@ -66,6 +66,9 @@ async def chi_tiet(id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> ChiTi
     id = _uuid_hop_le(id)
     await _phien_mo_duoc(nguoi["sub"], id)
     ct = await run_in_threadpool(hoi_thoai.chi_tiet, nguoi["sub"], id)
+    # Xoá song song giữa `_phien_mo_duoc` và truy vấn này → `None`; 404 chứ không TypeError 500.
+    if ct is None:
+        raise HTTPException(status_code=404, detail=hoi_thoai.LOI_KHONG_THAY)
     return ChiTietPhienResponse(**{**ct, "luot": [LuotDaLuuOut(**lu) for lu in ct["luot"]]})
 
 
@@ -73,8 +76,13 @@ async def chi_tiet(id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> ChiTi
 async def doi_ten(id: str, body: DoiTenPhienRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> PhienTomTatOut:
     id = _uuid_hop_le(id)
     await _phien_mo_duoc(nguoi["sub"], id)
+    # Cùng cửa sổ xoá song song như `chi_tiet`: cả hai lượt đọc đều có thể trả `None`.
     phien = await run_in_threadpool(hoi_thoai.doi_ten, nguoi["sub"], id, body.tieu_de)
+    if phien is None:
+        raise HTTPException(status_code=404, detail=hoi_thoai.LOI_KHONG_THAY)
     ct = await run_in_threadpool(hoi_thoai.chi_tiet, nguoi["sub"], id)
+    if ct is None:
+        raise HTTPException(status_code=404, detail=hoi_thoai.LOI_KHONG_THAY)
     return PhienTomTatOut(**{**phien, "so_luot": len(ct["luot"])})
 
 

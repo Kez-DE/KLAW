@@ -79,7 +79,7 @@ async def test_stream_tao_phien_va_ghi_luot(client, cai_dat, khoa_ky, graph_gia_
     ct = hoi_thoai.chi_tiet(sub, pid)
     assert ct["tieu_de"] == "Thử việc tối đa?"
     assert ct["luot"][0]["cau_hoi"] == "Thử việc tối đa?"
-    assert ct["luot"][0]["tra_loi"]["result_type"] == sk["ket_qua"]["result_type"]
+    assert ct["luot"][0]["tra_loi"] == sk["ket_qua"]
     assert ct["luot"][0]["trace_id"] == sk["bat_dau"]["trace_id"]
 
 
@@ -136,8 +136,11 @@ async def test_phien_nguoi_khac_404_va_phien_an_403(client, cai_dat, khoa_ky, gr
 
 
 @pytest.mark.asyncio
-async def test_an_danh_khong_ghi_va_bat_dau_null(client, cai_dat, graph_gia_lap):
+async def test_an_danh_khong_ghi_va_bat_dau_null(client, cai_dat, graph_gia_lap, monkeypatch):
     cai_dat(supabase_url="")
+    # "Không ghi" phải chứng minh được: mọi đường ghi phiên đều nổ nếu bị gọi.
+    monkeypatch.setattr(hoi_thoai, "tao_phien", lambda *a, **k: pytest.fail("ẩn danh không được tạo phiên"))
+    monkeypatch.setattr(hoi_thoai, "ghi_luot", lambda *a, **k: pytest.fail("ẩn danh không được ghi lượt"))
     r = await client.post("/api/v1/tra-cuu/luong", json={"query": "x", "hoi_thoai_id": str(uuid.uuid4())})
     assert r.status_code == 200
     assert dict(_su_kien(r.text))["bat_dau"]["hoi_thoai_id"] is None

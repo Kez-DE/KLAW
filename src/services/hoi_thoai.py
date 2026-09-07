@@ -6,14 +6,11 @@ lúc đọc chứ không ghi vào DB: nâng gói thì phiên cũ hiện lại m�
 """
 
 import json
-import logging
 
 from sqlalchemy import text
 
 from src.services.bao_ve import phien_luu_toi_da
 from src.services.db import get_engine
-
-logger = logging.getLogger(__name__)
 
 TIEU_DE_TOI_DA = 80
 LUOT_LICH_SU = 3
@@ -32,7 +29,7 @@ _SQL_LAY = text(
 _SQL_HANG = text(
     "SELECT count(*)::int FROM hoi_thoai h"
     " WHERE h.user_sub = :sub AND h.xoa_luc IS NULL"
-    "   AND (h.cap_nhat_luc, h.id) > (SELECT cap_nhat_luc, id FROM hoi_thoai WHERE id = :id)"
+    "   AND (h.cap_nhat_luc, h.id) > (SELECT cap_nhat_luc, id FROM hoi_thoai WHERE id = :id AND user_sub = :sub)"
 )
 _SQL_LICH_SU = text(
     "SELECT cau_hoi, tra_loi FROM luot_hoi_thoai WHERE hoi_thoai_id = :id ORDER BY thu_tu DESC LIMIT :n"

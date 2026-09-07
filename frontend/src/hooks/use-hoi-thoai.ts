@@ -57,7 +57,9 @@ export function useHoiThoai(daDangNhap: boolean): TrangThaiHoiThoai {
         method: "PATCH",
         body: { tieu_de: tieuDe },
       });
-      if (kq.ok) taiLai();
+      // 404 = phiên đã biến mất (tab khác vừa xoá): tải lại để nó rời cột, thay vì
+      // để người dùng nhìn một lỗi "chưa xoá được" về một phiên không còn tồn tại.
+      if (kq.ok || kq.error.status === 404) taiLai();
       return kq;
     },
     [taiLai],
@@ -68,7 +70,7 @@ export function useHoiThoai(daDangNhap: boolean): TrangThaiHoiThoai {
       const kq = await goi(`${DUONG_DAN}/${encodeURIComponent(id)}`, laKhongThan, {
         method: "DELETE",
       });
-      if (kq.ok) taiLai();
+      if (kq.ok || kq.error.status === 404) taiLai();
       return kq;
     },
     [taiLai],

@@ -78,3 +78,5 @@ async def test_phien_an_theo_goi_403_va_tong_an(client, khoa_ky, hai_nguoi, monk
     assert (
         await client.patch(f"/api/v1/hoi-thoai/{ids[0]}", json={"tieu_de": "x"}, headers=_bearer(khoa_ky, a))
     ).status_code == 403
+    # Xoá phiên đang ẩn là đường CHÍNH THỨC để giải phóng một suất của gói — không 403.
+    assert (await client.delete(f"/api/v1/hoi-thoai/{ids[0]}", headers=_bearer(khoa_ky, a))).status_code == 204

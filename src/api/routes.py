@@ -147,7 +147,13 @@ def _state_vao(req: TraCuuRequest, as_of: date, trace_id: str) -> dict:
 async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[TraCuuRequest, str | None]:
     """Gắn lượt hỏi vào một phiên (spec 2026-09-07 §5.2). Ẩn danh → bỏ qua `hoi_thoai_id`.
     Có danh tính: chưa có id → tạo phiên; có id → kiểm chủ (404), kiểm ẩn theo gói
-    (403), nạp `lich_su` từ máy chủ và BỎ `lich_su` client gửi."""
+    (403), nạp `lich_su` từ máy chủ và BỎ `lich_su` client gửi.
+
+    Lỗi DB ở đây KHÔNG bị nuốt: 500 tại chỗ này nghĩa là chính Postgres vốn đã gác
+    request ở `cong_bao_ve` đang chết, và âm thầm đánh rơi một lượt của người đã
+    đăng nhập khỏi lịch sử là giấu đi một sự cố hạ tầng. Có danh tính mà không có
+    `hoi_thoai_id` thì `lich_su` client gửi được giữ nguyên (giao diện đã đăng nhập
+    không gửi trường này)."""
     if user_sub is None:
         return req, None
     if req.hoi_thoai_id is None:
