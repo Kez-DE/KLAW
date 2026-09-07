@@ -1,6 +1,6 @@
 """`GET /han-muc` · `POST /nguoi-dung` — tài khoản người dùng (Pha 2).
 
-`bao_ve.kiem_han_muc_thang` đã cưỡng chế "50 lượt hỏi AI/tháng" từ Plan 4b,
+`bao_ve.kiem_han_muc` cưỡng chế hạn mức ngày/tháng của gói (spec 2A §4.2),
 nhưng người dùng không có cách nào biết mình còn bao nhiêu cho tới khi bị 429
 giữa một câu hỏi. Hai endpoint này lấp đúng khoảng đó, và cả hai chỉ ĐỌC LẠI
 thứ cổng bảo vệ đã đếm — không bộ đếm thứ hai nào được dựng. Hai bộ đếm sẽ lệch
@@ -9,7 +9,7 @@ nhau và không cách nào biết bên nào đúng; cùng lý lẽ đã khiến
 
 ## Vì sao KHÔNG dùng `Depends(cong_bao_ve)`
 
-`cong_bao_ve` ném 429 khi hết hạn mức tháng. Đặt nó trước `/han-muc` nghĩa là
+`cong_bao_ve` ném 429 khi hết hạn mức. Đặt nó trước `/han-muc` nghĩa là
 đúng endpoint sinh ra để nói "bạn hết lượt rồi" sẽ tự khoá mình lại ĐÚNG LÚC
 người dùng cần nó nhất. Nó cũng ghi một lượt vào `rate_limit_luot` cho mỗi lần
 mở trang tài khoản — xem hạn mức không phải là dùng hạn mức.
@@ -25,12 +25,13 @@ import logging
 from fastapi import APIRouter, HTTPException, Request
 from starlette.concurrency import run_in_threadpool
 
-from src.models.schemas import HanMucResponse, NguoiDungResponse
+from src.models.schemas import HanMucResponse, MucHanMuc, NguoiDungResponse, PhienHanMuc
 from src.services import bao_ve
 from src.services.bao_ve import (
-    _dau_thang_sau_utc,
-    han_muc_thang,
+    han_muc,
     kiem_api_key,
+    mui_gio,
+    ten_goi,
     xac_thuc_nguoi_goi,
 )
 
@@ -61,13 +62,17 @@ async def _nguoi_goi(request: Request) -> dict | None:
 
 
 @router.get("/han-muc", response_model=HanMucResponse)
-async def han_muc(request: Request) -> HanMucResponse:
-    """Hạn mức tháng còn lại. KHÔNG đi qua `cong_bao_ve` — xem docstring module."""
+async def han_muc_con_lai(request: Request) -> HanMucResponse:
+    """Hạn mức còn lại. KHÔNG đi qua `cong_bao_ve` — xem docstring module.
+
+    TẠM: đường khách và `het_han_luc` do Task 4 hoàn thiện; ở đây chỉ đủ để hình
+    v2 của `HanMucResponse` dựng được sau khi hạn mức tháng cũ bị gỡ.
+    """
     nguoi = await _nguoi_goi(request)
     if nguoi is None:
         return HanMucResponse(
-            ap_dung=False, plan=None, han_muc=None, da_dung=None, con_lai=None,
-            dat_lai_luc=_dau_thang_sau_utc(), ghi_chu=GHI_CHU_TAT,
+            ap_dung=False, plan=None, ten_goi=None, mui_gio=str(mui_gio()), muc=[],
+            phien=PhienHanMuc(luot_toi_da=None), het_han_luc=None, ghi_chu=GHI_CHU_TAT,
         )
 
     # Gọi qua `bao_ve.<tên>` chứ không tên đã import: `monkeypatch.setattr` của
@@ -76,24 +81,22 @@ async def han_muc(request: Request) -> HanMucResponse:
     sub = nguoi["sub"]
     try:
         plan = await run_in_threadpool(bao_ve.ghi_nhan_nguoi_dung, sub, nguoi["email"])
-        da_dung = await run_in_threadpool(bao_ve.dem_luot_thang, sub)
+        muc = await run_in_threadpool(bao_ve.mo_ta_muc, sub, plan)
     except Exception as e:
         # Hỏng ở tầng đếm là TỪ CHỐI, không phải trả một con số đoán. Một
         # `con_lai` bịa ra khi DB hỏng tệ hơn một lỗi — người dùng tin nó, rồi
-        # gõ câu hỏi thứ 51 và nhận 429 mà không hiểu vì sao.
+        # gõ câu hỏi tiếp theo và nhận 429 mà không hiểu vì sao.
         logger.exception("han_muc: không đọc được hạn mức của %s — TỪ CHỐI", sub)
         raise HTTPException(
             status_code=503,
             detail="Không đọc được hạn mức của tài khoản, vui lòng thử lại.",
         ) from e
 
-    muc = han_muc_thang(plan)
     return HanMucResponse(
-        ap_dung=True, plan=plan, han_muc=muc, da_dung=da_dung,
-        # `max(0, ...)`: hạn mức có thể bị hạ (đổi gói) sau khi người dùng đã
-        # tiêu quá — "còn -949 lượt" không phải một câu tiếng Việt có nghĩa.
-        con_lai=max(0, muc - da_dung),
-        dat_lai_luc=_dau_thang_sau_utc(), ghi_chu=GHI_CHU_CACHE,
+        ap_dung=True, plan=plan, ten_goi=ten_goi(plan), mui_gio=str(mui_gio()),
+        muc=[MucHanMuc(**m) for m in muc],
+        phien=PhienHanMuc(luot_toi_da=han_muc(plan, "luot_moi_phien")),
+        het_han_luc=None, ghi_chu=GHI_CHU_CACHE,
     )
 
 

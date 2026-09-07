@@ -28,7 +28,7 @@ from tests.test_api.test_xac_thuc_han_muc import _bearer
 def khong_dung_db(monkeypatch):
     """Tách QUYẾT ĐỊNH hạn mức khỏi phần ĐỌC DB — chạy được ở CI không Postgres."""
     monkeypatch.setattr(bao_ve, "ghi_nhan_nguoi_dung", lambda sub, email: "free")
-    monkeypatch.setattr(bao_ve, "dem_luot_thang", lambda sub: 7)
+    monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 7)
 
 
 # ══ /han-muc ════════════════════════════════════════════════════════════════
@@ -59,7 +59,7 @@ async def test_han_muc_KHONG_di_qua_cong_bao_ve_nen_khong_tu_khoa_khi_het_luot(
     """
     cai_dat()
     monkeypatch.setattr(bao_ve, "ghi_nhan_nguoi_dung", lambda sub, email: "free")
-    monkeypatch.setattr(bao_ve, "dem_luot_thang", lambda sub: 999)
+    monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 999)
 
     r = await client.get("/api/v1/han-muc", headers=_bearer(khoa_ky))
     assert r.status_code == 200
@@ -119,10 +119,10 @@ async def test_han_muc_khong_dem_duoc_thi_TU_CHOI_503_khong_mo_cua(
     cai_dat()
     monkeypatch.setattr(bao_ve, "ghi_nhan_nguoi_dung", lambda sub, email: "free")
 
-    def no(sub):
+    def no(sub, ep, moc):
         raise RuntimeError("Postgres ngã")
 
-    monkeypatch.setattr(bao_ve, "dem_luot_thang", no)
+    monkeypatch.setattr(bao_ve, "dem_luot", no)
     assert (await client.get("/api/v1/han-muc", headers=_bearer(khoa_ky))).status_code == 503
 
 

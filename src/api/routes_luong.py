@@ -25,7 +25,7 @@ duyệt và khỏi log của mọi proxy trên đường.
 Đây là phần dễ bỏ sót nhất và cũng đắt nhất. Nếu graph là con của request thì
 client đóng socket (bấm nút Huỷ) sẽ huỷ luôn nó — mà LLM ĐÃ tiêu tiền trước
 đó, và dòng `traces` thì chưa kịp ghi. Hệ quả: mọi lượt bị huỷ là một lượt
-MIỄN PHÍ, và hạn mức tháng (`bao_ve.dem_luot_thang` đếm chính bảng `traces`)
+MIỄN PHÍ, và hạn mức ngày/tháng (`bao_ve.dem_luot` đếm chính bảng `traces`)
 trở thành trang trí — một lỗ hổng bấm được bằng một nút bấm có sẵn trên giao
 diện.
 
@@ -51,7 +51,7 @@ from src.api.routes import (
 )
 from src.config import get_settings
 from src.models.schemas import TraCuuRequest
-from src.services.bao_ve import cong_bao_ve
+from src.services.bao_ve import cong_bao_ve_khach
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +185,7 @@ async def phat_sse(hang: asyncio.Queue):
 
 @router.post("/tra-cuu/luong")
 async def tra_cuu_luong(
-    req: TraCuuRequest, user_sub: str | None = Depends(cong_bao_ve)
+    req: TraCuuRequest, user_sub: str | None = Depends(cong_bao_ve_khach)
 ) -> StreamingResponse:
     """Như `POST /tra-cuu`, nhưng phát tiến trình theo BƯỚC qua SSE.
 

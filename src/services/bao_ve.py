@@ -14,8 +14,10 @@ Các cổng CHỒNG nhau chứ không thay nhau:
   3. **Rate limit** (Postgres) — hãm NHỊP. Khoá đếm là `sub` khi đã đăng nhập,
      IP khi chưa: hai người sau cùng một NAT dùng chung một giỏ IP, nên người
      thứ hai bị hãm vì lưu lượng của người thứ nhất.
-  4. **Hạn mức tháng theo NGƯỜI DÙNG** (Postgres, đọc `traces`) — hãm TỔNG. Chỉ
-     khi đã đăng nhập; đây là thứ cưỡng chế được con số trên trang bảng giá.
+  4. **Hạn mức NGÀY/THÁNG theo NGƯỜI DÙNG** (Postgres, đọc `traces`) — hãm TỔNG.
+     Chỉ khi đã đăng nhập; đây là thứ cưỡng chế được con số trên trang bảng giá.
+     Khách (chưa đăng nhập, chỉ khi Supabase đã cấu hình) không có dòng `traces`
+     nào để đếm, nên cửa sổ 24 giờ của họ nằm ở tầng (3).
   5. **Trần chi phí ngày** (Postgres, đọc `traces`) — cổng CUỐI trước ví tiền,
      toàn hệ thống, không phân biệt người dùng.
 
@@ -60,7 +62,8 @@ HAN_MUC_PATH = Path("config/han_muc.yaml")
 # cũng ghi traces nhưng không gọi LLM một lần nào, và trừ lượt của người dùng cho
 # nó là bán cho họ một thứ hệ thống không hề mua. Thêm một endpoint gọi LLM →
 # thêm vào đây (cùng kỷ luật với ba danh sách khoá chi phí trong `traces.py`).
-ENDPOINT_TON_LLM = ("/api/v1/tra-cuu", "/api/v1/soan-thao")
+EP_TRA_CUU, EP_SOAN_THAO = "/api/v1/tra-cuu", "/api/v1/soan-thao"
+ENDPOINT_TON_LLM = (EP_TRA_CUU, EP_SOAN_THAO)
 
 # Nhãn RIÊNG khi ASGI scope không mang `client`. Không dùng chuỗi rỗng: rỗng gộp
 # mọi request không xác định được IP vào MỘT giỏ, và một người dùng làm cạn hạn
@@ -76,12 +79,28 @@ _SQL_CHI_PHI_HOM_NAY = text(
 # đều đi qua — tức rate limit thất bại đúng lúc nó cần hoạt động nhất.
 # `hashtext` cho bigint từ TEXT; va chạm hash chỉ khiến hai IP chờ nhau một
 # chút, không gây kết quả sai.
+#
+# Cột `ip` nay chứa một KHOÁ bất kỳ, không chỉ địa chỉ IP: `chan-ip:{ip}`,
+# `ip-ngay:{ip}`, `user:{sub}`, `khach:{id}`, `khach-ip:{ip}`. Tên cột giữ
+# nguyên (đổi tên cột là một migration cho đúng một nhãn), tên tham số `:ip`
+# cũng vậy — chỉ Ý NGHĨA rộng ra.
 _SQL_KHOA_IP = text("SELECT pg_advisory_xact_lock(hashtext(:ip))")
-_SQL_DON_LUOT = text("DELETE FROM rate_limit_luot WHERE ts < now() - make_interval(secs => :cua_so)")
+# Dọn THEO KHOÁ, không dọn cả bảng: bảng nay chứa nhiều cửa sổ khác nhau cạnh
+# nhau (60 giây cho giỏ nhịp, 86400 giây cho giỏ khách), nên một câu dọn chung
+# theo cửa sổ 60 giây sẽ xoá sạch lịch sử 24 giờ của giỏ khách — tức mở lại
+# đúng cái cổng vừa đóng.
+_SQL_DON_LUOT = text(
+    "DELETE FROM rate_limit_luot WHERE ip = :khoa AND ts < now() - make_interval(secs => :cua_so)"
+)
 _SQL_GHI_LUOT = text("INSERT INTO rate_limit_luot (ip) VALUES (:ip)")
 _SQL_DEM_LUOT = text(
     "SELECT count(*) FROM rate_limit_luot"
     " WHERE ip = :ip AND ts >= now() - make_interval(secs => :cua_so)"
+)
+# Lượt CŨ NHẤT còn trong cửa sổ — mốc để nói `Retry-After` thật thay vì "cả cửa
+# sổ": với giỏ 24 giờ, "thử lại sau 86400 giây" gần như luôn sai và luôn bi quan.
+_SQL_LUOT_CU_NHAT = text(
+    "SELECT min(ts) FROM rate_limit_luot WHERE ip = :khoa AND ts >= now() - make_interval(secs => :cua_so)"
 )
 
 # JIT provisioning: dòng `users` sinh ra ở lần đăng nhập ĐẦU, không cần một
@@ -100,20 +119,24 @@ _SQL_UPSERT_USER = text(
     " RETURNING plan, plan_het_han"
 )
 
-# Đếm SỐ LƯỢT gọi LLM thật của một `sub` trong tháng.
+# Đếm SỐ LƯỢT gọi LLM thật của một `sub` trên MỘT endpoint, từ một mốc.
 #
 # `NOT cache_hit` — cache hit không gọi LLM và không tốn một xu (đo được ở vòng
 # hardening: $0 và 3ms, so với ~$0,0004 và ~6,9s một lượt thật).
+#
+# `result_type NOT IN ('loi', 'out_of_scope')` — một lượt hỏng và một câu ngoài
+# phạm vi không phải thứ người dùng mua; trừ lượt cho chúng là bắt họ trả cho
+# lỗi của hệ thống. `IS NULL` VẪN đếm: `/soan-thao` thành công ghi NULL ở cột này.
 #
 # Đếm `count(*)`, KHÔNG `cost_usd > 0`: chi phí là một đại lượng ĐO ĐƯỢC và có
 # thể bằng 0 vì một lỗi ghi nhận — đã xảy ra thật, 32/32 dòng `/soan-thao` từng
 # ghi $0 dù mỗi request tốn một lượt LLM. "Đã gọi hay chưa" không phụ thuộc việc
 # cột chi phí có được cộng đúng, nên hạn mức của người dùng cũng không được.
-_SQL_DEM_LUOT_THANG = text(
-    "SELECT count(*) FROM traces"
-    " WHERE user_sub = :sub AND ts >= :bat_dau"
-    " AND NOT cache_hit AND endpoint = ANY(:endpoints)"
+_SQL_DEM_LUOT_TU = text(
+    "SELECT count(*) FROM traces WHERE user_sub = :sub AND ts >= :moc AND NOT cache_hit"
+    " AND endpoint = :ep AND (result_type IS NULL OR result_type NOT IN ('loi', 'out_of_scope'))"
 )
+_SQL_HET_HAN = text("SELECT plan_het_han FROM users WHERE sub = :sub")
 
 
 # ── IP thật ─────────────────────────────────────────────────────────────────
@@ -186,8 +209,27 @@ def kiem_api_key(request: Request) -> None:
 # ── Cổng 2: rate limit theo IP ──────────────────────────────────────────────
 
 
-def kiem_rate_limit(ip: str, so_luot: int | None = None) -> None:
-    """Cửa sổ TRƯỢT trong Postgres. Vượt → 429.
+def _cau_429_nhip(khoa: str, so_luot: int, cua_so: int, con: int) -> str:
+    """Câu 429 của tầng NHỊP, nói đúng thứ người đọc nó cần làm tiếp.
+
+    Ba giỏ, ba việc khác nhau: khách hết lượt thử thì việc cần làm là ĐĂNG NHẬP
+    (miễn phí, và giữ được đoạn chat), còn một giỏ theo địa chỉ mạng thì người
+    đọc không đăng nhập được ra khỏi nó — nói "đăng nhập đi" ở đó là gửi họ đi
+    làm một việc không giải quyết gì.
+    """
+    mo_lai = (datetime.now(UTC) + timedelta(seconds=con)).astimezone(mui_gio()).strftime("%H:%M ngày %d/%m")
+    if khoa.startswith("khach:"):
+        return (
+            f"Bạn đã dùng {so_luot} lượt thử trong 24 giờ. Đăng nhập miễn phí để tiếp tục và lưu đoạn"
+            f" chat này, hoặc quay lại lúc {mo_lai}."
+        )
+    if khoa.startswith(("ip-ngay:", "khach-ip:")):
+        return f"Đã vượt giới hạn {so_luot} lượt trong 24 giờ cho địa chỉ mạng này. Mở lại lúc {mo_lai}."
+    return f"Vượt giới hạn tần suất: tối đa {so_luot} lượt trong {cua_so} giây. Vui lòng thử lại sau {con} giây."
+
+
+def kiem_rate_limit(khoa: str, so_luot: int | None = None, cua_so_giay: int | None = None) -> None:
+    """Cửa sổ TRƯỢT trong Postgres theo `khoa` (IP, `user:{sub}`, `khach:{id}`…). Vượt → 429.
 
     `so_luot` None = dùng `rate_limit_so_luot` (hạn mức NHỊP của một người).
     Truyền tường minh cho giỏ có mục đích khác — lá chắn trước xác thực dùng
@@ -196,6 +238,10 @@ def kiem_rate_limit(ip: str, so_luot: int | None = None) -> None:
     Cửa sổ trượt, không phải cửa sổ cố định theo phút: cửa sổ cố định cho phép
     gấp đôi hạn mức quanh mốc chuyển phút (10 lượt cuối phút này + 10 lượt đầu
     phút sau).
+
+    Dọn hàng cũ THEO KHOÁ: bảng nay chứa nhiều cửa sổ khác nhau, một câu dọn
+    chung theo 60 giây sẽ xoá dữ liệu của giỏ 24 giờ. `Retry-After` = giây tới
+    khi lượt cũ nhất rời cửa sổ.
 
     Đếm SAU khi ghi lượt của chính request này, nên `> hạn mức` từ chối đúng
     request thứ (hạn mức + 1). Lỗi DB ở đây là TỪ CHỐI (503), không phải mở cửa.
@@ -207,29 +253,36 @@ def kiem_rate_limit(ip: str, so_luot: int | None = None) -> None:
         so_luot = s.rate_limit_so_luot
     if so_luot <= 0:
         return
-    cua_so = s.rate_limit_cua_so_giay
+    cua_so = cua_so_giay if cua_so_giay is not None else s.rate_limit_cua_so_giay
     try:
         with get_engine().begin() as c:
-            c.execute(_SQL_KHOA_IP, {"ip": ip})
-            c.execute(_SQL_DON_LUOT, {"cua_so": cua_so})
-            c.execute(_SQL_GHI_LUOT, {"ip": ip})
-            da_dung = c.execute(_SQL_DEM_LUOT, {"ip": ip, "cua_so": cua_so}).scalar_one()
+            c.execute(_SQL_KHOA_IP, {"ip": khoa})
+            c.execute(_SQL_DON_LUOT, {"khoa": khoa, "cua_so": cua_so})
+            c.execute(_SQL_GHI_LUOT, {"ip": khoa})
+            da_dung = c.execute(_SQL_DEM_LUOT, {"ip": khoa, "cua_so": cua_so}).scalar_one()
+            cu_nhat = c.execute(_SQL_LUOT_CU_NHAT, {"khoa": khoa, "cua_so": cua_so}).scalar_one()
     except Exception as e:
-        logger.exception("kiem_rate_limit: không đếm được lượt gọi (ip=%s) — TỪ CHỐI", ip)
+        logger.exception("kiem_rate_limit: không đếm được lượt gọi (khoa=%s) — TỪ CHỐI", khoa)
         raise HTTPException(
             status_code=503,
             detail="Không kiểm được giới hạn tần suất, tạm thời từ chối yêu cầu. Vui lòng thử lại.",
         ) from e
 
     if da_dung > so_luot:
+        con = cua_so
+        if cu_nhat is not None:
+            con = max(1, int(cua_so - (datetime.now(UTC) - cu_nhat).total_seconds()))
         raise HTTPException(
-            status_code=429,
-            detail=(
-                f"Vượt giới hạn tần suất: tối đa {so_luot} lượt "
-                f"trong {cua_so} giây cho mỗi địa chỉ IP. Vui lòng thử lại sau {cua_so} giây."
-            ),
-            headers={"Retry-After": str(cua_so)},
+            status_code=429, detail=_cau_429_nhip(khoa, so_luot, cua_so, con), headers={"Retry-After": str(con)}
         )
+
+
+def dem_cua_so(khoa: str, cua_so_giay: int) -> tuple[int, datetime | None]:
+    """Đếm KHÔNG ghi lượt (cho `/han-muc` của khách): (đã dùng, lúc lượt cũ nhất rời cửa sổ)."""
+    with get_engine().connect() as c:
+        n = int(c.execute(_SQL_DEM_LUOT, {"ip": khoa, "cua_so": cua_so_giay}).scalar_one())
+        cu_nhat = c.execute(_SQL_LUOT_CU_NHAT, {"khoa": khoa, "cua_so": cua_so_giay}).scalar_one()
+    return n, (cu_nhat + timedelta(seconds=cua_so_giay)) if cu_nhat is not None else None
 
 
 # ── Cổng 3: trần chi phí ngày ───────────────────────────────────────────────
@@ -398,24 +451,6 @@ def khach_id_tu_request(request: Request) -> str | None:
         return None
 
 
-def han_muc_thang(plan: str) -> int:
-    """Tương thích tạm cho Task 2–3: lá chắn tháng của free; "không giới hạn" của pro."""
-    return la_chan("free_hoi_dap_thang") if plan == "free" else 100_000
-
-
-def _dau_thang_utc() -> datetime:
-    """Nửa đêm ngày 1 tháng này, UTC tường minh — cùng lý lẽ `_dau_ngay_utc`."""
-    return datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-
-def _dau_thang_sau_utc() -> datetime:
-    """Mốc hạn mức mở lại. `day=28 + 4 ngày` rồi ép về ngày 1: đúng cho cả tháng
-    28/29/30/31 ngày mà không cần `calendar.monthrange`.
-    """
-    d = _dau_thang_utc()
-    return (d.replace(day=28) + timedelta(days=4)).replace(day=1)
-
-
 def ghi_nhan_nguoi_dung(sub: str, email: str | None) -> str:
     """Upsert dòng `users` và trả gói HIỆU LỰC (đã xét `plan_het_han`). CÓ THỂ RAISE.
 
@@ -427,48 +462,106 @@ def ghi_nhan_nguoi_dung(sub: str, email: str | None) -> str:
     return plan_hieu_luc_tu(str(r["plan"]), r["plan_het_han"])
 
 
-def dem_luot_thang(sub: str) -> int:
-    """Số lượt LLM thật của `sub` trong tháng này. CÓ THỂ RAISE (caller từ chối)."""
+# Nhãn của ba thanh đo trên trang tài khoản. Chỉ ba khoá trong `goi`: lá chắn
+# CỐ Ý không có mặt — nó là biện pháp chống lạm dụng, không phải một lời hứa bán
+# hàng, và vẽ nó thành một thanh đo là biến nó thành lời hứa.
+NHAN_MUC = {
+    "hoi_dap_ngay": "Hỏi đáp hôm nay",
+    "soan_thao_ngay": "Bản thảo hôm nay",
+    "soan_thao_thang": "Bản thảo tháng này",
+}
+LOI_KHACH_DANG_NHAP = "Cần đăng nhập để dùng tính năng này."
+LOI_SOAN_THAO_DANG_NHAP = "Cần đăng nhập để soạn văn bản."
+
+
+def ten_goi(plan: str) -> str:
+    """Tên NGƯỜI ĐỌC của gói. Gói lạ → chính mã của nó (thà lộ một mã kỹ thuật
+    còn hơn gọi một gói trả phí là "Miễn phí" trong câu từ chối)."""
+    return {"free": "Miễn phí", "pro": "Cá nhân"}.get(plan, plan)
+
+
+def dem_luot(sub: str, endpoint: str, tu_luc: datetime) -> int:
+    """Số lượt LLM thật của `sub` trên `endpoint` từ `tu_luc`. CÓ THỂ RAISE (caller từ chối)."""
     with get_engine().connect() as c:
-        return int(
-            c.execute(
-                _SQL_DEM_LUOT_THANG,
-                {
-                    "sub": sub,
-                    "bat_dau": _dau_thang_utc(),
-                    "endpoints": list(ENDPOINT_TON_LLM),
-                },
-            ).scalar_one()
-        )
+        return int(c.execute(_SQL_DEM_LUOT_TU, {"sub": sub, "moc": tu_luc, "ep": endpoint}).scalar_one())
 
 
-def kiem_han_muc_thang(sub: str, plan: str) -> None:
-    """Vượt hạn mức tháng → 429 nêu đúng GÓI và MỐC RESET. Không đếm được → 503.
+def het_han_cua(sub: str) -> datetime | None:
+    """`users.plan_het_han` của `sub` (NULL = không hết hạn, hoặc chưa có dòng)."""
+    with get_engine().connect() as c:
+        return c.execute(_SQL_HET_HAN, {"sub": sub}).scalar_one_or_none()
 
-    Cùng nguyên tắc với trần chi phí: không đếm được thì không biết còn bao nhiêu
-    suất, và cho qua là hành xử như thể hạn mức không tồn tại.
-    """
-    han_muc = han_muc_thang(plan)
+
+def _cau_429(plan: str, da_dung: int, tran: int, loai: str, ky: str, mo_lai: datetime) -> str:
+    luc = mo_lai.astimezone(mui_gio()).strftime("%H:%M ngày %d/%m")
+    return f"{ky} bạn đã dùng {da_dung}/{tran} lượt {loai} của gói {ten_goi(plan)}. Mở lại lúc {luc}."
+
+
+def _kiem_mot(
+    sub: str, plan: str, endpoint: str, tran: int, moc: datetime, mo_lai: datetime, loai: str, ky: str
+) -> None:
+    """Một trần, một cửa sổ. Không đếm được là TỪ CHỐI (503), cùng nguyên tắc với
+    trần chi phí: không đếm được thì không biết còn bao nhiêu suất."""
+    if tran >= 100_000:  # quy ước của `config/han_muc.yaml`: không giới hạn
+        return
     try:
-        da_dung = dem_luot_thang(sub)
+        da_dung = dem_luot(sub, endpoint, moc)
     except Exception as e:
-        logger.exception("kiem_han_muc_thang: không đếm được lượt trong tháng — TỪ CHỐI")
+        logger.exception("kiem_han_muc: không đếm được lượt — TỪ CHỐI")
         raise HTTPException(
             status_code=503,
             detail="Không kiểm được hạn mức của tài khoản, tạm thời từ chối yêu cầu. Vui lòng thử lại.",
         ) from e
-
-    if da_dung >= han_muc:
-        mo_lai = _dau_thang_sau_utc()
+    if da_dung >= tran:
         raise HTTPException(
             status_code=429,
-            detail=(
-                f"Đã dùng hết hạn mức tháng của gói {plan}: {da_dung}/{han_muc} lượt hỏi AI. "
-                f"Hạn mức đặt lại vào {mo_lai.strftime('%d/%m/%Y')} (00:00 UTC). "
-                "Lượt trả lời lấy từ bộ đệm không tính vào hạn mức."
-            ),
-            headers={"Retry-After": str(int((mo_lai - datetime.now(UTC)).total_seconds()))},
+            detail=_cau_429(plan, da_dung, tran, loai, ky, mo_lai),
+            headers={"Retry-After": str(max(1, int((mo_lai - datetime.now(UTC)).total_seconds())))},
         )
+
+
+def kiem_han_muc(sub: str, plan: str, endpoint: str) -> None:
+    """Spec 2A §4.2. `/tra-cuu*` (cả `/luong`) kiểm ngày rồi lá chắn (tháng free / ngày pro);
+    `/soan-thao` kiểm ngày rồi tháng. Trần >= 100000 = không giới hạn.
+
+    Trần của GÓI đứng trước lá chắn: khi cả hai đã cạn, câu người dùng đọc phải
+    là con số họ mua, không phải con số chống lạm dụng mà họ chưa từng nghe tới.
+    """
+    if endpoint.startswith(EP_TRA_CUU):
+        ep, loai = EP_TRA_CUU, "hỏi đáp"
+        cac_muc = [(han_muc(plan, "hoi_dap_ngay"), moc_ngay(), moc_ngay_sau(), "Hôm nay")]
+        if plan == "free":
+            cac_muc.append((la_chan("free_hoi_dap_thang"), moc_thang(), moc_thang_sau(), "Tháng này"))
+        elif plan == "pro":
+            cac_muc.append((la_chan("pro_hoi_dap_ngay"), moc_ngay(), moc_ngay_sau(), "Hôm nay"))
+    elif endpoint.startswith(EP_SOAN_THAO):
+        ep, loai = EP_SOAN_THAO, "bản thảo"
+        cac_muc = [
+            (han_muc(plan, "soan_thao_ngay"), moc_ngay(), moc_ngay_sau(), "Hôm nay"),
+            (han_muc(plan, "soan_thao_thang"), moc_thang(), moc_thang_sau(), "Tháng này"),
+        ]
+    else:  # endpoint không tốn LLM (`/soat`, `/tim-kiem`…) — không giỏ nào của nó ở đây
+        return
+    for tran, moc, sau, ky in cac_muc:
+        _kiem_mot(sub, plan, ep, tran, moc, sau, loai, ky)
+
+
+def mo_ta_muc(sub: str, plan: str) -> list[dict]:
+    """Các thanh đo của `/han-muc` (chỉ khoá trong `goi`, không gồm lá chắn)."""
+    return [
+        {
+            "khoa": khoa,
+            "nhan": NHAN_MUC[khoa],
+            "da_dung": dem_luot(sub, ep, moc),
+            "han_muc": han_muc(plan, khoa),
+            "dat_lai_luc": sau,
+        }
+        for khoa, ep, moc, sau in (
+            ("hoi_dap_ngay", EP_TRA_CUU, moc_ngay(), moc_ngay_sau()),
+            ("soan_thao_ngay", EP_SOAN_THAO, moc_ngay(), moc_ngay_sau()),
+            ("soan_thao_thang", EP_SOAN_THAO, moc_thang(), moc_thang_sau()),
+        )
+    ]
 
 
 def xac_thuc_nguoi_goi(request: Request) -> dict | None:
@@ -501,6 +594,20 @@ def xac_thuc_nguoi_goi(request: Request) -> dict | None:
             detail="Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
+
+
+def xac_thuc_nguoi_goi_hoac_none(request: Request) -> dict | None:
+    """Như `xac_thuc_nguoi_goi`, nhưng KHÔNG có header Authorization → None (đường khách).
+
+    Token có mà sai/hết hạn vẫn 401 — không để một token hỏng rơi xuống đường
+    khách: nếu nó rơi, một phiên hết hạn im lặng biến thành một phiên khách và
+    người dùng mất lịch sử của mình mà không một thông báo nào nói vì sao.
+    """
+    if not xac_thuc.da_cau_hinh():
+        return None
+    if request.headers.get(xac_thuc.TEN_HEADER.lower()) is None:
+        return None
+    return xac_thuc_nguoi_goi(request)
 
 
 # ── Dependency cho endpoint tốn CPU nhưng KHÔNG gọi LLM ─────────────────────
@@ -542,13 +649,27 @@ async def nguoi_dung_bat_buoc(request: Request) -> dict:
 # ── Dependency dùng ở các endpoint tốn LLM ──────────────────────────────────
 
 
-async def cong_bao_ve(request: Request) -> str | None:
-    """Trả `sub` người gọi (None khi auth chưa cấu hình) — handler cần nó để ghi
+def _cong(cho_khach: bool):
+    """Trả `sub` người gọi (None khi auth chưa cấu hình HOẶC người gọi là khách) —
+    handler cần nó để ghi
     `traces.user_sub`, và không ghi được thì lượt đó không đếm vào hạn mức của ai.
 
-    Thứ tự: API key (0 truy vấn) → LÁ CHẮN theo IP → danh tính → nhịp theo `sub`
-    (hoặc theo IP khi chưa cấu hình auth) → hạn mức tháng → trần chi phí. Cổng
-    RẺ đứng trước cổng ĐẮT, không có ngoại lệ.
+    Thứ tự: API key (0 truy vấn) → LÁ CHẮN theo IP → lá chắn ngày theo IP →
+    danh tính → nhịp theo `sub` (hoặc theo IP khi chưa cấu hình auth) → hạn mức
+    ngày/tháng → trần chi phí. Cổng RẺ đứng trước cổng ĐẮT, không có ngoại lệ.
+
+    **Hai biến thể, một thân.** `cong_bao_ve_khach` cho `/tra-cuu*`: không có
+    token thì `X-Khach-Id` mở một cửa sổ 10 lượt/24 giờ — đó là cách người chưa
+    có tài khoản thử được sản phẩm. `cong_bao_ve` cho `/soan-thao`: không có
+    token là 401, vì một bản thảo phải thuộc về một tài khoản để người ta còn
+    mở lại được nó. Viết hai bản chép tay là để hai đường lệch pha ở lần sửa
+    thứ ba; `cho_khach` là DUY NHẤT chỗ chúng khác nhau.
+
+    Khách KHÔNG được ghi `traces.user_sub` (không có tài khoản để gán) nên
+    hàm trả None, và không một dòng `users`/phiên hội thoại nào được tạo cho họ:
+    một dòng `users` với `sub` bịa ra là dữ liệu rác vĩnh viễn trong đúng bảng
+    mà hạn mức đếm theo. Nhịp của khách vì thế đếm ở tầng `rate_limit_luot`,
+    không ở tầng `traces`.
 
     API key trước vì nó không tốn truy vấn nào: một request không có quyền không
     nên được phép làm hệ thống ghi một dòng DB.
@@ -586,39 +707,70 @@ async def cong_bao_ve(request: Request) -> str | None:
     khác. Dự án đã dính đúng lỗi này hai lần (`_ghi_traces`, `/soat`).
     `xac_minh` cũng vào threadpool: nó có thể gọi mạng (nạp JWKS khi TTL hết).
     """
-    kiem_api_key(request)
-    # Lá chắn, TRƯỚC `xac_thuc_nguoi_goi`: xem docstring — một `kid` bịa mua
-    # được một round-trip HTTPS và 5 giây của một luồng threadpool, và một cổng
-    # đứng SAU thứ nó bảo vệ thì không bảo vệ gì. Tiền tố `chan-ip:` để giỏ này
-    # không bao giờ trộn số đếm với giỏ chặt bên dưới.
-    ip = ip_goi(request)
-    await run_in_threadpool(
-        kiem_rate_limit, f"chan-ip:{ip}", get_settings().rate_limit_ip_so_luot
-    )
-    nguoi = await run_in_threadpool(xac_thuc_nguoi_goi, request)
 
-    if nguoi is None:
-        # Chưa cấu hình auth: không có danh tính để đếm, giỏ chặt quay về IP.
-        await run_in_threadpool(kiem_rate_limit, ip)
+    async def cong(request: Request) -> str | None:
+        kiem_api_key(request)
+        # Lá chắn, TRƯỚC `xac_thuc_nguoi_goi`: xem docstring — một `kid` bịa mua
+        # được một round-trip HTTPS và 5 giây của một luồng threadpool, và một cổng
+        # đứng SAU thứ nó bảo vệ thì không bảo vệ gì. Tiền tố `chan-ip:` để giỏ này
+        # không bao giờ trộn số đếm với giỏ chặt bên dưới.
+        ip = ip_goi(request)
+        await run_in_threadpool(kiem_rate_limit, f"chan-ip:{ip}", get_settings().rate_limit_ip_so_luot)
+        da_cau_hinh = xac_thuc.da_cau_hinh()
+        # Lá chắn NGÀY theo IP, chỉ khi auth đã bật: nó tồn tại để chặn một người
+        # thay `X-Khach-Id` mỗi request và mua vô hạn lượt khách. Khi auth chưa
+        # cấu hình thì không có đường khách nào để chặn, và giỏ này sẽ chỉ hãm
+        # `eval/run.py` — đúng thứ bất biến "chưa cấu hình ⇒ hành vi KHÔNG ĐỔI" cấm.
+        if da_cau_hinh:
+            await run_in_threadpool(kiem_rate_limit, f"ip-ngay:{ip}", la_chan("ip_ngay"), 86400)
+        nguoi = await run_in_threadpool(xac_thuc_nguoi_goi_hoac_none, request)
+
+        if nguoi is None and not da_cau_hinh:
+            # Chưa cấu hình auth: không có danh tính để đếm, giỏ chặt quay về IP.
+            await run_in_threadpool(kiem_rate_limit, ip)
+            await run_in_threadpool(kiem_tran_chi_phi)
+            return None
+
+        if nguoi is None:
+            if not cho_khach:
+                raise HTTPException(
+                    status_code=401, detail=LOI_SOAN_THAO_DANG_NHAP, headers={"WWW-Authenticate": "Bearer"}
+                )
+            kid = khach_id_tu_request(request)
+            if kid is None:
+                raise HTTPException(status_code=401, detail=LOI_KHACH_DANG_NHAP, headers={"WWW-Authenticate": "Bearer"})
+            # Hai giỏ cho khách, cùng lý lẽ hai giỏ của người đã đăng nhập: `khach:{id}`
+            # là hạn mức của một trình duyệt, `khach-ip:{ip}` chặn một người sinh
+            # ra một nghìn `X-Khach-Id` — header đó là khoá ĐẾM, không phải danh tính.
+            k = _doc_han_muc()["khach"]
+            await run_in_threadpool(kiem_rate_limit, f"khach:{kid}", int(k["hoi_dap_24h"]), 86400)
+            await run_in_threadpool(kiem_rate_limit, f"khach-ip:{ip}", int(k["ip_24h"]), 86400)
+            await run_in_threadpool(kiem_tran_chi_phi)
+            return None
+
+        sub = nguoi["sub"]
+        # Tiền tố `user:` để một `sub` không bao giờ trùng giỏ với một IP dạng chuỗi.
+        await run_in_threadpool(kiem_rate_limit, f"user:{sub}")
+        # `plan` đọc trong CÙNG câu upsert đã ghi `last_seen_at` — một round-trip.
+        # Lỗi ở đây là TỪ CHỐI (503), không phải "cho qua với gói mặc định": gói
+        # quyết định hạn mức, và đoán nó là tự phát hạn mức cho một người mà hệ
+        # thống vừa mất khả năng tra cứu.
+        try:
+            plan = await run_in_threadpool(ghi_nhan_nguoi_dung, sub, nguoi["email"])
+        except Exception as e:
+            logger.exception("cong_bao_ve: không đọc/ghi được dòng users — TỪ CHỐI")
+            raise HTTPException(
+                status_code=503,
+                detail="Không đọc được thông tin tài khoản, tạm thời từ chối yêu cầu. Vui lòng thử lại.",
+            ) from e
+
+        await run_in_threadpool(kiem_han_muc, sub, plan, request.url.path)
         await run_in_threadpool(kiem_tran_chi_phi)
-        return None
+        return sub
 
-    sub = nguoi["sub"]
-    # Tiền tố `user:` để một `sub` không bao giờ trùng giỏ với một IP dạng chuỗi.
-    await run_in_threadpool(kiem_rate_limit, f"user:{sub}")
-    # `plan` đọc trong CÙNG câu upsert đã ghi `last_seen_at` — một round-trip.
-    # Lỗi ở đây là TỪ CHỐI (503), không phải "cho qua với gói mặc định": gói
-    # quyết định hạn mức, và đoán nó là tự phát hạn mức cho một người mà hệ
-    # thống vừa mất khả năng tra cứu.
-    try:
-        plan = await run_in_threadpool(ghi_nhan_nguoi_dung, sub, nguoi["email"])
-    except Exception as e:
-        logger.exception("cong_bao_ve: không đọc/ghi được dòng users — TỪ CHỐI")
-        raise HTTPException(
-            status_code=503,
-            detail="Không đọc được thông tin tài khoản, tạm thời từ chối yêu cầu. Vui lòng thử lại.",
-        ) from e
+    cong.__name__ = "cong_bao_ve_khach" if cho_khach else "cong_bao_ve"
+    return cong
 
-    await run_in_threadpool(kiem_han_muc_thang, sub, plan)
-    await run_in_threadpool(kiem_tran_chi_phi)
-    return sub
+
+cong_bao_ve = _cong(cho_khach=False)
+cong_bao_ve_khach = _cong(cho_khach=True)

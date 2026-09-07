@@ -140,10 +140,11 @@ def _ghi_traces(
     quên ghi — chính cờ này là thứ nói ra sự khác biệt đó.
 
     `user_sub` = `sub` Supabase của người gọi, None khi auth chưa cấu hình (eval,
-    dev local) hoặc endpoint không xác thực. KHÔNG chỉ là số liệu: hạn mức tháng
-    ĐẾM chính cột này (`bao_ve.dem_luot_thang`), nên một lượt LLM ghi thiếu
-    `user_sub` là một lượt người dùng được dùng miễn phí. `cache_hit` là cột còn
-    lại của phép đếm đó — cache hit không gọi LLM nên không trừ lượt.
+    dev local) hoặc endpoint không xác thực. KHÔNG chỉ là số liệu: hạn mức
+    ngày/tháng ĐẾM chính cột này (`bao_ve.dem_luot`), nên một lượt LLM ghi thiếu
+    `user_sub` là một lượt người dùng được dùng miễn phí. `cache_hit` và
+    `result_type` là hai cột còn lại của phép đếm đó — cache hit không gọi LLM,
+    còn `loi`/`out_of_scope` không phải thứ người dùng mua; cả ba không trừ lượt.
     """
     traces = st.get("traces") or {}
     rt = st.get("result_type")

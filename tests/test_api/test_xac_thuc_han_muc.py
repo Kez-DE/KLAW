@@ -30,6 +30,7 @@ from src.agents.nodes.assemble import ResultType
 from src.config import Settings
 from src.services import bao_ve, hoi_thoai, xac_thuc
 from src.services.db import get_engine
+from tests.test_api.test_han_muc_yaml import YAML_OK
 
 _URL = "https://abcdefghijklmnop.supabase.co"
 _ISS = f"{_URL}/auth/v1"
@@ -117,7 +118,7 @@ def khong_dung_db(monkeypatch):
     ở đây để mọi test dùng fixture này không chạm Postgres cho bảng `hoi_thoai`.
     """
     monkeypatch.setattr(bao_ve, "ghi_nhan_nguoi_dung", lambda sub, email: "free")
-    monkeypatch.setattr(bao_ve, "dem_luot_thang", lambda sub: 0)
+    monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 0)
     monkeypatch.setattr(hoi_thoai, "tao_phien", lambda *a, **k: "00000000-0000-0000-0000-000000000000")
     monkeypatch.setattr(hoi_thoai, "ghi_luot", lambda *a, **k: 1)
 
@@ -152,7 +153,7 @@ async def test_chua_cau_hinh_thi_KHONG_ap_han_muc(client, cai_dat, graph_gia_lap
     def no(*a, **k):
         raise AssertionError("KHÔNG được đếm hạn mức khi Supabase chưa cấu hình")
 
-    monkeypatch.setattr(bao_ve, "dem_luot_thang", no)
+    monkeypatch.setattr(bao_ve, "dem_luot", no)
     monkeypatch.setattr(bao_ve, "ghi_nhan_nguoi_dung", no)
     assert (await client.post("/api/v1/tra-cuu", json=_CAU_HOI)).status_code == 200
 
@@ -254,18 +255,15 @@ async def test_JWKS_khong_lay_duoc_thi_401_khong_cho_qua(
 
 
 def test_han_muc_doc_tu_CONFIG_khong_hardcode(monkeypatch, tmp_path):
-    """Giá và giới hạn CHƯA CHỐT. Viết cứng 50 vào Python là biến một con số
+    """Giá và giới hạn CHƯA CHỐT. Viết cứng một con số vào Python là biến một số
     nháp của trang bảng giá thành hành vi hệ thống — sửa nó phải là sửa YAML.
     """
     f = tmp_path / "han_muc.yaml"
-    f.write_text(
-        "goi_mac_dinh: free\ngoi:\n  free: 7\n  pro: 999\nphien_luu:\n  free: 3\n  pro: 20\n",
-        encoding="utf-8",
-    )
+    f.write_text(YAML_OK, encoding="utf-8")
     monkeypatch.setattr(bao_ve, "HAN_MUC_PATH", f)
     bao_ve._doc_han_muc.cache_clear()
-    assert bao_ve.han_muc_thang("free") == 7
-    assert bao_ve.han_muc_thang("pro") == 999
+    assert bao_ve.han_muc("free", "hoi_dap_ngay") == 200
+    assert bao_ve.han_muc("pro", "soan_thao_ngay") == 20
     bao_ve._doc_han_muc.cache_clear()
 
 
@@ -274,10 +272,10 @@ def test_goi_la_khong_roi_ve_muc_THAP_NHAT_khong_phai_vo_han(monkeypatch, tmp_pa
     rơi về gói mặc định, KHÔNG phải "không giới hạn" — hỏng theo hướng an toàn.
     """
     f = tmp_path / "han_muc.yaml"
-    f.write_text("goi_mac_dinh: free\ngoi:\n  free: 7\nphien_luu:\n  free: 3\n", encoding="utf-8")
+    f.write_text(YAML_OK, encoding="utf-8")
     monkeypatch.setattr(bao_ve, "HAN_MUC_PATH", f)
     bao_ve._doc_han_muc.cache_clear()
-    assert bao_ve.han_muc_thang("goi-khong-ton-tai") == 7
+    assert bao_ve.han_muc("goi-khong-ton-tai", "hoi_dap_ngay") == 200
     bao_ve._doc_han_muc.cache_clear()
 
 
@@ -286,36 +284,36 @@ def test_config_that_trong_repo_doc_duoc():
     bao_ve._doc_han_muc.cache_clear()
     d = bao_ve._doc_han_muc()
     assert d["goi_mac_dinh"] in d["goi"]
-    assert all(isinstance(v, int) and v >= 0 for v in d["goi"].values())
+    assert all(isinstance(v, int) and v >= 0 for khoi in d["goi"].values() for v in khoi.values())
 
 
 def test_luot_thu_N_cong_1_thi_TU_CHOI(monkeypatch):
     """Ranh giới: đúng hạn mức thì QUA, hơn một lượt thì chặn."""
-    monkeypatch.setattr(bao_ve, "han_muc_thang", lambda plan: 50)
-    monkeypatch.setattr(bao_ve, "dem_luot_thang", lambda sub: 49)
-    bao_ve.kiem_han_muc_thang("s", "free")  # lượt thứ 50 — còn suất
-    monkeypatch.setattr(bao_ve, "dem_luot_thang", lambda sub: 50)
+    monkeypatch.setattr(bao_ve, "han_muc", lambda plan, khoa: 50)
+    monkeypatch.setattr(bao_ve, "la_chan", lambda khoa: 100_000)
+    monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 49)
+    bao_ve.kiem_han_muc("s", "free", "/api/v1/tra-cuu")  # lượt thứ 50 — còn suất
+    monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 50)
     with pytest.raises(Exception) as e:
-        bao_ve.kiem_han_muc_thang("s", "free")  # lượt thứ 51
+        bao_ve.kiem_han_muc("s", "free", "/api/v1/tra-cuu")  # lượt thứ 51
     assert e.value.status_code == 429
 
 
 def test_thong_diep_429_neu_ro_GOI_va_MOC_RESET(monkeypatch):
-    """429 chung chung làm người dùng thử lại vô ích cả tháng và người vận hành
-    đi tìm lỗi mạng. Phải nói: hạn mức THÁNG, của GÓI nào, mở lại KHI NÀO.
+    """429 chung chung làm người dùng thử lại vô ích và người vận hành đi tìm lỗi
+    mạng. Phải nói: của GÓI nào, đã dùng bao nhiêu, mở lại KHI NÀO.
     """
-    monkeypatch.setattr(bao_ve, "han_muc_thang", lambda plan: 50)
-    monkeypatch.setattr(bao_ve, "dem_luot_thang", lambda sub: 50)
+    monkeypatch.setattr(bao_ve, "han_muc", lambda plan, khoa: 50)
+    monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 50)
     with pytest.raises(Exception) as e:
-        bao_ve.kiem_han_muc_thang("s", "free")
+        bao_ve.kiem_han_muc("s", "free", "/api/v1/tra-cuu")
     d = e.value.detail
-    assert "tháng" in d.lower()
-    assert "free" in d
-    assert "50" in d
-    # dd/mm/yyyy — thông điệp này người dùng Việt Nam đọc, không phải máy parse.
-    sang_thang = bao_ve._dau_thang_sau_utc()
-    assert sang_thang.strftime("%d/%m/%Y") in d
-    assert e.value.headers.get("Retry-After")
+    assert e.value.status_code == 429
+    # Tên NGƯỜI ĐỌC của gói, không phải mã `free`: câu này người dùng Việt Nam đọc.
+    assert "Miễn phí" in d
+    assert "50/50" in d
+    assert "Mở lại lúc" in d
+    assert int(e.value.headers["Retry-After"]) > 0
 
 
 def test_tang_dem_HONG_thi_TU_CHOI_khong_mo_cua(monkeypatch):
@@ -323,13 +321,13 @@ def test_tang_dem_HONG_thi_TU_CHOI_khong_mo_cua(monkeypatch):
     nhiêu suất, và cho qua là hành xử như thể hạn mức không tồn tại.
     """
 
-    def no(sub):
+    def no(sub, ep, moc):
         raise RuntimeError("Postgres chết")
 
-    monkeypatch.setattr(bao_ve, "han_muc_thang", lambda plan: 50)
-    monkeypatch.setattr(bao_ve, "dem_luot_thang", no)
+    monkeypatch.setattr(bao_ve, "han_muc", lambda plan, khoa: 50)
+    monkeypatch.setattr(bao_ve, "dem_luot", no)
     with pytest.raises(Exception) as e:
-        bao_ve.kiem_han_muc_thang("s", "free")
+        bao_ve.kiem_han_muc("s", "free", "/api/v1/tra-cuu")
     assert e.value.status_code == 503
 
 
@@ -348,8 +346,8 @@ async def test_vuot_han_muc_chan_TRUOC_khi_graph_chay(client, cai_dat, khoa_ky, 
     monkeypatch.setattr(routes, "_g", lambda: _Dem())
     monkeypatch.setattr(routes, "_ghi_traces", lambda *a, **k: None)
     monkeypatch.setattr(bao_ve, "ghi_nhan_nguoi_dung", lambda sub, email: "free")
-    monkeypatch.setattr(bao_ve, "han_muc_thang", lambda plan: 3)
-    monkeypatch.setattr(bao_ve, "dem_luot_thang", lambda sub: 3)
+    monkeypatch.setattr(bao_ve, "han_muc", lambda plan, khoa: 3)
+    monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 3)
     r = await client.post("/api/v1/tra-cuu", json=_CAU_HOI, headers=_bearer(khoa_ky))
     assert r.status_code == 429
     assert goi["n"] == 0
@@ -437,18 +435,25 @@ def test_CACHE_HIT_khong_tinh_vao_han_muc(don_users):
         _ghi_traces_gia(c, sub, "/api/v1/tra-cuu", cache_hit=False)
         _ghi_traces_gia(c, sub, "/api/v1/tra-cuu", cache_hit=True)
         _ghi_traces_gia(c, sub, "/api/v1/tra-cuu", cache_hit=True)
-    assert bao_ve.dem_luot_thang(sub) == 1
+    assert bao_ve.dem_luot(sub, "/api/v1/tra-cuu", bao_ve.moc_ngay()) == 1
 
 
 @pytest.mark.integration
-def test_dem_ca_soan_thao_khong_dem_endpoint_khong_ton_LLM(don_users):
+def test_dem_RIENG_tung_endpoint_va_khong_dem_endpoint_khong_ton_LLM(don_users):
+    """Hạn mức nay theo TỪNG endpoint (hỏi đáp và bản thảo là hai con số khác
+    nhau trên trang bảng giá), nên `/soat` không chỉ bị loại — nó không nằm
+    trong bất kỳ giỏ nào."""
     sub = str(uuid.uuid4())
     don_users.append(sub)
     with get_engine().begin() as c:
         _ghi_traces_gia(c, sub, "/api/v1/tra-cuu", cache_hit=False)
         _ghi_traces_gia(c, sub, "/api/v1/soan-thao", cache_hit=False)
         _ghi_traces_gia(c, sub, "/api/v1/soat", cache_hit=False)
-    assert bao_ve.dem_luot_thang(sub) == 2
+    moc = bao_ve.moc_ngay()
+    assert bao_ve.dem_luot(sub, "/api/v1/tra-cuu", moc) == 1
+    assert bao_ve.dem_luot(sub, "/api/v1/soan-thao", moc) == 1
+    # `/soat` không nằm trong giỏ nào: `kiem_han_muc` chỉ nhìn hai endpoint tốn LLM.
+    assert "/api/v1/soat" not in bao_ve.ENDPOINT_TON_LLM
 
 
 @pytest.mark.integration
@@ -459,7 +464,7 @@ def test_han_muc_dem_theo_CUA_SO_THANG_khong_phai_moi_thoi_dai(don_users):
     with get_engine().begin() as c:
         _ghi_traces_gia(c, sub, "/api/v1/tra-cuu", cache_hit=False)
         _ghi_traces_gia(c, sub, "/api/v1/tra-cuu", cache_hit=False, ts_offset_days=40)
-    assert bao_ve.dem_luot_thang(sub) == 1
+    assert bao_ve.dem_luot(sub, "/api/v1/tra-cuu", bao_ve.moc_thang()) == 1
 
 
 @pytest.mark.integration
@@ -471,8 +476,9 @@ def test_HAI_SUB_khac_nhau_dem_RIENG(don_users):
         for _ in range(3):
             _ghi_traces_gia(c, a, "/api/v1/tra-cuu", cache_hit=False)
         _ghi_traces_gia(c, b, "/api/v1/tra-cuu", cache_hit=False)
-    assert bao_ve.dem_luot_thang(a) == 3
-    assert bao_ve.dem_luot_thang(b) == 1
+    moc = bao_ve.moc_ngay()
+    assert bao_ve.dem_luot(a, "/api/v1/tra-cuu", moc) == 3
+    assert bao_ve.dem_luot(b, "/api/v1/tra-cuu", moc) == 1
 
 
 @pytest.mark.integration
@@ -484,7 +490,7 @@ async def test_hai_nguoi_dung_sau_CUNG_mot_IP_khong_lam_can_han_muc_cua_nhau(
     Đếm theo IP thì người thứ hai bị 429; đếm theo `sub` thì cả hai đi qua.
     """
     cai_dat(rate_limit_so_luot=1, rate_limit_cua_so_giay=60)
-    monkeypatch.setattr(bao_ve, "dem_luot_thang", lambda sub: 0)
+    monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 0)
     a, b = str(uuid.uuid4()), str(uuid.uuid4())
     don_users.extend([a, b])
     r1 = await client.post("/api/v1/tra-cuu", json=_CAU_HOI, headers=_bearer(khoa_ky, sub=a))
@@ -501,7 +507,7 @@ async def test_traces_ghi_user_sub_de_dem_duoc(client, cai_dat, khoa_ky, don_use
     from src.api import routes
 
     monkeypatch.setattr(routes, "_g", lambda: _GraphGiaLap())
-    monkeypatch.setattr(bao_ve, "dem_luot_thang", lambda sub: 0)
+    monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 0)
     sub = str(uuid.uuid4())
     don_users.append(sub)
     r = await client.post("/api/v1/tra-cuu", json=_CAU_HOI, headers=_bearer(khoa_ky, sub=sub))

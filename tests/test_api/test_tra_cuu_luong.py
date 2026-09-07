@@ -18,7 +18,7 @@ dối thành tiến trình THẬT: mỗi node xong phát một sự kiện, kèm
    phụ thuộc nó; đường SSE là đường SONG SONG, không phải bản thay thế.
 2. **Client rời giữa chừng KHÔNG làm mất dòng `traces`.** LLM đã tiêu tiền rồi.
    Nếu socket đóng huỷ luôn graph thì mọi lượt bị bấm Huỷ là một lượt MIỄN PHÍ —
-   và hạn mức tháng (`bao_ve.dem_luot_thang` đếm chính bảng `traces`) trở thành
+   và hạn mức ngày/tháng (`bao_ve.dem_luot` đếm chính bảng `traces`) trở thành
    trang trí. Graph chạy trong task riêng, không phải con của request.
 """
 
