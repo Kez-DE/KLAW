@@ -103,12 +103,13 @@ function MotPhien({
           </button>
           <button
             type="button"
+            disabled={dangGui}
             onClick={() => {
               datCheDo("xem");
               datNhap(phien.tieu_de);
             }}
             aria-label="Huỷ đổi tên"
-            className={NUT_PHU}
+            className={cn(NUT_PHU, "disabled:opacity-60")}
           >
             <X className="size-4" aria-hidden />
           </button>
@@ -136,8 +137,9 @@ function MotPhien({
           </button>
           <button
             type="button"
+            disabled={dangGui}
             onClick={() => datCheDo("xem")}
-            className="focus-brass min-h-8 cursor-pointer rounded-md border border-border px-2.5 font-medium text-primary"
+            className="focus-brass min-h-8 cursor-pointer rounded-md border border-border px-2.5 font-medium text-primary disabled:opacity-60"
           >
             Giữ lại
           </button>
@@ -175,7 +177,10 @@ function MotPhien({
       <div className="flex shrink-0 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
         <button
           type="button"
-          onClick={() => datCheDo("sua")}
+          onClick={() => {
+            datNhap(phien.tieu_de);
+            datCheDo("sua");
+          }}
           aria-label={`Đổi tên phiên ${phien.tieu_de}`}
           className={NUT_PHU}
         >
@@ -305,13 +310,15 @@ export function CotPhien(props: Props) {
         </div>
       </aside>
 
+      {/* 156px = composer footer height at 375px (~134-140px, disclaimer can wrap
+          to 3 lines) + ~16px clearance so the pill never sits under it. */}
       <button
         type="button"
         hidden={sheetMo}
         onClick={() => datSheetMo(true)}
         aria-expanded={sheetMo}
         aria-controls="phien-ngan-keo"
-        className="focus-brass fixed right-4 bottom-[132px] z-40 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--color-brass-500)]/60 bg-card px-4 text-[13px] font-medium text-[var(--color-brass-600)] shadow-soft xl:hidden"
+        className="focus-brass fixed right-4 bottom-[156px] z-40 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--color-brass-500)]/60 bg-card px-4 text-[13px] font-medium text-[var(--color-brass-600)] shadow-soft xl:hidden"
       >
         <MessageSquare className="size-4" aria-hidden /> Phiên
       </button>
