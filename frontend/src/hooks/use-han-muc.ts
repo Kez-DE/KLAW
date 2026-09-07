@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { goi } from "@/lib/api";
 import { laHanMuc, type ApiError, type HanMuc } from "@/lib/klaw";
 import { useGoiApi } from "./use-goi-api";
@@ -20,5 +20,11 @@ export function useHanMuc(kichHoat: boolean): TrangThaiHanMuc {
   useEffect(() => {
     if (kichHoat) taiLai();
   }, [kichHoat, taiLai]);
-  return { hanMuc: g.ketQua, dangTai: g.dangChay, loi: g.loi, taiLai };
+  // Nhớ theo giá trị thật: `useGoiApi` trả một object mới mỗi lần dựng, và
+  // `TaiKhoanProvider` gói trạng thái này trong `useMemo` — không nhớ ở đây thì
+  // memo của provider không bao giờ giữ được, và cả cây dựng lại mỗi lượt.
+  return useMemo(
+    () => ({ hanMuc: g.ketQua, dangTai: g.dangChay, loi: g.loi, taiLai }),
+    [g.ketQua, g.dangChay, g.loi, taiLai],
+  );
 }

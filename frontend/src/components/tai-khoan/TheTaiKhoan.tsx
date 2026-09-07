@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { MenuTaiKhoan } from "@/components/tai-khoan/MenuTaiKhoan";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { tenGoi } from "@/lib/goi";
@@ -16,10 +16,14 @@ export function TheTaiKhoan({ gon }: { gon: boolean }) {
   const nut = useRef<HTMLButtonElement | null>(null);
   const ten = tenHienThi(user);
   const plan = hanMuc.hanMuc?.plan ?? "free";
+  // Ổn định: `MenuTaiKhoan` gắn hiệu ứng tiêu điểm theo `onDong`, nên một hàm
+  // mới mỗi lần dựng lại là một lần tiêu điểm nhảy về nút rồi nhảy vào mục đầu
+  // ngay trước mắt người đang mở menu.
+  const dong = useCallback(() => datMo(false), []);
 
   return (
     <div className="relative">
-      <MenuTaiKhoan mo={mo} onDong={() => datMo(false)} nutMo={nut} />
+      <MenuTaiKhoan mo={mo} onDong={dong} nutMo={nut} />
       <button
         ref={nut}
         type="button"
