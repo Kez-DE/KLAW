@@ -1,7 +1,7 @@
 /**
- * `dungLuoiHoatDong`/`mucCua`/`tuPhanVi` (`lib/lich-hoat-dong.ts`): lệch thứ
- * Monday-start, tứ phân vị tô mức, và lọc cửa sổ 365 ngày. `TZ=UTC` ép trước
- * MỌI thứ khác — bộ kiểm dùng getter GIỜ MÁY (`getFullYear`/`getMonth`/
+ * `dungLuoiHoatDong`/`mucCua`/`hangDuongTinh` (`lib/lich-hoat-dong.ts`): lệch
+ * thứ Monday-start, xếp hạng tô mức, và lọc cửa sổ 365 ngày. `TZ=UTC` ép
+ * trước MỌI thứ khác — bộ kiểm dùng getter GIỜ MÁY (`getFullYear`/`getMonth`/
  * `getDate`) trên một `homNay` cố định nên phải chạy dưới múi giờ cố định để
  * không lệ thuộc múi giờ của máy đang chạy `npm run kiem-lich-hoat-dong`.
  * Chạy: `npm run kiem-lich-hoat-dong`.
@@ -9,7 +9,7 @@
 process.env.TZ = "UTC";
 
 import assert from "node:assert/strict";
-import { dungLuoiHoatDong, mucCua, tuPhanVi, SO_TUAN } from "../src/lib/lich-hoat-dong.ts";
+import { dungLuoiHoatDong, mucCua, hangDuongTinh, SO_TUAN } from "../src/lib/lich-hoat-dong.ts";
 
 // 2026-09-10 — thứ Năm (mondayStart = 3). Mốc CỐ ĐỊNH, không đọc đồng hồ.
 const HOM_NAY = new Date(Date.UTC(2026, 8, 10));
@@ -54,12 +54,11 @@ const HOM_NAY = new Date(Date.UTC(2026, 8, 10));
   assert.equal(o?.muc, 0);
 }
 
-// 5) Mọi `so_luot` dương BẰNG NHAU (q1=q2=q3=chính giá trị đó) phải chạm mức
-//    4 — quyết định CHỦ Ý: so sánh "≥" giảm dần, không phải "≤" tăng dần như
-//    bản đầu (bản đó bỏ mọi giá trị dương vào mức 1 trong ca này). "Hoạt
+// 5) Mọi `so_luot` dương BẰNG NHAU → CHỈ MỘT giá trị khác nhau trong cửa sổ
+//    (`hangDuongTinh` trả mảng 1 phần tử) → mọi ngày dương chạm mức 4. "Hoạt
 //    động đều mỗi ngày" phải trông ĐẦY, không phải "vừa chạm đáy".
 {
-  assert.equal(mucCua(7, tuPhanVi([7, 7, 7])), 4);
+  assert.equal(mucCua(7, hangDuongTinh([7, 7, 7])), 4);
   const hoatDong = [
     { ngay: "2026-09-01", so_luot: 7 },
     { ngay: "2026-09-02", so_luot: 7 },
@@ -72,8 +71,40 @@ const HOM_NAY = new Date(Date.UTC(2026, 8, 10));
   assert.equal(oi("2026-09-03")?.muc, 4);
 }
 
-// 6) Một `ngay` NGOÀI cửa sổ 365 ngày bị BỎ HẲN: không hiện lên lưới, và
-//    KHÔNG được tính vào tứ phân vị của các ngày đang hiển thị — thêm nó vào
+// 6) Dữ liệu LỆCH — mười ngày `so_luot: 1` và một ngày đột biến `so_luot:
+//    50` — phải VẪN PHÂN BIỆT ĐƯỢC: mười ngày yên ắng ở mức 1 (giá trị nhỏ
+//    nhất trong cửa sổ), ngày đột biến ở mức 4 (giá trị lớn nhất). Xếp hạng
+//    theo THỨ TỰ giữa hai giá trị khác nhau (1 và 50), không phải ngưỡng
+//    theo tứ phân vị — tứ phân vị của mẫu này sụp về [1,1,1] và từng làm mọi
+//    ngày dương (kể cả mười ngày yên ắng) cùng chạm mức 4, không phân biệt
+//    được với ngày đột biến.
+{
+  const ngayYen = Array.from({ length: 10 }, (_, i) => ({
+    ngay: `2026-08-${String(i + 1).padStart(2, "0")}`,
+    so_luot: 1,
+  }));
+  const hoatDong = [...ngayYen, { ngay: "2026-08-11", so_luot: 50 }];
+  const { oLuoi } = dungLuoiHoatDong(hoatDong, HOM_NAY);
+  const oi = (ngay: string) => oLuoi.find((x) => x !== null && x.ngay === ngay);
+  const mucYen = oi("2026-08-01")?.muc;
+  const mucDotBien = oi("2026-08-11")?.muc;
+  assert.equal(mucYen, 1);
+  assert.equal(mucDotBien, 4);
+  assert.notEqual(mucYen, mucDotBien);
+}
+
+// 7) Bốn giá trị dương khác nhau trải đều 1→4, không nén cụm dưới vào một
+//    mức hay bỏ trống mức 1 như bản ngưỡng-giá-trị cũ làm với ≤4 giá trị
+//    khác nhau.
+{
+  assert.deepEqual(
+    [1, 2, 3, 4].map((v) => mucCua(v, hangDuongTinh([1, 2, 3, 4]))),
+    [1, 2, 3, 4],
+  );
+}
+
+// 8) Một `ngay` NGOÀI cửa sổ 365 ngày bị BỎ HẲN: không hiện lên lưới, và
+//    KHÔNG được tính vào xếp hạng của các ngày đang hiển thị — thêm nó vào
 //    (dù với `so_luot` cực lớn) không được đổi kết quả một chút nào.
 {
   const a = dungLuoiHoatDong([{ ngay: "2026-09-05", so_luot: 3 }], HOM_NAY);
@@ -88,4 +119,4 @@ const HOM_NAY = new Date(Date.UTC(2026, 8, 10));
   assert.ok(b.oLuoi.every((o) => o === null || o.ngay !== "2020-01-01"));
 }
 
-console.info("kiem-lich-hoat-dong: 14/14 đạt");
+console.info("kiem-lich-hoat-dong: 18/18 đạt");

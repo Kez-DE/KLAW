@@ -56,47 +56,38 @@ function thuTrongTuan(t: number): number {
   return (new Date(t).getUTCDay() + 6) % 7;
 }
 
-/** Tứ phân vị của các giá trị dương — ranh giới bốn mức tô đậm dần. */
-export function tuPhanVi(duongTinh: number[]): readonly [number, number, number] {
-  const s = [...duongTinh].sort((a, b) => a - b);
-  const cuoi = s.length - 1;
-  const tai = (p: number) => s[Math.max(0, Math.floor(cuoi * p))] ?? 0;
-  return [tai(0.25), tai(0.5), tai(0.75)];
+/** Giá trị dương KHÔNG TRÙNG trong cửa sổ, sắp tăng dần — nền xếp hạng cho `mucCua`. */
+export function hangDuongTinh(gtri: number[]): number[] {
+  return [...new Set(gtri.filter((n) => n > 0))].sort((a, b) => a - b);
 }
 
 /**
- * Mức tô cho một ô, 0 (không hoạt động) tới 4 (tứ phân vị cao nhất).
+ * Mức tô cho một ô, 0 (không hoạt động) tới 4 (giá trị dương lớn nhất trong
+ * cửa sổ).
  *
- * So sánh "≥" theo thứ tự GIẢM DẦN, không phải "≤" tăng dần: giá trị lớn
- * nhất luôn chạm mức 4 — kể cả khi mọi ngày có `so_luot` bằng nhau (khi đó
- * q1=q2=q3=chính giá trị đó). Bản "≤" trước đây bỏ MỌI giá trị dương vào mức
- * 1 trong ca này, khiến "hoạt động đều mỗi ngày" trông nhạt như "vừa mới có
- * hoạt động một lượt" — cùng dữ liệu đầu vào đáng lẽ phải trông "đầy", không
- * "vừa chạm đáy".
- *
- * `ponytail`: tứ phân vị tính trên mẫu nhỏ (365 ngày hiển thị, thường ít ngày
- * có hoạt động thật) — một ngày đột biến giữa nhiều ngày thấp vẫn có thể kéo
- * tứ phân vị xuống thấp và tô nhầm cả cụm ngày thấp lên mức cao. Trần biết
- * trước của cách tính đơn giản này; nâng cấp khi cần là đổi sang bách phân vị
- * trên toàn bộ lịch sử hoạt động thay vì chỉ 365 ngày đang hiển thị.
+ * XẾP HẠNG giữa các giá trị dương KHÔNG TRÙNG (`d` từ `hangDuongTinh`), không
+ * phải ngưỡng theo GIÁ TRỊ (tứ phân vị cũ). Ngưỡng giá trị tô SAI khi dữ liệu
+ * lệch: 10 ngày `so_luot=1` cộng 1 ngày `so_luot=50` có tứ phân vị cùng sụp về
+ * 1 (`q1=q2=q3=1`), nên MỌI ngày dương — kể cả 10 ngày yên ắng lẫn ngày đột
+ * biến — cùng chạm mức 4, không phân biệt được. Xếp hạng theo THỨ TỰ giữa các
+ * giá trị (không phải khoảng cách giữa chúng) không mắc lỗi đó: giá trị nhỏ
+ * nhất trong cửa sổ luôn là mức 1, giá trị lớn nhất luôn là mức 4, bất kể
+ * chênh lệch giữa chúng lớn hay nhỏ.
  */
-export function mucCua(
-  soLuot: number,
-  [q1, q2, q3]: readonly [number, number, number],
-): 0 | 1 | 2 | 3 | 4 {
+export function mucCua(soLuot: number, d: readonly number[]): 0 | 1 | 2 | 3 | 4 {
   if (soLuot <= 0) return 0;
-  if (soLuot >= q3) return 4;
-  if (soLuot >= q2) return 3;
-  if (soLuot >= q1) return 2;
-  return 1;
+  if (d.length <= 1) return 4;
+  const i = d.indexOf(soLuot);
+  if (i === -1) return 4;
+  return (1 + Math.round((i * 3) / (d.length - 1))) as 1 | 2 | 3 | 4;
 }
 
 /**
  * Dựng 371 ô (53 cột × 7 hàng, đệm đầu/cuối) và nhãn tháng cho 365 ngày lùi
  * từ `homNay`. Entry của `hoatDong` có `ngay` NGOÀI cửa sổ 365 ngày bị BỎ
- * HẲN — không chỉ không hiện lên lưới, mà cũng không được tính vào tứ phân
- * vị: một ngày đột biến bên ngoài cửa sổ hiển thị không được phép kéo lệch
- * màu của 365 ngày đang hiện ra.
+ * HẲN — không chỉ không hiện lên lưới, mà cũng không được tính vào xếp hạng:
+ * một ngày đột biến bên ngoài cửa sổ hiển thị không được phép kéo lệch màu
+ * của 365 ngày đang hiện ra.
  */
 export function dungLuoiHoatDong(hoatDong: HoatDongNgay[], homNay: Date): LuoiHoatDong {
   const mocHomNay = Date.UTC(homNay.getFullYear(), homNay.getMonth(), homNay.getDate());
@@ -105,13 +96,13 @@ export function dungLuoiHoatDong(hoatDong: HoatDongNgay[], homNay: Date): LuoiHo
   const trongCuaSo = hoatDong.filter((h) => h.ngay >= ngayDau && h.ngay <= ngayCuoi);
 
   const theoNgay = new Map(trongCuaSo.map((h) => [h.ngay, h.so_luot]));
-  const nguong = tuPhanVi(trongCuaSo.map((h) => h.so_luot).filter((n) => n > 0));
+  const hang = hangDuongTinh(trongCuaSo.map((h) => h.so_luot));
 
   const oNgay: ONgay[] = Array.from({ length: SO_NGAY }, (_, i) => {
     const t = mocHomNay - (SO_NGAY - 1 - i) * MS_NGAY;
     const ngay = chuoiNgay(t);
     const soLuot = theoNgay.get(ngay) ?? 0;
-    return { t, ngay, soLuot, muc: mucCua(soLuot, nguong) };
+    return { t, ngay, soLuot, muc: mucCua(soLuot, hang) };
   });
 
   const dauTuan = thuTrongTuan(oNgay[0]!.t);
