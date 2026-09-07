@@ -239,13 +239,27 @@ Tra cứu luật, soát văn bản, xem lại phiên, xuất Word/PDF không bao
 - Cả hai route yêu cầu đăng nhập; chưa đăng nhập → `/dang-nhap?next=…`
   (`DICH_QUAY_LAI` thêm hai đường này).
 
-### 7.5 Nâng cấp
+### 7.5 Nâng cấp (`ModalNangGoi`)
 
-`ModalNangGoi`: hai cột từ dữ liệu `/bang-gia` (Miễn phí, Cá nhân), cột hiện tại gắn
-"Gói hiện tại của bạn"; nút "Yêu cầu nâng lên Cá nhân" → `POST /nang-goi/yeu-cau`;
-thành công hoặc đã có yêu cầu → nút đổi thành "Đang chờ duyệt" kèm câu "Chưa có thanh
-toán trực tuyến. Tôi sẽ báo qua email khi gói được mở." Mở từ menu, từ nút Nâng cấp
-ở chân sidebar, từ thẻ 429, từ Hồ sơ.
+Cửa sổ giữa màn, nút đóng góc phải, hai card cạnh nhau (xếp dọc dưới 768px), mỗi
+card cùng khuôn: nhãn gói nhỏ → tiêu đề lớn → một câu mô tả → giá "₫0 / tháng" →
+nút → tiêu đề danh sách → danh sách tính năng có icon (lucide). Nội dung:
+
+| | Card Miễn phí | Card Cá nhân |
+|---|---|---|
+| Nhãn | Miễn phí | Cá nhân |
+| Tiêu đề | Dùng thử KLAW | Dùng cho công việc |
+| Mô tả | Hỏi pháp luật lao động và nhận câu trả lời có căn cứ kiểm chứng được, soạn văn bản mẫu, tra cứu luật. | Cho luật sư, chuyên viên nhân sự và pháp chế hỏi nhiều mỗi ngày, không phải đợi sang ngày mới. |
+| Giá | ₫0 / tháng | ₫499.000 / tháng (số từ `bang-gia.tsx`, cùng nguồn dữ liệu) |
+| Nút | Free: viền mờ, khoá, "Gói hiện tại của bạn". Pro: không hiện nút. | Free: nút đặc "Yêu cầu nâng lên Cá nhân" → `POST /nang-goi/yeu-cau`; sau khi gửi hoặc đã có yêu cầu: khoá, "Đang chờ duyệt". Pro: viền mờ, khoá, "Gói hiện tại của bạn". |
+| Tiêu đề danh sách | Bắt đầu với những điều cơ bản: | Mọi thứ trong gói Miễn phí, cộng thêm: |
+| Danh sách | 15 lượt hỏi đáp mỗi ngày, 300 mỗi tháng · 3 bản thảo mỗi ngày · Phiên và lịch sử không giới hạn · Tra cứu luật, soát văn bản không giới hạn · Xuất Word, PDF | 1000 lượt hỏi đáp mỗi tháng, không giới hạn ngày · 20 bản thảo mỗi ngày |
+
+Dưới nút của card Cá nhân, chữ nhỏ: "Chưa có thanh toán trực tuyến. Tôi sẽ báo qua
+email khi gói được mở." Số trong danh sách lấy từ một hằng dùng chung với `/bang-gia`
+(không chép tay hai nơi); chỉ liệt kê tính năng đã có thật. Mở từ `MenuTaiKhoan`, nút
+Nâng cấp ở chân sidebar, thẻ 429, trang Hồ sơ. Đóng bằng Escape, click nền, nút X;
+tiêu điểm quay về nơi mở.
 
 ### 7.6 Bảng giá
 
