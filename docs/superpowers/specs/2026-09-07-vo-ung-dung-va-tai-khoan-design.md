@@ -188,7 +188,7 @@ Cổng như cũ (`_nguoi_goi`: ẩn danh → `ap_dung=false`). Có danh tính:
 ```
 
 `muc` chỉ gồm các khoá trong `goi.<plan>` (không gồm lá chắn); `het_han_luc` là
-`users.plan_het_han` với Pro, `null` với Free. `han_muc >= 100000` nghĩa là không giới hạn;
+`users.plan_het_han` khi có (kể cả đã hết hạn — `plan` khi đó là `free`, FE dùng nó để hiện thẻ "đã hết hạn"), `null` khi chưa từng có Pro. `han_muc >= 100000` nghĩa là không giới hạn;
 FE quyết định cách hiển thị. Model
 `HanMucResponse` viết lại theo hình này; `HanMucThang.tsx` và `laHanMuc` cũ bị gỡ,
 `/bang-gia` hiện `ThuocMucDung` (§7.2) ở đúng chỗ đó.
