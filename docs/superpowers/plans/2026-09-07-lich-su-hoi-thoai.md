@@ -66,7 +66,7 @@ Thứ tự: Task 1 (main) → BE worktree `../KLAW-be3` (`wt-be-phien`): 2 → 3
 - Produces (BE): `bao_ve.phien_luu_toi_da(plan: str) -> int`; `bao_ve.plan_cua(sub: str) -> str` (SELECT `users.plan`, rơi về `goi_mac_dinh` khi chưa có dòng); `bao_ve.nguoi_dung_bat_buoc(request) -> dict` (`{"sub","email"}` hoặc 401); `TraCuuRequest.hoi_thoai_id: UUID | None`; models `PhienTomTatOut{id: str, tieu_de: str, so_luot: int, tao_luc: datetime, cap_nhat_luc: datetime}`, `DanhSachPhienResponse{plan: str, gioi_han: int, tong_hien: int, tong_an: int, items: list[PhienTomTatOut]}`, `LuotDaLuuOut{thu_tu: int, cau_hoi: str, tra_loi: dict, trace_id: str | None, tao_luc: datetime}`, `ChiTietPhienResponse{id, tieu_de, tao_luc, cap_nhat_luc, luot: list[LuotDaLuuOut]}`, `DoiTenPhienRequest{tieu_de: str}` (1–120, strip).
 - Produces (FE): `PhienTomTat`, `DanhSachPhien`, `LuotDaLuu`, `ChiTietPhien`, `laDanhSachPhien`, `laChiTietPhien`, `chuanHoaLuot(l: LuotDaLuu): { thuTu: number; cauHoi: string; ketQua: TraCuuKetQua | null; traceId: string | null }`; `SuKienBatDau.hoi_thoai_id: string | null`; `YeuCauTraCuu.hoi_thoai_id?: string`; `XuLyLuong.onLoiLuu?: (su: SuKienLoiLuu) => void` với `SuKienLoiLuu{hoi_thoai_id: string; detail: string}`.
 
-- [ ] **Step 1: Plan bền** `docs/plans/active/lich-su-hoi-thoai.md`
+- [x] **Step 1: Plan bền** `docs/plans/active/lich-su-hoi-thoai.md`
 
 ```markdown
 # Execution Plan: Lịch sử hội thoại theo tài khoản
@@ -84,14 +84,14 @@ Active
 
 ## Progress
 
-- [ ] Task 1 hợp đồng + migration 020 + phien_luu
-- [ ] Task 2 dịch vụ hoi_thoai
-- [ ] Task 3 stream/POST ghi lượt
-- [ ] Task 4 router /hoi-thoai
-- [ ] Task 5 helper + hook FE
-- [ ] Task 6 use-tra-cuu + ?phien=
-- [ ] Task 7 DanhSachPhien
-- [ ] Task 8 gộp, kiểm, Chrome, đóng
+- [x] Task 1 hợp đồng + migration 020 + phien_luu
+- [x] Task 2 dịch vụ hoi_thoai
+- [x] Task 3 stream/POST ghi lượt
+- [x] Task 4 router /hoi-thoai
+- [x] Task 5 helper + hook FE
+- [x] Task 6 use-tra-cuu + ?phien=
+- [x] Task 7 DanhSachPhien
+- [x] Task 8 gộp, kiểm, Chrome, đóng
 
 ## Decisions
 
@@ -102,7 +102,7 @@ Active
 (điền ở Task 8)
 ```
 
-- [ ] **Step 2: Test đỏ** `tests/test_api/test_han_muc_phien.py`
+- [x] **Step 2: Test đỏ** `tests/test_api/test_han_muc_phien.py`
 
 ```python
 """`phien_luu` trong `config/han_muc.yaml` + `nguoi_dung_bat_buoc` (spec 2026-09-07 §4.2, §5.3)."""
@@ -162,9 +162,9 @@ async def test_nguoi_dung_bat_buoc_401_khi_khong_co_danh_tinh(cai_dat, monkeypat
 
 (`cai_dat` đến từ `tests/test_api/conftest.py`. Nếu `ip_goi` cần thuộc tính khác của request, đọc `bao_ve.ip_goi` và bổ sung vào `Req` cho đủ — không nới điều kiện assert.)
 
-- [ ] **Step 3: Đỏ** — `python -m pytest tests/test_api/test_han_muc_phien.py -q` → AttributeError/ValueError không khớp.
+- [x] **Step 3: Đỏ** — `python -m pytest tests/test_api/test_han_muc_phien.py -q` → AttributeError/ValueError không khớp.
 
-- [ ] **Step 4: `config/han_muc.yaml`** — thêm cuối file:
+- [x] **Step 4: `config/han_muc.yaml`** — thêm cuối file:
 
 ```yaml
 
@@ -177,7 +177,7 @@ phien_luu:
   pro: 100000
 ```
 
-- [ ] **Step 5: `src/services/bao_ve.py`**
+- [x] **Step 5: `src/services/bao_ve.py`**
 
 Trong `_doc_han_muc`, sau kiểm `goi_mac_dinh`:
 
@@ -233,7 +233,7 @@ async def nguoi_dung_bat_buoc(request: Request) -> dict:
     return nguoi
 ```
 
-- [ ] **Step 6: Migration** `migrations/020_hoi_thoai.sql`
+- [x] **Step 6: Migration** `migrations/020_hoi_thoai.sql`
 
 ```sql
 -- Spec 2026-09-07 §4 — phiên hội thoại theo tài khoản. `tra_loi` là NGUYÊN payload
@@ -264,7 +264,7 @@ CREATE TABLE IF NOT EXISTS luot_hoi_thoai (
 
 Áp lên DB local: `python -c "from src.services.db import run_migrations; print(run_migrations('020'))"`.
 
-- [ ] **Step 7: `src/main.py:52`** — `db_svc.run_migrations("019")` thành:
+- [x] **Step 7: `src/main.py:52`** — `db_svc.run_migrations("019")` thành:
 
 ```python
     for mig in ("019", "020"):
@@ -273,7 +273,7 @@ CREATE TABLE IF NOT EXISTS luot_hoi_thoai (
 
 Chạy `python -m pytest tests/test_api/test_guard_khoi_dong.py -q`: test hiện có khẳng định gọi với `"019"` — đọc và đổi kỳ vọng thành danh sách `["019", "020"]` (spy ghi mọi lời gọi), giữ ý nghĩa "áp migration trước guard".
 
-- [ ] **Step 8: `src/models/schemas.py`** — trong `TraCuuRequest`, ngay sau `lich_su`:
+- [x] **Step 8: `src/models/schemas.py`** — trong `TraCuuRequest`, ngay sau `lich_su`:
 
 ```python
     # Spec 2026-09-07 §5.2: phiên hội thoại để máy chủ nạp `lich_su` và ghi lượt. Chỉ
@@ -323,7 +323,7 @@ class DoiTenPhienRequest(BaseModel):
 
 (`from datetime import datetime` nếu chưa có.)
 
-- [ ] **Step 9: Frontend kiểu** — `frontend/src/lib/klaw.ts`, sau `SuKienBuoc`:
+- [x] **Step 9: Frontend kiểu** — `frontend/src/lib/klaw.ts`, sau `SuKienBuoc`:
 
 ```ts
 /* ── /hoi-thoai — phiên hội thoại theo tài khoản (spec 2026-09-07) ─────────── */
@@ -403,14 +403,14 @@ export function chuanHoaLuot(l: LuotDaLuu): {
             xuLy.onLoiLuu?.({ hoi_thoai_id: du["hoi_thoai_id"], detail: du["detail"] });
 ```
 
-- [ ] **Step 10: Xanh**
+- [x] **Step 10: Xanh**
 
 ```bash
 make lint && ruff format --check src/services/bao_ve.py src/models/schemas.py src/main.py tests/test_api/test_han_muc_phien.py && python -m pytest tests/test_api/test_han_muc_phien.py tests/test_api/test_guard_khoi_dong.py tests/test_api/test_tra_cuu.py tests/test_config.py -q
 cd frontend && npm run typecheck && npm run lint && node scripts/kiem-sse.ts
 ```
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add migrations/020_hoi_thoai.sql config/han_muc.yaml src/services/bao_ve.py src/models/schemas.py src/main.py tests/test_api/test_han_muc_phien.py tests/test_api/test_guard_khoi_dong.py frontend/src/lib/klaw.ts frontend/src/lib/api.ts docs/plans/active/lich-su-hoi-thoai.md
@@ -419,7 +419,7 @@ git commit -m "feat(api): conversation tables, per-plan session cap, identity ga
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 12: Worktree**
+- [x] **Step 12: Worktree**
 
 ```bash
 git worktree add ../KLAW-be3 -b wt-be-phien && git worktree add ../KLAW-fe3 -b wt-fe-phien
@@ -444,7 +444,7 @@ Mọi lệnh chạy từ gốc worktree với `.venv/bin/python` / `.venv/bin/ru
 - Consumes: `bao_ve.phien_luu_toi_da(plan)`, `bao_ve.ghi_nhan_nguoi_dung(sub, email) -> plan` (tạo dòng `users` cho FK), `get_engine()`.
 - Produces: `tao_phien(sub: str, cau_hoi: str) -> str`; `lay_phien(sub, id) -> dict | None` (`{id, tieu_de, tao_luc, cap_nhat_luc}`); `phien_bi_an(sub, plan, id) -> bool`; `lich_su_gan_nhat(id, n=3) -> list[dict]` (hình `LuotTruoc`, theo thứ tự thời gian); `ghi_luot(id, cau_hoi, tra_loi: dict, trace_id: str | None) -> int`; `danh_sach(sub, plan, limit, offset) -> tuple[list[dict], int, int]` (items, tong_hien, tong_an); `chi_tiet(sub, id) -> dict | None` (phiên + `luot: list[dict]`); `doi_ten(sub, id, tieu_de) -> dict | None`; `xoa_mem(sub, id) -> bool`; `tieu_de_mac_dinh(cau_hoi) -> str`. Task 3, 4 gọi đúng các tên này.
 
-- [ ] **Step 1: Test đỏ** `tests/test_services/test_hoi_thoai.py`
+- [x] **Step 1: Test đỏ** `tests/test_services/test_hoi_thoai.py`
 
 ```python
 """Dịch vụ phiên hội thoại (spec 2026-09-07 §4, §5.1) — chạy trên DB thật, dọn theo `sub`."""
@@ -529,9 +529,9 @@ def test_doi_ten_va_xoa_mem(nguoi):
     assert hoi_thoai.danh_sach(nguoi, "free", 20, 0)[1] == 0
 ```
 
-- [ ] **Step 2: Đỏ** — `.venv/bin/python -m pytest tests/test_services/test_hoi_thoai.py -q` → ModuleNotFoundError.
+- [x] **Step 2: Đỏ** — `.venv/bin/python -m pytest tests/test_services/test_hoi_thoai.py -q` → ModuleNotFoundError.
 
-- [ ] **Step 3: Dịch vụ** `src/services/hoi_thoai.py`
+- [x] **Step 3: Dịch vụ** `src/services/hoi_thoai.py`
 
 ```python
 """Phiên hội thoại theo tài khoản (spec 2026-09-07 §4, §5.1).
@@ -688,13 +688,13 @@ def xoa_mem(sub: str, id: str) -> bool:
         return c.execute(_SQL_XOA_MEM, {"sub": sub, "id": id}).rowcount > 0
 ```
 
-- [ ] **Step 4: Xanh**
+- [x] **Step 4: Xanh**
 
 ```bash
 .venv/bin/ruff check src/ tests/ && .venv/bin/ruff format --check src/services/hoi_thoai.py tests/test_services/test_hoi_thoai.py && .venv/bin/python -m pytest tests/test_services/test_hoi_thoai.py -q
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/services/hoi_thoai.py tests/test_services/test_hoi_thoai.py
@@ -715,7 +715,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: Task 2 hàm dịch vụ; `bao_ve.plan_cua(sub)`; fixture `cai_dat`, `khoa_ky`, `graph_gia_lap`, `_bearer` (`tests/test_api/test_xac_thuc_han_muc.py`).
 - Produces: `routes._chuan_bi_phien(req, user_sub) -> tuple[TraCuuRequest, str | None]` (raise 404/403; trả req đã gắn `lich_su` máy chủ + id phiên); `routes._ghi_luot_nhe(hoi_thoai_id, cau_hoi, payload_json, trace_id) -> str | None` (None khi ghi được, chuỗi lỗi khi không); `bat_dau.hoi_thoai_id`; sự kiện `loi_luu`; header `X-Hoi-Thoai-Id` ở `/tra-cuu`.
 
-- [ ] **Step 1: Test đỏ** `tests/test_api/test_tra_cuu_phien.py`
+- [x] **Step 1: Test đỏ** `tests/test_api/test_tra_cuu_phien.py`
 
 ```python
 """Ghi lượt vào phiên qua stream và POST (spec 2026-09-07 §5.2)."""
@@ -848,9 +848,9 @@ async def test_post_tra_cuu_tra_header_phien(client, cai_dat, khoa_ky, graph_gia
 
 (Đọc `_GraphGiaLap.ainvoke` và cách các test hiện có gọi `cai_dat(...)` để dùng đúng tham số; `graph_gia_lap` đã vô hiệu `_ghi_traces`. Không dùng `khong_dung_db`: hạn mức đọc DB thật với người vừa tạo là 0 lượt — hợp lệ.)
 
-- [ ] **Step 2: Đỏ** — `.venv/bin/python -m pytest tests/test_api/test_tra_cuu_phien.py -q`.
+- [x] **Step 2: Đỏ** — `.venv/bin/python -m pytest tests/test_api/test_tra_cuu_phien.py -q`.
 
-- [ ] **Step 3: `src/api/routes.py`** — import `LuotTruoc` (gộp vào import schemas), `Response` từ fastapi, `from src.services import hoi_thoai as hoi_thoai_svc`, và `plan_cua` từ `src.services.bao_ve`. Thêm sau `_state_vao`:
+- [x] **Step 3: `src/api/routes.py`** — import `LuotTruoc` (gộp vào import schemas), `Response` từ fastapi, `from src.services import hoi_thoai as hoi_thoai_svc`, và `plan_cua` từ `src.services.bao_ve`. Thêm sau `_state_vao`:
 
 ```python
 async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[TraCuuRequest, str | None]:
@@ -902,7 +902,7 @@ async def tra_cuu(
     return resp
 ```
 
-- [ ] **Step 4: `src/api/routes_luong.py`** — import `_chuan_bi_phien, _ghi_luot_nhe` từ `src.api.routes`. Trong `tra_cuu_luong`, TRƯỚC khi tạo `hang`: `req, hoi_thoai_id = await _chuan_bi_phien(req, user_sub)` (404/403 nổ ở đây, trước khi stream mở). Thêm `"hoi_thoai_id": hoi_thoai_id,` vào dict `bat_dau`. `_chay_nen(req, user_sub, trace_id, hang, hoi_thoai_id)` — sau `await hang.put(("ket_qua", …))`:
+- [x] **Step 4: `src/api/routes_luong.py`** — import `_chuan_bi_phien, _ghi_luot_nhe` từ `src.api.routes`. Trong `tra_cuu_luong`, TRƯỚC khi tạo `hang`: `req, hoi_thoai_id = await _chuan_bi_phien(req, user_sub)` (404/403 nổ ở đây, trước khi stream mở). Thêm `"hoi_thoai_id": hoi_thoai_id,` vào dict `bat_dau`. `_chay_nen(req, user_sub, trace_id, hang, hoi_thoai_id)` — sau `await hang.put(("ket_qua", …))`:
 
 ```python
         if hoi_thoai_id is not None:
@@ -913,13 +913,13 @@ async def tra_cuu(
 
 Docstring "Ba loại sự kiện" → bốn: thêm `loi_luu` và `hoi_thoai_id` trong `bat_dau`.
 
-- [ ] **Step 5: Xanh**
+- [x] **Step 5: Xanh**
 
 ```bash
 .venv/bin/ruff check src/ tests/ && .venv/bin/ruff format --check src/api/routes.py src/api/routes_luong.py tests/test_api/test_tra_cuu_phien.py && .venv/bin/python -m pytest tests/test_api/test_tra_cuu_phien.py tests/test_api/test_tra_cuu.py tests/test_api/test_sse_nhip_tim.py tests/test_api/test_xac_thuc_han_muc.py -q
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/api/routes.py src/api/routes_luong.py tests/test_api/test_tra_cuu_phien.py
@@ -940,7 +940,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: Task 1 models + `nguoi_dung_bat_buoc`, `plan_cua`; Task 2 dịch vụ.
 - Produces: `GET /hoi-thoai`, `GET /hoi-thoai/{id}`, `PATCH /hoi-thoai/{id}`, `DELETE /hoi-thoai/{id}` như spec §5.3.
 
-- [ ] **Step 1: Test đỏ** `tests/test_api/test_hoi_thoai.py`
+- [x] **Step 1: Test đỏ** `tests/test_api/test_hoi_thoai.py`
 
 ```python
 """CRUD phiên hội thoại (spec 2026-09-07 §5.3)."""
@@ -1021,9 +1021,9 @@ async def test_phien_an_theo_goi_403_va_tong_an(client, khoa_ky, hai_nguoi, monk
 
 (Router lấy `gioi_han` bằng `hoi_thoai.phien_luu_toi_da(plan)` — cùng tên module với `danh_sach`/`phien_bi_an` — để `monkeypatch.setattr(hoi_thoai, "phien_luu_toi_da", …)` tác động nhất quán.)
 
-- [ ] **Step 2: Đỏ** — 404 cho mọi route.
+- [x] **Step 2: Đỏ** — 404 cho mọi route.
 
-- [ ] **Step 3: Router** `src/api/routes_hoi_thoai.py`
+- [x] **Step 3: Router** `src/api/routes_hoi_thoai.py`
 
 ```python
 """`/hoi-thoai` — phiên hội thoại theo tài khoản (spec 2026-09-07 §5.3).
@@ -1120,13 +1120,13 @@ async def xoa(id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Response:
 
 `src/main.py`: `from src.api.routes_hoi_thoai import router as router_hoi_thoai` + `app.include_router(router_hoi_thoai, prefix="/api/v1")` cạnh các router khác.
 
-- [ ] **Step 4: Xanh**
+- [x] **Step 4: Xanh**
 
 ```bash
 .venv/bin/ruff check src/ tests/ && .venv/bin/ruff format --check src/api/routes_hoi_thoai.py tests/test_api/test_hoi_thoai.py && .venv/bin/python -m pytest tests/test_api/test_hoi_thoai.py tests/test_api/test_han_muc_phien.py -q
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/api/routes_hoi_thoai.py src/main.py tests/test_api/test_hoi_thoai.py
@@ -1151,7 +1151,7 @@ Chạy song song với BƯỚC 1 — hai stream không đụng file nhau (BE ch�
 - Consumes: `goi(duongDan, kiem, {signal, method, body})`, `useGoiApi<T>()` (`hooks/use-goi-api.ts`), kiểu Task 1: `DanhSachPhien`, `ChiTietPhien`, `PhienTomTat`, `laDanhSachPhien`, `laChiTietPhien`, `chuanHoaLuot`.
 - Produces: `tenGoi(plan: string): string`; `cauPhienAn(plan: string, gioiHan: number, tongAn: number): string`; `thoiGianTuongDoi(iso: string, bayGio?: number): string`; `laPhienTomTat(x): x is PhienTomTat`; `laKhongThan(x): x is null` (export từ `lib/api.ts`); hook `useHoiThoai(daDangNhap: boolean): TrangThaiHoiThoai` với `{ danhSach: DanhSachPhien | null; dangTai: boolean; loi: ApiError | null; taiLai(): void; chiTiet: ChiTietPhien | null; dangTaiChiTiet: boolean; loiChiTiet: ApiError | null; taiChiTiet(id: string): void; xoaChiTiet(): void; doiTen(id, tieuDe): Promise<ApiResult<PhienTomTat>>; xoa(id): Promise<ApiResult<null>> }`. Task 6, 7 dùng đúng các tên này.
 
-- [ ] **Step 1: Kiểm đỏ** `frontend/scripts/kiem-phien.ts`
+- [x] **Step 1: Kiểm đỏ** `frontend/scripts/kiem-phien.ts`
 
 ```ts
 /**
@@ -1210,9 +1210,9 @@ console.info("kiem-phien: 4/4 đạt");
 
 `package.json`: thêm `"kiem-phien": "node scripts/kiem-phien.ts"` và nối `&& npm run kiem-phien` vào chuỗi `kiem` ngay sau `npm run kiem-quay-lai`.
 
-- [ ] **Step 2: Đỏ** — `npm run kiem-phien` → ERR_MODULE_NOT_FOUND `lib/phien.ts`.
+- [x] **Step 2: Đỏ** — `npm run kiem-phien` → ERR_MODULE_NOT_FOUND `lib/phien.ts`.
 
-- [ ] **Step 3: `lib/phien.ts`**
+- [x] **Step 3: `lib/phien.ts`**
 
 ```ts
 /**
@@ -1252,7 +1252,7 @@ export function thoiGianTuongDoi(iso: string, bayGio: number = Date.now()): stri
 }
 ```
 
-- [ ] **Step 4: `lib/api.ts`** — `TuyChonGoi.method?: "GET" | "POST" | "PATCH" | "DELETE"`. Trong `goi`, thay khối đọc body:
+- [x] **Step 4: `lib/api.ts`** — `TuyChonGoi.method?: "GET" | "POST" | "PATCH" | "DELETE"`. Trong `goi`, thay khối đọc body:
 
 ```ts
   let than: unknown;
@@ -1275,7 +1275,7 @@ export function laPhienTomTat(x: unknown): x is PhienTomTat {
 }
 ```
 
-- [ ] **Step 5: `hooks/use-hoi-thoai.ts`**
+- [x] **Step 5: `hooks/use-hoi-thoai.ts`**
 
 ```ts
 import { useCallback, useEffect } from "react";
@@ -1366,13 +1366,13 @@ export function useHoiThoai(daDangNhap: boolean): TrangThaiHoiThoai {
 }
 ```
 
-- [ ] **Step 6: Xanh**
+- [x] **Step 6: Xanh**
 
 ```bash
 npm run typecheck && npm run lint && npm run kiem-phien && npm run kiem-sse && npx prettier --check src/lib/phien.ts src/hooks/use-hoi-thoai.ts scripts/kiem-phien.ts src/lib/api.ts src/lib/klaw.ts
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/lib/phien.ts frontend/src/hooks/use-hoi-thoai.ts frontend/scripts/kiem-phien.ts frontend/src/lib/api.ts frontend/src/lib/klaw.ts frontend/package.json
@@ -1392,7 +1392,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: Task 1 `SuKienBatDau.hoi_thoai_id`, `XuLyLuong.onLoiLuu`, `YeuCauTraCuu.hoi_thoai_id`, `chuanHoaLuot`; Task 5 `useHoiThoai`.
 - Produces: `hoi(cauHoi: string, tuyChon?: { lichSu?: LuotTruoc[]; hoiThoaiId?: string })`; `TrangThaiTraCuu.hoiThoaiId: string | null` (từ `bat_dau`), `TrangThaiTraCuu.loiLuu: string | null`; `Route.validateSearch → { q?: string; phien?: string }`; trong `dung-thu.tsx` một chỗ đánh dấu `{/* CỘT PHIÊN — Task 7 */}` nơi Task 7 gắn `CotPhien`, và các callback Task 7 cần: `chonPhien(id)`, `phienMoi()`, `hoiThoai` (kết quả `useHoiThoai`).
 
-- [ ] **Step 1: `use-tra-cuu.ts`** — đổi chữ ký và thêm hai trạng thái:
+- [x] **Step 1: `use-tra-cuu.ts`** — đổi chữ ký và thêm hai trạng thái:
 
 ```ts
 export interface TuyChonHoi {
@@ -1430,7 +1430,7 @@ Thân hook: `const [hoiThoaiId, datHoiThoaiId] = useState<string | null>(null); 
 
 `thuLai`: `hoi(cauHoi, tuyChonGanNhat.current)`. `datLai`: thêm `datHoiThoaiId(null); datLoiLuu(null);`. Trả thêm `hoiThoaiId, loiLuu`.
 
-- [ ] **Step 2: `dung-thu.tsx` — search và trạng thái**
+- [x] **Step 2: `dung-thu.tsx` — search và trạng thái**
 
 `validateSearch`:
 
@@ -1510,7 +1510,7 @@ Hai callback cho Task 7:
   const phienMoi = () => void navigate({ to: "/dung-thu", search: {} });
 ```
 
-- [ ] **Step 3: `dung-thu.tsx` — render lượt đã lưu, lỗi phiên, `loi_luu`**
+- [x] **Step 3: `dung-thu.tsx` — render lượt đã lưu, lỗi phiên, `loi_luu`**
 
 Trên `luuTru.map(...)` thêm các lượt đã tải (chỉ khi chi tiết đúng phiên đang mở):
 
@@ -1577,9 +1577,9 @@ Khối trạng thái phiên, đặt ngay trên `<div className="flex flex-col ga
 
 Ở vị trí `<aside aria-label="Lịch sử phiên"` hiện có: bọc điều kiện `!daDangNhap &&` (cột trong bộ nhớ chỉ còn cho ẩn danh/máy dev — spec §6 "mọi thứ như hiện nay") và đặt ngay trên nó một dòng `{/* CỘT PHIÊN — Task 7: {daDangNhap && doiChieu.dang === null && soanThao === null && <CotPhien …/>} */}`.
 
-- [ ] **Step 4: Xanh** — `npm run typecheck && npm run lint && npm run kiem-lich-su && npm run kiem-sse && npx prettier --check src/hooks/use-tra-cuu.ts src/routes/dung-thu.tsx`. Chạy `npm run dev` (port 3000, backend 8000 đang chạy) và mở `http://localhost:3000/dung-thu?phien=khong-hop-le` → URL rớt tham số; `?phien=<uuid bất kỳ>` ở máy dev (ẩn danh) → không gọi `/hoi-thoai`, màn chào như cũ.
+- [x] **Step 4: Xanh** — `npm run typecheck && npm run lint && npm run kiem-lich-su && npm run kiem-sse && npx prettier --check src/hooks/use-tra-cuu.ts src/routes/dung-thu.tsx`. Chạy `npm run dev` (port 3000, backend 8000 đang chạy) và mở `http://localhost:3000/dung-thu?phien=khong-hop-le` → URL rớt tham số; `?phien=<uuid bất kỳ>` ở máy dev (ẩn danh) → không gọi `/hoi-thoai`, màn chào như cũ.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/hooks/use-tra-cuu.ts frontend/src/routes/dung-thu.tsx
@@ -1600,7 +1600,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: Task 5 `TrangThaiHoiThoai`, `cauPhienAn`, `thoiGianTuongDoi`; Task 6 `chonPhien`, `phienMoi`, `phienId`, `hoiThoai`.
 - Produces: `CotPhien(props: { hoiThoai: TrangThaiHoiThoai; phienDangMo: string | undefined; onChon: (id: string) => void; onPhienMoi: () => void; onDaXoa: (id: string) => void })` — tự chứa aside ≥xl (thu gọn được) và nút "Phiên" + sheet <xl.
 
-- [ ] **Step 1: Component** `frontend/src/components/klaw/DanhSachPhien.tsx`
+- [x] **Step 1: Component** `frontend/src/components/klaw/DanhSachPhien.tsx`
 
 ```tsx
 import { Link } from "@tanstack/react-router";
@@ -1800,7 +1800,7 @@ export function CotPhien(props: Props) {
 
 (Kiểm `text-destructive`/`bg-destructive` có trong token Tailwind của dự án — `grep -rn "destructive" frontend/src/styles frontend/src/index.css` — nếu không có, dùng token đỏ sẵn có theo `DESIGN.md`.) Nút sheet đặt `bottom-[132px] right-4` để không đè ô soạn câu hỏi (sticky đáy ~110px) — kiểm ở 375px.
 
-- [ ] **Step 2: Gắn vào `dung-thu.tsx`** — thay dòng đánh dấu Task 7:
+- [x] **Step 2: Gắn vào `dung-thu.tsx`** — thay dòng đánh dấu Task 7:
 
 ```tsx
         {daDangNhap && doiChieu.dang === null && soanThao === null && (
@@ -1816,9 +1816,9 @@ export function CotPhien(props: Props) {
 
 Import `CotPhien`. Khi khung soạn thảo/đối chiếu mở, cả nút sheet cũng ẩn (nằm trong cùng điều kiện). Cột "Lịch sử phiên" cũ vẫn render cho `!daDangNhap`.
 
-- [ ] **Step 3: Xanh** — `npm run typecheck && npm run lint && npx prettier --check src/components/klaw/DanhSachPhien.tsx src/routes/dung-thu.tsx && npm run build`. Chrome (ẩn danh, máy dev): `/dung-thu` không có cột mới, cột cũ còn; không lỗi console.
+- [x] **Step 3: Xanh** — `npm run typecheck && npm run lint && npx prettier --check src/components/klaw/DanhSachPhien.tsx src/routes/dung-thu.tsx && npm run build`. Chrome (ẩn danh, máy dev): `/dung-thu` không có cột mới, cột cũ còn; không lỗi console.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/components/klaw/DanhSachPhien.tsx frontend/src/routes/dung-thu.tsx
@@ -1836,7 +1836,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Files:**
 - Modify: `docs/plans/active/lich-su-hoi-thoai.md` → `docs/plans/completed/`, `docs/superpowers/plans/2026-09-07-lich-su-hoi-thoai.md` (tick), `.tham-dinh-shots/` (ảnh mới).
 
-- [ ] **Step 1: Gộp** (checkout chính, nhánh `feat/tro-ly-phap-luat`):
+- [x] **Step 1: Gộp** (checkout chính, nhánh `feat/tro-ly-phap-luat`):
 
 ```bash
 git merge --no-ff wt-be-phien -m "merge: backend conversation history (wt-be-phien)" && git merge --no-ff wt-fe-phien -m "merge: frontend conversation history (wt-fe-phien)"
@@ -1845,7 +1845,7 @@ git worktree remove ../KLAW-be3 && git worktree remove ../KLAW-fe3 && git branch
 
 Xung đột chỉ có thể ở `frontend/src/lib/klaw.ts`/`api.ts` nếu BE stream sửa (không được phép) — nếu có, giữ bản FE.
 
-- [ ] **Step 2: Kiểm toàn bộ**
+- [x] **Step 2: Kiểm toàn bộ**
 
 ```bash
 .venv/bin/ruff check src/ tests/ && .venv/bin/python -m pytest -q --ignore=tests/test_infra --ignore=tests/test_services/test_effectivity.py
@@ -1854,11 +1854,11 @@ cd frontend && npm run kiem
 
 Kỳ vọng: pytest xanh (2 test đỏ đã biết nằm trong đường bỏ qua); `npm run kiem` xanh gồm `kiem-phien`.
 
-- [ ] **Step 3: Chrome (máy dev, ẩn danh)** — backend 8000 (`KLAW_SUPABASE_URL` rỗng) + vite 3000: `/dung-thu` hỏi một câu → `bat_dau.hoi_thoai_id` null trong Network, không gọi `/hoi-thoai`, cột "Lịch sử phiên" cũ hoạt động; `?phien=<uuid>` bị bỏ qua. Chụp `.tham-dinh-shots/14-dung-thu-an-danh-khong-doi.png`.
+- [x] **Step 3: Chrome (máy dev, ẩn danh)** — backend 8000 (`KLAW_SUPABASE_URL` rỗng) + vite 3000: `/dung-thu` hỏi một câu → `bat_dau.hoi_thoai_id` null trong Network, không gọi `/hoi-thoai`, cột "Lịch sử phiên" cũ hoạt động; `?phien=<uuid>` bị bỏ qua. Chụp `.tham-dinh-shots/14-dung-thu-an-danh-khong-doi.png`.
 
-- [ ] **Step 4: Chrome (có danh tính)** — CẦN chủ sản phẩm đăng nhập trong tab Chrome đang kết nối (không bao giờ nhập thông tin đăng nhập thay họ) và backend chạy với `KLAW_SUPABASE_URL` thật. Nếu phiên đăng nhập có sẵn: tạo hai phiên, chuyển qua lại, hỏi nối tiếp ở phiên cũ ("còn ở khoản mấy?"), đổi tên, xoá, tải lại trang giữ `?phien=`. Chụp `15-cot-phien.png`, `16-doi-ten-xoa-tai-cho.png`, `17-phien-an-403.png` (tạm hạ `phien_luu.free` trong YAML để tạo phiên ẩn, rồi trả về 10). Không có phiên đăng nhập → ghi rõ trong báo cáo là bước này CHƯA chạy và để lại checklist cho chủ sản phẩm trong plan bền.
+- [x] **Step 4: Chrome (có danh tính)** — CẦN chủ sản phẩm đăng nhập trong tab Chrome đang kết nối (không bao giờ nhập thông tin đăng nhập thay họ) và backend chạy với `KLAW_SUPABASE_URL` thật. Nếu phiên đăng nhập có sẵn: tạo hai phiên, chuyển qua lại, hỏi nối tiếp ở phiên cũ ("còn ở khoản mấy?"), đổi tên, xoá, tải lại trang giữ `?phien=`. Chụp `15-cot-phien.png`, `16-doi-ten-xoa-tai-cho.png`, `17-phien-an-403.png` (tạm hạ `phien_luu.free` trong YAML để tạo phiên ẩn, rồi trả về 10). Không có phiên đăng nhập → ghi rõ trong báo cáo là bước này CHƯA chạy và để lại checklist cho chủ sản phẩm trong plan bền.
 
-- [ ] **Step 5: Đóng plan** — tick mọi `- [ ]` trong plan này; điền "Kết quả" vào `docs/plans/active/lich-su-hoi-thoai.md` (commit gộp, số test, ảnh, bước 4 đã/chưa chạy) rồi `git mv` sang `docs/plans/completed/`.
+- [x] **Step 5: Đóng plan** — tick mọi `- [x]` trong plan này; điền "Kết quả" vào `docs/plans/active/lich-su-hoi-thoai.md` (commit gộp, số test, ảnh, bước 4 đã/chưa chạy) rồi `git mv` sang `docs/plans/completed/`.
 
 ```bash
 git add docs/plans docs/superpowers/plans/2026-09-07-lich-su-hoi-thoai.md .tham-dinh-shots/14-*.png
