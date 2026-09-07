@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from starlette.requests import Request
 
 from src.services import bao_ve
 
@@ -69,3 +70,29 @@ def test_plan_hieu_luc_tu_het_han():
     assert bao_ve.plan_hieu_luc_tu("pro", datetime.now(UTC) + timedelta(days=1)) == "pro"
     assert bao_ve.plan_hieu_luc_tu("pro", datetime.now(UTC) - timedelta(seconds=1)) == "free"
     assert bao_ve.plan_hieu_luc_tu("free", None) == "free"
+
+
+def _request(gia_tri: str | None) -> Request:
+    """Request tối thiểu chỉ mang header `X-Khach-Id` (hoặc không mang gì)."""
+    headers = [(bao_ve.KHACH_HEADER.encode(), gia_tri.encode())] if gia_tri is not None else []
+    return Request({"type": "http", "headers": headers})
+
+
+def test_khach_id_tu_request_uuid_hop_le_tra_ve_chinh_no():
+    ma = "550e8400-e29b-41d4-a716-446655440000"
+    assert bao_ve.khach_id_tu_request(_request(ma)) == ma
+
+
+def test_khach_id_tu_request_khong_phai_uuid_tra_ve_none():
+    assert bao_ve.khach_id_tu_request(_request("not-a-uuid")) is None
+
+
+def test_khach_id_tu_request_thieu_header_tra_ve_none():
+    assert bao_ve.khach_id_tu_request(_request(None)) is None
+
+
+def test_khach_id_tu_request_uuid_hoa_thi_chuan_hoa_ve_chu_thuong():
+    assert (
+        bao_ve.khach_id_tu_request(_request("550E8400-E29B-41D4-A716-446655440000"))
+        == "550e8400-e29b-41d4-a716-446655440000"
+    )
