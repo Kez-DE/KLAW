@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronRight, Paperclip, Send } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
+import { CotPhien } from "@/components/klaw/DanhSachPhien";
 import { ManChao } from "@/components/klaw/ManChao";
 import { MaTruyVet } from "@/components/klaw/MaTruyVet";
 import { KhungDoiChieu, useHaiCot } from "@/components/klaw/KhungDoiChieu";
@@ -594,7 +595,18 @@ function ManHoiKlaw() {
           </div>
         )}
 
-        {/* CỘT PHIÊN — Task 7: {daDangNhap && doiChieu.dang === null && soanThao === null && <CotPhien …/>} */}
+        {daDangNhap && doiChieu.dang === null && soanThao === null && (
+          <CotPhien
+            hoiThoai={hoiThoai}
+            phienDangMo={phienId}
+            onChon={chonPhien}
+            onPhienMoi={phienMoi}
+            onDaXoa={(id) => {
+              if (id === phienId) phienMoi();
+            }}
+          />
+        )}
+
         {/* Lịch sử phiên. Nhường chỗ cho khung nguyên văn khi khung mở — hai cột
             phụ cạnh nhau đẩy mặt đọc xuống dưới bề rộng đọc được. Chỉ còn cho
             ẩn danh/máy dev — có danh tính dùng cột phiên thật ở trên. */}
