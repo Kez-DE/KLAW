@@ -48,8 +48,6 @@ export const Route = createFileRoute("/dang-ky")({
   component: SignUpPage,
 });
 
-const ROLES = ["Luật sư", "Pháp chế nội bộ", "Nhân sự", "Kế toán", "Chủ doanh nghiệp", "Khác"];
-
 const RULES = [
   { label: "Tối thiểu 8 ký tự", test: (v: string) => v.length >= 8 },
   { label: "Có ít nhất một chữ cái", test: (v: string) => /[A-Za-z]/.test(v) },
@@ -105,7 +103,6 @@ function SignUpPage() {
     name: "",
     email: "",
     org: "",
-    role: ROLES[0]!,
     password: "",
   });
   const [consent, setConsent] = useState(false);
@@ -226,23 +223,6 @@ function SignUpPage() {
                   value={form.org}
                   onChange={(e) => set("org")(e.target.value)}
                 />
-                <div className="space-y-1.5">
-                  <label htmlFor="role" className="block text-[13px] text-muted-foreground">
-                    Vai trò
-                  </label>
-                  <select
-                    id="role"
-                    value={form.role}
-                    onChange={(e) => set("role")(e.target.value)}
-                    className="focus-brass w-full rounded-lg border border-border bg-background/70 px-3.5 py-2.5 text-sm text-foreground transition-colors hover:border-border disabled:opacity-50"
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r} className="bg-card">
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </div>
                 <PasswordField
                   id="password"
                   label="Mật khẩu"

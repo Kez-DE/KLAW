@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Check, Minus, ChevronDown } from "lucide-react";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
+import { ThuocMucDung } from "@/components/tai-khoan/ThuocMucDung";
+import { useTaiKhoan } from "@/contexts/tai-khoan";
+import { GOI_CARD } from "@/lib/goi";
 
 type TierId = "mien-phi" | "ca-nhan" | "doanh-nghiep" | "to-chuc";
 
@@ -13,6 +16,7 @@ const TIERS: {
   annual: number | null;
   popular?: boolean;
   sapRaMat?: boolean;
+  chuKy?: "30 ngày";
   features: string[];
   cta: string;
   ctaTo: string;
@@ -23,7 +27,7 @@ const TIERS: {
     tagline: "Cho người mới bắt đầu — không cần thẻ",
     monthly: 0,
     annual: 0,
-    features: ["Tra cứu không giới hạn", "50 lượt hỏi AI/tháng", "Xuất Word, PDF"],
+    features: GOI_CARD.free.danhSach.map((d) => d.chu),
     cta: "Tạo tài khoản",
     ctaTo: "/dang-ky",
   },
@@ -32,13 +36,10 @@ const TIERS: {
     name: "Cá nhân",
     tagline: "Dành cho luật sư và chuyên viên độc lập",
     monthly: 499_000,
-    annual: 399_000,
-    features: [
-      "Tra cứu không giới hạn",
-      "500 lượt hỏi AI/tháng",
-      "10 bản thảo/tháng",
-      "Xuất Word, PDF",
-    ],
+    // Chu kỳ 30 ngày cố định, không phải thuê bao năm — không có giá năm để bịa.
+    annual: null,
+    chuKy: "30 ngày",
+    features: GOI_CARD.pro.danhSach.map((d) => d.chu),
     cta: "Sắp ra mắt",
     sapRaMat: true,
     ctaTo: "/dang-ky",
@@ -53,7 +54,7 @@ const TIERS: {
     features: [
       "Mọi tính năng gói Cá nhân",
       "5 người dùng",
-      "500 lượt hỏi AI/tháng",
+      "Hạn mức công bố khi mở bán",
       "Bản thảo không giới hạn",
       "Thư viện biểu mẫu của tổ chức",
       "Hỗ trợ ưu tiên",
@@ -91,12 +92,18 @@ const COMPARISON: Row[] = [
     values: [true, true, true, true],
   },
   {
-    label: "Lượt hỏi AI mỗi tháng",
-    values: ["50", "500", "500", "Không giới hạn"],
+    // Khung theo NGÀY (quota v3), không phải tháng — Miễn phí 200/ngày, Cá nhân
+    // không giới hạn trong dùng bình thường (dấu * → xem chú thích dưới bảng).
+    // Doanh nghiệp/Tổ chức còn "Sắp ra mắt": quota v3 chưa có số cho hai gói
+    // này, nên KHÔNG bịa một con số — "Sắp công bố" thay vì số tháng cũ.
+    label: "Lượt hỏi đáp mỗi ngày",
+    values: ["200", "Không giới hạn*", "Sắp công bố", "Sắp công bố"],
   },
   {
+    // Miễn phí có bộ đếm bản thảo RIÊNG (3/ngày, 20/tháng), không dùng chung
+    // với lượt hỏi đáp — "Tính vào lượt hỏi AI" là claim cũ, sai với quota v3.
     label: "Bản thảo soạn thảo mỗi tháng",
-    values: ["Tính vào lượt hỏi AI", "10", "Không giới hạn", "Không giới hạn"],
+    values: ["20", "Không giới hạn", "Không giới hạn", "Không giới hạn"],
   },
   { label: "Xuất Word, PDF", values: [true, true, true, true] },
   { label: "Trích dẫn chuẩn tới Điểm, Khoản, Điều", values: [true, true, true, true] },
@@ -112,7 +119,7 @@ const COMPARISON: Row[] = [
 // thức thanh toán, xuất hoá đơn GTGT, huỷ gói trong Cài đặt tài khoản, hạn mức
 // làm mới theo chu kỳ, và cam kết hoàn tiền 7 ngày. Cổng thanh toán và trang cài
 // đặt tài khoản chưa có; hạn mức THÌ CÓ — máy chủ đếm lượt theo tài khoản
-// (`GET /han-muc`, `HanMucThang` ngay trên trang này) — nên FAQ chỉ nói thật về
+// (`GET /han-muc`, `ThuocMucDung` ngay trên trang này) — nên FAQ chỉ nói thật về
 // hai thứ còn thiếu. Một cam kết hoàn tiền là lời hứa với người tiêu dùng, nên
 // nó là chuỗi nguy hiểm nhất trên trang này.
 const FAQS: { q: string; a: string }[] = [
@@ -122,12 +129,21 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Hạn mức lượt hỏi tính thế nào?",
-    a: "Gói Miễn phí có 50 lượt hỏi AI mỗi tháng, đếm ở máy chủ theo tài khoản và đặt lại đầu tháng; soạn một bản thảo cũng tính một lượt. Gói trả phí chưa mở.",
+    a: "Gói Miễn phí có 200 lượt hỏi đáp mỗi ngày, 20 lượt mỗi phiên, 3 bản thảo mỗi ngày (20 mỗi tháng); đếm ở máy chủ theo tài khoản, đặt lại 0h giờ Việt Nam. Gói Cá nhân hỏi đáp không giới hạn trong sử dụng bình thường (lá chắn chống lạm dụng 500 lượt/ngày), 20 bản thảo mỗi ngày, hiệu lực 30 ngày. Chưa có thanh toán trực tuyến: bạn gửi yêu cầu, tôi duyệt và báo qua email.",
   },
 ];
 
 function vnd(n: number) {
   return `${n.toLocaleString("vi-VN").replace(/,/g, ".")} ₫`;
+}
+
+/** Nút CTA "đang bán được" — dùng chung cho Link và nút Yêu cầu nâng gói. */
+function classNutHanhDong(popular: boolean | undefined) {
+  return `focus-brass mt-7 inline-flex h-11 items-center justify-center rounded-lg text-[14px] font-medium transition-colors duration-150 ${
+    popular
+      ? "bg-brass-500 text-ink-950 hover:bg-brass-400"
+      : "border border-border text-primary hover:border-brass-500/60 hover:text-brass-600"
+  }`;
 }
 
 function CheckBrass() {
@@ -168,6 +184,7 @@ export const Route = createFileRoute("/bang-gia")({
 function BangGiaPage() {
   const [annual, setAnnual] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const { hanMuc, daDangNhap, moNangGoi } = useTaiKhoan();
 
   return (
     <MarketingShell>
@@ -195,6 +212,14 @@ function BangGiaPage() {
             Bảng giá phía dưới là dự kiến; dòng này là sự thật hôm nay, và hai
             thứ đó phải phân biệt được. `ap_dung: false` thì thành phần nói ra
             là hệ thống chưa đếm theo tài khoản, KHÔNG hiện một con số 0. */}
+        {hanMuc.hanMuc?.ap_dung && hanMuc.hanMuc.plan !== null && (
+          <div className="soft-fade mx-auto mt-6 max-w-xl rounded-xl border border-border bg-card p-4 text-left">
+            <p className="m-0 mb-2 text-[13px] font-semibold text-primary">
+              Gói {hanMuc.hanMuc.ten_goi}
+            </p>
+            <ThuocMucDung muc={hanMuc.hanMuc.muc} muiGio={hanMuc.hanMuc.mui_gio} />
+          </div>
+        )}
         {/* Billing toggle */}
         <div className="mt-8 inline-flex items-center gap-1 rounded-full border border-border/70 bg-card/80 p-1">
           {(
@@ -258,9 +283,13 @@ function BangGiaPage() {
               ) : (
                 <>
                   <span className="font-display text-[34px] leading-none text-primary">
-                    {vnd(annual ? t.annual! : t.monthly)}
+                    {/* Tier có `chuKy` (Cá nhân) hiệu lực theo chu kỳ cố định, không
+                        phải thuê bao tháng/năm — bỏ qua nút "Theo năm" cho tier này. */}
+                    {vnd(t.chuKy === undefined && annual ? t.annual! : t.monthly)}
                   </span>
-                  <span className="text-[13px] text-muted-foreground">/tháng</span>
+                  <span className="text-[13px] text-muted-foreground">
+                    {t.chuKy !== undefined ? `/ ${t.chuKy}` : "/tháng"}
+                  </span>
                 </>
               )}
             </div>
@@ -269,7 +298,7 @@ function BangGiaPage() {
             )}
             {t.monthly != null && t.monthly !== 0 && (
               <p className="mt-1.5 text-[12px] text-muted-foreground">
-                {annual
+                {t.chuKy === undefined && annual
                   ? `Thanh toán theo năm — ${vnd(t.annual! * 12)} / năm`
                   : "Mức dự kiến, tính theo tháng"}
               </p>
@@ -296,6 +325,10 @@ function BangGiaPage() {
               >
                 {t.cta}
               </a>
+            ) : t.id === "ca-nhan" && daDangNhap ? (
+              <button type="button" onClick={moNangGoi} className={classNutHanhDong(t.popular)}>
+                Yêu cầu nâng lên Cá nhân
+              </button>
             ) : t.sapRaMat ? (
               <button
                 type="button"
@@ -305,14 +338,7 @@ function BangGiaPage() {
                 {t.cta}
               </button>
             ) : (
-              <Link
-                to={t.ctaTo}
-                className={`focus-brass mt-7 inline-flex h-11 items-center justify-center rounded-lg text-[14px] font-medium transition-colors duration-150 ${
-                  t.popular
-                    ? "bg-brass-500 text-ink-950 hover:bg-brass-400"
-                    : "border border-border text-primary hover:border-brass-500/60 hover:text-brass-600"
-                }`}
-              >
+              <Link to={t.ctaTo} className={classNutHanhDong(t.popular)}>
                 {t.cta}
               </Link>
             )}
@@ -360,6 +386,9 @@ function BangGiaPage() {
           </table>
         </div>
         <p className="mt-3 text-[12px] text-muted-foreground">
+          * Không giới hạn trong sử dụng bình thường; có lá chắn chống lạm dụng 500 lượt/ngày.
+        </p>
+        <p className="mt-1 text-[12px] text-muted-foreground">
           Giá hiển thị chưa bao gồm thuế GTGT.
         </p>
       </section>

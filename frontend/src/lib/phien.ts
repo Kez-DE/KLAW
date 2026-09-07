@@ -3,18 +3,6 @@
  * `scripts/kiem-phien.ts` không cần dựng trang.
  */
 
-/** Tên gói hiện cho người dùng; gói lạ trả nguyên mã để không bịa tên. */
-export function tenGoi(plan: string): string {
-  if (plan === "free") return "Miễn phí";
-  if (plan === "pro") return "Pro";
-  return plan;
-}
-
-/** Dòng cuối cột phiên khi có phiên bị ẩn theo gói. */
-export function cauPhienAn(plan: string, gioiHan: number, tongAn: number): string {
-  return `Gói ${tenGoi(plan)} giữ ${gioiHan} phiên gần nhất. ${tongAn} phiên cũ hơn đang ẩn.`;
-}
-
 const PHUT = 60_000;
 const GIO = 60 * PHUT;
 const NGAY = 24 * GIO;

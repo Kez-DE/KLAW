@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { goi, laKhongThan } from "@/lib/api";
 import type { ApiError, ApiResult, ChiTietPhien, DanhSachPhien, PhienTomTat } from "@/lib/klaw";
 import { laChiTietPhien, laDanhSachPhien, laPhienTomTat } from "@/lib/klaw";
@@ -76,17 +76,35 @@ export function useHoiThoai(daDangNhap: boolean): TrangThaiHoiThoai {
     [taiLai],
   );
 
-  return {
-    danhSach: ds.ketQua,
-    dangTai: ds.dangChay,
-    loi: ds.loi,
-    taiLai,
-    chiTiet: ct.ketQua,
-    dangTaiChiTiet: ct.dangChay,
-    loiChiTiet: ct.loi,
-    taiChiTiet,
-    xoaChiTiet: datLaiCt,
-    doiTen,
-    xoa,
-  };
+  // Nhớ theo giá trị thật, cùng lý do như `use-han-muc.ts`: hai `useGoiApi` bên
+  // trong trả object mới mỗi lần dựng, còn `TaiKhoanProvider` thì gói trạng thái
+  // này trong `useMemo`. Chỉ là phép nhớ — không đổi một dòng logic nào.
+  return useMemo(
+    () => ({
+      danhSach: ds.ketQua,
+      dangTai: ds.dangChay,
+      loi: ds.loi,
+      taiLai,
+      chiTiet: ct.ketQua,
+      dangTaiChiTiet: ct.dangChay,
+      loiChiTiet: ct.loi,
+      taiChiTiet,
+      xoaChiTiet: datLaiCt,
+      doiTen,
+      xoa,
+    }),
+    [
+      ds.ketQua,
+      ds.dangChay,
+      ds.loi,
+      taiLai,
+      ct.ketQua,
+      ct.dangChay,
+      ct.loi,
+      taiChiTiet,
+      datLaiCt,
+      doiTen,
+      xoa,
+    ],
+  );
 }

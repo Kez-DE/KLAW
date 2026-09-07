@@ -19,10 +19,13 @@ import { Route as DungThuRouteImport } from './routes/dung-thu'
 import { Route as HuongDanRouteImport } from './routes/huong-dan'
 import { Route as MienTruRouteImport } from './routes/mien-tru'
 import { Route as SoanThaoRouteImport } from './routes/soan-thao'
+import { Route as TaiKhoanRouteImport } from './routes/tai-khoan'
 import { Route as ThanhPhanRouteImport } from './routes/thanh-phan'
 import { Route as TraCuuRouteImport } from './routes/tra-cuu'
 import { Route as SoanThaoIndexRouteImport } from './routes/soan-thao.index'
 import { Route as SoanThaoLoaiVanBanRouteImport } from './routes/soan-thao.$loaiVanBan'
+import { Route as TaiKhoanIndexRouteImport } from './routes/tai-khoan.index'
+import { Route as TaiKhoanCaNhanHoaRouteImport } from './routes/tai-khoan.ca-nhan-hoa'
 import { Route as TraCuuIndexRouteImport } from './routes/tra-cuu.index'
 import { Route as TraCuuDocIdRouteImport } from './routes/tra-cuu.$docId'
 
@@ -76,6 +79,11 @@ const SoanThaoRoute = SoanThaoRouteImport.update({
   path: '/soan-thao',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TaiKhoanRoute = TaiKhoanRouteImport.update({
+  id: '/tai-khoan',
+  path: '/tai-khoan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ThanhPhanRoute = ThanhPhanRouteImport.update({
   id: '/thanh-phan',
   path: '/thanh-phan',
@@ -95,6 +103,16 @@ const SoanThaoLoaiVanBanRoute = SoanThaoLoaiVanBanRouteImport.update({
   id: '/$loaiVanBan',
   path: '/$loaiVanBan',
   getParentRoute: () => SoanThaoRoute,
+} as any)
+const TaiKhoanIndexRoute = TaiKhoanIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TaiKhoanRoute,
+} as any)
+const TaiKhoanCaNhanHoaRoute = TaiKhoanCaNhanHoaRouteImport.update({
+  id: '/ca-nhan-hoa',
+  path: '/ca-nhan-hoa',
+  getParentRoute: () => TaiKhoanRoute,
 } as any)
 const TraCuuIndexRoute = TraCuuIndexRouteImport.update({
   id: '/',
@@ -118,11 +136,14 @@ export interface FileRoutesByFullPath {
   '/huong-dan': typeof HuongDanRoute
   '/mien-tru': typeof MienTruRoute
   '/soan-thao': typeof SoanThaoRouteWithChildren
+  '/tai-khoan': typeof TaiKhoanRouteWithChildren
   '/thanh-phan': typeof ThanhPhanRoute
   '/tra-cuu': typeof TraCuuRouteWithChildren
   '/soan-thao/$loaiVanBan': typeof SoanThaoLoaiVanBanRoute
+  '/tai-khoan/ca-nhan-hoa': typeof TaiKhoanCaNhanHoaRoute
   '/tra-cuu/$docId': typeof TraCuuDocIdRoute
   '/soan-thao/': typeof SoanThaoIndexRoute
+  '/tai-khoan/': typeof TaiKhoanIndexRoute
   '/tra-cuu/': typeof TraCuuIndexRoute
 }
 export interface FileRoutesByTo {
@@ -137,8 +158,10 @@ export interface FileRoutesByTo {
   '/mien-tru': typeof MienTruRoute
   '/thanh-phan': typeof ThanhPhanRoute
   '/soan-thao/$loaiVanBan': typeof SoanThaoLoaiVanBanRoute
+  '/tai-khoan/ca-nhan-hoa': typeof TaiKhoanCaNhanHoaRoute
   '/tra-cuu/$docId': typeof TraCuuDocIdRoute
   '/soan-thao': typeof SoanThaoIndexRoute
+  '/tai-khoan': typeof TaiKhoanIndexRoute
   '/tra-cuu': typeof TraCuuIndexRoute
 }
 export interface FileRoutesById {
@@ -153,11 +176,14 @@ export interface FileRoutesById {
   '/huong-dan': typeof HuongDanRoute
   '/mien-tru': typeof MienTruRoute
   '/soan-thao': typeof SoanThaoRouteWithChildren
+  '/tai-khoan': typeof TaiKhoanRouteWithChildren
   '/thanh-phan': typeof ThanhPhanRoute
   '/tra-cuu': typeof TraCuuRouteWithChildren
   '/soan-thao/$loaiVanBan': typeof SoanThaoLoaiVanBanRoute
+  '/tai-khoan/ca-nhan-hoa': typeof TaiKhoanCaNhanHoaRoute
   '/tra-cuu/$docId': typeof TraCuuDocIdRoute
   '/soan-thao/': typeof SoanThaoIndexRoute
+  '/tai-khoan/': typeof TaiKhoanIndexRoute
   '/tra-cuu/': typeof TraCuuIndexRoute
 }
 export interface FileRouteTypes {
@@ -173,11 +199,14 @@ export interface FileRouteTypes {
     | '/huong-dan'
     | '/mien-tru'
     | '/soan-thao'
+    | '/tai-khoan'
     | '/thanh-phan'
     | '/tra-cuu'
     | '/soan-thao/$loaiVanBan'
+    | '/tai-khoan/ca-nhan-hoa'
     | '/tra-cuu/$docId'
     | '/soan-thao/'
+    | '/tai-khoan/'
     | '/tra-cuu/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -192,8 +221,10 @@ export interface FileRouteTypes {
     | '/mien-tru'
     | '/thanh-phan'
     | '/soan-thao/$loaiVanBan'
+    | '/tai-khoan/ca-nhan-hoa'
     | '/tra-cuu/$docId'
     | '/soan-thao'
+    | '/tai-khoan'
     | '/tra-cuu'
   id:
     | '__root__'
@@ -207,11 +238,14 @@ export interface FileRouteTypes {
     | '/huong-dan'
     | '/mien-tru'
     | '/soan-thao'
+    | '/tai-khoan'
     | '/thanh-phan'
     | '/tra-cuu'
     | '/soan-thao/$loaiVanBan'
+    | '/tai-khoan/ca-nhan-hoa'
     | '/tra-cuu/$docId'
     | '/soan-thao/'
+    | '/tai-khoan/'
     | '/tra-cuu/'
   fileRoutesById: FileRoutesById
 }
@@ -226,6 +260,7 @@ export interface RootRouteChildren {
   HuongDanRoute: typeof HuongDanRoute
   MienTruRoute: typeof MienTruRoute
   SoanThaoRoute: typeof SoanThaoRouteWithChildren
+  TaiKhoanRoute: typeof TaiKhoanRouteWithChildren
   ThanhPhanRoute: typeof ThanhPhanRoute
   TraCuuRoute: typeof TraCuuRouteWithChildren
 }
@@ -302,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SoanThaoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tai-khoan': {
+      id: '/tai-khoan'
+      path: '/tai-khoan'
+      fullPath: '/tai-khoan'
+      preLoaderRoute: typeof TaiKhoanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/thanh-phan': {
       id: '/thanh-phan'
       path: '/thanh-phan'
@@ -329,6 +371,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/soan-thao/$loaiVanBan'
       preLoaderRoute: typeof SoanThaoLoaiVanBanRouteImport
       parentRoute: typeof SoanThaoRoute
+    }
+    '/tai-khoan/': {
+      id: '/tai-khoan/'
+      path: '/'
+      fullPath: '/tai-khoan/'
+      preLoaderRoute: typeof TaiKhoanIndexRouteImport
+      parentRoute: typeof TaiKhoanRoute
+    }
+    '/tai-khoan/ca-nhan-hoa': {
+      id: '/tai-khoan/ca-nhan-hoa'
+      path: '/ca-nhan-hoa'
+      fullPath: '/tai-khoan/ca-nhan-hoa'
+      preLoaderRoute: typeof TaiKhoanCaNhanHoaRouteImport
+      parentRoute: typeof TaiKhoanRoute
     }
     '/tra-cuu/': {
       id: '/tra-cuu/'
@@ -361,6 +417,20 @@ const SoanThaoRouteWithChildren = SoanThaoRoute._addFileChildren(
   SoanThaoRouteChildren,
 )
 
+interface TaiKhoanRouteChildren {
+  TaiKhoanCaNhanHoaRoute: typeof TaiKhoanCaNhanHoaRoute
+  TaiKhoanIndexRoute: typeof TaiKhoanIndexRoute
+}
+
+const TaiKhoanRouteChildren: TaiKhoanRouteChildren = {
+  TaiKhoanCaNhanHoaRoute: TaiKhoanCaNhanHoaRoute,
+  TaiKhoanIndexRoute: TaiKhoanIndexRoute,
+}
+
+const TaiKhoanRouteWithChildren = TaiKhoanRoute._addFileChildren(
+  TaiKhoanRouteChildren,
+)
+
 interface TraCuuRouteChildren {
   TraCuuDocIdRoute: typeof TraCuuDocIdRoute
   TraCuuIndexRoute: typeof TraCuuIndexRoute
@@ -385,6 +455,7 @@ const rootRouteChildren: RootRouteChildren = {
   HuongDanRoute: HuongDanRoute,
   MienTruRoute: MienTruRoute,
   SoanThaoRoute: SoanThaoRouteWithChildren,
+  TaiKhoanRoute: TaiKhoanRouteWithChildren,
   ThanhPhanRoute: ThanhPhanRoute,
   TraCuuRoute: TraCuuRouteWithChildren,
 }
