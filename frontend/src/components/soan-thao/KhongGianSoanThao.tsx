@@ -28,6 +28,8 @@ import {
 } from "@/components/draft/DraftBits";
 import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
 import { SoatBanThao } from "@/components/klaw/SoatBanThao";
+import { TheDangNhap } from "@/components/klaw/TheDangNhap";
+import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { TINH_THANH, capDuoiCua } from "@/lib/dia-gioi";
 import {
   MAU,
@@ -257,6 +259,7 @@ export function KhongGianSoanThao({
 }) {
   // Trong khung chat có thể mở với `null` (chưa chọn mẫu) rồi chọn tại chỗ; route
   // luôn truyền slug thật. State cục bộ để chip chọn mẫu đổi được.
+  const { laKhach } = useTaiKhoan();
   const [slug, setSlug] = useState<string | null>(loaiVanBan);
   const mau = slug === null ? undefined : mauTheoId(slug);
 
@@ -581,13 +584,17 @@ export function KhongGianSoanThao({
                     ))}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setBuoc(2)}
-                  className="rounded-lg bg-[var(--color-brass-500)] px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
-                >
-                  Tiếp tục — Thông tin các bên
-                </button>
+                {laKhach ? (
+                  <TheDangNhap next="/soan-thao" />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setBuoc(2)}
+                    className="rounded-lg bg-[var(--color-brass-500)] px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                  >
+                    Tiếp tục — Thông tin các bên
+                  </button>
+                )}
               </Group>
             )}
 
