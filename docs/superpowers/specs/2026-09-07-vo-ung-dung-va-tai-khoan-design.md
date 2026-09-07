@@ -7,7 +7,9 @@ Ngày: 2026-09-07 · Trạng thái: chờ chủ sản phẩm duyệt · Gói tr�
 Người đã đăng nhập thấy một vỏ ứng dụng kiểu ChatGPT (sidebar trái với "Phiên mới",
 "Gần đây", thẻ tài khoản), có menu tài khoản với Hồ sơ, Nâng cấp gói, Cá nhân hoá,
 Trợ giúp, Đăng xuất; và hạn mức gói Free/Cá nhân được tính theo ngày, tháng và tính
-năng, hiển thị bằng thanh đo "đã dùng x% · đặt lại lúc …" ở cả hai gói.
+năng, hiển thị bằng thanh đo "đã dùng x% · đặt lại lúc …" ở cả hai gói. Người chưa
+đăng nhập dùng thử được 10 lượt hỏi đáp mỗi 24 giờ như ChatGPT, không lưu; đăng nhập
+thì đoạn chat đang có được đưa vào tài khoản.
 
 ## 2. Hiện trạng
 
@@ -49,6 +51,14 @@ năng, hiển thị bằng thanh đo "đã dùng x% · đặt lại lúc …" �
   SQL). Không có thanh toán trực tuyến.
 - Tên hiển thị lưu ở Supabase `user_metadata`; KLAW không thêm cột (giữ quyết định
   migration 012).
+- Đảo quyết định của spec 2026-09-06 (khoá ô hỏi khi chưa đăng nhập): khách dùng thử
+  được hỏi đáp 10 lượt/24 giờ theo mã khách của trình duyệt, một đoạn chat trong bộ nhớ
+  trang (tải lại là mất), không lưu máy chủ; soạn thảo yêu cầu đăng nhập; khi đăng
+  nhập/đăng ký, đoạn chat hiện tại được lưu thành phiên đầu tiên của tài khoản. Căn cứ
+  ChatGPT (trợ giúp OpenAI, qua chatai.guide 05/2026): chưa đăng nhập có một cuộc trò
+  chuyện, chỉ trong phiên trình duyệt, không lưu; đăng nhập thì đoạn mới nhất vào tài
+  khoản; không công bố số lượt cố định, chạm ngưỡng thì yêu cầu đăng nhập.
+- Form đăng ký bỏ trường "Vai trò" (hiện chỉ là giao diện, không gửi đi đâu).
 
 ## 4. Hạn mức
 
@@ -72,9 +82,14 @@ goi:
     soan_thao_ngay: 20
     soan_thao_thang: 100000
     luot_moi_phien: 50
+# Khách chưa đăng nhập (chỉ khi Supabase đã cấu hình): đếm theo cửa sổ 24 giờ trượt,
+# vì khách không có mốc "ngày" nào gắn với tài khoản.
+khach:
+  hoi_dap_24h: 10      # theo mã khách của trình duyệt
+  ip_24h: 30           # lá chắn: mọi mã khách sau cùng một IP
 ```
 
-`_doc_han_muc` fail loud khi: thiếu `goi`/`goi_mac_dinh`/`mui_gio`; một gói thiếu
+`_doc_han_muc` fail loud khi: thiếu `goi`/`goi_mac_dinh`/`mui_gio`/`khach` (hai khoá); một gói thiếu
 bất kỳ khoá nào trong năm khoá; `mui_gio` không phải tên vùng hợp lệ. Khoá `phien_luu`
 bị gỡ; nếu còn trong file → lỗi rõ "khoá không còn dùng".
 
@@ -281,7 +296,75 @@ tiêu điểm quay về nơi mở.
 số 10 → "Không giới hạn"; FAQ hạn mức viết lại theo §4. Giá tiền giữ nguyên.
 `tenGoi("pro")` → "Cá nhân".
 
-## 8. Lỗi và an toàn
+## 8. Chế độ khách (chưa đăng nhập, Supabase đã cấu hình)
+
+### 8.1 Danh tính khách
+
+FE sinh `khach_id` (UUID v4) lần đầu, lưu `localStorage["klaw.khach_id"]`, gửi header
+`X-Khach-Id` ở mọi lời gọi `/tra-cuu*` và `/han-muc` khi không có bearer. Đoạn chat
+của khách chỉ ở state React: tải lại trang là mất (đúng ChatGPT); bộ đếm KHÔNG mất,
+vì nó nằm ở máy chủ theo `khach_id` và theo IP.
+
+### 8.2 Cổng máy chủ
+
+`cong_bao_ve` nhận tham số `cho_khach: bool` (factory). `/tra-cuu` và `/tra-cuu/luong`
+dùng `cho_khach=True`; `/soan-thao` giữ `False` (401 "Cần đăng nhập để soạn văn bản.").
+Khi không có bearer và `cho_khach`:
+- thiếu `X-Khach-Id` hoặc không phải UUID → 401 "Cần đăng nhập để dùng tính năng này.";
+- `kiem_rate_limit(f"khach:{id}", so_luot=khach.hoi_dap_24h, cua_so_giay=86400)` rồi
+  `kiem_rate_limit(f"khach-ip:{ip}", khach.ip_24h, 86400)`; vượt → 429 với `detail`
+  "Bạn đã dùng 10 lượt thử trong 24 giờ. Đăng nhập miễn phí để tiếp tục và lưu đoạn
+  chat này." và `Retry-After` tính từ lượt cũ nhất trong cửa sổ; `kiem_tran_chi_phi`;
+  trả `None` (đường ẩn danh hiện có: không tạo phiên, không ghi lượt, `traces.user_sub`
+  NULL).
+- `kiem_rate_limit` đếm lúc vào cổng (tính cả lượt trúng bộ đệm) — chấp nhận cho khách
+  vì đơn giản; hạn mức tài khoản vẫn đếm theo kết quả (§4.2).
+- `kiem_rate_limit` sửa để dọn hàng cũ THEO KHOÁ (`WHERE ip = :khoa AND ts < …`) vì bảng
+  `rate_limit_luot` nay chứa nhiều cửa sổ khác nhau; nhận thêm `cua_so_giay`.
+Chưa cấu hình Supabase (máy dev, eval): mọi thứ như trước, không đếm khách.
+
+### 8.3 `/han-muc` cho khách
+
+Không bearer, có `X-Khach-Id` → `{ap_dung: true, plan: "khach", ten_goi: "Dùng thử",
+muc: [{khoa: "khach_24h", nhan: "Lượt thử 24 giờ", da_dung, han_muc: 10, dat_lai_luc:
+<lượt cũ nhất + 24h, hoặc null khi chưa dùng>}], phien: {luot_toi_da: 10}, ghi_chu:
+"Đăng nhập miễn phí để có 15 lượt mỗi ngày, lưu phiên và soạn văn bản."}`.
+
+### 8.4 Mang đoạn chat vào tài khoản
+
+`POST /hoi-thoai/nhap` (`nguoi_dung_bat_buoc`), body `{luot: [{cau_hoi, tra_loi,
+trace_id}]}`, 1–10 lượt, mỗi `tra_loi` phải parse được thành `TraCuuResponse` (422 nếu
+không), `cau_hoi` ≤ 2000 ký tự. Tạo phiên (`tieu_de_mac_dinh` từ câu đầu), ghi lượt theo
+thứ tự, trả `{id}`. Không đụng `traces` (lượt khách đã tính vào ngân sách khách, không
+tính lại vào tài khoản). Không ràng buộc số lần nhập; kích cỡ body đã bị chặn bởi trần
+10 lượt và kiểm hình `TraCuuResponse`; nhịp theo tài khoản (10 lượt/phút) là lá chắn đủ.
+
+FE: khi khách bấm Đăng nhập/Đăng ký (header, thẻ mời, thẻ hết lượt) mà đoạn chat có
+≥ 1 lượt đã xong, lưu `sessionStorage["klaw.khach_thread"]` = các lượt (cau_hoi, ketQua,
+trace_id) rồi điều hướng với `next=/dung-thu`. Trên `/dung-thu`, khi `daDangNhap` và
+sessionStorage có thread: gọi `/hoi-thoai/nhap`, xoá sessionStorage, điều hướng
+`?phien=<id>`; lỗi → thông báo "Tôi chưa lưu được đoạn chat thử; bạn vẫn hỏi tiếp được."
+và xoá sessionStorage (không lặp).
+
+### 8.5 Giao diện khách
+
+- Header: hai nút góc phải "Đăng nhập" (đặc) và "Đăng ký miễn phí" (viền), dùng slot
+  `topRight` của `AppShell`.
+- Sidebar: logo; "Phiên mới" (xoá đoạn chat trong bộ nhớ); điều hướng Trợ lý, Tra cứu,
+  Soạn thảo; chân: "Xem các gói dịch vụ" (→ `/bang-gia`), "Trợ giúp" (→ `/huong-dan`), thẻ
+  mời "Đăng nhập để lưu phiên, hỏi tiếp nhiều ngày và soạn văn bản." + nút Đăng nhập.
+  Không có Gần đây.
+- Ô hỏi mở; chip "Còn 7/10 lượt thử trong 24 giờ" từ `/han-muc`. Hết lượt: thẻ trong
+  dòng chat "Bạn đã dùng 10 lượt thử. Đăng nhập miễn phí để tiếp tục, lưu đoạn chat này
+  và có 15 lượt mỗi ngày." + hai nút; ô hỏi khoá. Khoá này KHÔNG áp cho tra cứu luật,
+  soát văn bản.
+- Màn Soạn thảo cho khách: xem biểu mẫu được, nút "Soạn bản thảo" → `TheDangNhap`
+  (giữ component hiện có).
+- `TheDangNhap` không còn khoá ô hỏi ở `/dung-thu`; `canDangNhap` chỉ còn dùng cho soạn
+  thảo. `?q=` từ trang chủ chạy ngay cho khách như trước gói truy cập.
+- `dang-ky.tsx`: bỏ `ROLES`, trường "Vai trò" và `form.role`.
+
+## 9. Lỗi và an toàn
 
 - Mọi endpoint tài khoản qua `nguoi_dung_bat_buoc`; yêu cầu nâng gói chỉ đọc/ghi theo
   `user_sub`; một yêu cầu chờ duyệt mỗi người (unique index).
@@ -290,22 +373,32 @@ số 10 → "Không giới hạn"; FAQ hạn mức viết lại theo §4. Giá t
   không lưu. Tên hiển thị render dạng text node.
 - 429/403 không tiết lộ gì ngoài hạn mức của chính người gọi.
 - Xoá cơ chế ẩn phiên không xoá dữ liệu; chỉ bỏ quy tắc hiện.
+- Khách: `khach_id` là chuỗi do trình duyệt sinh, không phải danh tính; máy chủ chỉ dùng
+  nó làm khoá đếm, không trả dữ liệu theo nó. Xoá localStorage để lấy mã mới thì vẫn còn
+  lá chắn 30 lượt/24h/IP và lá chắn nhịp theo IP. `/hoi-thoai/nhap` chỉ ghi vào phiên của
+  chính người gọi và chỉ nhận payload đúng hình `TraCuuResponse`.
 
-## 9. Kiểm chứng
+## 10. Kiểm chứng
 
 - pytest: YAML thiếu khoá/`phien_luu` còn sót/`mui_gio` sai → lỗi rõ; mốc ngày/tháng
   theo `Asia/Ho_Chi_Minh` (23:30 UTC = 06:30 hôm sau VN); đếm loại `loi`,
   `out_of_scope`, cache hit; 429 ngày trước tháng, `detail` chứa mốc, `Retry-After`;
   `soan-thao` 429 theo ngày rồi tháng; 403 tại lượt 51; `/han-muc` hình mới; `/ho-so` tổng hợp;
-  yêu cầu nâng gói 201/409/422; test gói 1 cập nhật sau khi gỡ ẩn phiên.
+  yêu cầu nâng gói 201/409/422; test gói 1 cập nhật sau khi gỡ ẩn phiên; khách: thiếu
+  `X-Khach-Id` → 401, lượt 11 trong 24h → 429 kèm `Retry-After`, `/soan-thao` khách → 401,
+  `kiem_rate_limit` hai khoá khác cửa sổ không dọn dữ liệu nhau, `/han-muc` khách, `/hoi-thoai/nhap`
+  201/422 và giới hạn 10 lượt.
 - FE: `scripts/kiem-han-muc.ts` (phần trăm, ngưỡng màu, "Không giới hạn", định dạng
   mốc theo VN, câu chip "Còn N lượt hôm nay"); typecheck, lint, build; `kiem-phien`
   cập nhật.
+- Chrome cửa sổ ẩn danh: hỏi 2 câu như khách, chip lượt thử giảm, tải lại mất đoạn chat,
+  hạ tạm `khach.hoi_dap_24h: 2` để thấy thẻ hết lượt; đăng nhập từ thẻ đó và thấy đoạn chat
+  thành phiên đầu tiên.
 - Chrome với tài khoản chủ dự án: sidebar đủ ba khối; menu tài khoản; hồ sơ có lịch
   hoạt động; gửi yêu cầu nâng gói rồi thấy "Đang chờ duyệt"; hạ tạm
   `luot_moi_phien: 2` và `hoi_dap_ngay: 2` để thấy ba trạng thái hết hạn mức; trả lại.
 
-## 10. Đo lường và điều kiện vận hành
+## 11. Đo lường và điều kiện vận hành
 
 - Sau 30 ngày mở đăng ký, đo bằng `traces` + `yeu_cau_nang_goi`: tỷ lệ tài khoản đã
   kích hoạt (≥1 lượt) chạm hạn ngày, chạm hạn tháng, chạm hạn bản thảo; số yêu cầu nâng
@@ -319,13 +412,13 @@ số 10 → "Không giới hạn"; FAQ hạn mức viết lại theo §4. Giá t
 - Điểm nâng gói nằm trong luồng: thẻ 429 và thẻ đủ 50 lượt mở thẳng `ModalNangGoi`,
   không chuyển sang trang giá.
 
-## 11. Thi công
+## 12. Thi công
 
 Một plan, hai luồng song song như gói 1: backend (§4–§6, worktree riêng) và frontend
-(§7, worktree riêng) sau một task hợp đồng chung (YAML mới, model `HanMucResponse`,
-kiểu TS, migration 021). Ước lượng 10–12 task.
+(§7–§8, worktree riêng) sau một task hợp đồng chung (YAML mới gồm `khach`, model
+`HanMucResponse`, kiểu TS, migration 021, header `X-Khach-Id`). Ước lượng 12–14 task.
 
-## 12. Ngoài phạm vi (2B và sau)
+## 13. Ngoài phạm vi (2B và sau)
 
 Vai trò admin và trang duyệt yêu cầu; xoá tài khoản (cần service-role key); ngôn ngữ;
 thanh toán; thưởng tuần đầu, mời bạn; nâng trần chi phí hệ thống (biến môi trường,
