@@ -54,10 +54,12 @@ function goiY(kind: ApiErrorKind): string | null {
       // được điều đó bằng cách viết lại câu hỏi.
       return "Bạn chưa đăng nhập hoặc phiên đã hết hạn. Đăng nhập rồi hỏi lại — câu hỏi của bạn không có gì sai.";
     case "rate_limited":
-      // Ba nguyên nhân cùng mang mã 429 (quá nhịp, hết hạn mức tháng, trần chi
-      // phí ngày) và máy chủ đã nói rõ là cái nào trong `message`. Câu ở đây
-      // chỉ nói phần chung: chờ, chứ đừng sửa câu hỏi.
-      return "Hệ thống đang giới hạn số lượt gọi. Chờ một lát rồi thử lại — câu hỏi của bạn không có gì sai.";
+      // Ba nguyên nhân cùng mang mã 429 (quá nhịp, hết hạn mức, trần chi phí
+      // ngày) và câu ngay trên đã nói rõ là cái nào, KÈM mốc mở lại. Nên câu
+      // này chỉ trỏ lên dòng đó chứ không hẹn "chờ một lát rồi thử lại": 429 là
+      // nhánh DUY NHẤT bị giấu nút Thử lại, và một lời khuyên trỏ tới cái nút
+      // không có ở đó là một lời khuyên sai.
+      return "Bạn đã chạm giới hạn lượt gọi; dòng trên cho biết khi nào mở lại. Câu hỏi của bạn không có gì sai.";
     case "invalid_request":
       return "Yêu cầu gửi lên chưa hợp lệ. Kiểm tra lại nội dung đã nhập rồi thử lại.";
     case "server_error":

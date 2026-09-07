@@ -14,7 +14,7 @@ import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { useTraCuu } from "@/hooks/use-tra-cuu";
 import { goi } from "@/lib/api";
-import { dinhDangMoc, mucRangBuoc } from "@/lib/han-muc";
+import { dinhDangMoc, laKhongGioiHan } from "@/lib/han-muc";
 import { layThreadKhach, xoaThreadKhach } from "@/lib/khach";
 import type { Citation, TraCuuKetQua } from "@/lib/klaw";
 import { chuanHoaLuot, laNhapPhien } from "@/lib/klaw";
@@ -388,7 +388,13 @@ function ManHoiKlaw() {
   const soLuotPhien = daTai.length + luuTru.length + (traCuu.ketQua !== null ? 1 : 0);
   const phienDay = tranPhien !== null && soLuotPhien >= tranPhien;
   const phienDai = tranPhien !== null && !phienDay && soLuotPhien >= Math.ceil(tranPhien * 0.75);
-  const mucChip = mucRangBuoc(hanMuc.hanMuc);
+  // Chip cạnh ô hỏi theo dõi ĐÚNG hạn mức hỏi đáp, không phải "mục ràng buộc
+  // đầu tiên": gói Cá nhân hỏi không giới hạn nhưng vẫn có trần bản thảo, và
+  // "Còn 3 bản thảo hôm nay" đứng cạnh ô hỏi là một con số nói về việc khác.
+  // Không có mục đó, hoặc mục đó không giới hạn ⇒ không chip.
+  const mucChat =
+    hanMuc.hanMuc?.muc.find((m) => m.khoa === (laKhach ? "khach_24h" : "hoi_dap_ngay")) ?? null;
+  const mucChip = mucChat !== null && !laKhongGioiHan(mucChat.han_muc) ? mucChat : null;
   const hetLuot = mucChip !== null && mucChip.da_dung >= mucChip.han_muc;
   const plan = hanMuc.hanMuc?.plan ?? null;
   // Gói Cá nhân hết hạn ⇒ máy chủ hạ người dùng về `free` NHƯNG vẫn gửi mốc cũ.
@@ -405,9 +411,11 @@ function ManHoiKlaw() {
    *  trang là mất đoạn chat nhưng KHÔNG được lượt mới, và một ô hỏi xám không
    *  kèm lý do là chỗ người dùng bỏ đi. */
   const khachHetLuot = hetLuot && laKhach;
-  /** Ô hỏi đóng khi câu trả lời tiếp theo CHẮC CHẮN bị máy chủ từ chối. Gõ xong
-   *  một câu dài rồi mới nhận 403/429 là mất công người dùng một cách vô ích. */
-  const khoaOHoi = traCuu.dangChay || hoiThoai.loiChiTiet !== null || phienDay || hetLuot;
+  /** Ô hỏi đóng khi câu trả lời tiếp theo CHẮC CHẮN bị từ chối VÀ màn hình đã
+   *  nói được lối ra ngay tại chỗ. Hết lượt của người ĐÃ đăng nhập không nằm
+   *  trong nhóm đó: lối ra của họ (mốc mở lại, nút Nâng cấp) đi kèm 429 của máy
+   *  chủ, nên khoá sớm ở client là khoá luôn cả đường đi tiếp (spec §7.3). */
+  const khoaOHoi = traCuu.dangChay || hoiThoai.loiChiTiet !== null || phienDay || khachHetLuot;
 
   const chuaHoiGiCa =
     daTai.length === 0 &&
