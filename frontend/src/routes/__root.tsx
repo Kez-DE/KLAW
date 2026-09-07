@@ -11,6 +11,7 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
+import { TaiKhoanProvider } from "@/contexts/tai-khoan";
 
 import appCss from "../styles.css?url";
 
@@ -215,6 +216,12 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/*
+        `TaiKhoanProvider` nằm TRONG `QueryClientProvider` và trong cây router:
+        nó gọi `useNavigate`, và mọi trang đọc phiên/hạn mức qua `useTaiKhoan`
+        thay vì tự gọi `useAuth` — một nguồn duy nhất, tải một lần.
+      */}
+      <TaiKhoanProvider>
+        {/*
         Liên kết bỏ qua: người dùng bàn phím và trình đọc màn hình không phải
         Tab qua toàn bộ điều hướng ở MỌI trang trước khi tới nội dung. Mốc
         `#noi-dung-chinh` nằm trên <main> của cả ba vỏ trang.
@@ -223,15 +230,16 @@ function RootComponent() {
         khác trong vòng Tab, nên nó không phải đường thoát ra khỏi modal — và
         một liên kết bỏ qua bị bịt lại thì tệ hơn là không có.
       */}
-      <a href="#noi-dung-chinh" className="bo-qua-lien-ket">
-        Bỏ qua để tới nội dung chính
-      </a>
-      <ThongBaoChuyenTuyen pathname={pathname} />
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <div key={pathname} className="route-enter">
-        <Outlet />
-      </div>
-      <Toaster position="bottom-right" />
+        <a href="#noi-dung-chinh" className="bo-qua-lien-ket">
+          Bỏ qua để tới nội dung chính
+        </a>
+        <ThongBaoChuyenTuyen pathname={pathname} />
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <div key={pathname} className="route-enter">
+          <Outlet />
+        </div>
+        <Toaster position="bottom-right" />
+      </TaiKhoanProvider>
     </QueryClientProvider>
   );
 }

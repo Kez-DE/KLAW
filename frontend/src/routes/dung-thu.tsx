@@ -3,7 +3,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronRight, Paperclip, Send } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
-import { CotPhien } from "@/components/klaw/DanhSachPhien";
 import { ManChao } from "@/components/klaw/ManChao";
 import { MaTruyVet } from "@/components/klaw/MaTruyVet";
 import { KhungDoiChieu, useHaiCot } from "@/components/klaw/KhungDoiChieu";
@@ -242,11 +241,6 @@ function ManHoiKlaw() {
     oHoi.current?.focus();
   };
 
-  // Task 7 (cột phiên) gắn hai callback này vào `CotPhien`. `chonPhien` không
-  // cần tự `datLaiTraCuu()`: `search.phien` luôn có giá trị nên effect (2)
-  // (ghim URL) luôn thoát sớm ở `phienId !== undefined`, bất kể `traCuu.hoiThoaiId`
-  // cũ chưa kịp xoá; effect (1) (đồng bộ `?phien=`) tự lo phần dọn dẹp.
-  const chonPhien = (id: string) => void navigate({ to: "/dung-thu", search: { phien: id } });
   // `phienMoi` PHẢI tự xoá `traCuu.hoiThoaiId` cùng lúc chuyển `?phien=` về
   // rỗng: nếu chỉ đổi URL, `traCuu.hoiThoaiId` cũ (khác `null`) còn sống qua
   // hết lượt effect của lần render đó, và effect (2) sẽ thấy `phienId ===
@@ -599,18 +593,6 @@ function ManHoiKlaw() {
               onDong={() => datSoanThao(null)}
             />
           </div>
-        )}
-
-        {daDangNhap && doiChieu.dang === null && soanThao === null && (
-          <CotPhien
-            hoiThoai={hoiThoai}
-            phienDangMo={phienId}
-            onChon={chonPhien}
-            onPhienMoi={phienMoi}
-            onDaXoa={(id) => {
-              if (id === phienId) phienMoi();
-            }}
-          />
         )}
 
         {/* Lịch sử phiên. Nhường chỗ cho khung nguyên văn khi khung mở — hai cột

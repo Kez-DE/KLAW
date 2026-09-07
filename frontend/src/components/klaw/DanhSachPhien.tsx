@@ -1,4 +1,4 @@
-import { Check, ChevronRight, MessageSquare, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { TrangThaiHoiThoai } from "@/hooks/use-hoi-thoai";
 import type { PhienTomTat } from "@/lib/klaw";
@@ -6,16 +6,20 @@ import { thoiGianTuongDoi } from "@/lib/phien";
 import { cn } from "@/lib/utils";
 
 /**
- * Cột phiên hội thoại (spec 2026-09-07 §6). Một danh sách, hai vỏ: aside cố
- * định từ xl (80rem) và sheet trượt lên dưới đó — cùng khuôn với ngăn kéo bộ
- * lọc của trang Tra cứu. Đổi tên và xoá đều làm TẠI CHỖ (Enter lưu, Esc huỷ;
- * xác nhận xoá là hai nút, không `confirm()` — hộp thoại trình duyệt chặn cả
- * tab và không theo được giao diện).
+ * Danh sách phiên hội thoại "Gần đây" (spec 2A §6). THUẦN thân danh sách: vỏ
+ * do `AppShell` quyết định — cột trái từ 80rem, sheet trượt lên dưới đó — nên
+ * cùng một danh sách không bị dựng hai lần với hai hành vi lệch nhau.
+ *
+ * Đổi tên và xoá đều làm TẠI CHỖ (Enter lưu, Esc huỷ; xác nhận xoá là hai nút,
+ * không `confirm()` — hộp thoại trình duyệt chặn cả tab và không theo được
+ * giao diện).
  */
 interface Props {
   hoiThoai: TrangThaiHoiThoai;
   phienDangMo: string | undefined;
   onChon: (id: string) => void;
+  /** Chỉ dùng ở trạng thái rỗng: lúc đó đây là lối đi DUY NHẤT trong danh
+   *  sách. Nút "Phiên mới" thường trực nằm ở `AppShell`, không nhân đôi ở đây. */
   onPhienMoi: () => void;
   /** Phiên vừa xoá xong — cha quyết định có phải điều hướng đi không. */
   onDaXoa: (id: string) => void;
@@ -198,147 +202,60 @@ function MotPhien({
   );
 }
 
-function ThanDanhSach({ hoiThoai, phienDangMo, onChon, onPhienMoi, onDaXoa }: Props) {
+export function DanhSachPhien({ hoiThoai, phienDangMo, onChon, onPhienMoi, onDaXoa }: Props) {
   const { danhSach, dangTai, loi, taiLai, doiTen, xoa } = hoiThoai;
-  return (
-    <div className="soft-fade">
-      <button
-        type="button"
-        onClick={onPhienMoi}
-        className="focus-brass bg-gradient-ink mb-3 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
-      >
-        <Plus className="size-4" aria-hidden /> Phiên mới
-      </button>
-      {loi !== null ? (
-        <div className="rounded-lg border border-dashed border-border p-2.5 text-[12px]">
-          <p className="m-0 text-muted-foreground">{loi.message}</p>
-          <button
-            type="button"
-            onClick={taiLai}
-            className="focus-brass mt-2 min-h-8 cursor-pointer rounded-md border border-border px-2.5 font-medium text-primary"
-          >
-            Tải lại
-          </button>
-        </div>
-      ) : danhSach === null ? (
-        <p className="text-[12px] text-muted-foreground" aria-live="polite">
-          {dangTai ? "Đang tải phiên…" : ""}
-        </p>
-      ) : danhSach.items.length === 0 ? (
-        <p className="text-[12px] text-muted-foreground">
-          Chưa có phiên nào. Hỏi một câu để bắt đầu.
-        </p>
-      ) : (
-        <>
-          <ul className="m-0 list-none space-y-1 p-0">
-            {danhSach.items.map((p) => (
-              <MotPhien
-                key={p.id}
-                phien={p}
-                dangMo={p.id === phienDangMo}
-                onChon={() => onChon(p.id)}
-                onDoiTen={async (t) => (await doiTen(p.id, t)).ok}
-                onXoa={async () => {
-                  const kq = await xoa(p.id);
-                  if (kq.ok) onDaXoa(p.id);
-                  return kq.ok;
-                }}
-              />
-            ))}
-          </ul>
-        </>
-      )}
-    </div>
-  );
-}
 
-export function CotPhien(props: Props) {
-  const [panelMo, datPanelMo] = useState(true);
-  const [sheetMo, datSheetMo] = useState(false);
-  // Chọn/tạo phiên từ sheet thì đóng sheet — người dùng muốn thấy hội thoại.
-  const chon = (id: string) => {
-    datSheetMo(false);
-    props.onChon(id);
-  };
-  const moi = () => {
-    datSheetMo(false);
-    props.onPhienMoi();
-  };
-  const than = <ThanDanhSach {...props} onChon={chon} onPhienMoi={moi} />;
+  if (loi !== null) {
+    return (
+      <div className="soft-fade rounded-lg border border-dashed border-border p-2.5 text-[12px]">
+        <p className="m-0 text-muted-foreground">{loi.message}</p>
+        <button
+          type="button"
+          onClick={taiLai}
+          className="focus-brass mt-2 min-h-8 cursor-pointer rounded-md border border-border px-2.5 font-medium text-primary"
+        >
+          Tải lại
+        </button>
+      </div>
+    );
+  }
+  if (danhSach === null) {
+    return (
+      <p className="m-0 text-[12px] text-muted-foreground" aria-live="polite">
+        {dangTai ? "Đang tải phiên…" : ""}
+      </p>
+    );
+  }
+  if (danhSach.items.length === 0) {
+    return (
+      <div className="soft-fade text-[12px] text-muted-foreground">
+        <p className="m-0">Chưa có phiên nào. Hỏi một câu để bắt đầu.</p>
+        <button
+          type="button"
+          onClick={onPhienMoi}
+          className="focus-brass mt-2 inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border px-2.5 font-medium text-primary"
+        >
+          <Plus className="size-4" aria-hidden /> Phiên mới
+        </button>
+      </div>
+    );
+  }
   return (
-    <>
-      <aside
-        aria-label="Phiên hội thoại"
-        className={cn(
-          "hidden shrink-0 border-l border-border bg-[var(--color-paper-50)] transition-[width] duration-150 xl:block",
-          panelMo ? "w-[300px]" : "w-[52px]",
-        )}
-      >
-        <div className="sticky top-[49px] p-3">
-          <button
-            type="button"
-            onClick={() => datPanelMo((m) => !m)}
-            aria-label={panelMo ? "Thu gọn cột phiên" : "Mở cột phiên"}
-            aria-expanded={panelMo}
-            className="focus-brass mb-3 cursor-pointer rounded-md p-1.5 text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/10"
-          >
-            <ChevronRight
-              className={cn("size-4 transition-transform duration-150", panelMo && "rotate-180")}
-              aria-hidden
-            />
-          </button>
-          {panelMo && (
-            <>
-              <p className="border-b border-border pb-2 text-[12px] font-semibold text-primary">
-                Phiên hội thoại
-              </p>
-              <div className="mt-3">{than}</div>
-            </>
-          )}
-        </div>
-      </aside>
-
-      {/* 156px = composer footer height at 375px (~134-140px, disclaimer can wrap
-          to 3 lines) + ~16px clearance so the pill never sits under it. */}
-      <button
-        type="button"
-        hidden={sheetMo}
-        onClick={() => datSheetMo(true)}
-        aria-expanded={sheetMo}
-        aria-controls="phien-ngan-keo"
-        className="focus-brass fixed right-4 bottom-[156px] z-40 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-[var(--color-brass-500)]/60 bg-card px-4 text-[13px] font-medium text-[var(--color-brass-600)] shadow-soft xl:hidden"
-      >
-        <MessageSquare className="size-4" aria-hidden /> Phiên
-      </button>
-      {sheetMo && (
-        <div className="fixed inset-0 z-50 xl:hidden">
-          <div
-            className="absolute inset-0 bg-[var(--color-ink-950)]/45"
-            onClick={() => datSheetMo(false)}
-            aria-hidden
-          />
-          <div
-            id="phien-ngan-keo"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Phiên hội thoại"
-            className="rise-in absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-2xl border-t border-border bg-background px-4 pt-4 pb-8"
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <p className="font-display m-0 text-sm font-semibold text-primary">Phiên hội thoại</p>
-              <button
-                type="button"
-                onClick={() => datSheetMo(false)}
-                aria-label="Đóng danh sách phiên"
-                className="focus-brass grid size-11 cursor-pointer place-items-center rounded-md text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-4" aria-hidden />
-              </button>
-            </div>
-            {than}
-          </div>
-        </div>
-      )}
-    </>
+    <ul className="soft-fade m-0 list-none space-y-1 p-0">
+      {danhSach.items.map((p) => (
+        <MotPhien
+          key={p.id}
+          phien={p}
+          dangMo={p.id === phienDangMo}
+          onChon={() => onChon(p.id)}
+          onDoiTen={async (t) => (await doiTen(p.id, t)).ok}
+          onXoa={async () => {
+            const kq = await xoa(p.id);
+            if (kq.ok) onDaXoa(p.id);
+            return kq.ok;
+          }}
+        />
+      ))}
+    </ul>
   );
 }
