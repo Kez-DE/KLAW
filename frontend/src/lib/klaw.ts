@@ -863,6 +863,15 @@ export function laDanhSachPhien(x: unknown): x is DanhSachPhien {
   return laBanGhi(x) && Array.isArray(x["items"]) && typeof x["tong_hien"] === "number";
 }
 
+export function laPhienTomTat(x: unknown): x is PhienTomTat {
+  return (
+    laBanGhi(x) &&
+    typeof x["id"] === "string" &&
+    typeof x["tieu_de"] === "string" &&
+    typeof x["so_luot"] === "number"
+  );
+}
+
 export function laChiTietPhien(x: unknown): x is ChiTietPhien {
   return laBanGhi(x) && typeof x["id"] === "string" && Array.isArray(x["luot"]);
 }

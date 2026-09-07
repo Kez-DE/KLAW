@@ -60,7 +60,7 @@ interface TuyChonGoi {
   /** Tín hiệu huỷ của nơi gọi (nút Huỷ, tháo component). */
   signal?: AbortSignal;
   hanGioMs?: number;
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
 }
 
@@ -194,18 +194,22 @@ export async function goi<T>(
   }
 
   let than: unknown;
-  try {
-    than = await phanHoi.json();
-  } catch (loi) {
-    return {
-      ok: false,
-      error: {
-        kind: "invalid_response",
-        message: LOI_HINH_DANG,
-        status: phanHoi.status,
-        detail: loi,
-      },
-    };
+  if (phanHoi.status === 204) {
+    than = null; // DELETE /hoi-thoai/{id} — không có thân, `laKhongThan` là guard
+  } else {
+    try {
+      than = await phanHoi.json();
+    } catch (loi) {
+      return {
+        ok: false,
+        error: {
+          kind: "invalid_response",
+          message: LOI_HINH_DANG,
+          status: phanHoi.status,
+          detail: loi,
+        },
+      };
+    }
   }
 
   if (!kiem(than)) {
@@ -221,6 +225,9 @@ export async function goi<T>(
   }
   return { ok: true, data: than };
 }
+
+/** Guard cho thân 204 (DELETE /hoi-thoai/{id}) — `goi` đã đặt `than: null`. */
+export const laKhongThan = (x: unknown): x is null => x === null;
 
 /** Dựng query string, bỏ qua giá trị rỗng. Tham số lặp lại được (`loai`, `co_quan`). */
 export function thamSo(cap: [string, string | number | undefined | null][]): string {
