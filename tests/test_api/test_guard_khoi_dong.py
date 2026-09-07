@@ -65,7 +65,11 @@ async def test_production_co_api_key_thi_khoi_dong_duoc(cai_dat, bo_qua_can_cu):
 
 
 async def test_production_co_supabase_thi_khoi_dong_duoc(cai_dat, bo_qua_can_cu):
-    cai_dat(app_env="production", api_key="", supabase_url="https://abc.supabase.co")
+    # `rate_limit_so_luot` tường minh: `tests/conftest.py` đặt
+    # `KLAW_RATE_LIMIT_SO_LUOT=0` cho CẢ suite, và Supabase + 0 nay là một tổ
+    # hợp guard thứ hai từ chối (hạn mức khách fail open). Ca này kiểm guard
+    # THỨ NHẤT, nên nó phải dựng một cấu hình hợp lệ ở mọi mặt khác.
+    cai_dat(app_env="production", api_key="", supabase_url="https://abc.supabase.co", rate_limit_so_luot=10)
     async with lifespan(app):
         pass
 
@@ -74,6 +78,33 @@ async def test_development_van_mo_toang_duoc(cai_dat, bo_qua_can_cu):
     """Dev local và `eval/run.py` chạy hàng trăm lượt không có tài khoản nào —
     guard chỉ chặn `production`, đúng phạm vi mà biến `app_env` tồn tại để phân."""
     cai_dat(app_env="development", api_key="", supabase_url="")
+    async with lifespan(app):
+        pass
+
+
+async def test_supabase_bat_ma_rate_limit_0_thi_TU_CHOI_khoi_dong(cai_dat):
+    """`KLAW_RATE_LIMIT_SO_LUOT=0` + Supabase = hạn mức khách FAIL OPEN.
+
+    `bao_ve.kiem_rate_limit` mở đầu bằng `if s.rate_limit_so_luot <= 0: return`
+    — công tắc cố ý cho `eval/run.py` — nhưng nó tắt CẢ những giỏ được truyền
+    trần tường minh: `khach:{id}` (10 lượt/24 giờ), `khach-ip:` và `ip-ngay:`.
+    Tức đúng tổ hợp này cho người CHƯA đăng nhập gọi LLM không giới hạn.
+
+    Không fixture `bo_qua_can_cu`: cùng lý lẽ với ca production ở trên, guard
+    phải nổ TRƯỚC khi chạm Postgres, và việc nó nổ mà không cần fixture chính là
+    bằng chứng nó đứng đúng chỗ.
+    """
+    cai_dat(app_env="development", supabase_url="https://abc.supabase.co", rate_limit_so_luot=0)
+    with pytest.raises(RuntimeError, match="KLAW_RATE_LIMIT_SO_LUOT"):
+        async with lifespan(app):
+            pass
+
+
+async def test_rate_limit_0_KHONG_co_supabase_van_khoi_dong_duoc(cai_dat, bo_qua_can_cu):
+    """Escape hatch của eval PHẢI còn: `eval/run.py` chạy hàng trăm lượt qua HTTP
+    và KHÔNG có Supabase, nên hai điều kiện của guard không bao giờ đúng cùng lúc
+    ở đó. Vá ở `kiem_rate_limit` thay vì ở đây là giết đúng đường chạy này."""
+    cai_dat(app_env="development", api_key="", supabase_url="", rate_limit_so_luot=0)
     async with lifespan(app):
         pass
 

@@ -68,16 +68,41 @@ async def test_han_muc_KHONG_di_qua_cong_bao_ve_nen_khong_tu_khoa_khi_het_luot(c
 
 
 async def test_han_muc_khong_ton_han_mot_luot_rate_limit_nao(client, cai_dat, khoa_ky, khong_dung_db, monkeypatch):
-    """Xem hạn mức không phải là dùng hạn mức. Ghi một lượt vào
-    `rate_limit_luot` cho mỗi lần mở trang tài khoản là tự hãm mình.
+    """Xem hạn mức không phải là dùng hạn mức. Ghi một lượt vào giỏ HẠN MỨC cho
+    mỗi lần mở trang tài khoản là tự hãm mình.
+
+    Lá chắn `chan-ip:` KHÔNG vi phạm điều đó: nó là giỏ RIÊNG của `cong_bao_ve`,
+    rộng hơn nhiều và không phải giỏ nào thanh đo trên trang này đọc. Nên test
+    khoá đúng thứ cần khoá — giỏ nào cũng được chạm TRỪ `user:`, `khach:` và
+    giỏ nhịp trần theo IP.
     """
     cai_dat(rate_limit_so_luot=1)
-
-    def no(*a, **k):
-        raise AssertionError("/han-muc không được đếm vào rate limit")
-
-    monkeypatch.setattr(bao_ve, "kiem_rate_limit", no)
+    khoa: list[str] = []
+    monkeypatch.setattr(bao_ve, "kiem_rate_limit", lambda k, *a, **kw: khoa.append(k))
     assert (await client.get("/api/v1/han-muc", headers=_bearer(khoa_ky))).status_code == 200
+    assert khoa and all(k.startswith("chan-ip:") for k in khoa), khoa
+
+
+@pytest.mark.integration
+async def test_han_muc_burst_qua_tran_IP_thi_429(client, cai_dat):
+    """Lá chắn IP là cổng DUY NHẤT trước `/han-muc`.
+
+    Endpoint này chạy trên `xac_thuc_nguoi_goi_hoac_none`, tức trả lời cả người
+    chưa đăng nhập, và `kiem_api_key` phải RỖNG thì trình duyệt khách mới qua
+    nổi — nên trước lá chắn nó là bề mặt hoàn toàn không xác thực đọc Postgres.
+
+    IP riêng cho mỗi lần chạy qua `X-Forwarded-For` (nên `tin_proxy_header=True`),
+    cùng lý do `test_khach.py` làm vậy: bộ đếm nằm trong Postgres và DB đó dùng
+    chung với server dev cùng mọi worktree khác.
+    """
+    cai_dat(supabase_url="", rate_limit_so_luot=10, rate_limit_ip_so_luot=3, tin_proxy_header=True)
+    h = {"X-Forwarded-For": f"test-hanmuc-{uuid.uuid4()}"}
+    for i in range(3):
+        r = await client.get("/api/v1/han-muc", headers=h)
+        assert r.status_code == 200, f"lượt {i + 1}/3 bị chặn sớm: {r.text}"
+    r = await client.get("/api/v1/han-muc", headers=h)
+    assert r.status_code == 429, r.text
+    assert int(r.headers["Retry-After"]) > 0
 
 
 async def test_han_muc_chua_cau_hinh_auth_tra_ap_dung_false_KHONG_bia_so(client, cai_dat):

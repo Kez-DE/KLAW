@@ -15,9 +15,15 @@ không cách nào biết bên nào đúng; cùng lý lẽ đã khiến `bao_ve.c
 người dùng cần nó nhất. Nó cũng ghi một lượt vào `rate_limit_luot` cho mỗi lần
 mở trang tài khoản — xem hạn mức không phải là dùng hạn mức.
 
-Cái được giữ lại là hai cổng đầu (`kiem_api_key` → danh tính), vì endpoint đều
-nói về MỘT người cụ thể và không trả lời được nếu không biết đó là ai. Không
-cổng nào bị bỏ vì lười: các endpoint này không gọi LLM, không gọi embedding.
+Cái được giữ lại ở `/han-muc` là `kiem_api_key` và LÁ CHẮN theo IP — KHÔNG
+phải danh tính. Từ chế độ khách (spec 2A §8.3) endpoint này trả lời cả người
+CHƯA đăng nhập, nên danh tính không còn là cổng vào được: nhánh khách chạy hai
+truy vấn `rate_limit_luot` mỗi lần gọi, và `KLAW_API_KEY` phải RỖNG thì trình
+duyệt khách mới qua nổi `kiem_api_key` — tức không có lá chắn thì đây là một
+bơm truy vấn hoàn toàn không xác thực. Lá chắn đếm ở giỏ RIÊNG (`chan-ip:`,
+cùng giỏ `cong_bao_ve` dùng) nên xem hạn mức vẫn không tiêu hạn mức. Bốn
+endpoint còn lại vẫn bắt buộc danh tính (`nguoi_dung_bat_buoc`). Không cổng nào
+bị bỏ vì lười: các endpoint này không gọi LLM, không gọi embedding.
 """
 
 import logging
@@ -68,6 +74,26 @@ async def _nguoi_goi(request: Request) -> dict | None:
 async def han_muc_cua_toi(request: Request) -> HanMucResponse:
     """Hạn mức của người gọi. KHÔNG đi qua `cong_bao_ve` (không tốn lượt, không tự khoá)."""
     bao_ve.kiem_api_key(request)
+    # Lá chắn IP, TRƯỚC mọi truy vấn. Nhánh khách bên dưới chạy `dem_cua_so` và
+    # nhánh đăng nhập chạy ba truy vấn, còn cổng đứng trước chúng (`kiem_api_key`)
+    # phải RỖNG mới cho trình duyệt khách đi qua — nên không có dòng này thì
+    # `/han-muc` là bề mặt không xác thực duy nhất đọc Postgres mà không ai đếm.
+    #
+    # Giỏ `chan-ip:` là giỏ LÁ CHẮN của `cong_bao_ve`, KHÔNG phải hạn mức của
+    # người dùng: xem hạn mức vẫn không tiêu hạn mức, đúng bất biến cả module
+    # này tồn tại để giữ.
+    #
+    # KHÔNG bọc try/except quanh nó: `kiem_rate_limit` đã tự ném 429 (vượt) và
+    # 503 (DB hỏng), nên bọc là biến đúng cái 429 vừa dựng thành một 503.
+    # `bao_ve.get_settings()` chứ không một tên đã import ở đầu file: cùng quy
+    # ước "gọi qua `bao_ve.<tên>`" giải thích ở thân hàm bên dưới, và lá chắn
+    # PHẢI đọc cùng một đối tượng cấu hình với `kiem_rate_limit` mà nó gọi —
+    # hai nguồn cấu hình là hai cái trần bất đồng nhau.
+    await run_in_threadpool(
+        bao_ve.kiem_rate_limit,
+        f"chan-ip:{bao_ve.ip_goi(request)}",
+        bao_ve.get_settings().rate_limit_ip_so_luot,
+    )
     tz = str(bao_ve.mui_gio())
     nguoi = await run_in_threadpool(bao_ve.xac_thuc_nguoi_goi_hoac_none, request)
     if nguoi is None and not xac_thuc.da_cau_hinh():

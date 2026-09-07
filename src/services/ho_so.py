@@ -1,17 +1,30 @@
 """Tổng hợp hồ sơ tài khoản (spec 2A §6.2) — chỉ đọc, chỉ của `sub`."""
 
+from collections.abc import Iterable
+
 from sqlalchemy import text
 
 from src.services.bao_ve import mui_gio
 from src.services.db import get_engine
 
+# Mọi giá trị `ResultType` của `agents/nodes/assemble.py` (bảy loại) cộng
+# `soan_thao` — khoá tổng hợp riêng cho endpoint `/soan-thao`, không phải một
+# `result_type`. Thiếu một loại ở đây KHÔNG mất dòng, nhưng nó thành một dòng
+# "Khác" riêng: SQL gộp theo `result_type` THÔ, còn nhãn chỉ gán ở Python, nên
+# `gioi_thieu` + `huong_dan_soan_thao` + `hoi_ve_kho` từng ra BA dòng cùng đọc
+# "Khác" trên trang hồ sơ.
 NHAN_PHAN_LOAI = {
     "answer": "Trả lời có căn cứ",
     "partial_coverage": "Trả lời một phần",
     "abstain": "Dừng vì thiếu căn cứ",
     "out_of_scope": "Ngoài phạm vi",
+    "gioi_thieu": "Giới thiệu trợ lý",
+    "huong_dan_soan_thao": "Hướng dẫn soạn thảo",
+    "hoi_ve_kho": "Câu hỏi về kho",
     "soan_thao": "Bản thảo",
 }
+KHOA_KHAC = "khac"
+NHAN_KHAC = "Khác"
 _SQL_USER = text("SELECT email, plan, plan_het_han, created_at FROM users WHERE sub = :sub")
 _SQL_SO_PHIEN = text("SELECT count(*)::int FROM hoi_thoai WHERE user_sub = :sub AND xoa_luc IS NULL")
 _SQL_TONG = text(
@@ -31,6 +44,26 @@ _SQL_PHAN_LOAI = text(
 )
 
 
+def _gop_phan_loai(dong: Iterable[tuple[str | None, int]]) -> list[dict]:
+    """Gộp mọi `result_type` KHÔNG có nhãn về MỘT dòng "Khác", sắp theo số giảm dần.
+
+    Gộp ở Python chứ không ở SQL vì bảng `traces` chỉ biết chuỗi thô; nhãn là
+    quyết định của tầng này. Và gộp phần DƯ chứ không chỉ thêm nhãn: loại
+    `result_type` thứ tám thêm sau này sẽ lại đẻ ra một dòng "Khác" thứ hai nếu
+    chỗ này chỉ dựa vào việc `NHAN_PHAN_LOAI` được cập nhật kịp.
+    """
+    gop: dict[str, int] = {}
+    for khoa, so in dong:
+        if khoa is None:
+            continue
+        k = khoa if khoa in NHAN_PHAN_LOAI else KHOA_KHAC
+        gop[k] = gop.get(k, 0) + int(so)
+    return [
+        {"khoa": k, "nhan": NHAN_PHAN_LOAI.get(k, NHAN_KHAC), "so": n}
+        for k, n in sorted(gop.items(), key=lambda kv: -kv[1])
+    ]
+
+
 def tong_hop(sub: str) -> dict | None:
     with get_engine().connect() as c:
         u = c.execute(_SQL_USER, {"sub": sub}).mappings().one_or_none()
@@ -39,11 +72,7 @@ def tong_hop(sub: str) -> dict | None:
         so_phien = int(c.execute(_SQL_SO_PHIEN, {"sub": sub}).scalar_one())
         tong = {r["endpoint"]: r["n"] for r in c.execute(_SQL_TONG, {"sub": sub}).mappings()}
         hoat_dong = [dict(r) for r in c.execute(_SQL_HOAT_DONG, {"sub": sub, "tz": str(mui_gio())}).mappings()]
-        phan_loai = [
-            {"khoa": r["khoa"], "nhan": NHAN_PHAN_LOAI.get(r["khoa"], "Khác"), "so": r["so"]}
-            for r in c.execute(_SQL_PHAN_LOAI, {"sub": sub}).mappings()
-            if r["khoa"] is not None
-        ]
+        phan_loai = _gop_phan_loai((r["khoa"], r["so"]) for r in c.execute(_SQL_PHAN_LOAI, {"sub": sub}).mappings())
     return {
         "email": u["email"],
         "plan_tho": u["plan"],

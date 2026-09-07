@@ -874,11 +874,34 @@ class YeuCauNangGoiOut(BaseModel):
 class LuotNhap(BaseModel):
     cau_hoi: str = Field(..., min_length=1, max_length=2000)
     tra_loi: TraCuuResponse
-    trace_id: str | None = None
+    # `max_length` chứ không `str` trần: giá trị này đi thẳng vào JSONB, và một
+    # `trace_id` dài 2 MB là 2 MB đĩa cho một trường vốn là một UUID.
+    trace_id: str | None = Field(default=None, max_length=64)
+
+
+# 256 KB. Mười lượt THẬT (câu hỏi ≤ 2000 ký tự + `TraCuuResponse` kèm trích dẫn)
+# nằm dưới mức này rất xa — đo trên payload thật của `/hoi-thoai/nhap` là vài
+# chục KB. Trần tồn tại vì `TraCuuResponse` có `answer`, `nguon`, `documents`,
+# `bang` không giới hạn độ dài: `max_length=10` chặn SỐ lượt chứ không chặn
+# KÍCH THƯỚC, nên trước trần này một tài khoản đã đăng nhập ghi được ~10 × 2 MB
+# JSONB tuỳ ý cho mỗi request, ở nhịp của hạn mức tài khoản.
+NHAP_PHIEN_TOI_DA_BYTE = 256 * 1024
 
 
 class NhapPhienRequest(BaseModel):
     luot: list[LuotNhap] = Field(..., min_length=1, max_length=10)
+
+    @model_validator(mode="after")
+    def _kiem_kich_thuoc(self) -> "NhapPhienRequest":
+        """Chặn ở BIÊN, không ở tầng ghi: 422 nói đúng rằng body sai, và không
+        byte nào của nó chạm Postgres."""
+        co = len(self.model_dump_json().encode("utf-8"))
+        if co > NHAP_PHIEN_TOI_DA_BYTE:
+            raise ValueError(
+                f"Lịch sử gửi lên nặng {co // 1024} KB, vượt trần "
+                f"{NHAP_PHIEN_TOI_DA_BYTE // 1024} KB. Gửi ít lượt hơn hoặc lượt ngắn hơn."
+            )
+        return self
 
 
 class NhapPhienResponse(BaseModel):

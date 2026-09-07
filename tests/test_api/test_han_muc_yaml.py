@@ -11,7 +11,7 @@ YAML_OK = (
     "goi_mac_dinh: free\nmui_gio: Asia/Ho_Chi_Minh\n"
     "goi:\n  free: {hoi_dap_ngay: 200, soan_thao_ngay: 3, soan_thao_thang: 20, luot_moi_phien: 20}\n"
     "  pro: {hoi_dap_ngay: 100000, soan_thao_ngay: 20, soan_thao_thang: 100000, luot_moi_phien: 50}\n"
-    "la_chan: {free_hoi_dap_thang: 2000, pro_hoi_dap_ngay: 500, ip_ngay: 400}\n"
+    "la_chan: {free_hoi_dap_thang: 2000, pro_hoi_dap_ngay: 500, ip_ngay: 1500}\n"
     "khach: {hoi_dap_24h: 10, ip_24h: 30}\nchu_ky_pro_ngay: 30\n"
 )
 
@@ -34,7 +34,7 @@ def test_yaml_that_doc_duoc_va_dung_so():
     assert bao_ve.han_muc("free", "luot_moi_phien") == 20
     assert bao_ve.han_muc("pro", "hoi_dap_ngay") >= 100_000
     assert bao_ve.han_muc("goi-la", "soan_thao_ngay") == bao_ve.han_muc("free", "soan_thao_ngay")
-    assert bao_ve.la_chan("ip_ngay") == 400
+    assert bao_ve.la_chan("ip_ngay") == 1500
     assert str(bao_ve.mui_gio()) == "Asia/Ho_Chi_Minh"
     with pytest.raises(KeyError):
         bao_ve.han_muc("free", "khoa-la")

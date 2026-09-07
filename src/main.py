@@ -43,6 +43,28 @@ async def lifespan(app: FastAPI):
             "tiêu tiền (/tra-cuu, /tra-cuu/luong, /soan-thao) sẽ mở công khai và hạn "
             "mức tháng không trừ được của ai. Đặt ít nhất một trong hai rồi khởi động lại."
         )
+    # Supabase đã cấu hình MÀ `KLAW_RATE_LIMIT_SO_LUOT=0` ⇒ hạn mức khách FAIL
+    # OPEN. `bao_ve.kiem_rate_limit` mở đầu bằng `if s.rate_limit_so_luot <= 0:
+    # return` — công tắc CỐ Ý cho `eval/run.py`, chạy hàng trăm lượt qua HTTP —
+    # nhưng nó tắt cả những giỏ được truyền trần TƯỜNG MINH: `khach:{id}` (10
+    # lượt/24 giờ), `khach-ip:` và `ip-ngay:`. Tức đúng tổ hợp này cho người
+    # CHƯA đăng nhập gọi LLM không giới hạn, im lặng.
+    #
+    # KHÔNG vá ở `kiem_rate_limit`: escape hatch đó là thứ giữ cho eval chạy
+    # được, và eval chạy KHÔNG có Supabase nên hai điều kiện dưới đây không bao
+    # giờ đúng cùng lúc ở đó. Vá ở đây, cùng khuôn fail-fast với guard ngay
+    # trên: một tổ hợp cấu hình không dùng được thì không được khởi động.
+    #
+    # Đọc `settings.supabase_url` chứ không gọi `xac_thuc.da_cau_hinh()`: hàm
+    # đó chính là `bool(get_settings().supabase_url)`, nhưng đọc qua `settings`
+    # giữ cả lifespan trên MỘT đối tượng cấu hình.
+    if settings.supabase_url and settings.rate_limit_so_luot <= 0:
+        raise RuntimeError(
+            "KLAW_SUPABASE_URL đã đặt mà KLAW_RATE_LIMIT_SO_LUOT=0: công tắc đó tắt CẢ "
+            "hạn mức khách (10 lượt/24 giờ), giỏ khach-ip và ip-ngay, nên người chưa "
+            "đăng nhập gọi LLM không giới hạn. Đặt KLAW_RATE_LIMIT_SO_LUOT > 0 (mặc "
+            "định 10) rồi khởi động lại; số 0 chỉ dành cho eval chạy KHÔNG có Supabase."
+        )
     # Migration 019 (link_vbpl/link_chinhphu/link_tvpl) PHẢI áp trước khi
     # `graph_tra_cuu.py` SELECT ba cột này — SELECT đó vô điều kiện, trên đường
     # nóng của MỌI câu trả lời có trích dẫn (Important A, final review

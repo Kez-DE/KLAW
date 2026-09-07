@@ -116,3 +116,57 @@ async def test_nhap_phien_201_va_422(client, khoa_ky, nguoi):
         await client.post("/api/v1/hoi-thoai/nhap", json={"luot": [{"cau_hoi": "x", "tra_loi": {"rac": 1}}]}, headers=h)
     ).status_code == 422
     assert (await client.post("/api/v1/hoi-thoai/nhap", json={"luot": []}, headers=h)).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_nhap_phien_tran_kich_thuoc_256kb(client, khoa_ky, nguoi):
+    """`max_length=10` chặn SỐ lượt, KHÔNG chặn kích thước.
+
+    `TraCuuResponse.answer` (và `nguon`, `documents`, `bang`) không có trần, nên
+    trước trần này một tài khoản đã đăng nhập ghi được ~10 × 2 MB JSONB tuỳ ý
+    cho MỖI request, ở nhịp của hạn mức tài khoản. Mười lượt thật nằm dưới trần
+    rất xa — ca 201 dưới đây là 10 lượt, mỗi lượt 10 nghìn ký tự.
+    """
+    h = _bearer(khoa_ky, nguoi)
+    that = {"luot": [{"cau_hoi": "Câu?", "tra_loi": {**P, "answer": "a" * 10_000}, "trace_id": "t"}] * 10}
+    assert (await client.post("/api/v1/hoi-thoai/nhap", json=that, headers=h)).status_code == 201
+
+    qua = {"luot": [{"cau_hoi": "Câu?", "tra_loi": {**P, "answer": "a" * 300_000}}]}
+    r = await client.post("/api/v1/hoi-thoai/nhap", json=qua, headers=h)
+    assert r.status_code == 422, r.text
+    assert "KB" in r.text, r.text
+
+    # `trace_id` là một UUID, không phải một chỗ chứa 2 MB.
+    dai = {"luot": [{"cau_hoi": "Câu?", "tra_loi": P, "trace_id": "t" * 65}]}
+    assert (await client.post("/api/v1/hoi-thoai/nhap", json=dai, headers=h)).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_ho_so_result_type_la_gop_ve_DUNG_MOT_dong_khac(client, khoa_ky, nguoi):
+    """SQL gộp theo `result_type` THÔ, nhãn gán ở Python — nên mỗi giá trị chưa
+    có nhãn từng thành một dòng RIÊNG cùng đọc "Khác" trên trang hồ sơ."""
+    with get_engine().begin() as c:
+        c.execute(
+            text(
+                "INSERT INTO traces (id, endpoint, config_name, result_type, user_sub) VALUES"
+                " (:m1, '/api/v1/tra-cuu', 'full', 'loai_moi_mot', :s),"
+                " (:m2, '/api/v1/tra-cuu', 'full', 'loai_moi_mot', :s),"
+                " (:m3, '/api/v1/tra-cuu', 'full', 'loai_moi_hai', :s),"
+                " (:g1, '/api/v1/tra-cuu', 'full', 'gioi_thieu', :s)"
+            ),
+            {
+                "m1": str(uuid.uuid4()),
+                "m2": str(uuid.uuid4()),
+                "m3": str(uuid.uuid4()),
+                "g1": str(uuid.uuid4()),
+                "s": nguoi,
+            },
+        )
+    d = (await client.get("/api/v1/ho-so", headers=_bearer(khoa_ky, nguoi))).json()
+    khac = [p for p in d["phan_loai"] if p["nhan"] == "Khác"]
+    assert len(khac) == 1, d["phan_loai"]
+    assert khac[0] == {"khoa": "khac", "nhan": "Khác", "so": 3}
+    # `gioi_thieu` nay CÓ nhãn riêng, không rơi vào "Khác" nữa.
+    assert {"khoa": "gioi_thieu", "nhan": "Giới thiệu trợ lý", "so": 1} in d["phan_loai"]
+    so = [p["so"] for p in d["phan_loai"]]
+    assert so == sorted(so, reverse=True), d["phan_loai"]
