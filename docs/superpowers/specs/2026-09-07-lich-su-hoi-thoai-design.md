@@ -90,7 +90,7 @@ Hàm mới `bao_ve.phien_luu_toi_da(plan) -> int` cùng khuôn `han_muc_thang`.
 
 "Hiện" = N phiên mới nhất theo `cap_nhat_luc` trong các phiên chưa xoá của người đó, N =
 `phien_luu_toi_da(plan)`. Phiên ngoài N là "ẩn": không có trong danh sách; mở/hỏi tiếp/đổi
-tên trả **403** với `detail` nói rõ và `ly_do: "vuot_han_goi"`. Xoá phiên hiện thì phiên ẩn
+tên trả **403** với `detail` chuỗi nói rõ (FE nhận biết theo mã 403). Xoá phiên hiện thì phiên ẩn
 gần nhất lại hiện. Hỏi trong một phiên hiện làm nó lên đầu (đổi `cap_nhat_luc`).
 
 Tiêu đề mặc định = câu hỏi đầu, cắt còn 80 ký tự tại ranh giới từ, thêm "…" nếu cắt.
@@ -102,7 +102,8 @@ Tiêu đề mặc định = câu hỏi đầu, cắt còn 80 ký tự tại ranh
 `tao_phien(sub, cau_hoi) -> str`; `lay_phien(sub, id) -> dict | None` (None khi không của
 `sub` hoặc đã xoá); `phien_bi_an(sub, plan, id) -> bool`; `lich_su_gan_nhat(id, n=3) ->
 list[dict]` (mỗi dict đúng hình `LuotTruoc`: `cau_hoi`, `tra_loi` = `answer` cắt 2000,
-`duong_dan` ≤50 từ `citations[0]` nếu có — cùng cách `dungLichSu` làm ở FE);
+`duong_dan` = danh sách đường dẫn trích dẫn duy nhất, tối đa 50 — cùng cách `dungLichSu`
+làm ở FE);
 `ghi_luot(id, cau_hoi, tra_loi: dict, trace_id) -> int` (thu_tu = max+1, cập nhật
 `cap_nhat_luc`, một transaction); `danh_sach(sub, plan, limit, offset) -> (items, tong_hien,
 tong_an)`; `chi_tiet(sub, id) -> dict` (phiên + lượt theo `thu_tu`); `doi_ten(sub, id,
@@ -115,8 +116,7 @@ tieu_de)`; `xoa_mem(sub, id)`. Tất cả nhận `sub` và lọc theo `user_sub`
 - Có `user_sub`:
   - không `hoi_thoai_id` → `tao_phien` trước khi phát `bat_dau`; `bat_dau` mang
     `hoi_thoai_id` (chuỗi). Phiên mới không tính vào hạn mức lượt; chỉ lượt LLM tính.
-  - có `hoi_thoai_id` → `lay_phien` (không có → **404**), `phien_bi_an` (→ **403**
-    `vuot_han_goi`); `lich_su` = `lich_su_gan_nhat(id, 3)`, **bỏ qua** `lich_su` client gửi;
+  - có `hoi_thoai_id` → `lay_phien` (không có → **404**), `phien_bi_an` (→ **403**); `lich_su` = `lich_su_gan_nhat(id, 3)`, **bỏ qua** `lich_su` client gửi;
     câu nối tiếp vẫn không đi qua cache như hiện nay.
   - Sau khi có payload (kể cả từ cache): `ghi_luot`. Ghi lỗi → vẫn phát `ket_qua`, rồi phát
     thêm `event: loi_luu` `{hoi_thoai_id, detail}` và log. Không im lặng.
