@@ -116,7 +116,7 @@ async def test_hoi_tiep_trong_phien_nap_lich_su_may_chu(client, cai_dat, khoa_ky
 
 
 @pytest.mark.asyncio
-async def test_phien_nguoi_khac_404_va_phien_an_403(client, cai_dat, khoa_ky, graph_gia_lap, don_dep, monkeypatch):
+async def test_phien_nguoi_khac_404_va_phien_day_403(client, cai_dat, khoa_ky, graph_gia_lap, don_dep, monkeypatch):
     cai_dat(supabase_url=SUPABASE)
     a, b = str(uuid.uuid4()), str(uuid.uuid4())
     don_dep.extend([a, b])
@@ -126,13 +126,13 @@ async def test_phien_nguoi_khac_404_va_phien_an_403(client, cai_dat, khoa_ky, gr
         "/api/v1/tra-cuu/luong", json={"query": "x", "hoi_thoai_id": pid}, headers=_bearer(khoa_ky, b)
     )
     assert r.status_code == 404
-    monkeypatch.setattr(hoi_thoai, "phien_luu_toi_da", lambda plan: 1)
-    pid2 = hoi_thoai.tao_phien(a, "mới hơn")
-    hoi_thoai.ghi_luot(pid2, "q", {"result_type": "answer", "answer": "", "citations": []}, None)
+    monkeypatch.setattr(bao_ve, "han_muc", lambda plan, khoa: 2 if khoa == "luot_moi_phien" else 100_000)
+    for i in range(2):
+        hoi_thoai.ghi_luot(pid, f"q{i}", {"result_type": "answer", "answer": "", "citations": []}, None)
     r = await client.post(
         "/api/v1/tra-cuu/luong", json={"query": "x", "hoi_thoai_id": pid}, headers=_bearer(khoa_ky, a)
     )
-    assert r.status_code == 403 and "phiên" in r.json()["detail"].lower()
+    assert r.status_code == 403 and "đã đủ 2 lượt" in r.json()["detail"]
 
 
 @pytest.mark.asyncio

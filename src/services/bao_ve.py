@@ -403,17 +403,6 @@ def han_muc_thang(plan: str) -> int:
     return la_chan("free_hoi_dap_thang") if plan == "free" else 100_000
 
 
-def phien_luu_toi_da(plan: str) -> int:
-    """Tương thích tạm: cơ chế ẩn phiên bị gỡ ở Task 2 — không bao giờ ẩn."""
-    return 100_000
-
-
-def plan_cua(sub: str) -> str:
-    """Gói hiện tại của `sub`; chưa có dòng `users` thì gói mặc định (JIT provisioning
-    xảy ra ở `ghi_nhan_nguoi_dung`, không ở đây — đọc không được tạo)."""
-    return plan_hieu_luc(sub)
-
-
 def _dau_thang_utc() -> datetime:
     """Nửa đêm ngày 1 tháng này, UTC tường minh — cùng lý lẽ `_dau_ngay_utc`."""
     return datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)

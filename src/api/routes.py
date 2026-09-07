@@ -45,9 +45,9 @@ from src.models.schemas import (
     VanBanPhamViOut,
     VanBanProvisionsResponse,
 )
-from src.services import cache_tra_loi
+from src.services import bao_ve, cache_tra_loi
 from src.services import hoi_thoai as hoi_thoai_svc
-from src.services.bao_ve import cong_bao_ve, cong_nhe, plan_cua
+from src.services.bao_ve import cong_bao_ve, cong_nhe
 from src.services.checklist import KHUNG_HOP_DONG, Checklist
 from src.services.db import get_engine
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
@@ -146,8 +146,8 @@ def _state_vao(req: TraCuuRequest, as_of: date, trace_id: str) -> dict:
 
 async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[TraCuuRequest, str | None]:
     """Gắn lượt hỏi vào một phiên (spec 2026-09-07 §5.2). Ẩn danh → bỏ qua `hoi_thoai_id`.
-    Có danh tính: chưa có id → tạo phiên; có id → kiểm chủ (404), kiểm ẩn theo gói
-    (403), nạp `lich_su` từ máy chủ và BỎ `lich_su` client gửi.
+    Có danh tính: chưa có id → tạo phiên; có id → kiểm chủ (404), kiểm đủ trần lượt
+    của gói → 403, nạp `lich_su` từ máy chủ và BỎ `lich_su` client gửi.
 
     Lỗi DB ở đây KHÔNG bị nuốt: 500 tại chỗ này nghĩa là chính Postgres vốn đã gác
     request ở `cong_bao_ve` đang chết, và âm thầm đánh rơi một lượt của người đã
@@ -161,9 +161,10 @@ async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[Tra
     pid = str(req.hoi_thoai_id)
     if await run_in_threadpool(hoi_thoai_svc.lay_phien, user_sub, pid) is None:
         raise HTTPException(status_code=404, detail=hoi_thoai_svc.LOI_KHONG_THAY)
-    plan = await run_in_threadpool(plan_cua, user_sub)
-    if await run_in_threadpool(hoi_thoai_svc.phien_bi_an, user_sub, plan, pid):
-        raise HTTPException(status_code=403, detail=hoi_thoai_svc.LOI_PHIEN_AN)
+    plan = await run_in_threadpool(bao_ve.plan_hieu_luc, user_sub)
+    tran = bao_ve.han_muc(plan, "luot_moi_phien")
+    if await run_in_threadpool(hoi_thoai_svc.dem_luot, pid) >= tran:
+        raise HTTPException(status_code=403, detail=hoi_thoai_svc.LOI_PHIEN_DAY.format(n=tran))
     lich_su = await run_in_threadpool(hoi_thoai_svc.lich_su_gan_nhat, pid)
     return req.model_copy(update={"lich_su": [LuotTruoc(**luot) for luot in lich_su]}), pid
 

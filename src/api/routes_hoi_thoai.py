@@ -2,7 +2,7 @@
 
 Không LLM ⇒ không `cong_bao_ve`; nhưng dữ liệu THEO NGƯỜI ⇒ `nguoi_dung_bat_buoc`
 (401 kể cả khi Supabase chưa cấu hình). Mọi truy vấn lọc theo `sub`; phiên của
-người khác là 404 (không tiết lộ tồn tại); phiên ẩn theo gói là 403.
+người khác là 404 (không tiết lộ tồn tại).
 """
 
 import logging
@@ -19,7 +19,7 @@ from src.models.schemas import (
     PhienTomTatOut,
 )
 from src.services import hoi_thoai
-from src.services.bao_ve import nguoi_dung_bat_buoc, plan_cua
+from src.services.bao_ve import han_muc, nguoi_dung_bat_buoc, plan_hieu_luc
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -37,9 +37,6 @@ async def _phien_mo_duoc(sub: str, id: str) -> dict:
     phien = await run_in_threadpool(hoi_thoai.lay_phien, sub, id)
     if phien is None:
         raise HTTPException(status_code=404, detail=hoi_thoai.LOI_KHONG_THAY)
-    plan = await run_in_threadpool(plan_cua, sub)
-    if await run_in_threadpool(hoi_thoai.phien_bi_an, sub, plan, id):
-        raise HTTPException(status_code=403, detail=hoi_thoai.LOI_PHIEN_AN)
     return phien
 
 
@@ -50,13 +47,12 @@ async def danh_sach(
     nguoi: dict = Depends(nguoi_dung_bat_buoc),
 ) -> DanhSachPhienResponse:
     sub = nguoi["sub"]
-    plan = await run_in_threadpool(plan_cua, sub)
-    items, tong_hien, tong_an = await run_in_threadpool(hoi_thoai.danh_sach, sub, plan, limit, offset)
+    plan = await run_in_threadpool(plan_hieu_luc, sub)
+    items, tong = await run_in_threadpool(hoi_thoai.danh_sach, sub, limit, offset)
     return DanhSachPhienResponse(
         plan=plan,
-        gioi_han=hoi_thoai.phien_luu_toi_da(plan),
-        tong_hien=tong_hien,
-        tong_an=tong_an,
+        luot_moi_phien=han_muc(plan, "luot_moi_phien"),
+        tong=tong,
         items=[PhienTomTatOut(**i) for i in items],
     )
 

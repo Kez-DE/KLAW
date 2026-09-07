@@ -40,7 +40,7 @@ async def test_danh_sach_chi_tiet_doi_ten_xoa(client, khoa_ky, hai_nguoi):
     r = await client.get("/api/v1/hoi-thoai", headers=_bearer(khoa_ky, a))
     assert r.status_code == 200
     d = r.json()
-    assert d["plan"] == "free" and d["gioi_han"] == 10 and d["tong_hien"] == 1 and d["tong_an"] == 0
+    assert d["plan"] == "free" and d["luot_moi_phien"] == 20 and d["tong"] == 1
     assert d["items"][0]["id"] == pid and d["items"][0]["so_luot"] == 1
     r = await client.get(f"/api/v1/hoi-thoai/{pid}", headers=_bearer(khoa_ky, a))
     assert r.json()["luot"][0]["tra_loi"]["answer"] == "a"
@@ -66,17 +66,10 @@ async def test_nguoi_khac_404_va_id_sai_dinh_dang_404(client, khoa_ky, hai_nguoi
 
 
 @pytest.mark.asyncio
-async def test_phien_an_theo_goi_403_va_tong_an(client, khoa_ky, hai_nguoi, monkeypatch):
+async def test_khong_con_an_theo_goi_va_xoa_phien_bat_ky(client, khoa_ky, hai_nguoi):
     a, _ = hai_nguoi
-    monkeypatch.setattr(hoi_thoai, "phien_luu_toi_da", lambda plan: 2)
     ids = [hoi_thoai.tao_phien(a, f"c{i}") for i in range(3)]
-    for pid in ids:
-        hoi_thoai.ghi_luot(pid, "q", P, None)
     d = (await client.get("/api/v1/hoi-thoai", headers=_bearer(khoa_ky, a))).json()
-    assert d["tong_hien"] == 2 and d["tong_an"] == 1 and [i["id"] for i in d["items"]] == [ids[2], ids[1]]
-    assert (await client.get(f"/api/v1/hoi-thoai/{ids[0]}", headers=_bearer(khoa_ky, a))).status_code == 403
-    assert (
-        await client.patch(f"/api/v1/hoi-thoai/{ids[0]}", json={"tieu_de": "x"}, headers=_bearer(khoa_ky, a))
-    ).status_code == 403
-    # Xoá phiên đang ẩn là đường CHÍNH THỨC để giải phóng một suất của gói — không 403.
+    assert d["tong"] == 3 and len(d["items"]) == 3
+    assert (await client.get(f"/api/v1/hoi-thoai/{ids[0]}", headers=_bearer(khoa_ky, a))).status_code == 200
     assert (await client.delete(f"/api/v1/hoi-thoai/{ids[0]}", headers=_bearer(khoa_ky, a))).status_code == 204

@@ -1,15 +1,13 @@
 """Phiên hội thoại theo tài khoản (spec 2026-09-07 §4, §5.1).
 
 Mọi hàm đọc/ghi nhận `sub` và lọc theo `user_sub` — không có đường nào đọc phiên
-mà không có chủ. "Ẩn" là quy tắc HIỆN theo gói (`han_muc.yaml: phien_luu`), tính
-lúc đọc chứ không ghi vào DB: nâng gói thì phiên cũ hiện lại mà không cần sửa dòng nào.
+mà không có chủ.
 """
 
 import json
 
 from sqlalchemy import text
 
-from src.services.bao_ve import phien_luu_toi_da
 from src.services.db import get_engine
 
 TIEU_DE_TOI_DA = 80
@@ -18,19 +16,14 @@ TRA_LOI_TOI_DA = 2000
 DUONG_DAN_TOI_DA = 50
 
 LOI_KHONG_THAY = "Không tìm thấy phiên này."
-LOI_PHIEN_AN = "Gói hiện tại chỉ giữ các phiên gần nhất; phiên này đang ẩn. Nâng gói để mở lại."
+LOI_PHIEN_DAY = "Phiên này đã đủ {n} lượt. Mở phiên mới để tiếp tục."
 
 _SQL_TAO = text("INSERT INTO hoi_thoai (user_sub, tieu_de) VALUES (:sub, :tieu_de) RETURNING id")
 _SQL_LAY = text(
     "SELECT id::text AS id, tieu_de, tao_luc, cap_nhat_luc FROM hoi_thoai"
     " WHERE id = :id AND user_sub = :sub AND xoa_luc IS NULL"
 )
-# Số phiên còn sống MỚI HƠN phiên này (theo cặp (cap_nhat_luc, id) để tất định).
-_SQL_HANG = text(
-    "SELECT count(*)::int FROM hoi_thoai h"
-    " WHERE h.user_sub = :sub AND h.xoa_luc IS NULL"
-    "   AND (h.cap_nhat_luc, h.id) > (SELECT cap_nhat_luc, id FROM hoi_thoai WHERE id = :id AND user_sub = :sub)"
-)
+_SQL_DEM_LUOT = text("SELECT count(*)::int FROM luot_hoi_thoai WHERE hoi_thoai_id = :id")
 _SQL_LICH_SU = text(
     "SELECT cau_hoi, tra_loi FROM luot_hoi_thoai WHERE hoi_thoai_id = :id ORDER BY thu_tu DESC LIMIT :n"
 )
@@ -74,11 +67,9 @@ def lay_phien(sub: str, id: str) -> dict | None:
     return dict(r) if r is not None else None
 
 
-def phien_bi_an(sub: str, plan: str, id: str) -> bool:
-    """Phiên nằm ngoài N phiên mới nhất của gói. Gọi SAU `lay_phien` (phiên phải của `sub`)."""
+def dem_luot(id: str) -> int:
     with get_engine().connect() as c:
-        moi_hon = c.execute(_SQL_HANG, {"sub": sub, "id": id}).scalar_one()
-    return int(moi_hon) >= phien_luu_toi_da(plan)
+        return int(c.execute(_SQL_DEM_LUOT, {"id": id}).scalar_one())
 
 
 def _luot_thanh_lich_su(cau_hoi: str, tra_loi: dict) -> dict:
@@ -118,18 +109,33 @@ def ghi_luot(id: str, cau_hoi: str, tra_loi: dict, trace_id: str | None) -> int:
     return int(thu_tu)
 
 
-def danh_sach(sub: str, plan: str, limit: int, offset: int) -> tuple[list[dict], int, int]:
-    toi_da = phien_luu_toi_da(plan)
+def danh_sach(sub: str, limit: int, offset: int) -> tuple[list[dict], int]:
+    """Phiên còn sống của `sub`, mới nhất trước. Không còn ẩn theo gói (spec 2A §4.3)."""
     with get_engine().connect() as c:
         tong = int(c.execute(_SQL_DEM, {"sub": sub}).scalar_one())
-        tong_hien = min(tong, toi_da)
-        con = max(0, min(limit, tong_hien - offset))
-        items = (
-            [dict(r) for r in c.execute(_SQL_DANH_SACH, {"sub": sub, "limit": con, "offset": offset}).mappings().all()]
-            if con > 0
-            else []
-        )
-    return items, tong_hien, tong - tong_hien
+        items = [
+            dict(r) for r in c.execute(_SQL_DANH_SACH, {"sub": sub, "limit": limit, "offset": offset}).mappings().all()
+        ]
+    return items, tong
+
+
+def nhap_phien(sub: str, luot: list[dict]) -> str:
+    """Mang đoạn chat của khách vào tài khoản (spec 2A §8.4): một transaction, tiêu đề
+    từ câu đầu, `thu_tu` theo thứ tự nhận. Không đụng `traces`."""
+    with get_engine().begin() as c:
+        pid = str(c.execute(_SQL_TAO, {"sub": sub, "tieu_de": tieu_de_mac_dinh(luot[0]["cau_hoi"])}).scalar_one())
+        for lu in luot:
+            c.execute(
+                _SQL_GHI,
+                {
+                    "id": pid,
+                    "cau_hoi": lu["cau_hoi"],
+                    "tra_loi": json.dumps(lu["tra_loi"], ensure_ascii=False),
+                    "trace_id": lu.get("trace_id"),
+                },
+            )
+        c.execute(_SQL_CHAM, {"id": pid})
+    return pid
 
 
 def chi_tiet(sub: str, id: str) -> dict | None:
