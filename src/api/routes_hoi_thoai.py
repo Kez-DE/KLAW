@@ -16,6 +16,8 @@ from src.models.schemas import (
     DanhSachPhienResponse,
     DoiTenPhienRequest,
     LuotDaLuuOut,
+    NhapPhienRequest,
+    NhapPhienResponse,
     PhienTomTatOut,
 )
 from src.services import hoi_thoai
@@ -38,6 +40,17 @@ async def _phien_mo_duoc(sub: str, id: str) -> dict:
     if phien is None:
         raise HTTPException(status_code=404, detail=hoi_thoai.LOI_KHONG_THAY)
     return phien
+
+
+@router.post("/hoi-thoai/nhap", response_model=NhapPhienResponse, status_code=201)
+async def nhap(body: NhapPhienRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> NhapPhienResponse:
+    """Mang đoạn chat của khách vào tài khoản (spec 2A §8.4). `tra_loi` đã qua pydantic
+    `TraCuuResponse` nên chỉ payload đúng hình mới vào được; không đụng `traces`."""
+    luot = [
+        {"cau_hoi": lu.cau_hoi, "tra_loi": lu.tra_loi.model_dump(mode="json"), "trace_id": lu.trace_id}
+        for lu in body.luot
+    ]
+    return NhapPhienResponse(id=await run_in_threadpool(hoi_thoai.nhap_phien, nguoi["sub"], luot))
 
 
 @router.get("/hoi-thoai", response_model=DanhSachPhienResponse)
