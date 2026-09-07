@@ -17,6 +17,13 @@ import { useGoiApi } from "./use-goi-api";
  * `AbortController` cắt được `fetch` chứ không cắt được một callback đã lên
  * lịch. `useGoiApi` đã bảo vệ phần kết quả; phần bước phải tự bảo vệ.
  */
+export interface TuyChonHoi {
+  /** Lịch sử client — chỉ khi ẨN DANH; có danh tính thì máy chủ tự nạp từ phiên. */
+  lichSu?: LuotTruoc[];
+  /** Phiên đang mở; vắng ⇒ máy chủ tạo phiên mới (có danh tính) hoặc bỏ qua (ẩn danh). */
+  hoiThoaiId?: string;
+}
+
 export interface TrangThaiTraCuu {
   /** Câu hỏi của lượt đang chạy hoặc vừa xong. */
   cauHoi: string | null;
@@ -34,11 +41,15 @@ export interface TrangThaiTraCuu {
   /** `lichSu`: các lượt ĐÃ XONG, mới nhất SAU CÙNG. Rỗng/vắng ⇒ máy chủ không
    *  chạy `giai_nghia`, tức lượt đầu không tốn thêm token. Nơi gọi tự cắt
    *  bằng `dungLichSu` — quá trần là 422, máy chủ KHÔNG truncate. */
-  hoi: (cauHoi: string, lichSu?: LuotTruoc[]) => void;
+  hoi: (cauHoi: string, tuyChon?: TuyChonHoi) => void;
   huy: () => void;
   /** Hỏi lại ĐÚNG câu vừa rồi. Không có câu nào thì không làm gì. */
   thuLai: () => void;
   datLai: () => void;
+  /** Phiên máy chủ gắn lượt này vào — từ `bat_dau`; null khi ẩn danh hoặc chưa tới. */
+  hoiThoaiId: string | null;
+  /** Thông điệp `loi_luu`: câu trả lời có nhưng chưa lưu vào phiên. */
+  loiLuu: string | null;
 }
 
 export function useTraCuu(): TrangThaiTraCuu {
@@ -49,25 +60,31 @@ export function useTraCuu(): TrangThaiTraCuu {
   const [cacBuoc, datCacBuoc] = useState<BuocKhai[]>([]);
   const [daPhat, datDaPhat] = useState<SuKienBuoc[]>([]);
   const [traceId, datTraceId] = useState<string | null>(null);
+  const [hoiThoaiId, datHoiThoaiId] = useState<string | null>(null);
+  const [loiLuu, datLoiLuu] = useState<string | null>(null);
   const luot = useRef(0);
-  // `lichSu` của lượt VỪA hỏi, giữ bên cạnh `cauHoi` để `thuLai` phát lại
-  // ĐÚNG cùng đối số — thiếu nó thì hỏi lại một câu nối tiếp mất `lich_su`,
-  // `_vao_graph` coi như câu ĐỘC LẬP và tái hiện đúng lỗi ban đầu.
-  const lichSuGanNhat = useRef<LuotTruoc[] | undefined>(undefined);
+  // Đối số của lượt VỪA hỏi, giữ bên cạnh `cauHoi` để `thuLai` phát lại ĐÚNG
+  // cùng đối số — thiếu nó thì hỏi lại một câu nối tiếp mất `lich_su`/
+  // `hoi_thoai_id`, `_vao_graph` coi như câu ĐỘC LẬP và tái hiện đúng lỗi ban đầu.
+  const tuyChonGanNhat = useRef<TuyChonHoi | undefined>(undefined);
 
   const hoi = useCallback(
-    (noiDungTho: string, lichSu?: LuotTruoc[]) => {
+    (noiDungTho: string, tuyChon?: TuyChonHoi) => {
       const noiDung = noiDungTho.trim();
       if (noiDung === "") return;
 
       luot.current += 1;
       const luotNay = luot.current;
 
-      lichSuGanNhat.current = lichSu;
+      tuyChonGanNhat.current = tuyChon;
       datCauHoi(noiDung);
       datCacBuoc([]);
       datDaPhat([]);
       datTraceId(null);
+      // KHÔNG xoá `hoiThoaiId` ở đây: lượt hai của một phiên vừa tạo còn cần
+      // id đó trong lúc URL chưa kịp đổi (xem effect ghim `?phien=` ở
+      // `dung-thu.tsx`). `datLai` mới là nơi xoá, khi bắt đầu một phiên mới.
+      datLoiLuu(null);
       // Xoá kết quả cũ TRƯỚC khi chạy: `useGoiApi` giữ kết quả trước cho tới
       // khi có kết quả mới, đúng cho một lần tải lại, nhưng ở đây nó sẽ để câu
       // trả lời của câu hỏi TRƯỚC nằm dưới câu hỏi MỚI trong lúc chờ.
@@ -82,20 +99,30 @@ export function useTraCuu(): TrangThaiTraCuu {
           // nguồn sai lệch (đồng hồ máy khách, múi giờ) cho cùng một kết quả.
           // `lich_su` chỉ đi kèm khi THẬT SỰ có lượt trước: gửi `[]` cũng vô hại
           // (máy chủ kiểm `if req.lich_su`) nhưng khoá vắng mặt nói đúng hơn
-          // rằng đây là lượt đầu.
+          // rằng đây là lượt đầu. `hoi_thoai_id` chỉ đi kèm khi có phiên đang
+          // mở hoặc phiên vừa tạo — vắng mặt ⇒ máy chủ tự lo (tạo mới khi có
+          // danh tính, bỏ qua khi ẩn danh).
           {
             query: noiDung,
-            ...(lichSu !== undefined && lichSu.length > 0 ? { lich_su: lichSu } : {}),
+            ...(tuyChon?.lichSu !== undefined && tuyChon.lichSu.length > 0
+              ? { lich_su: tuyChon.lichSu }
+              : {}),
+            ...(tuyChon?.hoiThoaiId !== undefined ? { hoi_thoai_id: tuyChon.hoiThoaiId } : {}),
           },
           {
             onBatDau: (su) => {
               if (luotNay !== luot.current) return;
               datCacBuoc(su.cac_buoc);
               datTraceId(su.trace_id);
+              datHoiThoaiId(su.hoi_thoai_id);
             },
             onBuoc: (su) => {
               if (luotNay !== luot.current) return;
               datDaPhat((truoc) => [...truoc, su]);
+            },
+            onLoiLuu: (su) => {
+              if (luotNay !== luot.current) return;
+              datLoiLuu(su.detail);
             },
           },
           signal,
@@ -111,7 +138,7 @@ export function useTraCuu(): TrangThaiTraCuu {
   }, [huyGoi]);
 
   const thuLai = useCallback(() => {
-    if (cauHoi !== null) hoi(cauHoi, lichSuGanNhat.current);
+    if (cauHoi !== null) hoi(cauHoi, tuyChonGanNhat.current);
   }, [cauHoi, hoi]);
 
   const datLai = useCallback(() => {
@@ -120,6 +147,8 @@ export function useTraCuu(): TrangThaiTraCuu {
     datCacBuoc([]);
     datDaPhat([]);
     datTraceId(null);
+    datHoiThoaiId(null);
+    datLoiLuu(null);
     datLaiGoi();
   }, [datLaiGoi]);
 
@@ -135,5 +164,7 @@ export function useTraCuu(): TrangThaiTraCuu {
     huy,
     thuLai,
     datLai,
+    hoiThoaiId,
+    loiLuu,
   };
 }

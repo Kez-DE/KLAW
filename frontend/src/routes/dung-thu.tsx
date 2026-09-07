@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronRight, Paperclip, Send } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
@@ -12,8 +12,10 @@ import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
 import { useAuth } from "@/hooks/use-auth";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
+import { useHoiThoai } from "@/hooks/use-hoi-thoai";
 import { useTraCuu } from "@/hooks/use-tra-cuu";
 import type { Citation, TraCuuKetQua } from "@/lib/klaw";
+import { chuanHoaLuot } from "@/lib/klaw";
 import type { LuotDaXong } from "@/lib/lich-su";
 import { dungLichSu } from "@/lib/lich-su";
 import { cn } from "@/lib/utils";
@@ -71,7 +73,7 @@ function Luot({
 }
 
 function ManHoiKlaw() {
-  const { q: cauHoiTrenUrl } = Route.useSearch();
+  const { q: cauHoiTrenUrl, phien: phienId } = Route.useSearch();
   const traCuu = useTraCuu();
   const doiChieu = useDoiChieu();
   const haiCot = useHaiCot();
@@ -80,6 +82,8 @@ function ManHoiKlaw() {
   // Cổng chỉ đóng khi máy chủ cũng đóng: Supabase đã cấu hình mà chưa có phiên
   // (spec 2026-09-06 §5.1). Chưa cấu hình (máy dev) thì backend cho ẩn danh.
   const canDangNhap = !chuaCauHinh && !dangKiemPhien && user === null;
+  const daDangNhap = !chuaCauHinh && !dangKiemPhien && user !== null;
+  const hoiThoai = useHoiThoai(daDangNhap);
 
   const [nhap, datNhap] = useState("");
   const [luuTru, datLuuTru] = useState<LuotDaXong[]>([]);
@@ -94,6 +98,13 @@ function ManHoiKlaw() {
     datSoanThao({ slug });
   };
 
+  // Lượt đã tải từ phiên đang mở — chỉ khi chi tiết vừa tải ĐÚNG là phiên
+  // đang mở (`?phien=`), không phải chi tiết còn sót lại của phiên trước.
+  const daTai =
+    phienId !== undefined && hoiThoai.chiTiet !== null && hoiThoai.chiTiet.id === phienId
+      ? hoiThoai.chiTiet.luot.map(chuanHoaLuot)
+      : [];
+
   const oHoi = useRef<HTMLTextAreaElement | null>(null);
   const cuoi = useRef<HTMLDivElement | null>(null);
   /** Bọc khung soạn thảo — dò control focus được đầu tiên khi khung mở. */
@@ -101,7 +112,51 @@ function ManHoiKlaw() {
 
   useLayoutEffect(() => {
     cuoi.current?.scrollIntoView({ block: "end" });
-  }, [luuTru, traCuu.ketQua, traCuu.dangChay]);
+  }, [luuTru, traCuu.ketQua, traCuu.dangChay, daTai.length]);
+
+  // `?phien=` là nguồn sự thật về phiên đang mở (tải lại trang giữ được, chia sẻ
+  // được). Đổi phiên ⇒ xoá dòng hội thoại, đóng khung, tải lượt đã lưu. Trường
+  // hợp đặc biệt: sau `bat_dau` của phiên MỚI ta tự `replace` URL sang id đó —
+  // lúc ấy `traCuu.hoiThoaiId === phienId` và dòng hội thoại đang chạy PHẢI giữ.
+  const { datLai: datLaiTraCuu } = traCuu;
+  const { dong: dongDoiChieu } = doiChieu; // `useDoiChieu` trả object mới mỗi render; `dong` là useCallback ổn định
+  const { taiChiTiet, xoaChiTiet } = hoiThoai;
+  const phienDangHien = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (dangKiemPhien || phienDangHien.current === phienId) return;
+    phienDangHien.current = phienId;
+    if (phienId !== undefined && phienId === traCuu.hoiThoaiId) return;
+    datLuuTru([]);
+    datDangMo(null);
+    dongDoiChieu();
+    datSoanThao(null);
+    datLaiTraCuu();
+    if (phienId !== undefined && daDangNhap) taiChiTiet(phienId);
+    else xoaChiTiet();
+  }, [
+    phienId,
+    dangKiemPhien,
+    daDangNhap,
+    traCuu.hoiThoaiId,
+    datLaiTraCuu,
+    taiChiTiet,
+    xoaChiTiet,
+    dongDoiChieu,
+  ]);
+
+  // Sau `bat_dau` của phiên MỚI (có danh tính, chưa có `?phien=`) → ghim id lên
+  // URL. Hết stream → tải lại danh sách phiên: máy chủ ghi lượt TRƯỚC khi đóng
+  // stream, nên lúc `dangChay` về `false` danh sách đã có lượt mới.
+  useEffect(() => {
+    if (!daDangNhap || traCuu.hoiThoaiId === null || phienId !== undefined) return;
+    phienDangHien.current = traCuu.hoiThoaiId; // để effect trên không xoá dòng đang chạy
+    void navigate({ to: "/dung-thu", search: { phien: traCuu.hoiThoaiId }, replace: true });
+  }, [daDangNhap, traCuu.hoiThoaiId, phienId, navigate]);
+
+  const { taiLai } = hoiThoai;
+  useEffect(() => {
+    if (daDangNhap && !traCuu.dangChay && traCuu.cauHoi !== null) taiLai();
+  }, [daDangNhap, traCuu.dangChay, traCuu.cauHoi, taiLai]);
 
   // Chạy đúng MỘT lần cho mỗi giá trị `?q=`. `hoi` ổn định giữa các lần dựng
   // lại (`useCallback`), nên hiệu ứng này không tự kích hoạt lại và không biến
@@ -148,11 +203,18 @@ function ManHoiKlaw() {
     datDangMo(null);
     doiChieu.dong();
     datNhap("");
-    // Dựng lịch sử từ `luotTruoc` (đã gồm lượt đang hiện) chứ KHÔNG từ `luuTru`:
-    // `datLuuTru` là setState, giá trị mới chưa có trong lượt render này, nên đọc
-    // `luuTru` ở đây sẽ luôn thiếu ĐÚNG lượt vừa xong — tức câu nối tiếp đầu tiên
-    // sau mỗi câu trả lời mất chính ngữ cảnh nó cần nhất.
-    traCuu.hoi(noiDung, dungLichSu(luotTruoc));
+    // Có danh tính: máy chủ tự nạp `lich_su` từ phiên, KHÔNG gửi lại từ client.
+    // Ẩn danh: giữ nguyên đường cũ — dựng lịch sử từ `luotTruoc` (đã gồm lượt
+    // đang hiện) chứ KHÔNG từ `luuTru`: `datLuuTru` là setState, giá trị mới
+    // chưa có trong lượt render này, nên đọc `luuTru` ở đây sẽ luôn thiếu ĐÚNG
+    // lượt vừa xong — tức câu nối tiếp đầu tiên sau mỗi câu trả lời mất chính
+    // ngữ cảnh nó cần nhất.
+    if (daDangNhap) {
+      const id = phienId ?? traCuu.hoiThoaiId ?? undefined;
+      traCuu.hoi(noiDung, id === undefined ? {} : { hoiThoaiId: id });
+    } else {
+      traCuu.hoi(noiDung, { lichSu: dungLichSu(luotTruoc) });
+    }
   };
 
   // Gợi ý chỉ ĐIỀN, không gửi — người dùng còn sửa câu (spec 2026-09-06 §4.1).
@@ -164,6 +226,10 @@ function ManHoiKlaw() {
     datNhap(cau);
     oHoi.current?.focus();
   };
+
+  // Task 7 (cột phiên) gắn hai callback này vào `CotPhien`.
+  const chonPhien = (id: string) => void navigate({ to: "/dung-thu", search: { phien: id } });
+  const phienMoi = () => void navigate({ to: "/dung-thu", search: {} });
 
   const chonTrichDan = (ketQua: TraCuuKetQua, chiSo: number) => {
     const trichDan: Citation | undefined = ketQua.citations[chiSo];
@@ -228,7 +294,12 @@ function ManHoiKlaw() {
     };
   }, [dangMoSoanThao, haiCot]);
 
-  const chuaHoiGiCa = luuTru.length === 0 && traCuu.cauHoi === null;
+  const chuaHoiGiCa =
+    daTai.length === 0 &&
+    luuTru.length === 0 &&
+    traCuu.cauHoi === null &&
+    hoiThoai.loiChiTiet === null &&
+    !hoiThoai.dangTaiChiTiet;
   const lichSu = [
     ...luuTru.map((luot) => luot.cauHoi),
     ...(traCuu.cauHoi === null ? [] : [traCuu.cauHoi]),
@@ -260,7 +331,57 @@ function ManHoiKlaw() {
               <ManChao onChonGoiY={dienGoiY} />
             ) : (
               <div aria-live="polite" aria-label="Hội thoại với KLAW" className="flex-1 py-8">
+                {hoiThoai.dangTaiChiTiet && (
+                  <p className="m-0 mb-6 text-[13px] text-muted-foreground" aria-live="polite">
+                    Đang mở phiên…
+                  </p>
+                )}
+                {hoiThoai.loiChiTiet !== null && (
+                  <div className="mb-6 rounded-xl border border-dashed border-border px-4 py-3">
+                    <p className="m-0 text-[14px] leading-6 text-foreground">
+                      {hoiThoai.loiChiTiet.message}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {hoiThoai.loiChiTiet.status === 403 && (
+                        <Link
+                          to="/bang-gia"
+                          className="focus-brass inline-flex min-h-9 items-center rounded-lg border border-border px-3 text-[13px] font-medium text-primary hover:bg-[var(--color-paper-100)]"
+                        >
+                          Xem bảng giá
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={phienMoi}
+                        className="focus-brass inline-flex min-h-9 cursor-pointer items-center rounded-lg border border-border px-3 text-[13px] font-medium text-primary hover:bg-[var(--color-paper-100)]"
+                      >
+                        Phiên mới
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="flex flex-col gap-8">
+                  {daTai.map((l) => (
+                    <Luot key={`da-luu-${l.thuTu}`} cauHoi={l.cauHoi} traceId={l.traceId}>
+                      {l.ketQua === null ? (
+                        <p className="m-0 text-[14px] leading-6 text-muted-foreground">
+                          Lượt này được lưu ở định dạng cũ nên tôi không hiển thị lại được.
+                        </p>
+                      ) : (
+                        <TheKetQua
+                          ketQua={l.ketQua}
+                          cauHoiGoc={l.cauHoi}
+                          chiSoDangMo={chiSoDangMoCua(l.ketQua)}
+                          onChonTrichDan={(chiSo) => {
+                            const kq = l.ketQua;
+                            if (kq !== null) chonTrichDan(kq, chiSo);
+                          }}
+                          onSoanThao={moSoanThao}
+                        />
+                      )}
+                    </Luot>
+                  ))}
+
                   {luuTru.map((luot) => (
                     <Luot
                       key={luot.ketQua.trace_id}
@@ -311,6 +432,11 @@ function ManHoiKlaw() {
                           }}
                           onSoanThao={moSoanThao}
                         />
+                      )}
+                      {traCuu.loiLuu !== null && (
+                        <p className="mt-3 mb-0 text-[12px] text-muted-foreground" role="status">
+                          {traCuu.loiLuu}
+                        </p>
                       )}
                       {/* Lượt đã dừng mà KHÔNG có kết quả và KHÔNG có lỗi.
                           Ba nhánh trên đều là `false` sau khi người dùng bấm
@@ -449,9 +575,11 @@ function ManHoiKlaw() {
           </div>
         )}
 
+        {/* CỘT PHIÊN — Task 7: {daDangNhap && doiChieu.dang === null && soanThao === null && <CotPhien …/>} */}
         {/* Lịch sử phiên. Nhường chỗ cho khung nguyên văn khi khung mở — hai cột
-            phụ cạnh nhau đẩy mặt đọc xuống dưới bề rộng đọc được. */}
-        {doiChieu.dang === null && soanThao === null && (
+            phụ cạnh nhau đẩy mặt đọc xuống dưới bề rộng đọc được. Chỉ còn cho
+            ẩn danh/máy dev — có danh tính dùng cột phiên thật ở trên. */}
+        {!daDangNhap && doiChieu.dang === null && soanThao === null && (
           <aside
             aria-label="Lịch sử phiên"
             className={cn(
@@ -514,9 +642,16 @@ export const Route = createFileRoute("/dung-thu")({
   // `?q=` là câu hỏi người dùng vừa gõ ở một cửa vào khác (`/chat`, hoặc một
   // liên kết được chia sẻ). Nó chạy NGAY, vì gõ câu hỏi rồi bấm gửi đã là sự
   // đồng ý — bắt bấm gửi lần thứ hai chỉ để giữ một quy tắc hình thức.
-  validateSearch: (tho: Record<string, unknown>): { q?: string } => {
+  // `?phien=` là id phiên hội thoại (UUID) cần mở — sai định dạng thì bị bỏ,
+  // KHÔNG gửi lên máy chủ để nhận về một 404/422 vô nghĩa.
+  validateSearch: (tho: Record<string, unknown>): { q?: string; phien?: string } => {
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const q = tho["q"];
-    return typeof q === "string" && q.trim() !== "" ? { q } : {};
+    const phien = tho["phien"];
+    return {
+      ...(typeof q === "string" && q.trim() !== "" ? { q } : {}),
+      ...(typeof phien === "string" && UUID.test(phien) ? { phien } : {}),
+    };
   },
   component: ManHoiKlaw,
   head: () => {
