@@ -27,9 +27,18 @@ năng, hiển thị bằng thanh đo "đã dùng x% · đặt lại lúc …" �
 
 - Không dùng cửa sổ trượt kiểu "N lượt/5 giờ". Hạn mức theo ngày (chống lạm dụng,
   bảo vệ trần chi phí chung) và theo tháng (ranh giới cá nhân/công việc).
-- Free: 15 lượt hỏi đáp/ngày, 300/tháng, 3 bản thảo/ngày. Cá nhân (`pro`): 1000 lượt
-  hỏi đáp/tháng, không hạn ngày, 20 bản thảo/ngày. Mọi gói: tối đa 50 lượt trong một
-  phiên (lý do kỹ thuật, ngữ cảnh chỉ nạp 3 lượt). Số phiên và lịch sử không giới hạn.
+- Free: 15 lượt hỏi đáp/ngày, 300/tháng; 3 bản thảo/ngày và 20/tháng. Cá nhân (`pro`):
+  1000 lượt hỏi đáp/tháng, không hạn ngày; 20 bản thảo/ngày, không hạn tháng. Mọi gói:
+  tối đa 50 lượt trong một phiên (lý do kỹ thuật, ngữ cảnh chỉ nạp 3 lượt). Số phiên và
+  lịch sử không giới hạn.
+- Căn cứ khảo sát (09/2026): các trợ lý AI lớn đặt hạn free theo NGÀY, đặt lại giờ cố
+  định (Claude ~30–50 tin/ngày, Perplexity ~5 tìm kiếm Pro/ngày, Copilot 50 chat/tháng);
+  người chạm hạn mức chuyển đổi cao gấp 6,2 lần (ProfitWell 2025), nhưng hạ trần với
+  người không bao giờ chạm chỉ gây rời bỏ; điểm nâng gói phải nằm trong luồng làm việc.
+  Với KLAW: người lao động hỏi theo đợt 3–10 câu (không được chặn buổi đầu), nhân sự và
+  pháp chế hỏi 5–20 câu/ngày và soạn văn bản (nhóm trả tiền, nhóm duy nhất nên chạm trần).
+  Trần tháng cho bản thảo tồn tại vì soạn thảo là việc trả tiền rõ nhất; thiếu nó, một
+  pháp chế soạn 90 bản thảo/tháng miễn phí.
 - Không tính lượt: câu trả lời từ bộ đệm, câu ngoài phạm vi, lượt lỗi máy chủ.
 - Free và Cá nhân đều có thanh đo mức dùng: tiêu đề, thanh tiến độ, "x% đã dùng",
   "Đặt lại HH:MM (Asia/Ho_Chi_Minh)".
@@ -55,16 +64,18 @@ goi:
     hoi_dap_ngay: 15
     hoi_dap_thang: 300
     soan_thao_ngay: 3
+    soan_thao_thang: 20
     luot_moi_phien: 50
   pro:
     hoi_dap_ngay: 100000
     hoi_dap_thang: 1000
     soan_thao_ngay: 20
+    soan_thao_thang: 100000
     luot_moi_phien: 50
 ```
 
 `_doc_han_muc` fail loud khi: thiếu `goi`/`goi_mac_dinh`/`mui_gio`; một gói thiếu
-bất kỳ khoá nào trong bốn khoá; `mui_gio` không phải tên vùng hợp lệ. Khoá `phien_luu`
+bất kỳ khoá nào trong năm khoá; `mui_gio` không phải tên vùng hợp lệ. Khoá `phien_luu`
 bị gỡ; nếu còn trong file → lỗi rõ "khoá không còn dùng".
 
 ### 4.2 Đếm
@@ -74,14 +85,14 @@ bị gỡ; nếu còn trong file → lỗi rõ "khoá không còn dùng".
   'out_of_scope'))` — `/soan-thao` ghi `result_type` NULL khi thành công, nên thiếu
   nhánh `IS NULL` là không đếm bản thảo nào.
 - `hoi_dap_*` đếm `endpoint = '/api/v1/tra-cuu'` (stream và không stream cùng endpoint);
-  `soan_thao_ngay` đếm `endpoint = '/api/v1/soan-thao'`. `/soat`, `/van-ban`, `/mau`
+  `soan_thao_*` đếm `endpoint = '/api/v1/soan-thao'`. `/soat`, `/van-ban`, `/mau`
   không bao giờ đếm.
 - Mốc ngày = 00:00 hôm nay theo `mui_gio`; mốc tháng = 00:00 ngày 1 tháng này theo
   `mui_gio`. Hàm `moc_ngay(now)`, `moc_thang(now)`, `moc_ngay_sau`, `moc_thang_sau`
   trong `bao_ve` dùng `zoneinfo`.
 - Kiểm TRƯỚC khi chạy graph, trong `cong_bao_ve`, thay `kiem_han_muc_thang`:
   `kiem_han_muc(sub, plan, endpoint)`: với `/tra-cuu` kiểm ngày rồi tháng; với
-  `/soan-thao` kiểm ngày. Vượt → 429 với `detail` một câu tiếng Việt nêu mốc mở lại
+  `/soan-thao` cũng kiểm ngày rồi tháng. Vượt → 429 với `detail` một câu tiếng Việt nêu mốc mở lại
   ("Hôm nay bạn đã dùng 15 lượt hỏi đáp của gói Miễn phí. Mở lại lúc 00:00 ngày
   08/09.") và header `Retry-After` = giây tới mốc. Lỗi DB khi đếm → 503 (như cũ).
 - Trần lượt mỗi phiên kiểm trong `routes._chuan_bi_phien` khi có `hoi_thoai_id`:
@@ -135,7 +146,8 @@ Cổng như cũ (`_nguoi_goi`: ẩn danh → `ap_dung=false`). Có danh tính:
   "muc": [
     {"khoa": "hoi_dap_ngay",   "nhan": "Hỏi đáp hôm nay",   "da_dung": 9,   "han_muc": 15,  "dat_lai_luc": "2026-09-08T00:00:00+07:00"},
     {"khoa": "hoi_dap_thang",  "nhan": "Hỏi đáp tháng này", "da_dung": 120, "han_muc": 300, "dat_lai_luc": "2026-10-01T00:00:00+07:00"},
-    {"khoa": "soan_thao_ngay", "nhan": "Bản thảo hôm nay",  "da_dung": 1,   "han_muc": 3,   "dat_lai_luc": "2026-09-08T00:00:00+07:00"}
+    {"khoa": "soan_thao_ngay", "nhan": "Bản thảo hôm nay",  "da_dung": 1,   "han_muc": 3,   "dat_lai_luc": "2026-09-08T00:00:00+07:00"},
+    {"khoa": "soan_thao_thang", "nhan": "Bản thảo tháng này", "da_dung": 4,  "han_muc": 20,  "dat_lai_luc": "2026-10-01T00:00:00+07:00"}
   ],
   "phien": {"luot_toi_da": 50},
   "ghi_chu": "Lượt trả lời từ bộ đệm, câu ngoài phạm vi và lượt lỗi không tính. Tra cứu luật, soát văn bản không bao giờ tính."
@@ -210,7 +222,7 @@ Cổng như cũ (`_nguoi_goi`: ẩn danh → `ap_dung=false`). Có danh tính:
 Một dòng cho mỗi mục trong `han_muc.muc`: tiêu đề (`nhan`), thanh tiến độ, "x% đã
 dùng", "Đặt lại HH:MM DD/MM (Asia/Ho_Chi_Minh)". Màu: <80% brass, 80–99% amber,
 100% `destructive`. `han_muc >= 100000` → chữ "Không giới hạn", không có thanh.
-Nơi hiện: trang Hồ sơ (đủ ba dòng + "Phiên này: 12/50 lượt" khi có phiên mở);
+Nơi hiện: trang Hồ sơ (đủ bốn dòng + "Phiên này: 12/50 lượt" khi có phiên mở);
 `MenuTaiKhoan` (dòng đầu tiên chưa đủ 100%, rút gọn); chip cạnh ô soạn câu hỏi
 "Còn 6 lượt hôm nay" (đổi màu theo ngưỡng). Hook `useHanMuc()` gọi `/han-muc` khi
 đăng nhập và sau mỗi lượt hỏi/soạn kết thúc (`!dangChay`).
@@ -253,7 +265,7 @@ nút → tiêu đề danh sách → danh sách tính năng có icon (lucide). N�
 | Giá | ₫0 / tháng | ₫499.000 / tháng (số từ `bang-gia.tsx`, cùng nguồn dữ liệu) |
 | Nút | Free: viền mờ, khoá, "Gói hiện tại của bạn". Pro: không hiện nút. | Free: nút đặc "Yêu cầu nâng lên Cá nhân" → `POST /nang-goi/yeu-cau`; sau khi gửi hoặc đã có yêu cầu: khoá, "Đang chờ duyệt". Pro: viền mờ, khoá, "Gói hiện tại của bạn". |
 | Tiêu đề danh sách | Bắt đầu với những điều cơ bản: | Mọi thứ trong gói Miễn phí, cộng thêm: |
-| Danh sách | 15 lượt hỏi đáp mỗi ngày, 300 mỗi tháng · 3 bản thảo mỗi ngày · Phiên và lịch sử không giới hạn · Tra cứu luật, soát văn bản không giới hạn · Xuất Word, PDF | 1000 lượt hỏi đáp mỗi tháng, không giới hạn ngày · 20 bản thảo mỗi ngày |
+| Danh sách | 15 lượt hỏi đáp mỗi ngày, 300 mỗi tháng · 3 bản thảo mỗi ngày, 20 mỗi tháng · Phiên và lịch sử không giới hạn · Tra cứu luật, soát văn bản không giới hạn · Xuất Word, PDF | 1000 lượt hỏi đáp mỗi tháng, không giới hạn ngày · 20 bản thảo mỗi ngày, không giới hạn tháng |
 
 Dưới nút của card Cá nhân, chữ nhỏ: "Chưa có thanh toán trực tuyến. Tôi sẽ báo qua
 email khi gói được mở." Số trong danh sách lấy từ một hằng dùng chung với `/bang-gia`
@@ -263,9 +275,9 @@ tiêu điểm quay về nơi mở.
 
 ### 7.6 Bảng giá
 
-`bang-gia.tsx`: Miễn phí = "15 lượt hỏi/ngày, 300 lượt/tháng · 3 bản thảo/ngày · Phiên
-và lịch sử không giới hạn · Tra cứu, soát văn bản không giới hạn"; Cá nhân = "1000
-lượt hỏi/tháng, không hạn ngày · 20 bản thảo/ngày · …"; hàng so sánh "Phiên lưu" bỏ
+`bang-gia.tsx`: Miễn phí = "15 lượt hỏi/ngày, 300 lượt/tháng · 3 bản thảo/ngày, 20/tháng
+· Phiên và lịch sử không giới hạn · Tra cứu, soát văn bản không giới hạn"; Cá nhân =
+"1000 lượt hỏi/tháng, không hạn ngày · 20 bản thảo/ngày, không hạn tháng · …"; hàng so sánh "Phiên lưu" bỏ
 số 10 → "Không giới hạn"; FAQ hạn mức viết lại theo §4. Giá tiền giữ nguyên.
 `tenGoi("pro")` → "Cá nhân".
 
@@ -284,7 +296,7 @@ số 10 → "Không giới hạn"; FAQ hạn mức viết lại theo §4. Giá t
 - pytest: YAML thiếu khoá/`phien_luu` còn sót/`mui_gio` sai → lỗi rõ; mốc ngày/tháng
   theo `Asia/Ho_Chi_Minh` (23:30 UTC = 06:30 hôm sau VN); đếm loại `loi`,
   `out_of_scope`, cache hit; 429 ngày trước tháng, `detail` chứa mốc, `Retry-After`;
-  `soan-thao` 429 theo ngày; 403 tại lượt 51; `/han-muc` hình mới; `/ho-so` tổng hợp;
+  `soan-thao` 429 theo ngày rồi tháng; 403 tại lượt 51; `/han-muc` hình mới; `/ho-so` tổng hợp;
   yêu cầu nâng gói 201/409/422; test gói 1 cập nhật sau khi gỡ ẩn phiên.
 - FE: `scripts/kiem-han-muc.ts` (phần trăm, ngưỡng màu, "Không giới hạn", định dạng
   mốc theo VN, câu chip "Còn N lượt hôm nay"); typecheck, lint, build; `kiem-phien`
@@ -293,13 +305,27 @@ số 10 → "Không giới hạn"; FAQ hạn mức viết lại theo §4. Giá t
   hoạt động; gửi yêu cầu nâng gói rồi thấy "Đang chờ duyệt"; hạ tạm
   `luot_moi_phien: 2` và `hoi_dap_ngay: 2` để thấy ba trạng thái hết hạn mức; trả lại.
 
-## 10. Thi công
+## 10. Đo lường và điều kiện vận hành
+
+- Sau 30 ngày mở đăng ký, đo bằng `traces` + `yeu_cau_nang_goi`: tỷ lệ tài khoản đã
+  kích hoạt (≥1 lượt) chạm hạn ngày, chạm hạn tháng, chạm hạn bản thảo; số yêu cầu nâng
+  gói; số tài khoản không quay lại sau lần chạm hạn đầu. Số không ai chạm thì nới; số
+  chặn người dùng một lần rồi mất họ thì nới trước. Đây là dữ liệu, không phải mã: chỉ
+  đổi YAML.
+- Điều kiện vận hành trước khi mở đăng ký rộng: `KLAW_TRAN_CHI_PHI_NGAY_USD` nâng lên
+  khoảng 10 (ở 2 USD, 50 tài khoản free dùng hết hạn ngày là mọi người khác bị chặn);
+  Supabase bật xác nhận email khi đăng ký (chống tài khoản rác đẻ hàng loạt); lá chắn IP
+  và nhịp 10 lượt/phút theo tài khoản giữ nguyên.
+- Điểm nâng gói nằm trong luồng: thẻ 429 và thẻ đủ 50 lượt mở thẳng `ModalNangGoi`,
+  không chuyển sang trang giá.
+
+## 11. Thi công
 
 Một plan, hai luồng song song như gói 1: backend (§4–§6, worktree riêng) và frontend
 (§7, worktree riêng) sau một task hợp đồng chung (YAML mới, model `HanMucResponse`,
 kiểu TS, migration 021). Ước lượng 10–12 task.
 
-## 11. Ngoài phạm vi (2B và sau)
+## 12. Ngoài phạm vi (2B và sau)
 
 Vai trò admin và trang duyệt yêu cầu; xoá tài khoản (cần service-role key); ngôn ngữ;
 thanh toán; thưởng tuần đầu, mời bạn; nâng trần chi phí hệ thống (biến môi trường,
