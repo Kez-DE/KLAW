@@ -306,7 +306,7 @@ nút → tiêu đề danh sách → danh sách tính năng có icon (lucide). N�
 | Nhãn | Miễn phí | Cá nhân |
 | Tiêu đề | Dùng thử KLAW | Dùng cho công việc |
 | Mô tả | Hỏi pháp luật lao động và nhận câu trả lời có căn cứ kiểm chứng được, soạn văn bản mẫu, tra cứu luật. | Cho luật sư, chuyên viên nhân sự và pháp chế hỏi nhiều mỗi ngày và soạn văn bản thường xuyên. |
-| Giá | ₫0 / tháng | ₫499.000 / 30 ngày (số từ `bang-gia.tsx`, cùng nguồn dữ liệu) |
+| Giá | ₫0 / tháng | ₫199.000 / 30 ngày (số từ `bang-gia.tsx`, cùng nguồn dữ liệu) |
 | Nút | Free: viền mờ, khoá, "Gói hiện tại của bạn". Pro: không hiện nút. | Free: nút đặc "Yêu cầu nâng lên Cá nhân" → `POST /nang-goi/yeu-cau`; sau khi gửi hoặc đã có yêu cầu: khoá, "Đang chờ duyệt". Pro còn > 7 ngày: viền mờ, khoá, "Gói hiện tại · còn 12 ngày". Pro ≤ 7 ngày hoặc đã hết hạn: nút đặc "Gia hạn 30 ngày". |
 | Tiêu đề danh sách | Bắt đầu với những điều cơ bản: | Mọi thứ trong gói Miễn phí, cộng thêm: |
 | Danh sách | 200 lượt hỏi đáp mỗi ngày · 20 lượt mỗi phiên · 3 bản thảo mỗi ngày, 20 mỗi tháng · Phiên và lịch sử không giới hạn · Tra cứu luật, soát văn bản không giới hạn · Xuất Word, PDF | Hỏi đáp không giới hạn ngày và tháng (dấu sao: lá chắn chống lạm dụng 500 lượt/ngày, ghi ở FAQ) · 50 lượt mỗi phiên · 20 bản thảo mỗi ngày, không giới hạn tháng · Trí nhớ hoàn cảnh xuyên phiên (sắp có) · Hiệu lực 30 ngày, gia hạn khi hết |

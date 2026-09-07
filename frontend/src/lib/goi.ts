@@ -22,7 +22,7 @@ export function tenGoi(plan: string): string {
   return plan;
 }
 
-export const GIA_PRO = 499_000;
+export const GIA_PRO = 199_000;
 
 export const GOI_CARD: Record<
   "free" | "pro",
@@ -54,7 +54,7 @@ export const GOI_CARD: Record<
     nhan: "Cá nhân",
     tieuDe: "Dùng cho công việc",
     moTa: "Cho luật sư, chuyên viên nhân sự và pháp chế hỏi nhiều mỗi ngày và soạn văn bản thường xuyên.",
-    gia: "₫499.000 / 30 ngày",
+    gia: "₫199.000 / 30 ngày",
     tieuDeDanhSach: "Mọi thứ trong gói Miễn phí, cộng thêm:",
     danhSach: [
       { icon: Sparkles, chu: "Hỏi đáp không giới hạn ngày và tháng*" },

@@ -35,7 +35,7 @@ const TIERS: {
     id: "ca-nhan",
     name: "Cá nhân",
     tagline: "Dành cho luật sư và chuyên viên độc lập",
-    monthly: 499_000,
+    monthly: 199_000,
     // Chu kỳ 30 ngày cố định, không phải thuê bao năm — không có giá năm để bịa.
     annual: null,
     chuKy: "30 ngày",
@@ -299,7 +299,7 @@ function BangGiaPage() {
             {t.monthly != null && t.monthly !== 0 && (
               <p className="mt-1.5 text-[12px] text-muted-foreground">
                 {/* Tier có `chuKy` (Cá nhân) KHÔNG phải thuê bao tháng: nhánh
-                    ba ("tính theo tháng") nằm dưới dòng "₫499.000 / 30 ngày"
+                    ba ("tính theo tháng") nằm dưới dòng "₫199.000 / 30 ngày"
                     thì tự mâu thuẫn với chính nó. */}
                 {t.chuKy !== undefined
                   ? `Mức dự kiến, chu kỳ ${t.chuKy}`
