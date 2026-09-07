@@ -30,7 +30,9 @@ thì đoạn chat đang có được đưa vào tài khoản.
 - Không dùng cửa sổ trượt kiểu "N lượt/5 giờ". Hạn mức theo ngày (chống lạm dụng,
   bảo vệ trần chi phí chung) và theo tháng (ranh giới cá nhân/công việc).
 - Free: 15 lượt hỏi đáp/ngày, 300/tháng; 3 bản thảo/ngày và 20/tháng. Cá nhân (`pro`):
-  1000 lượt hỏi đáp/tháng, không hạn ngày; 20 bản thảo/ngày, không hạn tháng. Mọi gói:
+  100 lượt hỏi đáp/ngày (lá chắn chống chia sẻ tài khoản và script: 100 lượt là 30 phút
+  chờ máy, không người dùng thật nào chạm; không hạn ngày thì một tài khoản đốt được
+  2,7 USD/ngày, vượt trần chi phí chung), 1000/tháng; 20 bản thảo/ngày, không hạn tháng. Mọi gói:
   tối đa 50 lượt trong một phiên (lý do kỹ thuật, ngữ cảnh chỉ nạp 3 lượt). Số phiên và
   lịch sử không giới hạn.
 - Căn cứ khảo sát (09/2026): các trợ lý AI lớn đặt hạn free theo NGÀY, đặt lại giờ cố
@@ -77,7 +79,7 @@ goi:
     soan_thao_thang: 20
     luot_moi_phien: 50
   pro:
-    hoi_dap_ngay: 100000
+    hoi_dap_ngay: 100
     hoi_dap_thang: 1000
     soan_thao_ngay: 20
     soan_thao_thang: 100000
@@ -248,7 +250,8 @@ Nơi hiện: trang Hồ sơ (đủ bốn dòng + "Phiên này: 12/50 lượt" kh
   tục." + nút Phiên mới. Từ lượt 30 hiện dòng nhỏ "Phiên dài rồi, mở phiên mới để câu
   trả lời bám sát hơn".
 - 429 ngày/tháng: `BaoLoi` hiện `detail` máy chủ (đã có mốc mở lại) + nút "Nâng cấp"
-  (Free) hoặc chỉ mốc mở lại (Cá nhân). Không có nút "Thử lại" cho 429.
+  (Free) hoặc chỉ mốc mở lại (Cá nhân, kể cả khi chạm 100/ngày). Không có nút "Thử lại"
+  cho 429.
 - Bản thảo hết lượt ngày: cùng khuôn ở màn Soạn thảo.
 Tra cứu luật, soát văn bản, xem lại phiên, xuất Word/PDF không bao giờ bị khoá.
 
@@ -276,11 +279,11 @@ nút → tiêu đề danh sách → danh sách tính năng có icon (lucide). N�
 |---|---|---|
 | Nhãn | Miễn phí | Cá nhân |
 | Tiêu đề | Dùng thử KLAW | Dùng cho công việc |
-| Mô tả | Hỏi pháp luật lao động và nhận câu trả lời có căn cứ kiểm chứng được, soạn văn bản mẫu, tra cứu luật. | Cho luật sư, chuyên viên nhân sự và pháp chế hỏi nhiều mỗi ngày, không phải đợi sang ngày mới. |
+| Mô tả | Hỏi pháp luật lao động và nhận câu trả lời có căn cứ kiểm chứng được, soạn văn bản mẫu, tra cứu luật. | Cho luật sư, chuyên viên nhân sự và pháp chế hỏi nhiều mỗi ngày và soạn văn bản thường xuyên. |
 | Giá | ₫0 / tháng | ₫499.000 / tháng (số từ `bang-gia.tsx`, cùng nguồn dữ liệu) |
 | Nút | Free: viền mờ, khoá, "Gói hiện tại của bạn". Pro: không hiện nút. | Free: nút đặc "Yêu cầu nâng lên Cá nhân" → `POST /nang-goi/yeu-cau`; sau khi gửi hoặc đã có yêu cầu: khoá, "Đang chờ duyệt". Pro: viền mờ, khoá, "Gói hiện tại của bạn". |
 | Tiêu đề danh sách | Bắt đầu với những điều cơ bản: | Mọi thứ trong gói Miễn phí, cộng thêm: |
-| Danh sách | 15 lượt hỏi đáp mỗi ngày, 300 mỗi tháng · 3 bản thảo mỗi ngày, 20 mỗi tháng · Phiên và lịch sử không giới hạn · Tra cứu luật, soát văn bản không giới hạn · Xuất Word, PDF | 1000 lượt hỏi đáp mỗi tháng, không giới hạn ngày · 20 bản thảo mỗi ngày, không giới hạn tháng |
+| Danh sách | 15 lượt hỏi đáp mỗi ngày, 300 mỗi tháng · 3 bản thảo mỗi ngày, 20 mỗi tháng · Phiên và lịch sử không giới hạn · Tra cứu luật, soát văn bản không giới hạn · Xuất Word, PDF | 100 lượt hỏi đáp mỗi ngày, 1000 mỗi tháng · 20 bản thảo mỗi ngày, không giới hạn tháng |
 
 Dưới nút của card Cá nhân, chữ nhỏ: "Chưa có thanh toán trực tuyến. Tôi sẽ báo qua
 email khi gói được mở." Số trong danh sách lấy từ một hằng dùng chung với `/bang-gia`
@@ -292,7 +295,7 @@ tiêu điểm quay về nơi mở.
 
 `bang-gia.tsx`: Miễn phí = "15 lượt hỏi/ngày, 300 lượt/tháng · 3 bản thảo/ngày, 20/tháng
 · Phiên và lịch sử không giới hạn · Tra cứu, soát văn bản không giới hạn"; Cá nhân =
-"1000 lượt hỏi/tháng, không hạn ngày · 20 bản thảo/ngày, không hạn tháng · …"; hàng so sánh "Phiên lưu" bỏ
+"100 lượt hỏi/ngày, 1000/tháng · 20 bản thảo/ngày, không hạn tháng · …"; hàng so sánh "Phiên lưu" bỏ
 số 10 → "Không giới hạn"; FAQ hạn mức viết lại theo §4. Giá tiền giữ nguyên.
 `tenGoi("pro")` → "Cá nhân".
 
