@@ -8,6 +8,7 @@ import {
   quanTriHoacChinhMinh,
   truongChiQuanTri,
 } from '../access/vaiTro'
+import { ghiNhatKyCms, ipCua } from '../hooks/nhatKyCms'
 
 const QUAN_TRI_CUOI = 'Không thể hạ vai trò, vô hiệu hay xoá quản trị viên cuối cùng.'
 
@@ -53,6 +54,16 @@ export const Admins: CollectionConfig = {
     delete: chiQuanTri,
   },
   hooks: {
+    afterLogin: [
+      async ({ req, user }) => {
+        await ghiNhatKyCms(req.payload, { hanh_dong: 'dang_nhap', boi: user.email, ip: ipCua(req) })
+      },
+    ],
+    afterLogout: [
+      async ({ req }) => {
+        if (req.user) await ghiNhatKyCms(req.payload, { hanh_dong: 'dang_xuat', boi: req.user.email, ip: ipCua(req) })
+      },
+    ],
     beforeLogin: [
       ({ user }) => {
         if ((user as { hoat_dong?: boolean | null }).hoat_dong === false)

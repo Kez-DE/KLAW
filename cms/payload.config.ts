@@ -7,6 +7,9 @@ import { en } from '@payloadcms/translations/languages/en'
 import { vi } from '@payloadcms/translations/languages/vi'
 
 import { Admins } from './src/collections/Admins'
+import { NhatKyCms } from './src/collections/NhatKyCms'
+import { exposeErrorReason } from './src/hooks/exposeErrorReason'
+import { ghiDangNhapThatBai } from './src/hooks/nhatKyCms'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -35,8 +38,9 @@ export default buildConfig({
   // Dev để RỖNG: allowlist csrf làm rớt phiên trên LAN plain-HTTP (kinh nghiệm dự án
   // tham chiếu). Production phải có allowlist.
   csrf: laProd ? origins : [],
-  collections: [Admins],
+  collections: [Admins, NhatKyCms],
   graphQL: { disable: true },
+  hooks: { afterError: [exposeErrorReason, ghiDangNhapThatBai] },
   // Database RIÊNG `klaw_cms` (spec §4.2). KHÔNG cấu hình schema Postgres tùy biến.
   // KHÔNG bao giờ trỏ vào database `klaw` — tests/config.spec.ts khẳng định.
   db: postgresAdapter({
