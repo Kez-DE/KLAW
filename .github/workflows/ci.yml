@@ -30,3 +30,28 @@ jobs:
         env:
           APP_ENV: test
           OPENAI_API_KEY: test-key
+
+  cms:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_DB: klaw_cms_test }
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults: { run: { working-directory: cms } }
+    env:
+      DATABASE_URI: postgres://postgres:postgres@localhost:5432/klaw_cms_test
+      PAYLOAD_SECRET: ci-secret-not-used-elsewhere
+      KLAW_API_URL: http://klaw.test/api/v1
+      KLAW_ADMIN_API_KEY: ci-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: cms/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm type-check
+      - run: pnpm build
+      - run: pnpm test

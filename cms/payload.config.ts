@@ -36,6 +36,7 @@ export default buildConfig({
         dashboard: { Component: '@/views/TongQuan#TongQuan' },
         yeuCau: { Component: '@/views/YeuCau#YeuCau', path: '/yeu-cau', exact: true },
         taiKhoan: { Component: '@/views/TaiKhoan#TaiKhoan', path: '/tai-khoan', exact: true },
+        nhatKy: { Component: '@/views/NhatKy#NhatKy', path: '/nhat-ky', exact: true },
       },
       afterNavLinks: ['@/components/DieuHuong#DieuHuong'],
     },

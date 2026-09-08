@@ -32,6 +32,11 @@ not overwrite those with upstream product assumptions.
 - `scripts/`: platform bootstrap, release, and validation entrypoints.
 - `tests/`: behavior ownership and repository contract.
 
+## CMS
+
+- [`cms/README.md`](../cms/README.md): runbook riêng cho CMS quản lý tài khoản KLAW
+  (Payload) — cài đặt local, Railway, CI, lưu trữ nhật ký.
+
 ## History
 
 The former SQLite control plane, protocol v1, story packets, migration evidence,
