@@ -11,16 +11,16 @@
     padding: 0.4rem;
     color: var(--color-icon, var(--theme-elevation-800));
     transition:
-      background-color var(--vg-dur) var(--vg-ease),
-      transform var(--vg-press) var(--vg-ease);
+      background-color 150ms ease,
+      transform 150ms ease;
 
     &:hover {
-      background: var(--color-bg-transparent-hover);
+      background: var(--theme-elevation-100);
     }
 
     &:active {
       transform: scale(0.92);
-      transition-duration: var(--vg-dur-fast);
+      transition-duration: 80ms;
     }
 
     &:hover,
@@ -40,7 +40,7 @@
   }
 
   &__icon--ringing {
-    animation: chuong-thong-bao-ring 620ms var(--vg-ease);
+    animation: chuong-thong-bao-ring 620ms ease;
   }
 
   // One swing, damped, then still. A loop would turn an alert into decoration.
@@ -78,13 +78,14 @@
     padding: 0 0.25rem;
     border-radius: 999px;
     background: var(--theme-error-500);
-    color: var(--theme-base-0);
+    // Trắng trên nền đỏ error-500, cả hai theme — `--theme-base-0` không phải token thật.
+    color: var(--theme-elevation-0);
     font-size: 0.7rem;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
     line-height: 1.15rem;
     text-align: center;
-    animation: chuong-thong-bao-badge-in var(--vg-press) var(--vg-ease);
+    animation: chuong-thong-bao-badge-in 120ms ease;
   }
 
   @keyframes chuong-thong-bao-badge-in {
@@ -121,12 +122,12 @@
     background: var(--theme-elevation-0);
     border: 1px solid var(--theme-elevation-150);
     border-radius: var(--style-radius-m);
-    // Same token Payload's own floating panels (Popup, Drawer) use for this exact
-    // shadow — pre-built per theme, unlike a flat rgb() which reads as invisible
-    // once the panel background itself goes dark.
+    // `--elevation-400-menu-panel` không phải token thật của @payloadcms/ui — chỉ là một
+    // cái tên gợi ý shadow-theo-tầng, chưa từng được định nghĩa; giá trị luôn rơi về
+    // literal phía sau, dùng được ở cả hai theme vì nó không tham chiếu màu nền.
     box-shadow: var(--elevation-400-menu-panel, 0 8px 24px rgb(0 0 0 / 12%));
     transform-origin: top right;
-    animation: chuong-thong-bao-panel-in var(--vg-dur) var(--vg-ease);
+    animation: chuong-thong-bao-panel-in 150ms ease;
   }
 
   @keyframes chuong-thong-bao-panel-in {
@@ -196,9 +197,9 @@
     border: 1px solid var(--theme-elevation-100);
     border-radius: var(--style-radius-s);
     transition:
-      background-color var(--vg-dur) var(--vg-ease),
-      border-color var(--vg-dur) var(--vg-ease),
-      transform var(--vg-press) var(--vg-ease);
+      background-color 150ms ease,
+      border-color 150ms ease,
+      transform 120ms ease;
 
     &:hover {
       background: var(--theme-elevation-50);
@@ -207,7 +208,7 @@
 
     &:active {
       transform: scale(0.985);
-      transition-duration: var(--vg-dur-fast);
+      transition-duration: 80ms;
     }
 
     // Unread is carried by weight rather than by a coloured rail or tinted fill:
@@ -256,7 +257,9 @@
   }
 
   &__open:focus-visible {
-    outline: 2px solid var(--ramp-blue-500);
+    // `--ramp-blue-500` không tồn tại trong @payloadcms/ui — dùng token chữ/nền đậm nhất
+    // sẵn có, đủ tương phản trên nền panel ở cả hai theme.
+    outline: 2px solid var(--theme-elevation-800);
     outline-offset: -2px;
   }
 

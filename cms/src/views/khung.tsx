@@ -4,9 +4,24 @@ import { Gutter } from '@payloadcms/ui'
 import React from 'react'
 
 /** Mọi view tuỳ biến của Payload là CÔNG KHAI mặc định — khung này là chỗ duy nhất kiểm phiên. */
-export function KhungQuanTri({ props, tieuDe, children }: { props: AdminViewServerProps; tieuDe: string; children: React.ReactNode }) {
+export function KhungQuanTri({
+  props,
+  tieuDe,
+  children,
+  khongBocTemplate,
+}: {
+  props: AdminViewServerProps
+  tieuDe: string
+  children: React.ReactNode
+  /** Route dashboard (`/admin`) đã được Payload tự bọc trong MỘT DefaultTemplate của
+   *  riêng nó (kèm viewActions) trước khi gọi component đăng ký — mọi view tuỳ biến khác
+   *  (có `path` riêng) thì không. Bọc thêm một DefaultTemplate nữa ở đây cho dashboard sẽ
+   *  ra hai khung, hai chuông, hai EventSource. `TongQuan` truyền `true` để bỏ qua. */
+  khongBocTemplate?: boolean
+}) {
   const { initPageResult, params, searchParams } = props
   if (!initPageResult.req.user) return <Gutter><p>Bạn cần đăng nhập vào trang quản trị.</p></Gutter>
+  if (khongBocTemplate) return <Gutter><h1 style={{ marginBottom: 24 }}>{tieuDe}</h1>{children}</Gutter>
   return (
     <DefaultTemplate
       i18n={initPageResult.req.i18n} locale={initPageResult.locale} params={params} payload={initPageResult.req.payload}

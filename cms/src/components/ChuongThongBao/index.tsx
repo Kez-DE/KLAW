@@ -76,17 +76,21 @@ export function ChuongThongBao() {
     if (goc !== null) document.title = soChuaDoc > 0 ? `(${soChuaDoc}) ${goc}` : goc
   }, [soChuaDoc])
 
-  // Chuông rung một nhịp khi số TĂNG — không rung khi giảm hay khi mới mount.
-  const soTruocRef = useRef(soChuaDoc)
+  // Chuông rung một nhịp khi số TĂNG — không rung khi giảm hay khi mới mount. `null` nghĩa
+  // "chưa thấy dữ liệu thật lần nào": khoá theo `dl` (không phải `soChuaDoc`, vốn đã là 0
+  // giả trong lúc `dl` còn null) và bỏ qua hẳn khi chưa có phản hồi thật, để lần tải đầu
+  // ghi nhận mốc mà không rung, chỉ rung từ lần đổi kế tiếp trở đi.
+  const soTruocRef = useRef<number | null>(null)
   const [rung, setRung] = useState(false)
   useEffect(() => {
-    const tang = soChuaDoc > soTruocRef.current
-    soTruocRef.current = soChuaDoc
-    if (!tang) return
+    if (!dl?.ok) return
+    const truoc = soTruocRef.current
+    soTruocRef.current = dl.data.so_chua_doc
+    if (truoc === null || dl.data.so_chua_doc <= truoc) return
     setRung(true)
     const hen = window.setTimeout(() => setRung(false), 620)
     return () => window.clearTimeout(hen)
-  }, [soChuaDoc])
+  }, [dl])
 
   const moThongBao = (tb: ThongBao) => {
     setMo(false)
