@@ -31,11 +31,7 @@ not overwrite those with upstream product assumptions.
 - `crates/harness/`: safe core installer/updater.
 - `scripts/`: platform bootstrap, release, and validation entrypoints.
 - `tests/`: behavior ownership and repository contract.
-
-## CMS
-
-- [`cms/README.md`](../cms/README.md): runbook riêng cho CMS quản lý tài khoản KLAW
-  (Payload) — cài đặt local, Railway, CI, lưu trữ nhật ký.
+- `cms/` — CMS quản trị tài khoản (Payload); runbook trong `cms/README.md`.
 
 ## History
 

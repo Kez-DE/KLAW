@@ -100,7 +100,9 @@ export function NhatKyClient() {
       const a = document.createElement('a')
       a.href = url
       a.download = 'nhat-ky-quan-tri.csv'
+      document.body.appendChild(a)
       a.click()
+      a.remove()
       URL.revokeObjectURL(url)
     } catch {
       setXuatLoi('Không nối được tới trang quản trị. Kiểm tra mạng rồi thử lại.')
