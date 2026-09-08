@@ -68,7 +68,7 @@ interface TuyChonGoi {
 const LOI_HINH_DANG =
   "Máy chủ trả về dữ liệu không đúng hình dạng đã thoả thuận nên không hiển thị được.";
 
-async function tieuDeXacThuc(): Promise<Record<string, string>> {
+export async function tieuDeXacThuc(): Promise<Record<string, string>> {
   try {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;

@@ -733,6 +733,21 @@ export interface YeuCauNangGoi {
   ly_do: string | null;
 }
 
+export interface ThongBao {
+  id: number;
+  loai: string;
+  tieu_de: string;
+  noi_dung: string;
+  duong_dan: string;
+  da_doc: boolean;
+  tao_luc: string;
+}
+
+export interface HopThu {
+  so_chua_doc: number;
+  items: ThongBao[];
+}
+
 export interface LuotDaLuu {
   thu_tu: number;
   cau_hoi: string;
@@ -910,6 +925,14 @@ export function laYeuCauNangGoi(x: unknown): x is YeuCauNangGoi {
 
 export function laYeuCauNangGoiHoacNull(x: unknown): x is YeuCauNangGoi | null {
   return x === null || laYeuCauNangGoi(x);
+}
+
+export function laHopThu(x: unknown): x is HopThu {
+  return laBanGhi(x) && typeof x["so_chua_doc"] === "number" && Array.isArray(x["items"]);
+}
+
+export function laDaDanhDau(x: unknown): x is { da_danh_dau: number } {
+  return laBanGhi(x) && typeof x["da_danh_dau"] === "number";
 }
 
 export function laNhapPhien(x: unknown): x is { id: string } {

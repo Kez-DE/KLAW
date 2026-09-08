@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { SheetDuoi } from "@/components/app/SheetDuoi";
 import { DanhSachPhien } from "@/components/klaw/DanhSachPhien";
+import { ChuongThongBao } from "@/components/tai-khoan/ChuongThongBao";
 import { ThanTaiKhoan } from "@/components/tai-khoan/MenuTaiKhoan";
 import { TheTaiKhoan } from "@/components/tai-khoan/TheTaiKhoan";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
@@ -233,7 +234,10 @@ export function AppShell({
 
         <div className="mt-auto pt-3">
           {daDangNhap ? (
-            <TheTaiKhoan gon={!rong} />
+            <div className="flex items-center gap-2">
+              <ChuongThongBao />
+              <TheTaiKhoan gon={!rong} />
+            </div>
           ) : laKhach ? (
             rong ? (
               <div className="rounded-xl border border-border bg-card p-3 shadow-soft">
@@ -367,6 +371,9 @@ export function AppShell({
         <SheetDuoi id="sheet-tai-khoan" nhan="Tài khoản" onDong={() => datSheetTaiKhoan(false)}>
           {daDangNhap ? (
             <>
+              <div className="mb-2 flex justify-end">
+                <ChuongThongBao />
+              </div>
               <ThanTaiKhoan onChon={() => datSheetTaiKhoan(false)} />
               <p className="m-0 mt-4 mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
                 Gần đây
