@@ -10,11 +10,12 @@ import { TheHetLuot } from "@/components/klaw/TheHetLuot";
 import { TheKetQua } from "@/components/klaw/TheKetQua";
 import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
+import { TheTaiKhoanKhoa } from "@/components/tai-khoan/TheTaiKhoanKhoa";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { useTraCuu } from "@/hooks/use-tra-cuu";
 import { goi } from "@/lib/api";
-import { dinhDangMoc, laKhongGioiHan } from "@/lib/han-muc";
+import { dinhDangMoc, laBiKhoa, laKhongGioiHan } from "@/lib/han-muc";
 import { layThreadKhach, xoaThreadKhach } from "@/lib/khach";
 import type { Citation, TraCuuKetQua } from "@/lib/klaw";
 import { chuanHoaLuot, laNhapPhien } from "@/lib/klaw";
@@ -397,6 +398,7 @@ function ManHoiKlaw() {
   const mucChip = mucChat !== null && !laKhongGioiHan(mucChat.han_muc) ? mucChat : null;
   const hetLuot = mucChip !== null && mucChip.da_dung >= mucChip.han_muc;
   const plan = hanMuc.hanMuc?.plan ?? null;
+  const biKhoa = laBiKhoa(hanMuc.hanMuc);
   // Gói Cá nhân hết hạn ⇒ máy chủ hạ người dùng về `free` NHƯNG vẫn gửi mốc cũ.
   // Đó là cách duy nhất phân biệt "chưa từng nâng" với "vừa rơi xuống".
   const hetHanPro =
@@ -415,7 +417,8 @@ function ManHoiKlaw() {
    *  nói được lối ra ngay tại chỗ. Hết lượt của người ĐÃ đăng nhập không nằm
    *  trong nhóm đó: lối ra của họ (mốc mở lại, nút Nâng cấp) đi kèm 429 của máy
    *  chủ, nên khoá sớm ở client là khoá luôn cả đường đi tiếp (spec §7.3). */
-  const khoaOHoi = traCuu.dangChay || hoiThoai.loiChiTiet !== null || phienDay || khachHetLuot;
+  const khoaOHoi =
+    biKhoa || traCuu.dangChay || hoiThoai.loiChiTiet !== null || phienDay || khachHetLuot;
 
   const chuaHoiGiCa =
     daTai.length === 0 &&
@@ -537,6 +540,7 @@ function ManHoiKlaw() {
                           onHuy={traCuu.huy}
                         />
                       )}
+                      {biKhoa && <TheTaiKhoanKhoa />}
                       {traCuu.loi !== null && (
                         <>
                           {/* 429 của gói Miễn phí là lối cụt DUY NHẤT mở được

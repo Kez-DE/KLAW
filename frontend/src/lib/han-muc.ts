@@ -58,3 +58,6 @@ export function cauChip(m: MucHanMuc): string {
   const [dv, ky] = DON_VI[m.khoa] ?? ["lượt", ""];
   return (con === 0 ? `Hết ${dv} ${ky}` : `Còn ${con} ${dv} ${ky}`).trim();
 }
+
+/** Tài khoản bị admin khoá (spec 2B §5.2). Chỉ người đã đăng nhập mới có cờ này; khách luôn false. */
+export const laBiKhoa = (hm: HanMuc | null): boolean => hm?.bi_khoa === true;

@@ -29,8 +29,10 @@ import {
 import { CanCuChuaKiemBanner } from "@/components/legal/LegalBits";
 import { SoatBanThao } from "@/components/klaw/SoatBanThao";
 import { TheDangNhap } from "@/components/klaw/TheDangNhap";
+import { TheTaiKhoanKhoa } from "@/components/tai-khoan/TheTaiKhoanKhoa";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { TINH_THANH, capDuoiCua } from "@/lib/dia-gioi";
+import { laBiKhoa } from "@/lib/han-muc";
 import {
   MAU,
   NHOM,
@@ -259,7 +261,8 @@ export function KhongGianSoanThao({
 }) {
   // Trong khung chat có thể mở với `null` (chưa chọn mẫu) rồi chọn tại chỗ; route
   // luôn truyền slug thật. State cục bộ để chip chọn mẫu đổi được.
-  const { laKhach } = useTaiKhoan();
+  const { laKhach, hanMuc } = useTaiKhoan();
+  const biKhoa = laBiKhoa(hanMuc.hanMuc);
   const [slug, setSlug] = useState<string | null>(loaiVanBan);
   const mau = slug === null ? undefined : mauTheoId(slug);
 
@@ -545,8 +548,9 @@ export function KhongGianSoanThao({
                 const active = n === buoc;
                 // Khách chỉ đọc được Bước 1 (mẫu, căn cứ pháp lý); nút "Tiếp
                 // tục" ở đó đã hiện thẻ đăng nhập, nên các bước sau bị khoá ở
-                // đây thay vì lặp lại lời giải thích cho từng nút.
-                const khoa = laKhach && n > 1;
+                // đây thay vì lặp lại lời giải thích cho từng nút. Tài khoản bị
+                // khoá cũng dừng ở Bước 1 vì lý do tương tự.
+                const khoa = (laKhach || biKhoa) && n > 1;
                 return (
                   <li key={b}>
                     <button
@@ -592,6 +596,8 @@ export function KhongGianSoanThao({
                 </div>
                 {laKhach ? (
                   <TheDangNhap next="/soan-thao" />
+                ) : biKhoa ? (
+                  <TheTaiKhoanKhoa />
                 ) : (
                   <button
                     type="button"
@@ -1009,8 +1015,8 @@ export function KhongGianSoanThao({
               </button>
               <button
                 type="button"
-                disabled={buoc === 5 || laKhach}
-                aria-disabled={buoc === 5 || laKhach}
+                disabled={buoc === 5 || laKhach || biKhoa}
+                aria-disabled={buoc === 5 || laKhach || biKhoa}
                 onClick={() => setBuoc((b) => Math.min(5, b + 1))}
                 className="rounded-lg bg-[var(--color-brass-500)] px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
               >

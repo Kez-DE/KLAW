@@ -5,6 +5,7 @@ import { tenGoi } from "../src/lib/goi.ts";
 import {
   cauChip,
   dinhDangMoc,
+  laBiKhoa,
   laKhongGioiHan,
   mucMau,
   mucRangBuoc,
@@ -56,4 +57,20 @@ const m = (khoa: string, da: number, han: number) => ({
   assert.equal(tenGoi("khach"), "Dùng thử");
   assert.equal(soNgayCon(null), null);
 }
-console.info("kiem-han-muc: 4/4 đạt");
+{
+  const hm = {
+    ap_dung: true,
+    plan: "free",
+    ten_goi: "Miễn phí",
+    mui_gio: "Asia/Ho_Chi_Minh",
+    muc: [],
+    phien: { luot_toi_da: 20 },
+    het_han_luc: null,
+    ghi_chu: "",
+    bi_khoa: true,
+  };
+  assert.equal(laBiKhoa(hm), true);
+  assert.equal(laBiKhoa({ ...hm, bi_khoa: false }), false);
+  assert.equal(laBiKhoa(null), false);
+}
+console.info("kiem-han-muc: 5/5 đạt");

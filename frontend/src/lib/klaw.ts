@@ -520,6 +520,7 @@ export interface HanMuc {
   phien: { luot_toi_da: number | null };
   het_han_luc: string | null;
   ghi_chu: string;
+  bi_khoa: boolean;
 }
 
 /* ── GET /pham-vi — hai tầng, vì corpus thật có hai tầng ─────────────────── */
@@ -729,6 +730,7 @@ export interface YeuCauNangGoi {
   trang_thai: "cho_duyet" | "da_duyet" | "tu_choi";
   tao_luc: string;
   xu_ly_luc: string | null;
+  ly_do: string | null;
 }
 
 export interface LuotDaLuu {
@@ -990,7 +992,8 @@ export function laHanMuc(x: unknown): x is HanMuc {
     laBanGhi(x) &&
     typeof x["ap_dung"] === "boolean" &&
     Array.isArray(x["muc"]) &&
-    laBanGhi(x["phien"])
+    laBanGhi(x["phien"]) &&
+    typeof x["bi_khoa"] === "boolean"
   );
 }
 

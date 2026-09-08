@@ -208,11 +208,18 @@ export function ModalNangGoi() {
         )}
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <CardGoi card={GOI_CARD.free} nut={nutMienPhi} />
-          <CardGoi
-            card={GOI_CARD.pro}
-            nut={nutCaNhan}
-            ghiChu="Chưa có thanh toán trực tuyến. Tôi sẽ báo qua email khi gói được mở."
-          />
+          <div>
+            <CardGoi
+              card={GOI_CARD.pro}
+              nut={nutCaNhan}
+              ghiChu="Chưa có thanh toán trực tuyến. Tôi sẽ báo qua email khi gói được mở."
+            />
+            {yeuCau?.trang_thai === "tu_choi" && yeuCau.ly_do !== null && (
+              <p role="status" className="mt-2 mb-0 text-[13px] leading-5 text-muted-foreground">
+                Yêu cầu trước chưa được duyệt: {yeuCau.ly_do}. Bạn gửi lại được ngay.
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>
