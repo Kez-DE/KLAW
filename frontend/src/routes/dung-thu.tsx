@@ -426,7 +426,8 @@ function ManHoiKlaw() {
     traCuu.cauHoi === null &&
     hoiThoai.loiChiTiet === null &&
     !hoiThoai.dangTaiChiTiet &&
-    !khachHetLuot;
+    !khachHetLuot &&
+    !biKhoa;
 
   return (
     <AppShell active="/dung-thu">
@@ -463,6 +464,7 @@ function ManHoiKlaw() {
                 />
               </div>
             )}
+            {biKhoa && <TheTaiKhoanKhoa />}
             {loiNhap !== null && (
               <p role="status" className="mt-8 mb-0 text-[13px] text-muted-foreground">
                 {loiNhap}
@@ -540,7 +542,6 @@ function ManHoiKlaw() {
                           onHuy={traCuu.huy}
                         />
                       )}
-                      {biKhoa && <TheTaiKhoanKhoa />}
                       {traCuu.loi !== null && (
                         <>
                           {/* 429 của gói Miễn phí là lối cụt DUY NHẤT mở được
