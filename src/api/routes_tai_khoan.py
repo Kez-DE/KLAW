@@ -47,7 +47,7 @@ from src.models.schemas import (
     YeuCauNangGoiRequest,
 )
 from src.services import bao_ve, ho_so, nang_goi, thong_bao, xac_thuc
-from src.services.bao_ve import kiem_api_key, nguoi_dung_bat_buoc, xac_thuc_nguoi_goi
+from src.services.bao_ve import kiem_api_key, nguoi_dung_bat_buoc, nguoi_dung_ke_ca_khoa, xac_thuc_nguoi_goi
 
 logger = logging.getLogger(__name__)
 
@@ -253,16 +253,16 @@ _HEADER_SSE = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
 
 @router.get("/thong-bao", response_model=DanhSachThongBaoOut)
 async def hop_thu_cua_toi(
-    nguoi: dict = Depends(nguoi_dung_bat_buoc), chi_chua_doc: bool = False
+    nguoi: dict = Depends(nguoi_dung_ke_ca_khoa), chi_chua_doc: bool = False
 ) -> DanhSachThongBaoOut:
     return DanhSachThongBaoOut.model_validate(await run_in_threadpool(thong_bao.hop_thu, nguoi["sub"], chi_chua_doc))
 
 
 @router.post("/thong-bao/da-doc")
-async def da_doc_cua_toi(body: DaDocRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> dict:
+async def da_doc_cua_toi(body: DaDocRequest, nguoi: dict = Depends(nguoi_dung_ke_ca_khoa)) -> dict:
     return {"da_danh_dau": await run_in_threadpool(thong_bao.danh_dau_da_doc, body.ids, nguoi["sub"])}
 
 
 @router.get("/thong-bao/luong")
-async def luong_cua_toi(nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> StreamingResponse:
+async def luong_cua_toi(nguoi: dict = Depends(nguoi_dung_ke_ca_khoa)) -> StreamingResponse:
     return StreamingResponse(luong_thong_bao.phat(nguoi["sub"]), media_type="text/event-stream", headers=_HEADER_SSE)

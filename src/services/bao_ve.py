@@ -706,6 +706,23 @@ async def nguoi_dung_bat_buoc(request: Request) -> dict:
     return nguoi
 
 
+async def nguoi_dung_ke_ca_khoa(request: Request) -> dict:
+    """Như `nguoi_dung_bat_buoc` nhưng KHÔNG chặn tài khoản bị khoá: dùng cho hộp thư
+    thông báo — người bị khoá phải đọc được chính thông báo "tài khoản bị khoá"
+    (cùng lý do `/han-muc` và `/nguoi-dung` vẫn trả lời người bị khoá). Không phải
+    đường tốn LLM."""
+    kiem_api_key(request)
+    await run_in_threadpool(kiem_rate_limit, ip_goi(request))
+    nguoi = await run_in_threadpool(xac_thuc_nguoi_goi, request)
+    if nguoi is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Cần đăng nhập để dùng tính năng này.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return nguoi
+
+
 # ── Dependency dùng ở các endpoint tốn LLM ──────────────────────────────────
 
 

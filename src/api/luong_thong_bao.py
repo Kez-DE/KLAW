@@ -13,6 +13,7 @@ from collections.abc import AsyncIterator
 from fastapi.encoders import jsonable_encoder
 from starlette.concurrency import run_in_threadpool
 
+from src.models.schemas import ThongBaoOut
 from src.services import thong_bao
 
 
@@ -31,6 +32,8 @@ async def phat(
     bat_dau = loop.time()
     lan_phat = bat_dau
     truoc: int | None = None
+    # ponytail: mỗi kết nối mở là một COUNT mỗi 5 s; chuyển sang LISTEN/NOTIFY khi số
+    # luồng đồng thời lên hàng trăm.
     while loop.time() - bat_dau < toi_da_giay:
         so = await run_in_threadpool(thong_bao.dem_chua_doc, nguoi_nhan)
         if so != truoc:
@@ -40,7 +43,7 @@ async def phat(
                     functools.partial(thong_bao.danh_sach, nguoi_nhan, chi_chua_doc=True, limit=1)
                 )
                 if moi:
-                    yield sse("thong_bao_moi", moi[0])
+                    yield sse("thong_bao_moi", ThongBaoOut.model_validate(moi[0]).model_dump())
             truoc = so
             lan_phat = loop.time()
         elif loop.time() - lan_phat >= nhip_giay:

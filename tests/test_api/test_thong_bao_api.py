@@ -71,3 +71,15 @@ async def test_luong_tra_event_stream(client, nguoi, khoa_ky, monkeypatch):
     )
     r = await client.get("/api/v1/thong-bao/luong", headers=_bearer(khoa_ky, nguoi))
     assert r.status_code == 200 and "so_chua_doc" in r.text
+
+
+async def test_nguoi_bi_khoa_van_doc_duoc_thong_bao_khoa(client, nguoi, khoa_ky):
+    from src.services import tai_khoan_qt
+
+    tai_khoan_qt.khoa(nguoi, "Kiểm thử.", "qa@klaw.local")
+    h = _bearer(khoa_ky, nguoi)
+    assert (await client.get("/api/v1/ho-so", headers=h)).status_code == 403, "đường thường vẫn chặn"
+    r = await client.get("/api/v1/thong-bao", headers=h)
+    assert r.status_code == 200
+    assert any(x["loai"] == "tai_khoan_khoa" for x in r.json()["items"])
+    tai_khoan_qt.mo_khoa(nguoi, "Kiểm xong.", "qa@klaw.local")
