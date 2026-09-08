@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiGoc, goi, tieuDeXacThuc } from "@/lib/api";
 import { laDaDanhDau, laHopThu, type ThongBao } from "@/lib/klaw";
 import { catCacKhung } from "@/lib/sse-khung";
@@ -150,5 +150,10 @@ export function useThongBao(kichHoat: boolean, khiCoSuKien?: () => void) {
     };
   }, [kichHoat, taiLai, khiCoSuKien]);
 
-  return { soChuaDoc, items, dangTai, loiDanhDau, taiLai, danhDauDaDoc, danhDauTatCa };
+  // Nhớ theo giá trị thật (cùng lý do `useHanMuc`): object mới mỗi lần dựng sẽ
+  // đổi `gia` của `TaiKhoanProvider`, kéo mọi nơi gọi `useTaiKhoan()` dựng lại.
+  return useMemo(
+    () => ({ soChuaDoc, items, dangTai, loiDanhDau, taiLai, danhDauDaDoc, danhDauTatCa }),
+    [soChuaDoc, items, dangTai, loiDanhDau, taiLai, danhDauDaDoc, danhDauTatCa],
+  );
 }
