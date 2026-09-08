@@ -118,6 +118,8 @@ def khong_dung_db(monkeypatch):
     ở đây để mọi test dùng fixture này không chạm Postgres cho bảng `hoi_thoai`.
     """
     monkeypatch.setattr(bao_ve, "ghi_nhan_nguoi_dung", lambda sub, email: "free")
+    monkeypatch.setattr(bao_ve, "ghi_nhan_va_kiem_khoa", lambda sub, email: "free")
+    monkeypatch.setattr(bao_ve, "bi_khoa", lambda sub: False)
     monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 0)
     monkeypatch.setattr(hoi_thoai, "tao_phien", lambda *a, **k: "00000000-0000-0000-0000-000000000000")
     monkeypatch.setattr(hoi_thoai, "ghi_luot", lambda *a, **k: 1)

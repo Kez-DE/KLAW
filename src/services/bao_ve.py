@@ -116,7 +116,7 @@ _SQL_UPSERT_USER = text(
     "INSERT INTO users (sub, email) VALUES (:sub, :email)"
     " ON CONFLICT (sub) DO UPDATE SET last_seen_at = now(),"
     " email = COALESCE(EXCLUDED.email, users.email)"
-    " RETURNING plan, plan_het_han"
+    " RETURNING plan, plan_het_han, khoa_luc"
 )
 
 # Đếm SỐ LƯỢT gọi LLM thật của một `sub` trên MỘT endpoint, từ một mốc.
@@ -472,6 +472,32 @@ NHAN_MUC = {
 }
 LOI_KHACH_DANG_NHAP = "Cần đăng nhập để dùng tính năng này."
 LOI_SOAN_THAO_DANG_NHAP = "Cần đăng nhập để soạn văn bản."
+LOI_TAI_KHOAN_KHOA = "Tài khoản của bạn đang bị tạm khoá. Liên hệ hỗ trợ để được mở lại."
+_SQL_KHOA = text("SELECT khoa_luc FROM users WHERE sub = :sub")
+
+
+def bi_khoa(sub: str) -> bool:
+    """`users.khoa_luc IS NOT NULL`; chưa có dòng → False."""
+    with get_engine().connect() as c:
+        return c.execute(_SQL_KHOA, {"sub": sub}).scalar_one_or_none() is not None
+
+
+def kiem_khoa(sub: str) -> None:
+    """403 khi tài khoản bị khoá (spec 2B §5.2). Một truy vấn khoá chính; dùng ở
+    `nguoi_dung_bat_buoc` — không phải đường tốn LLM."""
+    if bi_khoa(sub):
+        raise HTTPException(status_code=403, detail=LOI_TAI_KHOAN_KHOA)
+
+
+def ghi_nhan_va_kiem_khoa(sub: str, email: str | None) -> str:
+    """Như `ghi_nhan_nguoi_dung` nhưng ném 403 khi khoá — cùng MỘT round-trip, cho
+    đường tốn LLM. Tách hàm thay vì đổi `ghi_nhan_nguoi_dung`: `/han-muc` và
+    `/nguoi-dung` phải vẫn trả lời người bị khoá để giao diện vẽ được thẻ khoá."""
+    with get_engine().begin() as c:
+        r = c.execute(_SQL_UPSERT_USER, {"sub": sub, "email": email}).mappings().one()
+    if r["khoa_luc"] is not None:
+        raise HTTPException(status_code=403, detail=LOI_TAI_KHOAN_KHOA)
+    return plan_hieu_luc_tu(str(r["plan"]), r["plan_het_han"])
 
 
 def ten_goi(plan: str) -> str:
@@ -643,6 +669,7 @@ async def nguoi_dung_bat_buoc(request: Request) -> dict:
             detail="Cần đăng nhập để dùng tính năng này.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    await run_in_threadpool(kiem_khoa, nguoi["sub"])
     return nguoi
 
 
@@ -756,7 +783,9 @@ def _cong(cho_khach: bool):
         # quyết định hạn mức, và đoán nó là tự phát hạn mức cho một người mà hệ
         # thống vừa mất khả năng tra cứu.
         try:
-            plan = await run_in_threadpool(ghi_nhan_nguoi_dung, sub, nguoi["email"])
+            plan = await run_in_threadpool(ghi_nhan_va_kiem_khoa, sub, nguoi["email"])
+        except HTTPException:
+            raise  # 403 khoá — KHÔNG được nuốt thành 503 bởi nhánh dưới
         except Exception as e:
             logger.exception("cong_bao_ve: không đọc/ghi được dòng users — TỪ CHỐI")
             raise HTTPException(

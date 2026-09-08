@@ -147,6 +147,7 @@ async def han_muc_cua_toi(request: Request) -> HanMucResponse:
         plan = await run_in_threadpool(bao_ve.ghi_nhan_nguoi_dung, sub, nguoi["email"])
         muc = await run_in_threadpool(bao_ve.mo_ta_muc, sub, plan)
         het_han = await run_in_threadpool(bao_ve.het_han_cua, sub)
+        bi_khoa = await run_in_threadpool(bao_ve.bi_khoa, sub)
     except Exception as e:
         # Hỏng ở tầng đếm là TỪ CHỐI, không phải trả một con số đoán. Một
         # `da_dung` bịa ra khi DB hỏng tệ hơn một lỗi — người dùng tin nó, rồi
@@ -165,6 +166,7 @@ async def han_muc_cua_toi(request: Request) -> HanMucResponse:
         muc=[MucHanMuc(**m) for m in muc],
         phien=PhienHanMuc(luot_toi_da=bao_ve.han_muc(plan, "luot_moi_phien")),
         het_han_luc=het_han,
+        bi_khoa=bi_khoa,
         ghi_chu=GHI_CHU_CACHE,
     )
 

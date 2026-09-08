@@ -29,6 +29,8 @@ from tests.test_api.test_xac_thuc_han_muc import _bearer
 def khong_dung_db(monkeypatch):
     """Tách QUYẾT ĐỊNH hạn mức khỏi phần ĐỌC DB — chạy được ở CI không Postgres."""
     monkeypatch.setattr(bao_ve, "ghi_nhan_nguoi_dung", lambda sub, email: "free")
+    monkeypatch.setattr(bao_ve, "ghi_nhan_va_kiem_khoa", lambda sub, email: "free")
+    monkeypatch.setattr(bao_ve, "bi_khoa", lambda sub: False)
     monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 7)
 
 

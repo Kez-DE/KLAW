@@ -185,6 +185,89 @@ def duyet(yeu_cau_id: int, nguon: str, tham_chieu: str, boi: str, ip: str | None
         return {"id": yeu_cau_id, "trang_thai": "da_duyet", "sub": y["sub"], "plan": y["goi_muon"], "plan_het_han": han}
 
 
+_SQL_KHOA_USER = text("SELECT plan, plan_het_han, khoa_luc FROM users WHERE sub = CAST(:sub AS uuid) FOR UPDATE")
+
+
+def _iso(t: datetime | None) -> str | None:
+    return t.isoformat() if t is not None else None
+
+
+def _ket_qua(sub: str, plan: str, han: datetime | None) -> dict:
+    return {"sub": sub, "plan": plan_hieu_luc_tu(plan, han), "plan_het_han": han}
+
+
+def dat_goi(sub: str, plan: str, so_ngay: int | None, boi: str, ip: str | None = None) -> dict:
+    """Đặt gói tay. `so_ngay=None` với gói trả phí = vô thời hạn (`plan_het_han` NULL);
+    gói mặc định luôn NULL."""
+    d = _doc_han_muc()
+    if plan not in d["goi"]:
+        raise GoiKhongHopLe(plan)
+    han = None
+    if plan != d["goi_mac_dinh"] and so_ngay is not None:
+        han = datetime.now(UTC) + timedelta(days=so_ngay)
+    with get_engine().begin() as c:
+        u = c.execute(_SQL_KHOA_USER, {"sub": sub}).mappings().one_or_none()
+        if u is None:
+            raise ChuaCoHoSo()
+        c.execute(_SQL_DOI_GOI, {"plan": plan, "han": han, "sub": sub})
+        nhat_ky.ghi(
+            "dat_goi",
+            doi_tuong=sub,
+            chi_tiet={
+                "plan": plan,
+                "so_ngay": so_ngay,
+                "plan_het_han": _iso(han),
+                "truoc": {"plan": u["plan"], "plan_het_han": _iso(u["plan_het_han"])},
+            },
+            boi=boi,
+            ip=ip,
+            c=c,
+        )
+        han_chu = f" tới {_dinh_dang(han)}" if han is not None else ""
+        thong_bao.ghi(
+            nguoi_nhan=sub,
+            loai="goi_dat_tay",
+            tieu_de="Gói của bạn vừa được cập nhật",
+            noi_dung=f"Gói hiện tại của bạn là {ten_goi(plan)}{han_chu}.",
+            duong_dan="/tai-khoan",
+            khoa_gom=thong_bao.KHOA_TAI_KHOAN.format(sub=sub, loai="goi_dat_tay"),
+            c=c,
+        )
+        return _ket_qua(sub, plan, han)
+
+
+def thu_hoi(sub: str, ly_do: str, boi: str, ip: str | None = None) -> dict:
+    """Thu hồi gói trả phí NGAY: `plan_het_han = now()`, KHÔNG đổi `plan` — gói hiệu lực
+    tự về mặc định qua `plan_hieu_luc_tu` (hàng "canceled" của bảng trạng thái §2)."""
+    d = _doc_han_muc()
+    with get_engine().begin() as c:
+        u = c.execute(_SQL_KHOA_USER, {"sub": sub}).mappings().one_or_none()
+        if u is None:
+            raise ChuaCoHoSo()
+        if plan_hieu_luc_tu(str(u["plan"]), u["plan_het_han"]) == d["goi_mac_dinh"]:
+            raise KhongCoGiDeThuHoi(sub)
+        now = datetime.now(UTC)
+        c.execute(_SQL_DOI_GOI, {"plan": u["plan"], "han": now, "sub": sub})
+        nhat_ky.ghi(
+            "thu_hoi_goi",
+            doi_tuong=sub,
+            chi_tiet={"ly_do": ly_do, "plan": u["plan"], "plan_het_han_cu": _iso(u["plan_het_han"])},
+            boi=boi,
+            ip=ip,
+            c=c,
+        )
+        thong_bao.ghi(
+            nguoi_nhan=sub,
+            loai="goi_thu_hoi",
+            tieu_de=f"Gói {ten_goi(str(u['plan']))} đã bị thu hồi",
+            noi_dung=f"Lý do: {ly_do}",
+            duong_dan="/tai-khoan",
+            khoa_gom=thong_bao.KHOA_TAI_KHOAN.format(sub=sub, loai="goi_thu_hoi"),
+            c=c,
+        )
+        return _ket_qua(sub, str(u["plan"]), now)
+
+
 def tu_choi(yeu_cau_id: int, ly_do: str, boi: str, ip: str | None = None) -> dict:
     """Từ chối và lưu lý do. Không đụng `users`; unique index chỉ chặn `cho_duyet` nên
     người dùng gửi lại được."""
