@@ -32,9 +32,7 @@ class LuotTruoc(BaseModel):
     # được chấp nhận — ~100 MB đi thẳng vào prompt `giai_nghia`, không qua bước
     # cắt nào (`ngu_canh` cắt `tra_loi` mà không cắt trường này). Trần 500 vì một
     # `duong_dan` thật dài nhất trong corpus dưới 100 ký tự.
-    duong_dan: list[Annotated[str, StringConstraints(max_length=500)]] = Field(
-        default_factory=list, max_length=50
-    )
+    duong_dan: list[Annotated[str, StringConstraints(max_length=500)]] = Field(default_factory=list, max_length=50)
 
 
 class TraCuuRequest(BaseModel):
@@ -380,7 +378,7 @@ class FindingOut(BaseModel):
     muc_do: str
     thong_diep: str
     dieu_khoan_lien_quan: str | None = None
-    can_cu: str | None = None             # duong_dan — CHUỖI (không phải dict brief gốc, theo ràng buộc #3)
+    can_cu: str | None = None  # duong_dan — CHUỖI (không phải dict brief gốc, theo ràng buộc #3)
     rule_id: str | None = None
     # Ràng buộc #3: thiếu hai trường này thì panel đối chiếu phía FE không mở
     # được (can_cu một mình chỉ là chuỗi duong_dan). None cho
@@ -404,7 +402,7 @@ class AuditReportOut(BaseModel):
 
 
 class SoanThaoResponse(BaseModel):
-    document: str                    # Markdown
+    document: str  # Markdown
     clauses: list[dict]
     audit_report: AuditReportOut
     trace_id: str
@@ -759,6 +757,7 @@ class HanMucResponse(BaseModel):
     muc: list[MucHanMuc]
     phien: PhienHanMuc
     het_han_luc: datetime | None
+    bi_khoa: bool = False
     ghi_chu: str
 
 
@@ -869,6 +868,7 @@ class YeuCauNangGoiOut(BaseModel):
     trang_thai: str
     tao_luc: datetime
     xu_ly_luc: datetime | None
+    ly_do: str | None = None
 
 
 class LuotNhap(BaseModel):
@@ -906,3 +906,120 @@ class NhapPhienRequest(BaseModel):
 
 class NhapPhienResponse(BaseModel):
     id: str
+
+
+# ══ /admin — đường quản trị (spec 2026-09-08 cms-quan-ly-tai-khoan §5.3) ═════════
+class LyDoRequest(BaseModel):
+    ly_do: str = Field(..., min_length=1, max_length=500)
+
+
+class DatGoiRequest(BaseModel):
+    plan: str = Field(..., min_length=1, max_length=32)
+    so_ngay: int | None = Field(default=None, ge=1, le=3650)  # None + gói trả phí = vô thời hạn
+
+
+class DaDocRequest(BaseModel):
+    ids: list[int] = Field(..., min_length=1, max_length=200)
+
+
+class KetQuaGoiOut(BaseModel):
+    sub: str
+    plan: str
+    plan_het_han: datetime | None
+
+
+class YeuCauAdminOut(BaseModel):
+    id: int
+    user_sub: str
+    email: str | None
+    loai: str
+    goi_hien_tai: str
+    goi_muon: str
+    trang_thai: str
+    tao_luc: datetime
+    xu_ly_luc: datetime | None
+    xu_ly_boi: str | None
+    ly_do: str | None
+    plan_hieu_luc: str
+    khoa_luc: datetime | None
+
+
+class DanhSachYeuCauOut(BaseModel):
+    tong: int
+    items: list[YeuCauAdminOut]
+
+
+class TaiKhoanTomTatOut(BaseModel):
+    sub: str
+    email: str | None
+    plan: str  # gói HIỆU LỰC
+    plan_het_han: datetime | None
+    khoa_luc: datetime | None
+    tao_luc: datetime
+    so_phien: int
+    luot_30_ngay: int
+
+
+class DanhSachTaiKhoanOut(BaseModel):
+    tong: int
+    items: list[TaiKhoanTomTatOut]
+
+
+class TaiKhoanChiTietOut(HoSoResponse):
+    sub: str
+    khoa_luc: datetime | None
+    khoa_ly_do: str | None
+    yeu_cau: list[YeuCauNangGoiOut]
+
+
+class NhatKyOut(BaseModel):
+    id: int
+    hanh_dong: str
+    doi_tuong: str | None
+    chi_tiet: dict
+    boi: str
+    tac_nhan_loai: str
+    ip: str | None
+    tao_luc: datetime
+
+
+class DanhSachNhatKyOut(BaseModel):
+    tong: int
+    items: list[NhatKyOut]
+
+
+class TongQuanOut(BaseModel):
+    tong_tai_khoan: int
+    dang_ca_nhan: int
+    cho_duyet: int
+    het_han_7_ngay: int
+    moi_7_ngay: int
+    dang_khoa: int
+    hoi_dap_hom_nay: int
+
+
+class GoiOut(BaseModel):
+    ma: str
+    ten: str
+    han_muc: dict[str, int]
+
+
+class DanhSachGoiOut(BaseModel):
+    goi: list[GoiOut]
+    goi_mac_dinh: str
+    chu_ky_pro_ngay: int
+
+
+class ThongBaoOut(BaseModel):
+    id: int
+    loai: str
+    tieu_de: str
+    noi_dung: str
+    duong_dan: str
+    da_doc: bool
+    tao_luc: datetime
+
+
+class DanhSachThongBaoOut(BaseModel):
+    so_chua_doc: int
+    items: list[ThongBaoOut]

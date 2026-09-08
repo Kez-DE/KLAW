@@ -149,18 +149,14 @@ class Settings(BaseSettings):
     # ≈ 272 request ở mức đắt nhất đã ghi nhận ($0,00735). 0 = TẮT (cần cho
     # eval sweep chạy hàng trăm request qua HTTP) — phải đặt TAY, không phải
     # mặc định: mặc định vô hạn là đúng thứ rà soát bảo mật đã liệt kê.
-    tran_chi_phi_ngay_usd: float = Field(
-        default=2.0, ge=0.0, validation_alias="KLAW_TRAN_CHI_PHI_NGAY_USD"
-    )
+    tran_chi_phi_ngay_usd: float = Field(default=2.0, ge=0.0, validation_alias="KLAW_TRAN_CHI_PHI_NGAY_USD")
 
     # 10 lượt/60s/IP: `/tra-cuu` có p50 10s (đo trên 204 dòng traces) nên một
     # người dùng thật không vượt ~6 lượt/phút; 10 là 1,7× mức đó. Một vòng
     # `curl` bị hãm còn 10/phút = $4,41/giờ ở mức đắt nhất — trần ngày ở trên
     # dừng nó sau ~27 phút. Hai cổng CHỒNG nhau chứ không thay nhau.
     rate_limit_so_luot: int = Field(default=10, ge=0, validation_alias="KLAW_RATE_LIMIT_SO_LUOT")
-    rate_limit_cua_so_giay: int = Field(
-        default=60, gt=0, validation_alias="KLAW_RATE_LIMIT_CUA_SO_GIAY"
-    )
+    rate_limit_cua_so_giay: int = Field(default=60, gt=0, validation_alias="KLAW_RATE_LIMIT_CUA_SO_GIAY")
 
     # Giỏ RIÊNG cho lá chắn chạy TRƯỚC xác thực (xem `bao_ve.cong_bao_ve`).
     # Nó có một việc: chặn lụt token rác, mỗi token `kid` lạ ép một round-trip
@@ -177,9 +173,7 @@ class Settings(BaseSettings):
     # `rate_limit_so_luot = 0` TẮT luôn cả giỏ này — MỘT công tắc cho cả tầng
     # nhịp, để `eval/run.py` không phải nhớ hai biến (quên một biến là bão 429
     # giữa một lượt đo).
-    rate_limit_ip_so_luot: int = Field(
-        default=60, ge=0, validation_alias="KLAW_RATE_LIMIT_IP_SO_LUOT"
-    )
+    rate_limit_ip_so_luot: int = Field(default=60, ge=0, validation_alias="KLAW_RATE_LIMIT_IP_SO_LUOT")
 
     # False = KHÔNG tin `X-Forwarded-For`. Bật CHỈ KHI thật sự có reverse proxy
     # đặt header đó: nếu tin mà không có proxy, bất kỳ ai cũng gửi một IP giả
@@ -193,9 +187,7 @@ class Settings(BaseSettings):
     # thực tế thì `ip_goi` rơi về địa chỉ peer (chặn), đặt sai theo hướng NHỎ
     # hơn thì nó đọc trúng địa chỉ một proxy — cả hai đều không cho kẻ gọi tự
     # chọn giỏ đếm của mình, khác hẳn việc lấy phần tử đầu.
-    so_hop_proxy_tin_cay: int = Field(
-        default=1, ge=1, validation_alias="KLAW_SO_HOP_PROXY_TIN_CAY"
-    )
+    so_hop_proxy_tin_cay: int = Field(default=1, ge=1, validation_alias="KLAW_SO_HOP_PROXY_TIN_CAY")
 
     # 7 ngày. 0 = TẮT — bắt buộc phải có: `eval/run.py` đo latency/chi phí thật
     # thì không được đo qua cache.
@@ -204,9 +196,7 @@ class Settings(BaseSettings):
     # (cửa sổ dài nhất từng cần trong phiên đo là vài ngày), đủ ngắn để không
     # giữ câu hỏi GẮN TÊN của người dùng hàng năm trời. `0` = TẮT, theo đúng
     # quy ước của các bộ đếm khác trong file này.
-    traces_an_danh_sau_ngay: int = Field(
-        default=90, ge=0, validation_alias="KLAW_TRACES_AN_DANH_SAU_NGAY"
-    )
+    traces_an_danh_sau_ngay: int = Field(default=90, ge=0, validation_alias="KLAW_TRACES_AN_DANH_SAU_NGAY")
 
     # ══ Auth Supabase (Plan 4b) ══════════════════════════════════════════════
     # Supabase chỉ làm AUTH (Google + Microsoft); dữ liệu ở lại Postgres này.
@@ -225,16 +215,19 @@ class Settings(BaseSettings):
     # `aud` của access token Supabase là `authenticated` cho người đã đăng nhập
     # (`anon` là token KHÁCH — cố ý không chấp nhận). Để cấu hình được vì đây là
     # giá trị của nhà cung cấp, không phải bất biến của dự án này.
-    supabase_jwt_aud: str = Field(
-        default="authenticated", validation_alias="KLAW_SUPABASE_JWT_AUD"
-    )
+    supabase_jwt_aud: str = Field(default="authenticated", validation_alias="KLAW_SUPABASE_JWT_AUD")
 
     # 600s = đúng TTL cache JWKS ở tầng edge của Supabase, để không dựng một tầng
     # cache lệch pha với nhà cung cấp. Ngắn hơn = khoá bị thu hồi lan nhanh hơn
     # nhưng thêm round-trip trên đường request nóng.
-    supabase_jwks_ttl_giay: int = Field(
-        default=600, gt=0, validation_alias="KLAW_SUPABASE_JWKS_TTL_GIAY"
-    )
+    supabase_jwks_ttl_giay: int = Field(default=600, gt=0, validation_alias="KLAW_SUPABASE_JWKS_TTL_GIAY")
+
+    # ══ Đường quản trị (spec 2026-09-08 cms-quan-ly-tai-khoan §5.3) ═════════
+    # Khoá dịch vụ RIÊNG cho router `/admin/*`, chỉ CMS giữ. RỖNG = router
+    # `/admin` TỪ CHỐI TOÀN BỘ (503) — NGƯỢC quy ước của `api_key` (rỗng = mở),
+    # và cố ý: một đường quản trị mở khi quên cấu hình hỏng nặng hơn một đường
+    # quản trị đóng. Cổng công khai không đọc biến này.
+    admin_api_key: str = Field(default="", validation_alias="KLAW_ADMIN_API_KEY")
 
 
 @lru_cache

@@ -123,4 +123,4 @@ async def test_lifespan_ap_migration_019_truoc_khi_kiem_can_cu(cai_dat, bo_qua_c
     monkeypatch.setattr(main.db_svc, "run_migrations", lambda chi=None: goi.append(chi) or [])
     async with lifespan(app):
         pass
-    assert goi == ["019", "020", "021"]
+    assert goi == ["019", "020", "021", "022"]
