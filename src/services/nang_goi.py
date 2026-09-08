@@ -28,7 +28,7 @@ class ChuaCoHoSo(ValueError):  # noqa: N818
     pass
 
 
-_SQL_USER = text("SELECT plan, plan_het_han FROM users WHERE sub = :sub")
+_SQL_USER = text("SELECT plan, plan_het_han, email FROM users WHERE sub = :sub")
 _SQL_TAO = text(
     "INSERT INTO yeu_cau_nang_goi (user_sub, loai, goi_hien_tai, goi_muon) VALUES (:sub, :loai, :ht, :muon)"
     " RETURNING id, loai, goi_hien_tai, goi_muon, trang_thai, tao_luc, xu_ly_luc, ly_do"
@@ -58,6 +58,13 @@ def tao_yeu_cau(sub: str, goi_muon: str) -> dict:
     try:
         with get_engine().begin() as c:
             r = c.execute(_SQL_TAO, {"sub": sub, "loai": loai, "ht": hieu_luc, "muon": goi_muon}).mappings().one()
+            viec = "gia hạn" if loai == "gia_han" else "nâng lên"
+            thong_bao.ghi(
+                nguoi_nhan=None, loai="yeu_cau_moi", tieu_de="Yêu cầu nâng gói mới",
+                noi_dung=f"{u['email'] or sub} muốn {viec} gói {ten_goi(goi_muon)}.",
+                duong_dan="/admin/yeu-cau?trang_thai=cho_duyet",
+                khoa_gom=thong_bao.KHOA_YEU_CAU.format(sub=sub), c=c,
+            )
             return dict(r)
     except IntegrityError as e:  # unique index: đã có yêu cầu cho_duyet
         raise DangCho() from e

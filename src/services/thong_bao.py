@@ -73,3 +73,8 @@ def danh_dau_da_doc(ids: list[int], nguoi_nhan: str | None) -> int:
         return 0
     with get_engine().begin() as c:
         return c.execute(_SQL_DA_DOC, {"ids": ids, "nn": nguoi_nhan}).rowcount
+
+
+def hop_thu(nguoi_nhan: str | None, chi_chua_doc: bool = False) -> dict:
+    """Hình `DanhSachThongBaoOut` — dùng chung cho router admin và router người dùng."""
+    return {"so_chua_doc": dem_chua_doc(nguoi_nhan), "items": danh_sach(nguoi_nhan, chi_chua_doc=chi_chua_doc)}

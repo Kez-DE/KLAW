@@ -11,12 +11,16 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
+from src.api import luong_thong_bao
 from src.models.schemas import (
+    DaDocRequest,
     DanhSachGoiOut,
     DanhSachNhatKyOut,
     DanhSachTaiKhoanOut,
+    DanhSachThongBaoOut,
     DanhSachYeuCauOut,
     DatGoiRequest,
     HoatDongNgay,
@@ -27,7 +31,7 @@ from src.models.schemas import (
     TongQuanOut,
     YeuCauNangGoiOut,
 )
-from src.services import bao_ve, nang_goi, nhat_ky, tai_khoan_qt
+from src.services import bao_ve, nang_goi, nhat_ky, tai_khoan_qt, thong_bao
 from src.services.bao_ve import kiem_admin_key
 
 logger = logging.getLogger(__name__)
@@ -219,3 +223,21 @@ async def nhat_ky_qt(
             headers={"Content-Disposition": 'attachment; filename="nhat-ky-quan-tri.csv"'},
         )
     return DanhSachNhatKyOut.model_validate({"tong": tong, "items": rows})
+
+
+_HEADER_SSE = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
+
+
+@router.get("/thong-bao", response_model=DanhSachThongBaoOut)
+async def hop_thu_admin(ctx: dict = Depends(kiem_admin_key), chi_chua_doc: bool = False) -> DanhSachThongBaoOut:
+    return DanhSachThongBaoOut.model_validate(await run_in_threadpool(thong_bao.hop_thu, None, chi_chua_doc))
+
+
+@router.post("/thong-bao/da-doc")
+async def da_doc_admin(body: DaDocRequest, ctx: dict = Depends(kiem_admin_key)) -> dict:
+    return {"da_danh_dau": await run_in_threadpool(thong_bao.danh_dau_da_doc, body.ids, None)}
+
+
+@router.get("/thong-bao/luong")
+async def luong_admin(ctx: dict = Depends(kiem_admin_key)) -> StreamingResponse:
+    return StreamingResponse(luong_thong_bao.phat(None), media_type="text/event-stream", headers=_HEADER_SSE)
