@@ -2,7 +2,7 @@
 import { Button } from '@payloadcms/ui'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Bang } from '../components/ui/Bang'
 import { HopXacNhan } from '../components/ui/HopXacNhan'
 import { ThongBaoLoi } from '../components/ui/ThongBaoLoi'
@@ -28,10 +28,13 @@ export function YeuCauClient({ vaiTro }: { vaiTro: 'doc' | 'quan_tri' }) {
   const [thongDiep, setThongDiep] = useState<ThongDiep | null>(null)
   const [subKhoa, setSubKhoa] = useState<string | null>(null)
 
+  const theHe = useRef(0)
+  // Phản hồi cũ tới sau không được ghi đè danh sách của lần gọi mới hơn.
   const taiDanhSach = useCallback(() => {
     const p = new URLSearchParams({ trang_thai: tab, limit: String(MOI_TRANG), offset: String(trang * MOI_TRANG) })
     if (q) p.set('q', q)
-    void goiQuanTri<{ tong: number; items: YeuCauAdmin[] }>(`/yeu-cau?${p}`).then(setDs)
+    const the = ++theHe.current
+    void goiQuanTri<{ tong: number; items: YeuCauAdmin[] }>(`/yeu-cau?${p}`).then((kq) => { if (the === theHe.current) setDs(kq) })
   }, [tab, trang, q])
   useEffect(() => { taiDanhSach() }, [taiDanhSach])
   // Danh mục gói tải một lần — không setState đồng bộ trong effect (chỉ trong .then).

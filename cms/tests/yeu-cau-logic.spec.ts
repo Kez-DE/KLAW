@@ -6,5 +6,6 @@ describe('thông điệp sau duyệt/từ chối (spec §6.5)', () => {
     expect(thongDiepSauThaoTac(409, 'duyet', 'x')).toMatchObject({ kieu: 'canh_bao', taiLai: true, chu: expect.stringContaining('người khác') })
     expect(thongDiepSauThaoTac(423, 'duyet', 'x')).toMatchObject({ kieu: 'loi', chu: expect.stringContaining('mở khoá') })
     expect(thongDiepSauThaoTac(500, 'tu_choi', 'Máy bận')).toEqual({ kieu: 'loi', chu: 'Máy bận', taiLai: false })
+    expect(thongDiepSauThaoTac(403, 'duyet', '')).toEqual({ kieu: 'loi', chu: 'Vai trò của bạn chỉ được xem, không duyệt được.', taiLai: false })
   })
 })
