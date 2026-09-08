@@ -11,12 +11,17 @@ import { Admins } from './src/collections/Admins'
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Gốc công khai: Railway bơm RAILWAY_PUBLIC_DOMAIN; PAYLOAD_PUBLIC_SERVER_URL ghi đè cho
-// host khác. Local để trống → URL tương đối.
+// host khác. Local để trống → URL tương đối. Dùng `||` (không phải `??`) vì
+// PAYLOAD_PUBLIC_SERVER_URL='' (chuỗi rỗng, giá trị mặc định trong .env.example) vẫn phải
+// rơi xuống RAILWAY_PUBLIC_DOMAIN — production BẮT BUỘC đặt một trong hai, nếu không
+// origins rỗng ở production khiến `csrf: []`, vô hiệu hoá bảo vệ CSRF.
 const serverURL =
-  process.env.PAYLOAD_PUBLIC_SERVER_URL ??
+  process.env.PAYLOAD_PUBLIC_SERVER_URL ||
   (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '')
 const laProd = process.env.NODE_ENV === 'production'
-const origins = laProd ? [serverURL].filter(Boolean) : ['http://localhost:3001', 'http://127.0.0.1:3001']
+const origins = laProd
+  ? [serverURL].filter(Boolean)
+  : ['http://localhost:3001', 'http://127.0.0.1:3001']
 
 export default buildConfig({
   admin: {

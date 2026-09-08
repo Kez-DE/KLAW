@@ -7,6 +7,10 @@ const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
 
 const nextConfig: NextConfig = {
+  // Không có route công khai (đã bỏ (frontend)) — điều `/` về thẳng admin thay vì 404.
+  async redirects() {
+    return [{ source: '/', destination: '/admin', permanent: false }]
+  },
   webpack: (webpackConfig) => {
     webpackConfig.resolve.extensionAlias = {
       '.cjs': ['.cts', '.cjs'],

@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
-    "start": "next start",
+    "start": "bash scripts/start.sh",
     "payload": "payload",
     "migrate": "payload migrate",
     "migrate:create": "payload migrate:create",

@@ -5,7 +5,10 @@ import { defineConfig } from 'vitest/config'
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   resolve: {
-    alias: { '@payload-config': path.resolve(dirname, './payload.config.ts'), '@': path.resolve(dirname, './src') },
+    alias: {
+      '@payload-config': path.resolve(dirname, './payload.config.ts'),
+      '@': path.resolve(dirname, './src'),
+    },
   },
   test: {
     environment: 'node',
