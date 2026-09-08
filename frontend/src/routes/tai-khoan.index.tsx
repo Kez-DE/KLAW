@@ -2,10 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
 import { LichHoatDong } from "@/components/tai-khoan/LichHoatDong";
 import { ThuocMucDung } from "@/components/tai-khoan/ThuocMucDung";
+import { TheTaiKhoanKhoa } from "@/components/tai-khoan/TheTaiKhoanKhoa";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { useTaiMot } from "@/hooks/use-goi-api";
 import { goi } from "@/lib/api";
-import { dinhDangMoc, soNgayCon } from "@/lib/han-muc";
+import { dinhDangMoc, laBiKhoa, soNgayCon } from "@/lib/han-muc";
 import { tenGoi } from "@/lib/goi";
 import { laHoSo } from "@/lib/klaw";
 import { chuCaiDau, tenHienThi } from "@/lib/tai-khoan";
@@ -62,6 +63,17 @@ const NUT_GIA_HAN =
 function HoSoPage() {
   const hoSo = useTaiMot("/ho-so", laHoSo);
   const { hanMuc, moNangGoi, user } = useTaiKhoan();
+
+  // Tài khoản bị khoá: `/ho-so` trả 403, và `BaoLoi` gộp 401/403 vào cùng lời
+  // khuyên "đăng nhập" — sai với người ĐANG đăng nhập nhưng bị khoá. Thẻ khoá
+  // ưu tiên trước cả trạng thái tải/lỗi của `hoSo`.
+  if (laBiKhoa(hanMuc.hanMuc)) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <TheTaiKhoanKhoa />
+      </div>
+    );
+  }
 
   if (hoSo.loi !== null) {
     return (

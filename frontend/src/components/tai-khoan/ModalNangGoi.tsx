@@ -7,6 +7,7 @@ import { goi } from "@/lib/api";
 import { GOI_CARD } from "@/lib/goi";
 import { soNgayCon } from "@/lib/han-muc";
 import { laYeuCauNangGoi, laYeuCauNangGoiHoacNull, type YeuCauNangGoi } from "@/lib/klaw";
+import { cn } from "@/lib/utils";
 
 const NHAN_TIEU_DIEM =
   'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -20,13 +21,15 @@ function CardGoi({
   card,
   nut,
   ghiChu,
+  className,
 }: {
   card: (typeof GOI_CARD)["free"];
   nut: ReactNode;
   ghiChu?: string;
+  className?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className={cn("rounded-xl border border-border bg-card p-5", className)}>
       <p className="m-0 text-[13px] font-medium text-brass-600">{card.nhan}</p>
       <h3 className="font-display mt-1 text-2xl text-primary">{card.tieuDe}</h3>
       <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{card.moTa}</p>
@@ -208,17 +211,20 @@ export function ModalNangGoi() {
         )}
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <CardGoi card={GOI_CARD.free} nut={nutMienPhi} />
-          <div>
+          <div className="flex flex-col">
             <CardGoi
               card={GOI_CARD.pro}
               nut={nutCaNhan}
               ghiChu="Chưa có thanh toán trực tuyến. Tôi sẽ báo qua email khi gói được mở."
+              className="flex-1"
             />
-            {yeuCau?.trang_thai === "tu_choi" && yeuCau.ly_do !== null && (
-              <p role="status" className="mt-2 mb-0 text-[13px] leading-5 text-muted-foreground">
-                Yêu cầu trước chưa được duyệt: {yeuCau.ly_do}. Bạn gửi lại được ngay.
-              </p>
-            )}
+            {yeuCau?.trang_thai === "tu_choi" &&
+              typeof yeuCau.ly_do === "string" &&
+              yeuCau.ly_do !== "" && (
+                <p role="status" className="mt-2 mb-0 text-[13px] leading-5 text-muted-foreground">
+                  Yêu cầu trước chưa được duyệt: {yeuCau.ly_do}. Bạn gửi lại được ngay.
+                </p>
+              )}
           </div>
         </div>
       </div>

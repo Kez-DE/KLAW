@@ -2,7 +2,6 @@ import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Bell } from "lucide-react";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
-import { useThongBao } from "@/hooks/use-thong-bao";
 import type { ThongBao } from "@/lib/klaw";
 import { thoiGianTuongDoi } from "@/lib/phien";
 import { duongDanTrongApp, formatBadge, nhomTheoNgay } from "@/lib/thong-bao";
@@ -15,10 +14,15 @@ const MUC =
  * Chuông thông báo của vỏ ứng dụng (spec 2B §7). Cùng khuôn `TheTaiKhoan` +
  * `MenuTaiKhoan`: nút mở/đóng bằng state cục bộ, popover đóng bằng Escape hoặc
  * bấm ra ngoài, tiêu điểm trả về nút khi đóng.
+ *
+ * Đọc `thongBao` từ `useTaiKhoan()` thay vì tự gọi `useThongBao` (I2): dải
+ * icon cột trái bị ẩn bằng CSS (`hidden md:flex`) chứ không unmount, nên bell
+ * ở đó vẫn sống song song với bell trong sheet di động — gọi hook tại chỗ sẽ
+ * mở hai luồng SSE và hai lượt GET `/thong-bao` cho cùng một phiên.
  */
-export function ChuongThongBao() {
-  const { daDangNhap } = useTaiKhoan();
-  const { soChuaDoc, items, danhDauDaDoc, loiDanhDau, taiLai } = useThongBao(daDangNhap);
+export function ChuongThongBao({ viTri = "rail" }: { viTri?: "rail" | "sheet" }) {
+  const { thongBao } = useTaiKhoan();
+  const { soChuaDoc, items, dangTai, danhDauDaDoc, danhDauTatCa, loiDanhDau } = thongBao;
   const [mo, datMo] = useState(false);
   const nut = useRef<HTMLButtonElement | null>(null);
   // Ổn định vì lý do giống `TheTaiKhoan`: `KhungThongBao` gắn hiệu ứng tiêu
@@ -30,11 +34,13 @@ export function ChuongThongBao() {
     <div className="relative">
       {mo && (
         <KhungThongBao
+          viTri={viTri}
           items={items}
+          dangTai={dangTai}
           soChuaDoc={soChuaDoc}
           loiDanhDau={loiDanhDau}
           danhDauDaDoc={danhDauDaDoc}
-          taiLai={taiLai}
+          danhDauTatCa={danhDauTatCa}
           onDong={dong}
           nutMo={nut}
         />
@@ -63,28 +69,31 @@ export function ChuongThongBao() {
 }
 
 interface KhungProps {
+  viTri: "rail" | "sheet";
   items: ThongBao[];
+  dangTai: boolean;
   soChuaDoc: number;
   loiDanhDau: string | null;
   danhDauDaDoc: (ids: number[]) => Promise<void>;
-  taiLai: () => void;
+  danhDauTatCa: () => Promise<void>;
   onDong: () => void;
   nutMo: RefObject<HTMLButtonElement | null>;
 }
 
 function KhungThongBao({
+  viTri,
   items,
+  dangTai,
   soChuaDoc,
   loiDanhDau,
   danhDauDaDoc,
-  taiLai,
+  danhDauTatCa,
   onDong,
   nutMo,
 }: KhungProps) {
   const khung = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const nhom = nhomTheoNgay(items, new Date());
-  const idsChuaDoc = items.filter((tb) => !tb.da_doc).map((tb) => tb.id);
 
   useEffect(() => {
     const nut = nutMo.current;
@@ -126,18 +135,21 @@ function KhungThongBao({
   return (
     <div
       ref={khung}
-      className="rise-in absolute right-0 bottom-full z-50 mb-2 max-h-[70vh] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-soft"
+      className={cn(
+        "rise-in absolute z-50 max-h-[70vh] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-soft",
+        // I1: neo `left-0` (không phải `right-0`) vì nút mở nằm sát mép trái
+        // trong dải icon — neo phải sẽ đẩy phần lớn panel ra ngoài màn hình.
+        // Trong sheet di động panel mở XUỐNG (`top-full`) thay vì lên
+        // (`bottom-full`) vì nút nằm gần đỉnh sheet, không đủ chỗ phía trên.
+        viTri === "sheet" ? "top-full left-0 mt-2" : "bottom-full left-0 mb-2",
+      )}
     >
       <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
         <p className="m-0 text-[13px] font-semibold text-foreground">Thông báo</p>
         {soChuaDoc > 0 && (
           <button
             type="button"
-            // `soChuaDoc` (đếm phía máy chủ, không giới hạn) quyết định có hiện
-            // nút hay không — `idsChuaDoc` chỉ là trang đã tải (tối đa 50 dòng).
-            // Còn thông báo chưa đọc ngoài trang này thì đánh dấu xong bấm lại
-            // lần nữa để dọn tiếp; trang rỗng thì chỉ còn việc tải lại.
-            onClick={() => (idsChuaDoc.length > 0 ? void danhDauDaDoc(idsChuaDoc) : taiLai())}
+            onClick={() => void danhDauTatCa()}
             className="focus-brass cursor-pointer rounded-md text-[12px] font-medium text-primary hover:underline"
           >
             Đã đọc tất cả
@@ -150,7 +162,9 @@ function KhungThongBao({
         </p>
       )}
       {items.length === 0 ? (
-        <p className="m-0 px-1 py-3 text-[13px] text-muted-foreground">Chưa có thông báo nào.</p>
+        <p className="m-0 px-1 py-3 text-[13px] text-muted-foreground">
+          {dangTai ? "Đang tải…" : "Chưa có thông báo nào."}
+        </p>
       ) : (
         <div role="menu" aria-label="Thông báo">
           {nhom.map((n) => (

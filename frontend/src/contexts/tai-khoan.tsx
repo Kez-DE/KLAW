@@ -13,6 +13,7 @@ import { ModalNangGoi } from "@/components/tai-khoan/ModalNangGoi";
 import { useAuth } from "@/hooks/use-auth";
 import { useHanMuc, type TrangThaiHanMuc } from "@/hooks/use-han-muc";
 import { useHoiThoai, type TrangThaiHoiThoai } from "@/hooks/use-hoi-thoai";
+import { useThongBao } from "@/hooks/use-thong-bao";
 import { catThreadKhach } from "@/lib/khach";
 import type { LuotDaXong } from "@/lib/lich-su";
 
@@ -32,6 +33,10 @@ export interface TaiKhoan {
   laKhach: boolean;
   hoiThoai: TrangThaiHoiThoai;
   hanMuc: TrangThaiHanMuc;
+  /** I2: một luồng `/thong-bao/luong` cho cả phiên — hoisted lên đây vì
+   *  `ChuongThongBao` dựng ở cả dải icon lẫn sheet di động cùng lúc (dải bị
+   *  `hidden` bằng CSS, không unmount), nên gọi hook tại chỗ sẽ mở hai luồng. */
+  thongBao: ReturnType<typeof useThongBao>;
   nangGoiMo: boolean;
   moNangGoi: () => void;
   dongNangGoi: () => void;
@@ -52,6 +57,10 @@ export function TaiKhoanProvider({ children }: { children: ReactNode }) {
   const laKhach = !chuaCauHinh && !dangKiemPhien && user === null;
   const hoiThoai = useHoiThoai(daDangNhap);
   const hanMuc = useHanMuc(!chuaCauHinh && !dangKiemPhien); // khách cũng có thanh đo (X-Khach-Id)
+  // M2: một thông báo khoá/mở tài khoản tới qua SSE thì tải lại `hanMuc` ngay,
+  // vì đó là cách duy nhất một thay đổi giữa phiên (admin khoá tài khoản) tới
+  // được client mà không cần người dùng tự làm mới trang.
+  const thongBao = useThongBao(daDangNhap, hanMuc.taiLai);
   const [nangGoiMo, datNangGoiMo] = useState(false);
   const navigate = useNavigate();
   const hanhDongPhienMoi = useRef<(() => void) | null>(null);
@@ -75,6 +84,7 @@ export function TaiKhoanProvider({ children }: { children: ReactNode }) {
       laKhach,
       hoiThoai,
       hanMuc,
+      thongBao,
       nangGoiMo,
       moNangGoi: () => datNangGoiMo(true),
       dongNangGoi: () => datNangGoiMo(false),
@@ -96,6 +106,7 @@ export function TaiKhoanProvider({ children }: { children: ReactNode }) {
       laKhach,
       hoiThoai,
       hanMuc,
+      thongBao,
       nangGoiMo,
       signOut,
       phienMoi,

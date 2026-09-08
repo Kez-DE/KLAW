@@ -22,6 +22,11 @@ assert.deepEqual(
   ).map((n) => n.nhan),
   ["Hôm nay", "Trước đó"],
 );
+assert.deepEqual(
+  nhomTheoNgay([tb(3, new Date(2026, 8, 8, 10).toISOString())], now).map((n) => n.nhan),
+  ["Hôm qua"],
+);
 assert.equal(duongDanTrongApp("/tai-khoan"), "/tai-khoan");
 assert.equal(duongDanTrongApp("https://x/y"), "/tai-khoan");
-console.log("kiem-thong-bao: 6/6");
+assert.equal(duongDanTrongApp("/dung-thu?x=1"), "/dung-thu?x=1");
+console.log("kiem-thong-bao: 8/8");

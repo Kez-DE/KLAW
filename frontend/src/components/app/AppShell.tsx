@@ -373,8 +373,8 @@ export function AppShell({
         <SheetDuoi id="sheet-tai-khoan" nhan="Tài khoản" onDong={() => datSheetTaiKhoan(false)}>
           {daDangNhap ? (
             <>
-              <div className="mb-2 flex justify-end">
-                <ChuongThongBao />
+              <div className="mb-2 flex justify-start">
+                <ChuongThongBao viTri="sheet" />
               </div>
               <ThanTaiKhoan onChon={() => datSheetTaiKhoan(false)} />
               <p className="m-0 mt-4 mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">

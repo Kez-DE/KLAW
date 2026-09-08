@@ -1107,6 +1107,9 @@ export function KhongGianSoanThao({
                   flash={flash}
                   chuThich={chuThich}
                   onGoto={(truong, buocDich) => {
+                    // Cổng bước 1 (khách/tài khoản bị khoá) không được bấm tắt
+                    // bằng cách bấm một chú thích trỏ sang bước sau.
+                    if (laKhach || biKhoa) return;
                     setBuoc(buocDich);
                     setTimeout(() => focusField(truong), 60);
                   }}

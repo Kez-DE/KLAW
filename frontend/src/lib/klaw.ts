@@ -920,7 +920,12 @@ export function laHoSo(x: unknown): x is HoSo {
 }
 
 export function laYeuCauNangGoi(x: unknown): x is YeuCauNangGoi {
-  return laBanGhi(x) && typeof x["id"] === "number" && typeof x["trang_thai"] === "string";
+  return (
+    laBanGhi(x) &&
+    typeof x["id"] === "number" &&
+    typeof x["trang_thai"] === "string" &&
+    (x["ly_do"] === null || typeof x["ly_do"] === "string")
+  );
 }
 
 export function laYeuCauNangGoiHoacNull(x: unknown): x is YeuCauNangGoi | null {
@@ -1016,7 +1021,9 @@ export function laHanMuc(x: unknown): x is HanMuc {
     typeof x["ap_dung"] === "boolean" &&
     Array.isArray(x["muc"]) &&
     laBanGhi(x["phien"]) &&
-    typeof x["bi_khoa"] === "boolean"
+    // Backend cũ có thể chưa gửi `bi_khoa` — `laBiKhoa` đã coi `undefined` là
+    // "không khoá", nên không chặn cả thanh đo hạn mức chỉ vì thiếu trường này.
+    (x["bi_khoa"] === undefined || typeof x["bi_khoa"] === "boolean")
   );
 }
 
