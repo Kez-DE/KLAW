@@ -348,6 +348,7 @@ async def test_vuot_han_muc_chan_TRUOC_khi_graph_chay(client, cai_dat, khoa_ky, 
     monkeypatch.setattr(routes, "_g", lambda: _Dem())
     monkeypatch.setattr(routes, "_ghi_traces", lambda *a, **k: None)
     monkeypatch.setattr(bao_ve, "ghi_nhan_nguoi_dung", lambda sub, email: "free")
+    monkeypatch.setattr(bao_ve, "ghi_nhan_va_kiem_khoa", lambda sub, email: "free")
     monkeypatch.setattr(bao_ve, "han_muc", lambda plan, khoa: 3)
     monkeypatch.setattr(bao_ve, "dem_luot", lambda sub, ep, moc: 3)
     r = await client.post("/api/v1/tra-cuu", json=_CAU_HOI, headers=_bearer(khoa_ky))
