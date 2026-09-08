@@ -1,6 +1,13 @@
 import { getPayload, type Payload } from 'payload'
 import config from '@payload-config'
 
+// Bảo vệ chống trỏ nhầm: test xoá/sửa dữ liệu thật (vd. hạ vai trò mọi quan_tri trong
+// admins.spec.ts) — một DATABASE_URI xuất khỏi shell (thắng `??=` ở tests/setup.ts) mà
+// không phải database test sẽ phá dữ liệu thật.
+if (!/_test(\?|$)/.test(process.env.DATABASE_URI ?? '')) {
+  throw new Error('DATABASE_URI của test phải trỏ tới database có hậu tố _test')
+}
+
 let cached: Promise<Payload> | undefined
 export const getTestPayload = (): Promise<Payload> => (cached ??= getPayload({ config }))
 

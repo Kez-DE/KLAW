@@ -66,6 +66,24 @@ describe('nhat_ky_cms (spec §6.3)', () => {
     expect(ipCua({ headers: new Headers() } as never)).toBeNull()
   })
 
+  it('afterError trên /api/admins/login với 403 (tài khoản vô hiệu) ghi dang_nhap_that_bai kèm email và IP', async () => {
+    const req = {
+      payload,
+      url: 'http://cms.local/api/admins/login',
+      headers: new Headers({ 'x-forwarded-for': '5.6.7.8' }),
+      data: { email: 'vohieu@klaw.test' },
+    }
+    await ghiDangNhapThatBai({ error: Object.assign(new Error('x'), { status: 403 }), req } as never)
+    const r = await payload.find({
+      collection: 'nhat_ky_cms',
+      where: { and: [{ hanh_dong: { equals: 'dang_nhap_that_bai' } }, { boi: { equals: 'vohieu@klaw.test' } }] },
+      sort: '-createdAt',
+      overrideAccess: true,
+    })
+    expect(r.totalDocs).toBeGreaterThan(0)
+    expect(r.docs[0].ip).toBe('5.6.7.8')
+  })
+
   it('afterError trên đường khác không ghi gì', async () => {
     const truoc = (await payload.count({ collection: 'nhat_ky_cms', overrideAccess: true })).totalDocs
     await ghiDangNhapThatBai({

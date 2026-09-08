@@ -31,9 +31,11 @@ export const taoEndpoint = (hang: Hang): Endpoint => ({
     const url = new URL(req.url ?? 'http://cms.local/')
     const body = hang.method === 'get' || typeof req.text !== 'function' ? undefined : await req.text()
     const duong = dienDuong(hang.duong, params)
-    const res = await goiKlaw({ method: hang.method, duong: duong + url.search, body: body || undefined, boi: user.email, ip: ipCua(req), sse: hang.sse })
+    const res = await goiKlaw({ method: hang.method, duong: duong + url.search, body: body || undefined, boi: user.email, ip: ipCua(req), sse: hang.sse, signal: hang.sse ? req.signal : undefined })
     if (hang.sse && res.ok) {
-      return new Response(res.body, { status: 200, headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' } })
+      // X-Accel-Buffering: no — tắt buffer ở proxy trung gian (Railway/nginx) để sự kiện tới
+      // trình duyệt ngay, không bị giữ lại tới khi đầy buffer.
+      return new Response(res.body, { status: 200, headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' } })
     }
     const than = await res.text()
     if (res.ok && hang.method !== 'get' && hang.hanhDong) {

@@ -7,7 +7,7 @@ import { Bang } from '../components/ui/Bang'
 import { HopXacNhan } from '../components/ui/HopXacNhan'
 import { ThongBaoLoi } from '../components/ui/ThongBaoLoi'
 import { goiQuanTri, type KetQua } from '../lib/goi-klaw'
-import { dinhDangLuc, nhanLoai, nhanTrangThaiYeuCau, tenGoi } from '../lib/hien-thi'
+import { dinhDangLuc, nhanLoai, nhanTrangThaiYeuCau, tenGoi, type DanhSachGoi } from '../lib/hien-thi'
 import { thongDiepSauThaoTac, type ThongDiep, type YeuCauAdmin } from './yeu-cau-logic'
 
 type Tab = 'cho_duyet' | 'da_duyet' | 'tu_choi'
@@ -38,7 +38,7 @@ export function YeuCauClient({ vaiTro }: { vaiTro: 'doc' | 'quan_tri' }) {
   }, [tab, trang, q])
   useEffect(() => { taiDanhSach() }, [taiDanhSach])
   // Danh mục gói tải một lần — không setState đồng bộ trong effect (chỉ trong .then).
-  useEffect(() => { void goiQuanTri<{ goi: { ma: string; ten: string }[] }>('/goi').then((kq) => { if (kq.ok) setGoi(kq.data.goi) }) }, [])
+  useEffect(() => { void goiQuanTri<DanhSachGoi>('/goi').then((kq) => { if (kq.ok) setGoi(kq.data.goi) }) }, [])
   // Debounce 400ms; Enter (apDungTim) áp ngay. setState nằm trong callback setTimeout, không đồng bộ trong effect.
   useEffect(() => {
     const id = setTimeout(() => { setTrang(0); setQ(qNhap) }, CHAM_TIM)
@@ -86,9 +86,9 @@ export function YeuCauClient({ vaiTro }: { vaiTro: 'doc' | 'quan_tri' }) {
 
   return (
     <div>
-      <div role="tablist" aria-label="Trạng thái yêu cầu" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div aria-label="Trạng thái yêu cầu" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {TABS.map((t) => (
-          <button key={t.khoa} type="button" role="tab" aria-selected={tab === t.khoa} onClick={() => chonTab(t.khoa)}>{t.nhan}</button>
+          <button key={t.khoa} type="button" aria-pressed={tab === t.khoa} onClick={() => chonTab(t.khoa)}>{t.nhan}</button>
         ))}
       </div>
       <input

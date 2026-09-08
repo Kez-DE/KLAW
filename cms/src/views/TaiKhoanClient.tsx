@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Bang } from '../components/ui/Bang'
 import { ThongBaoLoi } from '../components/ui/ThongBaoLoi'
 import { goiQuanTri, type KetQua } from '../lib/goi-klaw'
-import { dinhDangLuc, tenGoi } from '../lib/hien-thi'
+import { dinhDangLuc, tenGoi, type DanhSachGoi } from '../lib/hien-thi'
 import { ChiTietTaiKhoan } from './ChiTietTaiKhoan'
 import { hanHienThi, sapHetHan, type TaiKhoanTomTat } from './tai-khoan-logic'
 
@@ -36,7 +36,7 @@ export function TaiKhoanClient({ vaiTro }: { vaiTro: 'doc' | 'quan_tri' }) {
   }, [trang, q])
   useEffect(() => { if (!sub) taiDanhSach() }, [taiDanhSach, sub])
   // Danh mục gói tải một lần — không setState đồng bộ trong effect (chỉ trong .then).
-  useEffect(() => { void goiQuanTri<{ goi: { ma: string; ten: string }[]; goi_mac_dinh: string }>('/goi').then((kq) => { if (kq.ok) { setGoi(kq.data.goi); setGoiMacDinh(kq.data.goi_mac_dinh) } }) }, [])
+  useEffect(() => { void goiQuanTri<DanhSachGoi>('/goi').then((kq) => { if (kq.ok) { setGoi(kq.data.goi); setGoiMacDinh(kq.data.goi_mac_dinh) } }) }, [])
   // Debounce 400ms; Enter (apDungTim) áp ngay. setState nằm trong callback setTimeout, không đồng bộ trong effect.
   useEffect(() => {
     const id = setTimeout(() => { setTrang(0); setQ(qNhap) }, CHAM_TIM)
@@ -57,7 +57,8 @@ export function TaiKhoanClient({ vaiTro }: { vaiTro: 'doc' | 'quan_tri' }) {
 
   const apDungTim = () => { setTrang(0); setQ(qNhap) }
   const tong = ds?.ok ? ds.data.tong : 0
-  // ponytail: lọc client trên trang hiện tại, chuyển sang query KLAW khi > 500 tài khoản
+  // ponytail: lọc chỉ trong trang 50 tài khoản mới nhất (không quét hết), nâng cấp bằng
+  // query `sap_het_han` trên KLAW khi cần chính xác trên toàn bộ tài khoản.
   const items = ds?.ok ? (loc === 'het_han' ? ds.data.items.filter((r) => sapHetHan(r.plan_het_han)) : ds.data.items) : []
 
   const cot = [
@@ -77,7 +78,7 @@ export function TaiKhoanClient({ vaiTro }: { vaiTro: 'doc' | 'quan_tri' }) {
 
   return (
     <div>
-      {loc === 'het_han' && <p>Đang lọc: hết hạn trong 7 ngày · <Link href="/admin/tai-khoan">Bỏ lọc</Link></p>}
+      {loc === 'het_han' && <p>Đang lọc: hết hạn trong 7 ngày — trong {MOI_TRANG} tài khoản mới nhất. · <Link href="/admin/tai-khoan">Bỏ lọc</Link></p>}
       <input
         type="search"
         value={qNhap}
@@ -90,11 +91,13 @@ export function TaiKhoanClient({ vaiTro }: { vaiTro: 'doc' | 'quan_tri' }) {
       {ds === null ? <p>Đang tải…</p> : !ds.ok ? <ThongBaoLoi message={ds.message} onThuLai={taiDanhSach} /> : (
         <>
           <Bang cot={cot} hang={hang} rong="Không có tài khoản nào." onChonHang={(i) => router.push(`/admin/tai-khoan?sub=${items[i].sub}`)} />
-          <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Button buttonStyle="secondary" disabled={trang === 0} onClick={() => setTrang((t) => t - 1)}>Trước</Button>
-            <Button buttonStyle="secondary" disabled={(trang + 1) * MOI_TRANG >= tong} onClick={() => setTrang((t) => t + 1)}>Sau</Button>
-            <span>{tong === 0 ? 0 : trang * MOI_TRANG + 1}–{Math.min(tong, (trang + 1) * MOI_TRANG)} trong {tong}</span>
-          </div>
+          {loc !== 'het_han' && (
+            <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+              <Button buttonStyle="secondary" disabled={trang === 0} onClick={() => setTrang((t) => t - 1)}>Trước</Button>
+              <Button buttonStyle="secondary" disabled={(trang + 1) * MOI_TRANG >= tong} onClick={() => setTrang((t) => t + 1)}>Sau</Button>
+              <span>{tong === 0 ? 0 : trang * MOI_TRANG + 1}–{Math.min(tong, (trang + 1) * MOI_TRANG)} trong {tong}</span>
+            </div>
+          )}
         </>
       )}
     </div>

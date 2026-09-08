@@ -1,3 +1,7 @@
+/** Đáp ứng `/goi` (proxy KLAW) — dùng chung cho TaiKhoanClient, YeuCauClient, ChiTietTaiKhoan
+ * để tránh khai ba lần cùng một hình dạng. */
+export type DanhSachGoi = { goi: { ma: string; ten: string }[]; goi_mac_dinh: string; chu_ky_pro_ngay: number }
+
 const GOI_CUNG: Record<string, string> = { free: 'Miễn phí', pro: 'Cá nhân' }
 export const tenGoi = (ma: string, goi?: { ma: string; ten: string }[]): string => goi?.find((g) => g.ma === ma)?.ten ?? GOI_CUNG[ma] ?? ma
 

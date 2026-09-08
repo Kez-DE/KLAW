@@ -11,7 +11,8 @@ gốc dự án (Python/KLAW) dùng pip. Không trộn trình quản lý gói gi�
 ## Cài đặt local
 
 ```bash
-createdb -h localhost -U postgres klaw_cms          # một lần, cùng container klaw-db-1
+createdb -h localhost -U klaw klaw_cms              # một lần, role `klaw` (cùng container klaw-db-1)
+createdb -h localhost -U klaw klaw_cms_test         # cho `pnpm test` — xem bảng biến DATABASE_URI
 cd cms && pnpm install && cp .env.example .env      # điền năm biến — xem bảng dưới
 pnpm dev                                            # next dev -p 3001, push schema ở dev
 # KLAW: thêm KLAW_ADMIN_API_KEY vào .env.local, khởi động lại uvicorn
@@ -26,7 +27,7 @@ Biến môi trường (`.env.example`):
 |---|---|
 | `DATABASE_URI` | Kết nối Postgres tới database `klaw_cms` (riêng với `klaw`). |
 | `PAYLOAD_SECRET` | Khoá ký phiên Payload — sinh bằng `openssl rand -hex 32`. |
-| `PAYLOAD_PUBLIC_SERVER_URL` | Gốc công khai; để trống ở local. |
+| `PAYLOAD_PUBLIC_SERVER_URL` | Gốc công khai; để trống ở local. **Bắt buộc ở production** (hoặc `RAILWAY_PUBLIC_DOMAIN`) — thiếu cả hai thì allowlist CSRF rỗng, chấp nhận mọi Origin; `scripts/start.sh` từ chối khởi động trong trường hợp đó. |
 | `KLAW_API_URL` | Gốc API quản trị của KLAW (`/admin/*`). |
 | `KLAW_ADMIN_API_KEY` | Khoá gọi KLAW — phải cùng giá trị với `.env.local` của KLAW. |
 
@@ -44,7 +45,9 @@ thật (xem `scripts/start.sh`).
   `DATABASE_URI` là variable reference tới service Postgres, đổi tên database.
 - `KLAW_API_URL` dùng private networking
   (`http://klaw-api.railway.internal:8000/api/v1`); đặt `KLAW_TIN_PROXY_HEADER=true` và
-  `KLAW_SO_HOP_PROXY_TIN_CAY` đúng số hop ở KLAW để IP admin được ghi đúng trong nhật ký.
+  `KLAW_SO_HOP_PROXY_TIN_CAY=1` ở KLAW — CMS luôn chuyển tiếp đúng một giá trị
+  `X-Forwarded-For` (IP admin, xem `ipCua` trong `src/hooks/nhatKyCms.ts`), không phải
+  chuỗi hop gốc, nên số hop tin cậy phải là 1 để IP admin được ghi đúng trong nhật ký.
 - RAM: Payload + Next ước 512 MB – 1 GB — đây là chi phí định kỳ thật, không phải miễn phí.
 
 ## CI
@@ -55,7 +58,8 @@ action bên thứ ba để lọc riêng job): service container Postgres 16, `pn
 --frozen-lockfile`, `pnpm lint`, `pnpm type-check`, `pnpm build`, `pnpm test` (theo đúng
 thứ tự này — `pnpm build` phải chạy trước `pnpm test` để bài kiểm tra bí mật bundle có
 `.next/static` để đọc). Không đụng job Python, không cài hook git, không đổi branch
-protection.
+protection. Chạy cục bộ cũng theo đúng thứ tự này: thiếu `.next/static`,
+`tests/bundle.spec.ts` báo lỗi thay vì bỏ qua.
 
 ## Lưu trữ nhật ký
 

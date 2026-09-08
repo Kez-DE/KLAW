@@ -44,6 +44,14 @@ cd "$(dirname "$0")/.." || exit 1
 PATH="$PWD/node_modules/.bin:$PATH"
 export PATH
 
+# Fail closed: `payload.config.ts` builds `origins` from these two variables; if
+# production has neither, `origins` is `[]` and `csrf: []` makes Payload accept the
+# session cookie from any Origin. Refuse to boot rather than serve that silently.
+if [ "${NODE_ENV:-}" = production ] && [ -z "${PAYLOAD_PUBLIC_SERVER_URL:-}" ] && [ -z "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
+  echo "[start] FATAL: production thiếu cả PAYLOAD_PUBLIC_SERVER_URL và RAILWAY_PUBLIC_DOMAIN — allowlist CSRF sẽ rỗng, chấp nhận mọi Origin." >&2
+  exit 1
+fi
+
 readonly MAX_ATTEMPTS=2
 
 # Table rows are `│ <name> │ <batch> │ Yes|No │`. Match only lines carrying a

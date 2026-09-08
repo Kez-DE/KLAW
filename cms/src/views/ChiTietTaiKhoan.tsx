@@ -5,15 +5,14 @@ import { Bang } from '../components/ui/Bang'
 import { HopXacNhan } from '../components/ui/HopXacNhan'
 import { ThongBaoLoi } from '../components/ui/ThongBaoLoi'
 import { goiQuanTri, type KetQua } from '../lib/goi-klaw'
-import { dinhDangLuc, nhanLoai, nhanTrangThaiYeuCau, tenGoi } from '../lib/hien-thi'
+import { dinhDangLuc, nhanLoai, nhanTrangThaiYeuCau, tenGoi, type DanhSachGoi } from '../lib/hien-thi'
 import { cauXacNhan, hanHienThi, type HanhDongTK, type TaiKhoanChiTiet } from './tai-khoan-logic'
 
-type GoiDanhMuc = { goi: { ma: string; ten: string }[]; goi_mac_dinh: string; chu_ky_pro_ngay: number }
 type HopCho = { xn: ReturnType<typeof cauXacNhan>; onXacNhan: (lyDo?: string) => void } | null
 
 export function ChiTietTaiKhoan({ sub, vaiTro }: { sub: string; vaiTro: 'doc' | 'quan_tri' }) {
   const [ct, setCt] = useState<KetQua<TaiKhoanChiTiet> | null>(null)
-  const [danhMuc, setDanhMuc] = useState<KetQua<GoiDanhMuc> | null>(null)
+  const [danhMuc, setDanhMuc] = useState<KetQua<DanhSachGoi> | null>(null)
   const [goiChon, setGoiChon] = useState('')
   const [soNgayNhap, setSoNgayNhap] = useState('')
   const [hopCho, setHopCho] = useState<HopCho>(null)
@@ -24,7 +23,7 @@ export function ChiTietTaiKhoan({ sub, vaiTro }: { sub: string; vaiTro: 'doc' | 
   }, [sub])
   useEffect(() => { taiChiTiet() }, [taiChiTiet])
   // Danh mục gói tải một lần — setState nằm trong .then, không đồng bộ trong effect.
-  useEffect(() => { void goiQuanTri<GoiDanhMuc>('/goi').then((kq) => { setDanhMuc(kq); if (kq.ok) setSoNgayNhap(String(kq.data.chu_ky_pro_ngay)) }) }, [])
+  useEffect(() => { void goiQuanTri<DanhSachGoi>('/goi').then((kq) => { setDanhMuc(kq); if (kq.ok) setSoNgayNhap(String(kq.data.chu_ky_pro_ngay)) }) }, [])
 
   const goiMacDinh = danhMuc?.ok ? danhMuc.data.goi_mac_dinh : undefined
   const dsGoi = danhMuc?.ok ? danhMuc.data.goi : undefined

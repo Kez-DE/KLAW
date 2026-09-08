@@ -139,9 +139,9 @@ export function NhatKyClient() {
 
   return (
     <div>
-      <div role="tablist" aria-label="Nguồn nhật ký" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <button type="button" role="tab" aria-selected={tab === 'klaw'} onClick={() => setTab('klaw')}>Nhật ký KLAW</button>
-        <button type="button" role="tab" aria-selected={tab === 'cms'} onClick={() => setTab('cms')}>Nhật ký CMS</button>
+      <div aria-label="Nguồn nhật ký" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button type="button" aria-pressed={tab === 'klaw'} onClick={() => setTab('klaw')}>Nhật ký KLAW</button>
+        <button type="button" aria-pressed={tab === 'cms'} onClick={() => setTab('cms')}>Nhật ký CMS</button>
       </div>
 
       {tab === 'klaw' && (

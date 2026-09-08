@@ -57,39 +57,42 @@ describe('admins (spec 2B §6.2)', () => {
     })
     const cuoi = await taoAdmin(payload, { vai_tro: 'quan_tri' })
     rac.push(cuoi.id)
-    for (const a of khac.docs)
-      await payload.update({
-        collection: 'admins',
-        id: a.id,
-        data: { vai_tro: 'doc' },
-        overrideAccess: true,
-      })
-    await expect(
-      payload.update({
-        collection: 'admins',
-        id: cuoi.id,
-        data: { vai_tro: 'doc' },
-        overrideAccess: true,
-      }),
-    ).rejects.toThrow(/cuối cùng/)
-    await expect(
-      payload.update({
-        collection: 'admins',
-        id: cuoi.id,
-        data: { hoat_dong: false },
-        overrideAccess: true,
-      }),
-    ).rejects.toThrow(/cuối cùng/)
-    await expect(
-      payload.delete({ collection: 'admins', id: cuoi.id, overrideAccess: true }),
-    ).rejects.toThrow(/cuối cùng/)
-    for (const a of khac.docs)
-      await payload.update({
-        collection: 'admins',
-        id: a.id,
-        data: { vai_tro: 'quan_tri' },
-        overrideAccess: true,
-      })
+    try {
+      for (const a of khac.docs)
+        await payload.update({
+          collection: 'admins',
+          id: a.id,
+          data: { vai_tro: 'doc' },
+          overrideAccess: true,
+        })
+      await expect(
+        payload.update({
+          collection: 'admins',
+          id: cuoi.id,
+          data: { vai_tro: 'doc' },
+          overrideAccess: true,
+        }),
+      ).rejects.toThrow(/cuối cùng/)
+      await expect(
+        payload.update({
+          collection: 'admins',
+          id: cuoi.id,
+          data: { hoat_dong: false },
+          overrideAccess: true,
+        }),
+      ).rejects.toThrow(/cuối cùng/)
+      await expect(
+        payload.delete({ collection: 'admins', id: cuoi.id, overrideAccess: true }),
+      ).rejects.toThrow(/cuối cùng/)
+    } finally {
+      for (const a of khac.docs)
+        await payload.update({
+          collection: 'admins',
+          id: a.id,
+          data: { vai_tro: 'quan_tri' },
+          overrideAccess: true,
+        })
+    }
   })
 
   it('hoat_dong=false không đăng nhập được; 5 lần sai thì khoá', async () => {
