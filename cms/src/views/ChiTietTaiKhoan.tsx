@@ -6,7 +6,7 @@ import { HopXacNhan } from '../components/ui/HopXacNhan'
 import { ThongBaoLoi } from '../components/ui/ThongBaoLoi'
 import { goiQuanTri, type KetQua } from '../lib/goi-klaw'
 import { dinhDangLuc, nhanLoai, nhanTrangThaiYeuCau, tenGoi } from '../lib/hien-thi'
-import { cauXacNhan, type HanhDongTK, type TaiKhoanChiTiet } from './tai-khoan-logic'
+import { cauXacNhan, hanHienThi, type HanhDongTK, type TaiKhoanChiTiet } from './tai-khoan-logic'
 
 type GoiDanhMuc = { goi: { ma: string; ten: string }[]; goi_mac_dinh: string; chu_ky_pro_ngay: number }
 type HopCho = { xn: ReturnType<typeof cauXacNhan>; onXacNhan: (lyDo?: string) => void } | null
@@ -54,6 +54,7 @@ export function ChiTietTaiKhoan({ sub, vaiTro }: { sub: string; vaiTro: 'doc' | 
   if (ct === null) return <p>Đang tải…</p>
   if (!ct.ok) return <ThongBaoLoi message={ct.message} onThuLai={taiChiTiet} />
   const d = ct.data
+  const han = hanHienThi(d.plan, d.het_han_luc, goiMacDinh, '')
   const cotYc = [
     { khoa: 'loai', nhan: 'Loại' }, { khoa: 'goi', nhan: 'Gói' }, { khoa: 'trang_thai', nhan: 'Trạng thái' },
     { khoa: 'tao_luc', nhan: 'Tạo lúc' }, { khoa: 'xu_ly_luc', nhan: 'Xử lý lúc' }, { khoa: 'ly_do', nhan: 'Lý do' },
@@ -68,7 +69,7 @@ export function ChiTietTaiKhoan({ sub, vaiTro }: { sub: string; vaiTro: 'doc' | 
     <div>
       <h2>{d.email ?? '(không có email)'}</h2>
       <p>
-        {tenGoi(d.plan, dsGoi)}{d.het_han_luc ? ` · hết hạn ${dinhDangLuc(d.het_han_luc)}` : ' · vô thời hạn'}
+        {tenGoi(d.plan, dsGoi)}{han ? ` · hết hạn ${han}` : ' · vô thời hạn'}
         {d.khoa_luc && <><br />Đang khoá từ {dinhDangLuc(d.khoa_luc)} · Lý do: {d.khoa_ly_do}</>}
       </p>
       {loi && <ThongBaoLoi message={loi} />}

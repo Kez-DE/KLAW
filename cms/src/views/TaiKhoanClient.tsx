@@ -8,7 +8,7 @@ import { ThongBaoLoi } from '../components/ui/ThongBaoLoi'
 import { goiQuanTri, type KetQua } from '../lib/goi-klaw'
 import { dinhDangLuc, tenGoi } from '../lib/hien-thi'
 import { ChiTietTaiKhoan } from './ChiTietTaiKhoan'
-import { sapHetHan, type TaiKhoanTomTat } from './tai-khoan-logic'
+import { hanHienThi, sapHetHan, type TaiKhoanTomTat } from './tai-khoan-logic'
 
 const MOI_TRANG = 50
 const CHAM_TIM = 400
@@ -24,6 +24,7 @@ export function TaiKhoanClient({ vaiTro }: { vaiTro: 'doc' | 'quan_tri' }) {
   const [trang, setTrang] = useState(0)
   const [ds, setDs] = useState<KetQua<{ tong: number; items: TaiKhoanTomTat[] }> | null>(null)
   const [goi, setGoi] = useState<{ ma: string; ten: string }[] | undefined>(undefined)
+  const [goiMacDinh, setGoiMacDinh] = useState<string | undefined>(undefined)
 
   const theHe = useRef(0)
   // Phản hồi cũ tới sau không được ghi đè danh sách của lần gọi mới hơn.
@@ -35,7 +36,7 @@ export function TaiKhoanClient({ vaiTro }: { vaiTro: 'doc' | 'quan_tri' }) {
   }, [trang, q])
   useEffect(() => { if (!sub) taiDanhSach() }, [taiDanhSach, sub])
   // Danh mục gói tải một lần — không setState đồng bộ trong effect (chỉ trong .then).
-  useEffect(() => { void goiQuanTri<{ goi: { ma: string; ten: string }[] }>('/goi').then((kq) => { if (kq.ok) setGoi(kq.data.goi) }) }, [])
+  useEffect(() => { void goiQuanTri<{ goi: { ma: string; ten: string }[]; goi_mac_dinh: string }>('/goi').then((kq) => { if (kq.ok) { setGoi(kq.data.goi); setGoiMacDinh(kq.data.goi_mac_dinh) } }) }, [])
   // Debounce 400ms; Enter (apDungTim) áp ngay. setState nằm trong callback setTimeout, không đồng bộ trong effect.
   useEffect(() => {
     const id = setTimeout(() => { setTrang(0); setQ(qNhap) }, CHAM_TIM)
@@ -67,7 +68,7 @@ export function TaiKhoanClient({ vaiTro }: { vaiTro: 'doc' | 'quan_tri' }) {
   const hang = items.map((r) => ({
     email: r.email ?? '(không có email)',
     goi: tenGoi(r.plan, goi),
-    han: r.plan_het_han ? dinhDangLuc(r.plan_het_han) : '—',
+    han: hanHienThi(r.plan, r.plan_het_han, goiMacDinh, '—'),
     trang_thai: r.khoa_luc ? 'Đang khoá' : 'Bình thường',
     tham_gia: dinhDangLuc(r.tao_luc),
     so_phien: r.so_phien,

@@ -1,4 +1,5 @@
 // Logic thuần cho view Tài khoản (spec 2026-09-08 cms-quan-ly-tai-khoan §6.5). Không React, không fetch.
+import { dinhDangLuc } from '../lib/hien-thi'
 
 /** Chép từ `TaiKhoanTomTat` (KLAW `src/models/schemas.py`). */
 export type TaiKhoanTomTat = {
@@ -41,13 +42,22 @@ export type TaiKhoanChiTiet = {
 
 const NGAY_MS = 86_400_000
 const HET_HAN_TRONG_NGAY = 7
-/** `?loc=het_han`: hạn trong 7 ngày tới, tính từ lúc gọi. */
-export const sapHetHan = (iso: string | null): boolean => {
+/** `?loc=het_han`: hạn trong 7 ngày tới. `now` cho phép test xác định (mặc định lúc gọi). */
+export const sapHetHan = (iso: string | null, now: number = Date.now()): boolean => {
   if (!iso) return false
   const t = Date.parse(iso)
   if (Number.isNaN(t)) return false
-  const conLai = t - Date.now()
+  const conLai = t - now
   return conLai >= 0 && conLai <= HET_HAN_TRONG_NGAY * NGAY_MS
+}
+
+/** Hạn hiển thị (fix review #1): KLAW không xoá `plan_het_han` khi gói hết hạn/bị thu hồi
+ * về gói mặc định, nên tài khoản đang ở gói mặc định phải luôn hiện `rong` (vô thời hạn/"—"),
+ * bất kể hạn cũ còn sót lại. Dùng chung cho danh sách và chi tiết để hai màn không lệch nhau. */
+export const hanHienThi = (plan: string, hetHan: string | null, goiMacDinh: string | undefined, rong: string): string => {
+  if (plan === goiMacDinh) return rong
+  if (!hetHan || Number.isNaN(Date.parse(hetHan))) return rong
+  return dinhDangLuc(hetHan)
 }
 
 export type HanhDongTK = 'dat_goi' | 'thu_hoi' | 'khoa' | 'mo_khoa'
