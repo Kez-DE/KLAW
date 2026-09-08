@@ -8,6 +8,7 @@ import { vi } from '@payloadcms/translations/languages/vi'
 
 import { Admins } from './src/collections/Admins'
 import { NhatKyCms } from './src/collections/NhatKyCms'
+import { klawEndpoints } from './src/endpoints/klaw'
 import { exposeErrorReason } from './src/hooks/exposeErrorReason'
 import { ghiDangNhapThatBai } from './src/hooks/nhatKyCms'
 
@@ -39,6 +40,7 @@ export default buildConfig({
   // tham chiếu). Production phải có allowlist.
   csrf: laProd ? origins : [],
   collections: [Admins, NhatKyCms],
+  endpoints: klawEndpoints,
   graphQL: { disable: true },
   hooks: { afterError: [exposeErrorReason, ghiDangNhapThatBai] },
   // Database RIÊNG `klaw_cms` (spec §4.2). KHÔNG cấu hình schema Postgres tùy biến.
