@@ -76,14 +76,18 @@ CREATE INDEX IF NOT EXISTS ix_thong_bao_nhan
   ON thong_bao (nguoi_nhan, da_doc, tao_luc DESC);
 
 CREATE TABLE IF NOT EXISTS nhat_ky_quan_tri (
-  id          BIGSERIAL PRIMARY KEY,
-  hanh_dong   TEXT NOT NULL,
-  doi_tuong   UUID,
-  chi_tiet    JSONB NOT NULL DEFAULT '{}'::jsonb,
-  boi         TEXT NOT NULL,
-  tao_luc     TIMESTAMPTZ NOT NULL DEFAULT now()
+  id             BIGSERIAL PRIMARY KEY,
+  hanh_dong      TEXT NOT NULL,
+  doi_tuong      UUID,
+  chi_tiet       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  boi            TEXT NOT NULL,
+  tac_nhan_loai  TEXT NOT NULL DEFAULT 'admin'
+                 CHECK (tac_nhan_loai IN ('admin', 'tu_dong', 'thanh_toan')),
+  ip             TEXT,
+  tao_luc        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS ix_nhat_ky_tao_luc ON nhat_ky_quan_tri (tao_luc DESC);
+CREATE INDEX IF NOT EXISTS ix_nhat_ky_hanh_dong ON nhat_ky_quan_tri (hanh_dong, tao_luc DESC);
 
 ALTER TABLE yeu_cau_nang_goi
   ADD COLUMN IF NOT EXISTS nguon TEXT,          -- 'admin' | 'thanh_toan'
@@ -102,6 +106,13 @@ là thứ làm cho việc gọi lặp trở nên vô hại.
 
 `nhat_ky_quan_tri.boi` là chuỗi tự do (email admin từ CMS), không phải khoá
 ngoại, vì admin không phải người dùng KLAW.
+
+**Bảng nhật ký chỉ ghi thêm.** Không có đường nào trong `src/` chạy `UPDATE` hay
+`DELETE` trên `nhat_ky_quan_tri`, và §9 có phép kiểm khẳng định điều đó. Thông lệ
+lấy từ Audit Logs API của OpenAI: bản ghi kiểm toán phải bất biến thì mới dùng
+để điều tra được. `tac_nhan_loai` phân biệt người bấm nút, việc chạy tự động, và
+webhook thanh toán sau này — cùng ý với việc hai console lớn tách người dùng khỏi
+service account trong nhật ký của họ.
 
 ## 5. Dịch vụ
 
@@ -157,10 +168,19 @@ cách tường minh, không dùng chuỗi rỗng hay giá trị đặc biệt.
 
 ### 6.1 Router `/admin` — `src/api/routes_admin.py`
 
-Cổng: `Depends(kiem_admin_key)`. Header `X-Admin-Key` phải khớp
-`KLAW_ADMIN_API_KEY`; thiếu cấu hình → 503 với câu "Đường quản trị chưa được cấu
-hình."; sai khoá → 401. Mọi endpoint nhận thêm header `X-Admin-Boi` (email admin
-từ CMS) và từ chối 400 nếu thiếu, vì không có nó thì không ghi được `xu_ly_boi`.
+Cổng: `Depends(kiem_admin_key)`. Trình tự trong cổng, dừng ở bước đầu tiên hỏng:
+
+1. **Chặn theo IP.** `kiem_rate_limit(f"chan-ip:{ip_goi(request)}", rate_limit_ip_so_luot)`
+   — cùng giỏ và cùng hàm mà cổng công khai đang dùng. Không có bước này thì
+   `/admin` là một endpoint không giới hạn nhịp, đúng lỗi mà review cuối của gói
+   2A đã bắt ở `/han-muc`.
+2. **Khoá.** Header `X-Admin-Key` phải khớp `KLAW_ADMIN_API_KEY`; thiếu cấu hình
+   → 503 "Đường quản trị chưa được cấu hình."; sai khoá → 401. Mỗi lần sai ghi
+   một dòng `nhat_ky_quan_tri` với `hanh_dong='xac_thuc_that_bai'`, `boi='(không
+   rõ)'`, `ip` của người gọi. Thông lệ lấy từ OpenAI: audit log của họ ghi cả lần
+   đăng nhập thất bại, vì chuỗi thất bại liên tiếp chính là tín hiệu dò khoá.
+3. **Danh tính người bấm.** Header `X-Admin-Boi` (email admin từ CMS), thiếu thì
+   400, vì không có nó thì không ghi được `xu_ly_boi`.
 
 | Method | Đường dẫn | Việc |
 |---|---|---|
@@ -173,10 +193,18 @@ từ CMS) và từ chối 400 nếu thiếu, vì không có nó thì không ghi 
 | GET | `/admin/thong-bao` | Hộp thư admin (`nguoi_nhan IS NULL`), `chi_chua_doc` tuỳ chọn |
 | POST | `/admin/thong-bao/da-doc` | Body `{ids}` |
 | GET | `/admin/thong-bao/luong` | SSE hộp thư admin |
+| GET | `/admin/nhat-ky` | Nhật ký, lọc `tu`/`den`/`hanh_dong`, phân trang; `dinh_dang=csv` trả tệp CSV |
 
 **Không có** endpoint nào đọc nội dung `hoi_thoai` hay `luot_hoi_thoai`. Admin
 thấy *bao nhiêu lượt*, không thấy *hỏi gì*. Đây là ranh giới cố ý, không phải
-thiếu sót; ai muốn đổi phải sửa spec này trước.
+thiếu sót; ai muốn đổi phải sửa spec này trước. Sản phẩm lớn có cơ chế đăng nhập
+thay người dùng để hỗ trợ, kèm rất nhiều kiểm soát; KLAW cố ý không đi đường đó.
+
+`GET /admin/nhat-ky` với `dinh_dang=csv` trả `text/csv` kèm
+`Content-Disposition: attachment`. Lý do có đường xuất: tài liệu của OpenAI nói
+rõ audit log của họ không có thời hạn lưu cố định và khách nên tự xuất giữ bản
+sao. KLAW cũng chưa có chính sách lưu trữ nào, nên đường xuất là thứ duy nhất
+biến nhật ký thành bằng chứng giữ được.
 
 ### 6.2 Thông báo cho người dùng — thêm vào `routes_tai_khoan.py`
 
@@ -227,6 +255,11 @@ Kết nối đóng sau 30 phút để không giữ tài nguyên vô hạn; clien
 - `tao_yeu_cau` hai lần liên tiếp chỉ sinh một thông báo admin.
 - `danh_dau_da_doc` với id của người khác không đổi dòng nào.
 - `/admin/*` không có khoá → 401; `KLAW_ADMIN_API_KEY` rỗng → 503.
+- Gõ sai khoá nhiều lần vượt trần IP → 429, và mỗi lần sai để lại một dòng
+  `xac_thuc_that_bai` trong nhật ký.
+- Không có đường nào trong `src/` chạy `UPDATE` hay `DELETE` trên
+  `nhat_ky_quan_tri` — kiểm bằng grep trong test, không chỉ bằng mắt.
+- `GET /admin/nhat-ky?dinh_dang=csv` trả đúng số dòng như bản JSON cùng bộ lọc.
 - Cổng công khai không đổi: bộ test khách và hạn mức hiện có vẫn xanh.
 - Chuông người dùng: `npm run typecheck`, `lint`, `build`, và một script kiểm cho
   logic gộp và đếm.

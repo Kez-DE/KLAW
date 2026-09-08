@@ -50,9 +50,15 @@ kiện để hai bộ migration cùng tồn tại trên một database.
 là view tuỳ biến gọi API `/admin/*` của KLAW. Đổi lại việc mất giao diện tự sinh,
 ta giữ được nguyên tắc mỗi bảng một chủ.
 
-**Đăng nhập riêng.** Collection `admins` dùng auth sẵn có của Payload
-(`auth: true`), cookie, không liên quan Supabase. Người đầu tiên tạo bằng luồng
-`create-first-user` của Payload trên máy local, hoặc script seed chạy tay.
+**Đăng nhập riêng, hai vai trò.** Collection `admins` dùng auth sẵn có của
+Payload (`auth: true`), cookie, không liên quan Supabase. Người đầu tiên tạo bằng
+luồng `create-first-user` của Payload trên máy local, hoặc script seed chạy tay.
+
+Thêm trường `vai_tro` với đúng hai giá trị: `doc` chỉ được xem, `quan_tri` được
+duyệt và sửa. Hai console lớn đều có nhiều vai trò — Anthropic năm vai trò cấp tổ
+chức cộng bốn cấp workspace, OpenAI có vai trò tổ chức và dự án — nhưng chúng
+phục vụ khách doanh nghiệp nhiều người. KLAW lấy đúng lằn ranh có giá trị thật:
+người xem được số liệu và người đổi được gói. Một trường, một phép kiểm ở proxy.
 
 **Chuông đọc từ KLAW, không từ Payload.** Bảng thông báo do KLAW sở hữu (gói
 2B-1). Thành phần `NotificationBell` chuyển sang gần như nguyên vẹn nhưng đổi
@@ -78,6 +84,7 @@ cms/                          # ứng dụng Payload, pnpm workspace riêng
       components/ChuongThongBao/       # chuyển từ NotificationBell
       views/YeuCau.tsx                 # danh sách + duyệt/từ chối
       views/TaiKhoan.tsx               # tìm + chi tiết + đặt gói
+      views/NhatKy.tsx                 # nhật ký quản trị + nút xuất CSV
     lib/klaw.ts                        # client gọi API KLAW, chỉ chạy máy chủ
   app/
     (payload)/…                        # khung admin của Payload
@@ -123,7 +130,16 @@ gia, số phiên, lượt 30 ngày. Bấm một dòng mở chi tiết từ
 Màn hình chi tiết **không** có chỗ nào hiện nội dung hội thoại. Ranh giới này
 thuộc spec 2B-1 và CMS không có API để vượt qua nó.
 
-### 6.3 Chuông
+### 6.3 Nhật ký
+
+Bảng đọc từ `GET /admin/nhat-ky`, lọc theo khoảng thời gian và hành động, phân
+trang. Mỗi dòng: thời điểm, hành động, người thực hiện, loại tác nhân, IP, đối
+tượng. Một nút xuất gọi cùng endpoint với `dinh_dang=csv` và tải tệp về.
+
+Màn hình này mở cho cả hai vai trò: người `doc` cần xem được nhật ký, đó chính là
+lý do vai trò `doc` tồn tại.
+
+### 6.4 Chuông
 
 Chuyển từ `NotificationBell` của dự án tham khảo, giữ nguyên ba ý:
 
@@ -142,7 +158,13 @@ stream và trả lại nguyên vẹn với `Content-Type: text/event-stream`, kh
 - Proxy từ chối mọi request không có phiên Payload hợp lệ (401), trước khi chạm
   KLAW.
 - Proxy chỉ cho qua danh sách đường dẫn đã khai (`thong-bao`, `yeu-cau`,
-  `tai-khoan`), không phải bộ chuyển tiếp mở cho mọi đường dẫn.
+  `tai-khoan`, `nhat-ky`), không phải bộ chuyển tiếp mở cho mọi đường dẫn.
+- Proxy chặn theo vai trò: admin `doc` chỉ được `GET`; mọi `POST` và `PATCH` trả
+  403 **trước khi** chạm KLAW. Giao diện cũng ẩn nút, nhưng ẩn nút không phải là
+  kiểm soát — phép kiểm ở proxy mới là.
+- Đăng nhập CMS thất bại ghi một dòng `NhatKy` phía CMS với email đã gõ và IP.
+  Cùng lý do OpenAI ghi lần đăng nhập thất bại vào audit log: chuỗi thất bại liên
+  tiếp là tín hiệu dò mật khẩu.
 - KLAW trả 503 khi `KLAW_ADMIN_API_KEY` rỗng; CMS hiện đúng câu đó chứ không
   dịch thành "không có dữ liệu".
 - Mọi thao tác ghi đều ghi `NhatKy` phía CMS **và** `nhat_ky_quan_tri` phía KLAW.
@@ -162,6 +184,10 @@ stream và trả lại nguyên vẹn với `Content-Type: text/event-stream`, kh
   bị cộng thêm chu kỳ.
 - Chuông: mở CMS, tạo một yêu cầu từ ứng dụng KLAW, badge tăng trong vòng vài
   giây mà không cần tải lại trang.
+- Admin vai trò `doc` bấm Duyệt: proxy trả 403 và KLAW không nhận request nào —
+  kiểm bằng cách đếm dòng nhật ký phía KLAW trước và sau.
+- Đăng nhập CMS sai mật khẩu để lại một dòng `NhatKy` có email và IP.
+- Nút xuất tải về tệp CSV có đúng số dòng như bảng đang hiện.
 - `pnpm lint`, `pnpm build` xanh trong CI.
 
 ## 9. Chi phí và rủi ro đã biết
