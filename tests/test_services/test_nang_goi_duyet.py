@@ -90,8 +90,10 @@ def test_duyet_yeu_cau_da_xu_ly_bang_tham_chieu_khac_nem_DaXuLy(nguoi):
 def test_hai_duyet_song_song_mot_thang_mot_DaXuLy(nguoi):
     yc = nang_goi.tao_yeu_cau(nguoi, "pro")
     ket_qua: list[str] = []
+    rao = threading.Barrier(2)
 
     def chay(tc: str) -> None:
+        rao.wait()
         try:
             nang_goi.duyet(yc["id"], "admin", tc, BOI)
             ket_qua.append("ok")
@@ -108,10 +110,40 @@ def test_hai_duyet_song_song_mot_thang_mot_DaXuLy(nguoi):
 
 
 @pytest.mark.integration
+def test_hai_duyet_song_song_CUNG_tham_chieu_ca_hai_tra_ket_qua_cu(nguoi):
+    """Webhook gửi trùng: cả hai lần gọi cùng `tham_chieu` phải trả CÙNG kết quả, không
+    lần nào thấy DaXuLy — kể cả khi thua cuộc đua FOR UPDATE ngay sau khi lần kia đã ghi."""
+    yc = nang_goi.tao_yeu_cau(nguoi, "pro")
+    ket_qua: list[dict] = []
+    rao = threading.Barrier(2)
+
+    def chay() -> None:
+        rao.wait()
+        ket_qua.append(nang_goi.duyet(yc["id"], "admin", "a", BOI))
+
+    luong = [threading.Thread(target=chay) for _ in range(2)]
+    for t in luong:
+        t.start()
+    for t in luong:
+        t.join()
+    assert len(ket_qua) == 2
+    assert {r["trang_thai"] for r in ket_qua} == {"da_duyet"}
+    assert ket_qua[0]["plan_het_han"] == ket_qua[1]["plan_het_han"]
+    with get_engine().connect() as c:
+        so_nk = c.execute(
+            text("SELECT count(*) FROM nhat_ky_quan_tri WHERE boi = :b AND hanh_dong = 'duyet_yeu_cau'"), {"b": BOI}
+        ).scalar_one()
+    assert so_nk == 1, "chỉ lần thắng cuộc đua ghi nhật ký"
+    assert 29 < _ngay_con(_goi(nguoi)[1]) <= 30, "chỉ một chu kỳ"
+
+
+@pytest.mark.integration
 def test_duyet_cho_nguoi_dang_khoa_nem_TaiKhoanKhoa(nguoi):
     yc = nang_goi.tao_yeu_cau(nguoi, "pro")
     with get_engine().begin() as c:
-        c.execute(text("UPDATE users SET khoa_luc = now(), khoa_ly_do = 'x' WHERE sub = CAST(:s AS uuid)"), {"s": nguoi})
+        c.execute(
+            text("UPDATE users SET khoa_luc = now(), khoa_ly_do = 'x' WHERE sub = CAST(:s AS uuid)"), {"s": nguoi}
+        )
     with pytest.raises(nang_goi.TaiKhoanKhoa):
         nang_goi.duyet(yc["id"], "admin", f"yeu_cau:{yc['id']}", BOI)
     assert _goi(nguoi)[0] == "free"

@@ -92,7 +92,7 @@ _SQL_THEO_THAM_CHIEU = text(
     " FROM yeu_cau_nang_goi y JOIN users u ON u.sub = y.user_sub WHERE y.tham_chieu = :tc"
 )
 _SQL_KHOA_YEU_CAU = text(
-    "SELECT y.id, y.user_sub::text AS sub, y.loai, y.goi_muon, y.trang_thai,"
+    "SELECT y.id, y.user_sub::text AS sub, y.loai, y.goi_muon, y.trang_thai, y.tham_chieu,"
     " u.plan, u.plan_het_han, u.khoa_luc"
     " FROM yeu_cau_nang_goi y JOIN users u ON u.sub = y.user_sub WHERE y.id = :id FOR UPDATE OF y, u"
 )
@@ -137,6 +137,16 @@ def duyet(yeu_cau_id: int, nguon: str, tham_chieu: str, boi: str, ip: str | None
         if y is None:
             raise KhongTonTai(yeu_cau_id)
         if y["trang_thai"] != "cho_duyet":
+            # Thua cuộc đua FOR UPDATE với CHÍNH tham_chieu vừa gửi: đây là ca webhook gửi
+            # trùng mà idempotency key tồn tại để bắt — trả kết quả cũ, không phải DaXuLy.
+            if y["trang_thai"] == "da_duyet" and y["tham_chieu"] == tham_chieu:
+                return {
+                    "id": y["id"],
+                    "trang_thai": "da_duyet",
+                    "sub": y["sub"],
+                    "plan": y["plan"],
+                    "plan_het_han": y["plan_het_han"],
+                }
             raise DaXuLy(yeu_cau_id)
         if y["khoa_luc"] is not None:
             raise TaiKhoanKhoa(y["sub"])
