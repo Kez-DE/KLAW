@@ -35,7 +35,7 @@ from src.services import bao_ve, nang_goi, nhat_ky, tai_khoan_qt, thong_bao
 from src.services.bao_ve import kiem_admin_key
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/admin")
+router = APIRouter(prefix="/admin", include_in_schema=False)
 
 _LOI_NGHIEP_VU = (
     nang_goi.KhongTonTai,
@@ -115,7 +115,10 @@ async def duyet(id: int, ctx: dict = Depends(kiem_admin_key)) -> KetQuaGoiOut:
     r = await _thuc_hien(
         "duyet_yeu_cau", None, ctx, nang_goi.duyet, id, "admin", f"yeu_cau:{id}", ctx["boi"], ctx["ip"]
     )
-    return KetQuaGoiOut(sub=r["sub"], plan=r["plan"], plan_het_han=r["plan_het_han"])
+    # Gói HIỆU LỰC, không phải gói thô — ca replay (cùng tham_chieu) sau khi
+    # tài khoản đã bị thu hồi/hết hạn phải trả gói THẬT, không phải gói cũ.
+    plan = bao_ve.plan_hieu_luc_tu(r["plan"], r["plan_het_han"])
+    return KetQuaGoiOut(sub=r["sub"], plan=plan, plan_het_han=r["plan_het_han"])
 
 
 @router.post("/yeu-cau/{id}/tu-choi", response_model=YeuCauNangGoiOut)

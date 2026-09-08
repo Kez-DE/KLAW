@@ -37,6 +37,10 @@ def nguoi(cai_dat, khoa_ky):
     with get_engine().begin() as c:
         for bang in ("yeu_cau_nang_goi", "hoi_thoai", "traces"):
             c.execute(text(f"DELETE FROM {bang} WHERE user_sub = :s"), {"s": sub})  # noqa: S608 — tên bảng là hằng
+        c.execute(
+            text("DELETE FROM thong_bao WHERE nguoi_nhan = CAST(:s AS uuid) OR khoa_gom LIKE :k"),
+            {"s": sub, "k": f"%{sub}%"},
+        )
         c.execute(text("DELETE FROM users WHERE sub = :s"), {"s": sub})
 
 

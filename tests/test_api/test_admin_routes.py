@@ -131,12 +131,18 @@ async def test_vuot_la_chan_ip_429(client, cai_dat):
 def test_chi_nang_goi_py_moi_UPDATE_users_SET_plan():
     """Bất biến §4.1: một đường đổi gói."""
     mau = re.compile(r"UPDATE\s+users\s+SET\s+plan", re.IGNORECASE)
+    # Chứng minh mẫu regex CÒN bắt được vi phạm — một lỗi gõ ở mẫu không còn
+    # được phép lọt qua âm thầm.
+    assert mau.search("UPDATE users SET plan = 'pro'"), "mẫu regex bất biến §4.1 không khớp câu vi phạm tổng hợp"
     vi_pham = [
         str(p)
         for p in Path("src").rglob("*.py")
         if p.name != "nang_goi.py" and mau.search(p.read_text(encoding="utf-8"))
     ]
-    assert vi_pham == [], vi_pham
+    assert vi_pham == [], (
+        "bất biến §4.1 một đường đổi gói duy nhất"
+        " (docs/superpowers/specs/2026-09-08-cms-quan-ly-tai-khoan-design.md) bị vi phạm ở: " + str(vi_pham)
+    )
 
 
 def test_khong_endpoint_admin_nao_doc_hoi_thoai():

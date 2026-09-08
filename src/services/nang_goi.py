@@ -236,6 +236,9 @@ def dat_goi(sub: str, plan: str, so_ngay: int | None, boi: str, ip: str | None =
             c=c,
         )
         han_chu = f" tới {_dinh_dang(han)}" if han is not None else ""
+        # Vô hiệu dòng cũ TRƯỚC khi ghi — chỉ mục duy nhất chặn dòng thứ hai
+        # trở đi nếu dòng đầu còn hiệu lực, khiến người dùng không được báo.
+        thong_bao.vo_hieu(thong_bao.KHOA_TAI_KHOAN.format(sub=sub, loai="goi_dat_tay"), c=c)
         thong_bao.ghi(
             nguoi_nhan=sub,
             loai="goi_dat_tay",
@@ -268,6 +271,9 @@ def thu_hoi(sub: str, ly_do: str, boi: str, ip: str | None = None) -> dict:
             ip=ip,
             c=c,
         )
+        # Vô hiệu dòng cũ TRƯỚC khi ghi — chỉ mục duy nhất chặn dòng thứ hai
+        # trở đi nếu dòng đầu còn hiệu lực, khiến người dùng không được báo.
+        thong_bao.vo_hieu(thong_bao.KHOA_TAI_KHOAN.format(sub=sub, loai="goi_thu_hoi"), c=c)
         thong_bao.ghi(
             nguoi_nhan=sub,
             loai="goi_thu_hoi",

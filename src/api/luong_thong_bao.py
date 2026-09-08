@@ -35,18 +35,23 @@ async def phat(
     # ponytail: mỗi kết nối mở là một COUNT mỗi 5 s; chuyển sang LISTEN/NOTIFY khi số
     # luồng đồng thời lên hàng trăm.
     while loop.time() - bat_dau < toi_da_giay:
-        so = await run_in_threadpool(thong_bao.dem_chua_doc, nguoi_nhan)
-        if so != truoc:
-            yield sse("so_chua_doc", {"so": so})
-            if truoc is not None and so > truoc:
-                moi = await run_in_threadpool(
-                    functools.partial(thong_bao.danh_sach, nguoi_nhan, chi_chua_doc=True, limit=1)
-                )
-                if moi:
-                    yield sse("thong_bao_moi", ThongBaoOut.model_validate(moi[0]).model_dump())
-            truoc = so
-            lan_phat = loop.time()
-        elif loop.time() - lan_phat >= nhip_giay:
-            yield ": ping\n\n"
-            lan_phat = loop.time()
+        try:
+            so = await run_in_threadpool(thong_bao.dem_chua_doc, nguoi_nhan)
+            if so != truoc:
+                yield sse("so_chua_doc", {"so": so})
+                if truoc is not None and so > truoc:
+                    moi = await run_in_threadpool(
+                        functools.partial(thong_bao.danh_sach, nguoi_nhan, chi_chua_doc=True, limit=1)
+                    )
+                    if moi:
+                        yield sse("thong_bao_moi", ThongBaoOut.model_validate(moi[0]).model_dump())
+                truoc = so
+                lan_phat = loop.time()
+            elif loop.time() - lan_phat >= nhip_giay:
+                yield ": ping\n\n"
+                lan_phat = loop.time()
+        except Exception:
+            # một lần DB lỗi không được giết luồng; client vẫn có REST làm nguồn sự thật
+            await asyncio.sleep(chu_ky_giay)
+            continue
         await asyncio.sleep(chu_ky_giay)

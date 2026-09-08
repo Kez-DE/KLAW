@@ -68,5 +68,13 @@ def test_csv_dung_so_dong_va_tieu_de():
 def test_src_khong_co_UPDATE_hay_DELETE_tren_nhat_ky_quan_tri():
     """Bất biến §5.1: bảng chỉ ghi thêm. Kiểm bằng grep, không bằng mắt."""
     mau = re.compile(r"(UPDATE\s+nhat_ky_quan_tri|DELETE\s+FROM\s+nhat_ky_quan_tri)", re.IGNORECASE)
+    # Chứng minh mẫu regex CÒN bắt được vi phạm — một lỗi gõ ở mẫu không còn
+    # được phép lọt qua âm thầm.
+    assert mau.search("DELETE FROM nhat_ky_quan_tri WHERE id = 1"), (
+        "mẫu regex bất biến §5.1 không khớp câu vi phạm tổng hợp"
+    )
     vi_pham = [str(p) for p in Path("src").rglob("*.py") if mau.search(p.read_text(encoding="utf-8"))]
-    assert vi_pham == [], f"nhat_ky_quan_tri bị sửa/xoá ở: {vi_pham}"
+    assert vi_pham == [], (
+        "bất biến §5.1 nhat_ky_quan_tri chỉ ghi thêm"
+        " (docs/superpowers/specs/2026-09-08-cms-quan-ly-tai-khoan-design.md) bị vi phạm ở: " + str(vi_pham)
+    )

@@ -19,7 +19,10 @@ def nguoi():
     bao_ve.ghi_nhan_nguoi_dung(sub, "qt@test.local")
     yield sub
     with get_engine().begin() as c:
-        c.execute(text("DELETE FROM thong_bao WHERE nguoi_nhan = CAST(:s AS uuid)"), {"s": sub})
+        c.execute(
+            text("DELETE FROM thong_bao WHERE nguoi_nhan = CAST(:s AS uuid) OR khoa_gom LIKE :k"),
+            {"s": sub, "k": f"%{sub}%"},
+        )
         c.execute(text("DELETE FROM nhat_ky_quan_tri WHERE boi = :b"), {"b": BOI})
         c.execute(text("DELETE FROM yeu_cau_nang_goi WHERE user_sub = CAST(:s AS uuid)"), {"s": sub})
         c.execute(text("DELETE FROM users WHERE sub = CAST(:s AS uuid)"), {"s": sub})
@@ -58,6 +61,16 @@ def test_khoa_roi_mo_khoa_va_trang_thai_khong_doi(nguoi):
             {"b": BOI},
         ).scalar_one()
     assert ly_do_mo == "Đã xác minh danh tính."
+    # khoá → mở lần thứ hai phải sinh THÊM một thông báo "tai_khoan_mo" — nếu
+    # thiếu vô hiệu dòng cũ trước khi ghi, `ON CONFLICT DO NOTHING` nuốt mất nó.
+    tai_khoan_qt.khoa(nguoi, "Lại vi phạm.", BOI)
+    tai_khoan_qt.mo_khoa(nguoi, "Xác minh lần hai.", BOI)
+    with get_engine().connect() as c:
+        so_mo = c.execute(
+            text("SELECT count(*)::int FROM thong_bao WHERE nguoi_nhan = CAST(:s AS uuid) AND loai = 'tai_khoan_mo'"),
+            {"s": nguoi},
+        ).scalar_one()
+    assert so_mo == 2
 
 
 def test_dat_goi_so_ngay_None_la_vo_thoi_han_va_goi_la(nguoi):
@@ -76,6 +89,16 @@ def test_dat_goi_so_ngay_None_la_vo_thoi_han_va_goi_la(nguoi):
     assert 9 < (r["plan_het_han"] - datetime.now(UTC)).total_seconds() / 86400 <= 10
     r = nang_goi.dat_goi(nguoi, "free", None, BOI, ly_do="Hỗ trợ khách hàng.")
     assert r["plan"] == "free" and r["plan_het_han"] is None
+    # Ba lần đặt gói liên tiếp phải sinh ĐỦ ba dòng thông báo — nếu thiếu vô hiệu
+    # dòng cũ trước khi ghi, `ON CONFLICT DO NOTHING` sẽ nuốt lần 2 và 3. Đếm
+    # thẳng theo `loai` (không phải `dem_chua_doc`, vì dòng bị vô hiệu không
+    # còn tính là "chưa đọc" dù vẫn còn trong bảng).
+    with get_engine().connect() as c:
+        so_dat_goi = c.execute(
+            text("SELECT count(*)::int FROM thong_bao WHERE nguoi_nhan = CAST(:s AS uuid) AND loai = 'goi_dat_tay'"),
+            {"s": nguoi},
+        ).scalar_one()
+    assert so_dat_goi == 3
     with pytest.raises(nang_goi.GoiKhongHopLe):
         nang_goi.dat_goi(nguoi, "vip", None, BOI, ly_do="Hỗ trợ khách hàng.")
     with pytest.raises(nang_goi.ChuaCoHoSo):

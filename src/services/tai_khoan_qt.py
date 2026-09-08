@@ -55,6 +55,9 @@ def mo_khoa(sub: str, ly_do: str, boi: str, ip: str | None = None) -> dict:
         r = c.execute(_SQL_MO_KHOA, {"sub": sub}).mappings().one()
         nhat_ky.ghi("mo_khoa_tai_khoan", doi_tuong=sub, chi_tiet={"ly_do": ly_do}, boi=boi, ip=ip, c=c)
         thong_bao.vo_hieu(thong_bao.KHOA_TAI_KHOAN.format(sub=sub, loai="tai_khoan_khoa"), c=c)
+        # Vô hiệu dòng cũ TRƯỚC khi ghi — chỉ mục duy nhất chặn dòng thứ hai
+        # trở đi nếu dòng đầu còn hiệu lực, khiến người dùng không được báo.
+        thong_bao.vo_hieu(thong_bao.KHOA_TAI_KHOAN.format(sub=sub, loai="tai_khoan_mo"), c=c)
         thong_bao.ghi(
             nguoi_nhan=sub,
             loai="tai_khoan_mo",
@@ -79,7 +82,7 @@ _SQL_TIM_DEM = text("SELECT count(*)::int FROM users WHERE email ILIKE :q")
 _SQL_TIM = text(
     "SELECT u.sub::text AS sub, u.email, u.plan, u.plan_het_han, u.khoa_luc, u.created_at AS tao_luc,"
     " (SELECT count(*)::int FROM hoi_thoai h WHERE h.user_sub = u.sub AND h.xoa_luc IS NULL) AS so_phien,"
-    " (SELECT count(*)::int FROM traces t WHERE t.user_sub::text = u.sub::text"
+    " (SELECT count(*)::int FROM traces t WHERE t.user_sub = u.sub"
     "  AND t.ts >= now() - interval '30 days'" + _LOC_LUOT + ") AS luot_30_ngay"
     " FROM users u WHERE u.email ILIKE :q ORDER BY u.created_at DESC LIMIT :limit OFFSET :offset"
 )

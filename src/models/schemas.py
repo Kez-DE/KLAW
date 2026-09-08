@@ -920,7 +920,7 @@ class DatGoiRequest(BaseModel):
 
 
 class DaDocRequest(BaseModel):
-    ids: list[int] = Field(..., min_length=1, max_length=200)
+    ids: list[Annotated[int, Field(gt=0, le=2**63 - 1)]] = Field(..., min_length=1, max_length=200)
 
 
 class KetQuaGoiOut(BaseModel):
