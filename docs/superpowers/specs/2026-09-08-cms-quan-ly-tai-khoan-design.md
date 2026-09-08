@@ -415,13 +415,13 @@ chỉ đẩy nhanh.
 
 Scaffold bằng `pnpm create payload-app@latest` (template `blank`, database Postgres, không
 Sharp vì không có upload), rồi ghim `payload`, `@payloadcms/next`, `@payloadcms/db-postgres`,
-`@payloadcms/ui`, `@payloadcms/translations` về **đúng `3.88.0`**; giữ Next 15.x mà
+`@payloadcms/ui`, `@payloadcms/translations` về **đúng `3.88.0`**; giữ Next 16.x (16.3.3 ghim chính xác — peer range của @payloadcms/next 3.88.0 cho phép) mà
 template chọn và ghim exact. Node ≥ 20, pnpm 9, React 19. Gỡ khỏi template: collection
 `media`, `sharp`, GraphQL playground (`graphQL.disable: true`).
 
 ```
 cms/
-  package.json                # payload 3.88.0 + next 15 + react 19; scripts: dev(-p 3001) build start lint type-check test migrate
+  package.json                # payload 3.88.0 + next 16.3.3 + react 19; scripts: dev(-p 3001) build start lint type-check test migrate
   payload.config.ts
   next.config.mjs             # withPayload
   scripts/start.sh            # migrate → verify migrate:status → next start (chuyển từ dự án tham chiếu)
