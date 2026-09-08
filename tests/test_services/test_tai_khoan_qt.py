@@ -77,3 +77,71 @@ def test_thu_hoi_dat_het_han_now_khong_doi_plan_va_tu_choi_khi_dang_free(nguoi):
     assert d["plan"] == "pro" and d["plan_het_han"] <= datetime.now(UTC)
     assert r["plan"] == "free", "gói HIỆU LỰC trả về là mặc định"
     assert bao_ve.plan_hieu_luc(nguoi) == "free"
+
+
+def test_tim_theo_email_va_dem_luot_30_ngay(nguoi):
+    with get_engine().begin() as c:
+        c.execute(
+            text(
+                "INSERT INTO traces (id, endpoint, config_name, result_type, user_sub, cache_hit) VALUES"
+                " (:a, '/api/v1/tra-cuu', 'full', 'answer', :s, false),"
+                " (:b, '/api/v1/tra-cuu', 'full', 'answer', :s, true),"
+                " (:c, '/api/v1/tra-cuu', 'full', 'loi', :s, false)"
+            ),
+            {"a": str(uuid.uuid4()), "b": str(uuid.uuid4()), "c": str(uuid.uuid4()), "s": nguoi},
+        )
+    tong, rows = tai_khoan_qt.tim("qt@test", 20, 0)
+    assert tong >= 1
+    r = next(x for x in rows if x["sub"] == nguoi)
+    assert r["email"] == "qt@test.local" and r["luot_30_ngay"] == 1 and r["so_phien"] == 0
+    with get_engine().begin() as c:
+        c.execute(text("DELETE FROM traces WHERE user_sub = :s"), {"s": nguoi})
+
+
+def test_chi_tiet_gom_ho_so_khoa_va_lich_su_yeu_cau(nguoi):
+    yc = nang_goi.tao_yeu_cau(nguoi, "pro")
+    nang_goi.tu_choi(yc["id"], "Thử.", BOI)
+    tai_khoan_qt.khoa(nguoi, "Kiểm.", BOI)
+    d = tai_khoan_qt.chi_tiet(nguoi)
+    assert d is not None and d["sub"] == nguoi and d["khoa_ly_do"] == "Kiểm." and d["email"] == "qt@test.local"
+    assert d["yeu_cau"][0]["trang_thai"] == "tu_choi" and d["yeu_cau"][0]["ly_do"] == "Thử."
+    assert tai_khoan_qt.chi_tiet(str(uuid.uuid4())) is None
+    assert tai_khoan_qt.yeu_cau_theo_id(yc["id"])["ly_do"] == "Thử."
+    assert tai_khoan_qt.yeu_cau_theo_id(10**9) is None
+
+
+def test_danh_sach_yeu_cau_loc_trang_thai_va_email(nguoi):
+    nang_goi.tao_yeu_cau(nguoi, "pro")
+    tong, rows = tai_khoan_qt.danh_sach_yeu_cau("cho_duyet", "qt@test", 20, 0)
+    assert tong == 1 and rows[0]["user_sub"] == nguoi and rows[0]["email"] == "qt@test.local"
+    assert rows[0]["plan"] == "free" and rows[0]["khoa_luc"] is None
+    tong0, _ = tai_khoan_qt.danh_sach_yeu_cau("da_duyet", "qt@test", 20, 0)
+    assert tong0 == 0
+
+
+def test_tong_quan_dem_du_bay_so(nguoi):
+    truoc = tai_khoan_qt.tong_quan()
+    nang_goi.dat_goi(nguoi, "pro", 3, BOI)  # Cá nhân hiệu lực, hết hạn trong 7 ngày
+    nang_goi.tao_yeu_cau(nguoi, "pro")  # gia_han, cho_duyet
+    sau = tai_khoan_qt.tong_quan()
+    assert set(sau) == {
+        "tong_tai_khoan",
+        "dang_ca_nhan",
+        "cho_duyet",
+        "het_han_7_ngay",
+        "moi_7_ngay",
+        "dang_khoa",
+        "hoi_dap_hom_nay",
+    }
+    assert sau["dang_ca_nhan"] == truoc["dang_ca_nhan"] + 1
+    assert sau["het_han_7_ngay"] == truoc["het_han_7_ngay"] + 1
+    assert sau["cho_duyet"] == truoc["cho_duyet"] + 1
+    tai_khoan_qt.khoa(nguoi, "x", BOI)
+    assert tai_khoan_qt.tong_quan()["dang_khoa"] == truoc["dang_khoa"] + 1
+
+
+def test_danh_sach_goi_doc_tu_yaml():
+    d = tai_khoan_qt.danh_sach_goi()
+    ma = {g["ma"]: g for g in d["goi"]}
+    assert d["goi_mac_dinh"] == "free" and d["chu_ky_pro_ngay"] == 30
+    assert ma["pro"]["ten"] == "Cá nhân" and ma["free"]["han_muc"]["hoi_dap_ngay"] == 200
