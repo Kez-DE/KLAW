@@ -3,10 +3,11 @@
 
 import pytest
 
-from src.services import bao_ve, nhat_ky, tai_khoan_qt
+from src.services import bao_ve, nang_goi, nhat_ky, tai_khoan_qt
 
 DUNG = {"X-Admin-Key": "khoa-thu", "X-Admin-Boi": "qa@klaw.local"}
 BAY_SO = ["tong_tai_khoan", "dang_ca_nhan", "cho_duyet", "het_han_7_ngay", "moi_7_ngay", "dang_khoa", "hoi_dap_hom_nay"]
+MOT_SUB = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 
 
 @pytest.fixture
@@ -46,16 +47,35 @@ async def test_KLAW_API_KEY_khong_lien_quan_toi_admin(client, cai_dat, ghi_gia):
     assert (await client.get("/api/v1/admin/tong-quan", headers=DUNG)).status_code == 200
 
 
-async def test_loi_lap_trinh_KHONG_bi_LookupError_nuot_thanh_404(client, cai_dat, monkeypatch):
-    """`KeyError`/`IndexError` không phải lỗi NGHIỆP VỤ (`_LOI_NGHIEP_VU`) — client ASGI
-    của test (`ASGITransport(raise_app_exceptions=True)`, mặc định httpx, xem `tests/conftest.py`)
-    NỔ lại ngoại lệ thay vì trả response, nên đây là cách đúng để khẳng định nó KHÔNG bị
-    nuốt thành một 404 giả kèm nhật ký giả."""
+async def test_loi_lap_trinh_KHONG_bi_LookupError_nuot_thanh_404(client, cai_dat, ghi_gia, monkeypatch):
+    """`KeyError`/`IndexError` không phải lỗi NGHIỆP VỤ (`_LOI_NGHIEP_VU`) — `_thuc_hien`
+    (bọc quanh các thao tác ghi như `mo_khoa`) KHÔNG được nuốt nó thành một 404 giả kèm
+    một dòng nhật ký `..._that_bai` giả. Client ASGI của test
+    (`ASGITransport(raise_app_exceptions=True)`, mặc định httpx, xem `tests/conftest.py`)
+    NỔ lại ngoại lệ thay vì trả response."""
     cai_dat(admin_api_key="khoa-thu")
 
-    def no() -> dict:
+    def no(sub: str, boi: str, ip: str | None = None) -> dict:
         raise KeyError("x")
 
-    monkeypatch.setattr(tai_khoan_qt, "tong_quan", no)
+    monkeypatch.setattr(tai_khoan_qt, "mo_khoa", no)
     with pytest.raises(KeyError):
-        await client.get("/api/v1/admin/tong-quan", headers=DUNG)
+        await client.post(f"/api/v1/admin/tai-khoan/{MOT_SUB}/mo-khoa", headers=DUNG)
+    assert not any(d["hanh_dong"] == "mo_khoa_tai_khoan_that_bai" for d in ghi_gia)
+
+
+async def test_loi_nghiep_vu_KhongTonTai_van_map_dung_404_va_ghi_nhat_ky(client, cai_dat, ghi_gia, monkeypatch):
+    """Đối xứng với ca trên: một lỗi NGHIỆP VỤ THẬT (`nang_goi.KhongTonTai`, cũng là một
+    `LookupError`) vẫn phải được `_thuc_hien` bắt, map đúng 404, và ghi đúng MỘT dòng
+    `mo_khoa_tai_khoan_that_bai` — chứng minh việc bỏ `LookupError` trần khỏi
+    `_LOI_NGHIEP_VU` không làm hỏng đường xử lý lỗi hợp lệ."""
+    cai_dat(admin_api_key="khoa-thu")
+
+    def no(sub: str, boi: str, ip: str | None = None) -> dict:
+        raise nang_goi.KhongTonTai("x")
+
+    monkeypatch.setattr(tai_khoan_qt, "mo_khoa", no)
+    r = await client.post(f"/api/v1/admin/tai-khoan/{MOT_SUB}/mo-khoa", headers=DUNG)
+    assert r.status_code == 404
+    ghi = [d for d in ghi_gia if d["hanh_dong"] == "mo_khoa_tai_khoan_that_bai"]
+    assert len(ghi) == 1 and ghi[0]["chi_tiet"] == {"loi": "KhongTonTai"}
