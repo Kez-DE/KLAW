@@ -2075,6 +2075,117 @@ git commit -m "feat(api): /admin router behind a fail-closed service key with au
 **Kết thúc giai đoạn 1:** toàn bộ đường quản trị chạy bằng `curl`. Cổng công khai không đổi (bộ test khách, hạn mức, tài khoản xanh).
 
 ---
+### Task 7b: Lý do bắt buộc cho mọi thao tác đổi trạng thái (bổ sung theo khảo sát 2026-09-08)
+
+Bổ sung sau khảo sát console quản trị (`docs/superpowers/specs/2026-09-08-khao-sat-console-quan-tri-to-chuc-lon.md`, đề xuất A): GitHub bắt ghi lý do cả khi treo lẫn khi bỏ treo tài khoản. KLAW đã bắt lý do ở từ chối, thu hồi, khoá; task này bổ sung cho **mở khoá** và **đặt gói tay**. Lý do đi vào nhật ký (`chi_tiet.ly_do`), KHÔNG đi vào thông báo cho người dùng (lý do đặt gói là ghi chú nội bộ của admin). Chạy sau Task 9, trước Task 10, để Task 13 dựng giao diện trên hợp đồng cuối.
+
+**Files:**
+- Modify: `src/models/schemas.py` (`DatGoiRequest`)
+- Modify: `src/services/nang_goi.py` (`dat_goi`)
+- Modify: `src/services/tai_khoan_qt.py` (`mo_khoa`)
+- Modify: `src/api/routes_admin.py` (`dat_goi`, `mo_khoa` handlers)
+- Modify: `tests/test_services/test_tai_khoan_qt.py`, `tests/test_api/test_tai_khoan_khoa.py`, `tests/test_api/test_admin_routes.py`, `tests/test_api/test_admin_cong.py` (mọi lời gọi `mo_khoa`/`dat_goi`)
+- Spec `docs/superpowers/specs/2026-09-08-cms-quan-ly-tai-khoan-design.md` đã sửa trước khi dispatch (bảng §5.3, §5.2); không sửa thêm.
+
+**Interfaces:**
+- Consumes: mọi thứ Task 5–7 đã dựng.
+- Produces (hợp đồng mới; đường dẫn và allowlist của Task 10 không đổi):
+  - `DatGoiRequest`: thêm `ly_do: str = Field(..., min_length=1, max_length=500)`.
+  - `POST /admin/tai-khoan/{sub}/mo-khoa` nhận body `LyDoRequest` (trước đây không có body).
+  - `nang_goi.dat_goi(sub, plan, so_ngay, boi, ip=None, *, ly_do: str)` — keyword-only bắt buộc; `chi_tiet` nhật ký thêm `"ly_do"`.
+  - `tai_khoan_qt.mo_khoa(sub, ly_do, boi, ip=None)` — cùng hình với `khoa`; `chi_tiet` nhật ký `{"ly_do": ly_do}`.
+  - Thông báo người dùng `goi_dat_tay` và `tai_khoan_mo` KHÔNG đổi nội dung.
+
+- [ ] **Bước 1: Cập nhật test (đỏ)**
+
+`tests/test_services/test_tai_khoan_qt.py`: mọi `tai_khoan_qt.mo_khoa(nguoi, BOI)` → `tai_khoan_qt.mo_khoa(nguoi, "Đã xác minh danh tính.", BOI)`; mọi `nang_goi.dat_goi(nguoi, <plan>, <so_ngay>, BOI)` → thêm `ly_do="Hỗ trợ khách hàng."`. Thêm vào `test_khoa_roi_mo_khoa_va_trang_thai_khong_doi`:
+
+```python
+    with get_engine().connect() as c:
+        ly_do_mo = c.execute(
+            text("SELECT chi_tiet->>'ly_do' FROM nhat_ky_quan_tri WHERE boi = :b AND hanh_dong = 'mo_khoa_tai_khoan'"),
+            {"b": BOI},
+        ).scalar_one()
+    assert ly_do_mo == "Đã xác minh danh tính."
+```
+
+và vào `test_dat_goi_so_ngay_None_la_vo_thoi_han_va_goi_la` sau lần `dat_goi` đầu:
+
+```python
+    with get_engine().connect() as c:
+        ly_do_dat = c.execute(
+            text(
+                "SELECT chi_tiet->>'ly_do' FROM nhat_ky_quan_tri WHERE boi = :b AND hanh_dong = 'dat_goi'"
+                " ORDER BY id LIMIT 1"
+            ),
+            {"b": BOI},
+        ).scalar_one()
+    assert ly_do_dat == "Hỗ trợ khách hàng."
+```
+
+`tests/test_api/test_tai_khoan_khoa.py`: `tai_khoan_qt.mo_khoa(nguoi_khoa, "qa@klaw.local")` → `tai_khoan_qt.mo_khoa(nguoi_khoa, "Kiểm xong.", "qa@klaw.local")`.
+
+`tests/test_api/test_admin_routes.py`: mọi `client.patch(f"/api/v1/admin/tai-khoan/{nguoi}/goi", json={"plan": "pro", "so_ngay": 15}, …)` → thêm `"ly_do": "Hỗ trợ khách hàng."` vào json (lời gọi `{"plan": "vip"}` → `{"plan": "vip", "ly_do": "x"}` để vẫn nhận 422 vì gói lạ, không vì thiếu lý do); mọi `client.post(f"/api/v1/admin/tai-khoan/{nguoi}/mo-khoa", headers=H)` → thêm `json={"ly_do": "Đã xác minh."}`. Thêm hai assert 422: `PATCH …/goi` với `{"plan": "pro", "so_ngay": 15}` (thiếu lý do) → 422; `POST …/mo-khoa` không body → 422.
+
+`tests/test_api/test_admin_cong.py`: hai test `mo-khoa` (KeyError và KhongTonTai) gửi `json={"ly_do": "x"}`; stub `no(sub, boi, ip=None)` → `no(sub, ly_do, boi, ip=None)`.
+
+- [ ] **Bước 2: Chạy, xác nhận đỏ**
+
+Run: `.venv/bin/python -m pytest tests/test_services/test_tai_khoan_qt.py tests/test_api/test_tai_khoan_khoa.py tests/test_api/test_admin_routes.py tests/test_api/test_admin_cong.py -q`
+Expected: FAIL — `TypeError` ở `mo_khoa`/`dat_goi` (tham số thừa) và `mo-khoa` không nhận body.
+
+- [ ] **Bước 3: Sửa mã**
+
+`schemas.py`:
+
+```python
+class DatGoiRequest(BaseModel):
+    plan: str = Field(..., min_length=1, max_length=32)
+    so_ngay: int | None = Field(default=None, ge=1, le=3650)  # None + gói trả phí = vô thời hạn
+    ly_do: str = Field(..., min_length=1, max_length=500)  # ghi chú nội bộ, chỉ vào nhật ký
+```
+
+`nang_goi.dat_goi`: chữ ký `def dat_goi(sub: str, plan: str, so_ngay: int | None, boi: str, ip: str | None = None, *, ly_do: str) -> dict:`; trong `chi_tiet` của `nhat_ky.ghi("dat_goi", …)` thêm `"ly_do": ly_do`. Docstring thêm: "`ly_do` là ghi chú nội bộ (GitHub bắt lý do cả khi bỏ treo) — chỉ vào nhật ký, không vào thông báo."
+
+`tai_khoan_qt.mo_khoa`: chữ ký `def mo_khoa(sub: str, ly_do: str, boi: str, ip: str | None = None) -> dict:`; `nhat_ky.ghi("mo_khoa_tai_khoan", doi_tuong=sub, chi_tiet={"ly_do": ly_do}, …)`.
+
+`routes_admin.py`:
+
+```python
+@router.patch("/tai-khoan/{sub}/goi", response_model=KetQuaGoiOut)
+async def dat_goi(sub: uuid.UUID, body: DatGoiRequest, ctx: dict = Depends(kiem_admin_key)) -> KetQuaGoiOut:
+    r = await _thuc_hien(
+        "dat_goi",
+        str(sub),
+        ctx,
+        functools.partial(nang_goi.dat_goi, str(sub), body.plan, body.so_ngay, ctx["boi"], ctx["ip"], ly_do=body.ly_do),
+    )
+    return KetQuaGoiOut(**r)
+
+
+@router.post("/tai-khoan/{sub}/mo-khoa")
+async def mo_khoa(sub: uuid.UUID, body: LyDoRequest, ctx: dict = Depends(kiem_admin_key)) -> dict:
+    return await _thuc_hien(
+        "mo_khoa_tai_khoan", str(sub), ctx, tai_khoan_qt.mo_khoa, str(sub), body.ly_do, ctx["boi"], ctx["ip"]
+    )
+```
+
+`_thuc_hien(hanh_dong, doi_tuong, ctx, fn, *args)` gọi `run_in_threadpool(fn, *args)` — truyền `functools.partial` làm `fn` với `args` rỗng là hợp lệ.
+
+- [ ] **Bước 4: Xanh; lint; suite rộng**
+
+Run: `.venv/bin/python -m pytest tests/test_services/test_tai_khoan_qt.py tests/test_api/test_tai_khoan_khoa.py tests/test_api/test_admin_routes.py tests/test_api/test_admin_cong.py -q && .venv/bin/ruff check src/ tests/ && .venv/bin/ruff format --check src/models/schemas.py src/services/nang_goi.py src/services/tai_khoan_qt.py src/api/routes_admin.py && KLAW_SUPABASE_URL= .venv/bin/python -m pytest -q --ignore=tests/test_infra --ignore=tests/test_services/test_effectivity.py --deselect tests/test_services/test_moi_mau.py -p no:cacheprovider 2>&1 | tail -2`
+Expected: xanh; suite rộng 0 failed như mốc sau Task 7.
+
+- [ ] **Bước 5: Commit**
+
+```bash
+git add src/models/schemas.py src/services/nang_goi.py src/services/tai_khoan_qt.py src/api/routes_admin.py tests/test_services/test_tai_khoan_qt.py tests/test_api/test_tai_khoan_khoa.py tests/test_api/test_admin_routes.py tests/test_api/test_admin_cong.py
+git commit -m "feat(admin): require a reason for unlock and manual plan changes, recorded in the audit log"
+```
+
+---
+
 ## Giai đoạn 2 — CMS Payload (`cms/`)
 
 Chạy song song với giai đoạn 1 ở worktree riêng sau Task 1 (bảng endpoint §5.3 là hợp đồng chung). Task 12–14 cần KLAW của giai đoạn 1 chạy ở `:8000` để kiểm bằng tay; test vitest thì không.
@@ -3128,7 +3239,7 @@ git commit -m "feat(cms): upgrade-request view with approve, reject-with-reason 
 - Test: `cms/tests/tai-khoan-logic.spec.ts`
 
 **Interfaces:**
-- Consumes: `/api/klaw/tai-khoan?q=&limit=&offset=`, `/api/klaw/tai-khoan/:sub`, `PATCH …/goi {plan, so_ngay}`, `POST …/thu-hoi {ly_do}`, `…/khoa {ly_do}`, `…/mo-khoa`, `/api/klaw/goi`.
+- Consumes: `/api/klaw/tai-khoan?q=&limit=&offset=`, `/api/klaw/tai-khoan/:sub`, `PATCH …/goi {plan, so_ngay, ly_do}`, `POST …/thu-hoi {ly_do}`, `…/khoa {ly_do}`, `…/mo-khoa {ly_do}`, `/api/klaw/goi`.
 - Produces: `cauXacNhan(hd: 'dat_goi' | 'thu_hoi' | 'khoa' | 'mo_khoa', ctx: { email: string; tenGoi?: string; soNgay?: number | null }): { tieuDe: string; moTa: string; canLyDo: boolean }`.
 
 - [ ] **Bước 1: Test (đỏ)**
@@ -3138,9 +3249,10 @@ git commit -m "feat(cms): upgrade-request view with approve, reject-with-reason 
 import { describe, expect, it } from 'vitest'
 import { cauXacNhan } from '../src/views/tai-khoan-logic'
 describe('câu xác nhận nêu hậu quả (spec §6.5)', () => {
-  it('khoá nêu hậu quả và bắt buộc lý do; mở khoá không cần lý do; đặt gói nêu số ngày hoặc vô thời hạn', () => {
+  it('cả bốn hành động bắt buộc lý do; khoá nêu hậu quả; đặt gói nêu số ngày hoặc vô thời hạn', () => {
     expect(cauXacNhan('khoa', { email: 'a@b.c' })).toEqual({ tieuDe: 'Khoá tài khoản a@b.c?', moTa: 'Người dùng sẽ không hỏi và soạn được cho tới khi mở khoá. Tra cứu và soát văn bản vẫn mở.', canLyDo: true })
-    expect(cauXacNhan('mo_khoa', { email: 'a@b.c' }).canLyDo).toBe(false)
+    expect(cauXacNhan('mo_khoa', { email: 'a@b.c' }).canLyDo).toBe(true)
+    expect(cauXacNhan('dat_goi', { email: 'a@b.c', tenGoi: 'Cá nhân', soNgay: 30 }).canLyDo).toBe(true)
     expect(cauXacNhan('dat_goi', { email: 'a@b.c', tenGoi: 'Cá nhân', soNgay: 30 }).moTa).toContain('30 ngày')
     expect(cauXacNhan('dat_goi', { email: 'a@b.c', tenGoi: 'Cá nhân', soNgay: null }).moTa).toContain('vô thời hạn')
     expect(cauXacNhan('thu_hoi', { email: 'a@b.c' })).toMatchObject({ canLyDo: true, moTa: expect.stringContaining('ngay lập tức') })
@@ -3158,14 +3270,14 @@ export const cauXacNhan = (hd: HanhDongTK, ctx: { email: string; tenGoi?: string
     case 'khoa':
       return { tieuDe: `Khoá tài khoản ${ctx.email}?`, moTa: 'Người dùng sẽ không hỏi và soạn được cho tới khi mở khoá. Tra cứu và soát văn bản vẫn mở.', canLyDo: true }
     case 'mo_khoa':
-      return { tieuDe: `Mở khoá tài khoản ${ctx.email}?`, moTa: 'Người dùng hỏi và soạn văn bản lại được ngay.', canLyDo: false }
+      return { tieuDe: `Mở khoá tài khoản ${ctx.email}?`, moTa: 'Người dùng hỏi và soạn văn bản lại được ngay. Lý do chỉ ghi vào nhật ký, người dùng không thấy.', canLyDo: true }
     case 'thu_hoi':
       return { tieuDe: `Thu hồi gói trả phí của ${ctx.email}?`, moTa: 'Gói về Miễn phí ngay lập tức; người dùng nhận thông báo kèm lý do. Dùng cho lạm dụng, không dùng thay cho việc để gói hết hạn.', canLyDo: true }
     case 'dat_goi':
       return {
         tieuDe: `Đặt gói ${ctx.tenGoi ?? ''} cho ${ctx.email}?`,
-        moTa: ctx.soNgay == null ? `Gói ${ctx.tenGoi ?? ''} vô thời hạn (không có ngày hết hạn).` : `Gói ${ctx.tenGoi ?? ''} trong ${ctx.soNgay} ngày tính từ bây giờ.`,
-        canLyDo: false,
+        moTa: `${ctx.soNgay == null ? `Gói ${ctx.tenGoi ?? ''} vô thời hạn (không có ngày hết hạn).` : `Gói ${ctx.tenGoi ?? ''} trong ${ctx.soNgay} ngày tính từ bây giờ.`} Lý do chỉ ghi vào nhật ký, người dùng không thấy.`,
+        canLyDo: true,
       }
   }
 }
@@ -3173,7 +3285,7 @@ export const cauXacNhan = (hd: HanhDongTK, ctx: { email: string; tenGoi?: string
 
 `TaiKhoanClient.tsx` (prop `vaiTro`): ô tìm `<input type="search">` (gửi khi Enter hoặc sau 400 ms), bảng cột Email · Gói (`tenGoi`) · Hạn (`dinhDangLuc(plan_het_han)` hoặc "—") · Trạng thái ("Bình thường" / "Đang khoá") · Tham gia · Số phiên · Lượt 30 ngày; bấm dòng → `router.push('/admin/tai-khoan?sub=' + sub)`. Khi `?sub=` có → render `<ChiTietTaiKhoan sub vaiTro />` với nút "← Danh sách". `?loc=het_han` (từ Tổng quan): lọc phía client các dòng có `plan_het_han` trong 7 ngày (đủ cho quy mô khoá luận; ghi rõ trong mã bằng chú thích `// ponytail: lọc client, chuyển sang query KLAW khi > 500 tài khoản`).
 
-`ChiTietTaiKhoan.tsx`: tải `/tai-khoan/:sub` (kiểu `TaiKhoanChiTietOut`) và `/goi`; thẻ định danh (email, `tenGoi(plan)` + "hết hạn `dinhDangLuc(het_han_luc)`" hoặc "vô thời hạn", "Đang khoá từ `dinhDangLuc(khoa_luc)` · Lý do: `khoa_ly_do`" khi khoá); ba ô số `tong_hoi_dap`, `tong_ban_thao`, `so_phien` (KLAW không trả `muc` cho admin — không bịa thanh đo); bảng `yeu_cau` (Loại · Gói · Trạng thái · Tạo lúc · Xử lý lúc · Lý do); khối hành động chỉ khi `vaiTro === 'quan_tri'`: form Đặt gói (`<select>` từ `/goi`, `<input type="number" min=1 max=3650>` để trống = vô thời hạn, vô hiệu khi gói = `goi_mac_dinh`) → `HopXacNhan(cauXacNhan('dat_goi', …))` → `PATCH`; nút Thu hồi gói (ẩn khi `plan === goi_mac_dinh`) → `HopXacNhan canLyDo` → `POST`; nút Khoá / Mở khoá theo `khoa_luc`. Sau 2xx tải lại chi tiết; lỗi → `ThongBaoLoi` với `message` máy chủ (409 "Tài khoản đã ở trạng thái này." nguyên văn). **Không có** phần tử nào hiện nội dung hội thoại.
+`ChiTietTaiKhoan.tsx`: tải `/tai-khoan/:sub` (kiểu `TaiKhoanChiTietOut`) và `/goi`; thẻ định danh (email, `tenGoi(plan)` + "hết hạn `dinhDangLuc(het_han_luc)`" hoặc "vô thời hạn", "Đang khoá từ `dinhDangLuc(khoa_luc)` · Lý do: `khoa_ly_do`" khi khoá); ba ô số `tong_hoi_dap`, `tong_ban_thao`, `so_phien` (KLAW không trả `muc` cho admin — không bịa thanh đo); bảng `yeu_cau` (Loại · Gói · Trạng thái · Tạo lúc · Xử lý lúc · Lý do); khối hành động chỉ khi `vaiTro === 'quan_tri'`: form Đặt gói (`<select>` từ `/goi`, `<input type="number" min=1 max=3650>` để trống = vô thời hạn, vô hiệu khi gói = `goi_mac_dinh`) → `HopXacNhan(cauXacNhan('dat_goi', …))` → `PATCH` với body `{ plan, so_ngay, ly_do }`; nút Thu hồi gói (ẩn khi `plan === goi_mac_dinh`) → `HopXacNhan canLyDo` → `POST`; nút Khoá / Mở khoá theo `khoa_luc`, mở khoá gửi `POST …/mo-khoa` với body `{ ly_do }`. **Cả bốn hành động đều bắt buộc lý do** (Task 7b đổi hợp đồng; spec §5.3). Sau 2xx tải lại chi tiết; lỗi → `ThongBaoLoi` với `message` máy chủ (409 "Tài khoản đã ở trạng thái này." nguyên văn). **Không có** phần tử nào hiện nội dung hội thoại.
 
 `payload.config.ts`: `views.taiKhoan = { Component: '@/views/TaiKhoan#TaiKhoan', path: '/tai-khoan', exact: true }`.
 
@@ -3255,7 +3367,7 @@ export const queryNhatKy = (l: LocNhatKy): string => {
 }
 ```
 
-`NhatKyClient.tsx`: hai tab "Nhật ký KLAW" (mặc định) và "Nhật ký CMS". Tab KLAW: bộ lọc (`datetime-local` từ/đến; `<select>` hành động từ `HANH_DONG`; `sub` đối tượng), bảng Thời điểm (`dinhDangLuc`) · Hành động (`nhanHanhDong`) · Người thực hiện · Loại tác nhân · IP · Đối tượng · Chi tiết (`<details>` JSON), dòng chữ tĩnh "IP là địa chỉ qua CMS khi KLAW không tin proxy." dưới bảng; phân trang; nút "Xuất CSV": `fetch('/api/klaw/nhat-ky' + queryNhatKy({ ...loc, csv: true }), { credentials: 'same-origin' })` → `Blob` → `<a download="nhat-ky-quan-tri.csv">` bấm tự động rồi `URL.revokeObjectURL`. Tab CMS: `fetch('/api/nhat_ky_cms?sort=-createdAt&limit=50&page=n', { credentials: 'same-origin' })` → bảng Thời điểm · Hành động · Bởi · IP.
+`NhatKyClient.tsx`: hai tab "Nhật ký KLAW" (mặc định) và "Nhật ký CMS". Tab KLAW: bộ lọc (`datetime-local` từ/đến; `<select>` hành động từ `HANH_DONG`; `sub` đối tượng), bảng Thời điểm (`dinhDangLuc`) · Hành động (`nhanHanhDong`) · Người thực hiện · Loại tác nhân · IP · Đối tượng · Chi tiết (`<details>` JSON), dòng chữ tĩnh "IP là địa chỉ qua CMS khi KLAW không tin proxy." dưới bảng; phân trang; cạnh nút xuất, dòng chữ tĩnh "Xuất tối đa 5.000 dòng mỗi lần theo bộ lọc đang chọn; thu hẹp khoảng thời gian nếu cần đủ." (đề xuất B của khảo sát); chân màn hình: "Nhật ký được giữ vô thời hạn và chưa có bản sao tự động — xuất CSV định kỳ để giữ bằng chứng." (đề xuất C); nút "Xuất CSV": `fetch('/api/klaw/nhat-ky' + queryNhatKy({ ...loc, csv: true }), { credentials: 'same-origin' })` → `Blob` → `<a download="nhat-ky-quan-tri.csv">` bấm tự động rồi `URL.revokeObjectURL`. Tab CMS: `fetch('/api/nhat_ky_cms?sort=-createdAt&limit=50&page=n', { credentials: 'same-origin' })` → bảng Thời điểm · Hành động · Bởi · IP.
 
 `payload.config.ts`: `views.nhatKy = { Component: '@/views/NhatKy#NhatKy', path: '/nhat-ky', exact: true }`.
 
@@ -3297,7 +3409,7 @@ Thêm job vào `.github/workflows/ci.yml` (không đụng job Python):
 
 `pnpm build` trước `pnpm test` để `bundle.spec.ts` có `.next/static`. Không cài hook git, không đổi branch protection (§8.3).
 
-- [ ] **Bước 5: `cms/README.md`** — runbook §8.1 và §8.2 của spec: tạo database, năm biến, `pnpm dev`, người đầu tiên, `pnpm migrate:create` khi đổi collection, Railway (root dir `cms`, `pnpm start`, healthcheck `/api/admins/me` trả 200 `user: null`), và ghi chú "`frontend/` npm, `cms/` pnpm, gốc Python". Thêm một dòng vào `docs/README.md` trỏ tới `cms/README.md`.
+- [ ] **Bước 5: `cms/README.md`** — runbook §8.1 và §8.2 của spec: tạo database, năm biến, `pnpm dev`, người đầu tiên, `pnpm migrate:create` khi đổi collection, Railway (root dir `cms`, `pnpm start`, healthcheck `/api/admins/me` trả 200 `user: null`), ghi chú "`frontend/` npm, `cms/` pnpm, gốc Python", và mục **Lưu trữ nhật ký** (đề xuất C của khảo sát): KLAW giữ `nhat_ky_quan_tri` và `nhat_ky_cms` vô thời hạn, không có job dọn; bản sao giữ được duy nhất là CSV admin tự xuất (trần 5.000 dòng mỗi lần, theo bộ lọc), khuyến nghị mỗi tháng một lần; stream ra kho ngoài nằm ngoài phạm vi. Thêm một dòng vào `docs/README.md` trỏ tới `cms/README.md`.
 
 - [ ] **Bước 6: Migration đầu tiên**
 

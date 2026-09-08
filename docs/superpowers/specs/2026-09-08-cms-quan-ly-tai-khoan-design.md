@@ -263,8 +263,8 @@ def duyet(yeu_cau_id: int, nguon: str, tham_chieu: str, boi: str, ip: str | None
 def tu_choi(yeu_cau_id: int, ly_do: str, boi: str, ip: str | None) -> dict:
     """Từ chối, lưu lý do. Không đụng `users`."""
 
-def dat_goi(sub: str, plan: str, so_ngay: int | None, boi: str, ip: str | None) -> dict:
-    """Đặt gói tay. `so_ngay=None` với plan trả phí = vô thời hạn (plan_het_han NULL)."""
+def dat_goi(sub: str, plan: str, so_ngay: int | None, boi: str, ip: str | None = None, *, ly_do: str) -> dict:
+    """Đặt gói tay. `so_ngay=None` với plan trả phí = vô thời hạn (plan_het_han NULL). `ly_do` chỉ vào nhật ký."""
 
 def thu_hoi(sub: str, ly_do: str, boi: str, ip: str | None) -> dict:
     """Thu hồi gói trả phí ngay: plan_het_han = now(), KHÔNG đổi `plan`. Bắt buộc lý do."""
@@ -309,8 +309,9 @@ tái dùng cho `dat_goi` với `plan` lạ.
   theo quy tắc §4.2 của spec 2A).
 - `chi_tiet(sub) -> dict | None`: `ho_so.tong_hop(sub)` sẵn có + `khoa_luc`, `khoa_ly_do`
   + lịch sử `yeu_cau_nang_goi` của `sub` (mọi trạng thái, mới nhất trước).
-- `khoa(sub, ly_do, boi, ip)` / `mo_khoa(sub, boi, ip)`: `UPDATE users SET khoa_luc,
-  khoa_ly_do`, nhật ký `khoa_tai_khoan`/`mo_khoa_tai_khoan`, thông báo cho người dùng.
+- `khoa(sub, ly_do, boi, ip)` / `mo_khoa(sub, ly_do, boi, ip)`: `UPDATE users SET khoa_luc,
+  khoa_ly_do`, nhật ký `khoa_tai_khoan`/`mo_khoa_tai_khoan` (cả hai kèm `chi_tiet.ly_do`),
+  thông báo cho người dùng (thông báo mở khoá không mang lý do).
   `khoa` trên tài khoản đã khoá và `mo_khoa` trên tài khoản đang mở → `TrangThaiKhongDoi`
   (409), không ghi gì.
 - `tong_quan() -> dict`: tổng tài khoản; đang Cá nhân hiệu lực; yêu cầu `cho_duyet`;
@@ -374,6 +375,13 @@ Cổng `Depends(kiem_admin_key)`, dừng ở bước đầu tiên hỏng:
 
 Cột "Vai trò CMS" là điều proxy cưỡng chế (§6.4); KLAW không biết vai trò và không cần
 biết — nó tin CMS đã lọc, và ghi `boi` để truy vết.
+
+**Mọi thao tác đổi trạng thái đều bắt buộc `ly_do` (1–500 ký tự)** — duyệt là ngoại lệ duy
+nhất vì lý do đã nằm trong yêu cầu của người dùng. Bổ sung 2026-09-08 theo khảo sát console
+quản trị (đề xuất A trong `2026-09-08-khao-sat-console-quan-tri-to-chuc-lon.md`): GitHub bắt
+ghi lý do cả khi treo lẫn khi bỏ treo tài khoản. Lý do của từ chối, thu hồi, khoá đi vào thông
+báo cho người dùng; lý do của đặt gói tay và mở khoá là ghi chú nội bộ, **chỉ** vào
+`nhat_ky_quan_tri.chi_tiet`, không vào thông báo.
 
 **Không có** endpoint nào đọc `hoi_thoai` hay `luot_hoi_thoai`. Admin thấy *bao nhiêu
 lượt*, không thấy *hỏi gì*. Ai muốn đổi phải sửa spec này trước.
@@ -521,16 +529,26 @@ Duyệt và Từ chối chỉ hiện với `quan_tri` và tab Chờ duyệt. T�
 hạn, trạng thái (Bình thường / Đang khoá), ngày tham gia, số phiên, lượt 30 ngày. Chi
 tiết: thẻ định danh + trạng thái khoá và lý do; thanh đo mức dùng (tái dùng hình
 `HoSoResponse`); lịch sử yêu cầu; ba hành động cho `quan_tri`: Đặt gói (chọn gói từ
-`/admin/goi`, số ngày; để trống = vô thời hạn với gói trả phí), Thu hồi gói (lý do),
-Khoá / Mở khoá (lý do khi khoá). Mỗi hành động có bước xác nhận nêu rõ hậu quả
-("Người dùng sẽ không hỏi và soạn được cho tới khi mở khoá.").
+`/admin/goi`, số ngày; để trống = vô thời hạn với gói trả phí), Thu hồi gói, Khoá / Mở
+khoá. **Cả bốn hành động đều bắt buộc lý do** trong hộp xác nhận, và hộp xác nhận nêu rõ
+hậu quả ("Người dùng sẽ không hỏi và soạn được cho tới khi mở khoá."). Với đặt gói và mở
+khoá, hộp nói rõ "Lý do chỉ ghi vào nhật ký, người dùng không thấy."
 
 Màn chi tiết **không** có chỗ nào hiện nội dung hội thoại; không có API để vượt ranh giới.
 
 **Nhật ký** (`/admin/nhat-ky`): bảng từ `/admin/nhat-ky`, lọc khoảng thời gian, hành
 động, đối tượng; phân trang; nút Xuất CSV gọi cùng endpoint với `dinh_dang=csv` và tải
-tệp. Mở cho cả hai vai trò — đây là lý do vai `doc` tồn tại. Tab thứ hai "Nhật ký CMS"
-đọc `nhat_ky_cms` qua Local API (đăng nhập, đăng nhập sai).
+tệp. **Trần xuất công bố ngay cạnh nút**: "Xuất tối đa 5.000 dòng mỗi lần theo bộ lọc
+đang chọn; thu hẹp khoảng thời gian nếu cần đủ" (GitHub giới hạn 100 MB mỗi 10 phút,
+Google 100.000 dòng — đề xuất B của khảo sát). Mở cho cả hai vai trò — đây là lý do vai
+`doc` tồn tại. Tab thứ hai "Nhật ký CMS" đọc `nhat_ky_cms` qua REST (đăng nhập, đăng
+nhập sai).
+
+**Chính sách lưu trữ nhật ký** (đề xuất C của khảo sát, viết ra chứ chưa thi công cơ chế):
+KLAW giữ `nhat_ky_quan_tri` và `nhat_ky_cms` **vô thời hạn**, không có job dọn; bản sao
+giữ được duy nhất là tệp CSV do admin tự xuất, khuyến nghị mỗi tháng một lần. Stream ra
+kho ngoài (S3, webhook) nằm ngoài phạm vi. Câu này xuất hiện ở `cms/README.md` và ở chân
+màn Nhật ký.
 
 **Chuông** (giai đoạn 3, slot `actions`): chuyển `NotificationBell` gần nguyên vẹn; nguồn
 `/api/klaw/thong-bao` và `/api/klaw/thong-bao/luong`. Ở CMS dùng được `EventSource` vì
