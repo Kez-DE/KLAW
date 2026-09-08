@@ -18,7 +18,7 @@ const MUC =
  */
 export function ChuongThongBao() {
   const { daDangNhap } = useTaiKhoan();
-  const { soChuaDoc, items, danhDauDaDoc } = useThongBao(daDangNhap);
+  const { soChuaDoc, items, danhDauDaDoc, loiDanhDau, taiLai } = useThongBao(daDangNhap);
   const [mo, datMo] = useState(false);
   const nut = useRef<HTMLButtonElement | null>(null);
   // Ổn định vì lý do giống `TheTaiKhoan`: `KhungThongBao` gắn hiệu ứng tiêu
@@ -28,7 +28,17 @@ export function ChuongThongBao() {
 
   return (
     <div className="relative">
-      {mo && <KhungThongBao items={items} danhDauDaDoc={danhDauDaDoc} onDong={dong} nutMo={nut} />}
+      {mo && (
+        <KhungThongBao
+          items={items}
+          soChuaDoc={soChuaDoc}
+          loiDanhDau={loiDanhDau}
+          danhDauDaDoc={danhDauDaDoc}
+          taiLai={taiLai}
+          onDong={dong}
+          nutMo={nut}
+        />
+      )}
       <button
         ref={nut}
         type="button"
@@ -54,12 +64,23 @@ export function ChuongThongBao() {
 
 interface KhungProps {
   items: ThongBao[];
+  soChuaDoc: number;
+  loiDanhDau: string | null;
   danhDauDaDoc: (ids: number[]) => Promise<void>;
+  taiLai: () => void;
   onDong: () => void;
   nutMo: RefObject<HTMLButtonElement | null>;
 }
 
-function KhungThongBao({ items, danhDauDaDoc, onDong, nutMo }: KhungProps) {
+function KhungThongBao({
+  items,
+  soChuaDoc,
+  loiDanhDau,
+  danhDauDaDoc,
+  taiLai,
+  onDong,
+  nutMo,
+}: KhungProps) {
   const khung = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const nhom = nhomTheoNgay(items, new Date());
@@ -72,6 +93,10 @@ function KhungThongBao({ items, danhDauDaDoc, onDong, nutMo }: KhungProps) {
     const phim = (su: KeyboardEvent) => {
       if (su.key !== "Escape") return;
       su.preventDefault();
+      // Chặn nổi bọt tới `window`: `SheetDuoi` (sheet Tài khoản trên màn hẹp)
+      // cũng nghe Escape ở đó để tự đóng — không chặn thì một Escape đóng cả
+      // popover LẪN sheet bao ngoài, trong khi người dùng chỉ định đóng popover.
+      su.stopPropagation();
       onDong();
     };
     // `mousedown` chứ không `click`: cùng lý do `MenuTaiKhoan` — bấm ra ngoài
@@ -105,16 +130,25 @@ function KhungThongBao({ items, danhDauDaDoc, onDong, nutMo }: KhungProps) {
     >
       <div className="flex items-center justify-between gap-2 px-1 pb-1.5">
         <p className="m-0 text-[13px] font-semibold text-foreground">Thông báo</p>
-        {idsChuaDoc.length > 0 && (
+        {soChuaDoc > 0 && (
           <button
             type="button"
-            onClick={() => void danhDauDaDoc(idsChuaDoc)}
+            // `soChuaDoc` (đếm phía máy chủ, không giới hạn) quyết định có hiện
+            // nút hay không — `idsChuaDoc` chỉ là trang đã tải (tối đa 50 dòng).
+            // Còn thông báo chưa đọc ngoài trang này thì đánh dấu xong bấm lại
+            // lần nữa để dọn tiếp; trang rỗng thì chỉ còn việc tải lại.
+            onClick={() => (idsChuaDoc.length > 0 ? void danhDauDaDoc(idsChuaDoc) : taiLai())}
             className="focus-brass cursor-pointer rounded-md text-[12px] font-medium text-primary hover:underline"
           >
             Đã đọc tất cả
           </button>
         )}
       </div>
+      {loiDanhDau !== null && (
+        <p role="alert" className="m-0 px-1 pb-1.5 text-[12px] text-destructive">
+          {loiDanhDau}
+        </p>
+      )}
       {items.length === 0 ? (
         <p className="m-0 px-1 py-3 text-[13px] text-muted-foreground">Chưa có thông báo nào.</p>
       ) : (

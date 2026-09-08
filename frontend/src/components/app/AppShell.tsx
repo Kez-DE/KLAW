@@ -234,7 +234,9 @@ export function AppShell({
 
         <div className="mt-auto pt-3">
           {daDangNhap ? (
-            <div className="flex items-center gap-2">
+            // `rong` (≥80rem): hàng ngang, đủ chỗ. `!rong` (48–80rem, dải icon
+            // 64px): xếp dọc — một hàng ngang cần ~88px, rộng hơn cả dải.
+            <div className={rong ? "flex items-center gap-2" : "flex flex-col items-center gap-2"}>
               <ChuongThongBao />
               <TheTaiKhoan gon={!rong} />
             </div>

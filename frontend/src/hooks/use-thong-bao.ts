@@ -4,6 +4,7 @@ import { laDaDanhDau, laHopThu, type ThongBao } from "@/lib/klaw";
 import { catCacKhung } from "@/lib/sse-khung";
 
 const NOI_LAI_MS = 5_000;
+const LOI_DANH_DAU_MAC_DINH = "Không đánh dấu được. Thử lại.";
 
 /** Hộp thư của chính người gọi. Nguồn sự thật là GET; SSE chỉ báo "tải lại". Dùng `fetch` +
  *  `ReadableStream` như `traCuuLuong` vì `EventSource` không gửi được `Authorization`. */
@@ -11,12 +12,19 @@ export function useThongBao(kichHoat: boolean) {
   const [items, setItems] = useState<ThongBao[]>([]);
   const [soChuaDoc, setSo] = useState(0);
   const [dangTai, setDangTai] = useState(false);
+  const [loiDanhDau, setLoiDanhDau] = useState<string | null>(null);
   const huy = useRef<AbortController | null>(null);
+  // Bảo vệ phản hồi cũ: SSE bắn `taiLai` dồn dập, hoặc "Đã đọc tất cả" gọi lại
+  // ngay sau một lượt tải đang chạy, có thể khiến hai phản hồi GET về không
+  // đúng thứ tự gửi đi. Chỉ lượt gọi MỚI NHẤT được phép ghi vào state.
+  const theHe = useRef(0);
 
   const taiLai = useCallback(() => {
     if (!kichHoat) return;
+    const the = ++theHe.current;
     setDangTai(true);
     void goi("/thong-bao", laHopThu).then((r) => {
+      if (the !== theHe.current) return; // đã có lượt gọi mới hơn, bỏ phản hồi này
       setDangTai(false);
       if (r.ok) {
         setItems(r.data.items);
@@ -29,7 +37,12 @@ export function useThongBao(kichHoat: boolean) {
     async (ids: number[]) => {
       if (ids.length === 0) return;
       const r = await goi("/thong-bao/da-doc", laDaDanhDau, { method: "POST", body: { ids } });
-      if (r.ok) taiLai();
+      if (r.ok) {
+        setLoiDanhDau(null);
+        taiLai();
+      } else {
+        setLoiDanhDau(r.error.message || LOI_DANH_DAU_MAC_DINH);
+      }
     },
     [taiLai],
   );
@@ -82,5 +95,5 @@ export function useThongBao(kichHoat: boolean) {
     };
   }, [kichHoat, taiLai]);
 
-  return { soChuaDoc, items, dangTai, taiLai, danhDauDaDoc };
+  return { soChuaDoc, items, dangTai, loiDanhDau, taiLai, danhDauDaDoc };
 }
