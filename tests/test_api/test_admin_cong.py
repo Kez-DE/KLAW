@@ -44,3 +44,18 @@ async def test_khoa_dung_va_boi_dung_thi_200(client, cai_dat, ghi_gia):
 async def test_KLAW_API_KEY_khong_lien_quan_toi_admin(client, cai_dat, ghi_gia):
     cai_dat(admin_api_key="khoa-thu", api_key="khoa-cong-khai")
     assert (await client.get("/api/v1/admin/tong-quan", headers=DUNG)).status_code == 200
+
+
+async def test_loi_lap_trinh_KHONG_bi_LookupError_nuot_thanh_404(client, cai_dat, monkeypatch):
+    """`KeyError`/`IndexError` không phải lỗi NGHIỆP VỤ (`_LOI_NGHIEP_VU`) — client ASGI
+    của test (`ASGITransport(raise_app_exceptions=True)`, mặc định httpx, xem `tests/conftest.py`)
+    NỔ lại ngoại lệ thay vì trả response, nên đây là cách đúng để khẳng định nó KHÔNG bị
+    nuốt thành một 404 giả kèm nhật ký giả."""
+    cai_dat(admin_api_key="khoa-thu")
+
+    def no() -> dict:
+        raise KeyError("x")
+
+    monkeypatch.setattr(tai_khoan_qt, "tong_quan", no)
+    with pytest.raises(KeyError):
+        await client.get("/api/v1/admin/tong-quan", headers=DUNG)

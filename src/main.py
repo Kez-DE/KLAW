@@ -66,6 +66,17 @@ async def lifespan(app: FastAPI):
             "đăng nhập gọi LLM không giới hạn. Đặt KLAW_RATE_LIMIT_SO_LUOT > 0 (mặc "
             "định 10) rồi khởi động lại; số 0 chỉ dành cho eval chạy KHÔNG có Supabase."
         )
+    # Cùng bệnh, cổng khác: `KLAW_ADMIN_API_KEY` đã đặt mà `KLAW_RATE_LIMIT_SO_LUOT=0`
+    # ⇒ lá chắn IP (`chan-ip:{ip}`) mà `kiem_admin_key` gọi trước tiên tắt theo, vì
+    # `kiem_rate_limit` mở đầu bằng CÙNG công tắc toàn cục. Không có lá chắn đó thì
+    # mọi request CHƯA xác thực chạm thẳng nhánh 401 — dò khoá quản trị không giới
+    # hạn, và mỗi lần sai còn ghi một dòng `nhat_ky_quan_tri`.
+    if settings.admin_api_key and settings.rate_limit_so_luot <= 0:
+        raise RuntimeError(
+            "KLAW_ADMIN_API_KEY đã đặt mà KLAW_RATE_LIMIT_SO_LUOT=0: công tắc đó tắt cả lá chắn "
+            "IP trước cổng /admin, nên ai cũng dò khoá quản trị không giới hạn và mỗi lần sai ghi "
+            "một dòng nhật ký. Đặt KLAW_RATE_LIMIT_SO_LUOT > 0 rồi khởi động lại; số 0 chỉ dành cho eval."
+        )
     # Migration 019 (link_vbpl/link_chinhphu/link_tvpl) PHẢI áp trước khi
     # `graph_tra_cuu.py` SELECT ba cột này — SELECT đó vô điều kiện, trên đường
     # nóng của MỌI câu trả lời có trích dẫn (Important A, final review

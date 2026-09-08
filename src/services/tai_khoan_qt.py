@@ -6,6 +6,7 @@ from sqlalchemy import text
 from src.services import ho_so, nhat_ky, thong_bao
 from src.services.bao_ve import _doc_han_muc, moc_ngay, ten_goi
 from src.services.db import get_engine
+from src.services.nang_goi import KhongTonTai
 
 
 class TrangThaiKhongDoi(ValueError):  # noqa: N818
@@ -27,7 +28,7 @@ def khoa(sub: str, ly_do: str, boi: str, ip: str | None = None) -> dict:
     with get_engine().begin() as c:
         u = c.execute(_SQL_KHOA_USER, {"sub": sub}).mappings().one_or_none()
         if u is None:
-            raise LookupError(sub)
+            raise KhongTonTai(sub)
         if u["khoa_luc"] is not None:
             raise TrangThaiKhongDoi("đã khoá")
         r = c.execute(_SQL_KHOA, {"ly_do": ly_do, "sub": sub}).mappings().one()
@@ -48,7 +49,7 @@ def mo_khoa(sub: str, boi: str, ip: str | None = None) -> dict:
     with get_engine().begin() as c:
         u = c.execute(_SQL_KHOA_USER, {"sub": sub}).mappings().one_or_none()
         if u is None:
-            raise LookupError(sub)
+            raise KhongTonTai(sub)
         if u["khoa_luc"] is None:
             raise TrangThaiKhongDoi("đang mở")
         r = c.execute(_SQL_MO_KHOA, {"sub": sub}).mappings().one()

@@ -109,6 +109,26 @@ async def test_rate_limit_0_KHONG_co_supabase_van_khoi_dong_duoc(cai_dat, bo_qua
         pass
 
 
+async def test_admin_key_bat_ma_rate_limit_0_thi_TU_CHOI_khoi_dong(cai_dat):
+    """`KLAW_ADMIN_API_KEY` đã đặt mà `KLAW_RATE_LIMIT_SO_LUOT=0` ⇒ lá chắn IP trước
+    cổng `/admin` (`chan-ip:{ip}`, gọi qua `kiem_rate_limit`) tắt theo CÙNG công tắc
+    toàn cục, nên ai cũng dò khoá quản trị không giới hạn.
+
+    Không fixture `bo_qua_can_cu`: cùng lý lẽ với hai ca guard trên, guard phải nổ
+    TRƯỚC khi chạm Postgres.
+    """
+    cai_dat(app_env="development", admin_api_key="x", rate_limit_so_luot=0)
+    with pytest.raises(RuntimeError, match="KLAW_ADMIN_API_KEY"):
+        async with lifespan(app):
+            pass
+
+
+async def test_admin_key_va_rate_limit_duong_thi_khoi_dong_duoc(cai_dat, bo_qua_can_cu):
+    cai_dat(app_env="development", admin_api_key="x", rate_limit_so_luot=10)
+    async with lifespan(app):
+        pass
+
+
 async def test_lifespan_ap_migration_019_truoc_khi_kiem_can_cu(cai_dat, bo_qua_can_cu, monkeypatch):
     """Migration 019 (`link_vbpl`/`link_chinhphu`/`link_tvpl`) phải chạy ở
     lifespan: `graph_tra_cuu.py` SELECT ba cột này VÔ ĐIỀU KIỆN trên đường

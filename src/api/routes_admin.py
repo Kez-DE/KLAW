@@ -41,7 +41,6 @@ _LOI_NGHIEP_VU = (
     nang_goi.GoiKhongHopLe,
     nang_goi.ChuaCoHoSo,
     tai_khoan_qt.TrangThaiKhongDoi,
-    LookupError,
 )
 
 
