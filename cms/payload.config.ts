@@ -39,6 +39,7 @@ export default buildConfig({
         nhatKy: { Component: '@/views/NhatKy#NhatKy', path: '/nhat-ky', exact: true },
       },
       afterNavLinks: ['@/components/DieuHuong#DieuHuong'],
+      actions: ['@/components/ChuongThongBao#ChuongThongBao'],
     },
   },
   i18n: { supportedLanguages: { vi, en }, fallbackLanguage: 'vi' },

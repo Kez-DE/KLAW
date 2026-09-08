@@ -1,0 +1,294 @@
+.chuong-thong-bao {
+  position: relative;
+
+  &__trigger {
+    position: relative;
+    background: none;
+    border: none;
+    border-radius: var(--style-radius-m);
+    cursor: pointer;
+    line-height: 0;
+    padding: 0.4rem;
+    color: var(--color-icon, var(--theme-elevation-800));
+    transition:
+      background-color var(--vg-dur) var(--vg-ease),
+      transform var(--vg-press) var(--vg-ease);
+
+    &:hover {
+      background: var(--color-bg-transparent-hover);
+    }
+
+    &:active {
+      transform: scale(0.92);
+      transition-duration: var(--vg-dur-fast);
+    }
+
+    &:hover,
+    &[aria-expanded='true'] {
+      color: var(--color-text, var(--theme-elevation-1000));
+    }
+  }
+
+  // Drawn, not typed. An emoji bell used to sit here: a different glyph on every OS,
+  // deaf to currentColor, and impossible to swing.
+  &__icon {
+    display: block;
+    width: 1.25rem;
+    height: 1.25rem;
+    // The pivot is the crown, where a real bell hangs.
+    transform-origin: 50% 12%;
+  }
+
+  &__icon--ringing {
+    animation: chuong-thong-bao-ring 620ms var(--vg-ease);
+  }
+
+  // One swing, damped, then still. A loop would turn an alert into decoration.
+  @keyframes chuong-thong-bao-ring {
+    0% {
+      transform: rotate(0deg);
+    }
+
+    18% {
+      transform: rotate(13deg);
+    }
+
+    38% {
+      transform: rotate(-10deg);
+    }
+
+    58% {
+      transform: rotate(6deg);
+    }
+
+    78% {
+      transform: rotate(-3deg);
+    }
+
+    100% {
+      transform: rotate(0deg);
+    }
+  }
+
+  &__badge {
+    position: absolute;
+    top: -0.15rem;
+    right: -0.15rem;
+    min-width: 1.15rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    background: var(--theme-error-500);
+    color: var(--theme-base-0);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    line-height: 1.15rem;
+    text-align: center;
+    animation: chuong-thong-bao-badge-in var(--vg-press) var(--vg-ease);
+  }
+
+  @keyframes chuong-thong-bao-badge-in {
+    from {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  &__panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: 50;
+    width: min(24rem, 90vw);
+    max-height: 26rem;
+    overflow-y: auto;
+    // `.app-header__actions` — Payload's own CSS, four levels up — sets
+    // `white-space: nowrap` so the header's action icons never wrap onto a second
+    // line. The panel is a child of it, so every message inherited that and no
+    // notification could ever wrap: measured 2026-08-16 in the running admin, the
+    // panel's content was 644px wide inside a 382px box and the whole dropdown
+    // scrolled sideways. `overflow-wrap` cannot fix this on its own — `nowrap`
+    // outranks it — so the inheritance has to be cut here, at the panel.
+    white-space: normal;
+    // Belt to that brace: nothing inside this panel is ever meant to be reached by
+    // scrolling horizontally, so make that unreachable rather than merely unlikely.
+    overflow-x: hidden;
+    background: var(--theme-elevation-0);
+    border: 1px solid var(--theme-elevation-150);
+    border-radius: var(--style-radius-m);
+    // Same token Payload's own floating panels (Popup, Drawer) use for this exact
+    // shadow — pre-built per theme, unlike a flat rgb() which reads as invisible
+    // once the panel background itself goes dark.
+    box-shadow: var(--elevation-400-menu-panel, 0 8px 24px rgb(0 0 0 / 12%));
+    transform-origin: top right;
+    animation: chuong-thong-bao-panel-in var(--vg-dur) var(--vg-ease);
+  }
+
+  @keyframes chuong-thong-bao-panel-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.985);
+    }
+
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--theme-elevation-100);
+
+    button {
+      background: none;
+      border: none;
+      // `--theme-text-dim` isn't a real @payloadcms/ui token (not in
+      // dist/scss/colors.scss) — falls back to a real one, same pattern as the
+      // panel's reject-label fallback.
+      color: var(--theme-text-dim, var(--theme-elevation-600));
+      cursor: pointer;
+      font-size: 0.8rem;
+
+      &:disabled {
+        cursor: default;
+        opacity: 0.5;
+      }
+    }
+  }
+
+  &__group {
+    h4 {
+      margin: 0;
+      padding: 0.6rem 1rem 0.3rem;
+      color: var(--theme-text-dim, var(--theme-elevation-600));
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    ul {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin: 0;
+      padding: 0 0.6rem 0.6rem;
+      list-style: none;
+    }
+  }
+
+  // One bordered card per notification. Rows used to butt against each other with
+  // nothing between them, so eight notifications read as one wall of text and the
+  // boundary between two messages was guesswork.
+  &__card {
+    display: flex;
+    align-items: stretch;
+    background: var(--theme-elevation-0);
+    border: 1px solid var(--theme-elevation-100);
+    border-radius: var(--style-radius-s);
+    transition:
+      background-color var(--vg-dur) var(--vg-ease),
+      border-color var(--vg-dur) var(--vg-ease),
+      transform var(--vg-press) var(--vg-ease);
+
+    &:hover {
+      background: var(--theme-elevation-50);
+      border-color: var(--theme-elevation-150);
+    }
+
+    &:active {
+      transform: scale(0.985);
+      transition-duration: var(--vg-dur-fast);
+    }
+
+    // Unread is carried by weight rather than by a coloured rail or tinted fill:
+    // both of those change the card's box or collide with the hover background,
+    // and weight survives either theme without a second token to keep in step.
+    &[data-read='false'] .chuong-thong-bao__open > span::before,
+    &[data-read='false'] .chuong-thong-bao__open > strong {
+      font-weight: 600;
+    }
+
+    // Weight is a comparison — it only reads when a read row sits next to it. The dot is
+    // absolute, so a panel where everything is unread still says so. Drafting red,
+    // because an unread notification is a change waiting to be acknowledged.
+    &[data-read='false'] .chuong-thong-bao__open > strong::before {
+      content: '';
+      display: inline-block;
+      width: 0.375rem;
+      height: 0.375rem;
+      margin-right: 0.4rem;
+      vertical-align: 0.08em;
+      border-radius: 999px;
+      background: var(--theme-error-500);
+    }
+  }
+
+  &__open {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.15rem;
+    // Without this a long unbroken message forces the flex item wider than the
+    // panel, pushing the row content off the right edge where it cannot be read.
+    min-width: 0;
+    padding: 0.55rem 0.7rem;
+    background: none;
+    border: none;
+    border-radius: var(--style-radius-s);
+    cursor: pointer;
+    text-align: left;
+
+    span {
+      overflow-wrap: anywhere;
+      color: var(--theme-text-dim, var(--theme-elevation-600));
+      font-size: 0.85rem;
+    }
+  }
+
+  &__open:focus-visible {
+    outline: 2px solid var(--ramp-blue-500);
+    outline-offset: -2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__panel,
+    &__badge,
+    &__icon--ringing {
+      animation: none;
+    }
+
+    &__trigger:active,
+    &__card:active {
+      transform: none;
+    }
+  }
+
+  &__skeleton {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    list-style: none;
+
+    li {
+      height: 0.9rem;
+      margin-bottom: 0.6rem;
+      border-radius: var(--style-radius-s);
+      background: var(--theme-elevation-100);
+    }
+  }
+
+  &__empty {
+    padding: 1.25rem 1rem;
+    color: var(--theme-text-dim, var(--theme-elevation-600));
+    text-align: center;
+  }
+}

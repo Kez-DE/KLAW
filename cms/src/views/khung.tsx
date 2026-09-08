@@ -11,6 +11,13 @@ export function KhungQuanTri({ props, tieuDe, children }: { props: AdminViewServ
     <DefaultTemplate
       i18n={initPageResult.req.i18n} locale={initPageResult.locale} params={params} payload={initPageResult.req.payload}
       permissions={initPageResult.permissions} searchParams={searchParams} user={initPageResult.req.user} visibleEntities={initPageResult.visibleEntities}
+      // DefaultTemplate không tự đọc payload.config.admin.components.actions — nó chỉ vẽ
+      // những gì `viewActions` truyền vào, và Payload đã tính sẵn giá trị đó cho ta trên
+      // `props`. Thiếu dòng này, chuông thông báo (đăng ký ở payload.config.ts) chỉ hiện
+      // trên `/admin` (route dashboard do Payload tự bọc thêm một template ở NGOÀI khung
+      // này) và biến mất trên mọi view tuỳ biến khác (yêu cầu, tài khoản, nhật ký) — vì
+      // các view đó chỉ có đúng khung DefaultTemplate do KhungQuanTri dựng ở đây.
+      viewActions={props.viewActions}
     >
       <Gutter><h1 style={{ marginBottom: 24 }}>{tieuDe}</h1>{children}</Gutter>
     </DefaultTemplate>
