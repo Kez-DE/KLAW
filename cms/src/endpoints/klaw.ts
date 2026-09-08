@@ -2,7 +2,7 @@
 import type { Endpoint, PayloadRequest } from 'payload'
 import { dangHoatDong, laQuanTri } from '../access/vaiTro'
 import { ghiNhatKyCms, ipCua } from '../hooks/nhatKyCms'
-import { ALLOWLIST, UUID_RE, dienDuong, type Hang } from '../lib/allowlist'
+import { ALLOWLIST, THAM_SO_HOP_LE, UUID_RE, dienDuong, type Hang } from '../lib/allowlist'
 import { goiKlaw } from '../lib/klaw-client'
 
 const THONG_DIEP: Record<number, string> = {
@@ -14,6 +14,7 @@ const THONG_DIEP: Record<number, string> = {
 /** Thứ tự kiểm §6.4: phiên → tham số → vai trò. Thuần, test riêng. */
 export const quyetDinh = (user: unknown, hang: Hang, params: Record<string, string>): 401 | 403 | 404 | null => {
   if (!dangHoatDong(user)) return 401
+  if (Object.values(params).some((v) => !THAM_SO_HOP_LE.test(String(v)))) return 404
   if ('sub' in params && !UUID_RE.test(params.sub ?? '')) return 404
   if (hang.vaiTro === 'quan_tri' && !laQuanTri(user)) return 403
   return null

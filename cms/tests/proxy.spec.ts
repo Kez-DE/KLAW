@@ -23,6 +23,8 @@ describe('proxy (spec §6.4)', () => {
     expect(quyetDinh(QT, hang('/tai-khoan/:sub'), { sub: 'x' })).toBe(404)
     expect(quyetDinh(DOC, hang('/tai-khoan/:sub'), { sub: SUB })).toBeNull()
     expect(quyetDinh(QT, hang('/yeu-cau/:id/duyet'), { id: '1' })).toBeNull()
+    expect(quyetDinh(QT, hang('/yeu-cau/:id/duyet'), { id: '..' })).toBe(404)
+    expect(quyetDinh(QT, hang('/yeu-cau/:id/duyet'), { id: '1' })).toBeNull()
   })
 
   it('không phiên → 401 và KHÔNG gọi KLAW; doc POST → 403 và KHÔNG gọi KLAW', async () => {
@@ -30,6 +32,13 @@ describe('proxy (spec §6.4)', () => {
     const ep = taoEndpoint(hang('/yeu-cau/:id/duyet'))
     expect((await ep.handler(req(null, 'http://cms.local/api/klaw/yeu-cau/1/duyet', { id: '1' }))).status).toBe(401)
     expect((await ep.handler(req(DOC, 'http://cms.local/api/klaw/yeu-cau/1/duyet', { id: '1' }))).status).toBe(403)
+    expect(f).not.toHaveBeenCalled()
+  })
+
+  it('tham số dạng ../ (path traversal) → 404 và KHÔNG gọi KLAW', async () => {
+    const f = vi.fn(); vi.stubGlobal('fetch', f)
+    const r = await taoEndpoint(hang('/yeu-cau/:id/duyet')).handler(req(QT, 'http://cms.local/api/klaw/yeu-cau/../duyet', { id: '..' }))
+    expect(r.status).toBe(404)
     expect(f).not.toHaveBeenCalled()
   })
 

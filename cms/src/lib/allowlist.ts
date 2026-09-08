@@ -24,5 +24,8 @@ export const ALLOWLIST: readonly Hang[] = [
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+/** Chặn tham số đường chứa `..`, `/` đã mã hoá, v.v. trước khi ghép vào URL ngược dòng KLAW. */
+export const THAM_SO_HOP_LE = /^[\w-]+$/
+
 export const dienDuong = (mau: string, params: Record<string, string>): string =>
   mau.replace(/:(\w+)/g, (_, k: string) => encodeURIComponent(params[k] ?? ''))
