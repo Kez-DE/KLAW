@@ -32,7 +32,10 @@ export default buildConfig({
     user: 'admins',
     meta: { titleSuffix: '— KLAW quản trị' },
     components: {
-      views: { dashboard: { Component: '@/views/TongQuan#TongQuan' } },
+      views: {
+        dashboard: { Component: '@/views/TongQuan#TongQuan' },
+        yeuCau: { Component: '@/views/YeuCau#YeuCau', path: '/yeu-cau', exact: true },
+      },
       afterNavLinks: ['@/components/DieuHuong#DieuHuong'],
     },
   },
