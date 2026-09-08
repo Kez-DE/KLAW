@@ -686,4 +686,5 @@ Ba giai đoạn, mỗi giai đoạn tự đứng và kiểm chứng được; gi
 
 Task hợp đồng đầu tiên (chạy trước, chung cho 1 và 2): bảng endpoint §5.3 thành
 `allowlist.ts` và `routes_admin.py` rỗng cùng model Pydantic; hai luồng cùng đọc một hình.
-Ước lượng 14–16 task, mỗi task một implementer và một review như gói 2A.
+Kế hoạch thi công: `docs/superpowers/plans/2026-09-08-cms-quan-ly-tai-khoan.md` — 18 task
+(7 KLAW, 7 CMS, 1 frontend, 3 thông báo), mỗi task một implementer và một review như gói 2A.
