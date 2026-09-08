@@ -47,7 +47,7 @@ from sqlalchemy import text
 from starlette.concurrency import run_in_threadpool
 
 from src.config import get_settings
-from src.services import xac_thuc
+from src.services import nhat_ky, xac_thuc
 from src.services.db import get_engine
 
 logger = logging.getLogger(__name__)
@@ -204,6 +204,39 @@ def kiem_api_key(request: Request) -> None:
             detail=f"Thiếu hoặc sai header {TEN_HEADER_KEY}.",
             headers={"WWW-Authenticate": TEN_HEADER_KEY},
         )
+
+
+TEN_HEADER_ADMIN_KEY = "X-Admin-Key"
+TEN_HEADER_ADMIN_BOI = "X-Admin-Boi"
+LOI_ADMIN_CHUA_CAU_HINH = "Đường quản trị chưa được cấu hình."
+
+
+async def kiem_admin_key(request: Request) -> dict:
+    """Cổng của router `/admin` (spec 2B §5.3), dừng ở bước đầu hỏng: lá chắn IP →
+    khoá phải được cấu hình (503, fail-closed) → khoá khớp (401 + nhật ký) → danh
+    tính admin (400). Trả `{"boi", "ip"}` cho handler ghi `xu_ly_boi`."""
+    ip = ip_goi(request)
+    await run_in_threadpool(kiem_rate_limit, f"chan-ip:{ip}", get_settings().rate_limit_ip_so_luot)
+    khoa_that = get_settings().admin_api_key
+    if not khoa_that:
+        raise HTTPException(status_code=503, detail=LOI_ADMIN_CHUA_CAU_HINH)
+    khoa_gui = request.headers.get(TEN_HEADER_ADMIN_KEY.lower(), "")
+    if not secrets.compare_digest(khoa_gui.encode("utf-8"), khoa_that.encode("utf-8")):
+        try:
+            await run_in_threadpool(
+                nhat_ky.ghi, "xac_thuc_that_bai", doi_tuong=None, chi_tiet={}, boi="(không rõ)", ip=ip
+            )
+        except Exception:
+            logger.exception("kiem_admin_key: không ghi được nhật ký xác thực thất bại")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Thiếu hoặc sai header {TEN_HEADER_ADMIN_KEY}.",
+            headers={"WWW-Authenticate": TEN_HEADER_ADMIN_KEY},
+        )
+    boi = request.headers.get(TEN_HEADER_ADMIN_BOI.lower(), "").strip()
+    if not boi:
+        raise HTTPException(status_code=400, detail=f"Thiếu header {TEN_HEADER_ADMIN_BOI}.")
+    return {"boi": boi, "ip": ip}
 
 
 # ── Cổng 2: rate limit theo IP ──────────────────────────────────────────────
