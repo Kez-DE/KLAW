@@ -60,10 +60,13 @@ def tao_yeu_cau(sub: str, goi_muon: str) -> dict:
             r = c.execute(_SQL_TAO, {"sub": sub, "loai": loai, "ht": hieu_luc, "muon": goi_muon}).mappings().one()
             viec = "gia hạn" if loai == "gia_han" else "nâng lên"
             thong_bao.ghi(
-                nguoi_nhan=None, loai="yeu_cau_moi", tieu_de="Yêu cầu nâng gói mới",
+                nguoi_nhan=None,
+                loai="yeu_cau_moi",
+                tieu_de="Yêu cầu nâng gói mới",
                 noi_dung=f"{u['email'] or sub} muốn {viec} gói {ten_goi(goi_muon)}.",
                 duong_dan="/admin/yeu-cau?trang_thai=cho_duyet",
-                khoa_gom=thong_bao.KHOA_YEU_CAU.format(sub=sub), c=c,
+                khoa_gom=thong_bao.KHOA_YEU_CAU.format(sub=sub),
+                c=c,
             )
             return dict(r)
     except IntegrityError as e:  # unique index: đã có yêu cầu cho_duyet

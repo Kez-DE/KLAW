@@ -36,7 +36,9 @@ async def phat(
         if so != truoc:
             yield sse("so_chua_doc", {"so": so})
             if truoc is not None and so > truoc:
-                moi = await run_in_threadpool(functools.partial(thong_bao.danh_sach, nguoi_nhan, chi_chua_doc=True, limit=1))
+                moi = await run_in_threadpool(
+                    functools.partial(thong_bao.danh_sach, nguoi_nhan, chi_chua_doc=True, limit=1)
+                )
                 if moi:
                     yield sse("thong_bao_moi", moi[0])
             truoc = so

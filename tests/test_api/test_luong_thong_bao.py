@@ -21,8 +21,15 @@ async def test_phat_khi_so_doi_va_ping(monkeypatch):
         thong_bao,
         "danh_sach",
         lambda nn, chi_chua_doc=False, limit=50: [
-            {"id": 9, "loai": "yeu_cau_moi", "tieu_de": "t", "noi_dung": "n", "duong_dan": "/x", "da_doc": False,
-             "tao_luc": "2026-09-08T00:00:00+00:00"}
+            {
+                "id": 9,
+                "loai": "yeu_cau_moi",
+                "tieu_de": "t",
+                "noi_dung": "n",
+                "duong_dan": "/x",
+                "da_doc": False,
+                "tao_luc": "2026-09-08T00:00:00+00:00",
+            }
         ],
     )
     khung = [k async for k in luong_thong_bao.phat(None, chu_ky_giay=0.01, nhip_giay=0.03, toi_da_giay=0.15)]
@@ -36,6 +43,8 @@ async def test_phat_khi_so_doi_va_ping(monkeypatch):
 async def test_phat_dung_sau_toi_da(monkeypatch):
     monkeypatch.setattr(thong_bao, "dem_chua_doc", lambda nn: 0)
     t0 = asyncio.get_running_loop().time()
-    async for _ in luong_thong_bao.phat("00000000-0000-0000-0000-000000000001", chu_ky_giay=0.01, nhip_giay=1, toi_da_giay=0.05):
+    async for _ in luong_thong_bao.phat(
+        "00000000-0000-0000-0000-000000000001", chu_ky_giay=0.01, nhip_giay=1, toi_da_giay=0.05
+    ):
         pass
     assert asyncio.get_running_loop().time() - t0 < 1

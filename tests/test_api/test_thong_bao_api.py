@@ -51,7 +51,9 @@ async def test_tao_yeu_cau_sinh_mot_thong_bao_admin_va_duyet_vo_hieu_no(client, 
 
 
 async def test_da_doc_khong_dong_toi_hop_thu_nguoi_khac(client, nguoi, khoa_ky):
-    i = thong_bao.ghi(nguoi_nhan=None, loai="yeu_cau_moi", tieu_de="t", noi_dung="n", duong_dan="/x", khoa_gom=f"test:{nguoi}")
+    i = thong_bao.ghi(
+        nguoi_nhan=None, loai="yeu_cau_moi", tieu_de="t", noi_dung="n", duong_dan="/x", khoa_gom=f"test:{nguoi}"
+    )
     r = await client.post("/api/v1/thong-bao/da-doc", json={"ids": [i]}, headers=_bearer(khoa_ky, nguoi))
     assert r.status_code == 200 and r.json()["da_danh_dau"] == 0
 
@@ -64,6 +66,8 @@ async def test_luong_tra_event_stream(client, nguoi, khoa_ky, monkeypatch):
 
     monkeypatch.setattr(luong_thong_bao, "phat", ngan)
     r = await client.get("/api/v1/admin/thong-bao/luong", headers=H)
-    assert r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream") and "so_chua_doc" in r.text
+    assert (
+        r.status_code == 200 and r.headers["content-type"].startswith("text/event-stream") and "so_chua_doc" in r.text
+    )
     r = await client.get("/api/v1/thong-bao/luong", headers=_bearer(khoa_ky, nguoi))
     assert r.status_code == 200 and "so_chua_doc" in r.text
