@@ -196,9 +196,10 @@ def _ket_qua(sub: str, plan: str, han: datetime | None) -> dict:
     return {"sub": sub, "plan": plan_hieu_luc_tu(plan, han), "plan_het_han": han}
 
 
-def dat_goi(sub: str, plan: str, so_ngay: int | None, boi: str, ip: str | None = None) -> dict:
+def dat_goi(sub: str, plan: str, so_ngay: int | None, boi: str, ip: str | None = None, *, ly_do: str) -> dict:
     """Đặt gói tay. `so_ngay=None` với gói trả phí = vô thời hạn (`plan_het_han` NULL);
-    gói mặc định luôn NULL."""
+    gói mặc định luôn NULL. `ly_do` là ghi chú nội bộ (GitHub bắt lý do cả khi bỏ treo) —
+    chỉ vào nhật ký, không vào thông báo."""
     d = _doc_han_muc()
     if plan not in d["goi"]:
         raise GoiKhongHopLe(plan)
@@ -218,6 +219,7 @@ def dat_goi(sub: str, plan: str, so_ngay: int | None, boi: str, ip: str | None =
                 "so_ngay": so_ngay,
                 "plan_het_han": _iso(han),
                 "truoc": {"plan": u["plan"], "plan_het_han": _iso(u["plan_het_han"])},
+                "ly_do": ly_do,
             },
             boi=boi,
             ip=ip,

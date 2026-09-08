@@ -45,7 +45,7 @@ def khoa(sub: str, ly_do: str, boi: str, ip: str | None = None) -> dict:
         return dict(r)
 
 
-def mo_khoa(sub: str, boi: str, ip: str | None = None) -> dict:
+def mo_khoa(sub: str, ly_do: str, boi: str, ip: str | None = None) -> dict:
     with get_engine().begin() as c:
         u = c.execute(_SQL_KHOA_USER, {"sub": sub}).mappings().one_or_none()
         if u is None:
@@ -53,7 +53,7 @@ def mo_khoa(sub: str, boi: str, ip: str | None = None) -> dict:
         if u["khoa_luc"] is None:
             raise TrangThaiKhongDoi("đang mở")
         r = c.execute(_SQL_MO_KHOA, {"sub": sub}).mappings().one()
-        nhat_ky.ghi("mo_khoa_tai_khoan", doi_tuong=sub, chi_tiet={}, boi=boi, ip=ip, c=c)
+        nhat_ky.ghi("mo_khoa_tai_khoan", doi_tuong=sub, chi_tiet={"ly_do": ly_do}, boi=boi, ip=ip, c=c)
         thong_bao.vo_hieu(thong_bao.KHOA_TAI_KHOAN.format(sub=sub, loai="tai_khoan_khoa"), c=c)
         thong_bao.ghi(
             nguoi_nhan=sub,

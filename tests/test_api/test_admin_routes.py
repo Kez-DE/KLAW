@@ -65,10 +65,17 @@ async def test_tu_choi_can_ly_do_va_hien_o_chi_tiet(client, nguoi):
 async def test_tim_dat_goi_thu_hoi_khoa_mo_khoa(client, nguoi):
     ds = (await client.get("/api/v1/admin/tai-khoan", params={"q": "route@test"}, headers=H)).json()
     assert ds["tong"] == 1 and ds["items"][0]["sub"] == nguoi and ds["items"][0]["plan"] == "free"
-    r = await client.patch(f"/api/v1/admin/tai-khoan/{nguoi}/goi", json={"plan": "pro", "so_ngay": 15}, headers=H)
+    r = await client.patch(
+        f"/api/v1/admin/tai-khoan/{nguoi}/goi",
+        json={"plan": "pro", "so_ngay": 15, "ly_do": "Hỗ trợ khách hàng."},
+        headers=H,
+    )
     assert r.status_code == 200 and r.json()["plan"] == "pro"
     assert (
-        await client.patch(f"/api/v1/admin/tai-khoan/{nguoi}/goi", json={"plan": "vip"}, headers=H)
+        await client.patch(f"/api/v1/admin/tai-khoan/{nguoi}/goi", json={"plan": "vip", "ly_do": "x"}, headers=H)
+    ).status_code == 422
+    assert (
+        await client.patch(f"/api/v1/admin/tai-khoan/{nguoi}/goi", json={"plan": "pro", "so_ngay": 15}, headers=H)
     ).status_code == 422
     r = await client.post(f"/api/v1/admin/tai-khoan/{nguoi}/thu-hoi", json={"ly_do": "Chia sẻ."}, headers=H)
     assert r.status_code == 200 and r.json()["plan"] == "free"
@@ -83,8 +90,13 @@ async def test_tim_dat_goi_thu_hoi_khoa_mo_khoa(client, nguoi):
     ).status_code == 409
     yc = nang_goi.tao_yeu_cau(nguoi, "pro")
     assert (await client.post(f"/api/v1/admin/yeu-cau/{yc['id']}/duyet", headers=H)).status_code == 423
-    assert (await client.post(f"/api/v1/admin/tai-khoan/{nguoi}/mo-khoa", headers=H)).status_code == 200
-    assert (await client.post(f"/api/v1/admin/tai-khoan/{nguoi}/mo-khoa", headers=H)).status_code == 409
+    assert (
+        await client.post(f"/api/v1/admin/tai-khoan/{nguoi}/mo-khoa", json={"ly_do": "Đã xác minh."}, headers=H)
+    ).status_code == 200
+    assert (
+        await client.post(f"/api/v1/admin/tai-khoan/{nguoi}/mo-khoa", json={"ly_do": "Đã xác minh."}, headers=H)
+    ).status_code == 409
+    assert (await client.post(f"/api/v1/admin/tai-khoan/{nguoi}/mo-khoa", headers=H)).status_code == 422
     assert (await client.get("/api/v1/admin/tai-khoan/khong-phai-uuid", headers=H)).status_code == 422
     assert (await client.get(f"/api/v1/admin/tai-khoan/{uuid.uuid4()}", headers=H)).status_code == 404
 
@@ -92,7 +104,7 @@ async def test_tim_dat_goi_thu_hoi_khoa_mo_khoa(client, nguoi):
 @tich_hop
 async def test_nhat_ky_json_va_csv_cung_so_dong(client, nguoi):
     await client.post(f"/api/v1/admin/tai-khoan/{nguoi}/khoa", json={"ly_do": "a"}, headers=H)
-    await client.post(f"/api/v1/admin/tai-khoan/{nguoi}/mo-khoa", headers=H)
+    await client.post(f"/api/v1/admin/tai-khoan/{nguoi}/mo-khoa", json={"ly_do": "a"}, headers=H)
     j = (await client.get("/api/v1/admin/nhat-ky", params={"doi_tuong": nguoi, "limit": 100}, headers=H)).json()
     c = await client.get(
         "/api/v1/admin/nhat-ky", params={"doi_tuong": nguoi, "limit": 100, "dinh_dang": "csv"}, headers=H

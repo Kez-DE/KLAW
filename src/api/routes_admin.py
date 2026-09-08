@@ -162,7 +162,10 @@ async def chi_tiet(sub: uuid.UUID, ctx: dict = Depends(kiem_admin_key)) -> TaiKh
 @router.patch("/tai-khoan/{sub}/goi", response_model=KetQuaGoiOut)
 async def dat_goi(sub: uuid.UUID, body: DatGoiRequest, ctx: dict = Depends(kiem_admin_key)) -> KetQuaGoiOut:
     r = await _thuc_hien(
-        "dat_goi", str(sub), ctx, nang_goi.dat_goi, str(sub), body.plan, body.so_ngay, ctx["boi"], ctx["ip"]
+        "dat_goi",
+        str(sub),
+        ctx,
+        functools.partial(nang_goi.dat_goi, str(sub), body.plan, body.so_ngay, ctx["boi"], ctx["ip"], ly_do=body.ly_do),
     )
     return KetQuaGoiOut(**r)
 
@@ -181,8 +184,10 @@ async def khoa(sub: uuid.UUID, body: LyDoRequest, ctx: dict = Depends(kiem_admin
 
 
 @router.post("/tai-khoan/{sub}/mo-khoa")
-async def mo_khoa(sub: uuid.UUID, ctx: dict = Depends(kiem_admin_key)) -> dict:
-    return await _thuc_hien("mo_khoa_tai_khoan", str(sub), ctx, tai_khoan_qt.mo_khoa, str(sub), ctx["boi"], ctx["ip"])
+async def mo_khoa(sub: uuid.UUID, body: LyDoRequest, ctx: dict = Depends(kiem_admin_key)) -> dict:
+    return await _thuc_hien(
+        "mo_khoa_tai_khoan", str(sub), ctx, tai_khoan_qt.mo_khoa, str(sub), body.ly_do, ctx["boi"], ctx["ip"]
+    )
 
 
 @router.get("/nhat-ky", response_model=None)

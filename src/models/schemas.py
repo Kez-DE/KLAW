@@ -916,6 +916,7 @@ class LyDoRequest(BaseModel):
 class DatGoiRequest(BaseModel):
     plan: str = Field(..., min_length=1, max_length=32)
     so_ngay: int | None = Field(default=None, ge=1, le=3650)  # None + gói trả phí = vô thời hạn
+    ly_do: str = Field(..., min_length=1, max_length=500)  # ghi chú nội bộ, chỉ vào nhật ký
 
 
 class DaDocRequest(BaseModel):

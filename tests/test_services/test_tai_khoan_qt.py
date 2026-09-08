@@ -43,35 +43,50 @@ def test_khoa_roi_mo_khoa_va_trang_thai_khong_doi(nguoi):
     with pytest.raises(tai_khoan_qt.TrangThaiKhongDoi):
         tai_khoan_qt.khoa(nguoi, "lại", BOI)
     assert thong_bao.dem_chua_doc(nguoi) == 1
-    r2 = tai_khoan_qt.mo_khoa(nguoi, BOI)
+    r2 = tai_khoan_qt.mo_khoa(nguoi, "Đã xác minh danh tính.", BOI)
     assert r2["khoa_luc"] is None and bao_ve.bi_khoa(nguoi) is False
     with pytest.raises(tai_khoan_qt.TrangThaiKhongDoi):
-        tai_khoan_qt.mo_khoa(nguoi, BOI)
+        tai_khoan_qt.mo_khoa(nguoi, "Đã xác minh danh tính.", BOI)
     with pytest.raises(LookupError):
         tai_khoan_qt.khoa(str(uuid.uuid4()), "x", BOI)
     with get_engine().connect() as c:
         hd = {r[0] for r in c.execute(text("SELECT hanh_dong FROM nhat_ky_quan_tri WHERE boi = :b"), {"b": BOI})}
     assert {"khoa_tai_khoan", "mo_khoa_tai_khoan"} <= hd
+    with get_engine().connect() as c:
+        ly_do_mo = c.execute(
+            text("SELECT chi_tiet->>'ly_do' FROM nhat_ky_quan_tri WHERE boi = :b AND hanh_dong = 'mo_khoa_tai_khoan'"),
+            {"b": BOI},
+        ).scalar_one()
+    assert ly_do_mo == "Đã xác minh danh tính."
 
 
 def test_dat_goi_so_ngay_None_la_vo_thoi_han_va_goi_la(nguoi):
-    r = nang_goi.dat_goi(nguoi, "pro", None, BOI)
+    r = nang_goi.dat_goi(nguoi, "pro", None, BOI, ly_do="Hỗ trợ khách hàng.")
     assert r["plan"] == "pro" and r["plan_het_han"] is None and _dong(nguoi)["plan_het_han"] is None
-    r = nang_goi.dat_goi(nguoi, "pro", 10, BOI)
+    with get_engine().connect() as c:
+        ly_do_dat = c.execute(
+            text(
+                "SELECT chi_tiet->>'ly_do' FROM nhat_ky_quan_tri WHERE boi = :b AND hanh_dong = 'dat_goi'"
+                " ORDER BY id LIMIT 1"
+            ),
+            {"b": BOI},
+        ).scalar_one()
+    assert ly_do_dat == "Hỗ trợ khách hàng."
+    r = nang_goi.dat_goi(nguoi, "pro", 10, BOI, ly_do="Hỗ trợ khách hàng.")
     assert 9 < (r["plan_het_han"] - datetime.now(UTC)).total_seconds() / 86400 <= 10
-    r = nang_goi.dat_goi(nguoi, "free", None, BOI)
+    r = nang_goi.dat_goi(nguoi, "free", None, BOI, ly_do="Hỗ trợ khách hàng.")
     assert r["plan"] == "free" and r["plan_het_han"] is None
     with pytest.raises(nang_goi.GoiKhongHopLe):
-        nang_goi.dat_goi(nguoi, "vip", None, BOI)
+        nang_goi.dat_goi(nguoi, "vip", None, BOI, ly_do="Hỗ trợ khách hàng.")
     with pytest.raises(nang_goi.ChuaCoHoSo):
-        nang_goi.dat_goi(str(uuid.uuid4()), "pro", None, BOI)
+        nang_goi.dat_goi(str(uuid.uuid4()), "pro", None, BOI, ly_do="Hỗ trợ khách hàng.")
     assert thong_bao.dem_chua_doc(nguoi) >= 1
 
 
 def test_thu_hoi_dat_het_han_now_khong_doi_plan_va_tu_choi_khi_dang_free(nguoi):
     with pytest.raises(nang_goi.KhongCoGiDeThuHoi):
         nang_goi.thu_hoi(nguoi, "x", BOI)
-    nang_goi.dat_goi(nguoi, "pro", 30, BOI)
+    nang_goi.dat_goi(nguoi, "pro", 30, BOI, ly_do="Hỗ trợ khách hàng.")
     r = nang_goi.thu_hoi(nguoi, "Chia sẻ tài khoản.", BOI)
     d = _dong(nguoi)
     assert d["plan"] == "pro" and d["plan_het_han"] <= datetime.now(UTC)
@@ -121,7 +136,7 @@ def test_danh_sach_yeu_cau_loc_trang_thai_va_email(nguoi):
 
 def test_tong_quan_dem_du_bay_so(nguoi):
     truoc = tai_khoan_qt.tong_quan()
-    nang_goi.dat_goi(nguoi, "pro", 3, BOI)  # Cá nhân hiệu lực, hết hạn trong 7 ngày
+    nang_goi.dat_goi(nguoi, "pro", 3, BOI, ly_do="Hỗ trợ khách hàng.")  # Cá nhân hiệu lực, hết hạn trong 7 ngày
     nang_goi.tao_yeu_cau(nguoi, "pro")  # gia_han, cho_duyet
     sau = tai_khoan_qt.tong_quan()
     assert set(sau) == {

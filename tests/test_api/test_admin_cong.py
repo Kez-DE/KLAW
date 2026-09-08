@@ -55,12 +55,12 @@ async def test_loi_lap_trinh_KHONG_bi_LookupError_nuot_thanh_404(client, cai_dat
     NỔ lại ngoại lệ thay vì trả response."""
     cai_dat(admin_api_key="khoa-thu")
 
-    def no(sub: str, boi: str, ip: str | None = None) -> dict:
+    def no(sub: str, ly_do: str, boi: str, ip: str | None = None) -> dict:
         raise KeyError("x")
 
     monkeypatch.setattr(tai_khoan_qt, "mo_khoa", no)
     with pytest.raises(KeyError):
-        await client.post(f"/api/v1/admin/tai-khoan/{MOT_SUB}/mo-khoa", headers=DUNG)
+        await client.post(f"/api/v1/admin/tai-khoan/{MOT_SUB}/mo-khoa", json={"ly_do": "x"}, headers=DUNG)
     assert not any(d["hanh_dong"] == "mo_khoa_tai_khoan_that_bai" for d in ghi_gia)
 
 
@@ -71,11 +71,11 @@ async def test_loi_nghiep_vu_KhongTonTai_van_map_dung_404_va_ghi_nhat_ky(client,
     `_LOI_NGHIEP_VU` không làm hỏng đường xử lý lỗi hợp lệ."""
     cai_dat(admin_api_key="khoa-thu")
 
-    def no(sub: str, boi: str, ip: str | None = None) -> dict:
+    def no(sub: str, ly_do: str, boi: str, ip: str | None = None) -> dict:
         raise nang_goi.KhongTonTai("x")
 
     monkeypatch.setattr(tai_khoan_qt, "mo_khoa", no)
-    r = await client.post(f"/api/v1/admin/tai-khoan/{MOT_SUB}/mo-khoa", headers=DUNG)
+    r = await client.post(f"/api/v1/admin/tai-khoan/{MOT_SUB}/mo-khoa", json={"ly_do": "x"}, headers=DUNG)
     assert r.status_code == 404
     ghi = [d for d in ghi_gia if d["hanh_dong"] == "mo_khoa_tai_khoan_that_bai"]
     assert len(ghi) == 1 and ghi[0]["chi_tiet"] == {"loi": "KhongTonTai"}
