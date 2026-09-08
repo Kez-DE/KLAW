@@ -31,7 +31,10 @@ export default buildConfig({
   admin: {
     user: 'admins',
     meta: { titleSuffix: '— KLAW quản trị' },
-    components: {},
+    components: {
+      views: { dashboard: { Component: '@/views/TongQuan#TongQuan' } },
+      afterNavLinks: ['@/components/DieuHuong#DieuHuong'],
+    },
   },
   i18n: { supportedLanguages: { vi, en }, fallbackLanguage: 'vi' },
   serverURL,
