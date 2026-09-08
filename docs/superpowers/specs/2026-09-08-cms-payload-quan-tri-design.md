@@ -2,6 +2,8 @@
 
 Ngày: 2026-09-08 · Trạng thái: chờ chủ dự án duyệt
 
+> **Đã thay bằng** `2026-09-08-cms-quan-ly-tai-khoan-design.md` (bản hợp nhất, cùng ngày). Giữ lại để đối chiếu; không thi công theo bản này.
+
 Gói này dựng giao diện quản trị: một ứng dụng Payload CMS riêng, đăng nhập
 riêng, dùng chung một database với KLAW nhưng ở schema tách biệt. Nó tiêu thụ
 đường quản trị mà gói 2B-1 dựng. **Phải làm 2B-1 trước**, vì không có API thì

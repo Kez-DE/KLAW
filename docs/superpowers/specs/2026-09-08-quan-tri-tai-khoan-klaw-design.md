@@ -2,6 +2,8 @@
 
 Ngày: 2026-09-08 · Trạng thái: chờ chủ dự án duyệt
 
+> **Đã thay bằng** `2026-09-08-cms-quan-ly-tai-khoan-design.md` (bản hợp nhất, cùng ngày). Giữ lại để đối chiếu; không thi công theo bản này.
+
 Gói này dựng phần backend để một CMS bên ngoài quản lý tài khoản KLAW, và dựng
 thông báo hai chiều. Giao diện quản trị nằm ở gói 2B-2 (Payload CMS). Sau gói
 này, toàn bộ đường quản trị chạy được bằng `curl`, không cần CMS.
