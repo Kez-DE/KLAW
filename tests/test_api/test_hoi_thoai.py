@@ -40,7 +40,7 @@ async def test_danh_sach_chi_tiet_doi_ten_xoa(client, khoa_ky, hai_nguoi):
     r = await client.get("/api/v1/hoi-thoai", headers=_bearer(khoa_ky, a))
     assert r.status_code == 200
     d = r.json()
-    assert d["plan"] == "free" and d["luot_moi_phien"] == 20 and d["tong"] == 1
+    assert d["plan"] == "free" and d["luot_moi_phien"] == 30 and d["tong"] == 1
     assert d["items"][0]["id"] == pid and d["items"][0]["so_luot"] == 1
     r = await client.get(f"/api/v1/hoi-thoai/{pid}", headers=_bearer(khoa_ky, a))
     assert r.json()["luot"][0]["tra_loi"]["answer"] == "a"

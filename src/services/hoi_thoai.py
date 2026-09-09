@@ -11,8 +11,8 @@ from sqlalchemy import text
 from src.services.db import get_engine
 
 TIEU_DE_TOI_DA = 80
-LUOT_LICH_SU = 3
-TRA_LOI_TOI_DA = 2000
+LUOT_LICH_SU = 6
+TRA_LOI_TOI_DA = 1200
 DUONG_DAN_TOI_DA = 50
 
 LOI_KHONG_THAY = "Không tìm thấy phiên này."
@@ -35,7 +35,7 @@ _SQL_GHI = text(
 _SQL_CHAM = text("UPDATE hoi_thoai SET cap_nhat_luc = now() WHERE id = :id")
 _SQL_DEM = text("SELECT count(*)::int FROM hoi_thoai WHERE user_sub = :sub AND xoa_luc IS NULL")
 _SQL_DANH_SACH = text(
-    "SELECT h.id::text AS id, h.tieu_de, h.tao_luc, h.cap_nhat_luc,"
+    "SELECT h.id::text AS id, h.tieu_de, h.tao_luc, h.cap_nhat_luc, h.khong_ghi_nho,"
     "       (SELECT count(*)::int FROM luot_hoi_thoai l WHERE l.hoi_thoai_id = h.id) AS so_luot"
     " FROM hoi_thoai h WHERE h.user_sub = :sub AND h.xoa_luc IS NULL"
     " ORDER BY h.cap_nhat_luc DESC, h.id DESC LIMIT :limit OFFSET :offset"
@@ -45,6 +45,23 @@ _SQL_LUOT = text(
 )
 _SQL_DOI_TEN = text("UPDATE hoi_thoai SET tieu_de = :tieu_de WHERE id = :id AND user_sub = :sub AND xoa_luc IS NULL")
 _SQL_XOA_MEM = text("UPDATE hoi_thoai SET xoa_luc = now() WHERE id = :id AND user_sub = :sub AND xoa_luc IS NULL")
+
+_SQL_BO_NHO = text(
+    "SELECT user_sub::text AS user_sub, tom_tat, tom_tat_den_thu_tu, ho_so, khong_ghi_nho"
+    " FROM hoi_thoai WHERE id = :id AND xoa_luc IS NULL"
+)
+_SQL_GHI_BO_NHO = text(
+    "UPDATE hoi_thoai SET tom_tat = :tom_tat, tom_tat_den_thu_tu = :den, ho_so = CAST(:ho_so AS jsonb) WHERE id = :id"
+)
+_SQL_GHI_HO_SO = text("UPDATE hoi_thoai SET ho_so = CAST(:ho_so AS jsonb) WHERE id = :id")
+_SQL_LUOT_KHOANG = text(
+    "SELECT thu_tu, cau_hoi, tra_loi FROM luot_hoi_thoai"
+    " WHERE hoi_thoai_id = :id AND thu_tu BETWEEN :tu AND :den ORDER BY thu_tu"
+)
+_SQL_KHONG_GHI_NHO = text(
+    "UPDATE hoi_thoai SET khong_ghi_nho = :co WHERE id = :id AND user_sub = :sub AND xoa_luc IS NULL"
+)
+_SQL_HO_SO_CUA_CHU = text("SELECT ho_so FROM hoi_thoai WHERE id = :id AND user_sub = :sub AND xoa_luc IS NULL")
 
 
 def tieu_de_mac_dinh(cau_hoi: str) -> str:
@@ -156,3 +173,67 @@ def doi_ten(sub: str, id: str, tieu_de: str) -> dict | None:
 def xoa_mem(sub: str, id: str) -> bool:
     with get_engine().begin() as c:
         return c.execute(_SQL_XOA_MEM, {"sub": sub, "id": id}).rowcount > 0
+
+
+def bo_nho_cua_phien(id: str) -> dict:
+    """Ba lớp bộ nhớ của phiên (spec 2026-09-09 §6.1). Không lọc theo chủ: caller
+    (`_chuan_bi_phien`) đã kiểm chủ bằng `lay_phien` trước đó."""
+    with get_engine().connect() as c:
+        r = c.execute(_SQL_BO_NHO, {"id": id}).mappings().one()
+    return {
+        "tom_tat": r["tom_tat"],
+        "tom_tat_den_thu_tu": int(r["tom_tat_den_thu_tu"] or 0),
+        "ho_so": dict(r["ho_so"] or {}),
+        "khong_ghi_nho": bool(r["khong_ghi_nho"]),
+        "user_sub": r["user_sub"],
+    }
+
+
+def ghi_bo_nho(id: str, tom_tat: str | None, den_thu_tu: int, ho_so: dict) -> None:
+    with get_engine().begin() as c:
+        c.execute(
+            _SQL_GHI_BO_NHO,
+            {"id": id, "tom_tat": tom_tat, "den": den_thu_tu, "ho_so": json.dumps(ho_so, ensure_ascii=False)},
+        )
+
+
+def ghi_ho_so(id: str, ho_so: dict) -> None:
+    with get_engine().begin() as c:
+        c.execute(_SQL_GHI_HO_SO, {"id": id, "ho_so": json.dumps(ho_so, ensure_ascii=False)})
+
+
+def luot_khoang(id: str, tu: int, den: int) -> list[dict]:
+    """Các lượt `tu..den` (kể cả hai đầu), câu trả lời cắt `TRA_LOI_TOI_DA` — đầu vào cho tóm tắt cuộn."""
+    if den < tu:
+        return []
+    with get_engine().connect() as c:
+        rows = c.execute(_SQL_LUOT_KHOANG, {"id": id, "tu": tu, "den": den}).mappings().all()
+    return [
+        {
+            "thu_tu": int(r["thu_tu"]),
+            "cau_hoi": r["cau_hoi"],
+            "tra_loi": str((r["tra_loi"] or {}).get("answer") or "")[:TRA_LOI_TOI_DA],
+        }
+        for r in rows
+    ]
+
+
+def dat_khong_ghi_nho(sub: str, id: str, co: bool) -> bool:
+    with get_engine().begin() as c:
+        return c.execute(_SQL_KHONG_GHI_NHO, {"sub": sub, "id": id, "co": co}).rowcount > 0
+
+
+def dat_ho_so_khoa(sub: str, id: str, khoa: str, gia_tri: str | None) -> dict | None:
+    """Người dùng sửa một khoá từ dòng "Dựa trên": nguồn thành `nguoi_noi`; `None` = xoá khoá.
+    Trả hồ sơ mới, hoặc None khi phiên không thuộc `sub`."""
+    with get_engine().begin() as c:
+        r = c.execute(_SQL_HO_SO_CUA_CHU, {"id": id, "sub": sub}).mappings().one_or_none()
+        if r is None:
+            return None
+        ho_so = dict(r["ho_so"] or {})
+        if gia_tri is None:
+            ho_so.pop(khoa, None)
+        else:
+            ho_so[khoa] = {"gia_tri": gia_tri, "nguon": "nguoi_noi"}
+        c.execute(_SQL_GHI_HO_SO, {"id": id, "ho_so": json.dumps(ho_so, ensure_ascii=False)})
+    return ho_so

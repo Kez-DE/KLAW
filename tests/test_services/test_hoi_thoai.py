@@ -106,3 +106,41 @@ def test_doi_ten_va_xoa_mem(nguoi):
     assert hoi_thoai.xoa_mem(nguoi, pid) is True
     assert hoi_thoai.lay_phien(nguoi, pid) is None
     assert hoi_thoai.danh_sach(nguoi, 20, 0)[1] == 0
+
+
+def test_bo_nho_phien_mac_dinh_rong_va_ghi_doc_duoc(nguoi):
+    pid = hoi_thoai.tao_phien(nguoi, "câu đầu")
+    bn = hoi_thoai.bo_nho_cua_phien(pid)
+    assert bn == {"tom_tat": None, "tom_tat_den_thu_tu": 0, "ho_so": {}, "khong_ghi_nho": False, "user_sub": nguoi}
+    hoi_thoai.ghi_bo_nho(pid, "tóm tắt", 3, {"chu_the": {"gia_tri": "người lao động", "nguon": "nguoi_noi"}})
+    bn = hoi_thoai.bo_nho_cua_phien(pid)
+    assert bn["tom_tat"] == "tóm tắt" and bn["tom_tat_den_thu_tu"] == 3
+    assert bn["ho_so"]["chu_the"]["gia_tri"] == "người lao động"
+
+
+def test_luot_khoang_cat_tra_loi_va_theo_thu_tu(nguoi):
+    pid = hoi_thoai.tao_phien(nguoi, "c1")
+    for i in range(1, 5):
+        hoi_thoai.ghi_luot(pid, f"c{i}", {"answer": "x" * 3000, "citations": []}, None)
+    ra = hoi_thoai.luot_khoang(pid, 2, 3)
+    assert [r["thu_tu"] for r in ra] == [2, 3]
+    assert ra[0]["cau_hoi"] == "c2" and len(ra[0]["tra_loi"]) == hoi_thoai.TRA_LOI_TOI_DA
+
+
+def test_lich_su_gan_nhat_tra_6_luot(nguoi):
+    pid = hoi_thoai.tao_phien(nguoi, "c1")
+    for i in range(1, 9):
+        hoi_thoai.ghi_luot(pid, f"c{i}", {"answer": "a", "citations": []}, None)
+    ls = hoi_thoai.lich_su_gan_nhat(pid)
+    assert [l["cau_hoi"] for l in ls] == ["c3", "c4", "c5", "c6", "c7", "c8"]  # noqa: E741
+
+
+def test_khong_ghi_nho_va_ho_so_khoa_theo_chu(nguoi):
+    pid = hoi_thoai.tao_phien(nguoi, "c1")
+    assert hoi_thoai.dat_khong_ghi_nho(nguoi, pid, True) is True
+    assert hoi_thoai.bo_nho_cua_phien(pid)["khong_ghi_nho"] is True
+    assert hoi_thoai.dat_khong_ghi_nho("00000000-0000-0000-0000-000000000000", pid, False) is False
+    ho_so = hoi_thoai.dat_ho_so_khoa(nguoi, pid, "loai_hop_dong", "xác định thời hạn")
+    assert ho_so["loai_hop_dong"] == {"gia_tri": "xác định thời hạn", "nguon": "nguoi_noi"}
+    assert hoi_thoai.dat_ho_so_khoa(nguoi, pid, "loai_hop_dong", None) == {}
+    assert any(p["id"] == pid and p["khong_ghi_nho"] is True for p in hoi_thoai.danh_sach(nguoi, 10, 0)[0])
