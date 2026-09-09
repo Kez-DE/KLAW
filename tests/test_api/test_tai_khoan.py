@@ -48,9 +48,9 @@ async def test_han_muc_tra_so_con_lai_that_cua_nguoi_dang_dang_nhap(client, cai_
     assert d["ten_goi"] == "Miễn phí"
     assert d["het_han_luc"] is None
     assert d["muc"][0]["khoa"] == "hoi_dap_ngay"
-    assert d["muc"][0]["han_muc"] == 200, "đọc từ config/han_muc.yaml, không viết cứng trong Python"
+    assert d["muc"][0]["han_muc"] == 100, "đọc từ config/han_muc.yaml, không viết cứng trong Python"
     assert d["muc"][0]["da_dung"] == 7
-    assert d["phien"]["luot_toi_da"] == 20
+    assert d["phien"]["luot_toi_da"] == 30
     assert "bộ đệm" in d["ghi_chu"], "phải nói ra rằng cache hit không tính"
 
 

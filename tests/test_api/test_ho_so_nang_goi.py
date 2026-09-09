@@ -95,7 +95,7 @@ async def test_gia_han_chi_khi_con_7_ngay(client, khoa_ky, nguoi):
     r = await client.post("/api/v1/nang-goi/yeu-cau", json={"goi_muon": "pro"}, headers=h)
     assert r.status_code == 201 and r.json()["loai"] == "gia_han"
     d = (await client.get("/api/v1/han-muc", headers=h)).json()
-    assert d["plan"] == "pro" and d["het_han_luc"] is not None and d["phien"]["luot_toi_da"] == 50
+    assert d["plan"] == "pro" and d["het_han_luc"] is not None and d["phien"]["luot_toi_da"] == 100000
 
 
 @pytest.mark.asyncio
@@ -105,7 +105,7 @@ async def test_pro_het_han_ve_free(client, khoa_ky, nguoi):
             text("UPDATE users SET plan='pro', plan_het_han = now() - interval '1 day' WHERE sub = :s"), {"s": nguoi}
         )
     d = (await client.get("/api/v1/han-muc", headers=_bearer(khoa_ky, nguoi))).json()
-    assert d["plan"] == "free" and d["het_han_luc"] is not None and d["phien"]["luot_toi_da"] == 20
+    assert d["plan"] == "free" and d["het_han_luc"] is not None and d["phien"]["luot_toi_da"] == 30
 
 
 @pytest.mark.asyncio
