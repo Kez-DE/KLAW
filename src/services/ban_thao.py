@@ -130,14 +130,24 @@ def chi_tiet(sub: str, id: str) -> dict | None:
     return dict(r) if r is not None else None
 
 
+def _snap(row: dict) -> dict:
+    """Chụp MỌI thứ cần để khôi phục lại đúng một phiên bản — `document`/`facts` một
+    mình là không đủ: `clauses`/`audit` bị thiếu từng làm `lui` trả về một bản ghi
+    lẫn (văn bản của phiên bản cũ với clauses/audit của phiên bản đang bị rời đi)."""
+    return {
+        "phien_ban": row["phien_ban"],
+        "document": row["document"],
+        "facts": row["facts"],
+        "clauses": row["clauses"],
+        "audit": row["audit"],
+    }
+
+
 def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
     cu = chi_tiet(sub, id)
     if cu is None:
         return None
-    truoc = [
-        *(cu["phien_ban_truoc"] or []),
-        {"phien_ban": cu["phien_ban"], "document": cu["document"], "facts": cu["facts"]},
-    ][-TRAN_SUA:]
+    truoc = [*(cu["phien_ban_truoc"] or []), _snap(cu)][-TRAN_SUA:]
     with get_engine().begin() as c:
         r = (
             c.execute(
@@ -160,10 +170,14 @@ def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
 
 
 def lui(sub: str, id: str) -> dict | None:
+    """Lùi một phiên bản. Đối xứng với `sua`: TRƯỚC khi khôi phục bản cũ (`gan`),
+    chụp và đẩy bản đang bị rời đi (`cu`) vào lịch sử — nên bản đó không mất, và
+    gọi `lui` thêm một lần nữa từ đây khôi phục lại đúng NGUYÊN bản đó."""
     cu = chi_tiet(sub, id)
     if cu is None or not cu["phien_ban_truoc"]:
         return cu
     *con, gan = cu["phien_ban_truoc"]
+    truoc = [*con, _snap(cu)]
     with get_engine().begin() as c:
         r = (
             c.execute(
@@ -173,10 +187,10 @@ def lui(sub: str, id: str) -> dict | None:
                     "id": id,
                     "facts": _j(gan["facts"]),
                     "document": gan["document"],
-                    "clauses": _j(cu["clauses"]),
-                    "audit": _j(cu["audit"]),
+                    "clauses": _j(gan["clauses"]),
+                    "audit": _j(gan["audit"]),
                     "phien_ban": gan["phien_ban"],
-                    "truoc": _j(con),
+                    "truoc": _j(truoc),
                 },
             )
             .mappings()

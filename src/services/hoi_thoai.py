@@ -62,8 +62,10 @@ _SQL_KHONG_GHI_NHO = text(
     "UPDATE hoi_thoai SET khong_ghi_nho = :co WHERE id = :id AND user_sub = :sub AND xoa_luc IS NULL"
 )
 _SQL_HO_SO_CUA_CHU = text("SELECT ho_so FROM hoi_thoai WHERE id = :id AND user_sub = :sub AND xoa_luc IS NULL")
-_SQL_SOAN_THAO = text("SELECT soan_thao FROM hoi_thoai WHERE id = :id AND xoa_luc IS NULL")
-_SQL_GHI_SOAN_THAO = text("UPDATE hoi_thoai SET soan_thao = CAST(:st AS jsonb) WHERE id = :id")
+_SQL_SOAN_THAO = text("SELECT soan_thao FROM hoi_thoai WHERE id = :id AND user_sub = :sub AND xoa_luc IS NULL")
+_SQL_GHI_SOAN_THAO = text(
+    "UPDATE hoi_thoai SET soan_thao = CAST(:st AS jsonb) WHERE id = :id AND user_sub = :sub AND xoa_luc IS NULL"
+)
 
 
 def tieu_de_mac_dinh(cau_hoi: str) -> str:
@@ -241,18 +243,28 @@ def dat_ho_so_khoa(sub: str, id: str, khoa: str, gia_tri: str | None) -> dict | 
     return ho_so
 
 
-def soan_thao_cua_phien(id: str) -> dict | None:
-    """Trạng thái soạn thảo đang mở của phiên (spec 2026-09-09 §8.3) — `None` khi
-    chưa mở phiên soạn nào. Không lọc theo chủ, cùng quy ước `bo_nho_cua_phien`:
-    caller kiểm chủ bằng `lay_phien` trước đó."""
+def soan_thao_cua_phien(sub: str, id: str) -> dict | None:
+    """Trạng thái soạn thảo đang mở của phiên (spec 2026-09-09 §8.3), lọc theo CHỦ —
+    cùng quy ước AN TOÀN HƠN của `dat_khong_ghi_nho`/`dat_ho_so_khoa` (không phải
+    cặp `bo_nho_cua_phien`/`ghi_bo_nho` không lọc chủ): một `sub` sai fail closed,
+    trả `None` giống hệt "chưa mở phiên soạn nào" — không có đường nào lộ ra là
+    phiên có tồn tại dưới chủ khác. `r is not None` (KHÔNG `if r`): trạng thái
+    rỗng-nhưng-hợp-lệ (`{}`) là MỘT giá trị thật, không phải "chưa có gì"."""
     with get_engine().connect() as c:
-        r = c.execute(_SQL_SOAN_THAO, {"id": id}).scalar_one_or_none()
-    return dict(r) if r else None
+        r = c.execute(_SQL_SOAN_THAO, {"id": id, "sub": sub}).scalar_one_or_none()
+    return dict(r) if r is not None else None
 
 
-def ghi_soan_thao(id: str, soan_thao: dict | None) -> None:
+def ghi_soan_thao(sub: str, id: str, soan_thao: dict | None) -> bool:
     with get_engine().begin() as c:
-        c.execute(
-            _SQL_GHI_SOAN_THAO,
-            {"id": id, "st": json.dumps(soan_thao, ensure_ascii=False) if soan_thao is not None else None},
+        return (
+            c.execute(
+                _SQL_GHI_SOAN_THAO,
+                {
+                    "id": id,
+                    "sub": sub,
+                    "st": json.dumps(soan_thao, ensure_ascii=False) if soan_thao is not None else None,
+                },
+            ).rowcount
+            > 0
         )
