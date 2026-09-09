@@ -12,30 +12,22 @@ mui_gio: Asia/Ho_Chi_Minh
 
 goi:
   free:
-    hoi_dap_ngay: 200
+    hoi_dap_ngay: 100
     soan_thao_ngay: 3
     soan_thao_thang: 20
-    luot_moi_phien: 20
+    luot_moi_phien: 30
   pro:
-    hoi_dap_ngay: 100000
+    hoi_dap_ngay: 500
     soan_thao_ngay: 20
     soan_thao_thang: 100000
-    luot_moi_phien: 50
+    luot_moi_phien: 100000
 
-# Lá chắn chống lạm dụng: cưỡng chế với 429 nói thật, nhưng KHÔNG hiện thanh đo
-# (người thật không chạm; đây không phải lời hứa bán hàng).
-#
-# `ip_ngay` đếm KHÁC hai khoá trên nó và khác hạn mức gói: nó đếm mọi lượt CHẠM
-# CỔNG theo địa chỉ mạng — kể cả lượt trả lời từ bộ đệm, lượt lỗi và câu ngoài
-# phạm vi, thứ hạn mức gói không tính. Nên nó phải cao hơn hẳn hạn mức cao nhất
-# nó đứng trước, nếu không nó thành trần thật: ở 400 thì một tài khoản Pro trên
-# một IP cố định không bao giờ chạm nổi 500 lượt/ngày đã quảng cáo, và hai người
-# dùng Miễn phí sau cùng một NAT văn phòng không cùng tiêu hết 200 lượt/ngày.
-# 1500 = 3 × 500, đủ đầu cho phần đếm dôi và cho nhiều người chung một IP, vẫn
-# chặn được một vòng lặp `curl` (trần chi phí ngày và giỏ 60/60s vẫn chồng lên).
+# Lá chắn chống lạm dụng: cưỡng chế với 429 nói thật, KHÔNG hiện thanh đo.
+# Pro không còn lá chắn ngày riêng: 500/ngày nay là hạn mức thật (spec 2026-09-09 §5).
+# `free_hoi_dap_thang` = 100 × 30 để trần tháng không đứng dưới hạn mức ngày.
+# `ip_ngay` = 3 × 500 giữ nguyên lập luận cũ.
 la_chan:
-  free_hoi_dap_thang: 2000
-  pro_hoi_dap_ngay: 500
+  free_hoi_dap_thang: 3000
   ip_ngay: 1500
 
 # Khách chưa đăng nhập (chỉ khi Supabase đã cấu hình): cửa sổ 24 giờ trượt, vì

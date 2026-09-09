@@ -182,4 +182,4 @@ def test_danh_sach_goi_doc_tu_yaml():
     d = tai_khoan_qt.danh_sach_goi()
     ma = {g["ma"]: g for g in d["goi"]}
     assert d["goi_mac_dinh"] == "free" and d["chu_ky_pro_ngay"] == 30
-    assert ma["pro"]["ten"] == "Cá nhân" and ma["free"]["han_muc"]["hoi_dap_ngay"] == 200
+    assert ma["pro"]["ten"] == "Cá nhân" and ma["free"]["han_muc"]["hoi_dap_ngay"] == 100

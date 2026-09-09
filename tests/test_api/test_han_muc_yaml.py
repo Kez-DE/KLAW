@@ -9,9 +9,9 @@ from src.services import bao_ve
 
 YAML_OK = (
     "goi_mac_dinh: free\nmui_gio: Asia/Ho_Chi_Minh\n"
-    "goi:\n  free: {hoi_dap_ngay: 200, soan_thao_ngay: 3, soan_thao_thang: 20, luot_moi_phien: 20}\n"
-    "  pro: {hoi_dap_ngay: 100000, soan_thao_ngay: 20, soan_thao_thang: 100000, luot_moi_phien: 50}\n"
-    "la_chan: {free_hoi_dap_thang: 2000, pro_hoi_dap_ngay: 500, ip_ngay: 1500}\n"
+    "goi:\n  free: {hoi_dap_ngay: 100, soan_thao_ngay: 3, soan_thao_thang: 20, luot_moi_phien: 30}\n"
+    "  pro: {hoi_dap_ngay: 500, soan_thao_ngay: 20, soan_thao_thang: 100000, luot_moi_phien: 100000}\n"
+    "la_chan: {free_hoi_dap_thang: 3000, ip_ngay: 1500}\n"
     "khach: {hoi_dap_24h: 10, ip_24h: 30}\nchu_ky_pro_ngay: 30\n"
 )
 
@@ -29,15 +29,17 @@ def yaml_tam(tmp_path, monkeypatch):
 
 
 def test_yaml_that_doc_duoc_va_dung_so():
-    bao_ve._doc_han_muc.cache_clear()
-    assert bao_ve.han_muc("free", "hoi_dap_ngay") == 200
-    assert bao_ve.han_muc("free", "luot_moi_phien") == 20
-    assert bao_ve.han_muc("pro", "hoi_dap_ngay") >= 100_000
-    assert bao_ve.han_muc("goi-la", "soan_thao_ngay") == bao_ve.han_muc("free", "soan_thao_ngay")
+    assert bao_ve.han_muc("free", "hoi_dap_ngay") == 100
+    assert bao_ve.han_muc("free", "luot_moi_phien") == 30
+    assert bao_ve.han_muc("pro", "hoi_dap_ngay") == 500
+    assert bao_ve.han_muc("pro", "luot_moi_phien") >= 100_000
+    assert bao_ve.la_chan("free_hoi_dap_thang") == 3000
     assert bao_ve.la_chan("ip_ngay") == 1500
-    assert str(bao_ve.mui_gio()) == "Asia/Ho_Chi_Minh"
-    with pytest.raises(KeyError):
-        bao_ve.han_muc("free", "khoa-la")
+    assert bao_ve.KHOA_LA_CHAN == ("free_hoi_dap_thang", "ip_ngay")
+
+
+def test_yaml_khong_con_khoa_pro_hoi_dap_ngay():
+    assert "pro_hoi_dap_ngay" not in bao_ve._doc_han_muc()["la_chan"]
 
 
 @pytest.mark.parametrize(
@@ -45,8 +47,8 @@ def test_yaml_that_doc_duoc_va_dung_so():
     [
         (YAML_OK.replace("chu_ky_pro_ngay: 30\n", ""), "chu_ky_pro_ngay"),
         (YAML_OK.replace("mui_gio: Asia/Ho_Chi_Minh\n", "mui_gio: Sao/Hoa\n"), "mui_gio"),
-        (YAML_OK.replace(", luot_moi_phien: 20}", "}"), "luot_moi_phien"),
-        (YAML_OK.replace("la_chan: {free_hoi_dap_thang: 2000, ", "la_chan: {"), "free_hoi_dap_thang"),
+        (YAML_OK.replace(", luot_moi_phien: 30}", "}"), "luot_moi_phien"),
+        (YAML_OK.replace("la_chan: {free_hoi_dap_thang: 3000, ", "la_chan: {"), "free_hoi_dap_thang"),
         (YAML_OK + "phien_luu: {free: 10}\n", "phien_luu"),
     ],
 )

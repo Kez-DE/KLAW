@@ -264,7 +264,7 @@ def test_han_muc_doc_tu_CONFIG_khong_hardcode(monkeypatch, tmp_path):
     f.write_text(YAML_OK, encoding="utf-8")
     monkeypatch.setattr(bao_ve, "HAN_MUC_PATH", f)
     bao_ve._doc_han_muc.cache_clear()
-    assert bao_ve.han_muc("free", "hoi_dap_ngay") == 200
+    assert bao_ve.han_muc("free", "hoi_dap_ngay") == 100
     assert bao_ve.han_muc("pro", "soan_thao_ngay") == 20
     bao_ve._doc_han_muc.cache_clear()
 
@@ -277,7 +277,7 @@ def test_goi_la_khong_roi_ve_muc_THAP_NHAT_khong_phai_vo_han(monkeypatch, tmp_pa
     f.write_text(YAML_OK, encoding="utf-8")
     monkeypatch.setattr(bao_ve, "HAN_MUC_PATH", f)
     bao_ve._doc_han_muc.cache_clear()
-    assert bao_ve.han_muc("goi-khong-ton-tai", "hoi_dap_ngay") == 200
+    assert bao_ve.han_muc("goi-khong-ton-tai", "hoi_dap_ngay") == 100
     bao_ve._doc_han_muc.cache_clear()
 
 

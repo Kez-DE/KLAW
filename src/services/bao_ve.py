@@ -383,7 +383,7 @@ def kiem_tran_chi_phi() -> None:
 
 
 KHOA_GOI = ("hoi_dap_ngay", "soan_thao_ngay", "soan_thao_thang", "luot_moi_phien")
-KHOA_LA_CHAN = ("free_hoi_dap_thang", "pro_hoi_dap_ngay", "ip_ngay")
+KHOA_LA_CHAN = ("free_hoi_dap_thang", "ip_ngay")
 KHOA_KHACH = ("hoi_dap_24h", "ip_24h")
 KHACH_HEADER = "x-khach-id"
 
@@ -580,8 +580,8 @@ def _kiem_mot(
 
 
 def kiem_han_muc(sub: str, plan: str, endpoint: str) -> None:
-    """Spec 2A §4.2. `/tra-cuu*` (cả `/luong`) kiểm ngày rồi lá chắn (tháng free / ngày pro);
-    `/soan-thao` kiểm ngày rồi tháng. Trần >= 100000 = không giới hạn.
+    """Spec 2A §4.2. `/tra-cuu*` (cả `/luong`) kiểm ngày rồi lá chắn tháng free; Pro chỉ có
+    hạn mức ngày. `/soan-thao` kiểm ngày rồi tháng. Trần >= 100000 = không giới hạn.
 
     Trần của GÓI đứng trước lá chắn: khi cả hai đã cạn, câu người dùng đọc phải
     là con số họ mua, không phải con số chống lạm dụng mà họ chưa từng nghe tới.
@@ -591,8 +591,6 @@ def kiem_han_muc(sub: str, plan: str, endpoint: str) -> None:
         cac_muc = [(han_muc(plan, "hoi_dap_ngay"), moc_ngay(), moc_ngay_sau(), "Hôm nay")]
         if plan == "free":
             cac_muc.append((la_chan("free_hoi_dap_thang"), moc_thang(), moc_thang_sau(), "Tháng này"))
-        elif plan == "pro":
-            cac_muc.append((la_chan("pro_hoi_dap_ngay"), moc_ngay(), moc_ngay_sau(), "Hôm nay"))
     elif endpoint.startswith(EP_SOAN_THAO):
         ep, loai = EP_SOAN_THAO, "bản thảo"
         cac_muc = [

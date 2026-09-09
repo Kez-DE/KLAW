@@ -84,15 +84,16 @@ def test_soan_thao_kiem_ngay_roi_thang(nguoi, monkeypatch):
     assert e.value.status_code == 429 and "bản thảo" in e.value.detail
 
 
-def test_pro_khong_gioi_han_ngay_nhung_co_la_chan(nguoi, monkeypatch):
-    monkeypatch.setattr(bao_ve, "la_chan", lambda khoa: 1 if khoa == "pro_hoi_dap_ngay" else 100_000)
+def test_pro_cham_han_muc_ngay_thi_429(nguoi, monkeypatch):
+    # Pro không còn lá chắn ngày riêng: 500/ngày là hạn mức gói (spec 2026-09-09 §5).
+    monkeypatch.setattr(bao_ve, "han_muc", lambda plan, khoa: 1 if (plan, khoa) == ("pro", "hoi_dap_ngay") else 100_000)
     _ghi(nguoi, TRA_CUU, datetime.now(UTC))
     with pytest.raises(HTTPException) as e:
         bao_ve.kiem_han_muc(nguoi, "pro", TRA_CUU)
-    assert e.value.status_code == 429 and "Cá nhân" in e.value.detail
+    assert e.value.status_code == 429 and "Cá nhân" in e.value.detail and "Hôm nay" in e.value.detail
 
 
 def test_mo_ta_muc_ba_dong_khong_gom_la_chan(nguoi):
     muc = bao_ve.mo_ta_muc(nguoi, "free")
     assert [m["khoa"] for m in muc] == ["hoi_dap_ngay", "soan_thao_ngay", "soan_thao_thang"]
-    assert all(m["dat_lai_luc"] is not None for m in muc) and muc[0]["han_muc"] == 200
+    assert all(m["dat_lai_luc"] is not None for m in muc) and muc[0]["han_muc"] == 100
