@@ -50,6 +50,7 @@ from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.agents.nodes.gioi_thieu import cau_gioi_thieu
 from src.agents.nodes.hoi_lai import duoi_hoi_them, hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
+from src.models.schemas import Bang
 from src.services.bo_nho import ho_so_da_dung, khoi_tinh_huong
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.kho import hien_van_ban
@@ -556,6 +557,29 @@ def _goi_y_soan_thao(tho: dict | None) -> tuple[dict | None, str]:
     )
 
 
+def dung_bang_tu_luan_diem(verified: list, citations: list[dict]) -> Bang | None:
+    """Bảng so sánh từ luận điểm ĐÃ QUA hai tầng kiểm: cột = đối tượng, hàng = tiêu chí, mỗi ô
+    kết bằng thẻ `cite` của chính luận điểm đó nên bấm kiểm chứng được như văn xuôi."""
+    o: dict[str, dict[str, str]] = {}
+    doi_tuong: list[str] = []
+    for r, c in zip(verified, citations, strict=True):
+        h = getattr(r.claim, "hang", None)
+        if not h or not h.get("doi_tuong") or not h.get("tieu_chi"):
+            continue
+        dt, tc = h["doi_tuong"].strip(), h["tieu_chi"].strip()
+        if dt not in doi_tuong:
+            doi_tuong.append(dt)
+        so_dieu = c["duong_dan"].rsplit("Điều ", 1)[-1].split(" ")[0]
+        o.setdefault(tc, {})[dt] = f"{r.claim.text} [Điều {so_dieu}](cite:{c['k']})"
+    if len(doi_tuong) < 2 or sum(len(v) for v in o.values()) < 2:
+        return None
+    return Bang(
+        tieu_de="So sánh theo tiêu chí",
+        cot=["Tiêu chí", *doi_tuong],
+        dong=[[tc, *[o[tc].get(dt, "—") for dt in doi_tuong]] for tc in o],
+    )
+
+
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, prompt_path: Path | None = None) -> dict:
     if state.get("intent") == "soan_thao":
         # `graph_tra_cuu._RE_TAT` rẽ ý định này thẳng tới đây ngay sau `route`,
@@ -894,6 +918,15 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     ket["traces"]["assemble_dieu_bi_loai"] = []
     ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
     ket["traces"]["assemble_the_loi"] = []
+    # Task 15: bảng so sánh chỉ dựng khi router (v3) đã đoán người hỏi xin so
+    # sánh (`dang_tra_loi == "bang"`) — dựng TỪ `dung_cho_prose`/
+    # `citations_dung_cho_prose`, tức đúng tập claim ĐÃ qua cả hai tầng kiểm
+    # VÀ chưa bị phép kiểm thứ bảy loại khỏi văn xuôi. `[]` khi không đủ đối
+    # tượng/tiêu chí để dựng bảng — KHÔNG phải lỗi, coi như câu hỏi này chỉ trả
+    # lời được bằng văn xuôi.
+    if state.get("dang_tra_loi") == "bang":
+        b = dung_bang_tu_luan_diem(dung_cho_prose, citations_dung_cho_prose)
+        ket["bang"] = [b.model_dump()] if b else []
     # Task 14: một câu trả lời ĐÃ CÓ luận điểm được phép mang thêm đúng MỘT đuôi
     # hỏi thêm ngắn (QT-5), 0 token — KHÔNG spliced vào `answer` (nó vẫn phải
     # sạch markdown và chỉ chứa điều đã có căn cứ), mà đi vào `coverage_note`,

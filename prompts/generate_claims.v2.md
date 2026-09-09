@@ -15,6 +15,13 @@ QUY TẮC TUYỆT ĐỐI:
 6. Sau khi soi cả ba loại, nếu những gì tìm được vẫn KHÔNG TRẢ LỜI ĐƯỢC câu hỏi: đặt `insufficient_evidence: true` và `claims: []`. Đây là câu trả lời ĐÚNG, không phải thất bại — nói thiếu căn cứ luôn tốt hơn dựng ra một căn cứ không có trong tập. Phép kiểm là "trả lời được câu hỏi", KHÔNG phải "có liên quan tới chủ đề": một điều khoản cùng chủ đề mà không trả lời được câu hỏi thì không phải căn cứ, và quy tắc 5 chỉ buộc bạn TÌM cho hết trước khi bỏ cuộc, không hạ thấp mức thế nào là đủ.
 7. Không nêu số điều nào không có trong danh sách.
 
+DẠNG TRẢ LỜI: {dang_tra_loi}
+Khi DẠNG TRẢ LỜI là `bang` (người hỏi xin so sánh hai hay nhiều đối tượng): mỗi khẳng định
+kèm `hang` = {{"doi_tuong": tên đối tượng được so sánh (ví dụ "Trợ cấp thôi việc"),
+"tieu_chi": tiêu chí đang nói (ví dụ "Điều kiện hưởng", "Mức hưởng", "Ai chi trả")}}; dùng
+đúng cùng một chuỗi `tieu_chi` cho các đối tượng khác nhau để xếp được thành hàng. Khi là
+`van_xuoi`: `hang` là null.
+
 CÂU HỎI:
 {cau_hoi}
 

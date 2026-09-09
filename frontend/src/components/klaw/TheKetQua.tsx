@@ -323,7 +323,12 @@ function ManhVanXuoi({
   );
 }
 
-function KhoiVanXuoi({
+/**
+ * Xuất khẩu (Task 15): `BangKetQua` render ô bảng so sánh qua ĐÚNG bộ cắt/thẻ
+ * này, để thẻ `cite:K` trong ô bảng bấm được y hệt thẻ trong văn xuôi — không
+ * dựng một cách hiển thị thẻ thứ hai riêng cho bảng.
+ */
+export function KhoiVanXuoi({
   chu,
   ketQua,
   onChon,
@@ -639,7 +644,7 @@ function NoiDungKetQua({
       {bang.length > 0 && (
         <div className="mt-4 space-y-3">
           {bang.map((mot) => (
-            <BangKetQua key={mot.tieu_de} bang={mot} />
+            <BangKetQua key={mot.tieu_de} bang={mot} ketQua={ketQua} onChonTrichDan={chon} />
           ))}
         </div>
       )}

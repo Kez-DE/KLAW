@@ -70,12 +70,14 @@ def test_insufficient_evidence_duoc_ton_trong():
     assert st["insufficient_evidence"] is True and st["draft_claims"] == []
 
 
-def test_json_schema_duoc_truyen_va_bat_buoc_ba_field():
+def test_json_schema_duoc_truyen_va_bat_buoc_bon_field():
     llm = FakeLlm({"insufficient_evidence": True, "claims": []})
     generate_claims({"query": "x", "expanded": PROVS}, llm, "m")
     assert llm.last["schema"] == CLAIMS_SCHEMA
     props = llm.last["schema"]["properties"]["claims"]["items"]
-    assert set(props["required"]) == {"text", "provision_id", "quote"}
+    # Task 15: `hang` (hàng của bảng so sánh) thêm vào required — schema strict
+    # (llm.py) đòi mọi thuộc tính có mặt trong `required`, null được phép qua `anyOf`.
+    assert set(props["required"]) == {"text", "provision_id", "quote", "hang"}
 
 
 def test_json_hong_khong_lam_sap_ma_thanh_insufficient():

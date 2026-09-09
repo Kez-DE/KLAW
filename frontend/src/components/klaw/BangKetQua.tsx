@@ -1,4 +1,5 @@
-import type { Bang } from "@/lib/klaw";
+import type { Bang, TraCuuKetQua } from "@/lib/klaw";
+import { KhoiVanXuoi } from "./TheKetQua";
 
 /**
  * Một bảng trong `TraCuuKetQua.bang` — `<table>` ngữ nghĩa thật (`<thead>` +
@@ -26,10 +27,25 @@ import type { Bang } from "@/lib/klaw";
  * và role đó CẤM tính tên khả truy cập từ `aria-label` — `region` (+
  * `tabIndex={0}` + `aria-label`) là kỹ thuật W3C cho một vùng cuộn nhận focus,
  * để tên được đọc NGAY khi khung nhận focus.
+ *
+ * Ô chứa thẻ `[Điều N](cite:K)` (Task 15 — bảng so sánh từ luận điểm đã kiểm,
+ * nhánh `answer`) render qua ĐÚNG `KhoiVanXuoi` mà văn xuôi dùng, để thẻ bấm
+ * được như trong văn xuôi thay vì hiện ra thành cú pháp Markdown thô. Bảng kho
+ * (`hoi_ve_kho`) không có thẻ nào trong ô nên đi đường cũ, hiện chuỗi trần —
+ * `ketQua`/`onChonTrichDan` bỏ trống vẫn render đúng vì `KhoiVanXuoi` tự rơi
+ * về chữ thường khi thiếu chúng.
  */
 const GHI_CHU_O_TRONG = "Không có dữ liệu cho ô này";
 
-export function BangKetQua({ bang }: { bang: Bang }) {
+export function BangKetQua({
+  bang,
+  ketQua,
+  onChonTrichDan,
+}: {
+  bang: Bang;
+  ketQua?: TraCuuKetQua | undefined;
+  onChonTrichDan?: ((chiSo: number) => void) | undefined;
+}) {
   return (
     <div
       role="region"
@@ -67,7 +83,11 @@ export function BangKetQua({ bang }: { bang: Bang }) {
                   </td>
                 ) : (
                   <td key={j} className="px-3 py-2 align-top text-foreground">
-                    {o}
+                    {o.includes("(cite:") ? (
+                      <KhoiVanXuoi chu={o} ketQua={ketQua} onChon={onChonTrichDan} />
+                    ) : (
+                      o
+                    )}
                   </td>
                 ),
               )}

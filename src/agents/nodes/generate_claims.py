@@ -29,11 +29,30 @@ CLAIMS_SCHEMA = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["text", "provision_id", "quote"],
+                "required": ["text", "provision_id", "quote", "hang"],
                 "properties": {
                     "text": {"type": "string"},
                     "provision_id": {"type": "integer"},
                     "quote": {"type": "string"},
+                    # Task 15: hàng của bảng so sánh khi `dang_tra_loi == "bang"` —
+                    # null cho câu trả lời văn xuôi bình thường. `anyOf` chứ không
+                    # `"type": ["object", "null"]`: schema strict (llm.py) đòi mọi
+                    # thuộc tính có trong `required`, và cách null-được-phép hợp lệ
+                    # với validator strict này là `anyOf`.
+                    "hang": {
+                        "anyOf": [
+                            {"type": "null"},
+                            {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "required": ["doi_tuong", "tieu_chi"],
+                                "properties": {
+                                    "doi_tuong": {"type": "string"},
+                                    "tieu_chi": {"type": "string"},
+                                },
+                            },
+                        ]
+                    },
                 },
             },
         },
@@ -46,6 +65,10 @@ class Claim:
     text: str
     provision_id: int
     quote: str
+    # Task 15 — bảng so sánh dựng TỪ luận điểm đã kiểm (`assemble.dung_bang_tu_luan_diem`).
+    # `None` cho một khẳng định văn xuôi bình thường; `{"doi_tuong": ..., "tieu_chi": ...}`
+    # khi `dang_tra_loi == "bang"` (router v3) và mô hình xác định được cả hai.
+    hang: dict | None = None
 
 
 def build_context(provisions: list[dict]) -> str:
@@ -151,7 +174,12 @@ def generate_claims(state: dict, llm, model: str) -> dict:
         }
 
     prompt = PROMPT_PATH.read_text(encoding="utf-8").format(
-        cau_hoi=state["query"], context=build_context(expanded), tinh_huong=khoi_tinh_huong(state.get("ho_so") or {})
+        cau_hoi=state["query"],
+        context=build_context(expanded),
+        tinh_huong=khoi_tinh_huong(state.get("ho_so") or {}),
+        # Router v3 (Task 13) — "van_xuoi" khi state chưa mang khoá này (router
+        # v2 hoặc test cũ gọi generate_claims() trực tiếp).
+        dang_tra_loi=state.get("dang_tra_loi") or "van_xuoi",
     )
     raw, usage = llm.chat(model, messages(prompt), json_schema=CLAIMS_SCHEMA)
     try:
