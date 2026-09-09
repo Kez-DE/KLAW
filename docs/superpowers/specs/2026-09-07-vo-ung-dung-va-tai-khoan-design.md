@@ -467,3 +467,11 @@ Một plan, hai luồng song song như gói 1: backend (§4–§6, worktree riê
 Vai trò admin và trang duyệt yêu cầu; xoá tài khoản (cần service-role key); ngôn ngữ;
 thanh toán; thưởng tuần đầu, mời bạn; nâng trần chi phí hệ thống (biến môi trường,
 khuyến nghị 10 USD/ngày khi mở rộng).
+
+## Sửa 2026-09-09 (spec bo-nho-tinh-cach-soan-thao, mục 5)
+
+Các con số ở §4 và bảng giá bị ghi đè: Free 100 lượt hỏi đáp/ngày, 30 lượt/phiên
+(bản thảo giữ 3/ngày, 20/tháng); Cá nhân 500 lượt/ngày là HẠN MỨC thật (không còn
+lá chắn riêng), không giới hạn lượt mỗi phiên, 20 bản thảo/ngày; giá ₫69.000 / 30
+ngày. Lá chắn: Free 3.000 lượt/tháng, mọi IP 1.500 lượt/ngày. Cơ chế đếm, múi giờ,
+quy ước 0 và ≥ 100000 không đổi.

@@ -213,6 +213,11 @@ không thay thế tư vấn của luật sư." Button: hỏi chủ dự án trư
 - 2026-09-02: KHÔNG chạy song song hai implementer trên cùng branch (tranh index
   git). Nếu cần song song thật thì dùng `git worktree`. Chọn tuần tự + gộp task,
   vì phần lớn việc mới là tái dùng thứ đã có.
+- 2026-09-09: P4 (phần bảng trong câu trả lời pháp luật), P5 (ý "xin dạng bảng")
+  và P6 (câu đóng) chuyển sang spec `2026-09-09-bo-nho-tinh-cach-soan-thao` mục 7;
+  câu đóng "⚖️ …" KHÔNG đưa vào `answer` (mâu thuẫn `soul` "không viết lời miễn
+  trừ"). Plan này còn P0–P3 (mở kho, đồng bộ phạm vi, tách DANH_TINH) và phần bảng
+  cho câu hỏi về kho.
 
 ## Đối chiếu bản tham chiếu — hai lỗi đã tìm được
 
