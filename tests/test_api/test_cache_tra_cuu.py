@@ -109,6 +109,23 @@ async def test_as_of_date_khac_thi_cache_MISS(client, graph, don_cache, cache_ba
     assert g.goi == 2, "as_of_date khác mà vẫn cache hit — đang phục vụ hiệu lực của mốc khác"
 
 
+async def test_bo_nho_KHONG_vao_cache(graph, don_cache, cache_bat):
+    """Bộ nhớ phiên (spec 2026-09-09 §6.5): một tóm tắt/hồ sơ khác đi vào state
+    của graph cũng làm câu trả lời có thể khác, nên `chay_tra_cuu` không được
+    phục vụ cache cho một request mang bộ nhớ — dù cùng `query`, cùng như
+    `req.lich_su` đã chặn ở trên."""
+    from src.api.routes import chay_tra_cuu
+    from src.models.schemas import TraCuuRequest
+
+    g = graph(GraphDem())
+    req = TraCuuRequest(query=_CAU_HOI)
+    bn = {"tom_tat": "tóm tắt phiên trước", "ho_so": {}}
+
+    await chay_tra_cuu(req, None, "t1", bo_nho=bn)
+    await chay_tra_cuu(req, None, "t2", bo_nho=bn)
+    assert g.goi == 2, "request mang bộ nhớ mà vẫn cache hit — đang phục vụ câu trả lời của phiên khác"
+
+
 async def test_abstain_KHONG_vao_cache(client, graph, don_cache, cache_bat):
     """`abstain` là hành vi ĐÚNG, được tính điểm. Nhưng một lần abstain do lỗi
     TẠM (OpenRouter 429, DB chậm) mà bị cache 7 ngày sẽ hoá đá thành "không tìm

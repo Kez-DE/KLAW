@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import text
 
 from src.api import routes
-from src.services import bao_ve, hoi_thoai
+from src.services import bao_ve, bo_nho, hoi_thoai
 from src.services.db import get_engine
 from tests.test_api.test_xac_thuc_han_muc import _URL as SUPABASE
 from tests.test_api.test_xac_thuc_han_muc import _bearer
@@ -170,3 +170,32 @@ async def test_post_tra_cuu_tra_header_phien(client, cai_dat, khoa_ky, graph_gia
     assert r.status_code == 200
     pid = r.headers["x-hoi-thoai-id"]
     assert hoi_thoai.chi_tiet(sub, pid)["luot"][0]["cau_hoi"] == "x"
+
+
+@pytest.mark.asyncio
+async def test_post_tra_cuu_xep_lich_cap_nhat_bo_nho(client, cai_dat, khoa_ky, graph_gia_lap, don_dep, monkeypatch):
+    """Sau khi lượt được ghi thành công, `/tra-cuu` phải xếp `bo_nho.cap_nhat_phien`
+    chạy nền (spec 2026-09-09 §6.7) — cùng phép kiểm áp cho đường SSE ngay dưới."""
+    cai_dat(supabase_url=SUPABASE)
+    sub = str(uuid.uuid4())
+    don_dep.append(sub)
+    goi: list[tuple[str, str]] = []
+    monkeypatch.setattr(bo_nho, "len_lich_cap_nhat", lambda pid, s: goi.append((pid, s)))
+    r = await client.post("/api/v1/tra-cuu", json={"query": "x"}, headers=_bearer(khoa_ky, sub))
+    assert r.status_code == 200
+    assert goi == [(r.headers["x-hoi-thoai-id"], sub)]
+
+
+@pytest.mark.asyncio
+async def test_stream_xep_lich_cap_nhat_bo_nho(client, cai_dat, khoa_ky, graph_gia_lap, don_dep, monkeypatch):
+    """Đường SSE — classic defect ở đây là sửa POST mà quên `_chay_nen` (spec
+    2026-09-09 §6.7), nên phép kiểm này KHÔNG được gộp chung với test ở trên."""
+    cai_dat(supabase_url=SUPABASE)
+    sub = str(uuid.uuid4())
+    don_dep.append(sub)
+    goi: list[tuple[str, str]] = []
+    monkeypatch.setattr(bo_nho, "len_lich_cap_nhat", lambda pid, s: goi.append((pid, s)))
+    r = await client.post("/api/v1/tra-cuu/luong", json={"query": "x"}, headers=_bearer(khoa_ky, sub))
+    assert r.status_code == 200
+    pid = dict(_su_kien(r.text))["bat_dau"]["hoi_thoai_id"]
+    assert goi == [(pid, sub)]
