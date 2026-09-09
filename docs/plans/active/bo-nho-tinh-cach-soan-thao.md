@@ -148,12 +148,14 @@ tính lâu dài về sản phẩm/kiến trúc vào `docs/decisions/`.
   trên file đã đổi; `cd frontend && npm run typecheck && npm run lint && node
   scripts/kiem-bo-nho.ts`; `.venv/bin/python -m eval.run_hoi_thoai` (tốn tiền thật,
   cần khoá OpenRouter — nếu chưa có khoá thì ghi "chưa chạy", không bịa số).
-- Giai đoạn 3: cùng bộ pytest/ruff/`npm run typecheck`/`npm run lint` trên file đã
-  đổi; `.venv/bin/python -m eval.run --config hybrid` (golden 77, số trước/sau);
-  `.venv/bin/python -m eval.run_mo_ho`.
-- Giai đoạn 4: cùng bộ pytest/ruff/typecheck/lint trên; `node scripts/kiem-ban-thao.ts`.
-- Giai đoạn 5: cùng bộ pytest/ruff/typecheck/lint trên; `node scripts/kiem-keo-dan.ts`;
-  `node scripts/kiem-ngan-xep.ts`; ảnh chụp bốn trạng thái vào `.tham-dinh-shots/`
+- Giai đoạn 3: cùng bộ pytest/ruff trên file đã đổi; `cd frontend && npm run
+  typecheck && npm run lint`; `.venv/bin/python -m eval.run --config hybrid`
+  (golden 77, số trước/sau); `.venv/bin/python -m eval.run_mo_ho`.
+- Giai đoạn 4: cùng bộ pytest/ruff trên file đã đổi; `cd frontend && npm run
+  typecheck && npm run lint && node scripts/kiem-ban-thao.ts`.
+- Giai đoạn 5: cùng bộ pytest/ruff trên file đã đổi; `cd frontend && npm run
+  typecheck && npm run lint && node scripts/kiem-keo-dan.ts && node
+  scripts/kiem-ngan-xep.ts`; ảnh chụp bốn trạng thái vào `.tham-dinh-shots/`
   (không stage).
 
 ## Result
