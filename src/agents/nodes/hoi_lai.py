@@ -216,7 +216,11 @@ def dung_cau_hoi_lai(chon: list, da_biet: frozenset[str] = frozenset()) -> str:
         if len(cau_theo_ma) == TOI_DA:
             break
     if not cau_theo_ma:
-        cau_theo_ma = dict.fromkeys((ma for ma in MAC_DINH if ma not in da_biet), "")
+        # Cùng trần `TOI_DA` với nhánh model-chọn ngay trên — trước bản này
+        # trùng với `len(MAC_DINH) == 3` nên không lộ; hạ `TOI_DA` xuống 2
+        # (Task 14) mà quên cắt ở đây thì đúng lỗi hỏng mạng/JSON sai hình
+        # dạng lại hỏi NHIỀU câu hơn cả đường thường — ngược mục tiêu trần.
+        cau_theo_ma = dict.fromkeys([ma for ma in MAC_DINH if ma not in da_biet][:TOI_DA], "")
         if not cau_theo_ma:
             return ""
     return "\n".join([CAU_DAN, *(f"- {_cau_dung_duoc(ma, cau)}"
@@ -230,16 +234,18 @@ CAU_DAN_DUOI = "Để chính xác hơn, bạn cho tôi biết thêm:"
 
 
 def duoi_hoi_them(ho_so: dict) -> str:
-    """Đuôi của một câu trả lời ĐÃ CÓ luận điểm (QT-5): tối đa hai câu hằng số
-    (0 token — không gọi LLM, không qua `bi_loai`) cho chiều còn trống trong
-    `MAC_DINH`, theo đúng thứ tự của tuple đó. Đủ dữ kiện thì trả rỗng — một
-    câu trả lời đã chắc không cần rào đón thêm.
+    """Đuôi của một câu trả lời ĐÃ CÓ luận điểm (QT-5): tối đa `TOI_DA` câu hằng
+    số (0 token — không gọi LLM, không qua `bi_loai`) cho chiều còn trống trong
+    `MAC_DINH`, theo đúng thứ tự của tuple đó — cùng trần với nhánh hỏi lại của
+    một ngõ cụt, không phải một con số riêng. Đủ dữ kiện thì trả rỗng — một câu
+    trả lời đã chắc không cần rào đón thêm.
 
     Không dùng danh sách model chọn của `hoi_lai()`: đây là đuôi của một câu
     trả lời THÀNH CÔNG, không phải của một ngõ cụt, nên không đáng một lượt gọi
     LLM — ba chiều `MAC_DINH` áp được cho gần như mọi câu hỏi lao động.
     """
-    thieu = [ma for ma in MAC_DINH if not ((ho_so or {}).get(ma) or {}).get("gia_tri")][:2]
+    ho_so = ho_so or {}
+    thieu = [ma for ma in MAC_DINH if not (isinstance(muc := ho_so.get(ma), dict) and muc.get("gia_tri"))][:TOI_DA]
     if not thieu:
         return ""
     return CAU_DAN_DUOI + "".join(f"\n- {CHIEU[ma]}" for ma in thieu)

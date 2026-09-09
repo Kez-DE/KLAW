@@ -64,7 +64,7 @@ def test_bo_loc_chan_moi_cau_phat_bieu_quy_tac_phap_luat(cau):
 
 
 @pytest.mark.parametrize("cau", [
-    "Bạn đang ở phía người lao động hay phía công ty?",
+    "Bạn đang ở phía nào — người lao động hay công ty?",
     "Chuyện này xảy ra vào khoảng thời gian nào?",
     "Bạn đang giữ những giấy tờ nào về việc này?",
     "Công ty bạn đóng ở tỉnh hay thành phố nào?",
@@ -127,10 +127,18 @@ def test_ma_trung_chi_hoi_mot_lan():
 
 def test_chon_rong_thi_roi_ve_hang_so_chu_khong_tra_chuoi_rong():
     """Chuỗi rỗng ở đây = màn hình trắng, đúng chế độ hỏng cả pha này tồn tại
-    để bỏ."""
+    để bỏ.
+
+    Task 14 review round 1 (Finding 1): đường suy biến này từng lấy CẢ BA chiều
+    của `MAC_DINH` không cắt trần — trùng với `len(MAC_DINH) == 3` khi
+    `TOI_DA` còn là 3 nên không lộ. Hạ `TOI_DA` xuống 2 mà quên cắt ở đây thì
+    đúng lỗi mạng/JSON hỏng lại hỏi NHIỀU câu hơn cả đường thường, ngược hẳn
+    mục tiêu trần của cả task này — nên canh bằng ĐẾM, không chỉ bằng sự có mặt."""
     ra = dung_cau_hoi_lai([])
     assert CAU_DAN in ra
-    assert all(CHIEU[ma] in ra for ma in MAC_DINH)
+    assert ra.count("\n- ") == TOI_DA
+    assert all(CHIEU[ma] in ra for ma in MAC_DINH[:TOI_DA])
+    assert all(CHIEU[ma] not in ra for ma in MAC_DINH[TOI_DA:])
 
 
 # ══ Đường có LLM ═════════════════════════════════════════════════════════════
@@ -155,14 +163,18 @@ def test_prompt_nap_tu_vung_chieu_TU_HANG_SO_va_mang_cau_hoi_that():
 
 def test_llm_no_thi_roi_ve_hang_so_KHONG_nem_ngoai_le():
     """Một ngõ cụt không được biến thành HTTP 500: đây là khâu cuối, không còn
-    quyết định hạ nguồn nào phụ thuộc nó."""
+    quyết định hạ nguồn nào phụ thuộc nó.
+
+    Cùng lỗ hổng với `test_chon_rong_thi_roi_ve_hang_so_chu_khong_tra_chuoi_rong`
+    (Task 14 review round 1, Finding 1): lỗi mạng thật đi đúng đường này."""
     class No:
         def chat(self, *a, **k):
             raise RuntimeError("429")
 
     kq = hoi_lai("x", No(), "m")
     assert kq.nguon == "loi" and kq.usage is None
-    assert all(CHIEU[ma] in kq.cau for ma in MAC_DINH)
+    assert kq.cau.count("\n- ") == TOI_DA
+    assert all(CHIEU[ma] in kq.cau for ma in MAC_DINH[:TOI_DA])
 
 
 def test_llm_tra_json_sai_hinh_dang_thi_roi_ve_hang_so():

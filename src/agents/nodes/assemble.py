@@ -462,9 +462,14 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
     ho_so = state.get("ho_so") or {}
     da_biet = frozenset(k for k, v in ho_so.items() if isinstance(v, dict) and v.get("gia_tri"))
     hl = hoi_lai(state.get("query", ""), llm, model, da_biet=da_biet)
-    ket = _base(state, rt, usage=_gop_usage(usage, hl.usage), degraded=degraded,
-                coverage_note="\n\n".join(x for x in (ghi_chu or KHONG_TIM_DUOC, hl.cau) if x),
-                **kw)
+    ket = _base(
+        state,
+        rt,
+        usage=_gop_usage(usage, hl.usage),
+        degraded=degraded,
+        coverage_note="\n\n".join(x for x in (ghi_chu or KHONG_TIM_DUOC, hl.cau) if x),
+        **kw,
+    )
     ket["traces"]["assemble_hoi_lai"] = hl.nguon
     return ket
 
