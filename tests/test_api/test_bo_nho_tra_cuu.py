@@ -11,8 +11,6 @@ from src.services import bao_ve, bo_nho, hoi_thoai
 from src.services.db import get_engine
 from tests.test_api.test_xac_thuc_han_muc import _URL as SUPABASE
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.fixture
 def nguoi(cai_dat):
@@ -32,6 +30,7 @@ def test_lich_su_khach_toi_da_10():
         TraCuuRequest(query="x", lich_su=[{"cau_hoi": "a", "tra_loi": "", "duong_dan": []}] * 11)
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_chuan_bi_phien_nap_ba_lop(nguoi):
     pid = hoi_thoai.tao_phien(nguoi, "c1")
@@ -44,6 +43,7 @@ async def test_chuan_bi_phien_nap_ba_lop(nguoi):
     assert st["tom_tat"] == "tóm tắt cũ" and st["ho_so"]["chu_the"]["gia_tri"] == "người lao động"
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_phien_moi_cua_pro_duoc_seed_tu_tai_khoan_free_thi_khong(nguoi):
     bo_nho.sua_khoa_tai_khoan(nguoi, "tham_nien", "3 năm")

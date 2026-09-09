@@ -12,8 +12,6 @@ from src.services.db import get_engine
 from tests.test_api.test_xac_thuc_han_muc import _URL as SUPABASE
 from tests.test_api.test_xac_thuc_han_muc import _bearer
 
-pytestmark = pytest.mark.integration
-
 
 class _GraphGiaLapStream:
     """`_GraphGiaLap` của `test_xac_thuc_han_muc.py` chỉ có `ainvoke` — đủ cho
@@ -66,6 +64,7 @@ def _su_kien(body: str) -> list[tuple[str, dict]]:
     return ra
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_stream_tao_phien_va_ghi_luot(client, cai_dat, khoa_ky, graph_gia_lap, don_dep):
     cai_dat(supabase_url=SUPABASE)
@@ -83,6 +82,7 @@ async def test_stream_tao_phien_va_ghi_luot(client, cai_dat, khoa_ky, graph_gia_
     assert ct["luot"][0]["trace_id"] == sk["bat_dau"]["trace_id"]
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_hoi_tiep_trong_phien_nap_lich_su_may_chu(client, cai_dat, khoa_ky, graph_gia_lap, don_dep, monkeypatch):
     cai_dat(supabase_url=SUPABASE)
@@ -115,6 +115,7 @@ async def test_hoi_tiep_trong_phien_nap_lich_su_may_chu(client, cai_dat, khoa_ky
     assert [luot["cau_hoi"] for luot in hoi_thoai.chi_tiet(sub, pid)["luot"]] == ["Câu đầu", "Còn khoản mấy?"]
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_phien_nguoi_khac_404_va_phien_day_403(client, cai_dat, khoa_ky, graph_gia_lap, don_dep, monkeypatch):
     cai_dat(supabase_url=SUPABASE)
@@ -146,6 +147,7 @@ async def test_an_danh_khong_ghi_va_bat_dau_null(client, cai_dat, graph_gia_lap,
     assert dict(_su_kien(r.text))["bat_dau"]["hoi_thoai_id"] is None
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_ghi_loi_thi_van_ket_qua_kem_loi_luu(client, cai_dat, khoa_ky, graph_gia_lap, don_dep, monkeypatch):
     cai_dat(supabase_url=SUPABASE)
@@ -161,6 +163,7 @@ async def test_ghi_loi_thi_van_ket_qua_kem_loi_luu(client, cai_dat, khoa_ky, gra
     assert "ket_qua" in ten and "loi_luu" in ten and ten.index("loi_luu") > ten.index("ket_qua")
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_post_tra_cuu_tra_header_phien(client, cai_dat, khoa_ky, graph_gia_lap, don_dep):
     cai_dat(supabase_url=SUPABASE)
@@ -172,6 +175,7 @@ async def test_post_tra_cuu_tra_header_phien(client, cai_dat, khoa_ky, graph_gia
     assert hoi_thoai.chi_tiet(sub, pid)["luot"][0]["cau_hoi"] == "x"
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_post_tra_cuu_xep_lich_cap_nhat_bo_nho(client, cai_dat, khoa_ky, graph_gia_lap, don_dep, monkeypatch):
     """Sau khi lượt được ghi thành công, `/tra-cuu` phải xếp `bo_nho.cap_nhat_phien`
@@ -186,6 +190,7 @@ async def test_post_tra_cuu_xep_lich_cap_nhat_bo_nho(client, cai_dat, khoa_ky, g
     assert goi == [(r.headers["x-hoi-thoai-id"], sub)]
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_stream_xep_lich_cap_nhat_bo_nho(client, cai_dat, khoa_ky, graph_gia_lap, don_dep, monkeypatch):
     """Đường SSE — classic defect ở đây là sửa POST mà quên `_chay_nen` (spec
