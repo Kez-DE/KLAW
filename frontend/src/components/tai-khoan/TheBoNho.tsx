@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { datGhiNho, layBoNho, suaBoNho, xoaBoNho, xoaHetBoNho } from "@/lib/api";
-import type { BoNhoTaiKhoan } from "@/lib/klaw";
+import type { ApiResult, BoNhoTaiKhoan } from "@/lib/klaw";
 
 /** "KLAW nhớ về bạn" — chỉ Pro (spec 2026-09-09 §6.6). Bảy khoá, sửa tại chỗ, xoá từng dòng, xoá hết có xác nhận. */
 export function TheBoNho() {
@@ -8,6 +8,9 @@ export function TheBoNho() {
   const [loi, datLoi] = useState<string | null>(null);
   const [sua, datSua] = useState<{ khoa: string; nhap: string; loi: string | null } | null>(null);
   const [xacNhanXoaHet, datXacNhanXoaHet] = useState(false);
+  /** Lỗi của MỘT thao tác (công tắc, xoá một dòng, xoá hết) — khác `loi` phía
+   *  trên, thứ gác cả thẻ khi lần tải đầu thất bại. */
+  const [loiHanhDong, datLoiHanhDong] = useState<string | null>(null);
   const nap = () => {
     void layBoNho().then((kq) =>
       kq.ok ? datBn(kq.data) : datLoi("Tôi chưa đọc được bộ nhớ của bạn."),
@@ -21,7 +24,17 @@ export function TheBoNho() {
       </p>
     );
   if (bn === null) return null;
-  const chay = (p: Promise<{ ok: boolean }>) => void p.then(nap);
+  // `error.message` là câu tiếng Việt hiển thị thẳng được (xem `ApiError`
+  // trong `klaw.ts`) — cùng cách `suaBoNho` ở trên đã dùng. Trước đây `chay`
+  // tải lại bất kể `kq.ok`, nên công tắc/nút xoá lặng lẽ bật lại đúng vị trí
+  // cũ khi máy chủ từ chối và người dùng không biết vì sao.
+  const chay = <T,>(p: Promise<ApiResult<T>>) =>
+    void p.then((kq) => {
+      if (kq.ok) {
+        datLoiHanhDong(null);
+        nap();
+      } else datLoiHanhDong(kq.error.message);
+    });
   return (
     <section
       className="mt-6 space-y-3 rounded-xl border border-border bg-card p-4"
@@ -46,6 +59,11 @@ export function TheBoNho() {
           Ghi nhớ
         </label>
       </div>
+      {loiHanhDong !== null && (
+        <p role="alert" className="m-0 text-[13px] text-destructive">
+          {loiHanhDong}
+        </p>
+      )}
       {bn.muc.length === 0 ? (
         <p className="m-0 text-[13px] text-muted-foreground">
           Chưa có gì. Hỏi vài câu về việc của bạn, KLAW sẽ ghi lại những dữ kiện bền.

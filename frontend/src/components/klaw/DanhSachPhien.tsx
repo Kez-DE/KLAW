@@ -23,8 +23,9 @@ interface Props {
   onPhienMoi: () => void;
   /** Phiên vừa xoá xong — cha quyết định có phải điều hướng đi không. */
   onDaXoa: (id: string) => void;
-  /** Bật/tắt công tắc "không ghi nhớ" của MỘT phiên (spec 2026-09-09 §6.6). */
-  onDoiGhiNho: (id: string, khongGhiNho: boolean) => void;
+  /** Bật/tắt công tắc "không ghi nhớ" của MỘT phiên (spec 2026-09-09 §6.6).
+   *  Trả `boolean` như `onDoiTen`/`onXoa` — để `MotPhien` báo được thất bại. */
+  onDoiGhiNho: (id: string, khongGhiNho: boolean) => Promise<boolean>;
 }
 
 const NUT_PHU =
@@ -43,7 +44,7 @@ function MotPhien({
   onChon: () => void;
   onDoiTen: (tieuDe: string) => Promise<boolean>;
   onXoa: () => Promise<boolean>;
-  onDoiGhiNho: (id: string, khongGhiNho: boolean) => void;
+  onDoiGhiNho: (id: string, khongGhiNho: boolean) => Promise<boolean>;
 }) {
   const [cheDo, datCheDo] = useState<"xem" | "sua" | "xoa">("xem");
   const [nhap, datNhap] = useState(phien.tieu_de);
@@ -74,6 +75,13 @@ function MotPhien({
     const ok = await onXoa();
     datDangGui(false);
     if (!ok) datLoi("Tôi chưa xoá được phiên này, thử lại nhé.");
+  };
+  const doiGhiNho = async () => {
+    datDangGui(true);
+    const ok = await onDoiGhiNho(phien.id, !(phien.khong_ghi_nho ?? false));
+    datDangGui(false);
+    if (ok) datLoi(null);
+    else datLoi("Tôi chưa đổi được công tắc ghi nhớ, thử lại nhé.");
   };
 
   if (cheDo === "sua") {
@@ -162,68 +170,76 @@ function MotPhien({
   return (
     <li
       className={cn(
-        "group flex items-start gap-1 rounded-lg border p-2 text-[12px]",
+        "group rounded-lg border p-2 text-[12px]",
         dangMo
           ? "border-[var(--color-brass-500)]/60 bg-card shadow-soft"
           : "border-transparent hover:bg-card",
       )}
     >
-      <button
-        type="button"
-        onClick={onChon}
-        aria-current={dangMo ? "true" : undefined}
-        className="focus-brass min-w-0 flex-1 cursor-pointer rounded-md p-1 text-left"
-      >
-        <span className="block truncate text-[13px] font-medium text-foreground">
-          {phien.tieu_de}
-        </span>
-        <span className="mt-0.5 block text-muted-foreground">
-          {phien.so_luot} lượt · {thoiGianTuongDoi(phien.cap_nhat_luc)}
-        </span>
-      </button>
-      <div className="flex shrink-0 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+      <div className="flex items-start gap-1">
         <button
           type="button"
-          onClick={() => {
-            datNhap(phien.tieu_de);
-            datCheDo("sua");
-          }}
-          aria-label={`Đổi tên phiên ${phien.tieu_de}`}
-          className={NUT_PHU}
+          onClick={onChon}
+          aria-current={dangMo ? "true" : undefined}
+          className="focus-brass min-w-0 flex-1 cursor-pointer rounded-md p-1 text-left"
         >
-          <Pencil className="size-3.5" aria-hidden />
+          <span className="block truncate text-[13px] font-medium text-foreground">
+            {phien.tieu_de}
+          </span>
+          <span className="mt-0.5 block text-muted-foreground">
+            {phien.so_luot} lượt · {thoiGianTuongDoi(phien.cap_nhat_luc)}
+          </span>
         </button>
-        <button
-          type="button"
-          onClick={() => onDoiGhiNho(phien.id, !(phien.khong_ghi_nho ?? false))}
-          aria-pressed={phien.khong_ghi_nho ?? false}
-          aria-label={
-            (phien.khong_ghi_nho ?? false)
-              ? `Ghi nhớ lại phiên ${phien.tieu_de}`
-              : `Không ghi nhớ phiên ${phien.tieu_de}`
-          }
-          title={
-            (phien.khong_ghi_nho ?? false)
-              ? "Phiên này không được ghi nhớ"
-              : "Không ghi nhớ phiên này"
-          }
-          className={NUT_PHU}
-        >
-          {(phien.khong_ghi_nho ?? false) ? (
-            <EyeOff className="size-3.5" aria-hidden />
-          ) : (
-            <Eye className="size-3.5" aria-hidden />
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => datCheDo("xoa")}
-          aria-label={`Xoá phiên ${phien.tieu_de}`}
-          className={NUT_PHU}
-        >
-          <Trash2 className="size-3.5" aria-hidden />
-        </button>
+        <div className="flex shrink-0 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => {
+              datNhap(phien.tieu_de);
+              datCheDo("sua");
+            }}
+            aria-label={`Đổi tên phiên ${phien.tieu_de}`}
+            className={NUT_PHU}
+          >
+            <Pencil className="size-3.5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            disabled={dangGui}
+            onClick={() => void doiGhiNho()}
+            aria-pressed={phien.khong_ghi_nho ?? false}
+            aria-label={
+              (phien.khong_ghi_nho ?? false)
+                ? `Ghi nhớ lại phiên ${phien.tieu_de}`
+                : `Không ghi nhớ phiên ${phien.tieu_de}`
+            }
+            title={
+              (phien.khong_ghi_nho ?? false)
+                ? "Phiên này không được ghi nhớ"
+                : "Không ghi nhớ phiên này"
+            }
+            className={cn(NUT_PHU, "disabled:opacity-60")}
+          >
+            {(phien.khong_ghi_nho ?? false) ? (
+              <EyeOff className="size-3.5" aria-hidden />
+            ) : (
+              <Eye className="size-3.5" aria-hidden />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => datCheDo("xoa")}
+            aria-label={`Xoá phiên ${phien.tieu_de}`}
+            className={NUT_PHU}
+          >
+            <Trash2 className="size-3.5" aria-hidden />
+          </button>
+        </div>
       </div>
+      {loi !== null && (
+        <p role="alert" className="m-0 mt-1 text-destructive">
+          {loi}
+        </p>
+      )}
     </li>
   );
 }

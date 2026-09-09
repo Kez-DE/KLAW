@@ -164,10 +164,10 @@ export function AppShell({
       onDaXoa={(id) => {
         if (id === phienTrenUrl) phienMoi();
       }}
-      onDoiGhiNho={(id, khongGhiNho) => {
-        void datKhongGhiNhoPhien(id, khongGhiNho).then((kq) => {
-          if (kq.ok) hoiThoai.taiLai();
-        });
+      onDoiGhiNho={async (id, khongGhiNho) => {
+        const kq = await datKhongGhiNhoPhien(id, khongGhiNho);
+        if (kq.ok) hoiThoai.taiLai();
+        return kq.ok;
       }}
     />
   );

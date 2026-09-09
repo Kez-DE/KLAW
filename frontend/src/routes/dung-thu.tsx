@@ -583,10 +583,19 @@ function ManHoiKlaw() {
                             // (xem `ApiError` trong `klaw.ts`) — 422 "giá trị này giống
                             // một điều luật/số văn bản" của máy chủ phải tới đúng câu
                             // đó, không phải một câu chung chung nuốt mất lý do.
-                            if (id)
-                              void suaHoSoPhien(id, khoa, giaTri).then((kq) => {
-                                if (!kq.ok) toast.error(kq.error.message);
-                              });
+                            if (id === null || id === undefined) {
+                              // Hiện chỉ xảy ra khi ẩn danh (khách chưa có
+                              // `hoi_thoai_id`); một việc sau trong kế hoạch này sẽ
+                              // điền hồ sơ tình huống ngay từ câu hỏi kể cả cho khách,
+                              // lúc đó bút chì này bấm được mà không còn ngả rẽ này.
+                              toast.error(
+                                "Cần một cuộc trò chuyện đã đăng nhập để sửa dữ kiện này.",
+                              );
+                              return;
+                            }
+                            void suaHoSoPhien(id, khoa, giaTri).then((kq) => {
+                              if (!kq.ok) toast.error(kq.error.message);
+                            });
                           }}
                         />
                       )}
