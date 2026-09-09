@@ -1,4 +1,3 @@
-import dataclasses
 import logging
 import time
 import uuid
@@ -45,7 +44,7 @@ from src.models.schemas import (
     VanBanPhamViOut,
     VanBanProvisionsResponse,
 )
-from src.services import bao_ve, bo_nho, cache_tra_loi
+from src.services import ban_thao, bao_ve, bo_nho, cache_tra_loi
 from src.services import hoi_thoai as hoi_thoai_svc
 from src.services.bao_ve import cong_bao_ve, cong_bao_ve_khach, cong_nhe
 from src.services.checklist import KHUNG_HOP_DONG, Checklist
@@ -874,22 +873,6 @@ def _audit_report_out(r, duong_dan_index: dict[str, dict]) -> AuditReportOut:
     )
 
 
-def _render_markdown(loai_van_ban: str, clauses: list) -> str:
-    """Markdown thuần — KHÔNG python-docx, không LaTeX (ràng buộc toàn dự
-    án). Đánh số Điều theo THỨ TỰ clause được sinh, không theo `stt` của
-    checklist: draft_generate có thể bỏ một mục (schema_error, thiếu can_cu
-    phù hợp) nên thứ tự thật của output mới là thứ tự đáng tin.
-
-    Tiêu đề lấy từ `checklist.tieu_de` (YAML), không từ một dict viết cứng —
-    thêm một mẫu là thêm một file, không sửa module này.
-    """
-    cl = load_checklist_cached(loai_van_ban)
-    phan = [f"# {cl.tieu_de}", ""]
-    for i, c in enumerate(clauses, 1):
-        phan.append(f"## {cl.don_vi_muc} {i}. {c.ten}\n\n{c.noi_dung}\n")
-    return "\n".join(phan)
-
-
 @router.post("/soan-thao", response_model=SoanThaoResponse)
 async def soan_thao(
     req: SoanThaoRequest, user_sub: str | None = Depends(cong_bao_ve)
@@ -947,14 +930,8 @@ async def soan_thao(
         False, user_sub,
     )
 
-    clauses = st.get("clauses") or []
-    _, _, db_provisions = requirements(req.loai_van_ban)
-    return SoanThaoResponse(
-        document=_render_markdown(req.loai_van_ban, clauses),
-        clauses=[dataclasses.asdict(c) for c in clauses],
-        audit_report=_audit_report_out(st["audit_report"], _duong_dan_index(db_provisions)),
-        trace_id=trace_id,
-    )
+    ket = ban_thao.tu_state_soan_thao(st)
+    return SoanThaoResponse(**ket, trace_id=trace_id)
 
 
 @router.post("/soat", response_model=SoatResponse)

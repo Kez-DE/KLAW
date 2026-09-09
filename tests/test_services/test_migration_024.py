@@ -1,0 +1,37 @@
+import pytest
+from sqlalchemy import text
+
+from src.services.db import get_engine, run_migrations
+
+pytestmark = pytest.mark.integration
+
+
+def _cot(bang):
+    with get_engine().connect() as c:
+        return {
+            r[0]
+            for r in c.execute(
+                text("SELECT column_name FROM information_schema.columns WHERE table_name = :b"), {"b": bang}
+            ).all()
+        }
+
+
+def test_024_chay_hai_lan_va_du_cot():
+    run_migrations()
+    run_migrations()
+    assert {
+        "id",
+        "user_sub",
+        "hoi_thoai_id",
+        "loai",
+        "facts",
+        "document",
+        "clauses",
+        "audit",
+        "phien_ban",
+        "phien_ban_truoc",
+        "tao_luc",
+        "cap_nhat_luc",
+        "xoa_luc",
+    } == _cot("ban_thao")
+    assert "soan_thao" in _cot("hoi_thoai")
