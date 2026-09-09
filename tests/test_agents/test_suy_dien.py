@@ -29,6 +29,15 @@ NSDLD = "người sử dụng lao động"
         ("người lao động được nghỉ phép bao nhiêu ngày", None),
         ("bạn là ai", None),
         ("công ty phải báo trước bao nhiêu ngày khi cho nghỉ", None),
+        # Review round 1 findings — mẫu dễ ở trên không bắt được các ca này.
+        ("Tôi là nhân viên của công ty ABC", NLD),  # finding 1: tự giới thiệu, không phải chủ doanh nghiệp
+        ("Tôi là chủ tịch công đoàn của công ty", None),  # finding 2: "chủ tịch" không phải "chủ"
+        ("Tôi không phải là nhân viên của công ty này", None),  # phủ định — không suy ra chủ doanh nghiệp
+        ("Chị ấy bị sa thải mà không rõ lý do", None),  # ngôi thứ ba — không suy diễn
+        ("Người lao động và người sử dụng lao động cùng thoả thuận chấm dứt hợp đồng", None),  # nêu cả hai bên
+        # Bị động chêm tác nhân — GHIM hành vi hiện tại (xem docstring module): đã suy
+        # đúng NLD nhờ mẫu "nghỉ việc" chung, không nhờ mẫu riêng cho "bị <tác nhân>".
+        ("Tôi bị công ty cho nghỉ việc", NLD),
     ],
 )
 def test_suy_vai(cau, vai):

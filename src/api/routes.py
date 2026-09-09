@@ -485,6 +485,10 @@ async def tra_cuu(
         loi = await _ghi_luot_nhe(hoi_thoai_id, req.query, resp.model_dump(mode="json"), trace_id)
         if loi is None:
             try:
+                # An toàn cả trên cache hit: `payload["ho_so"]` khi đó là của lượt đã cache,
+                # nhưng đọc cache (dòng 350-352) đã TẮT bất cứ khi nào phiên đã có `ho_so` —
+                # nên không có đường nào một cache hit ghi giả định của MỘT phiên khác vào
+                # phiên này. Đổi khoá cache trong tương lai phải giữ đúng ràng buộc đó.
                 await run_in_threadpool(bo_nho.luu_suy_dien, hoi_thoai_id, payload.get("ho_so") or {})
             except Exception:
                 logger.exception("bo_nho: không lưu được giả định suy_dien (phien=%s)", hoi_thoai_id)

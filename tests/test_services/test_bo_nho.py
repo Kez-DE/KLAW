@@ -100,6 +100,37 @@ async def test_len_lich_cap_nhat_bat_xep_lich_va_chay(monkeypatch):
     assert bo_nho._DANG_CHAY == set()  # done_callback đã dọn task xong
 
 
+def test_luu_suy_dien_khong_lam_gi_khi_khong_co_khoa_nguon_suy_dien(monkeypatch):
+    doc_goi, ghi_goi = [], []
+    monkeypatch.setattr(hoi_thoai, "bo_nho_cua_phien", lambda pid: doc_goi.append(pid) or {"ho_so": {}})
+    monkeypatch.setattr(hoi_thoai, "ghi_ho_so", lambda pid, ho_so: ghi_goi.append((pid, ho_so)))
+    bo_nho.luu_suy_dien("pid", {"chu_the": {"gia_tri": "người lao động", "nguon": "nguoi_noi"}})
+    assert doc_goi == [] and ghi_goi == []  # không đọc, không ghi — không có gì mới của suy_dien
+
+
+def test_luu_suy_dien_loc_theo_nguon_va_gop_vao_ho_so_cu(monkeypatch):
+    monkeypatch.setattr(
+        hoi_thoai,
+        "bo_nho_cua_phien",
+        lambda pid: {"ho_so": {"tham_nien": {"gia_tri": "3 năm", "nguon": "nguoi_noi"}}},
+    )
+    ghi_goi = []
+    monkeypatch.setattr(hoi_thoai, "ghi_ho_so", lambda pid, ho_so: ghi_goi.append((pid, ho_so)))
+    bo_nho.luu_suy_dien(
+        "pid",
+        {
+            "chu_the": {"gia_tri": "người lao động", "nguon": "suy_dien"},
+            "vu_viec": {"gia_tri": "tranh chấp lương", "nguon": "nguoi_noi"},  # nguồn khác — phải bị lọc
+        },
+    )
+    assert len(ghi_goi) == 1
+    pid, ho_so_gop = ghi_goi[0]
+    assert pid == "pid"
+    assert ho_so_gop["chu_the"] == {"gia_tri": "người lao động", "nguon": "suy_dien"}
+    assert ho_so_gop["tham_nien"] == {"gia_tri": "3 năm", "nguon": "nguoi_noi"}  # hồ sơ cũ vẫn giữ
+    assert "vu_viec" not in ho_so_gop  # nguồn nguoi_noi trong ho_so_state không đi vào gộp
+
+
 @pytest.fixture
 def nguoi():
     sub = str(uuid.uuid4())
