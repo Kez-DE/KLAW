@@ -77,6 +77,10 @@ async def test_phien_khong_ghi_nho_va_sua_ho_so(client, khoa_ky, hai_nguoi):
             f"/api/v1/hoi-thoai/{pid}/ghi-nho", json={"khong_ghi_nho": True}, headers=_bearer(khoa_ky, b)
         )
     ).status_code == 404
+    # Regression: đổi tên một phiên đã tắt ghi nhớ KHÔNG được âm thầm báo lại `false`
+    # (PhienTomTatOut.khong_ghi_nho mặc định False che mất cột thật nếu `_SQL_LAY` quên chọn nó).
+    r = await client.patch(f"/api/v1/hoi-thoai/{pid}", json={"tieu_de": "Tên mới"}, headers=h)
+    assert r.status_code == 200 and r.json()["khong_ghi_nho"] is True
     r = await client.patch(
         f"/api/v1/hoi-thoai/{pid}/ho-so", json={"khoa": "chu_the", "gia_tri": "người lao động"}, headers=h
     )

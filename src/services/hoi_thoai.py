@@ -20,7 +20,7 @@ LOI_PHIEN_DAY = "Phiên này đã đủ {n} lượt. Mở phiên mới để ti�
 
 _SQL_TAO = text("INSERT INTO hoi_thoai (user_sub, tieu_de) VALUES (:sub, :tieu_de) RETURNING id")
 _SQL_LAY = text(
-    "SELECT id::text AS id, tieu_de, tao_luc, cap_nhat_luc FROM hoi_thoai"
+    "SELECT id::text AS id, tieu_de, tao_luc, cap_nhat_luc, khong_ghi_nho FROM hoi_thoai"
     " WHERE id = :id AND user_sub = :sub AND xoa_luc IS NULL"
 )
 _SQL_DEM_LUOT = text("SELECT count(*)::int FROM luot_hoi_thoai WHERE hoi_thoai_id = :id")
