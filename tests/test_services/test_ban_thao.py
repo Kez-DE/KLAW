@@ -33,9 +33,7 @@ def test_tao_sua_lui_va_tran_sua(nguoi):
     assert bt2["phien_ban"] == 2 and bt2["phien_ban_truoc"][-1]["phien_ban"] == 1
     assert ban_thao.doi_so_voi(bt, bt2) == ["ngay_nghi"]
     bt3 = ban_thao.lui(nguoi, bt["id"])
-    # Bản bị rời đi (v2) không được mất — `lui` đẩy nó vào lịch sử, đối xứng với `sua`.
-    assert bt3["phien_ban"] == 1 and bt3["document"].startswith("# ĐƠN\n")
-    assert len(bt3["phien_ban_truoc"]) == 1 and bt3["phien_ban_truoc"][0]["phien_ban"] == 2
+    assert bt3["phien_ban"] == 1 and bt3["document"].startswith("# ĐƠN\n") and bt3["phien_ban_truoc"] == []
     assert ban_thao.sua("00000000-0000-0000-0000-000000000000", bt["id"], {}, KET) is None
     for i in range(ban_thao.TRAN_SUA):
         ban_thao.sua(nguoi, bt["id"], {"ho_ten": "A", "ngay_nghi": f"{i + 1}/10/2026"}, KET)
@@ -45,46 +43,49 @@ def test_tao_sua_lui_va_tran_sua(nguoi):
     assert ban_thao.xoa_mem(nguoi, bt["id"]) is True and ban_thao.chi_tiet(nguoi, bt["id"]) is None
 
 
-def test_lui_giu_ban_bi_roi_va_khoi_phuc_dung_ca_clauses_audit(nguoi):
-    """Tiến hai lần rồi lùi một lần: bản khôi phục phải nhất quán NỘI BỘ (document,
-    facts, clauses, audit đều của ĐÚNG v2 — trước bản vá, `lui` giữ nguyên
-    clauses/audit của bản đang bị rời đi thay vì khôi phục của v2), và bản bị rời đi
-    (v3) phải còn lấy lại được — `lui` lần nữa phải trả về đúng NGUYÊN v3."""
+def test_lui_lien_tiep_di_den_ban_cu_nhat_va_tu_choi_khi_het(nguoi):
+    """`lui` là một BƯỚC ĐI LÙI, không phải bật qua bật lại: tạo, sửa hai lần, lùi
+    hai lần phải đi dần về ĐÚNG bản gốc (v1) với lịch sử rỗng — không dừng lại ở
+    v2 rồi bật ngược lại v3. Và khi đã ở bản cũ nhất, lùi thêm phải TỪ CHỐI (trả
+    về y nguyên), không làm gì bất ngờ."""
     pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
-    ket_v2 = {
-        **KET,
-        "document": "# ĐƠN v2",
-        "clauses": [{"stt": 1, "key": "k2", "noi_dung": "N2"}],
-        "audit_report": {"findings": [], "completeness": 0.5},
-    }
-    ket_v3 = {
-        **KET,
-        "document": "# ĐƠN v3",
-        "clauses": [{"stt": 1, "key": "k3", "noi_dung": "N3"}],
-        "audit_report": {"findings": [], "completeness": 0.9},
-    }
     v1 = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
-    v2 = ban_thao.sua(nguoi, v1["id"], {"ho_ten": "A", "buoc": "2"}, ket_v2)
-    v3 = ban_thao.sua(nguoi, v1["id"], {"ho_ten": "A", "buoc": "3"}, ket_v3)
+    ban_thao.sua(nguoi, v1["id"], {"ho_ten": "A", "buoc": "2"}, {**KET, "document": "# ĐƠN v2"})
+    ban_thao.sua(nguoi, v1["id"], {"ho_ten": "A", "buoc": "3"}, {**KET, "document": "# ĐƠN v3"})
 
     ve_v2 = ban_thao.lui(nguoi, v1["id"])
-    assert ve_v2["phien_ban"] == 2
-    assert (ve_v2["document"], ve_v2["facts"], ve_v2["clauses"], ve_v2["audit"]) == (
-        v2["document"],
-        v2["facts"],
-        v2["clauses"],
-        v2["audit"],
-    )
-    v3_trong_lich_su = next(b for b in ve_v2["phien_ban_truoc"] if b["phien_ban"] == 3)
-    assert (v3_trong_lich_su["document"], v3_trong_lich_su["clauses"], v3_trong_lich_su["audit"]) == (
-        v3["document"],
-        v3["clauses"],
-        v3["audit"],
-    )
+    assert ve_v2["phien_ban"] == 2 and ve_v2["document"] == "# ĐƠN v2"
 
-    ve_v3 = ban_thao.lui(nguoi, v1["id"])
-    assert ve_v3["phien_ban"] == 3
-    assert (ve_v3["document"], ve_v3["clauses"], ve_v3["audit"]) == (v3["document"], v3["clauses"], v3["audit"])
+    ve_v1 = ban_thao.lui(nguoi, v1["id"])
+    assert ve_v1["phien_ban"] == 1
+    assert (ve_v1["document"], ve_v1["facts"], ve_v1["clauses"], ve_v1["audit"]) == (
+        v1["document"],
+        v1["facts"],
+        v1["clauses"],
+        v1["audit"],
+    )
+    assert ve_v1["phien_ban_truoc"] == []
+
+    tu_choi = ban_thao.lui(nguoi, v1["id"])
+    assert tu_choi == ban_thao.chi_tiet(nguoi, v1["id"])
+
+
+def test_sua_sau_khi_lui_khong_dung_so_phien_ban(nguoi):
+    """Lùi rồi sửa tiếp: số phiên bản mới phải LỚN HƠN mọi số đang có trong bản
+    ghi, và không có hai mục nào trùng số — nhánh bị bỏ (v3 cũ) không còn tồn tại
+    ở đâu để va số với v3 mới do lần sửa này tạo ra."""
+    pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
+    v1 = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+    ban_thao.sua(nguoi, v1["id"], {"ho_ten": "A", "buoc": "2"}, {**KET, "document": "# ĐƠN v2"})
+    ban_thao.sua(nguoi, v1["id"], {"ho_ten": "A", "buoc": "3"}, {**KET, "document": "# ĐƠN v3 cũ"})
+    ban_thao.lui(nguoi, v1["id"])  # về v2, bỏ hẳn "v3 cũ"
+
+    moi = ban_thao.sua(nguoi, v1["id"], {"ho_ten": "A", "buoc": "3 mới"}, {**KET, "document": "# ĐƠN v3 mới"})
+
+    so_lich_su = [b["phien_ban"] for b in moi["phien_ban_truoc"]]
+    assert all(moi["phien_ban"] > so for so in so_lich_su)
+    assert len(set(so_lich_su)) == len(so_lich_su), "không mục lịch sử nào trùng số phiên bản"
+    assert moi["phien_ban"] not in so_lich_su
 
 
 def test_soan_thao_cua_phien(nguoi):

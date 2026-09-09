@@ -170,14 +170,21 @@ def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
 
 
 def lui(sub: str, id: str) -> dict | None:
-    """Lùi một phiên bản. Đối xứng với `sua`: TRƯỚC khi khôi phục bản cũ (`gan`),
-    chụp và đẩy bản đang bị rời đi (`cu`) vào lịch sử — nên bản đó không mất, và
-    gọi `lui` thêm một lần nữa từ đây khôi phục lại đúng NGUYÊN bản đó."""
+    """Lùi MỘT BƯỚC, không phải bật qua bật lại: bỏ hẳn bản đang đứng (không đẩy
+    nó vào đâu cả) và khôi phục NGUYÊN VẸN mục gần nhất trong lịch sử — nên KHÔNG
+    có đường tiến trở lại bản vừa bỏ. Gọi liên tiếp đi dần về bản CŨ NHẤT còn giữ
+    (bị chặn bởi `TRAN_SUA`); tới đó rồi thì từ chối, trả về y nguyên bản hiện tại
+    (`phien_ban_truoc` rỗng nghĩa là không còn gì để lùi).
+
+    Bỏ hẳn, không giữ lại, là điều CỐ Ý: giữ lại bản bị rời đi từng để nó tồn tại
+    song song với một bản MỚI cùng đánh số (sửa tiếp sau khi lùi đặt `phien_ban =
+    gan["phien_ban"] + 1`, đúng số nhánh cũ đang giữ) — hai nội dung khác nhau
+    cùng mang một số phiên bản. Không giữ nhánh bỏ đi thì không còn gì để va số.
+    """
     cu = chi_tiet(sub, id)
     if cu is None or not cu["phien_ban_truoc"]:
         return cu
     *con, gan = cu["phien_ban_truoc"]
-    truoc = [*con, _snap(cu)]
     with get_engine().begin() as c:
         r = (
             c.execute(
@@ -190,7 +197,7 @@ def lui(sub: str, id: str) -> dict | None:
                     "clauses": _j(gan["clauses"]),
                     "audit": _j(gan["audit"]),
                     "phien_ban": gan["phien_ban"],
-                    "truoc": _j(truoc),
+                    "truoc": _j(con),
                 },
             )
             .mappings()
