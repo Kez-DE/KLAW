@@ -1,0 +1,111 @@
+# Đo bộ nhớ phiên (spec 2026-09-09 §6.7): lượt cuối phải dùng đúng dữ kiện nói ở các lượt đầu.
+# Không dùng để tinh chỉnh ngưỡng nào; chỉ báo cáo.
+hoi_thoai:
+- id: ht-001
+  luot:
+  - "Tôi là nhân viên văn phòng, ký hợp đồng không xác định thời hạn, làm được 3 năm ở Hà Nội."
+  - "Sắp tới tôi muốn nghỉ việc."
+  - "Tôi có cần viết đơn không?"
+  - "Nghỉ ngang có sao không?"
+  - "Công ty nợ lương tôi hai tháng rồi."
+  - "Tôi được báo trước bao nhiêu ngày?"
+  ky_vong:
+    ho_so: {chu_the: "người lao động", loai_hop_dong: "không xác định thời hạn"}
+    answer_co: ["45 ngày"]
+- id: ht-002
+  luot:
+  - "Công ty tôi có 30 nhân viên, tôi là trưởng phòng nhân sự."
+  - "Một nhân viên đi muộn liên tục."
+  - "Nhắc nhở mấy lần rồi không đổi."
+  - "Anh ấy ký hợp đồng 12 tháng, mới làm được 4 tháng."
+  - "Tôi có được sa thải không?"
+  ky_vong:
+    ho_so: {chu_the: "người sử dụng lao động", loai_hop_dong: "xác định thời hạn"}
+    answer_co: []
+- id: ht-003
+  luot:
+  - "Tôi mới ký hợp đồng thử việc 2 tháng tại một công ty ở TP.HCM."
+  - "Công việc là nhân viên kinh doanh."
+  - "Hôm nay là ngày thứ 25 thử việc."
+  - "Sếp nói tôi không đạt yêu cầu, muốn cho tôi nghỉ luôn."
+  - "Tôi có được báo trước không?"
+  - "Vậy tôi có được nhận lương đầy đủ cho những ngày đã làm không?"
+  ky_vong:
+    ho_so: {chu_the: "người lao động", loai_hop_dong: "thử việc"}
+    answer_co: []
+- id: ht-004
+  luot:
+  - "Tôi là công nhân may, ký hợp đồng không xác định thời hạn, làm 5 năm rồi."
+  - "Tháng này tôi làm hỏng một lô hàng."
+  - "Quản lý nói sẽ trừ thẳng vào lương tháng này."
+  - "Trừ tới 50% lương của tôi."
+  - "Công ty có được trừ như vậy không?"
+  ky_vong:
+    ho_so: {chu_the: "người lao động", loai_hop_dong: "không xác định thời hạn"}
+    answer_co: []
+- id: ht-005
+  luot:
+  - "Tôi là kế toán trưởng, hợp đồng không xác định thời hạn, đã làm 8 năm."
+  - "Công ty vừa ra quyết định sa thải tôi."
+  - "Lý do họ đưa ra là tái cơ cấu phòng ban."
+  - "Tôi không hề vi phạm kỷ luật gì cả."
+  - "Việc sa thải này có đúng luật không?"
+  - "Nếu sai luật thì tôi được đền bù những gì?"
+  ky_vong:
+    ho_so: {chu_the: "người lao động", loai_hop_dong: "không xác định thời hạn"}
+    answer_co: []
+- id: ht-006
+  luot:
+  - "Tôi làm ở công ty từ 2015, ký hợp đồng không xác định thời hạn."
+  - "Tôi vừa nộp đơn xin nghỉ việc đúng thủ tục."
+  - "Công ty đã đồng ý cho tôi nghỉ."
+  - "Tôi có đóng bảo hiểm thất nghiệp đầy đủ từ 2010."
+  - "Tôi có được trợ cấp thôi việc không?"
+  - "Nếu có thì công ty tính trên khoảng thời gian nào?"
+  ky_vong:
+    ho_so: {chu_the: "người lao động", loai_hop_dong: "không xác định thời hạn"}
+    answer_co: []
+- id: ht-007
+  luot:
+  - "Tôi là nhân viên kho, hợp đồng xác định thời hạn 2 năm."
+  - "Công ty thường xuyên yêu cầu tôi làm thêm vào buổi tối."
+  - "Có hôm tôi phải làm cả ngày Chủ nhật."
+  - "Lương làm thêm giờ hiện tại công ty trả bằng lương giờ bình thường."
+  - "Như vậy có đúng không?"
+  - "Tôi được trả thêm bao nhiêu phần trăm cho giờ làm ngày Chủ nhật?"
+  ky_vong:
+    ho_so: {chu_the: "người lao động", loai_hop_dong: "xác định thời hạn"}
+    answer_co: []
+- id: ht-008
+  luot:
+  - "Tôi là nhân viên nữ, hợp đồng không xác định thời hạn, làm được 4 năm."
+  - "Tôi đang mang thai tháng thứ 7."
+  - "Tôi đã đóng bảo hiểm xã hội liên tục."
+  - "Dự kiến sinh vào tháng sau."
+  - "Tôi được nghỉ thai sản bao lâu?"
+  - "Trong thời gian đó công ty có được chấm dứt hợp đồng với tôi không?"
+  ky_vong:
+    ho_so: {chu_the: "người lao động", loai_hop_dong: "không xác định thời hạn"}
+    answer_co: []
+- id: ht-009
+  luot:
+  - "Tôi ký hợp đồng lao động xác định thời hạn 12 tháng với một công ty ở Đà Nẵng."
+  - "Đây là hợp đồng xác định thời hạn thứ hai liên tiếp của tôi ở công ty này."
+  - "Hợp đồng sẽ hết hạn vào cuối tháng sau."
+  - "Công ty chưa nói gì về việc ký tiếp hay không."
+  - "Nếu hết hạn mà tôi vẫn tiếp tục làm việc thì sao?"
+  - "Công ty có được ký hợp đồng xác định thời hạn lần thứ ba với tôi không?"
+  ky_vong:
+    ho_so: {chu_the: "người lao động", loai_hop_dong: "xác định thời hạn"}
+    answer_co: []
+- id: ht-010
+  luot:
+  - "Công ty tôi có 50 nhân viên, tôi phụ trách nhân sự."
+  - "Một nhân viên tự ý nghỉ việc 3 ngày liên tục không lý do."
+  - "Nhân viên này ký hợp đồng không xác định thời hạn, đã làm 6 năm."
+  - "Chúng tôi muốn xử lý kỷ luật đúng quy trình."
+  - "Trước khi kỷ luật, công ty cần làm những bước gì?"
+  - "Có bắt buộc phải có mặt tổ chức đại diện người lao động không?"
+  ky_vong:
+    ho_so: {chu_the: "người sử dụng lao động", loai_hop_dong: "không xác định thời hạn"}
+    answer_co: []

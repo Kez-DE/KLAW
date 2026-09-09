@@ -227,3 +227,22 @@ def test_bo_nho_trace_khong_lam_bien_dang_hoat_dong_va_phan_loai(nguoi):
     tong = ho_so.tong_hop(nguoi)
     assert tong["hoat_dong"] == []  # dòng trace duy nhất là của bo_nho — không tính là hoạt động
     assert tong["phan_loai"] == []  # và không rơi vào phân loại (kể cả về "Khác")
+
+
+@pytest.mark.integration
+def test_luot_8_van_biet_vai_va_loai_hop_dong(nguoi):
+    """Lỗi chủ dự án thấy 2026-09-09: sau lượt 3 agent quên vai. Nay hồ sơ giữ vai qua 8 lượt
+    và hoi_lai không hỏi lại hai chiều đã biết."""
+    from src.agents.nodes import hoi_lai
+
+    pid = _phien_8_luot(nguoi)
+    ho_so = {k: "" for k in bo_nho.KHOA_HO_SO} | {
+        "chu_the": "người lao động",
+        "loai_hop_dong": "không xác định thời hạn",
+    }
+    bo_nho.cap_nhat_phien(pid, nguoi, llm=LlmGia({"tom_tat": "đã bàn về nghỉ việc", "ho_so": ho_so}), model="gia")
+    bn = hoi_thoai.bo_nho_cua_phien(pid)
+    da_biet = frozenset(k for k, v in bn["ho_so"].items() if v.get("gia_tri"))
+    cau = hoi_lai.dung_cau_hoi_lai([], da_biet=da_biet)
+    assert "người lao động hay phía công ty" not in cau and "thời hạn thế nào" not in cau
+    assert "Vai của bạn: người lao động" in bo_nho.khoi_tinh_huong(bn["ho_so"])

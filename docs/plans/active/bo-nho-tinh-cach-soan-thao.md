@@ -125,7 +125,8 @@ Chép nguyên văn mục 11 của spec `2026-09-09-bo-nho-tinh-cach-soan-thao-de
 ## Progress
 
 - [x] Giai đoạn 1 — Giá và hạn mức: Task 1–2 done, Task 3 this commit.
-- [ ] Giai đoạn 2 — Bộ nhớ phiên và bộ nhớ tài khoản.
+- [x] Giai đoạn 2 — Bộ nhớ phiên và bộ nhớ tài khoản: Task 4–9 done, Task 10 (bộ đo
+  hội thoại nhiều lượt + test hồi quy "lượt 8 vẫn nhớ") this commit đóng nốt.
 - [ ] Giai đoạn 3 — Tính cách trả lời.
 - [ ] Giai đoạn 4 — Soạn thảo hội thoại.
 - [ ] Giai đoạn 5 — Không gian làm việc.
@@ -148,6 +149,11 @@ tính lâu dài về sản phẩm/kiến trúc vào `docs/decisions/`.
   trên file đã đổi; `cd frontend && npm run typecheck && npm run lint && node
   scripts/kiem-bo-nho.ts`; `.venv/bin/python -m eval.run_hoi_thoai` (tốn tiền thật,
   cần khoá OpenRouter — nếu chưa có khoá thì ghi "chưa chạy", không bịa số).
+  Task 10 (`hoi_thoai_nhieu_luot.yaml` + `eval/run_hoi_thoai.py`): **chưa chạy** —
+  kỷ luật chi phí của phiên làm việc cấm gọi OpenRouter thật khi thực hiện task
+  này; lệnh tái lập: `.venv/bin/python -m eval.run_hoi_thoai`. Test hồi quy
+  `test_luot_8_van_biet_vai_va_loai_hop_dong` (dùng `LlmGia`, không gọi mạng) đã
+  PASS.
 - Giai đoạn 3: cùng bộ pytest/ruff trên file đã đổi; `cd frontend && npm run
   typecheck && npm run lint`; `.venv/bin/python -m eval.run --config hybrid`
   (golden 77, số trước/sau); `.venv/bin/python -m eval.run_mo_ho`.
