@@ -50,6 +50,7 @@ from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.agents.nodes.gioi_thieu import cau_gioi_thieu
 from src.agents.nodes.hoi_lai import hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
+from src.services.bo_nho import ho_so_da_dung, khoi_tinh_huong
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.kho import hien_van_ban
 from src.services.llm import Usage
@@ -225,6 +226,7 @@ def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: boo
         "nguon": [],
         "warnings": [],
         "coverage_note": None,
+        "ho_so_da_dung": ho_so_da_dung(state.get("ho_so") or {}),
         "traces": {
             **prior_traces,
             "assemble_result_type": rt.value,
@@ -474,8 +476,14 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
     chỉ có tầng nông) — nhánh nào không có thì rơi về `_da_biet`. `out_of_scope`
     KHÔNG đi qua đây: câu hỏi nằm ngoài kho thì thêm dữ kiện tình huống cũng
     không đưa nó vào trong, và nhánh đó giữ 0 token.
+
+    `da_biet` (bộ nhớ phiên) là những chiều hồ sơ ĐÃ có giá trị — `hoi_lai` bỏ
+    chúng khỏi câu hỏi lại, để không hỏi lại một dữ kiện người hỏi đã cho biết
+    hoặc máy đã đoán được.
     """
-    hl = hoi_lai(state.get("query", ""), llm, model)
+    ho_so = state.get("ho_so") or {}
+    da_biet = frozenset(k for k, v in ho_so.items() if isinstance(v, dict) and v.get("gia_tri"))
+    hl = hoi_lai(state.get("query", ""), llm, model, da_biet=da_biet)
     ket = _base(state, rt, usage=_gop_usage(usage, hl.usage), degraded=degraded,
                 coverage_note="\n\n".join(x for x in (ghi_chu or _da_biet(state), hl.cau) if x),
                 **kw)
@@ -840,6 +848,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         mo_dau=MO_DAU_NOI_TIEP if state.get("lich_su") else MO_DAU_LUOT_DAU,
         van_ban=_khoi_van_ban(citations_dung_cho_prose, db_provisions),
         claims=claims_txt,
+        tinh_huong=khoi_tinh_huong(state.get("ho_so") or {}),
     )
     usage: Usage | None = None
     degraded = False

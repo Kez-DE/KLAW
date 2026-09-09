@@ -4,4 +4,8 @@ Chỉ trả truy vấn, không giải thích. Không thêm số điều.
 
 Trả về JSON: {{"queries": ["...", "..."]}}
 
+TÌNH HUỐNG CỦA NGƯỜI HỎI (dữ kiện họ đã nói hoặc máy đoán, có thể rỗng; dùng để chọn đúng vai
+và loại quan hệ khi viết truy vấn, không phải để thêm mốc pháp lý):
+{tinh_huong}
+
 CÂU HỎI: {cau_hoi}

@@ -113,8 +113,11 @@ def _vao_graph(st: dict) -> str:
     giải nghĩa: "còn model nào khác" sau một lượt `gioi_thieu` là câu hỏi về trợ
     lý, không phải một câu tra cứu — và `route` chỉ thấy được điều đó khi tham
     chiếu đã được giải.
+
+    `tom_tat` (bộ nhớ phiên) cũng rẽ vào đây dù `lich_su` rỗng: K lượt nguyên
+    văn đã cuộn hết vào tóm tắt không có nghĩa hội thoại chưa từng có lượt nào.
     """
-    return "giai_nghia" if st.get("lich_su") else "route"
+    return "giai_nghia" if (st.get("lich_su") or st.get("tom_tat")) else "route"
 
 
 def _re_sau_giai_nghia(st: dict) -> str:

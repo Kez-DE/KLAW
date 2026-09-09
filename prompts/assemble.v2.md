@@ -122,6 +122,10 @@ Trả về JSON: {{"answer": "..."}}
 
 CÂU HỎI: {cau_hoi}
 
+TÌNH HUỐNG CỦA NGƯỜI HỎI (dữ kiện, có thể rỗng — nếu có khoá ghi "(tôi đoán)" thì câu đầu
+tiên của tầng 1 mở bằng đúng một dòng giả định, ví dụ "Tôi hiểu bạn là người lao động."):
+{tinh_huong}
+
 VĂN BẢN ĐÃ DÙNG (mỗi dòng: [doc:MÃ] tên — số hiệu — loại văn bản):
 {van_ban}
 

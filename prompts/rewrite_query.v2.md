@@ -40,4 +40,8 @@ RÀNG BUỘC:
 Trả về JSON:
 {{"quan_he": "...", "vai": "...", "linh_vuc": "...", "ba_lop": ["nguyen_tac", "ngoai_le", "che_tai"], "du_kien_van_ban": ["..."], "queries": ["...", "..."]}}
 
+TÌNH HUỐNG CỦA NGƯỜI HỎI (dữ kiện họ đã nói hoặc máy đoán, có thể rỗng; dùng để chọn đúng vai
+và loại quan hệ khi viết truy vấn, không phải để thêm mốc pháp lý):
+{tinh_huong}
+
 CÂU HỎI: {cau_hoi}

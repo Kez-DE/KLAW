@@ -85,7 +85,7 @@ def test_bo_loc_bat_ca_Dj_U00D0_cua_corpus():
 def test_dung_cau_hoi_lai_la_ham_thuan_khong_nhan_llm():
     """Cùng lý do `kho.dung_cau_tra_loi` tách khỏi `nap_kho`: phần quyết định
     người hỏi đọc được gì phải kiểm được mà không cần mạng."""
-    assert set(inspect.signature(dung_cau_hoi_lai).parameters) == {"chon"}
+    assert set(inspect.signature(dung_cau_hoi_lai).parameters) == {"chon", "da_biet"}
 
 
 def test_cau_bi_loai_thi_thay_bang_hang_so_va_KHONG_hien_cau_da_sinh():

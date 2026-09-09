@@ -24,6 +24,8 @@ import json
 import logging
 from pathlib import Path
 
+from src.services.bo_nho import khoi_tinh_huong
+
 logger = logging.getLogger(__name__)
 
 PROMPT_PATH = Path("prompts/rewrite_query.v1.md")
@@ -59,7 +61,7 @@ def rewrite_query(state: dict, llm, model: str, prompt_path: Path | None = None)
     prior_traces = state.get("traces") or {}
     goc = state["query"]
     mau = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8")
-    prompt = mau.format(cau_hoi=goc)
+    prompt = mau.format(cau_hoi=goc, tinh_huong=khoi_tinh_huong(state.get("ho_so") or {}))
     # Template nhắc tới `quan_he` là template v2 — chọn schema theo NỘI DUNG
     # template, không theo tên file, để một bản v3 cùng hình dạng vẫn chạy.
     la_v2 = "quan_he" in mau

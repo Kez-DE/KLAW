@@ -191,10 +191,17 @@ def _cau_dung_duoc(ma: str, cau: str) -> str:
     return gon
 
 
-def dung_cau_hoi_lai(chon: list) -> str:
+def dung_cau_hoi_lai(chon: list, da_biet: frozenset[str] = frozenset()) -> str:
     """Tầng THUẦN — không mạng, không LLM. Tách khỏi `hoi_lai` để bộ lọc và
     đường suy biến kiểm được trong bộ test mặc định, cùng khuôn
     `kho.dung_cau_tra_loi`.
+
+    `da_biet` (bộ nhớ phiên, spec 2026-09-09 §6) là các chiều hồ sơ ĐÃ có giá
+    trị — khi rơi về đường suy biến `MAC_DINH`, bỏ luôn những chiều này: hỏi
+    lại đúng dữ kiện người hỏi vừa cho biết là màn hình trắng đội lốt câu hỏi.
+    Sau khi bỏ mà không còn chiều nào (mọi chiều mặc định đều đã biết) thì trả
+    chuỗi rỗng — `_ngo_cut` nối `coverage_note` bằng cách bỏ qua phần tử rỗng,
+    nên một chuỗi rỗng ở đây không để lại dòng trống nào.
     """
     cau_theo_ma: dict[str, str] = {}
     for c in chon:
@@ -209,12 +216,14 @@ def dung_cau_hoi_lai(chon: list) -> str:
         if len(cau_theo_ma) == TOI_DA:
             break
     if not cau_theo_ma:
-        cau_theo_ma = dict.fromkeys(MAC_DINH, "")
+        cau_theo_ma = dict.fromkeys((ma for ma in MAC_DINH if ma not in da_biet), "")
+        if not cau_theo_ma:
+            return ""
     return "\n".join([CAU_DAN, *(f"- {_cau_dung_duoc(ma, cau)}"
                                  for ma, cau in cau_theo_ma.items())])
 
 
-def hoi_lai(cau_hoi: str, llm, model: str) -> KetQuaHoiLai:
+def hoi_lai(cau_hoi: str, llm, model: str, da_biet: frozenset[str] = frozenset()) -> KetQuaHoiLai:
     """Chuỗi đã hoàn chỉnh, ghép được thẳng vào `coverage_note`.
 
     KHÔNG BAO GIỜ raise: đây là khâu cuối của một lượt đã không có câu trả lời,
@@ -222,11 +231,17 @@ def hoi_lai(cau_hoi: str, llm, model: str) -> KetQuaHoiLai:
     500 là biến một ngõ cụt thành một trang lỗi. Cùng lập luận với đường suy
     biến hành văn của `assemble`, khác `route.py` (lỗi ở đó là quyết định định
     tuyến nên phải nổ).
+
+    `da_biet` (bộ nhớ phiên) là các chiều hồ sơ ĐÃ có giá trị — chúng bị bỏ
+    khỏi cả prompt (model không thấy để chọn) lẫn khỏi `chon` sau khi model trả
+    lời (`enum` của schema vẫn liệt kê đủ sáu chiều nên vẫn phải lọc lại đây),
+    để không hỏi lại một dữ kiện đã biết.
     """
+    chieu_con = {ma: cau for ma, cau in CHIEU.items() if ma not in da_biet}
     prompt = PROMPT_PATH.read_text(encoding="utf-8").format(
         cau_hoi=cau_hoi,
         toi_da=TOI_DA,
-        chieu="\n".join(f"- `{ma}`: {cau}" for ma, cau in CHIEU.items()),
+        chieu="\n".join(f"- `{ma}`: {cau}" for ma, cau in chieu_con.items()),
     )
     usage: Usage | None = None
     try:
@@ -234,6 +249,7 @@ def hoi_lai(cau_hoi: str, llm, model: str) -> KetQuaHoiLai:
         chon = json.loads(raw)["chieu"]
         if not isinstance(chon, list):
             raise TypeError(f"'chieu' phải là list, được {type(chon).__name__}")
+        chon = [c for c in chon if c.get("ma") in chieu_con]
     except Exception as e:
         # `exc_info=True`: không có nó, operator biết TÊN exception (đã có trong
         # log) nhưng không biết dòng nào trong khối try ném ra nó — với một
@@ -245,5 +261,5 @@ def hoi_lai(cau_hoi: str, llm, model: str) -> KetQuaHoiLai:
         # Chỗ đúng để phân biệt loại lỗi là log, và log đã có cả tên lẫn traceback.
         logger.warning("hoi_lai: không sinh được chiều hỏi (%s: %s) — rơi về câu hằng số",
                        type(e).__name__, e, exc_info=True)
-        return KetQuaHoiLai(dung_cau_hoi_lai([]), usage, "loi")
-    return KetQuaHoiLai(dung_cau_hoi_lai(chon), usage, "llm")
+        return KetQuaHoiLai(dung_cau_hoi_lai([], da_biet=da_biet), usage, "loi")
+    return KetQuaHoiLai(dung_cau_hoi_lai(chon, da_biet=da_biet), usage, "llm")

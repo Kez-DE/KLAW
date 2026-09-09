@@ -16,7 +16,7 @@ from pathlib import Path
 from src.services.effectivity import EffectivityVerdict
 from src.services.prompts import messages
 
-PROMPT_PATH = Path("prompts/generate_claims.v1.md")
+PROMPT_PATH = Path("prompts/generate_claims.v2.md")
 
 CLAIMS_SCHEMA = {
     "type": "object",
@@ -133,6 +133,12 @@ def build_context(provisions: list[dict]) -> str:
 
 
 def generate_claims(state: dict, llm, model: str) -> dict:
+    # Import cục bộ, không ở đầu module: `src.services.bo_nho` kéo theo
+    # `src.services.traces`, mà `traces.py` import `normalize` từ
+    # `verify_tier1.py`, và `verify_tier1.py` import `Claim` từ CHÍNH module
+    # này — một import ở đầu file sẽ dựng vòng tròn lúc nạp module.
+    from src.services.bo_nho import khoi_tinh_huong
+
     prior_traces = state.get("traces") or {}
     expanded = state.get("expanded") or []
     if not expanded:
@@ -144,7 +150,9 @@ def generate_claims(state: dict, llm, model: str) -> dict:
             "traces": {**prior_traces, "claims_raw": 0, "token_in": 0, "token_out": 0, "cost_usd": 0.0},
         }
 
-    prompt = PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi=state["query"], context=build_context(expanded))
+    prompt = PROMPT_PATH.read_text(encoding="utf-8").format(
+        cau_hoi=state["query"], context=build_context(expanded), tinh_huong=khoi_tinh_huong(state.get("ho_so") or {})
+    )
     raw, usage = llm.chat(model, messages(prompt), json_schema=CLAIMS_SCHEMA)
     try:
         data = json.loads(raw)

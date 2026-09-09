@@ -98,7 +98,7 @@ class KetQuaGiaiNghia(NamedTuple):
     nguon: str
 
 
-def ngu_canh(lich_su: list[dict]) -> str:
+def ngu_canh(lich_su: list[dict], tom_tat: str | None = None) -> str:
     """Khối lịch sử ĐÚNG NHƯ nó đi vào prompt.
 
     Là chỗ duy nhất dựng khối này, và `dinh_danh_bia` so với chính đầu ra của
@@ -106,8 +106,14 @@ def ngu_canh(lich_su: list[dict]) -> str:
     tập đối chiếu của lưới chặn phải là đúng tập đó, không phải toàn văn lịch
     sử. So với toàn văn sẽ tha cho một số Điều nằm ngoài đoạn đã cắt — mà cái đó
     thì model chưa từng thấy, tức nó bịa ra.
+
+    `tom_tat` (bộ nhớ phiên, spec 2026-09-09 §6) đi vào ĐẦU khối vì cùng lý do:
+    nó cũng là thứ model ĐƯỢC CHO XEM, nên `dinh_danh_bia` phải đối chiếu với
+    cả nó — một số Điều đã nằm trong tóm tắt không phải là model bịa ra.
     """
     khoi: list[str] = []
+    if tom_tat:
+        khoi.append(f"Tóm tắt các lượt trước: {tom_tat}")
     for i, luot in enumerate(lich_su, start=1):
         tra_loi = str(luot.get("tra_loi") or "")
         cat = tra_loi[:TOI_DA_TRA_LOI] + ("…" if len(tra_loi) > TOI_DA_TRA_LOI else "")
@@ -121,7 +127,7 @@ def ngu_canh(lich_su: list[dict]) -> str:
     return "\n".join(khoi)
 
 
-def dinh_danh_bia(cau_da_giai: str, cau_goc: str, lich_su: list[dict]) -> list[str]:
+def dinh_danh_bia(cau_da_giai: str, cau_goc: str, lich_su: list[dict], tom_tat: str | None = None) -> list[str]:
     """Định danh pháp lý có trong câu ĐÃ GIẢI NGHĨA mà KHÔNG có ở câu gốc lẫn
     trong khối lịch sử. Rỗng nghĩa là sạch.
 
@@ -146,18 +152,17 @@ def dinh_danh_bia(cau_da_giai: str, cau_goc: str, lich_su: list[dict]) -> list[s
       bản, nên một mốc bịa đi vào truy hồi rồi mọi khẳng định sinh ra sau đó đều
       kiểm chứng được, về một câu hỏi không ai đặt.
     """
-    nguon = "\n".join([cau_goc, ngu_canh(lich_su)])
+    nguon = "\n".join([cau_goc, ngu_canh(lich_su, tom_tat)])
     dieu = sorted(_so_dieu_trong(cau_da_giai) - _so_dieu_trong(nguon), key=int)
     so_hieu = sorted(set(moi_so_hieu_trong(cau_da_giai)) - set(moi_so_hieu_trong(nguon)))
     moc = sorted(moc_phap_ly_trong(cau_da_giai) - moc_phap_ly_trong(nguon))
     return [f"Điều {d}" for d in dieu] + so_hieu + moc
 
 
-def _goi(cau_hoi: str, lich_su: list[dict], llm, model: str) -> KetQuaGiaiNghia:
+def _goi(cau_hoi: str, lich_su: list[dict], llm, model: str, tom_tat: str | None = None) -> KetQuaGiaiNghia:
     """Một lượt giải nghĩa. Tầng gần LLM nhất, tách khỏi phần ghi state để phần
     dựng prompt và lưới chặn kiểm được mà không cần một `KLawState`."""
-    prompt = PROMPT_PATH.read_text(encoding="utf-8").format(
-        cau_hoi=cau_hoi, lich_su=ngu_canh(lich_su))
+    prompt = PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi=cau_hoi, lich_su=ngu_canh(lich_su, tom_tat))
     # NGOÀI try — xem docstring module: lỗi hạ tầng ở một bước quyết định phải
     # nổ ra ngoài, không được rơi êm thành "không đủ ngữ cảnh".
     raw, usage = llm.chat(model, messages(prompt), json_schema=GIAI_NGHIA_SCHEMA)
@@ -177,7 +182,7 @@ def _goi(cau_hoi: str, lich_su: list[dict], llm, model: str) -> KetQuaGiaiNghia:
         # lời ĐÚNG, không phải một lỗi — mặc định an toàn khi không chắc.
         return KetQuaGiaiNghia(None, ly_do, usage, "khong_du_ngu_canh")
 
-    if bia := dinh_danh_bia(day_du, cau_hoi, lich_su):
+    if bia := dinh_danh_bia(day_du, cau_hoi, lich_su, tom_tat):
         # Đếm được bằng log, không im lặng: lưới này là chỗ chặn duy nhất cho
         # đúng lớp ảo giác mà verifier mù với, nên tần suất nó nổ là số liệu.
         logger.warning(
@@ -199,16 +204,23 @@ def giai_nghia(state: dict, llm, model: str) -> dict:
     hỏi đã bị thay, để một node hạ nguồn hay một lượt gỡ lỗi không phải suy ra
     điều đó từ `cau_hoi_day_du`.
 
-    Lịch sử rỗng → RA NGAY, 0 token. Graph đã có nhánh vào không đi qua node này
-    cho lượt đầu (`_vao_graph`), nên nhánh ở đây là lưới thứ hai: một chỗ gọi
-    trực tiếp hàm này với lịch sử rỗng cũng không được tốn một lượt gọi nào.
+    Lịch sử VÀ tóm tắt đều rỗng → RA NGAY, 0 token. Graph đã có nhánh vào không
+    đi qua node này cho lượt đầu (`_vao_graph`), nên nhánh ở đây là lưới thứ
+    hai: một chỗ gọi trực tiếp hàm này với cả hai đều rỗng cũng không được tốn
+    một lượt gọi nào. Có `tom_tat` mà `lich_su` rỗng (K lượt nguyên văn đã cuộn
+    hết vào tóm tắt) vẫn phải giải nghĩa — bộ nhớ phiên là tất cả những gì còn
+    lại về hội thoại lúc đó.
     """
     prior_traces = state.get("traces") or {}
     goc = state["query"]
     lich_su = state.get("lich_su") or []
+    tom_tat = state.get("tom_tat")
 
-    ket = (_goi(goc, lich_su, llm, model) if lich_su
-           else KetQuaGiaiNghia(None, "lượt đầu, không có lịch sử", None, "luot_dau"))
+    ket = (
+        _goi(goc, lich_su, llm, model, tom_tat)
+        if (lich_su or tom_tat)
+        else KetQuaGiaiNghia(None, "lượt đầu, không có lịch sử", None, "luot_dau")
+    )
     return {
         **state,
         "cau_hoi_goc": goc,
