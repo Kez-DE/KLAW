@@ -44,7 +44,9 @@ def test_hoi_lai_bo_chieu_da_biet():
     assert "Bạn làm bao lâu rồi?" in ket.cau and "phía nào" not in ket.cau
     prompt = llm.da_goi[0][-1]["content"]
     assert "`chu_the`" not in prompt and "`tham_nien`" in prompt
-    assert "người lao động hay phía công ty" not in hoi_lai.dung_cau_hoi_lai([], da_biet=frozenset({"chu_the"}))
+    # So với chính hằng số, không chép lại câu chữ (Task 14 đổi lời `chu_the`):
+    # sửa câu chữ ở `CHIEU` không làm test này đỏ oan.
+    assert hoi_lai.CHIEU["chu_the"] not in hoi_lai.dung_cau_hoi_lai([], da_biet=frozenset({"chu_the"}))
     assert hoi_lai.dung_cau_hoi_lai([], da_biet=frozenset(hoi_lai.CHIEU)) == ""
 
 

@@ -48,7 +48,7 @@ from typing import TypedDict
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.agents.nodes.gioi_thieu import cau_gioi_thieu
-from src.agents.nodes.hoi_lai import hoi_lai
+from src.agents.nodes.hoi_lai import duoi_hoi_them, hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
 from src.services.bo_nho import ho_so_da_dung, khoi_tinh_huong
 from src.services.effectivity import EffectivityVerdict as V
@@ -375,14 +375,14 @@ def _ly_do_moi_nguon_bi_thay(qua_loc: list) -> str:
 NGOAI_PHAM_VI = ("Câu hỏi này nằm ngoài phạm vi tôi phủ: tôi chỉ tra được 6 Bộ luật của "
                  "Việt Nam, và chỉ soạn thảo trong lĩnh vực lao động.")
 
-# Nửa đầu khi truy hồi KHÔNG cầm được gì. Nói thẳng là không biết — nhưng nói
-# đúng mức: kho là tập văn bản đã nạp cho đề tài, nên "mình không có" KHÔNG
-# đồng nghĩa "pháp luật không quy định". Cùng khuôn `kho._khoi_mot_so`, và cùng
-# lý do: sai chế độ tệ nhất ở đây không phải "không biết", mà là phát biểu thay
-# cho nền pháp luật Việt Nam.
-KHONG_TIM_DUOC = ("Trong kho của tôi không có văn bản nào khớp được với câu hỏi này, nên tôi "
-                  "chưa có gì chắc chắn để nói. Kho là tập văn bản tôi đã nạp, vậy nên đây "
-                  "không phải kết luận rằng pháp luật không quy định về việc bạn hỏi.")
+# Nửa đầu MẶC ĐỊNH của mọi abstain không mang `ghi_chu` riêng (Task 14). Trước
+# bản này chỗ này gọi `_da_biet` (đã gỡ), liệt kê tên các văn bản khớp TỪ NGỮ
+# trước khi hỏi lại — đúng hai điều chủ đề tài phàn nàn: trích dẫn sai thứ, và
+# không đoán ra khách cần gì. Câu ở đây chỉ nói thẳng KHÔNG tìm được, không còn
+# danh mục văn bản nào kèm theo. Đổi ở đây là LỜI của một ngõ cụt, không phải
+# bằng chứng cho phép `answer` khẳng định điều gì — mọi claim vẫn phải qua đủ
+# hai tầng kiểm chứng như trước.
+KHONG_TIM_DUOC = "Tôi chưa tìm được điều khoản trả lời chắc cho câu này."
 
 # Nửa đầu khi câu hỏi NỐI TIẾP không giải nghĩa được (`giai_nghia` trả None, rẽ
 # thẳng vào đây). Nhánh đó chưa chạy truy hồi, nên nửa đầu MẶC ĐỊNH
@@ -424,29 +424,6 @@ def _van_ban_va_vi_tri(hits: list[dict]) -> tuple[list[str], list[str]]:
     return ten, vi_tri
 
 
-def _da_biet(state: dict) -> str:
-    """Nửa đầu MẶC ĐỊNH: cái đã biết, cho nhánh không tự mang lý do riêng.
-
-    Phải KIỂM trước khi nói không biết gì — `expanded` và `hits_shallow` thường
-    KHÁC RỖNG ngay cả khi `claims == 0`. Đo được 2026-09-02: `deep=30`,
-    `claims=0`, và người hỏi nhận một màn hình trắng trong lúc hệ thống đang cầm
-    ba mươi điều khoản cùng tên các văn bản đã khớp câu hỏi.
-
-    Nói "KHỚP TỪ NGỮ", không nói "chi phối câu hỏi của bạn" — cùng lý do với
-    `_phu_mot_phan`, xem chú thích ở đó. Khi không dựng nổi một luận điểm nào
-    thì chính điều chưa biết là văn bản đó CÓ chi phối câu hỏi hay không, nên
-    khẳng định nó ở đây là phát biểu đúng cái mình vừa không chứng minh được.
-    """
-    ten, vi_tri = _van_ban_va_vi_tri([*(state.get("expanded") or []),
-                                      *(state.get("hits_shallow") or [])])
-    if not ten:
-        return KHONG_TIM_DUOC
-    return (f"Tôi tìm được {'; '.join(ten)} khớp từ ngữ với câu hỏi của bạn"
-            + (f", và tôi đọc được tới {', '.join(vi_tri)}" if vi_tri else "")
-            + ". Tôi chưa đối chiếu được điều khoản nào trong đó thành một câu trả lời "
-              "tôi dám nói chắc với bạn, nên tôi dừng ở đây thay vì đoán.")
-
-
 def _gop_usage(*us: Usage | None) -> Usage | None:
     """Cộng token của lượt hành văn và lượt sinh câu hỏi lại vào MỘT `usage`.
 
@@ -473,7 +450,8 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
     nằm rải ở từng chỗ gọi.
 
     `ghi_chu` là nửa đầu RIÊNG của nhánh (tiền đề sai, mọi nguồn đã bị thay,
-    chỉ có tầng nông) — nhánh nào không có thì rơi về `_da_biet`. `out_of_scope`
+    chỉ có tầng nông) — nhánh nào không có thì rơi về `KHONG_TIM_DUOC` (Task 14:
+    câu nói thẳng không tìm được, không còn liệt kê tên văn bản). `out_of_scope`
     KHÔNG đi qua đây: câu hỏi nằm ngoài kho thì thêm dữ kiện tình huống cũng
     không đưa nó vào trong, và nhánh đó giữ 0 token.
 
@@ -485,7 +463,7 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
     da_biet = frozenset(k for k, v in ho_so.items() if isinstance(v, dict) and v.get("gia_tri"))
     hl = hoi_lai(state.get("query", ""), llm, model, da_biet=da_biet)
     ket = _base(state, rt, usage=_gop_usage(usage, hl.usage), degraded=degraded,
-                coverage_note="\n\n".join(x for x in (ghi_chu or _da_biet(state), hl.cau) if x),
+                coverage_note="\n\n".join(x for x in (ghi_chu or KHONG_TIM_DUOC, hl.cau) if x),
                 **kw)
     ket["traces"]["assemble_hoi_lai"] = hl.nguon
     return ket
@@ -911,6 +889,13 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     ket["traces"]["assemble_dieu_bi_loai"] = []
     ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
     ket["traces"]["assemble_the_loi"] = []
+    # Task 14: một câu trả lời ĐÃ CÓ luận điểm được phép mang thêm đúng MỘT đuôi
+    # hỏi thêm ngắn (QT-5), 0 token — KHÔNG spliced vào `answer` (nó vẫn phải
+    # sạch markdown và chỉ chứa điều đã có căn cứ), mà đi vào `coverage_note`,
+    # cùng trường FE đã dùng để hiện nửa sau của một ngõ cụt.
+    duoi = duoi_hoi_them(state.get("ho_so") or {})
+    if duoi:
+        ket["coverage_note"] = "\n\n".join(x for x in (ket.get("coverage_note"), duoi) if x)
     # Ý định PHỤ (router v3, spec 2026-09-09 §7.4): câu hỏi vừa hỏi luật vừa
     # nhờ soạn — KHÔNG hijack `answer` (nó vẫn là câu trả lời tra cứu bình
     # thường), chỉ đính kèm gợi ý soạn thảo, cùng hàm dựng đã dùng cho nhánh

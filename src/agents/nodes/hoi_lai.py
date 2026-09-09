@@ -40,11 +40,11 @@ logger = logging.getLogger(__name__)
 
 PROMPT_PATH = Path("prompts/hoi_lai.v1.md")
 
-# Trần BA chiều. Nhiều hơn là một tờ khai, không phải một câu hỏi — và một
-# người vừa bị trừ lương sẽ bỏ giữa bảng biểu. Ép Ở MÃ, không chỉ ở prompt:
+# Trần HAI chiều (hạ từ ba — Task 14, phản hồi trực tiếp của chủ đề tài: hỏi
+# nhiều thành một tờ khai, không phải một câu hỏi). Ép Ở MÃ, không chỉ ở prompt:
 # `maxItems` trong schema và trần này cùng canh một con số, vì một model bỏ qua
 # lời dặn vẫn phải bị cắt.
-TOI_DA = 3
+TOI_DA = 2
 
 # Sáu chiều — DỮ KIỆN của người hỏi, không phải quy tắc pháp luật. Mỗi câu ở đây
 # vừa là hướng dẫn cho model (được bơm vào prompt) vừa là CÂU DỰ BỊ dùng khi câu
@@ -54,7 +54,7 @@ TOI_DA = 3
 # ghi thời hạn thế nào" hỏi cái ghi trên giấy của họ; "hợp đồng của bạn dưới 12
 # tháng không" thì đã phát biểu thay cho luật.
 CHIEU = {
-    "chu_the": "Bạn đang ở phía người lao động hay phía công ty?",
+    "chu_the": "Bạn đang ở phía nào — người lao động hay công ty?",
     "loai_hop_dong": "Hợp đồng của bạn ghi thời hạn thế nào — bao lâu, hay không ghi thời hạn?",
     "tham_nien": "Bạn đã làm ở chỗ đó bao lâu rồi?",
     "vung_luong": "Công ty bạn đóng ở tỉnh hay thành phố nào?",
@@ -221,6 +221,28 @@ def dung_cau_hoi_lai(chon: list, da_biet: frozenset[str] = frozenset()) -> str:
             return ""
     return "\n".join([CAU_DAN, *(f"- {_cau_dung_duoc(ma, cau)}"
                                  for ma, cau in cau_theo_ma.items())])
+
+
+# Câu dẫn của ĐUÔI hỏi thêm — khác `CAU_DAN` (đuôi của một NGÕ CỤT): đây gắn
+# vào cuối một câu trả lời ĐÃ CÓ luận điểm (QT-5), nên giọng phải nhẹ hơn "để
+# trả lời chắc chắn" — câu trả lời đã chắc, chỉ hỏi thêm để chính xác hơn.
+CAU_DAN_DUOI = "Để chính xác hơn, bạn cho tôi biết thêm:"
+
+
+def duoi_hoi_them(ho_so: dict) -> str:
+    """Đuôi của một câu trả lời ĐÃ CÓ luận điểm (QT-5): tối đa hai câu hằng số
+    (0 token — không gọi LLM, không qua `bi_loai`) cho chiều còn trống trong
+    `MAC_DINH`, theo đúng thứ tự của tuple đó. Đủ dữ kiện thì trả rỗng — một
+    câu trả lời đã chắc không cần rào đón thêm.
+
+    Không dùng danh sách model chọn của `hoi_lai()`: đây là đuôi của một câu
+    trả lời THÀNH CÔNG, không phải của một ngõ cụt, nên không đáng một lượt gọi
+    LLM — ba chiều `MAC_DINH` áp được cho gần như mọi câu hỏi lao động.
+    """
+    thieu = [ma for ma in MAC_DINH if not ((ho_so or {}).get(ma) or {}).get("gia_tri")][:2]
+    if not thieu:
+        return ""
+    return CAU_DAN_DUOI + "".join(f"\n- {CHIEU[ma]}" for ma in thieu)
 
 
 def hoi_lai(cau_hoi: str, llm, model: str, da_biet: frozenset[str] = frozenset()) -> KetQuaHoiLai:

@@ -623,6 +623,14 @@ function NoiDungKetQua({
           <KhoiVanXuoi chu={answer} ketQua={ketQua} onChon={chon} />
         )}
       </div>
+      {/* Task 14: một câu trả lời ĐÃ CÓ luận điểm được phép mang thêm đúng MỘT
+          đuôi hỏi thêm ngắn ở cuối, đi qua `coverage_note` (backend
+          `duoi_hoi_them`) — không spliced vào `answer`. */}
+      {ghiChuPhamVi && (
+        <div className="mt-3 text-[13px] leading-6 text-muted-foreground">
+          <KhoiVanXuoi chu={ghiChuPhamVi} />
+        </div>
+      )}
       <KhoiLienKet documents={ketQua.documents} />
       <KhoiCanCu ketQua={ketQua} chiSoDangMo={chiSoDangMo} onChon={chon} />
       {ketQua.soan_thao?.ho_tro && ketQua.soan_thao.loai && onSoanThao && (

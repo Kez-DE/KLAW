@@ -100,8 +100,11 @@ def test_cau_sach_thi_duoc_giu_nguyen():
     assert cau in dung_cau_hoi_lai([{"ma": "loai_hop_dong", "cau": cau}])
 
 
-def test_toi_da_ba_chieu():
-    """Nhiều hơn ba là một bảng biểu, không phải một câu hỏi."""
+def test_qua_trong_bi_cat_theo_TOI_DA():
+    """Nhiều hơn trần là một bảng biểu, không phải một câu hỏi.
+
+    Trần hạ từ ba xuống hai ở Task 14 — so bằng chính `TOI_DA`, không chép lại
+    con số, để lần sau đổi trần không làm test này đỏ oan."""
     chon = [{"ma": ma, "cau": ""} for ma in CHIEU]
     ra = dung_cau_hoi_lai(chon)
     assert len(chon) > TOI_DA, "fixture phải đưa nhiều hơn trần để trần có nghĩa"

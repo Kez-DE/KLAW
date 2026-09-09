@@ -5,6 +5,7 @@ import pytest
 from src.agents.nodes.assemble import (
     ANSWER_SCHEMA,
     CHUA_GIAI_NGHIA_DUOC,
+    KHONG_TIM_DUOC,
     ResultType,
     assemble,
 )
@@ -556,18 +557,19 @@ def test_partial_coverage_KHONG_khang_dinh_van_ban_chi_phoi_cau_hoi():
     assert "120/2025/QH15" in ghi_chu, "vẫn phải nêu đích danh văn bản đã khớp"
 
 
-def test_abstain_co_nguon_cung_KHONG_khang_dinh_van_ban_chi_phoi():
-    """`_da_biet` — nửa đầu MẶC ĐỊNH của mọi ngõ cụt — viết cùng một câu ấy, nên
-    sửa một mình `_phu_mot_phan` chỉ vá đúng đường mà bảng `traces` tình cờ ghi
-    lại. Cùng lời nói sai, cùng phải sửa."""
+def test_abstain_khong_con_liet_ke_van_ban_da_khop_khi_chua_dung_noi_luan_diem():
+    """Task 14: `_da_biet` (nửa đầu MẶC ĐỊNH cũ — liệt kê tên văn bản khớp TỪ
+    NGỮ trước khi hỏi lại) đã bị gỡ, đúng hai điều chủ đề tài phàn nàn: trích
+    dẫn sai thứ, và không đoán ra khách cần gì. Nửa đầu mặc định nay là
+    `KHONG_TIM_DUOC` — không còn nêu tên văn bản nào, kể cả văn bản đã khớp ở
+    tầng truy hồi (`expanded`)."""
     st = assemble({"intent": "tra_cuu", "query": "liệt kê bảng cho tôi",
                    "expanded": [DB[11]], "tier1": [], "tier2": [],
                    "abstain_threshold": 0.5}, DB, FakeLlm(), "m")
     ghi_chu = st["coverage_note"]
     assert st["result_type"] is ResultType.abstain
-    for sai in ("chi phối", "nằm trong"):
-        assert sai not in ghi_chu, f"vẫn khẳng định {sai!r} khi chưa dựng nổi luận điểm:\n{ghi_chu}"
-    assert "45/2019/QH14" in ghi_chu, "vẫn phải nêu cái đã biết"
+    assert ghi_chu.startswith(KHONG_TIM_DUOC)
+    assert "45/2019/QH14" not in ghi_chu, "Task 14: abstain không còn liệt kê văn bản đã khớp"
 
 
 # ══ `so_ky_hieu` dị dạng KHÔNG ra tới mặt người đọc (spec mục 6) ════════════
@@ -621,13 +623,17 @@ def test_khong_giai_nghia_duoc_thi_noi_DUNG_dieu_do_khong_noi_kho_thieu_van_ban(
 
 def test_luot_dau_KHONG_roi_vao_nhanh_chua_giai_nghia_duoc():
     """`cau_hoi_day_du is None` một mình KHÔNG phải tín hiệu thất bại — lượt đầu
-    cũng None (nó không chạy `giai_nghia`). Phân biệt bằng `lich_su`."""
+    cũng None (nó không chạy `giai_nghia`). Phân biệt bằng `lich_su`.
+
+    Task 14 đổi câu chữ của `KHONG_TIM_DUOC` — so với chính HẰNG SỐ, không chép
+    lại lời: sửa câu chữ ở `assemble` không làm test đỏ oan."""
     st = assemble({"intent": "tra_cuu", "query": "thử việc bao lâu",
                    "expanded": [], "hits_shallow": [], "insufficient_evidence": True,
                    "abstain_threshold": 0.5}, DB, FakeLlm(), "m")
-    assert "không có văn bản nào khớp" in st["coverage_note"], (
-        "lượt đầu không tìm được gì thì câu ĐÚNG vẫn là kho không có văn bản khớp"
+    assert KHONG_TIM_DUOC in st["coverage_note"], (
+        "lượt đầu không tìm được gì thì câu ĐÚNG vẫn là 'chưa tìm được', không phải câu của nhánh chưa giải nghĩa được"
     )
+    assert CHUA_GIAI_NGHIA_DUOC not in st["coverage_note"]
 
 
 def test_assemble_doc_prompt_tu_prompt_path_khi_duoc_truyen(tmp_path):

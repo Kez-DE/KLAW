@@ -208,12 +208,16 @@ def test_the_ket_qua_khong_mang_giong_he_thong():
 def test_nhanh_khong_co_cau_tra_loi_van_hien_duoc_coverage_note_nhieu_doan():
     """`coverage_note` nay có HAI NỬA ngăn bằng dòng trắng và một danh sách
     gạch đầu dòng. Hiện nó trong đúng MỘT `<p>` thì hai nửa dính thành một câu
-    dài và danh sách mất hẳn chấm đầu dòng — nên cả hai nhánh phải đi qua
+    dài và danh sách mất hẳn chấm đầu dòng — nên cả ba nhánh phải đi qua
     `KhoiVanXuoi` (`catDoan`), không phải `{ghiChuPhamVi}` trần.
+
+    Task 14 thêm nhánh thứ ba: `answer` nay cũng có thể mang một đuôi hỏi thêm
+    ngắn trong `coverage_note` (`duoi_hoi_them`), cùng khối hiện với `abstain`
+    và `partial_coverage`.
     """
     ma = _bo_chu_thich(TSX.read_text(encoding="utf-8"))
-    assert ma.count("<KhoiVanXuoi chu={ghiChuPhamVi}") == 2, (
-        "nhánh abstain và partial_coverage phải cùng hiện coverage_note qua catDoan"
+    assert ma.count("<KhoiVanXuoi chu={ghiChuPhamVi}") == 3, (
+        "nhánh abstain, partial_coverage và answer phải cùng hiện coverage_note qua catDoan"
     )
 
 
