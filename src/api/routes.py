@@ -45,7 +45,7 @@ from src.models.schemas import (
     VanBanPhamViOut,
     VanBanProvisionsResponse,
 )
-from src.services import bao_ve, cache_tra_loi
+from src.services import bao_ve, bo_nho, cache_tra_loi
 from src.services import hoi_thoai as hoi_thoai_svc
 from src.services.bao_ve import cong_bao_ve, cong_bao_ve_khach, cong_nhe
 from src.services.checklist import KHUNG_HOP_DONG, Checklist
@@ -122,10 +122,11 @@ def _payload_cache(st: dict, rt: str) -> dict:
         # `documents` (spec 2026-09-06) — list[dict] thuần, cùng khuôn `bang`.
         "documents": st.get("documents") or [],
         "soan_thao": st.get("soan_thao_goi_y"),
+        "ho_so_da_dung": st.get("ho_so_da_dung") or [],
     }
 
 
-def _state_vao(req: TraCuuRequest, as_of: date, trace_id: str) -> dict:
+def _state_vao(req: TraCuuRequest, as_of: date, trace_id: str, bo_nho: dict | None = None) -> dict:
     """State đầu vào của graph — MỘT chỗ dựng cho cả đường POST và đường SSE.
 
     `query` là câu người dùng GÕ, không phải câu đã giải nghĩa: node `giai_nghia`
@@ -135,19 +136,29 @@ def _state_vao(req: TraCuuRequest, as_of: date, trace_id: str) -> dict:
     `lich_su` xuống dạng `dict` (`model_dump`), cùng hình dạng với `expanded`/
     `hits_shallow` trong state — LangGraph state là dữ liệu thuần, một model
     pydantic đi lẫn vào đó là một kiểu thứ hai cho cùng một thứ.
+
+    `bo_nho` — `{"tom_tat", "ho_so"}` của `_chuan_bi_phien` (spec 2026-09-09 §6);
+    `None` khi ẩn danh hoặc phiên chưa có gì để nạp.
     """
     return {
         "query": req.query,
         "lich_su": [luot.model_dump() for luot in req.lich_su],
         "as_of_date": as_of,
         "trace_id": trace_id,
+        "tom_tat": (bo_nho or {}).get("tom_tat"),
+        "ho_so": dict((bo_nho or {}).get("ho_so") or {}),
     }
 
 
-async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[TraCuuRequest, str | None]:
-    """Gắn lượt hỏi vào một phiên (spec 2026-09-07 §5.2). Ẩn danh → bỏ qua `hoi_thoai_id`.
-    Có danh tính: chưa có id → tạo phiên; có id → kiểm chủ (404), kiểm đủ trần lượt
-    của gói → 403, nạp `lich_su` từ máy chủ và BỎ `lich_su` client gửi.
+async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[TraCuuRequest, str | None, dict | None]:
+    """Gắn lượt hỏi vào một phiên (spec 2026-09-07 §5.2, spec 2026-09-09 §6.3-6.4).
+    Ẩn danh → bỏ qua `hoi_thoai_id` VÀ bộ nhớ. Có danh tính: chưa có id → tạo phiên
+    (Pro đang bật ghi nhớ thì seed hồ sơ tài khoản vào phiên mới); có id → kiểm chủ
+    (404), kiểm đủ trần lượt của gói → 403, nạp `lich_su` VÀ bộ nhớ ba lớp từ máy
+    chủ, BỎ `lich_su` client gửi.
+
+    Trả `(req, hoi_thoai_id, bo_nho)` — `bo_nho` là `{"tom_tat", "ho_so"}` hoặc
+    `None` (ẩn danh, hoặc phiên mới không có gì để seed).
 
     Lỗi DB ở đây KHÔNG bị nuốt: 500 tại chỗ này nghĩa là chính Postgres vốn đã gác
     request ở `cong_bao_ve` đang chết, và âm thầm đánh rơi một lượt của người đã
@@ -155,9 +166,17 @@ async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[Tra
     `hoi_thoai_id` thì `lich_su` client gửi được giữ nguyên (giao diện đã đăng nhập
     không gửi trường này)."""
     if user_sub is None:
-        return req, None
+        return req, None, None
     if req.hoi_thoai_id is None:
-        return req, await run_in_threadpool(hoi_thoai_svc.tao_phien, user_sub, req.query)
+        pid = await run_in_threadpool(hoi_thoai_svc.tao_phien, user_sub, req.query)
+        # Pro và đang bật ghi nhớ: phiên mới kế thừa hồ sơ tài khoản (spec 2026-09-09 §6.4).
+        plan = await run_in_threadpool(bao_ve.plan_hieu_luc, user_sub)
+        if plan == "pro" and await run_in_threadpool(bo_nho.doc_ghi_nho, user_sub):
+            ho_so = await run_in_threadpool(bo_nho.ho_so_tu_tai_khoan, user_sub)
+            if ho_so:
+                await run_in_threadpool(hoi_thoai_svc.ghi_ho_so, pid, ho_so)
+                return req, pid, {"tom_tat": None, "ho_so": ho_so}
+        return req, pid, None
     pid = str(req.hoi_thoai_id)
     if await run_in_threadpool(hoi_thoai_svc.lay_phien, user_sub, pid) is None:
         raise HTTPException(status_code=404, detail=hoi_thoai_svc.LOI_KHONG_THAY)
@@ -166,7 +185,12 @@ async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[Tra
     if await run_in_threadpool(hoi_thoai_svc.dem_luot, pid) >= tran:
         raise HTTPException(status_code=403, detail=hoi_thoai_svc.LOI_PHIEN_DAY.format(n=tran))
     lich_su = await run_in_threadpool(hoi_thoai_svc.lich_su_gan_nhat, pid)
-    return req.model_copy(update={"lich_su": [LuotTruoc(**luot) for luot in lich_su]}), pid
+    bn = await run_in_threadpool(hoi_thoai_svc.bo_nho_cua_phien, pid)
+    return (
+        req.model_copy(update={"lich_su": [LuotTruoc(**luot) for luot in lich_su]}),
+        pid,
+        {"tom_tat": bn["tom_tat"], "ho_so": bn["ho_so"]},
+    )
 
 
 async def _ghi_luot_nhe(hoi_thoai_id: str, cau_hoi: str, payload: dict, trace_id: str) -> str | None:
@@ -258,6 +282,7 @@ async def chay_tra_cuu(
     user_sub: str | None,
     trace_id: str,
     phat: Callable[[str, dict], Awaitable[None]] | None = None,
+    bo_nho: dict | None = None,
 ) -> tuple[dict, str]:
     """Thân dùng chung của `/tra-cuu` và `/tra-cuu/luong`: cache → graph →
     ghi cache → ghi traces. Trả `(payload, config_name)`.
@@ -312,8 +337,13 @@ async def chay_tra_cuu(
         # hai sẽ nhận câu trả lời của cuộc hội thoại người thứ nhất. Bỏ cache là
         # cách rẻ nhất đóng lỗ đó, và không mất gì đo được: khoá phải mang cả
         # lịch sử mới đúng, mà lịch sử đổi mỗi lượt nên tỉ lệ trúng gần 0.
+        #
+        # Cùng lý lẽ cho `bo_nho` (spec 2026-09-09 §6.5): một tóm tắt hay hồ sơ
+        # tình huống khác đi vào state cũng làm câu trả lời có thể khác, và khoá
+        # cache không mang chúng — phục vụ payload cache cho một request có bộ
+        # nhớ là phục vụ câu trả lời của MỘT phiên khác cho phiên này.
         khoa, checksum, payload = (
-            (None, None, None) if req.lich_su
+            (None, None, None) if (req.lich_su or (bo_nho and (bo_nho.get("tom_tat") or bo_nho.get("ho_so"))))
             else await run_in_threadpool(cache_tra_loi.tra_cache, req.query, config_name, as_of)
         )
         tu_cache = payload is not None
@@ -324,7 +354,7 @@ async def chay_tra_cuu(
                 # trình bịa. Một bước, đúng tên việc đã làm.
                 await phat("cache", {})
         elif phat is None:
-            st = await _g().ainvoke(_state_vao(req, as_of, trace_id))
+            st = await _g().ainvoke(_state_vao(req, as_of, trace_id, bo_nho=bo_nho))
         else:
             # `stream_mode="updates"` phát `{ten_node: output}`. Mọi node trong
             # `graph_tra_cuu` trả `{**st, ...}` (state ĐẦY ĐỦ), nhưng gộp bằng
@@ -332,7 +362,7 @@ async def chay_tra_cuu(
             # RIÊNG PHẦN không âm thầm xoá trắng những gì các node trước ghi.
             st = {}
             async for chunk in _g().astream(
-                _state_vao(req, as_of, trace_id), stream_mode="updates",
+                _state_vao(req, as_of, trace_id, bo_nho=bo_nho), stream_mode="updates",
             ):
                 for ten, ra in chunk.items():
                     if isinstance(ra, dict):
@@ -426,6 +456,8 @@ def tra_cuu_response(payload: dict, trace_id: str, config_name: str) -> TraCuuRe
         # Cùng lý do `bang`: dòng cache ghi trước 2026-09-06 không có khoá này.
         documents=payload.get("documents") or [],
         soan_thao=payload.get("soan_thao"),
+        # Cùng lý do `bang`/`documents`: dòng cache ghi trước bản này không có khoá.
+        ho_so_da_dung=payload.get("ho_so_da_dung") or [],
         trace_id=trace_id, config_name=config_name,
     )
 
@@ -440,12 +472,14 @@ async def tra_cuu(
     tới $0,00735 một request; không cổng nào ở đó là phòng xa (xem `bao_ve.py`).
     """
     trace_id = str(uuid.uuid4())
-    req, hoi_thoai_id = await _chuan_bi_phien(req, user_sub)
-    payload, config_name = await chay_tra_cuu(req, user_sub, trace_id)
+    req, hoi_thoai_id, bn = await _chuan_bi_phien(req, user_sub)
+    payload, config_name = await chay_tra_cuu(req, user_sub, trace_id, bo_nho=bn)
     resp = tra_cuu_response(payload, trace_id, config_name)
     if hoi_thoai_id is not None:
         response.headers["X-Hoi-Thoai-Id"] = hoi_thoai_id
-        await _ghi_luot_nhe(hoi_thoai_id, req.query, resp.model_dump(mode="json"), trace_id)
+        loi = await _ghi_luot_nhe(hoi_thoai_id, req.query, resp.model_dump(mode="json"), trace_id)
+        if loi is None and user_sub is not None:
+            bo_nho.len_lich_cap_nhat(hoi_thoai_id, user_sub)
     return resp
 
 

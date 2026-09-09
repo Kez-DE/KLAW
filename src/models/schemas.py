@@ -49,11 +49,12 @@ class TraCuuRequest(BaseModel):
     # field DUY NHẤT không ràng buộc gì, trong khi `query` có min/max_length
     # và `as_of_date` là `date`.
     config_name: str | None = Field(default=None, max_length=100)
-    # Ba lượt gần nhất, không hơn. `max_length` (⇒ 422) chứ không cắt im lặng:
-    # một client gửi 20 lượt đang hiểu sai hợp đồng, và cắt lặng lẽ thì nó chạy
-    # tiếp mãi với một ngữ cảnh khác cái nó tưởng — cùng lựa chọn với `query`
-    # (422 khi quá 2000 ký tự, không truncate).
-    lich_su: list[LuotTruoc] = Field(default_factory=list, max_length=3)
+    # Mười lượt gần nhất (khách chưa đăng nhập; người đăng nhập được máy chủ nạp).
+    # `max_length` (⇒ 422) chứ không cắt im lặng: một client gửi 20 lượt đang
+    # hiểu sai hợp đồng, và cắt lặng lẽ thì nó chạy tiếp mãi với một ngữ cảnh
+    # khác cái nó tưởng — cùng lựa chọn với `query` (422 khi quá 2000 ký tự,
+    # không truncate).
+    lich_su: list[LuotTruoc] = Field(default_factory=list, max_length=10)
     # Spec 2026-09-07 §5.2: phiên hội thoại để máy chủ nạp `lich_su` và ghi lượt. Chỉ
     # có ý nghĩa khi có danh tính; ẩn danh thì bị bỏ qua.
     hoi_thoai_id: UUID | None = None
@@ -168,6 +169,16 @@ class Bang(BaseModel):
         return self
 
 
+class HoSoDaDungOut(BaseModel):
+    """Một dữ kiện về người hỏi đã đi vào lượt này (spec 2026-09-09 §6.6) — để giao diện
+    hiện "Dựa trên: …" và cho sửa một chạm. `gia_dinh=True` khi máy tự suy ra."""
+
+    khoa: str
+    nhan: str
+    gia_tri: str
+    gia_dinh: bool = False
+
+
 class TraCuuResponse(BaseModel):
     # Phải khớp ĐỦ `ResultType` ở `assemble.py`. Một loại có ở enum mà thiếu ở
     # đây thì graph dựng đúng kết quả rồi chết ở khâu tuần tự hoá — đã xảy ra
@@ -201,6 +212,9 @@ class TraCuuResponse(BaseModel):
     # Chỉ nhánh `huong_dan_soan_thao` điền; mặc định None cùng lý do `bang`/
     # `documents` (payload cache cũ không có khoá).
     soan_thao: SoanThaoGoiYOut | None = None
+    # Dữ kiện về người hỏi đã đi vào lượt này (spec 2026-09-09 §6.6) — nguyên
+    # văn hoặc suy diễn. Mặc định `[]` cùng lý do `bang`.
+    ho_so_da_dung: list[HoSoDaDungOut] = []
     # Câu hỏi sau khi giải nghĩa tham chiếu từ `lich_su`. `None` ở lượt đầu và
     # khi không giải nghĩa được. Giao diện ghi một dòng "Mình hiểu câu hỏi của
     # bạn là: …" CHỈ khi nó khác câu người dùng gõ.

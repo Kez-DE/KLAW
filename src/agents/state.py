@@ -16,6 +16,12 @@ class KLawState(TypedDict, total=False):
     # An toàn dù client bịa: lịch sử chỉ làm câu hỏi tự đứng được, nó không chống
     # đỡ khẳng định nào — xem docstring `nodes/giai_nghia.py`.
     lich_su: list[dict]
+    # Bộ nhớ phiên (spec 2026-09-09 §6): tóm tắt cuộn các lượt cũ hơn K, và hồ sơ tình
+    # huống {khoa: {gia_tri, nguon}}. Cả hai là DỮ LIỆU về người hỏi — không chống đỡ khẳng
+    # định nào.
+    tom_tat: str | None
+    ho_so: dict
+    ho_so_da_dung: list[dict]
     as_of_date: object            # date | None
     config_name: str
     abstain_threshold: float

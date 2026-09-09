@@ -51,6 +51,7 @@ from src.api.routes import (
 )
 from src.config import get_settings
 from src.models.schemas import TraCuuRequest
+from src.services import bo_nho
 from src.services.bao_ve import cong_bao_ve_khach
 
 logger = logging.getLogger(__name__)
@@ -104,6 +105,7 @@ async def _chay_nen(
     trace_id: str,
     hang: asyncio.Queue,
     hoi_thoai_id: str | None,
+    bo_nho_phien: dict | None,
 ) -> None:
     """Chạy graph tới cùng và đẩy sự kiện vào `hang`. KHÔNG dừng khi client rời.
 
@@ -126,7 +128,7 @@ async def _chay_nen(
         }))
 
     try:
-        payload, config_name = await chay_tra_cuu(req, user_sub, trace_id, phat)
+        payload, config_name = await chay_tra_cuu(req, user_sub, trace_id, phat, bo_nho=bo_nho_phien)
         # Dựng qua CHÍNH model của `/tra-cuu`: shape của hai đường không thể
         # lệch nhau, và một payload dị dạng nổ ở đây thành `event: loi` chứ
         # không thành một JSON thiếu trường mà FE tự đoán.
@@ -138,6 +140,8 @@ async def _chay_nen(
             loi_luu = await _ghi_luot_nhe(hoi_thoai_id, req.query, du, trace_id)
             if loi_luu is not None:
                 await hang.put(("loi_luu", {"hoi_thoai_id": hoi_thoai_id, "detail": loi_luu}))
+            elif user_sub is not None:
+                bo_nho.len_lich_cap_nhat(hoi_thoai_id, user_sub)
     except HTTPException as e:
         # `chay_tra_cuu` đã phân loại 503 (hạ tầng nhất thời) / 500 (bug thật)
         # và `detail` của nó chỉ mang TÊN loại ngoại lệ, không mang `str(e)`.
@@ -208,7 +212,7 @@ async def tra_cuu_luong(
     HTTP thường, không phải `event: loi`.
     """
     trace_id = str(uuid.uuid4())
-    req, hoi_thoai_id = await _chuan_bi_phien(req, user_sub)
+    req, hoi_thoai_id, bn = await _chuan_bi_phien(req, user_sub)
     hang: asyncio.Queue = asyncio.Queue()
     hang.put_nowait(("bat_dau", {
         "trace_id": trace_id,
@@ -220,7 +224,7 @@ async def tra_cuu_luong(
         ],
     }))
 
-    task = asyncio.create_task(_chay_nen(req, user_sub, trace_id, hang, hoi_thoai_id))
+    task = asyncio.create_task(_chay_nen(req, user_sub, trace_id, hang, hoi_thoai_id, bn))
     _DANG_CHAY.add(task)
     task.add_done_callback(_DANG_CHAY.discard)
 

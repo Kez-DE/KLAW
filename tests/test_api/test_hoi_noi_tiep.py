@@ -69,11 +69,12 @@ def test_lich_su_mac_dinh_rong_nen_client_cu_KHONG_hong():
     assert TraCuuRequest(query="x").lich_su == []
 
 
-def test_qua_ba_luot_bi_422_o_bien():
-    """Trần BA lượt (spec mục 3). Chặn ở biên chứ không cắt im lặng: một client
-    gửi 20 lượt đang hiểu sai hợp đồng, và một lỗi 422 nói ra điều đó ngay."""
+def test_qua_muoi_luot_bi_422_o_bien():
+    """Trần MƯỜI lượt (spec 2026-09-09 §6.3, nâng từ ba). Chặn ở biên chứ không
+    cắt im lặng: một client gửi 20 lượt đang hiểu sai hợp đồng, và một lỗi 422
+    nói ra điều đó ngay."""
     with pytest.raises(ValueError):
-        TraCuuRequest(query="x", lich_su=[LuotTruoc(**LICH_SU_JSON[0])] * 4)
+        TraCuuRequest(query="x", lich_su=[LuotTruoc(**LICH_SU_JSON[0])] * 11)
 
 
 @pytest.mark.asyncio
