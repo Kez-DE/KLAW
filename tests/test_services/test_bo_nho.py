@@ -1,0 +1,177 @@
+"""Bộ nhớ ba lớp và hồ sơ tình huống (spec 2026-09-09 §6)."""
+
+import json
+import uuid
+
+import pytest
+from sqlalchemy import text
+
+from src.services import bao_ve, bo_nho, hoi_thoai
+from src.services.db import get_engine
+from src.services.llm import Usage
+
+
+class LlmGia:
+    def __init__(self, tra: dict):
+        self.tra, self.da_goi = tra, []
+
+    def chat(self, model, messages, json_schema=None):
+        self.da_goi.append(messages)
+        return json.dumps(self.tra, ensure_ascii=False), Usage(token_in=10, token_out=5, cost_usd=0.0001)
+
+
+@pytest.mark.parametrize(
+    "gia_tri, hop_le",
+    [
+        ("người lao động", True),
+        ("làm 3 năm, hợp đồng không xác định thời hạn", True),
+        ("theo Điều 35 Bộ luật Lao động", False),
+        ("45/2019/QH14", False),
+        ("CMND 012345678912", False),
+        ("a@b.vn", False),
+        ("", False),
+        ("x" * 121, False),
+    ],
+)
+def test_gia_tri_hop_le(gia_tri, hop_le):
+    assert bo_nho.gia_tri_hop_le(gia_tri) is hop_le
+
+
+def test_gop_ho_so_moi_de_cu_nhung_suy_dien_khong_de_nguoi_noi():
+    cu = {"chu_the": {"gia_tri": "người lao động", "nguon": "nguoi_noi"}}
+    ra = bo_nho.gop_ho_so(cu, {"chu_the": "người sử dụng lao động", "tham_nien": "3 năm", "la": "bo"}, "suy_dien")
+    assert ra["chu_the"]["gia_tri"] == "người lao động"  # nguoi_noi thắng suy_dien
+    assert ra["tham_nien"] == {"gia_tri": "3 năm", "nguon": "suy_dien"}
+    assert "la" not in ra  # khoá lạ bị bỏ
+    ra2 = bo_nho.gop_ho_so(ra, {"chu_the": "người sử dụng lao động"}, "nguoi_noi")
+    assert ra2["chu_the"]["gia_tri"] == "người sử dụng lao động"
+    ra3 = bo_nho.gop_ho_so(ra2, {"tham_nien": "theo Điều 35"}, "nguoi_noi")
+    assert ra3["tham_nien"]["gia_tri"] == "3 năm"  # giá trị vi phạm lưới chặn giữ bản cũ
+
+
+def test_khoi_tinh_huong_va_ho_so_da_dung():
+    ho_so = {
+        "chu_the": {"gia_tri": "người lao động", "nguon": "suy_dien"},
+        "tham_nien": {"gia_tri": "3 năm", "nguon": "nguoi_noi"},
+    }
+    khoi = bo_nho.khoi_tinh_huong(ho_so)
+    assert "- Vai của bạn: người lao động (tôi đoán)" in khoi and "- Thâm niên: 3 năm" in khoi
+    assert bo_nho.khoi_tinh_huong({}) == bo_nho.KHONG_CO_DU_KIEN
+    assert bo_nho.ho_so_da_dung(ho_so) == [
+        {"khoa": "chu_the", "nhan": "Vai của bạn", "gia_tri": "người lao động", "gia_dinh": True},
+        {"khoa": "tham_nien", "nhan": "Thâm niên", "gia_tri": "3 năm", "gia_dinh": False},
+    ]
+
+
+@pytest.mark.parametrize(
+    "den_cu, moi, ra", [(0, 6, None), (0, 7, (1, 1)), (0, 9, (1, 3)), (3, 9, None), (3, 12, (4, 6))]
+)
+def test_luot_can_gop(den_cu, moi, ra):
+    # K=6: lượt 7 ghi xong thì lượt 1 rơi khỏi cửa sổ nguyên văn và phải vào tóm tắt.
+    assert bo_nho.luot_can_gop(den_cu, moi) == ra
+
+
+pytestmark = pytest.mark.integration
+
+
+@pytest.fixture
+def nguoi():
+    sub = str(uuid.uuid4())
+    bao_ve.ghi_nhan_nguoi_dung(sub, None)
+    yield sub
+    with get_engine().begin() as c:
+        c.execute(text("DELETE FROM ho_so_tai_khoan WHERE user_sub = CAST(:s AS uuid)"), {"s": sub})
+        c.execute(text("DELETE FROM hoi_thoai WHERE user_sub = CAST(:s AS uuid)"), {"s": sub})
+        c.execute(text("DELETE FROM traces WHERE user_sub = CAST(:s AS uuid)"), {"s": sub})
+        c.execute(text("DELETE FROM users WHERE sub = CAST(:s AS uuid)"), {"s": sub})
+
+
+def _len_pro(sub: str) -> None:
+    with get_engine().begin() as c:
+        c.execute(
+            text(
+                "UPDATE users SET plan = 'pro', plan_het_han = now() + interval '30 days' WHERE sub = CAST(:s AS uuid)"
+            ),
+            {"s": sub},
+        )
+
+
+def _phien_8_luot(sub: str) -> str:
+    pid = hoi_thoai.tao_phien(sub, "tôi là nhân viên, hợp đồng không xác định thời hạn, sắp nghỉ việc")
+    for i in range(1, 9):
+        hoi_thoai.ghi_luot(pid, f"câu {i}", {"answer": f"trả lời {i}", "citations": []}, f"t{i}")
+    return pid
+
+
+def test_cap_nhat_phien_gop_tom_tat_va_ho_so_free_khong_ghi_tai_khoan(nguoi):
+    pid = _phien_8_luot(nguoi)
+    llm = LlmGia(
+        {
+            "tom_tat": "Người hỏi là nhân viên sắp nghỉ việc, đã hỏi về báo trước.",
+            "ho_so": {
+                "chu_the": "người lao động",
+                "loai_hop_dong": "không xác định thời hạn",
+                "tham_nien": "",
+                "vung_luong": "",
+                "thoi_diem": "",
+                "van_ban_da_co": "",
+                "vu_viec": "sắp nghỉ việc; theo Điều 35",
+            },
+        }
+    )
+    bo_nho.cap_nhat_phien(pid, nguoi, llm=llm, model="gia")
+    bn = hoi_thoai.bo_nho_cua_phien(pid)
+    assert bn["tom_tat"].startswith("Người hỏi") and bn["tom_tat_den_thu_tu"] == 2  # 8 - K(6) = 2
+    assert bn["ho_so"]["chu_the"] == {"gia_tri": "người lao động", "nguon": "nguoi_noi"}
+    assert "vu_viec" not in bn["ho_so"]  # "theo Điều 35" vướng lưới chặn
+    prompt = llm.da_goi[0][-1]["content"]
+    assert "câu 1" in prompt and "câu 2" in prompt and "câu 8" in prompt and "câu 5" not in prompt
+    assert bo_nho.ho_so_tai_khoan(nguoi) == []  # Free không ghi tài khoản
+    with get_engine().connect() as c:
+        assert (
+            c.execute(
+                text("SELECT count(*) FROM traces WHERE endpoint = :e AND user_sub = CAST(:s AS uuid)"),
+                {"e": bo_nho.ENDPOINT_TRACE, "s": nguoi},
+            ).scalar_one()
+            == 1
+        )
+
+
+def test_pro_gop_vao_tai_khoan_va_khong_ghi_nho_chan(nguoi):
+    _len_pro(nguoi)
+    pid = _phien_8_luot(nguoi)
+    ho_so = {k: "" for k in bo_nho.KHOA_HO_SO} | {"chu_the": "người lao động", "tham_nien": "3 năm"}
+    bo_nho.cap_nhat_phien(pid, nguoi, llm=LlmGia({"tom_tat": "x", "ho_so": ho_so}), model="gia")
+    muc = {m["khoa"]: m["gia_tri"] for m in bo_nho.ho_so_tai_khoan(nguoi)}
+    assert muc == {"chu_the": "người lao động", "tham_nien": "3 năm"}
+    assert bo_nho.ho_so_tu_tai_khoan(nguoi)["tham_nien"] == {"gia_tri": "3 năm", "nguon": "tai_khoan"}
+    hoi_thoai.dat_khong_ghi_nho(nguoi, pid, True)
+    bo_nho.cap_nhat_phien(
+        pid, nguoi, llm=LlmGia({"tom_tat": "y", "ho_so": ho_so | {"tham_nien": "5 năm"}}), model="gia"
+    )
+    assert hoi_thoai.bo_nho_cua_phien(pid)["tom_tat"] == "x"  # không tóm tắt, không gộp
+    assert {m["khoa"]: m["gia_tri"] for m in bo_nho.ho_so_tai_khoan(nguoi)}["tham_nien"] == "3 năm"
+    bo_nho.dat_ghi_nho(nguoi, False)
+    assert bo_nho.doc_ghi_nho(nguoi) is False
+    bo_nho.sua_khoa_tai_khoan(nguoi, "tham_nien", "4 năm")
+    assert {m["khoa"]: m["gia_tri"] for m in bo_nho.ho_so_tai_khoan(nguoi)}["tham_nien"] == "4 năm"
+    bo_nho.xoa_khoa_tai_khoan(nguoi, "chu_the")
+    bo_nho.xoa_het_tai_khoan(nguoi)
+    assert bo_nho.ho_so_tai_khoan(nguoi) == []
+
+
+def test_llm_loi_thi_giu_ban_cu(nguoi):
+    pid = _phien_8_luot(nguoi)
+    hoi_thoai.ghi_bo_nho(pid, "cũ", 1, {"chu_the": {"gia_tri": "người lao động", "nguon": "nguoi_noi"}})
+
+    class LlmNo:
+        def chat(self, *a, **k):
+            raise RuntimeError("mạng")
+
+    bo_nho.cap_nhat_phien(pid, nguoi, llm=LlmNo(), model="gia")
+    bn = hoi_thoai.bo_nho_cua_phien(pid)
+    assert (
+        bn["tom_tat"] == "cũ"
+        and bn["tom_tat_den_thu_tu"] == 1
+        and bn["ho_so"]["chu_the"]["gia_tri"] == "người lao động"
+    )

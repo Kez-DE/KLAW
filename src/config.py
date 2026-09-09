@@ -112,6 +112,8 @@ class Settings(BaseSettings):
     # Cộng điểm mềm theo lĩnh vực sau RRF (spec §6). 0 = TẮT. Chỉ bật mặc định
     # sau một lượt đo graph-thật cho thấy Recall@10 không tụt.
     linh_vuc_bonus: float = Field(default=0.0, ge=0.0)
+    # Cập nhật bộ nhớ phiên chạy nền sau mỗi lượt (spec 2026-09-09 §6.2). Tắt = agent chỉ có K lượt nguyên văn.
+    bo_nho_nen: bool = Field(default=True, validation_alias="KLAW_BO_NHO_NEN")
     as_of_date: date | None = None
 
     @field_validator("as_of_date", mode="before")
