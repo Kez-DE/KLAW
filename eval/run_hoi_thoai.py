@@ -42,6 +42,26 @@ def dung_du_kien(ky_vong: dict, ho_so_da_dung: list[dict], answer: str) -> bool:
     return all(cum.lower() in (answer or "").lower() for cum in ky_vong.get("answer_co") or [])
 
 
+def tom_tat_diem(ket: list[dict]) -> dict:
+    """Đếm đúng/tổng/lỗi từ `chi_tiet` — hàm THUẦN để test được không cần graph/mạng.
+
+    Review round 2 (Important): một hội thoại lỗi hạ tầng (429, mất mạng…) không có
+    khoá `dung` (khác round 1, khoá đó từng bị gán cứng `False`). Loại nó khỏi CẢ tử
+    số lẫn mẫu số của `ty_le_dung_du_kien` — cùng cam kết `eval/run_trap.py::chay` và
+    `eval/run._run_items` đã ghi trong docstring: lỗi hạ tầng không phải một câu trả
+    lời sai, gộp chung sẽ làm tỉ lệ đúng tụt vì một cái không liên quan tới bộ nhớ.
+    """
+    loi = [c for c in ket if "error" in c]
+    cham = [c for c in ket if "error" not in c]
+    dung = sum(1 for c in cham if c["dung"])
+    return {
+        "so_cham": len(cham),
+        "dung": dung,
+        "so_loi": len(loi),
+        "ty_le_dung_du_kien": round(dung / len(cham), 3) if cham else 0.0,
+    }
+
+
 def commit_hash() -> str:
     """Cùng khuôn `eval/run_trap.py::commit_hash` — fallback "unknown" khi git không
     chạy được, để thiếu git không làm crash cả lượt chạy đã tốn tiền."""
@@ -82,27 +102,26 @@ async def main(limit: int | None, out: Path | None) -> int:
             # cả lượt chạy đã tốn tiền — cùng lý do `eval/run_trap.py::chay` (đo được: một câu
             # ăn HTTP 429 từng cuốn theo ~5 phút chi phí LLM và toàn bộ dữ liệu chưa ghi).
             print(f"[hoi_thoai] LỖI hội thoại {ht['id']!r}: {type(e).__name__}: {e}", file=sys.stderr)
-            ket.append({"id": ht["id"], "dung": False, "error_type": type(e).__name__, "error": str(e)})
-    dung = sum(1 for k in ket if k["dung"])
+            ket.append({"id": ht["id"], "error_type": type(e).__name__, "error": str(e)})
+    tt = tom_tat_diem(ket)
     commit = commit_hash()
     bao_cao = {
         "commit_hash": commit,
         "chay_luc": datetime.now(UTC).isoformat(),
         "so_hoi_thoai": len(ket),
-        "dung": dung,
-        "ty_le_dung_du_kien": round(dung / len(ket), 3) if ket else 0.0,
+        **tt,
         "chi_tiet": ket,
     }
     duong = out or KET_QUA / f"hoi_thoai_nhieu_luot-{commit}.json"
     duong.parent.mkdir(parents=True, exist_ok=True)
     duong.write_text(json.dumps(bao_cao, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"{dung}/{len(ket)} hội thoại dùng đúng dữ kiện — {duong}")
-    loi = [c for c in ket if "error" in c]
-    if loi:
-        print(
-            f"LỖI: {len(loi)}/{len(ket)} hội thoại không chạy được (KHÔNG tính vào cột đúng) — "
-            + ", ".join(f"{c['id']}({c['error_type']})" for c in loi)
-        )
+    print(
+        f"{tt['dung']}/{tt['so_cham']} hội thoại chấm được dùng đúng dữ kiện, "
+        f"{tt['so_loi']} hội thoại lỗi không chạy được (không tính vào tỉ lệ đúng/sai) — {duong}"
+    )
+    if tt["so_loi"]:
+        loi = [c for c in ket if "error" in c]
+        print("LỖI: " + ", ".join(f"{c['id']}({c['error_type']})" for c in loi), file=sys.stderr)
     return 0
 
 

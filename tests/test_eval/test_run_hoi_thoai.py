@@ -1,4 +1,4 @@
-from eval.run_hoi_thoai import dung_du_kien
+from eval.run_hoi_thoai import dung_du_kien, tom_tat_diem
 
 
 def test_dung_du_kien_theo_khoa_va_cum_chu():
@@ -16,3 +16,15 @@ def test_dung_du_kien_khong_khop_chuoi_con_giua_hai_loai_hop_dong_doi_lap():
     kv = {"ho_so": {"loai_hop_dong": "xác định thời hạn"}}
     da_dung = [{"khoa": "loai_hop_dong", "gia_tri": "không xác định thời hạn", "gia_dinh": False}]
     assert dung_du_kien(kv, da_dung, "") is False
+
+
+def test_tom_tat_diem_loai_hoi_thoai_loi_khoi_ca_tu_va_mau_so():
+    """Review round 2 (Important): một hội thoại lỗi hạ tầng không được tính là câu
+    trả lời sai — loại nó khỏi CẢ tử số lẫn mẫu số của tỉ lệ, đếm riêng ở `so_loi`."""
+    ket = [
+        {"id": "a", "dung": True},
+        {"id": "b", "dung": False},
+        {"id": "c", "error_type": "RuntimeError", "error": "mạng"},
+    ]
+    tt = tom_tat_diem(ket)
+    assert tt == {"so_cham": 2, "dung": 1, "so_loi": 1, "ty_le_dung_du_kien": 0.5}
