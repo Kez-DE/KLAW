@@ -127,7 +127,8 @@ Chép nguyên văn mục 11 của spec `2026-09-09-bo-nho-tinh-cach-soan-thao-de
 - [x] Giai đoạn 1 — Giá và hạn mức: Task 1–2 done, Task 3 this commit.
 - [x] Giai đoạn 2 — Bộ nhớ phiên và bộ nhớ tài khoản: Task 4–9 done, Task 10 (bộ đo
   hội thoại nhiều lượt + test hồi quy "lượt 8 vẫn nhớ") this commit đóng nốt.
-- [ ] Giai đoạn 3 — Tính cách trả lời.
+- [x] Giai đoạn 3 — Tính cách trả lời: Task 11–15 done, Task 16 (`assemble.v3`
+  trả lời trước + bộ đo câu mơ hồ `eval/run_mo_ho.py`) this commit đóng nốt.
 - [ ] Giai đoạn 4 — Soạn thảo hội thoại.
 - [ ] Giai đoạn 5 — Không gian làm việc.
 
@@ -154,9 +155,18 @@ tính lâu dài về sản phẩm/kiến trúc vào `docs/decisions/`.
   này; lệnh tái lập: `.venv/bin/python -m eval.run_hoi_thoai`. Test hồi quy
   `test_luot_8_van_biet_vai_va_loai_hop_dong` (dùng `LlmGia`, không gọi mạng) đã
   PASS.
-- Giai đoạn 3: cùng bộ pytest/ruff trên file đã đổi; `cd frontend && npm run
-  typecheck && npm run lint`; `.venv/bin/python -m eval.run --config hybrid`
-  (golden 77, số trước/sau); `.venv/bin/python -m eval.run_mo_ho`.
+- Giai đoạn 3: cùng bộ pytest/ruff trên file đã đổi. Task 16 (`assemble.v3` +
+  `eval/run_mo_ho.py`): `KLAW_SUPABASE_URL= .venv/bin/python -m pytest -q
+  tests/test_eval tests/test_agents -m "not integration"` — 423 passed;
+  `.venv/bin/ruff check` + `ruff format --check` trên file đã đổi — sạch.
+  `.venv/bin/python -m eval.run --config hybrid` (golden 77, số trước giai đoạn
+  3), `.venv/bin/python -m eval.run_trap --limit 20`, `.venv/bin/python -m
+  eval.run_mo_ho` (bộ 20 câu mơ hồ mới): **chưa chạy** — kỷ luật chi phí của
+  phiên làm việc cấm gọi OpenRouter thật khi thực hiện Task 16; ba lệnh trên là
+  lệnh tái lập, cần khoá OpenRouter. `eval/datasets/mo_ho.yaml` đã xác minh khớp
+  `suy_dien.suy_vai` cho cả 20 câu (chạy trực tiếp qua hàm đó, không đoán bằng
+  mắt); scoring (`run_mo_ho.dung`/`tom_tat`, kể cả cách ly lỗi hạ tầng khỏi tỉ lệ
+  đúng) đã đo trên input tổng hợp, không qua mạng — xem `test_run_mo_ho.py`.
 - Giai đoạn 4: cùng bộ pytest/ruff trên file đã đổi; `cd frontend && npm run
   typecheck && npm run lint && node scripts/kiem-ban-thao.ts`.
 - Giai đoạn 5: cùng bộ pytest/ruff trên file đã đổi; `cd frontend && npm run

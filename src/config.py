@@ -101,13 +101,17 @@ class Settings(BaseSettings):
     # Verifier
     verify_tier2_enabled: bool = True
     abstain_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
-    # assemble.v2 là mặc định (đo 2026-09-06, eval.run_trap 51 câu — xem
-    # cost-management.md). rewrite v2 TỪNG tắt (trap-soul-04: judge tầng 2 bị
-    # cắt JSON) — nay là mặc định (spec 2026-09-09 §7.4): field-scoping ở
-    # `n_retrieve` ĐỌC `linh_vuc_du_doan` mà chỉ rewrite v2 mới ghi khoá đó,
-    # nên tính năng khoanh vùng của task này không kích hoạt được nếu giữ v1.
+    # assemble.v3 là mặc định (spec 2026-09-09 §7.7): TẦNG 1 trả lời trước, không
+    # còn lặp lại câu hỏi — đo bằng eval.run_mo_ho, bộ câu mơ hồ có chủ đích.
+    # assemble.v2 từng là mặc định (đo 2026-09-06, eval.run_trap 51 câu — xem
+    # cost-management.md); v3 giữ NGUYÊN nội dung đó, chỉ đổi TẦNG 1 và thêm một
+    # dòng XƯNG HÔ, nên số đo trap cũ vẫn còn hiệu lực tham chiếu.
+    # rewrite v2 TỪNG tắt (trap-soul-04: judge tầng 2 bị cắt JSON) — nay là mặc
+    # định (spec 2026-09-09 §7.4): field-scoping ở `n_retrieve` ĐỌC
+    # `linh_vuc_du_doan` mà chỉ rewrite v2 mới ghi khoá đó, nên tính năng khoanh
+    # vùng của task này không kích hoạt được nếu giữ v1.
     # trap-soul-04 vẫn là rủi ro TREO, chưa đo lại trên bản v2 hiện hành.
-    assemble_prompt: str = "prompts/assemble.v2.md"
+    assemble_prompt: str = "prompts/assemble.v3.md"
     rewrite_prompt: str = "prompts/rewrite_query.v2.md"
     # Router v3 thêm `dang_tra_loi`/`y_dinh_phu` (spec 2026-09-09 §7.4), giữ
     # nguyên phần v2 (loại văn bản khi soạn thảo — bẫy xanh trap-soan-01,

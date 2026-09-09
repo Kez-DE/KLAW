@@ -1,0 +1,66 @@
+# Câu mơ hồ có chủ đích (spec 2026-09-09 §7.7): kỳ vọng trả lời kèm giả định,
+# không abstain oan. Mỗi câu KHÔNG nêu vai ("người lao động"/"người sử dụng lao
+# động") bằng chính từ đó — vai phải được suy ra từ ngữ cảnh, đúng khớp mẫu
+# zero-token của `src/agents/nodes/suy_dien.py::suy_vai` (đã xác minh TỪNG câu
+# dưới đây chạy qua hàm đó cho đúng `ky_vong.chu_the`, không đoán bằng mắt).
+items:
+- id: mh-001
+  cau_hoi: "tôi sắp nghỉ việc, hãy đưa cho tôi luật để đảm bảo quyền lợi cho tôi"
+  ky_vong: {chu_the: "người lao động", khong_abstain: true}
+- id: mh-002
+  cau_hoi: "em bị công ty cho nghỉ việc đột ngột thì được gì"
+  ky_vong: {chu_the: "người lao động", khong_abstain: true}
+- id: mh-003
+  cau_hoi: "công ty tôi muốn cho một nhân viên nghỉ vì hay đi muộn"
+  ky_vong: {chu_the: "người sử dụng lao động", khong_abstain: true}
+- id: mh-004
+  cau_hoi: "mình đang thử việc mà bị bắt làm thêm giờ liên tục"
+  ky_vong: {chu_the: "người lao động", khong_abstain: true}
+- id: mh-005
+  cau_hoi: "công ty tôi có một nhân viên xin nghỉ việc gấp, không biết phải xử lý sổ sách thế nào"
+  ky_vong: {chu_the: "người sử dụng lao động", khong_abstain: true}
+- id: mh-006
+  cau_hoi: "em bị sa thải đột ngột không rõ lý do, giờ em được những gì"
+  ky_vong: {chu_the: "người lao động", khong_abstain: true}
+- id: mh-007
+  cau_hoi: "công ty tôi muốn sa thải một nhân viên vì vi phạm nội quy nhiều lần"
+  ky_vong: {chu_the: "người sử dụng lao động", khong_abstain: true}
+- id: mh-008
+  cau_hoi: "tôi bị trừ lương tháng này mà không được giải thích lý do"
+  ky_vong: {chu_the: "người lao động", khong_abstain: true}
+- id: mh-009
+  cau_hoi: "công ty tôi định trừ lương một nhân viên làm hỏng máy móc"
+  ky_vong: {chu_the: "người sử dụng lao động", khong_abstain: true}
+- id: mh-010
+  cau_hoi: "công ty tôi muốn kéo dài thời gian thử việc của một nhân viên mới"
+  ky_vong: {chu_the: "người sử dụng lao động", khong_abstain: true}
+- id: mh-011
+  cau_hoi: "công ty nợ lương tôi ba tháng nay rồi, tôi phải làm gì"
+  ky_vong: {chu_the: "người lao động", khong_abstain: true}
+- id: mh-012
+  cau_hoi: "công ty tôi đang nợ lương một số nhân viên, giờ xử lý thế nào cho đúng luật"
+  ky_vong: {chu_the: "người sử dụng lao động", khong_abstain: true}
+- id: mh-013
+  cau_hoi: "tôi là nhân viên, sếp bắt làm thêm giờ liên tục mà không trả thêm tiền"
+  ky_vong: {chu_the: "người lao động", khong_abstain: true}
+- id: mh-014
+  cau_hoi: "công ty tôi muốn yêu cầu nhân viên làm thêm giờ vào cuối tuần này"
+  ky_vong: {chu_the: "người sử dụng lao động", khong_abstain: true}
+- id: mh-015
+  cau_hoi: "tôi là nhân viên, xin nghỉ phép mà công ty không đồng ý"
+  ky_vong: {chu_the: "người lao động", khong_abstain: true}
+- id: mh-016
+  cau_hoi: "công ty tôi có nhân viên xin nghỉ phép dài ngày, tôi cần biết quyền từ chối"
+  ky_vong: {chu_the: "người sử dụng lao động", khong_abstain: true}
+- id: mh-017
+  cau_hoi: "em bị kỷ luật vì đi trễ vài lần, giờ phải làm sao"
+  ky_vong: {chu_the: "người lao động", khong_abstain: true}
+- id: mh-018
+  cau_hoi: "công ty tôi muốn kỷ luật một nhân viên vì vi phạm quy chế nhiều lần"
+  ky_vong: {chu_the: "người sử dụng lao động", khong_abstain: true}
+- id: mh-019
+  cau_hoi: "hợp đồng lao động của tôi sắp hết hạn mà công ty chưa nói gì, tôi nên làm gì"
+  ky_vong: {chu_the: "người lao động", khong_abstain: true}
+- id: mh-020
+  cau_hoi: "bên tôi chấm dứt hợp đồng trước thời hạn với một nhân viên thì cần lưu ý gì"
+  ky_vong: {chu_the: "người sử dụng lao động", khong_abstain: true}
