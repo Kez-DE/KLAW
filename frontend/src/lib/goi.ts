@@ -22,7 +22,7 @@ export function tenGoi(plan: string): string {
   return plan;
 }
 
-export const GIA_PRO = 199_000;
+export const GIA_PRO = 69_000;
 
 export const GOI_CARD: Record<
   "free" | "pro",
@@ -42,8 +42,8 @@ export const GOI_CARD: Record<
     gia: "₫0 / tháng",
     tieuDeDanhSach: "Bắt đầu với những điều cơ bản:",
     danhSach: [
-      { icon: MessageSquare, chu: "200 lượt hỏi đáp mỗi ngày" },
-      { icon: ListOrdered, chu: "20 lượt mỗi phiên" },
+      { icon: MessageSquare, chu: "100 lượt hỏi đáp mỗi ngày" },
+      { icon: ListOrdered, chu: "30 lượt mỗi phiên" },
       { icon: FileSignature, chu: "3 bản thảo mỗi ngày, 20 mỗi tháng" },
       { icon: History, chu: "Phiên và lịch sử không giới hạn" },
       { icon: BookOpenText, chu: "Tra cứu luật, soát văn bản không giới hạn" },
@@ -54,13 +54,13 @@ export const GOI_CARD: Record<
     nhan: "Cá nhân",
     tieuDe: "Dùng cho công việc",
     moTa: "Cho luật sư, chuyên viên nhân sự và pháp chế hỏi nhiều mỗi ngày và soạn văn bản thường xuyên.",
-    gia: "₫199.000 / 30 ngày",
+    gia: "₫69.000 / 30 ngày",
     tieuDeDanhSach: "Mọi thứ trong gói Miễn phí, cộng thêm:",
     danhSach: [
-      { icon: Sparkles, chu: "Hỏi đáp không giới hạn ngày và tháng*" },
-      { icon: ListOrdered, chu: "50 lượt mỗi phiên" },
+      { icon: Sparkles, chu: "500 lượt hỏi đáp mỗi ngày" },
+      { icon: ListOrdered, chu: "Không giới hạn lượt mỗi phiên" },
       { icon: FileSignature, chu: "20 bản thảo mỗi ngày, không giới hạn tháng" },
-      { icon: History, chu: "Trí nhớ hoàn cảnh xuyên phiên (sắp có)" },
+      { icon: History, chu: "Trí nhớ hoàn cảnh xuyên phiên" },
       { icon: CalendarClock, chu: "Hiệu lực 30 ngày, gia hạn khi hết" },
     ],
   },

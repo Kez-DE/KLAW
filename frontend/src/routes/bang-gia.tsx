@@ -35,7 +35,7 @@ const TIERS: {
     id: "ca-nhan",
     name: "Cá nhân",
     tagline: "Dành cho luật sư và chuyên viên độc lập",
-    monthly: 199_000,
+    monthly: 69_000,
     // Chu kỳ 30 ngày cố định, không phải thuê bao năm — không có giá năm để bịa.
     annual: null,
     chuKy: "30 ngày",
@@ -92,12 +92,12 @@ const COMPARISON: Row[] = [
     values: [true, true, true, true],
   },
   {
-    // Khung theo NGÀY (quota v3), không phải tháng — Miễn phí 200/ngày, Cá nhân
-    // không giới hạn trong dùng bình thường (dấu * → xem chú thích dưới bảng).
-    // Doanh nghiệp/Tổ chức còn "Sắp ra mắt": quota v3 chưa có số cho hai gói
-    // này, nên KHÔNG bịa một con số — "Sắp công bố" thay vì số tháng cũ.
+    // Khung theo NGÀY (quota v3), không phải tháng — Miễn phí 100/ngày, Cá
+    // nhân 500/ngày. Doanh nghiệp/Tổ chức còn "Sắp ra mắt": quota v3 chưa có
+    // số cho hai gói này, nên KHÔNG bịa một con số — "Sắp công bố" thay vì số
+    // tháng cũ.
     label: "Lượt hỏi đáp mỗi ngày",
-    values: ["200", "Không giới hạn*", "Sắp công bố", "Sắp công bố"],
+    values: ["100", "500", "Sắp công bố", "Sắp công bố"],
   },
   {
     // Miễn phí có bộ đếm bản thảo RIÊNG (3/ngày, 20/tháng), không dùng chung
@@ -129,7 +129,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Hạn mức lượt hỏi tính thế nào?",
-    a: "Gói Miễn phí có 200 lượt hỏi đáp mỗi ngày, 20 lượt mỗi phiên, 3 bản thảo mỗi ngày (20 mỗi tháng); đếm ở máy chủ theo tài khoản, đặt lại 0h giờ Việt Nam. Gói Cá nhân hỏi đáp không giới hạn trong sử dụng bình thường (lá chắn chống lạm dụng 500 lượt/ngày), 20 bản thảo mỗi ngày, hiệu lực 30 ngày. Chưa có thanh toán trực tuyến: bạn gửi yêu cầu, tôi duyệt và báo qua email.",
+    a: "Gói Miễn phí có 100 lượt hỏi đáp mỗi ngày, 30 lượt mỗi phiên, 3 bản thảo mỗi ngày (20 mỗi tháng); đếm ở máy chủ theo tài khoản, đặt lại 0h giờ Việt Nam. Gói Cá nhân 500 lượt hỏi đáp mỗi ngày, không giới hạn lượt mỗi phiên, 20 bản thảo mỗi ngày, hiệu lực 30 ngày. Chưa có thanh toán trực tuyến: bạn gửi yêu cầu, tôi duyệt và báo qua email.",
   },
 ];
 
@@ -299,7 +299,7 @@ function BangGiaPage() {
             {t.monthly != null && t.monthly !== 0 && (
               <p className="mt-1.5 text-[12px] text-muted-foreground">
                 {/* Tier có `chuKy` (Cá nhân) KHÔNG phải thuê bao tháng: nhánh
-                    ba ("tính theo tháng") nằm dưới dòng "₫199.000 / 30 ngày"
+                    ba ("tính theo tháng") nằm dưới dòng "₫69.000 / 30 ngày"
                     thì tự mâu thuẫn với chính nó. */}
                 {t.chuKy !== undefined
                   ? `Mức dự kiến, chu kỳ ${t.chuKy}`
@@ -391,9 +391,6 @@ function BangGiaPage() {
           </table>
         </div>
         <p className="mt-3 text-[12px] text-muted-foreground">
-          * Không giới hạn trong sử dụng bình thường; có lá chắn chống lạm dụng 500 lượt/ngày.
-        </p>
-        <p className="mt-1 text-[12px] text-muted-foreground">
           Giá hiển thị chưa bao gồm thuế GTGT.
         </p>
       </section>

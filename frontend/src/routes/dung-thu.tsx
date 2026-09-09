@@ -459,7 +459,7 @@ function ManHoiKlaw() {
               <div className="mt-8">
                 <TheHetLuot
                   loai="het_han"
-                  chiTiet={`Gói Cá nhân đã hết hạn ngày ${ngayHetHan}. Gia hạn 30 ngày để tiếp tục hỏi không giới hạn và soạn 20 bản thảo mỗi ngày.`}
+                  chiTiet={`Gói Cá nhân đã hết hạn ngày ${ngayHetHan}. Gia hạn 30 ngày để tiếp tục hỏi 500 lượt mỗi ngày và soạn 20 bản thảo mỗi ngày.`}
                   onNangGoi={moNangGoi}
                 />
               </div>
@@ -620,7 +620,7 @@ function ManHoiKlaw() {
                     {khachHetLuot && mucChip !== null && (
                       <TheHetLuot
                         loai="khach"
-                        chiTiet={`Bạn đã dùng ${mucChip.han_muc} lượt thử. Đăng nhập miễn phí để tiếp tục, lưu đoạn chat này và có 200 lượt mỗi ngày.`}
+                        chiTiet={`Bạn đã dùng ${mucChip.han_muc} lượt thử. Đăng nhập miễn phí để tiếp tục, lưu đoạn chat này và có 100 lượt mỗi ngày.`}
                         onCatThread={catThreadTruocKhiRoi}
                       />
                     )}
