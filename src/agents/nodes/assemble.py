@@ -564,19 +564,42 @@ def dung_bang_tu_luan_diem(verified: list, citations: list[dict]) -> Bang | None
     doi_tuong: list[str] = []
     for r, c in zip(verified, citations, strict=True):
         h = getattr(r.claim, "hang", None)
-        if not h or not h.get("doi_tuong") or not h.get("tieu_chi"):
+        # Review round 1, finding 2: mô hình có thể trả `hang` KHÔNG PHẢI mapping
+        # (chuỗi, số, list — vẫn truthy) dù schema strict đòi object|null; `.get`
+        # trên một giá trị như vậy nổ AttributeError ở bước CUỐI của một câu trả
+        # lời đã qua cả hai tầng kiểm. `isinstance` trước, cùng tinh thần phòng
+        # thủ hình dạng LLM trả về mà `generate_claims.py` đã áp cho cả JSON.
+        if not isinstance(h, dict):
             continue
-        dt, tc = h["doi_tuong"].strip(), h["tieu_chi"].strip()
+        dt_raw, tc_raw = h.get("doi_tuong"), h.get("tieu_chi")
+        if not isinstance(dt_raw, str) or not isinstance(tc_raw, str) or not dt_raw.strip() or not tc_raw.strip():
+            continue
+        dt, tc = dt_raw.strip(), tc_raw.strip()
         if dt not in doi_tuong:
             doi_tuong.append(dt)
         so_dieu = c["duong_dan"].rsplit("Điều ", 1)[-1].split(" ")[0]
+        # Cùng (đối tượng, tiêu chí) xuất hiện hai lần (hai luận điểm trùng ô) —
+        # BẢN SAU ghi đè bản trước, có chủ đích (review round 1, finding 3):
+        # `verified`/`citations` không mang thứ tự "đáng tin hơn" nào giữa hai
+        # luận điểm cùng một ô, và một cell hai câu nối lại sẽ dài hơn không rõ
+        # ích lợi gì hơn — giữ bản GẦN NHẤT là hành vi ĐƠN GIẢN nhất còn quyết
+        # định được, ghim bằng test, không phải bỏ ngỏ.
         o.setdefault(tc, {})[dt] = f"{r.claim.text} [Điều {so_dieu}](cite:{c['k']})"
-    if len(doi_tuong) < 2 or sum(len(v) for v in o.values()) < 2:
+    # Review round 1, finding 1: hai đối tượng + đủ hai ô KHÔNG đủ nếu chúng rơi
+    # vào hai TIÊU CHÍ KHÁC NHAU — mỗi hàng khi đó chỉ có một ô, còn lại toàn dấu
+    # gạch, tức một bảng TRÔNG như so sánh nhưng KHÔNG hàng nào thực sự so sánh
+    # hai đối tượng với nhau. Đòi ÍT NHẤT một hàng có từ hai ô trở lên.
+    if len(doi_tuong) < 2 or sum(len(v) for v in o.values()) < 2 or not any(len(v) >= 2 for v in o.values()):
         return None
     return Bang(
         tieu_de="So sánh theo tiêu chí",
+        # Ô thiếu để CHUỖI RỖNG, KHÔNG PHẢI dấu gạch: cùng quy ước "không có dữ
+        # liệu" mà bảng kho (`services/kho.dung_bang`) đã dùng, để `BangKetQua`
+        # áp ĐÚNG MỘT đường hiển thị ô trống có khả năng truy cập (màu mờ + câu
+        # `sr-only`) cho cả hai loại bảng thay vì bảng so sánh tự bịa một quy ước
+        # thứ hai mà component chưa biết (Minor, review round 1).
         cot=["Tiêu chí", *doi_tuong],
-        dong=[[tc, *[o[tc].get(dt, "—") for dt in doi_tuong]] for tc in o],
+        dong=[[tc, *[o[tc].get(dt, "") for dt in doi_tuong]] for tc in o],
     )
 
 
