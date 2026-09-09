@@ -49,8 +49,18 @@ _HANG_NGUON = {"suy_dien": 0, "tai_khoan": 1, "nguoi_noi": 2}
 ENDPOINT_TRACE = "/api/v1/bo-nho"
 KHONG_CO_DU_KIEN = "(chưa có dữ kiện nào)"
 
-_RE_DIEU = re.compile(r"\b(Đi[eề]u|Kho[aả]n|Đi[eể]m)\s+\d+", re.IGNORECASE)
+# `Đ` bắt cả dạng viết tắt "Đ.35"/"đ.35" (chuẩn pháp lý tiếng Việt); `\.?\s*`
+# (thay vì `\s+`) chấp nhận cả không dấu chấm không khoảng trắng ("Điều35").
+_RE_DIEU = re.compile(r"\b(Đi[eề]u|Kho[aả]n|Đi[eể]m|Đ)\.?\s*\d+", re.IGNORECASE)
 _RE_DINH_DANH = re.compile(r"\d{9,12}|@|(?:\+84|0)\d{9}\b")
+
+
+def _vuong_luoi_chan(g: str) -> bool:
+    """True nếu `g` mang số Điều/Khoản/Điểm, số hiệu văn bản, hay dấu vết định danh cá
+    nhân — dùng chung bởi `gia_tri_hop_le` (hồ sơ) và `cap_nhat_phien` (tóm tắt), để
+    một tóm tắt lọt số Điều hay số điện thoại không có đường thứ hai né lưới chặn."""
+    return bool(_RE_DIEU.search(g) or moi_so_hieu_trong(g) or _RE_DINH_DANH.search(g))
+
 
 BO_NHO_SCHEMA = {
     "type": "object",
@@ -72,9 +82,7 @@ def gia_tri_hop_le(gia_tri: str) -> bool:
     g = " ".join(str(gia_tri or "").split())
     if not g or len(g) > GIA_TRI_TOI_DA:
         return False
-    if _RE_DIEU.search(g) or moi_so_hieu_trong(g) or _RE_DINH_DANH.search(g):
-        return False
-    return True
+    return not _vuong_luoi_chan(g)
 
 
 def gop_ho_so(cu: dict, moi: dict, nguon: str) -> dict:
@@ -220,8 +228,8 @@ def cap_nhat_phien(hoi_thoai_id: str, user_sub: str, llm=None, model: str | None
         raw, usage = llm.chat(model, messages(prompt), json_schema=BO_NHO_SCHEMA)
         ra = json.loads(raw)
         tom_tat = " ".join(str(ra.get("tom_tat") or "").split())[:TOM_TAT_TOI_DA] or bn["tom_tat"]
-        if _RE_DIEU.search(tom_tat or "") or moi_so_hieu_trong(tom_tat or ""):
-            tom_tat = bn["tom_tat"]  # tóm tắt lọt số Điều/số hiệu → giữ bản cũ
+        if _vuong_luoi_chan(tom_tat or ""):
+            tom_tat = bn["tom_tat"]  # tóm tắt lọt số Điều/số hiệu/định danh cá nhân → giữ bản cũ
         ho_so = gop_ho_so(bn["ho_so"], ra.get("ho_so") or {}, "nguoi_noi")
         den = khoang[1] if khoang else bn["tom_tat_den_thu_tu"]
         hoi_thoai.ghi_bo_nho(hoi_thoai_id, tom_tat if (luot_gop or bn["tom_tat"]) else None, den, ho_so)

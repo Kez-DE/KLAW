@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from sqlalchemy import text
 
 from src.services.bao_ve import mui_gio
+from src.services.bo_nho import ENDPOINT_TRACE as _BO_NHO_ENDPOINT
 from src.services.db import get_engine
 
 # Mọi giá trị `ResultType` của `agents/nodes/assemble.py` (bảy loại) cộng
@@ -31,16 +32,19 @@ _SQL_TONG = text(
     "SELECT endpoint, count(*)::int AS n FROM traces WHERE user_sub = :sub AND NOT cache_hit"
     " AND (result_type IS NULL OR result_type NOT IN ('loi', 'out_of_scope')) GROUP BY endpoint"
 )
-# Hoạt động là hoạt động: KHÔNG loại out_of_scope, chỉ loại lỗi và bộ đệm.
+# Hoạt động là hoạt động: KHÔNG loại out_of_scope, chỉ loại lỗi, bộ đệm, và các
+# dòng `bo_nho` (tóm tắt chạy nền — không phải một lượt hỏi thật của người dùng).
 _SQL_HOAT_DONG = text(
     "SELECT (ts AT TIME ZONE :tz)::date AS ngay, count(*)::int AS so_luot FROM traces"
     " WHERE user_sub = :sub AND NOT cache_hit AND result_type IS DISTINCT FROM 'loi'"
+    " AND endpoint IS DISTINCT FROM :bo_nho_endpoint"
     " AND ts >= now() - interval '365 days' GROUP BY 1 ORDER BY 1"
 )
 _SQL_PHAN_LOAI = text(
     "SELECT CASE WHEN endpoint = '/api/v1/soan-thao' THEN 'soan_thao' ELSE result_type END AS khoa,"
     " count(*)::int AS so FROM traces WHERE user_sub = :sub AND NOT cache_hit"
-    " AND result_type IS DISTINCT FROM 'loi' GROUP BY 1 ORDER BY 2 DESC"
+    " AND result_type IS DISTINCT FROM 'loi' AND endpoint IS DISTINCT FROM :bo_nho_endpoint"
+    " GROUP BY 1 ORDER BY 2 DESC"
 )
 
 
@@ -71,8 +75,16 @@ def tong_hop(sub: str) -> dict | None:
             return None
         so_phien = int(c.execute(_SQL_SO_PHIEN, {"sub": sub}).scalar_one())
         tong = {r["endpoint"]: r["n"] for r in c.execute(_SQL_TONG, {"sub": sub}).mappings()}
-        hoat_dong = [dict(r) for r in c.execute(_SQL_HOAT_DONG, {"sub": sub, "tz": str(mui_gio())}).mappings()]
-        phan_loai = _gop_phan_loai((r["khoa"], r["so"]) for r in c.execute(_SQL_PHAN_LOAI, {"sub": sub}).mappings())
+        hoat_dong = [
+            dict(r)
+            for r in c.execute(
+                _SQL_HOAT_DONG, {"sub": sub, "tz": str(mui_gio()), "bo_nho_endpoint": _BO_NHO_ENDPOINT}
+            ).mappings()
+        ]
+        phan_loai = _gop_phan_loai(
+            (r["khoa"], r["so"])
+            for r in c.execute(_SQL_PHAN_LOAI, {"sub": sub, "bo_nho_endpoint": _BO_NHO_ENDPOINT}).mappings()
+        )
     return {
         "email": u["email"],
         "plan_tho": u["plan"],

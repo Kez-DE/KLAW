@@ -1,12 +1,13 @@
 """Bộ nhớ ba lớp và hồ sơ tình huống (spec 2026-09-09 §6)."""
 
+import asyncio
 import json
 import uuid
 
 import pytest
 from sqlalchemy import text
 
-from src.services import bao_ve, bo_nho, hoi_thoai
+from src.services import bao_ve, bo_nho, ho_so, hoi_thoai
 from src.services.db import get_engine
 from src.services.llm import Usage
 
@@ -26,6 +27,9 @@ class LlmGia:
         ("người lao động", True),
         ("làm 3 năm, hợp đồng không xác định thời hạn", True),
         ("theo Điều 35 Bộ luật Lao động", False),
+        ("Đ.35", False),  # viết tắt chuẩn pháp lý — không có khoảng trắng, có dấu chấm
+        ("đ.35 BLLĐ", False),  # thường, không dấu, có hậu tố bộ luật
+        ("Điều35", False),  # đủ chữ nhưng dính liền số
         ("45/2019/QH14", False),
         ("CMND 012345678912", False),
         ("a@b.vn", False),
@@ -71,7 +75,28 @@ def test_luot_can_gop(den_cu, moi, ra):
     assert bo_nho.luot_can_gop(den_cu, moi) == ra
 
 
-pytestmark = pytest.mark.integration
+class _CaiDatGia:
+    def __init__(self, bat: bool):
+        self.bo_nho_nen = bat
+
+
+async def test_len_lich_cap_nhat_tat_khong_xep_lich(monkeypatch):
+    goi = []
+    monkeypatch.setattr(bo_nho, "cap_nhat_phien", lambda *a, **k: goi.append(a))
+    monkeypatch.setattr(bo_nho, "get_settings", lambda: _CaiDatGia(False))
+    bo_nho.len_lich_cap_nhat("pid", "sub")
+    assert goi == [] and bo_nho._DANG_CHAY == set()
+
+
+async def test_len_lich_cap_nhat_bat_xep_lich_va_chay(monkeypatch):
+    goi = []
+    monkeypatch.setattr(bo_nho, "cap_nhat_phien", lambda *a, **k: goi.append(a))
+    monkeypatch.setattr(bo_nho, "get_settings", lambda: _CaiDatGia(True))
+    bo_nho.len_lich_cap_nhat("pid", "sub")
+    assert len(bo_nho._DANG_CHAY) == 1
+    await asyncio.gather(*list(bo_nho._DANG_CHAY))
+    assert goi == [("pid", "sub")]
+    assert bo_nho._DANG_CHAY == set()  # done_callback đã dọn task xong
 
 
 @pytest.fixture
@@ -103,6 +128,7 @@ def _phien_8_luot(sub: str) -> str:
     return pid
 
 
+@pytest.mark.integration
 def test_cap_nhat_phien_gop_tom_tat_va_ho_so_free_khong_ghi_tai_khoan(nguoi):
     pid = _phien_8_luot(nguoi)
     llm = LlmGia(
@@ -137,6 +163,7 @@ def test_cap_nhat_phien_gop_tom_tat_va_ho_so_free_khong_ghi_tai_khoan(nguoi):
         )
 
 
+@pytest.mark.integration
 def test_pro_gop_vao_tai_khoan_va_khong_ghi_nho_chan(nguoi):
     _len_pro(nguoi)
     pid = _phien_8_luot(nguoi)
@@ -160,6 +187,7 @@ def test_pro_gop_vao_tai_khoan_va_khong_ghi_nho_chan(nguoi):
     assert bo_nho.ho_so_tai_khoan(nguoi) == []
 
 
+@pytest.mark.integration
 def test_llm_loi_thi_giu_ban_cu(nguoi):
     pid = _phien_8_luot(nguoi)
     hoi_thoai.ghi_bo_nho(pid, "cũ", 1, {"chu_the": {"gia_tri": "người lao động", "nguon": "nguoi_noi"}})
@@ -175,3 +203,26 @@ def test_llm_loi_thi_giu_ban_cu(nguoi):
         and bn["tom_tat_den_thu_tu"] == 1
         and bn["ho_so"]["chu_the"]["gia_tri"] == "người lao động"
     )
+
+
+@pytest.mark.integration
+def test_cap_nhat_phien_tom_tat_dinh_danh_giu_ban_cu(nguoi):
+    """Tóm tắt hợp lệ về Điều/số hiệu nhưng lọt một số điện thoại — vẫn phải bị chặn
+    (finding 3, review round 1): lưới chặn của tóm tắt dùng chung với hồ sơ."""
+    pid = _phien_8_luot(nguoi)
+    hoi_thoai.ghi_bo_nho(pid, "cũ", 1, {})
+    llm = LlmGia({"tom_tat": "Liên hệ 0912345678 để biết thêm.", "ho_so": {k: "" for k in bo_nho.KHOA_HO_SO}})
+    bo_nho.cap_nhat_phien(pid, nguoi, llm=llm, model="gia")
+    assert hoi_thoai.bo_nho_cua_phien(pid)["tom_tat"] == "cũ"  # số điện thoại vướng lưới chặn, giữ bản cũ
+
+
+@pytest.mark.integration
+def test_bo_nho_trace_khong_lam_bien_dang_hoat_dong_va_phan_loai(nguoi):
+    """Finding 4 (review round 1): một dòng trace của chính `bo_nho` không được lọt
+    vào lịch hoạt động hay bảng phân loại câu hỏi mà người dùng nhìn thấy trên hồ sơ."""
+    pid = _phien_8_luot(nguoi)
+    llm = LlmGia({"tom_tat": "x", "ho_so": {k: "" for k in bo_nho.KHOA_HO_SO}})
+    bo_nho.cap_nhat_phien(pid, nguoi, llm=llm, model="gia")
+    tong = ho_so.tong_hop(nguoi)
+    assert tong["hoat_dong"] == []  # dòng trace duy nhất là của bo_nho — không tính là hoạt động
+    assert tong["phan_loai"] == []  # và không rơi vào phân loại (kể cả về "Khác")
