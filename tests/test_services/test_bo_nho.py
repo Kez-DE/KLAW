@@ -30,6 +30,7 @@ class LlmGia:
         ("Đ.35", False),  # viết tắt chuẩn pháp lý — không có khoảng trắng, có dấu chấm
         ("đ.35 BLLĐ", False),  # thường, không dấu, có hậu tố bộ luật
         ("Điều35", False),  # đủ chữ nhưng dính liền số
+        ("Đ. 35, Quận 1", False),  # dương tính giả CHỦ Ý (review round 2): "Đ." cũng là viết tắt "Đường"
         ("45/2019/QH14", False),
         ("CMND 012345678912", False),
         ("a@b.vn", False),

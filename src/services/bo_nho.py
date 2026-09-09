@@ -51,6 +51,12 @@ KHONG_CO_DU_KIEN = "(chưa có dữ kiện nào)"
 
 # `Đ` bắt cả dạng viết tắt "Đ.35"/"đ.35" (chuẩn pháp lý tiếng Việt); `\.?\s*`
 # (thay vì `\s+`) chấp nhận cả không dấu chấm không khoảng trắng ("Điều35").
+#
+# Known accepted false positive (review round 2): "Đ." is also the standard
+# abbreviation for "Đường" (street), so a real address like "Đ. 35, Quận 1"
+# is rejected too. Kept as-is on purpose — this guard fails closed: losing one
+# address fact (which can simply be restated) is a far smaller cost than
+# letting a fabricated legal citation slip into the model's context.
 _RE_DIEU = re.compile(r"\b(Đi[eề]u|Kho[aả]n|Đi[eể]m|Đ)\.?\s*\d+", re.IGNORECASE)
 _RE_DINH_DANH = re.compile(r"\d{9,12}|@|(?:\+84|0)\d{9}\b")
 
