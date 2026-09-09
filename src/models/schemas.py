@@ -959,6 +959,7 @@ class TaiKhoanTomTatOut(BaseModel):
     tao_luc: datetime
     so_phien: int
     luot_30_ngay: int
+    truc_tuyen: bool = False  # có luồng thông báo đang mở (xem `luong_thong_bao.dang_truc_tuyen`)
 
 
 class DanhSachTaiKhoanOut(BaseModel):
@@ -971,6 +972,18 @@ class TaiKhoanChiTietOut(HoSoResponse):
     khoa_luc: datetime | None
     khoa_ly_do: str | None
     yeu_cau: list[YeuCauNangGoiOut]
+    truc_tuyen: bool = False
+
+
+class TrucTuyenOut(BaseModel):
+    sub: str
+    email: str | None
+    tu_luc: datetime  # mốc mở luồng đầu tiên còn hiệu lực
+
+
+class DanhSachTrucTuyenOut(BaseModel):
+    so: int
+    items: list[TrucTuyenOut]
 
 
 class NhatKyOut(BaseModel):
@@ -997,6 +1010,7 @@ class TongQuanOut(BaseModel):
     moi_7_ngay: int
     dang_khoa: int
     hoi_dap_hom_nay: int
+    dang_truc_tuyen: int = 0
 
 
 class GoiOut(BaseModel):

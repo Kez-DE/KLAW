@@ -7,11 +7,17 @@ import React from 'react'
 export function KhungQuanTri({
   props,
   tieuDe,
+  moTa,
+  hanhDong,
   children,
   khongBocTemplate,
 }: {
   props: AdminViewServerProps
   tieuDe: string
+  /** Một câu dưới tiêu đề: view này để làm gì. */
+  moTa?: string
+  /** Cụm bên phải tiêu đề (pill trực tuyến, nút xuất…). */
+  hanhDong?: React.ReactNode
   children: React.ReactNode
   /** Route dashboard (`/admin`) đã được Payload tự bọc trong MỘT DefaultTemplate của
    *  riêng nó (kèm viewActions) trước khi gọi component đăng ký — mọi view tuỳ biến khác
@@ -21,20 +27,29 @@ export function KhungQuanTri({
 }) {
   const { initPageResult, params, searchParams } = props
   if (!initPageResult.req.user) return <Gutter><p>Bạn cần đăng nhập vào trang quản trị.</p></Gutter>
-  if (khongBocTemplate) return <Gutter><h1 style={{ marginBottom: 24 }}>{tieuDe}</h1>{children}</Gutter>
+  const than = (
+    <Gutter>
+      <div className="klaw-dau-trang">
+        <div>
+          <h1>{tieuDe}</h1>
+          {moTa && <p className="klaw-dau-trang__mo-ta">{moTa}</p>}
+        </div>
+        {hanhDong && <div className="klaw-dau-trang__hanh-dong">{hanhDong}</div>}
+      </div>
+      {children}
+    </Gutter>
+  )
+  if (khongBocTemplate) return than
   return (
     <DefaultTemplate
       i18n={initPageResult.req.i18n} locale={initPageResult.locale} params={params} payload={initPageResult.req.payload}
       permissions={initPageResult.permissions} searchParams={searchParams} user={initPageResult.req.user} visibleEntities={initPageResult.visibleEntities}
       // DefaultTemplate không tự đọc payload.config.admin.components.actions — nó chỉ vẽ
       // những gì `viewActions` truyền vào, và Payload đã tính sẵn giá trị đó cho ta trên
-      // `props`. Thiếu dòng này, chuông thông báo (đăng ký ở payload.config.ts) chỉ hiện
-      // trên `/admin` (route dashboard do Payload tự bọc thêm một template ở NGOÀI khung
-      // này) và biến mất trên mọi view tuỳ biến khác (yêu cầu, tài khoản, nhật ký) — vì
-      // các view đó chỉ có đúng khung DefaultTemplate do KhungQuanTri dựng ở đây.
+      // `props`. Thiếu dòng này, chuông thông báo chỉ hiện trên `/admin`.
       viewActions={props.viewActions}
     >
-      <Gutter><h1 style={{ marginBottom: 24 }}>{tieuDe}</h1>{children}</Gutter>
+      {than}
     </DefaultTemplate>
   )
 }

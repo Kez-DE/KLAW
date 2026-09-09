@@ -10,7 +10,7 @@ export type TaiKhoanTomTat = {
   khoa_luc: string | null
   tao_luc: string
   so_phien: number
-  luot_30_ngay: number
+  luot_30_ngay: number; truc_tuyen?: boolean
 }
 
 /** Chép từ `TaiKhoanChiTiet` (KLAW `src/models/schemas.py`). Không render `hoat_dong`/`phan_loai` — không hiện nội dung hội thoại. */
@@ -27,7 +27,7 @@ export type TaiKhoanChiTiet = {
   hoat_dong: unknown[]
   phan_loai: unknown[]
   khoa_luc: string | null
-  khoa_ly_do: string | null
+  khoa_ly_do: string | null; truc_tuyen?: boolean
   yeu_cau: {
     id: number
     loai: string

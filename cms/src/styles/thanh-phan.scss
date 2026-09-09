@@ -1,0 +1,1022 @@
+// Thành phần giao diện của các view quản trị KLAW. Tiền tố `klaw-`, BEM.
+// Mọi màu đi qua token trong custom.scss để theme tối của Payload vẫn đọc được.
+
+// ── Đầu trang ───────────────────────────────────────────────────────────────
+.klaw-dau-trang {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0 1.5rem;
+
+  h1 {
+    margin: 0;
+  }
+
+  &__mo-ta {
+    margin: 0.35rem 0 0;
+    color: var(--klaw-phu);
+    font-size: 0.9rem;
+    max-width: 60ch;
+  }
+
+  &__hanh-dong {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+}
+
+// ── Thẻ ─────────────────────────────────────────────────────────────────────
+.klaw-the {
+  background: var(--klaw-trang);
+  border: 1px solid var(--klaw-vien);
+  border-radius: var(--klaw-radius-the);
+  box-shadow: var(--klaw-bong);
+  min-width: 0;
+
+  &__dau {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem 0.85rem;
+    border-bottom: 1px solid var(--klaw-vien);
+
+    h2 {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.35;
+    }
+
+    p {
+      margin: 0.2rem 0 0;
+      color: var(--klaw-phu);
+      font-size: 0.85rem;
+    }
+  }
+
+  &__hanh-dong {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  &__than {
+    padding: 1.25rem;
+  }
+
+  &__than--sat {
+    padding: 0;
+  }
+
+  &__chan {
+    padding: 0.85rem 1.25rem;
+    border-top: 1px solid var(--klaw-vien);
+    color: var(--klaw-phu);
+    font-size: 0.8rem;
+  }
+}
+
+// ── Lưới 12 cột ─────────────────────────────────────────────────────────────
+.klaw-luoi {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+
+  > * {
+    grid-column: span 12;
+    min-width: 0;
+  }
+
+  @media (min-width: 60rem) {
+    > .klaw-luoi__8 { grid-column: span 8; }
+    > .klaw-luoi__6 { grid-column: span 6; }
+    > .klaw-luoi__5 { grid-column: span 5; }
+    > .klaw-luoi__7 { grid-column: span 7; }
+    > .klaw-luoi__4 { grid-column: span 4; }
+  }
+}
+
+.klaw-chong {
+  display: grid;
+  gap: 1.25rem;
+}
+
+// ── Dải số liệu: một thẻ, nhiều ô, không phải lưới ô số cùng cỡ ─────────────
+.klaw-dai-so {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+
+  &__o {
+    display: grid;
+    grid-template-rows: subgrid;
+    grid-row: span 3;
+    row-gap: 0.25rem;
+    padding: 1rem 1.25rem;
+    border-right: 1px solid var(--klaw-vien);
+    border-bottom: 1px solid var(--klaw-vien);
+    text-decoration: none;
+    color: inherit;
+    transition: background-color 150ms var(--klaw-de);
+
+    &:last-child {
+      border-right: 0;
+    }
+  }
+
+  a.klaw-dai-so__o:hover {
+    background: var(--klaw-vo);
+  }
+
+  &__nhan {
+    color: var(--klaw-phu);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  &__gia-tri {
+    font-size: 1.6rem;
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--klaw-chu);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  &__ghi-chu {
+    color: var(--klaw-muc);
+    font-size: 0.78rem;
+  }
+}
+
+// ── Pill trạng thái ─────────────────────────────────────────────────────────
+.klaw-nhan {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  background: var(--klaw-vo-dam);
+  color: var(--klaw-phu);
+
+  &--muc { background: var(--klaw-muc-nhat); color: var(--klaw-muc); }
+  &--xanh { background: var(--klaw-xanh-nhat); color: var(--klaw-xanh); }
+  &--do { background: var(--klaw-do-nhat); color: var(--klaw-do); }
+  &--vang { background: var(--klaw-vang-nhat); color: var(--klaw-vang); }
+  &--dong-thau { background: var(--klaw-dong-thau-nhat); color: var(--klaw-dong-thau-dam); }
+}
+
+// ── Chấm trực tuyến — khoảnh khắc chuyển động duy nhất được dựng có chủ ý ────
+.klaw-cham {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--klaw-phu);
+  white-space: nowrap;
+
+  &__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--klaw-vien-nhap);
+    flex-shrink: 0;
+  }
+
+  &--tren {
+    color: var(--klaw-xanh);
+    font-weight: 600;
+  }
+
+  &--tren &__dot {
+    background: var(--klaw-xanh);
+    box-shadow: 0 0 0 0 rgb(0 96 61 / 35%);
+    animation: klaw-cham-tho 2.4s var(--klaw-de) infinite;
+  }
+}
+
+@keyframes klaw-cham-tho {
+  0% { box-shadow: 0 0 0 0 rgb(0 96 61 / 35%); }
+  60% { box-shadow: 0 0 0 0.35rem rgb(0 96 61 / 0%); }
+  100% { box-shadow: 0 0 0 0 rgb(0 96 61 / 0%); }
+}
+
+// ── Bảng ────────────────────────────────────────────────────────────────────
+.klaw-bang-khung {
+  overflow-x: auto;
+  border-radius: 0 0 var(--klaw-radius-the) var(--klaw-radius-the);
+  scrollbar-width: thin;
+  scrollbar-color: var(--klaw-vien) transparent;
+  // Bóng cuộn thuần CSS: lớp phủ trắng cuộn theo nội dung (attachment local) che bóng khi đã tới mép,
+  // nên bóng chỉ hiện ở phía còn cột khuất.
+  background:
+    linear-gradient(to right, var(--klaw-trang) 40%, transparent) left / 3rem 100% no-repeat,
+    linear-gradient(to left, var(--klaw-trang) 40%, transparent) right / 3rem 100% no-repeat,
+    linear-gradient(to right, rgb(25 37 50 / 0.14), transparent) left / 1rem 100% no-repeat,
+    linear-gradient(to left, rgb(25 37 50 / 0.14), transparent) right / 1rem 100% no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+
+.klaw-bang {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.9rem;
+
+  th {
+    padding: 0.65rem 1.25rem;
+    background: var(--klaw-vo);
+    color: var(--klaw-phu);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--klaw-vien);
+  }
+
+  td {
+    padding: 0.8rem 1.25rem;
+    border-bottom: 1px solid var(--klaw-vo-dam);
+    vertical-align: middle;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  // Cột chữ dài (lý do) và ô trạng thái rỗng được xuống dòng.
+  td.klaw-bang__o--boc,
+  td.klaw-bang__rong {
+    white-space: normal;
+  }
+
+  td.klaw-bang__o--boc {
+    min-width: 16rem;
+    max-width: 28rem;
+  }
+
+  // Cột phụ ẩn dưới 60rem: còn định danh + trạng thái, phần còn lại xem ở trang tài khoản.
+  @media (max-width: 59.99rem) {
+    th.klaw-bang__o--phu,
+    td.klaw-bang__o--phu {
+      display: none;
+    }
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  tbody tr {
+    transition: background-color 120ms var(--klaw-de);
+  }
+
+  tbody tr:hover {
+    background: var(--klaw-vo);
+  }
+
+  tbody tr[role='button'] {
+    cursor: pointer;
+  }
+
+  tbody tr[role='button']:focus-visible {
+    outline: 2px solid var(--klaw-dong-thau-dam);
+    outline-offset: -2px;
+  }
+
+  &__rong {
+    padding: 2.5rem 1.25rem !important;
+    text-align: center;
+    color: var(--klaw-phu);
+  }
+}
+
+.klaw-ma {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--klaw-phu);
+  letter-spacing: 0;
+}
+
+.klaw-chinh {
+  font-weight: 600;
+  color: var(--klaw-chu);
+}
+
+.klaw-phu {
+  color: var(--klaw-phu);
+  font-size: 0.85rem;
+}
+
+// ── Thanh công cụ, ô nhập, chip, phân đoạn ─────────────────────────────────
+.klaw-thanh-cong-cu {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--klaw-vien);
+
+  &__nhom {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+}
+
+.klaw-truong {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+
+  > span {
+    color: var(--klaw-phu);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+}
+
+.klaw-nhap,
+.klaw-chon {
+  height: 2.5rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--klaw-vien-nhap);
+  border-radius: var(--klaw-radius-dk);
+  background: var(--klaw-trang);
+  color: var(--klaw-chu);
+  font: inherit;
+  font-size: 0.9rem;
+  min-width: 0;
+  transition:
+    border-color 150ms var(--klaw-de),
+    box-shadow 150ms var(--klaw-de);
+
+  &::placeholder {
+    color: var(--klaw-phu);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--klaw-dong-thau-dam);
+    box-shadow: 0 0 0 3px var(--klaw-dong-thau-nhat);
+  }
+
+  &:disabled {
+    background: var(--klaw-vo);
+    color: var(--klaw-phu);
+    cursor: not-allowed;
+  }
+}
+
+textarea.klaw-nhap {
+  height: auto;
+  min-height: 6rem;
+  padding: 0.65rem 0.85rem;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.klaw-o-tim {
+  position: relative;
+  min-width: 16rem;
+
+  svg {
+    position: absolute;
+    left: 0.8rem;
+    top: 50%;
+    width: 1rem;
+    height: 1rem;
+    transform: translateY(-50%);
+    color: var(--klaw-phu);
+    pointer-events: none;
+  }
+
+  .klaw-nhap {
+    width: 100%;
+    padding-left: 2.35rem;
+  }
+}
+
+.klaw-phan-doan {
+  display: inline-flex;
+  padding: 0.2rem;
+  gap: 0.15rem;
+  background: var(--klaw-vo-dam);
+  border-radius: var(--klaw-radius-dk);
+
+  button {
+    padding: 0.4rem 0.85rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--klaw-phu);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background-color 150ms var(--klaw-de),
+      color 150ms var(--klaw-de),
+      box-shadow 150ms var(--klaw-de);
+
+    &:hover {
+      color: var(--klaw-muc);
+    }
+
+    &[aria-pressed='true'] {
+      background: var(--klaw-trang);
+      color: var(--klaw-muc);
+      box-shadow: 0 1px 2px rgb(25 37 50 / 10%);
+    }
+  }
+}
+
+.klaw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--klaw-vien);
+  border-radius: 999px;
+  background: var(--klaw-trang);
+  color: var(--klaw-chu);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 150ms var(--klaw-de),
+    border-color 150ms var(--klaw-de),
+    color 150ms var(--klaw-de);
+
+  &:hover {
+    border-color: var(--klaw-vien-nhap);
+  }
+
+  &[aria-pressed='true'] {
+    background: var(--klaw-dong-thau-nhat);
+    border-color: var(--klaw-dong-thau-dam);
+    color: var(--klaw-dong-thau-dam);
+    font-weight: 600;
+  }
+}
+
+.klaw-phan-trang {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--klaw-vien);
+  color: var(--klaw-phu);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+
+  &__nut {
+    display: flex;
+    gap: 0.5rem;
+  }
+}
+
+// ── Hộp xác nhận ────────────────────────────────────────────────────────────
+dialog.klaw-hop {
+  width: min(30rem, 92vw);
+  padding: 0;
+  border: 1px solid var(--klaw-vien);
+  border-radius: 16px;
+  background: var(--klaw-trang);
+  color: var(--klaw-chu);
+  box-shadow: var(--klaw-bong-noi);
+
+  &::backdrop {
+    background: rgb(25 37 50 / 45%);
+    backdrop-filter: blur(3px);
+  }
+
+  &[open] {
+    animation: klaw-hop-vao 180ms var(--klaw-de);
+  }
+
+  h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  p {
+    margin: 0;
+    color: var(--klaw-phu);
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+}
+
+@keyframes klaw-hop-vao {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+.klaw-hop__than {
+  padding: 1.5rem 1.5rem 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.klaw-hop__chan {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.9rem 1.5rem;
+  background: var(--klaw-vo);
+  border-top: 1px solid var(--klaw-vien);
+  border-radius: 0 0 16px 16px;
+}
+
+// ── Thông báo lỗi, trạng thái, rỗng, khung xương ───────────────────────────
+.klaw-loi {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--klaw-do) 25%, var(--klaw-trang));
+  border-radius: var(--klaw-radius-dk);
+  background: var(--klaw-do-nhat);
+  color: var(--klaw-do);
+  font-size: 0.9rem;
+
+  p {
+    margin: 0;
+  }
+}
+
+.klaw-trang-thai {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--klaw-radius-dk);
+  font-size: 0.9rem;
+  border: 1px solid var(--klaw-vien);
+  background: var(--klaw-vo);
+  color: var(--klaw-chu);
+
+  &--ok { background: var(--klaw-xanh-nhat); border-color: color-mix(in srgb, var(--klaw-xanh) 25%, var(--klaw-trang)); color: var(--klaw-xanh); }
+  &--canh-bao { background: var(--klaw-vang-nhat); border-color: color-mix(in srgb, var(--klaw-vang) 25%, var(--klaw-trang)); color: var(--klaw-vang); }
+  &--loi { background: var(--klaw-do-nhat); border-color: color-mix(in srgb, var(--klaw-do) 25%, var(--klaw-trang)); color: var(--klaw-do); }
+
+  a {
+    color: inherit;
+    font-weight: 600;
+    text-underline-offset: 0.15em;
+  }
+}
+
+.klaw-trong {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1.25rem;
+  text-align: center;
+  color: var(--klaw-phu);
+
+  svg {
+    width: 2rem;
+    height: 2rem;
+    color: var(--klaw-vien-nhap);
+  }
+
+  strong {
+    color: var(--klaw-chu);
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.85rem;
+    max-width: 36ch;
+  }
+}
+
+.klaw-xuong {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.25rem;
+
+  span {
+    display: block;
+    height: 0.9rem;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--klaw-vo-dam) 25%, var(--klaw-vo) 50%, var(--klaw-vo-dam) 75%);
+    background-size: 200% 100%;
+    animation: klaw-xuong-troi 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes klaw-xuong-troi {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+// ── Danh sách trực tuyến, định danh, cụm hành động ─────────────────────────
+.klaw-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: var(--klaw-muc-nhat);
+  color: var(--klaw-muc);
+  font-weight: 600;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+
+  &--lon {
+    width: 3.25rem;
+    height: 3.25rem;
+    font-size: 1.25rem;
+  }
+}
+
+.klaw-ds-truc-tuyen {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  // Hai dòng: email trọn dòng trên, "từ HH:MM" dòng dưới — thẻ 4 cột ở 1440 không đủ cho một dòng.
+  li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 0.75rem;
+    row-gap: 0.1rem;
+    align-items: center;
+    padding: 0.7rem 1.25rem;
+    border-bottom: 1px solid var(--klaw-vo-dam);
+
+    > .klaw-avatar,
+    > .klaw-cham {
+      grid-row: 1 / span 2;
+    }
+
+    > .klaw-cham {
+      grid-column: 3;
+    }
+
+    &:last-child {
+      border-bottom: 0;
+    }
+  }
+
+  a {
+    color: var(--klaw-chu);
+    text-decoration: none;
+    font-weight: 500;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover {
+      color: var(--klaw-muc);
+      text-decoration: underline;
+      text-underline-offset: 0.15em;
+    }
+  }
+
+  &__tu {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 0.75rem;
+    color: var(--klaw-phu);
+    white-space: nowrap;
+  }
+}
+
+.klaw-dinh-danh {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  &__chu {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    overflow-wrap: anywhere;
+  }
+
+  &__nhan {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+}
+
+.klaw-tom-tat {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--klaw-vien);
+
+  > div {
+    padding: 0.9rem 1.25rem;
+    border-right: 1px solid var(--klaw-vien);
+
+    &:last-child {
+      border-right: 0;
+    }
+  }
+
+  span {
+    display: block;
+    color: var(--klaw-phu);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  strong {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 1.35rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+}
+
+.klaw-hanh-dong {
+  display: grid;
+  gap: 1rem;
+
+  &__hang {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  &__nut {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  &__nhom {
+    display: grid;
+    gap: 0.6rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--klaw-vien);
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--klaw-phu);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+}
+
+.klaw-dong {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0;
+  font-size: 0.9rem;
+
+  dt {
+    color: var(--klaw-phu);
+  }
+
+  dd {
+    margin: 0;
+    color: var(--klaw-chu);
+    overflow-wrap: anywhere;
+  }
+}
+
+.klaw-chi-tiet-json {
+  summary {
+    cursor: pointer;
+    color: var(--klaw-muc);
+    font-weight: 500;
+  }
+
+  pre {
+    margin: 0.5rem 0 0;
+    padding: 0.75rem;
+    max-width: 32rem;
+    overflow: auto;
+    border-radius: var(--klaw-radius-dk);
+    background: var(--klaw-vo);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+}
+
+// Điều hướng KLAW trong nav trái của Payload
+.klaw-dieu-huong {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.25rem 0 0.5rem;
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-decoration: none;
+  }
+
+  svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    flex-shrink: 0;
+    opacity: 0.85;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .klaw-cham--tren .klaw-cham__dot,
+  .klaw-xuong span,
+  dialog.klaw-hop[open] {
+    animation: none;
+  }
+}
+
+// ── Thương hiệu: logo đăng nhập và câu chào ─────────────────────────────────
+.klaw-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  &__chu {
+    display: grid;
+    line-height: 1.1;
+  }
+
+  strong {
+    color: var(--klaw-muc);
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+  }
+
+  span {
+    color: var(--klaw-phu);
+    font-size: 0.8rem;
+  }
+
+  // Khoá hiệu nhỏ ở header: dấu 24 px + chữ, một dòng.
+  &--nho {
+    gap: 0.5rem;
+    white-space: nowrap;
+
+    strong {
+      font-size: 0.95rem;
+      letter-spacing: 0.1em;
+    }
+  }
+}
+
+.klaw-chao {
+  margin: -0.25rem 0 1.5rem;
+  color: var(--klaw-phu);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  max-width: 44ch;
+}
+
+// Liên kết trông như nút phụ (dùng cho điều hướng trong thẻ, không phải hành động ghi).
+.klaw-nut-lien-ket {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--klaw-vien);
+  border-radius: var(--klaw-radius-dk);
+  background: var(--klaw-trang);
+  color: var(--klaw-muc);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color 150ms var(--klaw-de),
+    border-color 150ms var(--klaw-de);
+
+  &:hover {
+    background: var(--klaw-vo);
+    border-color: var(--klaw-vien-nhap);
+  }
+}
+
+.klaw-o-lot {
+  padding: 1rem 1.25rem;
+}
+
+.klaw-tai-khoan-o {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+
+  span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+button.klaw-nut-lien-ket {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.klaw-o-tim {
+  display: block;
+}
+
+.klaw-ghi-chu-loc {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 1.25rem;
+  border-bottom: 1px solid var(--klaw-vien);
+  background: var(--klaw-dong-thau-nhat);
+  color: var(--klaw-dong-thau-dam);
+  font-size: 0.85rem;
+
+  a {
+    color: inherit;
+    font-weight: 600;
+  }
+}
+
+// Nút trong đầu thẻ không được xuống dòng; liên kết tài khoản trong bảng bỏ gạch chân mặc định.
+.klaw-the__hanh-dong .btn,
+.klaw-the__hanh-dong .btn__label,
+.btn .klaw-tai-khoan-o {
+  white-space: nowrap;
+}
+
+.klaw-tai-khoan-o a {
+  color: var(--klaw-chu);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--klaw-muc);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+}
+
+// Dòng phụ trong ô bảng (loại tác nhân · IP dưới người thực hiện).
+.klaw-dong-phu {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--klaw-phu);
+}
+
+// Avatar góc phải header: chữ đầu email trên nền mực.
+.klaw-avatar--muc {
+  background: var(--klaw-muc);
+  color: var(--klaw-trang);
+}
+
+// Dòng phụ chỉ hiện ở màn hẹp, thay cho các cột phụ đã ẩn; ô tài khoản có trần rộng để email dài cắt bằng dấu ba chấm.
+.klaw-dong-phu--di-dong {
+  display: none;
+}
+
+@media (max-width: 59.99rem) {
+  .klaw-dong-phu--di-dong {
+    display: block;
+  }
+
+  .klaw-tai-khoan-o {
+    max-width: 13rem;
+  }
+}

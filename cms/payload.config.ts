@@ -3,7 +3,6 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { buildConfig } from 'payload'
 import { postgresAdapter } from '@payloadcms/db-postgres'
-import { en } from '@payloadcms/translations/languages/en'
 import { vi } from '@payloadcms/translations/languages/vi'
 
 import { Admins } from './src/collections/Admins'
@@ -31,6 +30,7 @@ export default buildConfig({
   admin: {
     user: 'admins',
     meta: { titleSuffix: '— KLAW quản trị' },
+    avatar: { Component: '@/components/thuong-hieu/AvatarKlaw#AvatarKlaw' },
     components: {
       views: {
         dashboard: { Component: '@/views/TongQuan#TongQuan' },
@@ -40,9 +40,13 @@ export default buildConfig({
       },
       afterNavLinks: ['@/components/DieuHuong#DieuHuong'],
       actions: ['@/components/ChuongThongBao#ChuongThongBao'],
+      graphics: { Logo: '@/components/thuong-hieu/DauKlaw#DauKlaw', Icon: '@/components/thuong-hieu/DauKlaw#DauKlawNho' },
+      beforeLogin: ['@/components/thuong-hieu/LoiChaoDangNhap#LoiChaoDangNhap'],
     },
   },
-  i18n: { supportedLanguages: { vi, en }, fallbackLanguage: 'vi' },
+  // Chỉ tiếng Việt: có `en` trong danh sách thì Payload chọn theo Accept-Language của trình duyệt
+  // (thường en-US) và vỏ ngoài (đăng nhập, nhóm nav, ô ngày) ra tiếng Anh dù fallback là vi.
+  i18n: { supportedLanguages: { vi }, fallbackLanguage: 'vi' },
   serverURL,
   cors: origins,
   // Dev để RỖNG: allowlist csrf làm rớt phiên trên LAN plain-HTTP (kinh nghiệm dự án

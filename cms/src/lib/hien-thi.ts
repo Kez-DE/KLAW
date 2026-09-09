@@ -33,3 +33,13 @@ export const soNgayCon = (iso: string | null): number | null => {
   const t = Date.parse(iso)
   return Number.isNaN(t) ? null : Math.max(0, Math.ceil((t - Date.now()) / 86_400_000))
 }
+
+const FMT_GIO = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' })
+/** Chỉ giờ:phút theo giờ Việt Nam — cho "từ 10:31" trong danh sách trực tuyến. */
+export const dinhDangGio = (iso: string | null): string => {
+  if (!iso) return ''
+  const t = Date.parse(iso)
+  return Number.isNaN(t) ? '' : FMT_GIO.format(t)
+}
+/** Chữ cái đầu cho avatar: phần trước @ của email, viết hoa; rỗng → "?" */
+export const chuDau = (email: string | null | undefined): string => (email?.trim() ? email.trim()[0].toUpperCase() : '?')

@@ -77,9 +77,10 @@
     min-width: 1.15rem;
     padding: 0 0.25rem;
     border-radius: 999px;
-    background: var(--theme-error-500);
-    // Trắng trên nền đỏ error-500, cả hai theme — `--theme-base-0` không phải token thật.
-    color: var(--theme-elevation-0);
+    // Đồng thau đậm của KLAW: badge là điểm nhấn thương hiệu, không phải lỗi. Chữ trắng
+    // trên #8d6300 đo 4,9:1 (AA cho chữ nhỏ đậm).
+    background: var(--klaw-dong-thau-dam, var(--theme-error-500));
+    color: #fff;
     font-size: 0.7rem;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
@@ -119,9 +120,9 @@
     // Belt to that brace: nothing inside this panel is ever meant to be reached by
     // scrolling horizontally, so make that unreachable rather than merely unlikely.
     overflow-x: hidden;
-    background: var(--theme-elevation-0);
-    border: 1px solid var(--theme-elevation-150);
-    border-radius: var(--style-radius-m);
+    background: var(--klaw-trang, var(--theme-elevation-0));
+    border: 1px solid var(--klaw-vien, var(--theme-elevation-150));
+    border-radius: var(--klaw-radius-the, var(--style-radius-m));
     // `--elevation-400-menu-panel` không phải token thật của @payloadcms/ui — chỉ là một
     // cái tên gợi ý shadow-theo-tầng, chưa từng được định nghĩa; giá trị luôn rơi về
     // literal phía sau, dùng được ở cả hai theme vì nó không tham chiếu màu nền.

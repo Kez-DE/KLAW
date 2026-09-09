@@ -6,6 +6,7 @@ export type Hang = { method: 'get' | 'post' | 'patch'; duong: string; vaiTro: Va
 
 export const ALLOWLIST: readonly Hang[] = [
   { method: 'get', duong: '/tong-quan', vaiTro: 'doc' },
+  { method: 'get', duong: '/truc-tuyen', vaiTro: 'doc' },
   { method: 'get', duong: '/goi', vaiTro: 'doc' },
   { method: 'get', duong: '/yeu-cau', vaiTro: 'doc' },
   { method: 'post', duong: '/yeu-cau/:id/duyet', vaiTro: 'quan_tri', hanhDong: 'duyet_yeu_cau' },

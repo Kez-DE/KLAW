@@ -149,3 +149,27 @@ def test_khong_endpoint_admin_nao_doc_hoi_thoai():
     """Bất biến §5.3: admin thấy bao nhiêu lượt, không thấy hỏi gì."""
     src = Path("src/api/routes_admin.py").read_text(encoding="utf-8")
     assert "luot_hoi_thoai" not in src and "hoi_thoai.chi_tiet" not in src and "hoi_thoai.luot" not in src
+
+
+@tich_hop
+async def test_truc_tuyen_theo_luong_mo_va_co_trong_danh_sach(client, nguoi):
+    """`/truc-tuyen`, cờ `truc_tuyen` ở danh sách/chi tiết và `dang_truc_tuyen` ở tổng quan cùng một nguồn."""
+    from src.api import luong_thong_bao
+
+    r = await client.get("/api/v1/admin/truc-tuyen", headers=H)
+    assert r.status_code == 200 and r.json()["so"] == 0 and r.json()["items"] == []
+    luong_thong_bao.dang_ky(nguoi)
+    try:
+        r = await client.get("/api/v1/admin/truc-tuyen", headers=H)
+        assert r.status_code == 200 and r.json()["so"] == 1
+        assert r.json()["items"][0]["sub"] == nguoi and r.json()["items"][0]["email"] == "route@test.local"
+        assert r.json()["items"][0]["tu_luc"]
+        ds = (await client.get("/api/v1/admin/tai-khoan", params={"q": "route@"}, headers=H)).json()
+        assert ds["items"][0]["truc_tuyen"] is True
+        ct = (await client.get(f"/api/v1/admin/tai-khoan/{nguoi}", headers=H)).json()
+        assert ct["truc_tuyen"] is True
+        assert (await client.get("/api/v1/admin/tong-quan", headers=H)).json()["dang_truc_tuyen"] == 1
+    finally:
+        luong_thong_bao.huy(nguoi)
+    ds = (await client.get("/api/v1/admin/tai-khoan", params={"q": "route@"}, headers=H)).json()
+    assert ds["items"][0]["truc_tuyen"] is False

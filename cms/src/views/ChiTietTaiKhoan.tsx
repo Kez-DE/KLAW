@@ -2,15 +2,19 @@
 import { Button } from '@payloadcms/ui'
 import React, { useCallback, useEffect, useState } from 'react'
 import { Bang } from '../components/ui/Bang'
+import { ChamTrucTuyen } from '../components/ui/ChamTrucTuyen'
 import { HopXacNhan } from '../components/ui/HopXacNhan'
+import { mauTrangThaiYeuCau, Nhan } from '../components/ui/Nhan'
+import { The } from '../components/ui/The'
 import { ThongBaoLoi } from '../components/ui/ThongBaoLoi'
+import { Xuong } from '../components/ui/Xuong'
 import { goiQuanTri, type KetQua } from '../lib/goi-klaw'
-import { dinhDangLuc, nhanLoai, nhanTrangThaiYeuCau, tenGoi, type DanhSachGoi } from '../lib/hien-thi'
+import { chuDau, dinhDangLuc, nhanLoai, nhanTrangThaiYeuCau, tenGoi, type DanhSachGoi } from '../lib/hien-thi'
 import { cauXacNhan, hanHienThi, type HanhDongTK, type TaiKhoanChiTiet } from './tai-khoan-logic'
 
 type HopCho = { xn: ReturnType<typeof cauXacNhan>; onXacNhan: (lyDo?: string) => void } | null
 
-export function ChiTietTaiKhoan({ sub, vaiTro }: { sub: string; vaiTro: 'doc' | 'quan_tri' }) {
+export function ChiTietTaiKhoan({ sub, vaiTro, trenLive }: { sub: string; vaiTro: 'doc' | 'quan_tri'; trenLive?: boolean }) {
   const [ct, setCt] = useState<KetQua<TaiKhoanChiTiet> | null>(null)
   const [danhMuc, setDanhMuc] = useState<KetQua<DanhSachGoi> | null>(null)
   const [goiChon, setGoiChon] = useState('')
@@ -50,49 +54,121 @@ export function ChiTietTaiKhoan({ sub, vaiTro }: { sub: string; vaiTro: 'doc' | 
     void goiQuanTri(`/tai-khoan/${sub}/mo-khoa`, { method: 'POST', body: { ly_do: lyDo } }).then(sauThaoTac)
   })
 
-  if (ct === null) return <p>Đang tải…</p>
+  if (ct === null) return <The sat><Xuong dong={5} /></The>
   if (!ct.ok) return <ThongBaoLoi message={ct.message} onThuLai={taiChiTiet} />
   const d = ct.data
   const han = hanHienThi(d.plan, d.het_han_luc, goiMacDinh, '')
+  const laMacDinh = goiMacDinh !== undefined && d.plan === goiMacDinh
+  const tren = trenLive || d.truc_tuyen === true
+
   const cotYc = [
     { khoa: 'loai', nhan: 'Loại' }, { khoa: 'goi', nhan: 'Gói' }, { khoa: 'trang_thai', nhan: 'Trạng thái' },
-    { khoa: 'tao_luc', nhan: 'Tạo lúc' }, { khoa: 'xu_ly_luc', nhan: 'Xử lý lúc' }, { khoa: 'ly_do', nhan: 'Lý do' },
+    { khoa: 'tao_luc', nhan: 'Gửi lúc' }, { khoa: 'xu_ly_luc', nhan: 'Xử lý lúc' }, { khoa: 'ly_do', nhan: 'Lý do', boc: true },
   ]
   const hangYc = d.yeu_cau.map((y) => ({
-    loai: nhanLoai(y.loai), goi: `${tenGoi(y.goi_hien_tai, dsGoi)} → ${tenGoi(y.goi_muon, dsGoi)}`,
-    trang_thai: nhanTrangThaiYeuCau(y.trang_thai), tao_luc: dinhDangLuc(y.tao_luc),
-    xu_ly_luc: y.xu_ly_luc ? dinhDangLuc(y.xu_ly_luc) : '—', ly_do: y.ly_do ?? '—',
+    loai: nhanLoai(y.loai),
+    goi: <>{tenGoi(y.goi_hien_tai, dsGoi)} <span className="klaw-phu">→ {tenGoi(y.goi_muon, dsGoi)}</span></>,
+    trang_thai: <Nhan mau={mauTrangThaiYeuCau(y.trang_thai)}>{nhanTrangThaiYeuCau(y.trang_thai)}</Nhan>,
+    tao_luc: <span className="klaw-ma">{dinhDangLuc(y.tao_luc)}</span>,
+    xu_ly_luc: <span className="klaw-ma">{y.xu_ly_luc ? dinhDangLuc(y.xu_ly_luc) : '—'}</span>,
+    ly_do: y.ly_do ?? <span className="klaw-phu">—</span>,
   }))
 
   return (
-    <div>
-      <h2>{d.email ?? '(không có email)'}</h2>
-      <p>
-        {tenGoi(d.plan, dsGoi)}{han ? ` · hết hạn ${han}` : ' · vô thời hạn'}
-        {d.khoa_luc && <><br />Đang khoá từ {dinhDangLuc(d.khoa_luc)} · Lý do: {d.khoa_ly_do}</>}
-      </p>
+    <div className="klaw-chong">
       {loi && <ThongBaoLoi message={loi} />}
-      <div style={{ display: 'flex', gap: 24, margin: '16px 0' }}>
-        <span>Hỏi đáp: {d.tong_hoi_dap}</span>
-        <span>Bản thảo: {d.tong_ban_thao}</span>
-        <span>Số phiên: {d.so_phien}</span>
+      <div className="klaw-luoi">
+        <The className="klaw-luoi__7" sat>
+          <div className="klaw-o-lot" style={{ padding: '1.25rem' }}>
+            <div className="klaw-dinh-danh">
+              <span className="klaw-avatar klaw-avatar--lon" aria-hidden="true">{chuDau(d.email)}</span>
+              <div className="klaw-dinh-danh__chu">
+                <h2>{d.email ?? '(không có email)'}</h2>
+                <div className="klaw-dinh-danh__nhan">
+                  <Nhan mau={laMacDinh ? 'trung-tinh' : 'muc'}>{tenGoi(d.plan, dsGoi)}</Nhan>
+                  {d.khoa_luc && <Nhan mau="do">Đang khoá</Nhan>}
+                  <ChamTrucTuyen tren={tren} />
+                </div>
+              </div>
+            </div>
+            <dl className="klaw-dong" style={{ marginTop: '1.25rem' }}>
+              <dt>Mã tài khoản</dt>
+              <dd className="klaw-ma">{d.sub}</dd>
+              <dt>Tham gia</dt>
+              <dd>{dinhDangLuc(d.tao_luc)}</dd>
+              <dt>Hạn gói</dt>
+              <dd>{laMacDinh ? 'Gói mặc định, không có hạn' : han ? `Hết hạn ${han}` : 'Vô thời hạn'}</dd>
+              {d.khoa_luc && (
+                <>
+                  <dt>Khoá từ</dt>
+                  <dd>{dinhDangLuc(d.khoa_luc)}</dd>
+                  <dt>Lý do khoá</dt>
+                  <dd>{d.khoa_ly_do}</dd>
+                </>
+              )}
+            </dl>
+          </div>
+          <div className="klaw-tom-tat">
+            <div><span>Hỏi đáp</span><strong>{d.tong_hoi_dap.toLocaleString('vi-VN')}</strong></div>
+            <div><span>Bản thảo</span><strong>{d.tong_ban_thao.toLocaleString('vi-VN')}</strong></div>
+            <div><span>Phiên</span><strong>{d.so_phien.toLocaleString('vi-VN')}</strong></div>
+          </div>
+        </The>
+
+        <The
+          className="klaw-luoi__5"
+          tieuDe="Hành động"
+          moTa={vaiTro === 'quan_tri' ? 'Mỗi thao tác cần một lý do. Lý do đặt gói và mở khoá chỉ vào nhật ký; lý do thu hồi và khoá thì người dùng thấy.' : 'Vai trò của bạn chỉ xem — không đổi được gói hay trạng thái.'}
+        >
+          {vaiTro === 'quan_tri' ? (
+            <div className="klaw-hanh-dong">
+              <div className="klaw-hanh-dong__hang">
+                <label className="klaw-truong">
+                  <span>Gói</span>
+                  <select className="klaw-chon" value={goiChon} onChange={(e) => setGoiChon(e.target.value)}>
+                    {(dsGoi ?? []).map((g) => <option key={g.ma} value={g.ma}>{g.ten}</option>)}
+                  </select>
+                </label>
+                <label className="klaw-truong">
+                  <span>Số ngày</span>
+                  <input
+                    className="klaw-nhap"
+                    type="number"
+                    min={1}
+                    max={3650}
+                    value={soNgayNhap}
+                    disabled={goiChon === goiMacDinh}
+                    placeholder="Trống = vô thời hạn"
+                    onChange={(e) => setSoNgayNhap(e.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="klaw-hanh-dong__nut">
+                <Button onClick={datGoi}>Đặt gói</Button>
+                {!laMacDinh && <Button buttonStyle="secondary" onClick={thuHoi}>Thu hồi gói</Button>}
+              </div>
+              <div className="klaw-hanh-dong__nhom">
+                <h3>Trạng thái tài khoản</h3>
+                <p className="klaw-phu" style={{ margin: 0 }}>
+                  {d.khoa_luc ? 'Đang khoá: người dùng không hỏi và không soạn được; tra cứu và soát văn bản vẫn mở.' : 'Bình thường: dùng đủ tính năng theo gói.'}
+                </p>
+                <div className="klaw-hanh-dong__nut">
+                  {d.khoa_luc
+                    ? <Button buttonStyle="secondary" onClick={moKhoa}>Mở khoá</Button>
+                    : <Button buttonStyle="secondary" onClick={khoa}>Khoá tài khoản</Button>}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="klaw-phu" style={{ margin: 0 }}>Cần vai trò quản trị để đặt gói, thu hồi, khoá hoặc mở khoá.</p>
+          )}
+        </The>
       </div>
-      {vaiTro === 'quan_tri' && (
-        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 16 }}>
-          <label>Gói<br />
-            <select value={goiChon} onChange={(e) => setGoiChon(e.target.value)}>
-              {(dsGoi ?? []).map((g) => <option key={g.ma} value={g.ma}>{g.ten}</option>)}
-            </select>
-          </label>
-          <label>Số ngày (để trống = vô thời hạn)<br />
-            <input type="number" min={1} max={3650} value={soNgayNhap} disabled={goiChon === goiMacDinh} onChange={(e) => setSoNgayNhap(e.target.value)} />
-          </label>
-          <Button onClick={datGoi}>Đặt gói</Button>
-          {d.plan !== goiMacDinh && <Button buttonStyle="secondary" onClick={thuHoi}>Thu hồi gói</Button>}
-          {d.khoa_luc ? <Button buttonStyle="secondary" onClick={moKhoa}>Mở khoá</Button> : <Button buttonStyle="secondary" onClick={khoa}>Khoá</Button>}
-        </div>
-      )}
-      <Bang cot={cotYc} hang={hangYc} rong="Chưa có yêu cầu nào." />
+
+      <The tieuDe="Yêu cầu nâng gói" moTa="Toàn bộ yêu cầu của tài khoản này, mới nhất trước." sat>
+        <Bang cot={cotYc} hang={hangYc} rong="Chưa có yêu cầu nào" goiYRong="Khi người dùng gửi yêu cầu nâng gói, nó hiện ở đây cùng quyết định và lý do." />
+      </The>
+
       <HopXacNhan
         mo={hopCho !== null}
         tieuDe={hopCho?.xn.tieuDe ?? ''}

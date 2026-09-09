@@ -87,6 +87,18 @@ _SQL_TIM = text(
     " FROM users u WHERE u.email ILIKE :q ORDER BY u.created_at DESC LIMIT :limit OFFSET :offset"
 )
 _SQL_KHOA_CUA = text("SELECT khoa_luc, khoa_ly_do FROM users WHERE sub = CAST(:sub AS uuid)")
+_SQL_THEO_SUBS = text("SELECT sub::text AS sub, email FROM users WHERE sub = ANY(CAST(:subs AS uuid[]))")
+
+
+def theo_subs(subs: list[str]) -> dict[str, str | None]:
+    """`sub -> email` cho một danh sách sub (dùng cho bảng trực tuyến); rỗng thì không chạm DB."""
+    if not subs:
+        return {}
+    with get_engine().connect() as c:
+        rows = c.execute(_SQL_THEO_SUBS, {"subs": subs}).mappings().all()
+    return {r["sub"]: r["email"] for r in rows}
+
+
 _COT_YC = "id, loai, goi_hien_tai, goi_muon, trang_thai, tao_luc, xu_ly_luc, ly_do"
 _SQL_YEU_CAU_CUA = text(
     f"SELECT {_COT_YC} FROM yeu_cau_nang_goi WHERE user_sub = CAST(:sub AS uuid)"

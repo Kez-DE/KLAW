@@ -224,6 +224,10 @@ async def test_lifespan_fail_nhanh_neu_can_cu_chet(monkeypatch):
     from src import main
     from src.services.rules import Rule
 
+    # conftest đặt KLAW_RATE_LIMIT_SO_LUOT=0; máy dev có KLAW_ADMIN_API_KEY trong .env.local sẽ làm
+    # guard khởi động (src/main.py) bật TRƯỚC bước kiểm căn cứ. Cô lập test khỏi môi trường.
+    monkeypatch.setattr(main.get_settings(), "admin_api_key", "")
+
     rule_gia = Rule("gia", "khong/ton/tai > Điều 999", "chan", "x", [], "True", {})
     monkeypatch.setattr(main.soan_thao_graph, "requirements", lambda loai: ([rule_gia], None, {}))
 

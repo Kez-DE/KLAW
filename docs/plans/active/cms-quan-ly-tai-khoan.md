@@ -134,6 +134,32 @@ mỗi task (TDD), một reviewer theo task, vòng fix có phạm vi, review toà
 - Follow-up (ngoài phạm vi gói này): bảng xem trước A4 trong
   `KhongGianSoanThao.tsx` gọi `setBuoc` không qua cổng `laKhach`/`biKhoa`
   (lỗ hổng có sẵn cho khách trước gói 2B); cần một ticket riêng.
+- 2026-09-09 (thiết kế lại giao diện CMS, theo yêu cầu chủ dự án): thẻ trắng
+  bo góc 12 px trên nền giấy lạnh, mực sapphire, đồng thau chỉ làm điểm nhấn
+  (viền tiêu điểm, chip đang chọn, huy hiệu); token Payload được ánh xạ lại
+  trong `cms/src/app/(payload)/custom.scss`, thành phần dùng chung `klaw-*`
+  trong `cms/src/styles/thanh-phan.scss` (`.klaw-the`, `.klaw-luoi`,
+  `.klaw-dai-so` dùng subgrid để số liệu cùng baseline, `.klaw-bang` ô không
+  xuống dòng và cuộn ngang trong thẻ, cột chữ dài opt-in `boc`). Header dùng
+  khoá hiệu dấu + chữ KLAW (`DauKlawNho`), nới hộp `.step-nav__home` của
+  Payload vốn 16–18 px và ẩn phần tràn. Font Be Vietnam Pro và JetBrains Mono
+  tự host trong `cms/public/fonts/`. Chỉ một chuyển động được viết tay: chấm
+  trực tuyến thở, tắt khi `prefers-reduced-motion`.
+- 2026-09-09 (trạng thái trực tuyến, chủ dự án chọn phương án "theo kết nối
+  thông báo đang mở"): một tài khoản "đang trực tuyến" khi có ít nhất một luồng
+  SSE `luong_thong_bao.phat` đang mở; sổ đếm trong tiến trình (`_TRUC_TUYEN`,
+  đăng ký/huỷ trong `try/finally` của `phat`), không thêm dữ liệu theo dõi mới.
+  Lộ ra qua `GET /admin/truc-tuyen`, cờ `truc_tuyen` trên danh sách và chi tiết
+  tài khoản, `dang_truc_tuyen` trên tổng quan; CMS cho vai trò `doc` đọc được.
+  CMS thăm dò mỗi 15 giây qua một poller dùng chung (`cms/src/lib/truc-tuyen.ts`),
+  giữ kết quả tốt cuối cùng khi lỗi. Trần đã biết (`ponytail:`): sổ đếm nằm
+  trong một tiến trình, chạy nhiều worker uvicorn sẽ đếm thiếu — nâng lên
+  Redis hoặc bảng `phien_sse` khi triển khai nhiều worker.
+- 2026-09-09 (cần chủ dự án quyết): lá chắn IP 60 lượt/60 giây của `/admin/*`
+  tính theo IP nguồn, mà mọi lời gọi từ CMS tới KLAW đều đi từ một IP máy chủ
+  CMS — nhiều admin làm việc cùng lúc (hoặc dev hot-reload nhiều tab) sẽ đụng
+  429 chung. Đề xuất: bucket theo admin (header định danh do CMS gắn) hoặc nới
+  trần cho IP của CMS; là chính sách quan sát được từ ngoài nên chưa sửa.
 
 ## Validation
 

@@ -8,7 +8,7 @@ CMS lọc theo vai trò; KLAW tin CMS và ghi `boi` để truy vết.
 import functools
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
@@ -21,6 +21,7 @@ from src.models.schemas import (
     DanhSachNhatKyOut,
     DanhSachTaiKhoanOut,
     DanhSachThongBaoOut,
+    DanhSachTrucTuyenOut,
     DanhSachYeuCauOut,
     DatGoiRequest,
     HoatDongNgay,
@@ -89,7 +90,20 @@ def _yeu_cau_out(r: dict) -> YeuCauNangGoiOut:
 
 @router.get("/tong-quan", response_model=TongQuanOut)
 async def tong_quan(ctx: dict = Depends(kiem_admin_key)) -> TongQuanOut:
-    return TongQuanOut(**await run_in_threadpool(tai_khoan_qt.tong_quan))
+    so_dem = await run_in_threadpool(tai_khoan_qt.tong_quan)
+    return TongQuanOut(**so_dem, dang_truc_tuyen=len(luong_thong_bao.dang_truc_tuyen()))
+
+
+@router.get("/truc-tuyen", response_model=DanhSachTrucTuyenOut)
+async def truc_tuyen(ctx: dict = Depends(kiem_admin_key)) -> DanhSachTrucTuyenOut:
+    """Ai đang mở luồng thông báo — không lưu DB, chỉ đọc sổ trong tiến trình (mới mở xếp trước)."""
+    so = luong_thong_bao.dang_truc_tuyen()
+    email = await run_in_threadpool(tai_khoan_qt.theo_subs, list(so))
+    items = [
+        {"sub": sub, "email": email.get(sub), "tu_luc": datetime.fromtimestamp(tu_luc, tz=UTC)}
+        for sub, tu_luc in sorted(so.items(), key=lambda x: x[1], reverse=True)
+    ]
+    return DanhSachTrucTuyenOut.model_validate({"so": len(items), "items": items})
 
 
 @router.get("/goi", response_model=DanhSachGoiOut)
@@ -138,7 +152,11 @@ async def tai_khoan(
     offset: int = Query(0, ge=0),
 ) -> DanhSachTaiKhoanOut:
     tong, rows = await run_in_threadpool(tai_khoan_qt.tim, q, limit, offset)
-    items = [{**r, "plan": bao_ve.plan_hieu_luc_tu(str(r["plan"]), r["plan_het_han"])} for r in rows]
+    dang_mo = luong_thong_bao.dang_truc_tuyen()
+    items = [
+        {**r, "plan": bao_ve.plan_hieu_luc_tu(str(r["plan"]), r["plan_het_han"]), "truc_tuyen": r["sub"] in dang_mo}
+        for r in rows
+    ]
     return DanhSachTaiKhoanOut.model_validate({"tong": tong, "items": items})
 
 
@@ -163,6 +181,7 @@ async def chi_tiet(sub: uuid.UUID, ctx: dict = Depends(kiem_admin_key)) -> TaiKh
         khoa_luc=d["khoa_luc"],
         khoa_ly_do=d["khoa_ly_do"],
         yeu_cau=[_yeu_cau_out(y) for y in d["yeu_cau"]],
+        truc_tuyen=str(sub) in luong_thong_bao.dang_truc_tuyen(),
     )
 
 
