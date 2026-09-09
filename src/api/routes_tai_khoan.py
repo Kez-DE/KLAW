@@ -28,25 +28,29 @@ bị bỏ vì lười: các endpoint này không gọi LLM, không gọi embeddi
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from src.api import luong_thong_bao
 from src.models.schemas import (
+    BoNhoTaiKhoanOut,
+    CaiDatBoNhoRequest,
     DaDocRequest,
     DanhSachThongBaoOut,
     HanMucResponse,
     HoatDongNgay,
     HoSoResponse,
+    MucBoNhoOut,
     MucHanMuc,
     NguoiDungResponse,
     PhanLoai,
     PhienHanMuc,
+    SuaBoNhoRequest,
     YeuCauNangGoiOut,
     YeuCauNangGoiRequest,
 )
-from src.services import bao_ve, ho_so, nang_goi, thong_bao, xac_thuc
+from src.services import bao_ve, bo_nho, ho_so, nang_goi, thong_bao, xac_thuc
 from src.services.bao_ve import kiem_api_key, nguoi_dung_bat_buoc, nguoi_dung_ke_ca_khoa, xac_thuc_nguoi_goi
 
 logger = logging.getLogger(__name__)
@@ -266,3 +270,60 @@ async def da_doc_cua_toi(body: DaDocRequest, nguoi: dict = Depends(nguoi_dung_ke
 @router.get("/thong-bao/luong")
 async def luong_cua_toi(nguoi: dict = Depends(nguoi_dung_ke_ca_khoa)) -> StreamingResponse:
     return StreamingResponse(luong_thong_bao.phat(nguoi["sub"]), media_type="text/event-stream", headers=_HEADER_SSE)
+
+
+# ══ /tai-khoan/bo-nho — hồ sơ tình huống xuyên phiên, chỉ Pro (spec 2026-09-09 §6.4) ══
+
+LOI_BO_NHO_CAN_PRO = (
+    "Trí nhớ hoàn cảnh xuyên phiên là quyền lợi của gói Cá nhân. Nâng cấp để KLAW nhớ bạn giữa các phiên."
+)
+LOI_KHOA_BO_NHO = "Khoá hoặc giá trị không hợp lệ: bộ nhớ chỉ giữ bảy dữ kiện về hoàn cảnh của bạn, không giữ số Điều, số hiệu văn bản hay thông tin định danh."
+
+
+async def _pro_bat_buoc(nguoi: dict) -> str:
+    if await run_in_threadpool(bao_ve.plan_hieu_luc, nguoi["sub"]) != "pro":
+        raise HTTPException(status_code=403, detail=LOI_BO_NHO_CAN_PRO)
+    return nguoi["sub"]
+
+
+def _bo_nho_out(sub: str) -> BoNhoTaiKhoanOut:
+    return BoNhoTaiKhoanOut(
+        ghi_nho=bo_nho.doc_ghi_nho(sub), muc=[MucBoNhoOut(**m) for m in bo_nho.ho_so_tai_khoan(sub)]
+    )
+
+
+@router.get("/tai-khoan/bo-nho", response_model=BoNhoTaiKhoanOut)
+async def bo_nho_cua_toi(nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BoNhoTaiKhoanOut:
+    sub = await _pro_bat_buoc(nguoi)
+    return await run_in_threadpool(_bo_nho_out, sub)
+
+
+@router.patch("/tai-khoan/bo-nho/cai-dat", response_model=BoNhoTaiKhoanOut)
+async def cai_dat_bo_nho(body: CaiDatBoNhoRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BoNhoTaiKhoanOut:
+    sub = await _pro_bat_buoc(nguoi)
+    await run_in_threadpool(bo_nho.dat_ghi_nho, sub, body.ghi_nho)
+    return await run_in_threadpool(_bo_nho_out, sub)
+
+
+@router.patch("/tai-khoan/bo-nho/{khoa}", response_model=BoNhoTaiKhoanOut)
+async def sua_bo_nho(khoa: str, body: SuaBoNhoRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BoNhoTaiKhoanOut:
+    sub = await _pro_bat_buoc(nguoi)
+    try:
+        await run_in_threadpool(bo_nho.sua_khoa_tai_khoan, sub, khoa, body.gia_tri)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=LOI_KHOA_BO_NHO) from e
+    return await run_in_threadpool(_bo_nho_out, sub)
+
+
+@router.delete("/tai-khoan/bo-nho/{khoa}", status_code=204)
+async def xoa_mot_bo_nho(khoa: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Response:
+    sub = await _pro_bat_buoc(nguoi)
+    await run_in_threadpool(bo_nho.xoa_khoa_tai_khoan, sub, khoa)
+    return Response(status_code=204)
+
+
+@router.delete("/tai-khoan/bo-nho", status_code=204)
+async def xoa_het_bo_nho(nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Response:
+    sub = await _pro_bat_buoc(nguoi)
+    await run_in_threadpool(bo_nho.xoa_het_tai_khoan, sub)
+    return Response(status_code=204)

@@ -788,6 +788,7 @@ class PhienTomTatOut(BaseModel):
     so_luot: int
     tao_luc: datetime
     cap_nhat_luc: datetime
+    khong_ghi_nho: bool = False
 
 
 class DanhSachPhienResponse(BaseModel):
@@ -817,6 +818,45 @@ class DoiTenPhienRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     tieu_de: str = Field(..., min_length=1, max_length=120)
+
+
+# `PATCH /hoi-thoai/{id}/ghi-nho` và `PATCH /hoi-thoai/{id}/ho-so` — hai công tắc
+# riêng CỦA PHIÊN (spec 2026-09-09 §6.4, §6.6), cố ý KHÔNG gộp vào
+# `DoiTenPhienRequest`/`PATCH /hoi-thoai/{id}`: gộp sẽ đụng các test 422 của
+# việc đổi tên phiên và trộn hai mối quan tâm khác nhau vào một body.
+class GhiNhoPhienRequest(BaseModel):
+    khong_ghi_nho: bool
+
+
+class SuaHoSoPhienRequest(BaseModel):
+    khoa: str
+    gia_tri: str | None = Field(default=None, max_length=120)
+
+
+class HoSoPhienOut(BaseModel):
+    ho_so_da_dung: list[HoSoDaDungOut]
+
+
+# ══ /tai-khoan/bo-nho — hồ sơ tình huống xuyên phiên, chỉ Pro (spec 2026-09-09 §6.4) ══
+class MucBoNhoOut(BaseModel):
+    khoa: str
+    nhan: str
+    gia_tri: str
+    nguon_hoi_thoai_id: str | None
+    cap_nhat_luc: datetime
+
+
+class BoNhoTaiKhoanOut(BaseModel):
+    ghi_nho: bool
+    muc: list[MucBoNhoOut]
+
+
+class SuaBoNhoRequest(BaseModel):
+    gia_tri: str = Field(..., min_length=1, max_length=120)
+
+
+class CaiDatBoNhoRequest(BaseModel):
+    ghi_nho: bool
 
 
 # ══ GET /van-ban/{doc_id}/tim (Pha 2) ═══════════════════════════════════════

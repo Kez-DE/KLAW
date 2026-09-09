@@ -11,16 +11,21 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from starlette.concurrency import run_in_threadpool
 
+from src.api.routes_tai_khoan import LOI_KHOA_BO_NHO
 from src.models.schemas import (
     ChiTietPhienResponse,
     DanhSachPhienResponse,
     DoiTenPhienRequest,
+    GhiNhoPhienRequest,
+    HoSoDaDungOut,
+    HoSoPhienOut,
     LuotDaLuuOut,
     NhapPhienRequest,
     NhapPhienResponse,
     PhienTomTatOut,
+    SuaHoSoPhienRequest,
 )
-from src.services import hoi_thoai
+from src.services import bo_nho, hoi_thoai
 from src.services.bao_ve import han_muc, nguoi_dung_bat_buoc, plan_hieu_luc
 
 logger = logging.getLogger(__name__)
@@ -101,3 +106,37 @@ async def xoa(id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Response:
     if not await run_in_threadpool(hoi_thoai.xoa_mem, nguoi["sub"], id):
         raise HTTPException(status_code=404, detail=hoi_thoai.LOI_KHONG_THAY)
     return Response(status_code=204)
+
+
+# Hai công tắc CỦA PHIÊN, tách khỏi `PATCH /hoi-thoai/{id}` (spec 2026-09-09 §6.4,
+# §6.6): mọi người dùng đã đăng nhập là chủ phiên dùng được, không cần Pro.
+
+
+@router.patch("/hoi-thoai/{id}/ghi-nho", response_model=PhienTomTatOut)
+async def ghi_nho_phien(
+    id: str, body: GhiNhoPhienRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc)
+) -> PhienTomTatOut:
+    id = _uuid_hop_le(id)
+    if not await run_in_threadpool(hoi_thoai.dat_khong_ghi_nho, nguoi["sub"], id, body.khong_ghi_nho):
+        raise HTTPException(status_code=404, detail=hoi_thoai.LOI_KHONG_THAY)
+    ct = await run_in_threadpool(hoi_thoai.chi_tiet, nguoi["sub"], id)
+    if ct is None:
+        raise HTTPException(status_code=404, detail=hoi_thoai.LOI_KHONG_THAY)
+    return PhienTomTatOut(
+        **{k: ct[k] for k in ("id", "tieu_de", "tao_luc", "cap_nhat_luc")},
+        so_luot=len(ct["luot"]),
+        khong_ghi_nho=body.khong_ghi_nho,
+    )
+
+
+@router.patch("/hoi-thoai/{id}/ho-so", response_model=HoSoPhienOut)
+async def sua_ho_so_phien(
+    id: str, body: SuaHoSoPhienRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc)
+) -> HoSoPhienOut:
+    id = _uuid_hop_le(id)
+    if body.khoa not in bo_nho.KHOA_HO_SO or (body.gia_tri is not None and not bo_nho.gia_tri_hop_le(body.gia_tri)):
+        raise HTTPException(status_code=422, detail=LOI_KHOA_BO_NHO)
+    ho_so = await run_in_threadpool(hoi_thoai.dat_ho_so_khoa, nguoi["sub"], id, body.khoa, body.gia_tri)
+    if ho_so is None:
+        raise HTTPException(status_code=404, detail=hoi_thoai.LOI_KHONG_THAY)
+    return HoSoPhienOut(ho_so_da_dung=[HoSoDaDungOut(**d) for d in bo_nho.ho_so_da_dung(ho_so)])
