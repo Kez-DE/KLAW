@@ -127,6 +127,31 @@ def test_answer_mang_citation_co_bo_luat_va_so_ky_hieu_khong_mang_title():
     assert llm.so_lan_hanh_van == 1, "nhánh answer phải hành văn đúng MỘT lần"
 
 
+def test_y_dinh_phu_soan_thao_dinh_kem_goi_y_khong_hijack_answer():
+    """Router v3 (Task 13): câu hỏi vừa hỏi luật vừa nhờ soạn — `answer` vẫn là
+    câu trả lời tra cứu THẬT, chỉ đính kèm `soan_thao_goi_y` để FE gợi ý soạn
+    tiếp. KHÔNG được ghi đè `answer` bằng lời hướng dẫn của nhánh soạn thảo
+    riêng (`huong_dan_soan_thao`)."""
+    llm = FakeLlm()
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [_pass()],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5,
+                   "y_dinh_phu": "soan_thao",
+                   "soan_thao_goi_y": {"loai": "don_xin_nghi_viec", "ly_do": "bạn sắp nghỉ", "thay_the": []}},
+                  DB, llm, "m")
+    assert st["result_type"] is ResultType.answer
+    assert st["answer"] == "Ít nhất 85% mức lương.", "answer không được bị ghi đè bởi gợi ý soạn thảo"
+    gy = st["soan_thao_goi_y"]
+    assert gy["loai"] == "don_xin_nghi_viec" and gy["ho_tro"] is True
+
+
+def test_y_dinh_phu_khong_co_thi_khong_dinh_kem_goi_y():
+    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [_pass()],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+                  DB, FakeLlm(), "m")
+    assert st["result_type"] is ResultType.answer
+    assert st.get("soan_thao_goi_y") is None
+
+
 def test_hieu_luc_khong_chac_sinh_warning():
     mp = Effectivity(V.mot_phan_khong_xac_dinh, "thap", "HHL1P")
     t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, mp)

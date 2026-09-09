@@ -18,6 +18,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
+from src.services.kho import xin_dang_bang
 
 PROMPT_PATH = Path("prompts/route.v1.md")
 
@@ -56,6 +57,18 @@ def schema_v2() -> dict:
     }
 
 
+def schema_v3() -> dict:
+    """Schema strict của template v3 (spec bộ-nhớ-tính-cách-soạn-thảo §7.4) — v2
+    cộng hai trường `dang_tra_loi` (dạng câu trả lời) và `y_dinh_phu` (ý định
+    phụ soạn thảo bên cạnh tra cứu). Cùng lý do `schema_v2` không phải `INTENT_SCHEMA`
+    cộng khoá optional: strict đòi mọi khoá `required`."""
+    s = schema_v2()
+    s["required"] = [*s["required"], "dang_tra_loi", "y_dinh_phu"]
+    s["properties"]["dang_tra_loi"] = {"type": "string", "enum": ["van_xuoi", "bang"]}
+    s["properties"]["y_dinh_phu"] = {"type": "string", "enum": ["soan_thao", "khong"]}
+    return s
+
+
 def danh_sach_loai() -> str:
     """Một dòng `mã — tên` cho mỗi checklist, điền vào `{danh_sach_loai}` của v2."""
     return "\n".join(f"- `{loai}` — {load_checklist_cached(loai).ten}" for loai in sorted(cac_loai()))
@@ -83,8 +96,11 @@ class Intent(StrEnum):
 def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict:
     prior_traces = state.get("traces") or {}
     mau = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8")
-    # Template nhắc `loai_van_ban` là template v2 — chọn theo NỘI DUNG, không theo tên file.
-    la_v2 = "loai_van_ban" in mau
+    # Template nhắc `dang_tra_loi` là template v3; `loai_van_ban` (không kèm
+    # `dang_tra_loi`) là v2 — chọn theo NỘI DUNG, không theo tên file, để một
+    # bản v4 cùng hình dạng vẫn chạy đúng schema.
+    la_v3 = "dang_tra_loi" in mau
+    la_v2 = la_v3 or "loai_van_ban" in mau
     prompt = mau.format(cau_hoi=state["query"], danh_sach_loai=danh_sach_loai() if la_v2 else "")
     # llm.chat(...) NẰM NGOÀI try: lỗi hạ tầng thật (content rỗng, usage thiếu
     # — xem ValueError ở llm.py chat()/_usage_from()) phải NỔ RA NGOÀI, đúng
@@ -94,7 +110,9 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
     # mà số liệu độ chính xác route sau này không tách lại được (silent-failure
     # review, sau task-10).
     raw, usage = llm.chat(
-        model, [{"role": "user", "content": prompt}], json_schema=schema_v2() if la_v2 else INTENT_SCHEMA
+        model,
+        [{"role": "user", "content": prompt}],
+        json_schema=schema_v3() if la_v3 else (schema_v2() if la_v2 else INTENT_SCHEMA),
     )
     data: dict = {}
     try:
@@ -105,18 +123,28 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
         # Mặc định tra_cuu, để verifier và abstain quyết định.
         intent = Intent.tra_cuu
         data = data if isinstance(data, dict) else {}
+    # Ý định phụ chỉ có nghĩa khi ý định CHÍNH là tra_cuu — người hỏi vừa hỏi
+    # luật vừa nhờ soạn. Khi intent CHÍNH đã là soan_thao, gợi ý dựng ở nhánh
+    # dưới đây (cùng đường cũ) là đủ, không cần thêm cờ y_dinh_phu.
+    y_dinh_phu = data.get("y_dinh_phu") if la_v3 else None
+    y_dinh_phu = "soan_thao" if y_dinh_phu == "soan_thao" and intent is Intent.tra_cuu else None
     goi_y: dict | None = None
-    if la_v2 and intent is Intent.soan_thao:
+    if la_v2 and (intent is Intent.soan_thao or y_dinh_phu == "soan_thao"):
         lv = data.get("loai_van_ban")
         goi_y = {
             "loai": lv if isinstance(lv, str) and lv != "khong_ro" else None,
             "ly_do": str(data.get("ly_do") or "")[:300],
             "thay_the": [t for t in (data.get("thay_the") or []) if isinstance(t, str)][:2],
         }
+    # Quy tắc 0 token: câu hỏi tự xin "dạng bảng" (services.kho.xin_dang_bang)
+    # THẮNG lựa chọn của model — cùng quy tắc `n_assemble` đã áp cho `hoi_ve_kho`.
+    dang = "bang" if xin_dang_bang(state["query"]) else (data.get("dang_tra_loi") if la_v3 else "van_xuoi")
+    dang_tra_loi = dang if dang in ("van_xuoi", "bang") else "van_xuoi"
     return {
         **state,
         "intent": intent,
         **({"soan_thao_goi_y": goi_y} if la_v2 else {}),
+        **({"dang_tra_loi": dang_tra_loi, "y_dinh_phu": y_dinh_phu} if la_v3 else {}),
         "traces": {
             **prior_traces,
             "route_model": model,

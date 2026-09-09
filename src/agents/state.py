@@ -82,3 +82,11 @@ class KLawState(TypedDict, total=False):
     # Gợi ý loại văn bản của router (v2) → assemble kiểm và làm đầy → response
     # `soan_thao`. Khai ở đây vì cùng bẫy LangGraph với `bang`/`nguon`/`documents`.
     soan_thao_goi_y: dict | None
+    # Router v3 (spec 2026-09-09 §7.4). `dang_tra_loi` là dạng câu trả lời mô
+    # hình chọn ("van_xuoi"/"bang") — T15 dùng để rẽ nhánh bảng ở assemble.
+    # `y_dinh_phu` là ý định PHỤ khi câu hỏi vừa hỏi luật vừa nhờ soạn thảo
+    # ("soan_thao" hoặc None); `assemble` đọc nó để điền `soan_thao_goi_y`
+    # trên nhánh `answer` mà không hijack `answer` (khác `Intent.soan_thao` —
+    # ý định CHÍNH — đi đường rẽ tắt riêng, xem `graph_tra_cuu._RE_TAT`).
+    dang_tra_loi: str
+    y_dinh_phu: str | None

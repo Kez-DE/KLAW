@@ -118,11 +118,17 @@ def test_prompt_path_va_linh_vuc_bonus_co_mac_dinh_an_toan():
 
     s = Settings(_env_file=None)
     assert s.assemble_prompt == "prompts/assemble.v2.md"
-    assert s.rewrite_prompt == "prompts/rewrite_query.v1.md"
+    assert s.rewrite_prompt == "prompts/rewrite_query.v2.md"
     assert s.linh_vuc_bonus == 0.0, "cộng điểm lĩnh vực phải TẮT mặc định cho tới khi đo được"
 
 
-def test_route_prompt_mac_dinh_v2():
+def test_route_prompt_mac_dinh_v3():
     from src.config import Settings
 
-    assert Settings(_env_file=None).route_prompt == "prompts/route.v2.md"
+    assert Settings(_env_file=None).route_prompt == "prompts/route.v3.md"
+
+
+def test_linh_vuc_loc_mac_dinh_bat():
+    from src.config import Settings
+
+    assert Settings(_env_file=None).linh_vuc_loc is True

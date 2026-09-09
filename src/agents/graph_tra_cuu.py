@@ -36,7 +36,7 @@ from src.services.embedding import from_settings as embedder_from_settings
 from src.services.kho import dung_bang, loi_dan_bang, nap_kho, tra_loi_ve_kho, xin_dang_bang
 from src.services.llm import from_settings as llm_from_settings
 from src.services.llm import generate_model, judge_model, router_model
-from src.services.retrieval import Retriever, cong_diem_linh_vuc
+from src.services.retrieval import Retriever, cong_diem_linh_vuc, loc_theo_linh_vuc
 
 
 def _db_provisions(ids: list[int], engine: Engine) -> dict[int, dict]:
@@ -173,7 +173,13 @@ def build_graph_tra_cuu():
         # định `linh_vuc_bonus = 0` (tắt) cho tới khi đo được trên golden.
         if s.linh_vuc_bonus > 0 and st.get("linh_vuc_du_doan"):
             ids = cong_diem_linh_vuc(ids, retriever.linh_vuc_cua(ids), st["linh_vuc_du_doan"], s.linh_vuc_bonus)
-        return {**st, "retrieved": ids}
+        # Khoanh vùng CỨNG theo lĩnh vực (spec 2026-09-09 §7.4) — khác nhánh
+        # cộng điểm mềm ngay trên, nhánh này LOẠI khỏi tập truy hồi, nên phải
+        # fail open: `loc_theo_linh_vuc` tự mở lại toàn kho khi lọc còn quá ít.
+        mo_rong = False
+        if s.linh_vuc_loc and st.get("linh_vuc_du_doan"):
+            ids, mo_rong = loc_theo_linh_vuc(ids, retriever.linh_vuc_cua(ids), st["linh_vuc_du_doan"])
+        return {**st, "retrieved": ids, "traces": {**(st.get("traces") or {}), "retrieve_mo_rong": mo_rong}}
 
     def n_expand(st: KLawState) -> KLawState:
         # MỘT chủ sở hữu cho quy tắc "mốc hiệu lực" (`config.as_of_hieu_luc`):

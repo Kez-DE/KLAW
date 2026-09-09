@@ -911,4 +911,12 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     ket["traces"]["assemble_dieu_bi_loai"] = []
     ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
     ket["traces"]["assemble_the_loi"] = []
+    # Ý định PHỤ (router v3, spec 2026-09-09 §7.4): câu hỏi vừa hỏi luật vừa
+    # nhờ soạn — KHÔNG hijack `answer` (nó vẫn là câu trả lời tra cứu bình
+    # thường), chỉ đính kèm gợi ý soạn thảo, cùng hàm dựng đã dùng cho nhánh
+    # `huong_dan_soan_thao`. Bỏ `answer` thứ hai mà `_goi_y_soan_thao` trả về:
+    # đây không phải một câu trả lời KHÔNG có căn cứ như nhánh soạn thảo riêng.
+    if state.get("y_dinh_phu") == "soan_thao":
+        goi_y, _ = _goi_y_soan_thao(state.get("soan_thao_goi_y"))
+        ket["soan_thao_goi_y"] = goi_y
     return ket

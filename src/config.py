@@ -102,16 +102,25 @@ class Settings(BaseSettings):
     verify_tier2_enabled: bool = True
     abstain_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
     # assemble.v2 là mặc định (đo 2026-09-06, eval.run_trap 51 câu — xem
-    # cost-management.md). rewrite v2 còn TẮT (bật qua env REWRITE_PROMPT):
-    # judge tầng 2 (verify_tier2) bị cắt JSON trên trap-soul-04 khi bật.
+    # cost-management.md). rewrite v2 TỪNG tắt (trap-soul-04: judge tầng 2 bị
+    # cắt JSON) — nay là mặc định (spec 2026-09-09 §7.4): field-scoping ở
+    # `n_retrieve` ĐỌC `linh_vuc_du_doan` mà chỉ rewrite v2 mới ghi khoá đó,
+    # nên tính năng khoanh vùng của task này không kích hoạt được nếu giữ v1.
+    # trap-soul-04 vẫn là rủi ro TREO, chưa đo lại trên bản v2 hiện hành.
     assemble_prompt: str = "prompts/assemble.v2.md"
-    rewrite_prompt: str = "prompts/rewrite_query.v1.md"
-    # Router v2 trả thêm loại văn bản khi ý định là soạn thảo. Bẫy xanh
-    # (trap-soan-01, trap-soan-02) trên commit 4c0ef96 → v2 là mặc định.
-    route_prompt: str = "prompts/route.v2.md"
+    rewrite_prompt: str = "prompts/rewrite_query.v2.md"
+    # Router v3 thêm `dang_tra_loi`/`y_dinh_phu` (spec 2026-09-09 §7.4), giữ
+    # nguyên phần v2 (loại văn bản khi soạn thảo — bẫy xanh trap-soan-01,
+    # trap-soan-02 trên commit 4c0ef96).
+    route_prompt: str = "prompts/route.v3.md"
     # Cộng điểm mềm theo lĩnh vực sau RRF (spec §6). 0 = TẮT. Chỉ bật mặc định
     # sau một lượt đo graph-thật cho thấy Recall@10 không tụt.
     linh_vuc_bonus: float = Field(default=0.0, ge=0.0)
+    # Khoanh vùng CỨNG theo lĩnh vực trước khi đưa vào generate_claims (spec
+    # 2026-09-09 §7.4, `retrieval.loc_theo_linh_vuc`) — khác `linh_vuc_bonus`
+    # (cộng điểm MỀM, không loại ai). Mặc định BẬT: có `toi_thieu` + cờ mở
+    # rộng để không bao giờ để truy hồi đói kết quả trong im lặng.
+    linh_vuc_loc: bool = Field(default=True, validation_alias="KLAW_LINH_VUC_LOC")
     # Cập nhật bộ nhớ phiên chạy nền sau mỗi lượt (spec 2026-09-09 §6.2). Tắt = agent chỉ có K lượt nguyên văn.
     bo_nho_nen: bool = Field(default=True, validation_alias="KLAW_BO_NHO_NEN")
     as_of_date: date | None = None

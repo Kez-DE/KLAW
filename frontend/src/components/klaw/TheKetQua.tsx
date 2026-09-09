@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Link } from "@tanstack/react-router";
 import { BookOpenText, FileSearch, Info } from "lucide-react";
-import type { LinkVanBan, Nguon, TraCuuKetQua, VanBanTraLoi } from "@/lib/klaw";
+import type { LinkVanBan, Nguon, SoanThaoGoiY, TraCuuKetQua, VanBanTraLoi } from "@/lib/klaw";
 import { mauTheoId, slugCuaLoai } from "@/lib/mau-van-ban";
 import { canCuConHieuLuc, chiSoCuaThe, coTagBamDuoc } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
@@ -408,6 +408,32 @@ function TheGoiYSoanThao({
   );
 }
 
+/**
+ * Nút gợi ý soạn thảo trong nhánh `answer` (Task 13 — ý định phụ `soan_thao`).
+ * Câu hỏi vừa hỏi luật vừa nhờ soạn: `answer` vẫn là câu trả lời tra cứu,
+ * KHÔNG bị thay bởi văn xuôi gợi ý — chỉ thêm một nút mở khung soạn thảo,
+ * tái dùng đúng `slugCuaLoai`/`mauTheoId` của `TheGoiYSoanThao` ở trên.
+ */
+function NutSoanTiep({
+  goiY,
+  onSoanThao,
+}: {
+  goiY: SoanThaoGoiY;
+  onSoanThao: (slug: string | null) => void;
+}) {
+  if (!goiY.ho_tro || !goiY.loai) return null;
+  const slug = slugCuaLoai(goiY.loai)[0] ?? null;
+  return (
+    <button
+      type="button"
+      onClick={() => onSoanThao(slug)}
+      className="focus-brass bg-gradient-ink mt-4 cursor-pointer rounded-lg px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+    >
+      Soạn {(slug && mauTheoId(slug)?.ten) ?? goiY.ten}
+    </button>
+  );
+}
+
 interface TheKetQuaProps {
   ketQua: TraCuuKetQua;
   /** Chỉ số trích dẫn đang mở trong panel đối chiếu, hoặc null. */
@@ -599,6 +625,9 @@ function NoiDungKetQua({
       </div>
       <KhoiLienKet documents={ketQua.documents} />
       <KhoiCanCu ketQua={ketQua} chiSoDangMo={chiSoDangMo} onChon={chon} />
+      {ketQua.soan_thao?.ho_tro && ketQua.soan_thao.loai && onSoanThao && (
+        <NutSoanTiep goiY={ketQua.soan_thao} onSoanThao={onSoanThao} />
+      )}
       {bang.length > 0 && (
         <div className="mt-4 space-y-3">
           {bang.map((mot) => (

@@ -93,6 +93,18 @@ def chuan_linh_vuc(s: str | None) -> str:
     return "_".join(_bo_dau(s).lower().replace("-", " ").split())
 
 
+def loc_theo_linh_vuc(
+    provision_ids: list[int], linh_vuc_cua: dict[int, str | None], linh_vuc: str | None, toi_thieu: int = 3
+) -> tuple[list[int], bool]:
+    """Khoanh vùng cứng theo lĩnh vực mô hình đoán (spec 2026-09-09 §7.4). Dưới `toi_thieu`
+    kết quả thì mở lại toàn kho và báo `mo_rong=True` để trace đếm được."""
+    if not linh_vuc:
+        return provision_ids, False
+    muc = chuan_linh_vuc(linh_vuc)
+    giu = [pid for pid in provision_ids if chuan_linh_vuc(linh_vuc_cua.get(pid)) == muc]
+    return (giu, False) if len(giu) >= toi_thieu else (provision_ids, True)
+
+
 def cong_diem_linh_vuc(
     provision_ids: list[int], linh_vuc_cua: dict[int, str | None], linh_vuc: str | None, bonus: float
 ) -> list[int]:
