@@ -20,6 +20,12 @@ from src.services import checklist as checklist_svc
 from src.services import db as db_svc
 from src.services import rules as rules_svc
 
+# Migration prefixes lifespan re-applies on every start (fail-fast guards for
+# columns a hot path reads unconditionally). `tests/test_api/test_guard_khoi_dong.py`
+# asserts every migrations/*.sql from "019" onward has its prefix here, so a new
+# migration in that range can't be silently skipped at startup.
+MIGRATIONS_KHOI_DONG = ("019", "020", "021", "022", "023")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -83,8 +89,11 @@ async def lifespan(app: FastAPI):
     # 2026-09-06): một DB chưa áp 019 làm `_db_provisions` nổ
     # `UndefinedColumn`, tức HTTP 500 cho mọi answer có căn cứ. File .sql dùng
     # `ADD COLUMN IF NOT EXISTS` nên idempotent — an toàn chạy lại mỗi lần
-    # khởi động, cùng khuôn fail-fast với hai guard bên dưới.
-    for mig in ("019", "020", "021", "022"):
+    # khởi động, cùng khuôn fail-fast với hai guard bên dưới. Migration 023
+    # (bo_nho: cột tom_tat/ho_so/khong_ghi_nho và bảng ho_so_tai_khoan) is
+    # included for the same reason: Phase 2 memory reads must not hit
+    # UndefinedColumn on a fresh deploy.
+    for mig in MIGRATIONS_KHOI_DONG:
         db_svc.run_migrations(mig)
     # Task 5, ràng buộc #2: kiểm can_cu LÚC KHỞI ĐỘNG, không phải lúc người
     # dùng gọi /soan-thao hay /soat. Một can_cu chết (rule hoặc mục checklist

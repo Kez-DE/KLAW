@@ -143,4 +143,17 @@ async def test_lifespan_ap_migration_019_truoc_khi_kiem_can_cu(cai_dat, bo_qua_c
     monkeypatch.setattr(main.db_svc, "run_migrations", lambda chi=None: goi.append(chi) or [])
     async with lifespan(app):
         pass
-    assert goi == ["019", "020", "021", "022"]
+    assert goi == list(main.MIGRATIONS_KHOI_DONG)
+
+
+def test_moi_migration_tu_019_deu_co_trong_MIGRATIONS_KHOI_DONG():
+    """Nguồn thật là `migrations/*.sql`, không phải một danh sách ghi tay: nếu
+    ai thêm `migrations/024_x.sql` mà quên thêm "024" vào
+    `main.MIGRATIONS_KHOI_DONG`, test này đỏ ngay — thay vì chờ một deploy mới
+    nổ `UndefinedColumn` (đúng lỗ hổng mà 023_bo_nho.sql vừa lọt qua)."""
+    import src.main as main
+    from src.services.db import MIGRATIONS_DIR
+
+    tu = min(main.MIGRATIONS_KHOI_DONG)
+    tren_dia = {p.name.split("_", 1)[0] for p in MIGRATIONS_DIR.glob("*.sql") if p.name.split("_", 1)[0] >= tu}
+    assert tren_dia == set(main.MIGRATIONS_KHOI_DONG)
