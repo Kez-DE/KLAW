@@ -209,8 +209,9 @@ class TraCuuResponse(BaseModel):
     # Văn bản mô hình được phép gắn thẻ `doc:ID` + link cổng luật từ DB. Mặc
     # định `[]` cùng lý do `bang`: payload cache cũ không có khoá này.
     documents: list[DocumentOut] = []
-    # Chỉ nhánh `huong_dan_soan_thao` điền; mặc định None cùng lý do `bang`/
-    # `documents` (payload cache cũ không có khoá).
+    # Nhánh `huong_dan_soan_thao` điền, và từ Task 13 nhánh `answer` cũng điền
+    # khi ý định phụ là soạn thảo (`assemble.py` — xem `_goi_y_soan_thao`); mặc
+    # định None cùng lý do `bang`/`documents` (payload cache cũ không có khoá).
     soan_thao: SoanThaoGoiYOut | None = None
     # Dữ kiện về người hỏi đã đi vào lượt này (spec 2026-09-09 §6.6) — nguyên
     # văn hoặc suy diễn. Mặc định `[]` cùng lý do `bang`.

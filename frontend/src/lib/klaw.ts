@@ -188,7 +188,8 @@ export interface TraCuuKetQua {
   bang: Bang[];
   /** `[]` ở mọi nhánh trừ `answer`; `chuanHoaDocuments` điền khi máy chủ cũ không gửi. */
   documents: VanBanTraLoi[];
-  /** Chỉ nhánh `huong_dan_soan_thao`; vắng/null ở mọi nhánh khác và với payload cache cũ. */
+  /** Nhánh `huong_dan_soan_thao`, và từ Task 13 cả nhánh `answer` khi ý định phụ
+   *  là soạn thảo; vắng/null ở mọi nhánh khác và với payload cache cũ. */
   soan_thao?: SoanThaoGoiY | null;
   /** Dữ kiện về người hỏi mà lượt này đã dùng — dòng "Dựa trên" (spec 2026-09-09
    *  §6.6). Tuỳ chọn: payload cache cũ (dựng trước trường này tồn tại) không có. */
