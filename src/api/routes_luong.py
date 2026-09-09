@@ -40,6 +40,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from starlette.concurrency import run_in_threadpool
 
 from src.api.routes import (
     BUOC_TRA_CUU,
@@ -140,8 +141,13 @@ async def _chay_nen(
             loi_luu = await _ghi_luot_nhe(hoi_thoai_id, req.query, du, trace_id)
             if loi_luu is not None:
                 await hang.put(("loi_luu", {"hoi_thoai_id": hoi_thoai_id, "detail": loi_luu}))
-            elif user_sub is not None:
-                bo_nho.len_lich_cap_nhat(hoi_thoai_id, user_sub)
+            else:
+                try:
+                    await run_in_threadpool(bo_nho.luu_suy_dien, hoi_thoai_id, payload.get("ho_so") or {})
+                except Exception:
+                    logger.exception("bo_nho: không lưu được giả định suy_dien (phien=%s)", hoi_thoai_id)
+                if user_sub is not None:
+                    bo_nho.len_lich_cap_nhat(hoi_thoai_id, user_sub)
     except HTTPException as e:
         # `chay_tra_cuu` đã phân loại 503 (hạ tầng nhất thời) / 500 (bug thật)
         # và `detail` của nó chỉ mang TÊN loại ngoại lệ, không mang `str(e)`.

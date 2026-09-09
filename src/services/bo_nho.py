@@ -266,6 +266,18 @@ def cap_nhat_phien(hoi_thoai_id: str, user_sub: str, llm=None, model: str | None
                 logger.exception("bo_nho: không ghi được traces cho phiên %s", hoi_thoai_id)
 
 
+def luu_suy_dien(hoi_thoai_id: str, ho_so_state: dict) -> None:
+    """Giả định do `suy_dien` tạo trong lượt này đi vào hồ sơ phiên với đúng nguồn `suy_dien`,
+    nên không đè điều người hỏi đã nói; lượt sau đọc lại và giao diện vẫn in "(tôi đoán)"."""
+    moi = {
+        k: v["gia_tri"] for k, v in (ho_so_state or {}).items() if isinstance(v, dict) and v.get("nguon") == "suy_dien"
+    }
+    if not moi:
+        return
+    bn = hoi_thoai.bo_nho_cua_phien(hoi_thoai_id)
+    hoi_thoai.ghi_ho_so(hoi_thoai_id, gop_ho_so(bn["ho_so"], moi, "suy_dien"))
+
+
 _DANG_CHAY: set[asyncio.Task] = set()
 
 

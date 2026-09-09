@@ -47,7 +47,7 @@ class GraphGiaLap:
     `{ten_node: state_sau_node}`. Mọi node thật trong `graph_tra_cuu` trả
     `{**st, ...}` (state ĐẦY ĐỦ), nên bản giả cũng vậy."""
 
-    NODES = ("route", "tien_de", "rewrite", "retrieve", "expand",
+    NODES = ("suy_dien", "route", "tien_de", "rewrite", "retrieve", "expand",
              "generate", "tier1", "tier2", "assemble")
 
     def __init__(self, nodes=None):
@@ -97,7 +97,7 @@ def graph_gia_lap(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_phat_du_chin_buoc_that_theo_dung_thu_tu(client, graph_gia_lap):
+async def test_phat_du_muoi_buoc_that_theo_dung_thu_tu(client, graph_gia_lap):
     ma, sk = await doc_sse(client)
     assert ma == 200
 

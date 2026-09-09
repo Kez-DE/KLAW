@@ -1,10 +1,11 @@
 """Graph tra cứu (spec mục 6) — nối các node đã build thành một đồ thị chạy được.
 
-[giai_nghia] → route → tien_de → rewrite_query → retrieve_hybrid → expand
-             → generate_claims → verify_tier1 → verify_tier2 → assemble
+[giai_nghia] → suy_dien → route → tien_de → rewrite_query → retrieve_hybrid
+             → expand → generate_claims → verify_tier1 → verify_tier2 → assemble
 
 `giai_nghia` CHỈ chạy khi `lich_su` khác rỗng (lượt hỏi nối tiếp), nên lượt đầu
-của mỗi hội thoại không tốn thêm một token nào.
+của mỗi hội thoại không tốn thêm một token nào. `suy_dien` (QT-5) LUÔN chạy khi
+tới được `route` — 0 token, suy vai người hỏi từ câu hỏi khi hồ sơ chưa có.
 
 Ba đường rẽ tắt, tất cả đổ về `assemble`:
 * `ngoai_pham_vi`/`gioi_thieu`/`soan_thao`/`hoi_ve_kho` — rẽ ngay sau `route`;
@@ -24,6 +25,7 @@ from src.agents.nodes.generate_claims import generate_claims
 from src.agents.nodes.giai_nghia import giai_nghia
 from src.agents.nodes.rewrite_query import rewrite_query
 from src.agents.nodes.route import Intent, route
+from src.agents.nodes.suy_dien import suy_dien
 from src.agents.nodes.verify_tier1 import nap_provisions, tien_de_cau_hoi_sai, verify_tier1
 from src.agents.nodes.verify_tier2 import verify_tier2_and_trace
 from src.agents.state import KLawState
@@ -107,7 +109,8 @@ def _re_sau_route(st: dict) -> str:
 
 
 def _vao_graph(st: dict) -> str:
-    """Lượt ĐẦU (lịch sử rỗng) vào thẳng `route` — không tốn thêm một token nào.
+    """Lượt ĐẦU (lịch sử rỗng) vào thẳng `suy_dien` rồi `route` — không tốn thêm
+    một token nào.
 
     Lượt nối tiếp đi qua `giai_nghia` TRƯỚC `route`, vì routing dựa trên câu ĐÃ
     giải nghĩa: "còn model nào khác" sau một lượt `gioi_thieu` là câu hỏi về trợ
@@ -117,7 +120,7 @@ def _vao_graph(st: dict) -> str:
     `tom_tat` (bộ nhớ phiên) cũng rẽ vào đây dù `lich_su` rỗng: K lượt nguyên
     văn đã cuộn hết vào tóm tắt không có nghĩa hội thoại chưa từng có lượt nào.
     """
-    return "giai_nghia" if (st.get("lich_su") or st.get("tom_tat")) else "route"
+    return "giai_nghia" if (st.get("lich_su") or st.get("tom_tat")) else "suy_dien"
 
 
 def _re_sau_giai_nghia(st: dict) -> str:
@@ -128,8 +131,11 @@ def _re_sau_giai_nghia(st: dict) -> str:
     Rẽ đường đó cũng bỏ qua truy hồi, và đấy là nửa còn lại của giá trị: một câu
     rỗng nội dung pháp lý ("liệt kê bảng cho tôi") đi vào truy hồi thì khớp
     NHIỄU — đo được 2026-09-02: Luật Phòng chống ma túy và Luật Thương mại.
+
+    Giải nghĩa được → `suy_dien` (QT-5, 0 token), không thẳng `route`: vai người
+    hỏi cần đọc câu ĐÃ giải nghĩa, cùng lý do `route` đọc câu đó thay vì câu gốc.
     """
-    return "route" if st.get("cau_hoi_day_du") else "assemble"
+    return "suy_dien" if st.get("cau_hoi_day_du") else "assemble"
 
 
 def build_graph_tra_cuu():
@@ -143,6 +149,9 @@ def build_graph_tra_cuu():
         # generate: đây là một phép biến đổi câu hỏi có ràng buộc chặt, cùng
         # hạng việc với `route`/`rewrite_query`, không phải một lượt hành văn.
         return giai_nghia(st, llm, router_model())
+
+    def n_suy_dien(st: KLawState) -> KLawState:
+        return suy_dien(st)
 
     def n_route(st: KLawState) -> KLawState:
         return route(st, llm, router_model(), prompt_path=Path(s.route_prompt))
@@ -275,8 +284,8 @@ def build_graph_tra_cuu():
     # Thứ tự khai node = thứ tự `get_graph().nodes`, mà `routes.BUOC_TRA_CUU`
     # được khoá khớp với nó (`test_BUOC_TRA_CUU_khop_dung_node_cua_graph_da_compile`)
     # — nên `giai_nghia` đứng đầu ở cả hai chỗ.
-    for name, fn in (("giai_nghia", n_giai_nghia), ("route", n_route), ("tien_de", n_tien_de),
-                     ("rewrite", n_rewrite), ("retrieve", n_retrieve),
+    for name, fn in (("giai_nghia", n_giai_nghia), ("suy_dien", n_suy_dien), ("route", n_route),
+                     ("tien_de", n_tien_de), ("rewrite", n_rewrite), ("retrieve", n_retrieve),
                      ("expand", n_expand), ("generate", n_generate), ("tier1", n_tier1),
                      ("tier2", n_tier2), ("assemble", n_assemble)):
         g.add_node(name, fn)
@@ -287,6 +296,7 @@ def build_graph_tra_cuu():
     # rằng có việc đã làm, trong khi không có việc nào).
     g.set_conditional_entry_point(_vao_graph)
     g.add_conditional_edges("giai_nghia", _re_sau_giai_nghia)
+    g.add_edge("suy_dien", "route")
     g.add_conditional_edges("route", _re_sau_route)
     g.add_conditional_edges("tien_de", lambda st: (
         "assemble" if st.get("tien_de_sai") else "rewrite"))

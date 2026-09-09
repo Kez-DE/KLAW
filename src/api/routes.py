@@ -123,6 +123,10 @@ def _payload_cache(st: dict, rt: str) -> dict:
         "documents": st.get("documents") or [],
         "soan_thao": st.get("soan_thao_goi_y"),
         "ho_so_da_dung": st.get("ho_so_da_dung") or [],
+        # NỘI BỘ — dùng để ghi giả định của `suy_dien` vào phiên sau khi lượt
+        # này lưu xong (xem `luu_suy_dien` ở `tra_cuu`/`_chay_nen`). KHÔNG đi
+        # vào `TraCuuResponse`: `tra_cuu_response` không đọc khoá này.
+        "ho_so": st.get("ho_so") or {},
     }
 
 
@@ -226,6 +230,7 @@ def _st_tu_cache(payload: dict) -> dict:
 # tập bước của mỗi lượt (`tien_de`, `rewrite`… cũng đã vắng ở các đường rẽ tắt).
 BUOC_TRA_CUU: tuple[tuple[str, str], ...] = (
     ("giai_nghia", "Giải nghĩa câu hỏi nối tiếp"),
+    ("suy_dien", "Nhận ra vai của bạn"),
     ("route", "Phân loại câu hỏi"),
     ("tien_de", "Kiểm tiền đề câu hỏi"),
     ("rewrite", "Viết lại truy vấn"),
@@ -478,8 +483,13 @@ async def tra_cuu(
     if hoi_thoai_id is not None:
         response.headers["X-Hoi-Thoai-Id"] = hoi_thoai_id
         loi = await _ghi_luot_nhe(hoi_thoai_id, req.query, resp.model_dump(mode="json"), trace_id)
-        if loi is None and user_sub is not None:
-            bo_nho.len_lich_cap_nhat(hoi_thoai_id, user_sub)
+        if loi is None:
+            try:
+                await run_in_threadpool(bo_nho.luu_suy_dien, hoi_thoai_id, payload.get("ho_so") or {})
+            except Exception:
+                logger.exception("bo_nho: không lưu được giả định suy_dien (phien=%s)", hoi_thoai_id)
+            if user_sub is not None:
+                bo_nho.len_lich_cap_nhat(hoi_thoai_id, user_sub)
     return resp
 
 
