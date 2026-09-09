@@ -13,7 +13,7 @@ với `generate_model` đang cố giữ.
 from functools import lru_cache
 from pathlib import Path
 
-SOUL_PATH = Path("prompts/soul.v1.md")
+SOUL_PATH = Path("prompts/soul.v2.md")
 
 
 @lru_cache(maxsize=1)

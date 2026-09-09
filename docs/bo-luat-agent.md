@@ -68,11 +68,23 @@ vòng rà riêng và một tập bẫy trong golden QA.
 
 ### QT-4 — Thiếu thông tin thì hỏi lại (dòng 12)
 
-`Klaw_FE` gốc có cơ chế này (`/api/chat`: *"Hỏi lại người dùng khi thiếu thông
-tin quan trọng… trước khi soạn"*), KLAW chưa có. Không có trạng thái hội thoại
-nên không làm được lượt hỏi lại thật — nhưng làm được phiên bản một lượt: khi
-câu hỏi thiếu một dữ kiện quyết định kết quả (vùng lương, loại hợp đồng, thâm
-niên), nêu rõ kết quả phụ thuộc dữ kiện nào thay vì chọn bừa một nhánh.
+Từ 2026-09-09 KLAW có trạng thái hội thoại (spec `2026-09-09-bo-nho-tinh-cach-soan-thao`
+§6) nên QT-4 đổi nghĩa: thiếu dữ kiện quyết định kết quả thì TRẢ LỜI theo nhánh phổ biến
+nhất, nêu giả định, rồi hỏi đúng dữ kiện đó ở cuối để lượt sau dùng. Hỏi lại trước khi trả
+lời chỉ còn ở QT-5.
+
+### QT-5 — Suy ra điều hiển nhiên, nêu giả định, hỏi chỉ khi đổi kết quả
+
+Khi câu hỏi tự nó cho biết dữ kiện (ngôi thứ nhất + "nghỉ việc/bị sa thải/bị trừ lương"
+⇒ người lao động; "nhân viên của tôi/công ty tôi" ⇒ người sử dụng lao động), agent mặc
+định theo cách hiểu đó, ghi rõ giả định một dòng, trả lời phần chắc, và chỉ hỏi thêm ở cuối
+những dữ kiện làm đổi kết quả. Hỏi lại TRƯỚC khi trả lời chỉ khi hai cách hiểu dẫn tới hai
+câu trả lời trái nhau. Cơ sở: OpenAI Model Spec 2026-08-18 ("provide a robust answer or a
+safe guess if it can, stating assumptions and asking clarifying questions as appropriate";
+"avoiding unnecessary or trivial clarifying questions") và Hiến pháp của Claude ("identify
+the most plausible interpretation"; "ask for clarification in cases of genuine ambiguity").
+Ràng buộc riêng của KLAW: giả định phải hiện thành chữ trên giao diện và sửa được một chạm
+(`ho_so_da_dung`, nguồn `suy_dien`); giả định không bao giờ là căn cứ pháp luật.
 
 ## Vì sao KHÔNG thêm intent mới cho QT-1 và QT-2
 
