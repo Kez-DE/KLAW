@@ -149,6 +149,19 @@ export interface Bang {
   dong: string[][];
 }
 
+/**
+ * Một dữ kiện về NGƯỜI HỎI mà lượt này đã dùng — khớp `HoSoDaDungOut` của
+ * `src/models/schemas.py`. Chỉ `TheKetQua` đọc, để dựng dòng "Dựa trên" (spec
+ * 2026-09-09 §6.6). `gia_dinh: true` = máy chủ ĐOÁN dữ kiện này chứ người hỏi
+ * chưa nói thẳng — `DuaTren` phải in nghiêng kèm "(tôi đoán)" cho đúng.
+ */
+export interface HoSoDaDung {
+  khoa: string;
+  nhan: string;
+  gia_tri: string;
+  gia_dinh: boolean;
+}
+
 export interface TraCuuKetQua {
   result_type: ResultType;
   answer: string | null;
@@ -177,6 +190,9 @@ export interface TraCuuKetQua {
   documents: VanBanTraLoi[];
   /** Chỉ nhánh `huong_dan_soan_thao`; vắng/null ở mọi nhánh khác và với payload cache cũ. */
   soan_thao?: SoanThaoGoiY | null;
+  /** Dữ kiện về người hỏi mà lượt này đã dùng — dòng "Dựa trên" (spec 2026-09-09
+   *  §6.6). Tuỳ chọn: payload cache cũ (dựng trước trường này tồn tại) không có. */
+  ho_so_da_dung?: HoSoDaDung[];
 }
 
 /**
@@ -193,7 +209,7 @@ export interface LuotTruoc {
 }
 
 /** Trần của `TraCuuRequest.lich_su` phía máy chủ — quá là **422**, không truncate. */
-export const TOI_DA_LUOT_LICH_SU = 3;
+export const TOI_DA_LUOT_LICH_SU = 10;
 /** Khớp `giai_nghia.TOI_DA_TRA_LOI`: máy chủ cắt còn đúng bấy nhiêu khi dựng
  *  prompt, nên gửi nhiều hơn là tiêu băng thông cho chữ bị bỏ — và một câu trả
  *  lời ba tầng dài hơn 2.000 ký tự sẽ làm cả lượt nối tiếp bị 422. */
@@ -700,6 +716,9 @@ export interface PhienTomTat {
   so_luot: number;
   tao_luc: string;
   cap_nhat_luc: string;
+  /** Phiên này bị đánh dấu "không ghi nhớ" (spec 2026-09-09 §6.6) — công tắc
+   *  trong `DanhSachPhien`. Tuỳ chọn: backend cũ chưa gửi trường này. */
+  khong_ghi_nho?: boolean;
 }
 
 export interface DanhSachPhien {
@@ -707,6 +726,25 @@ export interface DanhSachPhien {
   luot_moi_phien: number;
   tong: number;
   items: PhienTomTat[];
+}
+
+/* ── /tai-khoan/bo-nho — bộ nhớ tài khoản, CHỈ gói trả phí (spec 2026-09-09 §6.6) ── */
+
+/** Một dữ kiện KLAW đang nhớ về tài khoản. Bảy khoá cố định: `chu_the`,
+ *  `loai_hop_dong`, `tham_nien`, `vung_luong`, `thoi_diem`, `van_ban_da_co`,
+ *  `vu_viec`. Không bao giờ mang giấy tờ, số tài khoản, địa chỉ — hợp đồng
+ *  máy chủ đã loại những khoá đó trước khi tới đây. */
+export interface MucBoNho {
+  khoa: string;
+  nhan: string;
+  gia_tri: string;
+  nguon_hoi_thoai_id: string | null;
+  cap_nhat_luc: string;
+}
+
+export interface BoNhoTaiKhoan {
+  ghi_nho: boolean;
+  muc: MucBoNho[];
 }
 
 export interface HoSo {
@@ -951,6 +989,16 @@ export function laPhienTomTat(x: unknown): x is PhienTomTat {
     typeof x["tieu_de"] === "string" &&
     typeof x["so_luot"] === "number"
   );
+}
+
+export function laBoNhoTaiKhoan(x: unknown): x is BoNhoTaiKhoan {
+  return laBanGhi(x) && typeof x["ghi_nho"] === "boolean" && Array.isArray(x["muc"]);
+}
+
+/** Thân của `PATCH /hoi-thoai/{id}/ho-so` — chỉ kiểm mảng `ho_so_da_dung`
+ *  tồn tại; hình dạng từng phần tử là việc của `TheKetQua`/`DuaTren`. */
+export function laHoSoPhienOut(x: unknown): x is { ho_so_da_dung: HoSoDaDung[] } {
+  return laBanGhi(x) && Array.isArray(x["ho_so_da_dung"]);
 }
 
 export function laChiTietPhien(x: unknown): x is ChiTietPhien {

@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { BrassButton, Field, PasswordField } from "@/components/auth/AuthUI";
+import { TheBoNho } from "@/components/tai-khoan/TheBoNho";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -19,7 +20,7 @@ const DO_DAI_MK_TOI_THIEU = 8;
  * tự cập nhật, không cần refetch tay ở đây.
  */
 function CaNhanHoaPage() {
-  const { user } = useTaiKhoan();
+  const { user, hanMuc } = useTaiKhoan();
   const navigate = useNavigate();
   const laEmail = user?.app_metadata?.["provider"] === "email";
 
@@ -117,6 +118,8 @@ function CaNhanHoaPage() {
           )}
         </form>
       )}
+
+      {hanMuc.hanMuc?.plan === "pro" && <TheBoNho />}
 
       <p className="mt-6 text-[13px] text-muted-foreground">Xoá tài khoản và ngôn ngữ: sắp có.</p>
     </div>

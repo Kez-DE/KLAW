@@ -18,6 +18,7 @@ import { TheTaiKhoan } from "@/components/tai-khoan/TheTaiKhoan";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { useKhungModalDangMo } from "@/hooks/use-khung-modal";
 import { useMinWidth } from "@/hooks/use-min-width";
+import { datKhongGhiNhoPhien } from "@/lib/api";
 import { dichQuayLaiTu, type DichQuayLai } from "@/lib/quay-lai";
 import { cn } from "@/lib/utils";
 
@@ -162,6 +163,11 @@ export function AppShell({
       }}
       onDaXoa={(id) => {
         if (id === phienTrenUrl) phienMoi();
+      }}
+      onDoiGhiNho={(id, khongGhiNho) => {
+        void datKhongGhiNhoPhien(id, khongGhiNho).then((kq) => {
+          if (kq.ok) hoiThoai.taiLai();
+        });
       }}
     />
   );

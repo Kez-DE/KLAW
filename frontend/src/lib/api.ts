@@ -24,7 +24,8 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { KHACH_HEADER, layKhachId } from "./khach";
-import type { ApiError, ApiResult } from "./klaw";
+import { laBoNhoTaiKhoan, laHoSoPhienOut, laPhienTomTat } from "./klaw";
+import type { ApiError, ApiResult, BoNhoTaiKhoan, HoSoDaDung, PhienTomTat } from "./klaw";
 
 /**
  * Gốc API. Không đặt biến môi trường thì trỏ vào uvicorn chạy máy nhà — đúng
@@ -231,6 +232,50 @@ export async function goi<T>(
 
 /** Guard cho thân 204 (DELETE /hoi-thoai/{id}) — `goi` đã đặt `than: null`. */
 export const laKhongThan = (x: unknown): x is null => x === null;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * /tai-khoan/bo-nho — bộ nhớ tài khoản, CHỈ gói trả phí (spec 2026-09-09 §6.6).
+ * /hoi-thoai/{id}/ghi-nho · /hoi-thoai/{id}/ho-so — mở cho mọi chủ phiên đã
+ * đăng nhập, không riêng gói trả phí. Hai endpoint tách biệt CÓ CHỦ Ý: một cái
+ * đổi công tắc ghi nhớ của PHIÊN, cái kia sửa MỘT dữ kiện phiên đã dùng — gộp
+ * chung sẽ buộc mọi lần sửa dữ kiện phải biết cả trạng thái công tắc.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+export const layBoNho = () => goi<BoNhoTaiKhoan>("/tai-khoan/bo-nho", laBoNhoTaiKhoan);
+
+export const datGhiNho = (ghi_nho: boolean) =>
+  goi<BoNhoTaiKhoan>("/tai-khoan/bo-nho/cai-dat", laBoNhoTaiKhoan, {
+    method: "PATCH",
+    body: { ghi_nho },
+  });
+
+export const suaBoNho = (khoa: string, gia_tri: string) =>
+  goi<BoNhoTaiKhoan>(`/tai-khoan/bo-nho/${encodeURIComponent(khoa)}`, laBoNhoTaiKhoan, {
+    method: "PATCH",
+    body: { gia_tri },
+  });
+
+export const xoaBoNho = (khoa: string) =>
+  goi<null>(`/tai-khoan/bo-nho/${encodeURIComponent(khoa)}`, laKhongThan, { method: "DELETE" });
+
+export const xoaHetBoNho = () => goi<null>("/tai-khoan/bo-nho", laKhongThan, { method: "DELETE" });
+
+/** Công tắc "không ghi nhớ" của một phiên (`DanhSachPhien`) — KHÁC sửa một
+ *  dữ kiện (`suaHoSoPhien` ngay dưới). */
+export const datKhongGhiNhoPhien = (id: string, khong_ghi_nho: boolean) =>
+  goi<PhienTomTat>(`/hoi-thoai/${encodeURIComponent(id)}/ghi-nho`, laPhienTomTat, {
+    method: "PATCH",
+    body: { khong_ghi_nho },
+  });
+
+/** Sửa (hoặc xoá, với `gia_tri: null`) một dữ kiện mà lượt này đã dùng — nút
+ *  bút chì của `DuaTren`. */
+export const suaHoSoPhien = (id: string, khoa: string, gia_tri: string | null) =>
+  goi<{ ho_so_da_dung: HoSoDaDung[] }>(
+    `/hoi-thoai/${encodeURIComponent(id)}/ho-so`,
+    laHoSoPhienOut,
+    { method: "PATCH", body: { khoa, gia_tri } },
+  );
 
 /** Dựng query string, bỏ qua giá trị rỗng. Tham số lặp lại được (`loai`, `co_quan`). */
 export function thamSo(cap: [string, string | number | undefined | null][]): string {

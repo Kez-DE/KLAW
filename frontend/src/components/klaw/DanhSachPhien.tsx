@@ -1,4 +1,4 @@
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, Eye, EyeOff, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { TrangThaiHoiThoai } from "@/hooks/use-hoi-thoai";
 import type { PhienTomTat } from "@/lib/klaw";
@@ -23,6 +23,8 @@ interface Props {
   onPhienMoi: () => void;
   /** Phiên vừa xoá xong — cha quyết định có phải điều hướng đi không. */
   onDaXoa: (id: string) => void;
+  /** Bật/tắt công tắc "không ghi nhớ" của MỘT phiên (spec 2026-09-09 §6.6). */
+  onDoiGhiNho: (id: string, khongGhiNho: boolean) => void;
 }
 
 const NUT_PHU =
@@ -34,12 +36,14 @@ function MotPhien({
   onChon,
   onDoiTen,
   onXoa,
+  onDoiGhiNho,
 }: {
   phien: PhienTomTat;
   dangMo: boolean;
   onChon: () => void;
   onDoiTen: (tieuDe: string) => Promise<boolean>;
   onXoa: () => Promise<boolean>;
+  onDoiGhiNho: (id: string, khongGhiNho: boolean) => void;
 }) {
   const [cheDo, datCheDo] = useState<"xem" | "sua" | "xoa">("xem");
   const [nhap, datNhap] = useState(phien.tieu_de);
@@ -191,6 +195,28 @@ function MotPhien({
         </button>
         <button
           type="button"
+          onClick={() => onDoiGhiNho(phien.id, !(phien.khong_ghi_nho ?? false))}
+          aria-pressed={phien.khong_ghi_nho ?? false}
+          aria-label={
+            (phien.khong_ghi_nho ?? false)
+              ? `Ghi nhớ lại phiên ${phien.tieu_de}`
+              : `Không ghi nhớ phiên ${phien.tieu_de}`
+          }
+          title={
+            (phien.khong_ghi_nho ?? false)
+              ? "Phiên này không được ghi nhớ"
+              : "Không ghi nhớ phiên này"
+          }
+          className={NUT_PHU}
+        >
+          {(phien.khong_ghi_nho ?? false) ? (
+            <EyeOff className="size-3.5" aria-hidden />
+          ) : (
+            <Eye className="size-3.5" aria-hidden />
+          )}
+        </button>
+        <button
+          type="button"
           onClick={() => datCheDo("xoa")}
           aria-label={`Xoá phiên ${phien.tieu_de}`}
           className={NUT_PHU}
@@ -202,7 +228,14 @@ function MotPhien({
   );
 }
 
-export function DanhSachPhien({ hoiThoai, phienDangMo, onChon, onPhienMoi, onDaXoa }: Props) {
+export function DanhSachPhien({
+  hoiThoai,
+  phienDangMo,
+  onChon,
+  onPhienMoi,
+  onDaXoa,
+  onDoiGhiNho,
+}: Props) {
   const { danhSach, dangTai, loi, taiLai, doiTen, xoa } = hoiThoai;
 
   if (loi !== null) {
@@ -254,6 +287,7 @@ export function DanhSachPhien({ hoiThoai, phienDangMo, onChon, onPhienMoi, onDaX
             if (kq.ok) onDaXoa(p.id);
             return kq.ok;
           }}
+          onDoiGhiNho={onDoiGhiNho}
         />
       ))}
     </ul>

@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
 import { ManChao } from "@/components/klaw/ManChao";
@@ -14,7 +15,7 @@ import { TheTaiKhoanKhoa } from "@/components/tai-khoan/TheTaiKhoanKhoa";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { useTraCuu } from "@/hooks/use-tra-cuu";
-import { goi } from "@/lib/api";
+import { goi, suaHoSoPhien } from "@/lib/api";
 import { dinhDangMoc, laBiKhoa, laKhongGioiHan } from "@/lib/han-muc";
 import { layThreadKhach, xoaThreadKhach } from "@/lib/khach";
 import type { Citation, TraCuuKetQua } from "@/lib/klaw";
@@ -576,6 +577,17 @@ function ManHoiKlaw() {
                             if (kq !== null) chonTrichDan(kq, chiSo);
                           }}
                           onSoanThao={moSoanThao}
+                          onSuaHoSo={(khoa, giaTri) => {
+                            const id = phienId ?? traCuu.hoiThoaiId;
+                            // `error.message` đã là câu tiếng Việt hiển thị thẳng được
+                            // (xem `ApiError` trong `klaw.ts`) — 422 "giá trị này giống
+                            // một điều luật/số văn bản" của máy chủ phải tới đúng câu
+                            // đó, không phải một câu chung chung nuốt mất lý do.
+                            if (id)
+                              void suaHoSoPhien(id, khoa, giaTri).then((kq) => {
+                                if (!kq.ok) toast.error(kq.error.message);
+                              });
+                          }}
                         />
                       )}
                       {traCuu.loiLuu !== null && (

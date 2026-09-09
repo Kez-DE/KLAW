@@ -7,6 +7,7 @@ import { canCuConHieuLuc, chiSoCuaThe, coTagBamDuoc } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { catDoan, catManh, type Manh } from "@/lib/van-xuoi";
 import { BangKetQua } from "./BangKetQua";
+import { DuaTren } from "./DuaTren";
 
 /**
  * Bốn `result_type`, bốn cách hiển thị — không thương lượng.
@@ -418,6 +419,8 @@ interface TheKetQuaProps {
   cauHoiGoc?: string;
   /** Mở khung soạn thảo bên cạnh với slug thẻ, hoặc `null` để chọn loại tại chỗ. */
   onSoanThao?: ((slug: string | null) => void) | undefined;
+  /** Sửa (hoặc xoá, với `giaTri: null`) một dữ kiện trong dòng "Dựa trên". */
+  onSuaHoSo?: (khoa: string, giaTri: string | null) => void;
 }
 
 /**
@@ -449,6 +452,10 @@ export function TheKetQua(props: TheKetQuaProps) {
   return (
     <>
       <CauHoiDaHieu goc={props.cauHoiGoc} dayDu={props.ketQua.cau_hoi_day_du} />
+      <DuaTren
+        muc={props.ketQua.ho_so_da_dung ?? []}
+        {...(props.onSuaHoSo ? { onSua: props.onSuaHoSo } : {})}
+      />
       <NoiDungKetQua {...props} />
     </>
   );
