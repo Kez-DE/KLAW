@@ -82,6 +82,19 @@ export function mucTuBanThao(banThao: BanThao, cauTruc: CauTruc | null): Muc[] {
 
 const BO_QUA = new Set(["SCRIPT", "STYLE"]);
 
+/**
+ * Phần tử KHÔNG được vào tệp tải về: thẻ kỹ thuật, và mọi thứ nằm trong một
+ * khối đánh dấu `data-khong-xuat`.
+ *
+ * Cần cái thứ hai vì khung xem trước có những dòng chỉ dành cho MÀN HÌNH —
+ * dòng `Căn cứ:` bật/tắt bằng công tắc "Hiển thị căn cứ" là một `<p>` như mọi
+ * đoạn khác, nên nếu không đánh dấu thì một công tắc xem trước lại đổi nội
+ * dung văn bản pháp lý người dùng tải về.
+ */
+export function boQuaKhiXuat(el: { tagName: string; closest(chon: string): unknown }): boolean {
+  return BO_QUA.has(el.tagName) || el.closest("[data-khong-xuat]") !== null;
+}
+
 function chuanHoa(s: string) {
   return s.replace(/\s+/g, " ").trim();
 }
@@ -124,6 +137,7 @@ export function docNoiDungTuDOM(sheet: HTMLElement): NoiDungXuat {
   if (khoiKy) {
     for (const cot of Array.from(khoiKy.children) as HTMLElement[]) {
       const dongCot = Array.from(cot.querySelectorAll("p"))
+        .filter((el) => !boQuaKhiXuat(el))
         .map(docDong)
         .filter((d) => d.text !== "");
       if (dongCot.length > 0) oKy.push(dongCot);
@@ -132,7 +146,7 @@ export function docNoiDungTuDOM(sheet: HTMLElement): NoiDungXuat {
 
   const blocks = sheet.querySelectorAll<HTMLElement>("h1, p");
   for (const el of Array.from(blocks)) {
-    if (BO_QUA.has(el.tagName)) continue;
+    if (boQuaKhiXuat(el)) continue;
     if (khoiKy && khoiKy.contains(el)) continue;
     const d = docDong(el);
     if (d.text === "") continue;
@@ -286,6 +300,12 @@ function nhanBanKhung(sheet: HTMLElement) {
   ban.style.transform = "none";
   ban.style.boxShadow = "none";
   ban.style.margin = "0";
+  // Khung xem trước là một hộp cao đúng một trang A4 (`aspect-[210/297]`) và
+  // CUỘN phần thừa. `html2canvas` chụp đúng cái hộp đó, nên bản sao phải cao
+  // theo nội dung — nếu không, vòng cắt trang bên dưới luôn chỉ có một trang
+  // ảnh để cắt và tệp PDF cụt ở trang 1 (tệp Word không dính vì nó đọc DOM).
+  ban.style.height = "auto";
+  ban.style.overflow = "visible";
   hoi.appendChild(ban);
   document.body.appendChild(hoi);
   return { hoi, ban };

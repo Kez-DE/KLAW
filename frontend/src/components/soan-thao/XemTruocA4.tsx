@@ -65,14 +65,25 @@ export function XemTruocA4({
                 mucDangChon === m.key && "ring-2 ring-[var(--color-brass-600)]",
               )}
             >
-              <p className="m-0 font-serif text-[1em] font-semibold">
+              {/* `dieu-head`: dấu hiệu DUY NHẤT mà `docNoiDungTuDOM`
+                  (xuat-tep.ts) đọc để biết đây là đầu mục, nên tệp Word/PDF
+                  tải về mới có tiêu đề mục thay vì một đoạn thường in đậm.
+                  Lớp này chỉ có kiểu dáng trong `.a4-sheet` (styles.css) nên
+                  không đổi gì trên màn hình của khung xem trước này. */}
+              <p className="dieu-head m-0 font-serif text-[1em] font-semibold">
                 Mục {m.stt}. {m.ten}
               </p>
               <p className="m-0 mt-1 whitespace-pre-wrap font-serif text-[1em] leading-relaxed">
                 {m.noiDung}
               </p>
+              {/* `data-khong-xuat`: dòng căn cứ là chú thích cho người ĐỌC
+                  MÀN HÌNH, không phải một phần của văn bản. Thiếu dấu này thì
+                  công tắc "Hiển thị căn cứ" đổi luôn nội dung tệp tải về. */}
               {hienCanCu && m.canCu && (
-                <p className="m-0 mt-1 font-mono text-[0.75em] text-[var(--color-brass-600)]">
+                <p
+                  data-khong-xuat
+                  className="m-0 mt-1 font-mono text-[0.75em] text-[var(--color-brass-600)]"
+                >
                   Căn cứ: {m.canCu}
                 </p>
               )}
