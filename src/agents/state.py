@@ -90,3 +90,12 @@ class KLawState(TypedDict, total=False):
     # ý định CHÍNH — đi đường rẽ tắt riêng, xem `graph_tra_cuu._RE_TAT`).
     dang_tra_loi: str
     y_dinh_phu: str | None
+    # Soạn thảo hội thoại (spec 2026-09-09 §8.2, Task 18). Trạng thái gom dữ kiện của
+    # phiên đang mở: `loai`, `facts`, `ban_thao_id`, `so_lan_sua` (Task 17) cộng
+    # `con_thieu`, `du`, `cu_soan` mà `nodes/gom_du_kien.py` tính mỗi lượt. `None` = chưa
+    # mở phiên soạn thảo nào. Khai ở đây vì cùng bẫy LangGraph với `bang`/`nguon`/
+    # `documents`/`soan_thao_goi_y`: thiếu dòng này thì khoá bị loại khỏi state trả về.
+    soan_thao_dang_mo: dict | None
+    # Chủ phiên hội thoại hiện tại — `gom_du_kien` (và các node sau nó) cần để tra/ghi
+    # `ban_thao` đúng người, không đọc lại từ request HTTP.
+    user_sub: str | None
