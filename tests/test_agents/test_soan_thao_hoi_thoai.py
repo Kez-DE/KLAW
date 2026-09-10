@@ -1,5 +1,18 @@
+import json
+
 from src.agents.nodes import assemble as as_mod
 from src.models.schemas import TraCuuResponse
+from src.services.llm import Usage
+
+
+class _LlmGiaHoiLai:
+    """Chỉ đủ cho nhánh `hoi_lai` của một ngõ cụt tra cứu bình thường (schema
+    có khoá `chieu`) — dùng để chứng minh `assemble` KHÔNG rẽ vào nhánh soạn
+    thảo khi `intent` không phải `soan_thao`, dù `soan_thao_dang_mo` còn ở
+    state."""
+
+    def chat(self, model, messages, json_schema=None):
+        return json.dumps({"chieu": [{"ma": "chu_the", "cau": "Bạn ở phía nào?"}]}), Usage(1, 1, 0.0)
 
 
 def test_result_type_co_hai_gia_tri_moi_va_response_biet():
@@ -105,3 +118,52 @@ def test_assemble_ban_thao_tra_ket_da_dung():
     ket = as_mod.assemble(st, {}, None, "m")
     assert ket["result_type"] == as_mod.ResultType.ban_thao and ket["ban_thao"]["phien_ban"] == 2
     assert "phiên bản 2" in ket["answer"] and "đã đổi" in ket["answer"]
+
+
+# ── Review fix: draft mở KHÔNG được tự nó ép nhánh soạn thảo (chỉ `intent`
+# quyết định, xem `assemble.py` và `graph_tra_cuu._re_sau_route`) ───────────
+
+
+def test_assemble_intent_tra_cuu_bo_qua_nhanh_soan_thao_du_co_draft_mo():
+    """Một câu hỏi luật thật (`route` đoán `tra_cuu`) giữa lúc đang soạn phải
+    đi hết đường tra cứu bình thường, KHÔNG bị hỏi lại dữ kiện chỉ vì phiên
+    còn một `soan_thao_dang_mo`."""
+    st = {
+        "intent": "tra_cuu",
+        "traces": {},
+        "user_sub": "u",
+        "tier1": [],
+        "soan_thao_dang_mo": {
+            "loai": "hdld",
+            "facts": {"x": "1"},
+            "ban_thao_id": None,
+            "so_lan_sua": 0,
+            "con_thieu": [],
+            "du": True,
+            "cu_soan": False,
+        },
+    }
+    ket = as_mod.assemble(st, {}, _LlmGiaHoiLai(), "m")
+    assert ket["result_type"] not in (as_mod.ResultType.soan_thao_hoi, as_mod.ResultType.ban_thao)
+    assert ket["result_type"] == as_mod.ResultType.abstain
+
+
+def test_assemble_re_tat_van_dung_nhanh_cua_no_du_co_draft_mo():
+    """`gioi_thieu` (một ý định rẽ tắt) vẫn phải trả đúng câu trả lời rẽ tắt
+    của nó, không bị kéo vào nhánh soạn thảo chỉ vì phiên đang có draft mở."""
+    st = {
+        "intent": "gioi_thieu",
+        "traces": {},
+        "query": "bạn là ai",
+        "soan_thao_dang_mo": {
+            "loai": "hdld",
+            "facts": {},
+            "ban_thao_id": None,
+            "so_lan_sua": 0,
+            "con_thieu": [],
+            "du": False,
+            "cu_soan": False,
+        },
+    }
+    ket = as_mod.assemble(st, {}, None, "m")
+    assert ket["result_type"] == as_mod.ResultType.gioi_thieu

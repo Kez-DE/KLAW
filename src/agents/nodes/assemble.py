@@ -615,7 +615,7 @@ def dung_bang_tu_luan_diem(verified: list, citations: list[dict]) -> Bang | None
 
 
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, prompt_path: Path | None = None) -> dict:
-    if state.get("intent") == "soan_thao" or state.get("soan_thao_dang_mo"):
+    if state.get("intent") == "soan_thao":
         # Task 19 — lượt đã đi qua `gom_du_kien` (và, khi đủ dữ kiện và có tài
         # khoản, `dung_ban_thao`) TRƯỚC KHI tới đây (`graph_tra_cuu._re_sau_route`,
         # KHÔNG còn qua `_RE_TAT`). `assemble` KHÔNG tự soạn gì ở đây — nó chỉ ĐỌC
@@ -626,6 +626,16 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         # thảo thật (`ban_thao`). Mọi điều khoản của bản thảo đó vẫn neo bằng đúng
         # con đường checklist/rules/graph_soan_thao cũ — không văn xuôi tự do nào
         # được sinh thành điều khoản pháp lý ở đây.
+        #
+        # CỐ Ý gác CHỈ trên `intent` (state coordinator review, sau khi lượt đầu
+        # triển khai): một `soan_thao_dang_mo` còn ở phiên KHÔNG được tự nó kéo
+        # nhánh này vào, kể cả khi `intent` lượt này là `gioi_thieu`/`hoi_ve_kho`/
+        # `ngoai_pham_vi` (rẽ tắt thẳng tới đây từ `_RE_TAT`, không qua
+        # `gom_du_kien`) hay `tra_cuu` (đi hết đường tra cứu, không rẽ tắt) — cả
+        # hai đường đó phải rơi đúng vào các nhánh CỦA CHÍNH intent đó bên dưới,
+        # không phải bị hớt tay trên bởi một draft cũ. `route.v3.md` đã có
+        # `{dang_soan}` để tự phân biệt câu trả lời dữ kiện với một câu hỏi luật
+        # thật — đây là nơi DUY NHẤT tôn trọng phán đoán đó.
         sd = state.get("soan_thao_dang_mo")
         if not sd:  # router không đoán được loại
             goi_y, answer = _goi_y_soan_thao(state.get("soan_thao_goi_y"))

@@ -20,6 +20,16 @@ bo-nho-tinh-cach-soan-thao): trước đó soạn thảo chỉ có MỘT câu tr
 thảo cần GOM DỮ KIỆN qua nhiều lượt và có thể DỰNG một bản thảo thật ngay
 trong hội thoại, nên nó có đường riêng qua `gom_du_kien`/`dung_ban_thao`.
 
+Rẽ này gác CHỈ trên `intent` mà `route` VỪA đoán cho lượt này (state review,
+sau khi lượt đầu triển khai đã tự xét thêm `soan_thao_dang_mo` — một hội
+thoại đang soạn dở — như một điều kiện OR thứ hai). Bản đó bị bỏ có chủ đích:
+`route.v3.md` đã có `{dang_soan}` để tự phân biệt câu trả lời dữ kiện/yêu cầu
+sửa với một câu hỏi luật thật *dựa trên chính nội dung câu hỏi*; xét thêm
+`soan_thao_dang_mo` sẽ ném phán đoán đó đi và ép MỌI lượt sau khi mở một
+draft — kể cả một câu hỏi luật thật, kể cả `gioi_thieu`/`hoi_ve_kho`/
+`ngoai_pham_vi` — đi qua `gom_du_kien`. `route` (đoán đúng) là nguồn sự thật
+DUY NHẤT cho quyết định rẽ này.
+
 Test khoá TOPO của graph chứ không khoá số token: đo token thật cần một lượt
 gọi LLM 100–180 giây. Đường đi là thứ quyết định chi phí, và nó kiểm được
 trong một phần nghìn giây.
@@ -34,12 +44,32 @@ def test_hai_y_dinh_khong_can_tra_cuu_deu_re_tat():
         assert _re_sau_route({"intent": intent}) == "assemble", f"{intent} phải rẽ tắt"
 
 
+def test_hai_y_dinh_khong_can_tra_cuu_van_re_tat_du_dang_co_draft_mo():
+    """Cùng test trên, nhưng với `soan_thao_dang_mo` còn ở phiên — MỘT hội
+    thoại đang soạn dở KHÔNG được phép ép ba ý định rẽ tắt này đi chệch
+    hướng: `route` đoán `gioi_thieu`/`hoi_ve_kho`/`ngoai_pham_vi` thì vẫn phải
+    rẽ tắt y hệt, không bị kéo vào `gom_du_kien` chỉ vì có draft."""
+    draft = {"loai": "hdld", "facts": {"x": "1"}, "ban_thao_id": None, "so_lan_sua": 0}
+    for intent in (Intent.ngoai_pham_vi, Intent.gioi_thieu, Intent.hoi_ve_kho):
+        assert _re_sau_route({"intent": intent, "soan_thao_dang_mo": draft}) == "assemble", (
+            f"{intent} phải rẽ tắt dù đang có draft mở"
+        )
+
+
 def test_soan_thao_re_qua_gom_du_kien_khong_phai_thang_toi_assemble():
-    """`soan_thao` — ý định CHÍNH của lượt này, HOẶC một hội thoại đang soạn dở
-    (`soan_thao_dang_mo` còn ở phiên, dù ý định lượt này đoán là gì) — đi
+    """`soan_thao` — ý định CHÍNH mà `route` vừa đoán cho LƯỢT NÀY — đi
     `gom_du_kien` trước, không rẽ thẳng như `test_hai_y_dinh...` ở trên."""
     assert _re_sau_route({"intent": Intent.soan_thao}) == "gom_du_kien"
-    assert _re_sau_route({"intent": Intent.tra_cuu, "soan_thao_dang_mo": {"loai": "hdld"}}) == "gom_du_kien"
+
+
+def test_draft_mo_KHONG_tu_no_re_qua_gom_du_kien_khi_intent_la_tra_cuu():
+    """Bug đã sửa: `soan_thao_dang_mo` một mình (không kèm `intent == soan_thao`)
+    không còn ép lượt này qua `gom_du_kien` — một câu hỏi luật thật giữa lúc
+    đang soạn phải đi hết đường tra cứu bình thường (`tien_de`), không bị hỏi
+    lại dữ kiện. `route` đoán sai vẫn là rủi ro của `route`, không phải thứ
+    graph tự sửa bằng cách nhìn vào trạng thái phiên."""
+    draft = {"loai": "hdld", "facts": {"x": "1"}, "ban_thao_id": None, "so_lan_sua": 0}
+    assert _re_sau_route({"intent": Intent.tra_cuu, "soan_thao_dang_mo": draft}) == "tien_de"
 
 
 def test_tra_cuu_van_di_het_duong():

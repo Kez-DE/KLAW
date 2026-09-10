@@ -10,10 +10,19 @@ build một lần (ở một test khác) sẽ không có tác dụng gì.
 
 `LlmGia` không đọc nội dung prompt thật — nó trả JSON theo HÌNH DẠNG
 `json_schema` nhận được, đúng cách brief mô tả: có `dang_tra_loi` → JSON
-router; có `du` → JSON dữ kiện (đếm số lần gọi để mô phỏng "lần đầu thiếu,
-lần sau đủ"); có `cau_hoi_day_du` → JSON giải nghĩa (một câu cố định, không
-số/Điều nào để không vướng lưới `dinh_danh_bia`); còn lại → một JSON trung
-tính không nhánh nào trong kịch bản này thật sự cần tới.
+router, đúng `intent` bằng `llm.router_intent` (đổi được giữa các lượt); có
+`du` → JSON dữ kiện (đếm số lần gọi để mô phỏng "lần đầu thiếu, lần sau đủ");
+có `cau_hoi_day_du` → JSON giải nghĩa (một câu cố định, không số/Điều nào để
+không vướng lưới `dinh_danh_bia`); còn lại → một JSON trung tính (đủ cho
+`hoi_lai` degrade sạch qua nhánh lỗi của nó khi `intent` router trả là một ý
+định KHÔNG phải `soan_thao` và lượt đó rơi vào một ngõ cụt tra cứu thường).
+
+Review fix (state coordinator): `_re_sau_route`/`assemble` từng tự ý xét
+THÊM `soan_thao_dang_mo` của phiên bên cạnh `intent` router vừa đoán, nên một
+draft còn mở sẽ ép MỌI lượt sau — kể cả một câu hỏi luật thật — vào nhánh
+soạn thảo. Cả hai chỗ đó giờ CHỈ gác trên `intent`; các test cuối file này
+(`..._router_dua_ra_tra_cuu...`, `..._router_dua_ra_y_dinh_re_tat...`) khoá
+đúng phân biệt đó ở tầng HTTP.
 """
 
 import json
@@ -57,14 +66,20 @@ class _GraphSoanThaoGia:
 class LlmGia:
     def __init__(self):
         self.lan_gom = 0
+        # Ý định router trả cho LƯỢT KẾ TIẾP — test đổi giá trị này giữa các
+        # lượt để mô phỏng `route` đoán khác nhau qua từng tin nhắn, đúng cách
+        # `_re_sau_route`/`assemble` giờ CHỈ tin vào phán đoán này (không còn
+        # tự ý xét thêm `soan_thao_dang_mo` của phiên).
+        self.router_intent = "soan_thao"
 
     def chat(self, model, messages, json_schema=None):
         props = (json_schema or {}).get("properties", {})
         if "dang_tra_loi" in props:  # route.v3
+            la_soan = self.router_intent == "soan_thao"
             return json.dumps(
                 {
-                    "intent": "soan_thao",
-                    "loai_van_ban": "hdld",
+                    "intent": self.router_intent,
+                    "loai_van_ban": "hdld" if la_soan else "khong_ro",
                     "thay_the": [],
                     "ly_do": "",
                     "dang_tra_loi": "van_xuoi",
@@ -261,3 +276,93 @@ async def test_het_han_muc_dung_lan_dau_thi_hoi_lai_khong_tao_ban_thao(
     assert d["result_type"] == "soan_thao_hoi"
     assert "hạn mức" in d["soan_thao_hoi"]["het_han_muc"]
     assert _dem_trace(sub, "/api/v1/soan-thao") == 0
+
+
+# ── Review fix: draft mở KHÔNG được tự nó ép lượt sau vào nhánh soạn thảo —
+# CHỈ ý định `route` đoán cho LƯỢT ĐÓ mới quyết định (`_re_sau_route`/
+# `assemble`, cả hai cùng sửa). Ba test dưới đây khoá đúng phân biệt đó ở
+# tầng HTTP, cùng một phiên xuyên suốt. ─────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_y_dinh_re_tat_giua_luc_dang_soan_van_re_tat_va_giu_nguyen_draft(
+    client,
+    cai_dat,
+    khoa_ky,
+    graph_that_llm_gia,
+    don_dep,
+):
+    """`route` đoán một ý định RẼ TẮT (`gioi_thieu`) ở lượt thứ hai, giữa lúc
+    phiên đang có draft mở — phải nhận đúng câu trả lời rẽ tắt của `gioi_thieu`,
+    KHÔNG bị kéo vào `gom_du_kien` (không thêm dòng trace `/api/v1/soan-thao`),
+    và draft đang mở vẫn còn nguyên cho lượt sau."""
+    cai_dat(supabase_url=SUPABASE)
+    sub = str(uuid.uuid4())
+    don_dep.append(sub)
+    h = _bearer(khoa_ky, sub)
+    llm: LlmGia = graph_that_llm_gia
+
+    r1 = await client.post("/api/v1/tra-cuu", json={"query": f"soạn hợp đồng lao động {uuid.uuid4()}"}, headers=h)
+    assert r1.json()["result_type"] == "soan_thao_hoi"
+    pid = r1.headers["X-Hoi-Thoai-Id"]
+    facts_truoc = hoi_thoai.soan_thao_cua_phien(sub, pid)["facts"]
+
+    llm.router_intent = "gioi_thieu"
+    r2 = await client.post("/api/v1/tra-cuu", json={"query": "bạn là ai", "hoi_thoai_id": pid}, headers=h)
+    assert r2.status_code == 200
+    d2 = r2.json()
+    assert d2["result_type"] == "gioi_thieu"
+    assert d2["soan_thao_hoi"] is None and d2["ban_thao"] is None
+    assert _dem_trace(sub, "/api/v1/soan-thao") == 0, "gioi_thieu không được chạm nhánh soạn thảo"
+
+    # Draft vẫn còn nguyên — không bị ghi đè bởi lượt gioi_thieu.
+    assert hoi_thoai.soan_thao_cua_phien(sub, pid)["facts"] == facts_truoc
+
+
+@pytest.mark.asyncio
+async def test_cau_hoi_that_giua_luc_dang_soan_duoc_tra_loi_binh_thuong_va_giu_nguyen_draft(
+    client,
+    cai_dat,
+    khoa_ky,
+    graph_that_llm_gia,
+    don_dep,
+    monkeypatch,
+):
+    """`route` đoán `tra_cuu` (câu hỏi luật thật) ở lượt thứ hai, giữa lúc
+    phiên đang có draft mở — phải đi HẾT đường tra cứu bình thường (không phải
+    `soan_thao_hoi`/`ban_thao`), không thêm dòng trace `/api/v1/soan-thao`, và
+    draft vẫn còn nguyên để lượt ba quay lại soạn tiếp không mất dữ kiện đã
+    cho. Truy hồi bị khống chế trả rỗng (giống khuôn `test_tra_cuu.py`'s
+    `test_partial_coverage_...`) để không gọi embedding thật — lượt này chỉ
+    cần khoá ĐƯỜNG ĐI, không cần một câu trả lời tra cứu thật sự đúng."""
+    cai_dat(supabase_url=SUPABASE)
+    sub = str(uuid.uuid4())
+    don_dep.append(sub)
+    h = _bearer(khoa_ky, sub)
+    llm: LlmGia = graph_that_llm_gia
+
+    r1 = await client.post("/api/v1/tra-cuu", json={"query": f"soạn hợp đồng lao động {uuid.uuid4()}"}, headers=h)
+    assert r1.json()["result_type"] == "soan_thao_hoi"
+    pid = r1.headers["X-Hoi-Thoai-Id"]
+    facts_truoc = hoi_thoai.soan_thao_cua_phien(sub, pid)["facts"]
+
+    monkeypatch.setattr(g.Retriever, "hybrid", lambda self, q: [])
+    monkeypatch.setattr(g.Retriever, "provision_ids", lambda self, hits: [])
+    llm.router_intent = "tra_cuu"
+    r2 = await client.post(
+        "/api/v1/tra-cuu", json={"query": "thử việc tối đa bao nhiêu ngày", "hoi_thoai_id": pid}, headers=h
+    )
+    assert r2.status_code == 200
+    d2 = r2.json()
+    assert d2["result_type"] not in ("soan_thao_hoi", "ban_thao")
+    assert d2["soan_thao_hoi"] is None and d2["ban_thao"] is None
+    assert _dem_trace(sub, "/api/v1/soan-thao") == 0, "câu hỏi luật thật không được chạm nhánh soạn thảo"
+
+    # Draft sống sót qua lượt hỏi-luật-thật xen giữa — không mất dữ kiện đã gom.
+    assert hoi_thoai.soan_thao_cua_phien(sub, pid)["facts"] == facts_truoc
+
+    # Lượt ba quay lại soạn (router lại đoán soan_thao) — vẫn dùng đúng draft cũ.
+    llm.router_intent = "soan_thao"
+    r3 = await client.post("/api/v1/tra-cuu", json={"query": "tên tôi là Nguyễn Văn A", "hoi_thoai_id": pid}, headers=h)
+    assert r3.status_code == 200
+    assert r3.json()["result_type"] == "ban_thao"

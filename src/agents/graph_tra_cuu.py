@@ -121,14 +121,21 @@ _RE_TAT = frozenset({Intent.ngoai_pham_vi, Intent.gioi_thieu, Intent.hoi_ve_kho}
 
 
 def _re_sau_route(st: dict) -> str:
-    """`soan_thao` — ý định CHÍNH của lượt này, HOẶC một hội thoại đang soạn dở
-    (`soan_thao_dang_mo` còn ở phiên, nạp bởi `routes._state_vao`) — luôn đi
-    `gom_du_kien` trước, bất kể `route` lượt này đoán intent gì: một câu trả
-    lời dữ kiện ("lương 12 triệu") hay một yêu cầu sửa bản thảo tự nó không có
-    gì để `route` phân biệt với một câu hỏi luật thường nếu không nhìn vào việc
-    hội thoại đang mở một phiên soạn. Ba ý định của `_RE_TAT` vẫn rẽ tắt như cũ.
+    """`soan_thao` là ý định CHÍNH mà `route` vừa đoán cho LƯỢT NÀY — chỉ vậy —
+    đi `gom_du_kien` trước khi tới `assemble`. Ba ý định của `_RE_TAT` vẫn rẽ
+    tắt như cũ.
+
+    CỐ Ý không xét thêm `soan_thao_dang_mo` (state coordinator review, sau khi
+    lượt đầu triển khai): việc phiên đang mở một bản thảo dở KHÔNG được tự nó
+    ép lượt này vào `gom_du_kien` — `route.v3.md` đã được cấp `{dang_soan}` để
+    tự phân biệt câu trả lời dữ kiện/yêu cầu sửa với một câu hỏi luật thật, và
+    đó phải là NGUỒN SỰ THẬT DUY NHẤT cho quyết định rẽ. Xét thêm điều kiện đó
+    có nghĩa ý định model vừa đoán không bao giờ được tham khảo cho quyết định
+    này: một câu hỏi luật thật giữa lúc đang soạn sẽ luôn bị hỏi lại dữ kiện
+    thay vì được trả lời, và một ý định RẼ TẮT (`gioi_thieu`/`hoi_ve_kho`/
+    `ngoai_pham_vi`) cũng sẽ bị kéo vào `gom_du_kien` chỉ vì có draft đang mở.
     """
-    if st.get("intent") == Intent.soan_thao or st.get("soan_thao_dang_mo"):
+    if st.get("intent") == Intent.soan_thao:
         return "gom_du_kien"
     return "assemble" if st.get("intent") in _RE_TAT else "tien_de"
 
