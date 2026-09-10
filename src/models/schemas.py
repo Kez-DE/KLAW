@@ -141,6 +141,56 @@ class SoanThaoGoiYOut(BaseModel):
     ho_tro: bool
 
 
+class FactFieldOut(BaseModel):
+    """Một trường của form nhập fact — sinh từ config/rules.yaml
+    (rules.mo_ta_facts), KHÔNG hardcode danh sách trường (ràng buộc #4).
+
+    Chuyển lên ĐÂY (trước `TraCuuResponse`) từ chỗ cũ cạnh `SoanThaoResponse`:
+    `SoanThaoHoiOut.con_thieu` (Task 19) cần kiểu này, và pydantic v2 phân giải
+    type hint NGAY lúc định nghĩa class (không có `from __future__ import
+    annotations` trong file này) — một model dùng `FactFieldOut` mà đứng trước
+    nó trong file sẽ nổ `NameError` lúc import, không phải một lỗi runtime ẩn.
+    """
+
+    key: str
+    nhan: str
+    kieu: str
+    bat_buoc: bool
+    lua_chon: list[str] | None = None
+
+
+class SoanThaoHoiOut(BaseModel):
+    """`result_type == soan_thao_hoi` (Task 19, soạn thảo trong chat): còn thiếu
+    dữ kiện, hoặc chưa đăng nhập, hoặc đã hết hạn mức soạn thảo — assemble hỏi
+    lại thay vì dựng bản thảo. `da_co`/`con_thieu` để FE vẽ lại đúng những gì
+    đã gom được; `chip` là gợi ý lựa chọn nhanh cho từng trường có `lua_chon`."""
+
+    loai: str
+    ten: str
+    da_co: dict
+    con_thieu: list[FactFieldOut]
+    chip: dict[str, list[str]]
+    het_han_muc: str | None = None
+    can_dang_nhap: bool = False
+
+
+class BanThaoOut(BaseModel):
+    """`result_type == ban_thao` (Task 19) — bản thảo `dung_ban_thao` vừa dựng
+    hoặc sửa xong ngay trong hội thoại, cùng hình dạng nội dung với
+    `SoanThaoResponse`/`ban_thao.tao`/`ban_thao.sua` cộng `id`/`phien_ban`/
+    `facts`/`doi_so_voi_truoc` để FE hiện được phiên bản và những gì vừa đổi."""
+
+    id: str
+    loai: str
+    ten: str
+    phien_ban: int
+    document: str
+    clauses: list[dict]
+    audit_report: dict
+    facts: dict
+    doi_so_voi_truoc: list[str] = []
+
+
 class Bang(BaseModel):
     """Một bảng dữ liệu CÓ KIỂU — trả kèm `answer` khi câu hỏi về kho xin trình
     bày dạng bảng (`services/kho.dung_bang`), để giao diện dựng bảng thật thay
@@ -192,6 +242,8 @@ class TraCuuResponse(BaseModel):
         "gioi_thieu",
         "huong_dan_soan_thao",
         "hoi_ve_kho",
+        "soan_thao_hoi",
+        "ban_thao",
     ]
     answer: str | None
     citations: list[CitationOut]
@@ -213,6 +265,13 @@ class TraCuuResponse(BaseModel):
     # khi ý định phụ là soạn thảo (`assemble.py` — xem `_goi_y_soan_thao`); mặc
     # định None cùng lý do `bang`/`documents` (payload cache cũ không có khoá).
     soan_thao: SoanThaoGoiYOut | None = None
+    # `result_type == soan_thao_hoi`/`ban_thao` (Task 19, soạn thảo trong chat)
+    # — hai nửa của MỘT hội thoại soạn thảo: hoặc còn phải hỏi thêm dữ kiện
+    # (`soan_thao_hoi`), hoặc bản thảo đã dựng xong (`ban_thao`). Mặc định
+    # `None` cùng lý do `soan_thao`/`bang`/`documents` ngay trên: payload cache
+    # ghi trước Task 19 không có hai khoá này.
+    soan_thao_hoi: SoanThaoHoiOut | None = None
+    ban_thao: BanThaoOut | None = None
     # Dữ kiện về người hỏi đã đi vào lượt này (spec 2026-09-09 §6.6) — nguyên
     # văn hoặc suy diễn. Mặc định `[]` cùng lý do `bang`.
     ho_so_da_dung: list[HoSoDaDungOut] = []
@@ -426,17 +485,6 @@ class SoanThaoResponse(BaseModel):
 class SoatResponse(BaseModel):
     audit_report: AuditReportOut
     trace_id: str
-
-
-class FactFieldOut(BaseModel):
-    """Một trường của form nhập fact — sinh từ config/rules.yaml
-    (rules.mo_ta_facts), KHÔNG hardcode danh sách trường (ràng buộc #4)."""
-
-    key: str
-    nhan: str
-    kieu: str
-    bat_buoc: bool
-    lua_chon: list[str] | None = None
 
 
 class MucMauOut(BaseModel):

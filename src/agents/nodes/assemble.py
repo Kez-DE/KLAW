@@ -51,6 +51,7 @@ from src.agents.nodes.gioi_thieu import cau_gioi_thieu
 from src.agents.nodes.hoi_lai import duoi_hoi_them, hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
 from src.models.schemas import Bang
+from src.services.bao_ve import LOI_SOAN_THAO_DANG_NHAP
 from src.services.bo_nho import ho_so_da_dung, khoi_tinh_huong
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.kho import hien_van_ban
@@ -171,6 +172,15 @@ class ResultType(StrEnum):
     # không phải một lượt tra cứu, và câu trả lời là một phép TRA BẢNG xác
     # định (`services/kho.py`) chứ không phải một luận điểm cần hai tầng kiểm.
     hoi_ve_kho = "hoi_ve_kho"
+    # Loại thứ SÁU và thứ BẢY (Task 19, soạn thảo trong chat) — hai nửa của
+    # đúng MỘT hội thoại soạn thảo, không phải hai tính năng riêng: hoặc còn
+    # thiếu dữ kiện (hay chưa đăng nhập, hay hết hạn mức) và phải hỏi thêm
+    # (`soan_thao_hoi`), hoặc đã đủ và `dung_ban_thao` đã dựng xong một bản
+    # thảo thật để trả về (`ban_thao`). Tách khỏi `huong_dan_soan_thao` (vẫn
+    # còn, dùng khi router không đoán được LOẠI văn bản nào) vì FE cần biết
+    # có nên vẽ khung "hỏi thêm"/"xem bản thảo" hay khung "chọn loại" cũ.
+    soan_thao_hoi = "soan_thao_hoi"
+    ban_thao = "ban_thao"
 
 
 class Citation(TypedDict):
@@ -482,13 +492,14 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
 # tách thành dạng bằng quy tắc; đây vẫn là MỘT `result_type`, chỉ `answer` đổi.
 
 
-# Câu trả lời cho `intent == soan_thao`.
-#
-# KHÔNG soạn ở đây, và đó là chủ đích. Một bản thảo dựng từ văn xuôi tự do sẽ có
-# những điều khoản không neo được vào căn cứ nào — đúng thứ dự án tồn tại để
-# không làm. `SoanThaoRequest` đòi `loai_van_ban` (chọn checklist) và `facts`
-# (điền, rồi chạy rule) chính vì thế; một câu như "soạn hợp đồng cho tôi" không
-# cho hệ thống hai thứ đó.
+# Lời đáp khi router đoán ĐÚNG là `soan_thao` nhưng KHÔNG đoán được LOẠI văn
+# bản nào (`state["soan_thao_dang_mo"]` rỗng sau `gom_du_kien` — xem nhánh
+# `if not sd` bên dưới). Trước Task 19 đây là toàn bộ câu trả lời cho MỌI yêu
+# cầu soạn thảo, vì assemble không tự soạn — giờ vẫn đúng ở CHÍNH nhánh này
+# (không biết soạn gì thì không có dữ kiện nào để gom), nhưng khi loại ĐÃ biết
+# thì lượt đi tiếp qua `gom_du_kien`/`dung_ban_thao` (graph_tra_cuu) và có thể
+# dựng được một bản thảo thật ngay trong hội thoại — xem hai nhánh
+# `soan_thao_hoi`/`ban_thao` ở dưới.
 #
 # CỐ Ý không liệt kê các loại soạn được ở đây. Tên hiển thị của chúng sống ở
 # `mau-van-ban.ts` phía FE, và một bản sao thứ hai trong chuỗi Python này sẽ
@@ -604,13 +615,95 @@ def dung_bang_tu_luan_diem(verified: list, citations: list[dict]) -> Bang | None
 
 
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, prompt_path: Path | None = None) -> dict:
-    if state.get("intent") == "soan_thao":
-        # `graph_tra_cuu._RE_TAT` rẽ ý định này thẳng tới đây ngay sau `route`,
-        # nên KHÔNG có truy hồi, không sinh luận điểm, không hai tầng kiểm.
-        # Chú thích "0 token" chỉ đúng khi đường rẽ đó còn — nếu ai gỡ nó, khâu
-        # này vẫn không gọi LLM nhưng cả graph phía trước thì có.
-        goi_y, answer = _goi_y_soan_thao(state.get("soan_thao_goi_y"))
-        return _base(state, ResultType.huong_dan_soan_thao, answer=answer, soan_thao_goi_y=goi_y)
+    if state.get("intent") == "soan_thao" or state.get("soan_thao_dang_mo"):
+        # Task 19 — lượt đã đi qua `gom_du_kien` (và, khi đủ dữ kiện và có tài
+        # khoản, `dung_ban_thao`) TRƯỚC KHI tới đây (`graph_tra_cuu._re_sau_route`,
+        # KHÔNG còn qua `_RE_TAT`). `assemble` KHÔNG tự soạn gì ở đây — nó chỉ ĐỌC
+        # những gì hai node đó đã tính (`soan_thao_dang_mo`/`ban_thao_ket`) và DỰNG
+        # LỜI cho đúng bốn tình huống: chưa biết loại văn bản (gợi ý cũ, đường sang
+        # biểu mẫu đứng riêng); biết loại nhưng thiếu dữ kiện, hoặc chưa đăng nhập,
+        # hoặc đã hết hạn mức soạn thảo (hỏi lại — `soan_thao_hoi`); và đã có bản
+        # thảo thật (`ban_thao`). Mọi điều khoản của bản thảo đó vẫn neo bằng đúng
+        # con đường checklist/rules/graph_soan_thao cũ — không văn xuôi tự do nào
+        # được sinh thành điều khoản pháp lý ở đây.
+        sd = state.get("soan_thao_dang_mo")
+        if not sd:  # router không đoán được loại
+            goi_y, answer = _goi_y_soan_thao(state.get("soan_thao_goi_y"))
+            return _base(state, ResultType.huong_dan_soan_thao, answer=answer, soan_thao_goi_y=goi_y)
+        ten = _ten_loai(sd["loai"])
+        # `soan_thao_goi_y=None` tường minh trong CẢ BỐN nhánh dưới đây (khác
+        # nhánh `not sd` ngay trên, nơi nó CHÍNH LÀ kết quả): `route()` đã đặt
+        # `state["soan_thao_goi_y"]` thành một dict CHƯA ĐỦ khoá cho
+        # `SoanThaoGoiYOut` (`loai`/`ly_do`/`thay_the`, thiếu `ten`/`ho_tro`)
+        # bất cứ khi nào intent là `soan_thao` — trước Task 19, `assemble` LUÔN
+        # đi qua `_goi_y_soan_thao()` (hàm ngay trên) nên khoá đó luôn được GHI
+        # ĐÈ bằng bản đủ. Bốn nhánh này không gọi hàm đó, nên nếu không dọn,
+        # dict thiếu khoá của `route()` lọt thẳng ra `_payload_cache["soan_thao"]`
+        # rồi vỡ `pydantic.ValidationError` ở `tra_cuu_response` — ĐO ĐƯỢC bằng
+        # chính bộ test đầu-cuối của task này trước khi có dòng sửa này.
+        if state.get("ban_thao_ket"):
+            bt = state["ban_thao_ket"]
+            doi = bt.get("doi_so_voi_truoc") or []
+            answer = (
+                f"Bản thảo {ten} phiên bản {bt['phien_ban']} đã sẵn sàng"
+                + (f", đã đổi: {', '.join(doi)}" if doi else "")
+                + ". Bạn xem, sửa từng mục hoặc tải về ở bên cạnh; muốn đổi gì cứ nói với tôi."
+            )
+            return _base(state, ResultType.ban_thao, answer=answer, ban_thao=bt, soan_thao_goi_y=None)
+        if state.get("user_sub") is None:
+            return _base(
+                state,
+                ResultType.soan_thao_hoi,
+                answer=LOI_SOAN_THAO_DANG_NHAP,
+                soan_thao_goi_y=None,
+                soan_thao_hoi={
+                    "loai": sd["loai"],
+                    "ten": ten,
+                    "da_co": sd["facts"],
+                    "con_thieu": [],
+                    "chip": {},
+                    "het_han_muc": None,
+                    "can_dang_nhap": True,
+                },
+            )
+        if sd.get("het_han_muc"):
+            return _base(
+                state,
+                ResultType.soan_thao_hoi,
+                answer=sd["het_han_muc"],
+                soan_thao_goi_y=None,
+                soan_thao_hoi={
+                    "loai": sd["loai"],
+                    "ten": ten,
+                    "da_co": sd["facts"],
+                    "con_thieu": [],
+                    "chip": {},
+                    "het_han_muc": sd["het_han_muc"],
+                    "can_dang_nhap": False,
+                },
+            )
+        thieu = sd.get("con_thieu") or []
+        chip = {t["key"]: t["lua_chon"] for t in thieu if t.get("lua_chon")}
+        answer = (
+            f"Để soạn {ten}, tôi cần thêm:"
+            + "".join(f"\n- {t['nhan']}" for t in thieu)
+            + '\n\nBạn trả lời tự nhiên trong một tin là đủ; thiếu gì cứ nói "cứ soạn", tôi để trống chỗ đó để bạn điền sau.'
+        )
+        return _base(
+            state,
+            ResultType.soan_thao_hoi,
+            answer=answer,
+            soan_thao_goi_y=None,
+            soan_thao_hoi={
+                "loai": sd["loai"],
+                "ten": ten,
+                "da_co": sd["facts"],
+                "con_thieu": thieu,
+                "chip": chip,
+                "het_han_muc": None,
+                "can_dang_nhap": False,
+            },
+        )
 
     if state.get("intent") == "gioi_thieu":
         # Xem chú thích ở nhánh `soan_thao` ngay trên: rẻ được là nhờ đường rẽ

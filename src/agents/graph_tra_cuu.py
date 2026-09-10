@@ -14,15 +14,22 @@ Ba đường rẽ tắt, tất cả đổ về `assemble`:
   `giai_nghia` vào đúng đường ngõ cụt đã có.
 """
 
+import logging
+import time
+import uuid
 from pathlib import Path
 
+from fastapi import HTTPException
 from langgraph.graph import END, StateGraph
 from sqlalchemy import Engine, text
+from starlette.concurrency import run_in_threadpool
 
+from src.agents.graph_soan_thao import graph_soan_thao_cached, load_checklist_cached
 from src.agents.nodes.assemble import assemble
 from src.agents.nodes.expand import expand
 from src.agents.nodes.generate_claims import generate_claims
 from src.agents.nodes.giai_nghia import giai_nghia
+from src.agents.nodes.gom_du_kien import gom_du_kien
 from src.agents.nodes.rewrite_query import rewrite_query
 from src.agents.nodes.route import Intent, route
 from src.agents.nodes.suy_dien import suy_dien
@@ -30,6 +37,7 @@ from src.agents.nodes.verify_tier1 import nap_provisions, tien_de_cau_hoi_sai, v
 from src.agents.nodes.verify_tier2 import verify_tier2_and_trace
 from src.agents.state import KLawState
 from src.config import as_of_hieu_luc, get_settings
+from src.services import ban_thao, bao_ve
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
@@ -37,6 +45,9 @@ from src.services.kho import dung_bang, loi_dan_bang, nap_kho, tra_loi_ve_kho, x
 from src.services.llm import from_settings as llm_from_settings
 from src.services.llm import generate_model, judge_model, router_model
 from src.services.retrieval import Retriever, cong_diem_linh_vuc, loc_theo_linh_vuc
+from src.services.traces import _ghi_traces
+
+logger = logging.getLogger(__name__)
 
 
 def _db_provisions(ids: list[int], engine: Engine) -> dict[int, dict]:
@@ -100,11 +111,25 @@ def _db_provisions(ids: list[int], engine: Engine) -> dict[int, dict]:
 # "Luật" trong tiêu đề, đúng cách lỗi 30-điều-khoản-0-luận-điểm đã xảy ra.
 #
 # `tra_cuu` và mọi giá trị lạ đi đường đầy đủ — mặc định an toàn là tra cứu.
-_RE_TAT = frozenset({Intent.ngoai_pham_vi, Intent.gioi_thieu, Intent.soan_thao,
-                     Intent.hoi_ve_kho})
+#
+# `Intent.soan_thao` KHÔNG còn ở đây (Task 19, bo-nho-tinh-cach-soan-thao): rẽ
+# thẳng sang `assemble` từng đúng khi soạn thảo chỉ có MỘT câu trả lời cố định
+# (gợi ý mở biểu mẫu). Nay một lượt soạn thảo cần GOM DỮ KIỆN qua nhiều lượt và
+# có thể DỰNG bản thảo thật ngay trong hội thoại, nên nó có đường riêng —
+# xem `_re_sau_route`.
+_RE_TAT = frozenset({Intent.ngoai_pham_vi, Intent.gioi_thieu, Intent.hoi_ve_kho})
 
 
 def _re_sau_route(st: dict) -> str:
+    """`soan_thao` — ý định CHÍNH của lượt này, HOẶC một hội thoại đang soạn dở
+    (`soan_thao_dang_mo` còn ở phiên, nạp bởi `routes._state_vao`) — luôn đi
+    `gom_du_kien` trước, bất kể `route` lượt này đoán intent gì: một câu trả
+    lời dữ kiện ("lương 12 triệu") hay một yêu cầu sửa bản thảo tự nó không có
+    gì để `route` phân biệt với một câu hỏi luật thường nếu không nhìn vào việc
+    hội thoại đang mở một phiên soạn. Ba ý định của `_RE_TAT` vẫn rẽ tắt như cũ.
+    """
+    if st.get("intent") == Intent.soan_thao or st.get("soan_thao_dang_mo"):
+        return "gom_du_kien"
     return "assemble" if st.get("intent") in _RE_TAT else "tien_de"
 
 
@@ -155,6 +180,69 @@ def build_graph_tra_cuu():
 
     def n_route(st: KLawState) -> KLawState:
         return route(st, llm, router_model(), prompt_path=Path(s.route_prompt))
+
+    def n_gom_du_kien(st: KLawState) -> KLawState:
+        return gom_du_kien(st, llm, router_model())
+
+    async def n_dung_ban_thao(st: KLawState) -> KLawState:
+        """Đủ dữ kiện: kiểm hạn mức soạn thảo, chạy graph_soan_thao, lưu bản thảo (tạo hoặc sửa), ghi trace."""
+        sd = st["soan_thao_dang_mo"]
+        sub = st["user_sub"]
+        plan = await run_in_threadpool(bao_ve.plan_hieu_luc, sub)
+        la_sua = bool(sd.get("ban_thao_id"))
+        if la_sua and int(sd.get("so_lan_sua") or 0) >= ban_thao.TRAN_SUA:
+            return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": ban_thao.LOI_HET_LAN_SUA}}
+        if not la_sua:
+            try:
+                await run_in_threadpool(bao_ve.kiem_han_muc, sub, plan, bao_ve.EP_SOAN_THAO)
+            except HTTPException as e:
+                return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": str(e.detail)}}
+        bat_dau = time.monotonic()
+        ket_st = await graph_soan_thao_cached().ainvoke(
+            {"loai": sd["loai"], "loai_van_ban": sd["loai"], "facts": sd["facts"], "nganh": "thuong_mai"}
+        )
+        ket = ban_thao.tu_state_soan_thao(ket_st)
+        if la_sua:
+            truoc = await run_in_threadpool(ban_thao.chi_tiet, sub, sd["ban_thao_id"])
+            bt = await run_in_threadpool(ban_thao.sua, sub, sd["ban_thao_id"], sd["facts"], ket)
+            doi = ban_thao.doi_so_voi(truoc or {}, bt)
+            endpoint = bao_ve.EP_SOAN_THAO + "/sua"
+        else:
+            bt = await run_in_threadpool(ban_thao.tao, sub, st.get("hoi_thoai_id"), sd["loai"], sd["facts"], ket)
+            doi, endpoint = [], bao_ve.EP_SOAN_THAO
+        try:
+            await run_in_threadpool(
+                _ghi_traces,
+                str(uuid.uuid4()),
+                endpoint,
+                sd["loai"],
+                s.eval_config_name,
+                {"result_type": "ban_thao", "traces": ket_st.get("traces") or {}},
+                int((time.monotonic() - bat_dau) * 1000),
+                user_sub=sub,
+            )
+        except Exception:
+            logger.exception("dung_ban_thao: không ghi được traces")
+        ban_thao_ket = {
+            "id": bt["id"],
+            "loai": sd["loai"],
+            "ten": load_checklist_cached(sd["loai"]).ten,
+            "phien_ban": bt["phien_ban"],
+            "document": bt["document"],
+            "clauses": bt["clauses"],
+            "audit_report": bt["audit"],
+            "facts": bt["facts"],
+            "doi_so_voi_truoc": doi,
+        }
+        return {
+            **st,
+            "ban_thao_ket": ban_thao_ket,
+            "soan_thao_dang_mo": {
+                **sd,
+                "ban_thao_id": bt["id"],
+                "so_lan_sua": int(sd.get("so_lan_sua") or 0) + (1 if la_sua else 0),
+            },
+        }
 
     def n_tien_de(st: KLawState) -> KLawState:
         # Phép kiểm thứ sáu (0 token) — TRƯỚC rewrite/retrieve/generate, để
@@ -290,10 +378,21 @@ def build_graph_tra_cuu():
     # Thứ tự khai node = thứ tự `get_graph().nodes`, mà `routes.BUOC_TRA_CUU`
     # được khoá khớp với nó (`test_BUOC_TRA_CUU_khop_dung_node_cua_graph_da_compile`)
     # — nên `giai_nghia` đứng đầu ở cả hai chỗ.
-    for name, fn in (("giai_nghia", n_giai_nghia), ("suy_dien", n_suy_dien), ("route", n_route),
-                     ("tien_de", n_tien_de), ("rewrite", n_rewrite), ("retrieve", n_retrieve),
-                     ("expand", n_expand), ("generate", n_generate), ("tier1", n_tier1),
-                     ("tier2", n_tier2), ("assemble", n_assemble)):
+    for name, fn in (
+        ("giai_nghia", n_giai_nghia),
+        ("suy_dien", n_suy_dien),
+        ("route", n_route),
+        ("gom_du_kien", n_gom_du_kien),
+        ("dung_ban_thao", n_dung_ban_thao),
+        ("tien_de", n_tien_de),
+        ("rewrite", n_rewrite),
+        ("retrieve", n_retrieve),
+        ("expand", n_expand),
+        ("generate", n_generate),
+        ("tier1", n_tier1),
+        ("tier2", n_tier2),
+        ("assemble", n_assemble),
+    ):
         g.add_node(name, fn)
 
     # Nhánh vào có ĐIỀU KIỆN, không phải một node luôn chạy rồi tự bỏ qua: lượt
@@ -304,6 +403,16 @@ def build_graph_tra_cuu():
     g.add_conditional_edges("giai_nghia", _re_sau_giai_nghia)
     g.add_edge("suy_dien", "route")
     g.add_conditional_edges("route", _re_sau_route)
+    # Đủ dữ kiện (`du`) VÀ có tài khoản (`user_sub`) thì dựng bản thảo thật;
+    # thiếu một trong hai thì `assemble` chỉ hỏi thêm (`soan_thao_hoi`) — khách
+    # chưa đăng nhập không bao giờ chạm `dung_ban_thao` dù đã đủ dữ kiện.
+    g.add_conditional_edges(
+        "gom_du_kien",
+        lambda st: (
+            "dung_ban_thao" if (st.get("soan_thao_dang_mo") or {}).get("du") and st.get("user_sub") else "assemble"
+        ),
+    )
+    g.add_edge("dung_ban_thao", "assemble")
     g.add_conditional_edges("tien_de", lambda st: (
         "assemble" if st.get("tien_de_sai") else "rewrite"))
     for a, b in (("rewrite", "retrieve"), ("retrieve", "expand"), ("expand", "generate"),

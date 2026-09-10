@@ -94,8 +94,16 @@ async def test_hoi_tiep_trong_phien_nap_lich_su_may_chu(client, cai_dat, khoa_ky
     thay: dict = {}
     goc = routes._state_vao
 
-    def ghi_lai(req, as_of, trace_id, bo_nho=None):
-        st = goc(req, as_of, trace_id, bo_nho=bo_nho)
+    def ghi_lai(req, as_of, trace_id, bo_nho=None, user_sub=None, hoi_thoai_id=None, soan_thao=None):
+        st = goc(
+            req,
+            as_of,
+            trace_id,
+            bo_nho=bo_nho,
+            user_sub=user_sub,
+            hoi_thoai_id=hoi_thoai_id,
+            soan_thao=soan_thao,
+        )
         thay["lich_su"] = st["lich_su"]
         return st
 

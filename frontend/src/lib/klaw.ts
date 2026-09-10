@@ -11,7 +11,7 @@
  * toàn chứ không làm sập cả thẻ kết quả.
  */
 
-/** Bảy `result_type` — bảy cách hiển thị, không thương lượng. */
+/** Chín `result_type` — chín cách hiển thị, không thương lượng. */
 export type ResultType =
   | "answer"
   | "partial_coverage"
@@ -28,7 +28,14 @@ export type ResultType =
   // liệu không đúng hình dạng đã thoả thuận". `huong_dan_soan_thao` cũng thiếu,
   // nghĩa là đường bàn giao sang soạn thảo đã hỏng ở đây từ trước đó.
   | "huong_dan_soan_thao"
-  | "hoi_ve_kho";
+  | "hoi_ve_kho"
+  // Loại thứ TÁM và thứ CHÍN (Task 19, soạn thảo trong chat, backend) — hai
+  // nửa của một hội thoại soạn thảo: còn phải hỏi thêm dữ kiện, hoặc bản thảo
+  // đã dựng xong. Khai ở đây để giữ đúng nguyên tắc đầu file (không thu hẹp
+  // hợp đồng về `string`); màn hiển thị riêng cho chúng là việc của một đợt
+  // FE sau — `laTraCuuKetQua` đã chấp nhận MỌI chuỗi không rỗng từ trước.
+  | "soan_thao_hoi"
+  | "ban_thao";
 
 /**
  * Sáu nhãn hiệu lực.
@@ -821,7 +828,7 @@ export interface SuKienLoiLuu {
 const laBanGhi = (x: unknown): x is Record<string, unknown> =>
   typeof x === "object" && x !== null && !Array.isArray(x);
 
-/** Bảy loại backend biết trả. So khớp với `ResultType` của `src/models/schemas.py`
+/** Chín loại backend biết trả. So khớp với `ResultType` của `src/models/schemas.py`
  *  bằng `test_FE_biet_moi_gia_tri_ResultType_cua_backend` (Python đọc file này). */
 const LOAI_KET_QUA: readonly string[] = [
   "answer",
@@ -831,6 +838,8 @@ const LOAI_KET_QUA: readonly string[] = [
   "gioi_thieu",
   "huong_dan_soan_thao",
   "hoi_ve_kho",
+  "soan_thao_hoi",
+  "ban_thao",
 ];
 
 /**

@@ -87,7 +87,8 @@ class KLawState(TypedDict, total=False):
     # `y_dinh_phu` là ý định PHỤ khi câu hỏi vừa hỏi luật vừa nhờ soạn thảo
     # ("soan_thao" hoặc None); `assemble` đọc nó để điền `soan_thao_goi_y`
     # trên nhánh `answer` mà không hijack `answer` (khác `Intent.soan_thao` —
-    # ý định CHÍNH — đi đường rẽ tắt riêng, xem `graph_tra_cuu._RE_TAT`).
+    # ý định CHÍNH — nay đi qua `gom_du_kien`/`dung_ban_thao`, Task 19, xem
+    # `graph_tra_cuu._re_sau_route`, KHÔNG còn nằm trong `_RE_TAT`).
     dang_tra_loi: str
     y_dinh_phu: str | None
     # Soạn thảo hội thoại (spec 2026-09-09 §8.2, Task 18). Trạng thái gom dữ kiện của
@@ -99,3 +100,18 @@ class KLawState(TypedDict, total=False):
     # Chủ phiên hội thoại hiện tại — `gom_du_kien` (và các node sau nó) cần để tra/ghi
     # `ban_thao` đúng người, không đọc lại từ request HTTP.
     user_sub: str | None
+    # Phiên hội thoại hiện tại (Task 19) — `dung_ban_thao` cần để gắn bản thảo
+    # MỚI vào đúng cuộc hội thoại lúc `ban_thao.tao`. `None` khi ẩn danh (nhánh
+    # đó không tới được vì `assemble` đã chặn ở `user_sub is None` trước).
+    hoi_thoai_id: str | None
+    # Bản thảo vừa dựng/sửa xong trong LƯỢT NÀY (Task 19, node `dung_ban_thao`)
+    # — cùng bẫy LangGraph với `bang`/`soan_thao_dang_mo`: thiếu dòng này thì
+    # khoá bị loại khỏi state trả về và `assemble` không bao giờ thấy nó.
+    # `None` ở mọi lượt khác (kể cả lượt đang hỏi thêm dữ kiện, chưa dựng gì).
+    ban_thao_ket: dict | None
+    # Hai kết quả `assemble` đặt cho `TraCuuResponse.soan_thao_hoi`/`.ban_thao`
+    # (Task 19) — PHẢI khai ở đây (`test_moi_field_TraCuuResponse_deu_duoc_KLawState_khai`):
+    # cùng lớp lỗi đã cắn bốn lần trên `khop_tai_id`/`doc_id`/`bang`/`nguon`, LangGraph
+    # loại ÂM THẦM một khoá `assemble()` đã set đúng nếu `KLawState` không khai nó.
+    soan_thao_hoi: dict | None
+    ban_thao: dict | None

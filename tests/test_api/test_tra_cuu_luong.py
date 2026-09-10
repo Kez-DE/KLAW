@@ -112,21 +112,40 @@ async def test_phat_du_muoi_buoc_that_theo_dung_thu_tu(client, graph_gia_lap):
 @pytest.mark.asyncio
 async def test_bat_dau_neu_truoc_toan_bo_danh_sach_buoc(client, graph_gia_lap):
     """Không có danh sách này thì FE lại phải ước lượng — đúng thứ endpoint sinh
-    ra để thay thế."""
+    ra để thay thế.
+
+    `cac_buoc` là danh sách KHAI BÁO (`BUOC_TRA_CUU` trừ `giai_nghia`) — MỌI
+    bước CÓ THỂ của lượt này, không phải đúng những bước `GraphGiaLap` (bản giả
+    của một lượt tra_cuu THƯỜNG) thật sự phát. `gom_du_kien`/`dung_ban_thao`
+    (Task 19) nằm trong danh sách khai báo dù một lượt tra_cuu thường không bao
+    giờ chạm chúng — cùng lớp với `tien_de`/`rewrite` đã có từ trước (xem
+    docstring `routes.buoc_cua_luot`)."""
+    from src.api.routes import BUOC_TRA_CUU
+
     _, sk = await doc_sse(client)
     d = sk[0][1]
     assert d["trace_id"]
     assert d["config_name"]
-    assert [b["buoc"] for b in d["cac_buoc"]] == list(GraphGiaLap.NODES)
+    khai_bao = [ten for ten, _ in BUOC_TRA_CUU if ten != "giai_nghia"]
+    assert [b["buoc"] for b in d["cac_buoc"]] == khai_bao
     assert all(b["nhan"] for b in d["cac_buoc"]), "mỗi bước phải có nhãn tiếng Việt"
 
 
 @pytest.mark.asyncio
 async def test_moi_buoc_mang_thu_tu_va_tong_de_ve_thanh_tien_trinh(client, graph_gia_lap):
+    """`thu_tu` của một bước THẬT là vị trí của nó trong danh sách KHAI BÁO
+    (`BUOC_TRA_CUU` trừ `giai_nghia`), không phải vị trí trong chuỗi bước THẬT
+    SỰ chạy — `GraphGiaLap` (một lượt tra_cuu thường) không chạm `gom_du_kien`/
+    `dung_ban_thao` (Task 19), nên `thu_tu` của các bước nó phát không còn liên
+    tục từ 1 (có hai số bị hai bước đó chiếm giữa `route` và `tien_de`)."""
+    from src.api.routes import BUOC_TRA_CUU
+
     _, sk = await doc_sse(client)
     cac_buoc = [d for e, d in sk if e == "buoc"]
-    assert [b["thu_tu"] for b in cac_buoc] == list(range(1, len(GraphGiaLap.NODES) + 1))
-    assert {b["tong"] for b in cac_buoc} == {len(GraphGiaLap.NODES)}
+    khai_bao = [ten for ten, _ in BUOC_TRA_CUU if ten != "giai_nghia"]
+    thu_tu_cua = {ten: i for i, ten in enumerate(khai_bao, start=1)}
+    assert [b["thu_tu"] for b in cac_buoc] == [thu_tu_cua[ten] for ten in GraphGiaLap.NODES]
+    assert {b["tong"] for b in cac_buoc} == {len(khai_bao)}
 
 
 @pytest.mark.asyncio

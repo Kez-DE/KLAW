@@ -222,6 +222,15 @@ def build_graph_soan_thao():
     return g.compile()
 
 
+@lru_cache
+def graph_soan_thao_cached():
+    """Bản ĐÃ COMPILE, dựng MỘT LẦN cho cả tiến trình — dùng bởi node
+    `dung_ban_thao` (Task 19, soạn thảo trong chat) để không dựng lại graph mỗi
+    lượt hội thoại, cùng lý do `_g_soan_thao()` của `routes.py` (`/soan-thao`)
+    giữ nó ở một biến global thay vì gọi `build_graph_soan_thao()` mỗi request."""
+    return build_graph_soan_thao()
+
+
 # ── /soat — tách clause từ text dán vào, KHÔNG gọi LLM ──────────────────────
 
 @lru_cache

@@ -122,14 +122,34 @@ def _payload_cache(st: dict, rt: str) -> dict:
         "documents": st.get("documents") or [],
         "soan_thao": st.get("soan_thao_goi_y"),
         "ho_so_da_dung": st.get("ho_so_da_dung") or [],
+        # Task 19 — hai kết quả của soạn thảo trong chat. `None` ở mọi nhánh
+        # khác, cùng lý do `soan_thao` ngay trên.
+        "soan_thao_hoi": st.get("soan_thao_hoi"),
+        "ban_thao": st.get("ban_thao"),
         # NỘI BỘ — dùng để ghi giả định của `suy_dien` vào phiên sau khi lượt
         # này lưu xong (xem `luu_suy_dien` ở `tra_cuu`/`_chay_nen`). KHÔNG đi
         # vào `TraCuuResponse`: `tra_cuu_response` không đọc khoá này.
         "ho_so": st.get("ho_so") or {},
+        # NỘI BỘ (Task 19) — trạng thái soạn thảo của phiên SAU lượt này, để
+        # `tra_cuu`/`_chay_nen` chốt nó vào `hoi_thoai.soan_thao` một khi câu
+        # trả lời đã tính xong. KHÔNG đi vào `TraCuuResponse`.
+        "soan_thao_dang_mo": st.get("soan_thao_dang_mo"),
+        # NỘI BỘ (Task 19) — ý định lượt này đã phân loại, chỉ để quyết định có
+        # ghi đè `soan_thao_dang_mo` của phiên hay không (giữ nguyên khi
+        # `tra_cuu`, xem `tra_cuu`/`_chay_nen`). KHÔNG đi vào `TraCuuResponse`.
+        "intent": st.get("intent"),
     }
 
 
-def _state_vao(req: TraCuuRequest, as_of: date, trace_id: str, bo_nho: dict | None = None) -> dict:
+def _state_vao(
+    req: TraCuuRequest,
+    as_of: date,
+    trace_id: str,
+    bo_nho: dict | None = None,
+    user_sub: str | None = None,
+    hoi_thoai_id: str | None = None,
+    soan_thao: dict | None = None,
+) -> dict:
     """State đầu vào của graph — MỘT chỗ dựng cho cả đường POST và đường SSE.
 
     `query` là câu người dùng GÕ, không phải câu đã giải nghĩa: node `giai_nghia`
@@ -142,6 +162,11 @@ def _state_vao(req: TraCuuRequest, as_of: date, trace_id: str, bo_nho: dict | No
 
     `bo_nho` — `{"tom_tat", "ho_so"}` của `_chuan_bi_phien` (spec 2026-09-09 §6);
     `None` khi ẩn danh hoặc phiên chưa có gì để nạp.
+
+    `user_sub`/`hoi_thoai_id`/`soan_thao` (Task 19) — chủ phiên, phiên hiện tại,
+    và trạng thái soạn thảo ĐANG MỞ của phiên (`hoi_thoai.soan_thao_cua_phien`),
+    để `route`/`gom_du_kien`/`dung_ban_thao` biết hội thoại này có đang soạn dở
+    hay không mà không phải đọc lại request HTTP. `None` cùng lý do `bo_nho`.
     """
     return {
         "query": req.query,
@@ -150,18 +175,25 @@ def _state_vao(req: TraCuuRequest, as_of: date, trace_id: str, bo_nho: dict | No
         "trace_id": trace_id,
         "tom_tat": (bo_nho or {}).get("tom_tat"),
         "ho_so": dict((bo_nho or {}).get("ho_so") or {}),
+        "user_sub": user_sub,
+        "hoi_thoai_id": hoi_thoai_id,
+        "soan_thao_dang_mo": soan_thao,
     }
 
 
-async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[TraCuuRequest, str | None, dict | None]:
+async def _chuan_bi_phien(
+    req: TraCuuRequest, user_sub: str | None
+) -> tuple[TraCuuRequest, str | None, dict | None, dict | None]:
     """Gắn lượt hỏi vào một phiên (spec 2026-09-07 §5.2, spec 2026-09-09 §6.3-6.4).
     Ẩn danh → bỏ qua `hoi_thoai_id` VÀ bộ nhớ. Có danh tính: chưa có id → tạo phiên
     (Pro đang bật ghi nhớ thì seed hồ sơ tài khoản vào phiên mới); có id → kiểm chủ
     (404), kiểm đủ trần lượt của gói → 403, nạp `lich_su` VÀ bộ nhớ ba lớp từ máy
     chủ, BỎ `lich_su` client gửi.
 
-    Trả `(req, hoi_thoai_id, bo_nho)` — `bo_nho` là `{"tom_tat", "ho_so"}` hoặc
-    `None` (ẩn danh, hoặc phiên mới không có gì để seed).
+    Trả `(req, hoi_thoai_id, bo_nho, soan_thao)` — `bo_nho` là `{"tom_tat", "ho_so"}`
+    hoặc `None` (ẩn danh, hoặc phiên mới không có gì để seed); `soan_thao` (Task 19)
+    là trạng thái soạn thảo ĐANG MỞ của phiên (`hoi_thoai.soan_thao_cua_phien`, đã
+    lọc theo CHỦ), `None` khi ẩn danh, phiên mới, hoặc phiên chưa từng soạn gì.
 
     Lỗi DB ở đây KHÔNG bị nuốt: 500 tại chỗ này nghĩa là chính Postgres vốn đã gác
     request ở `cong_bao_ve` đang chết, và âm thầm đánh rơi một lượt của người đã
@@ -169,7 +201,7 @@ async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[Tra
     `hoi_thoai_id` thì `lich_su` client gửi được giữ nguyên (giao diện đã đăng nhập
     không gửi trường này)."""
     if user_sub is None:
-        return req, None, None
+        return req, None, None, None
     if req.hoi_thoai_id is None:
         pid = await run_in_threadpool(hoi_thoai_svc.tao_phien, user_sub, req.query)
         # Pro và đang bật ghi nhớ: phiên mới kế thừa hồ sơ tài khoản (spec 2026-09-09 §6.4).
@@ -178,8 +210,8 @@ async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[Tra
             ho_so = await run_in_threadpool(bo_nho.ho_so_tu_tai_khoan, user_sub)
             if ho_so:
                 await run_in_threadpool(hoi_thoai_svc.ghi_ho_so, pid, ho_so)
-                return req, pid, {"tom_tat": None, "ho_so": ho_so}
-        return req, pid, None
+                return req, pid, {"tom_tat": None, "ho_so": ho_so}, None
+        return req, pid, None, None
     pid = str(req.hoi_thoai_id)
     if await run_in_threadpool(hoi_thoai_svc.lay_phien, user_sub, pid) is None:
         raise HTTPException(status_code=404, detail=hoi_thoai_svc.LOI_KHONG_THAY)
@@ -189,10 +221,12 @@ async def _chuan_bi_phien(req: TraCuuRequest, user_sub: str | None) -> tuple[Tra
         raise HTTPException(status_code=403, detail=hoi_thoai_svc.LOI_PHIEN_DAY.format(n=tran))
     lich_su = await run_in_threadpool(hoi_thoai_svc.lich_su_gan_nhat, pid)
     bn = await run_in_threadpool(hoi_thoai_svc.bo_nho_cua_phien, pid)
+    soan_thao = await run_in_threadpool(hoi_thoai_svc.soan_thao_cua_phien, user_sub, pid)
     return (
         req.model_copy(update={"lich_su": [LuotTruoc(**luot) for luot in lich_su]}),
         pid,
         {"tom_tat": bn["tom_tat"], "ho_so": bn["ho_so"]},
+        soan_thao,
     )
 
 
@@ -231,6 +265,8 @@ BUOC_TRA_CUU: tuple[tuple[str, str], ...] = (
     ("giai_nghia", "Giải nghĩa câu hỏi nối tiếp"),
     ("suy_dien", "Nhận ra vai của bạn"),
     ("route", "Phân loại câu hỏi"),
+    ("gom_du_kien", "Gom dữ kiện cho văn bản"),
+    ("dung_ban_thao", "Dựng bản thảo"),
     ("tien_de", "Kiểm tiền đề câu hỏi"),
     ("rewrite", "Viết lại truy vấn"),
     ("retrieve", "Truy hồi điều khoản"),
@@ -287,6 +323,8 @@ async def chay_tra_cuu(
     trace_id: str,
     phat: Callable[[str, dict], Awaitable[None]] | None = None,
     bo_nho: dict | None = None,
+    hoi_thoai_id: str | None = None,
+    soan_thao: dict | None = None,
 ) -> tuple[dict, str]:
     """Thân dùng chung của `/tra-cuu` và `/tra-cuu/luong`: cache → graph →
     ghi cache → ghi traces. Trả `(payload, config_name)`.
@@ -305,6 +343,11 @@ async def chay_tra_cuu(
     `user_sub` — `traces.user_sub` cần giá trị đó: hạn mức tháng đếm chính cột
     ấy, nên một lượt LLM ghi thiếu `sub` là một lượt dùng miễn phí. None khi
     Supabase chưa cấu hình (eval, dev local).
+
+    `hoi_thoai_id`/`soan_thao` (Task 19) — phiên hiện tại và trạng thái soạn
+    thảo đang mở của nó (`_chuan_bi_phien`), truyền THẲNG vào `_state_vao`
+    cùng `user_sub`/`bo_nho`: cả hai đường POST và SSE gọi CHÍNH hàm này, nên
+    truyền vào đây một lần là đủ cho cả hai, không phải sửa riêng từng đường.
     """
     s = get_settings()
     bat_dau = time.monotonic()
@@ -346,8 +389,14 @@ async def chay_tra_cuu(
         # tình huống khác đi vào state cũng làm câu trả lời có thể khác, và khoá
         # cache không mang chúng — phục vụ payload cache cho một request có bộ
         # nhớ là phục vụ câu trả lời của MỘT phiên khác cho phiên này.
+        #
+        # `soan_thao` (Task 19) tắt cùng lý do: một hội thoại đang soạn dở cần
+        # `gom_du_kien`/`dung_ban_thao` chạy MỖI lượt (dữ kiện tích luỹ từ lượt
+        # trước), và khoá cache — dựng từ `query` một mình — không phân biệt
+        # được lượt này với một câu hỏi giống hệt của một phiên KHÔNG soạn gì.
         khoa, checksum, payload = (
-            (None, None, None) if (req.lich_su or (bo_nho and (bo_nho.get("tom_tat") or bo_nho.get("ho_so"))))
+            (None, None, None)
+            if (req.lich_su or (bo_nho and (bo_nho.get("tom_tat") or bo_nho.get("ho_so"))) or soan_thao)
             else await run_in_threadpool(cache_tra_loi.tra_cache, req.query, config_name, as_of)
         )
         tu_cache = payload is not None
@@ -358,7 +407,17 @@ async def chay_tra_cuu(
                 # trình bịa. Một bước, đúng tên việc đã làm.
                 await phat("cache", {})
         elif phat is None:
-            st = await _g().ainvoke(_state_vao(req, as_of, trace_id, bo_nho=bo_nho))
+            st = await _g().ainvoke(
+                _state_vao(
+                    req,
+                    as_of,
+                    trace_id,
+                    bo_nho=bo_nho,
+                    user_sub=user_sub,
+                    hoi_thoai_id=hoi_thoai_id,
+                    soan_thao=soan_thao,
+                )
+            )
         else:
             # `stream_mode="updates"` phát `{ten_node: output}`. Mọi node trong
             # `graph_tra_cuu` trả `{**st, ...}` (state ĐẦY ĐỦ), nhưng gộp bằng
@@ -366,7 +425,16 @@ async def chay_tra_cuu(
             # RIÊNG PHẦN không âm thầm xoá trắng những gì các node trước ghi.
             st = {}
             async for chunk in _g().astream(
-                _state_vao(req, as_of, trace_id, bo_nho=bo_nho), stream_mode="updates",
+                _state_vao(
+                    req,
+                    as_of,
+                    trace_id,
+                    bo_nho=bo_nho,
+                    user_sub=user_sub,
+                    hoi_thoai_id=hoi_thoai_id,
+                    soan_thao=soan_thao,
+                ),
+                stream_mode="updates",
             ):
                 for ten, ra in chunk.items():
                     if isinstance(ra, dict):
@@ -462,6 +530,11 @@ def tra_cuu_response(payload: dict, trace_id: str, config_name: str) -> TraCuuRe
         soan_thao=payload.get("soan_thao"),
         # Cùng lý do `bang`/`documents`: dòng cache ghi trước bản này không có khoá.
         ho_so_da_dung=payload.get("ho_so_da_dung") or [],
+        # Task 19 — cùng lý do `bang`/`documents`: không nhánh nào của chúng
+        # từng vào cache (`KET_QUA_DUOC_CACHE` không có `soan_thao_hoi`/`ban_thao`),
+        # nhưng `.get` vẫn đúng quy ước chung của hàm này.
+        soan_thao_hoi=payload.get("soan_thao_hoi"),
+        ban_thao=payload.get("ban_thao"),
         trace_id=trace_id, config_name=config_name,
     )
 
@@ -476,8 +549,10 @@ async def tra_cuu(
     tới $0,00735 một request; không cổng nào ở đó là phòng xa (xem `bao_ve.py`).
     """
     trace_id = str(uuid.uuid4())
-    req, hoi_thoai_id, bn = await _chuan_bi_phien(req, user_sub)
-    payload, config_name = await chay_tra_cuu(req, user_sub, trace_id, bo_nho=bn)
+    req, hoi_thoai_id, bn, soan_thao = await _chuan_bi_phien(req, user_sub)
+    payload, config_name = await chay_tra_cuu(
+        req, user_sub, trace_id, bo_nho=bn, hoi_thoai_id=hoi_thoai_id, soan_thao=soan_thao
+    )
     resp = tra_cuu_response(payload, trace_id, config_name)
     if hoi_thoai_id is not None:
         response.headers["X-Hoi-Thoai-Id"] = hoi_thoai_id
@@ -493,6 +568,27 @@ async def tra_cuu(
                 logger.exception("bo_nho: không lưu được giả định suy_dien (phien=%s)", hoi_thoai_id)
             if user_sub is not None:
                 bo_nho.len_lich_cap_nhat(hoi_thoai_id, user_sub)
+        # Task 19 — chốt trạng thái soạn thảo của phiên SAU lượt này. Bỏ qua
+        # khi ý định lượt này thật sự là `tra_cuu`: một câu hỏi luật thường hỏi
+        # giữa một hội thoại đang soạn dở vẫn đi qua `gom_du_kien` (xem
+        # `graph_tra_cuu._re_sau_route`), nhưng KHÔNG được phép đè lên dữ kiện
+        # đã gom của bản thảo bằng một lượt lạc đề — giữ nguyên bản đang mở.
+        sd = payload.get("soan_thao_dang_mo")
+        if sd and payload.get("intent") != "tra_cuu":
+            try:
+                await run_in_threadpool(
+                    hoi_thoai_svc.ghi_soan_thao,
+                    user_sub,
+                    hoi_thoai_id,
+                    {
+                        "loai": sd["loai"],
+                        "facts": sd["facts"],
+                        "ban_thao_id": sd.get("ban_thao_id"),
+                        "so_lan_sua": sd.get("so_lan_sua", 0),
+                    },
+                )
+            except Exception:
+                logger.exception("hoi_thoai: không ghi được soan_thao_dang_mo (phien=%s)", hoi_thoai_id)
     return resp
 
 

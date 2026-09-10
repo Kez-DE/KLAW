@@ -36,4 +36,9 @@ DANH SÁCH LOẠI VĂN BẢN:
 
 Trả về JSON: {{"intent": "tra_cuu", "loai_van_ban": "don_xin_nghi_viec", "thay_the": [], "ly_do": "bạn là người lao động sắp nghỉ và cần cả luật lẫn đơn", "dang_tra_loi": "van_xuoi", "y_dinh_phu": "soan_thao"}}
 
+ĐANG SOẠN: {dang_soan}
+Nếu ĐANG SOẠN khác "(không)", thì câu trả lời dữ kiện ("tên tôi là A, ký ngày 1/10") hay yêu cầu
+sửa bản thảo ("đổi ngày nghỉ thành 15/10") có `intent` là `soan_thao` với `loai_van_ban` là loại
+đang soạn; chỉ câu hỏi LUẬT thật sự mới là `tra_cuu`.
+
 CÂU HỎI: {cau_hoi}

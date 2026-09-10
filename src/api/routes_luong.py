@@ -53,6 +53,7 @@ from src.api.routes import (
 from src.config import get_settings
 from src.models.schemas import TraCuuRequest
 from src.services import bo_nho
+from src.services import hoi_thoai as hoi_thoai_svc
 from src.services.bao_ve import cong_bao_ve_khach
 
 logger = logging.getLogger(__name__)
@@ -107,11 +108,16 @@ async def _chay_nen(
     hang: asyncio.Queue,
     hoi_thoai_id: str | None,
     bo_nho_phien: dict | None,
+    soan_thao: dict | None = None,
 ) -> None:
     """Chạy graph tới cùng và đẩy sự kiện vào `hang`. KHÔNG dừng khi client rời.
 
     `hang` không giới hạn kích thước nên `put` không bao giờ chặn — client bỏ
     đi giữa chừng thì hàng đợi giữ vài sự kiện nhỏ rồi bị thu gom cùng task.
+
+    `soan_thao` (Task 19) — trạng thái soạn thảo đang mở của phiên
+    (`_chuan_bi_phien`), truyền THẲNG vào `chay_tra_cuu` để đường SSE này dựng
+    state giống hệt đường POST (`routes.tra_cuu`).
     """
 
     thu_tu, tong = _thu_tu_va_tong(req)
@@ -129,7 +135,15 @@ async def _chay_nen(
         }))
 
     try:
-        payload, config_name = await chay_tra_cuu(req, user_sub, trace_id, phat, bo_nho=bo_nho_phien)
+        payload, config_name = await chay_tra_cuu(
+            req,
+            user_sub,
+            trace_id,
+            phat,
+            bo_nho=bo_nho_phien,
+            hoi_thoai_id=hoi_thoai_id,
+            soan_thao=soan_thao,
+        )
         # Dựng qua CHÍNH model của `/tra-cuu`: shape của hai đường không thể
         # lệch nhau, và một payload dị dạng nổ ở đây thành `event: loi` chứ
         # không thành một JSON thiếu trường mà FE tự đoán.
@@ -148,6 +162,24 @@ async def _chay_nen(
                     logger.exception("bo_nho: không lưu được giả định suy_dien (phien=%s)", hoi_thoai_id)
                 if user_sub is not None:
                     bo_nho.len_lich_cap_nhat(hoi_thoai_id, user_sub)
+            # Task 19 — cùng khối chốt `soan_thao_dang_mo` với `routes.tra_cuu`;
+            # xem chú thích ở đó cho lý do bỏ qua khi ý định là `tra_cuu`.
+            sd = payload.get("soan_thao_dang_mo")
+            if sd and payload.get("intent") != "tra_cuu":
+                try:
+                    await run_in_threadpool(
+                        hoi_thoai_svc.ghi_soan_thao,
+                        user_sub,
+                        hoi_thoai_id,
+                        {
+                            "loai": sd["loai"],
+                            "facts": sd["facts"],
+                            "ban_thao_id": sd.get("ban_thao_id"),
+                            "so_lan_sua": sd.get("so_lan_sua", 0),
+                        },
+                    )
+                except Exception:
+                    logger.exception("hoi_thoai: không ghi được soan_thao_dang_mo (phien=%s)", hoi_thoai_id)
     except HTTPException as e:
         # `chay_tra_cuu` đã phân loại 503 (hạ tầng nhất thời) / 500 (bug thật)
         # và `detail` của nó chỉ mang TÊN loại ngoại lệ, không mang `str(e)`.
@@ -218,7 +250,7 @@ async def tra_cuu_luong(
     HTTP thường, không phải `event: loi`.
     """
     trace_id = str(uuid.uuid4())
-    req, hoi_thoai_id, bn = await _chuan_bi_phien(req, user_sub)
+    req, hoi_thoai_id, bn, soan_thao = await _chuan_bi_phien(req, user_sub)
     hang: asyncio.Queue = asyncio.Queue()
     hang.put_nowait(("bat_dau", {
         "trace_id": trace_id,
@@ -230,7 +262,7 @@ async def tra_cuu_luong(
         ],
     }))
 
-    task = asyncio.create_task(_chay_nen(req, user_sub, trace_id, hang, hoi_thoai_id, bn))
+    task = asyncio.create_task(_chay_nen(req, user_sub, trace_id, hang, hoi_thoai_id, bn, soan_thao))
     _DANG_CHAY.add(task)
     task.add_done_callback(_DANG_CHAY.discard)
 

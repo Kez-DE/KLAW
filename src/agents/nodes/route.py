@@ -93,6 +93,16 @@ class Intent(StrEnum):
     hoi_ve_kho = "hoi_ve_kho"
 
 
+def _dang_soan(sd: dict | None) -> str:
+    """`{dang_soan}` của route.v3 (Task 19) — cho model biết hội thoại này có
+    đang mở một phiên soạn thảo hay không, và đã gom được bao nhiêu dữ kiện,
+    để nó phân biệt một câu trả lời dữ kiện/yêu cầu sửa bản thảo với một câu
+    hỏi luật thật sự (xem prompt). `"(không)"` khi chưa mở phiên soạn nào."""
+    if not sd:
+        return "(không)"
+    return f"{load_checklist_cached(sd['loai']).ten} (đã có {len(sd.get('facts') or {})} dữ kiện)"
+
+
 def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict:
     prior_traces = state.get("traces") or {}
     mau = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8")
@@ -101,7 +111,13 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
     # bản v4 cùng hình dạng vẫn chạy đúng schema.
     la_v3 = "dang_tra_loi" in mau
     la_v2 = la_v3 or "loai_van_ban" in mau
-    prompt = mau.format(cau_hoi=state["query"], danh_sach_loai=danh_sach_loai() if la_v2 else "")
+    # `dang_soan` truyền LUÔN, kể cả cho template v1/v2 không có `{dang_soan}`:
+    # `str.format` bỏ qua kwargs thừa, nên không cần một nhánh điều kiện thứ ba.
+    prompt = mau.format(
+        cau_hoi=state["query"],
+        danh_sach_loai=danh_sach_loai() if la_v2 else "",
+        dang_soan=_dang_soan(state.get("soan_thao_dang_mo")),
+    )
     # llm.chat(...) NẰM NGOÀI try: lỗi hạ tầng thật (content rỗng, usage thiếu
     # — xem ValueError ở llm.py chat()/_usage_from()) phải NỔ RA NGOÀI, đúng
     # ruling gốc của module này (docstring đầu file). Bọc nó CÙNG phần parse
