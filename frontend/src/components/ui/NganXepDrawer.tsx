@@ -16,10 +16,15 @@ interface Props {
    */
   onDong: () => void;
   render: (tam: Tam, tang: number) => ReactNode;
+  /** Dưới ngưỡng hai cột (Task 26, spec 2026-09-09 §9.7): mỗi tấm phủ TOÀN
+   *  MÀN thay vì tấm 480px lệch dần sang trái — ở màn hẹp không còn chỗ để
+   *  thấy tấm bên dưới nhô ra, nên độ lệch (`right`) và bề rộng cố định đều
+   *  vô nghĩa. */
+  toanMan: boolean;
 }
 
 /** Drawer xếp chồng kiểu Payload (useEditDepth): tấm trên cùng nhận tiêu điểm, Esc đóng nó, nền mờ chung. */
-export function NganXepDrawer({ ngan, onDong, render }: Props) {
+export function NganXepDrawer({ ngan, onDong, render, toanMan }: Props) {
   const noiMo = useRef<HTMLElement | null>(null);
   const tamTrenCung = useRef<HTMLDivElement | null>(null);
   const soTang = ngan.length;
@@ -79,9 +84,10 @@ export function NganXepDrawer({ ngan, onDong, render }: Props) {
             // duyệt (không qua Tab) vẫn đọc được vào một tấm bị che. Chỉ đặt
             // khi KHÔNG phải tấm trên cùng — tấm trên cùng không mang `inert`.
             inert={!trenCung}
-            style={{ right: (soTang - 1 - tang) * 24, zIndex: 41 + tang }}
+            style={{ right: toanMan ? 0 : (soTang - 1 - tang) * 24, zIndex: 41 + tang }}
             className={cn(
-              "fixed inset-y-0 flex w-[480px] max-w-full flex-col border-l border-border bg-card shadow-elegant",
+              "fixed inset-y-0 flex flex-col border-l border-border bg-card shadow-elegant",
+              toanMan ? "w-full" : "w-[480px] max-w-full",
               !trenCung && "opacity-90",
             )}
           >

@@ -121,6 +121,10 @@ interface Props {
   onLui: () => void;
   onDong: () => void;
   onPhimTat: (loai: "rut_gon" | "trang_trong" | "soat_luat") => void;
+  /** Dưới ngưỡng hai cột (Task 26, spec 2026-09-09 §9.7): cột mục cố định bề
+   *  rộng không còn chỗ đứng — gấp lại thành `<details>` phía trên xem trước,
+   *  và drawer sửa mục bên dưới phủ toàn màn (xem `NganXepDrawer.toanMan`). */
+  toanMan: boolean;
 }
 
 const KHOA_RONG_MUC = "klaw.san-khau.muc";
@@ -151,6 +155,7 @@ export function SanKhauBanThao({
   onLui,
   onDong,
   onPhimTat,
+  toanMan,
 }: Props) {
   const muc = mucTuBanThao(banThao, cauTruc);
   const nhanDoi = nhanFactDoi(banThao.doi_so_voi_truoc, truongMau);
@@ -194,6 +199,39 @@ export function SanKhauBanThao({
   };
 
   const khungRef = useRef<HTMLDivElement | null>(null);
+
+  /** Danh sách mục — dùng lại NGUYÊN ở cả hai bố cục (cột cố định bề rộng khi
+   *  rộng, `<details>` khi hẹp): một cây JSX, không hai bản chép tay dễ trôi
+   *  nhau ở lần sửa sau. */
+  const danhSachMuc = dangTai ? (
+    <p className="m-0 text-[13px] text-muted-foreground">Đang tải khung mục…</p>
+  ) : muc.length === 0 ? (
+    <p className="m-0 text-[13px] text-muted-foreground">Loại văn bản này chưa có khung mục.</p>
+  ) : (
+    <ol className="m-0 flex list-none flex-col gap-2 p-0">
+      {muc.map((m) => (
+        <li key={m.key} className="rounded-lg border border-border p-2">
+          <div className="flex items-start justify-between gap-2">
+            <p className="m-0 min-w-0 flex-1 text-[13px] font-medium text-foreground">
+              {m.stt}. {m.ten}
+              {m.noiDung === "[…]" && (
+                <span className="ml-2 inline-block rounded-full bg-[var(--color-paper-100)] px-2 py-0.5 text-[11px] font-normal text-muted-foreground">
+                  thiếu
+                </span>
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => onSuaMuc(m.key)}
+              className="focus-brass shrink-0 cursor-pointer text-[12px] font-medium text-primary hover:underline"
+            >
+              Sửa
+            </button>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
 
   const xuatTep = async (dinhDang: "docx" | "pdf") => {
     const sheet = khungRef.current?.querySelector<HTMLElement>("article") ?? null;
@@ -283,51 +321,35 @@ export function SanKhauBanThao({
         )}
       </div>
 
-      <div className="flex min-h-0" style={{ ["--rong-muc" as string]: `${rongMuc}px` }}>
-        <div
-          id="san-khau-danh-sach-muc"
-          className="w-[var(--rong-muc)] shrink-0 overflow-y-auto border-r border-border p-3"
-        >
-          {dangTai ? (
-            <p className="m-0 text-[13px] text-muted-foreground">Đang tải khung mục…</p>
-          ) : muc.length === 0 ? (
-            <p className="m-0 text-[13px] text-muted-foreground">
-              Loại văn bản này chưa có khung mục.
-            </p>
-          ) : (
-            <ol className="m-0 flex list-none flex-col gap-2 p-0">
-              {muc.map((m) => (
-                <li key={m.key} className="rounded-lg border border-border p-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="m-0 min-w-0 flex-1 text-[13px] font-medium text-foreground">
-                      {m.stt}. {m.ten}
-                      {m.noiDung === "[…]" && (
-                        <span className="ml-2 inline-block rounded-full bg-[var(--color-paper-100)] px-2 py-0.5 text-[11px] font-normal text-muted-foreground">
-                          thiếu
-                        </span>
-                      )}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => onSuaMuc(m.key)}
-                      className="focus-brass shrink-0 cursor-pointer text-[12px] font-medium text-primary hover:underline"
-                    >
-                      Sửa
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
+      <div
+        className={cn("flex min-h-0", toanMan && "flex-col")}
+        style={{ ["--rong-muc" as string]: `${rongMuc}px` }}
+      >
+        {toanMan ? (
+          <details className="shrink-0 border-b border-border p-3">
+            <summary className="cursor-pointer text-[13px] font-medium text-foreground">
+              Các mục
+            </summary>
+            <div className="mt-2">{danhSachMuc}</div>
+          </details>
+        ) : (
+          <>
+            <div
+              id="san-khau-danh-sach-muc"
+              className="w-[var(--rong-muc)] shrink-0 overflow-y-auto border-r border-border p-3"
+            >
+              {danhSachMuc}
+            </div>
 
-        <TayKeo
-          giaTri={rongMuc}
-          bien={BIEN_MUC}
-          nhan="Kéo để đổi bề rộng danh sách mục"
-          dieuKhienId="san-khau-danh-sach-muc"
-          onDoi={datRongMuc}
-        />
+            <TayKeo
+              giaTri={rongMuc}
+              bien={BIEN_MUC}
+              nhan="Kéo để đổi bề rộng danh sách mục"
+              dieuKhienId="san-khau-danh-sach-muc"
+              onDoi={datRongMuc}
+            />
+          </>
+        )}
 
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center gap-3 border-b border-border px-3 py-2">
@@ -386,6 +408,7 @@ export function SanKhauBanThao({
       <NganXepDrawer
         ngan={ngan}
         onDong={dongTamTrenCung}
+        toanMan={toanMan}
         render={(tam) => {
           if (tam.id === "can-cu") {
             return <NoiDungCanCu canCu={tam.noiDung as string} doiChieu={doiChieuCanCu} />;

@@ -187,6 +187,11 @@ function ManHoiKlaw() {
   const [sanKhau, datSanKhau] = useState<{ banThaoId: string } | null>(null);
   const [banThaoMo, datBanThaoMo] = useState<BanThao | null>(null);
   const [mucDangChonSanKhau, datMucDangChonSanKhau] = useState<string | null>(null);
+  /** Tab đang hiện ở bố cục hẹp (Task 26, spec 2026-09-09 §9.7): dưới 68rem
+   *  sân khấu không còn chỗ cho cửa sổ trợ lý nổi, nên nó lùi thành một trong
+   *  hai tab dưới cùng. Reset về "ban_thao" mỗi lần MỞ sân khấu (`moSanKhau`) —
+   *  mở một bản thảo mới thì thứ người dùng cần thấy trước là chính bản thảo. */
+  const [tabHep, datTabHep] = useState<"ban_thao" | "tro_ly">("ban_thao");
   /** Khung + nhãn field của loại văn bản này (`GET /mau/{loai}`) — loại không
    *  đổi giữa các phiên bản của CÙNG một bản thảo, nên khoá effect theo
    *  `loaiSanKhau` (một string nguyên thuỷ) chứ không theo `banThaoMo` (đổi
@@ -287,6 +292,7 @@ function ManHoiKlaw() {
     doiChieu.dong();
     datSoanThao(null);
     datMucDangChonSanKhau(null);
+    datTabHep("ban_thao");
     datSanKhau({ banThaoId: id });
     void layBanThao(id).then((kq) => {
       if (kq.ok) datBanThaoMo(kq.data);
@@ -614,16 +620,16 @@ function ManHoiKlaw() {
     !khachHetLuot &&
     !biKhoa;
 
-  /** Sân khấu chiếm `<main>` chỉ khi CÓ bản thảo đang mở VÀ đủ rộng — dưới
-   *  68rem hành vi chưa đổi ở task này (Task 26 lo phần đó). */
-  const dangSanKhau = sanKhau !== null && haiCot;
   /** Bản thảo ĐÚNG id đang mở, đã tải xong — khác `banThaoMo` trần trụi để
    *  không thoáng hiện bản thảo CŨ trong khoảnh khắc `layBanThao` của bản MỚI
-   *  còn đang chạy (chuyển thẳng từ bản thảo A sang bản thảo B). */
-  const banThaoSanKhau =
-    sanKhau !== null && haiCot && banThaoMo !== null && banThaoMo.id === sanKhau.banThaoId
-      ? banThaoMo
-      : null;
+   *  còn đang chạy (chuyển thẳng từ bản thảo A sang bản thảo B). Dùng chung ở
+   *  CẢ hai bố cục (rộng/hẹp, Task 26) — tính một lần, không hai bản chép tay. */
+  const banThaoDangTaiXong =
+    sanKhau !== null && banThaoMo !== null && banThaoMo.id === sanKhau.banThaoId ? banThaoMo : null;
+  /** Sân khấu chiếm `<main>` chỉ khi CÓ bản thảo đang mở VÀ đủ rộng — dưới
+   *  68rem có nhánh riêng (Task 26, tab "Bản thảo | Trợ lý" toàn màn). */
+  const dangSanKhau = sanKhau !== null && haiCot;
+  const banThaoSanKhau = dangSanKhau ? banThaoDangTaiXong : null;
 
   // Cột chat (dòng hội thoại + ô hỏi) — MỘT cây JSX dùng ở HAI chỗ tuỳ trạng
   // thái sân khấu: bình thường nó đứng thẳng trong bố cục hai cột; khi sân
@@ -876,7 +882,79 @@ function ManHoiKlaw() {
   return (
     <AppShell active="/dung-thu">
       <div className="flex min-h-0 flex-1">
-        {dangSanKhau ? (
+        {!haiCot && sanKhau !== null ? (
+          /* Bố cục hẹp (Task 26, spec 2026-09-09 §9.7): dưới 68rem sân khấu
+             không có chỗ cho hai cột lẫn cửa sổ trợ lý nổi — toàn màn hình
+             thành một trong hai tab, KHÔNG render `CuaSoTroLy`. */
+          <div className="fixed inset-0 z-40 flex flex-col bg-background">
+            <div className="min-h-0 flex-1">
+              {tabHep === "ban_thao" ? (
+                banThaoDangTaiXong !== null ? (
+                  <SanKhauBanThao
+                    banThao={banThaoDangTaiXong}
+                    cauTruc={cauTrucSanKhau}
+                    truongMau={truongMauSanKhau}
+                    dangTai={dangTaiKhungSanKhau}
+                    mucDangChon={mucDangChonSanKhau}
+                    onChonMuc={datMucDangChonSanKhau}
+                    capNhatBanThao={datBanThaoMo}
+                    onLui={onLuiSanKhau}
+                    onDong={onDongSanKhau}
+                    onPhimTat={onPhimTatSanKhau}
+                    toanMan
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <p className="m-0 text-[14px] text-muted-foreground" role="status">
+                      Đang mở bản thảo…
+                    </p>
+                  </div>
+                )
+              ) : (
+                <div className="h-full overflow-y-auto">{noiDungChat}</div>
+              )}
+            </div>
+
+            {/* Thanh tab hai nút: trạng thái đang chọn qua `aria-pressed`
+                (đọc được bằng trình đọc màn hình, không chỉ tô màu). Chấm
+                `chuaDoc` trên tab Trợ lý đi kèm CON SỐ trong tên truy cập —
+                không chỉ một chấm màu. */}
+            <div className="flex shrink-0 border-t border-border">
+              {(
+                [
+                  ["ban_thao", "Bản thảo"],
+                  ["tro_ly", "Trợ lý"],
+                ] as const
+              ).map(([id, nhan]) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={tabHep === id}
+                  aria-label={
+                    id === "tro_ly" && chuaDoc > 0 ? `${nhan}, ${chuaDoc} tin chưa đọc` : undefined
+                  }
+                  onClick={() => datTabHep(id)}
+                  className={cn(
+                    "focus-brass flex flex-1 cursor-pointer items-center justify-center gap-1.5 border-t-2 py-3 text-[13px] font-medium transition-colors",
+                    tabHep === id
+                      ? "border-[var(--color-brass-600)] text-[var(--color-brass-600)]"
+                      : "border-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {nhan}
+                  {id === "tro_ly" && chuaDoc > 0 && (
+                    <span
+                      aria-hidden
+                      className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-[var(--color-brass-600)] px-1 text-[11px] font-bold text-white"
+                    >
+                      {chuaDoc}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : dangSanKhau ? (
           <>
             {/* Sân khấu bản thảo: chiếm toàn `<main>` khi đã tải xong ĐÚNG
                 bản thảo đang mở; khi đang chờ (vừa bấm "Mở bản thảo", hoặc
@@ -894,6 +972,7 @@ function ManHoiKlaw() {
                 onLui={onLuiSanKhau}
                 onDong={onDongSanKhau}
                 onPhimTat={onPhimTatSanKhau}
+                toanMan={false}
               />
             ) : (
               <div className="flex flex-1 items-center justify-center">
