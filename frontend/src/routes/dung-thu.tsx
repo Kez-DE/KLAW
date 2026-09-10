@@ -32,7 +32,7 @@ import {
   luuRong,
   type CuaSo,
 } from "@/lib/keo-dan";
-import type { BanThao, CauTruc, Citation, TraCuuKetQua, TruongFact } from "@/lib/klaw";
+import type { BanThao, CauTruc, Citation, HoSoDaDung, TraCuuKetQua, TruongFact } from "@/lib/klaw";
 import { chuanHoaLuot, laMau, laNhapPhien } from "@/lib/klaw";
 import type { LuotDaXong } from "@/lib/lich-su";
 import { dungLichSu } from "@/lib/lich-su";
@@ -240,6 +240,11 @@ function ManHoiKlaw() {
     }),
   );
   const [chuaDoc, datChuaDoc] = useState(0);
+  /** Hồ sơ tình huống SAU khi bút chì của `DuaTren` sửa xong: `PATCH /ho-so`
+   *  trả về mảng mới, còn `ketQua` của lượt đã chạy thì không đổi nữa — không
+   *  giữ mảng này thì người dùng sửa xong chỉ thấy đúng giá trị cũ. Ghim theo
+   *  `trace_id` để bản vá của lượt này không dính sang lượt trả lời kế tiếp. */
+  const [hoSoDaSua, datHoSoDaSua] = useState<{ trace: string; hoSo: HoSoDaDung[] } | null>(null);
   const datCuaSo = (cs: CuaSo) => {
     datCuaSoRaw(cs);
     luuCuaSo(KHOA_CUA_SO_TRO_LY, cs);
@@ -809,7 +814,11 @@ function ManHoiKlaw() {
                   )}
                   {traCuu.ketQua !== null && (
                     <TheKetQua
-                      ketQua={traCuu.ketQua}
+                      ketQua={
+                        hoSoDaSua !== null && hoSoDaSua.trace === traCuu.ketQua.trace_id
+                          ? { ...traCuu.ketQua, ho_so_da_dung: hoSoDaSua.hoSo }
+                          : traCuu.ketQua
+                      }
                       {...(traCuu.cauHoi !== null ? { cauHoiGoc: traCuu.cauHoi } : {})}
                       chiSoDangMo={chiSoDangMoCua(traCuu.ketQua)}
                       onChonTrichDan={(chiSo) => {
@@ -834,8 +843,11 @@ function ManHoiKlaw() {
                           toast.error("Cần một cuộc trò chuyện đã đăng nhập để sửa dữ kiện này.");
                           return;
                         }
+                        const trace = traCuu.ketQua?.trace_id ?? null;
                         void suaHoSoPhien(id, khoa, giaTri).then((kq) => {
                           if (!kq.ok) toast.error(kq.error.message);
+                          else if (trace !== null)
+                            datHoSoDaSua({ trace, hoSo: kq.data.ho_so_da_dung });
                         });
                       }}
                     />
