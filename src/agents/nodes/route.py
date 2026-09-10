@@ -97,10 +97,22 @@ def _dang_soan(sd: dict | None) -> str:
     """`{dang_soan}` của route.v3 (Task 19) — cho model biết hội thoại này có
     đang mở một phiên soạn thảo hay không, và đã gom được bao nhiêu dữ kiện,
     để nó phân biệt một câu trả lời dữ kiện/yêu cầu sửa bản thảo với một câu
-    hỏi luật thật sự (xem prompt). `"(không)"` khi chưa mở phiên soạn nào."""
-    if not sd:
+    hỏi luật thật sự (xem prompt). `"(không)"` khi chưa mở phiên soạn nào.
+
+    Một `loai` không tra được checklist (YAML bị gỡ hay đổi tên sau khi phiên đã
+    mở bản thảo loại đó) cũng là `"(không)"`, KHÔNG phải một ngoại lệ: module này
+    cố ý không nuốt lỗi (xem docstring đầu file), nên `ValueError` ở đây thành
+    HTTP 500 cho MỌI lượt sau của phiên — kể cả một câu hỏi luật bình thường
+    không dính gì tới soạn thảo. `gom_du_kien` đã có nhánh `khong_ro_loai` để rơi
+    vào."""
+    loai = (sd or {}).get("loai")
+    if not loai:
         return "(không)"
-    return f"{load_checklist_cached(sd['loai']).ten} (đã có {len(sd.get('facts') or {})} dữ kiện)"
+    try:
+        ten = load_checklist_cached(loai).ten
+    except ValueError:
+        return "(không)"
+    return f"{ten} (đã có {len(sd.get('facts') or {})} dữ kiện)"
 
 
 def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict:

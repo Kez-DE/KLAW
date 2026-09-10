@@ -60,3 +60,13 @@ def test_route_v2_van_chay_khong_co_hai_khoa_moi():
     llm = LlmGia({"intent": "tra_cuu", "loai_van_ban": "khong_ro", "thay_the": [], "ly_do": ""})
     st = r.route({"query": "x"}, llm, "m", prompt_path=Path("prompts/route.v2.md"))
     assert st.get("dang_tra_loi", "van_xuoi") == "van_xuoi" and st.get("y_dinh_phu") is None
+
+
+def test_dang_soan_coi_loai_khong_tra_duoc_la_khong_co_phien_soan():
+    """Gỡ hay đổi tên một `config/checklist_*.yaml` không được biến MỌI lượt sau
+    của phiên đang mở bản thảo loại đó thành HTTP 500 — kể cả một câu hỏi luật
+    bình thường. `route` cố ý không nuốt lỗi, nên chỗ chặn phải ở đây."""
+    assert r._dang_soan({"loai": "khong_co_that", "facts": {"a": 1}}) == "(không)"
+    assert r._dang_soan({"facts": {"a": 1}}) == "(không)"
+    assert r._dang_soan(None) == "(không)"
+    assert "đã có 1 dữ kiện" in r._dang_soan({"loai": "don_xin_nghi_viec", "facts": {"a": 1}})

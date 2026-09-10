@@ -914,3 +914,12 @@ def test_soan_thao_khong_goi_y_giu_huong_dan_cu():
     st = assemble({"intent": "soan_thao", "query": "x"}, {}, FakeLlm(), "m")
     assert st["answer"] == HUONG_DAN_SOAN_THAO and st["soan_thao_goi_y"] is None
     assert "Chọn loại văn bản" in HUONG_DAN_SOAN_THAO
+
+
+def test_ten_loai_roi_ve_chinh_ma_loai_khi_khong_tra_duoc_checklist():
+    """Cùng lý do `route._dang_soan`: một `loai` không tra được checklist (YAML bị
+    gỡ hay đổi tên) phải suy biến thành chính mã loại, không phải một ngoại lệ
+    giữa lúc hành văn câu trả lời cuối."""
+    from src.agents.nodes.assemble import _ten_loai
+
+    assert _ten_loai("khong_co_that") == "khong_co_that"

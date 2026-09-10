@@ -536,7 +536,14 @@ LY_DO_MAC_DINH = "đây là loại văn bản khớp với điều bạn mô t�
 
 
 def _ten_loai(loai: str) -> str:
-    return load_checklist_cached(loai).ten
+    """Tên tiếng Việt của loại văn bản; `loai` không tra được checklist (YAML bị gỡ
+    hay đổi tên sau khi phiên đã mở bản thảo loại đó) rơi về CHÍNH mã loại. Cùng
+    lý do `route._dang_soan`: một câu trả lời hơi thô còn hơn một HTTP 500 ở node
+    cuối, và đường hành văn của `assemble` vốn đã suy biến chứ không nổ."""
+    try:
+        return load_checklist_cached(loai).ten
+    except ValueError:
+        return loai
 
 
 def _goi_y_soan_thao(tho: dict | None) -> tuple[dict | None, str]:
