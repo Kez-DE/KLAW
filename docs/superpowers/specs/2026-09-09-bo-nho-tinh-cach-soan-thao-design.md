@@ -1,6 +1,7 @@
 # Bộ nhớ hội thoại, tính cách trả lời, soạn thảo hội thoại và không gian làm việc — thiết kế
 
-Ngày: 2026-09-09. Trạng thái: chờ chủ dự án duyệt trước khi viết plan.
+Ngày: 2026-09-09. Trạng thái: đã duyệt và thực thi trên nhánh `feat/tro-ly-phap-luat`
+(plan 2026-09-09); sửa đổi sau duyệt ghi ở `docs/plans/completed/bo-nho-tinh-cach-soan-thao.md`.
 
 Tài liệu này là authority cho năm việc chủ dự án yêu cầu trong phiên brainstorming ngày
 09/09: đổi giá và hạn mức; agent nhớ trọn phiên (Pro nhớ xuyên phiên); agent suy luận
@@ -207,7 +208,10 @@ Mọi tài khoản đăng nhập (Free và Pro):
 Sáu khoá đầu trùng đúng `hoi_lai.CHIEU`; `vu_viec` là một câu về việc đang theo.
 `nguon`: `suy_dien` (giả định do mục 7 tạo, giao diện ghi là giả định), `nguoi_noi`
 (người dùng nói), `tai_khoan` (kế thừa từ bộ nhớ tài khoản). Người dùng sửa thì nguồn
-thành `nguoi_noi` và đè mọi nguồn khác.
+thành `nguoi_noi` và đè mọi nguồn khác. Dữ kiện do mô hình TRÍCH từ chính lời người
+dùng (`prompts/bo_nho.v1.md`) cũng mang `nguoi_noi`, CỐ Ý: nguồn nói ai là chủ của
+dữ kiện, không nói ai gõ nó; một trích xuất sai vì thế hiện ra không kèm dấu "(tôi
+đoán)" và người dùng sửa lại bằng popover Sửa.
 
 ### 6.2 Cập nhật chạy nền
 
@@ -351,7 +355,9 @@ thoại để lượt sau dùng câu trả lời.
 
 `prompts/route.v3.md` + `schema_v3`: thêm `linh_vuc` (enum đọc từ `SELECT DISTINCT
 linh_vuc FROM documents` lúc gọi, cộng `khong_ro`), `dang_tra_loi: van_xuoi | bang`,
-và `y_dinh_phu: soan_thao | null` với `loai_van_ban` như v2. `retrieve` lọc
+và `y_dinh_phu: soan_thao | null` với `loai_van_ban` như v2. (Ruling Task 13: `linh_vuc`
+KHÔNG nằm ở `route.v3.md` khi triển khai — tín hiệu do `prompts/rewrite_query.v2.md`
+phát và đọc dưới tên `linh_vuc_du_doan`.) `retrieve` lọc
 `documents.linh_vuc = :linh_vuc` khi router trả một lĩnh vực; `khong_ro` giữ toàn kho;
 lọc ra dưới 3 kết quả thì tự mở lại toàn kho (trace `retrieve_mo_rong = true`). Khi
 `y_dinh_phu = soan_thao` và loại có checklist, `TraCuuResponse.soan_thao` được điền

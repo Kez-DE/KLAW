@@ -141,9 +141,9 @@ Chép nguyên văn mục 11 của spec `2026-09-09-bo-nho-tinh-cach-soan-thao-de
 
 ## Decisions
 
-Rút từ mọi dòng `Ruling:` trong
+Rút từ mọi dòng `Ruling:` tính đến lúc đóng plan trong
 `.superpowers/sdd/2026-09-09-bo-nho-tinh-cach-soan-thao/progress.md`, theo thứ
-tự xuất hiện. Vài dòng không gắn số task tường minh trong ledger — ghi rõ
+tự xuất hiện — vài ruling ra đời sau khi đóng plan nên không có ở đây. Vài dòng không gắn số task tường minh trong ledger — ghi rõ
 thay vì đoán số task.
 
 - Task 22: thêm prop tuỳ chọn `onMacDinh` nối vào bấm đôi, vì Bước 4 của brief
