@@ -175,6 +175,10 @@ export function SanKhauBanThao({
         >
           {dangTai ? (
             <p className="m-0 text-[13px] text-muted-foreground">Đang tải khung mục…</p>
+          ) : muc.length === 0 ? (
+            <p className="m-0 text-[13px] text-muted-foreground">
+              Loại văn bản này chưa có khung mục.
+            </p>
           ) : (
             <ol className="m-0 flex list-none flex-col gap-2 p-0">
               {muc.map((m) => (

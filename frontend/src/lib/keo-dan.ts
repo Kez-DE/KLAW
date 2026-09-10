@@ -82,10 +82,21 @@ export function CUA_SO_MAC_DINH(vp: Viewport): CuaSo {
 
 /** Kẹp cửa sổ vào đúng viewport: không nhỏ hơn kích cỡ tối thiểu, không tràn
  *  ra ngoài bốn cạnh — dù đang kéo, đang thu dãn, hay vừa đọc từ localStorage
- *  của một màn hình khác rộng hơn. */
+ *  của một màn hình khác rộng hơn.
+ *
+ * Trần kích cỡ là viewport, NHƯNG sàn trước — cùng khuôn `bienPanelDoiChieu`
+ * (dòng 23-29 phía trên): hạ trần xuống ngang sàn trước khi kẹp, không kẹp
+ * bằng trần thô. Viewport nhỏ hơn kích cỡ tối thiểu (màn dưới 400px cao, ví
+ * dụ) là ca suy biến — KHÔNG co cửa sổ xuống dưới tối thiểu để vừa màn, mà để
+ * cửa sổ giữ đúng tối thiểu và tràn ra ngoài viewport. `bienPanelDoiChieu` đã
+ * chọn cùng hướng này (panel có thể vượt phần "còn lại" khi cửa sổ quá hẹp);
+ * lựa chọn kia — co cửa sổ bằng viewport — phá đúng bất biến "không dưới tối
+ * thiểu" mà bản vá này tồn tại để giữ. */
 export function kepCuaSo(cs: CuaSo, vp: Viewport): CuaSo {
-  const w = Math.min(vp.w, Math.max(CUA_SO_RONG_MIN, Math.round(cs.w)));
-  const h = Math.min(vp.h, Math.max(CUA_SO_CAO_MIN, Math.round(cs.h)));
+  const wMax = Math.max(CUA_SO_RONG_MIN, vp.w);
+  const hMax = Math.max(CUA_SO_CAO_MIN, vp.h);
+  const w = Math.min(wMax, Math.max(CUA_SO_RONG_MIN, Math.round(cs.w)));
+  const h = Math.min(hMax, Math.max(CUA_SO_CAO_MIN, Math.round(cs.h)));
   const x = Math.min(vp.w - w, Math.max(0, Math.round(cs.x)));
   const y = Math.min(vp.h - h, Math.max(0, Math.round(cs.y)));
   return { x, y, w, h, thu: cs.thu };

@@ -107,4 +107,35 @@ assert.deepEqual(kepCuaSo({ x: 0, y: 0, w: 2000, h: 2000, thu: true }, vp), {
   h: 900,
   thu: true,
 });
-console.log("kiem-keo-dan: cửa sổ 4/4 OK");
+
+// Viewport HẸP HƠN CHÍNH kích cỡ tối thiểu — màn xoay ngang trên điện thoại,
+// hay một cửa sổ trình duyệt bị kéo rất nhỏ. Sàn (tối thiểu) không được nhượng
+// bộ trần (viewport): cửa sổ giữ đúng NGANG BẰNG tối thiểu và TRÀN RA NGOÀI
+// viewport thay vì co xuống dưới tối thiểu — cùng lựa chọn `bienPanelDoiChieu`
+// đã chọn ở trên (dòng 23-29) khi viewport không đủ chỗ cho cả hai bên.
+const VP_HEP = { w: 200, h: 900 }; // hẹp hơn CUA_SO_RONG_MIN (320)
+const VP_THAP = { w: 1440, h: 200 }; // thấp hơn CUA_SO_CAO_MIN (400)
+const VP_CA_HAI = { w: 200, h: 200 }; // hẹp VÀ thấp hơn tối thiểu
+
+assert.deepEqual(kepCuaSo({ x: 0, y: 0, w: 100, h: 100, thu: false }, VP_HEP), {
+  x: -120,
+  y: 0,
+  w: 320,
+  h: 400,
+  thu: false,
+});
+assert.deepEqual(kepCuaSo({ x: 0, y: 0, w: 100, h: 100, thu: false }, VP_THAP), {
+  x: 0,
+  y: -200,
+  w: 320,
+  h: 400,
+  thu: false,
+});
+assert.deepEqual(kepCuaSo({ x: 0, y: 0, w: 100, h: 100, thu: false }, VP_CA_HAI), {
+  x: -120,
+  y: -200,
+  w: 320,
+  h: 400,
+  thu: false,
+});
+console.log("kiem-keo-dan: cửa sổ 7/7 OK");
