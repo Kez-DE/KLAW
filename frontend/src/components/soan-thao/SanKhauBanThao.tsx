@@ -116,6 +116,9 @@ interface Props {
   /** `GET /mau/{loai}` hỏng: không có khung mục thì "Sửa" mở ra biểu mẫu rỗng
    *  và lưu đè dữ kiện cũ — nói lỗi ra ở đúng chỗ danh sách mục, không im. */
   loiKhung: string | null;
+  /** Gọi lại đúng lần gọi đã hỏng. Lỗi mạng một nhịp không được bắt người dùng
+   *  đóng rồi mở lại bản thảo mới sửa được mục. */
+  onTaiLaiKhung: () => void;
   mucDangChon: string | null;
   onChonMuc: (key: string) => void;
   /** Bản thảo vừa dựng lại xong (drawer sửa mục, Task 25) → cập nhật state
@@ -155,6 +158,7 @@ export function SanKhauBanThao({
   truongMau,
   dangTai,
   loiKhung,
+  onTaiLaiKhung,
   mucDangChon,
   onChonMuc,
   capNhatBanThao,
@@ -212,9 +216,14 @@ export function SanKhauBanThao({
   const danhSachMuc = dangTai ? (
     <p className="m-0 text-[13px] text-muted-foreground">Đang tải khung mục…</p>
   ) : loiKhung !== null ? (
-    <p role="alert" className="m-0 text-[13px] text-destructive">
-      Không tải được khung mục của loại văn bản này, nên chưa sửa được từng mục. {loiKhung}
-    </p>
+    <div role="alert">
+      <p className="m-0 text-[13px] text-destructive">
+        Không tải được khung mục của loại văn bản này, nên chưa sửa được từng mục. {loiKhung}
+      </p>
+      <button type="button" onClick={onTaiLaiKhung} className={cn(NUT_PHU, "mt-2")}>
+        Thử lại
+      </button>
+    </div>
   ) : muc.length === 0 ? (
     <p className="m-0 text-[13px] text-muted-foreground">Loại văn bản này chưa có khung mục.</p>
   ) : (

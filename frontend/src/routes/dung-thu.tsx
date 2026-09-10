@@ -208,6 +208,10 @@ function ManHoiKlaw() {
    *  `DrawerSuaMuc` mở ra một biểu mẫu RỖNG, bấm Lưu là gửi lại y nguyên dữ
    *  kiện cũ và dựng lại bản thảo cho không. Nói thẳng ra thay vì để im. */
   const [loiKhungSanKhau, datLoiKhungSanKhau] = useState<string | null>(null);
+  /** Đếm lần gọi lại cho nút "Thử lại": tăng số này là chạy lại ĐÚNG effect
+   *  bên dưới — cùng một lời gọi, cùng một đường huỷ, cùng cờ đang tải — thay
+   *  vì chép lại lần gọi thứ hai ở nơi khác rồi để hai bản trôi khỏi nhau. */
+  const [lanTaiKhungSanKhau, datLanTaiKhungSanKhau] = useState(0);
   useEffect(() => {
     if (loaiSanKhau === undefined) {
       datCauTrucSanKhau(null);
@@ -229,7 +233,7 @@ function ManHoiKlaw() {
       datDangTaiKhungSanKhau(false);
     });
     return () => dieuKhien.abort();
-  }, [loaiSanKhau]);
+  }, [loaiSanKhau, lanTaiKhungSanKhau]);
 
   /** Cửa sổ trợ lý nổi: nhớ qua localStorage, kẹp lại theo viewport hiện tại
    *  ngay từ lúc khởi tạo — cùng lý do với `rongDoiChieu` ở trên. */
@@ -951,6 +955,7 @@ function ManHoiKlaw() {
                     truongMau={truongMauSanKhau}
                     dangTai={dangTaiKhungSanKhau}
                     loiKhung={loiKhungSanKhau}
+                    onTaiLaiKhung={() => datLanTaiKhungSanKhau((n) => n + 1)}
                     mucDangChon={mucDangChonSanKhau}
                     onChonMuc={datMucDangChonSanKhau}
                     capNhatBanThao={datBanThaoMo}
@@ -1026,6 +1031,7 @@ function ManHoiKlaw() {
                 truongMau={truongMauSanKhau}
                 dangTai={dangTaiKhungSanKhau}
                 loiKhung={loiKhungSanKhau}
+                onTaiLaiKhung={() => datLanTaiKhungSanKhau((n) => n + 1)}
                 mucDangChon={mucDangChonSanKhau}
                 onChonMuc={datMucDangChonSanKhau}
                 capNhatBanThao={datBanThaoMo}
