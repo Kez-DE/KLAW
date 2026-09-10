@@ -12,12 +12,20 @@ import { TheKetQua } from "@/components/klaw/TheKetQua";
 import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
 import { TheTaiKhoanKhoa } from "@/components/tai-khoan/TheTaiKhoanKhoa";
+import { TayKeo } from "@/components/ui/TayKeo";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { useTraCuu } from "@/hooks/use-tra-cuu";
 import { goi, suaHoSoPhien } from "@/lib/api";
 import { dinhDangMoc, laBiKhoa, laKhongGioiHan } from "@/lib/han-muc";
 import { layThreadKhach, xoaThreadKhach } from "@/lib/khach";
+import {
+  RONG_DOI_CHIEU_MAC_DINH,
+  bienPanelDoiChieu,
+  docRongDaLuu,
+  kepRong,
+  luuRong,
+} from "@/lib/keo-dan";
 import type { Citation, TraCuuKetQua } from "@/lib/klaw";
 import { chuanHoaLuot, laNhapPhien } from "@/lib/klaw";
 import type { LuotDaXong } from "@/lib/lich-su";
@@ -89,6 +97,24 @@ function ManHoiKlaw() {
   const doiChieu = useDoiChieu();
   const haiCot = useHaiCot();
   const navigate = useNavigate();
+  // Độ rộng khung điều chiếu do người dùng kéo (Task 22, spec 2026-09-09 §9.1)
+  // — nhớ qua localStorage, kẹp lại theo biên hiện tại của cửa sổ. Biên đổi
+  // theo `resize`: cửa sổ thu hẹp không được để độ rộng đã lưu tràn ra ngoài.
+  const [rongDoiChieu, datRongDoiChieu] = useState(() =>
+    docRongDaLuu("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH),
+  );
+  const [bienDoiChieu, datBienDoiChieu] = useState(() =>
+    bienPanelDoiChieu(typeof window === "undefined" ? 1440 : window.innerWidth),
+  );
+  useEffect(() => {
+    const capNhat = () => {
+      const bienMoi = bienPanelDoiChieu(window.innerWidth);
+      datBienDoiChieu(bienMoi);
+      datRongDoiChieu((r) => kepRong(r, bienMoi));
+    };
+    window.addEventListener("resize", capNhat);
+    return () => window.removeEventListener("resize", capNhat);
+  }, []);
   // Một nguồn duy nhất cho danh tính + hạn mức (spec 2A §7). Màn này KHÔNG còn
   // khoá ô hỏi khi chưa đăng nhập: khách hỏi thử 10 lượt/24 giờ với `X-Khach-Id`
   // (spec 2A §8) và chỉ gặp thẻ mời đăng nhập khi thật sự hết lượt — bắt đăng
@@ -703,29 +729,52 @@ function ManHoiKlaw() {
             đó nó tự phủ toàn màn hình, nên thẻ bọc phải KHÔNG có kích thước —
             `hidden` sẽ giấu luôn cả khung ở chế độ phủ màn hình. */}
         {doiChieu.dang !== null && (
-          <div
-            className={cn(
-              "shrink-0",
-              haiCot && "w-[420px] border-l border-border bg-[var(--color-paper-50)] p-3",
+          <>
+            {haiCot && (
+              <TayKeo
+                giaTri={rongDoiChieu}
+                bien={bienDoiChieu}
+                nhan="Kéo để đổi độ rộng khung điều khoản"
+                dieuKhienId="khung-doi-chieu"
+                chieu={-1}
+                onDoi={(px) => {
+                  datRongDoiChieu(px);
+                  luuRong("klaw.doi-chieu.rong", px);
+                }}
+                onThuGon={() =>
+                  datRongDoiChieu((r) =>
+                    r > bienDoiChieu.min ? bienDoiChieu.min : RONG_DOI_CHIEU_MAC_DINH,
+                  )
+                }
+                onMacDinh={() => datRongDoiChieu(RONG_DOI_CHIEU_MAC_DINH)}
+              />
             )}
-          >
-            <KhungDoiChieu
-              khopTaiId={doiChieu.dang.khopTaiId}
-              {...(doiChieu.dang.duongDan === undefined
-                ? {}
-                : { duongDan: doiChieu.dang.duongDan })}
-              quote={doiChieu.dang.quote ?? null}
-              hieuLuc={doiChieu.dang.hieuLuc ?? null}
-              trangThai={doiChieu.trangThai}
-              vanBan={doiChieu.vanBan}
-              loi={doiChieu.loi}
-              onThuLai={doiChieu.thuLai}
-              onDong={() => {
-                datDangMo(null);
-                doiChieu.dong();
-              }}
-            />
-          </div>
+            <div
+              className={cn(
+                "shrink-0",
+                haiCot && "border-l border-border bg-[var(--color-paper-50)] p-3",
+              )}
+              style={haiCot ? { width: kepRong(rongDoiChieu, bienDoiChieu) } : undefined}
+            >
+              <KhungDoiChieu
+                id="khung-doi-chieu"
+                khopTaiId={doiChieu.dang.khopTaiId}
+                {...(doiChieu.dang.duongDan === undefined
+                  ? {}
+                  : { duongDan: doiChieu.dang.duongDan })}
+                quote={doiChieu.dang.quote ?? null}
+                hieuLuc={doiChieu.dang.hieuLuc ?? null}
+                trangThai={doiChieu.trangThai}
+                vanBan={doiChieu.vanBan}
+                loi={doiChieu.loi}
+                onThuLai={doiChieu.thuLai}
+                onDong={() => {
+                  datDangMo(null);
+                  doiChieu.dong();
+                }}
+              />
+            </div>
+          </>
         )}
 
         {/* Khung soạn thảo (spec soạn-thảo-trong-chat §5.3). Hai cột: chiếm phần

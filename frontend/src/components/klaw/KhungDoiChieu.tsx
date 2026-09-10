@@ -87,6 +87,8 @@ function tachTheoTam(dong: readonly DongCoBang[]): Khoi[] {
 }
 
 export interface KhungDoiChieuProps {
+  /** Gắn lên phần tử gốc — `TayKeo` dùng làm `aria-controls`. */
+  id?: string;
   /**
    * Dòng khớp THẬT SỰ — `Citation.khop_tai_id`. Xem điểm 1 ở đầu file.
    * Chỉ dòng này được tô câu trích; cả VÙNG `la_tam` được rọi sáng.
@@ -105,6 +107,7 @@ export interface KhungDoiChieuProps {
 }
 
 export function KhungDoiChieu({
+  id,
   khopTaiId,
   duongDan,
   quote = null,
@@ -191,6 +194,7 @@ export function KhungDoiChieu({
 
   return (
     <aside
+      id={id}
       // `aria-modal` là lời khai với công nghệ hỗ trợ rằng PHẦN CÒN LẠI CỦA
       // TRANG KHÔNG TỒN TẠI. Chỉ khai ở bố cục một cột, nơi khung thật sự phủ
       // kín màn hình. Khai xong thì `useKhungModalDangMo` ở __root.tsx tự bọc
