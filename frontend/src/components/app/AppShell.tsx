@@ -20,7 +20,6 @@ import { useKhungModalDangMo } from "@/hooks/use-khung-modal";
 import { useMinWidth } from "@/hooks/use-min-width";
 import { datKhongGhiNhoPhien } from "@/lib/api";
 import type { BanThaoTomTat } from "@/lib/klaw";
-import { slugCuaLoai } from "@/lib/mau-van-ban";
 import { dichQuayLaiTu, type DichQuayLai } from "@/lib/quay-lai";
 import { cn } from "@/lib/utils";
 
@@ -174,15 +173,13 @@ export function AppShell({
     />
   );
 
-  // Mở một bản thảo (Task 21): "sân khấu thật" đến ở giai đoạn 5, nên tạm mở
-  // khung soạn thảo hiện có tại `/soan-thao/$loaiVanBan` với ĐÚNG loại — chưa
-  // nạp lại nội dung của bản thảo này. Loại không có thẻ nào (`slugCuaLoai`
-  // trả `[]`) thì mở lưới chọn tay ở `/soan-thao`, không đoán bừa một slug.
+  // Mở một bản thảo đã lưu (Task 21 → Task 24): sân khấu thật ở `/dung-thu`
+  // nhận `?ban_thao=` rồi tự `layBanThao` — đây là lối vào bền duy nhất tới
+  // việc đã lưu. Mở khung soạn thảo trống theo loại như trước là vứt đúng bản
+  // thảo người dùng vừa bấm.
   const moBanThao = (banThao: BanThaoTomTat, dong: () => void) => {
     dong();
-    const slug = slugCuaLoai(banThao.loai)[0];
-    if (slug === undefined) void navigate({ to: "/soan-thao" });
-    else void navigate({ to: "/soan-thao/$loaiVanBan", params: { loaiVanBan: slug } });
+    void navigate({ to: "/dung-thu", search: { ban_thao: banThao.id } });
   };
   const banThaoGanDay = (dong: () => void) => (
     <DanhSachBanThaoGanDay onMo={(banThao) => moBanThao(banThao, dong)} />

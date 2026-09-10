@@ -102,14 +102,16 @@ function Luot({
   );
 }
 
-/** `?phien=` chỉ nhận UUID. Dùng ở CẢ `validateSearch` và lúc đọc trong component. */
+/** `?phien=` và `?ban_thao=` chỉ nhận UUID. Dùng ở CẢ `validateSearch` và lúc đọc trong component. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function ManHoiKlaw() {
-  const { q: cauHoiTrenUrl, phien: phienTho } = Route.useSearch();
+  const { q: cauHoiTrenUrl, phien: phienTho, ban_thao: banThaoTho } = Route.useSearch();
   // Router (TanStack 1.170, non-strict search) trộn search THÔ của route cha ĐÈ lên
   // kết quả `validateSearch`, nên `?phien=rac` vẫn tới đây — kiểm lại trước khi gọi API.
   const phienId = typeof phienTho === "string" && UUID.test(phienTho) ? phienTho : undefined;
+  const banThaoTrenUrl =
+    typeof banThaoTho === "string" && UUID.test(banThaoTho) ? banThaoTho : undefined;
   const traCuu = useTraCuu();
   const doiChieu = useDoiChieu();
   const haiCot = useHaiCot();
@@ -302,6 +304,30 @@ function ManHoiKlaw() {
       }
     });
   };
+
+  /** `?ban_thao=`: danh sách "Bản thảo" ở vỏ trang mở sân khấu qua URL — lối
+   *  vào bền duy nhất tới việc đã lưu. Mở xong thì GỠ tham số (replace, giữ
+   *  `q`/`phien`): sân khấu không phải trạng thái URL, và để nguyên thì bấm
+   *  lại đúng bản thảo đó không đổi URL nên không mở lại được. `daMoTuUrl`
+   *  chặn mở hai lần trong các render trước khi `replace` kịp về. */
+  const daMoTuUrl = useRef<string | null>(null);
+  useEffect(() => {
+    if (banThaoTrenUrl === undefined) {
+      daMoTuUrl.current = null;
+      return;
+    }
+    if (daMoTuUrl.current === banThaoTrenUrl) return;
+    daMoTuUrl.current = banThaoTrenUrl;
+    moSanKhau(banThaoTrenUrl);
+    void navigate({
+      to: "/dung-thu",
+      search: {
+        ...(cauHoiTrenUrl !== undefined ? { q: cauHoiTrenUrl } : {}),
+        ...(phienId !== undefined ? { phien: phienId } : {}),
+      },
+      replace: true,
+    });
+  });
 
   // Lượt đã tải từ phiên đang mở — chỉ khi chi tiết vừa tải ĐÚNG là phiên
   // đang mở (`?phien=`), không phải chi tiết còn sót lại của phiên trước.
@@ -1086,14 +1112,19 @@ export const Route = createFileRoute("/dung-thu")({
   // `?q=` là câu hỏi người dùng vừa gõ ở một cửa vào khác (`/chat`, hoặc một
   // liên kết được chia sẻ). Nó chạy NGAY, vì gõ câu hỏi rồi bấm gửi đã là sự
   // đồng ý — bắt bấm gửi lần thứ hai chỉ để giữ một quy tắc hình thức.
-  // `?phien=` là id phiên hội thoại (UUID) cần mở — sai định dạng thì bị bỏ,
-  // KHÔNG gửi lên máy chủ để nhận về một 404/422 vô nghĩa.
-  validateSearch: (tho: Record<string, unknown>): { q?: string; phien?: string } => {
+  // `?phien=` là id phiên hội thoại, `?ban_thao=` là bản thảo cần mở thẳng lên
+  // sân khấu (đều UUID) — sai định dạng thì bị bỏ, KHÔNG gửi lên máy chủ để
+  // nhận về một 404/422 vô nghĩa.
+  validateSearch: (
+    tho: Record<string, unknown>,
+  ): { q?: string; phien?: string; ban_thao?: string } => {
     const q = tho["q"];
     const phien = tho["phien"];
+    const banThao = tho["ban_thao"];
     return {
       ...(typeof q === "string" && q.trim() !== "" ? { q } : {}),
       ...(typeof phien === "string" && UUID.test(phien) ? { phien } : {}),
+      ...(typeof banThao === "string" && UUID.test(banThao) ? { ban_thao: banThao } : {}),
     };
   },
   component: ManHoiKlaw,
