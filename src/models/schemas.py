@@ -191,6 +191,24 @@ class BanThaoOut(BaseModel):
     doi_so_voi_truoc: list[str] = []
 
 
+class BanThaoTomTatOut(BaseModel):
+    """Một dòng trong `GET /ban-thao` (Task 20) — đủ để giao diện vẽ danh sách
+    và mở lại đúng bản, không kèm nội dung đầy đủ (`document`/`clauses`/
+    `audit_report`) như `BanThaoOut`."""
+
+    id: str
+    loai: str
+    ten: str
+    phien_ban: int
+    cap_nhat_luc: datetime
+    hoi_thoai_id: str | None = None
+
+
+class DanhSachBanThaoOut(BaseModel):
+    tong: int
+    items: list[BanThaoTomTatOut] = []
+
+
 class Bang(BaseModel):
     """Một bảng dữ liệu CÓ KIỂU — trả kèm `answer` khi câu hỏi về kho xin trình
     bày dạng bảng (`services/kho.dung_bang`), để giao diện dựng bảng thật thay

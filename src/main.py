@@ -10,6 +10,7 @@ from starlette.datastructures import Headers
 from src.agents import graph_soan_thao as soan_thao_graph
 from src.api.routes import router
 from src.api.routes_admin import router as router_admin
+from src.api.routes_ban_thao import router as router_ban_thao
 from src.api.routes_hoi_thoai import router as router_hoi_thoai
 from src.api.routes_luong import router as router_luong
 from src.api.routes_tai_khoan import router as router_tai_khoan
@@ -189,6 +190,7 @@ app.include_router(router_van_ban, prefix="/api/v1")
 app.include_router(router_tai_khoan, prefix="/api/v1")
 app.include_router(router_luong, prefix="/api/v1")
 app.include_router(router_hoi_thoai, prefix="/api/v1")
+app.include_router(router_ban_thao, prefix="/api/v1")
 app.include_router(router_admin, prefix="/api/v1")
 
 
