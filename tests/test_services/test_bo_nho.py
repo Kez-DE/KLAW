@@ -32,10 +32,19 @@ class LlmGia:
         ("Điều35", False),  # đủ chữ nhưng dính liền số
         ("Đ. 35, Quận 1", False),  # dương tính giả CHỦ Ý (review round 2): "Đ." cũng là viết tắt "Đường"
         ("45/2019/QH14", False),
+        ("Nghị định 145/2020/NĐ-CP", False),
+        ("Thông tư 10/2020/TT-BLĐTBXH", False),
         ("CMND 012345678912", False),
         ("a@b.vn", False),
         ("", False),
         ("x" * 121, False),
+        # `thoi_diem` là khoá NGƯỜI TA trả lời tự nhiên nhất bằng "tháng M/YYYY";
+        # lưới chặn số hiệu văn bản từng nuốt sạch nó nên hồ sơ không bao giờ đầy
+        # và `hoi_lai` hỏi lại đúng dữ kiện đó mỗi lượt.
+        ("tháng 3/2024", True),
+        ("vào làm từ tháng 6/2015", True),
+        ("nghỉ việc 15/10/2026", True),
+        ("làm từ 1/2020 đến nay", False),  # dương tính giả CHỦ Ý — xem `_vuong_luoi_chan`
     ],
 )
 def test_gia_tri_hop_le(gia_tri, hop_le):

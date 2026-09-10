@@ -59,13 +59,24 @@ KHONG_CO_DU_KIEN = "(chưa có dữ kiện nào)"
 # letting a fabricated legal citation slip into the model's context.
 _RE_DIEU = re.compile(r"\b(Đi[eề]u|Kho[aả]n|Đi[eể]m|Đ)\.?\s*\d+", re.IGNORECASE)
 _RE_DINH_DANH = re.compile(r"\d{9,12}|@|(?:\+84|0)\d{9}\b")
+# "tháng 3/2024" có hình dạng y hệt một số hiệu văn bản ("45/2019"), và
+# `moi_so_hieu_trong` không thể tự phân biệt — nó được viết cho một câu ĐÃ biết là
+# hỏi về kho. Ở đây thì chữ "tháng" đứng ngay trước là bằng chứng đủ mạnh: không
+# văn bản nào được dẫn bằng "tháng 145/2020".
+_RE_THANG_NAM = re.compile(r"tháng\s*\d{1,4}/\d{4}", re.IGNORECASE)
 
 
 def _vuong_luoi_chan(g: str) -> bool:
     """True nếu `g` mang số Điều/Khoản/Điểm, số hiệu văn bản, hay dấu vết định danh cá
     nhân — dùng chung bởi `gia_tri_hop_le` (hồ sơ) và `cap_nhat_phien` (tóm tắt), để
-    một tóm tắt lọt số Điều hay số điện thoại không có đường thứ hai né lưới chặn."""
-    return bool(_RE_DIEU.search(g) or moi_so_hieu_trong(g) or _RE_DINH_DANH.search(g))
+    một tóm tắt lọt số Điều hay số điện thoại không có đường thứ hai né lưới chặn.
+
+    Known accepted false positive: một mốc thời gian KHÔNG có chữ "tháng" đứng
+    trước ("làm từ 1/2020 đến nay") vẫn bị loại, vì tự nó không phân biệt được với
+    một số hiệu văn bản. Lưới này fail closed có chủ ý — mất một dữ kiện thời điểm
+    (người dùng nói lại được, và giao diện cho sửa tay) rẻ hơn nhiều so với để một
+    số hiệu văn bản bịa lọt vào khối "Tình huống của người hỏi"."""
+    return bool(_RE_DIEU.search(g) or moi_so_hieu_trong(_RE_THANG_NAM.sub(" ", g)) or _RE_DINH_DANH.search(g))
 
 
 BO_NHO_SCHEMA = {
