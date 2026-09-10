@@ -32,7 +32,7 @@ import {
   luuRong,
   type CuaSo,
 } from "@/lib/keo-dan";
-import type { BanThao, CauTruc, Citation, TraCuuKetQua } from "@/lib/klaw";
+import type { BanThao, CauTruc, Citation, TraCuuKetQua, TruongFact } from "@/lib/klaw";
 import { chuanHoaLuot, laMau, laNhapPhien } from "@/lib/klaw";
 import type { LuotDaXong } from "@/lib/lich-su";
 import { dungLichSu } from "@/lib/lich-su";
@@ -187,16 +187,20 @@ function ManHoiKlaw() {
   const [sanKhau, datSanKhau] = useState<{ banThaoId: string } | null>(null);
   const [banThaoMo, datBanThaoMo] = useState<BanThao | null>(null);
   const [mucDangChonSanKhau, datMucDangChonSanKhau] = useState<string | null>(null);
-  /** Khung của loại văn bản này (`GET /mau/{loai}`) — loại không đổi giữa các
-   *  phiên bản của CÙNG một bản thảo, nên khoá effect theo `loaiSanKhau` (một
-   *  string nguyên thuỷ) chứ không theo `banThaoMo` (đổi tham chiếu sau mỗi
-   *  lượt sửa) — cùng khuôn `loaiBackendKhung` của `KhongGianSoanThao`. */
+  /** Khung + nhãn field của loại văn bản này (`GET /mau/{loai}`) — loại không
+   *  đổi giữa các phiên bản của CÙNG một bản thảo, nên khoá effect theo
+   *  `loaiSanKhau` (một string nguyên thuỷ) chứ không theo `banThaoMo` (đổi
+   *  tham chiếu sau mỗi lượt sửa) — cùng khuôn `loaiBackendKhung` của
+   *  `KhongGianSoanThao`. `truongMauSanKhau` (`Mau.facts`) chỉ phục vụ
+   *  `nhanFactDoi` — hiện tên field đã đổi, KHÔNG phải tô mục (xem `klaw.ts`). */
   const loaiSanKhau = banThaoMo?.loai;
   const [cauTrucSanKhau, datCauTrucSanKhau] = useState<CauTruc | null>(null);
+  const [truongMauSanKhau, datTruongMauSanKhau] = useState<TruongFact[]>([]);
   const [dangTaiKhungSanKhau, datDangTaiKhungSanKhau] = useState(false);
   useEffect(() => {
     if (loaiSanKhau === undefined) {
       datCauTrucSanKhau(null);
+      datTruongMauSanKhau([]);
       datDangTaiKhungSanKhau(false);
       return;
     }
@@ -207,6 +211,7 @@ function ManHoiKlaw() {
     }).then((kq) => {
       if (dieuKhien.signal.aborted) return;
       datCauTrucSanKhau(kq.ok ? kq.data.cau_truc : null);
+      datTruongMauSanKhau(kq.ok ? kq.data.facts : []);
       datDangTaiKhungSanKhau(false);
     });
     return () => dieuKhien.abort();
@@ -884,6 +889,7 @@ function ManHoiKlaw() {
               <SanKhauBanThao
                 banThao={banThaoSanKhau}
                 cauTruc={cauTrucSanKhau}
+                truongMau={truongMauSanKhau}
                 dangTai={dangTaiKhungSanKhau}
                 mucDangChon={mucDangChonSanKhau}
                 onChonMuc={datMucDangChonSanKhau}

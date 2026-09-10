@@ -4,7 +4,7 @@ import { ChevronLeft, Download, FileDown, Minus, Plus, X } from "lucide-react";
 import { Toggle } from "@/components/draft/DraftBits";
 import { TayKeo } from "@/components/ui/TayKeo";
 import { docRongDaLuu, kepRong, luuRong, type Bien } from "@/lib/keo-dan";
-import type { BanThao, CauTruc } from "@/lib/klaw";
+import { nhanFactDoi, type BanThao, type CauTruc, type TruongFact } from "@/lib/klaw";
 import { mucTuBanThao } from "@/lib/xuat-tep";
 import { cn } from "@/lib/utils";
 import { XemTruocA4 } from "./XemTruocA4";
@@ -14,8 +14,13 @@ interface Props {
   /** Từ `GET /mau/{loai}` — nạp một lần ở nơi mở sân khấu, không tự tải lại
    *  đây (cùng khung sống qua các phiên bản của một bản thảo). */
   cauTruc: CauTruc | null;
-  /** `cauTruc` đang tải — cột trái đợi thay vì đoán số mục từ `clauses` rồi
-   *  vẽ lại một lần nữa khi khung tới. */
+  /** Nhãn field của loại văn bản này (`Mau.facts`, cùng lời gọi `/mau/{loai}`
+   *  với `cauTruc`) — CHỈ dùng để hiện tên người-đọc-được cho
+   *  `doi_so_voi_truoc` qua `nhanFactDoi`. Xem chú thích ở đó: đây là khoá
+   *  FIELD, không phải khoá MỤC, nên không đưa vào `XemTruocA4`. */
+  truongMau: TruongFact[];
+  /** `cauTruc`/`truongMau` đang tải — cột trái đợi thay vì đoán số mục từ
+   *  `clauses` rồi vẽ lại một lần nữa khi khung tới. */
   dangTai: boolean;
   mucDangChon: string | null;
   onChonMuc: (key: string) => void;
@@ -48,6 +53,7 @@ const NUT_PHU =
 export function SanKhauBanThao({
   banThao,
   cauTruc,
+  truongMau,
   dangTai,
   mucDangChon,
   onChonMuc,
@@ -57,6 +63,7 @@ export function SanKhauBanThao({
   onPhimTat,
 }: Props) {
   const muc = mucTuBanThao(banThao, cauTruc);
+  const nhanDoi = nhanFactDoi(banThao.doi_so_voi_truoc, truongMau);
   const [hienThayDoi, datHienThayDoi] = useState(false);
   const [thuPhong, datThuPhongRaw] = useState(100);
   const datThuPhong = (delta: number) => datThuPhongRaw((z) => kepRong(z + delta, BIEN_ZOOM));
@@ -100,55 +107,66 @@ export function SanKhauBanThao({
 
   return (
     <div className="grid h-full min-w-0 flex-1 grid-rows-[auto_1fr]">
-      <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
-        <h2 className="m-0 min-w-0 flex-1 truncate font-display text-base font-semibold text-primary">
-          {banThao.ten}
-        </h2>
-        <span className="font-jetbrains text-[12.5px] text-muted-foreground">
-          v{banThao.phien_ban}
-        </span>
-        {banThao.phien_ban > 1 && (
-          <button type="button" onClick={onLui} className={NUT_PHU}>
-            <ChevronLeft className="size-3.5" aria-hidden /> Lùi
-          </button>
-        )}
-        {banThao.doi_so_voi_truoc.length > 0 && (
+      <div className="border-b border-border">
+        <header className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+          <h2 className="m-0 min-w-0 flex-1 truncate font-display text-base font-semibold text-primary">
+            {banThao.ten}
+          </h2>
+          <span className="font-jetbrains text-[12.5px] text-muted-foreground">
+            v{banThao.phien_ban}
+          </span>
+          {banThao.phien_ban > 1 && (
+            <button type="button" onClick={onLui} className={NUT_PHU}>
+              <ChevronLeft className="size-3.5" aria-hidden /> Lùi
+            </button>
+          )}
+          {nhanDoi.length > 0 && (
+            <button
+              type="button"
+              aria-pressed={hienThayDoi}
+              onClick={() => datHienThayDoi((v) => !v)}
+              className={cn(NUT_PHU, hienThayDoi && "bg-[var(--color-paper-100)]")}
+            >
+              Hiện thay đổi
+            </button>
+          )}
           <button
             type="button"
-            aria-pressed={hienThayDoi}
-            onClick={() => datHienThayDoi((v) => !v)}
-            className={cn(NUT_PHU, hienThayDoi && "bg-[var(--color-paper-100)]")}
+            onClick={() => void xuatTep("docx")}
+            disabled={dangXuat !== null}
+            className={NUT_PHU}
           >
-            Hiện thay đổi
+            <FileDown className="size-3.5 text-[var(--color-brass-600)]" aria-hidden />
+            {dangXuat === "docx" ? "Đang tạo tệp Word…" : "Tải Word (.docx)"}
           </button>
+          <button
+            type="button"
+            onClick={() => void xuatTep("pdf")}
+            disabled={dangXuat !== null}
+            className={NUT_PHU}
+          >
+            <Download className="size-3.5 text-[var(--color-brass-600)]" aria-hidden />
+            {dangXuat === "pdf" ? "Đang tạo tệp PDF…" : "Tải PDF"}
+          </button>
+          <button
+            type="button"
+            onClick={onDong}
+            aria-label="Đóng sân khấu bản thảo"
+            className="focus-brass cursor-pointer rounded-md border border-border p-1.5 text-muted-foreground hover:bg-[var(--color-paper-100)]"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        </header>
+        {/* "Hiện thay đổi" liệt kê DỮ KIỆN vừa đổi (`doi_so_voi_truoc` so
+            `facts` cũ/mới ở máy chủ — `src/services/ban_thao.py::doi_so_voi`),
+            KHÔNG phải mục nào trong văn bản vừa đổi: không có bảng field→mục
+            nào trong dữ liệu để tô đúng mục, xem `nhanFactDoi` (klaw.ts). */}
+        {hienThayDoi && nhanDoi.length > 0 && (
+          <p className="m-0 bg-[var(--color-paper-50)] px-4 pb-2.5 text-[12.5px] text-muted-foreground">
+            Đã đổi so với phiên bản trước: {nhanDoi.join(", ")}
+          </p>
         )}
-        <button
-          type="button"
-          onClick={() => void xuatTep("docx")}
-          disabled={dangXuat !== null}
-          className={NUT_PHU}
-        >
-          <FileDown className="size-3.5 text-[var(--color-brass-600)]" aria-hidden />
-          {dangXuat === "docx" ? "Đang tạo tệp Word…" : "Tải Word (.docx)"}
-        </button>
-        <button
-          type="button"
-          onClick={() => void xuatTep("pdf")}
-          disabled={dangXuat !== null}
-          className={NUT_PHU}
-        >
-          <Download className="size-3.5 text-[var(--color-brass-600)]" aria-hidden />
-          {dangXuat === "pdf" ? "Đang tạo tệp PDF…" : "Tải PDF"}
-        </button>
-        <button
-          type="button"
-          onClick={onDong}
-          aria-label="Đóng sân khấu bản thảo"
-          className="focus-brass cursor-pointer rounded-md border border-border p-1.5 text-muted-foreground hover:bg-[var(--color-paper-100)]"
-        >
-          <X className="size-4" aria-hidden />
-        </button>
-      </header>
+      </div>
 
       <div className="flex min-h-0" style={{ ["--rong-muc" as string]: `${rongMuc}px` }}>
         <div
@@ -241,7 +259,6 @@ export function SanKhauBanThao({
               hienCanCu={hienCanCu}
               mucDangChon={mucDangChon}
               onChonMuc={onChonMuc}
-              mucDoi={hienThayDoi ? banThao.doi_so_voi_truoc : []}
             />
           </div>
         </div>

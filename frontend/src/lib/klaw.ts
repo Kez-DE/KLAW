@@ -212,6 +212,26 @@ export interface BanThao {
   doi_so_voi_truoc: string[];
 }
 
+/**
+ * Nhãn người-đọc-được cho `BanThao.doi_so_voi_truoc` (Task 24 fix — coordinator
+ * review). `doi_so_voi` ở `src/services/ban_thao.py` so `facts` cũ/mới, KHÔNG
+ * so `clauses`, nên khoá trong mảng này LÀ khoá field (`TruongFact.key`, không
+ * gian của `GET /mau/{loai}`), KHÔNG PHẢI khoá mục (`MucCauTruc.key`/`Muc.key`,
+ * không gian của `cau_truc.muc`/`draft_generate`'s `DraftClause.key`). Hai
+ * checklist do trùng tên field/mục (`luong` là ví dụ thật) khiến việc tô "mục
+ * vừa đổi" trông có vẻ đúng ở một vài trường hợp rồi sai âm thầm ở phần còn
+ * lại — không có bảng field→mục nào trong dữ liệu để ánh xạ đúng, nên đây là
+ * "đổi Ý NGHĨA của việc hiển thị" (liệt kê FACT đã đổi), không phải tô mục.
+ *
+ * Chữ ký nhận `TruongFact[]`, không nhận `Muc[]`/`CauTruc` — khoá hai không
+ * gian lại với nhau qua tham số là đúng lỗi bản vá này sửa, nên kiểu ở đây cố
+ * tình không cho biên dịch nếu ai đó nối nhầm.
+ */
+export function nhanFactDoi(doiSoVoiTruoc: string[], truong: TruongFact[]): string[] {
+  const nhan = new Map(truong.map((t) => [t.key, t.nhan]));
+  return doiSoVoiTruoc.map((k) => nhan.get(k) ?? k);
+}
+
 /** Một dòng của `GET /ban-thao` (Task 21) — khớp `BanThaoTomTatOut`: đủ để vẽ
  *  danh sách "Bản thảo" và mở lại đúng loại, không kèm nội dung đầy đủ như
  *  `BanThao` (`document`/`clauses`/`audit_report`). */

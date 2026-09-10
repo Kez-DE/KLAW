@@ -5,7 +5,13 @@
  * biên dịch. Chạy: `npm run kiem-ban-thao`.
  */
 import assert from "node:assert/strict";
-import { laBanThao, laDanhSachBanThao, laTraCuuKetQua } from "../src/lib/klaw.ts";
+import {
+  laBanThao,
+  laDanhSachBanThao,
+  laTraCuuKetQua,
+  nhanFactDoi,
+  type TruongFact,
+} from "../src/lib/klaw.ts";
 
 /** Ba mẫu: hợp lệ, thiếu trường bắt buộc, và không phải bản ghi. */
 const hopLe = {
@@ -34,4 +40,20 @@ const NEN = { citations: [], warnings: [], trace_id: "t1" };
 assert.equal(laTraCuuKetQua({ ...NEN, result_type: "ban_thao" }), true);
 assert.equal(laTraCuuKetQua({ ...NEN, result_type: "soan_thao_hoi" }), true);
 
-console.info("kiem-ban-thao: 8/8 đạt");
+// ── `nhanFactDoi`: nhãn cho `doi_so_voi_truoc` (Task 24 fix, coordinator
+// review) — chốt rằng khoá của mảng này là khoá FIELD (`TruongFact.key`, từ
+// `GET /mau/{loai}`), KHÔNG PHẢI khoá MỤC (`MucCauTruc.key`/`Muc.key`). Hai
+// không gian khoá DO TRÙNG TÊN ở một số checklist thật (vd. "luong" vừa là
+// field vừa là mục của HĐLĐ) khiến việc tô "mục vừa đổi" từng trông có vẻ
+// đúng — pin này giữ cho phần chữ hiện đúng NHÃN FIELD, và bất kỳ ai nối
+// nhầm hàm này với `Muc[]`/`CauTruc` sẽ bị `tsc` chặn (chữ ký chỉ nhận
+// `TruongFact[]`, `Muc` thiếu `nhan`/`kieu`/`bat_buoc`/`lua_chon`).
+const TRUONG: TruongFact[] = [
+  { key: "luong", nhan: "Mức lương thoả thuận", kieu: "tien", bat_buoc: true, lua_chon: null },
+];
+assert.deepEqual(nhanFactDoi(["luong", "chua_co_nhan_field"], TRUONG), [
+  "Mức lương thoả thuận", // khớp field → nhãn CỦA FIELD, không phải tên một mục nào
+  "chua_co_nhan_field", // field mẫu chưa nạp/không có nhãn → giữ khoá thô, KHÔNG suy đoán
+]);
+
+console.info("kiem-ban-thao: 9/9 đạt");
