@@ -47,6 +47,17 @@ assert.equal(docRongDaLuu("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH), RONG_
 // Khoá chưa từng ghi (lần mở đầu tiên, chưa ai kéo) → mặc định, không phải lỗi.
 assert.equal(docRongDaLuu("chua-tung-ghi", RONG_DOI_CHIEU_MAC_DINH), RONG_DOI_CHIEU_MAC_DINH);
 
+// Độ rộng lưu từ một màn RỘNG HƠN, mở lại trên màn hẹp hơn (không cần resize
+// trong phiên): giá trị đọc ra phải được KẸP theo biên hiện tại ngay lúc khởi
+// tạo state, không phải giá trị thô đã lưu — đây là đúng lỗi "hồi sinh" mà
+// bản vá này sửa (kẹp ngay biểu thức khởi tạo state, không đợi resize).
+kho.set("khoa-rong", "900");
+assert.equal(kepRong(docRongDaLuu("khoa-rong", RONG_DOI_CHIEU_MAC_DINH), BIEN_1440), BIEN_1440.max);
+
+// Giá trị lưu không phải số (dữ liệu hỏng, hoặc bị ai đó ghi tay) → mặc định.
+kho.set("khong-phai-so", "khong-phai-so");
+assert.equal(docRongDaLuu("khong-phai-so", RONG_DOI_CHIEU_MAC_DINH), RONG_DOI_CHIEU_MAC_DINH);
+
 // localStorage có tồn tại nhưng ĐỌC/GHI đều ném lỗi (chế độ riêng tư, quyền bị
 // chặn…): đọc phải rơi về mặc định, ghi phải im lặng — cả hai KHÔNG được ném.
 globalThis.localStorage = {
@@ -60,4 +71,4 @@ globalThis.localStorage = {
 assert.equal(docRongDaLuu("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH), RONG_DOI_CHIEU_MAC_DINH);
 assert.doesNotThrow(() => luuRong("klaw.doi-chieu.rong", 500));
 
-console.log("kiem-keo-dan: 16/16 OK");
+console.log("kiem-keo-dan: 18/18 OK");

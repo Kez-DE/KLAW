@@ -100,11 +100,17 @@ function ManHoiKlaw() {
   // Độ rộng khung điều chiếu do người dùng kéo (Task 22, spec 2026-09-09 §9.1)
   // — nhớ qua localStorage, kẹp lại theo biên hiện tại của cửa sổ. Biên đổi
   // theo `resize`: cửa sổ thu hẹp không được để độ rộng đã lưu tràn ra ngoài.
-  const [rongDoiChieu, datRongDoiChieu] = useState(() =>
-    docRongDaLuu("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH),
-  );
+  // Kẹp NGAY LÚC khởi tạo, bằng đúng biên vừa tính cho cửa sổ hiện tại — độ
+  // rộng lưu từ một màn rộng hơn, mở lại trên màn hẹp hơn (thu nhỏ cửa sổ,
+  // đổi màn hình, KHÔNG cần resize trong phiên), phải khớp giá trị hiển thị
+  // ngay từ khung hình đầu tiên. Tính biên MỘT LẦN rồi dùng chung cho cả hai
+  // state — gọi `bienPanelDoiChieu` hai lần với hai giả định khác nhau là hai
+  // câu trả lời có thể lệch nhau.
   const [bienDoiChieu, datBienDoiChieu] = useState(() =>
     bienPanelDoiChieu(typeof window === "undefined" ? 1440 : window.innerWidth),
+  );
+  const [rongDoiChieu, datRongDoiChieu] = useState(() =>
+    kepRong(docRongDaLuu("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH), bienDoiChieu),
   );
   useEffect(() => {
     const capNhat = () => {
