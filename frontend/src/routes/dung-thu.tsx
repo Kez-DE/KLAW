@@ -254,16 +254,21 @@ function ManHoiKlaw() {
     if (bt !== null && bt !== undefined && bt.id === sanKhau.banThaoId) datBanThaoMo(bt);
   }, [sanKhau, traCuu.dangChay, traCuu.ketQua]);
 
-  /** Chấm chưa đọc trên bong bóng: đếm đúng MỘT lần cho mỗi lượt trả lời mới
-   *  trong khi cửa sổ đang thu gọn — `daDemRef` chặn effect chạy lại đếm trùng
-   *  khi `cuaSo.thu` đổi mà không có kết quả mới nào tới. */
+  /** Chấm chưa đọc: đếm đúng MỘT lần cho mỗi lượt trả lời mới trong khi trợ lý
+   *  KHÔNG hiện ra — `daDemRef` chặn effect chạy lại đếm trùng khi điều kiện
+   *  đổi mà không có kết quả mới nào tới. Hai bố cục giấu trợ lý theo hai cách
+   *  khác nhau: rộng thì thu gọn cửa sổ nổi (`cuaSo.thu`), hẹp thì KHÔNG render
+   *  `CuaSoTroLy` mà đứng ở tab "Bản thảo" — gác riêng `cuaSo.thu` thì ở bố cục
+   *  hẹp chấm này vừa không bao giờ hiện (mặc định `thu: false`) vừa không bao
+   *  giờ tắt (cờ `thu` lưu từ bố cục rộng còn sót lại). */
+  const troLyDangKhuat = cuaSo.thu || (!haiCot && tabHep !== "tro_ly");
   const daDemChuaDocRef = useRef<string | null>(null);
   useEffect(() => {
-    if (sanKhau === null || !cuaSo.thu || traCuu.dangChay || traCuu.ketQua === null) return;
+    if (sanKhau === null || !troLyDangKhuat || traCuu.dangChay || traCuu.ketQua === null) return;
     if (daDemChuaDocRef.current === traCuu.ketQua.trace_id) return;
     daDemChuaDocRef.current = traCuu.ketQua.trace_id;
     datChuaDoc((n) => n + 1);
-  }, [sanKhau, cuaSo.thu, traCuu.dangChay, traCuu.ketQua]);
+  }, [sanKhau, troLyDangKhuat, traCuu.dangChay, traCuu.ketQua]);
 
   const onDongSanKhau = () => {
     datSanKhau(null);
@@ -964,7 +969,10 @@ function ManHoiKlaw() {
                   aria-label={
                     id === "tro_ly" && chuaDoc > 0 ? `${nhan}, ${chuaDoc} tin chưa đọc` : undefined
                   }
-                  onClick={() => datTabHep(id)}
+                  onClick={() => {
+                    datTabHep(id);
+                    if (id === "tro_ly") datChuaDoc(0); // thấy trợ lý ⇒ coi như đã đọc
+                  }}
                   className={cn(
                     "focus-brass flex flex-1 cursor-pointer items-center justify-center gap-1.5 border-t-2 py-3 text-[13px] font-medium transition-colors",
                     tabHep === id
