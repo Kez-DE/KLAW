@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
+import { CuaSoTroLy } from "@/components/klaw/CuaSoTroLy";
 import { ManChao } from "@/components/klaw/ManChao";
 import { MaTruyVet } from "@/components/klaw/MaTruyVet";
 import { KhungDoiChieu, useHaiCot } from "@/components/klaw/KhungDoiChieu";
@@ -11,27 +12,43 @@ import { TheHetLuot } from "@/components/klaw/TheHetLuot";
 import { TheKetQua } from "@/components/klaw/TheKetQua";
 import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
+import { SanKhauBanThao } from "@/components/soan-thao/SanKhauBanThao";
 import { TheTaiKhoanKhoa } from "@/components/tai-khoan/TheTaiKhoanKhoa";
 import { TayKeo } from "@/components/ui/TayKeo";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { useTraCuu } from "@/hooks/use-tra-cuu";
-import { goi, suaHoSoPhien } from "@/lib/api";
+import { goi, layBanThao, luiBanThao, suaHoSoPhien } from "@/lib/api";
 import { dinhDangMoc, laBiKhoa, laKhongGioiHan } from "@/lib/han-muc";
 import { layThreadKhach, xoaThreadKhach } from "@/lib/khach";
 import {
   RONG_DOI_CHIEU_MAC_DINH,
   bienPanelDoiChieu,
+  docCuaSo,
   docRongDaLuu,
+  kepCuaSo,
   kepRong,
+  luuCuaSo,
   luuRong,
+  type CuaSo,
 } from "@/lib/keo-dan";
-import type { Citation, TraCuuKetQua } from "@/lib/klaw";
-import { chuanHoaLuot, laNhapPhien } from "@/lib/klaw";
+import type { BanThao, CauTruc, Citation, TraCuuKetQua } from "@/lib/klaw";
+import { chuanHoaLuot, laMau, laNhapPhien } from "@/lib/klaw";
 import type { LuotDaXong } from "@/lib/lich-su";
 import { dungLichSu } from "@/lib/lich-su";
-import { slugCuaLoai } from "@/lib/mau-van-ban";
 import { cn } from "@/lib/utils";
+import { mucTuBanThao } from "@/lib/xuat-tep";
+
+/** Ba phím tắt của sân khấu bản thảo — câu gửi thẳng vào chat qua `traCuu.hoi`,
+ *  y hệt người dùng tự gõ (spec 2026-09-09 §9.4). */
+const CAU_PHIM_TAT_SAN_KHAU: Record<"rut_gon" | "trang_trong" | "soat_luat", string> = {
+  rut_gon: "Rút gọn bản thảo, giữ đủ các mục bắt buộc",
+  trang_trong: "Viết lại bản thảo trang trọng hơn, không đổi dữ kiện",
+  soat_luat: "Soát lại bản thảo theo luật trong kho",
+};
+
+/** Khoá localStorage của cửa sổ trợ lý nổi. */
+const KHOA_CUA_SO_TRO_LY = "klaw.cua-so-tro-ly";
 
 /**
  * Màn hỏi KLAW — nối vào `POST /api/v1/tra-cuu/luong` (SSE).
@@ -158,17 +175,124 @@ function ManHoiKlaw() {
   const moSoanThao = (slug: string | null) => {
     datDangMo(null);
     doiChieu.dong();
+    datSanKhau(null); // ba khung (đối chiếu/soạn thảo/sân khấu) loại trừ nhau
+    datBanThaoMo(null);
     datSoanThao({ slug });
   };
-  /** Nhánh `ban_thao` (Task 21): mở khung soạn thảo hiện có với ĐÚNG loại của
-   *  bản thảo vừa dựng — tạm thời cho tới khi giai đoạn 5 dựng sân khấu thật
-   *  nạp lại nguyên nội dung `ban_thao` này. Nhận `TraCuuKetQua | null` thẳng
-   *  (thay vì đòi nơi gọi tự thu hẹp non-null trước): `ketQua` ở nơi gọi là
-   *  một truy cập thuộc tính, việc thu hẹp không sống sót qua một closure mới. */
-  const moBanThaoTuKetQua = (ketQua: TraCuuKetQua | null) => {
-    const loai = ketQua?.ban_thao?.loai;
-    if (loai === undefined) return;
-    moSoanThao(slugCuaLoai(loai)[0] ?? null);
+
+  // ── Sân khấu bản thảo + cửa sổ trợ lý nổi (Task 24, spec 2026-09-09 §9.4) ──
+  // Nhánh `ban_thao` giờ mở SÂN KHẤU thật (bản thảo chiếm toàn `<main>`, trợ
+  // lý lùi thành cửa sổ nổi) thay vì mượn tạm khung soạn thảo theo mẫu (Task
+  // 21) — đúng như ghi chú "tạm thời cho tới khi giai đoạn 5" ở đó đã báo trước.
+  const [sanKhau, datSanKhau] = useState<{ banThaoId: string } | null>(null);
+  const [banThaoMo, datBanThaoMo] = useState<BanThao | null>(null);
+  const [mucDangChonSanKhau, datMucDangChonSanKhau] = useState<string | null>(null);
+  /** Khung của loại văn bản này (`GET /mau/{loai}`) — loại không đổi giữa các
+   *  phiên bản của CÙNG một bản thảo, nên khoá effect theo `loaiSanKhau` (một
+   *  string nguyên thuỷ) chứ không theo `banThaoMo` (đổi tham chiếu sau mỗi
+   *  lượt sửa) — cùng khuôn `loaiBackendKhung` của `KhongGianSoanThao`. */
+  const loaiSanKhau = banThaoMo?.loai;
+  const [cauTrucSanKhau, datCauTrucSanKhau] = useState<CauTruc | null>(null);
+  const [dangTaiKhungSanKhau, datDangTaiKhungSanKhau] = useState(false);
+  useEffect(() => {
+    if (loaiSanKhau === undefined) {
+      datCauTrucSanKhau(null);
+      datDangTaiKhungSanKhau(false);
+      return;
+    }
+    const dieuKhien = new AbortController();
+    datDangTaiKhungSanKhau(true);
+    void goi(`/mau/${encodeURIComponent(loaiSanKhau)}`, laMau, {
+      signal: dieuKhien.signal,
+    }).then((kq) => {
+      if (dieuKhien.signal.aborted) return;
+      datCauTrucSanKhau(kq.ok ? kq.data.cau_truc : null);
+      datDangTaiKhungSanKhau(false);
+    });
+    return () => dieuKhien.abort();
+  }, [loaiSanKhau]);
+
+  /** Cửa sổ trợ lý nổi: nhớ qua localStorage, kẹp lại theo viewport hiện tại
+   *  ngay từ lúc khởi tạo — cùng lý do với `rongDoiChieu` ở trên. */
+  const [cuaSo, datCuaSoRaw] = useState<CuaSo>(() =>
+    docCuaSo(KHOA_CUA_SO_TRO_LY, {
+      w: typeof window === "undefined" ? 1440 : window.innerWidth,
+      h: typeof window === "undefined" ? 900 : window.innerHeight,
+    }),
+  );
+  const [chuaDoc, datChuaDoc] = useState(0);
+  const datCuaSo = (cs: CuaSo) => {
+    datCuaSoRaw(cs);
+    luuCuaSo(KHOA_CUA_SO_TRO_LY, cs);
+    if (!cs.thu) datChuaDoc(0); // mở lại (bong bóng → cửa sổ): coi như đã đọc
+  };
+  useEffect(() => {
+    const capNhat = () =>
+      datCuaSoRaw((cs) => kepCuaSo(cs, { w: window.innerWidth, h: window.innerHeight }));
+    window.addEventListener("resize", capNhat);
+    return () => window.removeEventListener("resize", capNhat);
+  }, []);
+
+  /** Kết quả mới của CHÍNH bản thảo đang mở → cập nhật `banThaoMo` (phiên bản
+   *  mới, mục vừa đổi tô được qua `doi_so_voi_truoc`). So khớp theo id vì lượt
+   *  hỏi tiếp theo có thể không nói gì tới bản thảo (một câu hỏi tra cứu khác). */
+  useEffect(() => {
+    if (sanKhau === null || traCuu.dangChay) return;
+    const bt = traCuu.ketQua?.ban_thao;
+    if (bt !== null && bt !== undefined && bt.id === sanKhau.banThaoId) datBanThaoMo(bt);
+  }, [sanKhau, traCuu.dangChay, traCuu.ketQua]);
+
+  /** Chấm chưa đọc trên bong bóng: đếm đúng MỘT lần cho mỗi lượt trả lời mới
+   *  trong khi cửa sổ đang thu gọn — `daDemRef` chặn effect chạy lại đếm trùng
+   *  khi `cuaSo.thu` đổi mà không có kết quả mới nào tới. */
+  const daDemChuaDocRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (sanKhau === null || !cuaSo.thu || traCuu.dangChay || traCuu.ketQua === null) return;
+    if (daDemChuaDocRef.current === traCuu.ketQua.trace_id) return;
+    daDemChuaDocRef.current = traCuu.ketQua.trace_id;
+    datChuaDoc((n) => n + 1);
+  }, [sanKhau, cuaSo.thu, traCuu.dangChay, traCuu.ketQua]);
+
+  const onDongSanKhau = () => {
+    datSanKhau(null);
+    datBanThaoMo(null);
+    datMucDangChonSanKhau(null);
+  };
+  const onLuiSanKhau = () => {
+    if (banThaoMo === null) return;
+    void luiBanThao(banThaoMo.id).then((kq) => {
+      if (kq.ok) datBanThaoMo(kq.data);
+      else toast.error(kq.error.message);
+    });
+  };
+  /** Task 25 dựng drawer sửa mục thật; cho tới đó, "Sửa" chọn mục đó làm đích
+   *  chỉnh sửa — cùng việc bấm thẳng vào mục trong khung xem trước. */
+  const onSuaMucSanKhau = (key: string) => datMucDangChonSanKhau(key);
+  const onPhimTatSanKhau = (loai: "rut_gon" | "trang_trong" | "soat_luat") => {
+    const mucChon =
+      banThaoMo !== null && mucDangChonSanKhau !== null
+        ? mucTuBanThao(banThaoMo, cauTrucSanKhau).find((m) => m.key === mucDangChonSanKhau)
+        : undefined;
+    const tienTo = mucChon !== undefined ? `Ở mục ${mucChon.stt} (${mucChon.ten}): ` : "";
+    gui(tienTo + CAU_PHIM_TAT_SAN_KHAU[loai]);
+  };
+
+  /** Nhánh `ban_thao` (Task 21 → Task 24): mở sân khấu thật với bản thảo vừa
+   *  dựng/sửa xong. `TheBanThao` gọi `onMo(bt.id)`, nên `id` ở đây LÀ
+   *  `ban_thao.id`, không phải id lượt hỏi hay id phiên. */
+  const moSanKhau = (id: string) => {
+    datDangMo(null);
+    doiChieu.dong();
+    datSoanThao(null);
+    datMucDangChonSanKhau(null);
+    datSanKhau({ banThaoId: id });
+    void layBanThao(id).then((kq) => {
+      if (kq.ok) datBanThaoMo(kq.data);
+      else {
+        toast.error(kq.error.message);
+        datSanKhau(null);
+      }
+    });
   };
 
   // Lượt đã tải từ phiên đang mở — chỉ khi chi tiết vừa tải ĐÚNG là phiên
@@ -386,6 +510,8 @@ function ManHoiKlaw() {
     }
     datDangMo({ trace: ketQua.trace_id, chiSo });
     datSoanThao(null);
+    datSanKhau(null); // ba khung (đối chiếu/soạn thảo/sân khấu) loại trừ nhau
+    datBanThaoMo(null);
     doiChieu.mo({
       docId: trichDan.doc_id,
       // `khop_tai_id`, KHÔNG `provision_id`: hai id khác nhau ở 73,6% số Điều.
@@ -486,333 +612,383 @@ function ManHoiKlaw() {
     !khachHetLuot &&
     !biKhoa;
 
-  return (
-    <AppShell active="/dung-thu">
-      <div className="flex min-h-0 flex-1">
-        {/* Ở bố cục MỘT cột, khung nguyên văn khai `aria-modal` và phủ kín màn
-            hình. `AppShell` gỡ điều hướng/header/thanh dưới khỏi vòng Tab, nhưng
-            cột hội thoại là CON của <main> nên chỉ trang này gỡ được nó — nếu
-            không, Tab vài lần là tiêu điểm đi vào một chip trích dẫn nằm khuất
-            sau lớp phủ đặc, và Enter ở đó thay cả nội dung khung. */}
-        <div
-          inert={(doiChieu.dang !== null || soanThao !== null) && !haiCot}
-          className={cn(
-            "flex min-w-0 flex-1 flex-col",
-            soanThao !== null && haiCot && "max-w-[420px]",
-          )}
-        >
-          <div className="mx-auto flex w-full max-w-[860px] flex-1 flex-col px-4">
-            {/* Tiêu đề cấp 1 BỀN, không nhìn thấy. Tiêu đề duy nhất của màn này
+  /** Sân khấu chiếm `<main>` chỉ khi CÓ bản thảo đang mở VÀ đủ rộng — dưới
+   *  68rem hành vi chưa đổi ở task này (Task 26 lo phần đó). */
+  const dangSanKhau = sanKhau !== null && haiCot;
+  /** Bản thảo ĐÚNG id đang mở, đã tải xong — khác `banThaoMo` trần trụi để
+   *  không thoáng hiện bản thảo CŨ trong khoảnh khắc `layBanThao` của bản MỚI
+   *  còn đang chạy (chuyển thẳng từ bản thảo A sang bản thảo B). */
+  const banThaoSanKhau =
+    sanKhau !== null && haiCot && banThaoMo !== null && banThaoMo.id === sanKhau.banThaoId
+      ? banThaoMo
+      : null;
+
+  // Cột chat (dòng hội thoại + ô hỏi) — MỘT cây JSX dùng ở HAI chỗ tuỳ trạng
+  // thái sân khấu: bình thường nó đứng thẳng trong bố cục hai cột; khi sân
+  // khấu mở, chính cây này trở thành nội dung của cửa sổ trợ lý nổi
+  // (`CuaSoTroLy`). Tách biến thay vì viết lặp hai lần — hai bản chép tay dễ
+  // trôi nhau ở lần sửa sau.
+  const noiDungChat = (
+    <div
+      inert={(doiChieu.dang !== null || soanThao !== null) && !haiCot}
+      className={cn("flex min-w-0 flex-1 flex-col", soanThao !== null && haiCot && "max-w-[420px]")}
+    >
+      <div className="mx-auto flex w-full max-w-[860px] flex-1 flex-col px-4">
+        {/* Tiêu đề cấp 1 BỀN, không nhìn thấy. Tiêu đề duy nhất của màn này
                 nằm trong trạng thái rỗng ngay dưới và biến mất sau câu hỏi đầu
                 tiên, nên nâng nó lên h1 sẽ để lại một trang không có h1 đúng
                 lúc trang có nhiều nội dung nhất. Trình đọc màn hình nhảy theo
                 h1 để biết mình đang ở đâu. */}
-            <h1 className="sr-only">Trợ lý KLAW — tra cứu pháp luật lao động</h1>
-            {/* Hai lời báo cấp trang, đứng TRÊN dòng chat vì cả hai đều đúng kể
+        <h1 className="sr-only">Trợ lý KLAW — tra cứu pháp luật lao động</h1>
+        {/* Hai lời báo cấp trang, đứng TRÊN dòng chat vì cả hai đều đúng kể
                 cả khi chưa có lượt nào: gói vừa hết hạn, và đoạn chat thử không
                 mang sang được. Nằm ngoài nhánh `chuaHoiGiCa` nên không biến mất
                 cùng dòng chat. */}
-            {hetHanPro && (
-              <div className="mt-8">
-                <TheHetLuot
-                  loai="het_han"
-                  chiTiet={`Gói Cá nhân đã hết hạn ngày ${ngayHetHan}. Gia hạn 30 ngày để tiếp tục hỏi 500 lượt mỗi ngày và soạn 20 bản thảo mỗi ngày.`}
-                  onNangGoi={moNangGoi}
-                />
-              </div>
-            )}
-            {biKhoa && <TheTaiKhoanKhoa />}
-            {loiNhap !== null && (
-              <p role="status" className="mt-8 mb-0 text-[13px] text-muted-foreground">
-                {loiNhap}
+        {hetHanPro && (
+          <div className="mt-8">
+            <TheHetLuot
+              loai="het_han"
+              chiTiet={`Gói Cá nhân đã hết hạn ngày ${ngayHetHan}. Gia hạn 30 ngày để tiếp tục hỏi 500 lượt mỗi ngày và soạn 20 bản thảo mỗi ngày.`}
+              onNangGoi={moNangGoi}
+            />
+          </div>
+        )}
+        {biKhoa && <TheTaiKhoanKhoa />}
+        {loiNhap !== null && (
+          <p role="status" className="mt-8 mb-0 text-[13px] text-muted-foreground">
+            {loiNhap}
+          </p>
+        )}
+        {chuaHoiGiCa ? (
+          <ManChao onChonGoiY={dienGoiY} />
+        ) : (
+          <div aria-live="polite" aria-label="Hội thoại với KLAW" className="flex-1 py-8">
+            {hoiThoai.dangTaiChiTiet && (
+              <p className="m-0 mb-6 text-[13px] text-muted-foreground" aria-live="polite">
+                Đang mở phiên…
               </p>
             )}
-            {chuaHoiGiCa ? (
-              <ManChao onChonGoiY={dienGoiY} />
-            ) : (
-              <div aria-live="polite" aria-label="Hội thoại với KLAW" className="flex-1 py-8">
-                {hoiThoai.dangTaiChiTiet && (
-                  <p className="m-0 mb-6 text-[13px] text-muted-foreground" aria-live="polite">
-                    Đang mở phiên…
-                  </p>
-                )}
-                {hoiThoai.loiChiTiet !== null && (
-                  <div className="mb-6 rounded-xl border border-dashed border-border px-4 py-3">
-                    <p className="m-0 text-[14px] leading-6 text-foreground">
-                      {hoiThoai.loiChiTiet.message}
+            {hoiThoai.loiChiTiet !== null && (
+              <div className="mb-6 rounded-xl border border-dashed border-border px-4 py-3">
+                <p className="m-0 text-[14px] leading-6 text-foreground">
+                  {hoiThoai.loiChiTiet.message}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={phienMoi}
+                    className="focus-brass inline-flex min-h-9 cursor-pointer items-center rounded-lg border border-border px-3 text-[13px] font-medium text-primary hover:bg-[var(--color-paper-100)]"
+                  >
+                    Phiên mới
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="flex flex-col gap-8">
+              {daTai.map((l) => (
+                <Luot key={`da-luu-${l.thuTu}`} cauHoi={l.cauHoi} traceId={l.traceId}>
+                  {l.ketQua === null ? (
+                    <p className="m-0 text-[14px] leading-6 text-muted-foreground">
+                      Lượt này được lưu ở định dạng cũ nên tôi không hiển thị lại được.
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={phienMoi}
-                        className="focus-brass inline-flex min-h-9 cursor-pointer items-center rounded-lg border border-border px-3 text-[13px] font-medium text-primary hover:bg-[var(--color-paper-100)]"
-                      >
-                        Phiên mới
-                      </button>
-                    </div>
-                  </div>
-                )}
-                <div className="flex flex-col gap-8">
-                  {daTai.map((l) => (
-                    <Luot key={`da-luu-${l.thuTu}`} cauHoi={l.cauHoi} traceId={l.traceId}>
-                      {l.ketQua === null ? (
-                        <p className="m-0 text-[14px] leading-6 text-muted-foreground">
-                          Lượt này được lưu ở định dạng cũ nên tôi không hiển thị lại được.
-                        </p>
-                      ) : (
-                        <TheKetQua
-                          ketQua={l.ketQua}
-                          cauHoiGoc={l.cauHoi}
-                          chiSoDangMo={chiSoDangMoCua(l.ketQua)}
-                          onChonTrichDan={(chiSo) => {
-                            const kq = l.ketQua;
-                            if (kq !== null) chonTrichDan(kq, chiSo);
-                          }}
-                          onSoanThao={moSoanThao}
-                          onChip={dienGoiY}
-                          onDangNhap={onDangNhapDeSoan}
-                          onMoBanThao={() => moBanThaoTuKetQua(l.ketQua)}
-                        />
-                      )}
-                    </Luot>
-                  ))}
+                  ) : (
+                    <TheKetQua
+                      ketQua={l.ketQua}
+                      cauHoiGoc={l.cauHoi}
+                      chiSoDangMo={chiSoDangMoCua(l.ketQua)}
+                      onChonTrichDan={(chiSo) => {
+                        const kq = l.ketQua;
+                        if (kq !== null) chonTrichDan(kq, chiSo);
+                      }}
+                      onSoanThao={moSoanThao}
+                      onChip={dienGoiY}
+                      onDangNhap={onDangNhapDeSoan}
+                      onMoBanThao={moSanKhau}
+                    />
+                  )}
+                </Luot>
+              ))}
 
-                  {luuTru.map((luot) => (
-                    <Luot
-                      key={luot.ketQua.trace_id}
-                      cauHoi={luot.cauHoi}
-                      traceId={luot.ketQua.trace_id}
-                    >
-                      <TheKetQua
-                        ketQua={luot.ketQua}
-                        cauHoiGoc={luot.cauHoi}
-                        chiSoDangMo={chiSoDangMoCua(luot.ketQua)}
-                        onChonTrichDan={(chiSo) => chonTrichDan(luot.ketQua, chiSo)}
-                        onSoanThao={moSoanThao}
-                        onChip={dienGoiY}
-                        onDangNhap={onDangNhapDeSoan}
-                        onMoBanThao={() => moBanThaoTuKetQua(luot.ketQua)}
-                      />
-                    </Luot>
-                  ))}
+              {luuTru.map((luot) => (
+                <Luot
+                  key={luot.ketQua.trace_id}
+                  cauHoi={luot.cauHoi}
+                  traceId={luot.ketQua.trace_id}
+                >
+                  <TheKetQua
+                    ketQua={luot.ketQua}
+                    cauHoiGoc={luot.cauHoi}
+                    chiSoDangMo={chiSoDangMoCua(luot.ketQua)}
+                    onChonTrichDan={(chiSo) => chonTrichDan(luot.ketQua, chiSo)}
+                    onSoanThao={moSoanThao}
+                    onChip={dienGoiY}
+                    onDangNhap={onDangNhapDeSoan}
+                    onMoBanThao={moSanKhau}
+                  />
+                </Luot>
+              ))}
 
-                  {traCuu.cauHoi !== null && (
-                    <Luot cauHoi={traCuu.cauHoi} traceId={traCuu.traceId}>
-                      {traCuu.dangChay && (
-                        <TrangThaiCho
-                          cacBuoc={traCuu.cacBuoc}
-                          daPhat={traCuu.daPhat}
-                          onHuy={traCuu.huy}
-                        />
-                      )}
-                      {traCuu.loi !== null && (
-                        <>
-                          {/* 429 của gói Miễn phí là lối cụt DUY NHẤT mở được
+              {traCuu.cauHoi !== null && (
+                <Luot cauHoi={traCuu.cauHoi} traceId={traCuu.traceId}>
+                  {traCuu.dangChay && (
+                    <TrangThaiCho
+                      cacBuoc={traCuu.cacBuoc}
+                      daPhat={traCuu.daPhat}
+                      onHuy={traCuu.huy}
+                    />
+                  )}
+                  {traCuu.loi !== null && (
+                    <>
+                      {/* 429 của gói Miễn phí là lối cụt DUY NHẤT mở được
                               bằng tiền, nên đó là chỗ duy nhất mời nâng gói.
                               Khách (`plan` chưa phải "free") thì việc cần làm
                               là đăng nhập, không phải trả tiền. */}
-                          <BaoLoi
-                            loi={traCuu.loi}
-                            onThuLai={traCuu.thuLai}
-                            {...(traCuu.loi.kind === "rate_limited" && plan === "free"
-                              ? { onNangGoi: moNangGoi }
-                              : {})}
-                          />
-                          {/* Ngoại lệ DUY NHẤT còn hiện mã truy vết. Đây đúng
+                      <BaoLoi
+                        loi={traCuu.loi}
+                        onThuLai={traCuu.thuLai}
+                        {...(traCuu.loi.kind === "rate_limited" && plan === "free"
+                          ? { onNangGoi: moNangGoi }
+                          : {})}
+                      />
+                      {/* Ngoại lệ DUY NHẤT còn hiện mã truy vết. Đây đúng
                               là lúc người dùng đi báo lỗi, và một mã chép được
                               là thứ biến "hôm qua nó hỏng" thành một dòng tra
                               được trong bảng `traces`. */}
-                          {traCuu.traceId !== null && (
-                            <p className="mt-2 mb-0 text-[12px] text-muted-foreground">
-                              Kèm mã này khi báo lỗi: <MaTruyVet traceId={traCuu.traceId} />
-                            </p>
-                          )}
-                        </>
-                      )}
-                      {traCuu.ketQua !== null && (
-                        <TheKetQua
-                          ketQua={traCuu.ketQua}
-                          {...(traCuu.cauHoi !== null ? { cauHoiGoc: traCuu.cauHoi } : {})}
-                          chiSoDangMo={chiSoDangMoCua(traCuu.ketQua)}
-                          onChonTrichDan={(chiSo) => {
-                            const kq = traCuu.ketQua;
-                            if (kq !== null) chonTrichDan(kq, chiSo);
-                          }}
-                          onSoanThao={moSoanThao}
-                          onChip={dienGoiY}
-                          onDangNhap={onDangNhapDeSoan}
-                          onMoBanThao={() => moBanThaoTuKetQua(traCuu.ketQua)}
-                          onSuaHoSo={(khoa, giaTri) => {
-                            const id = phienId ?? traCuu.hoiThoaiId;
-                            // `error.message` đã là câu tiếng Việt hiển thị thẳng được
-                            // (xem `ApiError` trong `klaw.ts`) — 422 "giá trị này giống
-                            // một điều luật/số văn bản" của máy chủ phải tới đúng câu
-                            // đó, không phải một câu chung chung nuốt mất lý do.
-                            if (id === null || id === undefined) {
-                              // Hiện chỉ xảy ra khi ẩn danh (khách chưa có
-                              // `hoi_thoai_id`); một việc sau trong kế hoạch này sẽ
-                              // điền hồ sơ tình huống ngay từ câu hỏi kể cả cho khách,
-                              // lúc đó bút chì này bấm được mà không còn ngả rẽ này.
-                              toast.error(
-                                "Cần một cuộc trò chuyện đã đăng nhập để sửa dữ kiện này.",
-                              );
-                              return;
-                            }
-                            void suaHoSoPhien(id, khoa, giaTri).then((kq) => {
-                              if (!kq.ok) toast.error(kq.error.message);
-                            });
-                          }}
-                        />
-                      )}
-                      {traCuu.loiLuu !== null && (
-                        <p className="mt-3 mb-0 text-[12px] text-muted-foreground" role="status">
-                          {traCuu.loiLuu}
+                      {traCuu.traceId !== null && (
+                        <p className="mt-2 mb-0 text-[12px] text-muted-foreground">
+                          Kèm mã này khi báo lỗi: <MaTruyVet traceId={traCuu.traceId} />
                         </p>
                       )}
-                      {/* Lượt đã dừng mà KHÔNG có kết quả và KHÔNG có lỗi.
+                    </>
+                  )}
+                  {traCuu.ketQua !== null && (
+                    <TheKetQua
+                      ketQua={traCuu.ketQua}
+                      {...(traCuu.cauHoi !== null ? { cauHoiGoc: traCuu.cauHoi } : {})}
+                      chiSoDangMo={chiSoDangMoCua(traCuu.ketQua)}
+                      onChonTrichDan={(chiSo) => {
+                        const kq = traCuu.ketQua;
+                        if (kq !== null) chonTrichDan(kq, chiSo);
+                      }}
+                      onSoanThao={moSoanThao}
+                      onChip={dienGoiY}
+                      onDangNhap={onDangNhapDeSoan}
+                      onMoBanThao={moSanKhau}
+                      onSuaHoSo={(khoa, giaTri) => {
+                        const id = phienId ?? traCuu.hoiThoaiId;
+                        // `error.message` đã là câu tiếng Việt hiển thị thẳng được
+                        // (xem `ApiError` trong `klaw.ts`) — 422 "giá trị này giống
+                        // một điều luật/số văn bản" của máy chủ phải tới đúng câu
+                        // đó, không phải một câu chung chung nuốt mất lý do.
+                        if (id === null || id === undefined) {
+                          // Hiện chỉ xảy ra khi ẩn danh (khách chưa có
+                          // `hoi_thoai_id`); một việc sau trong kế hoạch này sẽ
+                          // điền hồ sơ tình huống ngay từ câu hỏi kể cả cho khách,
+                          // lúc đó bút chì này bấm được mà không còn ngả rẽ này.
+                          toast.error("Cần một cuộc trò chuyện đã đăng nhập để sửa dữ kiện này.");
+                          return;
+                        }
+                        void suaHoSoPhien(id, khoa, giaTri).then((kq) => {
+                          if (!kq.ok) toast.error(kq.error.message);
+                        });
+                      }}
+                    />
+                  )}
+                  {traCuu.loiLuu !== null && (
+                    <p className="mt-3 mb-0 text-[12px] text-muted-foreground" role="status">
+                      {traCuu.loiLuu}
+                    </p>
+                  )}
+                  {/* Lượt đã dừng mà KHÔNG có kết quả và KHÔNG có lỗi.
                           Ba nhánh trên đều là `false` sau khi người dùng bấm
                           Huỷ, và cũng sau khi luồng SSE chết giữa chừng — cả
                           hai lần đều để lại câu hỏi nằm trơ một mình, không
                           khác gì một lượt đang chờ mãi mãi. Không đoán xem
                           nguyên nhân nào: nói đúng điều quan sát được, rồi
                           đưa lại đường chạy lại đúng câu đó. */}
-                      {!traCuu.dangChay && traCuu.loi === null && traCuu.ketQua === null && (
-                        <div className="rounded-xl border border-dashed border-border px-4 py-3">
-                          <p className="m-0 text-[14px] leading-6 text-muted-foreground">
-                            Lượt tra cứu này đã dừng, chưa có câu trả lời.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={traCuu.thuLai}
-                            className="focus-brass mt-2 inline-flex min-h-9 cursor-pointer items-center rounded-lg border border-border px-3 text-[13px] font-medium text-primary transition-colors hover:bg-[var(--color-paper-100)]"
-                          >
-                            Hỏi lại câu này
-                          </button>
-                        </div>
-                      )}
-                    </Luot>
+                  {!traCuu.dangChay && traCuu.loi === null && traCuu.ketQua === null && (
+                    <div className="rounded-xl border border-dashed border-border px-4 py-3">
+                      <p className="m-0 text-[14px] leading-6 text-muted-foreground">
+                        Lượt tra cứu này đã dừng, chưa có câu trả lời.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={traCuu.thuLai}
+                        className="focus-brass mt-2 inline-flex min-h-9 cursor-pointer items-center rounded-lg border border-border px-3 text-[13px] font-medium text-primary transition-colors hover:bg-[var(--color-paper-100)]"
+                      >
+                        Hỏi lại câu này
+                      </button>
+                    </div>
                   )}
-                </div>
+                </Luot>
+              )}
+            </div>
 
-                {/* Cuối dòng chat, ngay trên ô hỏi đang bị khoá — nói lý do ở
+            {/* Cuối dòng chat, ngay trên ô hỏi đang bị khoá — nói lý do ở
                     chỗ người dùng vừa nhìn thấy câu trả lời cuối, không phải ở
                     một góc khác của màn hình.
 
                     Hết lượt ĐÈ trần phiên: với khách hai ngưỡng cùng là 10 nên
                     chúng chạm cùng lúc, và lúc đó "mở phiên mới" là lời khuyên
                     sai — phiên mới không trả lại lượt nào. */}
-                {(khachHetLuot || phienDay || phienDai) && (
-                  <div className="mt-8 flex flex-col gap-4">
-                    {khachHetLuot && mucChip !== null && (
-                      <TheHetLuot
-                        loai="khach"
-                        chiTiet={`Bạn đã dùng ${mucChip.han_muc} lượt thử. Đăng nhập miễn phí để tiếp tục, lưu đoạn chat này và có 100 lượt mỗi ngày.`}
-                        onCatThread={catThreadTruocKhiRoi}
-                      />
-                    )}
-                    {!khachHetLuot && phienDay && (
-                      <TheHetLuot
-                        loai="phien"
-                        chiTiet={`Phiên này đã đủ ${tranPhien} lượt. Mở phiên mới để tiếp tục.`}
-                        onPhienMoi={phienMoi}
-                      />
-                    )}
-                    {!khachHetLuot && phienDai && (
-                      <p className="m-0 text-[12px] text-muted-foreground">
-                        Phiên dài rồi, mở phiên mới để câu trả lời bám sát hơn.
-                      </p>
-                    )}
-                  </div>
+            {(khachHetLuot || phienDay || phienDai) && (
+              <div className="mt-8 flex flex-col gap-4">
+                {khachHetLuot && mucChip !== null && (
+                  <TheHetLuot
+                    loai="khach"
+                    chiTiet={`Bạn đã dùng ${mucChip.han_muc} lượt thử. Đăng nhập miễn phí để tiếp tục, lưu đoạn chat này và có 100 lượt mỗi ngày.`}
+                    onCatThread={catThreadTruocKhiRoi}
+                  />
                 )}
-                <div ref={cuoi} />
+                {!khachHetLuot && phienDay && (
+                  <TheHetLuot
+                    loai="phien"
+                    chiTiet={`Phiên này đã đủ ${tranPhien} lượt. Mở phiên mới để tiếp tục.`}
+                    onPhienMoi={phienMoi}
+                  />
+                )}
+                {!khachHetLuot && phienDai && (
+                  <p className="m-0 text-[12px] text-muted-foreground">
+                    Phiên dài rồi, mở phiên mới để câu trả lời bám sát hơn.
+                  </p>
+                )}
               </div>
             )}
+            <div ref={cuoi} />
           </div>
-
-          <OSoanCauHoi
-            oHoi={oHoi}
-            nhap={nhap}
-            datNhap={datNhap}
-            khoa={khoaOHoi}
-            onGui={gui}
-            mucChip={mucChip}
-            dangCho={dangKiemPhien && !chuaCauHinh}
-          />
-        </div>
-
-        {/* Khung nguyên văn. Ở bố cục hai cột nó chiếm một cột thật; dưới ngưỡng
-            đó nó tự phủ toàn màn hình, nên thẻ bọc phải KHÔNG có kích thước —
-            `hidden` sẽ giấu luôn cả khung ở chế độ phủ màn hình. */}
-        {doiChieu.dang !== null && (
-          <>
-            {haiCot && (
-              <TayKeo
-                giaTri={rongDoiChieu}
-                bien={bienDoiChieu}
-                nhan="Kéo để đổi độ rộng khung điều khoản"
-                dieuKhienId="khung-doi-chieu"
-                chieu={-1}
-                onDoi={datRongVaLuu}
-                onThuGon={() =>
-                  datRongVaLuu(
-                    rongDoiChieu > bienDoiChieu.min ? bienDoiChieu.min : RONG_DOI_CHIEU_MAC_DINH,
-                  )
-                }
-                onMacDinh={() => datRongVaLuu(RONG_DOI_CHIEU_MAC_DINH)}
-              />
-            )}
-            <div
-              className={cn(
-                "shrink-0",
-                haiCot && "border-l border-border bg-[var(--color-paper-50)] p-3",
-              )}
-              style={haiCot ? { width: kepRong(rongDoiChieu, bienDoiChieu) } : undefined}
-            >
-              <KhungDoiChieu
-                id="khung-doi-chieu"
-                khopTaiId={doiChieu.dang.khopTaiId}
-                {...(doiChieu.dang.duongDan === undefined
-                  ? {}
-                  : { duongDan: doiChieu.dang.duongDan })}
-                quote={doiChieu.dang.quote ?? null}
-                hieuLuc={doiChieu.dang.hieuLuc ?? null}
-                trangThai={doiChieu.trangThai}
-                vanBan={doiChieu.vanBan}
-                loi={doiChieu.loi}
-                onThuLai={doiChieu.thuLai}
-                onDong={() => {
-                  datDangMo(null);
-                  doiChieu.dong();
-                }}
-              />
-            </div>
-          </>
         )}
+      </div>
 
-        {/* Khung soạn thảo (spec soạn-thảo-trong-chat §5.3). Hai cột: chiếm phần
-            còn lại vì màn soạn thảo có hai pane; dưới 68rem: phủ toàn màn như
-            KhungDoiChieu. */}
-        {soanThao !== null && (
-          <div
-            ref={khungSoanThao}
-            className={cn(
-              haiCot
-                ? "min-w-[640px] flex-1 border-l border-border bg-[var(--color-paper-50)]"
-                : "fixed inset-0 z-50 overflow-y-auto bg-background",
+      <OSoanCauHoi
+        oHoi={oHoi}
+        nhap={nhap}
+        datNhap={datNhap}
+        khoa={khoaOHoi}
+        onGui={gui}
+        mucChip={mucChip}
+        dangCho={dangKiemPhien && !chuaCauHinh}
+      />
+    </div>
+  );
+
+  return (
+    <AppShell active="/dung-thu">
+      <div className="flex min-h-0 flex-1">
+        {dangSanKhau ? (
+          <>
+            {/* Sân khấu bản thảo: chiếm toàn `<main>` khi đã tải xong ĐÚNG
+                bản thảo đang mở; khi đang chờ (vừa bấm "Mở bản thảo", hoặc
+                đang chuyển sang một bản thảo khác) hiện một trạng thái chờ
+                đơn giản thay vì thoáng hiện nội dung của bản thảo trước. */}
+            {banThaoSanKhau !== null ? (
+              <SanKhauBanThao
+                banThao={banThaoSanKhau}
+                cauTruc={cauTrucSanKhau}
+                dangTai={dangTaiKhungSanKhau}
+                mucDangChon={mucDangChonSanKhau}
+                onChonMuc={datMucDangChonSanKhau}
+                onSuaMuc={onSuaMucSanKhau}
+                onLui={onLuiSanKhau}
+                onDong={onDongSanKhau}
+                onPhimTat={onPhimTatSanKhau}
+              />
+            ) : (
+              <div className="flex flex-1 items-center justify-center">
+                <p className="m-0 text-[14px] text-muted-foreground" role="status">
+                  Đang mở bản thảo…
+                </p>
+              </div>
             )}
-            role={haiCot ? undefined : "dialog"}
-            aria-modal={haiCot ? undefined : true}
-            aria-label="Soạn thảo văn bản"
-          >
-            {/* slug là state khởi tạo từ prop bên trong; key buộc remount khi
-                bấm loại khác trên card đang hiện */}
-            <KhongGianSoanThao
-              key={soanThao.slug ?? "luoi"}
-              loaiVanBan={soanThao.slug}
-              trongKhung
-              onDong={() => datSoanThao(null)}
-            />
-          </div>
+            <CuaSoTroLy
+              cuaSo={cuaSo}
+              onDoiCuaSo={datCuaSo}
+              chuaDoc={chuaDoc}
+              onVeHaiCot={onDongSanKhau}
+            >
+              {noiDungChat}
+            </CuaSoTroLy>
+          </>
+        ) : (
+          <>
+            {noiDungChat}
+
+            {/* Khung nguyên văn. Ở bố cục hai cột nó chiếm một cột thật; dưới ngưỡng
+                đó nó tự phủ toàn màn hình, nên thẻ bọc phải KHÔNG có kích thước —
+                `hidden` sẽ giấu luôn cả khung ở chế độ phủ màn hình. */}
+            {doiChieu.dang !== null && (
+              <>
+                {haiCot && (
+                  <TayKeo
+                    giaTri={rongDoiChieu}
+                    bien={bienDoiChieu}
+                    nhan="Kéo để đổi độ rộng khung điều khoản"
+                    dieuKhienId="khung-doi-chieu"
+                    chieu={-1}
+                    onDoi={datRongVaLuu}
+                    onThuGon={() =>
+                      datRongVaLuu(
+                        rongDoiChieu > bienDoiChieu.min
+                          ? bienDoiChieu.min
+                          : RONG_DOI_CHIEU_MAC_DINH,
+                      )
+                    }
+                    onMacDinh={() => datRongVaLuu(RONG_DOI_CHIEU_MAC_DINH)}
+                  />
+                )}
+                <div
+                  className={cn(
+                    "shrink-0",
+                    haiCot && "border-l border-border bg-[var(--color-paper-50)] p-3",
+                  )}
+                  style={haiCot ? { width: kepRong(rongDoiChieu, bienDoiChieu) } : undefined}
+                >
+                  <KhungDoiChieu
+                    id="khung-doi-chieu"
+                    khopTaiId={doiChieu.dang.khopTaiId}
+                    {...(doiChieu.dang.duongDan === undefined
+                      ? {}
+                      : { duongDan: doiChieu.dang.duongDan })}
+                    quote={doiChieu.dang.quote ?? null}
+                    hieuLuc={doiChieu.dang.hieuLuc ?? null}
+                    trangThai={doiChieu.trangThai}
+                    vanBan={doiChieu.vanBan}
+                    loi={doiChieu.loi}
+                    onThuLai={doiChieu.thuLai}
+                    onDong={() => {
+                      datDangMo(null);
+                      doiChieu.dong();
+                    }}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Khung soạn thảo (spec soạn-thảo-trong-chat §5.3). Hai cột: chiếm phần
+                còn lại vì màn soạn thảo có hai pane; dưới 68rem: phủ toàn màn như
+                KhungDoiChieu. */}
+            {soanThao !== null && (
+              <div
+                ref={khungSoanThao}
+                className={cn(
+                  haiCot
+                    ? "min-w-[640px] flex-1 border-l border-border bg-[var(--color-paper-50)]"
+                    : "fixed inset-0 z-50 overflow-y-auto bg-background",
+                )}
+                role={haiCot ? undefined : "dialog"}
+                aria-modal={haiCot ? undefined : true}
+                aria-label="Soạn thảo văn bản"
+              >
+                {/* slug là state khởi tạo từ prop bên trong; key buộc remount khi
+                    bấm loại khác trên card đang hiện */}
+                <KhongGianSoanThao
+                  key={soanThao.slug ?? "luoi"}
+                  loaiVanBan={soanThao.slug}
+                  trongKhung
+                  onDong={() => datSoanThao(null)}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </AppShell>

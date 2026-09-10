@@ -5,9 +5,11 @@
 import assert from "node:assert/strict";
 import {
   BUOC_PHIM,
+  CUA_SO_MAC_DINH,
   RONG_DOI_CHIEU_MAC_DINH,
   bienPanelDoiChieu,
   docRongDaLuu,
+  kepCuaSo,
   kepRong,
   luuRong,
   phanTram,
@@ -72,3 +74,37 @@ assert.equal(docRongDaLuu("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH), RONG_
 assert.doesNotThrow(() => luuRong("klaw.doi-chieu.rong", 500));
 
 console.log("kiem-keo-dan: 18/18 OK");
+
+// ── Cửa sổ trợ lý nổi (spec 2026-09-09 §9.4) ────────────────────────────────
+// Mặc định lần đầu, và bốn ca kẹp: co lại dưới tối thiểu, tràn cạnh phải/dưới,
+// và một cửa sổ khổng lồ hơn cả viewport (thu về đúng bằng viewport, không âm).
+const vp = { w: 1440, h: 900 };
+assert.deepEqual(CUA_SO_MAC_DINH(vp), {
+  x: 1440 - 380 - 24,
+  y: 900 - 520 - 24,
+  w: 380,
+  h: 520,
+  thu: false,
+});
+assert.deepEqual(kepCuaSo({ x: -50, y: -10, w: 100, h: 100, thu: false }, vp), {
+  x: 0,
+  y: 0,
+  w: 320,
+  h: 400,
+  thu: false,
+});
+assert.deepEqual(kepCuaSo({ x: 1400, y: 880, w: 380, h: 520, thu: false }, vp), {
+  x: 1060,
+  y: 380,
+  w: 380,
+  h: 520,
+  thu: false,
+});
+assert.deepEqual(kepCuaSo({ x: 0, y: 0, w: 2000, h: 2000, thu: true }, vp), {
+  x: 0,
+  y: 0,
+  w: 1440,
+  h: 900,
+  thu: true,
+});
+console.log("kiem-keo-dan: cửa sổ 4/4 OK");
