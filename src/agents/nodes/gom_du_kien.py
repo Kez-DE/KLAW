@@ -66,6 +66,8 @@ def gom_du_kien(state: dict, llm, model: str) -> dict:
     try:
         raw, usage = llm.chat(model, messages(prompt), json_schema=schema_du_kien(loai))
         ra = json.loads(raw)
+        if not isinstance(ra, dict):
+            raise TypeError(f"phản hồi phải là object, được {type(ra).__name__}")
     except Exception as e:
         logger.warning(
             "gom_du_kien: lỗi (%s: %s) — giữ facts cũ, hỏi lại phần thiếu", type(e).__name__, e, exc_info=True

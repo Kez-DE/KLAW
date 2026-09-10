@@ -95,6 +95,31 @@ def test_gom_giu_facts_cu_va_de_bang_gia_tri_moi():
     assert st["soan_thao_dang_mo"]["facts"][k0] == gia_tri_moi and st["soan_thao_dang_mo"]["facts"]["khac"] == "giu"
 
 
+def test_phan_hoi_khong_phai_object_thi_giu_facts_cu_khong_raise():
+    """JSON hợp lệ (`json.loads` không nổi) nhưng SAI HÌNH DẠNG — mảng, chuỗi, số,
+    null đều là JSON hợp lệ và đều vi phạm schema object đã xin — phải rơi vào
+    CÙNG đường suy biến với lỗi hạ tầng (giữ facts cũ, hỏi lại phần thiếu), không
+    được để `.get()` trên một non-dict làm lượt này crash."""
+    loai = "hdld"
+    truong = g.truong_cua(loai)
+    k0 = truong[0]["key"]
+    llm = LlmGia(["không phải object"])  # JSON hợp lệ, không phải dict
+    st = g.gom_du_kien(
+        {
+            "query": "tiếp tục",
+            "ho_so": {},
+            "user_sub": "u",
+            "soan_thao_dang_mo": {"loai": loai, "facts": {k0: "cu"}, "ban_thao_id": None, "so_lan_sua": 0},
+            "traces": {},
+        },
+        llm,
+        "m",
+    )
+    sd = st["soan_thao_dang_mo"]
+    assert sd["facts"][k0] == "cu"  # dữ kiện đã gom trước đó không mất
+    assert st["traces"]["gom_du_kien_nguon"] == "loi"
+
+
 # ── Phần thuần (không model, không DB): field lookup, schema builder, missing-field
 # calculation — bổ sung ngoài 4 test brief để phủ trực tiếp hai ca controller yêu cầu:
 # "mọi trường đã có giá trị" và "loại không có rule-derived field nào".
