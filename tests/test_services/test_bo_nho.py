@@ -112,7 +112,7 @@ def test_luu_suy_dien_loc_theo_nguon_va_gop_vao_ho_so_cu(monkeypatch):
     monkeypatch.setattr(
         hoi_thoai,
         "bo_nho_cua_phien",
-        lambda pid: {"ho_so": {"tham_nien": {"gia_tri": "3 năm", "nguon": "nguoi_noi"}}},
+        lambda pid: {"ho_so": {"tham_nien": {"gia_tri": "3 năm", "nguon": "nguoi_noi"}}, "khong_ghi_nho": False},
     )
     ghi_goi = []
     monkeypatch.setattr(hoi_thoai, "ghi_ho_so", lambda pid, ho_so: ghi_goi.append((pid, ho_so)))
@@ -129,6 +129,18 @@ def test_luu_suy_dien_loc_theo_nguon_va_gop_vao_ho_so_cu(monkeypatch):
     assert ho_so_gop["chu_the"] == {"gia_tri": "người lao động", "nguon": "suy_dien"}
     assert ho_so_gop["tham_nien"] == {"gia_tri": "3 năm", "nguon": "nguoi_noi"}  # hồ sơ cũ vẫn giữ
     assert "vu_viec" not in ho_so_gop  # nguồn nguoi_noi trong ho_so_state không đi vào gộp
+
+
+def test_luu_suy_dien_khong_ghi_khi_phien_tat_bo_nho(monkeypatch):
+    """"Không ghi nhớ phiên này" phải chặn MỌI đường ghi vào hồ sơ phiên, không
+    riêng tóm tắt: `cap_nhat_phien` đã tôn trọng cờ này, nên nếu `luu_suy_dien`
+    không tôn trọng thì một phiên đã tắt bộ nhớ vẫn tích luỹ và nạp lại một hồ sơ
+    tình huống bền — đúng thứ người dùng vừa tắt."""
+    ghi_goi = []
+    monkeypatch.setattr(hoi_thoai, "bo_nho_cua_phien", lambda pid: {"ho_so": {}, "khong_ghi_nho": True})
+    monkeypatch.setattr(hoi_thoai, "ghi_ho_so", lambda pid, ho_so: ghi_goi.append((pid, ho_so)))
+    bo_nho.luu_suy_dien("pid", {"chu_the": {"gia_tri": "người lao động", "nguon": "suy_dien"}})
+    assert ghi_goi == []
 
 
 @pytest.fixture

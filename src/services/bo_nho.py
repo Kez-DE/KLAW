@@ -268,13 +268,21 @@ def cap_nhat_phien(hoi_thoai_id: str, user_sub: str, llm=None, model: str | None
 
 def luu_suy_dien(hoi_thoai_id: str, ho_so_state: dict) -> None:
     """Giả định do `suy_dien` tạo trong lượt này đi vào hồ sơ phiên với đúng nguồn `suy_dien`,
-    nên không đè điều người hỏi đã nói; lượt sau đọc lại và giao diện vẫn in "(tôi đoán)"."""
+    nên không đè điều người hỏi đã nói; lượt sau đọc lại và giao diện vẫn in "(tôi đoán)".
+
+    `khong_ghi_nho` chặn ở đây y như ở `cap_nhat_phien`: hồ sơ tình huống là bộ nhớ
+    BỀN của phiên, được nạp lại mỗi lượt sau, nên để nó tích luỹ trong một phiên
+    người dùng vừa tắt bộ nhớ là đúng thứ họ vừa tắt — dù spec §6.4 chỉ nói tới
+    "tóm tắt và gộp", giao diện bán cờ này là "Không ghi nhớ phiên này".
+    """
     moi = {
         k: v["gia_tri"] for k, v in (ho_so_state or {}).items() if isinstance(v, dict) and v.get("nguon") == "suy_dien"
     }
     if not moi:
         return
     bn = hoi_thoai.bo_nho_cua_phien(hoi_thoai_id)
+    if bn["khong_ghi_nho"]:
+        return
     hoi_thoai.ghi_ho_so(hoi_thoai_id, gop_ho_so(bn["ho_so"], moi, "suy_dien"))
 
 
