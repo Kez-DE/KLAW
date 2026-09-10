@@ -162,7 +162,7 @@ Chỉ đổi dữ liệu và copy; không đổi cơ chế đếm (`traces`, mú
 | `goi.pro.hoi_dap_ngay` | 100000 | **500** |
 | `goi.pro.luot_moi_phien` | 50 | **100000** (không giới hạn) |
 | `la_chan.pro_hoi_dap_ngay` | 500 | **bỏ khoá** (đã là hạn mức thật; `bao_ve` không đọc nữa) |
-| `la_chan.free_hoi_dap_thang` | 2000 | **3000** (100 × 30, để trần tháng không đứng dưới hạn mức ngày) |
+| `la_chan.free_hoi_dap_thang` | 2000 | **3100** (100 × 31: cửa sổ là THÁNG LỊCH, bảy tháng có 31 ngày, nên 3000 để lá chắn chặn trước hạn mức ngày ở đúng những tháng đó) |
 | `la_chan.ip_ngay` | 1500 | 1500 (giữ, vẫn = 3 × 500) |
 | `GIA_PRO` / `monthly` | 199.000 | **69.000** |
 
