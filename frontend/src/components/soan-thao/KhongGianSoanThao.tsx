@@ -55,8 +55,8 @@ import {
 import { laMau, type CauTruc } from "@/lib/klaw";
 import { goi } from "@/lib/api";
 // `toanVan` tĩnh được: `docx` và `jspdf` nằm sau `await import()` bên trong
-// `xuat-ban.ts`, nên nhập hàm này KHÔNG kéo hai thư viện nặng vào gói đầu tiên.
-import { toanVan } from "@/lib/xuat-ban";
+// `xuat-tep.ts`, nên nhập hàm này KHÔNG kéo hai thư viện nặng vào gói đầu tiên.
+import { toanVan } from "@/lib/xuat-tep";
 import { chiSo, dinhDangTien, docSoThanhChu } from "@/lib/tien-viet";
 import { cn, ngayVietNam } from "@/lib/utils";
 
@@ -461,7 +461,7 @@ export function KhongGianSoanThao({
     setDangXuat(dinhDang);
     const id = toast.loading(dinhDang === "docx" ? "Đang tạo tệp Word…" : "Đang tạo tệp PDF…");
     try {
-      const { xuatWord, xuatPDF } = await import("@/lib/xuat-ban");
+      const { xuatWord, xuatPDF } = await import("@/lib/xuat-tep");
       if (dinhDang === "docx") await xuatWord(sheet, mau.ten);
       else await xuatPDF(sheet, mau.ten);
       toast.success(dinhDang === "docx" ? "Đã tải tệp .docx." : "Đã tải tệp .pdf.", {
@@ -481,7 +481,7 @@ export function KhongGianSoanThao({
     const sheet = layKhung();
     if (!sheet) return;
     try {
-      const { toanVan } = await import("@/lib/xuat-ban");
+      const { toanVan } = await import("@/lib/xuat-tep");
       await navigator.clipboard.writeText(toanVan(sheet));
       toast.success("Đã sao chép toàn văn bản thảo.");
     } catch {

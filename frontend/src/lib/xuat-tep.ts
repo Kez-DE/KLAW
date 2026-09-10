@@ -2,6 +2,7 @@
  * Xuất bản thảo hợp đồng ra tệp thật (.docx / .pdf) từ khung xem trước A4.
  * Toàn bộ xử lý diễn ra trên trình duyệt — không gửi nội dung bản thảo lên máy chủ.
  */
+import type { BanThao, CauTruc } from "./klaw";
 
 export type KieuDong = "quocHieu" | "tieuDe" | "soHieu" | "dieu" | "thuong";
 
@@ -27,6 +28,57 @@ export type NoiDungXuat = {
    */
   oKy: DongVanBan[][];
 };
+
+/** Một mục dựng sẵn cho `XemTruocA4`: nội dung của `clauses` ghép vào khung `cau_truc.muc`. */
+export interface Muc {
+  stt: number;
+  key: string;
+  ten: string;
+  noiDung: string;
+  canCu: string | null;
+}
+
+/**
+ * Hình dạng THẬT của một phần tử `BanThao.clauses` (kiểu `unknown[]` chưa gõ ở FE) —
+ * khớp `dataclasses.asdict(DraftClause)` (`src/agents/nodes/draft_generate.py` +
+ * `src/services/ban_thao.py` dòng ghi `clauses`): `key`, `ten`, `noi_dung`,
+ * `can_cu_provision_id`. KHÔNG có trường `text` — chỉ `noi_dung` mang nội dung.
+ */
+type ClauseTho = { key?: string; ten?: string; noi_dung?: string };
+
+/**
+ * Ghép `clauses` (nội dung LLM sinh, từ `draft_generate`) vào khung `cau_truc.muc` (thứ
+ * tự và căn cứ, từ chính `checklist_*.yaml`) thành mảng `Muc[]` cho `XemTruocA4`.
+ *
+ * Khung quyết định thứ tự mục và `canCu`; `clauses` chỉ góp `noiDung`. Mục nào khung có
+ * mà `clauses` chưa sinh (model bỏ sót, hoặc đang chờ) thì hiện "[…]" — không suy đoán
+ * nội dung để lấp chỗ trống.
+ */
+export function mucTuBanThao(banThao: BanThao, cauTruc: CauTruc | null): Muc[] {
+  const clauses = banThao.clauses as ClauseTho[];
+  const theoKey = new Map<string, ClauseTho>();
+  for (const c of clauses) if (c.key) theoKey.set(c.key, c);
+
+  const khung = cauTruc?.muc ?? [];
+  if (khung.length === 0) {
+    // Chưa có `cau_truc` (chưa tải xong, hoặc loại văn bản chưa có checklist) — dựng
+    // tạm theo đúng thứ tự `clauses`, không có `canCu` vì khung mới là nguồn của nó.
+    return clauses.map((c, i) => ({
+      stt: i + 1,
+      key: c.key ?? `m${i + 1}`,
+      ten: c.ten ?? c.key ?? `Mục ${i + 1}`,
+      noiDung: c.noi_dung ?? "[…]",
+      canCu: null,
+    }));
+  }
+  return khung.map((m) => ({
+    stt: m.stt,
+    key: m.key,
+    ten: m.ten,
+    noiDung: theoKey.get(m.key)?.noi_dung ?? "[…]",
+    canCu: m.can_cu || null,
+  }));
+}
 
 const BO_QUA = new Set(["SCRIPT", "STYLE"]);
 
