@@ -177,9 +177,19 @@ export function AppShell({
   // nhận `?ban_thao=` rồi tự `layBanThao` — đây là lối vào bền duy nhất tới
   // việc đã lưu. Mở khung soạn thảo trống theo loại như trước là vứt đúng bản
   // thảo người dùng vừa bấm.
+  //
+  // Kèm `?phien=` khi bản thảo còn nhớ cuộc trò chuyện đã dựng ra nó: trợ lý
+  // đứng cạnh sân khấu phải là ĐÚNG cuộc trò chuyện đó, không phải một khung
+  // chat trắng — "rút gọn mục 3" chỉ có nghĩa khi lịch sử còn đây.
   const moBanThao = (banThao: BanThaoTomTat, dong: () => void) => {
     dong();
-    void navigate({ to: "/dung-thu", search: { ban_thao: banThao.id } });
+    void navigate({
+      to: "/dung-thu",
+      search: {
+        ban_thao: banThao.id,
+        ...(banThao.hoi_thoai_id !== null ? { phien: banThao.hoi_thoai_id } : {}),
+      },
+    });
   };
   const banThaoGanDay = (dong: () => void) => (
     <DanhSachBanThaoGanDay onMo={(banThao) => moBanThao(banThao, dong)} />
