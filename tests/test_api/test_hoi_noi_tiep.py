@@ -27,9 +27,11 @@ DA_GIAI_NGHIA = "liệt kê bảng thời hạn báo trước khi nghỉ việc"
 
 
 def test_luot_dau_KHONG_di_qua_giai_nghia():
-    """Lượt đầu (lịch sử rỗng) vào thẳng `route`: không một token nào thêm."""
-    assert _vao_graph({"query": "x"}) == "route"
-    assert _vao_graph({"query": "x", "lich_su": []}) == "route"
+    """Lượt đầu (lịch sử rỗng) bỏ qua `giai_nghia`, vào `suy_dien` rồi `route`:
+    `suy_dien` là 0 token (QT-5, suy vai người hỏi bằng luật chứ không gọi
+    model), nên đường này vẫn không tốn thêm một token nào."""
+    assert _vao_graph({"query": "x"}) == "suy_dien"
+    assert _vao_graph({"query": "x", "lich_su": []}) == "suy_dien"
 
 
 def test_luot_noi_tiep_di_qua_giai_nghia_TRUOC_route():
@@ -49,9 +51,10 @@ def test_giai_nghia_that_bai_di_DUONG_NGO_CUT_da_co():
 
 def test_giai_nghia_thanh_cong_di_DU_duong_route_va_hai_tang():
     """Nguyên tắc ràng buộc của spec mục 2: lịch sử chỉ làm câu hỏi tự đứng
-    được, nó KHÔNG chống đỡ khẳng định nào — nên câu đã giải nghĩa vào `route`
-    rồi đi hết truy hồi, tầng 1, tầng 2 như một câu hỏi mới."""
-    assert _re_sau_giai_nghia({"cau_hoi_day_du": DA_GIAI_NGHIA}) == "route"
+    được, nó KHÔNG chống đỡ khẳng định nào — nên câu đã giải nghĩa đi qua
+    `suy_dien` (0 token, cùng đường lượt đầu) rồi vào `route`, rồi đi hết truy
+    hồi, tầng 1, tầng 2 như một câu hỏi mới."""
+    assert _re_sau_giai_nghia({"cau_hoi_day_du": DA_GIAI_NGHIA}) == "suy_dien"
 
 
 def test_giai_nghia_co_mat_trong_thanh_tien_trinh():
