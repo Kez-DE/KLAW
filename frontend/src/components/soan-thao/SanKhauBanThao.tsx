@@ -2,12 +2,103 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChevronLeft, Download, FileDown, Minus, Plus, X } from "lucide-react";
 import { Toggle } from "@/components/draft/DraftBits";
+import { BadgeHieuLuc } from "@/components/klaw/BadgeHieuLuc";
+import { BaoLoi } from "@/components/klaw/BaoLoi";
+import { NoiDungDieuKhoan } from "@/components/klaw/NoiDungDieuKhoan";
+import { NganXepDrawer } from "@/components/ui/NganXepDrawer";
 import { TayKeo } from "@/components/ui/TayKeo";
+import { useDoiChieu } from "@/hooks/use-doi-chieu";
+import { dungLaiBanThao } from "@/lib/api";
 import { docRongDaLuu, kepRong, luuRong, type Bien } from "@/lib/keo-dan";
 import { nhanFactDoi, type BanThao, type CauTruc, type TruongFact } from "@/lib/klaw";
+import { dongTrenCung, moTam, type Tam } from "@/lib/ngan-xep-drawer";
 import { mucTuBanThao } from "@/lib/xuat-tep";
 import { cn } from "@/lib/utils";
+import { DrawerSuaMuc } from "./DrawerSuaMuc";
 import { XemTruocA4 } from "./XemTruocA4";
+
+/**
+ * Best-effort: tra `can_cu` (chuỗi `duong_dan` của MỤC checklist) trong các
+ * `findings` mà `/soat` đã kèm SẴN trong `banThao.audit_report` — CHỈ những
+ * `can_cu` gắn với một phát hiện thật (thiếu nội dung, trái luật…) mang theo
+ * `doc_id`/`khop_tai_id` đã được máy chủ tra sẵn (`ban_thao._finding_out`).
+ * Đa số mục soát sạch không có phát hiện nào khớp — khi đó trả `null`, và
+ * tấm "Căn cứ" chỉ hiện đường dẫn dạng chữ, không giả vờ mở được nguyên văn.
+ * ponytail: không có endpoint tra `duong_dan` → id cho MỌI mục (chỉ có cho
+ * mục đang mắc lỗi); dựng thêm endpoint đó là việc của một task khác.
+ */
+function timCanCuKhaDung(
+  auditReport: Record<string, unknown>,
+  canCu: string,
+): { docId: string; khopTaiId: number } | null {
+  const findings = auditReport["findings"];
+  if (!Array.isArray(findings)) return null;
+  for (const f of findings) {
+    if (typeof f !== "object" || f === null) continue;
+    const r = f as Record<string, unknown>;
+    if (
+      r["can_cu"] === canCu &&
+      typeof r["doc_id"] === "string" &&
+      typeof r["khop_tai_id"] === "number"
+    ) {
+      return { docId: r["doc_id"], khopTaiId: r["khop_tai_id"] };
+    }
+  }
+  return null;
+}
+
+/**
+ * Nội dung tấm "Căn cứ" (tầng hai của drawer) — CHỈ phần nguyên văn, không tự
+ * dựng dialog/Escape/tiêu điểm riêng: `NganXepDrawer` đã lo trọn phần đó cho
+ * cả tấm, hai bộ quản lý tiêu điểm chồng nhau (như lồng nguyên `KhungDoiChieu`
+ * vào đây) là đúng lỗi "hai chủ sở hữu cho một bất biến".
+ */
+function NoiDungCanCu({
+  canCu,
+  doiChieu,
+}: {
+  canCu: string;
+  doiChieu: ReturnType<typeof useDoiChieu>;
+}) {
+  if (doiChieu.dang === null) {
+    return (
+      <div>
+        <p className="font-jetbrains m-0 text-[12px] text-muted-foreground">{canCu}</p>
+        <p className="m-0 mt-2 text-[13px] leading-5 text-muted-foreground">
+          Chưa khớp được căn cứ này với một điều luật cụ thể trong lần soát gần nhất của bản thảo.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <BadgeHieuLuc hieuLuc={doiChieu.dang.hieuLuc ?? null} gonGang />
+      {doiChieu.trangThai === "dang-tai" && (
+        <p role="status" className="m-0 mt-2 text-[13px] text-muted-foreground">
+          Đang mở nguyên văn…
+        </p>
+      )}
+      {doiChieu.trangThai === "loi" && doiChieu.loi !== null && (
+        <BaoLoi loi={doiChieu.loi} onThuLai={doiChieu.thuLai} />
+      )}
+      {doiChieu.trangThai === "xong" && doiChieu.vanBan !== null && (
+        <div className="doc-reader mt-2 rounded-lg bg-[var(--color-paper-50)] p-3 text-foreground">
+          {doiChieu.vanBan.provisions.map((dk) => (
+            <div key={dk.id} className={dk.la_tam ? undefined : "opacity-60"}>
+              {dk.cap === "dieu" && (
+                <p className="mt-2 mb-1 font-sans text-[13px] font-semibold text-muted-foreground">
+                  {dk.duong_dan}
+                  {dk.tieu_de !== "" && ` — ${dk.tieu_de}`}
+                </p>
+              )}
+              <NoiDungDieuKhoan dieuKhoan={dk} noiDung={dk.noi_dung} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   banThao: BanThao;
@@ -24,10 +115,9 @@ interface Props {
   dangTai: boolean;
   mucDangChon: string | null;
   onChonMuc: (key: string) => void;
-  /** Mở drawer sửa mục (Task 25). Tạm thời chọn mục đó làm đích chỉnh sửa —
-   *  giống bấm thẳng vào mục trong khung xem trước — cho tới khi drawer thật
-   *  thay chỗ. */
-  onSuaMuc: (key: string) => void;
+  /** Bản thảo vừa dựng lại xong (drawer sửa mục, Task 25) → cập nhật state
+   *  `banThaoMo` của nơi gọi (cùng việc `onLui` đã làm cho phiên bản lùi). */
+  capNhatBanThao: (bt: BanThao) => void;
   onLui: () => void;
   onDong: () => void;
   onPhimTat: (loai: "rut_gon" | "trang_trong" | "soat_luat") => void;
@@ -57,7 +147,7 @@ export function SanKhauBanThao({
   dangTai,
   mucDangChon,
   onChonMuc,
-  onSuaMuc,
+  capNhatBanThao,
   onLui,
   onDong,
   onPhimTat,
@@ -69,6 +159,25 @@ export function SanKhauBanThao({
   const datThuPhong = (delta: number) => datThuPhongRaw((z) => kepRong(z + delta, BIEN_ZOOM));
   const [hienCanCu, datHienCanCu] = useState(false);
   const [dangXuat, datDangXuat] = useState<"docx" | "pdf" | null>(null);
+
+  // Drawer xếp chồng sửa từng mục (Task 25, spec 2026-09-09 §9.4).
+  const [ngan, datNgan] = useState<Tam[]>([]);
+  const dongTamTrenCung = () => datNgan(dongTrenCung);
+  const doiChieuCanCu = useDoiChieu();
+
+  const onSuaMuc = (key: string) => {
+    const m = muc.find((mm) => mm.key === key);
+    if (m === undefined) return;
+    datNgan((cur) => moTam(cur, { id: key, tieuDe: `Mục ${m.stt}. ${m.ten}`, noiDung: m }));
+  };
+
+  const onMoCanCu = (canCu: string) => {
+    datNgan((cur) => moTam(cur, { id: "can-cu", tieuDe: "Căn cứ", noiDung: canCu }));
+    const kq = timCanCuKhaDung(banThao.audit_report, canCu);
+    if (kq !== null)
+      doiChieuCanCu.mo({ docId: kq.docId, khopTaiId: kq.khopTaiId, duongDan: canCu });
+    else doiChieuCanCu.dong();
+  };
 
   const [rongMuc, datRongMucRaw] = useState(() =>
     kepRong(docRongDaLuu(KHOA_RONG_MUC, RONG_MUC_MAC_DINH), BIEN_MUC),
@@ -267,6 +376,35 @@ export function SanKhauBanThao({
           </div>
         </div>
       </div>
+
+      <NganXepDrawer
+        ngan={ngan}
+        onDong={dongTamTrenCung}
+        render={(tam) => {
+          if (tam.id === "can-cu") {
+            return <NoiDungCanCu canCu={tam.noiDung as string} doiChieu={doiChieuCanCu} />;
+          }
+          const m = tam.noiDung as (typeof muc)[number];
+          return (
+            <DrawerSuaMuc
+              banThao={banThao}
+              muc={m}
+              truong={truongMau}
+              onHuy={dongTamTrenCung}
+              onMoCanCu={onMoCanCu}
+              onLuu={async (facts) => {
+                const kq = await dungLaiBanThao(banThao.id, facts);
+                if (kq.ok) {
+                  capNhatBanThao(kq.data);
+                  datNgan([]);
+                } else {
+                  toast.error(kq.error.message);
+                }
+              }}
+            />
+          );
+        }}
+      />
     </div>
   );
 }

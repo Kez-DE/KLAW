@@ -1,5 +1,6 @@
-"""Endpoint `/ban-thao` — danh sách, chi tiết, lùi, xoá (spec 2026-09-09 §8.3)."""
+"""Endpoint `/ban-thao` — danh sách, chi tiết, lùi, xoá, dựng lại (spec 2026-09-09 §8.3, Task 25)."""
 
+import json
 import uuid
 
 import pytest
@@ -17,6 +18,44 @@ KET = {
     "clauses": [{"stt": 1, "key": "nguoi_lam_don", "noi_dung": "Tôi là A"}],
     "audit_report": {"findings": [], "completeness": 1.0},
 }
+
+# `hdld` (không phải `don_xin_nghi_viec`) vì nó có rule cần fact BẮT BUỘC —
+# `test_dung_thieu_du_kien_bat_buoc_422` cần một trường bỏ trống được.
+FACTS_HDLD = {
+    "thoi_gian_thu_viec_ngay": "30",
+    "nhom_chuc_danh": "cao_dang_tro_len",
+    "luong_thu_viec": "5000000",
+    "luong_chinh_thuc": "6000000",
+    "luong_thang": "6000000",
+    "vung": "I",
+    "co_dieu_khoan_phat_tien": "false",
+    "co_dieu_khoan_giu_giay_to": "false",
+    "co_dieu_khoan_dat_coc": "false",
+}
+
+
+class _KetAuditGia:
+    """Đủ thuộc tính để `ban_thao.tu_state_soan_thao` đọc (thuộc tính, không phải
+    khoá dict) — cùng double dùng ở `test_soan_thao_hoi_thoai_api.py`."""
+
+    dat = True
+    completeness = 1.0
+    so_dieu_khoan = 0
+    self_audit = True
+    findings: list = []
+
+
+class _GraphSoanThaoGia:
+    """Thay `graph_soan_thao_cached()` mà `ban_thao.dung_lai` gọi — không chạy
+    `draft_generate`/`draft_audit` thật (không tốn LLM trả phí)."""
+
+    async def ainvoke(self, st):
+        return {**st, "clauses": [], "audit_report": _KetAuditGia(), "db_provisions": {}, "traces": {}}
+
+
+@pytest.fixture
+def graph_soan_thao_gia(monkeypatch):
+    monkeypatch.setattr(ban_thao, "graph_soan_thao_cached", lambda: _GraphSoanThaoGia())
 
 
 @pytest.fixture
@@ -68,12 +107,75 @@ async def test_danh_sach_chi_tiet_lui_xoa_va_chu_so_huu(client, khoa_ky, hai_ngu
 
 
 @pytest.mark.asyncio
+async def test_dung_sua_tang_phien_ban_va_bao_doi_so_voi_truoc(client, khoa_ky, hai_nguoi, graph_soan_thao_gia):
+    """`POST /ban-thao/{id}/dung` (Task 25): facts đổi → phiên bản tăng,
+    `doi_so_voi_truoc` đúng đúng trường vừa đổi; chủ khác không dựng lại được."""
+    a, b = hai_nguoi
+    ha, hb = _bearer(khoa_ky, a), _bearer(khoa_ky, b)
+    pid = hoi_thoai.tao_phien(a, "hợp đồng lao động")
+    bt = ban_thao.tao(a, pid, "hdld", FACTS_HDLD, KET)
+
+    r = await client.post(
+        f"/api/v1/ban-thao/{bt['id']}/dung",
+        json={"facts": {**FACTS_HDLD, "vung": "II"}},
+        headers=ha,
+    )
+    assert r.status_code == 200
+    d = r.json()
+    assert d["id"] == bt["id"] and d["phien_ban"] == 2
+    assert d["doi_so_voi_truoc"] == ["vung"]
+    assert d["facts"]["vung"] == "II"
+
+    # Chủ khác không dựng lại được — 404 y hệt một id không tồn tại.
+    r_b = await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": FACTS_HDLD}, headers=hb)
+    assert r_b.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_dung_thieu_du_kien_bat_buoc_422(client, khoa_ky, hai_nguoi, graph_soan_thao_gia):
+    """Endpoint của drawer không được là đường vòng qua ràng buộc trường bắt
+    buộc mà lượt sửa bằng lời cũng phải qua (`gom_du_kien.con_thieu`)."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    pid = hoi_thoai.tao_phien(a, "hợp đồng lao động")
+    bt = ban_thao.tao(a, pid, "hdld", FACTS_HDLD, KET)
+
+    facts_thieu = {k: v for k, v in FACTS_HDLD.items() if k != "luong_thang"}
+    r = await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": facts_thieu}, headers=ha)
+    assert r.status_code == 422
+    assert "Lương tháng" in r.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_dung_het_tran_sua_429(client, khoa_ky, hai_nguoi, graph_soan_thao_gia):
+    """Đã chạm trần `TRAN_SUA` lần sửa → 429 với thông điệp tiếng Việt
+    `LOI_HET_LAN_SUA`, không phải một 500 hay một lần sửa âm thầm."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    pid = hoi_thoai.tao_phien(a, "hợp đồng lao động")
+    bt = ban_thao.tao(a, pid, "hdld", FACTS_HDLD, KET)
+
+    snap = {"phien_ban": 1, "document": "x", "facts": {}, "clauses": [], "audit": {}}
+    with get_engine().begin() as c:
+        c.execute(
+            text("UPDATE ban_thao SET phien_ban_truoc = CAST(:v AS jsonb) WHERE id = CAST(:id AS uuid)"),
+            {"v": json.dumps([snap] * ban_thao.TRAN_SUA), "id": bt["id"]},
+        )
+
+    r = await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": FACTS_HDLD}, headers=ha)
+    assert r.status_code == 429
+    assert r.json()["detail"] == ban_thao.LOI_HET_LAN_SUA
+
+
+@pytest.mark.asyncio
 async def test_id_sai_dinh_dang_uuid_la_404(client, khoa_ky, hai_nguoi):
     a, _ = hai_nguoi
     h = _bearer(khoa_ky, a)
     assert (await client.get("/api/v1/ban-thao/khong-phai-uuid", headers=h)).status_code == 404
     assert (await client.post("/api/v1/ban-thao/khong-phai-uuid/lui", headers=h)).status_code == 404
     assert (await client.delete("/api/v1/ban-thao/khong-phai-uuid", headers=h)).status_code == 404
+    r = await client.post("/api/v1/ban-thao/khong-phai-uuid/dung", json={"facts": {}}, headers=h)
+    assert r.status_code == 404
 
 
 @pytest.mark.asyncio

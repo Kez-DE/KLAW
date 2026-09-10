@@ -110,6 +110,12 @@ def graph_that_llm_gia(monkeypatch):
     llm = LlmGia()
     monkeypatch.setattr(g, "llm_from_settings", lambda: llm)
     monkeypatch.setattr(g, "graph_soan_thao_cached", lambda: _GraphSoanThaoGia())
+    # Task 25: nhánh sửa của `n_dung_ban_thao` nay đi qua `ban_thao.dung_lai`,
+    # hàm đó tự import `graph_soan_thao_cached` VÀO NAMESPACE CỦA NÓ — patch
+    # `g.graph_soan_thao_cached` một mình không còn chặn được lời gọi graph
+    # thật ở nhánh sửa. Thiếu dòng dưới đây, "sửa bằng lời" trong test sẽ lặng
+    # lẽ gọi graph SOẠN THẢO THẬT (và qua đó, LLM thật trả phí) thay vì double.
+    monkeypatch.setattr(ban_thao, "graph_soan_thao_cached", lambda: _GraphSoanThaoGia())
     monkeypatch.setattr(routes, "_graph", None)
     return llm
 
@@ -217,8 +223,18 @@ async def test_het_lan_sua_thi_hoi_lai_khong_dung_lai_ban_thao(
     )
     assert r2.json()["result_type"] == "ban_thao"
 
-    sd = hoi_thoai.soan_thao_cua_phien(sub, pid)
-    hoi_thoai.ghi_soan_thao(sub, pid, {**sd, "so_lan_sua": ban_thao.TRAN_SUA})
+    # `ban_thao.dung_lai` (Task 25) kiểm trần trên CHÍNH lịch sử đã lưu của
+    # bản thảo (`phien_ban_truoc`), không phải bộ đếm `so_lan_sua` của phiên
+    # hội thoại — cùng ghi chú ở `graph_tra_cuu.n_dung_ban_thao`. Mô phỏng
+    # "đã chạm trần" phải ghi thẳng `phien_ban_truoc` dài `TRAN_SUA` vào DÒNG
+    # THẬT của bản thảo, không còn ghi `so_lan_sua` vào state phiên nữa.
+    bt_id = r2.json()["ban_thao"]["id"]
+    snap = {"phien_ban": 1, "document": "x", "facts": {}, "clauses": [], "audit": {}}
+    with get_engine().begin() as c:
+        c.execute(
+            text("UPDATE ban_thao SET phien_ban_truoc = CAST(:v AS jsonb) WHERE id = CAST(:id AS uuid)"),
+            {"v": json.dumps([snap] * ban_thao.TRAN_SUA), "id": bt_id},
+        )
     truoc = _dem_trace(sub, "/api/v1/soan-thao/sua")
 
     r3 = await client.post(

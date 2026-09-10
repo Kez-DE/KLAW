@@ -313,6 +313,16 @@ export const layBanThao = (id: string) =>
 export const luiBanThao = (id: string) =>
   goi<BanThao>(`/ban-thao/${encodeURIComponent(id)}/lui`, laBanThao, { method: "POST" });
 
+/** Dựng lại một mục từ facts mới — drawer xếp chồng sửa từng mục (Task 25,
+ *  spec 2026-09-09 §9.4). Cùng đường tốn LLM với `/soan-thao`, nên cùng hạn
+ *  giờ `HAN_GIO_TRA_CUU`. */
+export const dungLaiBanThao = (id: string, facts: Record<string, unknown>) =>
+  goi<BanThao>(`/ban-thao/${encodeURIComponent(id)}/dung`, laBanThao, {
+    method: "POST",
+    body: { facts },
+    hanGioMs: HAN_GIO_TRA_CUU,
+  });
+
 export const xoaBanThao = (id: string) =>
   goi<null>(`/ban-thao/${encodeURIComponent(id)}`, laKhongThan, { method: "DELETE" });
 

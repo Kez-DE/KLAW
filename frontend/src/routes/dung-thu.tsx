@@ -270,9 +270,6 @@ function ManHoiKlaw() {
       else toast.error(kq.error.message);
     });
   };
-  /** Task 25 dựng drawer sửa mục thật; cho tới đó, "Sửa" chọn mục đó làm đích
-   *  chỉnh sửa — cùng việc bấm thẳng vào mục trong khung xem trước. */
-  const onSuaMucSanKhau = (key: string) => datMucDangChonSanKhau(key);
   const onPhimTatSanKhau = (loai: "rut_gon" | "trang_trong" | "soat_luat") => {
     const mucChon =
       banThaoMo !== null && mucDangChonSanKhau !== null
@@ -893,7 +890,7 @@ function ManHoiKlaw() {
                 dangTai={dangTaiKhungSanKhau}
                 mucDangChon={mucDangChonSanKhau}
                 onChonMuc={datMucDangChonSanKhau}
-                onSuaMuc={onSuaMucSanKhau}
+                capNhatBanThao={datBanThaoMo}
                 onLui={onLuiSanKhau}
                 onDong={onDongSanKhau}
                 onPhimTat={onPhimTatSanKhau}

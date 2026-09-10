@@ -2,11 +2,19 @@
 
 import dataclasses
 import json
+import logging
+import time
+import uuid
 
 from sqlalchemy import text
+from starlette.concurrency import run_in_threadpool
 
-from src.agents.graph_soan_thao import load_checklist_cached
+from src.agents.graph_soan_thao import graph_soan_thao_cached, load_checklist_cached
+from src.config import get_settings
 from src.services.db import get_engine
+from src.services.traces import _ghi_traces
+
+logger = logging.getLogger(__name__)
 
 TRAN_SUA = 10
 LOI_KHONG_THAY = "Không tìm thấy bản thảo này."
@@ -167,6 +175,52 @@ def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
             .one()
         )
     return dict(r)
+
+
+async def dung_lai(sub: str, id: str, facts: dict, hoi_thoai_id: str | None = None) -> dict | None:
+    """Sửa bản thảo từ facts mới — MỘT đường dùng chung cho drawer xếp chồng
+    (`POST /ban-thao/{id}/dung`, Task 25) và cho lệnh bằng lời trong hội thoại
+    (`graph_tra_cuu.n_dung_ban_thao`, nhánh `la_sua`): một trần sửa, một cách
+    chạy graph, một cách ghi trace — không phải hai bản sao trôi lệch nhau.
+
+    `hoi_thoai_id` giữ để khớp chữ ký với nơi gọi từ node (nó luôn biết phiên
+    hội thoại đang mở); hàm CHƯA dùng tới nó — `_ghi_traces` không có cột đó,
+    và endpoint gọi hàm này không có hội thoại nào để truyền.
+
+    Trần sửa tính trên CHÍNH `phien_ban_truoc` đã lưu (không phải một bộ đếm
+    phiên riêng): mảng đó bị `sua()` kẹp còn tối đa `TRAN_SUA` phần tử, nên một
+    khi đã chạm trần thì độ dài của nó đứng yên ở `TRAN_SUA` mãi mãi — đúng ý
+    nghĩa "bản thảo NÀY đã sửa đủ `TRAN_SUA` lần", bất kể qua bao nhiêu phiên
+    hội thoại khác nhau.
+    """
+    cu = await run_in_threadpool(chi_tiet, sub, id)
+    if cu is None:
+        return None
+    if len(cu["phien_ban_truoc"] or []) >= TRAN_SUA:
+        raise ValueError(LOI_HET_LAN_SUA)
+    bat_dau = time.monotonic()
+    st = await graph_soan_thao_cached().ainvoke(
+        {"loai": cu["loai"], "loai_van_ban": cu["loai"], "facts": facts, "nganh": "thuong_mai"}
+    )
+    bt = await run_in_threadpool(sua, sub, id, facts, tu_state_soan_thao(st))
+    if bt is None:
+        # Bản thảo bị xoá giữa lúc dựng lại (đua với một lượt xoá khác) — fail
+        # closed, KHÔNG spread `None`: cùng hợp đồng 404 với mọi hàm khác ở đây.
+        return None
+    try:
+        await run_in_threadpool(
+            _ghi_traces,
+            str(uuid.uuid4()),
+            "/api/v1/soan-thao/sua",
+            cu["loai"],
+            get_settings().eval_config_name,
+            {"result_type": "ban_thao", "traces": st.get("traces") or {}},
+            int((time.monotonic() - bat_dau) * 1000),
+            user_sub=sub,
+        )
+    except Exception:
+        logger.exception("ban_thao.dung_lai: không ghi được traces")
+    return {**bt, "ten": load_checklist_cached(cu["loai"]).ten, "doi_so_voi_truoc": doi_so_voi(cu, bt)}
 
 
 def lui(sub: str, id: str) -> dict | None:

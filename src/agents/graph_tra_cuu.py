@@ -191,37 +191,66 @@ def build_graph_tra_cuu():
     def n_gom_du_kien(st: KLawState) -> KLawState:
         return gom_du_kien(st, llm, router_model())
 
+    def _ban_thao_ket(loai: str, bt: dict, ten: str, doi: list[str]) -> dict:
+        """Hình dạng chung của `state["ban_thao_ket"]`, dựng từ MỘT dòng `ban_thao`
+        (cột `audit`, không phải `audit_report`) — dùng chung cho nhánh tạo VÀ
+        nhánh sửa, để đổi hình dạng chỉ phải sửa một chỗ."""
+        return {
+            "id": bt["id"],
+            "loai": loai,
+            "ten": ten,
+            "phien_ban": bt["phien_ban"],
+            "document": bt["document"],
+            "clauses": bt["clauses"],
+            "audit_report": bt["audit"],
+            "facts": bt["facts"],
+            "doi_so_voi_truoc": doi,
+        }
+
     async def n_dung_ban_thao(st: KLawState) -> KLawState:
-        """Đủ dữ kiện: kiểm hạn mức soạn thảo, chạy graph_soan_thao, lưu bản thảo (tạo hoặc sửa), ghi trace."""
+        """Đủ dữ kiện: kiểm hạn mức soạn thảo, chạy graph_soan_thao, lưu bản thảo (tạo hoặc sửa), ghi trace.
+
+        Nhánh sửa (`la_sua`) đi qua `ban_thao.dung_lai` — CÙNG hàm mà endpoint
+        `POST /ban-thao/{id}/dung` của drawer xếp chồng (Task 25) gọi — nên trần
+        sửa, cách chạy graph và cách ghi trace chỉ có MỘT bản, không phải một bản
+        ở đây và một bản ở service. Guard `so_lan_sua` cũ (đếm theo phiên hội
+        thoại đang mở) đã bị bỏ: `dung_lai` tự kiểm trần trên CHÍNH lịch sử đã
+        lưu của bản thảo (`phien_ban_truoc`), nên một bản thảo đã sửa đủ
+        `TRAN_SUA` lần bị chặn dù người dùng mở một phiên hội thoại mới.
+        """
         sd = st["soan_thao_dang_mo"]
         sub = st["user_sub"]
-        plan = await run_in_threadpool(bao_ve.plan_hieu_luc, sub)
         la_sua = bool(sd.get("ban_thao_id"))
-        if la_sua and int(sd.get("so_lan_sua") or 0) >= ban_thao.TRAN_SUA:
-            return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": ban_thao.LOI_HET_LAN_SUA}}
-        if not la_sua:
+        if la_sua:
             try:
-                await run_in_threadpool(bao_ve.kiem_han_muc, sub, plan, bao_ve.EP_SOAN_THAO)
-            except HTTPException as e:
-                return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": str(e.detail)}}
+                bt = await ban_thao.dung_lai(sub, sd["ban_thao_id"], sd["facts"], st.get("hoi_thoai_id"))
+            except ValueError as e:
+                return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": str(e)}}
+            if bt is None:
+                return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": ban_thao.LOI_KHONG_THAY}}
+            ban_thao_ket = _ban_thao_ket(sd["loai"], bt, bt["ten"], bt["doi_so_voi_truoc"])
+            return {
+                **st,
+                "ban_thao_ket": ban_thao_ket,
+                "soan_thao_dang_mo": {**sd, "ban_thao_id": bt["id"], "so_lan_sua": int(sd.get("so_lan_sua") or 0) + 1},
+            }
+
+        plan = await run_in_threadpool(bao_ve.plan_hieu_luc, sub)
+        try:
+            await run_in_threadpool(bao_ve.kiem_han_muc, sub, plan, bao_ve.EP_SOAN_THAO)
+        except HTTPException as e:
+            return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": str(e.detail)}}
         bat_dau = time.monotonic()
         ket_st = await graph_soan_thao_cached().ainvoke(
             {"loai": sd["loai"], "loai_van_ban": sd["loai"], "facts": sd["facts"], "nganh": "thuong_mai"}
         )
         ket = ban_thao.tu_state_soan_thao(ket_st)
-        if la_sua:
-            truoc = await run_in_threadpool(ban_thao.chi_tiet, sub, sd["ban_thao_id"])
-            bt = await run_in_threadpool(ban_thao.sua, sub, sd["ban_thao_id"], sd["facts"], ket)
-            doi = ban_thao.doi_so_voi(truoc or {}, bt)
-            endpoint = bao_ve.EP_SOAN_THAO + "/sua"
-        else:
-            bt = await run_in_threadpool(ban_thao.tao, sub, st.get("hoi_thoai_id"), sd["loai"], sd["facts"], ket)
-            doi, endpoint = [], bao_ve.EP_SOAN_THAO
+        bt = await run_in_threadpool(ban_thao.tao, sub, st.get("hoi_thoai_id"), sd["loai"], sd["facts"], ket)
         try:
             await run_in_threadpool(
                 _ghi_traces,
                 str(uuid.uuid4()),
-                endpoint,
+                bao_ve.EP_SOAN_THAO,
                 sd["loai"],
                 s.eval_config_name,
                 {"result_type": "ban_thao", "traces": ket_st.get("traces") or {}},
@@ -230,25 +259,11 @@ def build_graph_tra_cuu():
             )
         except Exception:
             logger.exception("dung_ban_thao: không ghi được traces")
-        ban_thao_ket = {
-            "id": bt["id"],
-            "loai": sd["loai"],
-            "ten": load_checklist_cached(sd["loai"]).ten,
-            "phien_ban": bt["phien_ban"],
-            "document": bt["document"],
-            "clauses": bt["clauses"],
-            "audit_report": bt["audit"],
-            "facts": bt["facts"],
-            "doi_so_voi_truoc": doi,
-        }
+        ban_thao_ket = _ban_thao_ket(sd["loai"], bt, load_checklist_cached(sd["loai"]).ten, [])
         return {
             **st,
             "ban_thao_ket": ban_thao_ket,
-            "soan_thao_dang_mo": {
-                **sd,
-                "ban_thao_id": bt["id"],
-                "so_lan_sua": int(sd.get("so_lan_sua") or 0) + (1 if la_sua else 0),
-            },
+            "soan_thao_dang_mo": {**sd, "ban_thao_id": bt["id"], "so_lan_sua": int(sd.get("so_lan_sua") or 0)},
         }
 
     def n_tien_de(st: KLawState) -> KLawState:

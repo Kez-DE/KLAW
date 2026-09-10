@@ -9,9 +9,11 @@ tồn tại (không phân biệt được với một id không có thật).
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from src.agents.graph_soan_thao import load_checklist_cached
+from src.agents.nodes.gom_du_kien import con_thieu
 from src.models.schemas import BanThaoOut, BanThaoTomTatOut, DanhSachBanThaoOut
 from src.services import ban_thao
 from src.services.bao_ve import nguoi_dung_bat_buoc
@@ -80,6 +82,49 @@ async def lui(id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BanThaoOut
     if bt is None:
         raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY)
     return _out(bt)
+
+
+class DungLaiRequest(BaseModel):
+    facts: dict
+
+
+@router.post("/ban-thao/{id}/dung", response_model=BanThaoOut)
+async def dung(id: str, body: DungLaiRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BanThaoOut:
+    """Dựng lại bản thảo từ facts mới — drawer xếp chồng (Task 25). Cùng
+    `ban_thao.dung_lai` mà lệnh bằng lời trong hội thoại dùng, nên trần sửa và
+    cách chạy graph là MỘT, không phải hai đường khác nhau cho cùng một việc.
+
+    Kiểm trường bắt buộc bằng CHÍNH `gom_du_kien.con_thieu` — hàm mà lượt sửa
+    bằng lời dùng để quyết định có đủ dữ kiện chưa — để drawer không thành một
+    đường vòng qua ràng buộc đó chỉ vì nó gọi thẳng HTTP thay vì trò chuyện.
+    """
+    id = _uuid_hop_le(id)
+    cu = await run_in_threadpool(ban_thao.chi_tiet, nguoi["sub"], id)
+    if cu is None:
+        raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY)
+    thieu = con_thieu(cu["loai"], body.facts)
+    if thieu:
+        raise HTTPException(
+            status_code=422,
+            detail="Còn thiếu dữ kiện bắt buộc: " + ", ".join(t["nhan"] for t in thieu) + ".",
+        )
+    try:
+        bt = await ban_thao.dung_lai(nguoi["sub"], id, body.facts)
+    except ValueError as e:
+        raise HTTPException(status_code=429, detail=str(e)) from e
+    if bt is None:
+        raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY)
+    return BanThaoOut(
+        id=bt["id"],
+        loai=bt["loai"],
+        ten=bt["ten"],
+        phien_ban=bt["phien_ban"],
+        document=bt["document"],
+        clauses=bt["clauses"],
+        audit_report=bt["audit"],
+        facts=bt["facts"],
+        doi_so_voi_truoc=bt["doi_so_voi_truoc"],
+    )
 
 
 @router.delete("/ban-thao/{id}", status_code=204)
