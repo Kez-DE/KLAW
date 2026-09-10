@@ -88,8 +88,13 @@ export function NganXepDrawer({ ngan, onDong, render, toanMan }: Props) {
   if (soTang === 0) return null;
   return (
     <>
+      {/* Trên `CuaSoTroLy` (z-50): cửa sổ trợ lý nổi cũng neo phải, cũng
+          `fixed`, nên ở z-40 nó vẽ đè lên tấm drawer ĐANG MODAL và vẫn bấm
+          được — nền mờ phải phủ cả nó. Ở bố cục hẹp, sân khấu (`z-50`,
+          `fixed`) tự tạo ngữ cảnh xếp lớp và drawer nằm TRONG đó, nên hai số
+          này chỉ so với nhau bên trong sân khấu, không đội lên trên nó. */}
       <div
-        className="fixed inset-0 z-40 bg-[var(--color-ink-950)]/30"
+        className="fixed inset-0 z-[60] bg-[var(--color-ink-950)]/30"
         onClick={onDong}
         aria-hidden
       />
@@ -108,7 +113,7 @@ export function NganXepDrawer({ ngan, onDong, render, toanMan }: Props) {
             // duyệt (không qua Tab) vẫn đọc được vào một tấm bị che. Chỉ đặt
             // khi KHÔNG phải tấm trên cùng — tấm trên cùng không mang `inert`.
             inert={!trenCung}
-            style={{ right: toanMan ? 0 : (soTang - 1 - tang) * 24, zIndex: 41 + tang }}
+            style={{ right: toanMan ? 0 : (soTang - 1 - tang) * 24, zIndex: 61 + tang }}
             className={cn(
               "fixed inset-y-0 flex flex-col border-l border-border bg-card shadow-elegant",
               toanMan ? "w-full" : "w-[480px] max-w-full",
