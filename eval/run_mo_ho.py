@@ -66,6 +66,11 @@ def tra_loi_dat_chuan(answer: str, cau_hoi: str, can_neu_gia_dinh: bool) -> bool
     2. Khi vai tới từ suy diễn (`can_neu_gia_dinh`), answer phải nêu dòng giả
        định đúng mẫu TẦNG 1 ("Tôi hiểu bạn là ..."). `can_neu_gia_dinh=False`
        (vai người nói tự khai, không phải giả định) thì không đòi dòng này.
+
+    Phép so KHỚP NGUYÊN VĂN ở đây hợp lệ vì `prompts/assemble.v3.md` BẮT BUỘC
+    đúng cụm đó ("viết ĐÚNG mẫu ... nguyên cụm đó, không diễn đạt lại"), chứ
+    không nêu nó như một ví dụ — trước bản đó, benchmark này chấm trượt một hình
+    dạng câu trả lời mà không prompt nào cấm.
     """
     if lap_lai_cau_hoi(answer, cau_hoi):
         return False

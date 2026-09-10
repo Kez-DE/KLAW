@@ -1,7 +1,8 @@
 """Tiêm SOUL — linh hồn dùng chung cho các node có hành văn hoặc phán đoán
 (spec 2026-09-06 §5.1).
 
-Tiêm ở: `assemble`, `hoi_lai`, `giai_nghia`, `draft_generate`, `generate_claims`, `gom_du_kien`.
+Tiêm ở: `assemble`, `hoi_lai`, `giai_nghia`, `draft_generate`, `generate_claims`,
+`gom_du_kien`, `bo_nho` (`bo_nho.cap_nhat_phien`).
 KHÔNG tiêm ở `route`/`rewrite_query` (việc cơ học, tiết kiệm ~1.500–2.000
 token/lượt) và TUYỆT ĐỐI không ở `verify_tier2`: đó là người thẩm định độc lập,
 cùng một "linh hồn" với người viết làm mất tính độc lập mà `judge_model` khác họ
