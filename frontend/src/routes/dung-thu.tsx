@@ -277,7 +277,7 @@ function ManHoiKlaw() {
    *  `CuaSoTroLy` mà đứng ở tab "Bản thảo" — gác riêng `cuaSo.thu` thì ở bố cục
    *  hẹp chấm này vừa không bao giờ hiện (mặc định `thu: false`) vừa không bao
    *  giờ tắt (cờ `thu` lưu từ bố cục rộng còn sót lại). */
-  const troLyDangKhuat = cuaSo.thu || (!haiCot && tabHep !== "tro_ly");
+  const troLyDangKhuat = haiCot ? cuaSo.thu : tabHep !== "tro_ly";
   const daDemChuaDocRef = useRef<string | null>(null);
   useEffect(() => {
     if (sanKhau === null || !troLyDangKhuat || traCuu.dangChay || traCuu.ketQua === null) return;
