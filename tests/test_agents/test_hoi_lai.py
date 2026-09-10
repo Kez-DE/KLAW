@@ -247,3 +247,19 @@ def test_bo_loc_KHONG_loai_oan_cau_hoi_du_kien(cau):
 ])
 def test_bo_loc_chan_dang_so_GHEP_lam_va_mot(cau):
     assert bi_loai(cau), f"lọt qua bộ lọc: {cau!r}"
+
+
+def test_khong_goi_model_khi_moi_chieu_deu_da_biet():
+    """Bộ nhớ phiên đã lấp đủ sáu chiều ⇒ prompt sẽ chở một danh sách RỖNG, câu
+    model chọn bị lọc sạch, và `dung_cau_hoi_lai` trả `""` — đúng kết quả, nhưng
+    sau một lượt LLM trả tiền cho không. Chặn trước khi gọi."""
+    da_goi = []
+
+    class DemLlm(FakeLlm):
+        def chat(self, model, messages, json_schema=None):
+            da_goi.append(messages)
+            return super().chat(model, messages, json_schema)
+
+    ket = hoi_lai("tôi bị trừ lương", DemLlm(), "m", da_biet=frozenset(CHIEU))
+    assert da_goi == []
+    assert ket.cau == "" and ket.usage is None

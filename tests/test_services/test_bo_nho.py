@@ -289,3 +289,19 @@ def test_luot_8_van_biet_vai_va_loai_hop_dong(nguoi):
     cau = hoi_lai.dung_cau_hoi_lai([], da_biet=da_biet)
     assert "người lao động hay phía công ty" not in cau and "thời hạn thế nào" not in cau
     assert "Vai của bạn: người lao động" in bo_nho.khoi_tinh_huong(bn["ho_so"])
+
+
+def test_cap_nhat_phien_bo_qua_khi_phien_khong_thuoc_nguoi_goi(monkeypatch):
+    """`bo_nho_cua_phien` không lọc theo chủ (caller đã kiểm), nhưng `cap_nhat_phien`
+    GỘP hồ sơ phiên vào hồ sơ TÀI KHOẢN của `user_sub`. Một cặp (phiên, sub) lệch
+    nhau vì thế là một đường rò dữ liệu giữa hai tài khoản — phòng thủ theo chiều
+    sâu: giá trị cần so đã nằm sẵn trong `bn`."""
+    ghi = []
+    monkeypatch.setattr(
+        hoi_thoai,
+        "bo_nho_cua_phien",
+        lambda pid: {"ho_so": {}, "khong_ghi_nho": False, "tom_tat": None, "tom_tat_den_thu_tu": 0, "user_sub": "chu-that"},
+    )
+    monkeypatch.setattr(hoi_thoai, "dem_luot", lambda pid: ghi.append(pid) or 1)
+    bo_nho.cap_nhat_phien("pid", "ke-khac")
+    assert ghi == [], "không được đọc/ghi gì thêm cho một phiên không thuộc người gọi"

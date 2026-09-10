@@ -215,6 +215,13 @@ def cap_nhat_phien(hoi_thoai_id: str, user_sub: str, llm=None, model: str | None
     usage: Usage | None = None
     try:
         bn = hoi_thoai.bo_nho_cua_phien(hoi_thoai_id)
+        # `bo_nho_cua_phien` KHÔNG lọc theo chủ (caller đã kiểm), nhưng hàm này gộp
+        # hồ sơ phiên vào hồ sơ TÀI KHOẢN của `user_sub` — một cặp (phiên, sub) lệch
+        # nhau là một đường rò giữa hai tài khoản. Giá trị cần so đã nằm sẵn trong
+        # `bn`, nên phòng thủ theo chiều sâu ở đây không tốn một truy vấn nào.
+        if bn["user_sub"] != user_sub:
+            logger.error("bo_nho: phiên %s không thuộc người gọi — bỏ qua cập nhật", hoi_thoai_id)
+            return
         if bn["khong_ghi_nho"]:
             return
         thu_tu_moi = hoi_thoai.dem_luot(hoi_thoai_id)

@@ -266,6 +266,12 @@ def hoi_lai(cau_hoi: str, llm, model: str, da_biet: frozenset[str] = frozenset()
     để không hỏi lại một dữ kiện đã biết.
     """
     chieu_con = {ma: cau for ma, cau in CHIEU.items() if ma not in da_biet}
+    if not chieu_con:
+        # Bộ nhớ phiên đã lấp đủ sáu chiều: prompt sẽ chở một danh sách RỖNG, mọi
+        # chiều model chọn bị lọc lại ở `chon`, và `dung_cau_hoi_lai` trả "" — đúng
+        # kết quả, sau một lượt LLM trả tiền cho không. Không có gì để hỏi thì
+        # không gọi.
+        return KetQuaHoiLai("", None, "llm")
     prompt = PROMPT_PATH.read_text(encoding="utf-8").format(
         cau_hoi=cau_hoi,
         toi_da=TOI_DA,

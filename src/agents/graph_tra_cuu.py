@@ -2,13 +2,17 @@
 
 [giai_nghia] → suy_dien → route → tien_de → rewrite_query → retrieve_hybrid
              → expand → generate_claims → verify_tier1 → verify_tier2 → assemble
+                      ↘ gom_du_kien → [dung_ban_thao] → assemble   (intent soan_thao)
 
-`giai_nghia` CHỈ chạy khi `lich_su` khác rỗng (lượt hỏi nối tiếp), nên lượt đầu
-của mỗi hội thoại không tốn thêm một token nào. `suy_dien` (QT-5) LUÔN chạy khi
-tới được `route` — 0 token, suy vai người hỏi từ câu hỏi khi hồ sơ chưa có.
+`giai_nghia` chạy khi `lich_su` khác rỗng HOẶC phiên đã có `tom_tat` (K lượt
+nguyên văn đã cuộn hết vào tóm tắt không có nghĩa hội thoại chưa từng có lượt
+nào — xem `_vao_graph`), nên lượt đầu THẬT của mỗi hội thoại không tốn thêm một
+token nào. `suy_dien` (QT-5) LUÔN chạy khi tới được `route` — 0 token, suy vai
+người hỏi từ câu hỏi khi hồ sơ chưa có.
 
 Ba đường rẽ tắt, tất cả đổ về `assemble`:
-* `ngoai_pham_vi`/`gioi_thieu`/`soan_thao`/`hoi_ve_kho` — rẽ ngay sau `route`;
+* `ngoai_pham_vi`/`gioi_thieu`/`hoi_ve_kho` — rẽ ngay sau `route` (`soan_thao`
+  KHÔNG còn ở đây từ Task 19: nó đi `gom_du_kien` trước, xem `_re_sau_route`);
 * `tien_de_sai` — phép kiểm thứ sáu, rẽ trước rewrite/retrieve;
 * `cau_hoi_day_du is None` — không giải nghĩa được câu nối tiếp, rẽ ngay sau
   `giai_nghia` vào đúng đường ngõ cụt đã có.
