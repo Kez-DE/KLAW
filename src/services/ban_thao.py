@@ -20,7 +20,10 @@ TRAN_SUA = 10
 LOI_KHONG_THAY = "Không tìm thấy bản thảo này."
 LOI_HET_LAN_SUA = f"Bản thảo này đã sửa {TRAN_SUA} lần. Mở bản mới để tiếp tục."
 
-_COT = "id::text AS id, hoi_thoai_id::text AS hoi_thoai_id, loai, facts, document, clauses, audit, phien_ban, phien_ban_truoc, tao_luc, cap_nhat_luc"
+_COT = (
+    "id::text AS id, hoi_thoai_id::text AS hoi_thoai_id, loai, facts, document, clauses, audit,"
+    " phien_ban, phien_ban_truoc, so_lan_sua, tao_luc, cap_nhat_luc"
+)
 _SQL_TAO = text(
     "INSERT INTO ban_thao (user_sub, hoi_thoai_id, loai, facts, document, clauses, audit)"
     " VALUES (CAST(:sub AS uuid), CAST(:pid AS uuid), :loai, CAST(:facts AS jsonb), :document,"
@@ -31,7 +34,8 @@ _SQL_LAY = text(
 )
 _SQL_SUA = text(
     "UPDATE ban_thao SET facts = CAST(:facts AS jsonb), document = :document, clauses = CAST(:clauses AS jsonb),"
-    " audit = CAST(:audit AS jsonb), phien_ban = :phien_ban, phien_ban_truoc = CAST(:truoc AS jsonb), cap_nhat_luc = now()"
+    " audit = CAST(:audit AS jsonb), phien_ban = :phien_ban, phien_ban_truoc = CAST(:truoc AS jsonb),"
+    " so_lan_sua = so_lan_sua + :tang, cap_nhat_luc = now()"
     " WHERE id = CAST(:id AS uuid) AND user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL RETURNING " + _COT
 )
 _SQL_DS = text(
@@ -169,6 +173,8 @@ def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
                     "audit": _j(ket["audit_report"]),
                     "phien_ban": cu["phien_ban"] + 1,
                     "truoc": _j(truoc),
+                    # Bộ đếm trần sửa — chỉ ĐI LÊN, và chỉ ở đây (xem `lui`).
+                    "tang": 1,
                 },
             )
             .mappings()
@@ -187,16 +193,18 @@ async def dung_lai(sub: str, id: str, facts: dict, hoi_thoai_id: str | None = No
     hội thoại đang mở); hàm CHƯA dùng tới nó — `_ghi_traces` không có cột đó,
     và endpoint gọi hàm này không có hội thoại nào để truyền.
 
-    Trần sửa tính trên CHÍNH `phien_ban_truoc` đã lưu (không phải một bộ đếm
-    phiên riêng): mảng đó bị `sua()` kẹp còn tối đa `TRAN_SUA` phần tử, nên một
-    khi đã chạm trần thì độ dài của nó đứng yên ở `TRAN_SUA` mãi mãi — đúng ý
-    nghĩa "bản thảo NÀY đã sửa đủ `TRAN_SUA` lần", bất kể qua bao nhiêu phiên
-    hội thoại khác nhau.
+    Trần sửa đo bằng cột ĐƠN ĐIỆU `so_lan_sua` (migration 025), KHÔNG bằng độ
+    dài `phien_ban_truoc`: mảng đó là ngăn xếp hoàn tác và `lui()` BỚT nó đi,
+    nên đo trên nó thì xen kẽ `lui` (miễn phí, 0 token) với `dung` (một lượt LLM
+    trả phí) đặt lại trần và mở một vòng lặp tiêu tiền không chặn được. Cột này
+    chỉ do `sua()` tăng, `lui()` không đụng tới — nên "bản thảo NÀY đã sửa đủ
+    `TRAN_SUA` lần" là một sự thật không lùi lại được, bất kể qua bao nhiêu phiên
+    hội thoại hay bao nhiêu lần hoàn tác.
     """
     cu = await run_in_threadpool(chi_tiet, sub, id)
     if cu is None:
         return None
-    if len(cu["phien_ban_truoc"] or []) >= TRAN_SUA:
+    if int(cu["so_lan_sua"] or 0) >= TRAN_SUA:
         raise ValueError(LOI_HET_LAN_SUA)
     bat_dau = time.monotonic()
     st = await graph_soan_thao_cached().ainvoke(
@@ -252,6 +260,9 @@ def lui(sub: str, id: str) -> dict | None:
                     "audit": _j(gan["audit"]),
                     "phien_ban": gan["phien_ban"],
                     "truoc": _j(con),
+                    # `tang = 0`: lùi KHÔNG trả lại một lần sửa. Trần đo bằng cột đơn điệu
+                    # `so_lan_sua` chính vì mảng `phien_ban_truoc` bị hàm này bớt đi.
+                    "tang": 0,
                 },
             )
             .mappings()

@@ -214,8 +214,8 @@ def build_graph_tra_cuu():
         `POST /ban-thao/{id}/dung` của drawer xếp chồng (Task 25) gọi — nên trần
         sửa, cách chạy graph và cách ghi trace chỉ có MỘT bản, không phải một bản
         ở đây và một bản ở service. Guard `so_lan_sua` cũ (đếm theo phiên hội
-        thoại đang mở) đã bị bỏ: `dung_lai` tự kiểm trần trên CHÍNH lịch sử đã
-        lưu của bản thảo (`phien_ban_truoc`), nên một bản thảo đã sửa đủ
+        thoại đang mở) đã bị bỏ: `dung_lai` tự kiểm trần trên CHÍNH bộ đếm đơn
+        điệu của bản thảo (`so_lan_sua`, migration 025), nên một bản thảo đã sửa đủ
         `TRAN_SUA` lần bị chặn dù người dùng mở một phiên hội thoại mới.
         """
         sd = st["soan_thao_dang_mo"]

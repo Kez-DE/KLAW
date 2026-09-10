@@ -58,6 +58,21 @@ def graph_soan_thao_gia(monkeypatch):
     monkeypatch.setattr(ban_thao, "graph_soan_thao_cached", lambda: _GraphSoanThaoGia())
 
 
+def _cham_tran(ban_thao_id: str) -> None:
+    """Đưa bản thảo tới ĐÚNG trần sửa mà không chạy `TRAN_SUA` lượt dựng thật:
+    `so_lan_sua` là cột trần (migration 025), `phien_ban_truoc` chỉ là ngăn xếp
+    hoàn tác — đặt cả hai để trạng thái giống hệt một bản thảo đã sửa đủ."""
+    snap = {"phien_ban": 1, "document": "x", "facts": {}, "clauses": [], "audit": {}}
+    with get_engine().begin() as c:
+        c.execute(
+            text(
+                "UPDATE ban_thao SET phien_ban_truoc = CAST(:v AS jsonb), so_lan_sua = :n"
+                " WHERE id = CAST(:id AS uuid)"
+            ),
+            {"v": json.dumps([snap] * ban_thao.TRAN_SUA), "n": ban_thao.TRAN_SUA, "id": ban_thao_id},
+        )
+
+
 @pytest.fixture
 def hai_nguoi(cai_dat, khoa_ky):
     cai_dat(supabase_url=SUPABASE)
@@ -171,12 +186,25 @@ async def test_dung_het_tran_sua_429(client, khoa_ky, hai_nguoi, graph_soan_thao
     pid = hoi_thoai.tao_phien(a, "hợp đồng lao động")
     bt = ban_thao.tao(a, pid, "hdld", FACTS_HDLD, KET)
 
-    snap = {"phien_ban": 1, "document": "x", "facts": {}, "clauses": [], "audit": {}}
-    with get_engine().begin() as c:
-        c.execute(
-            text("UPDATE ban_thao SET phien_ban_truoc = CAST(:v AS jsonb) WHERE id = CAST(:id AS uuid)"),
-            {"v": json.dumps([snap] * ban_thao.TRAN_SUA), "id": bt["id"]},
-        )
+    _cham_tran(bt["id"])
+
+    r = await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": FACTS_HDLD}, headers=ha)
+    assert r.status_code == 429
+    assert r.json()["detail"] == ban_thao.LOI_HET_LAN_SUA
+
+
+@pytest.mark.asyncio
+async def test_lui_khong_mo_lai_tran_sua(client, khoa_ky, hai_nguoi, graph_soan_thao_gia):
+    """Đã chạm trần rồi `lui` (miễn phí, 0 token) thì `dung` (một lượt LLM trả phí)
+    VẪN bị từ chối — nếu không, xen kẽ hai lệnh này là một vòng lặp tiêu tiền không
+    có hạn mức nào chặn (`so_lan_sua` đơn điệu, migration 025)."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    pid = hoi_thoai.tao_phien(a, "hợp đồng lao động")
+    bt = ban_thao.tao(a, pid, "hdld", FACTS_HDLD, KET)
+    _cham_tran(bt["id"])
+
+    assert (await client.post(f"/api/v1/ban-thao/{bt['id']}/lui", headers=ha)).status_code == 200
 
     r = await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": FACTS_HDLD}, headers=ha)
     assert r.status_code == 429

@@ -105,3 +105,23 @@ def test_soan_thao_cua_phien(nguoi):
     assert hoi_thoai.soan_thao_cua_phien(nguoi, pid) == {}, "trạng thái rỗng-nhưng-hợp-lệ khác None"
     hoi_thoai.ghi_soan_thao(nguoi, pid, None)
     assert hoi_thoai.soan_thao_cua_phien(nguoi, pid) is None
+
+
+def test_lui_khong_tra_lai_lan_sua_da_dung(nguoi):
+    """`so_lan_sua` là bộ đếm ĐƠN ĐIỆU (migration 025): sửa ba lần rồi lùi ba lần
+    vẫn là ba lần đã sửa. Đo trần trên `phien_ban_truoc` — mảng mà `lui` bớt đi —
+    cho phép xen kẽ lùi (miễn phí) với dựng lại (một lượt LLM trả phí) để đặt lại
+    trần, tức một vòng lặp tiêu tiền không chặn được."""
+    pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
+    bt = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+    assert bt["so_lan_sua"] == 0
+
+    for i in range(3):
+        ban_thao.sua(nguoi, bt["id"], {"ho_ten": "A", "buoc": str(i)}, {**KET, "document": f"# ĐƠN v{i + 2}"})
+    assert ban_thao.chi_tiet(nguoi, bt["id"])["so_lan_sua"] == 3
+
+    for _ in range(3):
+        ban_thao.lui(nguoi, bt["id"])
+    sau = ban_thao.chi_tiet(nguoi, bt["id"])
+    assert sau["phien_ban_truoc"] == [] and sau["phien_ban"] == 1
+    assert sau["so_lan_sua"] == 3, "lùi KHÔNG được trả lại một lần sửa nào"
