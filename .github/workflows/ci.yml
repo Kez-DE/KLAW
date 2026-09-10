@@ -9,6 +9,17 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    # Eight API tests outside the integration lane still open a real Postgres
+    # (quota, auth and gate tests). Give them one with the same extensions the
+    # migrations need, migrated before pytest runs.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env: { POSTGRES_USER: klaw, POSTGRES_PASSWORD: klaw, POSTGRES_DB: klaw }
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://klaw:klaw@localhost:5432/klaw
 
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +35,9 @@ jobs:
 
       - name: Lint with ruff
         run: ruff check src/ tests/
+
+      - name: Apply migrations to the test database
+        run: python -c "from src.services.db import run_migrations; print(len(run_migrations()), 'migrations')"
 
       - name: Run tests
         run: pytest tests/ -v --tb=short -m "not integration and not pending_review"
