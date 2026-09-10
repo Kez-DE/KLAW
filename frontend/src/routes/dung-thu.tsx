@@ -886,7 +886,12 @@ function ManHoiKlaw() {
           /* Bố cục hẹp (Task 26, spec 2026-09-09 §9.7): dưới 68rem sân khấu
              không có chỗ cho hai cột lẫn cửa sổ trợ lý nổi — toàn màn hình
              thành một trong hai tab, KHÔNG render `CuaSoTroLy`. */
-          <div className="fixed inset-0 z-40 flex flex-col bg-background">
+          <div
+            role="dialog"
+            aria-modal
+            aria-label="Bản thảo"
+            className="fixed inset-0 z-50 flex flex-col bg-background"
+          >
             <div className="min-h-0 flex-1">
               {tabHep === "ban_thao" ? (
                 banThaoDangTaiXong !== null ? (
