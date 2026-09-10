@@ -31,16 +31,38 @@ export function NganXepDrawer({ ngan, onDong, render, toanMan }: Props) {
 
   useEffect(() => {
     if (soTang === 0) return;
+    // Chỉ bắt nơi mở ở lần chuyển 0 → >0. Mở tấm thứ hai thì `activeElement`
+    // là một nút BÊN TRONG tấm thứ nhất (sắp bị `inert`); đóng bớt một tấm thì
+    // nó là `<body>` (nút của tấm vừa gỡ đã biến mất). Ghi đè trong cả hai
+    // trường hợp làm mất đường về: `.focus()` trên `<body>` không làm gì, và
+    // người dùng bàn phím bị bỏ ở đầu tài liệu.
     const dangGiu = document.activeElement;
-    if (dangGiu instanceof HTMLElement && !tamTrenCung.current?.contains(dangGiu))
+    if (
+      noiMo.current === null &&
+      dangGiu instanceof HTMLElement &&
+      !tamTrenCung.current?.contains(dangGiu)
+    )
       noiMo.current = dangGiu;
     tamTrenCung.current?.querySelector<HTMLElement>("input, select, textarea, button")?.focus();
     const nghe = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onDong();
+      // Escape trong ô nhập là để đóng dropdown hay bỏ gõ, KHÔNG phải để vứt
+      // phần đang sửa dở trong tấm (`DrawerSuaMuc` giữ `facts` ở state cục bộ,
+      // không có nơi lưu). Cùng hai chốt như khung soạn thảo ở dung-thu.tsx.
+      if (e.key === "Escape") {
+        if (e.defaultPrevented) return;
+        if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select")) return;
+        onDong();
+      }
       if (e.key === "Tab" && tamTrenCung.current) {
-        const dong = tamTrenCung.current.querySelectorAll<HTMLElement>(
-          "input, select, textarea, button, a[href], [tabindex]:not([tabindex='-1'])",
-        );
+        // Lọc `disabled` và phần tử đang ẩn: lúc đang lưu, hai control cuối
+        // của `DrawerSuaMuc` (Huỷ `disabled`, Lưu) không giữ được tiêu điểm,
+        // nên "phần tử cuối" tính theo selector thô không bao giờ khớp
+        // `activeElement` và Tab đi thẳng ra ngoài tấm.
+        const dong = Array.from(
+          tamTrenCung.current.querySelectorAll<HTMLElement>(
+            "input, select, textarea, button, a[href], [tabindex]:not([tabindex='-1'])",
+          ),
+        ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
         if (dong.length === 0) return;
         const dau = dong[0]!,
           cuoi = dong[dong.length - 1]!;
@@ -58,7 +80,9 @@ export function NganXepDrawer({ ngan, onDong, render, toanMan }: Props) {
   }, [soTang, onDong]);
 
   useEffect(() => {
-    if (soTang === 0 && noiMo.current?.isConnected) noiMo.current.focus();
+    if (soTang !== 0) return;
+    if (noiMo.current?.isConnected) noiMo.current.focus();
+    noiMo.current = null; // đóng hết ⇒ quên nơi mở, lần mở sau bắt lại từ đầu
   }, [soTang]);
 
   if (soTang === 0) return null;
