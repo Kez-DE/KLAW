@@ -9,13 +9,14 @@ tồn tại (không phân biệt được với một id không có thật).
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from starlette.concurrency import run_in_threadpool
 
-from src.agents.graph_soan_thao import load_checklist_cached
+from src.agents.graph_soan_thao import load_checklist_cached, rules_cho
 from src.agents.nodes.gom_du_kien import con_thieu, lua_chon_sai
+from src.api.routes import _validate_facts
 from src.models.schemas import BanThaoOut, BanThaoTomTatOut, DanhSachBanThaoOut
-from src.services import ban_thao
+from src.services import ban_thao, bao_ve
 from src.services.bao_ve import nguoi_dung_bat_buoc
 
 router = APIRouter()
@@ -84,8 +85,29 @@ async def lui(id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BanThaoOut
     return _out(bt)
 
 
+FACTS_TOI_DA = 40
+GIA_TRI_TOI_DA = 500
+_KIEU_GIA_TRI = (str, int, float, bool, type(None))
+
+
 class DungLaiRequest(BaseModel):
     facts: dict
+
+    @field_validator("facts")
+    @classmethod
+    def _facts_trong_bien(cls, v: dict) -> dict:
+        """`facts` đi thẳng vào placeholder `{facts}` của `draft_generate` — một
+        lượt LLM TRẢ PHÍ. Không có biên thì mỗi lời gọi mang được tới trần body
+        (2 MB) vào prompt đó, tức kẻ gọi tự chọn giá của một request. Ba biên,
+        cùng khuôn với những gì biểu mẫu và `gom_du_kien` thật sự sinh ra."""
+        if len(v) > FACTS_TOI_DA:
+            raise ValueError(f"Quá nhiều dữ kiện: tối đa {FACTS_TOI_DA} trường.")
+        for khoa, gia_tri in v.items():
+            if not isinstance(gia_tri, _KIEU_GIA_TRI):
+                raise ValueError(f"Dữ kiện `{khoa}` phải là chữ, số hoặc đúng/sai.")
+            if isinstance(gia_tri, str) and len(gia_tri) > GIA_TRI_TOI_DA:
+                raise ValueError(f"Dữ kiện `{khoa}` dài quá {GIA_TRI_TOI_DA} ký tự.")
+        return v
 
 
 @router.post("/ban-thao/{id}/dung", response_model=BanThaoOut)
@@ -99,6 +121,14 @@ async def dung(id: str, body: DungLaiRequest, nguoi: dict = Depends(nguoi_dung_b
     cũng dùng (trực tiếp, hoặc gián tiếp qua ràng buộc `enum` của
     `schema_du_kien`) — để drawer không thành một đường vòng qua ràng buộc đó
     chỉ vì nó gọi thẳng HTTP thay vì trò chuyện.
+
+    ĐÂY LÀ MỘT ENDPOINT TIÊU TIỀN: `dung_lai` chạy `draft_generate` trên
+    `generate_model()`. Nó KHÔNG đếm vào hạn mức soạn thảo — spec §8.4 nói lần
+    sửa ghi trace `/api/v1/soan-thao/sua` và không đếm — nên ba cổng còn lại
+    phải có đủ: danh tính (`nguoi_dung_bat_buoc`), trần chi phí NGÀY của cả hệ
+    thống (`kiem_tran_chi_phi`, cùng cổng cuối mà `cong_bao_ve` gọi cho
+    `/tra-cuu` và `/soan-thao`), và trần sửa của CHÍNH bản thảo này
+    (`ban_thao.TRAN_SUA`, đo trên cột đơn điệu `so_lan_sua`).
     """
     id = _uuid_hop_le(id)
     cu = await run_in_threadpool(ban_thao.chi_tiet, nguoi["sub"], id)
@@ -116,6 +146,13 @@ async def dung(id: str, body: DungLaiRequest, nguoi: dict = Depends(nguoi_dung_b
             status_code=422,
             detail="Giá trị không hợp lệ cho: " + ", ".join(t["nhan"] for t in sai) + ".",
         )
+    # CHÍNH hàm mà `/soan-thao` dùng (nhập từ module route kia, cùng lệ đã có với
+    # `LOI_KHOA_BO_NHO` ở `routes_hoi_thoai`), không phải một bản chép: khoá trùng
+    # tên tham số của rule là 422 ở cả hai cửa, nếu không cửa này là đường vòng qua nó.
+    _validate_facts(body.facts, rules_cho(cu["loai"]))
+    # Cổng cuối trước ví tiền, ngay TRƯỚC lượt LLM trả phí — cùng vị trí và cùng
+    # hình dạng lỗi (429/503 do chính hàm ném) như `cong_bao_ve` gọi nó.
+    await run_in_threadpool(bao_ve.kiem_tran_chi_phi)
     try:
         bt = await ban_thao.dung_lai(nguoi["sub"], id, body.facts)
     except ValueError as e:

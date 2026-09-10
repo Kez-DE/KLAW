@@ -4,6 +4,7 @@ import json
 import uuid
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import text
 
 from src.services import ban_thao, bao_ve, hoi_thoai
@@ -225,3 +226,63 @@ async def test_id_sai_dinh_dang_uuid_la_404(client, khoa_ky, hai_nguoi):
 @pytest.mark.asyncio
 async def test_khong_dang_nhap_401(client):
     assert (await client.get("/api/v1/ban-thao")).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_dung_tu_choi_khi_cham_tran_chi_phi_ngay(client, khoa_ky, hai_nguoi, graph_soan_thao_gia, monkeypatch):
+    """`dung` chạy `draft_generate` trên model trả phí nhưng KHÔNG đếm vào hạn mức
+    soạn thảo (spec §8.4), nên trần chi phí NGÀY là cổng cuối trước ví tiền — cùng
+    cổng mà `cong_bao_ve` gọi cho `/tra-cuu` và `/soan-thao`, cùng hình dạng lỗi."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    pid = hoi_thoai.tao_phien(a, "hợp đồng lao động")
+    bt = ban_thao.tao(a, pid, "hdld", FACTS_HDLD, KET)
+
+    def _het_tien():
+        raise HTTPException(status_code=429, detail="Đã đạt trần chi phí ngày (2.0 USD; đã dùng 2.10000 USD).")
+
+    monkeypatch.setattr(bao_ve, "kiem_tran_chi_phi", _het_tien)
+    r = await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": FACTS_HDLD}, headers=ha)
+    assert r.status_code == 429
+    assert "trần chi phí ngày" in r.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_dung_tu_choi_facts_qua_bien_422(client, khoa_ky, hai_nguoi, graph_soan_thao_gia):
+    """Biên `facts` (số khoá, kiểu, độ dài chuỗi) phải chặn TẠI HTTP, trước lượt
+    LLM trả phí — xem `DungLaiRequest._facts_trong_bien`."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    pid = hoi_thoai.tao_phien(a, "hợp đồng lao động")
+    bt = ban_thao.tao(a, pid, "hdld", FACTS_HDLD, KET)
+
+    qua_dai = {**FACTS_HDLD, "ghi_chu": "x" * 501}
+    assert (
+        await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": qua_dai}, headers=ha)
+    ).status_code == 422
+    sai_kieu = {**FACTS_HDLD, "ghi_chu": {"long": "dong"}}
+    assert (
+        await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": sai_kieu}, headers=ha)
+    ).status_code == 422
+    qua_nhieu = {**FACTS_HDLD, **{f"k{i}": "x" for i in range(40)}}
+    assert (
+        await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": qua_nhieu}, headers=ha)
+    ).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_dung_tu_choi_facts_trung_ten_tham_so_rule_422(client, khoa_ky, hai_nguoi, graph_soan_thao_gia):
+    """Cùng 422 mà `/soan-thao` trả cho khoá trùng tên tham số của rule
+    (`routes._validate_facts`) — cửa này không được là đường vòng qua nó."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    pid = hoi_thoai.tao_phien(a, "hợp đồng lao động")
+    bt = ban_thao.tao(a, pid, "hdld", FACTS_HDLD, KET)
+
+    r = await client.post(
+        f"/api/v1/ban-thao/{bt['id']}/dung",
+        json={"facts": {**FACTS_HDLD, "bang_thang": 0}},
+        headers=ha,
+    )
+    assert r.status_code == 422
+    assert "bang_thang" in r.text

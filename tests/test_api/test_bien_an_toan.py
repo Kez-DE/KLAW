@@ -81,3 +81,33 @@ def test_soat_tu_choi_van_ban_qua_lon(c):
     trình uvicorn (một worker) cho MỌI người dùng khác."""
     r = c.post("/api/v1/soat", json={"loai_van_ban": "hdld", "text": "x" * 2_000_000})
     assert r.status_code == 422
+
+
+# ── 4. facts của `/ban-thao/{id}/dung` phải có BIÊN ─────────────────────────
+@pytest.mark.parametrize("facts,cum", [
+    ({f"k{i}": "x" for i in range(41)}, "tối đa"),
+    ({"ghi_chu": {"long": "dong"}}, "ghi_chu"),
+    ({"ghi_chu": ["a", "b"]}, "ghi_chu"),
+    ({"ghi_chu": "x" * 501}, "ghi_chu"),
+])
+def test_dung_lai_tu_choi_facts_qua_bien(facts, cum):
+    """`facts` của endpoint dựng lại đi thẳng vào placeholder `{facts}` của
+    `draft_generate` — một lượt LLM TRẢ PHÍ. Không có biên thì mỗi lời gọi mang
+    được tới trần body (2 MB) vào prompt đó, tức kẻ gọi tự chọn giá của một
+    request. Biên: tối đa 40 khoá, giá trị là chữ/số/đúng-sai/rỗng, chữ dưới 500
+    ký tự — 422 với câu tiếng Việt, không phải 500 hay một prompt khổng lồ."""
+    from pydantic import ValidationError
+
+    from src.api.routes_ban_thao import DungLaiRequest
+
+    with pytest.raises(ValidationError) as e:
+        DungLaiRequest(facts=facts)
+    assert cum in str(e.value)
+
+
+def test_dung_lai_nhan_facts_hop_le():
+    """Bốn kiểu giá trị mà `gom_du_kien`/biểu mẫu thật sinh ra phải đi qua được."""
+    from src.api.routes_ban_thao import DungLaiRequest
+
+    hop_le = {"ten": "Nguyễn Văn A", "so_ngay": 30, "ty_le": 0.5, "co_phu_luc": True, "ghi_chu": None}
+    assert DungLaiRequest(facts=hop_le).facts == hop_le
