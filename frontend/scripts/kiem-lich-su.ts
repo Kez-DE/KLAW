@@ -29,18 +29,19 @@ const kq = (answer: string | null, duongDan: string[] = []) =>
     cau_hoi_day_du: null,
   }) as unknown as LuotDaXong["ketQua"];
 
-// Chỉ ba lượt CUỐI, và đúng thứ tự (mới nhất sau cùng).
+// Chỉ TOI_DA_LUOT_LICH_SU lượt CUỐI, và đúng thứ tự (mới nhất sau cùng).
+// Nạp NHIỀU HƠN trần để phép cắt thật sự bị thử; kỳ vọng suy ra từ hằng số,
+// không hard-code nhãn — nếu không, trần đổi thì test không còn thử gì cả.
 {
-  const nam: LuotDaXong[] = [1, 2, 3, 4, 5].map((i) => ({
-    cauHoi: `câu ${i}`,
-    ketQua: kq(`đáp ${i}`),
-  }));
+  const tongSo = TOI_DA_LUOT_LICH_SU + 5;
+  const cauHoiTatCa = Array.from({ length: tongSo }, (_, i) => `câu ${i + 1}`);
+  const nam: LuotDaXong[] = cauHoiTatCa.map((cauHoi) => ({ cauHoi, ketQua: kq(`đáp ${cauHoi}`) }));
   const ra = dungLichSu(nam);
   assert.equal(ra.length, TOI_DA_LUOT_LICH_SU, "phải cắt còn đúng trần của máy chủ");
   assert.deepEqual(
     ra.map((l) => l.cau_hoi),
-    ["câu 3", "câu 4", "câu 5"],
-    "phải giữ ba lượt CUỐI, mới nhất sau cùng",
+    cauHoiTatCa.slice(-TOI_DA_LUOT_LICH_SU),
+    "phải giữ đúng TOI_DA_LUOT_LICH_SU lượt CUỐI, mới nhất sau cùng",
   );
 }
 
