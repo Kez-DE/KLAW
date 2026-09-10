@@ -204,21 +204,28 @@ function ManHoiKlaw() {
   const [cauTrucSanKhau, datCauTrucSanKhau] = useState<CauTruc | null>(null);
   const [truongMauSanKhau, datTruongMauSanKhau] = useState<TruongFact[]>([]);
   const [dangTaiKhungSanKhau, datDangTaiKhungSanKhau] = useState(false);
+  /** Hỏng khung mục KHÔNG phải lỗi ngoài da: không có `facts` của mẫu thì
+   *  `DrawerSuaMuc` mở ra một biểu mẫu RỖNG, bấm Lưu là gửi lại y nguyên dữ
+   *  kiện cũ và dựng lại bản thảo cho không. Nói thẳng ra thay vì để im. */
+  const [loiKhungSanKhau, datLoiKhungSanKhau] = useState<string | null>(null);
   useEffect(() => {
     if (loaiSanKhau === undefined) {
       datCauTrucSanKhau(null);
       datTruongMauSanKhau([]);
+      datLoiKhungSanKhau(null);
       datDangTaiKhungSanKhau(false);
       return;
     }
     const dieuKhien = new AbortController();
     datDangTaiKhungSanKhau(true);
+    datLoiKhungSanKhau(null);
     void goi(`/mau/${encodeURIComponent(loaiSanKhau)}`, laMau, {
       signal: dieuKhien.signal,
     }).then((kq) => {
       if (dieuKhien.signal.aborted) return;
       datCauTrucSanKhau(kq.ok ? kq.data.cau_truc : null);
       datTruongMauSanKhau(kq.ok ? kq.data.facts : []);
+      datLoiKhungSanKhau(kq.ok ? null : kq.error.message);
       datDangTaiKhungSanKhau(false);
     });
     return () => dieuKhien.abort();
@@ -931,6 +938,7 @@ function ManHoiKlaw() {
                     cauTruc={cauTrucSanKhau}
                     truongMau={truongMauSanKhau}
                     dangTai={dangTaiKhungSanKhau}
+                    loiKhung={loiKhungSanKhau}
                     mucDangChon={mucDangChonSanKhau}
                     onChonMuc={datMucDangChonSanKhau}
                     capNhatBanThao={datBanThaoMo}
@@ -1005,6 +1013,7 @@ function ManHoiKlaw() {
                 cauTruc={cauTrucSanKhau}
                 truongMau={truongMauSanKhau}
                 dangTai={dangTaiKhungSanKhau}
+                loiKhung={loiKhungSanKhau}
                 mucDangChon={mucDangChonSanKhau}
                 onChonMuc={datMucDangChonSanKhau}
                 capNhatBanThao={datBanThaoMo}

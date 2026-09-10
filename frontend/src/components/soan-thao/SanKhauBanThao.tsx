@@ -113,6 +113,9 @@ interface Props {
   /** `cauTruc`/`truongMau` đang tải — cột trái đợi thay vì đoán số mục từ
    *  `clauses` rồi vẽ lại một lần nữa khi khung tới. */
   dangTai: boolean;
+  /** `GET /mau/{loai}` hỏng: không có khung mục thì "Sửa" mở ra biểu mẫu rỗng
+   *  và lưu đè dữ kiện cũ — nói lỗi ra ở đúng chỗ danh sách mục, không im. */
+  loiKhung: string | null;
   mucDangChon: string | null;
   onChonMuc: (key: string) => void;
   /** Bản thảo vừa dựng lại xong (drawer sửa mục, Task 25) → cập nhật state
@@ -149,6 +152,7 @@ export function SanKhauBanThao({
   cauTruc,
   truongMau,
   dangTai,
+  loiKhung,
   mucDangChon,
   onChonMuc,
   capNhatBanThao,
@@ -205,6 +209,10 @@ export function SanKhauBanThao({
    *  nhau ở lần sửa sau. */
   const danhSachMuc = dangTai ? (
     <p className="m-0 text-[13px] text-muted-foreground">Đang tải khung mục…</p>
+  ) : loiKhung !== null ? (
+    <p role="alert" className="m-0 text-[13px] text-destructive">
+      Không tải được khung mục của loại văn bản này, nên chưa sửa được từng mục. {loiKhung}
+    </p>
   ) : muc.length === 0 ? (
     <p className="m-0 text-[13px] text-muted-foreground">Loại văn bản này chưa có khung mục.</p>
   ) : (
