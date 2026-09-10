@@ -33,7 +33,7 @@ def test_yaml_that_doc_duoc_va_dung_so():
     assert bao_ve.han_muc("free", "luot_moi_phien") == 30
     assert bao_ve.han_muc("pro", "hoi_dap_ngay") == 500
     assert bao_ve.han_muc("pro", "luot_moi_phien") >= 100_000
-    assert bao_ve.la_chan("free_hoi_dap_thang") == 3000
+    assert bao_ve.la_chan("free_hoi_dap_thang") == 3100  # 100 × 31, xem chú thích trong YAML
     assert bao_ve.la_chan("ip_ngay") == 1500
     assert bao_ve.KHOA_LA_CHAN == ("free_hoi_dap_thang", "ip_ngay")
 

@@ -24,8 +24,21 @@ KET_QUA = Path(__file__).resolve().parent / "results"
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _chuan_hoa(gia_tri) -> str:
+    """Gộp khoảng trắng, hạ chữ thường, bỏ tiền tố "hợp đồng " thừa.
+
+    `prompts/bo_nho.v1.md` liệt kê giá trị `loai_hop_dong` bằng cụm trần ("thử
+    việc", "xác định thời hạn"), nhưng mô hình thường trích cả tiền tố ("hợp đồng
+    thử việc 2 tháng"). Đó là CÙNG một dữ kiện, và chấm trượt vì một chữ thừa là
+    đo sai chính thứ giai đoạn này muốn chứng minh. Bỏ tiền tố ở CẢ HAI vế rồi
+    vẫn so nguyên văn — nới đúng một chữ, không nới thành substring.
+    """
+    g = " ".join(str(gia_tri or "").split()).lower()
+    return g.removeprefix("hợp đồng ")
+
+
 def dung_du_kien(ky_vong: dict, ho_so_da_dung: list[dict], answer: str) -> bool:
-    """So khớp NGUYÊN VĂN đã chuẩn hoá (gộp khoảng trắng, hạ chữ thường) — KHÔNG substring.
+    """So khớp NGUYÊN VĂN đã chuẩn hoá (`_chuan_hoa`) — KHÔNG substring.
 
     Review round 1 (Important): `substring in` từng khớp `"xác định thời hạn"` vào CẢ
     `"không xác định thời hạn"` — hai loại hợp đồng ĐỐI LẬP, cả hai đều là output thật
@@ -35,9 +48,9 @@ def dung_du_kien(ky_vong: dict, ho_so_da_dung: list[dict], answer: str) -> bool:
     từ con, nên so ĐÚNG TOÀN BỘ trên MỌI khoá — nới lỏng cho khoá tự do cụ thể khi có
     nhu cầu thật, không phải trước.
     """
-    da = {d["khoa"]: " ".join(str(d.get("gia_tri") or "").split()).lower() for d in ho_so_da_dung}
+    da = {d["khoa"]: _chuan_hoa(d.get("gia_tri")) for d in ho_so_da_dung}
     for khoa, gia_tri in (ky_vong.get("ho_so") or {}).items():
-        if khoa not in da or " ".join(str(gia_tri).split()).lower() != da[khoa]:
+        if khoa not in da or _chuan_hoa(gia_tri) != da[khoa]:
             return False
     return all(cum.lower() in (answer or "").lower() for cum in ky_vong.get("answer_co") or [])
 
@@ -47,7 +60,7 @@ def tom_tat_diem(ket: list[dict]) -> dict:
 
     Review round 2 (Important): một hội thoại lỗi hạ tầng (429, mất mạng…) không có
     khoá `dung` (khác round 1, khoá đó từng bị gán cứng `False`). Loại nó khỏi CẢ tử
-    số lẫn mẫu số của `ty_le_dung_du_kien` — cùng cam kết `eval/run_trap.py::chay` và
+    số lẫn mẫu số của `ty_le_giu_du_kien` — cùng cam kết `eval/run_trap.py::chay` và
     `eval/run._run_items` đã ghi trong docstring: lỗi hạ tầng không phải một câu trả
     lời sai, gộp chung sẽ làm tỉ lệ đúng tụt vì một cái không liên quan tới bộ nhớ.
     """
@@ -58,7 +71,7 @@ def tom_tat_diem(ket: list[dict]) -> dict:
         "so_cham": len(cham),
         "dung": dung,
         "so_loi": len(loi),
-        "ty_le_dung_du_kien": round(dung / len(cham), 3) if cham else 0.0,
+        "ty_le_giu_du_kien": round(dung / len(cham), 3) if cham else 0.0,
     }
 
 
@@ -118,7 +131,7 @@ async def main(limit: int | None, out: Path | None) -> int:
     duong.parent.mkdir(parents=True, exist_ok=True)
     duong.write_text(json.dumps(bao_cao, ensure_ascii=False, indent=2), encoding="utf-8")
     print(
-        f"{tt['dung']}/{tt['so_cham']} hội thoại chấm được dùng đúng dữ kiện, "
+        f"{tt['dung']}/{tt['so_cham']} hội thoại chấm được giữ đúng dữ kiện, "
         f"{tt['so_loi']} hội thoại lỗi không chạy được (không tính vào tỉ lệ đúng/sai) — {duong}"
     )
     if tt["so_loi"]:

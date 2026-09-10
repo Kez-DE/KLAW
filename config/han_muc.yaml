@@ -24,10 +24,13 @@ goi:
 
 # Lá chắn chống lạm dụng: cưỡng chế với 429 nói thật, KHÔNG hiện thanh đo.
 # Pro không còn lá chắn ngày riêng: 500/ngày nay là hạn mức thật (spec 2026-09-09 §5).
-# `free_hoi_dap_thang` = 100 × 30 để trần tháng không đứng dưới hạn mức ngày.
+# `free_hoi_dap_thang` = 100 × 31, KHÔNG phải 100 × 30: cửa sổ tháng là THÁNG LỊCH
+# (`bao_ve.moc_thang` = `moc_ngay().replace(day=1)`), nên bảy tháng trong năm có 31
+# ngày. Để 3000 thì ở đúng bảy tháng ấy lá chắn chặn TRƯỚC hạn mức ngày, tức người
+# dùng đọc con số chống lạm dụng họ chưa từng nghe tới thay vì con số họ mua.
 # `ip_ngay` = 3 × 500 giữ nguyên lập luận cũ.
 la_chan:
-  free_hoi_dap_thang: 3000
+  free_hoi_dap_thang: 3100
   ip_ngay: 1500
 
 # Khách chưa đăng nhập (chỉ khi Supabase đã cấu hình): cửa sổ 24 giờ trượt, vì

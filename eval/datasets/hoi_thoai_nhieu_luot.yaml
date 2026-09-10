@@ -1,4 +1,6 @@
-# Đo bộ nhớ phiên (spec 2026-09-09 §6.7): lượt cuối phải dùng đúng dữ kiện nói ở các lượt đầu.
+# Đo bộ nhớ phiên (spec 2026-09-09 §6.7): lượt cuối phải GIỮ đúng dữ kiện nói ở các lượt đầu.
+# `answer_co` rỗng ở hầu hết mục, nên phép chấm là GIỮ (hồ sơ còn đúng khoá) chứ không phải
+# DÙNG (câu trả lời viện tới dữ kiện đó) — xem `ty_le_giu_du_kien` trong eval/run_hoi_thoai.py.
 # Không dùng để tinh chỉnh ngưỡng nào; chỉ báo cáo.
 hoi_thoai:
 - id: ht-001

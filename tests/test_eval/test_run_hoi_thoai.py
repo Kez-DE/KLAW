@@ -27,4 +27,17 @@ def test_tom_tat_diem_loai_hoi_thoai_loi_khoi_ca_tu_va_mau_so():
         {"id": "c", "error_type": "RuntimeError", "error": "mạng"},
     ]
     tt = tom_tat_diem(ket)
-    assert tt == {"so_cham": 2, "dung": 1, "so_loi": 1, "ty_le_dung_du_kien": 0.5}
+    assert tt == {"so_cham": 2, "dung": 1, "so_loi": 1, "ty_le_giu_du_kien": 0.5}
+
+
+def test_dung_du_kien_bo_qua_tien_to_hop_dong_thua():
+    """`bo_nho.v1.md` liệt kê giá trị `loai_hop_dong` bằng cụm trần ("thử việc"),
+    nhưng mô hình thường trích cả tiền tố ("hợp đồng thử việc") — cùng một dữ kiện,
+    chấm trượt vì một chữ. Bỏ tiền tố "hợp đồng " ở CẢ HAI vế rồi vẫn so NGUYÊN
+    VĂN, nên hai loại hợp đồng đối lập vẫn không lẫn vào nhau."""
+    kv = {"ho_so": {"loai_hop_dong": "thử việc 2 tháng"}}
+    assert dung_du_kien(kv, [{"khoa": "loai_hop_dong", "gia_tri": "Hợp đồng thử việc 2 tháng"}], "") is True
+    assert dung_du_kien({"ho_so": {"loai_hop_dong": "hợp đồng thử việc"}},
+                        [{"khoa": "loai_hop_dong", "gia_tri": "thử việc"}], "") is True
+    assert dung_du_kien({"ho_so": {"loai_hop_dong": "xác định thời hạn"}},
+                        [{"khoa": "loai_hop_dong", "gia_tri": "hợp đồng không xác định thời hạn"}], "") is False
