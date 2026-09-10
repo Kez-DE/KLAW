@@ -71,6 +71,12 @@ def _vuong_luoi_chan(g: str) -> bool:
     nhân — dùng chung bởi `gia_tri_hop_le` (hồ sơ) và `cap_nhat_phien` (tóm tắt), để
     một tóm tắt lọt số Điều hay số điện thoại không có đường thứ hai né lưới chặn.
 
+    Ngoại lệ "tháng" cũng cho lọt một chuỗi dạng "tháng 145/2020" (không ai viết
+    số hiệu văn bản như vậy, nhưng lưới không cấm được). Chấp nhận: khối
+    `{tinh_huong}` đã gắn nhãn KHÔNG phải căn cứ ở mọi prompt nhận nó, và tầng 1
+    đối chiếu nguyên văn MỌI trích dẫn với DB, nên một số hiệu lọt vào đây không
+    chống đỡ được khẳng định nào.
+
     Known accepted false positive: một mốc thời gian KHÔNG có chữ "tháng" đứng
     trước ("làm từ 1/2020 đến nay") vẫn bị loại, vì tự nó không phân biệt được với
     một số hiệu văn bản. Lưới này fail closed có chủ ý — mất một dữ kiện thời điểm

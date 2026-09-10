@@ -425,8 +425,10 @@ Mỗi lượt là một lần chạy graph mới nên trạng thái phải nằm
 Bảng mới `ban_thao(id UUID PK, user_sub UUID REFERENCES users ON DELETE CASCADE,
 hoi_thoai_id UUID REFERENCES hoi_thoai ON DELETE SET NULL, loai TEXT, facts JSONB,
 document TEXT, clauses JSONB, audit JSONB, phien_ban INT, phien_ban_truoc JSONB,
-tao_luc, cap_nhat_luc)`, index `(user_sub, cap_nhat_luc DESC)`. `phien_ban_truoc` giữ
-tối đa 10 bản trước `{phien_ban, document, facts}` để lùi phiên bản. Đây là "bản thảo
+so_lan_sua INTEGER NOT NULL DEFAULT 0, tao_luc, cap_nhat_luc)`, index `(user_sub,
+cap_nhat_luc DESC)`. `phien_ban_truoc` giữ tối đa 10 bản trước `{phien_ban, document,
+facts}` để lùi phiên bản; `so_lan_sua` là bộ đếm ĐƠN ĐIỆU mang trần `so_lan_sua = 10`
+của §8.2 — chỉ lần sửa tăng, `lui` không giảm. Đây là "bản thảo
 đã lưu" của spec lịch sử hội thoại §10. `GET /api/v1/ban-thao`, `GET /api/v1/ban-thao/
 {id}`, `POST /api/v1/ban-thao/{id}/lui` (về phiên bản trước), `DELETE` mềm — dùng cho
 mục "Bản thảo" trong Gần đây.
