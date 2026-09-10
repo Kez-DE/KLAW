@@ -63,44 +63,57 @@ export function DrawerSuaMuc({ banThao, muc, truong, onLuu, onMoCanCu, onHuy }: 
           </button>
         )}
 
-        <div className="mt-4 flex flex-col gap-3">
-          {truong.map((t) => (
-            <label key={t.key} className="block text-[13px] text-muted-foreground">
-              {t.nhan}
-              {t.lua_chon !== null && t.lua_chon.length > 0 ? (
-                <select
-                  value={facts[t.key] ?? ""}
-                  onChange={(su) => datFacts((cu) => ({ ...cu, [t.key]: su.target.value }))}
-                  className={O_NHAP}
-                >
-                  <option value="">— chưa chọn —</option>
-                  {t.lua_chon.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  value={facts[t.key] ?? ""}
-                  onChange={(su) => datFacts((cu) => ({ ...cu, [t.key]: su.target.value }))}
-                  className={O_NHAP}
-                />
-              )}
-            </label>
-          ))}
-        </div>
+        {/* `facts: []` là câu trả lời HỢP LỆ của `GET /mau/{loai}`: có loại văn
+            bản không đặt trường dữ kiện nào (vd. đơn xin nghỉ việc). Khi đó
+            biểu mẫu rỗng cùng một nút "Lưu" sống là một cái bẫy — bấm Lưu gửi
+            lại y nguyên `facts` cũ và dựng lại cả bản thảo cho không. Chỉ đường
+            sang trợ lý, nơi việc sửa loại này thật sự làm được. */}
+        {truong.length === 0 ? (
+          <p className="m-0 mt-4 text-[13px] leading-relaxed text-muted-foreground">
+            Mẫu này chưa có trường để sửa trực tiếp. Hãy nói với Trợ lý điều bạn muốn đổi.
+          </p>
+        ) : (
+          <div className="mt-4 flex flex-col gap-3">
+            {truong.map((t) => (
+              <label key={t.key} className="block text-[13px] text-muted-foreground">
+                {t.nhan}
+                {t.lua_chon !== null && t.lua_chon.length > 0 ? (
+                  <select
+                    value={facts[t.key] ?? ""}
+                    onChange={(su) => datFacts((cu) => ({ ...cu, [t.key]: su.target.value }))}
+                    className={O_NHAP}
+                  >
+                    <option value="">— chưa chọn —</option>
+                    {t.lua_chon.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    value={facts[t.key] ?? ""}
+                    onChange={(su) => datFacts((cu) => ({ ...cu, [t.key]: su.target.value }))}
+                    className={O_NHAP}
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end gap-2 border-t border-border pt-3">
         <button type="button" onClick={onHuy} disabled={dangLuu} className={NUT_HUY}>
-          Huỷ
+          {truong.length === 0 ? "Đóng" : "Huỷ"}
         </button>
-        <div className="w-32">
-          <BrassButton loading={dangLuu} loadingLabel="Đang lưu…">
-            Lưu
-          </BrassButton>
-        </div>
+        {truong.length > 0 && (
+          <div className="w-32">
+            <BrassButton loading={dangLuu} loadingLabel="Đang lưu…">
+              Lưu
+            </BrassButton>
+          </div>
+        )}
       </div>
     </form>
   );
