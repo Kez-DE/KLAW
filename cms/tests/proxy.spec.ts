@@ -51,7 +51,7 @@ describe('proxy (spec §6.4)', () => {
     expect(url).toBe(`http://klaw.test/api/v1/admin/tai-khoan/${SUB}/goi?x=1`)
     expect(init.method).toBe('PATCH'); expect(init.body).toBe('{"plan":"pro"}')
     const h = new Headers(init.headers)
-    expect(h.get('x-admin-key')).toBe('khoa-test'); expect(h.get('x-admin-boi')).toBe('qt@klaw.test'); expect(h.get('x-forwarded-for')).toBe('9.9.9.9')
+    expect(h.get('x-admin-key')).toBe(process.env.KLAW_ADMIN_API_KEY); // tests/setup.ts đặt 'khoa-test' khi shell không xuất expect(h.get('x-admin-boi')).toBe('qt@klaw.test'); expect(h.get('x-forwarded-for')).toBe('9.9.9.9')
     const nk = await payload.find({ collection: 'nhat_ky_cms', where: { and: [{ hanh_dong: { equals: 'dat_goi' } }, { boi: { equals: 'qt@klaw.test' } }] }, overrideAccess: true })
     expect(nk.totalDocs).toBeGreaterThan(0)
   })

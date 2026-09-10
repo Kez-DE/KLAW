@@ -60,7 +60,8 @@ jobs:
       DATABASE_URI: postgres://postgres:postgres@localhost:5432/klaw_cms_test
       PAYLOAD_SECRET: ci-secret-not-used-elsewhere
       KLAW_API_URL: http://klaw.test/api/v1
-      KLAW_ADMIN_API_KEY: ci-key
+      # >= 16 ký tự để bundle.spec.ts kiểm được bí mật không lọt .next/static
+      KLAW_ADMIN_API_KEY: ci-khoa-thu-nghiem-khong-dung-o-dau-khac
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

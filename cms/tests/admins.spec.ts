@@ -14,10 +14,12 @@ afterAll(async () => {
 
 describe('admins (spec 2B §6.2)', () => {
   it('doc không đổi được vai_tro và hoat_dong của chính mình, đổi được tên', async () => {
-    const doc = await taoAdmin(payload, { vai_tro: 'doc' })
-    rac.push(doc.id)
+    // quan_tri TRƯỚC: trên database rỗng (CI) hook create-first-user ép người
+    // đầu tiên thành quan_tri, nên tạo `doc` trước sẽ nhận về một quản trị viên.
     const qt = await taoAdmin(payload, { vai_tro: 'quan_tri' })
     rac.push(qt.id)
+    const doc = await taoAdmin(payload, { vai_tro: 'doc' })
+    rac.push(doc.id)
     const sau = await payload.update({
       collection: 'admins',
       id: doc.id,
@@ -31,10 +33,10 @@ describe('admins (spec 2B §6.2)', () => {
   })
 
   it('doc không tạo và không xoá admin khác', async () => {
-    const doc = await taoAdmin(payload, { vai_tro: 'doc' })
-    rac.push(doc.id)
     const qt = await taoAdmin(payload, { vai_tro: 'quan_tri' })
     rac.push(qt.id)
+    const doc = await taoAdmin(payload, { vai_tro: 'doc' })
+    rac.push(doc.id)
     await expect(
       payload.create({
         collection: 'admins',
