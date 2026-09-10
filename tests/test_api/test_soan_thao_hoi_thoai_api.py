@@ -223,17 +223,21 @@ async def test_het_lan_sua_thi_hoi_lai_khong_dung_lai_ban_thao(
     )
     assert r2.json()["result_type"] == "ban_thao"
 
-    # `ban_thao.dung_lai` (Task 25) kiểm trần trên CHÍNH lịch sử đã lưu của
-    # bản thảo (`phien_ban_truoc`), không phải bộ đếm `so_lan_sua` của phiên
-    # hội thoại — cùng ghi chú ở `graph_tra_cuu.n_dung_ban_thao`. Mô phỏng
-    # "đã chạm trần" phải ghi thẳng `phien_ban_truoc` dài `TRAN_SUA` vào DÒNG
-    # THẬT của bản thảo, không còn ghi `so_lan_sua` vào state phiên nữa.
+    # `ban_thao.dung_lai` kiểm trần trên CỘT ĐƠN ĐIỆU `so_lan_sua` của DÒNG
+    # THẬT của bản thảo (migration 025) — không phải độ dài `phien_ban_truoc`
+    # (ngăn xếp hoàn tác, `lui` bớt đi được) và cũng không phải bộ đếm
+    # `so_lan_sua` của state phiên hội thoại. Mô phỏng "đã chạm trần" vì thế
+    # phải ghi cột đó; `phien_ban_truoc` đặt kèm chỉ để trạng thái giống hệt
+    # một bản thảo đã sửa đủ (cùng khuôn `test_ban_thao_api._cham_tran`).
     bt_id = r2.json()["ban_thao"]["id"]
     snap = {"phien_ban": 1, "document": "x", "facts": {}, "clauses": [], "audit": {}}
     with get_engine().begin() as c:
         c.execute(
-            text("UPDATE ban_thao SET phien_ban_truoc = CAST(:v AS jsonb) WHERE id = CAST(:id AS uuid)"),
-            {"v": json.dumps([snap] * ban_thao.TRAN_SUA), "id": bt_id},
+            text(
+                "UPDATE ban_thao SET phien_ban_truoc = CAST(:v AS jsonb), so_lan_sua = :n"
+                " WHERE id = CAST(:id AS uuid)"
+            ),
+            {"v": json.dumps([snap] * ban_thao.TRAN_SUA), "n": ban_thao.TRAN_SUA, "id": bt_id},
         )
     truoc = _dem_trace(sub, "/api/v1/soan-thao/sua")
 
