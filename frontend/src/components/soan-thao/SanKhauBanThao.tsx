@@ -136,6 +136,8 @@ const BIEN_MUC: Bien = { min: 240, max: 480 };
 const BIEN_ZOOM: Bien = { min: 50, max: 150 };
 const BUOC_ZOOM = 10;
 
+const CANH_BAO_LUI = "Lùi về bản trước; bản hiện tại bị bỏ, không làm lại được";
+
 const NUT_PHU =
   "focus-brass inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[12.5px] text-primary transition-colors hover:bg-[var(--color-paper-100)] disabled:cursor-not-allowed disabled:opacity-60";
 
@@ -277,9 +279,25 @@ export function SanKhauBanThao({
             v{banThao.phien_ban}
           </span>
           {banThao.phien_ban > 1 && (
-            <button type="button" onClick={onLui} className={NUT_PHU}>
-              <ChevronLeft className="size-3.5" aria-hidden /> Lùi
-            </button>
+            // Mũi tên lùi gợi ý "quay lại được", nhưng `POST /ban-thao/{id}/lui`
+            // là WALK chứ không phải TOGGLE: bản đang đứng bị bỏ hẳn phía máy
+            // chủ (api.ts). Nói ra một lần, cho cả chuột (`title`) lẫn trình
+            // đọc màn hình (`aria-describedby`) — không hứa một nút "làm lại"
+            // không tồn tại.
+            <>
+              <button
+                type="button"
+                onClick={onLui}
+                title={CANH_BAO_LUI}
+                aria-describedby="san-khau-canh-bao-lui"
+                className={NUT_PHU}
+              >
+                <ChevronLeft className="size-3.5" aria-hidden /> Lùi
+              </button>
+              <span id="san-khau-canh-bao-lui" className="sr-only">
+                {CANH_BAO_LUI}
+              </span>
+            </>
           )}
           {nhanDoi.length > 0 && (
             <button

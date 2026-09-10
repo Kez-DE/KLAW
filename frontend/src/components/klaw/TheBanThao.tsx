@@ -23,8 +23,12 @@ export function TheBanThao({ ketQua, onMo }: { ketQua: TraCuuKetQua; onMo: (id: 
           </p>
           <p className="m-0 mt-0.5 text-[13px] text-muted-foreground">
             Phiên bản {bt.phien_ban}
-            {bt.doi_so_voi_truoc.length > 0 &&
-              ` · đã đổi: ${bt.doi_so_voi_truoc.join(", ")}`} · {bt.clauses.length} mục
+            {/* ĐẾM, không liệt kê: `doi_so_voi_truoc` là khoá field thô
+                (`luong`, `thoi_han_hop_dong`) và nhãn tiếng Việt của chúng chỉ
+                có sau khi `GET /mau/{loai}` về — thẻ này không nạp mẫu. Tên
+                từng dữ kiện đã hiện đúng ở sân khấu, nơi nhãn đã có. */}
+            {bt.doi_so_voi_truoc.length > 0 && ` · đã đổi ${bt.doi_so_voi_truoc.length} dữ kiện`} ·{" "}
+            {bt.clauses.length} mục
           </p>
         </div>
         <button
