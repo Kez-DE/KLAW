@@ -22,6 +22,7 @@ import type { Citation, TraCuuKetQua } from "@/lib/klaw";
 import { chuanHoaLuot, laNhapPhien } from "@/lib/klaw";
 import type { LuotDaXong } from "@/lib/lich-su";
 import { dungLichSu } from "@/lib/lich-su";
+import { slugCuaLoai } from "@/lib/mau-van-ban";
 import { cn } from "@/lib/utils";
 
 /**
@@ -117,6 +118,16 @@ function ManHoiKlaw() {
     datDangMo(null);
     doiChieu.dong();
     datSoanThao({ slug });
+  };
+  /** Nhánh `ban_thao` (Task 21): mở khung soạn thảo hiện có với ĐÚNG loại của
+   *  bản thảo vừa dựng — tạm thời cho tới khi giai đoạn 5 dựng sân khấu thật
+   *  nạp lại nguyên nội dung `ban_thao` này. Nhận `TraCuuKetQua | null` thẳng
+   *  (thay vì đòi nơi gọi tự thu hẹp non-null trước): `ketQua` ở nơi gọi là
+   *  một truy cập thuộc tính, việc thu hẹp không sống sót qua một closure mới. */
+  const moBanThaoTuKetQua = (ketQua: TraCuuKetQua | null) => {
+    const loai = ketQua?.ban_thao?.loai;
+    if (loai === undefined) return;
+    moSoanThao(slugCuaLoai(loai)[0] ?? null);
   };
 
   // Lượt đã tải từ phiên đang mở — chỉ khi chi tiết vừa tải ĐÚNG là phiên
@@ -285,6 +296,10 @@ function ManHoiKlaw() {
     datNhap(cau);
     oHoi.current?.focus();
   };
+
+  /** Nhánh `soan_thao_hoi` khi `can_dang_nhap` (Task 21) — luôn quay lại đúng
+   *  màn này sau đăng nhập, "/dung-thu" nằm trong danh sách trắng của `?next=`. */
+  const onDangNhapDeSoan = () => void navigate({ to: "/dang-nhap", search: { next: "/dung-thu" } });
 
   // `phienMoi` PHẢI tự xoá `traCuu.hoiThoaiId` cùng lúc chuyển `?phien=` về
   // rỗng: nếu chỉ đổi URL, `traCuu.hoiThoaiId` cũ (khác `null`) còn sống qua
@@ -513,6 +528,9 @@ function ManHoiKlaw() {
                             if (kq !== null) chonTrichDan(kq, chiSo);
                           }}
                           onSoanThao={moSoanThao}
+                          onChip={dienGoiY}
+                          onDangNhap={onDangNhapDeSoan}
+                          onMoBanThao={() => moBanThaoTuKetQua(l.ketQua)}
                         />
                       )}
                     </Luot>
@@ -530,6 +548,9 @@ function ManHoiKlaw() {
                         chiSoDangMo={chiSoDangMoCua(luot.ketQua)}
                         onChonTrichDan={(chiSo) => chonTrichDan(luot.ketQua, chiSo)}
                         onSoanThao={moSoanThao}
+                        onChip={dienGoiY}
+                        onDangNhap={onDangNhapDeSoan}
+                        onMoBanThao={() => moBanThaoTuKetQua(luot.ketQua)}
                       />
                     </Luot>
                   ))}
@@ -577,6 +598,9 @@ function ManHoiKlaw() {
                             if (kq !== null) chonTrichDan(kq, chiSo);
                           }}
                           onSoanThao={moSoanThao}
+                          onChip={dienGoiY}
+                          onDangNhap={onDangNhapDeSoan}
+                          onMoBanThao={() => moBanThaoTuKetQua(traCuu.ketQua)}
                           onSuaHoSo={(khoa, giaTri) => {
                             const id = phienId ?? traCuu.hoiThoaiId;
                             // `error.message` đã là câu tiếng Việt hiển thị thẳng được

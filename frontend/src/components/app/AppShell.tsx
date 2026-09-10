@@ -11,7 +11,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { SheetDuoi } from "@/components/app/SheetDuoi";
-import { DanhSachPhien } from "@/components/klaw/DanhSachPhien";
+import { DanhSachBanThaoGanDay, DanhSachPhien } from "@/components/klaw/DanhSachPhien";
 import { ChuongThongBao } from "@/components/tai-khoan/ChuongThongBao";
 import { ThanTaiKhoan } from "@/components/tai-khoan/MenuTaiKhoan";
 import { TheTaiKhoan } from "@/components/tai-khoan/TheTaiKhoan";
@@ -19,6 +19,8 @@ import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { useKhungModalDangMo } from "@/hooks/use-khung-modal";
 import { useMinWidth } from "@/hooks/use-min-width";
 import { datKhongGhiNhoPhien } from "@/lib/api";
+import type { BanThaoTomTat } from "@/lib/klaw";
+import { slugCuaLoai } from "@/lib/mau-van-ban";
 import { dichQuayLaiTu, type DichQuayLai } from "@/lib/quay-lai";
 import { cn } from "@/lib/utils";
 
@@ -172,6 +174,20 @@ export function AppShell({
     />
   );
 
+  // Mở một bản thảo (Task 21): "sân khấu thật" đến ở giai đoạn 5, nên tạm mở
+  // khung soạn thảo hiện có tại `/soan-thao/$loaiVanBan` với ĐÚNG loại — chưa
+  // nạp lại nội dung của bản thảo này. Loại không có thẻ nào (`slugCuaLoai`
+  // trả `[]`) thì mở lưới chọn tay ở `/soan-thao`, không đoán bừa một slug.
+  const moBanThao = (banThao: BanThaoTomTat, dong: () => void) => {
+    dong();
+    const slug = slugCuaLoai(banThao.loai)[0];
+    if (slug === undefined) void navigate({ to: "/soan-thao" });
+    else void navigate({ to: "/soan-thao/$loaiVanBan", params: { loaiVanBan: slug } });
+  };
+  const banThaoGanDay = (dong: () => void) => (
+    <DanhSachBanThaoGanDay onMo={(banThao) => moBanThao(banThao, dong)} />
+  );
+
   return (
     <div className="flex min-h-screen bg-background">
       <aside
@@ -234,6 +250,7 @@ export function AppShell({
             </p>
             <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">
               {danhSachPhien(() => undefined)}
+              {banThaoGanDay(() => undefined)}
             </div>
           </div>
         )}
@@ -372,6 +389,7 @@ export function AppShell({
       {sheetPhien && !rong && (
         <SheetDuoi id="sheet-phien" nhan="Gần đây" onDong={() => datSheetPhien(false)}>
           {danhSachPhien(() => datSheetPhien(false))}
+          {banThaoGanDay(() => datSheetPhien(false))}
         </SheetDuoi>
       )}
 
@@ -387,6 +405,7 @@ export function AppShell({
                 Gần đây
               </p>
               {danhSachPhien(() => datSheetTaiKhoan(false))}
+              {banThaoGanDay(() => datSheetTaiKhoan(false))}
             </>
           ) : laKhach ? (
             <div>

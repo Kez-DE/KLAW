@@ -1,7 +1,8 @@
 import { Check, Eye, EyeOff, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { TrangThaiHoiThoai } from "@/hooks/use-hoi-thoai";
-import type { PhienTomTat } from "@/lib/klaw";
+import { danhSachBanThao } from "@/lib/api";
+import type { BanThaoTomTat, PhienTomTat } from "@/lib/klaw";
 import { thoiGianTuongDoi } from "@/lib/phien";
 import { cn } from "@/lib/utils";
 
@@ -307,5 +308,82 @@ export function DanhSachPhien({
         />
       ))}
     </ul>
+  );
+}
+
+function MotBanThaoGanDay({ banThao, onMo }: { banThao: BanThaoTomTat; onMo: () => void }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onMo}
+        className="focus-brass block w-full cursor-pointer rounded-lg p-2 text-left text-[12px] transition-colors hover:bg-card"
+      >
+        <span className="block truncate text-[13px] font-medium text-foreground">
+          {banThao.ten}
+        </span>
+        <span className="mt-0.5 block text-muted-foreground">
+          Phiên bản {banThao.phien_ban} · {thoiGianTuongDoi(banThao.cap_nhat_luc)}
+        </span>
+      </button>
+    </li>
+  );
+}
+
+/**
+ * Mục "Bản thảo" dưới danh sách phiên trong cột "Gần đây" (Task 21) — gọn,
+ * chỉ năm bản mới nhất, KHÔNG sửa/xoá tại chỗ (khác `MotPhien`): đây là lối
+ * tắt mở lại, không phải nơi quản lý bản thảo.
+ *
+ * Tự tải `danhSachBanThao(5)` — không có state dùng chung như `hoiThoai` cho
+ * phiên. Lỗi tải PHẢI hiện ra, không bị nuốt lặng lẽ: fire-and-forget nuốt
+ * lỗi là một phát hiện đã sửa ở nơi khác trong kế hoạch này, không lặp lại ở
+ * đây.
+ */
+export function DanhSachBanThaoGanDay({ onMo }: { onMo: (banThao: BanThaoTomTat) => void }) {
+  const [trangThai, datTrangThai] = useState<
+    | { dang: "dang_tai" }
+    | { dang: "loi"; message: string }
+    | { dang: "xong"; items: BanThaoTomTat[] }
+  >({ dang: "dang_tai" });
+
+  useEffect(() => {
+    let huy = false;
+    void danhSachBanThao(5).then((kq) => {
+      if (huy) return;
+      datTrangThai(
+        kq.ok ? { dang: "xong", items: kq.data.items } : { dang: "loi", message: kq.error.message },
+      );
+    });
+    return () => {
+      huy = true;
+    };
+  }, []);
+
+  if (trangThai.dang === "xong" && trangThai.items.length === 0) return null;
+
+  return (
+    <div className="mt-4">
+      <p className="m-0 mb-2 px-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+        Bản thảo
+      </p>
+      {trangThai.dang === "dang_tai" && (
+        <p className="m-0 px-2 text-[12px] text-muted-foreground" aria-live="polite">
+          Đang tải bản thảo…
+        </p>
+      )}
+      {trangThai.dang === "loi" && (
+        <p role="alert" className="m-0 px-2 text-[12px] text-destructive">
+          {trangThai.message}
+        </p>
+      )}
+      {trangThai.dang === "xong" && (
+        <ul className="m-0 list-none space-y-1 p-0">
+          {trangThai.items.map((bt) => (
+            <MotBanThaoGanDay key={bt.id} banThao={bt} onMo={() => onMo(bt)} />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

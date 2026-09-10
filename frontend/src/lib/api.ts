@@ -24,8 +24,22 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { KHACH_HEADER, layKhachId } from "./khach";
-import { laBoNhoTaiKhoan, laHoSoPhienOut, laPhienTomTat } from "./klaw";
-import type { ApiError, ApiResult, BoNhoTaiKhoan, HoSoDaDung, PhienTomTat } from "./klaw";
+import {
+  laBanThao,
+  laBoNhoTaiKhoan,
+  laDanhSachBanThao,
+  laHoSoPhienOut,
+  laPhienTomTat,
+} from "./klaw";
+import type {
+  ApiError,
+  ApiResult,
+  BanThao,
+  BanThaoTomTat,
+  BoNhoTaiKhoan,
+  HoSoDaDung,
+  PhienTomTat,
+} from "./klaw";
 
 /**
  * Gốc API. Không đặt biến môi trường thì trỏ vào uvicorn chạy máy nhà — đúng
@@ -276,6 +290,31 @@ export const suaHoSoPhien = (id: string, khoa: string, gia_tri: string | null) =
     laHoSoPhienOut,
     { method: "PATCH", body: { khoa, gia_tri } },
   );
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * /ban-thao — bản thảo đã lưu của tài khoản (spec 2026-09-09 §8.3, Task 21).
+ * Cùng khuôn `nguoi_dung_bat_buoc` phía máy chủ: mọi bốn lời gọi đòi đăng nhập
+ * (401), và bản thảo của người khác trả về 404 y hệt một id không tồn tại —
+ * `goi()` đã dịch cả hai qua `loiTheoStatus`, không cần xử thêm ở đây.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+export const danhSachBanThao = (limit = 20, offset = 0) =>
+  goi<{ tong: number; items: BanThaoTomTat[] }>(
+    `/ban-thao?limit=${limit}&offset=${offset}`,
+    laDanhSachBanThao,
+  );
+
+export const layBanThao = (id: string) =>
+  goi<BanThao>(`/ban-thao/${encodeURIComponent(id)}`, laBanThao);
+
+/** Lùi một phiên bản — WALK, không phải TOGGLE: bản đang đứng bị bỏ hẳn, và
+ *  KHÔNG có đường quay lại (spec 2026-09-09 §8.3). Giao diện gọi hàm này không
+ *  bao giờ được đề nghị một nút "làm lại" sau đó. */
+export const luiBanThao = (id: string) =>
+  goi<BanThao>(`/ban-thao/${encodeURIComponent(id)}/lui`, laBanThao, { method: "POST" });
+
+export const xoaBanThao = (id: string) =>
+  goi<null>(`/ban-thao/${encodeURIComponent(id)}`, laKhongThan, { method: "DELETE" });
 
 /** Dựng query string, bỏ qua giá trị rỗng. Tham số lặp lại được (`loai`, `co_quan`). */
 export function thamSo(cap: [string, string | number | undefined | null][]): string {

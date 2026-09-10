@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { catDoan, catManh, type Manh } from "@/lib/van-xuoi";
 import { BangKetQua } from "./BangKetQua";
 import { DuaTren } from "./DuaTren";
+import { TheBanThao } from "./TheBanThao";
+import { TheSoanThaoHoi } from "./TheSoanThaoHoi";
 
 /**
  * Bốn `result_type`, bốn cách hiển thị — không thương lượng.
@@ -452,6 +454,12 @@ interface TheKetQuaProps {
   onSoanThao?: ((slug: string | null) => void) | undefined;
   /** Sửa (hoặc xoá, với `giaTri: null`) một dữ kiện trong dòng "Dựa trên". */
   onSuaHoSo?: (khoa: string, giaTri: string | null) => void;
+  /** Điền chip "Nhãn: giá trị" vào ô hỏi (nhánh `soan_thao_hoi`, Task 21). */
+  onChip?: (chu: string) => void;
+  /** Mở trang đăng nhập khi `soan_thao_hoi.can_dang_nhap` (nhánh `soan_thao_hoi`). */
+  onDangNhap?: () => void;
+  /** Mở khung soạn thảo với bản thảo vừa dựng (nhánh `ban_thao`). */
+  onMoBanThao?: (id: string) => void;
 }
 
 /**
@@ -498,6 +506,9 @@ function NoiDungKetQua({
   onChonTrichDan,
   onMoVanBan,
   onSoanThao,
+  onChip,
+  onDangNhap,
+  onMoBanThao,
 }: TheKetQuaProps) {
   const { result_type: loai, answer, citations, nguon, coverage_note: ghiChuPhamVi, bang } = ketQua;
   const chon = onChonTrichDan ?? (() => undefined);
@@ -575,6 +586,20 @@ function NoiDungKetQua({
 
   if (loai === "huong_dan_soan_thao") {
     return <TheGoiYSoanThao ketQua={ketQua} onSoanThao={onSoanThao} />;
+  }
+
+  if (loai === "soan_thao_hoi") {
+    return (
+      <TheSoanThaoHoi
+        ketQua={ketQua}
+        onChip={onChip ?? (() => undefined)}
+        {...(onDangNhap ? { onDangNhap } : {})}
+      />
+    );
+  }
+
+  if (loai === "ban_thao") {
+    return <TheBanThao ketQua={ketQua} onMo={onMoBanThao ?? (() => undefined)} />;
   }
 
   if (loai === "partial_coverage") {

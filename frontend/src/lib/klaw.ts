@@ -31,9 +31,9 @@ export type ResultType =
   | "hoi_ve_kho"
   // Loại thứ TÁM và thứ CHÍN (Task 19, soạn thảo trong chat, backend) — hai
   // nửa của một hội thoại soạn thảo: còn phải hỏi thêm dữ kiện, hoặc bản thảo
-  // đã dựng xong. Khai ở đây để giữ đúng nguyên tắc đầu file (không thu hẹp
-  // hợp đồng về `string`); màn hiển thị riêng cho chúng là việc của một đợt
-  // FE sau — `laTraCuuKetQua` đã chấp nhận MỌI chuỗi không rỗng từ trước.
+  // đã dựng xong. Màn hiển thị riêng cho chúng (`TheSoanThaoHoi`/`TheBanThao`)
+  // dựng ở Task 21 — `laTraCuuKetQua` đã chấp nhận MỌI chuỗi không rỗng từ
+  // trước nên hai loại này không làm sập response trong lúc chờ FE.
   | "soan_thao_hoi"
   | "ban_thao";
 
@@ -169,6 +169,61 @@ export interface HoSoDaDung {
   gia_dinh: boolean;
 }
 
+/**
+ * `SoanThaoHoi.con_thieu` — cùng hình dạng với `Mau.facts` (`TruongFact`,
+ * khai ở phần `/mau/{loai}` bên dưới); dùng lại thay vì khai một interface
+ * trùng lặp thứ hai cho đúng một hình dạng.
+ */
+export type TruongDuKien = TruongFact;
+
+/**
+ * `result_type === "soan_thao_hoi"` (Task 21) — assemble còn thiếu dữ kiện,
+ * hoặc người hỏi chưa đăng nhập, hoặc đã hết hạn mức soạn thảo, nên hỏi lại
+ * thay vì dựng bản thảo — khớp `SoanThaoHoiOut` của `src/models/schemas.py`.
+ * `chip` gợi ý nhanh cho từng khoá có `lua_chon`; `answer` (của
+ * `TraCuuKetQua`) đã mang nguyên văn lời hỏi/lý do, nên card chỉ vẽ thêm chip
+ * và (khi `can_dang_nhap`) một nút đăng nhập.
+ */
+export interface SoanThaoHoi {
+  loai: string;
+  ten: string;
+  da_co: Record<string, string>;
+  con_thieu: TruongDuKien[];
+  chip: Record<string, string[]>;
+  het_han_muc: string | null;
+  can_dang_nhap: boolean;
+}
+
+/**
+ * `result_type === "ban_thao"` (Task 21) — bản thảo vừa dựng/sửa xong ngay
+ * trong hội thoại, khớp `BanThaoOut`. `doi_so_voi_truoc` liệt kê tên các
+ * trường vừa đổi so với phiên bản trước; `[]` ở bản thảo mới dựng lần đầu.
+ */
+export interface BanThao {
+  id: string;
+  loai: string;
+  ten: string;
+  phien_ban: number;
+  /** Markdown. */
+  document: string;
+  clauses: unknown[];
+  audit_report: Record<string, unknown>;
+  facts: Record<string, string>;
+  doi_so_voi_truoc: string[];
+}
+
+/** Một dòng của `GET /ban-thao` (Task 21) — khớp `BanThaoTomTatOut`: đủ để vẽ
+ *  danh sách "Bản thảo" và mở lại đúng loại, không kèm nội dung đầy đủ như
+ *  `BanThao` (`document`/`clauses`/`audit_report`). */
+export interface BanThaoTomTat {
+  id: string;
+  loai: string;
+  ten: string;
+  phien_ban: number;
+  cap_nhat_luc: string;
+  hoi_thoai_id: string | null;
+}
+
 export interface TraCuuKetQua {
   result_type: ResultType;
   answer: string | null;
@@ -201,6 +256,12 @@ export interface TraCuuKetQua {
   /** Dữ kiện về người hỏi mà lượt này đã dùng — dòng "Dựa trên" (spec 2026-09-09
    *  §6.6). Tuỳ chọn: payload cache cũ (dựng trước trường này tồn tại) không có. */
   ho_so_da_dung?: HoSoDaDung[];
+  /** Nhánh `soan_thao_hoi` (Task 21) — còn thiếu dữ kiện để dựng bản thảo.
+   *  Tuỳ chọn/null: mọi nhánh khác, và payload cache ghi trước Task 21. */
+  soan_thao_hoi?: SoanThaoHoi | null;
+  /** Nhánh `ban_thao` (Task 21) — bản thảo vừa dựng/sửa xong trong hội thoại.
+   *  Tuỳ chọn/null cùng lý do `soan_thao_hoi`. */
+  ban_thao?: BanThao | null;
 }
 
 /**
@@ -1071,6 +1132,16 @@ export function laSoanThaoKetQua(x: unknown): x is SoanThaoKetQua {
     laBanGhi(bc) &&
     Array.isArray(bc["findings"])
   );
+}
+
+/* ── /ban-thao — bản thảo đã lưu của tài khoản (Task 21) ─────────────────── */
+
+export function laBanThao(x: unknown): x is BanThao {
+  return laBanGhi(x) && typeof x["id"] === "string" && typeof x["document"] === "string";
+}
+
+export function laDanhSachBanThao(x: unknown): x is { tong: number; items: BanThaoTomTat[] } {
+  return laBanGhi(x) && Array.isArray(x["items"]);
 }
 
 export function laHanMuc(x: unknown): x is HanMuc {
