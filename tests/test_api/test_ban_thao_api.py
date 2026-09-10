@@ -250,24 +250,21 @@ async def test_dung_tu_choi_khi_cham_tran_chi_phi_ngay(client, khoa_ky, hai_nguo
 @pytest.mark.asyncio
 async def test_dung_tu_choi_facts_qua_bien_422(client, khoa_ky, hai_nguoi, graph_soan_thao_gia):
     """Biên `facts` (số khoá, kiểu, độ dài chuỗi) phải chặn TẠI HTTP, trước lượt
-    LLM trả phí — xem `DungLaiRequest._facts_trong_bien`."""
+    LLM trả phí, và `detail` phải là CHUỖI tiếng Việt như hai lỗi 422 anh em —
+    xem `routes_ban_thao.loi_facts_ngoai_bien`."""
     a, _ = hai_nguoi
     ha = _bearer(khoa_ky, a)
     pid = hoi_thoai.tao_phien(a, "hợp đồng lao động")
     bt = ban_thao.tao(a, pid, "hdld", FACTS_HDLD, KET)
 
-    qua_dai = {**FACTS_HDLD, "ghi_chu": "x" * 501}
-    assert (
-        await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": qua_dai}, headers=ha)
-    ).status_code == 422
-    sai_kieu = {**FACTS_HDLD, "ghi_chu": {"long": "dong"}}
-    assert (
-        await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": sai_kieu}, headers=ha)
-    ).status_code == 422
-    qua_nhieu = {**FACTS_HDLD, **{f"k{i}": "x" for i in range(40)}}
-    assert (
-        await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": qua_nhieu}, headers=ha)
-    ).status_code == 422
+    for facts, cum in (
+        ({**FACTS_HDLD, "ghi_chu": "x" * 501}, "ghi_chu"),
+        ({**FACTS_HDLD, "ghi_chu": {"long": "dong"}}, "ghi_chu"),
+        ({**FACTS_HDLD, **{f"k{i}": "x" for i in range(40)}}, "tối đa"),
+    ):
+        r = await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": facts}, headers=ha)
+        assert r.status_code == 422
+        assert isinstance(r.json()["detail"], str) and cum in r.json()["detail"]
 
 
 @pytest.mark.asyncio

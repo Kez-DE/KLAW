@@ -9,7 +9,7 @@ tồn tại (không phân biệt được với một id không có thật).
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from src.agents.graph_soan_thao import load_checklist_cached, rules_cho
@@ -93,21 +93,28 @@ _KIEU_GIA_TRI = (str, int, float, bool, type(None))
 class DungLaiRequest(BaseModel):
     facts: dict
 
-    @field_validator("facts")
-    @classmethod
-    def _facts_trong_bien(cls, v: dict) -> dict:
-        """`facts` đi thẳng vào placeholder `{facts}` của `draft_generate` — một
-        lượt LLM TRẢ PHÍ. Không có biên thì mỗi lời gọi mang được tới trần body
-        (2 MB) vào prompt đó, tức kẻ gọi tự chọn giá của một request. Ba biên,
-        cùng khuôn với những gì biểu mẫu và `gom_du_kien` thật sự sinh ra."""
-        if len(v) > FACTS_TOI_DA:
-            raise ValueError(f"Quá nhiều dữ kiện: tối đa {FACTS_TOI_DA} trường.")
-        for khoa, gia_tri in v.items():
-            if not isinstance(gia_tri, _KIEU_GIA_TRI):
-                raise ValueError(f"Dữ kiện `{khoa}` phải là chữ, số hoặc đúng/sai.")
-            if isinstance(gia_tri, str) and len(gia_tri) > GIA_TRI_TOI_DA:
-                raise ValueError(f"Dữ kiện `{khoa}` dài quá {GIA_TRI_TOI_DA} ký tự.")
-        return v
+
+def loi_facts_ngoai_bien(facts: dict) -> str | None:
+    """Câu tiếng Việt nói biên nào bị vượt, hoặc None khi `facts` hợp lệ.
+
+    `facts` đi thẳng vào placeholder `{facts}` của `draft_generate` — một lượt
+    LLM TRẢ PHÍ. Không có biên thì mỗi lời gọi mang được tới trần body (2 MB)
+    vào prompt đó, tức kẻ gọi tự chọn giá của một request. Ba biên, cùng khuôn
+    với những gì biểu mẫu và `gom_du_kien` thật sự sinh ra.
+
+    Trả CHUỖI thay vì ném từ một validator của pydantic: `detail` của lỗi
+    pydantic là một DANH SÁCH object, mà giao diện chỉ hiện `detail` dạng chuỗi
+    — nên câu giải thích sẽ không bao giờ tới được người dùng. Hai lỗi 422 anh
+    em ngay dưới (`con_thieu`, `lua_chon_sai`) đã là chuỗi; đây là cái thứ ba.
+    """
+    if len(facts) > FACTS_TOI_DA:
+        return f"Quá nhiều dữ kiện: tối đa {FACTS_TOI_DA} trường."
+    for khoa, gia_tri in facts.items():
+        if not isinstance(gia_tri, _KIEU_GIA_TRI):
+            return f"Dữ kiện `{khoa}` phải là chữ, số hoặc đúng/sai."
+        if isinstance(gia_tri, str) and len(gia_tri) > GIA_TRI_TOI_DA:
+            return f"Dữ kiện `{khoa}` dài quá {GIA_TRI_TOI_DA} ký tự."
+    return None
 
 
 @router.post("/ban-thao/{id}/dung", response_model=BanThaoOut)
@@ -134,6 +141,9 @@ async def dung(id: str, body: DungLaiRequest, nguoi: dict = Depends(nguoi_dung_b
     cu = await run_in_threadpool(ban_thao.chi_tiet, nguoi["sub"], id)
     if cu is None:
         raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY)
+    loi_bien = loi_facts_ngoai_bien(body.facts)
+    if loi_bien:
+        raise HTTPException(status_code=422, detail=loi_bien)
     thieu = con_thieu(cu["loai"], body.facts)
     if thieu:
         raise HTTPException(
