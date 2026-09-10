@@ -281,9 +281,114 @@ thay vì đoán số task.
 
 ## Result
 
-Cả năm giai đoạn (26 task) đã landed và validate theo mục Validation ở trên.
-Còn lại hai việc ngoài phạm vi việc code, cả hai đã nêu rõ chứ không bịa số:
+Cả năm giai đoạn (26 task) đã landed và validate theo mục Validation ở trên;
+rà soát cuối toàn nhánh và đợt sửa ghi ở mục kế tiếp (2026-09-10), kể cả đợt
+chụp Chrome + đi bàn phím qua drawer đã làm xong. Còn lại ngoài phạm vi code:
 hai phép đo tốn tiền thật (`eval.run_hoi_thoai`, `eval.run_mo_ho`/`run_trap`
-đủ mẫu) chưa chạy vì cần khoá OpenRouter — để chủ dự án tự quyết; và đợt
-chụp Chrome bốn trạng thái + đi bàn phím qua drawer do controller làm sau
-task này (cần backend, frontend và một phiên đăng nhập thật).
+đủ mẫu) chưa chạy vì cần khoá OpenRouter — để chủ dự án tự quyết; và lỗ hổng
+dữ kiện rỗng với loại không `rules` (mục Hạn chế đã biết) chờ spec kế tiếp.
+
+## Rà soát cuối toàn nhánh và đợt sửa (2026-09-10)
+
+Sau khi đóng 26 task, controller chạy rà soát cuối trên `cd7178e..1f6caca` bằng ba
+lăng kính đọc-chỉ song song (backend; frontend; prompts/eval/docs/config), rồi MỘT
+đợt sửa (hai implementer trên hai cây file tách rời) và một re-review có phạm vi cho
+mỗi đợt. Phạm vi sửa: `1f6caca..c85b2df` (29 commit).
+
+### Kết quả rà soát
+
+- Backend: 2 nghiêm trọng (`POST /ban-thao/{id}/dung` chạy model trả tiền mà không qua
+  trần chi phí ngày; trần sửa đếm `len(phien_ban_truoc)` mà `lui` làm co lại nên tái
+  sinh trả tiền không giới hạn), 3 quan trọng (khoá chi phí `gom_du_kien` thiếu trong
+  `traces`; `luu_suy_dien` bỏ qua `khong_ghi_nho`; `loai` lạ làm `route`/`assemble`
+  ném lỗi 500), 8 nhỏ.
+- Frontend: 3 nghiêm trọng (cửa sổ trợ lý nổi bị `relative` thắng `fixed` nên trôi
+  khỏi màn hình; sân khấu hẹp không khai `role=dialog`/`aria-modal` và cùng z với nav
+  đáy; danh sách bản thảo ở sidebar mở wizard trống thay vì bản thảo), 9 quan trọng
+  (khôi phục focus khi đóng drawer xếp chồng; badge chưa đọc gác sai cờ; tải mẫu lỗi
+  im lặng; bút "Dựa trên" không hiện kết quả; PDF cắt còn một trang; Esc trong form
+  xoá bản nháp; bẫy focus thoát qua nút disabled; thẻ bản thảo in khoá máy; splitter
+  wizard cũ), 12 nhỏ.
+- Prompts/eval/docs/config: 0 nghiêm trọng, 13 quan trọng (lưới chắn bộ nhớ nuốt
+  "tháng M/YYYY"; ví dụ `assemble.v3` thiếu câu giả định mà benchmark chấm; `run_mo_ho`
+  đòi đúng cụm không prompt nào bắt buộc; `bo-luat-agent.md` tự mâu thuẫn và kho
+  điểm tiêm lệnh lệch dòng; lá chắn tháng 3000 < 31×100; hai công tắc vận hành thiếu
+  trong `.env.example`; thiếu bản ghi `docs/decisions/`; header spec còn "chờ duyệt";
+  §7.4 sai chỗ sinh `linh_vuc`; bộ đo hội thoại nói "dùng" nhưng đo "giữ"; so bằng
+  tuyệt đối vấp "hợp đồng …"; không kiểm markdown trong `answer`), 10 nhỏ.
+
+### Đã sửa (mọi finding nghiêm trọng/quan trọng, trừ hai mục hoãn có phán quyết)
+
+Backend + prompts: `f03eec0` `4ff2160` `ce8f4cf` `593fd55` `9ae2f5c` `de34434`
+`6038ac9` `d674bce` `8a42961` `25ec228` `1f716d8` `01d527d` `2527921` `c85b2df`.
+Frontend: `3ccb61d` `68d8e0f` `611bb33` `92284f7` `28efe70` `9030457` `206ca92`
+`b8f4621` `f7733a9` `a4beea5` `8b6df95` `72b6129` `00b3fc5` `204c7d9` `a9fd3ee`.
+Re-review đợt A: mọi finding ĐÃ XỬ LÝ; một hồi quy quan trọng do bản sửa (test trần
+sửa trong chat vẫn ép trần qua `phien_ban_truoc`) đã đóng ở `01d527d`. Re-review đợt B:
+mọi finding ĐÃ XỬ LÝ, một tồn đọng nhỏ đóng ở `72b6129`. Bốn tồn đọng chỉ lộ khi
+chụp thật (form Sửa rỗng với mẫu không rule; drawer z41 nằm dưới cửa sổ trợ lý z50;
+thanh tab hẹp trong suốt; badge đếm nhầm khi đổi bố cục) đóng ở `00b3fc5`
+`204c7d9` `a9fd3ee`.
+
+### Phán quyết sau khi đóng plan (nối tiếp 29 phán quyết ở mục Decisions)
+
+- Ảnh chụp (b)(c)(d) cần một phiên đăng nhập thật nên do controller làm sau Task 26.
+- Rà soát cuối tách ba lăng kính song song đọc-chỉ vì diff 116 file vượt một ngữ cảnh.
+- `POST /ban-thao/{id}/dung` đo bằng trần chi phí ngày + bộ đếm sửa đơn điệu theo bản
+  thảo, KHÔNG trừ hạn mức soạn thảo ngày — spec §8.4 nói lượt sửa không đếm.
+- Trần sửa chuyển sang cột đơn điệu `so_lan_sua` (migration 025); `lui` không đụng.
+- Đợt sửa cuối chạy hai implementer song song trên hai cây tách rời (`frontend/` và
+  phần còn lại), mỗi bên chỉ stage đúng đường dẫn của mình trong một lệnh add+commit.
+- Hoãn prompts 13 (bộ đếm markdown trong `answer`) — chưa có ca thật; thêm sau lần
+  chạy eval trả tiền đầu tiên.
+- Prompts 2+3 giải bằng cách BẮT BUỘC câu mở "Tôi hiểu bạn là <vai>." trong
+  `assemble.v3`; `soul.v2` giữ nguyên theo §7.2.
+- Hoãn frontend I9 (splitter wizard cũ `KhongGianSoanThao`) — code có sẵn ngoài plan.
+- Các minor được kéo vào đợt sửa: backend 6, 9, 10, 11, 13; prompts (điều khoản cấm
+  số hiệu trong `bo_nho.v1`, trần 1.200, "KHÔNG phải căn cứ" ở `assemble.v3`, docstring
+  `prompts.py`, câu chữ Decisions); frontend (copy "Lùi", dòng Căn cứ không vào tệp
+  xuất, `.dieu-head`). Minor khác giữ hoãn.
+- Bổ sung đợt B trước re-review: mở bản thảo đã lưu mang theo `phien`; ô lỗi tải mẫu
+  có nút "Thử lại".
+- Hoãn sân khấu bền qua F5 (URL sở hữu `sanKhau`) — ngoài plan.
+- Giữ nguyên ba điểm implementer A lo: kiểm enum rộng hơn trên `/dung`; `nguon='llm'`
+  cho lượt `hoi_lai` bỏ qua; guard chủ sở hữu trong `cap_nhat_phien` thất bại kín.
+- Controller tự sửa một dòng gác badge theo bố cục (`haiCot ? cuaSo.thu : tabHep`).
+- KHÔNG sửa trong plan này lỗ hổng dữ kiện rỗng (xem Hạn chế đã biết) — đó là lỗi
+  thiết kế của việc suy lược đồ dữ kiện từ rule kiểm số; spec kế tiếp sở hữu nó.
+- Việc theo dõi sau re-review A giao lại implementer A; không đổi: so `sub` dạng text
+  (Supabase sub chuẩn hoá), đọc-rồi-ghi ở trần sửa (đã bọc bởi giỏ IP + trần chi phí,
+  hình dạng có sẵn), trường `so_lan_sua` theo phiên trùng tên (không gác gì), trích dẫn
+  tên metric cũ trong file plan lịch sử.
+
+### Hạn chế đã biết
+
+- **Dữ kiện rỗng với loại không có `rules`.** `gom_du_kien.truong_cua(loai)` suy từ
+  `mo_ta_facts(rules_cho(loai))`; `checklist_don_xin_nghi_viec.yaml` (và nhiều loại
+  khác) có `rules: []`, nên không hỏi, không trích, `ban_thao.facts = {}` ở mọi phiên
+  bản, `draft_generate` in "[…]" cho mọi mục cần dữ kiện, và lượt sửa bằng lời tái
+  sinh với cùng dữ kiện rỗng (một lượt model trả tiền, không đổi gì). Đã tái hiện trên
+  bản thảo thật ngày 2026-09-10 (`facts` trước/sau đều `{}`; `so_lan_sua` tăng 1). Lỗ
+  hổng thuộc thiết kế "lược đồ dữ kiện = rule kiểm số"; hướng giải nằm ở spec kế tiếp
+  (mẫu chuẩn theo loại + dữ kiện suy từ chính văn bản).
+- Drawer "Sửa" với loại không trường giờ chỉ hiện một câu chỉ sang Trợ lý (không Lưu).
+- Ảnh 390px thật không chụp được bằng phiên đăng nhập của chủ dự án (viewport sàn
+  ~840px); bố cục hẹp vẫn kích hoạt dưới 68rem và đã kiểm bằng DOM.
+
+### Bằng chứng
+
+- `KLAW_SUPABASE_URL= python -m pytest -q -m 'not integration' --deselect
+  tests/test_services/test_moi_mau.py` — 1207 passed (trước đợt sửa: 1189).
+- `pytest tests/test_api/test_ban_thao_api.py tests/test_services/test_ban_thao.py
+  tests/test_api/test_soan_thao_hoi_thoai_api.py` (Postgres local, graph đã stub) — 21
+  passed; migration 025 áp qua khởi động lại uvicorn.
+- `ruff check src/ tests/ eval/` — sạch. `cd frontend && npm run kiem` — thoát 0, gồm
+  `kiem-xuat-tep` mới (5/5) và `npm run build`.
+- Ảnh chụp phiên thật (thư mục `.tham-dinh-shots/` của chủ dự án, không stage):
+  `26-b1` sân khấu + cửa sổ trợ lý `fixed`; `26-b2` drawer hai tầng; `26-b3` focus về
+  nút "Sửa" sau hai lần Esc (Tab/Shift+Tab không thoát; aside/header/rail/nav `inert`);
+  `26-c` thanh phiên bản v2 + "Lùi" sau một lượt sửa bằng lời; `26-d` sân khấu hẹp
+  `role=dialog` z-50, nav z-40 `inert`, tab `aria-pressed`; `26-e` drawer z61 trên cửa
+  sổ trợ lý + câu hướng dẫn thay form rỗng; `26-f` thanh tab hẹp đục.
+- Chi phí thật phát sinh trong rà soát: một lượt sửa bằng lời (route + gom_du_kien +
+  draft_generate) và một câu `run_trap --limit 1` (lỗi controller, đã khai ở ledger).
