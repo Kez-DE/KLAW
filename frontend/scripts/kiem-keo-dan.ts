@@ -1,12 +1,15 @@
 /** Tay kéo theo W3C Window Splitter (spec 2026-09-09 §9.1): kẹp bề rộng, tính
- *  phần trăm cho `aria-valuenow`, và biên panel đối chiếu theo bề rộng cửa sổ.
- *  Chạy: `npm run kiem-keo-dan`. */
+ *  phần trăm cho `aria-valuenow`, biên panel đối chiếu theo bề rộng cửa sổ, và
+ *  độ rộng nhớ được sống sót qua một lượt tải lại trang (hoặc một localStorage
+ *  không đọc/ghi được). Chạy: `npm run kiem-keo-dan`. */
 import assert from "node:assert/strict";
 import {
   BUOC_PHIM,
   RONG_DOI_CHIEU_MAC_DINH,
   bienPanelDoiChieu,
+  docRongDaLuu,
   kepRong,
+  luuRong,
   phanTram,
 } from "../src/lib/keo-dan.ts";
 
@@ -21,4 +24,40 @@ assert.equal(phanTram(320, { min: 320, max: 864 }), 0);
 assert.equal(phanTram(864, { min: 320, max: 864 }), 100);
 assert.equal(phanTram(592, { min: 320, max: 864 }), 50);
 assert.equal(BUOC_PHIM, 24);
-console.log("kiem-keo-dan: 11/11 OK");
+
+// Vòng đời "tải lại trang": một localStorage thật (giả bằng Map) đứng ở giữa
+// `luuRong` (lúc kéo/thu gọn/về mặc định) và `docRongDaLuu` (lúc trang mở
+// lại). Thu gọn về biên rồi tải lại phải VỀ ĐÚNG biên đó; về mặc định rồi tải
+// lại phải VỀ ĐÚNG mặc định — hai hành động này đi qua `datRongVaLuu` ở
+// `dung-thu.tsx`, không có nhánh riêng nào bỏ qua `luuRong`.
+const kho = new Map<string, string>();
+globalThis.localStorage = {
+  getItem: (khoa: string) => (kho.has(khoa) ? (kho.get(khoa) ?? null) : null),
+  setItem: (khoa: string, gt: string) => {
+    kho.set(khoa, gt);
+  },
+} as Storage;
+
+const BIEN_1440 = bienPanelDoiChieu(1440);
+luuRong("klaw.doi-chieu.rong", BIEN_1440.min); // thu gọn
+assert.equal(docRongDaLuu("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH), BIEN_1440.min);
+luuRong("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH); // về mặc định
+assert.equal(docRongDaLuu("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH), RONG_DOI_CHIEU_MAC_DINH);
+
+// Khoá chưa từng ghi (lần mở đầu tiên, chưa ai kéo) → mặc định, không phải lỗi.
+assert.equal(docRongDaLuu("chua-tung-ghi", RONG_DOI_CHIEU_MAC_DINH), RONG_DOI_CHIEU_MAC_DINH);
+
+// localStorage có tồn tại nhưng ĐỌC/GHI đều ném lỗi (chế độ riêng tư, quyền bị
+// chặn…): đọc phải rơi về mặc định, ghi phải im lặng — cả hai KHÔNG được ném.
+globalThis.localStorage = {
+  getItem: () => {
+    throw new Error("khong-doc-duoc");
+  },
+  setItem: () => {
+    throw new Error("khong-ghi-duoc");
+  },
+} as unknown as Storage;
+assert.equal(docRongDaLuu("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH), RONG_DOI_CHIEU_MAC_DINH);
+assert.doesNotThrow(() => luuRong("klaw.doi-chieu.rong", 500));
+
+console.log("kiem-keo-dan: 16/16 OK");

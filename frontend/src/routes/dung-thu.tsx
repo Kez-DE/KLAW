@@ -115,6 +115,15 @@ function ManHoiKlaw() {
     window.addEventListener("resize", capNhat);
     return () => window.removeEventListener("resize", capNhat);
   }, []);
+  // MỘT cửa duy nhất để đổi độ rộng — kéo, thu gọn (Enter), và về mặc định
+  // (bấm đôi) đều là CÙNG một hành động dưới góc nhìn người dùng ("tôi chọn
+  // khung này rộng bao nhiêu"), nên cả ba phải cùng nhớ. Gom vào một hàm thay
+  // vì gọi `luuRong` riêng ở từng nơi: ba chỗ tự nhớ lưu là ba chỗ lần sau có
+  // thể quên một.
+  const datRongVaLuu = (px: number) => {
+    datRongDoiChieu(px);
+    luuRong("klaw.doi-chieu.rong", px);
+  };
   // Một nguồn duy nhất cho danh tính + hạn mức (spec 2A §7). Màn này KHÔNG còn
   // khoá ô hỏi khi chưa đăng nhập: khách hỏi thử 10 lượt/24 giờ với `X-Khach-Id`
   // (spec 2A §8) và chỉ gặp thẻ mời đăng nhập khi thật sự hết lượt — bắt đăng
@@ -737,16 +746,13 @@ function ManHoiKlaw() {
                 nhan="Kéo để đổi độ rộng khung điều khoản"
                 dieuKhienId="khung-doi-chieu"
                 chieu={-1}
-                onDoi={(px) => {
-                  datRongDoiChieu(px);
-                  luuRong("klaw.doi-chieu.rong", px);
-                }}
+                onDoi={datRongVaLuu}
                 onThuGon={() =>
-                  datRongDoiChieu((r) =>
-                    r > bienDoiChieu.min ? bienDoiChieu.min : RONG_DOI_CHIEU_MAC_DINH,
+                  datRongVaLuu(
+                    rongDoiChieu > bienDoiChieu.min ? bienDoiChieu.min : RONG_DOI_CHIEU_MAC_DINH,
                   )
                 }
-                onMacDinh={() => datRongDoiChieu(RONG_DOI_CHIEU_MAC_DINH)}
+                onMacDinh={() => datRongVaLuu(RONG_DOI_CHIEU_MAC_DINH)}
               />
             )}
             <div
