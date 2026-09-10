@@ -70,14 +70,14 @@ args=(); for k in OPENROUTER_API_KEY OPENROUTER_BASE_URL OPENROUTER_MODEL_NAME \
   OPENROUTER_GENERATE_MODEL_NAME OPENROUTER_JUDGE_MODEL_NAME OPENROUTER_EMBEDDING_MODEL_NAME \
   OPENROUTER_EMBEDDING_DIM OPENROUTER_RERANK_MODEL_NAME OPENROUTER_RERANK_ENABLED \
   KLAW_SUPABASE_URL KLAW_SUPABASE_JWT_AUD KLAW_ADMIN_API_KEY KLAW_TRAN_CHI_PHI_NGAY_USD; do
-  v=$(grep -E "^$k=" .env.local | head -1 | cut -d= -f2- | tr -d "\"'"); [ -n "$v" ] && args+=(--set "$k=$v"); done
+  v=$(grep -E "^$k=" .env.local | head -1 | cut -d= -f2- | sed -E 's/[[:space:]]+#.*$//' | tr -d "\"'"); [ -n "$v" ] && args+=(--set "$k=$v"); done
 railway variables -s klaw-api "${args[@]}" >/dev/null
 
 args=(); for k in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY; do
-  v=$(grep -E "^$k=" frontend/.env.local | head -1 | cut -d= -f2- | tr -d "\"'"); [ -n "$v" ] && args+=(--set "$k=$v"); done
+  v=$(grep -E "^$k=" frontend/.env.local | head -1 | cut -d= -f2- | sed -E 's/[[:space:]]+#.*$//' | tr -d "\"'"); [ -n "$v" ] && args+=(--set "$k=$v"); done
 railway variables -s klaw-web "${args[@]}" >/dev/null
 
-k=$(grep -E "^KLAW_ADMIN_API_KEY=" .env.local | head -1 | cut -d= -f2- | tr -d "\"'")
+k=$(grep -E "^KLAW_ADMIN_API_KEY=" .env.local | head -1 | cut -d= -f2- | sed -E 's/[[:space:]]+#.*$//' | tr -d "\"'")
 railway variables -s klaw-cms --set "PAYLOAD_SECRET=$(openssl rand -hex 32)" --set "KLAW_ADMIN_API_KEY=$k" >/dev/null
 ```
 
@@ -107,7 +107,20 @@ Supabase → Authentication → URL Configuration: thêm `https://klaw-web-produ
 - CMS: `scripts/start.sh` tự `payload migrate` và từ chối start nếu còn migration
   pending.
 
-## 5. Vận hành
+## 5. Kiểm chứng lần deploy đầu (2026-09-10)
+
+- `GET /health` → `{"status":"ok"}`; `GET /api/v1/mau/don_xin_nghi_viec` → 200 (8 mục);
+  `GET /api/v1/tim-kiem?q=…` → 200, 20 kết quả từ kho thật.
+- `POST /api/v1/tra-cuu` với header khách `X-Khach-Id` (UUID; người chưa đăng nhập có 10
+  lượt/24 giờ; không header → 401 "Cần đăng nhập"): 200 sau ~14 giây, `result_type=answer`,
+  4 trích dẫn đã kiểm (45/2019/QH14 Điều 35 Khoản 1; 145/2020/NĐ-CP Điều 7), có `trace_id`.
+- Kho luật production sau restore: 1.634 văn bản, 43.720 điều khoản, 14.770 chunk, 7.419
+  quan hệ, 4 bản đồ sửa đổi.
+- `klaw-api` chỉ tự build lại khi đổi `src/ migrations/ prompts/ config/ scripts/ data/seed/
+  requirements.txt Dockerfile .dockerignore railway.json` (watch patterns); `klaw-web` và
+  `klaw-cms` chỉ theo thư mục gốc của mình. Đổi docs không tốn build.
+
+## 6. Vận hành
 
 - Xem: `railway status`, `railway logs -s klaw-api`, dashboard project `klaw`.
 - Rollback: Deployments → Redeploy bản trước, hoặc `git revert` rồi push `main`.
@@ -116,13 +129,16 @@ Supabase → Authentication → URL Configuration: thêm `https://klaw-web-produ
 - Chi phí đáng chú ý: mỗi push `main` build lại cả ba service; RAM Railway ~10
   USD/GB/tháng; embedding chỉ tốn khi chạy `build_chunks`.
 
-## 6. Bẫy đã gặp ngày 2026-09-10
+## 7. Bẫy đã gặp ngày 2026-09-10
 
 - Template pgvector: biến là `DATABASE_URL` (công khai), `DATABASE_URL_PRIVATE`,
   `PGHOST_PRIVATE`, `PGPORT_PRIVATE` — không phải `RAILWAY_PRIVATE_DOMAIN` như
   template Postgres chuẩn; scheme `postgres://` phải đổi cho SQLAlchemy.
 - `railway up` từ thư mục con vẫn deploy từ gốc repo; đặt root directory cho service.
 - macOS không có `timeout`; dùng `timeout` của Bash tool hoặc `gtimeout`.
+- Dòng `.env` có ghi chú đuôi (`KEY=value   # …`) sẽ chép nguyên ghi chú vào Railway nếu chỉ `cut`;
+  `OPENROUTER_JUDGE_MODEL_NAME` đã vấp vậy (OpenRouter trả 400 ở tầng judge). Lệnh ở mục 3 đã cắt
+  phần `# …` bằng `sed`.
 - `LOG_LEVEL` phải viết in (`INFO`); `Settings` là `Literal['DEBUG','INFO','WARNING','ERROR']`,
   đặt `info` là API từ chối khởi động (ValidationError) — đã vấp lần deploy thứ hai.
 - `pg_dump --data-only` mở đầu bằng `set_config('search_path', '', false)`; trigger
