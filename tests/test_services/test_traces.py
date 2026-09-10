@@ -53,3 +53,16 @@ def test_tong_hop_traces_tier2_khong_chay_thi_model_la_None():
     tong = _tong_hop_traces(traces)
     assert tong["generate_model"] is None
     assert tong["judge_model"] is None
+
+
+def test_tong_hop_traces_thay_lan_goi_LLM_cua_gom_du_kien():
+    """`gom_du_kien` là điểm gọi LLM thứ 8 (Task 19). Vắng ở ba danh sách khoá thì
+    mỗi lượt gom dữ kiện là một lượt LLM VÔ HÌNH với trần chi phí ngày — đúng chế
+    độ hỏng mà `draft_generate_*` đã gây ra một lần (32/32 dòng `/soan-thao` mang
+    `cost_usd = 0`)."""
+    tong = _tong_hop_traces(
+        {"gom_du_kien_token_in": 700, "gom_du_kien_token_out": 70, "gom_du_kien_cost_usd": 0.007}
+    )
+    assert tong["token_in"] == 700
+    assert tong["token_out"] == 70
+    assert abs(tong["cost_usd"] - 0.007) < 1e-9
