@@ -84,9 +84,10 @@ export function CuaSoTroLy({ cuaSo, onDoiCuaSo, chuaDoc, onVeHaiCot, children }:
       role="dialog"
       aria-label="Trợ lý KLAW"
       style={{ left: cuaSo.x, top: cuaSo.y, width: cuaSo.w, height: cuaSo.h }}
-      // `relative`: neo hai tay kéo cạnh (absolute, bên dưới) vào đúng khung
-      // cửa sổ này, không phải viewport.
-      className="relative fixed z-50 flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-elegant"
+      // `fixed` tự nó đã là khối chứa cho hai tay kéo cạnh (absolute, bên
+      // dưới) — thêm `relative` chỉ thắng `fixed` trong cùng lớp utility và
+      // ném cửa sổ ra ngoài màn hình.
+      className="fixed z-50 flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-elegant"
     >
       <header
         tabIndex={0}
