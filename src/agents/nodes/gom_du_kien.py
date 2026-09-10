@@ -39,6 +39,28 @@ def con_thieu(loai: str, facts: dict) -> list[dict]:
     return [t for t in truong_cua(loai) if t["bat_buoc"] and not str((facts or {}).get(t["key"]) or "").strip()]
 
 
+def lua_chon_sai(loai: str, facts: dict) -> list[dict]:
+    """Trường có `lua_chon` mà `facts` mang một giá trị KHÔNG nằm trong đó.
+
+    Lượt hỏi bằng lời không tự gọi hàm này: `schema_du_kien` đã ép `enum` ngay
+    trong structured output của model, nên một giá trị sai không bao giờ được
+    sinh ra ở đường đó. Nhưng một endpoint HTTP (`POST /ban-thao/{id}/dung`,
+    Task 25) nhận `facts` thô từ người dùng, không đi qua ràng buộc `enum` đó
+    — nó phải tự kiểm, và phải kiểm bằng CHÍNH danh sách lựa chọn ở đây (không
+    viết một bản sao thứ hai), để không thành một đường vòng qua ràng buộc mà
+    lượt hỏi bằng lời vẫn giữ được.
+    """
+    sai = []
+    for t in truong_cua(loai):
+        lua_chon = t.get("lua_chon")
+        if not lua_chon:
+            continue
+        gia_tri = (facts or {}).get(t["key"])
+        if gia_tri not in (None, "", *lua_chon):
+            sai.append(t)
+    return sai
+
+
 def _dong_truong(truong: list[dict], facts: dict) -> str:
     return "\n".join(
         f"- `{t['key']}` ({t['nhan']}, {'bắt buộc' if t['bat_buoc'] else 'tuỳ chọn'}"

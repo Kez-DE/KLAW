@@ -5,7 +5,16 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   ngan: Tam[];
-  onDong: () => void; // đóng tấm trên cùng
+  /**
+   * Đóng tấm trên cùng. PHẢI là một tham chiếu ỔN ĐỊNH qua các lần render
+   * (`useCallback` ở nơi gọi, không phải một hàm mũi tên trần) — nó nằm
+   * trong dependency của effect bên dưới, và effect đó chạy lại bước "đưa
+   * tiêu điểm vào tấm trên cùng" mỗi khi nó đổi tham chiếu, dù `ngan` không
+   * đổi. Một tham chiếu không ổn định (đổi ở MỌI lần render của nơi gọi —
+   * một token stream ở chỗ khác, đổi zoom…) giật tiêu điểm ra khỏi ô đang gõ
+   * dở, về lại nút Đóng.
+   */
+  onDong: () => void;
   render: (tam: Tam, tang: number) => ReactNode;
 }
 
@@ -64,10 +73,16 @@ export function NganXepDrawer({ ngan, onDong, render }: Props) {
             role="dialog"
             aria-modal={trenCung || undefined}
             aria-label={tam.tieuDe}
+            // Tấm không phải trên cùng: `inert` (native, React 19) gỡ nó khỏi
+            // CẢ BA — con trỏ, Tab, và cây trợ năng — cùng lúc. `pointer-events-none`
+            // một mình chỉ chặn được con trỏ; trình đọc màn hình ở chế độ
+            // duyệt (không qua Tab) vẫn đọc được vào một tấm bị che. Chỉ đặt
+            // khi KHÔNG phải tấm trên cùng — tấm trên cùng không mang `inert`.
+            inert={!trenCung}
             style={{ right: (soTang - 1 - tang) * 24, zIndex: 41 + tang }}
             className={cn(
               "fixed inset-y-0 flex w-[480px] max-w-full flex-col border-l border-border bg-card shadow-elegant",
-              !trenCung && "pointer-events-none opacity-90",
+              !trenCung && "opacity-90",
             )}
           >
             <header className="flex items-center gap-2 border-b border-border px-4 py-3">

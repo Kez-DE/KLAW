@@ -147,6 +147,22 @@ async def test_dung_thieu_du_kien_bat_buoc_422(client, khoa_ky, hai_nguoi, graph
 
 
 @pytest.mark.asyncio
+async def test_dung_lua_chon_ngoai_danh_sach_422(client, khoa_ky, hai_nguoi, graph_soan_thao_gia):
+    """`vung` chỉ nhận `I`/`II`/`III`/`IV` (`gom_du_kien.lua_chon_sai`) — lượt hỏi
+    bằng lời không bao giờ sinh ra giá trị ngoài `enum` đó, nên endpoint HTTP
+    (nhận facts thô, không qua ràng buộc `enum`) phải tự chặn."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    pid = hoi_thoai.tao_phien(a, "hợp đồng lao động")
+    bt = ban_thao.tao(a, pid, "hdld", FACTS_HDLD, KET)
+
+    facts_sai = {**FACTS_HDLD, "vung": "V"}
+    r = await client.post(f"/api/v1/ban-thao/{bt['id']}/dung", json={"facts": facts_sai}, headers=ha)
+    assert r.status_code == 422
+    assert "Vùng lương tối thiểu" in r.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_dung_het_tran_sua_429(client, khoa_ky, hai_nguoi, graph_soan_thao_gia):
     """Đã chạm trần `TRAN_SUA` lần sửa → 429 với thông điệp tiếng Việt
     `LOI_HET_LAN_SUA`, không phải một 500 hay một lần sửa âm thầm."""

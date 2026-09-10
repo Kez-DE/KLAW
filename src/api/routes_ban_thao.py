@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from src.agents.graph_soan_thao import load_checklist_cached
-from src.agents.nodes.gom_du_kien import con_thieu
+from src.agents.nodes.gom_du_kien import con_thieu, lua_chon_sai
 from src.models.schemas import BanThaoOut, BanThaoTomTatOut, DanhSachBanThaoOut
 from src.services import ban_thao
 from src.services.bao_ve import nguoi_dung_bat_buoc
@@ -94,9 +94,11 @@ async def dung(id: str, body: DungLaiRequest, nguoi: dict = Depends(nguoi_dung_b
     `ban_thao.dung_lai` mà lệnh bằng lời trong hội thoại dùng, nên trần sửa và
     cách chạy graph là MỘT, không phải hai đường khác nhau cho cùng một việc.
 
-    Kiểm trường bắt buộc bằng CHÍNH `gom_du_kien.con_thieu` — hàm mà lượt sửa
-    bằng lời dùng để quyết định có đủ dữ kiện chưa — để drawer không thành một
-    đường vòng qua ràng buộc đó chỉ vì nó gọi thẳng HTTP thay vì trò chuyện.
+    Kiểm trường bắt buộc bằng CHÍNH `gom_du_kien.con_thieu`, và giá trị lựa
+    chọn bằng CHÍNH `gom_du_kien.lua_chon_sai` — hai hàm mà lượt sửa bằng lời
+    cũng dùng (trực tiếp, hoặc gián tiếp qua ràng buộc `enum` của
+    `schema_du_kien`) — để drawer không thành một đường vòng qua ràng buộc đó
+    chỉ vì nó gọi thẳng HTTP thay vì trò chuyện.
     """
     id = _uuid_hop_le(id)
     cu = await run_in_threadpool(ban_thao.chi_tiet, nguoi["sub"], id)
@@ -107,6 +109,12 @@ async def dung(id: str, body: DungLaiRequest, nguoi: dict = Depends(nguoi_dung_b
         raise HTTPException(
             status_code=422,
             detail="Còn thiếu dữ kiện bắt buộc: " + ", ".join(t["nhan"] for t in thieu) + ".",
+        )
+    sai = lua_chon_sai(cu["loai"], body.facts)
+    if sai:
+        raise HTTPException(
+            status_code=422,
+            detail="Giá trị không hợp lệ cho: " + ", ".join(t["nhan"] for t in sai) + ".",
         )
     try:
         bt = await ban_thao.dung_lai(nguoi["sub"], id, body.facts)

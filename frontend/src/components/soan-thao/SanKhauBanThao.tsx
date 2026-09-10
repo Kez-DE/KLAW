@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChevronLeft, Download, FileDown, Minus, Plus, X } from "lucide-react";
 import { Toggle } from "@/components/draft/DraftBits";
@@ -162,7 +162,13 @@ export function SanKhauBanThao({
 
   // Drawer xếp chồng sửa từng mục (Task 25, spec 2026-09-09 §9.4).
   const [ngan, datNgan] = useState<Tam[]>([]);
-  const dongTamTrenCung = () => datNgan(dongTrenCung);
+  // PHẢI ổn định (`useCallback`, không phải một hàm mũi tên trần): nó nằm
+  // trong dependency của effect "đưa tiêu điểm vào tấm trên cùng" bên trong
+  // `NganXepDrawer`. Sân khấu render lại vì nhiều lý do không liên quan tới
+  // drawer (một token chat đang stream, đổi zoom…) — một tham chiếu mới mỗi
+  // lần đó sẽ chạy lại effect kia dù `ngan` không đổi, và giật tiêu điểm ra
+  // khỏi ô đang gõ dở trong `DrawerSuaMuc`, về lại nút Đóng.
+  const dongTamTrenCung = useCallback(() => datNgan(dongTrenCung), []);
   const doiChieuCanCu = useDoiChieu();
 
   const onSuaMuc = (key: string) => {
