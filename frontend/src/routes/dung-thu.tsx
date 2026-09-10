@@ -279,8 +279,16 @@ function ManHoiKlaw() {
    *  giờ tắt (cờ `thu` lưu từ bố cục rộng còn sót lại). */
   const troLyDangKhuat = haiCot ? cuaSo.thu : tabHep !== "tro_ly";
   const daDemChuaDocRef = useRef<string | null>(null);
+  const khuatTruocDo = useRef(troLyDangKhuat);
   useEffect(() => {
+    const vuaBiGiau = troLyDangKhuat && !khuatTruocDo.current;
+    khuatTruocDo.current = troLyDangKhuat;
     if (sanKhau === null || !troLyDangKhuat || traCuu.dangChay || traCuu.ketQua === null) return;
+    // Trợ lý VỪA bị giấu đi (thu gọn cửa sổ, đổi tab, hoặc kéo cửa sổ qua ngưỡng
+    // 68rem sang bố cục hẹp): câu trả lời đang đứng sẵn trên màn hình lúc đó ĐÃ
+    // ĐƯỢC ĐỌC — đánh dấu đã thấy chứ không đếm. Chỉ lượt trả lời TỚI TRONG LÚC
+    // đang khuất mới là chưa đọc.
+    if (vuaBiGiau) daDemChuaDocRef.current = traCuu.ketQua.trace_id;
     if (daDemChuaDocRef.current === traCuu.ketQua.trace_id) return;
     daDemChuaDocRef.current = traCuu.ketQua.trace_id;
     datChuaDoc((n) => n + 1);
@@ -980,7 +988,9 @@ function ManHoiKlaw() {
                 (đọc được bằng trình đọc màn hình, không chỉ tô màu). Chấm
                 `chuaDoc` trên tab Trợ lý đi kèm CON SỐ trong tên truy cập —
                 không chỉ một chấm màu. */}
-            <div className="flex shrink-0 border-t border-border">
+            {/* `bg-background`: thanh tab nằm trên một lớp phủ toàn màn, không
+                tô nền thì chữ của trang bên dưới lộ qua. */}
+            <div className="flex shrink-0 border-t border-border bg-background">
               {(
                 [
                   ["ban_thao", "Bản thảo"],
