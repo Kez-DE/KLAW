@@ -4,7 +4,7 @@ Date: 2026-09-09
 
 ## Status
 
-Active
+Completed
 
 ## Outcome
 
@@ -129,13 +129,100 @@ Chép nguyên văn mục 11 của spec `2026-09-09-bo-nho-tinh-cach-soan-thao-de
   hội thoại nhiều lượt + test hồi quy "lượt 8 vẫn nhớ") this commit đóng nốt.
 - [x] Giai đoạn 3 — Tính cách trả lời: Task 11–15 done, Task 16 (`assemble.v3`
   trả lời trước + bộ đo câu mơ hồ `eval/run_mo_ho.py`) this commit đóng nốt.
-- [ ] Giai đoạn 4 — Soạn thảo hội thoại.
-- [ ] Giai đoạn 5 — Không gian làm việc.
+- [x] Giai đoạn 4 — Soạn thảo hội thoại: Task 17–21 done (bản thảo lưu theo
+  phiên bản với "lùi" một chiều không mất dữ liệu, gom dữ kiện qua hội thoại
+  không hỏi lại hai lần, hai kiểu kết quả agent mới nối vào graph, API bản
+  thảo theo từng người dùng, thẻ bản thảo trong khung chat).
+- [x] Giai đoạn 5 — Không gian làm việc: Task 22–25 done trước đó (tay kéo
+  panel điều khoản có nhớ độ rộng, tách xem trước/xuất khỏi
+  `KhongGianSoanThao`, sân khấu bản thảo + cửa sổ trợ lý nổi, drawer xếp
+  chồng sửa từng mục); Task 26 (commit này) đóng nốt bằng bố cục màn hẹp: tab
+  "Bản thảo | Trợ lý" toàn màn, drawer và danh sách mục gấp lại cho vừa.
 
 ## Decisions
 
-Rỗng — ghi dần khi mỗi giai đoạn phát sinh quyết định cục bộ. Chuyển quyết định có
-tính lâu dài về sản phẩm/kiến trúc vào `docs/decisions/`.
+Rút từ mọi dòng `Ruling:` trong
+`.superpowers/sdd/2026-09-09-bo-nho-tinh-cach-soan-thao/progress.md`, theo thứ
+tự xuất hiện. Vài dòng không gắn số task tường minh trong ledger — ghi rõ
+thay vì đoán số task.
+
+- Task 22: thêm prop tuỳ chọn `onMacDinh` nối vào bấm đôi, vì Bước 4 của brief
+  cần trong khi mã Bước 3 của chính brief lại thiếu.
+- Task 4: đưa migration `023_bo_nho.sql` vào đúng danh sách migration mà
+  lifespan tự áp dụng lúc khởi động — mã dùng một tuple tiền tố cố định chứ
+  không áp dụng mọi migration như plan giả định.
+- Task 5: siết thêm một quy tắc để tóm tắt bộ nhớ không mang định danh nhạy
+  cảm, theo đúng quy tắc bộ nhớ của spec thay vì chỉ kiểm Điều/số hiệu như mã
+  ban đầu.
+- Task 5: giữ dòng trace chi phí nhưng loại nó khỏi hai truy vấn thống kê
+  hoạt động/phân loại hồ sơ, dù file đó nằm ngoài danh sách file gốc của
+  Task 5.
+- Task 5: giữ nguyên quy tắc bắt trích dẫn theo hướng rộng — thà bắt nhầm một
+  địa chỉ dạng "Đ. 35, Quận 1" còn hơn bỏ sót một trích dẫn thật.
+- Task 7: coi các lượt test báo hạn mức cũ (trước Task 1) là lỗi thật cần sửa
+  trong vòng sửa của Task 7, không phải lỗi có sẵn không liên quan.
+- Task 9: dồn việc xác nhận bằng mắt qua Chrome vào đúng một đợt chụp gộp ở
+  cuối kế hoạch (Task 26) thay vì dựng lại backend riêng cho từng task.
+- Task 9: sửa luôn nhánh khách chưa đăng nhập bấm sửa hồ sơ (hiện chưa ai
+  chạm tới) vì Task 12 sắp khiến suy luận điền hồ sơ cho cả khách ẩn danh,
+  làm nhánh đó sống lại.
+- Task 10: sửa cả phép so khớp chuỗi con gây nhầm "xác định thời hạn" với
+  "không xác định thời hạn" lẫn việc bộ chấm điểm thiếu cách ly lỗi từng câu.
+- Task 12: mở rộng cả quy tắc suy vai lẫn bộ test theo cả ba phát hiện của
+  reviewer, vì suy sai vai còn tệ hơn im lặng.
+- Task 13: giữ bản rewrite mặc định ở phiên bản mới vì tín hiệu lĩnh vực cần
+  cho toàn bộ tính năng, và rủi ro đã biết luôn báo lỗi rõ chứ không âm thầm
+  trả lời sai; phép đo tốn tiền còn lại để chủ dự án tự quyết định chạy.
+- Task 13: vẫn sửa hai dòng chú thích lỗi thời dù nằm ngoài phạm vi file của
+  Task 13, vì một bước xử lý mới đã làm chú thích đó không còn đúng.
+- Task 14: sửa cả ba phát hiện của reviewer cho nhánh hỏi thêm dữ kiện (bỏ
+  qua trần khi lỗi hệ thống, thiếu kiểm kiểu dữ liệu, trần viết cứng thay vì
+  dùng hằng số).
+- Task 15: sửa cả ba phát hiện của reviewer cho bộ dựng bảng so sánh (cổng
+  chặn bảng không so sánh thật, mô tả ô sai dạng có thể làm vỡ luồng, test
+  còn thiếu các trường hợp rủi ro).
+- Task 16: sửa ngay việc bộ đo câu mơ hồ chỉ đo được nửa sau của câu trả lời
+  (đoán vai) mà bỏ sót nửa đầu (không hỏi lại), thay vì hoãn sang việc khác.
+- Task 17: coi việc lùi phiên bản làm mất nội dung phiên bản vừa rời là lỗi
+  mất dữ liệu thật, phải mở rộng hình dạng lịch sử để giữ đủ tài liệu và điều
+  khoản của cả hai phiên bản.
+- Task 17: bắt hai hàm truy cập bộ nhớ mới phải lọc theo người dùng ngay từ
+  đầu, theo đúng quy ước an toàn hơn cùng file đã có từ Task 4.
+- Task 17: định nghĩa lại "Lùi" là một bước đi lùi thật — bỏ hẳn phiên bản
+  vừa rời, không giữ đường quay lại — thay vì một công tắc bật/tắt qua lại
+  giữa hai phiên bản.
+- Task 18: xác nhận việc suy luận vai chạy trước bước phân loại đường đi là
+  chủ đích và đúng theo review của Task 12, nên cập nhật lại hai test còn
+  khẳng định lộ trình cũ.
+- Task 18: theo đúng khối mã năm cụm từ kích hoạt soạn thảo trong brief thay
+  vì gạch đầu dòng mô tả bốn cụm từ của chính brief — coi mã là đặc tả thật.
+- Task 19: bỏ quy tắc "đang có bản thảo mở thì mọi lượt sau đều vào nhánh
+  soạn thảo", chỉ định tuyến theo đúng ý định của LƯỢT HIỆN TẠI, để một câu
+  hỏi pháp luật thật giữa chừng không bị hiểu nhầm thành xin nốt dữ kiện.
+- Task 22: bắt cả ba thao tác đổi bề rộng panel (kéo, thu gọn, bấm đôi về
+  mặc định) đều lưu qua đúng một chỗ, không chỉ lưu mỗi thao tác kéo.
+- Task 23: giữ nguyên quyết định KHÔNG bắt `KhongGianSoanThao` dùng lại
+  `XemTruocA4`, vì yêu cầu đó của brief tự mâu thuẫn với chính yêu cầu giữ
+  nguyên hành vi wizard, và sẽ phá chữ đậm khi xuất .docx.
+- Task 24: tô phần đã đổi ở phía frontend chứ không phải backend; vì không
+  có ánh xạ thật từ dữ kiện sang mục, đổi sang nêu tên các DỮ KIỆN đã đổi
+  thay vì cố tô nhầm mục.
+- Task 25: bắt endpoint sửa mục từ chối giá trị nằm ngoài danh sách lựa chọn
+  hợp lệ của trường đó, dùng chung một chỗ kiểm với đường chat.
+- Task 25: các tấm drawer không nằm trên cùng phải mang `inert`/`aria-hidden`,
+  không theo đúng component tham chiếu của brief vốn thiếu thuộc tính đó.
+- Phát hiện toàn nhánh, không gắn một task cụ thể (giao cho Task 26 xử lý
+  trước phần việc chính, xem addendum): sửa `kiem-lich-su.ts` để nạp nhiều
+  lượt hơn trần lịch sử và suy ra phần lượt còn lại từ đúng hằng số đó, thay
+  vì giữ nguyên kỳ vọng viết cứng từ khi trần còn thấp hơn.
+- Phát hiện toàn nhánh, không gắn một task cụ thể: hai lượt test dữ liệu kho
+  (số hiệu văn bản trùng, ngày hiệu lực mâu thuẫn) đỏ vì dữ liệu corpus thật
+  của chủ dự án, không phải do các thay đổi của kế hoạch này — nêu lại cho
+  chủ dự án xử lý, không sửa trong kế hoạch này.
+- Quyết định phạm vi rà soát toàn nhánh cuối kế hoạch, không gắn một task cụ
+  thể: chỉ so từ điểm bắt đầu kế hoạch này tới HEAD, không so từ điểm tách
+  nhánh chung — nhánh làm việc đã có hàng trăm commit từ trước không thuộc kế
+  hoạch này.
 
 ## Validation
 
@@ -169,11 +256,34 @@ tính lâu dài về sản phẩm/kiến trúc vào `docs/decisions/`.
   đúng) đã đo trên input tổng hợp, không qua mạng — xem `test_run_mo_ho.py`.
 - Giai đoạn 4: cùng bộ pytest/ruff trên file đã đổi; `cd frontend && npm run
   typecheck && npm run lint && node scripts/kiem-ban-thao.ts`.
-- Giai đoạn 5: cùng bộ pytest/ruff trên file đã đổi; `cd frontend && npm run
-  typecheck && npm run lint && node scripts/kiem-keo-dan.ts && node
-  scripts/kiem-ngan-xep.ts`; ảnh chụp bốn trạng thái vào `.tham-dinh-shots/`
-  (không stage).
+- Giai đoạn 5 (Task 26, `cd frontend`): `node scripts/kiem-lich-su.ts` — OK
+  sau khi sửa lại phép kiểm (hằng số trần lịch sử đã lên 10 từ Task 9, phép
+  kiểm cũ nạp 5 lượt nên không còn thử cắt được gì; sửa: nạp nhiều hơn trần
+  và suy ra phần lượt còn lại từ đúng hằng số). `npm run typecheck` — sạch.
+  `npm run lint` — 0 lỗi (6 cảnh báo react-refresh có sẵn từ trước, không ở
+  file task này đổi). `node scripts/kiem-keo-dan.ts` — 18/18 OK + cửa sổ 7/7
+  OK. `node scripts/kiem-ngan-xep.ts` — 6/6 OK. `node scripts/kiem-bo-nho.ts`
+  — 5/5 OK. `node scripts/kiem-ban-thao.ts` — 9/9 đạt. `node
+  scripts/kiem-goi.ts` — 8/8 OK. Toàn chuỗi `npm run kiem` (typecheck, lint,
+  mọi `kiem-*`, kiểm tương phản, `npm run build`) — thoát mã 0, kể cả
+  `kiem-khung.ts` giờ đối chiếu THẬT với backend đang chạy ở cổng 8000 (do
+  controller khởi động cho đợt chụp sau task này): "kiem-khung: đạt · 25 phép
+  kiểm khung + 29/29 mẫu khớp cờ máy chủ" — không lệch. `pytest`/`ruff` cho
+  backend: **không tự chạy trong Task 26** — task này không đổi file Python
+  nào; Task 22–25 (phần backend của giai đoạn 5) đã tự chạy pytest/ruff
+  trong phiên làm việc riêng của từng task đó (xem
+  `.superpowers/sdd/2026-09-09-bo-nho-tinh-cach-soan-thao/progress.md`), tôi
+  không chép lại số liệu ở đây vì không tự mắt thấy trong phiên này. Ảnh chụp
+  Chrome bốn trạng thái ở 1440/390 và đi bàn phím qua drawer (Tab, Shift+Tab,
+  Esc): **không chạy trong task này** — đây là phần của controller sau khi
+  backend và frontend cùng chạy với một phiên đăng nhập thật (đã tách rõ
+  trong brief của Task 26).
 
 ## Result
 
-Chưa xong.
+Cả năm giai đoạn (26 task) đã landed và validate theo mục Validation ở trên.
+Còn lại hai việc ngoài phạm vi việc code, cả hai đã nêu rõ chứ không bịa số:
+hai phép đo tốn tiền thật (`eval.run_hoi_thoai`, `eval.run_mo_ho`/`run_trap`
+đủ mẫu) chưa chạy vì cần khoá OpenRouter — để chủ dự án tự quyết; và đợt
+chụp Chrome bốn trạng thái + đi bàn phím qua drawer do controller làm sau
+task này (cần backend, frontend và một phiên đăng nhập thật).
