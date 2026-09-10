@@ -14,3 +14,19 @@ eval/
 .dockerignore
 Dockerfile
 docker-compose.yml
+
+# Not part of the API image: sibling apps, their build output and dependency trees,
+# the raw corpus (gitignored, 43 MB; data/seed is what production loads), and
+# controller scratch. Keeps the Python image small and the build cache stable.
+frontend/
+cms/
+node_modules/
+data/raw/
+.tham-dinh-shots/
+.superpowers/
+.impeccable/
+.agents/
+.github/
+eval/results/
+.output/
+.next/
