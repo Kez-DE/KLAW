@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 /**
@@ -12,6 +13,11 @@ import { Link } from "@tanstack/react-router";
  * `role="status"` chứ không `alert`: thẻ hiện ra sau một hành động của chính
  * người dùng và không đòi họ dừng việc đang làm.
  *
+ * `onTat` CHỈ dành cho `het_han`. Hai loại kia là ngõ cụt cứng — người hỏi
+ * không đi tiếp được nếu không bấm một trong hai nút, nên một dấu X ở đó là
+ * giấu mất lối ra duy nhất. Gói hết hạn thì khác: tài khoản rơi về gói miễn
+ * phí và vẫn hỏi được, nên thẻ là lời nhắc chứ không phải rào chắn.
+ *
  * Chữ đi vào qua `chiTiet` vì con số (trần lượt, hạn mức, ngày hết hạn) đến từ
  * `GET /han-muc`. Chép tay một con số ở đây là dựng lại đúng cái đồng hồ sai
  * mà `TheDangNhap` đã phải gỡ một lần.
@@ -22,6 +28,7 @@ export function TheHetLuot({
   onPhienMoi,
   onNangGoi,
   onCatThread,
+  onTat,
 }: {
   loai: "khach" | "phien" | "het_han";
   chiTiet: string;
@@ -29,10 +36,22 @@ export function TheHetLuot({
   onNangGoi?: () => void;
   /** Cất đoạn chat khách trước khi rời trang — nếu không, đăng nhập xong là mất. */
   onCatThread?: () => void;
+  /** Tắt thẻ. Chỉ truyền cho `het_han`; xem ghi chú ở đầu tệp. */
+  onTat?: (() => void) | undefined;
 }) {
   return (
-    <div role="status" className="rounded-xl border border-dashed border-border px-4 py-3">
-      <p className="m-0 text-[14px] leading-6 text-foreground">{chiTiet}</p>
+    <div role="status" className="relative rounded-xl border border-dashed border-border px-4 py-3">
+      {onTat !== undefined && loai === "het_han" && (
+        <button
+          type="button"
+          onClick={onTat}
+          aria-label="Tắt thông báo hết hạn gói"
+          className="focus-brass absolute top-1 right-1 grid size-11 cursor-pointer place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[var(--color-paper-100)]"
+        >
+          <X aria-hidden className="size-4" />
+        </button>
+      )}
+      <p className="m-0 pr-12 text-[14px] leading-6 text-foreground">{chiTiet}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {loai === "phien" && onPhienMoi !== undefined && (
           <button

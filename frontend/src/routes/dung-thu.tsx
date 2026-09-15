@@ -14,6 +14,7 @@ import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
 import { TaiLieuDuKien } from "@/components/klaw/TaiLieuDuKien";
 import { loaiBackendCua } from "@/lib/mau-van-ban";
+import { daTat, ghiNhoDaTat, khoaHetHan } from "@/lib/tat-thong-bao";
 import { SanKhauBanThao } from "@/components/soan-thao/SanKhauBanThao";
 import { TheTaiKhoanKhoa } from "@/components/tai-khoan/TheTaiKhoanKhoa";
 import { TayKeo } from "@/components/ui/TayKeo";
@@ -378,6 +379,10 @@ function ManHoiKlaw() {
    *  thoại chứ không trong khung soạn thảo: người dùng đang cầm tờ giấy trong
    *  tay, bắt họ mở khung soạn thảo trước mới được đính kèm là một ngõ cụt. */
   const [moTaiLieu, datMoTaiLieu] = useState(false);
+  /** Thẻ "gói hết hạn" đã bị tắt cho ĐÚNG lần hết hạn này. Gia hạn rồi hết hạn
+   *  tiếp thì khoá đổi, nên thẻ hiện lại — nếu không người dùng mất lượt mà
+   *  không biết vì sao. */
+  const [daTatHetHan, datDaTatHetHan] = useState(false);
   const [tepDinhKem, datTepDinhKem] = useState<File | null>(null);
   const [dangDocTep, datDangDocTep] = useState(false);
 
@@ -718,12 +723,16 @@ function ManHoiKlaw() {
                 cả khi chưa có lượt nào: gói vừa hết hạn, và đoạn chat thử không
                 mang sang được. Nằm ngoài nhánh `chuaHoiGiCa` nên không biến mất
                 cùng dòng chat. */}
-        {hetHanPro && (
+        {hetHanPro && !daTatHetHan && !daTat(khoaHetHan(ngayHetHan)) && (
           <div className="mt-8">
             <TheHetLuot
               loai="het_han"
               chiTiet={`Gói Cá nhân đã hết hạn ngày ${ngayHetHan}. Gia hạn 30 ngày để tiếp tục hỏi 500 lượt mỗi ngày và soạn 20 bản thảo mỗi ngày.`}
               onNangGoi={moNangGoi}
+              onTat={() => {
+                ghiNhoDaTat(khoaHetHan(ngayHetHan));
+                datDaTatHetHan(true);
+              }}
             />
           </div>
         )}
