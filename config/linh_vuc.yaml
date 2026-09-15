@@ -1,0 +1,228 @@
+# HAI TRỤC phân loại văn bản (spec 2026-09-15d).
+#
+# Đây là DỮ LIỆU, không phải code: thêm từ khoá là sửa file này.
+#
+# ── Hai trục, không cạnh tranh nhau ──────────────────────────────────────────
+#   * `nganh_luat` — 12 NGÀNH LUẬT, phân loại học thuật dạy trong trường luật.
+#     Trích dẫn được, bảo vệ được trước hội đồng. Thô: nó GỘP MẠNH.
+#   * `linh_vuc` — 27 LĨNH VỰC, phân loại thực dụng mà các cổng pháp luật dùng.
+#     Mịn hơn, nên lọc retrieval tốt hơn. Không trích dẫn được như một chuẩn
+#     học thuật, và đó là lý do giữ cả hai thay vì chọn một.
+#
+# Một văn bản mang MỘT giá trị ở mỗi trục. Cùng một bộ máy khớp từ khoá, cùng
+# quy tắc `uu_tien`, chỉ khác bảng dữ liệu.
+#
+# Cái giá của 12 ngành: nó GỘP MẠNH. Môi trường, giao thông, y tế, giáo dục,
+# quốc phòng đều là Luật Hành chính; sở hữu trí tuệ là Dân sự; doanh nghiệp,
+# thương mại, đầu tư là Kinh tế. Nên `hanh_chinh` sẽ là nhóm lớn nhất và lọc
+# theo nó kéo về nhiều thứ không liên quan. Đó là đánh đổi có chủ ý: chuẩn
+# trích dẫn được quan trọng hơn độ mịn của bộ lọc.
+#
+# ── Cách nhận ────────────────────────────────────────────────────────────────
+# Khớp từ khoá THEO RANH GIỚI TỪ trên `ten` + `linh_vuc` nguồn + `co_quan_ban_hanh`.
+# Tất định, 0 token, giải thích được — cùng nguyên tắc `phan_loai_tai_lieu`.
+#
+# `uu_tien` xử lý chồng lấn: số nhỏ hơn thắng. "Bộ luật Tố tụng hình sự" khớp cả
+# `hinh_su` lẫn `to_tung_hinh_su`; tố tụng cụ thể hơn nên phải thắng, nếu không
+# mọi luật tố tụng rơi vào luật nội dung và bộ lọc thành vô nghĩa.
+
+nganh_luat:
+  to_tung_hinh_su:
+    ten: Luật Tố tụng hình sự
+    uu_tien: 1
+    tu_khoa: [to tung hinh su, thi hanh an hinh su, tam giu tam giam, thi hanh tam giu, dac xa, to chuc co quan dieu tra hinh su]
+
+  to_tung_dan_su:
+    ten: Luật Tố tụng dân sự
+    uu_tien: 2
+    tu_khoa: [to tung dan su, to tung hanh chinh, thi hanh an dan su, trong tai thuong mai, hoa giai doi thoai tai toa an, to chuc toa an, to chuc vien kiem sat, giam dinh tu phap, thua phat lai]
+
+  hien_phap:
+    ten: Luật Hiến pháp
+    uu_tien: 3
+    tu_khoa: [hien phap, to chuc quoc hoi, to chuc chinh phu, chinh quyen dia phuong, bau cu, trung cau y dan, mat tran to quoc, to chuc chinh quyen do thi]
+
+  hon_nhan_gia_dinh:
+    ten: Luật Hôn nhân và gia đình
+    uu_tien: 4
+    tu_khoa: [hon nhan, hon nhan va gia dinh, gia dinh, nuoi con nuoi, tre em, binh dang gioi, phong chong bao luc gia dinh, ho tich]
+
+  lao_dong:
+    ten: Luật Lao động
+    uu_tien: 5
+    tu_khoa: [lao dong, viec lam, tien luong, bao hiem xa hoi, bao hiem that nghiep, an toan ve sinh lao dong, cong doan, giao duc nghe nghiep, nguoi lao dong viet nam di lam viec o nuoc ngoai, cong nhan vien chuc lao dong]
+
+  dat_dai:
+    ten: Luật Đất đai
+    uu_tien: 6
+    tu_khoa: [dat dai, nha o, bat dong san, kinh doanh bat dong san, luat xay dung, hoat dong xay dung, quy hoach do thi, quy hoach su dung dat, kien truc, dang ky dat dai, thu hoi dat, boi thuong tai dinh cu]
+
+  ngan_hang:
+    ten: Luật Ngân hàng
+    uu_tien: 7
+    tu_khoa: [ngan hang, ngan hang nha nuoc, to chuc tin dung, tin dung, bao hiem tien gui, ngoai hoi, thanh toan khong dung tien mat, phong chong rua tien]
+
+  tai_chinh:
+    ten: Luật Tài chính
+    uu_tien: 8
+    tu_khoa: [thue, quan ly thue, ke toan, kiem toan, ngan sach nha nuoc, phi le phi, quan ly gia, binh on gia, du tru quoc gia, quan ly no cong, tai san cong, chung khoan, kinh doanh bao hiem]
+
+  kinh_te:
+    ten: Luật Kinh tế
+    uu_tien: 9
+    tu_khoa: [doanh nghiep, dau tu, thuong mai, pha san, canh tranh, hop tac xa, dau thau, so huu tri tue, bao ve quyen loi nguoi tieu dung, quang cao, gia cong, logistics, hai quan, xuat nhap khau]
+
+  hinh_su:
+    ten: Luật Hình sự
+    uu_tien: 10
+    tu_khoa: [hinh su, toi pham, hinh phat, trach nhiem hinh su, phong chong ma tuy, phong chong mua ban nguoi, phong chong tham nhung]
+
+  dan_su:
+    ten: Luật Dân sự
+    uu_tien: 11
+    tu_khoa: [dan su, tai san, nghia vu, hop dong, thua ke, boi thuong thiet hai, cong chung, chung thuc, trach nhiem boi thuong cua nha nuoc, quoc tich, cu tru, ho tich tu phap]
+
+  hanh_chinh:
+    ten: Luật Hành chính
+    uu_tien: 12
+    tu_khoa: [hanh chinh, thu tuc hanh chinh, can bo cong chuc, vien chuc, khieu nai, to cao, xu ly vi pham hanh chinh, thanh tra, tiep cong dan, luu tru, van thu, ban hanh van ban quy pham phap luat, giao thong, duong bo, duong sat, hang hai, hang khong, van tai, y te, kham benh chua benh, duoc, bao hiem y te, an toan thuc pham, dan so, giao duc, dai hoc, khoa hoc va cong nghe, moi truong, tai nguyen, khoang san, tai nguyen nuoc, lam nghiep, thuy san, da dang sinh hoc, bien va hai dao, khi tuong thuy van, quoc phong, an ninh quoc gia, cong an, bien phong, canh sat bien, nghia vu quan su, xuat canh, nhap canh, dieu uoc quoc te, co yeu, cong nghe thong tin, giao dich dien tu, du lieu ca nhan, an toan thong tin mang, vien thong, tan so, chuyen giao cong nghe, cong nghe cao]
+
+# ── Trục 2: 27 lĩnh vực ───────────────────────────────────────────────────────
+# Mịn hơn 12 ngành, nên dùng cho bộ lọc retrieval. `linh_vuc_khac` là ngành cuối
+# và CÓ CHỦ Ý: nó gom những văn bản thật sự không thuộc 26 nhóm trên, thay vì
+# nhồi chúng vào "hành chính" và làm hỏng một nhóm đang dùng được.
+linh_vuc:
+  thu_tuc_to_tung:
+    ten: Thủ tục tố tụng
+    uu_tien: 1
+    tu_khoa: [to tung, thi hanh an, trong tai thuong mai, hoa giai doi thoai tai toa an, to chuc toa an, to chuc vien kiem sat, giam dinh tu phap, thua phat lai, tam giu tam giam]
+
+  trach_nhiem_hinh_su:
+    ten: Trách nhiệm hình sự
+    uu_tien: 2
+    tu_khoa: [hinh su, toi pham, hinh phat, trach nhiem hinh su, phong chong ma tuy, phong chong mua ban nguoi, phong chong tham nhung, dac xa]
+
+  lao_dong_tien_luong:
+    ten: Lao động - Tiền lương
+    uu_tien: 3
+    tu_khoa: [lao dong, viec lam, tien luong, luong toi thieu, bao hiem xa hoi, bao hiem that nghiep, an toan ve sinh lao dong, cong doan, giao duc nghe nghiep, nguoi lao dong viet nam di lam viec o nuoc ngoai]
+
+  so_huu_tri_tue:
+    ten: Sở hữu trí tuệ
+    uu_tien: 4
+    tu_khoa: [so huu tri tue, quyen tac gia, ban quyen, nhan hieu, sang che, kieu dang cong nghiep, chi dan dia ly, giong cay trong]
+
+  chung_khoan:
+    ten: Chứng khoán
+    uu_tien: 5
+    tu_khoa: [chung khoan, thi truong chung khoan, cong ty dai chung, trai phieu doanh nghiep]
+
+  bao_hiem:
+    ten: Bảo hiểm
+    uu_tien: 6
+    tu_khoa: [kinh doanh bao hiem, dai ly bao hiem, bao hiem tien gui, bao hiem nhan tho, bao hiem y te]
+
+  ke_toan_kiem_toan:
+    ten: Kế toán - Kiểm toán
+    uu_tien: 7
+    tu_khoa: [ke toan, kiem toan, chuan muc ke toan, kiem toan doc lap, kiem toan nha nuoc]
+
+  thue_phi_le_phi:
+    ten: Thuế - Phí - Lệ phí
+    uu_tien: 8
+    tu_khoa: [thue, quan ly thue, thue thu nhap, thue gia tri gia tang, thue tieu thu dac biet, thue xuat khau, phi le phi, hoa don]
+
+  tien_te_ngan_hang:
+    ten: Tiền tệ - Ngân hàng
+    uu_tien: 9
+    tu_khoa: [ngan hang, ngan hang nha nuoc, to chuc tin dung, tin dung, ngoai hoi, thanh toan khong dung tien mat, phong chong rua tien, tien te]
+
+  xuat_nhap_khau:
+    ten: Xuất nhập khẩu
+    uu_tien: 10
+    tu_khoa: [xuat khau, nhap khau, hai quan, xuat nhap khau, xuat xu hang hoa, phong ve thuong mai, quan ly ngoai thuong]
+
+  bat_dong_san:
+    ten: Bất động sản
+    uu_tien: 11
+    tu_khoa: [bat dong san, kinh doanh bat dong san, nha o, dat dai, dang ky dat dai, thu hoi dat, boi thuong tai dinh cu, quy hoach su dung dat]
+
+  xay_dung_do_thi:
+    ten: Xây dựng - Đô thị
+    uu_tien: 12
+    tu_khoa: [luat xay dung, hoat dong xay dung, cong trinh xay dung, giay phep xay dung, dau tu xay dung, quy hoach do thi, kien truc, ha tang ky thuat, cap thoat nuoc, nha chung cu, vat lieu xay dung]
+
+  cong_nghe_thong_tin:
+    ten: Công nghệ thông tin
+    uu_tien: 13
+    tu_khoa: [cong nghe thong tin, giao dich dien tu, du lieu ca nhan, an toan thong tin mang, an ninh mang, vien thong, tan so, chu ky so, thuong mai dien tu, cong nghiep cong nghe so]
+
+  dich_vu_phap_ly:
+    ten: Dịch vụ pháp lý
+    uu_tien: 14
+    tu_khoa: [luat su, cong chung, chung thuc, tro giup phap ly, dau gia tai san, quan tai vien, tu van phap luat]
+
+  vi_pham_hanh_chinh:
+    ten: Vi phạm hành chính
+    uu_tien: 15
+    tu_khoa: [xu phat vi pham hanh chinh, xu ly vi pham hanh chinh, vi pham hanh chinh, cuong che thi hanh quyet dinh]
+
+  giao_thong_van_tai:
+    ten: Giao thông - Vận tải
+    uu_tien: 16
+    tu_khoa: [giao thong, duong bo, duong sat, duong thuy noi dia, hang hai, hang khong, van tai, logistics, trat tu an toan giao thong, dang kiem]
+
+  tai_nguyen_moi_truong:
+    ten: Tài nguyên - Môi trường
+    uu_tien: 17
+    tu_khoa: [tai nguyen, moi truong, khoang san, tai nguyen nuoc, lam nghiep, thuy san, da dang sinh hoc, bien va hai dao, khi tuong thuy van, bao ve moi truong, chat thai]
+
+  the_thao_y_te:
+    ten: Thể thao - Y tế
+    uu_tien: 18
+    tu_khoa: [y te, kham benh, chua benh, duoc, an toan thuc pham, phong chong benh truyen nhiem, dan so, hien ghep mo, the duc the thao, phong chong tac hai cua ruou bia]
+
+  giao_duc:
+    ten: Giáo dục
+    uu_tien: 19
+    tu_khoa: [giao duc, dai hoc, pho thong, nha giao, hoc phi, kiem dinh chat luong giao duc]
+
+  dau_tu:
+    ten: Đầu tư
+    uu_tien: 20
+    tu_khoa: [dau tu, dau tu cong, dau tu nuoc ngoai, doi tac cong tu, dau thau, khu cong nghiep, khu kinh te]
+
+  doanh_nghiep:
+    ten: Doanh nghiệp
+    uu_tien: 21
+    tu_khoa: [doanh nghiep, cong ty, dang ky kinh doanh, pha san, hop tac xa, ho kinh doanh, doanh nghiep nha nuoc]
+
+  thuong_mai:
+    ten: Thương mại
+    uu_tien: 22
+    tu_khoa: [thuong mai, mua ban hang hoa, canh tranh, bao ve quyen loi nguoi tieu dung, quang cao, nhuong quyen thuong mai, gia cong, quan ly gia, binh on gia]
+
+  tai_chinh_nha_nuoc:
+    ten: Tài chính nhà nước
+    uu_tien: 23
+    tu_khoa: [ngan sach nha nuoc, tai san cong, quan ly no cong, du tru quoc gia, dau tu von nha nuoc, quy tai chinh nha nuoc]
+
+  quyen_dan_su:
+    ten: Quyền dân sự
+    uu_tien: 24
+    tu_khoa: [dan su, quyen nhan than, thua ke, hop dong dan su, boi thuong thiet hai, trach nhiem boi thuong cua nha nuoc, ho tich, quoc tich, cu tru, hon nhan, gia dinh, nuoi con nuoi, tre em, binh dang gioi]
+
+  van_hoa_xa_hoi:
+    ten: Văn hóa - Xã hội
+    uu_tien: 25
+    tu_khoa: [van hoa, di san van hoa, du lich, bao chi, xuat ban, tin nguong ton giao, nguoi cao tuoi, nguoi khuyet tat, uu dai nguoi co cong, tro giup xa hoi, thanh nien, phong chong thien tai]
+
+  phap_luat_hanh_chinh:
+    ten: Pháp luật hành chính
+    uu_tien: 26
+    tu_khoa: [hanh chinh, thu tuc hanh chinh, can bo cong chuc, vien chuc, khieu nai, to cao, thanh tra, tiep cong dan, luu tru, van thu, ban hanh van ban quy pham phap luat, to chuc chinh phu, to chuc quoc hoi, chinh quyen dia phuong, hien phap, bau cu, quoc phong, an ninh quoc gia, cong an, bien phong, nghia vu quan su, xuat canh, nhap canh, dieu uoc quoc te]
+
+  linh_vuc_khac:
+    ten: Lĩnh vực khác
+    uu_tien: 27
+    tu_khoa: [khoa hoc va cong nghe, chuyen giao cong nghe, cong nghe cao, tieu chuan do luong chat luong, nong nghiep, chan nuoi, trong trot, thu y, dien luc, dau khi, su dung nang luong tiet kiem]
