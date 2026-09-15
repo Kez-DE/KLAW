@@ -39,6 +39,14 @@ _THONG_DIEP = {
     LoaiHong.khong_co_lop_chu: "Tệp này không có lớp chữ máy đọc được — thường gặp ở bản scan hoặc ảnh chụp. Hãy gửi bản gốc.",
 }
 
+# Việc hỏng vì trần, không vì tệp. Hai câu riêng vì hai việc người dùng làm tiếp
+# khác nhau: một bên chia nhỏ tài liệu, một bên chờ hoặc báo người vận hành.
+THONG_DIEP_TRAN = {
+    "so_byte": f"Tệp vượt giới hạn {tl.TRAN_BYTE // (1024 * 1024)} MB.",
+    "so_trang": f"Tài liệu vượt giới hạn {tl.TRAN_TRANG} trang.",
+    "chi_phi": "Tài liệu này quá lớn để xử lý trong một lần. Hãy tách nhỏ rồi gửi lại.",
+}
+
 
 class DuKienOut(BaseModel):
     id: str | None = None
@@ -79,8 +87,7 @@ def _loi_http(e: Exception) -> HTTPException:
     không xử lý được, và cả hai đều nói rõ người dùng phải làm gì khác.
     """
     if isinstance(e, VuotTran):
-        gioi_han = f"{e.gioi_han // (1024 * 1024)} MB" if e.tran == "so_byte" else f"{e.gioi_han} trang"
-        return HTTPException(status_code=422, detail=f"Tài liệu vượt giới hạn {gioi_han}.")
+        return HTTPException(status_code=422, detail=THONG_DIEP_TRAN[e.tran])
     if isinstance(e, KhongDocDuoc):
         return HTTPException(status_code=422, detail=_THONG_DIEP[e.ly_do])
     raise e
@@ -106,15 +113,25 @@ def _chay(viec_id: str, user_sub: str, hoi_thoai_id: str, loai: str, ten_tep: st
         tai_lieu = doc(ten_tep, du_lieu)
         del du_lieu  # FR-022 — buông tham chiếu ngay khi không cần nữa
         tl.kiem_so_trang(tai_lieu.so_trang)
+        # FR-036 — chặn TRƯỚC khi tiêu đồng nào. Không còn trần thời gian, nên
+        # đây là chỗ duy nhất một tài liệu dị dạng bị chặn trước ví tiền.
+        tl.kiem_tran_chi_phi_tai_lieu(tai_lieu.so_ky_tu)
 
         ra = rut_du_kien(loai, tai_lieu, llm_svc.from_settings(), llm_svc.generate_model())
+        chi_phi = ra["traces"]["rut_du_kien_cost_usd"]
         if ra["traces"]["rut_du_kien_nguon"] == "loi":
             tl.dat_trang_thai(engine, viec_id, user_sub, "hong", ly_do_hong="loi_mo_hinh",
-                              so_trang=tai_lieu.so_trang)
+                              so_trang=tai_lieu.so_trang, chi_phi_usd=chi_phi)
+            return
+        if tl.vuot_chi_phi_thuc(chi_phi):
+            # Ước sai vẫn phải bị bắt: ước là phòng ngừa, đối chiếu thật là
+            # cưỡng chế. Kết quả bị bỏ chứ không lưu nửa vời.
+            tl.dat_trang_thai(engine, viec_id, user_sub, "hong", ly_do_hong="vuot_tran_chi_phi",
+                              so_trang=tai_lieu.so_trang, chi_phi_usd=chi_phi)
             return
         tl.luu_du_kien(engine, viec_id, hoi_thoai_id, ra["du_kien"])
         tl.dat_trang_thai(engine, viec_id, user_sub, "xong", so_trang=tai_lieu.so_trang,
-                          chi_phi_usd=ra["traces"]["rut_du_kien_cost_usd"])
+                          chi_phi_usd=chi_phi)
     except (KhongDocDuoc, VuotTran) as e:
         ly_do = e.ly_do.value if isinstance(e, KhongDocDuoc) else f"vuot_tran_{e.tran}"
         tl.dat_trang_thai(engine, viec_id, user_sub, "hong", ly_do_hong=ly_do)

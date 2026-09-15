@@ -43,7 +43,7 @@ def _viec(c) -> tuple[str, str, str]:
     """Một user + hội thoại + việc đọc dùng một lần, trả (user_sub, hoi_thoai_id, viec_id)."""
     sub = c.execute(text("INSERT INTO users (sub) VALUES (gen_random_uuid()) RETURNING sub")).scalar_one()
     ht = c.execute(
-        text("INSERT INTO hoi_thoai (user_sub) VALUES (:u) RETURNING id"), {"u": sub}
+        text("INSERT INTO hoi_thoai (user_sub, tieu_de) VALUES (:u, 'thử') RETURNING id"), {"u": sub}
     ).scalar_one()
     viec = c.execute(
         text(
@@ -108,7 +108,7 @@ def test_viec_HONG_khong_co_ly_do_BI_CHAN():
     with pytest.raises(IntegrityError) as e:
         with get_engine().begin() as c:
             sub = c.execute(text("INSERT INTO users (sub) VALUES (gen_random_uuid()) RETURNING sub")).scalar_one()
-            ht = c.execute(text("INSERT INTO hoi_thoai (user_sub) VALUES (:u) RETURNING id"), {"u": sub}).scalar_one()
+            ht = c.execute(text("INSERT INTO hoi_thoai (user_sub, tieu_de) VALUES (:u, 'thử') RETURNING id"), {"u": sub}).scalar_one()
             c.execute(
                 text(
                     "INSERT INTO viec_doc_tai_lieu (user_sub, hoi_thoai_id, ten_tep, dau_van_ban, so_byte, trang_thai) "

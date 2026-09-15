@@ -1,0 +1,179 @@
+"""Endpoint `/tai-lieu` chạm DB thật (spec 2026-09-15).
+
+Bốn điều chỉ chứng minh được bằng một request thật:
+
+1. Dữ kiện đi hết đường từ tệp tải lên tới bảng `du_kien_tai_lieu`, và mỗi dòng
+   ra tới người dùng đều mang neo.
+2. Ranh giới tài khoản: việc đọc của người khác là 404, không phân biệt được với
+   một id không có thật.
+3. Sửa một dữ kiện giữ trích gốc và đổi nhãn nguồn — FR-015 ở tầng HTTP, nơi
+   người dùng thật chạm vào.
+4. Bàn giao sang soạn thảo trả đúng hình dạng `POST /soan-thao` nhận.
+"""
+
+import json
+import uuid
+import zipfile
+from io import BytesIO
+
+import pytest
+from sqlalchemy import text
+
+from src.api import routes_tai_lieu as rtl
+from src.services import bao_ve, hoi_thoai
+from src.services.db import get_engine
+from tests.test_api.test_xac_thuc_han_muc import _URL as SUPABASE
+from tests.test_api.test_xac_thuc_han_muc import _bearer
+
+pytestmark = pytest.mark.integration
+
+LOAI = "hdld"
+DONG_LUONG = "Lương chính thức: 20.000.000 đồng/tháng"
+DONG_THU_VIEC = "Thời gian thử việc: 60 ngày"
+
+
+def _docx(*dong: str) -> bytes:
+    than = "".join(f"<w:p><w:r><w:t>{d}</w:t></w:r></w:p>" for d in dong)
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("[Content_Types].xml", '<?xml version="1.0"?><Types/>')
+        z.writestr(
+            "word/document.xml",
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            f"<w:body>{than}</w:body></w:document>",
+        )
+    return buf.getvalue()
+
+
+class _Usage:
+    token_in, token_out, cost_usd = 10, 20, 0.0005
+
+
+class _LLM:
+    """Trả một dữ kiện KHỚP và một dữ kiện BỊA, để kiểm đúng cái bị loại."""
+
+    def chat(self, model, messages, json_schema=None):
+        from src.agents.nodes.gom_du_kien import truong_cua
+
+        ra = {t["key"]: {"gia_tri": "", "trich": ""} for t in truong_cua(LOAI)}
+        ra["luong_chinh_thuc"] = {"gia_tri": "20000000", "trich": DONG_LUONG}
+        ra["thoi_gian_thu_viec_ngay"] = {"gia_tri": "60", "trich": "Thời gian thử việc: 99 ngày"}
+        return json.dumps(ra), _Usage()
+
+
+@pytest.fixture
+def llm_gia(monkeypatch):
+    monkeypatch.setattr(rtl.llm_svc, "from_settings", lambda: _LLM())
+    monkeypatch.setattr(rtl.llm_svc, "generate_model", lambda: "gia-lap")
+
+
+@pytest.fixture
+def hai_nguoi(cai_dat, khoa_ky):
+    cai_dat(supabase_url=SUPABASE)
+    a, b = str(uuid.uuid4()), str(uuid.uuid4())
+    for s in (a, b):
+        bao_ve.ghi_nhan_nguoi_dung(s, None)
+    yield a, b
+    with get_engine().begin() as c:
+        for s in (a, b):
+            c.execute(text("DELETE FROM hoi_thoai WHERE user_sub = CAST(:s AS uuid)"), {"s": s})
+            c.execute(text("DELETE FROM users WHERE sub = CAST(:s AS uuid)"), {"s": s})
+
+
+async def _tai_len(client, headers, phien, tep=None, ten="hd.docx"):
+    return await client.post(
+        "/api/v1/tai-lieu",
+        headers=headers,
+        files={"tep": (ten, tep if tep is not None else _docx(DONG_LUONG, DONG_THU_VIEC))},
+        data={"hoi_thoai_id": phien, "loai": LOAI},
+    )
+
+
+@pytest.mark.asyncio
+async def test_tai_len_ra_du_kien_CO_NEO_va_loai_du_kien_BIA(client, khoa_ky, hai_nguoi, llm_gia):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+
+    r = await _tai_len(client, ha, phien)
+    assert r.status_code == 201, r.text
+    d = r.json()
+    assert d["trang_thai"] == "xong" and d["chay_nen"] is False
+
+    khoa = {x["khoa"] for x in d["du_kien"]}
+    assert khoa == {"luong_chinh_thuc"}, "dữ kiện có trích bịa phải bị loại"
+    dk = d["du_kien"][0]
+    assert dk["nguon"] == "tai_lieu" and dk["trich"] == DONG_LUONG and dk["trang"] == 1
+
+
+@pytest.mark.asyncio
+async def test_viec_cua_nguoi_khac_la_404(client, khoa_ky, hai_nguoi, llm_gia):
+    a, b = hai_nguoi
+    ha, hb = _bearer(khoa_ky, a), _bearer(khoa_ky, b)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _tai_len(client, ha, phien)).json()["id"]
+
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}", headers=ha)).status_code == 200
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}", headers=hb)).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_sua_du_kien_GIU_trich_goc_va_doi_nguon(client, khoa_ky, hai_nguoi, llm_gia):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    dk_id = (await _tai_len(client, ha, phien)).json()["du_kien"][0]["id"]
+
+    r = await client.patch(f"/api/v1/tai-lieu/du-kien/{dk_id}", headers=ha, json={"gia_tri": "25000000"})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["gia_tri"] == "25000000"
+    assert d["nguon"] == "nguoi_dung_sua"
+    assert d["trich_goc"] == DONG_LUONG
+    assert d["trich"] is None, "trích chứng minh giá trị CŨ, không được để cạnh giá trị mới"
+
+
+@pytest.mark.asyncio
+async def test_xoa_mot_du_kien_va_xoa_het_theo_hoi_thoai(client, khoa_ky, hai_nguoi, llm_gia):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _tai_len(client, ha, phien)).json()
+    dk_id = viec["du_kien"][0]["id"]
+
+    assert (await client.delete(f"/api/v1/tai-lieu/du-kien/{dk_id}", headers=ha)).status_code == 204
+    assert (await client.get(f"/api/v1/tai-lieu/{viec['id']}", headers=ha)).json()["du_kien"] == []
+    assert (await client.delete(f"/api/v1/tai-lieu/hoi-thoai/{phien}", headers=ha)).status_code == 204
+    assert (await client.get(f"/api/v1/tai-lieu/{viec['id']}", headers=ha)).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_ban_giao_sang_soan_thao(client, khoa_ky, hai_nguoi, llm_gia):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    await _tai_len(client, ha, phien)
+
+    r = await client.get(f"/api/v1/tai-lieu/hoi-thoai/{phien}/du-kien?loai={LOAI}", headers=ha)
+    assert r.status_code == 200
+    d = r.json()
+    assert d["facts"] == {"luong_chinh_thuc": "20000000"}
+    thieu = {t["key"] for t in d["con_thieu"]}
+    assert "luong_chinh_thuc" not in thieu, "trường đã có dữ kiện không được nằm trong phần thiếu"
+    assert "luong_thang" in thieu, "trường không có dữ kiện phải để trống chứ không suy đoán"
+
+
+@pytest.mark.asyncio
+async def test_dinh_dang_khong_ho_tro_la_422_noi_ro_dinh_dang(client, khoa_ky, hai_nguoi, llm_gia):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    r = await _tai_len(client, ha, phien, tep=b"\x89PNG\r\n\x1a\n", ten="anh.png")
+    assert r.status_code == 422 and "PDF" in r.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_khong_dang_nhap_la_401(client, hai_nguoi):
+    r = await _tai_len(client, {}, str(uuid.uuid4()))
+    assert r.status_code == 401

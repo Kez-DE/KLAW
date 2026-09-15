@@ -11,7 +11,7 @@ Phần chạm DB của router nằm ở `test_tai_lieu_api.py`, đánh dấu `in
 import pytest
 from fastapi import HTTPException
 
-from src.api.routes_tai_lieu import _THONG_DIEP, _loi_http, _uuid_hop_le
+from src.api.routes_tai_lieu import THONG_DIEP_TRAN, _THONG_DIEP, _loi_http, _uuid_hop_le
 from src.services.doc_tai_lieu import KhongDocDuoc, LoaiHong
 from src.services.tai_lieu import TRAN_BYTE, TRAN_TRANG, VuotTran
 
@@ -39,6 +39,17 @@ def test_vuot_tran_byte_neu_MB_chu_khong_phai_so_byte_tho():
 def test_vuot_tran_trang_neu_SO_TRANG():
     e = _loi_http(VuotTran("so_trang", TRAN_TRANG, TRAN_TRANG + 1))
     assert e.status_code == 422 and "100 trang" in e.detail
+
+
+def test_vuot_tran_CHI_PHI_co_cau_rieng_khong_noi_ve_tien():
+    """Người dùng không cần biết ngân sách nội bộ; họ cần biết phải làm gì."""
+    e = _loi_http(VuotTran("chi_phi", 0.05, 9.9))
+    assert e.status_code == 422
+    assert "tách nhỏ" in e.detail.lower() and "usd" not in e.detail.lower()
+
+
+def test_BA_tran_la_BA_cau_khac_nhau():
+    assert len(set(THONG_DIEP_TRAN.values())) == 3
 
 
 def test_loi_LA_thi_KHONG_nuot():

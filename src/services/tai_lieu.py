@@ -30,6 +30,59 @@ NGUONG_NEN_TRANG = 10
 TRANG_THAI = ("dang_doc", "xong", "hong", "huy")
 
 
+def _han_muc_tai_lieu() -> dict:
+    """Hai trần của tính năng này, đọc từ `config/han_muc.yaml` như mọi hạn mức
+    khác của dự án: số là DỮ LIỆU, đổi số không phải sửa code."""
+    import yaml
+
+    from src.services.bao_ve import HAN_MUC_PATH
+
+    return yaml.safe_load(HAN_MUC_PATH.read_text(encoding="utf-8"))["tai_lieu"]
+
+
+_HM = _han_muc_tai_lieu()
+
+# FR-036/037 — cái PHANH thay cho trần thời gian. Chủ dự án bỏ trần thời gian
+# ngày 2026-09-15 vì "điều khách hàng muốn là ra được câu trả lời", nên một lần
+# đọc được chạy lâu; nó chỉ không được tốn vô hạn. Trần chi phí NGÀY sẵn có dùng
+# chung cho mọi người dùng, nên nếu chỉ dựa vào nó thì một tài liệu dị dạng của
+# MỘT người làm cạn hạn mức của TẤT CẢ.
+TRAN_CHI_PHI_TAI_LIEU_USD = _HM["chi_phi_usd"]
+TRAN_THU_LAI = _HM["so_lan_thu"]
+_USD_MOI_NGHIN_KY_TU = _HM["usd_moi_nghin_ky_tu"]
+
+
+def uoc_chi_phi(so_ky_tu: int) -> float:
+    """Ước chi phí một lần đọc, TRƯỚC khi gọi mô hình.
+
+    Tuyến tính theo độ dài tài liệu. Đây là phòng ngừa chứ không phải cưỡng chế:
+    nó chặn được tài liệu khổng lồ trước khi tiêu đồng nào, còn ca ước sai thì
+    `vuot_chi_phi_thuc` bắt lại sau khi gọi.
+    """
+    return max(0, so_ky_tu) / 1000 * _USD_MOI_NGHIN_KY_TU
+
+
+def kiem_tran_chi_phi_tai_lieu(so_ky_tu: int) -> None:
+    """Chặn trước khi gọi mô hình. 0 = TẮT, cùng quy ước `bao_ve.kiem_tran_chi_phi`."""
+    if TRAN_CHI_PHI_TAI_LIEU_USD <= 0:
+        return
+    uoc = uoc_chi_phi(so_ky_tu)
+    if uoc > TRAN_CHI_PHI_TAI_LIEU_USD:
+        raise VuotTran("chi_phi", TRAN_CHI_PHI_TAI_LIEU_USD, uoc)
+
+
+def vuot_chi_phi_thuc(chi_phi_usd: float) -> bool:
+    """Chi phí THẬT sau khi gọi có vượt trần không — cưỡng chế, không phải ước."""
+    if TRAN_CHI_PHI_TAI_LIEU_USD <= 0:
+        return False
+    return chi_phi_usd > TRAN_CHI_PHI_TAI_LIEU_USD
+
+
+def con_thu_lai(so_lan_da_thu: int) -> bool:
+    """FR-037 — còn được thử lại tài liệu này nữa không."""
+    return so_lan_da_thu < TRAN_THU_LAI
+
+
 class VuotTran(Exception):
     """Tài liệu vượt một trần tuyệt đối. `tran` nói rõ trần nào."""
 
