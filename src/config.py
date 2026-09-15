@@ -15,6 +15,12 @@ class Settings(BaseSettings):
         env_file=(".env", ".env.local"),
         env_file_encoding="utf-8",
         extra="ignore",
+        # KHÔNG có `env_prefix`: field nào cần đặt từ môi trường PHẢI tự khai
+        # `validation_alias`. Thiếu alias là biến môi trường bị bỏ qua IM LẶNG —
+        # đo được 2026-09-15: một lượt eval 77 câu chạy với `KLAW_ASSEMBLE_PROMPT`
+        # trỏ v4 nhưng thực tế chạy v3, và bảng so sánh trông như v4 kém hơn 4,7%.
+        # Ba prompt đã được cấp alias; thêm prompt mới thì cấp luôn.
+        #
         # Các field cổng bảo vệ dùng `validation_alias="KLAW_*"`. KHÔNG có cờ
         # này, một alias làm field chỉ nhận được từ tên env — và
         # `Settings(_env_file=None, tran_chi_phi_ngay_usd=2.0)` (dạng mọi test
@@ -116,12 +122,18 @@ class Settings(BaseSettings):
     # trả lời là thứ phải ĐO, không phải thứ tin: bật bằng
     # `KLAW_ASSEMBLE_PROMPT=prompts/assemble.v4.md`, chạy `eval.run_trap` (57 bẫy)
     # và golden 77 câu trước/sau, rồi mới đổi mặc định ở đây.
-    assemble_prompt: str = "prompts/assemble.v3.md"
-    rewrite_prompt: str = "prompts/rewrite_query.v2.md"
+    assemble_prompt: str = Field(
+        default="prompts/assemble.v3.md", validation_alias="KLAW_ASSEMBLE_PROMPT"
+    )
+    rewrite_prompt: str = Field(
+        default="prompts/rewrite_query.v2.md", validation_alias="KLAW_REWRITE_PROMPT"
+    )
     # Router v3 thêm `dang_tra_loi`/`y_dinh_phu` (spec 2026-09-09 §7.4), giữ
     # nguyên phần v2 (loại văn bản khi soạn thảo — bẫy xanh trap-soan-01,
     # trap-soan-02 trên commit 4c0ef96).
-    route_prompt: str = "prompts/route.v3.md"
+    route_prompt: str = Field(
+        default="prompts/route.v3.md", validation_alias="KLAW_ROUTE_PROMPT"
+    )
     # Cộng điểm mềm theo lĩnh vực sau RRF (spec §6). 0 = TẮT. Chỉ bật mặc định
     # sau một lượt đo graph-thật cho thấy Recall@10 không tụt.
     linh_vuc_bonus: float = Field(default=0.0, ge=0.0)
