@@ -677,3 +677,45 @@ def test_bang_chan_hang_lech_so_cot():
 def test_bang_hop_le_khong_bi_chan():
     b = Bang(tieu_de="X", cot=["a", "b"], dong=[["1", "2"], ["3", "4"]])
     assert b.dong == [["1", "2"], ["3", "4"]]
+
+
+# ═══ Thứ tự khối: trả lời đúng câu hỏi trước, bối cảnh sau ══════════════════
+
+
+def test_hoi_dich_danh_bo_luat_nhan_ra_dung():
+    from src.services.kho import hoi_dich_danh_bo_luat
+
+    for co in ("có bao nhiêu bộ luật", "Kho có những BỘ LUẬT nào?", "bo luat nao dang co"):
+        assert hoi_dich_danh_bo_luat(co), co
+    for khong in ("kho của bạn có gì", "bạn làm được gì", "có bao nhiêu nghị định"):
+        assert not hoi_dich_danh_bo_luat(khong), khong
+
+
+@pytest.mark.integration
+def test_hoi_BO_LUAT_thi_khoi_bo_luat_dung_DAU():
+    """Đo 2026-09-15: câu trả lời 1761 ký tự mở bằng "1634 văn bản… 209… 234…"
+    và mãi ~700 ký tự sau mới tới "6 Bộ luật". Mọi con số đều đúng; câu trả lời
+    vẫn sai, vì thứ người hỏi cần nằm giữa một bức tường họ không đọc tới."""
+    from datetime import date
+
+    from src.services.db import get_engine
+    from src.services.kho import dung_cau_tra_loi, nap_kho
+
+    kho = nap_kho(get_engine(), date.today())
+    ra = dung_cau_tra_loi("có bao nhiêu bộ luật", kho)
+    dau = ra.split("\n\n")[0]
+    assert "Bộ luật đang có trong kho" in dau, f"khối đầu là: {dau[:120]}"
+    # Bối cảnh kho KHÔNG bị cắt — nó chỉ không được đứng trước câu trả lời.
+    assert "Trong kho của tôi hiện có" in ra
+
+
+@pytest.mark.integration
+def test_hoi_CHUNG_ve_kho_van_giu_thu_tu_cu():
+    from datetime import date
+
+    from src.services.db import get_engine
+    from src.services.kho import dung_cau_tra_loi, nap_kho
+
+    kho = nap_kho(get_engine(), date.today())
+    ra = dung_cau_tra_loi("kho của bạn có những gì", kho)
+    assert ra.split("\n\n")[0].startswith("Trong kho của tôi hiện có")

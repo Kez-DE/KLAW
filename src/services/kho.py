@@ -398,7 +398,25 @@ def _dong_theo_loai(loai: str, nhom: list[dict]) -> str:
     return f"- {loai}: {tong} — {muc}"
 
 
-def _tom_tat(kho: list[dict]) -> str:
+# Câu hỏi nhắm THẲNG vào Bộ luật. Không dùng regex phức tạp: hai cụm này phủ
+# cách người ta hỏi thật ("có bao nhiêu bộ luật", "kho có những bộ luật nào").
+_CUM_BO_LUAT = ("bo luat", "bộ luật")
+
+
+def hoi_dich_danh_bo_luat(cau_hoi: str) -> bool:
+    """Câu hỏi hỏi RIÊNG về Bộ luật, chứ không hỏi chung về kho.
+
+    Tồn tại vì thứ tự khối quyết định câu trả lời có đúng câu hỏi hay không.
+    Đo 2026-09-15: "có bao nhiêu bộ luật" trả về 1761 ký tự, mở bằng
+    "1634 văn bản... 209... 234... 59... 1132..." và mãi ~700 ký tự sau mới tới
+    "6 Bộ luật". Mọi con số đều đúng; câu trả lời vẫn sai, vì thứ người hỏi cần
+    nằm ở giữa một bức tường họ không đọc tới.
+    """
+    t = (cau_hoi or "").lower()
+    return any(c in t for c in _CUM_BO_LUAT)
+
+
+def _tom_tat(kho: list[dict], uu_tien_bo_luat: bool = False) -> str:
     dang_dung = _van_ban_dang_dung(kho)
     da_thay = len(kho) - len(dang_dung)
 
@@ -447,6 +465,11 @@ def _tom_tat(kho: list[dict]) -> str:
             f"- {hien_van_ban(r['so_ky_hieu'], r['ten'])[1]} — {_nhan(r['hieu_luc'])}"
             for r in bo_luat))
 
+    if uu_tien_bo_luat and bo_luat:
+        # Đưa khối Bộ luật lên ĐẦU khi người ta hỏi đích danh nó. Không cắt bớt
+        # phần còn lại: bối cảnh kho vẫn đúng và vẫn hữu ích, nó chỉ không được
+        # đứng trước câu trả lời.
+        khoi.insert(0, khoi.pop(-1))
     khoi.append(CAU_GIOI_HAN)
     return "\n\n".join(khoi)
 
@@ -461,7 +484,7 @@ def dung_cau_tra_loi(cau_hoi: str, kho: list[dict]) -> str:
     """
     sos = moi_so_hieu_trong(cau_hoi)
     if not sos:
-        return _tom_tat(kho)
+        return _tom_tat(kho, uu_tien_bo_luat=hoi_dich_danh_bo_luat(cau_hoi))
     return _mot_van_ban(sos[0], kho) if len(sos) == 1 else _nhieu_van_ban(sos, kho)
 
 
