@@ -237,7 +237,12 @@ def dat_trang_thai(
 
 
 def luu_du_kien(engine: Engine, viec_id: str, hoi_thoai_id: str, du_kien: list[dict]) -> int:
-    """Ghi tập dữ kiện đã qua neo. Chỉ nhận dữ kiện CÓ neo hợp lệ."""
+    """Ghi tập dữ kiện đã qua neo. Chỉ nhận dữ kiện CÓ neo hợp lệ.
+
+    `nguon` lấy từ chính kết quả neo (`tai_lieu` hay `tai_lieu_ocr`), không phải
+    từ chỗ người gọi nghĩ dữ kiện đến từ đâu: hạng bằng chứng do phép tra chuỗi
+    quyết định, không do ý định.
+    """
     if not du_kien:
         return 0
     hang = [
@@ -251,6 +256,8 @@ def luu_du_kien(engine: Engine, viec_id: str, hoi_thoai_id: str, du_kien: list[d
             "c": d["neo"].chi_so_don_vi,
             "p": d["neo"].trang,
             "o": d["neo"].offset_dau,
+            "ng": d.get("nguon") or "tai_lieu",
+            "dt": d["neo"].do_tin,
         }
         for d in du_kien
     ]
@@ -258,8 +265,8 @@ def luu_du_kien(engine: Engine, viec_id: str, hoi_thoai_id: str, du_kien: list[d
         c.execute(
             text(
                 "INSERT INTO du_kien_tai_lieu "
-                "(viec_id, hoi_thoai_id, khoa, nhan, gia_tri, nguon, trich, chi_so_don_vi, trang, offset_dau) "
-                "VALUES (:v, :h, :k, :n, :g, 'tai_lieu', :t, :c, :p, :o)"
+                "(viec_id, hoi_thoai_id, khoa, nhan, gia_tri, nguon, trich, chi_so_don_vi, trang, offset_dau, do_tin) "
+                "VALUES (:v, :h, :k, :n, :g, :ng, :t, :c, :p, :o, :dt)"
             ),
             hang,
         )

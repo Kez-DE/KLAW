@@ -17,6 +17,9 @@ chúng thành một nhãn "không đọc được" là vứt đi thứ duy nhấ
 """
 
 import logging
+import shutil
+import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass
@@ -33,7 +36,36 @@ logger = logging.getLogger(__name__)
 KY_TU_MOI_TRANG = 3000
 
 _NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
-_DUOI_HO_TRO = (".pdf", ".docx")
+_DUOI_ANH = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp", ".bmp", ".heic")
+_DUOI_HO_TRO = (".pdf", ".docx", *_DUOI_ANH)
+
+# Dưới ngưỡng này thì chữ OCR đọc ra là nhiễu chứ không phải nội dung. Đo trên
+# một trang sạch: tesseract `vie` cho 92–96%. Để 0.60 vì trang chụp nghiêng, mờ
+# hay thiếu sáng tụt xuống khoảng 70–80% mà vẫn đọc đúng.
+# ponytail: một ngưỡng cho cả trang; tách theo vùng nếu đo thấy cần.
+NGUONG_TIN_OCR = 0.60
+
+# DPI rasterize PDF-ảnh. 200 đủ cho chữ 10–12pt; cao hơn chỉ tốn thời gian.
+_DPI_OCR = 200
+
+# Chặn tiến trình TREO, không phải chặn chạy lâu. FR-032 cấm huỷ vì chạy lâu;
+# một `tesseract` treo thì không phải đang chạy lâu, nó đang không chạy nữa.
+_HAN_TREO_GIAY = 300
+
+
+class NguonChu(StrEnum):
+    """Chữ này đến từ đâu — và vì thế đáng tin tới đâu.
+
+    `lop_chu` là chữ THẬT của tài liệu, đọc thẳng từ tệp. `ocr` là PHỎNG ĐOÁN
+    của máy nhìn vào ảnh. Hai hạng bằng chứng khác nhau, không bao giờ gộp:
+    nếu OCR đọc "20.000.000" thành "2O.OOO.OOO" thì đoạn trích vẫn khớp với đầu
+    ra OCR, phép tra chuỗi vẫn chạy đúng, nhưng nó không còn chứng minh được
+    điều người dùng tưởng. Bằng chứng yếu đi trong khi giao diện trông y hệt —
+    đúng chế độ hỏng nguy hiểm nhất của một sản phẩm pháp lý.
+    """
+
+    lop_chu = "lop_chu"
+    ocr = "ocr"
 
 
 class LoaiHong(StrEnum):
@@ -66,6 +98,10 @@ class DonViVanBan:
     trang: int
     offset_dau: int
     noi_dung: str
+    nguon_chu: NguonChu = NguonChu.lop_chu
+    """Mặc định là chữ thật: không khai báo thì KHÔNG bị hạ cấp im lặng."""
+    do_tin: float | None = None
+    """0–1, chỉ có với `ocr`. `None` với chữ đọc thẳng — ở đó không có gì để đoán."""
 
 
 @dataclass(frozen=True)
@@ -73,6 +109,17 @@ class TaiLieuDaDoc:
     don_vi: list[DonViVanBan]
     so_trang: int
     so_ky_tu: int
+
+    @property
+    def co_ocr(self) -> bool:
+        """Tài liệu này có phần nào đọc bằng OCR không — người dùng phải biết."""
+        return any(d.nguon_chu is NguonChu.ocr for d in self.don_vi)
+
+
+def co_ocr() -> bool:
+    """Máy này chạy được OCR không. Thiếu tesseract thì nhánh ảnh phải nói thật
+    là không đọc được, chứ không im lặng trả về tài liệu rỗng."""
+    return shutil.which("tesseract") is not None
 
 
 def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
@@ -84,8 +131,15 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
     ten = (ten_tep or "").lower()
     if ten.endswith(".pdf"):
         thoi = _doc_pdf(du_lieu)
+        if not thoi:
+            # PDF bọc ảnh — bản scan trông đúng như vậy. Trước đây bị từ chối
+            # thẳng; giờ thử OCR, nhưng kết quả mang nhãn `ocr` chứ không được
+            # đánh đồng với PDF có lớp chữ.
+            thoi = _ocr_pdf(du_lieu)
     elif ten.endswith(".docx"):
         thoi = _doc_docx(du_lieu)
+    elif ten.endswith(_DUOI_ANH):
+        thoi = _ocr_anh(du_lieu)
     else:
         raise KhongDocDuoc(
             LoaiHong.dinh_dang_khong_ho_tro,
@@ -165,8 +219,12 @@ def _doc_pdf(du_lieu: bytes) -> list[tuple[int | None, str]]:
 # ---------------------------------------------------------------- gán vị trí
 
 
-def _dat_vi_tri(thoi: list[tuple[int | None, str]]) -> TaiLieuDaDoc:
-    """Gán `trang` và `offset_dau` cho từng đơn vị.
+def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
+    """Gán `trang`, `offset_dau` và nguồn chữ cho từng đơn vị.
+
+    Nhận cả hai hình dạng: `(trang, noi_dung)` từ nhánh đọc chữ thật, và
+    `(trang, noi_dung, do_tin)` từ nhánh OCR. Có `do_tin` nghĩa là máy đang
+    đoán, nên đơn vị đó mang nhãn `ocr`.
 
     PDF đã biết trang thật. DOCX chưa, nên trang được suy ra từ số ký tự đã đi
     qua — xem ghi chú ở `KY_TU_MOI_TRANG`.
@@ -175,18 +233,109 @@ def _dat_vi_tri(thoi: list[tuple[int | None, str]]) -> TaiLieuDaDoc:
     da_di = 0          # ký tự đã đi qua trong toàn tài liệu (nhánh DOCX)
     trang_hien = None
     offset = 0
+    theo_ky_tu = bool(thoi) and thoi[0][0] is None
 
-    for i, (trang, noi_dung) in enumerate(thoi):
+    for i, muc in enumerate(thoi):
+        trang, noi_dung = muc[0], muc[1]
+        do_tin = muc[2] if len(muc) > 2 else None
         if trang is None:
             trang = 1 + da_di // KY_TU_MOI_TRANG
         if trang != trang_hien:
             trang_hien, offset = trang, 0
-        don_vi.append(DonViVanBan(chi_so=i, trang=trang, offset_dau=offset, noi_dung=noi_dung))
+        don_vi.append(
+            DonViVanBan(
+                chi_so=i,
+                trang=trang,
+                offset_dau=offset,
+                noi_dung=noi_dung,
+                nguon_chu=NguonChu.ocr if do_tin is not None else NguonChu.lop_chu,
+                do_tin=do_tin,
+            )
+        )
         offset += len(noi_dung) + 1   # +1 cho dấu xuống dòng giữa hai đơn vị
         da_di += len(noi_dung) + 1
 
     so_ky_tu = sum(len(d.noi_dung) for d in don_vi)
     so_trang = max((d.trang for d in don_vi), default=1)
-    if thoi and thoi[0][0] is None:   # DOCX: trang là xấp xỉ theo ký tự
+    if theo_ky_tu:   # DOCX: trang là xấp xỉ theo ký tự
         so_trang = max(1, ceil(so_ky_tu / KY_TU_MOI_TRANG))
     return TaiLieuDaDoc(don_vi=don_vi, so_trang=so_trang, so_ky_tu=so_ky_tu)
+
+
+# ═══ OCR ════════════════════════════════════════════════════════════════════
+# Gọi `tesseract` qua subprocess thay vì thêm `pytesseract`: một tiến trình con
+# và một lần đọc TSV là đủ, còn thư viện bọc thì thêm một dependency để làm
+# đúng việc đó. Bản thân `tesseract` với gói `vie` vẫn là điều kiện bắt buộc.
+
+
+def _tesseract(duong_anh: str) -> list[tuple[str, float]]:
+    """(dòng, độ tin) cho một ảnh. TSV vì nó cho độ tin TỪNG TỪ.
+
+    Độ tin của một dòng là trung bình độ tin các từ trong dòng đó — thấp nghĩa
+    là máy đang đoán, và một dòng máy đang đoán không nên thành bằng chứng.
+    """
+    ra = subprocess.run(
+        ["tesseract", duong_anh, "-", "-l", "vie", "tsv"],
+        capture_output=True,
+        timeout=_HAN_TREO_GIAY,
+    )
+    if ra.returncode != 0:
+        raise KhongDocDuoc(LoaiHong.tep_hong, "tesseract không đọc được ảnh")
+
+    dong: dict[tuple, list[tuple[str, float]]] = {}
+    for hang in ra.stdout.decode("utf-8", errors="replace").splitlines()[1:]:
+        c = hang.split("\t")
+        if len(c) < 12 or not c[11].strip():
+            continue
+        try:
+            tin = float(c[10])
+        except ValueError:
+            continue
+        if tin < 0:
+            continue
+        dong.setdefault(tuple(c[2:5]), []).append((c[11], tin / 100.0))
+
+    ket: list[tuple[str, float]] = []
+    for tu in dong.values():
+        chu = " ".join(t for t, _ in tu).strip()
+        tin = sum(d for _, d in tu) / len(tu)
+        if chu and tin >= NGUONG_TIN_OCR:
+            ket.append((chu, tin))
+    return ket
+
+
+def _ocr_anh(du_lieu: bytes) -> list[tuple[int | None, str, float]]:
+    if not co_ocr():
+        raise KhongDocDuoc(
+            LoaiHong.khong_co_lop_chu,
+            "máy chủ chưa cài công cụ nhận dạng chữ, chưa đọc được ảnh",
+        )
+    with tempfile.NamedTemporaryFile(suffix=".img", delete=True) as f:
+        f.write(du_lieu)
+        f.flush()
+        return [(1, chu, tin) for chu, tin in _tesseract(f.name)]
+
+
+def _ocr_pdf(du_lieu: bytes) -> list[tuple[int | None, str, float]]:
+    """Rasterize từng trang rồi OCR. Cần `pdftoppm` của poppler."""
+    if not co_ocr() or not shutil.which("pdftoppm"):
+        raise KhongDocDuoc(
+            LoaiHong.khong_co_lop_chu,
+            "tệp không có lớp chữ và máy chủ chưa đọc được bản scan",
+        )
+    ra: list[tuple[int | None, str, float]] = []
+    with tempfile.TemporaryDirectory() as thu_muc:
+        goc = f"{thu_muc}/t"
+        kq = subprocess.run(
+            ["pdftoppm", "-r", str(_DPI_OCR), "-png", du_lieu and "-", goc],
+            input=du_lieu,
+            capture_output=True,
+            timeout=_HAN_TREO_GIAY,
+        )
+        if kq.returncode != 0:
+            raise KhongDocDuoc(LoaiHong.tep_hong, "không dựng được ảnh từ pdf")
+        from pathlib import Path as _P
+
+        for so, anh in enumerate(sorted(_P(thu_muc).glob("t-*.png")), start=1):
+            ra.extend((so, chu, tin) for chu, tin in _tesseract(str(anh)))
+    return ra

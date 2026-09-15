@@ -136,3 +136,71 @@ def test_XOA_HOI_THOAI_XOA_THEO_du_kien():
         ).scalar_one()
         assert con == 0
         c.execute(text("ROLLBACK"))
+
+
+# ═══ Migration 027 — hạng bằng chứng OCR ════════════════════════════════════
+
+
+def _them(c, ht, viec, **cot) -> None:
+    mac_dinh = {"khoa": "k", "gia_tri": "g", "nguon": "tai_lieu",
+                "trich": "Mức lương: 20.000.000 đồng/tháng", "chi_so_don_vi": 0,
+                "trang": 1, "do_tin": None}
+    c.execute(
+        text(
+            "INSERT INTO du_kien_tai_lieu "
+            "(viec_id, hoi_thoai_id, khoa, gia_tri, nguon, trich, chi_so_don_vi, trang, do_tin) "
+            "VALUES (:v, :h, :khoa, :gia_tri, :nguon, :trich, :chi_so_don_vi, :trang, :do_tin)"
+        ),
+        {"v": viec, "h": ht, **{**mac_dinh, **cot}},
+    )
+
+
+def test_027_nguon_tai_lieu_ocr_ghi_duoc_khi_CO_do_tin():
+    with get_engine().begin() as c:
+        _, ht, viec = _viec(c)
+        _them(c, ht, viec, nguon="tai_lieu_ocr", do_tin=0.93)
+        c.execute(text("ROLLBACK"))
+
+
+def test_027_OCR_THIEU_do_tin_BI_CHAN():
+    """Chữ máy đoán mà không nói đoán chắc bao nhiêu thì không dùng được."""
+    with pytest.raises(IntegrityError) as e:
+        with get_engine().begin() as c:
+            _, ht, viec = _viec(c)
+            _them(c, ht, viec, nguon="tai_lieu_ocr", do_tin=None)
+    assert "ck_du_kien_do_tin" in str(e.value)
+
+
+def test_027_LOP_CHU_THAT_gan_do_tin_BI_CHAN():
+    """Ở chữ đọc thẳng không có gì để đoán; một con số ở đó là con số giả."""
+    with pytest.raises(IntegrityError) as e:
+        with get_engine().begin() as c:
+            _, ht, viec = _viec(c)
+            _them(c, ht, viec, nguon="tai_lieu", do_tin=0.93)
+    assert "ck_du_kien_do_tin" in str(e.value)
+
+
+@pytest.mark.parametrize("tin", [-0.1, 1.1])
+def test_027_do_tin_ngoai_0_1_BI_CHAN(tin):
+    with pytest.raises(IntegrityError) as e:
+        with get_engine().begin() as c:
+            _, ht, viec = _viec(c)
+            _them(c, ht, viec, nguon="tai_lieu_ocr", do_tin=tin)
+    assert "ck_du_kien_do_tin" in str(e.value)
+
+
+def test_027_OCR_van_phai_CO_NEO():
+    """OCR yếu hơn nhưng không được miễn nghĩa vụ chỉ ra chỗ nó đọc được."""
+    with pytest.raises(IntegrityError) as e:
+        with get_engine().begin() as c:
+            _, ht, viec = _viec(c)
+            _them(c, ht, viec, nguon="tai_lieu_ocr", do_tin=0.9, trich=None)
+    assert "ck_du_kien_tai_lieu_co_neo" in str(e.value)
+
+
+def test_027_nguon_LA_van_bi_chan():
+    with pytest.raises(IntegrityError) as e:
+        with get_engine().begin() as c:
+            _, ht, viec = _viec(c)
+            _them(c, ht, viec, nguon="tai_lieu_linh_tinh")
+    assert "ck_du_kien_nguon" in str(e.value)

@@ -36,7 +36,7 @@ _THONG_DIEP = {
     LoaiHong.dinh_dang_khong_ho_tro: "Chỉ đọc được tệp PDF có lớp chữ và tệp DOCX. Hãy gửi bản gốc thay vì ảnh chụp.",
     LoaiHong.tep_hong: "Không mở được tệp này. Hãy thử gửi lại, hoặc xuất lại từ phần mềm soạn thảo.",
     LoaiHong.can_mat_khau: "Tệp đang được bảo vệ bằng mật khẩu. Hãy gỡ mật khẩu rồi gửi lại.",
-    LoaiHong.khong_co_lop_chu: "Tệp này không có lớp chữ máy đọc được — thường gặp ở bản scan hoặc ảnh chụp. Hãy gửi bản gốc.",
+    LoaiHong.khong_co_lop_chu: "Không đọc được chữ trong tệp này. Nếu là ảnh chụp, hãy chụp lại rõ và đủ sáng, hoặc gửi bản gốc.",
 }
 
 # Việc hỏng vì trần, không vì tệp. Hai câu riêng vì hai việc người dùng làm tiếp
@@ -58,6 +58,9 @@ class DuKienOut(BaseModel):
     trich_goc: str | None = None
     trang: int | None = None
     chi_so_don_vi: int | None = None
+    do_tin: float | None = None
+    """Chỉ có với `tai_lieu_ocr`. Giao diện dùng nó để nói rõ đây là chữ máy
+    đọc từ ảnh, không phải chữ thật của tài liệu."""
 
 
 class TaiLieuOut(BaseModel):
@@ -65,6 +68,7 @@ class TaiLieuOut(BaseModel):
     trang_thai: str
     so_trang: int | None = None
     chay_nen: bool
+    co_ocr: bool = False
     ly_do_hong: str | None = None
     thong_diep: str | None = None
     du_kien: list[DuKienOut] = []
@@ -213,7 +217,10 @@ async def tai_len(
 
     if tl.chay_nen(tai_lieu.so_trang):
         nen.add_task(_chay, viec_id, nguoi["sub"], hoi_thoai_id, loai, tai_lieu)
-        return TaiLieuOut(id=viec_id, trang_thai="dang_doc", so_trang=tai_lieu.so_trang, chay_nen=True)
+        return TaiLieuOut(
+            id=viec_id, trang_thai="dang_doc", so_trang=tai_lieu.so_trang,
+            chay_nen=True, co_ocr=tai_lieu.co_ocr,
+        )
 
     await run_in_threadpool(_chay, viec_id, nguoi["sub"], hoi_thoai_id, loai, tai_lieu)
     return await chi_tiet(viec_id, nguoi)
@@ -237,6 +244,7 @@ async def chi_tiet(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> 
         ly_do_hong=ly_do,
         thong_diep=_THONG_DIEP.get(ly_do) if ly_do else None,
         du_kien=[DuKienOut(**{**d, "id": str(d["id"])}) for d in du_kien],
+        co_ocr=any(d.get("nguon") == "tai_lieu_ocr" for d in du_kien),
     )
 
 

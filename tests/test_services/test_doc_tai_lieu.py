@@ -156,19 +156,35 @@ def test_PDF_doc_duoc_va_dem_dung_trang():
     assert "Trang mot" in t.don_vi[0].noi_dung
 
 
-def test_PDF_khong_co_lop_chu():
+def test_PDF_KHONG_TRANG_NAO_la_tep_hong():
+    """PDF 0 trang là tệp dị dạng, không phải bản scan.
+
+    Trước khi có OCR, mọi PDF không rút được chữ đều rơi vào `khong_co_lop_chu`.
+    Giờ hai ca đã tách: không có lớp chữ thì thử OCR, còn không dựng nổi một
+    trang ảnh nào thì tệp hỏng — và hai câu trả lời cho người dùng khác nhau.
+    Ca "scan đọc được" nằm ở `test_doc_tai_lieu_ocr.py`.
+    """
     with pytest.raises(KhongDocDuoc) as e:
         doc("scan.pdf", _pdf_khong_chu())
-    assert e.value.ly_do is LoaiHong.khong_co_lop_chu
+    assert e.value.ly_do is LoaiHong.tep_hong
 
 
 # ------------------------------------------------------------- bốn nguyên nhân
 
 
 def test_dinh_dang_khong_ho_tro():
+    """`.png` KHÔNG còn nằm ở đây — ảnh nay đọc được bằng OCR."""
+    with pytest.raises(KhongDocDuoc) as e:
+        doc("bang-tinh.xlsx", b"PK\x03\x04")
+    assert e.value.ly_do is LoaiHong.dinh_dang_khong_ho_tro
+
+
+def test_ANH_khong_con_bi_tu_choi_vi_DINH_DANG():
+    """Người vừa chụp giấy tờ bằng điện thoại không được nghe "định dạng không
+    hỗ trợ" — đó là câu trả lời sai cho việc họ vừa làm."""
     with pytest.raises(KhongDocDuoc) as e:
         doc("anh.png", b"\x89PNG\r\n\x1a\n")
-    assert e.value.ly_do is LoaiHong.dinh_dang_khong_ho_tro
+    assert e.value.ly_do is not LoaiHong.dinh_dang_khong_ho_tro
 
 
 def test_tep_hong_PDF():

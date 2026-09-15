@@ -12,6 +12,7 @@ Bốn điều chỉ chứng minh được bằng một request thật:
 """
 
 import json
+import pathlib
 import uuid
 import zipfile
 from io import BytesIO
@@ -166,10 +167,11 @@ async def test_ban_giao_sang_soan_thao(client, khoa_ky, hai_nguoi, llm_gia):
 
 @pytest.mark.asyncio
 async def test_dinh_dang_khong_ho_tro_la_422_noi_ro_dinh_dang(client, khoa_ky, hai_nguoi, llm_gia):
+    """`.png` KHÔNG còn nằm ở đây — ảnh nay đọc được bằng OCR."""
     a, _ = hai_nguoi
     ha = _bearer(khoa_ky, a)
     phien = hoi_thoai.tao_phien(a, "hợp đồng")
-    r = await _tai_len(client, ha, phien, tep=b"\x89PNG\r\n\x1a\n", ten="anh.png")
+    r = await _tai_len(client, ha, phien, tep=b"PK\x03\x04", ten="bang-tinh.xlsx")
     assert r.status_code == 422 and "PDF" in r.json()["detail"]
 
 
@@ -273,3 +275,40 @@ async def test_dau_van_ban_nhan_ra_hai_lan_gui_CUNG_mot_tep(client, khoa_ky, hai
             ).all()
         ]
     assert len(set(dau)) == 1, "cùng một tệp phải cho cùng một dấu vân"
+
+
+@pytest.mark.asyncio
+async def test_du_kien_tu_ANH_mang_nguon_tai_lieu_ocr_va_do_tin(client, khoa_ky, hai_nguoi, monkeypatch):
+    """Hạng bằng chứng đi hết đường từ tesseract tới dòng trong DB."""
+    import shutil
+
+    from src.services.doc_tai_lieu import co_ocr
+
+    if not co_ocr() or not shutil.which("pdftoppm"):
+        pytest.skip("cần tesseract + poppler")
+
+    anh = pathlib.Path("tests/fixtures/tieng-viet-scan.png")
+    if not anh.exists():
+        pytest.skip("chưa dựng ảnh thử — chạy test_doc_tai_lieu_ocr.py trước")
+
+    class _LLMAnh:
+        def chat(self, model, messages, json_schema=None):
+            from src.agents.nodes.gom_du_kien import truong_cua
+
+            ra = {t["key"]: {"gia_tri": "", "trich": ""} for t in truong_cua(LOAI)}
+            ra["luong_thang"] = {"gia_tri": "20000000", "trich": "Mức lương: 20.000.000 đồng/tháng"}
+            return json.dumps(ra), _Usage()
+
+    monkeypatch.setattr(rtl.llm_svc, "from_settings", lambda: _LLMAnh())
+    monkeypatch.setattr(rtl.llm_svc, "generate_model", lambda: "gia-lap")
+
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    r = await _tai_len(client, ha, phien, tep=anh.read_bytes(), ten="scan.png")
+    assert r.status_code == 201, r.text
+
+    dk = r.json()["du_kien"]
+    assert len(dk) == 1
+    assert dk[0]["nguon"] == "tai_lieu_ocr", "dữ kiện đọc từ ảnh KHÔNG được mang nhãn như chữ thật"
+    assert 0 < dk[0]["do_tin"] <= 1

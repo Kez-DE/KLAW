@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU, normalize
-from src.services.doc_tai_lieu import DonViVanBan
+from src.services.doc_tai_lieu import DonViVanBan, NguonChu
 
 __all__ = ["LyDoNeo", "Neo", "loc_co_neo", "normalize", "xac_minh"]
 
@@ -37,12 +37,20 @@ class LyDoNeo(StrEnum):
 
 @dataclass(frozen=True)
 class Neo:
-    """Bằng chứng cho một dữ kiện, hoặc lý do nó không có bằng chứng."""
+    """Bằng chứng cho một dữ kiện, hoặc lý do nó không có bằng chứng.
+
+    `nguon_chu` là HẠNG của bằng chứng, không phải một chi tiết kỹ thuật. Neo
+    vào lớp chữ thật nghĩa là "tài liệu viết đúng câu này". Neo vào chữ OCR
+    nghĩa là "máy đọc ảnh ra câu này". Câu thứ hai yếu hơn, và gộp hai hạng lại
+    là để giao diện hứa nhiều hơn thứ nó giữ được.
+    """
 
     ly_do: LyDoNeo
     chi_so_don_vi: int | None = None
     trang: int | None = None
     offset_dau: int | None = None
+    nguon_chu: NguonChu | None = None
+    do_tin: float | None = None
 
 
 def xac_minh(trich: str, don_vi: list[DonViVanBan]) -> Neo:
@@ -62,7 +70,14 @@ def xac_minh(trich: str, don_vi: list[DonViVanBan]) -> Neo:
 
     for d in don_vi:
         if q in normalize(d.noi_dung):
-            return Neo(LyDoNeo.ok, chi_so_don_vi=d.chi_so, trang=d.trang, offset_dau=d.offset_dau)
+            return Neo(
+                LyDoNeo.ok,
+                chi_so_don_vi=d.chi_so,
+                trang=d.trang,
+                offset_dau=d.offset_dau,
+                nguon_chu=d.nguon_chu,
+                do_tin=d.do_tin,
+            )
     return Neo(LyDoNeo.trich_khong_khop)
 
 
@@ -79,6 +94,9 @@ def loc_co_neo(
     bo: list[dict] = []
     for f in facts:
         neo = xac_minh(str(f.get("trich") or ""), don_vi)
-        ban_ghi = {**f, "neo": neo}
+        # Nguồn của dữ kiện đi theo HẠNG bằng chứng đã neo được, không theo chỗ
+        # người gọi nghĩ nó đến từ đâu.
+        nguon = "tai_lieu_ocr" if neo.nguon_chu is NguonChu.ocr else "tai_lieu"
+        ban_ghi = {**f, "neo": neo, "nguon": nguon if neo.ly_do is LyDoNeo.ok else f.get("nguon")}
         (giu if neo.ly_do is LyDoNeo.ok else bo).append(ban_ghi)
     return giu, bo
