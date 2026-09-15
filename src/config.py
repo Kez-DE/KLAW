@@ -111,6 +111,11 @@ class Settings(BaseSettings):
     # `linh_vuc_du_doan` mà chỉ rewrite v2 mới ghi khoá đó, nên tính năng khoanh
     # vùng của task này không kích hoạt được nếu giữ v1.
     # trap-soul-04 vẫn là rủi ro TREO, chưa đo lại trên bản v2 hiện hành.
+    # assemble.v4 ĐÃ CÓ nhưng CHƯA bật: nó thêm TẦNG 4 (điều gì làm đổi kết luận)
+    # và TẦNG 5 (việc làm được ngay) theo spec Soul 2026-09-15. Đổi hợp đồng câu
+    # trả lời là thứ phải ĐO, không phải thứ tin: bật bằng
+    # `KLAW_ASSEMBLE_PROMPT=prompts/assemble.v4.md`, chạy `eval.run_trap` (57 bẫy)
+    # và golden 77 câu trước/sau, rồi mới đổi mặc định ở đây.
     assemble_prompt: str = "prompts/assemble.v3.md"
     rewrite_prompt: str = "prompts/rewrite_query.v2.md"
     # Router v3 thêm `dang_tra_loi`/`y_dinh_phu` (spec 2026-09-09 §7.4), giữ
