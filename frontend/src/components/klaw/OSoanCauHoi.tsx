@@ -34,6 +34,7 @@ export function OSoanCauHoi({
   onGui,
   mucChip,
   dangCho,
+  onDinhKem,
 }: {
   oHoi: React.RefObject<HTMLTextAreaElement | null>;
   nhap: string;
@@ -44,6 +45,12 @@ export function OSoanCauHoi({
   mucChip: MucHanMuc | null;
   /** Đang kiểm phiên: giữ chỗ đúng chiều cao thay vì để ô hỏi nhảy vào. */
   dangCho: boolean;
+  /**
+   * Mở chỗ đính kèm tài liệu. `undefined` khi chưa biết đang soạn loại văn bản
+   * nào — rút dữ kiện cần biết cần rút TRƯỜNG GÌ, nên không có loại thì không
+   * có gì để rút. Nút vẫn hiện nhưng bị khoá, và nói đúng việc cần làm trước.
+   */
+  onDinhKem?: (() => void) | undefined;
 }) {
   return (
     <div className="sticky bottom-0 border-t border-border bg-background/95 backdrop-blur">
@@ -54,10 +61,19 @@ export function OSoanCauHoi({
           <div className="flex items-end gap-2 rounded-xl border border-border bg-card p-2 shadow-soft">
             <button
               type="button"
-              title="Đính kèm văn bản — chưa có trong hệ thống"
-              aria-label="Đính kèm văn bản (chưa có trong hệ thống)"
-              disabled
-              className="mb-0.5 rounded-lg p-2 text-muted-foreground disabled:opacity-40"
+              title={
+                onDinhKem
+                  ? "Đính kèm tài liệu để rút dữ kiện"
+                  : "Mở soạn thảo một loại văn bản trước, rồi đính kèm tài liệu"
+              }
+              aria-label={
+                onDinhKem
+                  ? "Đính kèm tài liệu để rút dữ kiện"
+                  : "Đính kèm tài liệu (mở soạn thảo trước)"
+              }
+              disabled={!onDinhKem}
+              onClick={onDinhKem}
+              className="focus-brass mb-0.5 rounded-lg p-2 text-muted-foreground disabled:opacity-40"
             >
               <Paperclip className="size-4" aria-hidden />
             </button>

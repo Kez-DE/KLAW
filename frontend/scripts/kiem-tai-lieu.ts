@@ -11,11 +11,14 @@
 import assert from "node:assert/strict";
 import {
   DINH_DANG_CHAP_NHAN,
+  NGUONG_TIN_CANH_BAO,
   TRAN_BYTE,
+  canhBaoDoTin,
   coNeo,
   dinhDangHopLe,
   loiTruocKhiGui,
   nhanNguon,
+  seDungOcr,
   theoTrang,
   trichHienThi,
   type DuKien,
@@ -31,16 +34,42 @@ const dk = (p: Partial<DuKien>): DuKien => ({
   trich_goc: null,
   trang: 1,
   chi_so_don_vi: 0,
+  do_tin: null,
   ...p,
 });
 
-// 1. Ba nguồn, ba nhãn KHÁC NHAU. Gộp hai nhãn lại là xoá đúng thứ người dùng
-//    cần để biết nên tin dòng nào tới đâu.
+// 1. Bốn nguồn, bốn nhãn KHÁC NHAU. "Từ tài liệu" và "Máy đọc từ ảnh" đặc biệt
+//    không được gộp: một cái là chữ thật, cái kia là máy đoán từ ảnh.
 {
-  const nhan = (["tai_lieu", "nguoi_dung_nhap", "nguoi_dung_sua"] as const).map(nhanNguon);
-  assert.equal(new Set(nhan).size, 3);
+  const nhan = (["tai_lieu", "tai_lieu_ocr", "nguoi_dung_nhap", "nguoi_dung_sua"] as const).map(
+    nhanNguon,
+  );
+  assert.equal(new Set(nhan).size, 4);
   for (const n of nhan) assert.ok(n.trim().length > 0);
 }
+
+// 1b. Dữ kiện OCR vẫn bấm xem được bằng chứng, và vẫn nhóm theo trang.
+{
+  const ocr = dk({ nguon: "tai_lieu_ocr", do_tin: 0.93 });
+  assert.equal(coNeo(ocr), true);
+  assert.equal(theoTrang([ocr])[0].trang, 1);
+}
+
+// 1c. Cảnh báo CHỈ khi độ tin thấp. Cảnh báo mọi dòng OCR sẽ làm người dùng bỏ
+//     qua cảnh báo — đúng cách một lời nhắc tự vô hiệu hoá.
+{
+  assert.equal(canhBaoDoTin(dk({})), null, "chữ thật không cảnh báo");
+  assert.equal(canhBaoDoTin(dk({ nguon: "tai_lieu_ocr", do_tin: 0.95 })), null);
+  const canh = canhBaoDoTin(dk({ nguon: "tai_lieu_ocr", do_tin: 0.62 }));
+  assert.ok(canh && canh.includes("đối chiếu"), "cảnh báo phải nói việc cần làm");
+  assert.ok(NGUONG_TIN_CANH_BAO > 0 && NGUONG_TIN_CANH_BAO < 1);
+}
+
+// 1d. Biết trước tệp nào sẽ phải qua OCR, để báo cho người dùng TRƯỚC khi gửi.
+assert.equal(seDungOcr("scan.png"), true);
+assert.equal(seDungOcr("HOP-DONG.JPG"), true);
+assert.equal(seDungOcr("hop-dong.pdf"), false);
+assert.equal(seDungOcr("hop-dong.docx"), false);
 
 // 2. Chỉ dữ kiện từ tài liệu và CÓ ĐỦ neo mới được coi là bấm xem được.
 assert.equal(coNeo(dk({})), true);
@@ -91,14 +120,15 @@ assert.equal(trichHienThi(dk({ nguon: "nguoi_dung_nhap", trich: null })), null);
 //    phạm vi lần này, nên câu từ chối phải nói thẳng điều đó.
 assert.equal(dinhDangHopLe("hop-dong.pdf"), true);
 assert.equal(dinhDangHopLe("HOP-DONG.DOCX"), true, "phần mở rộng viết hoa vẫn hợp lệ");
-assert.equal(dinhDangHopLe("anh-chup.png"), false);
+assert.equal(dinhDangHopLe("anh-chup.png"), true, "ảnh nay đọc được bằng OCR");
 assert.equal(dinhDangHopLe("ghi-chu.doc"), false, ".doc không phải .docx");
-assert.ok(DINH_DANG_CHAP_NHAN.includes(".pdf") && DINH_DANG_CHAP_NHAN.includes(".docx"));
+for (const d of [".pdf", ".docx", ".png", ".jpg"])
+  assert.ok(DINH_DANG_CHAP_NHAN.includes(d), `accept thiếu ${d}`);
 
 // 8. Hai câu từ chối phân biệt được: sai định dạng và quá lớn là hai việc khác
 //    nhau người dùng phải làm.
 {
-  const sai = loiTruocKhiGui("anh.png", 10);
+  const sai = loiTruocKhiGui("bang-tinh.xlsx", 10);
   const lon = loiTruocKhiGui("hd.pdf", TRAN_BYTE + 1);
   assert.ok(sai && lon && sai !== lon);
   assert.ok(lon.includes("20 MB"), "phải nêu đúng giới hạn bị vượt");

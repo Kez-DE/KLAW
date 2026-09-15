@@ -12,6 +12,8 @@ import { TheHetLuot } from "@/components/klaw/TheHetLuot";
 import { TheKetQua } from "@/components/klaw/TheKetQua";
 import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
+import { TaiLieuDuKien } from "@/components/klaw/TaiLieuDuKien";
+import { loaiBackendCua } from "@/lib/mau-van-ban";
 import { SanKhauBanThao } from "@/components/soan-thao/SanKhauBanThao";
 import { TheTaiKhoanKhoa } from "@/components/tai-khoan/TheTaiKhoanKhoa";
 import { TayKeo } from "@/components/ui/TayKeo";
@@ -201,6 +203,9 @@ function ManHoiKlaw() {
    *  `KhongGianSoanThao`. `truongMauSanKhau` (`Mau.facts`) chỉ phục vụ
    *  `nhanFactDoi` — hiện tên field đã đổi, KHÔNG phải tô mục (xem `klaw.ts`). */
   const loaiSanKhau = banThaoMo?.loai;
+  /** Loại văn bản (mã backend) đang soạn, từ sân khấu hoặc từ khung soạn thảo. */
+  const loaiDangSoan =
+    loaiSanKhau ?? (soanThao?.slug == null ? null : (loaiBackendCua(soanThao.slug) ?? null));
   const [cauTrucSanKhau, datCauTrucSanKhau] = useState<CauTruc | null>(null);
   const [truongMauSanKhau, datTruongMauSanKhau] = useState<TruongFact[]>([]);
   const [dangTaiKhungSanKhau, datDangTaiKhungSanKhau] = useState(false);
@@ -369,6 +374,8 @@ function ManHoiKlaw() {
   const cuoi = useRef<HTMLDivElement | null>(null);
   /** Bọc khung soạn thảo — dò control focus được đầu tiên khi khung mở. */
   const khungSoanThao = useRef<HTMLDivElement | null>(null);
+  /** Khung đính kèm tài liệu — nút kẹp giấy cuộn tới đây. */
+  const khungTaiLieu = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {
     cuoi.current?.scrollIntoView({ block: "end" });
@@ -937,6 +944,21 @@ function ManHoiKlaw() {
         onGui={gui}
         mucChip={mucChip}
         dangCho={dangKiemPhien && !chuaCauHinh}
+        /* Rút dữ kiện cần biết rút TRƯỜNG GÌ, nên nút chỉ mở được khi đã biết
+           đang soạn loại văn bản nào. Chưa biết thì nút nói ra điều đó thay vì
+           nói tính năng không tồn tại. */
+        onDinhKem={
+          loaiDangSoan === null
+            ? undefined
+            : () => {
+                datSoanThao((cu) => cu ?? { slug: null });
+                setTimeout(
+                  () =>
+                    khungTaiLieu.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+                  80,
+                );
+              }
+        }
       />
     </div>
   );
@@ -1144,6 +1166,13 @@ function ManHoiKlaw() {
                   trongKhung
                   onDong={() => datSoanThao(null)}
                 />
+                {/* Đọc dữ kiện từ giấy tờ người dùng đang cầm, thay vì bắt họ
+                    gõ lại. Đặt CẠNH khung soạn thảo chứ không lồng vào: khung
+                    đó có vỏ cuộn riêng, và dữ kiện thuộc về cuộc hội thoại chứ
+                    không thuộc về một bản thảo. */}
+                <div ref={khungTaiLieu} className="p-4">
+                  <TaiLieuDuKien hoiThoaiId={phienId ?? traCuu.hoiThoaiId} loai={loaiDangSoan} />
+                </div>
               </div>
             )}
           </>
