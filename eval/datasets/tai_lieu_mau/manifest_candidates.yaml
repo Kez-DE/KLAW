@@ -1,0 +1,94 @@
+# Ứng viên tập mẫu — CHƯA AI DUYỆT.
+#
+# Cùng khuôn `eval/datasets/golden_qa_candidates.yaml`: máy dựng, người duyệt.
+# Đọc từng tài liệu, đối chiếu từng nhãn bằng mắt, sửa chỗ sai, rồi đổi tên tệp
+# này thành `manifest.yaml` và đặt `da_nguoi_duyet: true` kèm tên bạn.
+#
+# KHÔNG đổi cờ mà chưa soát: `run_tai_lieu` in "nhãn người duyệt: CHƯA" lên đầu
+# bảng, và một con số không có người đứng sau thì không đưa vào báo cáo được.
+#
+# Sáu mục này chỉ phủ hai loại có trường bắt buộc (`hdld`, `hop_dong_thu_viec`).
+# Spec đòi 20–30 tài liệu phủ các loại chính — phần còn lại là việc tay.
+#
+# Dựng lại tệp .docx: `python eval/datasets/tai_lieu_mau/dung_mau.py`
+da_nguoi_duyet: false
+duyet_boi: ""
+items:
+  - id: hdld-vung1-thu-viec-60
+    tep: hdld-vung1-thu-viec-60.docx
+    loai: hdld
+    ghi_chu: "HĐLĐ vùng I, thử việc 60 ngày, chức danh cao đẳng trở lên"
+    nhan:
+      thoi_gian_thu_viec_ngay: "60"
+      nhom_chuc_danh: cao_dang_tro_len
+      luong_thu_viec: "17000000"
+      luong_chinh_thuc: "20000000"
+      luong_thang: "20000000"
+      vung: "I"
+      co_dieu_khoan_phat_tien: "false"
+      co_dieu_khoan_giu_giay_to: "false"
+      co_dieu_khoan_dat_coc: "false"
+
+  - id: hdld-vung2-thu-viec-30
+    tep: hdld-vung2-thu-viec-30.docx
+    loai: hdld
+    ghi_chu: "HĐLĐ vùng II, thử việc 30 ngày, công việc khác"
+    nhan:
+      thoi_gian_thu_viec_ngay: "30"
+      nhom_chuc_danh: cong_viec_khac
+      luong_thu_viec: "5500000"
+      luong_chinh_thuc: "6500000"
+      luong_thang: "6500000"
+      vung: "II"
+      co_dieu_khoan_phat_tien: "false"
+      co_dieu_khoan_giu_giay_to: "false"
+      co_dieu_khoan_dat_coc: "false"
+
+  - id: hdld-co-dieu-khoan-trai-luat
+    tep: hdld-co-dieu-khoan-trai-luat.docx
+    loai: hdld
+    ghi_chu: "Ca bẫy: hợp đồng CÓ điều khoản phạt tiền và giữ giấy tờ — Điều 17 BLLĐ cấm. Kiểm xem hệ thống rút ĐÚNG là có, chứ không bỏ qua vì nó sai luật."
+    nhan:
+      thoi_gian_thu_viec_ngay: "60"
+      nhom_chuc_danh: quan_ly_doanh_nghiep
+      luong_thu_viec: "25000000"
+      luong_chinh_thuc: "30000000"
+      luong_thang: "30000000"
+      vung: "I"
+      co_dieu_khoan_phat_tien: "true"
+      co_dieu_khoan_giu_giay_to: "true"
+      co_dieu_khoan_dat_coc: "false"
+
+  - id: hdld-so-viet-bang-chu
+    tep: hdld-so-viet-bang-chu.docx
+    loai: hdld
+    ghi_chu: "Ca bẫy: lương ghi cả số lẫn chữ. Kiểm xem hệ thống lấy con số chứ không lấy chuỗi chữ."
+    nhan:
+      thoi_gian_thu_viec_ngay: "45"
+      nhom_chuc_danh: trung_cap_cnkt_nghiep_vu
+      luong_thu_viec: "8000000"
+      luong_chinh_thuc: "9500000"
+      luong_thang: "9500000"
+      vung: "III"
+      co_dieu_khoan_phat_tien: "false"
+      co_dieu_khoan_giu_giay_to: "false"
+      co_dieu_khoan_dat_coc: "false"
+
+  - id: thu-viec-cao-dang-60
+    tep: thu-viec-cao-dang-60.docx
+    loai: hop_dong_thu_viec
+    ghi_chu: "Hợp đồng thử việc riêng, 60 ngày"
+    nhan:
+      thoi_gian_thu_viec_ngay: "60"
+      nhom_chuc_danh: cao_dang_tro_len
+      luong_thu_viec: "14000000"
+      luong_chinh_thuc: "17000000"
+
+  - id: thu-viec-thieu-luong-chinh-thuc
+    tep: thu-viec-thieu-luong-chinh-thuc.docx
+    loai: hop_dong_thu_viec
+    ghi_chu: "Ca bẫy: tài liệu KHÔNG nói lương chính thức. Nhãn để trống — hệ thống phải để trống, không suy đoán. Trường trống trong nhãn tính là trường hệ thống PHẢI không rút ra."
+    nhan:
+      thoi_gian_thu_viec_ngay: "30"
+      nhom_chuc_danh: cong_viec_khac
+      luong_thu_viec: "6000000"
