@@ -12,17 +12,17 @@ mức của TẤT CẢ, và người bị chặn không hiểu vì sao.
 import pytest
 
 from src.services.tai_lieu import (
+    TAI_LIEU_NGAY,
     TRAN_CHI_PHI_TAI_LIEU_USD,
-    TRAN_THU_LAI,
     VuotTran,
-    con_thu_lai,
+    han_muc_ngay,
     kiem_tran_chi_phi_tai_lieu,
     uoc_chi_phi,
     vuot_chi_phi_thuc,
 )
 
 
-def test_hai_tran_la_DU_LIEU_khong_phai_so_trong_code():
+def test_moi_tran_la_DU_LIEU_khong_phai_so_trong_code():
     """Đổi số phải là đổi `config/han_muc.yaml`, cùng lệ với mọi hạn mức khác."""
     import yaml
 
@@ -30,7 +30,24 @@ def test_hai_tran_la_DU_LIEU_khong_phai_so_trong_code():
 
     d = yaml.safe_load(HAN_MUC_PATH.read_text(encoding="utf-8"))["tai_lieu"]
     assert TRAN_CHI_PHI_TAI_LIEU_USD == d["chi_phi_usd"]
-    assert TRAN_THU_LAI == d["so_lan_thu"]
+    assert TAI_LIEU_NGAY == {g: v["tai_lieu_ngay"] for g, v in d["theo_goi"].items()}
+
+
+def test_KHONG_con_tran_so_lan_thu_lai():
+    """Không giữ tệp gốc thì không thử lại được: thử lại = tải lên lại, và
+    `tai_lieu_ngay` đã đếm việc đó. Một hằng số không có nơi cưỡng chế là một
+    lời hứa, không phải một quy tắc."""
+    import src.services.tai_lieu as m
+
+    assert not hasattr(m, "TRAN_THU_LAI") and not hasattr(m, "con_thu_lai")
+
+
+def test_han_muc_pro_cao_hon_free():
+    assert han_muc_ngay("pro") > han_muc_ngay("free") > 0
+
+
+def test_goi_LA_roi_ve_free_chu_khong_mo_rong_quyen():
+    assert han_muc_ngay("goi-chua-ton-tai") == han_muc_ngay("free")
 
 
 def test_uoc_chi_phi_tang_theo_do_dai():
@@ -55,13 +72,6 @@ def test_chi_phi_THUC_vuot_tran_van_bi_bat_sau_khi_goi():
     assert vuot_chi_phi_thuc(TRAN_CHI_PHI_TAI_LIEU_USD + 0.001) is True
     assert vuot_chi_phi_thuc(TRAN_CHI_PHI_TAI_LIEU_USD) is False
     assert vuot_chi_phi_thuc(0.0) is False
-
-
-def test_tran_thu_lai_chan_vong_lap_vo_han():
-    assert con_thu_lai(0) is True
-    assert con_thu_lai(TRAN_THU_LAI - 1) is True
-    assert con_thu_lai(TRAN_THU_LAI) is False
-    assert con_thu_lai(TRAN_THU_LAI + 5) is False
 
 
 def test_tat_bang_cach_dat_0_giong_tran_chi_phi_ngay(monkeypatch):

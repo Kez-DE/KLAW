@@ -53,6 +53,49 @@ pytest -m "not integration" -q
 Baseline khi cất toàn bộ việc này đi: `43 failed, 1530 passed`. **Cùng 43 test đỏ
 trước và sau**, nên không có hồi quy nào; phần thêm là +42 test xanh.
 
+## Vòng hai — 2026-09-15, sau khi Docker lên
+
+| Việc | Kết quả |
+|---|---|
+| Trần chi phí mỗi tài liệu (FR-036) | 7 passed; ước trước khi gọi + đối chiếu chi phí thật sau khi gọi |
+| Hạn mức tài liệu theo gói (FR-004) | 429 nêu đúng con số và mốc mở lại; tệp hỏng vẫn tính lượt |
+| Migration 026 trên Postgres thật | 9 passed — hai chiều đầy đủ, gồm cả đường cascade |
+| Endpoint chạm DB | 13 passed — quyền sở hữu, sửa giữ trích gốc, bàn giao, hạn mức, dấu vân |
+| PDF tiếng Việt thật | 6 passed — dấu nguyên vẹn, NFC, bỏ dấu vẫn trượt |
+| Tập mẫu ứng viên | 27 passed — 6 tài liệu, 4 ca bẫy, chưa ai duyệt |
+| FR-020 ghi vào hội thoại | 3 passed — dữ kiện người dùng tự nhập không bị đè |
+
+### Tự review, bốn lỗi đã sửa
+
+1. `tai_len` phân tích tài liệu **hai lần**. Giờ đọc một lần, `_chay` nhận
+   `TaiLieuDaDoc` thay vì bytes — nên không nhánh nào trong `_chay` còn cầm tệp.
+2. Dấu vân tính bằng `.decode("utf-8", errors="replace")` trên bytes nhị phân:
+   tốn một bản sao và có thể làm hai tệp khác nhau trùng dấu. Giờ hash thẳng bytes.
+3. **FR-004 chưa có nơi cưỡng chế** — không có hạn mức số tài liệu. Đã thêm
+   `tai_lieu.theo_goi` vào `han_muc.yaml` và cổng chạy trước khi phân tích tệp.
+4. `TRAN_THU_LAI` / `con_thu_lai` là **code chết**, và FR-037 là một lời hứa
+   không thể giữ: không lưu tệp gốc thì không thử lại được — thử lại chính là
+   tải lên lại, và hạn mức ngày đã đếm việc đó. Đã gỡ cả hằng số lẫn hàm, và có
+   một test khoá để không ai thêm lại.
+
+### Sai lệch spec phát hiện khi triển khai
+
+`FR-020` từng viết "biểu mẫu soạn thảo được điền sẵn" mà không nói rõ **bề mặt
+nào**. `KhongGianSoanThao.tsx` có mô hình `Draft` riêng và không chạy bằng bộ từ
+vựng `rules.yaml`; thứ chạy bằng `facts` là đường soạn thảo trong hội thoại.
+FR-019/FR-020 đã viết lại, thêm FR-020a cho ca người dùng đã tự nhập.
+
+## Toàn bộ suite, vòng hai
+
+```
+pytest -m "not integration" -q     →  43 failed, 1616 passed
+pytest tests/test_api/test_tai_lieu_api.py tests/test_services/test_migration_026.py
+                                   →  22 passed  (Postgres thật)
+npm run typecheck / lint / kiem-tai-lieu  →  sạch
+```
+
+Baseline vẫn `43 failed, 1530 passed`. Cùng 43 test đỏ, +86 test xanh.
+
 ## Khoảng trống đã biết
 
 1. **43 test đỏ có sẵn** trong `tests/test_api/`, tất cả `401 Unauthorized`. Có

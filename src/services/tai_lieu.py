@@ -7,13 +7,12 @@ người gọi buông tham chiếu ngay sau đó — kể cả khi việc hỏng
 khách thường thuộc về người thứ ba chưa từng dùng KLAW và chưa đồng ý gì cả.
 """
 
+import hashlib
 import logging
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
-
-from src.services.traces import dau_van_ban
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +47,11 @@ _HM = _han_muc_tai_lieu()
 # chung cho mọi người dùng, nên nếu chỉ dựa vào nó thì một tài liệu dị dạng của
 # MỘT người làm cạn hạn mức của TẤT CẢ.
 TRAN_CHI_PHI_TAI_LIEU_USD = _HM["chi_phi_usd"]
-TRAN_THU_LAI = _HM["so_lan_thu"]
 _USD_MOI_NGHIN_KY_TU = _HM["usd_moi_nghin_ky_tu"]
+
+# Số tài liệu mỗi ngày theo gói — FR-004. Cùng nguồn dữ liệu với hạn mức hỏi đáp
+# và soạn thảo, nên đổi số vẫn chỉ là sửa `config/han_muc.yaml`.
+TAI_LIEU_NGAY = {goi: int(v["tai_lieu_ngay"]) for goi, v in _HM["theo_goi"].items()}
 
 
 def uoc_chi_phi(so_ky_tu: int) -> float:
@@ -78,9 +80,34 @@ def vuot_chi_phi_thuc(chi_phi_usd: float) -> bool:
     return chi_phi_usd > TRAN_CHI_PHI_TAI_LIEU_USD
 
 
-def con_thu_lai(so_lan_da_thu: int) -> bool:
-    """FR-037 — còn được thử lại tài liệu này nữa không."""
-    return so_lan_da_thu < TRAN_THU_LAI
+def han_muc_ngay(goi: str) -> int:
+    """Số tài liệu một gói được đọc mỗi ngày — FR-004.
+
+    Gói lạ rơi về `free`: một tên gói chưa biết không được mở rộng quyền, cùng
+    hướng fail-closed với mọi cổng khác trong `bao_ve`.
+    """
+    return TAI_LIEU_NGAY.get(goi, TAI_LIEU_NGAY["free"])
+
+
+def da_dung_hom_nay(engine: Engine, user_sub: str) -> int:
+    """Số việc đọc đã tạo trong ngày, theo múi giờ hạn mức.
+
+    Đếm cả việc HỎNG: một tệp hỏng vẫn tốn công đọc, và không đếm nó thì gửi
+    tệp rác liên tục trở thành đường vòng qua hạn mức. Việc bị dừng vì chạm trần
+    chi phí thì KHÔNG tính (FR-038) — đó là hệ thống từ chối, không phải người
+    dùng tiêu lượt.
+    """
+    from src.services.bao_ve import moc_ngay
+
+    with engine.connect() as c:
+        return c.execute(
+            text(
+                "SELECT count(*) FROM viec_doc_tai_lieu "
+                "WHERE user_sub = :u AND tao_luc >= :m "
+                "AND (ly_do_hong IS NULL OR ly_do_hong <> 'vuot_tran_chi_phi')"
+            ),
+            {"u": user_sub, "m": moc_ngay()},
+        ).scalar_one()
 
 
 class VuotTran(Exception):
@@ -164,7 +191,10 @@ def tao_viec(
     đĩa hay vào DB (FR-022, FR-023).
     """
     kiem_kich_thuoc(len(du_lieu))
-    dau = dau_van_ban(du_lieu.decode("utf-8", errors="replace"), 0)
+    # Hash thẳng trên BYTES. `traces.dau_van_ban` nhận `str` vì nó dùng cho văn
+    # bản người dùng dán; tài liệu ở đây là nhị phân, và `.decode(errors=replace)`
+    # vừa tốn một bản sao vừa làm hai tệp khác nhau có thể trùng dấu vân.
+    dau = f"sha256:{hashlib.sha256(du_lieu).hexdigest()} len={len(du_lieu)}"
     with engine.begin() as c:
         return str(
             c.execute(

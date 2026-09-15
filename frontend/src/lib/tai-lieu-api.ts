@@ -87,3 +87,32 @@ export function xoaHet(hoiThoaiId: string) {
     method: "DELETE",
   });
 }
+
+export interface SangSoanThao {
+  loai: string;
+  facts: Record<string, string>;
+  con_thieu: { key: string; nhan: string }[];
+  da_ghi_vao_hoi_thoai: boolean;
+}
+
+function laSangSoanThao(x: unknown): x is SangSoanThao {
+  const o = x as SangSoanThao;
+  return !!o && typeof o.loai === "string" && !!o.facts && Array.isArray(o.con_thieu);
+}
+
+/**
+ * Đưa tập dữ kiện đã duyệt sang soạn thảo.
+ *
+ * `ghi = true` ghi thẳng vào trạng thái soạn thảo của cuộc hội thoại, nên lượt
+ * trò chuyện kế tiếp đã biết tài liệu nói gì và chỉ còn hỏi phần thiếu. Dữ kiện
+ * người dùng đã tự nhập được giữ nguyên — tài liệu bổ sung vào chỗ trống, không
+ * ghi đè thứ họ tự khẳng định.
+ */
+export function sangSoanThao(hoiThoaiId: string, loai: string, ghi = false) {
+  const q = `loai=${encodeURIComponent(loai)}${ghi ? "&ghi=true" : ""}`;
+  return goi<SangSoanThao>(
+    `/api/v1/tai-lieu/hoi-thoai/${hoiThoaiId}/du-kien?${q}`,
+    laSangSoanThao,
+    {},
+  );
+}

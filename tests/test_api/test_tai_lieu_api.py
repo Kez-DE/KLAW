@@ -177,3 +177,99 @@ async def test_dinh_dang_khong_ho_tro_la_422_noi_ro_dinh_dang(client, khoa_ky, h
 async def test_khong_dang_nhap_la_401(client, hai_nguoi):
     r = await _tai_len(client, {}, str(uuid.uuid4()))
     assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_ghi_du_kien_vao_trang_thai_soan_thao_cua_hoi_thoai(client, khoa_ky, hai_nguoi, llm_gia):
+    """FR-020 ở chỗ nó thật sự có hiệu lực: lượt trò chuyện sau đã biết tài liệu nói gì."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    await _tai_len(client, ha, phien)
+
+    r = await client.get(f"/api/v1/tai-lieu/hoi-thoai/{phien}/du-kien?loai={LOAI}&ghi=true", headers=ha)
+    assert r.status_code == 200 and r.json()["da_ghi_vao_hoi_thoai"] is True
+
+    from src.services import hoi_thoai as ht
+
+    st = ht.soan_thao_cua_phien(a, phien)
+    assert st["loai"] == LOAI
+    assert st["facts"]["luong_chinh_thuc"] == "20000000"
+    assert st["du"] is False, "còn trường bắt buộc trống thì chưa đủ để soạn"
+
+
+@pytest.mark.asyncio
+async def test_du_kien_NGUOI_DUNG_da_nhap_KHONG_bi_tai_lieu_de_len(client, khoa_ky, hai_nguoi, llm_gia):
+    """Tài liệu bổ sung vào chỗ trống, không ghi đè thứ người dùng tự khẳng định."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    await _tai_len(client, ha, phien)
+
+    from src.services import hoi_thoai as ht
+
+    ht.ghi_soan_thao(a, phien, {"loai": LOAI, "facts": {"luong_chinh_thuc": "31000000"}})
+    await client.get(f"/api/v1/tai-lieu/hoi-thoai/{phien}/du-kien?loai={LOAI}&ghi=true", headers=ha)
+
+    assert ht.soan_thao_cua_phien(a, phien)["facts"]["luong_chinh_thuc"] == "31000000"
+
+
+@pytest.mark.asyncio
+async def test_KHONG_ghi_khi_khong_yeu_cau(client, khoa_ky, hai_nguoi, llm_gia):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    await _tai_len(client, ha, phien)
+
+    from src.services import hoi_thoai as ht
+
+    r = await client.get(f"/api/v1/tai-lieu/hoi-thoai/{phien}/du-kien?loai={LOAI}", headers=ha)
+    assert r.json()["da_ghi_vao_hoi_thoai"] is False
+    assert ht.soan_thao_cua_phien(a, phien) is None
+
+
+@pytest.mark.asyncio
+async def test_het_han_muc_ngay_la_429_noi_ro_con_so(client, khoa_ky, hai_nguoi, llm_gia, monkeypatch):
+    """FR-004 — cổng chạy TRƯỚC khi phân tích tệp, và 429 nói được mốc mở lại."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    monkeypatch.setattr(rtl.tl, "han_muc_ngay", lambda goi: 1)
+
+    assert (await _tai_len(client, ha, phien)).status_code == 201
+    r = await _tai_len(client, ha, phien)
+    assert r.status_code == 429
+    assert "1/1" in r.json()["detail"] and "mở lại" in r.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_tep_hong_VAN_tinh_vao_han_muc(client, khoa_ky, hai_nguoi, llm_gia, monkeypatch):
+    """Không đếm tệp hỏng thì gửi tệp rác liên tục là đường vòng qua hạn mức."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    monkeypatch.setattr(rtl.tl, "han_muc_ngay", lambda goi: 1)
+
+    assert (await _tai_len(client, ha, phien, tep=b"khong phai zip")).status_code == 422
+    assert (await _tai_len(client, ha, phien)).status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_dau_van_ban_nhan_ra_hai_lan_gui_CUNG_mot_tep(client, khoa_ky, hai_nguoi, llm_gia):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    id1 = (await _tai_len(client, ha, phien)).json()["id"]
+    id2 = (await _tai_len(client, ha, phien)).json()["id"]
+
+    from sqlalchemy import text as _t
+
+    with get_engine().connect() as c:
+        dau = [
+            r[0]
+            for r in c.execute(
+                _t("SELECT dau_van_ban FROM viec_doc_tai_lieu WHERE id = ANY(CAST(:ids AS uuid[]))"),
+                {"ids": [id1, id2]},
+            ).all()
+        ]
+    assert len(set(dau)) == 1, "cùng một tệp phải cho cùng một dấu vân"

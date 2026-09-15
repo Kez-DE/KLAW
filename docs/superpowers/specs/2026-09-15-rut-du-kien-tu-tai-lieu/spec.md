@@ -28,6 +28,7 @@ Nguyên tắc trung tâm của KLAW được mở rộng sang một loại ngu�
 - Q: Ngưỡng chuyển nền và trần tuyệt đối là bao nhiêu? → A: Chuyển nền từ 10 trang; trần tuyệt đối 100 trang hoặc 20 MB.
 - Q: Bỏ trần thời gian rồi thì cái gì chặn một lần xử lý mất kiểm soát? → A: Trần chi phí cho mỗi tài liệu, cộng trần số lần thử lại.
 - Q: SC-002 đo trên tập tài liệu nào? → A: Tập mẫu tự dựng 20–30 tài liệu, nhãn do chủ dự án duyệt tay, đặt cạnh các bộ dữ liệu đánh giá hiện có.
+- Phát hiện khi triển khai 2026-09-15: "biểu mẫu soạn thảo" ở FR-020 từng mơ hồ giữa hai bề mặt khác nhau. Biểu mẫu React (`KhongGianSoanThao`) có mô hình dữ liệu riêng và KHÔNG chạy bằng bộ từ vựng `rules.yaml`; thứ chạy bằng `facts` là đường soạn thảo trong hội thoại. FR-019/FR-020 đã viết lại cho đúng bề mặt, và FR-020a được thêm cho ca người dùng đã tự nhập.
 
 ---
 
@@ -145,8 +146,9 @@ Người dùng tải lên một bản scan chụp điện thoại. Hệ thống 
 
 **Nối vào soạn thảo**
 
-- **FR-019**: Người dùng MUST chuyển được tập dữ kiện đã xác nhận sang luồng soạn thảo.
-- **FR-020**: Hệ thống MUST điền sẵn đúng những trường có dữ kiện tương ứng, để trống phần còn lại, và MUST KHÔNG suy đoán giá trị cho trường không có dữ kiện.
+- **FR-019**: Người dùng MUST chuyển được tập dữ kiện đã xác nhận sang luồng soạn thảo **trong hội thoại**.
+- **FR-020**: Sau khi chuyển, luồng soạn thảo MUST đã biết đúng những trường có dữ kiện, MUST để trống phần còn lại, và MUST KHÔNG suy đoán giá trị cho trường không có dữ kiện.
+- **FR-020a**: Dữ kiện người dùng đã tự nhập trong hội thoại MUST được giữ nguyên khi tài liệu mang đến một giá trị khác cho cùng trường. Tài liệu bổ sung vào chỗ trống, không ghi đè thứ người dùng tự khẳng định.
 - **FR-021**: Các trường còn trống sau khi điền sẵn MUST xuất hiện trong danh sách thông tin còn thiếu như hiện nay.
 
 **Lưu trữ và riêng tư**

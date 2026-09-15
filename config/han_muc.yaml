@@ -52,10 +52,18 @@ chu_ky_pro_ngay: 30
 #
 # `chi_phi_usd` cho MỘT lần đọc một tài liệu. Ước theo số ký tự trước khi gọi mô
 # hình, và đối chiếu lại bằng chi phí thật sau khi gọi.
-# `so_lan_thu` là trần số lần thử lại cùng một tài liệu.
+#
+# KHÔNG có trần "số lần thử lại": hệ thống không giữ tệp gốc (FR-022), nên thử
+# lại chính là tải lên lại, và `tai_lieu_ngay` đã đếm việc đó.
 tai_lieu:
   chi_phi_usd: 0.05
-  so_lan_thu: 3
+  # Số tài liệu đọc được mỗi ngày, theo gói (FR-004). Đọc một tài liệu tốn hơn
+  # một câu hỏi, nên số nhỏ hơn hạn mức hỏi đáp.
+  theo_goi:
+    free:
+      tai_lieu_ngay: 5
+    pro:
+      tai_lieu_ngay: 50
   # Ước chi phí: USD trên một nghìn ký tự của tài liệu. Con số khởi đầu, chỉnh
   # lại khi có số đo thật từ `traces.rut_du_kien_cost_usd`.
   # ponytail: ước tuyến tính theo độ dài, nâng lên đếm token thật nếu lệch nhiều.
