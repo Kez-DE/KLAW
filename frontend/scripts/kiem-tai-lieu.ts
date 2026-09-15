@@ -11,6 +11,7 @@
 import assert from "node:assert/strict";
 import {
   DINH_DANG_CHAP_NHAN,
+  DUONG_DAN,
   NGUONG_TIN_CANH_BAO,
   TRAN_BYTE,
   canhBaoDoTin,
@@ -133,6 +134,29 @@ for (const d of [".pdf", ".docx", ".png", ".jpg"])
   assert.ok(sai && lon && sai !== lon);
   assert.ok(lon.includes("20 MB"), "phải nêu đúng giới hạn bị vượt");
   assert.equal(loiTruocKhiGui("hd.pdf", TRAN_BYTE), null, "đúng bằng trần thì vẫn gửi được");
+}
+
+// 9. Đường dẫn KHÔNG lặp `/api/v1`. `apiGoc()` đã chứa nó; lặp lại cho
+//    `/api/v1/api/v1/...` và một 404 mà MỌI test phía máy chủ đều không thấy,
+//    vì chúng gọi thẳng FastAPI chứ không đi qua client này. Đây là lớp lỗi đã
+//    thật sự xảy ra một lần, không phải lo xa.
+{
+  const duong = [
+    DUONG_DAN.taiLen(),
+    DUONG_DAN.chiTiet("v1"),
+    DUONG_DAN.huy("v1"),
+    DUONG_DAN.duKien("d1"),
+    DUONG_DAN.theoHoiThoai("h1"),
+    DUONG_DAN.sangSoanThao("h1", "hdld", true),
+  ];
+  for (const d of duong) {
+    assert.ok(d.startsWith("/tai-lieu"), `đường dẫn phải bắt đầu bằng /tai-lieu: ${d}`);
+    assert.ok(!d.includes("/api/"), `đường dẫn KHÔNG được chứa /api: ${d}`);
+  }
+  assert.ok(DUONG_DAN.sangSoanThao("h1", "hdld", true).includes("&ghi=true"));
+  assert.ok(!DUONG_DAN.sangSoanThao("h1", "hdld", false).includes("ghi=true"));
+  // Tham số phải được mã hoá: một id lạ không được phá cấu trúc URL.
+  assert.ok(DUONG_DAN.chiTiet("a/b").includes("a%2Fb"));
 }
 
 console.log("kiem-tai-lieu: OK");

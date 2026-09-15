@@ -142,3 +142,22 @@ export function loiTruocKhiGui(tenTep: string, soByte: number): string | null {
   if (soByte > TRAN_BYTE) return "Tệp vượt giới hạn 20 MB.";
   return null;
 }
+
+/**
+ * Đường dẫn của từng endpoint, TÍNH TỪ GỐC API.
+ *
+ * `apiGoc()` đã chứa `/api/v1`, nên đường dẫn ở đây KHÔNG được lặp lại nó. Sai
+ * chỗ này cho `/api/v1/api/v1/...` và một 404 mà mọi test phía máy chủ đều
+ * không thấy — chúng gọi thẳng ứng dụng FastAPI, không đi qua client này. Tách
+ * ra thành hàm thuần để `scripts/kiem-tai-lieu.ts` khoá được lớp lỗi đó.
+ */
+export const DUONG_DAN = {
+  taiLen: () => "/tai-lieu",
+  chiTiet: (viecId: string) => `/tai-lieu/${encodeURIComponent(viecId)}`,
+  huy: (viecId: string) => `/tai-lieu/${encodeURIComponent(viecId)}/huy`,
+  duKien: (duKienId: string) => `/tai-lieu/du-kien/${encodeURIComponent(duKienId)}`,
+  theoHoiThoai: (hoiThoaiId: string) => `/tai-lieu/hoi-thoai/${encodeURIComponent(hoiThoaiId)}`,
+  sangSoanThao: (hoiThoaiId: string, loai: string, ghi: boolean) =>
+    `/tai-lieu/hoi-thoai/${encodeURIComponent(hoiThoaiId)}/du-kien?loai=${encodeURIComponent(loai)}` +
+    (ghi ? "&ghi=true" : ""),
+} as const;

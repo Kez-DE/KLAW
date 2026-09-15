@@ -7,8 +7,8 @@
  * nên gộp ba hạng thành một bảng phẳng là để giao diện hứa nhiều hơn thứ nó giữ
  * được — cùng lỗi mà `KhungDoiChieu` tồn tại để không mắc với trích dẫn điều luật.
  */
-import { useCallback, useRef, useState } from "react";
-import { FileText, Loader2, Trash2, Upload } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FileText, Loader2, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
 import {
@@ -24,17 +24,34 @@ import {
   type TaiLieu,
 } from "@/lib/tai-lieu";
 import { sangSoanThao, suaDuKien, taiLen, xoaDuKien } from "@/lib/tai-lieu-api";
+import { LOAI_BACKEND, MAU } from "@/lib/mau-van-ban";
 import { cn } from "@/lib/utils";
 import type { ApiError } from "@/lib/klaw";
 
 interface Props {
   /** `null` khi chưa đăng nhập hoặc chưa có cuộc trò chuyện — nút bị vô hiệu. */
   hoiThoaiId: string | null;
-  /** Loại văn bản đang soạn, theo mã backend. `null` thì chưa biết rút trường gì. */
+  /**
+   * Loại văn bản đang soạn, theo mã backend. `null` thì người dùng tự chọn ở
+   * đây: rút dữ kiện cần biết rút TRƯỜNG GÌ, nhưng bắt họ mở khung soạn thảo
+   * trước mới được đính kèm là một ngõ cụt — họ đang cầm tờ giấy trong tay.
+   */
   loai: string | null;
   /** Gọi sau khi dữ kiện đã được đưa sang soạn thảo. */
   onDaDungDeSoan?: () => void;
+  /** Đóng khung. `undefined` khi khung không tự đóng được (đặt cố định). */
+  onDong?: (() => void) | undefined;
+  /** Tệp người dùng vừa chọn ở ô soạn câu hỏi. Đọc ngay khi đủ điều kiện. */
+  tepVao?: File | null;
+  /** Báo ra ngoài để nút kẹp giấy khoá trong lúc đang đọc. */
+  onDangDoc?: ((dang: boolean) => void) | undefined;
 }
+
+/** Loại văn bản chọn được: chỉ những mẫu đã nối backend mới rút dữ kiện được. */
+const LOAI_CHON_DUOC = MAU.flatMap((m) => {
+  const loai = LOAI_BACKEND[m.id]?.loai;
+  return loai ? [{ loai, ten: m.ten }] : [];
+}).filter((x, i, ds) => ds.findIndex((y) => y.loai === x.loai) === i);
 
 const MAU_NGUON: Record<string, string> = {
   tai_lieu: "var(--color-status-ok, #1a7f5a)",
@@ -43,7 +60,14 @@ const MAU_NGUON: Record<string, string> = {
   nguoi_dung_sua: "var(--color-status-neutral, #5b6470)",
 };
 
-export function TaiLieuDuKien({ hoiThoaiId, loai, onDaDungDeSoan }: Props) {
+export function TaiLieuDuKien({
+  hoiThoaiId,
+  loai,
+  onDaDungDeSoan,
+  onDong,
+  tepVao,
+  onDangDoc,
+}: Props) {
   const oTep = useRef<HTMLInputElement | null>(null);
   const [tep, datTep] = useState<TaiLieu | null>(null);
   const [dangKeo, datDangKeo] = useState(false);
@@ -54,13 +78,24 @@ export function TaiLieuDuKien({ hoiThoaiId, loai, onDaDungDeSoan }: Props) {
   // Cùng khuôn `DanhSachPhien.tsx`.
   const [dangTai, datDangTai] = useState(false);
   const [loiTai, datLoiTai] = useState<ApiError | null>(null);
+  const [loaiChon, datLoaiChon] = useState<string>("");
+  const [tepHienTai, datTepHienTai] = useState<File | null>(null);
 
-  const san = hoiThoaiId !== null && loai !== null;
+  const loaiDung = loai ?? (loaiChon || null);
+  const san = hoiThoaiId !== null && loaiDung !== null;
+  const [choLoai, datChoLoai] = useState<File | null>(null);
 
   const gui = useCallback(
     async (f: File) => {
-      if (!san) {
+      if (hoiThoaiId === null) {
         toast.error("Cần một cuộc trò chuyện đã đăng nhập để đọc tài liệu.");
+        return;
+      }
+      if (loaiDung === null) {
+        // Chưa biết soạn gì thì chưa biết rút TRƯỜNG GÌ. Giữ tệp lại thay vì
+        // báo lỗi: người dùng chỉ còn thiếu một lựa chọn, không làm sai gì.
+        datTepHienTai(f);
+        datChoLoai(f);
         return;
       }
       const loi = loiTruocKhiGui(f.name, f.size);
@@ -73,10 +108,14 @@ export function TaiLieuDuKien({ hoiThoaiId, loai, onDaDungDeSoan }: Props) {
       const id = toast.loading(
         seDungOcr(f.name) ? "Đang nhận dạng chữ trong ảnh…" : "Đang đọc tài liệu…",
       );
+      datTepHienTai(f);
+      datChoLoai(null);
       datDangTai(true);
+      onDangDoc?.(true);
       datLoiTai(null);
-      const kq = await taiLen(f, hoiThoaiId, loai);
+      const kq = await taiLen(f, hoiThoaiId, loaiDung);
       datDangTai(false);
+      onDangDoc?.(false);
       if (!kq.ok) {
         datLoiTai(kq.error);
         toast.error(kq.error.message, { id });
@@ -89,8 +128,18 @@ export function TaiLieuDuKien({ hoiThoaiId, loai, onDaDungDeSoan }: Props) {
         { id },
       );
     },
-    [san, hoiThoaiId, loai],
+    [hoiThoaiId, loaiDung, onDangDoc],
   );
+
+  // Tệp mới từ ô soạn câu hỏi: đọc ngay.
+  useEffect(() => {
+    if (tepVao) void gui(tepVao);
+  }, [tepVao, gui]);
+
+  // Vừa chọn được loại văn bản cho tệp đang chờ: đọc nốt.
+  useEffect(() => {
+    if (choLoai && loaiDung) void gui(choLoai);
+  }, [choLoai, loaiDung, gui]);
 
   const sua = async (dk: DuKien, giaTri: string) => {
     if (!dk.id || giaTri === dk.gia_tri) return;
@@ -119,7 +168,7 @@ export function TaiLieuDuKien({ hoiThoaiId, loai, onDaDungDeSoan }: Props) {
   const dungDeSoan = async () => {
     if (!san) return;
     datDangDung(true);
-    const kq = await sangSoanThao(hoiThoaiId, loai, true);
+    const kq = await sangSoanThao(hoiThoaiId, loaiDung, true);
     datDangDung(false);
     if (!kq.ok) {
       toast.error(kq.error.message);
@@ -141,62 +190,62 @@ export function TaiLieuDuKien({ hoiThoaiId, loai, onDaDungDeSoan }: Props) {
       aria-label="Tài liệu và dữ kiện"
       className="rounded-lg border border-border bg-[var(--color-paper-50)] p-4"
     >
-      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-        <FileText aria-hidden className="size-4" />
-        Đọc dữ kiện từ tài liệu
-      </h2>
-
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          datDangKeo(true);
-        }}
-        onDragLeave={() => datDangKeo(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          datDangKeo(false);
-          const f = e.dataTransfer.files[0];
-          if (f) void gui(f);
-        }}
-        className={cn(
-          "rounded-md border border-dashed p-4 text-center text-sm transition-colors",
-          dangKeo ? "border-foreground bg-background" : "border-border",
-        )}
-      >
-        <input
-          ref={oTep}
-          type="file"
-          accept={DINH_DANG_CHAP_NHAN}
-          className="sr-only"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void gui(f);
-            e.target.value = "";
-          }}
-        />
-        <button
-          type="button"
-          disabled={!san || dangTai}
-          onClick={() => oTep.current?.click()}
-          className="focus-brass inline-flex min-h-11 items-center gap-2 rounded-md border border-border px-4 disabled:opacity-50"
-        >
-          {dangTai ? (
-            <Loader2 aria-hidden className="size-4 animate-spin" />
-          ) : (
-            <Upload aria-hidden className="size-4" />
-          )}
-          {dangTai ? "Đang đọc…" : "Chọn tệp"}
-        </button>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Kéo thả hoặc chọn tệp PDF, DOCX, hoặc ảnh chụp giấy tờ. Tối đa 20 MB. Tệp gốc không được
-          lưu lại.
-        </p>
-        {!san && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Cần một cuộc trò chuyện đã đăng nhập và một loại văn bản đang soạn.
-          </p>
+      <div className="mb-3 flex items-center gap-2">
+        <h2 className="flex flex-1 items-center gap-2 text-sm font-semibold">
+          <FileText aria-hidden className="size-4" />
+          Đọc dữ kiện từ tài liệu
+        </h2>
+        {onDong && (
+          <button
+            type="button"
+            aria-label="Đóng khung đính kèm tài liệu"
+            onClick={onDong}
+            className="focus-brass grid size-11 place-items-center rounded border border-border"
+          >
+            <X aria-hidden className="size-4" />
+          </button>
         )}
       </div>
+
+      {loai === null && (
+        <label className="mb-3 block text-xs">
+          <span className="mb-1 block text-muted-foreground">
+            Bạn định soạn văn bản gì? Cần biết để rút đúng những thông tin văn bản đó đòi.
+          </span>
+          <select
+            value={loaiChon}
+            onChange={(e) => datLoaiChon(e.target.value)}
+            className="focus-brass min-h-11 w-full rounded border border-border bg-background px-2 text-sm"
+          >
+            <option value="">— Chọn loại văn bản —</option>
+            {LOAI_CHON_DUOC.map((x) => (
+              <option key={x.loai} value={x.loai}>
+                {x.ten}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {tepHienTai && (
+        <p className="mb-3 flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
+          <FileText aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate">{tepHienTai.name}</span>
+          {dangTai && <Loader2 aria-hidden className="size-4 shrink-0 animate-spin" />}
+        </p>
+      )}
+
+      {choLoai !== null && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          Chọn loại văn bản ở trên rồi tệp sẽ được đọc.
+        </p>
+      )}
+
+      {hoiThoaiId === null && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          Cần đăng nhập và có một cuộc trò chuyện để đọc tài liệu.
+        </p>
+      )}
 
       {loiTai && (
         <div className="mt-3">

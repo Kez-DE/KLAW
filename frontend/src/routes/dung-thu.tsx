@@ -374,8 +374,12 @@ function ManHoiKlaw() {
   const cuoi = useRef<HTMLDivElement | null>(null);
   /** Bọc khung soạn thảo — dò control focus được đầu tiên khi khung mở. */
   const khungSoanThao = useRef<HTMLDivElement | null>(null);
-  /** Khung đính kèm tài liệu — nút kẹp giấy cuộn tới đây. */
-  const khungTaiLieu = useRef<HTMLDivElement | null>(null);
+  /** Khung đính kèm tài liệu — nút kẹp giấy mở/đóng nó. Nằm trong cột hội
+   *  thoại chứ không trong khung soạn thảo: người dùng đang cầm tờ giấy trong
+   *  tay, bắt họ mở khung soạn thảo trước mới được đính kèm là một ngõ cụt. */
+  const [moTaiLieu, datMoTaiLieu] = useState(false);
+  const [tepDinhKem, datTepDinhKem] = useState<File | null>(null);
+  const [dangDocTep, datDangDocTep] = useState(false);
 
   useLayoutEffect(() => {
     cuoi.current?.scrollIntoView({ block: "end" });
@@ -936,6 +940,20 @@ function ManHoiKlaw() {
         )}
       </div>
 
+      {moTaiLieu && (
+        <div className="mx-auto w-full max-w-[860px] px-4 pb-2">
+          <TaiLieuDuKien
+            hoiThoaiId={phienId ?? traCuu.hoiThoaiId}
+            loai={loaiDangSoan}
+            tepVao={tepDinhKem}
+            onDangDoc={datDangDocTep}
+            onDong={() => {
+              datMoTaiLieu(false);
+              datTepDinhKem(null);
+            }}
+          />
+        </div>
+      )}
       <OSoanCauHoi
         oHoi={oHoi}
         nhap={nhap}
@@ -944,21 +962,11 @@ function ManHoiKlaw() {
         onGui={gui}
         mucChip={mucChip}
         dangCho={dangKiemPhien && !chuaCauHinh}
-        /* Rút dữ kiện cần biết rút TRƯỜNG GÌ, nên nút chỉ mở được khi đã biết
-           đang soạn loại văn bản nào. Chưa biết thì nút nói ra điều đó thay vì
-           nói tính năng không tồn tại. */
-        onDinhKem={
-          loaiDangSoan === null
-            ? undefined
-            : () => {
-                datSoanThao((cu) => cu ?? { slug: null });
-                setTimeout(
-                  () =>
-                    khungTaiLieu.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
-                  80,
-                );
-              }
-        }
+        onChonTep={(tep) => {
+          datTepDinhKem(tep);
+          datMoTaiLieu(true);
+        }}
+        dangDocTep={dangDocTep}
       />
     </div>
   );
@@ -1166,13 +1174,6 @@ function ManHoiKlaw() {
                   trongKhung
                   onDong={() => datSoanThao(null)}
                 />
-                {/* Đọc dữ kiện từ giấy tờ người dùng đang cầm, thay vì bắt họ
-                    gõ lại. Đặt CẠNH khung soạn thảo chứ không lồng vào: khung
-                    đó có vỏ cuộn riêng, và dữ kiện thuộc về cuộc hội thoại chứ
-                    không thuộc về một bản thảo. */}
-                <div ref={khungTaiLieu} className="p-4">
-                  <TaiLieuDuKien hoiThoaiId={phienId ?? traCuu.hoiThoaiId} loai={loaiDangSoan} />
-                </div>
               </div>
             )}
           </>

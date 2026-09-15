@@ -4,7 +4,7 @@
  */
 import { apiGoc, goi, tieuDeXacThuc } from "./api";
 import type { ApiError, ApiErrorKind, ApiResult } from "./klaw";
-import { loiTruocKhiGui, type DuKien, type TaiLieu } from "./tai-lieu";
+import { DUONG_DAN, loiTruocKhiGui, type DuKien, type TaiLieu } from "./tai-lieu";
 
 export type { DuKien, TaiLieu } from "./tai-lieu";
 
@@ -42,7 +42,7 @@ export async function taiLen(
 
   let phanHoi: Response;
   try {
-    phanHoi = await fetch(`${apiGoc()}/api/v1/tai-lieu`, {
+    phanHoi = await fetch(`${apiGoc()}${DUONG_DAN.taiLen()}`, {
       method: "POST",
       body: form,
       headers: await tieuDeXacThuc(),
@@ -66,24 +66,24 @@ export async function taiLen(
 }
 
 export function chiTiet(viecId: string, signal?: AbortSignal) {
-  return goi<TaiLieu>(`/api/v1/tai-lieu/${viecId}`, laTaiLieu, signal ? { signal } : {});
+  return goi<TaiLieu>(DUONG_DAN.chiTiet(viecId), laTaiLieu, signal ? { signal } : {});
 }
 
 export function suaDuKien(duKienId: string, giaTri: string) {
-  return goi<DuKien>(`/api/v1/tai-lieu/du-kien/${duKienId}`, laDuKien, {
+  return goi<DuKien>(DUONG_DAN.duKien(duKienId), laDuKien, {
     method: "PATCH",
     body: { gia_tri: giaTri },
   });
 }
 
 export function xoaDuKien(duKienId: string) {
-  return goi<null>(`/api/v1/tai-lieu/du-kien/${duKienId}`, (x): x is null => x === null, {
+  return goi<null>(DUONG_DAN.duKien(duKienId), (x): x is null => x === null, {
     method: "DELETE",
   });
 }
 
 export function xoaHet(hoiThoaiId: string) {
-  return goi<null>(`/api/v1/tai-lieu/hoi-thoai/${hoiThoaiId}`, (x): x is null => x === null, {
+  return goi<null>(DUONG_DAN.theoHoiThoai(hoiThoaiId), (x): x is null => x === null, {
     method: "DELETE",
   });
 }
@@ -109,10 +109,5 @@ function laSangSoanThao(x: unknown): x is SangSoanThao {
  * ghi đè thứ họ tự khẳng định.
  */
 export function sangSoanThao(hoiThoaiId: string, loai: string, ghi = false) {
-  const q = `loai=${encodeURIComponent(loai)}${ghi ? "&ghi=true" : ""}`;
-  return goi<SangSoanThao>(
-    `/api/v1/tai-lieu/hoi-thoai/${hoiThoaiId}/du-kien?${q}`,
-    laSangSoanThao,
-    {},
-  );
+  return goi<SangSoanThao>(DUONG_DAN.sangSoanThao(hoiThoaiId, loai, ghi), laSangSoanThao, {});
 }
