@@ -24,6 +24,10 @@ pyyaml>=6.0.0
 # tức fail closed nhưng vì lý do sai.
 pyjwt[crypto]>=2.10.0
 
+# Đọc tài liệu người dùng — PDF có lớp chữ. DOCX đọc bằng `zipfile` của thư viện
+# chuẩn (đã dùng ở `services/vbhn_parser.py`), nên không cần thêm dep cho nhánh đó.
+pypdf>=5.1.0
+
 # Data
 pandas>=2.2.0
 pyarrow>=17.0.0
