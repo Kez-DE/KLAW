@@ -26,7 +26,7 @@ TRAN_BYTE = 20 * 1024 * 1024
 # bật khi gặp tài liệu bất thường.
 NGUONG_NEN_TRANG = 10
 
-TRANG_THAI = ("dang_doc", "xong", "hong", "huy")
+TRANG_THAI = ("dang_doc", "can_chon_loai", "xong", "hong", "huy")
 
 
 def _han_muc_tai_lieu() -> dict:
@@ -233,6 +233,18 @@ def dat_trang_thai(
                 "WHERE id = :i AND user_sub = :u"
             ),
             {"s": trang_thai, "r": ly_do_hong, "p": so_trang, "c": chi_phi_usd, "i": viec_id, "u": user_sub},
+        )
+
+
+def dat_loai(engine: Engine, viec_id: str, user_sub: str, loai: str) -> None:
+    """Ghi loại văn bản hệ thống đã nhận ra (hoặc người dùng đã chọn)."""
+    with engine.begin() as c:
+        c.execute(
+            text(
+                "UPDATE viec_doc_tai_lieu SET loai = :l, cap_nhat_luc = now() "
+                "WHERE id = :i AND user_sub = :u"
+            ),
+            {"l": loai, "i": viec_id, "u": user_sub},
         )
 
 

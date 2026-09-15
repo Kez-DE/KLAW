@@ -80,22 +80,15 @@ export function TaiLieuDuKien({
   const [loiTai, datLoiTai] = useState<ApiError | null>(null);
   const [loaiChon, datLoaiChon] = useState<string>("");
   const [tepHienTai, datTepHienTai] = useState<File | null>(null);
+  const [doiLoai, datDoiLoai] = useState(false);
 
   const loaiDung = loai ?? (loaiChon || null);
   const san = hoiThoaiId !== null && loaiDung !== null;
-  const [choLoai, datChoLoai] = useState<File | null>(null);
 
   const gui = useCallback(
     async (f: File) => {
       if (hoiThoaiId === null) {
         toast.error("Cần một cuộc trò chuyện đã đăng nhập để đọc tài liệu.");
-        return;
-      }
-      if (loaiDung === null) {
-        // Chưa biết soạn gì thì chưa biết rút TRƯỜNG GÌ. Giữ tệp lại thay vì
-        // báo lỗi: người dùng chỉ còn thiếu một lựa chọn, không làm sai gì.
-        datTepHienTai(f);
-        datChoLoai(f);
         return;
       }
       const loi = loiTruocKhiGui(f.name, f.size);
@@ -109,7 +102,6 @@ export function TaiLieuDuKien({
         seDungOcr(f.name) ? "Đang nhận dạng chữ trong ảnh…" : "Đang đọc tài liệu…",
       );
       datTepHienTai(f);
-      datChoLoai(null);
       datDangTai(true);
       onDangDoc?.(true);
       datLoiTai(null);
@@ -136,10 +128,15 @@ export function TaiLieuDuKien({
     if (tepVao) void gui(tepVao);
   }, [tepVao, gui]);
 
-  // Vừa chọn được loại văn bản cho tệp đang chờ: đọc nốt.
+  // Người dùng vừa chọn loại: đọc lại chính tệp đó với loại đã chọn.
   useEffect(() => {
-    if (choLoai && loaiDung) void gui(choLoai);
-  }, [choLoai, loaiDung, gui]);
+    if (loaiChon && tepHienTai && (tep?.trang_thai === "can_chon_loai" || doiLoai)) {
+      datDoiLoai(false);
+      void gui(tepHienTai);
+    }
+    // `gui` đọc `loaiDung`, vốn đã bao gồm `loaiChon`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaiChon]);
 
   const sua = async (dk: DuKien, giaTri: string) => {
     if (!dk.id || giaTri === dk.gia_tri) return;
@@ -183,6 +180,23 @@ export function TaiLieuDuKien({
     onDaDungDeSoan?.();
   };
 
+  const canChonLoai = loai === null && (tep?.trang_thai === "can_chon_loai" || doiLoai);
+
+  /**
+   * Dòng dưới tên tệp. Nó là chỗ agent nói ra nó ĐÃ HIỂU tài liệu là gì —
+   * `docs/bo-luat-agent.md` QT-5: giả định phải hiện thành chữ và sửa được một
+   * chạm, chứ không nằm im trong đầu hệ thống.
+   */
+  const phuDe = dangTai
+    ? "Đang đọc…"
+    : tep?.trang_thai === "can_chon_loai"
+      ? "Chưa nhận ra loại văn bản"
+      : tep?.loai_ten
+        ? tep.loai_tu_doan
+          ? `${tep.loai_ten} · tự nhận ra`
+          : tep.loai_ten
+        : "Tệp";
+
   const nhom = theoTrang(tep?.du_kien ?? []);
 
   return (
@@ -207,10 +221,34 @@ export function TaiLieuDuKien({
         )}
       </div>
 
-      {loai === null && (
+      {tepHienTai && (
+        <div className="mb-3 flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+          <FileText aria-hidden className="size-5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium" title={tepHienTai.name}>
+              {tepHienTai.name}
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">{phuDe}</span>
+          </span>
+          {dangTai && <Loader2 aria-hidden className="size-4 shrink-0 animate-spin" />}
+          {tep?.loai_ten && !doiLoai && (
+            <button
+              type="button"
+              onClick={() => datDoiLoai(true)}
+              className="focus-brass shrink-0 rounded px-2 py-1 text-xs text-muted-foreground underline"
+            >
+              Đổi
+            </button>
+          )}
+        </div>
+      )}
+
+      {canChonLoai && (
         <label className="mb-3 block text-xs">
           <span className="mb-1 block text-muted-foreground">
-            Bạn định soạn văn bản gì? Cần biết để rút đúng những thông tin văn bản đó đòi.
+            {tep?.trang_thai === "can_chon_loai"
+              ? "Chưa nhận ra tài liệu này thuộc loại nào. Bạn định soạn văn bản gì?"
+              : "Đổi loại văn bản:"}
           </span>
           <select
             value={loaiChon}
@@ -225,20 +263,6 @@ export function TaiLieuDuKien({
             ))}
           </select>
         </label>
-      )}
-
-      {tepHienTai && (
-        <p className="mb-3 flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
-          <FileText aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 flex-1 truncate">{tepHienTai.name}</span>
-          {dangTai && <Loader2 aria-hidden className="size-4 shrink-0 animate-spin" />}
-        </p>
-      )}
-
-      {choLoai !== null && (
-        <p className="mb-3 text-xs text-muted-foreground">
-          Chọn loại văn bản ở trên rồi tệp sẽ được đọc.
-        </p>
       )}
 
       {hoiThoaiId === null && (

@@ -312,3 +312,60 @@ async def test_du_kien_tu_ANH_mang_nguon_tai_lieu_ocr_va_do_tin(client, khoa_ky,
     assert len(dk) == 1
     assert dk[0]["nguon"] == "tai_lieu_ocr", "dữ kiện đọc từ ảnh KHÔNG được mang nhãn như chữ thật"
     assert 0 < dk[0]["do_tin"] <= 1
+
+
+@pytest.mark.asyncio
+async def test_TU_NHAN_RA_loai_van_ban_khong_hoi_nguoi_dung(client, khoa_ky, hai_nguoi, llm_gia):
+    """Đây là chỗ KLAW thôi hỏi và bắt đầu suy luận."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    tep = _docx("HỢP ĐỒNG LAO ĐỘNG", DONG_LUONG, DONG_THU_VIEC)
+
+    r = await client.post(
+        "/api/v1/tai-lieu", headers=ha,
+        files={"tep": ("hd.docx", tep)},
+        data={"hoi_thoai_id": phien},   # KHÔNG gửi `loai`
+    )
+    assert r.status_code == 201, r.text
+    d = r.json()
+    assert d["loai"] == "hdld"
+    assert d["loai_tu_doan"] is True
+    assert "HỢP ĐỒNG LAO ĐỘNG" in d["loai_can_cu"], "phải nêu chỗ nó đọc được"
+    assert d["trang_thai"] == "xong"
+
+
+@pytest.mark.asyncio
+async def test_KHONG_NHAN_RA_thi_HOI_chu_khong_doan_bua(client, khoa_ky, hai_nguoi, llm_gia):
+    """Ca thật từ người dùng: giấy tiếp nhận thực tập, ngoài 29 loại."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    tep = _docx("GIẤY TIẾP NHẬN THỰC HÀNH, THỰC TẬP", "Kính gửi: Trường Đại học Phenikaa")
+
+    r = await client.post(
+        "/api/v1/tai-lieu", headers=ha,
+        files={"tep": ("bm-m05.docx", tep)},
+        data={"hoi_thoai_id": phien},
+    )
+    assert r.status_code == 201
+    d = r.json()
+    assert d["trang_thai"] == "can_chon_loai"
+    assert d["loai"] is None
+    assert d["du_kien"] == [], "không đoán được loại thì không được rút bừa dữ kiện"
+
+
+@pytest.mark.asyncio
+async def test_loai_NGUOI_DUNG_gui_thang_van_thang_suy_doan(client, khoa_ky, hai_nguoi, llm_gia):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    tep = _docx("HỢP ĐỒNG LAO ĐỘNG", DONG_LUONG)
+
+    r = await client.post(
+        "/api/v1/tai-lieu", headers=ha,
+        files={"tep": ("hd.docx", tep)},
+        data={"hoi_thoai_id": phien, "loai": "hop_dong_thu_viec"},
+    )
+    assert r.json()["loai"] == "hop_dong_thu_viec"
+    assert r.json()["loai_tu_doan"] is False

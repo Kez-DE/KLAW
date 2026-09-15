@@ -30,13 +30,20 @@ export interface DuKien {
 
 export interface TaiLieu {
   id: string;
-  trang_thai: "dang_doc" | "xong" | "hong" | "huy";
+  trang_thai: "dang_doc" | "can_chon_loai" | "xong" | "hong" | "huy";
   so_trang: number | null;
   chay_nen: boolean;
   ly_do_hong: string | null;
   thong_diep: string | null;
   /** Tài liệu này có phần nào đọc bằng OCR — giao diện phải nói ra. */
   co_ocr: boolean;
+  loai: string | null;
+  loai_ten: string | null;
+  /** Hệ thống tự nhận ra, không phải người dùng chọn. Giả định phải hiện thành
+   *  chữ và sửa được một chạm — `docs/bo-luat-agent.md` QT-5. */
+  loai_tu_doan: boolean;
+  /** Dòng trong tài liệu đã dẫn tới kết luận. */
+  loai_can_cu: string | null;
   du_kien: DuKien[];
 }
 

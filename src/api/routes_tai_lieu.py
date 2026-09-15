@@ -23,6 +23,7 @@ from src.services import tai_lieu as tl
 from src.services.bao_ve import nguoi_dung_bat_buoc
 from src.services.db import get_engine
 from src.services.doc_tai_lieu import KhongDocDuoc, LoaiHong, TaiLieuDaDoc, doc
+from src.services.phan_loai_tai_lieu import phan_loai
 from src.services.tai_lieu import VuotTran
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,15 @@ class TaiLieuOut(BaseModel):
     so_trang: int | None = None
     chay_nen: bool
     co_ocr: bool = False
+    loai: str | None = None
+    loai_ten: str | None = None
+    """Tên loại văn bản, để giao diện nói được nó đã hiểu tài liệu là gì."""
+    loai_tu_doan: bool = False
+    """Hệ thống tự nhận ra, chứ không phải người dùng chọn. Giả định phải hiện
+    thành chữ và sửa được một chạm — `docs/bo-luat-agent.md` QT-5."""
+    loai_can_cu: str | None = None
+    """Dòng trong tài liệu đã dẫn tới kết luận. Suy luận không giải thích được
+    thì người dùng không sửa được."""
     ly_do_hong: str | None = None
     thong_diep: str | None = None
     du_kien: list[DuKienOut] = []
@@ -171,7 +181,7 @@ async def tai_len(
     nen: BackgroundTasks,
     tep: UploadFile = File(...),
     hoi_thoai_id: str = Form(...),
-    loai: str = Form(...),
+    loai: str | None = Form(None),
     nguoi: dict = Depends(nguoi_dung_bat_buoc),
 ) -> TaiLieuOut:
     """Nhận tài liệu, đọc tại chỗ nếu nhỏ, chuyển nền nếu lớn (FR-029/030).
@@ -215,15 +225,39 @@ async def tai_len(
     finally:
         del du_lieu  # FR-022 — buông tệp ngay, kể cả khi đọc hỏng
 
+    # Người dùng không phải chọn loại văn bản từ một danh sách 29 mục trước khi
+    # đọc được tờ giấy họ đang cầm. Giấy tờ pháp lý tự khai tên ở dòng đầu, nên
+    # hệ thống đọc lấy — và chỉ hỏi khi thật sự không nhận ra.
+    doan = None if loai else phan_loai(tai_lieu.don_vi)
+    loai = loai or (doan.loai if doan else None)
+    if loai is None:
+        await run_in_threadpool(
+            tl.dat_trang_thai, get_engine(), viec_id, nguoi["sub"], "can_chon_loai",
+            so_trang=tai_lieu.so_trang,
+        )
+        return TaiLieuOut(
+            id=viec_id, trang_thai="can_chon_loai", so_trang=tai_lieu.so_trang,
+            chay_nen=False, co_ocr=tai_lieu.co_ocr,
+        )
+    await run_in_threadpool(tl.dat_loai, get_engine(), viec_id, nguoi["sub"], loai)
+
     if tl.chay_nen(tai_lieu.so_trang):
         nen.add_task(_chay, viec_id, nguoi["sub"], hoi_thoai_id, loai, tai_lieu)
         return TaiLieuOut(
             id=viec_id, trang_thai="dang_doc", so_trang=tai_lieu.so_trang,
-            chay_nen=True, co_ocr=tai_lieu.co_ocr,
+            chay_nen=True, co_ocr=tai_lieu.co_ocr, loai=loai,
+            loai_ten=doan.ten if doan else None,
+            loai_tu_doan=doan is not None,
+            loai_can_cu=doan.can_cu if doan else None,
         )
 
     await run_in_threadpool(_chay, viec_id, nguoi["sub"], hoi_thoai_id, loai, tai_lieu)
-    return await chi_tiet(viec_id, nguoi)
+    ra = await chi_tiet(viec_id, nguoi)
+    if doan:
+        return ra.model_copy(
+            update={"loai_ten": doan.ten, "loai_tu_doan": True, "loai_can_cu": doan.can_cu}
+        )
+    return ra
 
 
 @router.get("/tai-lieu/{viec_id}", response_model=TaiLieuOut)
@@ -236,6 +270,14 @@ async def chi_tiet(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> 
         tl.du_kien_cua_hoi_thoai, get_engine(), str(viec["hoi_thoai_id"]), nguoi["sub"]
     )
     ly_do = viec.get("ly_do_hong")
+    from src.agents.graph_soan_thao import load_checklist_cached
+
+    ten = None
+    if viec.get("loai"):
+        try:
+            ten = load_checklist_cached(viec["loai"]).ten
+        except Exception:  # loại lạ trong DB không được làm hỏng cả phản hồi
+            ten = None
     return TaiLieuOut(
         id=str(viec["id"]),
         trang_thai=viec["trang_thai"],
@@ -245,6 +287,8 @@ async def chi_tiet(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> 
         thong_diep=_THONG_DIEP.get(ly_do) if ly_do else None,
         du_kien=[DuKienOut(**{**d, "id": str(d["id"])}) for d in du_kien],
         co_ocr=any(d.get("nguon") == "tai_lieu_ocr" for d in du_kien),
+        loai=viec.get("loai"),
+        loai_ten=ten,
     )
 
 

@@ -29,7 +29,8 @@ function laDuKien(x: unknown): x is DuKien {
 export async function taiLen(
   tep: File,
   hoiThoaiId: string,
-  loai: string,
+  /** `null` = để hệ thống tự nhận ra loại văn bản từ chính tài liệu. */
+  loai: string | null,
   signal?: AbortSignal,
 ): Promise<ApiResult<TaiLieu>> {
   const loi = loiTruocKhiGui(tep.name, tep.size);
@@ -38,7 +39,7 @@ export async function taiLen(
   const form = new FormData();
   form.append("tep", tep);
   form.append("hoi_thoai_id", hoiThoaiId);
-  form.append("loai", loai);
+  if (loai) form.append("loai", loai);
 
   let phanHoi: Response;
   try {
