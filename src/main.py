@@ -11,10 +11,10 @@ from src.agents import graph_soan_thao as soan_thao_graph
 from src.api.routes import router
 from src.api.routes_admin import router as router_admin
 from src.api.routes_ban_thao import router as router_ban_thao
-from src.api.routes_tai_lieu import router as router_tai_lieu
 from src.api.routes_hoi_thoai import router as router_hoi_thoai
 from src.api.routes_luong import router as router_luong
 from src.api.routes_tai_khoan import router as router_tai_khoan
+from src.api.routes_tai_lieu import router as router_tai_lieu
 from src.api.routes_tim_kiem import router as router_tim_kiem
 from src.api.routes_van_ban import router as router_van_ban
 from src.config import get_settings

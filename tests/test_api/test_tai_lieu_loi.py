@@ -11,7 +11,7 @@ Phần chạm DB của router nằm ở `test_tai_lieu_api.py`, đánh dấu `in
 import pytest
 from fastapi import HTTPException
 
-from src.api.routes_tai_lieu import THONG_DIEP_TRAN, _THONG_DIEP, _loi_http, _uuid_hop_le
+from src.api.routes_tai_lieu import _THONG_DIEP, THONG_DIEP_TRAN, _loi_http, _uuid_hop_le
 from src.services.doc_tai_lieu import KhongDocDuoc, LoaiHong
 from src.services.tai_lieu import TRAN_BYTE, TRAN_TRANG, VuotTran
 

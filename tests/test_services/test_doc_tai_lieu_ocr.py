@@ -83,7 +83,8 @@ def test_NGUONG_TIN_OCR_la_hang_so_neu_ten_duoc():
 
 def test_anh_trang_khong_co_chu_la_khong_co_lop_chu():
     """Một ảnh trắng không sinh ra dữ kiện, và nói rõ lý do."""
-    import zlib, struct
+    import struct
+    import zlib
 
     def _png_trang(w=200, h=100) -> bytes:
         raw = b"".join(b"\x00" + b"\xff" * (w * 3) for _ in range(h))

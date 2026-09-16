@@ -77,7 +77,7 @@ class LoaiHong(StrEnum):
     khong_co_lop_chu = "khong_co_lop_chu"
 
 
-class KhongDocDuoc(Exception):
+class KhongDocDuoc(Exception):  # noqa: N818
     """Tài liệu không đọc được, kèm nguyên nhân phân biệt được."""
 
     def __init__(self, ly_do: LoaiHong, chi_tiet: str = "") -> None:
@@ -334,7 +334,7 @@ def _ocr_pdf(du_lieu: bytes) -> list[tuple[int | None, str, float]]:
         )
         if kq.returncode != 0:
             raise KhongDocDuoc(LoaiHong.tep_hong, "không dựng được ảnh từ pdf")
-        from pathlib import Path as _P
+        from pathlib import Path as _P  # noqa: N814
 
         for so, anh in enumerate(sorted(_P(thu_muc).glob("t-*.png")), start=1):
             ra.extend((so, chu, tin) for chu, tin in _tesseract(str(anh)))

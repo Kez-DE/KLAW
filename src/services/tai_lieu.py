@@ -110,7 +110,7 @@ def da_dung_hom_nay(engine: Engine, user_sub: str) -> int:
         ).scalar_one()
 
 
-class VuotTran(Exception):
+class VuotTran(Exception):  # noqa: N818
     """Tài liệu vượt một trần tuyệt đối. `tran` nói rõ trần nào."""
 
     def __init__(self, tran: str, gioi_han: int, thuc_te: int) -> None:

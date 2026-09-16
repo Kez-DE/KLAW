@@ -16,7 +16,7 @@ import pytest
 
 from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU, normalize
 from src.services.doc_tai_lieu import DonViVanBan
-from src.services.neo_du_kien import LyDoNeo, Neo, xac_minh
+from src.services.neo_du_kien import LyDoNeo, xac_minh
 
 DV = [
     DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Mức lương: 20.000.000 đồng/tháng"),
