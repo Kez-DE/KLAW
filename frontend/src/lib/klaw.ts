@@ -11,7 +11,9 @@
  * toàn chứ không làm sập cả thẻ kết quả.
  */
 
-/** Chín `result_type` — chín cách hiển thị, không thương lượng. */
+import type { DuKien } from "./tai-lieu";
+
+/** Mười `result_type` — mười cách hiển thị, không thương lượng. */
 export type ResultType =
   | "answer"
   | "partial_coverage"
@@ -35,7 +37,13 @@ export type ResultType =
   // dựng ở Task 21 — `laTraCuuKetQua` đã chấp nhận MỌI chuỗi không rỗng từ
   // trước nên hai loại này không làm sập response trong lúc chờ FE.
   | "soan_thao_hoi"
-  | "ban_thao";
+  | "ban_thao"
+  // Loại thứ MƯỜI — lượt nói về TÀI LIỆU của người hỏi, không về kho luật.
+  // Nó phải là một loại riêng vì bằng chứng của nó là một loại khác: `quan_sat`
+  // neo vào một đơn vị văn bản trong tệp họ vừa gửi, KHÔNG phải trích dẫn điều
+  // luật đã kiểm hai tầng. Trộn hai thứ vào `answer` là để giao diện hứa cho
+  // một câu về tờ giấy của họ đúng thứ bảo đảm mà nó chỉ giữ được cho luật.
+  | "tai_lieu";
 
 /**
  * Sáu nhãn hiệu lực.
@@ -246,6 +254,86 @@ export interface BanThaoTomTat {
   hoi_thoai_id: string | null;
 }
 
+/**
+ * **Neo tài liệu** — con trỏ ĐÃ KIỂM từ một câu nói về tài liệu tới đúng một
+ * đơn vị văn bản (`CONTEXT.md`).
+ *
+ * Backend chỉ phát neo sau khi dò được `trich` nguyên văn trong đơn vị mang chỉ
+ * số này; câu nào không dò ra thì bị bỏ hẳn, không tới đây. Vì vậy giao diện
+ * được phép cho bấm vào neo — và PHẢI cho bấm: một neo không mở được chỗ nó
+ * chỉ tới thì chỉ là một dòng chữ tự nhận là bằng chứng.
+ *
+ * Nó KHÔNG phải trích dẫn điều luật (`Citation`) và không bao giờ được trộn
+ * chung dải: cái kia qua hai tầng kiểm chứng trên kho luật, cái này chỉ nói
+ * "tờ giấy bạn gửi có viết câu đó".
+ */
+export interface NeoTaiLieu {
+  tai_lieu_id: string;
+  chi_so_don_vi: number;
+  trang: number | null;
+  vung: "than" | "dau_trang" | "chan_trang";
+  /** `[bảng, hàng, cột]` khi neo rơi vào một ô bảng. */
+  bang: [number, number, number] | null;
+  nguon_chu: "lop_chu" | "ocr";
+  /** 0–1, CHỈ có với `ocr`. Chữ đọc thẳng không có gì để đoán. */
+  do_tin: number | null;
+  /** Nguyên văn đoạn đã dò khớp. Vắng ở payload cũ. */
+  trich?: string | null;
+  /** Nhánh đối chiếu luật: câu hỏi pháp lý mà điều khoản này đặt ra. */
+  cau_hoi_phap_ly?: string | null;
+}
+
+/**
+ * **Quan sát** — một câu về điều tài liệu VIẾT, buộc vào một neo đã kiểm.
+ * Không neo thì backend bỏ, nên mọi quan sát tới đây đều mở được bằng chứng.
+ */
+export interface QuanSat {
+  noi_dung: string;
+  trich: string;
+  neo: NeoTaiLieu;
+}
+
+/**
+ * Một phép tính do CODE chạy, đặt cạnh con số tài liệu tự ghi.
+ *
+ * `ket_qua_code` là của máy tính, không phải của mô hình — đó là toàn bộ lý do
+ * khối này tồn tại. Giao diện phải nói ra cả hai con số khi chúng lệch, chứ
+ * không chọn hộ một con số rồi tuyên bố nó đúng.
+ */
+export interface PhepTinh {
+  bieu_thuc: string;
+  ket_qua_code: string;
+  ket_qua_tai_lieu: string;
+  khop: boolean;
+}
+
+/** Tài liệu đã dùng cho lượt này. `nhan` là chữ cái ngắn ("A", "B") để đối
+ *  chiếu hai tài liệu mà không phải nhắc lại cả tên tệp ở mỗi dòng. */
+export interface TaiLieuDaDung {
+  id: string;
+  ten_tep: string;
+  nhan: string;
+}
+
+/**
+ * Thân của `result_type === "tai_lieu"`.
+ *
+ * Hai danh sách, hai hạng bằng chứng, KHÔNG gộp: `quan_sat` là điều tài liệu
+ * viết (có neo), `suy_luan` là cách KLAW đọc chỗ đó (không có neo, và phải
+ * mang nhãn nói rõ nó là của mô hình).
+ */
+export interface TaiLieuKetQua {
+  muc_dich: string;
+  mo_ta: string | null;
+  quan_sat: QuanSat[];
+  suy_luan: string[];
+  phep_tinh: PhepTinh[];
+  /** Dữ kiện còn thiếu mà lượt này cần người dùng cấp. */
+  can_du_kien: string[];
+  du_kien: DuKien[];
+  tai_lieu_da_dung: TaiLieuDaDung[];
+}
+
 export interface TraCuuKetQua {
   result_type: ResultType;
   answer: string | null;
@@ -284,6 +372,18 @@ export interface TraCuuKetQua {
   /** Nhánh `ban_thao` (Task 21) — bản thảo vừa dựng/sửa xong trong hội thoại.
    *  Tuỳ chọn/null cùng lý do `soan_thao_hoi`. */
   ban_thao?: BanThao | null;
+  /** Nhánh `tai_lieu` — lượt nói về tài liệu người dùng gửi. Tuỳ chọn/null ở
+   *  mọi nhánh khác và với payload cache ghi trước khi loại này tồn tại. */
+  tai_lieu?: TaiLieuKetQua | null;
+  /**
+   * Điều khoản trong tài liệu mà lượt này đã đánh giá — CHỈ ở nhánh đối chiếu
+   * luật, nơi `result_type` vẫn là `answer`/`partial_coverage`/`abstain`.
+   *
+   * Nó đứng riêng khỏi `citations` vì nó là DỮ KIỆN của người hỏi, không phải
+   * căn cứ: câu trả lời nói luật đòi gì và điều khoản khác ở đâu, nó không bao
+   * giờ tuyên bố điều khoản đó hợp pháp hay không (QT-1).
+   */
+  tai_lieu_neo?: NeoTaiLieu[];
 }
 
 /**
@@ -911,7 +1011,7 @@ export interface SuKienLoiLuu {
 const laBanGhi = (x: unknown): x is Record<string, unknown> =>
   typeof x === "object" && x !== null && !Array.isArray(x);
 
-/** Chín loại backend biết trả. So khớp với `ResultType` của `src/models/schemas.py`
+/** Mười loại backend biết trả. So khớp với `ResultType` của `src/models/schemas.py`
  *  bằng `test_FE_biet_moi_gia_tri_ResultType_cua_backend` (Python đọc file này). */
 const LOAI_KET_QUA: readonly string[] = [
   "answer",
@@ -923,6 +1023,7 @@ const LOAI_KET_QUA: readonly string[] = [
   "hoi_ve_kho",
   "soan_thao_hoi",
   "ban_thao",
+  "tai_lieu",
 ];
 
 /**

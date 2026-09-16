@@ -15,10 +15,13 @@ import {
   NGUONG_TIN_CANH_BAO,
   TRAN_BYTE,
   canhBaoDoTin,
+  canhBaoOcr,
   coNeo,
   dinhDangHopLe,
   loiTruocKhiGui,
+  nhanNeo,
   nhanNguon,
+  nhanVung,
   seDungOcr,
   theoTrang,
   trichHienThi,
@@ -144,6 +147,7 @@ for (const d of [".pdf", ".docx", ".png", ".jpg"])
   const duong = [
     DUONG_DAN.taiLen(),
     DUONG_DAN.chiTiet("v1"),
+    DUONG_DAN.donVi("v1"),
     DUONG_DAN.huy("v1"),
     DUONG_DAN.duKien("d1"),
     DUONG_DAN.theoHoiThoai("h1"),
@@ -157,6 +161,45 @@ for (const d of [".pdf", ".docx", ".png", ".jpg"])
   assert.ok(!DUONG_DAN.sangSoanThao("h1", "hdld", false).includes("ghi=true"));
   // Tham số phải được mã hoá: một id lạ không được phá cấu trúc URL.
   assert.ok(DUONG_DAN.chiTiet("a/b").includes("a%2Fb"));
+}
+
+// 10. Nhãn neo tài liệu phải ĐỊNH VỊ ĐƯỢC BẰNG MẮT trên tờ giấy: người dùng
+//     bấm chip để mở, rồi vẫn phải tìm lại chỗ đó trên bản gốc. "đơn vị #28"
+//     không tìm được bao giờ; "tr. 1 · bảng 1, h5 c2" tìm được trong ba giây.
+{
+  assert.equal(
+    nhanNeo({ trang: 1, chi_so_don_vi: 28, vung: "than", bang: null }),
+    "tr. 1 · đoạn 28",
+  );
+  assert.equal(
+    nhanNeo({ trang: 1, chi_so_don_vi: 12, vung: "than", bang: [1, 5, 2] }),
+    "tr. 1 · bảng 1, h5 c2",
+  );
+  // Đầu/chân trang lặp ở MỌI trang, nên số trang ở đó chỉ sai chỗ.
+  assert.equal(
+    nhanNeo({ trang: 3, chi_so_don_vi: 2, vung: "chan_trang", bang: null }),
+    "chân trang · đoạn 2",
+  );
+  assert.equal(
+    nhanNeo({ trang: 1, chi_so_don_vi: 0, vung: "dau_trang", bang: null }),
+    "đầu trang · đoạn 0",
+  );
+  // Thiếu trang vẫn phải ra một nhãn đọc được, không ra "tr. null".
+  const khongTrang = nhanNeo({ trang: null, chi_so_don_vi: 4 });
+  assert.ok(!khongTrang.includes("null"), khongTrang);
+  assert.ok(khongTrang.includes("đoạn 4"));
+  // Vùng lạ (backend thêm sau) rơi về chính mã của nó, không làm sập nhãn.
+  assert.ok(nhanVung("phu_luc").length > 0);
+  assert.equal(nhanVung("chan_trang"), "chân trang");
+}
+
+// 11. Một ngưỡng, một câu chữ cho CẢ dữ kiện lẫn neo tài liệu. Hai màn hình nói
+//     hai điều khác nhau về cùng một mức tin cậy là cách người dùng mất lòng tin.
+{
+  assert.equal(canhBaoOcr(false, 0.1), null, "chữ đọc thẳng không có gì để cảnh báo");
+  assert.equal(canhBaoOcr(true, 0.9), null);
+  assert.equal(canhBaoOcr(true, 0.5), canhBaoDoTin(dk({ nguon: "tai_lieu_ocr", do_tin: 0.5 })));
+  assert.ok(canhBaoOcr(true, null), "OCR không kèm độ tin thì cứ cảnh báo");
 }
 
 console.log("kiem-tai-lieu: OK");

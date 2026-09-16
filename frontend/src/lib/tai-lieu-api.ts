@@ -4,9 +4,15 @@
  */
 import { apiGoc, goi, tieuDeXacThuc } from "./api";
 import type { ApiError, ApiErrorKind, ApiResult } from "./klaw";
-import { DUONG_DAN, loiTruocKhiGui, type DuKien, type TaiLieu } from "./tai-lieu";
+import {
+  DUONG_DAN,
+  loiTruocKhiGui,
+  type DonViTaiLieu,
+  type DuKien,
+  type TaiLieu,
+} from "./tai-lieu";
 
-export type { DuKien, TaiLieu } from "./tai-lieu";
+export type { DonVi, DonViTaiLieu, DuKien, TaiLieu } from "./tai-lieu";
 
 /** Lỗi phía giao diện, cùng hình dạng `ApiError` để chỗ hiển thị không phải rẽ nhánh. */
 function _loi(message: string, kind: ApiErrorKind, status?: number): ApiError {
@@ -68,6 +74,24 @@ export async function taiLen(
 
 export function chiTiet(viecId: string, signal?: AbortSignal) {
   return goi<TaiLieu>(DUONG_DAN.chiTiet(viecId), laTaiLieu, signal ? { signal } : {});
+}
+
+/** Kiểm đúng hai thứ mà sai đi sẽ hỏng ÂM THẦM: định danh và MẢNG đơn vị —
+ *  mảng vắng render thành một khung trống đọc như "tài liệu không có gì". */
+function laDonViTaiLieu(x: unknown): x is DonViTaiLieu {
+  const o = x as DonViTaiLieu;
+  return !!o && typeof o.id === "string" && Array.isArray(o.don_vi);
+}
+
+/**
+ * Toàn bộ phần đã đọc của một tài liệu — nền của khung xem và của mọi neo.
+ *
+ * Tách khỏi `chiTiet()` vì hai thứ khác nhau: `chiTiet` trả DỮ KIỆN đã rút
+ * (ít, đã lọc), còn đây trả NGUYÊN VĂN đã đọc (nhiều, chưa diễn giải). Một
+ * lượt hỏi chỉ cần cái trước; bấm vào neo mới cần cái sau.
+ */
+export function donVi(viecId: string, signal?: AbortSignal) {
+  return goi<DonViTaiLieu>(DUONG_DAN.donVi(viecId), laDonViTaiLieu, signal ? { signal } : {});
 }
 
 export function suaDuKien(duKienId: string, giaTri: string) {

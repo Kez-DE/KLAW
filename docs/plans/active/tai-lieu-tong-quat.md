@@ -368,15 +368,21 @@ SSE steps (S2): `("hieu_tai_lieu", "Đọc tài liệu đính kèm")`,
       (10, integration), `test_tai_lieu_api.py` (+5); 141 passed on the
       document/service set. Sample DOCX: 33 units, 2 tables, 20 cells, 1
       footer unit, no fallback.
-- [ ] S2 — request/state/graph: `tai_lieu_ids`, `hieu_tai_lieu` node + prompt
+- [x] S2 — request/state/graph: `tai_lieu_ids`, `hieu_tai_lieu` node + prompt
       v1, anchoring filter, `ResultType.tai_lieu`, assemble branch, route v4
-      conditional intent, `BUOC_TRA_CUU`, cache bypass, memory guard. Tests:
-      `test_hieu_tai_lieu.py`, `test_route_v4.py`, `test_assemble_tai_lieu.py`,
-      `test_tra_cuu.py` additions (state/response parity).
-- [ ] S3 — frontend GĐ1 (types, attach chip, `TheTaiLieu`, panel units +
-      highlight, `TaiLieuDuKien` no-type state, `MenuDinhKem` copy). `pnpm run
-      typecheck`, `pnpm run lint`, `pnpm run build`. Deploy #1 + Chrome smoke on
-      the sample DOCX (Outcomes 1, 2, 8).
+      conditional intent (`route_prompt` default flipped to v4; rollback
+      `KLAW_ROUTE_PROMPT=prompts/route.v3.md`), `BUOC_TRA_CUU` (+`hieu_tai_lieu`
+      only; `dung_ban_thao_tong_quat` step lands with its node in S6 because the
+      SSE test demands exact node equality), `_bo_qua_cache`, `bo_nho`
+      `KHONG_GOP_HO_SO` guard, `routes_luong.py` pass-through. 62 new tests;
+      free lane 1634 passed. Follow-up for S4: `_vi_tri` prints 0-based table
+      coordinates to the model; make it 1-based like the UI.
+- [x] S3 — frontend GĐ1 (types, attach chip, `TheTaiLieu`, `DongDuKien`,
+      panel units + highlight, `TaiLieuDuKien` no-type state, `MenuDinhKem`
+      copy, `tai_lieu_neo` chips under legal answers). typecheck clean, lint 0
+      errors, build ok, `kiem-tai-lieu: OK`. Quick actions re-attach one
+      document only (2-document `so_sanh` UI in S4). Local Chrome smoke pending
+      (Outcomes 1, 2, 8).
 - [ ] S4 — GĐ2: `trich_du_kien` (≤20 fields, persisted), `phan_tich` with
       arithmetic evaluator, `so_sanh` (2 documents). Tests:
       `test_phep_tinh.py`, `test_hieu_tai_lieu_trich.py`,

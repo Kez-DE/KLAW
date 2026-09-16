@@ -90,8 +90,13 @@ export function MenuDinhKem({
               </span>
             </span>
           </button>
+          {/* Câu này đổi cùng lúc với cơ chế: từ 2026-09-16 KLAW giữ NGUYÊN VĂN
+              đã đọc trong hội thoại (để lượt sau còn hỏi tiếp về tài liệu), chứ
+              không chỉ giữ mấy dữ kiện rút ra. Nói đúng thứ hệ thống giữ và
+              đúng lúc nó biến mất là điều kiện để người dùng quyết định được
+              có gửi tệp hay không. */}
           <p className="px-3 py-1.5 text-[11px] text-muted-foreground">
-            Tệp gốc không được lưu lại. Chỉ giữ dữ kiện rút ra kèm đoạn trích.
+            Tệp gốc không được lưu. Nội dung đã đọc ở lại trong cuộc trò chuyện này và xoá cùng nó.
           </p>
         </div>
       )}

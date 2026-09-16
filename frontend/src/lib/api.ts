@@ -381,6 +381,14 @@ export interface YeuCauTraCuu {
   /** Phiên hội thoại để máy chủ nạp `lich_su` và ghi lượt (spec 2026-09-07 §5.2).
    *  Chỉ có ý nghĩa khi có danh tính; ẩn danh thì bị bỏ qua. */
   hoi_thoai_id?: string;
+  /**
+   * Tài liệu đính kèm cho ĐÚNG lượt này (tối đa 2 — máy chủ trả 422 khi quá).
+   *
+   * Có khoá này thì máy chủ đi thẳng nhánh đọc tài liệu, không đoán ý định:
+   * người dùng vừa kẹp một tệp và bấm gửi thì họ đang hỏi về tệp đó. Tài liệu
+   * đã ở trong hội thoại từ lượt trước KHÔNG cần nhắc lại ở đây.
+   */
+  tai_lieu_ids?: string[];
 }
 
 export interface XuLyLuong {

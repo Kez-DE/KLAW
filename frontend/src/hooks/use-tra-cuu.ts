@@ -22,6 +22,9 @@ export interface TuyChonHoi {
   lichSu?: LuotTruoc[];
   /** Phiên đang mở; vắng ⇒ máy chủ tạo phiên mới (có danh tính) hoặc bỏ qua (ẩn danh). */
   hoiThoaiId?: string;
+  /** Tài liệu vừa đính kèm cho lượt này. Có nó ⇒ máy chủ đọc tài liệu thay vì
+   *  đoán ý định; tài liệu của lượt TRƯỚC không cần gửi lại. */
+  taiLieuIds?: string[];
 }
 
 export interface TrangThaiTraCuu {
@@ -108,6 +111,11 @@ export function useTraCuu(): TrangThaiTraCuu {
               ? { lich_su: tuyChon.lichSu }
               : {}),
             ...(tuyChon?.hoiThoaiId !== undefined ? { hoi_thoai_id: tuyChon.hoiThoaiId } : {}),
+            // Khoá vắng mặt khi không đính kèm gì: `[]` cũng vô hại nhưng
+            // vắng mặt nói đúng hơn rằng lượt này không kèm tài liệu nào.
+            ...(tuyChon?.taiLieuIds !== undefined && tuyChon.taiLieuIds.length > 0
+              ? { tai_lieu_ids: tuyChon.taiLieuIds }
+              : {}),
           },
           {
             onBatDau: (su) => {

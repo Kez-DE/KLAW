@@ -8,22 +8,21 @@
  * được — cùng lỗi mà `KhungDoiChieu` tồn tại để không mắc với trích dẫn điều luật.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileText, Loader2, Trash2, Upload, X } from "lucide-react";
+import { FileText, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
+import { BangDuKien } from "@/components/klaw/DongDuKien";
 import {
-  DINH_DANG_CHAP_NHAN,
-  canhBaoDoTin,
   loiTruocKhiGui,
-  nhanNguon,
+  nhanNeo,
+  nhanVung,
   seDungOcr,
-  theoTrang,
-  trichHienThi,
-  tuTaiLieu,
+  type DonVi,
+  type DonViTaiLieu,
   type DuKien,
   type TaiLieu,
 } from "@/lib/tai-lieu";
-import { sangSoanThao, suaDuKien, taiLen, xoaDuKien } from "@/lib/tai-lieu-api";
+import { donVi, sangSoanThao, suaDuKien, taiLen, xoaDuKien } from "@/lib/tai-lieu-api";
 import { LOAI_BACKEND, MAU } from "@/lib/mau-van-ban";
 import { cn } from "@/lib/utils";
 import type { ApiError } from "@/lib/klaw";
@@ -45,7 +44,23 @@ interface Props {
   tepVao?: File | null;
   /** Báo ra ngoài để nút kẹp giấy khoá trong lúc đang đọc. */
   onDangDoc?: ((dang: boolean) => void) | undefined;
+  /**
+   * Đọc xong một tài liệu — dù có khớp mẫu checklist nào hay KHÔNG.
+   *
+   * Đây là chỗ khung này thôi làm ngõ cụt: trước đây một tài liệu ngoài 29 mẫu
+   * dừng ở "chưa nhận ra loại văn bản" và người dùng hết đường đi. Nay mọi tài
+   * liệu đọc được đều đi tiếp thành một tệp đính kèm của lượt hỏi kế.
+   */
+  onDaDinhKem?: ((tep: { id: string; ten_tep: string }) => void) | undefined;
+  /** Điền một câu vào ô hỏi (chip câu hỏi đầu tiên). KHÔNG tự gửi. */
+  onChip?: ((chu: string) => void) | undefined;
+  /** Neo vừa bấm ở thẻ kết quả: mở đúng tài liệu đó và tô đúng đơn vị đó. */
+  donViDangMo?: { taiLieuId: string; chiSo: number } | null;
 }
+
+/** Ba câu hỏi đầu tiên cho một tài liệu chưa biết dùng để làm gì. Chúng phải
+ *  chạy được với MỌI tài liệu, nên không câu nào nhắc tới một loại văn bản. */
+const CAU_HOI_DAU = ["Tài liệu này nói gì?", "Tóm tắt các mục chính", "Tìm chỗ còn trống"];
 
 /** Loại văn bản chọn được: chỉ những mẫu đã nối backend mới rút dữ kiện được. */
 const LOAI_CHON_DUOC = MAU.flatMap((m) => {
@@ -53,12 +68,8 @@ const LOAI_CHON_DUOC = MAU.flatMap((m) => {
   return loai ? [{ loai, ten: m.ten }] : [];
 }).filter((x, i, ds) => ds.findIndex((y) => y.loai === x.loai) === i);
 
-const MAU_NGUON: Record<string, string> = {
-  tai_lieu: "var(--color-status-ok, #1a7f5a)",
-  tai_lieu_ocr: "var(--color-status-warn, #9a6b00)",
-  nguoi_dung_nhap: "var(--color-status-neutral, #5b6470)",
-  nguoi_dung_sua: "var(--color-status-neutral, #5b6470)",
-};
+const CHIP =
+  "focus-brass cursor-pointer rounded-full border border-border bg-card px-3 py-1 text-[13px] text-foreground hover:bg-[var(--color-paper-100)]";
 
 export function TaiLieuDuKien({
   hoiThoaiId,
@@ -67,6 +78,9 @@ export function TaiLieuDuKien({
   onDong,
   tepVao,
   onDangDoc,
+  onDaDinhKem,
+  onChip,
+  donViDangMo,
 }: Props) {
   const oTep = useRef<HTMLInputElement | null>(null);
   const [tep, datTep] = useState<TaiLieu | null>(null);
@@ -81,6 +95,12 @@ export function TaiLieuDuKien({
   const [loaiChon, datLoaiChon] = useState<string>("");
   const [tepHienTai, datTepHienTai] = useState<File | null>(null);
   const [doiLoai, datDoiLoai] = useState(false);
+  /** Nguyên văn đã đọc của tài liệu đang xem — nền của danh sách đơn vị và của
+   *  mọi neo bấm được. Tách khỏi `tep` vì neo có thể trỏ tới một tài liệu của
+   *  lượt TRƯỚC, khi khung này chưa từng tải lên gì trong lần mở hiện tại. */
+  const [banDoc, datBanDoc] = useState<DonViTaiLieu | null>(null);
+  const oDonViDangMo = useRef<HTMLLIElement | null>(null);
+  const daXinDonVi = useRef<string | null>(null);
 
   const loaiDung = loai ?? (loaiChon || null);
   const san = hoiThoaiId !== null && loaiDung !== null;
@@ -114,13 +134,21 @@ export function TaiLieuDuKien({
         return;
       }
       datTep(kq.data);
+      // Đính kèm cho lượt hỏi kế tiếp NGAY, không chờ người dùng chọn loại văn
+      // bản: tài liệu ngoài 29 mẫu vẫn là tài liệu đọc được, và bắt họ ép nó
+      // vào một mẫu trước khi được hỏi là dựng lại đúng ngõ cụt vừa gỡ.
+      onDaDinhKem?.({ id: kq.data.id, ten_tep: f.name });
       const n = kq.data.du_kien.length;
       toast.success(
-        n > 0 ? `Đọc xong, rút được ${n} dữ kiện.` : "Đọc xong, không rút được dữ kiện nào.",
+        kq.data.loai === null
+          ? "Đọc xong tài liệu. Bạn hỏi gì về nó cũng được."
+          : n > 0
+            ? `Đọc xong, rút được ${n} dữ kiện.`
+            : "Đọc xong, không rút được dữ kiện nào.",
         { id },
       );
     },
-    [hoiThoaiId, loaiDung, onDangDoc],
+    [hoiThoaiId, loaiDung, onDangDoc, onDaDinhKem],
   );
 
   // Tệp mới từ ô soạn câu hỏi: đọc ngay.
@@ -128,15 +156,54 @@ export function TaiLieuDuKien({
     if (tepVao) void gui(tepVao);
   }, [tepVao, gui]);
 
-  // Người dùng vừa chọn loại: đọc lại chính tệp đó với loại đã chọn.
+  // Người dùng vừa chọn loại: đọc lại chính tệp đó với loại đã chọn. `tep.loai
+  // === null` là đường mới (tài liệu ngoài mẫu, đã đọc xong) — họ vẫn rút được
+  // dữ kiện theo mẫu, chỉ là bằng một lựa chọn chứ không bằng một cửa chắn.
   useEffect(() => {
-    if (loaiChon && tepHienTai && (tep?.trang_thai === "can_chon_loai" || doiLoai)) {
+    if (
+      loaiChon &&
+      tepHienTai &&
+      (tep?.trang_thai === "can_chon_loai" || doiLoai || tep?.loai === null)
+    ) {
       datDoiLoai(false);
       void gui(tepHienTai);
     }
     // `gui` đọc `loaiDung`, vốn đã bao gồm `loaiChon`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaiChon]);
+
+  /**
+   * Tài liệu đang cần nguyên văn: cái neo vừa bấm trỏ tới, hoặc cái vừa đọc
+   * xong mà không khớp mẫu nào (lúc đó danh sách đơn vị LÀ nội dung của khung).
+   */
+  const idCanDoc =
+    donViDangMo?.taiLieuId ??
+    // `trang_thai === "xong"` là bắt buộc: bản ghi CŨ dừng ở `can_chon_loai`
+    // cũng có `loai === null`, nhưng chúng không có nguyên văn nào để lấy —
+    // gọi `/don-vi` cho chúng chỉ đổi lấy một 404 và một toast vô cớ.
+    (tep !== null && tep.loai === null && tep.trang_thai === "xong" ? tep.id : null);
+
+  useEffect(() => {
+    if (idCanDoc === null || daXinDonVi.current === idCanDoc) return;
+    daXinDonVi.current = idCanDoc;
+    let boQua = false;
+    void donVi(idCanDoc).then((kq) => {
+      if (boQua) return;
+      if (kq.ok) datBanDoc(kq.data);
+      // Không dựng một khung trống im lặng: đọc được tài liệu mà không lấy được
+      // nguyên văn là một việc người dùng phải biết để còn bấm lại.
+      else toast.error(kq.error.message);
+    });
+    return () => {
+      boQua = true;
+    };
+  }, [idCanDoc]);
+
+  // Neo vừa bấm: kéo đúng đơn vị đó vào giữa màn. Chạy sau khi nguyên văn về,
+  // nên `banDoc` nằm trong danh sách phụ thuộc.
+  useEffect(() => {
+    if (donViDangMo) oDonViDangMo.current?.scrollIntoView({ block: "center" });
+  }, [donViDangMo, banDoc]);
 
   const sua = async (dk: DuKien, giaTri: string) => {
     if (!dk.id || giaTri === dk.gia_tri) return;
@@ -180,7 +247,12 @@ export function TaiLieuDuKien({
     onDaDungDeSoan?.();
   };
 
+  // Bản ghi CŨ (trước 2026-09-16) còn dừng ở `can_chon_loai`; bản mới không bao
+  // giờ tới đó nữa. Giữ nhánh này để một lượt đã lưu vẫn mở lại được.
   const canChonLoai = loai === null && (tep?.trang_thai === "can_chon_loai" || doiLoai);
+  /** Tài liệu đọc xong mà không khớp mẫu nào — đường đi CHÍNH từ 2026-09-16. */
+  const ngoaiMau =
+    loai === null && tep !== null && tep.loai === null && tep.trang_thai === "xong" && !doiLoai;
 
   /**
    * Dòng dưới tên tệp. Nó là chỗ agent nói ra nó ĐÃ HIỂU tài liệu là gì —
@@ -195,9 +267,40 @@ export function TaiLieuDuKien({
         ? tep.loai_tu_doan
           ? `${tep.loai_ten} · tự nhận ra`
           : tep.loai_ten
-        : "Tệp";
+        : (tep?.mo_ta ?? "Tệp");
 
-  const nhom = theoTrang(tep?.du_kien ?? []);
+  const soDonVi = banDoc !== null ? banDoc.don_vi.length : (tep?.so_don_vi ?? 0);
+  const soTrang = banDoc?.so_trang ?? tep?.so_trang ?? null;
+  /** Nguyên văn nhóm theo trang, đúng thứ tự tài liệu. */
+  const trangDaDoc = [
+    ...(banDoc?.don_vi ?? [])
+      .reduce((gom, dv) => {
+        const cu = gom.get(dv.trang);
+        if (cu) cu.push(dv);
+        else gom.set(dv.trang, [dv]);
+        return gom;
+      }, new Map<number | null, DonVi[]>())
+      .entries(),
+  ];
+
+  /** Ô chọn loại văn bản — dùng ở CẢ hai chỗ, nên chỉ có một bản mã. */
+  const oChonLoai = (nhan: string) => (
+    <label className="block text-xs">
+      <span className="mb-1 block text-muted-foreground">{nhan}</span>
+      <select
+        value={loaiChon}
+        onChange={(e) => datLoaiChon(e.target.value)}
+        className="focus-brass min-h-11 w-full rounded border border-border bg-background px-2 text-sm"
+      >
+        <option value="">— Chọn loại văn bản —</option>
+        {LOAI_CHON_DUOC.map((x) => (
+          <option key={x.loai} value={x.loai}>
+            {x.ten}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 
   return (
     <section
@@ -244,25 +347,13 @@ export function TaiLieuDuKien({
       )}
 
       {canChonLoai && (
-        <label className="mb-3 block text-xs">
-          <span className="mb-1 block text-muted-foreground">
-            {tep?.trang_thai === "can_chon_loai"
+        <div className="mb-3">
+          {oChonLoai(
+            tep?.trang_thai === "can_chon_loai"
               ? "Chưa nhận ra tài liệu này thuộc loại nào. Bạn định soạn văn bản gì?"
-              : "Đổi loại văn bản:"}
-          </span>
-          <select
-            value={loaiChon}
-            onChange={(e) => datLoaiChon(e.target.value)}
-            className="focus-brass min-h-11 w-full rounded border border-border bg-background px-2 text-sm"
-          >
-            <option value="">— Chọn loại văn bản —</option>
-            {LOAI_CHON_DUOC.map((x) => (
-              <option key={x.loai} value={x.loai}>
-                {x.ten}
-              </option>
-            ))}
-          </select>
-        </label>
+              : "Đổi loại văn bản:",
+          )}
+        </div>
       )}
 
       {hoiThoaiId === null && (
@@ -288,80 +379,69 @@ export function TaiLieuDuKien({
         </p>
       )}
 
-      {tep && tep.du_kien.length === 0 && (
-        <p className="mt-3 text-sm text-muted-foreground">
-          Không rút được dữ kiện nào từ tài liệu này. Có thể tài liệu không chứa các thông tin mà
-          loại văn bản đang soạn cần.
-        </p>
+      {/* Đọc xong một tài liệu ngoài 29 mẫu. Câu đầu tiên phải nói máy ĐÃ LÀM
+          ĐƯỢC GÌ ("đã đọc 34 đơn vị · 1 trang"), không nói nó KHÔNG nhận ra cái
+          gì: người dùng vừa đưa một tờ giấy hợp lệ, và một lời từ chối ở đây là
+          sai sự thật — nội dung đã nằm sẵn trong hội thoại, hỏi là trả lời được. */}
+      {(ngoaiMau || banDoc !== null) && (
+        <div className="mt-3 rounded-lg border border-border bg-background p-3">
+          <p className="m-0 text-sm font-medium">
+            Đã đọc {soDonVi} đơn vị{soTrang !== null && ` · ${soTrang} trang`}
+          </p>
+          {tep?.mo_ta && <p className="mt-1 mb-0 text-xs text-muted-foreground">{tep.mo_ta}</p>}
+          {onChip && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {CAU_HOI_DAU.map((cau) => (
+                <button key={cau} type="button" onClick={() => onChip(cau)} className={CHIP}>
+                  {cau}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
-      {nhom.length > 0 && (
-        <>
-          <ul className="mt-3 space-y-3">
-            {nhom.map((n) => (
-              <li key={n.trang ?? "khac"}>
+      {trangDaDoc.length > 0 && (
+        <section aria-label="Nội dung đã đọc" className="mt-3">
+          <h3 className="m-0 text-xs text-muted-foreground">Nội dung đã đọc</h3>
+          <ul className="mt-2 space-y-3">
+            {trangDaDoc.map(([trang, dsDonVi]) => (
+              <li key={trang ?? "khac"}>
                 <p className="mb-1 text-xs text-muted-foreground">
-                  {n.trang === null ? "Không thuộc trang nào" : `Trang ${n.trang}`}
+                  {trang === null ? "Không thuộc trang nào" : `Trang ${trang}`}
                 </p>
-                <ul className="space-y-2">
-                  {n.items.map((dk) => {
-                    const trich = trichHienThi(dk);
-                    const canh = canhBaoDoTin(dk);
+                <ul className="space-y-1.5">
+                  {dsDonVi.map((dv) => {
+                    const dangMo =
+                      donViDangMo !== null &&
+                      donViDangMo !== undefined &&
+                      donViDangMo.chiSo === dv.chi_so &&
+                      donViDangMo.taiLieuId === banDoc?.id;
                     return (
                       <li
-                        key={dk.id ?? dk.khoa}
-                        className="rounded-md border border-border bg-background p-3"
+                        key={dv.chi_so}
+                        ref={dangMo ? oDonViDangMo : null}
+                        {...(dangMo ? { "aria-current": "true" as const } : {})}
+                        className={cn(
+                          "rounded-md border bg-background p-2.5",
+                          dangMo
+                            ? "border-[var(--ring)] ring-2 ring-[var(--ring)]"
+                            : "border-border",
+                        )}
                       >
-                        <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {dk.nhan ?? dk.khoa}
-                          </span>
-                          <span
-                            className="rounded px-1.5 py-0.5 text-[11px]"
-                            style={{ color: MAU_NGUON[dk.nguon] }}
-                          >
-                            {nhanNguon(dk.nguon)}
-                            {dk.do_tin !== null && ` · ${Math.round(dk.do_tin * 100)}%`}
-                          </span>
-                        </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <input
-                            defaultValue={dk.gia_tri}
-                            aria-label={`Giá trị của ${dk.nhan ?? dk.khoa}`}
-                            onBlur={(e) => void sua(dk, e.target.value.trim())}
-                            className="focus-brass min-h-11 flex-1 rounded border border-border bg-transparent px-2 font-jetbrains text-sm"
-                          />
-                          {dangSua === dk.id && (
-                            <Loader2 aria-hidden className="size-4 animate-spin" />
+                        <p className="m-0 flex flex-wrap items-center gap-2 font-jetbrains text-[11px] text-muted-foreground">
+                          <span>{nhanNeo({ ...dv, chi_so_don_vi: dv.chi_so })}</span>
+                          {dv.vung !== "than" && <span>{nhanVung(dv.vung)}</span>}
+                          {dv.nguon_chu === "ocr" && (
+                            <span style={{ color: "var(--color-status-warn, #9a6b00)" }}>
+                              máy đọc từ ảnh
+                              {dv.do_tin !== null && ` · ${Math.round(dv.do_tin * 100)}%`}
+                            </span>
                           )}
-                          <button
-                            type="button"
-                            aria-label={`Bỏ dữ kiện ${dk.nhan ?? dk.khoa}`}
-                            onClick={() => void xoa(dk)}
-                            className="focus-brass grid size-11 place-items-center rounded border border-border"
-                          >
-                            <Trash2 aria-hidden className="size-4" />
-                          </button>
-                        </div>
-                        {trich && (
-                          <p className="mt-2 border-l-2 border-border pl-2 text-xs text-muted-foreground">
-                            {trich.laGoc && <em>Trích của giá trị trước khi bạn sửa: </em>}“
-                            {trich.chu}”
-                          </p>
-                        )}
-                        {canh && (
-                          <p
-                            className="mt-1 text-xs"
-                            style={{ color: "var(--color-status-warn, #9a6b00)" }}
-                          >
-                            {canh}
-                          </p>
-                        )}
-                        {!tuTaiLieu(dk) && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Giá trị này không đến từ tài liệu, nên không có trích dẫn đối chiếu.
-                          </p>
-                        )}
+                        </p>
+                        <p className="mt-1 mb-0 text-[13px] leading-6 whitespace-pre-wrap">
+                          {dv.noi_dung}
+                        </p>
                       </li>
                     );
                   })}
@@ -369,6 +449,37 @@ export function TaiLieuDuKien({
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {/* Rút dữ kiện theo mẫu vẫn còn nguyên, chỉ thôi đứng chắn đường: nó là
+          MỘT việc làm được với tài liệu, không phải cửa vào. */}
+      {ngoaiMau && (
+        <details className="mt-3 rounded-lg border border-border bg-background p-3">
+          <summary className="focus-brass cursor-pointer text-sm">Rút dữ kiện theo mẫu</summary>
+          <p className="mt-2 mb-2 text-xs text-muted-foreground">
+            Chọn loại văn bản bạn định soạn, KLAW đọc lại tài liệu và rút đúng những trường loại đó
+            cần.
+          </p>
+          {oChonLoai("Loại văn bản:")}
+        </details>
+      )}
+
+      {tep && tep.du_kien.length === 0 && !ngoaiMau && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Không rút được dữ kiện nào từ tài liệu này. Có thể tài liệu không chứa các thông tin mà
+          loại văn bản đang soạn cần.
+        </p>
+      )}
+
+      {(tep?.du_kien.length ?? 0) > 0 && (
+        <>
+          <BangDuKien
+            duKien={tep?.du_kien ?? []}
+            onSua={(dk, giaTri) => void sua(dk, giaTri)}
+            onXoa={(dk) => void xoa(dk)}
+            dangSua={dangSua}
+          />
 
           <button
             type="button"

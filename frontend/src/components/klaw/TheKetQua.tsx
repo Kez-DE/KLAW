@@ -1,7 +1,14 @@
 import { Fragment } from "react";
 import { Link } from "@tanstack/react-router";
 import { BookOpenText, FileSearch, Info } from "lucide-react";
-import type { LinkVanBan, Nguon, SoanThaoGoiY, TraCuuKetQua, VanBanTraLoi } from "@/lib/klaw";
+import type {
+  LinkVanBan,
+  Nguon,
+  SoanThaoGoiY,
+  TaiLieuDaDung,
+  TraCuuKetQua,
+  VanBanTraLoi,
+} from "@/lib/klaw";
 import { mauTheoId, slugCuaLoai } from "@/lib/mau-van-ban";
 import { canCuConHieuLuc, chiSoCuaThe, coTagBamDuoc } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
@@ -10,6 +17,7 @@ import { BangKetQua } from "./BangKetQua";
 import { DuaTren } from "./DuaTren";
 import { TheBanThao } from "./TheBanThao";
 import { TheSoanThaoHoi } from "./TheSoanThaoHoi";
+import { KhoiNeoTaiLieu, TheTaiLieu } from "./TheTaiLieu";
 
 /**
  * Bốn `result_type`, bốn cách hiển thị — không thương lượng.
@@ -460,6 +468,11 @@ interface TheKetQuaProps {
   onDangNhap?: () => void;
   /** Mở khung soạn thảo với bản thảo vừa dựng (nhánh `ban_thao`). */
   onMoBanThao?: (id: string) => void;
+  /** Mở khung tài liệu đúng tại đơn vị văn bản một neo chỉ tới. Không có nó thì
+   *  neo hiện thành nhãn chết — xem `ChipNeo`. */
+  onMoNeoTaiLieu?: (taiLieuId: string, chiSo: number) => void;
+  /** Điền câu hỏi VÀ đính kèm lại tài liệu cho lượt kế (nhánh `tai_lieu`). */
+  onHanhDongTaiLieu?: (cauHoi: string, taiLieu: TaiLieuDaDung[]) => void;
 }
 
 /**
@@ -509,9 +522,14 @@ function NoiDungKetQua({
   onChip,
   onDangNhap,
   onMoBanThao,
+  onMoNeoTaiLieu,
+  onHanhDongTaiLieu,
 }: TheKetQuaProps) {
   const { result_type: loai, answer, citations, nguon, coverage_note: ghiChuPhamVi, bang } = ketQua;
   const chon = onChonTrichDan ?? (() => undefined);
+  // Nhánh đối chiếu luật giữ nguyên `answer`/`partial_coverage`/`abstain` và chỉ
+  // thêm dải neo này, nên nó dựng một lần ở đây cho cả ba nhánh dùng lại.
+  const daiNeo = <KhoiNeoTaiLieu neo={ketQua.tai_lieu_neo ?? []} onMoNeoTaiLieu={onMoNeoTaiLieu} />;
 
   if (loai === "abstain") {
     return (
@@ -544,6 +562,7 @@ function NoiDungKetQua({
             ))}
           </ul>
         </div>
+        {daiNeo}
       </section>
     );
   }
@@ -602,6 +621,17 @@ function NoiDungKetQua({
     return <TheBanThao ketQua={ketQua} onMo={onMoBanThao ?? (() => undefined)} />;
   }
 
+  if (loai === "tai_lieu") {
+    return (
+      <TheTaiLieu
+        ketQua={ketQua}
+        onChip={onChip}
+        onMoNeoTaiLieu={onMoNeoTaiLieu}
+        onHanhDongTaiLieu={onHanhDongTaiLieu}
+      />
+    );
+  }
+
   if (loai === "partial_coverage") {
     return (
       <section aria-label="Kết quả tra cứu">
@@ -632,6 +662,7 @@ function NoiDungKetQua({
             endpoint kèm trích dẫn thì màn hình có sẵn chỗ — KHÔNG dựng liên kết
             giả từ chuỗi coverage_note. */}
         <KhoiCanCu ketQua={ketQua} chiSoDangMo={chiSoDangMo} onChon={chon} />
+        {daiNeo}
         <NhacMienTru />
       </section>
     );
@@ -663,6 +694,7 @@ function NoiDungKetQua({
       )}
       <KhoiLienKet documents={ketQua.documents} />
       <KhoiCanCu ketQua={ketQua} chiSoDangMo={chiSoDangMo} onChon={chon} />
+      {daiNeo}
       {ketQua.soan_thao?.ho_tro && ketQua.soan_thao.loai && onSoanThao && (
         <NutSoanTiep goiY={ketQua.soan_thao} onSoanThao={onSoanThao} />
       )}

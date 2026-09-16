@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
@@ -35,7 +36,15 @@ import {
   luuRong,
   type CuaSo,
 } from "@/lib/keo-dan";
-import type { BanThao, CauTruc, Citation, HoSoDaDung, TraCuuKetQua, TruongFact } from "@/lib/klaw";
+import type {
+  BanThao,
+  CauTruc,
+  Citation,
+  HoSoDaDung,
+  TaiLieuDaDung,
+  TraCuuKetQua,
+  TruongFact,
+} from "@/lib/klaw";
 import { chuanHoaLuot, laMau, laNhapPhien } from "@/lib/klaw";
 import type { LuotDaXong } from "@/lib/lich-su";
 import { dungLichSu } from "@/lib/lich-su";
@@ -84,15 +93,28 @@ const KHOA_CUA_SO_TRO_LY = "klaw.cua-so-tro-ly";
 function Luot({
   cauHoi,
   traceId,
+  tenTepDinhKem,
   children,
 }: {
   cauHoi: string;
   traceId: string | null;
+  /** Tài liệu đã đi kèm ĐÚNG lượt này. Câu trả lời dựa một phần vào tệp đó, nên
+   *  lượt phải nói ra là nó có tệp — nếu không, đọc lại dòng hội thoại sẽ thấy
+   *  một câu trả lời về một tài liệu không xuất hiện ở đâu cả. */
+  tenTepDinhKem?: string | undefined;
   children?: React.ReactNode;
 }) {
   return (
     <div {...(traceId === null ? {} : { "data-trace": traceId })}>
-      <div className="flex justify-end">
+      <div className="flex flex-col items-end gap-1.5">
+        {tenTepDinhKem !== undefined && (
+          <span className="inline-flex max-w-[70%] items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px]">
+            <Paperclip aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 truncate" title={tenTepDinhKem}>
+              {tenTepDinhKem}
+            </span>
+          </span>
+        )}
         <p className="max-w-[70%] rounded-2xl rounded-br-sm bg-[var(--color-ink-900)] px-4 py-2.5 text-sm leading-relaxed text-white">
           {cauHoi}
         </p>
@@ -385,6 +407,16 @@ function ManHoiKlaw() {
   const [daTatHetHan, datDaTatHetHan] = useState(false);
   const [tepDinhKem, datTepDinhKem] = useState<File | null>(null);
   const [dangDocTep, datDangDocTep] = useState(false);
+  /** Tài liệu đã đọc xong và sẽ đi kèm câu hỏi SẮP gửi. Đọc xong là đính kèm
+   *  ngay, kể cả khi tài liệu không khớp mẫu checklist nào. */
+  const [tepDaDinhKem, datTepDaDinhKem] = useState<{ id: string; ten_tep: string } | null>(null);
+  /** Tên tệp của lượt ĐANG chạy, và của các lượt đã lùi vào dòng hội thoại (khoá
+   *  theo `trace_id`). Không nhét vào `LuotDaXong`: kiểu đó còn được ghi vào
+   *  localStorage của khách, và một tên tệp không có việc gì nằm ở đó. */
+  const [tepCuaLuot, datTepCuaLuot] = useState<string | null>(null);
+  const [tepDaLuu, datTepDaLuu] = useState<Record<string, string>>({});
+  /** Neo vừa bấm trong một thẻ kết quả — khung tài liệu mở đúng chỗ đó. */
+  const [donViDangMo, datDonViDangMo] = useState<{ taiLieuId: string; chiSo: number } | null>(null);
 
   useLayoutEffect(() => {
     cuoi.current?.scrollIntoView({ block: "end" });
@@ -408,6 +440,14 @@ function ManHoiKlaw() {
     dongDoiChieu();
     datSoanThao(null);
     datLaiTraCuu();
+    // Tài liệu thuộc về MỘT cuộc trò chuyện (máy chủ xoá nội dung đã đọc cùng
+    // với nó), nên đổi phiên là bỏ hết đính kèm — gửi id của phiên cũ sang
+    // phiên mới chỉ đổi lấy một 404 và một câu hỏi mất ngữ cảnh.
+    datTepDaDinhKem(null);
+    datTepCuaLuot(null);
+    datTepDaLuu({});
+    datDonViDangMo(null);
+    datMoTaiLieu(false);
     if (phienId !== undefined && daDangNhap) taiChiTiet(phienId);
     else xoaChiTiet();
   }, [
@@ -513,7 +553,18 @@ function ManHoiKlaw() {
         : luuTru;
     if (cauHoiCu !== null && ketQuaCu !== null) {
       datLuuTru((truoc) => [...truoc, { cauHoi: cauHoiCu, ketQua: ketQuaCu }]);
+      if (tepCuaLuot !== null) {
+        const ten = tepCuaLuot;
+        datTepDaLuu((truoc) => ({ ...truoc, [ketQuaCu.trace_id]: ten }));
+      }
     }
+
+    // Tài liệu đi kèm ĐÚNG lượt này rồi thôi: lượt sau vẫn hỏi tiếp về nó được
+    // vì máy chủ giữ nội dung trong hội thoại, nên gửi lại id là trả tiền hai
+    // lần cho cùng một tài liệu.
+    const ids = tepDaDinhKem === null ? [] : [tepDaDinhKem.id];
+    datTepCuaLuot(tepDaDinhKem?.ten_tep ?? null);
+    datTepDaDinhKem(null);
 
     datDangMo(null);
     doiChieu.dong();
@@ -525,13 +576,27 @@ function ManHoiKlaw() {
     // chưa có trong lượt render này, nên đọc `luuTru` ở đây sẽ luôn thiếu ĐÚNG
     // lượt vừa xong — tức câu nối tiếp đầu tiên sau mỗi câu trả lời mất chính
     // ngữ cảnh nó cần nhất.
+    const kemTaiLieu = ids.length > 0 ? { taiLieuIds: ids } : {};
     if (daDangNhap) {
       const id = phienId ?? traCuu.hoiThoaiId ?? undefined;
-      traCuu.hoi(noiDung, id === undefined ? {} : { hoiThoaiId: id });
+      traCuu.hoi(noiDung, id === undefined ? kemTaiLieu : { hoiThoaiId: id, ...kemTaiLieu });
     } else {
-      traCuu.hoi(noiDung, { lichSu: dungLichSu(luotTruoc) });
+      traCuu.hoi(noiDung, { lichSu: dungLichSu(luotTruoc), ...kemTaiLieu });
     }
   };
+
+  /** Bấm một neo tài liệu: mở khung tài liệu ngay tại đơn vị văn bản đó. */
+  const moNeoTaiLieu = (taiLieuId: string, chiSo: number) => {
+    datDonViDangMo({ taiLieuId, chiSo });
+    datMoTaiLieu(true);
+  };
+
+  /** Ổn định qua `useCallback`: `TaiLieuDuKien` giữ nó trong `useCallback` của
+   *  chính nó, và một tham chiếu mới mỗi lần dựng lại sẽ khiến khung đó tải
+   *  LẠI cùng một tệp. */
+  const ghiNhoDinhKem = useCallback((tep: { id: string; ten_tep: string }) => {
+    datTepDaDinhKem(tep);
+  }, []);
 
   // Gợi ý chỉ ĐIỀN, không gửi — người dùng còn sửa câu (spec 2026-09-06 §4.1).
   // Khách cũng điền được: từ 2A họ hỏi thử được thật, nên đá họ sang trang đăng
@@ -539,6 +604,19 @@ function ManHoiKlaw() {
   const dienGoiY = (cau: string) => {
     datNhap(cau);
     oHoi.current?.focus();
+  };
+
+  /**
+   * Nút hành động nhanh trên thẻ tài liệu: điền câu hỏi VÀ gắn lại tệp.
+   *
+   * Không tự gửi — giống mọi gợi ý khác trong màn này, người hỏi còn sửa câu.
+   * Chỉ gắn tài liệu ĐẦU: ô soạn hiện một con chip, và hai chip cho một câu hỏi
+   * là thứ phải thiết kế riêng khi nhánh so sánh hai tài liệu tới (S4).
+   */
+  const hanhDongTaiLieu = (cau: string, ds: TaiLieuDaDung[]) => {
+    const dau = ds[0];
+    if (dau) datTepDaDinhKem({ id: dau.id, ten_tep: dau.ten_tep });
+    dienGoiY(cau);
   };
 
   /** Nhánh `soan_thao_hoi` khi `can_dang_nhap` (Task 21) — luôn quay lại đúng
@@ -787,6 +865,8 @@ function ManHoiKlaw() {
                       onChip={dienGoiY}
                       onDangNhap={onDangNhapDeSoan}
                       onMoBanThao={moSanKhau}
+                      onMoNeoTaiLieu={moNeoTaiLieu}
+                      onHanhDongTaiLieu={hanhDongTaiLieu}
                     />
                   )}
                 </Luot>
@@ -797,6 +877,7 @@ function ManHoiKlaw() {
                   key={luot.ketQua.trace_id}
                   cauHoi={luot.cauHoi}
                   traceId={luot.ketQua.trace_id}
+                  tenTepDinhKem={tepDaLuu[luot.ketQua.trace_id]}
                 >
                   <TheKetQua
                     ketQua={luot.ketQua}
@@ -807,12 +888,18 @@ function ManHoiKlaw() {
                     onChip={dienGoiY}
                     onDangNhap={onDangNhapDeSoan}
                     onMoBanThao={moSanKhau}
+                    onMoNeoTaiLieu={moNeoTaiLieu}
+                    onHanhDongTaiLieu={hanhDongTaiLieu}
                   />
                 </Luot>
               ))}
 
               {traCuu.cauHoi !== null && (
-                <Luot cauHoi={traCuu.cauHoi} traceId={traCuu.traceId}>
+                <Luot
+                  cauHoi={traCuu.cauHoi}
+                  traceId={traCuu.traceId}
+                  tenTepDinhKem={tepCuaLuot ?? undefined}
+                >
                   {traCuu.dangChay && (
                     <TrangThaiCho
                       cacBuoc={traCuu.cacBuoc}
@@ -861,6 +948,8 @@ function ManHoiKlaw() {
                       onChip={dienGoiY}
                       onDangNhap={onDangNhapDeSoan}
                       onMoBanThao={moSanKhau}
+                      onMoNeoTaiLieu={moNeoTaiLieu}
+                      onHanhDongTaiLieu={hanhDongTaiLieu}
                       onSuaHoSo={(khoa, giaTri) => {
                         const id = phienId ?? traCuu.hoiThoaiId;
                         // `error.message` đã là câu tiếng Việt hiển thị thẳng được
@@ -956,9 +1045,13 @@ function ManHoiKlaw() {
             loai={loaiDangSoan}
             tepVao={tepDinhKem}
             onDangDoc={datDangDocTep}
+            onDaDinhKem={ghiNhoDinhKem}
+            onChip={dienGoiY}
+            donViDangMo={donViDangMo}
             onDong={() => {
               datMoTaiLieu(false);
               datTepDinhKem(null);
+              datDonViDangMo(null);
             }}
           />
         </div>
@@ -976,6 +1069,8 @@ function ManHoiKlaw() {
           datMoTaiLieu(true);
         }}
         dangDocTep={dangDocTep}
+        tepDaDinhKem={tepDaDinhKem}
+        onBoDinhKem={() => datTepDaDinhKem(null)}
       />
     </div>
   );
