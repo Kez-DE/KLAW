@@ -79,6 +79,10 @@ class KLawState(TypedDict, total=False):
     # `rewrite_query.v2` đoán lĩnh vực (`lao_dong`, `dan_su`…). Dùng để cộng
     # điểm mềm sau RRF (`retrieval.cong_diem_linh_vuc`), không loại gì.
     linh_vuc_du_doan: str | None
+    # Request frame from `rewrite_query` v3 (cai_thien GĐ2): {muc_tieu,
+    # cau_hoi_phap_ly, du_kien_quyet_dinh_con_thieu[]} or None. A reading of the
+    # question, never căn cứ. Declared here or LangGraph drops it silently.
+    khung_yeu_cau: dict | None
     # Gợi ý loại văn bản của router (v2) → assemble kiểm và làm đầy → response
     # `soan_thao`. Khai ở đây vì cùng bẫy LangGraph với `bang`/`nguon`/`documents`.
     soan_thao_goi_y: dict | None

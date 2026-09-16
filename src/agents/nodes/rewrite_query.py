@@ -22,9 +22,11 @@ không giúp" (chạy được, không cải thiện Recall@5) với "rewrite kh
 
 import json
 import logging
+import re
 from pathlib import Path
 
-from src.services.bo_nho import khoi_tinh_huong
+from src.agents.nodes.hoi_lai import bi_loai
+from src.services.bo_nho import _vuong_luoi_chan, khoi_tinh_huong
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,77 @@ QUERIES_V2_SCHEMA = {
 }
 _KHOA_NHAN_DIEN = ("quan_he", "vai", "ba_lop", "du_kien_van_ban")
 
+# v3 (cai_thien.md GĐ2): the same turn also yields the request frame — what the
+# asker needs, the legal question behind it, and the decisive facts still missing.
+# Strict schema again, so a separate object; chosen when the template mentions
+# `muc_tieu`.
+QUERIES_V3_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "quan_he", "vai", "linh_vuc", "ba_lop", "du_kien_van_ban",
+        "muc_tieu", "cau_hoi_phap_ly", "du_kien_quyet_dinh_con_thieu", "queries",
+    ],
+    "properties": {
+        **QUERIES_V2_SCHEMA["properties"],
+        "muc_tieu": {"type": "string"},
+        "cau_hoi_phap_ly": {"type": "string"},
+        "du_kien_quyet_dinh_con_thieu": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["ma", "cau", "lam_doi_ket_luan"],
+                "properties": {
+                    "ma": {"type": "string"},
+                    "cau": {"type": "string"},
+                    "lam_doi_ket_luan": {"type": "boolean"},
+                },
+            },
+        },
+    },
+}
+TOI_DA_DU_KIEN_THIEU = 3
+_RE_MA = re.compile(r"^[a-z][a-z0-9_]{1,40}$")
+
+
+def _dong_khung(gia_tri: object, toi_da: int = 200) -> str:
+    """One trimmed line for a frame field; anything that fails the number/PII
+    net (`bo_nho._vuong_luoi_chan`) is dropped — the frame is a reading, never
+    a place for an article number the two verification tiers cannot see."""
+    s = " ".join(str(gia_tri or "").split())[:toi_da]
+    return "" if not s or _vuong_luoi_chan(s) else s
+
+
+def khung_yeu_cau_tu(data: dict, ho_so: dict | None) -> dict | None:
+    """Pure: validate and filter the model's frame. Returns None when nothing
+    usable survives, so callers can fall back to the pre-frame behaviour.
+
+    Each missing-fact question must pass `hoi_lai.bi_loai` (no legal thresholds
+    stated as questions) and must not name a profile key the asker already
+    filled — a stated fact beats anything the model wants to re-ask.
+    """
+    muc_tieu = _dong_khung(data.get("muc_tieu"))
+    cau_hoi_phap_ly = _dong_khung(data.get("cau_hoi_phap_ly"), 300)
+    da_biet = {k for k, v in (ho_so or {}).items() if isinstance(v, dict) and v.get("gia_tri")}
+    thieu: list[dict] = []
+    for m in data.get("du_kien_quyet_dinh_con_thieu") or []:
+        if not isinstance(m, dict):
+            continue
+        ma = str(m.get("ma") or "").strip().lower()
+        cau = _dong_khung(m.get("cau"))
+        if not _RE_MA.match(ma) or ma in da_biet or not cau or bi_loai(cau):
+            continue
+        if not cau.endswith("?"):
+            cau += "?"
+        thieu.append({"ma": ma, "cau": cau, "lam_doi_ket_luan": m.get("lam_doi_ket_luan") is True})
+        if len(thieu) == TOI_DA_DU_KIEN_THIEU:
+            break
+    if not (muc_tieu or cau_hoi_phap_ly or thieu):
+        return None
+    return {"muc_tieu": muc_tieu, "cau_hoi_phap_ly": cau_hoi_phap_ly, "du_kien_quyet_dinh_con_thieu": thieu}
+
 
 def rewrite_query(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict:
     prior_traces = state.get("traces") or {}
@@ -64,21 +137,24 @@ def rewrite_query(state: dict, llm, model: str, prompt_path: Path | None = None)
     prompt = mau.format(cau_hoi=goc, tinh_huong=khoi_tinh_huong(state.get("ho_so") or {}))
     # Template nhắc tới `quan_he` là template v2 — chọn schema theo NỘI DUNG
     # template, không theo tên file, để một bản v3 cùng hình dạng vẫn chạy.
-    la_v2 = "quan_he" in mau
+    la_v3 = "muc_tieu" in mau
+    la_v2 = la_v3 or "quan_he" in mau
+    schema = QUERIES_V3_SCHEMA if la_v3 else QUERIES_V2_SCHEMA if la_v2 else QUERIES_SCHEMA
     usage = None
     degraded = False
     linh_vuc: str | None = None
     nhan_dien: dict = {}
+    khung: dict | None = None
     try:
-        raw, usage = llm.chat(
-            model, [{"role": "user", "content": prompt}], json_schema=QUERIES_V2_SCHEMA if la_v2 else QUERIES_SCHEMA
-        )
+        raw, usage = llm.chat(model, [{"role": "user", "content": prompt}], json_schema=schema)
         data = json.loads(raw)
         them = [q for q in data.get("queries", []) if q and q.strip() != goc.strip()]
         if la_v2:
             lv = data.get("linh_vuc")
             linh_vuc = lv.strip() if isinstance(lv, str) and lv.strip() else None
             nhan_dien = {k: data.get(k) for k in _KHOA_NHAN_DIEN}
+        if la_v3:
+            khung = khung_yeu_cau_tu(data, state.get("ho_so"))
     except Exception as e:
         logger.warning(
             "rewrite_query: lỗi khi gọi LLM (%s: %s) — bỏ qua, fallback về query gốc, không bịa biến thể",
@@ -91,6 +167,7 @@ def rewrite_query(state: dict, llm, model: str, prompt_path: Path | None = None)
         **state,
         "queries": queries,
         "linh_vuc_du_doan": linh_vuc,
+        "khung_yeu_cau": khung,
         "traces": {
             **prior_traces,
             "rewrite_query_model": model,
