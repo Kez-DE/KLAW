@@ -62,6 +62,12 @@ logger = logging.getLogger(__name__)
 
 PROMPT_PATH = Path("prompts/assemble.v1.md")
 
+# Trần hình dạng (spec 2026-09-16 §FR-006/FR-007/FR-019/FR-020). Cưỡng chế 0
+# token: gọi lại mô hình để viết ngắn hơn là thêm một lượt gọi trong đường
+# thành công thường, thứ `cai_thien.md` §11 cấm.
+TRAN_GACH = 4
+TRAN_KY_TU = 900
+
 ANSWER_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -304,6 +310,35 @@ LY_DO_THE_KHONG_HOP_LE = "the_hoac_url_trong_answer_khong_hop_le"
 
 _RE_THE = re.compile(r"\[([^\]]+)\]\((doc|cite):([^)\s]+)\)")
 _RE_URL = re.compile(r"https?://|www\.|\b[a-z0-9-]+\.(?:vn|com|net|org|gov)\b", re.I)
+
+
+def cat_gach_thua(answer: str, tran: int = TRAN_GACH) -> tuple[str, int]:
+    """Bỏ gạch cấp một thứ `tran`+1 trở đi, kèm dòng lồng của chính chúng.
+
+    Trả `(văn bản, số gạch đã bỏ)`. KHÔNG cắt theo ký tự: một lát cắt giữa câu
+    sẽ chặt đứt thẻ `[...](cite:n)` đang mở và biến một câu trả lời hợp lệ thành
+    một câu có thẻ hỏng — tệ hơn hẳn một câu dài. Trần ký tự vì thế chỉ được GHI
+    NHẬN (`traces.assemble_hinh_dang`), không cưỡng chế bằng kéo.
+
+    Chỉ dòng BẮT ĐẦU bằng `- ` mới tính là gạch: một dấu gạch nối giữa câu
+    ("người lao động - theo Điều 26 - được biết") không phải một gạch đầu dòng.
+    """
+    giu: list[str] = []
+    bo = so_gach = 0
+    dang_bo = False
+    for dong in (answer or "").split("\n"):
+        if dong.startswith("- "):
+            so_gach += 1
+            dang_bo = so_gach > tran
+            if dang_bo:
+                bo += 1
+                continue
+        elif dang_bo and dong.strip() and dong[:1].isspace():
+            continue  # dòng lồng thuộc về gạch vừa bị bỏ
+        else:
+            dang_bo = False
+        giu.append(dong)
+    return "\n".join(giu), bo
 
 
 def _the_khong_hop_le(answer: str, citations_prose: list[dict], doc_ids: set[str]) -> list[str]:
@@ -985,7 +1020,10 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         )
     prompt = mau.format(
         cau_hoi=state.get("query", ""),
-        mo_dau=MO_DAU_NOI_TIEP if state.get("lich_su") else MO_DAU_LUOT_DAU,
+        # `lich_su or tom_tat`: cùng định nghĩa "phiên đã có ngữ cảnh" mà
+        # `graph_tra_cuu._vao_giai_nghia` đang dùng. Chỉ xét `lich_su` thì một
+        # phiên vừa bị rút gọn lịch sử về rỗng sẽ bị chào lại như người lạ.
+        mo_dau=MO_DAU_NOI_TIEP if (state.get("lich_su") or state.get("tom_tat")) else MO_DAU_LUOT_DAU,
         van_ban=_khoi_van_ban(citations_dung_cho_prose, db_provisions),
         claims=claims_txt,
         tinh_huong=khoi_tinh_huong(state.get("ho_so") or {}),
@@ -1046,8 +1084,26 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         ket["traces"]["assemble_the_loi"] = []
         return ket
 
+    # Phép kiểm thứ mười — hình dạng, 0 token. Chạy SAU hai phép kiểm thẻ và số
+    # Điều: cắt bớt nội dung chỉ có thể LOẠI thẻ chứ không sinh thẻ mới, nên thứ
+    # phát hành ra vẫn là tập con của văn bản đã qua kiểm. Làm ngược lại thì một
+    # gạch mang thẻ hỏng có thể bị cắt đi và thoát khỏi lưới.
+    do_dai_truoc = len(answer)
+    answer, gach_bo = cat_gach_thua(answer)
+    # `do_dai_truoc` là độ dài mô hình VIẾT RA, `do_dai` là độ dài PHÁT HÀNH. Giữ
+    # cả hai để một lượt đo duy nhất nói được cả hiệu quả của prompt lẫn hiệu quả
+    # của phép cắt — không cần một lượt đo riêng cho bản chưa có phép cắt.
+    hinh_dang = {"gach_bo": gach_bo, "do_dai_truoc": do_dai_truoc,
+                 "do_dai": len(answer), "vuot_tran": len(answer) > TRAN_KY_TU}
+    if gach_bo or hinh_dang["vuot_tran"]:
+        logger.warning(
+            "assemble: hình dạng vượt trần (bỏ %d gạch, %d ký tự) — ghi nhận, KHÔNG xén chữ",
+            gach_bo, hinh_dang["do_dai"],
+        )
+
     ket = _base(state, ResultType.answer, usage=usage, degraded=degraded,
                 answer=answer, citations=citations, warnings=warnings, documents=documents)
+    ket["traces"]["assemble_hinh_dang"] = hinh_dang
     ket["traces"]["assemble_dieu_bi_loai"] = []
     ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
     ket["traces"]["assemble_the_loi"] = []
@@ -1064,7 +1120,9 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     # hỏi thêm ngắn (QT-5), 0 token — KHÔNG spliced vào `answer` (nó vẫn phải
     # sạch markdown và chỉ chứa điều đã có căn cứ), mà đi vào `coverage_note`,
     # cùng trường FE đã dùng để hiện nửa sau của một ngõ cụt.
-    duoi = duoi_hoi_them(state.get("ho_so") or {})
+    # Chỉ hỏi lại thứ lượt này vừa ĐOÁN (spec 2026-09-16 §FR-011). Tín hiệu là
+    # kết quả suy diễn của chính lượt, không phải hồ sơ còn trống.
+    duoi = duoi_hoi_them(state.get("ho_so") or {}, (state.get("traces") or {}).get("suy_dien_chu_the"))
     if duoi:
         ket["coverage_note"] = "\n\n".join(x for x in (ket.get("coverage_note"), duoi) if x)
     # Ý định PHỤ (router v3, spec 2026-09-09 §7.4): câu hỏi vừa hỏi luật vừa

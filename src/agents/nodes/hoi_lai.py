@@ -232,23 +232,45 @@ def dung_cau_hoi_lai(chon: list, da_biet: frozenset[str] = frozenset()) -> str:
 # trả lời chắc chắn" — câu trả lời đã chắc, chỉ hỏi thêm để chính xác hơn.
 CAU_DAN_DUOI = "Để chính xác hơn, bạn cho tôi biết thêm:"
 
+# Chiều duy nhất mà `suy_dien` (0 token) suy được hôm nay. Hằng số hoá để đuôi
+# hỏi và node suy diễn không lệch nhau khi một trong hai đổi.
+CHIEU_SUY_DIEN = "chu_the"
 
-def duoi_hoi_them(ho_so: dict) -> str:
-    """Đuôi của một câu trả lời ĐÃ CÓ luận điểm (QT-5): tối đa `TOI_DA` câu hằng
-    số (0 token — không gọi LLM, không qua `bi_loai`) cho chiều còn trống trong
-    `MAC_DINH`, theo đúng thứ tự của tuple đó — cùng trần với nhánh hỏi lại của
-    một ngõ cụt, không phải một con số riêng. Đủ dữ kiện thì trả rỗng — một câu
-    trả lời đã chắc không cần rào đón thêm.
 
-    Không dùng danh sách model chọn của `hoi_lai()`: đây là đuôi của một câu
-    trả lời THÀNH CÔNG, không phải của một ngõ cụt, nên không đáng một lượt gọi
-    LLM — ba chiều `MAC_DINH` áp được cho gần như mọi câu hỏi lao động.
+# Trần của riêng ĐUÔI hỏi thêm (spec 2026-09-16 §FR-008/FR-021). Không phải trần
+# của cả `coverage_note`: nửa sau của một NGÕ CỤT do `hoi_lai()` dựng không bị
+# đợt này đụng tới.
+TRAN_DUOI = 160
+
+
+def duoi_hoi_them(ho_so: dict, vua_suy_dien: str | None = None) -> str:
+    """Đuôi của một câu trả lời ĐÃ CÓ luận điểm (QT-5): 0 token, tối đa MỘT câu.
+
+    HỢP ĐỒNG 2026-09-16 (spec `2026-09-16-tra-loi-ngan-dung-muc-tieu` §FR-011):
+    đuôi chỉ xuất hiện khi CHÍNH LƯỢT NÀY vừa suy ra một giả định, và chỉ hỏi
+    đúng chiều vừa suy ra. `vua_suy_dien` là giá trị mà `suy_dien` suy được
+    trong lượt (`traces["suy_dien_chu_the"]`) — rỗng nghĩa là lượt này không
+    đoán gì, nên không có gì để xác nhận lại.
+
+    Bản trước hỏi tới `TOI_DA` chiều còn trống trong `MAC_DINH` bất kể chúng có
+    làm đổi kết luận hay không — ĐO ĐƯỢC là hành vi máy móc rõ nhất của mặt trả
+    lời (`cai_thien.md` §4.2.7). Nhưng bỏ hẳn đuôi thì phá vế "nêu giả định rồi
+    hỏi đúng dữ kiện đó" của quyết định 2026-09-09, thứ `eval/run_mo_ho` đang
+    chấm. Thu hẹp giữ được cả hai.
+
+    `suy_dien` chỉ suy vai KHI hồ sơ còn trống vai, nên một giá trị `suy_dien`
+    mang sang từ lượt trước KHÔNG kèm tín hiệu và không mở lại câu hỏi.
     """
-    ho_so = ho_so or {}
-    thieu = [ma for ma in MAC_DINH if not (isinstance(muc := ho_so.get(ma), dict) and muc.get("gia_tri"))][:TOI_DA]
-    if not thieu:
+    if not vua_suy_dien:
         return ""
-    return CAU_DAN_DUOI + "".join(f"\n- {CHIEU[ma]}" for ma in thieu)
+    # Người dùng đã tự nói vai thì không hỏi lại, kể cả khi tín hiệu suy diễn bị
+    # truyền nhầm vào đây (FR-012): dữ kiện người nói luôn thắng giả định.
+    if ((ho_so or {}).get(CHIEU_SUY_DIEN) or {}).get("nguon") == "nguoi_noi":
+        return ""
+    duoi = f"{CAU_DAN_DUOI}\n- {CHIEU[CHIEU_SUY_DIEN]}"
+    # Vượt trần thì BỎ HẲN, không xén: một câu hỏi bị cắt làm đôi tệ hơn là
+    # không hỏi, và câu trả lời phía trên vốn đã đủ chắc.
+    return "" if len(duoi) > TRAN_DUOI else duoi
 
 
 def hoi_lai(cau_hoi: str, llm, model: str, da_biet: frozenset[str] = frozenset()) -> KetQuaHoiLai:
