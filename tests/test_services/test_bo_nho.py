@@ -63,6 +63,28 @@ def test_gop_ho_so_moi_de_cu_nhung_suy_dien_khong_de_nguoi_noi():
     assert ra3["tham_nien"]["gia_tri"] == "3 năm"  # giá trị vi phạm lưới chặn giữ bản cũ
 
 
+def test_ho_so_sau_luot_meta_giu_nguyen_ho_so_cu():
+    """FR-008 (ex.md §3.6/§7.4): ba result_type meta không được ghi đè `ho_so` —
+    một vụ việc pháp lý cũ trong `cu` phải sống sót qua một lượt hỏi năng lực."""
+    cu = {"vu_viec": {"gia_tri": "tranh chấp lương, đã nghỉ việc", "nguon": "nguoi_noi"}}
+    for rt in ("gioi_thieu", "hoi_ve_kho", "out_of_scope"):
+        ra = bo_nho.ho_so_sau_luot(rt, cu, {"vu_viec": "Mới tìm hiểu khả năng của KLAW"})
+        assert ra == cu and ra is not cu  # bản sao, không phải cùng object
+
+
+def test_ho_so_sau_luot_answer_gop_binh_thuong():
+    cu = {"chu_the": {"gia_tri": "người lao động", "nguon": "nguoi_noi"}}
+    ra = bo_nho.ho_so_sau_luot("answer", cu, {"vu_viec": "tranh chấp lương"})
+    assert ra == bo_nho.gop_ho_so(cu, {"vu_viec": "tranh chấp lương"}, "nguoi_noi")
+    assert ra["vu_viec"]["gia_tri"] == "tranh chấp lương"
+
+
+def test_ho_so_sau_luot_none_gop_tuong_thich_nguoc():
+    cu: dict = {}
+    ra = bo_nho.ho_so_sau_luot(None, cu, {"chu_the": "người lao động"})
+    assert ra == bo_nho.gop_ho_so(cu, {"chu_the": "người lao động"}, "nguoi_noi")
+
+
 def test_khoi_tinh_huong_va_ho_so_da_dung():
     ho_so = {
         "chu_the": {"gia_tri": "người lao động", "nguon": "suy_dien"},
@@ -105,7 +127,7 @@ async def test_len_lich_cap_nhat_bat_xep_lich_va_chay(monkeypatch):
     bo_nho.len_lich_cap_nhat("pid", "sub")
     assert len(bo_nho._DANG_CHAY) == 1
     await asyncio.gather(*list(bo_nho._DANG_CHAY))
-    assert goi == [("pid", "sub")]
+    assert goi == [("pid", "sub", None, None, None)]
     assert bo_nho._DANG_CHAY == set()  # done_callback đã dọn task xong
 
 
@@ -314,3 +336,37 @@ def test_cap_nhat_phien_bo_qua_khi_phien_khong_thuoc_nguoi_goi(monkeypatch):
     monkeypatch.setattr(hoi_thoai, "dem_luot", lambda pid: ghi.append(pid) or 1)
     bo_nho.cap_nhat_phien("pid", "ke-khac")
     assert ghi == [], "không được đọc/ghi gì thêm cho một phiên không thuộc người gọi"
+
+
+def test_cap_nhat_phien_meta_khong_gop_ho_so_nhung_van_chay_tom_tat(monkeypatch):
+    """FR-008 (ex.md §3.6/§7.4): lượt `gioi_thieu` vẫn chạy trọn `cap_nhat_phien` —
+    tóm tắt vẫn được sinh — nhưng `ho_so` không được ghi đè bằng vu_viec meta, khác
+    lượt `answer` CÙNG dữ liệu vẫn gộp bình thường (`nguoi_noi` đè `nguoi_noi`, xem
+    `gop_ho_so._HANG_NGUON`)."""
+    ho_so_cu = {"vu_viec": {"gia_tri": "sắp nghỉ việc, hỏi quyền lợi", "nguon": "nguoi_noi"}}
+    bn = {"user_sub": "u1", "khong_ghi_nho": False, "tom_tat": "", "tom_tat_den_thu_tu": 0, "ho_so": ho_so_cu}
+    monkeypatch.setattr(hoi_thoai, "bo_nho_cua_phien", lambda pid: bn)
+    monkeypatch.setattr(hoi_thoai, "dem_luot", lambda pid: 1)
+    monkeypatch.setattr(
+        hoi_thoai, "luot_khoang",
+        lambda pid, tu, den: [{"thu_tu": 1, "cau_hoi": "bạn làm được gì", "tra_loi": "..."}],
+    )
+    monkeypatch.setattr(bao_ve, "plan_hieu_luc", lambda sub: "free")
+    monkeypatch.setattr(bo_nho, "_ghi_traces", lambda *a, **k: None)
+    ghi_goi = []
+    monkeypatch.setattr(
+        hoi_thoai, "ghi_bo_nho",
+        lambda pid, tom_tat, den, ho_so: ghi_goi.append((tom_tat, den, ho_so)),
+    )
+    tra = {"tom_tat": "Người hỏi tìm hiểu khả năng của KLAW", "ho_so": {"vu_viec": "Mới tìm hiểu khả năng của KLAW"}}
+
+    llm_meta = LlmGia(tra)
+    bo_nho.cap_nhat_phien("pid", "u1", llm=llm_meta, model="gia", result_type="gioi_thieu")
+    assert len(llm_meta.da_goi) == 1  # tóm tắt vẫn chạy — nhánh meta không tắt cả hàm
+    _, _, ho_so_meta = ghi_goi[-1]
+    assert ho_so_meta["vu_viec"]["gia_tri"] == "sắp nghỉ việc, hỏi quyền lợi"  # vu_viec cũ sống sót
+
+    llm_answer = LlmGia(tra)
+    bo_nho.cap_nhat_phien("pid", "u1", llm=llm_answer, model="gia", result_type="answer")
+    _, _, ho_so_answer = ghi_goi[-1]
+    assert ho_so_answer["vu_viec"]["gia_tri"] == "Mới tìm hiểu khả năng của KLAW"  # answer vẫn gộp bình thường

@@ -189,6 +189,12 @@ class ResultType(StrEnum):
     ban_thao = "ban_thao"
 
 
+# Spec 2026-09-16 §2.6/§3.5/FR-007 — ba nhánh KHÔNG đọc `ho_so` để dựng câu trả
+# lời, nên trả `ho_so_da_dung=[]` trong `_base`: hiện mảng này ("Dựa trên") thì
+# là provenance sai, dù state có hồ sơ.
+_KHONG_DUNG_HO_SO = frozenset({ResultType.gioi_thieu, ResultType.hoi_ve_kho, ResultType.out_of_scope})
+
+
 class Citation(TypedDict):
     """Dict thường (TypedDict chỉ để gõ kiểu) — test tra bằng `c["so_ky_hieu"]`.
 
@@ -243,7 +249,9 @@ def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: boo
         "nguon": [],
         "warnings": [],
         "coverage_note": None,
-        "ho_so_da_dung": ho_so_da_dung(state.get("ho_so") or {}),
+        # rt in _KHONG_DUNG_HO_SO never reads the profile, so showing "Dựa
+        # trên" would be false provenance (ex.md FR-007).
+        "ho_so_da_dung": [] if rt in _KHONG_DUNG_HO_SO else ho_so_da_dung(state.get("ho_so") or {}),
         "traces": {
             **prior_traces,
             "assemble_result_type": rt.value,

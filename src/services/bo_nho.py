@@ -122,6 +122,20 @@ def gop_ho_so(cu: dict, moi: dict, nguon: str) -> dict:
     return ra
 
 
+# Spec 2026-09-16 §3.6/§7.4/FR-008 — ba result_type meta không đại diện một vụ
+# việc pháp lý bền của người dùng, nên lượt của chúng không được ghi đè `ho_so`.
+KHONG_GOP_HO_SO = frozenset({"gioi_thieu", "hoi_ve_kho", "out_of_scope"})
+
+
+def ho_so_sau_luot(result_type: str | None, cu: dict, moi: dict) -> dict:
+    """Hồ sơ sau lượt này: giữ NGUYÊN `cu` cho ba result_type meta (không có gì của
+    lượt đó đáng gộp), gộp bình thường (`gop_ho_so`) cho mọi result_type khác,
+    kể cả `None` (tương thích ngược với caller chưa truyền result_type)."""
+    if result_type in KHONG_GOP_HO_SO:
+        return dict(cu or {})
+    return gop_ho_so(cu, moi, "nguoi_noi")
+
+
 def khoi_tinh_huong(ho_so: dict) -> str:
     dong = [
         f"- {NHAN_HO_SO[k]}: {v['gia_tri']}" + (" (tôi đoán)" if v.get("nguon") == "suy_dien" else "")
@@ -225,7 +239,9 @@ def _dung_luot(luot: list[dict]) -> str:
     )
 
 
-def cap_nhat_phien(hoi_thoai_id: str, user_sub: str, llm=None, model: str | None = None) -> None:
+def cap_nhat_phien(
+    hoi_thoai_id: str, user_sub: str, llm=None, model: str | None = None, result_type: str | None = None
+) -> None:
     """Một lời gọi LLM sau mỗi lượt: tóm tắt cuộn các lượt vừa rơi khỏi cửa sổ K và cập
     nhật hồ sơ từ lượt mới nhất. KHÔNG BAO GIỜ raise; lỗi → log, giữ bản cũ."""
     bat_dau = time.monotonic()
@@ -260,10 +276,12 @@ def cap_nhat_phien(hoi_thoai_id: str, user_sub: str, llm=None, model: str | None
         tom_tat = " ".join(str(ra.get("tom_tat") or "").split())[:TOM_TAT_TOI_DA] or bn["tom_tat"]
         if _vuong_luoi_chan(tom_tat or ""):
             tom_tat = bn["tom_tat"]  # tóm tắt lọt số Điều/số hiệu/định danh cá nhân → giữ bản cũ
-        ho_so = gop_ho_so(bn["ho_so"], ra.get("ho_so") or {}, "nguoi_noi")
+        ho_so = ho_so_sau_luot(result_type, bn["ho_so"], ra.get("ho_so") or {})
         den = khoang[1] if khoang else bn["tom_tat_den_thu_tu"]
         hoi_thoai.ghi_bo_nho(hoi_thoai_id, tom_tat if (luot_gop or bn["tom_tat"]) else None, den, ho_so)
-        if bao_ve.plan_hieu_luc(user_sub) == "pro" and doc_ghi_nho(user_sub):
+        # Nhánh meta không gộp gì mới vào ho_so ở trên, nên không có gì để đẩy
+        # tiếp sang hồ sơ tài khoản (FR-008).
+        if result_type not in KHONG_GOP_HO_SO and bao_ve.plan_hieu_luc(user_sub) == "pro" and doc_ghi_nho(user_sub):
             gop_vao_tai_khoan(user_sub, ho_so, hoi_thoai_id)
     except Exception:
         logger.exception("bo_nho: không cập nhật được phiên %s — giữ bản cũ", hoi_thoai_id)
@@ -313,10 +331,12 @@ def luu_suy_dien(hoi_thoai_id: str, ho_so_state: dict) -> None:
 _DANG_CHAY: set[asyncio.Task] = set()
 
 
-def len_lich_cap_nhat(hoi_thoai_id: str, user_sub: str) -> None:
+def len_lich_cap_nhat(hoi_thoai_id: str, user_sub: str, result_type: str | None = None) -> None:
     """Xếp `cap_nhat_phien` chạy nền trên event loop hiện tại; giữ tham chiếu task để không bị thu gom."""
     if not get_settings().bo_nho_nen:
         return
-    task = asyncio.get_running_loop().create_task(run_in_threadpool(cap_nhat_phien, hoi_thoai_id, user_sub))
+    task = asyncio.get_running_loop().create_task(
+        run_in_threadpool(cap_nhat_phien, hoi_thoai_id, user_sub, None, None, result_type)
+    )
     _DANG_CHAY.add(task)
     task.add_done_callback(_DANG_CHAY.discard)

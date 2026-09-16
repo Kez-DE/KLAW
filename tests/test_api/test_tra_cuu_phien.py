@@ -192,7 +192,7 @@ async def test_post_tra_cuu_xep_lich_cap_nhat_bo_nho(client, cai_dat, khoa_ky, g
     sub = str(uuid.uuid4())
     don_dep.append(sub)
     goi: list[tuple[str, str]] = []
-    monkeypatch.setattr(bo_nho, "len_lich_cap_nhat", lambda pid, s: goi.append((pid, s)))
+    monkeypatch.setattr(bo_nho, "len_lich_cap_nhat", lambda pid, s, rt=None: goi.append((pid, s)))
     r = await client.post("/api/v1/tra-cuu", json={"query": "x"}, headers=_bearer(khoa_ky, sub))
     assert r.status_code == 200
     assert goi == [(r.headers["x-hoi-thoai-id"], sub)]
@@ -207,7 +207,7 @@ async def test_stream_xep_lich_cap_nhat_bo_nho(client, cai_dat, khoa_ky, graph_g
     sub = str(uuid.uuid4())
     don_dep.append(sub)
     goi: list[tuple[str, str]] = []
-    monkeypatch.setattr(bo_nho, "len_lich_cap_nhat", lambda pid, s: goi.append((pid, s)))
+    monkeypatch.setattr(bo_nho, "len_lich_cap_nhat", lambda pid, s, rt=None: goi.append((pid, s)))
     r = await client.post("/api/v1/tra-cuu/luong", json={"query": "x"}, headers=_bearer(khoa_ky, sub))
     assert r.status_code == 200
     pid = dict(_su_kien(r.text))["bat_dau"]["hoi_thoai_id"]
