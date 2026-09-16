@@ -45,11 +45,12 @@ Observable through the real API and UI once complete:
   injected. `assemble._base` sets `ho_so_da_dung` to the whole profile for every
   result type; `DuaTren.tsx` returns null on an empty list. `bo_nho.cap_nhat_phien`
   runs after every turn without the turn's intent.
-- Models pinned for measurement (owner, spec 2026-09-16): router + generate
-  `deepseek/deepseek-v4-flash-0731`, judge `mistralai/mistral-small-3.2-24b-instruct`.
-  `.env.local` currently points router/generate at `google/gemini-2.5-flash-lite`;
-  measurements override per command via `OPENROUTER_MODEL_NAME` /
-  `OPENROUTER_GENERATE_MODEL_NAME`, never by editing `.env.local`.
+- Models pinned for measurement (owner, 2026-09-16 afternoon, supersedes the
+  morning spec's deepseek choice): router + generate
+  `google/gemini-2.5-flash-lite`, judge `mistralai/mistral-small-3.2-24b-instruct`
+  — exactly what `.env.local` carries, so measurement commands need no model
+  override. The deepseek run started at 15:38 was stopped before producing any
+  file.
 
 ## Scope
 
@@ -131,16 +132,22 @@ article numbers, document numbers, legal thresholds or PII (`hoi_lai.bi_loai`,
 
 ## Progress
 
-- [ ] Slice 0 — commit GĐ1 (eval metadata + parallel runner; shape cap + tail;
-      Makefile lanes; spec docs).
-- [ ] Slice 1 — baseline v3/v4/v5 ×77, trap 57, mo_ho 20 on deepseek, cache off.
-- [ ] Slice 2a — `kho.py` pure list/summary functions + tests.
-- [ ] Slice 2b — `gioi_thieu.py` facets + composer + tests (contract changes to
-      three existing tests per `ex.md`).
-- [ ] Slice 2c — `graph_tra_cuu.n_assemble` wiring, one `nap_kho`.
-- [ ] Slice 2d — provenance (`_base`) + memory guard + both routes + tests.
-- [ ] Slice 2e — `CONTEXT.md` glossary; regression run.
-- [ ] Slice 3 — `khung_yeu_cau` (rewrite_query.v3) + state + fallback tests.
+- [x] Slice 0 — commit GĐ1 (`2b7c02a`, `ad14a00`, `f163f74`, `e2e3bcd`).
+- [ ] Slice 1 — baseline v3/v4/v5 ×77, trap 57, mo_ho 20 on
+      gemini-2.5-flash-lite, cache off. Running since 2026-09-16 ~16:20 in a
+      detached worktree at `e2e3bcd` (`scratchpad/wt-baseline`, log
+      `scratchpad/baseline-gemini.log`, output `eval/results/gemini-lite/`).
+- [x] Slice 2a — `kho.py` pure list/summary functions + tests (`cfb7659`).
+- [x] Slice 2b — `gioi_thieu.py` facets + composer + tests (`cfb7659`). Real
+      `documents.linh_vuc` is 55 MOJ labels with 94.6% NULL, so the domain
+      block names the six largest and counts the rest.
+- [x] Slice 2c — `graph_tra_cuu.n_assemble` wiring, one `nap_kho` (`cfb7659`).
+- [x] Slice 2d — provenance (`_base`) + memory guard + both routes + tests
+      (`ac1e7dc`).
+- [x] Slice 2e — `CONTEXT.md` glossary (`c94aec3`); regression: 240 passed on
+      the meta/assemble/kho/bo_nho files.
+- [x] Slice 3 — `khung_yeu_cau` via `rewrite_query.v3` + state + fallback tests
+      (`e47225d`). Default prompt still v2.
 - [ ] Slice 4 — claim `vai_tro`, tier-2 `relevant`/`overstated`, `muc_chac`,
       selection rules, additive citation field.
 - [ ] Slice 5 — decisive-fact questions, `cau_hoi_goc` in prompt, no-repeat tests.
@@ -167,11 +174,11 @@ article numbers, document numbers, legal thresholds or PII (`hoi_lai.bi_loai`,
   `KLAW_SUPABASE_URL= .venv/bin/python -m pytest -q -m "not integration and not pending_review" --deselect tests/test_services/test_moi_mau.py`
 - Lint on touched files: `.venv/bin/ruff check <files>` and
   `.venv/bin/ruff format --check <files>` (never `make format`).
-- Measurement (paid, owner-authorised, ceiling US$6):
-  `OPENROUTER_MODEL_NAME=deepseek/deepseek-v4-flash-0731 OPENROUTER_GENERATE_MODEL_NAME=deepseek/deepseek-v4-flash-0731 KLAW_CACHE_TTL_NGAY=0 .venv/bin/python -m eval.run_cau_tra_loi --prompt prompts/assemble.v3.md --json eval/results/deepseek/v3-77.json`
-  (same for v4, v5, later v6), `python -m eval.run_trap --out …`,
-  `python -m eval.run_mo_ho --out …`, then
-  `python -m eval.run_cau_tra_loi --bang eval/results/deepseek/*.json`.
+- Measurement (paid, owner-authorised, ceiling US$6; models from `.env.local`):
+  `KLAW_CACHE_TTL_NGAY=0 .venv/bin/python -m eval.run_cau_tra_loi --prompt prompts/assemble.v3.md --json eval/results/gemini-lite/v3-77.json`
+  (same for v4, v5, later v6 with the candidate prompt env vars),
+  `python -m eval.run_trap --out …`, `python -m eval.run_mo_ho --out …`, then
+  `python -m eval.run_cau_tra_loi --bang eval/results/gemini-lite/*.json`.
 - Gates before flipping any default: `cai_thien.md` §8.
 
 ## Result

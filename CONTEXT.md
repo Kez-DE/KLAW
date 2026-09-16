@@ -70,9 +70,10 @@ consequence of breaching it.
 _Avoid_: claim type, category, tag
 
 **mức chắc (`muc_chac`)**:
-How strongly the answer may be worded, derived from the claims and the missing
-decisive facts: `chac`, `co_dieu_kien`, or `chua_du`. Never a model confidence
-score.
+How strongly an answer may be worded, derived from the claim roles and the
+missing decisive facts: `chac` or `co_dieu_kien`. When no answer is issued the
+outcome itself (abstain, partial_coverage) says "chưa đủ". Never a model
+confidence score.
 _Avoid_: confidence, certainty score, risk level
 
 **hồ sơ đã dùng (`ho_so_da_dung`)**:
