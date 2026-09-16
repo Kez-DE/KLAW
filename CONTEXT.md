@@ -87,6 +87,57 @@ A question about KLAW itself or about the corpus is never a vụ việc.
 _Avoid_: topic, session subject, case (in the litigation sense)
 
 
+### User documents
+
+**tài liệu**:
+A file the asker uploads into one conversation, read into đơn vị văn bản. It
+supplies dữ kiện and clauses to evaluate; it is never căn cứ.
+_Avoid_: document, file, attachment, nguồn
+
+**đơn vị văn bản**:
+One contiguous piece of a tài liệu with its position: page, table cell, header
+or footer. The smallest thing a neo tài liệu can point to.
+_Avoid_: block, chunk, paragraph, đoạn
+
+**neo tài liệu**:
+The verified pointer from a statement about a tài liệu to one đơn vị văn bản,
+checked by string lookup, never by a model. Same principle as a citation,
+different source; the two are never merged.
+_Avoid_: reference, source link, trích dẫn (reserved for statute)
+
+**quan sát**:
+A statement about what a tài liệu says, bound to a neo tài liệu. Dropped when no
+neo verifies it.
+_Avoid_: finding, fact, claim (reserved for law)
+
+**suy luận**:
+KLAW's reading over quan sát: a gap, a contradiction, a purpose. Always labelled
+as the model's, never presented as quan sát or as law.
+_Avoid_: analysis, insight, conclusion
+
+**mục đích (`muc_dich`)**:
+What the asker wants done with a tài liệu in one turn: `tom_tat`, `hoi`,
+`phan_tich`, `trich_du_kien`, `so_sanh`, `doi_chieu_luat`, `tao_van_ban`,
+`sua_ban_thao`. A reading of the turn, never a document type.
+_Avoid_: intent (reserved for the router), mode, task type
+
+**đối chiếu luật**:
+Placing a clause from a tài liệu (dữ kiện) next to statute căn cứ and naming
+where they differ or what the law requires. Never a verdict of legality or
+benefit (QT-1).
+_Avoid_: legal review, đánh giá hợp pháp, phán quyết, có lợi/bất lợi
+
+**bản thảo tổng quát**:
+A draft KLAW composes without a checklist. Carries mức kiểm `tong_quat`; never
+"đã kiểm pháp lý".
+_Avoid_: general draft, template output
+
+**mức kiểm (`muc_kiem`)**:
+How much checking an output has passed: `tong_quat` (composed only),
+`doi_chieu_tai_lieu` (every quan sát anchored), `kiem_phap_ly` (checklist,
+rules and audit). Shown on every draft.
+_Avoid_: trust level, quality tier, verified flag
+
 ### Meta answers
 
 **câu hỏi meta**:
