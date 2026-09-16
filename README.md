@@ -11,11 +11,6 @@
 
 ### Bước 1: Fork hoặc Clone
 
-```bash
-# Clone template
-git clone https://github.com/AI20K-Build-Cohort-2/starter-code-template.git team-YOUR_TEAM_NAME
-cd team-YOUR_TEAM_NAME
-
 # Xóa git history cũ và khởi tạo lại
 rm -rf .git
 git init
@@ -64,7 +59,6 @@ uvicorn src.main:app --reload --port 8000
 
 ### Bước 5: Đọc hướng dẫn
 
-📖 Mở **[Technical Guidebook](https://phoenix.note.transformerlabs.ai/technical-book)** và làm theo từng chương.
 
 ## 🔒 Cổng bảo vệ trước khi mở công khai
 
