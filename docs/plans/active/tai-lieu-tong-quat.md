@@ -567,3 +567,50 @@ US$0.0012. A full evaluation run: about US$0.005 and 28 seconds.
   does not any more.
 - `POST /tai-lieu` keeps a cost ceiling per document but the whole-conversation
   document count is unbounded.
+
+## 2026-09-17 — Attach stops analysing
+
+Driven from the browser this time, against the running stack, on the account
+that reported it.
+
+What the user saw: logged in, new chat, attach a `.docx` — the panel answered
+"Cần đăng nhập và có một cuộc trò chuyện để đọc tài liệu". `POST /tai-lieu`
+required `hoi_thoai_id`, and a conversation only exists after the first
+question, so the very first attach of a session was a dead end. The same
+request also ran `rut_du_kien` and the interface opened a fact panel over the
+composer before the asker had said anything.
+
+Three defects, all reproduced in Chrome before the fix:
+
+1. Attach on a fresh chat was refused although the user was authenticated.
+2. Attach spent a model turn the chat turn was about to spend again —
+   `hieu_tai_lieu` is the only node that sees the document text and it already
+   extracts, anchors and stores facts.
+3. The chosen `File` stayed in route state, so switching sessions re-ran the
+   upload effect and burned another daily document allowance.
+
+Decided and recorded in `docs/decisions/2026-09-17-dinh-kem-khong-phan-tich.md`:
+`hoi_thoai_id` is optional and the server opens the session when it is absent;
+attach reads and stores units without calling a model; `rut_du_kien` runs only
+when the user picks a document type; attach shows a chip instead of opening the
+panel, and the chip opens it.
+
+Proof: `tests/test_api/test_tai_lieu_api.py` gained two cases — one attaches
+with no `hoi_thoai_id` and asserts the returned session belongs to the uploader,
+one installs an LLM that raises and asserts a 201 with `du_kien == []` and
+`so_don_vi > 0`. Both fail against the previous code. In the browser: attach on
+`/dung-thu` with no `?phien=` pinned a new session to the URL and left the
+composer usable, the next question answered from the document with clickable
+anchors, and clicking the chip opened the reader at "Đã đọc 28 đơn vị · 1
+trang".
+
+Found while proving it: the panel's `daXinDonVi` ref and its `boQua` cleanup
+could not coexist. Under StrictMode the first effect pass requested the units
+and was then marked stale by its own cleanup, while the second pass saw the ref
+already written and requested nothing — the panel opened empty with no error to
+follow. The ref is gone; `[idCanDoc]` was always the only guard needed.
+
+Limits: the daily document allowance is five on the free plan, so the browser
+run deleted its own `viec_doc_tai_lieu` rows between attempts. A document whose
+type is recognised but which nobody has asked about now carries no facts until
+a turn happens or the user picks a template.
