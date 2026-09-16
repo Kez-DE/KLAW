@@ -1,9 +1,14 @@
-.PHONY: run test lint format typecheck check clean
+.PHONY: run test test-all lint format typecheck check check-fix clean
 
 run:
 	uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
+# Cùng lane với CI (.github/workflows/ci.yml): `integration` cần Postgres đang
+# chạy, `pending_review` chờ chủ dự án duyệt tay. `make test-all` khi muốn đủ.
 test:
+	pytest tests/ -v --tb=short -m "not integration and not pending_review"
+
+test-all:
 	pytest tests/ -v
 
 lint:
@@ -15,7 +20,11 @@ format:
 typecheck:
 	mypy src/
 
-check: lint format test
+# `check` KHÔNG ghi tệp: nó chạy trên cây làm việc đang sửa dở và trên diff đang
+# được xem xét. `ruff format` sửa tệp, nên nó nằm ở `check-fix`, gọi tay.
+check: lint test
+
+check-fix: lint format test
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +
