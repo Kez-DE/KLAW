@@ -66,6 +66,10 @@ class DuKienOut(BaseModel):
 
 class TaiLieuOut(BaseModel):
     id: str
+    hoi_thoai_id: str = ""
+    """Cuộc trò chuyện tài liệu này thuộc về. Người gọi có thể KHÔNG gửi
+    `hoi_thoai_id` (đính kèm ở một đoạn chat chưa mở), nên đây là chỗ họ biết
+    phiên vừa được mở là phiên nào và hỏi tiếp vào đúng nó."""
     trang_thai: str
     so_trang: int | None = None
     chay_nen: bool
@@ -206,7 +210,7 @@ def _chay(viec_id: str, user_sub: str, hoi_thoai_id: str, loai: str, tai_lieu: T
 async def tai_len(
     nen: BackgroundTasks,
     tep: UploadFile = File(...),
-    hoi_thoai_id: str = Form(...),
+    hoi_thoai_id: str | None = Form(None),
     loai: str | None = Form(None),
     nguoi: dict = Depends(nguoi_dung_bat_buoc),
 ) -> TaiLieuOut:
@@ -217,16 +221,25 @@ async def tai_len(
     lại, không phải đồng hồ.
     """
     du_lieu = await tep.read()
-    hoi_thoai_id = _uuid_hop_le(hoi_thoai_id)
-    # Cuộc hội thoại phải là CỦA NGƯỜI TẢI LÊN. Mọi đường đọc và dọn sau này
-    # (`don_vi_cua`, `tai_lieu_cua_hoi_thoai`, `xoa_theo_hoi_thoai`) khoá theo
-    # `(hoi_thoai_id, user_sub)`, nên một tệp nhét vào phiên của người khác là
-    # một dòng không ai dọn được nữa (FR-024). 404 như `chi_tiet`: không tiết lộ
-    # phiên kia tồn tại.
     from src.services import hoi_thoai as ht
 
-    if await run_in_threadpool(ht.lay_phien, nguoi["sub"], hoi_thoai_id) is None:
-        raise HTTPException(status_code=404, detail=ht.LOI_KHONG_THAY)
+    if hoi_thoai_id is None:
+        # Đính kèm ở một đoạn chat chưa mở KHÔNG được là ngõ cụt. Phiên chỉ sinh
+        # ra sau câu hỏi đầu, nên đòi `hoi_thoai_id` ở đây bắt người dùng hỏi một
+        # câu vu vơ trước khi được đưa tờ giấy họ đang cầm. Tên tệp làm tiêu đề:
+        # nó là thứ duy nhất ta biết về phiên này cho tới lượt hỏi đầu tiên.
+        hoi_thoai_id = await run_in_threadpool(
+            ht.tao_phien, nguoi["sub"], tep.filename or "Tài liệu"
+        )
+    else:
+        # Cuộc hội thoại phải là CỦA NGƯỜI TẢI LÊN. Mọi đường đọc và dọn sau này
+        # (`don_vi_cua`, `tai_lieu_cua_hoi_thoai`, `xoa_theo_hoi_thoai`) khoá theo
+        # `(hoi_thoai_id, user_sub)`, nên một tệp nhét vào phiên của người khác là
+        # một dòng không ai dọn được nữa (FR-024). 404 như `chi_tiet`: không tiết lộ
+        # phiên kia tồn tại.
+        hoi_thoai_id = _uuid_hop_le(hoi_thoai_id)
+        if await run_in_threadpool(ht.lay_phien, nguoi["sub"], hoi_thoai_id) is None:
+            raise HTTPException(status_code=404, detail=ht.LOI_KHONG_THAY)
     try:
         tl.kiem_kich_thuoc(len(du_lieu))
     except VuotTran as e:
@@ -265,7 +278,8 @@ async def tai_len(
     # checklist lại ra về tay không, đúng cái ngõ cụt việc này đang gỡ.
     await run_in_threadpool(tl.luu_don_vi, get_engine(), viec_id, tai_lieu.don_vi)
     chung = {
-        "id": viec_id, "so_trang": tai_lieu.so_trang, "co_ocr": tai_lieu.co_ocr,
+        "id": viec_id, "hoi_thoai_id": hoi_thoai_id,
+        "so_trang": tai_lieu.so_trang, "co_ocr": tai_lieu.co_ocr,
         "ten_tep": tep.filename or "", "so_don_vi": len(tai_lieu.don_vi),
     }
 
@@ -274,15 +288,30 @@ async def tai_len(
     # hệ thống đọc lấy — và khi không nhận ra thì tài liệu vẫn ĐỌC XONG: cái
     # thiếu là bộ trường của một checklist, không phải cả tài liệu. Trạng thái
     # `can_chon_loai` không còn được ghi; nó chỉ còn đọc được ở dòng cũ.
+    nguoi_chon_loai = loai is not None
     doan = None if loai else phan_loai(tai_lieu.don_vi)
     loai = loai or (doan.loai if doan else None)
-    if loai is None:
+    if loai is not None:
+        await run_in_threadpool(tl.dat_loai, get_engine(), viec_id, nguoi["sub"], loai)
+
+    # ĐÍNH KÈM KHÔNG PHÂN TÍCH. Lượt hỏi kế tiếp đi qua `hieu_tai_lieu` — nơi duy
+    # nhất thấy chữ của tài liệu — và node đó tự rút dữ kiện, tự neo, tự ghi. Gọi
+    # `rut_du_kien` ngay ở đây là trả tiền mô hình lần thứ hai cho cùng một tờ
+    # giấy, trước khi người dùng kịp nói họ muốn gì với nó.
+    #
+    # Ngoại lệ duy nhất: người dùng TỰ chọn loại văn bản ("Rút dữ kiện theo mẫu"
+    # → soạn thảo). Lúc đó việc rút chính là thứ họ vừa yêu cầu, nên nó chạy.
+    if not nguoi_chon_loai:
         await run_in_threadpool(
             tl.dat_trang_thai, get_engine(), viec_id, nguoi["sub"], "xong",
             so_trang=tai_lieu.so_trang,
         )
-        return TaiLieuOut(**chung, trang_thai="xong", chay_nen=False, loai=None, du_kien=[])
-    await run_in_threadpool(tl.dat_loai, get_engine(), viec_id, nguoi["sub"], loai)
+        return TaiLieuOut(
+            **chung, trang_thai="xong", chay_nen=False, loai=loai, du_kien=[],
+            loai_ten=doan.ten if doan else None,
+            loai_tu_doan=doan is not None,
+            loai_can_cu=doan.can_cu if doan else None,
+        )
 
     if tl.chay_nen(tai_lieu.so_trang):
         nen.add_task(_chay, viec_id, nguoi["sub"], hoi_thoai_id, loai, tai_lieu)
@@ -322,6 +351,7 @@ async def chi_tiet(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> 
             ten = None
     return TaiLieuOut(
         id=str(viec["id"]),
+        hoi_thoai_id=str(viec["hoi_thoai_id"]),
         trang_thai=viec["trang_thai"],
         so_trang=viec.get("so_trang"),
         chay_nen=tl.chay_nen(viec.get("so_trang")),

@@ -460,3 +460,58 @@ async def test_tai_len_vao_phien_cua_nguoi_khac_la_404_va_khong_ghi_gi(client, k
             {"h": phien_a},
         ).scalar_one()
     assert n == 0, "không được tạo việc đọc trước khi kiểm chủ phiên"
+
+
+@pytest.mark.asyncio
+async def test_DINH_KEM_KHONG_CAN_PHIEN_CO_SAN_may_chu_mo_ho(client, khoa_ky, hai_nguoi, llm_gia):
+    """Kẹp một tệp vào đoạn chat CHƯA mở phải đi được (quyết định 2026-09-17).
+
+    Phiên chỉ sinh ra sau câu hỏi đầu, nên đòi `hoi_thoai_id` ở đây bắt người
+    dùng hỏi một câu vu vơ trước khi được đưa tờ giấy họ đang cầm — đúng ngõ cụt
+    người dùng gặp: "khi upload thì lại không chat được".
+    """
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+
+    r = await client.post(
+        "/api/v1/tai-lieu", headers=ha,
+        files={"tep": ("hd.docx", _docx("HỢP ĐỒNG LAO ĐỘNG", DONG_LUONG))},
+        data={},  # KHÔNG gửi `hoi_thoai_id`
+    )
+    assert r.status_code == 201, r.text
+    phien = r.json()["hoi_thoai_id"]
+    assert hoi_thoai.lay_phien(a, phien) is not None, "phiên vừa mở phải thuộc người tải lên"
+    assert r.json()["trang_thai"] == "xong"
+
+
+@pytest.mark.asyncio
+async def test_DINH_KEM_KHONG_GOI_MO_HINH_khi_khong_ai_chon_loai(
+    client, khoa_ky, hai_nguoi, monkeypatch
+):
+    """Đính kèm là một cử chỉ, không phải một lệnh chạy (quyết định 2026-09-17).
+
+    Phần hiểu tài liệu xảy ra ở `hieu_tai_lieu`, trong lượt hỏi kế tiếp. Rút dữ
+    kiện ngay lúc tải lên là trả tiền mô hình lần thứ hai cho cùng một tờ giấy,
+    trước khi người dùng kịp nói họ muốn gì với nó.
+    """
+    class _No:
+        def chat(self, *a, **k):
+            raise AssertionError("đính kèm KHÔNG được gọi mô hình")
+
+    monkeypatch.setattr(rtl.llm_svc, "from_settings", lambda: _No())
+    monkeypatch.setattr(rtl.llm_svc, "generate_model", lambda: "gia-lap")
+
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+
+    r = await client.post(
+        "/api/v1/tai-lieu", headers=ha,
+        files={"tep": ("hd.docx", _docx("HỢP ĐỒNG LAO ĐỘNG", DONG_LUONG, DONG_THU_VIEC))},
+        data={"hoi_thoai_id": phien},  # KHÔNG gửi `loai`
+    )
+    assert r.status_code == 201, r.text
+    d = r.json()
+    assert d["loai"] == "hdld", "vẫn tự nhận ra loại — đó là tra bảng, 0 token"
+    assert d["du_kien"] == [], "chưa ai hỏi gì thì chưa rút dữ kiện nào"
+    assert d["so_don_vi"] > 0, "nguyên văn vẫn phải đọc và lưu, để lượt hỏi sau dùng"

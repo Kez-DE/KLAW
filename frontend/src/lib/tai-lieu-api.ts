@@ -34,7 +34,8 @@ function laDuKien(x: unknown): x is DuKien {
 /** `POST /tai-lieu` — multipart, nên không đi qua `goi()` vốn chỉ gửi JSON. */
 export async function taiLen(
   tep: File,
-  hoiThoaiId: string,
+  /** `null` = chưa có phiên nào; máy chủ mở một phiên và trả id trong `hoi_thoai_id`. */
+  hoiThoaiId: string | null,
   /** `null` = để hệ thống tự nhận ra loại văn bản từ chính tài liệu. */
   loai: string | null,
   signal?: AbortSignal,
@@ -44,7 +45,10 @@ export async function taiLen(
 
   const form = new FormData();
   form.append("tep", tep);
-  form.append("hoi_thoai_id", hoiThoaiId);
+  // Khoá VẮNG MẶT chứ không phải chuỗi rỗng: `Form(None)` phía máy chủ đọc một
+  // chuỗi rỗng là một giá trị, rồi `_uuid_hop_le("")` trả 404 — đúng cái ngõ
+  // cụt đường này tồn tại để gỡ.
+  if (hoiThoaiId !== null) form.append("hoi_thoai_id", hoiThoaiId);
   if (loai) form.append("loai", loai);
 
   let phanHoi: Response;

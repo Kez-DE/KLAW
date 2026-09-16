@@ -38,6 +38,7 @@ export function OSoanCauHoi({
   onChonTep,
   dangDocTep,
   tepDaDinhKem,
+  onMoDinhKem,
   onBoDinhKem,
 }: {
   oHoi: React.RefObject<HTMLTextAreaElement | null>;
@@ -61,6 +62,9 @@ export function OSoanCauHoi({
    * hoặc vắng ⇒ lượt sau là một câu hỏi thường.
    */
   tepDaDinhKem?: { id: string; ten_tep: string }[] | null;
+  /** Mở khung xem tài liệu đó. Đính kèm KHÔNG tự mở khung nào — con chip là
+   *  đường duy nhất vào đó, nên nó phải bấm được. */
+  onMoDinhKem?: ((id: string) => void) | undefined;
   /** Bỏ ĐÚNG một tệp khỏi lượt sắp gửi. */
   onBoDinhKem?: ((id: string) => void) | undefined;
 }) {
@@ -83,9 +87,20 @@ export function OSoanCauHoi({
                     className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px]"
                   >
                     <Paperclip aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 truncate" title={tep.ten_tep}>
-                      {tep.ten_tep}
-                    </span>
+                    {onMoDinhKem ? (
+                      <button
+                        type="button"
+                        onClick={() => onMoDinhKem(tep.id)}
+                        title={`Xem nội dung đã đọc của ${tep.ten_tep}`}
+                        className="focus-brass min-w-0 cursor-pointer truncate rounded underline decoration-dotted underline-offset-2"
+                      >
+                        {tep.ten_tep}
+                      </button>
+                    ) : (
+                      <span className="min-w-0 truncate" title={tep.ten_tep}>
+                        {tep.ten_tep}
+                      </span>
+                    )}
                     {onBoDinhKem && (
                       <button
                         type="button"

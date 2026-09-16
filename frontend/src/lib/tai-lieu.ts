@@ -64,6 +64,10 @@ export interface DonViTaiLieu {
 
 export interface TaiLieu {
   id: string;
+  /** Cuộc trò chuyện tài liệu này thuộc về. Đính kèm ở một đoạn chat CHƯA mở
+   *  không gửi `hoi_thoai_id` nào, và máy chủ mở phiên hộ — đây là chỗ giao
+   *  diện biết phiên đó là phiên nào để ghim lên `?phien=` và hỏi tiếp vào nó. */
+  hoi_thoai_id: string;
   /** `can_chon_loai` CHỈ còn ở bản ghi cũ: từ 2026-09-16 một tài liệu không
    *  khớp mẫu nào vẫn về `xong` với `du_kien: []` — xem `docs/plans/active/
    *  tai-lieu-tong-quat.md`. Giữ nhãn để lượt đã lưu trước đó còn hiện được. */

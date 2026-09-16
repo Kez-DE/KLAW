@@ -14,6 +14,8 @@ import { TheKetQua } from "@/components/klaw/TheKetQua";
 import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
 import { TaiLieuDuKien } from "@/components/klaw/TaiLieuDuKien";
+import { loiTruocKhiGui, seDungOcr } from "@/lib/tai-lieu";
+import { taiLen } from "@/lib/tai-lieu-api";
 import { loaiBackendCua } from "@/lib/mau-van-ban";
 import { daTat, ghiNhoDaTat, khoaHetHan } from "@/lib/tat-thong-bao";
 import { SanKhauBanThao } from "@/components/soan-thao/SanKhauBanThao";
@@ -418,8 +420,13 @@ function ManHoiKlaw() {
    *  tiếp thì khoá đổi, nên thẻ hiện lại — nếu không người dùng mất lượt mà
    *  không biết vì sao. */
   const [daTatHetHan, datDaTatHetHan] = useState(false);
-  const [tepDinhKem, datTepDinhKem] = useState<File | null>(null);
   const [dangDocTep, datDangDocTep] = useState(false);
+  /** Tệp GỐC theo id việc đọc — chỉ để rút lại theo mẫu trong khung tài liệu.
+   *  Ref chứ không state: nó không vẽ ra gì, và giữ nó trong state làm mọi lượt
+   *  đính kèm dựng lại cả màn hỏi. */
+  const tepGocTheoId = useRef(new Map<string, File>());
+  /** Phiên do chính lần ĐÍNH KÈM này mở ra, trong khoảng `?phien=` chưa kịp đổi. */
+  const phienVuaTao = useRef<string | null>(null);
   /** Tài liệu đã đọc xong và sẽ đi kèm câu hỏi SẮP gửi — tối đa `TOI_DA_DINH_KEM`.
    *  Đọc xong là đính kèm ngay, kể cả khi tài liệu không khớp mẫu checklist nào. */
   const [tepDaDinhKem, datTepDaDinhKem] = useState<{ id: string; ten_tep: string }[]>([]);
@@ -433,7 +440,11 @@ function ManHoiKlaw() {
   const dsDinhKem = useRef(tepDaDinhKem);
   dsDinhKem.current = tepDaDinhKem;
   /** Neo vừa bấm trong một thẻ kết quả — khung tài liệu mở đúng chỗ đó. */
-  const [donViDangMo, datDonViDangMo] = useState<{ taiLieuId: string; chiSo: number } | null>(null);
+  const [donViDangMo, datDonViDangMo] = useState<{
+    taiLieuId: string;
+    /** `null` = mở cả tài liệu, không tô đơn vị nào (bấm con chip đính kèm). */
+    chiSo: number | null;
+  } | null>(null);
 
   useLayoutEffect(() => {
     cuoi.current?.scrollIntoView({ block: "end" });
@@ -463,6 +474,8 @@ function ManHoiKlaw() {
     datTepDaDinhKem([]);
     datTepCuaLuot([]);
     datTepDaLuu({});
+    phienVuaTao.current = null;
+    tepGocTheoId.current.clear();
     datDonViDangMo(null);
     datMoTaiLieu(false);
     if (phienId !== undefined && daDangNhap) taiChiTiet(phienId);
@@ -595,7 +608,7 @@ function ManHoiKlaw() {
     // ngữ cảnh nó cần nhất.
     const kemTaiLieu = ids.length > 0 ? { taiLieuIds: ids } : {};
     if (daDangNhap) {
-      const id = phienId ?? traCuu.hoiThoaiId ?? undefined;
+      const id = phienId ?? traCuu.hoiThoaiId ?? phienVuaTao.current ?? undefined;
       traCuu.hoi(noiDung, id === undefined ? kemTaiLieu : { hoiThoaiId: id, ...kemTaiLieu });
     } else {
       traCuu.hoi(noiDung, { lichSu: dungLichSu(luotTruoc), ...kemTaiLieu });
@@ -606,6 +619,58 @@ function ManHoiKlaw() {
   const moNeoTaiLieu = (taiLieuId: string, chiSo: number) => {
     datDonViDangMo({ taiLieuId, chiSo });
     datMoTaiLieu(true);
+  };
+
+  /** Bấm con chip đính kèm: mở chính tài liệu đó, không tô đơn vị nào.
+   *
+   *  Đây là đường DUY NHẤT còn mở khung tài liệu bằng tay. Đính kèm không mở
+   *  nó nữa: kẹp một tờ giấy vào câu hỏi rồi gõ tiếp là việc người dùng đang
+   *  làm, và bung một bảng dữ kiện giữa lúc đó là chen ngang. */
+  const moTaiLieuDinhKem = (taiLieuId: string) => {
+    datDonViDangMo({ taiLieuId, chiSo: null });
+    datMoTaiLieu(true);
+  };
+
+  /**
+   * Đính kèm một tệp: tải lên, gắn chip, KHÔNG mở khung và KHÔNG phân tích.
+   *
+   * Máy chủ chỉ đọc tài liệu thành đơn vị văn bản. Phần hiểu nó nói gì xảy ra ở
+   * lượt hỏi kế tiếp (`hieu_tai_lieu`), đúng như ChatGPT/Claude: kẹp tệp là một
+   * cử chỉ, không phải một lệnh chạy.
+   *
+   * Chưa có phiên nào thì máy chủ mở hộ một phiên và trả id về — đính kèm ở một
+   * đoạn chat mới thôi là ngõ cụt.
+   */
+  const taiTepLen = async (tep: File) => {
+    const loiTep = loiTruocKhiGui(tep.name, tep.size);
+    if (loiTep) {
+      toast.error(loiTep);
+      return;
+    }
+    const idToast = toast.loading(
+      seDungOcr(tep.name) ? "Đang nhận dạng chữ trong ảnh…" : "Đang đọc tài liệu…",
+    );
+    datDangDocTep(true);
+    const phienHienCo = phienId ?? traCuu.hoiThoaiId ?? phienVuaTao.current;
+    const kq = await taiLen(tep, phienHienCo, loaiDangSoan);
+    datDangDocTep(false);
+    if (!kq.ok) {
+      toast.error(kq.error.message, { id: idToast });
+      return;
+    }
+    tepGocTheoId.current.set(kq.data.id, tep);
+    ghiNhoDinhKem({ id: kq.data.id, ten_tep: kq.data.ten_tep || tep.name });
+    toast.success("Đã đính kèm. Hỏi gì về tài liệu này cũng được.", { id: idToast });
+    if (phienHienCo !== null) return;
+    // Phiên máy chủ vừa mở hộ. Ghim lên URL để tải lại trang không mất nó, và
+    // ghi cả hai cái chốt một-lần (`phienDangHien`, `daGhim`) TRƯỚC khi điều
+    // hướng: thiếu chúng, hiệu ứng đổi phiên coi đây là một phiên khác và xoá
+    // đúng con chip vừa gắn.
+    phienVuaTao.current = kq.data.hoi_thoai_id;
+    phienDangHien.current = kq.data.hoi_thoai_id;
+    daGhim.current = kq.data.hoi_thoai_id;
+    taiLaiPhien();
+    void navigate({ to: "/dung-thu", search: { phien: kq.data.hoi_thoai_id }, replace: true });
   };
 
   /**
@@ -1069,14 +1134,16 @@ function ManHoiKlaw() {
           <TaiLieuDuKien
             hoiThoaiId={phienId ?? traCuu.hoiThoaiId}
             loai={loaiDangSoan}
-            tepVao={tepDinhKem}
-            onDangDoc={datDangDocTep}
+            tepGoc={
+              donViDangMo === null
+                ? null
+                : (tepGocTheoId.current.get(donViDangMo.taiLieuId) ?? null)
+            }
             onDaDinhKem={ghiNhoDinhKem}
             onChip={dienGoiY}
             donViDangMo={donViDangMo}
             onDong={() => {
               datMoTaiLieu(false);
-              datTepDinhKem(null);
               datDonViDangMo(null);
             }}
           />
@@ -1090,13 +1157,14 @@ function ManHoiKlaw() {
         onGui={gui}
         mucChip={mucChip}
         dangCho={dangKiemPhien && !chuaCauHinh}
-        onChonTep={(tep) => {
-          datTepDinhKem(tep);
-          datMoTaiLieu(true);
-        }}
+        onChonTep={(tep) => void taiTepLen(tep)}
         dangDocTep={dangDocTep}
         tepDaDinhKem={tepDaDinhKem}
-        onBoDinhKem={(id) => datTepDaDinhKem((truoc) => truoc.filter((t) => t.id !== id))}
+        onMoDinhKem={moTaiLieuDinhKem}
+        onBoDinhKem={(id) => {
+          tepGocTheoId.current.delete(id);
+          datTepDaDinhKem((truoc) => truoc.filter((t) => t.id !== id));
+        }}
       />
     </div>
   );

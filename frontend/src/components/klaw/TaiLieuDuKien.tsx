@@ -22,7 +22,7 @@ import {
   type DuKien,
   type TaiLieu,
 } from "@/lib/tai-lieu";
-import { donVi, sangSoanThao, suaDuKien, taiLen, xoaDuKien } from "@/lib/tai-lieu-api";
+import { chiTiet, donVi, sangSoanThao, suaDuKien, taiLen, xoaDuKien } from "@/lib/tai-lieu-api";
 import { LOAI_BACKEND, MAU } from "@/lib/mau-van-ban";
 import { cn } from "@/lib/utils";
 import type { ApiError } from "@/lib/klaw";
@@ -40,22 +40,21 @@ interface Props {
   onDaDungDeSoan?: () => void;
   /** Đóng khung. `undefined` khi khung không tự đóng được (đặt cố định). */
   onDong?: (() => void) | undefined;
-  /** Tệp người dùng vừa chọn ở ô soạn câu hỏi. Đọc ngay khi đủ điều kiện. */
-  tepVao?: File | null;
-  /** Báo ra ngoài để nút kẹp giấy khoá trong lúc đang đọc. */
-  onDangDoc?: ((dang: boolean) => void) | undefined;
   /**
-   * Đọc xong một tài liệu — dù có khớp mẫu checklist nào hay KHÔNG.
+   * Tệp GỐC của tài liệu đang xem, để rút lại theo mẫu.
    *
-   * Đây là chỗ khung này thôi làm ngõ cụt: trước đây một tài liệu ngoài 29 mẫu
-   * dừng ở "chưa nhận ra loại văn bản" và người dùng hết đường đi. Nay mọi tài
-   * liệu đọc được đều đi tiếp thành một tệp đính kèm của lượt hỏi kế.
+   * Khung này KHÔNG tải lên nữa: đính kèm xảy ra ở ô soạn câu hỏi và không mở
+   * khung nào cả (giống ChatGPT/Claude — kẹp tệp xong là gõ tiếp). Tệp gốc chỉ
+   * còn cần cho một việc: người dùng tự chọn loại văn bản, và KLAW đọc lại
+   * chính tờ đó để rút đúng bộ trường mẫu ấy cần.
    */
+  tepGoc?: File | null;
+  /** Rút lại theo mẫu sinh ra một việc đọc MỚI — chip ở ô soạn phải trỏ sang nó. */
   onDaDinhKem?: ((tep: { id: string; ten_tep: string }) => void) | undefined;
   /** Điền một câu vào ô hỏi (chip câu hỏi đầu tiên). KHÔNG tự gửi. */
   onChip?: ((chu: string) => void) | undefined;
   /** Neo vừa bấm ở thẻ kết quả: mở đúng tài liệu đó và tô đúng đơn vị đó. */
-  donViDangMo?: { taiLieuId: string; chiSo: number } | null;
+  donViDangMo?: { taiLieuId: string; chiSo: number | null } | null;
 }
 
 /** Ba câu hỏi đầu tiên cho một tài liệu chưa biết dùng để làm gì. Chúng phải
@@ -76,8 +75,7 @@ export function TaiLieuDuKien({
   loai,
   onDaDungDeSoan,
   onDong,
-  tepVao,
-  onDangDoc,
+  tepGoc,
   onDaDinhKem,
   onChip,
   donViDangMo,
@@ -100,7 +98,9 @@ export function TaiLieuDuKien({
    *  lượt TRƯỚC, khi khung này chưa từng tải lên gì trong lần mở hiện tại. */
   const [banDoc, datBanDoc] = useState<DonViTaiLieu | null>(null);
   const oDonViDangMo = useRef<HTMLLIElement | null>(null);
-  const daXinDonVi = useRef<string | null>(null);
+  /** Tài liệu `tep` đang mô tả — để không xin lại chi tiết của chính nó. */
+  const tepIdHienTai = useRef<string | null>(null);
+  tepIdHienTai.current = tep?.id ?? null;
 
   const loaiDung = loai ?? (loaiChon || null);
   const san = hoiThoaiId !== null && loaiDung !== null;
@@ -123,11 +123,9 @@ export function TaiLieuDuKien({
       );
       datTepHienTai(f);
       datDangTai(true);
-      onDangDoc?.(true);
       datLoiTai(null);
       const kq = await taiLen(f, hoiThoaiId, loaiDung);
       datDangTai(false);
-      onDangDoc?.(false);
       if (!kq.ok) {
         datLoiTai(kq.error);
         toast.error(kq.error.message, { id });
@@ -148,13 +146,15 @@ export function TaiLieuDuKien({
         { id },
       );
     },
-    [hoiThoaiId, loaiDung, onDangDoc, onDaDinhKem],
+    [hoiThoaiId, loaiDung, onDaDinhKem],
   );
 
-  // Tệp mới từ ô soạn câu hỏi: đọc ngay.
+  // Tệp gốc đi từ ngoài vào để rút lại theo mẫu. KHÔNG có hiệu ứng nào tự gọi
+  // `gui` theo nó: đọc phải là một việc người dùng vừa yêu cầu, không phải một
+  // phản ứng với state — đường cũ đọc lại chính tệp đó mỗi lần đổi phiên.
   useEffect(() => {
-    if (tepVao) void gui(tepVao);
-  }, [tepVao, gui]);
+    datTepHienTai(tepGoc ?? null);
+  }, [tepGoc]);
 
   // Người dùng vừa chọn loại: đọc lại chính tệp đó với loại đã chọn. `tep.loai
   // === null` là đường mới (tài liệu ngoài mẫu, đã đọc xong) — họ vẫn rút được
@@ -163,7 +163,7 @@ export function TaiLieuDuKien({
     if (
       loaiChon &&
       tepHienTai &&
-      (tep?.trang_thai === "can_chon_loai" || doiLoai || tep?.loai === null)
+      (tep?.trang_thai === "can_chon_loai" || doiLoai || tep?.du_kien.length === 0)
     ) {
       datDoiLoai(false);
       void gui(tepHienTai);
@@ -179,13 +179,12 @@ export function TaiLieuDuKien({
   const idCanDoc =
     donViDangMo?.taiLieuId ??
     // `trang_thai === "xong"` là bắt buộc: bản ghi CŨ dừng ở `can_chon_loai`
-    // cũng có `loai === null`, nhưng chúng không có nguyên văn nào để lấy —
-    // gọi `/don-vi` cho chúng chỉ đổi lấy một 404 và một toast vô cớ.
-    (tep !== null && tep.loai === null && tep.trang_thai === "xong" ? tep.id : null);
+    // không có nguyên văn nào để lấy — gọi `/don-vi` cho chúng chỉ đổi lấy một
+    // 404 và một toast vô cớ.
+    (tep !== null && tep.trang_thai === "xong" ? tep.id : null);
 
   useEffect(() => {
-    if (idCanDoc === null || daXinDonVi.current === idCanDoc) return;
-    daXinDonVi.current = idCanDoc;
+    if (idCanDoc === null) return;
     let boQua = false;
     void donVi(idCanDoc).then((kq) => {
       if (boQua) return;
@@ -194,6 +193,13 @@ export function TaiLieuDuKien({
       // nguyên văn là một việc người dùng phải biết để còn bấm lại.
       else toast.error(kq.error.message);
     });
+    // Dữ kiện của tài liệu đó, khi khung mở từ một con chip chứ không từ một
+    // lần tải lên. Lỗi ở đây IM LẶNG có chủ đích: nguyên văn ở trên mới là nội
+    // dung của khung, và một tài liệu chưa ai hỏi tới thì chưa có dữ kiện nào.
+    if (idCanDoc !== tepIdHienTai.current)
+      void chiTiet(idCanDoc).then((kq) => {
+        if (!boQua && kq.ok) datTep(kq.data);
+      });
     return () => {
       boQua = true;
     };
@@ -250,9 +256,19 @@ export function TaiLieuDuKien({
   // Bản ghi CŨ (trước 2026-09-16) còn dừng ở `can_chon_loai`; bản mới không bao
   // giờ tới đó nữa. Giữ nhánh này để một lượt đã lưu vẫn mở lại được.
   const canChonLoai = loai === null && (tep?.trang_thai === "can_chon_loai" || doiLoai);
-  /** Tài liệu đọc xong mà không khớp mẫu nào — đường đi CHÍNH từ 2026-09-16. */
+  /**
+   * Đọc xong nhưng CHƯA rút dữ kiện theo mẫu nào — đường đi CHÍNH từ 2026-09-16.
+   *
+   * Không còn hỏi `tep.loai === null`: từ 2026-09-17 đính kèm không rút dữ kiện
+   * nữa, kể cả khi hệ thống tự nhận ra loại văn bản. Thứ quyết định màn hình này
+   * hiện gì là CÓ DỮ KIỆN HAY KHÔNG, không phải có đoán ra loại hay không.
+   */
   const ngoaiMau =
-    loai === null && tep !== null && tep.loai === null && tep.trang_thai === "xong" && !doiLoai;
+    loai === null &&
+    tep !== null &&
+    tep.trang_thai === "xong" &&
+    tep.du_kien.length === 0 &&
+    !doiLoai;
 
   /**
    * Dòng dưới tên tệp. Nó là chỗ agent nói ra nó ĐÃ HIỂU tài liệu là gì —
@@ -269,6 +285,9 @@ export function TaiLieuDuKien({
           : tep.loai_ten
         : (tep?.mo_ta ?? "Tệp");
 
+  /** Tên tài liệu đang xem. Mở khung bằng cách bấm chip thì không có `File`
+   *  nào trong tay — `/don-vi` đã trả tên tệp, dùng nó. */
+  const tenHienThi = tepHienTai?.name ?? banDoc?.ten_tep ?? null;
   const soDonVi = banDoc !== null ? banDoc.don_vi.length : (tep?.so_don_vi ?? 0);
   const soTrang = banDoc?.so_trang ?? tep?.so_trang ?? null;
   /** Nguyên văn nhóm theo trang, đúng thứ tự tài liệu. */
@@ -324,17 +343,17 @@ export function TaiLieuDuKien({
         )}
       </div>
 
-      {tepHienTai && (
+      {tenHienThi !== null && (
         <div className="mb-3 flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
           <FileText aria-hidden className="size-5 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium" title={tepHienTai.name}>
-              {tepHienTai.name}
+            <span className="block truncate text-sm font-medium" title={tenHienThi}>
+              {tenHienThi}
             </span>
             <span className="block truncate text-xs text-muted-foreground">{phuDe}</span>
           </span>
           {dangTai && <Loader2 aria-hidden className="size-4 shrink-0 animate-spin" />}
-          {tep?.loai_ten && !doiLoai && (
+          {tep?.loai_ten && !doiLoai && tepHienTai !== null && (
             <button
               type="button"
               onClick={() => datDoiLoai(true)}
@@ -454,7 +473,7 @@ export function TaiLieuDuKien({
 
       {/* Rút dữ kiện theo mẫu vẫn còn nguyên, chỉ thôi đứng chắn đường: nó là
           MỘT việc làm được với tài liệu, không phải cửa vào. */}
-      {ngoaiMau && (
+      {ngoaiMau && tepHienTai !== null && (
         <details className="mt-3 rounded-lg border border-border bg-background p-3">
           <summary className="focus-brass cursor-pointer text-sm">Rút dữ kiện theo mẫu</summary>
           <p className="mt-2 mb-2 text-xs text-muted-foreground">
