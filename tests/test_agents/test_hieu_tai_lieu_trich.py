@@ -344,3 +344,43 @@ def test_gia_tri_that_co_chua_tu_giong_KHONG_bi_loai(gia_tri):
     ]))
     ra = h.hieu_tai_lieu(ST, [{"id": A_ID, "ten_tep": "x.docx", "don_vi": dv}], llm, "m")
     assert [d["gia_tri"] for d in ra["tai_lieu_du_kien_moi"]] == [gia_tri]
+
+
+# ──────────────────────────────── khoá TRÙNG trong cùng một lượt
+# Đo toàn tuyến HTTP 2026-09-16: một lượt rút ra 13 dữ kiện, trong đó `khoa`
+# `diem_toi_da` xuất hiện bốn lần với bốn giá trị khác nhau. Chống trùng ở
+# `luu_du_kien` chỉ so với dòng ĐÃ CÓ, nên cả bốn cùng vào trong một lần ghi.
+# Bảng dữ kiện khi ấy có bốn dòng cùng tên, và không dòng nào nói nó thuộc tiêu
+# chí nào — cũng không sửa được theo khoá.
+
+
+def test_khoa_trung_trong_MOT_luot_duoc_danh_so():
+    dv = [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Chuyên cần: 2,0 điểm tối đa"),
+        DonViVanBan(chi_so=1, trang=1, offset_dau=30, noi_dung="Thái độ làm việc: 3,0 điểm tối đa"),
+        DonViVanBan(chi_so=2, trang=1, offset_dau=60, noi_dung="Kết quả công việc: 5,0 điểm tối đa"),
+    ]
+    llm = _LLM(_ra(muc_dich="trich_du_kien", truong=[
+        {"khoa": "diem_toi_da", "nhan": "Điểm tối đa", "gia_tri": "2,0", "trich": "Chuyên cần: 2,0 điểm tối đa"},
+        {"khoa": "diem_toi_da", "nhan": "Điểm tối đa", "gia_tri": "3,0",
+         "trich": "Thái độ làm việc: 3,0 điểm tối đa"},
+        {"khoa": "diem_toi_da", "nhan": "Điểm tối đa", "gia_tri": "5,0",
+         "trich": "Kết quả công việc: 5,0 điểm tối đa"},
+    ]))
+    ra = h.hieu_tai_lieu(ST, [{"id": A_ID, "ten_tep": "x.docx", "don_vi": dv}], llm, "m")
+    khoa = [d["key"] for d in ra["tai_lieu_du_kien_moi"]]
+    assert khoa == ["diem_toi_da", "diem_toi_da_2", "diem_toi_da_3"]
+    assert [d["gia_tri"] for d in ra["tai_lieu_du_kien_moi"]] == ["2,0", "3,0", "5,0"]
+
+
+def test_khoa_khac_nhau_thi_khong_danh_so():
+    dv = [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Chuyên cần: 2,0 điểm tối đa"),
+        DonViVanBan(chi_so=1, trang=1, offset_dau=30, noi_dung="Thái độ làm việc: 3,0 điểm tối đa"),
+    ]
+    llm = _LLM(_ra(muc_dich="trich_du_kien", truong=[
+        {"khoa": "chuyen_can", "nhan": "Chuyên cần", "gia_tri": "2,0", "trich": "Chuyên cần: 2,0 điểm tối đa"},
+        {"khoa": "thai_do", "nhan": "Thái độ", "gia_tri": "3,0", "trich": "Thái độ làm việc: 3,0 điểm tối đa"},
+    ]))
+    ra = h.hieu_tai_lieu(ST, [{"id": A_ID, "ten_tep": "x.docx", "don_vi": dv}], llm, "m")
+    assert [d["key"] for d in ra["tai_lieu_du_kien_moi"]] == ["chuyen_can", "thai_do"]

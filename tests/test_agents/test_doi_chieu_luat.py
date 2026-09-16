@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 
 from src.agents.graph_tra_cuu import _re_sau_hieu_tai_lieu
+from src.agents.nodes import assemble as a
 from src.agents.nodes import hieu_tai_lieu as h
 from src.agents.nodes.assemble import (
     NHAN_DIEU_KHOAN_TAI_LIEU,
@@ -317,12 +318,21 @@ def test_dieu_khoan_vao_loi_nhac_duoi_nhan_du_kien():
 
 
 def test_van_xuoi_phan_quyet_KHONG_duoc_phat_hanh():
+    """Chặn VĂN XUÔI, không chặn CĂN CỨ.
+
+    Bản trước hạ cả lượt xuống `abstain` và trả `citations: []` — đo toàn tuyến
+    2026-09-16 thấy người hỏi mất luôn `45/2019/QH14 > Điều 25 > Khoản 2` đã qua
+    hai tầng kiểm, tức mất đúng thứ sản phẩm này tồn tại để đưa ra. Chỉ có câu
+    kết luận là sai; căn cứ thì không. `abstain` cũng nói sai sự thật: nó nghĩa
+    là KHÔNG đủ căn cứ, mà ở đây căn cứ có và đã kiểm.
+    """
     ra = _phap_ly(PHAN_QUYET)
-    assert ra["result_type"] is ResultType.abstain
-    assert ra["answer"] is None
+    assert ra["result_type"] is ResultType.answer
     assert ra["traces"]["assemble_phan_quyet_bi_chan"] == "không hợp pháp"
-    # Nửa đầu phải NÊU LUẬT và khác biệt, không phải một lời từ chối trơ.
-    assert "Ít nhất 85%." in ra["coverage_note"] and THU_VIEC in ra["coverage_note"]
+    # Văn xuôi phát hành là bản DỰNG TỪ luận điểm đã kiểm, không phải của mô hình.
+    assert PHAN_QUYET not in (ra["answer"] or "")
+    assert "Ít nhất 85%." in ra["answer"] and THU_VIEC in ra["answer"]
+    assert ra["citations"], "căn cứ đã kiểm phải còn lại"
 
 
 def test_luot_KHONG_doi_chieu_khong_bi_phep_kiem_phan_quyet_cham_toi():
@@ -332,3 +342,39 @@ def test_luot_KHONG_doi_chieu_khong_bi_phep_kiem_phan_quyet_cham_toi():
                   tai_lieu_neo=[], tai_lieu_ket=None)
     assert ra["result_type"] is ResultType.answer
     assert ra["traces"].get("assemble_phan_quyet_bi_chan") is None
+
+
+# ───────────────── phán quyết nói VÒNG: cùng kết luận, chữ khác
+# Đo toàn tuyến HTTP 2026-09-16: câu trả lời thật viết "Riêng mức thử việc 90
+# ngày bạn nêu trong hợp đồng có thể KHÔNG ĐÚNG QUY ĐỊNH PHÁP LUẬT". Không cụm
+# nào trong danh sách khớp, nhưng nó là đúng kết luận mà QT-1 cấm — chỉ nói
+# vòng và thêm "có thể". Một danh sách chặn theo chữ mà bỏ cách nói phổ biến
+# nhất thì nó chỉ dạy mô hình nói vòng.
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        "Mức thử việc 90 ngày có thể không đúng quy định pháp luật.",
+        "Điều khoản này không đúng quy định của pháp luật.",
+        "Thoả thuận này không phù hợp với quy định pháp luật.",
+        "Điều khoản đó vi phạm pháp luật lao động.",
+        "Hợp đồng này sai quy định.",
+        "Điều khoản này là hợp lệ.",
+        "Thoả thuận này không hợp lệ.",
+    ],
+)
+def test_phan_quyet_noi_vong_van_bi_chan(cau):
+    assert a.cau_phan_quyet(cau, []) is not None
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        "Điều 25 yêu cầu thời gian thử việc không quá 60 ngày; hợp đồng ghi 90 ngày.",
+        "Luật quy định tối đa 60 ngày. Tài liệu của bạn ghi 90 ngày, dài hơn 30 ngày.",
+        "Điều 25 Khoản 2 đặt trần 60 ngày cho công việc yêu cầu trình độ cao đẳng trở lên.",
+    ],
+)
+def test_neu_luat_va_cho_lech_KHONG_bi_chan(cau):
+    assert a.cau_phan_quyet(cau, []) is None

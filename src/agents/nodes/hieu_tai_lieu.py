@@ -639,6 +639,17 @@ def _lay_truong(ra: dict, goi: list[dict]) -> tuple[list[dict], dict[str, int]]:
             dem["khong_neo"] += 1
             continue
         t, n = neo
+        # Khoá TRÙNG trong cùng một lượt được đánh số. Đo toàn tuyến 2026-09-16:
+        # một phiếu chấm cho ra `diem_toi_da` bốn lần với bốn giá trị — bốn dòng
+        # cùng tên, không dòng nào nói nó thuộc tiêu chí nào, và `PATCH
+        # /tai-lieu/du-kien/{id}` sửa theo id nên người dùng sửa mò. Chống trùng
+        # ở `luu_du_kien` chỉ so với dòng ĐÃ CÓ, nên nó không thấy ca này.
+        da_dung = {d["key"] for d in giu}
+        if khoa in da_dung:
+            goc, i = khoa, 2
+            while f"{goc}_{i}" in da_dung:
+                i += 1
+            khoa = f"{goc}_{i}"
         giu.append({
             "key": khoa,
             "nhan": str(o.get("nhan") or "").strip() or None,

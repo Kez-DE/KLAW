@@ -462,8 +462,16 @@ def khoi_tinh_huong_doi_chieu(ho_so: dict, tai_lieu_neo: list[dict]) -> str:
 # traces là cụm cụ thể nhất, không phải mảnh chung của nó.
 LY_DO_PHAN_QUYET = "answer_ra_phan_quyet_thay_vi_neu_luat"
 
+# Đo toàn tuyến HTTP 2026-09-16: câu trả lời thật viết "mức thử việc 90 ngày
+# bạn nêu trong hợp đồng có thể KHÔNG ĐÚNG QUY ĐỊNH PHÁP LUẬT" — đúng kết luận
+# QT-1 cấm, chỉ nói vòng và thêm "có thể", và không cụm nào trong danh sách khi
+# ấy khớp. Một danh sách bỏ sót cách nói phổ biến nhất thì nó chỉ dạy mô hình
+# nói vòng. Các cụm dưới đây là CÙNG MỘT KẾT LUẬN viết bằng chữ khác nhau.
 CUM_PHAN_QUYET = (
     "không hợp pháp", "hợp pháp", "trái pháp luật", "trái luật", "vô hiệu",
+    "không đúng quy định", "không đúng với quy định", "sai quy định",
+    "không phù hợp với quy định", "không phù hợp quy định",
+    "vi phạm pháp luật", "vi phạm quy định", "không hợp lệ", "hợp lệ",
     "có lợi", "bất lợi", "chắc chắn thắng", "thắng kiện", "sẽ thắng", "được bồi thường",
 )
 
@@ -1447,10 +1455,22 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
                 "assemble: answer ra phán quyết (%r) trên lượt đối chiếu — hạ xuống ngõ cụt (%s)",
                 cum, LY_DO_PHAN_QUYET,
             )
-            ket = _ngo_cut(
-                state, llm, model, ResultType.abstain, usage=usage, degraded=degraded,
-                ghi_chu=_neu_luat_thay_phan_quyet(dung_cho_prose, citations_dung_cho_prose,
-                                                  state.get("tai_lieu_neo") or []),
+            # Chặn VĂN XUÔI, KHÔNG chặn CĂN CỨ. Đo toàn tuyến 2026-09-16: bản
+            # trước hạ cả lượt xuống `abstain` với `citations: []`, và người hỏi
+            # mất luôn `45/2019/QH14 > Điều 25 > Khoản 2` đã qua hai tầng kiểm —
+            # tức mất đúng thứ sản phẩm này tồn tại để đưa ra. Chỉ câu kết luận
+            # là sai; căn cứ thì không. `abstain` cũng nói sai sự thật: nó nghĩa
+            # là KHÔNG đủ căn cứ (PRODUCT.md), mà ở đây căn cứ có và đã kiểm.
+            #
+            # Văn xuôi phát hành dựng TỪ chính các luận điểm đã kiểm
+            # (`_neu_luat_thay_phan_quyet`), nên mọi số Điều trong nó đã nằm sẵn
+            # trong `citations` — hai phép kiểm thẻ và số Điều ở trên vẫn đúng
+            # mà không phải chạy lại.
+            ket = _base(
+                state, ResultType.answer, usage=usage, degraded=degraded,
+                answer=_neu_luat_thay_phan_quyet(dung_cho_prose, citations_dung_cho_prose,
+                                                 state.get("tai_lieu_neo") or []),
+                citations=citations, warnings=warnings, documents=documents,
             )
             ket["traces"]["assemble_phan_quyet_bi_chan"] = cum
             ket["traces"]["assemble_dieu_bi_loai"] = []
