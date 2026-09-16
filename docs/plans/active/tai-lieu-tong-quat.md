@@ -359,12 +359,15 @@ SSE steps (S2): `("hieu_tai_lieu", "Đọc tài liệu đính kèm")`,
 
 ## Progress
 
-- [ ] S0 — branch `feat/tai-lieu-tong-quat`; glossary (`CONTEXT.md`), decision
-      record, this plan; spec FR-022 note.
-- [ ] S1 — parser structure + zip guard; migration 031; `don_vi` persistence;
-      no dead end; `GET /tai-lieu/{id}/don-vi`; soft-delete cleanup. Tests:
-      `test_doc_tai_lieu_cau_truc.py`, `test_tai_lieu_don_vi.py`
-      (integration), `test_tai_lieu_api.py` additions.
+- [x] S0 — branch `feat/tai-lieu-tong-quat`; glossary (`CONTEXT.md`), decision
+      record, this plan (`559db13`, local only). Spec FR-022 note lands with S1.
+- [x] S1 — parser structure + zip guard; migration 031; `don_vi` persistence;
+      no dead end; `GET /tai-lieu/{id}/don-vi`; soft-delete cleanup; upload
+      now 404s when the conversation is not the caller's (pre-existing gap).
+      Tests: `test_doc_tai_lieu_cau_truc.py` (13), `test_tai_lieu_don_vi.py`
+      (10, integration), `test_tai_lieu_api.py` (+5); 141 passed on the
+      document/service set. Sample DOCX: 33 units, 2 tables, 20 cells, 1
+      footer unit, no fallback.
 - [ ] S2 — request/state/graph: `tai_lieu_ids`, `hieu_tai_lieu` node + prompt
       v1, anchoring filter, `ResultType.tai_lieu`, assemble branch, route v4
       conditional intent, `BUOC_TRA_CUU`, cache bypass, memory guard. Tests:

@@ -34,7 +34,11 @@ DONG_THU_VIEC = "Thời gian thử việc: 60 ngày"
 
 
 def _docx(*dong: str) -> bytes:
-    than = "".join(f"<w:p><w:r><w:t>{d}</w:t></w:r></w:p>" for d in dong)
+    return _docx_tho("".join(f"<w:p><w:r><w:t>{d}</w:t></w:r></w:p>" for d in dong))
+
+
+def _docx_tho(than: str) -> bytes:
+    """DOCX với `w:body` cho sẵn — dùng khi cần bảng chứ không chỉ đoạn."""
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w") as z:
         z.writestr("[Content_Types].xml", '<?xml version="1.0"?><Types/>')
@@ -336,8 +340,14 @@ async def test_TU_NHAN_RA_loai_van_ban_khong_hoi_nguoi_dung(client, khoa_ky, hai
 
 
 @pytest.mark.asyncio
-async def test_KHONG_NHAN_RA_thi_HOI_chu_khong_doan_bua(client, khoa_ky, hai_nguoi, llm_gia):
-    """Ca thật từ người dùng: giấy tiếp nhận thực tập, ngoài 29 loại."""
+async def test_KHONG_NHAN_RA_loai_thi_VAN_DOC_XONG_chu_khong_be_tac(client, khoa_ky, hai_nguoi, llm_gia):
+    """Ca thật từ người dùng: giấy tiếp nhận thực tập, ngoài 29 loại.
+
+    Trước 2026-09-16 đây là ngõ cụt `can_chon_loai`: người dùng phải chọn một
+    trong 29 mẫu hoặc không đi tiếp được. Giờ tài liệu vẫn được đọc xong và
+    biểu diễn của nó ở lại để hỏi tiếp — cái mất đi chỉ là bộ trường của một
+    checklist, không phải cả tài liệu.
+    """
     a, _ = hai_nguoi
     ha = _bearer(khoa_ky, a)
     phien = hoi_thoai.tao_phien(a, "hợp đồng")
@@ -350,9 +360,70 @@ async def test_KHONG_NHAN_RA_thi_HOI_chu_khong_doan_bua(client, khoa_ky, hai_ngu
     )
     assert r.status_code == 201
     d = r.json()
-    assert d["trang_thai"] == "can_chon_loai"
+    assert d["trang_thai"] == "xong", "không nhận ra loại KHÔNG còn là ngõ cụt"
     assert d["loai"] is None
     assert d["du_kien"] == [], "không đoán được loại thì không được rút bừa dữ kiện"
+    assert d["so_don_vi"] == 2, "đã đọc được gì thì phải nói ra số đơn vị"
+    assert d["ten_tep"] == "bm-m05.docx"
+
+    # Biểu diễn ở lại để lượt sau còn neo vào.
+    dv = (await client.get(f"/api/v1/tai-lieu/{d['id']}/don-vi", headers=ha)).json()
+    assert [u["noi_dung"] for u in dv["don_vi"]] == [
+        "GIẤY TIẾP NHẬN THỰC HÀNH, THỰC TẬP", "Kính gửi: Trường Đại học Phenikaa"
+    ]
+    assert dv["ten_tep"] == "bm-m05.docx" and dv["id"] == d["id"]
+    assert {u["vung"] for u in dv["don_vi"]} == {"than"}
+    assert (await client.get(f"/api/v1/tai-lieu/{d['id']}", headers=ha)).json()["so_don_vi"] == 2
+
+
+@pytest.mark.asyncio
+async def test_don_vi_cua_NGUOI_KHAC_la_404(client, khoa_ky, hai_nguoi, llm_gia):
+    a, b = hai_nguoi
+    ha, hb = _bearer(khoa_ky, a), _bearer(khoa_ky, b)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _tai_len(client, ha, phien)).json()["id"]
+
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}/don-vi", headers=ha)).status_code == 200
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}/don-vi", headers=hb)).status_code == 404
+    assert (await client.get(f"/api/v1/tai-lieu/{uuid.uuid4()}/don-vi", headers=ha)).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_bang_trong_docx_ra_don_vi_co_TOA_DO(client, khoa_ky, hai_nguoi, llm_gia):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    bang = (
+        "<w:tbl><w:tr>"
+        "<w:tc><w:p><w:r><w:t>Tiêu chí</w:t></w:r></w:p></w:tc>"
+        "<w:tc><w:p><w:r><w:t>Điểm</w:t></w:r></w:p></w:tc>"
+        "</w:tr></w:tbl>"
+    )
+    r = await _tai_len(client, ha, phien, tep=_docx_tho(bang), ten="phieu.docx")
+    viec = r.json()["id"]
+
+    dv = (await client.get(f"/api/v1/tai-lieu/{viec}/don-vi", headers=ha)).json()["don_vi"]
+    assert [(u["noi_dung"], u["bang"]) for u in dv] == [("Tiêu chí", [0, 0, 0]), ("Điểm", [0, 0, 1])]
+
+
+@pytest.mark.asyncio
+async def test_XOA_HOI_THOAI_don_sach_bieu_dien_tai_lieu(client, khoa_ky, hai_nguoi, llm_gia):
+    """Xoá MỀM cuộc hội thoại không làm cascade nổ, nên nếu không dọn tay thì
+    nội dung tài liệu của bên thứ ba ở lại vô thời hạn."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _tai_len(client, ha, phien)).json()["id"]
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}/don-vi", headers=ha)).json()["don_vi"]
+
+    assert (await client.delete(f"/api/v1/hoi-thoai/{phien}", headers=ha)).status_code == 204
+
+    with get_engine().connect() as c:
+        con = c.execute(
+            text("SELECT count(*) FROM viec_doc_tai_lieu WHERE hoi_thoai_id = CAST(:h AS uuid)"),
+            {"h": phien},
+        ).scalar_one()
+    assert con == 0, "xoá cuộc hội thoại phải xoá theo biểu diễn tài liệu"
 
 
 @pytest.mark.asyncio
@@ -369,3 +440,23 @@ async def test_loai_NGUOI_DUNG_gui_thang_van_thang_suy_doan(client, khoa_ky, hai
     )
     assert r.json()["loai"] == "hop_dong_thu_viec"
     assert r.json()["loai_tu_doan"] is False
+
+
+@pytest.mark.asyncio
+async def test_tai_len_vao_phien_cua_nguoi_khac_la_404_va_khong_ghi_gi(client, khoa_ky, hai_nguoi, llm_gia):
+    """Tài liệu chỉ gắn được vào cuộc hội thoại CỦA MÌNH. Mọi đường đọc và dọn
+    (`don_vi_cua`, `tai_lieu_cua_hoi_thoai`, `xoa_theo_hoi_thoai`) khoá theo
+    `(hoi_thoai_id, user_sub)`, nên một dòng nhét vào phiên người khác là một
+    dòng không ai dọn được nữa — FR-024 hỏng im lặng."""
+    a, b = hai_nguoi
+    hb = _bearer(khoa_ky, b)
+    phien_a = hoi_thoai.tao_phien(a, "hợp đồng")
+
+    r = await _tai_len(client, hb, phien_a)
+    assert r.status_code == 404, r.text
+    with get_engine().connect() as c:
+        n = c.execute(
+            text("SELECT count(*) FROM viec_doc_tai_lieu WHERE hoi_thoai_id = CAST(:h AS uuid)"),
+            {"h": phien_a},
+        ).scalar_one()
+    assert n == 0, "không được tạo việc đọc trước khi kiểm chủ phiên"

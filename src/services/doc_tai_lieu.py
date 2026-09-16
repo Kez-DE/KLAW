@@ -52,6 +52,13 @@ _DPI_OCR = 200
 # một `tesseract` treo thì không phải đang chạy lâu, nó đang không chạy nữa.
 _HAN_TREO_GIAY = 300
 
+# Phanh zip bom. `tai_lieu.kiem_kich_thuoc` đo tệp ĐÃ NÉN, nên 64 MB số 0 nén
+# lại còn vài chục KB đi lọt qua nó và nở ra trong RAM lúc đọc. Hai con số dưới
+# đây đo cái zip KHAI BÁO, trước khi giải nén một byte nào. Một DOCX thật có
+# vài chục mục và vài MB giải nén, nên trần này chỉ chạm tệp dựng ra để phá.
+TRAN_SO_MUC_ZIP = 512
+TRAN_GIAI_NEN_BYTE = 64 * 1024 * 1024
+
 
 class NguonChu(StrEnum):
     """Chữ này đến từ đâu — và vì thế đáng tin tới đâu.
@@ -102,6 +109,21 @@ class DonViVanBan:
     """Mặc định là chữ thật: không khai báo thì KHÔNG bị hạ cấp im lặng."""
     do_tin: float | None = None
     """0–1, chỉ có với `ocr`. `None` với chữ đọc thẳng — ở đó không có gì để đoán."""
+    vung: str = "than"
+    """`than` | `dau_trang` | `chan_trang`.
+
+    Đầu trang và chân trang là NGUỒN KHÁC với thân bài: số hiệu biểu mẫu, tên
+    đơn vị ban hành, số trang. Trộn chúng vào thân là nói sai chỗ một câu được
+    viết, và một neo tài liệu chỉ vào "trang 1" của một chân trang lặp lại ở
+    mọi trang thì không chỉ vào đâu cả.
+    """
+    bang: tuple[int, int, int] | None = None
+    """(chỉ số bảng, hàng, cột) — ĐẾM TỪ 0, `None` khi đơn vị không ở trong bảng.
+
+    Với phiếu chấm, biểu mẫu, bảng lương thì bảng LÀ nội dung: "2,0" một mình
+    không nói gì, "2,0 ở hàng Chuyên cần" mới nói. Giao diện cộng 1 khi hiển
+    thị cho người đọc; ở đây giữ chỉ số để cùng gốc với `chi_so`.
+    """
 
 
 @dataclass(frozen=True)
@@ -154,15 +176,91 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
 # ------------------------------------------------------------------------ DOCX
 
 
-def _doc_docx(du_lieu: bytes) -> list[tuple[int | None, str]]:
-    """Mọi `w:p` theo đúng thứ tự tài liệu, kể cả `w:p` nằm trong ô bảng.
+_P = f"{{{_NS['w']}}}p"
+_TBL = f"{{{_NS['w']}}}tbl"
+_TR = f"{{{_NS['w']}}}tr"
+_TC = f"{{{_NS['w']}}}tc"
+_BODY = f"{{{_NS['w']}}}body"
 
-    Duyệt thẳng toàn bộ `w:p` là đủ để ô bảng tự tách thành đơn vị riêng, vì
-    mỗi ô luôn chứa ít nhất một `w:p`. Không cần xử lý `w:tbl` riêng.
+
+def _kiem_zip(z: zipfile.ZipFile) -> None:
+    """Phanh zip bom, chạy TRƯỚC khi đọc bất kỳ mục nào — xem `TRAN_SO_MUC_ZIP`."""
+    muc = z.infolist()
+    if len(muc) > TRAN_SO_MUC_ZIP:
+        raise KhongDocDuoc(LoaiHong.tep_hong, f"tệp docx có quá {TRAN_SO_MUC_ZIP} mục")
+    if sum(m.file_size for m in muc) > TRAN_GIAI_NEN_BYTE:
+        raise KhongDocDuoc(LoaiHong.tep_hong, "tệp docx giải nén ra quá lớn")
+
+
+def _goc_xml(xml: bytes, ten: str) -> ET.Element:
+    try:
+        return ET.fromstring(xml)
+    except ET.ParseError as e:
+        raise KhongDocDuoc(LoaiHong.tep_hong, f"{ten} hỏng") from e
+
+
+def _chu(nut: ET.Element) -> str:
+    return "".join(t.text or "" for t in nut.iter(f"{{{_NS['w']}}}t")).strip()
+
+
+def _duyet_phang(goc: ET.Element, vung: str) -> list[tuple]:
+    """Mọi `w:p` theo thứ tự tài liệu, KHÔNG toạ độ bảng.
+
+    Vừa là đường lùi của thân bài, vừa là đường duy nhất cho đầu/chân trang —
+    ở đó một `w:p` là một dòng và không có gì để định vị thêm.
+    """
+    return [(None, c, None, vung, None) for p in goc.iter(_P) if (c := _chu(p))]
+
+
+def _duyet_than(goc: ET.Element) -> list[tuple]:
+    """Con trực tiếp của `w:body` theo thứ tự: `w:p` là một đơn vị, `w:tbl` cho
+    một đơn vị mỗi ô kèm toạ độ (bảng, hàng, cột).
+
+    Chữ của một ô là các `w:p` TRONG ô nối bằng một dấu cách — kể cả `w:p` của
+    bảng lồng bên trong. Bảng lồng không được đánh số riêng: nó là chi tiết
+    trình bày của ô bao ngoài, và tách ra thì "hàng 2 cột 1" của người đọc trỏ
+    vào một bảng họ không nhìn thấy.
+    """
+    than = goc.find(_BODY)
+    if than is None:
+        return []
+    ra: list[tuple] = []
+    so_bang = 0
+    for con in than:
+        if con.tag == _P:
+            if chu := _chu(con):
+                ra.append((None, chu, None, "than", None))
+        elif con.tag == _TBL:
+            for h, tr in enumerate(con.findall(_TR)):
+                for c, tc in enumerate(tr.findall(_TC)):
+                    if chu := " ".join(x for p in tc.iter(_P) if (x := _chu(p))):
+                        ra.append((None, chu, None, "than", (so_bang, h, c)))
+            so_bang += 1
+    return ra
+
+
+def _doc_docx(du_lieu: bytes) -> list[tuple]:
+    """Thân bài theo cấu trúc, rồi đầu trang, rồi chân trang.
+
+    Duyệt theo cấu trúc BỎ SÓT thứ duyệt phẳng thấy: `w:sdt` (content control),
+    hộp chữ, và mọi phần tử cấp thân chưa được kể tên ở đây. Nên nó không thay
+    thế duyệt phẳng một cách mù quáng — ít chữ hơn thì lùi về. Mất toạ độ bảng
+    là khoản lỗ sống chung được; mất nguyên một điều khoản thì không.
     """
     try:
         with zipfile.ZipFile(BytesIO(du_lieu)) as z:
-            xml = z.read("word/document.xml")
+            _kiem_zip(z)
+            goc = _goc_xml(z.read("word/document.xml"), "word/document.xml")
+            than = _duyet_than(goc)
+            phang = _duyet_phang(goc, "than")
+            if sum(len(t[1]) for t in than) < sum(len(t[1]) for t in phang):
+                than = phang
+
+            ra = list(than)
+            for tien_to, vung in (("word/header", "dau_trang"), ("word/footer", "chan_trang")):
+                for ten in sorted(n for n in z.namelist() if n.startswith(tien_to) and n.endswith(".xml")):
+                    ra.extend(_duyet_phang(_goc_xml(z.read(ten), ten), vung))
+            return ra
     except KeyError as e:
         raise KhongDocDuoc(LoaiHong.tep_hong, "thiếu word/document.xml") from e
     except zipfile.BadZipFile as e:
@@ -170,18 +268,6 @@ def _doc_docx(du_lieu: bytes) -> list[tuple[int | None, str]]:
         # phân biệt được hai ca này nếu không đọc header OLE; báo `tep_hong` là
         # nói đúng những gì biết chắc.
         raise KhongDocDuoc(LoaiHong.tep_hong, "không mở được tệp docx") from e
-
-    try:
-        goc = ET.fromstring(xml)
-    except ET.ParseError as e:
-        raise KhongDocDuoc(LoaiHong.tep_hong, "word/document.xml hỏng") from e
-
-    ra: list[tuple[int | None, str]] = []
-    for p in goc.iter(f"{{{_NS['w']}}}p"):
-        chu = "".join(t.text or "" for t in p.iter(f"{{{_NS['w']}}}t")).strip()
-        if chu:
-            ra.append((None, chu))  # trang tính sau, theo KY_TU_MOI_TRANG
-    return ra
 
 
 # ------------------------------------------------------------------------- PDF
@@ -222,9 +308,10 @@ def _doc_pdf(du_lieu: bytes) -> list[tuple[int | None, str]]:
 def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
     """Gán `trang`, `offset_dau` và nguồn chữ cho từng đơn vị.
 
-    Nhận cả hai hình dạng: `(trang, noi_dung)` từ nhánh đọc chữ thật, và
-    `(trang, noi_dung, do_tin)` từ nhánh OCR. Có `do_tin` nghĩa là máy đang
-    đoán, nên đơn vị đó mang nhãn `ocr`.
+    Nhận cả ba hình dạng: `(trang, noi_dung)` từ nhánh đọc chữ thật,
+    `(trang, noi_dung, do_tin)` từ nhánh OCR, và
+    `(trang, noi_dung, do_tin, vung, bang)` từ nhánh DOCX có cấu trúc. Có
+    `do_tin` nghĩa là máy đang đoán, nên đơn vị đó mang nhãn `ocr`.
 
     PDF đã biết trang thật. DOCX chưa, nên trang được suy ra từ số ký tự đã đi
     qua — xem ghi chú ở `KY_TU_MOI_TRANG`.
@@ -238,6 +325,8 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
     for i, muc in enumerate(thoi):
         trang, noi_dung = muc[0], muc[1]
         do_tin = muc[2] if len(muc) > 2 else None
+        vung = muc[3] if len(muc) > 3 else "than"
+        bang = muc[4] if len(muc) > 4 else None
         if trang is None:
             trang = 1 + da_di // KY_TU_MOI_TRANG
         if trang != trang_hien:
@@ -250,6 +339,8 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
                 noi_dung=noi_dung,
                 nguon_chu=NguonChu.ocr if do_tin is not None else NguonChu.lop_chu,
                 do_tin=do_tin,
+                vung=vung,
+                bang=bang,
             )
         )
         offset += len(noi_dung) + 1   # +1 cho dấu xuống dòng giữa hai đơn vị

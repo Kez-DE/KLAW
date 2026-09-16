@@ -154,6 +154,7 @@ Người dùng tải lên một bản scan chụp điện thoại. Hệ thống 
 **Lưu trữ và riêng tư**
 
 - **FR-022**: Hệ thống MUST KHÔNG lưu tệp gốc của người dùng sau khi xử lý xong.
+  - _Ghi chú 2026-09-16_: vẫn đúng nguyên văn — tệp gốc không được lưu. Nhưng **biểu diễn văn bản đã đọc** (`don_vi`: chữ + trang + toạ độ bảng + nguồn chữ) nay được lưu theo cuộc hội thoại và xoá cùng nó; không lưu bytes, không lưu OOXML. Xem `docs/decisions/2026-09-16-luu-bieu-dien-tai-lieu-theo-hoi-thoai.md`.
 - **FR-023**: Hệ thống MUST KHÔNG ghi toàn văn tài liệu vào nhật ký vận hành hoặc dữ liệu đánh giá.
 - **FR-024**: Hệ thống MUST cho người dùng xoá toàn bộ dữ kiện đã rút của một cuộc hội thoại bằng một thao tác.
 - **FR-025**: Mọi thông báo lỗi MUST KHÔNG lặp lại nội dung tài liệu.

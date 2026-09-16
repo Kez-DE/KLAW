@@ -8,11 +8,14 @@ khách thường thuộc về người thứ ba chưa từng dùng KLAW và chư
 """
 
 import hashlib
+import json
 import logging
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+
+from src.services.doc_tai_lieu import DonViVanBan, NguonChu
 
 logger = logging.getLogger(__name__)
 
@@ -285,10 +288,108 @@ def luu_du_kien(engine: Engine, viec_id: str, hoi_thoai_id: str, du_kien: list[d
     return len(hang)
 
 
+# Biểu diễn văn bản đã đọc — quyết định 2026-09-16
+# (`docs/decisions/2026-09-16-luu-bieu-dien-tai-lieu-theo-hoi-thoai.md`).
+# Cột `don_vi` giữ CHỮ của tài liệu, nên nó không bao giờ đi cùng `SELECT *`:
+# mỗi lần kéo nó ra là một lần nội dung của bên thứ ba đi qua dây mà không ai
+# cần. Chỉ `don_vi_cua` đọc nó, và chỉ khi có người thật sự sắp neo vào nó.
+_COT_VIEC = (
+    "id, user_sub, hoi_thoai_id, ten_tep, dau_van_ban, so_byte, so_trang, loai, "
+    "trang_thai, ly_do_hong, chi_phi_usd, so_lan_thu, tao_luc, cap_nhat_luc, mo_ta"
+)
+
+
+def _hang_don_vi(d: DonViVanBan) -> dict:
+    return {
+        "chi_so": d.chi_so,
+        "trang": d.trang,
+        "offset_dau": d.offset_dau,
+        "noi_dung": d.noi_dung,
+        "nguon_chu": str(d.nguon_chu),
+        "do_tin": d.do_tin,
+        "vung": d.vung,
+        "bang": list(d.bang) if d.bang else None,
+    }
+
+
+def luu_don_vi(engine: Engine, viec_id: str, don_vi: list[DonViVanBan]) -> None:
+    """Ghi biểu diễn đã đọc vào chính dòng việc đọc.
+
+    Ghi cho MỌI tài liệu đọc được, kể cả tài liệu không nhận ra loại — đó là
+    toàn bộ điểm của quyết định: lượt hỏi kế tiếp phải còn thứ để neo vào, chứ
+    không phải chỉ 29 loại có checklist mới đi tiếp được.
+    """
+    with engine.begin() as c:
+        c.execute(
+            text("UPDATE viec_doc_tai_lieu SET don_vi = CAST(:d AS jsonb) WHERE id = :i"),
+            {"d": json.dumps([_hang_don_vi(d) for d in don_vi], ensure_ascii=False), "i": viec_id},
+        )
+
+
+def don_vi_cua(engine: Engine, viec_id: str, user_sub: str) -> list[DonViVanBan] | None:
+    """Biểu diễn đã đọc của một việc, hoặc `None` khi không có hoặc không phải của mình.
+
+    `None` nói "không có tài liệu nào như vậy cho bạn" và `[]` nói "có, nhưng
+    chưa đọc ra đơn vị nào" (dòng cũ trước migration 031). Gộp hai ca lại thì
+    người gọi hết đường phân biệt 404 với một tài liệu rỗng.
+    """
+    with engine.connect() as c:
+        r = c.execute(
+            text("SELECT don_vi FROM viec_doc_tai_lieu WHERE id = :i AND user_sub = :u"),
+            {"i": viec_id, "u": user_sub},
+        ).first()
+    if r is None:
+        return None
+    return [
+        DonViVanBan(
+            chi_so=d["chi_so"],
+            trang=d["trang"],
+            offset_dau=d["offset_dau"],
+            noi_dung=d["noi_dung"],
+            nguon_chu=NguonChu(d.get("nguon_chu") or NguonChu.lop_chu),
+            do_tin=d.get("do_tin"),
+            vung=d.get("vung") or "than",
+            # JSON không có tuple. Trả về list thì `DonViVanBan` hết bằng chính
+            # nó sau một vòng lưu–đọc, và phép so sánh hỏng im lặng.
+            bang=tuple(d["bang"]) if d.get("bang") else None,
+        )
+        for d in (r[0] or [])
+    ]
+
+
+def tai_lieu_cua_hoi_thoai(engine: Engine, hoi_thoai_id: str, user_sub: str) -> list[dict]:
+    """Những tài liệu của cuộc hội thoại còn neo được, mới nhất trước.
+
+    Chỉ dòng `xong` và CÓ `don_vi`: một việc đang đọc hay đã hỏng không có gì
+    để hỏi, và đưa nó vào danh sách chỉ làm mô hình nhắc tới một tài liệu nó
+    không đọc được. `co_ocr` tính bằng phép chứa của jsonb nên nội dung tài
+    liệu không rời khỏi Postgres chỉ để đếm một cờ.
+    """
+    with engine.connect() as c:
+        return [
+            {**dict(r), "id": str(r["id"])}
+            for r in c.execute(
+                text(
+                    "SELECT id, ten_tep, so_trang, loai, mo_ta, "
+                    "       jsonb_array_length(don_vi) AS so_don_vi, "
+                    "       don_vi @> '[{\"nguon_chu\": \"ocr\"}]' AS co_ocr "
+                    "FROM viec_doc_tai_lieu "
+                    "WHERE hoi_thoai_id = :h AND user_sub = :u "
+                    "      AND trang_thai = 'xong' AND don_vi IS NOT NULL "
+                    "ORDER BY tao_luc DESC"
+                ),
+                {"h": hoi_thoai_id, "u": user_sub},
+            ).mappings()
+        ]
+
+
 def lay_viec(engine: Engine, viec_id: str, user_sub: str) -> dict[str, Any] | None:
     with engine.connect() as c:
         r = c.execute(
-            text("SELECT * FROM viec_doc_tai_lieu WHERE id = :i AND user_sub = :u"),
+            text(
+                f"SELECT {_COT_VIEC}, COALESCE(jsonb_array_length(don_vi), 0) AS so_don_vi "
+                "FROM viec_doc_tai_lieu WHERE id = :i AND user_sub = :u"
+            ),
             {"i": viec_id, "u": user_sub},
         ).mappings().first()
     return dict(r) if r else None
@@ -351,7 +452,13 @@ def xoa_theo_hoi_thoai(engine: Engine, hoi_thoai_id: str, user_sub: str) -> int:
 
     Xoá theo hội thoại cũng xảy ra TỰ ĐỘNG khi hội thoại bị xoá, nhờ
     `ON DELETE CASCADE` ở migration 026. Hàm này là đường người dùng chủ động
-    dọn mà vẫn giữ cuộc hội thoại.
+    dọn mà vẫn giữ cuộc hội thoại — và, từ 2026-09-16, cũng là đường
+    `routes_hoi_thoai.xoa` gọi: xoá MỀM một cuộc hội thoại không làm cascade
+    nổ, nên nếu không gọi ở đây thì biểu diễn tài liệu ở lại vô thời hạn.
+
+    Xoá cả dòng chứ không chỉ rỗng hoá `don_vi`/`mo_ta`: dòng đi thì biểu diễn
+    đi cùng, và một cột được nulled trên một dòng vẫn còn sống là một thứ nữa
+    phải nhớ dọn ở lần sau.
     """
     with engine.begin() as c:
         return c.execute(

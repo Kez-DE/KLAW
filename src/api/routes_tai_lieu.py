@@ -82,6 +82,32 @@ class TaiLieuOut(BaseModel):
     ly_do_hong: str | None = None
     thong_diep: str | None = None
     du_kien: list[DuKienOut] = []
+    ten_tep: str = ""
+    so_don_vi: int = 0
+    """Số đơn vị văn bản đã đọc được. Đây là thứ giao diện nói khi KHÔNG có
+    checklist nào khớp: "đã đọc N đơn vị · M trang" thay cho một ngõ cụt."""
+    mo_ta: str | None = None
+    """Một câu tài liệu này là gì, do lượt hỏi đầu tiên ghi lại (S2). Trống cho
+    tới khi có người thật sự hỏi về tài liệu."""
+
+
+class DonViOut(BaseModel):
+    chi_so: int
+    trang: int
+    offset_dau: int
+    noi_dung: str
+    nguon_chu: str
+    do_tin: float | None = None
+    vung: str = "than"
+    bang: list[int] | None = None
+    """`[bảng, hàng, cột]` đếm từ 0, `null` khi đơn vị không nằm trong bảng."""
+
+
+class DonViTaiLieuOut(BaseModel):
+    id: str
+    ten_tep: str
+    so_trang: int | None = None
+    don_vi: list[DonViOut] = []
 
 
 class SuaDuKienIn(BaseModel):
@@ -192,6 +218,15 @@ async def tai_len(
     """
     du_lieu = await tep.read()
     hoi_thoai_id = _uuid_hop_le(hoi_thoai_id)
+    # Cuộc hội thoại phải là CỦA NGƯỜI TẢI LÊN. Mọi đường đọc và dọn sau này
+    # (`don_vi_cua`, `tai_lieu_cua_hoi_thoai`, `xoa_theo_hoi_thoai`) khoá theo
+    # `(hoi_thoai_id, user_sub)`, nên một tệp nhét vào phiên của người khác là
+    # một dòng không ai dọn được nữa (FR-024). 404 như `chi_tiet`: không tiết lộ
+    # phiên kia tồn tại.
+    from src.services import hoi_thoai as ht
+
+    if await run_in_threadpool(ht.lay_phien, nguoi["sub"], hoi_thoai_id) is None:
+        raise HTTPException(status_code=404, detail=ht.LOI_KHONG_THAY)
     try:
         tl.kiem_kich_thuoc(len(du_lieu))
     except VuotTran as e:
@@ -225,27 +260,34 @@ async def tai_len(
     finally:
         del du_lieu  # FR-022 — buông tệp ngay, kể cả khi đọc hỏng
 
+    # Biểu diễn đã đọc được lưu cho MỌI tài liệu đọc được, TRƯỚC khi rẽ nhánh
+    # theo loại — quyết định 2026-09-16. Lưu sau khi rẽ thì nhánh không có
+    # checklist lại ra về tay không, đúng cái ngõ cụt việc này đang gỡ.
+    await run_in_threadpool(tl.luu_don_vi, get_engine(), viec_id, tai_lieu.don_vi)
+    chung = {
+        "id": viec_id, "so_trang": tai_lieu.so_trang, "co_ocr": tai_lieu.co_ocr,
+        "ten_tep": tep.filename or "", "so_don_vi": len(tai_lieu.don_vi),
+    }
+
     # Người dùng không phải chọn loại văn bản từ một danh sách 29 mục trước khi
     # đọc được tờ giấy họ đang cầm. Giấy tờ pháp lý tự khai tên ở dòng đầu, nên
-    # hệ thống đọc lấy — và chỉ hỏi khi thật sự không nhận ra.
+    # hệ thống đọc lấy — và khi không nhận ra thì tài liệu vẫn ĐỌC XONG: cái
+    # thiếu là bộ trường của một checklist, không phải cả tài liệu. Trạng thái
+    # `can_chon_loai` không còn được ghi; nó chỉ còn đọc được ở dòng cũ.
     doan = None if loai else phan_loai(tai_lieu.don_vi)
     loai = loai or (doan.loai if doan else None)
     if loai is None:
         await run_in_threadpool(
-            tl.dat_trang_thai, get_engine(), viec_id, nguoi["sub"], "can_chon_loai",
+            tl.dat_trang_thai, get_engine(), viec_id, nguoi["sub"], "xong",
             so_trang=tai_lieu.so_trang,
         )
-        return TaiLieuOut(
-            id=viec_id, trang_thai="can_chon_loai", so_trang=tai_lieu.so_trang,
-            chay_nen=False, co_ocr=tai_lieu.co_ocr,
-        )
+        return TaiLieuOut(**chung, trang_thai="xong", chay_nen=False, loai=None, du_kien=[])
     await run_in_threadpool(tl.dat_loai, get_engine(), viec_id, nguoi["sub"], loai)
 
     if tl.chay_nen(tai_lieu.so_trang):
         nen.add_task(_chay, viec_id, nguoi["sub"], hoi_thoai_id, loai, tai_lieu)
         return TaiLieuOut(
-            id=viec_id, trang_thai="dang_doc", so_trang=tai_lieu.so_trang,
-            chay_nen=True, co_ocr=tai_lieu.co_ocr, loai=loai,
+            **chung, trang_thai="dang_doc", chay_nen=True, loai=loai,
             loai_ten=doan.ten if doan else None,
             loai_tu_doan=doan is not None,
             loai_can_cu=doan.can_cu if doan else None,
@@ -289,6 +331,37 @@ async def chi_tiet(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> 
         co_ocr=any(d.get("nguon") == "tai_lieu_ocr" for d in du_kien),
         loai=viec.get("loai"),
         loai_ten=ten,
+        ten_tep=viec.get("ten_tep") or "",
+        so_don_vi=viec.get("so_don_vi") or 0,
+        mo_ta=viec.get("mo_ta"),
+    )
+
+
+@router.get("/tai-lieu/{viec_id}/don-vi", response_model=DonViTaiLieuOut)
+async def don_vi(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> DonViTaiLieuOut:
+    """Biểu diễn đã đọc của một tài liệu — nguồn của bảng đơn vị và của mọi neo
+    người dùng bấm vào (quyết định 2026-09-16).
+
+    Đây là endpoint DUY NHẤT trả nội dung tài liệu ra ngoài, nên nó đi qua đúng
+    cổng của `chi_tiet`: tài liệu của người khác là 404, không tiết lộ tồn tại.
+    """
+    viec_id = _uuid_hop_le(viec_id)
+    viec = await run_in_threadpool(tl.lay_viec, get_engine(), viec_id, nguoi["sub"])
+    if not viec:
+        raise HTTPException(status_code=404, detail=KHONG_THAY)
+    don_vi = await run_in_threadpool(tl.don_vi_cua, get_engine(), viec_id, nguoi["sub"])
+    return DonViTaiLieuOut(
+        id=str(viec["id"]),
+        ten_tep=viec.get("ten_tep") or "",
+        so_trang=viec.get("so_trang"),
+        don_vi=[
+            DonViOut(
+                chi_so=d.chi_so, trang=d.trang, offset_dau=d.offset_dau, noi_dung=d.noi_dung,
+                nguon_chu=str(d.nguon_chu), do_tin=d.do_tin, vung=d.vung,
+                bang=list(d.bang) if d.bang else None,
+            )
+            for d in (don_vi or [])
+        ],
     )
 
 

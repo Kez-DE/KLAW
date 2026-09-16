@@ -102,7 +102,20 @@ async def doi_ten(id: str, body: DoiTenPhienRequest, nguoi: dict = Depends(nguoi
 
 @router.delete("/hoi-thoai/{id}", status_code=204)
 async def xoa(id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Response:
+    """Xoá MỀM cuộc hội thoại, nhưng xoá THẬT tài liệu của nó (FR-024/027).
+
+    Cuộc hội thoại chỉ được gắn `xoa_luc`, nên `ON DELETE CASCADE` của
+    migration 026 không bao giờ nổ ở đường này — và từ 2026-09-16 các dòng
+    `viec_doc_tai_lieu` mang cả biểu diễn văn bản đã đọc, tức nội dung của một
+    bên thứ ba chưa từng dùng KLAW. Dọn trước, rồi mới xoá mềm: hỏng ở bước sau
+    để lại một cuộc hội thoại không còn tài liệu, hỏng theo thứ tự ngược lại để
+    lại nội dung tài liệu của người khác không ai dọn nữa.
+    """
+    from src.services import tai_lieu
+    from src.services.db import get_engine
+
     id = _uuid_hop_le(id)
+    await run_in_threadpool(tai_lieu.xoa_theo_hoi_thoai, get_engine(), id, nguoi["sub"])
     if not await run_in_threadpool(hoi_thoai.xoa_mem, nguoi["sub"], id):
         raise HTTPException(status_code=404, detail=hoi_thoai.LOI_KHONG_THAY)
     return Response(status_code=204)
