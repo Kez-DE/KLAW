@@ -91,8 +91,12 @@ export function OSoanCauHoi({
                       <button
                         type="button"
                         onClick={() => onMoDinhKem(tep.id)}
+                        aria-label={`Xem tài liệu ${tep.ten_tep}`}
                         title={`Xem nội dung đã đọc của ${tep.ten_tep}`}
-                        className="focus-brass min-w-0 cursor-pointer truncate rounded underline decoration-dotted underline-offset-2"
+                        // `min-h-6` chứ không để vùng bấm bằng dòng chữ 12px:
+                        // nó đứng sát nút bỏ đính kèm, và hai đích dưới 24px
+                        // cạnh nhau là chỗ ngón tay bấm nhầm (WCAG 2.5.8 AA).
+                        className="focus-brass inline-flex min-h-6 min-w-0 cursor-pointer items-center truncate rounded px-0.5 underline decoration-dotted underline-offset-2"
                       >
                         {tep.ten_tep}
                       </button>

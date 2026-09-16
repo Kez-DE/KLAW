@@ -642,6 +642,14 @@ function ManHoiKlaw() {
    * đoạn chat mới thôi là ngõ cụt.
    */
   const taiTepLen = async (tep: File) => {
+    // Khách chưa đăng nhập: chặn NGAY, đừng để họ chờ hết một vòng đọc tệp rồi
+    // nhận một câu 401 chung chung. `taiLen` không đi qua `goi()` nên nó không
+    // dịch 401 thành câu "cần đăng nhập" như mọi endpoint khác — lời chặn đúng
+    // chỗ là ở đây, trước khi tệp rời máy họ.
+    if (!daDangNhap) {
+      toast.error("Đăng nhập để KLAW đọc tài liệu của bạn.");
+      return;
+    }
     const loiTep = loiTruocKhiGui(tep.name, tep.size);
     if (loiTep) {
       toast.error(loiTep);
@@ -661,7 +669,7 @@ function ManHoiKlaw() {
     tepGocTheoId.current.set(kq.data.id, tep);
     ghiNhoDinhKem({ id: kq.data.id, ten_tep: kq.data.ten_tep || tep.name });
     toast.success("Đã đính kèm. Hỏi gì về tài liệu này cũng được.", { id: idToast });
-    if (phienHienCo !== null) return;
+    if (phienHienCo !== null || !kq.data.hoi_thoai_id) return;
     // Phiên máy chủ vừa mở hộ. Ghim lên URL để tải lại trang không mất nó, và
     // ghi cả hai cái chốt một-lần (`phienDangHien`, `daGhim`) TRƯỚC khi điều
     // hướng: thiếu chúng, hiệu ứng đổi phiên coi đây là một phiên khác và xoá
@@ -689,7 +697,13 @@ function ManHoiKlaw() {
     // bật hai lần. Ref cũng giữ `ghiNhoDinhKem` không đổi tham chiếu.
     const conLai = dsDinhKem.current.filter((t) => t.id !== tep.id);
     const day = conLai.length >= TOI_DA_DINH_KEM;
-    datTepDaDinhKem([...(day ? conLai.slice(conLai.length - TOI_DA_DINH_KEM + 1) : conLai), tep]);
+    const giu = day ? conLai.slice(conLai.length - TOI_DA_DINH_KEM + 1) : conLai;
+    // Tờ bị đẩy ra cũng rời `tepGocTheoId`: không còn con chip nào trỏ tới nó
+    // thì cũng không còn đường rút lại theo mẫu, và giữ `File` lại là giữ rác
+    // cho tới hết phiên.
+    for (const bo of conLai.slice(0, conLai.length - giu.length))
+      tepGocTheoId.current.delete(bo.id);
+    datTepDaDinhKem([...giu, tep]);
     if (day) toast.info(`Mỗi lượt gửi được tối đa ${TOI_DA_DINH_KEM} tài liệu`);
   }, []);
 
