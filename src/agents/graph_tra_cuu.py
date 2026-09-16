@@ -4,6 +4,7 @@
              → expand → generate_claims → verify_tier1 → verify_tier2 → assemble
                       ↘ gom_du_kien → [dung_ban_thao] → assemble   (intent soan_thao)
              ↘ hieu_tai_lieu → assemble                            (tài liệu đính kèm)
+                             ↘ tien_de → … (đường pháp lý)         (đối chiếu luật)
 
 `giai_nghia` chạy khi `lich_su` khác rỗng HOẶC phiên đã có `tom_tat` (K lượt
 nguyên văn đã cuộn hết vào tóm tắt không có nghĩa hội thoại chưa từng có lượt
@@ -31,12 +32,13 @@ from starlette.concurrency import run_in_threadpool
 
 from src.agents.graph_soan_thao import graph_soan_thao_cached, load_checklist_cached
 from src.agents.nodes.assemble import assemble
+from src.agents.nodes.dung_ban_thao_tong_quat import dung_ban_thao_tong_quat
 from src.agents.nodes.expand import expand
 from src.agents.nodes.generate_claims import generate_claims
 from src.agents.nodes.giai_nghia import giai_nghia
 from src.agents.nodes.gioi_thieu import can_kho, cau_gioi_thieu, chi_hoi_kho, khia_canh
 from src.agents.nodes.gom_du_kien import gom_du_kien
-from src.agents.nodes.hieu_tai_lieu import hieu_tai_lieu
+from src.agents.nodes.hieu_tai_lieu import MUC_DICH_SOAN, hieu_tai_lieu
 from src.agents.nodes.rewrite_query import rewrite_query
 from src.agents.nodes.route import Intent, route
 from src.agents.nodes.suy_dien import suy_dien
@@ -232,13 +234,26 @@ def _ghi_du_kien_tai_lieu(engine, st: dict) -> dict:
 
 
 def _re_sau_hieu_tai_lieu(st: dict) -> str:
-    """Mọi mục đích đều về `assemble` ở lát cắt này.
+    """Đối chiếu luật đi tiếp vào ĐƯỜNG PHÁP LÝ ĐÃ CÓ (`tien_de` → rewrite →
+    retrieve → expand → generate → hai tầng kiểm → assemble), không một đường
+    thứ hai nào: một điều khoản của người hỏi chỉ đáng đặt cạnh điều luật khi
+    điều luật ấy đã qua đúng bộ kiểm chứng mà mọi câu trả lời khác phải qua.
 
-    S5 tách `doi_chieu_luat` sang `tien_de` (đường pháp lý đã có) và S6 tách
-    `tao_van_ban`/`sua_ban_thao` sang `dung_ban_thao_tong_quat`. Tới lúc đó
-    `muc_dich_tai_lieu` đã sẵn trong state (node ghi lại kể cả mục đích lát cắt
-    này chưa làm), nên hai lát cắt sau chỉ thêm nhánh, không phải thêm dữ liệu.
+    Gác thêm `tai_lieu_neo`, không chỉ mục đích: xin đối chiếu mà không điều
+    khoản nào tra ngược được thì lượt này KHÔNG có dữ kiện để đối chiếu, và
+    `hieu_tai_lieu` đã hạ nó về `hoi` (xem `DOI_CHIEU_KHONG_NEO`). Đẩy nó sang
+    đường pháp lý sẽ tiêu một lượt truy hồi + hai tầng kiểm để trả về một bài
+    giảng luật chung chung mà người hỏi không xin.
+
+    `tao_van_ban`/`sua_ban_thao` rẽ sang `dung_ban_thao_tong_quat` (S6), KHÔNG
+    gác thêm `van_ban_tong_quat` hay `user_sub`: node đó là nơi DUY NHẤT biết
+    cách nói "chưa soạn được mục nào" / "bạn cần đăng nhập" cho lượt soạn, và
+    bỏ qua nó sẽ trả về một bản tóm tắt tài liệu cho người vừa xin một văn bản.
     """
+    if st.get("muc_dich_tai_lieu") == "doi_chieu_luat" and st.get("tai_lieu_neo"):
+        return "tien_de"
+    if st.get("muc_dich_tai_lieu") in MUC_DICH_SOAN:
+        return "dung_ban_thao_tong_quat"
     return "assemble"
 
 
@@ -287,6 +302,11 @@ def build_graph_tra_cuu():
                 tai_lieu.append({"id": str(vid), "ten_tep": ten.get(str(vid), ""), "don_vi": don_vi})
         ra = hieu_tai_lieu(st, tai_lieu, llm, generate_model())
         return await run_in_threadpool(_ghi_du_kien_tai_lieu, engine, ra)
+
+    async def n_dung_ban_thao_tong_quat(st: KLawState) -> KLawState:
+        # `run_in_threadpool` vì hàm kia gọi `ban_thao` (SQLAlchemy đồng bộ) —
+        # cùng cách mọi node chạm DB khác ở file này giữ event loop rảnh.
+        return await run_in_threadpool(dung_ban_thao_tong_quat, st)
 
     def n_gom_du_kien(st: KLawState) -> KLawState:
         return gom_du_kien(st, llm, router_model())
@@ -525,6 +545,7 @@ def build_graph_tra_cuu():
         ("suy_dien", n_suy_dien),
         ("route", n_route),
         ("hieu_tai_lieu", n_hieu_tai_lieu),
+        ("dung_ban_thao_tong_quat", n_dung_ban_thao_tong_quat),
         ("gom_du_kien", n_gom_du_kien),
         ("dung_ban_thao", n_dung_ban_thao),
         ("tien_de", n_tien_de),
@@ -547,6 +568,7 @@ def build_graph_tra_cuu():
     g.add_edge("suy_dien", "route")
     g.add_conditional_edges("route", _re_sau_route)
     g.add_conditional_edges("hieu_tai_lieu", _re_sau_hieu_tai_lieu)
+    g.add_edge("dung_ban_thao_tong_quat", "assemble")
     # Đủ dữ kiện (`du`) VÀ có tài khoản (`user_sub`) thì dựng bản thảo thật;
     # thiếu một trong hai thì `assemble` chỉ hỏi thêm (`soan_thao_hoi`) — khách
     # chưa đăng nhập không bao giờ chạm `dung_ban_thao` dù đã đủ dữ kiện.

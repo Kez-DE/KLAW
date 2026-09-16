@@ -47,7 +47,14 @@ from pathlib import Path
 from typing import TypedDict
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
+from src.agents.nodes.dung_ban_thao_tong_quat import (
+    KHONG_SOAN_DUOC,
+    LOAI_TONG_QUAT,
+    NHAN_MUC_KIEM,
+    TEN_TONG_QUAT,
+)
 from src.agents.nodes.gioi_thieu import cau_gioi_thieu
+from src.agents.nodes.hieu_tai_lieu import CHO_TRONG, MUC_DICH_SOAN
 from src.agents.nodes.hoi_lai import bi_loai, cau_hoi_lai_tu_khung, duoi_hoi_them, duoi_tu_khung, hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
 from src.models.schemas import Bang
@@ -411,6 +418,97 @@ def _the_khong_hop_le(answer: str, citations_prose: list[dict], doc_ids: set[str
         if dieu_the and not dieu_the <= dieu_can_cu:
             loi.append(f"cite:{khoa}≠{sorted(dieu_can_cu, key=int)}")
     return loi
+
+
+# ══ GĐ5 — điều khoản của người hỏi trong khối tình huống ═════════════════════
+# Điều khoản đi vào ĐÚNG ô `{tinh_huong}` mà mọi prompt hành văn đã gắn sẵn nhãn
+# "dữ kiện họ cung cấp …, KHÔNG phải căn cứ". Không thêm một ô mới, và không sửa
+# một prompt đã phát hành nào: một ô thứ hai cho cùng loại nội dung là cơ hội để
+# một bản prompt sau quên mất nhãn, và chính cái nhãn ấy là toàn bộ lời hứa của
+# nhánh đối chiếu — tài liệu của người hỏi không bao giờ là căn cứ pháp lý.
+NHAN_DIEU_KHOAN_TAI_LIEU = "Điều khoản trong tài liệu của người hỏi (dữ kiện, KHÔNG phải căn cứ):"
+# Đủ để nhận ra điều khoản, không đủ để một tài liệu dài đẩy căn cứ ra khỏi tầm
+# chú ý của mô hình. Cắt ở đây là cắt thứ ĐI VÀO lời nhắc; `tai_lieu_neo` phát
+# hành ra giao diện vẫn mang đoạn trích đầy đủ.
+TRICH_DIEU_KHOAN_TOI_DA = 200
+
+
+def khoi_tinh_huong_doi_chieu(ho_so: dict, tai_lieu_neo: list[dict]) -> str:
+    """`{tinh_huong}` của một lượt đối chiếu: hồ sơ tình huống như mọi lượt, cộng
+    các điều khoản ĐÃ NEO dưới một nhãn nói rõ chúng là dữ kiện.
+
+    Không có điều khoản nào (mọi lượt khác) thì trả về đúng chuỗi cũ, từng ký tự
+    — các prompt đang được đo không được đổi nội dung vì một nhánh chúng không
+    chạy qua.
+    """
+    khoi = khoi_tinh_huong(ho_so or {})
+    dong = [
+        f'- "{t[:TRICH_DIEU_KHOAN_TOI_DA]}"'
+        for n in (tai_lieu_neo or [])
+        if (t := " ".join(str(n.get("trich") or "").split()))
+    ]
+    return "\n".join([khoi, "", NHAN_DIEU_KHOAN_TAI_LIEU, *dong]) if dong else khoi
+
+
+# ══ Phép kiểm thứ MƯỜI MỘT (QT-1) — văn xuôi không được phán quyết ═══════════
+# `docs/bo-luat-agent.md` QT-1: nêu điều luật và điều kiện luật đặt ra, KHÔNG nói
+# bên nào thắng, không nói điều khoản hợp pháp hay không. Lượt đối chiếu là nơi
+# lời hứa đó chịu tải nặng nhất — người hỏi vừa đưa hợp đồng của chính họ và câu
+# họ thật sự muốn nghe là một phán quyết, nên một câu trả lời trượt sang phán
+# quyết sẽ đọc như đúng thứ họ xin, kèm trích dẫn đã kiểm chứng đứng sau.
+#
+# Vẫn TRA BẢNG, 0 TOKEN: một danh sách cụm, so trên chính văn xuôi. Cụm dài đứng
+# TRƯỚC cụm ngắn chứa nó ("không hợp pháp" trước "hợp pháp") để nhãn ghi vào
+# traces là cụm cụ thể nhất, không phải mảnh chung của nó.
+LY_DO_PHAN_QUYET = "answer_ra_phan_quyet_thay_vi_neu_luat"
+
+CUM_PHAN_QUYET = (
+    "không hợp pháp", "hợp pháp", "trái pháp luật", "trái luật", "vô hiệu",
+    "có lợi", "bất lợi", "chắc chắn thắng", "thắng kiện", "sẽ thắng", "được bồi thường",
+)
+
+# Nửa đầu của ngõ cụt khi văn xuôi bị chặn: nói đúng cái hệ thống làm được thay
+# cho cái nó vừa toan làm. Danh sách luật + điều khoản ghép ngay sau câu này.
+PHAN_QUYET_MO_DAU = (
+    "Tôi không kết luận điều khoản này hợp pháp hay không — kết luận đó thuộc cơ quan có "
+    "thẩm quyền, và nó phụ thuộc cả những thứ nằm ngoài văn bản bạn gửi. Điều tôi nói được "
+    "là luật yêu cầu gì và chỗ nào trong tài liệu của bạn khác với yêu cầu ấy:"
+)
+
+
+def cau_phan_quyet(answer: str, citations: list[dict] | None = None) -> str | None:
+    """Cụm phán quyết đầu tiên trong `answer`, hoặc `None` khi văn xuôi sạch.
+
+    Miễn trừ đúng MỘT đường: cụm nằm nguyên trong `quote` của một căn cứ ĐÃ QUA
+    hai tầng kiểm thì được phép. Chính kho nói "hợp đồng lao động vô hiệu" (Điều
+    49 BLLĐ), nên chặn cụm ấy vô điều kiện là cấm trợ lý đọc lại điều luật nó vừa
+    dẫn — và một quy tắc buộc người ta viết sai luật để lách phép kiểm thì sẽ bị
+    lách, không được tuân thủ.
+
+    `normalize` (cùng hàm của tầng 1) cộng `lower`: so trên NỘI DUNG, không trên
+    cách gõ. Ở đây hạ chữ hoa là an toàn — khác tầng 1, phép so này không đóng
+    dấu "đã kiểm chứng" cho gì cả, nó chỉ chặn.
+    """
+    van = normalize(answer or "").lower()
+    trich = " ".join(normalize(c.get("quote") or "").lower() for c in (citations or []))
+    return next((cum for cum in CUM_PHAN_QUYET if cum in van and cum not in trich), None)
+
+
+def _neu_luat_thay_phan_quyet(dung_cho_prose: list, citations_prose: list[dict],
+                              tai_lieu_neo: list[dict]) -> str:
+    """Nửa đầu của ngõ cụt khi phán quyết bị chặn — nêu LUẬT rồi nêu ĐIỀU KHOẢN,
+    hai danh sách cạnh nhau, không câu nào nối chúng thành một kết luận.
+
+    Dựng từ chính các khẳng định đã qua tầng 1+2 và các đoạn trích đã neo: không
+    một chữ mới nào được sinh ra ở đây, nên không có chỗ cho phán quyết thứ hai
+    lọt vào qua đúng cái cửa vừa đóng.
+    """
+    luat = [f"- Luật: {r.claim.text} ({c['duong_dan']})"
+            for r, c in zip(dung_cho_prose, citations_prose, strict=True)][:TRAN_GACH]
+    tai_lieu = [f'- Trong tài liệu của bạn: "{t[:TRICH_DIEU_KHOAN_TOI_DA]}"'
+                for n in (tai_lieu_neo or [])
+                if (t := " ".join(str(n.get("trich") or "").split()))]
+    return "\n".join([PHAN_QUYET_MO_DAU, *luat, *tai_lieu])
 
 
 # ══ Phép kiểm thứ bảy (coordinator, sau khi tự kiểm phép kiểm 6) ════════════
@@ -778,7 +876,53 @@ def tinh_muc_chac(dung_cho_prose: list, khung_yeu_cau: dict | None, ho_so: dict 
     return "chac"
 
 
+def _ban_thao_tong_quat(state: dict) -> dict:
+    """Lượt SOẠN từ tài liệu (S6) — `dung_ban_thao_tong_quat` đã chạy xong.
+
+    0 token, và `assemble` không soạn gì ở đây: nó chỉ chọn một trong ba lời đáp
+    theo những gì node kia để lại. Lời đáp thành công PHẢI mang nhãn mức kiểm —
+    một bản thảo máy soạn từ tài liệu của người hỏi chưa qua checklist, chưa qua
+    rule, chưa qua audit, và câu chữ ở đây là chỗ duy nhất nói ra điều đó trước
+    khi người ta tải nó về (CONTEXT.md "mức kiểm").
+    """
+    bt = state.get("ban_thao_ket")
+    if bt:
+        doi = bt.get("doi_so_voi_truoc") or []
+        answer = (
+            f"{NHAN_MUC_KIEM}. Bản thảo phiên bản {bt['phien_ban']} đã sẵn sàng"
+            + (f", đã đổi: {', '.join(doi)}" if doi else "")
+            + ". Tôi soạn từ nội dung tài liệu và những gì bạn nói; chỗ nào chưa có dữ kiện tôi để "
+            + f"{CHO_TRONG}. Bạn xem, sửa từng mục hoặc tải về ở bên cạnh; muốn đổi gì cứ nói với tôi."
+        )
+        return _base(state, ResultType.ban_thao, answer=answer, ban_thao=bt, soan_thao_goi_y=None)
+    # Hỏng thì HỎI LẠI, không im lặng: `soan_thao_hoi` là hình dạng đã có cho
+    # đúng tình huống "chưa dựng được, đây là lý do" — không dựng loại thứ chín.
+    can_dang_nhap = state.get("user_sub") is None
+    loi = state.get("ban_thao_tong_quat_loi")
+    return _base(
+        state,
+        ResultType.soan_thao_hoi,
+        answer=LOI_SOAN_THAO_DANG_NHAP if can_dang_nhap else (loi or KHONG_SOAN_DUOC),
+        soan_thao_goi_y=None,
+        soan_thao_hoi={
+            "loai": LOAI_TONG_QUAT,
+            "ten": TEN_TONG_QUAT,
+            "da_co": {},
+            "con_thieu": [],
+            "chip": {},
+            "het_han_muc": None if can_dang_nhap else loi,
+            "can_dang_nhap": can_dang_nhap,
+        },
+    )
+
+
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, prompt_path: Path | None = None) -> dict:
+    # Nhánh SOẠN VĂN BẢN từ tài liệu (S6) đứng trước nhánh tài liệu ngay dưới:
+    # lượt này cũng mang `tai_lieu_ket` và cũng có `intent` trống, nhưng thứ
+    # người hỏi xin là một BẢN THẢO, không phải một bản tóm tắt tài liệu.
+    if state.get("muc_dich_tai_lieu") in MUC_DICH_SOAN:
+        return _ban_thao_tong_quat(state)
+
     # Nhánh TÀI LIỆU đứng TRƯỚC mọi nhánh khác, và 0 TOKEN: lượt hành văn đã
     # xảy ra ở node `hieu_tai_lieu` (nơi duy nhất thấy chữ của tài liệu), nên
     # `assemble` chỉ dán kết quả đã có vào hình dạng response.
@@ -787,8 +931,13 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     # định ở `graph_tra_cuu._vao_graph` và không đi qua `route` một lần nào, nên
     # `intent` của nó trống. Xét cả hai là cách duy nhất hai đường vào cùng ra
     # một loại kết quả.
+    # `tai_lieu_neo` rỗng là điều kiện THỨ BA, không phải một chi tiết: lượt đối
+    # chiếu luật cũng mang `tai_lieu_ket` (node đọc tài liệu luôn dựng nó) và
+    # cũng có `intent` trống, nhưng nó đã đi hết đường pháp lý trước khi tới đây
+    # — trả về nhánh tài liệu ở đó là vứt bỏ một câu trả lời đã qua hai tầng
+    # kiểm để thay bằng một bản tóm tắt tài liệu, đúng thứ người hỏi không xin.
     ket = state.get("tai_lieu_ket")
-    if ket and state.get("intent") in (None, "tai_lieu"):
+    if ket and state.get("intent") in (None, "tai_lieu") and not state.get("tai_lieu_neo"):
         return _base(state, ResultType.tai_lieu, answer=ket.get("tra_loi_ngan") or None,
                      tai_lieu=ket, tai_lieu_neo=state.get("tai_lieu_neo") or [])
 
@@ -1210,7 +1359,9 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         mo_dau=MO_DAU_NOI_TIEP if (state.get("lich_su") or state.get("tom_tat")) else MO_DAU_LUOT_DAU,
         van_ban=_khoi_van_ban(citations_dung_cho_prose, db_provisions),
         claims=claims_txt,
-        tinh_huong=khoi_tinh_huong(state.get("ho_so") or {}),
+        # Lượt đối chiếu: điều khoản đã neo đi kèm hồ sơ tình huống, dưới nhãn
+        # "KHÔNG phải căn cứ" của chính ô này. Lượt khác: đúng chuỗi cũ.
+        tinh_huong=khoi_tinh_huong_doi_chieu(state.get("ho_so") or {}, state.get("tai_lieu_neo") or []),
         # GĐ2–GĐ4. Kwargs THỪA với v1/v3/v5 — `str.format` bỏ qua chúng, nên các
         # prompt đang đo không đổi một ký tự nào.
         muc_tieu=khung.get("muc_tieu") or state.get("query", ""),
@@ -1284,6 +1435,29 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         ket["traces"]["assemble_the_loi"] = []
         ket["traces"]["assemble_lac_de"] = lac_de
         return ket
+
+    # Phép kiểm thứ MƯỜI MỘT (QT-1) — chỉ gác lượt ĐỐI CHIẾU LUẬT, tức lượt duy
+    # nhất mà người hỏi đặt tài liệu của chính họ lên bàn và câu họ muốn nghe là
+    # một phán quyết. Gác bằng `tai_lieu_neo`: nó khác rỗng đúng khi và chỉ khi
+    # `_re_sau_hieu_tai_lieu` đã đẩy lượt này sang đường pháp lý.
+    if state.get("tai_lieu_neo"):
+        cum = cau_phan_quyet(answer, citations_dung_cho_prose)
+        if cum:
+            logger.warning(
+                "assemble: answer ra phán quyết (%r) trên lượt đối chiếu — hạ xuống ngõ cụt (%s)",
+                cum, LY_DO_PHAN_QUYET,
+            )
+            ket = _ngo_cut(
+                state, llm, model, ResultType.abstain, usage=usage, degraded=degraded,
+                ghi_chu=_neu_luat_thay_phan_quyet(dung_cho_prose, citations_dung_cho_prose,
+                                                  state.get("tai_lieu_neo") or []),
+            )
+            ket["traces"]["assemble_phan_quyet_bi_chan"] = cum
+            ket["traces"]["assemble_dieu_bi_loai"] = []
+            ket["traces"]["assemble_the_loi"] = []
+            ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
+            ket["traces"]["assemble_lac_de"] = lac_de
+            return ket
 
     # Phép kiểm thứ mười — hình dạng, 0 token. Chạy SAU hai phép kiểm thẻ và số
     # Điều: cắt bớt nội dung chỉ có thể LOẠI thẻ chứ không sinh thẻ mới, nên thứ

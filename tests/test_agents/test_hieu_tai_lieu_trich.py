@@ -308,3 +308,39 @@ def test_traces_TACH_ly_do_loai_truong():
     assert tr["hieu_tai_lieu_truong_bo_vung_trong"] == 1
     assert tr["hieu_tai_lieu_truong_bo_khong_neo"] == 1
     assert tr["hieu_tai_lieu_truong_bo_sai_hinh_dang"] == 1
+
+
+@pytest.mark.parametrize(
+    "gia_tri",
+    ["chưa điền", "Chưa điền", "không có", "để trống", "trống", "chưa có", "N/A", "n/a",
+     "không rõ", "chưa xác định", "(chưa điền)", "không đề cập"],
+)
+def test_CHU_noi_la_trong_cung_KHONG_thanh_du_kien(gia_tri):
+    """Đo trên tập mẫu 2026-09-16: cấm chép dãy chấm thì mô hình viết thẳng chữ
+    "chưa điền" vào `gia_tri`. Cùng một chỗ trống, một cách viết khác — và một
+    bảng dữ kiện đầy dòng "chưa điền" vẫn là một bảng trông như đã rút được
+    năm trường. Prompt đã cấm; mã phải cưỡng chế (0 token)."""
+    llm = _LLM(_ra(muc_dich="trich_du_kien", truong=[
+        {"khoa": "ho_ten_sinh_vien", "nhan": "Họ và tên sinh viên", "gia_tri": gia_tri,
+         "trich": "Họ và tên sinh viên: ………………………………………. Mã số: ……………….."},
+    ]))
+    ra = h.hieu_tai_lieu(ST, TL_MAU, llm, "m")
+    assert ra["tai_lieu_du_kien_moi"] == []
+    assert ra["traces"]["hieu_tai_lieu_truong_bo_vung_trong"] == 1
+
+
+@pytest.mark.parametrize(
+    "gia_tri",
+    ["Công ty TNHH Không Gian Xanh", "Trống Đồng Group", "Nguyễn Văn Trống", "Khoa Công nghệ"],
+)
+def test_gia_tri_that_co_chua_tu_giong_KHONG_bi_loai(gia_tri):
+    """"Trống" trong "Trống Đồng" là một phần TÊN. Phép thử so cả giá trị đã
+    chuẩn hoá, không tìm từ trong câu — nếu không thì mọi công ty có chữ ấy
+    trong tên đều biến mất khỏi bảng dữ kiện."""
+    dv = [DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung=f"Địa điểm thực tập: {gia_tri}")]
+    llm = _LLM(_ra(muc_dich="trich_du_kien", truong=[
+        {"khoa": "dia_diem", "nhan": "Địa điểm", "gia_tri": gia_tri,
+         "trich": f"Địa điểm thực tập: {gia_tri}"},
+    ]))
+    ra = h.hieu_tai_lieu(ST, [{"id": A_ID, "ten_tep": "x.docx", "don_vi": dv}], llm, "m")
+    assert [d["gia_tri"] for d in ra["tai_lieu_du_kien_moi"]] == [gia_tri]

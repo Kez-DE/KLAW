@@ -32,9 +32,10 @@ import unicodedata
 from pathlib import Path
 
 from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU
+from src.services.bo_nho import _vuong_luoi_chan
 from src.services.doc_tai_lieu import DonViVanBan, NguonChu
 from src.services.neo_du_kien import LyDoNeo, Neo, normalize, xac_minh
-from src.services.phep_tinh import so_bang_nhau, tinh, viet_so
+from src.services.phep_tinh import SAI_SO, so_bang_nhau, tinh, viet_so
 from src.services.prompts import messages
 from src.services.tai_lieu import VuotTran, kiem_tran_chi_phi_tai_lieu
 
@@ -52,7 +53,11 @@ NHAN = "ABCDEFGH"
 # gì, và cả ba lát cắt sau phải đoán mò.
 MUC_DICH = ("tom_tat", "hoi", "phan_tich", "trich_du_kien", "so_sanh",
             "doi_chieu_luat", "tao_van_ban", "sua_ban_thao")
-MUC_DICH_LAM_DUOC = frozenset({"tom_tat", "hoi", "phan_tich", "trich_du_kien", "so_sanh"})
+# Hai mục đích SOẠN (S6): lượt này không nói VỀ tài liệu nữa mà dựng một văn
+# bản MỚI từ nó — `graph_tra_cuu` rẽ sang `dung_ban_thao_tong_quat`.
+MUC_DICH_SOAN = frozenset({"tao_van_ban", "sua_ban_thao"})
+MUC_DICH_LAM_DUOC = frozenset({"tom_tat", "hoi", "phan_tich", "trich_du_kien", "so_sanh",
+                               "doi_chieu_luat"}) | MUC_DICH_SOAN
 
 # Trần hình dạng, cưỡng chế 0 token (cùng lý lẽ `assemble.TRAN_GACH`): gọi lại
 # mô hình để nó tự rút gọn là thêm một lượt gọi vào đường thành công thường.
@@ -65,6 +70,49 @@ TOI_DA_TRUONG = 20
 # Thiếu tài liệu thứ hai thì không so được. Nói thẳng bằng `can_du_kien` chứ
 # không gọi lại mô hình: nó cũng chỉ có đúng một tài liệu như lần gọi đầu.
 CAN_TAI_LIEU_THU_HAI = "tài liệu thứ hai"
+# Câu trả lời THAY cho văn xuôi của mô hình khi lượt so sánh chỉ có một tài
+# liệu. Đo ba lần liên tiếp 2026-09-16: mô hình vẫn viết "bản này khác bản
+# trước đó về thời giờ làm việc, chế độ nghỉ phép…" — một so sánh với một tài
+# liệu KHÔNG TỒN TẠI. `can_du_kien` nói đúng, nhưng nó nói SAU khi văn xuôi đã
+# khẳng định xong, và người đọc chỉ đọc câu đầu.
+SO_SANH_THIEU_TAI_LIEU = (
+    "Lượt này tôi chỉ có một tài liệu nên chưa so sánh được. Hãy đính kèm tài liệu thứ hai, "
+    "tôi đặt hai bên cạnh nhau và chỉ ra từng chỗ khác."
+)
+# Người hỏi XIN SO SÁNH — đọc từ chính chữ họ gõ, 0 token. Gác trên `muc_dich`
+# của mô hình là để một phép kiểm an toàn bật tắt theo nhãn nó vừa chọn: đo năm
+# lần cùng một câu hỏi, nó gán lúc `so_sanh` lúc `hoi`, và ở nhánh `hoi` câu
+# khẳng định "khác bản trước đó" đi thẳng ra người dùng. Cùng khuôn
+# `kho.xin_dang_bang` và `gioi_thieu.chac_chan_meta`: chữ người dùng thắng.
+#
+# "khác" một mình KHÔNG đủ — "Điều 3 khác Điều 2" là so sánh trong CÙNG một tài
+# liệu và là câu hỏi hợp lệ. Phải có dấu hiệu của một tài liệu THỨ HAI.
+_RE_XIN_SO_SANH = re.compile(
+    r"so\s*sánh|đối\s*chiếu\s+với|khác\s+(?:gì\s+)?(?:so\s+với|với)\s|so\s+với\s+(?:bản|tài\s*liệu|phiên\s*bản)"
+    r"|(?:hai|2)\s+(?:bản|tài\s*liệu|tệp|file)|bản\s+(?:trước|cũ|kia|còn\s*lại)",
+    re.IGNORECASE,
+)
+
+
+def xin_so_sanh(cau_hoi: str) -> bool:
+    """Câu hỏi này có xin đặt tài liệu cạnh một tài liệu KHÁC không. Hàm thuần."""
+    return bool(_RE_XIN_SO_SANH.search(cau_hoi or ""))
+
+# Quyết định chủ sở hữu 2026-09-16 (Q3): ≤3 điều khoản mỗi lượt đối chiếu. Trần
+# của NGƯỜI ĐỌC chứ không của mô hình — ba điều khoản là số còn đọc hết được
+# cạnh căn cứ luật của chúng trong một câu trả lời.
+TOI_DA_DIEU_KHOAN = 3
+# Trần câu hỏi ghép gửi sang đường pháp lý. `rewrite_query` truy hồi theo chính
+# chuỗi này; dài hơn thì nó loãng ra chứ không tìm được nhiều hơn.
+CAU_HOI_TOI_DA = 300
+# Xin đối chiếu mà KHÔNG điều khoản nào tra ngược được: lượt này rơi về `hoi`,
+# và người hỏi phải biết vì sao — im lặng ở đây trông y hệt một lượt đã đối
+# chiếu xong và không thấy gì đáng nói.
+DOI_CHIEU_KHONG_NEO = (
+    "Tôi chưa lấy được điều khoản nào ra khỏi tài liệu để đặt cạnh luật, nên lượt này tôi "
+    "chỉ đọc tài liệu chứ chưa đối chiếu. Bạn chỉ giúp tôi điều khoản cần đối chiếu — "
+    "chép lại một đoạn hoặc nói rõ mục nào — tôi tra căn cứ cho đúng đoạn đó."
+)
 
 # Trên ngưỡng này thì không gửi cả tài liệu nữa. 10 trang là mức mọi hợp đồng,
 # quyết định, phiếu đánh giá thật đều nằm dưới (đo trên tệp mẫu: 1 trang).
@@ -98,7 +146,7 @@ def schema_hieu(nhan: list[str]) -> dict:
         "type": "object",
         "additionalProperties": False,
         "required": ["muc_dich", "mo_ta", "tra_loi_ngan", "quan_sat", "suy_luan", "can_du_kien",
-                     "phep_tinh", "truong", "khac_biet"],
+                     "phep_tinh", "truong", "khac_biet", "dieu_khoan", "van_ban"],
         "properties": {
             "muc_dich": {"type": "string", "enum": list(MUC_DICH)},
             "mo_ta": {"type": "string"},
@@ -129,6 +177,20 @@ def schema_hieu(nhan: list[str]) -> dict:
             # Một khác biệt là HAI câu, mỗi câu của một tài liệu, nên nó mang
             # hai đoạn trích và phải neo được cả hai (FR-014).
             "khac_biet": _mang("noi_dung", "trich_a", "trich_b"),
+            # Điều khoản đưa sang đường pháp lý (S5). `cau_hoi_phap_ly` là câu
+            # HỎI KHO, không phải một phán quyết trá hình: mô hình ở node này
+            # không bao giờ được hỏi "điều khoản này có hợp pháp không" — nó chỉ
+            # nói điều luật nào cần tra để người đọc tự thấy khác biệt (QT-1).
+            "dieu_khoan": _mang("trich", "cau_hoi_phap_ly"),
+            # Văn bản MỚI mô hình soạn từ tài liệu (S6). Rỗng ở mọi lượt khác
+            # `tao_van_ban`/`sua_ban_thao` — `muc_dich` là thứ quyết định, không
+            # phải sự có mặt của mảng này.
+            "van_ban": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["tieu_de", "muc"],
+                "properties": {"tieu_de": {"type": "string"}, "muc": _mang("ten", "noi_dung")},
+            },
         },
     }
 
@@ -397,6 +459,16 @@ def _lay_phep_tinh(ra: dict, goi: list[dict]) -> tuple[list[dict], int]:
 # lửng `…`, hoặc một dãy từ ba dấu chấm / gạch ngang / gạch dưới trở lên. Một
 # dấu chấm lẻ thì không — `20.000.000` phân nhóm nghìn bằng đúng ký tự đó.
 _KY_TU_KE = "._–—-… \t"
+
+# Chữ nói "chỗ này trống". Đo trên tập mẫu 2026-09-16: cấm chép dãy chấm thì mô
+# hình viết thẳng "chưa điền" vào `gia_tri` — cùng một chỗ trống, một cách viết
+# khác, và một bảng đầy dòng "chưa điền" vẫn trông như đã rút được năm trường.
+# Prompt đã cấm; danh sách này cưỡng chế, 0 token.
+_CUM_TRONG = frozenset({
+    "chưa điền", "chưa ghi", "chưa có", "chưa xác định", "chưa rõ", "chưa nhập",
+    "không có", "không rõ", "không xác định", "không đề cập", "không ghi",
+    "để trống", "bỏ trống", "trống", "rỗng", "n/a", "na", "none", "null", "-",
+})
 _RE_CHO_DIEN = re.compile(r"…|[._–—-]{3,}")
 
 
@@ -418,7 +490,118 @@ def vung_trong(gia_tri: str) -> bool:
     gõ lại được, còn một chỗ trống lọt vào bản thảo thì không ai thấy.
     """
     s = (gia_tri or "").strip()
-    return not s.strip(_KY_TU_KE) or bool(_RE_CHO_DIEN.search(s))
+    if not s.strip(_KY_TU_KE) or _RE_CHO_DIEN.search(s):
+        return True
+    # So CẢ giá trị đã chuẩn hoá, không tìm từ trong câu: "Trống Đồng Group" là
+    # một cái tên thật, và một phép tìm từ sẽ xoá mọi công ty có chữ ấy khỏi
+    # bảng dữ kiện.
+    return normalize(s).lower().strip("()[] ") in _CUM_TRONG
+
+
+# Chỗ để trống của một bản thảo. CÙNG chuỗi mà `mucTuBanThao` (frontend) điền
+# vào một mục chưa có nội dung — một quy ước hiển thị cho cả hai đầu (FR-011).
+CHO_TRONG = "[…]"
+# "Giá trị" trong một mục do mô hình viết: mọi cụm có chữ số (ngày, tiền, điểm,
+# số hiệu, số Điều) và địa chỉ thư điện tử. Chữ thuần KHÔNG nằm ở đây: một cái
+# tên bịa cũng sai, nhưng nó không tra ngược được bằng phép tra chuỗi, nên nó
+# do prompt chặn (quy tắc 15) chứ không do hàm này.
+_RE_GIA_TRI = re.compile(r"\S+@\S+|\d[\d.,/:\-]*\d|\d")
+# Cụm số THUẦN — dạng duy nhất được phép so bằng GIÁ TRỊ thay vì bằng chuỗi.
+# "01/10/2026" không vào đây: `tinh` sẽ đọc dấu `/` thành phép chia và một ngày
+# tháng bịa sẽ khớp một con số có thật.
+_RE_SO_THUAN = re.compile(r"\d[\d.,]*\d|\d")
+
+
+def _co_trong_nguon(gia_tri: str, nguon: str, so_nguon: list) -> bool:
+    """Giá trị này có THẬT trong nguồn của lượt không.
+
+    Hai phép, theo thứ tự: chuỗi đã chuẩn hoá nằm trong nguồn; hoặc — chỉ với
+    số thuần — cùng GIÁ TRỊ với một con số của nguồn, đọc bằng đúng
+    `phep_tinh.tinh` (quy ước Việt: `20.000.000` và `20000000` là một số, `2,0`
+    và `2.0` cũng vậy). Không có phép thứ ba: "gần giống" là chỗ một con số bịa
+    đi lọt.
+    """
+    if normalize(gia_tri) in nguon:
+        return True
+    if not _RE_SO_THUAN.fullmatch(gia_tri):
+        return False
+    v = tinh(gia_tri)
+    return v is not None and any(abs(v - s) <= SAI_SO for s in so_nguon)
+
+
+def lam_sach_van_ban(van_ban: dict, nguon: str) -> tuple[dict, dict]:
+    """Bỏ khỏi văn bản mô hình vừa soạn mọi giá trị KHÔNG có trong `nguon`.
+    Hàm THUẦN, 0 token — `nguon` là chữ của tài liệu cộng lời người hỏi.
+
+    **Thay bằng `[…]`, không bỏ mục.** Một con số bịa là một LỖ trong một câu
+    còn lại đúng, và `[…]` chính là chỗ trống mà cả bản thảo checklist lẫn giao
+    diện (`mucTuBanThao`) đã dùng cho "chưa có dữ kiện": người đọc thấy ngay
+    phải điền gì. Bỏ cả mục thì cái mất đi là một ĐỀ MỤC người ta đã xin, và nó
+    biến mất không dấu vết — đúng thứ FR-011 cấm (không bao giờ đoán, nhưng
+    cũng không im lặng).
+
+    **Một ngoại lệ, và nó fail closed:** mục nào SAU KHI làm sạch vẫn vướng
+    `bo_nho._vuong_luoi_chan` (số Điều/Khoản/Điểm, số hiệu văn bản, dấu vết
+    định danh cá nhân) thì bị BỎ và đếm riêng. Ở đó không còn là một lỗ để chừa
+    trống: một bản thảo mang mức kiểm `tong_quat` mà dẫn số Điều trông như đã
+    qua rà soát pháp lý, và một số điện thoại/email lọt vào bản thảo là dữ liệu
+    cá nhân đi ra khỏi hội thoại của nó.
+
+    ponytail: lưới chặn đo cả MỤC chứ không định vị được từng cụm, nên một số
+    Điều mà CHÍNH tài liệu của người hỏi có cũng làm mất mục đó. Nâng cấp khi
+    đo thấy nó cắn thật: tách `_RE_DIEU`/`_RE_DINH_DANH` của `bo_nho` thành
+    phép thay theo cụm dùng chung, thay vì một hàm bool.
+    """
+    nguon = normalize(nguon or "")
+    so_nguon = [v for m in _RE_SO_THUAN.findall(nguon) if (v := tinh(m)) is not None]
+    dem = {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0}
+
+    def _sach(s: str) -> str:
+        def _thay(m: re.Match) -> str:
+            if _co_trong_nguon(m.group(0), nguon, so_nguon):
+                return m.group(0)
+            dem["gia_tri_lam_sach"] += 1
+            return CHO_TRONG
+
+        return _RE_GIA_TRI.sub(_thay, s)
+
+    giu: list[dict] = []
+    for o in (van_ban or {}).get("muc") or []:
+        if not isinstance(o, dict):
+            continue
+        ten, noi_dung = str(o.get("ten") or "").strip(), str(o.get("noi_dung") or "").strip()
+        if not ten or not noi_dung:
+            continue
+        truoc = dem["gia_tri_lam_sach"]
+        ten, noi_dung = _sach(ten), _sach(noi_dung)
+        if _vuong_luoi_chan(f"{ten}\n{noi_dung}"):
+            dem["muc_bo"] += 1
+            # Giá trị đã thay trong một mục bị bỏ không còn là một phép làm
+            # sạch người đọc thấy được — trả lại bộ đếm cho đúng.
+            dem["gia_tri_lam_sach"] = truoc
+            continue
+        if dem["gia_tri_lam_sach"] > truoc:
+            dem["muc_lam_sach"] += 1
+        giu.append({"ten": ten, "noi_dung": noi_dung})
+    return {"tieu_de": _sach(str((van_ban or {}).get("tieu_de") or "").strip()), "muc": giu}, dem
+
+
+def _nguon_soan(goi: list[dict], state: dict, truong: list[dict], quan_sat: list[dict]) -> str:
+    """Chữ mà một mục của bản thảo được phép lấy giá trị từ đó.
+
+    Bốn nguồn, và không nguồn thứ năm: TOÀN BỘ đơn vị của tài liệu trong lượt
+    (không chỉ phần đã gửi cho mô hình — phép lọc đầu vào là chuyện chi phí,
+    không phải chuyện bằng chứng, cùng lý lẽ với phép neo `quan_sat`), đoạn
+    trích đã neo của lượt, chính lời người hỏi, và hồ sơ tình huống của hội
+    thoại. Đoạn trích đã neo về mặt tập hợp nằm trong đơn vị rồi; giữ nó ở đây
+    để khi phép neo nới ra (nối nhiều đơn vị) thì nguồn không hụt theo.
+    """
+    phan = [d.noi_dung for t in goi for d in t["don_vi"]]
+    phan += [q.get("trich") or "" for q in quan_sat]
+    phan += [str(state.get(k) or "") for k in ("cau_hoi_goc", "query", "cau_hoi_day_du")]
+    phan += [str(v.get("gia_tri") or "") for v in (state.get("ho_so") or {}).values() if isinstance(v, dict)]
+    phan += [str(o.get("gia_tri") or "") for o in truong]
+    return "\n".join(phan)
 
 
 def _lay_truong(ra: dict, goi: list[dict]) -> tuple[list[dict], dict[str, int]]:
@@ -493,6 +676,47 @@ def _lay_khac_biet(ra: dict, goi: list[dict]) -> tuple[list[dict], int]:
     return giu, bo
 
 
+def _lay_dieu_khoan(ra: dict, goi: list[dict]) -> tuple[list[dict], int]:
+    """Điều khoản của người hỏi → `tai_lieu_neo`, hình dạng `NeoTaiLieuOut` cộng
+    `trich` và `cau_hoi_phap_ly` (hai trường lược đồ đã dành sẵn cho nhánh này).
+
+    Cùng một đòi hỏi với `quan_sat`, và vì một lý do nặng hơn: đoạn trích này sắp
+    được đặt CẠNH điều luật. Một điều khoản không tra ngược được về đúng chữ
+    trong tài liệu mà vẫn đi tiếp thì cả lượt đối chiếu đứng trên một câu do mô
+    hình viết ra — và người đọc sẽ thấy nó nằm cạnh một trích dẫn đã qua hai tầng
+    kiểm, tức mượn uy tín của căn cứ cho một dữ kiện không có thật.
+
+    Thiếu `cau_hoi_phap_ly` cũng bị loại: không có câu hỏi thì không có gì để
+    hỏi kho, và một điều khoản không hỏi được kho chỉ làm loãng lời nhắc.
+    """
+    giu: list[dict] = []
+    bo = 0
+    for o in ra.get("dieu_khoan") or []:
+        if not isinstance(o, dict):
+            bo += 1
+            continue
+        trich = bo_tien_to(str(o.get("trich") or ""))
+        cau_hoi = " ".join(str(o.get("cau_hoi_phap_ly") or "").split())
+        neo = _neo_dau_tien(trich, goi) if (trich and cau_hoi) else None
+        if neo is None:
+            bo += 1
+            continue
+        giu.append({**_neo_ra(*neo), "trich": trich, "cau_hoi_phap_ly": cau_hoi})
+    return giu[:TOI_DA_DIEU_KHOAN], bo
+
+
+def cau_hoi_doi_chieu(dieu_khoan: list[dict]) -> str:
+    """Câu hỏi mà đường pháp lý sẽ đi tra — ghép BẰNG MÃ từ `cau_hoi_phap_ly` của
+    từng điều khoản, không thêm một lượt gọi nào.
+
+    Đây là điểm mấu chốt của lát cắt: truy hồi chạy trên câu hỏi PHÁP LÝ ("thời
+    gian thử việc tối đa là bao lâu"), không trên câu người hỏi gõ ("hợp đồng này
+    có đúng luật không"). Câu sau không có từ nào của điều luật cần tìm, nên tra
+    theo nó là tra vào chỗ khác rồi trả lời một điều không ai hỏi.
+    """
+    return "; ".join(d["cau_hoi_phap_ly"] for d in dieu_khoan)[:CAU_HOI_TOI_DA].strip().rstrip(";")
+
+
 def _khoi_tai_lieu(goi: list[dict]) -> str:
     dong = []
     for t in goi:
@@ -547,6 +771,9 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
             "muc_dich_tai_lieu": None,
             "tai_lieu_neo": [],
             "tai_lieu_du_kien_moi": [],
+            # Lỗi hạ tầng KHÔNG được để lại một văn bản soạn dở của lượt trước:
+            # `dung_ban_thao_tong_quat` đọc đúng khoá này để quyết định có lưu.
+            "van_ban_tong_quat": None,
             "traces": {**prior_traces, "hieu_tai_lieu_nguon": nguon, "hieu_tai_lieu_model": model,
                        "hieu_tai_lieu_so_don_vi_gui": so_don_vi, "hieu_tai_lieu_so_quan_sat_giu": 0,
                        "hieu_tai_lieu_so_quan_sat_bo": 0, "hieu_tai_lieu_token_in": 0,
@@ -614,18 +841,46 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     # Chỉ lượt SO SÁNH mới có khác biệt: một danh sách "khác biệt" trong lượt
     # tóm tắt là nội dung mô hình tự thêm vào, không phải thứ ai hỏi.
     khac_biet, khac_biet_bo = _lay_khac_biet(ra, goi) if muc_dich == "so_sanh" else ([], 0)
+    # Chỉ lượt ĐỐI CHIẾU mới lấy điều khoản: cùng lý lẽ `khac_biet` ngay trên —
+    # một danh sách điều khoản trong lượt tóm tắt là hình dạng được điền cho đủ,
+    # không phải thứ ai hỏi, và nó sẽ kéo cả lượt sang đường pháp lý.
+    dieu_khoan, dieu_khoan_bo = _lay_dieu_khoan(ra, goi) if muc_dich == "doi_chieu_luat" else ([], 0)
+    # Văn bản mới CHỈ ở hai lượt soạn (S6), và chỉ sau khi mọi giá trị trong nó
+    # được tra ngược về nguồn của lượt. Ra khỏi chỗ này rồi thì nó là dữ liệu
+    # thuần — `dung_ban_thao_tong_quat` không phải biết gì về mô hình nữa.
+    van_ban, van_ban_dem = (
+        lam_sach_van_ban(ra.get("van_ban") or {}, _nguon_soan(goi, state, truong, giu))
+        if muc_dich in MUC_DICH_SOAN
+        else (None, {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0})
+    )
     can_du_kien = [str(s).strip() for s in (ra.get("can_du_kien") or []) if str(s).strip()]
-    if muc_dich == "so_sanh" and len(goi) < 2 and CAN_TAI_LIEU_THU_HAI not in can_du_kien:
+    # Thiếu tài liệu để so: quyết định bằng LỜI NGƯỜI HỎI hoặc nhãn của mô hình,
+    # cái nào đúng cũng đủ — xem `xin_so_sanh`.
+    thieu_de_so = len(goi) < 2 and (muc_dich == "so_sanh" or xin_so_sanh(cau_hoi))
+    if thieu_de_so and CAN_TAI_LIEU_THU_HAI not in can_du_kien:
         can_du_kien.append(CAN_TAI_LIEU_THU_HAI)
-    return {
+    # Xin đối chiếu mà không neo được điều khoản nào ⇒ hành xử như `hoi`, và nói
+    # ra. KHÔNG đẩy một danh sách rỗng vào đường pháp lý: ở đó không còn dữ kiện
+    # nào của người hỏi, nên câu trả lời sẽ là một bài giảng luật chung chung
+    # đội lốt một lượt đối chiếu.
+    lam_duoc = muc_dich in MUC_DICH_LAM_DUOC and (muc_dich != "doi_chieu_luat" or bool(dieu_khoan))
+    tra_loi = str(ra.get("tra_loi_ngan") or "").strip()
+    if muc_dich == "doi_chieu_luat" and not dieu_khoan:
+        tra_loi = "\n\n".join(x for x in (tra_loi, DOI_CHIEU_KHONG_NEO) if x)
+    # THAY hẳn, không nối thêm: văn xuôi ở đây khẳng định một so sánh với một
+    # tài liệu không tồn tại, nên giữ lại nó rồi đính chính bên dưới là vẫn để
+    # câu khẳng định ấy đứng đầu câu trả lời.
+    if thieu_de_so:
+        tra_loi = SO_SANH_THIEU_TAI_LIEU
+    ket = {
         **state,
-        # Mục đích THẬT mô hình đọc được, kể cả cái lát cắt này chưa làm — S5/S6
-        # rẽ nhánh trên khoá này.
+        # Mục đích THẬT mô hình đọc được, kể cả cái lát cắt này chưa làm — S6 rẽ
+        # nhánh trên khoá này.
         "muc_dich_tai_lieu": muc_dich if muc_dich in MUC_DICH else None,
         "tai_lieu_ket": _ket(
-            muc_dich if muc_dich in MUC_DICH_LAM_DUOC else "hoi",
+            muc_dich if lam_duoc else "hoi",
             str(ra.get("mo_ta") or "").strip() or None,
-            str(ra.get("tra_loi_ngan") or "").strip(),
+            tra_loi,
             giu,
             [str(s).strip() for s in (ra.get("suy_luan") or []) if str(s).strip()][:TOI_DA_SUY_LUAN],
             can_du_kien,
@@ -633,8 +888,10 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
             phep_tinh,
             khac_biet,
         ),
-        # S5 điền: điều khoản đưa sang đường pháp lý mang neo của nó.
-        "tai_lieu_neo": [],
+        # Điều khoản đưa sang đường pháp lý, mỗi cái mang neo của nó.
+        "tai_lieu_neo": dieu_khoan,
+        # Văn bản đã làm sạch cho `dung_ban_thao_tong_quat` (S6).
+        "van_ban_tong_quat": van_ban,
         # Dữ kiện MỚI, chưa ghi: node thuần không chạm DB (`graph_tra_cuu` lo).
         "tai_lieu_du_kien_moi": truong,
         "traces": {
@@ -655,8 +912,27 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
             **{f"hieu_tai_lieu_truong_bo_{ly}": n for ly, n in truong_bo.items()},
             "hieu_tai_lieu_so_khac_biet": len(khac_biet),
             "hieu_tai_lieu_so_khac_biet_bo": khac_biet_bo,
+            "hieu_tai_lieu_so_dieu_khoan": len(dieu_khoan),
+            "hieu_tai_lieu_so_dieu_khoan_bo": dieu_khoan_bo,
+            # Đếm, không chép (S6): bao nhiêu mục đã soạn, bao nhiêu mục phải
+            # chừa trống, bao nhiêu giá trị bịa bị thay, bao nhiêu mục bị bỏ vì
+            # còn vướng lưới chặn. Không khoá nào mang chữ của bản thảo.
+            "dung_ban_thao_so_muc": len((van_ban or {}).get("muc") or []),
+            "dung_ban_thao_so_muc_lam_sach": van_ban_dem["muc_lam_sach"],
+            "dung_ban_thao_so_gia_tri_lam_sach": van_ban_dem["gia_tri_lam_sach"],
+            "dung_ban_thao_so_muc_bo": van_ban_dem["muc_bo"],
             "hieu_tai_lieu_token_in": usage.token_in if usage else 0,
             "hieu_tai_lieu_token_out": usage.token_out if usage else 0,
             "hieu_tai_lieu_cost_usd": usage.cost_usd if usage else 0.0,
         },
     }
+    if dieu_khoan:
+        # Đúng quy ước `giai_nghia`: `query` là câu CẢ PIPELINE chạy trên, và ở
+        # lượt này nó phải là câu hỏi PHÁP LÝ của điều khoản; `cau_hoi_goc` giữ
+        # câu người hỏi gõ, để prompt hành văn còn trả lời đúng người trước mặt.
+        # `cau_hoi_goc` có sẵn (lượt nối tiếp đã qua `giai_nghia`) thì không ghi
+        # đè — ở đó `query` đã là câu giải nghĩa, không phải câu người ta gõ.
+        ket["cau_hoi_goc"] = state.get("cau_hoi_goc") or state.get("query") or ""
+        ket["cau_hoi_day_du"] = cau_hoi_doi_chieu(dieu_khoan)
+        ket["query"] = ket["cau_hoi_day_du"]
+    return ket
