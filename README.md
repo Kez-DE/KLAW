@@ -1,12 +1,4 @@
-# 🤖 AI20K Agent Template
-
-Template chính thức cho học viên **VinUni AI20K Build Phase** — cung cấp sẵn cấu trúc dự án, code mẫu, và hướng dẫn kỹ thuật chi tiết để xây dựng AI Agent đạt điểm cao (35+/50).
-
-> 📖 **Technical Guidebook:** [phoenix.note.transformerlabs.ai/technical-book](https://phoenix.note.transformerlabs.ai/technical-book)
-
-## 🎯 Template này dùng để làm gì?
-
-Khi tham gia AI20K Build Phase, mỗi đội cần xây dựng một AI Agent hoàn chỉnh — từ kiến trúc, code, test, đến deploy. Thay vì bắt đầu từ con số không, template này cung cấp:
+ Thay vì bắt đầu từ con số không, template này cung cấp:
 
 - **Cấu trúc thư mục chuẩn** — đã được thiết kế theo best practices (separation of concerns)
 - **Code mẫu** cho các phần cốt lõi: LangGraph agent, FastAPI API, config, schemas
@@ -217,13 +209,7 @@ bash scripts/_pyrun.sh scripts/log_manual.py --tool chatgpt --prompt "What you a
 có table of contents bên phải, hỗ trợ light/dark/cyberpunk theme.
 
 **Offline:** mọi chương đều ở thư mục `docs/guide/` trong template này — mở bằng
-bất kỳ markdown viewer/editor nào (VS Code, Obsidian, GitHub UI, …).
-
-## 🔗 Liên kết
-
-- 📖 **Technical Guidebook:** [phoenix.note.transformerlabs.ai/technical-book](https://phoenix.note.transformerlabs.ai/technical-book)
-- 🏫 **AI20K Program:** VinUni AI20K Build Phase
-- 👨‍🏫 **Mentor:** Đặng Hải Lộc
+bất kỳ markdown viewer/editor nào (VS Code, Obsidian, GitHub UI, …
 
 ## 📄 License
 
