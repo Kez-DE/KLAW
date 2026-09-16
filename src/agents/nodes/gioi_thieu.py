@@ -370,6 +370,33 @@ def khia_canh(cau_hoi: str) -> list[str]:
 
 TOI_DA_LINH_VUC = 6
 
+# Deterministic router guard. Production 2026-09-16: the LLM router sent
+# "bạn làm được gì, có những bộ luật gì, có những lĩnh vực pháp luật gì" to
+# retrieval and the user got partial_coverage about an unrelated decree. A
+# question that plainly addresses the assistant or the corpus never needs
+# retrieval, so it is pinned to gioi_thieu before the graph branches. Kept
+# narrow: second-person "bạn/KLAW làm được gì / là ai / là gì", "những bộ
+# luật|lĩnh vực gì|nào", "kho có/phủ", "model của bạn", "dữ liệu lấy". A
+# digit or an article/decree word means a real legal question — never pinned.
+_RE_META_MANH = re.compile(
+    r"\b(?:bạn|klaw)\s+(?:làm|giúp|hỗ\s*trợ)\s+(?:được\s+)?(?:những\s+)?gì"
+    r"|\b(?:bạn|klaw)\s+là\s+(?:ai|(?:cái\s+)?gì)\b"
+    r"|những\s+(?:bộ\s+luật|lĩnh\s+vực)(?:\s+pháp\s+luật)?\s+(?:gì|nào)"
+    r"|\bkho\s+(?:của\s+bạn\s+)?(?:có|phủ|gồm)"
+    r"|model\s+(?:của\s+)?bạn|\bbạn\s+(?:dùng|chạy)\s+(?:model|mô\s*hình|ai)"
+    r"|dữ\s*liệu\s+(?:của\s+bạn\s+)?(?:lấy|từ)"
+    r"|bao\s+nhiêu\s+(?:văn\s+bản|bộ\s+luật)"
+)
+_RE_NOI_DUNG_LUAT = re.compile(r"\d|\bđiều\b|\bkhoản\b|nghị\s*định|thông\s*tư")
+
+
+def chac_chan_meta(cau_hoi: str) -> bool:
+    """True when the question is unmistakably about KLAW or the corpus and
+    carries no legal-content marker; the router's LLM verdict is then
+    overridden to gioi_thieu (0 tokens)."""
+    c = _chuan(cau_hoi)
+    return bool(_RE_META_MANH.search(c)) and not _RE_NOI_DUNG_LUAT.search(c)
+
 
 def chi_hoi_kho(cac_khia_canh: list[str]) -> bool:
     """Only corpus facets — the caller keeps the existing `hoi_ve_kho` text and

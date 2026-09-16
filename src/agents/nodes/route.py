@@ -18,6 +18,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
+from src.agents.nodes.gioi_thieu import chac_chan_meta
 from src.services.kho import xin_dang_bang
 
 PROMPT_PATH = Path("prompts/route.v1.md")
@@ -154,6 +155,10 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
     # Ý định phụ chỉ có nghĩa khi ý định CHÍNH là tra_cuu — người hỏi vừa hỏi
     # luật vừa nhờ soạn. Khi intent CHÍNH đã là soan_thao, gợi ý dựng ở nhánh
     # dưới đây (cùng đường cũ) là đủ, không cần thêm cờ y_dinh_phu.
+    # Deterministic guard over the LLM verdict — see gioi_thieu.chac_chan_meta.
+    ep_meta = intent not in (Intent.gioi_thieu, Intent.hoi_ve_kho) and chac_chan_meta(state["query"])
+    if ep_meta:
+        intent = Intent.gioi_thieu
     y_dinh_phu = data.get("y_dinh_phu") if la_v3 else None
     y_dinh_phu = "soan_thao" if y_dinh_phu == "soan_thao" and intent is Intent.tra_cuu else None
     goi_y: dict | None = None
@@ -176,6 +181,7 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
         "traces": {
             **prior_traces,
             "route_model": model,
+            "route_ep_meta": ep_meta,
             "route_token_in": usage.token_in if usage else 0,
             "route_token_out": usage.token_out if usage else 0,
             "route_cost_usd": usage.cost_usd if usage else 0.0,
