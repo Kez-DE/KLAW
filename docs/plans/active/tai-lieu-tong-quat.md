@@ -614,3 +614,46 @@ Limits: the daily document allowance is five on the free plan, so the browser
 run deleted its own `viec_doc_tai_lieu` rows between attempts. A document whose
 type is recognised but which nobody has asked about now carries no facts until
 a turn happens or the user picks a template.
+
+### Review round before the merge
+
+Two reviewers read the diff before it went to `main`, and both found real
+defects the browser run had not.
+
+The API review found that opening a conversation for an absent `hoi_thoai_id`
+is a DB write and it ran ahead of `tl.kiem_kich_thuoc` and `_kiem_han_muc`. A
+user at their daily cap who attached to a fresh chat got 429 *and* a
+conversation named after the file; `hoi_thoai.danh_sach` does not filter empty
+sessions and nothing collects them, so it stayed in the sidebar for good. The
+creation moved after both gates. The ownership check for a supplied
+`hoi_thoai_id` stayed first — it only reads, and 404 must precede 429 so a
+stranger's session is not revealed by how much quota the caller has left.
+`Form(None)` only yields `None` for a missing key, so a blank value is now
+treated as absent instead of dying in `_uuid_hop_le("")`.
+
+`test_HET_HAN_MUC_khong_de_lai_phien_ma` locks the ordering: it patches
+`han_muc_ngay` to 0, posts with no `hoi_thoai_id`, and asserts 429 with the
+session count unchanged. Restoring the old order makes it fail with
+`assert 1 == 0`. Confirmed live too: a 429 attach left `?phien=` empty and
+added no row.
+
+The interface review found that moving the upload out of `TaiLieuDuKien`
+dropped the sign-in check that used to live in its `gui()`. The paperclip
+renders for guests, and `taiLen` does not go through `goi()`, so a guest waited
+out the whole read and got "Không đọc được tệp này." instead of the one thing
+they can act on. It also found the new chip button was only as tall as its 12px
+text, next to a 20px remove button — two targets under the 24px WCAG 2.5.8
+minimum, side by side. Measured after the fix: the chip button is 24×148 with
+`aria-label="Xem tài liệu …"`; the remove button is still 20×20, which predates
+this work and is left alone.
+
+Both reviewers confirmed the parts that were already right: the auto-created
+session cannot cross users (`tao_phien` writes `user_sub` from the token), the
+filename title goes through parameterised SQL and renders as plain JSX, no
+downstream caller depends on upload-time facts, and the latch trio plus
+`navigate(replace: true)` has no ordering hole because `MenuDinhKem` is disabled
+for the whole upload.
+
+CI parity on the PR: `frontend` and `cms` pass; `lint-and-test` fails on exactly
+the same 15 tests as the last `main` run (4d4de27) — auth and JWKS cases that
+return 401 under the CI environment. The branch adds no new failure.
