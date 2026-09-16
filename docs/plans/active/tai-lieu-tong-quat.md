@@ -4,7 +4,8 @@ Date: 2026-09-16
 
 ## Status
 
-Active — awaiting owner CONFIRM before any code change.
+Active — all slices implemented locally; awaiting the owner's own review before
+this moves to `completed/`. Nothing is pushed and nothing is deployed.
 
 ## Outcome
 
@@ -402,17 +403,48 @@ SSE steps (S2): `("hieu_tai_lieu", "Đọc tài liệu đính kèm")`,
       Measured after the fixes on the sample form: the arithmetic turn returns
       `2.0+2.0+2.0+4.0 = 10` computed in code and matching the document; the
       extraction turn on a blank form returns 0 fields and 6 `can_du_kien`.
-- [ ] S5 — GĐ5: `doi_chieu_luat` → legal pipeline; `tai_lieu_neo` in prose
-      block and response; verdict-phrase check; frontend anchor chips under
-      legal answers. Tests: `test_doi_chieu_luat.py`, `test_assemble` additions.
-      Deploy #3 (Outcome 5).
-- [ ] S6 — GĐ4: `dung_ban_thao_tong_quat`, `_render_markdown` branch,
-      `muc_kiem` label, edit via conversation, frontend fallback for
-      `tong_quat`, DOCX/PDF export smoke with Vietnamese diacritics. Tests:
-      `test_ban_thao_tong_quat.py`, `test_ban_thao_api.py` additions. Deploy #4
-      (Outcome 6).
-- [ ] S7 — eval fixtures + `run_hieu_tai_lieu.py`; owner-authorised run
-      (ceiling US$3); decision record "Số đo"; move plan to completed.
+- [x] S5 — GĐ5: `dieu_khoan` in the strict schema (≤3, anchored by `neo_trich`,
+      dropped and counted otherwise); `_re_sau_hieu_tai_lieu` → `tien_de` when
+      the purpose is `doi_chieu_luat` AND a clause anchored; the legal pipeline
+      retrieves on `cau_hoi_day_du` composed from `cau_hoi_phap_ly` (user words
+      stay in `cau_hoi_goc`, `giai_nghia` convention); clauses enter the prose
+      prompt through the existing `{tinh_huong}` slot under "Điều khoản trong
+      tài liệu của người hỏi (dữ kiện, KHÔNG phải căn cứ)" — no released prompt
+      edited; `tai_lieu_neo` rides `answer`/`partial_coverage`/`abstain` while
+      `tai_lieu` stays None; QT-1 verdict check (`cau_phan_quyet`, 0 token,
+      exempts phrases quoted from a verified citation) falls back to `_ngo_cut`
+      with law-and-difference wording and trace `assemble_phan_quyet_bi_chan`.
+      Asking for đối chiếu with no anchorable clause degrades to `hoi` and says
+      so. Tests: `test_doi_chieu_luat.py` (41). Frontend chips already landed in
+      S3. Deploy #3 (Outcome 5) pending.
+- [x] S6 — GĐ4: `van_ban` in the `hieu_tai_lieu` schema + `lam_sach_van_ban`
+      (0-token invented-value check: values not in the turn's source become
+      `[…]`; a section still tripping `bo_nho._vuong_luoi_chan` is dropped and
+      counted), node `dung_ban_thao_tong_quat` on the existing `ban_thao`
+      service, `_render_markdown` `tong_quat` branch, `kiem_tran_sua` shared by
+      both edit paths, `moi_nhat_cua_hoi_thoai`, `BUOC_TRA_CUU` +
+      `dung_ban_thao_tong_quat`, `assemble` label "Bản thảo tổng quát — chưa
+      kiểm pháp lý", guest → `soan_thao_hoi(can_dang_nhap)`. `ban_thao.dung_lai`
+      now refuses `tong_quat` (it would have 500'd on the missing checklist) and
+      the stage hides the per-section "Sửa" for it. Frontend: `nhanMucKiem`,
+      stage badge, `/mau/tong_quat` never fetched (`cauTruc=null` fallback).
+      Tests: `test_ban_thao_tong_quat.py` (33: 29 free + 4 integration); free
+      lane 1839 passed, draft/document integration 84 passed. Local Chrome
+      smoke of DOCX/PDF pending (export path verified by reading `xuat-tep.ts`:
+      `mucTuBanThao` falls back to `clauses`, `tieuDe` to `banThao.ten`).
+- [x] S7 — `eval/datasets/tai_lieu_tong_quat/` (six generated documents: blank
+      form with tables and a footer, form whose total does not add up, injected
+      instruction, probation clause, comparison pair) + `eval/run_hieu_tai_lieu.py`,
+      every column decided in code. Eleven runs, total US$0.06, far under the
+      US$3 ceiling. The runs found five defects no unit test had: the purposes
+      were listed without definitions so `doi_chieu_luat` was never chosen;
+      blank-meaning words ("chưa điền") became facts; a comparison was asserted
+      against a document that was not attached; the guard for that was keyed on
+      the model's own label, which varies run to run; and the measure looked for
+      values in prose rather than in the anchored quotes. After the fixes: 8/8
+      on three consecutive runs.
+      Remaining for the owner: review the sample labels by hand, then rename
+      `manifest_candidates.yaml` to `manifest.yaml` with `da_nguoi_duyet: true`.
 
 ## Decisions
 
@@ -463,4 +495,54 @@ SSE steps (S2): `("hieu_tai_lieu", "Đọc tài liệu đính kèm")`,
 
 ## Result
 
-Pending.
+Implemented on `feat/tai-lieu-tong-quat`, eight local commits, nothing pushed
+and nothing deployed (owner instruction at CONFIRM).
+
+### What is true now
+
+A document outside the 29 checklists is read, kept for the conversation and
+answered about. Every statement KLAW makes about a document carries an anchor
+resolved by string lookup; an unanchored one is dropped, never shown. Sums are
+computed in code and put next to the number the document states. Fields are
+extracted against a schema the question names, edited and deleted through the
+endpoints that already existed. Two documents are compared with one anchor per
+side. A clause goes into the verified legal pipeline and comes back as law and
+difference, never as a verdict. A document can be drafted without a checklist,
+labelled as unchecked, and downloaded.
+
+### Proof
+
+| Lane | Result |
+|---|---|
+| Free unit lane (CI shape) | 1828 passed |
+| Integration on local Postgres | 85 passed |
+| `ruff check src/ tests/ eval/` | clean |
+| Frontend typecheck, lint, build, `kiem-tai-lieu` | clean, 0 errors |
+| `eval.run_hieu_tai_lieu`, three consecutive runs | 8/8, every observation anchored, no injected instruction followed |
+
+Cost per document turn on `google/gemini-2.5-flash-lite`: about US$0.0005 to
+US$0.0012. A full evaluation run: about US$0.005 and 28 seconds.
+
+### Limits, stated plainly
+
+- Keeping a DOCX layout while patching it (GĐ3) is not built. It needs the
+  OOXML retention decision that `documen.md` §10.1 leaves open.
+- The browser was not driven: the Chrome extension reported
+  `Browser extension is not connected`, so the interface was proven by
+  typecheck, build and its pure checks, not by a screenshot.
+- The evaluation labels are machine-built and not yet reviewed by a person, so
+  the manifest still says `da_nguoi_duyet: false` and the numbers above are not
+  release evidence until it does.
+- Every defect the evaluation found came from running the real model, not from
+  the unit tests. Expect the same of the next capability: measure it before
+  believing it.
+
+### Follow-ups
+
+- `_neo_manh_roi_rac` anchors a multi-fragment quote to its first fragment and
+  the interface shows one chip. If a reader needs to click each number, the
+  anchor becomes a list.
+- `documen.md:55` still says an unrecognised type returns `can_chon_loai`. It
+  does not any more.
+- `POST /tai-lieu` keeps a cost ceiling per document but the whole-conversation
+  document count is unbounded.
