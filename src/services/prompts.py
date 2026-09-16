@@ -14,12 +14,18 @@ với `generate_model` đang cố giữ.
 from functools import lru_cache
 from pathlib import Path
 
+from src.config import get_settings
+
+# Mặc định, và là đường tra file cho test hợp đồng — đường ĐANG DÙNG do
+# `settings.soul_prompt` quyết định (xem `soul`).
 SOUL_PATH = Path("prompts/soul.v2.md")
 
 
 @lru_cache(maxsize=1)
 def soul() -> str:
-    return SOUL_PATH.read_text(encoding="utf-8")
+    # Cache không có khoá vì `get_settings()` cũng cache theo tiến trình: một
+    # tiến trình chỉ có MỘT SOUL. Test đổi setting phải gọi `soul.cache_clear()`.
+    return Path(get_settings().soul_prompt).read_text(encoding="utf-8")
 
 
 def messages(user_prompt: str, *, co_soul: bool = True) -> list[dict]:

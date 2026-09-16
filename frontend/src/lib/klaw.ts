@@ -85,6 +85,8 @@ export interface Citation {
    * văn, hoặc payload cache dựng trước 2026-09-06.
    */
   k?: number | null;
+  /** Vai trò của căn cứ: `ket_luan` | `dieu_kien` | `ngoai_le` | `che_tai`. `null`/vắng = prompt sinh chưa gắn vai trò. */
+  vai_tro?: string | null;
 }
 
 /**

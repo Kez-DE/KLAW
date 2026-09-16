@@ -76,11 +76,40 @@ VERDICTS_SCHEMA = {
 }
 
 
+# verify_tier2.v2 — v1 cộng hai câu hỏi: khẳng định có TRẢ LỜI ĐÚNG MỤC TIÊU
+# không (`relevant`), và có nói RỘNG hơn điều luật không (`overstated`). Dựng từ
+# schema v1 để không có bản sao thứ hai; chọn theo NỘI DUNG template.
+_ITEM_V1 = VERDICTS_SCHEMA["properties"]["verdicts"]["items"]
+VERDICTS_V2_SCHEMA = {
+    **VERDICTS_SCHEMA,
+    "properties": {
+        "verdicts": {
+            "type": "array",
+            "items": {
+                **_ITEM_V1,
+                "required": [*_ITEM_V1["required"], "relevant", "overstated"],
+                "properties": {
+                    **_ITEM_V1["properties"],
+                    "relevant": {"type": "boolean"},
+                    "overstated": {"type": "boolean"},
+                },
+            },
+        },
+    },
+}
+
+
 @dataclass(frozen=True)
 class Tier2Verdict:
     claim_index: int
     supported: bool
     reason: str
+    # GĐ3 — MẶC ĐỊNH nới, ngược với `supported`, và cố ý: hai trường này là bộ
+    # lọc VĂN XUÔI (`assemble`), không phải phép kiểm quyết định abstain. Prompt
+    # v1 không hỏi chúng, nên mặc định phải giữ nguyên hành vi v1; chỗ fail-closed
+    # nằm ở `_run_judge` — với prompt v2, thiếu verdict là `relevant=False`.
+    relevant: bool = True
+    overstated: bool = False
 
 
 def _dieu_luat_cho_judge(r: Tier1Result, db_provisions: dict[int, dict]) -> str:
@@ -110,12 +139,15 @@ def _dieu_luat_cho_judge(r: Tier1Result, db_provisions: dict[int, dict]) -> str:
     return f"{tieu_de}\n{dong}"
 
 
-def _build_prompt(qua: list[Tier1Result], db_provisions: dict[int, dict]) -> str:
+def _build_prompt(qua: list[Tier1Result], db_provisions: dict[int, dict], mau: str,
+                  muc_tieu: str = "", cau_hoi: str = "") -> str:
     pairs = [
         f"claim_index={pos}\nKHẲNG ĐỊNH: {r.claim.text}\nĐIỀU LUẬT: {_dieu_luat_cho_judge(r, db_provisions)}"
         for pos, r in enumerate(qua)
     ]
-    return PROMPT_PATH.read_text(encoding="utf-8").format(pairs="\n\n---\n\n".join(pairs))
+    # `muc_tieu`/`cau_hoi` là kwargs THỪA với template v1 — `str.format` bỏ qua,
+    # nên đường mặc định không đổi một ký tự nào.
+    return mau.format(pairs="\n\n---\n\n".join(pairs), muc_tieu=muc_tieu, cau_hoi=cau_hoi)
 
 
 def _parse_verdicts(raw: str) -> dict[int, dict]:
@@ -147,16 +179,23 @@ def _parse_verdicts(raw: str) -> dict[int, dict]:
 
 
 def _run_judge(
-    tier1: list[Tier1Result], db_provisions: dict[int, dict], llm, model: str
+    tier1: list[Tier1Result], db_provisions: dict[int, dict], llm, model: str,
+    prompt_path: Path | None = None, khung_yeu_cau: dict | None = None, cau_hoi: str = "",
 ) -> tuple[list[Tier2Verdict], Usage | None]:
     qua = [r for r in tier1 if r.ok]
     if not qua:
         return [], None
 
-    prompt = _build_prompt(qua, db_provisions)
+    mau = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8")
+    la_v2 = "relevant" in mau
+    # Mục tiêu rơi về chính câu hỏi khi chưa có khung: judge vẫn phải chấm được
+    # độ liên quan, và câu hỏi là phát biểu mục tiêu tối thiểu luôn có.
+    muc_tieu = (khung_yeu_cau or {}).get("muc_tieu") or cau_hoi
+    prompt = _build_prompt(qua, db_provisions, mau, muc_tieu=muc_tieu, cau_hoi=cau_hoi)
     # KHÔNG try/except quanh lời gọi này: lỗi hạ tầng (mạng, LlmClient raise vì
     # thiếu 'usage') phải nổ, không bị nuốt chung với "judge trả JSON hỏng".
-    raw, usage = llm.chat(model, [{"role": "user", "content": prompt}], json_schema=VERDICTS_SCHEMA)
+    raw, usage = llm.chat(model, [{"role": "user", "content": prompt}],
+                          json_schema=VERDICTS_V2_SCHEMA if la_v2 else VERDICTS_SCHEMA)
     got = _parse_verdicts(raw)
 
     out: list[Tier2Verdict] = []
@@ -165,14 +204,27 @@ def _run_judge(
         if v is None:
             logger.warning("tầng 2: claim_index=%d không có verdict từ judge — mặc định supported=False", pos)
         supported = v.get("supported") is True if v else False
+        # Prompt v1 KHÔNG hỏi hai câu này. Suy ra chúng từ im lặng của một judge
+        # chưa bao giờ được hỏi là bịa một phán quyết — v1 giữ nguyên mặc định
+        # nới, và bộ lọc văn xuôi của `assemble` nằm im. Với v2 thì ngược lại:
+        # im lặng là "không chắc", và không chắc = không dùng cho văn xuôi.
+        relevant = (v.get("relevant") is True if v else False) if la_v2 else True
+        overstated = bool(la_v2 and v and v.get("overstated") is True)
         reason = v.get("reason") if v and isinstance(v.get("reason"), str) else None
-        out.append(Tier2Verdict(pos, supported, reason or "judge không trả verdict hợp lệ → mặc định không hỗ trợ"))
+        out.append(Tier2Verdict(pos, supported,
+                                reason or "judge không trả verdict hợp lệ → mặc định không hỗ trợ",
+                                relevant, overstated))
     return out, usage
 
 
-def verify_tier2(tier1: list[Tier1Result], db_provisions: dict[int, dict], llm, model: str) -> list[Tier2Verdict]:
-    """Batch mọi claim ĐÃ QUA tầng 1 vào MỘT lời gọi judge. Xem docstring module."""
-    verdicts, _usage = _run_judge(tier1, db_provisions, llm, model)
+def verify_tier2(tier1: list[Tier1Result], db_provisions: dict[int, dict], llm, model: str, *,
+                 prompt_path: Path | None = None, khung_yeu_cau: dict | None = None,
+                 cau_hoi: str = "") -> list[Tier2Verdict]:
+    """Batch mọi claim ĐÃ QUA tầng 1 vào MỘT lời gọi judge. Xem docstring module.
+
+    Ba tham số mới CHỈ theo tên: mọi lời gọi cũ (kể cả test hợp đồng của brief)
+    giữ nguyên bốn tham số vị trí."""
+    verdicts, _usage = _run_judge(tier1, db_provisions, llm, model, prompt_path, khung_yeu_cau, cau_hoi)
     return verdicts
 
 
@@ -182,12 +234,19 @@ def verify_tier2_and_trace(
     llm,
     model: str,
     prior_traces: dict | None = None,
+    *,
+    prompt_path: Path | None = None,
+    khung_yeu_cau: dict | None = None,
+    cau_hoi: str = "",
 ) -> tuple[list[Tier2Verdict], dict]:
     """Như `verify_tier2`, cộng `traces` (Global Constraint) ghi Usage THẬT và
     CẢ HAI tên model — xem docstring module về khoá `tier2_*`."""
-    verdicts, usage = _run_judge(tier1, db_provisions, llm, model)
+    verdicts, usage = _run_judge(tier1, db_provisions, llm, model, prompt_path, khung_yeu_cau, cau_hoi)
     traces = {
         **(prior_traces or {}),
+        # Phiên bản prompt judge — hai prompt cho hai HỢP ĐỒNG verdict khác nhau,
+        # nên một bảng số liệu không ghi cái nào đã chạy thì không so được.
+        "tier2_prompt": str(prompt_path or PROMPT_PATH),
         # Điều kiện theo `usage`, giống ba khoá bên dưới — KHÔNG vô điều kiện:
         # `usage is None` nghĩa là `_run_judge` không hề gọi LLM (qua_t1 rỗng).
         # Hai cột này là BẰNG CHỨNG "judge đã chạy trên request thật" (docstring

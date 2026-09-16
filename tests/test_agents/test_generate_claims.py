@@ -369,3 +369,96 @@ def test_model_trung_thuc_chep_dung_khoi_VUNG_III_van_qua_duoc_tang_1():
         f"KHÔNG PHẢI ảo giác: {r.reason} — quote={st['draft_claims'][0].quote!r}"
     )
     assert r.khop_tai == 258773
+
+
+# ══ GĐ3 — vai trò của khẳng định (cai_thien.md §6) ══════════════════════════
+
+
+def _payload_v3(vai_tro="ket_luan"):
+    return {
+        "insufficient_evidence": False,
+        "claims": [{"text": "Lương thử việc ít nhất 85%.", "provision_id": 11,
+                    "quote": "ít nhất phải bằng 85%", "hang": None,
+                    "vai_tro": vai_tro, "tra_loi_muc_tieu": True}],
+    }
+
+
+def test_template_v3_chon_schema_v3_va_parse_duoc_vai_tro():
+    """Schema chọn theo NỘI DUNG template (cùng khuôn `rewrite_query`): một bản
+    v3 đổi tên file vẫn phải chạy, và một v2 tuyệt đối không được nhận schema
+    đòi thêm field mà prompt của nó chưa bao giờ nhắc tới."""
+    from pathlib import Path
+
+    from src.agents.nodes.generate_claims import CLAIMS_V3_SCHEMA
+
+    llm = FakeLlm(_payload_v3())
+    st = generate_claims({"query": "thử việc lương bao nhiêu", "expanded": PROVS}, llm, "m",
+                         prompt_path=Path("prompts/generate_claims.v3.md"))
+    assert llm.last["schema"] is CLAIMS_V3_SCHEMA
+    item = CLAIMS_V3_SCHEMA["properties"]["claims"]["items"]
+    assert set(item["required"]) == {"text", "provision_id", "quote", "hang", "vai_tro", "tra_loi_muc_tieu"}
+    assert item["properties"]["vai_tro"]["enum"] == ["ket_luan", "dieu_kien", "ngoai_le", "che_tai"]
+    c = st["draft_claims"][0]
+    assert c.vai_tro == "ket_luan" and c.tra_loi_muc_tieu is True
+
+
+def test_prompt_v3_mang_muc_tieu_va_cau_hoi_phap_ly_tu_khung():
+    from pathlib import Path
+
+    llm = FakeLlm(_payload_v3())
+    generate_claims(
+        {"query": "bị trừ lương", "expanded": PROVS,
+         "khung_yeu_cau": {"muc_tieu": "biết công ty có được trừ lương không",
+                           "cau_hoi_phap_ly": "khấu trừ tiền lương hợp pháp khi nào",
+                           "du_kien_quyet_dinh_con_thieu": []}},
+        llm, "m", prompt_path=Path("prompts/generate_claims.v3.md"),
+    )
+    gui = llm.last["messages"][-1]["content"]
+    assert "biết công ty có được trừ lương không" in gui
+    assert "khấu trừ tiền lương hợp pháp khi nào" in gui
+
+
+def test_prompt_v2_khong_doi_va_claim_khong_co_vai_tro():
+    """Đường MẶC ĐỊNH: prompt v2 vẫn nhận `CLAIMS_SCHEMA`, và claim v2 parse ra
+    `vai_tro=None` — `assemble` dựa đúng vào đó để không bật đường xếp vai trò."""
+    llm = FakeLlm({
+        "insufficient_evidence": False,
+        "claims": [{"text": "Lương thử việc ít nhất 85%.", "provision_id": 11,
+                    "quote": "ít nhất phải bằng 85%"}],
+    })
+    st = generate_claims({"query": "x", "expanded": PROVS}, llm, "m")
+    assert llm.last["schema"] is CLAIMS_SCHEMA
+    c = st["draft_claims"][0]
+    assert c.vai_tro is None and c.tra_loi_muc_tieu is None
+    assert "claims_theo_vai_tro" not in st["traces"]
+
+
+def test_vai_tro_la_khong_lam_sap_ma_ve_None():
+    """Một giá trị ngoài `VAI_TRO` (model lách schema, hoặc payload cũ) chỉ mất
+    vai trò — trích dẫn của chính claim đó vẫn đi tiếp qua hai tầng kiểm."""
+    from pathlib import Path
+
+    llm = FakeLlm(_payload_v3(vai_tro="ket_luan_truc_tiep"))
+    st = generate_claims({"query": "x", "expanded": PROVS}, llm, "m",
+                         prompt_path=Path("prompts/generate_claims.v3.md"))
+    assert st["schema_error"] is False
+    assert len(st["draft_claims"]) == 1 and st["draft_claims"][0].vai_tro is None
+
+
+def test_traces_dem_claim_theo_vai_tro():
+    from pathlib import Path
+
+    llm = FakeLlm({
+        "insufficient_evidence": False,
+        "claims": [
+            {"text": "a", "provision_id": 11, "quote": "85%", "hang": None,
+             "vai_tro": "ket_luan", "tra_loi_muc_tieu": True},
+            {"text": "b", "provision_id": 11, "quote": "85%", "hang": None,
+             "vai_tro": "dieu_kien", "tra_loi_muc_tieu": True},
+            {"text": "c", "provision_id": 11, "quote": "85%", "hang": None,
+             "vai_tro": "dieu_kien", "tra_loi_muc_tieu": False},
+        ],
+    })
+    st = generate_claims({"query": "x", "expanded": PROVS}, llm, "m",
+                         prompt_path=Path("prompts/generate_claims.v3.md"))
+    assert st["traces"]["claims_theo_vai_tro"] == {"ket_luan": 1, "dieu_kien": 2}

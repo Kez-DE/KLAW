@@ -83,6 +83,10 @@ class CitationOut(BaseModel):
     # trích dẫn nằm trong vết kiểm toán nhưng KHÔNG được dùng để hành văn (bị
     # phép kiểm thứ bảy lọc) — hoặc payload cache ghi trước khi trường này có.
     k: int | None = None
+    # Vai trò của căn cứ trong câu trả lời (GĐ3): `ket_luan`/`dieu_kien`/
+    # `ngoai_le`/`che_tai`. None khi prompt sinh chưa hỏi vai trò (mặc định) hoặc
+    # payload cache ghi trước trường này — THÊM, không đổi hợp đồng cũ.
+    vai_tro: str | None = None
 
 
 class NguonOut(BaseModel):

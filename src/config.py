@@ -134,6 +134,21 @@ class Settings(BaseSettings):
     route_prompt: str = Field(
         default="prompts/route.v3.md", validation_alias="KLAW_ROUTE_PROMPT"
     )
+    # GĐ3 (cai_thien.md §6): generate_claims.v3 gắn `vai_tro` cho mỗi khẳng định,
+    # verify_tier2.v2 chấm thêm độ liên quan. Cả hai đổi HÌNH DẠNG câu trả lời nên
+    # phải đo trước khi thành mặc định (cổng §8) — mặc định giữ đúng cặp v2/v1 mà
+    # baseline đang chạy, bật bằng KLAW_GENERATE_PROMPT / KLAW_TIER2_PROMPT.
+    generate_prompt: str = Field(
+        default="prompts/generate_claims.v2.md", validation_alias="KLAW_GENERATE_PROMPT"
+    )
+    tier2_prompt: str = Field(
+        default="prompts/verify_tier2.v1.md", validation_alias="KLAW_TIER2_PROMPT"
+    )
+    # SOUL đọc qua `services/prompts.soul()`. v3 đã viết (bỏ phần giọng/phương pháp
+    # dài, giữ ba lời hứa) nhưng CHƯA đo — cùng lý do như hai prompt trên.
+    soul_prompt: str = Field(
+        default="prompts/soul.v2.md", validation_alias="KLAW_SOUL_PROMPT"
+    )
     # Cộng điểm mềm theo lĩnh vực sau RRF (spec §6). 0 = TẮT. Chỉ bật mặc định
     # sau một lượt đo graph-thật cho thấy Recall@10 không tụt.
     linh_vuc_bonus: float = Field(default=0.0, ge=0.0)

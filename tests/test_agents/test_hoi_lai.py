@@ -263,3 +263,76 @@ def test_khong_goi_model_khi_moi_chieu_deu_da_biet():
     ket = hoi_lai("tôi bị trừ lương", DemLlm(), "m", da_biet=frozenset(CHIEU))
     assert da_goi == []
     assert ket.cau == "" and ket.usage is None
+
+
+# ══ GĐ4 — hỏi đúng DỮ KIỆN QUYẾT ĐỊNH từ khung yêu cầu ══════════════════════
+# `CHIEU` chỉ biết sáu chiều chung; khung yêu cầu biết dữ kiện của CHÍNH vụ việc
+# (lý do chấm dứt, hành vi vi phạm). Hai hàm dưới đây thuần, 0 token.
+
+
+def _khung(*du_kien):
+    return {"muc_tieu": "m", "cau_hoi_phap_ly": "c", "du_kien_quyet_dinh_con_thieu": list(du_kien)}
+
+
+def _dk(ma, cau, lam_doi=True):
+    return {"ma": ma, "cau": cau, "lam_doi_ket_luan": lam_doi}
+
+
+def test_duoi_tu_khung_hoi_dung_du_kien_lam_doi_ket_luan():
+    from src.agents.nodes.hoi_lai import CAU_DAN_DUOI, duoi_tu_khung
+
+    duoi = duoi_tu_khung(_khung(_dk("ly_do_cham_dut", "Công ty nêu lý do gì khi chấm dứt?")), {})
+    assert duoi == f"{CAU_DAN_DUOI}\n- Công ty nêu lý do gì khi chấm dứt?"
+
+
+def test_duoi_tu_khung_bo_qua_du_kien_khong_lam_doi_ket_luan():
+    """`cai_thien.md` §6 GĐ4.1: câu trả lời đã đủ thì KHÔNG có câu hỏi cuối."""
+    from src.agents.nodes.hoi_lai import duoi_tu_khung
+
+    assert duoi_tu_khung(_khung(_dk("noi_lam_viec", "Bạn làm ở đâu?", lam_doi=False)), {}) == ""
+    assert duoi_tu_khung(None, {}) == ""
+    assert duoi_tu_khung(_khung(), {}) == ""
+
+
+def test_duoi_tu_khung_khong_hoi_lai_du_kien_da_co_trong_ho_so():
+    from src.agents.nodes.hoi_lai import duoi_tu_khung
+
+    khung = _khung(_dk("loai_hop_dong", "Hợp đồng của bạn thuộc loại nào?"),
+                   _dk("ly_do_cham_dut", "Công ty nêu lý do gì khi chấm dứt?"))
+    ho_so = {"loai_hop_dong": {"gia_tri": "không xác định thời hạn", "nguon": "nguoi_noi"}}
+    duoi = duoi_tu_khung(khung, ho_so)
+    assert "lý do gì" in duoi and "loại nào" not in duoi
+
+
+def test_duoi_tu_khung_vuot_tran_thi_bo_han():
+    from src.agents.nodes.hoi_lai import TRAN_DUOI, duoi_tu_khung
+
+    assert duoi_tu_khung(_khung(_dk("x", "x" * (TRAN_DUOI + 1))), {}) == ""
+
+
+def test_duoi_tu_khung_loai_cau_phat_bieu_quy_tac_phap_luat():
+    """Bộ lọc chạy LẠI ở đây: module này là chỗ chặn duy nhất cho lớp ảo giác mà
+    verifier mù với, nên nó không tin một khâu khác đã lọc hộ."""
+    from src.agents.nodes.hoi_lai import duoi_tu_khung
+
+    assert duoi_tu_khung(_khung(_dk("bao_truoc", "Bạn đã báo trước 45 ngày chưa?")), {}) == ""
+
+
+def test_cau_hoi_lai_tu_khung_toi_da_hai_cau_uu_tien_du_kien_quyet_dinh():
+    from src.agents.nodes.hoi_lai import cau_hoi_lai_tu_khung
+
+    khung = _khung(_dk("giay_to", "Bạn đang giữ giấy tờ nào?", lam_doi=False),
+                   _dk("ly_do_cham_dut", "Công ty nêu lý do gì khi chấm dứt?"),
+                   _dk("hanh_vi", "Công ty nói bạn đã làm gì?"))
+    ra = cau_hoi_lai_tu_khung(khung)
+    assert ra.startswith(CAU_DAN)
+    assert ra.count("\n- ") == TOI_DA
+    assert "lý do gì" in ra and "làm gì" in ra and "giấy tờ" not in ra
+
+
+def test_cau_hoi_lai_tu_khung_rong_khi_moi_du_kien_da_biet():
+    from src.agents.nodes.hoi_lai import cau_hoi_lai_tu_khung
+
+    khung = _khung(_dk("ly_do_cham_dut", "Công ty nêu lý do gì khi chấm dứt?"))
+    assert cau_hoi_lai_tu_khung(khung, frozenset({"ly_do_cham_dut"})) == ""
+    assert cau_hoi_lai_tu_khung(None) == ""

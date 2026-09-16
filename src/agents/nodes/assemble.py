@@ -48,7 +48,7 @@ from typing import TypedDict
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.agents.nodes.gioi_thieu import cau_gioi_thieu
-from src.agents.nodes.hoi_lai import duoi_hoi_them, hoi_lai
+from src.agents.nodes.hoi_lai import bi_loai, cau_hoi_lai_tu_khung, duoi_hoi_them, duoi_tu_khung, hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
 from src.models.schemas import Bang
 from src.services.bao_ve import LOI_SOAN_THAO_DANG_NHAP
@@ -89,6 +89,40 @@ MO_DAU_LUOT_DAU = (
     '"rất vui được hỗ trợ".'
 )
 MO_DAU_NOI_TIEP = "Đây là lượt nối tiếp: KHÔNG chào, vào thẳng câu trả lời."
+
+# ══ GĐ3 (cai_thien.md §6) — vai trò căn cứ và mức chắc ══════════════════════
+# Thứ tự ưu tiên khi xếp căn cứ vào lời nhắc hành văn: kết luận trước, rồi điều
+# kiện, ngoại lệ, chế tài; claim KHÔNG mang vai trò (prompt sinh v2) xếp cuối và
+# KHÔNG kích hoạt đường này (xem `_chon_cho_prose`).
+_HANG_VAI_TRO = {"ket_luan": 0, "dieu_kien": 1, "ngoai_le": 2, "che_tai": 3}
+
+# Nhãn ĐỌC ĐƯỢC của vai trò, chỉ dùng trong lời nhắc hành văn (prompt v6 in ra
+# "(kết luận)"). Mã máy (`ket_luan`) không bao giờ tới mắt mô hình.
+_VAI_TRO_HIEN = {"ket_luan": "kết luận", "dieu_kien": "điều kiện",
+                 "ngoai_le": "ngoại lệ", "che_tai": "chế tài"}
+
+# Chế tài chỉ vào văn xuôi khi người hỏi hỏi hậu quả (cai_thien.md §6 GĐ3 quy
+# tắc 4) — hoặc khi bỏ nó đi thì còn quá ít căn cứ để trả lời.
+_RE_HOI_CHE_TAI = re.compile(r"phạt|xử lý|chế tài|hậu quả|vi phạm|bị gì|trách nhiệm", re.IGNORECASE)
+
+# Trần claim vào LỜI NHẮC hành văn (§6 GĐ3 quy tắc 7). Khác `TRAN_GACH` (trần
+# GẠCH của câu trả lời phát hành): mô hình được thấy nhiều hơn số nó được viết ra.
+TOI_DA_CLAIM_PROSE = 6
+
+# Hai mức chắc — TÍNH BẰNG MÃ từ vai trò claim và dữ kiện quyết định còn thiếu,
+# không phải điểm tự tin của mô hình (CONTEXT.md, glossary "mức chắc"). Chuỗi đi
+# vào prompt là LỜI DẶN GIỌNG, không phải mã máy.
+MUC_CHAC_LOI = {
+    "chac": "CHẮC — nói khẳng định.",
+    "co_dieu_kien": ("CÓ ĐIỀU KIỆN — mở kết luận bằng điều kiện hoặc 'Nếu … thì …'; "
+                     "không viết như đã chắc."),
+}
+
+# Nửa đầu của ngõ cụt khi MỌI căn cứ đã kiểm chứng đều bị tầng 2 chấm là lạc đề.
+# KHÔNG dùng `_ly_do_moi_nguon_bi_thay` cho ca này: nguồn ở đây còn hiệu lực,
+# cái thiếu là nó không trả lời đúng điều được hỏi — nói "đã bị thay thế" là nói sai.
+LAC_DE = ("Những gì tôi tìm được cùng chủ đề với câu hỏi, nhưng không trả lời đúng điều "
+          "bạn cần, nên tôi không dựng câu trả lời từ đó.")
 
 
 def _van_ban_dung_cho_prose(citations_prose: list[dict], db: dict[int, dict]) -> list[tuple[dict, dict]]:
@@ -515,16 +549,21 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
     """
     ho_so = state.get("ho_so") or {}
     da_biet = frozenset(k for k, v in ho_so.items() if isinstance(v, dict) and v.get("gia_tri"))
-    hl = hoi_lai(state.get("query", ""), llm, model, da_biet=da_biet)
+    # Khung yêu cầu (GĐ2) đã bám vào chính vụ việc, nên khi nó hỏi được thì lượt
+    # `hoi_lai` là tiền tiêu cho một câu hỏi kém cụ thể hơn — 0 token và cụ thể
+    # hơn thắng. Rỗng (rewrite v2 mặc định, hoặc mọi dữ kiện đã biết) ⇒ đường cũ.
+    tu_khung = cau_hoi_lai_tu_khung(state.get("khung_yeu_cau"), da_biet)
+    hl = None if tu_khung else hoi_lai(state.get("query", ""), llm, model, da_biet=da_biet)
+    cau = tu_khung or hl.cau
     ket = _base(
         state,
         rt,
-        usage=_gop_usage(usage, hl.usage),
+        usage=_gop_usage(usage, hl.usage if hl else None),
         degraded=degraded,
-        coverage_note="\n\n".join(x for x in (ghi_chu or KHONG_TIM_DUOC, hl.cau) if x),
+        coverage_note="\n\n".join(x for x in (ghi_chu or KHONG_TIM_DUOC, cau) if x),
         **kw,
     )
-    ket["traces"]["assemble_hoi_lai"] = hl.nguon
+    ket["traces"]["assemble_hoi_lai"] = "khung" if tu_khung else hl.nguon
     return ket
 
 
@@ -662,6 +701,73 @@ def dung_bang_tu_luan_diem(verified: list, citations: list[dict]) -> Bang | None
         cot=["Tiêu chí", *doi_tuong],
         dong=[[tc, *[o[tc].get(dt, "") for dt in doi_tuong]] for tc in o],
     )
+
+
+def _chuan_text(t: str) -> str:
+    """Khoá khử trùng của một khẳng định: thường hoá, gộp khoảng trắng, bỏ dấu
+    câu cuối. Hai claim khác số Điều nhưng CÙNG một câu là một ý lặp — quy tắc 6
+    của cai_thien.md §6 GĐ3, và là thứ prompt một mình không ép được."""
+    return " ".join((t or "").lower().split()).rstrip(" .,;:!?")
+
+
+def _chon_cho_prose(prose: list, cits: list[dict], query: str) -> tuple[list, list[dict]]:
+    """Xếp — bỏ chế tài lạc — khử trùng — cắt trần, cho tập claim vào lời nhắc
+    hành văn (cai_thien.md §6 GĐ3 quy tắc 1–7).
+
+    CHỈ được gọi khi có ít nhất một claim mang `vai_tro`: với prompt sinh v2
+    (mặc định) mọi vai trò là None, không có gì để xếp, và tập claim phải đi qua
+    y nguyên — baseline đang đo trên đúng thứ tự đó.
+
+    Hai danh sách đi CẶP suốt hàm (`strict=True`): `citations_dung_cho_prose[i]`
+    phải luôn là trích dẫn của `dung_cho_prose[i]`, nếu không thẻ `cite:K` sẽ trỏ
+    một khẳng định khác — bất biến mà phần còn lại của hàm dựa vào.
+    """
+    cap = list(zip(prose, cits, strict=True))
+    if not _RE_HOI_CHE_TAI.search(normalize(query or "")):
+        khac = [x for x in cap if x[0].claim.vai_tro != "che_tai"]
+        # Giữ chế tài khi bỏ đi thì còn dưới hai căn cứ: một câu trả lời dựng
+        # trên một căn cứ duy nhất thì thà kém gọn còn hơn thiếu.
+        if len(khac) >= 2:
+            cap = khac
+    cap.sort(key=lambda x: _HANG_VAI_TRO.get(x[0].claim.vai_tro, len(_HANG_VAI_TRO)))
+    giu: list[tuple] = []
+    da: set[str] = set()
+    for r, c in cap:
+        khoa = _chuan_text(r.claim.text)
+        if khoa in da:
+            continue
+        da.add(khoa)
+        giu.append((r, c))
+    giu = giu[:TOI_DA_CLAIM_PROSE]
+    return [r for r, _ in giu], [c for _, c in giu]
+
+
+def _du_kien_quyet_dinh_thieu(khung_yeu_cau: dict | None, ho_so: dict | None) -> list[dict]:
+    """Dữ kiện LÀM ĐỔI KẾT LUẬN mà người hỏi chưa nói. Một khoá đã có giá trị
+    trong `ho_so` thắng mọi suy đoán của model, kể cả khi model vẫn đòi hỏi lại."""
+    da_biet = {k for k, v in (ho_so or {}).items() if isinstance(v, dict) and v.get("gia_tri")}
+    return [m for m in (khung_yeu_cau or {}).get("du_kien_quyet_dinh_con_thieu") or []
+            if isinstance(m, dict) and m.get("lam_doi_ket_luan") and str(m.get("ma") or "") not in da_biet]
+
+
+def tinh_muc_chac(dung_cho_prose: list, khung_yeu_cau: dict | None, ho_so: dict | None) -> str:
+    """`"chac"` | `"co_dieu_kien"` — TÍNH BẰNG MÃ, không hỏi mô hình.
+
+    Hai lý do hạ giọng, cả hai đều tra bảng được:
+    * còn một dữ kiện quyết định chưa biết ⇒ kết luận phụ thuộc nó;
+    * biết vai trò các căn cứ mà KHÔNG có căn cứ `ket_luan` nào ⇒ ta chỉ đang
+      cầm điều kiện/ngoại lệ, và cai_thien.md §6 GĐ3 cấm ghép chúng thành một
+      kết luận.
+
+    KHÔNG có mức thứ ba ở đây: "chưa đủ" là `abstain`, một `result_type`, và
+    pha này không đổi KHI NÀO abstain.
+    """
+    if _du_kien_quyet_dinh_thieu(khung_yeu_cau, ho_so):
+        return "co_dieu_kien"
+    vai = [r.claim.vai_tro for r in dung_cho_prose]
+    if any(vai) and "ket_luan" not in vai:
+        return "co_dieu_kien"
+    return "chac"
 
 
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, prompt_path: Path | None = None) -> dict:
@@ -919,7 +1025,12 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     # thầm tắt cả tầng 2 cho toàn bộ batch, đúng lớp lỗi mà cả dự án chống: mặc
     # định an toàn khi THIẾU bộ kiểm phải là CHƯA kiểm chứng, không phải đã kiểm
     # chứng — cùng quy tắc "mặc định false khi không chắc" mà verify_tier2 đã lập.
-    verified = [r for pos, r in enumerate(qua_t1) if (v := tier2.get(pos)) is not None and v.supported]
+    #
+    # GĐ3 giữ verdict đi KÈM claim (`verified_v`): `relevant`/`overstated` là bộ
+    # lọc VĂN XUÔI ở vòng lặp dưới, KHÔNG phải phép kiểm quyết định abstain — tỉ
+    # lệ và ngưỡng ở ngay dưới đây tính trên đúng tập `supported` như trước.
+    verified_v = [(r, v) for pos, r in enumerate(qua_t1) if (v := tier2.get(pos)) is not None and v.supported]
+    verified = [r for r, _ in verified_v]
     ty_le = len(verified) / len(tier1)
     if not verified or ty_le < float(state.get("abstain_threshold", ABSTAIN_THRESHOLD_DEFAULT)):
         return _ngo_cut(state, llm, model, ResultType.abstain)
@@ -937,7 +1048,11 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     # het_hieu_luc, không neo) vẫn được coi là "có căn cứ" vì nó tình cờ có mặt
     # ở đâu đó trong `citations`, dù chính prompt hành văn chưa từng thấy nó.
     citations_dung_cho_prose: list = []
-    for r in verified:
+    # Chỉ số (trong `citations`) của những căn cứ ĐÚNG LUẬT nhưng LẠC ĐỀ — tầng 2
+    # (prompt v2) chấm `relevant=False`/`overstated=True`. Chúng ở lại `citations`
+    # với `k=None`, y như nguồn bị lọc vì hiệu lực: vết kiểm toán không được mất.
+    lac_de: list[int] = []
+    for i, (r, v2) in enumerate(verified_v):
         # row_id = dòng THẬT hiển thị (xem docstring `Citation`) — ghi lại
         # NGUYÊN VẸN vào citation dưới tên `khop_tai_id`, tường minh, thay vì
         # đổi ngầm chỉ trong duong_dan/bo_luat/so_ky_hieu. Rơi về
@@ -971,6 +1086,9 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             "tin_cay": eff.tin_cay if eff else None,
             # Spec 2026-09-06 §3: gán số sau vòng lặp, chỉ cho căn cứ dùng hành văn.
             "k": None,
+            # GĐ3 — vai trò của căn cứ (kết luận/điều kiện/ngoại lệ/chế tài).
+            # `None` với prompt sinh v2; giao diện nhóm được căn cứ khi có.
+            "vai_tro": r.claim.vai_tro,
         })
         if eff and eff.verdict in CANH_BAO_NHAN:
             # `ly_do` NGUYÊN VĂN, không viết lại: nó nêu đích danh văn bản thay
@@ -987,6 +1105,12 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
 
         if eff and eff.verdict in _VERDICT_BI_THAY and not _neo_vao_van_ban(state.get("query", ""), so_ky_hieu):
             nguon_bi_loc.append(so_ky_hieu)
+        elif v2.relevant is False or v2.overstated is True:
+            # Tầng 2 nói điều luật CHỐNG ĐỠ khẳng định, nhưng khẳng định không
+            # trả lời điều được hỏi (hoặc nói rộng hơn điều luật cho phép). Đây
+            # là bộ lọc VĂN XUÔI, không phải một phép kiểm chứng thứ ba: trích
+            # dẫn vẫn ở lại `citations`, chỉ không được dựng thành câu.
+            lac_de.append(i)
         else:
             dung_cho_prose.append(r)
             citations_dung_cho_prose.append(citations[-1])
@@ -997,9 +1121,13 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     # lệ để hành văn. (Câu hỏi lại trong `_ngo_cut` là một lượt gọi KHÁC, với
     # schema khác, và nó không dựng khẳng định pháp luật nào.)
     if not dung_cho_prose:
+        # Hai lý do khác nhau, hai câu khác nhau: nguồn đã bị thay thế (nói tên
+        # văn bản đi thay), hay nguồn còn sống mà lạc đề (`LAC_DE`). Nói nhầm lý
+        # do là nói sai với người hỏi, không phải một sắc thái.
         ket = _ngo_cut(state, llm, model, ResultType.abstain,
-                       ghi_chu=_ly_do_moi_nguon_bi_thay(verified))
+                       ghi_chu=_ly_do_moi_nguon_bi_thay(verified) if nguon_bi_loc else LAC_DE)
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
+        ket["traces"]["assemble_lac_de"] = lac_de
         return ket
 
     # Kèm `duong_dan` ĐÃ XÁC MINH của từng khẳng định: prompt hành văn nay cho
@@ -1011,6 +1139,16 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     # `strict=True` khoá bất biến hai danh sách khớp chỉ số — chúng được append
     # cùng một nhánh `else` ở vòng lặp trên, và nếu ai đó tách chúng ra thì lỗi
     # phải nổ ở đây chứ không phải hiện thành một trích dẫn gắn nhầm khẳng định.
+    #
+    # GĐ3: xếp/khử trùng/cắt trần CHẠY TRƯỚC khi đánh số `k` — `k` là số thứ tự
+    # mô hình sẽ gõ vào thẻ `cite:K`, nên nó phải đánh trên ĐÚNG tập cuối cùng.
+    # Gác bằng "có claim nào mang vai trò không": prompt sinh v2 (mặc định) không
+    # có vai trò nào, tập claim đi qua y nguyên như trước.
+    co_vai_tro = any(r.claim.vai_tro for r in dung_cho_prose)
+    if co_vai_tro:
+        dung_cho_prose, citations_dung_cho_prose = _chon_cho_prose(
+            dung_cho_prose, citations_dung_cho_prose, state.get("query", "")
+        )
     for so, c in enumerate(citations_dung_cho_prose, start=1):
         c["k"] = so
     documents = _dung_documents(citations_dung_cho_prose, db_provisions)
@@ -1019,7 +1157,17 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     # Template có `{van_ban}` là template biết thẻ (v2): căn cứ đánh số [K] để
     # mô hình đặt `cite:K`. Template v1 giữ NGUYÊN định dạng cũ — A/B v1-v2
     # phải đo đúng prompt cũ, không phải một v1 đã bị đổi ruột.
-    if "{van_ban}" in mau:
+    #
+    # Template có `{muc_chac}` là template BIẾT VAI TRÒ (v6): mỗi căn cứ in kèm
+    # vai trò của nó để mô hình xếp đúng tầng. Không có vai trò nào (prompt sinh
+    # v2) thì giữ nguyên hai định dạng cũ — v6 vẫn chạy được, chỉ không có nhãn.
+    if "{muc_chac}" in mau and co_vai_tro:
+        claims_txt = "\n".join(
+            f"[{c['k']}] ({_VAI_TRO_HIEN.get(r.claim.vai_tro) or 'không rõ'}) "
+            f"{c['duong_dan']} — {c['bo_luat']}\n    {r.claim.text}"
+            for r, c in zip(dung_cho_prose, citations_dung_cho_prose, strict=True)
+        )
+    elif "{van_ban}" in mau:
         claims_txt = "\n".join(
             f"[{c['k']}] {c['duong_dan']} — {c['bo_luat']}\n    {r.claim.text}"
             for r, c in zip(dung_cho_prose, citations_dung_cho_prose, strict=True)
@@ -1029,6 +1177,10 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             f"- {r.claim.text}\n  (căn cứ: {c['duong_dan']} — {c['bo_luat']})"
             for r, c in zip(dung_cho_prose, citations_dung_cho_prose, strict=True)
         )
+    khung = state.get("khung_yeu_cau") or {}
+    ho_so = state.get("ho_so") or {}
+    muc_chac = tinh_muc_chac(dung_cho_prose, khung, ho_so)
+    thieu = _du_kien_quyet_dinh_thieu(khung, ho_so)
     prompt = mau.format(
         cau_hoi=state.get("query", ""),
         # `lich_su or tom_tat`: cùng định nghĩa "phiên đã có ngữ cảnh" mà
@@ -1038,6 +1190,21 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         van_ban=_khoi_van_ban(citations_dung_cho_prose, db_provisions),
         claims=claims_txt,
         tinh_huong=khoi_tinh_huong(state.get("ho_so") or {}),
+        # GĐ2–GĐ4. Kwargs THỪA với v1/v3/v5 — `str.format` bỏ qua chúng, nên các
+        # prompt đang đo không đổi một ký tự nào.
+        muc_tieu=khung.get("muc_tieu") or state.get("query", ""),
+        cau_hoi_phap_ly=khung.get("cau_hoi_phap_ly") or "",
+        muc_chac=MUC_CHAC_LOI[muc_chac],
+        # `bi_loai` chạy trên chuỗi ĐI VÀO prompt (không phải trên phép tính
+        # `muc_chac`): một dữ kiện còn thiếu vẫn phải hạ giọng kể cả khi câu hỏi
+        # của nó bị loại, nhưng một câu tự phát biểu mốc pháp lý thì không được
+        # vào ngữ cảnh của người viết — đó là mốc không trích dẫn nào chống đỡ.
+        du_kien_thieu="; ".join(m["cau"] for m in thieu
+                                if m.get("cau") and not bi_loai(m["cau"])) or "(không)",
+        # Lượt nối tiếp: mô hình trả lời PHẦN MỚI trong câu vừa gõ, còn câu đã
+        # giải nghĩa chỉ để hiểu ngữ cảnh (cai_thien.md §6 GĐ4).
+        cau_hoi_goc=state.get("cau_hoi_goc") or state.get("query", ""),
+        cau_hoi_day_du=state.get("cau_hoi_day_du") or state.get("query", ""),
     )
     usage: Usage | None = None
     degraded = False
@@ -1072,6 +1239,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         ket["traces"]["assemble_the_loi"] = the_loi
         ket["traces"]["assemble_dieu_bi_loai"] = []
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
+        ket["traces"]["assemble_lac_de"] = lac_de
         return ket
 
     # Phép kiểm thứ năm — xem docstring `_dieu_khong_duoc_chong_do`. Chạy SAU
@@ -1093,6 +1261,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         ket["traces"]["assemble_dieu_bi_loai"] = dieu_bi_loai
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
         ket["traces"]["assemble_the_loi"] = []
+        ket["traces"]["assemble_lac_de"] = lac_de
         return ket
 
     # Phép kiểm thứ mười — hình dạng, 0 token. Chạy SAU hai phép kiểm thẻ và số
@@ -1118,6 +1287,8 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     ket["traces"]["assemble_dieu_bi_loai"] = []
     ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
     ket["traces"]["assemble_the_loi"] = []
+    ket["traces"]["assemble_lac_de"] = lac_de
+    ket["traces"]["assemble_muc_chac"] = muc_chac
     # Task 15: bảng so sánh chỉ dựng khi router (v3) đã đoán người hỏi xin so
     # sánh (`dang_tra_loi == "bang"`) — dựng TỪ `dung_cho_prose`/
     # `citations_dung_cho_prose`, tức đúng tập claim ĐÃ qua cả hai tầng kiểm
@@ -1133,7 +1304,12 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     # cùng trường FE đã dùng để hiện nửa sau của một ngõ cụt.
     # Chỉ hỏi lại thứ lượt này vừa ĐOÁN (spec 2026-09-16 §FR-011). Tín hiệu là
     # kết quả suy diễn của chính lượt, không phải hồ sơ còn trống.
-    duoi = duoi_hoi_them(state.get("ho_so") or {}, (state.get("traces") or {}).get("suy_dien_chu_the"))
+    # GĐ4: khung yêu cầu hỏi TRƯỚC — nó nêu được dữ kiện quyết định của chính vụ
+    # việc (lý do chấm dứt, hành vi vi phạm), thứ sáu chiều hồ sơ chung không có
+    # từ vựng để hỏi. `or` giữ bất biến "nhiều nhất MỘT đuôi": khung im thì mới
+    # tới đuôi cũ, và khung im là mặc định (rewrite v2 không dựng khung).
+    duoi = (duoi_tu_khung(khung, ho_so)
+            or duoi_hoi_them(ho_so, (state.get("traces") or {}).get("suy_dien_chu_the")))
     if duoi:
         ket["coverage_note"] = "\n\n".join(x for x in (ket.get("coverage_note"), duoi) if x)
     # Ý định PHỤ (router v3, spec 2026-09-09 §7.4): câu hỏi vừa hỏi luật vừa

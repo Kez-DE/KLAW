@@ -273,6 +273,63 @@ def duoi_hoi_them(ho_so: dict, vua_suy_dien: str | None = None) -> str:
     return "" if len(duoi) > TRAN_DUOI else duoi
 
 
+def _du_kien_con_thieu(khung_yeu_cau: dict | None, da_biet) -> list[dict]:
+    """Dữ kiện trong khung yêu cầu còn đáng hỏi: có câu hỏi, chưa nằm trong hồ sơ,
+    và câu hỏi tự nó không phát biểu một quy tắc pháp luật.
+
+    `bi_loai` chạy LẠI ở đây dù `rewrite_query.khung_yeu_cau_tu` đã lọc một lần:
+    module này tự nhận là chỗ chặn DUY NHẤT cho lớp ảo giác mà verifier mù với
+    (xem docstring module), nên nó không được tin một khâu khác đã chặn hộ.
+    """
+    ra: list[dict] = []
+    for m in (khung_yeu_cau or {}).get("du_kien_quyet_dinh_con_thieu") or []:
+        if not isinstance(m, dict):
+            continue
+        cau = " ".join(str(m.get("cau") or "").split())
+        if not cau or str(m.get("ma") or "") in da_biet or bi_loai(cau):
+            continue
+        ra.append({**m, "cau": cau})
+    return ra
+
+
+def duoi_tu_khung(khung_yeu_cau: dict | None, ho_so: dict | None) -> str:
+    """Đuôi hỏi thêm lấy TỪ khung yêu cầu (cai_thien.md §6 GĐ4) — 0 token.
+
+    Khác `duoi_hoi_them` (sáu chiều hồ sơ chung, chỉ hỏi chiều vừa suy ra): ở đây
+    câu hỏi là dữ kiện QUYẾT ĐỊNH của chính vụ việc — lý do chấm dứt, hành vi vi
+    phạm — thứ `CHIEU` không có từ vựng để hỏi. Chỉ dữ kiện `lam_doi_ket_luan`
+    mới được hỏi: một câu trả lời đã đủ thì không có câu hỏi cuối.
+
+    Rỗng khi khung không có dữ kiện nào như vậy, hoặc người hỏi đã nói nó rồi
+    (`ho_so[ma].gia_tri`) — dữ kiện người nói luôn thắng suy đoán của model.
+    """
+    da_biet = {k for k, v in (ho_so or {}).items() if isinstance(v, dict) and v.get("gia_tri")}
+    for m in _du_kien_con_thieu(khung_yeu_cau, da_biet):
+        if not m.get("lam_doi_ket_luan"):
+            continue
+        duoi = f"{CAU_DAN_DUOI}\n- {m['cau']}"
+        # Vượt trần thì BỎ HẲN, không xén — cùng quy tắc `duoi_hoi_them`.
+        return "" if len(duoi) > TRAN_DUOI else duoi
+    return ""
+
+
+def cau_hoi_lai_tu_khung(khung_yeu_cau: dict | None, da_biet: frozenset[str] = frozenset()) -> str:
+    """Nửa sau của một NGÕ CỤT, lấy từ khung yêu cầu — 0 token, tối đa `TOI_DA`.
+
+    Dùng THAY cho lượt `hoi_lai` (LLM) khi khung có dữ kiện hỏi được: khung đã
+    bám vào chính vụ việc, nên một lượt gọi model để hỏi lại sáu chiều chung là
+    tiền tiêu cho một câu hỏi kém cụ thể hơn. Rỗng ⇒ caller rơi về `hoi_lai`.
+
+    Dữ kiện `lam_doi_ket_luan` đứng trước (sort ỔN ĐỊNH, giữ thứ tự khung cho
+    các mục cùng hạng): trần là hai câu, nên thứ tự quyết định câu nào bị cắt.
+    """
+    cac = _du_kien_con_thieu(khung_yeu_cau, da_biet)
+    cac.sort(key=lambda m: not m.get("lam_doi_ket_luan"))
+    if not cac:
+        return ""
+    return "\n".join([CAU_DAN, *(f"- {m['cau']}" for m in cac[:TOI_DA])])
+
+
 def hoi_lai(cau_hoi: str, llm, model: str, da_biet: frozenset[str] = frozenset()) -> KetQuaHoiLai:
     """Chuỗi đã hoàn chỉnh, ghép được thẳng vào `coverage_note`.
 

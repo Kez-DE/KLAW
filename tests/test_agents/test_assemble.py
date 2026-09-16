@@ -923,3 +923,250 @@ def test_ten_loai_roi_ve_chinh_ma_loai_khi_khong_tra_duoc_checklist():
     from src.agents.nodes.assemble import _ten_loai
 
     assert _ten_loai("khong_co_that") == "khong_co_that"
+
+
+# ══ GĐ3/GĐ4 (cai_thien.md §6) — lạc đề, vai trò, mức chắc, đuôi từ khung ════
+# Ba thứ dưới đây đều GÁC bằng dữ liệu: `relevant`/`overstated` chỉ khác mặc định
+# khi tầng 2 chạy prompt v2; vai trò chỉ có khi generate chạy prompt v3; khung yêu
+# cầu chỉ có khi rewrite chạy prompt v3. Không cái nào là mặc định hôm nay.
+
+from pathlib import Path  # noqa: E402
+
+from src.agents.nodes.assemble import LAC_DE, TOI_DA_CLAIM_PROSE  # noqa: E402
+
+V3_PROMPT = Path("prompts/assemble.v3.md")
+V6_PROMPT = Path("prompts/assemble.v6.md")
+
+
+class GhiPrompt(FakeLlm):
+    """`FakeLlm` + giữ lại lời nhắc HÀNH VĂN: định dạng khối căn cứ là hợp đồng
+    giữa `assemble` và prompt, và cách duy nhất để khoá nó là đọc chuỗi đã gửi."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.prompt = ""
+
+    def chat(self, model, messages, json_schema=None):
+        if json_schema is ANSWER_SCHEMA:
+            self.prompt = messages[-1]["content"]
+        return super().chat(model, messages, json_schema)
+
+
+def _claim(text="Ít nhất 85%.", vai_tro=None, pid=11):
+    return Tier1Result(Claim(text, pid, "85%", None, vai_tro, True), True, R.ok, EFF)
+
+
+def _st(*tier1, tier2=None, query="lương thử việc bao nhiêu", **kw):
+    return {"intent": "tra_cuu", "query": query, "expanded": [DB[11]], "tier1": list(tier1),
+            "tier2": tier2 if tier2 is not None else [Tier2Verdict(i, True, "ok") for i in range(len(tier1))],
+            "abstain_threshold": 0.5, **kw}
+
+
+def test_claim_lac_de_bi_loai_khoi_van_xuoi_nhung_o_lai_citations():
+    """Tầng 2 (v2) nói điều luật CHỐNG ĐỠ khẳng định, nhưng khẳng định không trả
+    lời điều được hỏi. Đây là bộ lọc VĂN XUÔI, không phải phép kiểm thứ ba: vết
+    kiểm toán phải giữ nguyên trích dẫn, chỉ không cấp số `k` cho nó."""
+    llm = GhiPrompt()
+    st = assemble(_st(_claim("Đúng mục tiêu."), _claim("Cùng chủ đề thôi."),
+                      tier2=[Tier2Verdict(0, True, "ok"),
+                             Tier2Verdict(1, True, "ok", relevant=False)]),
+                  DB, llm, "m", prompt_path=V3_PROMPT)
+    assert st["result_type"] is ResultType.answer
+    assert len(st["citations"]) == 2
+    assert [c["k"] for c in st["citations"]] == [1, None]
+    assert st["traces"]["assemble_lac_de"] == [1]
+    assert "Đúng mục tiêu." in llm.prompt and "Cùng chủ đề thôi." not in llm.prompt
+
+
+def test_claim_overstated_cung_bi_loai_khoi_van_xuoi():
+    llm = GhiPrompt()
+    st = assemble(_st(_claim("Đúng mục tiêu."), _claim("Nói rộng hơn luật."),
+                      tier2=[Tier2Verdict(0, True, "ok"),
+                             Tier2Verdict(1, True, "ok", overstated=True)]),
+                  DB, llm, "m", prompt_path=V3_PROMPT)
+    assert st["traces"]["assemble_lac_de"] == [1]
+    assert "Nói rộng hơn luật." not in llm.prompt
+
+
+def test_moi_claim_deu_lac_de_thi_abstain_va_KHONG_goi_LLM_hanh_van():
+    """Lý do phải nói ĐÚNG: nguồn ở đây còn hiệu lực, cái thiếu là nó không trả
+    lời câu được hỏi — câu "đều đã bị thay thế" của nhánh hiệu lực là nói sai."""
+    llm = GhiPrompt()
+    st = assemble(_st(_claim("Cùng chủ đề thôi."),
+                      tier2=[Tier2Verdict(0, True, "ok", relevant=False)]),
+                  DB, llm, "m", prompt_path=V3_PROMPT)
+    assert st["result_type"] is ResultType.abstain
+    assert LAC_DE in st["coverage_note"]
+    assert "đã bị thay thế" not in st["coverage_note"]
+    assert llm.so_lan_hanh_van == 0, "không dựng văn xuôi khi không còn căn cứ đúng mục tiêu"
+    assert st["traces"]["assemble_lac_de"] == [0]
+
+
+def test_tier2_v1_khong_loc_gi_duong_mac_dinh_giu_nguyen():
+    """MẶC ĐỊNH hôm nay: verdict dựng bằng ba tham số vị trí (`relevant=True`,
+    `overstated=False`) — bộ lọc mới phải nằm im hoàn toàn."""
+    llm = GhiPrompt()
+    st = assemble(_st(_claim("a"), _claim("b")), DB, llm, "m", prompt_path=V3_PROMPT)
+    assert st["result_type"] is ResultType.answer
+    assert [c["k"] for c in st["citations"]] == [1, 2]
+    assert st["traces"]["assemble_lac_de"] == []
+
+
+def test_citation_mang_vai_tro_va_None_khi_prompt_sinh_v2():
+    st = assemble(_st(_claim("a", "ket_luan"), _claim("b")), DB, GhiPrompt(), "m", prompt_path=V3_PROMPT)
+    assert [c["vai_tro"] for c in st["citations"]] == ["ket_luan", None]
+
+
+def test_xep_can_cu_theo_vai_tro_va_khu_trung_text():
+    """Kết luận trước, rồi điều kiện/ngoại lệ; hai claim cùng một câu (chỉ khác
+    dấu câu và hoa thường) là MỘT ý lặp — quy tắc 6 của §6 GĐ3."""
+    llm = GhiPrompt()
+    st = assemble(_st(_claim("Ngoại lệ đảo kết luận.", "ngoai_le"),
+                      _claim("Điều kiện phải thoả.", "dieu_kien"),
+                      _claim("điều kiện phải thoả", "dieu_kien"),
+                      _claim("Kết luận thẳng.", "ket_luan")),
+                  DB, llm, "m", prompt_path=V3_PROMPT)
+    gui = llm.prompt
+    assert gui.index("Kết luận thẳng.") < gui.index("Điều kiện phải thoả.") < gui.index("Ngoại lệ đảo kết luận.")
+    assert gui.count("iều kiện phải thoả") == 1, "bản trùng sau chuẩn hoá phải bị bỏ"
+    # Bản bị khử trùng vẫn ở lại vết kiểm toán, không được cấp số.
+    assert len(st["citations"]) == 4
+    assert sorted(c["k"] for c in st["citations"] if c["k"]) == [1, 2, 3]
+
+
+def test_che_tai_bi_bo_khi_nguoi_hoi_khong_hoi_hau_qua():
+    llm = GhiPrompt()
+    assemble(_st(_claim("Kết luận thẳng.", "ket_luan"), _claim("Điều kiện.", "dieu_kien"),
+                 _claim("Phạt tiền 3 triệu.", "che_tai"), query="công ty có được trừ lương không"),
+             DB, llm, "m", prompt_path=V3_PROMPT)
+    assert "Phạt tiền 3 triệu." not in llm.prompt
+
+
+def test_che_tai_duoc_giu_khi_cau_hoi_hoi_hau_qua():
+    llm = GhiPrompt()
+    assemble(_st(_claim("Kết luận thẳng.", "ket_luan"), _claim("Điều kiện.", "dieu_kien"),
+                 _claim("Phạt tiền 3 triệu.", "che_tai"),
+                 query="công ty vi phạm thì bị xử lý thế nào"),
+             DB, llm, "m", prompt_path=V3_PROMPT)
+    assert "Phạt tiền 3 triệu." in llm.prompt
+
+
+def test_che_tai_duoc_giu_khi_bo_di_thi_con_duoi_hai_can_cu():
+    """Thà kém gọn còn hơn dựng một câu trả lời trên một căn cứ duy nhất."""
+    llm = GhiPrompt()
+    assemble(_st(_claim("Kết luận thẳng.", "ket_luan"), _claim("Phạt tiền 3 triệu.", "che_tai"),
+                 query="công ty có được trừ lương không"),
+             DB, llm, "m", prompt_path=V3_PROMPT)
+    assert "Phạt tiền 3 triệu." in llm.prompt
+
+
+def test_tran_sau_can_cu_vao_loi_nhac():
+    llm = GhiPrompt()
+    st = assemble(_st(*[_claim(f"Ý số {i}.", "dieu_kien") for i in range(9)]),
+                  DB, llm, "m", prompt_path=V3_PROMPT)
+    assert llm.prompt.count("Ý số ") == TOI_DA_CLAIM_PROSE
+    assert len(st["citations"]) == 9, "citations giữ đủ vết kiểm toán"
+
+
+def test_khoi_can_cu_giu_NGUYEN_dinh_dang_cu_khi_khong_co_vai_tro():
+    """Bất biến của baseline: prompt sinh v2 (mọi `vai_tro` là None) phải cho ra
+    ĐÚNG chuỗi cũ, kể cả khi hành văn chạy v6."""
+    llm = GhiPrompt()
+    assemble(_st(_claim("Ít nhất 85%.")), DB, llm, "m", prompt_path=V6_PROMPT)
+    assert "[1] 45/2019/QH14 > Điều 26 — Bộ Luật lao động\n    Ít nhất 85%." in llm.prompt
+    # "(kết luận)" có sẵn trong CHÍNH văn bản v6 (phần dặn cách chọn căn cứ), nên
+    # phải soi đúng dòng căn cứ, không soi cả lời nhắc.
+    assert "[1] (" not in llm.prompt
+
+
+def test_khoi_can_cu_v6_in_vai_tro_doc_duoc():
+    llm = GhiPrompt()
+    assemble(_st(_claim("Ít nhất 85%.", "ket_luan")), DB, llm, "m", prompt_path=V6_PROMPT)
+    assert "[1] (kết luận) 45/2019/QH14 > Điều 26 — Bộ Luật lao động\n    Ít nhất 85%." in llm.prompt
+
+
+def test_prompt_v3_khong_in_vai_tro_du_claim_co_vai_tro():
+    """v3 không có `{muc_chac}` nên nó không biết nhãn vai trò nghĩa là gì —
+    thêm nhãn vào một prompt đang được đo là đổi thứ đang đo."""
+    llm = GhiPrompt()
+    assemble(_st(_claim("Ít nhất 85%.", "ket_luan")), DB, llm, "m", prompt_path=V3_PROMPT)
+    assert "(kết luận)" not in llm.prompt
+    assert "[1] 45/2019/QH14 > Điều 26 — Bộ Luật lao động\n    Ít nhất 85%." in llm.prompt
+
+
+# ── GĐ4: đuôi hỏi thêm lấy từ khung yêu cầu ─────────────────────────────────
+
+
+def _khung(*du_kien):
+    return {"muc_tieu": "biết có bị chấm dứt đúng luật không", "cau_hoi_phap_ly": "c",
+            "du_kien_quyet_dinh_con_thieu": list(du_kien)}
+
+
+def test_duoi_lay_tu_khung_va_KHONG_hoi_them_chieu_ho_so():
+    from src.agents.nodes.hoi_lai import CHIEU
+
+    st = assemble(_st(_claim("a"), khung_yeu_cau=_khung(
+        {"ma": "ly_do_cham_dut", "cau": "Công ty nêu lý do gì khi chấm dứt?", "lam_doi_ket_luan": True}),
+        traces={"suy_dien_chu_the": "người lao động"}),
+        DB, GhiPrompt(), "m", prompt_path=V3_PROMPT)
+    assert st["result_type"] is ResultType.answer
+    assert "Công ty nêu lý do gì khi chấm dứt?" in st["coverage_note"]
+    assert CHIEU["chu_the"] not in st["coverage_note"], "nhiều nhất MỘT đuôi"
+    assert st["coverage_note"].count("\n- ") == 1
+
+
+def test_du_kien_da_co_trong_ho_so_thi_khong_hoi_lai():
+    st = assemble(_st(_claim("a"), khung_yeu_cau=_khung(
+        {"ma": "ly_do_cham_dut", "cau": "Công ty nêu lý do gì khi chấm dứt?", "lam_doi_ket_luan": True}),
+        ho_so={"ly_do_cham_dut": {"gia_tri": "thu hẹp sản xuất", "nguon": "nguoi_noi"}}),
+        DB, GhiPrompt(), "m", prompt_path=V3_PROMPT)
+    assert st["coverage_note"] is None
+
+
+def test_hoi_dung_du_kien_con_thieu_khi_loai_hop_dong_da_biet():
+    st = assemble(_st(_claim("a"), khung_yeu_cau=_khung(
+        {"ma": "loai_hop_dong", "cau": "Hợp đồng của bạn thuộc loại nào?", "lam_doi_ket_luan": True},
+        {"ma": "ly_do_cham_dut", "cau": "Công ty nêu lý do gì khi chấm dứt?", "lam_doi_ket_luan": True}),
+        ho_so={"loai_hop_dong": {"gia_tri": "không xác định thời hạn", "nguon": "nguoi_noi"}}),
+        DB, GhiPrompt(), "m", prompt_path=V3_PROMPT)
+    assert "lý do gì" in st["coverage_note"] and "loại nào" not in st["coverage_note"]
+
+
+def test_cau_du_du_kien_khong_co_cau_hoi_cuoi():
+    """`cai_thien.md` §6 GĐ4, ca test bắt buộc: không khung, không giả định mới
+    ⇒ câu trả lời kết thúc, không đính một câu hỏi chung nào."""
+    st = assemble(_st(_claim("a"), khung_yeu_cau=_khung()), DB, GhiPrompt(), "m", prompt_path=V3_PROMPT)
+    assert st["coverage_note"] is None
+
+
+def test_ngo_cut_dung_cau_hoi_tu_khung_va_KHONG_goi_LLM_hoi_lai():
+    """0 token cho nửa sau của ngõ cụt khi khung đã hỏi được — và câu hỏi bám
+    vào vụ việc chứ không phải sáu chiều chung."""
+    llm = GhiPrompt()
+    st = assemble(_st(tier2=[], khung_yeu_cau=_khung(
+        {"ma": "ly_do_cham_dut", "cau": "Công ty nêu lý do gì khi chấm dứt?", "lam_doi_ket_luan": True},
+        {"ma": "hanh_vi", "cau": "Công ty nói bạn đã làm gì?", "lam_doi_ket_luan": True},
+        {"ma": "giay_to", "cau": "Bạn giữ giấy tờ nào?", "lam_doi_ket_luan": False})),
+        DB, llm, "m", prompt_path=V3_PROMPT)
+    assert st["result_type"] is ResultType.abstain
+    assert llm.so_lan_hoi_lai == 0 and llm.so_lan_hanh_van == 0
+    assert st["traces"]["assemble_hoi_lai"] == "khung"
+    assert st["coverage_note"].count("\n- ") == 2, "trần hai câu"
+    assert "giấy tờ" not in st["coverage_note"]
+
+
+def test_ngo_cut_khong_co_khung_van_goi_hoi_lai_nhu_cu():
+    llm = GhiPrompt()
+    st = assemble(_st(tier2=[]), DB, llm, "m", prompt_path=V3_PROMPT)
+    assert st["result_type"] is ResultType.abstain
+    assert llm.so_lan_hoi_lai == 1 and st["traces"]["assemble_hoi_lai"] == "llm"
+
+
+def test_CitationOut_nhan_vai_tro_va_van_optional():
+    """Trường THÊM ở biên HTTP: payload cache cũ (không có khoá) vẫn hợp lệ."""
+    from src.models.schemas import CitationOut
+
+    tho = {"provision_id": 11, "khop_tai_id": 11, "doc_id": "1", "duong_dan": "d",
+           "bo_luat": "b", "so_ky_hieu": "s", "quote": "q"}
+    assert CitationOut(**tho).vai_tro is None
+    assert CitationOut(**tho, vai_tro="ket_luan").vai_tro == "ket_luan"

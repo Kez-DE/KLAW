@@ -60,6 +60,35 @@ CLAIMS_SCHEMA = {
 }
 
 
+# GĐ3 (cai_thien.md §6) — vai trò của một khẳng định trong câu trả lời. Tuple
+# chứ không set: thứ tự ở đây LÀ thứ tự ưu tiên mà `assemble` xếp căn cứ.
+VAI_TRO = ("ket_luan", "dieu_kien", "ngoai_le", "che_tai")
+
+# generate_claims.v3 — v2 cộng `vai_tro` + `tra_loi_muc_tieu`. Dựng TỪ
+# `CLAIMS_SCHEMA` chứ không chép lại: hai bản sao của cùng một schema sẽ lệch
+# pha đúng vào ngày ai đó sửa một bên. Chọn theo NỘI DUNG template (cùng khuôn
+# `rewrite_query.py`), không theo tên file.
+_ITEM_V2 = CLAIMS_SCHEMA["properties"]["claims"]["items"]
+CLAIMS_V3_SCHEMA = {
+    **CLAIMS_SCHEMA,
+    "properties": {
+        **CLAIMS_SCHEMA["properties"],
+        "claims": {
+            "type": "array",
+            "items": {
+                **_ITEM_V2,
+                "required": [*_ITEM_V2["required"], "vai_tro", "tra_loi_muc_tieu"],
+                "properties": {
+                    **_ITEM_V2["properties"],
+                    "vai_tro": {"type": "string", "enum": list(VAI_TRO)},
+                    "tra_loi_muc_tieu": {"type": "boolean"},
+                },
+            },
+        },
+    },
+}
+
+
 @dataclass(frozen=True)
 class Claim:
     text: str
@@ -69,6 +98,14 @@ class Claim:
     # `None` cho một khẳng định văn xuôi bình thường; `{"doi_tuong": ..., "tieu_chi": ...}`
     # khi `dang_tra_loi == "bang"` (router v3) và mô hình xác định được cả hai.
     hang: dict | None = None
+    # GĐ3 — `None` khi prompt sinh là v2 (không hỏi vai trò). `assemble` chỉ bật
+    # đường xếp/khử trùng theo vai trò khi có ít nhất một claim mang vai trò, nên
+    # `None` giữ nguyên hành vi v2.
+    vai_tro: str | None = None
+    # Mô hình TỰ chấm "có trả lời mục tiêu không" — ghi lại để đối chiếu với
+    # `tier2.relevant` (người chấm độc lập), KHÔNG dùng để lọc: tự chấm của
+    # người viết không phải một phép kiểm.
+    tra_loi_muc_tieu: bool | None = None
 
 
 def build_context(provisions: list[dict]) -> str:
@@ -155,7 +192,18 @@ def build_context(provisions: list[dict]) -> str:
     return "\n\n---\n\n".join(khoi)
 
 
-def generate_claims(state: dict, llm, model: str) -> dict:
+def _claim_tu(c: dict) -> Claim:
+    """Một claim thô → `Claim`. `vai_tro` lạ (ngoài `VAI_TRO`) rơi về None chứ
+    KHÔNG làm hỏng cả batch: vai trò chỉ dùng để xếp chỗ trong văn xuôi, còn
+    trích dẫn của chính claim đó vẫn phải qua đủ hai tầng kiểm như mọi claim."""
+    # `isinstance` trước: một phần tử KHÔNG phải dict phải rơi vào đúng TypeError
+    # mà `generate_claims` đã bắt (→ schema_error), không thành AttributeError lọt lưới.
+    if isinstance(c, dict) and "vai_tro" in c and c.get("vai_tro") not in VAI_TRO:
+        c = {**c, "vai_tro": None}
+    return Claim(**c)
+
+
+def generate_claims(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict:
     # Import cục bộ, không ở đầu module: `src.services.bo_nho` kéo theo
     # `src.services.traces`, mà `traces.py` import `normalize` từ
     # `verify_tier1.py`, và `verify_tier1.py` import `Claim` từ CHÍNH module
@@ -173,22 +221,36 @@ def generate_claims(state: dict, llm, model: str) -> dict:
             "traces": {**prior_traces, "claims_raw": 0, "token_in": 0, "token_out": 0, "cost_usd": 0.0},
         }
 
-    prompt = PROMPT_PATH.read_text(encoding="utf-8").format(
+    mau = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8")
+    khung = state.get("khung_yeu_cau") or {}
+    prompt = mau.format(
         cau_hoi=state["query"],
         context=build_context(expanded),
         tinh_huong=khoi_tinh_huong(state.get("ho_so") or {}),
         # Router v3 (Task 13) — "van_xuoi" khi state chưa mang khoá này (router
         # v2 hoặc test cũ gọi generate_claims() trực tiếp).
         dang_tra_loi=state.get("dang_tra_loi") or "van_xuoi",
+        # GĐ2 — khung yêu cầu do chính lượt `rewrite_query` dựng. Rỗng khi
+        # rewrite v2 (mặc định): `str.format` bỏ qua kwargs thừa nên v2 không đổi.
+        muc_tieu=khung.get("muc_tieu") or "",
+        cau_hoi_phap_ly=khung.get("cau_hoi_phap_ly") or "",
     )
-    raw, usage = llm.chat(model, messages(prompt), json_schema=CLAIMS_SCHEMA)
+    raw, usage = llm.chat(model, messages(prompt),
+                          json_schema=CLAIMS_V3_SCHEMA if "vai_tro" in mau else CLAIMS_SCHEMA)
     try:
         data = json.loads(raw)
-        claims = [Claim(**c) for c in data.get("claims", [])]
+        claims = [_claim_tu(c) for c in data.get("claims", [])]
         insufficient = bool(data.get("insufficient_evidence"))
         schema_error = False
     except (json.JSONDecodeError, TypeError, ValueError):
         claims, insufficient, schema_error = [], True, True
+
+    # Chỉ ghi khi CÓ vai trò: với prompt v2 (mặc định) traces giữ nguyên đúng bốn
+    # khoá cũ — một khoá rỗng thêm vào mọi lượt làm hỏng phép so baseline.
+    theo_vai_tro: dict[str, int] = {}
+    for c in claims:
+        if c.vai_tro:
+            theo_vai_tro[c.vai_tro] = theo_vai_tro.get(c.vai_tro, 0) + 1
 
     return {
         **state,
@@ -197,6 +259,7 @@ def generate_claims(state: dict, llm, model: str) -> dict:
         "schema_error": schema_error,
         "traces": {
             **prior_traces,
+            **({"claims_theo_vai_tro": theo_vai_tro} if theo_vai_tro else {}),
             "claims_raw": len(claims),
             "token_in": usage.token_in,
             "token_out": usage.token_out,

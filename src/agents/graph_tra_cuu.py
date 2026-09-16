@@ -316,7 +316,7 @@ def build_graph_tra_cuu():
     def n_generate(st: KLawState) -> KLawState:
         if not st.get("expanded"):
             return {**st, "draft_claims": [], "insufficient_evidence": True}
-        return generate_claims(st, llm, generate_model())
+        return generate_claims(st, llm, generate_model(), prompt_path=Path(s.generate_prompt))
 
     def n_tier1(st: KLawState) -> KLawState:
         claims = st.get("draft_claims") or []
@@ -348,7 +348,10 @@ def build_graph_tra_cuu():
             return {**st, "tier2": []}
         t1 = st.get("tier1") or []
         dbp = _db_provisions([r.claim.provision_id for r in t1 if r.ok], engine)
-        verdicts, traces = verify_tier2_and_trace(t1, dbp, llm, judge_model(), st.get("traces"))
+        verdicts, traces = verify_tier2_and_trace(
+            t1, dbp, llm, judge_model(), st.get("traces"),
+            prompt_path=Path(s.tier2_prompt), khung_yeu_cau=st.get("khung_yeu_cau"), cau_hoi=st["query"],
+        )
         return {**st, "tier2": verdicts, "traces": traces}
 
     def n_assemble(st: KLawState) -> KLawState:
