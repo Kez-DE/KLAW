@@ -187,6 +187,50 @@ def _re_sau_giai_nghia(st: dict) -> str:
     return "suy_dien" if st.get("cau_hoi_day_du") else "assemble"
 
 
+# Đúng bộ khoá của `routes_tai_lieu.DuKienOut`: giao diện đọc dữ kiện trong một
+# lượt trả lời BẰNG CÙNG thành phần đọc dữ kiện của `GET /tai-lieu/{id}`, nên
+# hai chỗ phải ra cùng một hình dạng. Cột nội bộ (`viec_id`, `offset_dau`,
+# `tao_luc`) không đi ra: chúng không nói gì với người đọc.
+_COT_DU_KIEN_RA = ("khoa", "nhan", "gia_tri", "nguon", "trich", "trich_goc", "trang",
+                   "chi_so_don_vi", "do_tin")
+
+
+def _ghi_du_kien_tai_lieu(engine, st: dict) -> dict:
+    """Ghi dữ kiện MỚI rút được trong lượt, rồi đọc lại tập dữ kiện của hội thoại.
+
+    Đây là nửa DB của `hieu_tai_lieu` (node thuần không chạm DB, đúng hợp đồng
+    `assemble` đã lập). Đọc LẠI sau khi ghi chứ không ghép tại chỗ vì hai lý do:
+    dòng chỉ có `id` sau khi Postgres sinh nó — mà không có `id` thì người dùng
+    không sửa/xoá được qua `PATCH/DELETE /tai-lieu/du-kien/{id}` — và một lượt
+    trước đó có thể đã rút dữ kiện mà lượt này phải thấy.
+
+    Ghi theo TỪNG việc đọc: `du_kien_tai_lieu.viec_id` trỏ về tài liệu, nên hai
+    tài liệu trong một lượt là hai lần ghi, không phải một.
+    """
+    moi = st.get("tai_lieu_du_kien_moi") or []
+    sub, hoi_thoai_id = st.get("user_sub"), st.get("hoi_thoai_id")
+    if not (moi and sub and hoi_thoai_id):
+        # Khách chưa đăng nhập không có chỗ để lưu (tài liệu vốn đã đòi đăng
+        # nhập); không có dữ kiện mới thì cũng không có gì để đọc lại.
+        return st
+    theo_viec: dict[str, list[dict]] = {}
+    for d in moi:
+        theo_viec.setdefault(str(d["tai_lieu_id"]), []).append(d)
+    for viec_id, hang in theo_viec.items():
+        tl.luu_du_kien(engine, viec_id, str(hoi_thoai_id), hang)
+
+    ket = st.get("tai_lieu_ket") or {}
+    trong_luot = {str(t["id"]) for t in (ket.get("tai_lieu_da_dung") or [])}
+    du_kien = [
+        {"id": str(r["id"]), **{c: r.get(c) for c in _COT_DU_KIEN_RA}}
+        for r in tl.du_kien_cua_hoi_thoai(engine, str(hoi_thoai_id), sub)
+        if str(r["viec_id"]) in trong_luot
+    ]
+    # `tai_lieu_du_kien_moi` rỗng lại: đã ghi rồi thì nó không còn là việc chờ,
+    # và một state còn mang nó là một đường ghi lần hai.
+    return {**st, "tai_lieu_ket": {**ket, "du_kien": du_kien}, "tai_lieu_du_kien_moi": []}
+
+
 def _re_sau_hieu_tai_lieu(st: dict) -> str:
     """Mọi mục đích đều về `assemble` ở lát cắt này.
 
@@ -241,7 +285,8 @@ def build_graph_tra_cuu():
             don_vi = await run_in_threadpool(tl.don_vi_cua, engine, str(vid), st.get("user_sub"))
             if don_vi:
                 tai_lieu.append({"id": str(vid), "ten_tep": ten.get(str(vid), ""), "don_vi": don_vi})
-        return hieu_tai_lieu(st, tai_lieu, llm, generate_model())
+        ra = hieu_tai_lieu(st, tai_lieu, llm, generate_model())
+        return await run_in_threadpool(_ghi_du_kien_tai_lieu, engine, ra)
 
     def n_gom_du_kien(st: KLawState) -> KLawState:
         return gom_du_kien(st, llm, router_model())

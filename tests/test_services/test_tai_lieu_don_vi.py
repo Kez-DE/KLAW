@@ -173,3 +173,73 @@ def test_xoa_theo_hoi_thoai_DON_SACH_bieu_dien(phien):
 
     assert tl.don_vi_cua(get_engine(), viec, sub) is None
     assert tl.tai_lieu_cua_hoi_thoai(get_engine(), ht, sub) == []
+
+
+# ───────────────────────────────────────── rút dữ kiện lần hai không nhân đôi
+# `hieu_tai_lieu` rút dữ kiện theo lược đồ ĐỘNG, nên cùng một tài liệu hỏi hai
+# lần ra cùng bộ `khoa`. Không có ràng buộc duy nhất nào ở DB (bộ trường là
+# động, không khai trước được), nên chống trùng nằm ở đây — và nó phải giữ giá
+# trị NGƯỜI DÙNG đã sửa (FR-012), không phải ghi đè bằng bản mô hình đọc lại.
+
+_NEO = DonViVanBan(chi_so=1, trang=1, offset_dau=15, noi_dung="Chuyên cần", bang=(0, 1, 0))
+
+
+def _hang(khoa: str, gia_tri: str) -> dict:
+    from src.services.neo_du_kien import LyDoNeo, Neo
+
+    return {
+        "key": khoa, "nhan": "Chuyên cần", "gia_tri": gia_tri, "trich": "Chuyên cần",
+        "nguon": "tai_lieu",
+        "neo": Neo(LyDoNeo.ok, chi_so_don_vi=_NEO.chi_so, trang=_NEO.trang, offset_dau=_NEO.offset_dau),
+    }
+
+
+@pytest.mark.integration
+def test_luu_du_kien_lan_hai_KHONG_tao_dong_trung_khoa(phien):
+    sub, ht = phien
+    viec = _viec(sub, ht)
+    tl.luu_du_kien(get_engine(), viec, ht, [_hang("chuyen_can", "2,0")])
+    tl.luu_du_kien(get_engine(), viec, ht, [_hang("chuyen_can", "2,0"), _hang("thai_do", "1,5")])
+
+    khoa = [d["khoa"] for d in tl.du_kien_cua_hoi_thoai(get_engine(), ht, sub)]
+    assert sorted(khoa) == ["chuyen_can", "thai_do"], "khoá đã có phải bị bỏ qua, khoá mới vẫn vào"
+
+
+@pytest.mark.integration
+def test_lan_hai_KHONG_de_len_gia_tri_nguoi_dung_da_sua(phien):
+    sub, ht = phien
+    viec = _viec(sub, ht)
+    tl.luu_du_kien(get_engine(), viec, ht, [_hang("chuyen_can", "2,0")])
+    cu = tl.du_kien_cua_hoi_thoai(get_engine(), ht, sub)[0]
+    tl.sua_du_kien(get_engine(), str(cu["id"]), sub, "1,0")
+
+    tl.luu_du_kien(get_engine(), viec, ht, [_hang("chuyen_can", "2,0")])
+
+    con = tl.du_kien_cua_hoi_thoai(get_engine(), ht, sub)
+    assert len(con) == 1
+    assert con[0]["gia_tri"] == "1,0" and con[0]["nguon"] == "nguoi_dung_sua"
+
+
+@pytest.mark.integration
+def test_khoa_da_XOA_thi_rut_lai_duoc(phien):
+    """Xoá một dòng là cách người dùng nói "đọc lại giúp tôi" — nó phải rút lại được."""
+    sub, ht = phien
+    viec = _viec(sub, ht)
+    tl.luu_du_kien(get_engine(), viec, ht, [_hang("chuyen_can", "2,0")])
+    cu = tl.du_kien_cua_hoi_thoai(get_engine(), ht, sub)[0]
+    tl.xoa_du_kien(get_engine(), str(cu["id"]), sub)
+
+    tl.luu_du_kien(get_engine(), viec, ht, [_hang("chuyen_can", "2,5")])
+    con = tl.du_kien_cua_hoi_thoai(get_engine(), ht, sub)
+    assert [d["gia_tri"] for d in con] == ["2,5"]
+
+
+@pytest.mark.integration
+def test_hai_tai_lieu_cung_khoa_van_giu_ca_hai(phien):
+    """Chống trùng theo TỪNG tài liệu: "họ tên" của hai phiếu là hai dữ kiện."""
+    sub, ht = phien
+    a, b = _viec(sub, ht), _viec(sub, ht, ten="phieu-2.docx")
+    tl.luu_du_kien(get_engine(), a, ht, [_hang("chuyen_can", "2,0")])
+    tl.luu_du_kien(get_engine(), b, ht, [_hang("chuyen_can", "1,0")])
+
+    assert len(tl.du_kien_cua_hoi_thoai(get_engine(), ht, sub)) == 2

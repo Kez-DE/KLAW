@@ -300,6 +300,20 @@ class PhepTinhOut(BaseModel):
     ket_qua_code: str
     ket_qua_tai_lieu: str
     khop: bool
+    # Chỗ con số của tài liệu được đọc ra. Một dòng "không khớp" không có neo là
+    # một lời tố cáo không có bằng chứng — người đọc phải bấm về đúng ô đó được.
+    neo: NeoTaiLieuOut
+
+
+class KhacBietOut(BaseModel):
+    """Một điểm khác nhau giữa hai tài liệu, neo ở CẢ HAI phía (FR-014).
+
+    Hai neo chứ không một: khác biệt là quan hệ giữa hai câu, và neo được một
+    bên thôi thì nửa còn lại là lời của mô hình."""
+
+    noi_dung: str
+    neo_a: NeoTaiLieuOut
+    neo_b: NeoTaiLieuOut
 
 
 class TaiLieuDaDungOut(BaseModel):
@@ -324,6 +338,7 @@ class TaiLieuKetQuaOut(BaseModel):
     quan_sat: list[QuanSatOut] = []
     suy_luan: list[str] = []
     phep_tinh: list[PhepTinhOut] = []
+    khac_biet: list[KhacBietOut] = []
     can_du_kien: list[str] = []
     # Dòng `DuKienOut` của `routes_tai_lieu` (S4 điền). `dict` chứ không nhập
     # model đó vào đây: `schemas.py` là lá của đồ thị import, kéo một module

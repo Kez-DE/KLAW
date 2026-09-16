@@ -260,6 +260,24 @@ def luu_du_kien(engine: Engine, viec_id: str, hoi_thoai_id: str, du_kien: list[d
     """
     if not du_kien:
         return 0
+    with engine.connect() as c:
+        # Cùng một tài liệu hỏi rút dữ kiện hai lần ra cùng bộ `khoa`. Bộ trường
+        # là ĐỘNG (`hieu_tai_lieu`), nên không khai trước được một ràng buộc duy
+        # nhất ở DB — chống trùng nằm ở đây.
+        #
+        # BỎ QUA khoá đã có, không ghi đè: một giá trị người dùng đã sửa thắng
+        # bản mô hình vừa đọc lại (FR-012, FR-015). Muốn đọc lại một trường thì
+        # xoá dòng đó — `xoa_luc` làm khoá ấy trống trở lại.
+        da_co = {
+            r[0]
+            for r in c.execute(
+                text("SELECT khoa FROM du_kien_tai_lieu WHERE viec_id = :v AND xoa_luc IS NULL"),
+                {"v": viec_id},
+            )
+        }
+    du_kien = [d for d in du_kien if d["key"] not in da_co]
+    if not du_kien:
+        return 0
     hang = [
         {
             "v": viec_id,

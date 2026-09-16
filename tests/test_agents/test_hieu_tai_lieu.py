@@ -184,9 +184,11 @@ def test_tran_quan_sat_va_suy_luan():
 
 
 def test_muc_dich_ngoai_lat_cat_nay_duoc_ghi_lai_nhung_xu_nhu_hoi():
-    llm = _LLM(_ra(muc_dich="so_sanh"))
+    """`doi_chieu_luat` là đường của S5; tới đó thì node vẫn GHI LẠI mục đích
+    thật (`muc_dich_tai_lieu`) nhưng trả lời như một câu hỏi thường."""
+    llm = _LLM(_ra(muc_dich="doi_chieu_luat"))
     ra = h.hieu_tai_lieu(ST, TL, llm, "m")
-    assert ra["muc_dich_tai_lieu"] == "so_sanh"
+    assert ra["muc_dich_tai_lieu"] == "doi_chieu_luat"
     assert ra["tai_lieu_ket"]["muc_dich"] == "hoi"
 
 
@@ -344,12 +346,16 @@ def test_hang_bang_co_tien_to_moi_dong_van_neo():
     assert [q["neo"]["chi_so_don_vi"] for q in ra["tai_lieu_ket"]["quan_sat"]] == [5]
 
 
-def test_trich_theo_cot_nhieu_hang_bi_loai():
-    """Một cột không phải một vị trí: hai hàng khác nhau → loại."""
+def test_trich_theo_cot_MOI_MANH_DUY_NHAT_thi_neo_ve_manh_dau():
+    """Hai ô của hai hàng khác nhau: không liền kề, nhưng mảnh nào cũng chỉ tới
+    đúng một ô. Khẳng định yếu đi đúng chừng ấy — "những mẩu này có trong tài
+    liệu" — và neo trỏ vào mảnh đầu. Bản trước của test này đòi loại cả trích;
+    đo trên tệp mẫu 2026-09-16 cho thấy luật đó loại oan chính ca cộng một cột
+    điểm, nên hợp đồng đổi cùng `_neo_manh_roi_rac`."""
     trich = "Ý thức chấp hành nội quy, kỷ luật tại đơn vị thực tập\nTinh thần trách nhiệm, thái độ đối với công việc"
     llm = _LLM(_ra(quan_sat=[_qs("các tiêu chí", trich)]))
     ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
-    assert ra["tai_lieu_ket"]["quan_sat"] == []
+    assert [q["neo"]["chi_so_don_vi"] for q in ra["tai_lieu_ket"]["quan_sat"]] == [5]
 
 
 # ────────────────────────────────────────────── dãy đơn vị liền kề ngoài bảng
@@ -388,3 +394,59 @@ def test_ca_bang_chep_nguyen_theo_thu_tu_neo_ve_o_dau_du_dai():
     llm = _LLM(_ra(quan_sat=[_qs("bảng", trich)]))
     ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
     assert [q["neo"]["chi_so_don_vi"] for q in ra["tai_lieu_ket"]["quan_sat"]] == [2]
+
+
+# ─────────────────────────────────────────────── ô ngắn: duy nhất, không dài
+# `QUOTE_TOI_THIEU` (12 ký tự) là quy tắc của TRÍCH DẪN ĐIỀU LUẬT, nơi một đoạn
+# ngắn nằm lọt trong hàng nghìn điều. Một ô bảng thì khác: nó là cả một đơn vị,
+# và phép đo đúng cho nó là DUY NHẤT chứ không phải dài. Đo trên tệp mẫu
+# 2026-09-16: mọi trường điểm bị loại vì ô chỉ chứa "2,0".
+
+
+def test_o_ngan_KHOP_TRON_mot_don_vi_duy_nhat_thi_neo_duoc():
+    llm = _LLM(_ra(quan_sat=[_qs("tổng 10 điểm", "10")]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert [q["neo"]["chi_so_don_vi"] for q in ra["tai_lieu_ket"]["quan_sat"]] == [11]
+
+
+def test_o_ngan_KHOP_NHIEU_don_vi_bi_loai():
+    """"2,0" có ở hai ô — không định danh được vị trí nào."""
+    llm = _LLM(_ra(quan_sat=[_qs("điểm tối đa", "2,0")]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert ra["tai_lieu_ket"]["quan_sat"] == []
+    assert ra["traces"]["hieu_tai_lieu_bo_trich_qua_ngan"] == 1
+
+
+def test_manh_ngan_KHONG_khop_tron_van_bi_loai():
+    """"Ý thức" là một phần của ô, không phải cả ô: quá ngắn để định danh."""
+    llm = _LLM(_ra(quan_sat=[_qs("x", "Ý thức")]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert ra["tai_lieu_ket"]["quan_sat"] == []
+
+
+# ──────────────────────────────────── trích nhiều mảnh KHÔNG liền kề (cột số)
+
+
+def test_trich_nhieu_manh_roi_rac_neo_khi_TUNG_manh_deu_neo_duoc():
+    """Cộng một cột điểm: mô hình chép các ô bỏ qua cột số thứ tự, nên chúng
+    không liền kề. Mỗi mảnh vẫn phải tự neo được — chỉ tính liền kề mới bỏ."""
+    trich = "Ý thức chấp hành nội quy, kỷ luật tại đơn vị thực tập\nTinh thần trách nhiệm, thái độ đối với công việc\n10"
+    llm = _LLM(_ra(quan_sat=[_qs("các tiêu chí và tổng", trich)]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert [q["neo"]["chi_so_don_vi"] for q in ra["tai_lieu_ket"]["quan_sat"]] == [5]
+
+
+def test_mot_manh_khong_neo_duoc_thi_ca_trich_bi_loai():
+    trich = "Ý thức chấp hành nội quy, kỷ luật tại đơn vị thực tập\nCâu này không có trong tài liệu"
+    llm = _LLM(_ra(quan_sat=[_qs("x", trich)]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert ra["tai_lieu_ket"]["quan_sat"] == []
+
+
+def test_manh_roi_rac_mo_ho_thi_ca_trich_bi_loai():
+    """Mảnh thứ hai ("2,0") có ở hai ô, và hai mảnh KHÔNG liền kề — không đường
+    nào định danh được, nên cả trích bị loại chứ không neo vào ô đầu tiên."""
+    trich = "Phiếu đánh giá quá trình thực tập công nghiệp\n2,0"
+    llm = _LLM(_ra(quan_sat=[_qs("x", trich)]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert ra["tai_lieu_ket"]["quan_sat"] == []
