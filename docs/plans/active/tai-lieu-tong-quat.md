@@ -514,11 +514,31 @@ labelled as unchecked, and downloaded.
 
 | Lane | Result |
 |---|---|
-| Free unit lane (CI shape) | 1828 passed |
-| Integration on local Postgres | 85 passed |
+| Free unit lane (CI shape) | 1840 passed |
+| Integration on local Postgres | 84 passed |
 | `ruff check src/ tests/ eval/` | clean |
 | Frontend typecheck, lint, build, `kiem-tai-lieu` | clean, 0 errors |
-| `eval.run_hieu_tai_lieu`, three consecutive runs | 8/8, every observation anchored, no injected instruction followed |
+| `eval.run_hieu_tai_lieu`, four runs after the fixes | 8/8, every observation anchored, no injected instruction followed |
+| Full HTTP path, real app and model, eight steps | all pass |
+
+The HTTP run goes through the real FastAPI app, the real Postgres and the
+real model, with the same self-signed token the integration tests use: upload
+a document outside the checklists, read its units back, ask about it with the
+attachment, ask again without one, extract fields, upload a contract and ask
+whether its probation clause meets the law, draft a handover record from it,
+then delete the conversation and check nothing is left. It found three defects
+the unit tests and the node-level smoke had not:
+
+- the verdict list missed the phrasing the model actually uses, "có thể không
+  đúng quy định pháp luật";
+- blocking the prose also discarded the verified citations and answered
+  `abstain`, which claims there were no grounds when there were;
+- one turn returned four facts sharing the key `diem_toi_da`, so no row said
+  which criterion it belonged to.
+
+One draft turn hit a transient provider error. The system said it could not
+read the document and asked the asker to retry, rather than inventing a draft,
+which is the designed behaviour.
 
 Cost per document turn on `google/gemini-2.5-flash-lite`: about US$0.0005 to
 US$0.0012. A full evaluation run: about US$0.005 and 28 seconds.
@@ -529,7 +549,8 @@ US$0.0012. A full evaluation run: about US$0.005 and 28 seconds.
   OOXML retention decision that `documen.md` §10.1 leaves open.
 - The browser was not driven: the Chrome extension reported
   `Browser extension is not connected`, so the interface was proven by
-  typecheck, build and its pure checks, not by a screenshot.
+  typecheck, build and its pure checks, not by a screenshot. Everything the
+  interface talks to was exercised over real HTTP.
 - The evaluation labels are machine-built and not yet reviewed by a person, so
   the manifest still says `da_nguoi_duyet: false` and the numbers above are not
   release evidence until it does.
