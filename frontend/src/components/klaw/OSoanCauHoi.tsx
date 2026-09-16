@@ -53,11 +53,18 @@ export function OSoanCauHoi({
   onChonTep: (tep: File) => void;
   /** Đang đọc một tệp — khoá nút cho tới khi xong. */
   dangDocTep?: boolean | undefined;
-  /** Tài liệu sẽ đi kèm câu hỏi sắp gửi. `null` khi không đính kèm gì. */
-  tepDaDinhKem?: { id: string; ten_tep: string } | null;
-  /** Bỏ đính kèm — câu kế tiếp lại là một câu hỏi thường. */
-  onBoDinhKem?: (() => void) | undefined;
+  /**
+   * Tài liệu sẽ đi kèm câu hỏi sắp gửi — tối đa hai (nhánh so sánh).
+   *
+   * Một MẢNG chứ không phải một tệp: mỗi tệp có con chip và nút bỏ RIÊNG, vì
+   * một nút "bỏ đính kèm" chung không nói được người dùng sắp bỏ tờ nào. Rỗng
+   * hoặc vắng ⇒ lượt sau là một câu hỏi thường.
+   */
+  tepDaDinhKem?: { id: string; ten_tep: string }[] | null;
+  /** Bỏ ĐÚNG một tệp khỏi lượt sắp gửi. */
+  onBoDinhKem?: ((id: string) => void) | undefined;
 }) {
+  const daDinhKem = tepDaDinhKem ?? [];
   return (
     <div className="sticky bottom-0 border-t border-border bg-background/95 backdrop-blur">
       <div className="mx-auto w-full max-w-[860px] px-4 py-3">
@@ -68,26 +75,31 @@ export function OSoanCauHoi({
             {/* Con chip đứng NGAY TRÊN ô gõ, không nằm trong khung tài liệu:
                 nó trả lời câu hỏi "câu tôi sắp gửi có kèm tệp này không" đúng
                 lúc người dùng đang gõ câu đó. Khung tài liệu có thể đã đóng. */}
-            {tepDaDinhKem != null && (
-              <div className="mb-2 flex flex-wrap gap-2">
-                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px]">
-                  <Paperclip aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 truncate" title={tepDaDinhKem.ten_tep}>
-                    {tepDaDinhKem.ten_tep}
-                  </span>
-                  {onBoDinhKem && (
-                    <button
-                      type="button"
-                      onClick={onBoDinhKem}
-                      aria-label={`Bỏ đính kèm ${tepDaDinhKem.ten_tep}`}
-                      title="Bỏ đính kèm"
-                      className="focus-brass -mr-1 grid size-5 shrink-0 place-items-center rounded-full hover:bg-background"
-                    >
-                      <X aria-hidden className="size-3.5" />
-                    </button>
-                  )}
-                </span>
-              </div>
+            {daDinhKem.length > 0 && (
+              <ul className="mb-2 flex list-none flex-wrap gap-2 p-0">
+                {daDinhKem.map((tep) => (
+                  <li
+                    key={tep.id}
+                    className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px]"
+                  >
+                    <Paperclip aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 truncate" title={tep.ten_tep}>
+                      {tep.ten_tep}
+                    </span>
+                    {onBoDinhKem && (
+                      <button
+                        type="button"
+                        onClick={() => onBoDinhKem(tep.id)}
+                        aria-label={`Bỏ đính kèm ${tep.ten_tep}`}
+                        title="Bỏ đính kèm"
+                        className="focus-brass -mr-1 grid size-5 shrink-0 place-items-center rounded-full hover:bg-background"
+                      >
+                        <X aria-hidden className="size-3.5" />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
             )}
             <div className="flex items-end gap-2">
               <MenuDinhKem onChonTep={onChonTep} khoa={dangDocTep} />
@@ -104,10 +116,15 @@ export function OSoanCauHoi({
                   }
                 }}
                 aria-label="Câu hỏi pháp lý"
+                // Hai tệp thì gợi thẳng việc chỉ hai tệp mới làm được: người
+                // dùng vừa đính kèm tờ thứ hai hiếm khi muốn hỏi riêng về tờ
+                // thứ nhất, và không ai đoán được rằng KLAW so sánh được.
                 placeholder={
-                  tepDaDinhKem == null
+                  daDinhKem.length === 0
                     ? "Hỏi về quy định pháp luật hoặc yêu cầu soạn văn bản…"
-                    : "Hỏi về tài liệu vừa đính kèm…"
+                    : daDinhKem.length === 1
+                      ? "Hỏi về tài liệu vừa đính kèm…"
+                      : "So sánh hai tài liệu…"
                 }
                 className="max-h-[176px] flex-1 resize-none bg-transparent py-2 text-sm leading-[26px] outline-none placeholder:text-muted-foreground disabled:opacity-60"
               />

@@ -12,9 +12,12 @@
  * Thẻ KHÔNG kết luận tài liệu đúng hay sai luật: việc đó thuộc nhánh đối chiếu
  * luật, và cả ở đó câu trả lời cũng chỉ nói luật đòi gì và khác ở đâu (QT-1).
  */
+import { useState } from "react";
 import { FileText, Sigma, TriangleAlert } from "lucide-react";
+import { toast } from "sonner";
 import type { NeoTaiLieu, TaiLieuDaDung, TraCuuKetQua } from "@/lib/klaw";
-import { canhBaoOcr, nhanNeo } from "@/lib/tai-lieu";
+import { canhBaoOcr, nhanNeo, type DuKien } from "@/lib/tai-lieu";
+import { suaDuKien, xoaDuKien } from "@/lib/tai-lieu-api";
 import { cn } from "@/lib/utils";
 import { BangDuKien } from "./DongDuKien";
 import { KhoiVanXuoi } from "./TheKetQua";
@@ -42,11 +45,20 @@ export function ChipNeo({
   neo,
   onMo,
   them,
+  tenTep,
 }: {
   neo: NeoTaiLieu;
   onMo?: ((taiLieuId: string, chiSo: number) => void) | undefined;
   /** Chữ phụ sau nhãn vị trí, ví dụ đoạn trích đã cắt. */
   them?: string | undefined;
+  /**
+   * Tên tệp, đưa vào TÊN TRUY CẬP khi lượt dùng nhiều hơn một tài liệu.
+   *
+   * Mắt phân biệt hai chip bằng cột chúng đứng; trình đọc màn hình thì không —
+   * không có tên tệp, cả hai chip của một dòng khác biệt đọc lên y hệt nhau và
+   * người dùng bấm mở nhầm tờ giấy.
+   */
+  tenTep?: string | undefined;
 }) {
   const nhan = nhanNeo(neo);
   const canh = canhBaoOcr(neo.nguon_chu === "ocr", neo.do_tin);
@@ -72,7 +84,7 @@ export function ChipNeo({
       type="button"
       onClick={() => onMo(neo.tai_lieu_id, neo.chi_so_don_vi)}
       title={canh ?? undefined}
-      aria-label={`Mở ${nhan} trong tài liệu${canh === null ? "" : " — máy đọc từ ảnh, chưa chắc chắn"}`}
+      aria-label={`Mở ${nhan} trong tài liệu${tenTep === undefined ? "" : ` ${tenTep}`}${canh === null ? "" : " — máy đọc từ ảnh, chưa chắc chắn"}`}
       className={cn(CHIP, "max-w-full", canh !== null && "text-[var(--color-status-warn,#9a6b00)]")}
     >
       {noiDung}
@@ -123,6 +135,19 @@ const HANH_DONG = [
   "Tạo văn bản mới từ nội dung này",
 ];
 
+/**
+ * Nhãn cột của một bên trong bảng khác biệt: "A · phieu.docx".
+ *
+ * Tra theo `tai_lieu_id` của chính cái neo chứ không theo thứ tự trong mảng:
+ * backend đánh nhãn "A"/"B" ở `tai_lieu_da_dung`, và một dòng khác biệt hoàn
+ * toàn có thể đặt tài liệu B ở vế trái. Cột mang tên tệp SAI là cách nhanh
+ * nhất để người đọc sửa nhầm tờ giấy.
+ */
+function nhanBen(ds: TaiLieuDaDung[], neo: NeoTaiLieu, macDinh: string): string {
+  const tl = ds.find((t) => t.id === neo.tai_lieu_id);
+  return tl ? `${tl.nhan || macDinh} · ${tl.ten_tep}` : macDinh;
+}
+
 export function TheTaiLieu({
   ketQua,
   onChip,
@@ -142,9 +167,79 @@ export function TheTaiLieu({
    */
   onHanhDongTaiLieu?: ((cauHoi: string, taiLieu: TaiLieuDaDung[]) => void) | undefined;
 }) {
+  /**
+   * Sửa/xoá của NGƯỜI DÙNG chồng lên `du_kien` của lượt, khoá theo id.
+   *
+   * Giữ chồng lớp thay vì sao chép cả mảng vào state: `ketQua` là prop, và một
+   * bản sao sẽ đứng im khi lượt mới về — người dùng sẽ thấy dữ kiện của lượt
+   * TRƯỚC dưới câu trả lời MỚI. `undefined` = chưa đụng tới, `null` = đã xoá.
+   */
+  const [daSua, datDaSua] = useState<Record<string, DuKien | null>>({});
+  const [dangLuu, datDangLuu] = useState<string | null>(null);
+
   const tl = ketQua.tai_lieu;
   if (!tl) return null;
   const nhieuTaiLieu = tl.tai_lieu_da_dung.length > 1;
+  const khacBiet = tl.khac_biet ?? [];
+
+  const duKien = tl.du_kien.flatMap((dk) => {
+    if (dk.id === null || !(dk.id in daSua)) return [dk];
+    const thay = daSua[dk.id];
+    return thay ? [thay] : [];
+  });
+
+  const sua = async (dk: DuKien, giaTri: string) => {
+    if (dk.id === null || giaTri === dk.gia_tri) return;
+    const id = dk.id;
+    datDangLuu(id);
+    const kq = await suaDuKien(id, giaTri);
+    datDangLuu(null);
+    if (!kq.ok) {
+      toast.error(kq.error.message);
+      return;
+    }
+    // Máy chủ trả bản ghi MỚI (nguồn đổi sang `nguoi_dung_sua`, `trich_goc`
+    // giữ đoạn chứng minh giá trị CŨ). Dùng nguyên nó chứ không tự vá giá trị:
+    // vá tay sẽ để lại nhãn "Từ tài liệu" trên một con số người dùng vừa gõ.
+    datDaSua((truoc) => ({ ...truoc, [id]: kq.data }));
+  };
+
+  const xoa = async (dk: DuKien) => {
+    if (dk.id === null) return;
+    const id = dk.id;
+    const kq = await xoaDuKien(id);
+    if (!kq.ok) {
+      toast.error(kq.error.message);
+      return;
+    }
+    datDaSua((truoc) => ({ ...truoc, [id]: null }));
+  };
+
+  /** Bảng dữ kiện — đứng TRƯỚC câu trả lời ở lượt trích dữ kiện, vì ở đó bảng
+   *  LÀ câu trả lời và đoạn văn chỉ nói thêm về nó. */
+  const khoiDuKien = duKien.length > 0 && (
+    <section aria-label="Dữ kiện rút được" className="mt-4">
+      <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">Dữ kiện rút được</h3>
+      <BangDuKien
+        duKien={duKien}
+        onSua={(dk, giaTri) => void sua(dk, giaTri)}
+        onXoa={(dk) => void xoa(dk)}
+        dangSua={dangLuu}
+      />
+    </section>
+  );
+  const duKienTruoc = tl.muc_dich === "trich_du_kien";
+
+  /**
+   * Tên tệp cho tên truy cập của một chip — CHỈ khi lượt dùng nhiều hơn một
+   * tài liệu. Một tài liệu thì tên tệp trong mọi nhãn chỉ là tiếng ồn lặp lại;
+   * hai tài liệu thì thiếu nó là hai chip đọc lên y hệt nhau.
+   */
+  const propTenTep = (neo: NeoTaiLieu): { tenTep?: string } => {
+    if (!nhieuTaiLieu) return {};
+    const ten = tl.tai_lieu_da_dung.find((t) => t.id === neo.tai_lieu_id)?.ten_tep;
+    return ten === undefined ? {} : { tenTep: ten };
+  };
 
   return (
     <section aria-label="Kết quả đọc tài liệu">
@@ -171,10 +266,64 @@ export function TheTaiLieu({
         </ul>
       )}
 
+      {duKienTruoc && khoiDuKien}
+
       {ketQua.answer !== null && ketQua.answer.trim() !== "" && (
         <div className="doc-prose mt-3 text-foreground">
           <KhoiVanXuoi chu={ketQua.answer} />
         </div>
+      )}
+
+      {/* Khác biệt đứng NGAY dưới câu trả lời của một lượt so sánh: nó là thứ
+          người hỏi đính kèm tờ thứ hai để xem. Hai cột, mỗi cột mang tên tệp
+          của chính nó và một chip mở đúng chỗ — một câu "bên A dài hơn" mà
+          không mở được cả hai chỗ thì không kiểm được, nên nó không được phép
+          trông giống một quan sát đã neo. */}
+      {khacBiet.length > 0 && (
+        <section aria-label="Hai tài liệu khác nhau ở đâu" className="mt-4">
+          <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">
+            Hai tài liệu khác nhau ở đâu
+          </h3>
+          <ul className="mt-2 mb-0 flex list-none flex-col gap-2 p-0">
+            {khacBiet.map((kb, i) => (
+              <li
+                key={`${kb.neo_a.tai_lieu_id}-${kb.neo_a.chi_so_don_vi}-${kb.neo_b.chi_so_don_vi}-${i}`}
+                className="rounded-lg border border-border bg-card p-3"
+              >
+                <p className="m-0 text-[14px] leading-6 text-foreground">{kb.noi_dung}</p>
+                {/* `dl` chứ không phải hai `div`: cặp "tên tệp → chỗ trong tệp"
+                    là quan hệ thuật ngữ–mô tả, và trình đọc màn hình phải đọc
+                    ra được chip nào thuộc tờ nào. Điện thoại thì hai cột xếp
+                    chồng — đọc dọc vẫn đúng cặp. */}
+                <dl className="mt-2 mb-0 grid gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      [kb.neo_a, "A"],
+                      [kb.neo_b, "B"],
+                    ] as const
+                  ).map(([neo, macDinh]) => {
+                    const nhan = nhanBen(tl.tai_lieu_da_dung, neo, macDinh);
+                    return (
+                      <div key={macDinh} className="min-w-0">
+                        <dt className="truncate text-[12px] text-muted-foreground" title={nhan}>
+                          {nhan}
+                        </dt>
+                        <dd className="mt-1 ml-0">
+                          <ChipNeo
+                            neo={neo}
+                            onMo={onMoNeoTaiLieu}
+                            {...propTenTep(neo)}
+                            {...(neo.trich ? { them: catTrich(neo.trich) } : {})}
+                          />
+                        </dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {tl.quan_sat.length > 0 && (
@@ -188,7 +337,12 @@ export function TheTaiLieu({
               >
                 <p className="m-0 text-[14px] leading-6 text-foreground">{qs.noi_dung}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <ChipNeo neo={qs.neo} onMo={onMoNeoTaiLieu} them={catTrich(qs.trich)} />
+                  <ChipNeo
+                    neo={qs.neo}
+                    onMo={onMoNeoTaiLieu}
+                    them={catTrich(qs.trich)}
+                    {...propTenTep(qs.neo)}
+                  />
                 </div>
               </li>
             ))}
@@ -208,7 +362,7 @@ export function TheTaiLieu({
             {tl.phep_tinh.map((pt, i) => (
               <li
                 key={`${pt.bieu_thuc}-${i}`}
-                className="flex items-start gap-2 font-jetbrains text-[13px] leading-6"
+                className="flex flex-wrap items-start gap-2 font-jetbrains text-[13px] leading-6"
               >
                 <Sigma aria-hidden className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
                 <span>
@@ -221,6 +375,10 @@ export function TheTaiLieu({
                     </span>
                   )}
                 </span>
+                {/* Chip CHỈ khi backend gửi neo. Một phép tính lệch là lúc người
+                    dùng cần mở tài liệu nhất, nhưng một chip đoán chỗ còn tệ
+                    hơn không có chip: nó mời họ tin một vị trí chưa ai dò. */}
+                {pt.neo && <ChipNeo neo={pt.neo} onMo={onMoNeoTaiLieu} {...propTenTep(pt.neo)} />}
               </li>
             ))}
           </ul>
@@ -246,12 +404,7 @@ export function TheTaiLieu({
         </section>
       )}
 
-      {tl.du_kien.length > 0 && (
-        <section aria-label="Dữ kiện rút được" className="mt-4">
-          <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">Dữ kiện rút được</h3>
-          <BangDuKien duKien={tl.du_kien} />
-        </section>
-      )}
+      {!duKienTruoc && khoiDuKien}
 
       {tl.can_du_kien.length > 0 && onChip && (
         <section aria-label="Dữ kiện còn thiếu" className="mt-4">

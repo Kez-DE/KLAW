@@ -100,21 +100,25 @@ function Luot({
   traceId: string | null;
   /** Tài liệu đã đi kèm ĐÚNG lượt này. Câu trả lời dựa một phần vào tệp đó, nên
    *  lượt phải nói ra là nó có tệp — nếu không, đọc lại dòng hội thoại sẽ thấy
-   *  một câu trả lời về một tài liệu không xuất hiện ở đâu cả. */
-  tenTepDinhKem?: string | undefined;
+   *  một câu trả lời về một tài liệu không xuất hiện ở đâu cả. Một MẢNG vì lượt
+   *  so sánh mang hai tờ, và "tài liệu nào" là nửa câu hỏi ở lượt đó. */
+  tenTepDinhKem?: string[] | undefined;
   children?: React.ReactNode;
 }) {
   return (
     <div {...(traceId === null ? {} : { "data-trace": traceId })}>
       <div className="flex flex-col items-end gap-1.5">
-        {tenTepDinhKem !== undefined && (
-          <span className="inline-flex max-w-[70%] items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px]">
+        {(tenTepDinhKem ?? []).map((ten) => (
+          <span
+            key={ten}
+            className="inline-flex max-w-[70%] items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px]"
+          >
             <Paperclip aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 truncate" title={tenTepDinhKem}>
-              {tenTepDinhKem}
+            <span className="min-w-0 truncate" title={ten}>
+              {ten}
             </span>
           </span>
-        )}
+        ))}
         <p className="max-w-[70%] rounded-2xl rounded-br-sm bg-[var(--color-ink-900)] px-4 py-2.5 text-sm leading-relaxed text-white">
           {cauHoi}
         </p>
@@ -129,6 +133,11 @@ function Luot({
 
 /** `?phien=` và `?ban_thao=` chỉ nhận UUID. Dùng ở CẢ `validateSearch` và lúc đọc trong component. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Trần của `TraCuuRequest.tai_lieu_ids` phía máy chủ (`max_length=2`). Gửi tờ
+ *  thứ ba là **422** — chặn ở đây để người dùng biết ngay lúc đính kèm, chứ
+ *  không biết sau khi đã gõ xong câu hỏi. */
+const TOI_DA_DINH_KEM = 2;
 
 function ManHoiKlaw() {
   const { q: cauHoiTrenUrl, phien: phienTho, ban_thao: banThaoTho } = Route.useSearch();
@@ -407,14 +416,18 @@ function ManHoiKlaw() {
   const [daTatHetHan, datDaTatHetHan] = useState(false);
   const [tepDinhKem, datTepDinhKem] = useState<File | null>(null);
   const [dangDocTep, datDangDocTep] = useState(false);
-  /** Tài liệu đã đọc xong và sẽ đi kèm câu hỏi SẮP gửi. Đọc xong là đính kèm
-   *  ngay, kể cả khi tài liệu không khớp mẫu checklist nào. */
-  const [tepDaDinhKem, datTepDaDinhKem] = useState<{ id: string; ten_tep: string } | null>(null);
+  /** Tài liệu đã đọc xong và sẽ đi kèm câu hỏi SẮP gửi — tối đa `TOI_DA_DINH_KEM`.
+   *  Đọc xong là đính kèm ngay, kể cả khi tài liệu không khớp mẫu checklist nào. */
+  const [tepDaDinhKem, datTepDaDinhKem] = useState<{ id: string; ten_tep: string }[]>([]);
   /** Tên tệp của lượt ĐANG chạy, và của các lượt đã lùi vào dòng hội thoại (khoá
    *  theo `trace_id`). Không nhét vào `LuotDaXong`: kiểu đó còn được ghi vào
    *  localStorage của khách, và một tên tệp không có việc gì nằm ở đó. */
-  const [tepCuaLuot, datTepCuaLuot] = useState<string | null>(null);
-  const [tepDaLuu, datTepDaLuu] = useState<Record<string, string>>({});
+  const [tepCuaLuot, datTepCuaLuot] = useState<string[]>([]);
+  const [tepDaLuu, datTepDaLuu] = useState<Record<string, string[]>>({});
+  /** Bản mới nhất của `tepDaDinhKem` cho `ghiNhoDinhKem`, vốn phải ổn định
+   *  tham chiếu (xem doc ở đó) nên không đọc được state qua closure. */
+  const dsDinhKem = useRef(tepDaDinhKem);
+  dsDinhKem.current = tepDaDinhKem;
   /** Neo vừa bấm trong một thẻ kết quả — khung tài liệu mở đúng chỗ đó. */
   const [donViDangMo, datDonViDangMo] = useState<{ taiLieuId: string; chiSo: number } | null>(null);
 
@@ -443,8 +456,8 @@ function ManHoiKlaw() {
     // Tài liệu thuộc về MỘT cuộc trò chuyện (máy chủ xoá nội dung đã đọc cùng
     // với nó), nên đổi phiên là bỏ hết đính kèm — gửi id của phiên cũ sang
     // phiên mới chỉ đổi lấy một 404 và một câu hỏi mất ngữ cảnh.
-    datTepDaDinhKem(null);
-    datTepCuaLuot(null);
+    datTepDaDinhKem([]);
+    datTepCuaLuot([]);
     datTepDaLuu({});
     datDonViDangMo(null);
     datMoTaiLieu(false);
@@ -553,7 +566,7 @@ function ManHoiKlaw() {
         : luuTru;
     if (cauHoiCu !== null && ketQuaCu !== null) {
       datLuuTru((truoc) => [...truoc, { cauHoi: cauHoiCu, ketQua: ketQuaCu }]);
-      if (tepCuaLuot !== null) {
+      if (tepCuaLuot.length > 0) {
         const ten = tepCuaLuot;
         datTepDaLuu((truoc) => ({ ...truoc, [ketQuaCu.trace_id]: ten }));
       }
@@ -562,9 +575,9 @@ function ManHoiKlaw() {
     // Tài liệu đi kèm ĐÚNG lượt này rồi thôi: lượt sau vẫn hỏi tiếp về nó được
     // vì máy chủ giữ nội dung trong hội thoại, nên gửi lại id là trả tiền hai
     // lần cho cùng một tài liệu.
-    const ids = tepDaDinhKem === null ? [] : [tepDaDinhKem.id];
-    datTepCuaLuot(tepDaDinhKem?.ten_tep ?? null);
-    datTepDaDinhKem(null);
+    const ids = tepDaDinhKem.map((t) => t.id);
+    datTepCuaLuot(tepDaDinhKem.map((t) => t.ten_tep));
+    datTepDaDinhKem([]);
 
     datDangMo(null);
     doiChieu.dong();
@@ -591,11 +604,24 @@ function ManHoiKlaw() {
     datMoTaiLieu(true);
   };
 
-  /** Ổn định qua `useCallback`: `TaiLieuDuKien` giữ nó trong `useCallback` của
-   *  chính nó, và một tham chiếu mới mỗi lần dựng lại sẽ khiến khung đó tải
-   *  LẠI cùng một tệp. */
+  /**
+   * Ổn định qua `useCallback`: `TaiLieuDuKien` giữ nó trong `useCallback` của
+   * chính nó, và một tham chiếu mới mỗi lần dựng lại sẽ khiến khung đó tải
+   * LẠI cùng một tệp.
+   *
+   * Quá trần thì đẩy tờ CŨ NHẤT ra, không từ chối tờ mới: người dùng vừa bỏ
+   * công tải lên một tệp, và câu trả lời đúng cho "tôi vừa đưa tờ thứ ba" là
+   * giữ hai tờ gần nhất chứ không phải vứt việc họ vừa làm. Nói ra bằng toast
+   * để không ai mất một tài liệu mà không biết.
+   */
   const ghiNhoDinhKem = useCallback((tep: { id: string; ten_tep: string }) => {
-    datTepDaDinhKem(tep);
+    // Đọc danh sách qua ref chứ không qua updater của `setState`: updater phải
+    // THUẦN (React gọi nó hai lần ở StrictMode), nên một `toast` bên trong sẽ
+    // bật hai lần. Ref cũng giữ `ghiNhoDinhKem` không đổi tham chiếu.
+    const conLai = dsDinhKem.current.filter((t) => t.id !== tep.id);
+    const day = conLai.length >= TOI_DA_DINH_KEM;
+    datTepDaDinhKem([...(day ? conLai.slice(conLai.length - TOI_DA_DINH_KEM + 1) : conLai), tep]);
+    if (day) toast.info(`Mỗi lượt gửi được tối đa ${TOI_DA_DINH_KEM} tài liệu`);
   }, []);
 
   // Gợi ý chỉ ĐIỀN, không gửi — người dùng còn sửa câu (spec 2026-09-06 §4.1).
@@ -610,12 +636,12 @@ function ManHoiKlaw() {
    * Nút hành động nhanh trên thẻ tài liệu: điền câu hỏi VÀ gắn lại tệp.
    *
    * Không tự gửi — giống mọi gợi ý khác trong màn này, người hỏi còn sửa câu.
-   * Chỉ gắn tài liệu ĐẦU: ô soạn hiện một con chip, và hai chip cho một câu hỏi
-   * là thứ phải thiết kế riêng khi nhánh so sánh hai tài liệu tới (S4).
+   * Gắn lại TẤT CẢ tài liệu của lượt đó (tối đa `TOI_DA_DINH_KEM`): bấm "đối
+   * chiếu luật" dưới một lượt so sánh mà chỉ mang theo tờ A là lặng lẽ đổi câu
+   * hỏi thành một câu khác câu người dùng vừa bấm.
    */
   const hanhDongTaiLieu = (cau: string, ds: TaiLieuDaDung[]) => {
-    const dau = ds[0];
-    if (dau) datTepDaDinhKem({ id: dau.id, ten_tep: dau.ten_tep });
+    datTepDaDinhKem(ds.slice(0, TOI_DA_DINH_KEM).map((t) => ({ id: t.id, ten_tep: t.ten_tep })));
     dienGoiY(cau);
   };
 
@@ -895,11 +921,7 @@ function ManHoiKlaw() {
               ))}
 
               {traCuu.cauHoi !== null && (
-                <Luot
-                  cauHoi={traCuu.cauHoi}
-                  traceId={traCuu.traceId}
-                  tenTepDinhKem={tepCuaLuot ?? undefined}
-                >
+                <Luot cauHoi={traCuu.cauHoi} traceId={traCuu.traceId} tenTepDinhKem={tepCuaLuot}>
                   {traCuu.dangChay && (
                     <TrangThaiCho
                       cacBuoc={traCuu.cacBuoc}
@@ -1070,7 +1092,7 @@ function ManHoiKlaw() {
         }}
         dangDocTep={dangDocTep}
         tepDaDinhKem={tepDaDinhKem}
-        onBoDinhKem={() => datTepDaDinhKem(null)}
+        onBoDinhKem={(id) => datTepDaDinhKem((truoc) => truoc.filter((t) => t.id !== id))}
       />
     </div>
   );

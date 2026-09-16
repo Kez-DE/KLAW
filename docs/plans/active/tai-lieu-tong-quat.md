@@ -383,10 +383,25 @@ SSE steps (S2): `("hieu_tai_lieu", "Đọc tài liệu đính kèm")`,
       errors, build ok, `kiem-tai-lieu: OK`. Quick actions re-attach one
       document only (2-document `so_sanh` UI in S4). Local Chrome smoke pending
       (Outcomes 1, 2, 8).
-- [ ] S4 — GĐ2: `trich_du_kien` (≤20 fields, persisted), `phan_tich` with
-      arithmetic evaluator, `so_sanh` (2 documents). Tests:
-      `test_phep_tinh.py`, `test_hieu_tai_lieu_trich.py`,
-      `test_hieu_tai_lieu_so_sanh.py`. Deploy #2 (Outcomes 3, 4).
+- [x] S3b — real-LLM smoke of the node (no browser: Chrome extension not
+      connected) found 0/13, 0/6, 0/3 anchored on three DOCX files. Fixed
+      deterministically: consecutive-unit anchoring (table rows, adjacent
+      lines), list-prefix stripping, `mc:Fallback` dropped + fair fallback
+      measure in the parser. After: 6/6, 4/5, 2/2 anchored; injection
+      fixture never followed. Cost per document turn ≈ US$0.0005–0.0007 on
+      `gemini-2.5-flash-lite`.
+- [x] S4 — GĐ2: `phep_tinh.py` (ast allowlist, `Decimal`, Vietnamese number
+      forms), `trich_du_kien` (≤20 dynamic fields, persisted, duplicate `khoa`
+      skipped so a user edit is never overwritten), `phan_tich`, `so_sanh`
+      (two attachments, per-side anchors). Real-LLM smoke drove three further
+      fixes: short cells anchor by uniqueness instead of `QUOTE_TOI_THIEU`,
+      scattered fragments anchor when each one is unique, blank form
+      placeholders never become facts (they become `can_du_kien`). Drop
+      reasons for fields are split in traces. Free lane 1730 passed,
+      integration 60 passed, ruff clean on `src/` and `tests/`.
+      Measured after the fixes on the sample form: the arithmetic turn returns
+      `2.0+2.0+2.0+4.0 = 10` computed in code and matching the document; the
+      extraction turn on a blank form returns 0 fields and 6 `can_du_kien`.
 - [ ] S5 — GĐ5: `doi_chieu_luat` → legal pipeline; `tai_lieu_neo` in prose
       block and response; verdict-phrase check; frontend anchor chips under
       legal answers. Tests: `test_doi_chieu_luat.py`, `test_assemble` additions.

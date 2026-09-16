@@ -305,6 +305,26 @@ export interface PhepTinh {
   ket_qua_code: string;
   ket_qua_tai_lieu: string;
   khop: boolean;
+  /**
+   * Chỗ trong tài liệu ghi con số đã bị đem ra đối chiếu. Tuỳ chọn: payload
+   * cache ghi trước S4 không có, và một phép tính gộp nhiều ô có thể không quy
+   * về đúng MỘT đơn vị nào — lúc đó thà không có chip còn hơn có một chip trỏ
+   * sai chỗ, vì chip ở đây tự nhận là bằng chứng cho con số bên cạnh nó.
+   */
+  neo?: NeoTaiLieu | null;
+}
+
+/**
+ * Một điểm khác nhau giữa HAI tài liệu, với neo ở CẢ hai bên.
+ *
+ * Hai neo là bắt buộc chứ không phải tiện lợi: câu "bên A ghi 90 ngày, bên B
+ * ghi 60 ngày" chỉ kiểm được khi mở được cả hai chỗ. Một bên không dò ra thì
+ * backend bỏ cả dòng — nửa bằng chứng cho một câu so sánh là không có bằng chứng.
+ */
+export interface KhacBiet {
+  noi_dung: string;
+  neo_a: NeoTaiLieu;
+  neo_b: NeoTaiLieu;
 }
 
 /** Tài liệu đã dùng cho lượt này. `nhan` là chữ cái ngắn ("A", "B") để đối
@@ -323,6 +343,9 @@ export interface TaiLieuDaDung {
  * mang nhãn nói rõ nó là của mô hình).
  */
 export interface TaiLieuKetQua {
+  /** `tom_tat|hoi|phan_tich|trich_du_kien|so_sanh` — mục đích của LƯỢT, không
+   *  phải loại tài liệu (`CONTEXT.md`). Để `string`: một mục đích backend thêm
+   *  sau phải suy biến về cách trình bày chung, không làm hỏng cả thẻ. */
   muc_dich: string;
   mo_ta: string | null;
   quan_sat: QuanSat[];
@@ -331,6 +354,9 @@ export interface TaiLieuKetQua {
   /** Dữ kiện còn thiếu mà lượt này cần người dùng cấp. */
   can_du_kien: string[];
   du_kien: DuKien[];
+  /** CHỈ ở `muc_dich === "so_sanh"`. Tuỳ chọn: mọi mục đích khác bỏ khoá này,
+   *  và payload cache ghi trước S4 chưa biết tới nó. */
+  khac_biet?: KhacBiet[];
   tai_lieu_da_dung: TaiLieuDaDung[];
 }
 
