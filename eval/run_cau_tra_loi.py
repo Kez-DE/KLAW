@@ -178,14 +178,51 @@ def _so_sanh(a: dict, b: dict) -> None:
         print("\nKhông câu nào đổi kết quả trúng dẫn.")
 
 
+def _bang(teps: list[Path]) -> None:
+    """Bảng ngang nhiều lượt chạy — mỗi cột một lượt.
+
+    `--so-sanh` chỉ nhận hai tệp, đủ cho một thay đổi. Khi đang cân nhắc nhiều
+    model thì hai-một-lần bắt người đọc ghép bảng trong đầu, và đó là lúc người
+    ta nhớ nhầm con số.
+
+    In `so_chay_duoc` NGAY DƯỚI tên lượt: một lượt 48/77 và một lượt 77/77 có
+    tỉ lệ nằm trên hai mẫu số khác nhau, và quên điều đó là cách dễ nhất để đọc
+    ra một kết luận ngược.
+    """
+    kqs = [json.loads(t.read_text(encoding="utf-8")) for t in teps]
+    ten = [f"{t.parent.name}/{Path(k['prompt']).stem.replace('assemble.', '')}" for t, k in zip(teps, kqs)]
+    rong = max(14, max(len(x) for x in ten) + 1)
+
+    print()
+    print(f"{'':<18}" + "".join(f"{x:>{rong}}" for x in ten))
+    print(f"{'chạy được':<18}" + "".join(f"{k['so_chay_duoc']}/{k['so_cau']:<{rong-5}}" for k in kqs))
+    for nhan, khoa in [
+        ("TRÚNG DẪN", "trung_dan"),
+        ("trích dẫn đúng", "trich_dan_dung"),
+        ("answer", "answer"),
+        ("abstain", "abstain"),
+    ]:
+        print(f"{nhan:<18}" + "".join(f"{k[khoa]:>{rong}.1%}" for k in kqs))
+    print(f"{'độ dài tb':<18}" + "".join(f"{k['do_dai_tb']:>{rong}.0f}" for k in kqs))
+    print(f"{'chi phí':<18}" + "".join(f"{k['chi_phi_tong']:>{rong}.4f}" for k in kqs))
+    print(f"{'lỗi':<18}" + "".join(f"{k['so_loi']:>{rong}}" for k in kqs))
+    xau = [t for t, k in zip(ten, kqs) if k["so_loi"]]
+    if xau:
+        print(f"\n‼️  Lượt có lỗi ({', '.join(xau)}): tỉ lệ nằm trên mẫu số NHỎ HƠN, không so trực tiếp được.")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--prompt", default=None, help="đường dẫn prompt assemble; bỏ trống = mặc định")
     p.add_argument("--so", type=int, default=0, help="chỉ chạy N câu đầu (0 = tất cả)")
     p.add_argument("--json", type=Path, help="ghi kết quả ra tệp")
     p.add_argument("--so-sanh", nargs=2, type=Path, metavar=("GOC", "MOI"), help="so hai tệp kết quả")
+    p.add_argument("--bang", nargs="+", type=Path, metavar="JSON", help="bảng ngang nhiều lượt")
     a = p.parse_args()
 
+    if a.bang:
+        _bang(a.bang)
+        return
     if a.so_sanh:
         _so_sanh(*(json.loads(t.read_text(encoding="utf-8")) for t in a.so_sanh))
         return
