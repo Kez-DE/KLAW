@@ -515,3 +515,47 @@ async def test_DINH_KEM_KHONG_GOI_MO_HINH_khi_khong_ai_chon_loai(
     assert d["loai"] == "hdld", "vẫn tự nhận ra loại — đó là tra bảng, 0 token"
     assert d["du_kien"] == [], "chưa ai hỏi gì thì chưa rút dữ kiện nào"
     assert d["so_don_vi"] > 0, "nguyên văn vẫn phải đọc và lưu, để lượt hỏi sau dùng"
+
+
+@pytest.mark.asyncio
+async def test_HET_HAN_MUC_khong_de_lai_phien_ma(client, khoa_ky, hai_nguoi, llm_gia, monkeypatch):
+    """Mở phiên hộ phải đứng SAU cổng hạn mức, vì nó là một lần GHI.
+
+    `hoi_thoai.danh_sach` không lọc phiên rỗng và không có việc dọn nào cho
+    chúng, nên một 429 mở phiên hộ để lại một dòng mang tên tệp nằm mãi trong
+    thanh bên của người dùng.
+    """
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    monkeypatch.setattr(rtl.tl, "han_muc_ngay", lambda goi: 0)
+    _, truoc = hoi_thoai.danh_sach(a, 50, 0)
+
+    r = await client.post(
+        "/api/v1/tai-lieu", headers=ha,
+        files={"tep": ("hd.docx", _docx("HỢP ĐỒNG LAO ĐỘNG", DONG_LUONG))},
+        data={},  # KHÔNG gửi `hoi_thoai_id`
+    )
+    assert r.status_code == 429, r.text
+
+    _, sau = hoi_thoai.danh_sach(a, 50, 0)
+    assert sau == truoc, "hết hạn mức thì không được mở phiên nào"
+
+
+@pytest.mark.asyncio
+async def test_hoi_thoai_id_RONG_mo_phien_moi_chu_khong_404(client, khoa_ky, hai_nguoi, llm_gia):
+    """Khoá rỗng và khoá vắng mặt phải đi cùng một đường.
+
+    `Form(None)` chỉ trả `None` khi khoá VẮNG MẶT. Một người gọi gửi
+    `hoi_thoai_id=""` (thử lại, client khác, gọi tay) mà nhận 404 là một câu trả
+    lời sai về một yêu cầu hợp lệ.
+    """
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+
+    r = await client.post(
+        "/api/v1/tai-lieu", headers=ha,
+        files={"tep": ("hd.docx", _docx("HỢP ĐỒNG LAO ĐỘNG", DONG_LUONG))},
+        data={"hoi_thoai_id": ""},
+    )
+    assert r.status_code == 201, r.text
+    assert hoi_thoai.lay_phien(a, r.json()["hoi_thoai_id"]) is not None

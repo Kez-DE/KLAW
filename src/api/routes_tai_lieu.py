@@ -223,20 +223,19 @@ async def tai_len(
     du_lieu = await tep.read()
     from src.services import hoi_thoai as ht
 
-    if hoi_thoai_id is None:
-        # Đính kèm ở một đoạn chat chưa mở KHÔNG được là ngõ cụt. Phiên chỉ sinh
-        # ra sau câu hỏi đầu, nên đòi `hoi_thoai_id` ở đây bắt người dùng hỏi một
-        # câu vu vơ trước khi được đưa tờ giấy họ đang cầm. Tên tệp làm tiêu đề:
-        # nó là thứ duy nhất ta biết về phiên này cho tới lượt hỏi đầu tiên.
-        hoi_thoai_id = await run_in_threadpool(
-            ht.tao_phien, nguoi["sub"], tep.filename or "Tài liệu"
-        )
-    else:
-        # Cuộc hội thoại phải là CỦA NGƯỜI TẢI LÊN. Mọi đường đọc và dọn sau này
-        # (`don_vi_cua`, `tai_lieu_cua_hoi_thoai`, `xoa_theo_hoi_thoai`) khoá theo
-        # `(hoi_thoai_id, user_sub)`, nên một tệp nhét vào phiên của người khác là
-        # một dòng không ai dọn được nữa (FR-024). 404 như `chi_tiet`: không tiết lộ
-        # phiên kia tồn tại.
+    # Phiên có sẵn được kiểm CHỦ ngay: phép kiểm này chỉ ĐỌC, và 404 phải đứng
+    # trước 429 như `chi_tiet` — không tiết lộ phiên của người khác tồn tại chỉ
+    # vì người gọi còn hạn mức hay không.
+    #
+    # Cuộc hội thoại phải là CỦA NGƯỜI TẢI LÊN. Mọi đường đọc và dọn sau này
+    # (`don_vi_cua`, `tai_lieu_cua_hoi_thoai`, `xoa_theo_hoi_thoai`) khoá theo
+    # `(hoi_thoai_id, user_sub)`, nên một tệp nhét vào phiên của người khác là
+    # một dòng không ai dọn được nữa (FR-024).
+    #
+    # `if hoi_thoai_id:` chứ không `is not None:` — `Form(None)` chỉ trả `None`
+    # khi khoá VẮNG MẶT, còn một người gọi gửi khoá rỗng sẽ rơi vào
+    # `_uuid_hop_le("")` và nhận một 404 vô nghĩa thay vì một phiên mới.
+    if hoi_thoai_id:
         hoi_thoai_id = _uuid_hop_le(hoi_thoai_id)
         if await run_in_threadpool(ht.lay_phien, nguoi["sub"], hoi_thoai_id) is None:
             raise HTTPException(status_code=404, detail=ht.LOI_KHONG_THAY)
@@ -248,6 +247,19 @@ async def tai_len(
     # FR-004 — cổng hạn mức chạy TRƯỚC khi phân tích tệp, cùng thứ tự `bao_ve`
     # đặt cho mọi endpoint tiêu tiền: kiểm quyền trước, làm việc sau.
     await _kiem_han_muc(nguoi)
+
+    if not hoi_thoai_id:
+        # Đính kèm ở một đoạn chat chưa mở KHÔNG được là ngõ cụt. Phiên chỉ sinh
+        # ra sau câu hỏi đầu, nên đòi `hoi_thoai_id` ở đây bắt người dùng hỏi một
+        # câu vu vơ trước khi được đưa tờ giấy họ đang cầm. Tên tệp làm tiêu đề:
+        # nó là thứ duy nhất ta biết về phiên này cho tới lượt hỏi đầu tiên.
+        #
+        # SAU hai cổng trên, không trước: mở phiên là một lần GHI, và `danh_sach`
+        # không lọc phiên rỗng — một 422/429 mở phiên hộ sẽ để lại một dòng mang
+        # tên tệp nằm mãi trong thanh bên mà không có gì dọn nó.
+        hoi_thoai_id = await run_in_threadpool(
+            ht.tao_phien, nguoi["sub"], tep.filename or "Tài liệu"
+        )
 
     viec_id = await run_in_threadpool(
         tl.tao_viec,
