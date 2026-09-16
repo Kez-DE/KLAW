@@ -142,3 +142,14 @@ class KLawState(TypedDict, total=False):
     tai_lieu_neo: list[dict]
     # Dữ kiện MỚI rút từ tài liệu trong lượt này (S4) — chờ ghi qua `tl.luu_du_kien`.
     tai_lieu_du_kien_moi: list[dict]
+    # Văn bản MỚI mô hình soạn từ tài liệu ở lượt `tao_van_ban`/`sua_ban_thao`
+    # (S6): `{tieu_de, muc: [{ten, noi_dung}]}`, ĐÃ qua phép làm sạch 0 token của
+    # `hieu_tai_lieu.lam_sach_van_ban` — mọi con số trong nó đều tra ngược được
+    # về tài liệu hay lời người hỏi. `None` ở mọi lượt khác. Cùng bẫy LangGraph
+    # với `bang`/`nguon`/`ban_thao_ket`: không khai ở đây thì khoá bị loại ÂM
+    # THẦM khỏi state trả về và node dựng bản thảo nhận `None` mãi mãi.
+    van_ban_tong_quat: dict | None
+    # Lý do KHÔNG dựng được bản thảo tổng quát ở lượt này (hết trần sửa, chưa có
+    # bản thảo nào để sửa, mô hình không soạn được mục nào). `assemble` biến nó
+    # thành một lượt hỏi lại — một lượt soạn hỏng mà im lặng là tệ nhất.
+    ban_thao_tong_quat_loi: str | None

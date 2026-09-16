@@ -1283,6 +1283,28 @@ export function laSoanThaoKetQua(x: unknown): x is SoanThaoKetQua {
   );
 }
 
+/**
+ * Mã loại của một bản thảo KHÔNG theo checklist nào (`src/agents/nodes/
+ * dung_ban_thao_tong_quat.py`). Không có `GET /mau/tong_quat`, nên mọi chỗ nạp
+ * khung mẫu theo `loai` phải bỏ qua giá trị này.
+ */
+export const LOAI_TONG_QUAT = "tong_quat";
+
+/**
+ * Nhãn MỨC KIỂM của một bản thảo (CONTEXT.md "mức kiểm") — `null` khi bản thảo
+ * đi đường checklist + rules + audit như trước (ở đó `SoatBanThao` đã nói rõ
+ * từng rule đã chạy hay chưa, nên thêm một nhãn nữa chỉ làm loãng).
+ *
+ * `tong_quat` thì ngược lại: KHÔNG có rule nào chạy trên nó, và trên màn hình
+ * nó trông y hệt một bản thảo đã soát. Nhãn này là chỗ DUY NHẤT nói ra điều đó
+ * trước khi người dùng bấm tải về.
+ */
+export function nhanMucKiem(auditReport: Record<string, unknown> | undefined): string | null {
+  return auditReport?.["muc_kiem"] === LOAI_TONG_QUAT
+    ? "Bản thảo tổng quát — chưa kiểm pháp lý"
+    : null;
+}
+
 /* ── /ban-thao — bản thảo đã lưu của tài khoản (Task 21) ─────────────────── */
 
 export function laBanThao(x: unknown): x is BanThao {

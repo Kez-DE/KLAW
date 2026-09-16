@@ -45,7 +45,7 @@ import type {
   TraCuuKetQua,
   TruongFact,
 } from "@/lib/klaw";
-import { chuanHoaLuot, laMau, laNhapPhien } from "@/lib/klaw";
+import { chuanHoaLuot, laMau, laNhapPhien, LOAI_TONG_QUAT } from "@/lib/klaw";
 import type { LuotDaXong } from "@/lib/lich-su";
 import { dungLichSu } from "@/lib/lich-su";
 import { cn } from "@/lib/utils";
@@ -250,7 +250,11 @@ function ManHoiKlaw() {
    *  vì chép lại lần gọi thứ hai ở nơi khác rồi để hai bản trôi khỏi nhau. */
   const [lanTaiKhungSanKhau, datLanTaiKhungSanKhau] = useState(0);
   useEffect(() => {
-    if (loaiSanKhau === undefined) {
+    // `tong_quat` KHÔNG có `GET /mau/{loai}` (bản thảo tổng quát không đi
+    // checklist nào), nên gọi là nhận 404 rồi hiện "Thử lại" cho một khung
+    // không bao giờ tồn tại. Đi đúng đường "chưa có khung": `mucTuBanThao`
+    // dựng mục thẳng từ `clauses` khi `cauTruc` là null.
+    if (loaiSanKhau === undefined || loaiSanKhau === LOAI_TONG_QUAT) {
       datCauTrucSanKhau(null);
       datTruongMauSanKhau([]);
       datLoiKhungSanKhau(null);

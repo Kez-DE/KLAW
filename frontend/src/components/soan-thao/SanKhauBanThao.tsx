@@ -10,7 +10,14 @@ import { TayKeo } from "@/components/ui/TayKeo";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { dungLaiBanThao } from "@/lib/api";
 import { docRongDaLuu, kepRong, luuRong, type Bien } from "@/lib/keo-dan";
-import { nhanFactDoi, type BanThao, type CauTruc, type TruongFact } from "@/lib/klaw";
+import {
+  LOAI_TONG_QUAT,
+  nhanFactDoi,
+  nhanMucKiem,
+  type BanThao,
+  type CauTruc,
+  type TruongFact,
+} from "@/lib/klaw";
 import { dongTrenCung, moTam, type Tam } from "@/lib/ngan-xep-drawer";
 import { mucTuBanThao } from "@/lib/xuat-tep";
 import { cn } from "@/lib/utils";
@@ -213,6 +220,9 @@ export function SanKhauBanThao({
   /** Danh sách mục — dùng lại NGUYÊN ở cả hai bố cục (cột cố định bề rộng khi
    *  rộng, `<details>` khi hẹp): một cây JSX, không hai bản chép tay dễ trôi
    *  nhau ở lần sửa sau. */
+  /** Bản thảo KHÔNG theo checklist (S6): không có `GET /mau/{loai}`, không có
+   *  biểu mẫu dữ kiện, và `POST /ban-thao/{id}/dung` từ chối nó. */
+  const laTongQuat = banThao.loai === LOAI_TONG_QUAT;
   const danhSachMuc = dangTai ? (
     <p className="m-0 text-[13px] text-muted-foreground">Đang tải khung mục…</p>
   ) : loiKhung !== null ? (
@@ -239,13 +249,19 @@ export function SanKhauBanThao({
                 </span>
               )}
             </p>
-            <button
-              type="button"
-              onClick={() => onSuaMuc(m.key)}
-              className="focus-brass shrink-0 cursor-pointer text-[12px] font-medium text-primary hover:underline"
-            >
-              Sửa
-            </button>
+            {/* Bản thảo tổng quát không có biểu mẫu dữ kiện nào để mở: nó sửa
+                bằng cách nói với trợ lý ("đổi mục 2 thành…"), và máy chủ cũng
+                từ chối `POST /ban-thao/{id}/dung` cho loại này. Ẩn nút thay vì
+                để nó mở một biểu mẫu rỗng rồi báo lỗi sau khi bấm Lưu. */}
+            {!laTongQuat && (
+              <button
+                type="button"
+                onClick={() => onSuaMuc(m.key)}
+                className="focus-brass shrink-0 cursor-pointer text-[12px] font-medium text-primary hover:underline"
+              >
+                Sửa
+              </button>
+            )}
           </div>
         </li>
       ))}
@@ -287,6 +303,14 @@ export function SanKhauBanThao({
           <span className="font-jetbrains text-[12.5px] text-muted-foreground">
             v{banThao.phien_ban}
           </span>
+          {/* Mức kiểm đứng NGAY cạnh tên bản thảo, không nằm trong một khay
+              đóng/mở được: người dùng tải tệp về từ chính thanh này, và nhãn
+              phải ở trong tầm mắt lúc họ bấm (CONTEXT.md "mức kiểm"). */}
+          {nhanMucKiem(banThao.audit_report) !== null && (
+            <span className="rounded-md bg-[var(--color-paper-50)] px-2 py-0.5 text-[12px] text-muted-foreground">
+              {nhanMucKiem(banThao.audit_report)}
+            </span>
+          )}
           {banThao.phien_ban > 1 && (
             // Mũi tên lùi gợi ý "quay lại được", nhưng `POST /ban-thao/{id}/lui`
             // là WALK chứ không phải TOGGLE: bản đang đứng bị bỏ hẳn phía máy

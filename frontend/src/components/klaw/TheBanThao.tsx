@@ -1,5 +1,5 @@
 import { FileText } from "lucide-react";
-import type { TraCuuKetQua } from "@/lib/klaw";
+import { nhanMucKiem, type TraCuuKetQua } from "@/lib/klaw";
 
 /** Thẻ bàn giao (theo teardown Claude Artifacts): báo có sản phẩm, KHÔNG phải
  *  nơi làm việc — bấm "Mở bản thảo" đưa sang khung soạn thảo hiện có (Task 21);
@@ -10,6 +10,10 @@ import type { TraCuuKetQua } from "@/lib/klaw";
 export function TheBanThao({ ketQua, onMo }: { ketQua: TraCuuKetQua; onMo: (id: string) => void }) {
   const bt = ketQua.ban_thao;
   if (!bt) return null;
+  // Bản thảo tổng quát KHÔNG qua checklist, rule hay audit nào. Nói ra ngay
+  // dòng đầu, trước nút "Mở bản thảo" — sau khi bấm vào là người dùng đã ở
+  // trong khung soạn thảo, nơi mọi bản thảo trông giống nhau.
+  const nhan = nhanMucKiem(bt.audit_report);
   return (
     <section
       aria-label="Bản thảo đã sẵn sàng"
@@ -19,7 +23,7 @@ export function TheBanThao({ ketQua, onMo }: { ketQua: TraCuuKetQua; onMo: (id: 
         <FileText className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="m-0 text-[15px] font-semibold text-foreground">
-            Bản thảo đã sẵn sàng · {bt.ten}
+            {nhan ?? "Bản thảo đã sẵn sàng"} · {bt.ten}
           </p>
           <p className="m-0 mt-0.5 text-[13px] text-muted-foreground">
             Phiên bản {bt.phien_ban}

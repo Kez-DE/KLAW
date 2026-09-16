@@ -317,6 +317,7 @@ BUOC_TRA_CUU: tuple[tuple[str, str], ...] = (
     ("suy_dien", "Nhận ra vai của bạn"),
     ("route", "Phân loại câu hỏi"),
     ("hieu_tai_lieu", "Đọc tài liệu đính kèm"),
+    ("dung_ban_thao_tong_quat", "Dựng bản thảo tổng quát"),
     ("gom_du_kien", "Gom dữ kiện cho văn bản"),
     ("dung_ban_thao", "Dựng bản thảo"),
     ("tien_de", "Kiểm tiền đề câu hỏi"),
@@ -356,6 +357,11 @@ def chi_tiet_buoc(ten: str, st: dict) -> dict:
     """
     if ten == "hieu_tai_lieu":
         return {"so_quan_sat": len((st.get("tai_lieu_ket") or {}).get("quan_sat") or [])}
+    if ten == "dung_ban_thao_tong_quat":
+        # Số mục ĐÃ DỰNG, không số mục mô hình soạn ra: phép làm sạch
+        # (`hieu_tai_lieu.lam_sach_van_ban`) có thể đã bỏ bớt, và thanh tiến
+        # trình phải nói con số người dùng sắp thấy.
+        return {"so_muc": len((st.get("ban_thao_ket") or {}).get("clauses") or [])}
     if ten == "retrieve":
         return {"so_dieu_khoan": len(st.get("retrieved") or [])}
     if ten == "expand":

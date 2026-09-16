@@ -19,6 +19,11 @@ logger = logging.getLogger(__name__)
 TRAN_SUA = 10
 LOI_KHONG_THAY = "Không tìm thấy bản thảo này."
 LOI_HET_LAN_SUA = f"Bản thảo này đã sửa {TRAN_SUA} lần. Mở bản mới để tiếp tục."
+# Giá trị của cột `loai` cho bản thảo KHÔNG theo checklist nào (S6). Khai ở đây
+# chứ không ở node dựng nó: cột này là của bảng, và `dung_lai` phải nhận ra nó
+# mà không được nhập ngược một module `agents` (vòng import).
+LOAI_TONG_QUAT = "tong_quat"
+LOI_SUA_TONG_QUAT = "Bản thảo tổng quát sửa bằng cách nói với trợ lý trong cuộc trò chuyện, không qua biểu mẫu dữ kiện."
 
 _COT = (
     "id::text AS id, hoi_thoai_id::text AS hoi_thoai_id, loai, facts, document, clauses, audit,"
@@ -43,6 +48,11 @@ _SQL_DS = text(
     " ORDER BY cap_nhat_luc DESC LIMIT :limit OFFSET :offset"
 )
 _SQL_DEM = text("SELECT count(*)::int FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL")
+_SQL_MOI_NHAT = text(
+    f"SELECT {_COT} FROM ban_thao WHERE user_sub = CAST(:sub AS uuid)"
+    " AND hoi_thoai_id = CAST(:pid AS uuid) AND loai = :loai AND xoa_luc IS NULL"
+    " ORDER BY cap_nhat_luc DESC LIMIT 1"
+)
 _SQL_XOA = text(
     "UPDATE ban_thao SET xoa_luc = now() WHERE id = CAST(:id AS uuid) AND user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL"
 )
@@ -77,13 +87,49 @@ def _finding_out(f, duong_dan_index: dict[str, dict]) -> dict:
     }
 
 
-def _render_markdown(loai: str, clauses: list) -> str:
-    """Bản sao của `routes._render_markdown` — cùng khuôn Markdown thuần."""
+def _render_markdown(loai: str, clauses: list, tieu_de: str | None = None) -> str:
+    """Bản sao của `routes._render_markdown` — cùng khuôn Markdown thuần.
+
+    Nhánh `tong_quat` (S6) dựng THẲNG từ `clauses` (dict, không phải
+    `DraftClause`) và từ `tieu_de` của chính văn bản: một bản thảo tổng quát
+    theo định nghĩa KHÔNG có checklist nào để tra, nên gọi `load_checklist_cached`
+    ở đó sẽ nổ — và cái phải đổi là hàm này, không phải một hàm render thứ hai
+    đi song song rồi trôi lệch khuôn Markdown.
+    """
+    if loai == "tong_quat":
+        phan = [f"# {tieu_de or 'Văn bản'}", ""]
+        for i, c in enumerate(clauses, 1):
+            phan.append(f"## {i}. {c['ten']}\n\n{c['noi_dung']}\n")
+        return "\n".join(phan)
     cl = load_checklist_cached(loai)
     phan = [f"# {cl.tieu_de}", ""]
     for i, c in enumerate(clauses, 1):
         phan.append(f"## {cl.don_vi_muc} {i}. {c.ten}\n\n{c.noi_dung}\n")
     return "\n".join(phan)
+
+
+def kiem_tran_sua(cu: dict) -> None:
+    """Trần sửa của MỘT bản thảo, phát biểu ở đúng một chỗ.
+
+    `dung_lai` (bản thảo checklist) và `dung_ban_thao_tong_quat` (S6) đều gọi
+    hàm này TRƯỚC khi làm bất cứ việc tốn kém nào, nên ngưỡng và lời từ chối chỉ
+    có một bản. Đo trên cột ĐƠN ĐIỆU `so_lan_sua` chứ không trên độ dài
+    `phien_ban_truoc` — xem docstring `dung_lai`.
+    """
+    if int(cu.get("so_lan_sua") or 0) >= TRAN_SUA:
+        raise ValueError(LOI_HET_LAN_SUA)
+
+
+def moi_nhat_cua_hoi_thoai(sub: str, hoi_thoai_id: str, loai: str) -> dict | None:
+    """Bản thảo `loai` MỚI NHẤT của chính hội thoại này, hoặc `None`.
+
+    Một lệnh sửa bằng lời ("đổi mục 2 thành…") không mang id nào, nên "bản thảo
+    nào" phải suy ra được: trong một cuộc trò chuyện, đó là bản vừa dựng. Lọc
+    theo `user_sub` ở tầng dữ liệu như mọi hàm khác trong file này.
+    """
+    with get_engine().connect() as c:
+        r = c.execute(_SQL_MOI_NHAT, {"sub": sub, "pid": hoi_thoai_id, "loai": loai}).mappings().one_or_none()
+    return dict(r) if r is not None else None
 
 
 def tu_state_soan_thao(st: dict) -> dict:
@@ -204,8 +250,13 @@ async def dung_lai(sub: str, id: str, facts: dict, hoi_thoai_id: str | None = No
     cu = await run_in_threadpool(chi_tiet, sub, id)
     if cu is None:
         return None
-    if int(cu["so_lan_sua"] or 0) >= TRAN_SUA:
-        raise ValueError(LOI_HET_LAN_SUA)
+    if cu["loai"] == LOAI_TONG_QUAT:
+        # Bản thảo tổng quát không có checklist, nên `graph_soan_thao` dưới đây
+        # sẽ nổ ở `load_checklist_cached`. Chặn tại CHỖ DÙNG CHUNG này, không ở
+        # riêng endpoint: cả drawer sửa mục lẫn lệnh sửa bằng lời của đường
+        # checklist đi qua đây, và cả hai phải nhận cùng một lời từ chối.
+        raise ValueError(LOI_SUA_TONG_QUAT)
+    kiem_tran_sua(cu)
     bat_dau = time.monotonic()
     st = await graph_soan_thao_cached().ainvoke(
         {"loai": cu["loai"], "loai_van_ban": cu["loai"], "facts": facts, "nganh": "thuong_mai"}
