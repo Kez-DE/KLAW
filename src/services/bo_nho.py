@@ -124,13 +124,20 @@ def gop_ho_so(cu: dict, moi: dict, nguon: str) -> dict:
 
 # Spec 2026-09-16 §3.6/§7.4/FR-008 — ba result_type meta không đại diện một vụ
 # việc pháp lý bền của người dùng, nên lượt của chúng không được ghi đè `ho_so`.
-KHONG_GOP_HO_SO = frozenset({"gioi_thieu", "hoi_ve_kho", "out_of_scope"})
+#
+# `tai_lieu` vào cùng danh sách vì lý do MẠNH HƠN (plan `tai-lieu-tong-quat.md`,
+# decision 2026-09-16 "lưu biểu diễn tài liệu theo hội thoại"): chữ trong tài liệu
+# của người hỏi chỉ được sống trong ĐÚNG hội thoại đã nhận nó và chết cùng hội
+# thoại đó. Gộp nó vào `ho_so` là đẩy nó sang hồ sơ TÀI KHOẢN (`gop_vao_tai_khoan`
+# ngay dưới) — tức ra khỏi hội thoại, vĩnh viễn, không ai bấm nút nào.
+KHONG_GOP_HO_SO = frozenset({"gioi_thieu", "hoi_ve_kho", "out_of_scope", "tai_lieu"})
 
 
 def ho_so_sau_luot(result_type: str | None, cu: dict, moi: dict) -> dict:
-    """Hồ sơ sau lượt này: giữ NGUYÊN `cu` cho ba result_type meta (không có gì của
-    lượt đó đáng gộp), gộp bình thường (`gop_ho_so`) cho mọi result_type khác,
-    kể cả `None` (tương thích ngược với caller chưa truyền result_type)."""
+    """Hồ sơ sau lượt này: giữ NGUYÊN `cu` cho mọi result_type trong
+    `KHONG_GOP_HO_SO` (không có gì của lượt đó đáng gộp), gộp bình thường
+    (`gop_ho_so`) cho mọi result_type khác, kể cả `None` (tương thích ngược với
+    caller chưa truyền result_type)."""
     if result_type in KHONG_GOP_HO_SO:
         return dict(cu or {})
     return gop_ho_so(cu, moi, "nguoi_noi")

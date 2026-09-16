@@ -119,3 +119,26 @@ class KLawState(TypedDict, total=False):
     # loại ÂM THẦM một khoá `assemble()` đã set đúng nếu `KLawState` không khai nó.
     soan_thao_hoi: dict | None
     ban_thao: dict | None
+    # Tài liệu người hỏi gửi (plan `tai-lieu-tong-quat.md` §Graph S2). `tai_lieu_ids`
+    # là tài liệu ĐÍNH KÈM chính lượt này (đã kiểm chủ ở `routes._chuan_bi_phien`)
+    # — khác rỗng thì graph rẽ TẤT ĐỊNH sang `hieu_tai_lieu`, 0 token.
+    # `tai_lieu_phien` là mọi tài liệu hội thoại đang giữ (dòng của
+    # `tai_lieu.tai_lieu_cua_hoi_thoai`), để `route.v4` biết có nên chào ý định
+    # `tai_lieu` hay không và để lượt nối tiếp tìm lại tài liệu đã gửi.
+    tai_lieu_ids: list[str]
+    tai_lieu_phien: list[dict]
+    # Việc người hỏi muốn làm với tài liệu trong lượt này (CONTEXT.md "mục đích").
+    # Ghi lại KỂ CẢ khi lát cắt này chưa làm được nó — S4–S6 rẽ nhánh trên nó.
+    muc_dich_tai_lieu: str | None
+    # Kết quả đọc tài liệu (`TaiLieuKetQuaOut`) và neo điều khoản đưa sang đường
+    # pháp lý. Cùng bẫy LangGraph với `bang`/`nguon`/`ban_thao`: không khai ở đây
+    # thì khoá bị loại ÂM THẦM khỏi state trả về của `invoke`/`ainvoke`.
+    tai_lieu_ket: dict | None
+    # `TraCuuResponse.tai_lieu` — cái `assemble._base` phát hành, KHÁC
+    # `tai_lieu_ket` (bản node vừa dựng) đúng như `ban_thao` khác `ban_thao_ket`.
+    # Thiếu dòng này thì LangGraph loại khoá khỏi state trả về và `_payload_cache`
+    # đọc ra `None`: lần thứ NĂM của lớp lỗi `khop_tai_id`/`doc_id`/`bang`/`nguon`.
+    tai_lieu: dict | None
+    tai_lieu_neo: list[dict]
+    # Dữ kiện MỚI rút từ tài liệu trong lượt này (S4) — chờ ghi qua `tl.luu_du_kien`.
+    tai_lieu_du_kien_moi: list[dict]

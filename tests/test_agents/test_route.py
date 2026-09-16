@@ -243,17 +243,33 @@ def test_moi_Intent_deu_co_mat_trong_PROMPT_va_trong_JSON_SCHEMA():
     bao giờ chọn được giá trị đó (JSON schema chặn), rồi `route` nuốt lỗi bằng
     mặc định `tra_cuu` — đúng nhánh mặc định an toàn — và cả tính năng thành mã
     chết. So HAI TẬP, không liệt kê tay.
-    """
-    from src.agents.nodes.route import INTENT_SCHEMA, PROMPT_PATH
 
+    `tai_lieu` là ý định CÓ ĐIỀU KIỆN (quyết định chủ sở hữu 2026-09-16 Q4): nó
+    chỉ được chào ra khi hội thoại đang giữ tài liệu, nên nó nằm ở
+    `schema_v4(True)` + `route.v4.md` chứ không ở `INTENT_SCHEMA` + `route.v1.md`.
+    Bất biến KHÔNG đổi — mọi ý định vẫn phải có một schema chào nó và một
+    template tả nó — chỉ là tập schema/template để so có hai phần tử.
+    """
+    from pathlib import Path
+
+    from src.agents.nodes.route import INTENT_SCHEMA, PROMPT_PATH, schema_v4
+
+    duong_v4 = Path("prompts/route.v4.md")
+    co_dieu_kien = {Intent.tai_lieu.value}
     trong_schema = set(INTENT_SCHEMA["properties"]["intent"]["enum"])
-    assert trong_schema == {i.value for i in Intent}, (
-        f"lệch: Intent có { {i.value for i in Intent} - trong_schema}, "
-        f"schema có {trong_schema - {i.value for i in Intent}}"
+    luon_co = {i.value for i in Intent} - co_dieu_kien
+    assert trong_schema == luon_co, (
+        f"lệch: Intent có {luon_co - trong_schema}, schema có {trong_schema - luon_co}"
     )
+    assert co_dieu_kien <= set(schema_v4(True)["properties"]["intent"]["enum"])
+    assert not (co_dieu_kien & set(schema_v4(False)["properties"]["intent"]["enum"]))
+
     prompt = PROMPT_PATH.read_text(encoding="utf-8")
-    thieu = [i.value for i in Intent if f"`{i.value}`" not in prompt]
+    thieu = [v for v in luon_co if f"`{v}`" not in prompt]
     assert not thieu, f"{thieu} không được mô tả trong {PROMPT_PATH}"
+    mau_v4 = duong_v4.read_text(encoding="utf-8")
+    thieu_v4 = [i.value for i in Intent if f"`{i.value}`" not in mau_v4]
+    assert not thieu_v4, f"{thieu_v4} không được mô tả trong {duong_v4}"
 
 
 def test_route_doc_template_tu_prompt_path_khi_duoc_truyen(tmp_path):

@@ -35,7 +35,9 @@ INTENT_SCHEMA = {
     },
 }
 
-# một nguồn, thêm Intent mới chỉ sửa một chỗ
+# một nguồn, thêm Intent mới chỉ sửa một chỗ — TRỪ `tai_lieu`, ý định DUY NHẤT
+# có điều kiện: nó chỉ được chào ra khi hội thoại thật sự có tài liệu, nên nó
+# sống ở `schema_v4()` chứ không ở đây (quyết định chủ sở hữu 2026-09-16 Q4).
 _INTENT_ENUM = INTENT_SCHEMA["properties"]["intent"]["enum"]
 
 
@@ -70,6 +72,44 @@ def schema_v3() -> dict:
     return s
 
 
+def schema_v4(co_tai_lieu: bool) -> dict:
+    """Schema strict của template v4 — v3 cộng ý định `tai_lieu`, CHỈ khi hội
+    thoại đang giữ tài liệu.
+
+    Mở enum vô điều kiện là mời model rẽ một câu hỏi luật bình thường sang node
+    đọc tài liệu khi không có tài liệu nào để đọc — một ngõ cụt câm, không phải
+    một câu trả lời sai nhìn thấy được. Cùng khuôn điều kiện với `{dang_soan}`
+    của v3: thứ gì không tồn tại trong phiên thì model không được chào.
+
+    Dựng dict `intent` MỚI thay vì `.append` vào `_INTENT_ENUM`: `schema_v2`/
+    `schema_v3` dùng CHUNG đúng list đó, nên một lần bồi thêm sẽ rò `tai_lieu`
+    sang mọi bản template cũ cho tới khi tiến trình khởi động lại.
+    """
+    s = schema_v3()
+    s["properties"]["intent"] = {
+        "type": "string",
+        "enum": [*_INTENT_ENUM, Intent.tai_lieu.value] if co_tai_lieu else list(_INTENT_ENUM),
+    }
+    return s
+
+
+def _tai_lieu_trong_phien(rows: list[dict] | None) -> str:
+    """`{tai_lieu_trong_phien}` của route.v4 — tài liệu hội thoại này đang giữ.
+
+    Một dòng mỗi tài liệu, `"(không)"` khi chưa có cái nào (cùng quy ước
+    `_dang_soan`). QT-3: khác `{dang_soan}` (dựng từ tên checklist trong repo),
+    khối này mang CHỮ CỦA NGƯỜI DÙNG — tên tệp và mô tả — nên template v4 tự
+    khai nó là dữ liệu chứ không phải chỉ dẫn.
+    """
+    if not rows:
+        return "(không)"
+    return "\n".join(
+        f"- {r.get('ten_tep') or '(không tên)'} — {r.get('mo_ta') or 'chưa mô tả'}"
+        f" ({r.get('so_don_vi') or 0} đơn vị)"
+        for r in rows
+    )
+
+
 def danh_sach_loai() -> str:
     """Một dòng `mã — tên` cho mỗi checklist, điền vào `{danh_sach_loai}` của v2."""
     return "\n".join(f"- `{loai}` — {load_checklist_cached(loai).ten}" for loai in sorted(cac_loai()))
@@ -92,6 +132,13 @@ class Intent(StrEnum):
     # điểm, `answer` rỗng. Câu trả lời là một phép `count(*)` chứ không phải
     # một lượt suy luận, nên nó có đường riêng: xem `src/services/kho.py`.
     hoi_ve_kho = "hoi_ve_kho"
+    # Hỏi về NỘI DUNG một tài liệu người hỏi đã gửi trong hội thoại này. Ý định
+    # DUY NHẤT có điều kiện: chỉ `schema_v4(co_tai_lieu=True)` chào nó ra, nên
+    # nó KHÔNG nằm trong `INTENT_SCHEMA`/`_INTENT_ENUM` (v1/v2/v3 không biết).
+    # Lượt ĐÍNH KÈM tài liệu không đi qua đây chút nào — nó rẽ tất định 0 token
+    # ở `graph_tra_cuu._vao_graph`; nhánh này chỉ cho lượt NỐI TIẾP hỏi về một
+    # tài liệu đã gửi từ lượt trước.
+    tai_lieu = "tai_lieu"
 
 
 def _dang_soan(sd: dict | None) -> str:
@@ -124,12 +171,17 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
     # bản v4 cùng hình dạng vẫn chạy đúng schema.
     la_v3 = "dang_tra_loi" in mau
     la_v2 = la_v3 or "loai_van_ban" in mau
+    # v4 = v3 cộng khối tài liệu của hội thoại. Nhận theo NỘI DUNG như hai bản
+    # trước, không theo tên file.
+    la_v4 = "{tai_lieu_trong_phien}" in mau
+    co_tai_lieu = bool(state.get("tai_lieu_phien"))
     # `dang_soan` truyền LUÔN, kể cả cho template v1/v2 không có `{dang_soan}`:
     # `str.format` bỏ qua kwargs thừa, nên không cần một nhánh điều kiện thứ ba.
     prompt = mau.format(
         cau_hoi=state["query"],
         danh_sach_loai=danh_sach_loai() if la_v2 else "",
         dang_soan=_dang_soan(state.get("soan_thao_dang_mo")),
+        tai_lieu_trong_phien=_tai_lieu_trong_phien(state.get("tai_lieu_phien")),
     )
     # llm.chat(...) NẰM NGOÀI try: lỗi hạ tầng thật (content rỗng, usage thiếu
     # — xem ValueError ở llm.py chat()/_usage_from()) phải NỔ RA NGOÀI, đúng
@@ -141,7 +193,10 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
     raw, usage = llm.chat(
         model,
         [{"role": "user", "content": prompt}],
-        json_schema=schema_v3() if la_v3 else (schema_v2() if la_v2 else INTENT_SCHEMA),
+        json_schema=(
+            schema_v4(co_tai_lieu) if la_v4
+            else (schema_v3() if la_v3 else (schema_v2() if la_v2 else INTENT_SCHEMA))
+        ),
     )
     data: dict = {}
     try:
@@ -155,6 +210,12 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
     # Ý định phụ chỉ có nghĩa khi ý định CHÍNH là tra_cuu — người hỏi vừa hỏi
     # luật vừa nhờ soạn. Khi intent CHÍNH đã là soan_thao, gợi ý dựng ở nhánh
     # dưới đây (cùng đường cũ) là đủ, không cần thêm cờ y_dinh_phu.
+    # Phép kiểm 0 token: `tai_lieu` mà hội thoại không giữ tài liệu nào thì
+    # `hieu_tai_lieu` không có gì để đọc — hạ về mặc định an toàn thay vì rẽ vào
+    # một ngõ cụt câm. Với lượt ĐÍNH KÈM thì `_vao_graph` đã rẽ trước `route`,
+    # nên `tai_lieu_ids` cũng tính là "có tài liệu" cho người gọi trực tiếp.
+    if intent is Intent.tai_lieu and not (state.get("tai_lieu_phien") or state.get("tai_lieu_ids")):
+        intent = Intent.tra_cuu
     # Deterministic guard over the LLM verdict — see gioi_thieu.chac_chan_meta.
     ep_meta = intent not in (Intent.gioi_thieu, Intent.hoi_ve_kho) and chac_chan_meta(state["query"])
     if ep_meta:

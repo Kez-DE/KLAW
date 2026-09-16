@@ -109,6 +109,7 @@ async def _chay_nen(
     hoi_thoai_id: str | None,
     bo_nho_phien: dict | None,
     soan_thao: dict | None = None,
+    tai_lieu_phien: list[dict] | None = None,
 ) -> None:
     """Chạy graph tới cùng và đẩy sự kiện vào `hang`. KHÔNG dừng khi client rời.
 
@@ -143,6 +144,7 @@ async def _chay_nen(
             bo_nho=bo_nho_phien,
             hoi_thoai_id=hoi_thoai_id,
             soan_thao=soan_thao,
+            tai_lieu_phien=tai_lieu_phien,
         )
         # Dựng qua CHÍNH model của `/tra-cuu`: shape của hai đường không thể
         # lệch nhau, và một payload dị dạng nổ ở đây thành `event: loi` chứ
@@ -250,7 +252,7 @@ async def tra_cuu_luong(
     HTTP thường, không phải `event: loi`.
     """
     trace_id = str(uuid.uuid4())
-    req, hoi_thoai_id, bn, soan_thao = await _chuan_bi_phien(req, user_sub)
+    req, hoi_thoai_id, bn, soan_thao, tai_lieu_phien = await _chuan_bi_phien(req, user_sub)
     hang: asyncio.Queue = asyncio.Queue()
     hang.put_nowait(("bat_dau", {
         "trace_id": trace_id,
@@ -262,7 +264,9 @@ async def tra_cuu_luong(
         ],
     }))
 
-    task = asyncio.create_task(_chay_nen(req, user_sub, trace_id, hang, hoi_thoai_id, bn, soan_thao))
+    task = asyncio.create_task(
+        _chay_nen(req, user_sub, trace_id, hang, hoi_thoai_id, bn, soan_thao, tai_lieu_phien)
+    )
     _DANG_CHAY.add(task)
     task.add_done_callback(_DANG_CHAY.discard)
 

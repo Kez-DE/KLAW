@@ -131,8 +131,15 @@ class Settings(BaseSettings):
     # Router v3 thêm `dang_tra_loi`/`y_dinh_phu` (spec 2026-09-09 §7.4), giữ
     # nguyên phần v2 (loại văn bản khi soạn thảo — bẫy xanh trap-soan-01,
     # trap-soan-02 trên commit 4c0ef96).
+    #
+    # v4 = v3 cộng khối `{tai_lieu_trong_phien}` và ý định `tai_lieu` — ý định
+    # DUY NHẤT có điều kiện: `schema_v4` chỉ chào nó ra khi hội thoại đang giữ
+    # tài liệu, nên một lượt hỏi luật bình thường thấy ĐÚNG năm lựa chọn của v3.
+    # Bật làm mặc định vì không bật thì lượt NỐI TIẾP hỏi về tài liệu đã gửi
+    # không có đường nào tới `hieu_tai_lieu` (lượt ĐÍNH KÈM rẽ tất định, không
+    # qua router). Lùi lại bằng `KLAW_ROUTE_PROMPT=prompts/route.v3.md`.
     route_prompt: str = Field(
-        default="prompts/route.v3.md", validation_alias="KLAW_ROUTE_PROMPT"
+        default="prompts/route.v4.md", validation_alias="KLAW_ROUTE_PROMPT"
     )
     # GĐ3 (cai_thien.md §6): generate_claims.v3 gắn `vai_tro` cho mỗi khẳng định,
     # verify_tier2.v2 chấm thêm độ liên quan. Cả hai đổi HÌNH DẠNG câu trả lời nên

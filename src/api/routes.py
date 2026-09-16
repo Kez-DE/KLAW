@@ -46,6 +46,7 @@ from src.models.schemas import (
 )
 from src.services import ban_thao, bao_ve, bo_nho, cache_tra_loi
 from src.services import hoi_thoai as hoi_thoai_svc
+from src.services import tai_lieu as tl
 from src.services.bao_ve import cong_bao_ve, cong_bao_ve_khach, cong_nhe
 from src.services.checklist import KHUNG_HOP_DONG, Checklist
 from src.services.db import get_engine
@@ -126,6 +127,11 @@ def _payload_cache(st: dict, rt: str) -> dict:
         # khác, cùng lý do `soan_thao` ngay trên.
         "soan_thao_hoi": st.get("soan_thao_hoi"),
         "ban_thao": st.get("ban_thao"),
+        # Lượt đọc tài liệu. Không dòng nào của nó vào cache (`_bo_qua_cache`
+        # tắt cache cho mọi lượt có tài liệu) — vẫn đi qua đây vì payload là MỘT
+        # hình dạng cho cả hai đường, và `tra_cuu_response` đọc đúng dict này.
+        "tai_lieu": st.get("tai_lieu"),
+        "tai_lieu_neo": st.get("tai_lieu_neo") or [],
         # NỘI BỘ — dùng để ghi giả định của `suy_dien` vào phiên sau khi lượt
         # này lưu xong (xem `luu_suy_dien` ở `tra_cuu`/`_chay_nen`). KHÔNG đi
         # vào `TraCuuResponse`: `tra_cuu_response` không đọc khoá này.
@@ -149,6 +155,7 @@ def _state_vao(
     user_sub: str | None = None,
     hoi_thoai_id: str | None = None,
     soan_thao: dict | None = None,
+    tai_lieu_phien: list[dict] | None = None,
 ) -> dict:
     """State đầu vào của graph — MỘT chỗ dựng cho cả đường POST và đường SSE.
 
@@ -167,9 +174,16 @@ def _state_vao(
     và trạng thái soạn thảo ĐANG MỞ của phiên (`hoi_thoai.soan_thao_cua_phien`),
     để `route`/`gom_du_kien`/`dung_ban_thao` biết hội thoại này có đang soạn dở
     hay không mà không phải đọc lại request HTTP. `None` cùng lý do `bo_nho`.
+
+    `tai_lieu_phien` — tài liệu hội thoại này đang giữ (`_chuan_bi_phien`, đã
+    lọc theo chủ). `tai_lieu_ids` xuống dạng `str`: LangGraph state là dữ liệu
+    thuần (cùng quy ước `lich_su`), và một `UUID` lẫn vào đó không `json.dumps`
+    được ở tầng cache.
     """
     return {
         "query": req.query,
+        "tai_lieu_ids": [str(i) for i in req.tai_lieu_ids],
+        "tai_lieu_phien": list(tai_lieu_phien or []),
         "lich_su": [luot.model_dump() for luot in req.lich_su],
         "as_of_date": as_of,
         "trace_id": trace_id,
@@ -181,19 +195,32 @@ def _state_vao(
     }
 
 
+# Cùng câu chữ với `routes_tai_lieu.KHONG_THAY` — không nhập hằng từ đó: hai
+# module đang được hai lát cắt sửa song song, và một `ImportError` ở đây làm
+# CẢ API không khởi động được.
+LOI_TAI_LIEU_KHONG_THAY = "Không tìm thấy tài liệu"
+LOI_TAI_LIEU_DANG_NHAP = "Hãy đăng nhập để hỏi về tài liệu bạn đã gửi."
+
+
 async def _chuan_bi_phien(
     req: TraCuuRequest, user_sub: str | None
-) -> tuple[TraCuuRequest, str | None, dict | None, dict | None]:
+) -> tuple[TraCuuRequest, str | None, dict | None, dict | None, list[dict]]:
     """Gắn lượt hỏi vào một phiên (spec 2026-09-07 §5.2, spec 2026-09-09 §6.3-6.4).
     Ẩn danh → bỏ qua `hoi_thoai_id` VÀ bộ nhớ. Có danh tính: chưa có id → tạo phiên
     (Pro đang bật ghi nhớ thì seed hồ sơ tài khoản vào phiên mới); có id → kiểm chủ
     (404), kiểm đủ trần lượt của gói → 403, nạp `lich_su` VÀ bộ nhớ ba lớp từ máy
     chủ, BỎ `lich_su` client gửi.
 
-    Trả `(req, hoi_thoai_id, bo_nho, soan_thao)` — `bo_nho` là `{"tom_tat", "ho_so"}`
+    Trả `(req, hoi_thoai_id, bo_nho, soan_thao, tai_lieu_phien)` — `bo_nho` là
+    `{"tom_tat", "ho_so"}`
     hoặc `None` (ẩn danh, hoặc phiên mới không có gì để seed); `soan_thao` (Task 19)
     là trạng thái soạn thảo ĐANG MỞ của phiên (`hoi_thoai.soan_thao_cua_phien`, đã
     lọc theo CHỦ), `None` khi ẩn danh, phiên mới, hoặc phiên chưa từng soạn gì.
+
+    `tai_lieu_phien` (plan `tai-lieu-tong-quat.md`) là tài liệu hội thoại đang
+    giữ. Đây cũng là chỗ DUY NHẤT kiểm `req.tai_lieu_ids`, và nó phải nằm ở đây
+    chứ không trong graph: `/tra-cuu/luong` gọi hàm này TRƯỚC khi mở stream, nên
+    404/401 còn ra được mã HTTP thật thay vì một `event: loi` giữa dòng.
 
     Lỗi DB ở đây KHÔNG bị nuốt: 500 tại chỗ này nghĩa là chính Postgres vốn đã gác
     request ở `cong_bao_ve` đang chết, và âm thầm đánh rơi một lượt của người đã
@@ -201,8 +228,20 @@ async def _chuan_bi_phien(
     `hoi_thoai_id` thì `lich_su` client gửi được giữ nguyên (giao diện đã đăng nhập
     không gửi trường này)."""
     if user_sub is None:
-        return req, None, None, None
+        # Tài liệu luôn thuộc một tài khoản (`routes_tai_lieu` dùng
+        # `nguoi_dung_bat_buoc`), nên một lượt ẩn danh mang `tai_lieu_ids` là
+        # một yêu cầu không thể phục vụ — 401 nói đúng việc phải làm, còn bỏ qua
+        # im lặng thì người dùng nhận một câu trả lời không nhắc gì tới tệp họ
+        # vừa gửi và không hiểu vì sao.
+        if req.tai_lieu_ids:
+            raise HTTPException(status_code=401, detail=LOI_TAI_LIEU_DANG_NHAP)
+        return req, None, None, None, []
     if req.hoi_thoai_id is None:
+        # Tài liệu thuộc về một hội thoại ĐÃ CÓ (nó được tải lên trong hội thoại
+        # đó). Một lượt mở hội thoại MỚI mà dẫn tài liệu là dẫn tài liệu của một
+        # hội thoại khác — 404, không tiết lộ nó có tồn tại hay không.
+        if req.tai_lieu_ids:
+            raise HTTPException(status_code=404, detail=LOI_TAI_LIEU_KHONG_THAY)
         pid = await run_in_threadpool(hoi_thoai_svc.tao_phien, user_sub, req.query)
         # Pro và đang bật ghi nhớ: phiên mới kế thừa hồ sơ tài khoản (spec 2026-09-09 §6.4).
         plan = await run_in_threadpool(bao_ve.plan_hieu_luc, user_sub)
@@ -210,8 +249,8 @@ async def _chuan_bi_phien(
             ho_so = await run_in_threadpool(bo_nho.ho_so_tu_tai_khoan, user_sub)
             if ho_so:
                 await run_in_threadpool(hoi_thoai_svc.ghi_ho_so, pid, ho_so)
-                return req, pid, {"tom_tat": None, "ho_so": ho_so}, None
-        return req, pid, None, None
+                return req, pid, {"tom_tat": None, "ho_so": ho_so}, None, []
+        return req, pid, None, None, []
     pid = str(req.hoi_thoai_id)
     if await run_in_threadpool(hoi_thoai_svc.lay_phien, user_sub, pid) is None:
         raise HTTPException(status_code=404, detail=hoi_thoai_svc.LOI_KHONG_THAY)
@@ -222,11 +261,23 @@ async def _chuan_bi_phien(
     lich_su = await run_in_threadpool(hoi_thoai_svc.lich_su_gan_nhat, pid)
     bn = await run_in_threadpool(hoi_thoai_svc.bo_nho_cua_phien, pid)
     soan_thao = await run_in_threadpool(hoi_thoai_svc.soan_thao_cua_phien, user_sub, pid)
+    # `tl.tai_lieu_cua_hoi_thoai` tra qua module chứ không nhập tên: S1 đang
+    # thêm hàm này trong một lát cắt chạy song song, và một `from … import` ở
+    # đầu file sẽ làm cả API không khởi động được cho tới khi lát cắt đó xong.
+    tai_lieu_phien = await run_in_threadpool(tl.tai_lieu_cua_hoi_thoai, get_engine(), pid, user_sub)
+    co = {str(r["id"]) for r in tai_lieu_phien}
+    # Một id không thuộc hội thoại NÀY là 404 kể cả khi nó thuộc chính người
+    # gọi: tài liệu sống trong đúng hội thoại đã nhận nó (decision 2026-09-16),
+    # nên kéo nó sang hội thoại khác là kéo dài đời nó qua một đường không ai
+    # thấy được trên giao diện.
+    if any(str(i) not in co for i in req.tai_lieu_ids):
+        raise HTTPException(status_code=404, detail=LOI_TAI_LIEU_KHONG_THAY)
     return (
         req.model_copy(update={"lich_su": [LuotTruoc(**luot) for luot in lich_su]}),
         pid,
         {"tom_tat": bn["tom_tat"], "ho_so": bn["ho_so"]},
         soan_thao,
+        tai_lieu_phien,
     )
 
 
@@ -265,6 +316,7 @@ BUOC_TRA_CUU: tuple[tuple[str, str], ...] = (
     ("giai_nghia", "Giải nghĩa câu hỏi nối tiếp"),
     ("suy_dien", "Nhận ra vai của bạn"),
     ("route", "Phân loại câu hỏi"),
+    ("hieu_tai_lieu", "Đọc tài liệu đính kèm"),
     ("gom_du_kien", "Gom dữ kiện cho văn bản"),
     ("dung_ban_thao", "Dựng bản thảo"),
     ("tien_de", "Kiểm tiền đề câu hỏi"),
@@ -302,6 +354,8 @@ def chi_tiet_buoc(ten: str, st: dict) -> dict:
     "Truy hồi điều khoản — 10 điều khoản" là tiến trình; "Truy hồi điều khoản"
     một mình vẫn là một cái tên không nói gì về việc đã xong tới đâu.
     """
+    if ten == "hieu_tai_lieu":
+        return {"so_quan_sat": len((st.get("tai_lieu_ket") or {}).get("quan_sat") or [])}
     if ten == "retrieve":
         return {"so_dieu_khoan": len(st.get("retrieved") or [])}
     if ten == "expand":
@@ -317,6 +371,26 @@ def chi_tiet_buoc(ten: str, st: dict) -> dict:
     return {}
 
 
+def _bo_qua_cache(
+    req: TraCuuRequest, bo_nho: dict | None, soan_thao: dict | None, tai_lieu_phien: list[dict] | None
+) -> bool:
+    """Lượt này có được phép dùng `cache_tra_loi` không.
+
+    Khoá cache dựng từ `query` MỘT MÌNH (xem `cache_tra_loi.khoa_cache`), nên
+    mọi thứ khác đi vào state mà làm câu trả lời khác đi đều phải TẮT cache —
+    nếu không, hai hội thoại cùng gõ một câu nhận câu trả lời của nhau. Lịch sử,
+    bộ nhớ phiên và bản thảo đang mở đã thuộc diện đó; tài liệu là diện thứ tư
+    và nặng nhất, vì câu trả lời khi ấy nói về TỆP của một người cụ thể.
+    """
+    return bool(
+        req.lich_su
+        or (bo_nho and (bo_nho.get("tom_tat") or bo_nho.get("ho_so")))
+        or soan_thao
+        or req.tai_lieu_ids
+        or tai_lieu_phien
+    )
+
+
 async def chay_tra_cuu(
     req: TraCuuRequest,
     user_sub: str | None,
@@ -325,6 +399,7 @@ async def chay_tra_cuu(
     bo_nho: dict | None = None,
     hoi_thoai_id: str | None = None,
     soan_thao: dict | None = None,
+    tai_lieu_phien: list[dict] | None = None,
 ) -> tuple[dict, str]:
     """Thân dùng chung của `/tra-cuu` và `/tra-cuu/luong`: cache → graph →
     ghi cache → ghi traces. Trả `(payload, config_name)`.
@@ -396,7 +471,7 @@ async def chay_tra_cuu(
         # được lượt này với một câu hỏi giống hệt của một phiên KHÔNG soạn gì.
         khoa, checksum, payload = (
             (None, None, None)
-            if (req.lich_su or (bo_nho and (bo_nho.get("tom_tat") or bo_nho.get("ho_so"))) or soan_thao)
+            if _bo_qua_cache(req, bo_nho, soan_thao, tai_lieu_phien)
             else await run_in_threadpool(cache_tra_loi.tra_cache, req.query, config_name, as_of)
         )
         tu_cache = payload is not None
@@ -416,6 +491,7 @@ async def chay_tra_cuu(
                     user_sub=user_sub,
                     hoi_thoai_id=hoi_thoai_id,
                     soan_thao=soan_thao,
+                    tai_lieu_phien=tai_lieu_phien,
                 )
             )
         else:
@@ -433,6 +509,7 @@ async def chay_tra_cuu(
                     user_sub=user_sub,
                     hoi_thoai_id=hoi_thoai_id,
                     soan_thao=soan_thao,
+                    tai_lieu_phien=tai_lieu_phien,
                 ),
                 stream_mode="updates",
             ):
@@ -535,6 +612,9 @@ def tra_cuu_response(payload: dict, trace_id: str, config_name: str) -> TraCuuRe
         # nhưng `.get` vẫn đúng quy ước chung của hàm này.
         soan_thao_hoi=payload.get("soan_thao_hoi"),
         ban_thao=payload.get("ban_thao"),
+        # Cùng lý do `.get` của `bang`: dòng cache ghi trước bản này không có khoá.
+        tai_lieu=payload.get("tai_lieu"),
+        tai_lieu_neo=payload.get("tai_lieu_neo") or [],
         trace_id=trace_id, config_name=config_name,
     )
 
@@ -549,9 +629,10 @@ async def tra_cuu(
     tới $0,00735 một request; không cổng nào ở đó là phòng xa (xem `bao_ve.py`).
     """
     trace_id = str(uuid.uuid4())
-    req, hoi_thoai_id, bn, soan_thao = await _chuan_bi_phien(req, user_sub)
+    req, hoi_thoai_id, bn, soan_thao, tai_lieu_phien = await _chuan_bi_phien(req, user_sub)
     payload, config_name = await chay_tra_cuu(
-        req, user_sub, trace_id, bo_nho=bn, hoi_thoai_id=hoi_thoai_id, soan_thao=soan_thao
+        req, user_sub, trace_id, bo_nho=bn, hoi_thoai_id=hoi_thoai_id, soan_thao=soan_thao,
+        tai_lieu_phien=tai_lieu_phien,
     )
     resp = tra_cuu_response(payload, trace_id, config_name)
     if hoi_thoai_id is not None:

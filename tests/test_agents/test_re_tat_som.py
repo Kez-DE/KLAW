@@ -83,13 +83,14 @@ def test_moi_y_dinh_KHONG_PHAI_tra_cuu_va_soan_thao_deu_phai_re_tat():
     ở trên đếm hai tên cụ thể, nên một `Intent` thứ sáu thêm vào mà quên `_RE_TAT`
     vẫn để nó xanh. Đúng cách lỗi 8.975-token đã lọt lần đầu.
 
-    Bất biến: `tra_cuu` (cần đi hết đường) và `soan_thao` (đi qua `gom_du_kien`,
-    Task 19) là hai ý định DUY NHẤT không rẽ thẳng tới `assemble`. Mọi ý định
-    khác trả lời được mà không cần một điều khoản nào, nên phải rẽ tắt.
+    Bất biến: `tra_cuu` (cần đi hết đường), `soan_thao` (đi qua `gom_du_kien`,
+    Task 19) và `tai_lieu` (đi qua `hieu_tai_lieu`, plan tài-liệu-tổng-quát) là
+    những ý định DUY NHẤT không rẽ thẳng tới `assemble`. Mọi ý định khác trả lời
+    được mà không cần một điều khoản nào, nên phải rẽ tắt.
     """
     from src.agents.graph_tra_cuu import _RE_TAT
 
-    phai_re_tat = set(Intent) - {Intent.tra_cuu, Intent.soan_thao}
+    phai_re_tat = set(Intent) - {Intent.tra_cuu, Intent.soan_thao, Intent.tai_lieu}
     assert _RE_TAT == phai_re_tat, (
         f"thiếu trong _RE_TAT: {sorted(phai_re_tat - _RE_TAT)}; lạ trong _RE_TAT: {sorted(_RE_TAT - phai_re_tat)}"
     )

@@ -3,6 +3,7 @@
 [giai_nghia] → suy_dien → route → tien_de → rewrite_query → retrieve_hybrid
              → expand → generate_claims → verify_tier1 → verify_tier2 → assemble
                       ↘ gom_du_kien → [dung_ban_thao] → assemble   (intent soan_thao)
+             ↘ hieu_tai_lieu → assemble                            (tài liệu đính kèm)
 
 `giai_nghia` chạy khi `lich_su` khác rỗng HOẶC phiên đã có `tom_tat` (K lượt
 nguyên văn đã cuộn hết vào tóm tắt không có nghĩa hội thoại chưa từng có lượt
@@ -35,6 +36,7 @@ from src.agents.nodes.generate_claims import generate_claims
 from src.agents.nodes.giai_nghia import giai_nghia
 from src.agents.nodes.gioi_thieu import can_kho, cau_gioi_thieu, chi_hoi_kho, khia_canh
 from src.agents.nodes.gom_du_kien import gom_du_kien
+from src.agents.nodes.hieu_tai_lieu import hieu_tai_lieu
 from src.agents.nodes.rewrite_query import rewrite_query
 from src.agents.nodes.route import Intent, route
 from src.agents.nodes.suy_dien import suy_dien
@@ -43,6 +45,7 @@ from src.agents.nodes.verify_tier2 import verify_tier2_and_trace
 from src.agents.state import KLawState
 from src.config import as_of_hieu_luc, get_settings
 from src.services import ban_thao, bao_ve
+from src.services import tai_lieu as tl
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
@@ -142,6 +145,8 @@ def _re_sau_route(st: dict) -> str:
     """
     if st.get("intent") == Intent.soan_thao:
         return "gom_du_kien"
+    if st.get("intent") == Intent.tai_lieu:
+        return "hieu_tai_lieu"
     return "assemble" if st.get("intent") in _RE_TAT else "tien_de"
 
 
@@ -156,7 +161,14 @@ def _vao_graph(st: dict) -> str:
 
     `tom_tat` (bộ nhớ phiên) cũng rẽ vào đây dù `lich_su` rỗng: K lượt nguyên
     văn đã cuộn hết vào tóm tắt không có nghĩa hội thoại chưa từng có lượt nào.
+
+    Lượt ĐÍNH KÈM tài liệu rẽ thẳng `hieu_tai_lieu`, 0 token: người hỏi vừa gửi
+    một tệp cùng câu hỏi thì không còn gì để một mô hình phân loại đoán — chi
+    một lượt gọi cho `route` (và một lượt nữa cho `giai_nghia`) ở đây là trả
+    tiền để biết lại điều request đã nói thẳng (quyết định chủ sở hữu Q4).
     """
+    if st.get("tai_lieu_ids"):
+        return "hieu_tai_lieu"
     return "giai_nghia" if (st.get("lich_su") or st.get("tom_tat")) else "suy_dien"
 
 
@@ -173,6 +185,17 @@ def _re_sau_giai_nghia(st: dict) -> str:
     hỏi cần đọc câu ĐÃ giải nghĩa, cùng lý do `route` đọc câu đó thay vì câu gốc.
     """
     return "suy_dien" if st.get("cau_hoi_day_du") else "assemble"
+
+
+def _re_sau_hieu_tai_lieu(st: dict) -> str:
+    """Mọi mục đích đều về `assemble` ở lát cắt này.
+
+    S5 tách `doi_chieu_luat` sang `tien_de` (đường pháp lý đã có) và S6 tách
+    `tao_van_ban`/`sua_ban_thao` sang `dung_ban_thao_tong_quat`. Tới lúc đó
+    `muc_dich_tai_lieu` đã sẵn trong state (node ghi lại kể cả mục đích lát cắt
+    này chưa làm), nên hai lát cắt sau chỉ thêm nhánh, không phải thêm dữ liệu.
+    """
+    return "assemble"
 
 
 def build_graph_tra_cuu():
@@ -192,6 +215,33 @@ def build_graph_tra_cuu():
 
     def n_route(st: KLawState) -> KLawState:
         return route(st, llm, router_model(), prompt_path=Path(s.route_prompt))
+
+    async def n_hieu_tai_lieu(st: KLawState) -> KLawState:
+        """Nạp đơn vị văn bản THEO CHỦ rồi giao cho node đọc.
+
+        `don_vi_cua` tra bằng `(viec_id, user_sub)` và trả `None` khi không
+        thuộc người gọi, nên id của người khác không đọc được ở đây kể cả khi nó
+        lọt qua biên HTTP — cùng nguyên tắc "kiểm chủ ở tầng dữ liệu" của
+        `ban_thao`/`hoi_thoai`, không phải một phép kiểm thứ hai ở tầng API.
+
+        Lượt NỐI TIẾP (router chọn `tai_lieu`, không đính kèm gì) đọc tài liệu
+        MỚI NHẤT của hội thoại: `tai_lieu_cua_hoi_thoai` trả mới-trước, và
+        "phiếu này" trong một câu hỏi tiếp theo gần như luôn là tệp vừa gửi.
+
+        `tl.don_vi_cua` tra qua module chứ không nhập tên: S1 đang thêm hàm này
+        trong một lát cắt chạy SONG SONG, và một `from … import` ở đầu file sẽ
+        làm cả API không khởi động được cho tới khi lát cắt đó xong.
+        """
+        ids = list(st.get("tai_lieu_ids") or [])
+        if not ids:
+            ids = [r["id"] for r in (st.get("tai_lieu_phien") or [])[:1]]
+        ten = {str(r["id"]): r.get("ten_tep") or "" for r in (st.get("tai_lieu_phien") or [])}
+        tai_lieu = []
+        for vid in ids:
+            don_vi = await run_in_threadpool(tl.don_vi_cua, engine, str(vid), st.get("user_sub"))
+            if don_vi:
+                tai_lieu.append({"id": str(vid), "ten_tep": ten.get(str(vid), ""), "don_vi": don_vi})
+        return hieu_tai_lieu(st, tai_lieu, llm, generate_model())
 
     def n_gom_du_kien(st: KLawState) -> KLawState:
         return gom_du_kien(st, llm, router_model())
@@ -429,6 +479,7 @@ def build_graph_tra_cuu():
         ("giai_nghia", n_giai_nghia),
         ("suy_dien", n_suy_dien),
         ("route", n_route),
+        ("hieu_tai_lieu", n_hieu_tai_lieu),
         ("gom_du_kien", n_gom_du_kien),
         ("dung_ban_thao", n_dung_ban_thao),
         ("tien_de", n_tien_de),
@@ -450,6 +501,7 @@ def build_graph_tra_cuu():
     g.add_conditional_edges("giai_nghia", _re_sau_giai_nghia)
     g.add_edge("suy_dien", "route")
     g.add_conditional_edges("route", _re_sau_route)
+    g.add_conditional_edges("hieu_tai_lieu", _re_sau_hieu_tai_lieu)
     # Đủ dữ kiện (`du`) VÀ có tài khoản (`user_sub`) thì dựng bản thảo thật;
     # thiếu một trong hai thì `assemble` chỉ hỏi thêm (`soan_thao_hoi`) — khách
     # chưa đăng nhập không bao giờ chạm `dung_ban_thao` dù đã đủ dữ kiện.

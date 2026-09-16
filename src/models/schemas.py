@@ -58,6 +58,12 @@ class TraCuuRequest(BaseModel):
     # Spec 2026-09-07 §5.2: phiên hội thoại để máy chủ nạp `lich_su` và ghi lượt. Chỉ
     # có ý nghĩa khi có danh tính; ẩn danh thì bị bỏ qua.
     hoi_thoai_id: UUID | None = None
+    # Tài liệu ĐÍNH KÈM lượt này (plan `tai-lieu-tong-quat.md`). `UUID`, không
+    # `str`: cùng lý do `as_of_date` là `date` — một id dị dạng bị chặn sạch ở
+    # biên bởi FastAPI thay vì đi vào truy vấn. `max_length=2` khớp trần "so
+    # sánh tối đa hai tài liệu" (quyết định chủ sở hữu 2026-09-16); 422 chứ
+    # không cắt im lặng, cùng lựa chọn với `lich_su`.
+    tai_lieu_ids: list[UUID] = Field(default_factory=list, max_length=2)
 
 
 class CitationOut(BaseModel):
@@ -251,6 +257,81 @@ class HoSoDaDungOut(BaseModel):
     gia_dinh: bool = False
 
 
+class NeoTaiLieuOut(BaseModel):
+    """Neo tài liệu — con trỏ ĐÃ KIỂM từ một câu nói về tài liệu tới đúng đơn vị
+    văn bản chứa câu đó (CONTEXT.md "neo tài liệu").
+
+    Cùng vai trò `CitationOut` nhưng KHÔNG BAO GIỜ gộp với nó: một trích dẫn
+    điều luật là căn cứ, một neo tài liệu là dữ kiện của người hỏi. Trộn hai
+    thứ trên giao diện là hứa rằng tài liệu của họ có sức nặng pháp lý.
+    """
+
+    tai_lieu_id: str
+    chi_so_don_vi: int
+    trang: int | None = None
+    # `than` | `dau_trang` | `chan_trang` — một điều khoản nằm ở chân trang
+    # không cùng trọng lượng với một điều khoản trong thân văn bản.
+    vung: str = "than"
+    # `[bảng, hàng, cột]`, `None` khi không nằm trong bảng. `list` chứ không
+    # `tuple`: JSON không có tuple, và hợp đồng FE đọc nó như một mảng.
+    bang: list[int] | None = None
+    nguon_chu: str = "lop_chu"
+    do_tin: float | None = None
+    # Hai trường CHỈ nhánh đối chiếu luật (S5) điền: đoạn điều khoản đã lấy và
+    # câu hỏi pháp lý dựng từ nó. Mặc định None để nhánh `tai_lieu` không phải
+    # mang khoá rỗng.
+    trich: str | None = None
+    cau_hoi_phap_ly: str | None = None
+
+
+class QuanSatOut(BaseModel):
+    """Một điều TÀI LIỆU NÓI, buộc vào một neo. Không neo thì không ra tới đây."""
+
+    noi_dung: str
+    trich: str
+    neo: NeoTaiLieuOut
+
+
+class PhepTinhOut(BaseModel):
+    """Một phép tính chạy BẰNG MÃ trên số trong tài liệu, đặt cạnh số tài liệu tự
+    ghi. Mô hình không bao giờ là nguồn của `ket_qua_code` (S4)."""
+
+    bieu_thuc: str
+    ket_qua_code: str
+    ket_qua_tai_lieu: str
+    khop: bool
+
+
+class TaiLieuDaDungOut(BaseModel):
+    """Tài liệu đã đi vào lượt này và NHÃN (`A`, `B`) mà câu trả lời gọi nó."""
+
+    id: str
+    ten_tep: str
+    nhan: str
+
+
+class TaiLieuKetQuaOut(BaseModel):
+    """Kết quả một lượt đọc tài liệu — `result_type="tai_lieu"`.
+
+    `quan_sat` và `suy_luan` tách làm hai danh sách và KHÔNG được gộp lại ở bất
+    kỳ tầng nào: cái đầu là điều tài liệu nói (có neo), cái sau là cách đọc của
+    mô hình (không có, và không thể có). Gộp chúng là để một suy đoán mượn bằng
+    chứng của một trích dẫn.
+    """
+
+    muc_dich: str
+    mo_ta: str | None = None
+    quan_sat: list[QuanSatOut] = []
+    suy_luan: list[str] = []
+    phep_tinh: list[PhepTinhOut] = []
+    can_du_kien: list[str] = []
+    # Dòng `DuKienOut` của `routes_tai_lieu` (S4 điền). `dict` chứ không nhập
+    # model đó vào đây: `schemas.py` là lá của đồ thị import, kéo một module
+    # `api` vào nó sẽ tạo vòng.
+    du_kien: list[dict] = []
+    tai_lieu_da_dung: list[TaiLieuDaDungOut] = []
+
+
 class TraCuuResponse(BaseModel):
     # Phải khớp ĐỦ `ResultType` ở `assemble.py`. Một loại có ở enum mà thiếu ở
     # đây thì graph dựng đúng kết quả rồi chết ở khâu tuần tự hoá — đã xảy ra
@@ -266,6 +347,7 @@ class TraCuuResponse(BaseModel):
         "hoi_ve_kho",
         "soan_thao_hoi",
         "ban_thao",
+        "tai_lieu",
     ]
     answer: str | None
     citations: list[CitationOut]
@@ -294,6 +376,14 @@ class TraCuuResponse(BaseModel):
     # ghi trước Task 19 không có hai khoá này.
     soan_thao_hoi: SoanThaoHoiOut | None = None
     ban_thao: BanThaoOut | None = None
+    # `result_type == "tai_lieu"` — lượt nói về tài liệu người hỏi đã gửi.
+    # `tai_lieu_neo` đứng RIÊNG vì nó sống cả ở các loại kết quả khác: một câu
+    # trả lời pháp lý của nhánh đối chiếu luật (S5) vẫn là `answer`/
+    # `partial_coverage`/`abstain`, chỉ mang thêm neo tới điều khoản đã đọc.
+    # Mặc định `None`/`[]` cùng lý do `bang`/`documents`: payload cache ghi
+    # trước bản này không có hai khoá.
+    tai_lieu: TaiLieuKetQuaOut | None = None
+    tai_lieu_neo: list[NeoTaiLieuOut] = []
     # Dữ kiện về người hỏi đã đi vào lượt này (spec 2026-09-09 §6.6) — nguyên
     # văn hoặc suy diễn. Mặc định `[]` cùng lý do `bang`.
     ho_so_da_dung: list[HoSoDaDungOut] = []

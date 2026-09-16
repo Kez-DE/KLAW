@@ -221,12 +221,20 @@ class ResultType(StrEnum):
     # có nên vẽ khung "hỏi thêm"/"xem bản thảo" hay khung "chọn loại" cũ.
     soan_thao_hoi = "soan_thao_hoi"
     ban_thao = "ban_thao"
+    # Loại thứ TÁM (plan `tai-lieu-tong-quat.md`) — lượt nói về TÀI LIỆU của
+    # người hỏi, không về nội dung pháp luật. Tách khỏi `answer` vì nó không
+    # mang một trích dẫn điều luật nào: bằng chứng của nó là neo về chính tài
+    # liệu vừa đọc, và gộp hai thứ lại là để một câu trả lời không có căn cứ
+    # pháp lý trông y hệt một câu trả lời đã qua hai tầng kiểm chứng.
+    tai_lieu = "tai_lieu"
 
 
-# Spec 2026-09-16 §2.6/§3.5/FR-007 — ba nhánh KHÔNG đọc `ho_so` để dựng câu trả
+# Spec 2026-09-16 §2.6/§3.5/FR-007 — bốn nhánh KHÔNG đọc `ho_so` để dựng câu trả
 # lời, nên trả `ho_so_da_dung=[]` trong `_base`: hiện mảng này ("Dựa trên") thì
-# là provenance sai, dù state có hồ sơ.
-_KHONG_DUNG_HO_SO = frozenset({ResultType.gioi_thieu, ResultType.hoi_ve_kho, ResultType.out_of_scope})
+# là provenance sai, dù state có hồ sơ. `tai_lieu` cùng lý do: câu trả lời dựng
+# từ chữ trong tài liệu, không từ hồ sơ tình huống.
+_KHONG_DUNG_HO_SO = frozenset({ResultType.gioi_thieu, ResultType.hoi_ve_kho, ResultType.out_of_scope,
+                               ResultType.tai_lieu})
 
 
 class Citation(TypedDict):
@@ -771,6 +779,19 @@ def tinh_muc_chac(dung_cho_prose: list, khung_yeu_cau: dict | None, ho_so: dict 
 
 
 def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, prompt_path: Path | None = None) -> dict:
+    # Nhánh TÀI LIỆU đứng TRƯỚC mọi nhánh khác, và 0 TOKEN: lượt hành văn đã
+    # xảy ra ở node `hieu_tai_lieu` (nơi duy nhất thấy chữ của tài liệu), nên
+    # `assemble` chỉ dán kết quả đã có vào hình dạng response.
+    #
+    # Gác trên `tai_lieu_ket` CHỨ KHÔNG chỉ trên `intent`: lượt ĐÍNH KÈM rẽ tất
+    # định ở `graph_tra_cuu._vao_graph` và không đi qua `route` một lần nào, nên
+    # `intent` của nó trống. Xét cả hai là cách duy nhất hai đường vào cùng ra
+    # một loại kết quả.
+    ket = state.get("tai_lieu_ket")
+    if ket and state.get("intent") in (None, "tai_lieu"):
+        return _base(state, ResultType.tai_lieu, answer=ket.get("tra_loi_ngan") or None,
+                     tai_lieu=ket, tai_lieu_neo=state.get("tai_lieu_neo") or [])
+
     if state.get("intent") == "soan_thao":
         # Task 19 — lượt đã đi qua `gom_du_kien` (và, khi đủ dữ kiện và có tài
         # khoản, `dung_ban_thao`) TRƯỚC KHI tới đây (`graph_tra_cuu._re_sau_route`,
