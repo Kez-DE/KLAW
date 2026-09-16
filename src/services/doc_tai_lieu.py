@@ -192,6 +192,25 @@ def _kiem_zip(z: zipfile.ZipFile) -> None:
         raise KhongDocDuoc(LoaiHong.tep_hong, "tệp docx giải nén ra quá lớn")
 
 
+_MC_FALLBACK = "{http://schemas.openxmlformats.org/markup-compatibility/2006}Fallback"
+
+
+def _bo_fallback(goc: ET.Element) -> ET.Element:
+    """Bỏ `mc:Fallback`. `mc:AlternateContent` mang CÙNG một nội dung hai lần —
+    `Choice` cho Word mới, `Fallback` cho Word cũ — nên đọc cả hai là đọc
+    "Phụ lục 4" thành "Phụ lục 4Phụ lục 4" (đo trên tệp thật 2026-09-16), và
+    mọi phép so độ dài phía sau đều lệch theo."""
+    for cha in list(goc.iter()):
+        for con in [c for c in cha if c.tag == _MC_FALLBACK]:
+            cha.remove(con)
+    return goc
+
+
+def _tong_chu(nut: ET.Element) -> int:
+    """Tổng ký tự `w:t` dưới `nut`, mỗi `w:t` đếm đúng một lần."""
+    return sum(len((t.text or "").strip()) for t in nut.iter(f"{{{_NS['w']}}}t"))
+
+
 def _goc_xml(xml: bytes, ten: str) -> ET.Element:
     try:
         return ET.fromstring(xml)
@@ -250,11 +269,16 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
     try:
         with zipfile.ZipFile(BytesIO(du_lieu)) as z:
             _kiem_zip(z)
-            goc = _goc_xml(z.read("word/document.xml"), "word/document.xml")
+            goc = _bo_fallback(_goc_xml(z.read("word/document.xml"), "word/document.xml"))
             than = _duyet_than(goc)
-            phang = _duyet_phang(goc, "than")
-            if sum(len(t[1]) for t in than) < sum(len(t[1]) for t in phang):
-                than = phang
+            # Thước đo để lùi về là TỔNG chữ `w:t` của thân, KHÔNG phải duyệt
+            # phẳng: duyệt phẳng đếm hai lần chữ trong hộp chữ (một `w:p` lồng
+            # trong `w:p`), và với thước đó cấu trúc luôn "thua". Đo 2026-09-16
+            # trên một kế hoạch thực tập: ba bảng mất toạ độ vì hai chữ "Phụ lục 4".
+            nut_than = goc.find(_BODY)
+            tong = _tong_chu(nut_than) if nut_than is not None else 0
+            if sum(len(t[1]) for t in than) < 0.9 * tong:
+                than = _duyet_phang(goc, "than")
 
             ra = list(than)
             for tien_to, vung in (("word/header", "dau_trang"), ("word/footer", "chan_trang")):

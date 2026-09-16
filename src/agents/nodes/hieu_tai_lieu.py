@@ -27,10 +27,12 @@ liệu chỉ được sống trong đúng hội thoại của nó (decision 2026
 
 import json
 import logging
+import re
 from pathlib import Path
 
+from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU
 from src.services.doc_tai_lieu import DonViVanBan
-from src.services.neo_du_kien import LyDoNeo, normalize, xac_minh
+from src.services.neo_du_kien import LyDoNeo, Neo, normalize, xac_minh
 from src.services.prompts import messages
 from src.services.tai_lieu import VuotTran, kiem_tran_chi_phi_tai_lieu
 
@@ -134,13 +136,77 @@ def _vi_tri(d: DonViVanBan) -> str:
     phan = [f"tr. {d.trang}"]
     bang = getattr(d, "bang", None)
     if bang:
-        phan.append(f"bảng {bang[0]} h{bang[1]} c{bang[2]}")
+        # `bang` đếm từ 0 (S1); người đọc — và mô hình đang viết cho người đọc —
+        # đếm từ 1, cùng quy ước giao diện (`nhanNeo`).
+        phan.append(f"bảng {bang[0] + 1} hàng {bang[1] + 1} cột {bang[2] + 1}")
     vung = getattr(d, "vung", "than")
     if vung == "dau_trang":
         phan.append("đầu trang")
     elif vung == "chan_trang":
         phan.append("chân trang")
     return ", ".join(phan)
+
+
+def _khop_manh(m: str, d: DonViVanBan) -> bool:
+    """Một mảnh (một dòng của `trich`) có nằm trong đơn vị `d` không: bằng cả
+    đơn vị, hoặc là đoạn đủ dài (`QUOTE_TOI_THIEU`) nằm trong nó."""
+    nd = normalize(d.noi_dung)
+    return m == nd or (len(m) >= QUOTE_TOI_THIEU and m in nd)
+
+
+def _neo_day_lien_tiep(trich: str, don_vi: list[DonViVanBan]) -> Neo | None:
+    """Neo một đoạn trích nhiều dòng là MỘT DÃY ĐƠN VỊ LIỀN KỀ — hàng bảng (các ô
+    nối bằng xuống dòng) hay hai đoạn đứng cạnh nhau ("Giảng viên hướng dẫn" /
+    "(Ký, ghi rõ họ tên)").
+
+    `xac_minh` so với TỪNG đơn vị, nên một hàng bảng trích nguyên văn không khớp
+    ô nào. Đo trên tệp mẫu 2026-09-16: 13/13 quan sát bị loại vì mô hình đọc
+    bảng theo hàng — đúng cách người đọc bảng — và 3/3 bị loại trên tệp thứ hai
+    vì nó chép hai dòng kề nhau.
+
+    Vẫn là tra chuỗi thuần, nới đúng một điều: một dãy đơn vị liền kề, theo
+    đúng thứ tự, khớp ở ĐÚNG MỘT chỗ trong tài liệu cũng là một vị trí. Mỗi
+    mảnh phải bằng đơn vị thứ i của dãy hoặc là đoạn đủ dài nằm trong nó; khớp
+    được ở hai chỗ là không định danh được, loại y như một trích quá ngắn. Neo
+    rơi vào đơn vị đầu tiên đủ dài của dãy — ô mang tiêu chí chứ không phải ô
+    số — hoặc đơn vị dài nhất khi cả dãy đều ngắn ("Tổng" / "10").
+    """
+    manh = [m for m in (normalize(x) for x in trich.split("\n")) if m]
+    if len(manh) < 2 or len(manh) > len(don_vi):
+        return None
+    dau: list[int] = [
+        i for i in range(len(don_vi) - len(manh) + 1)
+        if all(_khop_manh(m, don_vi[i + k]) for k, m in enumerate(manh))
+    ]
+    if len(dau) != 1:
+        return None
+    day = don_vi[dau[0] : dau[0] + len(manh)]
+    o = next((d for d in day if len(normalize(d.noi_dung)) >= QUOTE_TOI_THIEU), None) or max(
+        day, key=lambda d: len(d.noi_dung)
+    )
+    return Neo(LyDoNeo.ok, chi_so_don_vi=o.chi_so, trang=o.trang, offset_dau=o.offset_dau,
+               nguon_chu=o.nguon_chu, do_tin=o.do_tin)
+
+
+# Tiền tố prompt đặt trước mỗi đơn vị: `[A-12] (tr. 1, bảng 1 hàng 2 cột 2) `.
+# Đo trên fixture 2026-09-16: mô hình chép nguyên dòng vào `trich`, kể cả tiền
+# tố. Tiền tố là của prompt, không phải của tài liệu, nên bỏ nó đi TRƯỚC khi
+# tra — và chỉ bỏ tiền tố: số chỉ mục bên trong không được tin, phép neo vẫn
+# tìm đơn vị bằng chính chữ còn lại.
+_RE_TIEN_TO = re.compile(r"^\s*\[[A-Z]-\d+\]\s*(?:\([^)\n]*\))?\s*")
+
+
+def bo_tien_to(trich: str) -> str:
+    return "\n".join(_RE_TIEN_TO.sub("", d) for d in trich.split("\n")).strip()
+
+
+def neo_trich(trich: str, don_vi: list[DonViVanBan]) -> Neo:
+    """Đơn vị đơn trước (`xac_minh`, dùng chung với dữ kiện), hàng bảng sau."""
+    trich = bo_tien_to(trich)
+    neo = xac_minh(trich, don_vi)
+    if neo.ly_do is LyDoNeo.ok or "\n" not in trich:
+        return neo
+    return _neo_day_lien_tiep(trich, don_vi) or neo
 
 
 def _khoi_tai_lieu(goi: list[dict]) -> str:
@@ -239,11 +305,11 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
             so_bo += 1
             dem["hieu_tai_lieu_bo_trich_khong_khop"] += 1
             continue
-        trich = str(o.get("trich") or "").strip()
+        trich = bo_tien_to(str(o.get("trich") or ""))
         # Tra ngược trong TOÀN BỘ đơn vị của tài liệu đó, không chỉ phần đã gửi:
         # phép neo nói "câu này có trong tài liệu", và phép lọc đầu vào là chuyện
         # của chi phí, không phải của bằng chứng.
-        neo = xac_minh(trich, t["don_vi"])
+        neo = neo_trich(trich, t["don_vi"])
         if neo.ly_do is not LyDoNeo.ok:
             so_bo += 1
             dem[f"hieu_tai_lieu_bo_{neo.ly_do.value}"] += 1

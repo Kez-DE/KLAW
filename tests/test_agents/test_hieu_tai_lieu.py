@@ -252,3 +252,139 @@ def test_traces_cu_duoc_giu_nguyen():
 @pytest.mark.parametrize("khoa", ["tai_lieu_ket", "muc_dich_tai_lieu", "tai_lieu_neo"])
 def test_node_tra_ve_du_khoa_state(khoa):
     assert khoa in h.hieu_tai_lieu(ST, MOT, _LLM(_ra()), "m")
+
+
+# ───────────────────────────────────────────────────────────── neo hàng bảng
+# Đo trên tệp mẫu 2026-09-16: mô hình đọc bảng theo HÀNG (các ô nối bằng xuống
+# dòng) nên 13/13 quan sát bị loại khi chỉ so với từng ô. Neo hàng bảng vẫn là
+# tra chuỗi thuần, chỉ nới đúng một điều: một hàng duy nhất cũng là một vị trí.
+
+
+def _o(chi_so, noi_dung, b, h_, c):
+    return DonViVanBan(chi_so=chi_so, trang=1, offset_dau=chi_so * 10, noi_dung=noi_dung, bang=(b, h_, c))
+
+
+DV_BANG = [
+    DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Phiếu đánh giá quá trình thực tập công nghiệp"),
+    _o(1, "TT", 0, 0, 0), _o(2, "Tiêu chí đánh giá", 0, 0, 1), _o(3, "Điểm tối đa", 0, 0, 2),
+    _o(4, "1", 0, 1, 0), _o(5, "Ý thức chấp hành nội quy, kỷ luật tại đơn vị thực tập", 0, 1, 1), _o(6, "2,0", 0, 1, 2),
+    _o(7, "2", 0, 2, 0), _o(8, "Tinh thần trách nhiệm, thái độ đối với công việc", 0, 2, 1), _o(9, "2,0", 0, 2, 2),
+    _o(10, "Tổng", 0, 3, 1), _o(11, "10", 0, 3, 2),
+]
+TL_BANG = [{"id": A_ID, "ten_tep": "phieu.docx", "don_vi": DV_BANG}]
+
+
+def test_trich_ca_hang_bang_neo_ve_o_nhieu_chu_nhat_cua_hang():
+    llm = _LLM(_ra(quan_sat=[_qs("Tiêu chí 1 tối đa 2,0 điểm",
+                                 "1\nÝ thức chấp hành nội quy, kỷ luật tại đơn vị thực tập\n2,0")]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    qs = ra["tai_lieu_ket"]["quan_sat"]
+    assert len(qs) == 1
+    assert qs[0]["neo"]["chi_so_don_vi"] == 5 and qs[0]["neo"]["bang"] == [0, 1, 1]
+    assert ra["traces"]["hieu_tai_lieu_so_quan_sat_bo"] == 0
+
+
+def test_hang_chi_toan_o_ngan_van_neo_khi_hang_la_duy_nhat():
+    llm = _LLM(_ra(quan_sat=[_qs("Tổng điểm 10", "Tổng\n10")]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert [q["neo"]["chi_so_don_vi"] for q in ra["tai_lieu_ket"]["quan_sat"]] == [10]
+
+
+def test_hang_khong_duy_nhat_bi_loai():
+    """"2,0" khớp hai hàng — không định danh được vị trí → loại, không đoán hàng."""
+    llm = _LLM(_ra(quan_sat=[_qs("điểm 2,0", "2,0\n2,0")]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert ra["tai_lieu_ket"]["quan_sat"] == []
+    assert ra["traces"]["hieu_tai_lieu_so_quan_sat_bo"] == 1
+
+
+def test_manh_khong_thuoc_bang_lam_hong_ca_hang():
+    llm = _LLM(_ra(quan_sat=[_qs("x", "1\nÝ thức chấp hành nội quy, kỷ luật tại đơn vị thực tập\nkhông có trong bảng")]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert ra["tai_lieu_ket"]["quan_sat"] == []
+
+
+def test_trich_mot_o_don_van_neo_nhu_cu():
+    llm = _LLM(_ra(quan_sat=[_qs("tiêu chí 2", "Tinh thần trách nhiệm, thái độ đối với công việc")]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert [q["neo"]["chi_so_don_vi"] for q in ra["tai_lieu_ket"]["quan_sat"]] == [8]
+
+
+def test_vi_tri_bang_trong_prompt_dem_tu_1():
+    llm = _LLM(_ra())
+    h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert "bảng 1 hàng 2 cột 2" in llm.prompt
+    assert "bảng 0" not in llm.prompt
+
+
+# ───────────────────────────────────────────────────── tiền tố đánh số bị chép
+# Đo trên fixture 2026-09-16: mô hình chép nguyên dòng prompt `[A-0] (tr. 1) …`
+# vào `trich`. Tiền tố là của prompt, không phải của tài liệu — bỏ nó đi rồi
+# vẫn tra chuỗi theo NỘI DUNG; số chỉ mục trong tiền tố không được tin.
+
+
+def test_trich_mang_tien_to_danh_so_van_neo_theo_noi_dung():
+    llm = _LLM(_ra(quan_sat=[_qs("tiêu đề", "[A-0] (tr. 1) Phiếu đánh giá quá trình thực tập công nghiệp")]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert [q["neo"]["chi_so_don_vi"] for q in ra["tai_lieu_ket"]["quan_sat"]] == [0]
+    assert ra["tai_lieu_ket"]["quan_sat"][0]["trich"] == "Phiếu đánh giá quá trình thực tập công nghiệp"
+
+
+def test_tien_to_sai_chi_so_khong_lam_neo_nham():
+    """Tiền tố nói `[A-5]` nhưng chữ là của đơn vị 0 → neo theo CHỮ, về 0."""
+    llm = _LLM(_ra(quan_sat=[_qs("x", "[A-5] (tr. 1, bảng 1 hàng 2 cột 2) Phiếu đánh giá quá trình thực tập công nghiệp")]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert [q["neo"]["chi_so_don_vi"] for q in ra["tai_lieu_ket"]["quan_sat"]] == [0]
+
+
+def test_hang_bang_co_tien_to_moi_dong_van_neo():
+    trich = "[A-4] (tr. 1, bảng 1 hàng 2 cột 1) 1\n[A-5] (tr. 1, bảng 1 hàng 2 cột 2) Ý thức chấp hành nội quy, kỷ luật tại đơn vị thực tập\n[A-6] (tr. 1, bảng 1 hàng 2 cột 3) 2,0"
+    llm = _LLM(_ra(quan_sat=[_qs("tiêu chí 1", trich)]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert [q["neo"]["chi_so_don_vi"] for q in ra["tai_lieu_ket"]["quan_sat"]] == [5]
+
+
+def test_trich_theo_cot_nhieu_hang_bi_loai():
+    """Một cột không phải một vị trí: hai hàng khác nhau → loại."""
+    trich = "Ý thức chấp hành nội quy, kỷ luật tại đơn vị thực tập\nTinh thần trách nhiệm, thái độ đối với công việc"
+    llm = _LLM(_ra(quan_sat=[_qs("các tiêu chí", trich)]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert ra["tai_lieu_ket"]["quan_sat"] == []
+
+
+# ────────────────────────────────────────────── dãy đơn vị liền kề ngoài bảng
+
+
+def test_hai_doan_ke_nhau_neo_ve_doan_dau_du_dai():
+    dv = [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Hà Nội, ngày ..... tháng .... năm 20..."),
+        DonViVanBan(chi_so=1, trang=1, offset_dau=40, noi_dung="Giảng viên hướng dẫn"),
+        DonViVanBan(chi_so=2, trang=1, offset_dau=60, noi_dung="(Ký, ghi rõ họ tên)"),
+        DonViVanBan(chi_so=3, trang=1, offset_dau=80, noi_dung="Sinh viên thực tập"),
+        DonViVanBan(chi_so=4, trang=1, offset_dau=100, noi_dung="(Ký, ghi rõ họ tên)"),
+    ]
+    tl = [{"id": A_ID, "ten_tep": "kh.docx", "don_vi": dv}]
+    llm = _LLM(_ra(quan_sat=[_qs("GVHD ký", "Giảng viên hướng dẫn\n(Ký, ghi rõ họ tên)"),
+                             _qs("SV ký", "Sinh viên thực tập\n(Ký, ghi rõ họ tên)")]))
+    ra = h.hieu_tai_lieu(ST, tl, llm, "m")
+    assert [q["neo"]["chi_so_don_vi"] for q in ra["tai_lieu_ket"]["quan_sat"]] == [1, 3]
+
+
+def test_day_khop_hai_cho_bi_loai():
+    dv = [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Điều 1. Phạm vi áp dụng của quy chế"),
+        DonViVanBan(chi_so=1, trang=1, offset_dau=40, noi_dung="(Ký, ghi rõ họ tên)"),
+        DonViVanBan(chi_so=2, trang=1, offset_dau=60, noi_dung="Điều 1. Phạm vi áp dụng của quy chế"),
+        DonViVanBan(chi_so=3, trang=1, offset_dau=100, noi_dung="(Ký, ghi rõ họ tên)"),
+    ]
+    tl = [{"id": A_ID, "ten_tep": "x.docx", "don_vi": dv}]
+    llm = _LLM(_ra(quan_sat=[_qs("x", "Điều 1. Phạm vi áp dụng của quy chế\n(Ký, ghi rõ họ tên)")]))
+    ra = h.hieu_tai_lieu(ST, tl, llm, "m")
+    assert ra["tai_lieu_ket"]["quan_sat"] == []
+
+
+def test_ca_bang_chep_nguyen_theo_thu_tu_neo_ve_o_dau_du_dai():
+    trich = "TT\nTiêu chí đánh giá\nĐiểm tối đa\n1\nÝ thức chấp hành nội quy, kỷ luật tại đơn vị thực tập\n2,0"
+    llm = _LLM(_ra(quan_sat=[_qs("bảng", trich)]))
+    ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
+    assert [q["neo"]["chi_so_don_vi"] for q in ra["tai_lieu_ket"]["quan_sat"]] == [2]

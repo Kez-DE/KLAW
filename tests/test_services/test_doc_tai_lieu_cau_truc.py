@@ -216,3 +216,44 @@ def test_xac_minh_NEO_DUOC_vao_mot_o_bang():
 
     assert neo.ly_do is LyDoNeo.ok
     assert neo.chi_so_don_vi == 1 and neo.trang == 1
+
+
+# ------------------------------------------------- hộp chữ và mc:AlternateContent
+
+_MC = "http://schemas.openxmlformats.org/markup-compatibility/2006"
+
+
+def _hop_chu(chu: str) -> str:
+    """Một `w:r` mang hộp chữ theo đúng khuôn Word: cùng nội dung ở `mc:Choice`
+    và `mc:Fallback`."""
+    txbx = f"<w:txbxContent>{_p(chu)}</w:txbxContent>"
+    return (
+        f'<w:r><mc:AlternateContent xmlns:mc="{_MC}">'
+        f'<mc:Choice Requires="wps"><w:drawing>{txbx}</w:drawing></mc:Choice>'
+        f"<mc:Fallback><w:pict>{txbx}</w:pict></mc:Fallback>"
+        "</mc:AlternateContent></w:r>"
+    )
+
+
+def test_hop_chu_KHONG_lam_cau_truc_thua_oan_va_KHONG_doc_hai_lan():
+    """Đo trên tệp thật 2026-09-16: một đoạn mang hộp chữ làm duyệt phẳng đếm
+    "Phụ lục 4" hai lần (Choice + Fallback, lại lồng `w:p` trong `w:p`), cấu
+    trúc bị coi là "ít chữ hơn" và ba bảng mất toạ độ. Thước đo lùi về phải là
+    tổng chữ thật, và `mc:Fallback` phải bị bỏ trước khi đếm."""
+    than = (
+        f"<w:p><w:r><w:t>Phụ lục 4</w:t></w:r>{_hop_chu('Hộp chữ')}</w:p>"
+        + _tbl(_tr(_tc(_p("Tuần 1")), _tc(_p("Nội dung tuần một của kế hoạch"))))
+    )
+    t = doc("x.docx", _docx(than))
+
+    chu = " ".join(d.noi_dung for d in t.don_vi)
+    assert chu.count("Hộp chữ") == 1, "Fallback bị đọc lần hai"
+    assert [d.bang for d in t.don_vi if d.bang] == [(0, 0, 0), (0, 0, 1)], "bảng phải giữ toạ độ"
+
+
+def test_sdt_o_cap_than_VAN_lui_ve_duyet_phang():
+    """Thước đo mới không được làm mất đường lùi: chữ trong `w:sdt` cấp thân vẫn
+    chỉ duyệt phẳng thấy."""
+    than = _p("Có") + f"<w:sdt><w:sdtContent>{_p('Nội dung trong sdt dài hơn hẳn')}</w:sdtContent></w:sdt>"
+    t = doc("x.docx", _docx(than))
+    assert [d.noi_dung for d in t.don_vi] == ["Có", "Nội dung trong sdt dài hơn hẳn"]

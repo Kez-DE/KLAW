@@ -21,7 +21,10 @@ trí của nó trong tài liệu.
 3. `tra_loi_ngan` trả lời thẳng câu hỏi, tiếng Việt, tối đa 900 ký tự.
 4. Mỗi `quan_sat` là MỘT điều tài liệu NÓI, kèm `trich` **NGUYÊN VĂN** copy từ
    MỘT đơn vị ở trên — không sửa dấu, không sửa chính tả, không viết lại cho
-   gọn, không ghép hai đơn vị — và `tai_lieu` là NHÃN của tài liệu chứa đoạn
+   gọn, không ghép hai đơn vị. Ngoại lệ duy nhất là BẢNG: được trích MỘT HÀNG
+   bằng cách nối các ô của hàng đó theo thứ tự, mỗi ô một dòng, nguyên văn từng
+   ô. KHÔNG chép phần đánh số `[A-12] (tr. 1…)` vào `trich`: đó là số thứ tự
+   của danh sách này, không phải chữ của tài liệu — và `tai_lieu` là NHÃN của tài liệu chứa đoạn
    trích đó. `trich` phải đủ dài để định danh được vị trí, không phải một hai từ.
 5. Một `quan_sat` có `trich` không tra ngược được về đúng tài liệu đã gọi tên sẽ
    bị loại bỏ trước khi tới người hỏi. Bịa `trich` không giúp nó đi tiếp, chỉ
