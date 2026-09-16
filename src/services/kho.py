@@ -514,6 +514,13 @@ _TANG_GOC: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
+# Hai nhãn độ sâu mà `gioi_thieu` đọc lại để dựng câu văn xuôi — HẰNG SỐ ở đây
+# chứ không phải hai chuỗi chép sang bên đó, cùng lý do `CAU_GIOI_HAN` chỉ có
+# một bản: một bản sao sẽ lệch pha đúng vào ngày ai đó sửa lời một bên.
+DO_SAU_DU_BA_TANG = "đủ luật, nghị định, thông tư"
+DO_SAU_CHI_LUAT_GOC = "chỉ luật gốc"
+
+
 def _do_sau_linh_vuc(nhom: list[dict]) -> str:
     """"Độ sâu" đọc được của MỘT lĩnh vực — suy từ các tầng gốc (`_TANG_GOC`)
     đã có TOÀN VĂN trong nhóm, không viết cứng theo tên lĩnh vực.
@@ -534,10 +541,59 @@ def _do_sau_linh_vuc(nhom: list[dict]) -> str:
     tang = [ten for ten, loai in _TANG_GOC
             if any(r["depth"] == _CO_TOAN_VAN and r["loai_van_ban"] in loai for r in nhom)]
     if tang == [t for t, _ in _TANG_GOC]:
-        return "đủ luật, nghị định, thông tư"
+        return DO_SAU_DU_BA_TANG
     if tang == ["luật"]:
-        return "chỉ luật gốc"
+        return DO_SAU_CHI_LUAT_GOC
     return "có " + ", ".join(tang) if tang else "có toàn văn"
+
+
+# Tiền tố loại và hậu tố số hiệu trong `ten` — cắt bằng QUY TẮC, không bằng
+# danh sách sáu cái tên: một Bộ luật mới nạp vào kho phải tự ra tên ngắn đúng
+# (ex.md §7.3.1), không chờ ai sửa mã.
+_RE_TIEN_TO_BO_LUAT = re.compile(r"^bộ\s+luật\s*", re.IGNORECASE)
+_RE_HAU_TO_SO = re.compile(r"\s+số\s+\d\S*$", re.IGNORECASE)
+
+
+def ten_ngan_bo_luat(ten: str, so_ky_hieu: str) -> str:
+    """"Bộ luật Dân sự số 91/2015/QH13" → "Dân sự" — tên gọi trong một câu văn
+    xuôi, nơi lặp lại "Bộ luật" sáu lần sau chữ "6 Bộ luật:" là tiếng ồn.
+
+    Rơi về `ten` nguyên khi quy tắc cắt hết chữ: một cái tên đúng-mà-dài vẫn
+    tốt hơn một chuỗi rỗng trong danh sách người đọc dùng để kiểm.
+    """
+    goc = (ten or "").strip()
+    so = (so_ky_hieu or "").strip()
+    t = goc
+    if so and t.endswith(f" số {so}"):
+        t = t[: -len(f" số {so}")]
+    t = _RE_TIEN_TO_BO_LUAT.sub("", _RE_HAU_TO_SO.sub("", t)).strip()
+    # Chỉ viết hoa CHỮ ĐẦU: "Bộ Luật lao động" → "lao động" → "Lao động", còn
+    # `str.capitalize()` sẽ hạ "Tố tụng Dân sự" thành "Tố tụng dân sự".
+    return t[0].upper() + t[1:] if t else goc
+
+
+def danh_sach_bo_luat(kho: list[dict]) -> list[dict]:
+    """Các Bộ luật ĐANG DÙNG ĐƯỢC, theo thứ tự kho — cùng `_van_ban_dang_dung`
+    mà `_tom_tat` lọc, nên sáu bản đã bị thay không lọt vào (ex.md §7.3.2)."""
+    ds = []
+    for r in _van_ban_dang_dung(kho):
+        if r["loai_van_ban"] != "Bộ luật":
+            continue
+        so, ten = hien_van_ban(r["so_ky_hieu"], r["ten"])
+        ds.append({"ten": ten, "ten_ngan": ten_ngan_bo_luat(ten, so),
+                   "so_ky_hieu": so, "hieu_luc": _nhan(r["hieu_luc"])})
+    return ds
+
+
+def tom_tat_linh_vuc(kho: list[dict]) -> list[dict]:
+    """Bảng 2 dưới dạng dữ liệu — MỘT phép gộp lĩnh vực cho cả bảng lẫn câu văn
+    xuôi của `gioi_thieu`. Hai bản gộp sẽ lệch đúng vào ngày ai đó sửa một bên,
+    cùng lý do `_van_ban_dang_dung`/`_dem_theo_loai` được tách ra."""
+    nhom: dict[str, list[dict]] = {}
+    for r in _van_ban_dang_dung(kho):
+        nhom.setdefault(r["linh_vuc"] or "", []).append(r)
+    return [{"linh_vuc": lv, "so_van_ban": len(rs), "do_sau": _do_sau_linh_vuc(rs)}
+            for lv, rs in sorted(nhom.items(), key=lambda kv: (-len(kv[1]), kv[0]))]
 
 
 def dung_bang(cau_hoi: str, kho: list[dict]) -> list[Bang]:
@@ -570,14 +626,11 @@ def dung_bang(cau_hoi: str, kho: list[dict]) -> list[Bang]:
               for loai, ns in _sap_xep_loai(_nhom_theo_loai(dang_dung))],
     )
 
-    nhom_linh_vuc: dict[str, list[dict]] = {}
-    for r in dang_dung:
-        nhom_linh_vuc.setdefault(r["linh_vuc"] or "", []).append(r)
     bang_linh_vuc = Bang(
         tieu_de="Phân theo lĩnh vực",
         cot=["Lĩnh vực", "Số văn bản", "Độ sâu"],
-        dong=[[linh_vuc, str(len(rs)), _do_sau_linh_vuc(rs)]
-              for linh_vuc, rs in sorted(nhom_linh_vuc.items(), key=lambda kv: (-len(kv[1]), kv[0]))],
+        dong=[[d["linh_vuc"], str(d["so_van_ban"]), d["do_sau"]]
+              for d in tom_tat_linh_vuc(kho)],
     )
     return [bang_loai, bang_linh_vuc]
 

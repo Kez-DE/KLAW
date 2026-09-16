@@ -27,9 +27,12 @@ from src.services.effectivity import Effectivity
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.kho import (
     CAU_GIOI_HAN,
+    danh_sach_bo_luat,
     dung_bang,
     dung_cau_tra_loi,
     moi_so_hieu_trong,
+    ten_ngan_bo_luat,
+    tom_tat_linh_vuc,
     tra_loi_ve_kho,
     xin_dang_bang,
 )
@@ -662,6 +665,79 @@ def test_linh_vuc_nhieu_gia_tri_cach_nhau_bang_phay_KHONG_bi_tach():
     assert _LV_NHIEU in nhan
     for ve in _LV_NHIEU.split(", "):
         assert ve not in nhan, f"'{_LV_NHIEU}' bị tách thành lĩnh vực riêng '{ve}'"
+
+
+# ══ Dữ kiện phạm vi kho cho câu trả lời văn xuôi của `gioi_thieu` ═══════════
+#
+# `gioi_thieu` từng viết cứng sáu cái tên Bộ luật và bốn tên lĩnh vực trong
+# mẫu giới thiệu (ex.md §2.5). Bốn phép canh §7.3 dưới đây là điều kiện để gỡ
+# danh sách cứng đó: đổi fixture kho thì câu trả lời phải TỰ đổi theo.
+
+
+def test_ten_ngan_bo_luat_cat_tien_to_va_so_hieu():
+    """Cắt bằng QUY TẮC nên nó đúng cho cả hai cách viết có thật trong DB:
+    "Bộ luật Dân sự…" và "Bộ Luật lao động…" (chữ L hoa, chữ l thường)."""
+    assert ten_ngan_bo_luat("Bộ luật Dân sự số 91/2015/QH13", "91/2015/QH13") == "Dân sự"
+    assert ten_ngan_bo_luat("Bộ Luật lao động số 45/2019/QH14", "45/2019/QH14") == "Lao động"
+    # Không còn chữ nào sau khi cắt thì giữ nguyên tên — một cái tên dài vẫn
+    # kiểm được, một chuỗi rỗng thì không.
+    assert ten_ngan_bo_luat("Bộ luật", "") == "Bộ luật"
+
+
+def test_danh_sach_bo_luat_chi_sau_bo_dang_dung():
+    """Cùng phép lọc hiệu lực với `_tom_tat` (§7.3.2): sáu bản đã bị thay mang
+    cùng `loai_van_ban='Bộ luật'` và KHÔNG được vào danh sách."""
+    ds = danh_sach_bo_luat(KHO)
+    assert [d["ten"] for d in ds] == [r["ten"] for r in HIEN_HANH]
+    so_da_thay = {r["so_ky_hieu"] for r in DA_THAY}
+    assert not [d for d in ds if d["so_ky_hieu"] in so_da_thay]
+    assert [d["ten_ngan"] for d in ds] == [
+        "Dân sự", "Hình sự", "Tố tụng hình sự", "Tố tụng dân sự", "Lao động", "Hàng hải"]
+
+
+def test_them_mot_bo_luat_thi_danh_sach_TU_co_ten_moi():
+    """§7.3.1 — không sửa một mẫu nào."""
+    truoc = [d["ten_ngan"] for d in danh_sach_bo_luat(KHO)]
+    them = _vb("60/2030/QH20", "Bộ luật Môi trường số 60/2030/QH20")
+    assert [d["ten_ngan"] for d in danh_sach_bo_luat([*KHO, them])] == [*truoc, "Môi trường"]
+
+
+def test_danh_dau_bi_thay_the_thi_bo_luat_roi_khoi_danh_sach():
+    """§7.3.2 — cùng `KHO`, chỉ đổi verdict của một dòng."""
+    bo = [dict(r) for r in KHO]
+    bo[0]["hieu_luc"] = Effectivity(V.bi_thay_the, "cao", "bị 1/2030/QH20 thay thế")
+    assert "Dân sự" not in [d["ten_ngan"] for d in danh_sach_bo_luat(bo)]
+
+
+def test_tom_tat_linh_vuc_khop_tung_o_voi_bang_2():
+    """MỘT phép gộp cho cả bảng lẫn văn xuôi: `dung_bang` dựng Bảng 2 TỪ
+    `tom_tat_linh_vuc`, nên hai bên không thể lệch nhau."""
+    b2 = dung_bang(CAU_HOI_TOM_TAT, KHO_LINH_VUC)[1]
+    assert [[d["linh_vuc"], str(d["so_van_ban"]), d["do_sau"]]
+            for d in tom_tat_linh_vuc(KHO_LINH_VUC)] == b2.dong
+
+
+def test_them_linh_vuc_moi_thi_tom_tat_TU_co_dong_moi():
+    """§7.3.3."""
+    truoc = [d["linh_vuc"] for d in tom_tat_linh_vuc(KHO_LINH_VUC)]
+    them = _vb("9/2020/QH14", "Luật I", loai="Luật", linh_vuc="Hàng hải")
+    sau = [d["linh_vuc"] for d in tom_tat_linh_vuc([*KHO_LINH_VUC, them])]
+    assert set(sau) - set(truoc) == {"Hàng hải"}
+
+
+def test_do_sau_trong_tom_tat_theo_depth_va_loai_van_ban():
+    """§7.3.4 — cùng logic `_do_sau_linh_vuc` mà Bảng 2 dùng, không phải một
+    bảng nhãn thứ hai viết theo tên lĩnh vực."""
+    do_sau = {d["linh_vuc"]: d["do_sau"] for d in tom_tat_linh_vuc(KHO_LINH_VUC)}
+    assert do_sau[_LV_DU_BA_TANG] == "đủ luật, nghị định, thông tư"
+    assert do_sau[_LV_CHI_LUAT_GOC] == "chỉ luật gốc"
+    assert do_sau[_LV_CHI_SHALLOW] == "chỉ số hiệu và tên"
+    # Cùng lĩnh vực, chỉ thêm một Nghị định + Thông tư có toàn văn → sâu lên.
+    day_du = [*KHO_LINH_VUC,
+              _vb("10/2020/NĐ-CP", "Nghị định J", loai="Nghị định", linh_vuc=_LV_CHI_LUAT_GOC),
+              _vb("11/2020/TT-BTP", "Thông tư K", loai="Thông tư", linh_vuc=_LV_CHI_LUAT_GOC)]
+    moi = {d["linh_vuc"]: d["do_sau"] for d in tom_tat_linh_vuc(day_du)}
+    assert moi[_LV_CHI_LUAT_GOC] == "đủ luật, nghị định, thông tư"
 
 
 # ══ T4 — `Bang.dong[i]` phải khớp số cột với `Bang.cot` ═════════════════════

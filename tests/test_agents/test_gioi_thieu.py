@@ -47,12 +47,16 @@ def test_gioi_thieu_tra_loi_thay_vi_tu_choi():
     ans = st["answer"] or ""
     assert ans, "phải CÓ câu trả lời, không được để rỗng như abstain"
     assert "ngoài phạm vi" not in ans, "không được mở bằng lời từ chối"
-    # Nêu được cả hai việc nó làm, và nêu ra giới hạn thật — nói được mình làm
-    # gì mà không nói được mình CHƯA SÂU tới đâu vẫn là quảng cáo, không phải
-    # câu trả lời trung thực.
+    # Nêu được cả hai việc nó làm.
     assert "tra cứu" in ans.lower()
-    assert "soạn thảo" in ans.lower()
-    assert "thuế" in ans.lower(), "phải nêu một lĩnh vực mới mở (kho đã hết chưa phủ thuế)"
+    assert "soạn" in ans.lower()
+    # ĐỔI HỢP ĐỒNG (ex.md §4.2, §4.3): bản trước đòi bài năng lực nêu đích danh
+    # "thuế" — tức đòi nó liệt kê phạm vi kho. Phạm vi kho nay là hai khía cạnh
+    # RIÊNG (`bo_luat`, `linh_vuc`) dựng từ DB lúc chạy, chỉ nói khi người ta
+    # hỏi; "bạn làm được gì?" chỉ trả năng lực chính. Một danh sách lĩnh vực
+    # hay tên Bộ luật viết cứng trong bài năng lực chính là lỗi §2.5.
+    assert "thuế" not in ans.lower(), "câu hỏi năng lực không tự đổ phạm vi kho ra"
+    assert "Hàng hải" not in ans, "không còn tên Bộ luật viết cứng trong bài năng lực"
 
 
 def test_gioi_thieu_khong_ton_token():
@@ -145,20 +149,27 @@ def test_cau_hoi_ve_model_KHONG_ro_ri_gi_ngoai_TEN_MODEL():
 
 
 def test_loi_chao_KHONG_doi_ca_bai_nang_luc_vao_mat_nguoi_ta():
+    """ĐỔI HỢP ĐỒNG (ex.md §4.2): phép canh cũ khoá TỈ LỆ `len(chao)*3 <
+    len(nang_luc)` — nó chỉ có nghĩa khi bài năng lực là một bức tường chữ.
+    Bài năng lực nay ngắn theo đúng yêu cầu ("tối đa 3 khối", "mỗi ý một lần"),
+    nên tỉ lệ đó đo ngược lại chính thứ nó muốn bảo vệ. Khoá thẳng ĐIỀU CẦN
+    CHẶN: một lời chào không phải chỗ liệt kê phạm vi kho."""
     chao, nang_luc = _tra_loi(DANG["chao"]), _tra_loi(DANG["nang_luc"])
-    assert len(chao) * 3 < len(nang_luc), (
-        f"lời chào dài {len(chao)} so với bài năng lực {len(nang_luc)} — "
-        "một lời chào không phải chỗ liệt kê phạm vi"
-    )
-    assert "thuế" not in chao.lower(), "lời chào không liệt kê thứ chưa phủ"
+    assert chao != nang_luc
+    assert "thuế" not in chao.lower(), "lời chào không liệt kê lĩnh vực"
+    assert "Bộ luật" not in chao, "lời chào không liệt kê Bộ luật"
     # Vẫn phải mời hỏi, không phải một câu chào rồi hết.
     assert "?" in chao or "hỏi" in chao.lower()
 
 
 def test_chao_kem_cau_hoi_KHONG_bi_doc_thanh_chao_don_thuan():
     """"chào bạn, bạn làm được những gì" là một câu HỎI có lời chào dẫn vào —
-    trả nó lời chào ngắn là bỏ mất câu hỏi thật."""
-    assert _tra_loi("chào bạn, bạn làm được những gì") == _tra_loi(DANG["nang_luc"])
+    trả nó lời chào ngắn là bỏ mất câu hỏi thật.
+
+    ĐỔI HỢP ĐỒNG (ex.md §4.3): lượt đầu nay ĐƯỢC chào lại một cụm ngắn khi câu
+    hỏi mở bằng lời chào, nên hai lời đáp lệch nhau đúng tiền tố đó — phần trả
+    lời thật vẫn phải giống hệt."""
+    assert _tra_loi("chào bạn, bạn làm được những gì") == "Chào bạn. " + _tra_loi(DANG["nang_luc"])
 
 
 def test_cau_hoi_ve_nguon_neu_TEN_nguon_va_KHONG_in_URL():
@@ -178,7 +189,9 @@ def test_cau_khong_khop_dang_nao_roi_ve_bai_nang_luc_chu_khong_im_lang():
     nay vẫn là dạng năng lực — câu không khớp dạng nào (kể cả danh tính/bản
     chất) vẫn nhận được lời đáp đầy đủ nhất, không nhận màn hình trắng."""
     nang_luc = _tra_loi(DANG["nang_luc"])
-    for cau in ("bạn hoạt động ra sao", "bạn giúp được gì", "bạn có bao nhiêu văn bản", ""):
+    # "bạn có bao nhiêu văn bản" đã RỜI danh sách này: nó nay là khía cạnh
+    # `kho` (ex.md §4.3 "kho có gì?" trả phạm vi kho, không thành bài năng lực).
+    for cau in ("bạn hoạt động ra sao", "bạn giúp được gì", ""):
         assert _tra_loi(cau) == nang_luc, f"{cau!r} phải rơi về bài năng lực"
 
 
@@ -212,13 +225,21 @@ def test_nang_luc_khong_con_noi_chua_phu_thue():
     assert not ("chưa phủ" in ans and "thuế" in ans)
 
 
-def test_nang_luc_neu_dung_so_loai_van_ban_dem_luc_chay():
+def test_soan_thao_neu_dung_so_loai_van_ban_dem_luc_chay():
     """Trước bản này lời tự giới thiệu ghi cứng "ba loại" trong khi
     `config/checklist_*.yaml` đã có 27 file. Đếm THẬT lúc chạy TEST (không
     chép số 27 vào đây) nên phép canh này tự đỏ ngay khi ai thêm một checklist
-    mà quên sửa lời giới thiệu."""
+    mà quên sửa lời giới thiệu.
+
+    ĐỔI HỢP ĐỒNG (ex.md §4.2): con số này nay thuộc khía cạnh `soan_thao`, chỉ
+    nói khi người ta hỏi soạn thảo — "Không nêu số lượng loại văn bản soạn thảo
+    nếu người dùng không hỏi soạn thảo chi tiết"."""
     so_file = len(list(Path("config").glob("checklist_*.yaml")))
-    assert str(so_file) in _tra_loi(DANG["nang_luc"])
+    assert str(so_file) in _tra_loi("bạn soạn được văn bản gì")
+    assert not any(c.isdigit() for c in _tra_loi(DANG["nang_luc"])), (
+        "bài năng lực không mang con số nào — số liệu kho và số loại văn bản "
+        "soạn thảo đều là khía cạnh riêng"
+    )
 
 
 @pytest.mark.parametrize("cau_hoi", list(DANG.values()), ids=list(DANG))

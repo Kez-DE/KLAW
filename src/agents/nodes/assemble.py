@@ -781,8 +781,11 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         # năng lực — mặc định an toàn — thay vì nổ ở một nhánh vốn không cần
         # truy vấn gì. Khác `tra_loi_kho` ngay dưới, nơi khoá thiếu LÀ lỗi nối
         # dây và một `answer` rỗng chính là chế độ hỏng cần nổ ra.
+        # `tra_loi_gioi_thieu` is composed in `graph_tra_cuu.n_assemble` (it
+        # owns the engine and the one `nap_kho`); direct callers without it
+        # still get the kho-less answer.
         return _base(state, ResultType.gioi_thieu,
-                     answer=cau_gioi_thieu(state.get("query") or ""))
+                     answer=state.get("tra_loi_gioi_thieu") or cau_gioi_thieu(state.get("query") or ""))
 
     if state.get("intent") == "hoi_ve_kho":
         # Chuỗi do `graph_tra_cuu.n_assemble` tính SẴN bằng SQL — khâu này chỉ

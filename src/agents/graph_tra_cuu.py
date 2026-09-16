@@ -33,6 +33,7 @@ from src.agents.nodes.assemble import assemble
 from src.agents.nodes.expand import expand
 from src.agents.nodes.generate_claims import generate_claims
 from src.agents.nodes.giai_nghia import giai_nghia
+from src.agents.nodes.gioi_thieu import can_kho, cau_gioi_thieu, chi_hoi_kho, khia_canh
 from src.agents.nodes.gom_du_kien import gom_du_kien
 from src.agents.nodes.rewrite_query import rewrite_query
 from src.agents.nodes.route import Intent, route
@@ -351,7 +352,24 @@ def build_graph_tra_cuu():
         return {**st, "tier2": verdicts, "traces": traces}
 
     def n_assemble(st: KLawState) -> KLawState:
-        if st.get("intent") == Intent.hoi_ve_kho:
+        # ex.md §3.2–3.3: one facet pass for both meta intents. Corpus-only
+        # questions keep the existing `hoi_ve_kho` text/table path below;
+        # anything naming the assistant composes from one `nap_kho` snapshot
+        # (FR-014), loaded only when a corpus facet is present.
+        y_dinh = st.get("intent")
+        if y_dinh in (Intent.gioi_thieu, Intent.hoi_ve_kho):
+            cau_hoi_meta = st.get("cau_hoi_day_du") or st["query"]
+            cac = khia_canh(cau_hoi_meta)
+            if not (y_dinh == Intent.hoi_ve_kho and chi_hoi_kho(cac)):
+                kho = nap_kho(engine, as_of_hieu_luc(st.get("as_of_date"))) if can_kho(cac) else None
+                tra_loi = cau_gioi_thieu(
+                    cau_hoi_meta, kho=kho, luot_dau=not (st.get("lich_su") or st.get("tom_tat"))
+                )
+                st = {**st, "tra_loi_gioi_thieu": tra_loi, "tra_loi_kho": tra_loi, "tra_loi_kho_bang": [],
+                      "traces": {**(st.get("traces") or {}), "gioi_thieu_khia_canh": cac}}
+                if y_dinh == Intent.gioi_thieu:
+                    return assemble(st, {}, llm, generate_model(), prompt_path=Path(s.assemble_prompt))
+        if y_dinh == Intent.hoi_ve_kho and "tra_loi_gioi_thieu" not in st:
             # SQL cho câu hỏi về kho chạy Ở ĐÂY, không trong `assemble`.
             #
             # `assemble` KHÔNG có `engine` — và đúng ra là không nên có: nó đã
