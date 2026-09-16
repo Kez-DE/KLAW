@@ -1,0 +1,661 @@
+{
+  "commit_hash": "dabd797",
+  "prompt": "prompts/assemble.v4.md",
+  "so_cau": 77,
+  "so_chay_duoc": 48,
+  "so_loi": 29,
+  "trung_dan": 0.375,
+  "trich_dan_dung": 0.45703125,
+  "abstain": 0.2708333333333333,
+  "answer": 0.4166666666666667,
+  "co_tang_4": 0.2916666666666667,
+  "co_tang_5": 0.375,
+  "do_dai_tb": 638.1666666666666,
+  "chi_phi_tong": 0.280867725,
+  "hang": [
+    {
+      "id": "lao-000-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 4,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": true,
+      "do_dai": 1045,
+      "chi_phi": 0.004324125
+    },
+    {
+      "id": "lao-000-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 6,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 1349,
+      "chi_phi": 0.004874025
+    },
+    {
+      "id": "lao-001-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 6,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": true,
+      "do_dai": 1174,
+      "chi_phi": 0.00653625
+    },
+    {
+      "id": "lao-001-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 11,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 1426,
+      "chi_phi": 0.007441725
+    },
+    {
+      "id": "lao-002-0",
+      "result_type": "partial_coverage",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.004607775
+    },
+    {
+      "id": "lao-002-1",
+      "result_type": "partial_coverage",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0051732
+    },
+    {
+      "id": "lao-004-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 6,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 1485,
+      "chi_phi": 0.00627735
+    },
+    {
+      "id": "lao-004-1",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0045765
+    },
+    {
+      "id": "lao-005-0",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.00545235
+    },
+    {
+      "id": "lao-005-1",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.005212725
+    },
+    {
+      "id": "lao-006-0",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0070029
+    },
+    {
+      "id": "lao-006-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 5,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 1120,
+      "chi_phi": 0.0066324
+    },
+    {
+      "id": "lao-009-0",
+      "result_type": "out_of_scope",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0
+    },
+    {
+      "id": "lao-009-1",
+      "result_type": "partial_coverage",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.008750925
+    },
+    {
+      "id": "lao-010-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 5,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 1045,
+      "chi_phi": 0.006041325
+    },
+    {
+      "id": "lao-010-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 16,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 1980,
+      "chi_phi": 0.006437925
+    },
+    {
+      "id": "lao-011-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 6,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 1469,
+      "chi_phi": 0.0056688
+    },
+    {
+      "id": "lao-011-1",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.006001575
+    },
+    {
+      "id": "lao-013-0",
+      "result_type": "answer",
+      "trung_dan": false,
+      "so_trich_dan": 16,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 2743,
+      "chi_phi": 0.00894765
+    },
+    {
+      "id": "lao-013-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 4,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": true,
+      "do_dai": 1342,
+      "chi_phi": 0.005810925
+    },
+    {
+      "id": "lao-014-0",
+      "result_type": "partial_coverage",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0044241
+    },
+    {
+      "id": "lao-014-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 5,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 824,
+      "chi_phi": 0.0076872
+    },
+    {
+      "id": "lao-015-0",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.004461075
+    },
+    {
+      "id": "lao-015-1",
+      "result_type": "partial_coverage",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.00548475
+    },
+    {
+      "id": "lao-017-0",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0084462
+    },
+    {
+      "id": "lao-017-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 11,
+      "trich_dan_dung": 0.9375,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 1495,
+      "chi_phi": 0.0080589
+    },
+    {
+      "id": "lao-018-0",
+      "result_type": "partial_coverage",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0059613
+    },
+    {
+      "id": "lao-018-1",
+      "result_type": "partial_coverage",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.00481065
+    },
+    {
+      "id": "lao-020-0",
+      "result_type": "partial_coverage",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0068217
+    },
+    {
+      "id": "lao-020-1",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.006643275
+    },
+    {
+      "id": "lao-022-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 6,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 1295,
+      "chi_phi": 0.0054612
+    },
+    {
+      "id": "lao-022-1",
+      "result_type": "partial_coverage",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.006194175
+    },
+    {
+      "id": "lao-023-0",
+      "result_type": "answer",
+      "trung_dan": false,
+      "so_trich_dan": 17,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 1516,
+      "chi_phi": 0.010290225
+    },
+    {
+      "id": "lao-023-1",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.007452675
+    },
+    {
+      "id": "lao-024-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 17,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 2018,
+      "chi_phi": 0.00784215
+    },
+    {
+      "id": "lao-024-1",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.007172775
+    },
+    {
+      "id": "lao-025-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 19,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 2553,
+      "chi_phi": 0.00562905
+    },
+    {
+      "id": "lao-026-0",
+      "result_type": "out_of_scope",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0
+    },
+    {
+      "id": "lao-026-1",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.00572325
+    },
+    {
+      "id": "lao-028-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 8,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": true,
+      "co_tang_5": true,
+      "do_dai": 2127,
+      "chi_phi": 0.00733395
+    },
+    {
+      "id": "lao-028-1",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.005074575
+    },
+    {
+      "id": "lao-029-0",
+      "result_type": "out_of_scope",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0
+    },
+    {
+      "id": "lao-029-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 14,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 689,
+      "chi_phi": 0.01277595
+    },
+    {
+      "id": "lao-030-0",
+      "result_type": "partial_coverage",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.009880875
+    },
+    {
+      "id": "lao-030-1",
+      "result_type": "out_of_scope",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0
+    },
+    {
+      "id": "lao-031-0",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.004736925
+    },
+    {
+      "id": "lao-031-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 29,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": true,
+      "do_dai": 1937,
+      "chi_phi": 0.00673035
+    },
+    {
+      "id": "lao-033-0",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-033-1",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-034-0",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-034-1",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-035-0",
+      "result_type": "out_of_scope",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0
+    },
+    {
+      "id": "lao-035-1",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-036-0",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-036-1",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-037-0",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-037-1",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-039-0",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-039-1",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-040-0",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-040-1",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-041-0",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-041-1",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-042-0",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-042-1",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-043-0",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-043-1",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-044-0",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-044-1",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-hand-01",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-hand-02",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-hand-03",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-hand-04",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-hand-05",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-hand-06",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-hand-07",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    },
+    {
+      "id": "lao-hand-08",
+      "loi": "OperationalError: (psycopg.OperationalError) connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\nMultiple connection attempts failed. All failures were:\n- host: 'localhost', port: 5432, hostaddr: '::1': connection failed: connection to server at \"::1\", port 5432 failed: could not receive data from server: Connection refused\n- host: 'localhost', port: 5432, hostaddr: '127.0.0.1': connection failed: connection to server at \"127.0.0.1\", port 5432 failed: could not receive data from server: Connection refused\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+    }
+  ]
+}
