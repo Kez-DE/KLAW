@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { coSpanHang, tieuDeDaXuatHienTrongThan, type Muc } from "@/lib/xuat-tep";
+import { nhipHangVe, tiLeCotVe, tieuDeDaXuatHienTrongThan, type Muc } from "@/lib/xuat-tep";
 
 interface Props {
   tieuDe: string;
@@ -125,14 +125,26 @@ export function XemTruocA4({
                 ) : (
                   // Khối BẢNG trong tài liệu nguồn (Phase 7 R1/R2) — `<table>`
                   // THẬT, không phải chữ `|` improv: hàng đầu là tiêu đề, viền
-                  // thấy được, `table-auto` để cột không co lại thành một chữ.
-                  // Hàng ngắn hơn hàng tiêu đề (Phase 8 R4, ô gộp trong tài
-                  // liệu nguồn) dùng `colSpan` qua `coSpanHang` — ô cuối luôn
-                  // đứng ở cột cuối, không "trôi" sang trái.
+                  // thấy được. Hàng ngắn hơn hàng tiêu đề (Phase 8 R4, ô gộp
+                  // trong tài liệu nguồn) dùng `colSpan` qua `k.nhip` — nhịp
+                  // THẬT khi bảng có khai lưới nguồn (Phase 11 R6, đọc
+                  // `w:gridSpan`), suy từ số ô khi không (`nhipHangVe` rơi về
+                  // `coSpanHang` cũ). `<colgroup>` đặt bề rộng % mỗi cột từ
+                  // `w:tblGrid` (Phase 11 R1, `tiLeCotVe` chia đều khi bảng
+                  // không khai lưới) — `table-layout: fixed` để trình duyệt
+                  // theo ĐÚNG tỉ lệ đó thay vì tự co theo nội dung. `data-ti-le`
+                  // trên mỗi `<col>` là chỗ `docBangTuPhanTu` (xuat-tep.ts) đọc
+                  // lại % đã vẽ khi xuất `.docx`/PDF — một nguồn, ba nơi dùng.
                   <table
                     key={i}
-                    className="klaw-bang mt-1 w-full table-auto border-collapse text-[0.92em]"
+                    className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
+                    style={{ tableLayout: "fixed" }}
                   >
+                    <colgroup>
+                      {tiLeCotVe(k.tiLe, k.hang[0]?.length ?? 0).map((ti, oi) => (
+                        <col key={oi} data-ti-le={ti} style={{ width: `${ti}%` }} />
+                      ))}
+                    </colgroup>
                     <thead>
                       <tr>
                         {(k.hang[0] ?? []).map((o, oi) => (
@@ -147,7 +159,8 @@ export function XemTruocA4({
                     </thead>
                     <tbody>
                       {k.hang.slice(1).map((hang, hi) => {
-                        const span = coSpanHang(hang.length, k.hang[0]?.length ?? hang.length);
+                        const soCotTieuDe = k.hang[0]?.length ?? hang.length;
+                        const span = nhipHangVe(hang, k.nhip[hi + 1], soCotTieuDe);
                         return (
                           <tr key={hi}>
                             {hang.map((o, oi) => {

@@ -17,7 +17,9 @@ import {
   coSpanHang,
   docBangTuPhanTu,
   mucTuBanThao,
+  nhipHangVe,
   noiDungThanhPDF,
+  tiLeCotVe,
   tieuDeDaXuatHienTrongThan,
   tieuDeTuBanThao,
   type DongVanBan,
@@ -119,6 +121,10 @@ assert.deepEqual(mucMoi[0]?.khoi, [
       ["TT", "Tiêu chí đánh giá", "Điểm tối đa"],
       ["1", "Ý thức chấp hành nội quy", "2,0"],
     ],
+    // Hình dạng CŨ (Phase 7, `noi_dung`+`bang` rời) chưa từng có nhịp/tỉ lệ —
+    // về rỗng, `coSpanHang` suy đoán như trước Phase 11 (Phase 11 R1/R6).
+    nhip: [],
+    tiLe: [],
   },
 ]);
 
@@ -363,6 +369,35 @@ assert.deepEqual(
 );
 assert.deepEqual(coSpanHang(0, 4), [], "hàng rỗng không có ô nào để vẽ");
 
+// `nhipHangVe`/`tiLeCotVe` (Phase 11 R1/R6) — MỘT chỗ quyết định fallback,
+// dùng chung cho cả ba nơi vẽ bảng (XemTruocA4, bangThanhTable, PDF).
+assert.deepEqual(
+  nhipHangVe(["Tổng", "10"], [2, 1], 4),
+  [2, 1],
+  "nhịp THẬT (khai lưới) được dùng thẳng, không suy đoán lại từ số ô",
+);
+assert.deepEqual(
+  nhipHangVe(["Tổng", "10"], undefined, 4),
+  coSpanHang(2, 4),
+  "không có nhịp thật → suy đoán như coSpanHang cũ (bảng không khai lưới)",
+);
+assert.deepEqual(
+  nhipHangVe(["Tổng", "10"], [2], 4),
+  coSpanHang(2, 4),
+  "nhịp thật LỆCH số ô của hàng (dữ liệu hỏng) → cũng rơi về suy đoán, không dùng nhịp sai",
+);
+assert.deepEqual(tiLeCotVe([7, 15, 30, 34, 15], 5), [7, 15, 30, 34, 15], "tỉ lệ thật dùng thẳng");
+assert.deepEqual(
+  tiLeCotVe([], 4),
+  [25, 25, 25, 25],
+  "không khai lưới (R1's 'falls back to equal columns') → chia đều",
+);
+assert.deepEqual(
+  tiLeCotVe([50, 50], 3),
+  [100 / 3, 100 / 3, 100 / 3],
+  "tỉ lệ thật LỆCH số cột thật → cũng chia đều, không dùng tỉ lệ sai cột",
+);
+
 // ──────────────────── Review round 1 [IMPORTANT] — khối cả hai không bị nuốt
 //
 // Một khối thô có CẢ `noi_dung` (chú thích) LẪN `bang` (bảng) khác rỗng —
@@ -400,6 +435,8 @@ assert.deepEqual(mucKhoiCaHai[1], {
     ["TT", "Điểm"],
     ["1", "2,0"],
   ],
+  nhip: [],
+  tiLe: [],
 });
 
 // ──────────── Brief "Proof required" — letterhead hai cột sống sót NHƯ BẢNG
@@ -425,7 +462,7 @@ const mucLetterhead = mucTuBanThao(banThaoLetterhead, null)[0];
 assert.equal(mucLetterhead?.khoi.length, 1, "letterhead là MỘT khối bảng, không bị xé lẻ");
 assert.deepEqual(
   mucLetterhead?.khoi[0],
-  { kind: "bang", hang: LETTERHEAD },
+  { kind: "bang", hang: LETTERHEAD, nhip: [], tiLe: [] },
   "sống sót NGUYÊN dạng bảng hai cột, không dẹt thành dòng văn xuôi",
 );
 
@@ -435,12 +472,21 @@ assert.equal(tieuDeTuBanThao(banThaoCu.document), "PHIẾU ĐÁNH GIÁ QUÁ TRÌ
 assert.equal(tieuDeTuBanThao("Không có H1 nào ở đây"), null);
 
 // `docBangTuPhanTu` — đọc một `<table>` đã render thành hàng×ô, nguyên văn
-// từng ô (đã chuẩn hoá khoảng trắng). Đối tượng giả chỉ cần `querySelectorAll`/
-// `textContent`, đúng như hàm thật đòi — không cần DOM thật (không có `jsdom`
-// trong repo này).
-const oCell = (text: string) => ({ textContent: text });
-const oRow = (cells: string[]) => ({ querySelectorAll: (_sel: string) => cells.map(oCell) });
-const oTable = (rows: string[][]) => ({ querySelectorAll: (_sel: string) => rows.map(oRow) });
+// từng ô (đã chuẩn hoá khoảng trắng), CỘNG `nhip` (Phase 11 R6, `colSpan` đã
+// vẽ) và `tiLe` (Phase 11 R1, `data-ti-le` trên mỗi `<col>`). Đối tượng giả
+// chỉ cần `querySelectorAll`/`textContent`/`getAttribute`, đúng như hàm thật
+// đòi — không cần DOM thật (không có `jsdom` trong repo này).
+const oCell = (text: string, colSpan?: number) => ({ textContent: text, colSpan });
+const oRow = (cells: ReturnType<typeof oCell>[]) => ({
+  querySelectorAll: (_sel: string) => cells,
+});
+const oCol = (tiLe: number) => ({
+  getAttribute: (ten: string) => (ten === "data-ti-le" ? String(tiLe) : null),
+});
+const oTable = (rows: string[][], cols: number[] = []) => ({
+  querySelectorAll: (sel: string) =>
+    sel === "col" ? cols.map(oCol) : rows.map((r) => oRow(r.map((t) => oCell(t)))),
+});
 
 assert.deepEqual(
   docBangTuPhanTu(
@@ -449,11 +495,41 @@ assert.deepEqual(
       ["1", "  Ý thức  \n"],
     ]),
   ),
-  [
-    ["TT", "Tiêu chí"],
-    ["1", "Ý thức"], // khoảng trắng thừa/xuống dòng trong một ô đã được chuẩn hoá
-  ],
+  {
+    hang: [
+      ["TT", "Tiêu chí"],
+      ["1", "Ý thức"], // khoảng trắng thừa/xuống dòng trong một ô đã được chuẩn hoá
+    ],
+    nhip: [
+      [1, 1],
+      [1, 1],
+    ], // không `colSpan` nào được vẽ → mặc định 1 mỗi ô
+    tiLe: [], // không `<colgroup>` nào → chia đều (R1)
+  },
 );
+
+// Có `colSpan` đã vẽ (hàng gộp, Phase 11 R6) và `<colgroup>` mang tỉ lệ thật
+// (Phase 11 R1) — đọc lại ĐÚNG những gì đã vẽ, không suy đoán lại.
+const oTableGop = {
+  querySelectorAll: (sel: string) =>
+    sel === "col"
+      ? [7, 15, 78].map(oCol)
+      : [
+          oRow([oCell("TT"), oCell("Tiêu chí"), oCell("Điểm")]),
+          oRow([oCell("Tổng", 2), oCell("10")]),
+        ],
+};
+assert.deepEqual(docBangTuPhanTu(oTableGop), {
+  hang: [
+    ["TT", "Tiêu chí", "Điểm"],
+    ["Tổng", "10"],
+  ],
+  nhip: [
+    [1, 1, 1],
+    [2, 1],
+  ],
+  tiLe: [7, 15, 78],
+});
 
 // `bangThanhTable` — hàng×ô → `Table` THẬT của `docx` (Phase 7 R3), không phải
 // một cấu trúc trung gian tự chế. Đọc lại bằng `rootKey`/`root` (cây XML nội
@@ -486,6 +562,56 @@ const chuHangHai = timTat(hangXml[1]!, "w:t").map((wt) =>
   (wt["root"] as unknown[]).find((x) => typeof x === "string"),
 );
 assert.deepEqual(chuHangHai, ["1", "Ý thức chấp hành"]);
+
+// ─────────── Phase 11 R1/R6 — tỉ lệ cột và nhịp gộp sống sót vào `.docx` ────
+//
+// Brief đòi rõ: "A test that proportions survive into the .docx export, not
+// only the preview." Đọc `w:tcW` (bề rộng ô THẬT trong XML nội bộ `docx`) —
+// không chỉ kiểm `bangThanhTable` NHẬN đúng tham số, mà kiểm CHÍNH bề rộng
+// đã ghi vào tệp. Một ô gộp (nhịp 2) phải mang bề rộng CỘNG DỒN của các cột
+// nó chiếm, không phải bề rộng MỘT cột.
+function rongOTuTcW(hangXmlMot: Record<string, unknown>): string[] {
+  return timTat(hangXmlMot, "w:tcW").map((tcW) => {
+    const attr = ((tcW["root"] as Record<string, unknown>[])[0]?.["root"] ?? {}) as Record<
+      string,
+      { value: string }
+    >;
+    return attr["size"]!.value;
+  });
+}
+
+const bangTiLe = await bangThanhTable(
+  [
+    ["TT", "Tiêu chí", "Điểm"],
+    ["Tổng", "10"],
+  ],
+  [
+    [1, 1, 1],
+    [2, 1],
+  ],
+  [30, 40, 30],
+);
+const hangTiLeXml = timTat(bangTiLe, "w:tr");
+assert.deepEqual(
+  rongOTuTcW(hangTiLeXml[0]!),
+  ["30%", "40%", "30%"],
+  "hàng tiêu đề: mỗi ô đúng % cột của nó",
+);
+assert.deepEqual(
+  rongOTuTcW(hangTiLeXml[1]!),
+  ["70%", "30%"],
+  "hàng gộp: ô đầu (nhịp 2) mang bề rộng CỘNG DỒN 30+40=70%, ô sau 30%",
+);
+
+// Bảng KHÔNG khai lưới (mô hình tự soạn, `tiLe` rỗng) → chia đều — không
+// suy đoán tỉ lệ (R1's "table with no declared grid falls back to equal
+// columns").
+const bangKhongLuoi = await bangThanhTable([["A", "B", "C"]]);
+assert.deepEqual(
+  rongOTuTcW(timTat(bangKhongLuoi, "w:tr")[0]!),
+  [`${100 / 3}%`, `${100 / 3}%`, `${100 / 3}%`],
+  "không khai lưới → chia đều 3 cột",
+);
 
 // ══════════════════════════ Phase 5 — PDF có lớp chữ THẬT ══════════════════
 //
@@ -537,6 +663,10 @@ const KHOI_MAU: KhoiVanBan[] = [
       ["1", "Ý thức chấp hành nội quy, kỷ luật lao động", "2,0", "2,0"],
       ["Tổng", "10"], // ngắn hơn hàng tiêu đề — bắt buộc qua `coSpanHang`
     ],
+    // Không nhịp/tỉ lệ thật (bảng mô hình tự soạn) — `nhipHangVe`/`tiLeCotVe`
+    // phải rơi về suy đoán cũ (Phase 11 R1/R6), đúng ý chú thích trên.
+    nhip: [],
+    tiLe: [],
   },
 ];
 
@@ -726,6 +856,8 @@ function taiLieuMoCoiBang(soDoanDien: number): NoiDungXuat {
           ["TT", "Tiêu chí", "Điểm tối đa", "Điểm đánh giá"],
           ["1", "Ý thức chấp hành nội quy, kỷ luật lao động", "2,0", "2,0"],
         ],
+        nhip: [],
+        tiLe: [],
       },
     ],
     oKy: [],
@@ -780,7 +912,7 @@ function bangDaiHang(soHang: number): NoiDungXuat {
   for (let i = 1; i <= soHang; i++) {
     hang.push([String(i), `Tiêu chí đánh giá số ${i}`, "2,0", "2,0"]);
   }
-  return { khoi: [{ kind: "bang", hang }], oKy: [] };
+  return { khoi: [{ kind: "bang", hang, nhip: [], tiLe: [] }], oKy: [] };
 }
 
 function demLanToTieuDeBang(bytes: Buffer): number {
@@ -810,4 +942,4 @@ assert.equal(
   "hàng tiêu đề (tô xám) phải được vẽ lại ở đầu MỖI trang, không chỉ trang đầu",
 );
 
-console.info("kiem-xuat-tep: 59/59 đạt");
+console.info("kiem-xuat-tep: 69/69 đạt");

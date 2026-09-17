@@ -26,7 +26,20 @@ export type DongVanBan = {
  * giữa đoạn văn và bảng mới là thứ `xuatWord` cần để không đẩy một bảng giữa
  * tài liệu (như bảng đánh giá) xuống cuối, như `oKy` cố ý làm cho khối ký.
  */
-export type KhoiVanBan = { kind: "dong"; d: DongVanBan } | { kind: "bang"; hang: string[][] };
+/**
+ * Một bảng đã đọc — hàng×ô nguyên văn cộng hai sự thật cấu trúc riêng của
+ * NGUỒN (Phase 11 R1/R6), không suy đoán lại từ số ô:
+ *
+ * - `nhip`: số cột mỗi ô CHIẾM, CÙNG hình dạng `hang` — đọc thẳng
+ *   `bang_nhip`/`w:gridSpan` qua backend. Rỗng khi bảng không có lưới nguồn
+ *   (mô hình tự soạn) — `coSpanHang` khi đó vẫn suy đoán từ số ô như trước
+ *   Phase 11, đúng "quy tắc cho ca không khai lưới" R6 giữ lại.
+ * - `tiLe`: % mỗi cột lưới trên bề rộng bảng, đọc `w:tblGrid`. Rỗng khi
+ *   không khai lưới → chia đều (R1).
+ */
+export type BangThat = { hang: string[][]; nhip: number[][]; tiLe: number[] };
+
+export type KhoiVanBan = { kind: "dong"; d: DongVanBan } | ({ kind: "bang" } & BangThat);
 
 export type NoiDungXuat = {
   khoi: KhoiVanBan[];
@@ -49,7 +62,7 @@ export type NoiDungXuat = {
  * trường cố định).
  */
 export type KhoiMuc =
-  { kind: "vanXuoi"; noiDung: string; canhLe: CanLe } | { kind: "bang"; hang: string[][] };
+  { kind: "vanXuoi"; noiDung: string; canhLe: CanLe } | ({ kind: "bang" } & BangThat);
 
 /** Một mục dựng sẵn cho `XemTruocA4`: nội dung của `clauses` ghép vào khung `cau_truc.muc`. */
 export interface Muc {
@@ -146,6 +159,32 @@ function tenThatHopLe(tenThat: unknown): boolean {
   return typeof tenThat === "boolean" ? tenThat : true;
 }
 
+/** `k.ti_le` thô → mảng % cột hợp lệ, hoặc `[]` khi rỗng/vắng/sai hình dạng
+ * (Phase 11 R1) — bảng không khai lưới thì không suy đoán tỉ lệ, render
+ * chia đều (xem `BangThat`). */
+function tiLeHopLe(tiLe: unknown): number[] {
+  if (!Array.isArray(tiLe) || tiLe.length === 0) return [];
+  const ra = tiLe.map((v) => Number(v));
+  return ra.every((v) => Number.isFinite(v) && v > 0) ? ra : [];
+}
+
+/** `k.nhip` thô → mảng-hàng số cột mỗi ô CHIẾM, CÙNG hình dạng `hang` (Phase
+ * 11 R6) — một hàng lệch số ô so với `hang` cùng hàng làm CẢ khối mất `nhip`
+ * (về `[]`, `coSpanHang` suy đoán như trước Phase 11): một nhịp sai hình
+ * dạng gây lệch cột còn tệ hơn không có nhịp nào cả. */
+function nhipHopLe(nhip: unknown, hang: string[][]): number[][] {
+  if (!Array.isArray(nhip) || nhip.length !== hang.length) return [];
+  const ra: number[][] = [];
+  for (let h = 0; h < hang.length; h++) {
+    const hangNhip = nhip[h];
+    if (!Array.isArray(hangNhip) || hangNhip.length !== hang[h]!.length) return [];
+    const so = hangNhip.map((v) => Number(v));
+    if (!so.every((v) => Number.isInteger(v) && v > 0)) return [];
+    ra.push(so);
+  }
+  return ra;
+}
+
 /**
  * MỘT khối thô (từ `khoi` mới, Phase 8) → 0, 1, hay 2 `KhoiMuc` hợp lệ, ĐÚNG
  * thứ tự văn xuôi rồi bảng.
@@ -162,12 +201,19 @@ function tenThatHopLe(tenThat: unknown): boolean {
  */
 function khoiMotHopLe(k: unknown): KhoiMuc[] {
   if (typeof k !== "object" || k === null) return [];
-  const o = k as { noi_dung?: unknown; bang?: unknown; can_le?: unknown };
+  const o = k as {
+    noi_dung?: unknown;
+    bang?: unknown;
+    can_le?: unknown;
+    nhip?: unknown;
+    ti_le?: unknown;
+  };
   const noiDung = typeof o.noi_dung === "string" ? o.noi_dung : "";
   const bang = bangHopLe(o.bang);
   const ra: KhoiMuc[] = [];
   if (noiDung !== "") ra.push({ kind: "vanXuoi", noiDung, canhLe: canLeHopLe(o.can_le) });
-  if (bang) ra.push({ kind: "bang", hang: bang });
+  if (bang)
+    ra.push({ kind: "bang", hang: bang, nhip: nhipHopLe(o.nhip, bang), tiLe: tiLeHopLe(o.ti_le) });
   return ra;
 }
 
@@ -190,7 +236,10 @@ function khoiTuClause(c: ClauseTho | undefined): KhoiMuc[] {
   const noiDung = c?.noi_dung ?? (bang ? "" : "[…]");
   const ra: KhoiMuc[] = [];
   if (noiDung !== "") ra.push({ kind: "vanXuoi", noiDung, canhLe: "trai" });
-  if (bang) ra.push({ kind: "bang", hang: bang });
+  // Chưa từng có `nhip`/`ti_le` ở hình dạng CŨ này (Phase 7 trở về trước) —
+  // `coSpanHang` suy đoán cột như trước Phase 11, không phải một cải thiện
+  // ngầm cho dữ liệu đã lưu trước khi hai trường này tồn tại.
+  if (bang) ra.push({ kind: "bang", hang: bang, nhip: [], tiLe: [] });
   return ra;
 }
 
@@ -328,18 +377,34 @@ function canhLeTuStyle(el: HTMLElement): CanLe {
  * trắng) — hàng đầu tiên là hàng tiêu đề, đúng quy ước `bang` phía máy chủ
  * (`hieu_tai_lieu.schema_hieu`, Phase 7 R1); không cần phân biệt `<th>`/`<td>`.
  *
- * Chữ ký hàm chỉ đòi `querySelectorAll`/`textContent` — KHÔNG `getComputedStyle`
- * như `docDong` — nên gọi được với một đối tượng giả tối thiểu, không cần DOM
- * thật (kiểm bằng `kiem-xuat-tep.ts`, không có `jsdom` trong repo này).
+ * Cũng đọc lại `nhip` (thuộc tính `colSpan` đã render, Phase 11 R6) và `tiLe`
+ * (thuộc tính `data-ti-le` trên mỗi `<col>` của `<colgroup>`, Phase 11 R1) —
+ * CÙNG một bảng đã vẽ trên màn hình, không phải hai nguồn tách rời có thể
+ * lệch nhau: `XemTruocA4` đặt `colSpan`/`data-ti-le` khi vẽ (`coSpanHang`
+ * hoặc `nhip` thật), hàm này đọc lại đúng những gì đã vẽ.
+ *
+ * Chữ ký hàm chỉ đòi `querySelectorAll`/`textContent`/`getAttribute` — KHÔNG
+ * `getComputedStyle` như `docDong` — nên gọi được với một đối tượng giả tối
+ * thiểu, không cần DOM thật (kiểm bằng `kiem-xuat-tep.ts`, không có `jsdom`
+ * trong repo này).
  */
 export function docBangTuPhanTu(bang: {
   querySelectorAll(sel: string): ArrayLike<{
-    querySelectorAll(sel: string): ArrayLike<{ textContent: string | null }>;
+    getAttribute(ten: string): string | null;
+    querySelectorAll(sel: string): ArrayLike<{ textContent: string | null; colSpan?: number }>;
   }>;
-}): string[][] {
-  return Array.from(bang.querySelectorAll("tr")).map((hang) =>
-    Array.from(hang.querySelectorAll("th, td")).map((o) => chuanHoa(o.textContent ?? "")),
-  );
+}): BangThat {
+  const hang: string[][] = [];
+  const nhip: number[][] = [];
+  for (const tr of Array.from(bang.querySelectorAll("tr"))) {
+    const o = Array.from(tr.querySelectorAll("th, td"));
+    hang.push(o.map((c) => chuanHoa(c.textContent ?? "")));
+    nhip.push(o.map((c) => (typeof c.colSpan === "number" && c.colSpan > 0 ? c.colSpan : 1)));
+  }
+  const tiLe = Array.from(bang.querySelectorAll("col"))
+    .map((c) => Number(c.getAttribute("data-ti-le")))
+    .filter((v) => Number.isFinite(v) && v > 0);
+  return { hang, nhip, tiLe };
 }
 
 /** Đọc một thẻ thành dòng có định dạng, lấy đậm/nghiêng từ chính CSS đang áp. */
@@ -392,8 +457,8 @@ export function docNoiDungTuDOM(sheet: HTMLElement): NoiDungXuat {
     if (boQuaKhiXuat(el)) continue;
     if (khoiKy && khoiKy.contains(el)) continue;
     if (el.tagName === "TABLE") {
-      const hang = docBangTuPhanTu(el);
-      if (hang.length > 0) khoi.push({ kind: "bang", hang });
+      const bang = docBangTuPhanTu(el);
+      if (bang.hang.length > 0) khoi.push({ kind: "bang", ...bang });
       continue;
     }
     const d = docDong(el);
@@ -448,23 +513,51 @@ export function coSpanHang(soO: number, soCotTieuDe: number): number[] {
 }
 
 /**
+ * % mỗi cột lưới đã ĐỌC ĐƯỢC (Phase 11 R1) → tỉ lệ dùng để VẼ, chia đều khi
+ * rỗng hoặc sai số cột — MỘT chỗ quyết định fallback, dùng cho cả ba nơi vẽ
+ * bảng (`XemTruocA4`, `bangThanhTable`, PDF `chieuCaoHangBang`/`veMotHangBang`).
+ */
+export function tiLeCotVe(tiLe: number[], soCot: number): number[] {
+  if (tiLe.length === soCot && tiLe.every((v) => v > 0)) return tiLe;
+  return Array(soCot).fill(100 / soCot) as number[];
+}
+
+/**
+ * Nhịp (số cột mỗi ô CHIẾM) một hàng sẽ dùng để VẼ — nhịp THẬT (Phase 11 R6,
+ * đọc từ `w:gridSpan` qua backend) khi có VÀ khớp đúng số ô của hàng; suy
+ * đoán bằng `coSpanHang` khi không (bảng mô hình tự soạn, không có lưới
+ * nguồn để đọc) — R6 đòi giữ đúng nhánh này cho ca không khai lưới, không
+ * được áp cho bảng CÓ khai lưới.
+ */
+export function nhipHangVe(
+  hang: string[],
+  nhipHang: number[] | undefined,
+  soCotTieuDe: number,
+): number[] {
+  if (nhipHang && nhipHang.length === hang.length) return nhipHang;
+  return coSpanHang(hang.length, soCotTieuDe);
+}
+
+/**
  * Một bảng đã đọc (`docBangTuPhanTu`/`Muc.bang`) → `Table` thật của `docx`,
  * viền thấy được và hàng đầu in đậm (Phase 7 R2/R3: khớp đúng bảng biểu mẫu
  * tiếng Việt có hàng tiêu đề trên màn hình). KHÔNG đặc cách bảng nào — cùng
  * một hàm cho MỌI `<table>` đã render, kể cả bảng đánh giá. Hàng ngắn hơn
- * hàng tiêu đề (Phase 8 R4, ô gộp) dùng `columnSpan` qua `coSpanHang`, cùng
+ * hàng tiêu đề (Phase 8 R4, ô gộp) dùng `columnSpan` qua `nhipHangVe`, cùng
  * quy ước `XemTruocA4` dùng để vẽ trên màn hình — một hàng không "trôi" cột
- * giữa xem trước và tệp tải về.
+ * giữa xem trước và tệp tải về. `tiLe` (Phase 11 R1) đặt bề rộng từng cột
+ * qua `TableCell.width` — chia đều khi rỗng hoặc sai số cột.
  *
  * Tự `import("docx")` (module đã nạp thì cache lại, không tốn thêm) thay vì
  * nhận các lớp `docx` qua tham số: hàm phải gọi được ĐỘC LẬP với `xuatWord`
  * để kiểm (`kiem-xuat-tep.ts`) mà không cần dựng cả khung DOM thật.
  */
-export async function bangThanhTable(hang: string[][]) {
+export async function bangThanhTable(hang: string[][], nhip: number[][] = [], tiLe: number[] = []) {
   const { AlignmentType, BorderStyle, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } =
     await import("docx");
   const vien = { style: BorderStyle.SINGLE, size: 4, color: "999999" };
   const soCotTieuDe = hang[0]?.length ?? 0;
+  const tiLeVe = tiLeCotVe(tiLe, soCotTieuDe);
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: {
@@ -476,11 +569,15 @@ export async function bangThanhTable(hang: string[][]) {
       insideVertical: vien,
     },
     rows: hang.map((o, hi) => {
-      const span = coSpanHang(o.length, soCotTieuDe);
+      const span = nhipHangVe(o, nhip[hi], soCotTieuDe);
+      let cotDauTien = 0;
       return new TableRow({
         children: o.map((c, oi) => {
           const cot = span[oi] ?? 1;
+          const rongO = tiLeVe.slice(cotDauTien, cotDauTien + cot).reduce((a, b) => a + b, 0);
+          cotDauTien += cot;
           return new TableCell({
+            width: { size: rongO, type: WidthType.PERCENTAGE },
             borders: { top: vien, bottom: vien, left: vien, right: vien },
             // `exactOptionalPropertyTypes`: `shading`/`columnSpan` phải VẮNG
             // MẶT khi không dùng, không gán `undefined` — spread có điều
@@ -591,7 +688,9 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
   // Đoạn văn dựng NGAY (đồng bộ); bảng dựng bất đồng bộ (`bangThanhTable` tự
   // `import("docx")`) — `Promise.all` giữ ĐÚNG thứ tự `khoi` đã đọc từ DOM.
   const noiDungThan = await Promise.all(
-    khoi.map((k) => (k.kind === "dong" ? Promise.resolve(para(k.d)) : bangThanhTable(k.hang))),
+    khoi.map((k) =>
+      k.kind === "dong" ? Promise.resolve(para(k.d)) : bangThanhTable(k.hang, k.nhip, k.tiLe),
+    ),
   );
 
   const doc = new Document({
@@ -642,6 +741,12 @@ const LE_PDF = { tren: 20, duoi: 20, trai: 30, phai: 20 };
 const RONG_A4 = 210;
 const CAO_A4 = 297;
 const RONG_NOI_DUNG_PDF = RONG_A4 - LE_PDF.trai - LE_PDF.phai;
+
+/** % mỗi cột (đã qua `tiLeCotVe`, chia đều khi rỗng) → bề rộng mm trong PDF
+ * (Phase 11 R1) — MỘT chỗ quy đổi, dùng cho cả chiều cao đo và hình vẽ. */
+function rongCotPDF(tiLe: number[], soCot: number): number[] {
+  return tiLeCotVe(tiLe, soCot).map((p) => (p / 100) * RONG_NOI_DUNG_PDF);
+}
 
 /**
  * Hệ số giãn dòng, truyền NGUYÊN vào `options.lineHeightFactor` của mọi lệnh
@@ -759,14 +864,22 @@ export async function noiDungThanhPDF(
    * (`chieuCaoKeTiep`) đo hàng tiêu đề của một bảng đứng NGAY sau một tiêu đề
    * — một nơi tính, không phải hai con số có thể lệch nhau.
    */
-  const chieuCaoHangBang = (o: string[], soCotTieuDe: number, laTieuDe: boolean): number => {
-    const rongCot = RONG_NOI_DUNG_PDF / soCotTieuDe;
-    const span = coSpanHang(o.length, soCotTieuDe);
+  const chieuCaoHangBang = (
+    o: string[],
+    soCotTieuDe: number,
+    laTieuDe: boolean,
+    rongCotMm: number[],
+    nhipHang: number[] | undefined,
+  ): number => {
+    const span = nhipHangVe(o, nhipHang, soCotTieuDe);
     pdf.setFont(HO_CHU_PDF, laTieuDe ? "bold" : "normal");
     pdf.setFontSize(CO_CHU_BANG_PDF);
+    let cotDauTien = 0;
     const soDongToiDa = o.reduce((max, c, oi) => {
       const cot = span[oi] ?? 1;
-      const dong = pdf.splitTextToSize(c, rongCot * cot - 2 * DEM_O_PDF) as string[];
+      const rongO = rongCotMm.slice(cotDauTien, cotDauTien + cot).reduce((a, b) => a + b, 0);
+      cotDauTien += cot;
+      const dong = pdf.splitTextToSize(c, rongO - 2 * DEM_O_PDF) as string[];
       return Math.max(max, dong.length);
     }, 1);
     return soDongToiDa * (CO_CHU_BANG_PDF * MM_MOI_PT * HE_SO_DONG_PDF) + 2 * DEM_O_PDF;
@@ -776,18 +889,28 @@ export async function noiDungThanhPDF(
    * thật VÀ để lặp lại hàng tiêu đề ở đầu mỗi trang bảng chẻ sang (R3 fix
    * round 1 #2): thiếu bước lặp này thì trang sau của một bảng dài mất tên
    * cột, không ai biết cột nào là "Điểm tối đa", cột nào là "Điểm đánh giá". */
-  const veMotHangBang = (o: string[], soCotTieuDe: number, laTieuDe: boolean) => {
-    const rongCot = RONG_NOI_DUNG_PDF / soCotTieuDe;
-    // `coSpanHang` — CÙNG luật ô gộp dùng cho màn hình (`XemTruocA4`) và
-    // `.docx` (`bangThanhTable`): ô cuối luôn ở cột cuối, ô liền trước gánh
-    // phần cột còn thiếu. Ba nơi vẽ bảng, MỘT luật đặt cột.
-    const span = coSpanHang(o.length, soCotTieuDe);
+  const veMotHangBang = (
+    o: string[],
+    soCotTieuDe: number,
+    laTieuDe: boolean,
+    rongCotMm: number[],
+    nhipHang: number[] | undefined,
+  ) => {
+    // `nhipHangVe` — CÙNG luật ô gộp dùng cho màn hình (`XemTruocA4`) và
+    // `.docx` (`bangThanhTable`): nhịp THẬT khi bảng có khai lưới nguồn (Phase
+    // 11 R6), suy từ số ô khi không. Ba nơi vẽ bảng, MỘT luật đặt cột.
+    const span = nhipHangVe(o, nhipHang, soCotTieuDe);
     pdf.setFont(HO_CHU_PDF, laTieuDe ? "bold" : "normal");
     pdf.setFontSize(CO_CHU_BANG_PDF);
-    const dongO = o.map((c, oi) => {
-      const cot = span[oi] ?? 1;
-      return pdf.splitTextToSize(c, rongCot * cot - 2 * DEM_O_PDF) as string[];
-    });
+    const rongO_: number[] = [];
+    {
+      let cotDauTien = 0;
+      for (const cot of o.map((_, oi) => span[oi] ?? 1)) {
+        rongO_.push(rongCotMm.slice(cotDauTien, cotDauTien + cot).reduce((a, b) => a + b, 0));
+        cotDauTien += cot;
+      }
+    }
+    const dongO = o.map((c, oi) => pdf.splitTextToSize(c, rongO_[oi]! - 2 * DEM_O_PDF) as string[]);
     const soDongToiDa = dongO.reduce((max, d) => Math.max(max, d.length), 1);
     const caoHang = soDongToiDa * (CO_CHU_BANG_PDF * MM_MOI_PT * HE_SO_DONG_PDF) + 2 * DEM_O_PDF;
 
@@ -798,8 +921,7 @@ export async function noiDungThanhPDF(
     pdf.setDrawColor(153, 153, 153);
     let xO = LE_PDF.trai;
     for (let oi = 0; oi < o.length; oi++) {
-      const cot = span[oi] ?? 1;
-      const rongO = rongCot * cot;
+      const rongO = rongO_[oi]!;
       pdf.rect(xO, y, rongO, caoHang);
       pdf.text(dongO[oi]!, xO + rongO / 2, y + DEM_O_PDF + CO_CHU_BANG_PDF * MM_MOI_PT, {
         align: "center",
@@ -812,23 +934,24 @@ export async function noiDungThanhPDF(
   };
 
   /** Một bảng — trả về số trang đã BẮT ĐẦU vẽ (hàng tiêu đề của nó). */
-  const veBang = (hang: string[][]): number => {
+  const veBang = (hang: string[][], nhip: number[][], tiLe: number[]): number => {
     const soCotTieuDe = hang[0]?.length ?? 0;
     if (soCotTieuDe === 0) return trang;
+    const rongCotMm = rongCotPDF(tiLe, soCotTieuDe);
     let trangBatDau: number | null = null;
 
     for (let hi = 0; hi < hang.length; hi++) {
       const o = hang[hi]!;
       const laTieuDe = hi === 0;
-      const caoHang = chieuCaoHangBang(o, soCotTieuDe, laTieuDe);
+      const caoHang = chieuCaoHangBang(o, soCotTieuDe, laTieuDe, rongCotMm, nhip[hi]);
       if (!conCho(caoHang)) {
         trangMoi();
         // Chẻ giữa bảng (không phải ngay hàng tiêu đề) — lặp lại hàng tiêu
         // đề ở đầu trang mới trước khi vẽ tiếp hàng vừa bị đẩy sang.
-        if (!laTieuDe) veMotHangBang(hang[0]!, soCotTieuDe, true);
+        if (!laTieuDe) veMotHangBang(hang[0]!, soCotTieuDe, true, rongCotMm, nhip[0]);
       }
       trangBatDau ??= trang;
-      veMotHangBang(o, soCotTieuDe, laTieuDe);
+      veMotHangBang(o, soCotTieuDe, laTieuDe, rongCotMm, nhip[hi]);
     }
     y += SAU_DOAN_PDF;
     return trangBatDau ?? trang;
@@ -889,7 +1012,13 @@ export async function noiDungThanhPDF(
     }
     const soCotTieuDe = ketiep.hang[0]?.length ?? 0;
     if (soCotTieuDe === 0) return 0;
-    return chieuCaoHangBang(ketiep.hang[0]!, soCotTieuDe, true);
+    return chieuCaoHangBang(
+      ketiep.hang[0]!,
+      soCotTieuDe,
+      true,
+      rongCotPDF(ketiep.tiLe, soCotTieuDe),
+      ketiep.nhip[0],
+    );
   };
 
   /** Một dòng (đoạn/tiêu đề) — trả về số trang đã vẽ lên. */
@@ -933,7 +1062,7 @@ export async function noiDungThanhPDF(
   const trangCuaKhoi: number[] = noiDung.khoi.map((k, i) => {
     const ketiep: KhoiKeTiep =
       i < noiDung.khoi.length - 1 ? noiDung.khoi[i + 1]! : soCotKy > 0 ? { kind: "oKy" } : null;
-    return k.kind === "dong" ? veDong(k.d, ketiep) : veBang(k.hang);
+    return k.kind === "dong" ? veDong(k.d, ketiep) : veBang(k.hang, k.nhip, k.tiLe);
   });
 
   let trangCuaKy: number | null = null;
