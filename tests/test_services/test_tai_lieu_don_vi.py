@@ -88,6 +88,28 @@ def test_toa_do_bang_ve_lai_la_TUPLE_chu_khong_phai_list(phien):
 
 
 @pytest.mark.integration
+def test_can_le_di_va_ve_dung_gia_tri_khong_ve_trai_mac_dinh(phien):
+    """Phase 9 U5 fix round 1 — đo được thật trên một draft: `_hang_don_vi`
+    thiếu khoá `can_le` khiến MỌI đơn vị đọc lại ra mặc định `trai` của
+    dataclass, dù `doc_tai_lieu.doc()` đã đọc đúng `giua` cho quốc hiệu và
+    `phai` cho dòng "Hà Nội, ngày...". Một phép kiểm chỉ xem khoá `can_le` có
+    mặt hay không (`assert "can_le" in ...`) sẽ ĐẬU trên chính lỗi này, vì
+    trước bản vá `don_vi_cua` vẫn trả về khoá đó — chỉ sai GIÁ TRỊ. Pin đúng
+    ba giá trị, không chỉ sự có mặt của trường."""
+    sub, ht = phien
+    viec = _viec(sub, ht)
+    don_vi = [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM", can_le="giua"),
+        DonViVanBan(chi_so=1, trang=1, offset_dau=40, noi_dung="Hà Nội, ngày ..... tháng .... năm 20...", can_le="phai"),
+        DonViVanBan(chi_so=2, trang=1, offset_dau=90, noi_dung="Họ và tên sinh viên: ………………"),  # mặc định `trai`
+    ]
+    tl.luu_don_vi(get_engine(), viec, don_vi)
+
+    ve = tl.don_vi_cua(get_engine(), viec, sub)
+    assert [d.can_le for d in ve] == ["giua", "phai", "trai"]
+
+
+@pytest.mark.integration
 def test_don_vi_cua_NGUOI_KHAC_la_None(phien):
     import uuid
 

@@ -327,6 +327,13 @@ def _hang_don_vi(d: DonViVanBan) -> dict:
         "do_tin": d.do_tin,
         "vung": d.vung,
         "bang": list(d.bang) if d.bang else None,
+        # Phase 9 U5 — thiếu khoá này thì `don_vi_cua` đọc lại luôn ra mặc
+        # định `trai` của dataclass, bất kể `doc_tai_lieu.doc()` đã đọc đúng
+        # `giua`/`phai` từ tệp: căn lề bị mất NGAY TẠI ranh giới lưu/đọc này,
+        # không phải ở tầng đối chiếu (`hieu_tai_lieu._can_le_theo_dong`) —
+        # đo được trên draft thật, mọi khối ra `can_le: "trai"` dù bảng đọc
+        # trực tiếp từ tệp đã có `giua` cho quốc hiệu/tiêu ngữ.
+        "can_le": d.can_le,
     }
 
 
@@ -370,6 +377,10 @@ def don_vi_cua(engine: Engine, viec_id: str, user_sub: str) -> list[DonViVanBan]
             # JSON không có tuple. Trả về list thì `DonViVanBan` hết bằng chính
             # nó sau một vòng lưu–đọc, và phép so sánh hỏng im lặng.
             bang=tuple(d["bang"]) if d.get("bang") else None,
+            # Phase 9 U5 — `.get(...) or "trai"` để một dòng lưu TRƯỚC phase
+            # này (chưa từng có khoá `can_le`) vẫn đọc ra được, đúng mặc định
+            # `DonViVanBan.can_le` — không suy đoán gì hơn những gì đã lưu.
+            can_le=d.get("can_le") or "trai",
         )
         for d in (r[0] or [])
     ]
