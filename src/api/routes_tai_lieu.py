@@ -146,7 +146,12 @@ async def _kiem_han_muc(nguoi: dict) -> None:
     """
     from src.services import bao_ve
 
-    goi = str(nguoi.get("goi") or "free")
+    # Gói HIỆU LỰC đọc từ `users` (xét `plan_het_han`), không phải từ dict xác
+    # thực: `nguoi_dung_bat_buoc` chỉ trả `{"sub", "email"}`, không có `goi`.
+    # Cùng khuôn mọi cổng hạn mức khác trong codebase (`routes.py`,
+    # `routes_hoi_thoai.py`, `routes_tai_khoan.py`) — đây từng là chỗ DUY NHẤT
+    # tự chế lấy gói và luôn ra "free" bất kể tài khoản đã nâng gói.
+    goi = await run_in_threadpool(bao_ve.plan_hieu_luc, nguoi["sub"])
     tran = tl.han_muc_ngay(goi)
     da_dung = await run_in_threadpool(tl.da_dung_hom_nay, get_engine(), nguoi["sub"])
     if da_dung >= tran:
