@@ -284,8 +284,13 @@ async def _chuan_bi_phien(
     # Tính một lần ở đây (không phải trong graph): `_re_sau_route` là một hàm
     # THUẦN của state, không được chạm DB, và `hieu_tai_lieu` (R4) cần cùng
     # giá trị này để biết bản thảo ĐANG CÓ khi sửa — một lượt gọi, hai nơi đọc.
+    # Bản NHẸ (`ban_thao_tong_quat_dang_mo_nhe`, PostgreSQL review) — hàm này
+    # chạy trên MỌI lượt hỏi có danh tính, không chỉ lượt soạn, nên kéo cả
+    # `phien_ban_truoc`/`clauses`/`facts` (như `moi_nhat_cua_hoi_thoai` đầy đủ
+    # vẫn làm cho `dung_ban_thao_tong_quat`) là trả giá nặng cho một phép
+    # kiểm truthy cộng hai trường `document`/`audit`.
     ban_thao_tong_quat = await run_in_threadpool(
-        ban_thao.moi_nhat_cua_hoi_thoai, user_sub, pid, ban_thao.LOAI_TONG_QUAT
+        ban_thao.ban_thao_tong_quat_dang_mo_nhe, user_sub, pid
     )
     return (
         req.model_copy(update={"lich_su": [LuotTruoc(**luot) for luot in lich_su]}),
