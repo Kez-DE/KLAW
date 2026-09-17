@@ -658,12 +658,21 @@ function ManHoiKlaw() {
     const kq = await taiLen(tep, phienHienCo, loaiDangSoan);
     datDangDocTep(false);
     if (!kq.ok) {
-      toast.error(kq.error.message, { id: idToast });
+      // `duration` TƯỜNG MINH (Phase 9 U3): `toast.loading` mặc định
+      // `duration: Infinity` (đúng — một chỉ báo đang tải không tự biến
+      // mất), và sonner GIỮ NGUYÊN trường đó khi cùng `id` được cập nhật
+      // thành `error`/`success` nếu lượt gọi sau không tự khai lại — toast
+      // "kết quả" thừa kế "không bao giờ tắt" của toast "đang tải", và đó là
+      // lý do nó nằm lì đè lên nút gửi. Khai lại `duration` ở CẢ hai nhánh.
+      toast.error(kq.error.message, { id: idToast, duration: 4000 });
       return;
     }
     tepGocTheoId.current.set(kq.data.id, tep);
     ghiNhoDinhKem({ id: kq.data.id, ten_tep: kq.data.ten_tep || tep.name });
-    toast.success("Đã đính kèm. Hỏi gì về tài liệu này cũng được.", { id: idToast });
+    toast.success("Đã đính kèm. Hỏi gì về tài liệu này cũng được.", {
+      id: idToast,
+      duration: 4000,
+    });
     if (phienHienCo !== null || !kq.data.hoi_thoai_id) return;
     // Phiên máy chủ vừa mở hộ. Ghim lên URL để tải lại trang không mất nó, và
     // ghi cả hai cái chốt một-lần (`phienDangHien`, `daGhim`) TRƯỚC khi điều

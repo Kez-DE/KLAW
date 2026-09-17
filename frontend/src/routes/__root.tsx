@@ -238,7 +238,14 @@ function RootComponent() {
         <div key={pathname} className="route-enter">
           <Outlet />
         </div>
-        <Toaster position="bottom-right" />
+        {/* `top-center` (Phase 9 U3) — `bottom-right` phủ đúng lên nút gửi của
+            ô soạn câu hỏi (đo trực tiếp trên trang: rect toast và rect nút
+            gửi chồng nhau, `elementFromPoint` tại tâm nút trả về `LI` của
+            toast chứ không phải nút). Composer luôn neo cuối cột chat, cột
+            chat luôn ở CẠNH PHẢI màn hình (spec bố cục hai cột), nên góc dưới
+            bên phải KHÔNG BAO GIỜ là chỗ an toàn cho một toast — đổi hẳn góc,
+            không chỉ nhích vị trí. */}
+        <Toaster position="top-center" />
       </TaiKhoanProvider>
     </QueryClientProvider>
   );
