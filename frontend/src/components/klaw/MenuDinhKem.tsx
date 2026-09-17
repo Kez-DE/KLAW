@@ -86,7 +86,7 @@ export function MenuDinhKem({
             <span className="min-w-0">
               <span className="block text-sm">Thêm tệp & hình</span>
               <span className="block truncate text-xs text-muted-foreground">
-                PDF, DOCX hoặc ảnh chụp giấy tờ
+                PDF, DOCX, DOC hoặc ảnh chụp giấy tờ
               </span>
             </span>
           </button>

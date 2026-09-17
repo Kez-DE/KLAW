@@ -95,7 +95,7 @@ export interface TaiLieu {
 }
 
 /** Định dạng backend đọc được. Ảnh và bản scan đi qua OCR. */
-export const DINH_DANG_CHAP_NHAN = ".pdf,.docx,.png,.jpg,.jpeg,.tif,.tiff,.webp";
+export const DINH_DANG_CHAP_NHAN = ".pdf,.docx,.doc,.png,.jpg,.jpeg,.tif,.tiff,.webp";
 export const TRAN_BYTE = 20 * 1024 * 1024;
 
 const DUOI_ANH = [".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp", ".bmp", ".heic"];
@@ -226,7 +226,12 @@ export function theoTrang(du_kien: DuKien[]): { trang: number | null; items: DuK
 /** Tên tệp có nằm trong hai định dạng đọc được không — chặn trước khi tải lên. */
 export function dinhDangHopLe(tenTep: string): boolean {
   const ten = tenTep.toLowerCase();
-  return ten.endsWith(".pdf") || ten.endsWith(".docx") || DUOI_ANH.some((d) => ten.endsWith(d));
+  return (
+    ten.endsWith(".pdf") ||
+    ten.endsWith(".docx") ||
+    ten.endsWith(".doc") ||
+    DUOI_ANH.some((d) => ten.endsWith(d))
+  );
 }
 
 /** Tệp này sẽ phải đi qua OCR — dùng để báo trước rằng kết quả là chữ máy đọc. */
@@ -241,7 +246,8 @@ export function seDungOcr(tenTep: string): boolean {
  * cho kiểm ở backend: giao diện là tiện lợi, backend là ranh giới tin cậy.
  */
 export function loiTruocKhiGui(tenTep: string, soByte: number): string | null {
-  if (!dinhDangHopLe(tenTep)) return "Gửi được tệp PDF, DOCX, hoặc ảnh (PNG, JPG, TIFF, WEBP).";
+  if (!dinhDangHopLe(tenTep))
+    return "Gửi được tệp PDF, DOCX, DOC, hoặc ảnh (PNG, JPG, TIFF, WEBP).";
   if (soByte > TRAN_BYTE) return "Tệp vượt giới hạn 20 MB.";
   return null;
 }
