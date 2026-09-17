@@ -4,7 +4,6 @@ import { Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
-import { CuaSoTroLy } from "@/components/klaw/CuaSoTroLy";
 import { ManChao } from "@/components/klaw/ManChao";
 import { MaTruyVet } from "@/components/klaw/MaTruyVet";
 import { KhungDoiChieu, useHaiCot } from "@/components/klaw/KhungDoiChieu";
@@ -29,12 +28,12 @@ import { dinhDangMoc, laBiKhoa, laKhongGioiHan } from "@/lib/han-muc";
 import { layThreadKhach, xoaThreadKhach } from "@/lib/khach";
 import {
   RONG_DOI_CHIEU_MAC_DINH,
+  RONG_SAN_KHAU_MAC_DINH,
   bienPanelDoiChieu,
   docCuaSo,
   docRongDaLuu,
   kepCuaSo,
   kepRong,
-  luuCuaSo,
   luuRong,
   type CuaSo,
 } from "@/lib/keo-dan";
@@ -185,6 +184,32 @@ function ManHoiKlaw() {
     datRongDoiChieu(px);
     luuRong("klaw.doi-chieu.rong", px);
   };
+  // Bề rộng khung bản thảo (sân khấu) ở bố cục hai cột (D5, canvas-tai-lieu
+  // Phase 2) — CÙNG khuôn kẹp/nhớ với khung đối chiếu ngay trên, khoá
+  // localStorage RIÊNG. Dùng lại NGUYÊN `bienPanelDoiChieu`: hàm đó chỉ tính
+  // "còn lại bao nhiêu cho panel bên phải mà cột chat vẫn còn tối thiểu
+  // 480px" — một phép tính đúng cho BẤT KỲ panel nào đứng bên phải chat, không
+  // phải hàm riêng cho khung đối chiếu dù tên gọi vậy; viết thêm một hàm kẹp
+  // thứ hai chỉ để đổi tên là nhân đôi cùng một phép tính.
+  const [bienSanKhau, datBienSanKhau] = useState(() =>
+    bienPanelDoiChieu(typeof window === "undefined" ? 1440 : window.innerWidth),
+  );
+  const [rongSanKhau, datRongSanKhauRaw] = useState(() =>
+    kepRong(docRongDaLuu("klaw.san-khau.rong", RONG_SAN_KHAU_MAC_DINH), bienSanKhau),
+  );
+  useEffect(() => {
+    const capNhat = () => {
+      const bienMoi = bienPanelDoiChieu(window.innerWidth);
+      datBienSanKhau(bienMoi);
+      datRongSanKhauRaw((r) => kepRong(r, bienMoi));
+    };
+    window.addEventListener("resize", capNhat);
+    return () => window.removeEventListener("resize", capNhat);
+  }, []);
+  const datRongSanKhauVaLuu = (px: number) => {
+    datRongSanKhauRaw(px);
+    luuRong("klaw.san-khau.rong", px);
+  };
   // Một nguồn duy nhất cho danh tính + hạn mức (spec 2A §7). Màn này KHÔNG còn
   // khoá ô hỏi khi chưa đăng nhập: khách hỏi thử 10 lượt/24 giờ với `X-Khach-Id`
   // (spec 2A §8) và chỉ gặp thẻ mời đăng nhập khi thật sự hết lượt — bắt đăng
@@ -292,11 +317,6 @@ function ManHoiKlaw() {
    *  giữ mảng này thì người dùng sửa xong chỉ thấy đúng giá trị cũ. Ghim theo
    *  `trace_id` để bản vá của lượt này không dính sang lượt trả lời kế tiếp. */
   const [hoSoDaSua, datHoSoDaSua] = useState<{ trace: string; hoSo: HoSoDaDung[] } | null>(null);
-  const datCuaSo = (cs: CuaSo) => {
-    datCuaSoRaw(cs);
-    luuCuaSo(KHOA_CUA_SO_TRO_LY, cs);
-    if (!cs.thu) datChuaDoc(0); // mở lại (bong bóng → cửa sổ): coi như đã đọc
-  };
   useEffect(() => {
     const capNhat = () =>
       datCuaSoRaw((cs) => kepCuaSo(cs, { w: window.innerWidth, h: window.innerHeight }));
@@ -1272,41 +1292,58 @@ function ManHoiKlaw() {
           </div>
         ) : dangSanKhau ? (
           <>
-            {/* Sân khấu bản thảo: chiếm toàn `<main>` khi đã tải xong ĐÚNG
-                bản thảo đang mở; khi đang chờ (vừa bấm "Mở bản thảo", hoặc
-                đang chuyển sang một bản thảo khác) hiện một trạng thái chờ
-                đơn giản thay vì thoáng hiện nội dung của bản thảo trước. */}
-            {banThaoSanKhau !== null ? (
-              <SanKhauBanThao
-                banThao={banThaoSanKhau}
-                cauTruc={cauTrucSanKhau}
-                truongMau={truongMauSanKhau}
-                dangTai={dangTaiKhungSanKhau}
-                loiKhung={loiKhungSanKhau}
-                onTaiLaiKhung={() => datLanTaiKhungSanKhau((n) => n + 1)}
-                mucDangChon={mucDangChonSanKhau}
-                onChonMuc={datMucDangChonSanKhau}
-                capNhatBanThao={datBanThaoMo}
-                onLui={onLuiSanKhau}
-                onDong={onDongSanKhau}
-                onPhimTat={onPhimTatSanKhau}
-                toanMan={false}
-              />
-            ) : (
-              <div className="flex flex-1 items-center justify-center">
-                <p className="m-0 text-[14px] text-muted-foreground" role="status">
-                  Đang mở bản thảo…
-                </p>
-              </div>
-            )}
-            <CuaSoTroLy
-              cuaSo={cuaSo}
-              onDoiCuaSo={datCuaSo}
-              chuaDoc={chuaDoc}
-              onVeHaiCot={onDongSanKhau}
+            {/* Chat trái + `TayKeo` + bản thảo phải (D5, canvas-tai-lieu Phase
+                2) — cùng khuôn với khung đối chiếu bên dưới: chat luôn
+                `flex-1` (tự co theo phần còn lại), khung bản thảo có độ rộng
+                RIÊNG do người dùng kéo. Trợ lý không còn lùi thành cửa sổ nổi
+                che tài liệu — đúng điều Phase 2 sửa. */}
+            {noiDungChat}
+            <TayKeo
+              giaTri={rongSanKhau}
+              bien={bienSanKhau}
+              nhan="Kéo để đổi độ rộng khung bản thảo"
+              dieuKhienId="san-khau-ban-thao"
+              chieu={-1}
+              onDoi={datRongSanKhauVaLuu}
+              onThuGon={() =>
+                datRongSanKhauVaLuu(
+                  rongSanKhau > bienSanKhau.min ? bienSanKhau.min : RONG_SAN_KHAU_MAC_DINH,
+                )
+              }
+              onMacDinh={() => datRongSanKhauVaLuu(RONG_SAN_KHAU_MAC_DINH)}
+            />
+            <div
+              id="san-khau-ban-thao"
+              className="min-h-0 shrink-0 border-l border-border"
+              style={{ width: kepRong(rongSanKhau, bienSanKhau) }}
             >
-              {noiDungChat}
-            </CuaSoTroLy>
+              {/* Đang tải ĐÚNG bản thảo đang mở, hoặc đang chuyển sang một bản
+                  thảo khác: hiện trạng thái chờ đơn giản thay vì thoáng hiện
+                  nội dung của bản thảo trước. */}
+              {banThaoSanKhau !== null ? (
+                <SanKhauBanThao
+                  banThao={banThaoSanKhau}
+                  cauTruc={cauTrucSanKhau}
+                  truongMau={truongMauSanKhau}
+                  dangTai={dangTaiKhungSanKhau}
+                  loiKhung={loiKhungSanKhau}
+                  onTaiLaiKhung={() => datLanTaiKhungSanKhau((n) => n + 1)}
+                  mucDangChon={mucDangChonSanKhau}
+                  onChonMuc={datMucDangChonSanKhau}
+                  capNhatBanThao={datBanThaoMo}
+                  onLui={onLuiSanKhau}
+                  onDong={onDongSanKhau}
+                  onPhimTat={onPhimTatSanKhau}
+                  toanMan={false}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <p className="m-0 text-[14px] text-muted-foreground" role="status">
+                    Đang mở bản thảo…
+                  </p>
+                </div>
+              )}
+            </div>
           </>
         ) : (
           <>
