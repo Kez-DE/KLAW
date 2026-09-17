@@ -49,6 +49,19 @@ class _JsonDoDangError(Exception):
     """
 
 
+class TruncatedOutputError(ValueError):
+    """CÔNG KHAI (không tiền tố `_`) — Phase 16 R2/R3: cắt CẤU TRÚC đã cạn ngân
+    sách một-lần-thử-lại của `_JsonDoDangError` (xem docstring lớp đó, không
+    đổi). Trước bản vá này chỗ `raise` bên dưới ném thẳng `ValueError`, buộc
+    caller muốn phản ứng riêng cho "đầu ra không vừa một lượt" phải so khớp
+    CHUỖI tiếng Việt của thông điệp lỗi — giòn, gãy theo câu chữ. Là lớp con
+    của `ValueError` nên MỌI `except ValueError`/`except Exception` đang có
+    (cả trong file này lẫn mọi node gọi `llm.chat`) vẫn bắt được y hệt, không
+    hành vi nào đổi; chỉ thêm một cửa để `hieu_tai_lieu` (chia tài liệu thành
+    nhiều lượt) phân biệt được ca này với lỗi hạ tầng khác, trả lời đúng người
+    dùng thay vì "chưa đọc được, thử lại" chung chung."""
+
+
 @dataclass(frozen=True)
 class Usage:
     token_in: int
@@ -219,7 +232,7 @@ class LlmClient:
             except _JsonDoDangError as e:
                 so_lan_length_cat += 1
                 if so_lan_length_cat > 1 or attempt == self.max_retries:
-                    raise ValueError(
+                    raise TruncatedOutputError(
                         f"model {model}: JSON bị cắt giữa chừng (finish_reason={e}) sau "
                         f"{so_lan_length_cat} lần thử — có vẻ CẤU TRÚC (schema + ngữ cảnh cần "
                         f"nhiều token hơn provider chịu phát), không thử thêm"
@@ -259,7 +272,24 @@ class LlmClient:
             time.sleep(cho)
         raise AssertionError("unreachable")  # vòng lặp luôn raise hoặc return ở trên
 
-    def chat(self, model: str, messages: list[dict], json_schema: dict | None = None) -> tuple[str, Usage]:
+    def chat(
+        self, model: str, messages: list[dict], json_schema: dict | None = None, max_tokens: int | None = None,
+    ) -> tuple[str, Usage]:
+        """`max_tokens=None` (mặc định, mọi caller trước Phase 16) giữ hành vi
+        CŨ Y HỆT: không gửi trường này, để provider tự quyết trần — đúng thứ
+        brief Phase 16 R1 chỉ ra là "không ai biết là bao nhiêu". Caller nào
+        biết trần THẬT của model mình gọi (đo được, không đoán — xem
+        `hieu_tai_lieu.TOI_DA_TOKEN_RA`) thì truyền số đó vào, thay vì im lặng
+        phó mặc một mặc định vô hình.
+
+        Đã THỬ và BỎ (Phase 16, xem `.sdd/phase-16-report.md`): tắt hẳn suy
+        luận (`reasoning: {max_tokens: 0}`) làm MỘT tài liệu dày bảng ổn định
+        hơn trong ba lần gọi thô liên tiếp (luôn 8.133 token, `finish_reason=
+        stop`), nhưng qua ĐỦ đường thật (kèm retry) lại một lần đẻ ra JSON DỞ
+        DANG ở `finish_reason=stop` — hỏng NẶNG hơn `TruncatedOutputError` cũ
+        vì `finish_reason` không còn là `length` nữa nên llm.py không bắt
+        được, rơi thẳng xuống lỗi hạ tầng chung chung. Không đủ bằng chứng để
+        khẳng định tắt suy luận AN TOÀN hơn — không thêm tham số đó ở đây."""
         body: dict = {
             "model": model,
             "messages": messages,
@@ -271,6 +301,8 @@ class LlmClient:
                 "type": "json_schema",
                 "json_schema": {"name": "klaw", "strict": True, "schema": json_schema},
             }
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
         content, data = self._goi_va_lay_content(body, model)
         return content, self._usage_from(model, data)
 
