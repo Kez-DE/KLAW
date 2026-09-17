@@ -256,6 +256,13 @@ class SuaMucRequest(BaseModel):
     # trường — nhưng vẫn phải có trần: request này không qua `kiem_tran_chi_phi`
     # (không LLM), nên không có cổng nào khác chặn một thân bất thường.
     noi_dung: str = Field(..., max_length=20000)
+    # Review (I3, fix round 1) — phiên bản người dùng ĐANG NHÌN THẤY lúc gõ.
+    # `muc_key` cấp theo VỊ TRÍ và bị cấp lại mỗi lượt sửa bằng lời dựng lại
+    # `clauses` — thiếu trường này thì một khối mở từ TRƯỚC một lượt sửa như
+    # vậy, blur SAU khi nó chạy xong, ghi đúng vị trí nhưng sai mục, không một
+    # dấu hiệu nào báo ra. Bắt buộc (không có mặc định): route mới, chưa ai
+    # gọi nó theo hình dạng cũ để giữ tương thích ngược.
+    phien_ban: int = Field(..., ge=1)
 
 
 @router.patch("/ban-thao/{id}/muc", response_model=BanThaoOut)
@@ -271,15 +278,16 @@ async def sua_muc(id: str, body: SuaMucRequest, nguoi: dict = Depends(nguoi_dung
     `ban_thao.TRAN_SUA` (`sua_tay` tự gác, cùng bộ đếm `dung`/`dung_lai` dùng,
     xem docstring `sua_tay` cho lý do chia sẻ trần).
 
-    422 khi mục/khối không thấy hoặc khối đó là bảng (chưa sửa được ở giai
-    đoạn này) hoặc đã hết trần sửa — ba lỗi CÙNG MỘT HÌNH DẠNG (`sua_tay` trả
-    chuỗi), không phân biệt được bằng mã HTTP nhưng phân biệt được bằng
-    `detail`. 404 khi bản thảo không thấy/không phải chủ, cùng hợp đồng mọi
-    route khác ở đây.
+    422 khi mục/khối không thấy, khối đó là bảng (chưa sửa được ở giai đoạn
+    này), đã hết trần sửa, hoặc `phien_ban` đã đổi (I3 — một lượt sửa bằng lời
+    khác vừa chạy trong lúc khối này còn mở, xem docstring `sua_tay`) — bốn
+    lỗi CÙNG MỘT HÌNH DẠNG (`sua_tay` trả chuỗi), không phân biệt được bằng mã
+    HTTP nhưng phân biệt được bằng `detail`. 404 khi bản thảo không thấy/
+    không phải chủ, cùng hợp đồng mọi route khác ở đây.
     """
     id = _uuid_hop_le(id)
     ket = await run_in_threadpool(
-        ban_thao.sua_tay, nguoi["sub"], id, body.muc_key, body.khoi_index, body.noi_dung
+        ban_thao.sua_tay, nguoi["sub"], id, body.muc_key, body.khoi_index, body.noi_dung, body.phien_ban
     )
     if ket is None:
         raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY)
