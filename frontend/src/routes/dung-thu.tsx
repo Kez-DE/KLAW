@@ -232,8 +232,7 @@ function ManHoiKlaw() {
   const moSoanThao = (slug: string | null) => {
     datDangMo(null);
     doiChieu.dong();
-    datSanKhau(null); // ba khung (đối chiếu/soạn thảo/sân khấu) loại trừ nhau
-    datBanThaoMo(null);
+    onDongSanKhau(); // ba khung (đối chiếu/soạn thảo/sân khấu) loại trừ nhau — xoá sân khấu qua ĐÚNG một cửa (xem chú thích ở đó)
     datSoanThao({ slug });
   };
 
@@ -312,13 +311,20 @@ function ManHoiKlaw() {
     if (bt !== null && bt !== undefined && bt.id === sanKhau.banThaoId) datBanThaoMo(bt);
   }, [sanKhau, traCuu.dangChay, traCuu.ketQua]);
 
-  /** Đóng sân khấu — nút X, Esc, hoặc bị một khung khác (đối chiếu/soạn thảo)
-   *  thay chỗ. R6 (canvas-tai-lieu Phase 2): `?ban_thao=` ở LẠI trên URL suốt
-   *  lúc sân khấu mở (xem effect đọc `banThaoTrenUrl` bên dưới), nên đóng phải
-   *  GỠ nó — không thì tải lại trang sau khi đóng lại mở nhầm đúng bản thảo
-   *  vừa đóng. `useCallback` vì hiệu ứng Esc (R5, bên dưới) mang nó trong
-   *  dependency — không bọc thì listener bị gỡ/gắn lại ở MỌI lần dựng lại của
-   *  trang thay vì chỉ khi các giá trị nó đọc thật sự đổi. */
+  /** Đóng sân khấu — nút X, Esc, bị một khung khác (đối chiếu/soạn thảo) thay
+   *  chỗ, HOẶC `layBanThao` thất bại (bản thảo đã xoá/không truy cập được).
+   *  BẤT BIẾN: sân khấu đóng ⇒ không còn `?ban_thao=` trên URL. R6
+   *  (canvas-tai-lieu Phase 2) giữ tham số ở LẠI trong lúc sân khấu MỞ (xem
+   *  effect đọc `banThaoTrenUrl` bên dưới) — đây là nơi DUY NHẤT gỡ nó khi
+   *  đóng, nên ĐÂY PHẢI là nơi DUY NHẤT xoá `sanKhau`/`banThaoMo`. Thiếu bất
+   *  biến đó thì một liên kết `?ban_thao=` trỏ tới bản thảo đã xoá tải lại
+   *  mãi mãi, thử lại, báo lỗi, không có đường thoát trong ứng dụng — đúng lỗi
+   *  fix round 1 báo lại (`moSanKhau`'s nhánh lỗi từng gọi thẳng
+   *  `datSanKhau(null)`, không qua đây). Mọi chỗ khác cần đóng sân khấu phải
+   *  gọi hàm NÀY, không tự `datSanKhau(null)` riêng. `useCallback` vì hiệu ứng
+   *  Esc (R5, bên dưới) mang nó trong dependency — không bọc thì listener bị
+   *  gỡ/gắn lại ở MỌI lần dựng lại của trang thay vì chỉ khi các giá trị nó
+   *  đọc thật sự đổi. */
   const onDongSanKhau = useCallback(() => {
     datSanKhau(null);
     datBanThaoMo(null);
@@ -364,7 +370,11 @@ function ManHoiKlaw() {
       if (kq.ok) datBanThaoMo(kq.data);
       else {
         toast.error(kq.error.message);
-        datSanKhau(null);
+        // Bản thảo đã xoá/không truy cập được: đóng qua ĐÚNG một cửa
+        // (`onDongSanKhau`) để `?ban_thao=` cũng rời URL — thiếu bước này,
+        // một liên kết cũ tải lại là lặp lại y hệt lỗi này mãi mãi, không có
+        // đường thoát (fix round 1, Important 1).
+        onDongSanKhau();
       }
     });
   };
@@ -761,8 +771,7 @@ function ManHoiKlaw() {
     }
     datDangMo({ trace: ketQua.trace_id, chiSo });
     datSoanThao(null);
-    datSanKhau(null); // ba khung (đối chiếu/soạn thảo/sân khấu) loại trừ nhau
-    datBanThaoMo(null);
+    onDongSanKhau(); // ba khung (đối chiếu/soạn thảo/sân khấu) loại trừ nhau — xoá sân khấu qua ĐÚNG một cửa (xem chú thích ở đó)
     doiChieu.mo({
       docId: trichDan.doc_id,
       // `khop_tai_id`, KHÔNG `provision_id`: hai id khác nhau ở 73,6% số Điều.
@@ -1312,6 +1321,8 @@ function ManHoiKlaw() {
             <div
               id="san-khau-ban-thao"
               ref={khungSanKhau}
+              role="region"
+              aria-label="Bản thảo"
               className="min-h-0 shrink-0 border-l border-border"
               style={{ width: kepRong(rongSanKhau, bienSanKhau) }}
             >

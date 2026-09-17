@@ -156,7 +156,35 @@ export function AppShell({
   const rongMacDinh = useMinWidth(NGUONG_COT_DAY_DU);
   // R3: đã chọn (bấm nút) ⇒ lựa chọn đó thắng ở MỌI bề rộng còn đủ chỗ cho cột
   // trái (48rem trở lên); chưa chọn ⇒ ngưỡng 80rem quyết định như trước đây.
-  const [rongDaChon, datRongDaChon] = useState<boolean | null>(() => docCotTraiMoRong());
+  //
+  // Khởi tạo LUÔN là `null`, đọc `localStorage` trong `useEffect` — KHÔNG
+  // trong initializer của `useState` (fix round 1, Important 2). App này SSR
+  // thật (`nitro` node-server + tanstack-start): lượt render trên máy chủ
+  // không có `localStorage` nên luôn ra `rongMacDinh`; nếu initializer đọc
+  // `localStorage` thì lượt hydrate ĐẦU TIÊN trên trình duyệt sẽ đọc ra giá
+  // trị đã lưu và KHÔNG khớp lượt render máy chủ — đúng người dùng R3 sinh ra
+  // để phục vụ (đã từng bấm nút, khác mặc định ngưỡng) sẽ thấy `<aside>` giật
+  // ngay khung hình đầu. `useMinWidth` đã tránh đúng lỗi này bằng
+  // `useSyncExternalStore` + snapshot máy chủ `() => false`; đây là cùng kỷ
+  // luật đó cho một nguồn dữ liệu không phải media query.
+  const [rongDaChon, datRongDaChon] = useState<boolean | null>(null);
+  useEffect(() => {
+    const daChon = docCotTraiMoRong();
+    if (daChon !== null) datRongDaChon(daChon);
+  }, []);
+  // Dọn khoá localStorage chết của cửa sổ trợ lý nổi đã bị xoá (R2, phase
+  // trước) — không ai đọc/ghi nó nữa, nhưng nó vẫn nằm trong localStorage của
+  // MỌI người từng mở `/dung-thu` trước khi tính năng đó bị xoá, mãi mãi, nếu
+  // không ai dọn (fix round 1, Minor 4). `AppShell` mount ở mọi trang nên đây
+  // là chỗ chắc chắn chạy được, không phụ thuộc người dùng có quay lại
+  // `/dung-thu` hay không.
+  useEffect(() => {
+    try {
+      localStorage.removeItem("klaw.cua-so-tro-ly");
+    } catch {
+      /* không có localStorage: không có gì để dọn */
+    }
+  }, []);
   const rong = rongDaChon ?? rongMacDinh;
   const doiRong = () => {
     const moi = !rong;

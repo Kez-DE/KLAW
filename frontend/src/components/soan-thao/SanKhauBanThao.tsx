@@ -386,31 +386,38 @@ export function SanKhauBanThao({
         className={cn("flex min-h-0", toanMan && "flex-col")}
         style={{ ["--rong-muc" as string]: `${rongMuc}px` }}
       >
-        {toanMan ? (
-          <details className="shrink-0 border-b border-border p-3">
-            <summary className="cursor-pointer text-[13px] font-medium text-foreground">
-              Các mục
-            </summary>
-            <div className="mt-2">{danhSachMuc}</div>
-          </details>
-        ) : (
-          <>
-            <div
-              id="san-khau-danh-sach-muc"
-              className="w-[var(--rong-muc)] shrink-0 overflow-y-auto border-r border-border p-3"
-            >
-              {danhSachMuc}
-            </div>
+        {/* Bản thảo tổng quát (fix round 1, mục 5): không có "Sửa" nào để mở
+            (nút đã ẩn ở trên, laTongQuat), nên cột này chỉ lặp lại đúng những
+            tiêu đề A4 đã hiện, ăn mất bề rộng tài liệu cần. Ẩn hẳn cột — kể cả
+            `<details>` ở bố cục hẹp — và để A4 chiếm trọn; giữ lại cho bản
+            thảo theo checklist, nơi "Sửa" vẫn là lối DUY NHẤT vào
+            `DrawerSuaMuc` cho tới khi sửa tại chỗ thay được nó. */}
+        {!laTongQuat &&
+          (toanMan ? (
+            <details className="shrink-0 border-b border-border p-3">
+              <summary className="cursor-pointer text-[13px] font-medium text-foreground">
+                Các mục
+              </summary>
+              <div className="mt-2">{danhSachMuc}</div>
+            </details>
+          ) : (
+            <>
+              <div
+                id="san-khau-danh-sach-muc"
+                className="w-[var(--rong-muc)] shrink-0 overflow-y-auto border-r border-border p-3"
+              >
+                {danhSachMuc}
+              </div>
 
-            <TayKeo
-              giaTri={rongMuc}
-              bien={BIEN_MUC}
-              nhan="Kéo để đổi bề rộng danh sách mục"
-              dieuKhienId="san-khau-danh-sach-muc"
-              onDoi={datRongMuc}
-            />
-          </>
-        )}
+              <TayKeo
+                giaTri={rongMuc}
+                bien={BIEN_MUC}
+                nhan="Kéo để đổi bề rộng danh sách mục"
+                dieuKhienId="san-khau-danh-sach-muc"
+                onDoi={datRongMuc}
+              />
+            </>
+          ))}
 
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center gap-3 border-b border-border px-3 py-2">
