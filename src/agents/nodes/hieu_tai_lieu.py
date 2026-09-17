@@ -185,11 +185,36 @@ def schema_hieu(nhan: list[str]) -> dict:
             # Văn bản MỚI mô hình soạn từ tài liệu (S6). Rỗng ở mọi lượt khác
             # `tao_van_ban`/`sua_ban_thao` — `muc_dich` là thứ quyết định, không
             # phải sự có mặt của mảng này.
+            #
+            # `bang` (Phase 7 R1): mảng hàng, mỗi hàng là mảng ô — HÀNG ĐẦU là
+            # hàng tiêu đề. Rỗng khi mục là văn xuôi (`noi_dung` mang lời văn);
+            # khi mục vốn là một BẢNG trong tài liệu nguồn thì `bang` mang nội
+            # dung và `noi_dung` để rỗng. Cả hai đều `required` (`json_schema`
+            # strict không có trường tuỳ chọn) — "rỗng" chứ không "vắng mặt" là
+            # cách một trong hai đứng ngoài, giống mọi mảng khác của lược đồ này.
             "van_ban": {
                 "type": "object",
                 "additionalProperties": False,
                 "required": ["tieu_de", "muc"],
-                "properties": {"tieu_de": {"type": "string"}, "muc": _mang("ten", "noi_dung")},
+                "properties": {
+                    "tieu_de": {"type": "string"},
+                    "muc": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["ten", "noi_dung", "bang"],
+                            "properties": {
+                                "ten": {"type": "string"},
+                                "noi_dung": {"type": "string"},
+                                "bang": {
+                                    "type": "array",
+                                    "items": {"type": "array", "items": {"type": "string"}},
+                                },
+                            },
+                        },
+                    },
+                },
             },
         },
     }
@@ -565,16 +590,33 @@ def lam_sach_van_ban(van_ban: dict, nguon: str) -> tuple[dict, dict]:
 
         return _RE_GIA_TRI.sub(_thay, s)
 
+    def _bang_sach(bang_tho) -> list[list[str]]:
+        """`bang` thô → hàng×ô đã làm sạch, đúng phép `_sach` như `ten`/
+        `noi_dung`: một ô cũng là một giá trị có thể bịa (Phase 7 R1). Hàng nào
+        không phải mảng thì bị BỎ (không nổ cả mục vì một hàng sai hình dạng)."""
+        if not isinstance(bang_tho, list):
+            return []
+        return [[_sach(str(o).strip()) for o in hang] for hang in bang_tho if isinstance(hang, list)]
+
     giu: list[dict] = []
     for o in (van_ban or {}).get("muc") or []:
         if not isinstance(o, dict):
             continue
         ten, noi_dung = str(o.get("ten") or "").strip(), str(o.get("noi_dung") or "").strip()
-        if not ten or not noi_dung:
+        if not ten:
             continue
         truoc = dem["gia_tri_lam_sach"]
         ten, noi_dung = _sach(ten), _sach(noi_dung)
-        if _vuong_luoi_chan(f"{ten}\n{noi_dung}"):
+        bang = _bang_sach(o.get("bang"))
+        # Một mục là BẢNG mang nội dung ở `bang`, không ở `noi_dung` — cần MỘT
+        # trong hai, không cả hai (rule 15, prompt hieu_tai_lieu.v1.md). Xét
+        # SAU khi làm sạch: một `bang` sai hình dạng (không phải mảng hàng) dọn
+        # về rỗng, và mục đó thật sự không còn nội dung nào, y hệt `noi_dung`
+        # rỗng — không phải một hình dạng đặc biệt được tha.
+        if not noi_dung and not bang:
+            dem["gia_tri_lam_sach"] = truoc
+            continue
+        if _vuong_luoi_chan("\n".join([ten, noi_dung, *(o for hang in bang for o in hang)])):
             dem["muc_bo"] += 1
             # Giá trị đã thay trong một mục bị bỏ không còn là một phép làm
             # sạch người đọc thấy được — trả lại bộ đếm cho đúng.
@@ -582,7 +624,9 @@ def lam_sach_van_ban(van_ban: dict, nguon: str) -> tuple[dict, dict]:
             continue
         if dem["gia_tri_lam_sach"] > truoc:
             dem["muc_lam_sach"] += 1
-        giu.append({"ten": ten, "noi_dung": noi_dung})
+        # `bang` LUÔN có mặt (rỗng cho mục văn xuôi) — MỘT hình dạng clause cho
+        # cả hàng cũ (không mang khoá này) lẫn hàng mới, khớp `clauses_tu`.
+        giu.append({"ten": ten, "noi_dung": noi_dung, "bang": bang})
     return {"tieu_de": _sach(str((van_ban or {}).get("tieu_de") or "").strip()), "muc": giu}, dem
 
 

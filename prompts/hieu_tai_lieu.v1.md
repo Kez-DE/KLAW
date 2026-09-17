@@ -97,10 +97,15 @@ trí của nó trong tài liệu.
     hoa như tiêu đề một văn bản Việt. `muc` là các mục theo ĐÚNG thứ tự một văn
     bản Việt loại đó dùng (biên bản: thời gian – địa điểm – thành phần – nội
     dung – kết luận; đơn: kính gửi – người làm đơn – nội dung – đề nghị), mỗi
-    mục có `ten` ngắn và `noi_dung` là lời văn hoàn chỉnh.
-    Mọi giá trị trong `noi_dung` phải lấy TỪ TÀI LIỆU hoặc từ chính lời người
-    hỏi. Không có thì viết `[…]` ở đúng chỗ đó và đi tiếp — `[…]` là câu trả
-    lời đúng, một giá trị đoán thì không.
+    mục có `ten` ngắn và, tuỳ mục đó là văn xuôi hay bảng, MỘT trong hai:
+    `noi_dung` là lời văn hoàn chỉnh, HOẶC — khi mục vốn là một BẢNG trong tài
+    liệu nguồn — `bang` là mảng các hàng theo ĐÚNG thứ tự tài liệu, mỗi hàng là
+    mảng các ô theo ĐÚNG thứ tự cột, HÀNG ĐẦU TIÊN là hàng tiêu đề cột. Khi
+    dùng `bang` thì để `noi_dung` là chuỗi rỗng — ĐỪNG gõ lại bảng bằng ký tự
+    `|` hay xuống dòng vào `noi_dung`, `bang` đã là chỗ đúng cho nó.
+    Mọi giá trị trong `noi_dung` (hoặc trong một ô của `bang`) phải lấy TỪ TÀI
+    LIỆU hoặc từ chính lời người hỏi. Không có thì viết `[…]` ở đúng chỗ đó và
+    đi tiếp — `[…]` là câu trả lời đúng, một giá trị đoán thì không.
     Không bịa tên người, ngày tháng, số tiền, số hiệu văn bản, số Điều/Khoản.
     Không viết khối chữ ký nói rằng ai đó ĐÃ ký: chưa ai ký cả, cùng lắm là
     dòng chức danh cần ký với `[…]` ở chỗ họ tên.
