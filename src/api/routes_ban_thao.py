@@ -15,7 +15,14 @@ from starlette.concurrency import run_in_threadpool
 from src.agents.graph_soan_thao import load_checklist_cached, rules_cho
 from src.agents.nodes.gom_du_kien import con_thieu, lua_chon_sai
 from src.api.routes import _validate_facts
-from src.models.schemas import BanThaoOut, BanThaoTomTatOut, DanhSachBanThaoOut
+from src.models.schemas import (
+    BanThaoOut,
+    BanThaoPhienBanChiTietOut,
+    BanThaoPhienBanOut,
+    BanThaoTomTatOut,
+    DanhSachBanThaoOut,
+    DanhSachPhienBanOut,
+)
 from src.services import ban_thao, bao_ve
 from src.services.bao_ve import nguoi_dung_bat_buoc
 
@@ -96,6 +103,40 @@ async def chi_tiet(id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BanTh
     if bt is None:
         raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY)
     return _out(bt)
+
+
+@router.get("/ban-thao/{id}/phien-ban", response_model=DanhSachPhienBanOut)
+async def danh_sach_phien_ban(id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> DanhSachPhienBanOut:
+    """Phase 4 (D11, R4) — danh sách phiên bản CŨ của một bản thảo, để vẽ một
+    bảng lịch sử. Phiên bản đang SỐNG không nằm trong danh sách này — giao
+    diện đã có nó từ `GET /ban-thao/{id}` (`BanThaoOut.phien_ban`)."""
+    id = _uuid_hop_le(id)
+    lich_su = await run_in_threadpool(ban_thao.danh_sach_phien_ban, nguoi["sub"], id)
+    if lich_su is None:
+        raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY)
+    return DanhSachPhienBanOut(items=[BanThaoPhienBanOut(**s) for s in lich_su])
+
+
+@router.get("/ban-thao/{id}/phien-ban/{so}", response_model=BanThaoPhienBanChiTietOut)
+async def phien_ban_chi_tiet(
+    id: str, so: int, nguoi: dict = Depends(nguoi_dung_bat_buoc)
+) -> BanThaoPhienBanChiTietOut:
+    """Phase 4 (D11, R4) — toàn bộ nội dung của MỘT phiên bản cũ, theo số. 404
+    khi bản thảo không thấy/không phải chủ, hoặc `so` không khớp phiên bản cũ
+    nào (kể cả số đang sống — xem docstring `ban_thao.phien_ban_chi_tiet`)."""
+    id = _uuid_hop_le(id)
+    snap = await run_in_threadpool(ban_thao.phien_ban_chi_tiet, nguoi["sub"], id, so)
+    if snap is None:
+        raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY)
+    return BanThaoPhienBanChiTietOut(
+        phien_ban=snap["phien_ban"],
+        luc=snap.get("luc"),
+        doi=snap.get("doi") or [],
+        document=snap["document"],
+        facts=snap["facts"],
+        clauses=snap["clauses"],
+        audit_report=snap["audit"],
+    )
 
 
 @router.post("/ban-thao/{id}/lui", response_model=BanThaoOut)

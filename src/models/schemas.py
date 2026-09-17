@@ -219,6 +219,35 @@ class DanhSachBanThaoOut(BaseModel):
     items: list[BanThaoTomTatOut] = []
 
 
+class BanThaoPhienBanOut(BaseModel):
+    """Một dòng lịch sử phiên bản (Phase 4, D11 R4) — KHÔNG kèm `document`/
+    `facts`/`clauses`/`audit_report`: đây là danh sách cho một bảng lịch sử,
+    không phải bảng để tải nội dung, cùng lý do `BanThaoTomTatOut` không kèm
+    chúng. `luc`/`doi` có thể vắng (`None`/rỗng) trên một phiên bản ghi TRƯỚC
+    Phase 4 — giao diện phải hiện được cả khi thiếu, không coi là lỗi."""
+
+    phien_ban: int
+    luc: str | None = None
+    doi: list[str] = []
+
+
+class DanhSachPhienBanOut(BaseModel):
+    items: list[BanThaoPhienBanOut] = []
+
+
+class BanThaoPhienBanChiTietOut(BaseModel):
+    """Toàn bộ nội dung của MỘT phiên bản cũ cụ thể (Phase 4, D11 R4) — để
+    giao diện hiện lại đúng bản đó khi người dùng bấm vào một dòng lịch sử."""
+
+    phien_ban: int
+    luc: str | None = None
+    doi: list[str] = []
+    document: str
+    facts: dict
+    clauses: list[dict]
+    audit_report: dict
+
+
 class Bang(BaseModel):
     """Một bảng dữ liệu CÓ KIỂU — trả kèm `answer` khi câu hỏi về kho xin trình
     bày dạng bảng (`services/kho.dung_bang`), để giao diện dựng bảng thật thay
