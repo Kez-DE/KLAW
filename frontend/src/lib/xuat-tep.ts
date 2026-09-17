@@ -662,8 +662,156 @@ export async function noiDungThanhPDF(
     y = LE_PDF.tren;
   };
 
+  const DEM_O_PDF = 1.5; // mm, đệm trong một ô bảng
+  const CO_CHU_BANG_PDF = 12; // pt, khớp `bangThanhTable` (`size: 24` nửa-điểm)
+
+  /**
+   * Chiều cao (mm) MỘT hàng bảng sẽ chiếm — đo THẬT bằng `splitTextToSize`
+   * trên đúng font/cỡ chữ hàng đó dùng, không phải một hằng số ước lượng.
+   * Dùng CẢ để quyết định phân trang bên trong `veBang` LẪN để luật mồ côi
+   * (`chieuCaoKeTiep`) đo hàng tiêu đề của một bảng đứng NGAY sau một tiêu đề
+   * — một nơi tính, không phải hai con số có thể lệch nhau.
+   */
+  const chieuCaoHangBang = (o: string[], soCotTieuDe: number, laTieuDe: boolean): number => {
+    const rongCot = RONG_NOI_DUNG_PDF / soCotTieuDe;
+    const span = coSpanHang(o.length, soCotTieuDe);
+    pdf.setFont(HO_CHU_PDF, laTieuDe ? "bold" : "normal");
+    pdf.setFontSize(CO_CHU_BANG_PDF);
+    const soDongToiDa = o.reduce((max, c, oi) => {
+      const cot = span[oi] ?? 1;
+      const dong = pdf.splitTextToSize(c, rongCot * cot - 2 * DEM_O_PDF) as string[];
+      return Math.max(max, dong.length);
+    }, 1);
+    return soDongToiDa * (CO_CHU_BANG_PDF * MM_MOI_PT * HE_SO_DONG_PDF) + 2 * DEM_O_PDF;
+  };
+
+  /** Vẽ MỘT hàng bảng tại `y` hiện tại (không tự phân trang) — dùng cho hàng
+   * thật VÀ để lặp lại hàng tiêu đề ở đầu mỗi trang bảng chẻ sang (R3 fix
+   * round 1 #2): thiếu bước lặp này thì trang sau của một bảng dài mất tên
+   * cột, không ai biết cột nào là "Điểm tối đa", cột nào là "Điểm đánh giá". */
+  const veMotHangBang = (o: string[], soCotTieuDe: number, laTieuDe: boolean) => {
+    const rongCot = RONG_NOI_DUNG_PDF / soCotTieuDe;
+    // `coSpanHang` — CÙNG luật ô gộp dùng cho màn hình (`XemTruocA4`) và
+    // `.docx` (`bangThanhTable`): ô cuối luôn ở cột cuối, ô liền trước gánh
+    // phần cột còn thiếu. Ba nơi vẽ bảng, MỘT luật đặt cột.
+    const span = coSpanHang(o.length, soCotTieuDe);
+    pdf.setFont(HO_CHU_PDF, laTieuDe ? "bold" : "normal");
+    pdf.setFontSize(CO_CHU_BANG_PDF);
+    const dongO = o.map((c, oi) => {
+      const cot = span[oi] ?? 1;
+      return pdf.splitTextToSize(c, rongCot * cot - 2 * DEM_O_PDF) as string[];
+    });
+    const soDongToiDa = dongO.reduce((max, d) => Math.max(max, d.length), 1);
+    const caoHang = soDongToiDa * (CO_CHU_BANG_PDF * MM_MOI_PT * HE_SO_DONG_PDF) + 2 * DEM_O_PDF;
+
+    if (laTieuDe) {
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(LE_PDF.trai, y, RONG_NOI_DUNG_PDF, caoHang, "F");
+    }
+    pdf.setDrawColor(153, 153, 153);
+    let xO = LE_PDF.trai;
+    for (let oi = 0; oi < o.length; oi++) {
+      const cot = span[oi] ?? 1;
+      const rongO = rongCot * cot;
+      pdf.rect(xO, y, rongO, caoHang);
+      pdf.text(dongO[oi]!, xO + rongO / 2, y + DEM_O_PDF + CO_CHU_BANG_PDF * MM_MOI_PT, {
+        align: "center",
+        maxWidth: rongO - 2 * DEM_O_PDF,
+        lineHeightFactor: HE_SO_DONG_PDF,
+      });
+      xO += rongO;
+    }
+    y += caoHang;
+  };
+
+  /** Một bảng — trả về số trang đã BẮT ĐẦU vẽ (hàng tiêu đề của nó). */
+  const veBang = (hang: string[][]): number => {
+    const soCotTieuDe = hang[0]?.length ?? 0;
+    if (soCotTieuDe === 0) return trang;
+    let trangBatDau: number | null = null;
+
+    for (let hi = 0; hi < hang.length; hi++) {
+      const o = hang[hi]!;
+      const laTieuDe = hi === 0;
+      const caoHang = chieuCaoHangBang(o, soCotTieuDe, laTieuDe);
+      if (!conCho(caoHang)) {
+        trangMoi();
+        // Chẻ giữa bảng (không phải ngay hàng tiêu đề) — lặp lại hàng tiêu
+        // đề ở đầu trang mới trước khi vẽ tiếp hàng vừa bị đẩy sang.
+        if (!laTieuDe) veMotHangBang(hang[0]!, soCotTieuDe, true);
+      }
+      trangBatDau ??= trang;
+      veMotHangBang(o, soCotTieuDe, laTieuDe);
+    }
+    y += SAU_DOAN_PDF;
+    return trangBatDau ?? trang;
+  };
+
+  // Khớp `xuatWord`: `spacing.before: 1200` twip trước dòng ký cuối (chỗ
+  // trống để ký tay), `spacing.after: 80` twip giữa các dòng còn lại.
+  const soCotKy = noiDung.oKy.length;
+  const rongCotKy = soCotKy > 0 ? RONG_NOI_DUNG_PDF / soCotKy : 0;
+  const KHOANG_KY = (1200 / 20) * MM_MOI_PT;
+  const SAU_DONG_KY = (80 / 20) * MM_MOI_PT;
+  const caoCotKy = (cot: DongVanBan[]) => {
+    let cao = 0;
+    cot.forEach((d, i) => {
+      pdf.setFontSize(coChuPt(d.kieu));
+      const dong = pdf.splitTextToSize(d.text, rongCotKy) as string[];
+      if (i === cot.length - 1) cao += KHOANG_KY;
+      cao += dong.length * caoDongPt(d.kieu);
+      if (i < cot.length - 1) cao += SAU_DONG_KY;
+    });
+    return cao;
+  };
+  // Tính chiều cao khối ký MỘT lần, dùng CẢ cho luật mồ côi (một tiêu đề
+  // đứng NGAY trước khối ký) LẪN cho việc vẽ khối ký thật bên dưới — một số
+  // duy nhất, không phải hai phép tính riêng có thể lệch nhau.
+  const caoKhoiKy =
+    soCotKy > 0 ? noiDung.oKy.reduce((max, cot) => Math.max(max, caoCotKy(cot)), 0) : 0;
+
+  /** Khối đứng NGAY SAU một vị trí trong `khoi`, hoặc khối ký nếu đó là khối
+   * cuối, hoặc không còn gì. Luật mồ côi đo khối THẬT này, không đoán. */
+  type KhoiKeTiep = KhoiVanBan | { kind: "oKy" } | null;
+
+  /**
+   * Chiều cao (mm) khối kế tiếp SẼ chiếm khi nó bắt đầu vẽ — dùng làm phần
+   * "phải còn chỗ" của luật mồ côi (R3 fix round 1 #1). Trước bản vá này,
+   * buffer là MỘT hằng số cỡ một dòng "thuong" bất kể khối sau là gì; một
+   * tiêu đề đứng ngay trước một BẢNG (bình thường với biểu mẫu này — tiêu đề
+   * mục dẫn thẳng vào bảng chấm điểm, không câu dẫn) thì buffer đó nhỏ hơn
+   * hàng tiêu đề thật của bảng, nên tiêu đề vẫn có thể bị bỏ lại một mình ở
+   * cuối trang trong khi cả bảng (kể cả hàng tiêu đề của nó) nhảy sang trang
+   * sau theo luật phân trang RIÊNG của `veBang`.
+   *
+   * Với bảng, chỉ cần đo hàng ĐẦU (tiêu đề bảng): nếu tiêu đề mục + hàng tiêu
+   * đề bảng vừa trang thì đã đủ — phần còn lại của bảng (nếu tràn) tự lặp
+   * lại tiêu đề của CHÍNH nó (`veBang` ở trên), không cần luật mồ côi lo tới
+   * tận hàng dữ liệu cuối.
+   */
+  const chieuCaoKeTiep = (ketiep: KhoiKeTiep): number => {
+    if (ketiep === null) return 0;
+    if (ketiep.kind === "oKy") return caoKhoiKy;
+    if (ketiep.kind === "dong") {
+      const d = ketiep.d;
+      pdf.setFont(HO_CHU_PDF, kieuChuPDF(d));
+      pdf.setFontSize(coChuPt(d.kieu));
+      const thutLeMm = d.canhGiua || d.thutLe <= 0 ? 0 : d.thutLe / 3.78;
+      const dong = pdf.splitTextToSize(d.text, RONG_NOI_DUNG_PDF - thutLeMm) as string[];
+      return dong.length * caoDongPt(d.kieu);
+    }
+    const soCotTieuDe = ketiep.hang[0]?.length ?? 0;
+    if (soCotTieuDe === 0) return 0;
+    return chieuCaoHangBang(ketiep.hang[0]!, soCotTieuDe, true);
+  };
+
   /** Một dòng (đoạn/tiêu đề) — trả về số trang đã vẽ lên. */
-  const veDong = (d: DongVanBan, conKhoiSau: boolean): number => {
+  const veDong = (d: DongVanBan, ketiep: KhoiKeTiep): number => {
+    const laTieuDe = d.kieu === "tieuDe" || d.kieu === "dieu";
+    // Đo khối kế tiếp TRƯỚC khi đặt font/cỡ chữ cho chính dòng này — đo có
+    // thể tạm đổi font (bảng dùng 12pt, đoạn kế tiếp dùng cỡ của riêng nó).
+    const buffer = laTieuDe ? chieuCaoKeTiep(ketiep) : 0;
+
     pdf.setFont(HO_CHU_PDF, kieuChuPDF(d));
     pdf.setFontSize(coChuPt(d.kieu));
     const thutLeMm = d.canhGiua || d.thutLe <= 0 ? 0 : d.thutLe / 3.78;
@@ -672,12 +820,9 @@ export async function noiDungThanhPDF(
     const cao = dong.length * caoDongPt(d.kieu);
 
     // Luật mồ côi (R3): một tiêu đề (kieu tieuDe/dieu) không bao giờ là thứ
-    // CUỐI CÙNG trên trang. Còn khối nào sau nó (kể cả khối ký) thì phải còn
-    // đủ chỗ cho tiêu đề VÀ ít nhất một dòng thường nữa mới vẽ tại đây; không
-    // thì sang trang mới rồi vẽ tiêu đề ở đầu trang đó.
-    const laTieuDe = d.kieu === "tieuDe" || d.kieu === "dieu";
-    const canThem = laTieuDe && conKhoiSau ? cao + caoDongPt("thuong") : cao;
-    if (!conCho(canThem)) trangMoi();
+    // CUỐI CÙNG trên trang — phải còn đủ chỗ cho tiêu đề VÀ khối kế tiếp mới
+    // vẽ tại đây; không thì sang trang mới rồi vẽ tiêu đề ở đầu trang đó.
+    if (!conCho(cao + buffer)) trangMoi();
 
     const x = d.canhGiua ? LE_PDF.trai + RONG_NOI_DUNG_PDF / 2 : LE_PDF.trai + thutLeMm;
     pdf.text(dong, x, y + coChuPt(d.kieu) * MM_MOI_PT, {
@@ -689,84 +834,14 @@ export async function noiDungThanhPDF(
     return trang;
   };
 
-  const DEM_O_PDF = 1.5; // mm, đệm trong một ô bảng
-  const CO_CHU_BANG_PDF = 12; // pt, khớp `bangThanhTable` (`size: 24` nửa-điểm)
-
-  /** Một bảng — trả về số trang đã BẮT ĐẦU vẽ (hàng tiêu đề của nó). */
-  const veBang = (hang: string[][]): number => {
-    const soCotTieuDe = hang[0]?.length ?? 0;
-    if (soCotTieuDe === 0) return trang;
-    const rongCot = RONG_NOI_DUNG_PDF / soCotTieuDe;
-    let trangBatDau: number | null = null;
-
-    for (let hi = 0; hi < hang.length; hi++) {
-      const o = hang[hi]!;
-      // `coSpanHang` — CÙNG luật ô gộp dùng cho màn hình (`XemTruocA4`) và
-      // `.docx` (`bangThanhTable`): ô cuối luôn ở cột cuối, ô liền trước gánh
-      // phần cột còn thiếu. Ba nơi vẽ bảng, MỘT luật đặt cột.
-      const span = coSpanHang(o.length, soCotTieuDe);
-      pdf.setFont(HO_CHU_PDF, hi === 0 ? "bold" : "normal");
-      pdf.setFontSize(CO_CHU_BANG_PDF);
-      const dongO = o.map((c, oi) => {
-        const cot = span[oi] ?? 1;
-        return pdf.splitTextToSize(c, rongCot * cot - 2 * DEM_O_PDF) as string[];
-      });
-      const soDongToiDa = dongO.reduce((max, d) => Math.max(max, d.length), 1);
-      const caoHang = soDongToiDa * (CO_CHU_BANG_PDF * MM_MOI_PT * HE_SO_DONG_PDF) + 2 * DEM_O_PDF;
-
-      if (!conCho(caoHang)) trangMoi();
-      trangBatDau ??= trang;
-
-      if (hi === 0) {
-        pdf.setFillColor(240, 240, 240);
-        pdf.rect(LE_PDF.trai, y, RONG_NOI_DUNG_PDF, caoHang, "F");
-      }
-      pdf.setDrawColor(153, 153, 153);
-      let xO = LE_PDF.trai;
-      for (let oi = 0; oi < o.length; oi++) {
-        const cot = span[oi] ?? 1;
-        const rongO = rongCot * cot;
-        pdf.rect(xO, y, rongO, caoHang);
-        pdf.text(dongO[oi]!, xO + rongO / 2, y + DEM_O_PDF + CO_CHU_BANG_PDF * MM_MOI_PT, {
-          align: "center",
-          maxWidth: rongO - 2 * DEM_O_PDF,
-          lineHeightFactor: HE_SO_DONG_PDF,
-        });
-        xO += rongO;
-      }
-      y += caoHang;
-    }
-    y += SAU_DOAN_PDF;
-    return trangBatDau ?? trang;
-  };
-
   const trangCuaKhoi: number[] = noiDung.khoi.map((k, i) => {
-    const conKhoiSau = i < noiDung.khoi.length - 1 || noiDung.oKy.length > 0;
-    return k.kind === "dong" ? veDong(k.d, conKhoiSau) : veBang(k.hang);
+    const ketiep: KhoiKeTiep =
+      i < noiDung.khoi.length - 1 ? noiDung.khoi[i + 1]! : soCotKy > 0 ? { kind: "oKy" } : null;
+    return k.kind === "dong" ? veDong(k.d, ketiep) : veBang(k.hang);
   });
 
   let trangCuaKy: number | null = null;
-  if (noiDung.oKy.length > 0) {
-    const soCot = noiDung.oKy.length;
-    const rongCot = RONG_NOI_DUNG_PDF / soCot;
-    // Khớp `xuatWord`: `spacing.before: 1200` twip trước dòng ký cuối (chỗ
-    // trống để ký tay), `spacing.after: 80` twip giữa các dòng còn lại.
-    const KHOANG_KY = (1200 / 20) * MM_MOI_PT;
-    const SAU_DONG_KY = (80 / 20) * MM_MOI_PT;
-
-    const caoCot = (cot: DongVanBan[]) => {
-      let cao = 0;
-      cot.forEach((d, i) => {
-        pdf.setFontSize(coChuPt(d.kieu));
-        const dong = pdf.splitTextToSize(d.text, rongCot) as string[];
-        if (i === cot.length - 1) cao += KHOANG_KY;
-        cao += dong.length * caoDongPt(d.kieu);
-        if (i < cot.length - 1) cao += SAU_DONG_KY;
-      });
-      return cao;
-    };
-    const caoKhoiKy = noiDung.oKy.reduce((max, cot) => Math.max(max, caoCot(cot)), 0);
-
+  if (soCotKy > 0) {
     // Luật khối ký nguyên vẹn (R3): không đủ chỗ cho CẢ khối trên trang hiện
     // tại thì sang trang MỚI rồi vẽ trọn — không chẻ khối ký như một khối
     // văn bản thường.
@@ -776,15 +851,15 @@ export async function noiDungThanhPDF(
     const yBatDau = y;
     noiDung.oKy.forEach((cot, ci) => {
       let yc = yBatDau;
-      const xTam = LE_PDF.trai + rongCot * ci + rongCot / 2;
+      const xTam = LE_PDF.trai + rongCotKy * ci + rongCotKy / 2;
       cot.forEach((d, i) => {
         pdf.setFont(HO_CHU_PDF, kieuChuPDF(d));
         pdf.setFontSize(coChuPt(d.kieu));
         if (i === cot.length - 1) yc += KHOANG_KY;
-        const dong = pdf.splitTextToSize(d.text, rongCot) as string[];
+        const dong = pdf.splitTextToSize(d.text, rongCotKy) as string[];
         pdf.text(dong, xTam, yc + coChuPt(d.kieu) * MM_MOI_PT, {
           align: "center",
-          maxWidth: rongCot,
+          maxWidth: rongCotKy,
           lineHeightFactor: HE_SO_DONG_PDF,
         });
         yc += dong.length * caoDongPt(d.kieu);
