@@ -188,7 +188,7 @@ def test_muc_bang_khong_can_noi_dung_de_duoc_giu():
     rỗng không còn là một khối thiếu chữ khi `bang` có hàng."""
     van_ban, dem = _sach([_muc("Đánh giá", bang=BANG_HOP_LE)], nguon=NGUON_BANG)
     assert len(van_ban["muc"]) == 1
-    assert van_ban["muc"][0]["khoi"] == [{"noi_dung": "", "bang": BANG_HOP_LE}]
+    assert van_ban["muc"][0]["khoi"] == [{"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai"}]
     assert dem["gia_tri_lam_sach"] == 0
 
 
@@ -209,7 +209,7 @@ def test_khoi_rong_ca_hai_bi_loai_nhung_muc_van_con_khoi_khac():
         {"noi_dung": "", "bang": BANG_HOP_LE},
     ]}
     van_ban, _ = _sach([muc], nguon=NGUON_BANG)
-    assert van_ban["muc"][0]["khoi"] == [{"noi_dung": "", "bang": BANG_HOP_LE}]
+    assert van_ban["muc"][0]["khoi"] == [{"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai"}]
 
 
 def test_khoi_nhieu_phan_tu_giu_dung_thu_tu():
@@ -318,8 +318,8 @@ def test_khoi_ca_hai_khac_rong_bi_tach_thanh_hai_khoi():
     van_ban, _ = _sach([muc], nguon=NGUON_BANG)
     khoi = van_ban["muc"][0]["khoi"]
     assert len(khoi) == 2
-    assert khoi[0] == {"noi_dung": "Kết quả chấm điểm như sau:", "bang": []}
-    assert khoi[1] == {"noi_dung": "", "bang": BANG_HOP_LE}
+    assert khoi[0] == {"noi_dung": "Kết quả chấm điểm như sau:", "bang": [], "can_le": "trai"}
+    assert khoi[1] == {"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai"}
 
 
 def test_letterhead_hai_cot_song_sot_nhu_bang():
@@ -412,7 +412,7 @@ def test_khop_bang_cuu_letterhead_bi_xe_thanh_van_xuoi():
     }
     van_ban, _ = _sach([muc_xe], nguon=NGUON_LETTERHEAD, goi=GOI_LETTERHEAD)
     assert van_ban["muc"][0]["khoi"] == [
-        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []},
+        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai"},
         {
             "noi_dung": "",
             "bang": [
@@ -422,6 +422,7 @@ def test_khop_bang_cuu_letterhead_bi_xe_thanh_van_xuoi():
                 ],
                 ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
             ],
+            "can_le": "trai",
         },
     ]
 
@@ -435,7 +436,7 @@ def test_khop_bang_khong_gop_mot_dong_van_xuoi_don_le_trung_ngau_nhien():
         "khoi": [{"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []}],
     }
     van_ban, _ = _sach([muc], nguon=NGUON_LETTERHEAD, goi=GOI_LETTERHEAD)
-    assert van_ban["muc"][0]["khoi"] == [{"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []}]
+    assert van_ban["muc"][0]["khoi"] == [{"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai"}]
 
 
 # BM.ĐT.18.11 thật: hàng cuối "Tổng | 10" gộp 3 cột nhãn thành 1 (Phase 8 R4).
@@ -504,6 +505,123 @@ def test_khop_bang_khong_dung_vao_bang_moi_mo_hinh_tu_soan():
         [muc], nguon="Hạng mục Số lượng Bàn ghế 5 bộ", goi=GOI_BANG_DIEM
     )
     assert van_ban["muc"][0]["khoi"][0]["bang"] == bang_moi
+
+
+# ───────────── Phase 9 U2 — giá trị Ô TRÙNG LẶP trong CÙNG một bảng thật
+#
+# `.sdd/phase-9-brief.md` U2 — đo TRỰC TIẾP trên bảng thật của BM.ĐT.18.11
+# (`psql` chính draft `30e8cdb9…` nêu trong brief): 4 tiêu chí, cột "Điểm tối
+# đa" lặp "2,0" BA lần (chỉ tiêu chí 4 là "4,0"). `_bang_cua` bản trước round
+# 3 đòi khớp ĐÚNG MỘT Ô trên toàn tài liệu — "2,0" khớp ba ô CÙNG một bảng thì
+# `len(khop) == 3`, hàm trả `None`, `_bang_khop_het` thấy một "ô không khớp
+# được" dù nó khớp thật ba lần, và cả khối bị bỏ qua: hàng "Tổng" đệm dư
+# `["Tổng","10","",""]` không được cứu — ĐÚNG NHƯ QUAN SÁT trên form thật.
+
+DV_BANG_DIEM_THAT = [
+    DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="TT", bang=(0, 0, 0)),
+    DonViVanBan(chi_so=1, trang=1, offset_dau=3, noi_dung="Tiêu chí đánh giá", bang=(0, 0, 1)),
+    DonViVanBan(chi_so=2, trang=1, offset_dau=25, noi_dung="Điểm tối đa", bang=(0, 0, 2)),
+    DonViVanBan(chi_so=3, trang=1, offset_dau=40, noi_dung="Điểm đánh giá", bang=(0, 0, 3)),
+    DonViVanBan(chi_so=4, trang=1, offset_dau=55, noi_dung="1", bang=(0, 1, 0)),
+    DonViVanBan(
+        chi_so=5, trang=1, offset_dau=57,
+        noi_dung="Ý thức chấp hành nội quy, kỷ luật tại đơn vị thực tập", bang=(0, 1, 1),
+    ),
+    DonViVanBan(chi_so=6, trang=1, offset_dau=120, noi_dung="2,0", bang=(0, 1, 2)),
+    DonViVanBan(chi_so=7, trang=1, offset_dau=124, noi_dung="2", bang=(0, 2, 0)),
+    DonViVanBan(
+        chi_so=8, trang=1, offset_dau=126,
+        noi_dung="Tinh thần trách nhiệm, thái độ đối với công việc", bang=(0, 2, 1),
+    ),
+    DonViVanBan(chi_so=9, trang=1, offset_dau=180, noi_dung="2,0", bang=(0, 2, 2)),
+    DonViVanBan(chi_so=10, trang=1, offset_dau=184, noi_dung="3", bang=(0, 3, 0)),
+    DonViVanBan(
+        chi_so=11, trang=1, offset_dau=186,
+        noi_dung="Khả năng vận dụng kiến thức chuyên môn đã học vào thực tiễn", bang=(0, 3, 1),
+    ),
+    DonViVanBan(chi_so=12, trang=1, offset_dau=250, noi_dung="2,0", bang=(0, 3, 2)),
+    DonViVanBan(chi_so=13, trang=1, offset_dau=254, noi_dung="4", bang=(0, 4, 0)),
+    DonViVanBan(
+        chi_so=14, trang=1, offset_dau=256,
+        noi_dung="Kết quả hoàn thành thực tập  theo đề cương chi tiết", bang=(0, 4, 1),
+    ),
+    DonViVanBan(chi_so=15, trang=1, offset_dau=310, noi_dung="4,0", bang=(0, 4, 2)),
+    DonViVanBan(chi_so=16, trang=1, offset_dau=314, noi_dung="Tổng", bang=(0, 5, 0)),
+    DonViVanBan(chi_so=17, trang=1, offset_dau=319, noi_dung="10", bang=(0, 5, 1)),
+]
+GOI_BANG_DIEM_THAT = [
+    {"id": "y2", "ten_tep": "dt1811.docx", "don_vi": DV_BANG_DIEM_THAT, "nhan": "A", "gui": DV_BANG_DIEM_THAT}
+]
+NGUON_BANG_DIEM_THAT = "\n".join(dv.noi_dung for dv in DV_BANG_DIEM_THAT)
+
+
+def test_khop_bang_cuu_hang_gop_khi_gia_tri_trung_lap_trong_cung_bang():
+    """Phase 9 U2 — mô phỏng ĐÚNG hàng "Tổng" đệm dư quan sát được trên
+    BM.ĐT.18.11 THẬT (draft `30e8cdb9…`), với ĐỦ 4 tiêu chí (cột "Điểm tối đa"
+    lặp "2,0" ba lần) thay vì fixture rút gọn một hàng cũ. Trước bản vá round
+    3+ này, `_bang_cua` coi "2,0" khớp BA ô là nhập nhằng (dù cả ba đều CÙNG
+    một bảng A0) nên khối này không được cứu — TÁI HIỆN đúng lỗi brief mô tả.
+    Sau bản vá, `_bang_cua` gộp theo KHOÁ BẢNG trước khi đếm, nên ba lần khớp
+    cùng bảng A0 vẫn ra MỘT khoá và khối được thay bằng bảng thật, "Tổng" trở
+    lại đúng 2 ô — "10" nằm dưới "Điểm tối đa", không phải dưới "Tiêu chí"."""
+    bang_dem = [
+        ["TT", "Tiêu chí đánh giá", "Điểm tối đa", "Điểm đánh giá"],
+        ["1", "Ý thức chấp hành nội quy, kỷ luật tại đơn vị thực tập", "2,0", ""],
+        ["2", "Tinh thần trách nhiệm, thái độ đối với công việc", "2,0", ""],
+        ["3", "Khả năng vận dụng kiến thức chuyên môn đã học vào thực tiễn", "2,0", ""],
+        ["4", "Kết quả hoàn thành thực tập  theo đề cương chi tiết", "4,0", ""],
+        ["Tổng", "10", "", ""],
+    ]
+    muc = {"ten": "Bảng đánh giá", "vung": "than", "khoi": [{"noi_dung": "", "bang": bang_dem}]}
+    van_ban, _ = _sach([muc], nguon=NGUON_BANG_DIEM_THAT, goi=GOI_BANG_DIEM_THAT)
+    bang_ra = van_ban["muc"][0]["khoi"][0]["bang"]
+    assert bang_ra[-1] == ["Tổng", "10"], "hàng gộp trở lại đúng 2 ô, không còn đệm dư"
+    assert bang_ra[0][2] == "Điểm tối đa" and bang_ra[-1][1] == "10", '"10" nằm dưới đúng cột "Điểm tối đa"'
+
+
+def test_khop_bang_gia_tri_trung_lap_khong_du_de_ghi_de_khi_con_o_moi():
+    """Phase 9 U2 [giữ luật round 3] — bảng có NHIỀU ô trùng "2,0" với nguồn
+    (nên mỗi ô riêng lẻ khớp NHẬP NHẰNG ba lần) NHƯNG cũng có một ô THẬT SỰ
+    MỚI, không có trong tài liệu ("Nhận xét thêm") — phép gộp-theo-khoá-bảng
+    (sửa cho ca trên) không được biến điều này thành "mọi ô đều khớp": khối
+    này vẫn phải bị BỎ QUA (giữ nguyên như mô hình viết), vì luật round 3 vẫn
+    đòi MỌI ô khác rỗng khớp được, và "Nhận xét thêm" thì không khớp gì cả."""
+    bang_sua = [
+        ["Điểm tối đa", "2,0", "2,0", "2,0"],
+        ["Nhận xét thêm", "", "", ""],
+    ]
+    muc = {"ten": "Bảng đánh giá", "vung": "than", "khoi": [{"noi_dung": "", "bang": bang_sua}]}
+    van_ban, _ = _sach([muc], nguon=NGUON_BANG_DIEM_THAT, goi=GOI_BANG_DIEM_THAT)
+    assert van_ban["muc"][0]["khoi"][0]["bang"] == bang_sua, "một ô mới không khớp gì thì chặn cả khối, không ghi đè"
+
+
+# ──────────────────────────── Phase 9 U1 — tên mục KLAW bịa không được in ra
+
+
+def test_ten_muc_khong_co_trong_nguon_bi_danh_dau_khong_that():
+    """Phase 9 U1 — mô hình đặt tên mục để TỔ CHỨC bản thảo ("Chữ ký") nhưng
+    chữ đó không nằm ở đâu trong tài liệu nguồn (đo trên BM.ĐT.18.11 thật:
+    không đơn vị nào của form này có nội dung đúng "Chữ ký") → `ten_that`
+    phải là `False`, để giao diện không in nhãn này ra trang."""
+    muc = {"ten": "Chữ ký", "vung": "than", "khoi": [{"noi_dung": "", "bang": [["GV HƯỚNG DẪN"]]}]}
+    van_ban, _ = _sach([muc], nguon="GV HƯỚNG DẪN", goi=GOI_BANG_DIEM_THAT)
+    assert van_ban["muc"][0]["ten_that"] is False
+
+
+def test_ten_muc_la_tieu_de_that_trong_nguon_duoc_danh_dau_that():
+    """Phase 9 U1 — ngược lại: một tên mục TRÙNG NGUYÊN VĂN một đơn vị thật
+    của tài liệu (một tiêu đề THẬT, ví dụ "Bảng đánh giá" khi form đó có đúng
+    dòng này) phải được đánh dấu `ten_that = True`, để giao diện KHÔNG ẩn oan
+    một tiêu đề có thật — đây là nửa còn lại brief đòi, chống việc chặn quá tay
+    bằng danh sách từ khoá."""
+    dv = [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Bảng đánh giá"),
+        DonViVanBan(chi_so=1, trang=1, offset_dau=20, noi_dung="Tiêu chí đánh giá", bang=(0, 0, 0)),
+    ]
+    goi = [{"id": "z2", "ten_tep": "x.docx", "don_vi": dv, "nhan": "A", "gui": dv}]
+    muc = {"ten": "Bảng đánh giá", "vung": "than", "khoi": [{"noi_dung": "", "bang": [["Tiêu chí đánh giá"]]}]}
+    van_ban, _ = _sach([muc], nguon="Bảng đánh giá Tiêu chí đánh giá", goi=goi)
+    assert van_ban["muc"][0]["ten_that"] is True
 
 
 # ─────────────────────────────────────────── node hieu_tai_lieu phát `van_ban`
@@ -615,7 +733,7 @@ def test_node_khop_lai_letterhead_bi_mo_hinh_xe_thanh_van_xuoi():
     )
     khoi = ra["van_ban_tong_quat"]["muc"][0]["khoi"]
     assert khoi == [
-        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []},
+        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai"},
         {
             "noi_dung": "",
             "bang": [
@@ -625,6 +743,7 @@ def test_node_khop_lai_letterhead_bi_mo_hinh_xe_thanh_van_xuoi():
                 ],
                 ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
             ],
+            "can_le": "trai",
         },
     ]
 

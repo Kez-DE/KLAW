@@ -69,20 +69,24 @@ def clauses_tu(van_ban: dict) -> list[dict]:
     dùng nó làm khoá là để `doi_muc` báo "đã đổi" cho một mục chỉ sửa chính tả
     tiêu đề. Vị trí là thứ ổn định duy nhất ở đây.
 
-    `khoi` (Phase 8 R1, thay `noi_dung`/`bang` cố định của Phase 7) và `vung`
-    (Phase 8 R2) dùng `.get`, không chỉ số: `van_ban["muc"]` đã qua
-    `lam_sach_van_ban` nên LUÔN có hai khoá này, nhưng một `muc` viết tay
-    (test, fixture cũ) thì không — `.get(...) or …` giữ MỘT hình dạng clause
-    cho cả hai, không migration nào cần cho `clauses` (JSONB). Hàng ĐÃ LƯU
-    trước Phase 8 (chỉ `noi_dung`, hoặc `noi_dung`+`bang` kiểu Phase 7) không
-    đi qua hàm này lần nữa — chúng giữ nguyên hình dạng cũ trong DB, và phía
-    đọc (`frontend/src/lib/xuat-tep.ts::khoiTuClause`) là nơi hiểu cả ba hình
-    dạng, không phải ở đây.
+    `khoi` (Phase 8 R1, thay `noi_dung`/`bang` cố định của Phase 7), `vung`
+    (Phase 8 R2) và `ten_that` (Phase 9 U1) dùng `.get`, không chỉ số:
+    `van_ban["muc"]` đã qua `lam_sach_van_ban` nên LUÔN có ba khoá này, nhưng
+    một `muc` viết tay (test, fixture cũ) thì không — `.get(...) or …`/mặc
+    định `True` giữ MỘT hình dạng clause cho cả ba, không migration nào cần
+    cho `clauses` (JSONB). Hàng ĐÃ LƯU trước Phase 8/9 (chỉ `noi_dung`, hoặc
+    `noi_dung`+`bang` kiểu Phase 7, không `ten_that`) không đi qua hàm này lần
+    nữa — chúng giữ nguyên hình dạng cũ trong DB, và phía đọc
+    (`frontend/src/lib/xuat-tep.ts::khoiTuClause`/`mucTuBanThao`) là nơi hiểu
+    cả các hình dạng cũ, không phải ở đây. `ten_that` mặc định `True` (giữ
+    tên) khi vắng mặt: một clause cũ không biết KLAW đặt tên đó hay tài liệu
+    đặt tên đó thì hiện tên ra vẫn an toàn hơn ẩn oan một tiêu đề thật.
     """
     return [
         {
             "key": f"muc_{i}",
             "ten": m["ten"],
+            "ten_that": m.get("ten_that", True),
             "vung": m.get("vung") or "than",
             "khoi": m.get("khoi") or [],
         }

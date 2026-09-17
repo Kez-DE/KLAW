@@ -572,6 +572,42 @@ def _co_trong_nguon(gia_tri: str, nguon: str, so_nguon: list) -> bool:
     return v is not None and any(abs(v - s) <= SAI_SO for s in so_nguon)
 
 
+def _nhan_that(goi: list[dict]) -> set[str]:
+    """Chữ CHUẨN HOÁ của mọi đoạn văn (KHÔNG phải ô bảng) của tài liệu này —
+    dùng để phân biệt TÊN MỤC là chữ THẬT của tài liệu hay do mô hình đặt ra để
+    tổ chức bản thảo (Phase 9 U1, "quản hiệu và tiêu ngữ" kiểu KLAW tự bịa
+    không có trong nguồn). Không xét ô bảng: một tên mục trùng một nhãn cột
+    ngắn ("TT", "Tổng") là trùng ngẫu nhiên, không phải một tiêu đề thật —
+    cùng lý lẽ `_bang_cua` chỉ xét bảng, hàm này chỉ xét đoạn."""
+    return {normalize(d.noi_dung) for t in goi for d in t["don_vi"] if d.bang is None and d.noi_dung}
+
+
+def _can_le_theo_dong(goi: list[dict]) -> dict[str, str]:
+    """Chữ CHUẨN HOÁ của một đoạn (không phải ô bảng) → căn lề THẬT của nó,
+    đọc thẳng từ `DonViVanBan.can_le` (Phase 9 U5) — cùng nguyên tắc "cấu trúc
+    reader đã biết" của `_bang_theo_nhan`, áp cho căn lề thay vì ô bảng. Một
+    dòng trùng chữ nhưng khác căn lề ở hai chỗ (hiếm — hai đoạn tình cờ cùng
+    chữ) bị LOẠI khỏi từ điển: một dòng không xác định căn lề còn an toàn hơn
+    một dòng gán nhầm."""
+    theo_dong: dict[str, set[str]] = {}
+    for t in goi:
+        for d in t["don_vi"]:
+            if d.bang is not None or not d.noi_dung:
+                continue
+            theo_dong.setdefault(normalize(d.noi_dung), set()).add(d.can_le)
+    return {s: v.pop() for s, v in theo_dong.items() if len(v) == 1}
+
+
+def _can_le_khoi(noi_dung: str, theo_dong: dict[str, str]) -> str:
+    """Căn lề của MỘT khối văn xuôi (có thể gộp nhiều dòng nguồn bằng `\\n`,
+    ví dụ quốc hiệu + tiêu ngữ) — mọi dòng khác rỗng khớp được phải ĐỒNG THUẬN
+    một căn lề mới dùng nó. Không dòng nào khớp, hoặc khớp mà bất đồng (một
+    khối trộn chữ từ hai chỗ căn khác nhau), thì về mặc định `trai` — an toàn:
+    một khối chưa xác định vẫn đọc đúng thứ tự, chỉ không bị căn giữa oan."""
+    tap = {theo_dong[s] for d in noi_dung.split("\n") if (s := normalize(d)) in theo_dong}
+    return tap.pop() if len(tap) == 1 else "trai"
+
+
 def _bang_theo_nhan(goi: list[dict]) -> dict[str, list[list[str]]]:
     """Mọi bảng THẬT của lượt này, dựng lại 0 token thẳng từ `don_vi` — khoá
     "A0"/"B2" (nhãn tài liệu + số bảng, 0-based, đúng số `_vi_tri` đã hiện cho
@@ -634,13 +670,29 @@ def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, list
     soạn/sửa bảng" không bị mất vì phép khớp lại này."""
 
     def _bang_cua(chu: str) -> str | None:
+        """Chữ này khớp NGUYÊN VĂN ô nào của bảng thật — trả khoá bảng khi mọi
+        ô khớp cùng quy về MỘT bảng, dù khớp nhiều Ô (Phase 9 U2 [diagnostic]).
+
+        Đo trên form thật (BM.ĐT.18.11, `.sdd/phase-9-brief.md` U2): cột "Điểm
+        tối đa" của bảng chấm lặp lại "2,0" ba lần (ba tiêu chí đều 2 điểm).
+        Bản trước của hàm này đòi khớp ĐÚNG MỘT Ô trên toàn tài liệu
+        (`len(khop) == 1` trên danh sách CẶP (nhãn, đơn vị)) — "2,0" khớp ba ô
+        CÙNG một bảng thì `len(khop) == 3`, hàm trả `None`, và `_bang_khop_het`
+        (đòi MỌI ô khác rỗng khớp) thấy một ô "không khớp được" dù nó khớp thật
+        những ba lần — cả khối bị bỏ, hàng "Tổng" đệm dư không được cứu. Cái
+        hàm này THẬT SỰ cần khẳng định là "chữ này định danh được MỘT BẢNG",
+        không phải "MỘT Ô" — vị trí ô không quan trọng vì `_khop_bang` thay
+        NGUYÊN bảng thật, không ghép theo từng ô. Gộp theo KHOÁ BẢNG (nhãn +
+        chỉ số bảng) trước khi đếm sửa đúng lỗ hổng đó: nhiều ô cùng bảng vẫn
+        là MỘT bảng; khớp ở hai bảng khác nhau thì vẫn nhập nhằng, vẫn `None`
+        như cũ — không nới lỏng luật round 3 ("mọi ô phải khớp"), chỉ sửa
+        đúng nghĩa "khớp" mà luật đó đã hứa.
+        """
         s = normalize(chu)
         if not s:
             return None
-        khop = [
-            (t["nhan"], d) for t in goi for d in t["don_vi"] if d.bang is not None and normalize(d.noi_dung) == s
-        ]
-        return f"{khop[0][0]}{khop[0][1].bang[0]}" if len(khop) == 1 else None
+        khoa = {f"{t['nhan']}{d.bang[0]}" for t in goi for d in t["don_vi"] if d.bang is not None and normalize(d.noi_dung) == s}
+        return khoa.pop() if len(khoa) == 1 else None
 
     def _bang_khop_het(hang_o: list[list[str]]) -> str | None:
         """MỌI ô khác rỗng của bảng này khớp riêng ĐÚNG MỘT bảng thật — một ô
@@ -672,7 +724,7 @@ def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, list
         while j < len(khoi) and khoa[j] == chi:
             j += 1
         if khoi[i]["bang"] or (j - i) >= 2:
-            ra.append({"noi_dung": "", "bang": bang_theo_nhan[chi]})
+            ra.append({"noi_dung": "", "bang": bang_theo_nhan[chi], "can_le": "trai"})
         else:
             ra.extend(khoi[i:j])
         i = j
@@ -719,6 +771,11 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
     nguon = normalize(nguon or "")
     so_nguon = [v for m in _RE_SO_THUAN.findall(nguon) if (v := tinh(m)) is not None]
     bang_theo_nhan = _bang_theo_nhan(goi or [])
+    # Phase 9 U1/U5 — hai lưới đối chiếu 0 token khác, cùng nguồn `goi`: tên
+    # mục có phải chữ THẬT của tài liệu (`_nhan_that`), và mỗi dòng của tài
+    # liệu căn lề gì (`_can_le_theo_dong`, `_can_le_khoi` dùng ở `_khoi_sach`).
+    nhan_that = _nhan_that(goi or [])
+    theo_dong = _can_le_theo_dong(goi or [])
     dem = {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0}
 
     def _sach(s: str) -> str:
@@ -783,9 +840,13 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
             noi_dung = _sach(str(k.get("noi_dung") or "").strip())
             bang = _bang_sach(k.get("bang"))
             if noi_dung:
-                ra.append({"noi_dung": noi_dung, "bang": []})
+                # `can_le` (Phase 9 U5) — căn lề THẬT của khối này, đối chiếu
+                # từng dòng với `theo_dong`; bảng giữ `trai` làm chỗ trống
+                # (không đọc), căn lề trong bảng là chuyện của TỪNG ô, ngoài
+                # phạm vi field này (xem cảnh báo ở brief).
+                ra.append({"noi_dung": noi_dung, "bang": [], "can_le": _can_le_khoi(noi_dung, theo_dong)})
             if bang:
-                ra.append({"noi_dung": "", "bang": bang})
+                ra.append({"noi_dung": "", "bang": bang, "can_le": "trai"})
         return ra
 
     giu: list[dict] = []
@@ -820,7 +881,12 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
             continue
         if dem["gia_tri_lam_sach"] > truoc:
             dem["muc_lam_sach"] += 1
-        giu.append({"ten": ten, "vung": vung, "khoi": khoi})
+        # `ten_that` (Phase 9 U1) — tên mục này có phải chữ THẬT của tài liệu
+        # hay do mô hình đặt ra để tổ chức bản thảo. `goi` rỗng (test cũ,
+        # hoặc lượt không có tài liệu cấu trúc) thì không đối chiếu được gì —
+        # mặc định GIỮ tên (an toàn về phía không ẩn oan một tiêu đề thật).
+        ten_that = (not goi) or normalize(ten) in nhan_that
+        giu.append({"ten": ten, "ten_that": ten_that, "vung": vung, "khoi": khoi})
     return {"tieu_de": _sach(str((van_ban or {}).get("tieu_de") or "").strip()), "muc": giu}, dem
 
 
