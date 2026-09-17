@@ -11,8 +11,14 @@ Phần chạm DB của router nằm ở `test_tai_lieu_api.py`, đánh dấu `in
 import pytest
 from fastapi import HTTPException
 
-from src.api.routes_tai_lieu import _THONG_DIEP, THONG_DIEP_TRAN, _loi_http, _uuid_hop_le
-from src.services.doc_tai_lieu import KhongDocDuoc, LoaiHong
+from src.api.routes_tai_lieu import (
+    _THONG_DIEP,
+    _THONG_DIEP_HE_THONG,
+    THONG_DIEP_TRAN,
+    _loi_http,
+    _uuid_hop_le,
+)
+from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang, KhongDocDuoc, LoaiHong
 from src.services.tai_lieu import TRAN_BYTE, TRAN_TRANG, VuotTran
 
 
@@ -50,6 +56,21 @@ def test_vuot_tran_CHI_PHI_co_cau_rieng_khong_noi_ve_tien():
 
 def test_BA_tran_la_BA_cau_khac_nhau():
     assert len(set(THONG_DIEP_TRAN.values())) == 3
+
+
+@pytest.mark.parametrize("ly_do", ["khong_co_cong_cu", "qua_tai"])
+def test_he_thong_khong_san_sang_thanh_503_khong_phai_422(ly_do):
+    """Fix round 2 — lỗi HỆ THỐNG (thiếu công cụ, quá tải) không phải lỗi
+    tài liệu: 503, không phải 422 dùng cho `KhongDocDuoc`/`VuotTran`, và câu
+    trả lời không được đổ lỗi cho người dùng."""
+    e = _loi_http(ChuyenDoiKhongSanSang(ly_do))
+    assert e.status_code == 503
+    assert e.detail == _THONG_DIEP_HE_THONG[ly_do]
+    assert "tệp của bạn" not in e.detail.lower(), "không được đổ lỗi cho tài liệu của người dùng"
+
+
+def test_HAI_thong_diep_he_thong_khac_nhau():
+    assert len(set(_THONG_DIEP_HE_THONG.values())) == 2
 
 
 def test_loi_LA_thi_KHONG_nuot():

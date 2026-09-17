@@ -19,13 +19,14 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from src.services.doc_tai_lieu import KhongDocDuoc, LoaiHong, doc
+from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang, KhongDocDuoc, LoaiHong, doc
 
 _OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 _CO_SOFFICE = shutil.which("soffice") is not None
@@ -76,12 +77,15 @@ def test_DOC_giu_dung_cau_truc_nhu_DOCX_goc(tmp_path):
 
 def test_DOC_khong_bi_tu_choi_vi_DINH_DANG():
     """.doc giờ được NHẬN — không còn rơi vào `dinh_dang_khong_ho_tro`, bất kể
-    LibreOffice có mặt hay không (vắng mặt thì rơi vào `khong_co_lop_chu`, có
-    mặt mà nội dung rác thì rơi vào `tep_hong`)."""
+    LibreOffice có mặt hay không (vắng mặt thì ném `ChuyenDoiKhongSanSang` —
+    fix round 2, không còn `KhongDocDuoc`; có mặt mà nội dung rác thì rơi vào
+    `tep_hong`)."""
     try:
         doc("hd.doc", _OLE2_MAGIC + b"\x00" * 100)
     except KhongDocDuoc as e:
         assert e.ly_do is not LoaiHong.dinh_dang_khong_ho_tro
+    except ChuyenDoiKhongSanSang:
+        pass  # máy không có LibreOffice — vẫn KHÔNG phải "định dạng không hỗ trợ"
 
 
 def test_DOC_gia_mao_KHONG_phai_OLE2_bi_chan_TRUOC_bo_chuyen_doi():
@@ -95,14 +99,68 @@ def test_DOC_gia_mao_KHONG_phai_OLE2_bi_chan_TRUOC_bo_chuyen_doi():
     gia_bo_chuyen_doi.assert_not_called()
 
 
-def test_DOC_khong_co_soffice_bao_loi_ro_khong_phai_500(monkeypatch):
-    """LibreOffice vắng mặt lúc chạy phải ra lỗi CỤ THỂ (`KhongDocDuoc`, ánh xạ
-    422 ở tầng API) — không phải 500, không phải một `hong` câm lặng không rõ
-    lý do."""
+def test_DOC_khong_co_soffice_bao_loi_ro_khong_phai_500(monkeypatch, caplog):
+    """LibreOffice vắng mặt lúc chạy phải ra lỗi CỤ THỂ — không phải 500,
+    không phải một `hong` câm lặng không rõ lý do, và không đổ lỗi cho tài
+    liệu (fix round 2, Minor #4): đây là `ChuyenDoiKhongSanSang`, KHÔNG còn
+    `KhongDocDuoc(khong_co_lop_chu, ...)` như round 1 — một máy chủ thiếu
+    LibreOffice không phải "ảnh chụp mờ". Phải LOUD với người vận hành: log
+    ở mức ERROR, không log câm lặng."""
     monkeypatch.setattr("src.services.doc_tai_lieu._duong_soffice", lambda: None)
-    with pytest.raises(KhongDocDuoc) as e:
+    with caplog.at_level("ERROR", logger="src.services.doc_tai_lieu"):
+        with pytest.raises(ChuyenDoiKhongSanSang) as e:
+            doc("hd.doc", _OLE2_MAGIC + b"\x00" * 100)
+    assert e.value.ly_do == "khong_co_cong_cu"
+    assert any(r.levelname == "ERROR" and "LibreOffice" in r.message for r in caplog.records), (
+        "thiếu LibreOffice phải log ở mức ERROR để người vận hành thấy được"
+    )
+
+
+def test_DOC_qua_tai_KHONG_xep_hang_im_lang(monkeypatch):
+    """Không giành được suất chuyển đổi trong thời gian chờ phải báo NGAY
+    (`ChuyenDoiKhongSanSang("qua_tai", ...)`), không treo request vô thời hạn
+    — "hàng đợi im lặng" tự nó là một lỗi (task review, Important)."""
+    monkeypatch.setattr("src.services.doc_tai_lieu._duong_soffice", lambda: "/usr/bin/soffice")
+    # Suất RỖNG: chiếm hết toàn bộ suất thật trước khi gọi, để lần gọi dưới
+    # đây chắc chắn không giành được gì — không cần đợi hết hạn thật
+    # (`_HAN_CHO_SUAT_GIAY`) nên cũng hạ xuống cho bài kiểm chạy nhanh.
+    monkeypatch.setattr("src.services.doc_tai_lieu._HAN_CHO_SUAT_GIAY", 0.2)
+    suat = threading.Semaphore(1)
+    suat.acquire()
+    monkeypatch.setattr("src.services.doc_tai_lieu._suat_chuyen_doi", suat)
+
+    with pytest.raises(ChuyenDoiKhongSanSang) as e:
         doc("hd.doc", _OLE2_MAGIC + b"\x00" * 100)
-    assert e.value.ly_do is LoaiHong.khong_co_lop_chu
+    assert e.value.ly_do == "qua_tai"
+
+
+def test_DOC_loi_chuyen_doi_KHONG_ghi_stderr_cua_soffice_vao_log(monkeypatch, caplog):
+    """FR-027 + quyết định 2026-09-16: nội dung tài liệu không bao giờ vào
+    log. `stderr` của soffice bắt nguồn từ CHÍNH tài liệu người dùng (tên
+    tệp, đôi khi trích lại nội dung không phân tích được) — chỉ mã thoát
+    được phép vào log, không phải chuỗi đó (task review, Minor #3)."""
+    monkeypatch.setattr("src.services.doc_tai_lieu._duong_soffice", lambda: "/usr/bin/soffice")
+
+    chuoi_bi_mat = "BI-MAT-KHONG-DUOC-VAO-LOG-tu-tai-lieu-cua-nguoi-dung"
+
+    class _TienTrinhHong:
+        pid = 2**30
+        returncode = 1
+
+        def communicate(self, timeout=None):
+            return b"", chuoi_bi_mat.encode()
+
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: _TienTrinhHong())
+
+    with caplog.at_level("WARNING", logger="src.services.doc_tai_lieu"):
+        with pytest.raises(KhongDocDuoc):
+            doc("hd.doc", _OLE2_MAGIC + b"\x00" * 100)
+
+    toan_bo_log = "\n".join(r.message for r in caplog.records)
+    assert chuoi_bi_mat not in toan_bo_log, "stderr của soffice (bắt nguồn từ tài liệu) không được vào log"
+    assert any("mã thoát" in r.message or "1" in r.message for r in caplog.records), (
+        "vẫn phải log ĐƯỢC sự kiện hỏng và mã thoát, chỉ không log nội dung"
+    )
 
 
 def test_DOC_qua_han_treo_hong_sach_khong_treo_ca_request(monkeypatch):

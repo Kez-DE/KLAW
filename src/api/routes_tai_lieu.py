@@ -23,7 +23,7 @@ from src.services import llm as llm_svc
 from src.services import tai_lieu as tl
 from src.services.bao_ve import nguoi_dung_bat_buoc
 from src.services.db import get_engine
-from src.services.doc_tai_lieu import KhongDocDuoc, LoaiHong, TaiLieuDaDoc, doc
+from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang, KhongDocDuoc, LoaiHong, TaiLieuDaDoc, doc
 from src.services.phan_loai_tai_lieu import phan_loai
 from src.services.tai_lieu import VuotTran
 
@@ -47,6 +47,16 @@ THONG_DIEP_TRAN = {
     "so_byte": f"Tệp vượt giới hạn {tl.TRAN_BYTE // (1024 * 1024)} MB.",
     "so_trang": f"Tài liệu vượt giới hạn {tl.TRAN_TRANG} trang.",
     "chi_phi": "Tài liệu này quá lớn để xử lý trong một lần. Hãy tách nhỏ rồi gửi lại.",
+}
+
+# Fix round 2 — hai nguyên nhân hỏng vì HỆ THỐNG (`ChuyenDoiKhongSanSang`),
+# không vì tài liệu: không được nói như bốn nguyên nhân `_THONG_DIEP` ("tệp
+# của bạn có vấn đề"), vì tệp không có vấn đề gì cả. Câu cho `khong_co_cong_cu`
+# gợi ý một việc làm được NGAY (gửi .docx/.pdf) thay vì chỉ bảo "thử lại" —
+# một lỗi cấu hình không tự hết, và không có gì đảm bảo thử lại sẽ khác.
+_THONG_DIEP_HE_THONG = {
+    "khong_co_cong_cu": "Máy chủ chưa sẵn sàng đọc tệp .doc lúc này. Hãy gửi bản .docx hoặc .pdf, hoặc thử lại sau.",
+    "qua_tai": "Hệ thống đang xử lý nhiều tệp .doc cùng lúc. Hãy thử lại sau ít phút.",
 }
 
 
@@ -131,11 +141,19 @@ def _loi_http(e: Exception) -> HTTPException:
 
     Vượt trần và không đọc được đều là 422: yêu cầu hợp lệ về cú pháp nhưng
     không xử lý được, và cả hai đều nói rõ người dùng phải làm gì khác.
+
+    `ChuyenDoiKhongSanSang` (fix round 2) là 503, KHÔNG phải 422: đây không
+    phải "tệp của bạn có vấn đề" (422 nói đúng cho bốn nguyên nhân
+    `KhongDocDuoc`), mà là "hệ thống chưa xử lý được NGAY BÂY GIỜ" — đúng
+    nghĩa Service Unavailable, và đúng tín hiệu để một client tự động biết
+    nên thử lại thay vì coi tệp là hỏng.
     """
     if isinstance(e, VuotTran):
         return HTTPException(status_code=422, detail=THONG_DIEP_TRAN[e.tran])
     if isinstance(e, KhongDocDuoc):
         return HTTPException(status_code=422, detail=_THONG_DIEP[e.ly_do])
+    if isinstance(e, ChuyenDoiKhongSanSang):
+        return HTTPException(status_code=503, detail=_THONG_DIEP_HE_THONG[e.ly_do])
     raise e
 
 
@@ -282,8 +300,16 @@ async def tai_len(
     try:
         tai_lieu = await run_in_threadpool(doc, tep.filename or "", du_lieu)
         tl.kiem_so_trang(tai_lieu.so_trang)
-    except (KhongDocDuoc, VuotTran) as e:
-        ly_do = e.ly_do.value if isinstance(e, KhongDocDuoc) else f"vuot_tran_{e.tran}"
+    except (KhongDocDuoc, VuotTran, ChuyenDoiKhongSanSang) as e:
+        # `ChuyenDoiKhongSanSang` (fix round 2) tiền tố `he_thong_` — cùng
+        # khuôn `vuot_tran_*`, để `tai_lieu.da_dung_hom_nay` loại được CẢ HAI
+        # khỏi hạn mức/ngày bằng một mẫu, không phải liệt kê từng giá trị.
+        if isinstance(e, KhongDocDuoc):
+            ly_do = e.ly_do.value
+        elif isinstance(e, ChuyenDoiKhongSanSang):
+            ly_do = f"he_thong_{e.ly_do}"
+        else:
+            ly_do = f"vuot_tran_{e.tran}"
         await run_in_threadpool(
             tl.dat_trang_thai, get_engine(), viec_id, nguoi["sub"], "hong", ly_do_hong=ly_do
         )
