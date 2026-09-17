@@ -200,6 +200,72 @@ assert.deepEqual(
 );
 assert.deepEqual(coSpanHang(0, 4), [], "hàng rỗng không có ô nào để vẽ");
 
+// ──────────────────── Review round 1 [IMPORTANT] — khối cả hai không bị nuốt
+//
+// Một khối thô có CẢ `noi_dung` (chú thích) LẪN `bang` (bảng) khác rỗng —
+// rule 15 chỉ XIN mô hình để một trong hai, schema/backend không ép được.
+// Trước bản vá này, `khoiMotHopLe` ưu tiên `bang` và ÂM THẦM bỏ `noiDung`;
+// backend `_khoi_thanh_van_ban` lại ưu tiên NGƯỢC LẠI — hai phía lệch nhau
+// đúng cách Phase 7 R1 fix round 1 đã bắt được một lần ở cấp mục. Từ bản vá
+// này, MỘT khối thô như vậy ra HAI `KhoiMuc`, văn xuôi trước — không phía nào
+// phải chọn ưu tiên và mất nội dung còn lại.
+const banThaoKhoiCaHai = {
+  ...banThaoCu,
+  clauses: [
+    {
+      key: "muc_1",
+      ten: "Đánh giá",
+      vung: "than",
+      khoi: [
+        {
+          noi_dung: "Chú thích bảng:",
+          bang: [
+            ["TT", "Điểm"],
+            ["1", "2,0"],
+          ],
+        },
+      ],
+    },
+  ],
+} as Parameters<typeof mucTuBanThao>[0];
+const mucKhoiCaHai = mucTuBanThao(banThaoKhoiCaHai, null)[0]?.khoi ?? [];
+assert.equal(mucKhoiCaHai.length, 2, "một khối thô cả hai ra HAI khối sạch, không mất khối nào");
+assert.deepEqual(mucKhoiCaHai[0], { kind: "vanXuoi", noiDung: "Chú thích bảng:" });
+assert.deepEqual(mucKhoiCaHai[1], {
+  kind: "bang",
+  hang: [
+    ["TT", "Điểm"],
+    ["1", "2,0"],
+  ],
+});
+
+// ──────────── Brief "Proof required" — letterhead hai cột sống sót NHƯ BẢNG
+//
+// Đo thật trên BM.M05 (`.sdd/phase-8-bm05-verbose.json`): letterhead không
+// viền, hàng đầu đủ 2 cột (tên đơn vị chủ quản / quốc hiệu), hàng hai chỉ 1 ô
+// gộp cả hai cột (tên cơ quan + số hiệu). Chưa test nào khoá riêng ca này
+// trước bản vá — pin nguyên văn cấu trúc thật, không phải bịa một bảng mẫu.
+const LETTERHEAD = [
+  [
+    "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
+    "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
+  ],
+  ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
+];
+const banThaoLetterhead = {
+  ...banThaoCu,
+  clauses: [
+    { key: "muc_1", ten: "Đầu trang", vung: "than", khoi: [{ noi_dung: "", bang: LETTERHEAD }] },
+  ],
+} as Parameters<typeof mucTuBanThao>[0];
+const mucLetterhead = mucTuBanThao(banThaoLetterhead, null)[0];
+assert.equal(mucLetterhead?.khoi.length, 1, "letterhead là MỘT khối bảng, không bị xé lẻ");
+assert.deepEqual(
+  mucLetterhead?.khoi[0],
+  { kind: "bang", hang: LETTERHEAD },
+  "sống sót NGUYÊN dạng bảng hai cột, không dẹt thành dòng văn xuôi",
+);
+
 // `tieuDeTuBanThao` — dòng H1 đầu của `document` (Phase 7 R4): tiêu đề THẬT
 // của văn bản, khác `BanThao.ten` ("Bản thảo tổng quát", tên LOẠI).
 assert.equal(tieuDeTuBanThao(banThaoCu.document), "PHIẾU ĐÁNH GIÁ QUÁ TRÌNH THỰC TẬP CÔNG NGHIỆP");
@@ -258,4 +324,4 @@ const chuHangHai = timTat(hangXml[1]!, "w:t").map((wt) =>
 );
 assert.deepEqual(chuHangHai, ["1", "Ý thức chấp hành"]);
 
-console.info("kiem-xuat-tep: 30/30 đạt");
+console.info("kiem-xuat-tep: 35/35 đạt");

@@ -116,15 +116,29 @@ function vungHopLe(vung: unknown): Muc["vung"] {
   return typeof vung === "string" && VUNG_HOP_LE.has(vung) ? (vung as Muc["vung"]) : "than";
 }
 
-/** MỘT khối thô (từ `khoi` mới, Phase 8) → `KhoiMuc` hợp lệ, hoặc `null` khi
- * không phân biệt được là văn xuôi hay bảng (cả hai rỗng/sai hình dạng). */
-function khoiMotHopLe(k: unknown): KhoiMuc | null {
-  if (typeof k !== "object" || k === null) return null;
+/**
+ * MỘT khối thô (từ `khoi` mới, Phase 8) → 0, 1, hay 2 `KhoiMuc` hợp lệ, ĐÚNG
+ * thứ tự văn xuôi rồi bảng.
+ *
+ * Trả MẢNG, không một giá trị: rule 15 XIN mô hình để mỗi khối MỘT trong hai
+ * (`noi_dung` HOẶC `bang`), nhưng schema strict không ép được điều đó — một
+ * khối vẫn có thể tới đây với CẢ HAI khác rỗng. Review round 1 [IMPORTANT]:
+ * bản trước của hàm này ưu tiên `bang` (bỏ `noi_dung`), trong khi
+ * `dung_ban_thao_tong_quat._khoi_thanh_van_ban` phía máy chủ lại ưu tiên
+ * NGƯỢC LẠI — chứng tỏ luật "một khối một loại" chưa từng được ép, chỉ được
+ * TIN, và hai phía đọc cùng một dữ liệu ra hai kết quả khác nhau. Trả CẢ HAI
+ * làm hai khối riêng (văn xuôi trước) xoá luôn nhu cầu chọn ưu tiên — đúng
+ * cách Phase 7 R1 fix round 1 đã sửa lỗi này một lần ở cấp MỤC.
+ */
+function khoiMotHopLe(k: unknown): KhoiMuc[] {
+  if (typeof k !== "object" || k === null) return [];
   const o = k as { noi_dung?: unknown; bang?: unknown };
-  const bang = bangHopLe(o.bang);
-  if (bang) return { kind: "bang", hang: bang };
   const noiDung = typeof o.noi_dung === "string" ? o.noi_dung : "";
-  return noiDung !== "" ? { kind: "vanXuoi", noiDung } : null;
+  const bang = bangHopLe(o.bang);
+  const ra: KhoiMuc[] = [];
+  if (noiDung !== "") ra.push({ kind: "vanXuoi", noiDung });
+  if (bang) ra.push({ kind: "bang", hang: bang });
+  return ra;
 }
 
 /**
@@ -136,7 +150,7 @@ function khoiMotHopLe(k: unknown): KhoiMuc | null {
  */
 function khoiTuClause(c: ClauseTho | undefined): KhoiMuc[] {
   if (Array.isArray(c?.khoi)) {
-    return c.khoi.map(khoiMotHopLe).filter((k): k is KhoiMuc => k !== null);
+    return c.khoi.flatMap(khoiMotHopLe);
   }
   // Phase 7 trở về trước: câu dẫn (nếu có) RỒI bảng (nếu có) — đúng thứ tự
   // `XemTruocA4` từng render (fix round 1, Phase 7) trước khi có `khoi`.
