@@ -614,13 +614,24 @@ def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, list
 
     Một khối BẢNG (mô hình tự gõ `bang`) được thay khi MỌI ô khác rỗng của nó
     khớp riêng một bảng DUY NHẤT — mô hình đã tự khai "đây là bảng", chỉ có
-    thể đúng hay sai bảng nào, không cần ngưỡng. Một khối VĂN XUÔI cần ÍT NHẤT
-    HAI khối LIỀN KỀ cùng khớp một bảng mới gộp — một câu trùng khớp một ô
-    không đủ để kết luận cả đoạn đó là một bảng bị xé lẻ.
+    thể đúng hay sai bảng nào, không cần ngưỡng. **Review round 3 [HIGH],
+    "MỌI ô" phải là luật THẬT, không phải lời hứa suông:** một bản trước chỉ
+    xét các ô ĐÃ khớp (`- {None}` loại ô không khớp ra khỏi phép kiểm, thay vì
+    đòi mọi ô phải khớp), nên MỘT ô dùng chung tình cờ khớp (ví dụ "TT" hay
+    một nhãn cột lặp lại) đã đủ để cả khối bị THAY — kể cả khi người dùng xin
+    sửa bảng ("chỉ giữ lại hàng Tổng") và mô hình làm đúng, giữ lại đúng MỘT ô
+    gốc: khối đó vẫn bị ghi đè về nguyên bảng cũ, âm thầm huỷ sửa đổi thật.
+    Đây là chiều nguy hiểm hơn chiều đã disclose ở round 2 (bỏ lỡ một lần cứu
+    còn hơn ghi đè một lần sửa) — sửa bằng cách đòi ĐỦ: một ô không khớp được
+    (kể cả khớp nhập nhằng nhiều bảng) chặn NGAY, không lọc bỏ nó rồi xét phần
+    còn lại. Một khối VĂN XUÔI cần ÍT NHẤT HAI khối LIỀN KỀ cùng khớp một bảng
+    mới gộp — một câu trùng khớp một ô không đủ để kết luận cả đoạn đó là một
+    bảng bị xé lẻ (nhánh này KHÔNG đổi, review round 3 xác nhận đã đúng).
 
     Bảng nào mô hình soạn MỚI (không có trong tài liệu, ví dụ mục lục thiết bị
-    tự liệt kê) không khớp ô nào → giữ NGUYÊN như mô hình viết — chức năng
-    "mô hình tự soạn bảng mới" (không phải chỉ sao y) không bị mất."""
+    tự liệt kê) — hay bảng mô hình đã SỬA THẬT, giữ lại một vài ô gốc thôi —
+    không còn khớp MỌI ô → giữ NGUYÊN như mô hình viết. Chức năng "mô hình tự
+    soạn/sửa bảng" không bị mất vì phép khớp lại này."""
 
     def _bang_cua(chu: str) -> str | None:
         s = normalize(chu)
@@ -631,11 +642,21 @@ def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, list
         ]
         return f"{khop[0][0]}{khop[0][1].bang[0]}" if len(khop) == 1 else None
 
+    def _bang_khop_het(hang_o: list[list[str]]) -> str | None:
+        """MỌI ô khác rỗng của bảng này khớp riêng ĐÚNG MỘT bảng thật — một ô
+        không khớp được (rỗng kết quả `_bang_cua`, dù vì không có trong tài
+        liệu hay vì khớp nhập nhằng nhiều chỗ) chặn NGAY, không bị lọc bỏ rồi
+        xét phần còn lại (review round 3 [HIGH])."""
+        o_khac_rong = [o for hang in hang_o for o in hang if o]
+        if not o_khac_rong:
+            return None
+        b = {_bang_cua(o) for o in o_khac_rong}
+        return b.pop() if len(b) == 1 and None not in b else None
+
     khoa: list[str | None] = []
     for k in khoi:
         if k["bang"]:
-            b = {_bang_cua(o) for hang in k["bang"] for o in hang if o} - {None}
-            khoa.append(b.pop() if len(b) == 1 else None)
+            khoa.append(_bang_khop_het(k["bang"]))
         else:
             khoa.append(_bang_cua(k["noi_dung"]) if k["noi_dung"] else None)
 

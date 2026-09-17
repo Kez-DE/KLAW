@@ -478,6 +478,22 @@ def test_khop_bang_cuu_hang_gop_bi_dem_du():
     ]
 
 
+def test_khop_bang_khong_ghi_de_bang_da_sua_giu_lai_mot_o_goc():
+    """Review round 3 [HIGH] — người dùng xin "chỉ giữ lại hàng Tổng", mô hình
+    LÀM ĐÚNG: bảng mới chỉ còn một hàng, nhãn cột viết lại khác nguồn, chỉ MỘT
+    ô ("Tổng") tình cờ trùng chữ với bảng gốc. Một bản trước của `_khop_bang`
+    lọc bỏ các ô KHÔNG khớp rồi chỉ xét ô đã khớp — ở đây "Tổng" là ô DUY NHẤT
+    còn lại sau khi lọc, nên nó "khớp một bảng duy nhất" và bị ghi đè NGUYÊN
+    bảng gốc, HUỶ MẤT sửa đổi thật của người dùng. Luật ĐÚNG (docstring
+    `_khop_bang` đã nói, giờ code phải làm đúng): MỌI ô khác rỗng phải khớp,
+    không chỉ ô nào tình cờ khớp — "Mục"/"Giá trị"/"8" không khớp gì cả nên
+    khối này KHÔNG được thay, giữ nguyên bảng đã sửa."""
+    bang_da_sua = [["Mục", "Giá trị"], ["Tổng", "8"]]
+    muc = {"ten": "Đánh giá", "vung": "than", "khoi": [{"noi_dung": "", "bang": bang_da_sua}]}
+    van_ban, _ = _sach([muc], nguon="Mục Giá trị Tổng 8", goi=GOI_BANG_DIEM)
+    assert van_ban["muc"][0]["khoi"][0]["bang"] == bang_da_sua
+
+
 def test_khop_bang_khong_dung_vao_bang_moi_mo_hinh_tu_soan():
     """Một bảng mô hình SOẠN MỚI (không có ô nào trong tài liệu nguồn) không
     khớp bảng thật nào → giữ NGUYÊN như mô hình viết — chức năng "soạn bảng
