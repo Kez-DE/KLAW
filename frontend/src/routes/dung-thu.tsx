@@ -146,30 +146,52 @@ function ManHoiKlaw() {
   const doiChieu = useDoiChieu();
   const haiCot = useHaiCot();
   const navigate = useNavigate();
-  // Độ rộng khung điều chiếu do người dùng kéo (Task 22, spec 2026-09-09 §9.1)
-  // — nhớ qua localStorage, kẹp lại theo biên hiện tại của cửa sổ. Biên đổi
-  // theo `resize`: cửa sổ thu hẹp không được để độ rộng đã lưu tràn ra ngoài.
-  // Kẹp NGAY LÚC khởi tạo, bằng đúng biên vừa tính cho cửa sổ hiện tại — độ
-  // rộng lưu từ một màn rộng hơn, mở lại trên màn hẹp hơn (thu nhỏ cửa sổ,
-  // đổi màn hình, KHÔNG cần resize trong phiên), phải khớp giá trị hiển thị
-  // ngay từ khung hình đầu tiên. Tính biên MỘT LẦN rồi dùng chung cho cả hai
-  // state — gọi `bienPanelDoiChieu` hai lần với hai giả định khác nhau là hai
-  // câu trả lời có thể lệch nhau.
-  const [bienDoiChieu, datBienDoiChieu] = useState(() =>
-    bienPanelDoiChieu(typeof window === "undefined" ? 1440 : window.innerWidth),
+  // Bề rộng THẬT còn lại cho hàng chat+splitter+panel (Phase 9 U4 fix round 1)
+  // — đo trực tiếp trên chính khung bọc (`ref={khungHang}` dưới, con của
+  // `<main>` trong `AppShell`), KHÔNG phải `window.innerWidth`. Cột trái của
+  // `AppShell` (dải icon 64px hay đầy đủ 260px, tuỳ ngưỡng bề rộng VÀ lựa
+  // chọn tay qua localStorage — xem `AppShell.tsx`) đứng CẠNH khung này, nên
+  // `window.innerWidth` luôn lớn hơn phần thật sự còn lại đúng bằng bề rộng
+  // cột trái. `bienPanelDoiChieu` từng nhận thẳng `window.innerWidth`, nên
+  // trần nó tính cho panel bên phải (đối chiếu hay sân khấu bản thảo) có thể
+  // LỚN HƠN chỗ thật sự còn lại — panel đứng `shrink-0` với bề rộng cố định
+  // đúng bằng trần đó thì tổng bề rộng vượt khung nhìn (tràn ngang), không chỉ
+  // ép cột chat co lại nữa. `ResizeObserver` bắt được CẢ resize cửa sổ LẪN đổi
+  // cỡ cột trái (rail ↔ đầy đủ) — hai việc không phát cùng một sự kiện.
+  const khungHang = useRef<HTMLDivElement | null>(null);
+  const [rongHang, datRongHang] = useState(() =>
+    typeof window === "undefined" ? 1440 : window.innerWidth,
   );
+  useLayoutEffect(() => {
+    const el = khungHang.current;
+    if (!el) return;
+    datRongHang(el.getBoundingClientRect().width);
+    const ro = new ResizeObserver((muc) => {
+      const rong = muc[0]?.contentRect.width;
+      if (rong) datRongHang(rong);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Độ rộng khung điều chiếu do người dùng kéo (Task 22, spec 2026-09-09 §9.1)
+  // — nhớ qua localStorage, kẹp lại theo biên hiện tại. Biên đổi theo
+  // `rongHang`: khung thu hẹp không được để độ rộng đã lưu tràn ra ngoài.
+  // `useLayoutEffect` (không phải `useEffect`) để kẹp XONG TRƯỚC lần vẽ đầu,
+  // giữ đúng cam kết cũ "khớp giá trị hiển thị ngay từ khung hình đầu tiên"
+  // dù giờ biên phụ thuộc một phép đo DOM, không còn tính được ngay lúc khởi
+  // tạo state. Tính biên MỘT LẦN rồi dùng chung cho cả hai state — gọi
+  // `bienPanelDoiChieu` hai lần với hai giả định khác nhau là hai câu trả lời
+  // có thể lệch nhau.
+  const [bienDoiChieu, datBienDoiChieu] = useState(() => bienPanelDoiChieu(rongHang));
   const [rongDoiChieu, datRongDoiChieu] = useState(() =>
     kepRong(docRongDaLuu("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH), bienDoiChieu),
   );
-  useEffect(() => {
-    const capNhat = () => {
-      const bienMoi = bienPanelDoiChieu(window.innerWidth);
-      datBienDoiChieu(bienMoi);
-      datRongDoiChieu((r) => kepRong(r, bienMoi));
-    };
-    window.addEventListener("resize", capNhat);
-    return () => window.removeEventListener("resize", capNhat);
-  }, []);
+  useLayoutEffect(() => {
+    const bienMoi = bienPanelDoiChieu(rongHang);
+    datBienDoiChieu(bienMoi);
+    datRongDoiChieu((r) => kepRong(r, bienMoi));
+  }, [rongHang]);
   // MỘT cửa duy nhất để đổi độ rộng — kéo, thu gọn (Enter), và về mặc định
   // (bấm đôi) đều là CÙNG một hành động dưới góc nhìn người dùng ("tôi chọn
   // khung này rộng bao nhiêu"), nên cả ba phải cùng nhớ. Gom vào một hàm thay
@@ -186,21 +208,15 @@ function ManHoiKlaw() {
   // 480px" — một phép tính đúng cho BẤT KỲ panel nào đứng bên phải chat, không
   // phải hàm riêng cho khung đối chiếu dù tên gọi vậy; viết thêm một hàm kẹp
   // thứ hai chỉ để đổi tên là nhân đôi cùng một phép tính.
-  const [bienSanKhau, datBienSanKhau] = useState(() =>
-    bienPanelDoiChieu(typeof window === "undefined" ? 1440 : window.innerWidth),
-  );
+  const [bienSanKhau, datBienSanKhau] = useState(() => bienPanelDoiChieu(rongHang));
   const [rongSanKhau, datRongSanKhauRaw] = useState(() =>
     kepRong(docRongDaLuu("klaw.san-khau.rong", RONG_SAN_KHAU_MAC_DINH), bienSanKhau),
   );
-  useEffect(() => {
-    const capNhat = () => {
-      const bienMoi = bienPanelDoiChieu(window.innerWidth);
-      datBienSanKhau(bienMoi);
-      datRongSanKhauRaw((r) => kepRong(r, bienMoi));
-    };
-    window.addEventListener("resize", capNhat);
-    return () => window.removeEventListener("resize", capNhat);
-  }, []);
+  useLayoutEffect(() => {
+    const bienMoi = bienPanelDoiChieu(rongHang);
+    datBienSanKhau(bienMoi);
+    datRongSanKhauRaw((r) => kepRong(r, bienMoi));
+  }, [rongHang]);
   const datRongSanKhauVaLuu = (px: number) => {
     datRongSanKhauRaw(px);
     luuRong("klaw.san-khau.rong", px);
@@ -1239,7 +1255,7 @@ function ManHoiKlaw() {
 
   return (
     <AppShell active="/dung-thu">
-      <div className="flex min-h-0 flex-1">
+      <div ref={khungHang} className="flex min-h-0 flex-1">
         {!haiCot && sanKhau !== null ? (
           /* Bố cục hẹp (Task 26, spec 2026-09-09 §9.7): dưới 68rem không đủ
              chỗ cho chat và bản thảo cạnh nhau — toàn màn hình thành một

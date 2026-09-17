@@ -8,6 +8,8 @@ import {
   CHAT_TOI_THIEU,
   RONG_DOI_CHIEU_MAC_DINH,
   RONG_SAN_KHAU_MAC_DINH,
+  RONG_TAY_KEO_PX,
+  RONG_TOI_THIEU,
   bienPanelDoiChieu,
   docRongDaLuu,
   kepRong,
@@ -19,8 +21,29 @@ import {
 assert.equal(RONG_DOI_CHIEU_MAC_DINH, 420);
 assert.equal(RONG_SAN_KHAU_MAC_DINH, 640);
 assert.deepEqual(bienPanelDoiChieu(1440), { min: 320, max: 864 });
-assert.deepEqual(bienPanelDoiChieu(1000), { min: 320, max: 520 }); // 1000 - 480 chat tối thiểu
+assert.deepEqual(bienPanelDoiChieu(1000), { min: 320, max: 512 }); // 1000 - 480 chat - 8 TayKeo
 assert.deepEqual(bienPanelDoiChieu(700), { min: 320, max: 320 });
+
+// Không tràn ngang (Phase 9 U4 fix round 1) — panel đứng ở ĐÚNG trần nó tự
+// báo (`bien.max`), cộng sàn chat (`CHAT_TOI_THIEU`, `sanRongChat`) cộng
+// `TayKeo`, không bao giờ được vượt bề rộng THẬT đưa vào `bienPanelDoiChieu`.
+// Đo được thật TRƯỚC bản vá này: cửa sổ 1467px trừ cột trái 260px ra
+// `rongHang=1207`, panel đứng ở trần tự báo 724 + sàn chat 480 + TayKeo 8 =
+// 1212 > 1207 — tràn 5px (`document.documentElement.scrollWidth >
+// clientWidth`). Chỉ đo từ ngưỡng "đủ chỗ cho cả ba phần ở mức tối thiểu"
+// trở lên (`NGUONG_KHONG_TRAN`) — dưới ngưỡng đó `RONG_TOI_THIEU` VÀ
+// `CHAT_TOI_THIEU` cùng đòi chỗ tối thiểu vượt quá khung nhìn, một ràng buộc
+// không thể giải quyết bằng công thức (khi đó `haiCot` đã tắt bố cục hai cột
+// từ trước, xem `useHaiCot` trong `KhungDoiChieu.tsx`), không phải lỗi của
+// hàm này.
+const NGUONG_KHONG_TRAN = RONG_TOI_THIEU + CHAT_TOI_THIEU + RONG_TAY_KEO_PX;
+for (const w of [NGUONG_KHONG_TRAN, 1000, 1207, 1440, 2000]) {
+  const bien = bienPanelDoiChieu(w);
+  assert.ok(
+    bien.max + CHAT_TOI_THIEU + RONG_TAY_KEO_PX <= w,
+    `bienPanelDoiChieu(${w}).max=${bien.max} cộng sàn chat cộng TayKeo phải vừa trong ${w}`,
+  );
+}
 assert.equal(kepRong(100, { min: 320, max: 864 }), 320);
 assert.equal(kepRong(900, { min: 320, max: 864 }), 864);
 assert.equal(kepRong(500, { min: 320, max: 864 }), 500);
@@ -85,4 +108,4 @@ assert.equal(sanRongChat(false), CHAT_TOI_THIEU);
 assert.equal(sanRongChat(true), undefined);
 assert.equal(CHAT_TOI_THIEU, 480);
 
-console.log("kiem-keo-dan: 22/22 OK");
+console.log("kiem-keo-dan: 27/27 OK");
