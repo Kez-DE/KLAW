@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -21,6 +22,8 @@ from src.config import get_settings
 from src.services import checklist as checklist_svc
 from src.services import db as db_svc
 from src.services import rules as rules_svc
+
+logger = logging.getLogger(__name__)
 
 # Migration prefixes lifespan re-applies on every start (fail-fast guards for
 # columns a hot path reads unconditionally). `tests/test_api/test_guard_khoi_dong.py`
@@ -171,7 +174,70 @@ class GioiHanKichThuoc:
         await JSONResponse({"detail": ly_do}, status_code=ma)(scope, receive, send)
 
 
+LOI_MAY_CHU_KHONG_XU_LY_DUOC = "Có lỗi ở máy chủ, vui lòng thử lại sau."
+
+
+class BatLoiMayChu:
+    """Bắt MỌI exception chưa handler nào xử lý, trả JSON 500 KÈM header CORS.
+
+    `ServerErrorMiddleware` của Starlette luôn là middleware NGOÀI CÙNG
+    (`Starlette.build_middleware_stack`: bất cứ handler đăng ký cho
+    `Exception`/500 nào — kể cả qua `@app.exception_handler(Exception)` —
+    đều bị gộp thành `error_handler` của CHÍNH lớp đó, không đi vào
+    `ExceptionMiddleware` như mọi handler khác). Vì lớp đó nằm NGOÀI
+    `CORSMiddleware`, response nó tự dựng đi qua `send` GỐC (chưa bọc CORS)
+    — nên cú pháp FastAPI hay dùng, `@app.exception_handler(Exception)`,
+    KHÔNG sửa được lỗi thiếu header CORS mà bug này mô tả. Middleware NÀY,
+    thêm bằng `app.add_middleware` NẰM TRONG CORS (như `GioiHanKichThuoc`),
+    là cách duy nhất bắt exception TRƯỚC khi nó thoát ra tới lớp đó.
+
+    `HTTPException`/`RequestValidationError` KHÔNG bao giờ tới được đây:
+    `ExceptionMiddleware` (nằm trong cùng, sát router) đã tự giải quyết
+    chúng thành response bình thường trước khi có dịp lan ra ngoài — nên lớp
+    này không cần, và không được, tự phân biệt loại exception.
+
+    KHÔNG `raise` lại sau khi gửi response: `ServerErrorMiddleware` mặc định
+    luôn ném lại exception (để server ASGI tự log), nhưng ném lại Ở ĐÂY nghĩa
+    là nó lại thoát khỏi chính middleware này — về đúng chỗ đang tránh. Log
+    thủ công dưới đây giữ traceback ở mức ERROR, cùng độ ồn hôm nay, mà không
+    cần ném lại.
+
+    `detail` là MỘT câu cố định, không mang `str(exc)`/traceback: khác 500 của
+    `/tra-cuu` (routes.py, cố ý lộ TÊN loại lỗi cho một endpoint đã biết rõ
+    những loại lỗi có thể tới), lớp NÀY bắt exception BẤT KỲ ở BẤT KỲ route
+    nào — không có cách nào đảm bảo một ngoại lệ tương lai không mang dữ liệu
+    nhạy cảm trong message của nó.
+    """
+
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        da_gui = False
+
+        async def _send(message):
+            nonlocal da_gui
+            if message["type"] == "http.response.start":
+                da_gui = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, _send)
+        except Exception:
+            logger.exception("Lỗi máy chủ không xử lý được")
+            if not da_gui:
+                await JSONResponse(
+                    {"detail": LOI_MAY_CHU_KHONG_XU_LY_DUOC}, status_code=500
+                )(scope, receive, send)
+
+
 app.add_middleware(GioiHanKichThuoc)
+
+# TRƯỚC CORSMiddleware (như GioiHanKichThuoc ở trên) để CORS bọc NGOÀI cả hai —
+# xem docstring BatLoiMayChu.
+app.add_middleware(BatLoiMayChu)
 
 settings = get_settings()
 app.add_middleware(

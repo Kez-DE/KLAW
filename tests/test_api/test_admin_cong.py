@@ -50,17 +50,17 @@ async def test_KLAW_API_KEY_khong_lien_quan_toi_admin(client, cai_dat, ghi_gia):
 async def test_loi_lap_trinh_KHONG_bi_LookupError_nuot_thanh_404(client, cai_dat, ghi_gia, monkeypatch):
     """`KeyError`/`IndexError` không phải lỗi NGHIỆP VỤ (`_LOI_NGHIEP_VU`) — `_thuc_hien`
     (bọc quanh các thao tác ghi như `mo_khoa`) KHÔNG được nuốt nó thành một 404 giả kèm
-    một dòng nhật ký `..._that_bai` giả. Client ASGI của test
-    (`ASGITransport(raise_app_exceptions=True)`, mặc định httpx, xem `tests/conftest.py`)
-    NỔ lại ngoại lệ thay vì trả response."""
+    một dòng nhật ký `..._that_bai` giả. `main.BatLoiMayChu` (Task 2, handler `Exception`
+    toàn cục) bắt nó ở tầng ASGI và trả 500 — không còn thoát ra ngoài như trước khi có
+    handler đó — nhưng `_thuc_hien` vẫn phải KHÔNG tự map nó thành 404/ghi nhật ký giả."""
     cai_dat(admin_api_key="khoa-thu")
 
     def no(sub: str, ly_do: str, boi: str, ip: str | None = None) -> dict:
         raise KeyError("x")
 
     monkeypatch.setattr(tai_khoan_qt, "mo_khoa", no)
-    with pytest.raises(KeyError):
-        await client.post(f"/api/v1/admin/tai-khoan/{MOT_SUB}/mo-khoa", json={"ly_do": "x"}, headers=DUNG)
+    r = await client.post(f"/api/v1/admin/tai-khoan/{MOT_SUB}/mo-khoa", json={"ly_do": "x"}, headers=DUNG)
+    assert r.status_code == 500
     assert not any(d["hanh_dong"] == "mo_khoa_tai_khoan_that_bai" for d in ghi_gia)
 
 
