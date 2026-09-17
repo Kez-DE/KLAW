@@ -29,7 +29,22 @@ logger = logging.getLogger(__name__)
 # columns a hot path reads unconditionally). `tests/test_api/test_guard_khoi_dong.py`
 # asserts every migrations/*.sql from "019" onward has its prefix here, so a new
 # migration in that range can't be silently skipped at startup.
-MIGRATIONS_KHOI_DONG = ("019", "020", "021", "022", "023", "024", "025", "026", "027", "028", "029", "030", "031")
+MIGRATIONS_KHOI_DONG = (
+    "019",
+    "020",
+    "021",
+    "022",
+    "023",
+    "024",
+    "025",
+    "026",
+    "027",
+    "028",
+    "029",
+    "030",
+    "031",
+    "032",
+)
 
 
 @asynccontextmanager
