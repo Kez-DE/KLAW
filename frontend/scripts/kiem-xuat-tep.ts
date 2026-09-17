@@ -545,4 +545,113 @@ for (const n of [bienKy - 1, bienKy, bienKy + 1]) {
   );
 }
 
-console.info("kiem-xuat-tep: 44/44 đạt");
+// ─────────────────── Fix round 1 #1 — mồ côi khi khối sau là BẢNG ──────────
+//
+// Cùng cách dò biên, nhưng khối theo NGAY sau tiêu đề giờ là một BẢNG, không
+// phải một đoạn văn — hình dạng phổ biến nhất của biểu mẫu này (tiêu đề mục
+// dẫn thẳng vào bảng chấm điểm, không câu dẫn). Trước bản vá này, buffer mồ
+// côi là một hằng số một-dòng "thuong" bất kể khối sau là gì, nên tiêu đề có
+// thể vẫn bị bỏ lại một mình cuối trang trong khi hàng tiêu đề THẬT của bảng
+// (cao hơn một dòng thường) nhảy sang trang sau theo luật phân trang riêng
+// của chính bảng — đúng lỗi mồ côi luật này tồn tại để chặn, mà phép thử
+// heading→heading ở trên không bắt được.
+function taiLieuMoCoiBang(soDoanDien: number): NoiDungXuat {
+  const dien: KhoiVanBan[] = Array.from({ length: soDoanDien }, (_, i) => ({
+    kind: "dong" as const,
+    d: dong(`Đoạn điền chỗ trống số ${i + 1} để đẩy dần xuống cuối trang.`, "thuong"),
+  }));
+  return {
+    khoi: [
+      ...dien,
+      { kind: "dong", d: dong("Điều 9. Bảng chấm điểm", "dieu", { inDam: true }) },
+      {
+        kind: "bang",
+        hang: [
+          ["TT", "Tiêu chí", "Điểm tối đa", "Điểm đánh giá"],
+          ["1", "Ý thức chấp hành nội quy, kỷ luật lao động", "2,0", "2,0"],
+        ],
+      },
+    ],
+    oKy: [],
+  };
+}
+
+let bienMoCoiBang = -1;
+for (let n = 0; n <= 80; n++) {
+  const { trangCuaKhoi } = await noiDungThanhPDF(
+    taiLieuMoCoiBang(n),
+    "Kiểm mồ côi bảng",
+    phongChuPDF,
+  );
+  if (trangCuaKhoi[n] === 2) {
+    bienMoCoiBang = n;
+    break;
+  }
+}
+assert.ok(
+  bienMoCoiBang >= 0,
+  "phải dò được số đoạn điền đẩy tiêu đề (đứng trước bảng) sang trang 2",
+);
+
+for (const n of [bienMoCoiBang - 1, bienMoCoiBang, bienMoCoiBang + 1]) {
+  const { trangCuaKhoi } = await noiDungThanhPDF(
+    taiLieuMoCoiBang(n),
+    "Kiểm mồ côi bảng",
+    phongChuPDF,
+  );
+  assert.equal(
+    trangCuaKhoi[n],
+    trangCuaKhoi[n + 1],
+    `n=${n}: tiêu đề (khối ${n}) và bảng theo ngay sau (khối ${n + 1}) phải cùng trang`,
+  );
+}
+
+// ──────────────── Fix round 1 #2 — bảng dài lặp lại hàng tiêu đề ───────────
+//
+// Một bảng đủ dài để tràn qua nhiều trang: hàng tiêu đề phải được VẼ LẠI ở
+// đầu MỖI trang tiếp theo — thiếu bước đó thì trang sau mất tên cột, không
+// đọc được cột nào là "Điểm tối đa", cột nào là "Điểm đánh giá" (đúng lỗi
+// khả dụng thật cho một biểu mẫu đánh giá, không giả định "bảng luôn ngắn").
+// Đếm số lần hình chữ nhật tô xám của hàng tiêu đề xuất hiện trong nội dung
+// đã giải nén: `0.94 g` (jsPDF chọn DeviceGray cho `setFillColor(240,240,
+// 240)`, RGB bằng nhau) rồi một `re`/`f` — đo cấu trúc PDF thật, không phải
+// đếm chữ (chữ trong luồng nội dung là mã CID Identity-H, không phải văn bản
+// đọc được). Xác nhận số lần tô KHỚP ĐÚNG số trang — không phải một lần duy
+// nhất bất kể bảng dài bao nhiêu.
+function bangDaiHang(soHang: number): NoiDungXuat {
+  const tieuDeBang = ["TT", "Tiêu chí", "Điểm tối đa", "Điểm đánh giá"];
+  const hang: string[][] = [tieuDeBang];
+  for (let i = 1; i <= soHang; i++) {
+    hang.push([String(i), `Tiêu chí đánh giá số ${i}`, "2,0", "2,0"]);
+  }
+  return { khoi: [{ kind: "bang", hang }], oKy: [] };
+}
+
+function demLanToTieuDeBang(bytes: Buffer): number {
+  return [...noiDungGiaiNen(bytes).matchAll(/0\.94 g\n[\d.-]+ [\d.-]+ [\d.-]+ [\d.-]+ re\nf/g)]
+    .length;
+}
+
+let soHangTran = -1;
+for (let soHang = 5; soHang <= 100; soHang += 5) {
+  const { pdf: pdfBang } = await noiDungThanhPDF(bangDaiHang(soHang), "Kiểm bảng dài", phongChuPDF);
+  if (pdfBang.getNumberOfPages() >= 2) {
+    soHangTran = soHang;
+    break;
+  }
+}
+assert.ok(soHangTran >= 0, "phải dò được số hàng đẩy bảng tràn qua ít nhất 2 trang");
+
+const { pdf: pdfBangTran } = await noiDungThanhPDF(
+  bangDaiHang(soHangTran),
+  "Kiểm bảng dài",
+  phongChuPDF,
+);
+const soTrangBangTran = pdfBangTran.getNumberOfPages();
+assert.equal(
+  demLanToTieuDeBang(Buffer.from(pdfBangTran.output("arraybuffer"))),
+  soTrangBangTran,
+  "hàng tiêu đề (tô xám) phải được vẽ lại ở đầu MỖI trang, không chỉ trang đầu",
+);
+
+console.info("kiem-xuat-tep: 48/48 đạt");
