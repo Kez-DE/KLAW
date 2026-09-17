@@ -624,6 +624,32 @@ def test_ten_muc_la_tieu_de_that_trong_nguon_duoc_danh_dau_that():
     assert van_ban["muc"][0]["ten_that"] is True
 
 
+def test_ten_muc_that_viet_khac_hoa_thuong_van_duoc_danh_dau_that():
+    """Phase 9 U1 fix round 1 [reviewer Important] — ca Ở GIỮA hai test trên,
+    trước bản vá này chưa có gì khoá: một tiêu đề THẬT trong nguồn viết hoa
+    toàn bộ ("PHIẾU ĐÁNH GIÁ..."), như các biểu mẫu thường làm, nhưng mô hình
+    tái hiện tên mục theo lối chữ hoa/thường thường ("Phiếu đánh giá...") —
+    một thói quen bình thường của LLM, không phải một chữ bịa. `ten_that`
+    phải vẫn là `True`: so khớp gập hoa/thường (`_khong_hoa`) mới đúng, so
+    khớp nghiêm như `normalize()` gốc (round 0) sẽ đánh dấu sai `False` và ẩn
+    oan tiêu đề này — đúng lỗi brief cảnh báo ("không được xoá oan một tiêu
+    đề thật")."""
+    dv = [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="PHIẾU ĐÁNH GIÁ QUÁ TRÌNH THỰC TẬP TỐT NGHIỆP"),
+        DonViVanBan(chi_so=1, trang=1, offset_dau=50, noi_dung="Họ và tên sinh viên: …………"),
+    ]
+    goi = [{"id": "z3", "ten_tep": "x.docx", "don_vi": dv, "nhan": "A", "gui": dv}]
+    muc = {
+        "ten": "Phiếu đánh giá quá trình thực tập tốt nghiệp",
+        "vung": "than",
+        "khoi": [{"noi_dung": "Họ và tên sinh viên: …………", "bang": []}],
+    }
+    van_ban, _ = _sach(
+        [muc], nguon="PHIẾU ĐÁNH GIÁ QUÁ TRÌNH THỰC TẬP TỐT NGHIỆP Họ và tên sinh viên: …………", goi=goi
+    )
+    assert van_ban["muc"][0]["ten_that"] is True
+
+
 # ─────────────────────────────────────────── node hieu_tai_lieu phát `van_ban`
 
 

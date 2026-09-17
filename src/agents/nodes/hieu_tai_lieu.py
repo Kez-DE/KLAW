@@ -572,14 +572,35 @@ def _co_trong_nguon(gia_tri: str, nguon: str, so_nguon: list) -> bool:
     return v is not None and any(abs(v - s) <= SAI_SO for s in so_nguon)
 
 
+def _khong_hoa(s: str) -> str:
+    """`normalize()` rồi gập chữ hoa/thường — CHỈ cho phép `ten_that` so khớp
+    (Phase 9 U1 fix round 1), KHÔNG áp cho `normalize()` dùng chung của cả
+    file (neo trích dẫn, đối chiếu bảng): reviewer đo được model tái hiện một
+    tiêu đề THẬT ("PHIẾU ĐÁNH GIÁ...", viết hoa toàn bộ trong nguồn, một quy
+    ước biểu mẫu phổ biến) thành chữ hoa/thường thường ("Phiếu đánh giá..."),
+    và so khớp CHỮ HOA/THƯỜNG NGHIÊM (như `normalize()` gốc) khiến nó bị coi
+    là bịa — brief đã cảnh báo đúng ca này ("không được xoá oan một tiêu đề
+    thật"). `casefold()` chỉ đổi CÁCH VIẾT hoa/thường, không đụng dấu tiếng
+    Việt (`"Đ".casefold() == "đ"`, dấu vẫn còn nguyên) — khác hẳn việc bỏ dấu,
+    nơi "Phạt tiền" và "phát tiền" là hai từ khác nghĩa
+    (`verify_tier1.normalize` từ chối bỏ dấu vì lý do đó, và lý do đó vẫn giữ
+    nguyên ở đây). Cố tình KHÔNG đi xa hơn thành so khớp mờ/paraphrase: một
+    tên bịa "giống" một tiêu đề thật sẽ bị GIỮ oan nếu so mờ, và bịa mà vẫn
+    hiện ra là đúng lỗi U1 phải sửa — chấp nhận đánh đổi hẹp (chỉ hoa/thường)
+    hơn là rủi ro đó, cùng tinh thần "exact-text, not fuzzy" round 2 đã chọn
+    cho `_khop_bang`."""
+    return normalize(s).casefold()
+
+
 def _nhan_that(goi: list[dict]) -> set[str]:
-    """Chữ CHUẨN HOÁ của mọi đoạn văn (KHÔNG phải ô bảng) của tài liệu này —
-    dùng để phân biệt TÊN MỤC là chữ THẬT của tài liệu hay do mô hình đặt ra để
-    tổ chức bản thảo (Phase 9 U1, "quản hiệu và tiêu ngữ" kiểu KLAW tự bịa
-    không có trong nguồn). Không xét ô bảng: một tên mục trùng một nhãn cột
-    ngắn ("TT", "Tổng") là trùng ngẫu nhiên, không phải một tiêu đề thật —
-    cùng lý lẽ `_bang_cua` chỉ xét bảng, hàm này chỉ xét đoạn."""
-    return {normalize(d.noi_dung) for t in goi for d in t["don_vi"] if d.bang is None and d.noi_dung}
+    """Chữ CHUẨN HOÁ (đã gập hoa/thường, `_khong_hoa`) của mọi đoạn văn (KHÔNG
+    phải ô bảng) của tài liệu này — dùng để phân biệt TÊN MỤC là chữ THẬT của
+    tài liệu hay do mô hình đặt ra để tổ chức bản thảo (Phase 9 U1, "quốc hiệu
+    và tiêu ngữ" kiểu KLAW tự bịa không có trong nguồn). Không xét ô bảng: một
+    tên mục trùng một nhãn cột ngắn ("TT", "Tổng") là trùng ngẫu nhiên, không
+    phải một tiêu đề thật — cùng lý lẽ `_bang_cua` chỉ xét bảng, hàm này chỉ
+    xét đoạn."""
+    return {_khong_hoa(d.noi_dung) for t in goi for d in t["don_vi"] if d.bang is None and d.noi_dung}
 
 
 def _can_le_theo_dong(goi: list[dict]) -> dict[str, str]:
@@ -881,11 +902,12 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
             continue
         if dem["gia_tri_lam_sach"] > truoc:
             dem["muc_lam_sach"] += 1
-        # `ten_that` (Phase 9 U1) — tên mục này có phải chữ THẬT của tài liệu
+        # `ten_that` (Phase 9 U1, fix round 1 gập hoa/thường qua `_khong_hoa`
+        # — xem docstring hàm đó) — tên mục này có phải chữ THẬT của tài liệu
         # hay do mô hình đặt ra để tổ chức bản thảo. `goi` rỗng (test cũ,
         # hoặc lượt không có tài liệu cấu trúc) thì không đối chiếu được gì —
         # mặc định GIỮ tên (an toàn về phía không ẩn oan một tiêu đề thật).
-        ten_that = (not goi) or normalize(ten) in nhan_that
+        ten_that = (not goi) or _khong_hoa(ten) in nhan_that
         giu.append({"ten": ten, "ten_that": ten_that, "vung": vung, "khoi": khoi})
     return {"tieu_de": _sach(str((van_ban or {}).get("tieu_de") or "").strip()), "muc": giu}, dem
 
