@@ -15,8 +15,17 @@ export type DongVanBan = {
   thutLe: number;
 };
 
+/**
+ * Một khối nội dung theo ĐÚNG thứ tự xuất hiện trong khung A4 — hoặc một
+ * đoạn/tiêu đề (`dong`), hoặc một bảng thật (`bang`, Phase 7 R3: hàng×ô nguyên
+ * văn, hàng đầu là tiêu đề). Union thay vì hai mảng song song vì thứ tự CHUNG
+ * giữa đoạn văn và bảng mới là thứ `xuatWord` cần để không đẩy một bảng giữa
+ * tài liệu (như bảng đánh giá) xuống cuối, như `oKy` cố ý làm cho khối ký.
+ */
+export type KhoiVanBan = { kind: "dong"; d: DongVanBan } | { kind: "bang"; hang: string[][] };
+
 export type NoiDungXuat = {
-  dong: DongVanBan[];
+  khoi: KhoiVanBan[];
   /**
    * Các cột của khối ký. MỘT cột là hợp lệ, không phải hai.
    *
@@ -35,6 +44,12 @@ export interface Muc {
   key: string;
   ten: string;
   noiDung: string;
+  /**
+   * Hàng × ô khi mục này là một BẢNG trong tài liệu nguồn (Phase 7 R1, hàng
+   * đầu là tiêu đề) — `null` khi mục là văn xuôi, dùng `noiDung` như cũ. Một
+   * `clauses` CŨ (trước bản vá này) không có khoá `bang` — luôn ra `null`.
+   */
+  bang: string[][] | null;
   canCu: string | null;
 }
 
@@ -43,8 +58,17 @@ export interface Muc {
  * khớp `dataclasses.asdict(DraftClause)` (`src/agents/nodes/draft_generate.py` +
  * `src/services/ban_thao.py` dòng ghi `clauses`): `key`, `ten`, `noi_dung`,
  * `can_cu_provision_id`. KHÔNG có trường `text` — chỉ `noi_dung` mang nội dung.
+ * `bang` chỉ có ở `clauses` do `dung_ban_thao_tong_quat.clauses_tu` dựng (Phase 7).
  */
-type ClauseTho = { key?: string; ten?: string; noi_dung?: string };
+type ClauseTho = { key?: string; ten?: string; noi_dung?: string; bang?: unknown };
+
+/** `c.bang` thô (kiểu chưa biết, tới từ `unknown[]`) → hàng×ô hợp lệ, hoặc
+ * `null` khi rỗng/vắng/sai hình dạng — một mục cũ không có khoá này phải rơi
+ * đúng vào nhánh văn xuôi, không phải một bảng 0 hàng. */
+function bangHopLe(bang: unknown): string[][] | null {
+  if (!Array.isArray(bang) || bang.length === 0) return null;
+  return bang.map((hang) => (Array.isArray(hang) ? hang.map((o) => String(o)) : []));
+}
 
 /**
  * Ghép `clauses` (nội dung LLM sinh, từ `draft_generate`) vào khung `cau_truc.muc` (thứ
@@ -68,6 +92,7 @@ export function mucTuBanThao(banThao: BanThao, cauTruc: CauTruc | null): Muc[] {
       key: c.key ?? `m${i + 1}`,
       ten: c.ten ?? c.key ?? `Mục ${i + 1}`,
       noiDung: c.noi_dung ?? "[…]",
+      bang: bangHopLe(c.bang),
       canCu: null,
     }));
   }
@@ -76,8 +101,22 @@ export function mucTuBanThao(banThao: BanThao, cauTruc: CauTruc | null): Muc[] {
     key: m.key,
     ten: m.ten,
     noiDung: theoKey.get(m.key)?.noi_dung ?? "[…]",
+    bang: bangHopLe(theoKey.get(m.key)?.bang),
     canCu: m.can_cu || null,
   }));
+}
+
+/**
+ * Tiêu đề THẬT của bản thảo — dòng H1 đầu tiên trong `document` (Markdown),
+ * đúng cách `ban_thao._render_markdown` dựng từ `tieu_de` mô hình soạn (Phase
+ * 7 R4). `BanThao.ten` KHÔNG mang tiêu đề này: nó trả lời "bản thảo này THUỘC
+ * LOẠI gì" ("Bản thảo tổng quát"), một câu hỏi khác — trộn hai trường đó là
+ * đúng lỗi đã sửa ở `dung_ban_thao_tong_quat.py`.
+ */
+export function tieuDeTuBanThao(document: string): string | null {
+  const dong = document.split("\n")[0] ?? "";
+  const m = /^#\s+(.+)$/.exec(dong.trim());
+  return m?.[1]?.trim() ?? null;
 }
 
 const BO_QUA = new Set(["SCRIPT", "STYLE"]);
@@ -103,6 +142,25 @@ function laCanhGiua(el: HTMLElement) {
   return getComputedStyle(el).textAlign === "center";
 }
 
+/**
+ * Đọc MỘT bảng đã render thành hàng×ô, nguyên văn từng ô (đã chuẩn hoá khoảng
+ * trắng) — hàng đầu tiên là hàng tiêu đề, đúng quy ước `bang` phía máy chủ
+ * (`hieu_tai_lieu.schema_hieu`, Phase 7 R1); không cần phân biệt `<th>`/`<td>`.
+ *
+ * Chữ ký hàm chỉ đòi `querySelectorAll`/`textContent` — KHÔNG `getComputedStyle`
+ * như `docDong` — nên gọi được với một đối tượng giả tối thiểu, không cần DOM
+ * thật (kiểm bằng `kiem-xuat-tep.ts`, không có `jsdom` trong repo này).
+ */
+export function docBangTuPhanTu(bang: {
+  querySelectorAll(sel: string): ArrayLike<{
+    querySelectorAll(sel: string): ArrayLike<{ textContent: string | null }>;
+  }>;
+}): string[][] {
+  return Array.from(bang.querySelectorAll("tr")).map((hang) =>
+    Array.from(hang.querySelectorAll("th, td")).map((o) => chuanHoa(o.textContent ?? "")),
+  );
+}
+
 /** Đọc một thẻ thành dòng có định dạng, lấy đậm/nghiêng từ chính CSS đang áp. */
 function docDong(el: HTMLElement): DongVanBan {
   const text = chuanHoa(el.textContent ?? "");
@@ -121,7 +179,7 @@ function docDong(el: HTMLElement): DongVanBan {
 
 /** Đọc nội dung hiển thị của khung A4 thành danh sách dòng có định dạng. */
 export function docNoiDungTuDOM(sheet: HTMLElement): NoiDungXuat {
-  const dong: DongVanBan[] = [];
+  const khoi: KhoiVanBan[] = [];
   const oKy: DongVanBan[][] = [];
 
   /**
@@ -144,16 +202,25 @@ export function docNoiDungTuDOM(sheet: HTMLElement): NoiDungXuat {
     }
   }
 
-  const blocks = sheet.querySelectorAll<HTMLElement>("h1, p");
+  // Một truy vấn CHUNG cho cả ba thẻ giữ đúng THỨ TỰ xuất hiện trong tài liệu
+  // (`querySelectorAll` luôn trả theo thứ tự DOM, bất kể nhóm nào trong bộ
+  // chọn khớp) — một bảng đứng giữa hai đoạn văn (như bảng đánh giá) phải ở
+  // ĐÚNG chỗ đó trong tệp `.docx`, không bị dồn hết xuống cuối như `oKy`.
+  const blocks = sheet.querySelectorAll<HTMLElement>("h1, p, table");
   for (const el of Array.from(blocks)) {
     if (boQuaKhiXuat(el)) continue;
     if (khoiKy && khoiKy.contains(el)) continue;
+    if (el.tagName === "TABLE") {
+      const hang = docBangTuPhanTu(el);
+      if (hang.length > 0) khoi.push({ kind: "bang", hang });
+      continue;
+    }
     const d = docDong(el);
     if (d.text === "") continue;
-    dong.push(d);
+    khoi.push({ kind: "dong", d });
   }
 
-  return { dong, oKy };
+  return { khoi, oKy };
 }
 
 export function tenTepAnToan(ten: string) {
@@ -180,6 +247,55 @@ function taiBlob(blob: Blob, tenTep: string) {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
+/**
+ * Một bảng đã đọc (`docBangTuPhanTu`/`Muc.bang`) → `Table` thật của `docx`,
+ * viền thấy được và hàng đầu in đậm (Phase 7 R2/R3: khớp đúng bảng biểu mẫu
+ * tiếng Việt có hàng tiêu đề trên màn hình). KHÔNG đặc cách bảng nào — cùng
+ * một hàm cho MỌI `<table>` đã render, kể cả bảng đánh giá.
+ *
+ * Tự `import("docx")` (module đã nạp thì cache lại, không tốn thêm) thay vì
+ * nhận các lớp `docx` qua tham số: hàm phải gọi được ĐỘC LẬP với `xuatWord`
+ * để kiểm (`kiem-xuat-tep.ts`) mà không cần dựng cả khung DOM thật.
+ */
+export async function bangThanhTable(hang: string[][]) {
+  const { AlignmentType, BorderStyle, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } =
+    await import("docx");
+  const vien = { style: BorderStyle.SINGLE, size: 4, color: "999999" };
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: vien,
+      bottom: vien,
+      left: vien,
+      right: vien,
+      insideHorizontal: vien,
+      insideVertical: vien,
+    },
+    rows: hang.map(
+      (o, hi) =>
+        new TableRow({
+          children: o.map(
+            (c) =>
+              new TableCell({
+                borders: { top: vien, bottom: vien, left: vien, right: vien },
+                // `exactOptionalPropertyTypes`: `shading` phải VẮNG MẶT ở hàng
+                // thường, không gán `undefined` — spread có điều kiện, không gán.
+                ...(hi === 0 ? { shading: { fill: "F0F0F0" } } : {}),
+                children: [
+                  new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [
+                      new TextRun({ text: c, bold: hi === 0, font: "Times New Roman", size: 24 }),
+                    ],
+                  }),
+                ],
+              }),
+          ),
+        }),
+    ),
+  });
+}
+
 /** Xuất tệp Word (.docx) đúng thể thức: Times New Roman 13pt, lề 2cm/3cm. */
 export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
   const {
@@ -197,7 +313,7 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
     convertMillimetersToTwip,
   } = await import("docx");
 
-  const { dong, oKy } = docNoiDungTuDOM(sheet);
+  const { khoi, oKy } = docNoiDungTuDOM(sheet);
 
   const para = (d: DongVanBan) =>
     new Paragraph({
@@ -261,6 +377,12 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
         ]
       : [];
 
+  // Đoạn văn dựng NGAY (đồng bộ); bảng dựng bất đồng bộ (`bangThanhTable` tự
+  // `import("docx")`) — `Promise.all` giữ ĐÚNG thứ tự `khoi` đã đọc từ DOM.
+  const noiDungThan = await Promise.all(
+    khoi.map((k) => (k.kind === "dong" ? Promise.resolve(para(k.d)) : bangThanhTable(k.hang))),
+  );
+
   const doc = new Document({
     creator: "KLAW",
     title: tieuDe,
@@ -282,7 +404,7 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
             },
           },
         },
-        children: [...dong.map(para), new Paragraph({ text: "" }), ...bangKy],
+        children: [...noiDungThan, new Paragraph({ text: "" }), ...bangKy],
       },
     ],
   });
@@ -351,8 +473,10 @@ export async function xuatPDF(sheet: HTMLElement, tieuDe: string) {
 
 /** Toàn văn dạng text thuần, dùng cho chức năng sao chép. */
 export function toanVan(sheet: HTMLElement) {
-  const { dong, oKy } = docNoiDungTuDOM(sheet);
-  const than = dong.map((d) => d.text).join("\n");
+  const { khoi, oKy } = docNoiDungTuDOM(sheet);
+  const than = khoi
+    .map((k) => (k.kind === "dong" ? k.d.text : k.hang.map((o) => o.join(" | ")).join("\n")))
+    .join("\n");
   const ky = oKy.map((cot) => cot.map((d) => d.text).join("\n")).join("\n\n");
   return ky ? `${than}\n\n${ky}\n` : `${than}\n`;
 }

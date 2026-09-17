@@ -19,7 +19,7 @@ import {
   type TruongFact,
 } from "@/lib/klaw";
 import { dongTrenCung, moTam, type Tam } from "@/lib/ngan-xep-drawer";
-import { mucTuBanThao } from "@/lib/xuat-tep";
+import { mucTuBanThao, tieuDeTuBanThao } from "@/lib/xuat-tep";
 import { cn } from "@/lib/utils";
 import { DrawerSuaMuc } from "./DrawerSuaMuc";
 import { XemTruocA4 } from "./XemTruocA4";
@@ -461,13 +461,22 @@ export function SanKhauBanThao({
             className="min-h-0 flex-1 overflow-y-auto bg-[var(--color-paper-100)] p-6"
           >
             <XemTruocA4
-              tieuDe={cauTruc?.tieu_de ?? banThao.ten}
+              // Bản thảo tổng quát không có `cau_truc` (không `GET /mau/tong_quat`)
+              // — tiêu đề THẬT của nó nằm ở dòng H1 đầu `document`, do chính mô
+              // hình đặt từ tài liệu nguồn (Phase 7 R4), KHÔNG phải `banThao.ten`
+              // (đó là tên LOẠI, "Bản thảo tổng quát", một câu hỏi khác).
+              tieuDe={
+                laTongQuat
+                  ? (tieuDeTuBanThao(banThao.document) ?? banThao.ten)
+                  : (cauTruc?.tieu_de ?? banThao.ten)
+              }
               kyHieu={null}
               muc={muc}
               thuPhong={thuPhong}
               hienCanCu={hienCanCu}
               mucDangChon={mucDangChon}
               onChonMuc={onChonMuc}
+              laTongQuat={laTongQuat}
             />
           </div>
         </div>

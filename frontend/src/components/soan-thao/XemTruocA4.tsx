@@ -9,6 +9,13 @@ interface Props {
   hienCanCu: boolean;
   mucDangChon?: string | null;
   onChonMuc?: (key: string) => void;
+  /**
+   * Bản thảo KHÔNG theo checklist (S6, `loai === "tong_quat"`): mục lấy tên
+   * và cách đánh số từ CHÍNH tài liệu nguồn, nên tiền tố "Mục {stt}." của
+   * KLAW (đúng cho một bản thảo theo checklist, nơi khung mới là chỗ đặt tên)
+   * ở đây chỉ đấu với cách tài liệu tự đánh số (Phase 7 R5).
+   */
+  laTongQuat?: boolean;
 }
 
 /**
@@ -25,6 +32,7 @@ export function XemTruocA4({
   hienCanCu,
   mucDangChon = null,
   onChonMuc,
+  laTongQuat = false,
 }: Props) {
   const chonMuc = (key: string) => onChonMuc?.(key);
 
@@ -71,11 +79,45 @@ export function XemTruocA4({
                   Lớp này chỉ có kiểu dáng trong `.a4-sheet` (styles.css) nên
                   không đổi gì trên màn hình của khung xem trước này. */}
               <p className="dieu-head m-0 font-serif text-[1em] font-semibold">
-                Mục {m.stt}. {m.ten}
+                {laTongQuat ? m.ten : `Mục ${m.stt}. ${m.ten}`}
               </p>
-              <p className="m-0 mt-1 whitespace-pre-wrap font-serif text-[1em] leading-relaxed">
-                {m.noiDung}
-              </p>
+              {m.bang ? (
+                // Mục là BẢNG trong tài liệu nguồn (Phase 7 R1/R2) — `<table>`
+                // THẬT, không phải chữ `|` improv: hàng đầu là tiêu đề, viền
+                // thấy được, `table-auto` để cột không co lại thành một chữ.
+                <table className="klaw-bang mt-1 w-full table-auto border-collapse text-[0.92em]">
+                  <thead>
+                    <tr>
+                      {(m.bang[0] ?? []).map((o, i) => (
+                        <th
+                          key={i}
+                          className="border border-[#999] bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold"
+                        >
+                          {o}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {m.bang.slice(1).map((hang, hi) => (
+                      <tr key={hi}>
+                        {hang.map((o, oi) => (
+                          <td
+                            key={oi}
+                            className="border border-[#999] px-2 py-1 align-top font-serif"
+                          >
+                            {o}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="m-0 mt-1 whitespace-pre-wrap font-serif text-[1em] leading-relaxed">
+                  {m.noiDung}
+                </p>
+              )}
               {/* `data-khong-xuat`: dòng căn cứ là chú thích cho người ĐỌC
                   MÀN HÌNH, không phải một phần của văn bản. Thiếu dấu này thì
                   công tắc "Hiển thị căn cứ" đổi luôn nội dung tệp tải về. */}
