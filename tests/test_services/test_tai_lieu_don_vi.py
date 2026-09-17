@@ -110,6 +110,32 @@ def test_can_le_di_va_ve_dung_gia_tri_khong_ve_trai_mac_dinh(phien):
 
 
 @pytest.mark.integration
+def test_bang_nhip_va_ti_le_di_va_ve_dung_gia_tri(phien):
+    """Phase 11 R1/R6 — cùng lớp lỗi `can_le` fix round 1 đã bắt: thiếu khoá
+    ở `_hang_don_vi` khiến `don_vi_cua` đọc lại ra mặc định (nhịp 1, tỉ lệ
+    rỗng) của dataclass, dù `doc_tai_lieu.doc()` đã đọc đúng `bang_nhip`/
+    `bang_ti_le` từ tệp. Pin đúng giá trị, không chỉ sự có mặt của khoá."""
+    sub, ht = phien
+    viec = _viec(sub, ht)
+    don_vi = [
+        DonViVanBan(
+            chi_so=0, trang=1, offset_dau=0, noi_dung="Tổng",
+            bang=(0, 1, 0), bang_nhip=2, bang_ti_le=(7, 15, 30, 34, 15),
+        ),
+        DonViVanBan(
+            chi_so=1, trang=1, offset_dau=5, noi_dung="10",
+            bang=(0, 1, 2), bang_ti_le=(7, 15, 30, 34, 15),  # bang_nhip mặc định 1
+        ),
+    ]
+    tl.luu_don_vi(get_engine(), viec, don_vi)
+
+    ve = tl.don_vi_cua(get_engine(), viec, sub)
+    assert [d.bang_nhip for d in ve] == [2, 1]
+    assert [d.bang_ti_le for d in ve] == [(7, 15, 30, 34, 15), (7, 15, 30, 34, 15)]
+    assert isinstance(ve[0].bang_ti_le, tuple), "JSON không có tuple — quên chuyển lại thì so sánh hỏng im lặng"
+
+
+@pytest.mark.integration
 def test_don_vi_cua_NGUOI_KHAC_la_None(phien):
     import uuid
 

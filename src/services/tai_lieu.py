@@ -334,6 +334,12 @@ def _hang_don_vi(d: DonViVanBan) -> dict:
         # đo được trên draft thật, mọi khối ra `can_le: "trai"` dù bảng đọc
         # trực tiếp từ tệp đã có `giua` cho quốc hiệu/tiêu ngữ.
         "can_le": d.can_le,
+        # Phase 11 R1/R6 — cùng lý do can_le ở trên: thiếu hai khoá này thì
+        # `don_vi_cua` đọc lại ra mặc định (nhịp 1, tỉ lệ rỗng) của dataclass,
+        # mất tỉ lệ cột/nhịp gộp NGAY tại ranh giới lưu/đọc, dù `doc_tai_lieu.
+        # doc()` đã đọc đúng từ `w:tblGrid`/`w:gridSpan`.
+        "bang_nhip": d.bang_nhip,
+        "bang_ti_le": list(d.bang_ti_le) if d.bang_ti_le else [],
     }
 
 
@@ -381,6 +387,10 @@ def don_vi_cua(engine: Engine, viec_id: str, user_sub: str) -> list[DonViVanBan]
             # này (chưa từng có khoá `can_le`) vẫn đọc ra được, đúng mặc định
             # `DonViVanBan.can_le` — không suy đoán gì hơn những gì đã lưu.
             can_le=d.get("can_le") or "trai",
+            # Phase 11 R1/R6 — cùng lý do can_le ở trên: một dòng lưu TRƯỚC
+            # phase này không có hai khoá này, về đúng mặc định dataclass.
+            bang_nhip=d.get("bang_nhip") or 1,
+            bang_ti_le=tuple(d.get("bang_ti_le") or ()),
         )
         for d in (r[0] or [])
     ]

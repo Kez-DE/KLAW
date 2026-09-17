@@ -131,6 +131,21 @@ class DonViVanBan:
     khai báo `jc` là căn trái, không phải "chưa biết" — cùng lý lẽ `vung`
     không được suy diễn thêm gì ngoài những gì tệp nói.
     """
+    bang_nhip: int = 1
+    """Số cột LƯỚI ô này CHIẾM (Phase 11 R6) — đọc `w:tcPr/w:gridSpan/@w:val`,
+    mặc định 1 (không gộp ngang). `bang[2]` (cột) đã là cột lưới THẬT, cộng
+    dồn nhịp các ô đứng trước trong CÙNG hàng — không còn là số thứ tự ô đến
+    thứ mấy. Cần trường riêng vì một ô gộp 2 cột vẫn CHỈ là một đơn vị (một
+    `w:tc`), và số cột nó chiếm là sự thật thứ hai, khác với vị trí nó bắt đầu.
+    """
+    bang_ti_le: tuple[int, ...] = ()
+    """% mỗi cột lưới trên tổng bề rộng BẢNG mà ô này thuộc về (Phase 11 R1),
+    đọc từ `w:tblGrid/w:gridCol` — GIỐNG NHAU trên mọi ô của cùng một bảng,
+    cùng cách `bang`/`vung` tự mô tả theo từng đơn vị thay vì một bảng tra
+    riêng. Rỗng khi bảng không khai `w:tblGrid`: không suy đoán tỉ lệ, để
+    phía render tự quyết định (chia đều) — cùng nguyên tắc không suy diễn
+    thêm gì ngoài những gì tệp nói.
+    """
 
 
 @dataclass(frozen=True)
@@ -192,6 +207,10 @@ _PPR = f"{{{_NS['w']}}}pPr"
 _JC = f"{{{_NS['w']}}}jc"
 _PSTYLE = f"{{{_NS['w']}}}pStyle"
 _BASEDON = f"{{{_NS['w']}}}basedOn"
+_TCPR = f"{{{_NS['w']}}}tcPr"
+_GRIDSPAN = f"{{{_NS['w']}}}gridSpan"
+_TBLGRID = f"{{{_NS['w']}}}tblGrid"
+_GRIDCOL = f"{{{_NS['w']}}}gridCol"
 _STYLE = f"{{{_NS['w']}}}style"
 
 # OOXML `w:jc` → `DonViVanBan.can_le` (Phase 9 U5). Chỉ "center"/"right"/"end"
@@ -247,6 +266,45 @@ def _can_le_doan(p: ET.Element | None, theo_kieu: dict[str, str]) -> str:
     kieu = p.find(f"{_PPR}/{_PSTYLE}")
     sid = kieu.get(f"{{{_NS['w']}}}val") if kieu is not None else None
     return _can_le_gia_tri(theo_kieu.get(sid) if sid else None)
+
+
+def _nhip_o(tc: ET.Element) -> int:
+    """Số cột lưới một Ô CHIẾM (Phase 11 R6) — `w:tcPr/w:gridSpan/@w:val`, mặc
+    định 1. Đọc trực tiếp thay vì suy từ số ô trong hàng: một hàng ngắn hơn
+    hàng tiêu đề có thể là do MỘT ô gộp (nhịp > 1) hoặc do các ô cuối THẬT SỰ
+    không tồn tại (đã đọc hết, không còn `w:tc` nào) — hai ca khác nhau, và chỉ
+    tệp mới nói được ca nào đang xảy ra, không phải phép đếm chênh lệch."""
+    gs = tc.find(f"{_TCPR}/{_GRIDSPAN}")
+    if gs is None:
+        return 1
+    try:
+        n = int(gs.get(f"{{{_NS['w']}}}val") or "1")
+    except ValueError:
+        return 1
+    return n if n > 0 else 1
+
+
+def _ti_le_luoi(tbl: ET.Element) -> tuple[int, ...]:
+    """% mỗi cột lưới trên tổng bề rộng BẢNG — `w:tblGrid/w:gridCol` (Phase 11
+    R1). Rỗng khi bảng không khai lưới; phía render tự quyết định chia đều,
+    không suy đoán tỉ lệ ở đây.
+
+    Làm tròn TỪNG cột ĐỘC LẬP theo tổng của chính bảng đó — `sum(gridCol)`
+    không nhất thiết bằng bề rộng thân trang (đo trên form thật: 10371/9062/
+    8950 twips cho một thân 9072 twips, đây là ca THƯỜNG chứ không phải ca
+    hiếm), nên phép quy đổi luôn tính theo TỔNG của chính bảng. Không dồn phần
+    dư làm tròn vào cột nào: tổng các % có thể lệch 100 một chút (vd 101, đo
+    được trên BM.ĐT.18.05 — 7/15/30/34/15), và một cột lệch 1% không đáng để
+    đổi số đo trực tiếp của MỘT cột thành số đã bị nắn cho tổng tròn.
+    """
+    grid = tbl.find(_TBLGRID)
+    if grid is None:
+        return ()
+    rong = [v for g in grid.findall(_GRIDCOL) if (w := g.get(f"{{{_NS['w']}}}w")) and (v := int(w)) > 0]
+    tong = sum(rong)
+    if not rong or tong <= 0:
+        return ()
+    return tuple(round(w * 100 / tong) for w in rong)
 
 
 def _kiem_zip(z: zipfile.ZipFile) -> None:
@@ -306,6 +364,11 @@ def _duyet_than(goc: ET.Element, theo_kieu: dict[str, str] | None = None) -> lis
     bảng lồng bên trong. Bảng lồng không được đánh số riêng: nó là chi tiết
     trình bày của ô bao ngoài, và tách ra thì "hàng 2 cột 1" của người đọc trỏ
     vào một bảng họ không nhìn thấy.
+
+    Cột (Phase 11 R6) là cột LƯỚI THẬT — cộng dồn nhịp (`w:gridSpan`) của các
+    ô đứng TRƯỚC nó trong cùng hàng, không phải số thứ tự ô thứ mấy. Con trỏ
+    cột đi qua CẢ ô rỗng chữ (để nhịp của nó vẫn được cộng dồn cho ô sau) — chỉ
+    đơn vị (dòng `ra.append`) mới bỏ qua ô rỗng, đúng hành vi trước Phase 11.
     """
     than = goc.find(_BODY)
     if than is None:
@@ -318,14 +381,19 @@ def _duyet_than(goc: ET.Element, theo_kieu: dict[str, str] | None = None) -> lis
             if chu := _chu(con):
                 ra.append((None, chu, None, "than", None, _can_le_doan(con, tk)))
         elif con.tag == _TBL:
+            ti_le = _ti_le_luoi(con)
             for h, tr in enumerate(con.findall(_TR)):
-                for c, tc in enumerate(tr.findall(_TC)):
+                cot = 0
+                for tc in tr.findall(_TC):
+                    nhip = _nhip_o(tc)
+                    c = cot
+                    cot += nhip
                     if chu := " ".join(x for p in tc.iter(_P) if (x := _chu(p))):
                         # Căn lề của Ô lấy từ ĐOẠN VĂN ĐẦU của chính ô đó — một
                         # ô có thể có nhiều `w:p` lồng, nhưng căn lề hiển thị
                         # là của dòng đầu tiên người đọc thấy.
                         can_le = _can_le_doan(tc.find(_P), tk)
-                        ra.append((None, chu, None, "than", (so_bang, h, c), can_le))
+                        ra.append((None, chu, None, "than", (so_bang, h, c), can_le, nhip, ti_le))
             so_bang += 1
     return ra
 
@@ -415,11 +483,13 @@ def _doc_pdf(du_lieu: bytes) -> list[tuple[int | None, str]]:
 def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
     """Gán `trang`, `offset_dau` và nguồn chữ cho từng đơn vị.
 
-    Nhận cả bốn hình dạng: `(trang, noi_dung)` từ nhánh đọc chữ thật,
+    Nhận cả năm hình dạng: `(trang, noi_dung)` từ nhánh đọc chữ thật,
     `(trang, noi_dung, do_tin)` từ nhánh OCR,
-    `(trang, noi_dung, do_tin, vung, bang)` từ DOCX trước Phase 9, và
+    `(trang, noi_dung, do_tin, vung, bang)` từ DOCX trước Phase 9,
     `(trang, noi_dung, do_tin, vung, bang, can_le)` từ DOCX có căn lề (Phase 9
-    U5). Có `do_tin` nghĩa là máy đang đoán, nên đơn vị đó mang nhãn `ocr`.
+    U5), và `(…, can_le, bang_nhip, bang_ti_le)` từ một Ô BẢNG có lưới (Phase
+    11 R1/R6). Có `do_tin` nghĩa là máy đang đoán, nên đơn vị đó mang nhãn
+    `ocr`.
 
     PDF đã biết trang thật. DOCX chưa, nên trang được suy ra từ số ký tự đã đi
     qua — xem ghi chú ở `KY_TU_MOI_TRANG`.
@@ -436,6 +506,8 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
         vung = muc[3] if len(muc) > 3 else "than"
         bang = muc[4] if len(muc) > 4 else None
         can_le = muc[5] if len(muc) > 5 else "trai"
+        bang_nhip = muc[6] if len(muc) > 6 else 1
+        bang_ti_le = muc[7] if len(muc) > 7 else ()
         if trang is None:
             trang = 1 + da_di // KY_TU_MOI_TRANG
         if trang != trang_hien:
@@ -451,6 +523,8 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
                 vung=vung,
                 bang=bang,
                 can_le=can_le,
+                bang_nhip=bang_nhip,
+                bang_ti_le=bang_ti_le,
             )
         )
         offset += len(noi_dung) + 1   # +1 cho dấu xuống dòng giữa hai đơn vị

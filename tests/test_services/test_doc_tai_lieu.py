@@ -57,6 +57,20 @@ def _bang(o: list[str]) -> str:
     return f"<w:tbl><w:tr>{tc}</w:tr></w:tbl>"
 
 
+def _tc_nhip(text: str, nhip: int | None = None) -> str:
+    """Một `<w:tc>`, có gộp `w:gridSpan` khi `nhip` được cho (Phase 11 R6)."""
+    pr = f'<w:tcPr><w:gridSpan w:val="{nhip}"/></w:tcPr>' if nhip else ""
+    return f"<w:tc>{pr}{_p(text)}</w:tc>"
+
+
+def _bang_luoi(grid: list[int], hang: list[list[tuple[str, int | None]]]) -> str:
+    """`<w:tbl>` có khai `w:tblGrid` (Phase 11 R1) và tuỳ chọn `w:gridSpan`
+    theo từng ô `(chữ, nhịp | None)` (Phase 11 R6)."""
+    luoi = "<w:tblGrid>" + "".join(f'<w:gridCol w:w="{w}"/>' for w in grid) + "</w:tblGrid>"
+    rows = "".join("<w:tr>" + "".join(_tc_nhip(t, n) for t, n in hg) + "</w:tr>" for hg in hang)
+    return f"<w:tbl>{luoi}{rows}</w:tbl>"
+
+
 def _styles_xml(kieu: list[tuple[str, str | None, str | None]]) -> str:
     """`[(styleId, jc|None, basedOn|None), …]` → `word/styles.xml` tối thiểu."""
     than = "".join(
@@ -156,6 +170,43 @@ def test_DOCX_moi_o_bang_la_mot_don_vi_RIENG():
 def test_DOCX_giu_dau():
     t = doc("hd.docx", _docx(_p("Mức lương: 20.000.000 đồng/tháng")))
     assert t.don_vi[0].noi_dung == "Mức lương: 20.000.000 đồng/tháng"
+
+
+# ────────────────────────── tỉ lệ cột / nhịp gộp (Phase 11 R1/R6)
+
+
+def test_DOCX_ti_le_cot_tu_tblGrid():
+    """`w:tblGrid` khai lưới → `bang_ti_le` mang đúng % mỗi cột, GIỐNG NHAU
+    trên mọi ô của cùng bảng — cùng số đo brief cho letterhead BM.ĐT.18.05
+    (4616/5755 twips → 45/55)."""
+    than = _bang_luoi([4616, 5755], [[("A", None), ("B", None)]])
+    t = doc("hd.docx", _docx(than))
+    assert [d.bang_ti_le for d in t.don_vi] == [(45, 55), (45, 55)]
+
+
+def test_DOCX_khong_tblGrid_ti_le_rong():
+    """Bảng không khai `w:tblGrid` → `bang_ti_le` rỗng — không suy đoán tỉ lệ,
+    phía render tự quyết định chia đều (R1)."""
+    t = doc("hd.docx", _docx(_bang(["A", "B"])))
+    assert [d.bang_ti_le for d in t.don_vi] == [(), ()]
+
+
+def test_DOCX_gridSpan_dat_dung_cot_luoi_that():
+    """Một ô gộp `w:gridSpan="2"` (Phase 11 R6, đo thật trên BM.ĐT.18.11: nhãn
+    "Tổng" gộp 2 cột) phải đẩy CỘT LƯỚI của ô kế tiếp trong cùng hàng — ô sau
+    đứng ở cột 2, không phải cột 1 (số thứ tự ô thứ mấy, cách đọc CŨ trước
+    Phase 11)."""
+    than = _bang_luoi(
+        [1000, 1000, 1000, 1000],
+        [
+            [("TT", None), ("Tiêu chí", None), ("Điểm tối đa", None), ("Điểm đánh giá", None)],
+            [("Tổng", 2), ("10", None)],
+        ],
+    )
+    t = doc("hd.docx", _docx(than))
+    theo_chu = {d.noi_dung: (d.bang, d.bang_nhip) for d in t.don_vi}
+    assert theo_chu["Tổng"] == ((0, 1, 0), 2), "Tổng bắt đầu ở cột 0, chiếm 2 cột"
+    assert theo_chu["10"] == ((0, 1, 2), 1), "10 đứng ở cột lưới THẬT (2), không phải cột 1"
 
 
 def test_DOCX_bo_doan_rong():
@@ -324,3 +375,31 @@ def test_corpus_khong_form_nao_ra_toan_giua(ten_tep):
     can_le = [d.can_le for d in t.don_vi if d.noi_dung]
     assert can_le, "tài liệu phải đọc ra ít nhất một đơn vị"
     assert any(c != "giua" for c in can_le), f"{ten_tep}: mọi đơn vị ra 'giua' — mặc định căn giữa quá tay"
+
+
+# ──────────────────── corpus thật — tỉ lệ cột (Phase 11 R1), ghim đúng số đo
+#
+# `.sdd/phase-11-brief.md` R1 — số đo TRỰC TIẾP trên `word/document.xml` của
+# BM.ĐT.18.05: letterhead `[4616, 5755]` = 45/55, bảng kế hoạch `[618, 1352,
+# 2677, 3052, 1363]` = 7/15/30/34/15 (làm tròn ĐỘC LẬP từng cột, không dồn
+# phần dư — tổng ra 101, không phải 100, đúng số đo, xem `_ti_le_luoi`), bảng
+# ký `[4238, 4712]` = 47/53. Ghim để một bản vá sau này không âm thầm đổi
+# công thức quy đổi mà không ai biết.
+
+
+@pytest.mark.skipif(not _CORPUS_CO_MAT, reason="kho mẫu ngoài repo không có trên máy này")
+def test_corpus_ti_le_cot_BM_DT_18_05():
+    ten_tep = "BM.ĐT.18.05. Kế hoạch thực tập tại cơ sở Ver 02.docx"
+    duong_dan = _KHO_MAU / ten_tep
+    if not duong_dan.exists():
+        pytest.skip(f"không thấy {ten_tep} trong kho mẫu")
+    t = doc(duong_dan.name, duong_dan.read_bytes())
+    ti_le_theo_bang: dict[int, tuple[int, ...]] = {}
+    for d in t.don_vi:
+        if d.bang is not None:
+            ti_le_theo_bang.setdefault(d.bang[0], d.bang_ti_le)
+    assert ti_le_theo_bang == {
+        0: (45, 55),
+        1: (7, 15, 30, 34, 15),
+        2: (47, 53),
+    }
