@@ -10,7 +10,7 @@ dùng đúng `app` production để không trôi lệch với middleware/CORS th
 
 import pytest
 
-from src.main import LOI_MAY_CHU_KHONG_XU_LY_DUOC, app
+from src.main import LOI_MAY_CHU_KHONG_XU_LY_DUOC, BatLoiMayChu, app
 
 _DUONG_DAN = "/__kiem_tra_loi_toan_cuc"
 
@@ -40,3 +40,34 @@ async def test_http_exception_khong_bi_nuot(client):
     handler mới không được đổi hành vi của route bình thường."""
     r = await client.get("/api/v1/ban-thao")
     assert r.status_code == 401
+
+
+async def test_loi_giua_luc_dang_gui_thi_nem_lai_khong_gui_them():
+    """Response ĐÃ bắt đầu gửi (`http.response.start` đã đi, ca `/tra-cuu/luong`
+    SSE giữa chừng) rồi mới lỗi: `BatLoiMayChu` KHÔNG được nuốt exception đó —
+    không còn cách nào đổi thành 500 nữa, và "thành công" bỏ dở nghĩa là
+    client treo chờ một luồng không bao giờ đóng (frame `more_body=False`
+    cuối cùng không bao giờ tới). Lái thẳng middleware ở tầng ASGI, không qua
+    `httpx`/`client`: `ASGITransport` không mô phỏng ngắt kết nối TCP, nên
+    hành vi đúng chỉ khoá được ở đây — exception phải LAN RA NGOÀI
+    `BatLoiMayChu`, và không có `http.response.start` THỨ HAI nào được gửi.
+    """
+
+    async def app_gui_roi_moi_loi(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        raise RuntimeError("loi-giua-luc-dang-gui")
+
+    mw = BatLoiMayChu(app_gui_roi_moi_loi)
+    tin_da_gui = []
+
+    async def _send(message):
+        tin_da_gui.append(message)
+
+    async def _receive():
+        return {"type": "http.disconnect"}
+
+    with pytest.raises(RuntimeError, match="loi-giua-luc-dang-gui"):
+        await mw({"type": "http"}, _receive, _send)
+
+    bat_dau = [m for m in tin_da_gui if m["type"] == "http.response.start"]
+    assert len(bat_dau) == 1

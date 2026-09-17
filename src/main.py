@@ -196,11 +196,18 @@ class BatLoiMayChu:
     chúng thành response bình thường trước khi có dịp lan ra ngoài — nên lớp
     này không cần, và không được, tự phân biệt loại exception.
 
-    KHÔNG `raise` lại sau khi gửi response: `ServerErrorMiddleware` mặc định
-    luôn ném lại exception (để server ASGI tự log), nhưng ném lại Ở ĐÂY nghĩa
-    là nó lại thoát khỏi chính middleware này — về đúng chỗ đang tránh. Log
-    thủ công dưới đây giữ traceback ở mức ERROR, cùng độ ồn hôm nay, mà không
-    cần ném lại.
+    CHỈ nuốt exception (không `raise` lại) khi response CHƯA bắt đầu gửi
+    (`da_gui` còn `False`) — lúc đó đổi hẳn sang một 500 JSON là an toàn, vì
+    chưa byte nào rời khỏi server. Nếu response ĐÃ bắt đầu (`da_gui` là
+    `True`, ca `/tra-cuu/luong` SSE giữa chừng), header/status đã gửi rồi —
+    không còn cách nào "sửa" thành 500 nữa, và im lặng trả về coi như thành
+    công còn tệ hơn: response bị bỏ dở, không frame `more_body=False` cuối
+    cùng nào được gửi, client treo chờ một luồng không bao giờ đóng. Vẫn phải
+    `raise` lại ở ca đó, ĐÚNG hành vi `ServerErrorMiddleware` (nó luôn ném lại
+    exception để server ASGI đóng kết nối) — middleware này chỉ đứng vào
+    GIỮA để phần response CHƯA gửi có cơ hội mang header CORS, không phải để
+    đổi cách một luồng ĐÃ gửi dở kết thúc. Log thủ công dưới đây giữ traceback
+    ở mức ERROR, cùng độ ồn hôm nay, ở CẢ hai nhánh.
 
     `detail` là MỘT câu cố định, không mang `str(exc)`/traceback: khác 500 của
     `/tra-cuu` (routes.py, cố ý lộ TÊN loại lỗi cho một endpoint đã biết rõ
@@ -227,10 +234,15 @@ class BatLoiMayChu:
             await self.app(scope, receive, _send)
         except Exception:
             logger.exception("Lỗi máy chủ không xử lý được")
-            if not da_gui:
-                await JSONResponse(
-                    {"detail": LOI_MAY_CHU_KHONG_XU_LY_DUOC}, status_code=500
-                )(scope, receive, send)
+            if da_gui:
+                # Response đã gửi dở (vd SSE giữa chừng) — không còn cách nào
+                # đổi thành 500 nữa. Ném lại để server ASGI đóng kết nối, đúng
+                # hành vi `ServerErrorMiddleware`, thay vì trả về "thành công"
+                # với một luồng không bao giờ đóng.
+                raise
+            await JSONResponse(
+                {"detail": LOI_MAY_CHU_KHONG_XU_LY_DUOC}, status_code=500
+            )(scope, receive, send)
 
 
 app.add_middleware(GioiHanKichThuoc)
