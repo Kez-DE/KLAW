@@ -144,9 +144,27 @@ def _re_sau_route(st: dict) -> str:
     này: một câu hỏi luật thật giữa lúc đang soạn sẽ luôn bị hỏi lại dữ kiện
     thay vì được trả lời, và một ý định RẼ TẮT (`gioi_thieu`/`hoi_ve_kho`/
     `ngoai_pham_vi`) cũng sẽ bị kéo vào `gom_du_kien` chỉ vì có draft đang mở.
+
+    Phase 3 Half B (R5) — MỘT ngoại lệ hẹp, KHÔNG lặp lại lỗi trên: khi ý định
+    đã là `soan_thao` (router đã quyết định — điều kiện trên KHÔNG đổi) và hội
+    thoại này có SẴN một bản thảo TỔNG QUÁT (`ban_thao_tong_quat_dang_mo`),
+    lượt đi `hieu_tai_lieu` thay vì `gom_du_kien`. Bản thảo tổng quát không có
+    checklist nào để gom dữ kiện — `gom_du_kien` không thể phục vụ nó, chỉ có
+    thể lặp lại đúng ngõ cụt owner báo ("Kho mẫu của tôi chưa có loại văn bản
+    này…"). `hieu_tai_lieu` đã có `muc_dich = "sua_ban_thao"` cho đúng việc
+    này (không qua checklist, xem `MUC_DICH_SOAN`/`_re_sau_hieu_tai_lieu`).
+    Đây KHÔNG phải xét thêm state "có draft nào đang mở không" nói chung — nó
+    chỉ hẹp cho MỘT loại bản thảo (tổng quát) và chỉ SAU KHI `intent` đã là
+    `soan_thao`; một câu hỏi luật thật, hay một ý định rẽ tắt, không bao giờ
+    được phân loại `soan_thao` để bắt đầu, nên không đi qua nhánh này. Đánh
+    đổi đã biết: nếu hội thoại có bản thảo tổng quát, một yêu cầu soạn một
+    loại văn bản KHÁC (checklist) trong CÙNG hội thoại đó cũng rơi vào nhánh
+    này thay vì mở checklist mới — đúng yêu cầu brief ("'Chọn loại văn bản'
+    không được mời trong khi đang có một bản thảo mở"), nhưng nghĩa là muốn
+    soạn loại khác thì phải mở hội thoại mới.
     """
     if st.get("intent") == Intent.soan_thao:
-        return "gom_du_kien"
+        return "hieu_tai_lieu" if st.get("ban_thao_tong_quat_dang_mo") else "gom_du_kien"
     if st.get("intent") == Intent.tai_lieu:
         return "hieu_tai_lieu"
     return "assemble" if st.get("intent") in _RE_TAT else "tien_de"
@@ -168,8 +186,35 @@ def _vao_graph(st: dict) -> str:
     một tệp cùng câu hỏi thì không còn gì để một mô hình phân loại đoán — chi
     một lượt gọi cho `route` (và một lượt nữa cho `giai_nghia`) ở đây là trả
     tiền để biết lại điều request đã nói thẳng (quyết định chủ sở hữu Q4).
+
+    Phase 3 Half B — ruling MỞ RỘNG sau sự cố THẬT (coordinator, không phải
+    suy luận của lát cắt này): KHÔNG chỉ lượt vừa đính kèm — MỌI lượt của một
+    hội thoại đang GIỮ tài liệu (`tai_lieu_phien`, tính từ toàn bộ lịch sử hội
+    thoại qua `tai_lieu.tai_lieu_cua_hoi_thoai`, không chỉ lượt này) cũng rẽ
+    thẳng vào đây. Đo được: owner hỏi "đây là đơn gì" ở lượt SAU lượt tạo bản
+    thảo — `route` không hề biết hội thoại có tài liệu nào (nó chỉ thấy câu
+    chữ), nên đoán `soan_thao` và đẩy một câu HỎI vào `gom_du_kien` (không có
+    checklist nào cho bản thảo tổng quát — đúng ngõ cụt "Kho mẫu của tôi chưa
+    có loại văn bản này" owner báo). `hieu_tai_lieu` đã có `muc_dich = "hoi"`
+    cho đúng câu hỏi này; vấn đề chưa từng ở đó, mà ở chỗ lượt không TỚI được
+    nó. Rẽ ở ĐÂY (trước `giai_nghia`/`route`) thay vì dạy `route` nhận biết
+    tài liệu: `route` là một lượt LLM, và sửa hành vi của nó cần đo lại bằng
+    lượt gọi thật — đắt và chậm hơn một điều kiện thuần Python, đúng khuôn
+    "quyết định chủ sở hữu Q4" đã áp cho lượt đính kèm ở trên.
+
+    Đánh đổi ĐÃ BIẾT, CHẤP NHẬN ĐƯỢC theo ruling: một lượt hoàn toàn không
+    liên quan tài liệu (chào tạm biệt, hỏi về KLAW) trong một hội thoại có
+    tài liệu cũng bị `hieu_tai_lieu` xử lý thay vì rẽ tắt 0 token qua `_RE_TAT`
+    — `hieu_tai_lieu` mặc định về `muc_dich = "hoi"` khi không chắc (rule 2,
+    prompt), không phải một câu trả lời sai nghiêm trọng, và ĐÂY KHÔNG PHẢI
+    đường có thể GHI (xem `_an_toan_xac_nhan_soan` — chỉ `sua_ban_thao`/
+    `tao_van_ban` mới chạm `ban_thao`, và một câu không mang dấu hiệu soạn/sửa
+    rõ ràng không bao giờ được coi là hai mục đích đó nữa, bất kể mô hình gán
+    gì). `giai_nghia` (câu nối tiếp) cũng bị bỏ qua cho các lượt này — cùng
+    đánh đổi đã có sẵn cho "lượt đính kèm tài liệu" từ trước bản vá này, không
+    phải rủi ro mới.
     """
-    if st.get("tai_lieu_ids"):
+    if st.get("tai_lieu_ids") or st.get("tai_lieu_phien"):
         return "hieu_tai_lieu"
     return "giai_nghia" if (st.get("lich_su") or st.get("tom_tat")) else "suy_dien"
 

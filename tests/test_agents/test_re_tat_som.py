@@ -35,7 +35,7 @@ gọi LLM 100–180 giây. Đường đi là thứ quyết định chi phí, và
 trong một phần nghìn giây.
 """
 
-from src.agents.graph_tra_cuu import _re_sau_route
+from src.agents.graph_tra_cuu import _re_sau_route, _vao_graph
 from src.agents.nodes.route import Intent
 
 
@@ -60,6 +60,29 @@ def test_soan_thao_re_qua_gom_du_kien_khong_phai_thang_toi_assemble():
     """`soan_thao` — ý định CHÍNH mà `route` vừa đoán cho LƯỢT NÀY — đi
     `gom_du_kien` trước, không rẽ thẳng như `test_hai_y_dinh...` ở trên."""
     assert _re_sau_route({"intent": Intent.soan_thao}) == "gom_du_kien"
+
+
+def test_soan_thao_re_sang_hieu_tai_lieu_khi_co_ban_thao_tong_quat_dang_mo():
+    """Phase 3 Half B (R5) — MỘT ngoại lệ hẹp lên test trên: khi hội thoại đã
+    có một bản thảo TỔNG QUÁT (`ban_thao_tong_quat_dang_mo`), ý định
+    `soan_thao` đi `hieu_tai_lieu` (sửa bản thảo đang mở, `muc_dich =
+    "sua_ban_thao"`) thay vì `gom_du_kien` — bản thảo tổng quát không có
+    checklist nào để gom, và đi `gom_du_kien` chỉ tái tạo đúng ngõ cụt owner
+    báo ("Kho mẫu của tôi chưa có loại văn bản này…")."""
+    draft = {"id": "bt1", "loai": "tong_quat", "clauses": []}
+    assert _re_sau_route({"intent": Intent.soan_thao, "ban_thao_tong_quat_dang_mo": draft}) == "hieu_tai_lieu"
+
+
+def test_ban_thao_tong_quat_dang_mo_khong_tu_no_doi_y_dinh_khac():
+    """Cùng bất biến `test_draft_mo_KHONG_tu_no_re_qua_gom_du_kien...` ở dưới,
+    áp cho trường state MỚI: có bản thảo tổng quát đang mở KHÔNG được ép một
+    ý định KHÁC `soan_thao` đi chệch hướng — nó chỉ có tác dụng SAU KHI
+    `intent` đã là `soan_thao`."""
+    draft = {"id": "bt1", "loai": "tong_quat", "clauses": []}
+    assert _re_sau_route({"intent": Intent.tra_cuu, "ban_thao_tong_quat_dang_mo": draft}) == "tien_de"
+    assert _re_sau_route({"intent": Intent.tai_lieu, "ban_thao_tong_quat_dang_mo": draft}) == "hieu_tai_lieu"
+    for intent in (Intent.ngoai_pham_vi, Intent.gioi_thieu, Intent.hoi_ve_kho):
+        assert _re_sau_route({"intent": intent, "ban_thao_tong_quat_dang_mo": draft}) == "assemble"
 
 
 def test_draft_mo_KHONG_tu_no_re_qua_gom_du_kien_khi_intent_la_tra_cuu():
@@ -96,3 +119,25 @@ def test_moi_y_dinh_KHONG_PHAI_tra_cuu_va_soan_thao_deu_phai_re_tat():
     )
     for intent in phai_re_tat:
         assert _re_sau_route({"intent": intent}) == "assemble", f"{intent} phải rẽ tắt"
+
+
+# ══════ Phase 3 Half B — MỌI lượt của một hội thoại có tài liệu vào hieu_tai_lieu
+
+
+def test_vao_graph_re_thang_khi_hoi_thoai_giu_tai_lieu_du_khong_dinh_kem_lai():
+    """Sự cố THẬT (coordinator ruling): owner hỏi "đây là đơn gì" ở lượt SAU
+    lượt tạo bản thảo — không đính kèm gì lượt này, nhưng hội thoại vẫn giữ
+    tài liệu nguồn (`tai_lieu_phien`). Trước bản vá này, `_vao_graph` chỉ xét
+    `tai_lieu_ids` (lượt VỪA đính kèm) nên lượt đó rơi vào `route` — không hề
+    biết hội thoại có tài liệu, đoán sai, và đẩy một câu hỏi vào `gom_du_kien`."""
+    tep = [{"id": "x", "ten_tep": "form.docx"}]
+    assert _vao_graph({"tai_lieu_phien": tep}) == "hieu_tai_lieu"
+    assert _vao_graph({"tai_lieu_phien": tep, "lich_su": [{"cau_hoi": "a", "tra_loi": "b"}]}) == "hieu_tai_lieu"
+
+
+def test_vao_graph_khong_tai_lieu_di_duong_cu():
+    """Không có tài liệu nào (mọi hội thoại KHÔNG liên quan tài liệu) — đường
+    cũ giữ nguyên, không bị ảnh hưởng bởi bản mở rộng."""
+    assert _vao_graph({}) == "suy_dien"
+    assert _vao_graph({"lich_su": [{"cau_hoi": "a", "tra_loi": "b"}]}) == "giai_nghia"
+    assert _vao_graph({"tom_tat": "x"}) == "giai_nghia"
