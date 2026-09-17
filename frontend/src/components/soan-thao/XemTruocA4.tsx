@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { coSpanHang, type Muc } from "@/lib/xuat-tep";
+import { coSpanHang, tieuDeDaXuatHienTrongThan, type Muc } from "@/lib/xuat-tep";
 
 interface Props {
   tieuDe: string;
@@ -36,15 +36,26 @@ export function XemTruocA4({
 }: Props) {
   const chonMuc = (key: string) => onChonMuc?.(key);
 
+  // Phase 11 R4 — một bản thảo TỔNG QUÁT tái hiện nguyên văn một tài liệu đã
+  // in tiêu đề của nó ra như chữ thân bài (quốc hiệu, tên biểu mẫu…); `<h1>`
+  // ở đây khi đó là bản sao KLAW tự thêm, không phải chữ thứ hai của tài
+  // liệu — bỏ nó khỏi TRANG, không chỉ ẩn bằng CSS, để `docNoiDungTuDOM`
+  // (dùng chung cho `.docx` và PDF) cũng không thấy nó. Một bản thảo KLAW
+  // soạn từ đầu (tiêu đề không lặp lại trong thân bài) thì GIỮ `<h1>` — nếu
+  // không, trang sẽ vô đề vì không còn chỗ nào khác in ra tên văn bản đó.
+  const anTieuDe = laTongQuat && tieuDeDaXuatHienTrongThan(tieuDe, muc);
+
   return (
     <div className="mx-auto w-full max-w-[794px]" style={{ fontSize: `${thuPhong}%` }}>
       <article className="aspect-[210/297] overflow-y-auto rounded-md border border-border bg-white px-[8%] py-[7%] text-[#111] shadow-soft">
         {/* `<h1>`, không `<h2>`: đây là tiêu đề CHÍNH của văn bản đang xem
             trước, và `docNoiDungTuDOM` (xuat-tep.ts) chỉ nhận diện tiêu đề
             xuất ra Word/PDF qua đúng thẻ `H1`. */}
-        <h1 className="m-0 text-center font-serif text-[1.25em] font-bold uppercase tracking-wide">
-          {tieuDe}
-        </h1>
+        {!anTieuDe && (
+          <h1 className="m-0 text-center font-serif text-[1.25em] font-bold uppercase tracking-wide">
+            {tieuDe}
+          </h1>
+        )}
         {kyHieu && (
           <p className="mt-1 text-center font-mono text-[0.85em] text-[#555]">Số: {kyHieu}</p>
         )}

@@ -255,6 +255,31 @@ export function tieuDeTuBanThao(document: string): string | null {
   return m?.[1]?.trim() ?? null;
 }
 
+/**
+ * Tiêu đề này có xuất hiện lại NHƯ CHỮ THÂN BÀI ở một khối văn xuôi nào
+ * không (Phase 11 R4) — dùng để quyết định `XemTruocA4` có in `<h1>{tieuDe}`
+ * lên trang hay không.
+ *
+ * Một bản thảo TÁI HIỆN nguyên văn một biểu mẫu thì chính biểu mẫu đó đã in
+ * tiêu đề của nó ra như một dòng thân bài (quốc hiệu/tên biểu mẫu…) — `<h1>`
+ * của KLAW khi đó là MỘT BẢN SAO thứ hai của cùng một dòng, không phải chữ
+ * thật thứ hai. Không so KHỚP HẲN một khối: một khối có thể gộp nhiều dòng
+ * nguồn bằng `\n` (quốc hiệu + tiêu ngữ + tên biểu mẫu…), nên phép so là
+ * "tiêu đề có nằm TRONG khối này không", không phải "khối này CÓ ĐÚNG là
+ * tiêu đề không".
+ *
+ * Một bản thảo KLAW SOẠN TỪ ĐẦU (không tái hiện tài liệu nào) không có lý do
+ * gì để lặp lại tiêu đề trong thân bài — hàm này trả `false`, và `XemTruocA4`
+ * GIỮ `<h1>` để trang không trở thành vô đề, đúng cảnh báo của brief.
+ */
+export function tieuDeDaXuatHienTrongThan(tieuDe: string, muc: Muc[]): boolean {
+  const t = tieuDe.trim().toLocaleLowerCase("vi-VN");
+  if (!t) return false;
+  return muc.some((m) =>
+    m.khoi.some((k) => k.kind === "vanXuoi" && k.noiDung.toLocaleLowerCase("vi-VN").includes(t)),
+  );
+}
+
 const BO_QUA = new Set(["SCRIPT", "STYLE"]);
 
 /**
@@ -268,6 +293,21 @@ const BO_QUA = new Set(["SCRIPT", "STYLE"]);
  */
 export function boQuaKhiXuat(el: { tagName: string; closest(chon: string): unknown }): boolean {
   return BO_QUA.has(el.tagName) || el.closest("[data-khong-xuat]") !== null;
+}
+
+/**
+ * `CanLe` → hướng căn lề dùng chung cho `.docx` (`xuatWord.para`) và PDF
+ * (`noiDungThanhPDF.veDong`) — MỘT chỗ quyết định, hai nơi dùng, thay vì hai
+ * ternary có thể lệch nhau (Phase 11 R2/R8).
+ *
+ * `trai` KHÔNG phải "hãy căn đều" — nó là giá trị khi tài liệu nguồn không
+ * xác định được căn lề (vắng `w:jc`, hoặc chính là `both`, xem `_JC_RA_CAN_LE`
+ * phía máy chủ). Ánh xạ nó sang "justify" từng khiến một bản `.docx` KLAW
+ * dựng thật ra gần như toàn bộ đoạn văn `w:jc="both"` dù nguồn phần lớn
+ * không khai `jc` — đo trực tiếp trên tệp tải về, không phải suy đoán.
+ */
+export function canhLeThanhHuong(canhLe: CanLe): "left" | "center" | "right" {
+  return canhLe === "giua" ? "center" : canhLe === "phai" ? "right" : "left";
 }
 
 function chuanHoa(s: string) {
@@ -481,14 +521,14 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
 
   const { khoi, oKy } = docNoiDungTuDOM(sheet);
 
+  const CANH_LE_DOCX = {
+    left: AlignmentType.LEFT,
+    center: AlignmentType.CENTER,
+    right: AlignmentType.RIGHT,
+  } as const;
   const para = (d: DongVanBan) =>
     new Paragraph({
-      alignment:
-        d.canhLe === "giua"
-          ? AlignmentType.CENTER
-          : d.canhLe === "phai"
-            ? AlignmentType.RIGHT
-            : AlignmentType.JUSTIFIED,
+      alignment: CANH_LE_DOCX[canhLeThanhHuong(d.canhLe)],
       ...(d.kieu === "tieuDe" ? { heading: HeadingLevel.HEADING_1 } : {}),
       spacing: { after: 120, line: 312 },
       ...(d.thutLe > 0 ? { indent: { left: convertMillimetersToTwip(d.thutLe / 3.78) } } : {}),
@@ -880,7 +920,7 @@ export async function noiDungThanhPDF(
         : d.canhLe === "phai"
           ? LE_PDF.trai + RONG_NOI_DUNG_PDF
           : LE_PDF.trai + thutLeMm;
-    const align = d.canhLe === "giua" ? "center" : d.canhLe === "phai" ? "right" : "justify";
+    const align = canhLeThanhHuong(d.canhLe);
     pdf.text(dong, x, y + coChuPt(d.kieu) * MM_MOI_PT, {
       align,
       maxWidth: rong,

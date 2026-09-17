@@ -13,10 +13,12 @@ import { Table } from "docx";
 import {
   bangThanhTable,
   boQuaKhiXuat,
+  canhLeThanhHuong,
   coSpanHang,
   docBangTuPhanTu,
   mucTuBanThao,
   noiDungThanhPDF,
+  tieuDeDaXuatHienTrongThan,
   tieuDeTuBanThao,
   type DongVanBan,
   type KhoiVanBan,
@@ -254,6 +256,74 @@ const khoiCanLe = mucTuBanThao(banThaoCanLe, null)[0]?.khoi as { canhLe: string 
 assert.deepEqual(
   khoiCanLe.map((k) => k.canhLe),
   ["giua", "phai", "trai", "trai", "trai"],
+);
+
+// ───────────────────────────── Phase 11 R2/R8 — `trai` xuất KHÔNG phải "căn
+// đều" ───────────────────────────────────────────────────────────────────
+//
+// Đo trực tiếp trên một `.docx` KLAW dựng thật: nguồn phần lớn không khai
+// `w:jc` (→ đọc ra `trai`), nhưng tệp tải về gần như toàn bộ đoạn ra
+// `w:jc="both"`. `canhLeThanhHuong` là chỗ DUY NHẤT quyết định hướng cho cả
+// `.docx` (`xuatWord.para`) và PDF (`noiDungThanhPDF.veDong`) — khoá cả ba
+// giá trị ở một chỗ để không lệch giữa hai nơi dùng.
+assert.equal(
+  canhLeThanhHuong("trai"),
+  "left",
+  "trai là KHÔNG XÁC ĐỊNH được căn lề, không phải căn đều",
+);
+assert.equal(canhLeThanhHuong("giua"), "center");
+assert.equal(canhLeThanhHuong("phai"), "right");
+
+// ────────────────────────────────────── Phase 11 R4 — bỏ tiêu đề bị lặp lại
+//
+// Một bản thảo TÁI HIỆN đã in tiêu đề của nó ra như chữ thân bài (quốc hiệu,
+// tên biểu mẫu…) — `<h1>` của KLAW khi đó là bản sao thứ hai, phải bị bỏ.
+assert.equal(
+  tieuDeDaXuatHienTrongThan("GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP", [
+    {
+      stt: 1,
+      key: "muc_1",
+      ten: "x",
+      tenThat: false,
+      noiDung: "",
+      bang: null,
+      khoi: [
+        {
+          kind: "vanXuoi",
+          noiDung: "Mẫu QT.ĐT.28-M05\nGIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP",
+          canhLe: "giua",
+        },
+      ],
+      vung: "than",
+      canCu: null,
+    },
+  ]),
+  true,
+  "tiêu đề khớp một khối gộp nhiều dòng (không cần khớp NGUYÊN cả khối)",
+);
+// Một bản thảo KLAW soạn TỪ ĐẦU (tiêu đề không lặp lại ở đâu trong thân bài)
+// → giữ `<h1>`, không để trang vô đề.
+assert.equal(
+  tieuDeDaXuatHienTrongThan("ĐƠN XIN NGHỈ VIỆC", [
+    {
+      stt: 1,
+      key: "muc_1",
+      ten: "x",
+      tenThat: true,
+      noiDung: "",
+      bang: null,
+      khoi: [{ kind: "vanXuoi", noiDung: "Kính gửi Ban Giám đốc,", canhLe: "trai" }],
+      vung: "than",
+      canCu: null,
+    },
+  ]),
+  false,
+  "tiêu đề không xuất hiện trong thân bài → giữ h1",
+);
+assert.equal(
+  tieuDeDaXuatHienTrongThan("", []),
+  false,
+  "tiêu đề rỗng không bao giờ coi là đã xuất hiện",
 );
 
 // Phase 8 R4 — hàng ngắn hơn hàng tiêu đề (ô gộp) đi qua NGUYÊN trong `khoi`,
@@ -740,4 +810,4 @@ assert.equal(
   "hàng tiêu đề (tô xám) phải được vẽ lại ở đầu MỖI trang, không chỉ trang đầu",
 );
 
-console.info("kiem-xuat-tep: 53/53 đạt");
+console.info("kiem-xuat-tep: 59/59 đạt");
