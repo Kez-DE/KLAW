@@ -629,7 +629,36 @@ def _can_le_khoi(noi_dung: str, theo_dong: dict[str, str]) -> str:
     return tap.pop() if len(tap) == 1 else "trai"
 
 
-def _bang_theo_nhan(goi: list[dict]) -> dict[str, list[list[str]]]:
+def _hang_gon(cot: dict[int, str], nhip_cot: dict[int, int], so_cot: int) -> tuple[list[str], list[int]]:
+    """Một hàng bảng THẬT, GỌN — chỉ giữ ô có chữ cộng thêm Ô ĐỆM cho khoảng
+    TRỐNG thật (Phase 11 R6), không phải một mảng phẳng một-ô-một-cột.
+
+    `cot`/`nhip_cot` khoá theo cột LƯỚI THẬT (đã cộng dồn `w:gridSpan`, xem
+    `doc_tai_lieu._duyet_than`). Đi từ trái sang phải: một cột lưới còn trống
+    TRƯỚC ô tiếp theo (ô gộp ở hàng khác chiếm chỗ, hoặc chính hàng này chỉ
+    có vài ô đầu — ca đo được trên "Tuần 1(từ…)" của BM.ĐT.18.05) được lấp
+    bằng đúng MỘT ô đệm rỗng mang nhịp bằng khoảng trống đó — không phải một
+    ô rỗng cho MỖI cột trống, để một ô gộp thật (như "Tổng") vẫn hiện ĐÚNG
+    nhịp của nó, không bị tách lại thành nhiều ô 1-cột.
+    """
+    hang: list[str] = []
+    nhip: list[int] = []
+    chay = 0
+    for c in sorted(cot):
+        if c > chay:
+            hang.append("")
+            nhip.append(c - chay)
+        hang.append(cot[c])
+        n = nhip_cot.get(c, 1)
+        nhip.append(n)
+        chay = c + n
+    if chay < so_cot:
+        hang.append("")
+        nhip.append(so_cot - chay)
+    return hang, nhip
+
+
+def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
     """Mọi bảng THẬT của lượt này, dựng lại 0 token thẳng từ `don_vi` — khoá
     "A0"/"B2" (nhãn tài liệu + số bảng, 0-based, đúng số `_vi_tri` đã hiện cho
     mô hình). Không đoán ô nào ở đâu: lưới hàng×cột đến thẳng từ `(bảng, hàng,
@@ -637,27 +666,109 @@ def _bang_theo_nhan(goi: list[dict]) -> dict[str, list[list[str]]]:
     reader đã biết" mà review round 2 chỉ ra không nên bắt mô hình đoán lại.
     Dùng `t["don_vi"]` (TOÀN BỘ), không phải `t["gui"]` (phần đã lọc gửi mô
     hình) — cùng lý lẽ neo trích dẫn: phép lọc đầu vào là chuyện chi phí,
-    không phải chuyện bằng chứng."""
-    ra: dict[str, list[list[str]]] = {}
+    không phải chuyện bằng chứng.
+
+    Trả về, mỗi khoá bảng, MỘT bộ ba cùng nguồn gốc (Phase 11 R1/R6), thay vì
+    chỉ `hang`: `nhip` (số cột mỗi ô CHIẾM, cùng hình dạng `hang`, đọc thẳng
+    `bang_nhip` — RENDER dùng trực tiếp, không suy đoán lại từ số ô như
+    `coSpanHang` cũ) và `ti_le` (% mỗi cột lưới, đọc `bang_ti_le`, rỗng khi
+    bảng không khai lưới). Không đẻ ra một hàm/một lượt duyệt `don_vi` thứ hai
+    cho `ti_le`/`nhip` — cả ba đến từ ĐÚNG một vòng lặp này (xem R3 trong
+    brief: "một chỗ carry cả bộ, không phải năm chỗ chép từng trường").
+    """
+    ra: dict[str, dict] = {}
     for t in goi:
         theo_bang: dict[int, dict[int, dict[int, str]]] = {}
+        nhip_bang: dict[int, dict[int, dict[int, int]]] = {}
+        ti_le_bang: dict[int, tuple[int, ...]] = {}
+        cot_toi_da: dict[int, int] = {}
         for d in t["don_vi"]:
             if d.bang is None:
                 continue
             b, h, c = d.bang
             theo_bang.setdefault(b, {}).setdefault(h, {})[c] = d.noi_dung
+            nhip_bang.setdefault(b, {}).setdefault(h, {})[c] = d.bang_nhip
+            cot_toi_da[b] = max(cot_toi_da.get(b, 0), c + d.bang_nhip)
+            if d.bang_ti_le and b not in ti_le_bang:
+                ti_le_bang[b] = d.bang_ti_le
         for b, theo_hang in theo_bang.items():
-            so_hang = max(theo_hang) + 1
+            ti_le = ti_le_bang.get(b, ())
+            so_cot = len(ti_le) or cot_toi_da.get(b, 0)
             hang: list[list[str]] = []
-            for h in range(so_hang):
-                cot = theo_hang.get(h, {})
-                so_cot = (max(cot) + 1) if cot else 0
-                hang.append([cot.get(c, "") for c in range(so_cot)])
-            ra[f"{t['nhan']}{b}"] = hang
+            nhip: list[list[int]] = []
+            for h in range(max(theo_hang) + 1):
+                h_hang, h_nhip = _hang_gon(theo_hang.get(h, {}), nhip_bang.get(b, {}).get(h, {}), so_cot)
+                hang.append(h_hang)
+                nhip.append(h_nhip)
+            ra[f"{t['nhan']}{b}"] = {"hang": hang, "nhip": nhip, "ti_le": list(ti_le)}
     return ra
 
 
-def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, list[list[str]]]) -> list[dict]:
+def _o_theo_bang(goi: list[dict]) -> dict[str, list[str]]:
+    """Với mỗi bảng thật, DÃY chữ các ô KHÁC RỖNG của nó theo đúng thứ tự đọc
+    (hàng rồi cột, thứ tự `t["don_vi"]` đã có sẵn) — dùng để khớp một khối văn
+    xuôi gộp NHIỀU dòng nguồn bằng `\\n` với TOÀN BỘ một bảng cùng lúc (Phase
+    11 R7, xem `_bang_cua_nhieu_dong`)."""
+    ra: dict[str, list[str]] = {}
+    for t in goi:
+        for d in t["don_vi"]:
+            if d.bang is not None and d.noi_dung:
+                ra.setdefault(f"{t['nhan']}{d.bang[0]}", []).append(d.noi_dung)
+    return ra
+
+
+def _khop_day_dong(dong: list[str], o: list[str]) -> bool:
+    """`dong` (các dòng của MỘT khối, tách bằng `\\n`) có ghép lại ĐÚNG VÀ ĐỦ
+    thành dãy ô thật `o` không — không dòng nào thừa, không ô nào thiếu.
+
+    Một Ô có thể trải trên NHIỀU dòng nguồn (một ô gộp nhiều đoạn văn nối
+    bằng dấu CÁCH, xem `doc_tai_lieu._duyet_than`), nên phép ghép CỘNG DỒN
+    từng dòng cho tới khi khớp NGUYÊN VĂN ô hiện tại rồi mới sang ô kế —
+    không phải so từng dòng với từng ô một-một."""
+    li = 0
+    for muc_tieu in o:
+        s = normalize(muc_tieu)
+        if not s:
+            continue
+        gop = ""
+        khop = False
+        while li < len(dong):
+            gop = f"{gop} {dong[li]}".strip() if gop else dong[li]
+            li += 1
+            if normalize(gop) == s:
+                khop = True
+                break
+        if not khop:
+            return False
+    return li == len(dong)
+
+
+def _bang_cua_nhieu_dong(noi_dung: str, o_theo_bang: dict[str, list[str]]) -> str | None:
+    """Một khối văn xuôi GỘP NHIỀU DÒNG (`\\n`) có tái hiện ĐÚNG VÀ ĐỦ mọi ô
+    khác rỗng của MỘT bảng thật không (Phase 11 R7) — bổ sung cho `_bang_cua`
+    (chỉ khớp khi CẢ khối bằng NGUYÊN một ô).
+
+    Đo trên form thật (BM.ĐT.18.05): letterhead 2 cột, mỗi ô 2 đoạn văn nối
+    bằng DẤU CÁCH (`"TRƯỜNG ĐẠI HỌC PHENIKAA TRƯỜNG CÔNG NGHỆ THÔNG TIN"`).
+    Mô hình gộp cả 4 dòng nguồn (2 ô × 2 đoạn) thành MỘT khối, nối bằng `\\n`
+    — khớp nguyên văn CẢ khối vào MỘT ô (`_bang_cua`) không bao giờ đúng (khối
+    dài hơn bất kỳ ô nào), nên `_khop_bang` bỏ qua, letterhead ở lại dạng văn
+    xuôi. Khớp GHÉP DÒNG vào TOÀN BỘ dãy ô của bảng (`_khop_day_dong`) thì
+    đúng: cộng dồn dòng cho tới khi ra nguyên ô 1, rồi ô 2, không dòng nào
+    thừa. Cùng luật round 3 ("mọi ô khác rỗng phải khớp, không lọc bỏ rồi xét
+    phần còn lại"), áp cho HƯỚNG NGƯỢC LẠI: khớp phải TRỌN VẸN cả hai phía —
+    không ô nào của bảng bị bỏ sót, không dòng nào của khối bị thừa ra ngoài.
+    Một khối chỉ khớp MỘT PHẦN của bảng, hay khớp được nhiều hơn một bảng,
+    không được cứu — `_khop_day_dong` (không thừa/không thiếu) cộng với đếm
+    SỐ BẢNG khớp (giữ >1 thì nhập nhằng) đã ép đủ cả hai."""
+    dong = [d for d in (x.strip() for x in noi_dung.split("\n")) if d]
+    if len(dong) < 2:
+        return None
+    khoa = [k for k, o in o_theo_bang.items() if o and _khop_day_dong(dong, o)]
+    return khoa[0] if len(khoa) == 1 else None
+
+
+def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, dict]) -> list[dict]:
     """Khớp lại nội dung mô hình viết (văn xuôi HAY bảng tự gõ) với đúng bảng
     THẬT của tài liệu — không đợi mô hình tự khai đúng, tự đối chiếu.
 
@@ -688,7 +799,18 @@ def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, list
     Bảng nào mô hình soạn MỚI (không có trong tài liệu, ví dụ mục lục thiết bị
     tự liệt kê) — hay bảng mô hình đã SỬA THẬT, giữ lại một vài ô gốc thôi —
     không còn khớp MỌI ô → giữ NGUYÊN như mô hình viết. Chức năng "mô hình tự
-    soạn/sửa bảng" không bị mất vì phép khớp lại này."""
+    soạn/sửa bảng" không bị mất vì phép khớp lại này.
+
+    **Phase 11 R1/R6/R7** — bảng thay vào (`bang_theo_nhan[chi]`) giờ mang cả
+    `ti_le` (tỉ lệ % mỗi cột lưới) và `nhip` (số cột mỗi ô CHIẾM, đặt cùng
+    chỗ mọi cột), cả hai đọc thẳng từ `w:tblGrid`/`w:gridSpan` qua
+    `doc_tai_lieu`/`_bang_theo_nhan` — không suy đoán lại từ số ô một hàng
+    có, như `coSpanHang` phía render từng phải làm khi chỉ có `bang`. Thêm
+    `_bang_cua_nhieu_dong`: một khối văn xuôi GỘP NHIỀU dòng nguồn bằng `\\n`
+    (một letterhead 2 cột, mỗi ô 2 đoạn văn, mô hình gộp cả 4 dòng thành MỘT
+    khối) mà `_bang_cua` không khớp được (khối dài hơn một ô) nay được thử
+    khớp GHÉP DÒNG vào TOÀN BỘ một bảng — khớp đủ TỰ THÂN (biến `manh`) nên
+    được thay dù chỉ MỘT khối, không cần đợi ≥2 khối liền kề."""
 
     def _bang_cua(chu: str) -> str | None:
         """Chữ này khớp NGUYÊN VĂN ô nào của bảng thật — trả khoá bảng khi mọi
@@ -726,12 +848,25 @@ def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, list
         b = {_bang_cua(o) for o in o_khac_rong}
         return b.pop() if len(b) == 1 and None not in b else None
 
+    o_theo_bang = _o_theo_bang(goi)
     khoa: list[str | None] = []
+    # `manh` — khớp đủ TỰ THÂN để thay dù chỉ MỘT khối (Phase 11 R7): khối
+    # bảng (`_bang_khop_het`, mọi ô khớp) và khối văn xuôi ghép trọn một bảng
+    # (`_bang_cua_nhieu_dong`) đều đã tự chứng minh đủ bằng chứng một mình —
+    # không cần đợi ≥2 khối liền kề như một câu trùng khớp MỘT ô lẻ.
+    manh: list[bool] = []
     for k in khoi:
         if k["bang"]:
             khoa.append(_bang_khop_het(k["bang"]))
+            manh.append(True)
+            continue
+        khoi_nhieu_dong = _bang_cua_nhieu_dong(k["noi_dung"], o_theo_bang) if "\n" in k["noi_dung"] else None
+        if khoi_nhieu_dong is not None:
+            khoa.append(khoi_nhieu_dong)
+            manh.append(True)
         else:
             khoa.append(_bang_cua(k["noi_dung"]) if k["noi_dung"] else None)
+            manh.append(False)
 
     ra: list[dict] = []
     i = 0
@@ -744,8 +879,15 @@ def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, list
         j = i
         while j < len(khoi) and khoa[j] == chi:
             j += 1
-        if khoi[i]["bang"] or (j - i) >= 2:
-            ra.append({"noi_dung": "", "bang": bang_theo_nhan[chi], "can_le": "trai"})
+        if manh[i] or (j - i) >= 2:
+            bang = bang_theo_nhan[chi]
+            ra.append({
+                "noi_dung": "",
+                "bang": bang["hang"],
+                "nhip": bang["nhip"],
+                "ti_le": bang["ti_le"],
+                "can_le": "trai",
+            })
         else:
             ra.extend(khoi[i:j])
         i = j
@@ -865,9 +1007,19 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
                 # từng dòng với `theo_dong`; bảng giữ `trai` làm chỗ trống
                 # (không đọc), căn lề trong bảng là chuyện của TỪNG ô, ngoài
                 # phạm vi field này (xem cảnh báo ở brief).
-                ra.append({"noi_dung": noi_dung, "bang": [], "can_le": _can_le_khoi(noi_dung, theo_dong)})
+                ra.append({
+                    "noi_dung": noi_dung,
+                    "bang": [],
+                    "can_le": _can_le_khoi(noi_dung, theo_dong),
+                    "nhip": [],
+                    "ti_le": [],
+                })
             if bang:
-                ra.append({"noi_dung": "", "bang": bang, "can_le": "trai"})
+                # `nhip`/`ti_le` rỗng: bảng mô hình tự gõ không có lưới nguồn
+                # nào để đọc — `coSpanHang` (frontend) vẫn suy đoán từ số ô
+                # như trước Phase 11, đúng "quy tắc cho ca không có lưới khai
+                # báo" R6 yêu cầu giữ lại.
+                ra.append({"noi_dung": "", "bang": bang, "can_le": "trai", "nhip": [], "ti_le": []})
         return ra
 
     giu: list[dict] = []

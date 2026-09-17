@@ -188,7 +188,9 @@ def test_muc_bang_khong_can_noi_dung_de_duoc_giu():
     rỗng không còn là một khối thiếu chữ khi `bang` có hàng."""
     van_ban, dem = _sach([_muc("Đánh giá", bang=BANG_HOP_LE)], nguon=NGUON_BANG)
     assert len(van_ban["muc"]) == 1
-    assert van_ban["muc"][0]["khoi"] == [{"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai"}]
+    assert van_ban["muc"][0]["khoi"] == [
+        {"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai", "nhip": [], "ti_le": []}
+    ]
     assert dem["gia_tri_lam_sach"] == 0
 
 
@@ -209,7 +211,9 @@ def test_khoi_rong_ca_hai_bi_loai_nhung_muc_van_con_khoi_khac():
         {"noi_dung": "", "bang": BANG_HOP_LE},
     ]}
     van_ban, _ = _sach([muc], nguon=NGUON_BANG)
-    assert van_ban["muc"][0]["khoi"] == [{"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai"}]
+    assert van_ban["muc"][0]["khoi"] == [
+        {"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai", "nhip": [], "ti_le": []}
+    ]
 
 
 def test_khoi_nhieu_phan_tu_giu_dung_thu_tu():
@@ -318,8 +322,10 @@ def test_khoi_ca_hai_khac_rong_bi_tach_thanh_hai_khoi():
     van_ban, _ = _sach([muc], nguon=NGUON_BANG)
     khoi = van_ban["muc"][0]["khoi"]
     assert len(khoi) == 2
-    assert khoi[0] == {"noi_dung": "Kết quả chấm điểm như sau:", "bang": [], "can_le": "trai"}
-    assert khoi[1] == {"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai"}
+    assert khoi[0] == {
+        "noi_dung": "Kết quả chấm điểm như sau:", "bang": [], "can_le": "trai", "nhip": [], "ti_le": [],
+    }
+    assert khoi[1] == {"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai", "nhip": [], "ti_le": []}
 
 
 def test_letterhead_hai_cot_song_sot_nhu_bang():
@@ -367,8 +373,11 @@ DV_LETTERHEAD = [
         noi_dung="CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc", bang=(0, 0, 1),
     ),
     DonViVanBan(
+        # Hàng hai gộp NGUYÊN hàng thành 1 ô (`w:gridSpan="2"`, đủ 2 cột lưới
+        # của bảng — Phase 11 R6): không có nhịp thật thì `_bang_theo_nhan`
+        # không biết đây là một ô GỘP hết cột hay chỉ một hàng ngắn hơn.
         chi_so=3, trang=1, offset_dau=150,
-        noi_dung="TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./….", bang=(0, 1, 0),
+        noi_dung="TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./….", bang=(0, 1, 0), bang_nhip=2,
     ),
 ]
 GOI_LETTERHEAD = [{"id": "x", "ten_tep": "bm05.docx", "don_vi": DV_LETTERHEAD, "nhan": "A", "gui": DV_LETTERHEAD}]
@@ -377,17 +386,23 @@ NGUON_LETTERHEAD = "\n".join(dv.noi_dung for dv in DV_LETTERHEAD)
 
 def test_bang_theo_nhan_dung_lai_dung_luoi_tu_don_vi():
     """`_bang_theo_nhan` — dựng lại bảng THẬT 0 token, không đoán: hàng đầu 2
-    cột, hàng hai (gộp) chỉ 1 cột — ĐÚNG số cột thật của từng hàng, không suy
-    ra từ hàng tiêu đề."""
+    cột, hàng hai (gộp NGUYÊN 2 cột lưới bằng nhịp thật, Phase 11 R6) chỉ 1 ô
+    — ĐÚNG số ô thật của từng hàng, không suy ra từ hàng tiêu đề. `nhip` đi
+    CÙNG `hang`: hàng hai mang nhịp 2 (chiếm trọn cả hai cột), không phải một
+    hàng ngắn được đoán là gộp từ số ô chênh lệch."""
     ra = h._bang_theo_nhan(GOI_LETTERHEAD)
     assert ra == {
-        "A0": [
-            [
-                "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
-                "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
+        "A0": {
+            "hang": [
+                [
+                    "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
+                    "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
+                ],
+                ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
             ],
-            ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
-        ]
+            "nhip": [[1, 1], [2]],
+            "ti_le": [],
+        }
     }
 
 
@@ -412,7 +427,7 @@ def test_khop_bang_cuu_letterhead_bi_xe_thanh_van_xuoi():
     }
     van_ban, _ = _sach([muc_xe], nguon=NGUON_LETTERHEAD, goi=GOI_LETTERHEAD)
     assert van_ban["muc"][0]["khoi"] == [
-        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai"},
+        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai", "nhip": [], "ti_le": []},
         {
             "noi_dung": "",
             "bang": [
@@ -422,6 +437,8 @@ def test_khop_bang_cuu_letterhead_bi_xe_thanh_van_xuoi():
                 ],
                 ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
             ],
+            "nhip": [[1, 1], [2]],
+            "ti_le": [],
             "can_le": "trai",
         },
     ]
@@ -436,7 +453,9 @@ def test_khop_bang_khong_gop_mot_dong_van_xuoi_don_le_trung_ngau_nhien():
         "khoi": [{"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []}],
     }
     van_ban, _ = _sach([muc], nguon=NGUON_LETTERHEAD, goi=GOI_LETTERHEAD)
-    assert van_ban["muc"][0]["khoi"] == [{"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai"}]
+    assert van_ban["muc"][0]["khoi"] == [
+        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai", "nhip": [], "ti_le": []}
+    ]
 
 
 # BM.ĐT.18.11 thật: hàng cuối "Tổng | 10" gộp 3 cột nhãn thành 1 (Phase 8 R4).
@@ -449,8 +468,11 @@ DV_BANG_DIEM = [
     DonViVanBan(chi_so=5, trang=1, offset_dau=57, noi_dung="Ý thức chấp hành nội quy", bang=(0, 1, 1)),
     DonViVanBan(chi_so=6, trang=1, offset_dau=85, noi_dung="2,0", bang=(0, 1, 2)),
     DonViVanBan(chi_so=7, trang=1, offset_dau=90, noi_dung="1,8", bang=(0, 1, 3)),
-    DonViVanBan(chi_so=8, trang=1, offset_dau=95, noi_dung="Tổng", bang=(0, 2, 0)),
-    DonViVanBan(chi_so=9, trang=1, offset_dau=100, noi_dung="10", bang=(0, 2, 1)),
+    # "Tổng" gộp thật 2 cột lưới (TT + Tiêu chí, `w:gridSpan="2"` đo trên tệp
+    # thật, Phase 11 R6) — "10" đứng ở cột lưới THẬT (2, "Điểm tối đa"), không
+    # phải cột kế tiếp theo số thứ tự ô.
+    DonViVanBan(chi_so=8, trang=1, offset_dau=95, noi_dung="Tổng", bang=(0, 2, 0), bang_nhip=2),
+    DonViVanBan(chi_so=9, trang=1, offset_dau=100, noi_dung="10", bang=(0, 2, 2)),
 ]
 GOI_BANG_DIEM = [{"id": "y", "ten_tep": "dt1811.docx", "don_vi": DV_BANG_DIEM, "nhan": "A", "gui": DV_BANG_DIEM}]
 NGUON_BANG_DIEM = "\n".join(dv.noi_dung for dv in DV_BANG_DIEM)
@@ -472,11 +494,17 @@ def test_khop_bang_cuu_hang_gop_bi_dem_du():
     ]
     muc = {"ten": "Đánh giá", "vung": "than", "khoi": [{"noi_dung": "", "bang": bang_dem}]}
     van_ban, _ = _sach([muc], nguon=NGUON_BANG_DIEM, goi=GOI_BANG_DIEM)
-    assert van_ban["muc"][0]["khoi"][0]["bang"] == [
+    khoi_bang = van_ban["muc"][0]["khoi"][0]
+    assert khoi_bang["bang"] == [
         ["TT", "Tiêu chí đánh giá", "Điểm tối đa", "Điểm đánh giá"],
         ["1", "Ý thức chấp hành nội quy", "2,0", "1,8"],
-        ["Tổng", "10"],
+        # Hàng gộp trở lại đúng nhịp thật: "Tổng" chiếm 2 cột (nhịp 2), "10"
+        # 1 cột, và một Ô ĐỆM rỗng lấp cột lưới còn thiếu (Phase 11 R6) — thay
+        # vì đệm sai cột như mô hình đã viết, đây là ô đệm ĐÚNG vị trí ("Điểm
+        # đánh giá" thật sự trống ở hàng Tổng).
+        ["Tổng", "10", ""],
     ]
+    assert khoi_bang["nhip"][-1] == [2, 1, 1], "Tổng chiếm 2 cột, 10 chiếm 1, ô đệm chiếm phần còn lại"
 
 
 def test_khop_bang_khong_ghi_de_bang_da_sua_giu_lai_mot_o_goc():
@@ -493,6 +521,76 @@ def test_khop_bang_khong_ghi_de_bang_da_sua_giu_lai_mot_o_goc():
     muc = {"ten": "Đánh giá", "vung": "than", "khoi": [{"noi_dung": "", "bang": bang_da_sua}]}
     van_ban, _ = _sach([muc], nguon="Mục Giá trị Tổng 8", goi=GOI_BANG_DIEM)
     assert van_ban["muc"][0]["khoi"][0]["bang"] == bang_da_sua
+
+
+# ────────────── Phase 11 R7 — letterhead gộp NHIỀU DÒNG thành MỘT khối văn xuôi
+#
+# Đo thật trên BM.ĐT.18.05 (draft `9d0aa73e…`): mỗi ô letterhead có 2 đoạn văn
+# nguồn, reader nối chúng bằng DẤU CÁCH thành MỘT đơn vị-trong-bảng ("TRƯỜNG
+# ĐẠI HỌC PHENIKAA TRƯỜNG CÔNG NGHỆ THÔNG TIN"). Mô hình, khi tái hiện, gộp cả
+# BỐN dòng nguồn (2 ô × 2 đoạn) thành MỘT khối `noi_dung`, nối bằng `\n`
+# ("TRƯỜNG ĐẠI HỌC PHENIKAA\nTRƯỜNG CÔNG NGHỆ THÔNG TIN\nCỘNG HOÀ...\nĐộc
+# lập...") — khớp NGUYÊN VĂN khối đó vào MỘT ô (`_bang_cua`) không bao giờ
+# đúng vì khối dài hơn bất kỳ ô nào, nên khối ở lại dạng văn xuôi, đúng lỗi đo
+# được ("KLAW renders all four lines as one left-aligned prose block").
+
+DV_LETTERHEAD_2_DOAN = [
+    DonViVanBan(
+        chi_so=0, trang=1, offset_dau=0,
+        noi_dung="TRƯỜNG ĐẠI HỌC PHENIKAA TRƯỜNG CÔNG NGHỆ THÔNG TIN",
+        bang=(0, 0, 0), bang_ti_le=(45, 55),
+    ),
+    DonViVanBan(
+        chi_so=1, trang=1, offset_dau=60,
+        noi_dung="CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc",
+        bang=(0, 0, 1), bang_ti_le=(45, 55),
+    ),
+]
+GOI_LETTERHEAD_2_DOAN = [
+    {"id": "z", "ten_tep": "bm1805.docx", "don_vi": DV_LETTERHEAD_2_DOAN, "nhan": "A", "gui": DV_LETTERHEAD_2_DOAN}
+]
+NGUON_LETTERHEAD_2_DOAN = "\n".join(dv.noi_dung for dv in DV_LETTERHEAD_2_DOAN)
+
+
+def test_bang_cua_nhieu_dong_ghep_dung_letterhead_bi_gop_mot_khoi():
+    """Phase 11 R7 — mô phỏng ĐÚNG khối mô hình thật viết cho BM.ĐT.18.05: bốn
+    dòng nguồn gộp thành MỘT khối `noi_dung`, nối bằng `\\n`. `_bang_cua`
+    (khớp nguyên khối vào một ô) không khớp vì khối dài hơn một ô; ghép dòng
+    lại thành hai ô thật (`_bang_cua_nhieu_dong`) thì khớp TRỌN VẸN — không
+    còn dòng nào thừa, không ô nào thiếu — nên khối được thay bằng bảng thật,
+    dù chỉ là MỘT khối (không cần ≥2 khối liền kề như câu trùng khớp một ô lẻ)."""
+    khoi_ghep = (
+        "TRƯỜNG ĐẠI HỌC PHENIKAA\nTRƯỜNG CÔNG NGHỆ THÔNG TIN\n"
+        "CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc"
+    )
+    muc = {"ten": "Đầu trang", "vung": "than", "khoi": [{"noi_dung": khoi_ghep, "bang": []}]}
+    van_ban, _ = _sach([muc], nguon=NGUON_LETTERHEAD_2_DOAN, goi=GOI_LETTERHEAD_2_DOAN)
+    khoi = van_ban["muc"][0]["khoi"]
+    assert len(khoi) == 1, "letterhead trở thành bảng, không còn là văn xuôi"
+    assert khoi[0]["bang"] == [
+        [
+            "TRƯỜNG ĐẠI HỌC PHENIKAA TRƯỜNG CÔNG NGHỆ THÔNG TIN",
+            "CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập - Tự do - Hạnh phúc",
+        ]
+    ]
+    assert khoi[0]["ti_le"] == [45, 55]
+
+
+def test_bang_cua_nhieu_dong_khong_khop_khi_thua_dong_hoac_thieu_o():
+    """Round-3-style — khớp phải TRỌN VẸN cả hai phía: một khối thừa MỘT dòng
+    ngoài đúng hai ô của bảng (không thể ghép hết vào hai ô) không được cứu,
+    giữ nguyên văn xuôi."""
+    khoi_du_dong = (
+        "TRƯỜNG ĐẠI HỌC PHENIKAA\nTRƯỜNG CÔNG NGHỆ THÔNG TIN\n"
+        "CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc\nPhòng Đào tạo"
+    )
+    muc = {"ten": "Đầu trang", "vung": "than", "khoi": [{"noi_dung": khoi_du_dong, "bang": []}]}
+    van_ban, _ = _sach(
+        [muc], nguon=NGUON_LETTERHEAD_2_DOAN + "\nPhòng Đào tạo", goi=GOI_LETTERHEAD_2_DOAN
+    )
+    assert van_ban["muc"][0]["khoi"] == [
+        {"noi_dung": khoi_du_dong, "bang": [], "can_le": "trai", "nhip": [], "ti_le": []}
+    ]
 
 
 def test_khop_bang_khong_dung_vao_bang_moi_mo_hinh_tu_soan():
@@ -546,8 +644,10 @@ DV_BANG_DIEM_THAT = [
         noi_dung="Kết quả hoàn thành thực tập  theo đề cương chi tiết", bang=(0, 4, 1),
     ),
     DonViVanBan(chi_so=15, trang=1, offset_dau=310, noi_dung="4,0", bang=(0, 4, 2)),
-    DonViVanBan(chi_so=16, trang=1, offset_dau=314, noi_dung="Tổng", bang=(0, 5, 0)),
-    DonViVanBan(chi_so=17, trang=1, offset_dau=319, noi_dung="10", bang=(0, 5, 1)),
+    # "Tổng" gộp thật 2 cột lưới (TT + Tiêu chí, `w:gridSpan="2"` đo trên tệp
+    # thật, Phase 11 R6); "10" đứng ở cột lưới THẬT (2, "Điểm tối đa").
+    DonViVanBan(chi_so=16, trang=1, offset_dau=314, noi_dung="Tổng", bang=(0, 5, 0), bang_nhip=2),
+    DonViVanBan(chi_so=17, trang=1, offset_dau=319, noi_dung="10", bang=(0, 5, 2)),
 ]
 GOI_BANG_DIEM_THAT = [
     {"id": "y2", "ten_tep": "dt1811.docx", "don_vi": DV_BANG_DIEM_THAT, "nhan": "A", "gui": DV_BANG_DIEM_THAT}
@@ -575,7 +675,10 @@ def test_khop_bang_cuu_hang_gop_khi_gia_tri_trung_lap_trong_cung_bang():
     muc = {"ten": "Bảng đánh giá", "vung": "than", "khoi": [{"noi_dung": "", "bang": bang_dem}]}
     van_ban, _ = _sach([muc], nguon=NGUON_BANG_DIEM_THAT, goi=GOI_BANG_DIEM_THAT)
     bang_ra = van_ban["muc"][0]["khoi"][0]["bang"]
-    assert bang_ra[-1] == ["Tổng", "10"], "hàng gộp trở lại đúng 2 ô, không còn đệm dư"
+    # Hàng gộp trở lại đúng NHỊP thật: "Tổng" chiếm 2 cột, "10" 1 cột, cộng một
+    # ô đệm rỗng lấp cột lưới còn lại (Phase 11 R6) — không còn đệm sai kiểu
+    # mô hình đã viết (`["Tổng","10","",""]`, "10" trôi sang cột "Tiêu chí").
+    assert bang_ra[-1] == ["Tổng", "10", ""], "hàng gộp trở lại đúng nhịp, không còn đệm sai cột"
     assert bang_ra[0][2] == "Điểm tối đa" and bang_ra[-1][1] == "10", '"10" nằm dưới đúng cột "Điểm tối đa"'
 
 
@@ -818,7 +921,7 @@ def test_node_khop_lai_letterhead_bi_mo_hinh_xe_thanh_van_xuoi():
     )
     khoi = ra["van_ban_tong_quat"]["muc"][0]["khoi"]
     assert khoi == [
-        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai"},
+        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai", "nhip": [], "ti_le": []},
         {
             "noi_dung": "",
             "bang": [
@@ -828,6 +931,8 @@ def test_node_khop_lai_letterhead_bi_mo_hinh_xe_thanh_van_xuoi():
                 ],
                 ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
             ],
+            "nhip": [[1, 1], [2]],
+            "ti_le": [],
             "can_le": "trai",
         },
     ]
