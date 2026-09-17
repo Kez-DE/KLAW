@@ -312,11 +312,28 @@ function ManHoiKlaw() {
     if (bt !== null && bt !== undefined && bt.id === sanKhau.banThaoId) datBanThaoMo(bt);
   }, [sanKhau, traCuu.dangChay, traCuu.ketQua]);
 
-  const onDongSanKhau = () => {
+  /** Đóng sân khấu — nút X, Esc, hoặc bị một khung khác (đối chiếu/soạn thảo)
+   *  thay chỗ. R6 (canvas-tai-lieu Phase 2): `?ban_thao=` ở LẠI trên URL suốt
+   *  lúc sân khấu mở (xem effect đọc `banThaoTrenUrl` bên dưới), nên đóng phải
+   *  GỠ nó — không thì tải lại trang sau khi đóng lại mở nhầm đúng bản thảo
+   *  vừa đóng. `useCallback` vì hiệu ứng Esc (R5, bên dưới) mang nó trong
+   *  dependency — không bọc thì listener bị gỡ/gắn lại ở MỌI lần dựng lại của
+   *  trang thay vì chỉ khi các giá trị nó đọc thật sự đổi. */
+  const onDongSanKhau = useCallback(() => {
     datSanKhau(null);
     datBanThaoMo(null);
     datMucDangChonSanKhau(null);
-  };
+    if (banThaoTrenUrl !== undefined) {
+      void navigate({
+        to: "/dung-thu",
+        search: {
+          ...(cauHoiTrenUrl !== undefined ? { q: cauHoiTrenUrl } : {}),
+          ...(phienId !== undefined ? { phien: phienId } : {}),
+        },
+        replace: true,
+      });
+    }
+  }, [banThaoTrenUrl, cauHoiTrenUrl, phienId, navigate]);
   const onLuiSanKhau = () => {
     if (banThaoMo === null) return;
     void luiBanThao(banThaoMo.id).then((kq) => {
@@ -353,10 +370,11 @@ function ManHoiKlaw() {
   };
 
   /** `?ban_thao=`: danh sách "Bản thảo" ở vỏ trang mở sân khấu qua URL — lối
-   *  vào bền duy nhất tới việc đã lưu. Mở xong thì GỠ tham số (replace, giữ
-   *  `q`/`phien`): sân khấu không phải trạng thái URL, và để nguyên thì bấm
-   *  lại đúng bản thảo đó không đổi URL nên không mở lại được. `daMoTuUrl`
-   *  chặn mở hai lần trong các render trước khi `replace` kịp về. */
+   *  vào bền duy nhất tới việc đã lưu. R6 (canvas-tai-lieu Phase 2): tham số ở
+   *  LẠI trên URL suốt lúc sân khấu mở — tải lại trang hay bấm Back phải mở
+   *  lại đúng bản thảo đang xem, không phải một trang trắng. `onDongSanKhau`
+   *  gỡ tham số khi đóng. `daMoTuUrl` chặn mở lại đúng bản thảo đó lần thứ hai
+   *  khi hiệu ứng này chạy lại ở một render khác mà tham số chưa đổi. */
   const daMoTuUrl = useRef<string | null>(null);
   useEffect(() => {
     if (banThaoTrenUrl === undefined) {
@@ -366,14 +384,6 @@ function ManHoiKlaw() {
     if (daMoTuUrl.current === banThaoTrenUrl) return;
     daMoTuUrl.current = banThaoTrenUrl;
     moSanKhau(banThaoTrenUrl);
-    void navigate({
-      to: "/dung-thu",
-      search: {
-        ...(cauHoiTrenUrl !== undefined ? { q: cauHoiTrenUrl } : {}),
-        ...(phienId !== undefined ? { phien: phienId } : {}),
-      },
-      replace: true,
-    });
   });
 
   // Lượt đã tải từ phiên đang mở — chỉ khi chi tiết vừa tải ĐÚNG là phiên
@@ -804,6 +814,41 @@ function ManHoiKlaw() {
     };
   }, [dangMoSoanThao, haiCot]);
 
+  // R5 (canvas-tai-lieu Phase 2): sân khấu đứng ngang hàng khung soạn thảo và
+  // khung đối chiếu nay phải đóng được như hai khung kia. Bọc gắn ở CẢ hai nơi
+  // sân khấu render (cột phải ở bố cục rộng, dialog toàn màn ở bố cục hẹp) —
+  // chỉ một trong hai còn trong DOM tại một thời điểm.
+  const khungSanKhau = useRef<HTMLDivElement | null>(null);
+  const dangMoSanKhau = sanKhau !== null;
+  // Nhại effect focus/mở của khung soạn thảo (~783-802) — TÁCH khỏi effect Esc
+  // ngay dưới (không gộp theo `onDongSanKhau`): việc dò control đầu khung và
+  // ghi lại nơi mở chỉ nên chạy MỘT lần lúc mở, không phải mỗi khi
+  // `onDongSanKhau` đổi tham chiếu (nó đọc `banThaoTrenUrl`/`phienId`).
+  useEffect(() => {
+    if (!dangMoSanKhau) return;
+    const noiMo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    khungSanKhau.current
+      ?.querySelector<HTMLElement>("button, [href], input, textarea, select")
+      ?.focus();
+    return () => {
+      if (noiMo !== null && noiMo.isConnected) noiMo.focus();
+    };
+  }, [dangMoSanKhau]);
+  // Esc đóng sân khấu — cùng khuôn `KhungDoiChieu.tsx:132-138`, cộng chốt
+  // input/textarea/select của khung soạn thảo: sửa dữ kiện một mục
+  // (`DrawerSuaMuc`) cũng là gõ trong ô, Esc ở đó phải thoát dropdown/bỏ gõ chứ
+  // không đóng cả sân khấu đang có dữ liệu chưa lưu.
+  useEffect(() => {
+    if (!dangMoSanKhau) return;
+    const nghe = (su: KeyboardEvent) => {
+      if (su.key !== "Escape" || su.defaultPrevented) return;
+      if (su.target instanceof HTMLElement && su.target.closest("input, textarea, select")) return;
+      onDongSanKhau();
+    };
+    window.addEventListener("keydown", nghe);
+    return () => window.removeEventListener("keydown", nghe);
+  }, [dangMoSanKhau, onDongSanKhau]);
+
   // ── Trần lượt mỗi phiên + hạn mức (spec 2A §8) ──────────────────────────
   // Trần phiên là con số của MÁY CHỦ (`GET /han-muc`): khách 10, Miễn phí 20,
   // Cá nhân 50. Đếm ở client chỉ để KHOÁ SỚM ô hỏi và nói trước lý do — máy chủ
@@ -1169,6 +1214,7 @@ function ManHoiKlaw() {
             role="dialog"
             aria-modal
             aria-label="Bản thảo"
+            ref={khungSanKhau}
             className="fixed inset-0 z-50 flex flex-col bg-background"
           >
             <div className="min-h-0 flex-1">
@@ -1253,6 +1299,7 @@ function ManHoiKlaw() {
             />
             <div
               id="san-khau-ban-thao"
+              ref={khungSanKhau}
               className="min-h-0 shrink-0 border-l border-border"
               style={{ width: kepRong(rongSanKhau, bienSanKhau) }}
             >
