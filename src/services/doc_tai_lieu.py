@@ -19,8 +19,10 @@ chúng thành một nhãn "không đọc được" là vứt đi thứ duy nhấ
 import logging
 import os
 import shutil
+import signal
 import subprocess
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass
@@ -54,6 +56,17 @@ _OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 # phải đợi hết `_HAN_TREO_GIAY` (300s) vốn đo cho OCR cả trang ảnh, việc nặng
 # hơn nhiều lần.
 _HAN_CHUYEN_DOI_GIAY = 60
+
+# Fix round 1 (task review) — `soffice` là một wrapper thực thi `soffice.bin`,
+# và bản thân LibreOffice có thể tự sinh thêm tiến trình của riêng nó (không
+# phải lúc nào cũng exec-thay-thế PID mà `Popen` đang giữ). Diệt riêng PID
+# trực tiếp — hành vi mặc định của `subprocess.run(timeout=...)` — có thể để
+# lại một tiến trình `soffice.bin` mồ côi vẫn giữ tệp và thư mục hồ sơ tạm; vài
+# lượt tải hỏng liên tiếp tích thành một rò rỉ tiến trình trên một endpoint
+# công khai. 5 giây: đủ để SIGKILL có tác dụng và tiến trình được dọn (reap)
+# trong mọi trường hợp bình thường; không cần dài hơn vì SIGKILL không đợi
+# được sự hợp tác của tiến trình bị giết.
+_HAN_XAC_NHAN_DA_GIET_GIAY = 5
 
 # Dưới ngưỡng này thì chữ OCR đọc ra là nhiễu chứ không phải nội dung. Đo trên
 # một trang sạch: tesseract `vie` cho 92–96%. Để 0.60 vì trang chụp nghiêng, mờ
@@ -493,35 +506,107 @@ def _la_ole2(du_lieu: bytes) -> bool:
     chung. Không đọc sâu hơn (thư mục CFB) để biết đây có đúng là Word hay
     không: một .xls/.ppt đổi đuôi thành .doc qua được cửa này, nhưng KHÔNG qua
     được bộ chuyển đổi phía dưới — soffice mở nó bằng Calc/Impress rồi không
-    xuất được sang khuôn Writer (.docx), và việc đó tự rơi vào nhánh `tep_hong`.
-    Viết thêm một bộ phân tích CFB chỉ để bắt sớm hơn một chế độ hỏng vốn đã bị
-    chặn là dư."""
+    xuất được sang khuôn Writer (.docx), và việc đó tự rơi vào nhánh `tep_hong`
+    (đo thật, không chỉ suy luận — xem
+    `test_DOC_gia_dang_XLS_that_bai_o_buoc_chuyen_doi_khong_phai_o_cong_OLE2`).
+
+    Có một cách rẻ hơn để phân biệt NGAY tại đây: CLSID của "Root Entry"
+    trong thư mục CFB là một GUID cố định theo ứng dụng (`00020906-...` cho
+    Word 97-2003, `00020810-...`/`00020820-...` cho Excel, `64818D10-...`
+    cho PowerPoint — [MS-CFB]). Đã CÂN NHẮC nhưng CHƯA làm (fix round 1, task
+    review): việc này chỉ tiết kiệm một lần soffice khởi động nguội cho một
+    ca hiếm (đổi đuôi tệp cố ý hoặc nhầm lẫn), chế độ hỏng đã ĐÚNG
+    (`tep_hong`, không rò dữ liệu, không hổng bảo mật) mà không cần nó, và
+    `_giet_sach_nhom` giờ chặn được đúng rủi ro tích luỹ mà việc này từng
+    được nối vào (một loạt tệp như vậy không còn để lại tiến trình mồ côi).
+    Đáng làm nếu sau này đo được đây là một đường vào bị lạm dụng thật, không
+    phải trước đó."""
     return du_lieu[:8] == _OLE2_MAGIC
+
+
+def _giet_sach_nhom(proc: subprocess.Popen) -> None:
+    """SIGKILL cho CẢ NHÓM tiến trình của `proc`, rồi XÁC NHẬN nhóm đã hết —
+    không giả định gửi được tín hiệu nghĩa là tiến trình đã thoát (fix round 1,
+    task review — Critical).
+
+    `proc` được `Popen` với `start_new_session=True` ở nơi gọi, nên `proc.pid`
+    cũng là ID của cả PHIÊN/NHÓM mới đó. Vì sao cần: `soffice` là một wrapper
+    thực thi `soffice.bin`, và bản thân LibreOffice có thể tự sinh thêm tiến
+    trình của riêng nó — `proc.pid` không chắc là PID của tiến trình đang THẬT
+    SỰ làm việc. Diệt riêng PID trực tiếp (hành vi mặc định của
+    `subprocess.run(timeout=...)`, cách cũ của hàm này) có thể để lại một
+    `soffice.bin` mồ côi vẫn giữ tệp và thư mục hồ sơ tạm — trên một endpoint
+    tải lên công khai, vài lượt tải hỏng liên tiếp tích thành một rò rỉ tiến
+    trình. `os.killpg` bắt được TẤT CẢ hậu duệ trong cùng nhóm, kể cả những
+    tiến trình `Popen` của chúng ta không trực tiếp biết tới.
+    """
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass  # nhóm đã tự thoát trước khi kịp gửi tín hiệu
+
+    try:
+        proc.communicate(timeout=_HAN_XAC_NHAN_DA_GIET_GIAY)
+    except subprocess.TimeoutExpired:
+        logger.warning(
+            "doc_tai_lieu: soffice %d không thoát sau SIGKILL trong %ss",
+            proc.pid,
+            _HAN_XAC_NHAN_DA_GIET_GIAY,
+        )
+
+    # Xác nhận: dò xem NHÓM (không chỉ proc vừa reap ở trên) còn ai sống
+    # không. `killpg(pgid, 0)` không gửi tín hiệu thật, chỉ báo lỗi nếu không
+    # còn tiến trình nào mang pgid đó — đây là bước "confirm", không phải
+    # "assume", mà review round 1 đòi.
+    han = time.monotonic() + _HAN_XAC_NHAN_DA_GIET_GIAY
+    while time.monotonic() < han:
+        try:
+            os.killpg(proc.pid, 0)
+        except ProcessLookupError:
+            return  # xác nhận: không còn hậu duệ nào trong nhóm
+        time.sleep(0.1)
+    logger.warning(
+        "doc_tai_lieu: sau SIGKILL vẫn không xác nhận được nhóm tiến trình %d đã hết",
+        proc.pid,
+    )
 
 
 def _chuyen_doc_sang_docx(du_lieu: bytes) -> bytes:
     """.doc (OLE2) -> bytes .docx, bằng LibreOffice headless.
 
-    Ba điều làm tiến trình con này an toàn với dữ liệu người dùng:
+    Những điều làm tiến trình con này an toàn hơn với dữ liệu người dùng —
+    và một điều KHÔNG được an toàn, nói thẳng thay vì để im lặng như đã đủ:
 
     - Hồ sơ (`-env:UserInstallation`) RIÊNG cho MỖI lần gọi, trong chính thư
       mục tạm sắp bị xoá — hồ sơ mặc định DÙNG CHUNG là nguồn lỗi đã biết "lần
       chuyển đổi thứ hai lặng lẽ không làm gì" khi hai tiến trình soffice đụng
       khoá cùng một hồ sơ.
-    - TRẦN THỜI GIAN cứng (`_HAN_CHUYEN_DOI_GIAY`) — một .doc cố ý làm treo bộ
-      phân tích OLE2 phải hỏng việc đọc, không được treo cả request.
+    - TRẦN THỜI GIAN cứng (`_HAN_CHUYEN_DOI_GIAY`), và khi hết hạn, tín hiệu
+      diệt gửi cho CẢ NHÓM tiến trình (`_giet_sach_nhom`, fix round 1) — không
+      chỉ PID trực tiếp `Popen` giữ, vì `soffice` có thể tự sinh thêm tiến
+      trình của riêng nó mà PID đó không nắm được.
     - MÔI TRƯỜNG tối giản — tiến trình con KHÔNG thừa hưởng biến môi trường của
       ứng dụng (API key, secrets khác). Không có cách tắt macro bằng cờ dòng
       lệnh, nhưng một hồ sơ MỚI TOANH giữ mức an toàn macro mặc định "Trung
       bình" (hỏi trước khi chạy) — ở chế độ headless không có hộp thoại nào để
-      lỡ tay bấm "Đồng ý", nên macro không tự chạy được; môi trường tối giản
-      thêm một lớp nữa: dù có gì chạy được, không có mạng và không có gì đáng
-      lấy trộm trong biến môi trường.
+      lỡ tay bấm "Đồng ý", nên macro không tự chạy được.
+    - **"Không có mạng" KHÔNG được thi hành ở hàm này** (fix round 1, task
+      review — Important; báo cáo trước đó khẳng định nhầm điều này). Môi
+      trường tối giản bỏ được proxy/secrets khỏi tầm với của tiến trình con,
+      nhưng KHÔNG chặn một kết nối ra ngoài — trường field-code/OLE link kiểu
+      Word cũ có thể trỏ tới một URL và LibreOffice có thể thử với tới nó bất
+      kể biến môi trường nào được cấp. Chặn THẬT cần một ranh giới hệ điều
+      hành (network namespace, quy tắc tường lửa, hay chính sách mạng ở tầng
+      container) — nằm ngoài những gì một tiến trình con Python tự làm được,
+      và ngoài phạm vi bản vá này. Rủi ro còn lại (residual), không phải đã
+      được chặn.
 
     Tệp .doc và .docx tạm đều nằm trong MỘT thư mục do
     `tempfile.TemporaryDirectory` dựng và tự xoá khi hàm kết thúc — kể cả khi
-    kết thúc bằng lỗi. Không nhánh nào để lại tệp trên đĩa (FR-022 áp dụng cho
-    cả bản chuyển đổi: nó vẫn là bytes gốc của người dùng, chỉ khác lớp vỏ).
+    kết thúc bằng lỗi (kể cả đường hết hạn — `_giet_sach_nhom` chạy XONG rồi
+    mới `raise`, nên khối `with` phía dưới vẫn thoát bình thường và tự dọn).
+    Không nhánh nào để lại tệp trên đĩa (FR-022 áp dụng cho cả bản chuyển đổi:
+    nó vẫn là bytes gốc của người dùng, chỉ khác lớp vỏ).
     """
     if not _la_ole2(du_lieu):
         raise KhongDocDuoc(LoaiHong.tep_hong, "tệp .doc không đúng định dạng OLE2")
@@ -540,38 +625,44 @@ def _chuyen_doc_sang_docx(du_lieu: bytes) -> bytes:
         vao = thu_muc / "vao.doc"
         vao.write_bytes(du_lieu)
         moi_truong = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": tmp}
+        proc = subprocess.Popen(
+            [
+                soffice,
+                "--headless",
+                "--invisible",
+                "--nocrashreport",
+                "--nodefault",
+                "--nofirststartwizard",
+                "--nolockcheck",
+                "--nologo",
+                "--norestore",
+                f"-env:UserInstallation=file://{thu_muc / 'ho_so'}",
+                "--convert-to",
+                "docx:MS Word 2007 XML",
+                "--outdir",
+                tmp,
+                str(vao),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=moi_truong,
+            # Phiên (session) MỚI làm `proc.pid` cũng là ID của cả nhóm tiến
+            # trình — điều kiện để `_giet_sach_nhom` diệt được TẤT CẢ hậu duệ
+            # bằng `os.killpg`, không chỉ tiến trình `Popen` biết trực tiếp.
+            start_new_session=True,
+        )
         try:
-            kq = subprocess.run(
-                [
-                    soffice,
-                    "--headless",
-                    "--invisible",
-                    "--nocrashreport",
-                    "--nodefault",
-                    "--nofirststartwizard",
-                    "--nolockcheck",
-                    "--nologo",
-                    "--norestore",
-                    f"-env:UserInstallation=file://{thu_muc / 'ho_so'}",
-                    "--convert-to",
-                    "docx:MS Word 2007 XML",
-                    "--outdir",
-                    tmp,
-                    str(vao),
-                ],
-                capture_output=True,
-                timeout=_HAN_CHUYEN_DOI_GIAY,
-                env=moi_truong,
-            )
+            _, loi = proc.communicate(timeout=_HAN_CHUYEN_DOI_GIAY)
         except subprocess.TimeoutExpired as e:
+            _giet_sach_nhom(proc)
             raise KhongDocDuoc(LoaiHong.tep_hong, "chuyển đổi tệp .doc quá lâu") from e
 
         ra = thu_muc / "vao.docx"
-        if kq.returncode != 0 or not ra.exists():
+        if proc.returncode != 0 or not ra.exists():
             logger.warning(
                 "doc_tai_lieu: soffice không chuyển được .doc (mã %s): %s",
-                kq.returncode,
-                kq.stderr.decode("utf-8", errors="replace")[:500],
+                proc.returncode,
+                loi.decode("utf-8", errors="replace")[:500],
             )
             raise KhongDocDuoc(LoaiHong.tep_hong, "không chuyển đổi được tệp .doc")
 

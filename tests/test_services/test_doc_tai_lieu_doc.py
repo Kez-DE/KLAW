@@ -15,9 +15,11 @@ Ba điều file này khoá:
    soffice) không được sống sót qua lần gọi dù việc chuyển đổi thành hay bại.
 """
 
+import os
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -105,13 +107,27 @@ def test_DOC_khong_co_soffice_bao_loi_ro_khong_phai_500(monkeypatch):
 
 def test_DOC_qua_han_treo_hong_sach_khong_treo_ca_request(monkeypatch):
     """Một .doc cố ý làm treo bộ phân tích OLE2 phải hỏng việc đọc trong hạn
-    định, không được treo cả request (R3)."""
+    định, không được treo cả request (R3). Mock ở tầng `Popen` (fix round 1:
+    hàm chuyển đổi giờ dùng `Popen`, không còn `subprocess.run`) — bài kiểm
+    RIÊNG bên dưới (`test_DOC_qua_han_treo_GIET_CA_NHOM...`) mới là bài chứng
+    minh việc diệt CẢ NHÓM tiến trình bằng tiến trình thật."""
     monkeypatch.setattr("src.services.doc_tai_lieu._duong_soffice", lambda: "/usr/bin/soffice")
 
-    def _treo(*a, **k):
-        raise subprocess.TimeoutExpired(cmd="soffice", timeout=k.get("timeout", 60))
+    class _TienTrinhTreo:
+        # Ngoài dải PID thật trên mọi hệ điều hành hiện hành — `os.killpg`
+        # trên nó phải luôn ném `ProcessLookupError`, đúng hành vi khi tiến
+        # trình (giả) đã không còn tồn tại.
+        pid = 2**30
+        returncode = None
+        _lan_goi = 0
 
-    monkeypatch.setattr(subprocess, "run", _treo)
+        def communicate(self, timeout=None):
+            self._lan_goi += 1
+            if self._lan_goi == 1:
+                raise subprocess.TimeoutExpired(cmd="soffice", timeout=timeout or 60)
+            return b"", b""  # lần gọi lại của `_giet_sach_nhom` sau khi diệt
+
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: _TienTrinhTreo())
     with pytest.raises(KhongDocDuoc) as e:
         doc("hd.doc", _OLE2_MAGIC + b"\x00" * 100)
     assert e.value.ly_do is LoaiHong.tep_hong
@@ -134,10 +150,14 @@ def test_DOC_tep_tam_khong_song_sot_qua_lan_goi_khi_chuyen_doi_hong(monkeypatch)
 
     monkeypatch.setattr("src.services.doc_tai_lieu.tempfile.TemporaryDirectory", _ThuMucGiamSat)
 
-    def _chuyen_doi_hong(*a, **k):
-        return subprocess.CompletedProcess(args=a, returncode=1, stdout=b"", stderr=b"loi gia lap")
+    class _TienTrinhHong:
+        pid = 2**30
+        returncode = 1
 
-    monkeypatch.setattr(subprocess, "run", _chuyen_doi_hong)
+        def communicate(self, timeout=None):
+            return b"", b"loi gia lap"
+
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: _TienTrinhHong())
 
     with pytest.raises(KhongDocDuoc) as e:
         doc("hd.doc", _OLE2_MAGIC + b"\x00" * 100)
@@ -145,3 +165,98 @@ def test_DOC_tep_tam_khong_song_sot_qua_lan_goi_khi_chuyen_doi_hong(monkeypatch)
     assert e.value.ly_do is LoaiHong.tep_hong
     assert duong_da_dung, "phải có ít nhất một thư mục tạm được dựng lên"
     assert not Path(duong_da_dung[0]).exists(), "thư mục tạm phải bị xoá sau khi hàm kết thúc"
+
+
+def test_DOC_qua_han_treo_GIET_CA_NHOM_khong_chi_con_truc_tiep(tmp_path, monkeypatch):
+    """Fix round 1 (Critical) — proof bằng tiến trình THẬT, không mock.
+
+    `soffice` thật là một wrapper thực thi `soffice.bin`, và bản thân
+    LibreOffice có thể tự sinh thêm tiến trình của riêng nó — PID mà `Popen`
+    giữ không chắc là PID của tiến trình đang THẬT SỰ làm việc. `soffice` GIẢ
+    dưới đây tự sinh một tiến trình CHÁU rồi treo cả hai (mô phỏng đúng hình
+    dạng đó), và bài kiểm xác nhận: (1) tiến trình CHÁU — không chỉ con trực
+    tiếp `Popen` biết tới — cũng bị dọn khi hết hạn, và (2) thư mục tạm bị xoá
+    trên CHÍNH đường hết hạn (trước chỉ có bài kiểm cho đường chuyển đổi
+    hỏng, không phải đường hết hạn)."""
+    pid_chau_path = tmp_path / "chau.pid"
+    soffice_gia = tmp_path / "soffice_gia.py"
+    soffice_gia.write_text(
+        "#!/usr/bin/env python3\n"
+        "import subprocess, time\n"
+        "p = subprocess.Popen(['sleep', '50'])\n"
+        f"open({str(pid_chau_path)!r}, 'w').write(str(p.pid))\n"
+        "time.sleep(50)\n"
+    )
+    soffice_gia.chmod(0o755)
+
+    monkeypatch.setattr("src.services.doc_tai_lieu._duong_soffice", lambda: str(soffice_gia))
+    # Hạn thật (60s) làm bài kiểm chậm không cần thiết — hạ xuống để proof vẫn
+    # đi qua ĐÚNG đường code (Popen -> TimeoutExpired -> _giet_sach_nhom).
+    monkeypatch.setattr("src.services.doc_tai_lieu._HAN_CHUYEN_DOI_GIAY", 2)
+
+    duong_da_dung: list[str] = []
+    goc_tao = tempfile.TemporaryDirectory
+
+    class _ThuMucGiamSat(goc_tao):
+        def __enter__(self):
+            p = super().__enter__()
+            duong_da_dung.append(p)
+            return p
+
+    monkeypatch.setattr("src.services.doc_tai_lieu.tempfile.TemporaryDirectory", _ThuMucGiamSat)
+
+    with pytest.raises(KhongDocDuoc) as e:
+        doc("hd.doc", _OLE2_MAGIC + b"\x00" * 100)
+    assert e.value.ly_do is LoaiHong.tep_hong
+
+    for _ in range(50):
+        if pid_chau_path.exists():
+            break
+        time.sleep(0.1)
+    assert pid_chau_path.exists(), "soffice giả không kịp sinh tiến trình cháu trước khi bị diệt"
+    pid_chau = int(pid_chau_path.read_text())
+
+    for _ in range(50):
+        try:
+            os.kill(pid_chau, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.1)
+    else:
+        pytest.fail(f"tiến trình cháu {pid_chau} vẫn sống sau khi hết hạn — killpg không tới được nó")
+
+    assert duong_da_dung, "phải có ít nhất một thư mục tạm được dựng lên"
+    assert not Path(duong_da_dung[0]).exists(), (
+        "thư mục tạm phải bị xoá cả trên đường hết hạn, không chỉ đường chuyển đổi hỏng"
+    )
+
+
+def _csv_sang_xls_that(tmp_path: Path) -> bytes:
+    """Dựng một .xls THẬT (không phải .doc) bằng CHÍNH soffice — mô phỏng ca
+    thật: một bảng tính bị đổi tên nhầm/cố ý thành .doc."""
+    csv = tmp_path / "mini.csv"
+    csv.write_text("a,b\n1,2\n", encoding="utf-8")
+    subprocess.run(
+        ["soffice", "--headless", "--convert-to", "xls:MS Excel 97", "--outdir", str(tmp_path), str(csv)],
+        check=True,
+        capture_output=True,
+        timeout=60,
+    )
+    return (tmp_path / "mini.xls").read_bytes()
+
+
+@pytest.mark.skipif(not _CO_SOFFICE, reason="cần LibreOffice để dựng .xls thử và để tự chuyển đổi thất bại")
+def test_DOC_gia_dang_XLS_that_bai_o_buoc_chuyen_doi_khong_phai_o_cong_OLE2(tmp_path):
+    """Fix round 1 (Important) — đo THẬT, không chỉ suy luận từ docstring.
+
+    .xls dùng CHUNG chữ ký OLE2 với .doc (`_la_ole2` không phân biệt sâu hơn —
+    xem docstring của nó). Một .xls THẬT bị đổi tên thành .doc phải QUA được
+    cổng OLE2 rồi THẤT BẠI ở bước chuyển đổi — soffice mở nó bằng Calc, không
+    xuất được sang khuôn Writer .docx (`SfxBaseModel::impl_store` báo lỗi,
+    không tệp .docx nào được sinh ra) — và việc đó rơi đúng vào `tep_hong`."""
+    xls_that = _csv_sang_xls_that(tmp_path)
+    assert xls_that[:8] == _OLE2_MAGIC, "phải là OLE2 thật để test đúng cổng đang khoá"
+
+    with pytest.raises(KhongDocDuoc) as e:
+        doc("bang-tinh-doi-ten.doc", xls_that)
+    assert e.value.ly_do is LoaiHong.tep_hong
