@@ -559,3 +559,33 @@ async def test_hoi_thoai_id_RONG_mo_phien_moi_chu_khong_404(client, khoa_ky, hai
     )
     assert r.status_code == 201, r.text
     assert hoi_thoai.lay_phien(a, r.json()["hoi_thoai_id"]) is not None
+
+
+@pytest.mark.asyncio
+async def test_tai_len_loai_tong_quat_doc_XONG_khong_rut_du_kien(client, khoa_ky, hai_nguoi, llm_gia):
+    """`tong_quat` KHÔNG có checklist, nên tải lên với loại đó phải ĐỌC XONG.
+
+    Hồi quy thật, chủ dự án báo 2026-09-17: chọn "Bản thảo tổng quát" rồi tải
+    tệp lên thì việc đọc bị ghi `hong`/`loi_he_thong`. `rut_du_kien` gọi
+    `load_checklist_cached('tong_quat')` và `duong_dan_checklist` ném
+    `ValueError: loai không có checklist`. Tệp đọc hoàn toàn bình thường — chỉ
+    checklist là không tồn tại — nên hỏng ở đây là hỏng SAI CHỖ, và người dùng
+    chỉ thấy "không phân tích được".
+
+    Bản thảo tổng quát rút dữ kiện ở `hieu_tai_lieu`, không ở cửa tải lên.
+    """
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    r = await client.post(
+        "/api/v1/tai-lieu",
+        headers=ha,
+        files={"tep": ("mau.docx", _docx(DONG_LUONG, DONG_THU_VIEC))},
+        data={"hoi_thoai_id": phien, "loai": "tong_quat"},
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["trang_thai"] == "xong", body
+    assert body["loai"] == "tong_quat"
+    assert body["du_kien"] == []
+    assert body["chay_nen"] is False

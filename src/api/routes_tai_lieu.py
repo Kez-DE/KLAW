@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from src.agents.nodes.rut_du_kien import rut_du_kien
+from src.services import ban_thao
 from src.services import llm as llm_svc
 from src.services import tai_lieu as tl
 from src.services.bao_ve import nguoi_dung_bat_buoc
@@ -305,7 +306,13 @@ async def tai_len(
     # hệ thống đọc lấy — và khi không nhận ra thì tài liệu vẫn ĐỌC XONG: cái
     # thiếu là bộ trường của một checklist, không phải cả tài liệu. Trạng thái
     # `can_chon_loai` không còn được ghi; nó chỉ còn đọc được ở dòng cũ.
-    nguoi_chon_loai = loai is not None
+    # `tong_quat` KHÔNG có checklist (`config/checklist_tong_quat.yaml` không tồn
+    # tại), nên `rut_du_kien` đi qua nó là `ValueError` ở `duong_dan_checklist` —
+    # việc đọc bị ghi `hong`/`loi_he_thong` và người dùng thấy "không phân tích
+    # được" dù tệp đọc hoàn toàn bình thường. Bản thảo tổng quát rút dữ kiện ở
+    # `hieu_tai_lieu` chứ không ở đây, nên nó đi CHÍNH đường "đính kèm không phân
+    # tích" bên dưới: đọc xong, không `du_kien`, không gọi mô hình lần hai.
+    nguoi_chon_loai = loai is not None and loai != ban_thao.LOAI_TONG_QUAT
     doan = None if loai else phan_loai(tai_lieu.don_vi)
     loai = loai or (doan.loai if doan else None)
     if loai is not None:
