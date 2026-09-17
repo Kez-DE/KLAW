@@ -26,6 +26,7 @@ sang `khoi` — mảng khối theo đúng thứ tự tài liệu, mỗi khối l
 
 import json
 import uuid
+from pathlib import Path
 
 import pytest
 
@@ -34,7 +35,7 @@ from src.agents.nodes import hieu_tai_lieu as h
 from src.agents.nodes.assemble import ResultType, assemble
 from src.models.schemas import TraCuuResponse
 from src.services import ban_thao
-from src.services.doc_tai_lieu import DonViVanBan
+from src.services.doc_tai_lieu import DonViVanBan, doc
 
 A_ID = "aaaaaaaa-0000-0000-0000-000000000001"
 
@@ -948,9 +949,12 @@ def test_ten_muc_that_trung_dong_dau_khoi_thi_bo_dong_do_giu_phan_con_lai():
     ], "dòng đầu (trùng tên) bị bỏ, phần còn lại của khối vẫn giữ nguyên"
 
 
-def test_ten_muc_that_bang_dung_ca_khoi_thi_bo_ca_khoi_khong_bo_muc():
-    """Khối CHỈ có đúng dòng trùng tên (không còn gì khác) — bỏ CẢ khối, mục
-    vẫn còn (không vô đề, vì `ten` đã in ra rồi)."""
+def test_ten_muc_that_bang_dung_ca_khoi_thi_bo_ca_khoi_giu_muc():
+    """Phase 11 fix round 3 (reviewer I3) — khối CHỈ có đúng dòng trùng tên
+    (không còn gì khác): bỏ CẢ khối, nhưng MỤC vẫn còn với `khoi=[]` (không vô
+    đề, vì `ten` đã in ra rồi). Trước bản vá này, khối rỗng đi lẫn với luật
+    "mục không có khối nào" và bị bỏ CẢ MỤC — biến ca "in tên hai lần" (lỗi
+    round 2 sửa) thành "in tên không lần nào", mất luôn cả tiêu đề."""
     dv = [DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Xác nhận của Cơ quan/Đơn vị")]
     goi = [{"id": "z5", "ten_tep": "bm05.docx", "don_vi": dv, "nhan": "A", "gui": dv}]
     muc = {
@@ -959,7 +963,10 @@ def test_ten_muc_that_bang_dung_ca_khoi_thi_bo_ca_khoi_khong_bo_muc():
         "khoi": [{"noi_dung": "Xác nhận của Cơ quan/Đơn vị", "bang": []}],
     }
     van_ban, _ = _sach([muc], nguon="Xác nhận của Cơ quan/Đơn vị", goi=goi)
-    assert van_ban["muc"] == [], "khối duy nhất bị bỏ hết → mục không còn khối nào, cùng luật hiện có"
+    assert len(van_ban["muc"]) == 1, "khối duy nhất bị bỏ hết vì trùng tên KHÔNG kéo theo mất cả mục"
+    ket = van_ban["muc"][0]
+    assert ket["ten_that"] is True
+    assert ket["khoi"] == [], "không còn khối thân bài nào — tên đã in ra làm tiêu đề mục rồi"
 
 
 def test_ten_muc_bia_trung_dong_dau_khoi_khong_bi_bo():
@@ -1074,6 +1081,129 @@ def test_tieu_de_khong_dinh_vi_duoc_thi_khong_chen():
     }
     ket, _ = h.lam_sach_van_ban(van_ban, NGUON_THU_TU, goi=GOI_THU_TU)
     assert len(ket["muc"]) == 1, "không định vị được thì không chèn mục nào"
+
+
+def test_tieu_de_khong_muc_nao_dinh_vi_duoc_thi_khong_chen_cuoi():
+    """Phase 11 fix round 3 (reviewer I1) — tiêu đề khớp được vị trí nguồn,
+    nhưng KHÔNG mục nào của bản thảo định vị được (mọi mục bị mô hình
+    paraphrase hết, không còn khớp NGUYÊN VĂN dòng nguồn nào). Trước bản vá
+    này, `idx` mặc định về CUỐI danh sách mục và không có mục nào đủ bằng
+    chứng để dời nó lên — tiêu đề bị cắm xuống DƯỚI CÙNG trang dù nguồn thật
+    đặt nó ở đầu (chỉ số 3), tệ hơn cả hành vi trước khi có khối chèn này
+    (R4 đã ẩn `<h1>` đi vì tiêu đề giờ trùng chữ với thân bài). Không định vị
+    được mục nào thì bỏ qua chèn, để `<h1>` phía render lo như cũ."""
+    van_ban = {
+        "tieu_de": "GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP",
+        "muc": [
+            {
+                "ten": "Phần một",
+                "vung": "than",
+                "khoi": [{"noi_dung": "Nội dung đã được diễn giải lại theo lời mô hình", "bang": []}],
+            },
+            {
+                "ten": "Phần hai",
+                "vung": "than",
+                "khoi": [{"noi_dung": "Một đoạn khác cũng bị viết lại, không khớp nguyên văn", "bang": []}],
+            },
+        ],
+    }
+    ket, _ = h.lam_sach_van_ban(van_ban, NGUON_THU_TU, goi=GOI_THU_TU)
+    assert len(ket["muc"]) == 2, "không mục nào định vị được nguồn → không chèn tiêu đề vào đâu cả"
+    assert [m["ten"] for m in ket["muc"]] == ["Phần một", "Phần hai"]
+
+
+DV_TIEU_DE_TRONG_BANG = [
+    DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP", bang=(0, 0, 0)),
+    DonViVanBan(chi_so=1, trang=1, offset_dau=40, noi_dung="Cơ quan/Đơn vị tiếp nhận: ………"),
+]
+GOI_TIEU_DE_TRONG_BANG = [
+    {"id": "y2", "ten_tep": "bm05.docx", "don_vi": DV_TIEU_DE_TRONG_BANG, "nhan": "A", "gui": DV_TIEU_DE_TRONG_BANG}
+]
+NGUON_TIEU_DE_TRONG_BANG = "\n".join(dv.noi_dung for dv in DV_TIEU_DE_TRONG_BANG)
+
+
+def test_tieu_de_da_co_trong_o_bang_thi_khong_chen_them():
+    """Phase 11 fix round 3 (reviewer I2) — tiêu đề sống NGAY trong một ô
+    bảng (letterhead in tên biểu mẫu trong ô của nó, hình dạng thật gặp ở
+    form tiếng Việt) mà mô hình đã tái hiện ĐÚNG như bảng. `da_co` trước bản
+    vá này chỉ quét đoạn văn xuôi (`if not k["bang"]`) nên không thấy tiêu đề
+    đã có, và chèn thêm một bản sao thứ hai dạng đoạn văn xuôi rời. Sau bản
+    vá, quét cả ô bảng thì thấy "đã có", không chèn gì thêm."""
+    van_ban = {
+        "tieu_de": "GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP",
+        "muc": [
+            {
+                "ten": "Letterhead",
+                "vung": "than",
+                "khoi": [{"noi_dung": "", "bang": [["GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP"]]}],
+            },
+            {
+                "ten": "Thông tin",
+                "vung": "than",
+                "khoi": [{"noi_dung": "Cơ quan/Đơn vị tiếp nhận: ………", "bang": []}],
+            },
+        ],
+    }
+    ket, _ = h.lam_sach_van_ban(van_ban, NGUON_TIEU_DE_TRONG_BANG, goi=GOI_TIEU_DE_TRONG_BANG)
+    assert len(ket["muc"]) == 2, "tiêu đề đã có trong ô bảng — không chèn thêm mục nào"
+    assert [m["ten"] for m in ket["muc"]] == ["Letterhead", "Thông tin"]
+
+
+# ─────────── Phase 11 fix round 3 — thứ tự nguồn ghim trên chính FILE THẬT,
+# không chỉ trên `don_vi` tự tay soạn (review task quality [Minor M4/proof
+# gap]: ba test thứ tự ở trên đưa `don_vi` ĐÃ sắp đúng thứ tự assertion cần,
+# không gì ghim thứ tự sản ra từ chính tệp thật). Đọc BM.M05 bằng
+# `doc_tai_lieu.doc()` (0 token, không cần mô hình) và dựng một `van_ban` mô
+# phỏng đúng cách mô hình vẫn xử lý form này (letterhead gộp vào MỘT khối
+# bảng, tiêu đề KHÔNG tự in ra thân bài) — bỏ qua an toàn khi kho mẫu ngoài
+# repo không có trên máy đang chạy, cùng quy ước `test_doc_tai_lieu.py`.
+
+_KHO_MAU = Path.home() / "giấy tờ thực tập"
+_BM_M05 = _KHO_MAU / "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx"
+
+
+@pytest.mark.skipif(not _KHO_MAU.is_dir(), reason="kho mẫu ngoài repo không có trên máy này")
+def test_tieu_de_dung_vi_tri_tren_file_BM_M05_that():
+    if not _BM_M05.exists():
+        pytest.skip("không thấy BM.M05 trong kho mẫu")
+    t = doc(_BM_M05.name, _BM_M05.read_bytes())
+    goi = [{"id": "bm05", "ten_tep": _BM_M05.name, "don_vi": t.don_vi, "nhan": "A", "gui": t.don_vi}]
+    nguon = "\n".join(dv.noi_dung for dv in t.don_vi if dv.noi_dung)
+    van_ban = {
+        "tieu_de": "GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP",
+        "muc": [
+            {"ten": "Tiêu đề biểu mẫu", "vung": "than", "khoi": [{"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []}]},
+            {
+                "ten": "Quốc hiệu và tiêu ngữ",
+                "vung": "than",
+                "khoi": [{
+                    "noi_dung": "",
+                    "bang": [
+                        [
+                            "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
+                            "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
+                        ],
+                        ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
+                    ],
+                }],
+            },
+            {
+                "ten": "Thông tin tiếp nhận",
+                "vung": "than",
+                "khoi": [{
+                    "noi_dung": "Cơ quan/Đơn vị tiếp nhận: ……………………………………………………………….",
+                    "bang": [],
+                }],
+            },
+        ],
+    }
+    ket, _ = h.lam_sach_van_ban(van_ban, nguon, goi=goi)
+    assert [m["ten"] for m in ket["muc"]] == [
+        "Tiêu đề biểu mẫu",
+        "Quốc hiệu và tiêu ngữ",
+        "Tiêu đề văn bản",
+        "Thông tin tiếp nhận",
+    ], "trên file BM.M05 thật, tiêu đề chen giữa letterhead và mục kế tiếp — đúng thứ tự word/document.xml"
 
 
 # ─────────────────────────────────────────── node hieu_tai_lieu phát `van_ban`

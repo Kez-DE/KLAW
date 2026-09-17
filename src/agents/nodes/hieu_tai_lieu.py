@@ -1173,18 +1173,33 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
     tieu_de_sach = _sach(str((van_ban or {}).get("tieu_de") or "").strip())
     if goi and tieu_de_sach and muc_sach:
         vi_tri = _vi_tri_theo_don_vi(goi)
-        tieu_de_vt = vi_tri.get(_khong_hoa(tieu_de_sach))
+        tieu_de_ch = _khong_hoa(tieu_de_sach)
+        tieu_de_vt = vi_tri.get(tieu_de_ch)
+        # Fix round 3 (reviewer I2) — quét CẢ ô bảng, không chỉ đoạn văn xuôi:
+        # `_vi_tri_theo_don_vi` cố tình đánh chỉ số cho ô bảng luôn (xem
+        # docstring hàm đó), nên một tiêu đề sống ngay trong Ô LETTERHEAD
+        # (thường gặp ở form tiếng Việt: tên biểu mẫu in trong bảng đầu trang)
+        # phải được nhận là "đã có" giống hệt một đoạn văn xuôi — quét thiếu ô
+        # bảng khiến chính tiêu đề đó bị chèn thêm một bản sao thứ hai.
         da_co = any(
-            _khong_hoa(dong) == _khong_hoa(tieu_de_sach)
+            tieu_de_ch == _khong_hoa(chu)
             for m in muc_sach
             for k in m["khoi"]
-            if not k["bang"]
-            for dong in k["noi_dung"].split("\n")
+            for chu in (k["noi_dung"].split("\n") if not k["bang"] else (o for hang in k["bang"] for o in hang))
         )
-        if tieu_de_vt is not None and not da_co:
+        # Fix round 3 (reviewer I1) — chỉ chèn vào GIỮA khi có ÍT NHẤT MỘT mục
+        # định vị được nguồn. Trước bản vá này, `idx` mặc định là cuối danh
+        # sách và chỉ dời lên khi tìm thấy một mục đứng SAU tiêu đề — nên khi
+        # KHÔNG mục nào định vị được (mọi mục bị mô hình paraphrase hết) tiêu
+        # đề vẫn bị cắm xuống CUỐI, dù không có bằng chứng nào nó thật sự đứng
+        # cuối. Vì `<h1>` đã bị R4 ẩn đi (tiêu đề giờ trùng chữ với thân bài),
+        # kết quả là tiêu đề biến mất khỏi ĐẦU trang mà rơi xuống DƯỚI CÙNG —
+        # tệ hơn hành vi trước khi có khối chèn này. Không định vị được mục
+        # nào thì bỏ qua, để `<h1>` phía render lo như trước.
+        vi_tri_khoi_muc = [_vi_tri_khoi(m["khoi"], vi_tri) for m in muc_sach]
+        if tieu_de_vt is not None and not da_co and any(vt is not None for vt in vi_tri_khoi_muc):
             idx = len(muc_sach)
-            for i, m in enumerate(muc_sach):
-                vt = _vi_tri_khoi(m["khoi"], vi_tri)
+            for i, vt in enumerate(vi_tri_khoi_muc):
                 if vt is not None and vt > tieu_de_vt:
                     idx = i
                     break
@@ -1197,7 +1212,7 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
                 "khoi": [{
                     "noi_dung": tieu_de_sach,
                     "bang": [],
-                    "can_le": theo_dong.get(_khong_hoa(tieu_de_sach), "giua"),
+                    "can_le": theo_dong.get(tieu_de_ch, "giua"),
                     "nhip": [],
                     "ti_le": [],
                 }],
@@ -1218,14 +1233,25 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
         # (`ten_that=False`) không in ra trang (R4/U1) nên không có gì để
         # "trùng" với dòng đầu nội dung. Làm TRƯỚC các phép kiểm dưới, để
         # mục hết nội dung vì bị trùng tên đi qua ĐÚNG MỘT nhánh "hết khối".
+        # Fix round 3 (reviewer I3) — khối bị `_bo_dong_trung_ten` xoá SẠCH
+        # (nội dung của nó CHỈ có đúng dòng trùng tên, không còn gì khác) phải
+        # được phân biệt với một mục vốn dĩ rỗng: mục này đã in `ten` ra làm
+        # tiêu đề rồi, chỉ là không còn dòng thân bài nào THÊM — giống một
+        # trường biểu mẫu chưa điền gì ngoài tên trường. Áp luật "không khối
+        # thì bỏ mục" (dưới) vào ca này biến "in ra HAI lần" (lỗi round 2 sửa)
+        # thành "in ra KHÔNG lần nào" — mất cả tên lẫn nội dung, tệ hơn lỗi
+        # gốc. `trung_het` chỉ bật đúng ca này, không đụng mục rỗng từ đầu hay
+        # mục bị gộp hết vào bảng của mục khác (fix round 1).
+        trung_het = False
         if ten_that:
+            khoi_truoc = khoi
             khoi = _bo_dong_trung_ten(khoi, ten)
-        # Mục KHÔNG còn khối nào sau khi sạch — tương đương "không noi_dung
-        # không bang" của Phase 7: không phải một đề mục có nội dung, chỉ là
-        # cái tên đứng một mình. Cũng là kết cục của một mục bị GỘP HẾT vào
-        # bảng của mục khác (fix round 1), hoặc bị trùng tên hết sạch (fix
-        # round 2) — cùng luật, không cần nhánh riêng.
-        if not khoi:
+            trung_het = bool(khoi_truoc) and not khoi
+        # Mục KHÔNG còn khối nào sau khi sạch, và KHÔNG phải vì trùng tên hết
+        # sạch — tương đương "không noi_dung không bang" của Phase 7: không
+        # phải một đề mục có nội dung, chỉ là cái tên đứng một mình. Cũng là
+        # kết cục của một mục bị GỘP HẾT vào bảng của mục khác (fix round 1).
+        if not khoi and not trung_het:
             dem["gia_tri_lam_sach"] -= dem_delta
             continue
         kiem_tra = "\n".join(
