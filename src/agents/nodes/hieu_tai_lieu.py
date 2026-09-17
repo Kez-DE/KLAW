@@ -31,6 +31,7 @@ import re
 import unicodedata
 from pathlib import Path
 
+from src.agents.nodes.route import Intent
 from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU
 from src.services.bo_nho import _vuong_luoi_chan
 from src.services.doc_tai_lieu import DonViVanBan, NguonChu
@@ -99,35 +100,46 @@ def xin_so_sanh(cau_hoi: str) -> bool:
     return bool(_RE_XIN_SO_SANH.search(cau_hoi or ""))
 
 
-# Phase 3 Half B — safety net trên `MUC_DICH_SOAN`, thêm sau một sự cố THẬT:
-# owner hỏi "tôi muốn biết đây là đơn gì" (một câu hỏi, không xin sửa gì) và
-# mô hình gán `muc_dich = "sua_ban_thao"` — `dung_ban_thao_tong_quat` tin
-# tuyệt đối nhãn đó và VIẾT ĐÈ bản thảo thật, từ 9 mục xuống còn 5. Khác
-# `xin_so_sanh` (gác thêm một NHÃN, không đổi hành vi ghi), đây là gác trên
-# một hành động CÓ THỂ GHI ĐÈ dữ liệu thật — cùng chữ "chữ người dùng thắng"
-# nhưng THEO CHIỀU AN TOÀN HƠN: chỉ chặn khi câu hỏi mang dấu hiệu CÂU HỎI rõ
-# ràng và KHÔNG có động từ soạn/sửa nào — mọi câu mơ hồ khác (không khớp cả
-# hai) vẫn tin mô hình như trước, để không chặn oan một yêu cầu sửa viết
-# không theo mẫu nào trong hai danh sách này.
-_RE_DAU_HIEU_CAU_HOI = re.compile(
-    r"\?\s*$|là gì|là sao|có phải|có đúng không|nghĩa là|muốn biết|thế nào|ra sao|"
-    r"tại sao|vì sao|bao nhiêu|khi nào|đúng không",
-    re.IGNORECASE,
-)
-_RE_DAU_HIEU_SOAN = re.compile(
-    r"sửa|chỉnh|đổi|rút gọn|viết lại|soạn lại|dựng lại|thêm|bớt|xoá|bỏ bớt|cắt bớt|"
-    r"trang trọng hơn|ngắn gọn hơn|điền|soát lại|làm lại",
-    re.IGNORECASE,
-)
-
-
-def _an_toan_xac_nhan_soan(cau_hoi: str) -> bool:
-    """`muc_dich in MUC_DICH_SOAN` của mô hình có ĐỦ TIN để cho phép GHI
-    không — `True` trừ khi câu hỏi mang dấu hiệu CÂU HỎI rõ ràng và không có
-    một động từ soạn/sửa nào đi kèm. Hàm thuần, 0 token."""
-    if _RE_DAU_HIEU_SOAN.search(cau_hoi or ""):
+# Phase 3 Half B, fix round 1 — safety net trên `MUC_DICH_SOAN`, thêm sau một
+# sự cố THẬT: owner hỏi "tôi muốn biết đây là đơn gì" (một câu hỏi, không xin
+# sửa gì) và mô hình gán `muc_dich = "sua_ban_thao"` — `dung_ban_thao_tong_quat`
+# tin tuyệt đối nhãn đó và VIẾT ĐÈ bản thảo thật, từ 9 mục xuống còn 5.
+#
+# Bản ĐẦU của gác này (rút lại — xem review) là hai danh sách regex tiếng Việt
+# ("dấu hiệu câu hỏi" / "dấu hiệu soạn"). Bị bác vì hai lý do gốc rễ, không chỉ
+# vì thiếu vài mẫu: (1) liệt kê cách diễn đạt là một danh sách MỞ — luôn còn
+# một câu thật không khớp mẫu nào ("đây là đơn gì" không chứa cụm "là gì");
+# (2) tiếng Việt DÙNG CHUNG một cấu trúc cho câu hỏi thật VÀ cho một YÊU CẦU
+# lịch sự ("Có thể… được không?" là xin làm, không phải hỏi thông tin) — không
+# quy tắc từ vựng/cú pháp nào tách được hai điều đó, vì khác biệt nằm ở NGHĨA
+# (hỏi thông tin và xin hành động), không nằm ở CHỮ.
+#
+# Gác THẬT không dựng thêm một bộ phân loại tiếng Việt nào — nó dùng lại một
+# Ý KIẾN THỨ HAI đã có sẵn, MIỄN PHÍ, từ một mô hình KHÁC: `route()` (khác
+# prompt, khác việc — "đây có phải một yêu cầu soạn thảo không", chạy TRƯỚC
+# `hieu_tai_lieu` với chính câu hỏi này) đã đặt `state["intent"]` trước khi
+# `hieu_tai_lieu` chạy, mỗi khi lượt đi qua `route` (xem `_re_sau_route`
+# `graph_tra_cuu.py` — đường DUY NHẤT một lượt KHÔNG đính-kèm-tươi tới được
+# đây). Một `muc_dich in MUC_DICH_SOAN` chỉ được TIN khi ý kiến ĐỘC LẬP đó
+# CŨNG là `Intent.soan_thao` — hai mô hình khác nhau cùng đồng ý, không phải
+# một mô hình tự xác nhận chính nó. Khi `route` đã chọn `Intent.tai_lieu` (câu
+# hỏi VỀ tài liệu — chính xác trường hợp "đây là đơn gì"), một `sua_ban_thao`
+# từ `hieu_tai_lieu` là một BẤT ĐỒNG giữa hai lượt gọi, không phải bằng
+# chứng — hạ về `hoi`.
+#
+# `intent` VẮNG MẶT (lượt đính kèm tài liệu TƯƠI, `_vao_graph` rẽ tất định
+# TRƯỚC `route`, quyết định chủ sở hữu Q4) thì không có ý kiến thứ hai nào để
+# đối chiếu — tin `hieu_tai_lieu` như trước bản vá này: gửi một tệp kèm một
+# câu là hành động đã đủ rõ ràng để không cần một phép kiểm thứ hai (cùng lý
+# lẽ Q4 đã lập cho chính lượt đó).
+def _muc_dich_soan_da_xac_nhan(intent: object) -> bool:
+    """`state["intent"]` (từ `route()`, nếu có chạy) có XÁC NHẬN một
+    `muc_dich in MUC_DICH_SOAN` của `hieu_tai_lieu` hay không. Hàm thuần, 0
+    token — không phân tích câu chữ, chỉ đối chiếu HAI QUYẾT ĐỊNH mô hình đã
+    đưa ra."""
+    if intent is None:
         return True
-    return not _RE_DAU_HIEU_CAU_HOI.search(cau_hoi or "")
+    return intent == Intent.soan_thao
 
 
 # Quyết định chủ sở hữu 2026-09-16 (Q3): ≤3 điều khoản mỗi lượt đối chiếu. Trần
@@ -1304,18 +1316,30 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
 def _nguon_soan(goi: list[dict], state: dict, truong: list[dict], quan_sat: list[dict]) -> str:
     """Chữ mà một mục của bản thảo được phép lấy giá trị từ đó.
 
-    Bốn nguồn, và không nguồn thứ năm: TOÀN BỘ đơn vị của tài liệu trong lượt
-    (không chỉ phần đã gửi cho mô hình — phép lọc đầu vào là chuyện chi phí,
-    không phải chuyện bằng chứng, cùng lý lẽ với phép neo `quan_sat`), đoạn
-    trích đã neo của lượt, chính lời người hỏi, và hồ sơ tình huống của hội
-    thoại. Đoạn trích đã neo về mặt tập hợp nằm trong đơn vị rồi; giữ nó ở đây
-    để khi phép neo nới ra (nối nhiều đơn vị) thì nguồn không hụt theo.
+    NĂM nguồn (review, fix round 1 — trước đây bốn): TOÀN BỘ đơn vị của tài
+    liệu trong lượt (không chỉ phần đã gửi cho mô hình — phép lọc đầu vào là
+    chuyện chi phí, không phải chuyện bằng chứng, cùng lý lẽ với phép neo
+    `quan_sat`), đoạn trích đã neo của lượt, chính lời người hỏi, hồ sơ tình
+    huống của hội thoại, và (mới) chính BẢN THẢO ĐANG CÓ (R4,
+    `ban_thao_tong_quat_dang_mo`) khi hội thoại này đã có một. Đoạn trích đã
+    neo về mặt tập hợp nằm trong đơn vị rồi; giữ nó ở đây để khi phép neo nới
+    ra (nối nhiều đơn vị) thì nguồn không hụt theo.
+
+    Thiếu nguồn thứ năm là chính lỗ hổng R4 để lại: prompt (R4) đã ra lệnh
+    "giữ nguyên câu người dùng đã viết", nhưng lưới chặn bịa (`_sach`/
+    `_vuong_luoi_chan` ngay dưới đây) không hề biết bản thảo đang có là một
+    nguồn hợp lệ — một mã số sinh viên/số điện thoại/ngày tháng người dùng
+    tự gõ ở LƯỢT TRƯỚC (đã nằm trong `document`, không phải bịa) sẽ bị coi là
+    KHÔNG CÓ NGUỒN ở lượt SAU, thay bằng `[…]` hoặc bị bỏ nguyên mục — biến
+    "mô hình quên" thành "mô hình nhớ đúng rồi bị lưới chặn xoá", cùng một
+    mất mát, khó thấy hơn.
     """
     phan = [d.noi_dung for t in goi for d in t["don_vi"]]
     phan += [q.get("trich") or "" for q in quan_sat]
     phan += [str(state.get(k) or "") for k in ("cau_hoi_goc", "query", "cau_hoi_day_du")]
     phan += [str(v.get("gia_tri") or "") for v in (state.get("ho_so") or {}).values() if isinstance(v, dict)]
     phan += [str(o.get("gia_tri") or "") for o in truong]
+    phan.append(str((state.get("ban_thao_tong_quat_dang_mo") or {}).get("document") or ""))
     return "\n".join(phan)
 
 
@@ -1535,14 +1559,20 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         # nó tự nghĩ ra một tài liệu.
         return _hong(CHUA_DOC_DUOC, "khong_co_tai_lieu")
 
+    # Fix round 1 (review, cùng I2) — bản thảo đang có (R4) cộng thêm vào
+    # CHÍNH prompt này, không phải một prompt riêng — trần chi phí phải đếm cả
+    # nó, không chỉ tài liệu nguồn, nếu không một lượt sua_ban_thao có thể tốn
+    # gấp đôi trần 0,05 USD/request mà trần đó tồn tại để chặn.
+    ban_thao_dang_co = state.get("ban_thao_tong_quat_dang_mo")
+    do_dai_ban_thao = len((ban_thao_dang_co or {}).get("document") or "")
     try:
-        kiem_tran_chi_phi_tai_lieu(sum(len(d.noi_dung) for t in goi for d in t["gui"]))
+        kiem_tran_chi_phi_tai_lieu(sum(len(d.noi_dung) for t in goi for d in t["gui"]) + do_dai_ban_thao)
     except VuotTran:
         return _hong(QUA_DAI, "vuot_tran")
 
     prompt = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8").format(
         cau_hoi=cau_hoi, tai_lieu=_khoi_tai_lieu(goi),
-        ban_thao_dang_co=_khoi_ban_thao_dang_co(state.get("ban_thao_tong_quat_dang_mo")),
+        ban_thao_dang_co=_khoi_ban_thao_dang_co(ban_thao_dang_co),
     )
     nhan = [t["nhan"] for t in goi]
     usage = None
@@ -1586,13 +1616,14 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
 
     giu = giu[:TOI_DA_QUAN_SAT]
     muc_dich = str(ra.get("muc_dich") or "hoi")
-    # Phase 3 Half B — safety net: một `muc_dich` SOẠN (có thể GHI ĐÈ bản thảo
-    # thật) không đủ tin khi câu hỏi tự nó đọc như một câu HỎI, không mang
-    # dấu hiệu soạn/sửa nào (xem `_an_toan_xac_nhan_soan`) — hạ về `hoi`
-    # TRƯỚC khi bất cứ điều gì dưới đây (kể cả `lam_sach_van_ban`) chạy trên
-    # nó, để `_re_sau_hieu_tai_lieu`/`dung_ban_thao_tong_quat` không bao giờ
-    # thấy được một `sua_ban_thao`/`tao_van_ban` giả.
-    if muc_dich in MUC_DICH_SOAN and not _an_toan_xac_nhan_soan(cau_hoi):
+    # Phase 3 Half B, fix round 1 — safety net: một `muc_dich` SOẠN (có thể
+    # GHI ĐÈ bản thảo thật) không đủ tin nếu ý kiến ĐỘC LẬP của `route()` (nếu
+    # có chạy cho lượt này) không CŨNG là `Intent.soan_thao` — xem
+    # `_muc_dich_soan_da_xac_nhan`. Hạ về `hoi` TRƯỚC khi bất cứ điều gì dưới
+    # đây (kể cả `lam_sach_van_ban`) chạy trên nó, để
+    # `_re_sau_hieu_tai_lieu`/`dung_ban_thao_tong_quat` không bao giờ thấy
+    # được một `sua_ban_thao`/`tao_van_ban` chưa được xác nhận.
+    if muc_dich in MUC_DICH_SOAN and not _muc_dich_soan_da_xac_nhan(state.get("intent")):
         muc_dich = "hoi"
     phep_tinh, phep_tinh_bo = _lay_phep_tinh(ra, goi)
     truong, truong_bo = _lay_truong(ra, goi)

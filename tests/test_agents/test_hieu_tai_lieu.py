@@ -505,3 +505,24 @@ def test_ban_thao_da_sua_tay_thi_prompt_canh_bao_khong_duoc_viet_de():
     llm2 = _LLM(_ra())
     h.hieu_tai_lieu({**ST, "ban_thao_tong_quat_dang_mo": bt_chua_sua}, MOT, llm2, "m")
     assert "NGƯỜI DÙNG" not in llm2.prompt
+
+
+def test_tran_chi_phi_dem_ca_do_dai_ban_thao_dang_co(monkeypatch):
+    """Review (I2/finding 3) — `_khoi_ban_thao_dang_co` cộng CẢ bản thảo đang
+    có vào CHÍNH prompt tài liệu, nhưng trần chi phí trước bản vá này chỉ đếm
+    độ dài tài liệu NGUỒN — một lượt `sua_ban_thao` có thể tốn gấp đôi trần
+    0,05 USD/request mà trần đó tồn tại để chặn. Test này khoá đúng THAM SỐ
+    (số ký tự) truyền vào `kiem_tran_chi_phi_tai_lieu`, không chỉ hành vi khi
+    vượt trần."""
+    goi_voi = {}
+
+    def gia(so_ky_tu):
+        goi_voi["so_ky_tu"] = so_ky_tu
+
+    monkeypatch.setattr(h, "kiem_tran_chi_phi_tai_lieu", gia)
+    do_dai_nguon = sum(len(d.noi_dung) for d in DV_A)
+    ban_thao = {"document": "x" * 500, "audit": {}}
+    h.hieu_tai_lieu({**ST, "ban_thao_tong_quat_dang_mo": ban_thao}, MOT, _LLM(_ra()), "m")
+    assert goi_voi["so_ky_tu"] == do_dai_nguon + 500, (
+        "trần chi phí phải đếm CẢ độ dài bản thảo đang có, không chỉ tài liệu nguồn"
+    )
