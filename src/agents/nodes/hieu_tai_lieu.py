@@ -572,7 +572,93 @@ def _co_trong_nguon(gia_tri: str, nguon: str, so_nguon: list) -> bool:
     return v is not None and any(abs(v - s) <= SAI_SO for s in so_nguon)
 
 
-def lam_sach_van_ban(van_ban: dict, nguon: str) -> tuple[dict, dict]:
+def _bang_theo_nhan(goi: list[dict]) -> dict[str, list[list[str]]]:
+    """Mọi bảng THẬT của lượt này, dựng lại 0 token thẳng từ `don_vi` — khoá
+    "A0"/"B2" (nhãn tài liệu + số bảng, 0-based, đúng số `_vi_tri` đã hiện cho
+    mô hình). Không đoán ô nào ở đâu: lưới hàng×cột đến thẳng từ `(bảng, hàng,
+    cột)` mà `doc_tai_lieu` đã gán cho từng ô khi đọc file — ĐÂY là "cấu trúc
+    reader đã biết" mà review round 2 chỉ ra không nên bắt mô hình đoán lại.
+    Dùng `t["don_vi"]` (TOÀN BỘ), không phải `t["gui"]` (phần đã lọc gửi mô
+    hình) — cùng lý lẽ neo trích dẫn: phép lọc đầu vào là chuyện chi phí,
+    không phải chuyện bằng chứng."""
+    ra: dict[str, list[list[str]]] = {}
+    for t in goi:
+        theo_bang: dict[int, dict[int, dict[int, str]]] = {}
+        for d in t["don_vi"]:
+            if d.bang is None:
+                continue
+            b, h, c = d.bang
+            theo_bang.setdefault(b, {}).setdefault(h, {})[c] = d.noi_dung
+        for b, theo_hang in theo_bang.items():
+            so_hang = max(theo_hang) + 1
+            hang: list[list[str]] = []
+            for h in range(so_hang):
+                cot = theo_hang.get(h, {})
+                so_cot = (max(cot) + 1) if cot else 0
+                hang.append([cot.get(c, "") for c in range(so_cot)])
+            ra[f"{t['nhan']}{b}"] = hang
+    return ra
+
+
+def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, list[list[str]]]) -> list[dict]:
+    """Khớp lại nội dung mô hình viết (văn xuôi HAY bảng tự gõ) với đúng bảng
+    THẬT của tài liệu — không đợi mô hình tự khai đúng, tự đối chiếu.
+
+    **Review round 2** — đo được hai chế độ hỏng CÙNG một gốc ("mô hình đoán
+    lại cấu trúc reader đã biết"): (BM.M05, thật) một letterhead 2 cột bị mô
+    hình xé thành 3 khối văn xuôi RIÊNG, bỏ sót một ô; (BM.ĐT.18.11, thật) một
+    hàng gộp bị đệm dư `["Tổng","10","",""]`. Cả hai đều SỬA được bằng cách
+    khớp NGUYÊN VĂN từng khối với chính đơn vị-trong-bảng của tài liệu
+    (`normalize`, cùng phép neo `neo_du_kien` dùng cho mọi trích dẫn khác) rồi
+    THAY bằng bảng THẬT khi khớp — không sửa chữ, không đoán, chỉ đối chiếu.
+
+    Một khối BẢNG (mô hình tự gõ `bang`) được thay khi MỌI ô khác rỗng của nó
+    khớp riêng một bảng DUY NHẤT — mô hình đã tự khai "đây là bảng", chỉ có
+    thể đúng hay sai bảng nào, không cần ngưỡng. Một khối VĂN XUÔI cần ÍT NHẤT
+    HAI khối LIỀN KỀ cùng khớp một bảng mới gộp — một câu trùng khớp một ô
+    không đủ để kết luận cả đoạn đó là một bảng bị xé lẻ.
+
+    Bảng nào mô hình soạn MỚI (không có trong tài liệu, ví dụ mục lục thiết bị
+    tự liệt kê) không khớp ô nào → giữ NGUYÊN như mô hình viết — chức năng
+    "mô hình tự soạn bảng mới" (không phải chỉ sao y) không bị mất."""
+
+    def _bang_cua(chu: str) -> str | None:
+        s = normalize(chu)
+        if not s:
+            return None
+        khop = [
+            (t["nhan"], d) for t in goi for d in t["don_vi"] if d.bang is not None and normalize(d.noi_dung) == s
+        ]
+        return f"{khop[0][0]}{khop[0][1].bang[0]}" if len(khop) == 1 else None
+
+    khoa: list[str | None] = []
+    for k in khoi:
+        if k["bang"]:
+            b = {_bang_cua(o) for hang in k["bang"] for o in hang if o} - {None}
+            khoa.append(b.pop() if len(b) == 1 else None)
+        else:
+            khoa.append(_bang_cua(k["noi_dung"]) if k["noi_dung"] else None)
+
+    ra: list[dict] = []
+    i = 0
+    while i < len(khoi):
+        chi = khoa[i]
+        if chi is None or chi not in bang_theo_nhan:
+            ra.append(khoi[i])
+            i += 1
+            continue
+        j = i
+        while j < len(khoi) and khoa[j] == chi:
+            j += 1
+        if khoi[i]["bang"] or (j - i) >= 2:
+            ra.append({"noi_dung": "", "bang": bang_theo_nhan[chi]})
+        else:
+            ra.extend(khoi[i:j])
+        i = j
+    return ra
+
+
+def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -> tuple[dict, dict]:
     """Bỏ khỏi văn bản mô hình vừa soạn mọi giá trị KHÔNG có trong `nguon`.
     Hàm THUẦN, 0 token — `nguon` là chữ của tài liệu cộng lời người hỏi.
 
@@ -598,6 +684,12 @@ def lam_sach_van_ban(van_ban: dict, nguon: str) -> tuple[dict, dict]:
     nào — tương đương "không `noi_dung` không `bang`" của Phase 7, chỉ đổi chỗ
     kiểm từ một cặp trường sang một mảng.
 
+    **Phase 8 fix round 2:** `goi` (tài liệu của lượt này, mỗi phần tử mang
+    `don_vi`) là NGUỒN của `_khop_bang` — sau khi làm sạch từng khối, khớp lại
+    với bảng THẬT của tài liệu và thay vào khi khớp (xem `_khop_bang`). `None`
+    (mặc định, giữ cho test cũ không phải sửa) tắt hẳn bước này — không bảng
+    nào được thay, đúng hành vi trước round 2.
+
     ponytail: lưới chặn đo cả MỤC chứ không định vị được từng cụm, nên một số
     Điều mà CHÍNH tài liệu của người hỏi có cũng làm mất mục đó. Nâng cấp khi
     đo thấy nó cắn thật: tách `_RE_DIEU`/`_RE_DINH_DANH` của `bo_nho` thành
@@ -605,6 +697,7 @@ def lam_sach_van_ban(van_ban: dict, nguon: str) -> tuple[dict, dict]:
     """
     nguon = normalize(nguon or "")
     so_nguon = [v for m in _RE_SO_THUAN.findall(nguon) if (v := tinh(m)) is not None]
+    bang_theo_nhan = _bang_theo_nhan(goi or [])
     dem = {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0}
 
     def _sach(s: str) -> str:
@@ -687,6 +780,8 @@ def lam_sach_van_ban(van_ban: dict, nguon: str) -> tuple[dict, dict]:
         truoc = dem["gia_tri_lam_sach"]
         ten = _sach(ten)
         khoi = _khoi_sach(o.get("khoi"))
+        if goi:
+            khoi = _khop_bang(khoi, goi, bang_theo_nhan)
         # Mục KHÔNG còn khối nào sau khi sạch — tương đương "không noi_dung
         # không bang" của Phase 7: không phải một đề mục có nội dung, chỉ là
         # cái tên đứng một mình.
@@ -982,7 +1077,7 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     # được tra ngược về nguồn của lượt. Ra khỏi chỗ này rồi thì nó là dữ liệu
     # thuần — `dung_ban_thao_tong_quat` không phải biết gì về mô hình nữa.
     van_ban, van_ban_dem = (
-        lam_sach_van_ban(ra.get("van_ban") or {}, _nguon_soan(goi, state, truong, giu))
+        lam_sach_van_ban(ra.get("van_ban") or {}, _nguon_soan(goi, state, truong, giu), goi)
         if muc_dich in MUC_DICH_SOAN
         else (None, {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0})
     )

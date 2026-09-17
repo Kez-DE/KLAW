@@ -82,8 +82,8 @@ def _ra(**ghi_de) -> dict:
     return ra
 
 
-def _sach(muc: list[dict], nguon: str = NGUON):
-    return h.lam_sach_van_ban({"tieu_de": "T", "muc": muc}, nguon)
+def _sach(muc: list[dict], nguon: str = NGUON, goi: list[dict] | None = None):
+    return h.lam_sach_van_ban({"tieu_de": "T", "muc": muc}, nguon, goi)
 
 
 # ────────────────────────────────────── phép kiểm bịa nội dung (0 token)
@@ -323,12 +323,16 @@ def test_khoi_ca_hai_khac_rong_bi_tach_thanh_hai_khoi():
 
 
 def test_letterhead_hai_cot_song_sot_nhu_bang():
-    """Brief "Proof required" — chưa có test nào khoá riêng cho ca letterhead
-    hai cột (đo thật trên BM.M05, `.sdd/phase-8-bm05-verbose.json`): một bảng
-    KHÔNG viền, hàng đầu đủ 2 cột (tên đơn vị / quốc hiệu), hàng hai chỉ 1 ô
-    gộp cả hai cột (tên cơ quan + số hiệu). Phải sống sót NGUYÊN dạng bảng —
-    không bị dẹt thành các dòng văn xuôi đứng riêng — và hàng gộp giữ ĐÚNG 1 ô,
-    không bị đệm hay cắt."""
+    """Brief "Proof required", ca THUẬN (mô hình tự viết ĐÚNG hình dạng bảng,
+    không cần khớp lại) — một bảng KHÔNG viền, hàng đầu đủ 2 cột (tên đơn vị /
+    quốc hiệu), hàng hai chỉ 1 ô gộp cả hai cột (tên cơ quan + số hiệu). Phải
+    sống sót NGUYÊN dạng bảng — không bị dẹt thành các dòng văn xuôi đứng
+    riêng — và hàng gộp giữ ĐÚNG 1 ô, không bị đệm hay cắt.
+
+    Review round 2: đo thật cho thấy mô hình KHÔNG luôn viết đúng hình dạng
+    này — xem `test_node_khop_lai_letterhead_bi_mo_hinh_xe_thanh_van_xuoi`
+    dưới, ca mô hình xé letterhead thành văn xuôi và phép khớp lại
+    (`_khop_bang`) phải tự cứu, không đợi mô hình viết đúng."""
     letterhead = [
         [
             "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
@@ -342,6 +346,148 @@ def test_letterhead_hai_cot_song_sot_nhu_bang():
     assert khoi["noi_dung"] == "", "letterhead không lẫn vào văn xuôi"
     assert len(khoi["bang"]) == 2 and len(khoi["bang"][0]) == 2, "hàng đầu giữ đúng 2 cột"
     assert khoi["bang"] == letterhead, "sống sót NGUYÊN dạng bảng, không dẹt thành dòng"
+
+
+# ────────────────────── phép khớp lại bảng thật từ don_vi (review round 2)
+#
+# Root cause chung với review round 1: cấu trúc reader ĐÃ BIẾT (bảng thật,
+# `(bảng, hàng, cột)` từ `doc_tai_lieu`) bị bắt mô hình đoán/gõ lại. `_khop_bang`
+# đối chiếu NGUYÊN VĂN từng khối mô hình viết với chính đơn vị-trong-bảng của
+# tài liệu, rồi THAY bằng bảng thật khi khớp — không đợi mô hình khai đúng.
+
+# BM.M05 thật (probe 2026-09-17): một letterhead 2 cột, hàng hai gộp 1 ô.
+DV_LETTERHEAD = [
+    DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Mẫu QT.ĐT.28-M05"),
+    DonViVanBan(
+        chi_so=1, trang=1, offset_dau=20,
+        noi_dung="TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)", bang=(0, 0, 0),
+    ),
+    DonViVanBan(
+        chi_so=2, trang=1, offset_dau=80,
+        noi_dung="CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc", bang=(0, 0, 1),
+    ),
+    DonViVanBan(
+        chi_so=3, trang=1, offset_dau=150,
+        noi_dung="TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./….", bang=(0, 1, 0),
+    ),
+]
+GOI_LETTERHEAD = [{"id": "x", "ten_tep": "bm05.docx", "don_vi": DV_LETTERHEAD, "nhan": "A", "gui": DV_LETTERHEAD}]
+NGUON_LETTERHEAD = "\n".join(dv.noi_dung for dv in DV_LETTERHEAD)
+
+
+def test_bang_theo_nhan_dung_lai_dung_luoi_tu_don_vi():
+    """`_bang_theo_nhan` — dựng lại bảng THẬT 0 token, không đoán: hàng đầu 2
+    cột, hàng hai (gộp) chỉ 1 cột — ĐÚNG số cột thật của từng hàng, không suy
+    ra từ hàng tiêu đề."""
+    ra = h._bang_theo_nhan(GOI_LETTERHEAD)
+    assert ra == {
+        "A0": [
+            [
+                "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
+                "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
+            ],
+            ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
+        ]
+    }
+
+
+def test_khop_bang_cuu_letterhead_bi_xe_thanh_van_xuoi():
+    """Review round 2 [chứng cứ chính] — mô phỏng ĐÚNG chế độ hỏng đo được
+    thật trên BM.M05: mô hình xé letterhead thành BA khối văn xuôi riêng,
+    BỎ SÓT một ô (không nhắc "TÊN CHỦ QUẢN…" luôn). `_khop_bang` phải khớp hai
+    khối còn lại (liền kề, cùng khớp bảng A0) và THAY bằng bảng THẬT — kể cả ô
+    mô hình bỏ sót cũng quay lại, vì nó lấy nguyên bảng chứ không chỉ phần mô
+    hình nhắc tới."""
+    muc_xe = {
+        "ten": "Đầu trang",
+        "vung": "dau_trang",
+        "khoi": [
+            {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []},
+            {
+                "noi_dung": "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
+                "bang": [],
+            },
+            {"noi_dung": "TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./….", "bang": []},
+        ],
+    }
+    van_ban, _ = _sach([muc_xe], nguon=NGUON_LETTERHEAD, goi=GOI_LETTERHEAD)
+    assert van_ban["muc"][0]["khoi"] == [
+        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []},
+        {
+            "noi_dung": "",
+            "bang": [
+                [
+                    "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
+                    "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
+                ],
+                ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
+            ],
+        },
+    ]
+
+
+def test_khop_bang_khong_gop_mot_dong_van_xuoi_don_le_trung_ngau_nhien():
+    """Ngưỡng ≥2 khối liền kề: MỘT khối văn xuôi trùng khớp một ô của bảng
+    không đủ để kết luận cả mục đó là bảng bị xé lẻ — giữ nguyên văn xuôi."""
+    muc = {
+        "ten": "Ghi chú",
+        "vung": "than",
+        "khoi": [{"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []}],
+    }
+    van_ban, _ = _sach([muc], nguon=NGUON_LETTERHEAD, goi=GOI_LETTERHEAD)
+    assert van_ban["muc"][0]["khoi"] == [{"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []}]
+
+
+# BM.ĐT.18.11 thật: hàng cuối "Tổng | 10" gộp 3 cột nhãn thành 1 (Phase 8 R4).
+DV_BANG_DIEM = [
+    DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="TT", bang=(0, 0, 0)),
+    DonViVanBan(chi_so=1, trang=1, offset_dau=3, noi_dung="Tiêu chí đánh giá", bang=(0, 0, 1)),
+    DonViVanBan(chi_so=2, trang=1, offset_dau=25, noi_dung="Điểm tối đa", bang=(0, 0, 2)),
+    DonViVanBan(chi_so=3, trang=1, offset_dau=40, noi_dung="Điểm đánh giá", bang=(0, 0, 3)),
+    DonViVanBan(chi_so=4, trang=1, offset_dau=55, noi_dung="1", bang=(0, 1, 0)),
+    DonViVanBan(chi_so=5, trang=1, offset_dau=57, noi_dung="Ý thức chấp hành nội quy", bang=(0, 1, 1)),
+    DonViVanBan(chi_so=6, trang=1, offset_dau=85, noi_dung="2,0", bang=(0, 1, 2)),
+    DonViVanBan(chi_so=7, trang=1, offset_dau=90, noi_dung="1,8", bang=(0, 1, 3)),
+    DonViVanBan(chi_so=8, trang=1, offset_dau=95, noi_dung="Tổng", bang=(0, 2, 0)),
+    DonViVanBan(chi_so=9, trang=1, offset_dau=100, noi_dung="10", bang=(0, 2, 1)),
+]
+GOI_BANG_DIEM = [{"id": "y", "ten_tep": "dt1811.docx", "don_vi": DV_BANG_DIEM, "nhan": "A", "gui": DV_BANG_DIEM}]
+NGUON_BANG_DIEM = "\n".join(dv.noi_dung for dv in DV_BANG_DIEM)
+
+
+def test_khop_bang_cuu_hang_gop_bi_dem_du():
+    """Review round 2 — mô phỏng ĐÚNG chế độ hỏng đo được thật trên
+    BM.ĐT.18.11 (fix round 1): mô hình đệm hàng "Tổng" thành đủ 4 ô
+    (`["Tổng","10","",""]`) dù nguồn chỉ có 2 ô gộp. Mọi ô khác rỗng của khối
+    này khớp riêng một bảng (A0) → `_khop_bang` thay NGUYÊN bảng đó, hàng
+    "Tổng" trở lại đúng 2 ô — không cần biết "đệm" là gì, chỉ cần đối chiếu.
+    Đây cũng là hệ quả round 2 mang lại cho residual round 1 đã ghi nhận: một
+    khi nội dung bảng đến từ `don_vi` chứ không phải mô hình gõ, không còn gì
+    để đệm sai nữa."""
+    bang_dem = [
+        ["TT", "Tiêu chí đánh giá", "Điểm tối đa", "Điểm đánh giá"],
+        ["1", "Ý thức chấp hành nội quy", "2,0", "1,8"],
+        ["Tổng", "10", "", ""],
+    ]
+    muc = {"ten": "Đánh giá", "vung": "than", "khoi": [{"noi_dung": "", "bang": bang_dem}]}
+    van_ban, _ = _sach([muc], nguon=NGUON_BANG_DIEM, goi=GOI_BANG_DIEM)
+    assert van_ban["muc"][0]["khoi"][0]["bang"] == [
+        ["TT", "Tiêu chí đánh giá", "Điểm tối đa", "Điểm đánh giá"],
+        ["1", "Ý thức chấp hành nội quy", "2,0", "1,8"],
+        ["Tổng", "10"],
+    ]
+
+
+def test_khop_bang_khong_dung_vao_bang_moi_mo_hinh_tu_soan():
+    """Một bảng mô hình SOẠN MỚI (không có ô nào trong tài liệu nguồn) không
+    khớp bảng thật nào → giữ NGUYÊN như mô hình viết — chức năng "soạn bảng
+    mới" (không chỉ sao y bảng có sẵn) không bị mất vì phép khớp lại."""
+    bang_moi = [["Hạng mục", "Số lượng"], ["Bàn ghế", "5 bộ"]]
+    muc = {"ten": "Thiết bị bàn giao", "vung": "than", "khoi": [{"noi_dung": "", "bang": bang_moi}]}
+    van_ban, _ = _sach(
+        [muc], nguon="Hạng mục Số lượng Bàn ghế 5 bộ", goi=GOI_BANG_DIEM
+    )
+    assert van_ban["muc"][0]["khoi"][0]["bang"] == bang_moi
 
 
 # ─────────────────────────────────────────── node hieu_tai_lieu phát `van_ban`
@@ -418,6 +564,53 @@ def test_node_giu_bang_va_lam_sach_gia_tri_bia_trong_o():
     bang = ra["van_ban_tong_quat"]["muc"][0]["khoi"][0]["bang"]
     assert bang[1] == ["Thiết bị", "20.000.000 đồng"]
     assert bang[2] == ["Phụ phí", "[…] đồng"]
+
+
+TL_LETTERHEAD = [{"id": "z", "ten_tep": "bm05.docx", "don_vi": DV_LETTERHEAD}]
+
+
+def test_node_khop_lai_letterhead_bi_mo_hinh_xe_thanh_van_xuoi():
+    """Review round 2 [chứng cứ chính, qua ĐỦ node] — mô phỏng ĐÚNG chế độ
+    hỏng đo được thật trên BM.M05: mô hình xé letterhead 2 cột thành BA khối
+    văn xuôi riêng, bỏ sót một ô. Chạy qua CẢ `hieu_tai_lieu` (không chỉ
+    `lam_sach_van_ban` đơn lẻ, xem `test_khop_bang_cuu_letterhead_bi_xe_thanh_van_xuoi`
+    ở trên) phải khớp lại thành MỘT khối bảng hai cột — brief R2 đòi đúng chữ
+    "phải trở lại thành cùng cách sắp xếp hai cột đó", không phải bốn dòng
+    đứng riêng."""
+    van_ban_xe = {
+        "tieu_de": "GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP",
+        "muc": [
+            {
+                "ten": "Đầu trang",
+                "vung": "dau_trang",
+                "khoi": [
+                    {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []},
+                    {
+                        "noi_dung": "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
+                        "bang": [],
+                    },
+                    {"noi_dung": "TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./….", "bang": []},
+                ],
+            }
+        ],
+    }
+    ra = h.hieu_tai_lieu(
+        {"query": "dựng lại nguyên văn biểu mẫu này"}, TL_LETTERHEAD, _LLM(_ra(van_ban=van_ban_xe)), "m"
+    )
+    khoi = ra["van_ban_tong_quat"]["muc"][0]["khoi"]
+    assert khoi == [
+        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []},
+        {
+            "noi_dung": "",
+            "bang": [
+                [
+                    "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
+                    "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
+                ],
+                ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
+            ],
+        },
+    ]
 
 
 def test_loi_ha_tang_khong_de_lai_van_ban_bia():
