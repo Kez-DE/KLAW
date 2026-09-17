@@ -1,5 +1,12 @@
 """Đọc tài liệu người dùng thành các đơn vị văn bản có vị trí (spec 2026-09-15
-§FR-001..FR-005). Thuần Python, 0 token, không I/O ngoài bộ nhớ.
+§FR-001..FR-005). Thuần Python, 0 token — nhưng KHÔNG "không I/O ngoài bộ
+nhớ" tuyệt đối (sửa fix round 2, task review — Minor #2: câu cũ ở đây không
+còn đúng). `.pdf`/`.docx`/ảnh đọc thẳng từ bytes, đúng như câu cũ mô tả. OCR
+(`_ocr_anh`/`_ocr_pdf`, `tesseract`/`pdftoppm`) và `.doc`
+(`_chuyen_doc_sang_docx`, LibreOffice) thì KHÔNG: cả hai gọi công cụ ngoài chỉ
+đọc được tệp trên đĩa, nên phải ghi tạm ra `tempfile` trước — luôn xoá khi
+hàm trả về hoặc ném lỗi, trừ phi tiến trình bị giết/hết bộ nhớ giữa chừng
+(xem docstring `_chuyen_doc_sang_docx`).
 
 Hai quyết định định hình toàn bộ file:
 
@@ -17,9 +24,13 @@ chúng thành một nhãn "không đọc được" là vứt đi thứ duy nhấ
 """
 
 import logging
+import os
 import shutil
+import signal
 import subprocess
 import tempfile
+import threading
+import time
 import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass
@@ -37,7 +48,66 @@ KY_TU_MOI_TRANG = 3000
 
 _NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 _DUOI_ANH = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp", ".bmp", ".heic")
-_DUOI_HO_TRO = (".pdf", ".docx", *_DUOI_ANH)
+_DUOI_HO_TRO = (".pdf", ".docx", ".doc", *_DUOI_ANH)
+
+# .doc là OLE2/CFB (Compound File Binary), không phải zip+XML — không đọc trực
+# tiếp được bằng `zipfile`. Chuyển sang .docx bằng LibreOffice headless rồi TÁI
+# DÙNG `_doc_docx` KHÔNG ĐỔI GÌ: đo trên BM.M05 thật (`.sdd/phase-13-brief.md`),
+# vòng .doc -> .docx giữ nguyên số đoạn, số bảng và tỉ lệ cột — viết một bộ đọc
+# .doc riêng (kiểu antiword) sẽ vứt bỏ đúng những gì Phase 8/9/11 dựng lên.
+_OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+
+# LibreOffice là một tiến trình con nhận dữ liệu KHÔNG ĐÁNG TIN (CVE history có
+# thật). 60 giây: soffice khởi động nguội mất vài giây, một .doc hợp lệ dưới
+# trần TRAN_BYTE (20 MB, `tai_lieu.kiem_kich_thuoc`) chuyển xong trong vài giây
+# nữa — một tệp CỐ Ý làm treo bộ phân tích OLE2 phải lộ ra trong một phút, không
+# phải đợi hết `_HAN_TREO_GIAY` (300s) vốn đo cho OCR cả trang ảnh, việc nặng
+# hơn nhiều lần.
+_HAN_CHUYEN_DOI_GIAY = 60
+
+# Fix round 1 (task review) — `soffice` là một wrapper thực thi `soffice.bin`,
+# và bản thân LibreOffice có thể tự sinh thêm tiến trình của riêng nó (không
+# phải lúc nào cũng exec-thay-thế PID mà `Popen` đang giữ). Diệt riêng PID
+# trực tiếp — hành vi mặc định của `subprocess.run(timeout=...)` — có thể để
+# lại một tiến trình `soffice.bin` mồ côi vẫn giữ tệp và thư mục hồ sơ tạm; vài
+# lượt tải hỏng liên tiếp tích thành một rò rỉ tiến trình trên một endpoint
+# công khai. 5 giây: đủ để SIGKILL có tác dụng và tiến trình được dọn (reap)
+# trong mọi trường hợp bình thường; không cần dài hơn vì SIGKILL không đợi
+# được sự hợp tác của tiến trình bị giết.
+_HAN_XAC_NHAN_DA_GIET_GIAY = 5
+
+# Fix round 2 (task review, Important) — mỗi lần chuyển đổi chiếm MỘT luồng
+# của pool threadpool dùng chung (anyio mặc định 40 luồng, xem `bao_ve` cổng
+# lá chắn — CHÍNH luồng đó cũng phục vụ mọi lệnh gọi DB khác của ứng dụng)
+# trong tối đa `_HAN_CHUYEN_DOI_GIAY` (60s), và tự bản thân soffice giữ một
+# lượng RAM đáng kể mỗi lần chạy — đo THẬT trên máy này: một tiến trình
+# soffice.bin chuyển MỘT .doc nhỏ chiếm ~171 MB RSS (`ps -o rss`). Không có gì
+# ở tầng trên chặn số lượt CHẠY ĐỒNG THỜI: giới hạn theo IP (10/60s,
+# `bao_ve.rate_limit_ip_so_luot`) chặn được TẦN SUẤT của một IP, không chặn
+# được TỔNG số phiên đang xử lý từ nhiều IP cùng lúc, và hạn mức tài liệu/ngày
+# không có trần đồng thời nào cả.
+#
+# 3 suất: 3 × ~171 MB ≈ 513 MB RAM đỉnh cho riêng phần chuyển đổi — một mức
+# đủ nhỏ để không đánh cược cả container, và chỉ chiếm tối đa 3/40 luồng
+# threadpool ngay cả khi cả ba suất đều bận, để phần còn lại của ứng dụng
+# (mọi truy vấn DB, mọi lệnh gọi mô hình khác) luôn còn ít nhất 37 luồng tự
+# do. Con số RAM/container thật (Railway) chưa đo được — trần đang tạm dừng —
+# nên đổi số này khi có số đo thật từ môi trường triển khai.
+_SO_CHUYEN_DOI_DONG_THOI = 3
+
+# Một request KHÔNG giành được suất phải biết NGAY, không chờ vô hạn — "hàng
+# đợi im lặng" là một lỗi của chính nó (task review). 10s: đủ để một đợt tải
+# dồn dập ngắn (vài .doc tới cùng lúc) tự giải phóng chỗ nếu một suất đang
+# chuyển đổi sắp xong (đo thật: một .doc nhỏ dưới trần kích thước chuyển đổi
+# trong vài giây), mà vẫn đủ ngắn để KHÔNG biến một lượt tải quá tải thành
+# một request treo gần bằng `_HAN_CHUYEN_DOI_GIAY`.
+_HAN_CHO_SUAT_GIAY = 10
+
+# Semaphore ĐẾM — bị chiếm/nhả quanh CHÍNH việc chạy soffice (không quanh
+# toàn bộ `_chuyen_doc_sang_docx`, để một .doc không phải OLE2 hay một máy
+# chủ thiếu LibreOffice bị từ chối NGAY, không phải xếp hàng chờ một tài
+# nguyên nó sẽ không bao giờ cần).
+_suat_chuyen_doi = threading.Semaphore(_SO_CHUYEN_DOI_DONG_THOI)
 
 # Dưới ngưỡng này thì chữ OCR đọc ra là nhiễu chứ không phải nội dung. Đo trên
 # một trang sạch: tesseract `vie` cho 92–96%. Để 0.60 vì trang chụp nghiêng, mờ
@@ -89,6 +159,34 @@ class KhongDocDuoc(Exception):  # noqa: N818
 
     def __init__(self, ly_do: LoaiHong, chi_tiet: str = "") -> None:
         super().__init__(f"{ly_do}: {chi_tiet}" if chi_tiet else str(ly_do))
+        self.ly_do = ly_do
+        self.chi_tiet = chi_tiet
+
+
+class ChuyenDoiKhongSanSang(Exception):  # noqa: N818
+    """Nhánh chuyển đổi .doc không làm được việc NGAY BÂY GIỜ — vì HỆ THỐNG,
+    không phải vì tài liệu của người dùng (fix round 2, task review — Important
+    và Minor #4).
+
+    Cố tình KHÔNG phải một `LoaiHong`/`KhongDocDuoc` thứ năm: FR-003 xếp bốn
+    nguyên nhân đó theo tính chất của CHÍNH tài liệu (định dạng, hỏng, mật
+    khẩu, không lớp chữ) — mỗi nguyên nhân người dùng có thể tự sửa bằng cách
+    đổi tệp họ gửi. Hai nguyên nhân ở đây thì người dùng không sửa được gì cả:
+
+    - `"khong_co_cong_cu"` — máy chủ chưa cài LibreOffice. Lỗi CẤU HÌNH, cần
+      người vận hành sửa, không tự hết.
+    - `"qua_tai"` — không giành được một suất chuyển đổi trong thời gian chờ
+      hợp lý (`_HAN_CHO_SUAT_GIAY`). TẠM THỜI, tự hết khi tải giảm.
+
+    Cả hai đều: không đáng tính vào hạn mức tài liệu/ngày của người dùng
+    (cùng nguyên tắc `vuot_tran_chi_phi` đã áp dụng — "hệ thống từ chối,
+    không phải người dùng tiêu lượt"), và không đáng nhận cùng câu trả lời
+    422 "tệp của bạn có vấn đề" mà `KhongDocDuoc` dùng cho bốn nguyên nhân
+    trên — tầng API ánh xạ lớp này sang 503, không phải 422.
+    """
+
+    def __init__(self, ly_do: str, chi_tiet: str = "") -> None:
+        super().__init__(f"{ly_do}: {chi_tiet}" if chi_tiet else ly_do)
         self.ly_do = ly_do
         self.chi_tiet = chi_tiet
 
@@ -169,8 +267,15 @@ def co_ocr() -> bool:
 def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
     """Đọc `du_lieu` thành các đơn vị văn bản, hoặc ném `KhongDocDuoc`.
 
-    Không ghi tệp ra đĩa ở bất kỳ nhánh nào (FR-022): dữ liệu vào bằng bytes,
-    ra bằng dataclass, và người gọi chịu trách nhiệm buông tham chiếu.
+    Vào bằng bytes, ra bằng dataclass; người gọi chịu trách nhiệm buông tham
+    chiếu ngay khi hàm này trả về hoặc ném lỗi — tinh thần FR-022. Nhánh
+    `.pdf`/`.docx`/ảnh giữ đúng lời hứa cũ, KHÔNG ghi gì ra đĩa. Nhánh `.doc`
+    thì KHÔNG (sửa fix round 2, task review — Minor #2: câu cũ ở đây khẳng
+    định sai cho nhánh này): `_chuyen_doc_sang_docx` cần một tệp thật trên
+    đĩa để LibreOffice đọc — không có cách chuyển đổi thuần bộ nhớ — và luôn
+    xoá tệp tạm đó khi trả về hoặc ném lỗi, TRỪ PHI tiến trình bị SIGKILL/hết
+    bộ nhớ đúng lúc đang chuyển đổi (residual, không phải một lỗ hổng mới —
+    brief đã cho phép tệp tạm này tồn tại).
     """
     ten = (ten_tep or "").lower()
     if ten.endswith(".pdf"):
@@ -182,6 +287,10 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
             thoi = _ocr_pdf(du_lieu)
     elif ten.endswith(".docx"):
         thoi = _doc_docx(du_lieu)
+    elif ten.endswith(".doc"):
+        # Chuyển trước, đọc sau — bằng ĐÚNG một hàm `_doc_docx`, không nhánh
+        # riêng nào biết tệp .docx này từng là .doc.
+        thoi = _doc_docx(_chuyen_doc_sang_docx(du_lieu))
     elif ten.endswith(_DUOI_ANH):
         thoi = _ocr_anh(du_lieu)
     else:
@@ -452,6 +561,244 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
         # phân biệt được hai ca này nếu không đọc header OLE; báo `tep_hong` là
         # nói đúng những gì biết chắc.
         raise KhongDocDuoc(LoaiHong.tep_hong, "không mở được tệp docx") from e
+
+
+# ------------------------------------------------------------------------- DOC
+
+
+def _duong_soffice() -> str | None:
+    """Đường dẫn `soffice`. `KLAW_SOFFICE_PATH` (Settings) THẮNG dò theo PATH —
+    máy dev, CI và container triển khai không chắc cài LibreOffice ở cùng một
+    chỗ, cùng cách mọi công cụ ngoài khác của dự án đọc qua Settings thay vì
+    một hằng số cứng. `None` khi cả hai đều không ra gì — người gọi phải báo
+    lỗi rõ ràng, không được thử gọi một chuỗi rỗng làm lệnh."""
+    from src.config import get_settings
+
+    return get_settings().soffice_path or shutil.which("soffice")
+
+
+def _la_ole2(du_lieu: bytes) -> bool:
+    """8 byte đầu của container OLE2/CFB — .doc, .xls, .ppt (bản cũ) đều dùng
+    chung. Không đọc sâu hơn (thư mục CFB) để biết đây có đúng là Word hay
+    không: một .xls/.ppt đổi đuôi thành .doc qua được cửa này, nhưng KHÔNG qua
+    được bộ chuyển đổi phía dưới — soffice mở nó bằng Calc/Impress rồi không
+    xuất được sang khuôn Writer (.docx), và việc đó tự rơi vào nhánh `tep_hong`
+    (đo thật, không chỉ suy luận — xem
+    `test_DOC_gia_dang_XLS_that_bai_o_buoc_chuyen_doi_khong_phai_o_cong_OLE2`).
+
+    Có một cách rẻ hơn để phân biệt NGAY tại đây: CLSID của "Root Entry"
+    trong thư mục CFB là một GUID cố định theo ứng dụng (`00020906-...` cho
+    Word 97-2003, `00020810-...`/`00020820-...` cho Excel, `64818D10-...`
+    cho PowerPoint — [MS-CFB]). Đã CÂN NHẮC nhưng CHƯA làm (fix round 1, task
+    review): việc này chỉ tiết kiệm một lần soffice khởi động nguội cho một
+    ca hiếm (đổi đuôi tệp cố ý hoặc nhầm lẫn), chế độ hỏng đã ĐÚNG
+    (`tep_hong`, không rò dữ liệu, không hổng bảo mật) mà không cần nó, và
+    `_giet_sach_nhom` giờ chặn được đúng rủi ro tích luỹ mà việc này từng
+    được nối vào (một loạt tệp như vậy không còn để lại tiến trình mồ côi).
+    Đáng làm nếu sau này đo được đây là một đường vào bị lạm dụng thật, không
+    phải trước đó."""
+    return du_lieu[:8] == _OLE2_MAGIC
+
+
+def _giet_sach_nhom(proc: subprocess.Popen) -> None:
+    """SIGKILL cho CẢ NHÓM tiến trình của `proc`, rồi XÁC NHẬN nhóm đã hết —
+    không giả định gửi được tín hiệu nghĩa là tiến trình đã thoát (fix round 1,
+    task review — Critical).
+
+    `proc` được `Popen` với `start_new_session=True` ở nơi gọi, nên `proc.pid`
+    cũng là ID của cả PHIÊN/NHÓM mới đó. Vì sao cần: `soffice` là một wrapper
+    thực thi `soffice.bin`, và bản thân LibreOffice có thể tự sinh thêm tiến
+    trình của riêng nó — `proc.pid` không chắc là PID của tiến trình đang THẬT
+    SỰ làm việc. Diệt riêng PID trực tiếp (hành vi mặc định của
+    `subprocess.run(timeout=...)`, cách cũ của hàm này) có thể để lại một
+    `soffice.bin` mồ côi vẫn giữ tệp và thư mục hồ sơ tạm — trên một endpoint
+    tải lên công khai, vài lượt tải hỏng liên tiếp tích thành một rò rỉ tiến
+    trình. `os.killpg` bắt được TẤT CẢ hậu duệ trong cùng nhóm, kể cả những
+    tiến trình `Popen` của chúng ta không trực tiếp biết tới.
+    """
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass  # nhóm đã tự thoát trước khi kịp gửi tín hiệu
+
+    try:
+        proc.communicate(timeout=_HAN_XAC_NHAN_DA_GIET_GIAY)
+    except subprocess.TimeoutExpired:
+        logger.warning(
+            "doc_tai_lieu: soffice %d không thoát sau SIGKILL trong %ss",
+            proc.pid,
+            _HAN_XAC_NHAN_DA_GIET_GIAY,
+        )
+
+    # Xác nhận: dò xem NHÓM (không chỉ proc vừa reap ở trên) còn ai sống
+    # không. `killpg(pgid, 0)` không gửi tín hiệu thật, chỉ báo lỗi nếu không
+    # còn tiến trình nào mang pgid đó — đây là bước "confirm", không phải
+    # "assume", mà review round 1 đòi.
+    han = time.monotonic() + _HAN_XAC_NHAN_DA_GIET_GIAY
+    while time.monotonic() < han:
+        try:
+            os.killpg(proc.pid, 0)
+        except ProcessLookupError:
+            return  # xác nhận: không còn hậu duệ nào trong nhóm
+        time.sleep(0.1)
+    logger.warning(
+        "doc_tai_lieu: sau SIGKILL vẫn không xác nhận được nhóm tiến trình %d đã hết",
+        proc.pid,
+    )
+
+
+def _chuyen_doc_sang_docx(du_lieu: bytes) -> bytes:
+    """.doc (OLE2) -> bytes .docx, bằng LibreOffice headless.
+
+    Những điều làm tiến trình con này an toàn hơn với dữ liệu người dùng —
+    và một điều KHÔNG được an toàn, nói thẳng thay vì để im lặng như đã đủ:
+
+    - Hồ sơ (`-env:UserInstallation`) RIÊNG cho MỖI lần gọi, trong chính thư
+      mục tạm sắp bị xoá — hồ sơ mặc định DÙNG CHUNG là nguồn lỗi đã biết "lần
+      chuyển đổi thứ hai lặng lẽ không làm gì" khi hai tiến trình soffice đụng
+      khoá cùng một hồ sơ.
+    - TRẦN THỜI GIAN cứng (`_HAN_CHUYEN_DOI_GIAY`), và khi hết hạn, tín hiệu
+      diệt gửi cho CẢ NHÓM tiến trình (`_giet_sach_nhom`, fix round 1) — không
+      chỉ PID trực tiếp `Popen` giữ, vì `soffice` có thể tự sinh thêm tiến
+      trình của riêng nó mà PID đó không nắm được.
+    - MÔI TRƯỜNG tối giản — tiến trình con KHÔNG thừa hưởng biến môi trường của
+      ứng dụng (API key, secrets khác). Không có cách tắt macro bằng cờ dòng
+      lệnh, nhưng một hồ sơ MỚI TOANH giữ mức an toàn macro mặc định "Trung
+      bình" (hỏi trước khi chạy) — ở chế độ headless không có hộp thoại nào để
+      lỡ tay bấm "Đồng ý", nên macro không tự chạy được.
+    - **"Không có mạng" KHÔNG được thi hành ở hàm này** (fix round 1, task
+      review — Important; báo cáo trước đó khẳng định nhầm điều này). Môi
+      trường tối giản bỏ được proxy/secrets khỏi tầm với của tiến trình con,
+      nhưng KHÔNG chặn một kết nối ra ngoài — trường field-code/OLE link kiểu
+      Word cũ có thể trỏ tới một URL và LibreOffice có thể thử với tới nó bất
+      kể biến môi trường nào được cấp. Chặn THẬT cần một ranh giới hệ điều
+      hành (network namespace, quy tắc tường lửa, hay chính sách mạng ở tầng
+      container) — nằm ngoài những gì một tiến trình con Python tự làm được,
+      và ngoài phạm vi bản vá này. Rủi ro còn lại (residual), không phải đã
+      được chặn. **Cùng lý do đó, việc CHE biến môi trường (ở trên) cũng chỉ
+      là một lớp phòng thủ PHỤ, không phải một ranh giới** (fix round 2, task
+      review): tiến trình con chạy dưới CÙNG người dùng hệ điều hành với ứng
+      dụng, nên nó vẫn đọc được `/proc/<pid>/environ` của chính nó — và của
+      TIẾN TRÌNH CHA (ứng dụng) nếu quyền tệp cho phép — bất kể `env=` truyền
+      cho `Popen` là gì. Ranh giới thật cho cả hai rủi ro (mạng, môi trường)
+      là cùng MỘT thứ: cách ly ở tầng hệ điều hành/container, chưa có ở đây.
+    - **SỐ LƯỢT CHẠY ĐỒNG THỜI bị chặn bằng `_suat_chuyen_doi`** (fix round
+      2, task review — Important). Mỗi lượt chuyển đổi chiếm một luồng
+      threadpool DÙNG CHUNG với mọi lệnh gọi DB khác của ứng dụng, và tự bản
+      thân soffice giữ một lượng RAM đáng kể — không có gì ở tầng trên (giới
+      hạn theo IP, hạn mức tài liệu/ngày) chặn được TỔNG số lượt xử lý cùng
+      lúc. Một request không giành được suất trong `_HAN_CHO_SUAT_GIAY` nhận
+      `ChuyenDoiKhongSanSang("qua_tai", …)` ngay — không xếp hàng im lặng.
+
+    Tệp .doc và .docx tạm đều nằm trong MỘT thư mục do
+    `tempfile.TemporaryDirectory` dựng và tự xoá khi hàm kết thúc — trên MỌI
+    lối thoát Python bình thường, kể cả khi kết thúc bằng lỗi (kể cả đường
+    hết hạn — `_giet_sach_nhom` chạy XONG rồi mới `raise`, nên khối `with`
+    phía dưới vẫn thoát bình thường và tự dọn). Đây KHÔNG phải "không bao giờ
+    chạm đĩa" tuyệt đối (fix round 2, task review — Minor #2, sửa cùng lúc
+    với `doc()` và `tai_lieu.py`): nếu tiến trình bị SIGKILL hoặc hết bộ nhớ
+    ĐÚNG lúc đang chuyển đổi, `tempfile.TemporaryDirectory.__exit__` không
+    kịp chạy, và tệp tạm (bytes gốc + bản .docx đã chuyển) có thể sót lại
+    trong `/tmp` của container cho tới khi container đó bị dọn/khởi động lại.
+    Brief đã cho phép tệp tạm này tồn tại (không phải một vi phạm FR-022 mới);
+    điều cần nói thẳng là "luôn xoá" chỉ đúng cho lối thoát BÌNH THƯỜNG.
+    """
+    if not _la_ole2(du_lieu):
+        raise KhongDocDuoc(LoaiHong.tep_hong, "tệp .doc không đúng định dạng OLE2")
+
+    soffice = _duong_soffice()
+    if not soffice:
+        # LỖI CẤU HÌNH, không phải lỗi của người dùng — phải ồn ào với người
+        # vận hành (fix round 2, Minor #4). Trước đây dùng
+        # `KhongDocDuoc(khong_co_lop_chu, ...)`, DÙNG CHUNG thông điệp với ca
+        # "ảnh chụp mờ" — người tải một .doc bình thường thấy "chụp lại rõ",
+        # câu trả lời sai hoàn toàn. Tách hẳn khỏi bốn nguyên nhân FR-003
+        # (xem docstring `ChuyenDoiKhongSanSang`) giải quyết luôn việc đó:
+        # không phải sửa lại câu chữ dùng chung, mà không còn dùng chung nữa.
+        logger.error(
+            "doc_tai_lieu: máy chủ chưa cài LibreOffice (KLAW_SOFFICE_PATH rỗng và "
+            "không thấy 'soffice' trên PATH) — MỌI tải lên .doc sẽ hỏng cho tới khi "
+            "khắc phục. Đây là lỗi cấu hình, không phải lỗi của người dùng."
+        )
+        raise ChuyenDoiKhongSanSang("khong_co_cong_cu", "chưa cài LibreOffice")
+
+    if not _suat_chuyen_doi.acquire(timeout=_HAN_CHO_SUAT_GIAY):
+        # Quá tải TẠM THỜI — tự hết khi tải giảm, khác hẳn ca thiếu công cụ ở
+        # trên. Log ở mức INFO: đây là hành vi ĐÚNG của một cái phanh dưới
+        # tải cao, không phải một lỗi cần báo động.
+        logger.info(
+            "doc_tai_lieu: không giành được suất chuyển đổi .doc trong %ss (đang có %d suất)",
+            _HAN_CHO_SUAT_GIAY,
+            _SO_CHUYEN_DOI_DONG_THOI,
+        )
+        raise ChuyenDoiKhongSanSang(
+            "qua_tai", f"không giành được suất chuyển đổi trong {_HAN_CHO_SUAT_GIAY}s"
+        )
+
+    try:
+        return _chay_soffice(du_lieu, soffice)
+    finally:
+        _suat_chuyen_doi.release()
+
+
+def _chay_soffice(du_lieu: bytes, soffice: str) -> bytes:
+    """Phần THẬT SỰ tốn tài nguyên của `_chuyen_doc_sang_docx` — tách riêng để
+    suất chuyển đổi (`_suat_chuyen_doi`) chỉ bị giữ quanh ĐÚNG đoạn này, không
+    quanh các cổng chặn sớm (OLE2, thiếu soffice) phía trên."""
+    from pathlib import Path as _P  # noqa: N814 — cùng cách `_ocr_pdf` làm
+
+    with tempfile.TemporaryDirectory() as tmp:
+        thu_muc = _P(tmp)
+        vao = thu_muc / "vao.doc"
+        vao.write_bytes(du_lieu)
+        moi_truong = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": tmp}
+        proc = subprocess.Popen(
+            [
+                soffice,
+                "--headless",
+                "--invisible",
+                "--nocrashreport",
+                "--nodefault",
+                "--nofirststartwizard",
+                "--nolockcheck",
+                "--nologo",
+                "--norestore",
+                f"-env:UserInstallation=file://{thu_muc / 'ho_so'}",
+                "--convert-to",
+                "docx:MS Word 2007 XML",
+                "--outdir",
+                tmp,
+                str(vao),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=moi_truong,
+            # Phiên (session) MỚI làm `proc.pid` cũng là ID của cả nhóm tiến
+            # trình — điều kiện để `_giet_sach_nhom` diệt được TẤT CẢ hậu duệ
+            # bằng `os.killpg`, không chỉ tiến trình `Popen` biết trực tiếp.
+            start_new_session=True,
+        )
+        try:
+            proc.communicate(timeout=_HAN_CHUYEN_DOI_GIAY)
+        except subprocess.TimeoutExpired as e:
+            _giet_sach_nhom(proc)
+            raise KhongDocDuoc(LoaiHong.tep_hong, "chuyển đổi tệp .doc quá lâu") from e
+
+        ra = thu_muc / "vao.docx"
+        if proc.returncode != 0 or not ra.exists():
+            # KHÔNG log nội dung `stderr` của soffice (fix round 2, task
+            # review — Minor #3): chuỗi đó bắt nguồn từ TÀI LIỆU người dùng
+            # (tên tệp, đôi khi trích cả một đoạn nội dung soffice không phân
+            # tích được), và FR-027 + quyết định 2026-09-16 cấm nội dung tài
+            # liệu vào log. Chỉ ghi lại SỰ KIỆN (hỏng) và mã thoát — đủ để vận
+            # hành biết CÓ hỏng, không đủ để lộ tài liệu của ai đó.
+            logger.warning(
+                "doc_tai_lieu: soffice không chuyển được .doc (mã thoát %s)",
+                proc.returncode,
+            )
+            raise KhongDocDuoc(LoaiHong.tep_hong, "không chuyển đổi được tệp .doc")
+
+        return ra.read_bytes()
 
 
 # ------------------------------------------------------------------------- PDF

@@ -74,6 +74,7 @@ assert.equal(seDungOcr("scan.png"), true);
 assert.equal(seDungOcr("HOP-DONG.JPG"), true);
 assert.equal(seDungOcr("hop-dong.pdf"), false);
 assert.equal(seDungOcr("hop-dong.docx"), false);
+assert.equal(seDungOcr("hop-dong.doc"), false);
 
 // 2. Chỉ dữ kiện từ tài liệu và CÓ ĐỦ neo mới được coi là bấm xem được.
 assert.equal(coNeo(dk({})), true);
@@ -125,8 +126,12 @@ assert.equal(trichHienThi(dk({ nguon: "nguoi_dung_nhap", trich: null })), null);
 assert.equal(dinhDangHopLe("hop-dong.pdf"), true);
 assert.equal(dinhDangHopLe("HOP-DONG.DOCX"), true, "phần mở rộng viết hoa vẫn hợp lệ");
 assert.equal(dinhDangHopLe("anh-chup.png"), true, "ảnh nay đọc được bằng OCR");
-assert.equal(dinhDangHopLe("ghi-chu.doc"), false, ".doc không phải .docx");
-for (const d of [".pdf", ".docx", ".png", ".jpg"])
+assert.equal(
+  dinhDangHopLe("ghi-chu.doc"),
+  true,
+  ".doc đọc được từ Phase 13 (chuyển sang .docx ở backend)",
+);
+for (const d of [".pdf", ".docx", ".doc", ".png", ".jpg"])
   assert.ok(DINH_DANG_CHAP_NHAN.includes(d), `accept thiếu ${d}`);
 
 // 8. Hai câu từ chối phân biệt được: sai định dạng và quá lớn là hai việc khác

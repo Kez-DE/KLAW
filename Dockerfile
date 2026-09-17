@@ -11,6 +11,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# LibreOffice headless — server-side .doc -> .docx conversion (Phase 13,
+# src/services/doc_tai_lieu.py::_chuyen_doc_sang_docx). `libreoffice-writer`
+# pulls the Writer component and its core deps, not the ~600 MB `libreoffice`
+# metapackage (Calc/Impress/Draw are dead weight for a service that only ever
+# converts Word documents). `fonts-liberation` gives it metric-compatible
+# stand-ins for Times New Roman/Arial/Calibri so a form's layout doesn't
+# reflow differently just because the exact font isn't installed.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libreoffice-writer fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
+
 # Security: run as non-root user. Create it BEFORE copying the packages so the
 # user-site install lands in appuser's own home: pip --user in the builder wrote
 # to /root/.local, which is 0700 and unreadable once USER switches — the

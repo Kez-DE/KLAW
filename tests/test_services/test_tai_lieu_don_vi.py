@@ -291,3 +291,35 @@ def test_hai_tai_lieu_cung_khoa_van_giu_ca_hai(phien):
     tl.luu_du_kien(get_engine(), b, ht, [_hang("chuyen_can", "1,0")])
 
     assert len(tl.du_kien_cua_hoi_thoai(get_engine(), ht, sub)) == 2
+
+
+# ──────────────────── hạn mức/ngày: lỗi HỆ THỐNG không tính (fix round 2/3)
+#
+# `da_dung_hom_nay` trước đây chỉ loại `vuot_tran_chi_phi` (FR-038) khỏi hạn
+# mức/ngày. Fix round 2 mở rộng nguyên tắc đó cho `ly_do_hong` tiền tố
+# `he_thong_` (`ChuyenDoiKhongSanSang` — thiếu LibreOffice, quá tải chuyển
+# đổi .doc): một máy chủ thiếu công cụ hay quá tải là lỗi HỆ THỐNG, không
+# phải người dùng gửi một tệp có vấn đề. Việc đó từng chỉ được kiểm bằng tay
+# trên một Postgres tạm rồi xoá đi — CAM KẾT lại đây thành một test thật,
+# vì quy tắc "lỗi nào không tính vào hạn mức" đã lung lay ba lần trong nhánh
+# này (round 1 gộp nhầm .doc-thiếu-công-cụ vào `khong_co_lop_chu`, round 2
+# mới tách ra và loại trừ đúng, và bản LIKE ban đầu của round 2 khớp rộng
+# hơn tiền tố thật — xem `left(ly_do_hong, 9)` fix round 3).
+
+
+@pytest.mark.integration
+def test_da_dung_hom_nay_KHONG_tinh_loi_HE_THONG_va_CHI_PHI(phien):
+    sub, ht = phien
+    for ly_do in (
+        None,  # xong bình thường — TÍNH
+        "tep_hong",  # lỗi CHÍNH tài liệu — TÍNH
+        "vuot_tran_so_byte",  # vượt trần kích thước — TÍNH (không đổi bởi fix này)
+        "vuot_tran_chi_phi",  # FR-038, hệ thống từ chối — KHÔNG tính
+        "he_thong_khong_co_cong_cu",  # ChuyenDoiKhongSanSang — KHÔNG tính
+        "he_thong_qua_tai",  # ChuyenDoiKhongSanSang — KHÔNG tính
+    ):
+        viec = _viec(sub, ht)
+        if ly_do is not None:
+            tl.dat_trang_thai(get_engine(), viec, sub, "hong", ly_do_hong=ly_do)
+
+    assert tl.da_dung_hom_nay(get_engine(), sub) == 3

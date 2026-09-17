@@ -18,11 +18,12 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from src.agents.nodes.rut_du_kien import rut_du_kien
+from src.services import ban_thao
 from src.services import llm as llm_svc
 from src.services import tai_lieu as tl
 from src.services.bao_ve import nguoi_dung_bat_buoc
 from src.services.db import get_engine
-from src.services.doc_tai_lieu import KhongDocDuoc, LoaiHong, TaiLieuDaDoc, doc
+from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang, KhongDocDuoc, LoaiHong, TaiLieuDaDoc, doc
 from src.services.phan_loai_tai_lieu import phan_loai
 from src.services.tai_lieu import VuotTran
 
@@ -34,7 +35,7 @@ KHONG_THAY = "Không tìm thấy tài liệu"
 # Thông điệp cho từng nguyên nhân. Mỗi câu nói được MỘT việc người dùng làm tiếp
 # được — đó là toàn bộ lý do bốn nguyên nhân không bị gộp thành một nhãn.
 _THONG_DIEP = {
-    LoaiHong.dinh_dang_khong_ho_tro: "Chỉ đọc được tệp PDF có lớp chữ và tệp DOCX. Hãy gửi bản gốc thay vì ảnh chụp.",
+    LoaiHong.dinh_dang_khong_ho_tro: "Chỉ đọc được tệp PDF có lớp chữ, DOCX và DOC. Hãy gửi bản gốc thay vì ảnh chụp.",
     LoaiHong.tep_hong: "Không mở được tệp này. Hãy thử gửi lại, hoặc xuất lại từ phần mềm soạn thảo.",
     LoaiHong.can_mat_khau: "Tệp đang được bảo vệ bằng mật khẩu. Hãy gỡ mật khẩu rồi gửi lại.",
     LoaiHong.khong_co_lop_chu: "Không đọc được chữ trong tệp này. Nếu là ảnh chụp, hãy chụp lại rõ và đủ sáng, hoặc gửi bản gốc.",
@@ -46,6 +47,16 @@ THONG_DIEP_TRAN = {
     "so_byte": f"Tệp vượt giới hạn {tl.TRAN_BYTE // (1024 * 1024)} MB.",
     "so_trang": f"Tài liệu vượt giới hạn {tl.TRAN_TRANG} trang.",
     "chi_phi": "Tài liệu này quá lớn để xử lý trong một lần. Hãy tách nhỏ rồi gửi lại.",
+}
+
+# Fix round 2 — hai nguyên nhân hỏng vì HỆ THỐNG (`ChuyenDoiKhongSanSang`),
+# không vì tài liệu: không được nói như bốn nguyên nhân `_THONG_DIEP` ("tệp
+# của bạn có vấn đề"), vì tệp không có vấn đề gì cả. Câu cho `khong_co_cong_cu`
+# gợi ý một việc làm được NGAY (gửi .docx/.pdf) thay vì chỉ bảo "thử lại" —
+# một lỗi cấu hình không tự hết, và không có gì đảm bảo thử lại sẽ khác.
+_THONG_DIEP_HE_THONG = {
+    "khong_co_cong_cu": "Máy chủ chưa sẵn sàng đọc tệp .doc lúc này. Hãy gửi bản .docx hoặc .pdf, hoặc thử lại sau.",
+    "qua_tai": "Hệ thống đang xử lý nhiều tệp .doc cùng lúc. Hãy thử lại sau ít phút.",
 }
 
 
@@ -130,11 +141,19 @@ def _loi_http(e: Exception) -> HTTPException:
 
     Vượt trần và không đọc được đều là 422: yêu cầu hợp lệ về cú pháp nhưng
     không xử lý được, và cả hai đều nói rõ người dùng phải làm gì khác.
+
+    `ChuyenDoiKhongSanSang` (fix round 2) là 503, KHÔNG phải 422: đây không
+    phải "tệp của bạn có vấn đề" (422 nói đúng cho bốn nguyên nhân
+    `KhongDocDuoc`), mà là "hệ thống chưa xử lý được NGAY BÂY GIỜ" — đúng
+    nghĩa Service Unavailable, và đúng tín hiệu để một client tự động biết
+    nên thử lại thay vì coi tệp là hỏng.
     """
     if isinstance(e, VuotTran):
         return HTTPException(status_code=422, detail=THONG_DIEP_TRAN[e.tran])
     if isinstance(e, KhongDocDuoc):
         return HTTPException(status_code=422, detail=_THONG_DIEP[e.ly_do])
+    if isinstance(e, ChuyenDoiKhongSanSang):
+        return HTTPException(status_code=503, detail=_THONG_DIEP_HE_THONG[e.ly_do])
     raise e
 
 
@@ -281,8 +300,16 @@ async def tai_len(
     try:
         tai_lieu = await run_in_threadpool(doc, tep.filename or "", du_lieu)
         tl.kiem_so_trang(tai_lieu.so_trang)
-    except (KhongDocDuoc, VuotTran) as e:
-        ly_do = e.ly_do.value if isinstance(e, KhongDocDuoc) else f"vuot_tran_{e.tran}"
+    except (KhongDocDuoc, VuotTran, ChuyenDoiKhongSanSang) as e:
+        # `ChuyenDoiKhongSanSang` (fix round 2) tiền tố `he_thong_` — cùng
+        # khuôn `vuot_tran_*`, để `tai_lieu.da_dung_hom_nay` loại được CẢ HAI
+        # khỏi hạn mức/ngày bằng một mẫu, không phải liệt kê từng giá trị.
+        if isinstance(e, KhongDocDuoc):
+            ly_do = e.ly_do.value
+        elif isinstance(e, ChuyenDoiKhongSanSang):
+            ly_do = f"he_thong_{e.ly_do}"
+        else:
+            ly_do = f"vuot_tran_{e.tran}"
         await run_in_threadpool(
             tl.dat_trang_thai, get_engine(), viec_id, nguoi["sub"], "hong", ly_do_hong=ly_do
         )
@@ -305,7 +332,13 @@ async def tai_len(
     # hệ thống đọc lấy — và khi không nhận ra thì tài liệu vẫn ĐỌC XONG: cái
     # thiếu là bộ trường của một checklist, không phải cả tài liệu. Trạng thái
     # `can_chon_loai` không còn được ghi; nó chỉ còn đọc được ở dòng cũ.
-    nguoi_chon_loai = loai is not None
+    # `tong_quat` KHÔNG có checklist (`config/checklist_tong_quat.yaml` không tồn
+    # tại), nên `rut_du_kien` đi qua nó là `ValueError` ở `duong_dan_checklist` —
+    # việc đọc bị ghi `hong`/`loi_he_thong` và người dùng thấy "không phân tích
+    # được" dù tệp đọc hoàn toàn bình thường. Bản thảo tổng quát rút dữ kiện ở
+    # `hieu_tai_lieu` chứ không ở đây, nên nó đi CHÍNH đường "đính kèm không phân
+    # tích" bên dưới: đọc xong, không `du_kien`, không gọi mô hình lần hai.
+    nguoi_chon_loai = loai is not None and loai != ban_thao.LOAI_TONG_QUAT
     doan = None if loai else phan_loai(tai_lieu.don_vi)
     loai = loai or (doan.loai if doan else None)
     if loai is not None:

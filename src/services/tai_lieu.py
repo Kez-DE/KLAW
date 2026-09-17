@@ -1,10 +1,18 @@
 """Vòng đời một việc đọc tài liệu và tập dữ kiện của nó (spec 2026-09-15).
 
-Tệp gốc KHÔNG bao giờ chạm đĩa. Nó vào bằng bytes, đi qua `doc_tai_lieu`, và
-người gọi buông tham chiếu ngay sau đó — kể cả khi việc hỏng giữa chừng. Thứ
-được lưu là dữ kiện đã rút cùng dấu vân một chiều của tài liệu, cùng chính sách
-`traces.dau_van_ban` đã đặt cho `/soat`: dữ liệu cá nhân trong tài liệu của
-khách thường thuộc về người thứ ba chưa từng dùng KLAW và chưa đồng ý gì cả.
+Tệp gốc không chạm đĩa QUA MODULE NÀY: nó vào bằng bytes, đi qua
+`doc_tai_lieu`, và người gọi buông tham chiếu ngay sau đó — kể cả khi việc
+hỏng giữa chừng. (Sửa fix round 2, task review — Minor #2: câu cũ ở đây nói
+"KHÔNG bao giờ chạm đĩa" tuyệt đối, không còn đúng kể từ `.doc`.) Với
+`.pdf`/`.docx`/ảnh, lời hứa đó vẫn nguyên vẹn. Với `.doc` thì
+`doc_tai_lieu._chuyen_doc_sang_docx` — MỘT tầng dưới module này, không phải
+ở đây — phải ghi một bản tạm ra đĩa để LibreOffice đọc được, và xoá nó ngay
+khi trả về hoặc ném lỗi; chỉ một tiến trình bị giết/hết bộ nhớ đúng lúc đang
+chuyển đổi mới để sót tệp đó lại trong `/tmp` của container. Thứ được lưu Ở
+ĐÂY, trong DB, luôn đúng như câu cũ: chỉ dữ kiện đã rút cùng dấu vân một
+chiều của tài liệu, cùng chính sách `traces.dau_van_ban` đã đặt cho `/soat`:
+dữ liệu cá nhân trong tài liệu của khách thường thuộc về người thứ ba chưa
+từng dùng KLAW và chưa đồng ý gì cả.
 """
 
 import hashlib
@@ -99,6 +107,13 @@ def da_dung_hom_nay(engine: Engine, user_sub: str) -> int:
     tệp rác liên tục trở thành đường vòng qua hạn mức. Việc bị dừng vì chạm trần
     chi phí thì KHÔNG tính (FR-038) — đó là hệ thống từ chối, không phải người
     dùng tiêu lượt.
+
+    Cùng nguyên tắc đó, `ly_do_hong` tiền tố `he_thong_` (fix round 2, task
+    review — Minor #4: `ChuyenDoiKhongSanSang`, ví dụ thiếu LibreOffice hay
+    quá tải chuyển đổi .doc) cũng KHÔNG tính: một máy chủ thiếu công cụ hay
+    đang quá tải là lỗi của HỆ THỐNG, không phải người dùng gửi một tệp có vấn
+    đề — tính vào hạn mức của họ là phạt người dùng cho một việc họ không gây
+    ra và không sửa được bằng cách đổi tệp.
     """
     from src.services.bao_ve import moc_ngay
 
@@ -107,7 +122,15 @@ def da_dung_hom_nay(engine: Engine, user_sub: str) -> int:
             text(
                 "SELECT count(*) FROM viec_doc_tai_lieu "
                 "WHERE user_sub = :u AND tao_luc >= :m "
-                "AND (ly_do_hong IS NULL OR ly_do_hong <> 'vuot_tran_chi_phi')"
+                "AND (ly_do_hong IS NULL OR "
+                # `left(…, 9) <> 'he_thong_'` — KHÔNG `LIKE 'he_thong_%'` (fix
+                # round 3, task review): `_` trong LIKE là ký tự đại diện MỘT
+                # KÝ TỰ BẤT KỲ, không phải gạch dưới nghĩa đen, nên mẫu đó
+                # khớp rộng hơn tiền tố thật (vd "heXthongY..." cũng khớp).
+                # Vô hại hôm nay vì chưa có `ly_do_hong` nào mang hình dạng
+                # đó, nhưng là một bẫy cho lần thêm giá trị kế tiếp. `left()`
+                # so khớp CHUỖI, không có ký tự đại diện nào để hiểu lầm.
+                "(ly_do_hong <> 'vuot_tran_chi_phi' AND left(ly_do_hong, 9) <> 'he_thong_'))"
             ),
             {"u": user_sub, "m": moc_ngay()},
         ).scalar_one()
