@@ -33,7 +33,12 @@ def test_tao_sua_lui_va_tran_sua(nguoi):
     assert bt2["phien_ban"] == 2 and bt2["phien_ban_truoc"][-1]["phien_ban"] == 1
     assert ban_thao.doi_so_voi(bt, bt2) == ["ngay_nghi"]
     bt3 = ban_thao.lui(nguoi, bt["id"])
-    assert bt3["phien_ban"] == 1 and bt3["document"].startswith("# ĐƠN\n") and bt3["phien_ban_truoc"] == []
+    assert bt3["phien_ban"] == 1 and bt3["document"].startswith("# ĐƠN\n")
+    # Phase 4 (D11, R2): `lui` không còn xoá hẳn bản bị rời đi (v2) — nó vẫn
+    # đọc được trong lịch sử, cùng nội dung và một `luc` mới gắn vào.
+    assert [t["phien_ban"] for t in bt3["phien_ban_truoc"]] == [2]
+    assert bt3["phien_ban_truoc"][0]["document"] == bt2["document"]
+    assert bt3["phien_ban_truoc"][0]["luc"]
     assert ban_thao.sua("00000000-0000-0000-0000-000000000000", bt["id"], {}, KET) is None
     for i in range(ban_thao.TRAN_SUA):
         ban_thao.sua(nguoi, bt["id"], {"ho_ten": "A", "ngay_nghi": f"{i + 1}/10/2026"}, KET)
@@ -45,9 +50,11 @@ def test_tao_sua_lui_va_tran_sua(nguoi):
 
 def test_lui_lien_tiep_di_den_ban_cu_nhat_va_tu_choi_khi_het(nguoi):
     """`lui` là một BƯỚC ĐI LÙI, không phải bật qua bật lại: tạo, sửa hai lần, lùi
-    hai lần phải đi dần về ĐÚNG bản gốc (v1) với lịch sử rỗng — không dừng lại ở
-    v2 rồi bật ngược lại v3. Và khi đã ở bản cũ nhất, lùi thêm phải TỪ CHỐI (trả
-    về y nguyên), không làm gì bất ngờ."""
+    hai lần phải đi dần về ĐÚNG bản gốc (v1), không dừng lại ở v2 rồi bật ngược
+    lại v3. Và khi đã ở bản cũ nhất, lùi thêm phải TỪ CHỐI (trả về y nguyên),
+    không làm gì bất ngờ — dù giờ (Phase 4, R2) lịch sử không còn rỗng ở đó,
+    vì v2 và v3 bị bỏ lại vẫn được GIỮ (không còn "rỗng" nghĩa là "hết đường lùi";
+    "hết đường lùi" giờ nghĩa là không còn mục nào mang số NHỎ HƠN bản đang đứng)."""
     pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
     v1 = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
     ban_thao.sua(nguoi, v1["id"], {"ho_ten": "A", "buoc": "2"}, {**KET, "document": "# ĐƠN v2"})
@@ -64,7 +71,12 @@ def test_lui_lien_tiep_di_den_ban_cu_nhat_va_tu_choi_khi_het(nguoi):
         v1["clauses"],
         v1["audit"],
     )
-    assert ve_v1["phien_ban_truoc"] == []
+    # R2's proof: cả v2 lẫn v3 (hai bản đã bị "lùi" qua) vẫn còn đọc được —
+    # "jump forward" tới chúng vẫn còn đường, qua `phien_ban_chi_tiet`.
+    giu_lai = {t["phien_ban"]: t for t in ve_v1["phien_ban_truoc"]}
+    assert set(giu_lai) == {2, 3}
+    assert giu_lai[2]["document"] == "# ĐƠN v2" and giu_lai[3]["document"] == "# ĐƠN v3"
+    assert ban_thao.phien_ban_chi_tiet(nguoi, v1["id"], 3)["document"] == "# ĐƠN v3"
 
     tu_choi = ban_thao.lui(nguoi, v1["id"])
     assert tu_choi == ban_thao.chi_tiet(nguoi, v1["id"])
@@ -72,13 +84,16 @@ def test_lui_lien_tiep_di_den_ban_cu_nhat_va_tu_choi_khi_het(nguoi):
 
 def test_sua_sau_khi_lui_khong_dung_so_phien_ban(nguoi):
     """Lùi rồi sửa tiếp: số phiên bản mới phải LỚN HƠN mọi số đang có trong bản
-    ghi, và không có hai mục nào trùng số — nhánh bị bỏ (v3 cũ) không còn tồn tại
-    ở đâu để va số với v3 mới do lần sửa này tạo ra."""
+    ghi, và không có hai mục nào trùng số. Phase 4 (D11, R1/R2) đổi CÁCH đạt
+    được điều đó: trước đây nhánh bị bỏ ("v3 cũ") biến mất hẳn nên không còn gì
+    để va số; giờ nó vẫn được GIỮ (R2) nhưng mang một số KHÁC do bộ đếm
+    `phien_ban_ke_tiep` cấp (R1) — nội dung "v3 cũ" vẫn đọc được, nguyên vẹn,
+    dưới số của chính nó, không đụng tới số mà "v3 mới" vừa được cấp."""
     pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
     v1 = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
     ban_thao.sua(nguoi, v1["id"], {"ho_ten": "A", "buoc": "2"}, {**KET, "document": "# ĐƠN v2"})
-    ban_thao.sua(nguoi, v1["id"], {"ho_ten": "A", "buoc": "3"}, {**KET, "document": "# ĐƠN v3 cũ"})
-    ban_thao.lui(nguoi, v1["id"])  # về v2, bỏ hẳn "v3 cũ"
+    v3_cu = ban_thao.sua(nguoi, v1["id"], {"ho_ten": "A", "buoc": "3"}, {**KET, "document": "# ĐƠN v3 cũ"})
+    ban_thao.lui(nguoi, v1["id"])  # về v2, GIỮ "v3 cũ" lại (R2) thay vì bỏ hẳn
 
     moi = ban_thao.sua(nguoi, v1["id"], {"ho_ten": "A", "buoc": "3 mới"}, {**KET, "document": "# ĐƠN v3 mới"})
 
@@ -86,6 +101,85 @@ def test_sua_sau_khi_lui_khong_dung_so_phien_ban(nguoi):
     assert all(moi["phien_ban"] > so for so in so_lich_su)
     assert len(set(so_lich_su)) == len(so_lich_su), "không mục lịch sử nào trùng số phiên bản"
     assert moi["phien_ban"] not in so_lich_su
+    # R1's proof: "v3 cũ" (số của chính nó, KHÁC số của "v3 mới") vẫn đọc được
+    # nguyên nội dung — bằng chứng nhánh bị bỏ không hề bị mất, chỉ đổi số.
+    v3_cu_giu_lai = ban_thao.phien_ban_chi_tiet(nguoi, v1["id"], v3_cu["phien_ban"])
+    assert v3_cu_giu_lai is not None and v3_cu_giu_lai["document"] == "# ĐƠN v3 cũ"
+    assert v3_cu["phien_ban"] != moi["phien_ban"]
+
+
+# ═══ Phase 4 (D11) — lịch sử phiên bản không phá huỷ ═══════════════════════
+
+
+def test_sua_ghi_luc_va_doi_vao_snapshot(nguoi):
+    """R3: mỗi lần `sua` phải gắn `luc` (mốc giờ) và `doi` (khoá facts đổi) vào
+    chính snapshot bị đẩy vào lịch sử — không chỉ trả một lần trong response
+    rồi bỏ đi như trước Phase 4."""
+    pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
+    bt = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A", "ngay_nghi": "01/10/2026"}, KET)
+    bt2 = ban_thao.sua(nguoi, bt["id"], {"ho_ten": "A", "ngay_nghi": "15/10/2026"}, {**KET, "document": "# ĐƠN v2"})
+
+    snap_v1 = bt2["phien_ban_truoc"][-1]
+    assert snap_v1["phien_ban"] == 1
+    assert snap_v1["luc"], "phải có mốc giờ ISO, không rỗng"
+    assert snap_v1["doi"] == ["ngay_nghi"], "đúng khoá facts đã đổi khi rời phiên bản 1"
+
+
+def test_snapshot_tu_truoc_phase_4_khong_co_luc_doi_van_doc_duoc(nguoi):
+    """R3's yêu cầu tương thích ngược: một snapshot ghi TRƯỚC Phase 4 (không có
+    `luc`/`doi`, mô phỏng bằng UPDATE thẳng xuống DB) không được làm `lui`,
+    `danh_sach_phien_ban`, hay `phien_ban_chi_tiet` nổ lỗi hay bịa dữ liệu."""
+    pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
+    bt = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+    ban_thao.sua(nguoi, bt["id"], {"ho_ten": "A", "buoc": "2"}, {**KET, "document": "# ĐƠN v2"})
+
+    snap_cu = {"phien_ban": 1, "document": "# ĐƠN cũ", "facts": {"ho_ten": "A"}, "clauses": [], "audit": {}}
+    with get_engine().begin() as c:
+        c.execute(
+            text("UPDATE ban_thao SET phien_ban_truoc = CAST(:t AS jsonb) WHERE id = CAST(:id AS uuid)"),
+            {"t": '[{"phien_ban": 1, "document": "# ĐƠN cũ", "facts": {"ho_ten": "A"}, "clauses": [], "audit": {}}]',
+             "id": bt["id"]},
+        )
+
+    lich_su = ban_thao.danh_sach_phien_ban(nguoi, bt["id"])
+    assert lich_su == [{"phien_ban": 1, "luc": None, "doi": []}]
+
+    chi_tiet_cu = ban_thao.phien_ban_chi_tiet(nguoi, bt["id"], 1)
+    assert chi_tiet_cu == snap_cu
+
+    ve_v1 = ban_thao.lui(nguoi, bt["id"])
+    assert ve_v1["phien_ban"] == 1 and ve_v1["document"] == "# ĐƠN cũ"
+
+
+def test_danh_sach_phien_ban_khong_keo_full_body(nguoi):
+    """R4: danh sách lịch sử chỉ mang số/`luc`/`doi` — không kèm
+    `document`/`facts`/`clauses`/`audit`, đúng lý do `_SQL_DS` bớt
+    `phien_ban_truoc` ở R5 (không kéo cả body vào một danh sách)."""
+    pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
+    bt = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+    ban_thao.sua(nguoi, bt["id"], {"ho_ten": "A", "buoc": "2"}, {**KET, "document": "# ĐƠN v2"})
+
+    lich_su = ban_thao.danh_sach_phien_ban(nguoi, bt["id"])
+    assert lich_su == [{"phien_ban": 1, "luc": lich_su[0]["luc"], "doi": ["buoc"]}]
+    assert set(lich_su[0]) == {"phien_ban", "luc", "doi"}
+
+    chi_tiet_v1 = ban_thao.phien_ban_chi_tiet(nguoi, bt["id"], 1)
+    assert chi_tiet_v1["document"] == bt["document"] and chi_tiet_v1["facts"] == bt["facts"]
+
+    assert ban_thao.phien_ban_chi_tiet(nguoi, bt["id"], 99) is None, "số không tồn tại → None (404)"
+    assert ban_thao.danh_sach_phien_ban("00000000-0000-0000-0000-000000000000", bt["id"]) is None, "không phải chủ → None"
+
+
+def test_danh_sach_khong_con_keo_phien_ban_truoc(nguoi):
+    """R5: `danh_sach` (GET /ban-thao) không còn kéo `phien_ban_truoc` — mỗi
+    dòng danh sách không có khoá này."""
+    pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
+    bt = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+    ban_thao.sua(nguoi, bt["id"], {"ho_ten": "A", "buoc": "2"}, {**KET, "document": "# ĐƠN v2"})
+
+    items, _ = ban_thao.danh_sach(nguoi, 10, 0)
+    assert "phien_ban_truoc" not in items[0]
+    assert items[0]["phien_ban"] == 2
 
 
 def test_soan_thao_cua_phien(nguoi):
@@ -123,7 +217,10 @@ def test_lui_khong_tra_lai_lan_sua_da_dung(nguoi):
     for _ in range(3):
         ban_thao.lui(nguoi, bt["id"])
     sau = ban_thao.chi_tiet(nguoi, bt["id"])
-    assert sau["phien_ban_truoc"] == [] and sau["phien_ban"] == 1
+    assert sau["phien_ban"] == 1
+    # Phase 4 (D11, R2): ba bản bị lùi qua (2, 3, 4) vẫn được GIỮ, không còn
+    # "rỗng" — nhưng trần sửa vẫn đo trên `so_lan_sua`, không trên mảng này.
+    assert {t["phien_ban"] for t in sau["phien_ban_truoc"]} == {2, 3, 4}
     assert sau["so_lan_sua"] == 3, "lùi KHÔNG được trả lại một lần sửa nào"
 
 

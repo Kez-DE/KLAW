@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 from starlette.concurrency import run_in_threadpool
@@ -27,7 +28,16 @@ LOI_SUA_TONG_QUAT = "Bản thảo tổng quát sửa bằng cách nói với tr�
 
 _COT = (
     "id::text AS id, hoi_thoai_id::text AS hoi_thoai_id, loai, facts, document, clauses, audit,"
-    " phien_ban, phien_ban_truoc, so_lan_sua, tao_luc, cap_nhat_luc"
+    " phien_ban, phien_ban_ke_tiep, phien_ban_truoc, so_lan_sua, tao_luc, cap_nhat_luc"
+)
+# Phase 4 (D11, R5) — danh sách KHÔNG kéo `phien_ban_truoc`: cột này nặng tới
+# ~4.3 kB/snapshot (`_snap`), và `danh_sach`/`BanThaoTomTatOut` không hề dùng
+# tới nó — chỉ `chi_tiet`/`sua`/`lui` (nơi cần đọc lịch sử) mới cần `_COT` đầy
+# đủ. Vẫn giữ `phien_ban_ke_tiep`: không nặng (một số nguyên), và không phải
+# thứ R5 nhắm tới.
+_COT_DS = (
+    "id::text AS id, hoi_thoai_id::text AS hoi_thoai_id, loai, facts, document, clauses, audit,"
+    " phien_ban, phien_ban_ke_tiep, so_lan_sua, tao_luc, cap_nhat_luc"
 )
 _SQL_TAO = text(
     "INSERT INTO ban_thao (user_sub, hoi_thoai_id, loai, facts, document, clauses, audit)"
@@ -48,12 +58,13 @@ _SQL_LAY = text(
 )
 _SQL_SUA = text(
     "UPDATE ban_thao SET facts = CAST(:facts AS jsonb), document = :document, clauses = CAST(:clauses AS jsonb),"
-    " audit = CAST(:audit AS jsonb), phien_ban = :phien_ban, phien_ban_truoc = CAST(:truoc AS jsonb),"
+    " audit = CAST(:audit AS jsonb), phien_ban = :phien_ban, phien_ban_ke_tiep = :phien_ban_ke_tiep,"
+    " phien_ban_truoc = CAST(:truoc AS jsonb),"
     " so_lan_sua = so_lan_sua + :tang, cap_nhat_luc = now()"
     " WHERE id = CAST(:id AS uuid) AND user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL RETURNING " + _COT
 )
 _SQL_DS = text(
-    f"SELECT {_COT} FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL AND {_KHONG_MO_COI}"
+    f"SELECT {_COT_DS} FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL AND {_KHONG_MO_COI}"
     " ORDER BY cap_nhat_luc DESC LIMIT :limit OFFSET :offset"
 )
 _SQL_DEM = text(
@@ -199,24 +210,49 @@ def chi_tiet(sub: str, id: str) -> dict | None:
     return dict(r) if r is not None else None
 
 
-def _snap(row: dict) -> dict:
+def _snap(row: dict, *, doi: list[str] | None = None) -> dict:
     """Chụp MỌI thứ cần để khôi phục lại đúng một phiên bản — `document`/`facts` một
     mình là không đủ: `clauses`/`audit` bị thiếu từng làm `lui` trả về một bản ghi
-    lẫn (văn bản của phiên bản cũ với clauses/audit của phiên bản đang bị rời đi)."""
-    return {
+    lẫn (văn bản của phiên bản cũ với clauses/audit của phiên bản đang bị rời đi).
+
+    Phase 4 (D11, R3) thêm `luc` (mốc giờ rời khỏi phiên bản này — luôn có,
+    tính ngay tại đây) và `doi` (những gì đổi khi rời đi — CHỈ khi kẻ gọi đã
+    tính được, `sua()` tính bằng `doi_so_voi`; `lui()` không sửa gì nên không
+    truyền). Bỏ qua `doi` khi rỗng/`None` thay vì ghi `[]`: một danh sách rỗng
+    trông như "đã kiểm, không đổi gì", còn bỏ khoá thì giao diện đọc y hệt một
+    snapshot TỪ TRƯỚC bản vá này (không khoá `doi`) — không bịa ra một sự thật
+    không tính được.
+
+    Snapshot ghi TRƯỚC bản vá này không có hai khoá này — mọi nơi ĐỌC lại một
+    `dict` từ `phien_ban_truoc` (đây, `lui`, và hai hàm đọc lịch sử bên dưới)
+    phải dùng `.get(...)`, không chỉ số `[...]`, mới không nổ trên dữ liệu cũ.
+    """
+    snap = {
         "phien_ban": row["phien_ban"],
         "document": row["document"],
         "facts": row["facts"],
         "clauses": row["clauses"],
         "audit": row["audit"],
+        "luc": datetime.now(UTC).isoformat(),
     }
+    if doi:
+        snap["doi"] = doi
+    return snap
 
 
 def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
     cu = chi_tiet(sub, id)
     if cu is None:
         return None
-    truoc = [*(cu["phien_ban_truoc"] or []), _snap(cu)][-TRAN_SUA:]
+    # Phase 4 (D11, R1) — số phiên bản MỚI lấy từ bộ đếm riêng
+    # `phien_ban_ke_tiep`, không phải `cu["phien_ban"] + 1` nữa: cột đó có thể
+    # bị `lui` kéo NGƯỢC xuống, còn bộ đếm này chỉ ĐI LÊN nên không bao giờ cấp
+    # lại một số đã dùng — kể cả số của một nhánh `lui` đã bỏ đi mà giờ vẫn
+    # được GIỮ LẠI (R2). `doi_so_voi` so facts CŨ (`cu`) với facts MỚI (tham số
+    # `facts`) — đúng cặp mà `dung_lai` vẫn so sau khi gọi hàm này, chỉ tính
+    # SỚM hơn một nhịp để gắn vào chính snapshot đang bị rời đi (R3).
+    doi = doi_so_voi(cu, {"facts": facts})
+    truoc = [*(cu["phien_ban_truoc"] or []), _snap(cu, doi=doi)][-TRAN_SUA:]
     with get_engine().begin() as c:
         r = (
             c.execute(
@@ -228,7 +264,8 @@ def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
                     "document": ket["document"],
                     "clauses": _j(ket["clauses"]),
                     "audit": _j(ket["audit_report"]),
-                    "phien_ban": cu["phien_ban"] + 1,
+                    "phien_ban": cu["phien_ban_ke_tiep"],
+                    "phien_ban_ke_tiep": cu["phien_ban_ke_tiep"] + 1,
                     "truoc": _j(truoc),
                     # Bộ đếm trần sửa — chỉ ĐI LÊN, và chỉ ở đây (xem `lui`).
                     "tang": 1,
@@ -294,21 +331,34 @@ async def dung_lai(sub: str, id: str, facts: dict, hoi_thoai_id: str | None = No
 
 
 def lui(sub: str, id: str) -> dict | None:
-    """Lùi MỘT BƯỚC, không phải bật qua bật lại: bỏ hẳn bản đang đứng (không đẩy
-    nó vào đâu cả) và khôi phục NGUYÊN VẸN mục gần nhất trong lịch sử — nên KHÔNG
-    có đường tiến trở lại bản vừa bỏ. Gọi liên tiếp đi dần về bản CŨ NHẤT còn giữ
-    (bị chặn bởi `TRAN_SUA`); tới đó rồi thì từ chối, trả về y nguyên bản hiện tại
-    (`phien_ban_truoc` rỗng nghĩa là không còn gì để lùi).
+    """Lùi MỘT BƯỚC: khôi phục NGUYÊN VẸN mục gần nhất TRƯỚC bản đang đứng (số
+    phiên bản nhỏ hơn, lớn nhất trong số đó). Gọi liên tiếp đi dần về bản CŨ
+    NHẤT còn giữ (bị chặn bởi `TRAN_SUA`); tới đó rồi thì từ chối, trả về y
+    nguyên bản hiện tại (không còn mục nào mang số NHỎ HƠN số đang đứng).
 
-    Bỏ hẳn, không giữ lại, là điều CỐ Ý: giữ lại bản bị rời đi từng để nó tồn tại
-    song song với một bản MỚI cùng đánh số (sửa tiếp sau khi lùi đặt `phien_ban =
-    gan["phien_ban"] + 1`, đúng số nhánh cũ đang giữ) — hai nội dung khác nhau
-    cùng mang một số phiên bản. Không giữ nhánh bỏ đi thì không còn gì để va số.
+    Phase 4 (D11, R2) đổi "bỏ hẳn" thành GIỮ LẠI bản bị rời đi (đẩy vào chính
+    `phien_ban_truoc`, giống `sua`), để một "phiên bản N" đã lùi qua vẫn đọc
+    được sau này (`danh_sach_phien_ban`/`phien_ban_chi_tiet`). Giữ được là vì
+    `phien_ban_ke_tiep` (R1) không đụng tới ở đây — số của bản bị rời đi không
+    bao giờ bị một `sua()` sau này cấp lại, nên không còn gì để va số nữa.
+
+    Vì mảng giờ có thể lẫn cả bản CŨ (tổ tiên, số nhỏ hơn) lẫn bản MỚI vừa bị
+    bỏ (số LỚN hơn số đang đứng, giữ lại từ một lượt `lui` trước), "gần nhất
+    trong lịch sử" không còn là phần tử CUỐI mảng nữa — phải LỌC những mục có
+    số nhỏ hơn bản đang đứng rồi lấy số LỚN NHẤT trong đó mới đúng là tổ tiên
+    gần nhất; nếu không còn mục nào như vậy (kể cả khi mảng không rỗng — toàn
+    mục bị bỏ từ trước, số đều LỚN hơn) thì từ chối, đúng bất biến cũ.
     """
     cu = chi_tiet(sub, id)
-    if cu is None or not cu["phien_ban_truoc"]:
+    if cu is None:
         return cu
-    *con, gan = cu["phien_ban_truoc"]
+    lich_su = cu["phien_ban_truoc"] or []
+    ung_vien = [t for t in lich_su if t["phien_ban"] < cu["phien_ban"]]
+    if not ung_vien:
+        return cu
+    gan = max(ung_vien, key=lambda t: t["phien_ban"])
+    con = [t for t in lich_su if t is not gan]
+    truoc = [*con, _snap(cu)][-TRAN_SUA:]
     with get_engine().begin() as c:
         r = (
             c.execute(
@@ -321,7 +371,10 @@ def lui(sub: str, id: str) -> dict | None:
                     "clauses": _j(gan["clauses"]),
                     "audit": _j(gan["audit"]),
                     "phien_ban": gan["phien_ban"],
-                    "truoc": _j(con),
+                    # Bộ đếm KHÔNG lùi theo `phien_ban`: `lui` không cấp một số
+                    # mới nào, nên giữ nguyên giá trị đang có (xem docstring).
+                    "phien_ban_ke_tiep": cu["phien_ban_ke_tiep"],
+                    "truoc": _j(truoc),
                     # `tang = 0`: lùi KHÔNG trả lại một lần sửa. Trần đo bằng cột đơn điệu
                     # `so_lan_sua` chính vì mảng `phien_ban_truoc` bị hàm này bớt đi.
                     "tang": 0,
@@ -343,6 +396,42 @@ def danh_sach(sub: str, limit: int, offset: int) -> tuple[list[dict], int]:
 def xoa_mem(sub: str, id: str) -> bool:
     with get_engine().begin() as c:
         return c.execute(_SQL_XOA, {"sub": sub, "id": id}).rowcount > 0
+
+
+def danh_sach_phien_ban(sub: str, id: str) -> list[dict] | None:
+    """Phase 4 (D11, R4) — danh sách các phiên bản CŨ của một bản thảo, đủ để vẽ
+    một bảng lịch sử: số, `luc`, `doi`. KHÔNG kèm `document`/`facts`/`clauses`/
+    `audit` — cùng lý do R5 bớt `phien_ban_truoc` khỏi `danh_sach()`, chỉ ở quy
+    mô một bản thảo thay vì cả trang danh sách. `None` khi không thấy/không
+    phải chủ (404, giống mọi hàm khác ở đây).
+
+    `.get("luc")`/`.get("doi") or []` — KHÔNG chỉ số `[...]`: một snapshot ghi
+    TRƯỚC Phase 4 không có hai khoá này (`_snap` cũ), phải đọc được mà không
+    nổ, không phải giả một mốc giờ hay một danh sách đổi bịa ra.
+    """
+    bt = chi_tiet(sub, id)
+    if bt is None:
+        return None
+    return [
+        {"phien_ban": t["phien_ban"], "luc": t.get("luc"), "doi": t.get("doi") or []}
+        for t in (bt["phien_ban_truoc"] or [])
+    ]
+
+
+def phien_ban_chi_tiet(sub: str, id: str, so: int) -> dict | None:
+    """Phase 4 (D11, R4) — toàn bộ nội dung của MỘT phiên bản cũ cụ thể (tra
+    trong `phien_ban_truoc` theo số). `None` khi bản thảo không thấy/không
+    phải chủ, HOẶC khi `so` không khớp phiên bản cũ nào (kể cả khi `so` chính
+    là số đang SỐNG — bản thảo hiện tại đã có `GET /ban-thao/{id}`, route này
+    không phải một đường vòng thứ hai qua nó).
+    """
+    bt = chi_tiet(sub, id)
+    if bt is None:
+        return None
+    for t in bt["phien_ban_truoc"] or []:
+        if t["phien_ban"] == so:
+            return t
+    return None
 
 
 def doi_so_voi(truoc: dict, sau: dict) -> list[str]:
