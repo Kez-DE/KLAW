@@ -34,6 +34,28 @@ FACTS_HDLD = {
     "co_dieu_khoan_dat_coc": "false",
 }
 
+# S6 — bản thảo TỔNG QUÁT (`loai = "tong_quat"`, plan `ban-thao-tong-quat.md`
+# Task 1): không checklist nào để tra `ten`. Dựng `document` qua CHÍNH
+# `ban_thao._render_markdown`, đúng cách `dung_ban_thao_tong_quat.py:154` dựng
+# một dòng thật — không gõ tay một khuôn Markdown khác có thể trôi lệch.
+CLAUSES_TONG_QUAT = [
+    {"key": "muc_1", "ten": "Điều 1", "noi_dung": "Nội dung 1"},
+    {"key": "muc_2", "ten": "Điều 2", "noi_dung": "Nội dung 2"},
+    {"key": "muc_3", "ten": "Điều 3", "noi_dung": "Nội dung 3"},
+]
+KET_TONG_QUAT = {
+    "document": ban_thao._render_markdown(ban_thao.LOAI_TONG_QUAT, CLAUSES_TONG_QUAT, "Văn bản thử"),
+    "clauses": CLAUSES_TONG_QUAT,
+    "audit_report": {
+        "dat": None,
+        "completeness": None,
+        "so_dieu_khoan": len(CLAUSES_TONG_QUAT),
+        "self_audit": False,
+        "findings": [],
+        "muc_kiem": "tong_quat",
+    },
+}
+
 
 class _KetAuditGia:
     """Đủ thuộc tính để `ban_thao.tu_state_soan_thao` đọc (thuộc tính, không phải
@@ -120,6 +142,65 @@ async def test_danh_sach_chi_tiet_lui_xoa_va_chu_so_huu(client, khoa_ky, hai_ngu
 
     assert (await client.delete(f"/api/v1/ban-thao/{bt['id']}", headers=ha)).status_code == 204
     assert (await client.get(f"/api/v1/ban-thao/{bt['id']}", headers=ha)).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_ban_thao_tong_quat_chi_tiet_200(client, khoa_ky, hai_nguoi):
+    """Task 1: `GET /ban-thao/{id}` trên một bản thảo `tong_quat` phải trả 200,
+    không phải 500 — trước bản vá, `_out()` gọi thẳng
+    `load_checklist_cached("tong_quat")`, và hàm đó nổ `ValueError: loai không
+    có checklist` vì không có `config/checklist_tong_quat.yaml` nào (S6 không
+    theo checklist nào, đúng định nghĩa)."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    pid = hoi_thoai.tao_phien(a, "văn bản tổng quát")
+    bt = ban_thao.tao(a, pid, ban_thao.LOAI_TONG_QUAT, {}, KET_TONG_QUAT)
+
+    r = await client.get(f"/api/v1/ban-thao/{bt['id']}", headers=ha)
+    assert r.status_code == 200
+    ct = r.json()
+    assert ct["ten"] == "Bản thảo tổng quát"
+    assert ct["loai"] == "tong_quat"
+    assert ct["clauses"] == CLAUSES_TONG_QUAT
+
+
+@pytest.mark.asyncio
+async def test_ban_thao_tong_quat_trong_danh_sach_200(client, khoa_ky, hai_nguoi):
+    """Task 1: `GET /ban-thao` phải liệt kê được một bản thảo `tong_quat` —
+    trước bản vá, `danh_sach()` gọi `load_checklist_cached(i["loai"]).ten` cho
+    MỖI dòng, nên một bản thảo tổng quát của tài khoản làm nổ 500 cho CẢ danh
+    sách, kể cả khi các bản thảo checklist khác của cùng người vẫn hợp lệ."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    pid = hoi_thoai.tao_phien(a, "văn bản tổng quát")
+    bt = ban_thao.tao(a, pid, ban_thao.LOAI_TONG_QUAT, {}, KET_TONG_QUAT)
+
+    r = await client.get("/api/v1/ban-thao", headers=ha)
+    assert r.status_code == 200
+    d = r.json()
+    assert d["tong"] == 1
+    assert d["items"][0]["id"] == bt["id"]
+    assert d["items"][0]["ten"] == "Bản thảo tổng quát"
+
+
+@pytest.mark.asyncio
+async def test_ban_thao_tong_quat_lui_200(client, khoa_ky, hai_nguoi):
+    """Task 1: `POST /ban-thao/{id}/lui` ở `phien_ban > 1` phải trả 200.
+    `ban_thao.lui` (tầng service) không hề gọi `load_checklist_cached` — phục
+    hồi một bản thảo tổng quát về phiên bản trước đã được hỗ trợ sẵn ở tầng
+    service; chỉ tầng route (`_out()`) là chỗ nổ. Nếu chủ trương là KHÔNG cho
+    lùi bản thảo tổng quát thì đây là chỗ phải đổi assertion sang mã cố ý,
+    không phải giữ nguyên một 500 không định trước."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    pid = hoi_thoai.tao_phien(a, "văn bản tổng quát")
+    bt = ban_thao.tao(a, pid, ban_thao.LOAI_TONG_QUAT, {}, KET_TONG_QUAT)
+    clauses_v2 = [{**c, "noi_dung": c["noi_dung"] + " (sửa)"} for c in CLAUSES_TONG_QUAT]
+    ban_thao.sua(a, bt["id"], {}, {**KET_TONG_QUAT, "clauses": clauses_v2})
+
+    r = await client.post(f"/api/v1/ban-thao/{bt['id']}/lui", headers=ha)
+    assert r.status_code == 200
+    assert r.json()["phien_ban"] == 1
 
 
 @pytest.mark.asyncio

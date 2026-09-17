@@ -31,11 +31,33 @@ def _uuid_hop_le(id: str) -> str:
         raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY) from e
 
 
+# `loai` không mang checklist nào (S6, `ban_thao.LOAI_TONG_QUAT`) → tên hiển thị
+# cố định, không tra `load_checklist_cached` (hàm đó nổ `ValueError` cho nó,
+# đúng định nghĩa "không theo checklist nào").
+_TEN_LOAI_DAC_BIET = {ban_thao.LOAI_TONG_QUAT: "Bản thảo tổng quát"}
+
+
+def _ten_loai(loai: str) -> str:
+    """Tên hiển thị của `loai` — MỘT chỗ cho cả `_out()` lẫn `danh_sach()`, để
+    route sau này cần tên không thể tự mở lại một nhánh riêng rồi trôi lệch.
+
+    Khuôn phòng thủ giống `routes_tai_lieu.chi_tiet:356-363`: một `loai` lạ
+    trong DB (checklist bị xoá sau khi bản thảo đã lưu) không được làm hỏng cả
+    phản hồi — `ten` khi đó là chính `loai`, không phải một 500.
+    """
+    if loai in _TEN_LOAI_DAC_BIET:
+        return _TEN_LOAI_DAC_BIET[loai]
+    try:
+        return load_checklist_cached(loai).ten
+    except Exception:
+        return loai
+
+
 def _out(bt: dict) -> BanThaoOut:
     return BanThaoOut(
         id=bt["id"],
         loai=bt["loai"],
-        ten=load_checklist_cached(bt["loai"]).ten,
+        ten=_ten_loai(bt["loai"]),
         phien_ban=bt["phien_ban"],
         document=bt["document"],
         clauses=bt["clauses"],
@@ -57,7 +79,7 @@ async def danh_sach(
             BanThaoTomTatOut(
                 id=i["id"],
                 loai=i["loai"],
-                ten=load_checklist_cached(i["loai"]).ten,
+                ten=_ten_loai(i["loai"]),
                 phien_ban=i["phien_ban"],
                 cap_nhat_luc=i["cap_nhat_luc"],
                 hoi_thoai_id=i["hoi_thoai_id"],
