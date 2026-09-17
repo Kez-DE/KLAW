@@ -50,3 +50,25 @@ export function luuRong(khoa: string, px: number): void {
     /* không có localStorage: bỏ qua, độ rộng vẫn đúng trong phiên */
   }
 }
+
+/**
+ * Sàn CSS bắt buộc cho cột chat (Phase 9 U4, `.sdd/phase-9-brief.md`) — đo
+ * được cửa sổ 1512px cho cột chat khoảng 215px, dưới xa `CHAT_TOI_THIEU`:
+ * `bienPanelDoiChieu` tính trần khung bên cạnh (đối chiếu, hay sân khấu bản
+ * thảo) từ `window.innerWidth`, KHÔNG trừ cột trái cố định của `AppShell`
+ * (tới 260px ở ≥80rem) — nên trần đó có thể LỚN HƠN phần thật sự còn lại, và
+ * cột chat (`min-w-0`, không sàn riêng) bị ép co xuống dưới mức tối thiểu dù
+ * `bienPanelDoiChieu` tưởng đã chừa đủ.
+ *
+ * Sửa TẠI NƠI HIỂN THỊ thay vì sửa lại phép tính bề rộng: một sàn `min-width`
+ * áp thẳng lên cột chat đúng bất kể phép tính ở nơi khác có đúng hay không —
+ * "cho nó một sàn không thể xuống dưới", không phải kẹp chữ hiển thị.
+ *
+ * `undefined` CHỈ khi đang ở khung hẹp cố ý 420px để CHỌN LOẠI văn bản
+ * (`soanThao` mở, hai cột) — một tính năng khác, không phải chỗ bug này xảy
+ * ra, và một sàn 480px ở đó sẽ ĐÈ mất chủ đích 420px (CSS `min-width` luôn
+ * thắng `max-width` khi xung đột).
+ */
+export function sanRongChat(dangChonLoaiVanBan: boolean): number | undefined {
+  return dangChonLoaiVanBan ? undefined : CHAT_TOI_THIEU;
+}

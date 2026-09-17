@@ -1,5 +1,6 @@
 import { FileText } from "lucide-react";
 import { nhanMucKiem, type TraCuuKetQua } from "@/lib/klaw";
+import { tieuDeTuBanThao } from "@/lib/xuat-tep";
 
 /** Thẻ bàn giao (theo teardown Claude Artifacts): báo có sản phẩm, KHÔNG phải
  *  nơi làm việc — bấm "Mở bản thảo" đưa sang khung soạn thảo hiện có (Task 21);
@@ -14,6 +15,13 @@ export function TheBanThao({ ketQua, onMo }: { ketQua: TraCuuKetQua; onMo: (id: 
   // dòng đầu, trước nút "Mở bản thảo" — sau khi bấm vào là người dùng đã ở
   // trong khung soạn thảo, nơi mọi bản thảo trông giống nhau.
   const nhan = nhanMucKiem(bt.audit_report);
+  // Tiêu đề THẬT của văn bản (Phase 9 U4) — `bt.ten` cố tình CHỈ trả lời "bản
+  // thảo này THUỘC LOẠI gì" (`dung_ban_thao_tong_quat.dung_ban_thao_tong_quat`
+  // ghim `TEN_TONG_QUAT` cố định), tiêu đề riêng nằm ở dòng H1 đầu của
+  // `document` — cùng nguồn `SanKhauBanThao`/`XemTruocA4` đã đọc, nên thẻ này
+  // không còn lệch với khung xem trước bên cạnh nó. Không có H1 hợp lệ (lỗi
+  // đọc, hoặc loại văn bản không dùng khuôn này) thì lùi về `bt.ten` như cũ.
+  const tieuDe = tieuDeTuBanThao(bt.document) ?? bt.ten;
   return (
     <section
       aria-label="Bản thảo đã sẵn sàng"
@@ -23,7 +31,7 @@ export function TheBanThao({ ketQua, onMo }: { ketQua: TraCuuKetQua; onMo: (id: 
         <FileText className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="m-0 text-[15px] font-semibold text-foreground">
-            {nhan ?? "Bản thảo đã sẵn sàng"} · {bt.ten}
+            {nhan ?? "Bản thảo đã sẵn sàng"} · {tieuDe}
           </p>
           <p className="m-0 mt-0.5 text-[13px] text-muted-foreground">
             Phiên bản {bt.phien_ban}

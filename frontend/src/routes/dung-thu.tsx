@@ -33,6 +33,7 @@ import {
   docRongDaLuu,
   kepRong,
   luuRong,
+  sanRongChat,
 } from "@/lib/keo-dan";
 import type {
   BanThao,
@@ -948,6 +949,9 @@ function ManHoiKlaw() {
     <div
       inert={(doiChieu.dang !== null || soanThao !== null) && !haiCot}
       className={cn("flex min-w-0 flex-1 flex-col", soanThao !== null && haiCot && "max-w-[420px]")}
+      // Sàn bề rộng (Phase 9 U4) — xem `sanRongChat`/`keo-dan.ts` cho nguyên
+      // nhân đo được (1512px cửa sổ → chat ~215px) và vì sao sửa TẠI ĐÂY.
+      style={{ minWidth: sanRongChat(soanThao !== null && haiCot) }}
     >
       <div className="mx-auto flex w-full max-w-[860px] flex-1 flex-col px-4">
         {/* Tiêu đề cấp 1 BỀN, không nhìn thấy. Tiêu đề duy nhất của màn này

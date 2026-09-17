@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import {
   BUOC_PHIM,
+  CHAT_TOI_THIEU,
   RONG_DOI_CHIEU_MAC_DINH,
   RONG_SAN_KHAU_MAC_DINH,
   bienPanelDoiChieu,
@@ -12,6 +13,7 @@ import {
   kepRong,
   luuRong,
   phanTram,
+  sanRongChat,
 } from "../src/lib/keo-dan.ts";
 
 assert.equal(RONG_DOI_CHIEU_MAC_DINH, 420);
@@ -73,4 +75,14 @@ globalThis.localStorage = {
 assert.equal(docRongDaLuu("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH), RONG_DOI_CHIEU_MAC_DINH);
 assert.doesNotThrow(() => luuRong("klaw.doi-chieu.rong", 500));
 
-console.log("kiem-keo-dan: 19/19 OK");
+// Sàn cột chat (Phase 9 U4) — mọi trường hợp bình thường (kể cả sân khấu bản
+// thảo mở cạnh chat) phải có sàn CỨNG bằng đúng `CHAT_TOI_THIEU`, bất kể
+// `bienPanelDoiChieu` tính trần khung bên cạnh đúng hay sai (đo được cửa sổ
+// 1512px vẫn ra chat ~215px trước bản vá này). Khung hẹp CHỌN LOẠI văn bản
+// (420px, tính năng khác) là ngoại lệ DUY NHẤT — sàn ở đó sẽ đè mất đúng chủ
+// đích hẹp của nó.
+assert.equal(sanRongChat(false), CHAT_TOI_THIEU);
+assert.equal(sanRongChat(true), undefined);
+assert.equal(CHAT_TOI_THIEU, 480);
+
+console.log("kiem-keo-dan: 22/22 OK");
