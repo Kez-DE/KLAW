@@ -838,11 +838,23 @@ function ManHoiKlaw() {
   // input/textarea/select của khung soạn thảo: sửa dữ kiện một mục
   // (`DrawerSuaMuc`) cũng là gõ trong ô, Esc ở đó phải thoát dropdown/bỏ gõ chứ
   // không đóng cả sân khấu đang có dữ liệu chưa lưu.
+  //
+  // `NganXepDrawer` (mở tấm "Sửa mục"/"Căn cứ" TRÊN sân khấu) có listener Esc
+  // RIÊNG của nó, cũng ở `window`, và không gọi `preventDefault`. Không chốt
+  // thêm thì MỘT lần Esc đóng CẢ tấm lẫn sân khấu cùng lúc — mất luôn bản sửa
+  // dữ kiện đang dở, không phải "đóng từng lớp một". Tấm mang `role="dialog"`
+  // (NganXepDrawer.tsx) và luôn nằm SÂU HƠN gốc sân khấu trong DOM; gốc sân
+  // khấu ở bố cục hẹp CŨNG là `role="dialog"` — nên so sánh với chính
+  // `khungSanKhau.current` chứ không chỉ hỏi "có dialog nào không".
   useEffect(() => {
     if (!dangMoSanKhau) return;
     const nghe = (su: KeyboardEvent) => {
       if (su.key !== "Escape" || su.defaultPrevented) return;
       if (su.target instanceof HTMLElement && su.target.closest("input, textarea, select")) return;
+      if (su.target instanceof HTMLElement) {
+        const dialogGanNhat = su.target.closest('[role="dialog"]');
+        if (dialogGanNhat !== null && dialogGanNhat !== khungSanKhau.current) return;
+      }
       onDongSanKhau();
     };
     window.addEventListener("keydown", nghe);
