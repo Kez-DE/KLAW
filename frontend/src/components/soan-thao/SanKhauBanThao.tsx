@@ -12,6 +12,7 @@ import { dungLaiBanThao, suaMucBanThao } from "@/lib/api";
 import { docRongDaLuu, kepRong, luuRong, type Bien } from "@/lib/keo-dan";
 import {
   LOAI_TONG_QUAT,
+  neenGuiLaiPhienBan,
   nhanFactDoi,
   nhanMucKiem,
   type BanThao,
@@ -215,6 +216,26 @@ export function SanKhauBanThao({
   // — chặn xuất trong lúc đó thay vì để hai việc chạy đua.
   const [soLuuDangCho, datSoLuuDangCho] = useState(0);
 
+  // Fix round 2 (re-review N2) — phiên bản do CHÍNH `onSuaKhoi` tạo ra ở lần
+  // lưu thành công gần nhất. `KhoiVanXuoi` (N1) nay gửi phiên bản NÓ chụp lúc
+  // focus, không phải phiên bản mới nhất — nên hai khối khác nhau, focus gần
+  // như cùng lúc, có thể cùng gửi một phiên bản cũ, và khối lưu SAU bị máy chủ
+  // từ chối dù không có gì xung đột thật (chỉ là khối TRƯỚC, của CHÍNH client
+  // này, vừa lưu xong). Ref này phân biệt "chênh lệch do CHÍNH MÌNH vừa gây
+  // ra" (an toàn để tự động gửi lại MỘT lần bằng phiên bản mới) khỏi "chênh
+  // lệch do nơi khác" (một lượt sửa bằng lời — N1b — không được tự gửi lại).
+  const phienBanTuSuaTayGanNhatRef = useRef(banThao.phien_ban);
+  // Component này không được cấp `key={banThao.id}` từ nơi gọi (chuyển bản
+  // thảo có thể chỉ đổi prop, không remount) — mốc trên phải reset về bản
+  // thảo MỚI mỗi khi `id` đổi, nếu không một số phiên bản cũ tình cờ trùng số
+  // với bản thảo mới có thể khiến retry (dưới) tưởng nhầm một xung đột thật
+  // (một lượt sửa bằng lời) là do chính client này gây ra.
+  const banThaoIdTruocRef = useRef(banThao.id);
+  if (banThaoIdTruocRef.current !== banThao.id) {
+    banThaoIdTruocRef.current = banThao.id;
+    phienBanTuSuaTayGanNhatRef.current = banThao.phien_ban;
+  }
+
   /**
    * Phase 3 (Half A, R1/R2/R3) — gõ tay MỘT khối trong `XemTruocA4`, 0 lượt
    * gọi mô hình. Lỗi ra bằng toast (khối là bảng, mục không thấy, hết trần
@@ -226,19 +247,42 @@ export function SanKhauBanThao({
    * đợi huy hiệu đổi: so nhãn TRƯỚC/SAU chứ không đọc cờ `sua_tay` một mình,
    * để không báo lặp lại ở LẦN SỬA TAY THỨ HAI của cùng bản thảo (nhãn không
    * đổi nữa vì đã hạ từ lần đầu).
+   *
+   * Fix round 2 (re-review N1/N2) — `phienBanLucSua` giờ do `KhoiVanXuoi` gửi
+   * (phiên bản nó chụp lúc focus, xem chú thích ở đó), KHÔNG phải
+   * `banThaoRef.current.phien_ban` đọc ở đây: đọc "mới nhất" ở đây chính là
+   * lỗi N1b (một lượt sửa bằng lời chạy xong TRONG lúc khối còn mở đã tự nâng
+   * số đó lên, khiến máy chủ so khớp một cách sai — token không còn phát hiện
+   * được gì). Vì gửi phiên bản CŨ hơn giờ là chuyện thường (một khối khác của
+   * CHÍNH client này vừa lưu xong cũng nâng số lên), một cú từ chối
+   * `LOI_PHIEN_BAN_DA_DOI` được retry ĐÚNG MỘT LẦN bằng phiên bản mới nhất —
+   * nhưng CHỈ khi biết chắc số mới đó đến từ CHÍNH client này
+   * (`phienBanTuSuaTayGanNhatRef`, N2), không phải từ một lượt sửa bằng lời
+   * (N1b, nơi `muc_key` đã bị cấp lại và retry sẽ ghi sai mục).
    */
-  const onSuaKhoi = async (mucKey: string, khoiIndex: number, noiDungMoi: string) => {
+  const onSuaKhoi = async (
+    mucKey: string,
+    khoiIndex: number,
+    noiDungMoi: string,
+    phienBanLucSua: number,
+  ) => {
     const banThaoLucGoi = banThaoRef.current;
     const nhanTruoc = nhanMucKiem(banThaoLucGoi.audit_report);
     datSoLuuDangCho((n) => n + 1);
     try {
-      const kq = await suaMucBanThao(
-        banThaoLucGoi.id,
-        mucKey,
-        khoiIndex,
-        noiDungMoi,
-        banThaoLucGoi.phien_ban,
-      );
+      let phienBanGui = phienBanLucSua;
+      let kq = await suaMucBanThao(banThaoLucGoi.id, mucKey, khoiIndex, noiDungMoi, phienBanGui);
+      if (
+        neenGuiLaiPhienBan(
+          kq.ok ? null : kq.error,
+          phienBanGui,
+          banThaoRef.current.phien_ban,
+          phienBanTuSuaTayGanNhatRef.current,
+        )
+      ) {
+        phienBanGui = banThaoRef.current.phien_ban;
+        kq = await suaMucBanThao(banThaoLucGoi.id, mucKey, khoiIndex, noiDungMoi, phienBanGui);
+      }
       if (!kq.ok) {
         toast.error(kq.error.message);
         return;
@@ -249,6 +293,7 @@ export function SanKhauBanThao({
       // hồi CŨ hơn đó đè lên sẽ kéo màn hình LÙI LẠI (máy chủ vẫn đúng, màn
       // hình thì sai cho tới khi tải lại). Bỏ qua, không phải lỗi.
       if (kq.data.phien_ban < banThaoRef.current.phien_ban) return;
+      phienBanTuSuaTayGanNhatRef.current = kq.data.phien_ban;
       capNhatBanThao(kq.data);
       const nhanSau = nhanMucKiem(kq.data.audit_report);
       if (nhanTruoc === null && nhanSau !== null) {
@@ -558,8 +603,9 @@ export function SanKhauBanThao({
               // (không checklist, không `facts`), nên đây là bề mặt DUY
               // NHẤT sửa tay an toàn tồn tại. Prop bỏ hẳn (không phải
               // `undefined` tường minh) khi `!laTongQuat` — `exactOptionalPropertyTypes`
-              // phân biệt hai điều đó.
-              {...(laTongQuat ? { onSuaKhoi } : {})}
+              // phân biệt hai điều đó. `phienBan` (fix round 2, N1) đi kèm
+              // `onSuaKhoi` — `KhoiVanXuoi` cần nó để chụp lại lúc focus.
+              {...(laTongQuat ? { onSuaKhoi, phienBan: banThao.phien_ban } : {})}
             />
           </div>
         </div>

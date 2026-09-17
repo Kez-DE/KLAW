@@ -1313,6 +1313,51 @@ export function nhanMucKiem(auditReport: Record<string, unknown> | undefined): s
     : "Bản thảo tổng quát — chưa kiểm pháp lý";
 }
 
+/**
+ * Fix round 2 (re-review N2) — bản sao NGUYÊN VĂN của `ban_thao.
+ * LOI_PHIEN_BAN_DA_DOI` phía backend, để `SanKhauBanThao.onSuaKhoi` phân biệt
+ * được lỗi NÀY (retry một lần an toàn được, nếu tự mình vừa gây ra) với ba lỗi
+ * 422 khác cùng route (khối là bảng, mục không thấy, hết trần sửa — không nên
+ * retry). `docDetail`/`loiTheoStatus` (`api.ts`) đưa nguyên câu `detail` của
+ * FastAPI vào `error.message`, nên so chuỗi ở đây là đúng hợp đồng, không
+ * phải suy đoán mã trạng thái. Sống ở đây (không phải `api.ts`, vốn kéo theo
+ * `@/integrations`) để `kiem-ban-thao.ts` import thẳng được, không cần một
+ * bundler phân giải alias.
+ */
+export const LOI_PHIEN_BAN_DA_DOI =
+  "Bản thảo đã đổi (một lượt sửa khác vừa chạy) — tải lại bản thảo trước khi sửa tiếp.";
+
+/**
+ * Fix round 2 (N1/N2) — có nên tự động gửi lại MỘT lần một PATCH `/ban-thao/
+ * {id}/muc` vừa bị từ chối vì lệch phiên bản hay không. Hàm THUẦN, tách khỏi
+ * `SanKhauBanThao.onSuaKhoi` để kiểm được không cần dựng React/DOM (xem
+ * `kiem-ban-thao.ts`) — sai điều kiện này tái mở N1 (ghi đè lên đúng vị trí
+ * nhưng sai mục, vì `muc_key` bị cấp lại theo vị trí sau một lượt sửa bằng
+ * lời) hoặc N2 (từ chối một lượt sửa tay bình thường thứ hai của cùng
+ * client), nên xứng một bài kiểm riêng hơn một `if` trần lẫn trong callback.
+ *
+ * Chỉ retry khi CẢ BỐN đúng: có lỗi, lỗi đó CHÍNH XÁC là lệch phiên bản
+ * (không phải khối-là-bảng/mục-không-thấy/hết-trần-sửa — ba lỗi 422 khác
+ * cùng route, không nên retry), phiên bản đã gửi thật sự khác phiên bản hiện
+ * tại, VÀ phiên bản hiện tại khớp đúng phiên bản do CHÍNH client này tạo ra ở
+ * lần lưu thành công gần nhất — điều kiện cuối là thứ phân biệt "một khối
+ * khác của chính mình vừa lưu xong" (an toàn để gửi lại) khỏi "một lượt sửa
+ * bằng lời vừa chạy xong nơi khác" (N1b — không được gửi lại).
+ */
+export function neenGuiLaiPhienBan(
+  loi: { message: string } | null,
+  phienBanDaGui: number,
+  phienBanHienTai: number,
+  phienBanTuSuaTayGanNhat: number,
+): boolean {
+  return (
+    loi !== null &&
+    loi.message === LOI_PHIEN_BAN_DA_DOI &&
+    phienBanDaGui !== phienBanHienTai &&
+    phienBanTuSuaTayGanNhat === phienBanHienTai
+  );
+}
+
 /* ── /ban-thao — bản thảo đã lưu của tài khoản (Task 21) ─────────────────── */
 
 export function laBanThao(x: unknown): x is BanThao {

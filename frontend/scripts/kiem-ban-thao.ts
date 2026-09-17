@@ -9,6 +9,8 @@ import {
   laBanThao,
   laDanhSachBanThao,
   laTraCuuKetQua,
+  LOI_PHIEN_BAN_DA_DOI,
+  neenGuiLaiPhienBan,
   nhanFactDoi,
   nhanMucKiem,
   type TruongFact,
@@ -70,4 +72,23 @@ assert.equal(
   "hạ cấp bằng sửa tay phải khác nhãn của một bản thảo tổng quát CHƯA sửa",
 );
 
-console.info("kiem-ban-thao: 13/13 đạt");
+// ── `neenGuiLaiPhienBan` (fix round 2, re-review N1/N2) — retry MỘT lần một
+// PATCH bị từ chối vì lệch phiên bản CHỈ khi chênh lệch đó tự client này gây
+// ra (một khối khác vừa lưu xong), KHÔNG khi đến từ nơi khác (một lượt sửa
+// bằng lời — N1b, `muc_key` đã bị cấp lại, retry sẽ ghi sai mục).
+const loiPhienBan = { message: LOI_PHIEN_BAN_DA_DOI };
+const loiKhac = { message: "Bản thảo này đã sửa 10 lần. Mở bản mới để tiếp tục." };
+
+// N2: khối khác của CHÍNH client này vừa lưu xong (đã gửi 3, giờ là 4, và 4
+// khớp đúng bản do client này tạo ra) → an toàn để tự gửi lại.
+assert.equal(neenGuiLaiPhienBan(loiPhienBan, 3, 4, 4), true, "N2: tự gây ra → retry");
+// N1b: phiên bản nhảy lên do một lượt sửa bằng lời (không khớp gì client này
+// tự lưu) → KHÔNG được tự gửi lại.
+assert.equal(neenGuiLaiPhienBan(loiPhienBan, 3, 5, 3), false, "N1b: từ nơi khác → không retry");
+// Một lỗi 422 KHÁC (hết trần sửa) dù số có khớp cũng không phải lỗi lệch
+// phiên bản — không retry.
+assert.equal(neenGuiLaiPhienBan(loiKhac, 3, 4, 4), false, "lỗi khác lệch phiên bản → không retry");
+// Không có lỗi (đã thành công) → không áp dụng.
+assert.equal(neenGuiLaiPhienBan(null, 3, 4, 4), false, "không lỗi → không retry");
+
+console.info("kiem-ban-thao: 17/17 đạt");

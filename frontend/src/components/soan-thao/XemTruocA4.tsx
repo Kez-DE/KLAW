@@ -22,22 +22,42 @@ import {
  * không có một khung nào hiện `<p>` rỗng) mới ghi `textContent`, và bỏ qua
  * lần ghi đó khi khối ĐANG có tiêu điểm (`dangSua`, cập nhật bằng
  * `onFocus`/`onBlur`).
+ *
+ * Fix round 2 (re-review N1) — TIÊU ĐIỂM không phải DẤU HIỆU ĐÃ SỬA. Bản vá
+ * trên chỉ hỏi "khối có đang mở không", nên khi một lượt sửa bằng lời chạy
+ * xong TRONG lúc khối này còn mở (bàn tay chưa gõ chữ nào), `onBlur` so
+ * chữ-trên-màn-hình (vẫn là chữ CŨ, effect vừa bị bỏ qua) với `noiDung` MỚI
+ * vừa đổi — khác nhau dù người dùng không gõ gì — và âm thầm GHI ĐÈ bản mới
+ * của mô hình bằng đúng chữ nó vừa thay. Sửa: chụp lại chữ (`vanBanLucFocus`)
+ * VÀ phiên bản (`phienBanLucFocus`) tại đúng lúc `onFocus`, không đọc lại lúc
+ * `onBlur`. `onBlur` so chữ mới gõ với chữ LÚC BẮT ĐẦU sửa — không đổi thật
+ * sự thì đồng bộ lại khối theo `noiDung` mới nhất, không gọi lưu; đổi thật sự
+ * thì gửi kèm phiên bản LÚC BẮT ĐẦU (không phải phiên bản mới nhất) để máy
+ * chủ tự phát hiện một lượt sửa bằng lời đã chạy xen giữa (I3) — xem
+ * `SanKhauBanThao.onSuaKhoi` cho nửa còn lại (N2, tránh từ chối một lượt sửa
+ * tay bình thường thứ hai).
  */
 function KhoiVanXuoi({
   noiDung,
   canhLe,
   mucKey,
   khoiIndex,
+  phienBan,
   onSuaKhoi,
 }: {
   noiDung: string;
   canhLe: CanLe;
   mucKey: string;
   khoiIndex: number;
-  onSuaKhoi: ((mucKey: string, khoiIndex: number, noiDungMoi: string) => void) | undefined;
+  phienBan: number;
+  onSuaKhoi:
+    | ((mucKey: string, khoiIndex: number, noiDungMoi: string, phienBanLucSua: number) => void)
+    | undefined;
 }) {
   const oNoiDung = useRef<HTMLParagraphElement | null>(null);
   const dangSua = useRef(false);
+  const vanBanLucFocus = useRef("");
+  const phienBanLucFocus = useRef(phienBan);
   const coTheSua = onSuaKhoi !== undefined;
 
   useLayoutEffect(() => {
@@ -69,6 +89,12 @@ function KhoiVanXuoi({
         coTheSua
           ? () => {
               dangSua.current = true;
+              // Fix round 2 (N1) — chụp NGAY lúc bắt đầu sửa, không đọc lại
+              // lúc blur: đây là chữ/phiên bản người dùng THẤY khi họ bắt tay
+              // vào gõ, và là cái duy nhất máy chủ cần để biết có lượt sửa
+              // bằng lời nào chen giữa hay không.
+              vanBanLucFocus.current = noiDung;
+              phienBanLucFocus.current = phienBan;
             }
           : undefined
       }
@@ -100,8 +126,24 @@ function KhoiVanXuoi({
           // letterhead có thể mang (Phase 8/11). Không đổi gì thì KHÔNG gọi
           // — một cú blur không gõ chữ nào không được tiêu một suất
           // `TRAN_SUA` (xem `ban_thao.sua_tay`).
+          //
+          // Fix round 2 (N1a) — so với chữ LÚC BẮT ĐẦU sửa
+          // (`vanBanLucFocus`), không so với `noiDung` (có thể đã bị một lượt
+          // sửa bằng lời đổi TRONG lúc khối này còn mở): không gõ gì thật sự
+          // thì không gọi lưu, mà đồng bộ lại khối theo bản MỚI NHẤT — hiệu
+          // ứng bị bỏ qua lúc còn tiêu điểm, giờ mới chạy tay, thay vì để chữ
+          // CŨ ghi đè âm thầm lên bản mới của mô hình.
           const moi = e.currentTarget.innerText;
-          if (moi !== noiDung) onSuaKhoi(mucKey, khoiIndex, moi);
+          if (moi === vanBanLucFocus.current) {
+            if (oNoiDung.current) oNoiDung.current.textContent = noiDung;
+            return;
+          }
+          // Fix round 2 (N1b) — gửi phiên bản LÚC BẮT ĐẦU sửa, không phải
+          // phiên bản mới nhất: nếu một lượt sửa bằng lời đã chạy xong (và do
+          // đó đổi cả `muc_key` theo vị trí), phiên bản cũ không khớp nữa và
+          // máy chủ từ chối RÕ RÀNG (`ban_thao.LOI_PHIEN_BAN_DA_DOI`) thay vì
+          // âm thầm ghi vào đúng vị trí nhưng sai mục (I3).
+          onSuaKhoi(mucKey, khoiIndex, moi, phienBanLucFocus.current);
         })
       }
       className={cn(
@@ -151,8 +193,19 @@ interface Props {
    * hàng×ô đọc từ nguồn, không có chỗ nào giữ lại hai trường đó nếu ô được
    * gõ đè bằng tay tại đây — sửa bảng cần một biên tập theo Ô, để giai đoạn
    * sau, không phải ghi đè cả `bang` bằng một chuỗi.
+   *
+   * Fix round 2 (N1) — nay nhận thêm `phienBanLucSua`: phiên bản bản thảo
+   * `KhoiVanXuoi` chụp lại lúc `onFocus`, không phải phiên bản mới nhất lúc
+   * `onBlur` — xem chú thích tại khai báo `KhoiVanXuoi`.
    */
-  onSuaKhoi?: (mucKey: string, khoiIndex: number, noiDungMoi: string) => void;
+  onSuaKhoi?: (
+    mucKey: string,
+    khoiIndex: number,
+    noiDungMoi: string,
+    phienBanLucSua: number,
+  ) => void;
+  /** Phiên bản bản thảo hiện tại — bắt buộc cùng `onSuaKhoi` (fix round 2, N1). */
+  phienBan?: number;
 }
 
 /**
@@ -171,6 +224,7 @@ export function XemTruocA4({
   onChonMuc,
   laTongQuat = false,
   onSuaKhoi,
+  phienBan,
 }: Props) {
   const chonMuc = (key: string) => onChonMuc?.(key);
 
@@ -267,6 +321,10 @@ export function XemTruocA4({
                     canhLe={k.canhLe}
                     mucKey={m.key}
                     khoiIndex={i}
+                    // Fix round 2 (N1) — không dùng khi chỉ đọc; giá trị mặc
+                    // định vô hại vì `onSuaKhoi` cũng vắng mặt trong trường
+                    // hợp đó nên không đường nào đọc tới `phienBan`.
+                    phienBan={phienBan ?? 0}
                     onSuaKhoi={onSuaKhoi}
                   />
                 ) : (
