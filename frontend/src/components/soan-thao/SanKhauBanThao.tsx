@@ -8,7 +8,7 @@ import { NoiDungDieuKhoan } from "@/components/klaw/NoiDungDieuKhoan";
 import { NganXepDrawer } from "@/components/ui/NganXepDrawer";
 import { TayKeo } from "@/components/ui/TayKeo";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
-import { dungLaiBanThao } from "@/lib/api";
+import { dungLaiBanThao, suaMucBanThao } from "@/lib/api";
 import { docRongDaLuu, kepRong, luuRong, type Bien } from "@/lib/keo-dan";
 import {
   LOAI_TONG_QUAT,
@@ -199,6 +199,34 @@ export function SanKhauBanThao({
     const m = muc.find((mm) => mm.key === key);
     if (m === undefined) return;
     datNgan((cur) => moTam(cur, { id: key, tieuDe: `Mục ${m.stt}. ${m.ten}`, noiDung: m }));
+  };
+
+  /**
+   * Phase 3 (Half A, R1/R2/R3) — gõ tay MỘT khối trong `XemTruocA4`, 0 lượt
+   * gọi mô hình. Lỗi ra bằng toast (khối là bảng, mục không thấy, hết trần
+   * sửa) — không có gì để hoàn tác trên màn hình (khối vẫn hiện chữ vừa gõ,
+   * chỉ là chưa lưu được), nói ra để người dùng biết mà thử lại thay vì tưởng
+   * đã lưu.
+   *
+   * R3 (D3) — báo NGAY tại thời điểm sửa đầu tiên hạ `nhanMucKiem`, không chỉ
+   * đợi huy hiệu đổi: so nhãn TRƯỚC/SAU chứ không đọc cờ `sua_tay` một mình,
+   * để không báo lặp lại ở LẦN SỬA TAY THỨ HAI của cùng bản thảo (nhãn không
+   * đổi nữa vì đã hạ từ lần đầu).
+   */
+  const onSuaKhoi = async (mucKey: string, khoiIndex: number, noiDungMoi: string) => {
+    const nhanTruoc = nhanMucKiem(banThao.audit_report);
+    const kq = await suaMucBanThao(banThao.id, mucKey, khoiIndex, noiDungMoi);
+    if (!kq.ok) {
+      toast.error(kq.error.message);
+      return;
+    }
+    capNhatBanThao(kq.data);
+    const nhanSau = nhanMucKiem(kq.data.audit_report);
+    if (nhanTruoc === null && nhanSau !== null) {
+      toast.warning("Bản thảo không còn được coi là đã kiểm pháp lý.", {
+        description: "Bạn vừa sửa tay — hãy soát lại trước khi dùng bản thảo này.",
+      });
+    }
   };
 
   const onMoCanCu = (canCu: string) => {
@@ -477,6 +505,7 @@ export function SanKhauBanThao({
               mucDangChon={mucDangChon}
               onChonMuc={onChonMuc}
               laTongQuat={laTongQuat}
+              onSuaKhoi={onSuaKhoi}
             />
           </div>
         </div>

@@ -1298,11 +1298,19 @@ export const LOAI_TONG_QUAT = "tong_quat";
  * `tong_quat` thì ngược lại: KHÔNG có rule nào chạy trên nó, và trên màn hình
  * nó trông y hệt một bản thảo đã soát. Nhãn này là chỗ DUY NHẤT nói ra điều đó
  * trước khi người dùng bấm tải về.
+ *
+ * Phase 3 (Half A, R3/D3) — `sua_tay` (`src/services/ban_thao.py`) đặt CÙNG
+ * giá trị `muc_kiem` này khi một sửa TAY hạ cấp một bản thảo CHECKLIST (đã
+ * qua rule/audit thật), cộng thêm `sua_tay: true` để nói rõ đây không phải
+ * "chưa từng kiểm" (bản thảo tổng quát gốc) mà là "đã bị người dùng viết đè
+ * sau khi kiểm" — hai sự thật khác nhau, không được gộp một nhãn (brief: "the
+ * two are not the same thing").
  */
 export function nhanMucKiem(auditReport: Record<string, unknown> | undefined): string | null {
-  return auditReport?.["muc_kiem"] === LOAI_TONG_QUAT
-    ? "Bản thảo tổng quát — chưa kiểm pháp lý"
-    : null;
+  if (auditReport?.["muc_kiem"] !== LOAI_TONG_QUAT) return null;
+  return auditReport["sua_tay"] === true
+    ? "Đã sửa tay — chưa kiểm pháp lý"
+    : "Bản thảo tổng quát — chưa kiểm pháp lý";
 }
 
 /* ── /ban-thao — bản thảo đã lưu của tài khoản (Task 21) ─────────────────── */

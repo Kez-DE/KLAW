@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 import {
   nhipHangVe,
@@ -22,6 +23,18 @@ interface Props {
    * ở đây chỉ đấu với cách tài liệu tự đánh số (Phase 7 R5).
    */
   laTongQuat?: boolean;
+  /**
+   * Phase 3 (Half A, R1) — gõ tay một khối VĂN XUÔI, 0 lượt gọi mô hình.
+   * Vắng mặt (`undefined`) ⇒ trang chỉ ĐỌC, y hệt trước bản vá này (không
+   * đường nào gọi hàm này thì không có gì để lỡ tay đổi).
+   *
+   * CHỈ khối văn xuôi — khối BẢNG không nhận `contentEditable` (quyết định D
+   * ở báo cáo phase 3): `nhip`/`tiLe` của một bảng chỉ sống trong cấu trúc
+   * hàng×ô đọc từ nguồn, không có chỗ nào giữ lại hai trường đó nếu ô được
+   * gõ đè bằng tay tại đây — sửa bảng cần một biên tập theo Ô, để giai đoạn
+   * sau, không phải ghi đè cả `bang` bằng một chuỗi.
+   */
+  onSuaKhoi?: (mucKey: string, khoiIndex: number, noiDungMoi: string) => void;
 }
 
 /**
@@ -39,6 +52,7 @@ export function XemTruocA4({
   mucDangChon = null,
   onChonMuc,
   laTongQuat = false,
+  onSuaKhoi,
 }: Props) {
   const chonMuc = (key: string) => onChonMuc?.(key);
 
@@ -74,6 +88,13 @@ export function XemTruocA4({
               onKeyDown={
                 onChonMuc
                   ? (e) => {
+                      // Phase 3 (Half A, R1) — đang gõ TRONG một khối
+                      // `contentEditable`: Enter xuống dòng, dấu cách gõ chữ
+                      // — cả hai KHÔNG được biến thành "chọn mục" rồi nuốt
+                      // mất phím người dùng vừa gõ (`preventDefault` dưới
+                      // đây, viết trước bản vá này, không phân biệt được
+                      // nguồn phím tới từ đâu).
+                      if ((e.target as HTMLElement).isContentEditable) return;
                       if (e.key !== "Enter" && e.key !== " ") return;
                       e.preventDefault();
                       chonMuc(m.key);
@@ -117,6 +138,26 @@ export function XemTruocA4({
                 k.kind === "vanXuoi" ? (
                   <p
                     key={i}
+                    // Phase 3 (Half A, R1) — gõ tay tại chỗ: `contentEditable`
+                    // CHỈ khi nơi gọi cho `onSuaKhoi` (bản thảo đã lưu, có
+                    // `id` để ghi) — khung xem trước dùng nơi khác (đối
+                    // chiếu, xem trước lúc đang dựng) không truyền prop này
+                    // và giữ nguyên hành vi CHỈ ĐỌC trước bản vá này.
+                    contentEditable={onSuaKhoi !== undefined}
+                    suppressContentEditableWarning={onSuaKhoi !== undefined}
+                    onBlur={
+                      onSuaKhoi &&
+                      ((e) => {
+                        // `innerText`, không `textContent`: trình duyệt tự
+                        // đổi ranh giới khối/`<br>` thành `\n`, đúng hình
+                        // dạng nhiều dòng một khối letterhead có thể mang
+                        // (Phase 8/11). Không đổi gì thì KHÔNG gọi — một cú
+                        // blur không gõ chữ nào không được tiêu một suất
+                        // `TRAN_SUA` (xem `ban_thao.sua_tay`).
+                        const moi = e.currentTarget.innerText;
+                        if (moi !== k.noiDung) onSuaKhoi(m.key, i, moi);
+                      })
+                    }
                     className={cn(
                       // `break-words` (Phase 11 fix round 1, `overflow-wrap:
                       // break-word`) — một dòng trường tự do gõ bằng dấu
@@ -134,6 +175,8 @@ export function XemTruocA4({
                       // `xuat-tep.ts::docDong`, nên `.docx`/PDF tự khớp theo.
                       k.canhLe === "giua" && "text-center",
                       k.canhLe === "phai" && "text-right",
+                      onSuaKhoi !== undefined &&
+                        "cursor-text rounded-sm outline-none focus:ring-2 focus:ring-[var(--color-brass-600)]",
                     )}
                   >
                     {k.noiDung}
@@ -165,54 +208,70 @@ export function XemTruocA4({
                     const soCot = soCotThat(k.hang, k.tiLe);
                     const spanTieuDe = nhipHangVe(k.hang[0] ?? [], k.nhip[0], soCot);
                     return (
-                      <table
-                        key={i}
-                        className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
-                        style={{ tableLayout: "fixed" }}
-                      >
-                        <colgroup>
-                          {tiLeCotVe(k.tiLe, soCot).map((ti, oi) => (
-                            <col key={oi} data-ti-le={ti} style={{ width: `${ti}%` }} />
-                          ))}
-                        </colgroup>
-                        <thead>
-                          <tr>
-                            {(k.hang[0] ?? []).map((o, oi) => {
-                              const cot = spanTieuDe[oi] ?? 1;
+                      <Fragment key={i}>
+                        {/* Quyết định D (R1, phase 3) — bảng CHƯA sửa trực
+                            tiếp được ở giai đoạn này (xem ghi chú `onSuaKhoi`
+                            ở khai báo `Props`): nói RA thay vì để người dùng
+                            tự đoán vì sao gõ vào ô không có tác dụng gì.
+                            `data-khong-xuat`: chú thích màn hình, không phải
+                            chữ của văn bản — cùng quy ước dòng "Căn cứ" bên
+                            dưới. */}
+                        {onSuaKhoi !== undefined && (
+                          <p
+                            data-khong-xuat
+                            className="m-0 mt-1 font-mono text-[0.7em] text-muted-foreground"
+                          >
+                            Bảng — chưa sửa trực tiếp được ở đây, hãy nói với trợ lý điều cần đổi.
+                          </p>
+                        )}
+                        <table
+                          className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
+                          style={{ tableLayout: "fixed" }}
+                        >
+                          <colgroup>
+                            {tiLeCotVe(k.tiLe, soCot).map((ti, oi) => (
+                              <col key={oi} data-ti-le={ti} style={{ width: `${ti}%` }} />
+                            ))}
+                          </colgroup>
+                          <thead>
+                            <tr>
+                              {(k.hang[0] ?? []).map((o, oi) => {
+                                const cot = spanTieuDe[oi] ?? 1;
+                                return (
+                                  <th
+                                    key={oi}
+                                    colSpan={cot > 1 ? cot : undefined}
+                                    className="border border-[#999] bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold"
+                                  >
+                                    {o}
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {k.hang.slice(1).map((hang, hi) => {
+                              const span = nhipHangVe(hang, k.nhip[hi + 1], soCot);
                               return (
-                                <th
-                                  key={oi}
-                                  colSpan={cot > 1 ? cot : undefined}
-                                  className="border border-[#999] bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold"
-                                >
-                                  {o}
-                                </th>
+                                <tr key={hi}>
+                                  {hang.map((o, oi) => {
+                                    const cot = span[oi] ?? 1;
+                                    return (
+                                      <td
+                                        key={oi}
+                                        colSpan={cot > 1 ? cot : undefined}
+                                        className="border border-[#999] px-2 py-1 align-top font-serif"
+                                      >
+                                        {o}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
                               );
                             })}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {k.hang.slice(1).map((hang, hi) => {
-                            const span = nhipHangVe(hang, k.nhip[hi + 1], soCot);
-                            return (
-                              <tr key={hi}>
-                                {hang.map((o, oi) => {
-                                  const cot = span[oi] ?? 1;
-                                  return (
-                                    <td
-                                      key={oi}
-                                      colSpan={cot > 1 ? cot : undefined}
-                                      className="border border-[#999] px-2 py-1 align-top font-serif"
-                                    >
-                                      {o}
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                          </tbody>
+                        </table>
+                      </Fragment>
                     );
                   })()
                 ),

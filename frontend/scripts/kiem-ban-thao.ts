@@ -10,6 +10,7 @@ import {
   laDanhSachBanThao,
   laTraCuuKetQua,
   nhanFactDoi,
+  nhanMucKiem,
   type TruongFact,
 } from "../src/lib/klaw.ts";
 
@@ -56,4 +57,17 @@ assert.deepEqual(nhanFactDoi(["luong", "chua_co_nhan_field"], TRUONG), [
   "chua_co_nhan_field", // field mẫu chưa nạp/không có nhãn → giữ khoá thô, KHÔNG suy đoán
 ]);
 
-console.info("kiem-ban-thao: 9/9 đạt");
+// ── `nhanMucKiem` (Phase 3, R3/D3) — một sửa TAY hạ cấp một bản thảo phải
+// đọc ra một nhãn KHÁC "chưa từng sửa" (brief: "the two are not the same
+// thing"), và một bản thảo checklist chưa hề sửa tay vẫn không có nhãn nào
+// (`SoatBanThao` đã nói đủ).
+assert.equal(nhanMucKiem(undefined), null);
+assert.equal(nhanMucKiem({}), null, "checklist chưa sửa tay — không nhãn");
+assert.equal(nhanMucKiem({ muc_kiem: "tong_quat" }), "Bản thảo tổng quát — chưa kiểm pháp lý");
+assert.equal(
+  nhanMucKiem({ muc_kiem: "tong_quat", sua_tay: true }),
+  "Đã sửa tay — chưa kiểm pháp lý",
+  "hạ cấp bằng sửa tay phải khác nhãn của một bản thảo tổng quát CHƯA sửa",
+);
+
+console.info("kiem-ban-thao: 13/13 đạt");

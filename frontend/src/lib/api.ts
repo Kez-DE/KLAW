@@ -326,6 +326,19 @@ export const dungLaiBanThao = (id: string, facts: Record<string, unknown>) =>
 export const xoaBanThao = (id: string) =>
   goi<null>(`/ban-thao/${encodeURIComponent(id)}`, laKhongThan, { method: "DELETE" });
 
+/**
+ * Sửa TAY một khối văn xuôi — Phase 3 (Half A, R1/R2). KHÁC HẲN
+ * `dungLaiBanThao`: route này KHÔNG gọi mô hình (không cần `HAN_GIO_TRA_CUU`,
+ * hạn giờ đọc mặc định là đủ), chỉ ghi lại đúng chữ người dùng vừa gõ vào
+ * đúng khối. `khoiIndex` là chỉ số khối HIỂN THỊ (`Muc.khoi`), không phải chỉ
+ * số nào khác — xem docstring `_ap_dung_khoi` phía backend.
+ */
+export const suaMucBanThao = (id: string, mucKey: string, khoiIndex: number, noiDung: string) =>
+  goi<BanThao>(`/ban-thao/${encodeURIComponent(id)}/muc`, laBanThao, {
+    method: "PATCH",
+    body: { muc_key: mucKey, khoi_index: khoiIndex, noi_dung: noiDung },
+  });
+
 /** Dựng query string, bỏ qua giá trị rỗng. Tham số lặp lại được (`loai`, `co_quan`). */
 export function thamSo(cap: [string, string | number | undefined | null][]): string {
   const ts = new URLSearchParams();
