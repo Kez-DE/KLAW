@@ -45,6 +45,14 @@ _SQL_LUOT = text(
 )
 _SQL_DOI_TEN = text("UPDATE hoi_thoai SET tieu_de = :tieu_de WHERE id = :id AND user_sub = :sub AND xoa_luc IS NULL")
 _SQL_XOA_MEM = text("UPDATE hoi_thoai SET xoa_luc = now() WHERE id = :id AND user_sub = :sub AND xoa_luc IS NULL")
+# Phase 6 (D10, R1): một bản thảo sống TRONG cuộc hội thoại của nó, nên xoá hội
+# thoại phải kéo theo xoá mềm bản thảo của chính hội thoại đó — cùng chủ, cùng
+# id — trong CÙNG transaction với `_SQL_XOA_MEM` (xem `xoa_mem`). Không đụng
+# `ban_thao.hoi_thoai_id IS NULL`: WHERE này đòi hỏi khớp `:id`, một dòng NULL
+# không bao giờ khớp.
+_SQL_XOA_BAN_THAO_CUA_PHIEN = text(
+    "UPDATE ban_thao SET xoa_luc = now() WHERE hoi_thoai_id = :id AND user_sub = :sub AND xoa_luc IS NULL"
+)
 
 _SQL_BO_NHO = text(
     "SELECT user_sub::text AS user_sub, tom_tat, tom_tat_den_thu_tu, ho_so, khong_ghi_nho"
@@ -175,8 +183,17 @@ def doi_ten(sub: str, id: str, tieu_de: str) -> dict | None:
 
 
 def xoa_mem(sub: str, id: str) -> bool:
+    """Xoá mềm phiên — VÀ mọi bản thảo (`ban_thao`) của chính phiên đó, cùng
+    một transaction (Phase 6, D10): một bản thảo sống TRONG cuộc hội thoại
+    của nó, nên xoá hội thoại mà không xoá theo để lại đúng thứ người dùng
+    tưởng đã bỏ. Chỉ chạm `ban_thao` khi CHÍNH lượt xoá phiên vừa thành công
+    (`n > 0`) — gọi lại trên một phiên đã xoá, hay phiên của người khác,
+    không được dọn thêm gì ngoài đúng phiên đang bị xoá."""
     with get_engine().begin() as c:
-        return c.execute(_SQL_XOA_MEM, {"sub": sub, "id": id}).rowcount > 0
+        n = c.execute(_SQL_XOA_MEM, {"sub": sub, "id": id}).rowcount
+        if n > 0:
+            c.execute(_SQL_XOA_BAN_THAO_CUA_PHIEN, {"sub": sub, "id": id})
+        return n > 0
 
 
 def bo_nho_cua_phien(id: str) -> dict:

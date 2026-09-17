@@ -310,6 +310,33 @@ async def test_khong_dang_nhap_401(client):
 
 
 @pytest.mark.asyncio
+async def test_xoa_hoi_thoai_an_ban_thao_khoi_danh_sach_va_404_chi_tiet(client, khoa_ky, hai_nguoi):
+    """Phase 6 (D10) — nhìn qua HTTP: `DELETE /hoi-thoai/{id}` phải kéo bản
+    thảo của CHÍNH hội thoại đó biến khỏi `GET /ban-thao` và làm
+    `GET /ban-thao/{id}` 404. Ba ca âm brief đòi buộc trong cùng một test:
+    bản thảo KHÔNG hội thoại vẫn hiện, bản thảo của một hội thoại KHÁC còn
+    sống không bị đụng."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+
+    pid_song = hoi_thoai.tao_phien(a, "đơn còn sống")
+    bt_song = ban_thao.tao(a, pid_song, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+    pid_xoa = hoi_thoai.tao_phien(a, "đơn sẽ xoá")
+    bt_mo_coi = ban_thao.tao(a, pid_xoa, "don_xin_nghi_viec", {"ho_ten": "B"}, KET)
+    bt_khong_hoi_thoai = ban_thao.tao(a, None, ban_thao.LOAI_TONG_QUAT, {}, KET_TONG_QUAT)
+
+    assert (await client.delete(f"/api/v1/hoi-thoai/{pid_xoa}", headers=ha)).status_code == 204
+
+    assert (await client.get(f"/api/v1/ban-thao/{bt_mo_coi['id']}", headers=ha)).status_code == 404
+    assert (await client.get(f"/api/v1/ban-thao/{bt_song['id']}", headers=ha)).status_code == 200
+    assert (await client.get(f"/api/v1/ban-thao/{bt_khong_hoi_thoai['id']}", headers=ha)).status_code == 200
+
+    d = (await client.get("/api/v1/ban-thao", headers=ha)).json()
+    assert d["tong"] == 2
+    assert {i["id"] for i in d["items"]} == {bt_song["id"], bt_khong_hoi_thoai["id"]}
+
+
+@pytest.mark.asyncio
 async def test_dung_tu_choi_khi_cham_tran_chi_phi_ngay(client, khoa_ky, hai_nguoi, graph_soan_thao_gia, monkeypatch):
     """`dung` chạy `draft_generate` trên model trả phí nhưng KHÔNG đếm vào hạn mức
     soạn thảo (spec §8.4), nên trần chi phí NGÀY là cổng cuối trước ví tiền — cùng

@@ -125,3 +125,61 @@ def test_lui_khong_tra_lai_lan_sua_da_dung(nguoi):
     sau = ban_thao.chi_tiet(nguoi, bt["id"])
     assert sau["phien_ban_truoc"] == [] and sau["phien_ban"] == 1
     assert sau["so_lan_sua"] == 3, "lùi KHÔNG được trả lại một lần sửa nào"
+
+
+# ═══ Phase 6 (D10) — một bản thảo chết theo cuộc hội thoại của nó ═══════════
+
+
+def test_xoa_hoi_thoai_xoa_mem_ban_thao_cung_luc(nguoi):
+    """R1: `hoi_thoai.xoa_mem` phải kéo theo xoá MỀM chính bản thảo của cuộc
+    hội thoại đó, cùng một transaction — không phải một bước dọn riêng có thể
+    quên. Bản thảo phải biến mất khỏi cả `chi_tiet` (⇒ `GET /ban-thao/{id}`
+    404) lẫn `danh_sach` (⇒ `GET /ban-thao`) NGAY sau lệnh xoá, không cần thêm
+    bước nào khác."""
+    pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
+    bt = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+
+    assert hoi_thoai.xoa_mem(nguoi, pid) is True
+
+    assert ban_thao.chi_tiet(nguoi, bt["id"]) is None
+    assert ban_thao.danh_sach(nguoi, 10, 0) == ([], 0)
+
+
+def test_xoa_hoi_thoai_khong_dung_ban_thao_khong_hoi_thoai_hoac_cua_phien_khac(nguoi):
+    """Ba ca âm brief đòi buộc: (1) bản thảo KHÔNG mang `hoi_thoai_id` không
+    phải mồ côi, vẫn phải hiện nguyên; (2) bản thảo của một hội thoại KHÁC còn
+    SỐNG không bị đụng khi một hội thoại khác bị xoá — phạm vi UPDATE không
+    được nới quá đúng cuộc hội thoại đang xoá."""
+    pid_song = hoi_thoai.tao_phien(nguoi, "đơn còn sống")
+    bt_song = ban_thao.tao(nguoi, pid_song, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+
+    pid_xoa = hoi_thoai.tao_phien(nguoi, "đơn sẽ xoá")
+    bt_mo_coi = ban_thao.tao(nguoi, pid_xoa, "don_xin_nghi_viec", {"ho_ten": "B"}, KET)
+
+    bt_khong_hoi_thoai = ban_thao.tao(nguoi, None, ban_thao.LOAI_TONG_QUAT, {}, KET)
+
+    assert hoi_thoai.xoa_mem(nguoi, pid_xoa) is True
+
+    assert ban_thao.chi_tiet(nguoi, bt_song["id"]) is not None, "hội thoại KHÁC còn sống — không bị đụng"
+    assert ban_thao.chi_tiet(nguoi, bt_khong_hoi_thoai["id"]) is not None, "không hội thoại nào — không phải mồ côi"
+    assert ban_thao.chi_tiet(nguoi, bt_mo_coi["id"]) is None, "bản thảo của hội thoại vừa xoá — phải biến mất"
+
+    ids_con_lai = {i["id"] for i in ban_thao.danh_sach(nguoi, 10, 0)[0]}
+    assert ids_con_lai == {bt_song["id"], bt_khong_hoi_thoai["id"]}
+
+
+def test_ban_thao_mo_coi_TU_TRUOC_van_bi_an_khong_can_backfill(nguoi):
+    """R4: một bản thảo mồ côi từ TRƯỚC bản vá này (hội thoại xoá mềm bằng một
+    đường KHÔNG PHẢI `hoi_thoai.xoa_mem` — giả lập bằng UPDATE thẳng, y hệt
+    "trước R1 tồn tại") vẫn phải bị ẩn. Đây là HỆ QUẢ của bộ lọc đọc ở R2
+    (`NOT EXISTS` trên `hoi_thoai.xoa_luc`), không phải một bước backfill dữ
+    liệu riêng — R2 không phân biệt được một hội thoại vừa bị xoá với một hội
+    thoại đã xoá từ trước khi bản vá này tồn tại, cả hai chỉ là một hàng
+    `hoi_thoai.xoa_luc IS NOT NULL`."""
+    pid = hoi_thoai.tao_phien(nguoi, "đơn cũ")
+    bt = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+    with get_engine().begin() as c:
+        c.execute(text("UPDATE hoi_thoai SET xoa_luc = now() WHERE id = CAST(:id AS uuid)"), {"id": pid})
+
+    assert ban_thao.chi_tiet(nguoi, bt["id"]) is None
+    assert ban_thao.danh_sach(nguoi, 10, 0) == ([], 0)

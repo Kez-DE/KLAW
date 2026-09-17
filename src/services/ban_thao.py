@@ -34,8 +34,17 @@ _SQL_TAO = text(
     " VALUES (CAST(:sub AS uuid), CAST(:pid AS uuid), :loai, CAST(:facts AS jsonb), :document,"
     " CAST(:clauses AS jsonb), CAST(:audit AS jsonb)) RETURNING " + _COT
 )
+# Phase 6 (D10, R2) — một bản thảo MỒ CÔI: `hoi_thoai_id` của nó trỏ tới một
+# hội thoại đã xoá mềm. `NOT EXISTS` (không phải JOIN) để không thêm một hàng
+# nào vào kết quả — `_COT` đã kéo `phien_ban_truoc` trên mọi dòng danh sách,
+# một JOIN chỉ cộng thêm chi phí mà không cộng thêm gì đúng, vì `hoi_thoai.id`
+# là khoá chính (chưa từng nhân dòng). `hoi_thoai_id IS NULL` (bản thảo CHƯA
+# TỪNG có hội thoại, `tao()` nhận `pid=None`) không khớp hàng `h` nào ⇒
+# NOT EXISTS luôn đúng ⇒ không bao giờ bị coi là mồ côi — đúng yêu cầu R2.
+_KHONG_MO_COI = "NOT EXISTS (SELECT 1 FROM hoi_thoai h WHERE h.id = ban_thao.hoi_thoai_id AND h.xoa_luc IS NOT NULL)"
 _SQL_LAY = text(
     f"SELECT {_COT} FROM ban_thao WHERE id = CAST(:id AS uuid) AND user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL"
+    f" AND {_KHONG_MO_COI}"
 )
 _SQL_SUA = text(
     "UPDATE ban_thao SET facts = CAST(:facts AS jsonb), document = :document, clauses = CAST(:clauses AS jsonb),"
@@ -44,10 +53,12 @@ _SQL_SUA = text(
     " WHERE id = CAST(:id AS uuid) AND user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL RETURNING " + _COT
 )
 _SQL_DS = text(
-    f"SELECT {_COT} FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL"
+    f"SELECT {_COT} FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL AND {_KHONG_MO_COI}"
     " ORDER BY cap_nhat_luc DESC LIMIT :limit OFFSET :offset"
 )
-_SQL_DEM = text("SELECT count(*)::int FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL")
+_SQL_DEM = text(
+    f"SELECT count(*)::int FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL AND {_KHONG_MO_COI}"
+)
 _SQL_MOI_NHAT = text(
     f"SELECT {_COT} FROM ban_thao WHERE user_sub = CAST(:sub AS uuid)"
     " AND hoi_thoai_id = CAST(:pid AS uuid) AND loai = :loai AND xoa_luc IS NULL"
