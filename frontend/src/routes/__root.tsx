@@ -12,6 +12,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TaiKhoanProvider } from "@/contexts/tai-khoan";
+import { TOAST_OFFSET_TREN } from "@/lib/toast";
 
 import appCss from "../styles.css?url";
 
@@ -244,8 +245,15 @@ function RootComponent() {
             toast chứ không phải nút). Composer luôn neo cuối cột chat, cột
             chat luôn ở CẠNH PHẢI màn hình (spec bố cục hai cột), nên góc dưới
             bên phải KHÔNG BAO GIỜ là chỗ an toàn cho một toast — đổi hẳn góc,
-            không chỉ nhích vị trí. */}
-        <Toaster position="top-center" />
+            không chỉ nhích vị trí.
+
+            `offset` (fix round 1): `top-center` mặc định (24px) nằm NGAY
+            TRONG header dính đỉnh của `AppShell` — đo lại trực tiếp sau khi
+            đổi vị trí, `elementFromPoint` tại tâm nút "Phiên" từng trả về
+            chính toast, không phải nút, đúng lỗi ban đầu lặp lại ở một góc
+            khác. `TOAST_OFFSET_TREN` (`lib/toast.ts`) đẩy toast xuống dưới
+            hết chiều cao header đã đo được, kèm biên an toàn. */}
+        <Toaster position="top-center" offset={{ top: TOAST_OFFSET_TREN }} />
       </TaiKhoanProvider>
     </QueryClientProvider>
   );
