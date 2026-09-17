@@ -91,9 +91,10 @@ async def chay_mot(ht: dict, sub: str) -> dict:
     payload: dict = {}
     for cau in ht["luot"]:
         req = TraCuuRequest(query=cau, **({"hoi_thoai_id": pid} if pid else {}))
-        req, pid, bn, soan_thao = await routes._chuan_bi_phien(req, sub)
+        req, pid, bn, soan_thao, tai_lieu_phien, ban_thao_tong_quat = await routes._chuan_bi_phien(req, sub)
         payload, _ = await routes.chay_tra_cuu(
-            req, sub, str(uuid.uuid4()), bo_nho=bn, hoi_thoai_id=pid, soan_thao=soan_thao
+            req, sub, str(uuid.uuid4()), bo_nho=bn, hoi_thoai_id=pid, soan_thao=soan_thao,
+            tai_lieu_phien=tai_lieu_phien, ban_thao_tong_quat=ban_thao_tong_quat,
         )
         hoi_thoai.ghi_luot(pid, cau, payload, None)
         bo_nho.cap_nhat_phien(pid, sub)
