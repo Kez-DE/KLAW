@@ -123,7 +123,14 @@ def da_dung_hom_nay(engine: Engine, user_sub: str) -> int:
                 "SELECT count(*) FROM viec_doc_tai_lieu "
                 "WHERE user_sub = :u AND tao_luc >= :m "
                 "AND (ly_do_hong IS NULL OR "
-                "(ly_do_hong <> 'vuot_tran_chi_phi' AND ly_do_hong NOT LIKE 'he_thong_%'))"
+                # `left(…, 9) <> 'he_thong_'` — KHÔNG `LIKE 'he_thong_%'` (fix
+                # round 3, task review): `_` trong LIKE là ký tự đại diện MỘT
+                # KÝ TỰ BẤT KỲ, không phải gạch dưới nghĩa đen, nên mẫu đó
+                # khớp rộng hơn tiền tố thật (vd "heXthongY..." cũng khớp).
+                # Vô hại hôm nay vì chưa có `ly_do_hong` nào mang hình dạng
+                # đó, nhưng là một bẫy cho lần thêm giá trị kế tiếp. `left()`
+                # so khớp CHUỖI, không có ký tự đại diện nào để hiểu lầm.
+                "(ly_do_hong <> 'vuot_tran_chi_phi' AND left(ly_do_hong, 9) <> 'he_thong_'))"
             ),
             {"u": user_sub, "m": moc_ngay()},
         ).scalar_one()
