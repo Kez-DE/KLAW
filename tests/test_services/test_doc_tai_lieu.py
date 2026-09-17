@@ -167,6 +167,27 @@ def test_DOCX_moi_o_bang_la_mot_don_vi_RIENG():
     assert [d.noi_dung for d in t.don_vi] == ["Muc luong", "20.000.000"]
 
 
+def test_DOCX_hang_rong_chu_van_ra_don_vi_rieng_tung_o():
+    """Phase 11 fix round 2 — một HÀNG toàn ô rỗng chữ (biểu mẫu để trống cho
+    người điền tay, đo thật trên BM.M05: bảng danh sách sinh viên có header
+    cộng 4 hàng trắng) vẫn phải ra ĐỦ số đơn vị — một đơn vị RỖNG CHỮ mỗi ô,
+    không bị bỏ qua như một đoạn văn rỗng. Bỏ qua ô rỗng ở đây làm
+    `hieu_tai_lieu._bang_theo_nhan` không còn dấu vết hàng đó tồn tại, và bảng
+    dựng lại mất sạch các hàng trắng — đúng lỗi round 2 báo cáo."""
+    than = _bang_luoi(
+        [1000, 1000, 1000],
+        [
+            [("A", None), ("B", None), ("C", None)],
+            [("", None), ("", None), ("", None)],
+        ],
+    )
+    t = doc("hd.docx", _docx(than))
+    # 3 ô hàng đầu (có chữ) + 3 ô hàng hai (rỗng chữ) = 6 đơn vị, giữ ĐÚNG
+    # toạ độ (bảng, hàng, cột) cho cả hàng rỗng.
+    hang_1 = [(d.bang, d.noi_dung) for d in t.don_vi if d.bang is not None and d.bang[1] == 1]
+    assert hang_1 == [((0, 1, 0), ""), ((0, 1, 1), ""), ((0, 1, 2), "")]
+
+
 def test_DOCX_giu_dau():
     t = doc("hd.docx", _docx(_p("Mức lương: 20.000.000 đồng/tháng")))
     assert t.don_vi[0].noi_dung == "Mức lương: 20.000.000 đồng/tháng"

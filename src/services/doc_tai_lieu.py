@@ -388,12 +388,21 @@ def _duyet_than(goc: ET.Element, theo_kieu: dict[str, str] | None = None) -> lis
                     nhip = _nhip_o(tc)
                     c = cot
                     cot += nhip
-                    if chu := " ".join(x for p in tc.iter(_P) if (x := _chu(p))):
-                        # Căn lề của Ô lấy từ ĐOẠN VĂN ĐẦU của chính ô đó — một
-                        # ô có thể có nhiều `w:p` lồng, nhưng căn lề hiển thị
-                        # là của dòng đầu tiên người đọc thấy.
-                        can_le = _can_le_doan(tc.find(_P), tk)
-                        ra.append((None, chu, None, "than", (so_bang, h, c), can_le, nhip, ti_le))
+                    # Phase 11 fix round 2 — GIỮ ô rỗng chữ, không bỏ qua như
+                    # một đoạn văn rỗng. Một phiếu TRẮNG (biểu mẫu để trống
+                    # cho người điền tay) có những HÀNG toàn ô rỗng — bỏ qua
+                    # chúng thì `don_vi` không còn dấu vết những hàng đó tồn
+                    # tại, và `hieu_tai_lieu._bang_theo_nhan` dựng lại bảng chỉ
+                    # thấy đúng hàng tiêu đề (đo được thật: 5 hàng nguồn, 1
+                    # hàng dựng lại). Ô rỗng CŨNG là ý nghĩa của biểu mẫu —
+                    # cùng nguyên tắc dấu chấm điền của một dòng trường tự do,
+                    # chỉ khác hình dạng (một Ô thay vì một cụm ký tự).
+                    chu = " ".join(x for p in tc.iter(_P) if (x := _chu(p)))
+                    # Căn lề của Ô lấy từ ĐOẠN VĂN ĐẦU của chính ô đó — một
+                    # ô có thể có nhiều `w:p` lồng, nhưng căn lề hiển thị
+                    # là của dòng đầu tiên người đọc thấy.
+                    can_le = _can_le_doan(tc.find(_P), tk)
+                    ra.append((None, chu, None, "than", (so_bang, h, c), can_le, nhip, ti_le))
             so_bang += 1
     return ra
 
