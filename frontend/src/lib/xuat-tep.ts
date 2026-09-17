@@ -537,62 +537,302 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
   taiBlob(blob, `${tenTepAnToan(tieuDe)}.docx`);
 }
 
-/** Nhân bản khung A4 ở tỉ lệ 100% (bỏ zoom) để chụp ảnh trung thực. */
-function nhanBanKhung(sheet: HTMLElement) {
-  const hoi = document.createElement("div");
-  hoi.style.cssText =
-    "position:fixed;left:-10000px;top:0;width:794px;background:#fff;z-index:-1;pointer-events:none;";
-  const ban = sheet.cloneNode(true) as HTMLElement;
-  ban.style.transform = "none";
-  ban.style.boxShadow = "none";
-  ban.style.margin = "0";
-  // Khung xem trước là một hộp cao đúng một trang A4 (`aspect-[210/297]`) và
-  // CUỘN phần thừa. `html2canvas` chụp đúng cái hộp đó, nên bản sao phải cao
-  // theo nội dung — nếu không, vòng cắt trang bên dưới luôn chỉ có một trang
-  // ảnh để cắt và tệp PDF cụt ở trang 1 (tệp Word không dính vì nó đọc DOM).
-  ban.style.height = "auto";
-  ban.style.overflow = "visible";
-  hoi.appendChild(ban);
-  document.body.appendChild(hoi);
-  return { hoi, ban };
+/**
+ * Phase 5 — PDF vẽ bằng API văn bản của jsPDF (`text`/`splitTextToSize`),
+ * không còn `html2canvas` chụp khung xem trước ra ảnh: chữ trong tệp tải về
+ * giờ CHỌN/COPY/TÌM được, và không còn trần 30 trang giả (`nhanBanKhung` +
+ * vòng cắt ảnh cũ đã bỏ hẳn). `noiDungThanhPDF` vẽ từ ĐÚNG `docNoiDungTuDOM`
+ * đọc được — nguồn sự thật DUY NHẤT, giống `.docx` (`xuatWord`) đã dùng.
+ */
+
+/** 1pt = 25.4/72 mm — đổi cỡ chữ (pt, đơn vị `setFontSize` của jsPDF) sang mm
+ * (đơn vị tài liệu, `unit: "mm"`). */
+const MM_MOI_PT = 25.4 / 72;
+
+/** Lề trang PDF — khớp NGUYÊN `xuatWord` (trên/dưới 20mm, trái 30mm, phải
+ * 20mm): R4 nói hai tệp chỉ nên khác nhau ở font, không khác ở bố cục. */
+const LE_PDF = { tren: 20, duoi: 20, trai: 30, phai: 20 };
+const RONG_A4 = 210;
+const CAO_A4 = 297;
+const RONG_NOI_DUNG_PDF = RONG_A4 - LE_PDF.trai - LE_PDF.phai;
+
+/**
+ * Hệ số giãn dòng, truyền NGUYÊN vào `options.lineHeightFactor` của mọi lệnh
+ * `text()` đa dòng bên dưới — jsPDF tự tính bước nhảy dòng nội bộ là
+ * `activeFontSize * lineHeightFactor` với `activeFontSize` đã quy đổi sang mm
+ * (xem `setFontSize` trong `jspdf`), tức CÙNG công thức `coChuPt(...) *
+ * MM_MOI_PT * HE_SO_DONG_PDF` mà `caoDongPt` dùng để cộng dồn `y` thủ công.
+ * Lệch hệ số này ở một trong hai chỗ là chữ dòng sau đè lên dòng trước.
+ */
+const HE_SO_DONG_PDF = 1.3;
+
+/** Khoảng cách sau một đoạn — khớp `xuatWord`: `spacing.after: 120` (twip,
+ * 1/20pt) = 6pt. */
+const SAU_DOAN_PDF = 6 * MM_MOI_PT;
+
+/** Cỡ chữ (pt) theo loại dòng — khớp NGUYÊN bảng size của `xuatWord.para`
+ * (32/28/26 nửa-điểm = 16/14/13pt): ba định dạng (màn hình, .docx, .pdf) giữ
+ * cùng phân cấp tiêu đề/điều/thường, chỉ khác font (R4). */
+function coChuPt(kieu: KieuDong): number {
+  return kieu === "tieuDe" ? 16 : kieu === "dieu" ? 14 : 13;
 }
 
-/** Xuất tệp PDF khổ A4 nhiều trang từ khung xem trước. */
-export async function xuatPDF(sheet: HTMLElement, tieuDe: string) {
-  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-    import("html2canvas-pro"),
-    import("jspdf"),
-  ]);
+function caoDongPt(kieu: KieuDong): number {
+  return coChuPt(kieu) * MM_MOI_PT * HE_SO_DONG_PDF;
+}
 
-  const { hoi, ban } = nhanBanKhung(sheet);
-  try {
-    const canvas = await html2canvas(ban, {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-      logging: false,
+/** Kiểu chữ (một trong bốn tên `setFont` chấp nhận) từ cờ đậm/nghiêng của một
+ * dòng đã đọc từ DOM. */
+function kieuChuPDF(d: DongVanBan): "normal" | "bold" | "italic" | "bolditalic" {
+  if (d.inDam && d.inNghieng) return "bolditalic";
+  if (d.inDam) return "bold";
+  if (d.inNghieng) return "italic";
+  return "normal";
+}
+
+const HO_CHU_PDF = "SourceSerif4";
+
+/**
+ * Bytes base64 của hai tệp TTF nhúng cho PDF (thường/đậm) — xem
+ * `taiPhongChuPDF` (đường trình duyệt, `fetch` từ `public/fonts/`) và
+ * `kiem-xuat-tep.ts` (đường Node, đọc thẳng từ đĩa). Cả hai đổ vào MỘT hàm
+ * dựng PDF thuần (`noiDungThanhPDF`, không đụng DOM/`fetch`) để kiểm được từ
+ * Node — không cần trình duyệt hay `jsdom`.
+ *
+ * Nguồn (Phase 5 R2): hai tệp `.ttf` này KHÔNG tải font mới nào — chúng được
+ * đúc lại từ CHÍNH ba tệp webfont đã tự host, đã có trong kho TRƯỚC Phase 5:
+ * `public/fonts/source-serif-4-var-{latin,latin-ext,vietnamese}.woff2`
+ * (Source Serif 4, biến thiên, cấp phép OFL 1.1 — SIL Open Font License).
+ * jsPDF (`addFileToVFS`/`addFont`) chỉ nhận TTF tĩnh, không nhận woff2 biến
+ * thiên, nên ba tệp trên được, ngoại tuyến, một lần: (1) giải nén woff2→ttf
+ * bằng `fontTools`, (2) đúc mỗi tệp thành hai lát cắt TĨNH 400/700 bằng
+ * `fontTools.varLib.instancer` (font nguồn chỉ có trục `wght`), (3) GỘP ba
+ * tập ký tự la-tinh cơ bản + la-tinh mở rộng + tiếng Việt mỗi lát cắt bằng
+ * `fontTools.merge` — vì tệp con `-vietnamese.woff2` một mình CHỈ có 115 mã,
+ * thiếu gần hết chữ cái/số/dấu câu cơ bản (đã đo: chỉ 'A'/'B' sống sót làm
+ * .notdef dự phòng). Không có bước nào lấy nội dung font từ nguồn ngoài kho.
+ * Font nguồn không có lát cắt nghiêng — xem ghi chú tại `dangKyPhongChuPDF`.
+ */
+export type PhongChuPDF = { thuong: string; dam: string };
+
+type JsPDFModule = typeof import("jspdf");
+type JsPDF = InstanceType<JsPDFModule["jsPDF"]>;
+
+function dangKyPhongChuPDF(pdf: JsPDF, phongChu: PhongChuPDF) {
+  pdf.addFileToVFS("SourceSerif4-Regular.ttf", phongChu.thuong);
+  pdf.addFont("SourceSerif4-Regular.ttf", HO_CHU_PDF, "normal");
+  pdf.addFileToVFS("SourceSerif4-Bold.ttf", phongChu.dam);
+  pdf.addFont("SourceSerif4-Bold.ttf", HO_CHU_PDF, "bold");
+  // Font nguồn chỉ đúc từ trục wght, không có trục nghiêng — đăng ký
+  // "italic"/"bolditalic" TRỎ VÀO tệp đứng, để jsPDF không rơi về font mặc
+  // định (Helvetica, không có dấu tiếng Việt) khi gặp một dòng nghiêng như
+  // chú thích chữ ký "(Ký, ghi rõ họ tên, đóng dấu)". Đổi lại dòng đó hiện
+  // THẲNG ĐỨNG thay vì nghiêng — mất dấu tiếng Việt là lỗi brief cấm (R2),
+  // mất độ nghiêng thì không.
+  pdf.addFont("SourceSerif4-Regular.ttf", HO_CHU_PDF, "italic");
+  pdf.addFont("SourceSerif4-Bold.ttf", HO_CHU_PDF, "bolditalic");
+  pdf.setFont(HO_CHU_PDF, "normal");
+}
+
+/**
+ * Dựng PDF THẬT từ `{ khoi, oKy }` (Phase 5 R1) — hàm THUẦN: không đụng DOM,
+ * không `fetch`, nhận bytes phông chữ qua tham số, để `kiem-xuat-tep.ts` gọi
+ * được thẳng từ Node.
+ *
+ * Trả thêm `trangCuaKhoi`/`trangCuaKy` — số trang (1-based, tính từ lúc BẮT
+ * ĐẦU vẽ khối đó) — CHỈ để kiểm luật phân trang (R3) mà không phải bóc PDF
+ * nhị phân ra suy ngược trang của một khối.
+ */
+export async function noiDungThanhPDF(
+  noiDung: NoiDungXuat,
+  tieuDe: string,
+  phongChu: PhongChuPDF,
+): Promise<{ pdf: JsPDF; trangCuaKhoi: number[]; trangCuaKy: number | null }> {
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ unit: "mm", format: "a4", compress: true });
+  dangKyPhongChuPDF(pdf, phongChu);
+
+  let y = LE_PDF.tren;
+  let trang = 1;
+
+  const conCho = (can: number) => y + can <= CAO_A4 - LE_PDF.duoi;
+  const trangMoi = () => {
+    pdf.addPage();
+    trang += 1;
+    y = LE_PDF.tren;
+  };
+
+  /** Một dòng (đoạn/tiêu đề) — trả về số trang đã vẽ lên. */
+  const veDong = (d: DongVanBan, conKhoiSau: boolean): number => {
+    pdf.setFont(HO_CHU_PDF, kieuChuPDF(d));
+    pdf.setFontSize(coChuPt(d.kieu));
+    const thutLeMm = d.canhGiua || d.thutLe <= 0 ? 0 : d.thutLe / 3.78;
+    const rong = RONG_NOI_DUNG_PDF - thutLeMm;
+    const dong = pdf.splitTextToSize(d.text, rong) as string[];
+    const cao = dong.length * caoDongPt(d.kieu);
+
+    // Luật mồ côi (R3): một tiêu đề (kieu tieuDe/dieu) không bao giờ là thứ
+    // CUỐI CÙNG trên trang. Còn khối nào sau nó (kể cả khối ký) thì phải còn
+    // đủ chỗ cho tiêu đề VÀ ít nhất một dòng thường nữa mới vẽ tại đây; không
+    // thì sang trang mới rồi vẽ tiêu đề ở đầu trang đó.
+    const laTieuDe = d.kieu === "tieuDe" || d.kieu === "dieu";
+    const canThem = laTieuDe && conKhoiSau ? cao + caoDongPt("thuong") : cao;
+    if (!conCho(canThem)) trangMoi();
+
+    const x = d.canhGiua ? LE_PDF.trai + RONG_NOI_DUNG_PDF / 2 : LE_PDF.trai + thutLeMm;
+    pdf.text(dong, x, y + coChuPt(d.kieu) * MM_MOI_PT, {
+      align: d.canhGiua ? "center" : "justify",
+      maxWidth: rong,
+      lineHeightFactor: HE_SO_DONG_PDF,
     });
+    y += cao + SAU_DOAN_PDF;
+    return trang;
+  };
 
-    const pdf = new jsPDF({ unit: "mm", format: "a4", compress: true });
-    const rongTrang = 210;
-    const caoTrang = 297;
-    const caoAnh = (canvas.height * rongTrang) / canvas.width;
+  const DEM_O_PDF = 1.5; // mm, đệm trong một ô bảng
+  const CO_CHU_BANG_PDF = 12; // pt, khớp `bangThanhTable` (`size: 24` nửa-điểm)
 
-    let daVe = 0;
-    let trang = 0;
-    while (daVe < caoAnh - 0.5) {
-      if (trang > 0) pdf.addPage();
-      pdf.addImage(canvas.toDataURL("image/jpeg", 0.94), "JPEG", 0, -daVe, rongTrang, caoAnh);
-      daVe += caoTrang;
-      trang += 1;
-      if (trang > 30) break;
+  /** Một bảng — trả về số trang đã BẮT ĐẦU vẽ (hàng tiêu đề của nó). */
+  const veBang = (hang: string[][]): number => {
+    const soCotTieuDe = hang[0]?.length ?? 0;
+    if (soCotTieuDe === 0) return trang;
+    const rongCot = RONG_NOI_DUNG_PDF / soCotTieuDe;
+    let trangBatDau: number | null = null;
+
+    for (let hi = 0; hi < hang.length; hi++) {
+      const o = hang[hi]!;
+      // `coSpanHang` — CÙNG luật ô gộp dùng cho màn hình (`XemTruocA4`) và
+      // `.docx` (`bangThanhTable`): ô cuối luôn ở cột cuối, ô liền trước gánh
+      // phần cột còn thiếu. Ba nơi vẽ bảng, MỘT luật đặt cột.
+      const span = coSpanHang(o.length, soCotTieuDe);
+      pdf.setFont(HO_CHU_PDF, hi === 0 ? "bold" : "normal");
+      pdf.setFontSize(CO_CHU_BANG_PDF);
+      const dongO = o.map((c, oi) => {
+        const cot = span[oi] ?? 1;
+        return pdf.splitTextToSize(c, rongCot * cot - 2 * DEM_O_PDF) as string[];
+      });
+      const soDongToiDa = dongO.reduce((max, d) => Math.max(max, d.length), 1);
+      const caoHang = soDongToiDa * (CO_CHU_BANG_PDF * MM_MOI_PT * HE_SO_DONG_PDF) + 2 * DEM_O_PDF;
+
+      if (!conCho(caoHang)) trangMoi();
+      trangBatDau ??= trang;
+
+      if (hi === 0) {
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(LE_PDF.trai, y, RONG_NOI_DUNG_PDF, caoHang, "F");
+      }
+      pdf.setDrawColor(153, 153, 153);
+      let xO = LE_PDF.trai;
+      for (let oi = 0; oi < o.length; oi++) {
+        const cot = span[oi] ?? 1;
+        const rongO = rongCot * cot;
+        pdf.rect(xO, y, rongO, caoHang);
+        pdf.text(dongO[oi]!, xO + rongO / 2, y + DEM_O_PDF + CO_CHU_BANG_PDF * MM_MOI_PT, {
+          align: "center",
+          maxWidth: rongO - 2 * DEM_O_PDF,
+          lineHeightFactor: HE_SO_DONG_PDF,
+        });
+        xO += rongO;
+      }
+      y += caoHang;
     }
+    y += SAU_DOAN_PDF;
+    return trangBatDau ?? trang;
+  };
 
-    pdf.setProperties({ title: tieuDe, creator: "KLAW" });
-    taiBlob(pdf.output("blob"), `${tenTepAnToan(tieuDe)}.pdf`);
-  } finally {
-    hoi.remove();
+  const trangCuaKhoi: number[] = noiDung.khoi.map((k, i) => {
+    const conKhoiSau = i < noiDung.khoi.length - 1 || noiDung.oKy.length > 0;
+    return k.kind === "dong" ? veDong(k.d, conKhoiSau) : veBang(k.hang);
+  });
+
+  let trangCuaKy: number | null = null;
+  if (noiDung.oKy.length > 0) {
+    const soCot = noiDung.oKy.length;
+    const rongCot = RONG_NOI_DUNG_PDF / soCot;
+    // Khớp `xuatWord`: `spacing.before: 1200` twip trước dòng ký cuối (chỗ
+    // trống để ký tay), `spacing.after: 80` twip giữa các dòng còn lại.
+    const KHOANG_KY = (1200 / 20) * MM_MOI_PT;
+    const SAU_DONG_KY = (80 / 20) * MM_MOI_PT;
+
+    const caoCot = (cot: DongVanBan[]) => {
+      let cao = 0;
+      cot.forEach((d, i) => {
+        pdf.setFontSize(coChuPt(d.kieu));
+        const dong = pdf.splitTextToSize(d.text, rongCot) as string[];
+        if (i === cot.length - 1) cao += KHOANG_KY;
+        cao += dong.length * caoDongPt(d.kieu);
+        if (i < cot.length - 1) cao += SAU_DONG_KY;
+      });
+      return cao;
+    };
+    const caoKhoiKy = noiDung.oKy.reduce((max, cot) => Math.max(max, caoCot(cot)), 0);
+
+    // Luật khối ký nguyên vẹn (R3): không đủ chỗ cho CẢ khối trên trang hiện
+    // tại thì sang trang MỚI rồi vẽ trọn — không chẻ khối ký như một khối
+    // văn bản thường.
+    if (!conCho(caoKhoiKy)) trangMoi();
+    trangCuaKy = trang;
+
+    const yBatDau = y;
+    noiDung.oKy.forEach((cot, ci) => {
+      let yc = yBatDau;
+      const xTam = LE_PDF.trai + rongCot * ci + rongCot / 2;
+      cot.forEach((d, i) => {
+        pdf.setFont(HO_CHU_PDF, kieuChuPDF(d));
+        pdf.setFontSize(coChuPt(d.kieu));
+        if (i === cot.length - 1) yc += KHOANG_KY;
+        const dong = pdf.splitTextToSize(d.text, rongCot) as string[];
+        pdf.text(dong, xTam, yc + coChuPt(d.kieu) * MM_MOI_PT, {
+          align: "center",
+          maxWidth: rongCot,
+          lineHeightFactor: HE_SO_DONG_PDF,
+        });
+        yc += dong.length * caoDongPt(d.kieu);
+        if (i < cot.length - 1) yc += SAU_DONG_KY;
+      });
+    });
+    y = yBatDau + caoKhoiKy;
   }
+
+  return { pdf, trangCuaKhoi, trangCuaKy };
+}
+
+const TEP_PHONG_CHU_PDF = {
+  thuong: "/fonts/source-serif-4-pdf-regular.ttf",
+  dam: "/fonts/source-serif-4-pdf-bold.ttf",
+};
+
+/** `ArrayBuffer` → base64 — định dạng `addFileToVFS` của jsPDF đòi (nó tự
+ * `atob()` chuỗi này rồi mới đọc TTF, xem module `ttfsupport` trong `jspdf`). */
+function base64TuBytes(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let nhiPhan = "";
+  for (const b of bytes) nhiPhan += String.fromCharCode(b);
+  return btoa(nhiPhan);
+}
+
+/** Tải hai tệp TTF nhúng (Phase 5 R2) từ `public/fonts/` — CHỈ gọi bên trong
+ * `xuatPDF`, không import tĩnh, để hai tệp ~105KB này không vào bundle chính. */
+async function taiPhongChuPDF(): Promise<PhongChuPDF> {
+  const [thuong, dam] = await Promise.all([
+    fetch(TEP_PHONG_CHU_PDF.thuong).then((r) => r.arrayBuffer()),
+    fetch(TEP_PHONG_CHU_PDF.dam).then((r) => r.arrayBuffer()),
+  ]);
+  return { thuong: base64TuBytes(thuong), dam: base64TuBytes(dam) };
+}
+
+/**
+ * Xuất tệp PDF khổ A4 nhiều trang có LỚP CHỮ THẬT (Phase 5) — chọn/copy/tìm
+ * được, đọc được bằng trình đọc màn hình. Không còn chụp ảnh khung xem trước
+ * (`html2canvas`) và không còn trần trang giả — một tài liệu dài ra bao
+ * nhiêu trang thì cần bấy nhiêu (R3).
+ */
+export async function xuatPDF(sheet: HTMLElement, tieuDe: string) {
+  const noiDung = docNoiDungTuDOM(sheet);
+  const phongChu = await taiPhongChuPDF();
+  const { pdf } = await noiDungThanhPDF(noiDung, tieuDe, phongChu);
+  pdf.setProperties({ title: tieuDe, creator: "KLAW" });
+  taiBlob(pdf.output("blob"), `${tenTepAnToan(tieuDe)}.pdf`);
 }
 
 /** Toàn văn dạng text thuần, dùng cho chức năng sao chép. */
