@@ -44,12 +44,18 @@ def _khoi_thanh_van_ban(khoi: list[dict]) -> str:
     của bản thảo) có gì đó để hiện — `document` KHÔNG có nơi đọc nào, backend
     lẫn frontend (Phase 7 concern #4, vẫn đúng ở Phase 8): panel render từ
     `clauses` (D6), và hàm này chỉ giữ cho `ban_thao._render_markdown` không
-    nổ `KeyError` trên một `clauses` không còn `noi_dung` cấp mục nữa."""
+    nổ `KeyError` trên một `clauses` không còn `noi_dung` cấp mục nữa.
+
+    HAI điều kiện ĐỘC LẬP (review round 1 [IMPORTANT]), không `elif`: một khối
+    lẽ ra chỉ có MỘT trong hai (`hieu_tai_lieu._khoi_sach` tách khối nào có cả
+    hai từ Phase 8 fix round 1 trở đi), nhưng hàm này không được TIN điều đó —
+    một khối vẫn có cả hai (hàng cũ, hoặc gọi trực tiếp ngoài đường đó) thì
+    phải giữ cả hai, không được âm thầm bỏ một bên như `elif` từng làm."""
     phan = []
     for k in khoi:
         if k.get("noi_dung"):
             phan.append(k["noi_dung"])
-        elif k.get("bang"):
+        if k.get("bang"):
             phan.append("\n".join(" | ".join(hang) for hang in k["bang"]))
     return "\n\n".join(phan)
 

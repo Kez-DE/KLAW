@@ -276,30 +276,72 @@ def test_hang_ngan_hon_tieu_de_di_qua_nguyen_khong_bi_dem():
     assert van_ban["muc"][0]["khoi"][0]["bang"][2] == ["Tổng", "10"]
 
 
-def test_o_rong_o_cuoi_hang_bi_cat_khong_dem_thanh_du_cot():
-    """Phase 8 R4, đo thật 2026-09-17 (BM.ĐT.18.11 qua model thật) — dù rule 15
-    dặn đừng đệm, mô hình vẫn trả `["Tổng", "10", "", ""]` cho một hàng nguồn
-    chỉ có 2 ô gộp. Để nguyên thì `coSpanHang` phía đọc coi đây là hàng ĐỦ 4
-    cột và không gộp ô nào — "10" hiện dưới cột "Điểm tối đa" thay vì cột cuối
-    "Điểm đánh giá" như tài liệu gốc. Cắt ô RỖNG Ở CUỐI đưa hàng về đúng 2 ô
-    thật, cho `coSpanHang` cơ hội gộp đúng cột."""
+def test_hang_du_cot_voi_o_cuoi_rong_khong_bi_cat():
+    """Review round 1 [CRITICAL] — một hàng ĐỦ 4 cột (khớp hàng tiêu đề) mà ô
+    CUỐI để trống vì bản thân tiêu chí đó CHƯA CHẤM (không phải ô gộp) phải
+    giữ ĐỦ 4 ô, không bị cắt xuống 3 rồi bị `coSpanHang` phía đọc hiểu nhầm là
+    một hàng gộp — đúng ca một phiếu ĐANG CHỜ ĐIỀN có cả cột "Điểm đánh giá"
+    để trống, phổ biến hơn hàng "Tổng" thật sự gộp. Một bản trước của
+    `_bang_sach` cắt ô rỗng ở cuối để sửa ca mô hình đệm dư hàng "Tổng" — sửa
+    đó bị BỎ vì nó không phân biệt được ca này với ca kia (xem docstring
+    `_bang_sach`); hàng ngắn do mô hình đệm dư (không phải gộp thật) vẫn có
+    thể hiện sai cột — hạn chế đã ghi trong báo cáo, không phải lỗi có thể
+    sửa an toàn ở tầng này."""
     bang = [
         ["TT", "Tiêu chí đánh giá", "Điểm tối đa", "Điểm đánh giá"],
-        ["1", "Ý thức chấp hành nội quy", "2,0", "2,0"],
-        ["Tổng", "10", "", ""],
+        ["1", "Ý thức tốt", "2,0", ""],
     ]
-    van_ban, _ = _sach(
-        [_muc("Đánh giá", bang=bang)], nguon="1 Ý thức chấp hành nội quy 2,0 2,0 Tổng 10"
-    )
-    assert van_ban["muc"][0]["khoi"][0]["bang"][2] == ["Tổng", "10"]
+    van_ban, _ = _sach([_muc("Đánh giá", bang=bang)], nguon="1 Ý thức tốt 2,0")
+    assert van_ban["muc"][0]["khoi"][0]["bang"][1] == ["1", "Ý thức tốt", "2,0", ""]
 
 
-def test_o_rong_o_giua_hang_khong_bi_cat():
-    """Chỉ cắt ô RỖNG Ở CUỐI — một ô rỗng ở GIỮA hàng có thể là nội dung thật
-    của tài liệu (một trường tài liệu để trống), không phải phần đệm."""
-    bang = [["TT", "Tên", "Ghi chú"], ["1", "", "Đạt"]]
-    van_ban, _ = _sach([_muc("Đánh giá", bang=bang)], nguon="1 Đạt")
-    assert van_ban["muc"][0]["khoi"][0]["bang"][1] == ["1", "", "Đạt"]
+def test_hang_trang_toan_o_rong_khong_bi_cat_ve_rong():
+    """Review round 1 [CRITICAL], hệ quả thứ hai của phép cắt đã bỏ — một hàng
+    ĐỦ cột mà TOÀN BỘ là ô rỗng (một hàng ngăn cách/để trống có chủ đích trong
+    biểu mẫu) không bị cắt trụi về `[]`; nó vẫn là một hàng 3 ô rỗng."""
+    bang = [["A", "B", "C"], ["", "", ""]]
+    van_ban, _ = _sach([_muc("Đánh giá", bang=bang)], nguon="x")
+    assert van_ban["muc"][0]["khoi"][0]["bang"][1] == ["", "", ""]
+
+
+def test_khoi_ca_hai_khac_rong_bi_tach_thanh_hai_khoi():
+    """Review round 1 [IMPORTANT] — một khối thô có CẢ `noi_dung` lẫn `bang`
+    khác rỗng (rule 15 chỉ XIN, schema không ép "một trong hai") bị TÁCH thành
+    HAI khối sạch, văn xuôi TRƯỚC rồi bảng — không phía nào phải tự chọn ưu
+    tiên và bỏ mất nội dung còn lại, đúng lỗi hai phía đọc (`_khoi_thanh_van_ban`
+    và `xuat-tep.ts::khoiMotHopLe`) từng chọn ngược nhau."""
+    muc = {
+        "ten": "Đánh giá",
+        "vung": "than",
+        "khoi": [{"noi_dung": "Kết quả chấm điểm như sau:", "bang": BANG_HOP_LE}],
+    }
+    van_ban, _ = _sach([muc], nguon=NGUON_BANG)
+    khoi = van_ban["muc"][0]["khoi"]
+    assert len(khoi) == 2
+    assert khoi[0] == {"noi_dung": "Kết quả chấm điểm như sau:", "bang": []}
+    assert khoi[1] == {"noi_dung": "", "bang": BANG_HOP_LE}
+
+
+def test_letterhead_hai_cot_song_sot_nhu_bang():
+    """Brief "Proof required" — chưa có test nào khoá riêng cho ca letterhead
+    hai cột (đo thật trên BM.M05, `.sdd/phase-8-bm05-verbose.json`): một bảng
+    KHÔNG viền, hàng đầu đủ 2 cột (tên đơn vị / quốc hiệu), hàng hai chỉ 1 ô
+    gộp cả hai cột (tên cơ quan + số hiệu). Phải sống sót NGUYÊN dạng bảng —
+    không bị dẹt thành các dòng văn xuôi đứng riêng — và hàng gộp giữ ĐÚNG 1 ô,
+    không bị đệm hay cắt."""
+    letterhead = [
+        [
+            "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
+            "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
+        ],
+        ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
+    ]
+    nguon = " ".join(o for hang in letterhead for o in hang)
+    van_ban, _ = _sach([_muc("Đầu trang", bang=letterhead)], nguon=nguon)
+    khoi = van_ban["muc"][0]["khoi"][0]
+    assert khoi["noi_dung"] == "", "letterhead không lẫn vào văn xuôi"
+    assert len(khoi["bang"]) == 2 and len(khoi["bang"][0]) == 2, "hàng đầu giữ đúng 2 cột"
+    assert khoi["bang"] == letterhead, "sống sót NGUYÊN dạng bảng, không dẹt thành dòng"
 
 
 # ─────────────────────────────────────────── node hieu_tai_lieu phát `van_ban`

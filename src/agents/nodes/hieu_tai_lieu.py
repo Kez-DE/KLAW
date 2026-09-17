@@ -622,32 +622,44 @@ def lam_sach_van_ban(van_ban: dict, nguon: str) -> tuple[dict, dict]:
         không phải mảng thì bị BỎ (không nổ cả mục vì một hàng sai hình dạng).
 
         Hàng NGẮN hơn hàng tiêu đề (Phase 8 R4, ô gộp trong tài liệu nguồn) đi
-        qua NGUYÊN — không đệm, không cắt; số ô ít hơn là tín hiệu thật, không
-        phải lỗi hình dạng. **Đo được 2026-09-17** (BM.ĐT.18.11, hàng "Tổng"):
-        rule 15 dặn mô hình đừng đệm, nhưng mô hình vẫn đôi khi trả về
-        `["Tổng", "10", "", ""]` — 4 ô cho một hàng nguồn chỉ có 2 ô gộp. Ô
-        rỗng ở CUỐI hàng đó không phải một nội dung mà là chỗ đệm để đủ số cột;
-        để nguyên thì `coSpanHang` (phía đọc) coi đây là một hàng ĐỦ cột và
-        không gộp ô — "10" hiện đúng ngay dưới cột "Điểm tối đa" thay vì cột
-        cuối "Điểm đánh giá" như tài liệu gốc. Cắt các ô RỖNG Ở CUỐI (không
-        đụng ô rỗng ở giữa/đầu — đó có thể là nội dung thật của tài liệu) đưa
-        hàng về đúng số ô THẬT, cho `coSpanHang` một cơ hội gộp đúng."""
+        qua NGUYÊN — không đệm, không cắt.
+
+        **Review round 1 [CRITICAL], KHÔNG cắt ô rỗng ở cuối hàng — đã thử và
+        bị bỏ.** Một bản trước của hàm này cắt các ô rỗng Ở CUỐI, để sửa ca đo
+        được trên BM.ĐT.18.11 (mô hình trả `["Tổng", "10", "", ""]` cho một
+        hàng nguồn chỉ có 2 ô gộp). Nhưng phép cắt đó không phân biệt được
+        "hàng bị mô hình đệm dư" với "hàng ĐỦ cột, ô cuối trống vì bản thân
+        tài liệu để trống ô đó" — một phiếu ĐANG CHỜ ĐIỀN có đúng hình dạng
+        thứ hai ở khắp nơi (ví dụ một cột "Điểm đánh giá" toàn ô trống). Cắt
+        nhầm biến một hàng ĐỦ cột, không hề gộp, thành một hàng NGẮN — rồi
+        `coSpanHang` (phía đọc) gộp nhầm ô liền trước sang cột kế, cùng lỗi
+        R4 cấm nhưng do CHÍNH bản vá gây ra, không phải do mô hình. Không có
+        thông tin nào ở tầng này (một hàng, đứng riêng) đủ để phân biệt hai
+        ca — độ dài hàng tiêu đề không nói cho biết ô cuối trống vì gộp hay
+        vì để trống. Chấp nhận: hàng ngắn do mô hình đệm dư mà KHÔNG cắt được
+        vẫn hiện sai cột — một hạn chế của việc dựa vào lời dặn prompt, không
+        phải một lỗi có thể sửa an toàn ở tầng làm sạch này."""
         if not isinstance(bang_tho, list):
             return []
-        ra = []
-        for hang in bang_tho:
-            if not isinstance(hang, list):
-                continue
-            sach = [_sach(str(o).strip()) for o in hang]
-            while sach and sach[-1] == "":
-                sach.pop()
-            ra.append(sach)
-        return ra
+        return [[_sach(str(o).strip()) for o in hang] for hang in bang_tho if isinstance(hang, list)]
 
     def _khoi_sach(khoi_tho) -> list[dict]:
         """`khoi` thô (Phase 8 R1) → khối đã làm sạch, bỏ khối nào RỖNG CẢ HAI
         sau khi sạch — một khối trắng không còn phân biệt được là văn xuôi hay
-        bảng, cùng luật "không noi_dung không bang" Phase 7 áp cho cả mục."""
+        bảng, cùng luật "không noi_dung không bang" Phase 7 áp cho cả mục.
+
+        **Review round 1 [IMPORTANT]:** rule 15 XIN mô hình để mỗi khối MỘT
+        trong hai (`noi_dung` HOẶC `bang`), nhưng schema strict không ép được
+        điều đó — một khối vẫn có thể tới đây với CẢ HAI khác rỗng (mô hình
+        chú thích một bảng ngay trong cùng một khối chẳng hạn). Đo được: hai
+        phía đọc dữ liệu này (`dung_ban_thao_tong_quat._khoi_thanh_van_ban` và
+        `xuat-tep.ts::khoiMotHopLe`) từng tự chọn ưu tiên NGƯỢC NHAU cho ca
+        này — một bên giữ `noi_dung` bỏ `bang`, bên kia ngược lại — tức luật
+        "một khối một loại" chưa từng được ép ở đâu, chỉ được TIN. TÁCH một
+        khối như vậy thành HAI khối sạch, văn xuôi TRƯỚC rồi bảng (đúng thứ tự
+        Phase 7 R1 fix round 1 đã dùng ở cấp MỤC cho chính ca này) — cả hai
+        nội dung đều được giữ, và không phía đọc nào phải tự đoán ưu tiên nữa,
+        vì tới tay nó đã là hai khối một-loại-mỗi-khối rồi."""
         if not isinstance(khoi_tho, list):
             return []
         ra = []
@@ -656,9 +668,10 @@ def lam_sach_van_ban(van_ban: dict, nguon: str) -> tuple[dict, dict]:
                 continue
             noi_dung = _sach(str(k.get("noi_dung") or "").strip())
             bang = _bang_sach(k.get("bang"))
-            if not noi_dung and not bang:
-                continue
-            ra.append({"noi_dung": noi_dung, "bang": bang})
+            if noi_dung:
+                ra.append({"noi_dung": noi_dung, "bang": []})
+            if bang:
+                ra.append({"noi_dung": "", "bang": bang})
         return ra
 
     giu: list[dict] = []
