@@ -768,7 +768,9 @@ def _bang_cua_nhieu_dong(noi_dung: str, o_theo_bang: dict[str, list[str]]) -> st
     return khoa[0] if len(khoa) == 1 else None
 
 
-def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, dict]) -> list[dict]:
+def _khop_bang(
+    khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, dict], nguon_muc: list[int] | None = None,
+) -> tuple[list[dict], list[int]]:
     """Khớp lại nội dung mô hình viết (văn xuôi HAY bảng tự gõ) với đúng bảng
     THẬT của tài liệu — không đợi mô hình tự khai đúng, tự đối chiếu.
 
@@ -810,7 +812,24 @@ def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, dict
     (một letterhead 2 cột, mỗi ô 2 đoạn văn, mô hình gộp cả 4 dòng thành MỘT
     khối) mà `_bang_cua` không khớp được (khối dài hơn một ô) nay được thử
     khớp GHÉP DÒNG vào TOÀN BỘ một bảng — khớp đủ TỰ THÂN (biến `manh`) nên
-    được thay dù chỉ MỘT khối, không cần đợi ≥2 khối liền kề."""
+    được thay dù chỉ MỘT khối, không cần đợi ≥2 khối liền kề.
+
+    **Phase 11 fix round 1** — `khoi` giờ có thể là TOÀN VĂN BẢN đã ghép PHẲNG
+    từ NHIỀU mục (không chỉ khối của MỘT mục), và `nguon_muc` (song song với
+    `khoi`) ghi mục GỐC của từng khối — trả về thêm mảng này (đã cập nhật theo
+    khối RA) để người gọi (`lam_sach_van_ban`) phân phối lại đúng mục. Lý do:
+    đo được thật trên BM.M05 (draft `b0c76517…`) — mô hình xé letterhead 2 cột
+    thành HAI MỤC RIÊNG, mỗi mục đúng MỘT khối (`"Quốc hiệu và tiêu ngữ"` và
+    `"Thông tin cơ quan tiếp nhận"`), không phải hai khối trong CÙNG một mục
+    như test `test_khop_bang_cuu_letterhead_bi_xe_thanh_van_xuoi` mô phỏng.
+    Gọi hàm này CHỈ trong phạm vi một mục thì không bao giờ thấy đủ ≥2 khối để
+    gộp — ranh giới MỤC là một ranh giới TRÌNH BÀY của mô hình, không phải một
+    ranh giới bằng chứng: hai khối liền kề nhau trong TOÀN VĂN BẢN, dù ở hai
+    mục khác nhau, vẫn là "hai khối liền kề cùng khớp một bảng" đúng nghĩa
+    docstring này đã định nghĩa từ round 2. Không đổi luật gộp (vẫn ≥2 khối
+    liền kề hoặc `manh`) — chỉ đổi PHẠM VI khối được xét liền kề với nhau,
+    không mở rộng thành "khớp ở bất kỳ đâu trong tài liệu" (vẫn đòi liền kề
+    thật, để không gộp nhầm hai đoạn văn ở hai nơi xa nhau tình cờ cùng chữ)."""
 
     def _bang_cua(chu: str) -> str | None:
         """Chữ này khớp NGUYÊN VĂN ô nào của bảng thật — trả khoá bảng khi mọi
@@ -868,12 +887,15 @@ def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, dict
             khoa.append(_bang_cua(k["noi_dung"]) if k["noi_dung"] else None)
             manh.append(False)
 
+    nguon = nguon_muc if nguon_muc is not None else list(range(len(khoi)))
     ra: list[dict] = []
+    ra_nguon: list[int] = []
     i = 0
     while i < len(khoi):
         chi = khoa[i]
         if chi is None or chi not in bang_theo_nhan:
             ra.append(khoi[i])
+            ra_nguon.append(nguon[i])
             i += 1
             continue
         j = i
@@ -888,10 +910,15 @@ def _khop_bang(khoi: list[dict], goi: list[dict], bang_theo_nhan: dict[str, dict
                 "ti_le": bang["ti_le"],
                 "can_le": "trai",
             })
+            # Khối gộp gán về mục ĐẦU TIÊN của nhóm — khi nhóm bắc qua ranh
+            # giới mục (fix round 1), mục còn lại rỗng và bị bỏ ở tầng gọi,
+            # đúng luật "mục không còn khối nào" đã có sẵn.
+            ra_nguon.append(nguon[i])
         else:
             ra.extend(khoi[i:j])
+            ra_nguon.extend(nguon[i:j])
         i = j
-    return ra
+    return ra, ra_nguon
 
 
 def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -> tuple[dict, dict]:
@@ -1022,7 +1049,14 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
                 ra.append({"noi_dung": "", "bang": bang, "can_le": "trai", "nhip": [], "ti_le": []})
         return ra
 
-    giu: list[dict] = []
+    # Mục (Phase 11 fix round 1) — làm sạch TỪNG mục trước (`_sach`/
+    # `_khoi_sach`, như cũ), nhưng CHƯA khớp bảng vội: một bảng bị mô hình xé
+    # ra thành nhiều MỤC riêng (không chỉ nhiều khối trong CÙNG một mục, xem
+    # `_khop_bang`) chỉ cứu được khi phép khớp thấy TOÀN VĂN BẢN, không phải
+    # từng mục một. `dem_delta` giữ đúng phần `gia_tri_lam_sach` DO CHÍNH mục
+    # này gây ra, để bỏ mục sau này (khối rỗng hoặc dính lưới chặn) chỉ lùi
+    # lại phần của NÓ, không đụng phần các mục khác đã cộng dồn xen giữa.
+    muc_sach: list[dict] = []
     for o in (van_ban or {}).get("muc") or []:
         if not isinstance(o, dict):
             continue
@@ -1035,13 +1069,33 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
         truoc = dem["gia_tri_lam_sach"]
         ten = _sach(ten)
         khoi = _khoi_sach(o.get("khoi"))
-        if goi:
-            khoi = _khop_bang(khoi, goi, bang_theo_nhan)
+        muc_sach.append({
+            "ten": ten, "vung": vung, "khoi": khoi, "dem_delta": dem["gia_tri_lam_sach"] - truoc,
+        })
+
+    if goi and muc_sach:
+        khoi_toan_bo: list[dict] = []
+        nguon_muc: list[int] = []
+        for mi, m in enumerate(muc_sach):
+            for k in m["khoi"]:
+                khoi_toan_bo.append(k)
+                nguon_muc.append(mi)
+        khoi_moi, nguon_moi = _khop_bang(khoi_toan_bo, goi, bang_theo_nhan, nguon_muc)
+        theo_muc: dict[int, list[dict]] = {}
+        for k, mi in zip(khoi_moi, nguon_moi, strict=True):
+            theo_muc.setdefault(mi, []).append(k)
+        for mi, m in enumerate(muc_sach):
+            m["khoi"] = theo_muc.get(mi, [])
+
+    giu: list[dict] = []
+    for m in muc_sach:
+        ten, vung, khoi, dem_delta = m["ten"], m["vung"], m["khoi"], m["dem_delta"]
         # Mục KHÔNG còn khối nào sau khi sạch — tương đương "không noi_dung
         # không bang" của Phase 7: không phải một đề mục có nội dung, chỉ là
-        # cái tên đứng một mình.
+        # cái tên đứng một mình. Cũng là kết cục của một mục bị GỘP HẾT vào
+        # bảng của mục khác (fix round 1) — cùng luật, không cần nhánh riêng.
         if not khoi:
-            dem["gia_tri_lam_sach"] = truoc
+            dem["gia_tri_lam_sach"] -= dem_delta
             continue
         kiem_tra = "\n".join(
             [ten, *(k["noi_dung"] for k in khoi), *(c for k in khoi for hang in k["bang"] for c in hang)]
@@ -1050,9 +1104,9 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
             dem["muc_bo"] += 1
             # Giá trị đã thay trong một mục bị bỏ không còn là một phép làm
             # sạch người đọc thấy được — trả lại bộ đếm cho đúng.
-            dem["gia_tri_lam_sach"] = truoc
+            dem["gia_tri_lam_sach"] -= dem_delta
             continue
-        if dem["gia_tri_lam_sach"] > truoc:
+        if dem_delta > 0:
             dem["muc_lam_sach"] += 1
         # `ten_that` (Phase 9 U1, fix round 1 gập hoa/thường qua `_khong_hoa`
         # — xem docstring hàm đó) — tên mục này có phải chữ THẬT của tài liệu

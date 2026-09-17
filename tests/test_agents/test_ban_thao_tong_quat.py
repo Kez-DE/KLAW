@@ -458,6 +458,40 @@ def test_khop_bang_khong_gop_mot_dong_van_xuoi_don_le_trung_ngau_nhien():
     ]
 
 
+def test_khop_bang_gop_qua_hai_muc_khac_nhau_khong_chi_hai_khoi_cung_muc():
+    """Phase 11 fix round 1 — đo được thật trên BM.M05 (draft `b0c76517…`, HTTP
+    trực tiếp): mô hình xé letterhead 2 cột thành HAI MỤC RIÊNG, mỗi mục đúng
+    MỘT khối ("Quốc hiệu và tiêu ngữ" và "Thông tin cơ quan tiếp nhận") — không
+    phải hai khối trong CÙNG một mục như `test_khop_bang_cuu_letterhead_bi_xe_thanh_van_xuoi`
+    mô phỏng. Corpus check (một lượt gọi model KHÁC) từng thấy bảng được cứu vì
+    mô hình tình cờ gộp cả hai khối vào MỘT mục — hai lượt gọi khác nhau ra hai
+    hình dạng khác nhau, và bản vá trước chỉ đúng cho MỘT trong hai. `_khop_bang`
+    giờ xét TOÀN VĂN BẢN (mọi mục ghép phẳng), nên hai khối liền kề ở hai mục
+    liền nhau vẫn gộp được — mục thứ hai hết khối, bị bỏ, mục đầu giữ bảng thật."""
+    muc_1 = {
+        "ten": "Quốc hiệu và tiêu ngữ",
+        "vung": "than",
+        "khoi": [
+            {"noi_dung": "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập – Tự do – Hạnh phúc", "bang": []}
+        ],
+    }
+    muc_2 = {
+        "ten": "Thông tin cơ quan tiếp nhận",
+        "vung": "than",
+        "khoi": [{"noi_dung": "TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN\nSố …./….", "bang": []}],
+    }
+    van_ban, _ = _sach([muc_1, muc_2], nguon=NGUON_LETTERHEAD, goi=GOI_LETTERHEAD)
+    assert len(van_ban["muc"]) == 1, "mục thứ hai hết khối (gộp hết vào bảng) phải bị bỏ, không còn đứng riêng"
+    khoi = van_ban["muc"][0]["khoi"]
+    assert len(khoi) == 1 and khoi[0]["bang"] == [
+        [
+            "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
+            "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
+        ],
+        ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
+    ], "bảng thật nguyên vẹn, kể cả ô mô hình chưa từng nhắc tới (TÊN CHỦ QUẢN...)"
+
+
 # BM.ĐT.18.11 thật: hàng cuối "Tổng | 10" gộp 3 cột nhãn thành 1 (Phase 8 R4).
 DV_BANG_DIEM = [
     DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="TT", bang=(0, 0, 0)),
