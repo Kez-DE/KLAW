@@ -332,6 +332,36 @@ assert.equal(
   "tiêu đề rỗng không bao giờ coi là đã xuất hiện",
 );
 
+// Phase 11 fix round 1 — đo được thật trên BM.M05 (conversation `b0c76517…`):
+// tiêu đề THẬT ("GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP") không hề in ra thân bài
+// ở đâu — nó chỉ NHẮC TỚI, như tên tài liệu, bên trong một câu khác hẳn
+// ("Kèm theo Giấy tiếp nhận thực hành/thực tập số … ngày … tháng … năm …").
+// `.includes()` coi câu này là "tiêu đề đã in", ẩn oan `<h1>` trên một trang
+// mà tiêu đề chưa từng xuất hiện ở đâu khác — đúng lỗi round 1 báo lại.
+assert.equal(
+  tieuDeDaXuatHienTrongThan("GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP", [
+    {
+      stt: 1,
+      key: "muc_1",
+      ten: "x",
+      tenThat: false,
+      noiDung: "",
+      bang: null,
+      khoi: [
+        {
+          kind: "vanXuoi",
+          noiDung: "(Kèm theo Giấy tiếp nhận thực hành/thực tập số … ngày … tháng … năm …)",
+          canhLe: "giua",
+        },
+      ],
+      vung: "than",
+      canCu: null,
+    },
+  ]),
+  false,
+  "câu NHẮC TỚI tên tài liệu không phải câu IN LẠI tiêu đề — giữ h1",
+);
+
 // Phase 8 R4 — hàng ngắn hơn hàng tiêu đề (ô gộp) đi qua NGUYÊN trong `khoi`,
 // `coSpanHang` bên dưới mới quyết định cách vẽ nó.
 const banThaoHangNgan = {
@@ -942,4 +972,4 @@ assert.equal(
   "hàng tiêu đề (tô xám) phải được vẽ lại ở đầu MỖI trang, không chỉ trang đầu",
 );
 
-console.info("kiem-xuat-tep: 69/69 đạt");
+console.info("kiem-xuat-tep: 70/70 đạt");

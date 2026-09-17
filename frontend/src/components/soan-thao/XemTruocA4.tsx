@@ -112,7 +112,17 @@ export function XemTruocA4({
                   <p
                     key={i}
                     className={cn(
-                      "m-0 mt-1 whitespace-pre-wrap font-serif text-[1em] leading-relaxed",
+                      // `break-words` (Phase 11 fix round 1, `overflow-wrap:
+                      // break-word`) — một dòng trường tự do gõ bằng dấu
+                      // CHẤM/GẠCH LIỀN NHAU không có khoảng trắng nào ("Nội
+                      // dung công việc được giao: ………...............") không
+                      // có chỗ để trình duyệt ngắt dòng theo mặc định (chỉ
+                      // ngắt ở khoảng trắng), nên cả trang A4 bị đẩy rộng ra
+                      // theo chiều ngang thay vì xuống dòng. Không xoá dấu
+                      // chấm/gạch — đó là Ý NGHĨA của biểu mẫu (chỗ để điền)
+                      // — chỉ cho phép ngắt NGAY TRONG một chuỗi liền không
+                      // ngắt được cách nào khác.
+                      "m-0 mt-1 whitespace-pre-wrap break-words font-serif text-[1em] leading-relaxed",
                       // Căn lề THẬT của tài liệu nguồn (Phase 9 U5) — đọc
                       // ngược lại qua `getComputedStyle(...).textAlign` ở
                       // `xuat-tep.ts::docDong`, nên `.docx`/PDF tự khớp theo.
