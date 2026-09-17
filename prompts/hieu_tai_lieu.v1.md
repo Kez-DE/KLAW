@@ -10,7 +10,7 @@ Mỗi dòng là MỘT đơn vị văn bản, đánh số `[<nhãn tài liệu>-<
 trí của nó trong tài liệu.
 
 {tai_lieu}
-
+{ban_thao_dang_co}
 # Quy tắc
 
 1. `muc_dich` là việc người hỏi muốn làm với tài liệu trong LƯỢT NÀY, đọc từ
@@ -150,5 +150,7 @@ trí của nó trong tài liệu.
     định nó đúng quy định. Một mục còn số Điều/Khoản hay dấu vết định danh cá
     nhân sẽ bị loại trước khi tới người hỏi.
     Lượt `sua_ban_thao`: viết lại TOÀN BỘ văn bản sau khi sửa, không chỉ mục
-    vừa đổi — giữ nguyên các mục không được yêu cầu đổi.
+    vừa đổi — giữ nguyên các mục không được yêu cầu đổi. Có mục "# Bản thảo
+    đang có" ở trên thì NỀN để sửa là bản thảo đó, không phải tài liệu nguồn —
+    đọc kỹ lời cảnh báo đi kèm nó trước khi viết lại.
 16. Mảng nào lượt này không cần thì để rỗng — đừng điền cho đủ hình dạng.

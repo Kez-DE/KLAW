@@ -98,6 +98,38 @@ def xin_so_sanh(cau_hoi: str) -> bool:
     """Câu hỏi này có xin đặt tài liệu cạnh một tài liệu KHÁC không. Hàm thuần."""
     return bool(_RE_XIN_SO_SANH.search(cau_hoi or ""))
 
+
+# Phase 3 Half B — safety net trên `MUC_DICH_SOAN`, thêm sau một sự cố THẬT:
+# owner hỏi "tôi muốn biết đây là đơn gì" (một câu hỏi, không xin sửa gì) và
+# mô hình gán `muc_dich = "sua_ban_thao"` — `dung_ban_thao_tong_quat` tin
+# tuyệt đối nhãn đó và VIẾT ĐÈ bản thảo thật, từ 9 mục xuống còn 5. Khác
+# `xin_so_sanh` (gác thêm một NHÃN, không đổi hành vi ghi), đây là gác trên
+# một hành động CÓ THỂ GHI ĐÈ dữ liệu thật — cùng chữ "chữ người dùng thắng"
+# nhưng THEO CHIỀU AN TOÀN HƠN: chỉ chặn khi câu hỏi mang dấu hiệu CÂU HỎI rõ
+# ràng và KHÔNG có động từ soạn/sửa nào — mọi câu mơ hồ khác (không khớp cả
+# hai) vẫn tin mô hình như trước, để không chặn oan một yêu cầu sửa viết
+# không theo mẫu nào trong hai danh sách này.
+_RE_DAU_HIEU_CAU_HOI = re.compile(
+    r"\?\s*$|là gì|là sao|có phải|có đúng không|nghĩa là|muốn biết|thế nào|ra sao|"
+    r"tại sao|vì sao|bao nhiêu|khi nào|đúng không",
+    re.IGNORECASE,
+)
+_RE_DAU_HIEU_SOAN = re.compile(
+    r"sửa|chỉnh|đổi|rút gọn|viết lại|soạn lại|dựng lại|thêm|bớt|xoá|bỏ bớt|cắt bớt|"
+    r"trang trọng hơn|ngắn gọn hơn|điền|soát lại|làm lại",
+    re.IGNORECASE,
+)
+
+
+def _an_toan_xac_nhan_soan(cau_hoi: str) -> bool:
+    """`muc_dich in MUC_DICH_SOAN` của mô hình có ĐỦ TIN để cho phép GHI
+    không — `True` trừ khi câu hỏi mang dấu hiệu CÂU HỎI rõ ràng và không có
+    một động từ soạn/sửa nào đi kèm. Hàm thuần, 0 token."""
+    if _RE_DAU_HIEU_SOAN.search(cau_hoi or ""):
+        return True
+    return not _RE_DAU_HIEU_CAU_HOI.search(cau_hoi or "")
+
+
 # Quyết định chủ sở hữu 2026-09-16 (Q3): ≤3 điều khoản mỗi lượt đối chiếu. Trần
 # của NGƯỜI ĐỌC chứ không của mô hình — ba điều khoản là số còn đọc hết được
 # cạnh căn cứ luật của chúng trong một câu trả lời.
@@ -1419,6 +1451,29 @@ def _khoi_tai_lieu(goi: list[dict]) -> str:
     return "\n".join(dong)
 
 
+# Phase 3 (Half A, R4) — lượt `sua_ban_thao` KHÔNG được để mô hình tưởng nó
+# đang soạn LẠI TỪ ĐẦU từ tài liệu nguồn: nếu hội thoại này đã có một bản
+# thảo tổng quát, `hieu_tai_lieu()` cho mô hình thấy CHÍNH bản thảo đó (không
+# chỉ tài liệu nguồn), và nói thẳng khi nó đã bị NGƯỜI DÙNG sửa tay — một mô
+# hình tin rằng chính nó viết ra câu đó sẽ âm thầm viết đè lên câu người dùng
+# vừa gõ (đúng cảnh báo brief nêu). Rỗng khi hội thoại chưa có bản thảo tổng
+# quát nào — `.format()` vẫn chạy bình thường vì nối một chuỗi rỗng, không đổi
+# hành vi của mọi lượt khác (`tom_tat`/`hoi`/… không đọc mục này).
+def _khoi_ban_thao_dang_co(bt: dict | None) -> str:
+    if not bt or not bt.get("document"):
+        return ""
+    da_sua_tay = bool((bt.get("audit") or {}).get("sua_tay"))
+    canh_bao = (
+        "Phần dưới đây đã có chỗ do NGƯỜI DÙNG tự tay sửa lại (không phải bạn soạn ra) — "
+        "KHÔNG được coi câu người dùng viết là câu của chính bạn. GIỮ NGUYÊN từng câu người "
+        "dùng đã viết, chỉ áp dụng đúng phần lượt này yêu cầu đổi.\n"
+        if da_sua_tay
+        else "Đây là bản thảo bạn đã soạn ở lượt trước — coi nó là NỀN để sửa, không phải bắt "
+        "đầu lại từ tài liệu nguồn.\n"
+    )
+    return f"\n# Bản thảo đang có\n\n{canh_bao}\n{bt['document']}\n"
+
+
 def _ket(muc_dich: str, mo_ta: str | None, tra_loi: str, quan_sat: list[dict],
          suy_luan: list[str], can_du_kien: list[str], da_dung: list[dict],
          phep_tinh: list[dict] | None = None, khac_biet: list[dict] | None = None) -> dict:
@@ -1487,6 +1542,7 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
 
     prompt = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8").format(
         cau_hoi=cau_hoi, tai_lieu=_khoi_tai_lieu(goi),
+        ban_thao_dang_co=_khoi_ban_thao_dang_co(state.get("ban_thao_tong_quat_dang_mo")),
     )
     nhan = [t["nhan"] for t in goi]
     usage = None
@@ -1530,6 +1586,14 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
 
     giu = giu[:TOI_DA_QUAN_SAT]
     muc_dich = str(ra.get("muc_dich") or "hoi")
+    # Phase 3 Half B — safety net: một `muc_dich` SOẠN (có thể GHI ĐÈ bản thảo
+    # thật) không đủ tin khi câu hỏi tự nó đọc như một câu HỎI, không mang
+    # dấu hiệu soạn/sửa nào (xem `_an_toan_xac_nhan_soan`) — hạ về `hoi`
+    # TRƯỚC khi bất cứ điều gì dưới đây (kể cả `lam_sach_van_ban`) chạy trên
+    # nó, để `_re_sau_hieu_tai_lieu`/`dung_ban_thao_tong_quat` không bao giờ
+    # thấy được một `sua_ban_thao`/`tao_van_ban` giả.
+    if muc_dich in MUC_DICH_SOAN and not _an_toan_xac_nhan_soan(cau_hoi):
+        muc_dich = "hoi"
     phep_tinh, phep_tinh_bo = _lay_phep_tinh(ra, goi)
     truong, truong_bo = _lay_truong(ra, goi)
     # Chỉ lượt SO SÁNH mới có khác biệt: một danh sách "khác biệt" trong lượt

@@ -1590,3 +1590,66 @@ def test_het_tran_sua_chan_bang_dung_bo_dem_cua_ban_thao(nguoi):
         ban_thao.sua(nguoi, bt["id"], {}, d.ket_ban_thao(VAN_BAN))
     ra = d.dung_ban_thao_tong_quat({**st, "muc_dich_tai_lieu": "sua_ban_thao"})
     assert ra["ban_thao_ket"] is None and ra["ban_thao_tong_quat_loi"] == ban_thao.LOI_HET_LAN_SUA
+
+
+# ═══ Phase 3 Half B — sự cố THẬT: một CÂU HỎI không được phép GHI ĐÈ ═══════
+#
+# Owner: bản thảo tổng quát 9 mục đã dựng xong; hỏi "tôi muốn biết đây là đơn
+# gì" (một câu hỏi, không xin sửa gì) — mô hình gán `muc_dich = "sua_ban_thao"`
+# và bản thảo bị GHI ĐÈ, còn 5 mục. "Một lượt ĐỌC không bao giờ được GHI"
+# (ruling coordinator) — safety net ở `hieu_tai_lieu._an_toan_xac_nhan_soan`
+# hạ `muc_dich` về `"hoi"` TRƯỚC khi `dung_ban_thao_tong_quat` (nơi DUY NHẤT
+# chạm `ban_thao`) có cơ hội thấy `sua_ban_thao`.
+
+
+@pytest.mark.integration
+def test_cau_hoi_khong_ghi_de_ban_thao_du_mo_hinh_gan_sai_muc_dich(nguoi):
+    from src.services import hoi_thoai
+
+    pid = hoi_thoai.tao_phien(nguoi, "biên bản bàn giao")
+    st0 = {"user_sub": nguoi, "hoi_thoai_id": pid, "muc_dich_tai_lieu": "tao_van_ban",
+           "van_ban_tong_quat": VAN_BAN}
+    bt_dau = d.dung_ban_thao_tong_quat(st0)["ban_thao_ket"]
+    truoc = ban_thao.chi_tiet(nguoi, bt_dau["id"])
+    assert truoc["so_lan_sua"] == 0 and len(truoc["clauses"]) == 2
+
+    # Mô hình (giả) GÁN SAI — đúng hệt sự cố thật: một câu hỏi, nhãn `sua_ban_thao`.
+    llm = _LLM(_ra(muc_dich="sua_ban_thao", tra_loi_ngan="Đây là biên bản bàn giao thiết bị."))
+    ket = h.hieu_tai_lieu(
+        {"query": "tôi muốn biết đây là đơn gì", "user_sub": nguoi, "hoi_thoai_id": pid},
+        TL, llm, "m",
+    )
+    assert ket["muc_dich_tai_lieu"] == "hoi", "câu hỏi KHÔNG được coi là một lượt soạn, dù mô hình gán gì"
+
+    ra2 = d.dung_ban_thao_tong_quat(ket)
+    assert ra2["ban_thao_ket"] is None, "một lượt hỏi không bao giờ được phép ghi bản thảo"
+
+    sau = ban_thao.chi_tiet(nguoi, bt_dau["id"])
+    assert sau["phien_ban"] == truoc["phien_ban"]
+    assert sau["clauses"] == truoc["clauses"]
+    assert sau["so_lan_sua"] == truoc["so_lan_sua"]
+
+
+@pytest.mark.integration
+def test_cau_hoi_that_su_xin_sua_van_ghi_duoc(nguoi):
+    """Đối chứng — một câu THẬT SỰ xin sửa (mang động từ "rút gọn", đúng câu
+    phím tắt "Rút gọn bản thảo, giữ đủ các mục bắt buộc") vẫn ghi được bình
+    thường: safety net chỉ chặn câu hỏi, không chặn oan một yêu cầu sửa hợp lệ."""
+    from src.services import hoi_thoai
+
+    pid = hoi_thoai.tao_phien(nguoi, "biên bản bàn giao")
+    st0 = {"user_sub": nguoi, "hoi_thoai_id": pid, "muc_dich_tai_lieu": "tao_van_ban",
+           "van_ban_tong_quat": VAN_BAN}
+    bt_dau = d.dung_ban_thao_tong_quat(st0)["ban_thao_ket"]
+
+    moi = {**VAN_BAN, "muc": [VAN_BAN["muc"][0]]}
+    llm = _LLM(_ra(muc_dich="sua_ban_thao", van_ban=moi))
+    ket = h.hieu_tai_lieu(
+        {"query": "Rút gọn bản thảo, giữ đủ các mục bắt buộc", "user_sub": nguoi, "hoi_thoai_id": pid},
+        TL, llm, "m",
+    )
+    assert ket["muc_dich_tai_lieu"] == "sua_ban_thao"
+    ra2 = d.dung_ban_thao_tong_quat(ket)
+    assert ra2["ban_thao_ket"] is not None
+    assert ra2["ban_thao_ket"]["id"] == bt_dau["id"]
+    assert len(ra2["ban_thao_ket"]["clauses"]) == 1

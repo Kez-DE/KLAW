@@ -464,3 +464,44 @@ def test_manh_roi_rac_mo_ho_thi_ca_trich_bi_loai():
     llm = _LLM(_ra(quan_sat=[_qs("x", trich)]))
     ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
     assert ra["tai_lieu_ket"]["quan_sat"] == []
+
+
+# ══════════════ Phase 3 (Half A, R4) — mô hình được cho thấy bản thảo đang có
+
+
+def test_khong_co_ban_thao_tong_quat_dang_mo_thi_prompt_khong_doi():
+    """Không có bản thảo tổng quát nào cho hội thoại này (giá trị mặc định
+    của mọi state cũ, trước Phase 3) — prompt KHÔNG có mục "Bản thảo đang
+    có": hành vi của mọi lượt khác (`hoi`/`tom_tat`/`tao_van_ban` lần đầu…)
+    không đổi."""
+    llm = _LLM(_ra())
+    h.hieu_tai_lieu(ST, MOT, llm, "m")
+    assert "# Bản thảo đang có" not in llm.prompt
+
+
+def test_co_ban_thao_tong_quat_dang_mo_thi_prompt_mang_theo_van_ban():
+    """R4 — hội thoại đã có một bản thảo tổng quát (`ban_thao_tong_quat_dang_mo`,
+    Phase 3 Half B) thì `hieu_tai_lieu` cho mô hình thấy CHÍNH văn bản đó,
+    không chỉ tài liệu nguồn — nếu không có mục này, một lượt "sửa" không có
+    gì để giữ nguyên ngoài việc soạn lại từ đầu."""
+    bt = {"document": "# VĂN BẢN\n\n## 1. Nội dung\n\nCâu đã soạn trước đó.\n", "audit": {}}
+    llm = _LLM(_ra())
+    h.hieu_tai_lieu({**ST, "ban_thao_tong_quat_dang_mo": bt}, MOT, llm, "m")
+    assert "# Bản thảo đang có" in llm.prompt
+    assert "Câu đã soạn trước đó." in llm.prompt
+
+
+def test_ban_thao_da_sua_tay_thi_prompt_canh_bao_khong_duoc_viet_de():
+    """R4's câu chữ chính xác — `sua_tay=True` (Phase 3 R2/R3, hạ `muc_kiem`)
+    phải đổi LỜI CẢNH BÁO đi kèm bản thảo, không chỉ đính kèm văn bản: mô
+    hình phải được nói THẲNG là phần đó do người dùng viết, không phải chính
+    nó, để không tưởng nó đang sửa lại câu của chính mình."""
+    bt_sua_tay = {"document": "# VĂN BẢN\n\nCâu người dùng tự viết.\n", "audit": {"sua_tay": True}}
+    llm = _LLM(_ra())
+    h.hieu_tai_lieu({**ST, "ban_thao_tong_quat_dang_mo": bt_sua_tay}, MOT, llm, "m")
+    assert "NGƯỜI DÙNG" in llm.prompt and "sửa lại" in llm.prompt
+
+    bt_chua_sua = {"document": "# VĂN BẢN\n\nCâu KLAW tự soạn.\n", "audit": {}}
+    llm2 = _LLM(_ra())
+    h.hieu_tai_lieu({**ST, "ban_thao_tong_quat_dang_mo": bt_chua_sua}, MOT, llm2, "m")
+    assert "NGƯỜI DÙNG" not in llm2.prompt
