@@ -255,7 +255,16 @@ def loc_don_vi(don_vi: list[DonViVanBan], cau_hoi: str) -> list[DonViVanBan]:
     như mọi câu hỏi đều cần) cộng `GIU_THEO_CAU_HOI` đơn vị trùng từ khoá với
     câu hỏi nhiều nhất. Thứ tự đọc được GIỮ NGUYÊN: đánh số theo thứ tự trong
     tài liệu là cách duy nhất `[A-12]` còn nghĩa với người đọc lại sau này.
+
+    Bỏ hẳn đơn vị RỖNG CHỮ trước khi tính (Phase 11 fix round 2) — `doc_tai_lieu`
+    giờ giữ cả Ô BẢNG rỗng (để `_bang_theo_nhan` biết bảng có đủ hàng/cột thật,
+    xem docstring `_duyet_than`), nhưng một ô rỗng không có gì để mô hình đọc
+    hay trích — gửi nó vào prompt chỉ tốn token cho một dòng không chữ. Bảng
+    thật vẫn dựng lại ĐỦ hàng vì `_khop_bang` đọc từ `t["don_vi"]` (TOÀN BỘ,
+    không phải phần đã lọc gửi mô hình) — model không cần "biết" ô trống tồn
+    tại để bảng vẫn đủ hàng sau khi khớp lại.
     """
+    don_vi = [d for d in don_vi if d.noi_dung]
     if not don_vi:
         return []
     if max((d.trang for d in don_vi), default=1) <= NGUONG_TRANG:
@@ -601,6 +610,70 @@ def _nhan_that(goi: list[dict]) -> set[str]:
     phải một tiêu đề thật — cùng lý lẽ `_bang_cua` chỉ xét bảng, hàm này chỉ
     xét đoạn."""
     return {_khong_hoa(d.noi_dung) for t in goi for d in t["don_vi"] if d.bang is None and d.noi_dung}
+
+
+def _vi_tri_theo_don_vi(goi: list[dict]) -> dict[str, int]:
+    """Chữ CHUẨN HOÁ của một đơn vị nguồn (đoạn văn HAY ô bảng, khác rỗng) →
+    chỉ số (`chi_so`) của nó trong tài liệu (Phase 11 fix round 2) — dùng để
+    đặt một khối/tiêu đề vào ĐÚNG vị trí nguồn, thay vì một quy ước trình bày
+    cố định (luôn ở đầu trang). Loại khỏi từ điển khi CÙNG một chữ xuất hiện
+    ở NHIỀU vị trí (nhập nhằng, không định vị được) — cùng nguyên tắc
+    `_can_le_theo_dong`.
+
+    ponytail: chỉ xét tài liệu ĐẦU của lượt (`goi[0]`) — soạn lại một văn bản
+    (mục đích duy nhất dùng hàm này) luôn dựa trên ĐÚNG một tài liệu nguồn,
+    khác lượt so sánh hai tài liệu (không cần thứ tự liên tài liệu). Nới ra
+    nhiều tài liệu nếu đo thấy cần.
+    """
+    if not goi:
+        return {}
+    theo_chu: dict[str, set[int]] = {}
+    for d in goi[0]["don_vi"]:
+        if d.noi_dung:
+            theo_chu.setdefault(_khong_hoa(d.noi_dung), set()).add(d.chi_so)
+    return {s: v.pop() for s, v in theo_chu.items() if len(v) == 1}
+
+
+def _vi_tri_khoi(khoi: list[dict], vi_tri: dict[str, int]) -> int | None:
+    """Vị trí NGUỒN của khối ĐẦU TIÊN của một mục — dòng đầu nếu là văn xuôi
+    (một khối có thể gộp nhiều dòng nguồn bằng `\\n`), ô ĐẦU khác rỗng nếu là
+    bảng. `None` khi không định vị được (mô hình paraphrase, không còn khớp
+    nguyên văn) — mục đó không tham gia so sánh vị trí, giữ nguyên thứ tự mô
+    hình đã đặt nó."""
+    if not khoi:
+        return None
+    k = khoi[0]
+    if k["bang"]:
+        for hang in k["bang"]:
+            for o in hang:
+                if o and (vt := vi_tri.get(_khong_hoa(o))) is not None:
+                    return vt
+        return None
+    dong = k["noi_dung"].split("\n") if k["noi_dung"] else []
+    return vi_tri.get(_khong_hoa(dong[0])) if dong else None
+
+
+def _bo_dong_trung_ten(khoi: list[dict], ten: str) -> list[dict]:
+    """Bỏ dòng ĐẦU của khối văn xuôi ĐẦU TIÊN khi nó LẶP LẠI chính TÊN mục
+    (Phase 11 fix round 2) — một mục `ten_that=True` đã in `ten` ra làm tiêu
+    đề mục; nếu nội dung mục CŨNG mở đầu bằng đúng dòng đó (đo thật trên
+    BM.M05: mục "Xác nhận của Cơ quan/Đơn vị" có khối đầu là chính hai chữ đó
+    nối `\\n` với "(Ký và ghi rõ họ tên, chức vụ, đóng dấu)"), trang in ra
+    cùng một câu hai lần — một lần làm tiêu đề, một lần làm dòng đầu thân bài.
+
+    Chỉ bỏ ĐÚNG dòng trùng, giữ phần còn lại của khối; khối chỉ có mỗi dòng đó
+    thì bỏ CẢ khối (mục không vô đề vì `ten` đã in ra rồi, không cần khối đó
+    lặp lại để "giữ chỗ"). Không đụng khối THỨ HAI trở đi, và không đụng khối
+    bảng — trùng tên chỉ có nghĩa với văn xuôi đứng NGAY sau tiêu đề."""
+    if not khoi or khoi[0]["bang"] or not khoi[0]["noi_dung"]:
+        return khoi
+    dong = khoi[0]["noi_dung"].split("\n")
+    if _khong_hoa(dong[0]) != _khong_hoa(ten):
+        return khoi
+    con_lai = "\n".join(dong[1:])
+    if not con_lai:
+        return khoi[1:]
+    return [{**khoi[0], "noi_dung": con_lai}, *khoi[1:]]
 
 
 def _can_le_theo_dong(goi: list[dict]) -> dict[str, str]:
@@ -1087,13 +1160,71 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
         for mi, m in enumerate(muc_sach):
             m["khoi"] = theo_muc.get(mi, [])
 
+    # Fix round 2 — tiêu đề văn bản (`van_ban.tieu_de`) đặt vào ĐÚNG vị trí
+    # nguồn của nó khi nó là chữ THẬT nhưng CHƯA xuất hiện ở đâu trong thân
+    # bài — thay vì một quy ước trình bày cố định (luôn ở đầu trang, qua
+    # `<h1>` phía `XemTruocA4`). Đo thật trên BM.M05: tiêu đề nằm ở chỉ số 4
+    # trong nguồn, SAU letterhead (chỉ số 1–3) — render cũ luôn đặt nó TRƯỚC
+    # letterhead vì `<h1>` luôn vẽ ở đầu, không phải vì đó là vị trí thật.
+    # Không chèn khi mô hình ĐÃ tự in tiêu đề ra thân bài (giữ nguyên, tránh
+    # lặp — cùng ca R4 xử lý ở phía render) hay khi không định vị được (soạn
+    # từ đầu, không có vị trí nguồn nào để dùng) — hai ca đó `<h1>` phía
+    # render đã lo đúng, không cần khối này.
+    tieu_de_sach = _sach(str((van_ban or {}).get("tieu_de") or "").strip())
+    if goi and tieu_de_sach and muc_sach:
+        vi_tri = _vi_tri_theo_don_vi(goi)
+        tieu_de_vt = vi_tri.get(_khong_hoa(tieu_de_sach))
+        da_co = any(
+            _khong_hoa(dong) == _khong_hoa(tieu_de_sach)
+            for m in muc_sach
+            for k in m["khoi"]
+            if not k["bang"]
+            for dong in k["noi_dung"].split("\n")
+        )
+        if tieu_de_vt is not None and not da_co:
+            idx = len(muc_sach)
+            for i, m in enumerate(muc_sach):
+                vt = _vi_tri_khoi(m["khoi"], vi_tri)
+                if vt is not None and vt > tieu_de_vt:
+                    idx = i
+                    break
+            muc_sach.insert(idx, {
+                # Tên KHÔNG khớp chữ thật nào (`ten_that` sẽ tự ra `False`) —
+                # nội dung mới là tiêu đề, `ten` chỉ là nhãn tổ chức nội bộ
+                # như "Tiêu đề biểu mẫu" mô hình đã tự đặt cho các mục khác.
+                "ten": "Tiêu đề văn bản",
+                "vung": "than",
+                "khoi": [{
+                    "noi_dung": tieu_de_sach,
+                    "bang": [],
+                    "can_le": theo_dong.get(_khong_hoa(tieu_de_sach), "giua"),
+                    "nhip": [],
+                    "ti_le": [],
+                }],
+                "dem_delta": 0,
+            })
+
     giu: list[dict] = []
     for m in muc_sach:
         ten, vung, khoi, dem_delta = m["ten"], m["vung"], m["khoi"], m["dem_delta"]
+        # `ten_that` (Phase 9 U1, fix round 1 gập hoa/thường qua `_khong_hoa`
+        # — xem docstring hàm đó) — tên mục này có phải chữ THẬT của tài liệu
+        # hay do mô hình đặt ra để tổ chức bản thảo. `goi` rỗng (test cũ,
+        # hoặc lượt không có tài liệu cấu trúc) thì không đối chiếu được gì —
+        # mặc định GIỮ tên (an toàn về phía không ẩn oan một tiêu đề thật).
+        ten_that = (not goi) or _khong_hoa(ten) in nhan_that
+        # Fix round 2 — bỏ dòng đầu khối khi nó LẶP LẠI chính `ten`, nhưng CHỈ
+        # khi `ten` thật sự in ra làm tiêu đề (`ten_that`): một tên KLAW bịa
+        # (`ten_that=False`) không in ra trang (R4/U1) nên không có gì để
+        # "trùng" với dòng đầu nội dung. Làm TRƯỚC các phép kiểm dưới, để
+        # mục hết nội dung vì bị trùng tên đi qua ĐÚNG MỘT nhánh "hết khối".
+        if ten_that:
+            khoi = _bo_dong_trung_ten(khoi, ten)
         # Mục KHÔNG còn khối nào sau khi sạch — tương đương "không noi_dung
         # không bang" của Phase 7: không phải một đề mục có nội dung, chỉ là
         # cái tên đứng một mình. Cũng là kết cục của một mục bị GỘP HẾT vào
-        # bảng của mục khác (fix round 1) — cùng luật, không cần nhánh riêng.
+        # bảng của mục khác (fix round 1), hoặc bị trùng tên hết sạch (fix
+        # round 2) — cùng luật, không cần nhánh riêng.
         if not khoi:
             dem["gia_tri_lam_sach"] -= dem_delta
             continue
@@ -1108,14 +1239,8 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
             continue
         if dem_delta > 0:
             dem["muc_lam_sach"] += 1
-        # `ten_that` (Phase 9 U1, fix round 1 gập hoa/thường qua `_khong_hoa`
-        # — xem docstring hàm đó) — tên mục này có phải chữ THẬT của tài liệu
-        # hay do mô hình đặt ra để tổ chức bản thảo. `goi` rỗng (test cũ,
-        # hoặc lượt không có tài liệu cấu trúc) thì không đối chiếu được gì —
-        # mặc định GIỮ tên (an toàn về phía không ẩn oan một tiêu đề thật).
-        ten_that = (not goi) or _khong_hoa(ten) in nhan_that
         giu.append({"ten": ten, "ten_that": ten_that, "vung": vung, "khoi": khoi})
-    return {"tieu_de": _sach(str((van_ban or {}).get("tieu_de") or "").strip()), "muc": giu}, dem
+    return {"tieu_de": tieu_de_sach, "muc": giu}, dem
 
 
 def _nguon_soan(goi: list[dict], state: dict, truong: list[dict], quan_sat: list[dict]) -> str:

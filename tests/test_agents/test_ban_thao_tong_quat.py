@@ -361,7 +361,12 @@ def test_letterhead_hai_cot_song_sot_nhu_bang():
 # đối chiếu NGUYÊN VĂN từng khối mô hình viết với chính đơn vị-trong-bảng của
 # tài liệu, rồi THAY bằng bảng thật khi khớp — không đợi mô hình khai đúng.
 
-# BM.M05 thật (probe 2026-09-17): một letterhead 2 cột, hàng hai gộp 1 ô.
+# BM.M05 thật (đo lại `w:gridSpan` trực tiếp, Phase 11 fix round 2): hàng hai
+# KHÔNG gộp — nó có ĐỦ 2 ô lưới thật như hàng đầu, ô thứ hai chỉ rỗng chữ
+# (không có `w:gridSpan` nào trên cả hai ô của hàng này). Bản trước (Phase 8,
+# và Phase 11 round 1 kế thừa) đọc nhầm thành "gộp" vì reader CŨ bỏ qua ô rỗng
+# chữ — hàng chỉ còn 1 ô THẤY ĐƯỢC nên bị suy là gộp, đúng lỗi round 2 sửa
+# (`doc_tai_lieu._duyet_than` giờ giữ cả ô rỗng).
 DV_LETTERHEAD = [
     DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Mẫu QT.ĐT.28-M05"),
     DonViVanBan(
@@ -373,23 +378,21 @@ DV_LETTERHEAD = [
         noi_dung="CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc", bang=(0, 0, 1),
     ),
     DonViVanBan(
-        # Hàng hai gộp NGUYÊN hàng thành 1 ô (`w:gridSpan="2"`, đủ 2 cột lưới
-        # của bảng — Phase 11 R6): không có nhịp thật thì `_bang_theo_nhan`
-        # không biết đây là một ô GỘP hết cột hay chỉ một hàng ngắn hơn.
         chi_so=3, trang=1, offset_dau=150,
-        noi_dung="TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./….", bang=(0, 1, 0), bang_nhip=2,
+        noi_dung="TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./….", bang=(0, 1, 0),
     ),
+    DonViVanBan(chi_so=4, trang=1, offset_dau=190, noi_dung="", bang=(0, 1, 1)),
 ]
 GOI_LETTERHEAD = [{"id": "x", "ten_tep": "bm05.docx", "don_vi": DV_LETTERHEAD, "nhan": "A", "gui": DV_LETTERHEAD}]
-NGUON_LETTERHEAD = "\n".join(dv.noi_dung for dv in DV_LETTERHEAD)
+NGUON_LETTERHEAD = "\n".join(dv.noi_dung for dv in DV_LETTERHEAD if dv.noi_dung)
 
 
 def test_bang_theo_nhan_dung_lai_dung_luoi_tu_don_vi():
-    """`_bang_theo_nhan` — dựng lại bảng THẬT 0 token, không đoán: hàng đầu 2
-    cột, hàng hai (gộp NGUYÊN 2 cột lưới bằng nhịp thật, Phase 11 R6) chỉ 1 ô
-    — ĐÚNG số ô thật của từng hàng, không suy ra từ hàng tiêu đề. `nhip` đi
-    CÙNG `hang`: hàng hai mang nhịp 2 (chiếm trọn cả hai cột), không phải một
-    hàng ngắn được đoán là gộp từ số ô chênh lệch."""
+    """`_bang_theo_nhan` — dựng lại bảng THẬT 0 token, không đoán: CẢ hai hàng
+    đủ 2 ô thật (Phase 11 fix round 2 — ô thứ hai của hàng hai rỗng chữ nhưng
+    vẫn là một Ô THẬT, không phải một hàng gộp: reader giờ giữ ô rỗng thay vì
+    coi số ô ít hơn là dấu hiệu gộp). `nhip` đi CÙNG `hang`, cả hai hàng đều
+    nhịp 1×1 — không suy đoán gộp từ số ô chênh lệch."""
     ra = h._bang_theo_nhan(GOI_LETTERHEAD)
     assert ra == {
         "A0": {
@@ -398,9 +401,9 @@ def test_bang_theo_nhan_dung_lai_dung_luoi_tu_don_vi():
                     "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
                     "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
                 ],
-                ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
+                ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./….", ""],
             ],
-            "nhip": [[1, 1], [2]],
+            "nhip": [[1, 1], [1, 1]],
             "ti_le": [],
         }
     }
@@ -435,9 +438,9 @@ def test_khop_bang_cuu_letterhead_bi_xe_thanh_van_xuoi():
                     "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
                     "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
                 ],
-                ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
+                ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./….", ""],
             ],
-            "nhip": [[1, 1], [2]],
+            "nhip": [[1, 1], [1, 1]],
             "ti_le": [],
             "can_le": "trai",
         },
@@ -488,7 +491,7 @@ def test_khop_bang_gop_qua_hai_muc_khac_nhau_khong_chi_hai_khoi_cung_muc():
             "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
             "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
         ],
-        ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
+        ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./….", ""],
     ], "bảng thật nguyên vẹn, kể cả ô mô hình chưa từng nhắc tới (TÊN CHỦ QUẢN...)"
 
 
@@ -637,6 +640,68 @@ def test_khop_bang_khong_dung_vao_bang_moi_mo_hinh_tu_soan():
         [muc], nguon="Hạng mục Số lượng Bàn ghế 5 bộ", goi=GOI_BANG_DIEM
     )
     assert van_ban["muc"][0]["khoi"][0]["bang"] == bang_moi
+
+
+# ────────────── Phase 11 fix round 2 — bảng TRẮNG (hàng để trống cho tay viết)
+#
+# BM.M05 thật: bảng "DANH SÁCH SINH VIÊN/HỌC VIÊN" có 1 hàng tiêu đề (6 cột)
+# cộng 4 hàng TRẮNG (mọi ô rỗng chữ) — 5 hàng nguồn. Trước bản vá round 2,
+# `doc_tai_lieu` bỏ qua Ô rỗng chữ như một đoạn văn rỗng, nên `don_vi` không
+# còn dấu vết 4 hàng trắng tồn tại, và `_bang_theo_nhan` dựng lại đúng 1 hàng.
+
+DV_DANH_SACH = [
+    DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="STT", bang=(0, 0, 0)),
+    DonViVanBan(chi_so=1, trang=1, offset_dau=5, noi_dung="Lớp quản lý", bang=(0, 0, 1)),
+    DonViVanBan(chi_so=2, trang=1, offset_dau=20, noi_dung="Mã sinh viên/ học viên", bang=(0, 0, 2)),
+    DonViVanBan(chi_so=3, trang=1, offset_dau=45, noi_dung="Họ và tên", bang=(0, 0, 3)),
+    DonViVanBan(chi_so=4, trang=1, offset_dau=58, noi_dung="Ngày sinh", bang=(0, 0, 4)),
+    DonViVanBan(chi_so=5, trang=1, offset_dau=70, noi_dung="Ghi chú", bang=(0, 0, 5)),
+    # 4 hàng trắng — MỖI ô một đơn vị rỗng chữ riêng (Phase 11 fix round 2),
+    # không phải một hàng bị bỏ qua hoàn toàn.
+    *(
+        DonViVanBan(chi_so=6 + h * 6 + c, trang=1, offset_dau=80 + h * 10 + c, noi_dung="", bang=(0, h, c))
+        for h in range(1, 5)
+        for c in range(6)
+    ),
+]
+GOI_DANH_SACH = [
+    {"id": "w", "ten_tep": "bm05.docx", "don_vi": DV_DANH_SACH, "nhan": "A", "gui": DV_DANH_SACH}
+]
+NGUON_DANH_SACH = "\n".join(dv.noi_dung for dv in DV_DANH_SACH if dv.noi_dung)
+
+
+def test_bang_theo_nhan_giu_du_hang_trang_khong_chi_hang_tieu_de():
+    """`_bang_theo_nhan` phải dựng lại ĐỦ 5 hàng (1 tiêu đề + 4 trắng), không
+    chỉ hàng có chữ — mỗi hàng trắng vẫn đủ 6 ô rỗng riêng, không gộp thành
+    một ô trống duy nhất (khác ca "hàng ngắn hơn tiêu đề" của R6: ở đây MỌI
+    cột đều có ô thật, chỉ là rỗng chữ)."""
+    ra = h._bang_theo_nhan(GOI_DANH_SACH)
+    tbl = ra["A0"]
+    assert len(tbl["hang"]) == 5, "1 hàng tiêu đề + 4 hàng trắng, không bị rút xuống 1"
+    for hang_trang in tbl["hang"][1:]:
+        assert hang_trang == ["", "", "", "", "", ""], "mỗi hàng trắng đủ 6 ô rỗng riêng"
+    assert tbl["nhip"][1] == [1, 1, 1, 1, 1, 1]
+
+
+def test_khop_bang_cuu_bang_danh_sach_giu_hang_trang():
+    """Qua ĐỦ `_khop_bang`: mô hình chỉ viết hàng tiêu đề (đúng chế độ hỏng đo
+    được thật, model không tự biết có 4 hàng trắng phía sau) — khớp lại vẫn
+    phải trả về ĐỦ 5 hàng của bảng thật, không dừng ở hàng tiêu đề mô hình đã
+    viết."""
+    muc = {
+        "ten": "Bảng danh sách sinh viên/học viên",
+        "vung": "than",
+        "khoi": [
+            {
+                "noi_dung": "",
+                "bang": [["STT", "Lớp quản lý", "Mã sinh viên/ học viên", "Họ và tên", "Ngày sinh", "Ghi chú"]],
+            }
+        ],
+    }
+    van_ban, _ = _sach([muc], nguon=NGUON_DANH_SACH, goi=GOI_DANH_SACH)
+    bang = van_ban["muc"][0]["khoi"][0]["bang"]
+    assert len(bang) == 5, "bảng khớp lại phải giữ đủ 4 hàng trắng nguồn khai báo"
+    assert bang[1:] == [["", "", "", "", "", ""]] * 4
 
 
 # ───────────── Phase 9 U2 — giá trị Ô TRÙNG LẶP trong CÙNG một bảng thật
@@ -846,6 +911,171 @@ def test_ten_muc_that_viet_khac_hoa_thuong_van_duoc_danh_dau_that():
     assert van_ban["muc"][0]["ten_that"] is True
 
 
+# ──────── Phase 11 fix round 2 — tên mục THẬT không được lặp lại làm thân bài
+#
+# Đo thật trên BM.M05 (draft `66ee94f8…`): mục "Xác nhận của Cơ quan/Đơn vị"
+# có `ten_that=True` (tên khớp một đoạn thật của nguồn) — ĐÚNG, không phải
+# lỗi U1 — nhưng khối văn xuôi đầu tiên của chính mục đó LẶP LẠI dòng đó rồi
+# mới tới "(Ký và ghi rõ họ tên, chức vụ, đóng dấu)". Trang in tiêu đề mục
+# RỒI thân bài, nên câu đó xuất hiện HAI LẦN.
+
+
+def test_ten_muc_that_trung_dong_dau_khoi_thi_bo_dong_do_giu_phan_con_lai():
+    dv = [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Xác nhận của Cơ quan/Đơn vị"),
+        DonViVanBan(chi_so=1, trang=1, offset_dau=40, noi_dung="(Ký và ghi rõ họ tên, chức vụ, đóng dấu)"),
+    ]
+    goi = [{"id": "z4", "ten_tep": "bm05.docx", "don_vi": dv, "nhan": "A", "gui": dv}]
+    muc = {
+        "ten": "Xác nhận của Cơ quan/Đơn vị",
+        "vung": "than",
+        "khoi": [
+            {
+                "noi_dung": "Xác nhận của Cơ quan/Đơn vị\n(Ký và ghi rõ họ tên, chức vụ, đóng dấu)",
+                "bang": [],
+            }
+        ],
+    }
+    van_ban, _ = _sach(
+        [muc],
+        nguon="Xác nhận của Cơ quan/Đơn vị (Ký và ghi rõ họ tên, chức vụ, đóng dấu)",
+        goi=goi,
+    )
+    ket = van_ban["muc"][0]
+    assert ket["ten_that"] is True, "tên vẫn thật, vẫn in ra làm tiêu đề mục"
+    assert ket["khoi"] == [
+        {"noi_dung": "(Ký và ghi rõ họ tên, chức vụ, đóng dấu)", "bang": [], "can_le": "trai", "nhip": [], "ti_le": []}
+    ], "dòng đầu (trùng tên) bị bỏ, phần còn lại của khối vẫn giữ nguyên"
+
+
+def test_ten_muc_that_bang_dung_ca_khoi_thi_bo_ca_khoi_khong_bo_muc():
+    """Khối CHỈ có đúng dòng trùng tên (không còn gì khác) — bỏ CẢ khối, mục
+    vẫn còn (không vô đề, vì `ten` đã in ra rồi)."""
+    dv = [DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Xác nhận của Cơ quan/Đơn vị")]
+    goi = [{"id": "z5", "ten_tep": "bm05.docx", "don_vi": dv, "nhan": "A", "gui": dv}]
+    muc = {
+        "ten": "Xác nhận của Cơ quan/Đơn vị",
+        "vung": "than",
+        "khoi": [{"noi_dung": "Xác nhận của Cơ quan/Đơn vị", "bang": []}],
+    }
+    van_ban, _ = _sach([muc], nguon="Xác nhận của Cơ quan/Đơn vị", goi=goi)
+    assert van_ban["muc"] == [], "khối duy nhất bị bỏ hết → mục không còn khối nào, cùng luật hiện có"
+
+
+def test_ten_muc_bia_trung_dong_dau_khoi_khong_bi_bo():
+    """Đối chứng: một tên mục KLAW bịa (`ten_that=False`) không in ra trang,
+    nên trùng chữ với dòng đầu nội dung không phải một sự lặp lại thật — giữ
+    nguyên khối, không bỏ dòng nào."""
+    muc = {
+        "ten": "Xác nhận của Cơ quan/Đơn vị",
+        "vung": "than",
+        "khoi": [
+            {
+                "noi_dung": "Xác nhận của Cơ quan/Đơn vị\n(Ký và ghi rõ họ tên, chức vụ, đóng dấu)",
+                "bang": [],
+            }
+        ],
+    }
+    van_ban, _ = _sach(
+        [muc], nguon="Xác nhận của Cơ quan/Đơn vị (Ký và ghi rõ họ tên, chức vụ, đóng dấu)", goi=GOI_BANG_DIEM
+    )
+    ket = van_ban["muc"][0]
+    assert ket["ten_that"] is False
+    assert ket["khoi"][0]["noi_dung"] == "Xác nhận của Cơ quan/Đơn vị\n(Ký và ghi rõ họ tên, chức vụ, đóng dấu)"
+
+
+# ────────────── Phase 11 fix round 2 — tiêu đề đặt ĐÚNG vị trí nguồn, không
+# phải luôn ở đầu trang
+#
+# Đo thật trên BM.M05 (draft `4722079d…`): nguồn có thứ tự "Mẫu QT.ĐT.28-M05"
+# (chỉ số 0) → letterhead (chỉ số 1–3) → tiêu đề "GIẤY TIẾP NHẬN THỰC HÀNH/
+# THỰC TẬP" (chỉ số 4) → phần còn lại. Mô hình không tự in tiêu đề ra thân
+# bài (nó chỉ sống trong `tieu_de`) — `<h1>` cũ luôn vẽ Ở ĐẦU nên trang hiện
+# tiêu đề TRƯỚC letterhead, sai thứ tự nguồn.
+
+DV_THU_TU = [
+    DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Mẫu QT.ĐT.28-M05"),
+    DonViVanBan(chi_so=1, trang=1, offset_dau=20, noi_dung="Tên chủ quản", bang=(0, 0, 0)),
+    DonViVanBan(chi_so=2, trang=1, offset_dau=40, noi_dung="Quốc hiệu", bang=(0, 0, 1)),
+    DonViVanBan(
+        chi_so=3, trang=1, offset_dau=60, noi_dung="GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP", can_le="giua",
+    ),
+    DonViVanBan(chi_so=4, trang=1, offset_dau=110, noi_dung="Cơ quan/Đơn vị tiếp nhận: ………"),
+]
+GOI_THU_TU = [{"id": "y", "ten_tep": "bm05.docx", "don_vi": DV_THU_TU, "nhan": "A", "gui": DV_THU_TU}]
+NGUON_THU_TU = "\n".join(dv.noi_dung for dv in DV_THU_TU)
+
+
+def test_tieu_de_chen_dung_vi_tri_nguon_khong_luon_o_dau():
+    van_ban = {
+        "tieu_de": "GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP",
+        "muc": [
+            {"ten": "Tiêu đề biểu mẫu", "vung": "than", "khoi": [{"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []}]},
+            {
+                "ten": "Quốc hiệu và tiêu ngữ",
+                "vung": "than",
+                "khoi": [{"noi_dung": "", "bang": [["Tên chủ quản", "Quốc hiệu"]]}],
+            },
+            {
+                "ten": "Thông tin chi tiết",
+                "vung": "than",
+                "khoi": [{"noi_dung": "Cơ quan/Đơn vị tiếp nhận: ………", "bang": []}],
+            },
+        ],
+    }
+    ket, _ = h.lam_sach_van_ban(van_ban, NGUON_THU_TU, goi=GOI_THU_TU)
+    ten_theo_thu_tu = [m["ten"] for m in ket["muc"]]
+    assert ten_theo_thu_tu == [
+        "Tiêu đề biểu mẫu",
+        "Quốc hiệu và tiêu ngữ",
+        "Tiêu đề văn bản",
+        "Thông tin chi tiết",
+    ], "tiêu đề chen ĐÚNG giữa letterhead và mục kế tiếp, không nhảy lên đầu"
+    muc_tieu_de = ket["muc"][2]
+    assert muc_tieu_de["ten_that"] is False, "tên tổ chức nội bộ, không phải chữ thật — không in ra làm tiêu đề mục"
+    assert muc_tieu_de["khoi"] == [
+        {
+            "noi_dung": "GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP",
+            "bang": [],
+            "can_le": "giua",
+            "nhip": [],
+            "ti_le": [],
+        }
+    ]
+
+
+def test_tieu_de_da_co_trong_than_bai_thi_khong_chen_them():
+    """Ca R4 gốc (BM.ĐT.18.05-style): tiêu đề ĐÃ được mô hình in ra như một
+    dòng thân bài (chung khối với quốc hiệu) — không chèn thêm một bản sao
+    thứ hai, `<h1>` phía render cũng đã tự ẩn đi (thấy trong thân bài rồi)."""
+    van_ban = {
+        "tieu_de": "GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP",
+        "muc": [
+            {
+                "ten": "Quốc hiệu và tiêu ngữ",
+                "vung": "than",
+                "khoi": [{"noi_dung": "Tên chủ quản\nGIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP", "bang": []}],
+            },
+        ],
+    }
+    ket, _ = h.lam_sach_van_ban(van_ban, NGUON_THU_TU, goi=GOI_THU_TU)
+    assert len(ket["muc"]) == 1, "không chèn mục nào thêm — tiêu đề đã có trong thân bài"
+
+
+def test_tieu_de_khong_dinh_vi_duoc_thi_khong_chen():
+    """Tiêu đề không khớp CHỮ THẬT nào của nguồn (mô hình soạn/paraphrase) —
+    không có vị trí nguồn nào để dùng, không chèn gì (giữ nguyên hành vi cũ,
+    `<h1>` phía render lo phần hiện tiêu đề)."""
+    van_ban = {
+        "tieu_de": "Một tiêu đề mô hình tự bịa, không có trong nguồn",
+        "muc": [
+            {"ten": "Tiêu đề biểu mẫu", "vung": "than", "khoi": [{"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": []}]},
+        ],
+    }
+    ket, _ = h.lam_sach_van_ban(van_ban, NGUON_THU_TU, goi=GOI_THU_TU)
+    assert len(ket["muc"]) == 1, "không định vị được thì không chèn mục nào"
+
+
 # ─────────────────────────────────────────── node hieu_tai_lieu phát `van_ban`
 
 
@@ -963,9 +1193,9 @@ def test_node_khop_lai_letterhead_bi_mo_hinh_xe_thanh_van_xuoi():
                     "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)",
                     "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc",
                 ],
-                ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./…."],
+                ["TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN Số …./….", ""],
             ],
-            "nhip": [[1, 1], [2]],
+            "nhip": [[1, 1], [1, 1]],
             "ti_le": [],
             "can_le": "trai",
         },

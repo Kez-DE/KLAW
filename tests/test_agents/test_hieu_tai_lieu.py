@@ -91,6 +91,20 @@ def test_loc_don_vi_rong():
     assert h.loc_don_vi([], "x") == []
 
 
+def test_loc_don_vi_bo_o_bang_rong_chu_khong_gui_mo_hinh():
+    """Phase 11 fix round 2 — `doc_tai_lieu` giờ giữ cả ô bảng rỗng chữ (để
+    dựng lại đủ hàng trắng của một biểu mẫu, xem `doc_tai_lieu._duyet_than`),
+    nhưng một ô rỗng không có gì để mô hình đọc hay trích — `loc_don_vi` (phần
+    ĐI VÀO PROMPT) phải bỏ nó, không gửi một dòng không chữ tốn token. Bảng
+    dựng lại vẫn đủ hàng vì `_khop_bang` đọc `t["don_vi"]` (TOÀN BỘ), không
+    phải `t["gui"]`."""
+    co_o_rong = [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="STT", bang=(0, 0, 0)),
+        DonViVanBan(chi_so=1, trang=1, offset_dau=5, noi_dung="", bang=(0, 1, 0)),
+    ]
+    assert h.loc_don_vi(co_o_rong, "x") == [co_o_rong[0]]
+
+
 # ─────────────────────────────────────────────────────────────── lược đồ
 
 
