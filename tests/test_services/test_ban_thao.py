@@ -1,3 +1,5 @@
+import threading
+import time
 import uuid
 
 import pytest
@@ -180,6 +182,184 @@ def test_danh_sach_khong_con_keo_phien_ban_truoc(nguoi):
     items, _ = ban_thao.danh_sach(nguoi, 10, 0)
     assert "phien_ban_truoc" not in items[0]
     assert items[0]["phien_ban"] == 2
+
+
+# ═══ Fix round 1 — sua()/lui() phải khoá hàng khi đọc-rồi-ghi ══════════════
+
+
+def _giu_khoa_va_doi_ke_tiep(id: str, da_khoa: threading.Event, tha_khoa: threading.Event, ke_tiep_moi: int):
+    """Mở một transaction RIÊNG, THẬT SỰ đổi `phien_ban_ke_tiep` của hàng này
+    (không phải chỉ khoá suông rồi không đổi gì), báo hiệu đã xong, CHỜ tới
+    khi bị `.set()` từ bên ngoài mới commit.
+
+    Đổi THẬT là điểm mấu chốt để bài test phân biệt được hai hành vi: một
+    UPDATE luôn phải chờ khoá hàng của giao dịch này giải phóng, cho DÙ đọc có
+    khoá hay không — nên "có bị chặn hay không" không phân biệt được bản lỗi
+    với bản đã sửa (cả hai đều bị UPDATE chặn). Cái phân biệt được là DỮ LIỆU
+    dùng để tính ra bản ghi mới: đọc SAU khi khoá được thả (đúng, `FOR UPDATE`
+    trong `sua`/`lui`) thấy `ke_tiep_moi`; đọc TỪ TRƯỚC lúc vào cuộc đua (sai,
+    `chi_tiet()` không khoá) thấy giá trị CŨ, ghi đè mất `ke_tiep_moi` không
+    dấu vết khi cuối cùng cũng tới lượt UPDATE của nó."""
+    with get_engine().begin() as c:
+        c.execute(
+            text("UPDATE ban_thao SET phien_ban_ke_tiep = :k WHERE id = CAST(:id AS uuid)"),
+            {"k": ke_tiep_moi, "id": id},
+        )
+        da_khoa.set()
+        tha_khoa.wait(timeout=5)
+
+
+def test_sua_dung_gia_tri_moi_nhat_khong_dung_gia_tri_da_doc_tu_truoc(nguoi):
+    """[Fix round 1, Critical] Trong lúc `sua()` đang chờ một transaction khác
+    nhả hàng này ra, transaction kia vừa TĂNG `phien_ban_ke_tiep` lên rất xa
+    (mô phỏng một `sua()` khác vừa commit ngay trước đó). `sua()` phải dùng
+    giá trị MỚI NHẤT (đọc LẠI sau khi khoá được thả) để cấp số phiên bản kế
+    tiếp — nếu nó đọc bằng `chi_tiet()` không khoá TỪ TRƯỚC khi vào cuộc đua,
+    nó sẽ cấp một số đã lỗi thời và ghi đè luôn cả bộ đếm về một giá trị CŨ,
+    mở lại đúng va chạm số phiên bản mà R1 sinh ra để chặn."""
+    pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
+    bt = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+    ke_tiep_da_doi = bt["phien_ban_ke_tiep"] + 100
+
+    da_khoa = threading.Event()
+    tha_khoa = threading.Event()
+    t_khoa = threading.Thread(target=_giu_khoa_va_doi_ke_tiep, args=(bt["id"], da_khoa, tha_khoa, ke_tiep_da_doi))
+    t_khoa.start()
+    da_khoa.wait(timeout=5)
+    assert da_khoa.is_set(), "không dựng lại được tình huống: transaction giữ khoá chưa commit được bước đổi"
+
+    ket_qua = {}
+
+    def thu_sua():
+        ket_qua["sua"] = ban_thao.sua(nguoi, bt["id"], {"ho_ten": "A", "buoc": "2"}, {**KET, "document": "# ĐƠN v2"})
+
+    t_sua = threading.Thread(target=thu_sua)
+    t_sua.start()
+    # Nhường CPU đủ lâu để `t_sua` chắc chắn đã VÀO tới lượt đọc của `sua()`
+    # trước khi khoá được thả — không có mốc này, `t_sua` có thể khởi động
+    # trễ hơn `tha_khoa.set()`, đọc được giá trị ĐàCOMMIT một cách tình cờ,
+    # và bài test đỗ mà chẳng thử được cuộc đua nào (đã thấy xảy ra: chạy
+    # không có `sleep` này cho kết quả PASS giả trên chính bản lỗi).
+    time.sleep(0.2)
+
+    tha_khoa.set()
+    t_khoa.join(timeout=5)
+    t_sua.join(timeout=5)
+
+    assert ket_qua["sua"] is not None
+    assert ket_qua["sua"]["phien_ban"] == ke_tiep_da_doi, (
+        "sua() phải cấp đúng phien_ban_ke_tiep MỚI NHẤT — cấp một số cũ hơn nghĩa là nó "
+        "đã đọc TRƯỚC khi transaction kia commit, ghi đè mất giá trị mới không dấu vết"
+    )
+
+
+def test_lui_khong_lam_lui_bo_dem_ve_gia_tri_cu(nguoi):
+    """[Fix round 1, Critical] Cùng tình huống trên, cho `lui()`: nó ghi lại
+    `phien_ban_ke_tiep` KHÔNG đổi giá trị (chỉ để không mất nó khi UPDATE ghi
+    cả hàng) — nhưng phải là giá trị NÓ VỪA ĐỌC LẠI sau khi khoá được thả, chứ
+    không phải giá trị đọc từ trước khi vào cuộc đua. Đọc từ trước sẽ làm
+    `lui()` ghi đè bộ đếm VỀ một số CŨ hơn, mở lại đúng va chạm R1 chặn."""
+    pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
+    bt = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+    ban_thao.sua(nguoi, bt["id"], {"ho_ten": "A", "buoc": "2"}, {**KET, "document": "# ĐƠN v2"})
+    ke_tiep_da_doi = 999
+
+    da_khoa = threading.Event()
+    tha_khoa = threading.Event()
+    t_khoa = threading.Thread(target=_giu_khoa_va_doi_ke_tiep, args=(bt["id"], da_khoa, tha_khoa, ke_tiep_da_doi))
+    t_khoa.start()
+    da_khoa.wait(timeout=5)
+    assert da_khoa.is_set(), "không dựng lại được tình huống: transaction giữ khoá chưa commit được bước đổi"
+
+    ket_qua = {}
+
+    def thu_lui():
+        ket_qua["lui"] = ban_thao.lui(nguoi, bt["id"])
+
+    t_lui = threading.Thread(target=thu_lui)
+    t_lui.start()
+    # Cùng lý do ở bài test của `sua()`: nhường đủ CPU để `t_lui` chắc chắn đã
+    # vào tới lượt đọc trước khi khoá được thả.
+    time.sleep(0.2)
+
+    tha_khoa.set()
+    t_khoa.join(timeout=5)
+    t_lui.join(timeout=5)
+
+    assert ket_qua["lui"] is not None
+    assert ket_qua["lui"]["phien_ban_ke_tiep"] == ke_tiep_da_doi, (
+        "lui() phải GIỮ NGUYÊN phien_ban_ke_tiep MỚI NHẤT — ghi lại một giá trị cũ hơn "
+        "nghĩa là nó đã đọc TRƯỚC khi transaction kia commit, làm bộ đếm LÙI lại"
+    )
+
+
+def test_hai_sua_dong_thoi_khong_va_so_khong_mat_ban_ghi(nguoi):
+    """[Fix round 1, Critical] Hai request THẬT SỰ đồng thời (hai luồng, mỗi
+    luồng một connection lấy từ pool — đúng hình dạng hai request async chạy
+    qua `run_in_threadpool`) trên CÙNG một bản thảo: không được cấp trùng số
+    phiên bản, và bản ghi của bên "thua" cuộc đua không được biến mất không
+    dấu vết — nó phải còn đọc được, hoặc là bản đang sống, hoặc trong lịch sử."""
+    pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
+    bt = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+    ke_tiep_ban_dau = bt["phien_ban_ke_tiep"]
+
+    rao_can = threading.Barrier(2)
+    ket_qua = {}
+
+    def sua_dong_thoi(nhan):
+        rao_can.wait(timeout=5)
+        ket_qua[nhan] = ban_thao.sua(nguoi, bt["id"], {"ho_ten": "A", "buoc": nhan}, {**KET, "document": f"# ĐƠN {nhan}"})
+
+    luong = [threading.Thread(target=sua_dong_thoi, args=(nhan,)) for nhan in ("a", "b")]
+    for t in luong:
+        t.start()
+    for t in luong:
+        t.join(timeout=5)
+
+    a, b = ket_qua["a"], ket_qua["b"]
+    assert a is not None and b is not None
+    assert a["phien_ban"] != b["phien_ban"], "hai request đồng thời KHÔNG được cấp trùng số phiên bản"
+
+    sau = ban_thao.chi_tiet(nguoi, bt["id"])
+    assert sau["phien_ban_ke_tiep"] == ke_tiep_ban_dau + 2, "bộ đếm phải tăng đúng HAI lần, không phải một"
+
+    tai_lieu_con_lai = {sau["document"]} | {t["document"] for t in sau["phien_ban_truoc"]}
+    assert "# ĐƠN a" in tai_lieu_con_lai and "# ĐƠN b" in tai_lieu_con_lai, (
+        "bản ghi của bên 'thua' cuộc đua không được biến mất"
+    )
+
+    so_tat_ca = [sau["phien_ban"], *[t["phien_ban"] for t in sau["phien_ban_truoc"]]]
+    assert len(so_tat_ca) == len(set(so_tat_ca)), "không số phiên bản nào trùng nhau trong toàn bộ bản ghi"
+
+
+def test_tran_sua_bo_so_nho_nhat_truoc_du_mang_bi_xao_tron(nguoi):
+    """[Fix round 1, Important] Khi vượt `TRAN_SUA`, mục bị bỏ phải là số
+    phiên bản NHỎ NHẤT — kể cả sau khi `lui` đã xáo trộn thứ tự mảng (giữ lại
+    một nhánh số LỚN hơn bản đang đứng), cắt theo VỊ TRÍ mảng (phần tử đầu)
+    có thể bỏ nhầm nhánh vừa bị rời đi thay vì tổ tiên cũ nhất."""
+    pid = hoi_thoai.tao_phien(nguoi, "đơn nghỉ việc")
+    bt = ban_thao.tao(nguoi, pid, "don_xin_nghi_viec", {"ho_ten": "A"}, KET)
+    for i in range(1, 4):
+        ban_thao.sua(nguoi, bt["id"], {"ho_ten": "A", "buoc": str(i)}, {**KET, "document": f"d{i}"})
+    # Live v4. Lùi hai bước — mảng giờ giữ cả tổ tiên (số nhỏ) lẫn nhánh vừa
+    # rời đi (số lớn hơn bản đang đứng), không còn tăng dần theo vị trí.
+    ban_thao.lui(nguoi, bt["id"])  # -> v3, giữ v4
+    ban_thao.lui(nguoi, bt["id"])  # -> v2, giữ v3, v4
+    for i in range(4, 4 + ban_thao.TRAN_SUA):
+        r = ban_thao.sua(nguoi, bt["id"], {"ho_ten": "A", "buoc": str(i)}, {**KET, "document": f"d{i}"})
+
+    so_giu_lai = sorted(t["phien_ban"] for t in r["phien_ban_truoc"])
+    assert len(so_giu_lai) == ban_thao.TRAN_SUA
+    # Đúng TRAN_SUA số CAO NHẤT còn tồn tại (trừ bản đang sống) phải được giữ —
+    # nghĩa là mọi số NHỎ hơn min(so_giu_lai) đã bị bỏ, không sót một số nhỏ
+    # nào lại trong khi một số lớn hơn nó đã bị bỏ.
+    tat_ca_so_tung_co = set(range(1, r["phien_ban"])) | {r["phien_ban"]}
+    con_lai = set(so_giu_lai) | {r["phien_ban"]}
+    bi_bo = tat_ca_so_tung_co - con_lai
+    if bi_bo:
+        assert max(bi_bo) < min(so_giu_lai), (
+            f"bỏ nhầm số {bi_bo} trong khi số nhỏ hơn {min(so_giu_lai)} vẫn còn giữ lại"
+        )
 
 
 def test_soan_thao_cua_phien(nguoi):

@@ -56,6 +56,23 @@ _SQL_LAY = text(
     f"SELECT {_COT} FROM ban_thao WHERE id = CAST(:id AS uuid) AND user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL"
     f" AND {_KHONG_MO_COI}"
 )
+# Fix round 1 (Critical, R1) — `sua`/`lui` phải ĐỌC hàng này TRONG CÙNG một
+# transaction với cú GHI, và khoá nó (`FOR UPDATE`): `get_engine()`
+# (`src/services/db.py`) không đặt isolation level nào khác READ COMMITTED
+# mặc định, nên hai request gần như đồng thời trên CÙNG một bản thảo (double
+# submit, hai tab, một retry đua với bản gốc) — mỗi request một connection từ
+# pool — nếu đọc bằng `chi_tiet()` (không khoá) trên connection RIÊNG rồi mới
+# mở transaction để ghi, cả hai sẽ đọc CÙNG `phien_ban_ke_tiep`, cùng tính một
+# số phiên bản mới, và bên ghi SAU đè sạch bên ghi TRƯỚC — đúng va chạm số
+# phiên bản mà R1 sinh ra để chặn, chỉ đi vòng qua một cửa khác (đường đua,
+# không phải công thức backfill). `FOR UPDATE` bắt giao dịch thứ hai CHỜ tới
+# khi giao dịch thứ nhất commit rồi mới đọc — nên nó luôn thấy
+# `phien_ban_ke_tiep` đã tăng và snapshot của giao dịch trước đã được đẩy vào
+# lịch sử (`_snap`), không có gì mất tích không dấu vết.
+_SQL_LAY_KHOA = text(
+    f"SELECT {_COT} FROM ban_thao WHERE id = CAST(:id AS uuid) AND user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL"
+    f" AND {_KHONG_MO_COI} FOR UPDATE"
+)
 _SQL_SUA = text(
     "UPDATE ban_thao SET facts = CAST(:facts AS jsonb), document = :document, clauses = CAST(:clauses AS jsonb),"
     " audit = CAST(:audit AS jsonb), phien_ban = :phien_ban, phien_ban_ke_tiep = :phien_ban_ke_tiep,"
@@ -241,19 +258,33 @@ def _snap(row: dict, *, doi: list[str] | None = None) -> dict:
 
 
 def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
-    cu = chi_tiet(sub, id)
-    if cu is None:
-        return None
-    # Phase 4 (D11, R1) — số phiên bản MỚI lấy từ bộ đếm riêng
-    # `phien_ban_ke_tiep`, không phải `cu["phien_ban"] + 1` nữa: cột đó có thể
-    # bị `lui` kéo NGƯỢC xuống, còn bộ đếm này chỉ ĐI LÊN nên không bao giờ cấp
-    # lại một số đã dùng — kể cả số của một nhánh `lui` đã bỏ đi mà giờ vẫn
-    # được GIỮ LẠI (R2). `doi_so_voi` so facts CŨ (`cu`) với facts MỚI (tham số
-    # `facts`) — đúng cặp mà `dung_lai` vẫn so sau khi gọi hàm này, chỉ tính
-    # SỚM hơn một nhịp để gắn vào chính snapshot đang bị rời đi (R3).
-    doi = doi_so_voi(cu, {"facts": facts})
-    truoc = [*(cu["phien_ban_truoc"] or []), _snap(cu, doi=doi)][-TRAN_SUA:]
+    # Fix round 1 (Critical) — đọc bằng `_SQL_LAY_KHOA` (FOR UPDATE) TRONG CÙNG
+    # transaction với cú ghi bên dưới, không phải `chi_tiet()` trên một
+    # connection riêng: xem chú thích ở khai báo `_SQL_LAY_KHOA` — đây là chỗ
+    # duy nhất số phiên bản được cấp, nên đây là chỗ duy nhất cần khoá.
     with get_engine().begin() as c:
+        cu = c.execute(_SQL_LAY_KHOA, {"sub": sub, "id": id}).mappings().one_or_none()
+        if cu is None:
+            return None
+        cu = dict(cu)
+        # Phase 4 (D11, R1) — số phiên bản MỚI lấy từ bộ đếm riêng
+        # `phien_ban_ke_tiep`, không phải `cu["phien_ban"] + 1` nữa: cột đó có
+        # thể bị `lui` kéo NGƯỢC xuống, còn bộ đếm này chỉ ĐI LÊN nên không bao
+        # giờ cấp lại một số đã dùng — kể cả số của một nhánh `lui` đã bỏ đi mà
+        # giờ vẫn được GIỮ LẠI (R2). `doi_so_voi` so facts CŨ (`cu`) với facts
+        # MỚI (tham số `facts`) — đúng cặp mà `dung_lai` vẫn so sau khi gọi hàm
+        # này, chỉ tính SỚM hơn một nhịp để gắn vào chính snapshot đang bị rời
+        # đi (R3).
+        doi = doi_so_voi(cu, {"facts": facts})
+        # Fix round 1 (Important) — SẮP XẾP theo `phien_ban` trước khi cắt còn
+        # `TRAN_SUA`: mảng không còn chắc tăng dần một khi `lui` đã giữ lại một
+        # nhánh số LỚN hơn bản đang đứng (R2), nên cắt theo VỊ TRÍ mảng (phần tử
+        # đầu) có thể bỏ đúng nhánh vừa bị rời đi thay vì tổ tiên cũ nhất — kém
+        # hữu ích hơn để giữ. Sắp xếp trước khi cắt luôn bỏ SỐ NHỎ NHẤT trước,
+        # bất kể mảng đã bị `lui` xáo trộn thế nào.
+        truoc = sorted([*(cu["phien_ban_truoc"] or []), _snap(cu, doi=doi)], key=lambda t: t["phien_ban"])[
+            -TRAN_SUA:
+        ]
         r = (
             c.execute(
                 _SQL_SUA,
@@ -348,18 +379,30 @@ def lui(sub: str, id: str) -> dict | None:
     số nhỏ hơn bản đang đứng rồi lấy số LỚN NHẤT trong đó mới đúng là tổ tiên
     gần nhất; nếu không còn mục nào như vậy (kể cả khi mảng không rỗng — toàn
     mục bị bỏ từ trước, số đều LỚN hơn) thì từ chối, đúng bất biến cũ.
+
+    Fix round 1 (Critical) — đọc bằng `_SQL_LAY_KHOA` (FOR UPDATE) TRONG CÙNG
+    transaction với cú ghi bên dưới, cùng lý do `sua()` khoá: `lui` cũng ghi
+    lại `phien_ban_ke_tiep` (không đổi giá trị, nhưng cùng hàng), nên nó cũng
+    phải nằm trong vùng khoá — nếu không, một `lui` và một `sua` gần như đồng
+    thời có thể xen kẽ và một trong hai ghi đè bên kia bằng dữ liệu đã đọc từ
+    trước khi bên kia commit.
     """
-    cu = chi_tiet(sub, id)
-    if cu is None:
-        return cu
-    lich_su = cu["phien_ban_truoc"] or []
-    ung_vien = [t for t in lich_su if t["phien_ban"] < cu["phien_ban"]]
-    if not ung_vien:
-        return cu
-    gan = max(ung_vien, key=lambda t: t["phien_ban"])
-    con = [t for t in lich_su if t is not gan]
-    truoc = [*con, _snap(cu)][-TRAN_SUA:]
     with get_engine().begin() as c:
+        cu = c.execute(_SQL_LAY_KHOA, {"sub": sub, "id": id}).mappings().one_or_none()
+        if cu is None:
+            return None
+        cu = dict(cu)
+        lich_su = cu["phien_ban_truoc"] or []
+        ung_vien = [t for t in lich_su if t["phien_ban"] < cu["phien_ban"]]
+        if not ung_vien:
+            return cu
+        gan = max(ung_vien, key=lambda t: t["phien_ban"])
+        con = [t for t in lich_su if t is not gan]
+        # Fix round 1 (Important) — sắp xếp trước khi cắt còn `TRAN_SUA`, cùng
+        # lý do ở `sua()`: luôn bỏ số phiên bản NHỎ NHẤT trước, không phải
+        # phần tử ở đầu mảng (có thể là nhánh vừa bị rời đi, hữu ích hơn để
+        # giữ, nếu mảng đã bị xáo trộn bởi một lượt `lui` trước đó).
+        truoc = sorted([*con, _snap(cu)], key=lambda t: t["phien_ban"])[-TRAN_SUA:]
         r = (
             c.execute(
                 _SQL_SUA,
