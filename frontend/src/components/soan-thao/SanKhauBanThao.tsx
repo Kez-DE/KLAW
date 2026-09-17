@@ -152,8 +152,10 @@ const NUT_PHU =
   "focus-brass inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[12.5px] text-primary transition-colors hover:bg-[var(--color-paper-100)] disabled:cursor-not-allowed disabled:opacity-60";
 
 /**
- * Sân khấu bản thảo (spec 2026-09-09 §9.4) — bản thảo chiếm toàn bề rộng
- * `<main>` khi mở, trợ lý lùi ra thành cửa sổ nổi (`CuaSoTroLy`) bên cạnh.
+ * Sân khấu bản thảo (spec 2026-09-09 §9.4, D5 canvas-tai-lieu Phase 2) — cột
+ * bên phải của bố cục hai cột khi `toanMan` là `false` (trợ lý đứng cột trái,
+ * ngăn cách bằng `TayKeo`), hoặc phủ toàn màn khi `toanMan` là `true` (bố cục
+ * hẹp, dưới 68rem).
  *
  * Khung mục (cột trái) quyết định THỨ TỰ và CĂN CỨ của từng mục; `clauses` của
  * `banThao` chỉ góp nội dung — `mucTuBanThao` (xuat-tep.ts) đã gộp hai nguồn

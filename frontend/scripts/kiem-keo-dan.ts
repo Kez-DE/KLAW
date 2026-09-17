@@ -5,17 +5,17 @@
 import assert from "node:assert/strict";
 import {
   BUOC_PHIM,
-  CUA_SO_MAC_DINH,
   RONG_DOI_CHIEU_MAC_DINH,
+  RONG_SAN_KHAU_MAC_DINH,
   bienPanelDoiChieu,
   docRongDaLuu,
-  kepCuaSo,
   kepRong,
   luuRong,
   phanTram,
 } from "../src/lib/keo-dan.ts";
 
 assert.equal(RONG_DOI_CHIEU_MAC_DINH, 420);
+assert.equal(RONG_SAN_KHAU_MAC_DINH, 640);
 assert.deepEqual(bienPanelDoiChieu(1440), { min: 320, max: 864 });
 assert.deepEqual(bienPanelDoiChieu(1000), { min: 320, max: 520 }); // 1000 - 480 chat tối thiểu
 assert.deepEqual(bienPanelDoiChieu(700), { min: 320, max: 320 });
@@ -73,69 +73,4 @@ globalThis.localStorage = {
 assert.equal(docRongDaLuu("klaw.doi-chieu.rong", RONG_DOI_CHIEU_MAC_DINH), RONG_DOI_CHIEU_MAC_DINH);
 assert.doesNotThrow(() => luuRong("klaw.doi-chieu.rong", 500));
 
-console.log("kiem-keo-dan: 18/18 OK");
-
-// ── Cửa sổ trợ lý nổi (spec 2026-09-09 §9.4) ────────────────────────────────
-// Mặc định lần đầu, và bốn ca kẹp: co lại dưới tối thiểu, tràn cạnh phải/dưới,
-// và một cửa sổ khổng lồ hơn cả viewport (thu về đúng bằng viewport, không âm).
-const vp = { w: 1440, h: 900 };
-assert.deepEqual(CUA_SO_MAC_DINH(vp), {
-  x: 1440 - 380 - 24,
-  y: 900 - 520 - 24,
-  w: 380,
-  h: 520,
-  thu: false,
-});
-assert.deepEqual(kepCuaSo({ x: -50, y: -10, w: 100, h: 100, thu: false }, vp), {
-  x: 0,
-  y: 0,
-  w: 320,
-  h: 400,
-  thu: false,
-});
-assert.deepEqual(kepCuaSo({ x: 1400, y: 880, w: 380, h: 520, thu: false }, vp), {
-  x: 1060,
-  y: 380,
-  w: 380,
-  h: 520,
-  thu: false,
-});
-assert.deepEqual(kepCuaSo({ x: 0, y: 0, w: 2000, h: 2000, thu: true }, vp), {
-  x: 0,
-  y: 0,
-  w: 1440,
-  h: 900,
-  thu: true,
-});
-
-// Viewport HẸP HƠN CHÍNH kích cỡ tối thiểu — màn xoay ngang trên điện thoại,
-// hay một cửa sổ trình duyệt bị kéo rất nhỏ. Sàn (tối thiểu) không được nhượng
-// bộ trần (viewport): cửa sổ giữ đúng NGANG BẰNG tối thiểu và TRÀN RA NGOÀI
-// viewport thay vì co xuống dưới tối thiểu — cùng lựa chọn `bienPanelDoiChieu`
-// đã chọn ở trên (dòng 23-29) khi viewport không đủ chỗ cho cả hai bên.
-const VP_HEP = { w: 200, h: 900 }; // hẹp hơn CUA_SO_RONG_MIN (320)
-const VP_THAP = { w: 1440, h: 200 }; // thấp hơn CUA_SO_CAO_MIN (400)
-const VP_CA_HAI = { w: 200, h: 200 }; // hẹp VÀ thấp hơn tối thiểu
-
-assert.deepEqual(kepCuaSo({ x: 0, y: 0, w: 100, h: 100, thu: false }, VP_HEP), {
-  x: -120,
-  y: 0,
-  w: 320,
-  h: 400,
-  thu: false,
-});
-assert.deepEqual(kepCuaSo({ x: 0, y: 0, w: 100, h: 100, thu: false }, VP_THAP), {
-  x: 0,
-  y: -200,
-  w: 320,
-  h: 400,
-  thu: false,
-});
-assert.deepEqual(kepCuaSo({ x: 0, y: 0, w: 100, h: 100, thu: false }, VP_CA_HAI), {
-  x: -120,
-  y: -200,
-  w: 320,
-  h: 400,
-  thu: false,
-});
-console.log("kiem-keo-dan: cửa sổ 7/7 OK");
+console.log("kiem-keo-dan: 19/19 OK");

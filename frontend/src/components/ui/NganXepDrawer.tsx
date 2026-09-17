@@ -88,11 +88,11 @@ export function NganXepDrawer({ ngan, onDong, render, toanMan }: Props) {
   if (soTang === 0) return null;
   return (
     <>
-      {/* Trên `CuaSoTroLy` (z-50): cửa sổ trợ lý nổi cũng neo phải, cũng
-          `fixed`, nên ở z-40 nó vẽ đè lên tấm drawer ĐANG MODAL và vẫn bấm
-          được — nền mờ phải phủ cả nó. Ở bố cục hẹp, sân khấu (`z-50`,
-          `fixed`) tự tạo ngữ cảnh xếp lớp và drawer nằm TRONG đó, nên hai số
-          này chỉ so với nhau bên trong sân khấu, không đội lên trên nó. */}
+      {/* Ở bố cục rộng, sân khấu nằm trong luồng bình thường (không `fixed`),
+          nên nền mờ `fixed` này tự phủ lên nó mà không cần so z-index. Ở bố
+          cục hẹp, sân khấu (`z-50`, `fixed`) tự tạo ngữ cảnh xếp lớp và
+          drawer nằm TRONG đó, nên `z-[60]` chỉ so với các lớp bên trong sân
+          khấu, không cần đội lên trên toàn trang. */}
       <div
         className="fixed inset-0 z-[60] bg-[var(--color-ink-950)]/30"
         onClick={onDong}

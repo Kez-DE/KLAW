@@ -30,12 +30,9 @@ import {
   RONG_DOI_CHIEU_MAC_DINH,
   RONG_SAN_KHAU_MAC_DINH,
   bienPanelDoiChieu,
-  docCuaSo,
   docRongDaLuu,
-  kepCuaSo,
   kepRong,
   luuRong,
-  type CuaSo,
 } from "@/lib/keo-dan";
 import type {
   BanThao,
@@ -59,9 +56,6 @@ const CAU_PHIM_TAT_SAN_KHAU: Record<"rut_gon" | "trang_trong" | "soat_luat", str
   trang_trong: "Viết lại bản thảo trang trọng hơn, không đổi dữ kiện",
   soat_luat: "Soát lại bản thảo theo luật trong kho",
 };
-
-/** Khoá localStorage của cửa sổ trợ lý nổi. */
-const KHOA_CUA_SO_TRO_LY = "klaw.cua-so-tro-ly";
 
 /**
  * Màn hỏi KLAW — nối vào `POST /api/v1/tra-cuu/luong` (SSE).
@@ -303,26 +297,11 @@ function ManHoiKlaw() {
     return () => dieuKhien.abort();
   }, [loaiSanKhau, lanTaiKhungSanKhau]);
 
-  /** Cửa sổ trợ lý nổi: nhớ qua localStorage, kẹp lại theo viewport hiện tại
-   *  ngay từ lúc khởi tạo — cùng lý do với `rongDoiChieu` ở trên. */
-  const [cuaSo, datCuaSoRaw] = useState<CuaSo>(() =>
-    docCuaSo(KHOA_CUA_SO_TRO_LY, {
-      w: typeof window === "undefined" ? 1440 : window.innerWidth,
-      h: typeof window === "undefined" ? 900 : window.innerHeight,
-    }),
-  );
-  const [chuaDoc, datChuaDoc] = useState(0);
   /** Hồ sơ tình huống SAU khi bút chì của `DuaTren` sửa xong: `PATCH /ho-so`
    *  trả về mảng mới, còn `ketQua` của lượt đã chạy thì không đổi nữa — không
    *  giữ mảng này thì người dùng sửa xong chỉ thấy đúng giá trị cũ. Ghim theo
    *  `trace_id` để bản vá của lượt này không dính sang lượt trả lời kế tiếp. */
   const [hoSoDaSua, datHoSoDaSua] = useState<{ trace: string; hoSo: HoSoDaDung[] } | null>(null);
-  useEffect(() => {
-    const capNhat = () =>
-      datCuaSoRaw((cs) => kepCuaSo(cs, { w: window.innerWidth, h: window.innerHeight }));
-    window.addEventListener("resize", capNhat);
-    return () => window.removeEventListener("resize", capNhat);
-  }, []);
 
   /** Kết quả mới của CHÍNH bản thảo đang mở → cập nhật `banThaoMo` (phiên bản
    *  mới, mục vừa đổi tô được qua `doi_so_voi_truoc`). So khớp theo id vì lượt
@@ -332,30 +311,6 @@ function ManHoiKlaw() {
     const bt = traCuu.ketQua?.ban_thao;
     if (bt !== null && bt !== undefined && bt.id === sanKhau.banThaoId) datBanThaoMo(bt);
   }, [sanKhau, traCuu.dangChay, traCuu.ketQua]);
-
-  /** Chấm chưa đọc: đếm đúng MỘT lần cho mỗi lượt trả lời mới trong khi trợ lý
-   *  KHÔNG hiện ra — `daDemRef` chặn effect chạy lại đếm trùng khi điều kiện
-   *  đổi mà không có kết quả mới nào tới. Hai bố cục giấu trợ lý theo hai cách
-   *  khác nhau: rộng thì thu gọn cửa sổ nổi (`cuaSo.thu`), hẹp thì KHÔNG render
-   *  `CuaSoTroLy` mà đứng ở tab "Bản thảo" — gác riêng `cuaSo.thu` thì ở bố cục
-   *  hẹp chấm này vừa không bao giờ hiện (mặc định `thu: false`) vừa không bao
-   *  giờ tắt (cờ `thu` lưu từ bố cục rộng còn sót lại). */
-  const troLyDangKhuat = haiCot ? cuaSo.thu : tabHep !== "tro_ly";
-  const daDemChuaDocRef = useRef<string | null>(null);
-  const khuatTruocDo = useRef(troLyDangKhuat);
-  useEffect(() => {
-    const vuaBiGiau = troLyDangKhuat && !khuatTruocDo.current;
-    khuatTruocDo.current = troLyDangKhuat;
-    if (sanKhau === null || !troLyDangKhuat || traCuu.dangChay || traCuu.ketQua === null) return;
-    // Trợ lý VỪA bị giấu đi (thu gọn cửa sổ, đổi tab, hoặc kéo cửa sổ qua ngưỡng
-    // 68rem sang bố cục hẹp): câu trả lời đang đứng sẵn trên màn hình lúc đó ĐÃ
-    // ĐƯỢC ĐỌC — đánh dấu đã thấy chứ không đếm. Chỉ lượt trả lời TỚI TRONG LÚC
-    // đang khuất mới là chưa đọc.
-    if (vuaBiGiau) daDemChuaDocRef.current = traCuu.ketQua.trace_id;
-    if (daDemChuaDocRef.current === traCuu.ketQua.trace_id) return;
-    daDemChuaDocRef.current = traCuu.ketQua.trace_id;
-    datChuaDoc((n) => n + 1);
-  }, [sanKhau, troLyDangKhuat, traCuu.dangChay, traCuu.ketQua]);
 
   const onDongSanKhau = () => {
     datSanKhau(null);
@@ -909,11 +864,11 @@ function ManHoiKlaw() {
   const dangSanKhau = sanKhau !== null && haiCot;
   const banThaoSanKhau = dangSanKhau ? banThaoDangTaiXong : null;
 
-  // Cột chat (dòng hội thoại + ô hỏi) — MỘT cây JSX dùng ở HAI chỗ tuỳ trạng
-  // thái sân khấu: bình thường nó đứng thẳng trong bố cục hai cột; khi sân
-  // khấu mở, chính cây này trở thành nội dung của cửa sổ trợ lý nổi
-  // (`CuaSoTroLy`). Tách biến thay vì viết lặp hai lần — hai bản chép tay dễ
-  // trôi nhau ở lần sửa sau.
+  // Cột chat (dòng hội thoại + ô hỏi) — MỘT cây JSX dùng ở NHIỀU chỗ tuỳ bố
+  // cục: bình thường nó đứng một mình; khi sân khấu mở ở bố cục rộng nó là
+  // cột TRÁI cạnh `TayKeo` + khung bản thảo; ở bố cục hẹp nó là nội dung tab
+  // "Trợ lý". Tách biến thay vì viết lặp nhiều lần — các bản chép tay dễ trôi
+  // nhau ở lần sửa sau.
   const noiDungChat = (
     <div
       inert={(doiChieu.dang !== null || soanThao !== null) && !haiCot}
@@ -1207,9 +1162,9 @@ function ManHoiKlaw() {
     <AppShell active="/dung-thu">
       <div className="flex min-h-0 flex-1">
         {!haiCot && sanKhau !== null ? (
-          /* Bố cục hẹp (Task 26, spec 2026-09-09 §9.7): dưới 68rem sân khấu
-             không có chỗ cho hai cột lẫn cửa sổ trợ lý nổi — toàn màn hình
-             thành một trong hai tab, KHÔNG render `CuaSoTroLy`. */
+          /* Bố cục hẹp (Task 26, spec 2026-09-09 §9.7): dưới 68rem không đủ
+             chỗ cho chat và bản thảo cạnh nhau — toàn màn hình thành một
+             trong hai tab. */
           <div
             role="dialog"
             aria-modal
@@ -1247,9 +1202,7 @@ function ManHoiKlaw() {
             </div>
 
             {/* Thanh tab hai nút: trạng thái đang chọn qua `aria-pressed`
-                (đọc được bằng trình đọc màn hình, không chỉ tô màu). Chấm
-                `chuaDoc` trên tab Trợ lý đi kèm CON SỐ trong tên truy cập —
-                không chỉ một chấm màu. */}
+                (đọc được bằng trình đọc màn hình, không chỉ tô màu). */}
             {/* `bg-background`: thanh tab nằm trên một lớp phủ toàn màn, không
                 tô nền thì chữ của trang bên dưới lộ qua. */}
             <div className="flex shrink-0 border-t border-border bg-background">
@@ -1263,13 +1216,7 @@ function ManHoiKlaw() {
                   key={id}
                   type="button"
                   aria-pressed={tabHep === id}
-                  aria-label={
-                    id === "tro_ly" && chuaDoc > 0 ? `${nhan}, ${chuaDoc} tin chưa đọc` : undefined
-                  }
-                  onClick={() => {
-                    datTabHep(id);
-                    if (id === "tro_ly") datChuaDoc(0); // thấy trợ lý ⇒ coi như đã đọc
-                  }}
+                  onClick={() => datTabHep(id)}
                   className={cn(
                     "focus-brass flex flex-1 cursor-pointer items-center justify-center gap-1.5 border-t-2 py-3 text-[13px] font-medium transition-colors",
                     tabHep === id
@@ -1278,14 +1225,6 @@ function ManHoiKlaw() {
                   )}
                 >
                   {nhan}
-                  {id === "tro_ly" && chuaDoc > 0 && (
-                    <span
-                      aria-hidden
-                      className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-[var(--color-brass-600)] px-1 text-[11px] font-bold text-white"
-                    >
-                      {chuaDoc}
-                    </span>
-                  )}
                 </button>
               ))}
             </div>
