@@ -595,6 +595,65 @@ def test_khop_bang_gia_tri_trung_lap_khong_du_de_ghi_de_khi_con_o_moi():
     assert van_ban["muc"][0]["khoi"][0]["bang"] == bang_sua, "một ô mới không khớp gì thì chặn cả khối, không ghi đè"
 
 
+# BM.ĐT.18.11 THẬT có bảng ký cạnh bảng điểm — hai bảng thật trong CÙNG tài
+# liệu, khoá theo review task quality [Medium]: chưa fixture nào của file
+# này dùng `bang=(1, …)`, nên tính chất "khớp ở HAI bảng khác nhau vẫn chặn"
+# (khác "khớp NHIỀU ô CÙNG một bảng thì gộp lại") chỉ được xác nhận bằng suy
+# luận tay, chưa có test khoá.
+DV_HAI_BANG_THAT = DV_BANG_DIEM_THAT + [
+    DonViVanBan(chi_so=18, trang=1, offset_dau=400, noi_dung="GV HƯỚNG DẪN (Ký, ghi rõ họ tên)", bang=(1, 0, 0)),
+    DonViVanBan(chi_so=19, trang=1, offset_dau=440, noi_dung="ĐẠI DIỆN CƠ SỞ (Ký, ghi rõ họ tên)", bang=(1, 0, 1)),
+    # Giá trị "2,0" LẶP LẠI ở bảng KHÁC (bảng 1) — không phải lặp trong CÙNG
+    # một bảng như `DV_BANG_DIEM_THAT` đã có (ca đó gộp về MỘT khoá bảng,
+    # được cứu). Ở đây "2,0" phải trỏ tới HAI khoá bảng khác nhau (A0 và A1)
+    # → nhập nhằng THẬT, `_bang_cua` phải trả `None`.
+    DonViVanBan(chi_so=20, trang=1, offset_dau=480, noi_dung="2,0", bang=(1, 1, 0)),
+]
+GOI_HAI_BANG_THAT = [
+    {"id": "y3", "ten_tep": "dt1811.docx", "don_vi": DV_HAI_BANG_THAT, "nhan": "A", "gui": DV_HAI_BANG_THAT}
+]
+NGUON_HAI_BANG_THAT = "\n".join(dv.noi_dung for dv in DV_HAI_BANG_THAT)
+
+
+def test_khop_bang_khop_hai_bang_khac_nhau_van_chan_khong_ghi_de():
+    """Phase 9 U2 [reviewer Medium] — "2,0" (bảng điểm A0) và "10" (cũng bảng
+    điểm A0) không phải ca này chứng minh; ca này cần một GIÁ TRỊ khớp cùng
+    lúc ở HAI BẢNG THẬT KHÁC NHAU của cùng tài liệu ("GV HƯỚNG DẪN..." chỉ có
+    trong bảng ký A1, không có trong bảng điểm A0 — không đại diện được). Mô
+    phỏng bằng một mảng ô do mô hình VIẾT LẠI chỉ gồm giá trị "1" — "1" có mặt
+    ở CẢ bảng điểm (hàng đầu, cột TT) LẪN không có trong bảng ký, nên tự nó
+    không đủ; thay bằng giá trị THẬT sự trùng cả hai bảng — "GV HƯỚNG DẪN
+    (Ký, ghi rõ họ tên)" chỉ ở A1, nên đổi chiến lược: bảng mô hình viết dùng
+    "Ý thức chấp hành nội quy, kỷ luật tại đơn vị thực tập" (chỉ A0) TRỘN với
+    "GV HƯỚNG DẪN (Ký, ghi rõ họ tên)" (chỉ A1) trong CÙNG một khối — hai ô
+    khớp hai bảng KHÁC NHAU, nên khối phải bị chặn (giữ nguyên), không được
+    ghép nhầm vào bảng nào."""
+    bang_hai_nguon = [
+        ["Ý thức chấp hành nội quy, kỷ luật tại đơn vị thực tập", "GV HƯỚNG DẪN (Ký, ghi rõ họ tên)"],
+    ]
+    muc = {"ten": "Ghi chú trộn", "vung": "than", "khoi": [{"noi_dung": "", "bang": bang_hai_nguon}]}
+    van_ban, _ = _sach([muc], nguon=NGUON_HAI_BANG_THAT, goi=GOI_HAI_BANG_THAT)
+    assert van_ban["muc"][0]["khoi"][0]["bang"] == bang_hai_nguon, (
+        "hai ô khớp hai bảng KHÁC NHAU vẫn phải chặn — không gộp nhầm vào bảng nào"
+    )
+
+
+def test_bang_cua_mot_gia_tri_khop_hai_bang_khac_nhau_van_nhap_nhang():
+    """Phase 9 U2 [reviewer Medium, sát cơ chế nhất] — ĐÚNG MỘT giá trị
+    ("2,0") xuất hiện ở CẢ bảng điểm (A0, lặp trong-cùng-bảng, đã gộp về một
+    khoá — xem test cứu hàng gộp phía trên) LẪN bảng ký (A1, một ô ĐỘC LẬP
+    của bảng khác). Khác ca "lặp trong cùng một bảng", ca này phải KHÔNG gộp
+    được: `_bang_cua("2,0")` phải trả về khoá bảng ứng với tập {A0, A1} có
+    2 phần tử → `None`, đúng "khớp ở hai bảng khác nhau thì vẫn nhập nhằng"
+    mà việc gộp-theo-khoá-bảng (sửa U2) không được xoá mất."""
+    bang_chi_gia_tri_trung = [["2,0"]]
+    muc = {"ten": "Ghi chú", "vung": "than", "khoi": [{"noi_dung": "", "bang": bang_chi_gia_tri_trung}]}
+    van_ban, _ = _sach([muc], nguon=NGUON_HAI_BANG_THAT, goi=GOI_HAI_BANG_THAT)
+    assert van_ban["muc"][0]["khoi"][0]["bang"] == bang_chi_gia_tri_trung, (
+        '"2,0" khớp hai bảng khác nhau (A0, A1) vẫn phải nhập nhằng, không được cứu vào bảng nào'
+    )
+
+
 # ──────────────────────────── Phase 9 U1 — tên mục KLAW bịa không được in ra
 
 
