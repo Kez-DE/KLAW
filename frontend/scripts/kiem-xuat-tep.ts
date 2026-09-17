@@ -13,6 +13,7 @@ import {
   boQuaKhiXuat,
   docBangTuPhanTu,
   mucTuBanThao,
+  phanHienThiMuc,
   tieuDeTuBanThao,
 } from "../src/lib/xuat-tep.ts";
 
@@ -97,6 +98,29 @@ assert.deepEqual(mucMoi[0]?.bang, [
   ["1", "Ý thức chấp hành nội quy", "2,0"],
 ]);
 
+// `phanHienThiMuc` — review round 1 fix: một `muc` có CẢ `noiDung` (câu dẫn)
+// LẪN `bang` (bảng) không được để ternary trong `XemTruocA4` nuốt mất một
+// trong hai. Rule 15 của prompt chỉ XIN mô hình để `noi_dung` rỗng khi dùng
+// `bang` — schema/`lam_sach_van_ban` không ép được điều đó, nên "cả hai có
+// mặt" là một hình dạng THẬT phải qua được, không chỉ "chỉ noiDung"/"chỉ
+// bang"/"cả hai rỗng".
+assert.deepEqual(phanHienThiMuc({ noiDung: "Câu dẫn.", bang: null }), {
+  coNoiDung: true,
+  coBang: false,
+});
+assert.deepEqual(phanHienThiMuc({ noiDung: "", bang: [["TT"], ["1"]] }), {
+  coNoiDung: false,
+  coBang: true,
+});
+assert.deepEqual(
+  phanHienThiMuc({ noiDung: "Câu dẫn trước bảng.", bang: [["TT"], ["1"]] }),
+  { coNoiDung: true, coBang: true }, // ca bị nuốt trước bản vá — cả hai PHẢI cùng true
+);
+assert.deepEqual(phanHienThiMuc({ noiDung: "", bang: null }), {
+  coNoiDung: false,
+  coBang: false,
+});
+
 // `tieuDeTuBanThao` — dòng H1 đầu của `document` (Phase 7 R4): tiêu đề THẬT
 // của văn bản, khác `BanThao.ten` ("Bản thảo tổng quát", tên LOẠI).
 assert.equal(tieuDeTuBanThao(banThaoCu.document), "PHIẾU ĐÁNH GIÁ QUÁ TRÌNH THỰC TẬP CÔNG NGHIỆP");
@@ -155,4 +179,4 @@ const chuHangHai = timTat(hangXml[1]!, "w:t").map((wt) =>
 );
 assert.deepEqual(chuHangHai, ["1", "Ý thức chấp hành"]);
 
-console.info("kiem-xuat-tep: 16/16 đạt");
+console.info("kiem-xuat-tep: 20/20 đạt");

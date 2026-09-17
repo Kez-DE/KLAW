@@ -54,6 +54,24 @@ export interface Muc {
 }
 
 /**
+ * Phần nào của MỘT mục cần render — ĐỘC LẬP, không either/or (review round 1
+ * fix, Phase 7): một mục có thể vừa có câu dẫn (`noiDung`) vừa có bảng
+ * (`bang`) — rule 15 của prompt CHỈ XIN mô hình để `noi_dung` rỗng khi dùng
+ * `bang`, backend không ép được điều đó (schema/`lam_sach_van_ban` chỉ chặn
+ * ca CẢ HAI rỗng), nên cả hai có mặt là một hình dạng hợp lệ phải ra màn hình
+ * trọn vẹn, không phải một trong hai bị nuốt mất. Sống ở đây (không phải
+ * `XemTruocA4.tsx`) vì nó là hàm THUẦN không đụng JSX — và vì thế kiểm được
+ * bằng `kiem-xuat-tep.ts` không cần DOM thật (không có `jsdom` trong repo
+ * này; `.tsx` cũng không import được thẳng vào một script Node).
+ */
+export function phanHienThiMuc(m: Pick<Muc, "noiDung" | "bang">): {
+  coNoiDung: boolean;
+  coBang: boolean;
+} {
+  return { coNoiDung: m.noiDung !== "", coBang: m.bang !== null };
+}
+
+/**
  * Hình dạng THẬT của một phần tử `BanThao.clauses` (kiểu `unknown[]` chưa gõ ở FE) —
  * khớp `dataclasses.asdict(DraftClause)` (`src/agents/nodes/draft_generate.py` +
  * `src/services/ban_thao.py` dòng ghi `clauses`): `key`, `ten`, `noi_dung`,
