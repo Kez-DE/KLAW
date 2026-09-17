@@ -166,6 +166,17 @@ GIU_THEO_CAU_HOI = 40
 
 QUA_DAI = ("Tài liệu quá dài để đọc trong một lượt. Hãy tách nhỏ rồi gửi lại, "
            "hoặc hỏi về một phần cụ thể.")
+# Fix round 2 (N3) — trần này (cùng `QUA_DAI`) đếm cả tài liệu nguồn LẪN bản
+# thảo đang có (I2's fix) — khi chính bản thảo là phần đẩy nó vượt trần,
+# "tách nhỏ tài liệu rồi gửi lại" không làm được gì (tài liệu không phải thứ
+# vượt trần) VÀ lượt sửa bằng lời KẾ TIẾP sẽ vấp lại y hệt, vì bản thảo vẫn
+# còn đó. Nói đúng thứ người dùng thật sự làm được: rút ngắn bản thảo trực
+# tiếp (gõ tay, `PATCH /ban-thao/{id}/muc`) trước khi nhờ sửa tiếp bằng lời.
+QUA_DAI_VOI_BAN_THAO = (
+    "Bản thảo hiện tại cộng với tài liệu nguồn đã vượt giới hạn một lượt đọc. "
+    "Sửa bằng lời sẽ vấp lại giới hạn này ở lượt sau — hãy tự rút ngắn bản "
+    "thảo (gõ tay từng mục trên khung xem trước) trước khi nhờ sửa tiếp."
+)
 CHUA_DOC_DUOC = "Chưa đọc được tài liệu lúc này. Hãy thử lại."
 
 
@@ -1568,7 +1579,9 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     try:
         kiem_tran_chi_phi_tai_lieu(sum(len(d.noi_dung) for t in goi for d in t["gui"]) + do_dai_ban_thao)
     except VuotTran:
-        return _hong(QUA_DAI, "vuot_tran")
+        # Fix round 2 (N3) — thông điệp riêng khi bản thảo góp phần vượt trần,
+        # xem chú thích tại `QUA_DAI_VOI_BAN_THAO`.
+        return _hong(QUA_DAI_VOI_BAN_THAO if do_dai_ban_thao > 0 else QUA_DAI, "vuot_tran")
 
     prompt = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8").format(
         cau_hoi=cau_hoi, tai_lieu=_khoi_tai_lieu(goi),

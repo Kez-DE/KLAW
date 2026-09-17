@@ -128,11 +128,15 @@ class KLawState(TypedDict, total=False):
     tai_lieu_ids: list[str]
     tai_lieu_phien: list[dict]
     # Phase 3 Half B (R5) — bản thảo TỔNG QUÁT mới nhất của hội thoại này, nếu
-    # có (`ban_thao.moi_nhat_cua_hoi_thoai(..., LOAI_TONG_QUAT)`, tính MỘT lần
-    # ở `routes._chuan_bi_phien`, khác `None` chỉ khi có danh tính VÀ hội thoại
-    # này từng dựng một bản thảo tổng quát). Hai chỗ đọc: `_re_sau_route` dùng
-    # nó để rẽ một lượt `Intent.soan_thao` sang `hieu_tai_lieu` (sửa bản thảo
-    # đang mở) thay vì `gom_du_kien` (checklist — bản thảo tổng quát không có
+    # có, tính MỘT lần ở `routes._chuan_bi_phien`, khác `None` chỉ khi có danh
+    # tính VÀ hội thoại này từng dựng một bản thảo tổng quát. Fix round 2 (N4)
+    # — giá trị nay đến từ `ban_thao.ban_thao_tong_quat_dang_mo_nhe` (fix round
+    # 1, PostgreSQL review), CHỈ mang `document`/`audit`, không phải bản đầy đủ
+    # của `moi_nhat_cua_hoi_thoai` — không có `id`/`clauses`/`phien_ban`/…; xem
+    # docstring hàm đó cho ba nơi đã kiểm là không cần cột nào khác.
+    # Hai chỗ đọc: `_re_sau_route` dùng nó để rẽ một lượt `Intent.soan_thao`
+    # sang `hieu_tai_lieu` (sửa bản thảo đang mở) thay vì `gom_du_kien`
+    # (checklist — bản thảo tổng quát không có
     # checklist nào để gom, đúng ngõ cụt "Kho mẫu của tôi chưa có loại văn bản
     # này" mà brief mô tả); `hieu_tai_lieu` dùng nó để cho mô hình thấy bản
     # thảo ĐANG CÓ khi sửa (R4), thay vì coi mọi lượt sửa là soạn lại từ đầu.

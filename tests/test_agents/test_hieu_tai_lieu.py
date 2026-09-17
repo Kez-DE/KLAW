@@ -526,3 +526,25 @@ def test_tran_chi_phi_dem_ca_do_dai_ban_thao_dang_co(monkeypatch):
     assert goi_voi["so_ky_tu"] == do_dai_nguon + 500, (
         "trần chi phí phải đếm CẢ độ dài bản thảo đang có, không chỉ tài liệu nguồn"
     )
+
+
+def test_vuot_tran_voi_ban_thao_dang_co_bao_dung_thu(monkeypatch):
+    """Fix round 2 (N3) — khi bản thảo đang có (I2's fix) góp phần đẩy trần
+    chi phí vượt ngưỡng, thông điệp "tách nhỏ tài liệu rồi gửi lại" (`QUA_DAI`)
+    không làm được gì — tài liệu không phải thứ vượt trần, và lượt sửa TIẾP
+    THEO sẽ vấp lại y hệt vì bản thảo vẫn còn đó. Phải là nhánh riêng
+    (`QUA_DAI_VOI_BAN_THAO`, nói người dùng tự rút ngắn bản thảo)."""
+
+    def vuot(_):
+        raise VuotTran("chi_phi", 1, 2)
+
+    monkeypatch.setattr(h, "kiem_tran_chi_phi_tai_lieu", vuot)
+    ban_thao = {"document": "x" * 500, "audit": {}}
+    ra = h.hieu_tai_lieu({**ST, "ban_thao_tong_quat_dang_mo": ban_thao}, MOT, _LLM(_ra()), "m")
+    tra_loi = ra["tai_lieu_ket"]["tra_loi_ngan"]
+    assert "rút ngắn bản thảo" in tra_loi, "phải nói người dùng tự rút ngắn bản thảo, không phải tài liệu"
+    assert tra_loi == h.QUA_DAI_VOI_BAN_THAO
+
+    # Không có bản thảo đang có (đường cũ, trước Half B) — vẫn thông điệp cũ.
+    ra2 = h.hieu_tai_lieu(ST, MOT, _LLM(_ra()), "m")
+    assert ra2["tai_lieu_ket"]["tra_loi_ngan"] == h.QUA_DAI
