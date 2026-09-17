@@ -124,6 +124,13 @@ class DonViVanBan:
     không nói gì, "2,0 ở hàng Chuyên cần" mới nói. Giao diện cộng 1 khi hiển
     thị cho người đọc; ở đây giữ chỉ số để cùng gốc với `chi_so`.
     """
+    can_le: str = "trai"
+    """`trai` | `giua` | `phai` (Phase 9 U5) — căn lề THẬT của đoạn/ô này, đọc
+    từ `w:pPr/w:jc` hoặc, khi vắng (nghĩa là "thừa kế"), từ kiểu đoạn văn của
+    nó (`w:pStyle`, theo hết chuỗi `w:basedOn`). Mặc định `trai`: DOCX không
+    khai báo `jc` là căn trái, không phải "chưa biết" — cùng lý lẽ `vung`
+    không được suy diễn thêm gì ngoài những gì tệp nói.
+    """
 
 
 @dataclass(frozen=True)
@@ -181,6 +188,65 @@ _TBL = f"{{{_NS['w']}}}tbl"
 _TR = f"{{{_NS['w']}}}tr"
 _TC = f"{{{_NS['w']}}}tc"
 _BODY = f"{{{_NS['w']}}}body"
+_PPR = f"{{{_NS['w']}}}pPr"
+_JC = f"{{{_NS['w']}}}jc"
+_PSTYLE = f"{{{_NS['w']}}}pStyle"
+_BASEDON = f"{{{_NS['w']}}}basedOn"
+_STYLE = f"{{{_NS['w']}}}style"
+
+# OOXML `w:jc` → `DonViVanBan.can_le` (Phase 9 U5). Chỉ "center"/"right"/"end"
+# đổi khỏi trái: "left"/"start"/"both" (căn đều) và mọi giá trị lạ đọc như
+# người xem thường thấy — căn đều trông giống căn trái, không giống căn giữa.
+_JC_RA_CAN_LE = {"center": "giua", "right": "phai", "end": "phai"}
+
+
+def _can_le_gia_tri(v: str | None) -> str:
+    return _JC_RA_CAN_LE.get(v or "", "trai")
+
+
+def _kieu_can_le(goc_styles: ET.Element | None) -> dict[str, str]:
+    """id kiểu đoạn văn → giá trị `w:jc` THẬT của kiểu đó, đã theo hết chuỗi
+    `w:basedOn` — `styles.xml` có thể vắng mặt (DOCX không bắt buộc phần này),
+    và một kiểu có thể không tự khai `jc` mà thừa kế từ kiểu nó dựa vào."""
+    if goc_styles is None:
+        return {}
+    truc_tiep: dict[str, str] = {}
+    cha: dict[str, str] = {}
+    for st in goc_styles.findall(_STYLE):
+        sid = st.get(f"{{{_NS['w']}}}styleId")
+        if not sid:
+            continue
+        b = st.find(_BASEDON)
+        if b is not None and (v := b.get(f"{{{_NS['w']}}}val")):
+            cha[sid] = v
+        jc = st.find(f"{_PPR}/{_JC}")
+        if jc is not None and (v := jc.get(f"{{{_NS['w']}}}val")):
+            truc_tiep[sid] = v
+
+    def _giai(sid: str | None, di_qua: frozenset[str]) -> str | None:
+        if sid is None or sid in di_qua:
+            return None
+        if sid in truc_tiep:
+            return truc_tiep[sid]
+        return _giai(cha.get(sid), di_qua | {sid})
+
+    return {sid: v for sid in {*truc_tiep, *cha} if (v := _giai(sid, frozenset()))}
+
+
+def _can_le_doan(p: ET.Element | None, theo_kieu: dict[str, str]) -> str:
+    """Căn lề THẬT của một `w:p` — trực tiếp (`w:pPr/w:jc`) nếu có; vắng mặt
+    thì theo kiểu đoạn văn của nó (`w:pStyle`, đã giải qua `_kieu_can_le`),
+    KHÔNG mặc định trái ngay: `jc` vắng mặt trên `w:p` nghĩa là "thừa kế kiểu",
+    và một tài liệu căn giữa bằng KIỂU (không phải định dạng trực tiếp) đọc
+    thẳng `jc` trên từng đoạn sẽ luôn ra trái, sai với chính tài liệu đó."""
+    if p is None:
+        return "trai"
+    jc = p.find(f"{_PPR}/{_JC}")
+    if jc is not None:
+        return _can_le_gia_tri(jc.get(f"{{{_NS['w']}}}val"))
+    kieu = p.find(f"{_PPR}/{_PSTYLE}")
+    sid = kieu.get(f"{{{_NS['w']}}}val") if kieu is not None else None
+    return _can_le_gia_tri(theo_kieu.get(sid) if sid else None)
 
 
 def _kiem_zip(z: zipfile.ZipFile) -> None:
@@ -222,16 +288,17 @@ def _chu(nut: ET.Element) -> str:
     return "".join(t.text or "" for t in nut.iter(f"{{{_NS['w']}}}t")).strip()
 
 
-def _duyet_phang(goc: ET.Element, vung: str) -> list[tuple]:
+def _duyet_phang(goc: ET.Element, vung: str, theo_kieu: dict[str, str] | None = None) -> list[tuple]:
     """Mọi `w:p` theo thứ tự tài liệu, KHÔNG toạ độ bảng.
 
     Vừa là đường lùi của thân bài, vừa là đường duy nhất cho đầu/chân trang —
     ở đó một `w:p` là một dòng và không có gì để định vị thêm.
     """
-    return [(None, c, None, vung, None) for p in goc.iter(_P) if (c := _chu(p))]
+    tk = theo_kieu or {}
+    return [(None, c, None, vung, None, _can_le_doan(p, tk)) for p in goc.iter(_P) if (c := _chu(p))]
 
 
-def _duyet_than(goc: ET.Element) -> list[tuple]:
+def _duyet_than(goc: ET.Element, theo_kieu: dict[str, str] | None = None) -> list[tuple]:
     """Con trực tiếp của `w:body` theo thứ tự: `w:p` là một đơn vị, `w:tbl` cho
     một đơn vị mỗi ô kèm toạ độ (bảng, hàng, cột).
 
@@ -243,17 +310,22 @@ def _duyet_than(goc: ET.Element) -> list[tuple]:
     than = goc.find(_BODY)
     if than is None:
         return []
+    tk = theo_kieu or {}
     ra: list[tuple] = []
     so_bang = 0
     for con in than:
         if con.tag == _P:
             if chu := _chu(con):
-                ra.append((None, chu, None, "than", None))
+                ra.append((None, chu, None, "than", None, _can_le_doan(con, tk)))
         elif con.tag == _TBL:
             for h, tr in enumerate(con.findall(_TR)):
                 for c, tc in enumerate(tr.findall(_TC)):
                     if chu := " ".join(x for p in tc.iter(_P) if (x := _chu(p))):
-                        ra.append((None, chu, None, "than", (so_bang, h, c)))
+                        # Căn lề của Ô lấy từ ĐOẠN VĂN ĐẦU của chính ô đó — một
+                        # ô có thể có nhiều `w:p` lồng, nhưng căn lề hiển thị
+                        # là của dòng đầu tiên người đọc thấy.
+                        can_le = _can_le_doan(tc.find(_P), tk)
+                        ra.append((None, chu, None, "than", (so_bang, h, c), can_le))
             so_bang += 1
     return ra
 
@@ -270,7 +342,18 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
         with zipfile.ZipFile(BytesIO(du_lieu)) as z:
             _kiem_zip(z)
             goc = _bo_fallback(_goc_xml(z.read("word/document.xml"), "word/document.xml"))
-            than = _duyet_than(goc)
+            # Căn lề theo KIỂU (Phase 9 U5) — `styles.xml` không bắt buộc có
+            # trong một DOCX hợp lệ, và hỏng ở đó không được làm hỏng cả tài
+            # liệu: mất căn lề theo kiểu là khoản lỗ sống chung được (`jc` trực
+            # tiếp trên từng đoạn vẫn đọc đúng), mất nguyên một điều khoản thì
+            # không.
+            theo_kieu: dict[str, str] = {}
+            if "word/styles.xml" in z.namelist():
+                try:
+                    theo_kieu = _kieu_can_le(_goc_xml(z.read("word/styles.xml"), "word/styles.xml"))
+                except KhongDocDuoc:
+                    theo_kieu = {}
+            than = _duyet_than(goc, theo_kieu)
             # Thước đo để lùi về là TỔNG chữ `w:t` của thân, KHÔNG phải duyệt
             # phẳng: duyệt phẳng đếm hai lần chữ trong hộp chữ (một `w:p` lồng
             # trong `w:p`), và với thước đó cấu trúc luôn "thua". Đo 2026-09-16
@@ -278,12 +361,12 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
             nut_than = goc.find(_BODY)
             tong = _tong_chu(nut_than) if nut_than is not None else 0
             if sum(len(t[1]) for t in than) < 0.9 * tong:
-                than = _duyet_phang(goc, "than")
+                than = _duyet_phang(goc, "than", theo_kieu)
 
             ra = list(than)
             for tien_to, vung in (("word/header", "dau_trang"), ("word/footer", "chan_trang")):
                 for ten in sorted(n for n in z.namelist() if n.startswith(tien_to) and n.endswith(".xml")):
-                    ra.extend(_duyet_phang(_goc_xml(z.read(ten), ten), vung))
+                    ra.extend(_duyet_phang(_goc_xml(z.read(ten), ten), vung, theo_kieu))
             return ra
     except KeyError as e:
         raise KhongDocDuoc(LoaiHong.tep_hong, "thiếu word/document.xml") from e
@@ -332,10 +415,11 @@ def _doc_pdf(du_lieu: bytes) -> list[tuple[int | None, str]]:
 def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
     """Gán `trang`, `offset_dau` và nguồn chữ cho từng đơn vị.
 
-    Nhận cả ba hình dạng: `(trang, noi_dung)` từ nhánh đọc chữ thật,
-    `(trang, noi_dung, do_tin)` từ nhánh OCR, và
-    `(trang, noi_dung, do_tin, vung, bang)` từ nhánh DOCX có cấu trúc. Có
-    `do_tin` nghĩa là máy đang đoán, nên đơn vị đó mang nhãn `ocr`.
+    Nhận cả bốn hình dạng: `(trang, noi_dung)` từ nhánh đọc chữ thật,
+    `(trang, noi_dung, do_tin)` từ nhánh OCR,
+    `(trang, noi_dung, do_tin, vung, bang)` từ DOCX trước Phase 9, và
+    `(trang, noi_dung, do_tin, vung, bang, can_le)` từ DOCX có căn lề (Phase 9
+    U5). Có `do_tin` nghĩa là máy đang đoán, nên đơn vị đó mang nhãn `ocr`.
 
     PDF đã biết trang thật. DOCX chưa, nên trang được suy ra từ số ký tự đã đi
     qua — xem ghi chú ở `KY_TU_MOI_TRANG`.
@@ -351,6 +435,7 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
         do_tin = muc[2] if len(muc) > 2 else None
         vung = muc[3] if len(muc) > 3 else "than"
         bang = muc[4] if len(muc) > 4 else None
+        can_le = muc[5] if len(muc) > 5 else "trai"
         if trang is None:
             trang = 1 + da_di // KY_TU_MOI_TRANG
         if trang != trang_hien:
@@ -365,6 +450,7 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
                 do_tin=do_tin,
                 vung=vung,
                 bang=bang,
+                can_le=can_le,
             )
         )
         offset += len(noi_dung) + 1   # +1 cho dấu xuống dòng giữa hai đơn vị

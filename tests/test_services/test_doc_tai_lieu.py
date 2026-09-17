@@ -40,12 +40,39 @@ def _p(text: str) -> str:
     return f"<w:p><w:r><w:t>{text}</w:t></w:r></w:p>"
 
 
+def _p_jc(text: str, val: str) -> str:
+    """Đoạn văn CĂN LỀ TRỰC TIẾP (`w:pPr/w:jc`, Phase 9 U5)."""
+    return f'<w:p><w:pPr><w:jc w:val="{val}"/></w:pPr><w:r><w:t>{text}</w:t></w:r></w:p>'
+
+
+def _p_kieu(text: str, style_id: str) -> str:
+    """Đoạn văn KHÔNG căn lề trực tiếp, chỉ mang `w:pStyle` — căn lề (nếu có)
+    phải suy ra từ chính kiểu đó (Phase 9 U5)."""
+    return f'<w:p><w:pPr><w:pStyle w:val="{style_id}"/></w:pPr><w:r><w:t>{text}</w:t></w:r></w:p>'
+
+
 def _bang(o: list[str]) -> str:
     tc = "".join(f"<w:tc>{_p(x)}</w:tc>" for x in o)
     return f"<w:tbl><w:tr>{tc}</w:tr></w:tbl>"
 
 
-def _docx(than: str) -> bytes:
+def _styles_xml(kieu: list[tuple[str, str | None, str | None]]) -> str:
+    """`[(styleId, jc|None, basedOn|None), …]` → `word/styles.xml` tối thiểu."""
+    than = "".join(
+        f'<w:style w:type="paragraph" w:styleId="{sid}">'
+        + (f'<w:basedOn w:val="{cha}"/>' if cha else "")
+        + (f'<w:pPr><w:jc w:val="{jc}"/></w:pPr>' if jc else "")
+        + "</w:style>"
+        for sid, jc, cha in kieu
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        f"{than}</w:styles>"
+    )
+
+
+def _docx(than: str, styles: str | None = None) -> bytes:
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w") as z:
         z.writestr(
@@ -53,6 +80,8 @@ def _docx(than: str) -> bytes:
             '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>',
         )
         z.writestr("word/document.xml", _DOC_XML.format(than=than))
+        if styles is not None:
+            z.writestr("word/styles.xml", styles)
     return buf.getvalue()
 
 
@@ -144,6 +173,51 @@ def test_DOCX_rong_la_khong_co_lop_chu():
     with pytest.raises(KhongDocDuoc) as e:
         doc("hd.docx", _docx(""))
     assert e.value.ly_do is LoaiHong.khong_co_lop_chu
+
+
+# ------------------------------------------------------ căn lề (Phase 9 U5)
+
+
+def test_DOCX_can_le_truc_tiep():
+    """`w:pPr/w:jc` khai TRỰC TIẾP trên đoạn — đường ngắn nhất, phải đọc đúng
+    cả ba giá trị quan sát được trên form thật (BM.ĐT.18.11): `center` (quốc
+    hiệu/tiêu ngữ/tiêu đề), vắng mặt (dòng trường tự do, mặc định `trai`), và
+    `right` (dòng "Hà Nội, ngày … tháng … năm …" phía trên khối ký)."""
+    than = _p_jc("CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM", "center") + _p(
+        "Họ và tên sinh viên: …………………"
+    ) + _p_jc("Hà Nội, ngày ..... tháng .... năm 20...", "right")
+    t = doc("hd.docx", _docx(than))
+    assert [d.can_le for d in t.don_vi] == ["giua", "trai", "phai"]
+
+
+def test_DOCX_can_le_theo_kieu_khi_khong_co_truc_tiep():
+    """Đoạn KHÔNG khai `jc` trực tiếp, chỉ mang `w:pStyle` trỏ tới một kiểu tự
+    khai `center` — phải đọc ra `giua`, không phải mặc định `trai`: đây chính
+    là ca coordinator cảnh báo ("một tài liệu căn giữa bằng KIỂU mà đọc thẳng
+    `jc` trên `w:p` sẽ luôn ra trái, sai với chính tài liệu đó")."""
+    styles = _styles_xml([("TieuDe", "center", None)])
+    than = _p_kieu("PHIẾU ĐÁNH GIÁ", "TieuDe")
+    t = doc("hd.docx", _docx(than, styles))
+    assert t.don_vi[0].can_le == "giua"
+
+
+def test_DOCX_can_le_theo_kieu_qua_chuoi_basedOn():
+    """Kiểu của đoạn (`Con`) không tự khai `jc`, nhưng KẾ THỪA (`w:basedOn`)
+    một kiểu cha (`Goc`) có khai — phải giải hết chuỗi mới ra `giua`, không
+    dừng ở kiểu gần nhất."""
+    styles = _styles_xml([("Goc", "center", None), ("Con", None, "Goc")])
+    than = _p_kieu("ĐỘC LẬP - TỰ DO - HẠNH PHÚC", "Con")
+    t = doc("hd.docx", _docx(than, styles))
+    assert t.don_vi[0].can_le == "giua"
+
+
+def test_DOCX_khong_ro_can_le_thi_ve_trai():
+    """Không `jc` trực tiếp, không `pStyle`, hoặc `pStyle` trỏ tới một kiểu
+    không tồn tại — mọi ca không xác định được đều về `trai`, không suy đoán
+    thêm gì ngoài những gì tệp thật sự khai."""
+    than = _p("Trường tự do") + _p_kieu("Đoạn kiểu lạ", "KhongTonTai")
+    t = doc("hd.docx", _docx(than, _styles_xml([("Khac", "center", None)])))
+    assert [d.can_le for d in t.don_vi] == ["trai", "trai"]
 
 
 # ----------------------------------------------------------------------- PDF
