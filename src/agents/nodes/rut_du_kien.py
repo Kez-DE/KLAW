@@ -59,7 +59,14 @@ def schema_rut(loai: str) -> dict:
 
 
 def _dong_tai_lieu(tai_lieu: TaiLieuDaDoc) -> str:
-    return "\n".join(f"[{d.chi_so}] (trang {d.trang}) {d.noi_dung}" for d in tai_lieu.don_vi)
+    # Phase 11 fix round 3 (reviewer I4) — `doc_tai_lieu` giờ giữ cả ô bảng
+    # RỖNG CHỮ (để `_bang_theo_nhan` phía `hieu_tai_lieu` biết bảng có đủ
+    # hàng/cột thật). `loc_don_vi` (sibling cùng đọc `don_vi`) đã lọc ô rỗng
+    # trước khi vào prompt; hàm này thì chưa — mỗi ô trống của một biểu mẫu
+    # chưa điền (BM.M05: 24 ô cho riêng bảng danh sách sinh viên) ra một dòng
+    # `[N] (trang 1) ` không chữ, tốn tiền mỗi lượt rút dữ kiện mà không có gì
+    # để mô hình đọc hay trích.
+    return "\n".join(f"[{d.chi_so}] (trang {d.trang}) {d.noi_dung}" for d in tai_lieu.don_vi if d.noi_dung)
 
 
 def _dong_truong(loai: str) -> str:

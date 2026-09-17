@@ -16,7 +16,7 @@ File này khoá bốn điều:
 import json
 
 from src.agents.nodes.gom_du_kien import truong_cua
-from src.agents.nodes.rut_du_kien import rut_du_kien, schema_rut
+from src.agents.nodes.rut_du_kien import _dong_tai_lieu, rut_du_kien, schema_rut
 from src.services.doc_tai_lieu import DonViVanBan, TaiLieuDaDoc
 from src.services.neo_du_kien import LyDoNeo
 
@@ -41,6 +41,27 @@ class _LLM:
         if self.no:
             raise RuntimeError("openrouter 502")
         return json.dumps(self.ra), _Usage()
+
+
+# --------------------------------------------------------- prompt tài liệu
+
+
+def test_dong_tai_lieu_bo_don_vi_rong_chu():
+    """Phase 11 fix round 3 (reviewer I4) — `doc_tai_lieu` (Phase 11 fix round
+    2) giờ giữ cả ô bảng RỖNG CHỮ, để `hieu_tai_lieu._bang_theo_nhan` dựng lại
+    đủ hàng/cột thật. Node này (sibling của `loc_don_vi`, cũng đọc `don_vi`)
+    không được lọc theo cùng luật thì mỗi ô trống của một biểu mẫu chưa điền
+    ra một dòng `[N] (trang X) ` không chữ trong PROMPT — tốn tiền mỗi lượt
+    rút dữ kiện mà không có gì để mô hình đọc hay trích."""
+    dv = [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Lương chính thức: 20.000.000 đồng/tháng"),
+        DonViVanBan(chi_so=1, trang=1, offset_dau=40, noi_dung="", bang=(0, 0, 1)),
+    ]
+    tl = TaiLieuDaDoc(don_vi=dv, so_trang=1, so_ky_tu=40)
+    dong = _dong_tai_lieu(tl)
+    assert dong == "[0] (trang 1) Lương chính thức: 20.000.000 đồng/tháng", (
+        "ô rỗng chữ không được ra dòng contentless trong prompt"
+    )
 
 
 def _day_du(**ghi_de) -> dict:
