@@ -6,10 +6,14 @@ import type { BanThao, CauTruc } from "./klaw";
 
 export type KieuDong = "quocHieu" | "tieuDe" | "soHieu" | "dieu" | "thuong";
 
+/** `trai` (mặc định) | `giua` | `phai` (Phase 9 U5) — căn lề THẬT đọc từ CSS
+ *  `text-align` đã áp trên khung A4 (`docDong`), không phải suy đoán ở đây. */
+export type CanLe = "trai" | "giua" | "phai";
+
 export type DongVanBan = {
   text: string;
   kieu: KieuDong;
-  canhGiua: boolean;
+  canhLe: CanLe;
   inDam: boolean;
   inNghieng: boolean;
   thutLe: number;
@@ -44,13 +48,23 @@ export type NoiDungXuat = {
  * khối, ví dụ câu dẫn / bảng / câu kết, ba khối riêng chứ không nén về hai
  * trường cố định).
  */
-export type KhoiMuc = { kind: "vanXuoi"; noiDung: string } | { kind: "bang"; hang: string[][] };
+export type KhoiMuc =
+  { kind: "vanXuoi"; noiDung: string; canhLe: CanLe } | { kind: "bang"; hang: string[][] };
 
 /** Một mục dựng sẵn cho `XemTruocA4`: nội dung của `clauses` ghép vào khung `cau_truc.muc`. */
 export interface Muc {
   stt: number;
   key: string;
   ten: string;
+  /**
+   * Tên mục này có phải chữ THẬT của tài liệu nguồn hay do mô hình đặt ra để
+   * TỔ CHỨC bản thảo (Phase 9 U1) — `false` thì `XemTruocA4` không in `ten`
+   * ra trang (bản thảo `tong_quat` mới, `laTongQuat` mới đọc trường này; bản
+   * thảo checklist luôn `true` vì tên mục ở đó đến từ chính checklist, không
+   * phải mô hình bịa). Vắng mặt (clause lưu trước Phase 9) mặc định `true`:
+   * an toàn hơn ẩn oan một tiêu đề thật.
+   */
+  tenThat: boolean;
   /**
    * Giữ lại CHỈ cho `DrawerSuaMuc` (bản thảo checklist — không bao giờ có
    * `khoi`/`bang`, xem `SanKhauBanThao.laTongQuat`) và cho tương thích ngược
@@ -92,6 +106,7 @@ export interface Muc {
 type ClauseTho = {
   key?: string;
   ten?: string;
+  ten_that?: unknown;
   noi_dung?: string;
   bang?: unknown;
   khoi?: unknown;
@@ -116,6 +131,21 @@ function vungHopLe(vung: unknown): Muc["vung"] {
   return typeof vung === "string" && VUNG_HOP_LE.has(vung) ? (vung as Muc["vung"]) : "than";
 }
 
+const CAN_LE_HOP_LE = new Set(["trai", "giua", "phai"]);
+
+/** `k.can_le` thô → nhãn hợp lệ, mặc định `trai` khi vắng/lạ (Phase 9 U5) —
+ * cùng luật fail-closed với `vungHopLe`/`lam_sach_van_ban` phía máy chủ. */
+function canLeHopLe(canLe: unknown): CanLe {
+  return typeof canLe === "string" && CAN_LE_HOP_LE.has(canLe) ? (canLe as CanLe) : "trai";
+}
+
+/** `c.ten_that` thô → `boolean`, mặc định `true` khi vắng/không phải boolean
+ * (clause lưu trước Phase 9, hoặc `muc` viết tay của test) — an toàn hơn ẩn
+ * oan một tiêu đề thật (xem `Muc.tenThat`). */
+function tenThatHopLe(tenThat: unknown): boolean {
+  return typeof tenThat === "boolean" ? tenThat : true;
+}
+
 /**
  * MỘT khối thô (từ `khoi` mới, Phase 8) → 0, 1, hay 2 `KhoiMuc` hợp lệ, ĐÚNG
  * thứ tự văn xuôi rồi bảng.
@@ -132,11 +162,11 @@ function vungHopLe(vung: unknown): Muc["vung"] {
  */
 function khoiMotHopLe(k: unknown): KhoiMuc[] {
   if (typeof k !== "object" || k === null) return [];
-  const o = k as { noi_dung?: unknown; bang?: unknown };
+  const o = k as { noi_dung?: unknown; bang?: unknown; can_le?: unknown };
   const noiDung = typeof o.noi_dung === "string" ? o.noi_dung : "";
   const bang = bangHopLe(o.bang);
   const ra: KhoiMuc[] = [];
-  if (noiDung !== "") ra.push({ kind: "vanXuoi", noiDung });
+  if (noiDung !== "") ra.push({ kind: "vanXuoi", noiDung, canhLe: canLeHopLe(o.can_le) });
   if (bang) ra.push({ kind: "bang", hang: bang });
   return ra;
 }
@@ -153,11 +183,13 @@ function khoiTuClause(c: ClauseTho | undefined): KhoiMuc[] {
     return c.khoi.flatMap(khoiMotHopLe);
   }
   // Phase 7 trở về trước: câu dẫn (nếu có) RỒI bảng (nếu có) — đúng thứ tự
-  // `XemTruocA4` từng render (fix round 1, Phase 7) trước khi có `khoi`.
+  // `XemTruocA4` từng render (fix round 1, Phase 7) trước khi có `khoi`. Chưa
+  // từng có `can_le` ở hình dạng này — về `trai` (Phase 9 U5 không đọc ngược
+  // lại được căn lề một clause đã lưu trước khi trường này tồn tại).
   const bang = bangHopLe(c?.bang);
   const noiDung = c?.noi_dung ?? (bang ? "" : "[…]");
   const ra: KhoiMuc[] = [];
-  if (noiDung !== "") ra.push({ kind: "vanXuoi", noiDung });
+  if (noiDung !== "") ra.push({ kind: "vanXuoi", noiDung, canhLe: "trai" });
   if (bang) ra.push({ kind: "bang", hang: bang });
   return ra;
 }
@@ -183,6 +215,7 @@ export function mucTuBanThao(banThao: BanThao, cauTruc: CauTruc | null): Muc[] {
       stt: i + 1,
       key: c.key ?? `m${i + 1}`,
       ten: c.ten ?? c.key ?? `Mục ${i + 1}`,
+      tenThat: tenThatHopLe(c.ten_that),
       noiDung: c.noi_dung ?? "[…]",
       bang: bangHopLe(c.bang),
       khoi: khoiTuClause(c),
@@ -196,6 +229,10 @@ export function mucTuBanThao(banThao: BanThao, cauTruc: CauTruc | null): Muc[] {
       stt: m.stt,
       key: m.key,
       ten: m.ten,
+      // Tên mục checklist đến từ chính `checklist_*.yaml`, không phải mô
+      // hình bịa — luôn `true`, bất kể `c.ten_that` (trường đó chỉ có nghĩa
+      // ở nhánh `tong_quat` phía trên).
+      tenThat: true,
       noiDung: c?.noi_dung ?? "[…]",
       bang: bangHopLe(c?.bang),
       khoi: khoiTuClause(c),
@@ -237,8 +274,13 @@ function chuanHoa(s: string) {
   return s.replace(/\s+/g, " ").trim();
 }
 
-function laCanhGiua(el: HTMLElement) {
-  return getComputedStyle(el).textAlign === "center";
+/** Căn lề THẬT của một thẻ, đọc từ `text-align` đã tính (Phase 9 U5) — cùng
+ *  nguồn sự thật XemTruocA4 dùng để hiển thị, không suy đoán lại từ dữ liệu. */
+function canhLeTuStyle(el: HTMLElement): CanLe {
+  const ta = getComputedStyle(el).textAlign;
+  if (ta === "center") return "giua";
+  if (ta === "right" || ta === "end") return "phai";
+  return "trai";
 }
 
 /**
@@ -269,7 +311,7 @@ function docDong(el: HTMLElement): DongVanBan {
     text: cs.textTransform === "uppercase" ? text.toLocaleUpperCase("vi-VN") : text,
     kieu:
       el.tagName === "H1" ? "tieuDe" : laDieu ? "dieu" : /^Số:/.test(text) ? "soHieu" : "thuong",
-    canhGiua: laCanhGiua(el),
+    canhLe: canhLeTuStyle(el),
     inDam: Number(cs.fontWeight) >= 600 || laDieu,
     inNghieng: cs.fontStyle === "italic",
     thutLe: Math.round(parseFloat(cs.marginLeft || "0")),
@@ -441,7 +483,12 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
 
   const para = (d: DongVanBan) =>
     new Paragraph({
-      alignment: d.canhGiua ? AlignmentType.CENTER : AlignmentType.JUSTIFIED,
+      alignment:
+        d.canhLe === "giua"
+          ? AlignmentType.CENTER
+          : d.canhLe === "phai"
+            ? AlignmentType.RIGHT
+            : AlignmentType.JUSTIFIED,
       ...(d.kieu === "tieuDe" ? { heading: HeadingLevel.HEADING_1 } : {}),
       spacing: { after: 120, line: 312 },
       ...(d.thutLe > 0 ? { indent: { left: convertMillimetersToTwip(d.thutLe / 3.78) } } : {}),
@@ -796,7 +843,7 @@ export async function noiDungThanhPDF(
       const d = ketiep.d;
       pdf.setFont(HO_CHU_PDF, kieuChuPDF(d));
       pdf.setFontSize(coChuPt(d.kieu));
-      const thutLeMm = d.canhGiua || d.thutLe <= 0 ? 0 : d.thutLe / 3.78;
+      const thutLeMm = d.canhLe !== "trai" || d.thutLe <= 0 ? 0 : d.thutLe / 3.78;
       const dong = pdf.splitTextToSize(d.text, RONG_NOI_DUNG_PDF - thutLeMm) as string[];
       return dong.length * caoDongPt(d.kieu);
     }
@@ -814,7 +861,7 @@ export async function noiDungThanhPDF(
 
     pdf.setFont(HO_CHU_PDF, kieuChuPDF(d));
     pdf.setFontSize(coChuPt(d.kieu));
-    const thutLeMm = d.canhGiua || d.thutLe <= 0 ? 0 : d.thutLe / 3.78;
+    const thutLeMm = d.canhLe !== "trai" || d.thutLe <= 0 ? 0 : d.thutLe / 3.78;
     const rong = RONG_NOI_DUNG_PDF - thutLeMm;
     const dong = pdf.splitTextToSize(d.text, rong) as string[];
     const cao = dong.length * caoDongPt(d.kieu);
@@ -824,9 +871,18 @@ export async function noiDungThanhPDF(
     // vẽ tại đây; không thì sang trang mới rồi vẽ tiêu đề ở đầu trang đó.
     if (!conCho(cao + buffer)) trangMoi();
 
-    const x = d.canhGiua ? LE_PDF.trai + RONG_NOI_DUNG_PDF / 2 : LE_PDF.trai + thutLeMm;
+    // `x`/`align` theo CanLe (Phase 9 U5): trái neo mép trái + thụt lề, giữa
+    // neo tâm trang, phải neo MÉP PHẢI (jsPDF đặt chữ kết thúc tại `x` khi
+    // `align: "right"`) — cùng ba giá trị `.docx` (`para`) đã dùng.
+    const x =
+      d.canhLe === "giua"
+        ? LE_PDF.trai + RONG_NOI_DUNG_PDF / 2
+        : d.canhLe === "phai"
+          ? LE_PDF.trai + RONG_NOI_DUNG_PDF
+          : LE_PDF.trai + thutLeMm;
+    const align = d.canhLe === "giua" ? "center" : d.canhLe === "phai" ? "right" : "justify";
     pdf.text(dong, x, y + coChuPt(d.kieu) * MM_MOI_PT, {
-      align: d.canhGiua ? "center" : "justify",
+      align,
       maxWidth: rong,
       lineHeightFactor: HE_SO_DONG_PDF,
     });

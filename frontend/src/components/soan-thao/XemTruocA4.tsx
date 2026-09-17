@@ -77,10 +77,21 @@ export function XemTruocA4({
                   (xuat-tep.ts) đọc để biết đây là đầu mục, nên tệp Word/PDF
                   tải về mới có tiêu đề mục thay vì một đoạn thường in đậm.
                   Lớp này chỉ có kiểu dáng trong `.a4-sheet` (styles.css) nên
-                  không đổi gì trên màn hình của khung xem trước này. */}
-              <p className="dieu-head m-0 font-serif text-[1em] font-semibold">
-                {laTongQuat ? m.ten : `Mục ${m.stt}. ${m.ten}`}
-              </p>
+                  không đổi gì trên màn hình của khung xem trước này.
+
+                  Bản thảo tổng quát (`laTongQuat`) mà tên mục KHÔNG phải chữ
+                  thật của tài liệu (`!m.tenThat`, Phase 9 U1) thì KHÔNG render
+                  dòng này — đó là nhãn KLAW tự đặt để tổ chức bản thảo, không
+                  phải chữ trên trang. Bỏ hẳn `<p>` (không chỉ ẩn bằng CSS) để
+                  `docNoiDungTuDOM` — dùng chung cho cả `.docx` và PDF — cũng
+                  không thấy nó, đúng yêu cầu "sửa ở một chỗ, đúng cả ba nơi".
+                  Bản thảo checklist (`!laTongQuat`) luôn hiện: tên mục ở đó
+                  đến từ chính checklist, chưa từng là chữ mô hình bịa. */}
+              {(!laTongQuat || m.tenThat) && (
+                <p className="dieu-head m-0 font-serif text-[1em] font-semibold">
+                  {laTongQuat ? m.ten : `Mục ${m.stt}. ${m.ten}`}
+                </p>
+              )}
               {/* Nội dung mục là một MẢNG khối theo đúng thứ tự tài liệu
                   (Phase 8 R1, thay hai điều kiện độc lập noiDung/bang cố định
                   của Phase 7): câu dẫn, bảng, câu kết là BA khối riêng, render
@@ -89,7 +100,14 @@ export function XemTruocA4({
                 k.kind === "vanXuoi" ? (
                   <p
                     key={i}
-                    className="m-0 mt-1 whitespace-pre-wrap font-serif text-[1em] leading-relaxed"
+                    className={cn(
+                      "m-0 mt-1 whitespace-pre-wrap font-serif text-[1em] leading-relaxed",
+                      // Căn lề THẬT của tài liệu nguồn (Phase 9 U5) — đọc
+                      // ngược lại qua `getComputedStyle(...).textAlign` ở
+                      // `xuat-tep.ts::docDong`, nên `.docx`/PDF tự khớp theo.
+                      k.canhLe === "giua" && "text-center",
+                      k.canhLe === "phai" && "text-right",
+                    )}
                   >
                     {k.noiDung}
                   </p>

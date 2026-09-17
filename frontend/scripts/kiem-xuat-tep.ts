@@ -23,6 +23,7 @@ import {
   type NoiDungXuat,
   type PhongChuPDF,
 } from "../src/lib/xuat-tep.ts";
+import type { CauTruc } from "../src/lib/klaw.ts";
 
 /** Phần tử giả tối thiểu: `docNoiDungTuDOM` chỉ hỏi đúng hai thứ này. */
 const el = (tagName: string, trongKhoiKhongXuat = false) => ({
@@ -85,7 +86,7 @@ assert.ok(mucCu[1]?.noiDung.includes("---|---|---|---"));
 // Phase 8: hình dạng CŨ (chỉ `noi_dung`, không `khoi` không `bang`) quy về
 // đúng MỘT khối văn xuôi mang nguyên chuỗi pipe — `XemTruocA4` render nó
 // bằng đúng một `<p>`, không parse `|` ra bảng (brief cấm).
-assert.deepEqual(mucCu[1]?.khoi, [{ kind: "vanXuoi", noiDung: mucCu[1]!.noiDung }]);
+assert.deepEqual(mucCu[1]?.khoi, [{ kind: "vanXuoi", noiDung: mucCu[1]!.noiDung, canhLe: "trai" }]);
 assert.equal(mucCu[1]?.vung, "than");
 
 // Một clause kiểu Phase 7 (`noi_dung`+`bang` rời) → `Muc.bang` là hàng×ô thật
@@ -170,6 +171,91 @@ const banThaoChanTrang = {
 assert.equal(mucTuBanThao(banThaoChanTrang, null)[0]?.vung, "chan_trang");
 assert.equal(mucCu[0]?.vung, "than"); // hàng CŨ không có `vung` → mặc định
 
+// ────────────────────── Phase 9 U1 — tên mục KLAW bịa không được in ra
+//
+// `ten_that` (mới ở `lam_sach_van_ban`/`clauses_tu` phía máy chủ) phải sống
+// sót qua `mucTuBanThao` thành `Muc.tenThat`, để `XemTruocA4` biết mục nào
+// đừng in tên ra trang.
+const banThaoTenBia = {
+  ...banThaoCu,
+  clauses: [
+    {
+      key: "muc_1",
+      ten: "Chữ ký",
+      ten_that: false,
+      vung: "than",
+      khoi: [{ noi_dung: "x", bang: [] }],
+    },
+    {
+      key: "muc_2",
+      ten: "Bảng đánh giá",
+      ten_that: true,
+      vung: "than",
+      khoi: [{ noi_dung: "y", bang: [] }],
+    },
+  ],
+} as Parameters<typeof mucTuBanThao>[0];
+const mucTenBia = mucTuBanThao(banThaoTenBia, null);
+assert.equal(mucTenBia[0]?.tenThat, false, "tên KLAW bịa (không có trong nguồn) → tenThat=false");
+assert.equal(mucTenBia[1]?.tenThat, true, "tên THẬT của tài liệu → tenThat=true");
+// Clause CŨ (lưu trước Phase 9, không có khoá `ten_that`) → mặc định `true`,
+// an toàn hơn ẩn oan một tiêu đề thật.
+assert.equal(mucCu[0]?.tenThat, true, "clause cũ không có ten_that → mặc định giữ tên");
+
+// Bản thảo CHECKLIST (có `cauTruc`, nhánh `khung.map`) luôn `tenThat=true` —
+// tên mục ở đó đến từ chính `checklist_*.yaml`, chưa từng là mô hình bịa, bất
+// kể clause của nó có mang `ten_that=false` hay không (trường đó vô nghĩa ở
+// nhánh này).
+const cauTrucToiThieu: CauTruc = {
+  ten: "test",
+  tieu_de: "Hợp đồng test",
+  don_vi_muc: "Điều",
+  muc_do_thieu: "thieu",
+  pham_vi_soat: "noi_dung",
+  chi_soat_the_thuc: false,
+  la_hop_dong: false,
+  khung_hop_dong: null,
+  can_cu_goc: "x",
+  can_cu_chi_tiet: null,
+  muc: [{ stt: 1, key: "muc_1", ten: "Các bên", can_cu: "x", bat_buoc: true }],
+};
+const banThaoChecklistTenBia = {
+  ...banThaoCu,
+  clauses: [{ key: "muc_1", ten_that: false, noi_dung: "Bên A và Bên B." }],
+} as Parameters<typeof mucTuBanThao>[0];
+assert.equal(
+  mucTuBanThao(banThaoChecklistTenBia, cauTrucToiThieu)[0]?.tenThat,
+  true,
+  "nhánh checklist luôn tenThat=true, không đọc ten_that của clause",
+);
+
+// ────────────────────────────────── Phase 9 U5 — căn lề sống sót qua `khoi`
+//
+// `can_le` (mới ở `_khoi_sach` phía máy chủ) phải sống sót qua `khoiTuClause`
+// thành `KhoiMuc.canhLe`, đúng ba giá trị hợp lệ; giá trị vắng/lạ về `trai`.
+const banThaoCanLe = {
+  ...banThaoCu,
+  clauses: [
+    {
+      key: "muc_1",
+      ten: "Quốc hiệu",
+      vung: "than",
+      khoi: [
+        { noi_dung: "CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM", bang: [], can_le: "giua" },
+        { noi_dung: "Hà Nội, ngày ... tháng ... năm ...", bang: [], can_le: "phai" },
+        { noi_dung: "Trường tự do: …", bang: [], can_le: "trai" },
+        { noi_dung: "Không khai can_le", bang: [] },
+        { noi_dung: "can_le lạ", bang: [], can_le: "linh_tinh" },
+      ],
+    },
+  ],
+} as Parameters<typeof mucTuBanThao>[0];
+const khoiCanLe = mucTuBanThao(banThaoCanLe, null)[0]?.khoi as { canhLe: string }[];
+assert.deepEqual(
+  khoiCanLe.map((k) => k.canhLe),
+  ["giua", "phai", "trai", "trai", "trai"],
+);
+
 // Phase 8 R4 — hàng ngắn hơn hàng tiêu đề (ô gộp) đi qua NGUYÊN trong `khoi`,
 // `coSpanHang` bên dưới mới quyết định cách vẽ nó.
 const banThaoHangNgan = {
@@ -237,7 +323,7 @@ const banThaoKhoiCaHai = {
 } as Parameters<typeof mucTuBanThao>[0];
 const mucKhoiCaHai = mucTuBanThao(banThaoKhoiCaHai, null)[0]?.khoi ?? [];
 assert.equal(mucKhoiCaHai.length, 2, "một khối thô cả hai ra HAI khối sạch, không mất khối nào");
-assert.deepEqual(mucKhoiCaHai[0], { kind: "vanXuoi", noiDung: "Chú thích bảng:" });
+assert.deepEqual(mucKhoiCaHai[0], { kind: "vanXuoi", noiDung: "Chú thích bảng:", canhLe: "trai" });
 assert.deepEqual(mucKhoiCaHai[1], {
   kind: "bang",
   hang: [
@@ -354,7 +440,7 @@ const dong = (
 ): DongVanBan => ({
   text,
   kieu,
-  canhGiua: false,
+  canhLe: "trai",
   inDam: false,
   inNghieng: false,
   thutLe: 0,
@@ -366,8 +452,8 @@ const dong = (
 // (heading), một đoạn thường có thụt lề, RỒI một bảng có hàng ngắn hơn hàng
 // tiêu đề (Phase 8 R4, qua `coSpanHang`).
 const KHOI_MAU: KhoiVanBan[] = [
-  { kind: "dong", d: dong("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", "quocHieu", { canhGiua: true }) },
-  { kind: "dong", d: dong("HỢP ĐỒNG LAO ĐỘNG", "tieuDe", { canhGiua: true, inDam: true }) },
+  { kind: "dong", d: dong("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", "quocHieu", { canhLe: "giua" }) },
+  { kind: "dong", d: dong("HỢP ĐỒNG LAO ĐỘNG", "tieuDe", { canhLe: "giua", inDam: true }) },
   { kind: "dong", d: dong("Số: 90/2019/HĐLĐ", "soHieu") },
   { kind: "dong", d: dong("Điều 1. Nghĩa vụ các bên", "dieu", { inDam: true }) },
   {
@@ -389,14 +475,14 @@ const KHOI_MAU: KhoiVanBan[] = [
 // khoá lại (R2): "ệ ằ ỗ ữ ơ Đ" hiện đúng, không phải ô vuông.
 const OKY_MAU: DongVanBan[][] = [
   [
-    dong("NGƯỜI SỬ DỤNG LAO ĐỘNG", "thuong", { canhGiua: true, inDam: true }),
-    dong("(Ký, ghi rõ họ tên, đóng dấu)", "thuong", { canhGiua: true, inNghieng: true }),
-    dong("Đặng Văn Sỹ", "thuong", { canhGiua: true, inDam: true }),
+    dong("NGƯỜI SỬ DỤNG LAO ĐỘNG", "thuong", { canhLe: "giua", inDam: true }),
+    dong("(Ký, ghi rõ họ tên, đóng dấu)", "thuong", { canhLe: "giua", inNghieng: true }),
+    dong("Đặng Văn Sỹ", "thuong", { canhLe: "giua", inDam: true }),
   ],
   [
-    dong("NGƯỜI LAO ĐỘNG", "thuong", { canhGiua: true, inDam: true }),
-    dong("(Ký, ghi rõ họ tên)", "thuong", { canhGiua: true, inNghieng: true }),
-    dong("Vũ Thị Ệ Ằ Ỗ Ữ Ơ", "thuong", { canhGiua: true, inDam: true }),
+    dong("NGƯỜI LAO ĐỘNG", "thuong", { canhLe: "giua", inDam: true }),
+    dong("(Ký, ghi rõ họ tên)", "thuong", { canhLe: "giua", inNghieng: true }),
+    dong("Vũ Thị Ệ Ằ Ỗ Ữ Ơ", "thuong", { canhLe: "giua", inDam: true }),
   ],
 ];
 
@@ -654,4 +740,4 @@ assert.equal(
   "hàng tiêu đề (tô xám) phải được vẽ lại ở đầu MỖI trang, không chỉ trang đầu",
 );
 
-console.info("kiem-xuat-tep: 48/48 đạt");
+console.info("kiem-xuat-tep: 53/53 đạt");
