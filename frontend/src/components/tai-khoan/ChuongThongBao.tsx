@@ -189,7 +189,7 @@ function KhungThongBao({
                     >
                       {tb.tieu_de}
                     </span>
-                    <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
+                    <span className="mt-0.5 block line-clamp-2 text-[12px] text-muted-foreground">
                       {tb.noi_dung}
                     </span>
                     <span className="mt-0.5 block text-[11px] text-muted-foreground">

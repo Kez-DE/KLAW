@@ -200,7 +200,7 @@ export function AppShell({
       <aside
         inert={modalMo}
         aria-label="Điều hướng chính"
-        className="sticky top-0 hidden h-screen w-16 shrink-0 flex-col border-r border-border bg-[var(--color-paper-50)] px-2 py-4 md:flex xl:w-[260px] xl:px-3"
+        className="sticky top-0 z-40 hidden h-screen w-16 shrink-0 flex-col border-r border-border bg-[var(--color-paper-50)] px-2 py-4 md:flex xl:w-[260px] xl:px-3"
       >
         <Link
           to="/"
