@@ -121,23 +121,42 @@ def test_moi_y_dinh_KHONG_PHAI_tra_cuu_va_soan_thao_deu_phai_re_tat():
         assert _re_sau_route({"intent": intent}) == "assemble", f"{intent} phải rẽ tắt"
 
 
-# ══════ Phase 3 Half B — MỌI lượt của một hội thoại có tài liệu vào hieu_tai_lieu
+# ══════ Phase 3 Half B — fix round 1: _vao_graph không còn xét tai_lieu_phien
 
 
-def test_vao_graph_re_thang_khi_hoi_thoai_giu_tai_lieu_du_khong_dinh_kem_lai():
-    """Sự cố THẬT (coordinator ruling): owner hỏi "đây là đơn gì" ở lượt SAU
-    lượt tạo bản thảo — không đính kèm gì lượt này, nhưng hội thoại vẫn giữ
-    tài liệu nguồn (`tai_lieu_phien`). Trước bản vá này, `_vao_graph` chỉ xét
-    `tai_lieu_ids` (lượt VỪA đính kèm) nên lượt đó rơi vào `route` — không hề
-    biết hội thoại có tài liệu, đoán sai, và đẩy một câu hỏi vào `gom_du_kien`."""
+def test_vao_graph_khong_re_theo_tai_lieu_phien_mot_minh():
+    """Fix round 1 (Q-C3) — bản mở rộng đầu tiên ("mọi lượt của một hội thoại
+    có tài liệu vào thẳng hieu_tai_lieu, bất kể ý định") đã bị RÚT LẠI: nó vô
+    hiệu hoá `route`/`giai_nghia`/`_RE_TAT` cho toàn bộ phần đời còn lại của
+    một hội thoại từng nhận một tài liệu — một câu hỏi luật thật trong hội
+    thoại đó không còn tới được đường truy hồi nữa. `tai_lieu_phien` MỘT MÌNH
+    (không kèm `tai_lieu_ids` của chính lượt này) không còn rẽ tất định ở
+    đây; đường đúng cho một câu hỏi VỀ tài liệu là `route.v4` tự chào
+    `Intent.tai_lieu` rồi `_re_sau_route` đưa nó vào `hieu_tai_lieu` — xem
+    `test_re_sau_route_dua_tai_lieu_vao_hieu_tai_lieu` bên dưới."""
     tep = [{"id": "x", "ten_tep": "form.docx"}]
-    assert _vao_graph({"tai_lieu_phien": tep}) == "hieu_tai_lieu"
-    assert _vao_graph({"tai_lieu_phien": tep, "lich_su": [{"cau_hoi": "a", "tra_loi": "b"}]}) == "hieu_tai_lieu"
+    assert _vao_graph({"tai_lieu_phien": tep}) == "suy_dien"
+    assert _vao_graph({"tai_lieu_phien": tep, "lich_su": [{"cau_hoi": "a", "tra_loi": "b"}]}) == "giai_nghia"
 
 
 def test_vao_graph_khong_tai_lieu_di_duong_cu():
     """Không có tài liệu nào (mọi hội thoại KHÔNG liên quan tài liệu) — đường
-    cũ giữ nguyên, không bị ảnh hưởng bởi bản mở rộng."""
+    cũ giữ nguyên."""
     assert _vao_graph({}) == "suy_dien"
     assert _vao_graph({"lich_su": [{"cau_hoi": "a", "tra_loi": "b"}]}) == "giai_nghia"
     assert _vao_graph({"tom_tat": "x"}) == "giai_nghia"
+
+
+def test_vao_graph_dinh_kem_tuoi_van_re_that_nhu_cu():
+    """Đường CŨ, không đổi: một lượt VỪA đính kèm (`tai_lieu_ids` của chính
+    lượt này) vẫn rẽ tất định 0 token, không phải qua `tai_lieu_phien`."""
+    assert _vao_graph({"tai_lieu_ids": ["x"]}) == "hieu_tai_lieu"
+
+
+def test_re_sau_route_dua_tai_lieu_vao_hieu_tai_lieu():
+    """Cơ chế THẬT đứng sau một câu hỏi VỀ tài liệu ở lượt nối tiếp — có SẴN
+    từ trước Phase 3 (`route.v4`/`Intent.tai_lieu`, quyết định chủ sở hữu
+    Q4), không phải thứ lát cắt này dựng: một khi `route` đã gán đúng
+    `Intent.tai_lieu`, `_re_sau_route` đưa THẲNG vào `hieu_tai_lieu`, không
+    đụng gì tới `gom_du_kien` hay tới các ý định khác."""
+    assert _re_sau_route({"intent": Intent.tai_lieu}) == "hieu_tai_lieu"
