@@ -40,15 +40,21 @@ KHONG_CO_BAN_THAO = "Cuộc trò chuyện này chưa có bản thảo tổng qu�
 
 
 def clauses_tu(van_ban: dict) -> list[dict]:
-    """`{tieu_de, muc:[{ten, noi_dung}]}` → `clauses` đúng hình dạng `BanThaoOut`.
+    """`{tieu_de, muc:[{ten, noi_dung, bang}]}` → `clauses` đúng hình dạng
+    `BanThaoOut`.
 
     `key` đánh theo VỊ TRÍ (`muc_1`, `muc_2`) chứ không theo tên mục: tên do mô
     hình đặt, có dấu, dài, và đổi giữa hai phiên bản của cùng một bản thảo —
     dùng nó làm khoá là để `doi_muc` báo "đã đổi" cho một mục chỉ sửa chính tả
     tiêu đề. Vị trí là thứ ổn định duy nhất ở đây.
+
+    `bang` (Phase 7 R1) dùng `.get`, không chỉ số: `van_ban["muc"]` đã qua
+    `lam_sach_van_ban` nên LUÔN có khoá này, nhưng fixture cũ và test có sẵn
+    (viết tay, trước bản vá này) thì không — `.get(...) or []` giữ MỘT hình
+    dạng clause cho cả hai, không migration nào cần cho `clauses` (JSONB).
     """
     return [
-        {"key": f"muc_{i}", "ten": m["ten"], "noi_dung": m["noi_dung"]}
+        {"key": f"muc_{i}", "ten": m["ten"], "noi_dung": m["noi_dung"], "bang": m.get("bang") or []}
         for i, m in enumerate((van_ban or {}).get("muc") or [], 1)
     ]
 
@@ -131,7 +137,14 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
     if ket is None:
         return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_SOAN_DUOC}
 
-    ten = (state.get("van_ban_tong_quat") or {}).get("tieu_de") or TEN_TONG_QUAT
+    # `ten` trả lời "bản thảo này THUỘC LOẠI gì" (BanThaoOut.ten) — CỐ ĐỊNH,
+    # không phải tiêu đề riêng của văn bản. `routes_ban_thao._ten_loai` đã trả
+    # cố định TEN_TONG_QUAT cho loai này ở mọi lần tải lại; gán `tieu_de` vào
+    # đây làm `ten` đổi giá trị giữa lượt vừa soạn (SSE) và lần tải lại trang
+    # sau đó — đúng kiểu lẫn lộn Phase 7 R4 cấm. Tiêu đề riêng đi qua
+    # `document` (dòng H1 đầu, `_render_markdown` bên dưới), phía client tự
+    # đọc ra từ đó.
+    ten = TEN_TONG_QUAT
     if state.get("muc_dich_tai_lieu") == "sua_ban_thao":
         cu = ban_thao.moi_nhat_cua_hoi_thoai(sub, str(hoi_thoai_id), LOAI_TONG_QUAT)
         if cu is None:

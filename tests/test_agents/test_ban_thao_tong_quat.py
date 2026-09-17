@@ -143,6 +143,64 @@ def test_muc_rong_hoac_sai_hinh_dang_bi_bo_khong_no():
     assert van_ban["muc"] == []
 
 
+# ──────────────────────────────────────────────── phép kiểm bảng (Phase 7 R1)
+
+
+NGUON_BANG = "1 Ý thức chấp hành nội quy 2,0 2 Tinh thần trách nhiệm 2,0"
+BANG_HOP_LE = [
+    ["TT", "Tiêu chí đánh giá", "Điểm tối đa"],
+    ["1", "Ý thức chấp hành nội quy", "2,0"],
+]
+
+
+def test_muc_bang_khong_can_noi_dung_de_duoc_giu():
+    """Nội dung một mục BẢNG nằm ở `bang`, không ở `noi_dung` — `noi_dung`
+    rỗng không còn là một mục thiếu chữ khi `bang` có hàng."""
+    van_ban, dem = _sach(
+        [{"ten": "Đánh giá", "noi_dung": "", "bang": BANG_HOP_LE}], nguon=NGUON_BANG
+    )
+    assert len(van_ban["muc"]) == 1
+    assert van_ban["muc"][0]["bang"] == BANG_HOP_LE
+    assert dem["gia_tri_lam_sach"] == 0
+
+
+def test_muc_khong_noi_dung_khong_bang_van_bi_bo():
+    """Không `noi_dung` VÀ không `bang` — vẫn một mục trống, bị bỏ như trước
+    (Phase 7 không nới lỏng luật này, chỉ thêm một đường thứ hai để có nội dung)."""
+    van_ban, _ = _sach([{"ten": "Trống", "noi_dung": "", "bang": []}], nguon=NGUON_BANG)
+    assert van_ban["muc"] == []
+
+
+def test_o_bang_bia_bi_thay_bang_dau_ba_cham_nhu_noi_dung():
+    """Một ô có số KHÔNG có trong nguồn đi qua ĐÚNG phép làm sạch của
+    `noi_dung`/`ten` — một ô cũng là một giá trị có thể bịa."""
+    bang = [["TT", "Điểm tối đa"], ["1", "2,0"], ["2", "9,9"]]  # "9,9" bịa, không có trong nguồn
+    van_ban, dem = _sach([{"ten": "Đánh giá", "noi_dung": "", "bang": bang}], nguon=NGUON_BANG)
+    assert van_ban["muc"][0]["bang"][1] == ["1", "2,0"]
+    assert van_ban["muc"][0]["bang"][2] == ["2", "[…]"]
+    assert dem["gia_tri_lam_sach"] == 1
+
+
+def test_bang_vuong_luoi_chan_lam_bo_ca_muc():
+    """Một ô còn số Điều/Khoản sau khi làm sạch bắt mục qua ĐÚNG lưới chặn
+    dùng chung với văn xuôi — không có đường né nào riêng cho bảng."""
+    bang = [["Căn cứ"], ["Điều 42 Bộ luật Lao động"]]
+    van_ban, dem = _sach([{"ten": "Căn cứ", "noi_dung": "", "bang": bang}], nguon="Điều 42 Bộ luật Lao động")
+    assert van_ban["muc"] == [] and dem["muc_bo"] == 1
+
+
+def test_bang_khong_phai_mang_hay_hang_khong_phai_mang_bi_bo_khong_no():
+    van_ban, _ = _sach(
+        [{"ten": "Đánh giá", "noi_dung": "", "bang": "không phải mảng"}], nguon=NGUON_BANG
+    )
+    assert van_ban["muc"] == []
+    van_ban2, _ = _sach(
+        [{"ten": "Đánh giá", "noi_dung": "", "bang": ["không phải mảng", ["1", "2,0"]]}],
+        nguon=NGUON_BANG,
+    )
+    assert van_ban2["muc"][0]["bang"] == [["1", "2,0"]]
+
+
 # ─────────────────────────────────────────── node hieu_tai_lieu phát `van_ban`
 
 
@@ -152,6 +210,20 @@ def test_schema_co_van_ban_va_hai_muc_dich_soan_lam_duoc():
     props = llm.json_schema["properties"]
     assert set(props["van_ban"]["properties"]) == {"tieu_de", "muc"}
     assert {"tao_van_ban", "sua_ban_thao"} <= h.MUC_DICH_LAM_DUOC
+
+
+def test_schema_muc_them_bang_giu_hang_va_o():
+    """Phase 7 R1 — một mục có thể là BẢNG: `bang` là mảng hàng, mỗi hàng là
+    mảng ô, cả hai `required` (strict `json_schema` không có trường tuỳ chọn)."""
+    llm = _LLM(_ra())
+    h.hieu_tai_lieu({"query": "soạn biên bản bàn giao"}, TL, llm, "m")
+    muc_schema = llm.json_schema["properties"]["van_ban"]["properties"]["muc"]["items"]
+    assert set(muc_schema["properties"]) == {"ten", "noi_dung", "bang"}
+    assert set(muc_schema["required"]) == {"ten", "noi_dung", "bang"}
+    assert muc_schema["properties"]["bang"] == {
+        "type": "array",
+        "items": {"type": "array", "items": {"type": "string"}},
+    }
 
 
 def test_node_phat_van_ban_tong_quat_khi_muc_dich_la_tao_van_ban():
@@ -174,6 +246,30 @@ def test_node_lam_sach_gia_tri_bia_truoc_khi_ra_khoi_file():
     assert ra["traces"]["dung_ban_thao_so_gia_tri_lam_sach"] == 1
 
 
+def test_node_giu_bang_va_lam_sach_gia_tri_bia_trong_o():
+    """Phase 7 R1 qua ĐỦ node `hieu_tai_lieu` (không chỉ `lam_sach_van_ban` đơn
+    lẻ): một mục BẢNG sống sót nguyên `bang`, và một ô bịa bị thay như một
+    `noi_dung` — "20.000.000" có trong `DV_A` (nguồn), "9.999.999" thì không."""
+    bia = {
+        "tieu_de": "X",
+        "muc": [
+            {
+                "ten": "Giá trị",
+                "noi_dung": "",
+                "bang": [
+                    ["Hạng mục", "Giá trị"],
+                    ["Thiết bị", "20.000.000 đồng"],
+                    ["Phụ phí", "9.999.999 đồng"],
+                ],
+            }
+        ],
+    }
+    ra = h.hieu_tai_lieu({"query": "soạn biên bản"}, TL, _LLM(_ra(van_ban=bia)), "m")
+    bang = ra["van_ban_tong_quat"]["muc"][0]["bang"]
+    assert bang[1] == ["Thiết bị", "20.000.000 đồng"]
+    assert bang[2] == ["Phụ phí", "[…] đồng"]
+
+
 def test_loi_ha_tang_khong_de_lai_van_ban_bia():
     class _No:
         def chat(self, *a, **k):
@@ -190,6 +286,21 @@ def test_clauses_danh_khoa_theo_thu_tu_doc():
     cl = d.clauses_tu(VAN_BAN)
     assert [c["key"] for c in cl] == ["muc_1", "muc_2"]
     assert cl[0]["ten"] == "Thời gian bàn giao"
+
+
+def test_clauses_tu_giu_bang_rong_khi_khong_va_day_khi_co():
+    """Phase 7 R1 — `bang` LUÔN có mặt trong `clauses`, rỗng cho mục văn xuôi
+    (kể cả `VAN_BAN` viết tay ở đầu file, không mang khoá `bang` nào — tương
+    đương một `van_ban` từ TRƯỚC bản vá này) và đầy khi mục là bảng."""
+    cl = d.clauses_tu(VAN_BAN)
+    assert cl[0]["bang"] == [] and cl[1]["bang"] == []
+
+    van_ban_bang = {
+        "tieu_de": "T",
+        "muc": [{"ten": "Đánh giá", "noi_dung": "", "bang": [["TT"], ["1"]]}],
+    }
+    cl_bang = d.clauses_tu(van_ban_bang)
+    assert cl_bang[0]["bang"] == [["TT"], ["1"]]
 
 
 def test_ket_ban_thao_dung_markdown_va_audit_muc_kiem():
@@ -358,6 +469,23 @@ def test_tao_roi_sua_len_phien_ban_2_va_lui_ve_duoc(nguoi):
 
     ve = ban_thao.lui(nguoi, bt["id"])
     assert ve["phien_ban"] == 1 and ve["document"] == bt["document"]
+
+
+@pytest.mark.integration
+def test_ten_la_ten_loai_khong_phai_tieu_de_van_ban(nguoi):
+    """Phase 7 R4 — `ten` trả lời "bản thảo này THUỘC LOẠI gì" (`BanThaoOut.ten`),
+    CỐ ĐỊNH `TEN_TONG_QUAT`, không phải `tieu_de` của văn bản
+    ("BIÊN BẢN BÀN GIAO THIẾT BỊ"). `routes_ban_thao._ten_loai` đã trả cố định
+    tên này ở mọi lần tải lại trang — gán `tieu_de` vào `ten` ở lượt vừa soạn
+    (SSE) làm nó lệch khỏi giá trị đó ngay khi tải lại."""
+    from src.services import hoi_thoai
+
+    pid = hoi_thoai.tao_phien(nguoi, "biên bản bàn giao")
+    st = {"user_sub": nguoi, "hoi_thoai_id": pid, "muc_dich_tai_lieu": "tao_van_ban",
+          "van_ban_tong_quat": VAN_BAN}
+    bt = d.dung_ban_thao_tong_quat(st)["ban_thao_ket"]
+    assert bt["ten"] == d.TEN_TONG_QUAT
+    assert bt["ten"] != VAN_BAN["tieu_de"]
 
 
 @pytest.mark.integration
