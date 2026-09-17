@@ -66,3 +66,18 @@ def test_tong_hop_traces_thay_lan_goi_LLM_cua_gom_du_kien():
     assert tong["token_in"] == 700
     assert tong["token_out"] == 70
     assert abs(tong["cost_usd"] - 0.007) < 1e-9
+
+
+def test_tong_hop_traces_thay_lan_goi_LLM_cua_hieu_tai_lieu():
+    """Phase 3 (PostgreSQL/FastAPI review) — `hieu_tai_lieu` là điểm gọi LLM
+    thứ 9 (đường đọc/soạn tài liệu). CÙNG chế độ hỏng, lần THỨ BA: thiếu ở ba
+    danh sách khoá này thì `bao_ve.chi_phi_hom_nay` (trần chi phí NGÀY) không
+    bao giờ thấy lượt gọi thật của node này — và Half B giờ đưa nhiều lượt hơn
+    hẳn qua đúng node đó (mọi câu hỏi VỀ một tài liệu đã gửi, không chỉ lượt
+    đính kèm)."""
+    tong = _tong_hop_traces(
+        {"hieu_tai_lieu_token_in": 900, "hieu_tai_lieu_token_out": 90, "hieu_tai_lieu_cost_usd": 0.009}
+    )
+    assert tong["token_in"] == 900
+    assert tong["token_out"] == 90
+    assert abs(tong["cost_usd"] - 0.009) < 1e-9
