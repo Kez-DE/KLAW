@@ -38,37 +38,46 @@ export type NoiDungXuat = {
   oKy: DongVanBan[][];
 };
 
+/**
+ * MỘT khối nội dung của một mục, theo ĐÚNG thứ tự tài liệu (Phase 8 R1 —
+ * thay "một mục là văn xuôi HOẶC bảng" của Phase 7: giờ một mục là một MẢNG
+ * khối, ví dụ câu dẫn / bảng / câu kết, ba khối riêng chứ không nén về hai
+ * trường cố định).
+ */
+export type KhoiMuc = { kind: "vanXuoi"; noiDung: string } | { kind: "bang"; hang: string[][] };
+
 /** Một mục dựng sẵn cho `XemTruocA4`: nội dung của `clauses` ghép vào khung `cau_truc.muc`. */
 export interface Muc {
   stt: number;
   key: string;
   ten: string;
-  noiDung: string;
   /**
-   * Hàng × ô khi mục này là một BẢNG trong tài liệu nguồn (Phase 7 R1, hàng
-   * đầu là tiêu đề) — `null` khi mục là văn xuôi, dùng `noiDung` như cũ. Một
-   * `clauses` CŨ (trước bản vá này) không có khoá `bang` — luôn ra `null`.
+   * Giữ lại CHỈ cho `DrawerSuaMuc` (bản thảo checklist — không bao giờ có
+   * `khoi`/`bang`, xem `SanKhauBanThao.laTongQuat`) và cho tương thích ngược
+   * với mã đã đọc hai trường này trước Phase 8. `XemTruocA4` (bản thảo tổng
+   * quát) không đọc hai trường này nữa — nó render `khoi` bên dưới.
    */
+  noiDung: string;
+  /** @deprecated dùng `khoi` — giữ vì lý do tương thích nêu trên. */
   bang: string[][] | null;
+  /**
+   * Nội dung mục theo ĐÚNG THỨ TỰ khối (Phase 8 R1) — nguồn RENDER chính của
+   * `XemTruocA4`. Quy về ĐÚNG MỘT hình dạng dù `clauses[i]` mang khoá `khoi`
+   * (Phase 8), `noi_dung`+`bang` rời (Phase 7), hay chỉ `noi_dung` (trước cả
+   * hai) — ba hình dạng đó là BA THỜI ĐIỂM khác nhau của cùng cột JSONB
+   * `ban_thao.clauses`, không migration nào viết lại hàng cũ (xem
+   * `khoiTuClause`).
+   */
+  khoi: KhoiMuc[];
+  /**
+   * `DonViVanBan.vung` mang qua (Phase 8 R2) — `than` (thân bài, mặc định),
+   * `dau_trang`/`chan_trang` khi mục lấy từ đầu/chân trang thật của tài
+   * liệu nguồn. Chỉ mô tả, `XemTruocA4` không render khác đi theo trường
+   * này — skipped: kiểu dáng riêng cho đầu/chân trang, thêm khi đo thấy một
+   * bản dựng lại trông sai nếu thiếu nó.
+   */
+  vung: "than" | "dau_trang" | "chan_trang";
   canCu: string | null;
-}
-
-/**
- * Phần nào của MỘT mục cần render — ĐỘC LẬP, không either/or (review round 1
- * fix, Phase 7): một mục có thể vừa có câu dẫn (`noiDung`) vừa có bảng
- * (`bang`) — rule 15 của prompt CHỈ XIN mô hình để `noi_dung` rỗng khi dùng
- * `bang`, backend không ép được điều đó (schema/`lam_sach_van_ban` chỉ chặn
- * ca CẢ HAI rỗng), nên cả hai có mặt là một hình dạng hợp lệ phải ra màn hình
- * trọn vẹn, không phải một trong hai bị nuốt mất. Sống ở đây (không phải
- * `XemTruocA4.tsx`) vì nó là hàm THUẦN không đụng JSX — và vì thế kiểm được
- * bằng `kiem-xuat-tep.ts` không cần DOM thật (không có `jsdom` trong repo
- * này; `.tsx` cũng không import được thẳng vào một script Node).
- */
-export function phanHienThiMuc(m: Pick<Muc, "noiDung" | "bang">): {
-  coNoiDung: boolean;
-  coBang: boolean;
-} {
-  return { coNoiDung: m.noiDung !== "", coBang: m.bang !== null };
 }
 
 /**
@@ -76,16 +85,67 @@ export function phanHienThiMuc(m: Pick<Muc, "noiDung" | "bang">): {
  * khớp `dataclasses.asdict(DraftClause)` (`src/agents/nodes/draft_generate.py` +
  * `src/services/ban_thao.py` dòng ghi `clauses`): `key`, `ten`, `noi_dung`,
  * `can_cu_provision_id`. KHÔNG có trường `text` — chỉ `noi_dung` mang nội dung.
- * `bang` chỉ có ở `clauses` do `dung_ban_thao_tong_quat.clauses_tu` dựng (Phase 7).
+ * `bang` (Phase 7) và `khoi`/`vung` (Phase 8) chỉ có ở `clauses` do
+ * `dung_ban_thao_tong_quat.clauses_tu` dựng — BA hình dạng cùng một cột JSONB,
+ * từ ba thời điểm khác nhau, không migration nào viết lại hàng cũ.
  */
-type ClauseTho = { key?: string; ten?: string; noi_dung?: string; bang?: unknown };
+type ClauseTho = {
+  key?: string;
+  ten?: string;
+  noi_dung?: string;
+  bang?: unknown;
+  khoi?: unknown;
+  vung?: unknown;
+};
 
 /** `c.bang` thô (kiểu chưa biết, tới từ `unknown[]`) → hàng×ô hợp lệ, hoặc
  * `null` khi rỗng/vắng/sai hình dạng — một mục cũ không có khoá này phải rơi
- * đúng vào nhánh văn xuôi, không phải một bảng 0 hàng. */
+ * đúng vào nhánh văn xuôi, không phải một bảng 0 hàng. Hàng NGẮN hơn hàng đầu
+ * (Phase 8 R4, ô gộp trong tài liệu nguồn) đi qua NGUYÊN — đây chỉ gõ kiểu,
+ * không đệm/cắt; `coSpanHang` mới quyết định cách VẼ một hàng ngắn. */
 function bangHopLe(bang: unknown): string[][] | null {
   if (!Array.isArray(bang) || bang.length === 0) return null;
   return bang.map((hang) => (Array.isArray(hang) ? hang.map((o) => String(o)) : []));
+}
+
+const VUNG_HOP_LE = new Set(["than", "dau_trang", "chan_trang"]);
+
+/** `c.vung` thô → nhãn hợp lệ, mặc định `than` khi vắng/lạ (Phase 8 R2) —
+ * cùng luật fail-closed với `lam_sach_van_ban` phía máy chủ. */
+function vungHopLe(vung: unknown): Muc["vung"] {
+  return typeof vung === "string" && VUNG_HOP_LE.has(vung) ? (vung as Muc["vung"]) : "than";
+}
+
+/** MỘT khối thô (từ `khoi` mới, Phase 8) → `KhoiMuc` hợp lệ, hoặc `null` khi
+ * không phân biệt được là văn xuôi hay bảng (cả hai rỗng/sai hình dạng). */
+function khoiMotHopLe(k: unknown): KhoiMuc | null {
+  if (typeof k !== "object" || k === null) return null;
+  const o = k as { noi_dung?: unknown; bang?: unknown };
+  const bang = bangHopLe(o.bang);
+  if (bang) return { kind: "bang", hang: bang };
+  const noiDung = typeof o.noi_dung === "string" ? o.noi_dung : "";
+  return noiDung !== "" ? { kind: "vanXuoi", noiDung } : null;
+}
+
+/**
+ * `clauses[i]` → `KhoiMuc[]` theo ĐÚNG thứ tự — chỗ DUY NHẤT phải biết cả BA
+ * hình dạng `clauses` từng có (Phase 8 `khoi`; Phase 7 `noi_dung`+`bang` rời;
+ * trước đó chỉ `noi_dung`, hoặc không có clause nào cho mục này). Mọi nơi
+ * khác (`XemTruocA4`, `docNoiDungTuDOM`) chỉ đọc `Muc.khoi` đã quy về một
+ * hình dạng, không phải tự phân biệt phiên bản dữ liệu.
+ */
+function khoiTuClause(c: ClauseTho | undefined): KhoiMuc[] {
+  if (Array.isArray(c?.khoi)) {
+    return c.khoi.map(khoiMotHopLe).filter((k): k is KhoiMuc => k !== null);
+  }
+  // Phase 7 trở về trước: câu dẫn (nếu có) RỒI bảng (nếu có) — đúng thứ tự
+  // `XemTruocA4` từng render (fix round 1, Phase 7) trước khi có `khoi`.
+  const bang = bangHopLe(c?.bang);
+  const noiDung = c?.noi_dung ?? (bang ? "" : "[…]");
+  const ra: KhoiMuc[] = [];
+  if (noiDung !== "") ra.push({ kind: "vanXuoi", noiDung });
+  if (bang) ra.push({ kind: "bang", hang: bang });
+  return ra;
 }
 
 /**
@@ -111,17 +171,24 @@ export function mucTuBanThao(banThao: BanThao, cauTruc: CauTruc | null): Muc[] {
       ten: c.ten ?? c.key ?? `Mục ${i + 1}`,
       noiDung: c.noi_dung ?? "[…]",
       bang: bangHopLe(c.bang),
+      khoi: khoiTuClause(c),
+      vung: vungHopLe(c.vung),
       canCu: null,
     }));
   }
-  return khung.map((m) => ({
-    stt: m.stt,
-    key: m.key,
-    ten: m.ten,
-    noiDung: theoKey.get(m.key)?.noi_dung ?? "[…]",
-    bang: bangHopLe(theoKey.get(m.key)?.bang),
-    canCu: m.can_cu || null,
-  }));
+  return khung.map((m) => {
+    const c = theoKey.get(m.key);
+    return {
+      stt: m.stt,
+      key: m.key,
+      ten: m.ten,
+      noiDung: c?.noi_dung ?? "[…]",
+      bang: bangHopLe(c?.bang),
+      khoi: khoiTuClause(c),
+      vung: vungHopLe(c?.vung),
+      canCu: m.can_cu || null,
+    };
+  });
 }
 
 /**
@@ -266,10 +333,32 @@ function taiBlob(blob: Blob, tenTep: string) {
 }
 
 /**
+ * Số cột mỗi ô của một hàng phải chiếm, khi hàng đó NGẮN hơn hàng tiêu đề
+ * (Phase 8 R4 — tài liệu nguồn dùng Ô GỘP, ví dụ hàng "Tổng | 10" chỉ có 2 ô
+ * thật trong khi hàng tiêu đề có 4). Quyết định biểu diễn: hàng vẫn lưu ĐÚNG
+ * số ô thật (`bang`/`hang` không đệm rỗng, xem `_bang_sach` phía máy chủ);
+ * hàm này chỉ quyết định cách VẼ nó, theo MỘT quy ước cố định — ô CUỐI luôn ở
+ * CỘT CUỐI của bảng (không bao giờ trôi sang trái, "10" không lẫn sang cột
+ * khác), ô ngay TRƯỚC nó gánh phần cột còn thiếu bằng colSpan, các ô còn lại
+ * giữ nguyên 1 cột. Đúng cách một nhãn gộp ("Tổng") đứng ngay trước ô giá trị
+ * trong một biểu mẫu thật; hàng đủ cột (`soO >= soCotTieuDe`) không đổi gì.
+ */
+export function coSpanHang(soO: number, soCotTieuDe: number): number[] {
+  if (soO <= 0) return [];
+  if (soO >= soCotTieuDe) return Array(soO).fill(1) as number[];
+  if (soO === 1) return [soCotTieuDe];
+  const thieu = soCotTieuDe - soO;
+  return [...Array(soO - 2).fill(1), 1 + thieu, 1] as number[];
+}
+
+/**
  * Một bảng đã đọc (`docBangTuPhanTu`/`Muc.bang`) → `Table` thật của `docx`,
  * viền thấy được và hàng đầu in đậm (Phase 7 R2/R3: khớp đúng bảng biểu mẫu
  * tiếng Việt có hàng tiêu đề trên màn hình). KHÔNG đặc cách bảng nào — cùng
- * một hàm cho MỌI `<table>` đã render, kể cả bảng đánh giá.
+ * một hàm cho MỌI `<table>` đã render, kể cả bảng đánh giá. Hàng ngắn hơn
+ * hàng tiêu đề (Phase 8 R4, ô gộp) dùng `columnSpan` qua `coSpanHang`, cùng
+ * quy ước `XemTruocA4` dùng để vẽ trên màn hình — một hàng không "trôi" cột
+ * giữa xem trước và tệp tải về.
  *
  * Tự `import("docx")` (module đã nạp thì cache lại, không tốn thêm) thay vì
  * nhận các lớp `docx` qua tham số: hàm phải gọi được ĐỘC LẬP với `xuatWord`
@@ -279,6 +368,7 @@ export async function bangThanhTable(hang: string[][]) {
   const { AlignmentType, BorderStyle, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } =
     await import("docx");
   const vien = { style: BorderStyle.SINGLE, size: 4, color: "999999" };
+  const soCotTieuDe = hang[0]?.length ?? 0;
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: {
@@ -289,28 +379,30 @@ export async function bangThanhTable(hang: string[][]) {
       insideHorizontal: vien,
       insideVertical: vien,
     },
-    rows: hang.map(
-      (o, hi) =>
-        new TableRow({
-          children: o.map(
-            (c) =>
-              new TableCell({
-                borders: { top: vien, bottom: vien, left: vien, right: vien },
-                // `exactOptionalPropertyTypes`: `shading` phải VẮNG MẶT ở hàng
-                // thường, không gán `undefined` — spread có điều kiện, không gán.
-                ...(hi === 0 ? { shading: { fill: "F0F0F0" } } : {}),
+    rows: hang.map((o, hi) => {
+      const span = coSpanHang(o.length, soCotTieuDe);
+      return new TableRow({
+        children: o.map((c, oi) => {
+          const cot = span[oi] ?? 1;
+          return new TableCell({
+            borders: { top: vien, bottom: vien, left: vien, right: vien },
+            // `exactOptionalPropertyTypes`: `shading`/`columnSpan` phải VẮNG
+            // MẶT khi không dùng, không gán `undefined` — spread có điều
+            // kiện, không gán.
+            ...(hi === 0 ? { shading: { fill: "F0F0F0" } } : {}),
+            ...(cot > 1 ? { columnSpan: cot } : {}),
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
                 children: [
-                  new Paragraph({
-                    alignment: AlignmentType.CENTER,
-                    children: [
-                      new TextRun({ text: c, bold: hi === 0, font: "Times New Roman", size: 24 }),
-                    ],
-                  }),
+                  new TextRun({ text: c, bold: hi === 0, font: "Times New Roman", size: 24 }),
                 ],
               }),
-          ),
+            ],
+          });
         }),
-    ),
+      });
+    }),
   });
 }
 

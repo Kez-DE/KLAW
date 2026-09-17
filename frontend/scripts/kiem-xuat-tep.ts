@@ -11,9 +11,9 @@ import { Table } from "docx";
 import {
   bangThanhTable,
   boQuaKhiXuat,
+  coSpanHang,
   docBangTuPhanTu,
   mucTuBanThao,
-  phanHienThiMuc,
   tieuDeTuBanThao,
 } from "../src/lib/xuat-tep.ts";
 
@@ -75,9 +75,14 @@ assert.equal(mucCu.length, 3);
 // đã lưu trước Phase 7, không phải một cải thiện ngầm.
 assert.equal(mucCu[1]?.bang, null);
 assert.ok(mucCu[1]?.noiDung.includes("---|---|---|---"));
+// Phase 8: hình dạng CŨ (chỉ `noi_dung`, không `khoi` không `bang`) quy về
+// đúng MỘT khối văn xuôi mang nguyên chuỗi pipe — `XemTruocA4` render nó
+// bằng đúng một `<p>`, không parse `|` ra bảng (brief cấm).
+assert.deepEqual(mucCu[1]?.khoi, [{ kind: "vanXuoi", noiDung: mucCu[1]!.noiDung }]);
+assert.equal(mucCu[1]?.vung, "than");
 
-// Một clause MỚI (sau bản vá, `dung_ban_thao_tong_quat.clauses_tu` luôn phát
-// khoá `bang`) → `Muc.bang` là hàng×ô thật, không phải `null`.
+// Một clause kiểu Phase 7 (`noi_dung`+`bang` rời) → `Muc.bang` là hàng×ô thật
+// (tương thích ngược không đổi), VÀ `Muc.khoi` là đúng MỘT khối bảng đó.
 const banThaoMoi = {
   ...banThaoCu,
   clauses: [
@@ -97,29 +102,103 @@ assert.deepEqual(mucMoi[0]?.bang, [
   ["TT", "Tiêu chí đánh giá", "Điểm tối đa"],
   ["1", "Ý thức chấp hành nội quy", "2,0"],
 ]);
+assert.deepEqual(mucMoi[0]?.khoi, [
+  {
+    kind: "bang",
+    hang: [
+      ["TT", "Tiêu chí đánh giá", "Điểm tối đa"],
+      ["1", "Ý thức chấp hành nội quy", "2,0"],
+    ],
+  },
+]);
 
-// `phanHienThiMuc` — review round 1 fix: một `muc` có CẢ `noiDung` (câu dẫn)
-// LẪN `bang` (bảng) không được để ternary trong `XemTruocA4` nuốt mất một
-// trong hai. Rule 15 của prompt chỉ XIN mô hình để `noi_dung` rỗng khi dùng
-// `bang` — schema/`lam_sach_van_ban` không ép được điều đó, nên "cả hai có
-// mặt" là một hình dạng THẬT phải qua được, không chỉ "chỉ noiDung"/"chỉ
-// bang"/"cả hai rỗng".
-assert.deepEqual(phanHienThiMuc({ noiDung: "Câu dẫn.", bang: null }), {
-  coNoiDung: true,
-  coBang: false,
-});
-assert.deepEqual(phanHienThiMuc({ noiDung: "", bang: [["TT"], ["1"]] }), {
-  coNoiDung: false,
-  coBang: true,
-});
+// ────────────────────────────────── Phase 8 R1 — khối nhiều phần tử, đúng thứ tự
+//
+// Một clause MỚI (`khoi`, `dung_ban_thao_tong_quat.clauses_tu` từ Phase 8) có
+// câu dẫn, một bảng, RỒI một câu kết: BA khối, giữ NGUYÊN thứ tự — hình dạng
+// Phase 7 (một noiDung + một bang) không nén được ca này.
+const banThaoNhieuKhoi = {
+  ...banThaoCu,
+  clauses: [
+    {
+      key: "muc_2",
+      ten: "Đánh giá",
+      vung: "than",
+      khoi: [
+        { noi_dung: "Kết quả chấm điểm như sau:", bang: [] },
+        {
+          noi_dung: "",
+          bang: [
+            ["TT", "Tiêu chí đánh giá"],
+            ["1", "Ý thức chấp hành nội quy"],
+          ],
+        },
+        { noi_dung: "Điểm trên do hội đồng thống nhất.", bang: [] },
+      ],
+    },
+  ],
+} as Parameters<typeof mucTuBanThao>[0];
+const mucNhieuKhoi = mucTuBanThao(banThaoNhieuKhoi, null);
 assert.deepEqual(
-  phanHienThiMuc({ noiDung: "Câu dẫn trước bảng.", bang: [["TT"], ["1"]] }),
-  { coNoiDung: true, coBang: true }, // ca bị nuốt trước bản vá — cả hai PHẢI cùng true
+  mucNhieuKhoi[0]?.khoi.map((k) => k.kind),
+  ["vanXuoi", "bang", "vanXuoi"],
 );
-assert.deepEqual(phanHienThiMuc({ noiDung: "", bang: null }), {
-  coNoiDung: false,
-  coBang: false,
-});
+assert.equal(
+  (mucNhieuKhoi[0]?.khoi[0] as { noiDung: string }).noiDung,
+  "Kết quả chấm điểm như sau:",
+);
+assert.equal(
+  (mucNhieuKhoi[0]?.khoi[2] as { noiDung: string }).noiDung,
+  "Điểm trên do hội đồng thống nhất.",
+);
+
+// Phase 8 R2 — `vung` (đầu/chân trang) sống sót qua `mucTuBanThao`, mặc định
+// `than` khi vắng mặt (hàng CŨ, không mang khoá này).
+const banThaoChanTrang = {
+  ...banThaoCu,
+  clauses: [
+    { key: "muc_1", ten: "Chân trang", vung: "chan_trang", khoi: [{ noi_dung: "BM.X", bang: [] }] },
+  ],
+} as Parameters<typeof mucTuBanThao>[0];
+assert.equal(mucTuBanThao(banThaoChanTrang, null)[0]?.vung, "chan_trang");
+assert.equal(mucCu[0]?.vung, "than"); // hàng CŨ không có `vung` → mặc định
+
+// Phase 8 R4 — hàng ngắn hơn hàng tiêu đề (ô gộp) đi qua NGUYÊN trong `khoi`,
+// `coSpanHang` bên dưới mới quyết định cách vẽ nó.
+const banThaoHangNgan = {
+  ...banThaoCu,
+  clauses: [
+    {
+      key: "muc_1",
+      ten: "Đánh giá",
+      vung: "than",
+      khoi: [
+        {
+          noi_dung: "",
+          bang: [
+            ["TT", "Tiêu chí", "Điểm tối đa", "Điểm đánh giá"],
+            ["1", "Ý thức", "2,0", "2,0"],
+            ["Tổng", "10"],
+          ],
+        },
+      ],
+    },
+  ],
+} as Parameters<typeof mucTuBanThao>[0];
+const khoiHangNgan = mucTuBanThao(banThaoHangNgan, null)[0]?.khoi[0] as { hang: string[][] };
+assert.deepEqual(khoiHangNgan.hang[2], ["Tổng", "10"]);
+
+// `coSpanHang` (Phase 8 R4) — quyết định biểu diễn cho hàng ngắn hơn hàng
+// tiêu đề: ô CUỐI luôn ở cột cuối, ô liền trước gánh phần cột còn thiếu.
+assert.deepEqual(coSpanHang(4, 4), [1, 1, 1, 1], "hàng đủ cột không đổi gì");
+assert.deepEqual(coSpanHang(2, 4), [3, 1], '"Tổng" | "10" trên 4 cột — 10 vẫn ở cột cuối');
+assert.deepEqual(coSpanHang(1, 4), [4], "hàng một ô chiếm trọn cả hàng tiêu đề");
+assert.deepEqual(
+  coSpanHang(3, 4),
+  [1, 2, 1],
+  "3 ô trên 4 cột — ô liền trước ô cuối gánh phần thiếu",
+);
+assert.deepEqual(coSpanHang(0, 4), [], "hàng rỗng không có ô nào để vẽ");
 
 // `tieuDeTuBanThao` — dòng H1 đầu của `document` (Phase 7 R4): tiêu đề THẬT
 // của văn bản, khác `BanThao.ten` ("Bản thảo tổng quát", tên LOẠI).
@@ -179,4 +258,4 @@ const chuHangHai = timTat(hangXml[1]!, "w:t").map((wt) =>
 );
 assert.deepEqual(chuHangHai, ["1", "Ý thức chấp hành"]);
 
-console.info("kiem-xuat-tep: 20/20 đạt");
+console.info("kiem-xuat-tep: 30/30 đạt");
