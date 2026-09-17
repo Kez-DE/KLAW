@@ -35,7 +35,7 @@ KHONG_THAY = "Không tìm thấy tài liệu"
 # Thông điệp cho từng nguyên nhân. Mỗi câu nói được MỘT việc người dùng làm tiếp
 # được — đó là toàn bộ lý do bốn nguyên nhân không bị gộp thành một nhãn.
 _THONG_DIEP = {
-    LoaiHong.dinh_dang_khong_ho_tro: "Chỉ đọc được tệp PDF có lớp chữ và tệp DOCX. Hãy gửi bản gốc thay vì ảnh chụp.",
+    LoaiHong.dinh_dang_khong_ho_tro: "Chỉ đọc được tệp PDF có lớp chữ, DOCX và DOC. Hãy gửi bản gốc thay vì ảnh chụp.",
     LoaiHong.tep_hong: "Không mở được tệp này. Hãy thử gửi lại, hoặc xuất lại từ phần mềm soạn thảo.",
     LoaiHong.can_mat_khau: "Tệp đang được bảo vệ bằng mật khẩu. Hãy gỡ mật khẩu rồi gửi lại.",
     LoaiHong.khong_co_lop_chu: "Không đọc được chữ trong tệp này. Nếu là ảnh chụp, hãy chụp lại rõ và đủ sáng, hoặc gửi bản gốc.",
