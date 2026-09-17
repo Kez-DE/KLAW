@@ -16,6 +16,12 @@ Năm điều bị khoá ở đây:
    lý" — không lượt nào được để nó trông như đã qua rà soát.
 5. Khách chưa đăng nhập không chạm tới chỗ lưu: họ nhận lời mời đăng nhập,
    cùng hình dạng với nhánh `soan_thao_hoi` đã có.
+
+Phase 8 đổi hình dạng nội dung một mục từ `noi_dung`/`bang` cố định (Phase 7)
+sang `khoi` — mảng khối theo đúng thứ tự tài liệu, mỗi khối lại là
+`noi_dung`/`bang` — cộng `vung` (đầu trang/chân trang/thân bài). Các test
+"phép kiểm bảng" và "hình dạng mục" dưới đây viết theo hình dạng MỚI; test
+`_muc()` là hàm dựng nhanh một mục một-khối cho các ca không cần nhiều khối.
 """
 
 import json
@@ -40,11 +46,17 @@ DV_A = [
 TL = [{"id": A_ID, "ten_tep": "bienban.docx", "don_vi": DV_A}]
 NGUON = "\n".join(dv.noi_dung for dv in DV_A)
 
+
+def _muc(ten: str, noi_dung: str = "", bang=None, vung: str = "than") -> dict:
+    """Dựng nhanh MỘT mục một-khối — đủ cho mọi ca không cần nhiều khối."""
+    return {"ten": ten, "vung": vung, "khoi": [{"noi_dung": noi_dung, "bang": bang or []}]}
+
+
 VAN_BAN = {
     "tieu_de": "BIÊN BẢN BÀN GIAO THIẾT BỊ",
     "muc": [
-        {"ten": "Thời gian bàn giao", "noi_dung": "Bàn giao ngày 01/10/2026 tại kho A."},
-        {"ten": "Giá trị", "noi_dung": "Tổng giá trị thiết bị 20.000.000 đồng."},
+        _muc("Thời gian bàn giao", "Bàn giao ngày 01/10/2026 tại kho A."),
+        _muc("Giá trị", "Tổng giá trị thiết bị 20.000.000 đồng."),
     ],
 }
 
@@ -78,8 +90,8 @@ def _sach(muc: list[dict], nguon: str = NGUON):
 
 
 def test_gia_tri_chep_tu_tai_lieu_di_qua_nguyen_ven():
-    van_ban, dem = _sach([{"ten": "Thời gian", "noi_dung": "Bàn giao ngày 01/10/2026 tại kho A."}])
-    assert van_ban["muc"][0]["noi_dung"] == "Bàn giao ngày 01/10/2026 tại kho A."
+    van_ban, dem = _sach([_muc("Thời gian", "Bàn giao ngày 01/10/2026 tại kho A.")])
+    assert van_ban["muc"][0]["khoi"][0]["noi_dung"] == "Bàn giao ngày 01/10/2026 tại kho A."
     assert dem == {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0}
 
 
@@ -87,44 +99,46 @@ def test_so_hieu_tai_lieu_trong_mot_muc_khong_bi_coi_la_bia():
     """Số hiệu CỦA CHÍNH tài liệu ("12/2026") có trong nguồn, nên nó qua phép
     chứa; `_vuong_luoi_chan` vẫn bắt nó ở tầng sau và mục bị bỏ — đó là hai
     phép kiểm khác nhau, và test này khoá phép ĐẦU."""
-    van_ban, dem = _sach([{"ten": "Căn cứ", "noi_dung": "Theo biên bản số 12/2026 đã lập."}])
+    van_ban, dem = _sach([_muc("Căn cứ", "Theo biên bản số 12/2026 đã lập.")])
     assert dem["gia_tri_lam_sach"] == 0, "giá trị có trong nguồn thì không bị thay"
 
 
 def test_ngay_thang_bia_bi_thay_bang_dau_ba_cham():
-    van_ban, dem = _sach([{"ten": "Thời gian", "noi_dung": "Bàn giao ngày 15/11/2027 tại kho A."}])
-    assert "15/11/2027" not in van_ban["muc"][0]["noi_dung"]
-    assert "[…]" in van_ban["muc"][0]["noi_dung"]
+    van_ban, dem = _sach([_muc("Thời gian", "Bàn giao ngày 15/11/2027 tại kho A.")])
+    noi_dung = van_ban["muc"][0]["khoi"][0]["noi_dung"]
+    assert "15/11/2027" not in noi_dung
+    assert "[…]" in noi_dung
     assert dem["muc_lam_sach"] == 1 and dem["gia_tri_lam_sach"] == 1
 
 
 def test_so_tien_bia_bi_thay_va_dem_theo_tung_gia_tri():
-    van_ban, dem = _sach([{"ten": "Giá trị", "noi_dung": "Trị giá 99.000.000 đồng, đặt cọc 5.000.000 đồng."}])
-    assert "99.000.000" not in van_ban["muc"][0]["noi_dung"]
-    assert "5.000.000" not in van_ban["muc"][0]["noi_dung"]
+    van_ban, dem = _sach([_muc("Giá trị", "Trị giá 99.000.000 đồng, đặt cọc 5.000.000 đồng.")])
+    noi_dung = van_ban["muc"][0]["khoi"][0]["noi_dung"]
+    assert "99.000.000" not in noi_dung
+    assert "5.000.000" not in noi_dung
     assert dem["gia_tri_lam_sach"] == 2 and dem["muc_lam_sach"] == 1
 
 
 def test_so_viet_kieu_khac_van_khop_gia_tri_trong_nguon():
     """`20.000.000` trong tài liệu và `20000000` mô hình viết là MỘT con số —
     phép so đọc theo cùng quy ước với `phep_tinh`, không so chuỗi thô."""
-    van_ban, dem = _sach([{"ten": "Giá trị", "noi_dung": "Tổng 20000000 đồng."}])
+    van_ban, dem = _sach([_muc("Giá trị", "Tổng 20000000 đồng.")])
     assert dem["gia_tri_lam_sach"] == 0
 
 
 def test_so_dieu_luat_bia_bi_thay_roi_muc_duoc_giu():
     """"Điều 42" không có trong nguồn → số bị thay bằng `[…]`, và sau đó mục
     không còn vướng lưới chặn nên nó ở lại (có nhãn, người đọc tự điền)."""
-    van_ban, dem = _sach([{"ten": "Căn cứ", "noi_dung": "Căn cứ Điều 42 của quy chế công ty."}])
+    van_ban, dem = _sach([_muc("Căn cứ", "Căn cứ Điều 42 của quy chế công ty.")])
     assert dem["muc_bo"] == 0 and dem["gia_tri_lam_sach"] == 1
-    assert "Điều […]" in van_ban["muc"][0]["noi_dung"]
+    assert "Điều […]" in van_ban["muc"][0]["khoi"][0]["noi_dung"]
 
 
 def test_muc_con_vuong_luoi_chan_sau_khi_lam_sach_thi_bi_bo():
     """Số Điều CÓ trong nguồn đi qua phép chứa, nên chỉ lưới chặn dùng chung với
     `bo_nho` mới bắt được — và mục đó bị bỏ, có đếm."""
     van_ban, dem = _sach(
-        [{"ten": "Căn cứ", "noi_dung": "Căn cứ Điều 42 Bộ luật Lao động."}],
+        [_muc("Căn cứ", "Căn cứ Điều 42 Bộ luật Lao động.")],
         nguon="Căn cứ Điều 42 Bộ luật Lao động",
     )
     assert van_ban["muc"] == [] and dem["muc_bo"] == 1
@@ -132,18 +146,34 @@ def test_muc_con_vuong_luoi_chan_sau_khi_lam_sach_thi_bi_bo():
 
 def test_dau_vet_dinh_danh_ca_nhan_bi_bo_ca_muc():
     van_ban, dem = _sach(
-        [{"ten": "Liên hệ", "noi_dung": "Liên hệ ban@vidu.vn để nhận bàn giao."}],
+        [_muc("Liên hệ", "Liên hệ ban@vidu.vn để nhận bàn giao.")],
         nguon="Liên hệ ban@vidu.vn để nhận bàn giao",
     )
     assert van_ban["muc"] == [] and dem["muc_bo"] == 1
 
 
 def test_muc_rong_hoac_sai_hinh_dang_bi_bo_khong_no():
-    van_ban, dem = h.lam_sach_van_ban({"tieu_de": "T", "muc": ["x", {"ten": "", "noi_dung": ""}]}, NGUON)
+    van_ban, dem = h.lam_sach_van_ban({"tieu_de": "T", "muc": ["x", {"ten": "", "khoi": []}]}, NGUON)
     assert van_ban["muc"] == []
 
 
-# ──────────────────────────────────────────────── phép kiểm bảng (Phase 7 R1)
+def test_vung_khong_hop_le_roi_ve_than():
+    """`vung` lạ (không phải `than`/`dau_trang`/`chan_trang`) rơi về `than` —
+    fail-closed, không để một giá trị lạ đi tiếp vào `clauses`."""
+    van_ban, _ = _sach([_muc("Ghi chú", "BM.X", vung="linh_tinh")])
+    assert van_ban["muc"][0]["vung"] == "than"
+
+
+def test_vung_chan_trang_song_sot():
+    """Phase 8 R2 — một mục đánh dấu `chan_trang` giữ đúng nhãn đó qua phép
+    làm sạch, không bị gộp về `than`."""
+    chan = "BM.ĐT.18.11 (02-15/05/2025)-BL: 03 năm sau tốt nghiệp"
+    van_ban, _ = _sach([_muc("Chân trang", chan, vung="chan_trang")], nguon=chan)
+    assert van_ban["muc"][0]["vung"] == "chan_trang"
+    assert van_ban["muc"][0]["khoi"][0]["noi_dung"] == chan
+
+
+# ──────────────────────────────────────────────── phép kiểm khối (Phase 8 R1)
 
 
 NGUON_BANG = "1 Ý thức chấp hành nội quy 2,0 2 Tinh thần trách nhiệm 2,0"
@@ -154,30 +184,61 @@ BANG_HOP_LE = [
 
 
 def test_muc_bang_khong_can_noi_dung_de_duoc_giu():
-    """Nội dung một mục BẢNG nằm ở `bang`, không ở `noi_dung` — `noi_dung`
-    rỗng không còn là một mục thiếu chữ khi `bang` có hàng."""
-    van_ban, dem = _sach(
-        [{"ten": "Đánh giá", "noi_dung": "", "bang": BANG_HOP_LE}], nguon=NGUON_BANG
-    )
+    """Nội dung một khối BẢNG nằm ở `bang`, không ở `noi_dung` — `noi_dung`
+    rỗng không còn là một khối thiếu chữ khi `bang` có hàng."""
+    van_ban, dem = _sach([_muc("Đánh giá", bang=BANG_HOP_LE)], nguon=NGUON_BANG)
     assert len(van_ban["muc"]) == 1
-    assert van_ban["muc"][0]["bang"] == BANG_HOP_LE
+    assert van_ban["muc"][0]["khoi"] == [{"noi_dung": "", "bang": BANG_HOP_LE}]
     assert dem["gia_tri_lam_sach"] == 0
 
 
-def test_muc_khong_noi_dung_khong_bang_van_bi_bo():
-    """Không `noi_dung` VÀ không `bang` — vẫn một mục trống, bị bỏ như trước
-    (Phase 7 không nới lỏng luật này, chỉ thêm một đường thứ hai để có nội dung)."""
-    van_ban, _ = _sach([{"ten": "Trống", "noi_dung": "", "bang": []}], nguon=NGUON_BANG)
+def test_muc_khong_khoi_nao_van_bi_bo():
+    """Mảng `khoi` rỗng — mục không còn nội dung nào, bị bỏ như trước (Phase 8
+    không nới lỏng luật này, chỉ đổi chỗ kiểm từ noi_dung/bang sang khoi)."""
+    van_ban, _ = h.lam_sach_van_ban(
+        {"tieu_de": "T", "muc": [{"ten": "Trống", "vung": "than", "khoi": []}]}, NGUON_BANG
+    )
     assert van_ban["muc"] == []
+
+
+def test_khoi_rong_ca_hai_bi_loai_nhung_muc_van_con_khoi_khac():
+    """Một khối RỖNG cả `noi_dung` lẫn `bang` bị loại khỏi `khoi`; các khối
+    khác của CÙNG mục vẫn giữ — không bỏ cả mục vì một khối trắng."""
+    muc = {"ten": "Đánh giá", "vung": "than", "khoi": [
+        {"noi_dung": "", "bang": []},
+        {"noi_dung": "", "bang": BANG_HOP_LE},
+    ]}
+    van_ban, _ = _sach([muc], nguon=NGUON_BANG)
+    assert van_ban["muc"][0]["khoi"] == [{"noi_dung": "", "bang": BANG_HOP_LE}]
+
+
+def test_khoi_nhieu_phan_tu_giu_dung_thu_tu():
+    """Phase 8 R1 — câu dẫn, một bảng, RỒI một câu kết: BA khối, giữ ĐÚNG thứ
+    tự tài liệu, không bị nén về một cặp noi_dung/bang cố định như Phase 7."""
+    muc = {
+        "ten": "Đánh giá",
+        "vung": "than",
+        "khoi": [
+            {"noi_dung": "Kết quả chấm điểm như sau:", "bang": []},
+            {"noi_dung": "", "bang": BANG_HOP_LE},
+            {"noi_dung": "Điểm trên do hội đồng thống nhất.", "bang": []},
+        ],
+    }
+    van_ban, _ = _sach([muc], nguon=NGUON_BANG)
+    khoi = van_ban["muc"][0]["khoi"]
+    assert [bool(k["bang"]) for k in khoi] == [False, True, False]
+    assert khoi[0]["noi_dung"] == "Kết quả chấm điểm như sau:"
+    assert khoi[2]["noi_dung"] == "Điểm trên do hội đồng thống nhất."
 
 
 def test_o_bang_bia_bi_thay_bang_dau_ba_cham_nhu_noi_dung():
     """Một ô có số KHÔNG có trong nguồn đi qua ĐÚNG phép làm sạch của
     `noi_dung`/`ten` — một ô cũng là một giá trị có thể bịa."""
     bang = [["TT", "Điểm tối đa"], ["1", "2,0"], ["2", "9,9"]]  # "9,9" bịa, không có trong nguồn
-    van_ban, dem = _sach([{"ten": "Đánh giá", "noi_dung": "", "bang": bang}], nguon=NGUON_BANG)
-    assert van_ban["muc"][0]["bang"][1] == ["1", "2,0"]
-    assert van_ban["muc"][0]["bang"][2] == ["2", "[…]"]
+    van_ban, dem = _sach([_muc("Đánh giá", bang=bang)], nguon=NGUON_BANG)
+    khoi_bang = van_ban["muc"][0]["khoi"][0]["bang"]
+    assert khoi_bang[1] == ["1", "2,0"]
+    assert khoi_bang[2] == ["2", "[…]"]
     assert dem["gia_tri_lam_sach"] == 1
 
 
@@ -185,20 +246,60 @@ def test_bang_vuong_luoi_chan_lam_bo_ca_muc():
     """Một ô còn số Điều/Khoản sau khi làm sạch bắt mục qua ĐÚNG lưới chặn
     dùng chung với văn xuôi — không có đường né nào riêng cho bảng."""
     bang = [["Căn cứ"], ["Điều 42 Bộ luật Lao động"]]
-    van_ban, dem = _sach([{"ten": "Căn cứ", "noi_dung": "", "bang": bang}], nguon="Điều 42 Bộ luật Lao động")
+    van_ban, dem = _sach([_muc("Căn cứ", bang=bang)], nguon="Điều 42 Bộ luật Lao động")
     assert van_ban["muc"] == [] and dem["muc_bo"] == 1
 
 
 def test_bang_khong_phai_mang_hay_hang_khong_phai_mang_bi_bo_khong_no():
-    van_ban, _ = _sach(
-        [{"ten": "Đánh giá", "noi_dung": "", "bang": "không phải mảng"}], nguon=NGUON_BANG
-    )
+    van_ban, _ = _sach([_muc("Đánh giá", bang="không phải mảng")], nguon=NGUON_BANG)
     assert van_ban["muc"] == []
     van_ban2, _ = _sach(
-        [{"ten": "Đánh giá", "noi_dung": "", "bang": ["không phải mảng", ["1", "2,0"]]}],
+        [_muc("Đánh giá", bang=["không phải mảng", ["1", "2,0"]])],
         nguon=NGUON_BANG,
     )
-    assert van_ban2["muc"][0]["bang"] == [["1", "2,0"]]
+    assert van_ban2["muc"][0]["khoi"][0]["bang"] == [["1", "2,0"]]
+
+
+def test_hang_ngan_hon_tieu_de_di_qua_nguyen_khong_bi_dem():
+    """Phase 8 R4 — ô gộp trong tài liệu nguồn: hàng "Tổng" chỉ có 2 ô trong
+    khi hàng tiêu đề có 4. Giữ ĐÚNG số ô thật, không đệm rỗng cho đủ cột và
+    không cắt bớt — quyết định "hàng ngắn được giữ nguyên" nằm ở đây; phía
+    hiển thị (frontend `coSpanHang`) mới quyết định cách VẼ hàng ngắn đó."""
+    bang = [
+        ["TT", "Tiêu chí đánh giá", "Điểm tối đa", "Điểm đánh giá"],
+        ["1", "Ý thức chấp hành nội quy", "2,0", "2,0"],
+        ["Tổng", "10"],
+    ]
+    van_ban, _ = _sach(
+        [_muc("Đánh giá", bang=bang)], nguon="1 Ý thức chấp hành nội quy 2,0 2,0 Tổng 10"
+    )
+    assert van_ban["muc"][0]["khoi"][0]["bang"][2] == ["Tổng", "10"]
+
+
+def test_o_rong_o_cuoi_hang_bi_cat_khong_dem_thanh_du_cot():
+    """Phase 8 R4, đo thật 2026-09-17 (BM.ĐT.18.11 qua model thật) — dù rule 15
+    dặn đừng đệm, mô hình vẫn trả `["Tổng", "10", "", ""]` cho một hàng nguồn
+    chỉ có 2 ô gộp. Để nguyên thì `coSpanHang` phía đọc coi đây là hàng ĐỦ 4
+    cột và không gộp ô nào — "10" hiện dưới cột "Điểm tối đa" thay vì cột cuối
+    "Điểm đánh giá" như tài liệu gốc. Cắt ô RỖNG Ở CUỐI đưa hàng về đúng 2 ô
+    thật, cho `coSpanHang` cơ hội gộp đúng cột."""
+    bang = [
+        ["TT", "Tiêu chí đánh giá", "Điểm tối đa", "Điểm đánh giá"],
+        ["1", "Ý thức chấp hành nội quy", "2,0", "2,0"],
+        ["Tổng", "10", "", ""],
+    ]
+    van_ban, _ = _sach(
+        [_muc("Đánh giá", bang=bang)], nguon="1 Ý thức chấp hành nội quy 2,0 2,0 Tổng 10"
+    )
+    assert van_ban["muc"][0]["khoi"][0]["bang"][2] == ["Tổng", "10"]
+
+
+def test_o_rong_o_giua_hang_khong_bi_cat():
+    """Chỉ cắt ô RỖNG Ở CUỐI — một ô rỗng ở GIỮA hàng có thể là nội dung thật
+    của tài liệu (một trường tài liệu để trống), không phải phần đệm."""
+    bang = [["TT", "Tên", "Ghi chú"], ["1", "", "Đạt"]]
+    van_ban, _ = _sach([_muc("Đánh giá", bang=bang)], nguon="1 Đạt")
+    assert van_ban["muc"][0]["khoi"][0]["bang"][1] == ["1", "", "Đạt"]
 
 
 # ─────────────────────────────────────────── node hieu_tai_lieu phát `van_ban`
@@ -212,15 +313,23 @@ def test_schema_co_van_ban_va_hai_muc_dich_soan_lam_duoc():
     assert {"tao_van_ban", "sua_ban_thao"} <= h.MUC_DICH_LAM_DUOC
 
 
-def test_schema_muc_them_bang_giu_hang_va_o():
-    """Phase 7 R1 — một mục có thể là BẢNG: `bang` là mảng hàng, mỗi hàng là
-    mảng ô, cả hai `required` (strict `json_schema` không có trường tuỳ chọn)."""
+def test_schema_muc_them_khoi_giu_khoi_va_vung():
+    """Phase 8 R1/R2 — một mục không còn `noi_dung`/`bang` cố định (Phase 7)
+    mà là `khoi` (mảng khối theo thứ tự) và `vung` (đầu/chân/thân trang), cả
+    hai `required` (strict `json_schema` không có trường tuỳ chọn)."""
     llm = _LLM(_ra())
     h.hieu_tai_lieu({"query": "soạn biên bản bàn giao"}, TL, llm, "m")
     muc_schema = llm.json_schema["properties"]["van_ban"]["properties"]["muc"]["items"]
-    assert set(muc_schema["properties"]) == {"ten", "noi_dung", "bang"}
-    assert set(muc_schema["required"]) == {"ten", "noi_dung", "bang"}
-    assert muc_schema["properties"]["bang"] == {
+    assert set(muc_schema["properties"]) == {"ten", "vung", "khoi"}
+    assert set(muc_schema["required"]) == {"ten", "vung", "khoi"}
+    assert muc_schema["properties"]["vung"] == {
+        "type": "string",
+        "enum": ["than", "dau_trang", "chan_trang"],
+    }
+    khoi_schema = muc_schema["properties"]["khoi"]["items"]
+    assert set(khoi_schema["properties"]) == {"noi_dung", "bang"}
+    assert set(khoi_schema["required"]) == {"noi_dung", "bang"}
+    assert khoi_schema["properties"]["bang"] == {
         "type": "array",
         "items": {"type": "array", "items": {"type": "string"}},
     }
@@ -240,32 +349,31 @@ def test_node_khong_phat_van_ban_khi_muc_dich_khac():
 
 
 def test_node_lam_sach_gia_tri_bia_truoc_khi_ra_khoi_file():
-    bia = {"tieu_de": "X", "muc": [{"ten": "Giá trị", "noi_dung": "Trị giá 77.000.000 đồng."}]}
+    bia = {"tieu_de": "X", "muc": [_muc("Giá trị", "Trị giá 77.000.000 đồng.")]}
     ra = h.hieu_tai_lieu({"query": "soạn biên bản"}, TL, _LLM(_ra(van_ban=bia)), "m")
-    assert "77.000.000" not in ra["van_ban_tong_quat"]["muc"][0]["noi_dung"]
+    assert "77.000.000" not in ra["van_ban_tong_quat"]["muc"][0]["khoi"][0]["noi_dung"]
     assert ra["traces"]["dung_ban_thao_so_gia_tri_lam_sach"] == 1
 
 
 def test_node_giu_bang_va_lam_sach_gia_tri_bia_trong_o():
-    """Phase 7 R1 qua ĐỦ node `hieu_tai_lieu` (không chỉ `lam_sach_van_ban` đơn
-    lẻ): một mục BẢNG sống sót nguyên `bang`, và một ô bịa bị thay như một
+    """Phase 8 R1 qua ĐỦ node `hieu_tai_lieu` (không chỉ `lam_sach_van_ban` đơn
+    lẻ): một khối BẢNG sống sót nguyên `bang`, và một ô bịa bị thay như một
     `noi_dung` — "20.000.000" có trong `DV_A` (nguồn), "9.999.999" thì không."""
     bia = {
         "tieu_de": "X",
         "muc": [
-            {
-                "ten": "Giá trị",
-                "noi_dung": "",
-                "bang": [
+            _muc(
+                "Giá trị",
+                bang=[
                     ["Hạng mục", "Giá trị"],
                     ["Thiết bị", "20.000.000 đồng"],
                     ["Phụ phí", "9.999.999 đồng"],
                 ],
-            }
+            )
         ],
     }
     ra = h.hieu_tai_lieu({"query": "soạn biên bản"}, TL, _LLM(_ra(van_ban=bia)), "m")
-    bang = ra["van_ban_tong_quat"]["muc"][0]["bang"]
+    bang = ra["van_ban_tong_quat"]["muc"][0]["khoi"][0]["bang"]
     assert bang[1] == ["Thiết bị", "20.000.000 đồng"]
     assert bang[2] == ["Phụ phí", "[…] đồng"]
 
@@ -288,19 +396,16 @@ def test_clauses_danh_khoa_theo_thu_tu_doc():
     assert cl[0]["ten"] == "Thời gian bàn giao"
 
 
-def test_clauses_tu_giu_bang_rong_khi_khong_va_day_khi_co():
-    """Phase 7 R1 — `bang` LUÔN có mặt trong `clauses`, rỗng cho mục văn xuôi
-    (kể cả `VAN_BAN` viết tay ở đầu file, không mang khoá `bang` nào — tương
-    đương một `van_ban` từ TRƯỚC bản vá này) và đầy khi mục là bảng."""
+def test_clauses_tu_giu_khoi_va_vung_mac_dinh_than():
+    """Phase 8 R1/R2 — `khoi` và `vung` LUÔN có mặt trong `clauses`. Một `muc`
+    KHÔNG mang hai khoá này (viết tay, tương đương một `van_ban` từ TRƯỚC bản
+    vá này) vẫn ra một clause hợp lệ: `khoi` rỗng, `vung` mặc định `than`."""
     cl = d.clauses_tu(VAN_BAN)
-    assert cl[0]["bang"] == [] and cl[1]["bang"] == []
+    assert cl[0]["khoi"] == VAN_BAN["muc"][0]["khoi"]
+    assert cl[0]["vung"] == "than"
 
-    van_ban_bang = {
-        "tieu_de": "T",
-        "muc": [{"ten": "Đánh giá", "noi_dung": "", "bang": [["TT"], ["1"]]}],
-    }
-    cl_bang = d.clauses_tu(van_ban_bang)
-    assert cl_bang[0]["bang"] == [["TT"], ["1"]]
+    cl_thieu = d.clauses_tu({"tieu_de": "T", "muc": [{"ten": "Trống"}]})
+    assert cl_thieu[0]["khoi"] == [] and cl_thieu[0]["vung"] == "than"
 
 
 def test_ket_ban_thao_dung_markdown_va_audit_muc_kiem():
@@ -319,14 +424,18 @@ def test_khong_muc_nao_thi_khong_dung_ban_thao():
 
 def test_render_markdown_tong_quat_khong_tra_checklist():
     """`_render_markdown` cũ nạp checklist theo `loai`; `tong_quat` không có
-    checklist nào, nên nhánh này phải dựng thẳng từ `clauses`."""
-    md = ban_thao._render_markdown("tong_quat", d.clauses_tu(VAN_BAN), "BIÊN BẢN")
+    checklist nào, nên nhánh này phải dựng thẳng từ danh sách mục — hàm chỉ
+    đòi `ten`/`noi_dung` phẳng, không quan tâm `clauses` phía trên nó có
+    `khoi` hay không (đó là việc của `dung_ban_thao_tong_quat._khoi_thanh_van_ban`,
+    kiểm ở test `ket_ban_thao` bên trên)."""
+    muc = [{"ten": "Thời gian bàn giao", "noi_dung": "…"}, {"ten": "Giá trị", "noi_dung": "…"}]
+    md = ban_thao._render_markdown("tong_quat", muc, "BIÊN BẢN")
     assert md.startswith("# BIÊN BẢN") and "## 2. Giá trị" in md
 
 
 def test_doi_muc_goi_ten_muc_da_doi():
     cu = d.clauses_tu(VAN_BAN)
-    moi = d.clauses_tu({**VAN_BAN, "muc": [VAN_BAN["muc"][0], {"ten": "Giá trị", "noi_dung": "Khác."}]})
+    moi = d.clauses_tu({**VAN_BAN, "muc": [VAN_BAN["muc"][0], _muc("Giá trị", "Khác.")]})
     assert d.doi_muc(cu, moi) == ["Giá trị"]
 
 
@@ -461,7 +570,7 @@ def test_tao_roi_sua_len_phien_ban_2_va_lui_ve_duoc(nguoi):
     assert bt["audit_report"]["muc_kiem"] == "tong_quat"
     assert ban_thao.moi_nhat_cua_hoi_thoai(nguoi, pid, "tong_quat")["id"] == bt["id"]
 
-    moi = {**VAN_BAN, "muc": [VAN_BAN["muc"][0], {"ten": "Giá trị", "noi_dung": "Tổng 20.000.000 đồng."}]}
+    moi = {**VAN_BAN, "muc": [VAN_BAN["muc"][0], _muc("Giá trị", "Tổng 20.000.000 đồng.")]}
     ra2 = d.dung_ban_thao_tong_quat({**st, "muc_dich_tai_lieu": "sua_ban_thao", "van_ban_tong_quat": moi})
     bt2 = ra2["ban_thao_ket"]
     assert bt2["id"] == bt["id"] and bt2["phien_ban"] == 2

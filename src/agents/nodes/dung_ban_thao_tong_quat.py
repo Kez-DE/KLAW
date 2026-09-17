@@ -39,8 +39,23 @@ KHONG_SOAN_DUOC = "Lượt này tôi chưa soạn được mục nào từ tài 
 KHONG_CO_BAN_THAO = "Cuộc trò chuyện này chưa có bản thảo tổng quát nào để sửa. Bạn nói rõ cần soạn văn bản gì."
 
 
+def _khoi_thanh_van_ban(khoi: list[dict]) -> str:
+    """Khối (Phase 8 R1) → một đoạn Markdown thuần, chỉ để `document` (Markdown
+    của bản thảo) có gì đó để hiện — `document` KHÔNG có nơi đọc nào, backend
+    lẫn frontend (Phase 7 concern #4, vẫn đúng ở Phase 8): panel render từ
+    `clauses` (D6), và hàm này chỉ giữ cho `ban_thao._render_markdown` không
+    nổ `KeyError` trên một `clauses` không còn `noi_dung` cấp mục nữa."""
+    phan = []
+    for k in khoi:
+        if k.get("noi_dung"):
+            phan.append(k["noi_dung"])
+        elif k.get("bang"):
+            phan.append("\n".join(" | ".join(hang) for hang in k["bang"]))
+    return "\n\n".join(phan)
+
+
 def clauses_tu(van_ban: dict) -> list[dict]:
-    """`{tieu_de, muc:[{ten, noi_dung, bang}]}` → `clauses` đúng hình dạng
+    """`{tieu_de, muc:[{ten, vung, khoi}]}` → `clauses` đúng hình dạng
     `BanThaoOut`.
 
     `key` đánh theo VỊ TRÍ (`muc_1`, `muc_2`) chứ không theo tên mục: tên do mô
@@ -48,13 +63,23 @@ def clauses_tu(van_ban: dict) -> list[dict]:
     dùng nó làm khoá là để `doi_muc` báo "đã đổi" cho một mục chỉ sửa chính tả
     tiêu đề. Vị trí là thứ ổn định duy nhất ở đây.
 
-    `bang` (Phase 7 R1) dùng `.get`, không chỉ số: `van_ban["muc"]` đã qua
-    `lam_sach_van_ban` nên LUÔN có khoá này, nhưng fixture cũ và test có sẵn
-    (viết tay, trước bản vá này) thì không — `.get(...) or []` giữ MỘT hình
-    dạng clause cho cả hai, không migration nào cần cho `clauses` (JSONB).
+    `khoi` (Phase 8 R1, thay `noi_dung`/`bang` cố định của Phase 7) và `vung`
+    (Phase 8 R2) dùng `.get`, không chỉ số: `van_ban["muc"]` đã qua
+    `lam_sach_van_ban` nên LUÔN có hai khoá này, nhưng một `muc` viết tay
+    (test, fixture cũ) thì không — `.get(...) or …` giữ MỘT hình dạng clause
+    cho cả hai, không migration nào cần cho `clauses` (JSONB). Hàng ĐÃ LƯU
+    trước Phase 8 (chỉ `noi_dung`, hoặc `noi_dung`+`bang` kiểu Phase 7) không
+    đi qua hàm này lần nữa — chúng giữ nguyên hình dạng cũ trong DB, và phía
+    đọc (`frontend/src/lib/xuat-tep.ts::khoiTuClause`) là nơi hiểu cả ba hình
+    dạng, không phải ở đây.
     """
     return [
-        {"key": f"muc_{i}", "ten": m["ten"], "noi_dung": m["noi_dung"], "bang": m.get("bang") or []}
+        {
+            "key": f"muc_{i}",
+            "ten": m["ten"],
+            "vung": m.get("vung") or "than",
+            "khoi": m.get("khoi") or [],
+        }
         for i, m in enumerate((van_ban or {}).get("muc") or [], 1)
     ]
 
@@ -69,8 +94,13 @@ def ket_ban_thao(van_ban: dict) -> dict | None:
     clauses = clauses_tu(van_ban)
     if not clauses:
         return None
+    # `_render_markdown` (ban_thao.py) đọc `c["noi_dung"]` — hình dạng CŨ, và
+    # đổi nó theo `clauses` mới sẽ chạm một file dùng chung cho cả đường
+    # checklist (rủi ro không cần, xem `_khoi_thanh_van_ban`). Dựng một danh
+    # sách hiển thị RIÊNG cho lệnh gọi này, không lưu, không đi đâu khác.
+    hien_thi = [{"ten": c["ten"], "noi_dung": _khoi_thanh_van_ban(c["khoi"])} for c in clauses]
     return {
-        "document": ban_thao._render_markdown(LOAI_TONG_QUAT, clauses, (van_ban or {}).get("tieu_de")),
+        "document": ban_thao._render_markdown(LOAI_TONG_QUAT, hien_thi, (van_ban or {}).get("tieu_de")),
         "clauses": clauses,
         # `dat`/`completeness` là None chứ không phải True/1.0: chưa rule nào
         # chạy trên bản thảo này. `findings` rỗng vì KHÔNG có phát hiện, không
@@ -91,10 +121,12 @@ def doi_muc(cu: list[dict], moi: list[dict]) -> list[str]:
     được cái vừa đổi.
 
     Không dùng `ban_thao.doi_so_voi` (so `facts`): bản thảo tổng quát không có
-    `facts` nào, nội dung của nó nằm thẳng ở `clauses`.
+    `facts` nào, nội dung của nó nằm thẳng ở `clauses`. So `khoi` (Phase 8),
+    không còn `noi_dung` cấp mục — so cả danh sách khối là so ĐÚNG nội dung
+    mục đó có, kể cả khi chỉ thứ tự khối đổi.
     """
-    truoc = {c.get("key"): c.get("noi_dung") for c in (cu or [])}
-    return [c["ten"] for c in (moi or []) if truoc.get(c["key"]) != c["noi_dung"]]
+    truoc = {c.get("key"): c.get("khoi") for c in (cu or [])}
+    return [c["ten"] for c in (moi or []) if truoc.get(c["key"]) != c.get("khoi")]
 
 
 def _ket_state(bt: dict, ten: str, doi: list[str]) -> dict:

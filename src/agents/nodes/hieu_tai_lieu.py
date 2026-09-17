@@ -125,6 +125,12 @@ QUA_DAI = ("Tài liệu quá dài để đọc trong một lượt. Hãy tách n
 CHUA_DOC_DUOC = "Chưa đọc được tài liệu lúc này. Hãy thử lại."
 
 
+# `DonViVanBan.vung` (Phase 8 R2) — cùng ba giá trị, cùng nghĩa: một mục của
+# `van_ban` lấy từ đầu/chân trang thật thì mang đúng nhãn đó, không phải một
+# mã riêng bịa ra cho `van_ban`.
+VUNG_HOP_LE = ("than", "dau_trang", "chan_trang")
+
+
 def _mang(*truong: str) -> dict:
     """Mảng object strict với đúng bộ trường chuỗi đã gọi tên (mọi trường đều
     `required` — `json_schema` strict không có khái niệm trường tuỳ chọn)."""
@@ -186,12 +192,13 @@ def schema_hieu(nhan: list[str]) -> dict:
             # `tao_van_ban`/`sua_ban_thao` — `muc_dich` là thứ quyết định, không
             # phải sự có mặt của mảng này.
             #
-            # `bang` (Phase 7 R1): mảng hàng, mỗi hàng là mảng ô — HÀNG ĐẦU là
-            # hàng tiêu đề. Rỗng khi mục là văn xuôi (`noi_dung` mang lời văn);
-            # khi mục vốn là một BẢNG trong tài liệu nguồn thì `bang` mang nội
-            # dung và `noi_dung` để rỗng. Cả hai đều `required` (`json_schema`
-            # strict không có trường tuỳ chọn) — "rỗng" chứ không "vắng mặt" là
-            # cách một trong hai đứng ngoài, giống mọi mảng khác của lược đồ này.
+            # `khoi` (Phase 8 R1, thay `noi_dung`/`bang` cố định của Phase 7):
+            # một mục không còn "văn xuôi HOẶC bảng" mà là MẢNG khối theo ĐÚNG
+            # thứ tự tài liệu — "câu dẫn, bảng, câu kết" là BA khối, không thể
+            # nén vào hai trường cố định. Mỗi khối lại là `noi_dung`/`bang`
+            # cùng quy ước rỗng-thay-vắng-mặt của Phase 7 (một trong hai rỗng).
+            # `vung` (Phase 8 R2) mang `DonViVanBan.vung` qua tới đây, để một
+            # mục lấy từ chân/đầu trang không lẫn vào thân bài.
             "van_ban": {
                 "type": "object",
                 "additionalProperties": False,
@@ -203,13 +210,24 @@ def schema_hieu(nhan: list[str]) -> dict:
                         "items": {
                             "type": "object",
                             "additionalProperties": False,
-                            "required": ["ten", "noi_dung", "bang"],
+                            "required": ["ten", "vung", "khoi"],
                             "properties": {
                                 "ten": {"type": "string"},
-                                "noi_dung": {"type": "string"},
-                                "bang": {
+                                "vung": {"type": "string", "enum": list(VUNG_HOP_LE)},
+                                "khoi": {
                                     "type": "array",
-                                    "items": {"type": "array", "items": {"type": "string"}},
+                                    "items": {
+                                        "type": "object",
+                                        "additionalProperties": False,
+                                        "required": ["noi_dung", "bang"],
+                                        "properties": {
+                                            "noi_dung": {"type": "string"},
+                                            "bang": {
+                                                "type": "array",
+                                                "items": {"type": "array", "items": {"type": "string"}},
+                                            },
+                                        },
+                                    },
                                 },
                             },
                         },
@@ -572,6 +590,14 @@ def lam_sach_van_ban(van_ban: dict, nguon: str) -> tuple[dict, dict]:
     qua rà soát pháp lý, và một số điện thoại/email lọt vào bản thảo là dữ liệu
     cá nhân đi ra khỏi hội thoại của nó.
 
+    **Phase 8 R1:** một mục không còn `noi_dung`/`bang` cố định mà là `khoi` —
+    mảng khối theo đúng thứ tự tài liệu, mỗi khối lại là `noi_dung`/`bang` như
+    Phase 7 (một trong hai rỗng). Làm sạch từng khối bằng ĐÚNG `_sach`/
+    `_bang_sach` cũ; một khối rỗng cả hai sau khi sạch bị bỏ (không phân biệt
+    được là văn xuôi hay bảng nữa), còn cả mục thì bị bỏ khi KHÔNG CÒN khối
+    nào — tương đương "không `noi_dung` không `bang`" của Phase 7, chỉ đổi chỗ
+    kiểm từ một cặp trường sang một mảng.
+
     ponytail: lưới chặn đo cả MỤC chứ không định vị được từng cụm, nên một số
     Điều mà CHÍNH tài liệu của người hỏi có cũng làm mất mục đó. Nâng cấp khi
     đo thấy nó cắn thật: tách `_RE_DIEU`/`_RE_DINH_DANH` của `bo_nho` thành
@@ -593,30 +619,71 @@ def lam_sach_van_ban(van_ban: dict, nguon: str) -> tuple[dict, dict]:
     def _bang_sach(bang_tho) -> list[list[str]]:
         """`bang` thô → hàng×ô đã làm sạch, đúng phép `_sach` như `ten`/
         `noi_dung`: một ô cũng là một giá trị có thể bịa (Phase 7 R1). Hàng nào
-        không phải mảng thì bị BỎ (không nổ cả mục vì một hàng sai hình dạng)."""
+        không phải mảng thì bị BỎ (không nổ cả mục vì một hàng sai hình dạng).
+
+        Hàng NGẮN hơn hàng tiêu đề (Phase 8 R4, ô gộp trong tài liệu nguồn) đi
+        qua NGUYÊN — không đệm, không cắt; số ô ít hơn là tín hiệu thật, không
+        phải lỗi hình dạng. **Đo được 2026-09-17** (BM.ĐT.18.11, hàng "Tổng"):
+        rule 15 dặn mô hình đừng đệm, nhưng mô hình vẫn đôi khi trả về
+        `["Tổng", "10", "", ""]` — 4 ô cho một hàng nguồn chỉ có 2 ô gộp. Ô
+        rỗng ở CUỐI hàng đó không phải một nội dung mà là chỗ đệm để đủ số cột;
+        để nguyên thì `coSpanHang` (phía đọc) coi đây là một hàng ĐỦ cột và
+        không gộp ô — "10" hiện đúng ngay dưới cột "Điểm tối đa" thay vì cột
+        cuối "Điểm đánh giá" như tài liệu gốc. Cắt các ô RỖNG Ở CUỐI (không
+        đụng ô rỗng ở giữa/đầu — đó có thể là nội dung thật của tài liệu) đưa
+        hàng về đúng số ô THẬT, cho `coSpanHang` một cơ hội gộp đúng."""
         if not isinstance(bang_tho, list):
             return []
-        return [[_sach(str(o).strip()) for o in hang] for hang in bang_tho if isinstance(hang, list)]
+        ra = []
+        for hang in bang_tho:
+            if not isinstance(hang, list):
+                continue
+            sach = [_sach(str(o).strip()) for o in hang]
+            while sach and sach[-1] == "":
+                sach.pop()
+            ra.append(sach)
+        return ra
+
+    def _khoi_sach(khoi_tho) -> list[dict]:
+        """`khoi` thô (Phase 8 R1) → khối đã làm sạch, bỏ khối nào RỖNG CẢ HAI
+        sau khi sạch — một khối trắng không còn phân biệt được là văn xuôi hay
+        bảng, cùng luật "không noi_dung không bang" Phase 7 áp cho cả mục."""
+        if not isinstance(khoi_tho, list):
+            return []
+        ra = []
+        for k in khoi_tho:
+            if not isinstance(k, dict):
+                continue
+            noi_dung = _sach(str(k.get("noi_dung") or "").strip())
+            bang = _bang_sach(k.get("bang"))
+            if not noi_dung and not bang:
+                continue
+            ra.append({"noi_dung": noi_dung, "bang": bang})
+        return ra
 
     giu: list[dict] = []
     for o in (van_ban or {}).get("muc") or []:
         if not isinstance(o, dict):
             continue
-        ten, noi_dung = str(o.get("ten") or "").strip(), str(o.get("noi_dung") or "").strip()
+        ten = str(o.get("ten") or "").strip()
         if not ten:
             continue
+        vung = str(o.get("vung") or "than")
+        if vung not in VUNG_HOP_LE:
+            vung = "than"
         truoc = dem["gia_tri_lam_sach"]
-        ten, noi_dung = _sach(ten), _sach(noi_dung)
-        bang = _bang_sach(o.get("bang"))
-        # Một mục là BẢNG mang nội dung ở `bang`, không ở `noi_dung` — cần MỘT
-        # trong hai, không cả hai (rule 15, prompt hieu_tai_lieu.v1.md). Xét
-        # SAU khi làm sạch: một `bang` sai hình dạng (không phải mảng hàng) dọn
-        # về rỗng, và mục đó thật sự không còn nội dung nào, y hệt `noi_dung`
-        # rỗng — không phải một hình dạng đặc biệt được tha.
-        if not noi_dung and not bang:
+        ten = _sach(ten)
+        khoi = _khoi_sach(o.get("khoi"))
+        # Mục KHÔNG còn khối nào sau khi sạch — tương đương "không noi_dung
+        # không bang" của Phase 7: không phải một đề mục có nội dung, chỉ là
+        # cái tên đứng một mình.
+        if not khoi:
             dem["gia_tri_lam_sach"] = truoc
             continue
-        if _vuong_luoi_chan("\n".join([ten, noi_dung, *(o for hang in bang for o in hang)])):
+        kiem_tra = "\n".join(
+            [ten, *(k["noi_dung"] for k in khoi), *(c for k in khoi for hang in k["bang"] for c in hang)]
+        )
+        if _vuong_luoi_chan(kiem_tra):
             dem["muc_bo"] += 1
             # Giá trị đã thay trong một mục bị bỏ không còn là một phép làm
             # sạch người đọc thấy được — trả lại bộ đếm cho đúng.
@@ -624,9 +691,7 @@ def lam_sach_van_ban(van_ban: dict, nguon: str) -> tuple[dict, dict]:
             continue
         if dem["gia_tri_lam_sach"] > truoc:
             dem["muc_lam_sach"] += 1
-        # `bang` LUÔN có mặt (rỗng cho mục văn xuôi) — MỘT hình dạng clause cho
-        # cả hàng cũ (không mang khoá này) lẫn hàng mới, khớp `clauses_tu`.
-        giu.append({"ten": ten, "noi_dung": noi_dung, "bang": bang})
+        giu.append({"ten": ten, "vung": vung, "khoi": khoi})
     return {"tieu_de": _sach(str((van_ban or {}).get("tieu_de") or "").strip()), "muc": giu}, dem
 
 

@@ -94,15 +94,52 @@ trí của nó trong tài liệu.
     trái luật không" — đó là xin một phán quyết, và quy tắc 10 cấm nó.
 15. `van_ban` chỉ dùng khi lượt này SOẠN một văn bản mới từ tài liệu
     (`tao_van_ban`) hoặc SỬA văn bản đã soạn (`sua_ban_thao`). `tieu_de` viết
-    hoa như tiêu đề một văn bản Việt. `muc` là các mục theo ĐÚNG thứ tự một văn
-    bản Việt loại đó dùng (biên bản: thời gian – địa điểm – thành phần – nội
-    dung – kết luận; đơn: kính gửi – người làm đơn – nội dung – đề nghị), mỗi
-    mục có `ten` ngắn và, tuỳ mục đó là văn xuôi hay bảng, MỘT trong hai:
-    `noi_dung` là lời văn hoàn chỉnh, HOẶC — khi mục vốn là một BẢNG trong tài
-    liệu nguồn — `bang` là mảng các hàng theo ĐÚNG thứ tự tài liệu, mỗi hàng là
-    mảng các ô theo ĐÚNG thứ tự cột, HÀNG ĐẦU TIÊN là hàng tiêu đề cột. Khi
-    dùng `bang` thì để `noi_dung` là chuỗi rỗng — ĐỪNG gõ lại bảng bằng ký tự
-    `|` hay xuống dòng vào `noi_dung`, `bang` đã là chỗ đúng cho nó.
+    hoa như tiêu đề một văn bản Việt.
+
+    `muc` là các mục theo ĐÚNG thứ tự một văn bản Việt loại đó dùng (biên bản:
+    thời gian – địa điểm – thành phần – nội dung – kết luận; đơn: kính gửi –
+    người làm đơn – nội dung – đề nghị) — TRỪ KHI lượt này xin DỰNG LẠI một
+    tài liệu nguồn cụ thể ("dựng lại đúng biểu mẫu này", "sao y biểu mẫu
+    này"), thì thứ tự mục là thứ tự CHÍNH tài liệu đó dùng: đừng áp khuôn biên
+    bản/đơn lên một biểu mẫu đã có khuôn riêng của nó.
+
+    Mỗi mục có `ten` ngắn, `vung` — `than` (mặc định, thân bài) hoặc
+    `chan_trang`/`dau_trang` khi mục lấy nguyên từ chân trang/đầu trang THẬT
+    của tài liệu (số hiệu biểu mẫu, ngày ban hành lặp lại mỗi trang) — đọc
+    đúng nhãn "đầu trang"/"chân trang" đã ghi kèm vị trí mỗi đơn vị bên trên,
+    đừng gộp chữ đó vào thân bài rồi bỏ quên nó. Một biểu mẫu Việt thường in
+    quốc hiệu và một bảng "giới thiệu đơn vị" (letterhead) NGAY ĐẦU THÂN BÀI —
+    đó vẫn là `than`, không phải `dau_trang`; nó chỉ cần giữ đúng hình dạng
+    BẢNG như tài liệu (xem `khoi` dưới đây), không phải xé thành các dòng
+    đứng riêng.
+
+    Nội dung một mục là `khoi` — một MẢNG các khối THEO ĐÚNG THỨ TỰ chúng
+    xuất hiện trong tài liệu (không còn "một mục là văn xuôi HOẶC bảng": một
+    mục có thể có nhiều khối, ví dụ câu dẫn rồi một bảng rồi một câu kết —
+    viết BA khối theo đúng thứ tự đó, đừng dồn câu dẫn và câu kết vào chung
+    một khối). Mỗi khối là MỘT trong hai: `noi_dung` là một đoạn lời văn hoàn
+    chỉnh (để `bang` là mảng rỗng), HOẶC — khi khối đó vốn là một BẢNG trong
+    tài liệu nguồn — `bang` là mảng các hàng theo ĐÚNG thứ tự tài liệu, mỗi
+    hàng là mảng các ô theo ĐÚNG thứ tự cột, HÀNG ĐẦU TIÊN là hàng tiêu đề (để
+    `noi_dung` là chuỗi rỗng). ĐỪNG gõ lại bảng bằng ký tự `|` hay xuống dòng
+    vào `noi_dung`, `bang` đã là chỗ đúng cho nó.
+
+    Một hàng của `bang` có thể có ÍT Ô HƠN hàng tiêu đề: tài liệu nguồn dùng ô
+    GỘP (ví dụ hàng "Tổng" gộp ba cột nhãn rồi một ô "10" — chỉ hai ô thật, dù
+    hàng tiêu đề có bốn cột). Khi đó chỉ viết ĐÚNG các ô THẬT có, theo đúng
+    thứ tự — ĐỪNG chêm ô rỗng cho đủ số cột và ĐỪNG tự đoán ô nào khớp cột
+    nào; phía đọc tự căn theo số ô đang có.
+
+    Một biểu mẫu có các dòng TRƯỜNG TỰ DO (nhãn kèm chỗ trống, ví dụ "Họ và
+    tên: … Mã số: …", "Khoa: … Ngành: …") thì MỖI dòng trường như vậy là một
+    khối/mục RIÊNG theo đúng tài liệu — không bỏ dòng nào, không gộp hai
+    trường khác nhau (hai nhãn khác nhau) vào chung một dòng làm mất một
+    trong hai. Chỗ trống của một trường CHƯA điền — dãy chấm, gạch dưới,
+    `… / … /20 …` — được CHÉP NGUYÊN VĂN, KHÔNG thay bằng `[…]`: đó là cách
+    CHÍNH tài liệu đánh dấu "cần điền", khác hẳn `[…]` là cách KLAW đánh dấu
+    "không biết giá trị" (dành cho hai trường hợp dưới đây, không dành cho
+    một chỗ trống tài liệu tự vẽ sẵn).
+
     Mọi giá trị trong `noi_dung` (hoặc trong một ô của `bang`) phải lấy TỪ TÀI
     LIỆU hoặc từ chính lời người hỏi. Không có thì viết `[…]` ở đúng chỗ đó và
     đi tiếp — `[…]` là câu trả lời đúng, một giá trị đoán thì không.
