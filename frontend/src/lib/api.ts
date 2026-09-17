@@ -333,10 +333,24 @@ export const xoaBanThao = (id: string) =>
  * đúng khối. `khoiIndex` là chỉ số khối HIỂN THỊ (`Muc.khoi`), không phải chỉ
  * số nào khác — xem docstring `_ap_dung_khoi` phía backend.
  */
-export const suaMucBanThao = (id: string, mucKey: string, khoiIndex: number, noiDung: string) =>
+/**
+ * `phienBan` (fix round 1, I3) — phiên bản người dùng ĐANG NHÌN THẤY lúc gõ.
+ * `muc_key` là khoá CẤP THEO VỊ TRÍ, bị cấp lại mỗi khi một lượt sửa bằng
+ * lời dựng lại toàn bộ `clauses` — thiếu trường này, một khối mở từ TRƯỚC
+ * một lượt sửa như vậy có thể ghi đúng vị trí nhưng sai mục sau khi lượt đó
+ * chạy xong. Máy chủ so nó với phiên bản THẬT (trong cùng khoá `FOR UPDATE`)
+ * và từ chối nếu không khớp — xem `ban_thao.sua_tay`.
+ */
+export const suaMucBanThao = (
+  id: string,
+  mucKey: string,
+  khoiIndex: number,
+  noiDung: string,
+  phienBan: number,
+) =>
   goi<BanThao>(`/ban-thao/${encodeURIComponent(id)}/muc`, laBanThao, {
     method: "PATCH",
-    body: { muc_key: mucKey, khoi_index: khoiIndex, noi_dung: noiDung },
+    body: { muc_key: mucKey, khoi_index: khoiIndex, noi_dung: noiDung, phien_ban: phienBan },
   });
 
 /** Dựng query string, bỏ qua giá trị rỗng. Tham số lặp lại được (`loai`, `co_quan`). */
