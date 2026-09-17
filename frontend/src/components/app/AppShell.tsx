@@ -5,6 +5,8 @@ import {
   FileSignature,
   LogIn,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   Scale,
   Sparkles,
   SquarePen,
@@ -33,10 +35,13 @@ import { cn } from "@/lib/utils";
  * - **<48rem**: cột trái biến mất, thanh dưới thay chỗ với ba mục điều hướng
  *   cộng "Tài khoản" mở sheet.
  *
- * Ngưỡng 80rem đọc bằng `useMinWidth` chứ không chỉ bằng lớp `xl:` vì cùng một
- * danh sách phiên phải nằm ở ĐÚNG MỘT nơi tại mỗi bề rộng: dựng cả hai rồi ẩn
- * bớt bằng CSS là hai cây trạng thái song song, và sheet vẫn mở khi cột trái
- * đã hiện lại.
+ * Đầy đủ/dải icon (`rong`) không còn CHỈ là ngưỡng 80rem: một nút bấm được
+ * đổi nó bằng tay và nhớ lựa chọn qua localStorage (`docCotTraiMoRong`) — 80rem
+ * chỉ còn là mặc định LẦN ĐẦU. Vì vậy bề rộng cột (`w-16`/`w-[260px]`) và mọi
+ * chỗ ẩn/hiện nhãn chữ trong cột đều đọc `rong` (JS), không còn lớp `xl:` nào:
+ * hai nguồn sự thật cho cùng một trạng thái (CSS breakpoint lẫn JS override)
+ * sẽ lệch nhau đúng lúc người dùng đã bấm nút. Ngưỡng 48rem (`coCotTrai`) thì
+ * KHÔNG đổi — nút chỉ chọn giữa dải icon và đầy đủ, không hiện lại cột đã ẩn.
  *
  * "Hướng dẫn" rời khỏi điều hướng chính (nay là "Trợ giúp" trong menu tài
  * khoản), nên `/huong-dan` không làm sáng mục nào — chấp nhận.
@@ -51,6 +56,30 @@ const NAV = [
 const NGUONG_COT_DAY_DU = 80;
 /** Từ 48rem (`md`) có cột trái; dưới ngưỡng đó thanh dưới thay chỗ. */
 const NGUONG_CO_COT_TRAI = 48;
+
+/** Khoá nhớ lựa chọn thu gọn/mở rộng cột trái — MỘT LỰA CHỌN CHO THIẾT BỊ
+ *  này, không theo tài khoản: đổi máy thì lại theo mặc định của bề rộng máy
+ *  đó. Bọc try/catch như `keo-dan.ts`: chế độ ẩn danh hay site data bị chặn
+ *  không được làm hỏng trang, chỉ mất đúng một tiện lợi nhỏ. */
+const KHOA_COT_TRAI_MO_RONG = "klaw.cot-trai.mo-rong";
+
+/** `null` = người dùng CHƯA từng bấm nút — ngưỡng bề rộng còn quyết định. */
+function docCotTraiMoRong(): boolean | null {
+  try {
+    const raw = localStorage.getItem(KHOA_COT_TRAI_MO_RONG);
+    return raw === null ? null : raw === "1";
+  } catch {
+    return null; // không đọc được = coi như chưa chọn, ngưỡng bề rộng vẫn quyết định
+  }
+}
+
+function luuCotTraiMoRong(moRong: boolean): void {
+  try {
+    localStorage.setItem(KHOA_COT_TRAI_MO_RONG, moRong ? "1" : "0");
+  } catch {
+    // Không ghi được thì thôi: lựa chọn chỉ sống trong phiên này. Phiền, không hỏng.
+  }
+}
 
 const NUT_DAC =
   "focus-brass bg-gradient-ink inline-flex min-h-9 cursor-pointer items-center justify-center rounded-lg px-3 text-[13px] font-medium whitespace-nowrap text-primary-foreground no-underline transition-opacity hover:opacity-90";
@@ -124,7 +153,16 @@ export function AppShell({
   // Khung đối chiếu ở bố cục một cột khai `aria-modal`. Điều hướng và thanh
   // dưới là anh em của <main>, nên chỉ vỏ này gỡ được chúng khỏi vòng Tab.
   const modalMo = useKhungModalDangMo();
-  const rong = useMinWidth(NGUONG_COT_DAY_DU);
+  const rongMacDinh = useMinWidth(NGUONG_COT_DAY_DU);
+  // R3: đã chọn (bấm nút) ⇒ lựa chọn đó thắng ở MỌI bề rộng còn đủ chỗ cho cột
+  // trái (48rem trở lên); chưa chọn ⇒ ngưỡng 80rem quyết định như trước đây.
+  const [rongDaChon, datRongDaChon] = useState<boolean | null>(() => docCotTraiMoRong());
+  const rong = rongDaChon ?? rongMacDinh;
+  const doiRong = () => {
+    const moi = !rong;
+    datRongDaChon(moi);
+    luuCotTraiMoRong(moi);
+  };
   const coCotTrai = useMinWidth(NGUONG_CO_COT_TRAI);
   const { daDangNhap, laKhach, hoiThoai, phienMoi, catThreadTruocKhiRoi } = useTaiKhoan();
   const navigate = useNavigate();
@@ -200,29 +238,65 @@ export function AppShell({
       <aside
         inert={modalMo}
         aria-label="Điều hướng chính"
-        className="sticky top-0 z-40 hidden h-screen w-16 shrink-0 flex-col border-r border-border bg-[var(--color-paper-50)] px-2 py-4 md:flex xl:w-[260px] xl:px-3"
+        className={cn(
+          "sticky top-0 z-40 hidden h-screen shrink-0 flex-col border-r border-border bg-[var(--color-paper-50)] py-4 md:flex",
+          rong ? "w-[260px] px-3" : "w-16 px-2",
+        )}
       >
         <Link
           to="/"
           aria-label="KLAW — về trang chủ"
-          className="focus-brass mb-4 flex items-center justify-center gap-2.5 rounded-lg xl:justify-start xl:px-2"
+          className={cn(
+            "focus-brass mb-2 flex items-center gap-2.5 rounded-lg",
+            rong ? "justify-start px-2" : "justify-center",
+          )}
         >
           <span className="bg-gradient-ink flex size-9 shrink-0 items-center justify-center rounded-xl text-primary-foreground shadow-soft">
             <Scale className="size-4.5" aria-hidden />
           </span>
-          <span className="font-display hidden text-lg font-bold tracking-tight text-primary xl:inline">
+          <span
+            className={cn(
+              "font-display text-lg font-bold tracking-tight text-primary",
+              rong ? "inline" : "hidden",
+            )}
+          >
             KLAW
           </span>
         </Link>
+
+        {/* R3 (canvas-tai-lieu Phase 2): trước đây bề rộng cột chỉ do ngưỡng
+            80rem quyết định, không có cách nào chọn tay. `aria-expanded` +
+            nhãn nói ĐÚNG việc nút SẼ làm, không chỉ trạng thái hiện tại. */}
+        <button
+          type="button"
+          onClick={doiRong}
+          aria-expanded={rong}
+          aria-label={rong ? "Thu gọn điều hướng" : "Mở rộng điều hướng"}
+          title={rong ? "Thu gọn điều hướng" : "Mở rộng điều hướng"}
+          className={cn(
+            "focus-brass mb-3 flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-muted-foreground transition-colors hover:bg-[var(--color-paper-100)] hover:text-primary",
+            rong ? "justify-start" : "justify-center",
+          )}
+        >
+          {rong ? (
+            <PanelLeftClose className="size-4 shrink-0" aria-hidden />
+          ) : (
+            <PanelLeftOpen className="size-4 shrink-0" aria-hidden />
+          )}
+          <span className={cn(rong ? "inline" : "hidden")}>Thu gọn điều hướng</span>
+        </button>
 
         <button
           type="button"
           onClick={phienMoi}
           title="Phiên mới"
-          className="focus-brass mb-3 flex cursor-pointer items-center justify-center gap-2.5 rounded-lg border border-[var(--color-brass-500)]/50 px-2.5 py-2.5 text-sm font-medium text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/10 xl:justify-start"
+          className={cn(
+            "focus-brass mb-3 flex cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--color-brass-500)]/50 px-2.5 py-2.5 text-sm font-medium text-[var(--color-brass-600)] transition-colors hover:bg-[var(--color-brass-500)]/10",
+            rong ? "justify-start" : "justify-center",
+          )}
         >
           <SquarePen className="size-4 shrink-0" aria-hidden />
-          <span className="hidden xl:inline">Phiên mới</span>
+          <span className={cn(rong ? "inline" : "hidden")}>Phiên mới</span>
         </button>
 
         <nav className="flex flex-col gap-0.5">
@@ -237,14 +311,15 @@ export function AppShell({
                 aria-current={dangMo ? "page" : undefined}
                 title={item.label}
                 className={cn(
-                  "focus-brass flex items-center justify-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm transition-colors xl:justify-start",
+                  "focus-brass flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm transition-colors",
+                  rong ? "justify-start" : "justify-center",
                   dangMo
                     ? "bg-[var(--color-paper-200)] font-medium text-primary"
                     : "text-muted-foreground hover:bg-[var(--color-paper-100)] hover:text-primary",
                 )}
               >
                 <Icon className="size-4 shrink-0" aria-hidden />
-                <span className="hidden xl:inline">{item.label}</span>
+                <span className={cn(rong ? "inline" : "hidden")}>{item.label}</span>
               </Link>
             );
           })}
@@ -301,7 +376,7 @@ export function AppShell({
               </Link>
             )
           ) : (
-            <div className="hidden xl:block">
+            <div className={cn(rong ? "block" : "hidden")}>
               <ChanTrungLap />
             </div>
           )}
