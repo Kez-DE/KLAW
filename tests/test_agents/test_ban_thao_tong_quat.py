@@ -36,6 +36,7 @@ from src.agents.nodes.assemble import ResultType, assemble
 from src.models.schemas import TraCuuResponse
 from src.services import ban_thao
 from src.services.doc_tai_lieu import DonViVanBan, doc
+from src.services.llm import TruncatedOutputError
 
 A_ID = "aaaaaaaa-0000-0000-0000-000000000001"
 
@@ -69,9 +70,11 @@ class _Usage:
 class _LLM:
     def __init__(self, ra):
         self.ra, self.json_schema = ra, None
+        self.so_lan_goi = 0
 
-    def chat(self, model, messages, json_schema=None):
+    def chat(self, model, messages, json_schema=None, max_tokens=None):
         self.json_schema = json_schema
+        self.so_lan_goi += 1
         return json.dumps(self.ra, ensure_ascii=False), _Usage()
 
 
@@ -1339,6 +1342,179 @@ def test_loi_ha_tang_khong_de_lai_van_ban_bia():
 
     ra = h.hieu_tai_lieu({"query": "soạn biên bản"}, TL, _No(), "m")
     assert ra["van_ban_tong_quat"] is None
+
+
+# ───────────────────────────── Phase 16 R2/R3 — tài liệu dài chia nhiều lượt
+#
+# `.sdd/phase-16-brief.md` — một tài liệu ĐƠN đủ dài để một lượt trả lời có
+# nguy cơ cắt giữa chừng (`finish_reason=length`, đo thật trên tài liệu chủ sở
+# hữu) được chia thành nhiều lượt kế tiếp (`_hieu_theo_phan`), mỗi lượt dựng
+# một phần `van_ban.muc` rồi ghép — thay vì một lượt duy nhất ôm cả tài liệu.
+
+# 20 đơn vị × 1.000 ký tự = 20.000 > `NGUONG_PHAN_KY_TU` (15.000) — chia đúng
+# HAI phần theo thuật toán cộng dồn của `_chia_theo_ky_tu`: phần 1 = 15 đơn vị
+# đầu (cộng dồn đúng 15.000, đơn vị 16 sẽ vượt), phần 2 = 5 đơn vị còn lại.
+DON_VI_LON = [
+    DonViVanBan(chi_so=i, trang=1, offset_dau=i * 1000, noi_dung="a" * 1000) for i in range(20)
+]
+TL_LON = [{"id": "lon", "ten_tep": "van-ban-dai.docx", "don_vi": DON_VI_LON}]
+
+
+def test_chia_theo_ky_tu_giu_thu_tu_va_tran_moi_phan():
+    """Hàm THUẦN — chia đúng theo cộng dồn ký tự, giữ thứ tự `chi_so`."""
+    phan = h._chia_theo_ky_tu(DON_VI_LON, ky_tu_moi_phan=h.NGUONG_PHAN_KY_TU)
+    assert [len(p) for p in phan] == [15, 5]
+    assert [d.chi_so for p in phan for d in p] == list(range(20)), "thứ tự tài liệu phải giữ nguyên"
+
+
+def test_chia_theo_ky_tu_mot_don_vi_qua_dai_van_giu_rieng_khong_cat_giua():
+    """Một đơn vị DÀI HƠN cả ngưỡng không bị cắt giữa — vẫn đứng một mình
+    trong một phần riêng, đúng docstring."""
+    dv = [DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="a" * 20_000)]
+    phan = h._chia_theo_ky_tu(dv, ky_tu_moi_phan=10_000)
+    assert len(phan) == 1 and len(phan[0]) == 1
+
+
+def test_tai_lieu_ngan_khong_chia_van_dung_MOT_lan_goi():
+    """Tài liệu dưới ngưỡng đi ĐÚNG đường một lượt như trước bản vá — không đổi
+    hành vi, không đổi chi phí cho trường hợp thường gặp (corpus mẫu)."""
+    llm = _LLM(_ra())
+    h.hieu_tai_lieu({"query": "soạn biên bản bàn giao"}, TL, llm, "m")
+    assert llm.so_lan_goi == 1
+
+
+def test_hai_tai_lieu_khong_chia_du_tong_ky_tu_vuot_nguong():
+    """Từ HAI tài liệu trở lên (so sánh/đối chiếu) không chia — `_khop_bang`
+    chỉ được chứng minh an toàn cho một tài liệu tại một thời điểm (brief:
+    "không được để một bảng khớp với một tài liệu chưa đầy đủ"), nên lượt có
+    từ hai tài liệu đi nguyên đường cũ dù TỔNG ký tự vượt ngưỡng chia phần.
+
+    Mỗi tài liệu 9.000 ký tự (dưới `NGUONG_PHAN_KY_TU` MỘT MÌNH) — tổng 18.000
+    vượt ngưỡng chia phần nhưng vẫn dưới trần chi phí đầu vào (25.000 ký tự,
+    `tai_lieu.kiem_tran_chi_phi_tai_lieu`), để phép kiểm này KHÔNG trộn hai
+    trần khác nhau vào một phép so."""
+    don_vi_vua = DON_VI_LON[:9]  # 9 × 1.000 = 9.000 ký tự
+    tl_hai = [
+        {"id": "x1", "ten_tep": "a.docx", "don_vi": don_vi_vua},
+        {"id": "x2", "ten_tep": "b.docx", "don_vi": don_vi_vua},
+    ]
+    llm = _LLM(_ra(muc_dich="so_sanh"))
+    h.hieu_tai_lieu({"query": "so sánh hai tài liệu"}, tl_hai, llm, "m")
+    assert llm.so_lan_goi == 1
+
+
+def test_tai_lieu_dai_khong_xin_soan_chi_goi_MOT_lan():
+    """`muc_dich` lượt đầu không thuộc `MUC_DICH_SOAN` ⇒ dừng ngay, không lãng
+    phí thêm lượt gọi nào cho một tài liệu dài nhưng câu hỏi không xin dựng lại
+    toàn văn."""
+    llm = _LLM(_ra(muc_dich="hoi", van_ban={"tieu_de": "", "muc": []}))
+    ra = h.hieu_tai_lieu({"query": "tài liệu này có mấy trang"}, TL_LON, llm, "m")
+    assert llm.so_lan_goi == 1
+    assert ra["van_ban_tong_quat"] is None
+
+
+class _LLMTheoPhan:
+    """Trả `van_ban.muc` KHÁC NHAU tuỳ lượt, đọc từ chính đoạn `phan_doan` mà
+    `_hieu_theo_phan` chèn vào prompt — để phép kiểm ghép phân biệt được THỨ
+    TỰ các phần, không chỉ đếm số lượt gọi."""
+
+    def __init__(self) -> None:
+        self.so_lan_goi = 0
+
+    def chat(self, model, messages, json_schema=None, max_tokens=None):
+        self.so_lan_goi += 1
+        noi_dung = messages[-1]["content"]
+        if "phần 1/2" in noi_dung:
+            muc_dich, muc = "tao_van_ban", [_muc("Phần đầu", "Nội dung mở đầu.")]
+        else:
+            assert "phần 2/2" in noi_dung, noi_dung
+            assert "đã xác định là `tao_van_ban` ở phần trước" in noi_dung
+            muc_dich, muc = "hoi", [_muc("Phần cuối", "Nội dung kết luận.")]  # bị bỏ qua, chỉ van_ban được ghép
+        ra = _ra(muc_dich=muc_dich, van_ban={"tieu_de": "VĂN BẢN DÀI", "muc": muc})
+        return json.dumps(ra, ensure_ascii=False), _Usage()
+
+
+def test_tai_lieu_dai_chia_hai_luot_ghep_dung_thu_tu():
+    """Chứng cứ chính Phase 16 R2: tài liệu 20.000 ký tự (vượt `NGUONG_PHAN_KY_TU`)
+    chia đúng 2 lượt, `van_ban.muc` ghép ĐÚNG THỨ TỰ từ cả hai lượt — `tieu_de`
+    và `muc_dich` lấy từ lượt ĐẦU, `muc_dich` giả của lượt hai ("hoi") KHÔNG
+    làm đổi `muc_dich_tai_lieu` cuối cùng."""
+    llm = _LLMTheoPhan()
+    ra = h.hieu_tai_lieu({"query": "dựng lại nguyên văn biểu mẫu này"}, TL_LON, llm, "m")
+    assert llm.so_lan_goi == 2
+    assert ra["muc_dich_tai_lieu"] == "tao_van_ban"
+    assert ra["van_ban_tong_quat"]["tieu_de"] == "VĂN BẢN DÀI"
+    assert [m["ten"] for m in ra["van_ban_tong_quat"]["muc"]] == ["Phần đầu", "Phần cuối"]
+
+
+class _LLMGioiHanKichThuoc:
+    """Mô phỏng ĐÚNG chế độ hỏng đo được thật (Phase 16 R1, brief): một lượt
+    cố dựng lại NHIỀU đơn vị hơn `ran_han` (đứng cho trần token ra thật của
+    model) bị cắt giữa chừng — cùng lỗi `finish_reason=length` production đã
+    đo hai lần liên tiếp trên MỘT tài liệu không chia lượt. Đếm số đơn vị bằng
+    số lần `"[A-"` xuất hiện trong prompt — đúng nhãn `_khoi_tai_lieu` đánh số."""
+
+    def __init__(self, ran_han: int, ra_thanh_cong: dict) -> None:
+        self.ran_han, self.ra_thanh_cong, self.so_lan_goi = ran_han, ra_thanh_cong, 0
+
+    def chat(self, model, messages, json_schema=None, max_tokens=None):
+        self.so_lan_goi += 1
+        so_don_vi = messages[-1]["content"].count("[A-")
+        if so_don_vi > self.ran_han:
+            raise TruncatedOutputError(
+                f"model m: JSON bị cắt giữa chừng (finish_reason=length) — {so_don_vi} đơn vị"
+            )
+        return json.dumps(self.ra_thanh_cong, ensure_ascii=False), _Usage()
+
+
+def test_tai_lieu_dai_KHONG_chia_thi_cat_giua_chung_chia_roi_thi_qua():
+    """Chứng cứ "reproduces this exact failure ... and passes after" (brief,
+    Proof required): với TRẦN GIẢ LẬP 16 đơn vị/lượt, một lượt ÔM CẢ 20 đơn vị
+    (đường CŨ, trước Phase 16 R2) vượt trần và bị cắt giữa chừng — ĐÚNG chế độ
+    hỏng brief mô tả, tái hiện bằng `git stash` trên `hieu_tai_lieu.py`/
+    `llm.py`: hàm `_hieu_theo_phan` không tồn tại nữa, `TruncatedOutputError`
+    không import được, cùng lỗi thu thập test. Chia thành 2 lượt (15 + 5 đơn
+    vị, cả hai ĐỀU dưới trần giả lập) thì mỗi lượt qua được — không sửa mock,
+    chỉ sửa CÁCH `hieu_tai_lieu` gọi nó."""
+    llm = _LLMGioiHanKichThuoc(ran_han=16, ra_thanh_cong=_ra())
+    ra = h.hieu_tai_lieu({"query": "dựng lại nguyên văn biểu mẫu này"}, TL_LON, llm, "m")
+    assert llm.so_lan_goi == 2
+    assert ra["van_ban_tong_quat"] is not None
+    assert ra["tai_lieu_ket"]["tra_loi_ngan"] != h.KHONG_DUNG_LAI_DUOC.format(
+        so_ky_tu=sum(d.noi_dung.__len__() for d in DON_VI_LON)
+    )
+
+
+def test_cat_giua_chung_du_da_chia_phan_tra_loi_KHONG_DUNG_LAI_DUOC():
+    """Phase 16 R3 — đã chia lượt mà VẪN cắt cấu trúc (lượt đầu, trước khi có
+    gì để ghép): thông điệp phải nói rõ độ dài đo được và KHÔNG lặp lại lời
+    khuyên "tách nhỏ rồi gửi lại" của `QUA_DAI` (không dùng được cho một biểu
+    mẫu người dùng không tự viết ra)."""
+
+    class _LuonCat:
+        def chat(self, *a, **k):
+            raise TruncatedOutputError("model m: JSON bị cắt giữa chừng (finish_reason=length)")
+
+    ra = h.hieu_tai_lieu({"query": "dựng lại nguyên văn biểu mẫu này"}, TL_LON, _LuonCat(), "m")
+    so_ky_tu = sum(len(d.noi_dung) for d in DON_VI_LON)
+    assert ra["tai_lieu_ket"]["tra_loi_ngan"] == h.KHONG_DUNG_LAI_DUOC.format(so_ky_tu=so_ky_tu)
+    assert ra["traces"]["hieu_tai_lieu_nguon"] == "qua_dai_dau_ra"
+    assert ra["van_ban_tong_quat"] is None
+    assert "tách nhỏ" not in ra["tai_lieu_ket"]["tra_loi_ngan"], "không lặp lại lời khuyên sai chỗ của QUA_DAI"
+
+
+def test_tai_lieu_ngan_cat_giua_chung_cung_tra_loi_KHONG_DUNG_LAI_DUOC():
+    """Cùng thông điệp R3 áp dụng cho đường KHÔNG chia (tài liệu ngắn nhưng vẫn
+    cắt cấu trúc) — một chỗ `except` DUY NHẤT phục vụ cả hai đường, không phải
+    hai thông điệp khác nhau cho cùng một nguyên nhân."""
+
+    class _LuonCat:
+        def chat(self, *a, **k):
+            raise TruncatedOutputError("model m: JSON bị cắt giữa chừng (finish_reason=length)")
+
+    ra = h.hieu_tai_lieu({"query": "soạn biên bản bàn giao"}, TL, _LuonCat(), "m")
+    so_ky_tu = sum(len(dv.noi_dung) for t in TL for dv in t["don_vi"])
+    assert ra["tai_lieu_ket"]["tra_loi_ngan"] == h.KHONG_DUNG_LAI_DUOC.format(so_ky_tu=so_ky_tu)
 
 
 # ──────────────────────────────────────────── hình dạng mục / markdown / audit

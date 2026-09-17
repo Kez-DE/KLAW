@@ -47,9 +47,11 @@ class _Usage:
 class _LLM:
     def __init__(self, ra, no=False):
         self.ra, self.no, self.json_schema, self.prompt = ra, no, None, None
+        self.so_lan_goi = 0
 
-    def chat(self, model, messages, json_schema=None):
+    def chat(self, model, messages, json_schema=None, max_tokens=None):
         self.json_schema, self.prompt = json_schema, messages[-1]["content"]
+        self.so_lan_goi += 1
         if self.no:
             raise RuntimeError("openrouter 502")
         return json.dumps(self.ra, ensure_ascii=False), _Usage()

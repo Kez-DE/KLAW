@@ -11,6 +11,7 @@ trí của nó trong tài liệu.
 
 {tai_lieu}
 
+{phan_doan}
 # Quy tắc
 
 1. `muc_dich` là việc người hỏi muốn làm với tài liệu trong LƯỢT NÀY, đọc từ
