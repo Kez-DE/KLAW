@@ -7,6 +7,8 @@
  * pháp lý. Pin ở đây giữ ba nhánh của luật lọc. Chạy: `npm run kiem-xuat-tep`.
  */
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { inflateSync } from "node:zlib";
 import { Table } from "docx";
 import {
   bangThanhTable,
@@ -14,7 +16,12 @@ import {
   coSpanHang,
   docBangTuPhanTu,
   mucTuBanThao,
+  noiDungThanhPDF,
   tieuDeTuBanThao,
+  type DongVanBan,
+  type KhoiVanBan,
+  type NoiDungXuat,
+  type PhongChuPDF,
 } from "../src/lib/xuat-tep.ts";
 
 /** Phần tử giả tối thiểu: `docNoiDungTuDOM` chỉ hỏi đúng hai thứ này. */
@@ -324,4 +331,218 @@ const chuHangHai = timTat(hangXml[1]!, "w:t").map((wt) =>
 );
 assert.deepEqual(chuHangHai, ["1", "Ý thức chấp hành"]);
 
-console.info("kiem-xuat-tep: 35/35 đạt");
+// ══════════════════════════ Phase 5 — PDF có lớp chữ THẬT ══════════════════
+//
+// `noiDungThanhPDF` là hàm THUẦN (không đụng DOM/`fetch`) đúng để việc này:
+// đọc phông chữ thẳng từ đĩa (bytes base64 y hệt trình duyệt sẽ `fetch` từ
+// `public/fonts/`), dựng PDF, rồi soát NGAY trên bytes PDF thô — không dừng
+// ở "tệp không rỗng" (bản raster cũ cũng qua được phép thử đó).
+
+const phongChuPDF: PhongChuPDF = {
+  thuong: (
+    await readFile(new URL("../public/fonts/source-serif-4-pdf-regular.ttf", import.meta.url))
+  ).toString("base64"),
+  dam: (
+    await readFile(new URL("../public/fonts/source-serif-4-pdf-bold.ttf", import.meta.url))
+  ).toString("base64"),
+};
+
+const dong = (
+  text: string,
+  kieu: DongVanBan["kieu"],
+  extra: Partial<DongVanBan> = {},
+): DongVanBan => ({
+  text,
+  kieu,
+  canhGiua: false,
+  inDam: false,
+  inNghieng: false,
+  thutLe: 0,
+  ...extra,
+});
+
+// Một khối cho MỖI loại `docNoiDungTuDOM` có thể trả — không loại nào bị vẽ
+// âm thầm bỏ qua (R1): quốc hiệu, tiêu đề (căn giữa), số hiệu, một điều
+// (heading), một đoạn thường có thụt lề, RỒI một bảng có hàng ngắn hơn hàng
+// tiêu đề (Phase 8 R4, qua `coSpanHang`).
+const KHOI_MAU: KhoiVanBan[] = [
+  { kind: "dong", d: dong("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", "quocHieu", { canhGiua: true }) },
+  { kind: "dong", d: dong("HỢP ĐỒNG LAO ĐỘNG", "tieuDe", { canhGiua: true, inDam: true }) },
+  { kind: "dong", d: dong("Số: 90/2019/HĐLĐ", "soHieu") },
+  { kind: "dong", d: dong("Điều 1. Nghĩa vụ các bên", "dieu", { inDam: true }) },
+  {
+    kind: "dong",
+    d: dong("Người lao động cam kết thực hiện đúng nội quy.", "thuong", { thutLe: 12 }),
+  },
+  {
+    kind: "bang",
+    hang: [
+      ["TT", "Tiêu chí", "Điểm tối đa", "Điểm đánh giá"],
+      ["1", "Ý thức chấp hành nội quy, kỷ luật lao động", "2,0", "2,0"],
+      ["Tổng", "10"], // ngắn hơn hàng tiêu đề — bắt buộc qua `coSpanHang`
+    ],
+  },
+];
+
+// Khối ký hai cột, MỘT cột có dòng nghiêng (chú thích chữ ký, luôn nghiêng
+// thật trong tài liệu — xem `KhongGianSoanThao.tsx`) mang dấu tiếng Việt cần
+// khoá lại (R2): "ệ ằ ỗ ữ ơ Đ" hiện đúng, không phải ô vuông.
+const OKY_MAU: DongVanBan[][] = [
+  [
+    dong("NGƯỜI SỬ DỤNG LAO ĐỘNG", "thuong", { canhGiua: true, inDam: true }),
+    dong("(Ký, ghi rõ họ tên, đóng dấu)", "thuong", { canhGiua: true, inNghieng: true }),
+    dong("Đặng Văn Sỹ", "thuong", { canhGiua: true, inDam: true }),
+  ],
+  [
+    dong("NGƯỜI LAO ĐỘNG", "thuong", { canhGiua: true, inDam: true }),
+    dong("(Ký, ghi rõ họ tên)", "thuong", { canhGiua: true, inNghieng: true }),
+    dong("Vũ Thị Ệ Ằ Ỗ Ữ Ơ", "thuong", { canhGiua: true, inDam: true }),
+  ],
+];
+
+const noiDungMau: NoiDungXuat = { khoi: KHOI_MAU, oKy: OKY_MAU };
+const { pdf: pdfMau } = await noiDungThanhPDF(noiDungMau, "Kiểm PDF", phongChuPDF);
+const bytesMau = Buffer.from(pdfMau.output("arraybuffer"));
+
+/**
+ * Bóc TẤT CẢ luồng `stream…endstream` nén Flate ra khỏi một tệp PDF, giải nén
+ * từng luồng, nối lại thành một chuỗi để soát nội dung thật (thao tác vẽ chữ,
+ * bảng ánh xạ Unicode) — jsPDF (`compress: true`) nén flate mọi luồng, kể cả
+ * luồng `ToUnicode`, nên không thể `grep` thẳng trên bytes thô cho phần này.
+ * Luồng nào không giải nén được (không phải Flate, ví dụ dữ liệu nhị phân
+ * khác) bị bỏ qua thay vì làm hỏng cả phép kiểm.
+ */
+function noiDungGiaiNen(bytes: Buffer): string {
+  const tho = bytes.toString("latin1");
+  const ra: string[] = [];
+  const re = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  for (const m of tho.matchAll(re)) {
+    try {
+      ra.push(inflateSync(Buffer.from(m[1]!, "latin1")).toString("latin1"));
+    } catch {
+      // không phải luồng Flate (ví dụ nhị phân font) — bỏ qua, không phải lỗi.
+    }
+  }
+  return ra.join("\n");
+}
+
+const thoMau = bytesMau.toString("latin1");
+const giaiNenMau = noiDungGiaiNen(bytesMau);
+
+// Có thao tác vẽ CHỮ thật (Tj/TJ) trong nội dung trang — không phải "tệp
+// không rỗng" (bản `html2canvas` cũ cũng qua được phép thử yếu đó).
+assert.ok(/\bT[jJ]\b/.test(giaiNenMau), "phải có toán tử vẽ chữ Tj/TJ trong luồng nội dung trang");
+
+// Có font nhúng thật (FontFile2 — TTF nhúng nguyên khối) mang đúng tên họ
+// chữ đã đăng ký, không phải font chuẩn của jsPDF (Helvetica, không có dấu
+// tiếng Việt).
+assert.ok(
+  thoMau.includes("/FontFile2"),
+  "phải nhúng font thật (/FontFile2), không dùng font chuẩn",
+);
+assert.ok(
+  thoMau.includes("SourceSerif4"),
+  "font nhúng phải là SourceSerif4, không phải font mặc định",
+);
+
+// KHÔNG có XObject ảnh nào — đúng điều R1 đòi: chữ vẽ bằng API văn bản, không
+// còn `html2canvas`/`addImage`. Đây là phép thử phân biệt chính giữa bản vá
+// này và bản raster cũ (bản cũ CHỈ có một `/Subtype /Image` to đúng một
+// trang).
+assert.ok(!/\/Subtype\s*\/Image\b/.test(thoMau), "không được có XObject ảnh nào trong tệp PDF");
+
+// Dấu tiếng Việt round-trip vào bảng ToUnicode: "ệ" (U+1EC7) phải có một mục
+// ánh xạ CID→Unicode thật (`<mã CID><1ec7>`), không phải ô vuông không tra
+// ngược được về Unicode.
+assert.ok(
+  /<[0-9a-f]{4}><1ec7>/.test(giaiNenMau),
+  '"ệ" (U+1EC7) phải có mục ToUnicode thật, không bị mất khi nhúng font',
+);
+
+// ─────────────────────── R3 — tiêu đề không mồ côi cuối trang ───────────────
+//
+// Điền một số đoạn "thường" TRƯỚC một tiêu đề (`dieu`) rồi một đoạn ngắn sau
+// nó, tăng dần số đoạn điền cho tới khi tiêu đề bị đẩy sang trang 2 — đúng
+// chỗ một thuật toán ngắt trang ngây thơ (không có luật mồ côi) sẽ để tiêu đề
+// đứng MỘT MÌNH ở cuối trang 1, còn đoạn theo sau rơi sang trang 2. Không
+// hard-code hằng số bố cục nội bộ (`LE_PDF`, `HE_SO_DONG_PDF`…) — tự dò biên
+// bằng chính hàm thật, nên phép thử không rã nếu các hằng số đó đổi sau này.
+function taiLieuMoCoi(soDoanDien: number): NoiDungXuat {
+  const dien: KhoiVanBan[] = Array.from({ length: soDoanDien }, (_, i) => ({
+    kind: "dong" as const,
+    d: dong(`Đoạn điền chỗ trống số ${i + 1} để đẩy dần xuống cuối trang.`, "thuong"),
+  }));
+  return {
+    khoi: [
+      ...dien,
+      { kind: "dong", d: dong("Điều 9. Điều khoản dễ mồ côi", "dieu", { inDam: true }) },
+      { kind: "dong", d: dong("Đoạn theo ngay sau tiêu đề.", "thuong") },
+    ],
+    oKy: [],
+  };
+}
+
+let bienMoCoi = -1;
+for (let n = 0; n <= 80; n++) {
+  const { trangCuaKhoi } = await noiDungThanhPDF(taiLieuMoCoi(n), "Kiểm mồ côi", phongChuPDF);
+  const trangTieuDe = trangCuaKhoi[n]!;
+  if (trangTieuDe === 2) {
+    bienMoCoi = n;
+    break;
+  }
+}
+assert.ok(
+  bienMoCoi >= 0,
+  "phải dò được số đoạn điền đẩy tiêu đề sang trang 2 (tài liệu mẫu chưa đủ dài)",
+);
+
+// Tại ĐÚNG biên (và lân cận), tiêu đề và đoạn theo sau nó luôn cùng một
+// trang — luật mồ côi chủ động đẩy CẢ HAI sang trang mới, không để tiêu đề
+// đứng một mình ở cuối trang trước.
+for (const n of [bienMoCoi - 1, bienMoCoi, bienMoCoi + 1]) {
+  const { trangCuaKhoi } = await noiDungThanhPDF(taiLieuMoCoi(n), "Kiểm mồ côi", phongChuPDF);
+  assert.equal(
+    trangCuaKhoi[n],
+    trangCuaKhoi[n + 1],
+    `n=${n}: tiêu đề (khối ${n}) và đoạn theo sau (khối ${n + 1}) phải cùng trang`,
+  );
+}
+
+// ─────────────────────── R3 — khối ký nguyên vẹn một trang ─────────────────
+//
+// Cùng cách dò biên: điền đoạn cho tới khi khối ký (`oKy`) bị đẩy sang trang
+// 2 — đúng chỗ một khối ký bị TRÀN qua trang (chẻ đôi) nếu không có luật này.
+function taiLieuKy(soDoanDien: number): NoiDungXuat {
+  const dien: KhoiVanBan[] = Array.from({ length: soDoanDien }, (_, i) => ({
+    kind: "dong" as const,
+    d: dong(`Đoạn điền chỗ trống số ${i + 1} trước khối ký.`, "thuong"),
+  }));
+  return { khoi: dien, oKy: OKY_MAU };
+}
+
+let bienKy = -1;
+for (let n = 0; n <= 80; n++) {
+  const { trangCuaKy } = await noiDungThanhPDF(taiLieuKy(n), "Kiểm khối ký", phongChuPDF);
+  if (trangCuaKy === 2) {
+    bienKy = n;
+    break;
+  }
+}
+assert.ok(
+  bienKy >= 0,
+  "phải dò được số đoạn điền đẩy khối ký sang trang 2 (tài liệu mẫu chưa đủ dài)",
+);
+
+// Ngay tại biên, khối ký chỉ NHẢY nguyên khối sang trang mới — không có giá
+// trị trang nào khác 1 hoặc 2 (tức không "chẻ" nó thành nhiều mảnh rải trên
+// nhiều trang, điều `trangCuaKy: number | null` — một số DUY NHẤT — vốn
+// không biểu diễn nổi nếu nó bị chẻ).
+for (const n of [bienKy - 1, bienKy, bienKy + 1]) {
+  const { trangCuaKy } = await noiDungThanhPDF(taiLieuKy(n), "Kiểm khối ký", phongChuPDF);
+  assert.ok(
+    trangCuaKy === 1 || trangCuaKy === 2,
+    `n=${n}: khối ký phải nằm gọn trên đúng một trang`,
+  );
+}
+
+console.info("kiem-xuat-tep: 44/44 đạt");
