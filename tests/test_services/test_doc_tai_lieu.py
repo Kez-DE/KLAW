@@ -16,6 +16,7 @@ File này khoá bốn điều Pha 1 phải đúng:
 
 import zipfile
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 
@@ -288,3 +289,38 @@ def test_DonViVanBan_bat_bien():
     d = DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="x")
     with pytest.raises(Exception):
         d.noi_dung = "y"  # type: ignore[misc]
+
+
+# ─────────────────── corpus thật — không form nào ra toàn "giua" (Phase 9 U5)
+#
+# Review task quality [Medium] — báo cáo Phase 9 chỉ có một bảng đo TAY, không
+# phải một phép kiểm CAM KẾT lại được. `doc_tai_lieu.doc()` là hàm THUẦN, 0
+# token (không gọi mô hình), nên chạy được thẳng trong `pytest` — bỏ qua an
+# toàn (không fail CI) khi thư mục kho mẫu không có trên máy đang chạy.
+
+_KHO_MAU = Path.home() / "giấy tờ thực tập"
+_CORPUS_CO_MAT = _KHO_MAU.is_dir()
+_TEP_KHO_MAU = [
+    "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx",
+    "BM.ĐT.18.03. Đơn đăng ký đi thực tập tốt nghiệp Ver 02.docx",
+    "BM.ĐT.18.05. Kế hoạch thực tập tại cơ sở Ver 02.docx",
+    "BM.ĐT.18.11. Phiếu đánh giá quá trình thực tập tốt nghiệp của sinh viên tại cơ sở thực tập Ver 02 (1).docx",
+    "phiếu đánh giá thực tập công nghiệp.docx",
+    "Evaluation Form.docx",
+]
+
+
+@pytest.mark.skipif(not _CORPUS_CO_MAT, reason="kho mẫu ngoài repo không có trên máy này")
+@pytest.mark.parametrize("ten_tep", _TEP_KHO_MAU)
+def test_corpus_khong_form_nao_ra_toan_giua(ten_tep):
+    """Thất bại an toàn của một mặc định căn giữa quá tay: nếu `_can_le_doan`/
+    `_kieu_can_le` hỏng theo hướng "cứ thấy `w:jc` là căn giữa" hay tương tự,
+    dấu hiệu là CẢ tài liệu ra `giua` — không form thật nào của kho mẫu có
+    hình dạng đó (mọi form đều có ít nhất một dòng trường tự do/trái)."""
+    duong_dan = _KHO_MAU / ten_tep
+    if not duong_dan.exists():
+        pytest.skip(f"không thấy {ten_tep} trong kho mẫu")
+    t = doc(duong_dan.name, duong_dan.read_bytes())
+    can_le = [d.can_le for d in t.don_vi if d.noi_dung]
+    assert can_le, "tài liệu phải đọc ra ít nhất một đơn vị"
+    assert any(c != "giua" for c in can_le), f"{ten_tep}: mọi đơn vị ra 'giua' — mặc định căn giữa quá tay"
