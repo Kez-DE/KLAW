@@ -18,7 +18,9 @@ goi:
     luot_moi_phien: 30
   pro:
     hoi_dap_ngay: 500
-    soan_thao_ngay: 20
+    # Không giới hạn (quy ước ở đầu file: >= 100000). Quyết định của chủ dự án
+    # 2026-09-17: gói Cá nhân thôi đếm số bản thảo dựng mỗi ngày.
+    soan_thao_ngay: 100000
     soan_thao_thang: 100000
     luot_moi_phien: 100000
 
@@ -63,7 +65,15 @@ tai_lieu:
     free:
       tai_lieu_ngay: 5
     pro:
-      tai_lieu_ngay: 50
+      # Không giới hạn. Quyết định của chủ dự án 2026-09-17.
+      #
+      # ĐỌC KỸ TRƯỚC KHI COPY SANG GÓI KHÁC: con số này là cái phanh BẢO VỆ
+      # TRẦN CHI PHÍ CHUNG (`KLAW_TRAN_CHI_PHI_NGAY_USD`, mặc định 2 USD/ngày,
+      # cưỡng chế ở `bao_ve.kiem_tran_chi_phi_ngay`). Trần chung không chia theo
+      # người, nên bỏ phanh ở đây nghĩa là một tài khoản pro đọc đủ nhiều tài
+      # liệu lớn sẽ làm cạn ngân sách ngày của MỌI người dùng. Trần mỗi tài liệu
+      # (`chi_phi_usd`) vẫn chặn một tệp dị dạng, nhưng không chặn số lượng.
+      tai_lieu_ngay: 100000
   # Ước chi phí: USD trên một nghìn ký tự của tài liệu. Con số khởi đầu, chỉnh
   # lại khi có số đo thật từ `traces.rut_du_kien_cost_usd`.
   # ponytail: ước tuyến tính theo độ dài, nâng lên đếm token thật nếu lệch nhiều.
