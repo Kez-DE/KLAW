@@ -3,6 +3,7 @@
 import dataclasses
 import json
 import logging
+import re
 import time
 import uuid
 from datetime import UTC, datetime
@@ -134,6 +135,15 @@ def _render_markdown(loai: str, clauses: list, tieu_de: str | None = None) -> st
     theo định nghĩa KHÔNG có checklist nào để tra, nên gọi `load_checklist_cached`
     ở đó sẽ nổ — và cái phải đổi là hàm này, không phải một hàm render thứ hai
     đi song song rồi trôi lệch khuôn Markdown.
+
+    Cả hai nhánh đọc `clauses` bằng KHOÁ DICT (`c["ten"]`/`c["noi_dung"]`), kể
+    cả nhánh checklist (Phase 3, R2) — trước bản vá này nhánh đó đọc bằng
+    THUỘC TÍNH (`c.ten`), chỉ đúng khi gọi bằng `DraftClause` thô như
+    `tu_state_soan_thao` từng làm. `sua_tay` (R2, viết tay KHÔNG qua một lượt
+    `draft_generate` mới) chỉ có sẵn `clauses` dạng dict (đọc thẳng từ cột
+    JSONB) — ép cả hai nhánh về MỘT quy ước đọc là để hàm này dùng lại được
+    cho `sua_tay` mà không cần một bản render thứ hai; `tu_state_soan_thao`
+    (bên dưới) đổi sang truyền `dataclasses.asdict(c)` TRƯỚC khi gọi vào đây.
     """
     if loai == "tong_quat":
         phan = [f"# {tieu_de or 'Văn bản'}", ""]
@@ -143,8 +153,20 @@ def _render_markdown(loai: str, clauses: list, tieu_de: str | None = None) -> st
     cl = load_checklist_cached(loai)
     phan = [f"# {cl.tieu_de}", ""]
     for i, c in enumerate(clauses, 1):
-        phan.append(f"## {cl.don_vi_muc} {i}. {c.ten}\n\n{c.noi_dung}\n")
+        phan.append(f"## {cl.don_vi_muc} {i}. {c['ten']}\n\n{c['noi_dung']}\n")
     return "\n".join(phan)
+
+
+def _tieu_de_tu_document(document: str | None) -> str | None:
+    """Tiêu đề THẬT của một bản thảo tổng quát — dòng H1 đầu tiên của
+    `document` (bản sao backend của `xuat-tep.tieuDeTuBanThao`, phía FE).
+
+    `sua_tay` cần hàm này để dựng LẠI `document` sau khi sửa một khối mà
+    KHÔNG đổi tiêu đề văn bản — `_render_markdown` chỉ nhận `tieu_de` làm
+    tham số, nó không tự nhớ tiêu đề cũ."""
+    dong_dau = (document or "").split("\n", 1)[0]
+    m = re.match(r"^#\s+(.+)$", dong_dau.strip())
+    return m.group(1).strip() if m else None
 
 
 def kiem_tran_sua(cu: dict) -> None:
@@ -184,6 +206,10 @@ def tu_state_soan_thao(st: dict) -> dict:
     (đúng tập `requirements(loai)[2]` mà route cũ gọi lại) để tái tạo đúng y hệt.
     """
     clauses = st.get("clauses") or []
+    # Chuyển sang dict TRƯỚC khi gọi `_render_markdown` (Phase 3, R2): hàm đó
+    # giờ đọc CẢ HAI nhánh bằng khoá dict, để `sua_tay` gọi lại được nó trên
+    # `clauses` đã lưu (JSONB, luôn là dict, chưa từng là `DraftClause`).
+    clauses_dict = [dataclasses.asdict(c) for c in clauses]
     idx = _duong_dan_index(st.get("db_provisions") or {})
     r = st["audit_report"]
     audit_report = {
@@ -194,8 +220,8 @@ def tu_state_soan_thao(st: dict) -> dict:
         "findings": [_finding_out(f, idx) for f in r.findings],
     }
     return {
-        "document": _render_markdown(st["loai"], clauses),
-        "clauses": [dataclasses.asdict(c) for c in clauses],
+        "document": _render_markdown(st["loai"], clauses_dict),
+        "clauses": clauses_dict,
         "audit_report": audit_report,
     }
 
@@ -299,6 +325,174 @@ def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
                     "phien_ban_ke_tiep": cu["phien_ban_ke_tiep"] + 1,
                     "truoc": _j(truoc),
                     # Bộ đếm trần sửa — chỉ ĐI LÊN, và chỉ ở đây (xem `lui`).
+                    "tang": 1,
+                },
+            )
+            .mappings()
+            .one()
+        )
+    return dict(r)
+
+
+LOI_MUC_KHONG_THAY = "Không tìm thấy mục này trong bản thảo."
+LOI_KHOI_KHONG_SUA_DUOC = "Khối này không sửa được (không tồn tại, hoặc là một bảng)."
+
+
+def _khoi_hop_le_mot(k: dict) -> list[str]:
+    """MỘT khối thô (`clause['khoi'][i]`) → danh sách "loai" khối nó thật sự
+    hiển thị ra ("van_xuoi", "bang") — bản sao backend của `xuat-tep.
+    khoiMotHopLe`: một khối lẽ ra chỉ mang MỘT trong hai (`noi_dung` HOẶC
+    `bang`), nhưng không được TIN điều đó (Phase 8 fix round 1) — cả hai
+    không rỗng thì trả CẢ HAI, văn xuôi trước, đúng thứ tự phía FE dựng.
+    """
+    if not isinstance(k, dict):
+        return []
+    noi_dung = k.get("noi_dung") if isinstance(k.get("noi_dung"), str) else ""
+    bang = k.get("bang")
+    ra = []
+    if noi_dung != "":
+        ra.append("van_xuoi")
+    if isinstance(bang, list) and bang:
+        ra.append("bang")
+    return ra
+
+
+def _vi_tri_khoi_tho(khoi_tho: list, khoi_index: int) -> int | None:
+    """`khoi_index` (chỉ số khối HIỂN THỊ, đúng thứ tự `Muc.khoi` phía FE
+    dựng — xem `khoiTuClause`) → chỉ số phần tử THÔ tương ứng trong
+    `clause['khoi']`, hoặc `None` khi khối đó là bảng (chưa sửa được ở giai
+    đoạn này — quyết định D dưới) hoặc `khoi_index` vượt quá số khối có.
+    """
+    dem = 0
+    for i, k in enumerate(khoi_tho):
+        for loai in _khoi_hop_le_mot(k):
+            if dem == khoi_index:
+                return i if loai == "van_xuoi" else None
+            dem += 1
+    return None
+
+
+def _ap_dung_khoi(clause: dict, khoi_index: int, noi_dung_moi: str) -> dict | None:
+    """`clause` cộng một khối văn xuôi đã sửa, hoặc `None` khi `khoi_index`
+    không trỏ tới một khối văn xuôi sửa được.
+
+    Ba hình dạng `clause` từng có (Phase 8 `khoi`; Phase 7 `noi_dung`+`bang`
+    rời; trước đó chỉ `noi_dung`) — CÙNG bản đồ thứ tự `xuat-tep.
+    khoiTuClause` phía FE dùng để dựng `Muc.khoi`, vì `khoi_index` gửi lên
+    trỏ vào ĐÚNG mảng đó, không phải một chỉ số backend tự suy ra khác.
+
+    Quyết định D (R1 — bảng không sửa được ở giai đoạn này): một khối `bang`
+    luôn trả `None` ở đây, bất kể hình dạng — xem lý do trong báo cáo phase 3
+    (`_khop_bang`/`_bang_khop_het` chỉ chạy lúc DỰNG bản thảo, không chạy lại
+    trên một sửa tay; nhưng tỉ lệ cột/nhịp merge của một bảng chỉ sống trong
+    `nhip`/`ti_le` — sửa ô rồi không có chỗ nào giữ lại hai trường đó nếu ghi
+    đè cả `bang`, nên việc đó để một giai đoạn sau, có UI biên tập theo ô).
+    """
+    khoi = clause.get("khoi")
+    if isinstance(khoi, list):
+        i = _vi_tri_khoi_tho(khoi, khoi_index)
+        if i is None:
+            return None
+        khoi_moi = list(khoi)
+        khoi_moi[i] = {**khoi[i], "noi_dung": noi_dung_moi}
+        return {**clause, "khoi": khoi_moi}
+    # Hình dạng cũ (Phase 7 trở về trước, không có khoá `khoi`) — mirror thứ
+    # tự văn-xuôi-rồi-bảng của `khoiTuClause`'s nhánh fallback.
+    bang = clause.get("bang")
+    bang_hop_le = isinstance(bang, list) and len(bang) > 0
+    noi_dung_cu = clause.get("noi_dung")
+    if noi_dung_cu is None:
+        noi_dung_cu = "" if bang_hop_le else "[…]"
+    if noi_dung_cu == "" or khoi_index != 0:
+        return None
+    return {**clause, "noi_dung": noi_dung_moi}
+
+
+def sua_tay(sub: str, id: str, muc_key: str, khoi_index: int, noi_dung_moi: str) -> dict | str | None:
+    """Ghi văn bản gõ TAY vào một khối của một mục — 0 lượt gọi mô hình (Phase
+    3, R1/R2): không đi qua `graph_soan_thao`/`draft_generate` như `sua()`
+    thường được gọi (qua `dung_lai`), chỉ sửa TẠI CHỖ một khối của `clauses`
+    đã lưu rồi ghi lại bằng ĐÚNG `_SQL_LAY_KHOA`/`_SQL_SUA` mà `sua()` dùng —
+    một transaction, một khoá, không một cơ chế ghi song song.
+
+    Trả `dict` (bản thảo mới) khi thành công; MỘT CHUỖI lỗi tiếng Việt khi
+    request đúng hình dạng nhưng không làm được (hết trần sửa, mục/khối
+    không thấy — 422 ở tầng route); `None` khi bản thảo không thấy/không phải
+    chủ (404, cùng hợp đồng mọi hàm khác ở đây).
+
+    `TRAN_SUA` (R2) — MỘT sửa tay tính vào ĐÚNG bộ đếm `so_lan_sua` mà `sua()`
+    dùng, không một bộ đếm riêng miễn phí: sửa tay không tốn tiền LLM, nhưng
+    mỗi lần ghi đều đẩy một snapshot vào `phien_ban_truoc` (mảng CHỈ giữ
+    `TRAN_SUA` bản gần nhất — xem `_snap`/dòng cắt mảng bên dưới), và một
+    đường sửa không đếm vào trần sẽ ghi KHÔNG GIỚI HẠN, đủ để đẩy sạch mọi
+    phiên bản THẬT (tốn tiền LLM) ra khỏi lịch sử — đúng rủi ro brief nêu
+    ("uncapped edit path can evict real generated versions"). Chia sẻ trần
+    với `dung_lai` nghĩa là một phiên sửa tay nhiều câu vẫn có thể chạm trần
+    và phải mở bản thảo mới — đánh đổi đã biết, chấp nhận được vì mỗi lần gọi
+    hàm này là một lần COMMIT (blur/rời khối), không phải mỗi phím gõ.
+
+    `document` được DỰNG LẠI từ `clauses` đã sửa (R2) — không patch một dòng
+    Markdown, để `document`/`clauses` không bao giờ trôi lệch nhau; tiêu đề
+    (`tieu_de`) giữ NGUYÊN từ chính `document` cũ, không đổi.
+    """
+    with get_engine().begin() as c:
+        cu = c.execute(_SQL_LAY_KHOA, {"sub": sub, "id": id}).mappings().one_or_none()
+        if cu is None:
+            return None
+        cu = dict(cu)
+        try:
+            kiem_tran_sua(cu)
+        except ValueError as e:
+            return str(e)
+        clauses = list(cu["clauses"] or [])
+        idx = next((i for i, cl in enumerate(clauses) if isinstance(cl, dict) and cl.get("key") == muc_key), None)
+        if idx is None:
+            return LOI_MUC_KHONG_THAY
+        clause_moi = _ap_dung_khoi(clauses[idx], khoi_index, noi_dung_moi)
+        if clause_moi is None:
+            return LOI_KHOI_KHONG_SUA_DUOC
+        clauses_moi = list(clauses)
+        clauses_moi[idx] = clause_moi
+        # R3 (D3) — một sửa tay hạ MỨC KIỂM: bất cứ audit/checklist nào đã
+        # chạy trên văn bản CŨ không còn nói đúng về văn bản NGƯỜI DÙNG vừa
+        # viết. Dùng lại đúng giá trị `muc_kiem` mà một bản thảo tổng quát
+        # (chưa qua checklist) đã mang — không phát minh một mã mới — cộng
+        # thêm `sua_tay=True` để phân biệt "chưa ai kiểm" (bản thảo tổng quát
+        # gốc) với "người dùng đã tự sửa" (badge khác nhau, xem `nhanMucKiem`).
+        audit_moi = {**(cu["audit"] or {}), "muc_kiem": LOAI_TONG_QUAT, "sua_tay": True}
+        # `_render_markdown`'s nhánh `tong_quat` đọc `c['noi_dung']` PHẲNG —
+        # một `clause` tổng quát thật mang `khoi` (mảng khối), không phải một
+        # chuỗi. `ket_ban_thao` (dung_ban_thao_tong_quat.py) đã giải quyết
+        # đúng chỗ lệch này một lần cho đường DỰNG bản thảo, bằng
+        # `_khoi_thanh_van_ban`; dùng LẠI đúng hàm đó ở đây (import trễ để
+        # tránh vòng import — `dung_ban_thao_tong_quat` nhập module này ở đầu
+        # file) thay vì một bản làm phẳng thứ hai có thể trôi lệch với bản
+        # gốc. Bản thảo checklist (`loai != tong_quat`) đã đúng hình dạng
+        # phẳng sẵn (`{ten, noi_dung}`), không cần bước này.
+        if cu["loai"] == LOAI_TONG_QUAT:
+            from src.agents.nodes.dung_ban_thao_tong_quat import _khoi_thanh_van_ban
+
+            hien_thi = [{"ten": cl["ten"], "noi_dung": _khoi_thanh_van_ban(cl.get("khoi") or [])} for cl in clauses_moi]
+        else:
+            hien_thi = clauses_moi
+        document_moi = _render_markdown(cu["loai"], hien_thi, _tieu_de_tu_document(cu["document"]))
+        # `facts` không đổi — `doi_so_voi` luôn `[]` cho một sửa tay (nó sửa
+        # `clauses`, không sửa `facts`); giữ nguyên tham số cho `_snap` không
+        # cần một hình dạng thứ hai.
+        truoc = sorted([*(cu["phien_ban_truoc"] or []), _snap(cu)], key=lambda t: t["phien_ban"])[-TRAN_SUA:]
+        r = (
+            c.execute(
+                _SQL_SUA,
+                {
+                    "sub": sub,
+                    "id": id,
+                    "facts": _j(cu["facts"]),
+                    "document": document_moi,
+                    "clauses": _j(clauses_moi),
+                    "audit": _j(audit_moi),
+                    "phien_ban": cu["phien_ban_ke_tiep"],
+                    "phien_ban_ke_tiep": cu["phien_ban_ke_tiep"] + 1,
+                    "truoc": _j(truoc),
                     "tang": 1,
                 },
             )
