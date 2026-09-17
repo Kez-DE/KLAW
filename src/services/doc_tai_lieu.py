@@ -17,6 +17,7 @@ chúng thành một nhãn "không đọc được" là vứt đi thứ duy nhấ
 """
 
 import logging
+import os
 import shutil
 import subprocess
 import tempfile
@@ -37,7 +38,22 @@ KY_TU_MOI_TRANG = 3000
 
 _NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 _DUOI_ANH = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp", ".bmp", ".heic")
-_DUOI_HO_TRO = (".pdf", ".docx", *_DUOI_ANH)
+_DUOI_HO_TRO = (".pdf", ".docx", ".doc", *_DUOI_ANH)
+
+# .doc là OLE2/CFB (Compound File Binary), không phải zip+XML — không đọc trực
+# tiếp được bằng `zipfile`. Chuyển sang .docx bằng LibreOffice headless rồi TÁI
+# DÙNG `_doc_docx` KHÔNG ĐỔI GÌ: đo trên BM.M05 thật (`.sdd/phase-13-brief.md`),
+# vòng .doc -> .docx giữ nguyên số đoạn, số bảng và tỉ lệ cột — viết một bộ đọc
+# .doc riêng (kiểu antiword) sẽ vứt bỏ đúng những gì Phase 8/9/11 dựng lên.
+_OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+
+# LibreOffice là một tiến trình con nhận dữ liệu KHÔNG ĐÁNG TIN (CVE history có
+# thật). 60 giây: soffice khởi động nguội mất vài giây, một .doc hợp lệ dưới
+# trần TRAN_BYTE (20 MB, `tai_lieu.kiem_kich_thuoc`) chuyển xong trong vài giây
+# nữa — một tệp CỐ Ý làm treo bộ phân tích OLE2 phải lộ ra trong một phút, không
+# phải đợi hết `_HAN_TREO_GIAY` (300s) vốn đo cho OCR cả trang ảnh, việc nặng
+# hơn nhiều lần.
+_HAN_CHUYEN_DOI_GIAY = 60
 
 # Dưới ngưỡng này thì chữ OCR đọc ra là nhiễu chứ không phải nội dung. Đo trên
 # một trang sạch: tesseract `vie` cho 92–96%. Để 0.60 vì trang chụp nghiêng, mờ
@@ -182,6 +198,10 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
             thoi = _ocr_pdf(du_lieu)
     elif ten.endswith(".docx"):
         thoi = _doc_docx(du_lieu)
+    elif ten.endswith(".doc"):
+        # Chuyển trước, đọc sau — bằng ĐÚNG một hàm `_doc_docx`, không nhánh
+        # riêng nào biết tệp .docx này từng là .doc.
+        thoi = _doc_docx(_chuyen_doc_sang_docx(du_lieu))
     elif ten.endswith(_DUOI_ANH):
         thoi = _ocr_anh(du_lieu)
     else:
@@ -452,6 +472,110 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
         # phân biệt được hai ca này nếu không đọc header OLE; báo `tep_hong` là
         # nói đúng những gì biết chắc.
         raise KhongDocDuoc(LoaiHong.tep_hong, "không mở được tệp docx") from e
+
+
+# ------------------------------------------------------------------------- DOC
+
+
+def _duong_soffice() -> str | None:
+    """Đường dẫn `soffice`. `KLAW_SOFFICE_PATH` (Settings) THẮNG dò theo PATH —
+    máy dev, CI và container triển khai không chắc cài LibreOffice ở cùng một
+    chỗ, cùng cách mọi công cụ ngoài khác của dự án đọc qua Settings thay vì
+    một hằng số cứng. `None` khi cả hai đều không ra gì — người gọi phải báo
+    lỗi rõ ràng, không được thử gọi một chuỗi rỗng làm lệnh."""
+    from src.config import get_settings
+
+    return get_settings().soffice_path or shutil.which("soffice")
+
+
+def _la_ole2(du_lieu: bytes) -> bool:
+    """8 byte đầu của container OLE2/CFB — .doc, .xls, .ppt (bản cũ) đều dùng
+    chung. Không đọc sâu hơn (thư mục CFB) để biết đây có đúng là Word hay
+    không: một .xls/.ppt đổi đuôi thành .doc qua được cửa này, nhưng KHÔNG qua
+    được bộ chuyển đổi phía dưới — soffice mở nó bằng Calc/Impress rồi không
+    xuất được sang khuôn Writer (.docx), và việc đó tự rơi vào nhánh `tep_hong`.
+    Viết thêm một bộ phân tích CFB chỉ để bắt sớm hơn một chế độ hỏng vốn đã bị
+    chặn là dư."""
+    return du_lieu[:8] == _OLE2_MAGIC
+
+
+def _chuyen_doc_sang_docx(du_lieu: bytes) -> bytes:
+    """.doc (OLE2) -> bytes .docx, bằng LibreOffice headless.
+
+    Ba điều làm tiến trình con này an toàn với dữ liệu người dùng:
+
+    - Hồ sơ (`-env:UserInstallation`) RIÊNG cho MỖI lần gọi, trong chính thư
+      mục tạm sắp bị xoá — hồ sơ mặc định DÙNG CHUNG là nguồn lỗi đã biết "lần
+      chuyển đổi thứ hai lặng lẽ không làm gì" khi hai tiến trình soffice đụng
+      khoá cùng một hồ sơ.
+    - TRẦN THỜI GIAN cứng (`_HAN_CHUYEN_DOI_GIAY`) — một .doc cố ý làm treo bộ
+      phân tích OLE2 phải hỏng việc đọc, không được treo cả request.
+    - MÔI TRƯỜNG tối giản — tiến trình con KHÔNG thừa hưởng biến môi trường của
+      ứng dụng (API key, secrets khác). Không có cách tắt macro bằng cờ dòng
+      lệnh, nhưng một hồ sơ MỚI TOANH giữ mức an toàn macro mặc định "Trung
+      bình" (hỏi trước khi chạy) — ở chế độ headless không có hộp thoại nào để
+      lỡ tay bấm "Đồng ý", nên macro không tự chạy được; môi trường tối giản
+      thêm một lớp nữa: dù có gì chạy được, không có mạng và không có gì đáng
+      lấy trộm trong biến môi trường.
+
+    Tệp .doc và .docx tạm đều nằm trong MỘT thư mục do
+    `tempfile.TemporaryDirectory` dựng và tự xoá khi hàm kết thúc — kể cả khi
+    kết thúc bằng lỗi. Không nhánh nào để lại tệp trên đĩa (FR-022 áp dụng cho
+    cả bản chuyển đổi: nó vẫn là bytes gốc của người dùng, chỉ khác lớp vỏ).
+    """
+    if not _la_ole2(du_lieu):
+        raise KhongDocDuoc(LoaiHong.tep_hong, "tệp .doc không đúng định dạng OLE2")
+
+    soffice = _duong_soffice()
+    if not soffice:
+        raise KhongDocDuoc(
+            LoaiHong.khong_co_lop_chu,
+            "máy chủ chưa cài LibreOffice, chưa chuyển đổi được tệp .doc",
+        )
+
+    from pathlib import Path as _P  # noqa: N814 — cùng cách `_ocr_pdf` làm
+
+    with tempfile.TemporaryDirectory() as tmp:
+        thu_muc = _P(tmp)
+        vao = thu_muc / "vao.doc"
+        vao.write_bytes(du_lieu)
+        moi_truong = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": tmp}
+        try:
+            kq = subprocess.run(
+                [
+                    soffice,
+                    "--headless",
+                    "--invisible",
+                    "--nocrashreport",
+                    "--nodefault",
+                    "--nofirststartwizard",
+                    "--nolockcheck",
+                    "--nologo",
+                    "--norestore",
+                    f"-env:UserInstallation=file://{thu_muc / 'ho_so'}",
+                    "--convert-to",
+                    "docx:MS Word 2007 XML",
+                    "--outdir",
+                    tmp,
+                    str(vao),
+                ],
+                capture_output=True,
+                timeout=_HAN_CHUYEN_DOI_GIAY,
+                env=moi_truong,
+            )
+        except subprocess.TimeoutExpired as e:
+            raise KhongDocDuoc(LoaiHong.tep_hong, "chuyển đổi tệp .doc quá lâu") from e
+
+        ra = thu_muc / "vao.docx"
+        if kq.returncode != 0 or not ra.exists():
+            logger.warning(
+                "doc_tai_lieu: soffice không chuyển được .doc (mã %s): %s",
+                kq.returncode,
+                kq.stderr.decode("utf-8", errors="replace")[:500],
+            )
+            raise KhongDocDuoc(LoaiHong.tep_hong, "không chuyển đổi được tệp .doc")
+
+        return ra.read_bytes()
 
 
 # ------------------------------------------------------------------------- PDF

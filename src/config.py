@@ -283,6 +283,13 @@ class Settings(BaseSettings):
     # quản trị đóng. Cổng công khai không đọc biến này.
     admin_api_key: str = Field(default="", validation_alias="KLAW_ADMIN_API_KEY")
 
+    # ══ Tài liệu — chuyển đổi .doc (Phase 13) ═══════════════════════════════
+    # RỖNG = dò `soffice` theo PATH (`shutil.which`). Máy dev, CI và container
+    # triển khai không chắc cài LibreOffice ở cùng một đường dẫn (dev: Homebrew
+    # ở `/opt/homebrew/bin/soffice`; container: gói apt ở `/usr/bin/soffice`),
+    # nên đường dẫn là DỮ LIỆU cấu hình, không phải hằng số cứng trong code.
+    soffice_path: str = Field(default="", validation_alias="KLAW_SOFFICE_PATH")
+
 
 @lru_cache
 def get_settings() -> Settings:

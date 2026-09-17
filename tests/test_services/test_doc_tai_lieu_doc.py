@@ -1,0 +1,147 @@
+"""`.doc` cũ (OLE2) — chuyển bằng LibreOffice rồi tái dùng đường đọc DOCX
+KHÔNG ĐỔI GÌ (`.sdd/phase-13-brief.md`, Phase 13).
+
+Ba điều file này khoá:
+
+1. Vòng .doc -> .docx không đánh mất cấu trúc: số đoạn, số bảng, tỉ lệ cột
+   phải giống hệt bản .docx gốc — đo trên BM.M05 thật, cùng tệp và cùng cách
+   brief đã đo tay (`MS Word 97` rồi ngược lại). Không viết một bộ đọc .doc
+   riêng: `doc()` phải tái dùng ĐÚNG `_doc_docx`.
+2. `.doc` là một CHỮ KÝ byte (OLE2/CFB), không phải một đuôi tên tệp — dữ liệu
+   không phải OLE2 (ví dụ một .docx bị đổi tên nhầm) phải bị chặn TRƯỚC khi
+   chạm bộ chuyển đổi, không phải sau khi soffice báo lỗi.
+3. Bộ chuyển đổi là một tiến trình con nhận dữ liệu KHÔNG ĐÁNG TIN: treo phải
+   bị cắt sạch trong một hạn định, và thư mục tạm (đầu vào, đầu ra, hồ sơ
+   soffice) không được sống sót qua lần gọi dù việc chuyển đổi thành hay bại.
+"""
+
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from src.services.doc_tai_lieu import KhongDocDuoc, LoaiHong, doc
+
+_OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+_CO_SOFFICE = shutil.which("soffice") is not None
+
+# Cùng kho mẫu ngoài repo mà `test_doc_tai_lieu.py`/`test_ban_thao_tong_quat.py`
+# đã dùng cho Phase 9/11 — đây chính là tệp brief đã đo tay cho quyết định
+# "chuyển đổi, không viết bộ đọc riêng".
+_KHO_MAU = Path.home() / "giấy tờ thực tập"
+_BM_M05 = _KHO_MAU / "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx"
+
+
+def _docx_sang_doc_that(docx_bytes: bytes, tmp_path: Path) -> bytes:
+    """Dùng CHÍNH soffice để dựng một .doc THẬT từ .docx — cùng bộ lọc
+    `MS Word 97` brief đã đo tay. Đây là SETUP của test: sản phẩm chỉ đi một
+    chiều .doc -> .docx, chiều ngược lại chỉ tồn tại để có dữ liệu thử."""
+    vao = tmp_path / "goc.docx"
+    vao.write_bytes(docx_bytes)
+    subprocess.run(
+        ["soffice", "--headless", "--convert-to", "doc:MS Word 97", "--outdir", str(tmp_path), str(vao)],
+        check=True,
+        capture_output=True,
+        timeout=60,
+    )
+    return (tmp_path / "goc.doc").read_bytes()
+
+
+def _tom_tat(t):
+    """(số đoạn ngoài bảng, số bảng, tỉ lệ cột từng bảng) — so trực tiếp hai vế
+    thay vì ghim lại con số brief đã đo, để một cách đếm khác đi ở tương lai
+    vẫn giữ được phép so sánh này đúng."""
+    doan = [d.noi_dung for d in t.don_vi if d.bang is None]
+    id_bang = sorted({d.bang[0] for d in t.don_vi if d.bang is not None})
+    grid = [next(d.bang_ti_le for d in t.don_vi if d.bang is not None and d.bang[0] == b) for b in id_bang]
+    return len(doan), len(id_bang), grid
+
+
+@pytest.mark.skipif(not _CO_SOFFICE, reason="cần LibreOffice để chuyển đổi .doc")
+@pytest.mark.skipif(not _BM_M05.exists(), reason="kho mẫu ngoài repo (BM.M05) không có trên máy này")
+def test_DOC_giu_dung_cau_truc_nhu_DOCX_goc(tmp_path):
+    docx_goc = _BM_M05.read_bytes()
+    t_docx = doc(_BM_M05.name, docx_goc)
+
+    doc_that = _docx_sang_doc_that(docx_goc, tmp_path)
+    t_doc = doc("giay-tiep-nhan.doc", doc_that)
+
+    assert _tom_tat(t_doc) == _tom_tat(t_docx)
+
+
+def test_DOC_khong_bi_tu_choi_vi_DINH_DANG():
+    """.doc giờ được NHẬN — không còn rơi vào `dinh_dang_khong_ho_tro`, bất kể
+    LibreOffice có mặt hay không (vắng mặt thì rơi vào `khong_co_lop_chu`, có
+    mặt mà nội dung rác thì rơi vào `tep_hong`)."""
+    try:
+        doc("hd.doc", _OLE2_MAGIC + b"\x00" * 100)
+    except KhongDocDuoc as e:
+        assert e.ly_do is not LoaiHong.dinh_dang_khong_ho_tro
+
+
+def test_DOC_gia_mao_KHONG_phai_OLE2_bi_chan_TRUOC_bo_chuyen_doi():
+    """Một .docx (chữ ký zip `PK`) bị đổi tên nhầm thành .doc — lỗi người dùng
+    thường gặp. Đuôi tên tệp nói .doc nhưng byte nói khác; phải tin byte, và
+    phải chặn TRƯỚC khi gọi soffice, không đợi soffice từ chối."""
+    with patch("src.services.doc_tai_lieu._duong_soffice") as gia_bo_chuyen_doi:
+        with pytest.raises(KhongDocDuoc) as e:
+            doc("nham-duoi.doc", b"PK\x03\x04" + b"\x00" * 100)
+    assert e.value.ly_do is LoaiHong.tep_hong
+    gia_bo_chuyen_doi.assert_not_called()
+
+
+def test_DOC_khong_co_soffice_bao_loi_ro_khong_phai_500(monkeypatch):
+    """LibreOffice vắng mặt lúc chạy phải ra lỗi CỤ THỂ (`KhongDocDuoc`, ánh xạ
+    422 ở tầng API) — không phải 500, không phải một `hong` câm lặng không rõ
+    lý do."""
+    monkeypatch.setattr("src.services.doc_tai_lieu._duong_soffice", lambda: None)
+    with pytest.raises(KhongDocDuoc) as e:
+        doc("hd.doc", _OLE2_MAGIC + b"\x00" * 100)
+    assert e.value.ly_do is LoaiHong.khong_co_lop_chu
+
+
+def test_DOC_qua_han_treo_hong_sach_khong_treo_ca_request(monkeypatch):
+    """Một .doc cố ý làm treo bộ phân tích OLE2 phải hỏng việc đọc trong hạn
+    định, không được treo cả request (R3)."""
+    monkeypatch.setattr("src.services.doc_tai_lieu._duong_soffice", lambda: "/usr/bin/soffice")
+
+    def _treo(*a, **k):
+        raise subprocess.TimeoutExpired(cmd="soffice", timeout=k.get("timeout", 60))
+
+    monkeypatch.setattr(subprocess, "run", _treo)
+    with pytest.raises(KhongDocDuoc) as e:
+        doc("hd.doc", _OLE2_MAGIC + b"\x00" * 100)
+    assert e.value.ly_do is LoaiHong.tep_hong
+
+
+def test_DOC_tep_tam_khong_song_sot_qua_lan_goi_khi_chuyen_doi_hong(monkeypatch):
+    """Thư mục tạm (đầu vào .doc, đầu ra .docx, hồ sơ soffice riêng) phải bị
+    xoá kể cả khi bộ chuyển đổi báo lỗi — không nhánh nào để lại tệp của người
+    dùng trên đĩa (FR-022 áp dụng cho cả bản chuyển đổi)."""
+    monkeypatch.setattr("src.services.doc_tai_lieu._duong_soffice", lambda: "/usr/bin/soffice")
+
+    duong_da_dung: list[str] = []
+    goc_tao = tempfile.TemporaryDirectory
+
+    class _ThuMucGiamSat(goc_tao):
+        def __enter__(self):
+            p = super().__enter__()
+            duong_da_dung.append(p)
+            return p
+
+    monkeypatch.setattr("src.services.doc_tai_lieu.tempfile.TemporaryDirectory", _ThuMucGiamSat)
+
+    def _chuyen_doi_hong(*a, **k):
+        return subprocess.CompletedProcess(args=a, returncode=1, stdout=b"", stderr=b"loi gia lap")
+
+    monkeypatch.setattr(subprocess, "run", _chuyen_doi_hong)
+
+    with pytest.raises(KhongDocDuoc) as e:
+        doc("hd.doc", _OLE2_MAGIC + b"\x00" * 100)
+
+    assert e.value.ly_do is LoaiHong.tep_hong
+    assert duong_da_dung, "phải có ít nhất một thư mục tạm được dựng lên"
+    assert not Path(duong_da_dung[0]).exists(), "thư mục tạm phải bị xoá sau khi hàm kết thúc"
