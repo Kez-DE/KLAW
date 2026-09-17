@@ -1,5 +1,11 @@
 import { cn } from "@/lib/utils";
-import { nhipHangVe, tiLeCotVe, tieuDeDaXuatHienTrongThan, type Muc } from "@/lib/xuat-tep";
+import {
+  nhipHangVe,
+  soCotThat,
+  tiLeCotVe,
+  tieuDeDaXuatHienTrongThan,
+  type Muc,
+} from "@/lib/xuat-tep";
 
 interface Props {
   tieuDe: string;
@@ -145,51 +151,70 @@ export function XemTruocA4({
                   // theo ĐÚNG tỉ lệ đó thay vì tự co theo nội dung. `data-ti-le`
                   // trên mỗi `<col>` là chỗ `docBangTuPhanTu` (xuat-tep.ts) đọc
                   // lại % đã vẽ khi xuất `.docx`/PDF — một nguồn, ba nơi dùng.
-                  <table
-                    key={i}
-                    className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
-                    style={{ tableLayout: "fixed" }}
-                  >
-                    <colgroup>
-                      {tiLeCotVe(k.tiLe, k.hang[0]?.length ?? 0).map((ti, oi) => (
-                        <col key={oi} data-ti-le={ti} style={{ width: `${ti}%` }} />
-                      ))}
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        {(k.hang[0] ?? []).map((o, oi) => (
-                          <th
-                            key={oi}
-                            className="border border-[#999] bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold"
-                          >
-                            {o}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {k.hang.slice(1).map((hang, hi) => {
-                        const soCotTieuDe = k.hang[0]?.length ?? hang.length;
-                        const span = nhipHangVe(hang, k.nhip[hi + 1], soCotTieuDe);
-                        return (
-                          <tr key={hi}>
-                            {hang.map((o, oi) => {
-                              const cot = span[oi] ?? 1;
+                  // Số cột LƯỚI THẬT (Phase 11 fix round 3, reviewer I5) —
+                  // từ `tiLe` khi bảng có khai lưới nguồn, không phải số Ô
+                  // của hàng đầu: một hàng đầu có ô gộp (dòng tiêu đề toàn
+                  // bảng) có ÍT ô hơn số cột thật, và lấy nhầm số đó làm
+                  // chuẩn khiến `tiLeCotVe` coi tỉ lệ thật là "sai hình dạng"
+                  // rồi chia đều oan — đúng bảng R1 tồn tại để giữ tỉ lệ.
+                  // `<thead>` giờ cũng áp `colSpan` cho hàng tiêu đề, cùng
+                  // luật ô gộp `<tbody>` đã dùng — trước bản vá này, hàng tiêu
+                  // đề không có `colSpan` nào nên lệch cột với thân bảng khi
+                  // chính nó có ô gộp.
+                  (() => {
+                    const soCot = soCotThat(k.hang, k.tiLe);
+                    const spanTieuDe = nhipHangVe(k.hang[0] ?? [], k.nhip[0], soCot);
+                    return (
+                      <table
+                        key={i}
+                        className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
+                        style={{ tableLayout: "fixed" }}
+                      >
+                        <colgroup>
+                          {tiLeCotVe(k.tiLe, soCot).map((ti, oi) => (
+                            <col key={oi} data-ti-le={ti} style={{ width: `${ti}%` }} />
+                          ))}
+                        </colgroup>
+                        <thead>
+                          <tr>
+                            {(k.hang[0] ?? []).map((o, oi) => {
+                              const cot = spanTieuDe[oi] ?? 1;
                               return (
-                                <td
+                                <th
                                   key={oi}
                                   colSpan={cot > 1 ? cot : undefined}
-                                  className="border border-[#999] px-2 py-1 align-top font-serif"
+                                  className="border border-[#999] bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold"
                                 >
                                   {o}
-                                </td>
+                                </th>
                               );
                             })}
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody>
+                          {k.hang.slice(1).map((hang, hi) => {
+                            const span = nhipHangVe(hang, k.nhip[hi + 1], soCot);
+                            return (
+                              <tr key={hi}>
+                                {hang.map((o, oi) => {
+                                  const cot = span[oi] ?? 1;
+                                  return (
+                                    <td
+                                      key={oi}
+                                      colSpan={cot > 1 ? cot : undefined}
+                                      className="border border-[#999] px-2 py-1 align-top font-serif"
+                                    >
+                                      {o}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    );
+                  })()
                 ),
               )}
               {/* `data-khong-xuat`: dòng căn cứ là chú thích cho người ĐỌC

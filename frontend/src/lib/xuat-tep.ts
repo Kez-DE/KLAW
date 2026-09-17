@@ -523,6 +523,25 @@ export function coSpanHang(soO: number, soCotTieuDe: number): number[] {
 }
 
 /**
+ * Số cột LƯỚI THẬT của một bảng — từ `tiLe` (Phase 11 R1, đúng số cột đã khai
+ * `w:tblGrid`) khi bảng có khai lưới nguồn, hàng đầu khi không (bảng mô hình
+ * tự soạn, không lưới nào để đọc — giữ nguyên suy đoán cũ theo số ô hàng đầu,
+ * R6 đòi giữ nhánh này).
+ *
+ * Phase 11 fix round 3 (reviewer I5) — TRƯỚC hàm này, ba nơi vẽ bảng tự lấy
+ * `hang[0]?.length` làm số cột. Khi hàng đầu chính là hàng có Ô GỘP (một dòng
+ * tiêu đề toàn bảng, gộp hết chiều rộng — hình dạng biểu mẫu tiếng Việt bình
+ * thường), số ô THẬT của nó nhỏ hơn số cột lưới đã khai, nên
+ * `tiLe.length !== soCot` và `tiLeCotVe` rơi về chia đều — R1 tồn tại để
+ * chính bảng đó KHÔNG mất tỉ lệ thật. `tiLe.length` luôn đúng khi có khai
+ * lưới (đọc thẳng `w:tblGrid`, không phụ thuộc hàng nào), nên ưu tiên nó
+ * trước, không suy qua hàng đầu.
+ */
+export function soCotThat(hang: string[][], tiLe: number[]): number {
+  return tiLe.length || (hang[0]?.length ?? 0);
+}
+
+/**
  * % mỗi cột lưới đã ĐỌC ĐƯỢC (Phase 11 R1) → tỉ lệ dùng để VẼ, chia đều khi
  * rỗng hoặc sai số cột — MỘT chỗ quyết định fallback, dùng cho cả ba nơi vẽ
  * bảng (`XemTruocA4`, `bangThanhTable`, PDF `chieuCaoHangBang`/`veMotHangBang`).
@@ -566,7 +585,7 @@ export async function bangThanhTable(hang: string[][], nhip: number[][] = [], ti
   const { AlignmentType, BorderStyle, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } =
     await import("docx");
   const vien = { style: BorderStyle.SINGLE, size: 4, color: "999999" };
-  const soCotTieuDe = hang[0]?.length ?? 0;
+  const soCotTieuDe = soCotThat(hang, tiLe);
   const tiLeVe = tiLeCotVe(tiLe, soCotTieuDe);
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
@@ -945,7 +964,7 @@ export async function noiDungThanhPDF(
 
   /** Một bảng — trả về số trang đã BẮT ĐẦU vẽ (hàng tiêu đề của nó). */
   const veBang = (hang: string[][], nhip: number[][], tiLe: number[]): number => {
-    const soCotTieuDe = hang[0]?.length ?? 0;
+    const soCotTieuDe = soCotThat(hang, tiLe);
     if (soCotTieuDe === 0) return trang;
     const rongCotMm = rongCotPDF(tiLe, soCotTieuDe);
     let trangBatDau: number | null = null;
@@ -1020,7 +1039,7 @@ export async function noiDungThanhPDF(
       const dong = pdf.splitTextToSize(d.text, RONG_NOI_DUNG_PDF - thutLeMm) as string[];
       return dong.length * caoDongPt(d.kieu);
     }
-    const soCotTieuDe = ketiep.hang[0]?.length ?? 0;
+    const soCotTieuDe = soCotThat(ketiep.hang, ketiep.tiLe);
     if (soCotTieuDe === 0) return 0;
     return chieuCaoHangBang(
       ketiep.hang[0]!,

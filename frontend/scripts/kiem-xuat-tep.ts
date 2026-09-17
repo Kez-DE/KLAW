@@ -19,6 +19,7 @@ import {
   mucTuBanThao,
   nhipHangVe,
   noiDungThanhPDF,
+  soCotThat,
   tiLeCotVe,
   tieuDeDaXuatHienTrongThan,
   tieuDeTuBanThao,
@@ -428,6 +429,32 @@ assert.deepEqual(
   "tỉ lệ thật LỆCH số cột thật → cũng chia đều, không dùng tỉ lệ sai cột",
 );
 
+// `soCotThat` (Phase 11 fix round 3, reviewer I5) — số cột LƯỚI THẬT lấy từ
+// `tiLe` khi có khai lưới, KHÔNG phải số ô của hàng đầu. Trước bản vá này, ba
+// nơi vẽ bảng tự lấy `hang[0]?.length`; một hàng đầu có Ô GỘP (dòng tiêu đề
+// toàn bảng, ít ô hơn số cột thật) khiến `tiLeCotVe`/`tiLe.length` LỆCH số
+// cột đó và rơi oan về chia đều — đúng cái bảng tỉ lệ thật (R1) tồn tại để
+// tránh. Assert `tiLeCotVe([50,50], 3) → chia đều` ở trên VẪN đúng như một
+// hợp đồng phòng thủ của chính hàm đó (dữ liệu hỏng: khai 2 cột nhưng có 3
+// ô) — điều đã sửa là CALLER không còn tự tính sai `soCot` truyền vào nữa.
+assert.equal(
+  soCotThat(
+    [
+      ["Tiêu đề", "Ghi chú"],
+      ["a", "b", "c"],
+    ],
+    [50, 30, 20],
+  ),
+  3,
+  "hàng đầu có ô gộp (2 ô) nhưng lưới khai 3 cột → lấy từ tỉ lệ, không lấy hàng đầu",
+);
+assert.equal(
+  soCotThat([["A", "B", "C"]], []),
+  3,
+  "không khai lưới → hàng đầu vẫn là nguồn số cột duy nhất, như trước Phase 11",
+);
+assert.equal(soCotThat([], []), 0, "không hàng nào, không lưới nào → 0");
+
 // ──────────────────── Review round 1 [IMPORTANT] — khối cả hai không bị nuốt
 //
 // Một khối thô có CẢ `noi_dung` (chú thích) LẪN `bang` (bảng) khác rỗng —
@@ -641,6 +668,37 @@ assert.deepEqual(
   rongOTuTcW(timTat(bangKhongLuoi, "w:tr")[0]!),
   [`${100 / 3}%`, `${100 / 3}%`, `${100 / 3}%`],
   "không khai lưới → chia đều 3 cột",
+);
+
+// ──── Phase 11 fix round 3 (reviewer I5) — hàng ĐẦU có ô gộp vẫn giữ tỉ lệ
+// thật, không rơi về chia đều
+//
+// Lưới 3 cột [40, 30, 30]; hàng tiêu đề chỉ có 2 Ô THẬT (ô đầu gộp 2 cột,
+// "Thông tin chung"), hàng thân đủ 3 ô. Trước bản vá này, `bangThanhTable` tự
+// lấy `hang[0].length` (2) làm số cột, LỆCH với `tiLe.length` (3) — cả hàng
+// tiêu đề LẪN hàng thân đều rơi về chia đều, R1 mất tác dụng đúng lúc bảng có
+// một dòng tiêu đề gộp (hình dạng biểu mẫu tiếng Việt bình thường).
+const bangTieuDeGop = await bangThanhTable(
+  [
+    ["Thông tin chung", "Ghi chú"],
+    ["a", "b", "c"],
+  ],
+  [
+    [2, 1],
+    [1, 1, 1],
+  ],
+  [40, 30, 30],
+);
+const hangTieuDeGopXml = timTat(bangTieuDeGop, "w:tr");
+assert.deepEqual(
+  rongOTuTcW(hangTieuDeGopXml[0]!),
+  ["70%", "30%"],
+  "hàng tiêu đề: ô gộp (nhịp 2) mang bề rộng CỘNG DỒN 40+30=70%, không chia đều 50/50",
+);
+assert.deepEqual(
+  rongOTuTcW(hangTieuDeGopXml[1]!),
+  ["40%", "30%", "30%"],
+  "hàng thân đủ 3 ô: đúng tỉ lệ thật của từng cột, không chia đều 33/33/33",
 );
 
 // ══════════════════════════ Phase 5 — PDF có lớp chữ THẬT ══════════════════
@@ -972,4 +1030,4 @@ assert.equal(
   "hàng tiêu đề (tô xám) phải được vẽ lại ở đầu MỖI trang, không chỉ trang đầu",
 );
 
-console.info("kiem-xuat-tep: 70/70 đạt");
+console.info("kiem-xuat-tep: 75/75 đạt");
