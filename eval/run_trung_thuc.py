@@ -89,6 +89,7 @@ _TRUONG_DOC_RA: dict[str, tuple[str, ...]] = {
     "gian_cach_thut_le": ("gian_cach",),
     "le_trang": ("le_trang",),
     "media": ("anh",),
+    "dong_chay_trang": ("trang",),
     "hinh_ve_hop_chu": (),
 }
 
@@ -261,6 +262,58 @@ def _ti_le_luoi(tbl: ET.Element) -> str:
     return ",".join(str(round(w * 100 / tong)) for w in rong)
 
 
+# `w:type` vắng mặt trong một `w:sectPr` = `nextPage` (mặc định OOXML), nên
+# chuỗi rỗng nằm trong tập này. Đây là chỗ DUY NHẤT của cả cái thước mà "không
+# khai" được tính thành một lời khai — vì chính chuẩn nói ra giá trị mặc định,
+# không phải vì cái thước đoán hộ tệp.
+_SECT_SANG_TRANG = {"", "nextPage", "evenPage", "oddPage"}
+
+
+def _kieu_sect(than: ET.Element) -> list[str]:
+    """`w:type` của từng phân đoạn, theo thứ tự tài liệu; phần tử cuối là
+    `w:sectPr` cấp `w:body`.
+
+    `w:sectPr` trong `w:pPr` KẾT THÚC một phân đoạn, còn `w:type` của nó khai
+    phân đoạn ấy BẮT ĐẦU thế nào — nên ngắt sau đoạn kết phân đoạn `j` do
+    `w:type` của phân đoạn `j+1` quyết định. Viết LẠI ở đây, không gọi
+    `doc_tai_lieu._kieu_phan_doan`: một cái thước gọi chính vật nó đo thì luôn
+    đo ra 100%.
+    """
+
+    def _kieu(sect: ET.Element) -> str:
+        t = sect.find(_q("type"))
+        return (_val(t) or "") if t is not None else ""
+
+    ra = [
+        _kieu(sect)
+        for p in than.iter(_q("p"))
+        if (sect := p.find(f'{_q("pPr")}/{_q("sectPr")}')) is not None
+    ]
+    if (cuoi := than.find(_q("sectPr"))) is not None:
+        ra.append(_kieu(cuoi))
+    return ra
+
+
+def _ngat_khai(nut: ET.Element) -> tuple[int, int]:
+    """(số `w:br w:type="page"` TRƯỚC ký tự đầu tiên, số sau nó) của `w:p`/`w:tc`.
+
+    KHÔNG đọc `w:lastRenderedPageBreak`: nó là bộ nhớ đệm dàn trang của Word,
+    không phải lời khai của người soạn — chân lý ở đây chỉ nhận những gì tệp
+    KHAI, đúng luật của cả tệp này. Viết lại, không gọi bộ đọc.
+    """
+    truoc = sau = 0
+    da_co_chu = False
+    for con in nut.iter():
+        if con.tag == _q("br") and con.get(_q("type")) == "page":
+            if da_co_chu:
+                sau += 1
+            else:
+                truoc += 1
+        elif con.tag == _q("t") and (con.text or "").strip():
+            da_co_chu = True
+    return truoc, sau
+
+
 _MC_FALLBACK = "{http://schemas.openxmlformats.org/markup-compatibility/2006}Fallback"
 
 
@@ -382,7 +435,7 @@ def _hinh(z: zipfile.ZipFile, ra: dict[str, dict[str, str]]) -> None:
 
 
 def dac_ta_nguon(du_lieu: bytes) -> dict[str, dict[str, str]]:
-    """Những gì tệp .docx THẬT SỰ khai, theo mười MỘT mục — chân lý để đối chiếu."""
+    """Những gì tệp .docx THẬT SỰ khai, theo mười HAI mục — chân lý để đối chiếu."""
     ra: dict[str, dict[str, str]] = {m: {} for m in _TRUONG_DOC_RA}
     with zipfile.ZipFile(BytesIO(du_lieu)) as z:
         goc = ET.fromstring(z.read("word/document.xml"))
@@ -395,19 +448,55 @@ def dac_ta_nguon(du_lieu: bytes) -> dict[str, dict[str, str]]:
         for k, v in sorted(pg.attrib.items()):
             ra["le_trang"][f'pgMar/{k.split("}")[-1]}'] = v
 
+    # Dòng chảy trang — MỘT dữ kiện cho MỖI ngắt tệp khai: khối/ô ĐẦU TIÊN rơi
+    # sang trang mới. Không stamp số trang lên mọi khối: trang của khối thứ n
+    # là HỆ QUẢ của các ngắt đứng trước nó, không phải một lời khai riêng, và
+    # đếm nó thành dữ kiện là thổi điểm bằng những thứ tệp không hề nói —
+    # đúng luật `w:jc` vắng mặt đã đặt. Tệp không khai ngắt nào thì mục này
+    # có 0 dữ kiện và hiện "NGUỒN KHÔNG KHAI", không phải 100%.
+    #
+    # Trần đã biết: một ngắt đứng SAU khối cuối cùng (trang trắng ở cuối) không
+    # có khối nào để rơi vào, nên nó không thành dữ kiện — biểu diễn của bộ đọc
+    # (một số trang trên mỗi ĐƠN VỊ) không chở nổi một trang không có đơn vị nào.
+    kieu_sect = _kieu_sect(than)
+    trang = da_ghi = 1
+    so_ngat = qua_sect = 0
+
+    def _cham_trang(khoa: str) -> None:
+        nonlocal da_ghi, so_ngat
+        while da_ghi < trang:
+            ra["dong_chay_trang"][f"ngat{so_ngat}"] = khoa
+            so_ngat += 1
+            da_ghi += 1
+
     khoi = so_bang = 0
     for con in _khoi_than(than):
         if con.tag == _q("p"):
+            truoc, sau = _ngat_khai(con)
+            trang += truoc
             # Đoạn rỗng chữ không thành một đơn vị bên bộ đọc, nên cũng không
             # được thành một dữ kiện bên này: hai bên phải đếm cùng một thứ.
+            # Ngắt của nó thì VẪN tính — một đoạn chỉ chứa mỗi `w:br` là đúng
+            # cách Word ghi một Ctrl+Enter đứng riêng.
             if not _chu(con):
+                trang += sau
+                if con.find(f'{_q("pPr")}/{_q("sectPr")}') is not None:
+                    qua_sect += 1
+                    if qua_sect < len(kieu_sect) and kieu_sect[qua_sect] in _SECT_SANG_TRANG:
+                        trang += 1
                 continue
             k = f"khoi{khoi}"
+            _cham_trang(k)
             ra["cau_truc"][k] = "doan"
             if (jc := _jc_khai(con, kieu)) is not None:
                 ra["can_le"][k] = jc
             _run_va_gian_cach(con, k, ra)
             khoi += 1
+            trang += sau
+            if con.find(f'{_q("pPr")}/{_q("sectPr")}') is not None:
+                qua_sect += 1
+                if qua_sect < len(kieu_sect) and kieu_sect[qua_sect] in _SECT_SANG_TRANG:
+                    trang += 1
         elif con.tag == _q("tbl"):
             b = so_bang
             ra["cau_truc"][f"khoi{khoi}"] = "bang"
@@ -430,6 +519,12 @@ def dac_ta_nguon(du_lieu: bytes) -> dict[str, dict[str, str]]:
                     nhip = nhip if nhip > 0 else 1
                     o = f"bang{b}/o{h},{cot}"
                     cot += nhip
+                    # Ngắt đọc ở mức Ô, không ở mức `w:p` trong ô: ô LÀ đơn vị
+                    # bên bộ đọc, nên đó là mức duy nhất hai bên gặp nhau.
+                    truoc, sau = _ngat_khai(tc)
+                    trang += truoc
+                    _cham_trang(o)
+                    trang += sau
                     # Ô RỖNG chữ vẫn là một ô: một phiếu trắng gần như toàn ô
                     # rỗng, bỏ chúng đi là bỏ chính hình dạng của biểu mẫu.
                     ra["cau_truc"][o] = str(nhip)
@@ -497,10 +592,25 @@ def dac_ta_bo_doc(tai_lieu: TaiLieuDaDoc) -> dict[str, dict[str, str]]:
             for ten, v in g.khai:
                 ra["gian_cach_thut_le"][f"{goc}/{ten}"] = v
 
+    # Cùng không gian khoá `ngat{k}` bên chân lý: mỗi lần `trang` TĂNG, đơn vị
+    # đầu tiên của trang mới là câu trả lời cho ngắt thứ `k`. `trang` nhảy hai
+    # bậc (hai ngắt liên tiếp, không có chữ ở giữa) sinh ra hai khoá cùng trỏ
+    # vào một đơn vị — đúng như chân lý ghi, vì cả hai ngắt rơi vào đúng chỗ đó.
+    trang_truoc = 1
+    so_ngat = 0
+
+    def _cham_trang(khoa: str, trang: int) -> None:
+        nonlocal trang_truoc, so_ngat
+        while trang_truoc < trang:
+            ra["dong_chay_trang"][f"ngat{so_ngat}"] = khoa
+            so_ngat += 1
+            trang_truoc += 1
+
     for d in tai_lieu.don_vi:
         if d.vung != "than":
             continue
         if d.bang is None:
+            _cham_trang(f"khoi{khoi}", d.trang)
             ra["cau_truc"][f"khoi{khoi}"] = "doan"
             ra["can_le"][f"khoi{khoi}"] = d.can_le
             _run(f"khoi{khoi}", d)
@@ -526,6 +636,7 @@ def dac_ta_bo_doc(tai_lieu: TaiLieuDaDoc) -> dict[str, dict[str, str]]:
             ra["vien_bang_tung_canh"][f"bang{b}/tblBorders/{canh}"] = f"{val}/{sz}"
         for canh, val, sz in d.o_vien_canh:
             ra["vien_bang_tung_canh"][f"bang{b}/o{h},{c}/tcBorders/{canh}"] = f"{val}/{sz}"
+        _cham_trang(f"bang{b}/o{h},{c}", d.trang)
         ra["cau_truc"][f"bang{b}/o{h},{c}"] = str(d.bang_nhip)
         ra["can_le"][f"bang{b}/o{h},{c}"] = d.can_le
         _run(f"bang{b}/o{h},{c}", d)
