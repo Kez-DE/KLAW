@@ -168,3 +168,14 @@ class KLawState(TypedDict, total=False):
     # bản thảo nào để sửa, mô hình không soạn được mục nào). `assemble` biến nó
     # thành một lượt hỏi lại — một lượt soạn hỏng mà im lặng là tệ nhất.
     ban_thao_tong_quat_loi: str | None
+    # Phase 12 part B — ký ức TÀI KHOẢN trong lượt này. `bo_nho_tai_khoan` là
+    # những gì `bo_nho_tai_khoan.liet_ke(sub)` trả về: NGỮ CẢNH cho prompt, KHÔNG
+    # phải nguồn để điền (chỉ khoá lượt này hỏi tới mới thành nguồn — xem
+    # `hieu_tai_lieu._nguon_soan`). `bo_nho_moi` là điều người hỏi vừa tự khai,
+    # chờ `graph_tra_cuu._ghi_bo_nho` ghi; `bo_nho_da_nho` là NHÃN của cái thật
+    # sự mới hay đổi, để `assemble` nói "đã nhớ" đúng một lần và không nói gì
+    # khi người ta nhắc lại y hệt. Cùng bẫy LangGraph với `bang`/`nguon`: không
+    # khai ở đây thì khoá bị loại ÂM THẦM khỏi state trả về của `ainvoke`.
+    bo_nho_tai_khoan: list[dict]
+    bo_nho_moi: list[dict]
+    bo_nho_da_nho: list[str]

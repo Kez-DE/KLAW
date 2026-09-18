@@ -10,7 +10,7 @@ Mỗi dòng là MỘT đơn vị văn bản, đánh số `[<nhãn tài liệu>-<
 trí của nó trong tài liệu.
 
 {tai_lieu}
-{phan_doan}{ban_thao_dang_co}
+{phan_doan}{ban_thao_dang_co}{bo_nho}
 # Quy tắc
 
 1. `muc_dich` là việc người hỏi muốn làm với tài liệu trong LƯỢT NÀY, đọc từ
@@ -143,6 +143,11 @@ trí của nó trong tài liệu.
     Mọi giá trị trong `noi_dung` (hoặc trong một ô của `bang`) phải lấy TỪ TÀI
     LIỆU hoặc từ chính lời người hỏi. Không có thì viết `[…]` ở đúng chỗ đó và
     đi tiếp — `[…]` là câu trả lời đúng, một giá trị đoán thì không.
+    Mục "# Điều người hỏi đã cho tôi biết trước đây" (nếu có ở trên) KHÔNG phải
+    một nguồn như vậy: đó là điều họ kể ở một lượt KHÁC. Chỉ lấy một mục ở đó
+    khi CHÍNH lượt này hỏi tới nó ("điền họ và tên của tôi vào"); lượt không
+    hỏi thì để `[…]`, kể cả khi bạn biết giá trị — một văn bản mới không tự
+    động thừa hưởng những gì họ đã kể.
     Không bịa tên người, ngày tháng, số tiền, số hiệu văn bản, số Điều/Khoản.
     Không viết khối chữ ký nói rằng ai đó ĐÃ ký: chưa ai ký cả, cùng lắm là
     dòng chức danh cần ký với `[…]` ở chỗ họ tên.

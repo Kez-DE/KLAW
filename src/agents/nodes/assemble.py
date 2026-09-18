@@ -802,6 +802,18 @@ MOI_BIEU_MAU = (
     " Tôi cũng có sẵn biểu mẫu {ten} với căn cứ pháp lý cho từng mục — cần thì mở khung soạn thảo bên cạnh."
 )
 
+# Phase 12 part B (R3) — người dùng phải biết NGAY trong lượt rằng KLAW vừa nhớ
+# một điều về họ: một ký ức chỉ hiện trong màn hình tài khoản là một ký ức họ
+# không có lý do nào để đi tìm mà xoá, và đây là dữ liệu cá nhân (có cả mã sinh
+# viên). Chỉ dựng khi `ghi` trả `"moi"`/`"doi"` — `graph_tra_cuu._ghi_bo_nho` đã
+# lọc sẵn, nên nhắc lại y hệt một giá trị cũ không sinh dòng nào.
+DA_NHO = " Tôi đã nhớ {nhan} cho những lần sau — xem hoặc xoá trong phần Tài khoản."
+
+
+def _cau_da_nho(state: dict) -> str:
+    nhan = state.get("bo_nho_da_nho") or []
+    return DA_NHO.format(nhan=", ".join(nhan)) if nhan else ""
+
 
 def _ten_loai(loai: str) -> str:
     """Tên tiếng Việt của loại văn bản; `loai` không tra được checklist (YAML bị gỡ
@@ -976,16 +988,20 @@ def _ban_thao_tong_quat(state: dict) -> dict:
             + f"; chỗ nào chưa có dữ kiện tôi để {CHO_TRONG}. Bạn xem, sửa từng mục hoặc tải về ở bên cạnh; "
             + "muốn đổi gì cứ nói với tôi."
             + (MOI_BIEU_MAU.format(ten=goi_y["ten"]) if goi_y else "")
+            + _cau_da_nho(state)
         )
         return _base(state, ResultType.ban_thao, answer=answer, ban_thao=bt, soan_thao_goi_y=goi_y)
     # Hỏng thì HỎI LẠI, không im lặng: `soan_thao_hoi` là hình dạng đã có cho
     # đúng tình huống "chưa dựng được, đây là lý do" — không dựng loại thứ chín.
     can_dang_nhap = state.get("user_sub") is None
     loi = state.get("ban_thao_tong_quat_loi")
+    # Lượt soạn HỎNG (hết hạn mức chẳng hạn) vẫn có thể đã nhớ: `hieu_tai_lieu`
+    # chạy TRƯỚC `dung_ban_thao_tong_quat`, nên điều họ vừa khai đã ghi rồi. Im
+    # lặng ở đây là giấu đúng cái R3 bắt phải nói ra.
     return _base(
         state,
         ResultType.soan_thao_hoi,
-        answer=LOI_SOAN_THAO_DANG_NHAP if can_dang_nhap else (loi or KHONG_SOAN_DUOC),
+        answer=(LOI_SOAN_THAO_DANG_NHAP if can_dang_nhap else (loi or KHONG_SOAN_DUOC)) + _cau_da_nho(state),
         soan_thao_goi_y=None,
         soan_thao_hoi={
             "loai": LOAI_TONG_QUAT,

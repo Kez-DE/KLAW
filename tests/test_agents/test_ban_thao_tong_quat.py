@@ -96,7 +96,7 @@ def _sach(muc: list[dict], nguon: str = NGUON, goi: list[dict] | None = None):
 def test_gia_tri_chep_tu_tai_lieu_di_qua_nguyen_ven():
     van_ban, dem = _sach([_muc("Thời gian", "Bàn giao ngày 01/10/2026 tại kho A.")])
     assert van_ban["muc"][0]["khoi"][0]["noi_dung"] == "Bàn giao ngày 01/10/2026 tại kho A."
-    assert dem == {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0}
+    assert dem == {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0, "bo_nho_khong_dien": 0}
 
 
 def test_so_hieu_tai_lieu_trong_mot_muc_khong_bi_coi_la_bia():
@@ -1534,7 +1534,7 @@ def test_tai_lieu_ngan_cat_giua_chung_cung_tra_loi_KHONG_DUNG_LAI_DUOC():
 
 
 def _render(phan_doan: str) -> str:
-    return h.PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi="q", tai_lieu="[A-0] x", phan_doan=phan_doan, ban_thao_dang_co="")
+    return h.PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi="q", tai_lieu="[A-0] x", phan_doan=phan_doan, ban_thao_dang_co="", bo_nho="")
 
 
 def test_prompt_khong_chia_render_dung_MOT_dong_trong_truoc_quy_tac():
