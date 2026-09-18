@@ -828,4 +828,56 @@ assert.ok(pTran !== undefined, "khối văn xuôi không nhịp vẫn render");
 assert.equal(pTran.getAttribute("data-truoc"), null);
 assert.equal(pTran.style["marginTop"], undefined, "không nhịp nguồn thì không style nào bị áp");
 
-console.log("kiem-ui-muot: 76/76 OK");
+// ───────────── 10. căn đều hai lề (`deu`) vẽ ra `text-justify` trên TRANG ───
+//
+// Thân bài của một văn bản KLAW tự soạn phải "được canh đều cả hai lề" (NĐ
+// 30/2020/NĐ-CP, Phụ lục I mục II.6), và một ô nguồn khai `w:jc="both"` cũng
+// đọc ra `deu`. Trang là NGUỒN SỰ THẬT của `.docx`/PDF (`canhLeTuStyle` đọc
+// ngược `text-align` đã tính), nên thiếu lớp này thì tệp tải về mất căn đều
+// dù dữ liệu vẫn đúng.
+const CHU_DEU = "Tôi xin trình bày sự việc như sau và kính mong Nhà trường xem xét.";
+const mucDeu: Muc[] = [
+  {
+    stt: 1,
+    key: "than-bai",
+    ten: "Nội dung",
+    tenThat: true,
+    noiDung: CHU_DEU,
+    bang: null,
+    vung: "than",
+    canCu: null,
+    khoi: [
+      { kind: "vanXuoi", noiDung: CHU_DEU, canhLe: "deu", chu: [], gianCach: null },
+      {
+        kind: "bang",
+        hang: [["Ô căn đều", "Ô căn giữa"]],
+        nhip: [[1, 1]],
+        tiLe: [50, 50],
+        vien: false,
+        cao: [],
+        canLeO: [["deu", "giua"]],
+        chuO: [],
+      },
+    ],
+  },
+];
+const { khung: khungDeu, root: rootDeu } = taoRoot();
+await act(() => {
+  rootDeu.render(h(XemTruocA4, { ...propsBang, muc: mucDeu }));
+});
+const pDeu = timTatNut(khungDeu, (n) => n.tagName === "P" && n.textContent === CHU_DEU)[0];
+assert.ok(pDeu !== undefined, "khối văn xuôi căn đều vẫn render");
+assert.ok(
+  (pDeu.getAttribute("class") ?? "").includes("text-justify"),
+  "khối `deu` phải mang `text-justify` — đó là thứ `canhLeTuStyle` đọc ngược khi xuất tệp",
+);
+const oDeu = timTatNut(khungDeu, (n) => n.tagName === "TD");
+assert.equal(oDeu.length, 2, "bảng hai ô");
+assert.ok(
+  (oDeu[0]?.getAttribute("class") ?? "").includes("text-justify"),
+  "ô bảng `deu` cũng phải ra `text-justify`, không rơi về căn trái",
+);
+assert.equal(oDeu[0]?.getAttribute("data-can-le"), "deu", "căn đều phải đọc lại được lúc xuất tệp");
+assert.equal(oDeu[1]?.getAttribute("data-can-le"), "giua", "ô cạnh nó KHÔNG bị kéo theo");
+
+console.log("kiem-ui-muot: 81/81 OK");

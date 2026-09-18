@@ -256,6 +256,7 @@ const CAN_LE_O: Record<CanLe, string> = {
   trai: "text-left",
   giua: "text-center",
   phai: "text-right",
+  deu: "text-justify",
 };
 
 /**
@@ -550,6 +551,10 @@ function KhoiVanXuoi({
         // `.docx`/PDF tự khớp theo.
         canhLe === "giua" && "text-center",
         canhLe === "phai" && "text-right",
+        // `deu` = căn đều hai lề: nguồn khai `w:jc="both"`, hoặc thân bài của
+        // một văn bản KLAW tự soạn (NĐ 30/2020 Phụ lục I mục II.6, xem
+        // `hieu_tai_lieu._the_thuc_hanh_chinh`).
+        canhLe === "deu" && "text-justify",
         // Phase 15 R2 — khối gõ được phải TỰ báo "gõ ở đây" TRƯỚC khi bấm,
         // tách khỏi hover/ring của `<section>` bao ngoài (đó là "chọn mục làm
         // đích cho trợ lý", một hành động khác trên cùng vùng rê chuột): viền

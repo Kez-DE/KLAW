@@ -6,9 +6,12 @@ import type { BanThao, CauTruc } from "./klaw";
 
 export type KieuDong = "quocHieu" | "tieuDe" | "soHieu" | "dieu" | "thuong";
 
-/** `trai` (mặc định) | `giua` | `phai` (Phase 9 U5) — căn lề THẬT đọc từ CSS
- *  `text-align` đã áp trên khung A4 (`docDong`), không phải suy đoán ở đây. */
-export type CanLe = "trai" | "giua" | "phai";
+/** `trai` (mặc định) | `giua` | `phai` | `deu` (Phase 9 U5) — căn lề THẬT đọc
+ *  từ CSS `text-align` đã áp trên khung A4 (`docDong`), không phải suy đoán ở
+ *  đây. `deu` (căn đều hai lề) là giá trị thứ tư từ 2026-09-19: nguồn khai
+ *  `w:jc="both"`, hoặc thân bài của một văn bản KLAW tự soạn theo thể thức
+ *  NĐ 30/2020 (`hieu_tai_lieu._the_thuc_hanh_chinh`). */
+export type CanLe = "trai" | "giua" | "phai" | "deu";
 
 /**
  * MỘT khoảng định dạng chữ trên `noiDung` của một khối văn xuôi — `[dau,
@@ -357,7 +360,7 @@ function vungHopLe(vung: unknown): Muc["vung"] {
   return typeof vung === "string" && VUNG_HOP_LE.has(vung) ? (vung as Muc["vung"]) : "than";
 }
 
-const CAN_LE_HOP_LE = new Set(["trai", "giua", "phai"]);
+const CAN_LE_HOP_LE = new Set(["trai", "giua", "phai", "deu"]);
 
 /** `k.can_le` thô → nhãn hợp lệ, mặc định `trai` khi vắng/lạ (Phase 9 U5) —
  * cùng luật fail-closed với `vungHopLe`/`lam_sach_van_ban` phía máy chủ. */
@@ -972,8 +975,14 @@ export function boQuaKhiXuat(el: { tagName: string; closest(chon: string): unkno
  * dựng thật ra gần như toàn bộ đoạn văn `w:jc="both"` dù nguồn phần lớn
  * không khai `jc` — đo trực tiếp trên tệp tải về, không phải suy đoán.
  */
-export function canhLeThanhHuong(canhLe: CanLe): "left" | "center" | "right" {
-  return canhLe === "giua" ? "center" : canhLe === "phai" ? "right" : "left";
+export function canhLeThanhHuong(canhLe: CanLe): "left" | "center" | "right" | "justify" {
+  return canhLe === "giua"
+    ? "center"
+    : canhLe === "phai"
+      ? "right"
+      : canhLe === "deu"
+        ? "justify"
+        : "left";
 }
 
 function chuanHoa(s: string) {
@@ -986,6 +995,9 @@ function canhLeTuStyle(el: HTMLElement): CanLe {
   const ta = getComputedStyle(el).textAlign;
   if (ta === "center") return "giua";
   if (ta === "right" || ta === "end") return "phai";
+  // `justify-all` cũng là căn đều, chỉ khác ở DÒNG CUỐI — phía tệp không có ô
+  // nào để chở sự khác biệt ấy, nên cả hai về `deu`.
+  if (ta === "justify" || ta === "justify-all") return "deu";
   return "trai";
 }
 
@@ -1591,6 +1603,7 @@ export async function bangThanhTable(
     left: AlignmentType.LEFT,
     center: AlignmentType.CENTER,
     right: AlignmentType.RIGHT,
+    justify: AlignmentType.JUSTIFIED,
   } as const;
   const soCotTieuDe = soCotThat(hang, tiLe);
   const tiLeVe = tiLeCotVe(tiLe, soCotTieuDe);
@@ -1684,6 +1697,7 @@ export async function dongThanhParagraph(d: DongVanBan) {
     left: AlignmentType.LEFT,
     center: AlignmentType.CENTER,
     right: AlignmentType.RIGHT,
+    justify: AlignmentType.JUSTIFIED,
   } as const;
   const coMacDinh = d.kieu === "tieuDe" ? 32 : d.kieu === "dieu" ? 28 : 26;
   const g = d.gianCach;
@@ -2552,7 +2566,8 @@ export async function noiDungThanhPDF(
    *  đặt cho `.docx`: hai tệp không được đọc hai con số khác nhau. */
   const khungCuaDong = (d: DongVanBan): KhungDoan => {
     const g = d.gianCach;
-    const trai = g ? twipMm(g.trai) : d.canhLe !== "trai" || d.thutLe <= 0 ? 0 : d.thutLe / 3.78;
+    const neoTrai = d.canhLe === "trai" || d.canhLe === "deu";
+    const trai = g ? twipMm(g.trai) : !neoTrai || d.thutLe <= 0 ? 0 : d.thutLe / 3.78;
     const phai = g ? twipMm(g.phai) : 0;
     return {
       rong: Math.max(10, RONG_NOI_DUNG_PDF - trai - phai),
@@ -2674,7 +2689,9 @@ export async function noiDungThanhPDF(
     dong: ManhChu[][],
     xTrai: number,
     bo: KhungDoan,
-    huong: "left" | "center" | "right",
+    // `justify` KHÔNG có nhánh riêng ở đây và vẽ như `left` — xem chú thích
+    // trong thân hàm.
+    huong: "left" | "center" | "right" | "justify",
     yBatDau: number,
   ): number => {
     const netCu = pdf.getLineWidth();
@@ -2688,6 +2705,12 @@ export async function noiDungThanhPDF(
       const xKhung = xTrai + lech;
       const ptMax = Math.max(...l.map((m) => m.pt));
       const day = yy + ptMax * MM_MOI_PT;
+      // ponytail: `justify` vẽ như `left` ở ĐƯỜNG CÓ ĐỊNH DẠNG. Căn đều thật
+      // phải giãn khoảng trắng GIỮA TỪ, mà ở đây một dòng đã là chuỗi mảnh
+      // `ManhChu` đo sẵn bề rộng, khoảng trắng nằm BÊN TRONG `m.text` — giãn
+      // được thì phải xé lại mảnh theo từ và đo lại từng mảnh. Chênh lệch chỉ
+      // thấy ở đoạn NHIỀU dòng (dòng cuối của một đoạn căn đều vốn đã căn
+      // trái), nên trần này được chấp nhận. Nâng khi đo thấy nó cắn thật.
       let x = xKhung;
       if (huong === "center") x = xKhung + (rongKhung - rongDong) / 2;
       else if (huong === "right") x = xKhung + rongKhung - rongDong;
@@ -2826,6 +2849,8 @@ export async function noiDungThanhPDF(
     // neo tâm KHUNG ĐOẠN (đã trừ thụt lề hai bên), phải neo MÉP PHẢI của khung
     // (jsPDF đặt chữ kết thúc tại `x` khi `align: "right"`) — cùng ba giá trị
     // `.docx` (`dongThanhParagraph`) đã dùng.
+    // `deu` rơi vào nhánh cuối cùng với `trai`: jsPDF căn đều TỪ `x` sang phải
+    // theo `maxWidth`, nên mốc neo của nó là mép TRÁI, giống hệt căn trái.
     const x =
       d.canhLe === "giua"
         ? LE_PDF.trai + bo.xGoc + bo.rong / 2

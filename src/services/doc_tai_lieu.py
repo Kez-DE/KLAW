@@ -375,11 +375,16 @@ class DonViVanBan:
     thị cho người đọc; ở đây giữ chỉ số để cùng gốc với `chi_so`.
     """
     can_le: str = "trai"
-    """`trai` | `giua` | `phai` (Phase 9 U5) — căn lề THẬT của đoạn/ô này, đọc
-    từ `w:pPr/w:jc` hoặc, khi vắng (nghĩa là "thừa kế"), từ kiểu đoạn văn của
-    nó (`w:pStyle`, theo hết chuỗi `w:basedOn`). Mặc định `trai`: DOCX không
-    khai báo `jc` là căn trái, không phải "chưa biết" — cùng lý lẽ `vung`
+    """`trai` | `giua` | `phai` | `deu` (Phase 9 U5) — căn lề THẬT của đoạn/ô
+    này, đọc từ `w:pPr/w:jc` hoặc, khi vắng (nghĩa là "thừa kế"), từ kiểu đoạn
+    văn của nó (`w:pStyle`, theo hết chuỗi `w:basedOn`). Mặc định `trai`: DOCX
+    không khai báo `jc` là căn trái, không phải "chưa biết" — cùng lý lẽ `vung`
     không được suy diễn thêm gì ngoài những gì tệp nói.
+
+    `deu` (căn đều hai lề, `w:jc="both"`) là giá trị thứ tư từ 2026-09-19 — xem
+    `_JC_RA_CAN_LE`. Nó cũng là căn lề mà `hieu_tai_lieu._the_thuc_hanh_chinh`
+    gán cho thân bài của một văn bản KLAW TỰ SOẠN (NĐ 30/2020/NĐ-CP, Phụ lục I:
+    "nội dung văn bản... được canh đều cả hai lề").
     """
     bang_nhip: int = 1
     """Số cột LƯỚI ô này CHIẾM (Phase 11 R6) — đọc `w:tcPr/w:gridSpan/@w:val`,
@@ -680,10 +685,17 @@ _KHONG_GACH = _TAT | {"none", ""}
 # ngoài những gì tệp nói.
 _VIEN_KHONG_VE = {"none", "nil"}
 
-# OOXML `w:jc` → `DonViVanBan.can_le` (Phase 9 U5). Chỉ "center"/"right"/"end"
-# đổi khỏi trái: "left"/"start"/"both" (căn đều) và mọi giá trị lạ đọc như
-# người xem thường thấy — căn đều trông giống căn trái, không giống căn giữa.
-_JC_RA_CAN_LE = {"center": "giua", "right": "phai", "end": "phai"}
+# OOXML `w:jc` → `DonViVanBan.can_le` (Phase 9 U5). "left"/"start" và mọi giá
+# trị lạ đọc ra `trai` — đó cũng là giá trị khi tệp KHÔNG khai `w:jc` gì cả.
+#
+# `both` ra `deu` (2026-09-19), KHÔNG còn gộp vào `trai`. Bản trước gộp vì
+# `deu` chưa biểu diễn được ở đâu trong chuỗi; giờ nó đi hết đường (`can_le` →
+# `KhoiMuc.canhLe` → `text-justify` → `w:jc="both"`/`align: "justify"`), nên
+# gộp tiếp là VỨT một điều tệp NÓI ra. Phân biệt này cũng là thứ giữ cho
+# `canhLeThanhHuong` không phải đoán: `trai` vẫn nghĩa là "nguồn không khai",
+# `deu` mới nghĩa là "nguồn khai căn đều" — đúng ca hồi quy Phase 11 R2/R8 đã
+# đo (mọi đoạn ra `w:jc="both"` vì `trai` bị hiểu là "hãy căn đều").
+_JC_RA_CAN_LE = {"center": "giua", "right": "phai", "end": "phai", "both": "deu"}
 
 
 def _can_le_gia_tri(v: str | None) -> str:

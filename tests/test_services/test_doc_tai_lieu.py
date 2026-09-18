@@ -284,6 +284,28 @@ def test_DOCX_can_le_theo_kieu_qua_chuoi_basedOn():
     assert t.don_vi[0].can_le == "giua"
 
 
+def test_DOCX_can_le_both_ra_deu_KHONG_gop_vao_trai():
+    """`w:jc="both"` (căn đều hai lề) đọc ra `deu` từ 2026-09-19, không còn gộp
+    vào `trai`. Bản trước gộp vì chuỗi vẽ chưa biểu diễn được căn đều; giờ nó
+    đi hết đường (`text-justify` trên trang, `w:jc="both"` ra `.docx`, `align:
+    "justify"` trong PDF) nên gộp tiếp là VỨT một điều tệp NÓI ra.
+
+    `trai` phải giữ đúng nghĩa cũ — "tệp không khai gì" — vì đó là thứ phân
+    biệt hai ca ở phía vẽ (hồi quy Phase 11 R2/R8: mọi đoạn ra `w:jc="both"`
+    vì `trai` bị hiểu là "hãy căn đều"). Khoá cả hai trong CÙNG một tài liệu."""
+    than = _p_jc("Nội dung văn bản được canh đều cả hai lề.", "both") + _p("Không khai jc")
+    t = doc("hd.docx", _docx(than))
+    assert [d.can_le for d in t.don_vi] == ["deu", "trai"]
+
+
+def test_DOCX_can_le_both_theo_KIEU_cung_ra_deu():
+    """Cùng luật, đường thừa kế: một kiểu đoạn văn khai `both` cũng ra `deu` —
+    `_JC_RA_CAN_LE` là bảng dùng chung cho cả hai đường, không phải hai bảng."""
+    styles = _styles_xml([("ThanBai", "both", None)])
+    t = doc("hd.docx", _docx(_p_kieu("Tôi xin trình bày như sau.", "ThanBai"), styles))
+    assert t.don_vi[0].can_le == "deu"
+
+
 def test_DOCX_khong_ro_can_le_thi_ve_trai():
     """Không `jc` trực tiếp, không `pStyle`, hoặc `pStyle` trỏ tới một kiểu
     không tồn tại — mọi ca không xác định được đều về `trai`, không suy đoán
