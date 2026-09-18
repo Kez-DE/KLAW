@@ -1062,16 +1062,27 @@ def _bo_dong_trung_ten(khoi: list[dict], ten: str) -> list[dict]:
 
 
 def _can_le_theo_dong(goi: list[dict]) -> dict[str, str]:
-    """Chữ CHUẨN HOÁ của một đoạn (không phải ô bảng) → căn lề THẬT của nó,
-    đọc thẳng từ `DonViVanBan.can_le` (Phase 9 U5) — cùng nguyên tắc "cấu trúc
-    reader đã biết" của `_bang_theo_nhan`, áp cho căn lề thay vì ô bảng. Một
-    dòng trùng chữ nhưng khác căn lề ở hai chỗ (hiếm — hai đoạn tình cờ cùng
-    chữ) bị LOẠI khỏi từ điển: một dòng không xác định căn lề còn an toàn hơn
-    một dòng gán nhầm."""
+    """Chữ CHUẨN HOÁ của một đơn vị nguồn → căn lề THẬT của nó, đọc thẳng từ
+    `DonViVanBan.can_le` (Phase 9 U5) — cùng nguyên tắc "cấu trúc reader đã
+    biết" của `_bang_theo_nhan`, áp cho căn lề thay vì ô bảng. Một dòng trùng
+    chữ nhưng khác căn lề ở hai chỗ (hiếm — hai đoạn tình cờ cùng chữ) bị LOẠI
+    khỏi từ điển: một dòng không xác định căn lề còn an toàn hơn một dòng gán
+    nhầm.
+
+    KỂ CẢ ô bảng (sửa 2026-09-18). Bản trước bỏ qua mọi đơn vị có `bang` — hệ
+    quả đo được trên một đơn xin học lại: "Người làm đơn" nằm trong một Ô của
+    bảng ký, nên nó không có mặt trong từ điển này, `_can_le_khoi` trượt và về
+    mặc định `trai`, trong khi nguồn khai `w:jc="center"`. Cùng dòng ấy nếu
+    nằm ngoài bảng thì lại ra đúng — một sự thật reader ĐÃ đọc được bị chặn
+    lại đúng ở chỗ nó cần dùng. Ô bảng không trở thành khối văn xuôi ở đây:
+    khi mô hình tái hiện một ô thành khối văn xuôi (bảng không khớp đủ để giữ
+    nguyên cấu trúc), căn lề của chính ô đó LÀ câu trả lời đúng cho khối ấy.
+    Ca trùng chữ giữa một ô và một đoạn vẫn rơi vào luật bất đồng ở trên.
+    """
     theo_dong: dict[str, set[str]] = {}
     for t in goi:
         for d in t["don_vi"]:
-            if d.bang is not None or not d.noi_dung:
+            if not d.noi_dung:
                 continue
             theo_dong.setdefault(normalize(d.noi_dung), set()).add(d.can_le)
     return {s: v.pop() for s, v in theo_dong.items() if len(v) == 1}
@@ -1087,7 +1098,12 @@ def _can_le_khoi(noi_dung: str, theo_dong: dict[str, str]) -> str:
     return tap.pop() if len(tap) == 1 else "trai"
 
 
-def _hang_gon(cot: dict[int, str], nhip_cot: dict[int, int], so_cot: int) -> tuple[list[str], list[int]]:
+def _hang_gon(
+    cot: dict[int, str],
+    nhip_cot: dict[int, int],
+    can_le_cot: dict[int, str],
+    so_cot: int,
+) -> tuple[list[str], list[int], list[str]]:
     """Một hàng bảng THẬT, GỌN — chỉ giữ ô có chữ cộng thêm Ô ĐỆM cho khoảng
     TRỐNG thật (Phase 11 R6), không phải một mảng phẳng một-ô-một-cột.
 
@@ -1098,22 +1114,31 @@ def _hang_gon(cot: dict[int, str], nhip_cot: dict[int, int], so_cot: int) -> tup
     bằng đúng MỘT ô đệm rỗng mang nhịp bằng khoảng trống đó — không phải một
     ô rỗng cho MỖI cột trống, để một ô gộp thật (như "Tổng") vẫn hiện ĐÚNG
     nhịp của nó, không bị tách lại thành nhiều ô 1-cột.
+
+    Trả thêm căn lề TỪNG Ô (`w:pPr/w:jc` của đoạn đầu ô, `doc_tai_lieu` đã
+    đọc sẵn vào `DonViVanBan.can_le`): một ô ĐỆM không đến từ ô nguồn nào nên
+    nhận `trai` — mặc định của chính `DonViVanBan.can_le`, không phải một giá
+    trị thứ ba nghĩa là "không biết".
     """
     hang: list[str] = []
     nhip: list[int] = []
+    can_le: list[str] = []
     chay = 0
     for c in sorted(cot):
         if c > chay:
             hang.append("")
             nhip.append(c - chay)
+            can_le.append("trai")
         hang.append(cot[c])
         n = nhip_cot.get(c, 1)
         nhip.append(n)
+        can_le.append(can_le_cot.get(c, "trai"))
         chay = c + n
     if chay < so_cot:
         hang.append("")
         nhip.append(so_cot - chay)
-    return hang, nhip
+        can_le.append("trai")
+    return hang, nhip, can_le
 
 
 def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
@@ -1126,19 +1151,25 @@ def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
     hình) — cùng lý lẽ neo trích dẫn: phép lọc đầu vào là chuyện chi phí,
     không phải chuyện bằng chứng.
 
-    Trả về, mỗi khoá bảng, MỘT bộ ba cùng nguồn gốc (Phase 11 R1/R6), thay vì
-    chỉ `hang`: `nhip` (số cột mỗi ô CHIẾM, cùng hình dạng `hang`, đọc thẳng
-    `bang_nhip` — RENDER dùng trực tiếp, không suy đoán lại từ số ô như
-    `coSpanHang` cũ) và `ti_le` (% mỗi cột lưới, đọc `bang_ti_le`, rỗng khi
-    bảng không khai lưới). Không đẻ ra một hàm/một lượt duyệt `don_vi` thứ hai
-    cho `ti_le`/`nhip` — cả ba đến từ ĐÚNG một vòng lặp này (xem R3 trong
-    brief: "một chỗ carry cả bộ, không phải năm chỗ chép từng trường").
+    Trả về, mỗi khoá bảng, MỘT bộ cùng nguồn gốc thay vì chỉ `hang`: `nhip`
+    (số cột mỗi ô CHIẾM, cùng hình dạng `hang`, đọc thẳng `bang_nhip` —
+    RENDER dùng trực tiếp, không suy đoán lại từ số ô như `coSpanHang` cũ),
+    `ti_le` (% mỗi cột lưới, đọc `bang_ti_le`, rỗng khi bảng không khai
+    lưới), `vien` (bảng có vẽ viền không, đọc `bang_vien`), `cao` (chiều cao
+    khai báo mỗi HÀNG theo twip, đọc `bang_cao`, `0` khi hàng không khai) và
+    `can_le_o` (căn lề TỪNG Ô, cùng hình dạng `hang`, đọc `can_le`). Không đẻ
+    ra một hàm/một lượt duyệt `don_vi` thứ hai cho từng trường — tất cả đến
+    từ ĐÚNG một vòng lặp này (xem R3 trong brief: "một chỗ carry cả bộ, không
+    phải năm chỗ chép từng trường").
     """
     ra: dict[str, dict] = {}
     for t in goi:
         theo_bang: dict[int, dict[int, dict[int, str]]] = {}
         nhip_bang: dict[int, dict[int, dict[int, int]]] = {}
+        can_le_bang: dict[int, dict[int, dict[int, str]]] = {}
         ti_le_bang: dict[int, tuple[int, ...]] = {}
+        vien_bang: dict[int, bool] = {}
+        cao_bang: dict[int, dict[int, int]] = {}
         cot_toi_da: dict[int, int] = {}
         for d in t["don_vi"]:
             if d.bang is None:
@@ -1146,19 +1177,43 @@ def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
             b, h, c = d.bang
             theo_bang.setdefault(b, {}).setdefault(h, {})[c] = d.noi_dung
             nhip_bang.setdefault(b, {}).setdefault(h, {})[c] = d.bang_nhip
+            can_le_bang.setdefault(b, {}).setdefault(h, {})[c] = d.can_le
             cot_toi_da[b] = max(cot_toi_da.get(b, 0), c + d.bang_nhip)
             if d.bang_ti_le and b not in ti_le_bang:
                 ti_le_bang[b] = d.bang_ti_le
+            # Viền là sự thật của cả BẢNG (`doc_tai_lieu._vien_bang` chép cùng
+            # một giá trị lên mọi ô); chiều cao là sự thật của từng HÀNG. Lấy
+            # `max` thay vì ô đầu gặp: mọi ô cùng hàng mang cùng số, nên `max`
+            # chỉ là cách viết không phụ thuộc thứ tự duyệt.
+            vien_bang[b] = vien_bang.get(b, False) or d.bang_vien
+            cao_hang = cao_bang.setdefault(b, {})
+            cao_hang[h] = max(cao_hang.get(h, 0), d.bang_cao)
         for b, theo_hang in theo_bang.items():
             ti_le = ti_le_bang.get(b, ())
             so_cot = len(ti_le) or cot_toi_da.get(b, 0)
             hang: list[list[str]] = []
             nhip: list[list[int]] = []
+            can_le_o: list[list[str]] = []
+            cao: list[int] = []
             for h in range(max(theo_hang) + 1):
-                h_hang, h_nhip = _hang_gon(theo_hang.get(h, {}), nhip_bang.get(b, {}).get(h, {}), so_cot)
+                h_hang, h_nhip, h_can_le = _hang_gon(
+                    theo_hang.get(h, {}),
+                    nhip_bang.get(b, {}).get(h, {}),
+                    can_le_bang.get(b, {}).get(h, {}),
+                    so_cot,
+                )
                 hang.append(h_hang)
                 nhip.append(h_nhip)
-            ra[f"{t['nhan']}{b}"] = {"hang": hang, "nhip": nhip, "ti_le": list(ti_le)}
+                can_le_o.append(h_can_le)
+                cao.append(cao_bang.get(b, {}).get(h, 0))
+            ra[f"{t['nhan']}{b}"] = {
+                "hang": hang,
+                "nhip": nhip,
+                "ti_le": list(ti_le),
+                "vien": vien_bang.get(b, True),
+                "cao": cao,
+                "can_le_o": can_le_o,
+            }
     return ra
 
 
@@ -1367,6 +1422,9 @@ def _khop_bang(
                 "nhip": bang["nhip"],
                 "ti_le": bang["ti_le"],
                 "can_le": "trai",
+                "vien": bang["vien"],
+                "cao": bang["cao"],
+                "can_le_o": bang["can_le_o"],
             })
             # Khối gộp gán về mục ĐẦU TIÊN của nhóm — khi nhóm bắc qua ranh
             # giới mục (fix round 1), mục còn lại rỗng và bị bỏ ở tầng gọi,
@@ -1523,13 +1581,28 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
                     "can_le": _can_le_khoi(noi_dung, theo_dong),
                     "nhip": [],
                     "ti_le": [],
+                    "vien": True,
+                    "cao": [],
+                    "can_le_o": [],
                 })
             if bang:
-                # `nhip`/`ti_le` rỗng: bảng mô hình tự gõ không có lưới nguồn
-                # nào để đọc — `coSpanHang` (frontend) vẫn suy đoán từ số ô
-                # như trước Phase 11, đúng "quy tắc cho ca không có lưới khai
-                # báo" R6 yêu cầu giữ lại.
-                ra.append({"noi_dung": "", "bang": bang, "can_le": "trai", "nhip": [], "ti_le": []})
+                # `nhip`/`ti_le`/`cao`/`can_le_o` rỗng: bảng mô hình tự gõ
+                # không có lưới nguồn nào để đọc — `coSpanHang` (frontend) vẫn
+                # suy đoán từ số ô như trước Phase 11, đúng "quy tắc cho ca
+                # không có lưới khai báo" R6 yêu cầu giữ lại. `vien: True` vì
+                # một bảng mô hình tự soạn là bảng dữ liệu (nó gõ ra hàng/cột
+                # để ĐỌC như bảng), không phải khối xếp cột của một biểu mẫu —
+                # và đó cũng là hành vi trước bản vá viền, không đổi ngầm.
+                ra.append({
+                    "noi_dung": "",
+                    "bang": bang,
+                    "can_le": "trai",
+                    "nhip": [],
+                    "ti_le": [],
+                    "vien": True,
+                    "cao": [],
+                    "can_le_o": [],
+                })
         return ra
 
     # Mục (Phase 11 fix round 1) — làm sạch TỪNG mục trước (`_sach`/
@@ -1625,6 +1698,9 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
                     "can_le": theo_dong.get(tieu_de_ch, "giua"),
                     "nhip": [],
                     "ti_le": [],
+                    "vien": True,
+                    "cao": [],
+                    "can_le_o": [],
                 }],
                 "dem_delta": 0,
             })

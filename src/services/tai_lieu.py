@@ -363,6 +363,11 @@ def _hang_don_vi(d: DonViVanBan) -> dict:
         # doc()` đã đọc đúng từ `w:tblGrid`/`w:gridSpan`.
         "bang_nhip": d.bang_nhip,
         "bang_ti_le": list(d.bang_ti_le) if d.bang_ti_le else [],
+        # Cùng lý do hai khoá trên: viền (`w:tblBorders`) và chiều cao hàng
+        # (`w:trHeight`) đã đọc đúng từ tệp sẽ mất ngay tại ranh giới lưu/đọc
+        # này nếu không ghi ra — và một khối ký không viền sẽ mọc lại viền.
+        "bang_vien": d.bang_vien,
+        "bang_cao": d.bang_cao,
     }
 
 
@@ -414,6 +419,11 @@ def don_vi_cua(engine: Engine, viec_id: str, user_sub: str) -> list[DonViVanBan]
             # phase này không có hai khoá này, về đúng mặc định dataclass.
             bang_nhip=d.get("bang_nhip") or 1,
             bang_ti_le=tuple(d.get("bang_ti_le") or ()),
+            # Một dòng lưu TRƯỚC bản vá viền không có hai khoá này: về đúng
+            # mặc định dataclass (`bang_vien=True` — vẽ viền như trước bản vá,
+            # xem `DonViVanBan.bang_vien`), không suy đoán lại từ nội dung.
+            bang_vien=bool(d.get("bang_vien", True)),
+            bang_cao=int(d.get("bang_cao") or 0),
         )
         for d in (r[0] or [])
     ]

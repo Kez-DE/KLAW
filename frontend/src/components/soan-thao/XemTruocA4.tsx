@@ -1,13 +1,31 @@
-import { Fragment, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import {
-  nhipHangVe,
-  soCotThat,
-  tiLeCotVe,
-  tieuDeDaXuatHienTrongThan,
-  type CanLe,
-  type Muc,
-} from "@/lib/xuat-tep";
+import { nhipHangVe, soCotThat, tiLeCotVe, type CanLe, type Muc } from "@/lib/xuat-tep";
+
+/** `CanLe` của MỘT Ô bảng → lớp căn lề. Ô giữ căn lề nguồn của chính nó
+ * (`w:jc`, đọc qua `BangThat.canLeO`) thay vì bị căn giữa cả bảng: khối ký và
+ * letterhead của biểu mẫu tiếng Việt căn giữa TỪNG cột, còn một bảng dữ liệu
+ * căn trái phần chữ — cùng một quy tắc đọc ra cả hai. */
+const CAN_LE_O: Record<CanLe, string> = {
+  trai: "text-left",
+  giua: "text-center",
+  phai: "text-right",
+};
+
+/**
+ * Chiều cao KHAI BÁO của một hàng (twip, `w:trHeight`) → chiều cao TỐI THIỂU
+ * để vẽ, cộng con số gốc để `docBangTuPhanTu` đọc lại khi xuất tệp.
+ *
+ * Đơn vị `pt`, không `em`: trang A4 ở đây rộng cố định 794px (≈210mm ở 96dpi)
+ * và `thuPhong` chỉ phóng CỠ CHỮ, không phóng trang — nên một chiều cao đo
+ * bằng `em` sẽ trôi theo mức phóng, còn `pt` giữ đúng kích thước vật lý mà
+ * `.docx`/PDF cũng dùng. 1 twip = 1/20 pt.
+ */
+function caoTrenTrang(
+  twip: number | undefined,
+): { twip: number; style: { height: string } } | undefined {
+  return twip && twip > 0 ? { twip, style: { height: `${twip / 20}pt` } } : undefined;
+}
 
 /**
  * Fix round 1 (review, CRITICAL #1) — một khối văn xuôi editable, tách riêng
@@ -290,14 +308,24 @@ export function XemTruocA4({
 }: Props) {
   const chonMuc = (key: string) => onChonMuc?.(key);
 
-  // Phase 11 R4 — một bản thảo TỔNG QUÁT tái hiện nguyên văn một tài liệu đã
-  // in tiêu đề của nó ra như chữ thân bài (quốc hiệu, tên biểu mẫu…); `<h1>`
-  // ở đây khi đó là bản sao KLAW tự thêm, không phải chữ thứ hai của tài
-  // liệu — bỏ nó khỏi TRANG, không chỉ ẩn bằng CSS, để `docNoiDungTuDOM`
-  // (dùng chung cho `.docx` và PDF) cũng không thấy nó. Một bản thảo KLAW
-  // soạn từ đầu (tiêu đề không lặp lại trong thân bài) thì GIỮ `<h1>` — nếu
-  // không, trang sẽ vô đề vì không còn chỗ nào khác in ra tên văn bản đó.
-  const anTieuDe = laTongQuat && tieuDeDaXuatHienTrongThan(tieuDe, muc);
+  // Một bản thảo TỔNG QUÁT dựng lại một tài liệu NGƯỜI DÙNG đưa vào: tên văn
+  // bản là chữ của tài liệu đó, in ra ở đúng chỗ tài liệu in nó (thường trong
+  // letterhead hoặc một dòng thân bài). `<h1>` ở đây là dòng KLAW tự thêm,
+  // nên bỏ hẳn khỏi trang — chủ dự án chọn bỏ ở CẢ hai nơi (2026-09-18), màn
+  // hình và tệp tải về, sau khi được hỏi riêng về tệp.
+  //
+  // Bỏ khỏi DOM chứ không ẩn bằng CSS: `docNoiDungTuDOM` (dùng chung cho
+  // `.docx` và PDF) nhận diện tiêu đề qua đúng thẻ `H1`, nên một `<h1>` ẩn
+  // vẫn đi vào tệp — màn hình và tệp khi đó nói hai điều khác nhau.
+  //
+  // Hệ quả nhận rõ: một bản thảo KLAW soạn từ đầu, mà thân bài KHÔNG tự nhắc
+  // tên văn bản, giờ ra trang không có dòng tên nào và tệp tải về cũng vậy.
+  // Tên văn bản vẫn còn ở thẻ hội thoại và ở thanh tiêu đề của khung soạn
+  // thảo; không dựng một thẻ tiêu đề thay thế ở đây.
+  //
+  // Bản thảo THEO CHECKLIST không đi qua đây (`KhongGianSoanThao` có `<h1>`
+  // riêng), nên nhánh `H1` của `docNoiDungTuDOM` vẫn còn đường chạy thật.
+  const anTieuDe = laTongQuat;
 
   return (
     <div className="mx-auto w-full max-w-[794px]" style={{ fontSize: `${thuPhong}%` }}>
@@ -391,8 +419,19 @@ export function XemTruocA4({
                   />
                 ) : (
                   // Khối BẢNG trong tài liệu nguồn (Phase 7 R1/R2) — `<table>`
-                  // THẬT, không phải chữ `|` improv: hàng đầu là tiêu đề, viền
-                  // thấy được. Hàng ngắn hơn hàng tiêu đề (Phase 8 R4, ô gộp
+                  // THẬT, không phải chữ `|` improv. NGUỒN quyết định nó trông
+                  // như một bảng hay như một khối BỐ CỤC: `k.vien` (đọc
+                  // `w:tblBorders`/`w:tcBorders`/`w:tblStyle`) bật/tắt CÙNG
+                  // LÚC nét viền và hàng tiêu đề giả (tô nền + in đậm + căn
+                  // giữa) — biểu mẫu tiếng Việt xếp cột bằng bảng KHÔNG viền
+                  // (letterhead "tên đơn vị trái / quốc hiệu phải", khối ký
+                  // cuối trang), và ở đó hàng đầu không phải tiêu đề của gì
+                  // cả. Mỗi ô giữ căn lề NGUỒN của nó (`k.canLeO`, `w:jc`),
+                  // mỗi hàng giữ chiều cao khai báo (`k.cao`, `w:trHeight` —
+                  // chỗ để ký tay). Ba thứ đó đi ra DOM thành `data-vien`/
+                  // `data-can-le`/`data-cao` để `docBangTuPhanTu` đọc lại khi
+                  // xuất `.docx`/PDF: một nguồn, ba nơi dùng.
+                  // Hàng ngắn hơn hàng tiêu đề (Phase 8 R4, ô gộp
                   // trong tài liệu nguồn) dùng `colSpan` qua `k.nhip` — nhịp
                   // THẬT khi bảng có khai lưới nguồn (Phase 11 R6, đọc
                   // `w:gridSpan`), suy từ số ô khi không (`nhipHangVe` rơi về
@@ -415,48 +454,41 @@ export function XemTruocA4({
                   (() => {
                     const soCot = soCotThat(k.hang, k.tiLe);
                     const spanTieuDe = nhipHangVe(k.hang[0] ?? [], k.nhip[0], soCot);
-                    // Phase 15 R9 — nối ghi chú với bảng bằng `aria-describedby`:
-                    // người dùng trình đọc màn hình nhảy theo bảng (phím T)
-                    // không đi qua dòng chữ đứng TRƯỚC nó. `m.key`+`i` là đủ
-                    // duy nhất trong một trang; ghi chú chỉ render khi sửa
-                    // được, nên id chỉ được trỏ tới trong đúng trường hợp đó.
-                    const idChuThichBang = `bang-chua-sua-${m.key}-${i}`;
+                    // Không có ghi chú "bảng chưa sửa trực tiếp được" ở đây
+                    // nữa (chủ dự án bỏ, 2026-09-18): nó lặp lại trên MỖI
+                    // bảng — hai lần trên một trang biểu mẫu bình thường — và
+                    // đứng chen giữa hai khối của chính văn bản. Bảng vẫn chỉ
+                    // đọc như trước, không đổi gì ở đó; `aria-describedby`
+                    // (Phase 15 R9) đi theo vì nó chỉ tồn tại để trỏ vào ghi
+                    // chú đó.
                     return (
-                      <Fragment key={i}>
-                        {/* Quyết định D (R1, phase 3) — bảng CHƯA sửa trực
-                            tiếp được ở giai đoạn này (xem ghi chú `onSuaKhoi`
-                            ở khai báo `Props`): nói RA thay vì để người dùng
-                            tự đoán vì sao gõ vào ô không có tác dụng gì.
-                            `data-khong-xuat`: chú thích màn hình, không phải
-                            chữ của văn bản — cùng quy ước dòng "Căn cứ" bên
-                            dưới. */}
-                        {onSuaKhoi !== undefined && (
-                          <p
-                            data-khong-xuat
-                            id={idChuThichBang}
-                            className="m-0 mt-1 font-mono text-[0.7em] text-muted-foreground"
-                          >
-                            Bảng — chưa sửa trực tiếp được ở đây, hãy nói với trợ lý điều cần đổi.
-                          </p>
-                        )}
-                        <table
-                          aria-describedby={onSuaKhoi !== undefined ? idChuThichBang : undefined}
-                          className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
-                          style={{ tableLayout: "fixed" }}
-                        >
-                          <colgroup>
-                            {tiLeCotVe(k.tiLe, soCot).map((ti, oi) => (
-                              <col key={oi} data-ti-le={ti} style={{ width: `${ti}%` }} />
-                            ))}
-                          </colgroup>
+                      <table
+                        key={i}
+                        className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
+                        data-vien={k.vien ? undefined : "khong"}
+                        style={{ tableLayout: "fixed" }}
+                      >
+                        <colgroup>
+                          {tiLeCotVe(k.tiLe, soCot).map((ti, oi) => (
+                            <col key={oi} data-ti-le={ti} style={{ width: `${ti}%` }} />
+                          ))}
+                        </colgroup>
+                        {k.vien && (
                           <thead>
-                            <tr>
+                            {/* Hàng tiêu đề cũng mang chiều cao khai báo: nó
+                                đi vào tệp qua `data-cao`, nên màn hình phải
+                                dành đúng chỗ đó — nếu không, hai bên lệch. */}
+                            <tr
+                              data-cao={caoTrenTrang(k.cao?.[0])?.twip}
+                              style={caoTrenTrang(k.cao?.[0])?.style}
+                            >
                               {(k.hang[0] ?? []).map((o, oi) => {
                                 const cot = spanTieuDe[oi] ?? 1;
                                 return (
                                   <th
                                     key={oi}
                                     colSpan={cot > 1 ? cot : undefined}
+                                    data-can-le={k.canLeO?.[0]?.[oi] ?? "trai"}
                                     className="border border-[#999] bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold"
                                   >
                                     {o}
@@ -465,29 +497,35 @@ export function XemTruocA4({
                               })}
                             </tr>
                           </thead>
-                          <tbody>
-                            {k.hang.slice(1).map((hang, hi) => {
-                              const span = nhipHangVe(hang, k.nhip[hi + 1], soCot);
-                              return (
-                                <tr key={hi}>
-                                  {hang.map((o, oi) => {
-                                    const cot = span[oi] ?? 1;
-                                    return (
-                                      <td
-                                        key={oi}
-                                        colSpan={cot > 1 ? cot : undefined}
-                                        className="border border-[#999] px-2 py-1 align-top font-serif"
-                                      >
-                                        {o}
-                                      </td>
-                                    );
-                                  })}
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </Fragment>
+                        )}
+                        <tbody>
+                          {(k.vien ? k.hang.slice(1) : k.hang).map((hang, hi) => {
+                            const hiThat = k.vien ? hi + 1 : hi;
+                            const span = nhipHangVe(hang, k.nhip[hiThat], soCot);
+                            const cao = caoTrenTrang(k.cao?.[hiThat]);
+                            return (
+                              <tr key={hi} data-cao={cao?.twip} style={cao?.style}>
+                                {hang.map((o, oi) => {
+                                  const cot = span[oi] ?? 1;
+                                  const canLe = k.canLeO?.[hiThat]?.[oi] ?? "trai";
+                                  return (
+                                    <td
+                                      key={oi}
+                                      colSpan={cot > 1 ? cot : undefined}
+                                      data-can-le={canLe}
+                                      className={`px-2 py-1 align-top font-serif ${CAN_LE_O[canLe]} ${
+                                        k.vien ? "border border-[#999]" : ""
+                                      }`}
+                                    >
+                                      {o}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     );
                   })()
                 ),

@@ -21,8 +21,8 @@ import {
   noiDungThanhPDF,
   soCotThat,
   tiLeCotVe,
-  tieuDeDaXuatHienTrongThan,
   tieuDeTuBanThao,
+  type CanLe,
   type DongVanBan,
   type KhoiVanBan,
   type NoiDungXuat,
@@ -126,6 +126,9 @@ assert.deepEqual(mucMoi[0]?.khoi, [
     // về rỗng, `coSpanHang` suy đoán như trước Phase 11 (Phase 11 R1/R6).
     nhip: [],
     tiLe: [],
+    vien: true,
+    cao: [],
+    canLeO: [],
   },
 ]);
 
@@ -281,88 +284,6 @@ assert.equal(
 assert.equal(canhLeThanhHuong("giua"), "center");
 assert.equal(canhLeThanhHuong("phai"), "right");
 
-// ────────────────────────────────────── Phase 11 R4 — bỏ tiêu đề bị lặp lại
-//
-// Một bản thảo TÁI HIỆN đã in tiêu đề của nó ra như chữ thân bài (quốc hiệu,
-// tên biểu mẫu…) — `<h1>` của KLAW khi đó là bản sao thứ hai, phải bị bỏ.
-assert.equal(
-  tieuDeDaXuatHienTrongThan("GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP", [
-    {
-      stt: 1,
-      key: "muc_1",
-      ten: "x",
-      tenThat: false,
-      noiDung: "",
-      bang: null,
-      khoi: [
-        {
-          kind: "vanXuoi",
-          noiDung: "Mẫu QT.ĐT.28-M05\nGIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP",
-          canhLe: "giua",
-        },
-      ],
-      vung: "than",
-      canCu: null,
-    },
-  ]),
-  true,
-  "tiêu đề khớp một khối gộp nhiều dòng (không cần khớp NGUYÊN cả khối)",
-);
-// Một bản thảo KLAW soạn TỪ ĐẦU (tiêu đề không lặp lại ở đâu trong thân bài)
-// → giữ `<h1>`, không để trang vô đề.
-assert.equal(
-  tieuDeDaXuatHienTrongThan("ĐƠN XIN NGHỈ VIỆC", [
-    {
-      stt: 1,
-      key: "muc_1",
-      ten: "x",
-      tenThat: true,
-      noiDung: "",
-      bang: null,
-      khoi: [{ kind: "vanXuoi", noiDung: "Kính gửi Ban Giám đốc,", canhLe: "trai" }],
-      vung: "than",
-      canCu: null,
-    },
-  ]),
-  false,
-  "tiêu đề không xuất hiện trong thân bài → giữ h1",
-);
-assert.equal(
-  tieuDeDaXuatHienTrongThan("", []),
-  false,
-  "tiêu đề rỗng không bao giờ coi là đã xuất hiện",
-);
-
-// Phase 11 fix round 1 — đo được thật trên BM.M05 (conversation `b0c76517…`):
-// tiêu đề THẬT ("GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP") không hề in ra thân bài
-// ở đâu — nó chỉ NHẮC TỚI, như tên tài liệu, bên trong một câu khác hẳn
-// ("Kèm theo Giấy tiếp nhận thực hành/thực tập số … ngày … tháng … năm …").
-// `.includes()` coi câu này là "tiêu đề đã in", ẩn oan `<h1>` trên một trang
-// mà tiêu đề chưa từng xuất hiện ở đâu khác — đúng lỗi round 1 báo lại.
-assert.equal(
-  tieuDeDaXuatHienTrongThan("GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP", [
-    {
-      stt: 1,
-      key: "muc_1",
-      ten: "x",
-      tenThat: false,
-      noiDung: "",
-      bang: null,
-      khoi: [
-        {
-          kind: "vanXuoi",
-          noiDung: "(Kèm theo Giấy tiếp nhận thực hành/thực tập số … ngày … tháng … năm …)",
-          canhLe: "giua",
-        },
-      ],
-      vung: "than",
-      canCu: null,
-    },
-  ]),
-  false,
-  "câu NHẮC TỚI tên tài liệu không phải câu IN LẠI tiêu đề — giữ h1",
-);
-
 // Phase 8 R4 — hàng ngắn hơn hàng tiêu đề (ô gộp) đi qua NGUYÊN trong `khoi`,
 // `coSpanHang` bên dưới mới quyết định cách vẽ nó.
 const banThaoHangNgan = {
@@ -494,6 +415,9 @@ assert.deepEqual(mucKhoiCaHai[1], {
   ],
   nhip: [],
   tiLe: [],
+  vien: true,
+  cao: [],
+  canLeO: [],
 });
 
 // ──────────── Brief "Proof required" — letterhead hai cột sống sót NHƯ BẢNG
@@ -519,7 +443,7 @@ const mucLetterhead = mucTuBanThao(banThaoLetterhead, null)[0];
 assert.equal(mucLetterhead?.khoi.length, 1, "letterhead là MỘT khối bảng, không bị xé lẻ");
 assert.deepEqual(
   mucLetterhead?.khoi[0],
-  { kind: "bang", hang: LETTERHEAD, nhip: [], tiLe: [] },
+  { kind: "bang", hang: LETTERHEAD, nhip: [], tiLe: [], vien: true, cao: [], canLeO: [] },
   "sống sót NGUYÊN dạng bảng hai cột, không dẹt thành dòng văn xuôi",
 );
 
@@ -533,14 +457,20 @@ assert.equal(tieuDeTuBanThao("Không có H1 nào ở đây"), null);
 // vẽ) và `tiLe` (Phase 11 R1, `data-ti-le` trên mỗi `<col>`). Đối tượng giả
 // chỉ cần `querySelectorAll`/`textContent`/`getAttribute`, đúng như hàm thật
 // đòi — không cần DOM thật (không có `jsdom` trong repo này).
-const oCell = (text: string, colSpan?: number) => ({ textContent: text, colSpan });
-const oRow = (cells: ReturnType<typeof oCell>[]) => ({
+const oCell = (text: string, colSpan?: number, canLe?: CanLe) => ({
+  textContent: text,
+  colSpan,
+  getAttribute: (ten: string) => (ten === "data-can-le" ? (canLe ?? null) : null),
+});
+const oRow = (cells: ReturnType<typeof oCell>[], cao?: number) => ({
+  getAttribute: (ten: string) => (ten === "data-cao" && cao ? String(cao) : null),
   querySelectorAll: (_sel: string) => cells,
 });
 const oCol = (tiLe: number) => ({
   getAttribute: (ten: string) => (ten === "data-ti-le" ? String(tiLe) : null),
 });
 const oTable = (rows: string[][], cols: number[] = []) => ({
+  getAttribute: (_ten: string) => null,
   querySelectorAll: (sel: string) =>
     sel === "col" ? cols.map(oCol) : rows.map((r) => oRow(r.map((t) => oCell(t)))),
 });
@@ -562,12 +492,19 @@ assert.deepEqual(
       [1, 1],
     ], // không `colSpan` nào được vẽ → mặc định 1 mỗi ô
     tiLe: [], // không `<colgroup>` nào → chia đều (R1)
+    vien: true, // không `data-vien="khong"` → bảng có viền, như trước bản vá viền
+    cao: [0, 0], // không `data-cao` nào → hàng không khai chiều cao
+    canLeO: [
+      ["trai", "trai"],
+      ["trai", "trai"],
+    ], // không `data-can-le` nào → `trai`, không đoán
   },
 );
 
 // Có `colSpan` đã vẽ (hàng gộp, Phase 11 R6) và `<colgroup>` mang tỉ lệ thật
 // (Phase 11 R1) — đọc lại ĐÚNG những gì đã vẽ, không suy đoán lại.
 const oTableGop = {
+  getAttribute: (_ten: string) => null,
   querySelectorAll: (sel: string) =>
     sel === "col"
       ? [7, 15, 78].map(oCol)
@@ -586,6 +523,12 @@ assert.deepEqual(docBangTuPhanTu(oTableGop), {
     [2, 1],
   ],
   tiLe: [7, 15, 78],
+  vien: true,
+  cao: [0, 0],
+  canLeO: [
+    ["trai", "trai", "trai"],
+    ["trai", "trai"],
+  ],
 });
 
 // `bangThanhTable` — hàng×ô → `Table` THẬT của `docx` (Phase 7 R3), không phải
@@ -701,6 +644,131 @@ assert.deepEqual(
   "hàng thân đủ 3 ô: đúng tỉ lệ thật của từng cột, không chia đều 33/33/33",
 );
 
+// ═══════ Viền nguồn — bảng KHÔNG viền ra BỐ CỤC, không ra lưới có kẻ ô ═════
+//
+// Biểu mẫu tiếng Việt xếp cột bằng bảng không viền: letterhead "tên đơn vị
+// trái / quốc hiệu phải" và khối ký cuối trang. Đo trên BM.ĐT.18.05 và
+// BM.ĐT.18.03 (2026-09-18): cả hai bảng đó không khai `w:tblBorders`,
+// `w:tblStyle` hay `w:tcBorders` nào, ô căn `w:jc="center"`, hàng ký khai
+// `w:trHeight` 1499/1845 twip. Ba nơi vẽ bảng phải nói CÙNG một điều, nếu
+// không thì tệp tải về mọc lại cái lưới mà màn hình vừa bỏ đi.
+
+/** `w:val` (hoặc thuộc tính khác) của một nút XML nội bộ `docx`. */
+function thuocTinhXml(node: Record<string, unknown>, ten = "w:val"): unknown {
+  const attr = ((node["root"] as Record<string, unknown>[])[0]?.["root"] ?? {}) as Record<
+    string,
+    { key?: string; value?: unknown }
+  >;
+  return Object.values(attr).find((a) => a?.key === ten)?.value;
+}
+
+const BANG_KY: string[][] = [["Giảng viên hướng dẫn", "Sinh viên thực tập"]];
+const bangKhongVien = await bangThanhTable(
+  BANG_KY,
+  [[1, 1]],
+  [50, 50],
+  false,
+  [1499],
+  [["giua", "giua"]],
+);
+const canhKhongVien = timTat(bangKhongVien, "w:tblBorders")
+  .concat(timTat(bangKhongVien, "w:tcBorders"))
+  .flatMap((v) => (v["root"] as Record<string, unknown>[]).map((c) => thuocTinhXml(c)));
+assert.ok(canhKhongVien.length > 0, "phải có khai báo viền để soát, không phải vắng mặt cả nhóm");
+assert.deepEqual(
+  [...new Set(canhKhongVien)],
+  ["none"],
+  "bảng nguồn không viền: MỌI cạnh (cấp bảng lẫn cấp ô) phải là none trong .docx",
+);
+assert.equal(
+  timTat(bangKhongVien, "w:shd").length,
+  0,
+  "không có hàng tiêu đề giả: không tô nền ô nào",
+);
+/** Một `<w:b/>` RỖNG là in đậm; `<w:b w:val="false"/>` là không. */
+const soODam = (t: unknown) =>
+  timTat(t, "w:b").filter((b) => Array.isArray(b["root"]) && b["root"].length === 0).length;
+assert.equal(soODam(bangKhongVien), 0, "không có hàng tiêu đề giả: không ô nào in đậm");
+assert.equal(
+  thuocTinhXml(timTat(bangKhongVien, "w:trHeight")[0]!, "w:val"),
+  1499,
+  "chiều cao khai báo của hàng ký (twip) phải vào .docx — đó là chỗ để ký tay",
+);
+assert.deepEqual(
+  timTat(bangKhongVien, "w:jc").map((j) => thuocTinhXml(j)),
+  ["center", "center"],
+  "mỗi ô giữ căn lề NGUỒN của nó, không bị căn giữa/căn trái đồng loạt",
+);
+
+// Bảng CÓ viền không được đổi gì: vẫn nét thật, vẫn hàng đầu tô nền + in đậm.
+const bangCoVien = await bangThanhTable(
+  [
+    ["TT", "Thời gian"],
+    ["1", "Tuần 1"],
+  ],
+  [
+    [1, 1],
+    [1, 1],
+  ],
+  [30, 70],
+);
+assert.deepEqual(
+  [
+    ...new Set(
+      timTat(bangCoVien, "w:tblBorders").flatMap((v) =>
+        (v["root"] as Record<string, unknown>[]).map((c) => thuocTinhXml(c)),
+      ),
+    ),
+  ],
+  ["single"],
+  "bảng nguồn có viền: giữ nguyên nét như trước bản vá",
+);
+assert.equal(timTat(bangCoVien, "w:shd").length, 2, "hàng tiêu đề vẫn tô nền đủ 2 ô");
+assert.equal(soODam(bangCoVien), 2, "hàng tiêu đề vẫn in đậm đủ 2 ô");
+
+// ── Màn hình ↔ tệp: MỘT nguồn, đọc lại từ chính DOM đã vẽ ──────────────────
+//
+// `XemTruocA4` đặt `data-vien`/`data-cao`/`data-can-le` khi vẽ; `docBangTuPhanTu`
+// đọc lại đúng những thứ đó; `bangThanhTable` dựng tệp từ kết quả ấy. Chuỗi
+// này là thứ giữ cho tệp tải về khớp màn hình — kiểm nguyên chuỗi, không
+// kiểm ba mảnh rời.
+const oTableKy = {
+  getAttribute: (ten: string) => (ten === "data-vien" ? "khong" : null),
+  querySelectorAll: (sel: string) =>
+    sel === "col"
+      ? [50, 50].map(oCol)
+      : [
+          oRow(
+            [oCell("Giảng viên hướng dẫn", 1, "giua"), oCell("Sinh viên thực tập", 1, "giua")],
+            1499,
+          ),
+        ],
+};
+const docLaiKy = docBangTuPhanTu(oTableKy);
+assert.equal(docLaiKy.vien, false, '`data-vien="khong"` trên màn hình đọc lại thành không viền');
+assert.deepEqual(docLaiKy.cao, [1499], "chiều cao hàng đọc lại đúng twip đã vẽ");
+assert.deepEqual(docLaiKy.canLeO, [["giua", "giua"]], "căn lề từng ô đọc lại đúng");
+
+const bangTuManHinh = await bangThanhTable(
+  docLaiKy.hang,
+  docLaiKy.nhip,
+  docLaiKy.tiLe,
+  docLaiKy.vien,
+  docLaiKy.cao,
+  docLaiKy.canLeO,
+);
+assert.deepEqual(
+  [
+    ...new Set(
+      timTat(bangTuManHinh, "w:tblBorders").flatMap((v) =>
+        (v["root"] as Record<string, unknown>[]).map((c) => thuocTinhXml(c)),
+      ),
+    ),
+  ],
+  ["none"],
+  "khối ký không viền trên màn hình KHÔNG được mọc lại viền trong tệp tải về",
+);
+
 // ══════════════════════════ Phase 5 — PDF có lớp chữ THẬT ══════════════════
 //
 // `noiDungThanhPDF` là hàm THUẦN (không đụng DOM/`fetch`) đúng để việc này:
@@ -755,6 +823,9 @@ const KHOI_MAU: KhoiVanBan[] = [
     // phải rơi về suy đoán cũ (Phase 11 R1/R6), đúng ý chú thích trên.
     nhip: [],
     tiLe: [],
+    vien: true,
+    cao: [],
+    canLeO: [],
   },
 ];
 
@@ -946,6 +1017,9 @@ function taiLieuMoCoiBang(soDoanDien: number): NoiDungXuat {
         ],
         nhip: [],
         tiLe: [],
+        vien: true,
+        cao: [],
+        canLeO: [],
       },
     ],
     oKy: [],
@@ -1000,7 +1074,10 @@ function bangDaiHang(soHang: number): NoiDungXuat {
   for (let i = 1; i <= soHang; i++) {
     hang.push([String(i), `Tiêu chí đánh giá số ${i}`, "2,0", "2,0"]);
   }
-  return { khoi: [{ kind: "bang", hang, nhip: [], tiLe: [] }], oKy: [] };
+  return {
+    khoi: [{ kind: "bang", hang, nhip: [], tiLe: [], vien: true, cao: [], canLeO: [] }],
+    oKy: [],
+  };
 }
 
 function demLanToTieuDeBang(bytes: Buffer): number {
@@ -1030,4 +1107,59 @@ assert.equal(
   "hàng tiêu đề (tô xám) phải được vẽ lại ở đầu MỖI trang, không chỉ trang đầu",
 );
 
-console.info("kiem-xuat-tep: 75/75 đạt");
+// ───────────── Viền nguồn trong PDF — nơi vẽ thứ BA phải nói cùng một điều ──
+//
+// `pdf.rect` là toán tử `re` trong luồng nội dung trang. Bảng không viền
+// không được vẽ hình chữ nhật nào; cùng bảng đó khai có viền thì phải có.
+// Kiểm trên chính bytes PDF, không trên tham số đã truyền vào.
+const bangKyPDF = (coVien: boolean, cao: number[]): NoiDungXuat => ({
+  khoi: [
+    {
+      kind: "bang",
+      hang: BANG_KY,
+      nhip: [[1, 1]],
+      tiLe: [50, 50],
+      vien: coVien,
+      cao,
+      canLeO: [["giua", "giua"]],
+    },
+  ],
+  oKy: [],
+});
+const demRe = (bytes: Buffer) => (noiDungGiaiNen(bytes).match(/\bre\b/g) ?? []).length;
+const { pdf: pdfKhongVien } = await noiDungThanhPDF(bangKyPDF(false, [1499]), "Ký", phongChuPDF);
+const { pdf: pdfCoVien } = await noiDungThanhPDF(bangKyPDF(true, [1499]), "Ký", phongChuPDF);
+assert.equal(
+  demRe(Buffer.from(pdfKhongVien.output("arraybuffer"))),
+  0,
+  "bảng nguồn không viền: PDF không vẽ hình chữ nhật nào",
+);
+assert.ok(
+  demRe(Buffer.from(pdfCoVien.output("arraybuffer"))) >= 2,
+  "cùng bảng đó khai CÓ viền thì PDF phải vẽ khung — phép kiểm trên không đạt vì lý do khác",
+);
+
+// Chiều cao khai báo phải CHIẾM CHỖ thật trong PDF, không chỉ có mặt trong
+// `.docx`: một hàng ký 1499 twip (~2,6 cm) đẩy nội dung sau nó xuống xa hơn
+// hẳn cùng hàng ấy khi không khai chiều cao. Đo bằng số hàng cần để tràn
+// trang, không hard-code hằng số bố cục.
+const bangNhieuHang = (cao: number[], soHang: number): NoiDungXuat => ({
+  khoi: Array.from({ length: soHang }, () => ({
+    kind: "bang" as const,
+    hang: BANG_KY,
+    nhip: [[1, 1]],
+    tiLe: [50, 50],
+    vien: false,
+    cao,
+    canLeO: [["giua", "giua"] as CanLe[]],
+  })),
+  oKy: [],
+});
+const { pdf: pdfCao } = await noiDungThanhPDF(bangNhieuHang([1499], 12), "Cao", phongChuPDF);
+const { pdf: pdfKhongCao } = await noiDungThanhPDF(bangNhieuHang([0], 12), "Thấp", phongChuPDF);
+assert.ok(
+  pdfCao.getNumberOfPages() > pdfKhongCao.getNumberOfPages(),
+  "chiều cao khai báo phải chiếm chỗ thật trong PDF, không bị bỏ qua khi vẽ",
+);
+
+console.info("kiem-xuat-tep: 87/87 đạt");

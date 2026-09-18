@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -591,3 +593,64 @@ def test_usage_thieu_truong_van_KHONG_bi_bia_sau_khi_cong_don():
     c.retry_backoff_base = 0
     with pytest.raises(ValueError, match="cost"):
         c.chat("m", [{"role": "user", "content": "x"}])
+
+
+def test_json_hong_o_stop_duoc_thu_lai_roi_phuc_hoi():
+    """Ca thật 2026-09-18: `hieu_tai_lieu` nhận chuỗi không đóng ở
+    `finish_reason=stop`, người dùng bấm lại thì lành — nên llm.py phải tự thử
+    lại thay vì đẩy "Chưa đọc được tài liệu lúc này" ra màn hình."""
+    lan = {"n": 0}
+
+    def h(req):
+        lan["n"] += 1
+        noi_dung = '{"a": "chua dong' if lan["n"] == 1 else '{"a": "xong"}'
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": noi_dung}, "finish_reason": "stop"}],
+                "usage": _USAGE_OK,
+            },
+        )
+
+    c = _c(h)
+    c.retry_backoff_base = 0
+    raw, _ = c.chat("m", [{"role": "user", "content": "x"}], json_schema={"type": "object"})
+    assert lan["n"] == 2, "phải gọi lại đúng một lần"
+    assert raw == '{"a": "xong"}'
+
+
+def test_json_hong_hai_lan_thi_nem_JSONDecodeError_kem_usage():
+    """Cạn ngân sách một-lần-thử-lại thì NỔ nguyên lỗi gốc, không nuốt: node
+    gọi nó bắt `json.JSONDecodeError` và cần `usage` để tính đúng tiền đã tiêu
+    cho cả hai lần gọi."""
+    lan = {"n": 0}
+
+    def h(req):
+        lan["n"] += 1
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": '{"a": "chua dong'}, "finish_reason": "stop"}],
+                "usage": _USAGE_OK,
+            },
+        )
+
+    c = _c(h)
+    c.retry_backoff_base = 0
+    with pytest.raises(json.JSONDecodeError) as e:
+        c.chat("m", [{"role": "user", "content": "x"}], json_schema={"type": "object"})
+    assert lan["n"] == 2, "đúng hai lần gọi, không ăn hết max_retries"
+    assert e.value.usage == Usage(token_in=2, token_out=2, cost_usd=0.0)
+
+
+def test_khong_xin_schema_thi_content_khong_phai_JSON_van_qua():
+    """Hành văn tự do (không `json_schema`) KHÔNG bị kiểm JSON — nếu kiểm, mọi
+    lượt sinh văn bản thường sẽ thành lỗi."""
+    def h(req):
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "câu trả lời thường"}}], "usage": _USAGE_OK},
+        )
+
+    raw, _ = _c(h).chat("m", [{"role": "user", "content": "x"}])
+    assert raw == "câu trả lời thường"

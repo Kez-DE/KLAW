@@ -244,6 +244,36 @@ class DonViVanBan:
     phía render tự quyết định (chia đều) — cùng nguyên tắc không suy diễn
     thêm gì ngoài những gì tệp nói.
     """
+    bang_vien: bool = True
+    """Bảng chứa ô này có VẼ viền không — đọc `w:tblBorders`/`w:tcBorders`
+    (và kiểu bảng `w:tblStyle`), xem `_vien_bang`.
+
+    Biểu mẫu tiếng Việt dùng một bảng KHÔNG viền để xếp cột: cặp ô ký tên
+    cuối trang, hay khối "quốc hiệu bên phải, tên đơn vị bên trái" ở đầu
+    trang. Trước trường này, render vẽ viền cho MỌI bảng, nên một khối ký
+    hai cột ra màn hình thành một cái lưới có kẻ ô — đúng loại "suy diễn
+    thêm ngoài những gì tệp nói" mà `bang_ti_le` ở trên từ chối làm với tỉ lệ
+    cột.
+
+    Mặc định `True` chứ không `False`: chỗ DUY NHẤT đọc được sự thật này là
+    `_duyet_than` (nó luôn đặt giá trị thật cho mọi ô bảng), nên mặc định chỉ
+    còn tác dụng cho dòng LƯU TRƯỚC trường này tồn tại — ở đó "vẽ viền như
+    cũ" là câu trả lời không đổi hành vi, còn `False` sẽ xoá viền của mọi
+    tài liệu đã đọc xong trước bản vá.
+    """
+    bang_cao: int = 0
+    """Chiều cao KHAI BÁO của HÀNG chứa ô này, đơn vị twip (1/20 pt) — đọc
+    `w:trPr/w:trHeight/@w:val`, `0` khi hàng không khai.
+
+    Đây là thứ cho một hàng ký chỗ trống để ký tay: hàng ký của BM.ĐT.18.05
+    khai 1499 twip (~2,6 cm) trong khi chữ của nó chỉ chiếm hai dòng. Bỏ số
+    này thì bảng vẫn hết viền nhưng vẫn không có chỗ ký.
+
+    KHÔNG phân biệt `hRule="exact"` với `"atLeast"`: cả hai đọc thành chiều
+    cao TỐI THIỂU khi vẽ. `exact` nghĩa là Word CẮT phần chữ tràn ra, và cắt
+    mất chữ của người dùng là hỏng tệ hơn nhiều so với một hàng cao hơn khai
+    báo vài milimét.
+    """
 
 
 @dataclass(frozen=True)
@@ -321,6 +351,18 @@ _GRIDSPAN = f"{{{_NS['w']}}}gridSpan"
 _TBLGRID = f"{{{_NS['w']}}}tblGrid"
 _GRIDCOL = f"{{{_NS['w']}}}gridCol"
 _STYLE = f"{{{_NS['w']}}}style"
+_TBLPR = f"{{{_NS['w']}}}tblPr"
+_TBLSTYLE = f"{{{_NS['w']}}}tblStyle"
+_TBLBORDERS = f"{{{_NS['w']}}}tblBorders"
+_TCBORDERS = f"{{{_NS['w']}}}tcBorders"
+_TRPR = f"{{{_NS['w']}}}trPr"
+_TRHEIGHT = f"{{{_NS['w']}}}trHeight"
+
+# `w:val` của một cạnh viền nghĩa là KHÔNG vẽ. Mọi giá trị khác (`single`,
+# `double`, `dotted`…) đều là một nét thật. Không xét `w:sz="0"`: OOXML vẫn coi
+# đó là một cạnh có kiểu, và đoán rằng nó "coi như không có" là suy diễn thêm
+# ngoài những gì tệp nói.
+_VIEN_KHONG_VE = {"none", "nil"}
 
 # OOXML `w:jc` → `DonViVanBan.can_le` (Phase 9 U5). Chỉ "center"/"right"/"end"
 # đổi khỏi trái: "left"/"start"/"both" (căn đều) và mọi giá trị lạ đọc như
@@ -416,6 +458,103 @@ def _ti_le_luoi(tbl: ET.Element) -> tuple[int, ...]:
     return tuple(round(w * 100 / tong) for w in rong)
 
 
+def _co_net(vien: ET.Element) -> bool:
+    """Một nhóm viền (`w:tblBorders`/`w:tcBorders`) có vẽ cạnh nào không —
+    đúng một cạnh khai giá trị ngoài `none`/`nil` là đủ."""
+    return any(c.get(f"{{{_NS['w']}}}val") not in _VIEN_KHONG_VE for c in vien)
+
+
+def _kieu_vien_bang(goc_styles: ET.Element | None) -> dict[str, bool]:
+    """id kiểu BẢNG → kiểu đó có vẽ viền không, đã theo hết chuỗi `w:basedOn`.
+
+    Cần vì `TableGrid` (kiểu bảng có viền sẵn của Word) là cách phổ biến nhất
+    để một biểu mẫu tiếng Việt có viền: bảng đó KHÔNG khai `w:tblBorders` nào
+    trong `document.xml`, chỉ khai `w:tblStyle`. Bỏ qua styles.xml là đọc mọi
+    bảng TableGrid thành không viền — đúng thứ "bỏ mất một nét tệp có vẽ" mà
+    bản vá này tồn tại để tránh.
+
+    KHÔNG dùng chung vòng duyệt với `_kieu_can_le`: hai bên đọc hai thuộc
+    tính khác kiểu (chuỗi `w:jc` với một bool gộp từ nhiều cạnh) và gộp thừa
+    kế khác nhau, nên gộp lại thành một hàm tổng quát chỉ để tiết kiệm sáu
+    dòng đi chuỗi `basedOn` sẽ làm đường căn lề đang chạy đúng khó đọc hơn.
+
+    Trần đã biết: kiểu con khai `w:tblBorders` thì CHẶN hẳn kiểu cha, không
+    trộn theo từng cạnh như Word làm. Trộn theo cạnh chỉ đổi kết quả khi một
+    kiểu con tắt đúng vài cạnh của cha — ở đó câu trả lời "bảng này có viền"
+    vẫn đúng, chỉ là hình dạng viền không được tả đủ, mà một cờ bool thì
+    không tả được hình dạng nào cả.
+    """
+    if goc_styles is None:
+        return {}
+    truc_tiep: dict[str, bool] = {}
+    cha: dict[str, str] = {}
+    for st in goc_styles.findall(_STYLE):
+        sid = st.get(f"{{{_NS['w']}}}styleId")
+        if not sid or st.get(f"{{{_NS['w']}}}type") != "table":
+            continue
+        b = st.find(_BASEDON)
+        if b is not None and (v := b.get(f"{{{_NS['w']}}}val")):
+            cha[sid] = v
+        vien = st.find(f"{_TBLPR}/{_TBLBORDERS}")
+        if vien is not None:
+            truc_tiep[sid] = _co_net(vien)
+
+    def _giai(sid: str | None, di_qua: frozenset[str]) -> bool:
+        if sid is None or sid in di_qua:
+            return False
+        if sid in truc_tiep:
+            return truc_tiep[sid]
+        return _giai(cha.get(sid), di_qua | {sid})
+
+    return {sid: _giai(sid, frozenset()) for sid in {*truc_tiep, *cha}}
+
+
+def _vien_bang(tbl: ET.Element, vien_kieu: dict[str, bool]) -> bool:
+    """Bảng này có vẽ viền nào không (xem `DonViVanBan.bang_vien`).
+
+    Ba nguồn, gộp bằng HOẶC vì câu hỏi là "tệp có vẽ nét nào không": viền
+    cấp bảng (`w:tblPr/w:tblBorders`), kiểu bảng (`w:tblStyle`, đã giải qua
+    `_kieu_vien_bang`), và viền cấp Ô (`w:tcPr/w:tcBorders`) — một bảng khai
+    `nil` ở cấp bảng nhưng kẻ khung cho vài ô VẪN là một bảng có nét.
+
+    Một cờ bool cho cả bảng là biểu diễn nhỏ nhất mà vẫn trung thực với chỗ
+    dùng nó: cả ba nơi vẽ bảng (`XemTruocA4`, `.docx`, PDF) đều kẻ MỘT kiểu
+    viền cho mọi ô, nên biết thêm "ô này mất cạnh phải" cũng không có chỗ
+    nào diễn đạt được. Cờ này chỉ phân biệt đúng hai ca render làm được:
+    "tệp không vẽ gì" với "tệp có vẽ".
+    """
+    pr = tbl.find(_TBLPR)
+    if pr is not None:
+        vien = pr.find(_TBLBORDERS)
+        if vien is not None and _co_net(vien):
+            return True
+        kieu = pr.find(_TBLSTYLE)
+        sid = kieu.get(f"{{{_NS['w']}}}val") if kieu is not None else None
+        if sid and vien_kieu.get(sid):
+            return True
+    # Chỉ ô của CHÍNH bảng này (`findall`, không `iter`): một bảng lồng bên
+    # trong một ô là bảng khác, và viền của nó không nói gì về bảng bao ngoài.
+    return any(
+        (v := tc.find(f"{_TCPR}/{_TCBORDERS}")) is not None and _co_net(v)
+        for tr in tbl.findall(_TR)
+        for tc in tr.findall(_TC)
+    )
+
+
+def _cao_hang(tr: ET.Element) -> int:
+    """Chiều cao khai báo của một hàng, twip — `w:trPr/w:trHeight/@w:val`, `0`
+    khi hàng không khai hoặc khai giá trị đọc không ra số (xem
+    `DonViVanBan.bang_cao`)."""
+    h = tr.find(f"{_TRPR}/{_TRHEIGHT}")
+    if h is None:
+        return 0
+    try:
+        n = int(h.get(f"{{{_NS['w']}}}val") or "0")
+    except ValueError:
+        return 0
+    return n if n > 0 else 0
+
+
 def _kiem_zip(z: zipfile.ZipFile) -> None:
     """Phanh zip bom, chạy TRƯỚC khi đọc bất kỳ mục nào — xem `TRAN_SO_MUC_ZIP`."""
     muc = z.infolist()
@@ -465,7 +604,11 @@ def _duyet_phang(goc: ET.Element, vung: str, theo_kieu: dict[str, str] | None = 
     return [(None, c, None, vung, None, _can_le_doan(p, tk)) for p in goc.iter(_P) if (c := _chu(p))]
 
 
-def _duyet_than(goc: ET.Element, theo_kieu: dict[str, str] | None = None) -> list[tuple]:
+def _duyet_than(
+    goc: ET.Element,
+    theo_kieu: dict[str, str] | None = None,
+    vien_kieu: dict[str, bool] | None = None,
+) -> list[tuple]:
     """Con trực tiếp của `w:body` theo thứ tự: `w:p` là một đơn vị, `w:tbl` cho
     một đơn vị mỗi ô kèm toạ độ (bảng, hàng, cột).
 
@@ -473,6 +616,11 @@ def _duyet_than(goc: ET.Element, theo_kieu: dict[str, str] | None = None) -> lis
     bảng lồng bên trong. Bảng lồng không được đánh số riêng: nó là chi tiết
     trình bày của ô bao ngoài, và tách ra thì "hàng 2 cột 1" của người đọc trỏ
     vào một bảng họ không nhìn thấy.
+
+    Viền (`w:tblBorders`/`w:tcBorders`/`w:tblStyle`) và chiều cao hàng
+    (`w:trHeight`) đi CÙNG vòng lặp này, không thêm lượt duyệt thứ hai — cùng
+    lý lẽ `ti_le`/`nhip` đã theo: một ô tự mô tả đủ mọi sự thật cấu trúc của
+    nó, không cần một bảng tra riêng đứng ngoài.
 
     Cột (Phase 11 R6) là cột LƯỚI THẬT — cộng dồn nhịp (`w:gridSpan`) của các
     ô đứng TRƯỚC nó trong cùng hàng, không phải số thứ tự ô thứ mấy. Con trỏ
@@ -483,6 +631,7 @@ def _duyet_than(goc: ET.Element, theo_kieu: dict[str, str] | None = None) -> lis
     if than is None:
         return []
     tk = theo_kieu or {}
+    vk = vien_kieu or {}
     ra: list[tuple] = []
     so_bang = 0
     for con in than:
@@ -491,7 +640,9 @@ def _duyet_than(goc: ET.Element, theo_kieu: dict[str, str] | None = None) -> lis
                 ra.append((None, chu, None, "than", None, _can_le_doan(con, tk)))
         elif con.tag == _TBL:
             ti_le = _ti_le_luoi(con)
+            vien = _vien_bang(con, vk)
             for h, tr in enumerate(con.findall(_TR)):
+                cao = _cao_hang(tr)
                 cot = 0
                 for tc in tr.findall(_TC):
                     nhip = _nhip_o(tc)
@@ -511,7 +662,9 @@ def _duyet_than(goc: ET.Element, theo_kieu: dict[str, str] | None = None) -> lis
                     # ô có thể có nhiều `w:p` lồng, nhưng căn lề hiển thị
                     # là của dòng đầu tiên người đọc thấy.
                     can_le = _can_le_doan(tc.find(_P), tk)
-                    ra.append((None, chu, None, "than", (so_bang, h, c), can_le, nhip, ti_le))
+                    ra.append(
+                        (None, chu, None, "than", (so_bang, h, c), can_le, nhip, ti_le, vien, cao)
+                    )
             so_bang += 1
     return ra
 
@@ -534,12 +687,18 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
             # tiếp trên từng đoạn vẫn đọc đúng), mất nguyên một điều khoản thì
             # không.
             theo_kieu: dict[str, str] = {}
+            vien_kieu: dict[str, bool] = {}
             if "word/styles.xml" in z.namelist():
                 try:
-                    theo_kieu = _kieu_can_le(_goc_xml(z.read("word/styles.xml"), "word/styles.xml"))
+                    goc_kieu = _goc_xml(z.read("word/styles.xml"), "word/styles.xml")
                 except KhongDocDuoc:
-                    theo_kieu = {}
-            than = _duyet_than(goc, theo_kieu)
+                    pass
+                else:
+                    theo_kieu = _kieu_can_le(goc_kieu)
+                    # Viền theo KIỂU bảng (`TableGrid`) — mất nó thì một bảng
+                    # có viền đọc thành không viền, xem `_kieu_vien_bang`.
+                    vien_kieu = _kieu_vien_bang(goc_kieu)
+            than = _duyet_than(goc, theo_kieu, vien_kieu)
             # Thước đo để lùi về là TỔNG chữ `w:t` của thân, KHÔNG phải duyệt
             # phẳng: duyệt phẳng đếm hai lần chữ trong hộp chữ (một `w:p` lồng
             # trong `w:p`), và với thước đó cấu trúc luôn "thua". Đo 2026-09-16
@@ -843,8 +1002,8 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
     `(trang, noi_dung, do_tin)` từ nhánh OCR,
     `(trang, noi_dung, do_tin, vung, bang)` từ DOCX trước Phase 9,
     `(trang, noi_dung, do_tin, vung, bang, can_le)` từ DOCX có căn lề (Phase 9
-    U5), và `(…, can_le, bang_nhip, bang_ti_le)` từ một Ô BẢNG có lưới (Phase
-    11 R1/R6). Có `do_tin` nghĩa là máy đang đoán, nên đơn vị đó mang nhãn
+    U5), và `(…, can_le, bang_nhip, bang_ti_le, bang_vien, bang_cao)` từ một
+    Ô BẢNG. Có `do_tin` nghĩa là máy đang đoán, nên đơn vị đó mang nhãn
     `ocr`.
 
     PDF đã biết trang thật. DOCX chưa, nên trang được suy ra từ số ký tự đã đi
@@ -864,6 +1023,8 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
         can_le = muc[5] if len(muc) > 5 else "trai"
         bang_nhip = muc[6] if len(muc) > 6 else 1
         bang_ti_le = muc[7] if len(muc) > 7 else ()
+        bang_vien = muc[8] if len(muc) > 8 else True
+        bang_cao = muc[9] if len(muc) > 9 else 0
         if trang is None:
             trang = 1 + da_di // KY_TU_MOI_TRANG
         if trang != trang_hien:
@@ -881,6 +1042,8 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
                 can_le=can_le,
                 bang_nhip=bang_nhip,
                 bang_ti_le=bang_ti_le,
+                bang_vien=bang_vien,
+                bang_cao=bang_cao,
             )
         )
         offset += len(noi_dung) + 1   # +1 cho dấu xuống dòng giữa hai đơn vị

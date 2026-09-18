@@ -193,7 +193,7 @@ def test_muc_bang_khong_can_noi_dung_de_duoc_giu():
     van_ban, dem = _sach([_muc("Đánh giá", bang=BANG_HOP_LE)], nguon=NGUON_BANG)
     assert len(van_ban["muc"]) == 1
     assert van_ban["muc"][0]["khoi"] == [
-        {"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai", "nhip": [], "ti_le": []}
+        {"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai", "nhip": [], "ti_le": [], "vien": True, "cao": [], "can_le_o": []}
     ]
     assert dem["gia_tri_lam_sach"] == 0
 
@@ -216,7 +216,7 @@ def test_khoi_rong_ca_hai_bi_loai_nhung_muc_van_con_khoi_khac():
     ]}
     van_ban, _ = _sach([muc], nguon=NGUON_BANG)
     assert van_ban["muc"][0]["khoi"] == [
-        {"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai", "nhip": [], "ti_le": []}
+        {"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai", "nhip": [], "ti_le": [], "vien": True, "cao": [], "can_le_o": []}
     ]
 
 
@@ -327,9 +327,9 @@ def test_khoi_ca_hai_khac_rong_bi_tach_thanh_hai_khoi():
     khoi = van_ban["muc"][0]["khoi"]
     assert len(khoi) == 2
     assert khoi[0] == {
-        "noi_dung": "Kết quả chấm điểm như sau:", "bang": [], "can_le": "trai", "nhip": [], "ti_le": [],
+        "noi_dung": "Kết quả chấm điểm như sau:", "bang": [], "can_le": "trai", "nhip": [], "ti_le": [], "vien": True, "cao": [], "can_le_o": [],
     }
-    assert khoi[1] == {"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai", "nhip": [], "ti_le": []}
+    assert khoi[1] == {"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai", "nhip": [], "ti_le": [], "vien": True, "cao": [], "can_le_o": []}
 
 
 def test_letterhead_hai_cot_song_sot_nhu_bang():
@@ -409,6 +409,9 @@ def test_bang_theo_nhan_dung_lai_dung_luoi_tu_don_vi():
             ],
             "nhip": [[1, 1], [1, 1]],
             "ti_le": [],
+            "vien": True,
+            "cao": [0, 0],
+            "can_le_o": [["trai", "trai"], ["trai", "trai"]],
         }
     }
 
@@ -434,7 +437,7 @@ def test_khop_bang_cuu_letterhead_bi_xe_thanh_van_xuoi():
     }
     van_ban, _ = _sach([muc_xe], nguon=NGUON_LETTERHEAD, goi=GOI_LETTERHEAD)
     assert van_ban["muc"][0]["khoi"] == [
-        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai", "nhip": [], "ti_le": []},
+        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai", "nhip": [], "ti_le": [], "vien": True, "cao": [], "can_le_o": []},
         {
             "noi_dung": "",
             "bang": [
@@ -446,6 +449,9 @@ def test_khop_bang_cuu_letterhead_bi_xe_thanh_van_xuoi():
             ],
             "nhip": [[1, 1], [1, 1]],
             "ti_le": [],
+            "vien": True,
+            "cao": [0, 0],
+            "can_le_o": [["trai", "trai"], ["trai", "trai"]],
             "can_le": "trai",
         },
     ]
@@ -461,7 +467,7 @@ def test_khop_bang_khong_gop_mot_dong_van_xuoi_don_le_trung_ngau_nhien():
     }
     van_ban, _ = _sach([muc], nguon=NGUON_LETTERHEAD, goi=GOI_LETTERHEAD)
     assert van_ban["muc"][0]["khoi"] == [
-        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai", "nhip": [], "ti_le": []}
+        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai", "nhip": [], "ti_le": [], "vien": True, "cao": [], "can_le_o": []}
     ]
 
 
@@ -630,7 +636,7 @@ def test_bang_cua_nhieu_dong_khong_khop_khi_thua_dong_hoac_thieu_o():
         [muc], nguon=NGUON_LETTERHEAD_2_DOAN + "\nPhòng Đào tạo", goi=GOI_LETTERHEAD_2_DOAN
     )
     assert van_ban["muc"][0]["khoi"] == [
-        {"noi_dung": khoi_du_dong, "bang": [], "can_le": "trai", "nhip": [], "ti_le": []}
+        {"noi_dung": khoi_du_dong, "bang": [], "can_le": "trai", "nhip": [], "ti_le": [], "vien": True, "cao": [], "can_le_o": []}
     ]
 
 
@@ -948,7 +954,7 @@ def test_ten_muc_that_trung_dong_dau_khoi_thi_bo_dong_do_giu_phan_con_lai():
     ket = van_ban["muc"][0]
     assert ket["ten_that"] is True, "tên vẫn thật, vẫn in ra làm tiêu đề mục"
     assert ket["khoi"] == [
-        {"noi_dung": "(Ký và ghi rõ họ tên, chức vụ, đóng dấu)", "bang": [], "can_le": "trai", "nhip": [], "ti_le": []}
+        {"noi_dung": "(Ký và ghi rõ họ tên, chức vụ, đóng dấu)", "bang": [], "can_le": "trai", "nhip": [], "ti_le": [], "vien": True, "cao": [], "can_le_o": []}
     ], "dòng đầu (trùng tên) bị bỏ, phần còn lại của khối vẫn giữ nguyên"
 
 
@@ -1050,6 +1056,9 @@ def test_tieu_de_chen_dung_vi_tri_nguon_khong_luon_o_dau():
             "can_le": "giua",
             "nhip": [],
             "ti_le": [],
+            "vien": True,
+            "cao": [],
+            "can_le_o": [],
         }
     ]
 
@@ -1318,7 +1327,7 @@ def test_node_khop_lai_letterhead_bi_mo_hinh_xe_thanh_van_xuoi():
     )
     khoi = ra["van_ban_tong_quat"]["muc"][0]["khoi"]
     assert khoi == [
-        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai", "nhip": [], "ti_le": []},
+        {"noi_dung": "Mẫu QT.ĐT.28-M05", "bang": [], "can_le": "trai", "nhip": [], "ti_le": [], "vien": True, "cao": [], "can_le_o": []},
         {
             "noi_dung": "",
             "bang": [
@@ -1330,6 +1339,9 @@ def test_node_khop_lai_letterhead_bi_mo_hinh_xe_thanh_van_xuoi():
             ],
             "nhip": [[1, 1], [1, 1]],
             "ti_le": [],
+            "vien": True,
+            "cao": [0, 0],
+            "can_le_o": [["trai", "trai"], ["trai", "trai"]],
             "can_le": "trai",
         },
     ]
@@ -2120,3 +2132,40 @@ def test_gia_tri_go_tay_o_luot_truoc_song_sot_qua_luot_sua_sau(nguoi):
     noi_dung = ket["van_ban_tong_quat"]["muc"][0]["khoi"][0]["noi_dung"]
     assert "23010447" in noi_dung, "giá trị đã có trong bản thảo đang có không được coi là bịa"
     assert "[…]" not in noi_dung
+
+
+# ------------------------------------------------- căn lề của chữ NẰM TRONG Ô
+
+
+def test_can_le_cua_o_bang_van_toi_duoc_mot_khoi_van_xuoi():
+    """Đo 2026-09-18 trên một đơn xin học lại: "Người làm đơn" nằm trong một Ô
+    của bảng ký (nguồn khai `w:jc="center"`), nhưng mô hình tái hiện nó thành
+    một khối VĂN XUÔI. Bản trước, `_can_le_theo_dong` bỏ qua mọi đơn vị có
+    `bang`, nên khối ấy trượt từ điển và về mặc định `trai` — trong khi cùng
+    dòng đó nếu là đoạn ngoài bảng lại ra đúng `giua`. Reader ĐÃ đọc được sự
+    thật này; chỗ duy nhất làm mất nó là phép lọc ở đây."""
+    don_vi = [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="ĐƠN XIN HỌC LẠI", can_le="giua"),
+        DonViVanBan(
+            chi_so=1, trang=1, offset_dau=20,
+            noi_dung="Người làm đơn", bang=(0, 0, 1), can_le="giua",
+        ),
+    ]
+    goi = [{"id": "x", "ten_tep": "don.docx", "don_vi": don_vi, "nhan": "A", "gui": don_vi}]
+
+    theo_dong = h._can_le_theo_dong(goi)
+
+    assert h._can_le_khoi("Người làm đơn", theo_dong) == "giua"
+
+
+def test_o_bang_va_doan_trung_chu_khac_can_le_VAN_bi_loai():
+    """Luật bất đồng không được nới ra theo: một dòng trùng chữ ở hai chỗ căn
+    khác nhau vẫn là dòng không xác định được căn lề, dù một trong hai chỗ là
+    ô bảng."""
+    don_vi = [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Ghi chú", can_le="trai"),
+        DonViVanBan(chi_so=1, trang=1, offset_dau=10, noi_dung="Ghi chú", bang=(0, 0, 0), can_le="giua"),
+    ]
+    goi = [{"id": "x", "ten_tep": "x.docx", "don_vi": don_vi, "nhan": "A", "gui": don_vi}]
+
+    assert h._can_le_theo_dong(goi) == {}
