@@ -195,7 +195,7 @@ BAN_CHAT = "\n\n".join((
     "Về bản chất, tôi là một chương trình — một trợ lý AI làm riêng cho pháp luật Việt Nam, tên KLAW.",
     "\n".join((
         "- Tôi không phải luật sư, không phải thẩm phán, không phải cơ quan nhà nước. Tôi không có quyền ra phán quyết, và không đại diện cho bạn tại toà.",
-        "- Tôi chạy trên mô hình ngôn ngữ, nhưng câu trả lời không thành hình vì mô hình tự tin. Mỗi trích dẫn phải qua hai tầng kiểm mới được hiện ra: tầng một so từng chữ câu trích với nguyên văn điều khoản trong kho — một phép so chuỗi thuần, nó không có cách nào tự thuyết phục được chính nó; tầng hai để một model khác họ đọc lại xem điều khoản đó có chống đỡ được câu đó không.",
+        "- Tôi chạy trên mô hình ngôn ngữ, nhưng câu trả lời không thành hình vì mô hình tự tin. Mỗi trích dẫn phải qua hai tầng kiểm mới được hiện ra: tầng một so từng chữ câu trích với nguyên văn điều khoản trong chính văn bản luật — một phép so chuỗi thuần, nó không có cách nào tự thuyết phục được chính nó; tầng hai để một model khác họ đọc lại xem điều khoản đó có chống đỡ được câu đó không.",
         "- Không đủ căn cứ thì tôi nói thẳng là không đủ, không viết cho đủ bài.",
     )),
     "Việc quan trọng thì bạn vẫn nên đưa trích dẫn tôi dẫn cho luật sư xem cùng.",
@@ -248,7 +248,7 @@ NANG_LUC = "\n".join((
     "- Soạn và rà soát văn bản pháp lý lao động theo checklist.",
     # "không đủ căn cứ" chứ không phải cụm cùng nghĩa bắt đầu bằng "chưa":
     # `test_giong_tra_loi.CUM_BI_CAM` cấm cụm kia vì đó là giọng bản abstain cũ.
-    "- Nói rõ khi kho không đủ căn cứ, thay vì đoán luật hoặc kết quả vụ việc.",
+    "- Nói rõ khi không đủ căn cứ, thay vì đoán luật hoặc kết quả vụ việc.",
 ))
 
 # Dạng 4 — dữ liệu lấy từ đâu / có tin được không.
@@ -261,15 +261,15 @@ NANG_LUC = "\n".join((
 # câu giới hạn phạm vi, và một bản sao thứ hai sẽ lệch pha đúng vào ngày ai đó
 # sửa một trong hai.
 NGUON = "\n\n".join((
-    "Kho của tôi dựng từ cơ sở dữ liệu quốc gia về văn bản pháp luật — bản công "
-    "bố của cơ quan nhà nước, không phải một bản chép lại trên mạng.",
+    "Văn bản tôi đọc lấy từ cơ sở dữ liệu quốc gia về văn bản pháp luật — bản "
+    "công bố của cơ quan nhà nước, không phải một bản chép lại trên mạng.",
     "Hai điều bạn nên biết trước khi tin:",
-    "- Kho là văn bản GỐC, không phải bản hợp nhất. Tôi bảo đảm trích đúng nguyên "
+    "- Tôi đọc bản GỐC của văn bản, không phải bản hợp nhất. Tôi bảo đảm trích đúng nguyên "
     "văn và đúng nguồn, và gắn nhãn hiệu lực cho từng trích dẫn — nhưng bản gốc "
     "không tự mang theo các lần sửa đổi về sau, nên việc quan trọng thì bạn vẫn "
     "nên đối chiếu bản hiện hành.\n"
     "- Mỗi câu tôi nói phải qua hai tầng kiểm mới được hiện ra: tầng một so từng "
-    "chữ câu trích với điều khoản trong kho, tầng hai để một model khác đọc lại "
+    "chữ câu trích với điều khoản trong chính văn bản luật, tầng hai để một model khác đọc lại "
     "xem điều khoản đó có thật sự chống đỡ được câu đó không. Không qua được thì "
     "tôi nói thẳng là không đủ, không viết cho đủ bài.",
     CAU_GIOI_HAN,
@@ -299,7 +299,7 @@ def _model() -> str:
         "khác HỌ với model sinh. Một model đọc lại bài của chính họ thì thiên "
         "vị chính nó, và tầng thẩm định trở thành một sự yên tâm giả.",
         "Tầng kiểm trước đó thì không phải model nào cả: mỗi câu trích được so từng "
-        "chữ với nguyên văn điều khoản trong kho. Đó là một phép so chuỗi — nó không "
+        "chữ với nguyên văn điều khoản trong chính văn bản luật. Đó là một phép so chuỗi — nó không "
         "có cách nào tự thuyết phục được chính nó.",
     ))
 
@@ -413,8 +413,8 @@ def can_kho(cac_khia_canh: list[str]) -> bool:
 # Khi một khía cạnh kho được hỏi mà kho chưa nạp được: nói THẲNG là chưa đọc
 # được, KHÔNG bịa tên Bộ luật hay lĩnh vực nào. Một câu duy nhất, kể cả khi câu
 # hỏi nêu hai khía cạnh kho.
-THIEU_KHO = ("Danh sách Bộ luật và lĩnh vực tôi đọc từ kho lúc trả lời; "
-             "lượt này tôi chưa nạp được kho.")
+THIEU_KHO = ("Danh sách Bộ luật và lĩnh vực tôi đọc từ dữ liệu pháp luật lúc trả lời; "
+             "lượt này tôi chưa đọc được.")
 
 # Đúng MỘT lời mời tiếp tục, gắn với nội dung vừa hỏi (FR-015).
 HOI_TIEP_KHO = "Bạn muốn xem danh sách văn bản của lĩnh vực nào?"
@@ -429,11 +429,15 @@ def _liet_ke(x: list[str]) -> str:
     return x[0] if len(x) == 1 else ", ".join(x[:-1]) + " và " + x[-1]
 
 
+# Phase 14 (R5) — lời cho NGƯỜI ĐỌC nói tên thứ đang trích ("Bộ luật", "văn bản
+# luật", "pháp luật Việt Nam"), không gọi corpus là "kho": xem
+# `services/kho.CAU_GIOI_HAN` cho lý lẽ đầy đủ. Tham số `kho`, `_KHIA_CANH_KHO`
+# và mọi chú thích ở file này giữ tên cũ — đây là việc đổi LỜI, không đổi mã.
 def _khoi_bo_luat(kho: list[dict]) -> str:
     ten = [d["ten_ngan"] for d in danh_sach_bo_luat(kho)]
     if not ten:
-        return "Kho hiện chưa có Bộ luật nào."
-    return f"Kho hiện có {len(ten)} Bộ luật: {_liet_ke(ten)}."
+        return "Tôi hiện chưa có Bộ luật nào."
+    return f"Tôi hiện có {len(ten)} Bộ luật: {_liet_ke(ten)}."
 
 
 def _khoi_linh_vuc(kho: list[dict]) -> str:
@@ -442,7 +446,7 @@ def _khoi_linh_vuc(kho: list[dict]) -> str:
     vực rỗng."""
     lv = [d for d in tom_tat_linh_vuc(kho) if d["linh_vuc"]]
     if not lv:
-        return "Kho hiện chưa gắn lĩnh vực cho văn bản nào."
+        return "Tôi hiện chưa gắn lĩnh vực cho văn bản nào."
     # Real corpus: 55 MOJ labels, most documents unclassified. Name the largest
     # TOI_DA_LINH_VUC (already sorted by count) and count the rest — ex.md §4.2
     # caps a scope list at six items.

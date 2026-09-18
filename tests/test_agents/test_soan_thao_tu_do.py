@@ -7,7 +7,8 @@ D14-B): không nhãn "chưa kiểm pháp lý" trên bản thảo soạn trong ch
 checklist là lời mời chứ không phải điều kiện. File này khoá phần BẤT BIẾN
 xuyên các module — chuỗi đã gỡ không còn ở đâu trong `src/`, `audit_report.
 muc_kiem` vẫn nói thật cho cả hai đường soạn, phép kiểm neo trích dẫn không
-bị nới — còn hành vi từng node nằm trong test của node đó
+bị nới, và không lời đáp nào còn gọi corpus là "kho" (R5) — còn hành vi từng
+node nằm trong test của node đó
 (`test_re_tat_som`, `test_hieu_tai_lieu`, `test_ban_thao_tong_quat`,
 `test_assemble`).
 
@@ -19,11 +20,16 @@ chỉ sang biểu mẫu. Owner đã đổi quyết định đó; test cũ đi th
 import re
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
+from src.agents.nodes import assemble as asm
 from src.agents.nodes import dung_ban_thao_tong_quat as d
+from src.agents.nodes import gioi_thieu as gt
 from src.agents.nodes.assemble import ResultType, _dieu_khong_duoc_chong_do, assemble
 from src.agents.nodes.route import Intent
-from src.services import ban_thao
+from src.services import ban_thao, ho_so, kho
+from src.services.effectivity import Effectivity
+from src.services.effectivity import EffectivityVerdict as V
 
 GOC = Path(__file__).resolve().parents[2]
 
@@ -102,3 +108,74 @@ def test_regex_so_dieu_bat_ca_khoan_diem_trong_ban_thao_chat():
     assert _vuong_luoi_chan("Điểm a khoản 1")
     assert not _vuong_luoi_chan("Tôi xin nghỉ phép ba ngày vì việc gia đình.")
     assert re.search(r"[Đđ]iều\s+\d", "Điều 5") is not None
+
+
+# ── Proof R5: lời cho người đọc gọi tên thứ đang trích, không gọi cái hộp ───
+
+
+# `\bkho\b` KHÔNG khớp "khoản"/"khoá"/"khoảng" (ký tự ngay sau vẫn là ký tự
+# từ), nên đây bắt đúng chữ "kho" đứng một mình — cách gọi corpus mà owner đã
+# bỏ, chứ không phải mọi chữ bắt đầu bằng "kho".
+_RE_KHO = re.compile(r"(?i)\bkho\b")
+
+
+def _vb(so: str, ten: str, loai: str = "Bộ luật") -> dict:
+    return {"so_ky_hieu": so, "ten": ten, "loai_van_ban": loai, "depth": "deep",
+            "hieu_luc": Effectivity(V.con_hieu_luc, "cao", "không có tín hiệu chấm dứt nào"),
+            "linh_vuc": "Lao động - Thương binh và Xã hội"}
+
+
+# Fixture dựng tại chỗ, KHÔNG import từ test file khác (cùng lý do
+# `test_khia_canh.py` nêu: một thay đổi bên kia làm đỏ bên này khó đọc).
+_KHO = [_vb("45/2019/QH14", "Bộ Luật lao động số 45/2019/QH14"),
+        _vb("145/2020/NĐ-CP", "Nghị định 145/2020/NĐ-CP", loai="Nghị định")]
+
+
+def _moi_loi_dap_nguoi_doc() -> dict[str, str]:
+    """Mọi bề mặt từng gọi corpus là "kho" TRONG LỜI người dùng đọc.
+
+    Đi qua `_mot_khoi` cho ĐỦ chín khía cạnh thay vì đoán vài câu hỏi mẫu: một
+    khía cạnh thứ mười thêm vào mà quên sửa lời sẽ đỏ ở đây."""
+    ra = {f"gioi_thieu.{t}": gt._mot_khoi(t, "kho của bạn phủ những gì", _KHO) for t in gt.KHIA_CANH}
+    ra["gioi_thieu.THIEU_KHO"] = gt.THIEU_KHO
+    ra["kho.tom_tat"] = kho.dung_cau_tra_loi("có bao nhiêu bộ luật", _KHO)
+    ra["kho.co_van_ban"] = kho.dung_cau_tra_loi("có Nghị định 145/2020 không?", _KHO)
+    ra["kho.khong_co_van_ban"] = kho.dung_cau_tra_loi("có Nghị định 999/2099/NĐ-CP không?", _KHO)
+    ra["kho.loi_dan_bang"] = kho.loi_dan_bang()
+    ra["assemble.NGOAI_PHAM_VI"] = asm.NGOAI_PHAM_VI
+    ra["assemble.KHONG_TIM_DUOC"] = asm.KHONG_TIM_DUOC
+    ra["assemble.nguon_bi_thay"] = asm._ly_do_moi_nguon_bi_thay(
+        [SimpleNamespace(effectivity=Effectivity(V.bi_thay_the, "cao", "bị 145/2020/NĐ-CP thay thế"))])
+    ra.update({f"ho_so.{k}": v for k, v in ho_so.NHAN_PHAN_LOAI.items()})
+    return ra
+
+
+def test_khong_loi_dap_nao_goi_corpus_la_kho_cua_toi():
+    """R5 (owner): "ko đề cập 'kho' trong kho của tôi nữa mà sẽ là pháp luật
+    việt nam có, … luật này, điều này trong pháp luật việt nam, bộ luật này".
+    Gọi corpus là một cái kho riêng làm KLAW nghe như danh mục tư nhân, trong
+    khi thứ nó đang trích LÀ văn bản pháp luật Việt Nam."""
+    vuong = {ten: t for ten, t in _moi_loi_dap_nguoi_doc().items() if _RE_KHO.search(t)}
+    assert not vuong, f"lời cho người đọc còn gọi corpus là kho: {vuong}"
+
+
+def test_loi_dap_con_lai_goi_dung_ten_thu_dang_trich():
+    """Nửa sau của R5: bỏ chữ "kho" chỉ đúng nếu chỗ nó đứng nay gọi TÊN văn
+    bản — không phải nếu câu trở thành vô danh."""
+    loi = _moi_loi_dap_nguoi_doc()
+    assert loi["gioi_thieu.bo_luat"] == "Tôi hiện có 1 Bộ luật: Lao động."
+    assert "Bộ Luật lao động số 45/2019/QH14" in loi["kho.tom_tat"]
+    assert "văn bản pháp luật Việt Nam" in loi["kho.tom_tat"]
+    assert "145/2020/NĐ-CP" in loi["kho.co_van_ban"]
+    assert "văn bản luật" in loi["gioi_thieu.ban_chat"], "tầng một so chữ với CHÍNH văn bản luật"
+
+
+def test_bo_chu_kho_KHONG_duoc_thanh_loi_hua_phu_het_phap_luat_viet_nam():
+    """Ranh giới brief đặt ra cho R5: nói "pháp luật Việt Nam quy định…" rồi
+    đoán thì tệ hơn lời cũ. Câu đóng phạm vi vẫn phải thú nhận đúng những gì
+    có, và vẫn phải đi kèm MỌI đường trả lời về corpus."""
+    assert "không phải toàn bộ văn bản pháp luật Việt Nam" in kho.CAU_GIOI_HAN
+    assert "còn nhiều văn bản tôi chưa có" in kho.CAU_GIOI_HAN
+    for cau_hoi in ("có bao nhiêu bộ luật", "có Nghị định 145/2020 không?",
+                    "có Nghị định 999/2099/NĐ-CP không?"):
+        assert kho.CAU_GIOI_HAN in kho.dung_cau_tra_loi(cau_hoi, _KHO)

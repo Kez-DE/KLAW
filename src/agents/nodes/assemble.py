@@ -570,7 +570,7 @@ def _ly_do_moi_nguon_bi_thay(qua_loc: list) -> str:
     ke_nhiem = sorted({m for r in qua_loc for m in [_van_ban_ke_nhiem(r.effectivity.ly_do)] if m})
     if ke_nhiem:
         return (f"Những gì tôi tìm được cho câu hỏi này đều đã bị thay thế. Văn bản đi thay "
-                f"là {', '.join(ke_nhiem)}, và nội dung của nó thì tôi chưa nạp vào kho, "
+                f"là {', '.join(ke_nhiem)}, và nội dung của nó thì tôi chưa có, "
                 f"nên tôi chưa đọc được để nói với bạn nó quy định thế nào.")
     return ("Những gì tôi tìm được cho câu hỏi này đều đã bị thay thế hoặc đã hết hiệu lực, "
             "và từ những gì tôi đang có thì tôi chưa xác định được văn bản nào đi thay.")
