@@ -790,9 +790,11 @@ def test_hoi_BO_LUAT_thi_khoi_bo_luat_dung_DAU():
     kho = nap_kho(get_engine(), date.today())
     ra = dung_cau_tra_loi("có bao nhiêu bộ luật", kho)
     dau = ra.split("\n\n")[0]
-    assert "Bộ luật đang có trong kho" in dau, f"khối đầu là: {dau[:120]}"
-    # Bối cảnh kho KHÔNG bị cắt — nó chỉ không được đứng trước câu trả lời.
-    assert "Trong kho của tôi hiện có" in ra
+    # R5 (Phase 14) đổi LỜI, không đổi thứ tự: khối Bộ luật vẫn phải đứng đầu,
+    # chỉ không còn gọi corpus là "kho" nữa.
+    assert "Bộ luật tôi đang có" in dau, f"khối đầu là: {dau[:120]}"
+    # Bối cảnh phạm vi KHÔNG bị cắt — nó chỉ không được đứng trước câu trả lời.
+    assert "Tôi hiện có" in ra and "văn bản pháp luật Việt Nam" in ra
 
 
 @pytest.mark.integration
@@ -804,4 +806,7 @@ def test_hoi_CHUNG_ve_kho_van_giu_thu_tu_cu():
 
     kho = nap_kho(get_engine(), date.today())
     ra = dung_cau_tra_loi("kho của bạn có những gì", kho)
-    assert ra.split("\n\n")[0].startswith("Trong kho của tôi hiện có")
+    # Cùng lý do trên: câu hỏi CHUNG vẫn mở bằng khối tổng quan, nay gọi tên
+    # thứ đang có ("văn bản pháp luật Việt Nam") thay vì cái hộp chứa nó.
+    assert ra.split("\n\n")[0].startswith("Tôi hiện có")
+    assert "văn bản pháp luật Việt Nam" in ra.split("\n\n")[0]
