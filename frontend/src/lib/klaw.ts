@@ -1328,22 +1328,30 @@ export const LOAI_TONG_QUAT = "tong_quat";
  * đi đường checklist + rules + audit như trước (ở đó `SoatBanThao` đã nói rõ
  * từng rule đã chạy hay chưa, nên thêm một nhãn nữa chỉ làm loãng).
  *
- * `tong_quat` thì ngược lại: KHÔNG có rule nào chạy trên nó, và trên màn hình
- * nó trông y hệt một bản thảo đã soát. Nhãn này là chỗ DUY NHẤT nói ra điều đó
- * trước khi người dùng bấm tải về.
+ * Phase 14 (quyết định owner D14-A) — bản thảo TỔNG QUÁT (mô hình soạn trong
+ * chat) KHÔNG còn đeo nhãn nào: từ phase này chat soạn được mọi loại văn bản,
+ * và owner đã chọn bỏ nhãn đó với cái giá đã nói rõ (người dùng tải về một văn
+ * bản lao động mà không thấy phân biệt "chưa qua checklist"). Chỉ NHÃN biến
+ * mất — `audit_report.muc_kiem` phía backend vẫn ghi đúng đường đã chạy, nên
+ * hệ thống, trace và mọi lần soát sau vẫn phân biệt được.
  *
- * Phase 3 (Half A, R3/D3) — `sua_tay` (`src/services/ban_thao.py`) đặt CÙNG
- * giá trị `muc_kiem` này khi một sửa TAY hạ cấp một bản thảo CHECKLIST (đã
- * qua rule/audit thật), cộng thêm `sua_tay: true` để nói rõ đây không phải
- * "chưa từng kiểm" (bản thảo tổng quát gốc) mà là "đã bị người dùng viết đè
- * sau khi kiểm" — hai sự thật khác nhau, không được gộp một nhãn (brief: "the
- * two are not the same thing").
+ * Phase 3 (Half A, R3/D3) GIỮ NGUYÊN: `sua_tay` (`src/services/ban_thao.py`)
+ * đặt cùng giá trị `muc_kiem` khi một sửa TAY hạ cấp một bản thảo CHECKLIST
+ * (đã qua rule/audit thật). Đó là một sự thật KHÁC — "đã bị viết đè SAU khi
+ * kiểm", không phải "chưa từng kiểm" — và nó nói về một bản thảo checklist,
+ * không phải bản thảo soạn trong chat, nên D14-A không chạm tới nó.
+ *
+ * `loai` là thứ PHÂN BIỆT được hai ca đó, và nó BẮT BUỘC: `sua_tay` ghi cùng
+ * một `audit_report` cho cả hai loại bản thảo, nên riêng `audit_report` không
+ * nói được bản thảo này sinh ra từ chat hay từ checklist.
  */
-export function nhanMucKiem(auditReport: Record<string, unknown> | undefined): string | null {
+export function nhanMucKiem(
+  auditReport: Record<string, unknown> | undefined,
+  loai: string | undefined,
+): string | null {
+  if (loai === LOAI_TONG_QUAT) return null;
   if (auditReport?.["muc_kiem"] !== LOAI_TONG_QUAT) return null;
-  return auditReport["sua_tay"] === true
-    ? "Đã sửa tay — chưa kiểm pháp lý"
-    : "Bản thảo tổng quát — chưa kiểm pháp lý";
+  return auditReport["sua_tay"] === true ? "Đã sửa tay — chưa kiểm pháp lý" : null;
 }
 
 /**

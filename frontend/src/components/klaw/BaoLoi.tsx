@@ -47,7 +47,10 @@ function goiY(kind: ApiErrorKind): string | null {
       // `detail` của máy chủ, và đoán sai giữa hai nguyên nhân thì tệ hơn im.
       return "Phần này mình chưa dựng xong nên chưa có kết quả thật để đưa cho bạn — không phải lỗi ở phía bạn.";
     case "not_found":
-      return "Không tìm thấy văn bản hoặc điều khoản này trong kho.";
+      // R5, và ranh giới của nó: bỏ chữ "kho" KHÔNG được thành "pháp luật Việt
+      // Nam không có điều khoản này" — 404 chỉ nói KLAW chưa có nguyên văn của
+      // nó, một điều hẹp hơn hẳn và là điều duy nhất đúng ở đây.
+      return "KLAW chưa có nguyên văn của văn bản hoặc điều khoản này.";
     case "unauthorized":
       // KHÔNG khuyên "kiểm tra lại nội dung đã nhập": nội dung không liên
       // quan gì. Cổng bảo vệ chặn vì thiếu quyền, và người dùng không sửa

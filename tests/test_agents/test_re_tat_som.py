@@ -56,21 +56,42 @@ def test_hai_y_dinh_khong_can_tra_cuu_van_re_tat_du_dang_co_draft_mo():
         )
 
 
-def test_soan_thao_re_qua_gom_du_kien_khong_phai_thang_toi_assemble():
-    """`soan_thao` — ý định CHÍNH mà `route` vừa đoán cho LƯỢT NÀY — đi
-    `gom_du_kien` trước, không rẽ thẳng như `test_hai_y_dinh...` ở trên."""
-    assert _re_sau_route({"intent": Intent.soan_thao}) == "gom_du_kien"
+def test_soan_thao_tuoi_di_hieu_tai_lieu_de_mo_hinh_tu_soan():
+    """Phase 14 (R1/R2) — một yêu cầu soạn thảo MỚI của người đã đăng nhập đi
+    thẳng `hieu_tai_lieu` (mô hình soạn, `muc_dich = tao_van_ban`), KHÔNG còn
+    qua `gom_du_kien`: checklist không còn là cổng bắt buộc của đường chat, và
+    một loại văn bản ngoài 29 mẫu không được rơi vào ngõ cụt "chưa có loại này".
+    Đúng cả khi router đoán ĐƯỢC một loại checklist — khớp mẫu là một lời mời,
+    không phải điều kiện (R3)."""
+    assert _re_sau_route({"intent": Intent.soan_thao, "user_sub": "u"}) == "hieu_tai_lieu"
+    goi_y = {"loai": "don_xin_nghi_viec", "ly_do": "", "thay_the": []}
+    assert _re_sau_route({"intent": Intent.soan_thao, "user_sub": "u", "soan_thao_goi_y": goi_y}) == "hieu_tai_lieu"
+
+
+def test_soan_thao_dang_gom_du_kien_van_di_gom_du_kien():
+    """Phiên ĐANG có một checklist mở dở (`soan_thao_dang_mo`, vào từ
+    `/sang-soan-thao` hoặc từ trước Phase 14) thì câu trả lời dữ kiện của
+    người dùng vẫn về `gom_du_kien` — nhánh này chỉ xét SAU KHI `intent` đã là
+    `soan_thao`, cùng khuôn hẹp Phase 3 đã dùng, không phải một phép xét
+    trạng thái phiên đè lên ý định."""
+    draft = {"loai": "hdld", "facts": {"x": "1"}, "ban_thao_id": None, "so_lan_sua": 0}
+    assert _re_sau_route({"intent": Intent.soan_thao, "user_sub": "u", "soan_thao_dang_mo": draft}) == "gom_du_kien"
+
+
+def test_soan_thao_khach_re_thang_assemble_khong_ton_token():
+    """Khách chưa đăng nhập không có chỗ lưu bản thảo: rẽ thẳng `assemble` (0
+    token, lời mời đăng nhập) thay vì trả tiền một lượt soạn rồi mới nói không
+    lưu được."""
+    assert _re_sau_route({"intent": Intent.soan_thao}) == "assemble"
+    assert _re_sau_route({"intent": Intent.soan_thao, "user_sub": None}) == "assemble"
 
 
 def test_soan_thao_re_sang_hieu_tai_lieu_khi_co_ban_thao_tong_quat_dang_mo():
-    """Phase 3 Half B (R5) — MỘT ngoại lệ hẹp lên test trên: khi hội thoại đã
-    có một bản thảo TỔNG QUÁT (`ban_thao_tong_quat_dang_mo`), ý định
-    `soan_thao` đi `hieu_tai_lieu` (sửa bản thảo đang mở, `muc_dich =
-    "sua_ban_thao"`) thay vì `gom_du_kien` — bản thảo tổng quát không có
-    checklist nào để gom, và đi `gom_du_kien` chỉ tái tạo đúng ngõ cụt owner
-    báo ("Kho mẫu của tôi chưa có loại văn bản này…")."""
+    """Phase 3 Half B (R5), giữ nguyên dưới Phase 14: hội thoại đã có một bản
+    thảo TỔNG QUÁT (`ban_thao_tong_quat_dang_mo`) thì ý định `soan_thao` đi
+    `hieu_tai_lieu` (sửa bản thảo đang mở, `muc_dich = "sua_ban_thao"`)."""
     draft = {"id": "bt1", "loai": "tong_quat", "clauses": []}
-    assert _re_sau_route({"intent": Intent.soan_thao, "ban_thao_tong_quat_dang_mo": draft}) == "hieu_tai_lieu"
+    assert _re_sau_route({"intent": Intent.soan_thao, "user_sub": "u", "ban_thao_tong_quat_dang_mo": draft}) == "hieu_tai_lieu"
 
 
 def test_ban_thao_tong_quat_dang_mo_khong_tu_no_doi_y_dinh_khac():
@@ -106,8 +127,8 @@ def test_moi_y_dinh_KHONG_PHAI_tra_cuu_va_soan_thao_deu_phai_re_tat():
     ở trên đếm hai tên cụ thể, nên một `Intent` thứ sáu thêm vào mà quên `_RE_TAT`
     vẫn để nó xanh. Đúng cách lỗi 8.975-token đã lọt lần đầu.
 
-    Bất biến: `tra_cuu` (cần đi hết đường), `soan_thao` (đi qua `gom_du_kien`,
-    Task 19) và `tai_lieu` (đi qua `hieu_tai_lieu`, plan tài-liệu-tổng-quát) là
+    Bất biến: `tra_cuu` (cần đi hết đường), `soan_thao` (đi qua `hieu_tai_lieu`
+    hoặc `gom_du_kien`, Phase 14) và `tai_lieu` (đi qua `hieu_tai_lieu`, plan tài-liệu-tổng-quát) là
     những ý định DUY NHẤT không rẽ thẳng tới `assemble`. Mọi ý định khác trả lời
     được mà không cần một điều khoản nào, nên phải rẽ tắt.
     """
@@ -160,3 +181,34 @@ def test_re_sau_route_dua_tai_lieu_vao_hieu_tai_lieu():
     `Intent.tai_lieu`, `_re_sau_route` đưa THẲNG vào `hieu_tai_lieu`, không
     đụng gì tới `gom_du_kien` hay tới các ý định khác."""
     assert _re_sau_route({"intent": Intent.tai_lieu}) == "hieu_tai_lieu"
+
+
+# ── Cửa thứ ba vào cùng ngõ cụt: `gom_du_kien` xoá checklist đang mở dở ──
+
+
+def test_gom_du_kien_khong_ro_loai_quay_ve_duong_mo_hinh_soan():
+    """`gom_du_kien` XOÁ `soan_thao_dang_mo` khi không biết loại nào
+    (`gom_du_kien_nguon = "khong_ro_loai"`). Trước bản này lượt ấy rơi thẳng
+    `assemble`, nơi `_ban_thao_tong_quat` không có `ban_thao_ket` nào để đọc và
+    trả về "Lượt này tôi chưa soạn được mục nào." — cửa THỨ BA vào đúng ngõ cụt
+    R1 đã gỡ. Sau khi xoá, lượt này ĐÚNG là "soạn thảo, không checklist mở dở",
+    nên nó đi lại đúng nhánh `_re_sau_route` đã định cho ca đó."""
+    from src.agents.graph_tra_cuu import _re_sau_gom_du_kien
+
+    da_xoa = {"intent": Intent.soan_thao, "user_sub": "u", "soan_thao_dang_mo": None}
+    assert _re_sau_gom_du_kien(da_xoa) == "hieu_tai_lieu"
+    # Khách vẫn rẽ `assemble` (0 token, lời mời đăng nhập): nhánh này gọi LẠI
+    # `_re_sau_route` nên mọi luật ở đó còn nguyên, không có bản sao thứ hai.
+    assert _re_sau_gom_du_kien({**da_xoa, "user_sub": None}) == "assemble"
+
+
+def test_gom_du_kien_con_checklist_thi_hai_duong_cu_khong_doi():
+    """Nửa kia: khi checklist vẫn còn, quyết định cũ giữ nguyên từng chữ — đủ
+    dữ kiện VÀ có tài khoản thì dựng bản thảo thật, thiếu một trong hai thì
+    `assemble` chỉ hỏi thêm."""
+    from src.agents.graph_tra_cuu import _re_sau_gom_du_kien
+
+    du = {"loai": "hdld", "facts": {}, "du": True}
+    assert _re_sau_gom_du_kien({"soan_thao_dang_mo": du, "user_sub": "u"}) == "dung_ban_thao"
+    assert _re_sau_gom_du_kien({"soan_thao_dang_mo": du}) == "assemble"
+    assert _re_sau_gom_du_kien({"soan_thao_dang_mo": {**du, "du": False}, "user_sub": "u"}) == "assemble"

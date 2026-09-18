@@ -21,7 +21,9 @@ NHAN_PHAN_LOAI = {
     "out_of_scope": "Ngoài phạm vi",
     "gioi_thieu": "Giới thiệu trợ lý",
     "huong_dan_soan_thao": "Hướng dẫn soạn thảo",
-    "hoi_ve_kho": "Câu hỏi về kho",
+    # R5 — nhãn người dùng đọc không gọi corpus là "kho"; khoá `hoi_ve_kho` là
+    # định danh nội bộ (`result_type` trong `traces`) nên giữ nguyên.
+    "hoi_ve_kho": "Câu hỏi về phạm vi dữ liệu",
     "soan_thao": "Bản thảo",
 }
 KHOA_KHAC = "khac"

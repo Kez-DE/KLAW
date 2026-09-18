@@ -53,9 +53,16 @@ from src.services.effectivity import EffectivityVerdict as V
 #
 # Cố ý KHÔNG chứa cụm "Việt Nam có <số>": nó nói kho KHÔNG phải nền pháp luật,
 # chứ không phát biểu gì về nền pháp luật.
+#
+# Phase 14 (R5, owner): lời cho NGƯỜI ĐỌC không gọi corpus là "kho của tôi"
+# nữa — thứ đang trích là văn bản pháp luật Việt Nam, gọi nó là một cái kho
+# riêng làm KLAW nghe như một danh mục tư nhân. Định danh nội bộ (tên module,
+# `Intent.hoi_ve_kho`, chú thích, log) giữ nguyên: đây là việc đổi LỜI.
+# Ranh giới không được vượt: bỏ chữ "kho" KHÔNG được biến câu này thành lời hứa
+# phủ hết pháp luật Việt Nam — nó vẫn phải thú nhận đúng phạm vi đang có.
 CAU_GIOI_HAN = (
-    "Đây là phạm vi kho của tôi, không phải toàn bộ văn bản pháp luật Việt Nam — "
-    "kho là tập văn bản tôi đã nạp cho đề tài này, và còn nhiều văn bản tôi chưa có."
+    "Đây là phạm vi văn bản tôi đọc được, không phải toàn bộ văn bản pháp luật Việt Nam — "
+    "tôi mới đọc tập văn bản chọn cho đề tài này, và còn nhiều văn bản tôi chưa có."
 )
 
 # Hai verdict DỨT KHOÁT là "không còn dùng được". Mọi verdict khác được ĐẾM vào
@@ -312,14 +319,14 @@ def _khoi_mot_so(so: str, kho: list[dict]) -> list[str]:
         # KHÔNG kéo một văn bản gần giống vào chỗ này. Sai chế độ tệ nhất ở đây
         # không phải "không biết" — mà là gán cho kho một văn bản nó không có.
         return [
-            f"Trong kho của tôi không có văn bản nào mang số hiệu {so}.",
+            f"Tôi không có văn bản nào mang số hiệu {so}.",
             "Văn bản đó có thể tồn tại mà tôi chưa nạp — tôi chỉ nói được về "
             "những gì tôi có, nên đây không phải kết luận rằng nó không tồn tại.",
         ]
     if len(khop) == 1:
         r = khop[0]
         return [
-            "Có. Trong kho của tôi có "
+            "Có. Tôi có "
             f"{' — '.join(x for x in hien_van_ban(r['so_ky_hieu'], r['ten']) if x)}.",
             f"Mức phủ: {_muc_phu(r['depth'])}.",
             f"Hiệu lực: {_nhan(r['hieu_luc'])} — {r['hieu_luc'].ly_do}.",
@@ -329,7 +336,7 @@ def _khoi_mot_so(so: str, kho: list[dict]) -> list[str]:
     # Lấy `khop[0]` rồi im lặng về phần còn lại là một phát biểu THIẾU về chính
     # kho: người hỏi tin rằng kho có đúng một văn bản mang số hiệu đó. Nêu hết.
     return [
-        f"Có. Trong kho của tôi có {len(khop)} văn bản mang số hiệu {so}:",
+        f"Có. Tôi có {len(khop)} văn bản mang số hiệu {so}:",
         *(_dong_van_ban(r) for r in khop),
     ]
 
@@ -437,7 +444,7 @@ def _tom_tat(kho: list[dict], uu_tien_bo_luat: bool = False) -> str:
     chua_ro = len(dang_dung) - len(xac_dinh) - len(can_nguoi)
 
     khoi = [
-        f"Trong kho của tôi hiện có {len(kho)} văn bản."
+        f"Tôi hiện có {len(kho)} văn bản pháp luật Việt Nam."
         + (f" {len(xac_dinh)} văn bản tôi xác định được tình trạng hiệu lực — còn"
            " hiệu lực, sắp có hiệu lực, hoặc còn hiệu lực nhưng đã bị sửa đổi." if xac_dinh else "")
         # "chưa kết luận được", KHÔNG "không có tín hiệu nào": một verdict mới
@@ -461,7 +468,7 @@ def _tom_tat(kho: list[dict], uu_tien_bo_luat: bool = False) -> str:
         # được. Kèm nhãn hiệu lực cho từng bộ vì năm trong sáu bộ hiện hành đang
         # bị sửa đổi một phần — liệt kê chúng như văn bản nguyên vẹn là bỏ đúng
         # cái người đọc cần biết.
-        khoi.append(f"{len(bo_luat)} Bộ luật đang có trong kho:\n" + "\n".join(
+        khoi.append(f"{len(bo_luat)} Bộ luật tôi đang có:\n" + "\n".join(
             f"- {hien_van_ban(r['so_ky_hieu'], r['ten'])[1]} — {_nhan(r['hieu_luc'])}"
             for r in bo_luat))
 
@@ -492,8 +499,8 @@ def dung_cau_tra_loi(cau_hoi: str, kho: list[dict]) -> str:
 # văn xuôi (người đọc không cần cùng một con số hai lần). Ghép với
 # `CAU_GIOI_HAN` y hệt mọi nhánh khác của module này (`loi_dan_bang`).
 CAU_DAN_BANG = (
-    "Tôi dựng hai bảng dưới đây từ kho hiện có: một bảng phân theo loại văn "
-    "bản, một bảng phân theo lĩnh vực."
+    "Tôi dựng hai bảng dưới đây từ những văn bản tôi hiện có: một bảng phân theo "
+    "loại văn bản, một bảng phân theo lĩnh vực."
 )
 
 

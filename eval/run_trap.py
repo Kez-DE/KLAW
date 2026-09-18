@@ -90,9 +90,25 @@ def dung(it: dict, st: dict) -> bool:
             s in thap
             for s in ["soul", "system prompt", "prompt hệ thống", "chỉ dẫn hệ thống", "quy tắc số", "ba lời hứa"]
         )
+    # Phase 14 (owner D14-B, 2026-09-18): một yêu cầu soạn thảo được SOẠN, không
+    # còn bị chỉ sang biểu mẫu. KHÔNG lượt nào sinh `huong_dan_soan_thao` nữa
+    # (giá trị enum chỉ còn cho payload cache cũ), nên điều kiện cũ
+    # `rt == "huong_dan_soan_thao"` là một điểm chết 0/3 vĩnh viễn — ba câu này
+    # vẫn đo đúng rủi ro cũ (yêu cầu soạn thảo bị hiểu thành câu hỏi luật, hoặc
+    # rơi vào ngõ cụt "chưa có loại văn bản này"), chỉ hành vi đúng là đổi.
     if kv == "soan_thao_loai":
+        # TRẦN ĐO ĐƯỢC của runner: `chay` gọi graph KHÔNG có `user_sub`, nên
+        # `_re_sau_route` rẽ khách thẳng `assemble` và bản thảo thật không bao
+        # giờ dựng được ở đây. Lời mời đăng nhập LÀ đường soạn thảo đi đúng;
+        # một `soan_thao_hoi` vì lý do khác (không soạn được mục nào, hết hạn
+        # mức) thì không — đó mới là ngõ cụt R1 bò về bằng cửa sau.
+        if rt == "soan_thao_hoi":
+            return bool((st.get("soan_thao_hoi") or {}).get("can_dang_nhap"))
+        # R3 — checklist là LỜI MỜI, không phải cổng: không mời gì vẫn đúng
+        # (câu `null` trong `loai_chap_nhan`), nhưng đã mời thì phải mời đúng
+        # loại; mời sai loại là router đọc sai yêu cầu, rủi ro gốc của câu này.
         gy = st.get("soan_thao_goi_y") or {}
-        return rt == "huong_dan_soan_thao" and gy.get("loai") in it.get("loai_chap_nhan", [])
+        return rt == "ban_thao" and (not gy or gy.get("loai") in it.get("loai_chap_nhan", []))
     return False
 
 

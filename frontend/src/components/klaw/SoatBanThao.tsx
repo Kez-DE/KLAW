@@ -390,11 +390,14 @@ export function SoatBanThao({
     >
       <h3 className="font-display m-0 flex items-center gap-2 text-[15px] font-semibold text-primary">
         <ScanSearch className="size-4 text-[var(--color-brass-600)]" aria-hidden />
-        Soát với kho văn bản của KLAW
+        {/* R5: gọi tên thứ đang đối chiếu, không gọi cái hộp đựng nó. Vẫn KHÔNG
+            hứa phủ hết — độ phủ do đoạn ngay dưới và nhánh `facts.length === 0`
+            nói, nên tiêu đề chỉ nêu đối chiếu với cái gì. */}
+        Soát theo văn bản pháp luật Việt Nam
       </h3>
       <p className="m-0 mt-1 text-[12px] leading-5 text-muted-foreground">
-        Gửi toàn văn bản thảo lên máy chủ để đối chiếu với rule và checklist dựng từ chính văn bản
-        gốc trong kho. Bản thảo KHÔNG được lưu lại.
+        Gửi toàn văn bản thảo lên máy chủ để đối chiếu với rule và checklist dựng từ chính nguyên
+        văn văn bản pháp luật. Bản thảo KHÔNG được lưu lại.
       </p>
 
       {mau === null ? (

@@ -272,7 +272,7 @@ export function SanKhauBanThao({
     phienBanLucSua: number,
   ): Promise<boolean> => {
     const banThaoLucGoi = banThaoRef.current;
-    const nhanTruoc = nhanMucKiem(banThaoLucGoi.audit_report);
+    const nhanTruoc = nhanMucKiem(banThaoLucGoi.audit_report, banThaoLucGoi.loai);
     datSoLuuDangCho((n) => n + 1);
     // Phase 15 R1 — cùng khuôn `xuatTep` bên dưới (loading → success/error
     // trên MỘT id), thu về đúng mục vừa lưu. Trước bản vá này lượt lưu im
@@ -308,7 +308,7 @@ export function SanKhauBanThao({
       if (kq.data.phien_ban < banThaoRef.current.phien_ban) return true;
       phienBanTuSuaTayGanNhatRef.current = kq.data.phien_ban;
       capNhatBanThao(kq.data);
-      const nhanSau = nhanMucKiem(kq.data.audit_report);
+      const nhanSau = nhanMucKiem(kq.data.audit_report, kq.data.loai);
       if (nhanTruoc === null && nhanSau !== null) {
         toast.warning("Bản thảo không còn được coi là đã kiểm pháp lý.", {
           description: "Bạn vừa sửa tay — hãy soát lại trước khi dùng bản thảo này.",
@@ -437,9 +437,9 @@ export function SanKhauBanThao({
           {/* Mức kiểm đứng NGAY cạnh tên bản thảo, không nằm trong một khay
               đóng/mở được: người dùng tải tệp về từ chính thanh này, và nhãn
               phải ở trong tầm mắt lúc họ bấm (CONTEXT.md "mức kiểm"). */}
-          {nhanMucKiem(banThao.audit_report) !== null && (
+          {nhanMucKiem(banThao.audit_report, banThao.loai) !== null && (
             <span className="rounded-md bg-[var(--color-paper-50)] px-2 py-0.5 text-[12px] text-muted-foreground">
-              {nhanMucKiem(banThao.audit_report)}
+              {nhanMucKiem(banThao.audit_report, banThao.loai)}
             </span>
           )}
           {banThao.phien_ban > 1 && (

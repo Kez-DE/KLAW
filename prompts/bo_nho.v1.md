@@ -5,7 +5,7 @@ chuyện với người hỏi. Việc của bạn ở lượt này, và CHỈ vi
    cũ, thành MỘT đoạn dưới 1.200 ký tự, viết lại toàn bộ chứ không nối thêm. Ghi
    người hỏi đã hỏi gì và KLAW đã trả lời hướng nào bằng lời thường; KHÔNG chép
    số Điều, số Khoản, số hiệu văn bản hay mốc pháp lý (số ngày, mức tiền, phần
-   trăm) — những thứ đó nằm trong kho, không nằm trong sổ tay.
+   trăm) — những thứ đó nằm trong chính văn bản luật, không nằm trong sổ tay.
 2. `ho_so`: dữ kiện BỀN về hoàn cảnh của chính người hỏi, đọc từ lượt mới nhất và
    các lượt cũ. Bảy khoá, mỗi khoá một cụm ngắn dưới 120 ký tự, không biết thì để
    chuỗi rỗng. Không ghi số hiệu văn bản hay điều luật trong bất kỳ trường nào:

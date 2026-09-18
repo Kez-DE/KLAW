@@ -205,6 +205,23 @@ QUA_DAI_VOI_BAN_THAO = (
 )
 CHUA_DOC_DUOC = "Chưa đọc được tài liệu lúc này. Hãy thử lại."
 
+# Phase 14 (owner D14-B) — lượt SOẠN TỰ DO: router nói `soan_thao`, hội thoại
+# không có tài liệu nào. Khối `{tai_lieu}` của prompt mang lời dặn này thay cho
+# danh sách đơn vị — cùng một prompt, cùng một lược đồ, không node thứ hai. Mọi
+# giá trị vẫn phải lấy từ lời người hỏi: `lam_sach_van_ban` tra ngược về đúng
+# nguồn ấy (`_nguon_soan` không có đơn vị tài liệu nào để cộng vào), và quy tắc
+# 15 vẫn cấm "căn cứ Điều …" — một bản thảo chat không mang trích dẫn nào (R4).
+KHONG_TAI_LIEU = (
+    "(Lượt này KHÔNG có tài liệu nào. Người hỏi xin SOẠN một văn bản từ chính lời họ: `muc_dich` là "
+    "`tao_van_ban` — hoặc `sua_ban_thao` khi có mục \"# Bản thảo đang có\" bên dưới và họ xin đổi nó. "
+    "Dựng `van_ban` đủ các mục một văn bản Việt loại đó thường có (quy tắc 15); mọi giá trị lấy từ lời "
+    "người hỏi, không có thì `[…]`. `quan_sat`, `truong`, `phep_tinh`, `dieu_khoan`, `khac_biet` để "
+    "rỗng — không có tài liệu để trích.)"
+)
+# Lượt soạn tự do hỏng: không có tài liệu nào để "chưa đọc được", và không còn
+# lời chỉ sang biểu mẫu (R1) — nói đúng việc đã hỏng.
+CHUA_SOAN_DUOC = "Chưa soạn được lúc này. Hãy thử lại."
+
 # Phase 16 R3 — `QUA_DAI` ở trên chặn TRƯỚC khi gọi mô hình (chi phí ước quá
 # trần) và lời khuyên "tách nhỏ rồi gửi lại" đúng nghĩa ở đó: người dùng còn tự
 # tách được nội dung HỌ gõ. Thông điệp này khác — nó chỉ tới sau khi ĐÃ chia
@@ -262,7 +279,11 @@ def schema_hieu(nhan: list[str]) -> dict:
                     "properties": {
                         "noi_dung": {"type": "string"},
                         "trich": {"type": "string"},
-                        "tai_lieu": {"type": "string", "enum": nhan},
+                        # Không tài liệu (soạn tự do, Phase 14) thì không có
+                        # nhãn nào để ép — `enum: []` là lược đồ không hợp lệ
+                        # với provider. Quan sát gán nhãn lạ vẫn bị phía đọc
+                        # loại (`theo_nhan.get(...)` trả None).
+                        "tai_lieu": {"type": "string", **({"enum": nhan} if nhan else {})},
                     },
                 },
             },
@@ -1725,6 +1746,11 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     ]
     da_dung = [{"id": t["id"], "ten_tep": t["ten_tep"], "nhan": t["nhan"]} for t in goi]
     so_don_vi = sum(len(t["gui"]) for t in goi)
+    # Phase 14 — soạn tự do: không tài liệu, nhưng router (ý kiến ĐỘC LẬP, xem
+    # `_muc_dich_soan_da_xac_nhan`) đã nói đây là một lượt soạn thảo. Chỉ ca này
+    # mới được gọi mô hình với khối tài liệu rỗng (`KHONG_TAI_LIEU`); mọi lượt
+    # không-tài-liệu khác vẫn nói thật là chưa đọc được, không gọi gì.
+    soan_tu_do = not goi and state.get("intent") == Intent.soan_thao
 
     def _hong(tra_loi: str, nguon: str, usage: Usage | None = None) -> dict:
         # `usage`: chi phí đã trả THẬT cho OpenRouter dù lượt hỏng — traces phải
@@ -1738,6 +1764,12 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
             # Lỗi hạ tầng KHÔNG được để lại một văn bản soạn dở của lượt trước:
             # `dung_ban_thao_tong_quat` đọc đúng khoá này để quyết định có lưu.
             "van_ban_tong_quat": None,
+            # Lượt soạn tự do hỏng: `assemble._ban_thao_tong_quat` đọc khoá này
+            # để nói "chưa soạn được" — không phải "chưa đọc được tài liệu"
+            # (không có tài liệu nào). Vượt trần thì do CHÍNH bản thảo đang có,
+            # giữ thông điệp riêng của nó (`QUA_DAI_VOI_BAN_THAO`).
+            **({"ban_thao_tong_quat_loi": tra_loi if nguon == "vuot_tran" else CHUA_SOAN_DUOC}
+               if soan_tu_do else {}),
             "traces": {**prior_traces, "hieu_tai_lieu_nguon": nguon, "hieu_tai_lieu_model": model,
                        "hieu_tai_lieu_so_don_vi_gui": so_don_vi, "hieu_tai_lieu_so_quan_sat_giu": 0,
                        "hieu_tai_lieu_so_quan_sat_bo": 0,
@@ -1746,7 +1778,7 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
                        "hieu_tai_lieu_cost_usd": usage.cost_usd if usage else 0.0},
         }
 
-    if not goi:
+    if not goi and not soan_tu_do:
         # Không tài liệu nào đọc được (id không thuộc người gọi, hoặc S1 chưa
         # lưu `don_vi`): nói thật, KHÔNG gọi mô hình với một prompt rỗng rồi để
         # nó tự nghĩ ra một tài liệu.
@@ -1783,7 +1815,8 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
             ra, usage = _hieu_theo_phan(llm, model, cau_hoi, goi, prompt_path or PROMPT_PATH, khoi_ban_thao)
         else:
             prompt = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8").format(
-                cau_hoi=cau_hoi, tai_lieu=_khoi_tai_lieu(goi), phan_doan="", ban_thao_dang_co=khoi_ban_thao,
+                cau_hoi=cau_hoi, tai_lieu=KHONG_TAI_LIEU if soan_tu_do else _khoi_tai_lieu(goi), phan_doan="",
+                ban_thao_dang_co=khoi_ban_thao,
             )
             raw, usage = llm.chat(model, messages(prompt), json_schema=schema_hieu(nhan), max_tokens=TOI_DA_TOKEN_RA)
             ra = json.loads(raw)
@@ -1842,6 +1875,28 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
 
     giu = giu[:TOI_DA_QUAN_SAT]
     muc_dich = str(ra.get("muc_dich") or "hoi")
+    if state.get("intent") == Intent.soan_thao and muc_dich not in MUC_DICH_SOAN:
+        # Gác trên Ý KIẾN CỦA ROUTER, không trên việc hội thoại có tài liệu hay
+        # không. Bản trước gác `soan_tu_do` (= KHÔNG tài liệu), mà điều kiện đó
+        # sai ngay khi hội thoại sở hữu một tài liệu: "dựa vào hợp đồng này
+        # soạn giúp tôi đơn xin nghỉ việc" đi `hieu_tai_lieu` với tài liệu, mô
+        # hình gán `hoi`, nhãn không bao giờ được sửa, và lượt chết ở
+        # `assemble._ban_thao_tong_quat` với "Lượt này tôi chưa soạn được mục
+        # nào." — đúng ngõ cụt R1 đã gỡ, vào lại bằng cửa sau. Router đã nói
+        # soạn thảo thì một nhãn khác từ mô hình NÀY là gán nhầm, dù có tài
+        # liệu hay không.
+        #
+        # `doi_chieu_luat` cũng bị sửa, CÓ CHỦ Ý: `assemble` rẽ theo `intent`
+        # (`intent == "soan_thao"`) nên một lượt router đã gọi là soạn thảo
+        # KHÔNG bao giờ được dựng thành câu trả lời pháp lý — để nó chạy hết
+        # rewrite → retrieve → expand → generate → hai tầng kiểm là trả tiền
+        # năm lượt gọi cho một kết quả `assemble` vứt đi. Không câu trả lời đã
+        # kiểm nào bị bỏ ở đây, vì không câu nào được dựng: R4 nguyên vẹn.
+        #
+        # Có bản thảo đang mở thì lượt xin SỬA nó, không mở một bản thứ hai;
+        # `van_ban` rỗng thì `dung_ban_thao_tong_quat` nói thật "chưa soạn được
+        # mục nào".
+        muc_dich = "sua_ban_thao" if khoi_ban_thao else "tao_van_ban"
     # Phase 3 Half B, fix round 1 — safety net: một `muc_dich` SOẠN (có thể
     # GHI ĐÈ bản thảo thật) không đủ tin nếu ý kiến ĐỘC LẬP của `route()` (nếu
     # có chạy cho lượt này) không CŨNG là `Intent.soan_thao` — xem

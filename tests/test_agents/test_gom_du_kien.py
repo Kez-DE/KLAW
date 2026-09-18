@@ -162,3 +162,23 @@ def test_gom_du_kien_voi_loai_khong_rule_thi_du_ngay_khong_hoi_gi():
     )
     sd = st["soan_thao_dang_mo"]
     assert sd["du"] is True and sd["con_thieu"] == []
+
+
+def test_khong_ro_loai_xoa_checklist_va_quay_ve_duong_mo_hinh_soan():
+    """Cửa vào ngõ cụt "Lượt này tôi chưa soạn được mục nào.": phiên có
+    `soan_thao_dang_mo` nhưng không loại nào tra được, node xoá nó và KHÔNG gọi
+    mô hình (`llm=None` — gọi sẽ nổ AttributeError). Trước bản này lượt ấy rơi
+    thẳng `assemble` với tay trắng; nay nó đi lại đúng nhánh `_re_sau_route`
+    dành cho "soạn thảo, không checklist mở dở"."""
+    from src.agents.graph_tra_cuu import _re_sau_gom_du_kien
+    from src.agents.nodes.route import Intent
+
+    st = g.gom_du_kien(
+        {"query": "soạn giúp tôi một văn bản", "intent": Intent.soan_thao, "user_sub": "u",
+         "soan_thao_dang_mo": {"facts": {}}},
+        None,
+        "m",
+    )
+    assert st["traces"]["gom_du_kien_nguon"] == "khong_ro_loai"
+    assert st["soan_thao_dang_mo"] is None
+    assert _re_sau_gom_du_kien(st) == "hieu_tai_lieu"

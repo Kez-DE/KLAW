@@ -14,10 +14,12 @@ phiên bản, `phien_ban_truoc`, trần sửa và `lui` không có bản thứ h
 lệch. `loai="tong_quat"` chỉ là một giá trị mới của một cột đã có; không
 migration nào ở lát cắt này.
 
-**`muc_kiem="tong_quat"`, và nói ra.** Bản thảo này chưa qua checklist, chưa
-qua rule, chưa qua audit. `audit_report` mang `dat=None`/`completeness=None`
-chứ KHÔNG mang `dat=True`: một dấu tích xanh ở đây là lời hứa chưa ai kiểm
-(cùng lý lẽ `soat.trangThaiSoat` ở giao diện).
+**`muc_kiem="tong_quat"` — bản ghi nói thật.** Bản thảo này chưa qua checklist,
+chưa qua rule, chưa qua audit. `audit_report` mang `dat=None`/`completeness=None`
+chứ KHÔNG mang `dat=True`: một dấu tích xanh ở đây là lời hứa chưa ai kiểm.
+Phase 14 (owner D14-A) bỏ NHÃN "chưa kiểm pháp lý" khỏi lời đáp và giao diện;
+giá trị trong bản ghi giữ nguyên để hệ thống, trace và mọi lần soát sau còn
+phân biệt được bản thảo đã kiểm với bản thảo chưa kiểm.
 """
 
 import logging
@@ -32,10 +34,9 @@ logger = logging.getLogger(__name__)
 # cho nó: `ban_thao._render_markdown`, `ban_thao.dung_lai`, `GET /mau/{loai}`.
 MUC_KIEM = "tong_quat"
 TEN_TONG_QUAT = "Bản thảo tổng quát"
-# Nhãn mức kiểm, hiện trên MỌI bề mặt của bản thảo này (CONTEXT.md "mức kiểm").
-NHAN_MUC_KIEM = "Bản thảo tổng quát — chưa kiểm pháp lý"
 
-KHONG_SOAN_DUOC = "Lượt này tôi chưa soạn được mục nào từ tài liệu. Bạn nói rõ cần văn bản gì và gồm mục nào."
+# Không nói "từ tài liệu": từ Phase 14 lượt soạn có thể không có tài liệu nào.
+KHONG_SOAN_DUOC = "Lượt này tôi chưa soạn được mục nào. Bạn nói rõ cần văn bản gì và gồm mục nào."
 KHONG_CO_BAN_THAO = "Cuộc trò chuyện này chưa có bản thảo tổng quát nào để sửa. Bạn nói rõ cần soạn văn bản gì."
 
 

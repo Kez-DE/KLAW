@@ -2,7 +2,8 @@
 
 [giai_nghia] → suy_dien → route → tien_de → rewrite_query → retrieve_hybrid
              → expand → generate_claims → verify_tier1 → verify_tier2 → assemble
-                      ↘ gom_du_kien → [dung_ban_thao] → assemble   (intent soan_thao)
+                      ↘ hieu_tai_lieu → dung_ban_thao_tong_quat → assemble (soan_thao — mô hình soạn)
+             ↘ gom_du_kien → [dung_ban_thao] → assemble   (soan_thao, checklist đang mở dở)
              ↘ hieu_tai_lieu → assemble                            (tài liệu đính kèm)
                              ↘ tien_de → … (đường pháp lý)         (đối chiếu luật)
 
@@ -14,7 +15,7 @@ người hỏi từ câu hỏi khi hồ sơ chưa có.
 
 Ba đường rẽ tắt, tất cả đổ về `assemble`:
 * `ngoai_pham_vi`/`gioi_thieu`/`hoi_ve_kho` — rẽ ngay sau `route` (`soan_thao`
-  KHÔNG còn ở đây từ Task 19: nó đi `gom_du_kien` trước, xem `_re_sau_route`);
+  KHÔNG còn ở đây từ Task 19: nó có đường riêng, xem `_re_sau_route`);
 * `tien_de_sai` — phép kiểm thứ sáu, rẽ trước rewrite/retrieve;
 * `cau_hoi_day_du is None` — không giải nghĩa được câu nối tiếp, rẽ ngay sau
   `giai_nghia` vào đúng đường ngõ cụt đã có.
@@ -132,52 +133,66 @@ _RE_TAT = frozenset({Intent.ngoai_pham_vi, Intent.gioi_thieu, Intent.hoi_ve_kho}
 
 def _re_sau_route(st: dict) -> str:
     """`soan_thao` là ý định CHÍNH mà `route` vừa đoán cho LƯỢT NÀY — chỉ vậy —
-    đi `gom_du_kien` trước khi tới `assemble`. Ba ý định của `_RE_TAT` vẫn rẽ
+    quyết định lượt có phải soạn thảo hay không. Ba ý định của `_RE_TAT` vẫn rẽ
     tắt như cũ.
 
-    CỐ Ý không xét thêm `soan_thao_dang_mo` (state coordinator review, sau khi
-    lượt đầu triển khai): việc phiên đang mở một bản thảo dở KHÔNG được tự nó
-    ép lượt này vào `gom_du_kien` — `route.v3.md` đã được cấp `{dang_soan}` để
-    tự phân biệt câu trả lời dữ kiện/yêu cầu sửa với một câu hỏi luật thật, và
-    đó phải là NGUỒN SỰ THẬT DUY NHẤT cho quyết định rẽ. Xét thêm điều kiện đó
-    có nghĩa ý định model vừa đoán không bao giờ được tham khảo cho quyết định
-    này: một câu hỏi luật thật giữa lúc đang soạn sẽ luôn bị hỏi lại dữ kiện
-    thay vì được trả lời, và một ý định RẼ TẮT (`gioi_thieu`/`hoi_ve_kho`/
-    `ngoai_pham_vi`) cũng sẽ bị kéo vào `gom_du_kien` chỉ vì có draft đang mở.
+    CỐ Ý không để trạng thái phiên (`soan_thao_dang_mo`,
+    `ban_thao_tong_quat_dang_mo`) ĐÈ lên ý định (state coordinator review, sau
+    lượt đầu triển khai): `route.v3+` đã được cấp `{dang_soan}` để tự phân biệt
+    câu trả lời dữ kiện/yêu cầu sửa với một câu hỏi luật thật, và đó là NGUỒN
+    SỰ THẬT DUY NHẤT cho quyết định ấy. Xét trạng thái phiên TRƯỚC `intent` có
+    nghĩa một câu hỏi luật thật giữa lúc đang soạn sẽ bị hỏi lại dữ kiện, và
+    một ý định RẼ TẮT cũng bị kéo vào đường soạn chỉ vì có draft đang mở.
+    Trạng thái phiên chỉ được đọc SAU KHI `intent` đã là `soan_thao`, để chọn
+    GIỮA hai đường soạn.
 
-    Phase 3 Half B (R5) — MỘT ngoại lệ hẹp, KHÔNG lặp lại lỗi trên: khi ý định
-    đã là `soan_thao` (router đã quyết định — điều kiện trên KHÔNG đổi) và hội
-    thoại này có SẴN một bản thảo TỔNG QUÁT (`ban_thao_tong_quat_dang_mo`),
-    lượt đi `hieu_tai_lieu` thay vì `gom_du_kien`. Bản thảo tổng quát không có
-    checklist nào để gom dữ kiện — `gom_du_kien` không thể phục vụ nó, chỉ có
-    thể lặp lại đúng ngõ cụt owner báo ("Kho mẫu của tôi chưa có loại văn bản
-    này…"). `hieu_tai_lieu` đã có `muc_dich = "sua_ban_thao"` cho đúng việc
-    này (không qua checklist, xem `MUC_DICH_SOAN`/`_re_sau_hieu_tai_lieu`).
-    Đây KHÔNG phải xét thêm state "có draft nào đang mở không" nói chung — nó
-    chỉ hẹp cho MỘT loại bản thảo (tổng quát) và chỉ SAU KHI `intent` đã là
-    `soan_thao`; một câu hỏi luật thật, hay một ý định rẽ tắt, không bao giờ
-    được phân loại `soan_thao` để bắt đầu, nên không đi qua nhánh này. Đánh
-    đổi đã biết: nếu hội thoại có bản thảo tổng quát, một yêu cầu soạn một
-    loại văn bản KHÁC (checklist) trong CÙNG hội thoại đó cũng rơi vào nhánh
-    này thay vì mở checklist mới — đúng yêu cầu brief ("'Chọn loại văn bản'
-    không được mời trong khi đang có một bản thảo mở"), nhưng nghĩa là muốn
-    soạn loại khác thì phải mở hội thoại mới.
+    Phase 14 (owner D14-B): mô hình soạn; checklist không còn là cổng của đường
+    chat. Một yêu cầu soạn thảo MỚI đi `hieu_tai_lieu` — node đó đã biết dựng
+    `van_ban` (`muc_dich = tao_van_ban`/`sua_ban_thao`) và tự làm sạch mọi giá
+    trị không có nguồn — rồi `dung_ban_thao_tong_quat` lưu. Đúng cả khi router
+    nhận ra một trong 29 mẫu: `assemble` MỜI biểu mẫu một câu (R3), không chặn.
+    Trước bản này lượt ấy đi `gom_du_kien`, và một loại văn bản không có
+    checklist rơi vào ngõ cụt "chưa có loại này" owner đã gặp bốn lần.
 
-    Fix round 1 — đây giờ là CƠ CHẾ DUY NHẤT Phase 3 thêm vào routing (xem
-    `_vao_graph`: bản mở rộng ở đó đã bị rút lại). Một câu hỏi VỀ tài liệu
-    ("đây là đơn gì") không đi qua nhánh này — nó có đường riêng, có SẴN
-    trước lát cắt này: `route.v4` (mặc định) tự chào `Intent.tai_lieu` khi
-    hội thoại giữ tài liệu, và nhánh `intent is Intent.tai_lieu` ngay dưới
-    đây (cũng có sẵn) đưa nó vào `hieu_tai_lieu`. Nhánh MỚI ở đây chỉ bắt
-    đúng trường hợp model gán NHẦM `soan_thao` cho một lượt lẽ ra thuộc
-    `tai_lieu`/thật sự là một yêu cầu sửa — an toàn vì nó không đụng gì tới
-    quyết định `route` đã đưa ra cho intent khác.
+    `gom_du_kien` chỉ còn phục vụ một checklist ĐANG mở dở (`soan_thao_dang_mo`
+    — vào từ `/tai-lieu/hoi-thoai/{id}/sang-soan-thao`, hoặc từ trước Phase 14):
+    người dùng đang trả lời dữ kiện cho đúng mẫu đó, cắt ngang sang mô hình soạn
+    là vứt những gì họ đã cho. Nhánh Phase 3 (`ban_thao_tong_quat_dang_mo` →
+    `hieu_tai_lieu`) nay là trường hợp riêng của đường chung, không cần xét tên
+    nữa — `hieu_tai_lieu` vẫn đọc trường đó để thấy bản thảo đang có (R4).
+
+    Khách chưa đăng nhập rẽ thẳng `assemble` (0 token): không có chỗ lưu bản
+    thảo thì trả tiền một lượt soạn chỉ để nói "bạn cần đăng nhập" là vô ích —
+    `assemble._ban_thao_tong_quat` đã có sẵn lời mời đăng nhập cho đúng ca này.
     """
     if st.get("intent") == Intent.soan_thao:
-        return "hieu_tai_lieu" if st.get("ban_thao_tong_quat_dang_mo") else "gom_du_kien"
+        if not st.get("user_sub"):
+            return "assemble"
+        return "gom_du_kien" if st.get("soan_thao_dang_mo") else "hieu_tai_lieu"
     if st.get("intent") == Intent.tai_lieu:
         return "hieu_tai_lieu"
     return "assemble" if st.get("intent") in _RE_TAT else "tien_de"
+
+
+def _re_sau_gom_du_kien(st: dict) -> str:
+    """Đủ dữ kiện (`du`) VÀ có tài khoản (`user_sub`) thì dựng bản thảo thật;
+    thiếu một trong hai thì `assemble` chỉ hỏi thêm (`soan_thao_hoi`) — khách
+    chưa đăng nhập không bao giờ chạm `dung_ban_thao` dù đã đủ dữ kiện.
+
+    `gom_du_kien` XOÁ `soan_thao_dang_mo` khi không biết loại nào
+    (`gom_du_kien_nguon = "khong_ro_loai"`). Sau khi xoá, lượt này ĐÚNG là
+    "soạn thảo, không có checklist mở dở" — nên nó phải đi lại đúng nhánh
+    `_re_sau_route` đã định cho ca đó (`hieu_tai_lieu` → mô hình soạn), không
+    rơi thẳng vào `assemble`, nơi `_ban_thao_tong_quat` không có `ban_thao_ket`
+    nào để đọc và trả về "Lượt này tôi chưa soạn được mục nào." — ngõ cụt R1 đã
+    gỡ, vào lại bằng cửa sau. GỌI LẠI `_re_sau_route` chứ không chép quyết định
+    của nó: khách chưa đăng nhập, ý định rẽ tắt và mọi luật khác ở đó vẫn đúng
+    y nguyên cho lượt này.
+    """
+    sd = st.get("soan_thao_dang_mo")
+    if not sd:
+        return _re_sau_route(st)
+    return "dung_ban_thao" if sd.get("du") and st.get("user_sub") else "assemble"
 
 
 def _vao_graph(st: dict) -> str:
@@ -623,15 +638,7 @@ def build_graph_tra_cuu():
     g.add_conditional_edges("route", _re_sau_route)
     g.add_conditional_edges("hieu_tai_lieu", _re_sau_hieu_tai_lieu)
     g.add_edge("dung_ban_thao_tong_quat", "assemble")
-    # Đủ dữ kiện (`du`) VÀ có tài khoản (`user_sub`) thì dựng bản thảo thật;
-    # thiếu một trong hai thì `assemble` chỉ hỏi thêm (`soan_thao_hoi`) — khách
-    # chưa đăng nhập không bao giờ chạm `dung_ban_thao` dù đã đủ dữ kiện.
-    g.add_conditional_edges(
-        "gom_du_kien",
-        lambda st: (
-            "dung_ban_thao" if (st.get("soan_thao_dang_mo") or {}).get("du") and st.get("user_sub") else "assemble"
-        ),
-    )
+    g.add_conditional_edges("gom_du_kien", _re_sau_gom_du_kien)
     g.add_edge("dung_ban_thao", "assemble")
     g.add_conditional_edges("tien_de", lambda st: (
         "assemble" if st.get("tien_de_sai") else "rewrite"))

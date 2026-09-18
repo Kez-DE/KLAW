@@ -37,7 +37,7 @@ export function PhamViKho({ className }: { className?: string }) {
   return (
     <dl className={className}>
       <div>
-        <dt className="text-[13px] text-muted-foreground">Văn bản trong kho</dt>
+        <dt className="text-[13px] text-muted-foreground">Văn bản pháp luật đang có</dt>
         <dd className="font-display m-0 text-2xl font-bold text-primary">{tongVanBan}</dd>
       </div>
       <div>
@@ -56,7 +56,7 @@ export function PhamViKho({ className }: { className?: string }) {
         </dd>
       </div>
       <p className="col-span-full m-0 text-[12px] leading-5 text-muted-foreground">
-        {phamVi.nong.so_van_ban} văn bản trong kho mới có thông tin văn bản, chưa có toàn văn. Hỏi
+        {phamVi.nong.so_van_ban} văn bản trong số đó mới có thông tin văn bản, chưa có toàn văn. Hỏi
         về chúng, KLAW nêu đích danh văn bản chi phối và dừng lại ở đó thay vì diễn giải.
       </p>
     </dl>

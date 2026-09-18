@@ -532,6 +532,12 @@ function NoiDungKetQua({
   const daiNeo = <KhoiNeoTaiLieu neo={ketQua.tai_lieu_neo ?? []} onMoNeoTaiLieu={onMoNeoTaiLieu} />;
 
   if (loai === "abstain") {
+    // Phase 14 (R6): `answer` khác null trên một `abstain` là lời GIẢI THÍCH
+    // CHUNG của mô hình — không một trích dẫn đã kiểm nào đứng sau nó (backend
+    // đã loại mọi số Điều/Khoản/số hiệu khỏi lời này). Nhãn nói rõ điều đó để
+    // người đọc không nhầm nó với một câu trả lời có căn cứ; `coverage_note`
+    // (chưa tìm được điều khoản + câu hỏi lại) vẫn đứng ngay dưới.
+    const giaiThich = answer !== null && answer.trim() !== "" ? answer : null;
     return (
       <section aria-label="Kết quả tra cứu">
         {/* Câu "Hệ thống dừng ở đây thay vì suy đoán. Đây là hành vi được thiết
@@ -540,7 +546,18 @@ function NoiDungKetQua({
             đoán"), và một hệ thống tự thuật về thiết kế của chính nó là đúng
             giọng mà pha này bỏ. Khay vẫn TRUNG TÍNH — abstain là hành vi đúng,
             không phải một mức báo động. */}
-        <KhayTrungTinh tieuDe="Tôi chưa trả lời chắc được câu hỏi này.">
+        <KhayTrungTinh
+          tieuDe={
+            giaiThich === null
+              ? "Tôi chưa trả lời chắc được câu hỏi này."
+              : "Giải thích chung — chưa có trích dẫn nào được kiểm chứng cho câu này."
+          }
+        >
+          {giaiThich !== null && (
+            <div className="doc-prose mt-2 text-foreground">
+              <KhoiVanXuoi chu={giaiThich} />
+            </div>
+          )}
           {ghiChuPhamVi !== null && ghiChuPhamVi !== "" && (
             <div className="mt-2 text-[14px] leading-6 text-muted-foreground">
               <KhoiVanXuoi chu={ghiChuPhamVi} />
@@ -618,7 +635,16 @@ function NoiDungKetQua({
   }
 
   if (loai === "ban_thao") {
-    return <TheBanThao ketQua={ketQua} onMo={onMoBanThao ?? (() => undefined)} />;
+    return (
+      <>
+        <TheBanThao ketQua={ketQua} onMo={onMoBanThao ?? (() => undefined)} />
+        {/* Phase 14 (R3): router nhận ra một trong 29 mẫu → lời MỜI biểu mẫu,
+            không phải cổng — bản thảo đã dựng xong ở thẻ trên rồi. */}
+        {ketQua.soan_thao?.ho_tro && ketQua.soan_thao.loai && onSoanThao && (
+          <NutSoanTiep goiY={ketQua.soan_thao} onSoanThao={onSoanThao} />
+        )}
+      </>
+    );
   }
 
   if (loai === "tai_lieu") {

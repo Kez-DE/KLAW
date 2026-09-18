@@ -26,7 +26,7 @@
     "kiem-lich-hoat-dong": "node scripts/kiem-lich-hoat-dong.ts",
     "kiem-goi-y-soan-thao": "node scripts/kiem-goi-y-soan-thao.ts",
     "kiem-goi": "node scripts/kiem-goi.ts",
-    "kiem": "npm run typecheck && npm run lint && npm run kiem-trich-dan && npm run kiem-xep-trich-dan && npm run kiem-sse && npm run kiem-font && npm run kiem-lich-su && npm run kiem-van-xuoi && npm run kiem-ngay && npm run kiem-soat && npm run kiem-khung && npm run kiem-bang && npm run kiem-bang-ket-qua && npm run kiem-documents && npm run kiem-goi-y-soan-thao && npm run kiem-goi && npm run kiem-tai-lieu && npm run kiem-tat-thong-bao && npm run kiem-quay-lai && npm run kiem-lich-hoat-dong && npm run kiem-phien && npm run kiem-han-muc && npm run kiem-thong-bao && npm run kiem-bo-nho && npm run kiem-ban-thao && npm run kiem-xuat-tep && npm run kiem-keo-dan && npm run kiem-ngan-xep && npm run kiem-toast && npm run kiem-ui-muot && python3 scripts/do-tuong-phan.py && npm run build",
+    "kiem": "npm run typecheck && npm run lint && npm run kiem-trich-dan && npm run kiem-xep-trich-dan && npm run kiem-sse && npm run kiem-font && npm run kiem-lich-su && npm run kiem-van-xuoi && npm run kiem-ngay && npm run kiem-soat && npm run kiem-khung && npm run kiem-bang && npm run kiem-bang-ket-qua && npm run kiem-documents && npm run kiem-goi-y-soan-thao && npm run kiem-goi && npm run kiem-tai-lieu && npm run kiem-tat-thong-bao && npm run kiem-quay-lai && npm run kiem-lich-hoat-dong && npm run kiem-phien && npm run kiem-han-muc && npm run kiem-thong-bao && npm run kiem-bo-nho && npm run kiem-ban-thao && npm run kiem-xuat-tep && npm run kiem-keo-dan && npm run kiem-ngan-xep && npm run kiem-toast && npm run kiem-ui-muot && npm run kiem-goi-ten-luat && python3 scripts/do-tuong-phan.py && npm run build",
     "kiem-lich-su": "node scripts/kiem-lich-su.ts",
     "kiem-phien": "node scripts/kiem-phien.ts",
     "kiem-han-muc": "node scripts/kiem-han-muc.ts",
@@ -39,7 +39,8 @@
     "kiem-tai-lieu": "node scripts/kiem-tai-lieu.ts",
     "kiem-tat-thong-bao": "node scripts/kiem-tat-thong-bao.ts",
     "kiem-toast": "node scripts/kiem-toast.ts",
-    "kiem-ui-muot": "node scripts/kiem-ui-muot.ts"
+    "kiem-ui-muot": "node scripts/kiem-ui-muot.ts",
+    "kiem-goi-ten-luat": "node scripts/kiem-goi-ten-luat.ts"
   },
   "overrides": {
     "rolldown": "1.2.1"

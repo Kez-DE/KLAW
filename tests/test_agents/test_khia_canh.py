@@ -89,7 +89,7 @@ def test_hoi_bo_luat_liet_ke_dung_tu_fixture():
     """§7.1.2 — sáu tên đọc TỪ KHO, và bản đã bị thay không lọt vào."""
     assert khia_canh("có những Bộ luật gì") == ["bo_luat"]
     ans = cau_gioi_thieu("có những Bộ luật gì", KHO)
-    assert "Kho hiện có 6 Bộ luật: " + ", ".join(TEN_NGAN[:-1]) + " và " + TEN_NGAN[-1] + "." in ans
+    assert "Tôi hiện có 6 Bộ luật: " + ", ".join(TEN_NGAN[:-1]) + " và " + TEN_NGAN[-1] + "." in ans
     assert "10/2012" not in ans
 
 
@@ -139,7 +139,7 @@ def test_cau_mau_tra_du_ba_y_dung_thu_tu():
     for lv in (_LV_SAU, _LV_GOC, _LV_NONG):
         assert lv in ans, f"thiếu lĩnh vực {lv}"
     # Thứ tự khối theo đúng thứ tự người hỏi (FR-013).
-    assert ans.index("Kho hiện có 6 Bộ luật") < ans.index("Các lĩnh vực đang phủ")
+    assert ans.index("Tôi hiện có 6 Bộ luật") < ans.index("Các lĩnh vực đang phủ")
     assert ans.endswith(HOI_TIEP_KHO)
     assert ans.count(CAU_GIOI_HAN) == 1
 
@@ -158,7 +158,7 @@ def test_bo_luat_va_soan_thao_tra_du_hai_phan():
     cau = "có Bộ luật nào và soạn được văn bản gì"
     assert khia_canh(cau) == ["bo_luat", "soan_thao"]
     ans = cau_gioi_thieu(cau, KHO)
-    assert "Kho hiện có 6 Bộ luật" in ans
+    assert "Tôi hiện có 6 Bộ luật" in ans
     assert "Tôi soạn được" in ans
 
 
@@ -166,8 +166,8 @@ def test_dao_thu_tu_cau_hoi_thi_dao_thu_tu_khoi():
     """§7.2.4 — thứ tự khối theo người hỏi, không theo một thứ tự cố định."""
     xuoi = cau_gioi_thieu("có Bộ luật nào và soạn được văn bản gì", KHO)
     nguoc = cau_gioi_thieu("soạn được văn bản gì và có Bộ luật nào", KHO)
-    assert xuoi.index("Kho hiện có") < xuoi.index("Tôi soạn được")
-    assert nguoc.index("Tôi soạn được") < nguoc.index("Kho hiện có")
+    assert xuoi.index("Tôi hiện có") < xuoi.index("Tôi soạn được")
+    assert nguoc.index("Tôi soạn được") < nguoc.index("Tôi hiện có")
 
 
 # ══ §7.3 Dữ liệu động ═══════════════════════════════════════════════════════
@@ -177,7 +177,7 @@ def test_them_bo_luat_vao_fixture_thi_cau_tra_loi_tu_co_ten_moi():
     """§7.3.1 — không sửa một mẫu nào."""
     them = _vb("60/2030/QH20", "Bộ luật Môi trường số 60/2030/QH20")
     ans = cau_gioi_thieu("có những Bộ luật gì", [*KHO, them])
-    assert "Kho hiện có 7 Bộ luật" in ans and "Môi trường" in ans
+    assert "Tôi hiện có 7 Bộ luật" in ans and "Môi trường" in ans
 
 
 def test_danh_dau_bi_thay_the_thi_bo_luat_bien_khoi_cau_tra_loi():
@@ -185,7 +185,7 @@ def test_danh_dau_bi_thay_the_thi_bo_luat_bien_khoi_cau_tra_loi():
     bo = [dict(r) for r in KHO]
     bo[0]["hieu_luc"] = Effectivity(V.bi_thay_the, "cao", "bị 1/2030/QH20 thay thế")
     ans = cau_gioi_thieu("có những Bộ luật gì", bo)
-    assert "Kho hiện có 5 Bộ luật" in ans and "Dân sự" not in ans
+    assert "Tôi hiện có 5 Bộ luật" in ans and "Dân sự" not in ans
 
 
 def test_them_linh_vuc_moi_thi_cau_tra_loi_tu_co_linh_vuc_moi():

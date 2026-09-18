@@ -16,9 +16,17 @@ trên câu "Hiện tại có bao nhiêu bộ luật?" với `deep=30`, `claims=0
 
 Đổi này làm `partial_coverage` và các nhánh abstain KHÔNG còn 0 token: mỗi ngõ
 cụt nay tiêu MỘT lượt gọi để sinh câu hỏi lại. Chú thích "0 TOKEN" ở hai nhánh
-ấy đã bị gỡ có chủ ý, không phải bỏ sót. Cái KHÔNG đổi: LLM hành văn vẫn không
-bao giờ được gọi trên một ngõ cụt (`test_*_KHONG_goi_LLM_hanh_van`) — một lượt
-không có căn cứ tuyệt đối không được dựng ra văn xuôi giải thích pháp luật.
+ấy đã bị gỡ có chủ ý, không phải bỏ sót. Cái KHÔNG đổi: LLM HÀNH VĂN — vai dựng
+câu trả lời có trích dẫn — vẫn không bao giờ được gọi trên một ngõ cụt
+(`test_*_KHONG_goi_LLM_hanh_van`).
+
+Phase 14 (R6, quyết định owner) thêm một vai THỨ BA cho các ngõ cụt "truy hồi
+không cho gì kiểm chứng được": `giai_thich_chung` — mô hình giải thích CHUNG
+bằng kiến thức của nó (khái niệm là gì, thủ tục thường ra sao), KHÔNG một số
+Điều/Khoản/số hiệu/mốc pháp lý nào (lưới 0 token loại cả lời khi vướng, dùng
+lại `hoi_lai.bi_loai` — xem chú thích ở `giai_thich_chung`), đi vào `answer`
+trong khi `result_type` vẫn là `abstain`. Nới điều được NÓI, không nới điều
+được TRÍCH DẪN: một trích dẫn chỉ có thể là một neo đã qua hai tầng kiểm.
 
 Và cái tuyệt đối không đổi: pha này đổi LỜI của abstain, KHÔNG đổi KHI NÀO
 abstain. `abstain_threshold` và mọi điều kiện quyết định `result_type` giữ
@@ -47,12 +55,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
-from src.agents.nodes.dung_ban_thao_tong_quat import (
-    KHONG_SOAN_DUOC,
-    LOAI_TONG_QUAT,
-    NHAN_MUC_KIEM,
-    TEN_TONG_QUAT,
-)
+from src.agents.nodes.dung_ban_thao_tong_quat import KHONG_SOAN_DUOC, LOAI_TONG_QUAT, TEN_TONG_QUAT
 from src.agents.nodes.gioi_thieu import cau_gioi_thieu
 from src.agents.nodes.hieu_tai_lieu import CHO_TRONG, MUC_DICH_SOAN
 from src.agents.nodes.hoi_lai import bi_loai, cau_hoi_lai_tu_khung, duoi_hoi_them, duoi_tu_khung, hoi_lai
@@ -61,7 +64,7 @@ from src.models.schemas import Bang
 from src.services.bao_ve import LOI_SOAN_THAO_DANG_NHAP
 from src.services.bo_nho import ho_so_da_dung, khoi_tinh_huong
 from src.services.effectivity import EffectivityVerdict as V
-from src.services.kho import hien_van_ban
+from src.services.kho import hien_van_ban, moi_so_hieu_trong
 from src.services.llm import Usage
 from src.services.prompts import messages
 
@@ -214,6 +217,9 @@ class ResultType(StrEnum):
     # riêng nên rơi thẳng vào đường tra cứu, và người hỏi "soạn cho tôi hợp
     # đồng lao động" nhận về một bài giảng về Điều 20 — đúng luật, và không
     # phải thứ họ xin.
+    # Phase 14: không lượt nào sinh ra loại này nữa (mô hình soạn thay vì chỉ
+    # sang biểu mẫu, xem `_ban_thao_tong_quat`); giữ giá trị để payload cache
+    # cũ và giao diện còn hợp lệ.
     huong_dan_soan_thao = "huong_dan_soan_thao"
     # Câu hỏi về CHÍNH KHO. Cùng lý do tách như `gioi_thieu` ngay trên: nó
     # không phải một lượt tra cứu, và câu trả lời là một phép TRA BẢNG xác
@@ -565,7 +571,7 @@ def _ly_do_moi_nguon_bi_thay(qua_loc: list) -> str:
     ke_nhiem = sorted({m for r in qua_loc for m in [_van_ban_ke_nhiem(r.effectivity.ly_do)] if m})
     if ke_nhiem:
         return (f"Những gì tôi tìm được cho câu hỏi này đều đã bị thay thế. Văn bản đi thay "
-                f"là {', '.join(ke_nhiem)}, và nội dung của nó thì tôi chưa nạp vào kho, "
+                f"là {', '.join(ke_nhiem)}, và nội dung của nó thì tôi chưa có, "
                 f"nên tôi chưa đọc được để nói với bạn nó quy định thế nào.")
     return ("Những gì tôi tìm được cho câu hỏi này đều đã bị thay thế hoặc đã hết hiệu lực, "
             "và từ những gì tôi đang có thì tôi chưa xác định được văn bản nào đi thay.")
@@ -642,8 +648,89 @@ def _gop_usage(*us: Usage | None) -> Usage | None:
                  cost_usd=sum(u.cost_usd for u in co))
 
 
+# ══ Phase 14 R6 — giải thích CHUNG khi truy hồi không cho gì kiểm chứng được ══
+# Owner: "ko bị giới hạn chỉ tham chiếu mỗi data base, agent có thể trả lời được
+# thực tế dựa vào database". Vai THỨ BA của mô hình trong node này (sau hành
+# văn và hỏi lại), prompt riêng và lược đồ riêng — khoá `giai_thich`, không
+# phải `answer`, để trace và test phân biệt được nó với lượt hành văn có trích
+# dẫn (`test_assemble.FakeLlm` đếm theo đúng danh tính lược đồ).
+#
+# Ranh giới không nhượng bộ: lời giải thích KHÔNG mang số Điều/Khoản/Điểm, số
+# hiệu, thẻ hay URL — ở đây không có trích dẫn đã kiểm nào để đối chiếu, nên
+# mọi số Điều đều là bịa; lưới 0 token bên dưới loại cả lời khi vướng.
+# `abstain_threshold` và mọi điều kiện quyết định `result_type` giữ nguyên từng
+# chữ — lượt vẫn là `abstain`, chỉ `answer` không còn trống, và giao diện dán
+# nhãn "giải thích chung" cho đúng ca `abstain` có `answer`.
+GIAI_THICH_PATH = Path("prompts/giai_thich_chung.v1.md")
+GIAI_THICH_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["giai_thich"],
+    "properties": {"giai_thich": {"type": "string"}},
+}
+# Lưới của lời giải thích dùng lại ĐÚNG những bộ nhận diện đã có, không dựng
+# bản thứ hai của cùng quy tắc — chính quy tắc `giai_nghia.dinh_danh_bia` đã
+# ghi cho mình ("mỗi họ định danh dùng lại bộ nhận diện ĐÃ CÓ").
+#
+# * `bi_loai` (`hoi_lai`) — "câu này có phát biểu một quy tắc pháp luật không".
+#   Nó đang được áp cho câu hỏi lại của CHÍNH lượt abstain này, nên lời giải
+#   thích của cùng lượt không có lý do gì được đi qua một lưới lỏng hơn. Bản
+#   chép tay trước đây (`_RE_DIEU` ở file này) hụt ở đúng những chỗ `bi_loai`
+#   đã vá: `Ðiều` U+00D0, `Điều47` không khoảng trắng, và MỐC PHÁP LÝ ("60
+#   ngày", "ba mươi ngày") — một phát biểu luật không mang số Điều nào nhưng
+#   cũng không có neo nào chống đỡ.
+# * `kho.moi_so_hieu_trong` — bản LỎNG của số hiệu, bắt cả "145/2020" viết
+#   thiếu đuôi loại văn bản (đúng cách người ta thật sự gõ), chỗ
+#   `_RE_SO_KY_HIEU` (đòi đủ hậu tố) và `bi_loai` (đòi dấu `/` thứ hai) đều hụt.
+# * `_RE_KHOAN_DIEM` ở lại: `Khoản N`/`Điểm x` đứng một mình cũng là một trích
+#   dẫn (R6) và KHÔNG họ nào ở trên phủ nó.
+# * `_RE_THE`/`_RE_URL` — thẻ trích dẫn và đường dẫn, như cũ.
+#
+# GIÁ phải trả, chấp nhận CÓ CHỦ Ý theo hướng đóng: `bi_loai` cố ý THÔ, nên
+# một lời giải thích đúng mực nhưng có "khoảng hai tuần" hay "trong ba ngày"
+# cũng bị bỏ CẢ LỜI — tỉ lệ rơi cao hơn hẳn, kể cả với văn xuôi dè dặt hợp lệ.
+# Đổi lại: không một mốc/số Điều không có neo nào tới được người đọc, và không
+# định danh bịa nào được `dinh_danh_bia` bạch hoá ở lượt sau qua `tra_loi` đã
+# lưu của lượt này. Mất một câu giải thích là rơi về abstain trơ; để lọt một
+# mốc bịa là đúng chế độ hỏng cả khoá luận tồn tại để chống.
+_RE_KHOAN_DIEM = re.compile(r"[Kk]hoản\s+\d|[Đđ]iểm\s+[a-zđ]\b")
+
+
+def giai_thich_chung(cau_hoi: str, llm, model: str) -> tuple[str | None, Usage | None, str]:
+    """`(lời giải thích | None, usage, nguon)` — `nguon` ∈ {"llm", "bi_loc", "loi"}.
+
+    KHÔNG BAO GIỜ raise (cùng hợp đồng `hoi_lai`): đây là phần THÊM vào một ngõ
+    cụt, không quyết định hạ nguồn nào phụ thuộc nó — hỏng thì lượt là abstain
+    trơ như trước Phase 14, không phải HTTP 500. `usage` trả về kể cả khi hỏng:
+    tiền đã trả cho provider phải vào trace.
+    """
+    prompt = GIAI_THICH_PATH.read_text(encoding="utf-8").format(cau_hoi=cau_hoi, toi_da=TRAN_KY_TU)
+    usage: Usage | None = None
+    try:
+        raw, usage = llm.chat(model, messages(prompt), json_schema=GIAI_THICH_SCHEMA)
+        loi_giai_thich = str(json.loads(raw)["giai_thich"]).strip()
+    except Exception as e:
+        logger.warning("giai_thich_chung: không sinh được (%s: %s) — abstain trơ như trước",
+                       type(e).__name__, e, exc_info=True)
+        return None, usage, "loi"
+    if not loi_giai_thich:
+        return None, usage, "loi"
+    # `normalize` TRƯỚC khi lọc, cùng lý do `verify_tier1` dùng nó ở cả hai
+    # phía: mô hình sinh được NFD và `Ð` U+00D0, và một chữ chỉ khác cách biểu
+    # diễn không được là đường vòng qua lưới.
+    chuan = normalize(loi_giai_thich)
+    if (bi_loai(chuan) or moi_so_hieu_trong(chuan) or _RE_KHOAN_DIEM.search(chuan)
+            or _RE_THE.search(chuan) or _RE_URL.search(chuan)):
+        # Ghi CẢ LỜI (cắt ngắn) chứ không chỉ cụm khớp: `bi_loai` trả bool, và
+        # tần suất lưới này nổ là số liệu cần đọc được — xem `hoi_lai._cau_dung_duoc`.
+        logger.warning("giai_thich_chung: lời giải thích phát biểu quy tắc pháp luật hay dẫn nguồn "
+                       "— loại cả lời, không tới người đọc: %r", chuan[:200])
+        return None, usage, "bi_loc"
+    return loi_giai_thich, usage, "llm"
+
+
 def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None = None,
-             usage: Usage | None = None, degraded: bool = False, **kw: object) -> dict:
+             usage: Usage | None = None, degraded: bool = False, giai_thich: bool = False, **kw: object) -> dict:
     """MỌI nhánh không có câu trả lời đi qua đây — hai nửa, không có ngoại lệ.
 
     Một lối vào duy nhất chứ không phải một câu vá ở từng nhánh: sáu chỗ trong
@@ -660,6 +747,14 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
     `da_biet` (bộ nhớ phiên) là những chiều hồ sơ ĐÃ có giá trị — `hoi_lai` bỏ
     chúng khỏi câu hỏi lại, để không hỏi lại một dữ kiện người hỏi đã cho biết
     hoặc máy đã đoán được.
+
+    `giai_thich` (Phase 14 R6) — bốn ngõ cụt "truy hồi không cho gì kiểm chứng
+    được" bật cờ này: `answer` mang lời giải thích chung của mô hình (không
+    trích dẫn, xem `giai_thich_chung`), hai nửa `coverage_note` vẫn y nguyên.
+    Tiền đề sai, câu nối tiếp chưa giải nghĩa được, và hai lần HẠ vì answer
+    dẫn thẻ/số Điều không kiểm được (lưới cuối, R4) KHÔNG bật — chúng không
+    phải "chưa tìm được", và một lượt gọi thêm để "cứu" câu bị hạ là mở lại
+    đúng cửa lưới ấy vừa đóng.
     """
     ho_so = state.get("ho_so") or {}
     da_biet = frozenset(k for k, v in ho_so.items() if isinstance(v, dict) and v.get("gia_tri"))
@@ -669,15 +764,23 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
     tu_khung = cau_hoi_lai_tu_khung(state.get("khung_yeu_cau"), da_biet)
     hl = None if tu_khung else hoi_lai(state.get("query", ""), llm, model, da_biet=da_biet)
     cau = tu_khung or hl.cau
+    gt, gt_usage, gt_nguon = (
+        giai_thich_chung(state.get("query", ""), llm, model) if giai_thich else (None, None, None)
+    )
     ket = _base(
         state,
         rt,
-        usage=_gop_usage(usage, hl.usage if hl else None),
+        usage=_gop_usage(usage, hl.usage if hl else None, gt_usage),
         degraded=degraded,
         coverage_note="\n\n".join(x for x in (ghi_chu or KHONG_TIM_DUOC, cau) if x),
+        # `answer` chỉ khác None khi có lời giải thích đã qua lưới — giao diện
+        # đọc đúng dấu hiệu "abstain có answer" để dán nhãn giải thích chung.
+        **({"answer": gt} if gt else {}),
         **kw,
     )
     ket["traces"]["assemble_hoi_lai"] = "khung" if tu_khung else hl.nguon
+    if giai_thich:
+        ket["traces"]["assemble_giai_thich"] = gt_nguon
     return ket
 
 
@@ -688,47 +791,16 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
 # tách thành dạng bằng quy tắc; đây vẫn là MỘT `result_type`, chỉ `answer` đổi.
 
 
-# Lời đáp khi router đoán ĐÚNG là `soan_thao` nhưng KHÔNG đoán được LOẠI văn
-# bản nào (`state["soan_thao_dang_mo"]` rỗng sau `gom_du_kien` — xem nhánh
-# `if not sd` bên dưới). Trước Task 19 đây là toàn bộ câu trả lời cho MỌI yêu
-# cầu soạn thảo, vì assemble không tự soạn — giờ vẫn đúng ở CHÍNH nhánh này
-# (không biết soạn gì thì không có dữ kiện nào để gom), nhưng khi loại ĐÃ biết
-# thì lượt đi tiếp qua `gom_du_kien`/`dung_ban_thao` (graph_tra_cuu) và có thể
-# dựng được một bản thảo thật ngay trong hội thoại — xem hai nhánh
-# `soan_thao_hoi`/`ban_thao` ở dưới.
-#
-# CỐ Ý không liệt kê các loại soạn được ở đây. Tên hiển thị của chúng sống ở
-# `mau-van-ban.ts` phía FE, và một bản sao thứ hai trong chuỗi Python này sẽ
-# lệch pha đúng vào ngày ai đó thêm mẫu mới — màn soạn thảo tự liệt kê được.
-HUONG_DAN_SOAN_THAO = (
-    "Việc này tôi soạn được, nhưng không phải ở ô hỏi này.\n"
-    "\n"
-    "Để mỗi điều khoản trong bản thảo neo được vào một căn cứ pháp lý riêng, tôi "
-    "cần biết loại văn bản và các dữ kiện cụ thể — các bên, thời hạn, mức lương, "
-    "công việc. Một câu văn xuôi không cho tôi đủ, và tôi không muốn dựng cho bạn "
-    "một văn bản mà chính tôi không chứng minh được nó dựa vào đâu.\n"
-    "\n"
-    "Bạn bấm Chọn loại văn bản bên dưới rồi điền biểu mẫu. Tôi dựng bản thảo "
-    "kèm căn cứ cho từng điều khoản, đối chiếu lại nó với luật trong kho, rồi bạn "
-    "tải về .docx hoặc .pdf."
+# Phase 14 (owner D14-B) — không còn lời đáp nào chỉ người dùng sang biểu mẫu
+# hay nói "chưa có loại văn bản này": một lượt `soan_thao` đi `hieu_tai_lieu`
+# → `dung_ban_thao_tong_quat`, mô hình soạn (xem `graph_tra_cuu._re_sau_route`).
+# `soan_thao_goi_y` chỉ còn là LỜI MỜI biểu mẫu (R3, "móc leo" owner muốn giữ)
+# — đính kèm bản thảo vừa dựng, hay câu trả lời tra cứu có ý định phụ soạn
+# thảo — không thay câu nào và không chặn gì. Nêu tên mẫu, không nêu số Điều:
+# căn cứ nằm trong từng mục của checklist, hiện ở khung soạn thảo.
+MOI_BIEU_MAU = (
+    " Tôi cũng có sẵn biểu mẫu {ten} với căn cứ pháp lý cho từng mục — cần thì mở khung soạn thảo bên cạnh."
 )
-
-
-# Spec soạn-thảo-trong-chat §4.2 — lời đáp khi router (v2) đã đoán được loại.
-# Không nêu số Điều ở đây: căn cứ nằm trong từng mục của checklist, hiện ở khung
-# soạn thảo, không phải trong câu mời.
-GOI_Y_SOAN_THAO = (
-    "Tôi hiểu bạn cần {ten}: {ly_do}\n"
-    "\n"
-    "Bạn điền dữ kiện ở khung bên cạnh, tôi dựng bản thảo kèm căn cứ cho từng mục, "
-    "soát lại theo luật trong kho, rồi bạn tải .docx hoặc .pdf ngay tại đây."
-)
-GOI_Y_SOAN_THAO_CHUA_CO = "Kho mẫu của tôi chưa có loại văn bản này. {gan_nhat}"
-GAN_NHAT_CO = "Gần nhất là {ten_thay_the} — bạn chọn một loại để tôi mở biểu mẫu."
-GAN_NHAT_KHONG = (
-    "Bạn mô tả rõ hơn văn bản cần soạn — ai lập, gửi cho ai, về việc gì — hoặc bấm Chọn loại văn bản bên dưới."
-)
-LY_DO_MAC_DINH = "đây là loại văn bản khớp với điều bạn mô tả."
 
 
 def _ten_loai(loai: str) -> str:
@@ -742,12 +814,13 @@ def _ten_loai(loai: str) -> str:
         return loai
 
 
-def _goi_y_soan_thao(tho: dict | None) -> tuple[dict | None, str]:
-    """Kiểm 0 token gợi ý của router rồi dựng `soan_thao_goi_y` + `answer`.
+def _goi_y_soan_thao(tho: dict | None) -> dict | None:
+    """Kiểm 0 token gợi ý của router rồi dựng `soan_thao_goi_y` (`SoanThaoGoiYOut`).
     `loai` phải là checklist THẬT trên đĩa; `thay_the` lọc còn loại thật, khác
-    `loai`, tối đa hai. Không có gợi ý (route v1) → lời hướng dẫn cũ."""
+    `loai`, tối đa hai. Không có gợi ý (route v1) → None. Phase 14: hàm không
+    còn dựng lời đáp nào — mời biểu mẫu là việc của nơi gọi (`MOI_BIEU_MAU`)."""
     if tho is None:
-        return None, HUONG_DAN_SOAN_THAO
+        return None
     co = cac_loai()
     loai = tho.get("loai") if tho.get("loai") in co else None
     thay_the = [
@@ -759,16 +832,8 @@ def _goi_y_soan_thao(tho: dict | None) -> tuple[dict | None, str]:
     if _RE_URL.search(ly_do) or _RE_THE.search(ly_do):
         ly_do = ""
     if loai is None:
-        gan = GAN_NHAT_CO.format(ten_thay_the=" hoặc ".join(t["ten"] for t in thay_the)) if thay_the else GAN_NHAT_KHONG
-        return (
-            {"loai": None, "ten": None, "ly_do": ly_do, "thay_the": thay_the, "ho_tro": False},
-            GOI_Y_SOAN_THAO_CHUA_CO.format(gan_nhat=gan),
-        )
-    ten = _ten_loai(loai)
-    return (
-        {"loai": loai, "ten": ten, "ly_do": ly_do, "thay_the": thay_the, "ho_tro": True},
-        GOI_Y_SOAN_THAO.format(ten=ten, ly_do=ly_do or LY_DO_MAC_DINH),
-    )
+        return {"loai": None, "ten": None, "ly_do": ly_do, "thay_the": thay_the, "ho_tro": False}
+    return {"loai": loai, "ten": _ten_loai(loai), "ly_do": ly_do, "thay_the": thay_the, "ho_tro": True}
 
 
 def dung_bang_tu_luan_diem(verified: list, citations: list[dict]) -> Bang | None:
@@ -888,21 +953,31 @@ def _ban_thao_tong_quat(state: dict) -> dict:
     """Lượt SOẠN từ tài liệu (S6) — `dung_ban_thao_tong_quat` đã chạy xong.
 
     0 token, và `assemble` không soạn gì ở đây: nó chỉ chọn một trong ba lời đáp
-    theo những gì node kia để lại. Lời đáp thành công PHẢI mang nhãn mức kiểm —
-    một bản thảo máy soạn từ tài liệu của người hỏi chưa qua checklist, chưa qua
-    rule, chưa qua audit, và câu chữ ở đây là chỗ duy nhất nói ra điều đó trước
-    khi người ta tải nó về (CONTEXT.md "mức kiểm").
+    theo những gì node kia để lại. Phase 14 (owner D14-A): lời đáp KHÔNG dán
+    nhãn "chưa kiểm pháp lý" nữa — bản ghi (`audit_report.muc_kiem`,
+    `dung_ban_thao_tong_quat.ket_ban_thao`) vẫn nói thật, chỉ nhãn hiển thị bỏ.
+    Từ Phase 14 đây cũng là lời đáp cho MỌI lượt `soan_thao` không có checklist
+    mở dở (kể cả lượt không có tài liệu nào), nên nguồn soạn phải nói đúng thứ
+    đã dùng.
     """
     bt = state.get("ban_thao_ket")
     if bt:
         doi = bt.get("doi_so_voi_truoc") or []
+        co_tai_lieu = bool((state.get("tai_lieu_ket") or {}).get("tai_lieu_da_dung"))
+        # R3 — router nhận ra một trong 29 mẫu thì MỜI một câu và đưa `loai`
+        # ra payload để giao diện vẽ nút; không mẫu thật thì không mời gì.
+        goi_y = _goi_y_soan_thao(state.get("soan_thao_goi_y"))
+        if goi_y is not None and not goi_y["ho_tro"]:
+            goi_y = None
         answer = (
-            f"{NHAN_MUC_KIEM}. Bản thảo phiên bản {bt['phien_ban']} đã sẵn sàng"
+            f"Bản thảo phiên bản {bt['phien_ban']} đã sẵn sàng"
             + (f", đã đổi: {', '.join(doi)}" if doi else "")
-            + ". Tôi soạn từ nội dung tài liệu và những gì bạn nói; chỗ nào chưa có dữ kiện tôi để "
-            + f"{CHO_TRONG}. Bạn xem, sửa từng mục hoặc tải về ở bên cạnh; muốn đổi gì cứ nói với tôi."
+            + (". Tôi soạn từ nội dung tài liệu và những gì bạn nói" if co_tai_lieu else ". Tôi soạn từ những gì bạn nói")
+            + f"; chỗ nào chưa có dữ kiện tôi để {CHO_TRONG}. Bạn xem, sửa từng mục hoặc tải về ở bên cạnh; "
+            + "muốn đổi gì cứ nói với tôi."
+            + (MOI_BIEU_MAU.format(ten=goi_y["ten"]) if goi_y else "")
         )
-        return _base(state, ResultType.ban_thao, answer=answer, ban_thao=bt, soan_thao_goi_y=None)
+        return _base(state, ResultType.ban_thao, answer=answer, ban_thao=bt, soan_thao_goi_y=goi_y)
     # Hỏng thì HỎI LẠI, không im lặng: `soan_thao_hoi` là hình dạng đã có cho
     # đúng tình huống "chưa dựng được, đây là lý do" — không dựng loại thứ chín.
     can_dang_nhap = state.get("user_sub") is None
@@ -954,8 +1029,9 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         # khoản, `dung_ban_thao`) TRƯỚC KHI tới đây (`graph_tra_cuu._re_sau_route`,
         # KHÔNG còn qua `_RE_TAT`). `assemble` KHÔNG tự soạn gì ở đây — nó chỉ ĐỌC
         # những gì hai node đó đã tính (`soan_thao_dang_mo`/`ban_thao_ket`) và DỰNG
-        # LỜI cho đúng bốn tình huống: chưa biết loại văn bản (gợi ý cũ, đường sang
-        # biểu mẫu đứng riêng); biết loại nhưng thiếu dữ kiện, hoặc chưa đăng nhập,
+        # LỜI cho đúng bốn tình huống: không có checklist mở dở (Phase 14 — lượt
+        # đã đi đường mô hình soạn, đọc kết quả ở `_ban_thao_tong_quat`); biết
+        # loại nhưng thiếu dữ kiện, hoặc chưa đăng nhập,
         # hoặc đã hết hạn mức soạn thảo (hỏi lại — `soan_thao_hoi`); và đã có bản
         # thảo thật (`ban_thao`). Mọi điều khoản của bản thảo đó vẫn neo bằng đúng
         # con đường checklist/rules/graph_soan_thao cũ — không văn xuôi tự do nào
@@ -971,9 +1047,13 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         # `{dang_soan}` để tự phân biệt câu trả lời dữ kiện với một câu hỏi luật
         # thật — đây là nơi DUY NHẤT tôn trọng phán đoán đó.
         sd = state.get("soan_thao_dang_mo")
-        if not sd:  # router không đoán được loại
-            goi_y, answer = _goi_y_soan_thao(state.get("soan_thao_goi_y"))
-            return _base(state, ResultType.huong_dan_soan_thao, answer=answer, soan_thao_goi_y=goi_y)
+        if not sd:
+            # Phase 14 (R1) — không có checklist mở dở thì lượt này đã đi
+            # `hieu_tai_lieu`/`dung_ban_thao_tong_quat` (hoặc là khách, rẽ
+            # thẳng từ `route`): đọc kết quả của đường đó — bản thảo, lời mời
+            # đăng nhập, hay lý do chưa soạn được — không còn lời chỉ sang
+            # "Chọn loại văn bản".
+            return _ban_thao_tong_quat(state)
         ten = _ten_loai(sd["loai"])
         # `soan_thao_goi_y=None` tường minh trong CẢ BỐN nhánh dưới đây (khác
         # nhánh `not sd` ngay trên, nơi nó CHÍNH LÀ kết quả): `route()` đã đặt
@@ -1179,14 +1259,14 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         # không đi qua đây.
         if shallow:
             return _phu_mot_phan()
-        return _ngo_cut(state, llm, model, ResultType.abstain)
+        return _ngo_cut(state, llm, model, ResultType.abstain, giai_thich=True)
 
     tier1 = state.get("tier1") or []
     tier2 = {v.claim_index: v for v in (state.get("tier2") or [])}
     qua_t1 = [r for r in tier1 if r.ok]
 
     if not tier1 or not qua_t1:
-        return _ngo_cut(state, llm, model, ResultType.abstain)
+        return _ngo_cut(state, llm, model, ResultType.abstain, giai_thich=True)
 
     # RULING 2026-08-31 (task-9 review) — brief gốc có một nhánh
     # `if tier2 else not tier2` khiến "tier2 rỗng toàn bộ" mặc định COI NHƯ ĐÃ
@@ -1211,7 +1291,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     verified = [r for r, _ in verified_v]
     ty_le = len(verified) / len(tier1)
     if not verified or ty_le < float(state.get("abstain_threshold", ABSTAIN_THRESHOLD_DEFAULT)):
-        return _ngo_cut(state, llm, model, ResultType.abstain)
+        return _ngo_cut(state, llm, model, ResultType.abstain, giai_thich=True)
 
     citations: list[Citation] = []
     warnings: list[str] = []
@@ -1302,7 +1382,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         # Hai lý do khác nhau, hai câu khác nhau: nguồn đã bị thay thế (nói tên
         # văn bản đi thay), hay nguồn còn sống mà lạc đề (`LAC_DE`). Nói nhầm lý
         # do là nói sai với người hỏi, không phải một sắc thái.
-        ket = _ngo_cut(state, llm, model, ResultType.abstain,
+        ket = _ngo_cut(state, llm, model, ResultType.abstain, giai_thich=True,
                        ghi_chu=_ly_do_moi_nguon_bi_thay(verified) if nguon_bi_loc else LAC_DE)
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
         ket["traces"]["assemble_lac_de"] = lac_de
@@ -1529,10 +1609,8 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         ket["coverage_note"] = "\n\n".join(x for x in (ket.get("coverage_note"), duoi) if x)
     # Ý định PHỤ (router v3, spec 2026-09-09 §7.4): câu hỏi vừa hỏi luật vừa
     # nhờ soạn — KHÔNG hijack `answer` (nó vẫn là câu trả lời tra cứu bình
-    # thường), chỉ đính kèm gợi ý soạn thảo, cùng hàm dựng đã dùng cho nhánh
-    # `huong_dan_soan_thao`. Bỏ `answer` thứ hai mà `_goi_y_soan_thao` trả về:
-    # đây không phải một câu trả lời KHÔNG có căn cứ như nhánh soạn thảo riêng.
+    # thường), chỉ đính kèm gợi ý soạn thảo, cùng hàm dựng `_ban_thao_tong_quat`
+    # dùng cho lời mời biểu mẫu (R3).
     if state.get("y_dinh_phu") == "soan_thao":
-        goi_y, _ = _goi_y_soan_thao(state.get("soan_thao_goi_y"))
-        ket["soan_thao_goi_y"] = goi_y
+        ket["soan_thao_goi_y"] = _goi_y_soan_thao(state.get("soan_thao_goi_y"))
     return ket

@@ -5,9 +5,9 @@ cứu NỘI DUNG luật, truy hồi 10 kết quả, mở rộng ra 30 điều kh
 **0 luận điểm**, rồi trả `abstain` với `answer` rỗng. Người hỏi nhận màn hình
 trắng trong khi câu trả lời là một phép `count(*)`.
 
-Ràng buộc mà nhóm test này canh — quan trọng hơn con số đúng: kho là một tập
-được CHỌN cho đề tài, không phải một cuộc tổng điều tra. "Trong kho của mình
-hiện có 6 Bộ luật" là sự thật kiểm được; "Việt Nam hiện có 6 Bộ luật" là ảo giác
+Ràng buộc mà nhóm test này canh — quan trọng hơn con số đúng: corpus là một tập
+được CHỌN cho đề tài, không phải một cuộc tổng điều tra. "Tôi hiện có 6 Bộ
+luật" là sự thật kiểm được; "Việt Nam hiện có 6 Bộ luật" là ảo giác
 — và là loại verifier KHÔNG BẮT ĐƯỢC, vì không có trích dẫn nào để đối chiếu.
 Nên câu giới hạn phạm vi phải là HẰNG SỐ trong mã, và mọi đường trả lời đều
 phải đi qua nó.
@@ -154,8 +154,18 @@ def test_moi_duong_tra_loi_deu_dong_bang_cau_gioi_han_pham_vi(cau_hoi):
 
 
 @pytest.mark.parametrize("cau_hoi", MOI_DANG_CAU_HOI)
-def test_moi_duong_tra_loi_deu_xung_trong_kho_cua_toi(cau_hoi):
-    assert "kho của tôi" in dung_cau_tra_loi(cau_hoi, KHO)
+def test_moi_duong_tra_loi_deu_xung_ngoi_thu_nhat_va_khong_goi_la_kho(cau_hoi):
+    """Bất biến KHÔNG đổi: mọi con số phải được phát biểu như điều TÔI có, chứ
+    không như điều nền pháp luật Việt Nam có — đó là ranh giới mà verifier
+    không bắt được. Phase 14 (R5) chỉ đổi CHỮ: lời cho người đọc không gọi
+    corpus là "kho" nữa (owner: "ko đề cập 'kho' trong kho của tôi nữa"), nên
+    bất biến neo vào NGÔI THỨ NHẤT thay vì vào tên của cái hộp.
+
+    `\\bkho\\b` không khớp "khoản"/"khoá" (chữ cái tiếp theo vẫn là ký tự từ),
+    nên đây bắt đúng chữ "kho" đứng một mình."""
+    ra = dung_cau_tra_loi(cau_hoi, KHO)
+    assert re.search(r"\bTôi (?:hiện )?(?:có|không có)\b", ra), ra
+    assert not re.search(r"(?i)\bkho\b", ra), ra
 
 
 # ══ Có/không một văn bản cụ thể ═════════════════════════════════════════════

@@ -97,14 +97,23 @@ def test_khong_lo_prompt():
 
 
 def test_soan_thao_loai():
+    """Phase 14: lượt soạn thảo phải RA BẢN THẢO. `huong_dan_soan_thao` không
+    còn lượt nào sinh ra, nên nó là dấu hiệu regression chứ không phải đúng."""
     it = {"ky_vong": "soan_thao_loai", "loai_chap_nhan": ["thoa_thuan_cham_dut_hdld", "don_xin_nghi_viec"]}
-    assert dung(
+    assert dung(it, {"result_type": "ban_thao", "soan_thao_goi_y": {"loai": "don_xin_nghi_viec", "ho_tro": True}})
+    # runner chạy vô danh nên bản thảo thật không dựng được: lời mời đăng nhập
+    # là đường đi đúng của lượt soạn thảo ở đây
+    assert dung(it, {"result_type": "soan_thao_hoi", "soan_thao_hoi": {"can_dang_nhap": True}})
+    assert not dung(it, {"result_type": "ban_thao", "soan_thao_goi_y": {"loai": "hdld", "ho_tro": True}})
+    assert not dung(
         it, {"result_type": "huong_dan_soan_thao", "soan_thao_goi_y": {"loai": "don_xin_nghi_viec", "ho_tro": True}}
     )
-    assert not dung(it, {"result_type": "huong_dan_soan_thao", "soan_thao_goi_y": {"loai": "hdld", "ho_tro": True}})
+    # `soan_thao_hoi` vì lý do khác = ngõ cụt R1 bò về bằng cửa sau
+    assert not dung(it, {"result_type": "soan_thao_hoi", "soan_thao_hoi": {"can_dang_nhap": False}})
     assert not dung(it, {"result_type": "answer", "soan_thao_goi_y": None})
     it_null = {"ky_vong": "soan_thao_loai", "loai_chap_nhan": ["ban_tu_khai", None]}
-    assert dung(it_null, {"result_type": "huong_dan_soan_thao", "soan_thao_goi_y": {"loai": None, "ho_tro": False}})
+    # R1: yêu cầu không khớp mẫu nào vẫn được soạn, không cần mời gì
+    assert dung(it_null, {"result_type": "ban_thao", "soan_thao_goi_y": None})
 
 
 def test_token_in_cua_cong_bay_khoa_bo_qua_khoa_thieu():
