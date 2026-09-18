@@ -54,8 +54,8 @@ def _q(ten: str) -> str:
 # việc phải sửa bảng này làm cho lần cài đó không thể đi qua im lặng.
 _TRUONG_DOC_RA: dict[str, tuple[str, ...]] = {
     "cau_truc": ("bang", "bang_nhip", "bang_ti_le"),
-    "vien_bang": (),
-    "chieu_cao_hang": (),
+    "vien_bang": ("bang_vien",),
+    "chieu_cao_hang": ("bang_cao",),
     "can_le": ("can_le",),
     "dinh_dang_run": (),
     "gian_cach_thut_le": (),

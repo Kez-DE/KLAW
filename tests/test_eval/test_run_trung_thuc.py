@@ -57,7 +57,7 @@ _HOM_NAY = {
     "le_trang": (4, 0.0),
     "media": (2, 0.0),
 }
-_CHUA_CAI = {"vien_bang", "chieu_cao_hang", "dinh_dang_run", "gian_cach_thut_le", "le_trang", "media"}
+_CHUA_CAI = {"dinh_dang_run", "gian_cach_thut_le", "le_trang", "media"}
 
 
 def _docx(duong: Path) -> Path:
