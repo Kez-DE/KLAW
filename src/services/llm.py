@@ -49,6 +49,26 @@ class _JsonDoDangError(Exception):
     """
 
 
+class _JsonHongError(Exception):
+    """Content là JSON HỎNG dù `finish_reason=stop` — đã phát hết, chỉ là phát
+    sai. KHÁC `_JsonDoDangError` (bị cắt vì `length`): ở đây không thiếu token,
+    model chỉ đẻ ra một chuỗi không đóng. Đo được hai lần: Phase 16 trên
+    `rewrite_query`, và 2026-09-18 trên `hieu_tai_lieu`
+    (`Unterminated string starting at` vị trí 4248) — lần sau người dùng bấm
+    lại thì lành, nên đây là lỗi KHÔNG TẤT ĐỊNH, đúng lớp đáng thử lại.
+
+    Bắt ở ĐÂY chứ không ở từng node: mười node gọi `json.loads` trên content,
+    nên vá ở node là vá một nhánh và để chín nhánh kia nguyên lỗi.
+
+    Mang theo `JSONDecodeError` gốc để lần cạn ngân sách raise lại đúng lỗi đó
+    — mọi caller đang bắt `json.JSONDecodeError` vẫn chạy y như cũ.
+    """
+
+    def __init__(self, goc: json.JSONDecodeError):
+        super().__init__(str(goc))
+        self.goc = goc
+
+
 class TruncatedOutputError(ValueError):
     """CÔNG KHAI (không tiền tố `_`) — Phase 16 R2/R3: cắt CẤU TRÚC đã cạn ngân
     sách một-lần-thử-lại của `_JsonDoDangError` (xem docstring lớp đó, không
@@ -179,6 +199,8 @@ class LlmClient:
         # chỉ được đúng MỘT cơ hội thử lại, không phải phần ngân sách còn lại
         # của max_retries.
         so_lan_length_cat = 0
+        # Ngân sách RIÊNG cho JSON hỏng ở `stop` — cùng khuôn một-lần-thử-lại.
+        so_lan_json_hong = 0
         # Cộng dồn usage qua MỌI lần thử — kể cả lần bị loại (content rỗng/JSON
         # cắt giữa chừng vẫn tốn token thật, `usage.include=true` ở `chat()`).
         # Không cộng dồn thì `cost_usd` chỉ phản ánh lần cuối, hiểu thấp chi phí
@@ -219,6 +241,16 @@ class LlmClient:
                     raise _JsonDoDangError(ly_do_dung)
                 if not content.strip():
                     raise _ContentRongError(ly_do_dung)
+                # Caller đã xin schema ⇒ content PHẢI là JSON. Kiểm ngay trong
+                # vòng lặp: ra khỏi đây là hết lần thử, và một chuỗi không đóng
+                # ở `finish_reason=stop` là lỗi không tất định — chính nó đã đẩy
+                # `hieu_tai_lieu` xuống "Chưa đọc được tài liệu lúc này" trong
+                # khi bấm lại thì lành (2026-09-18).
+                if "response_format" in body:
+                    try:
+                        json.loads(content)
+                    except json.JSONDecodeError as e:
+                        raise _JsonHongError(e) from None
                 if u:
                     data = {**data, "usage": {**u, **{k: v for k, v in tong.items() if k in u}}}
                 return content, data
@@ -249,6 +281,18 @@ class LlmClient:
                 logger.warning(
                     "model %s: JSON bị cắt giữa chừng (finish_reason=%s), thử lại 1 lần (lần %d)",
                     model, e, attempt + 2,
+                )
+            except _JsonHongError as e:
+                so_lan_json_hong += 1
+                if so_lan_json_hong > 1 or attempt == self.max_retries:
+                    # Raise lại CHÍNH `JSONDecodeError` gốc, kèm `usage` cộng dồn
+                    # của mọi lần thử: node bắt lỗi này (`hieu_tai_lieu`) đọc
+                    # `getattr(e, "usage", ...)` để tính đúng tiền đã tiêu.
+                    e.goc.usage = self._usage_from(model, {"usage": tong})
+                    raise e.goc from None
+                logger.warning(
+                    "model %s: content là JSON hỏng dù finish_reason=%s, thử lại 1 lần (lần %d)",
+                    model, ly_do_dung, attempt + 2,
                 )
             except json.JSONDecodeError:
                 # HTTP 200 kèm body không phải JSON là cùng lớp lỗi tạm thời với
