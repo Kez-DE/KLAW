@@ -174,6 +174,27 @@ def _re_sau_route(st: dict) -> str:
     return "assemble" if st.get("intent") in _RE_TAT else "tien_de"
 
 
+def _re_sau_gom_du_kien(st: dict) -> str:
+    """Đủ dữ kiện (`du`) VÀ có tài khoản (`user_sub`) thì dựng bản thảo thật;
+    thiếu một trong hai thì `assemble` chỉ hỏi thêm (`soan_thao_hoi`) — khách
+    chưa đăng nhập không bao giờ chạm `dung_ban_thao` dù đã đủ dữ kiện.
+
+    `gom_du_kien` XOÁ `soan_thao_dang_mo` khi không biết loại nào
+    (`gom_du_kien_nguon = "khong_ro_loai"`). Sau khi xoá, lượt này ĐÚNG là
+    "soạn thảo, không có checklist mở dở" — nên nó phải đi lại đúng nhánh
+    `_re_sau_route` đã định cho ca đó (`hieu_tai_lieu` → mô hình soạn), không
+    rơi thẳng vào `assemble`, nơi `_ban_thao_tong_quat` không có `ban_thao_ket`
+    nào để đọc và trả về "Lượt này tôi chưa soạn được mục nào." — ngõ cụt R1 đã
+    gỡ, vào lại bằng cửa sau. GỌI LẠI `_re_sau_route` chứ không chép quyết định
+    của nó: khách chưa đăng nhập, ý định rẽ tắt và mọi luật khác ở đó vẫn đúng
+    y nguyên cho lượt này.
+    """
+    sd = st.get("soan_thao_dang_mo")
+    if not sd:
+        return _re_sau_route(st)
+    return "dung_ban_thao" if sd.get("du") and st.get("user_sub") else "assemble"
+
+
 def _vao_graph(st: dict) -> str:
     """Lượt ĐẦU (lịch sử rỗng) vào thẳng `suy_dien` rồi `route` — không tốn thêm
     một token nào.
@@ -617,15 +638,7 @@ def build_graph_tra_cuu():
     g.add_conditional_edges("route", _re_sau_route)
     g.add_conditional_edges("hieu_tai_lieu", _re_sau_hieu_tai_lieu)
     g.add_edge("dung_ban_thao_tong_quat", "assemble")
-    # Đủ dữ kiện (`du`) VÀ có tài khoản (`user_sub`) thì dựng bản thảo thật;
-    # thiếu một trong hai thì `assemble` chỉ hỏi thêm (`soan_thao_hoi`) — khách
-    # chưa đăng nhập không bao giờ chạm `dung_ban_thao` dù đã đủ dữ kiện.
-    g.add_conditional_edges(
-        "gom_du_kien",
-        lambda st: (
-            "dung_ban_thao" if (st.get("soan_thao_dang_mo") or {}).get("du") and st.get("user_sub") else "assemble"
-        ),
-    )
+    g.add_conditional_edges("gom_du_kien", _re_sau_gom_du_kien)
     g.add_edge("dung_ban_thao", "assemble")
     g.add_conditional_edges("tien_de", lambda st: (
         "assemble" if st.get("tien_de_sai") else "rewrite"))

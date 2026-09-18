@@ -1875,11 +1875,27 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
 
     giu = giu[:TOI_DA_QUAN_SAT]
     muc_dich = str(ra.get("muc_dich") or "hoi")
-    if soan_tu_do and muc_dich not in MUC_DICH_SOAN:
-        # Không có tài liệu để `hoi`/`tom_tat`/…, và router đã nói soạn — một
-        # nhãn khác là mô hình gán nhầm. Có bản thảo đang mở thì lượt xin SỬA
-        # nó, không mở một bản thứ hai; `van_ban` rỗng thì
-        # `dung_ban_thao_tong_quat` nói thật "chưa soạn được mục nào".
+    if state.get("intent") == Intent.soan_thao and muc_dich not in MUC_DICH_SOAN:
+        # Gác trên Ý KIẾN CỦA ROUTER, không trên việc hội thoại có tài liệu hay
+        # không. Bản trước gác `soan_tu_do` (= KHÔNG tài liệu), mà điều kiện đó
+        # sai ngay khi hội thoại sở hữu một tài liệu: "dựa vào hợp đồng này
+        # soạn giúp tôi đơn xin nghỉ việc" đi `hieu_tai_lieu` với tài liệu, mô
+        # hình gán `hoi`, nhãn không bao giờ được sửa, và lượt chết ở
+        # `assemble._ban_thao_tong_quat` với "Lượt này tôi chưa soạn được mục
+        # nào." — đúng ngõ cụt R1 đã gỡ, vào lại bằng cửa sau. Router đã nói
+        # soạn thảo thì một nhãn khác từ mô hình NÀY là gán nhầm, dù có tài
+        # liệu hay không.
+        #
+        # `doi_chieu_luat` cũng bị sửa, CÓ CHỦ Ý: `assemble` rẽ theo `intent`
+        # (`intent == "soan_thao"`) nên một lượt router đã gọi là soạn thảo
+        # KHÔNG bao giờ được dựng thành câu trả lời pháp lý — để nó chạy hết
+        # rewrite → retrieve → expand → generate → hai tầng kiểm là trả tiền
+        # năm lượt gọi cho một kết quả `assemble` vứt đi. Không câu trả lời đã
+        # kiểm nào bị bỏ ở đây, vì không câu nào được dựng: R4 nguyên vẹn.
+        #
+        # Có bản thảo đang mở thì lượt xin SỬA nó, không mở một bản thứ hai;
+        # `van_ban` rỗng thì `dung_ban_thao_tong_quat` nói thật "chưa soạn được
+        # mục nào".
         muc_dich = "sua_ban_thao" if khoi_ban_thao else "tao_van_ban"
     # Phase 3 Half B, fix round 1 — safety net: một `muc_dich` SOẠN (có thể
     # GHI ĐÈ bản thảo thật) không đủ tin nếu ý kiến ĐỘC LẬP của `route()` (nếu

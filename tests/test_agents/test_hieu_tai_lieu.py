@@ -644,6 +644,51 @@ def test_soan_tu_do_van_qua_luoi_lam_sach_khong_mang_so_dieu_hay_so_bia():
     assert not h.re.search(r"[Đđ]iều\s*\d", muc[0]["khoi"][0]["noi_dung"])
 
 
+def test_co_tai_lieu_ma_router_noi_soan_thi_nhan_hoi_van_bi_ep_ve_tao_van_ban():
+    """Ngõ cụt đo được: hội thoại SỞ HỮU một tài liệu ("dựa vào hợp đồng này
+    soạn giúp tôi đơn xin nghỉ việc"). Bản trước gác phép sửa nhãn trên
+    `soan_tu_do` (= KHÔNG tài liệu), nên nhãn `hoi` của mô hình đứng nguyên,
+    `_re_sau_hieu_tai_lieu` rẽ `assemble`, và `_ban_thao_tong_quat` trả về
+    "Lượt này tôi chưa soạn được mục nào." — đúng ngõ cụt R1 đã gỡ. Gác nay là
+    ý kiến của router, nên có tài liệu hay không đều sửa như nhau."""
+    st = {**ST_SOAN, "query": "dựa vào hợp đồng này soạn giúp tôi đơn xin nghỉ việc"}
+    llm = _LLM(_ra(muc_dich="hoi", van_ban=_van_ban("Kính gửi Ban Giám đốc.", "Tôi xin nghỉ việc.")))
+    ra = h.hieu_tai_lieu(st, MOT, llm, "m")
+    assert ra["muc_dich_tai_lieu"] == "tao_van_ban"
+    assert [m["khoi"][0]["noi_dung"] for m in ra["van_ban_tong_quat"]["muc"]] == [
+        "Kính gửi Ban Giám đốc.", "Tôi xin nghỉ việc."]
+    assert ra["traces"]["hieu_tai_lieu_so_don_vi_gui"] > 0, "tài liệu vẫn được gửi làm nguồn soạn"
+
+
+def test_co_tai_lieu_ma_router_noi_soan_thi_doi_chieu_luat_KHONG_di_duong_phap_ly():
+    """Ca thứ hai, tệ hơn: mô hình gán `doi_chieu_luat` cho một lượt router đã
+    gọi là soạn thảo. `assemble` rẽ theo `intent` (`intent == "soan_thao"`) nên
+    một câu trả lời pháp lý của lượt này KHÔNG bao giờ được dựng — để nó chạy
+    hết rewrite → retrieve → expand → generate → hai tầng kiểm là trả tiền năm
+    lượt gọi cho một kết quả bị vứt. Quyết định: sửa nhãn về soạn và KHÔNG vào
+    đường pháp lý; không trích dẫn đã kiểm nào bị bỏ, vì không cái nào được
+    dựng."""
+    from src.agents.graph_tra_cuu import _re_sau_hieu_tai_lieu
+
+    llm = _LLM(_ra(muc_dich="doi_chieu_luat", van_ban=_van_ban("Tôi xin nghỉ việc.")))
+    ra = h.hieu_tai_lieu(ST_SOAN, MOT, llm, "m")
+    assert ra["muc_dich_tai_lieu"] == "tao_van_ban"
+    assert ra["tai_lieu_neo"] == [], "không điều khoản nào đẩy sang đường pháp lý"
+    assert _re_sau_hieu_tai_lieu(ra) == "dung_ban_thao_tong_quat"
+
+
+def test_co_tai_lieu_ma_router_KHONG_noi_soan_thi_nhan_cua_mo_hinh_giu_nguyen():
+    """Nửa kia của gác: router mới là ý kiến độc lập. `Intent.tai_lieu` ("đây
+    là đơn gì") không được biến một lượt hỏi thành một lượt ghi đè bản thảo —
+    chính sự cố `_muc_dich_soan_da_xac_nhan` đã dựng lưới cho."""
+    from src.agents.graph_tra_cuu import _re_sau_hieu_tai_lieu
+
+    st = {**ST_SOAN, "intent": Intent.tai_lieu, "query": "đây là đơn gì"}
+    ra = h.hieu_tai_lieu(st, MOT, _LLM(_ra(muc_dich="hoi")), "m")
+    assert ra["muc_dich_tai_lieu"] == "hoi"
+    assert _re_sau_hieu_tai_lieu(ra) == "assemble"
+
+
 def test_khong_tai_lieu_va_khong_phai_soan_thao_thi_van_khong_goi_mo_hinh():
     """Nhánh cũ giữ nguyên: không tài liệu và router KHÔNG nói soạn thảo thì
     không gọi mô hình với một prompt rỗng."""
