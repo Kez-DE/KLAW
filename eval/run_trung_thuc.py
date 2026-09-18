@@ -13,14 +13,17 @@ thấy — bảng còn nguyên mà đường viền mất sạch vẫn ra 99%. M
 CÀI thì ăn 0 và hiện chữ "CHƯA CÀI", không bỏ qua và không miễn trừ: bỏ qua
 đúng những mục chưa làm là cách một cái thước tự cho mình điểm cao.
 
-Một mục bị TÁCH ĐÔI khi biểu diễn của bộ đọc chỉ trả lời được một PHẦN câu hỏi:
+Một mục bị TÁCH ĐÔI khi hai nửa của nó là hai câu hỏi khác nhau:
 `vien_bang_co_net` hỏi "bảng này có vẽ nét nào không" — đúng thứ một cờ bool
 mỗi bảng chở được; `vien_bang_tung_canh` hỏi hình dạng viền theo từng cạnh,
-từng ô — thứ không có chỗ nào cất, nên ăn 0 và mang chữ "CHƯA CÀI". Cặp
-`chieu_cao_hang` (số twip mỗi hàng) / `chieu_cao_hang_hrule` (`exact` hay
-`atLeast`) tách cùng một lẽ. Gộp lại thì không gian khoá hai bên không bao giờ
-gặp nhau và một khả năng CHẠY ĐÚNG bị chấm 0 — sai đúng bằng cách chấm 100%
-cho một khả năng không chạy.
+từng ô. Cặp `chieu_cao_hang` (số twip mỗi hàng) / `chieu_cao_hang_hrule`
+(`exact` hay `atLeast`) tách cùng một lẽ — và nửa sau CHẤM SỰ THẬT BỘ ĐỌC ĐỌC
+RA, không chấm nét đã vẽ: cả ba nơi vẽ cố ý coi `exact` như chiều cao tối
+thiểu (cắt mất chữ người dùng hỏng hơn một hàng cao dôi vài milimét), nên
+thước hỏi "có đọc đúng `hRule` tệp khai không", không hỏi "có cắt chữ không".
+Gộp hai nửa lại thì không gian khoá hai bên không bao giờ gặp nhau và một khả
+năng CHẠY ĐÚNG bị chấm 0 — sai đúng bằng cách chấm 100% cho một khả năng không
+chạy.
 
 Chỉ đếm những gì TỆP KHAI. `w:jc` vắng mặt không phải "căn trái", nó là "không
 khai"; tính nó thành một dữ kiện đúng là thổi điểm bằng những thứ tệp không hề
@@ -65,13 +68,13 @@ def _q(ten: str) -> str:
 _TRUONG_DOC_RA: dict[str, tuple[str, ...]] = {
     "cau_truc": ("bang", "bang_nhip", "bang_ti_le"),
     "vien_bang_co_net": ("bang_vien",),
-    "vien_bang_tung_canh": (),
+    "vien_bang_tung_canh": ("bang_vien_canh", "o_vien_canh"),
     "chieu_cao_hang": ("bang_cao",),
-    "chieu_cao_hang_hrule": (),
+    "chieu_cao_hang_hrule": ("bang_cao_luat",),
     "can_le": ("can_le",),
     "dinh_dang_run": ("dinh_dang",),
     "gian_cach_thut_le": ("gian_cach",),
-    "le_trang": (),
+    "le_trang": ("le_trang",),
     "media": (),
 }
 
@@ -341,6 +344,12 @@ def dac_ta_bo_doc(tai_lieu: TaiLieuDaDoc) -> dict[str, dict[str, str]]:
     khoi = 0
     bang_truoc: int | None = None
 
+    # Lề trang là sự thật của cả TỆP, bộ đọc chép nó lên MỌI đơn vị — đọc đúng
+    # một đơn vị là đủ, và đơn vị đầu tiên luôn có (`chay` đã chặn tài liệu
+    # rỗng). Không lấy từ vòng lặp dưới: vòng ấy bỏ đầu/chân trang.
+    for ten, v in (tai_lieu.don_vi[0].le_trang if tai_lieu.don_vi else ()):
+        ra["le_trang"][f"pgMar/{ten}"] = str(v)
+
     def _run(tien_to: str, d) -> None:
         """`DinhDangChu.khai` → đúng khoá `_run_va_gian_cach` bên chân lý dựng.
 
@@ -386,8 +395,15 @@ def dac_ta_bo_doc(tai_lieu: TaiLieuDaDoc) -> dict[str, dict[str, str]]:
                 ra["cau_truc"][f"bang{b}/luoi"] = ",".join(str(x) for x in d.bang_ti_le)
         # `bang_vien` là MỘT cờ cho cả bảng và `bang_cao` MỘT số cho cả hàng:
         # mọi ô của cùng bảng/hàng ghi lại đúng một giá trị, nên ghi đè vô hại.
+        # `bang_vien_canh` cũng vậy — một dãy cho cả bảng, chép trên mọi ô.
         ra["vien_bang_co_net"][f"bang{b}"] = "co" if d.bang_vien else "khong"
         ra["chieu_cao_hang"][f"bang{b}/hang{h}"] = str(d.bang_cao)
+        if d.bang_cao_luat:
+            ra["chieu_cao_hang_hrule"][f"bang{b}/hang{h}"] = d.bang_cao_luat
+        for canh, val, sz in d.bang_vien_canh:
+            ra["vien_bang_tung_canh"][f"bang{b}/tblBorders/{canh}"] = f"{val}/{sz}"
+        for canh, val, sz in d.o_vien_canh:
+            ra["vien_bang_tung_canh"][f"bang{b}/o{h},{c}/tcBorders/{canh}"] = f"{val}/{sz}"
         ra["cau_truc"][f"bang{b}/o{h},{c}"] = str(d.bang_nhip)
         ra["can_le"][f"bang{b}/o{h},{c}"] = d.can_le
         _run(f"bang{b}/o{h},{c}", d)

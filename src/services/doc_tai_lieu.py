@@ -385,10 +385,66 @@ class DonViVanBan:
     khai 1499 twip (~2,6 cm) trong khi chữ của nó chỉ chiếm hai dòng. Bỏ số
     này thì bảng vẫn hết viền nhưng vẫn không có chỗ ký.
 
-    KHÔNG phân biệt `hRule="exact"` với `"atLeast"`: cả hai đọc thành chiều
-    cao TỐI THIỂU khi vẽ. `exact` nghĩa là Word CẮT phần chữ tràn ra, và cắt
-    mất chữ của người dùng là hỏng tệ hơn nhiều so với một hàng cao hơn khai
-    báo vài milimét.
+    `hRule` đi RIÊNG ở `bang_cao_luat`: con số và luật áp con số ấy là hai sự
+    thật, và gộp chúng thì không nói được "tệp khai 1499 twip theo luật nào".
+    """
+    bang_cao_luat: str = ""
+    """`w:trPr/w:trHeight/@w:hRule` NGUYÊN VĂN của HÀNG chứa ô này — `exact`,
+    `atLeast`, `auto`, hoặc `""` khi hàng không khai.
+
+    Đọc thành SỰ THẬT ở đây; cách vẽ là quyết định riêng của từng nơi vẽ, và
+    cả ba nơi chọn giống nhau (xem `XemTruocA4.caoTrenTrang`,
+    `xuat-tep.bangThanhTable`, PDF `caoKhaiMm`):
+
+    - `auto` → BỎ con số. Word bỏ nó ở đây, và ép một chiều cao tối thiểu mà
+      tệp bảo đừng ép là vẽ thứ tệp không nói.
+    - `exact` → vẽ như chiều cao TỐI THIỂU, KHÔNG cắt. `exact` nghĩa là Word
+      cắt phần chữ tràn ra, và cắt mất chữ của người dùng hỏng tệ hơn nhiều so
+      với một hàng cao hơn khai báo vài milimét. Đây là chỗ duy nhất trong cả
+      bản vá mà hình VẼ cố ý khác nguồn — nên sự thật vẫn được cất nguyên văn
+      ở đây, và cái thước chấm sự thật ĐÃ ĐỌC chứ không chấm nét đã vẽ.
+    - `atLeast`/`""` → chiều cao tối thiểu, đúng hành vi trước trường này.
+    """
+    bang_vien_canh: tuple[tuple[str, str, str], ...] = ()
+    """Viền cấp BẢNG theo TỪNG CẠNH — `(tên cạnh, w:val, w:sz)` nguyên văn,
+    thứ tự `_CANH_VIEN`, đã giải qua `w:tblStyle`/`w:basedOn` (xem
+    `_vien_canh_bang`). GIỐNG NHAU trên mọi ô của cùng một bảng, đúng cách
+    `bang_ti_le` tự mô tả theo từng đơn vị thay vì một bảng tra đứng ngoài.
+
+    `bang_vien` ở trên trả lời "bảng này có vẽ nét nào không" — vừa đủ cho ba
+    nơi vẽ hồi chúng chỉ kẻ được MỘT kiểu viền cho mọi ô. Trường này trả lời
+    câu còn lại: nét nào ở cạnh nào, dày bao nhiêu. Giữ CẢ HAI thay vì suy cờ
+    bool ra từ đây: `_co_net` duyệt MỌI con của nhóm viền (kể cả `w:start`/
+    `w:end` của OOXML strict, và `tl2br`/`tr2bl` của một ô), còn trường này
+    chỉ giữ sáu cạnh vẽ được — suy ngược sẽ đọc một bảng chỉ khai `w:start`
+    thành bảng không viền, đúng kiểu "bỏ mất một nét tệp có vẽ" mà cờ bool
+    tồn tại để tránh.
+
+    Rỗng khi bảng không khai và không thừa kế cạnh nào (và với mọi dòng lưu
+    TRƯỚC trường này) — ba nơi vẽ khi đó lùi về đúng nét đều của `bang_vien`.
+    """
+    o_vien_canh: tuple[tuple[str, str, str], ...] = ()
+    """Viền RIÊNG của CHÍNH ô này — `w:tcPr/w:tcBorders`, cùng hình dạng
+    `bang_vien_canh`, KHÔNG trộn sẵn viền cấp bảng (xem `_vien_canh_o`).
+
+    Một cạnh có mặt ở đây ĐÈ cạnh cùng tên của bảng; cạnh vắng mặt thì ô thừa
+    kế cạnh bảng — và cạnh bảng nào thì phụ thuộc chỗ ô đứng (`top` của hàng
+    đầu là `top` của bảng, của hàng giữa là `insideH`). Phép ghép đó nằm ở
+    `hieu_tai_lieu._vien_o_bang`, nơi DUY NHẤT biết cả bảng có bao nhiêu hàng
+    và cột — một đơn vị đứng một mình không biết nó có phải hàng cuối không.
+    """
+    le_trang: tuple[tuple[str, int], ...] = ()
+    """Lề trang của tài liệu — `w:sectPr/w:pgMar`, `(tên, twip)`, chỉ thuộc
+    tính tệp KHAI (xem `_le_trang`).
+
+    GIỐNG NHAU trên MỌI đơn vị của cùng tài liệu, kể cả đầu/chân trang — cùng
+    khuôn `bang_ti_le`: một đơn vị tự mô tả đủ, không có bảng tra nào đứng
+    ngoài. Đó không chỉ là gu: ranh giới lưu/đọc (`tai_lieu.luu_don_vi`) chỉ
+    chở MỘT mảng đơn vị, nên một sự thật cấp tài liệu không nằm trên đơn vị sẽ
+    biến mất ngay tại đó — đúng chỗ căn lề từng mất một lần.
+
+    Rỗng khi tệp không khai `w:pgMar` (và với mọi dòng lưu TRƯỚC trường này):
+    ba nơi vẽ khi đó giữ đúng lề mặc định của chính chúng, không đoán thêm.
     """
     dinh_dang: tuple[DinhDangChu, ...] = ()
     """Định dạng chữ ở mức run (`w:rPr`) của đơn vị này — quyết định
@@ -452,6 +508,7 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
     brief đã cho phép tệp tạm này tồn tại).
     """
     ten = (ten_tep or "").lower()
+    le: tuple[tuple[str, int], ...] = ()
     if ten.endswith(".pdf"):
         thoi = _doc_pdf(du_lieu)
         if not thoi:
@@ -460,11 +517,11 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
             # đánh đồng với PDF có lớp chữ.
             thoi = _ocr_pdf(du_lieu)
     elif ten.endswith(".docx"):
-        thoi = _doc_docx(du_lieu)
+        thoi, le = _doc_docx(du_lieu)
     elif ten.endswith(".doc"):
         # Chuyển trước, đọc sau — bằng ĐÚNG một hàm `_doc_docx`, không nhánh
         # riêng nào biết tệp .docx này từng là .doc.
-        thoi = _doc_docx(_chuyen_doc_sang_docx(du_lieu))
+        thoi, le = _doc_docx(_chuyen_doc_sang_docx(du_lieu))
     elif ten.endswith(_DUOI_ANH):
         thoi = _ocr_anh(du_lieu)
     else:
@@ -475,7 +532,7 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
 
     if not thoi:
         raise KhongDocDuoc(LoaiHong.khong_co_lop_chu, "không rút được ký tự nào")
-    return _dat_vi_tri(thoi)
+    return _dat_vi_tri(thoi, le)
 
 
 # ------------------------------------------------------------------------ DOCX
@@ -513,6 +570,22 @@ _TABS = f"{{{_NS['w']}}}tabs"
 _TAB = f"{{{_NS['w']}}}tab"
 _POS = f"{{{_NS['w']}}}pos"
 _LEADER = f"{{{_NS['w']}}}leader"
+_SZ = f"{{{_NS['w']}}}sz"
+_HRULE = f"{{{_NS['w']}}}hRule"
+_SECTPR = f"{{{_NS['w']}}}sectPr"
+_PGMAR = f"{{{_NS['w']}}}pgMar"
+
+# Sáu cạnh của một nhóm viền OOXML (`w:tblBorders`/`w:tcBorders`), theo thứ tự
+# CỐ ĐỊNH: hai lần đọc cùng một tệp phải cho cùng một dãy, đúng luật
+# `DinhDangChu.khai`/`GianCach.khai` đã đặt. Không kể `tl2br`/`tr2bl` (gạch
+# chéo trong ô) — không nơi vẽ nào của dự án diễn đạt được một đường chéo, và
+# đọc ra một sự thật không ai vẽ được là thêm dữ liệu chứ không thêm độ trung
+# thực.
+_CANH_VIEN = ("top", "left", "bottom", "right", "insideH", "insideV")
+
+# Bảy thuộc tính `w:sectPr/w:pgMar` — twip, ÂM được (`top`/`bottom` âm là cách
+# Word đặt đầu/chân trang tràn vào mép giấy).
+_TEN_LE_TRANG = ("top", "right", "bottom", "left", "header", "footer", "gutter")
 
 # Năm thuộc tính `w:rPr` đọc được (quyết định 2026-09-18). Thứ tự này là thứ
 # tự `DinhDangChu.khai` ghi ra, để hai lần đọc cùng một tệp cho cùng một dãy.
@@ -723,6 +796,88 @@ def _vien_bang(tbl: ET.Element, vien_kieu: dict[str, bool]) -> bool:
     )
 
 
+def _canh_vien(vien: ET.Element | None) -> dict[str, tuple[str, str]]:
+    """Một nhóm viền → `{tên cạnh: (w:val, w:sz)}` NGUYÊN VĂN, CHỈ cạnh tệp khai.
+
+    Giữ nguyên văn cả hai chuỗi thay vì quy `w:sz` ra số ngay: `w:sz` là đơn
+    vị 1/8 điểm của chính OOXML, và ba nơi vẽ cần ba phép quy đổi khác nhau
+    (px trên màn hình, `size` của `docx`, mm của PDF) — quy đổi sớm ở đây là
+    chọn hộ một trong ba. Cạnh VẮNG MẶT khác hẳn cạnh khai `none`: cái trước
+    nghĩa là "thừa kế", cái sau nghĩa là "KHÔNG vẽ", và trộn hai ca ấy đúng là
+    cách một kiểu bảng có viền bị xoá sạch viền (hoặc ngược lại).
+    """
+    if vien is None:
+        return {}
+    ra: dict[str, tuple[str, str]] = {}
+    for canh in _CANH_VIEN:
+        e = vien.find(f"{{{_NS['w']}}}{canh}")
+        if e is not None:
+            ra[canh] = (e.get(_VAL) or "", e.get(_SZ) or "")
+    return ra
+
+
+def _kieu_vien_canh(goc_styles: ET.Element | None) -> dict[str, dict[str, tuple[str, str]]]:
+    """id kiểu BẢNG → viền TỪNG CẠNH của kiểu đó, đã theo hết chuỗi `w:basedOn`.
+
+    Trộn theo TỪNG CẠNH (`{**cha, **con}`), không chặn cả cụm như
+    `_kieu_vien_bang` phải làm với một cờ bool: một kiểu con khai lại đúng
+    `insideH` vẫn thừa kế bốn cạnh ngoài của kiểu cha, đúng cách Word áp dụng.
+    Đó chính là cái trần mà docstring `_kieu_vien_bang` tự khai là không tả
+    được — một bool không có chỗ cất hình dạng, một dict theo cạnh thì có.
+    """
+    if goc_styles is None:
+        return {}
+    truc_tiep: dict[str, dict[str, tuple[str, str]]] = {}
+    cha: dict[str, str] = {}
+    for st in goc_styles.findall(_STYLE):
+        sid = st.get(f"{{{_NS['w']}}}styleId")
+        if not sid or st.get(f"{{{_NS['w']}}}type") != "table":
+            continue
+        b = st.find(_BASEDON)
+        if b is not None and (v := b.get(_VAL)):
+            cha[sid] = v
+        truc_tiep[sid] = _canh_vien(st.find(f"{_TBLPR}/{_TBLBORDERS}"))
+
+    def _giai(sid: str | None, di_qua: frozenset[str]) -> dict[str, tuple[str, str]]:
+        if sid is None or sid in di_qua:
+            return {}
+        return {**_giai(cha.get(sid), di_qua | {sid}), **truc_tiep.get(sid, {})}
+
+    return {sid: _giai(sid, frozenset()) for sid in {*truc_tiep, *cha}}
+
+
+def _vien_canh_bang(
+    tbl: ET.Element, kieu_canh: dict[str, dict[str, tuple[str, str]]]
+) -> tuple[tuple[str, str, str], ...]:
+    """Viền cấp BẢNG theo từng cạnh — `(tên cạnh, w:val, w:sz)`, thứ tự
+    `_CANH_VIEN` (xem `DonViVanBan.bang_vien_canh`).
+
+    `w:tblBorders` TRỰC TIẾP đè kiểu theo TỪNG cạnh, đúng thứ tự Word áp dụng
+    (kiểu trước, khai trực tiếp sau) — cùng luật `_gian_cach_doan` đã theo cho
+    `w:spacing`/`w:ind`.
+    """
+    pr = tbl.find(_TBLPR)
+    if pr is None:
+        return ()
+    canh: dict[str, tuple[str, str]] = {}
+    kieu = pr.find(_TBLSTYLE)
+    if kieu is not None and (sid := kieu.get(_VAL)):
+        canh.update(kieu_canh.get(sid, {}))
+    canh.update(_canh_vien(pr.find(_TBLBORDERS)))
+    return tuple((c, *canh[c]) for c in _CANH_VIEN if c in canh)
+
+
+def _vien_canh_o(tc: ET.Element) -> tuple[tuple[str, str, str], ...]:
+    """Viền RIÊNG của một ô — `w:tcPr/w:tcBorders`, KHÔNG trộn viền cấp bảng.
+
+    Giữ riêng vì đây là hai sự thật khác nhau: cạnh ô khai là cạnh ô ĐÈ, còn
+    cạnh bảng là cạnh ô thừa kế khi chính nó không khai. Trộn sẵn ở đây thì
+    phía vẽ hết đường biết ô nào thật sự tự khai, và cái thước (đếm ĐÚNG
+    `w:tcBorders` trong `document.xml`) sẽ chấm một sự thật bịa thêm.
+    """
+    return tuple((c, *v) for c, v in _canh_vien(tc.find(f"{_TCPR}/{_TCBORDERS}")).items())
+
+
 def _cao_hang(tr: ET.Element) -> int:
     """Chiều cao khai báo của một hàng, twip — `w:trPr/w:trHeight/@w:val`, `0`
     khi hàng không khai hoặc khai giá trị đọc không ra số (xem
@@ -735,6 +890,43 @@ def _cao_hang(tr: ET.Element) -> int:
     except ValueError:
         return 0
     return n if n > 0 else 0
+
+
+def _luat_cao_hang(tr: ET.Element) -> str:
+    """`w:trPr/w:trHeight/@w:hRule` NGUYÊN VĂN, `""` khi hàng không khai — xem
+    `DonViVanBan.bang_cao_luat`."""
+    h = tr.find(f"{_TRPR}/{_TRHEIGHT}")
+    return (h.get(_HRULE) or "") if h is not None else ""
+
+
+def _le_trang(goc: ET.Element) -> tuple[tuple[str, int], ...]:
+    """Lề trang — `w:body/w:sectPr/w:pgMar`, twip, chỉ thuộc tính tệp KHAI.
+
+    Chỉ `w:sectPr` CUỐI thân (con trực tiếp của `w:body`, chỗ duy nhất
+    `_le_trang` nhìn): một tài liệu nhiều phân đoạn còn giấu `w:sectPr` trong
+    `w:pPr` của đoạn kết mỗi phân đoạn, và mỗi phân đoạn ấy có lề riêng. Giữ
+    MỘT bộ lề cho cả tài liệu là đúng biểu diễn hiện có — `DonViVanBan` không
+    mang số phân đoạn, nên một bộ lề thứ hai không có chỗ nào gắn vào. Trần đã
+    biết, không phải một suy diễn ngầm.
+
+    Thuộc tính đọc không ra số bị BỎ RIÊNG nó, không kéo cả bộ lề về rỗng: sáu
+    số còn lại vẫn là sáu điều tệp nói đúng, và một lề trái đọc được thì đặt
+    được khối vào đúng chỗ dù `w:gutter` có hỏng.
+    """
+    than = goc.find(_BODY)
+    pg = than.find(f"{_SECTPR}/{_PGMAR}") if than is not None else None
+    if pg is None:
+        return ()
+    ra: list[tuple[str, int]] = []
+    for ten in _TEN_LE_TRANG:
+        v = pg.get(f"{{{_NS['w']}}}{ten}")
+        if v is None:
+            continue
+        try:
+            ra.append((ten, int(v)))
+        except ValueError:
+            continue
+    return tuple(ra)
 
 
 def _rpr_tho(rpr: ET.Element | None) -> dict[str, str]:
@@ -1217,6 +1409,7 @@ def _duyet_than(
     vien_kieu: dict[str, bool] | None = None,
     kieu_chu: dict[str, dict[str, str]] | None = None,
     kieu_gc: dict[str, _KieuGC] | None = None,
+    kieu_canh: dict[str, dict[str, tuple[str, str]]] | None = None,
 ) -> list[tuple]:
     """Con trực tiếp của `w:body` theo thứ tự: `w:p` là một đơn vị, `w:tbl` cho
     một đơn vị mỗi ô kèm toạ độ (bảng, hàng, cột).
@@ -1243,6 +1436,7 @@ def _duyet_than(
     vk = vien_kieu or {}
     kc = kieu_chu or {}
     kg = kieu_gc or {}
+    kcanh = kieu_canh or {}
     ra: list[tuple] = []
     so_bang = 0
     for con in than:
@@ -1263,8 +1457,10 @@ def _duyet_than(
         elif con.tag == _TBL:
             ti_le = _ti_le_luoi(con)
             vien = _vien_bang(con, vk)
+            vien_canh = _vien_canh_bang(con, kcanh)
             for h, tr in enumerate(con.findall(_TR)):
                 cao = _cao_hang(tr)
+                cao_luat = _luat_cao_hang(tr)
                 cot = 0
                 for tc in tr.findall(_TC):
                     nhip = _nhip_o(tc)
@@ -1298,14 +1494,22 @@ def _duyet_than(
                             ti_le,
                             vien,
                             cao,
+                            cao_luat,
+                            vien_canh,
+                            _vien_canh_o(tc),
                         )
                     )
             so_bang += 1
     return ra
 
 
-def _doc_docx(du_lieu: bytes) -> list[tuple]:
-    """Thân bài theo cấu trúc, rồi đầu trang, rồi chân trang.
+def _doc_docx(du_lieu: bytes) -> tuple[list[tuple], tuple[tuple[str, int], ...]]:
+    """Thân bài theo cấu trúc, rồi đầu trang, rồi chân trang — kèm LỀ TRANG.
+
+    Lề trang trả về RIÊNG chứ không nhét vào từng tuple: nó là sự thật của cả
+    tệp, một giá trị duy nhất, và chép nó vào mười hai phần tử của mỗi tuple
+    chỉ để `_dat_vi_tri` đọc lại là ba trăm dòng nhiễu cho một con số.
+    `_dat_vi_tri` mới là chỗ dán nó lên từng đơn vị (xem `DonViVanBan.le_trang`).
 
     Duyệt theo cấu trúc BỎ SÓT thứ duyệt phẳng thấy: `w:sdt` (content control),
     hộp chữ, và mọi phần tử cấp thân chưa được kể tên ở đây. Nên nó không thay
@@ -1325,6 +1529,7 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
             vien_kieu: dict[str, bool] = {}
             kieu_chu: dict[str, dict[str, str]] = {}
             kieu_gc: dict[str, _KieuGC] = {}
+            kieu_canh: dict[str, dict[str, tuple[str, str]]] = {}
             if "word/styles.xml" in z.namelist():
                 try:
                     goc_kieu = _goc_xml(z.read("word/styles.xml"), "word/styles.xml")
@@ -1335,13 +1540,17 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
                     # Viền theo KIỂU bảng (`TableGrid`) — mất nó thì một bảng
                     # có viền đọc thành không viền, xem `_kieu_vien_bang`.
                     vien_kieu = _kieu_vien_bang(goc_kieu)
+                    # Viền TỪNG CẠNH theo kiểu bảng — cùng lý do dòng trên,
+                    # ở mức hình dạng: `TableGrid` khai cả sáu cạnh trong
+                    # `styles.xml` và KHÔNG khai gì trong `document.xml`.
+                    kieu_canh = _kieu_vien_canh(goc_kieu)
                     # Định dạng chữ theo KIỂU — mất nó thì một biểu mẫu in đậm
                     # bằng kiểu đọc ra chữ thường, xem `_kieu_dinh_dang_chu`.
                     kieu_chu = _kieu_dinh_dang_chu(goc_kieu)
                     # Giãn cách/thụt lề theo KIỂU — mất nó thì một biểu mẫu
                     # đặt giãn dòng bằng kiểu đọc ra không giãn dòng gì cả.
                     kieu_gc = _kieu_gian_cach(goc_kieu)
-            than = _duyet_than(goc, theo_kieu, vien_kieu, kieu_chu, kieu_gc)
+            than = _duyet_than(goc, theo_kieu, vien_kieu, kieu_chu, kieu_gc, kieu_canh)
             # Thước đo để lùi về là TỔNG chữ `w:t` của thân, KHÔNG phải duyệt
             # phẳng: duyệt phẳng đếm hai lần chữ trong hộp chữ (một `w:p` lồng
             # trong `w:p`), và với thước đó cấu trúc luôn "thua". Đo 2026-09-16
@@ -1357,7 +1566,7 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
                     ra.extend(
                         _duyet_phang(_goc_xml(z.read(ten), ten), vung, theo_kieu, kieu_chu, kieu_gc)
                     )
-            return ra
+            return ra, _le_trang(goc)
     except KeyError as e:
         raise KhongDocDuoc(LoaiHong.tep_hong, "thiếu word/document.xml") from e
     except zipfile.BadZipFile as e:
@@ -1640,8 +1849,8 @@ def _doc_pdf(du_lieu: bytes) -> list[tuple[int | None, str]]:
 # ---------------------------------------------------------------- gán vị trí
 
 
-def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
-    """Gán `trang`, `offset_dau` và nguồn chữ cho từng đơn vị.
+def _dat_vi_tri(thoi: list[tuple], le_trang: tuple[tuple[str, int], ...] = ()) -> TaiLieuDaDoc:
+    """Gán `trang`, `offset_dau`, nguồn chữ và LỀ TRANG cho từng đơn vị.
 
     Nhận cả sáu hình dạng: `(trang, noi_dung)` từ nhánh đọc chữ thật,
     `(trang, noi_dung, do_tin)` từ nhánh OCR,
@@ -1649,8 +1858,12 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
     `(trang, noi_dung, do_tin, vung, bang, can_le)` từ DOCX có căn lề (Phase 9
     U5), `(…, can_le, dinh_dang, gian_cach)` từ một đoạn DOCX có định dạng chữ
     và giãn cách (2026-09-18), và `(…, gian_cach, bang_nhip, bang_ti_le,
-    bang_vien, bang_cao)` từ một Ô BẢNG. Có `do_tin` nghĩa là máy đang đoán,
-    nên đơn vị đó mang nhãn `ocr`.
+    bang_vien, bang_cao, bang_cao_luat, bang_vien_canh, o_vien_canh)` từ một Ô
+    BẢNG. Có `do_tin` nghĩa là máy đang đoán, nên đơn vị đó mang nhãn `ocr`.
+
+    `le_trang` là sự thật của cả TỆP, không của một tuple nào: nó vào đây một
+    lần rồi dán lên MỌI đơn vị (xem `DonViVanBan.le_trang`). Mặc định rỗng để
+    ba nhánh không phải DOCX (PDF, OCR ảnh) và mọi lời gọi cũ chạy y nguyên.
 
     `dinh_dang`/`gian_cach` chèn vào giữa (sau `can_le`) chứ không nối vào
     cuối: đoạn văn thân bài khi đó chỉ cần 8 phần tử thay vì 12 phần tử toàn
@@ -1678,6 +1891,9 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
         bang_ti_le = muc[9] if len(muc) > 9 else ()
         bang_vien = muc[10] if len(muc) > 10 else True
         bang_cao = muc[11] if len(muc) > 11 else 0
+        bang_cao_luat = muc[12] if len(muc) > 12 else ""
+        bang_vien_canh = muc[13] if len(muc) > 13 else ()
+        o_vien_canh = muc[14] if len(muc) > 14 else ()
         if trang is None:
             trang = 1 + da_di // KY_TU_MOI_TRANG
         if trang != trang_hien:
@@ -1697,6 +1913,10 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
                 bang_ti_le=bang_ti_le,
                 bang_vien=bang_vien,
                 bang_cao=bang_cao,
+                bang_cao_luat=bang_cao_luat,
+                bang_vien_canh=bang_vien_canh,
+                o_vien_canh=o_vien_canh,
+                le_trang=le_trang,
                 dinh_dang=dinh_dang,
                 gian_cach=gian_cach,
             )
