@@ -72,7 +72,12 @@ class LlmGia:
         # tự ý xét thêm `soan_thao_dang_mo` của phiên).
         self.router_intent = "soan_thao"
 
-    def chat(self, model, messages, json_schema=None):
+    def chat(self, model, messages, json_schema=None, max_tokens=None):
+        # `max_tokens` (Phase 16, `llm.chat`) KHÔNG dùng ở đây nhưng PHẢI có
+        # mặt: `hieu_tai_lieu` truyền nó, và một double thiếu tham số sẽ nổ
+        # TypeError ngay trong `try` của node đó — node nuốt lỗi, degrade sạch,
+        # nên test vẫn "đi qua" mà thật ra đang đo nhánh LỖI chứ không phải
+        # đường soạn. Chữ ký của double phải theo chữ ký thật.
         props = (json_schema or {}).get("properties", {})
         if "dang_tra_loi" in props:  # route.v3
             la_soan = self.router_intent == "soan_thao"
@@ -295,6 +300,114 @@ async def test_het_han_muc_dung_lan_dau_thi_hoi_lai_khong_tao_ban_thao(
     d = r.json()
     assert d["result_type"] == "soan_thao_hoi"
     assert "hạn mức" in d["soan_thao_hoi"]["het_han_muc"]
+    assert _dem_trace(sub, "/api/v1/soan-thao") == 0
+
+
+# ── Checklist ĐANG MỞ DỞ: đường sống sót sau Phase 14 ─────────────────────
+#
+# Phase 14 (D14-B) bỏ checklist khỏi lượt soạn ĐẦU TIÊN của chat: một yêu cầu
+# soạn mới đi thẳng `hieu_tai_lieu` → `dung_ban_thao_tong_quat`. Nó KHÔNG xoá
+# cuộc hội thoại gom dữ kiện — người vào từ `/tai-lieu/hoi-thoai/{id}/
+# sang-soan-thao` (hoặc còn dở từ trước) vẫn có `soan_thao_dang_mo`, và
+# `_re_sau_route` vẫn đưa họ về `gom_du_kien`.
+#
+# Đường ấy MẤT phép đo ở tầng HTTP khi các test đầu file chuyển sang đo đường
+# mới: cả bốn điều nó phải giữ — hỏi tiếp phần thiếu, dựng được bản thảo, ghi
+# đúng một dòng hạn mức, giữ nguyên phiên soạn — không còn test nào chạm tới.
+# Hai test dưới đây là phép đo đó, seed `soan_thao_dang_mo` đúng như màn hình
+# chuyên dụng ghi xuống, không giả định lượt đầu mở checklist hộ.
+
+
+@pytest.mark.asyncio
+async def test_checklist_dang_mo_van_hoi_phan_thieu_roi_dung_ban_thao(
+    client,
+    cai_dat,
+    khoa_ky,
+    graph_that_llm_gia,
+    don_dep,
+):
+    """Người ĐANG gom dữ kiện: vẫn được hỏi phần còn thiếu, vẫn nhận bản thảo
+    khi đủ, lượt dựng vẫn ghi đúng một dòng hạn mức, và phiên soạn vẫn còn sau
+    cả hai lượt."""
+    cai_dat(supabase_url=SUPABASE)
+    sub = str(uuid.uuid4())
+    don_dep.append(sub)
+    h = _bearer(khoa_ky, sub)
+    llm: LlmGia = graph_that_llm_gia
+
+    llm.router_intent = "gioi_thieu"
+    r0 = await client.post("/api/v1/tra-cuu", json={"query": "bạn là ai"}, headers=h)
+    pid = r0.headers["X-Hoi-Thoai-Id"]
+    assert hoi_thoai.ghi_soan_thao(sub, pid, {"loai": "hdld", "facts": {}, "ban_thao_id": None, "so_lan_sua": 0})
+
+    llm.router_intent = "soan_thao"
+    r1 = await client.post(
+        "/api/v1/tra-cuu", json={"query": "tên tôi là Nguyễn Văn A", "hoi_thoai_id": pid}, headers=h
+    )
+    assert r1.status_code == 200
+    d1 = r1.json()
+    assert d1["result_type"] == "soan_thao_hoi"
+    assert d1["soan_thao_hoi"]["con_thieu"], "checklist mở dở phải hỏi tiếp phần còn thiếu"
+    assert hoi_thoai.soan_thao_cua_phien(sub, pid)["loai"] == "hdld"
+    assert _dem_trace(sub, "/api/v1/soan-thao") == 0, "lượt HỎI chưa dựng gì thì chưa trừ lượt"
+
+    r2 = await client.post(
+        "/api/v1/tra-cuu", json={"query": "lương 10 triệu, thời hạn 1 năm", "hoi_thoai_id": pid}, headers=h
+    )
+    assert r2.status_code == 200
+    d2 = r2.json()
+    assert d2["result_type"] == "ban_thao"
+    assert d2["ban_thao"]["phien_ban"] == 1
+    assert ban_thao.chi_tiet(sub, d2["ban_thao"]["id"]) is not None
+    assert _dem_trace(sub, "/api/v1/soan-thao") == 1
+    assert hoi_thoai.soan_thao_cua_phien(sub, pid)["ban_thao_id"] == d2["ban_thao"]["id"]
+
+
+@pytest.mark.asyncio
+async def test_checklist_dang_mo_het_han_muc_thi_noi_ro_han_muc(
+    client,
+    cai_dat,
+    khoa_ky,
+    graph_that_llm_gia,
+    don_dep,
+    monkeypatch,
+):
+    """Cùng người ấy, hết hạn mức: nhận đúng câu của cổng hạn mức, không bản
+    thảo nào được dựng, không dòng nào được ghi. (Đường soạn tổng quát có phép
+    đo song sinh ở `test_het_han_muc_dung_lan_dau_...` ngay trên.)"""
+    cai_dat(supabase_url=SUPABASE)
+    sub = str(uuid.uuid4())
+    don_dep.append(sub)
+    h = _bearer(khoa_ky, sub)
+    llm: LlmGia = graph_that_llm_gia
+
+    llm.router_intent = "gioi_thieu"
+    r0 = await client.post("/api/v1/tra-cuu", json={"query": "bạn là ai"}, headers=h)
+    pid = r0.headers["X-Hoi-Thoai-Id"]
+    hoi_thoai.ghi_soan_thao(sub, pid, {"loai": "hdld", "facts": {}, "ban_thao_id": None, "so_lan_sua": 0})
+
+    goc_kiem_han_muc = bao_ve.kiem_han_muc
+
+    def het(sub, plan, endpoint):
+        if endpoint == bao_ve.EP_SOAN_THAO:
+            raise HTTPException(status_code=429, detail="Bạn đã dùng hết hạn mức soạn thảo hôm nay.")
+        return goc_kiem_han_muc(sub, plan, endpoint)
+
+    monkeypatch.setattr(bao_ve, "kiem_han_muc", het)
+    llm.router_intent = "soan_thao"
+    # `lan_gom = 1` để lượt gom KẾ TIẾP trả `du=True` — tức lượt này chạm đúng
+    # nhánh DỰNG của `n_dung_ban_thao`, nơi cổng hạn mức đứng. Không dùng "cứ
+    # soạn": đây là lượt NỐI TIẾP nên `giai_nghia` chạy trước và thay câu hỏi
+    # bằng bản đã giải nghĩa, cụm ép `du` trong câu gốc không còn để regex
+    # `gom_du_kien._RE_CU_SOAN` bắt.
+    llm.lan_gom = 1
+    r1 = await client.post(
+        "/api/v1/tra-cuu", json={"query": "lương 10 triệu, thời hạn 1 năm", "hoi_thoai_id": pid}, headers=h
+    )
+    assert r1.status_code == 200
+    d1 = r1.json()
+    assert d1["result_type"] == "soan_thao_hoi"
+    assert "hạn mức" in d1["soan_thao_hoi"]["het_han_muc"]
     assert _dem_trace(sub, "/api/v1/soan-thao") == 0
 
 
