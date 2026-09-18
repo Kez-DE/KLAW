@@ -19,9 +19,11 @@ Mọi giá trị trong file là giả rõ ràng: không tên thật, không mã 
 """
 
 import json
+import logging
 import uuid
 
 import pytest
+from sqlalchemy.exc import StatementError
 
 from src.agents import graph_tra_cuu as g
 from src.agents.nodes import assemble as asm
@@ -31,6 +33,7 @@ from src.agents.nodes.route import Intent
 from src.services import bao_ve
 from src.services import bo_nho_tai_khoan as bn
 from src.services.db import get_engine, run_migrations
+from src.services.doc_tai_lieu import DonViVanBan
 
 # Tiêu đề khối ký ức trong prompt, kèm xuống dòng hai đầu: quy tắc 15 cũng NHẮC
 # tên khối này, nên so chuỗi trần sẽ khớp cả lời dặn và không chứng minh được gì.
@@ -125,10 +128,17 @@ def test_bang_cung_bi_chan_nhu_van_xuoi():
 def test_gia_tri_nguoi_dung_tu_go_trong_luot_nay_KHONG_bi_chan():
     """Ranh giới của lưới: người dùng gõ thẳng cái tên ra trong chính lượt này
     mà KHÔNG gọi tên nhãn nào. Ở đó giá trị tới bằng lời họ, không bằng ký ức —
-    chặn nó là xoá đúng thứ họ vừa viết, một hồi quy tệ hơn lỗi đang chữa."""
-    llm = _LLM(_ra(van_ban=_van_ban(f"Kính gửi: {HO_TEN}", "Tôi xin xác nhận.")))
-    ra = h.hieu_tai_lieu(_st(f"soạn đơn xin xác nhận gửi {HO_TEN}"), [], llm, "m")
-    assert HO_TEN in _chu_cua(ra["van_ban_tong_quat"])
+    chặn nó là xoá đúng thứ họ vừa viết, một hồi quy tệ hơn lỗi đang chữa.
+
+    Fix round 1 (review MED) — gõ bằng CÁCH VIẾT HOA/THƯỜNG KHÁC với cái đang
+    lưu. Bản trước của test dùng lại đúng cách viết đã lưu, nên nó không bao
+    giờ chạm tới chỗ phép loại trừ (`normalize`, so chữ NGHIÊM) lệch với phép
+    chặn (`IGNORECASE`) — và cái lệch ấy xoá chữ của chính người dùng."""
+    tu_go = HO_TEN.lower()
+    assert tu_go != HO_TEN, "test phải khác cách viết đang lưu thì mới đo được điều nó nói"
+    llm = _LLM(_ra(van_ban=_van_ban(f"Kính gửi: {tu_go}", "Tôi xin xác nhận.")))
+    ra = h.hieu_tai_lieu(_st(f"soạn đơn xin xác nhận gửi {tu_go}"), [], llm, "m")
+    assert tu_go in _chu_cua(ra["van_ban_tong_quat"])
     assert ra["traces"]["dung_ban_thao_so_bo_nho_chan"] == 0
 
 
@@ -275,7 +285,125 @@ def test_luot_soan_hong_van_noi_da_nho():
     assert ra["answer"].endswith(asm.DA_NHO.format(nhan="Họ và tên"))
 
 
-# ── 5. Đầu-cuối qua DB: khai ở hội thoại này, nhớ ở hội thoại khác ───────────
+# ── 5. Vòng rà soát độc lập: đường ký ức đi vòng qua hợp đồng ───────────────
+
+
+def test_truong_cua_tai_lieu_khong_thanh_cua_sau_cho_gia_tri_da_nho():
+    """Đường vòng số một, và là đường duy nhất mục 1 ở trên KHÔNG thấy: mọi ca
+    trên đều chạy với `tai_lieu=[]`, nên `truong` không bao giờ neo được.
+
+    CÓ tài liệu thì khác hẳn. Một biểu mẫu có dòng TRẮNG "Họ và tên:" cho mô
+    hình đúng một đoạn trích THẬT để neo, và `_lay_truong` chỉ kiểm đoạn trích
+    ấy — nó không kiểm `gia_tri`. Mô hình đặt giá trị ĐÃ NHỚ vào đó là dòng ấy
+    đi hai đường cùng lúc: xuống `du_kien_tai_lieu` (facts, R4 cấm) và vào
+    `_nguon_soan`, nơi nó tự cấp phép cho chính mình nên `cam` hết hiệu lực.
+    Lượt này không gọi tên một nhãn nào."""
+    tl = [{"id": "aaaaaaaa-0000-0000-0000-000000000001", "ten_tep": "mau.docx", "don_vi": [
+        DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="ĐƠN XIN NGHỈ VIỆC"),
+        DonViVanBan(chi_so=1, trang=1, offset_dau=20, noi_dung="Họ và tên:"),
+    ]}]
+    llm = _LLM(_ra(
+        van_ban=_van_ban(f"Họ và tên: {HO_TEN}", "Tôi xin nghỉ việc."),
+        truong=[{"khoa": "ho_ten", "nhan": "Họ và tên", "gia_tri": HO_TEN, "trich": "Họ và tên:"}],
+    ))
+    ra = h.hieu_tai_lieu(_st("soạn giúp tôi đơn xin nghỉ việc"), tl, llm, "m")
+
+    assert HO_TEN not in _chu_cua(ra["van_ban_tong_quat"]), "ký ức đi vòng qua `truong` vào văn bản"
+    assert ra["tai_lieu_du_kien_moi"] == [], "ký ức thành dữ kiện của tài liệu — R4 cấm đúng điều này"
+    # Đếm ĐÚNG cái thật sự bị chặn: bản lỗi báo 0 trong khi giá trị vẫn ra tới
+    # trang giấy, nên một con số 0 ở đây không chứng minh được gì.
+    assert ra["traces"]["dung_ban_thao_so_bo_nho_chan"] == 1
+
+
+@pytest.mark.parametrize("cam, cau", [
+    # `nganh = "Luật"` trên một sản phẩm PHÁP LUẬT, ở MỌI bản thảo.
+    (["Luật"], "Người lao động cam kết tuân thủ Bộ luật Lao động."),
+    # Dòng địa danh-ngày tháng chuẩn của mọi văn bản hành chính Việt Nam.
+    (["Hà Nội"], "Hà Nội, ngày … tháng … năm …"),
+    (["Thử"], "Thời gian thử việc do hai bên thoả thuận."),
+    (["em"], "em xin trình bày như sau."),
+])
+def test_ky_uc_khong_duoc_xoa_loi_van_binh_thuong(cam, cau):
+    """Đường vòng số hai. Lưới `cam` từng là một phép so khớp `\\b…\\b` ở BẤT KỲ
+    đâu trong tên mục, văn xuôi và từng ô bảng — nên nó xoá cả tiếng Việt bình
+    thường, thành `[…]`, ở mọi bản thảo. Chạy qua CHÍNH `lam_sach_van_ban`, chứ
+    không qua một bản sao của phép so khớp."""
+    vb = {"tieu_de": "", "muc": [{"ten": "Nội dung", "vung": "than",
+                                  "khoi": [{"noi_dung": cau, "bang": []}]}]}
+    sach, dem = h.lam_sach_van_ban(vb, "", None, cam)
+    assert sach["muc"][0]["khoi"][0]["noi_dung"] == cau
+    assert dem["bo_nho_khong_dien"] == 0
+
+
+def test_thoi_quen_khong_bao_gio_vao_cam():
+    """Nửa còn lại của đường vòng số hai, và nó tự gây ra: `_khoi_bo_nho` BẢO mô
+    hình dùng ký ức để xưng hô và chọn văn phong, còn nhãn của những khoá ấy
+    không phải thứ ai gõ khi xin soạn một lá đơn — nên chúng LUÔN bị coi là
+    không được hỏi tới, và luôn nằm trong `cam`. Thiết kế ra lệnh sinh ra đúng
+    chuỗi mà chính nó đi xoá."""
+    cau = "em xin trình bày như sau."
+    nho = [*NHO, {"loai": "thoi_quen", "khoa": "xung_ho", "nhan": "Xưng hô", "gia_tri": "em"}]
+    assert not h.khoa_duoc_hoi("soạn giúp tôi đơn xin nghỉ", "xung_ho"), (
+        "nếu khoá này bỗng được coi là 'có hỏi tới' thì test không còn đo điều nó nói"
+    )
+    llm = _LLM(_ra(van_ban=_van_ban(cau)))
+    ra = h.hieu_tai_lieu(_st("soạn giúp tôi đơn xin nghỉ", bo_nho_tai_khoan=nho), [], llm, "m")
+    assert cau in _chu_cua(ra["van_ban_tong_quat"])
+    assert ra["traces"]["dung_ban_thao_so_bo_nho_chan"] == 0
+
+
+def test_cau_giai_nghia_viet_lai_khong_ghi_de_ky_uc_va_khong_mo_cong():
+    """Đường vòng số ba. Từ lượt 2 trở đi `giai_nghia` GHI ĐÈ `query` bằng một
+    câu do MÔ HÌNH soạn, nên `cau_hoi_day_du` là chữ của mô hình. Chạy phép rút
+    ký ức trên đó là ghi vào TÀI KHOẢN một cái tên mô hình nhặt ở lượt trước;
+    chạy phép gác "lượt này có hỏi tới không" trên đó là để mô hình tự cấp phép
+    xả ký ức vào văn bản. Không ca nào ở trên đặt `cau_hoi_day_du`, nên bộ test
+    cũ mù hẳn với cả hai."""
+    viet_lai = "soạn cho tôi bản kiểm điểm cá nhân, họ và tên là Trần Văn Mẫu, về việc đi muộn"
+    llm = _LLM(_ra(van_ban=_van_ban(f"Họ và tên: {HO_TEN}", "Tôi xin kiểm điểm.")))
+    ra = h.hieu_tai_lieu(
+        _st("soạn cho tôi bản kiểm điểm",
+            cau_hoi_goc="soạn cho tôi bản kiểm điểm", cau_hoi_day_du=viet_lai),
+        [], llm, "m")
+    assert ra["bo_nho_moi"] == [], "tên người thứ ba do mô hình viết ra bị ghi đè lên ký ức tài khoản"
+    assert HO_TEN not in _chu_cua(ra["van_ban_tong_quat"]), "câu mô hình viết lại tự mở cổng cho ký ức"
+
+
+def test_dan_ca_bieu_mau_khong_thanh_loi_khai_tung_dong():
+    """Đường vòng số bốn. Dấu mở của `_RE_KHAI_BO_NHO` từng nhận `\\n`, nên MỖI
+    DÒNG của một khối dán là một lời khai mới: dán nguyên một biểu mẫu ghi cả
+    khối ấy vào tài khoản NHƯ THỂ là dữ kiện về chính người dán — dữ liệu cá
+    nhân của người thứ ba, kể cả một mã sinh viên, vào DB từ văn bản tự do."""
+    mau = ("điền giúp tôi biểu mẫu này\n"
+           "Họ và tên: Trần Thị Mẫu\n"
+           "Lớp: K00B\n"
+           "Mã sinh viên: 00000001")
+    assert h.rut_bo_nho(mau) == []
+
+
+def test_loi_ghi_ky_uc_khong_dua_gia_tri_vao_log(monkeypatch, caplog):
+    """Đường vòng số năm. `logger.exception` kèm `exc_info`, và
+    `StatementError.__str__` của SQLAlchemy nối thêm `[SQL: …] [parameters: …]`
+    — mà `src/services/db.py` dựng engine KHÔNG có `hide_parameters=True`, nên
+    tham số ở đây chính là `gia_tri`. Một nhịp chập của DB là họ tên và mã sinh
+    viên vào log."""
+    def no(*a, **k):
+        raise StatementError("khong ghi duoc", "INSERT INTO bo_nho_tai_khoan (gia_tri) VALUES (%(gia_tri)s)",
+                             {"gia_tri": HO_TEN, "khoa": "ho_ten"}, Exception("boom"))
+
+    monkeypatch.setattr(bn, "ghi", no)
+    with caplog.at_level(logging.WARNING):
+        g._ghi_bo_nho({"user_sub": "u", "bo_nho_moi": [{"loai": "ca_nhan", "khoa": "ho_ten",
+                                                        "gia_tri": HO_TEN}]})
+    assert caplog.records, "lỗi vẫn phải để lại dấu vết — im lặng không phải cách sửa rò dữ liệu"
+    for r in caplog.records:
+        assert r.exc_info is None, "`exc_info` kéo cả `[parameters: …]` vào log"
+        assert HO_TEN not in r.getMessage() and HO_TEN not in (r.exc_text or "")
+    # Đủ để lần ra sự cố: TÊN TRƯỜNG, không phải giá trị của nó.
+    assert "ho_ten" in caplog.records[0].getMessage()
+
+
+# ── 6. Đầu-cuối qua DB: khai ở hội thoại này, nhớ ở hội thoại khác ───────────
 
 
 @pytest.fixture
