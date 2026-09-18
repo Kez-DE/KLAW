@@ -129,7 +129,11 @@ assert.deepEqual(mucMoi[0]?.khoi, [
     nhip: [],
     tiLe: [],
     vien: true,
+    // Hình dạng CŨ cũng chưa từng có viền-từng-cạnh hay `@w:hRule` — về rỗng,
+    // và ba nơi vẽ kẻ nét đều theo `vien` như trước bản vá.
+    vienO: [],
     cao: [],
+    caoLuat: [],
     canLeO: [],
     chuO: [],
   },
@@ -425,7 +429,9 @@ assert.deepEqual(mucKhoiCaHai[1], {
   nhip: [],
   tiLe: [],
   vien: true,
+  vienO: [],
   cao: [],
+  caoLuat: [],
   canLeO: [],
   chuO: [],
 });
@@ -453,7 +459,18 @@ const mucLetterhead = mucTuBanThao(banThaoLetterhead, null)[0];
 assert.equal(mucLetterhead?.khoi.length, 1, "letterhead là MỘT khối bảng, không bị xé lẻ");
 assert.deepEqual(
   mucLetterhead?.khoi[0],
-  { kind: "bang", hang: LETTERHEAD, nhip: [], tiLe: [], vien: true, cao: [], canLeO: [], chuO: [] },
+  {
+    kind: "bang",
+    hang: LETTERHEAD,
+    nhip: [],
+    tiLe: [],
+    vien: true,
+    vienO: [],
+    cao: [],
+    caoLuat: [],
+    canLeO: [],
+    chuO: [],
+  },
   "sống sót NGUYÊN dạng bảng hai cột, không dẹt thành dòng văn xuôi",
 );
 
@@ -508,7 +525,11 @@ assert.deepEqual(
     ], // không `colSpan` nào được vẽ → mặc định 1 mỗi ô
     tiLe: [], // không `<colgroup>` nào → chia đều (R1)
     vien: true, // không `data-vien="khong"` → bảng có viền, như trước bản vá viền
+    // Không `data-vien-o` nào → không có chi tiết theo cạnh, cả bảng kẻ nét
+    // đều theo `vien` (fail-closed CẢ BẢNG, xem `docBangTuPhanTu`).
+    vienO: [],
     cao: [0, 0], // không `data-cao` nào → hàng không khai chiều cao
+    caoLuat: ["", ""], // không `data-cao-luat` nào → hàng không khai luật
     canLeO: [
       ["trai", "trai"],
       ["trai", "trai"],
@@ -543,7 +564,9 @@ assert.deepEqual(docBangTuPhanTu(oTableGop), {
   ],
   tiLe: [7, 15, 78],
   vien: true,
+  vienO: [],
   cao: [0, 0],
+  caoLuat: ["", ""],
   canLeO: [
     ["trai", "trai", "trai"],
     ["trai", "trai"],

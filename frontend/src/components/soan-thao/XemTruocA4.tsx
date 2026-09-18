@@ -2,12 +2,16 @@ import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import {
   catTheoChu,
+  kieuNetCSS,
+  netCanh,
   nhipHangVe,
   phongTrenManHinh,
   PT_MOI_TWIP,
   soCotThat,
+  THUOC_TINH_BANG,
   THUOC_TINH_CHU,
   THUOC_TINH_GIAN_CACH,
+  THUOC_TINH_LE,
   THUOC_TINH_TAB,
   tiLeCotVe,
   type CanLe,
@@ -15,9 +19,18 @@ import {
   type GianCachKhoi,
   type KhoangChu,
   type KhoangTab,
+  type LeTrang,
   type MocTab,
   type Muc,
 } from "@/lib/xuat-tep";
+
+/** Bề rộng trang A4 theo twip (210mm) — mẫu số quy `w:pgMar` ra % của khung
+ *  xem trước. Phần trăm chứ không `pt`: khung A4 ở đây co theo bề rộng nơi
+ *  đặt nó (`w-full max-w-[794px]`), nên một lề đo tuyệt đối sẽ lệch ngay khi
+ *  khung hẹp lại. CSS tính MỌI `padding` theo phần trăm trên BỀ RỘNG, kể cả
+ *  trên/dưới — nên cả bốn lề cùng chia cho con số này, đúng cách lớp
+ *  `px-[8%] py-[7%]` cũ vẫn làm. */
+const RONG_A4_TWIP = 11906;
 
 /** Cỡ chữ "thường" của thể thức hành chính, điểm — mốc quy `w:sz` (nửa điểm)
  * ra `em`. Khớp `xuat-tep.ts::coChuPt("thuong")` và `size: 26` của `.docx`,
@@ -45,12 +58,22 @@ const NET_DAN: Record<string, NonNullable<CSSProperties["borderBottomStyle"]>> =
  * trống của riêng nó. Phần vẽ tràn quá mép chữ bị `<p>` cắt (`overflow:
  * hidden`, xem `kieuGianCach`).
  *
- * ponytail: màn hình vẽ đường dẫn DÀI bằng chính toạ độ mốc rồi để trang cắt,
- * chứ không nhảy con trỏ tới đúng mốc như Word (`.docx`) và PDF làm. Nhảy
- * đúng cần biết con trỏ đang đứng đâu — tức phải ĐO chữ đã vẽ — và hệ quy
- * chiếu để đo là lề trang NGUỒN (`w:pgMar`, mục `le_trang` của thước đo, còn
- * CHƯA CÀI), không phải lề 8% của khung xem trước. Nâng lên khi đọc được lề
- * trang; đến lúc đó trang vẫn hiện đúng chỗ để điền, chỉ dài hơn vài milimét.
+ * ponytail: màn hình vẫn vẽ đường dẫn DÀI bằng chính toạ độ mốc rồi để trang
+ * cắt, chứ không nhảy con trỏ tới đúng mốc như Word (`.docx`) và PDF làm.
+ *
+ * Lề trang nguồn (`w:pgMar`) nay ĐÃ đọc được, và nó sửa đúng nửa vấn đề mà
+ * ghi chú cũ nêu: chỗ CẮT. Trước bản vá lề, `<p>` rộng bằng khung xem trước
+ * trừ lề 8% tự đặt (≈16,8mm trên A4), nên một dòng "……" điền tay chạy quá mép
+ * chữ THẬT của biểu mẫu (lề phải 20mm) vài milimét — nay `<article>` lấy đúng
+ * `w:pgMar`, nên mép cắt LÀ mép cột chữ của nguồn. Với mốc tab phải ở cuối
+ * dòng — 68/134 mốc `dot` đo trên tám biểu mẫu thật — đường dẫn giờ dừng đúng
+ * chỗ Word dừng.
+ *
+ * Nửa còn lại KHÔNG phải lề trang mở ra được: một mốc nằm GIỮA cột chữ vẫn bị
+ * vẽ quá tới mép phải, vì điểm BẮT ĐẦU là chỗ con trỏ đang đứng, và biết chỗ
+ * đó thì phải ĐO chữ đã vẽ (JS, sau khi trình duyệt dựng xong) — CSS thuần
+ * không có cách nào. Nâng lên khi có một phép đo như vậy, không phải khi có
+ * thêm một sự thật nguồn.
  */
 function thuocTinhTab(m: MocTab): { thuoc: Record<string, string>; style: CSSProperties } {
   const thuoc: Record<string, string> = {
@@ -243,8 +266,51 @@ const CAN_LE_O: Record<CanLe, string> = {
  */
 function caoTrenTrang(
   twip: number | undefined,
+  luat = "",
 ): { twip: number; style: { height: string } } | undefined {
+  // `hRule="auto"` BỎ con số: Word bỏ nó ở đó, nên ép một chiều cao tối thiểu
+  // là vẽ thứ tệp không nói. `exact` vẫn chỉ là SÀN (`height` của CSS trên một
+  // `<tr>` là tối thiểu, không cắt chữ) — cùng lựa chọn `bangThanhTable` và
+  // PDF `caoKhaiMm`, xem `DonViVanBan.bang_cao_luat`.
+  if (luat === "auto") return undefined;
   return twip && twip > 0 ? { twip, style: { height: `${twip / 20}pt` } } : undefined;
+}
+
+/**
+ * Viền NGUỒN của MỘT Ô (`"trên|phải|dưới|trái"`, mỗi phần `"w:val/w:sz"`) →
+ * `style` (màn hình vẽ) và `data-vien-o` (tệp tải về đọc lại) — `null` khi
+ * bảng không có chi tiết theo cạnh, và khi đó ô giữ lớp viền đều như trước.
+ *
+ * Bốn cạnh viết THẲNG ra chứ không lặp qua tên: `CSSProperties` của React
+ * không nhận khoá dựng bằng chuỗi mà vẫn giữ được kiểu, và mười hai dòng rõ
+ * ràng đáng hơn một vòng lặp phải `as` bốn lần để qua mặt trình kiểm kiểu.
+ */
+function kieuVienO(
+  tho: string | undefined,
+): { thuoc: Record<string, string>; style: CSSProperties } | null {
+  if (tho === undefined) return null;
+  const c = tho.split("|").map(netCanh);
+  // `w:sz` là ⅛ điểm — cùng phép quy đổi `bangThanhTable` (`size` của `docx`
+  // nhận thẳng `w:sz`) và PDF `veCanhO` dùng, nên ba nơi kẻ một nét dày bằng nhau.
+  const day = (i: number) => (c[i] ? `${c[i]!.sz / 8}pt` : "0");
+  const kieu = (i: number) => (c[i] ? kieuNetCSS(c[i]!.val) : ("none" as const));
+  return {
+    thuoc: { [THUOC_TINH_BANG.vienO]: tho },
+    style: {
+      borderTopWidth: day(0),
+      borderTopStyle: kieu(0),
+      borderTopColor: "#999",
+      borderRightWidth: day(1),
+      borderRightStyle: kieu(1),
+      borderRightColor: "#999",
+      borderBottomWidth: day(2),
+      borderBottomStyle: kieu(2),
+      borderBottomColor: "#999",
+      borderLeftWidth: day(3),
+      borderLeftStyle: kieu(3),
+      borderLeftColor: "#999",
+    },
+  };
 }
 
 /**
@@ -542,6 +608,17 @@ interface Props {
   ) => Promise<boolean>;
   /** Phiên bản bản thảo hiện tại — bắt buộc cùng `onSuaKhoi` (fix round 2, N1). */
   phienBan?: number;
+  /**
+   * Lề trang NGUỒN (`w:sectPr/w:pgMar`, twip) của tài liệu khách tải lên —
+   * `null`/vắng mặt thì trang giữ lề 8%/7% tự đặt của khung xem trước, đúng
+   * hành vi trước bản vá này (và đúng cho một bản thảo KLAW tự soạn, vốn
+   * không có tài liệu nguồn nào để lấy lề).
+   *
+   * Đặt bằng `padding` trên chính `<article>` — không phải một khung lồng
+   * thêm: `docNoiDungTuDOM` nhận đúng thẻ này làm `sheet`, nên lề đọc lại cho
+   * `.docx`/PDF và lề vẽ ra màn hình là MỘT con số, không hai.
+   */
+  leTrang?: LeTrang | null;
 }
 
 /**
@@ -561,8 +638,32 @@ export function XemTruocA4({
   laTongQuat = false,
   onSuaKhoi,
   phienBan,
+  leTrang = null,
 }: Props) {
   const chonMuc = (key: string) => onChonMuc?.(key);
+
+  // Lề trang: `padding` (vẽ) và `data-le-*` (tệp tải về đọc lại) đến từ CÙNG
+  // một bộ số, cùng khuôn `data-cao`/`data-can-le` của bảng. Không có lề nguồn
+  // thì cả hai vắng mặt và lớp `px-[8%] py-[7%]` cũ giữ nguyên trang.
+  const pcLe = (twip: number) => `${(twip / RONG_A4_TWIP) * 100}%`;
+  const kieuLe: CSSProperties | undefined = leTrang
+    ? {
+        paddingTop: pcLe(leTrang.tren),
+        paddingRight: pcLe(leTrang.phai),
+        paddingBottom: pcLe(leTrang.duoi),
+        paddingLeft: pcLe(leTrang.trai),
+      }
+    : undefined;
+  const thuocLe: Record<string, string> = leTrang
+    ? {
+        [THUOC_TINH_LE.tren]: String(leTrang.tren),
+        [THUOC_TINH_LE.phai]: String(leTrang.phai),
+        [THUOC_TINH_LE.duoi]: String(leTrang.duoi),
+        [THUOC_TINH_LE.trai]: String(leTrang.trai),
+        [THUOC_TINH_LE.dauTrang]: String(leTrang.dauTrang),
+        [THUOC_TINH_LE.chanTrang]: String(leTrang.chanTrang),
+      }
+    : {};
 
   // Một bản thảo TỔNG QUÁT dựng lại một tài liệu NGƯỜI DÙNG đưa vào: tên văn
   // bản là chữ của tài liệu đó, in ra ở đúng chỗ tài liệu in nó (thường trong
@@ -585,7 +686,14 @@ export function XemTruocA4({
 
   return (
     <div className="mx-auto w-full max-w-[794px]" style={{ fontSize: `${thuPhong}%` }}>
-      <article className="aspect-[210/297] overflow-y-auto rounded-md border border-border bg-white px-[8%] py-[7%] text-[#111] shadow-soft">
+      <article
+        className={cn(
+          "aspect-[210/297] overflow-y-auto rounded-md border border-border bg-white text-[#111] shadow-soft",
+          leTrang === null && "px-[8%] py-[7%]",
+        )}
+        style={kieuLe}
+        {...thuocLe}
+      >
         {/* `<h1>`, không `<h2>`: đây là tiêu đề CHÍNH của văn bản đang xem
             trước, và `docNoiDungTuDOM` (xuat-tep.ts) chỉ nhận diện tiêu đề
             xuất ra Word/PDF qua đúng thẻ `H1`. */}
@@ -740,17 +848,26 @@ export function XemTruocA4({
                                 đi vào tệp qua `data-cao`, nên màn hình phải
                                 dành đúng chỗ đó — nếu không, hai bên lệch. */}
                             <tr
-                              data-cao={caoTrenTrang(k.cao?.[0])?.twip}
-                              style={caoTrenTrang(k.cao?.[0])?.style}
+                              data-cao={caoTrenTrang(k.cao?.[0], k.caoLuat?.[0])?.twip}
+                              style={caoTrenTrang(k.cao?.[0], k.caoLuat?.[0])?.style}
+                              {...(k.caoLuat?.[0]
+                                ? { [THUOC_TINH_BANG.caoLuat]: k.caoLuat[0] }
+                                : {})}
                             >
                               {(k.hang[0] ?? []).map((o, oi) => {
                                 const cot = spanTieuDe[oi] ?? 1;
+                                const vienO = kieuVienO(k.vienO?.[0]?.[oi]);
                                 return (
                                   <th
                                     key={oi}
                                     colSpan={cot > 1 ? cot : undefined}
                                     data-can-le={k.canLeO?.[0]?.[oi] ?? "trai"}
-                                    className="border border-[#999] bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold"
+                                    {...(vienO?.thuoc ?? {})}
+                                    style={vienO?.style}
+                                    className={cn(
+                                      "bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold",
+                                      vienO === null && "border border-[#999]",
+                                    )}
                                   >
                                     <OChu noiDung={o} chu={k.chuO?.[0]?.[oi] ?? []} />
                                   </th>
@@ -763,20 +880,36 @@ export function XemTruocA4({
                           {(k.vien ? k.hang.slice(1) : k.hang).map((hang, hi) => {
                             const hiThat = k.vien ? hi + 1 : hi;
                             const span = nhipHangVe(hang, k.nhip[hiThat], soCot);
-                            const cao = caoTrenTrang(k.cao?.[hiThat]);
+                            const luat = k.caoLuat?.[hiThat] ?? "";
+                            const cao = caoTrenTrang(k.cao?.[hiThat], luat);
                             return (
-                              <tr key={hi} data-cao={cao?.twip} style={cao?.style}>
+                              <tr
+                                key={hi}
+                                data-cao={cao?.twip}
+                                style={cao?.style}
+                                {...(luat ? { [THUOC_TINH_BANG.caoLuat]: luat } : {})}
+                              >
                                 {hang.map((o, oi) => {
                                   const cot = span[oi] ?? 1;
                                   const canLe = k.canLeO?.[hiThat]?.[oi] ?? "trai";
+                                  // Viền TỪNG CẠNH nguồn thắng lớp viền đều:
+                                  // một biểu mẫu chỉ kẻ khung ngoài không được
+                                  // ra màn hình thành lưới kẻ đủ mọi ô. Không
+                                  // đọc được cạnh nào (bảng mô hình tự gõ, bản
+                                  // thảo cũ) thì giữ nguyên lớp cũ.
+                                  const vienO = kieuVienO(k.vienO?.[hiThat]?.[oi]);
                                   return (
                                     <td
                                       key={oi}
                                       colSpan={cot > 1 ? cot : undefined}
                                       data-can-le={canLe}
-                                      className={`px-2 py-1 align-top font-serif ${CAN_LE_O[canLe]} ${
-                                        k.vien ? "border border-[#999]" : ""
-                                      }`}
+                                      {...(vienO?.thuoc ?? {})}
+                                      style={vienO?.style}
+                                      className={cn(
+                                        "px-2 py-1 align-top font-serif",
+                                        CAN_LE_O[canLe],
+                                        vienO === null && k.vien && "border border-[#999]",
+                                      )}
                                     >
                                       <OChu noiDung={o} chu={k.chuO?.[hiThat]?.[oi] ?? []} />
                                     </td>
