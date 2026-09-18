@@ -345,6 +345,7 @@ const MUC: Muc[] = [
         vien: true,
         cao: [],
         canLeO: [],
+        chuO: [],
       },
     ],
   },
@@ -548,6 +549,7 @@ const mucBang = (vien: boolean): Muc[] => [
         vien,
         cao: [1499],
         canLeO: [["giua", "giua"]],
+        chuO: [],
       },
     ],
   },
@@ -613,4 +615,93 @@ assert.ok(
   "bảng có viền vẫn kẻ khung như trước bản vá",
 );
 
-console.log("kiem-ui-muot: 44/44 OK");
+// ─────────── 6. định dạng chữ TRONG một ô bảng ra từng `<span data-chu>` ────
+//
+// Trước bản vá 2026-09-18 (nhánh ô bảng), ô được vẽ bằng một chuỗi trần, nên
+// letterhead in đậm của biểu mẫu chủ sở hữu ra màn hình thành chữ thường —
+// trong khi CÙNG chữ ấy nằm ngoài bảng thì đậm đúng. `docBangTuPhanTu` đọc
+// lại chính các `<span>` này khi xuất tệp, nên thiếu chúng là cả ba nơi vẽ
+// cùng sai một lúc.
+const O_TRAI_CHU = "TRƯỜNG ĐẠI HỌC PHENIKAA";
+const O_PHAI_CHU = "CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM";
+const mucBangChu: Muc[] = [
+  {
+    stt: 1,
+    key: "dau_trang",
+    ten: "Đầu trang",
+    tenThat: true,
+    noiDung: "",
+    bang: null,
+    vung: "than",
+    canCu: null,
+    khoi: [
+      {
+        kind: "bang",
+        hang: [[O_TRAI_CHU, O_PHAI_CHU]],
+        nhip: [[1, 1]],
+        tiLe: [50, 50],
+        vien: false,
+        cao: [],
+        canLeO: [["giua", "giua"]],
+        chuO: [
+          [
+            [
+              {
+                text: "TRƯỜNG ",
+                inDam: true,
+                inNghieng: false,
+                gachChan: false,
+                coChu: 26,
+                phong: "Times New Roman",
+              },
+              {
+                text: "ĐẠI HỌC PHENIKAA",
+                inDam: false,
+                inNghieng: true,
+                gachChan: true,
+                coChu: 28,
+                phong: "",
+              },
+            ],
+            [],
+          ],
+        ],
+      },
+    ],
+  },
+];
+
+const { khung: khungChuO, root: rootChuO } = taoRoot();
+await act(() => {
+  rootChuO.render(h(XemTruocA4, { ...propsBang, muc: mucBangChu }));
+});
+const oChuO = timTatNut(khungChuO, (n) => n.tagName === "TD");
+assert.equal(oChuO.length, 2, "hai ô của hàng letterhead");
+const spanTrai = timTatNut(oChuO[0]!, (n) => n.tagName === "SPAN");
+assert.equal(spanTrai.length, 2, "ô nhiều định dạng phải vẽ MỘT span cho MỖI đoạn");
+assert.equal(
+  spanTrai.map((n) => n.textContent).join(""),
+  O_TRAI_CHU,
+  "các span phải phủ KÍN chữ của ô — sót một ký tự là mất chữ của người dùng",
+);
+assert.equal(spanTrai[0]?.getAttribute("data-chu"), "", "span phải mang dấu `data-chu` để đọc lại");
+assert.equal(spanTrai[0]?.getAttribute("data-dam"), "1", "đoạn đậm phải khai đậm");
+assert.equal(spanTrai[0]?.getAttribute("data-co"), "26");
+assert.equal(spanTrai[0]?.getAttribute("data-phong"), "Times New Roman");
+assert.equal(
+  spanTrai[0]?.style["fontWeight"],
+  "700",
+  "đậm phải THẤY được, không chỉ là thuộc tính",
+);
+assert.equal(spanTrai[1]?.getAttribute("data-dam"), null, "đoạn không đậm không được khai đậm");
+assert.equal(spanTrai[1]?.getAttribute("data-nghieng"), "1");
+assert.equal(spanTrai[1]?.getAttribute("data-gach"), "1");
+assert.equal(spanTrai[1]?.getAttribute("data-co"), "28");
+assert.equal(
+  timTatNut(oChuO[1]!, (n) => n.tagName === "SPAN").length,
+  0,
+  "ô nguồn không khai định dạng giữ chữ trần — không span nào, đúng đường cũ",
+);
+assert.equal(oChuO[1]?.textContent, O_PHAI_CHU, "ô không định dạng vẫn hiện đủ chữ");
+
+console.log("kiem-ui-muot: 57/57 OK");

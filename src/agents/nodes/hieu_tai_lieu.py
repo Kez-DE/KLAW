@@ -35,7 +35,7 @@ from src.agents.nodes.route import Intent
 from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU
 from src.services.bo_nho import _vuong_luoi_chan
 from src.services.bo_nho_tai_khoan import GIA_TRI_TOI_DA
-from src.services.doc_tai_lieu import DonViVanBan, NguonChu
+from src.services.doc_tai_lieu import DinhDangChu, DonViVanBan, NguonChu
 from src.services.llm import TruncatedOutputError, Usage
 from src.services.neo_du_kien import LyDoNeo, Neo, normalize, xac_minh
 from src.services.phep_tinh import SAI_SO, so_bang_nhau, tinh, viet_so
@@ -1131,31 +1131,44 @@ def _chu_theo_dong(goi: list[dict]) -> dict[str, tuple]:
     return {s: v.pop() for s, v in theo.items() if len(v) == 1}
 
 
+def _manh_chu(rs: tuple[DinhDangChu, ...], lech: int = 0) -> list[dict]:
+    """`DonViVanBan.dinh_dang` → khoảng ĐÁNG VẼ, dịch đi `lech` ký tự.
+
+    Chỉ giữ khoảng thật sự NÓI gì và thật sự phủ ký tự nào: một run rỗng chữ
+    là một điều tệp khai — `eval.run_trung_thuc` chấm nó — nhưng trên màn
+    hình nó không có gì để vẽ, và đưa xuống render chỉ tốn JSON.
+
+    Dùng chung cho CẢ hai đường xuống render (`_chu_khoi` cho văn xuôi,
+    `_bang_theo_nhan` cho ô bảng): cùng một phép lọc, cùng một bộ khoá, nên
+    `chuHopLe` phía giao diện chỉ phải biết MỘT hình dạng.
+    """
+    return [
+        {
+            "dau": r.dau + lech,
+            "cuoi": r.cuoi + lech,
+            "dam": r.dam,
+            "nghieng": r.nghieng,
+            "gach": r.gach,
+            "co": r.co,
+            "phong": r.phong,
+        }
+        for r in rs
+        if r.cuoi > r.dau and (r.dam or r.nghieng or r.gach or r.co or r.phong)
+    ]
+
+
 def _chu_khoi(noi_dung: str, theo_chu: dict[str, tuple]) -> list[dict]:
     """Định dạng chữ của MỘT khối văn xuôi — dịch khoảng của từng dòng nguồn
     về offset trong khối (khối có thể gộp nhiều dòng bằng `\\n`, ví dụ quốc
     hiệu + tiêu ngữ).
 
-    Chỉ giữ khoảng thật sự NÓI gì và thật sự phủ ký tự nào:
-    một run rỗng chữ là một điều tệp khai — `eval.run_trung_thuc` chấm nó —
-    nhưng trên màn hình nó không có gì để vẽ, và đưa xuống render chỉ tốn
-    JSON. Dòng không tra được không đóng góp khoảng nào: chỗ đó render giữ
-    chữ thường, đúng luật "không suy diễn thêm ngoài những gì tệp nói".
+    Dòng không tra được không đóng góp khoảng nào: chỗ đó render giữ chữ
+    thường, đúng luật "không suy diễn thêm ngoài những gì tệp nói".
     """
     ra: list[dict] = []
     lech = 0
     for dong in noi_dung.split("\n"):
-        for r in theo_chu.get(dong, ()):
-            if r.cuoi > r.dau and (r.dam or r.nghieng or r.gach or r.co or r.phong):
-                ra.append({
-                    "dau": r.dau + lech,
-                    "cuoi": r.cuoi + lech,
-                    "dam": r.dam,
-                    "nghieng": r.nghieng,
-                    "gach": r.gach,
-                    "co": r.co,
-                    "phong": r.phong,
-                })
+        ra.extend(_manh_chu(theo_chu.get(dong, ()), lech))
         lech += len(dong) + 1
     return ra
 
@@ -1164,8 +1177,9 @@ def _hang_gon(
     cot: dict[int, str],
     nhip_cot: dict[int, int],
     can_le_cot: dict[int, str],
+    chu_cot: dict[int, list[dict]],
     so_cot: int,
-) -> tuple[list[str], list[int], list[str]]:
+) -> tuple[list[str], list[int], list[str], list[list[dict]]]:
     """Một hàng bảng THẬT, GỌN — chỉ giữ ô có chữ cộng thêm Ô ĐỆM cho khoảng
     TRỐNG thật (Phase 11 R6), không phải một mảng phẳng một-ô-một-cột.
 
@@ -1178,29 +1192,34 @@ def _hang_gon(
     nhịp của nó, không bị tách lại thành nhiều ô 1-cột.
 
     Trả thêm căn lề TỪNG Ô (`w:pPr/w:jc` của đoạn đầu ô, `doc_tai_lieu` đã
-    đọc sẵn vào `DonViVanBan.can_le`): một ô ĐỆM không đến từ ô nguồn nào nên
-    nhận `trai` — mặc định của chính `DonViVanBan.can_le`, không phải một giá
-    trị thứ ba nghĩa là "không biết".
+    đọc sẵn vào `DonViVanBan.can_le`) và định dạng chữ TỪNG Ô (`w:rPr`, đọc
+    `DonViVanBan.dinh_dang`): một ô ĐỆM không đến từ ô nguồn nào nên nhận
+    `trai` và không khoảng định dạng nào — mặc định của chính `DonViVanBan`,
+    không phải một giá trị thứ ba nghĩa là "không biết".
     """
     hang: list[str] = []
     nhip: list[int] = []
     can_le: list[str] = []
+    chu: list[list[dict]] = []
     chay = 0
     for c in sorted(cot):
         if c > chay:
             hang.append("")
             nhip.append(c - chay)
             can_le.append("trai")
+            chu.append([])
         hang.append(cot[c])
         n = nhip_cot.get(c, 1)
         nhip.append(n)
         can_le.append(can_le_cot.get(c, "trai"))
+        chu.append(chu_cot.get(c, []))
         chay = c + n
     if chay < so_cot:
         hang.append("")
         nhip.append(so_cot - chay)
         can_le.append("trai")
-    return hang, nhip, can_le
+        chu.append([])
+    return hang, nhip, can_le, chu
 
 
 def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
@@ -1218,17 +1237,27 @@ def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
     RENDER dùng trực tiếp, không suy đoán lại từ số ô như `coSpanHang` cũ),
     `ti_le` (% mỗi cột lưới, đọc `bang_ti_le`, rỗng khi bảng không khai
     lưới), `vien` (bảng có vẽ viền không, đọc `bang_vien`), `cao` (chiều cao
-    khai báo mỗi HÀNG theo twip, đọc `bang_cao`, `0` khi hàng không khai) và
-    `can_le_o` (căn lề TỪNG Ô, cùng hình dạng `hang`, đọc `can_le`). Không đẻ
-    ra một hàm/một lượt duyệt `don_vi` thứ hai cho từng trường — tất cả đến
-    từ ĐÚNG một vòng lặp này (xem R3 trong brief: "một chỗ carry cả bộ, không
-    phải năm chỗ chép từng trường").
+    khai báo mỗi HÀNG theo twip, đọc `bang_cao`, `0` khi hàng không khai),
+    `can_le_o` (căn lề TỪNG Ô, cùng hình dạng `hang`, đọc `can_le`) và
+    `chu_o` (định dạng chữ TỪNG Ô — dãy khoảng `[dau, cuoi)` trên CHÍNH chữ
+    của ô, cùng hình dạng `hang`, đọc `dinh_dang`). Không đẻ ra một hàm/một
+    lượt duyệt `don_vi` thứ hai cho từng trường — tất cả đến từ ĐÚNG một vòng
+    lặp này (xem R3 trong brief: "một chỗ carry cả bộ, không phải năm chỗ
+    chép từng trường").
+
+    `chu_o` KHÔNG cần tra ngược theo chữ như `_chu_theo_dong` phải làm cho
+    văn xuôi: chữ mỗi ô ở đây đến THẲNG từ `d.noi_dung` của chính đơn vị mang
+    `d.dinh_dang`, nên khoảng và chuỗi đo trên cùng một chuỗi theo cấu trúc,
+    không phải theo một phép khớp có thể sai. Ô của một bảng mô hình TỰ GÕ
+    không đi qua đây (xem `_khoi_sach`) nên vẫn hiện chữ thường — đúng luật
+    "chữ viết lại thì mất định dạng".
     """
     ra: dict[str, dict] = {}
     for t in goi:
         theo_bang: dict[int, dict[int, dict[int, str]]] = {}
         nhip_bang: dict[int, dict[int, dict[int, int]]] = {}
         can_le_bang: dict[int, dict[int, dict[int, str]]] = {}
+        chu_bang: dict[int, dict[int, dict[int, list[dict]]]] = {}
         ti_le_bang: dict[int, tuple[int, ...]] = {}
         vien_bang: dict[int, bool] = {}
         cao_bang: dict[int, dict[int, int]] = {}
@@ -1240,6 +1269,7 @@ def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
             theo_bang.setdefault(b, {}).setdefault(h, {})[c] = d.noi_dung
             nhip_bang.setdefault(b, {}).setdefault(h, {})[c] = d.bang_nhip
             can_le_bang.setdefault(b, {}).setdefault(h, {})[c] = d.can_le
+            chu_bang.setdefault(b, {}).setdefault(h, {})[c] = _manh_chu(d.dinh_dang)
             cot_toi_da[b] = max(cot_toi_da.get(b, 0), c + d.bang_nhip)
             if d.bang_ti_le and b not in ti_le_bang:
                 ti_le_bang[b] = d.bang_ti_le
@@ -1256,17 +1286,20 @@ def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
             hang: list[list[str]] = []
             nhip: list[list[int]] = []
             can_le_o: list[list[str]] = []
+            chu_o: list[list[list[dict]]] = []
             cao: list[int] = []
             for h in range(max(theo_hang) + 1):
-                h_hang, h_nhip, h_can_le = _hang_gon(
+                h_hang, h_nhip, h_can_le, h_chu = _hang_gon(
                     theo_hang.get(h, {}),
                     nhip_bang.get(b, {}).get(h, {}),
                     can_le_bang.get(b, {}).get(h, {}),
+                    chu_bang.get(b, {}).get(h, {}),
                     so_cot,
                 )
                 hang.append(h_hang)
                 nhip.append(h_nhip)
                 can_le_o.append(h_can_le)
+                chu_o.append(h_chu)
                 cao.append(cao_bang.get(b, {}).get(h, 0))
             ra[f"{t['nhan']}{b}"] = {
                 "hang": hang,
@@ -1275,6 +1308,7 @@ def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
                 "vien": vien_bang.get(b, True),
                 "cao": cao,
                 "can_le_o": can_le_o,
+                "chu_o": chu_o,
             }
     return ra
 
@@ -1487,6 +1521,11 @@ def _khop_bang(
                 "vien": bang["vien"],
                 "cao": bang["cao"],
                 "can_le_o": bang["can_le_o"],
+                # `chu_o` chỉ CÓ MẶT khi có ít nhất một ô mang định dạng —
+                # cùng luật `chu` của khối văn xuôi: một bảng không định dạng
+                # giữ NGUYÊN hình dạng khối cũ, và mọi phía đọc
+                # (`khoiMotHopLe`) vốn đã mặc định rỗng.
+                **({"chu_o": bang["chu_o"]} if any(any(h) for h in bang["chu_o"]) else {}),
             })
             # Khối gộp gán về mục ĐẦU TIÊN của nhóm — khi nhóm bắc qua ranh
             # giới mục (fix round 1), mục còn lại rỗng và bị bỏ ở tầng gọi,

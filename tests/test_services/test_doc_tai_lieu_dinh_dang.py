@@ -285,3 +285,115 @@ def test_KHOI_KHONG_KHOP_dong_nguon_nao_thi_KHONG_co_khoa_chu():
         [{"nhan": "A", "don_vi": don_vi}],
     )
     assert "chu" not in ra["muc"][0]["khoi"][0]
+
+
+# ------------------------------------------------- Ô BẢNG: cùng đường, cùng luật
+
+# Ô trái của letterhead BM.ĐT.18.05: một ô, nhiều run khác định dạng. Trước bản
+# vá này ba nơi vẽ đều tô CẢ ô một kiểu, nên đúng dòng chữ đậm của biểu mẫu chủ
+# sở hữu ra màn hình thành chữ thường — trong khi CÙNG chữ ấy nằm ngoài bảng
+# thì đậm đúng.
+_O_TRAI_BA_RUN = (
+    "<w:tc><w:p>"
+    '<w:r><w:rPr><w:b/><w:sz w:val="26"/></w:rPr><w:t>TRƯỜNG ĐẠI HỌC PHENIKAA </w:t></w:r>'
+    '<w:r><w:rPr><w:i/></w:rPr><w:t>TRƯỜNG CÔNG NGHỆ THÔNG TIN</w:t></w:r>'
+    '<w:r><w:rPr><w:u w:val="single"/></w:rPr><w:t> (đơn vị)</w:t></w:r>'
+    "</w:p></w:tc>"
+)
+_O_TRAI_TRAN = (
+    "<w:tc><w:p>"
+    "<w:r><w:t>TRƯỜNG ĐẠI HỌC PHENIKAA </w:t></w:r>"
+    "<w:r><w:t>TRƯỜNG CÔNG NGHỆ THÔNG TIN</w:t></w:r>"
+    "<w:r><w:t> (đơn vị)</w:t></w:r>"
+    "</w:p></w:tc>"
+)
+# Ô phải KHÔNG khai `w:rPr` nào — chỗ chứng minh "không khai thì không vẽ".
+# Chữ của nó cố ý không mang số hiệu văn bản: `bo_nho._vuong_luoi_chan` bỏ CẢ
+# mục khi thấy một số hiệu, và mục bị bỏ thì không còn khối nào để kiểm.
+_O_PHAI = "<w:tc>" + _p("", "CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM") + "</w:tc>"
+_CHU_O_TRAI = "TRƯỜNG ĐẠI HỌC PHENIKAA TRƯỜNG CÔNG NGHỆ THÔNG TIN (đơn vị)"
+_CHU_O_PHAI = "CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+
+
+def _bang(o_trai: str) -> str:
+    return f"<w:tbl><w:tr>{o_trai}{_O_PHAI}</w:tr></w:tbl>"
+
+
+def _van_ban_bang() -> dict:
+    """Một mục: một khối văn xuôi có giá trị BỊA (để phép làm sạch có việc
+    thật) và một khối bảng tái hiện đúng hai ô nguồn (để `_khop_bang` thay
+    bảng THẬT vào). Dựng lại mỗi lần gọi — không chia sẻ dict giữa hai lượt."""
+    return {
+        "muc": [
+            {
+                "ten": "Đầu trang",
+                "khoi": [
+                    {"noi_dung": "Đơn vị ban hành thu 9.999.999 đồng"},
+                    {"noi_dung": "", "bang": [[_CHU_O_TRAI, _CHU_O_PHAI]]},
+                ],
+            }
+        ]
+    }
+
+
+def test_O_BANG_BA_RUN_KHAC_DINH_DANG_ra_khoi_bang_voi_KHOANG_nguyen_ven():
+    """Ba run khác định dạng trong MỘT ô đi hết đường tới khối bảng, mỗi
+    khoảng vẫn trỏ đúng chữ của chính nó — đây là thứ ba nơi vẽ đọc."""
+    don_vi = doc("x.docx", _docx(_bang(_O_TRAI_BA_RUN))).don_vi
+    ra, _ = lam_sach_van_ban(
+        _van_ban_bang(),
+        " ".join(d.noi_dung for d in don_vi),
+        [{"nhan": "A", "don_vi": don_vi}],
+    )
+    khoi = ra["muc"][0]["khoi"][1]
+    assert khoi["bang"] == [[_CHU_O_TRAI, _CHU_O_PHAI]]
+    assert [
+        (_CHU_O_TRAI[k["dau"] : k["cuoi"]], k["dam"], k["nghieng"], k["gach"], k["co"])
+        for k in khoi["chu_o"][0][0]
+    ] == [
+        ("TRƯỜNG ĐẠI HỌC PHENIKAA ", True, False, False, 26),
+        ("TRƯỜNG CÔNG NGHỆ THÔNG TIN", False, True, False, 0),
+        (" (đơn vị)", False, False, True, 0),
+    ]
+    # Ô không khai gì KHÔNG nhận một khoảng nào: chỗ tệp không nói gì thì
+    # render giữ chữ thường, đúng luật của cả bản vá.
+    assert khoi["chu_o"][0][1] == []
+
+
+def test_O_BANG_NOI_DUNG_VA_NEO_VA_LAM_SACH_y_HET_khi_bo_het_dinh_dang():
+    """Cột mốc của nhánh bảng, đúng phép so `test_NOI_DUNG_va_NEO_va_LAM_SACH`
+    đã đặt cho văn xuôi: thêm `w:rPr` vào các ô KHÔNG đổi một ký tự nào của
+    `noi_dung`, không đổi neo trích dẫn, không đổi kết quả làm sạch."""
+    co = doc("x.docx", _docx(_bang(_O_TRAI_BA_RUN))).don_vi
+    khong = doc("x.docx", _docx(_bang(_O_TRAI_TRAN))).don_vi
+
+    assert [d.noi_dung for d in co] == [d.noi_dung for d in khong]
+    assert [(d.trang, d.offset_dau, d.chi_so, d.bang) for d in co] == [
+        (d.trang, d.offset_dau, d.chi_so, d.bang) for d in khong
+    ]
+    assert [normalize(d.noi_dung) for d in co] == [normalize(d.noi_dung) for d in khong]
+
+    neo_co, neo_khong = xac_minh(_CHU_O_TRAI, co), xac_minh(_CHU_O_TRAI, khong)
+    assert neo_co.ly_do is LyDoNeo.ok
+    assert (neo_co.chi_so_don_vi, neo_co.trang, neo_co.offset_dau) == (
+        neo_khong.chi_so_don_vi,
+        neo_khong.trang,
+        neo_khong.offset_dau,
+    )
+
+    nguon = " ".join(d.noi_dung for d in co)
+    ra_co, dem_co = lam_sach_van_ban(_van_ban_bang(), nguon, [{"nhan": "A", "don_vi": co}])
+    ra_khong, dem_khong = lam_sach_van_ban(_van_ban_bang(), nguon, [{"nhan": "A", "don_vi": khong}])
+
+    def _tru_dinh_dang(v: dict) -> list:
+        return [
+            [{k: x for k, x in b.items() if k not in ("chu", "chu_o")} for b in m["khoi"]]
+            for m in v["muc"]
+        ]
+
+    assert dem_co == dem_khong
+    assert dem_co["gia_tri_lam_sach"] == 1  # phép làm sạch có việc thật để làm
+    assert _tru_dinh_dang(ra_co) == _tru_dinh_dang(ra_khong)
+    # Khác biệt DUY NHẤT là định dạng — và nó chỉ có mặt ở bản tệp có khai.
+    assert ra_co["muc"][0]["khoi"][1]["chu_o"][0][0]
+    assert "chu_o" not in ra_khong["muc"][0]["khoi"][1]

@@ -131,6 +131,7 @@ assert.deepEqual(mucMoi[0]?.khoi, [
     vien: true,
     cao: [],
     canLeO: [],
+    chuO: [],
   },
 ]);
 
@@ -425,6 +426,7 @@ assert.deepEqual(mucKhoiCaHai[1], {
   vien: true,
   cao: [],
   canLeO: [],
+  chuO: [],
 });
 
 // ──────────── Brief "Proof required" — letterhead hai cột sống sót NHƯ BẢNG
@@ -450,7 +452,7 @@ const mucLetterhead = mucTuBanThao(banThaoLetterhead, null)[0];
 assert.equal(mucLetterhead?.khoi.length, 1, "letterhead là MỘT khối bảng, không bị xé lẻ");
 assert.deepEqual(
   mucLetterhead?.khoi[0],
-  { kind: "bang", hang: LETTERHEAD, nhip: [], tiLe: [], vien: true, cao: [], canLeO: [] },
+  { kind: "bang", hang: LETTERHEAD, nhip: [], tiLe: [], vien: true, cao: [], canLeO: [], chuO: [] },
   "sống sót NGUYÊN dạng bảng hai cột, không dẹt thành dòng văn xuôi",
 );
 
@@ -468,6 +470,11 @@ const oCell = (text: string, colSpan?: number, canLe?: CanLe) => ({
   textContent: text,
   colSpan,
   getAttribute: (ten: string) => (ten === "data-can-le" ? (canLe ?? null) : null),
+  // Ô KHÔNG có `<span data-chu>` nào — ô đồng nhất, đúng hình dạng
+  // `XemTruocA4` vẽ cho một ô nguồn không khai `w:rPr`. Định dạng TRONG ô có
+  // bộ kiểm riêng ở `kiem-dinh-dang-chu.ts`.
+  querySelectorAll: (_sel: string) =>
+    [] as { textContent: string | null; getAttribute(t: string): string | null }[],
 });
 const oRow = (cells: ReturnType<typeof oCell>[], cao?: number) => ({
   getAttribute: (ten: string) => (ten === "data-cao" && cao ? String(cao) : null),
@@ -505,6 +512,10 @@ assert.deepEqual(
       ["trai", "trai"],
       ["trai", "trai"],
     ], // không `data-can-le` nào → `trai`, không đoán
+    chuO: [
+      [[], []],
+      [[], []],
+    ], // không `<span data-chu>` nào → ô đồng nhất, đường cũ
   },
 );
 
@@ -535,6 +546,10 @@ assert.deepEqual(docBangTuPhanTu(oTableGop), {
   canLeO: [
     ["trai", "trai", "trai"],
     ["trai", "trai"],
+  ],
+  chuO: [
+    [[], [], []],
+    [[], []],
   ],
 });
 
@@ -763,6 +778,7 @@ const bangTuManHinh = await bangThanhTable(
   docLaiKy.vien,
   docLaiKy.cao,
   docLaiKy.canLeO,
+  docLaiKy.chuO,
 );
 assert.deepEqual(
   [
@@ -836,6 +852,7 @@ const KHOI_MAU: KhoiVanBan[] = [
     vien: true,
     cao: [],
     canLeO: [],
+    chuO: [],
   },
 ];
 
@@ -1030,6 +1047,7 @@ function taiLieuMoCoiBang(soDoanDien: number): NoiDungXuat {
         vien: true,
         cao: [],
         canLeO: [],
+        chuO: [],
       },
     ],
     oKy: [],
@@ -1085,7 +1103,7 @@ function bangDaiHang(soHang: number): NoiDungXuat {
     hang.push([String(i), `Tiêu chí đánh giá số ${i}`, "2,0", "2,0"]);
   }
   return {
-    khoi: [{ kind: "bang", hang, nhip: [], tiLe: [], vien: true, cao: [], canLeO: [] }],
+    khoi: [{ kind: "bang", hang, nhip: [], tiLe: [], vien: true, cao: [], canLeO: [], chuO: [] }],
     oKy: [],
   };
 }
@@ -1132,6 +1150,7 @@ const bangKyPDF = (coVien: boolean, cao: number[]): NoiDungXuat => ({
       vien: coVien,
       cao,
       canLeO: [["giua", "giua"]],
+      chuO: [],
     },
   ],
   oKy: [],
@@ -1162,6 +1181,7 @@ const bangNhieuHang = (cao: number[], soHang: number): NoiDungXuat => ({
     vien: false,
     cao,
     canLeO: [["giua", "giua"] as CanLe[]],
+    chuO: [],
   })),
   oKy: [],
 });

@@ -1,6 +1,7 @@
 /**
  * Kiểm chạy được cho ĐỊNH DẠNG CHỮ của tài liệu nguồn (`w:rPr`, quyết định
- * 2026-09-18) — đường từ máy chủ ra màn hình rồi vào tệp tải về.
+ * 2026-09-18) — đường từ máy chủ ra màn hình rồi vào tệp tải về, cho CẢ văn
+ * xuôi (mục 1–5) lẫn Ô BẢNG (mục 6).
  *
  * Bốn điều được chốt ở đây, và cả bốn đều là chỗ định dạng hỏng ÂM THẦM:
  *
@@ -24,9 +25,12 @@
  */
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { inflateSync } from "node:zlib";
 
 import {
+  bangThanhTable,
   catTheoChu,
+  docBangTuPhanTu,
   docDoanChu,
   dongThanhParagraph,
   mucTuBanThao,
@@ -331,6 +335,251 @@ const pdfDai = await noiDungThanhPDF(
 
 dung("PDF: một dòng dài trộn cỡ chữ vẫn xuống dòng và chảy sang trang", () => {
   assert.ok(pdfDai.pdf.getNumberOfPages() > 1, "phải tràn sang trang thứ hai");
+});
+
+// ───────────────────────── 6. Ô BẢNG: cùng bốn điều trên, trong một ô ───────
+//
+// Trước bản vá này cả ba nơi vẽ tô CẢ ô một kiểu, nên letterhead in đậm của
+// biểu mẫu chủ sở hữu ("TRƯỜNG ĐẠI HỌC PHENIKAA TRƯỜNG CÔNG NGHỆ THÔNG TIN")
+// ra màn hình thành chữ thường — trong khi CÙNG chữ ấy nằm ngoài bảng thì đậm
+// đúng. Bốn chỗ được chốt: cửa vào fail-closed, vòng vẽ↔đọc lại, `.docx` theo
+// run, và chiều cao HÀNG trong PDF khi một ô có run to hơn cỡ nền của bảng.
+const O_TRAI = "TRƯỜNG ĐẠI HỌC PHENIKAA TRƯỜNG CÔNG NGHỆ THÔNG TIN";
+const O_PHAI = "CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM";
+const CHU_O_NGUON = [
+  [
+    [
+      { dau: 0, cuoi: 23, dam: true, co: 26, phong: "Times New Roman" },
+      { dau: 24, cuoi: O_TRAI.length, nghieng: true, gach: true, co: 28 },
+    ],
+    [],
+  ],
+];
+
+const banThaoBang = (chuO: unknown) =>
+  ({
+    id: "bt",
+    ten: "Bản thảo tổng quát",
+    document: "",
+    clauses: [
+      {
+        key: "muc_1",
+        ten: "Đầu trang",
+        vung: "than",
+        khoi: [{ noi_dung: "", bang: [[O_TRAI, O_PHAI]], chu_o: chuO }],
+      },
+    ],
+  }) as unknown as Parameters<typeof mucTuBanThao>[0];
+
+const chuOCua = (chuO: unknown): DoanChu[][][] => {
+  const k = mucTuBanThao(banThaoBang(chuO), null)[0]?.khoi[0];
+  assert.equal(k?.kind, "bang");
+  return k!.kind === "bang" ? k.chuO : [];
+};
+
+const chuODung = chuOCua(CHU_O_NGUON);
+
+dung("ô nhiều định dạng cắt thành các đoạn PHỦ KÍN chữ của ĐÚNG ô đó", () => {
+  assert.equal(chuODung[0]![0]!.map((o) => o.text).join(""), O_TRAI);
+  assert.deepEqual(
+    chuODung[0]![0]!.map((o) => [o.text, o.inDam, o.inNghieng, o.gachChan, o.coChu, o.phong]),
+    [
+      ["TRƯỜNG ĐẠI HỌC PHENIKAA", true, false, false, 26, "Times New Roman"],
+      [" ", false, false, false, 0, ""],
+      ["TRƯỜNG CÔNG NGHỆ THÔNG TIN", false, true, true, 28, ""],
+    ],
+  );
+});
+
+dung("ô nguồn KHÔNG khai gì giữ `[]` (đồng nhất), không phải một đoạn phủ kín", () => {
+  assert.deepEqual(chuODung[0]![1], []);
+});
+
+dung("vắng `chu_o` (bảng mô hình tự gõ, clause cũ) → `[]`, đường cũ", () => {
+  assert.deepEqual(chuOCua(undefined), []);
+});
+
+dung("lệch HÌNH DẠNG (thiếu ô) làm CẢ bảng về chữ thường", () => {
+  assert.deepEqual(chuOCua([[[{ dau: 0, cuoi: 5, dam: true }]]]), []);
+});
+
+dung("một Ô có khoảng hỏng chỉ mất định dạng của CHÍNH nó, không kéo theo ô khác", () => {
+  const ra = chuOCua([
+    [
+      [{ dau: 0, cuoi: O_TRAI.length + 9, dam: true }], // tràn khỏi chữ của ô
+      [{ dau: 0, cuoi: 8, dam: true }],
+    ],
+  ]);
+  assert.deepEqual(ra[0]![0], [], "ô hỏng về chữ thường");
+  assert.equal(ra[0]![1]![0]!.inDam, true, "ô lành vẫn giữ định dạng của nó");
+});
+
+// Vòng đi–về: màn hình vẽ `<span data-chu>` TRONG ô, `docBangTuPhanTu` đọc lại
+// đúng thứ đã vẽ — cùng khuôn `spanGia`/`theGia` mục 2 đã dùng cho một dòng.
+const oGia = (doan: DoanChu[], text: string) => ({
+  textContent: text,
+  colSpan: 1,
+  getAttribute: (_t: string) => null,
+  querySelectorAll: (sel: string) =>
+    sel === `span[${THUOC_TINH_CHU.moc}]` ? doan.map(spanGia) : [],
+});
+const bangGia = {
+  getAttribute: (_t: string) => null,
+  querySelectorAll: (sel: string) =>
+    sel === "col"
+      ? []
+      : [
+          {
+            getAttribute: (_t: string) => null,
+            querySelectorAll: (_s: string) => [oGia(chuODung[0]![0]!, O_TRAI), oGia([], O_PHAI)],
+          },
+        ],
+};
+const docLaiBang = docBangTuPhanTu(bangGia);
+
+dung("màn hình vẽ gì TRONG ô thì tệp đọc lại đúng thứ đó", () => {
+  assert.deepEqual(docLaiBang.chuO, [[chuODung[0]![0]!, []]]);
+  assert.deepEqual(docLaiBang.hang, [[O_TRAI, O_PHAI]]);
+});
+
+// `.docx`: mỗi đoạn một `w:r` trong CHÍNH ô đó, đọc giá trị `w:b`/`w:i`/`w:u`/
+// `w:sz`/`w:rFonts` chứ không chỉ sự có mặt của thẻ (docx LUÔN ghi `w:b` và
+// tắt bằng `w:val="false"`).
+const bangDocx = await bangThanhTable(
+  docLaiBang.hang,
+  docLaiBang.nhip,
+  docLaiBang.tiLe,
+  false, // bảng bố cục: không viền, nên không có hàng tiêu đề tô đậm cả ô
+  docLaiBang.cao,
+  docLaiBang.canLeO,
+  docLaiBang.chuO,
+);
+const oDocx = timTat(bangDocx, "w:tc");
+const runTrai = timTat(oDocx[0]!, "w:r");
+const runPhai = timTat(oDocx[1]!, "w:r");
+
+dung("ba đoạn trong một ô ra BA `w:r`, ô đồng nhất vẫn ra MỘT", () => {
+  assert.equal(runTrai.length, 3, "ô nhiều định dạng không được gộp lại một run");
+  assert.equal(runPhai.length, 1, "ô không khai gì giữ đúng một run như trước bản vá");
+});
+
+dung("chữ từng `w:r` của ô khớp từng đoạn, nối lại ra đúng chữ của ô", () => {
+  const chu = runTrai.map(
+    (r) =>
+      timTat(r, "w:t").map((wt) => (wt["root"] as unknown[]).find((x) => typeof x === "string"))[0],
+  );
+  assert.deepEqual(
+    chu,
+    chuODung[0]![0]!.map((o) => o.text),
+  );
+  assert.equal(chu.join(""), O_TRAI);
+});
+
+dung("từng `w:r` của ô mang đúng GIÁ TRỊ đậm/nghiêng/gạch/cỡ/phông của nguồn", () => {
+  assert.ok(batTat(runTrai[0]!, "w:b"), "đoạn nguồn khai đậm phải bật `w:b`");
+  assert.ok(!batTat(runTrai[1]!, "w:b"), "đoạn giữa không khai đậm phải TẮT `w:b`");
+  assert.ok(!batTat(runTrai[2]!, "w:b"));
+  assert.ok(batTat(runTrai[2]!, "w:i"), "đoạn nghiêng phải bật `w:i`");
+  assert.ok(!batTat(runTrai[0]!, "w:i"));
+  assert.equal(timTat(runTrai[2]!, "w:u").length, 1, "gạch chân nguồn phải vào tệp");
+  assert.equal(timTat(runTrai[0]!, "w:u").length, 0);
+  assert.equal(thuocTinh(timTat(runTrai[0]!, "w:sz")[0], "val"), 26);
+  assert.equal(thuocTinh(timTat(runTrai[2]!, "w:sz")[0], "val"), 28);
+  assert.equal(thuocTinh(timTat(runTrai[1]!, "w:sz")[0], "val"), 24, "không khai cỡ → cỡ bảng 24");
+  assert.equal(thuocTinh(timTat(runTrai[0]!, "w:rFonts")[0], "ascii"), "Times New Roman");
+  assert.equal(thuocTinh(timTat(runPhai[0]!, "w:rFonts")[0], "ascii"), "Times New Roman");
+});
+
+// PDF: chiều cao HÀNG phải tính theo run LỚN NHẤT của ô, không theo cỡ nền
+// của bảng. Đo THẲNG trên hình vẽ ra: khung mỗi ô là một toán tử `re` trong
+// luồng nội dung, và tham số thứ tư của nó CHÍNH LÀ chiều cao hàng (điểm, âm
+// vì vẽ xuống) — không phải một phép đếm trang gián tiếp.
+const LE_DUOI_PT = (20 / 25.4) * 72; // lề dưới 20mm, khớp `LE_PDF.duoi`
+const HE_SO_DONG = 1.3; // khớp `HE_SO_DONG_PDF`
+
+function khungOPDF(pdf: { output(k: "arraybuffer"): ArrayBuffer }): { cao: number; day: number }[] {
+  const tho = Buffer.from(pdf.output("arraybuffer")).toString("latin1");
+  const luong: string[] = [];
+  for (const m of tho.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+    try {
+      luong.push(inflateSync(Buffer.from(m[1]!, "latin1")).toString("latin1"));
+    } catch {
+      // không phải luồng Flate (nhị phân font) — bỏ qua, không phải lỗi.
+    }
+  }
+  return [...luong.join("\n").matchAll(/([\d.-]+) ([\d.-]+) ([\d.-]+) ([\d.-]+) re/g)].map((m) => ({
+    cao: Math.abs(Number(m[4])),
+    day: Number(m[2]) + Number(m[4]),
+  }));
+}
+
+const O_NGAN = "PHENIKAA";
+const CHU_O_TO: DoanChu[][][] = [
+  [[{ text: O_NGAN, inDam: true, inNghieng: false, gachChan: false, coChu: 96, phong: "" }], []],
+];
+const bangMotHang = (chuO: DoanChu[][][]) => ({
+  kind: "bang" as const,
+  hang: [[O_NGAN, O_PHAI]],
+  nhip: [],
+  tiLe: [50, 50],
+  vien: true, // CÓ viền: khung ô là thứ đo được chiều cao hàng
+  cao: [],
+  canLeO: [],
+  chuO,
+});
+const { pdf: pdfONen } = await noiDungThanhPDF(
+  { khoi: [bangMotHang([])], oKy: [] },
+  "Ô cỡ nền",
+  PHONG_PDF,
+);
+const { pdf: pdfORunTo } = await noiDungThanhPDF(
+  { khoi: [bangMotHang(CHU_O_TO)], oKy: [] },
+  "Ô run 48pt",
+  PHONG_PDF,
+);
+
+dung("PDF: hàng cao ĐỦ cho run lớn nhất của ô, không theo cỡ nền của bảng", () => {
+  const nen = Math.max(...khungOPDF(pdfONen).map((k) => k.cao));
+  const to = Math.max(...khungOPDF(pdfORunTo).map((k) => k.cao));
+  assert.ok(
+    to >= 48 * HE_SO_DONG,
+    `hàng phải cao ít nhất một dòng 48pt (${48 * HE_SO_DONG}pt), đo được ${to}pt`,
+  );
+  assert.ok(to > nen, `cùng chữ, run 48pt phải cho hàng cao hơn cỡ nền (${to} vs ${nen})`);
+});
+
+// Chiều cao VẼ RA đúng vẫn chưa đủ: `veBang` hỏi `chieuCaoHangBang` TRƯỚC khi
+// vẽ để quyết định có sang trang không. Đo hàng đó bằng cỡ nền thay vì run
+// thật thì phép đo nói "còn chỗ" trong khi hàng thật không vừa — hàng bị vẽ
+// TRÀN xuống dưới lề. Quét mọi vị trí rơi của bảng thay vì đoán một vị trí
+// "khó": chỉ một dải hẹp của chỗ trống còn lại mới lộ ra lỗi này.
+let quetTran = 0;
+let dayThapNhat = Number.POSITIVE_INFINITY;
+for (let n = 0; n <= 45; n++) {
+  const { pdf } = await noiDungThanhPDF(
+    {
+      khoi: [
+        ...Array.from({ length: n }, (_, i) => ({
+          kind: "dong" as const,
+          d: dong({ text: `Dòng nền số ${i} của phần trước bảng.` }),
+        })),
+        bangMotHang(CHU_O_TO),
+      ],
+      oKy: [],
+    },
+    "Tràn lề",
+    PHONG_PDF,
+  );
+  dayThapNhat = Math.min(dayThapNhat, ...khungOPDF(pdf).map((k) => k.day));
+  quetTran += 1;
+}
+
+dung(`PDF: không hàng nào bị vẽ tràn xuống dưới lề (${quetTran} vị trí)`, () => {
+  assert.ok(
+    dayThapNhat >= LE_DUOI_PT - 1,
+    `đáy thấp nhất ${dayThapNhat}pt phải còn trên lề dưới ${LE_DUOI_PT}pt — ` +
+      "phép đo trước khi vẽ phải tính cỡ run của ô",
+  );
 });
 
 console.log(`kiem-dinh-dang-chu: ${dat}/${dat} đạt`);
