@@ -412,6 +412,9 @@ def test_bang_theo_nhan_dung_lai_dung_luoi_tu_don_vi():
             "vien": True,
             "cao": [0, 0],
             "can_le_o": [["trai", "trai"], ["trai", "trai"]],
+            # Không đơn vị nào của `GOI_LETTERHEAD` khai `w:rPr`, nên mỗi ô
+            # không mang khoảng định dạng nào — hình dạng vẫn đi CÙNG `hang`.
+            "chu_o": [[[], []], [[], []]],
         }
     }
 
