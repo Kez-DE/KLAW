@@ -23,7 +23,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from src.services.doc_tai_lieu import DonViVanBan, NguonChu
+from src.services.doc_tai_lieu import DinhDangChu, DonViVanBan, NguonChu
 
 logger = logging.getLogger(__name__)
 
@@ -340,6 +340,51 @@ _COT_VIEC = (
 )
 
 
+def _hang_dinh_dang(r: DinhDangChu) -> dict:
+    """Một `DinhDangChu` → JSON. Bỏ mọi trường ĐANG Ở MẶC ĐỊNH: một run điển
+    hình khai đúng một thuộc tính, và ghi đủ mười khoá cho từng run của một
+    biểu mẫu vài nghìn run là nhân đôi cột `don_vi` để cất toàn số 0.
+
+    `khai` thành mảng-cặp chứ không thành object: JSON không giữ thứ tự khoá
+    như một hợp đồng, mà thứ tự ấy là thứ `_TEN_RPR` đã chốt — và một khoá
+    lặp (`w:rPr` hỏng khai hai lần) sẽ bị object nuốt mất một.
+    """
+    ra: dict[str, Any] = {"dau": r.dau, "cuoi": r.cuoi}
+    for ten in ("doan", "so", "dam", "nghieng", "gach", "co", "phong"):
+        if v := getattr(r, ten):
+            ra[ten] = v
+    if r.khai:
+        ra["khai"] = [list(k) for k in r.khai]
+    return ra
+
+
+def _dinh_dang_tu_hang(tho: Any) -> tuple[DinhDangChu, ...]:
+    """JSON → `DinhDangChu`. Một dòng lưu TRƯỚC trường này (hoặc một dòng
+    hỏng hình dạng) về `()` — "không biết định dạng gì", đúng mặc định của
+    `DonViVanBan.dinh_dang`, chứ không đoán lại từ nội dung."""
+    if not isinstance(tho, list):
+        return ()
+    ra: list[DinhDangChu] = []
+    for r in tho:
+        if not isinstance(r, dict):
+            continue
+        ra.append(
+            DinhDangChu(
+                dau=int(r.get("dau") or 0),
+                cuoi=int(r.get("cuoi") or 0),
+                doan=int(r.get("doan") or 0),
+                so=int(r.get("so") or 0),
+                dam=bool(r.get("dam")),
+                nghieng=bool(r.get("nghieng")),
+                gach=bool(r.get("gach")),
+                co=int(r.get("co") or 0),
+                phong=str(r.get("phong") or ""),
+                khai=tuple((str(k[0]), str(k[1])) for k in (r.get("khai") or ()) if len(k) == 2),
+            )
+        )
+    return tuple(ra)
+
+
 def _hang_don_vi(d: DonViVanBan) -> dict:
     return {
         "chi_so": d.chi_so,
@@ -368,6 +413,10 @@ def _hang_don_vi(d: DonViVanBan) -> dict:
         # này nếu không ghi ra — và một khối ký không viền sẽ mọc lại viền.
         "bang_vien": d.bang_vien,
         "bang_cao": d.bang_cao,
+        # Cùng lý do mọi khoá trên: định dạng chữ (`w:rPr`) đã đọc đúng từ tệp
+        # mất ngay tại ranh giới lưu/đọc này nếu không ghi ra — và một biểu
+        # mẫu in đậm quốc hiệu sẽ dựng lại thành chữ thường.
+        "dinh_dang": [_hang_dinh_dang(r) for r in d.dinh_dang],
     }
 
 
@@ -424,6 +473,7 @@ def don_vi_cua(engine: Engine, viec_id: str, user_sub: str) -> list[DonViVanBan]
             # xem `DonViVanBan.bang_vien`), không suy đoán lại từ nội dung.
             bang_vien=bool(d.get("bang_vien", True)),
             bang_cao=int(d.get("bang_cao") or 0),
+            dinh_dang=_dinh_dang_tu_hang(d.get("dinh_dang")),
         )
         for d in (r[0] or [])
     ]

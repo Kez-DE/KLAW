@@ -33,7 +33,7 @@ import threading
 import time
 import xml.etree.ElementTree as ET
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from io import BytesIO
 from math import ceil
@@ -192,6 +192,51 @@ class ChuyenDoiKhongSanSang(Exception):  # noqa: N818
 
 
 @dataclass(frozen=True)
+class DinhDangChu:
+    """Định dạng chữ của MỘT `w:r`, kèm khoảng nó chiếm trong `noi_dung`.
+
+    `[dau, cuoi)` là offset ký tự trên CHÍNH chuỗi `DonViVanBan.noi_dung` —
+    biểu diễn duy nhất giữ được `noi_dung` y nguyên (xem docstring trường
+    `DonViVanBan.dinh_dang`). Một run không có chữ (`<w:r><w:rPr><w:b/>
+    </w:rPr></w:r>`, Word sinh ra thường xuyên) có `dau == cuoi`: nó vẫn là
+    một điều tệp KHAI, chỉ không phủ ký tự nào.
+
+    `doan`/`so` là toạ độ của run trong nguồn — `doan` là `w:p` thứ mấy trong
+    ô bảng (luôn `0` với một đoạn thân bài, ở đó đơn vị LÀ đoạn), `so` là
+    `w:r` thứ mấy trong chính `w:p` đó. Giữ chúng vì đây là thứ duy nhất truy
+    ngược được một run về đúng chỗ nó đứng trong tệp, và `eval.run_trung_thuc`
+    chấm theo đúng toạ độ ấy.
+
+    `khai` là những gì `w:rPr` TRỰC TIẾP của run nói, NGUYÊN VĂN, theo thứ tự
+    `_TEN_RPR` — `("b", "")` nghĩa là `<w:b/>` (bật, OOXML mặc định),
+    `("b", "0")` nghĩa là `<w:b w:val="0"/>` (TẮT). Năm trường đã giải bên
+    trên không thay được nó: chúng đã gộp cả thừa kế từ `w:rStyle` và
+    `w:pPr/w:rPr`, nên không còn phân biệt được "tệp tự khai ở đây" với "thừa
+    kế từ chỗ khác", mà đó đúng là điều một thước đo độ trung thực phải hỏi.
+    """
+
+    dau: int
+    cuoi: int
+    doan: int = 0
+    so: int = 0
+    dam: bool = False
+    nghieng: bool = False
+    gach: bool = False
+    co: int = 0
+    """Cỡ chữ theo NỬA điểm (`w:sz`, đơn vị của chính OOXML), `0` khi không
+    khai. Giữ nguyên nửa điểm thay vì quy ra pt ở đây: `.docx` dùng lại đúng
+    đơn vị này, và chia 2 quá sớm biến 27 (13,5pt — cỡ có thật trong thể thức
+    hành chính Việt Nam) thành một số lẻ phải làm tròn hai lần."""
+    phong: str = ""
+    """Tên phông NGUỒN khai (`w:rFonts/@w:ascii`), `""` khi không khai. Giữ
+    ĐÚNG tên nguồn, không quy đổi ở đây: `.docx` tải về ghi lại chính tên này
+    (Word có phông đó, hoặc tự thay), còn màn hình mới là nơi phải ánh xạ về
+    một họ chữ thật sự có trong kho — hai câu trả lời khác nhau cho cùng một
+    sự thật, nên sự thật được giữ nguyên ở đây."""
+    khai: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True)
 class DonViVanBan:
     """Một mẩu văn bản liền mạch trong tài liệu, kèm chỗ nó nằm.
 
@@ -273,6 +318,22 @@ class DonViVanBan:
     cao TỐI THIỂU khi vẽ. `exact` nghĩa là Word CẮT phần chữ tràn ra, và cắt
     mất chữ của người dùng là hỏng tệ hơn nhiều so với một hàng cao hơn khai
     báo vài milimét.
+    """
+    dinh_dang: tuple[DinhDangChu, ...] = ()
+    """Định dạng chữ ở mức run (`w:rPr`) của đơn vị này — quyết định
+    2026-09-18, mục "định dạng chữ ở mức run".
+
+    Là một DÃY KHOẢNG trên chính `noi_dung`, không phải một chuỗi đánh dấu
+    thay cho nó: `noi_dung` vẫn là đúng chuỗi thuần trước bản vá này, ký tự
+    nào cũng ở đúng chỗ cũ, nên `neo_du_kien.xac_minh`, `normalize`,
+    `lam_sach_van_ban` và `bo_nho._vuong_luoi_chan` không hề biết trường này
+    tồn tại. Nhét thẻ định dạng vào `noi_dung` sẽ phá tất cả cùng lúc — phép
+    neo trích dẫn là bằng chứng của cả sản phẩm, không phải một chi tiết
+    trình bày đánh đổi được.
+
+    Rỗng khi nguồn không khai gì (và với mọi dòng lưu TRƯỚC trường này).
+    Khoảng KHÔNG phủ kín `noi_dung`: chỗ không có khoảng nào là chỗ tệp
+    không nói gì, và render giữ nguyên chữ thường ở đó.
     """
 
 
@@ -357,6 +418,28 @@ _TBLBORDERS = f"{{{_NS['w']}}}tblBorders"
 _TCBORDERS = f"{{{_NS['w']}}}tcBorders"
 _TRPR = f"{{{_NS['w']}}}trPr"
 _TRHEIGHT = f"{{{_NS['w']}}}trHeight"
+_R = f"{{{_NS['w']}}}r"
+_RPR = f"{{{_NS['w']}}}rPr"
+_RSTYLE = f"{{{_NS['w']}}}rStyle"
+_T = f"{{{_NS['w']}}}t"
+_VAL = f"{{{_NS['w']}}}val"
+_ASCII = f"{{{_NS['w']}}}ascii"
+
+# Năm thuộc tính `w:rPr` đọc được (quyết định 2026-09-18). Thứ tự này là thứ
+# tự `DinhDangChu.khai` ghi ra, để hai lần đọc cùng một tệp cho cùng một dãy.
+_TEN_RPR = ("b", "i", "u", "sz", "rFonts")
+
+# `w:val` của một thuộc tính BẬT/TẮT (`ST_OnOff`) nghĩa là TẮT. Thiếu tập này
+# thì `<w:b w:val="0"/>` — cách Word ghi "BỎ đậm" cho một run nằm trong một
+# kiểu vốn in đậm — đọc thành ĐẬM, và cả biểu mẫu ra màn hình đen sì (chế độ
+# hỏng đã gặp thật một lần: "mọi đoạn đều đậm").
+_TAT = {"0", "false", "off"}
+
+# `w:u` KHÔNG phải thuộc tính bật/tắt: nó mang KIỂU gạch (`single`, `dotted`,
+# `wave`…) và `none` nghĩa là không gạch. Chuỗi rỗng = `<w:u/>` không có
+# `w:val`: OOXML để mặc định kiểu gạch là `none`, nên không suy diễn thành có
+# gạch — cùng luật "chỉ đọc những gì tệp nói" của `bang_ti_le`.
+_KHONG_GACH = _TAT | {"none", ""}
 
 # `w:val` của một cạnh viền nghĩa là KHÔNG vẽ. Mọi giá trị khác (`single`,
 # `double`, `dotted`…) đều là một nét thật. Không xét `w:sz="0"`: OOXML vẫn coi
@@ -555,6 +638,192 @@ def _cao_hang(tr: ET.Element) -> int:
     return n if n > 0 else 0
 
 
+def _rpr_tho(rpr: ET.Element | None) -> dict[str, str]:
+    """`w:rPr` → `{tên thuộc tính: giá trị NGUYÊN VĂN tệp khai}`.
+
+    Khoá VẮNG MẶT nghĩa là tệp không khai thuộc tính đó ở cấp này — khác hẳn
+    khai một giá trị tắt (`w:val="0"`), và chính chỗ phân biệt ấy làm cho phép
+    xếp chồng bốn lớp ở `_dinh_dang_doan` đúng: một run không khai `w:b` phải
+    THỪA KẾ đậm từ kiểu, còn một run khai `w:b w:val="0"` phải HUỶ nó.
+
+    Giá trị `""` nghĩa là "có thẻ, không có `w:val`" (`<w:b/>` — bật, theo mặc
+    định OOXML; `<w:u/>` — không gạch, theo mặc định của chính `w:u`).
+    """
+    if rpr is None:
+        return {}
+    ra: dict[str, str] = {}
+    for ten in _TEN_RPR:
+        e = rpr.find(f"{{{_NS['w']}}}{ten}")
+        if e is None:
+            continue
+        # `w:rFonts` không có `w:val`; tên phông nằm ở `w:ascii`.
+        ra[ten] = e.get(_VAL) or (e.get(_ASCII) or "" if ten == "rFonts" else "")
+    return ra
+
+
+def _kieu_dinh_dang_chu(goc_styles: ET.Element | None) -> dict[str, dict[str, str]]:
+    """id kiểu → `w:rPr` của kiểu đó đã TRỘN hết chuỗi `w:basedOn` (con đè cha).
+
+    Trộn theo TỪNG thuộc tính, không lấy nguyên khối của kiểu đầu tiên có khai
+    như `_kieu_vien_bang` làm: một kiểu con chỉ khai `w:b` vẫn phải thừa kế cỡ
+    chữ và tên phông của kiểu cha, và lấy nguyên khối sẽ xoá mất hai thuộc
+    tính kia. Ở viền thì không có gì để trộn (một bool gộp sẵn), nên hai hàm
+    không gộp chung được dù cùng đi một chuỗi `basedOn`.
+
+    Nhận CẢ kiểu đoạn văn lẫn kiểu chữ, không lọc theo `w:type`: `w:pStyle`
+    tra vào đây cho định dạng chữ mặc định của đoạn, `w:rStyle` tra vào đây
+    cho định dạng của riêng run — hai lối tra khác nhau trên cùng một bảng.
+
+    KHÔNG đọc `w:docDefaults`: quyết định 2026-09-18 đặt phạm vi ở chuỗi
+    `w:rStyle`/`w:basedOn` và `w:pPr/w:rPr`. Hệ quả nhận rõ — một tài liệu chỉ
+    khai cỡ chữ ở `docDefaults` sẽ đọc ra "không khai cỡ", và render giữ cỡ
+    mặc định của chính nó.
+    """
+    if goc_styles is None:
+        return {}
+    truc_tiep: dict[str, dict[str, str]] = {}
+    cha: dict[str, str] = {}
+    for st in goc_styles.findall(_STYLE):
+        sid = st.get(f"{{{_NS['w']}}}styleId")
+        if not sid:
+            continue
+        b = st.find(_BASEDON)
+        if b is not None and (v := b.get(_VAL)):
+            cha[sid] = v
+        truc_tiep[sid] = _rpr_tho(st.find(_RPR))
+
+    def _giai(sid: str | None, di_qua: frozenset[str]) -> dict[str, str]:
+        if sid is None or sid in di_qua or sid not in truc_tiep:
+            return {}
+        return {**_giai(cha.get(sid), di_qua | {sid}), **truc_tiep[sid]}
+
+    return {sid: v for sid in truc_tiep if (v := _giai(sid, frozenset()))}
+
+
+def _bat(v: str | None) -> bool:
+    """Một thuộc tính bật/tắt OOXML: có khai và KHÔNG mang giá trị tắt."""
+    return v is not None and v not in _TAT
+
+
+def _nua_diem(v: str | None) -> int:
+    """`w:sz/@w:val` → nửa điểm, `0` khi không khai hoặc khai thứ không đọc ra
+    số (giữ nguyên luật `_cao_hang`: giá trị lạ đọc thành "không khai")."""
+    try:
+        n = int(v or "0")
+    except ValueError:
+        return 0
+    return n if n > 0 else 0
+
+
+def _vi_tri_chu(p: ET.Element) -> tuple[dict[int, tuple[int, int]], str]:
+    """Mỗi `w:t` dưới `p` → khoảng nó chiếm trong chuỗi nối CHƯA cắt khoảng
+    trắng, kèm chính chuỗi đó — cùng phép nối `_chu` dùng, để offset trả về
+    đúng trên `_chu(p)` sau khi trừ phần `strip()` cắt đi."""
+    vi: dict[int, tuple[int, int]] = {}
+    phan: list[str] = []
+    n = 0
+    for t in p.iter(_T):
+        s = t.text or ""
+        vi[id(t)] = (n, n + len(s))
+        n += len(s)
+        phan.append(s)
+    return vi, "".join(phan)
+
+
+def _dinh_dang_doan(p: ET.Element, kieu_chu: dict[str, dict[str, str]], doan: int = 0) -> tuple[DinhDangChu, ...]:
+    """Định dạng từng `w:r` của một `w:p`, offset tính trên đúng `_chu(p)`.
+
+    BỐN lớp xếp chồng, lớp sau đè lớp trước — đúng thứ tự Word áp dụng:
+    kiểu đoạn văn (`w:pPr/w:pStyle`), định dạng chữ của chính đoạn
+    (`w:pPr/w:rPr`), kiểu chữ của run (`w:rPr/w:rStyle`), rồi `w:rPr` trực
+    tiếp. Đọc thẳng `w:rPr` và bỏ ba lớp kia là đọc một biểu mẫu lấy chữ đậm
+    TỪ KIỂU thành chữ thường — nó không khai `w:b` ở đâu trong `document.xml`
+    cả, đúng cách `_can_le_doan` đã phải giải `w:pStyle` cho `w:jc`.
+
+    `so` đếm theo `w:r` con TRỰC TIẾP của `w:p`. Chữ trong một `w:hyperlink`
+    hay `w:smartTag` vẫn vào `noi_dung` (`_chu` duyệt `iter`), nhưng run của
+    nó không được đánh số ở đây — nó không phải một `w:r` của đoạn này, và
+    đánh số nó vào giữa dãy sẽ làm mọi run sau trỏ sai chỗ.
+
+    Bỏ những run KHÔNG nói gì (không khai gì, không thừa kế gì): chúng là phần
+    lớn số run của một tài liệu, và giữ lại chỉ làm biểu diễn phình ra mà
+    không thêm một sự thật nào.
+    """
+    vi, tho = _vi_tri_chu(p)
+    lech = len(tho) - len(tho.lstrip())
+    het = len(tho.strip())
+
+    def _ke(x: int) -> int:
+        return min(max(x - lech, 0), het)
+
+    nen: dict[str, str] = {}
+    if (ppr := p.find(_PPR)) is not None:
+        kieu = ppr.find(_PSTYLE)
+        sid = kieu.get(_VAL) if kieu is not None else None
+        nen = {**kieu_chu.get(sid or "", {}), **_rpr_tho(ppr.find(_RPR))}
+
+    ra: list[DinhDangChu] = []
+    cuoi_truoc = 0
+    so = 0
+    for con in p:
+        # Tính khoảng cho MỌI con (kể cả `w:hyperlink`) trước khi bỏ qua nó:
+        # con trỏ chữ phải đi qua chúng, nếu không mọi run sau sẽ lệch.
+        if ts := list(con.iter(_T)):
+            dau, cuoi = vi[id(ts[0])][0], vi[id(ts[-1])][1]
+            cuoi_truoc = max(cuoi_truoc, cuoi)
+        else:
+            dau = cuoi = cuoi_truoc
+        if con.tag != _R:
+            continue
+        rpr = con.find(_RPR)
+        rs = rpr.find(_RSTYLE) if rpr is not None else None
+        khai = _rpr_tho(rpr)
+        gop = {**nen, **kieu_chu.get((rs.get(_VAL) or "") if rs is not None else "", {}), **khai}
+        dam, nghieng = _bat(gop.get("b")), _bat(gop.get("i"))
+        gach = (u := gop.get("u")) is not None and u not in _KHONG_GACH
+        co, phong = _nua_diem(gop.get("sz")), gop.get("rFonts") or ""
+        if khai or dam or nghieng or gach or co or phong:
+            ra.append(
+                DinhDangChu(
+                    dau=_ke(dau),
+                    cuoi=_ke(cuoi),
+                    doan=doan,
+                    so=so,
+                    dam=dam,
+                    nghieng=nghieng,
+                    gach=gach,
+                    co=co,
+                    phong=phong,
+                    khai=tuple((ten, khai[ten]) for ten in _TEN_RPR if ten in khai),
+                )
+            )
+        so += 1
+    return tuple(ra)
+
+
+def _chu_va_dinh_dang_o(tc: ET.Element, kieu_chu: dict[str, dict[str, str]]) -> tuple[str, tuple[DinhDangChu, ...]]:
+    """Chữ của một ô bảng và định dạng run của nó, offset dịch về chuỗi ô.
+
+    Chữ ô là các `w:p` trong ô nối bằng MỘT dấu cách (`_duyet_than`), nên mỗi
+    đoạn góp một đoạn offset riêng. Đoạn RỖNG chữ không góp chữ và không góp
+    dấu cách, nhưng run của nó vẫn được giữ: một `w:p` rỗng khai `w:rPr` là
+    một điều tệp nói, và `doan` vẫn đếm nó để toạ độ khớp với nguồn.
+    """
+    phan: list[str] = []
+    ra: list[DinhDangChu] = []
+    n = 0
+    for j, p in enumerate(tc.iter(_P)):
+        x = _chu(p)
+        goc = n + (1 if phan and x else 0)
+        ra.extend(replace(r, dau=r.dau + goc, cuoi=r.cuoi + goc) for r in _dinh_dang_doan(p, kieu_chu, j))
+        if x:
+            if phan:
+                n += 1
+            phan.append(x)
+            n += len(x)
+    return " ".join(phan), tuple(ra)
+
+
 def _kiem_zip(z: zipfile.ZipFile) -> None:
     """Phanh zip bom, chạy TRƯỚC khi đọc bất kỳ mục nào — xem `TRAN_SO_MUC_ZIP`."""
     muc = z.infolist()
@@ -594,20 +863,31 @@ def _chu(nut: ET.Element) -> str:
     return "".join(t.text or "" for t in nut.iter(f"{{{_NS['w']}}}t")).strip()
 
 
-def _duyet_phang(goc: ET.Element, vung: str, theo_kieu: dict[str, str] | None = None) -> list[tuple]:
+def _duyet_phang(
+    goc: ET.Element,
+    vung: str,
+    theo_kieu: dict[str, str] | None = None,
+    kieu_chu: dict[str, dict[str, str]] | None = None,
+) -> list[tuple]:
     """Mọi `w:p` theo thứ tự tài liệu, KHÔNG toạ độ bảng.
 
     Vừa là đường lùi của thân bài, vừa là đường duy nhất cho đầu/chân trang —
     ở đó một `w:p` là một dòng và không có gì để định vị thêm.
     """
     tk = theo_kieu or {}
-    return [(None, c, None, vung, None, _can_le_doan(p, tk)) for p in goc.iter(_P) if (c := _chu(p))]
+    kc = kieu_chu or {}
+    return [
+        (None, c, None, vung, None, _can_le_doan(p, tk), _dinh_dang_doan(p, kc))
+        for p in goc.iter(_P)
+        if (c := _chu(p))
+    ]
 
 
 def _duyet_than(
     goc: ET.Element,
     theo_kieu: dict[str, str] | None = None,
     vien_kieu: dict[str, bool] | None = None,
+    kieu_chu: dict[str, dict[str, str]] | None = None,
 ) -> list[tuple]:
     """Con trực tiếp của `w:body` theo thứ tự: `w:p` là một đơn vị, `w:tbl` cho
     một đơn vị mỗi ô kèm toạ độ (bảng, hàng, cột).
@@ -632,12 +912,13 @@ def _duyet_than(
         return []
     tk = theo_kieu or {}
     vk = vien_kieu or {}
+    kc = kieu_chu or {}
     ra: list[tuple] = []
     so_bang = 0
     for con in than:
         if con.tag == _P:
             if chu := _chu(con):
-                ra.append((None, chu, None, "than", None, _can_le_doan(con, tk)))
+                ra.append((None, chu, None, "than", None, _can_le_doan(con, tk), _dinh_dang_doan(con, kc)))
         elif con.tag == _TBL:
             ti_le = _ti_le_luoi(con)
             vien = _vien_bang(con, vk)
@@ -657,13 +938,13 @@ def _duyet_than(
                     # hàng dựng lại). Ô rỗng CŨNG là ý nghĩa của biểu mẫu —
                     # cùng nguyên tắc dấu chấm điền của một dòng trường tự do,
                     # chỉ khác hình dạng (một Ô thay vì một cụm ký tự).
-                    chu = " ".join(x for p in tc.iter(_P) if (x := _chu(p)))
+                    chu, dinh_dang = _chu_va_dinh_dang_o(tc, kc)
                     # Căn lề của Ô lấy từ ĐOẠN VĂN ĐẦU của chính ô đó — một
                     # ô có thể có nhiều `w:p` lồng, nhưng căn lề hiển thị
                     # là của dòng đầu tiên người đọc thấy.
                     can_le = _can_le_doan(tc.find(_P), tk)
                     ra.append(
-                        (None, chu, None, "than", (so_bang, h, c), can_le, nhip, ti_le, vien, cao)
+                        (None, chu, None, "than", (so_bang, h, c), can_le, dinh_dang, nhip, ti_le, vien, cao)
                     )
             so_bang += 1
     return ra
@@ -688,6 +969,7 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
             # không.
             theo_kieu: dict[str, str] = {}
             vien_kieu: dict[str, bool] = {}
+            kieu_chu: dict[str, dict[str, str]] = {}
             if "word/styles.xml" in z.namelist():
                 try:
                     goc_kieu = _goc_xml(z.read("word/styles.xml"), "word/styles.xml")
@@ -698,7 +980,10 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
                     # Viền theo KIỂU bảng (`TableGrid`) — mất nó thì một bảng
                     # có viền đọc thành không viền, xem `_kieu_vien_bang`.
                     vien_kieu = _kieu_vien_bang(goc_kieu)
-            than = _duyet_than(goc, theo_kieu, vien_kieu)
+                    # Định dạng chữ theo KIỂU — mất nó thì một biểu mẫu in đậm
+                    # bằng kiểu đọc ra chữ thường, xem `_kieu_dinh_dang_chu`.
+                    kieu_chu = _kieu_dinh_dang_chu(goc_kieu)
+            than = _duyet_than(goc, theo_kieu, vien_kieu, kieu_chu)
             # Thước đo để lùi về là TỔNG chữ `w:t` của thân, KHÔNG phải duyệt
             # phẳng: duyệt phẳng đếm hai lần chữ trong hộp chữ (một `w:p` lồng
             # trong `w:p`), và với thước đó cấu trúc luôn "thua". Đo 2026-09-16
@@ -706,12 +991,12 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
             nut_than = goc.find(_BODY)
             tong = _tong_chu(nut_than) if nut_than is not None else 0
             if sum(len(t[1]) for t in than) < 0.9 * tong:
-                than = _duyet_phang(goc, "than", theo_kieu)
+                than = _duyet_phang(goc, "than", theo_kieu, kieu_chu)
 
             ra = list(than)
             for tien_to, vung in (("word/header", "dau_trang"), ("word/footer", "chan_trang")):
                 for ten in sorted(n for n in z.namelist() if n.startswith(tien_to) and n.endswith(".xml")):
-                    ra.extend(_duyet_phang(_goc_xml(z.read(ten), ten), vung, theo_kieu))
+                    ra.extend(_duyet_phang(_goc_xml(z.read(ten), ten), vung, theo_kieu, kieu_chu))
             return ra
     except KeyError as e:
         raise KhongDocDuoc(LoaiHong.tep_hong, "thiếu word/document.xml") from e
@@ -998,13 +1283,19 @@ def _doc_pdf(du_lieu: bytes) -> list[tuple[int | None, str]]:
 def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
     """Gán `trang`, `offset_dau` và nguồn chữ cho từng đơn vị.
 
-    Nhận cả năm hình dạng: `(trang, noi_dung)` từ nhánh đọc chữ thật,
+    Nhận cả sáu hình dạng: `(trang, noi_dung)` từ nhánh đọc chữ thật,
     `(trang, noi_dung, do_tin)` từ nhánh OCR,
     `(trang, noi_dung, do_tin, vung, bang)` từ DOCX trước Phase 9,
     `(trang, noi_dung, do_tin, vung, bang, can_le)` từ DOCX có căn lề (Phase 9
-    U5), và `(…, can_le, bang_nhip, bang_ti_le, bang_vien, bang_cao)` từ một
-    Ô BẢNG. Có `do_tin` nghĩa là máy đang đoán, nên đơn vị đó mang nhãn
-    `ocr`.
+    U5), `(…, can_le, dinh_dang)` từ một đoạn DOCX có định dạng chữ
+    (2026-09-18), và `(…, dinh_dang, bang_nhip, bang_ti_le, bang_vien,
+    bang_cao)` từ một Ô BẢNG. Có `do_tin` nghĩa là máy đang đoán, nên đơn vị
+    đó mang nhãn `ocr`.
+
+    `dinh_dang` chèn vào giữa (sau `can_le`) chứ không nối vào cuối: đoạn văn
+    thân bài khi đó chỉ cần 7 phần tử thay vì 11 phần tử toàn giá trị mặc
+    định. Cả hai nơi dựng tuple (`_duyet_than`, `_duyet_phang`) đổi cùng lúc
+    với hàm này, nên không có hình dạng cũ nào còn chạy qua đây.
 
     PDF đã biết trang thật. DOCX chưa, nên trang được suy ra từ số ký tự đã đi
     qua — xem ghi chú ở `KY_TU_MOI_TRANG`.
@@ -1021,10 +1312,11 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
         vung = muc[3] if len(muc) > 3 else "than"
         bang = muc[4] if len(muc) > 4 else None
         can_le = muc[5] if len(muc) > 5 else "trai"
-        bang_nhip = muc[6] if len(muc) > 6 else 1
-        bang_ti_le = muc[7] if len(muc) > 7 else ()
-        bang_vien = muc[8] if len(muc) > 8 else True
-        bang_cao = muc[9] if len(muc) > 9 else 0
+        dinh_dang = muc[6] if len(muc) > 6 else ()
+        bang_nhip = muc[7] if len(muc) > 7 else 1
+        bang_ti_le = muc[8] if len(muc) > 8 else ()
+        bang_vien = muc[9] if len(muc) > 9 else True
+        bang_cao = muc[10] if len(muc) > 10 else 0
         if trang is None:
             trang = 1 + da_di // KY_TU_MOI_TRANG
         if trang != trang_hien:
@@ -1044,6 +1336,7 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
                 bang_ti_le=bang_ti_le,
                 bang_vien=bang_vien,
                 bang_cao=bang_cao,
+                dinh_dang=dinh_dang,
             )
         )
         offset += len(noi_dung) + 1   # +1 cho dấu xuống dòng giữa hai đơn vị
