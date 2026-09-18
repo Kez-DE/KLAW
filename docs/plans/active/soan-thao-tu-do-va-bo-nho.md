@@ -139,6 +139,27 @@ file is the part that has to outlive them.
       and `lam_sach_van_ban(cam=…)` replaces any remembered value the turn did
       not ask for with `[…]` before it can become a clause.
 
+- [x] Phase 12 part B review round — reviewed FIX FIRST on three HIGH findings,
+      each reproduced before and after the fix (`5452a92`, `139d7b5`,
+      `3e336d2`), merged as `45bd024`. What it caught: a remembered value
+      reached the document through `truong[]`, bypassing the block and landing
+      in `du_kien_tai_lieu` as well; the block itself deleted ordinary
+      Vietnamese prose, so a remembered `nganh = "Luật"` turned "tuân thủ Bộ
+      luật Lao động" into "Bộ […] Lao động" and a `xung_ho` of "em" gutted every
+      sentence opening with it; and both the extractor and the "did the user
+      ask" gate read `cau_hoi_day_du`, the model's own restatement, so a third
+      party's name from earlier in the conversation overwrote the account's own
+      and unlocked autofill. Two more: a pasted form stored every label line as
+      a fact about the account, and a failed memory write logged the value
+      through SQLAlchemy's `[parameters: …]`.
+- [ ] Phase 12 follow-ups, deliberately not blocking the merge: the memory block
+      is built for every `hieu_tai_lieu` turn including pure reading ones, whose
+      output never passes the block pass, so a summary answer can name the
+      remembered person unprompted; `_bo_qua_cache` does not list account memory
+      as a state input (latent — unreachable while drafting results are never
+      cached, a cross-account leak the day one is); and one-word labels (`lop`,
+      `nganh`, `van_phong`) count as "asked" from any sentence containing them.
+
 ## Risks And Recovery
 
 - **The one guarantee this work must not weaken** is that a citation is
