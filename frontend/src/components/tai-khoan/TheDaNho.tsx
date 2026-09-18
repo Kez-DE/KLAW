@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { layDaNho, xoaDaNho, xoaHetDaNho } from "@/lib/api";
+import { useTaiKhoan } from "@/contexts/tai-khoan";
 import type { ApiResult, DanhSachDaNho } from "@/lib/klaw";
 
 /**
@@ -13,16 +14,26 @@ import type { ApiResult, DanhSachDaNho } from "@/lib/klaw";
  * thoại trình duyệt chặn tự động hoá và không theo giao diện.
  */
 export function TheDaNho() {
+  // `/tai-khoan` đẩy khách về trang đăng nhập trong một `useEffect`, tức SAU khi
+  // cây đã gắn: hỏi máy chủ ngay lúc gắn thì khách nhận 401 và kịp đọc một câu
+  // báo lỗi trước khi trang chuyển. Chờ đúng tín hiệu vỏ trang dùng.
+  const { daDangNhap } = useTaiKhoan();
   const [ds, datDs] = useState<DanhSachDaNho | null>(null);
   const [loi, datLoi] = useState<string | null>(null);
   const [loiHanhDong, datLoiHanhDong] = useState<string | null>(null);
   const [xacNhanXoaHet, datXacNhanXoaHet] = useState(false);
   const nap = () => {
-    void layDaNho().then((kq) =>
-      kq.ok ? datDs(kq.data) : datLoi("Tôi chưa đọc được những điều KLAW đã nhớ về bạn."),
-    );
+    if (!daDangNhap) return;
+    void layDaNho().then((kq) => {
+      if (kq.ok) {
+        datDs(kq.data);
+        // Xoá luôn câu báo lỗi cũ: một lần hỏng tạm thời (mạng chập một nhịp)
+        // không được giết thẻ tới hết đời trang khi lần nạp sau đã thành công.
+        datLoi(null);
+      } else datLoi("Tôi chưa đọc được những điều KLAW đã nhớ về bạn.");
+    });
   };
-  useEffect(nap, []);
+  useEffect(nap, [daDangNhap]);
   if (loi !== null)
     return (
       <p role="status" className="mt-6 text-[13px] text-muted-foreground">
