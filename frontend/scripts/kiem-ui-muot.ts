@@ -8,7 +8,12 @@
  *   3. `muc` được memo — một lượt render lại vì prop không liên quan không
  *      tính lại `mucTuBanThao` (R3);
  *   4. một lượt lưu hỏng để lại dấu thấy được trên ĐÚNG khối đó và đưa tiêu
- *      điểm về đó (R5).
+ *      điểm về đó (R5);
+ *   5. bảng nguồn KHÔNG viền ra bố cục (không <th> giả, không lớp viền, căn
+ *      lề và chiều cao hàng của nguồn có mặt trên DOM), bảng CÓ viền không
+ *      đổi gì. Ở đây vì khung DOM giả + `runnerImport` của tệp này là chỗ
+ *      DUY NHẤT trong repo render được một component thật — dựng khung thứ
+ *      hai chỉ để kiểm một bảng là chép lại 250 dòng DOM giả.
  *
  * Không có `jsdom` trong repo (xem `kiem-toast.ts`) và Node không đọc `.tsx`,
  * nên script này (1) mượn `runnerImport` của Vite — cùng bộ biên dịch và alias
@@ -337,6 +342,9 @@ const MUC: Muc[] = [
           [1, 1],
         ],
         tiLe: [50, 50],
+        vien: true,
+        cao: [],
+        canLeO: [],
       },
     ],
   },
@@ -384,14 +392,17 @@ assert.match(
   "viền lỗi phải theo `aria-invalid`",
 );
 
-// R9 — ghi chú "chưa sửa được" nối với bảng bằng `aria-describedby`.
+// Ghi chú "chưa sửa trực tiếp được" đã bị bỏ (chủ dự án, 2026-09-18) — nó
+// lặp lại trên MỖI bảng và chen giữa hai khối của chính văn bản. Khoá lại là
+// KHÔNG còn: một ghi chú đã bỏ mà mọc lại vẫn là lỗi.
 const bang = tim(khungSua, (n) => n.tagName === "TABLE");
 assert.ok(bang !== null);
-const idChuThich = bang.getAttribute("aria-describedby");
-assert.ok(idChuThich, "bảng phải trỏ `aria-describedby` tới ghi chú 'chưa sửa được'");
-const chuThich = tim(khungSua, (n) => n.getAttribute("id") === idChuThich);
-assert.ok(chuThich !== null, `không có phần tử nào mang id="${idChuThich}"`);
-assert.match(chuThich.textContent, /chưa sửa trực tiếp được/);
+assert.equal(bang.getAttribute("aria-describedby"), null, "bảng không còn trỏ tới ghi chú nào");
+assert.equal(
+  tim(khungSua, (n) => /chưa sửa trực tiếp được/.test(n.nodeValue ?? "")),
+  null,
+  "ghi chú 'bảng chưa sửa trực tiếp được' phải biến mất khỏi trang",
+);
 
 // Chỉ đọc (không `onSuaKhoi`): không khối nào gõ được, không role textbox.
 const { onSuaKhoi: _boQua1, phienBan: _boQua2, ...propsDoc } = propsSua;
@@ -505,4 +516,101 @@ await act(() => {
 });
 assert.equal(demMucTuBanThao, 2, "`banThao` đổi → tính lại `muc` đúng một lần");
 
-console.log("kiem-ui-muot: 30/30 OK");
+// ───────── 5. bảng nguồn KHÔNG viền ra bố cục, bảng CÓ viền vẫn ra bảng ────
+//
+// Biểu mẫu tiếng Việt xếp cột bằng bảng không viền (letterhead, khối ký). Đo
+// trên BM.ĐT.18.05/BM.ĐT.18.03 (2026-09-18): hai bảng đó không khai viền nào,
+// ô căn `w:jc="center"`, hàng ký khai `w:trHeight` 1499/1845 twip. Kiểm trên
+// CHÍNH component đã biên dịch: thuộc tính `data-*` mà `docBangTuPhanTu` sẽ
+// đọc lại khi xuất tệp phải có mặt trên DOM, nếu không thì màn hình và tệp
+// tải về nói hai điều khác nhau.
+function timTatNut(n: Nut, ok: (x: Nut) => boolean): Nut[] {
+  const ra: Nut[] = ok(n) ? [n] : [];
+  for (const c of n.childNodes) ra.push(...timTatNut(c, ok));
+  return ra;
+}
+const mucBang = (vien: boolean): Muc[] => [
+  {
+    stt: 1,
+    key: "ky",
+    ten: "Khối ký",
+    tenThat: true,
+    noiDung: "",
+    bang: null,
+    vung: "than",
+    canCu: null,
+    khoi: [
+      {
+        kind: "bang",
+        hang: [["Giảng viên hướng dẫn", "Sinh viên thực tập"]],
+        nhip: [[1, 1]],
+        tiLe: [50, 50],
+        vien,
+        cao: [1499],
+        canLeO: [["giua", "giua"]],
+      },
+    ],
+  },
+];
+const propsBang = {
+  tieuDe: "Kế hoạch thực tập",
+  kyHieu: null,
+  thuPhong: 100,
+  hienCanCu: false,
+  laTongQuat: true,
+  onChonMuc: () => {},
+};
+
+const { khung: khungKhongVien, root: rootKhongVien } = taoRoot();
+await act(() => {
+  rootKhongVien.render(h(XemTruocA4, { ...propsBang, muc: mucBang(false) }));
+});
+const bangKhongVien = tim(khungKhongVien, (n) => n.tagName === "TABLE");
+assert.ok(bangKhongVien !== null, "khối bảng vẫn render ra một <table> thật");
+assert.equal(
+  bangKhongVien.getAttribute("data-vien"),
+  "khong",
+  "bảng nguồn không viền phải mang dấu `data-vien` để lúc xuất tệp đọc lại được",
+);
+assert.equal(
+  timTatNut(khungKhongVien, (n) => n.tagName === "TH").length,
+  0,
+  "không có hàng tiêu đề GIẢ: bảng bố cục không có <th> nào",
+);
+const oKhongVien = timTatNut(khungKhongVien, (n) => n.tagName === "TD");
+assert.equal(oKhongVien.length, 2, "hai cột ký đứng cạnh nhau, đủ hai ô");
+for (const o of oKhongVien) {
+  const lop = o.getAttribute("class") ?? "";
+  assert.ok(!lop.includes("border"), `ô bảng bố cục không được có lớp viền (thấy: ${lop})`);
+  assert.ok(lop.includes("text-center"), "ô giữ căn lề NGUỒN của nó (giua → text-center)");
+  assert.equal(o.getAttribute("data-can-le"), "giua", "căn lề phải đọc lại được lúc xuất tệp");
+}
+const hangKhongVien = tim(khungKhongVien, (n) => n.tagName === "TR");
+assert.equal(
+  hangKhongVien?.getAttribute("data-cao"),
+  "1499",
+  "chiều cao khai báo của hàng ký phải đọc lại được lúc xuất tệp",
+);
+assert.equal(
+  hangKhongVien?.style["height"],
+  `${1499 / 20}pt`,
+  "chiều cao khai báo phải thành chỗ trống THẬT trên trang, không chỉ một thuộc tính",
+);
+
+const { khung: khungCoVien, root: rootCoVien } = taoRoot();
+await act(() => {
+  rootCoVien.render(h(XemTruocA4, { ...propsBang, muc: mucBang(true) }));
+});
+assert.equal(
+  tim(khungCoVien, (n) => n.tagName === "TABLE")?.getAttribute("data-vien"),
+  null,
+  "bảng CÓ viền không mang dấu nào — hành vi cũ không đổi",
+);
+const oTieuDeCoVien = timTatNut(khungCoVien, (n) => n.tagName === "TH");
+assert.equal(oTieuDeCoVien.length, 2, "bảng có viền vẫn giữ hàng tiêu đề <th>");
+assert.ok(
+  (oTieuDeCoVien[0]?.getAttribute("class") ?? "").includes("border"),
+  "bảng có viền vẫn kẻ khung như trước bản vá",
+);
+
+console.log("kiem-ui-muot: 44/44 OK");
