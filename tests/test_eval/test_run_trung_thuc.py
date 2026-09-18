@@ -5,14 +5,19 @@ là ĐẦU RA (bị .gitignore), nên một máy vừa clone về không có t�
 xanh vì không đo gì. Quan trọng hơn: cả tập mẫu hiện có chỉ khai `w:p`/`w:tbl`,
 không tệp nào khai đường viền, chiều cao hàng, `w:rPr`, lề trang hay ảnh — đo
 trên chúng thì sáu mục "CHƯA CÀI" ăn 0 mà không ai chứng minh được là tại bộ
-đọc chứ không phải tại nguồn im lặng. Tệp dưới đây khai ĐỦ CẢ TÁM MỤC, nên mỗi
+đọc chứ không phải tại nguồn im lặng. Tệp dưới đây khai ĐỦ CẢ MƯỜI MỤC, nên mỗi
 số 0 là một lời khẳng định có bằng chứng.
 
-Hai thứ test này gác:
-* điểm của mục đã cài không tụt (cấu trúc, căn lề đang 100%);
+Ba thứ test này gác:
+* điểm của mục đã cài không tụt (cấu trúc, căn lề, có-nét-hay-không của bảng và
+  chiều cao hàng đang 100%);
 * danh sách mục CHƯA CÀI không đổi lặng lẽ — cài xong một mục thì test này ĐỎ,
   và người cài phải sửa con số ở đây. Đó chính là điều muốn: một cái thước đổi
-  giá trị mà không ai ký tên thì không gác được gì.
+  giá trị mà không ai ký tên thì không gác được gì;
+* `vien_bang_co_net` phân biệt đúng HAI ca render làm được — bảng bố cục khai
+  `nil` với bảng lấy viền từ `w:tblStyle` — vì đó là chỗ duy nhất chân lý phải
+  tự đi chuỗi `w:basedOn`, và đi sai thì thước trừ điểm một câu bộ đọc trả lời
+  đúng.
 """
 
 import zipfile
@@ -21,11 +26,11 @@ from pathlib import Path
 
 import pytest
 
-from eval.run_trung_thuc import chay
+from eval.run_trung_thuc import chay, dac_ta_nguon
 
 _NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 
-# Một trang giấy tí hon nhưng khai đủ tám mục: đoạn căn giữa in đậm có giãn
+# Một trang giấy tí hon nhưng khai đủ mười mục: đoạn căn giữa in đậm có giãn
 # cách và thụt lề, một bảng hai cột có lưới + viền + chiều cao hàng + ô căn
 # phải + ô gộp hai cột, lề trang, và một tấm ảnh nhúng.
 _THAN = (
@@ -45,19 +50,28 @@ _THAN = (
     '<w:sectPr><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1701"/></w:sectPr>'
 )
 
-# Mục → (số dữ kiện nguồn KHAI, điểm hôm nay). Nguồn khai > 0 ở CẢ TÁM mục:
+# Mục → (số dữ kiện nguồn KHAI, điểm hôm nay). Nguồn khai > 0 ở CẢ MƯỜI mục:
 # một số 0 chỉ có nghĩa khi bên kia thật sự có gì để đo.
 _HOM_NAY = {
     "cau_truc": (6, 1.0),
-    "vien_bang": (3, 0.0),
-    "chieu_cao_hang": (1, 0.0),
+    "vien_bang_co_net": (1, 1.0),
+    "vien_bang_tung_canh": (3, 0.0),
+    "chieu_cao_hang": (1, 1.0),
+    "chieu_cao_hang_hrule": (1, 0.0),
     "can_le": (2, 1.0),
     "dinh_dang_run": (2, 0.0),
     "gian_cach_thut_le": (3, 0.0),
     "le_trang": (4, 0.0),
     "media": (2, 0.0),
 }
-_CHUA_CAI = {"dinh_dang_run", "gian_cach_thut_le", "le_trang", "media"}
+_CHUA_CAI = {
+    "vien_bang_tung_canh",
+    "chieu_cao_hang_hrule",
+    "dinh_dang_run",
+    "gian_cach_thut_le",
+    "le_trang",
+    "media",
+}
 
 
 def _docx(duong: Path) -> Path:
@@ -78,7 +92,7 @@ def test_diem_tung_muc_KHONG_TUT_va_muc_chua_cai_KHONG_DOI_LANG_LE(tmp_path):
     for ten, (khai, diem) in _HOM_NAY.items():
         assert muc[ten]["khai"] == khai, f"{ten}: nguồn khai khác trước — tệp mẫu đổi thì mọi số dưới đây vô nghĩa"
         assert muc[ten]["diem"] == pytest.approx(diem), ten
-    assert ket["tong"] == pytest.approx(2 / 8)
+    assert ket["tong"] == pytest.approx(4 / 10)
 
 
 def test_MAT_TOA_DO_BANG_thi_diem_cau_truc_TUT(tmp_path):
@@ -100,3 +114,47 @@ def test_MAT_TOA_DO_BANG_thi_diem_cau_truc_TUT(tmp_path):
     hong.write_bytes(buf.getvalue())
 
     assert chay([hong])["tong_hop"]["cau_truc"]["diem"] < 1.0
+
+
+# `TableGrid` KHÔNG khai viền nào trong `document.xml` — chỉ `w:tblStyle`, và ở
+# đây còn qua một chặng `w:basedOn` nữa. Chân lý phải tự đi chuỗi đó, vì bỏ nó
+# thì bảng có viền đọc thành không viền và bộ đọc bị trừ điểm oan.
+_STYLES = (
+    f"<w:styles {_NS}>"
+    '<w:style w:type="table" w:styleId="TableGrid"><w:tblPr><w:tblBorders>'
+    '<w:top w:val="single" w:sz="4"/><w:insideH w:val="single" w:sz="4"/>'
+    "</w:tblBorders></w:tblPr></w:style>"
+    '<w:style w:type="table" w:styleId="BangCon"><w:basedOn w:val="TableGrid"/></w:style>'
+    "</w:styles>"
+)
+
+# Hai ca DUY NHẤT mà ba nơi vẽ bảng phân biệt được: bảng bố cục khai `nil`
+# (khối quốc hiệu, ô ký) và bảng lấy viền từ kiểu.
+_HAI_BANG = (
+    '<w:tbl><w:tblPr><w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/>'
+    '<w:bottom w:val="nil"/><w:right w:val="nil"/></w:tblBorders></w:tblPr>'
+    "<w:tr><w:tc><w:p><w:r><w:t>BỘ GIÁO DỤC VÀ ĐÀO TẠO</w:t></w:r></w:p></w:tc>"
+    "<w:tc><w:p><w:r><w:t>CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</w:t></w:r></w:p></w:tc></w:tr></w:tbl>"
+    '<w:tbl><w:tblPr><w:tblStyle w:val="BangCon"/></w:tblPr>'
+    "<w:tr><w:tc><w:p><w:r><w:t>STT</w:t></w:r></w:p></w:tc>"
+    "<w:tc><w:p><w:r><w:t>Nội dung</w:t></w:r></w:p></w:tc></w:tr></w:tbl>"
+)
+
+
+def test_VIEN_CO_NET_phan_biet_bang_BO_CUC_voi_bang_lay_vien_TU_KIEU(tmp_path):
+    """Mục đo được của viền chỉ đáng tin khi nó trả lời KHÁC NHAU cho hai ca —
+    `nil` và `w:tblStyle` — mà cả ba nơi vẽ bảng thật sự phân biệt được."""
+    duong = tmp_path / "hai-kieu-vien.docx"
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("[Content_Types].xml", '<?xml version="1.0"?><Types/>')
+        z.writestr("word/document.xml", f"<w:document {_NS}><w:body>{_HAI_BANG}</w:body></w:document>")
+        z.writestr("word/styles.xml", _STYLES)
+    duong.write_bytes(buf.getvalue())
+
+    # Chốt CHÂN LÝ trước: "khớp 2/2" của hai bảng cùng một giá trị chỉ là đoán
+    # trúng một hằng số hai lần.
+    assert dac_ta_nguon(duong.read_bytes())["vien_bang_co_net"] == {"bang0": "khong", "bang1": "co"}
+
+    muc = chay([duong])["tong_hop"]["vien_bang_co_net"]
+    assert (muc["khai"], muc["khop"]) == (2, 2)
