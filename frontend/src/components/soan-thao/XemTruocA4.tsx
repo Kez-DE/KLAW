@@ -212,8 +212,10 @@ function KhoiVanXuoi({
         // đích cho trợ lý", một hành động khác trên cùng vùng rê chuột): viền
         // ĐỨT nét quanh đoạn khi rê, đậm hơn khi có tiêu điểm — section dùng
         // nền + ring LIỀN nét, hai ngôn ngữ hình không lẫn nhau.
+        // Màu rê là `--ring` (3,20:1), không phải brass-500 (1,93:1): cùng lý do
+        // `focus-brass` ở styles.css — viền 1px tương phản thấp là thứ không ai thấy.
         coTheSua &&
-          "cursor-text rounded-sm outline-1 outline-dashed outline-offset-2 outline-transparent hover:outline-[var(--color-brass-500)] focus-within:outline-2 focus-within:outline-[var(--color-brass-600)]",
+          "cursor-text rounded-sm outline-1 outline-dashed outline-offset-2 outline-transparent hover:outline-[var(--ring)] focus-within:outline-2 focus-within:outline-[var(--color-brass-600)]",
         // Phase 15 R5 — lưu hỏng: viền đỏ LIỀN nét theo `aria-invalid` (đặt ở
         // `onBlur` bên trên) cho tới lượt lưu kế tiếp; một thuộc tính, một
         // chỗ đọc, trình đọc màn hình cũng nhận được cùng tín hiệu.
