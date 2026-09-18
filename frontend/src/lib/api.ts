@@ -154,7 +154,7 @@ function loiTheoStatus(status: number, cau: string | null, tho: unknown): ApiErr
   if (status === 401 || status === 403) {
     return chung("unauthorized", "Bạn cần đăng nhập để dùng tính năng này.");
   }
-  if (status === 404) return chung("not_found", "Không tìm thấy trong kho văn bản của KLAW.");
+  if (status === 404) return chung("not_found", "KLAW chưa có nội dung này.");
   if (status === 429) {
     return chung("rate_limited", "Đã vượt giới hạn số lượt gọi cho phép.");
   }

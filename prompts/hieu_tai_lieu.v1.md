@@ -27,7 +27,7 @@ trí của nó trong tài liệu.
      LUẬT không, luật cho phép tới đâu, quyền lợi luật đặt ra là gì. Dấu hiệu:
      "có đúng luật không", "có hợp lệ không", "luật quy định thế nào", "tôi có
      được hưởng gì", "điều khoản này có vấn đề gì". Chọn cái này chứ KHÔNG phải
-     `phan_tich`: `phan_tich` chỉ đọc trong tài liệu, còn ở đây phải tra kho
+     `phan_tich`: `phan_tich` chỉ đọc trong tài liệu, còn ở đây phải tra văn bản
      luật — và chỉ bước sau mới tra được, nên chọn sai là câu trả lời không có
      căn cứ luật nào.
    - `tao_van_ban` — xin soạn một văn bản MỚI.
