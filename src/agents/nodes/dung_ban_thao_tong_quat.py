@@ -23,9 +23,15 @@ phân biệt được bản thảo đã kiểm với bản thảo chưa kiểm.
 """
 
 import logging
+import time
+import uuid
 
-from src.services import ban_thao
+from fastapi import HTTPException
+
+from src.config import get_settings
+from src.services import ban_thao, bao_ve
 from src.services.ban_thao import LOAI_TONG_QUAT
+from src.services.traces import _ghi_traces
 
 logger = logging.getLogger(__name__)
 
@@ -162,9 +168,11 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
     """Lưu văn bản vừa soạn thành bản thảo mới, hoặc sửa bản thảo tổng quát gần
     nhất của hội thoại.
 
-    Khác các node "thuần" của thư mục này, node này CHẠM DB — nhưng chỉ qua
-    `ban_thao`, tức đúng biên dữ liệu của bảng đó, cùng cách `graph_tra_cuu.
-    n_dung_ban_thao` làm cho đường checklist. Đổi lại, `graph_tra_cuu` chỉ phải
+    Khác các node "thuần" của thư mục này, node này CHẠM DB — qua `ban_thao`
+    (bảng bản thảo), `bao_ve` (hạn mức) và `traces` (hàng đo hạn mức đếm),
+    tức đúng ba biên mà `graph_tra_cuu.n_dung_ban_thao` chạm cho đường
+    checklist. Cùng ba, không phải một tập khác: hai đường soạn phải chịu
+    cùng một cổng, nếu không đường rẻ hơn thành lối vòng qua cổng kia. Đổi lại, `graph_tra_cuu` chỉ phải
     thêm một wrapper ba dòng, và toàn bộ luật của bản thảo tổng quát nằm trong
     MỘT file đọc hết được.
 
@@ -177,6 +185,29 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
     sub, hoi_thoai_id = state.get("user_sub"), state.get("hoi_thoai_id")
     if sub is None or hoi_thoai_id is None:
         return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": None}
+    la_sua = state.get("muc_dich_tai_lieu") == "sua_ban_thao"
+    if not la_sua:
+        # Hạn mức DỰNG LẦN ĐẦU — CÙNG giỏ `EP_SOAN_THAO` mà đường checklist
+        # kiểm ở `graph_tra_cuu.n_dung_ban_thao`, không phải một giỏ thứ hai.
+        # Từ Phase 14 đây là đường soạn MẶC ĐỊNH của chat, nên thiếu phép kiểm
+        # này thì soạn thảo trong hội thoại không tính vào hạn mức nào cả: hàm
+        # này không gọi `kiem_han_muc` và cũng không ghi dòng `traces` mà
+        # `bao_ve.dem_luot` đếm, tức cổng vừa không đóng vừa không đo.
+        # Lượt SỬA không kiểm ở đây (đúng như nhánh `la_sua` của
+        # `n_dung_ban_thao`): trần của nó là `TRAN_SUA` trên chính bản thảo.
+        #
+        # Đo được và CHẤP NHẬN: lượt gọi mô hình đã xảy ra ở `hieu_tai_lieu`
+        # TRƯỚC khi tới đây, nên người hết hạn mức vẫn tốn của hệ thống một
+        # lượt rồi mới nhận lời từ chối. Chặn sớm hơn đòi một phép tra DB ngay
+        # trong routing, mà `_re_sau_route` là hàm THUẦN — đổi lấy đúng chỗ
+        # này, nơi MỌI lời lưu bản thảo tổng quát đi qua.
+        try:
+            bao_ve.kiem_han_muc(sub, bao_ve.plan_hieu_luc(sub), bao_ve.EP_SOAN_THAO)
+        except HTTPException as e:
+            # Hết hạn mức phải nói RA con số và lúc mở lại (`_cau_429`), không
+            # rơi về `KHONG_SOAN_DUOC` — người dùng hết lượt mà đọc "hãy thử
+            # lại" sẽ thử lại, tốn thêm một lượt mô hình cho cùng lời từ chối.
+            return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": str(e.detail)}
     if ket is None:
         return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_SOAN_DUOC}
 
@@ -188,7 +219,7 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
     # `document` (dòng H1 đầu, `_render_markdown` bên dưới), phía client tự
     # đọc ra từ đó.
     ten = TEN_TONG_QUAT
-    if state.get("muc_dich_tai_lieu") == "sua_ban_thao":
+    if la_sua:
         cu = ban_thao.moi_nhat_cua_hoi_thoai(sub, str(hoi_thoai_id), LOAI_TONG_QUAT)
         if cu is None:
             return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_CO_BAN_THAO}
@@ -207,5 +238,25 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
             "ban_thao_tong_quat_loi": None,
         }
 
+    bat_dau = time.monotonic()
     bt = ban_thao.tao(sub, str(hoi_thoai_id), LOAI_TONG_QUAT, {}, ket)
+    try:
+        _ghi_traces(
+            str(uuid.uuid4()),
+            bao_ve.EP_SOAN_THAO,
+            LOAI_TONG_QUAT,
+            get_settings().eval_config_name,
+            # `traces` RỖNG CÓ CHỦ Ý: chi phí của lượt hành văn nằm ở
+            # `hieu_tai_lieu` và đã được ghi trên dòng `/api/v1/tra-cuu` của
+            # chính lượt này — chép lại vào đây là đếm đôi cùng một đồng. Dòng
+            # này tồn tại để ĐẾM lượt cho hạn mức (`dem_luot` đếm SỐ DÒNG), y
+            # như dòng `n_dung_ban_thao` ghi cho một bản thảo checklist.
+            {"result_type": "ban_thao", "traces": {}},
+            int((time.monotonic() - bat_dau) * 1000),
+            user_sub=sub,
+        )
+    except Exception:
+        # Best-effort như mọi nơi ghi trace khác: không chặn bản thảo đã lưu
+        # thật chỉ vì hàng đo đếm không ghi được.
+        logger.exception("dung_ban_thao_tong_quat: không ghi được traces")
     return {**state, "ban_thao_ket": _ket_state(bt, ten, []), "ban_thao_tong_quat_loi": None}
