@@ -569,3 +569,92 @@ def test_vuot_tran_voi_ban_thao_dang_co_bao_dung_thu(monkeypatch):
     # Không có bản thảo đang có (đường cũ, trước Half B) — vẫn thông điệp cũ.
     ra2 = h.hieu_tai_lieu(ST, MOT, _LLM(_ra()), "m")
     assert ra2["tai_lieu_ket"]["tra_loi_ngan"] == h.QUA_DAI
+
+
+# ───────────────────────────────────── Phase 14 — soạn tự do, không tài liệu
+
+from src.agents.nodes.route import Intent  # noqa: E402
+
+ST_SOAN = {"query": "soạn cho tôi đơn xin nghỉ phép ba ngày", "intent": Intent.soan_thao, "user_sub": "u"}
+
+
+def _van_ban(*noi_dung: str) -> dict:
+    return {"tieu_de": "ĐƠN XIN NGHỈ PHÉP",
+            "muc": [{"ten": f"Mục {i}", "vung": "than", "khoi": [{"noi_dung": nd, "bang": []}]}
+                    for i, nd in enumerate(noi_dung, 1)]}
+
+
+def test_soan_tu_do_khong_tai_lieu_van_goi_mo_hinh_va_ra_van_ban():
+    """R2: router đã nói `soan_thao`, hội thoại không có tài liệu nào — mô hình
+    vẫn được gọi (một lượt, khối tài liệu rỗng có lời dặn) và trả về một văn
+    bản đi tiếp sang `dung_ban_thao_tong_quat`."""
+    llm = _LLM(_ra(muc_dich="tao_van_ban", van_ban=_van_ban("Kính gửi Ban Giám đốc.", "Tôi xin nghỉ phép ba ngày.")))
+    ra = h.hieu_tai_lieu(ST_SOAN, [], llm, "m")
+    assert llm.so_lan_goi == 1
+    assert h.KHONG_TAI_LIEU in llm.prompt
+    assert ra["muc_dich_tai_lieu"] == "tao_van_ban"
+    assert [m["khoi"][0]["noi_dung"] for m in ra["van_ban_tong_quat"]["muc"]] == [
+        "Kính gửi Ban Giám đốc.", "Tôi xin nghỉ phép ba ngày."]
+    assert ra["traces"]["hieu_tai_lieu_so_don_vi_gui"] == 0
+    assert ra["tai_lieu_ket"]["tai_lieu_da_dung"] == []
+
+
+def test_soan_tu_do_schema_khong_ep_enum_nhan_rong():
+    """`quan_sat.tai_lieu` là enum NHÃN; không tài liệu thì không có nhãn nào —
+    một `enum: []` là lược đồ không hợp lệ với provider, nên bỏ hẳn enum."""
+    assert "enum" not in h.schema_hieu([])["properties"]["quan_sat"]["items"]["properties"]["tai_lieu"]
+    assert h.schema_hieu(["A"])["properties"]["quan_sat"]["items"]["properties"]["tai_lieu"]["enum"] == ["A"]
+
+
+def test_soan_tu_do_mo_hinh_gan_nham_hoi_van_ep_ve_tao_van_ban():
+    """Router (ý kiến độc lập) đã nói soạn; mô hình gán `hoi` cho một lượt không
+    có tài liệu để hỏi là vô nghĩa — ép về `tao_van_ban` để lượt đi đúng nhánh
+    dựng bản thảo (hoặc nói thật là chưa soạn được mục nào)."""
+    ra = h.hieu_tai_lieu(ST_SOAN, [], _LLM(_ra(muc_dich="hoi")), "m")
+    assert ra["muc_dich_tai_lieu"] == "tao_van_ban"
+
+
+def test_soan_tu_do_co_ban_thao_dang_mo_thi_sua_ban_thao():
+    st = {**ST_SOAN, "query": "viết lại trang trọng hơn",
+          "ban_thao_tong_quat_dang_mo": {"document": "# ĐƠN\n\nTôi xin nghỉ.", "audit": {}}}
+    llm = _LLM(_ra(muc_dich="sua_ban_thao", van_ban=_van_ban("Tôi trân trọng xin nghỉ.")))
+    ra = h.hieu_tai_lieu(st, [], llm, "m")
+    assert ra["muc_dich_tai_lieu"] == "sua_ban_thao"
+    assert "# Bản thảo đang có" in llm.prompt
+    # Mô hình gán `hoi` khi đang có bản thảo → ép về `sua_ban_thao`, không phải
+    # `tao_van_ban` (không mở một bản thảo thứ hai cho một lượt xin sửa).
+    ra2 = h.hieu_tai_lieu(st, [], _LLM(_ra(muc_dich="hoi")), "m")
+    assert ra2["muc_dich_tai_lieu"] == "sua_ban_thao"
+
+
+def test_soan_tu_do_van_qua_luoi_lam_sach_khong_mang_so_dieu_hay_so_bia():
+    """R4: bản thảo chat KHÔNG mang một số Điều nào tới người đọc. Hai đường
+    của lưới có sẵn (`lam_sach_van_ban`, không đổi): số Điều CÓ trong lời
+    người hỏi thì mục dẫn nó bị BỎ (`_vuong_luoi_chan`); số Điều/con số KHÔNG
+    có trong nguồn thì bị thay `[…]` — một chỗ trống, không phải một trích dẫn
+    bịa. Con số có trong lời họ ("3 ngày") thì giữ."""
+    st = {**ST_SOAN, "query": "soạn đơn xin nghỉ phép 3 ngày theo Điều 115"}
+    llm = _LLM(_ra(muc_dich="tao_van_ban", van_ban=_van_ban(
+        "Căn cứ Điều 115 Bộ luật Lao động, tôi xin nghỉ.",
+        "Theo Điều 113, tôi xin nghỉ 3 ngày, lương 15.000.000 đồng.")))
+    ra = h.hieu_tai_lieu(st, [], llm, "m")
+    muc = ra["van_ban_tong_quat"]["muc"]
+    assert len(muc) == 1 and ra["traces"]["dung_ban_thao_so_muc_bo"] == 1
+    assert muc[0]["khoi"][0]["noi_dung"] == f"Theo Điều {h.CHO_TRONG}, tôi xin nghỉ 3 ngày, lương {h.CHO_TRONG} đồng."
+    assert not h.re.search(r"[Đđ]iều\s*\d", muc[0]["khoi"][0]["noi_dung"])
+
+
+def test_khong_tai_lieu_va_khong_phai_soan_thao_thi_van_khong_goi_mo_hinh():
+    """Nhánh cũ giữ nguyên: không tài liệu và router KHÔNG nói soạn thảo thì
+    không gọi mô hình với một prompt rỗng."""
+    for intent in (None, Intent.tai_lieu, Intent.tra_cuu):
+        llm = _LLM(_ra())
+        ra = h.hieu_tai_lieu({**ST, "intent": intent}, [], llm, "m")
+        assert llm.so_lan_goi == 0 and ra["muc_dich_tai_lieu"] is None
+
+
+def test_soan_tu_do_loi_ha_tang_noi_chua_soan_duoc_khong_phai_chua_doc_duoc():
+    ra = h.hieu_tai_lieu(ST_SOAN, [], _LLM(_ra(), no=True), "m")
+    assert ra["muc_dich_tai_lieu"] is None
+    assert ra["ban_thao_tong_quat_loi"] == h.CHUA_SOAN_DUOC
+    assert "tài liệu" not in h.CHUA_SOAN_DUOC

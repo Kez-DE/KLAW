@@ -5,6 +5,7 @@ import pytest
 from src.agents.nodes.assemble import (
     ANSWER_SCHEMA,
     CHUA_GIAI_NGHIA_DUOC,
+    GIAI_THICH_SCHEMA,
     KHONG_TIM_DUOC,
     ResultType,
     assemble,
@@ -16,6 +17,7 @@ from src.agents.nodes.verify_tier1 import Tier1Result
 from src.agents.nodes.verify_tier2 import Tier2Verdict
 from src.services.effectivity import Effectivity
 from src.services.effectivity import EffectivityVerdict as V
+from src.services.llm import Usage
 
 DB = {11: {"id": 11, "duong_dan": "45/2019/QH14 > Điều 26", "so_ky_hieu": "45/2019/QH14",
            "ten": "Bộ Luật lao động", "noi_dung": "…85%…"}}
@@ -41,7 +43,12 @@ class FakeLlm:
         self.schema_da_goi.append(json_schema)
         if json_schema is HOI_LAI_SCHEMA:
             return json.dumps({"chieu": [{"ma": "chu_the", "cau": "Bạn ở phía nào?"}]}), Usage(1, 1, 0.0)
+        if json_schema is GIAI_THICH_SCHEMA:
+            # Phase 14 R6 — vai THỨ BA: giải thích chung, không trích dẫn.
+            return json.dumps({"giai_thich": self.giai_thich}), Usage(2, 3, 0.0)
         return json.dumps({"answer": "Ít nhất 85% mức lương."}), Usage(1, 1, 0.0)
+
+    giai_thich = "Thử việc là giai đoạn hai bên làm thử trước khi ký hợp đồng chính thức."
 
     @property
     def so_lan_hanh_van(self) -> int:
@@ -50,6 +57,10 @@ class FakeLlm:
     @property
     def so_lan_hoi_lai(self) -> int:
         return sum(1 for s in self.schema_da_goi if s is HOI_LAI_SCHEMA)
+
+    @property
+    def so_lan_giai_thich(self) -> int:
+        return sum(1 for s in self.schema_da_goi if s is GIAI_THICH_SCHEMA)
 
 
 def _pass(pid=11):
@@ -435,7 +446,10 @@ def test_CRITICAL_tier2_RONG_HOAN_TOAN_khong_duoc_coi_la_da_verified():
                    "tier2": [], "abstain_threshold": 0.5}, DB, llm, "m")
     assert st["result_type"] is not ResultType.answer
     assert st["result_type"] is ResultType.abstain
-    assert st["citations"] == [] and st["answer"] is None
+    # Phase 14 (R6): `answer` có thể là lời GIẢI THÍCH CHUNG (vai riêng, không
+    # trích dẫn) — cái ruling này cấm là dựng câu trả lời TỪ CLAIM chưa qua
+    # tầng 2: không citation nào, và vai hành văn không được gọi.
+    assert st["citations"] == [] and llm.so_lan_hanh_van == 0
     assert llm.so_lan_hanh_van == 0, "verified rỗng thì không được gọi LLM hành văn"
 
 
@@ -815,105 +829,50 @@ def test_so_ky_hieu_va_so_tien_khong_bi_coi_la_url():
         assert not _RE_URL.search(s), s
 
 
-def test_soan_thao_co_goi_y_dung_ten_tu_checklist_va_loc_thay_the():
-    class Never(FakeLlm):
-        def chat(self, *a, **k):
-            raise AssertionError("nhánh soan_thao không gọi LLM")
+def test_goi_y_dung_ten_tu_checklist_va_loc_thay_the():
+    """`soan_thao_goi_y` (0 token) — tên đọc từ checklist thật, `thay_the` chỉ
+    giữ mẫu thật và khác `loai`. Phase 14: hàm này chỉ còn dựng lời MỜI biểu
+    mẫu đính kèm bản thảo/câu trả lời, không còn một lời đáp riêng."""
+    from src.agents.nodes.assemble import _goi_y_soan_thao
 
-    st = assemble(
-        {
-            "intent": "soan_thao",
-            "query": "soạn cho tôi hợp đồng nghỉ việc",
-            "soan_thao_goi_y": {
-                "loai": "don_xin_nghi_viec",
-                "ly_do": "bạn là người lao động muốn nghỉ",
-                "thay_the": ["thoa_thuan_cham_dut_hdld", "loai_khong_co", "don_xin_nghi_viec"],
-            },
-        },
-        {},
-        Never(),
-        "m",
-    )
-    assert st["result_type"] is ResultType.huong_dan_soan_thao
-    gy = st["soan_thao_goi_y"]
+    gy = _goi_y_soan_thao({
+        "loai": "don_xin_nghi_viec",
+        "ly_do": "bạn là người lao động muốn nghỉ",
+        "thay_the": ["thoa_thuan_cham_dut_hdld", "loai_khong_co", "don_xin_nghi_viec"],
+    })
     assert gy["loai"] == "don_xin_nghi_viec" and gy["ten"] == "đơn xin nghỉ việc" and gy["ho_tro"] is True
+    assert gy["ly_do"] == "bạn là người lao động muốn nghỉ"
     assert [t["loai"] for t in gy["thay_the"]] == ["thoa_thuan_cham_dut_hdld"]
-    assert st["answer"].startswith("Tôi hiểu bạn cần đơn xin nghỉ việc: bạn là người lao động muốn nghỉ")
-    assert "khung bên cạnh" in st["answer"]
-    assert st["traces"]["assemble_token_in"] == 0
 
 
-def test_soan_thao_loai_la_thanh_khong_ho_tro_va_neu_gan_nhat():
-    st = assemble(
-        {
-            "intent": "soan_thao",
-            "query": "x",
-            "soan_thao_goi_y": {"loai": "loai_khong_co", "ly_do": "", "thay_the": ["don_xin_nghi_viec"]},
-        },
-        {},
-        FakeLlm(),
-        "m",
-    )
-    gy = st["soan_thao_goi_y"]
+def test_goi_y_loai_la_thanh_khong_ho_tro_va_giu_thay_the_that():
+    """Phase 14: `_goi_y_soan_thao` chỉ còn dựng `soan_thao_goi_y` (0 token) —
+    lời đáp "Kho mẫu của tôi chưa có loại văn bản này" đã bị gỡ (R1). Loại lạ
+    → `ho_tro=False`, `thay_the` chỉ giữ mẫu thật."""
+    from src.agents.nodes.assemble import _goi_y_soan_thao
+
+    gy = _goi_y_soan_thao({"loai": "loai_khong_co", "ly_do": "", "thay_the": ["don_xin_nghi_viec", "x"]})
     assert gy["loai"] is None and gy["ho_tro"] is False
-    assert st["answer"].startswith("Kho mẫu của tôi chưa có loại văn bản này.")
-    assert "đơn xin nghỉ việc" in st["answer"]
+    assert [t["loai"] for t in gy["thay_the"]] == ["don_xin_nghi_viec"]
+    assert _goi_y_soan_thao(None) is None
 
 
-def test_soan_thao_loai_la_va_khong_co_thay_the_thi_moi_mo_ta_ro_hon():
-    from src.agents.nodes.assemble import GAN_NHAT_KHONG
+def test_goi_y_ly_do_co_url_hay_the_bi_loc_rong():
+    from src.agents.nodes.assemble import _goi_y_soan_thao
 
-    class Never(FakeLlm):
-        def chat(self, *a, **k):
-            raise AssertionError("nhánh soan_thao không gọi LLM")
-
-    st = assemble(
-        {
-            "intent": "soan_thao",
-            "query": "x",
-            "soan_thao_goi_y": {"loai": "loai_khong_co", "ly_do": "y", "thay_the": []},
-        },
-        {},
-        Never(),
-        "m",
-    )
-    assert st["result_type"] is ResultType.huong_dan_soan_thao
-    gy = st["soan_thao_goi_y"]
-    assert gy["loai"] is None and gy["ho_tro"] is False and gy["thay_the"] == []
-    assert GAN_NHAT_KHONG in st["answer"]
+    gy = _goi_y_soan_thao({"loai": "don_xin_nghi_viec", "ly_do": "xem [Điều 1](cite:1) tại https://x.vn", "thay_the": []})
+    assert gy["ly_do"] == "" and gy["ho_tro"] is True
 
 
-def test_soan_thao_ly_do_co_url_hay_the_bi_loc_ve_mac_dinh():
-    from src.agents.nodes.assemble import LY_DO_MAC_DINH
-
-    class Never(FakeLlm):
-        def chat(self, *a, **k):
-            raise AssertionError("nhánh soan_thao không gọi LLM")
-
-    st = assemble(
-        {
-            "intent": "soan_thao",
-            "query": "x",
-            "soan_thao_goi_y": {
-                "loai": "don_xin_nghi_viec",
-                "ly_do": "xem [Điều 1](cite:1) tại https://x.vn",
-                "thay_the": [],
-            },
-        },
-        {},
-        Never(),
-        "m",
-    )
-    assert LY_DO_MAC_DINH in st["answer"]
-    assert "https://" not in st["answer"] and "cite:" not in st["answer"]
-
-
-def test_soan_thao_khong_goi_y_giu_huong_dan_cu():
-    from src.agents.nodes.assemble import HUONG_DAN_SOAN_THAO
-
-    st = assemble({"intent": "soan_thao", "query": "x"}, {}, FakeLlm(), "m")
-    assert st["answer"] == HUONG_DAN_SOAN_THAO and st["soan_thao_goi_y"] is None
-    assert "Chọn loại văn bản" in HUONG_DAN_SOAN_THAO
+def test_soan_thao_khong_co_checklist_mo_khong_con_huong_dan_sang_bieu_mau():
+    """R1: không còn `huong_dan_soan_thao` cho một lượt `soan_thao` không có
+    checklist mở — lượt đó đã đi `hieu_tai_lieu` và `assemble` chỉ đọc kết quả;
+    gọi trực tiếp không có gì để đọc thì hỏi lại (`soan_thao_hoi`), không chỉ
+    sang "Chọn loại văn bản"."""
+    st = assemble({"intent": "soan_thao", "query": "x", "user_sub": "u"}, {}, FakeLlm(), "m")
+    assert st["result_type"] is ResultType.soan_thao_hoi
+    assert "Chọn loại văn bản" not in st["answer"] and "kho" not in st["answer"].lower()
+    assert st["traces"]["assemble_token_in"] == 0
 
 
 def test_ten_loai_roi_ve_chinh_ma_loai_khi_khong_tra_duoc_checklist():
@@ -1170,3 +1129,108 @@ def test_CitationOut_nhan_vai_tro_va_van_optional():
            "bo_luat": "b", "so_ky_hieu": "s", "quote": "q"}
     assert CitationOut(**tho).vai_tro is None
     assert CitationOut(**tho, vai_tro="ket_luan").vai_tro == "ket_luan"
+
+
+# ═══ Phase 14 R6 — không có căn cứ kiểm chứng được thì GIẢI THÍCH, không từ chối ═══
+#
+# Owner: "ko bị giới hạn chỉ tham chiếu mỗi data base, agent có thể trả lời được
+# thực tế dựa vào database". Ranh giới không nhượng bộ: lời giải thích chung
+# KHÔNG mang số Điều/Khoản/Điểm hay số hiệu văn bản nào — một trích dẫn chỉ có
+# thể là một neo đã kiểm. `result_type` vẫn là `abstain` (vẫn KHÔNG có căn cứ
+# dùng được — đó là sự thật về lượt này), điều mới là `answer` khác None và
+# giao diện dán nhãn "giải thích chung" cho nó.
+
+
+def _st_khong_can_cu():
+    fail = Tier1Result(Claim("x", 999, "y"), False, R.provision_khong_ton_tai, None)
+    return {"intent": "tra_cuu", "query": "thử việc là gì", "expanded": [DB[11]], "tier1": [fail],
+            "tier2": [], "abstain_threshold": 0.5}
+
+
+def test_khong_can_cu_kiem_chung_thi_tra_giai_thich_chung_trong_answer():
+    llm = FakeLlm()
+    st = assemble(_st_khong_can_cu(), DB, llm, "m")
+    assert st["result_type"] is ResultType.abstain, "vẫn là abstain: không có căn cứ nào dùng được"
+    assert st["answer"] == FakeLlm.giai_thich
+    assert st["citations"] == [], "giải thích chung không mang trích dẫn nào"
+    assert st["coverage_note"].startswith(KHONG_TIM_DUOC), "nửa đầu vẫn nói thẳng chưa tìm được điều khoản"
+    assert llm.so_lan_giai_thich == 1 and llm.so_lan_hanh_van == 0, "vai giải thích, KHÔNG phải vai hành văn có trích dẫn"
+    assert st["traces"]["assemble_giai_thich"] == "llm"
+    # Chi phí của lượt giải thích cộng vào `assemble_*` — không có khoá mới nào
+    # vô hình với trần chi phí ngày (`traces._COST_KEYS`).
+    assert st["traces"]["assemble_token_in"] == 1 + 2 and st["traces"]["assemble_token_out"] == 1 + 3
+
+
+@pytest.mark.parametrize("bia", [
+    "Theo Điều 25 Bộ luật Lao động, thử việc tối đa 60 ngày.",
+    "Khoản 1 quy định thời gian thử việc.",
+    "Nghị định 145/2020/NĐ-CP hướng dẫn việc này.",
+    "Xem [Điều 25](cite:1).",
+    "Chi tiết tại https://thuvienphapluat.vn.",
+])
+def test_giai_thich_chung_mang_so_dieu_hay_so_hieu_thi_bi_loai_khong_toi_nguoi_doc(bia):
+    """Lưới 0 token: mô hình lỡ dẫn một số Điều/Khoản/số hiệu/thẻ/URL trong lời
+    giải thích → cả lời giải thích bị bỏ (rơi về abstain trơ như trước), vì ở
+    đây KHÔNG có trích dẫn nào đã kiểm để đối chiếu — mọi số Điều đều là bịa."""
+    llm = FakeLlm()
+    llm.giai_thich = bia
+    st = assemble(_st_khong_can_cu(), DB, llm, "m")
+    assert st["result_type"] is ResultType.abstain and st["answer"] is None
+    assert st["traces"]["assemble_giai_thich"] == "bi_loc"
+
+
+def test_giai_thich_chung_loi_mo_hinh_roi_ve_abstain_tro():
+    class Hong(FakeLlm):
+        def chat(self, model, messages, json_schema=None):
+            if json_schema is GIAI_THICH_SCHEMA:
+                raise RuntimeError("openrouter 502")
+            return super().chat(model, messages, json_schema)
+
+    st = assemble(_st_khong_can_cu(), DB, Hong(), "m")
+    assert st["result_type"] is ResultType.abstain and st["answer"] is None
+    assert st["traces"]["assemble_giai_thich"] == "loi"
+
+
+def test_moi_anh_em_cua_abstain_truy_hoi_rong_deu_giai_thich():
+    """Bốn chỗ "truy hồi không cho gì kiểm chứng được": không bằng chứng
+    (`insufficient_evidence`, không tầng nông), không claim qua tầng 1, tỉ lệ
+    dưới ngưỡng, và mọi nguồn dùng được đều bị lọc (lạc đề)."""
+    ok = _pass()
+    fails = [Tier1Result(Claim("x", 999, "y"), False, R.provision_khong_ton_tai, None)] * 3
+    cac_state = [
+        {"intent": "tra_cuu", "query": "q", "expanded": [DB[11]], "insufficient_evidence": True,
+         "tier1": [], "tier2": [], "abstain_threshold": 0.5},
+        _st_khong_can_cu(),
+        {"intent": "tra_cuu", "query": "q", "expanded": [DB[11]], "tier1": [ok, *fails],
+         "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
+        {"intent": "tra_cuu", "query": "q", "expanded": [DB[11]], "tier1": [ok],
+         "tier2": [Tier2Verdict(0, True, "ok", relevant=False)], "abstain_threshold": 0.5},
+    ]
+    for st_vao in cac_state:
+        llm = FakeLlm()
+        st = assemble(st_vao, DB, llm, "m")
+        assert st["result_type"] is ResultType.abstain and st["answer"] == FakeLlm.giai_thich, st_vao
+
+
+def test_tien_de_sai_va_ha_cap_vi_so_dieu_bia_KHONG_giai_thich():
+    """Hai ngõ cụt KHÔNG phải "truy hồi rỗng" giữ nguyên: tiền đề sai (câu hỏi
+    nêu một Điều không tồn tại — giải thích là tiếp tay cho tiền đề), và lượt
+    bị HẠ vì answer dẫn số Điều không có trong trích dẫn đã kiểm (R4/proof 9:
+    lưới cuối vẫn hạ, và không một lượt gọi nào thêm để "cứu" câu đó)."""
+    llm = FakeLlm()
+    st = assemble({"intent": "tra_cuu", "query": "Điều 999 nói gì", "tien_de_sai": "Bộ luật Lao động không có Điều 999"},
+                  DB, llm, "m")
+    assert st["result_type"] is ResultType.abstain and st["answer"] is None and llm.so_lan_giai_thich == 0
+
+    class GanSaiDieu(FakeLlm):
+        def chat(self, model, messages, json_schema=None):
+            if json_schema is ANSWER_SCHEMA:
+                self.schema_da_goi.append(json_schema)
+                return json.dumps({"answer": "Theo Điều 550, ít nhất 85% mức lương."}), Usage(1, 1, 0.0)
+            return super().chat(model, messages, json_schema)
+
+    llm = GanSaiDieu()
+    st = assemble({"intent": "tra_cuu", "query": "lương thử việc", "expanded": [DB[11]], "tier1": [_pass()],
+                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5}, DB, llm, "m")
+    assert st["result_type"] is ResultType.abstain and st["answer"] is None
+    assert st["traces"]["assemble_dieu_bi_loai"] == ["550"] and llm.so_lan_giai_thich == 0

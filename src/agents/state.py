@@ -134,16 +134,13 @@ class KLawState(TypedDict, total=False):
     # 1, PostgreSQL review), CHỈ mang `document`/`audit`, không phải bản đầy đủ
     # của `moi_nhat_cua_hoi_thoai` — không có `id`/`clauses`/`phien_ban`/…; xem
     # docstring hàm đó cho ba nơi đã kiểm là không cần cột nào khác.
-    # Hai chỗ đọc: `_re_sau_route` dùng nó để rẽ một lượt `Intent.soan_thao`
-    # sang `hieu_tai_lieu` (sửa bản thảo đang mở) thay vì `gom_du_kien`
-    # (checklist — bản thảo tổng quát không có
-    # checklist nào để gom, đúng ngõ cụt "Kho mẫu của tôi chưa có loại văn bản
-    # này" mà brief mô tả); `hieu_tai_lieu` dùng nó để cho mô hình thấy bản
-    # thảo ĐANG CÓ khi sửa (R4), thay vì coi mọi lượt sửa là soạn lại từ đầu.
-    # KHÔNG phải `soan_thao_dang_mo` (đó là dữ kiện checklist đang gom dở, một
-    # khái niệm khác) — cố tình không xét kèm `intent` như đợt review trước đã
-    # cấm (xem docstring `_re_sau_route`): trường này chỉ có tác dụng KHI
-    # `intent` đã là `soan_thao`, không tự nó ép một ý định khác.
+    # Nơi đọc: `hieu_tai_lieu` cho mô hình thấy bản thảo ĐANG CÓ khi sửa (R4)
+    # thay vì coi mọi lượt sửa là soạn lại từ đầu, và (Phase 14) chọn
+    # `sua_ban_thao` thay vì mở bản thứ hai khi mô hình gán nhầm mục đích.
+    # `_re_sau_route` không còn đọc nó từ Phase 14: mọi lượt `soan_thao` không
+    # có checklist mở dở đều đi `hieu_tai_lieu`. KHÔNG phải `soan_thao_dang_mo`
+    # (đó là dữ kiện checklist đang gom dở, một khái niệm khác), và không tự nó
+    # ép một ý định khác (xem docstring `_re_sau_route`).
     ban_thao_tong_quat_dang_mo: dict | None
     # Việc người hỏi muốn làm với tài liệu trong lượt này (CONTEXT.md "mục đích").
     # Ghi lại KỂ CẢ khi lát cắt này chưa làm được nó — S4–S6 rẽ nhánh trên nó.

@@ -1705,12 +1705,50 @@ def _chay(**ghi_de):
     return assemble({**st, **ghi_de}, {}, _No(), "m")
 
 
-def test_assemble_tra_ban_thao_voi_nhan_chua_kiem_phap_ly():
+def test_assemble_tra_ban_thao_khong_gan_nhan_muc_kiem_vao_loi_dap():
+    """D14-A (owner): không còn nhãn "chưa kiểm pháp lý" trên bản thảo soạn
+    trong chat — dữ liệu (`audit_report.muc_kiem`) vẫn nói thật, lời đáp thì
+    không dán nhãn. Không có tài liệu nào được dùng thì lời đáp cũng không
+    nói "từ nội dung tài liệu"."""
     ra = _chay()
     assert ra["result_type"] is ResultType.ban_thao
     assert ra["ban_thao"] == BAN_THAO_KET
-    assert "chưa kiểm pháp lý" in ra["answer"]
-    assert "đã kiểm" not in ra["answer"]
+    assert ra["ban_thao"]["audit_report"]["muc_kiem"] == "tong_quat"
+    assert "chưa kiểm pháp lý" not in ra["answer"] and "đã kiểm" not in ra["answer"]
+    assert "Tôi soạn từ những gì bạn nói" in ra["answer"] and "tài liệu" not in ra["answer"]
+    assert ra["soan_thao_goi_y"] is None
+
+
+def test_assemble_ban_thao_tu_tai_lieu_noi_ro_nguon_la_tai_lieu():
+    ra = _chay(tai_lieu_ket={**TAI_LIEU_KET, "tai_lieu_da_dung": [{"id": A_ID, "ten_tep": "x.docx", "nhan": "A"}]})
+    assert "Tôi soạn từ nội dung tài liệu và những gì bạn nói" in ra["answer"]
+
+
+def test_assemble_khop_mau_thi_moi_bieu_mau_mot_dong_khong_chan():
+    """R3: router nhận ra một trong 29 mẫu → bản thảo VẪN được dựng, lời đáp
+    thêm đúng một câu mời biểu mẫu và `soan_thao_goi_y` mang `loai` để giao
+    diện vẽ nút — không phải một cổng."""
+    ra = _chay(soan_thao_goi_y={"loai": "don_xin_nghi_viec", "ly_do": "bạn sắp nghỉ", "thay_the": []})
+    assert ra["result_type"] is ResultType.ban_thao
+    gy = ra["soan_thao_goi_y"]
+    assert gy["loai"] == "don_xin_nghi_viec" and gy["ho_tro"] is True
+    assert "biểu mẫu đơn xin nghỉ việc" in ra["answer"]
+    # Loại không có mẫu thật → không mời gì, không nhắc "kho mẫu".
+    ra2 = _chay(soan_thao_goi_y={"loai": "loai_khong_co", "ly_do": "", "thay_the": []})
+    assert ra2["soan_thao_goi_y"] is None and "biểu mẫu" not in ra2["answer"]
+
+
+def test_assemble_soan_thao_khong_co_gom_du_kien_khong_con_ngo_cut():
+    """R1: `intent == soan_thao` mà không có checklist mở (`soan_thao_dang_mo`)
+    không còn rơi vào `huong_dan_soan_thao`; nó đọc đúng những gì
+    `dung_ban_thao_tong_quat` để lại — ở đây là bản thảo vừa dựng."""
+    ra = _chay(intent="soan_thao", muc_dich_tai_lieu=None, tai_lieu_ket=None)
+    assert ra["result_type"] is ResultType.ban_thao
+    # Lỗi hạ tầng của lượt soạn tự do (`hieu_tai_lieu._hong`) → hỏi lại bằng
+    # đúng thông điệp, không phải lời chỉ sang biểu mẫu.
+    ra2 = _chay(intent="soan_thao", muc_dich_tai_lieu=None, tai_lieu_ket=None, ban_thao_ket=None,
+                ban_thao_tong_quat_loi=h.CHUA_SOAN_DUOC)
+    assert ra2["result_type"] is ResultType.soan_thao_hoi and ra2["answer"] == h.CHUA_SOAN_DUOC
 
 
 def test_assemble_bao_doi_gi_o_luot_sua():

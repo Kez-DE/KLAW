@@ -141,7 +141,9 @@ def test_re_sau_route_dua_tai_lieu_sang_hieu_tai_lieu():
 
 @pytest.mark.parametrize(
     "intent,mong",
-    [(r.Intent.tra_cuu, "tien_de"), (r.Intent.soan_thao, "gom_du_kien"),
+    # `soan_thao` không `user_sub` là khách → `assemble` (Phase 14, lời mời đăng
+    # nhập 0 token); các đường có danh tính xem `test_re_tat_som`.
+    [(r.Intent.tra_cuu, "tien_de"), (r.Intent.soan_thao, "assemble"),
      (r.Intent.gioi_thieu, "assemble")],
 )
 def test_re_sau_route_khong_doi_cac_nhanh_cu(intent, mong):
