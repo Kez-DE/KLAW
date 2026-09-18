@@ -1064,6 +1064,21 @@ class CaiDatBoNhoRequest(BaseModel):
     ghi_nho: bool
 
 
+# ══ /tai-khoan/da-nho — điều KLAW đã nhớ về tài khoản (Phase 12, R2) ══════
+class MucDaNhoOut(BaseModel):
+    id: str
+    loai: str
+    khoa: str
+    nhan: str
+    gia_tri: str
+    nguon_hoi_thoai_id: str | None
+    cap_nhat_luc: datetime
+
+
+class DanhSachDaNhoOut(BaseModel):
+    muc: list[MucDaNhoOut]
+
+
 # ══ GET /van-ban/{doc_id}/tim (Pha 2) ═══════════════════════════════════════
 
 

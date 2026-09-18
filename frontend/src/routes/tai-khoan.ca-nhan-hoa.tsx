@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { BrassButton, Field, PasswordField } from "@/components/auth/AuthUI";
 import { TheBoNho } from "@/components/tai-khoan/TheBoNho";
+import { TheDaNho } from "@/components/tai-khoan/TheDaNho";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -120,6 +121,7 @@ function CaNhanHoaPage() {
       )}
 
       {hanMuc.hanMuc?.plan === "pro" && <TheBoNho />}
+      <TheDaNho />
 
       <p className="mt-6 text-[13px] text-muted-foreground">Xoá tài khoản và ngôn ngữ: sắp có.</p>
     </div>
