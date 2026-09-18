@@ -78,8 +78,15 @@ export function TayKeo({
       onKeyDown={phim}
       onDoubleClick={onMacDinh}
       className={cn(
-        "focus-brass group relative shrink-0 touch-none select-none",
-        doc ? "w-2 cursor-col-resize" : "h-2 cursor-row-resize",
+        // Phase 15 R8 — vùng BẤM 24px (WCAG 2.2 SC 2.5.8) nhưng chỗ chiếm trong
+        // bố cục vẫn 8px (`RONG_TAY_KEO_PX`, keo-dan.ts tính biên panel theo
+        // số này) và vạch vẽ bên dưới không đổi: nới bằng một `::before` trong
+        // suốt tràn 8px mỗi bên — pseudo-element vẫn thuộc phần tử này khi
+        // hit-test, nên `onPointerDown`/capture nhận được như bấm vào vạch.
+        "focus-brass group relative shrink-0 touch-none select-none before:absolute",
+        doc
+          ? "w-2 cursor-col-resize before:inset-y-0 before:-left-2 before:-right-2"
+          : "h-2 cursor-row-resize before:inset-x-0 before:-top-2 before:-bottom-2",
         className,
       )}
     >
