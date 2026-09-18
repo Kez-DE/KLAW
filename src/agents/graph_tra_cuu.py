@@ -47,7 +47,7 @@ from src.agents.nodes.verify_tier1 import nap_provisions, tien_de_cau_hoi_sai, v
 from src.agents.nodes.verify_tier2 import verify_tier2_and_trace
 from src.agents.state import KLawState
 from src.config import as_of_hieu_luc, get_settings
-from src.services import ban_thao, bao_ve
+from src.services import ban_thao, bao_ve, bo_nho_tai_khoan
 from src.services import tai_lieu as tl
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
@@ -302,6 +302,45 @@ def _ghi_du_kien_tai_lieu(engine, st: dict) -> dict:
     return {**st, "tai_lieu_ket": {**ket, "du_kien": du_kien}, "tai_lieu_du_kien_moi": []}
 
 
+def _nap_bo_nho(st: dict) -> dict:
+    """Ký ức tài khoản cho lượt này — MỘT `SELECT` theo `user_sub`, chạy TRƯỚC
+    node thuần vì node đó không chạm DB (cùng hợp đồng `_ghi_du_kien_tai_lieu`).
+
+    Khách chưa đăng nhập không có ký ức nào, và không có chỗ để có: `liet_ke`
+    lọc theo `user_sub` nên một `sub` rỗng không được phép thành một truy vấn.
+    """
+    sub = st.get("user_sub")
+    if not sub:
+        return st
+    return {**st, "bo_nho_tai_khoan": bo_nho_tai_khoan.liet_ke(sub)}
+
+
+def _ghi_bo_nho(st: dict) -> dict:
+    """Ghi điều người hỏi vừa tự khai, rồi để lại NHÃN của cái THẬT SỰ mới hay
+    đổi — `assemble` nói "đã nhớ" đúng những cái đó (R3).
+
+    `ghi` trả `"giu"` khi giá trị y hệt cái đang có: không nhãn nào cho ca ấy,
+    vì nói "đã nhớ" mỗi lần người ta nhắc lại tên mình là một thông báo rỗng
+    nghĩa mà người đọc sẽ học cách bỏ qua — rồi bỏ qua luôn lần nó thật.
+
+    Best-effort như mọi lượt ghi phụ khác ở file này (`_ghi_traces`): một bản
+    thảo đã soạn xong không được hỏng vì một dòng ký ức không ghi được.
+    """
+    moi, sub = st.get("bo_nho_moi") or [], st.get("user_sub")
+    if not (moi and sub):
+        return st
+    nhan: list[str] = []
+    for d in moi:
+        try:
+            if bo_nho_tai_khoan.ghi(sub, d["loai"], d["khoa"], d["gia_tri"], st.get("hoi_thoai_id")) != "giu":
+                nhan.append(bo_nho_tai_khoan.NHAN_KHOA.get(d["khoa"], d["khoa"]))
+        except Exception:
+            logger.exception("ghi_bo_nho: không ghi được khoá %s", d.get("khoa"))
+    # `bo_nho_moi` rỗng lại: đã ghi rồi thì nó không còn là việc chờ, và một
+    # state còn mang nó là một đường ghi lần hai.
+    return {**st, "bo_nho_da_nho": nhan, "bo_nho_moi": []}
+
+
 def _re_sau_hieu_tai_lieu(st: dict) -> str:
     """Đối chiếu luật đi tiếp vào ĐƯỜNG PHÁP LÝ ĐÃ CÓ (`tien_de` → rewrite →
     retrieve → expand → generate → hai tầng kiểm → assemble), không một đường
@@ -369,8 +408,12 @@ def build_graph_tra_cuu():
             don_vi = await run_in_threadpool(tl.don_vi_cua, engine, str(vid), st.get("user_sub"))
             if don_vi:
                 tai_lieu.append({"id": str(vid), "ten_tep": ten.get(str(vid), ""), "don_vi": don_vi})
+        # Ký ức tài khoản vào TRƯỚC (prompt cần nó), điều vừa khai ghi ra SAU —
+        # hai phép DB kẹp lấy node thuần, đúng hình dạng `_ghi_du_kien_tai_lieu`.
+        st = await run_in_threadpool(_nap_bo_nho, st)
         ra = hieu_tai_lieu(st, tai_lieu, llm, generate_model())
-        return await run_in_threadpool(_ghi_du_kien_tai_lieu, engine, ra)
+        ra = await run_in_threadpool(_ghi_du_kien_tai_lieu, engine, ra)
+        return await run_in_threadpool(_ghi_bo_nho, ra)
 
     async def n_dung_ban_thao_tong_quat(st: KLawState) -> KLawState:
         # `run_in_threadpool` vì hàm kia gọi `ban_thao` (SQLAlchemy đồng bộ) —

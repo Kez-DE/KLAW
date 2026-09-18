@@ -34,6 +34,7 @@ from pathlib import Path
 from src.agents.nodes.route import Intent
 from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU
 from src.services.bo_nho import _vuong_luoi_chan
+from src.services.bo_nho_tai_khoan import GIA_TRI_TOI_DA
 from src.services.doc_tai_lieu import DonViVanBan, NguonChu
 from src.services.llm import TruncatedOutputError, Usage
 from src.services.neo_du_kien import LyDoNeo, Neo, normalize, xac_minh
@@ -242,6 +243,135 @@ KHONG_DUNG_LAI_DUOC = (
 # `van_ban` lấy từ đầu/chân trang thật thì mang đúng nhãn đó, không phải một
 # mã riêng bịa ra cho `van_ban`.
 VUNG_HOP_LE = ("than", "dau_trang", "chan_trang")
+
+
+# ── Phase 12 part B — ký ức TÀI KHOẢN trong một lượt soạn ──────────────────
+#
+# Hợp đồng của chủ sở hữu, nguyên văn: "tôi muốn việc này được nhớ nhưng mà ko
+# phải văn bản mới mà khách yêu cầu khác là điền luôn mà chỉ cần nhớ thôi".
+# NHỚ, KHÔNG TỰ ĐIỀN — và một bản dựng lặng lẽ tự điền là một cách làm SAI yêu
+# cầu, không phải một tiện ích thêm. Ba mảnh dưới đây là toàn bộ phần lượt soạn
+# phải biết:
+#
+# * `rut_bo_nho` đọc dữ kiện người dùng TỰ KHAI trong chính câu họ gõ — phép
+#   tất định 0 token, KHÔNG thêm một lượt gọi mô hình nào cho mỗi lượt soạn
+#   (R5). Trường `truong` mà mô hình đã trả về không làm được việc này: nó đòi
+#   neo về một ĐƠN VỊ TÀI LIỆU (`_lay_truong`), mà lượt soạn tự do không có tài
+#   liệu nào để neo.
+# * `khoa_duoc_hoi` quyết định lượt NÀY có hỏi tới một khoá hay không. Chỉ khoá
+#   được hỏi mới cộng vào NGUỒN của phép làm sạch (`_nguon_soan`); mọi khoá
+#   khác đi vào `cam` của `lam_sach_van_ban` và bị thay `[…]` nếu mô hình tự
+#   điền. Đó là chỗ DUY NHẤT quy tắc "chỉ nhớ" được cưỡng chế bằng mã — một lời
+#   dặn trong prompt chưa bao giờ đủ để chặn một mô hình.
+# * `_khoi_bo_nho` đưa ký ức vào PROMPT, đúng đường mọi ngữ cảnh khác đi
+#   (`# Bản thảo đang có`) — không vào `clauses`, không vào `facts`, không vào
+#   một khối đã dựng.
+_BO_DAU = str.maketrans("đĐ", "dD")
+
+
+def _bo_dau(s: str) -> str:
+    """Bỏ dấu tiếng Việt, GIỮ NGUYÊN ĐỘ DÀI — một ký tự vào, một ký tự ra.
+
+    Độ dài phải giữ vì `rut_bo_nho` khớp trên bản KHÔNG DẤU rồi cắt giá trị ra
+    khỏi chuỗi GỐC bằng chính vị trí đã khớp: lệch một ký tự là cắt sai tên
+    người. `normalize` (dùng chung cả hệ) CỐ Ý không bỏ dấu — trong tiếng Việt
+    dấu là chữ, không phải trang trí — nên phép này sống ở đây và chỉ cho đúng
+    một việc: nhận ra cái NHÃN người dùng gõ ("mã sv" hay "ma sv" là một nhãn).
+    """
+    return "".join(unicodedata.normalize("NFD", c)[0] for c in s.translate(_BO_DAU))
+
+
+# Hai LOẠI mà `bo_nho_tai_khoan` cho phép, và không gì khác (brief Phase 12):
+# dữ kiện về NGƯỜI (`ca_nhan`) và THÓI QUEN soạn (`thoi_quen`). Không biên bản
+# hội thoại, không tài liệu, không thân bản thảo.
+#
+# Mỗi khoá đi kèm các NHÃN người Việt hay gõ cho nó, viết thường KHÔNG DẤU —
+# `_bo_dau` đưa câu người dùng về đúng dạng ấy trước khi khớp. MỘT bảng phục vụ
+# HAI việc, để không có hai bộ từ vựng trôi lệch nhau: nhận ra lời KHAI
+# (`rut_bo_nho`) và nhận ra lời HỎI TỚI (`khoa_duoc_hoi`).
+BO_NHO_KHOA: dict[str, tuple[str, tuple[str, ...]]] = {
+    "ho_ten": ("ca_nhan", ("ho va ten", "ho ten", "ten toi", "toi ten")),
+    "ma_sv": ("ca_nhan", ("ma so sinh vien", "ma sinh vien", "mssv", "ma sv")),
+    "lop": ("ca_nhan", ("lop",)),
+    "nganh": ("ca_nhan", ("nganh",)),
+    "noi_thuc_tap": ("ca_nhan", ("dia diem thuc tap", "don vi thuc tap", "noi thuc tap")),
+    "van_phong": ("thoi_quen", ("van phong",)),
+    "xung_ho": ("thoi_quen", ("xung ho",)),
+    "mau_hay_dung": ("thoi_quen", ("mau hay dung",)),
+}
+_NHAN_BO_NHO = {nhan: khoa for khoa, (_, nhan_cua) in BO_NHO_KHOA.items() for nhan in nhan_cua}
+# Nhãn DÀI đứng trước nhãn ngắn trong phép hoặc: "ma so sinh vien" phải thắng
+# "ma sv", nếu không giá trị bị cắt từ giữa nhãn. Dấu mở là đầu câu, dấu ngắt
+# hay một liên từ — nhãn phải đứng ĐẦU một mệnh đề thì mới là lời khai, chứ
+# không phải hai chữ lọt giữa một câu kể.
+_NHAN_HOAC = "|".join(sorted((re.escape(n) for n in _NHAN_BO_NHO), key=len, reverse=True))
+# Giá trị dừng ở dấu ngắt, HOẶC ngay trước một lời khai kế tiếp nối bằng
+# "và"/"với" ("lớp: K00A và ngành là Luật kinh tế" là HAI lời khai, không phải
+# một). Chỉ cắt khi sau liên từ là một NHÃN kèm dấu gán — "Công ty Mẫu Thử và
+# Đồng sự" không có nhãn nào đằng sau nên đi qua nguyên vẹn.
+_RE_KHAI_BO_NHO = re.compile(
+    r"(?:^|[,;(\n]|\bva\b|\bvoi\b|\bnoi dung la\b)\s*"
+    rf"({_NHAN_HOAC})"
+    r"\s*(?::|=|\bla\b)\s*"
+    rf"(.+?)(?=$|[,;\n]|\s+(?:va|voi)\s+(?:{_NHAN_HOAC})\s*(?::|=|la\b))",
+    re.IGNORECASE,
+)
+
+
+def rut_bo_nho(cau_hoi: str) -> list[dict]:
+    """Dữ kiện người dùng TỰ KHAI trong câu vừa gõ → hàng cho `bo_nho_tai_khoan.ghi`.
+
+    Tất định, 0 token (R5). Một khoá khai hai lần trong cùng câu giữ lần ĐẦU:
+    lượt sau người ta khai lại thì `ghi` upsert, nên không cần đoán ý ở đây.
+
+    Lọc giá trị bằng `vung_trong` — hàm ĐÃ CÓ, dùng chung với `_lay_truong`:
+    một câu chép lại dòng biểu mẫu trắng ("Họ và tên: ………") không được thành
+    một ký ức rỗng mà người dùng phải vào màn hình tài khoản xoá tay. KHÔNG lọc
+    bằng `_vuong_luoi_chan`: lưới đó CHẶN dấu vết định danh, còn ở đây họ tên và
+    mã sinh viên CHÍNH LÀ thứ phải giữ (quyết định D12-A).
+    """
+    goc = cau_hoi or ""
+    ra: dict[str, dict] = {}
+    for m in _RE_KHAI_BO_NHO.finditer(_bo_dau(goc)):
+        khoa = _NHAN_BO_NHO[m.group(1).lower()]
+        gia_tri = " ".join(goc[m.start(2):m.end(2)].split())
+        if khoa in ra or not gia_tri or len(gia_tri) > GIA_TRI_TOI_DA or vung_trong(gia_tri):
+            continue
+        ra[khoa] = {"loai": BO_NHO_KHOA[khoa][0], "khoa": khoa, "gia_tri": gia_tri}
+    return list(ra.values())
+
+
+def khoa_duoc_hoi(cau_hoi: str, khoa: str) -> bool:
+    """Lượt NÀY có hỏi tới khoá này không — phép gác duy nhất của R4.
+
+    Khoá lạ (người dùng khai một điều bảng trên chưa lường; `bo_nho_tai_khoan`
+    cố ý không dùng enum cho `khoa`) rơi về chính tên khoá viết rời: `noi_o` →
+    "noi o". Nhận nhầm về phía KHÔNG hỏi là phía an toàn: mất một lần điền hộ,
+    không mất quy tắc.
+    """
+    nhan = BO_NHO_KHOA.get(khoa, ("", (khoa.replace("_", " "),)))[1]
+    s = _bo_dau(cau_hoi or "")
+    return any(re.search(rf"(?<!\w){re.escape(n)}(?!\w)", s, re.IGNORECASE) for n in nhan)
+
+
+def _khoi_bo_nho(nho: list[dict]) -> str:
+    """Ký ức tài khoản → một khối của CHÍNH prompt này (R4), y như `# Bản thảo
+    đang có`. Rỗng khi chưa nhớ gì: `.format()` nối một chuỗi rỗng và không lượt
+    nào khác đổi một byte.
+
+    Khối này là NGỮ CẢNH chứ không phải nguồn — lời dặn dưới đây nói thẳng điều
+    đó, còn `lam_sach_van_ban(cam=…)` mới là chỗ cưỡng chế nó.
+    """
+    if not nho:
+        return ""
+    dong = "\n".join(f"- {r.get('nhan') or r.get('khoa')}: {r.get('gia_tri')}" for r in nho)
+    return (
+        "\n# Điều người hỏi đã cho tôi biết trước đây\n\n"
+        f"{dong}\n\n"
+        "Đây là điều NGƯỜI HỎI từng nói về chính họ ở lượt khác, không phải nội dung của lượt này. Chỉ "
+        "được đưa một mục ở trên vào `van_ban` khi CHÍNH lượt này hỏi tới nó; lượt không hỏi thì để "
+        "`[…]` như mọi chỗ chưa có dữ kiện. Vẫn được dùng để xưng hô và chọn văn phong cho đúng người.\n"
+    )
 
 
 def _mang(*truong: str) -> dict:
@@ -454,7 +584,7 @@ def _phan_doan(i: int, so_phan: int, nhan: str, lo: int, hi: int, muc_dich: str 
 
 
 def _hieu_theo_phan(llm, model: str, cau_hoi: str, goi: list[dict], prompt_path: Path,
-                    khoi_ban_thao: str = "") -> tuple[dict, Usage]:
+                    khoi_ban_thao: str = "", khoi_bo_nho: str = "") -> tuple[dict, Usage]:
     """Phase 16 R2 — dựng `van_ban.muc` qua NHIỀU lượt gọi liên tiếp cho một
     tài liệu ĐƠN quá dài để một lượt an toàn (`hieu_tai_lieu` đã kiểm điều kiện
     này — `len(goi) == 1` và vượt `NGUONG_PHAN_KY_TU` — trước khi gọi hàm này).
@@ -498,6 +628,7 @@ def _hieu_theo_phan(llm, model: str, cau_hoi: str, goi: list[dict], prompt_path:
             tai_lieu=_khoi_tai_lieu(goi_phan),
             phan_doan=_phan_doan(i, so_phan, nhan_chu, lo, hi, muc_dich_da_biet),
             ban_thao_dang_co=khoi_ban_thao,
+            bo_nho=khoi_bo_nho,
         )
         try:
             raw, usage = llm.chat(model, messages(prompt), json_schema=schema_hieu(nhan), max_tokens=TOI_DA_TOKEN_RA)
@@ -1248,9 +1379,17 @@ def _khop_bang(
     return ra, ra_nguon
 
 
-def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -> tuple[dict, dict]:
+def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
+                     cam: list[str] | None = None) -> tuple[dict, dict]:
     """Bỏ khỏi văn bản mô hình vừa soạn mọi giá trị KHÔNG có trong `nguon`.
     Hàm THUẦN, 0 token — `nguon` là chữ của tài liệu cộng lời người hỏi.
+
+    **`cam` (Phase 12 part B, R4) — giá trị KLAW đã NHỚ mà lượt này không hỏi
+    tới.** `_RE_GIA_TRI` chỉ nhìn thấy cụm CÓ CHỮ SỐ và địa chỉ thư, nên một
+    cái TÊN đã nhớ đi thẳng qua phép làm sạch ở trên mà không vướng gì — đúng
+    chế độ hỏng mà hợp đồng "nhớ, không tự điền" cấm. `cam` là lưới riêng cho
+    đúng ca đó: so chuỗi nguyên văn, thay bằng `[…]`, và đếm riêng để đo được
+    mô hình tự điền bao nhiêu lần.
 
     **Thay bằng `[…]`, không bỏ mục.** Một con số bịa là một LỖ trong một câu
     còn lại đúng, và `[…]` chính là chỗ trống mà cả bản thảo checklist lẫn giao
@@ -1293,9 +1432,26 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
     # liệu căn lề gì (`_can_le_theo_dong`, `_can_le_khoi` dùng ở `_khoi_sach`).
     nhan_that = _nhan_that(goi or [])
     theo_dong = _can_le_theo_dong(goi or [])
-    dem = {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0}
+    dem = {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0, "bo_nho_khong_dien": 0}
+    # Giá trị đã nhớ mà CÓ trong `nguon` thì KHÔNG cấm: ở đó nó tới bằng chính
+    # lời người hỏi lượt này (hay tài liệu, hay bản thảo đang có), không bằng ký
+    # ức — cấm nó là xoá đúng thứ người dùng vừa gõ ra. `_nguon_soan` đã cộng
+    # sẵn giá trị của những khoá lượt này HỎI TỚI, nên một lượt xin điền cũng rơi
+    # vào đúng nhánh "có trong nguồn" này.
+    #
+    # ponytail: so khớp chuỗi nguyên văn (không phân biệt hoa thường), nên một
+    # mô hình viết tắt tên ("N.V. Thử") vẫn lọt. Nâng lên so khớp theo từ khi đo
+    # được rằng nó xảy ra thật.
+    cam_re = [
+        re.compile(rf"(?<!\w){re.escape(v)}(?!\w)", re.IGNORECASE)
+        for v in (cam or []) if v and normalize(v) not in nguon
+    ]
 
     def _sach(s: str) -> str:
+        for r in cam_re:
+            s, n = r.subn(CHO_TRONG, s)
+            dem["bo_nho_khong_dien"] += n
+
         def _thay(m: re.Match) -> str:
             if _co_trong_nguon(m.group(0), nguon, so_nguon):
                 return m.group(0)
@@ -1523,8 +1679,15 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
     return {"tieu_de": tieu_de_sach, "muc": giu}, dem
 
 
-def _nguon_soan(goi: list[dict], state: dict, truong: list[dict], quan_sat: list[dict]) -> str:
+def _nguon_soan(goi: list[dict], state: dict, truong: list[dict], quan_sat: list[dict],
+                bo_nho_cho_phep: list[str] | None = None) -> str:
     """Chữ mà một mục của bản thảo được phép lấy giá trị từ đó.
+
+    Nguồn thứ SÁU (Phase 12 part B, R4) là `bo_nho_cho_phep` — và nó CÓ ĐIỀU
+    KIỆN, khác năm nguồn kia: chỉ những giá trị đã nhớ mà CHÍNH lượt này hỏi
+    tới (`khoa_duoc_hoi`) mới vào đây. Một ký ức không được hỏi tới không phải
+    là nguồn của văn bản này; nó chỉ là ngữ cảnh trong prompt, và
+    `lam_sach_van_ban(cam=…)` gỡ nó ra nếu mô hình vẫn tự điền.
 
     NĂM nguồn (review, fix round 1 — trước đây bốn): TOÀN BỘ đơn vị của tài
     liệu trong lượt (không chỉ phần đã gửi cho mô hình — phép lọc đầu vào là
@@ -1550,6 +1713,7 @@ def _nguon_soan(goi: list[dict], state: dict, truong: list[dict], quan_sat: list
     phan += [str(v.get("gia_tri") or "") for v in (state.get("ho_so") or {}).values() if isinstance(v, dict)]
     phan += [str(o.get("gia_tri") or "") for o in truong]
     phan.append(str((state.get("ban_thao_tong_quat_dang_mo") or {}).get("document") or ""))
+    phan += list(bo_nho_cho_phep or [])
     return "\n".join(phan)
 
 
@@ -1733,8 +1897,8 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
                   prompt_path: Path | None = None) -> dict:
     """Đọc `tai_lieu` (mỗi phần tử `{id, ten_tep, don_vi}`) trả lời câu hỏi của lượt.
 
-    Trả về state cộng `tai_lieu_ket`, `muc_dich_tai_lieu`, `tai_lieu_neo` và
-    `traces`. Người gọi (`graph_tra_cuu`) lo phần DB — nạp `don_vi` theo chủ sở
+    Trả về state cộng `tai_lieu_ket`, `muc_dich_tai_lieu`, `tai_lieu_neo`,
+    `bo_nho_moi` (điều người hỏi vừa tự khai, chờ ghi) và `traces`. Người gọi (`graph_tra_cuu`) lo phần DB — nạp `don_vi` theo chủ sở
     hữu — đúng hợp đồng "node lo phần DB, hàm lo phần suy nghĩ" mà `assemble` đã
     lập.
     """
@@ -1751,6 +1915,16 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     # mới được gọi mô hình với khối tài liệu rỗng (`KHONG_TAI_LIEU`); mọi lượt
     # không-tài-liệu khác vẫn nói thật là chưa đọc được, không gọi gì.
     soan_tu_do = not goi and state.get("intent") == Intent.soan_thao
+    # Ký ức tài khoản (Phase 12 part B) — `graph_tra_cuu` đã nạp sẵn, vì node
+    # này thuần và không chạm DB. Chia làm hai NGAY ở đây, MỘT lần, để không có
+    # hai bản sao của cùng một quyết định trôi lệch nhau: khoá lượt này hỏi tới
+    # thì giá trị của nó là NGUỒN hợp lệ; khoá còn lại đi vào `cam` và không có
+    # đường nào vào văn bản.
+    nho = state.get("bo_nho_tai_khoan") or []
+    hoi_toi = {str(r.get("khoa") or "") for r in nho if khoa_duoc_hoi(cau_hoi, str(r.get("khoa") or ""))}
+    bo_nho_cho_phep = [str(r.get("gia_tri") or "") for r in nho if str(r.get("khoa") or "") in hoi_toi]
+    bo_nho_cam = [str(r.get("gia_tri") or "") for r in nho if str(r.get("khoa") or "") not in hoi_toi]
+    khoi_bo_nho = _khoi_bo_nho(nho)
 
     def _hong(tra_loi: str, nguon: str, usage: Usage | None = None) -> dict:
         # `usage`: chi phí đã trả THẬT cho OpenRouter dù lượt hỏng — traces phải
@@ -1761,6 +1935,7 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
             "muc_dich_tai_lieu": None,
             "tai_lieu_neo": [],
             "tai_lieu_du_kien_moi": [],
+            "bo_nho_moi": [],
             # Lỗi hạ tầng KHÔNG được để lại một văn bản soạn dở của lượt trước:
             # `dung_ban_thao_tong_quat` đọc đúng khoá này để quyết định có lưu.
             "van_ban_tong_quat": None,
@@ -1792,7 +1967,9 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     do_dai_ban_thao = len((ban_thao_dang_co or {}).get("document") or "")
     so_ky_tu_vao = sum(len(d.noi_dung) for t in goi for d in t["gui"])
     try:
-        kiem_tran_chi_phi_tai_lieu(so_ky_tu_vao + do_dai_ban_thao)
+        # Khối ký ức cũng vào prompt nên cũng phải đếm vào trần chi phí — cùng
+        # lý lẽ đã áp cho `do_dai_ban_thao` ở fix round 1.
+        kiem_tran_chi_phi_tai_lieu(so_ky_tu_vao + do_dai_ban_thao + len(khoi_bo_nho))
     except VuotTran:
         # Fix round 2 (N3) — thông điệp riêng khi bản thảo góp phần vượt trần,
         # xem chú thích tại `QUA_DAI_VOI_BAN_THAO`.
@@ -1812,11 +1989,12 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         # Ngắn hơn ngưỡng: ĐÚNG một lượt như trước bản vá này, không đổi hành
         # vi, không đổi chi phí.
         if len(goi) == 1 and so_ky_tu_vao > NGUONG_PHAN_KY_TU:
-            ra, usage = _hieu_theo_phan(llm, model, cau_hoi, goi, prompt_path or PROMPT_PATH, khoi_ban_thao)
+            ra, usage = _hieu_theo_phan(llm, model, cau_hoi, goi, prompt_path or PROMPT_PATH,
+                                        khoi_ban_thao, khoi_bo_nho)
         else:
             prompt = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8").format(
                 cau_hoi=cau_hoi, tai_lieu=KHONG_TAI_LIEU if soan_tu_do else _khoi_tai_lieu(goi), phan_doan="",
-                ban_thao_dang_co=khoi_ban_thao,
+                ban_thao_dang_co=khoi_ban_thao, bo_nho=khoi_bo_nho,
             )
             raw, usage = llm.chat(model, messages(prompt), json_schema=schema_hieu(nhan), max_tokens=TOI_DA_TOKEN_RA)
             ra = json.loads(raw)
@@ -1919,10 +2097,15 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     # được tra ngược về nguồn của lượt. Ra khỏi chỗ này rồi thì nó là dữ liệu
     # thuần — `dung_ban_thao_tong_quat` không phải biết gì về mô hình nữa.
     van_ban, van_ban_dem = (
-        lam_sach_van_ban(ra.get("van_ban") or {}, _nguon_soan(goi, state, truong, giu), goi)
+        lam_sach_van_ban(ra.get("van_ban") or {}, _nguon_soan(goi, state, truong, giu, bo_nho_cho_phep),
+                         goi, bo_nho_cam)
         if muc_dich in MUC_DICH_SOAN
-        else (None, {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0})
+        else (None, {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0, "bo_nho_khong_dien": 0})
     )
+    # R5 — 0 token: dữ kiện người dùng tự khai đọc từ CHÍNH câu họ gõ, và chỉ ở
+    # lượt SOẠN (nơi họ đang khai để dựng một văn bản). `graph_tra_cuu` ghi
+    # xuống DB, đúng con đường `tai_lieu_du_kien_moi` đã đi — node này thuần.
+    bo_nho_moi = rut_bo_nho(cau_hoi) if muc_dich in MUC_DICH_SOAN else []
     can_du_kien = [str(s).strip() for s in (ra.get("can_du_kien") or []) if str(s).strip()]
     # Thiếu tài liệu để so: quyết định bằng LỜI NGƯỜI HỎI hoặc nhãn của mô hình,
     # cái nào đúng cũng đủ — xem `xin_so_sanh`.
@@ -1964,6 +2147,8 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         "van_ban_tong_quat": van_ban,
         # Dữ kiện MỚI, chưa ghi: node thuần không chạm DB (`graph_tra_cuu` lo).
         "tai_lieu_du_kien_moi": truong,
+        # Điều người hỏi vừa tự khai về họ, chưa ghi — cùng lý do ngay trên.
+        "bo_nho_moi": bo_nho_moi,
         "traces": {
             **prior_traces,
             "hieu_tai_lieu_nguon": "llm",
@@ -1991,6 +2176,12 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
             "dung_ban_thao_so_muc_lam_sach": van_ban_dem["muc_lam_sach"],
             "dung_ban_thao_so_gia_tri_lam_sach": van_ban_dem["gia_tri_lam_sach"],
             "dung_ban_thao_so_muc_bo": van_ban_dem["muc_bo"],
+            # Đếm, không chép (Phase 12 part B): bao nhiêu lần mô hình tự điền
+            # một điều đã nhớ mà lượt này không hỏi tới — con số duy nhất đo
+            # được rằng lưới "nhớ, không tự điền" đang cắn thật, và bao nhiêu
+            # điều người hỏi vừa khai. Không khoá nào mang giá trị đã nhớ.
+            "dung_ban_thao_so_bo_nho_chan": van_ban_dem["bo_nho_khong_dien"],
+            "bo_nho_so_khai": len(bo_nho_moi),
             "hieu_tai_lieu_token_in": usage.token_in if usage else 0,
             "hieu_tai_lieu_token_out": usage.token_out if usage else 0,
             "hieu_tai_lieu_cost_usd": usage.cost_usd if usage else 0.0,
