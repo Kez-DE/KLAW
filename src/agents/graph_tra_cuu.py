@@ -334,8 +334,16 @@ def _ghi_bo_nho(st: dict) -> dict:
         try:
             if bo_nho_tai_khoan.ghi(sub, d["loai"], d["khoa"], d["gia_tri"], st.get("hoi_thoai_id")) != "giu":
                 nhan.append(bo_nho_tai_khoan.NHAN_KHOA.get(d["khoa"], d["khoa"]))
-        except Exception:
-            logger.exception("ghi_bo_nho: không ghi được khoá %s", d.get("khoa"))
+        except Exception as e:
+            # Fix round 1 (review MED) — KHÔNG `logger.exception`. Nó kèm
+            # `exc_info`, và `StatementError.__str__` của SQLAlchemy nối thêm
+            # `[SQL: …] [parameters: …]`; `src/services/db.py` dựng engine không
+            # có `hide_parameters=True`, nên tham số ở đây LÀ `gia_tri` — họ tên
+            # và mã sinh viên của người dùng đi vào log mỗi lần DB chập một
+            # nhịp. KHOÁ (tên trường, không phải giá trị) cộng TÊN LOẠI lỗi đủ
+            # để lần ra sự cố mà không mang theo dữ liệu cá nhân nào.
+            logger.warning("ghi_bo_nho: không ghi được khoá %s (%s)",
+                           d.get("khoa"), type(e).__name__)
     # `bo_nho_moi` rỗng lại: đã ghi rồi thì nó không còn là việc chờ, và một
     # state còn mang nó là một đường ghi lần hai.
     return {**st, "bo_nho_da_nho": nhan, "bo_nho_moi": []}
