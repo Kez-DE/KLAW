@@ -466,3 +466,22 @@ def test_manh_roi_rac_mo_ho_thi_ca_trich_bi_loai():
     llm = _LLM(_ra(quan_sat=[_qs("x", trich)]))
     ra = h.hieu_tai_lieu(ST, TL_BANG, llm, "m")
     assert ra["tai_lieu_ket"]["quan_sat"] == []
+
+
+def test_khoa_chi_phi_duong_tai_lieu_nam_trong_ba_danh_sach_cong_don():
+    """`traces._COST_KEYS` cộng từ một danh sách CỐ ĐỊNH — khoá vắng mặt là một
+    lượt LLM vô hình với trần chi phí ngày (xem `traces.py`). `hieu_tai_lieu_*`
+    và `rut_du_kien_*` từng vắng cả hai, phát hiện ở vòng sửa Phase 16."""
+    from src.services.traces import _COST_KEYS, _TOKEN_IN_KEYS, _TOKEN_OUT_KEYS, _tong_hop_traces
+
+    for node in ("hieu_tai_lieu", "rut_du_kien"):
+        assert f"{node}_token_in" in _TOKEN_IN_KEYS
+        assert f"{node}_token_out" in _TOKEN_OUT_KEYS
+        assert f"{node}_cost_usd" in _COST_KEYS
+
+    tong = _tong_hop_traces({
+        "hieu_tai_lieu_token_in": 5, "hieu_tai_lieu_token_out": 7, "hieu_tai_lieu_cost_usd": 0.01,
+        "rut_du_kien_token_in": 11, "rut_du_kien_token_out": 13, "rut_du_kien_cost_usd": 0.02,
+    })
+    assert (tong["token_in"], tong["token_out"]) == (16, 20)
+    assert tong["cost_usd"] == pytest.approx(0.03)
