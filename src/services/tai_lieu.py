@@ -23,7 +23,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from src.services.doc_tai_lieu import DinhDangChu, DonViVanBan, NguonChu
+from src.services.doc_tai_lieu import DinhDangChu, DonViVanBan, GianCach, MocTab, NguonChu
 
 logger = logging.getLogger(__name__)
 
@@ -385,6 +385,59 @@ def _dinh_dang_tu_hang(tho: Any) -> tuple[DinhDangChu, ...]:
     return tuple(ra)
 
 
+_TRUONG_GC = ("doan", "truoc", "sau", "dong", "trai", "phai", "dau_dong", "treo")
+
+
+def _hang_gian_cach(g: GianCach) -> dict:
+    """Một `GianCach` → JSON. Cùng luật `_hang_dinh_dang`: bỏ mọi trường đang ở
+    MẶC ĐỊNH, vì một đoạn điển hình khai đúng một hai thuộc tính và ghi đủ
+    mười ba khoá cho từng đoạn của một biểu mẫu vài trăm đoạn là cất toàn số 0.
+
+    `moc`/`khai` thành mảng-cặp chứ không object: cùng lý do `DinhDangChu.khai`
+    — JSON không giữ thứ tự khoá như một hợp đồng, mà thứ tự ấy chính là thứ
+    `_moc_tab`/`_gian_cach_doan` đã chốt.
+    """
+    ra: dict[str, Any] = {}
+    for ten in _TRUONG_GC:
+        if v := getattr(g, ten):
+            ra[ten] = v
+    if g.luat_dong:
+        ra["luat_dong"] = g.luat_dong
+    if g.moc:
+        ra["moc"] = [[m.val, m.pos, m.leader] for m in g.moc]
+    if g.tab:
+        ra["tab"] = list(g.tab)
+    if g.khai:
+        ra["khai"] = [list(k) for k in g.khai]
+    return ra
+
+
+def _gian_cach_tu_hang(tho: Any) -> tuple[GianCach, ...]:
+    """JSON → `GianCach`. Một dòng lưu TRƯỚC trường này (hoặc một dòng hỏng
+    hình dạng) về `()` — "không biết giãn cách gì", đúng mặc định của
+    `DonViVanBan.gian_cach`, chứ không đoán lại từ nội dung."""
+    if not isinstance(tho, list):
+        return ()
+    ra: list[GianCach] = []
+    for g in tho:
+        if not isinstance(g, dict):
+            continue
+        ra.append(
+            GianCach(
+                **{ten: int(g.get(ten) or 0) for ten in _TRUONG_GC},
+                luat_dong=str(g.get("luat_dong") or ""),
+                moc=tuple(
+                    MocTab(val=str(m[0]), pos=int(m[1]), leader=str(m[2]))
+                    for m in (g.get("moc") or ())
+                    if len(m) == 3
+                ),
+                tab=tuple(int(t) for t in (g.get("tab") or ())),
+                khai=tuple((str(k[0]), str(k[1])) for k in (g.get("khai") or ()) if len(k) == 2),
+            )
+        )
+    return tuple(ra)
+
+
 def _hang_don_vi(d: DonViVanBan) -> dict:
     return {
         "chi_so": d.chi_so,
@@ -417,6 +470,11 @@ def _hang_don_vi(d: DonViVanBan) -> dict:
         # mất ngay tại ranh giới lưu/đọc này nếu không ghi ra — và một biểu
         # mẫu in đậm quốc hiệu sẽ dựng lại thành chữ thường.
         "dinh_dang": [_hang_dinh_dang(r) for r in d.dinh_dang],
+        # Cùng lý do mọi khoá trên: giãn cách/thụt lề/mốc tab (`w:spacing`,
+        # `w:ind`, `w:tabs`) đã đọc đúng từ tệp mất ngay tại ranh giới lưu/đọc
+        # này nếu không ghi ra — và dòng "……" để điền tay của một biểu mẫu sẽ
+        # dựng lại thành một dòng cụt.
+        "gian_cach": [_hang_gian_cach(g) for g in d.gian_cach],
     }
 
 
@@ -474,6 +532,7 @@ def don_vi_cua(engine: Engine, viec_id: str, user_sub: str) -> list[DonViVanBan]
             bang_vien=bool(d.get("bang_vien", True)),
             bang_cao=int(d.get("bang_cao") or 0),
             dinh_dang=_dinh_dang_tu_hang(d.get("dinh_dang")),
+            gian_cach=_gian_cach_tu_hang(d.get("gian_cach")),
         )
         for d in (r[0] or [])
     ]

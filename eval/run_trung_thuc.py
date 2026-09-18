@@ -70,7 +70,7 @@ _TRUONG_DOC_RA: dict[str, tuple[str, ...]] = {
     "chieu_cao_hang_hrule": (),
     "can_le": ("can_le",),
     "dinh_dang_run": ("dinh_dang",),
-    "gian_cach_thut_le": (),
+    "gian_cach_thut_le": ("gian_cach",),
     "le_trang": (),
     "media": (),
 }
@@ -353,6 +353,19 @@ def dac_ta_bo_doc(tai_lieu: TaiLieuDaDoc) -> dict[str, dict[str, str]]:
             for ten, v in r.khai:
                 ra["dinh_dang_run"][f"{goc}/run{r.so}/{ten}"] = v or "1"
 
+    def _gc(tien_to: str, d) -> None:
+        """`GianCach.khai` → đúng khoá `_run_va_gian_cach` bên chân lý dựng.
+
+        Khoá của `khai` đã mang sẵn `spacing/…`, `ind/…`, `tabs` — cùng tên
+        OOXML mà chân lý dùng — nên ở đây chỉ còn ghép tiền tố. Chân lý ghi
+        giá trị NGUYÊN VĂN thuộc tính, và `khai` cũng vậy: không quy đổi ở một
+        bên rồi so với bên kia.
+        """
+        for g in d.gian_cach:
+            goc = tien_to if d.bang is None else f"{tien_to}/p{g.doan}"
+            for ten, v in g.khai:
+                ra["gian_cach_thut_le"][f"{goc}/{ten}"] = v
+
     for d in tai_lieu.don_vi:
         if d.vung != "than":
             continue
@@ -360,6 +373,7 @@ def dac_ta_bo_doc(tai_lieu: TaiLieuDaDoc) -> dict[str, dict[str, str]]:
             ra["cau_truc"][f"khoi{khoi}"] = "doan"
             ra["can_le"][f"khoi{khoi}"] = d.can_le
             _run(f"khoi{khoi}", d)
+            _gc(f"khoi{khoi}", d)
             khoi += 1
             bang_truoc = None
             continue
@@ -377,6 +391,7 @@ def dac_ta_bo_doc(tai_lieu: TaiLieuDaDoc) -> dict[str, dict[str, str]]:
         ra["cau_truc"][f"bang{b}/o{h},{c}"] = str(d.bang_nhip)
         ra["can_le"][f"bang{b}/o{h},{c}"] = d.can_le
         _run(f"bang{b}/o{h},{c}", d)
+        _gc(f"bang{b}/o{h},{c}", d)
     return ra
 
 
