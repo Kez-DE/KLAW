@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import {
   catTheoChu,
@@ -8,6 +8,7 @@ import {
   THUOC_TINH_CHU,
   tiLeCotVe,
   type CanLe,
+  type DoanChu,
   type KhoangChu,
   type Muc,
 } from "@/lib/xuat-tep";
@@ -18,14 +19,13 @@ import {
 const CO_THUONG_PT = 13;
 
 /**
- * Vẽ `noiDung` vào một thẻ, cắt theo `chu` thành các `<span data-chu>` —
- * chỗ DUY NHẤT định dạng chữ nguồn (`w:rPr`) thành hình trên màn hình.
+ * MỘT đoạn chữ → thuộc tính `data-*` (tệp tải về đọc lại) và `style` (màn
+ * hình vẽ) của `<span>` chở nó.
  *
- * Mọi đoạn đều là một `<span data-chu>`, KỂ CẢ đoạn không định dạng gì: nhờ
- * vậy `docDoanChu` (xuat-tep.ts) nối `textContent` của chúng lại là được
- * đúng chữ của dòng, không phải đi qua `childNodes` để nhặt phần chữ nằm
- * ngoài span nào — cùng khuôn `data-*` mà `docBangTuPhanTu` đã dùng để
- * `.docx`/PDF đọc lại đúng thứ màn hình đã vẽ.
+ * Chỗ DUY NHẤT dịch một sự thật định dạng thành hình: HAI đường vẽ span dùng
+ * chung nó — `veChuVaoThe` (khối văn xuôi, dựng DOM bằng tay vì khối gõ
+ * được) và `OChu` (ô bảng, dựng bằng JSX vì ô chỉ đọc). Hai cách dựng không
+ * được ra hai kết quả; `docDoanChu` chỉ biết một bộ thuộc tính.
  *
  * Cỡ chữ ra `em` chứ không `pt`: `thuPhong` phóng CỠ CHỮ của cả trang (không
  * phóng trang), nên một cỡ tuyệt đối sẽ đứng yên trong khi chữ quanh nó to
@@ -36,6 +36,42 @@ const CO_THUONG_PT = 13;
  * `font-family` khi `phongTrenManHinh` nhận ra hạng chữ — không nhận ra thì
  * giữ phông của trang thay vì khai một họ chữ kho này không có.
  */
+function thuocTinhChu(o: DoanChu): { thuoc: Record<string, string>; style: CSSProperties } {
+  const thuoc: Record<string, string> = { [THUOC_TINH_CHU.moc]: "" };
+  const style: CSSProperties = {};
+  if (o.inDam) {
+    thuoc[THUOC_TINH_CHU.dam] = "1";
+    style.fontWeight = "700";
+  }
+  if (o.inNghieng) {
+    thuoc[THUOC_TINH_CHU.nghieng] = "1";
+    style.fontStyle = "italic";
+  }
+  if (o.gachChan) {
+    thuoc[THUOC_TINH_CHU.gach] = "1";
+    style.textDecoration = "underline";
+  }
+  if (o.coChu > 0) {
+    thuoc[THUOC_TINH_CHU.co] = String(o.coChu);
+    style.fontSize = `${o.coChu / 2 / CO_THUONG_PT}em`;
+  }
+  if (o.phong) {
+    thuoc[THUOC_TINH_CHU.phong] = o.phong;
+    const ho = phongTrenManHinh(o.phong);
+    if (ho) style.fontFamily = ho;
+  }
+  return { thuoc, style };
+}
+
+/**
+ * Vẽ `noiDung` vào một thẻ, cắt theo `chu` thành các `<span data-chu>`.
+ *
+ * Mọi đoạn đều là một `<span data-chu>`, KỂ CẢ đoạn không định dạng gì: nhờ
+ * vậy `docDoanChu` (xuat-tep.ts) nối `textContent` của chúng lại là được
+ * đúng chữ của dòng, không phải đi qua `childNodes` để nhặt phần chữ nằm
+ * ngoài span nào — cùng khuôn `data-*` mà `docBangTuPhanTu` đã dùng để
+ * `.docx`/PDF đọc lại đúng thứ màn hình đã vẽ.
+ */
 function veChuVaoThe(el: HTMLElement, noiDung: string, chu: KhoangChu[]) {
   if (chu.length === 0) {
     el.textContent = noiDung;
@@ -44,31 +80,37 @@ function veChuVaoThe(el: HTMLElement, noiDung: string, chu: KhoangChu[]) {
   el.textContent = "";
   for (const o of catTheoChu(noiDung, chu)) {
     const s = document.createElement("span");
-    s.setAttribute(THUOC_TINH_CHU.moc, "");
+    const { thuoc, style } = thuocTinhChu(o);
+    for (const [ten, giaTri] of Object.entries(thuoc)) s.setAttribute(ten, giaTri);
+    Object.assign(s.style, style);
     s.textContent = o.text;
-    if (o.inDam) {
-      s.setAttribute(THUOC_TINH_CHU.dam, "1");
-      s.style.fontWeight = "700";
-    }
-    if (o.inNghieng) {
-      s.setAttribute(THUOC_TINH_CHU.nghieng, "1");
-      s.style.fontStyle = "italic";
-    }
-    if (o.gachChan) {
-      s.setAttribute(THUOC_TINH_CHU.gach, "1");
-      s.style.textDecoration = "underline";
-    }
-    if (o.coChu > 0) {
-      s.setAttribute(THUOC_TINH_CHU.co, String(o.coChu));
-      s.style.fontSize = `${o.coChu / 2 / CO_THUONG_PT}em`;
-    }
-    if (o.phong) {
-      s.setAttribute(THUOC_TINH_CHU.phong, o.phong);
-      const ho = phongTrenManHinh(o.phong);
-      if (ho) s.style.fontFamily = ho;
-    }
     el.appendChild(s);
   }
+}
+
+/**
+ * Chữ của MỘT Ô bảng — từng đoạn một `<span data-chu>` khi nguồn khai định
+ * dạng (`BangThat.chuO`), chữ trần khi không.
+ *
+ * Dựng bằng JSX chứ không `veChuVaoThe`: ô bảng CHỈ ĐỌC (không
+ * `contentEditable`, xem `Props.onSuaKhoi`), nên không có lý do nào phải
+ * đồng bộ DOM bằng tay như khối văn xuôi gõ được. Cả hai vẫn đi qua CÙNG
+ * `thuocTinhChu`, nên `docBangTuPhanTu`/`docDoanChu` đọc lại được y hệt.
+ */
+function OChu({ noiDung, chu }: { noiDung: string; chu: DoanChu[] }) {
+  if (chu.length === 0) return <>{noiDung}</>;
+  return (
+    <>
+      {chu.map((o, i) => {
+        const { thuoc, style } = thuocTinhChu(o);
+        return (
+          <span key={i} {...thuoc} style={style}>
+            {o.text}
+          </span>
+        );
+      })}
+    </>
+  );
 }
 
 /** `CanLe` của MỘT Ô bảng → lớp căn lề. Ô giữ căn lề nguồn của chính nó
@@ -521,9 +563,12 @@ export function XemTruocA4({
                   // cuối trang), và ở đó hàng đầu không phải tiêu đề của gì
                   // cả. Mỗi ô giữ căn lề NGUỒN của nó (`k.canLeO`, `w:jc`),
                   // mỗi hàng giữ chiều cao khai báo (`k.cao`, `w:trHeight` —
-                  // chỗ để ký tay). Ba thứ đó đi ra DOM thành `data-vien`/
-                  // `data-can-le`/`data-cao` để `docBangTuPhanTu` đọc lại khi
-                  // xuất `.docx`/PDF: một nguồn, ba nơi dùng.
+                  // chỗ để ký tay), và chữ TRONG ô giữ định dạng run của
+                  // nguồn (`k.chuO`, `w:rPr` — `OChu` vẽ từng `<span
+                  // data-chu>`, xem chú thích ở đó). Bốn thứ đó đi ra DOM
+                  // thành `data-vien`/`data-can-le`/`data-cao`/`data-chu` để
+                  // `docBangTuPhanTu` đọc lại khi xuất `.docx`/PDF: một
+                  // nguồn, ba nơi dùng.
                   // Hàng ngắn hơn hàng tiêu đề (Phase 8 R4, ô gộp
                   // trong tài liệu nguồn) dùng `colSpan` qua `k.nhip` — nhịp
                   // THẬT khi bảng có khai lưới nguồn (Phase 11 R6, đọc
@@ -584,7 +629,7 @@ export function XemTruocA4({
                                     data-can-le={k.canLeO?.[0]?.[oi] ?? "trai"}
                                     className="border border-[#999] bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold"
                                   >
-                                    {o}
+                                    <OChu noiDung={o} chu={k.chuO?.[0]?.[oi] ?? []} />
                                   </th>
                                 );
                               })}
@@ -610,7 +655,7 @@ export function XemTruocA4({
                                         k.vien ? "border border-[#999]" : ""
                                       }`}
                                     >
-                                      {o}
+                                      <OChu noiDung={o} chu={k.chuO?.[hiThat]?.[oi] ?? []} />
                                     </td>
                                   );
                                 })}
