@@ -16,6 +16,7 @@ import {
   canhLeThanhHuong,
   coSpanHang,
   docBangTuPhanTu,
+  dongThanhParagraph,
   mucTuBanThao,
   nhipHangVe,
   noiDungThanhPDF,
@@ -263,6 +264,9 @@ const banThaoCanLe = {
         { noi_dung: "CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM", bang: [], can_le: "giua" },
         { noi_dung: "Hà Nội, ngày ... tháng ... năm ...", bang: [], can_le: "phai" },
         { noi_dung: "Trường tự do: …", bang: [], can_le: "trai" },
+        // `deu` — giá trị thứ tư (2026-09-19): nguồn khai `w:jc="both"`, hoặc
+        // thân bài của một văn bản KLAW tự soạn theo NĐ 30/2020 mục II.6.
+        { noi_dung: "Thân bài căn đều hai lề.", bang: [], can_le: "deu" },
         { noi_dung: "Không khai can_le", bang: [] },
         { noi_dung: "can_le lạ", bang: [], can_le: "linh_tinh" },
       ],
@@ -272,7 +276,7 @@ const banThaoCanLe = {
 const khoiCanLe = mucTuBanThao(banThaoCanLe, null)[0]?.khoi as { canhLe: string }[];
 assert.deepEqual(
   khoiCanLe.map((k) => k.canhLe),
-  ["giua", "phai", "trai", "trai", "trai"],
+  ["giua", "phai", "trai", "deu", "trai", "trai"],
 );
 
 // ───────────────────────────── Phase 11 R2/R8 — `trai` xuất KHÔNG phải "căn
@@ -290,6 +294,11 @@ assert.equal(
 );
 assert.equal(canhLeThanhHuong("giua"), "center");
 assert.equal(canhLeThanhHuong("phai"), "right");
+assert.equal(
+  canhLeThanhHuong("deu"),
+  "justify",
+  "căn đều giờ có giá trị RIÊNG — `trai` vẫn là 'nguồn không khai', không phải căn đều",
+);
 
 // Phase 8 R4 — hàng ngắn hơn hàng tiêu đề (ô gộp) đi qua NGUYÊN trong `khoi`,
 // `coSpanHang` bên dưới mới quyết định cách vẽ nó.
@@ -1216,4 +1225,64 @@ assert.ok(
   "chiều cao khai báo phải chiếm chỗ thật trong PDF, không bị bỏ qua khi vẽ",
 );
 
-console.info("kiem-xuat-tep: 87/87 đạt");
+// ══════════ Căn đều hai lề (`deu`) đi HẾT đường: .docx và PDF ══════════════
+//
+// Thân bài của một văn bản KLAW tự soạn phải "được canh đều cả hai lề" (NĐ
+// 30/2020/NĐ-CP, Phụ lục I mục II.6), và một tài liệu nguồn khai `w:jc="both"`
+// giờ cũng đọc ra `deu` thay vì bị gộp vào `trai`. Khoá cả hai nơi vẽ, vì một
+// giá trị mới chỉ có nghĩa khi nó ra tới tệp — chứ không phải khi nó tồn tại.
+
+const THAN_BAI =
+  "Người lao động cam kết thực hiện đúng nội quy lao động của công ty và mọi quy định pháp luật hiện hành có liên quan tới công việc được giao cho mình.";
+
+const paraDeu = await dongThanhParagraph(dong(THAN_BAI, "thuong", { canhLe: "deu" }));
+assert.deepEqual(
+  [...new Set(timTat(paraDeu, "w:jc").map((j) => thuocTinhXml(j)))],
+  ["both"],
+  'khối căn đều phải ra `w:jc="both"` trong .docx',
+);
+const paraTrai = await dongThanhParagraph(dong(THAN_BAI, "thuong"));
+assert.ok(
+  !timTat(paraTrai, "w:jc")
+    .map((j) => thuocTinhXml(j))
+    .includes("both"),
+  "hồi quy Phase 11 R2/R8: `trai` (nguồn KHÔNG khai jc) không được ra `both`",
+);
+
+// Ô BẢNG có bảng ánh xạ RIÊNG trong `bangThanhTable` — cùng bốn giá trị, khoá
+// riêng, vì hai bảng lệch nhau là đúng thứ "một nguồn, hai nơi dùng" sinh ra.
+const bangDeu = await bangThanhTable(
+  [["Ô căn đều", "Ô căn giữa"]],
+  [[1, 1]],
+  [50, 50],
+  false,
+  [],
+  [["deu", "giua"]],
+);
+assert.deepEqual(
+  timTat(bangDeu, "w:jc").map((j) => thuocTinhXml(j)),
+  ["both", "center"],
+  'ô bảng căn đều ra `w:jc="both"`, ô cạnh nó KHÔNG bị kéo theo',
+);
+
+/** Số thao tác vẽ chữ trong luồng PDF đã giải nén. jsPDF căn đều bằng cách đặt
+ *  TỪNG TỪ một (`Td` + `Tj` cho mỗi từ) thay vì vẽ cả dòng một lần — nên đếm
+ *  chúng là phép đo trực tiếp "dòng này CÓ được căn đều hay không", không phải
+ *  một phép so bytes mơ hồ. */
+const pdfCuaDong = async (canhLe: CanLe) => {
+  const nd: NoiDungXuat = {
+    khoi: [{ kind: "dong", d: dong(THAN_BAI, "thuong", { canhLe }) }],
+    oKy: [],
+  };
+  const { pdf } = await noiDungThanhPDF(nd, "Căn đều", phongChuPDF);
+  const luong = noiDungGiaiNen(Buffer.from(pdf.output("arraybuffer")));
+  return (luong.match(/Tj/g) ?? []).length;
+};
+const veDeu = await pdfCuaDong("deu");
+const veTrai = await pdfCuaDong("trai");
+assert.ok(
+  veDeu > veTrai * 2,
+  `PDF phải vẽ dòng căn đều theo TỪNG TỪ (deu ${veDeu} vs trai ${veTrai} thao tác vẽ chữ)`,
+);
+
+console.info("kiem-xuat-tep: 92/92 đạt");

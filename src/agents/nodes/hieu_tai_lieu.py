@@ -957,6 +957,128 @@ _RE_GIA_TRI = re.compile(r"\S+@\S+|\d[\d.,/:\-]*\d|\d")
 # tháng bịa sẽ khớp một con số có thật.
 _RE_SO_THUAN = re.compile(r"\d[\d.,]*\d|\d")
 
+# ── Thể thức hành chính của một văn bản KLAW TỰ SOẠN ────────────────────────
+#
+# Chỉ áp cho lượt soạn KHÔNG có tài liệu nào (`tu_soan` trong `lam_sach_van_ban`).
+# Có tài liệu thì mọi sự thật trình bày đọc từ chính tệp (`_can_le_theo_dong`,
+# `_chu_theo_dong`, `_gian_cach_theo_dong`) và quy ước ở đây KHÔNG chạy: một
+# quy ước không bao giờ được ghi đè điều tệp nói.
+
+# Chỗ điền của một BIỂU MẪU: dãy chấm để viết tay lên, đúng cách chính tài liệu
+# nguồn vẽ nó (đo trên BM.M05: "Cơ quan/Đơn vị tiếp nhận: ……………………").
+# `[…]` KHÔNG bị bỏ — nó đổi nghĩa và thu hẹp lại: sau bản vá này `[…]` chỉ còn
+# do CHÍNH KLAW chèn (`_sach` gỡ một giá trị không tra ngược được, `_chan_bo_nho`
+# từ chối điền một điều đã nhớ mà lượt này không hỏi tới), còn chỗ trống mà mô
+# hình khai là "tôi chưa có dữ kiện" thì vẽ thành dòng chấm. Phân biệt đó rút
+# được TRUNG THỰC từ thứ mô hình đã trả về, vì `_duong_dien` chạy TRƯỚC `_sach`:
+# cái gì là `[…]` sau đó thì đúng là KLAW cố ý không điền.
+DAU_DIEN = "…"
+# Một dòng A4 theo lề NĐ 30/2020 (trái 30mm, phải 20mm ⇒ ~145mm) chứa khoảng
+# ngần này ký tự thường ở Times New Roman 13. Đây là một NÚM CHỈNH, không phải
+# một hằng số của bài toán — đo lại rồi sửa nếu đổi cỡ chữ hay lề.
+_KY_TU_MOI_DONG = 70
+# Bề rộng một "…" quy ra ký tự thường. Làm tròn LÊN (thật ra ~2,2) để sai số
+# luôn đẩy về phía dòng NGẮN hơn: một dòng chấm hụt vài mm vẫn viết được, một
+# dòng tràn thì xuống dòng và vỡ bố cục biểu mẫu.
+_RONG_DAU_DIEN = 3
+# Sàn/trần số dấu chấm. Sàn giữ cho một dòng chật vẫn còn thấy rõ là CHỖ ĐIỀN;
+# trần giữ cho một chỗ điền đứng một mình không kéo dài hết cả dòng.
+_DIEN_TOI_THIEU, _DIEN_TOI_DA = 3, 20
+
+
+def _duong_dien(s: str) -> str:
+    """`[…]` của MÔ HÌNH → dòng chấm dài vừa đủ, tính theo từng DÒNG.
+
+    Độ dài chia theo chỗ còn lại của dòng: một dòng biểu mẫu "Họ và tên: […]"
+    được một dòng chấm dài gần hết dòng, còn một câu văn xuôi có ba chỗ trống
+    ("Tôi tên là […], sinh ngày […] tại […]") thì mỗi chỗ ngắn lại để cả câu
+    vẫn nằm trên MỘT dòng. Một độ dài cố định không làm được cả hai: đủ dài cho
+    ca đầu thì ca sau tràn sang ba dòng.
+    """
+    ra: list[str] = []
+    for dong in s.split("\n"):
+        n = dong.count(CHO_TRONG)
+        if not n:
+            ra.append(dong)
+            continue
+        con_lai = _KY_TU_MOI_DONG - (len(dong) - n * len(CHO_TRONG))
+        dai = max(_DIEN_TOI_THIEU, min(_DIEN_TOI_DA, con_lai // (_RONG_DAU_DIEN * n)))
+        ra.append(dong.replace(CHO_TRONG, DAU_DIEN * dai))
+    return "\n".join(ra)
+
+
+# Quốc hiệu. Hai cách gõ "HOÀ"/"HÒA" là HAI chuỗi NFC khác nhau (dấu trên `o`
+# hay trên `a`), không phải một — `normalize` không gộp chúng, nên regex phải
+# nhận cả hai.
+_RE_QUOC_HIEU = re.compile(r"^cộng\s+h(?:òa|oà)\s+xã\s+hội\s+chủ\s+nghĩa\s+việt\s+nam$")
+_RE_TIEU_NGU = re.compile(r"^độc\s+lập\s*[-–—]\s*tự\s+do\s*[-–—]\s*hạnh\s+phúc$")
+# Dòng địa danh — ngày tháng. Neo ĐẦU dòng và giới hạn phần đứng trước dấu phẩy
+# để một câu thân bài ("...đã nộp đơn ngày 05 tháng 3 năm 2026") không bị nhận
+# nhầm: ở đó cụm ngày tháng nằm GIỮA câu, không mở đầu bằng "<địa danh>,".
+_RE_DIA_DANH_NGAY = re.compile(r"^[^,]{1,40},\s*ngày\b.*\btháng\b.*\bnăm\b")
+# Khối ký. Hai nhóm: chữ viết tắt quyền hạn người ký mà chính NĐ 30/2020 liệt
+# kê, và vai người ký của một lá đơn.
+#
+# `Q.` (quyền) CỐ Ý không có trong danh sách dù Nghị định có kê: `q` cũng là
+# một chữ cái đánh mục trong tiếng Việt (a, b, c... p, q, r), nên "q. Nội dung
+# ..." là một mục con của thân bài chứ không phải một khối ký — và đẩy một mục
+# con sang lề phải tệ hơn hẳn việc bỏ sót một chức danh quyền hiếm gặp trong
+# đúng loại văn bản KLAW soạn từ đầu (đơn từ cá nhân). `tm`/`kt`/`tl`/`tuq`
+# không trùng chữ cái đánh mục nào nên không vướng.
+_RE_KHOI_KY = re.compile(
+    r"^(?:tm|kt|tl|tuq)\.\s*\S"
+    r"|^người\s+(?:làm\s+đơn|viết\s+đơn|nộp\s+đơn|khai|đề\s+nghị|yêu\s+cầu|cam\s+đoan)\b"
+)
+
+
+def _vai_the_thuc(dong: str, tieu_de: str) -> str | None:
+    """Căn lề mà NĐ 30/2020/NĐ-CP đặt cho MỘT dòng, hoặc `None` khi Nghị định
+    không nói gì về dòng ấy (⇒ nó là thân bài).
+
+    Bốn luật, và chỉ bốn — mỗi luật là một câu Nghị định thật sự viết ra:
+
+    - Tiêu ngữ "được canh giữa dưới Quốc hiệu" (Phụ lục I, mục II.1) ⇒ `giua`.
+      Quốc hiệu đi cùng nó về `giua` theo quyết định của chủ sản phẩm: Nghị định
+      đặt Quốc hiệu ở Ô SỐ 2 (nửa PHẢI đầu trang) chứ không nói căn lề của
+      chính nó, mà bản thảo KLAW không có lưới hai cột để dựng lại ô ấy.
+    - Tên loại và trích yếu nội dung "được đặt canh giữa" (mục II.5) ⇒ `giua`.
+      Nhận ra bằng phép so ĐÚNG chữ với `van_ban.tieu_de`, không bằng "dòng in
+      hoa thì căn giữa" — một tiêu đề MỤC in hoa ("PHẦN I. THÔNG TIN CHUNG")
+      không phải tên loại văn bản và Nghị định không bảo căn giữa nó.
+    - Nội dung văn bản "được canh đều cả hai lề" (mục II.6) ⇒ `deu`, tức mọi
+      dòng không rơi vào ba luật kia.
+    - Địa danh — ngày tháng (mục II.4) và khối ký (mục II.7, ô 7a/7b) ⇒ `phai`.
+      Ở đây Nghị định nói VỊ TRÍ chứ không nói căn lề: địa danh "được đặt canh
+      giữa dưới Quốc hiệu, Tiêu ngữ" và khối ký nằm ở ô 7a/7b — cả hai đều là
+      "canh giữa BÊN TRONG một ô nằm ở nửa phải trang". Không có lưới hai cột
+      thì `phai` là hình chiếu trung thực của vị trí ấy, và đó là quy ước chủ
+      sản phẩm đã chọn.
+    """
+    if _RE_QUOC_HIEU.match(dong) or _RE_TIEU_NGU.match(dong) or (tieu_de and dong == tieu_de):
+        return "giua"
+    if _RE_DIA_DANH_NGAY.match(dong) or _RE_KHOI_KY.match(dong):
+        return "phai"
+    return None
+
+
+def _the_thuc_hanh_chinh(noi_dung: str, tieu_de: str) -> str:
+    """Căn lề thể thức của MỘT khối văn xuôi KLAW tự soạn.
+
+    Một dòng NHẬN DIỆN ĐƯỢC quyết định cả khối, các dòng còn lại không phủ
+    quyết: mô hình gộp "Người làm đơn" với "(Ký và ghi rõ họ tên)" vào cùng một
+    khối, và dòng thứ hai không khớp luật nào — đòi mọi dòng đồng thuận thì cả
+    khối ký rơi về thân bài. Hai dòng nhận ra HAI vai khác nhau thì mới bỏ cuộc
+    (về `deu`): ở đó không có câu trả lời đúng, cùng lý lẽ `_can_le_khoi`.
+
+    ponytail: quy ước không nhìn khối LIỀN TRƯỚC. Mô hình tách "(Ký và ghi rõ
+    họ tên)" thành một khối RIÊNG thì khối đó về `deu` (vẽ như căn trái) trong
+    khi "Người làm đơn" ngay trên nó đã sang phải. Chữa đúng cách cần trạng
+    thái theo thứ tự khối; chưa làm vì hình dạng đo được là mô hình gộp hai
+    dòng ấy vào CÙNG một khối. Nâng khi đo thấy ngược lại.
+    """
+    tap = {v for d in noi_dung.split("\n") if (v := _vai_the_thuc(_khong_hoa(d), tieu_de))}
+    return tap.pop() if len(tap) == 1 else "deu"
+
 
 def _co_trong_nguon(gia_tri: str, nguon: str, so_nguon: list) -> bool:
     """Giá trị này có THẬT trong nguồn của lượt không.
@@ -1764,6 +1886,15 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
     # liệu căn lề gì (`_can_le_theo_dong`, `_can_le_khoi` dùng ở `_khoi_sach`).
     nhan_that = _nhan_that(goi or [])
     theo_dong = _can_le_theo_dong(goi or [])
+    # Lượt soạn KHÔNG có tài liệu nào — điều kiện duy nhất bật thể thức hành
+    # chính và dòng chấm. Gác bằng `goi` chứ không bằng `theo_dong` rỗng: `goi`
+    # là câu hỏi thật ("lượt này có nguồn nào không"), còn một từ điển rỗng chỉ
+    # là hệ quả. Gác như vậy thì đường TÁI HIỆN không đổi một byte nào.
+    tu_soan = not goi
+    # Tên loại văn bản để so với từng dòng (`_vai_the_thuc`). Lấy bản THÔ: bản
+    # đã `_sach` chỉ có sau vòng làm sạch mục, và gọi `_sach` thêm lần nữa ở đây
+    # sẽ cộng trùng `gia_tri_lam_sach`.
+    tieu_de_kh = _khong_hoa(str((van_ban or {}).get("tieu_de") or "").strip()) if tu_soan else ""
     # Định dạng chữ (`w:rPr`, quyết định 2026-09-18) — lưới thứ ba cùng nguồn
     # `goi`, tra theo chữ NGUYÊN VĂN chứ không chuẩn hoá, xem `_chu_theo_dong`.
     theo_chu = _chu_theo_dong(goi or [])
@@ -1928,17 +2059,32 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
         for k in khoi_tho:
             if not isinstance(k, dict):
                 continue
-            noi_dung = _sach(str(k.get("noi_dung") or "").strip())
+            tho = str(k.get("noi_dung") or "").strip()
+            # Chỗ trống của MÔ HÌNH thành dòng chấm — chỉ ở văn bản tự soạn, và
+            # chỉ TRƯỚC `_sach`, để `[…]` còn lại sau đó đúng là chỗ CHÍNH KLAW
+            # cố ý không điền (xem `_duong_dien`). Tái hiện một tài liệu thì
+            # không đụng tới: ở đó dãy chấm là của chính tệp và đã đi qua
+            # nguyên văn từ trước.
+            noi_dung = _sach(_duong_dien(tho) if tu_soan else tho)
             bang = _bang_sach(k.get("bang"))
             if noi_dung:
                 # `can_le` (Phase 9 U5) — căn lề THẬT của khối này, đối chiếu
                 # từng dòng với `theo_dong`; bảng giữ `trai` làm chỗ trống
                 # (không đọc), căn lề trong bảng là chuyện của TỪNG ô, ngoài
                 # phạm vi field này (xem cảnh báo ở brief).
+                #
+                # KHÔNG có tài liệu nào thì không có gì để đối chiếu và mọi khối
+                # rơi về `trai` — đó là dòng "Người làm đơn" nằm sát lề trái mà
+                # chủ sản phẩm đo được. Ca ấy (và CHỈ ca ấy) dùng thể thức hành
+                # chính NĐ 30/2020 thay cho phép tra nguồn rỗng.
                 ra.append({
                     "noi_dung": noi_dung,
                     "bang": [],
-                    "can_le": _can_le_khoi(noi_dung, theo_dong),
+                    "can_le": (
+                        _the_thuc_hanh_chinh(noi_dung, tieu_de_kh)
+                        if tu_soan
+                        else _can_le_khoi(noi_dung, theo_dong)
+                    ),
                     "nhip": [],
                     "ti_le": [],
                     "vien": True,

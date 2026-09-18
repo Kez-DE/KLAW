@@ -96,7 +96,10 @@ _CO_THUC = {f.name for f in fields(DonViVanBan)}
 if _thieu := sorted({t for ts in _TRUONG_DOC_RA.values() for t in ts} - _CO_THUC):
     raise RuntimeError(f"_TRUONG_DOC_RA nhắc trường không có trong DonViVanBan: {_thieu}")
 
-_JC_RA_CAN_LE = {"center": "giua", "right": "phai", "end": "phai"}
+# Gương của `doc_tai_lieu._JC_RA_CAN_LE` — cố tình viết LẠI, không import (xem
+# đầu tệp: một cái thước gọi chính vật nó đo thì luôn đo ra 100%). Hai bên
+# phải đổi CÙNG nhau: `both` ra `deu` từ 2026-09-19.
+_JC_RA_CAN_LE = {"center": "giua", "right": "phai", "end": "phai", "both": "deu"}
 _CANH_VIEN = ("top", "left", "bottom", "right", "insideH", "insideV")
 _VIEN_KHONG_VE = {"none", "nil"}
 

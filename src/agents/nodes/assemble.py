@@ -985,7 +985,12 @@ def _ban_thao_tong_quat(state: dict) -> dict:
             f"Bản thảo phiên bản {bt['phien_ban']} đã sẵn sàng"
             + (f", đã đổi: {', '.join(doi)}" if doi else "")
             + (". Tôi soạn từ nội dung tài liệu và những gì bạn nói" if co_tai_lieu else ". Tôi soạn từ những gì bạn nói")
-            + f"; chỗ nào chưa có dữ kiện tôi để {CHO_TRONG}. Bạn xem, sửa từng mục hoặc tải về ở bên cạnh; "
+            # Hai hình dạng chỗ trống, không một: từ 2026-09-19 một văn bản soạn
+            # từ đầu vẽ chỗ điền thành dòng chấm như biểu mẫu, còn `[…]` thu hẹp
+            # lại thành "KLAW cố ý không điền" (xem `hieu_tai_lieu._duong_dien`).
+            # Nói đúng cả hai thay vì nêu một cái mà người đọc có thể không thấy.
+            + f"; chỗ nào chưa có dữ kiện tôi chừa trống (dòng chấm hoặc {CHO_TRONG}). "
+            + "Bạn xem, sửa từng mục hoặc tải về ở bên cạnh; "
             + "muốn đổi gì cứ nói với tôi."
             + (MOI_BIEU_MAU.format(ten=goi_y["ten"]) if goi_y else "")
             + _cau_da_nho(state)
