@@ -967,6 +967,59 @@ def _can_le_khoi(noi_dung: str, theo_dong: dict[str, str]) -> str:
     return tap.pop() if len(tap) == 1 else "trai"
 
 
+def _chu_theo_dong(goi: list[dict]) -> dict[str, tuple]:
+    """Chữ NGUYÊN VĂN của một đơn vị nguồn → `DonViVanBan.dinh_dang` của nó.
+
+    Khoá là chuỗi NGUYÊN VĂN, KHÔNG `normalize` như `_can_le_theo_dong`: định
+    dạng ở đây là những khoảng `[dau, cuoi)` đo trên đúng chuỗi ấy, và
+    `normalize` đổi độ dài (gộp khoảng trắng, bỏ dấu) nên mọi offset sẽ trỏ
+    lệch sang ký tự khác. Một căn lề gán nhầm dòng chỉ lệch một dòng; một
+    khoảng định dạng gán nhầm chuỗi in đậm nửa từ.
+
+    Đổi lại, phép tra này CHẶT hơn: mô hình gõ lại một dòng lệch một dấu cách
+    là dòng đó mất định dạng, không phải nhận nhầm. Đúng phía nên sai — bản
+    thảo vẫn đọc được, chỉ không đậm.
+
+    Dòng trùng chữ mà khác định dạng ở hai chỗ bị LOẠI, cùng luật
+    `_can_le_theo_dong`: không xác định còn an toàn hơn gán nhầm.
+    """
+    theo: dict[str, set[tuple]] = {}
+    for t in goi:
+        for d in t["don_vi"]:
+            if d.noi_dung and d.dinh_dang:
+                theo.setdefault(d.noi_dung, set()).add(d.dinh_dang)
+    return {s: v.pop() for s, v in theo.items() if len(v) == 1}
+
+
+def _chu_khoi(noi_dung: str, theo_chu: dict[str, tuple]) -> list[dict]:
+    """Định dạng chữ của MỘT khối văn xuôi — dịch khoảng của từng dòng nguồn
+    về offset trong khối (khối có thể gộp nhiều dòng bằng `\\n`, ví dụ quốc
+    hiệu + tiêu ngữ).
+
+    Chỉ giữ khoảng thật sự NÓI gì và thật sự phủ ký tự nào:
+    một run rỗng chữ là một điều tệp khai — `eval.run_trung_thuc` chấm nó —
+    nhưng trên màn hình nó không có gì để vẽ, và đưa xuống render chỉ tốn
+    JSON. Dòng không tra được không đóng góp khoảng nào: chỗ đó render giữ
+    chữ thường, đúng luật "không suy diễn thêm ngoài những gì tệp nói".
+    """
+    ra: list[dict] = []
+    lech = 0
+    for dong in noi_dung.split("\n"):
+        for r in theo_chu.get(dong, ()):
+            if r.cuoi > r.dau and (r.dam or r.nghieng or r.gach or r.co or r.phong):
+                ra.append({
+                    "dau": r.dau + lech,
+                    "cuoi": r.cuoi + lech,
+                    "dam": r.dam,
+                    "nghieng": r.nghieng,
+                    "gach": r.gach,
+                    "co": r.co,
+                    "phong": r.phong,
+                })
+        lech += len(dong) + 1
+    return ra
+
+
 def _hang_gon(
     cot: dict[int, str],
     nhip_cot: dict[int, int],
@@ -1351,6 +1404,9 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
     # liệu căn lề gì (`_can_le_theo_dong`, `_can_le_khoi` dùng ở `_khoi_sach`).
     nhan_that = _nhan_that(goi or [])
     theo_dong = _can_le_theo_dong(goi or [])
+    # Định dạng chữ (`w:rPr`, quyết định 2026-09-18) — lưới thứ ba cùng nguồn
+    # `goi`, tra theo chữ NGUYÊN VĂN chứ không chuẩn hoá, xem `_chu_theo_dong`.
+    theo_chu = _chu_theo_dong(goi or [])
     dem = {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0}
 
     def _sach(s: str) -> str:
@@ -1428,6 +1484,10 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
                     "vien": True,
                     "cao": [],
                     "can_le_o": [],
+                    # `chu` chỉ CÓ MẶT khi tra được định dạng: một khối không
+                    # định dạng giữ nguyên hình dạng khối cũ, và mọi phía đọc
+                    # (`khoiMotHopLe` phía giao diện) vốn đã mặc định rỗng.
+                    **({"chu": chu} if (chu := _chu_khoi(noi_dung, theo_chu)) else {}),
                 })
             if bang:
                 # `nhip`/`ti_le`/`cao`/`can_le_o` rỗng: bảng mô hình tự gõ
@@ -1545,6 +1605,7 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
                     "vien": True,
                     "cao": [],
                     "can_le_o": [],
+                    **({"chu": chu} if (chu := _chu_khoi(tieu_de_sach, theo_chu)) else {}),
                 }],
                 "dem_delta": 0,
             })

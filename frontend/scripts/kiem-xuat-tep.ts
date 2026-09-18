@@ -91,7 +91,9 @@ assert.ok(mucCu[1]?.noiDung.includes("---|---|---|---"));
 // Phase 8: hình dạng CŨ (chỉ `noi_dung`, không `khoi` không `bang`) quy về
 // đúng MỘT khối văn xuôi mang nguyên chuỗi pipe — `XemTruocA4` render nó
 // bằng đúng một `<p>`, không parse `|` ra bảng (brief cấm).
-assert.deepEqual(mucCu[1]?.khoi, [{ kind: "vanXuoi", noiDung: mucCu[1]!.noiDung, canhLe: "trai" }]);
+assert.deepEqual(mucCu[1]?.khoi, [
+  { kind: "vanXuoi", noiDung: mucCu[1]!.noiDung, canhLe: "trai", chu: [] },
+]);
 assert.equal(mucCu[1]?.vung, "than");
 
 // Một clause kiểu Phase 7 (`noi_dung`+`bang` rời) → `Muc.bang` là hàng×ô thật
@@ -406,7 +408,12 @@ const banThaoKhoiCaHai = {
 } as Parameters<typeof mucTuBanThao>[0];
 const mucKhoiCaHai = mucTuBanThao(banThaoKhoiCaHai, null)[0]?.khoi ?? [];
 assert.equal(mucKhoiCaHai.length, 2, "một khối thô cả hai ra HAI khối sạch, không mất khối nào");
-assert.deepEqual(mucKhoiCaHai[0], { kind: "vanXuoi", noiDung: "Chú thích bảng:", canhLe: "trai" });
+assert.deepEqual(mucKhoiCaHai[0], {
+  kind: "vanXuoi",
+  noiDung: "Chú thích bảng:",
+  canhLe: "trai",
+  chu: [],
+});
 assert.deepEqual(mucKhoiCaHai[1], {
   kind: "bang",
   hang: [
@@ -796,6 +803,9 @@ const dong = (
   inDam: false,
   inNghieng: false,
   thutLe: 0,
+  // Dòng ĐỒNG NHẤT — không đoạn nào; định dạng theo đoạn có kiểm riêng ở
+  // `kiem-dinh-dang-chu.ts`. Mọi dòng ở đây phải đi đúng đường cũ.
+  doan: [],
   ...extra,
 });
 

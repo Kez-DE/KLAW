@@ -24,7 +24,9 @@ Bốn điều không suy ra được từ hai file kia:
 import zipfile
 from io import BytesIO
 
+from src.agents.nodes.hieu_tai_lieu import lam_sach_van_ban
 from src.services.doc_tai_lieu import doc
+from src.services.neo_du_kien import LyDoNeo, normalize, xac_minh
 
 _NSW = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 _DOC = (
@@ -193,3 +195,93 @@ def test_O_BANG_NHIEU_DOAN_offset_dich_theo_dau_cach_noi_hai_doan():
         ("TRƯỜNG ĐẠI HỌC PHENIKAA", 0),
         ("Khoa Luật", 1),
     ]
+
+
+# ------------------------------- `noi_dung` và mọi thứ tra trên nó KHÔNG ĐỔI
+
+_THAN_DINH_DANG = (
+    "<w:p>"
+    '<w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>Mức lương: </w:t></w:r>'
+    '<w:r><w:rPr><w:i/></w:rPr><w:t>20.000.000 đồng/tháng</w:t></w:r>'
+    "</w:p>"
+)
+_THAN_TRAN = (
+    "<w:p>"
+    "<w:r><w:t>Mức lương: </w:t></w:r>"
+    "<w:r><w:t>20.000.000 đồng/tháng</w:t></w:r>"
+    "</w:p>"
+)
+
+
+def test_NOI_DUNG_va_NEO_va_LAM_SACH_y_HET_khi_bo_het_dinh_dang():
+    """Cột mốc của cả bản vá: thêm `w:rPr` vào tệp KHÔNG được đổi một ký tự
+    nào của `noi_dung`, cũng không đổi kết quả của bất cứ phép tra nào đang
+    chạy trên nó — phép neo trích dẫn là bằng chứng của cả sản phẩm."""
+    co = doc("x.docx", _docx(_THAN_DINH_DANG)).don_vi
+    khong = doc("x.docx", _docx(_THAN_TRAN)).don_vi
+
+    assert [d.noi_dung for d in co] == [d.noi_dung for d in khong]
+    assert [(d.trang, d.offset_dau, d.chi_so) for d in co] == [
+        (d.trang, d.offset_dau, d.chi_so) for d in khong
+    ]
+    assert [normalize(d.noi_dung) for d in co] == [normalize(d.noi_dung) for d in khong]
+
+    trich = "20.000.000 đồng/tháng"
+    neo_co, neo_khong = xac_minh(trich, co), xac_minh(trich, khong)
+    assert neo_co.ly_do is LyDoNeo.ok
+    assert (neo_co.chi_so_don_vi, neo_co.trang, neo_co.offset_dau) == (
+        neo_khong.chi_so_don_vi,
+        neo_khong.trang,
+        neo_khong.offset_dau,
+    )
+
+    # `lam_sach_van_ban` chạy trên CHÍNH chuỗi đó: cùng vào, cùng ra, cùng số
+    # đếm — kể cả phần thay giá trị bịa bằng `[…]`.
+    van_ban = {
+        "muc": [
+            {
+                "ten": "Lương",
+                "khoi": [{"noi_dung": "Mức lương: 20.000.000 đồng/tháng và thưởng 5.000.000 đồng"}],
+            }
+        ]
+    }
+    goi_co = [{"nhan": "A", "don_vi": co}]
+    goi_khong = [{"nhan": "A", "don_vi": khong}]
+    nguon = " ".join(d.noi_dung for d in co)
+    ra_co, dem_co = lam_sach_van_ban(van_ban, nguon, goi_co)
+    ra_khong, dem_khong = lam_sach_van_ban(van_ban, nguon, goi_khong)
+    assert dem_co == dem_khong
+    assert [
+        [k["noi_dung"] for k in m["khoi"]] for m in ra_co["muc"]
+    ] == [[k["noi_dung"] for k in m["khoi"]] for m in ra_khong["muc"]]
+
+
+def test_LAM_SACH_VAN_BAN_mang_dinh_dang_sang_khoi_khop_NGUYEN_VAN():
+    """Đường từ `DonViVanBan.dinh_dang` ra khối bản thảo: khối nào tái hiện
+    NGUYÊN VĂN một dòng nguồn thì mang theo định dạng của dòng đó."""
+    don_vi = doc("x.docx", _docx(_THAN_DINH_DANG)).don_vi
+    goi = [{"nhan": "A", "don_vi": don_vi}]
+    chu_nguon = don_vi[0].noi_dung
+    ra, _ = lam_sach_van_ban(
+        {"muc": [{"ten": "Lương", "khoi": [{"noi_dung": chu_nguon}]}]},
+        chu_nguon,
+        goi,
+    )
+    khoi = ra["muc"][0]["khoi"][0]
+    assert khoi["noi_dung"] == chu_nguon
+    assert [(chu_nguon[k["dau"] : k["cuoi"]], k["dam"], k["nghieng"], k["co"]) for k in khoi["chu"]] == [
+        ("Mức lương: ", True, False, 28),
+        ("20.000.000 đồng/tháng", False, True, 0),
+    ]
+
+
+def test_KHOI_KHONG_KHOP_dong_nguon_nao_thi_KHONG_co_khoa_chu():
+    """Mô hình gõ lại lệch một chữ → không tra được, và khoảng đo trên chữ CŨ
+    không được áp lên chữ MỚI: thà không đậm còn hơn đậm nửa từ."""
+    don_vi = doc("x.docx", _docx(_THAN_DINH_DANG)).don_vi
+    ra, _ = lam_sach_van_ban(
+        {"muc": [{"ten": "Lương", "khoi": [{"noi_dung": "Mức lương: theo thoả thuận"}]}]},
+        " ".join(d.noi_dung for d in don_vi) + " theo thoả thuận",
+        [{"nhan": "A", "don_vi": don_vi}],
+    )
+    assert "chu" not in ra["muc"][0]["khoi"][0]

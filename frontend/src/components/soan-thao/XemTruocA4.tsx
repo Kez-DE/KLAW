@@ -1,6 +1,75 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { nhipHangVe, soCotThat, tiLeCotVe, type CanLe, type Muc } from "@/lib/xuat-tep";
+import {
+  catTheoChu,
+  nhipHangVe,
+  phongTrenManHinh,
+  soCotThat,
+  THUOC_TINH_CHU,
+  tiLeCotVe,
+  type CanLe,
+  type KhoangChu,
+  type Muc,
+} from "@/lib/xuat-tep";
+
+/** Cỡ chữ "thường" của thể thức hành chính, điểm — mốc quy `w:sz` (nửa điểm)
+ * ra `em`. Khớp `xuat-tep.ts::coChuPt("thuong")` và `size: 26` của `.docx`,
+ * nên ba nơi vẽ cùng gọi một cỡ là "cỡ thường". */
+const CO_THUONG_PT = 13;
+
+/**
+ * Vẽ `noiDung` vào một thẻ, cắt theo `chu` thành các `<span data-chu>` —
+ * chỗ DUY NHẤT định dạng chữ nguồn (`w:rPr`) thành hình trên màn hình.
+ *
+ * Mọi đoạn đều là một `<span data-chu>`, KỂ CẢ đoạn không định dạng gì: nhờ
+ * vậy `docDoanChu` (xuat-tep.ts) nối `textContent` của chúng lại là được
+ * đúng chữ của dòng, không phải đi qua `childNodes` để nhặt phần chữ nằm
+ * ngoài span nào — cùng khuôn `data-*` mà `docBangTuPhanTu` đã dùng để
+ * `.docx`/PDF đọc lại đúng thứ màn hình đã vẽ.
+ *
+ * Cỡ chữ ra `em` chứ không `pt`: `thuPhong` phóng CỠ CHỮ của cả trang (không
+ * phóng trang), nên một cỡ tuyệt đối sẽ đứng yên trong khi chữ quanh nó to
+ * lên — ngược hẳn `caoTrenTrang`, nơi `pt` mới đúng vì đó là kích thước vật
+ * lý. `data-co` vẫn chở nửa-điểm NGUỒN để tệp tải về ghi đúng con số ấy.
+ *
+ * Phông: `data-phong` giữ TÊN NGUỒN cho `.docx`, còn màn hình chỉ đặt
+ * `font-family` khi `phongTrenManHinh` nhận ra hạng chữ — không nhận ra thì
+ * giữ phông của trang thay vì khai một họ chữ kho này không có.
+ */
+function veChuVaoThe(el: HTMLElement, noiDung: string, chu: KhoangChu[]) {
+  if (chu.length === 0) {
+    el.textContent = noiDung;
+    return;
+  }
+  el.textContent = "";
+  for (const o of catTheoChu(noiDung, chu)) {
+    const s = document.createElement("span");
+    s.setAttribute(THUOC_TINH_CHU.moc, "");
+    s.textContent = o.text;
+    if (o.inDam) {
+      s.setAttribute(THUOC_TINH_CHU.dam, "1");
+      s.style.fontWeight = "700";
+    }
+    if (o.inNghieng) {
+      s.setAttribute(THUOC_TINH_CHU.nghieng, "1");
+      s.style.fontStyle = "italic";
+    }
+    if (o.gachChan) {
+      s.setAttribute(THUOC_TINH_CHU.gach, "1");
+      s.style.textDecoration = "underline";
+    }
+    if (o.coChu > 0) {
+      s.setAttribute(THUOC_TINH_CHU.co, String(o.coChu));
+      s.style.fontSize = `${o.coChu / 2 / CO_THUONG_PT}em`;
+    }
+    if (o.phong) {
+      s.setAttribute(THUOC_TINH_CHU.phong, o.phong);
+      const ho = phongTrenManHinh(o.phong);
+      if (ho) s.style.fontFamily = ho;
+    }
+    el.appendChild(s);
+  }
+}
 
 /** `CanLe` của MỘT Ô bảng → lớp căn lề. Ô giữ căn lề nguồn của chính nó
  * (`w:jc`, đọc qua `BangThat.canLeO`) thay vì bị căn giữa cả bảng: khối ký và
@@ -58,6 +127,7 @@ function caoTrenTrang(
 function KhoiVanXuoi({
   noiDung,
   canhLe,
+  chu,
   mucKey,
   khoiIndex,
   phienBan,
@@ -65,6 +135,16 @@ function KhoiVanXuoi({
 }: {
   noiDung: string;
   canhLe: CanLe;
+  /**
+   * Định dạng chữ NGUỒN của khối (2026-09-18) — vẽ bằng `veChuVaoThe`, cùng
+   * đường `useLayoutEffect` mà `noiDung` đi, không qua `children` JSX.
+   *
+   * Một lượt gõ TAY vào khối làm mất định dạng của chính khối đó: chữ đã đổi
+   * thì `_chu_theo_dong` phía máy chủ không tra được dòng nào nữa và trả về
+   * rỗng. Đó là câu trả lời đúng — khoảng `[dau, cuoi)` đo trên chữ CŨ mà áp
+   * lên chữ MỚI sẽ in đậm nửa từ, tệ hơn hẳn chữ thường.
+   */
+  chu: KhoangChu[];
   mucKey: string;
   khoiIndex: number;
   phienBan: number;
@@ -85,13 +165,19 @@ function KhoiVanXuoi({
   // nhưng khối không được trông y như đã lưu). Xoá ở lượt blur kế tiếp.
   const [luuHong, datLuuHong] = useState(false);
   const coTheSua = onSuaKhoi !== undefined;
+  // Khoá SO SÁNH của định dạng, không phải chính mảng: `chu` là một mảng mới
+  // ở mỗi lượt render (`khoiMotHopLe` dựng lại), nên so tham chiếu sẽ vẽ lại
+  // khối ở mọi lượt — kể cả những lượt không đổi gì.
+  const chuKhoa = JSON.stringify(chu);
 
   useLayoutEffect(() => {
     if (dangSua.current) return;
-    if (oNoiDung.current && oNoiDung.current.textContent !== noiDung) {
-      oNoiDung.current.textContent = noiDung;
-    }
-  }, [noiDung]);
+    const el = oNoiDung.current;
+    if (!el) return;
+    if (el.textContent === noiDung && el.getAttribute("data-chu-khoa") === chuKhoa) return;
+    veChuVaoThe(el, noiDung, chu);
+    el.setAttribute("data-chu-khoa", chuKhoa);
+  }, [noiDung, chuKhoa, chu]);
 
   return (
     <p
@@ -190,7 +276,13 @@ function KhoiVanXuoi({
           // dấu lỗi của lượt trước hết hiệu lực; lượt này hỏng thì đặt lại.
           datLuuHong(false);
           if (moi === vanBanLucFocus.current) {
-            if (oNoiDung.current) oNoiDung.current.textContent = noiDung;
+            // Vẽ LẠI cả định dạng, không chỉ chữ: gán `textContent` ở đây sẽ
+            // xoá sạch các `<span data-chu>` mà hiệu ứng đã dựng, và khối
+            // mất định dạng chỉ vì người dùng bấm vào rồi bấm ra.
+            if (oNoiDung.current) {
+              veChuVaoThe(oNoiDung.current, noiDung, chu);
+              oNoiDung.current.setAttribute("data-chu-khoa", chuKhoa);
+            }
             return;
           }
           // Fix round 2 (N1b) — gửi phiên bản LÚC BẮT ĐẦU sửa, không phải
@@ -409,6 +501,7 @@ export function XemTruocA4({
                     key={i}
                     noiDung={k.noiDung}
                     canhLe={k.canhLe}
+                    chu={k.chu}
                     mucKey={m.key}
                     khoiIndex={i}
                     // Fix round 2 (N1) — không dùng khi chỉ đọc; giá trị mặc
