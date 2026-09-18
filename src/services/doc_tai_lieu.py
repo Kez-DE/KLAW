@@ -237,6 +237,77 @@ class DinhDangChu:
 
 
 @dataclass(frozen=True)
+class MocTab:
+    """MỘT mốc tab (`w:pPr/w:tabs/w:tab`) — chỗ con trỏ nhảy tới, và đường vẽ
+    lấp khoảng nhảy qua.
+
+    `leader="dot"` là thứ vẽ ra dòng "…………" mà một biểu mẫu tiếng Việt chừa
+    cho người điền tay — đo trên tám biểu mẫu thật của chủ dự án: 68/134 mốc
+    khai `dot`, tất cả đều là dòng điền cuối câu ("Company name: ……"). Không
+    có nó thì chỗ để điền biến mất hẳn khỏi bản dựng lại.
+
+    `pos` là twip tính từ MÉP TRÁI của cột chữ, không phải từ mép giấy — cùng
+    hệ quy chiếu `w:ind` dùng, nên hai trường cộng/trừ được với nhau.
+    """
+
+    val: str = "left"
+    pos: int = 0
+    leader: str = ""
+
+
+@dataclass(frozen=True)
+class GianCach:
+    """Giãn cách, thụt lề và mốc tab của MỘT `w:p` — quyết định 2026-09-18,
+    mục "thụt lề, tab, giãn dòng".
+
+    Cùng khuôn `DinhDangChu`: những trường đã GIẢI (đã trộn thừa kế từ
+    `w:pStyle` → `w:basedOn`) để render dùng, cộng `khai` giữ NGUYÊN VĂN những
+    gì `w:pPr` của chính đoạn nói. Hai câu hỏi khác nhau — "phải vẽ thế nào"
+    và "tệp tự khai gì ở đây" — nên hai chỗ trả lời, không gộp.
+
+    `doan` là `w:p` thứ mấy trong ô bảng (luôn `0` với một đoạn thân bài, ở đó
+    đơn vị LÀ đoạn), đúng nghĩa `DinhDangChu.doan`.
+
+    `tab` là offset ký tự trong `noi_dung` nơi một `<w:tab/>` đứng. KHÔNG phải
+    một ký tự: `<w:tab/>` không nằm trong `w:t` nên `_chu` chưa bao giờ đưa nó
+    vào `noi_dung`, và bản vá này KHÔNG được thêm nó vào — `noi_dung` là chuỗi
+    mà `neo_du_kien.xac_minh`, `normalize` và `lam_sach_van_ban` đang tra. Một
+    VỊ TRÍ nằm cạnh chuỗi giữ được cả hai: chuỗi không đổi một byte, mà phía
+    vẽ vẫn biết đường dẫn bắt đầu từ đâu.
+    """
+
+    doan: int = 0
+    truoc: int = 0
+    """`w:spacing/@w:before` — khoảng trống TRÊN đoạn, twip. `0` khi không khai."""
+    sau: int = 0
+    """`w:spacing/@w:after` — khoảng trống DƯỚI đoạn, twip."""
+    dong: int = 0
+    """`w:spacing/@w:line`. Ý nghĩa phụ thuộc `luat_dong`, xem ngay dưới."""
+    luat_dong: str = ""
+    """`w:spacing/@w:lineRule`: `auto` (mặc định OOXML) thì `dong` là BỘI SỐ của
+    240 — 360 nghĩa là 1,5 dòng; `exact`/`atLeast` thì `dong` là twip TUYỆT
+    ĐỐI. Giữ cả hai trường vì một con số không nói được nó đang đo cái gì."""
+    trai: int = 0
+    phai: int = 0
+    """`w:ind/@w:left|@w:start` và `@w:right|@w:end` — twip, ÂM được (một biểu
+    mẫu thật khai `-567` để tràn ra ngoài lề)."""
+    dau_dong: int = 0
+    treo: int = 0
+    """`w:ind/@w:firstLine` (dòng ĐẦU thụt thêm) và `@w:hanging` (dòng đầu thụt
+    NGƯỢC ra). Hai thuộc tính loại trừ nhau trong OOXML; giữ riêng vì render
+    cộng chúng theo hai dấu khác nhau."""
+    moc: tuple[MocTab, ...] = ()
+    """Mốc tab VẼ ĐƯỢC, theo thứ tự `pos` tăng dần."""
+    tab: tuple[int, ...] = ()
+    khai: tuple[tuple[str, str], ...] = ()
+    """NGUYÊN VĂN những gì `w:pPr` TRỰC TIẾP của đoạn khai, khoá theo đúng tên
+    OOXML: `("spacing/before", "120")`, `("ind/hanging", "426")`, `("tabs",
+    "2")` — số `w:tab` tệp khai, kể cả mốc `clear`. Thứ tự cố định (spacing,
+    rồi ind, rồi tabs; trong mỗi nhóm theo tên thuộc tính) để hai lần đọc cùng
+    một tệp cho cùng một dãy."""
+
+
+@dataclass(frozen=True)
 class DonViVanBan:
     """Một mẩu văn bản liền mạch trong tài liệu, kèm chỗ nó nằm.
 
@@ -335,6 +406,18 @@ class DonViVanBan:
     Khoảng KHÔNG phủ kín `noi_dung`: chỗ không có khoảng nào là chỗ tệp
     không nói gì, và render giữ nguyên chữ thường ở đó.
     """
+    gian_cach: tuple[GianCach, ...] = ()
+    """Giãn cách/thụt lề/mốc tab của từng `w:p` trong đơn vị này — quyết định
+    2026-09-18, mục "thụt lề, tab, giãn dòng". MỘT phần tử cho mỗi `w:p` CÓ
+    khai một điều gì đó; đoạn không khai gì không có phần tử nào, cùng luật
+    `dinh_dang` bỏ run không nói gì.
+
+    Đo trên tám biểu mẫu thật của chủ dự án: `w:spacing`/`w:ind`/`w:tabs`
+    chiếm 1713 trong 1840 khai báo bộ đọc còn bỏ sót — 93%. Không có chúng
+    thì bản dựng lại đúng chữ, đúng kiểu chữ, mà sai toàn bộ nhịp trang: đoạn
+    dính nhau, lề thụt biến mất, và dòng "……" để điền tay không còn.
+
+    Rỗng với mọi dòng lưu TRƯỚC trường này."""
 
 
 @dataclass(frozen=True)
@@ -424,10 +507,26 @@ _RSTYLE = f"{{{_NS['w']}}}rStyle"
 _T = f"{{{_NS['w']}}}t"
 _VAL = f"{{{_NS['w']}}}val"
 _ASCII = f"{{{_NS['w']}}}ascii"
+_SPACING = f"{{{_NS['w']}}}spacing"
+_IND = f"{{{_NS['w']}}}ind"
+_TABS = f"{{{_NS['w']}}}tabs"
+_TAB = f"{{{_NS['w']}}}tab"
+_POS = f"{{{_NS['w']}}}pos"
+_LEADER = f"{{{_NS['w']}}}leader"
 
 # Năm thuộc tính `w:rPr` đọc được (quyết định 2026-09-18). Thứ tự này là thứ
 # tự `DinhDangChu.khai` ghi ra, để hai lần đọc cùng một tệp cho cùng một dãy.
 _TEN_RPR = ("b", "i", "u", "sz", "rFonts")
+
+# `w:tab/@w:val="clear"` XOÁ một mốc kiểu đặt sẵn, nó không phải một mốc để
+# nhảy tới. Vẫn ĐẾM trong `khai` (tệp có khai một `w:tab`), nhưng không vào
+# `GianCach.moc` — nhảy tới một mốc đã bị xoá là vẽ một đường dẫn không tồn tại.
+_TAB_XOA = "clear"
+
+# `w:leader` mặc định của OOXML là `none`: một mốc không khai `w:leader` KHÔNG
+# vẽ đường dẫn. Cùng luật `w:u` — thiếu giá trị nghĩa là giá trị mặc định của
+# chính thuộc tính đó, không phải "bật".
+_KHONG_DAN = {"", "none"}
 
 # `w:val` của một thuộc tính BẬT/TẮT (`ST_OnOff`) nghĩa là TẮT. Thiếu tập này
 # thì `<w:b w:val="0"/>` — cách Word ghi "BỎ đậm" cho một run nằm trong một
@@ -801,27 +900,247 @@ def _dinh_dang_doan(p: ET.Element, kieu_chu: dict[str, dict[str, str]], doan: in
     return tuple(ra)
 
 
-def _chu_va_dinh_dang_o(tc: ET.Element, kieu_chu: dict[str, dict[str, str]]) -> tuple[str, tuple[DinhDangChu, ...]]:
-    """Chữ của một ô bảng và định dạng run của nó, offset dịch về chuỗi ô.
+def _twip(v: str | None) -> int:
+    """Một số đo twip tệp khai → `int`. Ném `ValueError` khi đọc không ra số.
+
+    Nhận cả số THỰC (`"48.00000000000001"`): OOXML định nghĩa twip là số
+    nguyên, nhưng `Report_instruction.docx` của chủ dự án khai đúng chuỗi ấy
+    trên 50 đoạn — vết của một bộ ghi tính `0,0833in × 576` rồi in thẳng ra.
+    Làm tròn nó KHÔNG phải đoán bố cục (48,00000000000001 twip chỉ có một
+    nghĩa); từ chối nó thì 50 đoạn có thật mất luôn cả giãn dòng của chúng.
+    Thứ đọc không ra số nào cả thì vẫn ném — ở đó mới thật sự không biết gì.
+    """
+    return round(float(v or 0))
+
+
+def _thuoc_tho(e: ET.Element | None) -> dict[str, str]:
+    """Mọi thuộc tính của một phần tử, khoá đã bỏ namespace; `{}` khi vắng mặt.
+
+    Lấy TẤT CẢ chứ không lọc theo một danh sách tên: `khai` phải nói lại đúng
+    những gì tệp nói, kể cả thuộc tính bản vá này không vẽ
+    (`w:beforeAutospacing`, `w:firstLineChars`) — một thước đo độ trung thực
+    hỏi "tệp khai gì", không hỏi "bộ đọc thích gì".
+    """
+    return {} if e is None else {k.rsplit("}", 1)[-1]: v for k, v in e.attrib.items()}
+
+
+def _moc_tab(tabs: ET.Element | None) -> tuple[tuple[MocTab, ...], int]:
+    """`w:pPr/w:tabs` → (mốc NHẢY ĐƯỢC, số `w:tab` tệp khai), `-1` khi không
+    có `w:tabs` nào — khác hẳn `0` (`<w:tabs/>` rỗng, một điều tệp có nói).
+
+    Hai số khác nhau vì `w:val="clear"` XOÁ một mốc kiểu đặt sẵn: nó vẫn là
+    một khai báo (thước đo đếm nó) nhưng không phải chỗ để nhảy tới.
+
+    Sắp theo `pos` tăng dần — OOXML không bắt tệp ghi theo thứ tự, còn phép
+    "tab thứ n đi tới mốc thứ n" ở tầng vẽ thì cần đúng thứ tự thật. Một
+    `w:pos` đọc không ra số làm CẢ nhóm mốc rỗng: một mốc sai chỗ kéo mọi mốc
+    sau nó lệch theo, và vẽ nửa bộ mốc tệ hơn không vẽ mốc nào.
+    """
+    if tabs is None:
+        return (), -1
+    con = tabs.findall(_TAB)
+    try:
+        moc = tuple(
+            MocTab(val=v, pos=_twip(t.get(_POS)), leader=t.get(_LEADER) or "")
+            for t in con
+            if (v := t.get(_VAL) or "left") != _TAB_XOA
+        )
+    except ValueError:
+        return (), len(con)
+    return tuple(sorted(moc, key=lambda m: m.pos)), len(con)
+
+
+_KieuGC = tuple[dict[str, str], dict[str, str], tuple[MocTab, ...], int]
+
+
+def _ppr_tho(ppr: ET.Element | None) -> _KieuGC:
+    """`w:pPr` → (thuộc tính `w:spacing`, thuộc tính `w:ind`, mốc tab, số `w:tab`).
+
+    Khoá VẮNG MẶT nghĩa là cấp này không khai thuộc tính đó — đúng chỗ phân
+    biệt mà `_rpr_tho` cũng phải giữ để phép xếp chồng thừa kế chạy đúng: một
+    đoạn không khai `w:after` phải THỪA KẾ nó từ kiểu, còn một đoạn khai
+    `w:after="0"` phải HUỶ nó.
+    """
+    if ppr is None:
+        return {}, {}, (), -1
+    moc, so = _moc_tab(ppr.find(_TABS))
+    return _thuoc_tho(ppr.find(_SPACING)), _thuoc_tho(ppr.find(_IND)), moc, so
+
+
+def _kieu_gian_cach(goc_styles: ET.Element | None) -> dict[str, _KieuGC]:
+    """id kiểu → giãn cách/thụt lề/mốc tab của kiểu đó, đã TRỘN hết `w:basedOn`.
+
+    Trộn theo TỪNG thuộc tính như `_kieu_dinh_dang_chu`, không lấy nguyên khối
+    như `_kieu_vien_bang`: một kiểu con chỉ khai `w:spacing/@w:after` vẫn phải
+    thừa kế giãn dòng của kiểu cha, và lấy nguyên khối sẽ xoá mất nó.
+
+    Mốc tab thì thay NGUYÊN BỘ chứ không trộn từng mốc. OOXML trộn theo vị trí
+    (`w:val="clear"` của con xoá đúng một mốc của cha); trần này chỉ đổi kết
+    quả khi một kiểu con xoá lẻ vài mốc của kiểu cha, và ở đó câu trả lời
+    "đoạn này có mốc tab" vẫn đúng — cùng loại trần `_kieu_vien_bang` đã khai.
+    """
+    if goc_styles is None:
+        return {}
+    truc: dict[str, _KieuGC] = {}
+    cha: dict[str, str] = {}
+    for st in goc_styles.findall(_STYLE):
+        sid = st.get(f"{{{_NS['w']}}}styleId")
+        if not sid:
+            continue
+        b = st.find(_BASEDON)
+        if b is not None and (v := b.get(_VAL)):
+            cha[sid] = v
+        truc[sid] = _ppr_tho(st.find(_PPR))
+
+    def _giai(sid: str | None, di_qua: frozenset[str]) -> _KieuGC:
+        if sid is None or sid in di_qua or sid not in truc:
+            return {}, {}, (), -1
+        sp_c, ind_c, moc_c, so_c = _giai(cha.get(sid), di_qua | {sid})
+        sp, ind, moc, so = truc[sid]
+        return (
+            {**sp_c, **sp},
+            {**ind_c, **ind},
+            moc if so >= 0 else moc_c,
+            so if so >= 0 else so_c,
+        )
+
+    return {sid: _giai(sid, frozenset()) for sid in truc}
+
+
+def _vi_tri_tab(p: ET.Element) -> list[int]:
+    """Offset của mỗi `<w:tab/>` trên chuỗi nối CHƯA cắt khoảng trắng — cùng
+    phép nối `_chu`/`_vi_tri_chu` dùng, nên trừ phần `strip()` đi là ra offset
+    trên chính `_chu(p)`.
+
+    BỎ QUA `w:pPr`: `w:tab` nằm trong đó là ĐỊNH NGHĨA mốc, không phải ký tự
+    tab. Hai thứ trùng tên thẻ, khác hẳn nghĩa.
+    """
+    vi: list[int] = []
+    n = 0
+    for con in p:
+        if con.tag == _PPR:
+            continue
+        for e in con.iter():
+            if e.tag == _T:
+                n += len(e.text or "")
+            elif e.tag == _TAB:
+                vi.append(n)
+    return vi
+
+
+def _gian_cach_doan(p: ET.Element, kieu_gc: dict[str, _KieuGC], doan: int = 0) -> GianCach | None:
+    """Giãn cách/thụt lề/mốc tab THẬT của một `w:p`; `None` khi đoạn không khai
+    và không thừa kế gì.
+
+    HAI lớp xếp chồng, lớp sau đè lớp trước, theo TỪNG thuộc tính: kiểu đoạn
+    văn (`w:pPr/w:pStyle`, đã giải hết `w:basedOn`) rồi `w:pPr` trực tiếp —
+    đúng thứ tự Word áp dụng, và đúng điều `_can_le_doan` đã phải làm cho
+    `w:jc`: một biểu mẫu đặt giãn dòng bằng KIỂU không khai `w:spacing` ở đâu
+    trong `document.xml` cả.
+
+    Fail closed THEO TỪNG PHẦN TỬ: một giá trị đọc không ra số làm CẢ
+    `w:spacing` của đoạn về "không khai" (phía vẽ dùng giãn cách mặc định của
+    chính nó), chứ không vẽ một nửa. `w:ind` và `w:tabs` không im theo:
+    ba phần tử độc lập, một `w:ind` hỏng không nói gì về giãn dòng, và bắt cả
+    ba cùng câm là phạt quá tay. Chỗ phải chặn là vẽ MỘT NỬA của cùng một
+    phần tử — đó mới là bố cục đoán.
+
+    `w:ind` đọc `w:left`/`w:right` trước, `w:start`/`w:end` (tên của OOXML
+    strict, cùng nghĩa) khi không có: một tệp do bộ ghi mới sinh ra chỉ khai
+    cặp sau, và bỏ nó là mất thụt lề của cả tệp đó.
+    """
+    ppr = p.find(_PPR)
+    sp_truc, ind_truc, moc_truc, so_truc = _ppr_tho(ppr)
+    nen_sp, nen_ind, nen_moc, nen_so = {}, {}, (), -1
+    if ppr is not None:
+        kieu = ppr.find(_PSTYLE)
+        if kieu is not None and (sid := kieu.get(_VAL)):
+            nen_sp, nen_ind, nen_moc, nen_so = kieu_gc.get(sid, ({}, {}, (), -1))
+    sp = {**nen_sp, **sp_truc}
+    ind = {**nen_ind, **ind_truc}
+    moc = moc_truc if so_truc >= 0 else nen_moc
+
+    # `w:beforeAutospacing`/`w:afterAutospacing` BẬT nghĩa là "Word tự tính
+    # khoảng này", nên con số `w:before`/`w:after` đi kèm không còn là thứ
+    # phải vẽ. `w:val="0"/"false"` TẮT chúng, đúng luật `_TAT` của `w:rPr`.
+    tu_truoc = _bat(sp.get("beforeAutospacing"))
+    tu_sau = _bat(sp.get("afterAutospacing"))
+    try:
+        truoc = 0 if tu_truoc else _twip(sp.get("before"))
+        sau = 0 if tu_sau else _twip(sp.get("after"))
+        dong = _twip(sp.get("line"))
+        luat_dong = (sp.get("lineRule") or "auto") if "line" in sp else ""
+    except ValueError:
+        truoc = sau = dong = 0
+        luat_dong = ""
+    try:
+        trai = _twip(ind.get("left", ind.get("start")))
+        phai = _twip(ind.get("right", ind.get("end")))
+        dau_dong = _twip(ind.get("firstLine"))
+        treo = _twip(ind.get("hanging"))
+    except ValueError:
+        trai = phai = dau_dong = treo = 0
+
+    # Cùng phép cắt khoảng trắng `_dinh_dang_doan` dùng: offset của một mốc
+    # tab phải đo trên ĐÚNG `_chu(p)` mà `noi_dung` mang, không trên chuỗi thô.
+    _, tho = _vi_tri_chu(p)
+    lech = len(tho) - len(tho.lstrip())
+    het = len(tho.strip())
+    tab = tuple(min(max(x - lech, 0), het) for x in _vi_tri_tab(p))
+
+    khai: list[tuple[str, str]] = [(f"spacing/{k}", v) for k, v in sorted(sp_truc.items())]
+    khai += [(f"ind/{k}", v) for k, v in sorted(ind_truc.items())]
+    if so_truc >= 0:
+        khai.append(("tabs", str(so_truc)))
+    if not (khai or truoc or sau or dong or trai or phai or dau_dong or treo or moc or tab):
+        return None
+    return GianCach(
+        doan=doan,
+        truoc=truoc,
+        sau=sau,
+        dong=dong,
+        luat_dong=luat_dong,
+        trai=trai,
+        phai=phai,
+        dau_dong=dau_dong,
+        treo=treo,
+        moc=moc,
+        tab=tab,
+        khai=tuple(khai),
+    )
+
+
+def _chu_va_dinh_dang_o(
+    tc: ET.Element,
+    kieu_chu: dict[str, dict[str, str]],
+    kieu_gc: dict[str, _KieuGC] | None = None,
+) -> tuple[str, tuple[DinhDangChu, ...], tuple[GianCach, ...]]:
+    """Chữ của một ô bảng, định dạng run và giãn cách/thụt lề của nó, offset
+    dịch về chuỗi ô.
 
     Chữ ô là các `w:p` trong ô nối bằng MỘT dấu cách (`_duyet_than`), nên mỗi
     đoạn góp một đoạn offset riêng. Đoạn RỖNG chữ không góp chữ và không góp
-    dấu cách, nhưng run của nó vẫn được giữ: một `w:p` rỗng khai `w:rPr` là
-    một điều tệp nói, và `doan` vẫn đếm nó để toạ độ khớp với nguồn.
+    dấu cách, nhưng run và giãn cách của nó vẫn được giữ: một `w:p` rỗng khai
+    `w:rPr`/`w:spacing` là một điều tệp nói, và `doan` vẫn đếm nó để toạ độ
+    khớp với nguồn.
     """
+    kg = kieu_gc or {}
     phan: list[str] = []
     ra: list[DinhDangChu] = []
+    gc: list[GianCach] = []
     n = 0
     for j, p in enumerate(tc.iter(_P)):
         x = _chu(p)
         goc = n + (1 if phan and x else 0)
         ra.extend(replace(r, dau=r.dau + goc, cuoi=r.cuoi + goc) for r in _dinh_dang_doan(p, kieu_chu, j))
+        if (g := _gian_cach_doan(p, kg, j)) is not None:
+            gc.append(replace(g, tab=tuple(t + goc for t in g.tab)))
         if x:
             if phan:
                 n += 1
             phan.append(x)
             n += len(x)
-    return " ".join(phan), tuple(ra)
+    return " ".join(phan), tuple(ra), tuple(gc)
 
 
 def _kiem_zip(z: zipfile.ZipFile) -> None:
@@ -863,11 +1182,19 @@ def _chu(nut: ET.Element) -> str:
     return "".join(t.text or "" for t in nut.iter(f"{{{_NS['w']}}}t")).strip()
 
 
+def _gc_mot(p: ET.Element, kieu_gc: dict[str, _KieuGC]) -> tuple[GianCach, ...]:
+    """Giãn cách của một `w:p` ĐỘC LẬP (thân bài, đầu/chân trang) — luôn 0 hoặc
+    1 phần tử, vì ở đó đơn vị LÀ đoạn (`doan` = 0), khác hẳn một ô bảng."""
+    g = _gian_cach_doan(p, kieu_gc)
+    return (g,) if g is not None else ()
+
+
 def _duyet_phang(
     goc: ET.Element,
     vung: str,
     theo_kieu: dict[str, str] | None = None,
     kieu_chu: dict[str, dict[str, str]] | None = None,
+    kieu_gc: dict[str, _KieuGC] | None = None,
 ) -> list[tuple]:
     """Mọi `w:p` theo thứ tự tài liệu, KHÔNG toạ độ bảng.
 
@@ -876,8 +1203,9 @@ def _duyet_phang(
     """
     tk = theo_kieu or {}
     kc = kieu_chu or {}
+    kg = kieu_gc or {}
     return [
-        (None, c, None, vung, None, _can_le_doan(p, tk), _dinh_dang_doan(p, kc))
+        (None, c, None, vung, None, _can_le_doan(p, tk), _dinh_dang_doan(p, kc), _gc_mot(p, kg))
         for p in goc.iter(_P)
         if (c := _chu(p))
     ]
@@ -888,6 +1216,7 @@ def _duyet_than(
     theo_kieu: dict[str, str] | None = None,
     vien_kieu: dict[str, bool] | None = None,
     kieu_chu: dict[str, dict[str, str]] | None = None,
+    kieu_gc: dict[str, _KieuGC] | None = None,
 ) -> list[tuple]:
     """Con trực tiếp của `w:body` theo thứ tự: `w:p` là một đơn vị, `w:tbl` cho
     một đơn vị mỗi ô kèm toạ độ (bảng, hàng, cột).
@@ -913,12 +1242,24 @@ def _duyet_than(
     tk = theo_kieu or {}
     vk = vien_kieu or {}
     kc = kieu_chu or {}
+    kg = kieu_gc or {}
     ra: list[tuple] = []
     so_bang = 0
     for con in than:
         if con.tag == _P:
             if chu := _chu(con):
-                ra.append((None, chu, None, "than", None, _can_le_doan(con, tk), _dinh_dang_doan(con, kc)))
+                ra.append(
+                    (
+                        None,
+                        chu,
+                        None,
+                        "than",
+                        None,
+                        _can_le_doan(con, tk),
+                        _dinh_dang_doan(con, kc),
+                        _gc_mot(con, kg),
+                    )
+                )
         elif con.tag == _TBL:
             ti_le = _ti_le_luoi(con)
             vien = _vien_bang(con, vk)
@@ -938,13 +1279,26 @@ def _duyet_than(
                     # hàng dựng lại). Ô rỗng CŨNG là ý nghĩa của biểu mẫu —
                     # cùng nguyên tắc dấu chấm điền của một dòng trường tự do,
                     # chỉ khác hình dạng (một Ô thay vì một cụm ký tự).
-                    chu, dinh_dang = _chu_va_dinh_dang_o(tc, kc)
+                    chu, dinh_dang, gian_cach = _chu_va_dinh_dang_o(tc, kc, kg)
                     # Căn lề của Ô lấy từ ĐOẠN VĂN ĐẦU của chính ô đó — một
                     # ô có thể có nhiều `w:p` lồng, nhưng căn lề hiển thị
                     # là của dòng đầu tiên người đọc thấy.
                     can_le = _can_le_doan(tc.find(_P), tk)
                     ra.append(
-                        (None, chu, None, "than", (so_bang, h, c), can_le, dinh_dang, nhip, ti_le, vien, cao)
+                        (
+                            None,
+                            chu,
+                            None,
+                            "than",
+                            (so_bang, h, c),
+                            can_le,
+                            dinh_dang,
+                            gian_cach,
+                            nhip,
+                            ti_le,
+                            vien,
+                            cao,
+                        )
                     )
             so_bang += 1
     return ra
@@ -970,6 +1324,7 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
             theo_kieu: dict[str, str] = {}
             vien_kieu: dict[str, bool] = {}
             kieu_chu: dict[str, dict[str, str]] = {}
+            kieu_gc: dict[str, _KieuGC] = {}
             if "word/styles.xml" in z.namelist():
                 try:
                     goc_kieu = _goc_xml(z.read("word/styles.xml"), "word/styles.xml")
@@ -983,7 +1338,10 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
                     # Định dạng chữ theo KIỂU — mất nó thì một biểu mẫu in đậm
                     # bằng kiểu đọc ra chữ thường, xem `_kieu_dinh_dang_chu`.
                     kieu_chu = _kieu_dinh_dang_chu(goc_kieu)
-            than = _duyet_than(goc, theo_kieu, vien_kieu, kieu_chu)
+                    # Giãn cách/thụt lề theo KIỂU — mất nó thì một biểu mẫu
+                    # đặt giãn dòng bằng kiểu đọc ra không giãn dòng gì cả.
+                    kieu_gc = _kieu_gian_cach(goc_kieu)
+            than = _duyet_than(goc, theo_kieu, vien_kieu, kieu_chu, kieu_gc)
             # Thước đo để lùi về là TỔNG chữ `w:t` của thân, KHÔNG phải duyệt
             # phẳng: duyệt phẳng đếm hai lần chữ trong hộp chữ (một `w:p` lồng
             # trong `w:p`), và với thước đó cấu trúc luôn "thua". Đo 2026-09-16
@@ -991,12 +1349,14 @@ def _doc_docx(du_lieu: bytes) -> list[tuple]:
             nut_than = goc.find(_BODY)
             tong = _tong_chu(nut_than) if nut_than is not None else 0
             if sum(len(t[1]) for t in than) < 0.9 * tong:
-                than = _duyet_phang(goc, "than", theo_kieu, kieu_chu)
+                than = _duyet_phang(goc, "than", theo_kieu, kieu_chu, kieu_gc)
 
             ra = list(than)
             for tien_to, vung in (("word/header", "dau_trang"), ("word/footer", "chan_trang")):
                 for ten in sorted(n for n in z.namelist() if n.startswith(tien_to) and n.endswith(".xml")):
-                    ra.extend(_duyet_phang(_goc_xml(z.read(ten), ten), vung, theo_kieu, kieu_chu))
+                    ra.extend(
+                        _duyet_phang(_goc_xml(z.read(ten), ten), vung, theo_kieu, kieu_chu, kieu_gc)
+                    )
             return ra
     except KeyError as e:
         raise KhongDocDuoc(LoaiHong.tep_hong, "thiếu word/document.xml") from e
@@ -1287,15 +1647,15 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
     `(trang, noi_dung, do_tin)` từ nhánh OCR,
     `(trang, noi_dung, do_tin, vung, bang)` từ DOCX trước Phase 9,
     `(trang, noi_dung, do_tin, vung, bang, can_le)` từ DOCX có căn lề (Phase 9
-    U5), `(…, can_le, dinh_dang)` từ một đoạn DOCX có định dạng chữ
-    (2026-09-18), và `(…, dinh_dang, bang_nhip, bang_ti_le, bang_vien,
-    bang_cao)` từ một Ô BẢNG. Có `do_tin` nghĩa là máy đang đoán, nên đơn vị
-    đó mang nhãn `ocr`.
+    U5), `(…, can_le, dinh_dang, gian_cach)` từ một đoạn DOCX có định dạng chữ
+    và giãn cách (2026-09-18), và `(…, gian_cach, bang_nhip, bang_ti_le,
+    bang_vien, bang_cao)` từ một Ô BẢNG. Có `do_tin` nghĩa là máy đang đoán,
+    nên đơn vị đó mang nhãn `ocr`.
 
-    `dinh_dang` chèn vào giữa (sau `can_le`) chứ không nối vào cuối: đoạn văn
-    thân bài khi đó chỉ cần 7 phần tử thay vì 11 phần tử toàn giá trị mặc
-    định. Cả hai nơi dựng tuple (`_duyet_than`, `_duyet_phang`) đổi cùng lúc
-    với hàm này, nên không có hình dạng cũ nào còn chạy qua đây.
+    `dinh_dang`/`gian_cach` chèn vào giữa (sau `can_le`) chứ không nối vào
+    cuối: đoạn văn thân bài khi đó chỉ cần 8 phần tử thay vì 12 phần tử toàn
+    giá trị mặc định. Cả hai nơi dựng tuple (`_duyet_than`, `_duyet_phang`)
+    đổi cùng lúc với hàm này, nên không có hình dạng cũ nào còn chạy qua đây.
 
     PDF đã biết trang thật. DOCX chưa, nên trang được suy ra từ số ký tự đã đi
     qua — xem ghi chú ở `KY_TU_MOI_TRANG`.
@@ -1313,10 +1673,11 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
         bang = muc[4] if len(muc) > 4 else None
         can_le = muc[5] if len(muc) > 5 else "trai"
         dinh_dang = muc[6] if len(muc) > 6 else ()
-        bang_nhip = muc[7] if len(muc) > 7 else 1
-        bang_ti_le = muc[8] if len(muc) > 8 else ()
-        bang_vien = muc[9] if len(muc) > 9 else True
-        bang_cao = muc[10] if len(muc) > 10 else 0
+        gian_cach = muc[7] if len(muc) > 7 else ()
+        bang_nhip = muc[8] if len(muc) > 8 else 1
+        bang_ti_le = muc[9] if len(muc) > 9 else ()
+        bang_vien = muc[10] if len(muc) > 10 else True
+        bang_cao = muc[11] if len(muc) > 11 else 0
         if trang is None:
             trang = 1 + da_di // KY_TU_MOI_TRANG
         if trang != trang_hien:
@@ -1337,6 +1698,7 @@ def _dat_vi_tri(thoi: list[tuple]) -> TaiLieuDaDoc:
                 bang_vien=bang_vien,
                 bang_cao=bang_cao,
                 dinh_dang=dinh_dang,
+                gian_cach=gian_cach,
             )
         )
         offset += len(noi_dung) + 1   # +1 cho dấu xuống dòng giữa hai đơn vị

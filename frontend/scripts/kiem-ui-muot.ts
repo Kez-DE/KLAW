@@ -330,7 +330,7 @@ const MUC: Muc[] = [
     vung: "than",
     canCu: null,
     khoi: [
-      { kind: "vanXuoi", noiDung: CHU_GOC, canhLe: "trai", chu: [] },
+      { kind: "vanXuoi", noiDung: CHU_GOC, canhLe: "trai", chu: [], gianCach: null },
       {
         kind: "bang",
         hang: [
@@ -704,4 +704,128 @@ assert.equal(
 );
 assert.equal(oChuO[1]?.textContent, O_PHAI_CHU, "ô không định dạng vẫn hiện đủ chữ");
 
-console.log("kiem-ui-muot: 57/57 OK");
+// ──────── 7. giãn cách/thụt lề của ĐOẠN và đường dẫn của MỘT mốc tab ────────
+//
+// Đây là nơi duy nhất trong repo render được component thật, nên phần MÀN
+// HÌNH của `w:spacing`/`w:ind`/`w:tabs` chốt ở đây; `.docx`, PDF và cửa vào
+// fail-closed chốt ở `kiem-gian-cach.ts`.
+//
+// Hai điều dễ hỏng âm thầm: (1) nhịp chỉ vào `style` mà không vào `data-*`
+// thì `docDong` đọc lại `px` đã tính và tệp tải về lệch con số nguồn; (2)
+// đường dẫn vẽ bằng một hộp có BỀ RỘNG ĐẨY thật thì nó tự đẩy mình xuống một
+// dòng trống của riêng nó — dòng "……" biến mất khỏi chỗ cần điền.
+const NHAN_DIEN = "Company name:";
+const mucDien: Muc[] = [
+  {
+    stt: 1,
+    key: "dien",
+    ten: "Dòng điền",
+    tenThat: true,
+    noiDung: "",
+    bang: null,
+    vung: "than",
+    canCu: null,
+    khoi: [
+      {
+        kind: "vanXuoi",
+        noiDung: NHAN_DIEN,
+        canhLe: "trai",
+        chu: [],
+        gianCach: {
+          truoc: 120,
+          sau: 240,
+          dong: 360,
+          luatDong: "auto",
+          trai: 720,
+          phai: 0,
+          dauDong: 0,
+          treo: 426,
+          tab: [{ o: NHAN_DIEN.length, val: "right", pos: 9360, leader: "dot" }],
+        },
+      },
+    ],
+  },
+];
+
+const { khung: khungDien, root: rootDien } = taoRoot();
+await act(() => {
+  rootDien.render(h(XemTruocA4, { ...propsBang, muc: mucDien }));
+});
+const doanDien = timTatNut(
+  khungDien,
+  (n) => n.tagName === "P" && n.getAttribute("data-truoc") !== null,
+);
+assert.equal(doanDien.length, 1, "đoạn có nhịp nguồn phải mang `data-truoc` để đọc lại");
+const pDien = doanDien[0]!;
+assert.equal(pDien.getAttribute("data-sau"), "240");
+assert.equal(pDien.getAttribute("data-dong"), "360");
+assert.equal(pDien.getAttribute("data-luat-dong"), "auto");
+assert.equal(pDien.getAttribute("data-thut-trai"), "720");
+assert.equal(pDien.getAttribute("data-treo"), "426");
+// 1 twip = 1/20 pt — cùng phép quy đổi `caoTrenTrang` đã dùng cho `w:trHeight`.
+assert.equal(pDien.style["marginTop"], "6pt", "120 twip = 6pt, THẤY được chứ không chỉ khai");
+assert.equal(pDien.style["marginBottom"], "12pt");
+assert.equal(pDien.style["marginLeft"], "36pt");
+assert.equal(pDien.style["lineHeight"], "1.5", "360/240 = một dòng rưỡi");
+assert.equal(pDien.style["textIndent"], "-21.3pt", "`w:hanging` đẩy dòng đầu NGƯỢC ra");
+assert.equal(pDien.style["overflow"], "hidden", "đoạn có tab phải cắt phần đường dẫn vẽ tràn");
+
+const spanDien = timTatNut(pDien, (n) => n.tagName === "SPAN");
+assert.equal(spanDien.length, 2, "một span chữ, một span mốc tab");
+assert.equal(spanDien.map((n) => n.textContent).join(""), NHAN_DIEN, "tab KHÔNG thêm ký tự nào");
+const spanTab = spanDien[1]!;
+assert.equal(spanTab.getAttribute("data-tab"), "", "mốc tab phải mang dấu để đọc lại");
+assert.equal(spanTab.getAttribute("data-tab-val"), "right");
+assert.equal(spanTab.getAttribute("data-tab-pos"), "9360");
+assert.equal(spanTab.getAttribute("data-tab-leader"), "dot");
+assert.equal(spanTab.style["borderBottomStyle"], "dotted", "đường dẫn phải THẤY được");
+assert.equal(spanTab.style["width"], "468pt", "9360 twip = 468pt, vẽ tới đúng mốc");
+assert.equal(
+  spanTab.style["marginRight"],
+  "-468pt",
+  "bề rộng ĐẨY bằng 0: đường dẫn không được tự đẩy mình xuống dòng",
+);
+
+// Mốc KHÔNG khai đường dẫn: vẫn chở đủ sự thật cho `.docx`/PDF, nhưng màn
+// hình không vẽ thêm nét nào — `w:leader` mặc định là `none`.
+const mucSuong: Muc[] = [
+  {
+    ...mucDien[0]!,
+    khoi: [
+      {
+        ...(mucDien[0]!.khoi[0] as Extract<Muc["khoi"][number], { kind: "vanXuoi" }>),
+        gianCach: {
+          ...(mucDien[0]!.khoi[0] as Extract<Muc["khoi"][number], { kind: "vanXuoi" }>).gianCach!,
+          tab: [{ o: NHAN_DIEN.length, val: "left", pos: 1860, leader: "" }],
+        },
+      },
+    ],
+  },
+];
+const { khung: khungSuong, root: rootSuong } = taoRoot();
+await act(() => {
+  rootSuong.render(h(XemTruocA4, { ...propsBang, muc: mucSuong }));
+});
+const spanSuong = timTatNut(
+  khungSuong,
+  (n) => n.tagName === "SPAN" && n.getAttribute("data-tab") !== null,
+);
+assert.equal(spanSuong.length, 1);
+assert.equal(spanSuong[0]?.getAttribute("data-tab-pos"), "1860", "sự thật vẫn đi ra tệp");
+assert.equal(
+  spanSuong[0]?.style["borderBottomStyle"],
+  undefined,
+  "không khai dẫn thì không vẽ nét",
+);
+
+// Khối KHÔNG có nhịp nguồn giữ nguyên đường cũ: không thuộc tính, không style.
+const { khung: khungTran, root: rootTran } = taoRoot();
+await act(() => {
+  rootTran.render(h(XemTruocA4, { ...propsBang, muc: MUC }));
+});
+const pTran = timTatNut(khungTran, (n) => n.tagName === "P" && n.textContent === CHU_GOC)[0];
+assert.ok(pTran !== undefined, "khối văn xuôi không nhịp vẫn render");
+assert.equal(pTran.getAttribute("data-truoc"), null);
+assert.equal(pTran.style["marginTop"], undefined, "không nhịp nguồn thì không style nào bị áp");
+
+console.log("kiem-ui-muot: 76/76 OK");

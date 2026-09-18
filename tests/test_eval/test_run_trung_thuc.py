@@ -10,7 +10,7 @@ số 0 là một lời khẳng định có bằng chứng.
 
 Bốn thứ test này gác:
 * điểm của mục đã cài không tụt (cấu trúc, căn lề, có-nét-hay-không của bảng,
-  chiều cao hàng và định dạng chữ đang 100%);
+  chiều cao hàng, định dạng chữ và giãn cách/thụt lề đang 100%);
 * danh sách mục CHƯA CÀI không đổi lặng lẽ — cài xong một mục thì test này ĐỎ,
   và người cài phải sửa con số ở đây. Đó chính là điều muốn: một cái thước đổi
   giá trị mà không ai ký tên thì không gác được gì;
@@ -66,14 +66,16 @@ _HOM_NAY = {
     # kiện ở đây là `w:b` không `w:val` và `w:sz` — hai HÌNH DẠNG khác nhau
     # (thẻ rỗng nghĩa là bật, thẻ mang số), không phải hai lần cùng một ca.
     "dinh_dang_run": (2, 1.0),
-    "gian_cach_thut_le": (3, 0.0),
+    # Cài 2026-09-18 (`DonViVanBan.gian_cach`): 0% → 100% trên tệp này. Ba dữ
+    # kiện là `w:spacing/@w:before`, `@w:after` và `w:ind/@w:firstLine` — hai
+    # phần tử khác nhau, nên một lỗi chỉ đọc `w:spacing` không đi lọt.
+    "gian_cach_thut_le": (3, 1.0),
     "le_trang": (4, 0.0),
     "media": (2, 0.0),
 }
 _CHUA_CAI = {
     "vien_bang_tung_canh",
     "chieu_cao_hang_hrule",
-    "gian_cach_thut_le",
     "le_trang",
     "media",
 }
@@ -97,7 +99,7 @@ def test_diem_tung_muc_KHONG_TUT_va_muc_chua_cai_KHONG_DOI_LANG_LE(tmp_path):
     for ten, (khai, diem) in _HOM_NAY.items():
         assert muc[ten]["khai"] == khai, f"{ten}: nguồn khai khác trước — tệp mẫu đổi thì mọi số dưới đây vô nghĩa"
         assert muc[ten]["diem"] == pytest.approx(diem), ten
-    assert ket["tong"] == pytest.approx(5 / 10)
+    assert ket["tong"] == pytest.approx(6 / 10)
 
 
 def test_MAT_TOA_DO_BANG_thi_diem_cau_truc_TUT(tmp_path):
@@ -205,3 +207,46 @@ def test_DINH_DANG_RUN_khop_ca_trong_O_BANG_ke_ca_khi_w_val_TAT(tmp_path):
 
     muc = chay([duong])["tong_hop"]["dinh_dang_run"]
     assert (muc["khai"], muc["khop"]) == (6, 6)
+
+
+# Cùng chặng `p{j}` mà `dinh_dang_run` đã gác, nhưng cho một phần tử ở cấp
+# ĐOẠN chứ không cấp run: khoá là `bang{b}/o{h},{c}/p{j}/{ten}`. Đoạn thứ hai
+# của ô để `j` khác 0, vì `p0` khớp cả khi bộ đọc quên hẳn chỉ số đoạn.
+_BANG_CO_GIAN_CACH = (
+    "<w:tbl><w:tr><w:tc>"
+    '<w:p><w:pPr><w:spacing w:line="360" w:lineRule="auto"/></w:pPr>'
+    "<w:r><w:t>TRƯỜNG ĐẠI HỌC</w:t></w:r></w:p>"
+    '<w:p><w:pPr><w:ind w:hanging="426"/>'
+    '<w:tabs><w:tab w:val="right" w:pos="9360" w:leader="dot"/></w:tabs></w:pPr>'
+    "<w:r><w:t>Khoa Luật</w:t></w:r></w:p>"
+    "</w:tc><w:tc>"
+    '<w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:t>Số: 01/QĐ</w:t></w:r></w:p>'
+    "</w:tc></w:tr></w:tbl>"
+)
+
+
+def test_GIAN_CACH_khop_ca_trong_O_BANG_theo_dung_toa_do_tung_DOAN(tmp_path):
+    """`w:spacing`/`w:ind`/`w:tabs` trong ô bảng phải khớp đúng toạ độ `p{j}`
+    của nó, và `w:after="0"` phải đi qua NGUYÊN VĂN: bộ đọc quy nó về "không
+    khai" rồi bỏ khoá sẽ mất đúng dữ kiện tệp nói "không có khoảng trống"."""
+    duong = tmp_path / "bang-co-gian-cach.docx"
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("[Content_Types].xml", '<?xml version="1.0"?><Types/>')
+        z.writestr(
+            "word/document.xml",
+            f"<w:document {_NS}><w:body>{_BANG_CO_GIAN_CACH}</w:body></w:document>",
+        )
+    duong.write_bytes(buf.getvalue())
+
+    # Chốt CHÂN LÝ trước — "khớp 5/5" không nói gì nếu chân lý đọc sai chỗ.
+    assert dac_ta_nguon(duong.read_bytes())["gian_cach_thut_le"] == {
+        "bang0/o0,0/p0/spacing/line": "360",
+        "bang0/o0,0/p0/spacing/lineRule": "auto",
+        "bang0/o0,0/p1/ind/hanging": "426",
+        "bang0/o0,0/p1/tabs": "1",
+        "bang0/o0,1/p0/spacing/after": "0",
+    }
+
+    muc = chay([duong])["tong_hop"]["gian_cach_thut_le"]
+    assert (muc["khai"], muc["khop"]) == (5, 5)

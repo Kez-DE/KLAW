@@ -35,7 +35,7 @@ from src.agents.nodes.route import Intent
 from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU
 from src.services.bo_nho import _vuong_luoi_chan
 from src.services.bo_nho_tai_khoan import GIA_TRI_TOI_DA
-from src.services.doc_tai_lieu import DinhDangChu, DonViVanBan, NguonChu
+from src.services.doc_tai_lieu import DinhDangChu, DonViVanBan, GianCach, NguonChu
 from src.services.llm import TruncatedOutputError, Usage
 from src.services.neo_du_kien import LyDoNeo, Neo, normalize, xac_minh
 from src.services.phep_tinh import SAI_SO, so_bang_nhau, tinh, viet_so
@@ -1173,6 +1173,94 @@ def _chu_khoi(noi_dung: str, theo_chu: dict[str, tuple]) -> list[dict]:
     return ra
 
 
+def _gian_cach_theo_dong(goi: list[dict]) -> dict[str, tuple]:
+    """Chữ NGUYÊN VĂN của một đơn vị nguồn → `DonViVanBan.gian_cach` của nó.
+
+    Khoá NGUYÊN VĂN, cùng lý do `_chu_theo_dong`: `GianCach.tab` là offset đo
+    trên đúng chuỗi ấy, và `normalize` đổi độ dài nên mọi mốc tab sẽ trỏ lệch
+    sang ký tự khác — một đường dẫn "……" vẽ từ giữa một từ.
+
+    Dòng trùng chữ mà khác giãn cách ở hai chỗ bị LOẠI: không xác định vẫn an
+    toàn hơn gán nhầm nhịp trang của chỗ này cho chỗ kia.
+    """
+    theo: dict[str, set[tuple]] = {}
+    for t in goi:
+        for d in t["don_vi"]:
+            if d.noi_dung and d.gian_cach:
+                theo.setdefault(d.noi_dung, set()).add(d.gian_cach)
+    return {s: v.pop() for s, v in theo.items() if len(v) == 1}
+
+
+def _manh_tab(g: GianCach, lech: int = 0) -> list[dict]:
+    """`GianCach` → những chỗ tab VẼ ĐƯỢC, dịch đi `lech` ký tự.
+
+    Ghép tab thứ n với mốc thứ n. Đây là một TRẦN có chủ ý, không phải luật
+    của Word: Word nhảy tới mốc đầu tiên nằm SAU vị trí con trỏ hiện tại, mà
+    vị trí ấy chỉ biết được sau khi đã đo chữ — bộ đọc Python không đo được
+    chữ, và để ba nơi vẽ tự đo là ba lần cài lại cùng một luật, đúng thứ trôi
+    dạt mà "một nguồn, ba nơi dùng" tồn tại để chặn.
+    Đo trên tám biểu mẫu thật: 51/55 đoạn có tab chỉ có ĐÚNG một tab, và cả
+    45 đoạn có đường dẫn (`leader`) đều thuộc nhóm đó — nên phép ghép này
+    đúng ở mọi chỗ nó vẽ ra thứ gì.
+    Tab thừa (nhiều tab hơn mốc) KHÔNG nhận mốc nào và không được vẽ: giữ
+    nguyên hành vi trước bản vá, thay vì đoán một mốc mặc định.
+
+    ponytail: trần "tab thứ n → mốc thứ n". Nâng lên luật thật của Word khi
+    ba nơi vẽ cùng đo được vị trí con trỏ trên cùng một hệ quy chiếu — việc
+    đó cần `w:pgMar` (mục `le_trang`, còn CHƯA CÀI) để quy đổi twip sang toạ
+    độ màn hình cho đúng.
+    """
+    return [
+        {"o": o + lech, "val": m.val, "pos": m.pos, "leader": m.leader}
+        for o, m in zip(g.tab, g.moc, strict=False)
+        if m.pos > 0
+    ]
+
+
+def _gian_cach_khoi(noi_dung: str, theo_gc: dict[str, tuple]) -> dict:
+    """Giãn cách/thụt lề/tab của MỘT khối văn xuôi — `{}` khi không tra được.
+
+    Giãn cách và thụt lề là thuộc tính của CẢ khối (một `<p>` trên màn hình,
+    một `w:p` trong tệp), nên chỉ nhận khi mọi dòng tra được ĐỒNG THUẬN —
+    cùng luật `_can_le_khoi`. Một khối gộp hai dòng nguồn giãn cách khác nhau
+    thì không có câu trả lời đúng, và chọn bừa dòng đầu là đoán.
+
+    Mốc tab thì ngược lại, KHÔNG cần đồng thuận: mỗi mốc gắn với một offset
+    trong chính khối, nên hai dòng nguồn góp hai chỗ tab khác nhau vẫn không
+    mâu thuẫn — chỉ dịch offset theo dòng, đúng như `_chu_khoi` làm.
+
+    Đoạn có `w:pPr` chỉ khai một thứ không vẽ được (ví dụ `w:beforeAutospacing`
+    một mình) ra `{}`: không có gì để vẽ thì không thêm khoá nào, và mọi phía
+    đọc vốn đã mặc định "không khai".
+    """
+    tab: list[dict] = []
+    tap: set[tuple] = set()
+    lech = 0
+    for dong in noi_dung.split("\n"):
+        for g in theo_gc.get(dong, ()):
+            tab.extend(_manh_tab(g, lech))
+            tap.add((g.truoc, g.sau, g.dong, g.luat_dong, g.trai, g.phai, g.dau_dong, g.treo))
+        lech += len(dong) + 1
+
+    ra: dict = {}
+    if len(tap) == 1:
+        truoc, sau, dong, luat_dong, trai, phai, dau_dong, treo = tap.pop()
+        if truoc or sau or dong or trai or phai or dau_dong or treo:
+            ra = {
+                "truoc": truoc,
+                "sau": sau,
+                "dong": dong,
+                "luat_dong": luat_dong,
+                "trai": trai,
+                "phai": phai,
+                "dau_dong": dau_dong,
+                "treo": treo,
+            }
+    if tab:
+        ra["tab"] = tab
+    return ra
+
+
 def _hang_gon(
     cot: dict[int, str],
     nhip_cot: dict[int, int],
@@ -1596,6 +1684,9 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
     # Định dạng chữ (`w:rPr`, quyết định 2026-09-18) — lưới thứ ba cùng nguồn
     # `goi`, tra theo chữ NGUYÊN VĂN chứ không chuẩn hoá, xem `_chu_theo_dong`.
     theo_chu = _chu_theo_dong(goi or [])
+    # Giãn cách/thụt lề/mốc tab (`w:spacing`/`w:ind`/`w:tabs`) — lưới thứ tư
+    # cùng nguồn `goi`, cũng tra theo chữ NGUYÊN VĂN, xem `_gian_cach_theo_dong`.
+    theo_gc = _gian_cach_theo_dong(goi or [])
     dem = {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0, "bo_nho_khong_dien": 0}
     # Giá trị đã nhớ mà CÓ trong `nguon` thì KHÔNG cấm: ở đó nó tới bằng chính
     # lời người hỏi lượt này (hay tài liệu, hay bản thảo đang có), không bằng ký
@@ -1735,6 +1826,9 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
                     # định dạng giữ nguyên hình dạng khối cũ, và mọi phía đọc
                     # (`khoiMotHopLe` phía giao diện) vốn đã mặc định rỗng.
                     **({"chu": chu} if (chu := _chu_khoi(noi_dung, theo_chu)) else {}),
+                    # `gian_cach` cùng luật `chu`: chỉ CÓ MẶT khi tra được,
+                    # nên một khối không giãn cách giữ nguyên hình dạng cũ.
+                    **({"gian_cach": gc} if (gc := _gian_cach_khoi(noi_dung, theo_gc)) else {}),
                 })
             if bang:
                 # `nhip`/`ti_le`/`cao`/`can_le_o` rỗng: bảng mô hình tự gõ
@@ -1853,6 +1947,7 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
                     "cao": [],
                     "can_le_o": [],
                     **({"chu": chu} if (chu := _chu_khoi(tieu_de_sach, theo_chu)) else {}),
+                    **({"gian_cach": gc} if (gc := _gian_cach_khoi(tieu_de_sach, theo_gc)) else {}),
                 }],
                 "dem_delta": 0,
             })

@@ -43,6 +43,45 @@ export type KhoangChu = {
  * Khác `KhoangChu` (offset, đi TỪ máy chủ RA màn hình) ở chỗ đây đã là chữ
  * thật của từng đoạn — đường về, và là thứ `TextRun` của `docx` cần.
  */
+/**
+ * MỘT mốc tab (`w:pPr/w:tabs/w:tab`) — chỗ con trỏ nhảy tới, và đường vẽ lấp
+ * khoảng nhảy qua.
+ *
+ * `pos` là twip tính từ mép TRÁI của cột chữ. `leader` rỗng nghĩa là nhảy
+ * suông, không vẽ gì (mặc định của chính OOXML); `dot` là thứ vẽ ra dòng
+ * "…………" mà một biểu mẫu tiếng Việt chừa cho người điền tay.
+ */
+export type MocTab = { val: string; pos: number; leader: string };
+
+/** Một mốc tab kèm CHỖ nó đứng trong `noiDung` — offset ký tự, không phải một
+ *  ký tự: `<w:tab/>` chưa bao giờ nằm trong `noi_dung` (xem `GianCach.tab`
+ *  phía máy chủ), và bản vá này không được thêm nó vào. */
+export type KhoangTab = MocTab & { o: number };
+
+/**
+ * Giãn cách và thụt lề của MỘT đoạn (`w:spacing` + `w:ind`) — twip, `0` khi
+ * nguồn không khai.
+ *
+ * `dong` đọc cùng `luatDong`: `auto` (mặc định OOXML) thì `dong` là BỘI SỐ của
+ * 240 (360 = 1,5 dòng), `exact`/`atLeast` thì `dong` là twip tuyệt đối. Một
+ * con số không tự nói nó đang đo cái gì, nên hai trường đi liền nhau.
+ */
+export type GianCachDoan = {
+  truoc: number;
+  sau: number;
+  dong: number;
+  luatDong: string;
+  trai: number;
+  phai: number;
+  dauDong: number;
+  treo: number;
+};
+
+/** Những gì máy chủ gửi xuống cho MỘT khối văn xuôi: nhịp của đoạn cộng chỗ
+ *  đứng của từng mốc tab. Đường VỀ (`DongVanBan`) không mang `tab` vì lúc ấy
+ *  mốc đã thành một đoạn `DoanChu` trên DOM — xem `DoanChu.tab`. */
+export type GianCachKhoi = GianCachDoan & { tab: KhoangTab[] };
+
 export type DoanChu = {
   text: string;
   inDam: boolean;
@@ -51,6 +90,16 @@ export type DoanChu = {
   /** Nửa điểm (`w:sz`), `0` = theo cỡ mặc định của chính dòng (`coChuPt`). */
   coChu: number;
   phong: string;
+  /**
+   * Khác `null` thì đoạn này KHÔNG phải chữ mà là một ký tự TAB (`text` luôn
+   * rỗng): con trỏ nhảy tới `pos`, vẽ `leader` trên đường nhảy.
+   *
+   * Đi chung một dãy với các đoạn chữ chứ không một mảng riêng vì tab nằm
+   * GIỮA chữ, và một dãy giữ được thứ tự ấy mà hai mảng song song thì không.
+   * `.docx` ghi nó thành một `w:r` chứa `<w:tab/>`, PDF vẽ đường dẫn rồi đẩy
+   * con trỏ, màn hình vẽ đường dẫn với bề rộng bằng 0 (xem `XemTruocA4`).
+   */
+  tab: MocTab | null;
 };
 
 export type DongVanBan = {
@@ -67,6 +116,16 @@ export type DongVanBan = {
    * lại bằng đúng `text`.
    */
   doan: DoanChu[];
+  /**
+   * Giãn cách/thụt lề NGUỒN của đoạn (2026-09-18), đọc lại từ `data-*` trên
+   * chính thẻ `<p>` mà `XemTruocA4` đã vẽ — không phải từ `getComputedStyle`:
+   * màn hình quy twip ra `pt` để vẽ, và đọc ngược `px` đã tính rồi quy lại
+   * twip sẽ làm tròn hai lần, trong khi `.docx` cần đúng con số nguồn.
+   *
+   * `null` = nguồn không khai gì (và mọi bản thảo lưu trước bản vá này) —
+   * mọi nhánh xuất tệp khi đó chạy y như trước.
+   */
+  gianCach: GianCachDoan | null;
 };
 
 /**
@@ -141,7 +200,13 @@ export type NoiDungXuat = {
  * trường cố định).
  */
 export type KhoiMuc =
-  | { kind: "vanXuoi"; noiDung: string; canhLe: CanLe; chu: KhoangChu[] }
+  | {
+      kind: "vanXuoi";
+      noiDung: string;
+      canhLe: CanLe;
+      chu: KhoangChu[];
+      gianCach: GianCachKhoi | null;
+    }
   | ({ kind: "bang" } & BangThat);
 
 /** Một mục dựng sẵn cho `XemTruocA4`: nội dung của `clauses` ghép vào khung `cau_truc.muc`. */
@@ -325,6 +390,93 @@ function chuHopLe(chu: unknown, noiDung: string): KhoangChu[] {
   return ra;
 }
 
+/** `w:lineRule` mà `docx` ghi được. Giá trị lạ thì KHÔNG ghi `lineRule` nào —
+ *  Word rơi về `auto`, đúng mặc định của chính OOXML. */
+const LUAT_DONG_DOCX = new Set(["auto", "atLeast", "exact", "exactly"]);
+
+/** `w:tab/@w:val` nguồn → `TabStopType` của `docx`. `start`/`end` là tên OOXML
+ *  strict của `left`/`right`, cùng nghĩa. */
+const CAN_TAB_DOCX = {
+  left: "left",
+  start: "left",
+  center: "center",
+  right: "right",
+  end: "right",
+  decimal: "decimal",
+} as const;
+
+/** `w:leader` nguồn → `LeaderType` của `docx`. Giá trị vắng/lạ thì không ghi
+ *  `leader` nào: Word rơi về `none`, đúng mặc định của chính `w:leader`. */
+const DAN_TAB_DOCX = {
+  dot: "dot",
+  hyphen: "hyphen",
+  underscore: "underscore",
+  middleDot: "middleDot",
+} as const;
+
+/** Bốn kiểu canh của một mốc tab OOXML mà ba nơi vẽ đều hiểu. `bar`/`num`/
+ *  `clear` KHÔNG có ở đây: `clear` đã bị bộ đọc loại, còn hai kiểu kia vẽ ra
+ *  thứ khác hẳn một chỗ nhảy — coi chúng là `left` sẽ đặt chữ sai chỗ. */
+const CAN_TAB_HOP_LE = new Set(["left", "start", "center", "right", "end", "decimal"]);
+
+/** Kiểu đường dẫn OOXML vẽ được. Rỗng/`none`/lạ = không vẽ gì — mặc định của
+ *  chính `w:leader`, cùng luật `w:u` không suy ra gạch chân khi thiếu giá trị. */
+const DAN_TAB_HOP_LE = new Set(["dot", "hyphen", "underscore", "middleDot"]);
+
+/**
+ * `k.gian_cach` thô → nhịp đoạn + mốc tab, hoặc `null` khi vắng/sai hình dạng.
+ *
+ * Fail-closed CẢ KHỐI, cùng luật `chuHopLe`: một con số không đọc ra, một
+ * offset tab nằm ngoài `noiDung`, hay một mốc `pos` âm sẽ đặt chữ và đường dẫn
+ * sai chỗ — và một bố cục sai chỗ khó đọc hơn hẳn một bố cục mặc định. Giãn
+ * cách âm được (`w:ind` âm là cách một biểu mẫu thật tràn ra ngoài lề), nhưng
+ * `pos` thì không: một mốc ở toạ độ âm không tồn tại trên trang nào.
+ */
+function gianCachHopLe(gc: unknown, noiDung: string): GianCachKhoi | null {
+  if (typeof gc !== "object" || gc === null) return null;
+  const o = gc as Record<string, unknown>;
+  const so = (v: unknown): number | null => {
+    const n = Number(v ?? 0);
+    return Number.isFinite(n) ? n : null;
+  };
+  const ra: Record<string, number> = {};
+  for (const ten of ["truoc", "sau", "dong", "trai", "phai", "dauDong", "treo"] as const) {
+    const n = so(o[ten === "dauDong" ? "dau_dong" : ten]);
+    if (n === null) return null;
+    ra[ten] = n;
+  }
+  if (ra["dong"]! < 0 || ra["truoc"]! < 0 || ra["sau"]! < 0) return null;
+
+  const tab: KhoangTab[] = [];
+  const tho = o["tab"];
+  if (tho !== undefined) {
+    if (!Array.isArray(tho)) return null;
+    for (const t of tho) {
+      if (typeof t !== "object" || t === null) return null;
+      const m = t as Record<string, unknown>;
+      const vi = so(m["o"]);
+      const pos = so(m["pos"]);
+      if (vi === null || pos === null) return null;
+      if (!Number.isInteger(vi) || vi < 0 || vi > noiDung.length || pos <= 0) return null;
+      const val = String(m["val"] ?? "left");
+      if (!CAN_TAB_HOP_LE.has(val)) return null;
+      const leader = String(m["leader"] ?? "");
+      tab.push({ o: vi, pos, val, leader: DAN_TAB_HOP_LE.has(leader) ? leader : "" });
+    }
+  }
+  return {
+    truoc: ra["truoc"]!,
+    sau: ra["sau"]!,
+    dong: ra["dong"]!,
+    luatDong: typeof o["luat_dong"] === "string" ? o["luat_dong"] : "",
+    trai: ra["trai"]!,
+    phai: ra["phai"]!,
+    dauDong: ra["dauDong"]!,
+    treo: ra["treo"]!,
+    tab: tab.sort((a, b) => a.o - b.o),
+  };
+}
+
 /**
  * `k.chu_o` thô → các ĐOẠN chữ của từng ô, CÙNG hình dạng `hang`.
  *
@@ -420,6 +572,7 @@ function khoiMotHopLe(k: unknown): KhoiMuc[] {
     can_le_o?: unknown;
     chu?: unknown;
     chu_o?: unknown;
+    gian_cach?: unknown;
   };
   const noiDung = typeof o.noi_dung === "string" ? o.noi_dung : "";
   const bang = bangHopLe(o.bang);
@@ -433,6 +586,10 @@ function khoiMotHopLe(k: unknown): KhoiMuc[] {
       // chỉ thêm khoá này khi có) và ở mọi clause lưu TRƯỚC trường này —
       // `chuHopLe` trả `[]` cho cả hai, đúng hành vi trước bản vá.
       chu: chuHopLe(o.chu, noiDung),
+      // `gian_cach` VẮNG MẶT ở khối không tra được nhịp nguồn (máy chủ chỉ
+      // thêm khoá này khi có) và ở mọi clause lưu TRƯỚC trường này — `null`
+      // cho cả hai, đúng hành vi trước bản vá.
+      gianCach: gianCachHopLe(o.gian_cach, noiDung),
     });
   if (bang)
     ra.push({
@@ -470,7 +627,8 @@ function khoiTuClause(c: ClauseTho | undefined): KhoiMuc[] {
   const bang = bangHopLe(c?.bang);
   const noiDung = c?.noi_dung ?? (bang ? "" : "[…]");
   const ra: KhoiMuc[] = [];
-  if (noiDung !== "") ra.push({ kind: "vanXuoi", noiDung, canhLe: "trai", chu: [] });
+  if (noiDung !== "")
+    ra.push({ kind: "vanXuoi", noiDung, canhLe: "trai", chu: [], gianCach: null });
   // Chưa từng có `nhip`/`ti_le` ở hình dạng CŨ này (Phase 7 trở về trước) —
   // `coSpanHang` suy đoán cột như trước Phase 11, không phải một cải thiện
   // ngầm cho dữ liệu đã lưu trước khi hai trường này tồn tại.
@@ -676,6 +834,69 @@ export const THUOC_TINH_CHU = {
   phong: "data-phong",
 } as const;
 
+/** Tên thuộc tính chở MỘT mốc tab — cùng luật `THUOC_TINH_CHU`: `XemTruocA4`
+ *  ghi, `docDoanChu` đọc, không nơi nào gõ lại tên bằng tay. `moc` nằm TRÊN
+ *  cùng `<span>` với `data-chu`, nên một đoạn tab vẫn đi qua đúng bộ chọn cũ
+ *  và `docDoanChu` không phải duyệt DOM hai lượt. */
+export const THUOC_TINH_TAB = {
+  moc: "data-tab",
+  val: "data-tab-val",
+  pos: "data-tab-pos",
+  leader: "data-tab-leader",
+} as const;
+
+/** Tên thuộc tính chở nhịp của một ĐOẠN (`w:spacing`/`w:ind`) trên chính thẻ
+ *  `<p>` — cùng khuôn `data-cao`/`data-can-le` của bảng: màn hình vẽ và ghi,
+ *  `docDong` đọc lại đúng con số NGUỒN (twip) chứ không đọc `px` đã tính. */
+export const THUOC_TINH_GIAN_CACH = {
+  truoc: "data-truoc",
+  sau: "data-sau",
+  dong: "data-dong",
+  luatDong: "data-luat-dong",
+  trai: "data-thut-trai",
+  phai: "data-thut-phai",
+  dauDong: "data-dau-dong",
+  treo: "data-treo",
+} as const;
+
+/** 1 twip = 1/20 pt — cùng phép quy đổi `caoTrenTrang` (`w:trHeight`) dùng cho
+ *  màn hình: trang A4 xem trước rộng cố định và `thuPhong` chỉ phóng CỠ CHỮ,
+ *  nên một khoảng cách đo bằng `em` sẽ trôi theo mức phóng còn `pt` thì không. */
+export const PT_MOI_TWIP = 1 / 20;
+
+/**
+ * Đọc lại nhịp đoạn từ `data-*` của một thẻ — `null` khi thẻ không mang thuộc
+ * tính nào (đoạn KLAW tự soạn, hoặc bản thảo lưu trước bản vá này).
+ *
+ * Một con số đọc không ra làm CẢ nhóm về `null`, cùng luật fail-closed
+ * `gianCachHopLe` ở cửa vào: nửa bộ nhịp đặt sai chỗ tệ hơn nhịp mặc định.
+ */
+function gianCachTuThe(el: { getAttribute(ten: string): string | null }): GianCachDoan | null {
+  const so = (ten: string): number | null => {
+    const v = el.getAttribute(ten);
+    if (v === null) return 0;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const g = {
+    truoc: so(THUOC_TINH_GIAN_CACH.truoc),
+    sau: so(THUOC_TINH_GIAN_CACH.sau),
+    dong: so(THUOC_TINH_GIAN_CACH.dong),
+    trai: so(THUOC_TINH_GIAN_CACH.trai),
+    phai: so(THUOC_TINH_GIAN_CACH.phai),
+    dauDong: so(THUOC_TINH_GIAN_CACH.dauDong),
+    treo: so(THUOC_TINH_GIAN_CACH.treo),
+  };
+  if (Object.values(g).some((v) => v === null)) return null;
+  const co = Object.values(g).some((v) => v !== 0);
+  return co
+    ? {
+        ...(g as Record<keyof typeof g, number>),
+        luatDong: el.getAttribute(THUOC_TINH_GIAN_CACH.luatDong) ?? "",
+      }
+    : null;
+}
+
 /**
  * `noiDung` + các khoảng `KhoangChu` → dãy đoạn PHỦ KÍN chuỗi, theo thứ tự.
  *
@@ -686,9 +907,11 @@ export const THUOC_TINH_CHU = {
  * Kể cả đoạn KHÔNG định dạng gì cũng là một đoạn: nhờ vậy nối `text` của cả
  * dãy lại là được đúng `noiDung`, không sót ký tự nào giữa hai khoảng.
  */
-export function catTheoChu(noiDung: string, chu: KhoangChu[]): DoanChu[] {
+export function catTheoChu(noiDung: string, chu: KhoangChu[], tab: KhoangTab[] = []): DoanChu[] {
   const ra: DoanChu[] = [];
-  const them = (text: string, k: KhoangChu | null) => {
+  const moc = [...tab].sort((a, b) => a.o - b.o);
+  let iMoc = 0;
+  const themChu = (text: string, k: KhoangChu | null) => {
     if (text === "") return;
     ra.push({
       text,
@@ -697,15 +920,38 @@ export function catTheoChu(noiDung: string, chu: KhoangChu[]): DoanChu[] {
       gachChan: k?.gach === true,
       coChu: k && k.co > 0 ? k.co : 0,
       phong: k?.phong ?? "",
+      tab: null,
     });
+  };
+  /** Cắt `[dau, cuoi)` và chèn mọi mốc tab rơi vào bên trong — tab nằm GIỮA
+   *  chữ, nên nó cắt một khoảng định dạng làm đôi thay vì kết thúc nó. */
+  const them = (dau: number, cuoi: number, k: KhoangChu | null) => {
+    let i = dau;
+    while (iMoc < moc.length && moc[iMoc]!.o <= cuoi) {
+      const m = moc[iMoc]!;
+      const o = Math.max(i, m.o);
+      themChu(noiDung.slice(i, o), k);
+      ra.push({
+        text: "",
+        inDam: false,
+        inNghieng: false,
+        gachChan: false,
+        coChu: 0,
+        phong: "",
+        tab: { val: m.val, pos: m.pos, leader: m.leader },
+      });
+      i = o;
+      iMoc += 1;
+    }
+    themChu(noiDung.slice(i, cuoi), k);
   };
   let i = 0;
   for (const k of chu) {
-    them(noiDung.slice(i, k.dau), null);
-    them(noiDung.slice(k.dau, k.cuoi), k);
+    them(i, k.dau, null);
+    them(k.dau, k.cuoi, k);
     i = k.cuoi;
   }
-  them(noiDung.slice(i), null);
+  them(i, noiDung.length, null);
   return ra;
 }
 
@@ -731,8 +977,9 @@ export function docDoanChu(el: {
 }): DoanChu[] {
   const doan = Array.from(el.querySelectorAll(`span[${THUOC_TINH_CHU.moc}]`));
   if (doan.length === 0) return [];
-  const ra = doan.map((s) => {
+  const ra: DoanChu[] = doan.map((s) => {
     const co = Number(s.getAttribute(THUOC_TINH_CHU.co));
+    const pos = Number(s.getAttribute(THUOC_TINH_TAB.pos));
     return {
       // Gộp khoảng trắng nhưng KHÔNG cắt hai đầu: `chuanHoa` của cả dòng cắt
       // đúng một lần ở hai mép, còn cắt từng đoạn sẽ nuốt dấu cách giữa hai
@@ -743,13 +990,26 @@ export function docDoanChu(el: {
       gachChan: s.getAttribute(THUOC_TINH_CHU.gach) === "1",
       coChu: Number.isFinite(co) && co > 0 ? co : 0,
       phong: s.getAttribute(THUOC_TINH_CHU.phong) ?? "",
+      // Một đoạn TAB mang `data-tab` và không mang chữ. `pos` không đọc ra
+      // số thì đoạn ấy về chữ thường rỗng và bị lọc đi ngay dưới đây — không
+      // nhảy tới một toạ độ không biết.
+      tab:
+        s.getAttribute(THUOC_TINH_TAB.moc) !== null && Number.isFinite(pos) && pos > 0
+          ? {
+              val: s.getAttribute(THUOC_TINH_TAB.val) ?? "left",
+              pos,
+              leader: s.getAttribute(THUOC_TINH_TAB.leader) ?? "",
+            }
+          : null,
     };
   });
   if (ra.length > 0) {
     ra[0]!.text = ra[0]!.text.replace(/^ /, "");
     ra[ra.length - 1]!.text = ra[ra.length - 1]!.text.replace(/ $/, "");
   }
-  return ra.filter((d) => d.text !== "");
+  // Đoạn TAB giữ lại dù rỗng chữ: chính nó LÀ dữ kiện, không phải một đoạn
+  // chữ trống rơi ra từ phép cắt.
+  return ra.filter((d) => d.text !== "" || d.tab !== null);
 }
 
 /** Đọc một thẻ thành dòng có định dạng, lấy đậm/nghiêng từ chính CSS đang áp. */
@@ -771,6 +1031,7 @@ function docDong(el: HTMLElement): DongVanBan {
     // nếu không, một dòng viết hoa bằng CSS sẽ ra tệp bằng chữ thường ngay
     // khi nó có định dạng theo đoạn.
     doan: hoa ? doan.map((d) => ({ ...d, text: d.text.toLocaleUpperCase("vi-VN") })) : doan,
+    gianCach: gianCachTuThe(el),
   };
 }
 
@@ -1040,7 +1301,7 @@ export async function bangThanhTable(
  * Word có sẵn phông ấy hoặc tự thay, còn trình duyệt thì không.
  */
 export async function dongThanhParagraph(d: DongVanBan) {
-  const { AlignmentType, HeadingLevel, Paragraph, TextRun, convertMillimetersToTwip } =
+  const { AlignmentType, HeadingLevel, Paragraph, Tab, TextRun, convertMillimetersToTwip } =
     await import("docx");
   const canhLeDocx = {
     left: AlignmentType.LEFT,
@@ -1048,24 +1309,72 @@ export async function dongThanhParagraph(d: DongVanBan) {
     right: AlignmentType.RIGHT,
   } as const;
   const coMacDinh = d.kieu === "tieuDe" ? 32 : d.kieu === "dieu" ? 28 : 26;
+  const g = d.gianCach;
+  // Nguồn khai nhịp thì nguồn THẮNG, và chỉ ở đúng những thuộc tính nó khai:
+  // `spacing: { after: 120, line: 312 }` bên dưới là thể thức của một bản
+  // thảo KLAW TỰ soạn, không phải một câu trả lời về tài liệu của khách. Đoạn
+  // không khai gì (`g === null`) ra tệp y hệt trước bản vá này, không đổi một
+  // byte nào.
+  const gianCachDocx = g
+    ? {
+        ...(g.truoc > 0 ? { before: g.truoc } : {}),
+        ...(g.sau > 0 ? { after: g.sau } : {}),
+        ...(g.dong > 0
+          ? {
+              line: g.dong,
+              ...(LUAT_DONG_DOCX.has(g.luatDong)
+                ? { lineRule: g.luatDong as "auto" | "atLeast" | "exact" | "exactly" }
+                : {}),
+            }
+          : {}),
+      }
+    : { after: 120, line: 312 };
+  // `w:ind` nguồn thay HẲN phép suy từ `margin-left` của màn hình (`thutLe`):
+  // con số nguồn là twip THẬT, còn `thutLe` là px đo trên khung xem trước rồi
+  // quy ngược — hai lần làm tròn cho cùng một sự thật.
+  const thutLeDocx = g
+    ? {
+        ...(g.trai !== 0 ? { left: g.trai } : {}),
+        ...(g.phai !== 0 ? { right: g.phai } : {}),
+        ...(g.dauDong > 0 ? { firstLine: g.dauDong } : {}),
+        ...(g.treo > 0 ? { hanging: g.treo } : {}),
+      }
+    : d.thutLe > 0
+      ? { left: convertMillimetersToTwip(d.thutLe / 3.78) }
+      : {};
+  // Mốc tab đi cùng ĐOẠN (`w:pPr/w:tabs`) còn ký tự tab đi trong run, nên hai
+  // chỗ đọc cùng một dãy `d.doan`: Word tự vẽ đường dẫn, không nơi nào phải
+  // vẽ tay như PDF và màn hình.
+  const mocTab = d.doan
+    .map((o) => o.tab)
+    .filter((m): m is MocTab => m !== null)
+    .map((m) => ({
+      type: CAN_TAB_DOCX[m.val as keyof typeof CAN_TAB_DOCX] ?? CAN_TAB_DOCX.left,
+      position: m.pos,
+      ...(m.leader in DAN_TAB_DOCX
+        ? { leader: DAN_TAB_DOCX[m.leader as keyof typeof DAN_TAB_DOCX] }
+        : {}),
+    }));
+  const run = (o: DoanChu) =>
+    o.tab
+      ? new TextRun({ children: [new Tab()] })
+      : new TextRun({
+          text: o.text,
+          bold: o.inDam,
+          italics: o.inNghieng,
+          ...(o.gachChan ? { underline: {} } : {}),
+          size: o.coChu > 0 ? o.coChu : coMacDinh,
+          font: o.phong || "Times New Roman",
+        });
   return new Paragraph({
     alignment: canhLeDocx[canhLeThanhHuong(d.canhLe)],
     ...(d.kieu === "tieuDe" ? { heading: HeadingLevel.HEADING_1 } : {}),
-    spacing: { after: 120, line: 312 },
-    ...(d.thutLe > 0 ? { indent: { left: convertMillimetersToTwip(d.thutLe / 3.78) } } : {}),
+    spacing: gianCachDocx,
+    ...(Object.keys(thutLeDocx).length > 0 ? { indent: thutLeDocx } : {}),
+    ...(mocTab.length > 0 ? { tabStops: mocTab } : {}),
     children:
       d.doan.length > 0
-        ? d.doan.map(
-            (o) =>
-              new TextRun({
-                text: o.text,
-                bold: o.inDam,
-                italics: o.inNghieng,
-                ...(o.gachChan ? { underline: {} } : {}),
-                size: o.coChu > 0 ? o.coChu : coMacDinh,
-                font: o.phong || "Times New Roman",
-              }),
-          )
+        ? d.doan.map(run)
         : [
             new TextRun({
               text: d.text,
@@ -1352,7 +1661,7 @@ export async function noiDungThanhPDF(
       const bo = boCucDoan(
         laTieuDe ? doan.map((o) => ({ ...o, inDam: true })) : doan,
         CO_CHU_BANG_PDF,
-        rongChu,
+        khungMacDinh(rongChu),
       );
       return { cao: bo.cao, dong: [], manh: bo.dong };
     }
@@ -1445,7 +1754,13 @@ export async function noiDungThanhPDF(
       if (bo.manh) {
         // Ô nhiều định dạng: vẽ theo từng mảnh, tại `y` RIÊNG của ô — con trỏ
         // chung không nhúc nhích, `caoHang` bên dưới mới đẩy nó.
-        veManhChu(bo.manh, xO + DEM_O_PDF, rongO - 2 * DEM_O_PDF, huong, y + DEM_O_PDF);
+        veManhChu(
+          bo.manh,
+          xO + DEM_O_PDF,
+          khungMacDinh(rongO - 2 * DEM_O_PDF),
+          huong,
+          y + DEM_O_PDF,
+        );
       } else {
         // Đặt lại font/cỡ ngay trước khi vẽ: một ô nhiều định dạng đứng trước
         // trong CÙNG hàng đã đổi trạng thái font của `pdf`.
@@ -1556,18 +1871,76 @@ export async function noiDungThanhPDF(
   const caoKhoiKy =
     soCotKy > 0 ? noiDung.oKy.reduce((max, cot) => Math.max(max, caoCotKy(cot)), 0) : 0;
 
-  /** Một MẢNH chữ đã đo: một từ hoặc một cụm khoảng trắng, kèm đúng font và
-   * cỡ chữ nó sẽ được vẽ ra. Đơn vị nhỏ nhất phép xuống dòng được cắt. */
+  /** Một MẢNH chữ đã đo: một từ, một cụm khoảng trắng, hoặc một chỗ TAB, kèm
+   * đúng font và cỡ chữ nó sẽ được vẽ ra. Đơn vị nhỏ nhất phép xuống dòng
+   * được cắt. Mảnh TAB có `rong` tính lúc XẾP DÒNG, không lúc đo chữ: nó là
+   * quãng nhảy từ chỗ con trỏ đang đứng tới mốc, nên chỉ biết được khi đã
+   * biết con trỏ đứng đâu. */
   type ManhChu = {
     text: string;
     pt: number;
     kieu: "normal" | "bold" | "italic" | "bolditalic";
     gach: boolean;
     rong: number;
+    tab: MocTab | null;
   };
 
   const kieuDoanPDF = (o: DoanChu): ManhChu["kieu"] =>
     o.inDam && o.inNghieng ? "bolditalic" : o.inDam ? "bold" : o.inNghieng ? "italic" : "normal";
+
+  /** twip → mm, qua `pt`. Cùng phép quy đổi `caoKhaiMm` dùng cho `w:trHeight`. */
+  const twipMm = (twip: number) => twip * PT_MOI_TWIP * MM_MOI_PT;
+
+  /** Bước nhảy một dòng (mm) khi nguồn không khai `w:spacing/@w:line`. */
+  const buocMacDinh = (pt: number) => pt * MM_MOI_PT * HE_SO_DONG_PDF;
+
+  /**
+   * Bước nhảy một dòng theo `w:spacing` nguồn.
+   *
+   * `auto` — `w:line` là BỘI SỐ của 240, nên nó thay đúng `HE_SO_DONG_PDF`:
+   * 240 = một dòng, 360 = một dòng rưỡi. `exact` là chiều cao TUYỆT ĐỐI (Word
+   * cắt chữ tràn; ở đây không cắt — mất chữ hỏng nặng hơn một dòng cao hơn
+   * khai báo, cùng lựa chọn `_cao_hang`/`HeightRule.ATLEAST` đã làm cho hàng
+   * bảng). `atLeast` là SÀN, đúng nghĩa của nó.
+   */
+  const buocTheoNguon = (g: GianCachDoan | null): ((pt: number) => number) => {
+    if (!g || g.dong <= 0) return buocMacDinh;
+    if (g.luatDong === "exact" || g.luatDong === "exactly") return () => twipMm(g.dong);
+    if (g.luatDong === "atLeast") return (pt) => Math.max(twipMm(g.dong), buocMacDinh(pt));
+    return (pt) => pt * MM_MOI_PT * (g.dong / 240);
+  };
+
+  /**
+   * Khung xếp chữ của MỘT đoạn: bề rộng, độ lệch dòng ĐẦU (`w:firstLine` trừ
+   * `w:hanging`), chỗ đứng của đoạn so với mép trái cột chữ, và bước nhảy dòng.
+   *
+   * `xGoc` có mặt chỉ vì mốc tab: `w:tab/@w:pos` đo từ mép trái CỘT CHỮ, còn
+   * con trỏ thì chạy trong lòng đoạn đã thụt lề — thiếu nó, một đoạn thụt 720
+   * twip sẽ vẽ đường dẫn dài thêm đúng 720 twip.
+   */
+  type KhungDoan = { rong: number; lechDau: number; xGoc: number; buoc: (pt: number) => number };
+
+  const khungMacDinh = (rong: number): KhungDoan => ({
+    rong,
+    lechDau: 0,
+    xGoc: 0,
+    buoc: buocMacDinh,
+  });
+
+  /** Khung của một dòng văn xuôi — `w:ind` nguồn THẮNG `thutLe` (px đo trên
+   *  khung xem trước rồi quy ngược), cùng thứ tự ưu tiên `dongThanhParagraph`
+   *  đặt cho `.docx`: hai tệp không được đọc hai con số khác nhau. */
+  const khungCuaDong = (d: DongVanBan): KhungDoan => {
+    const g = d.gianCach;
+    const trai = g ? twipMm(g.trai) : d.canhLe !== "trai" || d.thutLe <= 0 ? 0 : d.thutLe / 3.78;
+    const phai = g ? twipMm(g.phai) : 0;
+    return {
+      rong: Math.max(10, RONG_NOI_DUNG_PDF - trai - phai),
+      lechDau: g ? twipMm(g.dauDong - g.treo) : 0,
+      xGoc: trai,
+      buoc: buocTheoNguon(g),
+    };
+  };
 
   /**
    * Xếp một dòng CÓ ĐỊNH DẠNG THEO ĐOẠN (2026-09-18) thành các dòng vẽ được,
@@ -1590,25 +1963,44 @@ export async function noiDungThanhPDF(
   const boCucDoan = (
     doan: DoanChu[],
     ptMacDinh: number,
-    rong: number,
+    bo: KhungDoan,
   ): { dong: ManhChu[][]; cao: number } => {
     const manh: ManhChu[] = [];
     for (const o of doan) {
       const pt = o.coChu > 0 ? o.coChu / 2 : ptMacDinh;
+      if (o.tab) {
+        manh.push({ text: "", pt, kieu: "normal", gach: false, rong: 0, tab: o.tab });
+        continue;
+      }
       const kieu = kieuDoanPDF(o);
       pdf.setFont(HO_CHU_PDF, kieu);
       pdf.setFontSize(pt);
       for (const t of o.text.split(/(\s+)/)) {
-        if (t !== "") manh.push({ text: t, pt, kieu, gach: o.gachChan, rong: pdf.getTextWidth(t) });
+        if (t !== "")
+          manh.push({ text: t, pt, kieu, gach: o.gachChan, rong: pdf.getTextWidth(t), tab: null });
       }
     }
     const dong: ManhChu[][] = [];
     let hien: ManhChu[] = [];
     let rongHien = 0;
+    const rongCua = () => (dong.length === 0 ? bo.rong - bo.lechDau : bo.rong);
+    const gocCua = () => bo.xGoc + (dong.length === 0 ? bo.lechDau : 0);
     for (const m of manh) {
+      if (m.tab) {
+        // Con trỏ NHẢY tới mốc: quãng nhảy là khoảng cách từ chỗ nó đang đứng
+        // (`rongHien`) tới mốc, đo trong CÙNG hệ quy chiếu — mốc tính từ mép
+        // trái cột chữ, con trỏ tính từ mép trái đoạn, nên trừ `gocCua()`.
+        // Mốc nằm ngoài bề rộng trang thì dừng ở mép phải: một biểu mẫu khổ
+        // Letter (mốc 9360 twip) đặt trên trang A4 lề 30/20mm vẫn phải ra một
+        // dòng điền chạm lề, không phải một đường tràn khỏi giấy.
+        m.rong = Math.max(0, Math.min(twipMm(m.tab.pos) - gocCua(), rongCua()) - rongHien);
+        hien.push(m);
+        rongHien += m.rong;
+        continue;
+      }
       const trang = /^\s+$/.test(m.text);
       if (trang && hien.length === 0) continue; // không mở một dòng bằng khoảng trắng
-      if (!trang && hien.length > 0 && rongHien + m.rong > rong) {
+      if (!trang && hien.length > 0 && rongHien + m.rong > rongCua()) {
         while (hien.length > 0 && /^\s+$/.test(hien[hien.length - 1]!.text)) hien.pop();
         dong.push(hien);
         hien = [];
@@ -1620,10 +2012,7 @@ export async function noiDungThanhPDF(
     if (hien.length > 0) dong.push(hien);
     // Cỡ chữ LỚN NHẤT của dòng quyết định bước nhảy: một dòng trộn 13pt với
     // 16pt mà nhảy theo 13pt thì chữ dòng sau đè lên chữ dòng trước.
-    const cao = dong.reduce(
-      (s, l) => s + Math.max(...l.map((m) => m.pt)) * MM_MOI_PT * HE_SO_DONG_PDF,
-      0,
-    );
+    const cao = dong.reduce((s, l) => s + bo.buoc(Math.max(...l.map((m) => m.pt))), 0);
     return { dong, cao };
   };
 
@@ -1635,23 +2024,59 @@ export async function noiDungThanhPDF(
    * trên hàng cộng đệm ô) và KHÔNG được đẩy con trỏ chung — mọi ô cùng hàng
    * bắt đầu ở cùng một chỗ, và chính `veMotHangBang` mới cộng chiều cao hàng.
    */
+  /**
+   * Đường DẪN của một mốc tab (`w:leader`) — thứ vẽ ra dòng "…………" để điền tay.
+   *
+   * jsPDF không có khái niệm "một hàng dấu chấm", nên vẽ bằng đúng thứ nó có:
+   * một đường NÉT ĐỨT trên đường chân chữ, mắt lưới theo từng kiểu dẫn. Vẽ
+   * bằng chuỗi ký tự "." thay vì một đường sẽ nhét chữ KLAW tự bịa vào tệp —
+   * và `toanVan`/`docNoiDungTuDOM` sẽ đọc lại chính những dấu chấm đó thành
+   * nội dung văn bản.
+   */
+  const veDanTab = (m: ManhChu, x: number, day: number) => {
+    if (!m.tab || !m.tab.leader || m.rong <= 0) return;
+    const net = m.pt * MM_MOI_PT * 0.06;
+    const duoi = day + m.pt * MM_MOI_PT * 0.12;
+    pdf.setLineWidth(net);
+    pdf.setLineDashPattern(
+      m.tab.leader === "underscore"
+        ? []
+        : m.tab.leader === "hyphen"
+          ? [net * 6, net * 4]
+          : [net, net * 3],
+      0,
+    );
+    pdf.line(x, duoi, x + m.rong, duoi);
+    pdf.setLineDashPattern([], 0);
+  };
+
   const veManhChu = (
     dong: ManhChu[][],
     xTrai: number,
-    rong: number,
+    bo: KhungDoan,
     huong: "left" | "center" | "right",
     yBatDau: number,
   ): number => {
     const netCu = pdf.getLineWidth();
     let yy = yBatDau;
-    for (const l of dong) {
+    dong.forEach((l, li) => {
       const rongDong = l.reduce((s, m) => s + m.rong, 0);
+      // Dòng ĐẦU hẹp hơn và bắt đầu lệch đi đúng `w:firstLine` trừ
+      // `w:hanging` — hai thuộc tính loại trừ nhau, nên một hiệu là đủ.
+      const lech = li === 0 ? bo.lechDau : 0;
+      const rongKhung = bo.rong - lech;
+      const xKhung = xTrai + lech;
       const ptMax = Math.max(...l.map((m) => m.pt));
       const day = yy + ptMax * MM_MOI_PT;
-      let x = xTrai;
-      if (huong === "center") x = xTrai + (rong - rongDong) / 2;
-      else if (huong === "right") x = xTrai + rong - rongDong;
+      let x = xKhung;
+      if (huong === "center") x = xKhung + (rongKhung - rongDong) / 2;
+      else if (huong === "right") x = xKhung + rongKhung - rongDong;
       for (const m of l) {
+        if (m.tab) {
+          veDanTab(m, x, day);
+          x += m.rong;
+          continue;
+        }
         pdf.setFont(HO_CHU_PDF, m.kieu);
         pdf.setFontSize(m.pt);
         pdf.text(m.text, x, day);
@@ -1663,8 +2088,8 @@ export async function noiDungThanhPDF(
         }
         x += m.rong;
       }
-      yy += ptMax * MM_MOI_PT * HE_SO_DONG_PDF;
-    }
+      yy += bo.buoc(ptMax);
+    });
     // Trả nét về như cũ: `veBang` vẽ khung ô bằng `rect` với nét MẶC ĐỊNH, và
     // một dòng gạch chân đứng trước không được làm dày khung của bảng sau nó.
     pdf.setLineWidth(netCu);
@@ -1695,13 +2120,16 @@ export async function noiDungThanhPDF(
     if (ketiep.kind === "oKy") return caoKhoiKy;
     if (ketiep.kind === "dong") {
       const d = ketiep.d;
-      const thutLeMm = d.canhLe !== "trai" || d.thutLe <= 0 ? 0 : d.thutLe / 3.78;
-      if (d.doan.length > 0)
-        return boCucDoan(d.doan, coChuPt(d.kieu), RONG_NOI_DUNG_PDF - thutLeMm).cao;
+      const bo = khungCuaDong(d);
+      // Khoảng trống TRÊN đoạn (`w:spacing/@w:before`) là chỗ nó chiếm ngay
+      // khi bắt đầu vẽ, nên luật mồ côi phải đo cả nó: một tiêu đề đứng trước
+      // một đoạn khai `before` lớn vẫn bị bỏ lại cuối trang nếu bỏ qua.
+      const truoc = d.gianCach ? twipMm(Math.max(0, d.gianCach.truoc)) : 0;
+      if (d.doan.length > 0) return truoc + boCucDoan(d.doan, coChuPt(d.kieu), bo).cao;
       pdf.setFont(HO_CHU_PDF, kieuChuPDF(d));
       pdf.setFontSize(coChuPt(d.kieu));
-      const dong = pdf.splitTextToSize(d.text, RONG_NOI_DUNG_PDF - thutLeMm) as string[];
-      return dong.length * caoDongPt(d.kieu);
+      const dong = pdf.splitTextToSize(d.text, bo.rong - bo.lechDau) as string[];
+      return truoc + dong.length * bo.buoc(coChuPt(d.kieu));
     }
     const soCotTieuDe = soCotThat(ketiep.hang, ketiep.tiLe);
     if (soCotTieuDe === 0) return 0;
@@ -1722,53 +2150,73 @@ export async function noiDungThanhPDF(
     // Đo khối kế tiếp TRƯỚC khi đặt font/cỡ chữ cho chính dòng này — đo có
     // thể tạm đổi font (bảng dùng 12pt, đoạn kế tiếp dùng cỡ của riêng nó).
     const buffer = laTieuDe ? chieuCaoKeTiep(ketiep) : 0;
-    const thutLeMmDoan = d.canhLe !== "trai" || d.thutLe <= 0 ? 0 : d.thutLe / 3.78;
+    const g = d.gianCach;
+    const bo = khungCuaDong(d);
+    const truoc = g ? twipMm(Math.max(0, g.truoc)) : 0;
+    // Nguồn khai nhịp thì nguồn THẮNG, kể cả khi nó khai 0 — `SAU_DOAN_PDF`
+    // (6pt) là thể thức của một bản thảo KLAW TỰ soạn, không phải một câu trả
+    // lời về tài liệu của khách. Cùng luật `dongThanhParagraph` đặt cho
+    // `.docx`, nếu không hai tệp cùng nguồn lại giãn khác nhau.
+    const sau = g ? twipMm(Math.max(0, g.sau)) : SAU_DOAN_PDF;
 
-    // Dòng có định dạng THEO ĐOẠN (2026-09-18): xếp và vẽ theo từng mảnh, vì
-    // `splitTextToSize` bên dưới chỉ cắt được theo MỘT font và MỘT cỡ chữ.
-    // Dòng đồng nhất (`doan` rỗng) đi nguyên đường cũ, không đổi một mm nào.
-    if (d.doan.length > 0) {
-      const bo = boCucDoan(d.doan, coChuPt(d.kieu), RONG_NOI_DUNG_PDF - thutLeMmDoan);
-      if (!conCho(bo.cao + buffer)) trangMoi();
-      y = veManhChu(
-        bo.dong,
-        LE_PDF.trai + thutLeMmDoan,
-        RONG_NOI_DUNG_PDF - thutLeMmDoan,
-        canhLeThanhHuong(d.canhLe),
-        y,
-      );
-      y += SAU_DOAN_PDF;
+    // Dòng có định dạng THEO ĐOẠN (2026-09-18), hoặc có thụt lề dòng ĐẦU: xếp
+    // và vẽ theo từng mảnh, vì `splitTextToSize` bên dưới chỉ cắt được theo
+    // MỘT font, MỘT cỡ chữ và MỘT bề rộng. Dòng đồng nhất không thụt dòng đầu
+    // đi nguyên đường cũ, không đổi một mm nào.
+    if (d.doan.length > 0 || bo.lechDau !== 0) {
+      const doan: DoanChu[] =
+        d.doan.length > 0
+          ? d.doan
+          : [
+              {
+                text: d.text,
+                inDam: d.inDam,
+                inNghieng: d.inNghieng,
+                gachChan: false,
+                coChu: 0,
+                phong: "",
+                tab: null,
+              },
+            ];
+      const xep = boCucDoan(doan, coChuPt(d.kieu), bo);
+      if (!conCho(truoc + xep.cao + buffer)) trangMoi();
+      y += truoc;
+      y = veManhChu(xep.dong, LE_PDF.trai + bo.xGoc, bo, canhLeThanhHuong(d.canhLe), y);
+      y += sau;
       return trang;
     }
 
     pdf.setFont(HO_CHU_PDF, kieuChuPDF(d));
     pdf.setFontSize(coChuPt(d.kieu));
-    const thutLeMm = thutLeMmDoan;
-    const rong = RONG_NOI_DUNG_PDF - thutLeMm;
-    const dong = pdf.splitTextToSize(d.text, rong) as string[];
-    const cao = dong.length * caoDongPt(d.kieu);
+    const dong = pdf.splitTextToSize(d.text, bo.rong) as string[];
+    const cao = dong.length * bo.buoc(coChuPt(d.kieu));
 
     // Luật mồ côi (R3): một tiêu đề (kieu tieuDe/dieu) không bao giờ là thứ
     // CUỐI CÙNG trên trang — phải còn đủ chỗ cho tiêu đề VÀ khối kế tiếp mới
     // vẽ tại đây; không thì sang trang mới rồi vẽ tiêu đề ở đầu trang đó.
-    if (!conCho(cao + buffer)) trangMoi();
+    if (!conCho(truoc + cao + buffer)) trangMoi();
+    y += truoc;
 
     // `x`/`align` theo CanLe (Phase 9 U5): trái neo mép trái + thụt lề, giữa
-    // neo tâm trang, phải neo MÉP PHẢI (jsPDF đặt chữ kết thúc tại `x` khi
-    // `align: "right"`) — cùng ba giá trị `.docx` (`para`) đã dùng.
+    // neo tâm KHUNG ĐOẠN (đã trừ thụt lề hai bên), phải neo MÉP PHẢI của khung
+    // (jsPDF đặt chữ kết thúc tại `x` khi `align: "right"`) — cùng ba giá trị
+    // `.docx` (`dongThanhParagraph`) đã dùng.
     const x =
       d.canhLe === "giua"
-        ? LE_PDF.trai + RONG_NOI_DUNG_PDF / 2
+        ? LE_PDF.trai + bo.xGoc + bo.rong / 2
         : d.canhLe === "phai"
-          ? LE_PDF.trai + RONG_NOI_DUNG_PDF
-          : LE_PDF.trai + thutLeMm;
+          ? LE_PDF.trai + bo.xGoc + bo.rong
+          : LE_PDF.trai + bo.xGoc;
     const align = canhLeThanhHuong(d.canhLe);
     pdf.text(dong, x, y + coChuPt(d.kieu) * MM_MOI_PT, {
       align,
-      maxWidth: rong,
-      lineHeightFactor: HE_SO_DONG_PDF,
+      maxWidth: bo.rong,
+      // Hệ số nhảy dòng của jsPDF là `bước / (cỡ chữ × mm mỗi pt)` — quy
+      // ngược đúng công thức `setFontSize` dùng, để bước nhảy BÊN TRONG một
+      // lệnh `text()` nhiều dòng khớp với `cao` vừa cộng ở trên.
+      lineHeightFactor: bo.buoc(coChuPt(d.kieu)) / (coChuPt(d.kieu) * MM_MOI_PT),
     });
-    y += cao + SAU_DOAN_PDF;
+    y += cao + sau;
     return trang;
   };
 
