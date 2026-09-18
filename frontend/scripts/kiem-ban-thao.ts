@@ -59,17 +59,22 @@ assert.deepEqual(nhanFactDoi(["luong", "chua_co_nhan_field"], TRUONG), [
   "chua_co_nhan_field", // field mẫu chưa nạp/không có nhãn → giữ khoá thô, KHÔNG suy đoán
 ]);
 
-// ── `nhanMucKiem` (Phase 3, R3/D3) — một sửa TAY hạ cấp một bản thảo phải
-// đọc ra một nhãn KHÁC "chưa từng sửa" (brief: "the two are not the same
-// thing"), và một bản thảo checklist chưa hề sửa tay vẫn không có nhãn nào
-// (`SoatBanThao` đã nói đủ).
-assert.equal(nhanMucKiem(undefined), null);
-assert.equal(nhanMucKiem({}), null, "checklist chưa sửa tay — không nhãn");
-assert.equal(nhanMucKiem({ muc_kiem: "tong_quat" }), "Bản thảo tổng quát — chưa kiểm pháp lý");
+// ── `nhanMucKiem` — Phase 14 (owner D14-A) bỏ nhãn của bản thảo soạn trong
+// chat; Phase 3 (R3/D3) giữ nhãn của một bản thảo CHECKLIST bị sửa tay hạ cấp,
+// vì đó là một sự thật khác ("đã bị viết đè SAU khi kiểm") về một bản thảo
+// khác. Bản thảo checklist chưa hề sửa tay vẫn không có nhãn (`SoatBanThao`
+// đã nói đủ).
+assert.equal(nhanMucKiem(undefined, "hdld"), null);
+assert.equal(nhanMucKiem({}, "hdld"), null, "checklist chưa sửa tay — không nhãn");
 assert.equal(
-  nhanMucKiem({ muc_kiem: "tong_quat", sua_tay: true }),
+  nhanMucKiem({ muc_kiem: "tong_quat", sua_tay: true }, "tong_quat"),
+  null,
+  "D14-A: bản thảo soạn trong chat không đeo nhãn nào, kể cả sau khi sửa tay",
+);
+assert.equal(
+  nhanMucKiem({ muc_kiem: "tong_quat", sua_tay: true }, "hdld"),
   "Đã sửa tay — chưa kiểm pháp lý",
-  "hạ cấp bằng sửa tay phải khác nhãn của một bản thảo tổng quát CHƯA sửa",
+  "hạ cấp một bản thảo CHECKLIST vẫn phải nói ra — D14-A không chạm tới nó",
 );
 
 // ── `neenGuiLaiPhienBan` (fix round 2, re-review N1/N2) — retry MỘT lần một

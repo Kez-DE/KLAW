@@ -14,7 +14,7 @@ export function TheBanThao({ ketQua, onMo }: { ketQua: TraCuuKetQua; onMo: (id: 
   // Bản thảo tổng quát KHÔNG qua checklist, rule hay audit nào. Nói ra ngay
   // dòng đầu, trước nút "Mở bản thảo" — sau khi bấm vào là người dùng đã ở
   // trong khung soạn thảo, nơi mọi bản thảo trông giống nhau.
-  const nhan = nhanMucKiem(bt.audit_report);
+  const nhan = nhanMucKiem(bt.audit_report, bt.loai);
   // Tiêu đề THẬT của văn bản (Phase 9 U4) — `bt.ten` cố tình CHỈ trả lời "bản
   // thảo này THUỘC LOẠI gì" (`dung_ban_thao_tong_quat.dung_ban_thao_tong_quat`
   // ghim `TEN_TONG_QUAT` cố định), tiêu đề riêng nằm ở dòng H1 đầu của
