@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import {
   catTheoChu,
+  chiaTrang,
   kieuNetCSS,
   netCanh,
   nhipHangVe,
@@ -34,6 +35,13 @@ import {
  *  trên/dưới — nên cả bốn lề cùng chia cho con số này, đúng cách lớp
  *  `px-[8%] py-[7%]` cũ vẫn làm. */
 const RONG_A4_TWIP = 11906;
+
+/** Thuộc tính đánh dấu MỘT TỜ giấy trong khung xem trước.
+ *
+ * `data-*` chứ không một lớp CSS: phép đo tràn trang tra đúng tên này, và một
+ * lớp trình bày đổi được mà không ai nhớ sửa phép đo. Cùng luật
+ * `THUOC_TINH_LE`/`THUOC_TINH_BANG` — một sự thật, một cái tên. */
+const THUOC_TINH_TO = "data-to";
 
 /** Cỡ chữ "thường" của thể thức hành chính, điểm — mốc quy `w:sz` (nửa điểm)
  * ra `em`. Khớp `xuat-tep.ts::coChuPt("thuong")` và `size: 26` của `.docx`,
@@ -739,61 +747,177 @@ export function XemTruocA4({
     />
   );
 
+  const khungRef = useRef<HTMLElement>(null);
+  /**
+   * Chỉ số những mục phải MỞ một tờ mới vì nội dung TRÀN khỏi tờ đang đứng —
+   * nửa của phép chia trang mà chỉ trình duyệt trả lời được (xem `chiaTrang`).
+   */
+  const [catThem, setCatThem] = useState<number[]>([]);
+  const to = useMemo(() => chiaTrang(muc, catThem), [muc, catThem]);
+
+  /**
+   * Chữ ký của mọi thứ đổi được BỐ CỤC. Chuỗi chứ không mảng phụ thuộc trần:
+   * `muc` và `anh` là mảng dựng lại mỗi lượt vẽ ở nơi gọi, nên so bằng tham
+   * chiếu sẽ coi MỌI lượt vẽ là "đầu vào đã đổi" — chỗ cắt bị xoá rồi đo lại
+   * vô tận.
+   */
+  const chuKy = JSON.stringify([
+    thuPhong,
+    hienCanCu,
+    laTongQuat,
+    tieuDe,
+    kyHieu,
+    leTrang,
+    anh.map((a) => a.url),
+    muc.map((m) => [
+      m.key,
+      m.trang,
+      m.ten,
+      m.canCu,
+      m.khoi.map((k) => (k.kind === "vanXuoi" ? k.noiDung.length : k.hang.length)),
+    ]),
+  ]);
+
+  // Đầu vào đổi → quên sạch chỗ cắt cũ. Giữ lại chỗ cắt của một bố cục đã biến
+  // mất là vẽ ngắt trang ở chỗ không còn tràn nữa.
+  useLayoutEffect(() => {
+    setCatThem((cu) => (cu.length === 0 ? cu : []));
+  }, [chuKy]);
+
+  // …rồi ĐO lại. Phụ thuộc `[chuKy, catThem]` là đúng hai thứ đổi bố cục ở
+  // đây: đầu vào, và chính tập chỗ cắt vừa thêm — nên vòng đo/cắt chạy tiếp
+  // sau mỗi lần cắt cho tới khi không còn tràn.
+  // ponytail: trần là đổi CỠ CỬA SỔ — khung A4 hẹp lại theo `max-w-[794px]`
+  // trong khi cỡ chữ không đổi, nên chỗ tràn dịch đi mà phép đo không chạy
+  // lại. Nâng lên bằng một `ResizeObserver` khi đo thấy nó phiền thật.
+  //
+  // Hội tụ: mỗi lượt chỉ THÊM chỗ cắt, không bao giờ bỏ; không bao giờ cắt ở
+  // mục ĐẦU của một tờ (nên không sinh tờ rỗng, và một mục cao hơn cả trang
+  // không quay vòng vô hạn); số chỗ cắt chặn trên bằng số mục. `setCatThem`
+  // chỉ được gọi khi tập chỗ cắt THẬT SỰ lớn hơn, nên vòng dừng hẳn.
+  //
+  // FAIL CLOSED: không đo được (chưa dựng xong, chiều cao 0, môi trường không
+  // có bố cục) thì KHÔNG cắt gì — khung lùi về đúng các tờ NGUỒN khai, và
+  // trường hợp xấu nhất là hành vi trước bản vá này (một tờ, cuộn bên trong),
+  // không phải mất nội dung.
+  //
+  // ponytail: trần là ẢNH chưa tải xong — `<img>` chưa biết cỡ thì cao 0 lúc
+  // đo, nên một tờ có letterhead nặng có thể thiếu một chỗ cắt tới lượt vẽ
+  // sau. Nâng lên bằng một `ResizeObserver` khi đo thấy nó xảy ra thật.
+  useLayoutEffect(() => {
+    const khung = khungRef.current;
+    // Cửa FAIL CLOSED của cả phép chia trang: không có một DOM đo được (dựng
+    // phía máy chủ, khung DOM tối giản của `kiem-ui-muot`, trình duyệt chưa
+    // gắn thẻ) thì KHÔNG cắt gì. Khung khi đó lùi về đúng các tờ NGUỒN khai,
+    // và trường hợp xấu nhất là hành vi trước bản vá này — một tờ, cuộn bên
+    // trong — chứ không phải mất nội dung hay ném lỗi giữa lượt vẽ.
+    if (typeof khung?.querySelectorAll !== "function" || typeof getComputedStyle !== "function") {
+      return;
+    }
+    const them: number[] = [];
+    let i = 0;
+    for (const to of Array.from(khung.querySelectorAll<HTMLElement>(`[${THUOC_TINH_TO}]`))) {
+      const kieu = getComputedStyle(to);
+      const tren = parseFloat(kieu.paddingTop) || 0;
+      const tran = to.clientHeight - tren - (parseFloat(kieu.paddingBottom) || 0);
+      if (!(tran > 0)) return;
+      // Đo BỐ CỤC, không đo chỗ người dùng đã cuộn tới: `getBoundingClientRect`
+      // trừ đi `scrollTop`, nên một tờ đang cuộn dở sẽ báo mọi mục nằm cao hơn
+      // thật và không mục nào "tràn".
+      to.scrollTop = 0;
+      const mocTren = to.getBoundingClientRect().top + tren;
+      const mucTrang = Array.from(to.querySelectorAll<HTMLElement>("[data-muc]"));
+      for (let j = 1; j < mucTrang.length; j += 1) {
+        // 0,5px dung sai: chiều cao dưới điểm ảnh của trình duyệt không đáng
+        // để mở hẳn một tờ mới.
+        if (mucTrang[j]!.getBoundingClientRect().bottom - mocTren > tran + 0.5) {
+          them.push(i + j);
+          break;
+        }
+      }
+      i += mucTrang.length;
+    }
+    if (them.length === 0) return;
+    setCatThem((cu) => {
+      const gop = Array.from(new Set([...cu, ...them])).sort((a, b) => a - b);
+      return gop.length === cu.length ? cu : gop;
+    });
+  }, [chuKy, catThem]);
+
   return (
     <div className="mx-auto w-full max-w-[794px]" style={{ fontSize: `${thuPhong}%` }}>
-      <article
-        className={cn(
-          "aspect-[210/297] overflow-y-auto rounded-md border border-border bg-white text-[#111] shadow-soft",
-          leTrang === null && "px-[8%] py-[7%]",
-        )}
-        style={kieuLe}
-        {...thuocLe}
-      >
-        {/* `<h1>`, không `<h2>`: đây là tiêu đề CHÍNH của văn bản đang xem
-            trước, và `docNoiDungTuDOM` (xuat-tep.ts) chỉ nhận diện tiêu đề
-            xuất ra Word/PDF qua đúng thẻ `H1`. */}
-        {anhTren.map(veAnh)}
-        {!anTieuDe && (
-          <h1 className="m-0 text-center font-serif text-[1.25em] font-bold uppercase tracking-wide">
-            {tieuDe}
-          </h1>
-        )}
-        {kyHieu && (
-          <p className="mt-1 text-center font-mono text-[0.85em] text-[#555]">Số: {kyHieu}</p>
-        )}
-        <div className="mt-6 space-y-4">
-          {muc.map((m) => (
-            <section
-              key={m.key}
-              data-muc={m.key}
-              onClick={onChonMuc ? () => chonMuc(m.key) : undefined}
-              onKeyDown={
-                onChonMuc
-                  ? (e) => {
-                      // Phase 3 (Half A, R1) — đang gõ TRONG một khối
-                      // `contentEditable`: Enter xuống dòng, dấu cách gõ chữ
-                      // — cả hai KHÔNG được biến thành "chọn mục" rồi nuốt
-                      // mất phím người dùng vừa gõ (`preventDefault` dưới
-                      // đây, viết trước bản vá này, không phân biệt được
-                      // nguồn phím tới từ đâu).
-                      if ((e.target as HTMLElement).isContentEditable) return;
-                      if (e.key !== "Enter" && e.key !== " ") return;
-                      e.preventDefault();
-                      chonMuc(m.key);
-                    }
-                  : undefined
-              }
-              role={onChonMuc ? "button" : undefined}
-              tabIndex={onChonMuc ? 0 : undefined}
-              aria-current={mucDangChon === m.key ? "true" : undefined}
-              aria-label={onChonMuc ? `Chọn mục ${m.stt}. ${m.ten} làm đích chỉnh sửa` : undefined}
-              className={cn(
-                "rounded-sm px-2 py-1 -mx-2",
-                onChonMuc && "cursor-pointer hover:bg-[var(--color-paper-50)]",
-                mucDangChon === m.key && "ring-2 ring-[var(--color-brass-600)]",
-              )}
-            >
-              {/* `dieu-head`: dấu hiệu DUY NHẤT mà `docNoiDungTuDOM`
+      {/* `<article>` KHÔNG còn là tờ giấy — nó là KHUNG chứa các tờ, và nó vẫn
+          là thẻ `docNoiDungTuDOM` nhận (`SanKhauBanThao` lấy nó bằng
+          `querySelector("article")`). Đó là lý do nó giữ nguyên `data-le-*`:
+          `.docx` và PDF đọc lề nguồn ở đúng chỗ cũ, và một lần duyệt
+          `querySelectorAll` trên nó vẫn ra MỘT tài liệu liền mạch theo thứ tự
+          DOM — nhiều tờ không tạo ra nhiều lần duyệt, không trùng, không sót.
+          Tách thành nhiều `<article>` anh em thì `querySelector` ấy chỉ thấy
+          tờ đầu và mọi trang sau BIẾN MẤT khỏi tệp tải về. */}
+      <article ref={khungRef} className="flex flex-col gap-4" {...thuocLe}>
+        {to.map((mucTrang, ti) => (
+          <div
+            key={ti}
+            {...{ [THUOC_TINH_TO]: String(ti) }}
+            className={cn(
+              // `relative`: mốc cho phép đo tràn trang bên dưới, và không đổi
+              // nét vẽ nào vì trong tờ không có thẻ nào định vị tuyệt đối.
+              "relative aspect-[210/297] overflow-y-auto rounded-md border border-border bg-white text-[#111] shadow-soft",
+              leTrang === null && "px-[8%] py-[7%]",
+            )}
+            style={kieuLe}
+          >
+            {/* Băng ảnh trên chỉ ở tờ ĐẦU, băng dưới chỉ ở tờ CUỐI: chúng là
+                letterhead và khối dấu/chữ ký của CẢ tài liệu, không phải của
+                mỗi trang. Lặp chúng trên mọi tờ sẽ nhân bản chính chúng trong
+                tệp tải về (`docNoiDungTuDOM` đọc mọi `<img data-anh>`). */}
+            {ti === 0 && anhTren.map(veAnh)}
+            {/* `<h1>`, không `<h2>`: đây là tiêu đề CHÍNH của văn bản đang xem
+                trước, và `docNoiDungTuDOM` (xuat-tep.ts) chỉ nhận diện tiêu đề
+                xuất ra Word/PDF qua đúng thẻ `H1`. */}
+            {ti === 0 && !anTieuDe && (
+              <h1 className="m-0 text-center font-serif text-[1.25em] font-bold uppercase tracking-wide">
+                {tieuDe}
+              </h1>
+            )}
+            {ti === 0 && kyHieu && (
+              <p className="mt-1 text-center font-mono text-[0.85em] text-[#555]">Số: {kyHieu}</p>
+            )}
+            <div className={cn("space-y-4", ti === 0 && "mt-6")}>
+              {mucTrang.map((m) => (
+                <section
+                  key={m.key}
+                  data-muc={m.key}
+                  onClick={onChonMuc ? () => chonMuc(m.key) : undefined}
+                  onKeyDown={
+                    onChonMuc
+                      ? (e) => {
+                          // Phase 3 (Half A, R1) — đang gõ TRONG một khối
+                          // `contentEditable`: Enter xuống dòng, dấu cách gõ chữ
+                          // — cả hai KHÔNG được biến thành "chọn mục" rồi nuốt
+                          // mất phím người dùng vừa gõ (`preventDefault` dưới
+                          // đây, viết trước bản vá này, không phân biệt được
+                          // nguồn phím tới từ đâu).
+                          if ((e.target as HTMLElement).isContentEditable) return;
+                          if (e.key !== "Enter" && e.key !== " ") return;
+                          e.preventDefault();
+                          chonMuc(m.key);
+                        }
+                      : undefined
+                  }
+                  role={onChonMuc ? "button" : undefined}
+                  tabIndex={onChonMuc ? 0 : undefined}
+                  aria-current={mucDangChon === m.key ? "true" : undefined}
+                  aria-label={
+                    onChonMuc ? `Chọn mục ${m.stt}. ${m.ten} làm đích chỉnh sửa` : undefined
+                  }
+                  className={cn(
+                    "rounded-sm px-2 py-1 -mx-2",
+                    onChonMuc && "cursor-pointer hover:bg-[var(--color-paper-50)]",
+                    mucDangChon === m.key && "ring-2 ring-[var(--color-brass-600)]",
+                  )}
+                >
+                  {/* `dieu-head`: dấu hiệu DUY NHẤT mà `docNoiDungTuDOM`
                   (xuat-tep.ts) đọc để biết đây là đầu mục, nên tệp Word/PDF
                   tải về mới có tiêu đề mục thay vì một đoạn thường in đậm.
                   Lớp này chỉ có kiểu dáng trong `.a4-sheet` (styles.css) nên
@@ -807,194 +931,196 @@ export function XemTruocA4({
                   không thấy nó, đúng yêu cầu "sửa ở một chỗ, đúng cả ba nơi".
                   Bản thảo checklist (`!laTongQuat`) luôn hiện: tên mục ở đó
                   đến từ chính checklist, chưa từng là chữ mô hình bịa. */}
-              {(!laTongQuat || m.tenThat) && (
-                <p className="dieu-head m-0 font-serif text-[1em] font-semibold">
-                  {laTongQuat ? m.ten : `Mục ${m.stt}. ${m.ten}`}
-                </p>
-              )}
-              {/* Nội dung mục là một MẢNG khối theo đúng thứ tự tài liệu
+                  {(!laTongQuat || m.tenThat) && (
+                    <p className="dieu-head m-0 font-serif text-[1em] font-semibold">
+                      {laTongQuat ? m.ten : `Mục ${m.stt}. ${m.ten}`}
+                    </p>
+                  )}
+                  {/* Nội dung mục là một MẢNG khối theo đúng thứ tự tài liệu
                   (Phase 8 R1, thay hai điều kiện độc lập noiDung/bang cố định
                   của Phase 7): câu dẫn, bảng, câu kết là BA khối riêng, render
                   lần lượt — không còn nén về "văn xuôi rồi bảng" cứng nhắc. */}
-              {m.khoi.map((k, i) =>
-                k.kind === "vanXuoi" ? (
-                  // Phase 3 (Half A, R1) — gõ tay tại chỗ: `contentEditable`
-                  // CHỈ khi nơi gọi cho `onSuaKhoi` (bản thảo đã lưu, có `id`
-                  // để ghi) — khung xem trước dùng nơi khác (đối chiếu, xem
-                  // trước lúc đang dựng) không truyền prop này và giữ nguyên
-                  // hành vi CHỈ ĐỌC trước bản vá này. `KhoiVanXuoi` (fix
-                  // round 1, review CRITICAL #1) đồng bộ DOM bằng tay, không
-                  // qua `children` — xem chú thích ở khai báo component đó.
-                  <KhoiVanXuoi
-                    key={i}
-                    noiDung={k.noiDung}
-                    canhLe={k.canhLe}
-                    chu={k.chu}
-                    gianCach={k.gianCach}
-                    mucKey={m.key}
-                    khoiIndex={i}
-                    // Fix round 2 (N1) — không dùng khi chỉ đọc; giá trị mặc
-                    // định vô hại vì `onSuaKhoi` cũng vắng mặt trong trường
-                    // hợp đó nên không đường nào đọc tới `phienBan`.
-                    phienBan={phienBan ?? 0}
-                    onSuaKhoi={onSuaKhoi}
-                  />
-                ) : (
-                  // Khối BẢNG trong tài liệu nguồn (Phase 7 R1/R2) — `<table>`
-                  // THẬT, không phải chữ `|` improv. NGUỒN quyết định nó trông
-                  // như một bảng hay như một khối BỐ CỤC: `k.vien` (đọc
-                  // `w:tblBorders`/`w:tcBorders`/`w:tblStyle`) bật/tắt CÙNG
-                  // LÚC nét viền và hàng tiêu đề giả (tô nền + in đậm + căn
-                  // giữa) — biểu mẫu tiếng Việt xếp cột bằng bảng KHÔNG viền
-                  // (letterhead "tên đơn vị trái / quốc hiệu phải", khối ký
-                  // cuối trang), và ở đó hàng đầu không phải tiêu đề của gì
-                  // cả. Mỗi ô giữ căn lề NGUỒN của nó (`k.canLeO`, `w:jc`),
-                  // mỗi hàng giữ chiều cao khai báo (`k.cao`, `w:trHeight` —
-                  // chỗ để ký tay), và chữ TRONG ô giữ định dạng run của
-                  // nguồn (`k.chuO`, `w:rPr` — `OChu` vẽ từng `<span
-                  // data-chu>`, xem chú thích ở đó). Bốn thứ đó đi ra DOM
-                  // thành `data-vien`/`data-can-le`/`data-cao`/`data-chu` để
-                  // `docBangTuPhanTu` đọc lại khi xuất `.docx`/PDF: một
-                  // nguồn, ba nơi dùng.
-                  // Hàng ngắn hơn hàng tiêu đề (Phase 8 R4, ô gộp
-                  // trong tài liệu nguồn) dùng `colSpan` qua `k.nhip` — nhịp
-                  // THẬT khi bảng có khai lưới nguồn (Phase 11 R6, đọc
-                  // `w:gridSpan`), suy từ số ô khi không (`nhipHangVe` rơi về
-                  // `coSpanHang` cũ). `<colgroup>` đặt bề rộng % mỗi cột từ
-                  // `w:tblGrid` (Phase 11 R1, `tiLeCotVe` chia đều khi bảng
-                  // không khai lưới) — `table-layout: fixed` để trình duyệt
-                  // theo ĐÚNG tỉ lệ đó thay vì tự co theo nội dung. `data-ti-le`
-                  // trên mỗi `<col>` là chỗ `docBangTuPhanTu` (xuat-tep.ts) đọc
-                  // lại % đã vẽ khi xuất `.docx`/PDF — một nguồn, ba nơi dùng.
-                  // Số cột LƯỚI THẬT (Phase 11 fix round 3, reviewer I5) —
-                  // từ `tiLe` khi bảng có khai lưới nguồn, không phải số Ô
-                  // của hàng đầu: một hàng đầu có ô gộp (dòng tiêu đề toàn
-                  // bảng) có ÍT ô hơn số cột thật, và lấy nhầm số đó làm
-                  // chuẩn khiến `tiLeCotVe` coi tỉ lệ thật là "sai hình dạng"
-                  // rồi chia đều oan — đúng bảng R1 tồn tại để giữ tỉ lệ.
-                  // `<thead>` giờ cũng áp `colSpan` cho hàng tiêu đề, cùng
-                  // luật ô gộp `<tbody>` đã dùng — trước bản vá này, hàng tiêu
-                  // đề không có `colSpan` nào nên lệch cột với thân bảng khi
-                  // chính nó có ô gộp.
-                  (() => {
-                    const soCot = soCotThat(k.hang, k.tiLe);
-                    const spanTieuDe = nhipHangVe(k.hang[0] ?? [], k.nhip[0], soCot);
-                    // Không có ghi chú "bảng chưa sửa trực tiếp được" ở đây
-                    // nữa (chủ dự án bỏ, 2026-09-18): nó lặp lại trên MỖI
-                    // bảng — hai lần trên một trang biểu mẫu bình thường — và
-                    // đứng chen giữa hai khối của chính văn bản. Bảng vẫn chỉ
-                    // đọc như trước, không đổi gì ở đó; `aria-describedby`
-                    // (Phase 15 R9) đi theo vì nó chỉ tồn tại để trỏ vào ghi
-                    // chú đó.
-                    return (
-                      <table
+                  {m.khoi.map((k, i) =>
+                    k.kind === "vanXuoi" ? (
+                      // Phase 3 (Half A, R1) — gõ tay tại chỗ: `contentEditable`
+                      // CHỈ khi nơi gọi cho `onSuaKhoi` (bản thảo đã lưu, có `id`
+                      // để ghi) — khung xem trước dùng nơi khác (đối chiếu, xem
+                      // trước lúc đang dựng) không truyền prop này và giữ nguyên
+                      // hành vi CHỈ ĐỌC trước bản vá này. `KhoiVanXuoi` (fix
+                      // round 1, review CRITICAL #1) đồng bộ DOM bằng tay, không
+                      // qua `children` — xem chú thích ở khai báo component đó.
+                      <KhoiVanXuoi
                         key={i}
-                        className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
-                        data-vien={k.vien ? undefined : "khong"}
-                        style={{ tableLayout: "fixed" }}
-                      >
-                        <colgroup>
-                          {tiLeCotVe(k.tiLe, soCot).map((ti, oi) => (
-                            <col key={oi} data-ti-le={ti} style={{ width: `${ti}%` }} />
-                          ))}
-                        </colgroup>
-                        {k.vien && (
-                          <thead>
-                            {/* Hàng tiêu đề cũng mang chiều cao khai báo: nó
+                        noiDung={k.noiDung}
+                        canhLe={k.canhLe}
+                        chu={k.chu}
+                        gianCach={k.gianCach}
+                        mucKey={m.key}
+                        khoiIndex={i}
+                        // Fix round 2 (N1) — không dùng khi chỉ đọc; giá trị mặc
+                        // định vô hại vì `onSuaKhoi` cũng vắng mặt trong trường
+                        // hợp đó nên không đường nào đọc tới `phienBan`.
+                        phienBan={phienBan ?? 0}
+                        onSuaKhoi={onSuaKhoi}
+                      />
+                    ) : (
+                      // Khối BẢNG trong tài liệu nguồn (Phase 7 R1/R2) — `<table>`
+                      // THẬT, không phải chữ `|` improv. NGUỒN quyết định nó trông
+                      // như một bảng hay như một khối BỐ CỤC: `k.vien` (đọc
+                      // `w:tblBorders`/`w:tcBorders`/`w:tblStyle`) bật/tắt CÙNG
+                      // LÚC nét viền và hàng tiêu đề giả (tô nền + in đậm + căn
+                      // giữa) — biểu mẫu tiếng Việt xếp cột bằng bảng KHÔNG viền
+                      // (letterhead "tên đơn vị trái / quốc hiệu phải", khối ký
+                      // cuối trang), và ở đó hàng đầu không phải tiêu đề của gì
+                      // cả. Mỗi ô giữ căn lề NGUỒN của nó (`k.canLeO`, `w:jc`),
+                      // mỗi hàng giữ chiều cao khai báo (`k.cao`, `w:trHeight` —
+                      // chỗ để ký tay), và chữ TRONG ô giữ định dạng run của
+                      // nguồn (`k.chuO`, `w:rPr` — `OChu` vẽ từng `<span
+                      // data-chu>`, xem chú thích ở đó). Bốn thứ đó đi ra DOM
+                      // thành `data-vien`/`data-can-le`/`data-cao`/`data-chu` để
+                      // `docBangTuPhanTu` đọc lại khi xuất `.docx`/PDF: một
+                      // nguồn, ba nơi dùng.
+                      // Hàng ngắn hơn hàng tiêu đề (Phase 8 R4, ô gộp
+                      // trong tài liệu nguồn) dùng `colSpan` qua `k.nhip` — nhịp
+                      // THẬT khi bảng có khai lưới nguồn (Phase 11 R6, đọc
+                      // `w:gridSpan`), suy từ số ô khi không (`nhipHangVe` rơi về
+                      // `coSpanHang` cũ). `<colgroup>` đặt bề rộng % mỗi cột từ
+                      // `w:tblGrid` (Phase 11 R1, `tiLeCotVe` chia đều khi bảng
+                      // không khai lưới) — `table-layout: fixed` để trình duyệt
+                      // theo ĐÚNG tỉ lệ đó thay vì tự co theo nội dung. `data-ti-le`
+                      // trên mỗi `<col>` là chỗ `docBangTuPhanTu` (xuat-tep.ts) đọc
+                      // lại % đã vẽ khi xuất `.docx`/PDF — một nguồn, ba nơi dùng.
+                      // Số cột LƯỚI THẬT (Phase 11 fix round 3, reviewer I5) —
+                      // từ `tiLe` khi bảng có khai lưới nguồn, không phải số Ô
+                      // của hàng đầu: một hàng đầu có ô gộp (dòng tiêu đề toàn
+                      // bảng) có ÍT ô hơn số cột thật, và lấy nhầm số đó làm
+                      // chuẩn khiến `tiLeCotVe` coi tỉ lệ thật là "sai hình dạng"
+                      // rồi chia đều oan — đúng bảng R1 tồn tại để giữ tỉ lệ.
+                      // `<thead>` giờ cũng áp `colSpan` cho hàng tiêu đề, cùng
+                      // luật ô gộp `<tbody>` đã dùng — trước bản vá này, hàng tiêu
+                      // đề không có `colSpan` nào nên lệch cột với thân bảng khi
+                      // chính nó có ô gộp.
+                      (() => {
+                        const soCot = soCotThat(k.hang, k.tiLe);
+                        const spanTieuDe = nhipHangVe(k.hang[0] ?? [], k.nhip[0], soCot);
+                        // Không có ghi chú "bảng chưa sửa trực tiếp được" ở đây
+                        // nữa (chủ dự án bỏ, 2026-09-18): nó lặp lại trên MỖI
+                        // bảng — hai lần trên một trang biểu mẫu bình thường — và
+                        // đứng chen giữa hai khối của chính văn bản. Bảng vẫn chỉ
+                        // đọc như trước, không đổi gì ở đó; `aria-describedby`
+                        // (Phase 15 R9) đi theo vì nó chỉ tồn tại để trỏ vào ghi
+                        // chú đó.
+                        return (
+                          <table
+                            key={i}
+                            className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
+                            data-vien={k.vien ? undefined : "khong"}
+                            style={{ tableLayout: "fixed" }}
+                          >
+                            <colgroup>
+                              {tiLeCotVe(k.tiLe, soCot).map((ti, oi) => (
+                                <col key={oi} data-ti-le={ti} style={{ width: `${ti}%` }} />
+                              ))}
+                            </colgroup>
+                            {k.vien && (
+                              <thead>
+                                {/* Hàng tiêu đề cũng mang chiều cao khai báo: nó
                                 đi vào tệp qua `data-cao`, nên màn hình phải
                                 dành đúng chỗ đó — nếu không, hai bên lệch. */}
-                            <tr
-                              data-cao={caoTrenTrang(k.cao?.[0], k.caoLuat?.[0])?.twip}
-                              style={caoTrenTrang(k.cao?.[0], k.caoLuat?.[0])?.style}
-                              {...(k.caoLuat?.[0]
-                                ? { [THUOC_TINH_BANG.caoLuat]: k.caoLuat[0] }
-                                : {})}
-                            >
-                              {(k.hang[0] ?? []).map((o, oi) => {
-                                const cot = spanTieuDe[oi] ?? 1;
-                                const vienO = kieuVienO(k.vienO?.[0]?.[oi]);
+                                <tr
+                                  data-cao={caoTrenTrang(k.cao?.[0], k.caoLuat?.[0])?.twip}
+                                  style={caoTrenTrang(k.cao?.[0], k.caoLuat?.[0])?.style}
+                                  {...(k.caoLuat?.[0]
+                                    ? { [THUOC_TINH_BANG.caoLuat]: k.caoLuat[0] }
+                                    : {})}
+                                >
+                                  {(k.hang[0] ?? []).map((o, oi) => {
+                                    const cot = spanTieuDe[oi] ?? 1;
+                                    const vienO = kieuVienO(k.vienO?.[0]?.[oi]);
+                                    return (
+                                      <th
+                                        key={oi}
+                                        colSpan={cot > 1 ? cot : undefined}
+                                        data-can-le={k.canLeO?.[0]?.[oi] ?? "trai"}
+                                        {...(vienO?.thuoc ?? {})}
+                                        style={vienO?.style}
+                                        className={cn(
+                                          "bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold",
+                                          vienO === null && "border border-[#999]",
+                                        )}
+                                      >
+                                        <OChu noiDung={o} chu={k.chuO?.[0]?.[oi] ?? []} />
+                                      </th>
+                                    );
+                                  })}
+                                </tr>
+                              </thead>
+                            )}
+                            <tbody>
+                              {(k.vien ? k.hang.slice(1) : k.hang).map((hang, hi) => {
+                                const hiThat = k.vien ? hi + 1 : hi;
+                                const span = nhipHangVe(hang, k.nhip[hiThat], soCot);
+                                const luat = k.caoLuat?.[hiThat] ?? "";
+                                const cao = caoTrenTrang(k.cao?.[hiThat], luat);
                                 return (
-                                  <th
-                                    key={oi}
-                                    colSpan={cot > 1 ? cot : undefined}
-                                    data-can-le={k.canLeO?.[0]?.[oi] ?? "trai"}
-                                    {...(vienO?.thuoc ?? {})}
-                                    style={vienO?.style}
-                                    className={cn(
-                                      "bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold",
-                                      vienO === null && "border border-[#999]",
-                                    )}
+                                  <tr
+                                    key={hi}
+                                    data-cao={cao?.twip}
+                                    style={cao?.style}
+                                    {...(luat ? { [THUOC_TINH_BANG.caoLuat]: luat } : {})}
                                   >
-                                    <OChu noiDung={o} chu={k.chuO?.[0]?.[oi] ?? []} />
-                                  </th>
+                                    {hang.map((o, oi) => {
+                                      const cot = span[oi] ?? 1;
+                                      const canLe = k.canLeO?.[hiThat]?.[oi] ?? "trai";
+                                      // Viền TỪNG CẠNH nguồn thắng lớp viền đều:
+                                      // một biểu mẫu chỉ kẻ khung ngoài không được
+                                      // ra màn hình thành lưới kẻ đủ mọi ô. Không
+                                      // đọc được cạnh nào (bảng mô hình tự gõ, bản
+                                      // thảo cũ) thì giữ nguyên lớp cũ.
+                                      const vienO = kieuVienO(k.vienO?.[hiThat]?.[oi]);
+                                      return (
+                                        <td
+                                          key={oi}
+                                          colSpan={cot > 1 ? cot : undefined}
+                                          data-can-le={canLe}
+                                          {...(vienO?.thuoc ?? {})}
+                                          style={vienO?.style}
+                                          className={cn(
+                                            "px-2 py-1 align-top font-serif",
+                                            CAN_LE_O[canLe],
+                                            vienO === null && k.vien && "border border-[#999]",
+                                          )}
+                                        >
+                                          <OChu noiDung={o} chu={k.chuO?.[hiThat]?.[oi] ?? []} />
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
                                 );
                               })}
-                            </tr>
-                          </thead>
-                        )}
-                        <tbody>
-                          {(k.vien ? k.hang.slice(1) : k.hang).map((hang, hi) => {
-                            const hiThat = k.vien ? hi + 1 : hi;
-                            const span = nhipHangVe(hang, k.nhip[hiThat], soCot);
-                            const luat = k.caoLuat?.[hiThat] ?? "";
-                            const cao = caoTrenTrang(k.cao?.[hiThat], luat);
-                            return (
-                              <tr
-                                key={hi}
-                                data-cao={cao?.twip}
-                                style={cao?.style}
-                                {...(luat ? { [THUOC_TINH_BANG.caoLuat]: luat } : {})}
-                              >
-                                {hang.map((o, oi) => {
-                                  const cot = span[oi] ?? 1;
-                                  const canLe = k.canLeO?.[hiThat]?.[oi] ?? "trai";
-                                  // Viền TỪNG CẠNH nguồn thắng lớp viền đều:
-                                  // một biểu mẫu chỉ kẻ khung ngoài không được
-                                  // ra màn hình thành lưới kẻ đủ mọi ô. Không
-                                  // đọc được cạnh nào (bảng mô hình tự gõ, bản
-                                  // thảo cũ) thì giữ nguyên lớp cũ.
-                                  const vienO = kieuVienO(k.vienO?.[hiThat]?.[oi]);
-                                  return (
-                                    <td
-                                      key={oi}
-                                      colSpan={cot > 1 ? cot : undefined}
-                                      data-can-le={canLe}
-                                      {...(vienO?.thuoc ?? {})}
-                                      style={vienO?.style}
-                                      className={cn(
-                                        "px-2 py-1 align-top font-serif",
-                                        CAN_LE_O[canLe],
-                                        vienO === null && k.vien && "border border-[#999]",
-                                      )}
-                                    >
-                                      <OChu noiDung={o} chu={k.chuO?.[hiThat]?.[oi] ?? []} />
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    );
-                  })()
-                ),
-              )}
-              {/* `data-khong-xuat`: dòng căn cứ là chú thích cho người ĐỌC
+                            </tbody>
+                          </table>
+                        );
+                      })()
+                    ),
+                  )}
+                  {/* `data-khong-xuat`: dòng căn cứ là chú thích cho người ĐỌC
                   MÀN HÌNH, không phải một phần của văn bản. Thiếu dấu này thì
                   công tắc "Hiển thị căn cứ" đổi luôn nội dung tệp tải về. */}
-              {hienCanCu && m.canCu && (
-                <p
-                  data-khong-xuat
-                  className="m-0 mt-1 font-mono text-[0.75em] text-[var(--color-brass-600)]"
-                >
-                  Căn cứ: {m.canCu}
-                </p>
-              )}
-            </section>
-          ))}
-        </div>
-        {anhDuoi.map(veAnh)}
+                  {hienCanCu && m.canCu && (
+                    <p
+                      data-khong-xuat
+                      className="m-0 mt-1 font-mono text-[0.75em] text-[var(--color-brass-600)]"
+                    >
+                      Căn cứ: {m.canCu}
+                    </p>
+                  )}
+                </section>
+              ))}
+            </div>
+            {ti === to.length - 1 && anhDuoi.map(veAnh)}
+          </div>
+        ))}
       </article>
     </div>
   );

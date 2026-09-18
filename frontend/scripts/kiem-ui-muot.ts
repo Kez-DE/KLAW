@@ -328,6 +328,7 @@ const MUC: Muc[] = [
     noiDung: CHU_GOC,
     bang: null,
     vung: "than",
+    trang: 1,
     canCu: null,
     khoi: [
       { kind: "vanXuoi", noiDung: CHU_GOC, canhLe: "trai", chu: [], gianCach: null },
@@ -539,6 +540,7 @@ const mucBang = (vien: boolean): Muc[] => [
     noiDung: "",
     bang: null,
     vung: "than",
+    trang: 1,
     canCu: null,
     khoi: [
       {
@@ -633,6 +635,7 @@ const mucBangChu: Muc[] = [
     noiDung: "",
     bang: null,
     vung: "than",
+    trang: 1,
     canCu: null,
     khoi: [
       {
@@ -724,6 +727,7 @@ const mucDien: Muc[] = [
     noiDung: "",
     bang: null,
     vung: "than",
+    trang: 1,
     canCu: null,
     khoi: [
       {
@@ -828,4 +832,162 @@ assert.ok(pTran !== undefined, "khối văn xuôi không nhịp vẫn render");
 assert.equal(pTran.getAttribute("data-truoc"), null);
 assert.equal(pTran.style["marginTop"], undefined, "không nhịp nguồn thì không style nào bị áp");
 
-console.log("kiem-ui-muot: 76/76 OK");
+// ───── 8. DÒNG CHẢY TRANG: nhiều TỜ A4, cắt đúng chỗ nguồn khai ngắt ───────
+// Ở đây chứ không trong `kiem-dong-trang.ts` vì đúng lý lẽ phép kiểm 5 đã ghi:
+// khung DOM giả + `runnerImport` của tệp này là chỗ DUY NHẤT trong repo render
+// được một component thật. `kiem-dong-trang.ts` giữ phần thuần (`chiaTrang`,
+// `Muc.trang`, vòng đọc lại `docNoiDungTuDOM` qua nhiều tờ).
+
+const mucTrang = (trang: number[]): Muc[] =>
+  trang.map((t, i) => ({
+    stt: i + 1,
+    key: `m${i + 1}`,
+    ten: `Mục ${i + 1}`,
+    tenThat: true,
+    noiDung: `Nội dung mục ${i + 1}`,
+    bang: null,
+    vung: "than" as const,
+    trang: t,
+    canCu: null,
+    khoi: [
+      {
+        kind: "vanXuoi" as const,
+        noiDung: `Nội dung mục ${i + 1}`,
+        canhLe: "trai" as const,
+        chu: [],
+        gianCach: null,
+      },
+    ],
+  }));
+
+const LE_NGUON = { tren: 964, phai: 1134, duoi: 1134, trai: 1701, dauTrang: 720, chanTrang: 720 };
+
+/** Các tờ A4 đã render, theo thứ tự DOM. */
+const toTrong = (khung: Nut) => timTatNut(khung, (n) => n.getAttribute("data-to") !== null);
+
+// Một trang nguồn → ĐÚNG MỘT tờ. Hành vi trước bản vá, khoá lại.
+const { khung: khungMotTo, root: rootMotTo } = taoRoot();
+await act(() => {
+  rootMotTo.render(h(XemTruocA4, { ...propsBang, muc: mucTrang([1, 1, 1]) }));
+});
+assert.equal(toTrong(khungMotTo).length, 1, "tài liệu một trang vẫn ra ĐÚNG MỘT tờ");
+
+// Hai trang nguồn (hình dạng BM.M05: ngắt cứng giữa biểu mẫu và danh sách) →
+// hai tờ, và chỗ cắt rơi đúng vào mục đầu của trang 2.
+const { khung: khungHaiTo, root: rootHaiTo } = taoRoot();
+await act(() => {
+  rootHaiTo.render(
+    h(XemTruocA4, {
+      ...propsBang,
+      // `laTongQuat: false` để có `<h1>` và dòng số hiệu thật mà kiểm — hai
+      // thứ chỉ được vẽ MỘT lần, ở tờ đầu.
+      laTongQuat: false,
+      kyHieu: "12/GTN",
+      muc: mucTrang([1, 1, 2, 2]),
+      leTrang: LE_NGUON,
+    }),
+  );
+});
+const haiTo = toTrong(khungHaiTo);
+assert.equal(haiTo.length, 2, "hai trang NGUỒN → hai tờ A4");
+assert.deepEqual(
+  haiTo.map((t) => timTatNut(t, (n) => n.getAttribute("data-muc") !== null).length),
+  [2, 2],
+  "ngắt rơi đúng chỗ nguồn khai: hai mục ở tờ một, hai mục ở tờ hai",
+);
+assert.equal(
+  timTatNut(haiTo[1]!, (n) => n.getAttribute("data-muc") === "m3").length,
+  1,
+  "`m3` — mục đầu của trang 2 — mở tờ thứ hai, không ở lại tờ một",
+);
+
+// Lề NGUỒN: vẽ trên TỪNG tờ, còn `data-le-*` ở lại trên `<article>` (thẻ mà
+// `SanKhauBanThao` trao cho `docNoiDungTuDOM`). Lẫn hai chỗ này thì `.docx`/PDF
+// mất lề nguồn trong khi màn hình vẫn trông đúng.
+for (const [i, t] of haiTo.entries()) {
+  assert.equal(t.style["paddingLeft"], `${(1701 / 11906) * 100}%`, `tờ ${i} mang lề trái NGUỒN`);
+  assert.equal(t.style["paddingTop"], `${(964 / 11906) * 100}%`, `tờ ${i} mang lề trên NGUỒN`);
+  assert.equal(t.getAttribute("data-le-trai"), null, `tờ ${i} KHÔNG giữ data-le-* (thuộc khung)`);
+}
+const khungA4 = tim(khungHaiTo, (n) => n.tagName === "ARTICLE")!;
+assert.equal(khungA4.getAttribute("data-le-trai"), "1701", "`data-le-*` ở lại trên `<article>`");
+assert.equal(
+  timTatNut(khungHaiTo, (n) => n.tagName === "ARTICLE").length,
+  1,
+  'ĐÚNG MỘT `<article>` cho mọi tờ: `SanKhauBanThao` lấy nó bằng `querySelector("article")`, nên tách thành nhiều `<article>` anh em sẽ nuốt mọi trang sau tờ đầu ra khỏi tệp tải về',
+);
+
+// Tiêu đề và khối ký hiệu chỉ ở tờ ĐẦU — chúng là của cả tài liệu, không của
+// mỗi trang; lặp chúng trên mọi tờ là nhân bản chúng trong tệp tải về.
+assert.equal(timTatNut(khungHaiTo, (n) => n.tagName === "H1").length, 1, "đúng MỘT `<h1>`");
+assert.equal(
+  timTatNut(haiTo[0]!, (n) => n.tagName === "H1").length,
+  1,
+  "và nó ở tờ ĐẦU, không phải tờ cuối",
+);
+assert.equal(
+  timTatNut(khungHaiTo, (n) => n.tagName === "P" && n.textContent.startsWith("S\u1ed1:")).length,
+  1,
+  "d\u00f2ng s\u1ed1 hi\u1ec7u c\u0169ng ch\u1ec9 v\u1ebd M\u1ed8T l\u1ea7n \u2014 l\u1eb7p n\u00f3 tr\u00ean m\u1ecdi t\u1edd l\u00e0 nh\u00e2n b\u1ea3n n\u00f3 trong t\u1ec7p t\u1ea3i v\u1ec1",
+);
+
+// Băng ẢNH: letterhead ở tờ ĐẦU, con dấu/chữ ký ở tờ CUỐI — mỗi ảnh nguồn ra
+// ĐÚNG một thẻ. Vẽ băng trên mọi tờ thì `docNoiDungTuDOM` (đọc mọi `<img
+// data-anh>`) nhân bản logo và con dấu vào tệp `.docx`/PDF người dùng tải về.
+const { khung: khungAnh, root: rootAnh } = taoRoot();
+await act(() => {
+  rootAnh.render(
+    h(XemTruocA4, {
+      ...propsBang,
+      muc: mucTrang([1, 2, 3]),
+      anh: [
+        {
+          url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          rong: 914400,
+          cao: 457200,
+          vung: "dau_trang" as const,
+          thuTu: 0,
+        },
+        {
+          url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+          rong: 914400,
+          cao: 457200,
+          vung: "than" as const,
+          thuTu: 0,
+        },
+      ],
+    }),
+  );
+});
+const baTo = toTrong(khungAnh);
+assert.equal(baTo.length, 3, "ba trang NGUỒN → ba tờ");
+const anhTat = timTatNut(khungAnh, (n) => n.getAttribute("data-anh") !== null);
+assert.equal(anhTat.length, 2, "HAI ảnh nguồn ra ĐÚNG hai thẻ, không nhân lên theo số tờ");
+assert.equal(
+  timTatNut(baTo[0]!, (n) => n.getAttribute("data-anh") !== null).length,
+  1,
+  "băng ảnh đầu trang nằm ở tờ ĐẦU",
+);
+assert.equal(
+  timTatNut(baTo[2]!, (n) => n.getAttribute("data-anh") !== null).length,
+  1,
+  "băng ảnh cuối nằm ở tờ CUỐI, không rơi lại tờ đầu",
+);
+assert.equal(
+  timTatNut(baTo[1]!, (n) => n.getAttribute("data-anh") !== null).length,
+  0,
+  "tờ giữa không có băng ảnh nào",
+);
+
+// Không có lề nguồn → tờ giữ lớp lề 8%/7% cũ, đúng hành vi trước bản vá.
+assert.ok(
+  (toTrong(khungMotTo)[0]!.getAttribute("class") ?? "").includes("px-[8%]"),
+  "không lề nguồn thì tờ giữ nguyên lớp lề cũ",
+);
+assert.equal(
+  toTrong(khungMotTo)[0]!.style["paddingLeft"],
+  undefined,
+  "và không bị áp một lề nguồn bịa ra",
+);
+
+console.log("kiem-ui-muot: 96/96 OK");

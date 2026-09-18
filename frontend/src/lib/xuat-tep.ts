@@ -315,6 +315,16 @@ export interface Muc {
    * bản dựng lại trông sai nếu thiếu nó.
    */
   vung: "than" | "dau_trang" | "chan_trang";
+  /**
+   * Trang NGUỒN mục này nằm trên — số trang tệp KHAI (`w:br w:type="page"` và
+   * ngắt phân đoạn, xem `doc_tai_lieu._DemTrang`), mang qua từ
+   * `DonViVanBan.trang` của đơn vị mà khối đầu của mục định vị được.
+   *
+   * `XemTruocA4` cắt tờ A4 ở CHÍNH chỗ trường này tăng — đó là "ngắt đúng chỗ
+   * nguồn khai ngắt". 1 cho mọi bản thảo lưu trước bản vá này và cho bản thảo
+   * KLAW tự soạn; khi đó khung xem trước ra đúng MỘT tờ như trước.
+   */
+  trang: number;
   canCu: string | null;
 }
 
@@ -335,6 +345,7 @@ type ClauseTho = {
   bang?: unknown;
   khoi?: unknown;
   vung?: unknown;
+  trang?: unknown;
   le_trang?: unknown;
   anh?: unknown;
 };
@@ -355,6 +366,20 @@ const VUNG_HOP_LE = new Set(["than", "dau_trang", "chan_trang"]);
  * cùng luật fail-closed với `lam_sach_van_ban` phía máy chủ. */
 function vungHopLe(vung: unknown): Muc["vung"] {
   return typeof vung === "string" && VUNG_HOP_LE.has(vung) ? (vung as Muc["vung"]) : "than";
+}
+
+/**
+ * `c.trang` thô → số trang NGUỒN của mục, mặc định 1 khi vắng/lạ.
+ *
+ * Fail closed về phía MỘT trang: một bản thảo lưu trước bản vá dòng chảy trang
+ * (và mọi bản thảo KLAW tự soạn, vốn không có tài liệu nguồn nào để khai ngắt)
+ * không có khoá này, và ở đó "tất cả trên một tờ" là đúng hành vi cũ. Vẽ thêm
+ * một ngắt trang không có thật xé đôi tài liệu ở chỗ nguồn không hề ngắt — tệ
+ * hơn hẳn thiếu một ngắt, cùng lý lẽ `leTrangHopLe` đã đặt cho lề.
+ */
+function trangHopLe(trang: unknown): number {
+  const n = Number(trang);
+  return Number.isInteger(n) && n >= 1 ? n : 1;
 }
 
 const CAN_LE_HOP_LE = new Set(["trai", "giua", "phai"]);
@@ -793,6 +818,38 @@ function khoiTuClause(c: ClauseTho | undefined): KhoiMuc[] {
  * mà `clauses` chưa sinh (model bỏ sót, hoặc đang chờ) thì hiện "[…]" — không suy đoán
  * nội dung để lấp chỗ trống.
  */
+/**
+ * `muc` → các TỜ A4, mỗi tờ một mảng mục theo đúng thứ tự văn bản.
+ *
+ * Hàm THUẦN, không đo DOM: đây là nửa mà tài liệu NGUỒN trả lời được — cắt ở
+ * chính chỗ `Muc.trang` tăng, tức chỗ tệp KHAI một ngắt (`w:br w:type="page"`
+ * hoặc ngắt phân đoạn). Nửa còn lại — nội dung dài quá một tờ — chỉ đo được
+ * sau khi trình duyệt dựng xong, và đi vào đây qua `catThem`: chỉ số những mục
+ * phải MỞ một tờ mới. Tách hai nửa vì chỉ nửa đầu kiểm được mà không cần trình
+ * duyệt, và nửa đầu là nửa có một câu trả lời ĐÚNG duy nhất.
+ *
+ * Chỉ TIẾN, không lùi (`Math.max`): mô hình có thể đảo thứ tự mục, và một
+ * trang lùi lại sẽ cắt ra một tờ mới ở chỗ nguồn không hề ngắt.
+ *
+ * `muc` rỗng vẫn cho MỘT tờ — khung xem trước của một bản thảo chưa có mục nào
+ * vẫn là một tờ giấy trắng, đúng hành vi trước bản vá này.
+ */
+export function chiaTrang<T extends { trang: number }>(
+  muc: readonly T[],
+  catThem: readonly number[] = [],
+): T[][] {
+  if (muc.length === 0) return [[]];
+  const cat = new Set(catThem);
+  const to: T[][] = [[]];
+  let trang = muc[0]!.trang;
+  muc.forEach((m, i) => {
+    if (i > 0 && (m.trang > trang || cat.has(i))) to.push([]);
+    trang = Math.max(trang, m.trang);
+    to[to.length - 1]!.push(m);
+  });
+  return to;
+}
+
 export function mucTuBanThao(banThao: BanThao, cauTruc: CauTruc | null): Muc[] {
   const clauses = banThao.clauses as ClauseTho[];
   const theoKey = new Map<string, ClauseTho>();
@@ -811,6 +868,7 @@ export function mucTuBanThao(banThao: BanThao, cauTruc: CauTruc | null): Muc[] {
       bang: bangHopLe(c.bang),
       khoi: khoiTuClause(c),
       vung: vungHopLe(c.vung),
+      trang: trangHopLe(c.trang),
       canCu: null,
     }));
   }
@@ -828,6 +886,7 @@ export function mucTuBanThao(banThao: BanThao, cauTruc: CauTruc | null): Muc[] {
       bang: bangHopLe(c?.bang),
       khoi: khoiTuClause(c),
       vung: vungHopLe(c?.vung),
+      trang: trangHopLe(c?.trang),
       canCu: m.can_cu || null,
     };
   });
