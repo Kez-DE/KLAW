@@ -309,8 +309,17 @@ _NHAN_HOAC = "|".join(sorted((re.escape(n) for n in _NHAN_BO_NHO), key=len, reve
 # "và"/"với" ("lớp: K00A và ngành là Luật kinh tế" là HAI lời khai, không phải
 # một). Chỉ cắt khi sau liên từ là một NHÃN kèm dấu gán — "Công ty Mẫu Thử và
 # Đồng sự" không có nhãn nào đằng sau nên đi qua nguyên vẹn.
+# Fix round 1 (review MED) — dấu mở KHÔNG nhận `\n`. Nhận nó thì MỖI DÒNG của
+# một khối dán là một lời khai mới: dán nguyên một biểu mẫu ("Họ và tên: … /
+# Lớp: … / Mã sinh viên: …") ghi cả khối ấy vào tài khoản NHƯ THỂ là dữ kiện về
+# chính người dán — dữ liệu cá nhân của người thứ ba, kể cả một mã sinh viên,
+# vào thẳng DB từ văn bản tự do. Lời khai thật là thứ người ta GÕ trong câu của
+# mình, và câu ấy nằm trên một dòng, ngắt bằng dấu câu.
+# ponytail: trần đã biết — người dùng mở lượt bằng đúng một dòng nhãn rồi mới
+# dán phần còn lại thì dòng ĐẦU vẫn được nhận. Siết thêm (chặn hẳn lượt nhiều
+# dòng) khi đo được ca đó xảy ra thật; ở đây mất một lời khai thật còn tệ hơn.
 _RE_KHAI_BO_NHO = re.compile(
-    r"(?:^|[,;(\n]|\bva\b|\bvoi\b|\bnoi dung la\b)\s*"
+    r"(?:^|[,;(]|\bva\b|\bvoi\b|\bnoi dung la\b)\s*"
     rf"({_NHAN_HOAC})"
     r"\s*(?::|=|\bla\b)\s*"
     rf"(.+?)(?=$|[,;\n]|\s+(?:va|voi)\s+(?:{_NHAN_HOAC})\s*(?::|=|la\b))",
@@ -1446,8 +1455,10 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
     tới.** `_RE_GIA_TRI` chỉ nhìn thấy cụm CÓ CHỮ SỐ và địa chỉ thư, nên một
     cái TÊN đã nhớ đi thẳng qua phép làm sạch ở trên mà không vướng gì — đúng
     chế độ hỏng mà hợp đồng "nhớ, không tự điền" cấm. `cam` là lưới riêng cho
-    đúng ca đó: so chuỗi nguyên văn, thay bằng `[…]`, và đếm riêng để đo được
-    mô hình tự điền bao nhiêu lần.
+    đúng ca đó: chỉ chặn ở CHỖ ĐIỀN (cả ô/cả dòng, hoặc phần sau "Nhãn:" —
+    xem `_chan_bo_nho`), thay bằng `[…]`, và đếm riêng để đo được mô hình tự
+    điền bao nhiêu lần. Chỉ dữ kiện CÁ NHÂN vào đây; thói quen soạn thảo thì
+    không (xem chỗ dựng `bo_nho_cam` trong `hieu_tai_lieu`).
 
     **Thay bằng `[…]`, không bỏ mục.** Một con số bịa là một LỖ trong một câu
     còn lại đúng, và `[…]` chính là chỗ trống mà cả bản thảo checklist lẫn giao
@@ -1497,18 +1508,59 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
     # sẵn giá trị của những khoá lượt này HỎI TỚI, nên một lượt xin điền cũng rơi
     # vào đúng nhánh "có trong nguồn" này.
     #
-    # ponytail: so khớp chuỗi nguyên văn (không phân biệt hoa thường), nên một
-    # mô hình viết tắt tên ("N.V. Thử") vẫn lọt. Nâng lên so khớp theo từ khi đo
-    # được rằng nó xảy ra thật.
-    cam_re = [
-        re.compile(rf"(?<!\w){re.escape(v)}(?!\w)", re.IGNORECASE)
-        for v in (cam or []) if v and normalize(v) not in nguon
-    ]
+    # Fix round 1 (review MED) — gập hoa/thường CẢ HAI PHÍA. `normalize` cố ý
+    # KHÔNG casefold (nó là phép so khớp trích dẫn, xem docstring của nó), nên
+    # phép loại trừ cũ so chữ NGHIÊM trong khi phép chặn lại `IGNORECASE`: người
+    # dùng gõ lại chính giá trị của mình bằng cách viết khác ("nguyễn văn thử")
+    # thì không khớp `nguon`, vẫn nằm trong `cam`, và bị xoá thành `[…]` — xoá
+    # đúng thứ họ vừa viết. `_khong_hoa` là hàm ĐÃ CÓ cho đúng việc này.
+    nguon_kh = _khong_hoa(nguon)
+    cam_bo = {_khong_hoa(v) for v in (cam or []) if v and _khong_hoa(v) not in nguon_kh}
+
+    def _chan_bo_nho(s: str) -> str:
+        """Gỡ giá trị đã nhớ ra khỏi CHỖ ĐIỀN, không ra khỏi văn xuôi.
+
+        Fix round 1 (review HIGH). Bản trước so khớp `\\b<giá trị>\\b` ở BẤT KỲ
+        đâu trong tên mục, văn xuôi và từng ô bảng — tức nó xoá cả tiếng Việt
+        bình thường. Đo được trên chính `lam_sach_van_ban`: `nganh = "Luật"`
+        biến "tuân thủ Bộ luật Lao động" thành "tuân thủ Bộ […] Lao động" (trên
+        một sản phẩm PHÁP LUẬT, ở mọi bản thảo); `noi_thuc_tap = "Hà Nội"` phá
+        dòng địa danh-ngày tháng chuẩn "Hà Nội, ngày … tháng …"; `ho_ten =
+        "Thử"` cắt nát "Thời gian thử việc".
+
+        Thứ R4 cấm là KLAW tự ĐIỀN một ô trống, nên lưới chỉ nhìn đúng hình
+        dạng một ô đã điền: cả ô bảng / cả dòng là giá trị, hoặc phần đứng sau
+        "Nhãn:" của dòng ấy. Một giá trị lọt giữa câu là chữ của câu, không
+        phải một ô được điền hộ — và giữ oan một chữ giữa câu rẻ hơn nhiều so
+        với xoá oan chữ của người dùng ở mọi bản thảo.
+
+        ponytail: trần đã biết — mô hình viết giá trị giữa một câu ("Tôi là
+        Nguyễn Văn Thử, xin trình bày") thì lọt. Siết lại khi đo được là mô
+        hình thật sự tự điền theo hình dạng đó, chứ không phải bằng một phép
+        so khớp rộng hơn đã chứng minh là cắn nhầm nhiều hơn cắn đúng.
+        """
+        if not cam_bo:
+            return s
+        ra_dong: list[str] = []
+        for dong in s.split("\n"):
+            le = dong[: len(dong) - len(dong.lstrip())]
+            than = dong.strip()
+            if than and _khong_hoa(than) in cam_bo:
+                dem["bo_nho_khong_dien"] += 1
+                ra_dong.append(le + CHO_TRONG)
+                continue
+            # Cắt ở dấu hai chấm ĐẦU TIÊN: nhãn của một dòng biểu mẫu đứng
+            # trước nó, còn mọi dấu hai chấm sau đó thuộc về giá trị ("Giờ làm:
+            # 8:00").
+            nhan, dau, sau = dong.partition(":")
+            if dau and sau.strip() and _khong_hoa(sau.strip()) in cam_bo:
+                dem["bo_nho_khong_dien"] += 1
+                dong = nhan + ":" + sau[: len(sau) - len(sau.lstrip())] + CHO_TRONG
+            ra_dong.append(dong)
+        return "\n".join(ra_dong)
 
     def _sach(s: str) -> str:
-        for r in cam_re:
-            s, n = r.subn(CHO_TRONG, s)
-            dem["bo_nho_khong_dien"] += n
+        s = _chan_bo_nho(s)
 
         def _thay(m: re.Match) -> str:
             if _co_trong_nguon(m.group(0), nguon, so_nguon):
@@ -1980,6 +2032,16 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     """
     prior_traces = state.get("traces") or {}
     cau_hoi = state.get("cau_hoi_day_du") or state.get("query") or ""
+    # Fix round 1 (review HIGH) — lời NGƯỜI HỎI, tách hẳn khỏi `cau_hoi`. Từ
+    # lượt 2 trở đi `giai_nghia` GHI ĐÈ `query` bằng một câu do MÔ HÌNH viết
+    # lại, nên `cau_hoi` ở trên là chữ của mô hình chứ không phải của người
+    # dùng. Rút ký ức từ đó là ghi vào TÀI KHOẢN một cái tên mô hình nhặt ở lượt
+    # trước (đo được: `ho_ten` của tài khoản bị thay bằng tên người thứ ba, và
+    # lượt ấy còn báo "Tôi đã nhớ Họ và tên"), còn gác "lượt này có hỏi tới
+    # không" bằng đó là để mô hình tự cấp phép xả ký ức vào văn bản. Hai phép ấy
+    # — và CHỈ hai phép ấy — chạy trên `cau_hoi_nguoi`; phần ĐỌC tài liệu vẫn
+    # dùng `cau_hoi` đã giải nghĩa, vì ở đó ngữ cảnh lượt trước là thứ cần.
+    cau_hoi_nguoi = state.get("cau_hoi_goc") or state.get("query") or ""
     goi = [
         {**t, "nhan": NHAN[i], "gui": loc_don_vi(t["don_vi"], cau_hoi)}
         for i, t in enumerate(tai_lieu[: len(NHAN)])
@@ -1997,9 +2059,19 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     # thì giá trị của nó là NGUỒN hợp lệ; khoá còn lại đi vào `cam` và không có
     # đường nào vào văn bản.
     nho = state.get("bo_nho_tai_khoan") or []
-    hoi_toi = {str(r.get("khoa") or "") for r in nho if khoa_duoc_hoi(cau_hoi, str(r.get("khoa") or ""))}
+    hoi_toi = {str(r.get("khoa") or "") for r in nho
+               if khoa_duoc_hoi(cau_hoi_nguoi, str(r.get("khoa") or ""))}
     bo_nho_cho_phep = [str(r.get("gia_tri") or "") for r in nho if str(r.get("khoa") or "") in hoi_toi]
-    bo_nho_cam = [str(r.get("gia_tri") or "") for r in nho if str(r.get("khoa") or "") not in hoi_toi]
+    # Fix round 1 (review HIGH) — `thoi_quen` (xưng hô, văn phong, mẫu hay dùng)
+    # KHÔNG BAO GIỜ vào `cam`. `_khoi_bo_nho` BẢO mô hình dùng chúng để xưng hô
+    # và chọn văn phong, còn nhãn của chúng ("xưng hô", "văn phong") không phải
+    # thứ ai gõ ra khi xin soạn một lá đơn — nên `khoa_duoc_hoi` luôn `False` và
+    # chúng luôn nằm trong `cam`: thiết kế ra lệnh sinh ra đúng chuỗi mà chính
+    # nó đi xoá. Đo được: `xung_ho = "em"` khiến mọi câu mở đầu bằng "em" bị
+    # thay thành `[…]`. Thứ R4 cấm là tự ĐIỀN một dữ kiện cá nhân vào ô trống;
+    # một thói quen soạn thảo không phải một ô nào để điền.
+    bo_nho_cam = [str(r.get("gia_tri") or "") for r in nho
+                  if str(r.get("khoa") or "") not in hoi_toi and r.get("loai") != "thoi_quen"]
     khoi_bo_nho = _khoi_bo_nho(nho)
 
     def _hong(tra_loi: str, nguon: str, usage: Usage | None = None) -> dict:
@@ -2162,6 +2234,18 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         muc_dich = "hoi"
     phep_tinh, phep_tinh_bo = _lay_phep_tinh(ra, goi)
     truong, truong_bo = _lay_truong(ra, goi)
+    # Fix round 1 (review HIGH) — `_lay_truong` kiểm ĐOẠN TRÍCH neo được về tài
+    # liệu, nó KHÔNG kiểm giá trị. Một biểu mẫu có dòng trắng "Họ và tên:" cho
+    # mô hình đúng một đoạn trích THẬT để neo vào, rồi nó điền giá trị ĐÃ NHỚ
+    # vào `gia_tri` của dòng ấy. Từ đó dòng đi HAI đường cùng lúc: xuống
+    # `du_kien_tai_lieu` (thành "dữ kiện của tài liệu" — R4 cấm ký ức thành
+    # facts) và vào `_nguon_soan`, nơi nó tự cấp phép cho chính mình nên `cam`
+    # hết hiệu lực và giá trị ra tới trang giấy. Bỏ dòng TRƯỚC cả hai đường,
+    # tại đúng chỗ duy nhất cả hai cùng đi qua. Gập hoa/thường vì `cam` bên
+    # dưới cũng gập — hai phép gác cùng một ký ức phải cùng một độ chặt.
+    cam_kh = {_khong_hoa(v) for v in bo_nho_cam if v}
+    if cam_kh:
+        truong = [o for o in truong if _khong_hoa(str(o.get("gia_tri") or "")) not in cam_kh]
     # Chỉ lượt SO SÁNH mới có khác biệt: một danh sách "khác biệt" trong lượt
     # tóm tắt là nội dung mô hình tự thêm vào, không phải thứ ai hỏi.
     khac_biet, khac_biet_bo = _lay_khac_biet(ra, goi) if muc_dich == "so_sanh" else ([], 0)
@@ -2181,7 +2265,7 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     # R5 — 0 token: dữ kiện người dùng tự khai đọc từ CHÍNH câu họ gõ, và chỉ ở
     # lượt SOẠN (nơi họ đang khai để dựng một văn bản). `graph_tra_cuu` ghi
     # xuống DB, đúng con đường `tai_lieu_du_kien_moi` đã đi — node này thuần.
-    bo_nho_moi = rut_bo_nho(cau_hoi) if muc_dich in MUC_DICH_SOAN else []
+    bo_nho_moi = rut_bo_nho(cau_hoi_nguoi) if muc_dich in MUC_DICH_SOAN else []
     can_du_kien = [str(s).strip() for s in (ra.get("can_du_kien") or []) if str(s).strip()]
     # Thiếu tài liệu để so: quyết định bằng LỜI NGƯỜI HỎI hoặc nhãn của mô hình,
     # cái nào đúng cũng đủ — xem `xin_so_sanh`.
