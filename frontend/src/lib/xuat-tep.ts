@@ -364,41 +364,6 @@ export function tieuDeTuBanThao(document: string): string | null {
   return m?.[1]?.trim() ?? null;
 }
 
-/**
- * Tiêu đề này có xuất hiện lại NHƯ CHỮ THÂN BÀI ở một khối văn xuôi nào
- * không (Phase 11 R4) — dùng để quyết định `XemTruocA4` có in `<h1>{tieuDe}`
- * lên trang hay không.
- *
- * Một bản thảo TÁI HIỆN nguyên văn một biểu mẫu thì chính biểu mẫu đó đã in
- * tiêu đề của nó ra như một dòng thân bài (quốc hiệu/tên biểu mẫu…) — `<h1>`
- * của KLAW khi đó là MỘT BẢN SAO thứ hai của cùng một dòng, không phải chữ
- * thật thứ hai. So khớp từng DÒNG của một khối (một khối có thể gộp nhiều
- * dòng nguồn bằng `\n`, ví dụ quốc hiệu + tiêu ngữ + tên biểu mẫu), và đòi
- * MỘT dòng đó BẰNG HẲN tiêu đề — không phải "tiêu đề nằm ở đâu đó trong
- * khối" (Phase 11 fix round 1): đo được thật trên BM.M05, câu "(Kèm theo Giấy
- * tiếp nhận thực hành/thực tập số … ngày … tháng … năm …)" CHỨA đúng cụm chữ
- * của tiêu đề như một cách NHẮC TỚI tài liệu, không phải IN LẠI tiêu đề —
- * `.includes()` cũ coi câu này là "tiêu đề đã in", ẩn oan `<h1>` trên một
- * form mà tiêu đề THẬT SỰ chưa từng xuất hiện ở đâu khác. Đòi bằng hẳn từng
- * dòng vẫn khớp đúng ca joined-by-`\n` (dòng đó, sau khi tách, bằng hẳn tiêu
- * đề), chỉ không còn khớp một CÂU KHÁC tình cờ chứa cùng cụm chữ.
- *
- * Một bản thảo KLAW SOẠN TỪ ĐẦU (không tái hiện tài liệu nào) không có lý do
- * gì để lặp lại tiêu đề trong thân bài — hàm này trả `false`, và `XemTruocA4`
- * GIỮ `<h1>` để trang không trở thành vô đề, đúng cảnh báo của brief.
- */
-export function tieuDeDaXuatHienTrongThan(tieuDe: string, muc: Muc[]): boolean {
-  const t = tieuDe.trim().toLocaleLowerCase("vi-VN");
-  if (!t) return false;
-  return muc.some((m) =>
-    m.khoi.some(
-      (k) =>
-        k.kind === "vanXuoi" &&
-        k.noiDung.split("\n").some((dong) => chuanHoa(dong).toLocaleLowerCase("vi-VN") === t),
-    ),
-  );
-}
-
 const BO_QUA = new Set(["SCRIPT", "STYLE"]);
 
 /**

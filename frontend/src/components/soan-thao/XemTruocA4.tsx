@@ -1,13 +1,6 @@
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import {
-  nhipHangVe,
-  soCotThat,
-  tiLeCotVe,
-  tieuDeDaXuatHienTrongThan,
-  type CanLe,
-  type Muc,
-} from "@/lib/xuat-tep";
+import { nhipHangVe, soCotThat, tiLeCotVe, type CanLe, type Muc } from "@/lib/xuat-tep";
 
 /** `CanLe` của MỘT Ô bảng → lớp căn lề. Ô giữ căn lề nguồn của chính nó
  * (`w:jc`, đọc qua `BangThat.canLeO`) thay vì bị căn giữa cả bảng: khối ký và
@@ -315,14 +308,24 @@ export function XemTruocA4({
 }: Props) {
   const chonMuc = (key: string) => onChonMuc?.(key);
 
-  // Phase 11 R4 — một bản thảo TỔNG QUÁT tái hiện nguyên văn một tài liệu đã
-  // in tiêu đề của nó ra như chữ thân bài (quốc hiệu, tên biểu mẫu…); `<h1>`
-  // ở đây khi đó là bản sao KLAW tự thêm, không phải chữ thứ hai của tài
-  // liệu — bỏ nó khỏi TRANG, không chỉ ẩn bằng CSS, để `docNoiDungTuDOM`
-  // (dùng chung cho `.docx` và PDF) cũng không thấy nó. Một bản thảo KLAW
-  // soạn từ đầu (tiêu đề không lặp lại trong thân bài) thì GIỮ `<h1>` — nếu
-  // không, trang sẽ vô đề vì không còn chỗ nào khác in ra tên văn bản đó.
-  const anTieuDe = laTongQuat && tieuDeDaXuatHienTrongThan(tieuDe, muc);
+  // Một bản thảo TỔNG QUÁT dựng lại một tài liệu NGƯỜI DÙNG đưa vào: tên văn
+  // bản là chữ của tài liệu đó, in ra ở đúng chỗ tài liệu in nó (thường trong
+  // letterhead hoặc một dòng thân bài). `<h1>` ở đây là dòng KLAW tự thêm,
+  // nên bỏ hẳn khỏi trang — chủ dự án chọn bỏ ở CẢ hai nơi (2026-09-18), màn
+  // hình và tệp tải về, sau khi được hỏi riêng về tệp.
+  //
+  // Bỏ khỏi DOM chứ không ẩn bằng CSS: `docNoiDungTuDOM` (dùng chung cho
+  // `.docx` và PDF) nhận diện tiêu đề qua đúng thẻ `H1`, nên một `<h1>` ẩn
+  // vẫn đi vào tệp — màn hình và tệp khi đó nói hai điều khác nhau.
+  //
+  // Hệ quả nhận rõ: một bản thảo KLAW soạn từ đầu, mà thân bài KHÔNG tự nhắc
+  // tên văn bản, giờ ra trang không có dòng tên nào và tệp tải về cũng vậy.
+  // Tên văn bản vẫn còn ở thẻ hội thoại và ở thanh tiêu đề của khung soạn
+  // thảo; không dựng một thẻ tiêu đề thay thế ở đây.
+  //
+  // Bản thảo THEO CHECKLIST không đi qua đây (`KhongGianSoanThao` có `<h1>`
+  // riêng), nên nhánh `H1` của `docNoiDungTuDOM` vẫn còn đường chạy thật.
+  const anTieuDe = laTongQuat;
 
   return (
     <div className="mx-auto w-full max-w-[794px]" style={{ fontSize: `${thuPhong}%` }}>

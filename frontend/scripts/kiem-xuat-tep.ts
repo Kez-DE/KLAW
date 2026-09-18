@@ -21,7 +21,6 @@ import {
   noiDungThanhPDF,
   soCotThat,
   tiLeCotVe,
-  tieuDeDaXuatHienTrongThan,
   tieuDeTuBanThao,
   type CanLe,
   type DongVanBan,
@@ -284,88 +283,6 @@ assert.equal(
 );
 assert.equal(canhLeThanhHuong("giua"), "center");
 assert.equal(canhLeThanhHuong("phai"), "right");
-
-// ────────────────────────────────────── Phase 11 R4 — bỏ tiêu đề bị lặp lại
-//
-// Một bản thảo TÁI HIỆN đã in tiêu đề của nó ra như chữ thân bài (quốc hiệu,
-// tên biểu mẫu…) — `<h1>` của KLAW khi đó là bản sao thứ hai, phải bị bỏ.
-assert.equal(
-  tieuDeDaXuatHienTrongThan("GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP", [
-    {
-      stt: 1,
-      key: "muc_1",
-      ten: "x",
-      tenThat: false,
-      noiDung: "",
-      bang: null,
-      khoi: [
-        {
-          kind: "vanXuoi",
-          noiDung: "Mẫu QT.ĐT.28-M05\nGIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP",
-          canhLe: "giua",
-        },
-      ],
-      vung: "than",
-      canCu: null,
-    },
-  ]),
-  true,
-  "tiêu đề khớp một khối gộp nhiều dòng (không cần khớp NGUYÊN cả khối)",
-);
-// Một bản thảo KLAW soạn TỪ ĐẦU (tiêu đề không lặp lại ở đâu trong thân bài)
-// → giữ `<h1>`, không để trang vô đề.
-assert.equal(
-  tieuDeDaXuatHienTrongThan("ĐƠN XIN NGHỈ VIỆC", [
-    {
-      stt: 1,
-      key: "muc_1",
-      ten: "x",
-      tenThat: true,
-      noiDung: "",
-      bang: null,
-      khoi: [{ kind: "vanXuoi", noiDung: "Kính gửi Ban Giám đốc,", canhLe: "trai" }],
-      vung: "than",
-      canCu: null,
-    },
-  ]),
-  false,
-  "tiêu đề không xuất hiện trong thân bài → giữ h1",
-);
-assert.equal(
-  tieuDeDaXuatHienTrongThan("", []),
-  false,
-  "tiêu đề rỗng không bao giờ coi là đã xuất hiện",
-);
-
-// Phase 11 fix round 1 — đo được thật trên BM.M05 (conversation `b0c76517…`):
-// tiêu đề THẬT ("GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP") không hề in ra thân bài
-// ở đâu — nó chỉ NHẮC TỚI, như tên tài liệu, bên trong một câu khác hẳn
-// ("Kèm theo Giấy tiếp nhận thực hành/thực tập số … ngày … tháng … năm …").
-// `.includes()` coi câu này là "tiêu đề đã in", ẩn oan `<h1>` trên một trang
-// mà tiêu đề chưa từng xuất hiện ở đâu khác — đúng lỗi round 1 báo lại.
-assert.equal(
-  tieuDeDaXuatHienTrongThan("GIẤY TIẾP NHẬN THỰC HÀNH/THỰC TẬP", [
-    {
-      stt: 1,
-      key: "muc_1",
-      ten: "x",
-      tenThat: false,
-      noiDung: "",
-      bang: null,
-      khoi: [
-        {
-          kind: "vanXuoi",
-          noiDung: "(Kèm theo Giấy tiếp nhận thực hành/thực tập số … ngày … tháng … năm …)",
-          canhLe: "giua",
-        },
-      ],
-      vung: "than",
-      canCu: null,
-    },
-  ]),
-  false,
-  "câu NHẮC TỚI tên tài liệu không phải câu IN LẠI tiêu đề — giữ h1",
-);
 
 // Phase 8 R4 — hàng ngắn hơn hàng tiêu đề (ô gộp) đi qua NGUYÊN trong `khoi`,
 // `coSpanHang` bên dưới mới quyết định cách vẽ nó.
@@ -1245,4 +1162,4 @@ assert.ok(
   "chiều cao khai báo phải chiếm chỗ thật trong PDF, không bị bỏ qua khi vẽ",
 );
 
-console.info("kiem-xuat-tep: 91/91 đạt");
+console.info("kiem-xuat-tep: 87/87 đạt");
