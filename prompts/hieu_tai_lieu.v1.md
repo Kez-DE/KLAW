@@ -10,7 +10,6 @@ Mỗi dòng là MỘT đơn vị văn bản, đánh số `[<nhãn tài liệu>-<
 trí của nó trong tài liệu.
 
 {tai_lieu}
-
 {phan_doan}
 # Quy tắc
 

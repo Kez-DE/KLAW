@@ -36,7 +36,7 @@ from src.agents.nodes.assemble import ResultType, assemble
 from src.models.schemas import TraCuuResponse
 from src.services import ban_thao
 from src.services.doc_tai_lieu import DonViVanBan, doc
-from src.services.llm import TruncatedOutputError
+from src.services.llm import TruncatedOutputError, Usage
 
 A_ID = "aaaaaaaa-0000-0000-0000-000000000001"
 
@@ -1515,6 +1515,88 @@ def test_tai_lieu_ngan_cat_giua_chung_cung_tra_loi_KHONG_DUNG_LAI_DUOC():
     ra = h.hieu_tai_lieu({"query": "soạn biên bản bàn giao"}, TL, _LuonCat(), "m")
     so_ky_tu = sum(len(dv.noi_dung) for t in TL for dv in t["don_vi"])
     assert ra["tai_lieu_ket"]["tra_loi_ngan"] == h.KHONG_DUNG_LAI_DUOC.format(so_ky_tu=so_ky_tu)
+
+
+# Phase 16 fix round — prompt không đổi khi không chia; chi phí thật khi hỏng;
+# JSON hỏng ở `finish_reason=stop` đếm riêng.
+
+
+def _render(phan_doan: str) -> str:
+    return h.PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi="q", tai_lieu="[A-0] x", phan_doan=phan_doan)
+
+
+def test_prompt_khong_chia_render_dung_MOT_dong_trong_truoc_quy_tac():
+    """`phan_doan=""` (lượt không chia) phải render ra đúng template trước Phase
+    16: MỘT dòng trống giữa khối tài liệu và `# Quy tắc`, không phải hai —
+    placeholder đứng riêng một dòng từng để lại một dòng thừa."""
+    prompt = _render("")
+    assert "\n\n\n" not in prompt
+    assert "[A-0] x\n\n# Quy tắc" in prompt
+
+
+@pytest.mark.parametrize(
+    "doan",
+    [h._phan_doan(0, 2, "A", 0, 14, None), h._phan_doan(1, 2, "A", 15, 19, "tao_van_ban")],
+    ids=["luot_dau", "luot_tiep"],
+)
+def test_prompt_chia_thi_phan_doan_co_dong_trong_hai_ben(doan):
+    """Lượt chia: đoạn chèn vẫn có một dòng trống mỗi bên, không dính vào khối
+    tài liệu phía trên hay tiêu đề `# Quy tắc` phía dưới."""
+    prompt = _render(doan)
+    assert "\n\n\n" not in prompt
+    assert f"[A-0] x\n\n{doan.strip()}\n\n# Quy tắc" in prompt
+
+
+class _LLMCatOPhanHai:
+    """Phần 1 qua với usage biết trước, phần 2 cắt cấu trúc mang usage riêng —
+    traces phải ghi TỔNG chi phí thật của cả hai phần, không phải 0 (Concern 3
+    của `.sdd/phase-16-report.md`)."""
+
+    def chat(self, model, messages, json_schema=None, max_tokens=None):
+        if "phần 1/2" in messages[-1]["content"]:
+            return json.dumps(_ra(), ensure_ascii=False), Usage(10, 20, 0.001)
+        raise TruncatedOutputError("model m: JSON bị cắt giữa chừng (finish_reason=length)",
+                                   usage=Usage(100, 200, 0.01))
+
+
+def test_cat_o_phan_hai_ghi_TONG_chi_phi_that_cua_ca_hai_phan():
+    ra = h.hieu_tai_lieu({"query": "dựng lại nguyên văn biểu mẫu này"}, TL_LON, _LLMCatOPhanHai(), "m")
+    assert ra["traces"]["hieu_tai_lieu_nguon"] == "qua_dai_dau_ra"
+    assert (ra["traces"]["hieu_tai_lieu_token_in"], ra["traces"]["hieu_tai_lieu_token_out"]) == (110, 220)
+    assert ra["traces"]["hieu_tai_lieu_cost_usd"] == pytest.approx(0.011)
+
+
+def test_cat_MOT_luot_ghi_chi_phi_that_cua_luot_do():
+    class _CatCoUsage:
+        def chat(self, *a, **k):
+            raise TruncatedOutputError("model m: JSON bị cắt giữa chừng (finish_reason=length)",
+                                       usage=Usage(5, 7, 0.002))
+
+    ra = h.hieu_tai_lieu({"query": "soạn biên bản bàn giao"}, TL, _CatCoUsage(), "m")
+    assert ra["traces"]["hieu_tai_lieu_nguon"] == "qua_dai_dau_ra"
+    assert (ra["traces"]["hieu_tai_lieu_token_in"], ra["traces"]["hieu_tai_lieu_token_out"]) == (5, 7)
+    assert ra["traces"]["hieu_tai_lieu_cost_usd"] == pytest.approx(0.002)
+
+
+class _LLMJsonHong:
+    """`finish_reason=stop` nhưng JSON dở dang — llm.py KHÔNG thử lại ca này
+    (chỉ `length`), nên chuỗi hỏng tới thẳng `json.loads` ở node."""
+
+    def chat(self, model, messages, json_schema=None, max_tokens=None):
+        return '{"tieu_de": "x", "van_ban": {"muc": [', Usage(10, 20, 0.001)
+
+
+@pytest.mark.parametrize("tl", [TL, TL_LON], ids=["mot_luot", "chia_phan"])
+def test_json_hong_ghi_nguon_rieng_va_chi_phi_that(tl):
+    """Thông điệp vẫn là CHUA_DOC_DUOC (thử lại là lời khuyên đúng cho một phản
+    hồi hỏng không tất định), nhưng `nguon` phải là `json_hong` — đếm được
+    riêng, tách khỏi lỗi mạng/khác — và chi phí của lượt hỏng phải được ghi."""
+    ra = h.hieu_tai_lieu({"query": "dựng lại nguyên văn biểu mẫu này"}, tl, _LLMJsonHong(), "m")
+    assert ra["tai_lieu_ket"]["tra_loi_ngan"] == h.CHUA_DOC_DUOC
+    assert ra["traces"]["hieu_tai_lieu_nguon"] == "json_hong"
+    assert (ra["traces"]["hieu_tai_lieu_token_in"], ra["traces"]["hieu_tai_lieu_token_out"]) == (10, 20)
+    assert ra["traces"]["hieu_tai_lieu_cost_usd"] == pytest.approx(0.001)
+    assert ra["van_ban_tong_quat"] is None
 
 
 # ──────────────────────────────────────────── hình dạng mục / markdown / audit

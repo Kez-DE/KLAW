@@ -354,23 +354,26 @@ def _phan_doan(i: int, so_phan: int, nhan: str, lo: int, hi: int, muc_dich: str 
     if so_phan <= 1:
         return ""
     pham_vi = f"đơn vị {nhan}-{lo} đến {nhan}-{hi}"
+    # Dòng trống HAI ĐẦU đoạn nằm ở đây, không nằm trong template: nhờ đó lượt
+    # không chia (`phan_doan=""`) render ra đúng từng byte template trước Phase
+    # 16, còn lượt chia vẫn có một dòng trống mỗi bên đoạn chèn.
     if muc_dich is None:
         return (
-            f"Tài liệu này dài hơn một lượt trả lời an toàn nên được chia {so_phan} phần liên "
+            f"\nTài liệu này dài hơn một lượt trả lời an toàn nên được chia {so_phan} phần liên "
             f"tiếp — LƯỢT NÀY chỉ thấy phần 1/{so_phan} ({pham_vi}). Nếu câu hỏi xin dựng/sửa văn "
             f"bản (`tao_van_ban`/`sua_ban_thao`): `van_ban.muc` CHỈ viết cho đúng phạm vi đang "
             f"thấy, ĐỪNG viết phần kết luận/chữ ký — phần sau còn tiếp tục và sẽ tự nối vào cuối "
-            f"`muc` của lượt này. Mọi mục khác trả lời bình thường theo quy tắc bên dưới."
+            f"`muc` của lượt này. Mọi mục khác trả lời bình thường theo quy tắc bên dưới.\n"
         )
     la_cuoi = i == so_phan - 1
     ket_luan = "viết đủ phần kết luận/chữ ký nếu tài liệu có" if la_cuoi else "ĐỪNG viết phần kết luận/chữ ký"
     return (
-        f"Đây là phần {i + 1}/{so_phan} của CÙNG một tài liệu ({pham_vi}); mục đích lượt này đã "
+        f"\nĐây là phần {i + 1}/{so_phan} của CÙNG một tài liệu ({pham_vi}); mục đích lượt này đã "
         f"xác định là `{muc_dich}` ở phần trước. CHỈ tiếp tục `van_ban.muc` cho đúng phạm vi đang "
         f"thấy, đúng thứ tự, không lặp lại mục đã dựng ở phần trước; đây "
         f"{'LÀ' if la_cuoi else 'CHƯA phải'} phần cuối — {ket_luan}. Mọi mảng khác (quan_sat, "
         f"suy_luan, can_du_kien, phep_tinh, truong, khac_biet, dieu_khoan) để RỖNG — đã trả lời ở "
-        f"phần trước."
+        f"phần trước.\n"
     )
 
 
@@ -406,6 +409,10 @@ def _hieu_theo_phan(llm, model: str, cau_hoi: str, goi: list[dict], prompt_path:
     so_phan = len(phan)
     tong: dict[str, int | float] = {"token_in": 0, "token_out": 0, "cost_usd": 0.0}
 
+    def _cong(usage: Usage) -> None:
+        for k, v in (("token_in", usage.token_in), ("token_out", usage.token_out), ("cost_usd", usage.cost_usd)):
+            tong[k] += v
+
     def _goi_mot_phan(i: int, muc_dich_da_biet: str | None) -> dict:
         lo, hi = phan[i][0].chi_so, phan[i][-1].chi_so
         goi_phan = [{**t, "gui": phan[i]}, *goi[1:]]
@@ -414,10 +421,20 @@ def _hieu_theo_phan(llm, model: str, cau_hoi: str, goi: list[dict], prompt_path:
             tai_lieu=_khoi_tai_lieu(goi_phan),
             phan_doan=_phan_doan(i, so_phan, nhan_chu, lo, hi, muc_dich_da_biet),
         )
-        raw, usage = llm.chat(model, messages(prompt), json_schema=schema_hieu(nhan), max_tokens=TOI_DA_TOKEN_RA)
-        for k, v in (("token_in", usage.token_in), ("token_out", usage.token_out), ("cost_usd", usage.cost_usd)):
-            tong[k] += v
-        ra_i = json.loads(raw)
+        try:
+            raw, usage = llm.chat(model, messages(prompt), json_schema=schema_hieu(nhan), max_tokens=TOI_DA_TOKEN_RA)
+            _cong(usage)
+            ra_i = json.loads(raw)
+        except (TruncatedOutputError, json.JSONDecodeError) as e:
+            # Chi phí đã trả THẬT cho OpenRouter dù lượt hỏng: các phần đã qua
+            # (và phần JSON hỏng — `_cong` chạy trước `json.loads`) nằm trong
+            # `tong`, phần bị cắt mang usage riêng trong lỗi. Gộp lại rồi gắn vào
+            # lỗi để `hieu_tai_lieu` ghi đúng vào traces thay vì 0.
+            u = getattr(e, "usage", None)
+            if u is not None:
+                _cong(u)
+            e.usage = Usage(token_in=tong["token_in"], token_out=tong["token_out"], cost_usd=tong["cost_usd"])
+            raise
         if not isinstance(ra_i, dict):
             raise TypeError(f"phản hồi phải là object, được {type(ra_i).__name__}")
         return ra_i
@@ -1617,7 +1634,9 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     da_dung = [{"id": t["id"], "ten_tep": t["ten_tep"], "nhan": t["nhan"]} for t in goi]
     so_don_vi = sum(len(t["gui"]) for t in goi)
 
-    def _hong(tra_loi: str, nguon: str) -> dict:
+    def _hong(tra_loi: str, nguon: str, usage: Usage | None = None) -> dict:
+        # `usage`: chi phí đã trả THẬT cho OpenRouter dù lượt hỏng — traces phải
+        # ghi đúng, không phải 0 như trước (Phase 16, Concern 3).
         return {
             **state,
             "tai_lieu_ket": _ket("hoi", None, tra_loi, [], [], [], da_dung),
@@ -1629,8 +1648,10 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
             "van_ban_tong_quat": None,
             "traces": {**prior_traces, "hieu_tai_lieu_nguon": nguon, "hieu_tai_lieu_model": model,
                        "hieu_tai_lieu_so_don_vi_gui": so_don_vi, "hieu_tai_lieu_so_quan_sat_giu": 0,
-                       "hieu_tai_lieu_so_quan_sat_bo": 0, "hieu_tai_lieu_token_in": 0,
-                       "hieu_tai_lieu_token_out": 0, "hieu_tai_lieu_cost_usd": 0.0},
+                       "hieu_tai_lieu_so_quan_sat_bo": 0,
+                       "hieu_tai_lieu_token_in": usage.token_in if usage else 0,
+                       "hieu_tai_lieu_token_out": usage.token_out if usage else 0,
+                       "hieu_tai_lieu_cost_usd": usage.cost_usd if usage else 0.0},
         }
 
     if not goi:
@@ -1665,13 +1686,24 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
             ra = json.loads(raw)
             if not isinstance(ra, dict):
                 raise TypeError(f"phản hồi phải là object, được {type(ra).__name__}")
-    except TruncatedOutputError:
+    except TruncatedOutputError as e:
         # Phase 16 R3 — đã chia lượt (hoặc tài liệu ngắn nhưng vẫn cắt) mà vẫn
         # cắt cấu trúc: nói thẳng độ dài đo được và hai lối đi thật, không lặp
         # lại lời khuyên "tách nhỏ rồi gửi lại" sai chỗ của `QUA_DAI` cho một
         # biểu mẫu người dùng không tự viết ra.
         logger.warning("hieu_tai_lieu: %d ký tự vượt khả năng dựng lại dù đã chia phần", so_ky_tu_vao)
-        return _hong(KHONG_DUNG_LAI_DUOC.format(so_ky_tu=so_ky_tu_vao), "qua_dai_dau_ra")
+        return _hong(KHONG_DUNG_LAI_DUOC.format(so_ky_tu=so_ky_tu_vao), "qua_dai_dau_ra", e.usage)
+    except json.JSONDecodeError as e:
+        # JSON hỏng ở `finish_reason=stop` (đo được một lần trong Phase 16, xem
+        # docstring `llm.chat`) — llm.py chỉ thử lại khi `length`, nên ca này
+        # rơi tới đây. Ghi `nguon` riêng để đếm được lỗi này, tách khỏi lỗi
+        # mạng/khác; thông điệp vẫn là CHUA_DOC_DUOC vì thử lại là lời khuyên
+        # đúng cho một phản hồi hỏng không tất định. Đường chia phần gắn `usage`
+        # gộp vào lỗi (`_hieu_theo_phan`); đường một lượt đã có `usage` cục bộ
+        # từ trước `json.loads`.
+        logger.warning("hieu_tai_lieu: model %s trả JSON hỏng dù không bị cắt — %s tại vị trí %d",
+                       model, e.msg, e.pos)
+        return _hong(CHUA_DOC_DUOC, "json_hong", getattr(e, "usage", usage))
     except Exception as e:
         # Cùng ruling với `rut_du_kien`: lỗi hạ tầng KHÔNG được hạ cấp thành
         # "tài liệu không có gì" — nói rõ là chưa đọc được để người dùng thử lại.

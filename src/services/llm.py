@@ -61,6 +61,12 @@ class TruncatedOutputError(ValueError):
     nhiều lượt) phân biệt được ca này với lỗi hạ tầng khác, trả lời đúng người
     dùng thay vì "chưa đọc được, thử lại" chung chung."""
 
+    def __init__(self, *args, usage: "Usage | None" = None) -> None:
+        # Chi phí đã trả THẬT cho OpenRouter dù lượt hỏng — mang theo trong
+        # lỗi để caller ghi đúng vào traces thay vì 0 (Phase 16, Concern 3).
+        super().__init__(*args)
+        self.usage = usage
+
 
 @dataclass(frozen=True)
 class Usage:
@@ -232,10 +238,13 @@ class LlmClient:
             except _JsonDoDangError as e:
                 so_lan_length_cat += 1
                 if so_lan_length_cat > 1 or attempt == self.max_retries:
+                    # `tong` đã cộng dồn MỌI lần HTTP 200 của request này (lần cắt
+                    # đầu lẫn lần thử lại) — đúng số tiền thật, không chỉ lần cuối.
                     raise TruncatedOutputError(
                         f"model {model}: JSON bị cắt giữa chừng (finish_reason={e}) sau "
                         f"{so_lan_length_cat} lần thử — có vẻ CẤU TRÚC (schema + ngữ cảnh cần "
-                        f"nhiều token hơn provider chịu phát), không thử thêm"
+                        f"nhiều token hơn provider chịu phát), không thử thêm",
+                        usage=self._usage_from(model, {"usage": tong}),
                     ) from None
                 logger.warning(
                     "model %s: JSON bị cắt giữa chừng (finish_reason=%s), thử lại 1 lần (lần %d)",
