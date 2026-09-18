@@ -210,7 +210,36 @@ export type LeTrang = {
   chanTrang: number;
 };
 
-export type KhoiVanBan = { kind: "dong"; d: DongVanBan } | ({ kind: "bang" } & BangThat);
+/**
+ * MỘT ảnh đã tách khỏi tài liệu nguồn (quyết định 2026-09-18) — logo
+ * letterhead, con dấu, chữ ký quét.
+ *
+ * `url` trỏ về `/tai-lieu/{viec}/anh/{tên}`, endpoint DUY NHẤT phát bytes và
+ * là chỗ kiểm chủ sở hữu. Không phải data URI: nhúng bytes vào bản thảo sẽ
+ * đẩy con dấu của bên thứ ba vào mọi phản hồi và mọi khung SSE.
+ *
+ * `rong`/`cao` là EMU (914400 EMU = 1 inch), đúng đơn vị `wp:extent` của
+ * nguồn — cùng lý lẽ `KhoangChu.co` giữ nửa điểm và `LeTrang` giữ twip: quy
+ * đổi ở cửa vào thì `.docx` phải quy ngược lại và làm tròn hai lần. `0` nghĩa
+ * là nguồn KHÔNG khai cỡ, và ở đó ba nơi vẽ dùng cỡ thật của chính ảnh.
+ */
+export type AnhNguon = {
+  url: string;
+  rong: number;
+  cao: number;
+  vung: "than" | "dau_trang" | "chan_trang";
+  thuTu: number;
+};
+
+/** 1pt = 12700 EMU — mốc quy `wp:extent` sang đơn vị ba nơi vẽ dùng được. */
+export const EMU_MOI_PT = 12700;
+
+/** 1px = 9525 EMU (96 dpi) — đơn vị `docx.IMediaTransformation` nhận, và là
+ *  hệ quy chiếu của `HTMLImageElement.naturalWidth`. */
+export const EMU_MOI_PX = 9525;
+
+export type KhoiVanBan =
+  { kind: "dong"; d: DongVanBan } | ({ kind: "bang" } & BangThat) | { kind: "anh"; a: AnhNguon };
 
 export type NoiDungXuat = {
   khoi: KhoiVanBan[];
@@ -307,6 +336,7 @@ type ClauseTho = {
   khoi?: unknown;
   vung?: unknown;
   le_trang?: unknown;
+  anh?: unknown;
 };
 
 /** `c.bang` thô (kiểu chưa biết, tới từ `unknown[]`) → hàng×ô hợp lệ, hoặc
@@ -852,6 +882,58 @@ export function leTrangTuBanThao(banThao: BanThao): LeTrang | null {
 }
 
 /**
+ * `c.anh` thô → danh sách ảnh nguồn, bỏ RIÊNG phần tử sai hình dạng.
+ *
+ * Fail-closed từng phần tử chứ không cả bộ (khác `leTrangHopLe`): bốn lề của
+ * một trang là MỘT sự thật — nửa theo nguồn nửa theo mặc định là một trang
+ * không tồn tại ở đâu cả — còn hai tấm ảnh là HAI sự thật độc lập, và mất
+ * con dấu không phải lý do để mất luôn logo.
+ *
+ * `url` phải là đường dẫn TƯƠNG ĐỐI bắt đầu bằng `/tai-lieu/`: đây là chuỗi
+ * đi thẳng vào `src` của một `<img>`, nên một `javascript:` hay một tên miền
+ * lạ lọt vào `clauses` không được có đường nào ra tới đó.
+ */
+function anhHopLe(tho: unknown): AnhNguon[] {
+  if (!Array.isArray(tho)) return [];
+  const ra: AnhNguon[] = [];
+  for (const x of tho) {
+    if (typeof x !== "object" || x === null) continue;
+    const a = x as Record<string, unknown>;
+    const url = typeof a["url"] === "string" ? (a["url"] as string) : "";
+    if (!/^\/tai-lieu\/[^/]+\/anh\/[A-Za-z0-9_-]+\.[A-Za-z0-9]{1,8}$/.test(url)) continue;
+    const so = (v: unknown) => (Number.isFinite(Number(v)) ? Math.max(0, Number(v)) : 0);
+    ra.push({
+      url,
+      rong: so(a["rong"]),
+      cao: so(a["cao"]),
+      vung: vungHopLe(a["vung"]),
+      thuTu: so(a["thu_tu"]),
+    });
+  }
+  // Theo VÙNG rồi theo thứ tự nguồn: ba nơi vẽ đặt logo đầu trang lên trước
+  // thân bài và con dấu chân trang xuống sau, và trong mỗi vùng giữ đúng thứ
+  // tự chúng đứng trong tệp.
+  const hang = { dau_trang: 0, than: 1, chan_trang: 2 };
+  return ra.sort((x, y) => hang[x.vung] - hang[y.vung] || x.thuTu - y.thuTu);
+}
+
+/**
+ * Ảnh NGUỒN của bản thảo — rỗng khi tài liệu gốc không có ảnh nào (và với mọi
+ * bản thảo lưu TRƯỚC trường này).
+ *
+ * Đọc ở clause ĐẦU TIÊN có khoá, đúng khuôn `leTrangTuBanThao`: ảnh là sự thật
+ * của cả TÀI LIỆU và backend chép nó lên mọi mục vì `clauses` là kênh duy nhất
+ * ra giao diện. Đọc gộp mọi mục sẽ vẽ cùng một logo N lần.
+ */
+export function anhTuBanThao(banThao: BanThao): AnhNguon[] {
+  for (const c of banThao.clauses as ClauseTho[]) {
+    const anh = anhHopLe(c.anh);
+    if (anh.length > 0) return anh;
+  }
+  return [];
+}
+
+/**
  * Tiêu đề THẬT của bản thảo — dòng H1 đầu tiên trong `document` (Markdown),
  * đúng cách `ban_thao._render_markdown` dựng từ `tieu_de` mô hình soạn (Phase
  * 7 R4). `BanThao.ten` KHÔNG mang tiêu đề này: nó trả lời "bản thảo này THUỘC
@@ -1022,6 +1104,17 @@ export const THUOC_TINH_LE = {
   trai: "data-le-trai",
   dauTrang: "data-le-dau-trang",
   chanTrang: "data-le-chan-trang",
+} as const;
+
+/** Tên thuộc tính chở MỘT ảnh nguồn trên chính thẻ `<img>` — cùng luật
+ *  `THUOC_TINH_LE`: `XemTruocA4` ghi (và vẽ bằng `width`/`height` cùng con số
+ *  ấy), `docNoiDungTuDOM` đọc lại để `.docx`/PDF đặt ĐÚNG cỡ màn hình đang
+ *  dùng. EMU, không `pt`: `.docx` ghi lại chính đơn vị nguồn, và đọc ngược
+ *  `px` đã tính rồi quy lại là làm tròn hai lần. */
+export const THUOC_TINH_ANH = {
+  moc: "data-anh",
+  rong: "data-anh-rong",
+  cao: "data-anh-cao",
 } as const;
 
 /** Tên thuộc tính chở MỘT mốc tab — cùng luật `THUOC_TINH_CHU`: `XemTruocA4`
@@ -1254,10 +1347,28 @@ export function docNoiDungTuDOM(sheet: HTMLElement): NoiDungXuat {
   // (`querySelectorAll` luôn trả theo thứ tự DOM, bất kể nhóm nào trong bộ
   // chọn khớp) — một bảng đứng giữa hai đoạn văn (như bảng đánh giá) phải ở
   // ĐÚNG chỗ đó trong tệp `.docx`, không bị dồn hết xuống cuối như `oKy`.
-  const blocks = sheet.querySelectorAll<HTMLElement>("h1, p, table");
+  const blocks = sheet.querySelectorAll<HTMLElement>(`h1, p, table, img[${THUOC_TINH_ANH.moc}]`);
   for (const el of Array.from(blocks)) {
     if (boQuaKhiXuat(el)) continue;
     if (khoiKy && khoiKy.contains(el)) continue;
+    if (el.tagName === "IMG") {
+      // Ảnh đọc lại từ chính thẻ đã vẽ, cùng bộ chọn với `h1/p/table` nên nó
+      // giữ ĐÚNG chỗ nó đứng trong tài liệu — một logo đầu trang không bị dồn
+      // xuống cuối tệp như `oKy`.
+      const img = el as HTMLImageElement;
+      const so = (ten: string) => Number(el.getAttribute(ten) ?? 0) || 0;
+      // Cỡ NGUỒN khai thắng; nguồn không khai (`wp:extent` thiếu, ảnh VML
+      // không có `style`) thì lùi về cỡ THẬT của chính ảnh — `naturalWidth`
+      // là số trình duyệt đã đo, không phải một con số bịa ra. Cả hai cùng 0
+      // nghĩa là ảnh chưa tải được: BỎ, và phần còn lại của tệp vẫn đủ.
+      const rong = so(THUOC_TINH_ANH.rong) || img.naturalWidth * EMU_MOI_PX;
+      const cao = so(THUOC_TINH_ANH.cao) || img.naturalHeight * EMU_MOI_PX;
+      const url = img.getAttribute("src") ?? "";
+      if (url && rong > 0 && cao > 0) {
+        khoi.push({ kind: "anh", a: { url, rong, cao, vung: "than", thuTu: 0 } });
+      }
+      continue;
+    }
     if (el.tagName === "TABLE") {
       const bang = docBangTuPhanTu(el);
       if (bang.hang.length > 0) khoi.push({ kind: "bang", ...bang });
@@ -1654,6 +1765,80 @@ export async function dongThanhParagraph(d: DongVanBan) {
 }
 
 /** Xuất tệp Word (.docx) đúng thể thức: Times New Roman 13pt, lề 2cm/3cm. */
+/** Bốn kiểu ảnh ba nơi vẽ CÙNG dựng được, nhận theo BYTES ĐẦU — cùng bộ
+ *  `doc_tai_lieu._ANH_NHAN_DANG` phía máy chủ khoá lại. Nhận theo bytes chứ
+ *  không theo `Content-Type` hay đuôi: đây là tệp của người lạ, và `docx` chỉ
+ *  nhận đúng bốn tên này (`"jpg" | "png" | "gif" | "bmp"`). */
+const NHAN_DANG_ANH: ReadonlyArray<readonly [readonly number[], "png" | "jpg" | "gif" | "bmp"]> = [
+  [[0x89, 0x50, 0x4e, 0x47], "png"],
+  [[0xff, 0xd8, 0xff], "jpg"],
+  [[0x47, 0x49, 0x46, 0x38], "gif"],
+  [[0x42, 0x4d], "bmp"],
+];
+
+/**
+ * Bytes của MỘT ảnh nguồn, `null` khi không lấy được hoặc không nhận ra kiểu.
+ *
+ * `fetch` chứ không vẽ lại qua `<canvas>`: canvas mã hoá LẠI ảnh (mất nét ở
+ * một con dấu quét, và đổi hẳn kiểu tệp), còn ở đây trình duyệt đã tải chính
+ * đường dẫn này để vẽ ra màn hình nên lượt `fetch` thứ hai gần như luôn trúng
+ * bộ nhớ đệm. `credentials: "include"` vì endpoint ảnh kiểm chủ sở hữu.
+ *
+ * FAIL CLOSED: mọi lỗi về `null`, và người gọi bỏ đúng tấm ảnh đó — cả tệp
+ * tải về vẫn đủ phần còn lại, đúng luật `leTrangHopLe` đã đặt ở cửa vào.
+ */
+async function bytesAnh(
+  url: string,
+): Promise<{ data: Uint8Array; kieu: "png" | "jpg" | "gif" | "bmp" } | null> {
+  try {
+    const res = await fetch(url, { credentials: "include" });
+    if (!res.ok) return null;
+    const data = new Uint8Array(await res.arrayBuffer());
+    const kieu = NHAN_DANG_ANH.find(([dau]) => dau.every((b, i) => data[i] === b))?.[1];
+    return kieu ? { data, kieu } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * MỘT ảnh nguồn → một `Paragraph` chứa `ImageRun`, căn giữa.
+ *
+ * Cỡ quy từ EMU (đơn vị nguồn `wp:extent`) sang PIXEL vì đó là đơn vị
+ * `IMediaTransformation` nhận — `docx` tự nhân 9525 để về lại EMU, nên con số
+ * cuối cùng trong tệp đúng bằng con số nguồn khai, không qua một phép làm
+ * tròn nào của mình.
+ *
+ * Lấy bytes không được thì trả về một `Paragraph` RỖNG chứ không ném: một con
+ * dấu không tải được không đáng làm hỏng cả tệp người dùng đang tải về —
+ * đúng luật fail-closed của cả bản vá.
+ *
+ * Căn GIỮA: `vung` không đi qua được `docNoiDungTuDOM` (ở đó mọi khối đều
+ * thuộc thân trang `.docx`), và một logo letterhead căn giữa là thể thức đúng
+ * của văn bản hành chính Việt Nam.
+ * ponytail: trần "ảnh nào cũng căn giữa". Nâng lên căn lề nguồn khi
+ * `wp:anchor/@positionH` được đọc — việc đó cần một quyết định cho vị trí
+ * tuyệt đối, thứ quyết định 2026-09-18 đã để ngoài phạm vi.
+ */
+export async function anhThanhParagraph(a: AnhNguon) {
+  const { AlignmentType, ImageRun, Paragraph } = await import("docx");
+  const anh = await bytesAnh(a.url);
+  if (!anh) return new Paragraph({ children: [] });
+  return new Paragraph({
+    alignment: AlignmentType.CENTER,
+    children: [
+      new ImageRun({
+        type: anh.kieu,
+        data: anh.data,
+        transformation: {
+          width: Math.max(1, Math.round(a.rong / EMU_MOI_PX)),
+          height: Math.max(1, Math.round(a.cao / EMU_MOI_PX)),
+        },
+      }),
+    ],
+  });
+}
+
 export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
   const {
     AlignmentType,
@@ -1725,20 +1910,22 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
   // Đoạn văn dựng NGAY (đồng bộ); bảng dựng bất đồng bộ (`bangThanhTable` tự
   // `import("docx")`) — `Promise.all` giữ ĐÚNG thứ tự `khoi` đã đọc từ DOM.
   const noiDungThan = await Promise.all(
-    khoi.map((k) =>
+    khoi.map(async (k) =>
       k.kind === "dong"
         ? dongThanhParagraph(k.d)
-        : bangThanhTable(
-            k.hang,
-            k.nhip,
-            k.tiLe,
-            k.vien,
-            k.cao,
-            k.canLeO,
-            k.chuO,
-            k.vienO ?? [],
-            k.caoLuat ?? [],
-          ),
+        : k.kind === "anh"
+          ? await anhThanhParagraph(k.a)
+          : bangThanhTable(
+              k.hang,
+              k.nhip,
+              k.tiLe,
+              k.vien,
+              k.cao,
+              k.canLeO,
+              k.chuO,
+              k.vienO ?? [],
+              k.caoLuat ?? [],
+            ),
     ),
   );
 
@@ -1935,6 +2122,17 @@ export async function noiDungThanhPDF(
   // để mọi phép tính bên dưới (`conCho`, bề rộng cột, khối ký) tự đi theo.
   const LE_PDF = leTrangMm(noiDung.leTrang);
   const RONG_NOI_DUNG_PDF = RONG_A4 - LE_PDF.trai - LE_PDF.phai;
+
+  // Bytes ảnh nạp TRƯỚC, một lượt: vòng vẽ `trangCuaKhoi` bên dưới là ĐỒNG BỘ
+  // (mỗi khối trả về số trang của nó), nên không có chỗ nào `await` được ở
+  // giữa. Ảnh nạp không được vắng mặt khỏi Map và `veAnh` bỏ qua nó — cùng
+  // luật fail-closed của `anhThanhParagraph`.
+  const byteAnh = new Map<string, { data: Uint8Array; kieu: "png" | "jpg" | "gif" | "bmp" }>();
+  for (const k of noiDung.khoi) {
+    if (k.kind !== "anh" || byteAnh.has(k.a.url)) continue;
+    const b = await bytesAnh(k.a.url);
+    if (b) byteAnh.set(k.a.url, b);
+  }
 
   let y = LE_PDF.tren;
   let trang = 1;
@@ -2153,6 +2351,49 @@ export async function noiDungThanhPDF(
   };
 
   /** Một bảng — trả về số trang đã BẮT ĐẦU vẽ (hàng tiêu đề của nó). */
+  /** EMU → mm. 914400 EMU = 1 inch = 25.4mm. */
+  const emuMm = (emu: number) => (emu / 914400) * 25.4;
+
+  /**
+   * MỘT ảnh nguồn lên trang PDF, trả về số trang đã vẽ nó.
+   *
+   * Không chẻ khối, đúng luật khối ký (R3): một tấm ảnh cắt đôi qua hai trang
+   * là một con dấu rách. Không vừa chỗ còn lại thì sang trang mới rồi vẽ trọn.
+   * Ảnh CAO hơn cả một trang thì vẫn vẽ (và bị mép trang cắt) thay vì lặp vô
+   * hạn `trangMoi()` — một ảnh bìa A4 nằm đúng ca đó.
+   *
+   * Căn GIỮA theo bề rộng cột chữ, cùng lựa chọn `anhThanhParagraph` của
+   * `.docx`: hai tệp phải nói cùng một điều.
+   *
+   * Nạp bytes không được thì KHÔNG vẽ và KHÔNG chừa chỗ — cùng luật
+   * fail-closed, và chừa một khoảng trắng cho một thứ không vẽ ra sẽ đẩy lệch
+   * mọi khối sau nó.
+   */
+  const veAnh = (a: AnhNguon): number => {
+    const b = byteAnh.get(a.url);
+    if (!b) return trang;
+    const rongMax = RONG_NOI_DUNG_PDF;
+    let w = emuMm(a.rong);
+    let h = emuMm(a.cao);
+    // Ảnh rộng hơn cột chữ thu về vừa cột, GIỮ tỉ lệ: méo một con dấu tệ hơn
+    // là thu nhỏ nó.
+    if (w > rongMax && w > 0) {
+      h = (h * rongMax) / w;
+      w = rongMax;
+    }
+    const caoTrang = CAO_A4 - LE_PDF.tren - LE_PDF.duoi;
+    if (!conCho(h) && h <= caoTrang) trangMoi();
+    try {
+      pdf.addImage(b.data, b.kieu.toUpperCase(), LE_PDF.trai + (rongMax - w) / 2, y, w, h);
+    } catch {
+      // jsPDF từ chối một kiểu ảnh nó không dựng được: bỏ tấm đó, giữ cả tệp.
+      return trang;
+    }
+    const tr = trang;
+    y += h;
+    return tr;
+  };
+
   const veBang = (
     hang: string[][],
     nhip: number[][],
@@ -2510,6 +2751,10 @@ export async function noiDungThanhPDF(
       const dong = pdf.splitTextToSize(d.text, bo.rong - bo.lechDau) as string[];
       return truoc + dong.length * bo.buoc(coChuPt(d.kieu));
     }
+    // Ảnh là một khối KHÔNG chẻ được: chiều cao của nó là cả tấm ảnh, nên
+    // luật mồ côi đo đúng con số ấy — một tiêu đề đứng trước một logo không
+    // vừa trang phải đi cùng nó sang trang sau.
+    if (ketiep.kind === "anh") return emuMm(ketiep.a.cao);
     const soCotTieuDe = soCotThat(ketiep.hang, ketiep.tiLe);
     if (soCotTieuDe === 0) return 0;
     return chieuCaoHangBang(
@@ -2605,17 +2850,19 @@ export async function noiDungThanhPDF(
       i < noiDung.khoi.length - 1 ? noiDung.khoi[i + 1]! : soCotKy > 0 ? { kind: "oKy" } : null;
     return k.kind === "dong"
       ? veDong(k.d, ketiep)
-      : veBang(
-          k.hang,
-          k.nhip,
-          k.tiLe,
-          k.vien,
-          k.cao,
-          k.canLeO,
-          k.chuO,
-          k.vienO ?? [],
-          k.caoLuat ?? [],
-        );
+      : k.kind === "anh"
+        ? veAnh(k.a)
+        : veBang(
+            k.hang,
+            k.nhip,
+            k.tiLe,
+            k.vien,
+            k.cao,
+            k.canLeO,
+            k.chuO,
+            k.vienO ?? [],
+            k.caoLuat ?? [],
+          );
   });
 
   let trangCuaKy: number | null = null;
@@ -2692,7 +2939,16 @@ export async function xuatPDF(sheet: HTMLElement, tieuDe: string) {
 export function toanVan(sheet: HTMLElement) {
   const { khoi, oKy } = docNoiDungTuDOM(sheet);
   const than = khoi
-    .map((k) => (k.kind === "dong" ? k.d.text : k.hang.map((o) => o.join(" | ")).join("\n")))
+    // Ảnh không góp CHỮ nào: `toanVan` phục vụ nút "sao chép", và một dòng
+    // "[ảnh]" sẽ là chữ KLAW tự bịa nằm giữa văn bản người dùng dán đi.
+    .map((k) =>
+      k.kind === "dong"
+        ? k.d.text
+        : k.kind === "anh"
+          ? ""
+          : k.hang.map((o) => o.join(" | ")).join("\n"),
+    )
+    .filter((t) => t !== "")
     .join("\n");
   const ky = oKy.map((cot) => cot.map((d) => d.text).join("\n")).join("\n\n");
   return ky ? `${than}\n\n${ky}\n` : `${than}\n`;

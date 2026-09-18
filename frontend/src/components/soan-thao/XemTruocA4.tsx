@@ -6,14 +6,17 @@ import {
   netCanh,
   nhipHangVe,
   phongTrenManHinh,
+  EMU_MOI_PT,
   PT_MOI_TWIP,
   soCotThat,
   THUOC_TINH_BANG,
   THUOC_TINH_CHU,
   THUOC_TINH_GIAN_CACH,
   THUOC_TINH_LE,
+  THUOC_TINH_ANH,
   THUOC_TINH_TAB,
   tiLeCotVe,
+  type AnhNguon,
   type CanLe,
   type DoanChu,
   type GianCachKhoi,
@@ -619,6 +622,20 @@ interface Props {
    * `.docx`/PDF và lề vẽ ra màn hình là MỘT con số, không hai.
    */
   leTrang?: LeTrang | null;
+  /**
+   * Ảnh NGUỒN đã tách khỏi tài liệu khách tải lên (quyết định 2026-09-18) —
+   * logo letterhead, con dấu, chữ ký quét. Rỗng/vắng mặt thì trang không có
+   * thẻ `<img>` nào, đúng hành vi trước bản vá này (và đúng cho một bản thảo
+   * KLAW tự soạn, vốn không có tài liệu nguồn nào để tách ảnh).
+   *
+   * Vẽ thành BĂNG theo vùng: `dau_trang` trên đầu trang, `than` và
+   * `chan_trang` dưới cuối. KHÔNG chen vào giữa các mục.
+   * ponytail: trần "ảnh của thân bài xuống cuối thân bài". Vị trí thật của
+   * một ảnh giữa thân bài chỉ dựng lại được khi có một khối nguồn để neo nó
+   * vào, mà mô hình đã viết lại chính những khối đó — nâng lên khi có một
+   * phép neo ảnh vào khối như `chu`/`gian_cach` tra theo chữ nguyên văn.
+   */
+  anh?: AnhNguon[];
 }
 
 /**
@@ -639,6 +656,7 @@ export function XemTruocA4({
   onSuaKhoi,
   phienBan,
   leTrang = null,
+  anh = [],
 }: Props) {
   const chonMuc = (key: string) => onChonMuc?.(key);
 
@@ -684,6 +702,43 @@ export function XemTruocA4({
   // riêng), nên nhánh `H1` của `docNoiDungTuDOM` vẫn còn đường chạy thật.
   const anTieuDe = laTongQuat;
 
+  // Ảnh chia làm HAI băng: trên đầu trang (letterhead) và dưới cuối (con dấu,
+  // chữ ký). `anhTuBanThao` đã xếp sẵn theo vùng rồi theo thứ tự nguồn, nên ở
+  // đây chỉ cắt đôi, không xếp lại.
+  const anhTren = anh.filter((a) => a.vung === "dau_trang");
+  const anhDuoi = anh.filter((a) => a.vung !== "dau_trang");
+
+  /**
+   * MỘT ảnh nguồn → thẻ `<img>` mang CẢ nét vẽ lẫn `data-*` để tệp tải về đọc
+   * lại — đúng luật "một nguồn, ba nơi dùng" mà `data-cao`/`data-le-*` đã đặt.
+   *
+   * Cỡ đo bằng `pt` quy từ EMU, không `em`: `thuPhong` chỉ phóng CỠ CHỮ, nên
+   * một tấm ảnh đo bằng `em` sẽ phình theo mức phóng trong khi `.docx`/PDF
+   * giữ nguyên cỡ nguồn — hai bên sẽ nói hai điều khác nhau.
+   *
+   * `max-w-full` để một ảnh rộng hơn cột chữ không tràn ra ngoài trang; tỉ lệ
+   * giữ bằng `height: auto` ở đúng ca đó.
+   *
+   * `alt=""` và `aria-hidden`: đây là ảnh TRÌNH BÀY của tài liệu nguồn (logo,
+   * dấu), và KLAW không biết nó vẽ gì — bịa một câu mô tả là nói thay tài
+   * liệu, còn một `alt` lặp tên tệp thì chỉ làm trình đọc màn hình đọc rác.
+   */
+  const veAnh = (a: AnhNguon, i: number) => (
+    <img
+      key={`${a.vung}-${a.thuTu}-${i}`}
+      src={a.url}
+      alt=""
+      aria-hidden
+      className="mx-auto block h-auto max-w-full"
+      style={{ width: `${a.rong / EMU_MOI_PT}pt` }}
+      {...{
+        [THUOC_TINH_ANH.moc]: "",
+        [THUOC_TINH_ANH.rong]: String(a.rong),
+        [THUOC_TINH_ANH.cao]: String(a.cao),
+      }}
+    />
+  );
+
   return (
     <div className="mx-auto w-full max-w-[794px]" style={{ fontSize: `${thuPhong}%` }}>
       <article
@@ -697,6 +752,7 @@ export function XemTruocA4({
         {/* `<h1>`, không `<h2>`: đây là tiêu đề CHÍNH của văn bản đang xem
             trước, và `docNoiDungTuDOM` (xuat-tep.ts) chỉ nhận diện tiêu đề
             xuất ra Word/PDF qua đúng thẻ `H1`. */}
+        {anhTren.map(veAnh)}
         {!anTieuDe && (
           <h1 className="m-0 text-center font-serif text-[1.25em] font-bold uppercase tracking-wide">
             {tieuDe}
@@ -938,6 +994,7 @@ export function XemTruocA4({
             </section>
           ))}
         </div>
+        {anhDuoi.map(veAnh)}
       </article>
     </div>
   );
