@@ -69,7 +69,7 @@ _TRUONG_DOC_RA: dict[str, tuple[str, ...]] = {
     "chieu_cao_hang": ("bang_cao",),
     "chieu_cao_hang_hrule": (),
     "can_le": ("can_le",),
-    "dinh_dang_run": (),
+    "dinh_dang_run": ("dinh_dang",),
     "gian_cach_thut_le": (),
     "le_trang": (),
     "media": (),
@@ -340,12 +340,26 @@ def dac_ta_bo_doc(tai_lieu: TaiLieuDaDoc) -> dict[str, dict[str, str]]:
     ra: dict[str, dict[str, str]] = {m: {} for m in _TRUONG_DOC_RA}
     khoi = 0
     bang_truoc: int | None = None
+
+    def _run(tien_to: str, d) -> None:
+        """`DinhDangChu.khai` → đúng khoá `_run_va_gian_cach` bên chân lý dựng.
+
+        `v or "1"` là phép nghịch của `_val(e) or e.get(ascii) or "1"`: bộ đọc
+        cất chuỗi RỖNG cho một thẻ không có `w:val` (`<w:b/>`), còn chân lý
+        đọc chính thẻ ấy ra `"1"`.
+        """
+        for r in d.dinh_dang:
+            goc = tien_to if d.bang is None else f"{tien_to}/p{r.doan}"
+            for ten, v in r.khai:
+                ra["dinh_dang_run"][f"{goc}/run{r.so}/{ten}"] = v or "1"
+
     for d in tai_lieu.don_vi:
         if d.vung != "than":
             continue
         if d.bang is None:
             ra["cau_truc"][f"khoi{khoi}"] = "doan"
             ra["can_le"][f"khoi{khoi}"] = d.can_le
+            _run(f"khoi{khoi}", d)
             khoi += 1
             bang_truoc = None
             continue
@@ -362,6 +376,7 @@ def dac_ta_bo_doc(tai_lieu: TaiLieuDaDoc) -> dict[str, dict[str, str]]:
         ra["chieu_cao_hang"][f"bang{b}/hang{h}"] = str(d.bang_cao)
         ra["cau_truc"][f"bang{b}/o{h},{c}"] = str(d.bang_nhip)
         ra["can_le"][f"bang{b}/o{h},{c}"] = d.can_le
+        _run(f"bang{b}/o{h},{c}", d)
     return ra
 
 

@@ -1,5 +1,5 @@
 {
-  "commit_hash": "491d7f794920bafaaf34bf5109632b766cacc9ed",
+  "commit_hash": "107b2c95961c1c0c336ec70e2b0bea466573274f",
   "so_tep": 12,
   "chi_tiet": [
     {
@@ -50,9 +50,9 @@
         "dinh_dang_run": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "gian_cach_thut_le": {
           "khai": 0,
@@ -125,9 +125,9 @@
         "dinh_dang_run": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "gian_cach_thut_le": {
           "khai": 0,
@@ -200,9 +200,9 @@
         "dinh_dang_run": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "gian_cach_thut_le": {
           "khai": 0,
@@ -275,9 +275,9 @@
         "dinh_dang_run": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "gian_cach_thut_le": {
           "khai": 0,
@@ -350,9 +350,9 @@
         "dinh_dang_run": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "gian_cach_thut_le": {
           "khai": 0,
@@ -425,9 +425,9 @@
         "dinh_dang_run": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "gian_cach_thut_le": {
           "khai": 0,
@@ -500,9 +500,9 @@
         "dinh_dang_run": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "gian_cach_thut_le": {
           "khai": 0,
@@ -575,9 +575,9 @@
         "dinh_dang_run": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "gian_cach_thut_le": {
           "khai": 0,
@@ -650,9 +650,9 @@
         "dinh_dang_run": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "gian_cach_thut_le": {
           "khai": 0,
@@ -725,9 +725,9 @@
         "dinh_dang_run": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "gian_cach_thut_le": {
           "khai": 0,
@@ -800,9 +800,9 @@
         "dinh_dang_run": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "gian_cach_thut_le": {
           "khai": 0,
@@ -875,9 +875,9 @@
         "dinh_dang_run": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "gian_cach_thut_le": {
           "khai": 0,
@@ -943,8 +943,8 @@
     "dinh_dang_run": {
       "khai": 0,
       "khop": 0,
-      "chua_cai": true,
-      "diem": 0.0
+      "chua_cai": false,
+      "diem": null
     },
     "gian_cach_thut_le": {
       "khai": 0,
@@ -965,5 +965,5 @@
       "diem": 0.0
     }
   },
-  "tong": 0.14285714285714285
+  "tong": 0.16666666666666666
 }
