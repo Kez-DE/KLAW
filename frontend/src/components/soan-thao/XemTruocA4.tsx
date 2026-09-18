@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useRef } from "react";
+import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   nhipHangVe,
@@ -51,13 +51,21 @@ function KhoiVanXuoi({
   khoiIndex: number;
   phienBan: number;
   onSuaKhoi:
-    | ((mucKey: string, khoiIndex: number, noiDungMoi: string, phienBanLucSua: number) => void)
+    | ((
+        mucKey: string,
+        khoiIndex: number,
+        noiDungMoi: string,
+        phienBanLucSua: number,
+      ) => Promise<boolean>)
     | undefined;
 }) {
   const oNoiDung = useRef<HTMLParagraphElement | null>(null);
   const dangSua = useRef(false);
   const vanBanLucFocus = useRef("");
   const phienBanLucFocus = useRef(phienBan);
+  // Phase 15 R5 — lượt lưu gần nhất của ĐÚNG khối này hỏng (toast đã tắt,
+  // nhưng khối không được trông y như đã lưu). Xoá ở lượt blur kế tiếp.
+  const [luuHong, datLuuHong] = useState(false);
   const coTheSua = onSuaKhoi !== undefined;
 
   useLayoutEffect(() => {
@@ -79,12 +87,38 @@ function KhoiVanXuoi({
       role={coTheSua ? "textbox" : undefined}
       aria-multiline={coTheSua ? true : undefined}
       aria-label={coTheSua ? "Nội dung mục, sửa được" : undefined}
+      aria-invalid={luuHong ? true : undefined}
+      // Phase 15 R4 — chữ tiếng Việt của một VĂN BẢN PHÁP LÝ không được bị
+      // trình duyệt hay bàn phím di động âm thầm "sửa": bộ kiểm chính tả mặc
+      // định không có từ điển tiếng Việt (gạch đỏ khắp trang), còn autocorrect/
+      // autocapitalize trên iOS đổi chữ người dùng vừa gõ mà không hỏi.
+      // `lang="vi"` để trình đọc màn hình chọn đúng giọng đọc cho khối này.
+      lang="vi"
+      spellCheck={false}
+      autoCorrect="off"
+      autoCapitalize="off"
       // Review #2 — bấm VÀO khối để đặt con trỏ (thao tác bình thường trước
       // khi gõ) không được lan lên `<section>` rồi đổi mục đang chọn cho
       // phím tắt AI kế tiếp: đó là một hành động KHÁC "gõ chữ ở đây", và gộp
       // chung khiến "Rút gọn" âm thầm áp nhầm vào mục người dùng chỉ vừa bấm
       // vào để sửa một lỗi chính tả.
       onClick={coTheSua ? (e) => e.stopPropagation() : undefined}
+      // Phase 15 R6 — Escape = HUỶ. Trả khối về đúng chữ LÚC BẮT ĐẦU sửa
+      // (`vanBanLucFocus`, KHÔNG phải `noiDung`: bản mới nhất có thể đã bị một
+      // lượt sửa bằng lời đổi trong lúc khối còn mở — N1 — và trả về đó sẽ
+      // khiến `onBlur` thấy "khác" rồi lưu chữ của mô hình như một sửa tay với
+      // phiên bản cũ), rồi rời khối: `onBlur` bên dưới thấy chữ bằng nhau nên
+      // chỉ đồng bộ theo bản mới nhất, KHÔNG gọi lưu. Trước bản vá này, gõ
+      // nhầm chỉ có một đường lui là gõ lại bằng tay.
+      onKeyDown={
+        coTheSua
+          ? (e) => {
+              if (e.key !== "Escape") return;
+              e.currentTarget.textContent = vanBanLucFocus.current;
+              e.currentTarget.blur();
+            }
+          : undefined
+      }
       onFocus={
         coTheSua
           ? () => {
@@ -134,6 +168,9 @@ function KhoiVanXuoi({
           // ứng bị bỏ qua lúc còn tiêu điểm, giờ mới chạy tay, thay vì để chữ
           // CŨ ghi đè âm thầm lên bản mới của mô hình.
           const moi = e.currentTarget.innerText;
+          // Phase 15 R5 — một lượt blur mới (dù lưu hay chỉ đồng bộ) là lúc
+          // dấu lỗi của lượt trước hết hiệu lực; lượt này hỏng thì đặt lại.
+          datLuuHong(false);
           if (moi === vanBanLucFocus.current) {
             if (oNoiDung.current) oNoiDung.current.textContent = noiDung;
             return;
@@ -143,7 +180,16 @@ function KhoiVanXuoi({
           // đó đổi cả `muc_key` theo vị trí), phiên bản cũ không khớp nữa và
           // máy chủ từ chối RÕ RÀNG (`ban_thao.LOI_PHIEN_BAN_DA_DOI`) thay vì
           // âm thầm ghi vào đúng vị trí nhưng sai mục (I3).
-          onSuaKhoi(mucKey, khoiIndex, moi, phienBanLucFocus.current);
+          void onSuaKhoi(mucKey, khoiIndex, moi, phienBanLucFocus.current).then((daLuu) => {
+            if (daLuu) return;
+            // Phase 15 R5 — lưu hỏng: đánh dấu ĐÚNG khối này (`aria-invalid`
+            // → viền đỏ, xem className) và đưa tiêu điểm về đây để người
+            // dùng sửa tiếp ngay chỗ hỏng thay vì đi tìm. Chữ vừa gõ vẫn còn
+            // trong khối; lượt blur kế tiếp sẽ thử lưu lại (`onFocus` chụp
+            // lại `noiDung` của máy chủ nên phép so ở trên vẫn thấy "khác").
+            datLuuHong(true);
+            oNoiDung.current?.focus();
+          });
         })
       }
       className={cn(
@@ -161,8 +207,18 @@ function KhoiVanXuoi({
         // `.docx`/PDF tự khớp theo.
         canhLe === "giua" && "text-center",
         canhLe === "phai" && "text-right",
+        // Phase 15 R2 — khối gõ được phải TỰ báo "gõ ở đây" TRƯỚC khi bấm,
+        // tách khỏi hover/ring của `<section>` bao ngoài (đó là "chọn mục làm
+        // đích cho trợ lý", một hành động khác trên cùng vùng rê chuột): viền
+        // ĐỨT nét quanh đoạn khi rê, đậm hơn khi có tiêu điểm — section dùng
+        // nền + ring LIỀN nét, hai ngôn ngữ hình không lẫn nhau.
         coTheSua &&
-          "cursor-text rounded-sm outline-none focus:ring-2 focus:ring-[var(--color-brass-600)]",
+          "cursor-text rounded-sm outline-1 outline-dashed outline-offset-2 outline-transparent hover:outline-[var(--color-brass-500)] focus-within:outline-2 focus-within:outline-[var(--color-brass-600)]",
+        // Phase 15 R5 — lưu hỏng: viền đỏ LIỀN nét theo `aria-invalid` (đặt ở
+        // `onBlur` bên trên) cho tới lượt lưu kế tiếp; một thuộc tính, một
+        // chỗ đọc, trình đọc màn hình cũng nhận được cùng tín hiệu.
+        coTheSua &&
+          "aria-invalid:outline-2 aria-invalid:outline-solid aria-invalid:outline-destructive",
       )}
     />
   );
@@ -197,13 +253,17 @@ interface Props {
    * Fix round 2 (N1) — nay nhận thêm `phienBanLucSua`: phiên bản bản thảo
    * `KhoiVanXuoi` chụp lại lúc `onFocus`, không phải phiên bản mới nhất lúc
    * `onBlur` — xem chú thích tại khai báo `KhoiVanXuoi`.
+   *
+   * Phase 15 R5 — trả `true` khi máy chủ đã ghi, `false` khi lượt lưu hỏng:
+   * khối vừa blur cần biết kết quả để tự đánh dấu và kéo tiêu điểm về mình.
+   * Không đổi HỢP ĐỒNG lưu (vẫn chỉ ở blur, không debounce).
    */
   onSuaKhoi?: (
     mucKey: string,
     khoiIndex: number,
     noiDungMoi: string,
     phienBanLucSua: number,
-  ) => void;
+  ) => Promise<boolean>;
   /** Phiên bản bản thảo hiện tại — bắt buộc cùng `onSuaKhoi` (fix round 2, N1). */
   phienBan?: number;
 }
@@ -353,6 +413,12 @@ export function XemTruocA4({
                   (() => {
                     const soCot = soCotThat(k.hang, k.tiLe);
                     const spanTieuDe = nhipHangVe(k.hang[0] ?? [], k.nhip[0], soCot);
+                    // Phase 15 R9 — nối ghi chú với bảng bằng `aria-describedby`:
+                    // người dùng trình đọc màn hình nhảy theo bảng (phím T)
+                    // không đi qua dòng chữ đứng TRƯỚC nó. `m.key`+`i` là đủ
+                    // duy nhất trong một trang; ghi chú chỉ render khi sửa
+                    // được, nên id chỉ được trỏ tới trong đúng trường hợp đó.
+                    const idChuThichBang = `bang-chua-sua-${m.key}-${i}`;
                     return (
                       <Fragment key={i}>
                         {/* Quyết định D (R1, phase 3) — bảng CHƯA sửa trực
@@ -365,12 +431,14 @@ export function XemTruocA4({
                         {onSuaKhoi !== undefined && (
                           <p
                             data-khong-xuat
+                            id={idChuThichBang}
                             className="m-0 mt-1 font-mono text-[0.7em] text-muted-foreground"
                           >
                             Bảng — chưa sửa trực tiếp được ở đây, hãy nói với trợ lý điều cần đổi.
                           </p>
                         )}
                         <table
+                          aria-describedby={onSuaKhoi !== undefined ? idChuThichBang : undefined}
                           className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
                           style={{ tableLayout: "fixed" }}
                         >

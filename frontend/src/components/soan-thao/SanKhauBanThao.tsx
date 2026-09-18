@@ -265,10 +265,17 @@ export function SanKhauBanThao({
     khoiIndex: number,
     noiDungMoi: string,
     phienBanLucSua: number,
-  ) => {
+  ): Promise<boolean> => {
     const banThaoLucGoi = banThaoRef.current;
     const nhanTruoc = nhanMucKiem(banThaoLucGoi.audit_report);
     datSoLuuDangCho((n) => n + 1);
+    // Phase 15 R1 — cùng khuôn `xuatTep` bên dưới (loading → success/error
+    // trên MỘT id), thu về đúng mục vừa lưu. Trước bản vá này lượt lưu im
+    // lặng cả ba bước: với bản thảo đã `sua_tay`, chữ trên màn hình không đổi
+    // sau khi lưu xong nên không có dấu hiệu nào là đã có một yêu cầu mạng.
+    const m = muc.find((mm) => mm.key === mucKey);
+    const tenMuc = m === undefined ? "chỗ vừa sửa" : `mục ${m.stt}`;
+    const idToast = toast.loading(`Đang lưu ${tenMuc}…`);
     try {
       let phienBanGui = phienBanLucSua;
       let kq = await suaMucBanThao(banThaoLucGoi.id, mucKey, khoiIndex, noiDungMoi, phienBanGui);
@@ -284,15 +291,16 @@ export function SanKhauBanThao({
         kq = await suaMucBanThao(banThaoLucGoi.id, mucKey, khoiIndex, noiDungMoi, phienBanGui);
       }
       if (!kq.ok) {
-        toast.error(kq.error.message);
-        return;
+        toast.error(kq.error.message, { id: idToast });
+        return false;
       }
+      toast.success(`Đã lưu ${tenMuc}.`, { id: idToast });
       // Fix round 1 (review #6) — một cập nhật KHÁC (một lượt chat vừa sửa
       // xong, một khối khác vừa lưu) có thể đã tới TRƯỚC phản hồi này và đã
       // đẩy `banThao` lên một phiên bản MỚI HƠN phản hồi đang cầm — áp phản
       // hồi CŨ hơn đó đè lên sẽ kéo màn hình LÙI LẠI (máy chủ vẫn đúng, màn
       // hình thì sai cho tới khi tải lại). Bỏ qua, không phải lỗi.
-      if (kq.data.phien_ban < banThaoRef.current.phien_ban) return;
+      if (kq.data.phien_ban < banThaoRef.current.phien_ban) return true;
       phienBanTuSuaTayGanNhatRef.current = kq.data.phien_ban;
       capNhatBanThao(kq.data);
       const nhanSau = nhanMucKiem(kq.data.audit_report);
@@ -301,6 +309,7 @@ export function SanKhauBanThao({
           description: "Bạn vừa sửa tay — hãy soát lại trước khi dùng bản thảo này.",
         });
       }
+      return true;
     } finally {
       datSoLuuDangCho((n) => n - 1);
     }
