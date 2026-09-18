@@ -964,6 +964,25 @@ export interface BoNhoTaiKhoan {
   muc: MucBoNho[];
 }
 
+/* ── /tai-khoan/da-nho — điều KLAW đã nhớ về tài khoản (Phase 12, R2) ── */
+
+/** Một dữ kiện người dùng đã khai trong lượt soạn (họ tên, mã SV, nơi thực
+ *  tập...) hoặc một thói quen soạn. KHÁC `MucBoNho`: có `id` riêng để xoá từng
+ *  dòng, mở cho mọi tài khoản, và chỉ được dùng khi người dùng yêu cầu. */
+export interface MucDaNho {
+  id: string;
+  loai: "ca_nhan" | "thoi_quen";
+  khoa: string;
+  nhan: string;
+  gia_tri: string;
+  nguon_hoi_thoai_id: string | null;
+  cap_nhat_luc: string;
+}
+
+export interface DanhSachDaNho {
+  muc: MucDaNho[];
+}
+
 export interface HoSo {
   email: string | null;
   plan: string;
@@ -1213,6 +1232,20 @@ export function laPhienTomTat(x: unknown): x is PhienTomTat {
 
 export function laBoNhoTaiKhoan(x: unknown): x is BoNhoTaiKhoan {
   return laBanGhi(x) && typeof x["ghi_nho"] === "boolean" && Array.isArray(x["muc"]);
+}
+
+export function laDanhSachDaNho(x: unknown): x is DanhSachDaNho {
+  return (
+    laBanGhi(x) &&
+    Array.isArray(x["muc"]) &&
+    x["muc"].every(
+      (m: unknown) =>
+        laBanGhi(m) &&
+        typeof m["id"] === "string" &&
+        typeof m["nhan"] === "string" &&
+        typeof m["gia_tri"] === "string",
+    )
+  );
 }
 
 /** Thân của `PATCH /hoi-thoai/{id}/ho-so` — chỉ kiểm mảng `ho_so_da_dung`

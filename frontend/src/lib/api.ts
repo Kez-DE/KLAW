@@ -28,6 +28,7 @@ import {
   laBanThao,
   laBoNhoTaiKhoan,
   laDanhSachBanThao,
+  laDanhSachDaNho,
   laHoSoPhienOut,
   laPhienTomTat,
 } from "./klaw";
@@ -37,6 +38,7 @@ import type {
   BanThao,
   BanThaoTomTat,
   BoNhoTaiKhoan,
+  DanhSachDaNho,
   HoSoDaDung,
   PhienTomTat,
 } from "./klaw";
@@ -273,6 +275,15 @@ export const xoaBoNho = (khoa: string) =>
   goi<null>(`/tai-khoan/bo-nho/${encodeURIComponent(khoa)}`, laKhongThan, { method: "DELETE" });
 
 export const xoaHetBoNho = () => goi<null>("/tai-khoan/bo-nho", laKhongThan, { method: "DELETE" });
+
+/** /tai-khoan/da-nho — điều KLAW đã nhớ về tài khoản (Phase 12, R2): mọi tài
+ *  khoản đã đăng nhập, chỉ xem và xoá. */
+export const layDaNho = () => goi<DanhSachDaNho>("/tai-khoan/da-nho", laDanhSachDaNho);
+
+export const xoaDaNho = (id: string) =>
+  goi<null>(`/tai-khoan/da-nho/${encodeURIComponent(id)}`, laKhongThan, { method: "DELETE" });
+
+export const xoaHetDaNho = () => goi<null>("/tai-khoan/da-nho", laKhongThan, { method: "DELETE" });
 
 /** Công tắc "không ghi nhớ" của một phiên (`DanhSachPhien`) — KHÁC sửa một
  *  dữ kiện (`suaHoSoPhien` ngay dưới). */
