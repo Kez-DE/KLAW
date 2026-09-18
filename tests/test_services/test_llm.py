@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from src.services.llm import LlmClient, _provider, generate_model, judge_model
+from src.services.llm import LlmClient, TruncatedOutputError, Usage, _provider, generate_model, judge_model
 
 _USAGE_OK = {"prompt_tokens": 1, "completion_tokens": 1, "cost": 0.0}
 
@@ -462,6 +462,29 @@ def test_json_schema_can_retry_van_cat_thi_nem_khong_tra_JSON_do_dang():
     c.retry_backoff_base = 0
     with pytest.raises(ValueError, match="length"):
         c.chat("m", [{"role": "user", "content": "x"}], json_schema={"type": "object"})
+
+
+def test_TruncatedOutputError_mang_usage_cong_don_ca_hai_lan_cat():
+    """Phase 16 fix round (Concern 3): cả hai lần gọi bị cắt đều tốn tiền thật —
+    lỗi phải mang `usage` CỘNG DỒN của cả hai, để node gọi ghi đúng vào traces
+    thay vì 0."""
+
+    def h(req):
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": '{"queries": ["a'}, "finish_reason": "length"}],
+                "usage": {"prompt_tokens": 3, "completion_tokens": 5, "cost": 0.01},
+            },
+        )
+
+    c = _c(h)
+    c.retry_backoff_base = 0
+    with pytest.raises(TruncatedOutputError) as ex:
+        c.chat("m", [{"role": "user", "content": "x"}], json_schema={"type": "object"})
+    assert isinstance(ex.value.usage, Usage)
+    assert (ex.value.usage.token_in, ex.value.usage.token_out) == (6, 10)
+    assert ex.value.usage.cost_usd == pytest.approx(0.02)
 
 
 def test_content_rong_VA_length_VA_schema_dung_ngan_sach_length_khong_phai_content_rong():

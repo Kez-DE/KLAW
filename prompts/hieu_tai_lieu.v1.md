@@ -10,7 +10,7 @@ Mỗi dòng là MỘT đơn vị văn bản, đánh số `[<nhãn tài liệu>-<
 trí của nó trong tài liệu.
 
 {tai_lieu}
-{ban_thao_dang_co}
+{phan_doan}{ban_thao_dang_co}
 # Quy tắc
 
 1. `muc_dich` là việc người hỏi muốn làm với tài liệu trong LƯỢT NÀY, đọc từ

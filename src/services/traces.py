@@ -83,17 +83,24 @@ def dau_van_ban(van_ban: str, so_clause: int) -> str:
 # usage thật), nhưng Phase 3 Half B đưa NHIỀU lượt hơn hẳn qua đúng node này
 # (mọi câu hỏi VỀ một tài liệu đã gửi, không chỉ lượt đính kèm), nên phạm vi
 # request bị bỏ sót khỏi trần chi phí ngày rộng ra đúng lúc lát cắt này chạy.
+#
+# 2026-09-18 (Phase 16 fix round): `rut_du_kien_*` (`nodes/rut_du_kien.py`, rút
+# trường theo mẫu từ tài liệu) — CÙNG chế độ hỏng, lần THỨ TƯ: ghi khoá riêng
+# từ ngày đầu, chưa từng có mặt ở ba danh sách này.
 _TOKEN_IN_KEYS = (
     "route_token_in", "rewrite_query_token_in", "token_in", "tier2_token_in", "assemble_token_in",
     "draft_generate_token_in", "giai_nghia_token_in", "gom_du_kien_token_in", "hieu_tai_lieu_token_in",
+    "rut_du_kien_token_in",
 )
 _TOKEN_OUT_KEYS = (
     "route_token_out", "rewrite_query_token_out", "token_out", "tier2_token_out", "assemble_token_out",
     "draft_generate_token_out", "giai_nghia_token_out", "gom_du_kien_token_out", "hieu_tai_lieu_token_out",
+    "rut_du_kien_token_out",
 )
 _COST_KEYS = (
     "route_cost_usd", "rewrite_query_cost_usd", "cost_usd", "tier2_cost_usd", "assemble_cost_usd",
     "draft_generate_cost_usd", "giai_nghia_cost_usd", "gom_du_kien_cost_usd", "hieu_tai_lieu_cost_usd",
+    "rut_du_kien_cost_usd",
 )
 
 
