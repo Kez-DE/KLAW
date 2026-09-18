@@ -33,6 +33,7 @@ import pytest
 from src.agents.nodes import dung_ban_thao_tong_quat as d
 from src.agents.nodes import hieu_tai_lieu as h
 from src.agents.nodes.assemble import ResultType, assemble
+from src.agents.nodes.verify_tier1 import normalize
 from src.models.schemas import TraCuuResponse
 from src.services import ban_thao
 from src.services.doc_tai_lieu import DonViVanBan, doc
@@ -326,8 +327,11 @@ def test_khoi_ca_hai_khac_rong_bi_tach_thanh_hai_khoi():
     van_ban, _ = _sach([muc], nguon=NGUON_BANG)
     khoi = van_ban["muc"][0]["khoi"]
     assert len(khoi) == 2
+    # `can_le: "deu"` — `_sach` ở đây gọi KHÔNG có `goi`, tức một văn bản KLAW
+    # tự soạn, nên thân bài lấy thể thức NĐ 30/2020 (mục II.6 "canh đều cả hai
+    # lề"). Phần test đang khẳng định là phép TÁCH khối, không phải căn lề.
     assert khoi[0] == {
-        "noi_dung": "Kết quả chấm điểm như sau:", "bang": [], "can_le": "trai", "nhip": [], "ti_le": [], "vien": True, "cao": [], "can_le_o": [],
+        "noi_dung": "Kết quả chấm điểm như sau:", "bang": [], "can_le": "deu", "nhip": [], "ti_le": [], "vien": True, "cao": [], "can_le_o": [],
     }
     assert khoi[1] == {"noi_dung": "", "bang": BANG_HOP_LE, "can_le": "trai", "nhip": [], "ti_le": [], "vien": True, "cao": [], "can_le_o": []}
 
@@ -2177,3 +2181,163 @@ def test_o_bang_va_doan_trung_chu_khac_can_le_VAN_bi_loai():
     goi = [{"id": "x", "ten_tep": "x.docx", "don_vi": don_vi, "nhan": "A", "gui": don_vi}]
 
     assert h._can_le_theo_dong(goi) == {}
+
+
+# ───────────────────── Thể thức hành chính của một văn bản KLAW TỰ SOẠN
+#
+# Chủ sản phẩm đo trên một `ĐƠN XIN HỌC LẠI` soạn từ đầu: mọi dòng nằm sát lề
+# trái (kể cả "Người làm đơn") và chỗ điền hiện ra là `[…]`. Cả hai đều do
+# CÙNG một nguyên nhân — lượt ấy không có tài liệu nào, nên `_can_le_theo_dong`
+# rỗng và không khối nào tra được gì. Quy ước NĐ 30/2020 chỉ chạy ở đúng ca đó.
+
+DV_DON_NGUON = [
+    DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Người làm đơn", can_le="trai"),
+    DonViVanBan(chi_so=1, trang=1, offset_dau=20, noi_dung="ĐƠN XIN HỌC LẠI", can_le="giua"),
+    DonViVanBan(chi_so=2, trang=1, offset_dau=50, noi_dung="Họ và tên: ……………………", can_le="trai"),
+]
+GOI_DON = [{"id": "z", "ten_tep": "don.docx", "don_vi": DV_DON_NGUON, "nhan": "A", "gui": DV_DON_NGUON}]
+NGUON_DON = "\n".join(dv.noi_dung for dv in DV_DON_NGUON)
+
+
+def _can_le_tung_khoi(van_ban: dict) -> list[str]:
+    return [k["can_le"] for m in van_ban["muc"] for k in m["khoi"]]
+
+
+def test_van_ban_tu_soan_lay_can_le_theo_the_thuc_ND30():
+    """SẢN PHẨM của quyết định 2026-09-19. Bốn luật của Phụ lục I, trên đúng
+    hình dạng khối mà mô hình trả về cho một lá đơn soạn từ đầu."""
+    van_ban = {
+        "tieu_de": "ĐƠN XIN HỌC LẠI",
+        "muc": [
+            {"ten": "Phần đầu", "vung": "than", "khoi": [
+                # mục II.1 — tiêu ngữ canh giữa dưới quốc hiệu; hai dòng một khối
+                {"noi_dung": "CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc", "bang": []},
+                # mục II.5 — tên loại văn bản, nhận ra bằng phép so với `tieu_de`
+                {"noi_dung": "ĐƠN XIN HỌC LẠI", "bang": []},
+                # mục II.4 — địa danh và ngày tháng
+                {"noi_dung": "Hà Nội, ngày 05 tháng 9 năm 2026", "bang": []},
+            ]},
+            {"ten": "Nội dung", "vung": "than", "khoi": [
+                # mục II.6 — thân bài căn đều hai lề
+                {"noi_dung": "Tôi xin trình bày sự việc như sau và kính mong Nhà trường xem xét.", "bang": []},
+            ]},
+            {"ten": "Ký", "vung": "than", "khoi": [
+                # mục II.7 — khối ký; dòng thứ hai không khớp luật nào và KHÔNG
+                # được phủ quyết dòng thứ nhất
+                {"noi_dung": "Người làm đơn\n(Ký và ghi rõ họ tên)", "bang": []},
+            ]},
+        ],
+    }
+    ket, _ = h.lam_sach_van_ban(van_ban, "Hà Nội 05 9 2026", None)
+    assert _can_le_tung_khoi(ket) == ["giua", "giua", "phai", "deu", "phai"]
+
+
+def test_cau_than_bai_co_ngay_thang_giua_cau_KHONG_bi_doc_thanh_dong_dia_danh():
+    """Ranh giới của luật địa danh — ngày tháng: nó neo ĐẦU dòng. Một câu thân
+    bài nhắc tới ngày tháng vẫn là thân bài (`deu`), không bị đẩy sang phải."""
+    van_ban = {"tieu_de": "ĐƠN", "muc": [_muc(
+        "Trình bày", "Tôi đã nộp hồ sơ vào ngày 05 tháng 9 năm 2026 nhưng chưa nhận được trả lời.",
+    )]}
+    ket, _ = h.lam_sach_van_ban(van_ban, "05 9 2026", None)
+    assert _can_le_tung_khoi(ket) == ["deu"]
+
+
+def test_tai_hien_van_lay_can_le_tu_NGUON_quy_uoc_khong_de_len():
+    """LUẬT PHÂN XỬ: nguồn thắng. Cùng ba khối, lần này có tài liệu — "Người
+    làm đơn" phải giữ `trai` mà tệp khai, KHÔNG bị quy ước đẩy sang `phai`; và
+    "ĐƠN XIN HỌC LẠI" giữ `giua` vì TỆP nói thế, không vì nó trùng `tieu_de`."""
+    van_ban = {
+        "tieu_de": "ĐƠN XIN HỌC LẠI",
+        "muc": [{"ten": "Đơn", "vung": "than", "khoi": [
+            {"noi_dung": "Người làm đơn", "bang": []},
+            {"noi_dung": "ĐƠN XIN HỌC LẠI", "bang": []},
+            {"noi_dung": "Họ và tên: ……………………", "bang": []},
+        ]}],
+    }
+    ket, _ = h.lam_sach_van_ban(van_ban, NGUON_DON, GOI_DON)
+    assert _can_le_tung_khoi(ket) == ["trai", "giua", "trai"]
+    # Và dãy chấm CỦA CHÍNH TỆP đi qua nguyên văn, không bị vẽ lại dài/ngắn hơn.
+    assert ket["muc"][0]["khoi"][2]["noi_dung"] == "Họ và tên: ……………………"
+
+
+def test_khoi_mo_hinh_TU_THEM_vao_mot_tai_lieu_van_khong_nhan_quy_uoc():
+    """Có tài liệu thì quy ước TẮT HẲN, kể cả với khối mô hình tự thêm mà nguồn
+    không có dòng nào khớp. Cố ý bảo thủ: ở đó không phân biệt được "mô hình tự
+    thêm" với "mô hình gõ lệch một dấu cách so với dòng nguồn", và đoán sai
+    hướng thứ hai là ghi đè đúng thứ tệp nói."""
+    van_ban = {"tieu_de": "ĐƠN XIN HỌC LẠI", "muc": [_muc("Thêm", "Người làm đơn xin cam đoan.")]}
+    ket, _ = h.lam_sach_van_ban(van_ban, NGUON_DON, GOI_DON)
+    assert _can_le_tung_khoi(ket) == ["trai"]
+
+
+def test_can_le_NGUON_deu_khong_doi_chu_khong_doi_bo_dem():
+    """Phép tương đương của phase này (cùng khuôn mọi phase trước): CÙNG một
+    văn bản, nguồn chỉ khác nhau ở căn lề `deu` (`w:jc="both"`) — chữ, `normalize`
+    và CẢ bộ đếm phải y hệt, chỉ `can_le` khác. `deu` là giá trị MỚI của bộ
+    đọc từ 2026-09-19; nó không được len vào `noi_dung` hay vào traces."""
+    dong = "Tôi xin trình bày sự việc như sau."
+    def _goi(cl: str) -> list[dict]:
+        dv = [DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung=dong, can_le=cl)]
+        return [{"id": "e", "ten_tep": "e.docx", "don_vi": dv, "nhan": "A", "gui": dv}]
+
+    # Hai khối: một khối CHÉP ĐÚNG dòng nguồn (chỗ căn lề tra được), một khối
+    # mang con số bịa (chỗ bộ đếm nhúc nhích). Một khối gộp cả hai thì không
+    # dòng nào tra được và phép so `deu` vs `trai` trở nên tầm thường.
+    van_ban = {"tieu_de": "T", "muc": [{"ten": "M", "vung": "than", "khoi": [
+        {"noi_dung": dong, "bang": []},
+        {"noi_dung": "Số 99/QĐ-BỊA không có trong nguồn.", "bang": []},
+    ]}]}
+    ra_deu, dem_deu = h.lam_sach_van_ban(van_ban, dong, _goi("deu"))
+    ra_trai, dem_trai = h.lam_sach_van_ban(van_ban, dong, _goi("trai"))
+
+    def _khong_can_le(ra: dict) -> list[str]:
+        return [k["noi_dung"] for m in ra["muc"] for k in m["khoi"]]
+
+    assert _khong_can_le(ra_deu) == _khong_can_le(ra_trai)
+    assert [normalize(s) for s in _khong_can_le(ra_deu)] == [normalize(s) for s in _khong_can_le(ra_trai)]
+    assert dem_deu == dem_trai
+    # Và `deu` THẬT SỰ tới nơi — nếu không thì phép so trên bằng nhau tầm thường.
+    assert _can_le_tung_khoi(ra_deu)[0] == "deu" and _can_le_tung_khoi(ra_trai)[0] == "trai"
+
+
+# ──────────────────────────── Chỗ điền của một văn bản tự soạn là DÒNG CHẤM
+
+
+def test_cho_trong_cua_mo_hinh_thanh_dong_cham_cho_KLAW_co_y_bo_van_la_ngoac():
+    """Cả hai nửa của quyết định 1 trong MỘT phép đo, vì chúng chỉ có nghĩa khi
+    đứng cạnh nhau: chỗ mô hình khai "chưa có dữ kiện" ra dòng chấm để viết lên,
+    còn chỗ CHÍNH KLAW gỡ một giá trị không tra ngược được vẫn là `[…]` — người
+    đọc phân biệt được "ô này để trống cho bạn" với "chỗ này tôi đã bỏ đi"."""
+    van_ban = {"tieu_de": "ĐƠN", "muc": [{"ten": "Thông tin", "vung": "than", "khoi": [
+        {"noi_dung": f"Họ và tên: {h.CHO_TRONG}", "bang": []},
+        {"noi_dung": "Đã nộp 15.000.000 đồng theo phiếu thu.", "bang": []},
+    ]}]}
+    ket, dem = h.lam_sach_van_ban(van_ban, "", None)
+    dien, gia_tri_bia = (k["noi_dung"] for m in ket["muc"] for k in m["khoi"])
+
+    assert h.CHO_TRONG not in dien and dien.startswith("Họ và tên: " + h.DAU_DIEN * 3)
+    assert dien.rstrip(h.DAU_DIEN) == "Họ và tên: ", "dòng chấm là thứ DUY NHẤT thay vào chỗ trống"
+    assert gia_tri_bia == f"Đã nộp {h.CHO_TRONG} đồng theo phiếu thu.", "KLAW gỡ giá trị thì vẫn là […]"
+    assert dem["gia_tri_lam_sach"] == 1
+
+
+def test_dong_cham_chia_theo_cho_con_lai_cua_dong_de_dong_van_vua_trang():
+    """"Đủ dài để viết lên" và "không tràn dòng" là hai đòi hỏi ngược nhau, nên
+    độ dài chia theo chỗ CÒN LẠI: một dòng biểu mẫu một chỗ trống được dòng
+    chấm dài, một câu ba chỗ trống thì mỗi chỗ ngắn lại."""
+    mot = h._duong_dien(f"Họ và tên: {h.CHO_TRONG}")
+    ba = h._duong_dien(f"Tôi tên là {h.CHO_TRONG}, sinh ngày {h.CHO_TRONG} tại {h.CHO_TRONG}.")
+    assert mot.count(h.DAU_DIEN) > ba.count(h.DAU_DIEN) / 3
+    # Cả hai dòng vẫn nằm trong bề rộng một dòng A4 (quy về ký tự thường).
+    for dong in (mot, ba):
+        rong = len(dong) + dong.count(h.DAU_DIEN) * (h._RONG_DAU_DIEN - 1)
+        assert rong <= h._KY_TU_MOI_DONG, f"dòng tràn trang: {dong}"
+
+
+def test_tai_hien_KHONG_ve_lai_cho_trong_dau_ngoac_cua_mo_hinh():
+    """Đường TÁI HIỆN không đổi một byte: quy ước dòng chấm chỉ bật khi lượt
+    KHÔNG có tài liệu nào. Có tài liệu thì `[…]` của mô hình đi qua như trước —
+    ở đó KLAW đang chép một tài liệu, không đang vẽ một biểu mẫu mới."""
+    van_ban = {"tieu_de": "ĐƠN XIN HỌC LẠI", "muc": [_muc("Thông tin", f"Họ và tên: {h.CHO_TRONG}")]}
+    ket, _ = h.lam_sach_van_ban(van_ban, NGUON_DON, GOI_DON)
+    assert ket["muc"][0]["khoi"][0]["noi_dung"] == f"Họ và tên: {h.CHO_TRONG}"
