@@ -144,9 +144,37 @@ def _re_sau_route(st: dict) -> str:
     này: một câu hỏi luật thật giữa lúc đang soạn sẽ luôn bị hỏi lại dữ kiện
     thay vì được trả lời, và một ý định RẼ TẮT (`gioi_thieu`/`hoi_ve_kho`/
     `ngoai_pham_vi`) cũng sẽ bị kéo vào `gom_du_kien` chỉ vì có draft đang mở.
+
+    Phase 3 Half B (R5) — MỘT ngoại lệ hẹp, KHÔNG lặp lại lỗi trên: khi ý định
+    đã là `soan_thao` (router đã quyết định — điều kiện trên KHÔNG đổi) và hội
+    thoại này có SẴN một bản thảo TỔNG QUÁT (`ban_thao_tong_quat_dang_mo`),
+    lượt đi `hieu_tai_lieu` thay vì `gom_du_kien`. Bản thảo tổng quát không có
+    checklist nào để gom dữ kiện — `gom_du_kien` không thể phục vụ nó, chỉ có
+    thể lặp lại đúng ngõ cụt owner báo ("Kho mẫu của tôi chưa có loại văn bản
+    này…"). `hieu_tai_lieu` đã có `muc_dich = "sua_ban_thao"` cho đúng việc
+    này (không qua checklist, xem `MUC_DICH_SOAN`/`_re_sau_hieu_tai_lieu`).
+    Đây KHÔNG phải xét thêm state "có draft nào đang mở không" nói chung — nó
+    chỉ hẹp cho MỘT loại bản thảo (tổng quát) và chỉ SAU KHI `intent` đã là
+    `soan_thao`; một câu hỏi luật thật, hay một ý định rẽ tắt, không bao giờ
+    được phân loại `soan_thao` để bắt đầu, nên không đi qua nhánh này. Đánh
+    đổi đã biết: nếu hội thoại có bản thảo tổng quát, một yêu cầu soạn một
+    loại văn bản KHÁC (checklist) trong CÙNG hội thoại đó cũng rơi vào nhánh
+    này thay vì mở checklist mới — đúng yêu cầu brief ("'Chọn loại văn bản'
+    không được mời trong khi đang có một bản thảo mở"), nhưng nghĩa là muốn
+    soạn loại khác thì phải mở hội thoại mới.
+
+    Fix round 1 — đây giờ là CƠ CHẾ DUY NHẤT Phase 3 thêm vào routing (xem
+    `_vao_graph`: bản mở rộng ở đó đã bị rút lại). Một câu hỏi VỀ tài liệu
+    ("đây là đơn gì") không đi qua nhánh này — nó có đường riêng, có SẴN
+    trước lát cắt này: `route.v4` (mặc định) tự chào `Intent.tai_lieu` khi
+    hội thoại giữ tài liệu, và nhánh `intent is Intent.tai_lieu` ngay dưới
+    đây (cũng có sẵn) đưa nó vào `hieu_tai_lieu`. Nhánh MỚI ở đây chỉ bắt
+    đúng trường hợp model gán NHẦM `soan_thao` cho một lượt lẽ ra thuộc
+    `tai_lieu`/thật sự là một yêu cầu sửa — an toàn vì nó không đụng gì tới
+    quyết định `route` đã đưa ra cho intent khác.
     """
     if st.get("intent") == Intent.soan_thao:
-        return "gom_du_kien"
+        return "hieu_tai_lieu" if st.get("ban_thao_tong_quat_dang_mo") else "gom_du_kien"
     if st.get("intent") == Intent.tai_lieu:
         return "hieu_tai_lieu"
     return "assemble" if st.get("intent") in _RE_TAT else "tien_de"
@@ -168,6 +196,32 @@ def _vao_graph(st: dict) -> str:
     một tệp cùng câu hỏi thì không còn gì để một mô hình phân loại đoán — chi
     một lượt gọi cho `route` (và một lượt nữa cho `giai_nghia`) ở đây là trả
     tiền để biết lại điều request đã nói thẳng (quyết định chủ sở hữu Q4).
+
+    Phase 3 Half B, fix round 1 — MỘT bản mở rộng ở đây (rẽ TẤT ĐỊNH khi
+    `tai_lieu_phien` khác rỗng, bất kể `intent`) đã bị RÚT LẠI sau khi review
+    chỉ ra nó vô hiệu hoá `route`/`giai_nghia`/`_RE_TAT` cho TOÀN BỘ phần đời
+    còn lại của một hội thoại từng nhận một tài liệu — một câu hỏi luật thật
+    ("nghỉ việc phải báo trước bao nhiêu ngày") không còn tới được
+    `tien_de`→truy hồi→hai tầng kiểm nữa, mất đúng thứ sản phẩm này tồn tại để
+    hứa (trích dẫn đã kiểm chứng). Coordinator xác nhận đó là lỗi của chính
+    ruling, không phải của việc triển khai, và SỬA ruling: tài liệu phải CÓ
+    MẶT cho một lượt cần tới nó, không được CƯỚP đường đi của lượt đó.
+
+    Cơ chế đúng đã có sẵn TRƯỚC lát cắt này, không cần dựng mới: `route.v4`
+    (mặc định, `config.route_prompt`) đã tự chào ý định `Intent.tai_lieu` cho
+    model MỖI KHI hội thoại giữ tài liệu (`schema_v4(co_tai_lieu=...)`,
+    `{tai_lieu_trong_phien}` — chính comment ở `config.py` nói thẳng nó được
+    bật mặc định VÌ đúng lý do này: "lượt NỐI TIẾP hỏi về tài liệu đã gửi
+    không có đường nào tới `hieu_tai_lieu`"). Một câu hỏi VỀ tài liệu ở lượt
+    nối tiếp đã có đường qua `route()` → `Intent.tai_lieu` →
+    `_re_sau_route` (nhánh có TỪ TRƯỚC lát cắt này) → `hieu_tai_lieu`, không
+    đụng gì tới `giai_nghia`/`_RE_TAT`/truy hồi của các ý định khác. Sự cố
+    owner báo không phải "không có đường" — nó là model gán `soan_thao` thay
+    vì `tai_lieu` cho "đây là đơn gì" (một lỗi phân loại có sẵn của model,
+    không phải một khoảng trống kiến trúc); và trước lát cắt này, MỘT khi đã
+    gán `soan_thao`, `_re_sau_route` đẩy thẳng vào `gom_du_kien` (không có
+    checklist cho bản thảo tổng quát) — đó là ngõ cụt THẬT sự cần sửa. Xem
+    `_re_sau_route`'s nhánh mới cho đúng chỗ sửa hẹp, không đụng gì ở đây.
     """
     if st.get("tai_lieu_ids"):
         return "hieu_tai_lieu"

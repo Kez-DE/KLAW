@@ -36,7 +36,7 @@ async def test_chuan_bi_phien_nap_ba_lop(nguoi):
     pid = hoi_thoai.tao_phien(nguoi, "c1")
     hoi_thoai.ghi_luot(pid, "c1", {"answer": "a", "citations": []}, None)
     hoi_thoai.ghi_bo_nho(pid, "tóm tắt cũ", 0, {"chu_the": {"gia_tri": "người lao động", "nguon": "nguoi_noi"}})
-    req, pid2, bn, _, _ = await routes._chuan_bi_phien(TraCuuRequest(query="c2", hoi_thoai_id=pid), nguoi)
+    req, pid2, bn, _, _, _ = await routes._chuan_bi_phien(TraCuuRequest(query="c2", hoi_thoai_id=pid), nguoi)
     assert pid2 == pid and [l.cau_hoi for l in req.lich_su] == ["c1"]  # noqa: E741
     assert bn == {"tom_tat": "tóm tắt cũ", "ho_so": {"chu_the": {"gia_tri": "người lao động", "nguon": "nguoi_noi"}}}
     st = routes._state_vao(req, None, "t", bo_nho=bn)
@@ -47,7 +47,7 @@ async def test_chuan_bi_phien_nap_ba_lop(nguoi):
 @pytest.mark.asyncio
 async def test_phien_moi_cua_pro_duoc_seed_tu_tai_khoan_free_thi_khong(nguoi):
     bo_nho.sua_khoa_tai_khoan(nguoi, "tham_nien", "3 năm")
-    _, pid, bn, _, _ = await routes._chuan_bi_phien(TraCuuRequest(query="c1"), nguoi)
+    _, pid, bn, _, _, _ = await routes._chuan_bi_phien(TraCuuRequest(query="c1"), nguoi)
     assert bn is None  # free
     with get_engine().begin() as c:
         c.execute(
@@ -56,7 +56,7 @@ async def test_phien_moi_cua_pro_duoc_seed_tu_tai_khoan_free_thi_khong(nguoi):
             ),
             {"s": nguoi},
         )
-    _, pid, bn, _, _ = await routes._chuan_bi_phien(TraCuuRequest(query="c1"), nguoi)
+    _, pid, bn, _, _, _ = await routes._chuan_bi_phien(TraCuuRequest(query="c1"), nguoi)
     assert bn["ho_so"]["tham_nien"] == {"gia_tri": "3 năm", "nguon": "tai_khoan"}
     assert hoi_thoai.bo_nho_cua_phien(pid)["ho_so"]["tham_nien"]["gia_tri"] == "3 năm"
 

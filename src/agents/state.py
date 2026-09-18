@@ -127,6 +127,24 @@ class KLawState(TypedDict, total=False):
     # `tai_lieu` hay không và để lượt nối tiếp tìm lại tài liệu đã gửi.
     tai_lieu_ids: list[str]
     tai_lieu_phien: list[dict]
+    # Phase 3 Half B (R5) — bản thảo TỔNG QUÁT mới nhất của hội thoại này, nếu
+    # có, tính MỘT lần ở `routes._chuan_bi_phien`, khác `None` chỉ khi có danh
+    # tính VÀ hội thoại này từng dựng một bản thảo tổng quát. Fix round 2 (N4)
+    # — giá trị nay đến từ `ban_thao.ban_thao_tong_quat_dang_mo_nhe` (fix round
+    # 1, PostgreSQL review), CHỈ mang `document`/`audit`, không phải bản đầy đủ
+    # của `moi_nhat_cua_hoi_thoai` — không có `id`/`clauses`/`phien_ban`/…; xem
+    # docstring hàm đó cho ba nơi đã kiểm là không cần cột nào khác.
+    # Hai chỗ đọc: `_re_sau_route` dùng nó để rẽ một lượt `Intent.soan_thao`
+    # sang `hieu_tai_lieu` (sửa bản thảo đang mở) thay vì `gom_du_kien`
+    # (checklist — bản thảo tổng quát không có
+    # checklist nào để gom, đúng ngõ cụt "Kho mẫu của tôi chưa có loại văn bản
+    # này" mà brief mô tả); `hieu_tai_lieu` dùng nó để cho mô hình thấy bản
+    # thảo ĐANG CÓ khi sửa (R4), thay vì coi mọi lượt sửa là soạn lại từ đầu.
+    # KHÔNG phải `soan_thao_dang_mo` (đó là dữ kiện checklist đang gom dở, một
+    # khái niệm khác) — cố tình không xét kèm `intent` như đợt review trước đã
+    # cấm (xem docstring `_re_sau_route`): trường này chỉ có tác dụng KHI
+    # `intent` đã là `soan_thao`, không tự nó ép một ý định khác.
+    ban_thao_tong_quat_dang_mo: dict | None
     # Việc người hỏi muốn làm với tài liệu trong lượt này (CONTEXT.md "mục đích").
     # Ghi lại KỂ CẢ khi lát cắt này chưa làm được nó — S4–S6 rẽ nhánh trên nó.
     muc_dich_tai_lieu: str | None

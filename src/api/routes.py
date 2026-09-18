@@ -156,6 +156,7 @@ def _state_vao(
     hoi_thoai_id: str | None = None,
     soan_thao: dict | None = None,
     tai_lieu_phien: list[dict] | None = None,
+    ban_thao_tong_quat: dict | None = None,
 ) -> dict:
     """State đầu vào của graph — MỘT chỗ dựng cho cả đường POST và đường SSE.
 
@@ -179,11 +180,15 @@ def _state_vao(
     lọc theo chủ). `tai_lieu_ids` xuống dạng `str`: LangGraph state là dữ liệu
     thuần (cùng quy ước `lich_su`), và một `UUID` lẫn vào đó không `json.dumps`
     được ở tầng cache.
+
+    `ban_thao_tong_quat` (Phase 3 Half B, R5) — bản thảo tổng quát mới nhất
+    của hội thoại (`_chuan_bi_phien`), xem `KLawState.ban_thao_tong_quat_dang_mo`.
     """
     return {
         "query": req.query,
         "tai_lieu_ids": [str(i) for i in req.tai_lieu_ids],
         "tai_lieu_phien": list(tai_lieu_phien or []),
+        "ban_thao_tong_quat_dang_mo": ban_thao_tong_quat,
         "lich_su": [luot.model_dump() for luot in req.lich_su],
         "as_of_date": as_of,
         "trace_id": trace_id,
@@ -204,18 +209,21 @@ LOI_TAI_LIEU_DANG_NHAP = "Hãy đăng nhập để hỏi về tài liệu bạn 
 
 async def _chuan_bi_phien(
     req: TraCuuRequest, user_sub: str | None
-) -> tuple[TraCuuRequest, str | None, dict | None, dict | None, list[dict]]:
+) -> tuple[TraCuuRequest, str | None, dict | None, dict | None, list[dict], dict | None]:
     """Gắn lượt hỏi vào một phiên (spec 2026-09-07 §5.2, spec 2026-09-09 §6.3-6.4).
     Ẩn danh → bỏ qua `hoi_thoai_id` VÀ bộ nhớ. Có danh tính: chưa có id → tạo phiên
     (Pro đang bật ghi nhớ thì seed hồ sơ tài khoản vào phiên mới); có id → kiểm chủ
     (404), kiểm đủ trần lượt của gói → 403, nạp `lich_su` VÀ bộ nhớ ba lớp từ máy
     chủ, BỎ `lich_su` client gửi.
 
-    Trả `(req, hoi_thoai_id, bo_nho, soan_thao, tai_lieu_phien)` — `bo_nho` là
-    `{"tom_tat", "ho_so"}`
+    Trả `(req, hoi_thoai_id, bo_nho, soan_thao, tai_lieu_phien, ban_thao_tong_quat)`
+    — `bo_nho` là `{"tom_tat", "ho_so"}`
     hoặc `None` (ẩn danh, hoặc phiên mới không có gì để seed); `soan_thao` (Task 19)
     là trạng thái soạn thảo ĐANG MỞ của phiên (`hoi_thoai.soan_thao_cua_phien`, đã
     lọc theo CHỦ), `None` khi ẩn danh, phiên mới, hoặc phiên chưa từng soạn gì.
+    `ban_thao_tong_quat` (Phase 3 Half B, R5) là dòng `ban_thao` TỔNG QUÁT mới
+    nhất của phiên (`ban_thao.moi_nhat_cua_hoi_thoai`), `None` cùng lý do
+    `soan_thao` — xem `KLawState.ban_thao_tong_quat_dang_mo`.
 
     `tai_lieu_phien` (plan `tai-lieu-tong-quat.md`) là tài liệu hội thoại đang
     giữ. Đây cũng là chỗ DUY NHẤT kiểm `req.tai_lieu_ids`, và nó phải nằm ở đây
@@ -235,7 +243,7 @@ async def _chuan_bi_phien(
         # vừa gửi và không hiểu vì sao.
         if req.tai_lieu_ids:
             raise HTTPException(status_code=401, detail=LOI_TAI_LIEU_DANG_NHAP)
-        return req, None, None, None, []
+        return req, None, None, None, [], None
     if req.hoi_thoai_id is None:
         # Tài liệu thuộc về một hội thoại ĐÃ CÓ (nó được tải lên trong hội thoại
         # đó). Một lượt mở hội thoại MỚI mà dẫn tài liệu là dẫn tài liệu của một
@@ -249,8 +257,8 @@ async def _chuan_bi_phien(
             ho_so = await run_in_threadpool(bo_nho.ho_so_tu_tai_khoan, user_sub)
             if ho_so:
                 await run_in_threadpool(hoi_thoai_svc.ghi_ho_so, pid, ho_so)
-                return req, pid, {"tom_tat": None, "ho_so": ho_so}, None, []
-        return req, pid, None, None, []
+                return req, pid, {"tom_tat": None, "ho_so": ho_so}, None, [], None
+        return req, pid, None, None, [], None
     pid = str(req.hoi_thoai_id)
     if await run_in_threadpool(hoi_thoai_svc.lay_phien, user_sub, pid) is None:
         raise HTTPException(status_code=404, detail=hoi_thoai_svc.LOI_KHONG_THAY)
@@ -272,12 +280,25 @@ async def _chuan_bi_phien(
     # thấy được trên giao diện.
     if any(str(i) not in co for i in req.tai_lieu_ids):
         raise HTTPException(status_code=404, detail=LOI_TAI_LIEU_KHONG_THAY)
+    # Phase 3 Half B (R5) — bản thảo tổng quát của CHÍNH hội thoại này, nếu có.
+    # Tính một lần ở đây (không phải trong graph): `_re_sau_route` là một hàm
+    # THUẦN của state, không được chạm DB, và `hieu_tai_lieu` (R4) cần cùng
+    # giá trị này để biết bản thảo ĐANG CÓ khi sửa — một lượt gọi, hai nơi đọc.
+    # Bản NHẸ (`ban_thao_tong_quat_dang_mo_nhe`, PostgreSQL review) — hàm này
+    # chạy trên MỌI lượt hỏi có danh tính, không chỉ lượt soạn, nên kéo cả
+    # `phien_ban_truoc`/`clauses`/`facts` (như `moi_nhat_cua_hoi_thoai` đầy đủ
+    # vẫn làm cho `dung_ban_thao_tong_quat`) là trả giá nặng cho một phép
+    # kiểm truthy cộng hai trường `document`/`audit`.
+    ban_thao_tong_quat = await run_in_threadpool(
+        ban_thao.ban_thao_tong_quat_dang_mo_nhe, user_sub, pid
+    )
     return (
         req.model_copy(update={"lich_su": [LuotTruoc(**luot) for luot in lich_su]}),
         pid,
         {"tom_tat": bn["tom_tat"], "ho_so": bn["ho_so"]},
         soan_thao,
         tai_lieu_phien,
+        ban_thao_tong_quat,
     )
 
 
@@ -378,7 +399,11 @@ def chi_tiet_buoc(ten: str, st: dict) -> dict:
 
 
 def _bo_qua_cache(
-    req: TraCuuRequest, bo_nho: dict | None, soan_thao: dict | None, tai_lieu_phien: list[dict] | None
+    req: TraCuuRequest,
+    bo_nho: dict | None,
+    soan_thao: dict | None,
+    tai_lieu_phien: list[dict] | None,
+    ban_thao_tong_quat: dict | None = None,
 ) -> bool:
     """Lượt này có được phép dùng `cache_tra_loi` không.
 
@@ -387,6 +412,12 @@ def _bo_qua_cache(
     nếu không, hai hội thoại cùng gõ một câu nhận câu trả lời của nhau. Lịch sử,
     bộ nhớ phiên và bản thảo đang mở đã thuộc diện đó; tài liệu là diện thứ tư
     và nặng nhất, vì câu trả lời khi ấy nói về TỆP của một người cụ thể.
+
+    `ban_thao_tong_quat` (R5) cùng lý do: một hội thoại có bản thảo tổng quát
+    đang mở có thể rẽ `Intent.soan_thao` sang `hieu_tai_lieu` thay vì
+    `gom_du_kien` (`_re_sau_route`) — câu trả lời phụ thuộc vào việc đó, nên
+    một payload cache (dựng từ `query` một mình) không được phục vụ chéo giữa
+    một hội thoại đang có bản thảo và một hội thoại không có.
     """
     return bool(
         req.lich_su
@@ -394,6 +425,7 @@ def _bo_qua_cache(
         or soan_thao
         or req.tai_lieu_ids
         or tai_lieu_phien
+        or ban_thao_tong_quat
     )
 
 
@@ -406,6 +438,7 @@ async def chay_tra_cuu(
     hoi_thoai_id: str | None = None,
     soan_thao: dict | None = None,
     tai_lieu_phien: list[dict] | None = None,
+    ban_thao_tong_quat: dict | None = None,
 ) -> tuple[dict, str]:
     """Thân dùng chung của `/tra-cuu` và `/tra-cuu/luong`: cache → graph →
     ghi cache → ghi traces. Trả `(payload, config_name)`.
@@ -477,7 +510,7 @@ async def chay_tra_cuu(
         # được lượt này với một câu hỏi giống hệt của một phiên KHÔNG soạn gì.
         khoa, checksum, payload = (
             (None, None, None)
-            if _bo_qua_cache(req, bo_nho, soan_thao, tai_lieu_phien)
+            if _bo_qua_cache(req, bo_nho, soan_thao, tai_lieu_phien, ban_thao_tong_quat)
             else await run_in_threadpool(cache_tra_loi.tra_cache, req.query, config_name, as_of)
         )
         tu_cache = payload is not None
@@ -498,6 +531,7 @@ async def chay_tra_cuu(
                     hoi_thoai_id=hoi_thoai_id,
                     soan_thao=soan_thao,
                     tai_lieu_phien=tai_lieu_phien,
+                    ban_thao_tong_quat=ban_thao_tong_quat,
                 )
             )
         else:
@@ -516,6 +550,7 @@ async def chay_tra_cuu(
                     hoi_thoai_id=hoi_thoai_id,
                     soan_thao=soan_thao,
                     tai_lieu_phien=tai_lieu_phien,
+                    ban_thao_tong_quat=ban_thao_tong_quat,
                 ),
                 stream_mode="updates",
             ):
@@ -635,10 +670,10 @@ async def tra_cuu(
     tới $0,00735 một request; không cổng nào ở đó là phòng xa (xem `bao_ve.py`).
     """
     trace_id = str(uuid.uuid4())
-    req, hoi_thoai_id, bn, soan_thao, tai_lieu_phien = await _chuan_bi_phien(req, user_sub)
+    req, hoi_thoai_id, bn, soan_thao, tai_lieu_phien, ban_thao_tong_quat = await _chuan_bi_phien(req, user_sub)
     payload, config_name = await chay_tra_cuu(
         req, user_sub, trace_id, bo_nho=bn, hoi_thoai_id=hoi_thoai_id, soan_thao=soan_thao,
-        tai_lieu_phien=tai_lieu_phien,
+        tai_lieu_phien=tai_lieu_phien, ban_thao_tong_quat=ban_thao_tong_quat,
     )
     resp = tra_cuu_response(payload, trace_id, config_name)
     if hoi_thoai_id is not None:

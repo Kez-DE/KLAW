@@ -1522,7 +1522,7 @@ def test_tai_lieu_ngan_cat_giua_chung_cung_tra_loi_KHONG_DUNG_LAI_DUOC():
 
 
 def _render(phan_doan: str) -> str:
-    return h.PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi="q", tai_lieu="[A-0] x", phan_doan=phan_doan)
+    return h.PROMPT_PATH.read_text(encoding="utf-8").format(cau_hoi="q", tai_lieu="[A-0] x", phan_doan=phan_doan, ban_thao_dang_co="")
 
 
 def test_prompt_khong_chia_render_dung_MOT_dong_trong_truoc_quy_tac():
@@ -1848,3 +1848,145 @@ def test_het_tran_sua_chan_bang_dung_bo_dem_cua_ban_thao(nguoi):
         ban_thao.sua(nguoi, bt["id"], {}, d.ket_ban_thao(VAN_BAN))
     ra = d.dung_ban_thao_tong_quat({**st, "muc_dich_tai_lieu": "sua_ban_thao"})
     assert ra["ban_thao_ket"] is None and ra["ban_thao_tong_quat_loi"] == ban_thao.LOI_HET_LAN_SUA
+
+
+# ═══ Phase 3 Half B — sự cố THẬT: một CÂU HỎI không được phép GHI ĐÈ ═══════
+#
+# Owner: bản thảo tổng quát 9 mục đã dựng xong; hỏi "tôi muốn biết đây là đơn
+# gì" (một câu hỏi, không xin sửa gì) — mô hình gán `muc_dich = "sua_ban_thao"`
+# và bản thảo bị GHI ĐÈ, còn 5 mục. "Một lượt ĐỌC không bao giờ được GHI"
+# (ruling coordinator).
+#
+# Fix round 1 — bản ĐẦU của gác này là hai danh sách regex tiếng Việt, và
+# review chỉ ra (chạy verbatim) nó KHÔNG chặn được đúng câu owner đã hỏi
+# ("đây là đơn gì" không khớp mẫu "là gì"), đồng thời chặn OAN một yêu cầu sửa
+# lịch sự thật ("Có thể làm cho nó gọn lại được không?"). Gác MỚI không phân
+# tích câu chữ — nó đối chiếu `muc_dich` của `hieu_tai_lieu` với Ý KIẾN ĐỘC
+# LẬP của `route()` (`state["intent"]`, một mô hình khác, một prompt khác,
+# chạy TRƯỚC với chính câu hỏi này). Hai test dưới đây dùng CHÍNH MỘT câu hỏi,
+# CHÍNH MỘT nhãn mô hình gán (`sua_ban_thao`) — chỉ `intent` khác nhau — để
+# chứng minh kết quả không phụ thuộc cách diễn đạt.
+
+
+@pytest.mark.integration
+def test_cau_hoi_khong_ghi_de_ban_thao_du_mo_hinh_gan_sai_muc_dich(nguoi):
+    """`route()` đã đúng: đây là một câu hỏi VỀ tài liệu (`Intent.tai_lieu`).
+    `hieu_tai_lieu` tự nó (mô hình khác, có thể sai độc lập) vẫn gán
+    `sua_ban_thao` — đúng sự cố thật. Bất đồng giữa hai lượt gọi hạ `muc_dich`
+    về `hoi`, bất kể câu chữ."""
+    from src.agents.nodes.route import Intent
+    from src.services import hoi_thoai
+
+    pid = hoi_thoai.tao_phien(nguoi, "biên bản bàn giao")
+    st0 = {"user_sub": nguoi, "hoi_thoai_id": pid, "muc_dich_tai_lieu": "tao_van_ban",
+           "van_ban_tong_quat": VAN_BAN}
+    bt_dau = d.dung_ban_thao_tong_quat(st0)["ban_thao_ket"]
+    truoc = ban_thao.chi_tiet(nguoi, bt_dau["id"])
+    assert truoc["so_lan_sua"] == 0 and len(truoc["clauses"]) == 2
+
+    # Mô hình (giả) GÁN SAI — đúng hệt sự cố thật: một câu hỏi, nhãn `sua_ban_thao`.
+    llm = _LLM(_ra(muc_dich="sua_ban_thao", tra_loi_ngan="Đây là biên bản bàn giao thiết bị."))
+    ket = h.hieu_tai_lieu(
+        {
+            "query": "tôi muốn biết đây là đơn gì", "user_sub": nguoi, "hoi_thoai_id": pid,
+            "intent": Intent.tai_lieu,
+        },
+        TL, llm, "m",
+    )
+    assert ket["muc_dich_tai_lieu"] == "hoi", "route() nói tai_lieu — bất đồng, không được coi là một lượt soạn"
+
+    ra2 = d.dung_ban_thao_tong_quat(ket)
+    assert ra2["ban_thao_ket"] is None, "một lượt hỏi không bao giờ được phép ghi bản thảo"
+
+    sau = ban_thao.chi_tiet(nguoi, bt_dau["id"])
+    assert sau["phien_ban"] == truoc["phien_ban"]
+    assert sau["clauses"] == truoc["clauses"]
+    assert sau["so_lan_sua"] == truoc["so_lan_sua"]
+
+
+@pytest.mark.integration
+def test_cau_hoi_khong_ghi_de_khi_khong_co_y_kien_thu_hai_cung_tin_nhu_truoc(nguoi):
+    """`intent` VẮNG MẶT (lượt đính kèm tài liệu tươi, `route()` chưa từng
+    chạy cho lượt này, quyết định chủ sở hữu Q4) — không có ý kiến thứ hai để
+    đối chiếu, gác trở lại hành vi CŨ (tin `hieu_tai_lieu`). CÙNG câu hỏi,
+    CÙNG nhãn mô hình gán, chỉ khác `intent` với test ở trên — kết quả khác
+    nhau CHỈ vì đó, không vì câu chữ."""
+    from src.services import hoi_thoai
+
+    pid = hoi_thoai.tao_phien(nguoi, "biên bản bàn giao")
+    st0 = {"user_sub": nguoi, "hoi_thoai_id": pid, "muc_dich_tai_lieu": "tao_van_ban",
+           "van_ban_tong_quat": VAN_BAN}
+    d.dung_ban_thao_tong_quat(st0)
+
+    llm = _LLM(_ra(muc_dich="sua_ban_thao", tra_loi_ngan="Đây là biên bản bàn giao thiết bị."))
+    ket = h.hieu_tai_lieu(
+        {"query": "tôi muốn biết đây là đơn gì", "user_sub": nguoi, "hoi_thoai_id": pid},
+        TL, llm, "m",
+    )
+    assert ket["muc_dich_tai_lieu"] == "sua_ban_thao"
+
+
+@pytest.mark.integration
+def test_cau_hoi_that_su_xin_sua_van_ghi_duoc(nguoi):
+    """Đối chứng — `route()` CŨNG đồng ý đây là `soan_thao` (đúng đường
+    `_re_sau_route`'s nhánh mới dùng để tới được đây): hai mô hình cùng đồng
+    ý thì lượt vẫn ghi được bình thường, bất kể câu chữ có khớp mẫu nào hay
+    không (câu ở đây cố tình dùng cách diễn đạt "Có thể… được không?" — chính
+    câu review nêu là bị chặn oan bởi bản regex cũ)."""
+    from src.agents.nodes.route import Intent
+    from src.services import hoi_thoai
+
+    pid = hoi_thoai.tao_phien(nguoi, "biên bản bàn giao")
+    st0 = {"user_sub": nguoi, "hoi_thoai_id": pid, "muc_dich_tai_lieu": "tao_van_ban",
+           "van_ban_tong_quat": VAN_BAN}
+    bt_dau = d.dung_ban_thao_tong_quat(st0)["ban_thao_ket"]
+
+    moi = {**VAN_BAN, "muc": [VAN_BAN["muc"][0]]}
+    llm = _LLM(_ra(muc_dich="sua_ban_thao", van_ban=moi))
+    ket = h.hieu_tai_lieu(
+        {
+            "query": "Có thể làm cho nó gọn lại được không?", "user_sub": nguoi, "hoi_thoai_id": pid,
+            "intent": Intent.soan_thao,
+        },
+        TL, llm, "m",
+    )
+    assert ket["muc_dich_tai_lieu"] == "sua_ban_thao"
+    ra2 = d.dung_ban_thao_tong_quat(ket)
+    assert ra2["ban_thao_ket"] is not None
+    assert ra2["ban_thao_ket"]["id"] == bt_dau["id"]
+    assert len(ra2["ban_thao_ket"]["clauses"]) == 1
+
+
+def test_gia_tri_go_tay_o_luot_truoc_song_sot_qua_luot_sua_sau(nguoi):
+    """I1 (review) — R4 ra lệnh cho mô hình GIỮ NGUYÊN câu người dùng đã viết
+    tay, nhưng `_nguon_soan` (lưới chặn bịa) chưa từng biết bản thảo đang có
+    là một nguồn hợp lệ: một mã số sinh viên người dùng tự gõ ở lượt TRƯỚC
+    (đã nằm trong `document`, không phải bịa) bị lưới chặn coi là KHÔNG CÓ
+    NGUỒN ở lượt SAU và thay bằng `[…]` — brief's chính ví dụ "mã sv:
+    23010447". Test này dựng đúng ca đó qua CẢ node thật (không chỉ
+    `lam_sach_van_ban` riêng), với `ban_thao_tong_quat_dang_mo` mang giá trị
+    đó và KHÔNG mang nó trong tài liệu nguồn (`TL`/`DV_A` không hề nhắc
+    "23010447")."""
+    from src.agents.nodes.route import Intent
+
+    ban_thao_dang_co = {
+        "document": "# BIÊN BẢN\n\n## 1. Thông tin\n\nMã số sinh viên: 23010447.\n",
+        "audit": {},
+    }
+    van_ban_moi = {
+        "tieu_de": "BIÊN BẢN BÀN GIAO THIẾT BỊ",
+        "muc": [_muc("Thông tin", "Mã số sinh viên: 23010447.")],
+    }
+    llm = _LLM(_ra(muc_dich="sua_ban_thao", van_ban=van_ban_moi))
+    ket = h.hieu_tai_lieu(
+        {
+            "query": "Rút gọn bản thảo, giữ đủ các mục bắt buộc",
+            "intent": Intent.soan_thao,
+            "ban_thao_tong_quat_dang_mo": ban_thao_dang_co,
+        },
+        TL, llm, "m",
+    )
+    assert ket["muc_dich_tai_lieu"] == "sua_ban_thao"
+    noi_dung = ket["van_ban_tong_quat"]["muc"][0]["khoi"][0]["noi_dung"]
+    assert "23010447" in noi_dung, "giá trị đã có trong bản thảo đang có không được coi là bịa"
+    assert "[…]" not in noi_dung

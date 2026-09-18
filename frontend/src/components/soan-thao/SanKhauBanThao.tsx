@@ -8,10 +8,11 @@ import { NoiDungDieuKhoan } from "@/components/klaw/NoiDungDieuKhoan";
 import { NganXepDrawer } from "@/components/ui/NganXepDrawer";
 import { TayKeo } from "@/components/ui/TayKeo";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
-import { dungLaiBanThao } from "@/lib/api";
+import { dungLaiBanThao, suaMucBanThao } from "@/lib/api";
 import { docRongDaLuu, kepRong, luuRong, type Bien } from "@/lib/keo-dan";
 import {
   LOAI_TONG_QUAT,
+  neenGuiLaiPhienBan,
   nhanFactDoi,
   nhanMucKiem,
   type BanThao,
@@ -201,6 +202,110 @@ export function SanKhauBanThao({
     datNgan((cur) => moTam(cur, { id: key, tieuDe: `Mục ${m.stt}. ${m.ten}`, noiDung: m }));
   };
 
+  // Fix round 1 (review #7) — `banThao` MỚI NHẤT, đọc được TRONG một callback
+  // bất đồng bộ mà không dính closure cũ: `onSuaKhoi` có thể được gọi lại
+  // (khối B) trước khi async trước đó (khối A) xong, và closure của A vẫn
+  // giữ `banThao` ở render lúc A được tạo — cập nhật MỖI lần dựng, không chỉ
+  // trong effect, để giá trị đọc lại luôn là bản MỚI NHẤT ngay lúc đọc.
+  const banThaoRef = useRef(banThao);
+  banThaoRef.current = banThao;
+
+  // Fix round 1 (review #5) — số lượt sửa tay đang chờ máy chủ trả lời.
+  // `xuatTep` (tải Word/PDF) đọc DOM SỐNG ngay lúc bấm; nếu một khối vừa blur
+  // và lượt lưu của nó CHƯA VỀ, tệp tải về có thể chứa chữ chưa từng được lưu
+  // — chặn xuất trong lúc đó thay vì để hai việc chạy đua.
+  const [soLuuDangCho, datSoLuuDangCho] = useState(0);
+
+  // Fix round 2 (re-review N2) — phiên bản do CHÍNH `onSuaKhoi` tạo ra ở lần
+  // lưu thành công gần nhất. `KhoiVanXuoi` (N1) nay gửi phiên bản NÓ chụp lúc
+  // focus, không phải phiên bản mới nhất — nên hai khối khác nhau, focus gần
+  // như cùng lúc, có thể cùng gửi một phiên bản cũ, và khối lưu SAU bị máy chủ
+  // từ chối dù không có gì xung đột thật (chỉ là khối TRƯỚC, của CHÍNH client
+  // này, vừa lưu xong). Ref này phân biệt "chênh lệch do CHÍNH MÌNH vừa gây
+  // ra" (an toàn để tự động gửi lại MỘT lần bằng phiên bản mới) khỏi "chênh
+  // lệch do nơi khác" (một lượt sửa bằng lời — N1b — không được tự gửi lại).
+  const phienBanTuSuaTayGanNhatRef = useRef(banThao.phien_ban);
+  // Component này không được cấp `key={banThao.id}` từ nơi gọi (chuyển bản
+  // thảo có thể chỉ đổi prop, không remount) — mốc trên phải reset về bản
+  // thảo MỚI mỗi khi `id` đổi, nếu không một số phiên bản cũ tình cờ trùng số
+  // với bản thảo mới có thể khiến retry (dưới) tưởng nhầm một xung đột thật
+  // (một lượt sửa bằng lời) là do chính client này gây ra.
+  const banThaoIdTruocRef = useRef(banThao.id);
+  if (banThaoIdTruocRef.current !== banThao.id) {
+    banThaoIdTruocRef.current = banThao.id;
+    phienBanTuSuaTayGanNhatRef.current = banThao.phien_ban;
+  }
+
+  /**
+   * Phase 3 (Half A, R1/R2/R3) — gõ tay MỘT khối trong `XemTruocA4`, 0 lượt
+   * gọi mô hình. Lỗi ra bằng toast (khối là bảng, mục không thấy, hết trần
+   * sửa, phiên bản đã đổi — I3) — không có gì để hoàn tác trên màn hình (khối
+   * vẫn hiện chữ vừa gõ, chỉ là chưa lưu được), nói ra để người dùng biết mà
+   * thử lại thay vì tưởng đã lưu.
+   *
+   * R3 (D3) — báo NGAY tại thời điểm sửa đầu tiên hạ `nhanMucKiem`, không chỉ
+   * đợi huy hiệu đổi: so nhãn TRƯỚC/SAU chứ không đọc cờ `sua_tay` một mình,
+   * để không báo lặp lại ở LẦN SỬA TAY THỨ HAI của cùng bản thảo (nhãn không
+   * đổi nữa vì đã hạ từ lần đầu).
+   *
+   * Fix round 2 (re-review N1/N2) — `phienBanLucSua` giờ do `KhoiVanXuoi` gửi
+   * (phiên bản nó chụp lúc focus, xem chú thích ở đó), KHÔNG phải
+   * `banThaoRef.current.phien_ban` đọc ở đây: đọc "mới nhất" ở đây chính là
+   * lỗi N1b (một lượt sửa bằng lời chạy xong TRONG lúc khối còn mở đã tự nâng
+   * số đó lên, khiến máy chủ so khớp một cách sai — token không còn phát hiện
+   * được gì). Vì gửi phiên bản CŨ hơn giờ là chuyện thường (một khối khác của
+   * CHÍNH client này vừa lưu xong cũng nâng số lên), một cú từ chối
+   * `LOI_PHIEN_BAN_DA_DOI` được retry ĐÚNG MỘT LẦN bằng phiên bản mới nhất —
+   * nhưng CHỈ khi biết chắc số mới đó đến từ CHÍNH client này
+   * (`phienBanTuSuaTayGanNhatRef`, N2), không phải từ một lượt sửa bằng lời
+   * (N1b, nơi `muc_key` đã bị cấp lại và retry sẽ ghi sai mục).
+   */
+  const onSuaKhoi = async (
+    mucKey: string,
+    khoiIndex: number,
+    noiDungMoi: string,
+    phienBanLucSua: number,
+  ) => {
+    const banThaoLucGoi = banThaoRef.current;
+    const nhanTruoc = nhanMucKiem(banThaoLucGoi.audit_report);
+    datSoLuuDangCho((n) => n + 1);
+    try {
+      let phienBanGui = phienBanLucSua;
+      let kq = await suaMucBanThao(banThaoLucGoi.id, mucKey, khoiIndex, noiDungMoi, phienBanGui);
+      if (
+        neenGuiLaiPhienBan(
+          kq.ok ? null : kq.error,
+          phienBanGui,
+          banThaoRef.current.phien_ban,
+          phienBanTuSuaTayGanNhatRef.current,
+        )
+      ) {
+        phienBanGui = banThaoRef.current.phien_ban;
+        kq = await suaMucBanThao(banThaoLucGoi.id, mucKey, khoiIndex, noiDungMoi, phienBanGui);
+      }
+      if (!kq.ok) {
+        toast.error(kq.error.message);
+        return;
+      }
+      // Fix round 1 (review #6) — một cập nhật KHÁC (một lượt chat vừa sửa
+      // xong, một khối khác vừa lưu) có thể đã tới TRƯỚC phản hồi này và đã
+      // đẩy `banThao` lên một phiên bản MỚI HƠN phản hồi đang cầm — áp phản
+      // hồi CŨ hơn đó đè lên sẽ kéo màn hình LÙI LẠI (máy chủ vẫn đúng, màn
+      // hình thì sai cho tới khi tải lại). Bỏ qua, không phải lỗi.
+      if (kq.data.phien_ban < banThaoRef.current.phien_ban) return;
+      phienBanTuSuaTayGanNhatRef.current = kq.data.phien_ban;
+      capNhatBanThao(kq.data);
+      const nhanSau = nhanMucKiem(kq.data.audit_report);
+      if (nhanTruoc === null && nhanSau !== null) {
+        toast.warning("Bản thảo không còn được coi là đã kiểm pháp lý.", {
+          description: "Bạn vừa sửa tay — hãy soát lại trước khi dùng bản thảo này.",
+        });
+      }
+    } finally {
+      datSoLuuDangCho((n) => n - 1);
+    }
+  };
+
   const onMoCanCu = (canCu: string) => {
     datNgan((cur) => moTam(cur, { id: "can-cu", tieuDe: "Căn cứ", noiDung: canCu }));
     const kq = timCanCuKhaDung(banThao.audit_report, canCu);
@@ -271,6 +376,16 @@ export function SanKhauBanThao({
   );
 
   const xuatTep = async (dinhDang: "docx" | "pdf") => {
+    // Fix round 1 (review #5) — một khối vừa blur còn đang chờ máy chủ trả
+    // lời (bấm nút tải đóng vai một cú click ra ngoài khối, TỰ NÓ đã kích
+    // hoạt `onBlur`/lượt lưu đó trước khi handler này chạy) thì DOM sống đọc
+    // ở đây có thể mang chữ CHƯA TỪNG được ghi vào bản thảo — nếu lượt lưu
+    // đó sau đó hỏng (422/mạng), tệp đã tải về mang chữ máy chủ chưa từng
+    // thấy. Chặn xuất, không đua với chính lượt lưu vừa kích hoạt.
+    if (soLuuDangCho > 0) {
+      toast.error("Đang lưu một chỗ vừa sửa — đợi lưu xong rồi tải lại.");
+      return;
+    }
     const sheet = khungRef.current?.querySelector<HTMLElement>("article") ?? null;
     if (sheet === null) {
       toast.error("Chưa tải được khung xem trước. Vui lòng thử lại.");
@@ -347,7 +462,7 @@ export function SanKhauBanThao({
           <button
             type="button"
             onClick={() => void xuatTep("docx")}
-            disabled={dangXuat !== null}
+            disabled={dangXuat !== null || soLuuDangCho > 0}
             className={NUT_PHU}
           >
             <FileDown className="size-3.5 text-[var(--color-brass-600)]" aria-hidden />
@@ -356,7 +471,7 @@ export function SanKhauBanThao({
           <button
             type="button"
             onClick={() => void xuatTep("pdf")}
-            disabled={dangXuat !== null}
+            disabled={dangXuat !== null || soLuuDangCho > 0}
             className={NUT_PHU}
           >
             <Download className="size-3.5 text-[var(--color-brass-600)]" aria-hidden />
@@ -477,6 +592,20 @@ export function SanKhauBanThao({
               mucDangChon={mucDangChon}
               onChonMuc={onChonMuc}
               laTongQuat={laTongQuat}
+              // Fix round 1 (Q-C2) — CHỈ bản thảo tổng quát, cùng điều kiện
+              // đã ẩn nút "Sửa" ở trên (`!laTongQuat`): một bản thảo
+              // checklist có CẢ HAI cơ chế sống trên cùng một màn hình nếu
+              // không gác — sửa tay mục 2 tại đây, rồi bấm "Sửa" mục 5 →
+              // `dungLaiBanThao` chạy `draft_generate` và THAY TOÀN BỘ
+              // `clauses` qua `sua()`, xoá câu vừa gõ mà không cảnh báo, và
+              // xoá luôn `audit.sua_tay`/`muc_kiem` (huy hiệu cũng biến mất
+              // theo). Bản thảo tổng quát không có "Sửa" nào để cạnh tranh
+              // (không checklist, không `facts`), nên đây là bề mặt DUY
+              // NHẤT sửa tay an toàn tồn tại. Prop bỏ hẳn (không phải
+              // `undefined` tường minh) khi `!laTongQuat` — `exactOptionalPropertyTypes`
+              // phân biệt hai điều đó. `phienBan` (fix round 2, N1) đi kèm
+              // `onSuaKhoi` — `KhoiVanXuoi` cần nó để chụp lại lúc focus.
+              {...(laTongQuat ? { onSuaKhoi, phienBan: banThao.phien_ban } : {})}
             />
           </div>
         </div>

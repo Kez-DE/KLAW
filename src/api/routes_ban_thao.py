@@ -9,7 +9,7 @@ tồn tại (không phân biệt được với một id không có thật).
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from src.agents.graph_soan_thao import load_checklist_cached, rules_cho
@@ -243,6 +243,57 @@ async def dung(id: str, body: DungLaiRequest, nguoi: dict = Depends(nguoi_dung_b
         facts=bt["facts"],
         doi_so_voi_truoc=bt["doi_so_voi_truoc"],
     )
+
+
+class SuaMucRequest(BaseModel):
+    muc_key: str = Field(..., min_length=1, max_length=100)
+    # Chỉ số khối HIỂN THỊ (đúng thứ tự `Muc.khoi` phía FE dựng), không phải
+    # chỉ số của `clauses[i].khoi` thô — `ban_thao.sua_tay`/`_ap_dung_khoi` tự
+    # quy đổi, đúng khuôn `xuat-tep.khoiTuClause` (xem docstring ở đó).
+    khoi_index: int = Field(..., ge=0)
+    # Trần đủ rộng cho một khối văn xuôi gõ tay (một điều/đoạn), hẹp hơn hẳn
+    # `GIA_TRI_TOI_DA` của `facts` (500) vì đây là CẢ MỘT đoạn, không một
+    # trường — nhưng vẫn phải có trần: request này không qua `kiem_tran_chi_phi`
+    # (không LLM), nên không có cổng nào khác chặn một thân bất thường.
+    noi_dung: str = Field(..., max_length=20000)
+    # Review (I3, fix round 1) — phiên bản người dùng ĐANG NHÌN THẤY lúc gõ.
+    # `muc_key` cấp theo VỊ TRÍ và bị cấp lại mỗi lượt sửa bằng lời dựng lại
+    # `clauses` — thiếu trường này thì một khối mở từ TRƯỚC một lượt sửa như
+    # vậy, blur SAU khi nó chạy xong, ghi đúng vị trí nhưng sai mục, không một
+    # dấu hiệu nào báo ra. Bắt buộc (không có mặc định): route mới, chưa ai
+    # gọi nó theo hình dạng cũ để giữ tương thích ngược.
+    phien_ban: int = Field(..., ge=1)
+
+
+@router.patch("/ban-thao/{id}/muc", response_model=BanThaoOut)
+async def sua_muc(id: str, body: SuaMucRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BanThaoOut:
+    """Sửa TAY một khối văn xuôi của một mục — Phase 3 (Half A, R1/R2).
+
+    KHÁC HẲN `POST /ban-thao/{id}/dung`: route đó chạy `draft_generate` trên
+    `generate_model()` (một lượt LLM TRẢ PHÍ) và dựng lại TOÀN BỘ bản thảo từ
+    facts; route này KHÔNG gọi mô hình nào — nó chỉ ghi lại đúng chữ người
+    dùng vừa gõ vào đúng khối, nên không cần `bao_ve.kiem_tran_chi_phi` (cổng
+    đó gác trần chi phí NGÀY của lượt LLM, không áp dụng ở đây) — nhưng vẫn
+    cần danh tính (`nguoi_dung_bat_buoc`, như mọi route `/ban-thao` khác) và
+    `ban_thao.TRAN_SUA` (`sua_tay` tự gác, cùng bộ đếm `dung`/`dung_lai` dùng,
+    xem docstring `sua_tay` cho lý do chia sẻ trần).
+
+    422 khi mục/khối không thấy, khối đó là bảng (chưa sửa được ở giai đoạn
+    này), đã hết trần sửa, hoặc `phien_ban` đã đổi (I3 — một lượt sửa bằng lời
+    khác vừa chạy trong lúc khối này còn mở, xem docstring `sua_tay`) — bốn
+    lỗi CÙNG MỘT HÌNH DẠNG (`sua_tay` trả chuỗi), không phân biệt được bằng mã
+    HTTP nhưng phân biệt được bằng `detail`. 404 khi bản thảo không thấy/
+    không phải chủ, cùng hợp đồng mọi route khác ở đây.
+    """
+    id = _uuid_hop_le(id)
+    ket = await run_in_threadpool(
+        ban_thao.sua_tay, nguoi["sub"], id, body.muc_key, body.khoi_index, body.noi_dung, body.phien_ban
+    )
+    if ket is None:
+        raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY)
+    if isinstance(ket, str):
+        raise HTTPException(status_code=422, detail=ket)
+    return _out(ket)
 
 
 @router.delete("/ban-thao/{id}", status_code=204)

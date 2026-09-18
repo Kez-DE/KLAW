@@ -31,6 +31,7 @@ import re
 import unicodedata
 from pathlib import Path
 
+from src.agents.nodes.route import Intent
 from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU
 from src.services.bo_nho import _vuong_luoi_chan
 from src.services.doc_tai_lieu import DonViVanBan, NguonChu
@@ -99,6 +100,49 @@ def xin_so_sanh(cau_hoi: str) -> bool:
     """Câu hỏi này có xin đặt tài liệu cạnh một tài liệu KHÁC không. Hàm thuần."""
     return bool(_RE_XIN_SO_SANH.search(cau_hoi or ""))
 
+
+# Phase 3 Half B, fix round 1 — safety net trên `MUC_DICH_SOAN`, thêm sau một
+# sự cố THẬT: owner hỏi "tôi muốn biết đây là đơn gì" (một câu hỏi, không xin
+# sửa gì) và mô hình gán `muc_dich = "sua_ban_thao"` — `dung_ban_thao_tong_quat`
+# tin tuyệt đối nhãn đó và VIẾT ĐÈ bản thảo thật, từ 9 mục xuống còn 5.
+#
+# Bản ĐẦU của gác này (rút lại — xem review) là hai danh sách regex tiếng Việt
+# ("dấu hiệu câu hỏi" / "dấu hiệu soạn"). Bị bác vì hai lý do gốc rễ, không chỉ
+# vì thiếu vài mẫu: (1) liệt kê cách diễn đạt là một danh sách MỞ — luôn còn
+# một câu thật không khớp mẫu nào ("đây là đơn gì" không chứa cụm "là gì");
+# (2) tiếng Việt DÙNG CHUNG một cấu trúc cho câu hỏi thật VÀ cho một YÊU CẦU
+# lịch sự ("Có thể… được không?" là xin làm, không phải hỏi thông tin) — không
+# quy tắc từ vựng/cú pháp nào tách được hai điều đó, vì khác biệt nằm ở NGHĨA
+# (hỏi thông tin và xin hành động), không nằm ở CHỮ.
+#
+# Gác THẬT không dựng thêm một bộ phân loại tiếng Việt nào — nó dùng lại một
+# Ý KIẾN THỨ HAI đã có sẵn, MIỄN PHÍ, từ một mô hình KHÁC: `route()` (khác
+# prompt, khác việc — "đây có phải một yêu cầu soạn thảo không", chạy TRƯỚC
+# `hieu_tai_lieu` với chính câu hỏi này) đã đặt `state["intent"]` trước khi
+# `hieu_tai_lieu` chạy, mỗi khi lượt đi qua `route` (xem `_re_sau_route`
+# `graph_tra_cuu.py` — đường DUY NHẤT một lượt KHÔNG đính-kèm-tươi tới được
+# đây). Một `muc_dich in MUC_DICH_SOAN` chỉ được TIN khi ý kiến ĐỘC LẬP đó
+# CŨNG là `Intent.soan_thao` — hai mô hình khác nhau cùng đồng ý, không phải
+# một mô hình tự xác nhận chính nó. Khi `route` đã chọn `Intent.tai_lieu` (câu
+# hỏi VỀ tài liệu — chính xác trường hợp "đây là đơn gì"), một `sua_ban_thao`
+# từ `hieu_tai_lieu` là một BẤT ĐỒNG giữa hai lượt gọi, không phải bằng
+# chứng — hạ về `hoi`.
+#
+# `intent` VẮNG MẶT (lượt đính kèm tài liệu TƯƠI, `_vao_graph` rẽ tất định
+# TRƯỚC `route`, quyết định chủ sở hữu Q4) thì không có ý kiến thứ hai nào để
+# đối chiếu — tin `hieu_tai_lieu` như trước bản vá này: gửi một tệp kèm một
+# câu là hành động đã đủ rõ ràng để không cần một phép kiểm thứ hai (cùng lý
+# lẽ Q4 đã lập cho chính lượt đó).
+def _muc_dich_soan_da_xac_nhan(intent: object) -> bool:
+    """`state["intent"]` (từ `route()`, nếu có chạy) có XÁC NHẬN một
+    `muc_dich in MUC_DICH_SOAN` của `hieu_tai_lieu` hay không. Hàm thuần, 0
+    token — không phân tích câu chữ, chỉ đối chiếu HAI QUYẾT ĐỊNH mô hình đã
+    đưa ra."""
+    if intent is None:
+        return True
+    return intent == Intent.soan_thao
+
+
 # Quyết định chủ sở hữu 2026-09-16 (Q3): ≤3 điều khoản mỗi lượt đối chiếu. Trần
 # của NGƯỜI ĐỌC chứ không của mô hình — ba điều khoản là số còn đọc hết được
 # cạnh căn cứ luật của chúng trong một câu trả lời.
@@ -148,6 +192,17 @@ NGUONG_PHAN_KY_TU = 15_000
 
 QUA_DAI = ("Tài liệu quá dài để đọc trong một lượt. Hãy tách nhỏ rồi gửi lại, "
            "hoặc hỏi về một phần cụ thể.")
+# Fix round 2 (N3) — trần này (cùng `QUA_DAI`) đếm cả tài liệu nguồn LẪN bản
+# thảo đang có (I2's fix) — khi chính bản thảo là phần đẩy nó vượt trần,
+# "tách nhỏ tài liệu rồi gửi lại" không làm được gì (tài liệu không phải thứ
+# vượt trần) VÀ lượt sửa bằng lời KẾ TIẾP sẽ vấp lại y hệt, vì bản thảo vẫn
+# còn đó. Nói đúng thứ người dùng thật sự làm được: rút ngắn bản thảo trực
+# tiếp (gõ tay, `PATCH /ban-thao/{id}/muc`) trước khi nhờ sửa tiếp bằng lời.
+QUA_DAI_VOI_BAN_THAO = (
+    "Bản thảo hiện tại cộng với tài liệu nguồn đã vượt giới hạn một lượt đọc. "
+    "Sửa bằng lời sẽ vấp lại giới hạn này ở lượt sau — hãy tự rút ngắn bản "
+    "thảo (gõ tay từng mục trên khung xem trước) trước khi nhờ sửa tiếp."
+)
 CHUA_DOC_DUOC = "Chưa đọc được tài liệu lúc này. Hãy thử lại."
 
 # Phase 16 R3 — `QUA_DAI` ở trên chặn TRƯỚC khi gọi mô hình (chi phí ước quá
@@ -377,7 +432,8 @@ def _phan_doan(i: int, so_phan: int, nhan: str, lo: int, hi: int, muc_dich: str 
     )
 
 
-def _hieu_theo_phan(llm, model: str, cau_hoi: str, goi: list[dict], prompt_path: Path) -> tuple[dict, Usage]:
+def _hieu_theo_phan(llm, model: str, cau_hoi: str, goi: list[dict], prompt_path: Path,
+                    khoi_ban_thao: str = "") -> tuple[dict, Usage]:
     """Phase 16 R2 — dựng `van_ban.muc` qua NHIỀU lượt gọi liên tiếp cho một
     tài liệu ĐƠN quá dài để một lượt an toàn (`hieu_tai_lieu` đã kiểm điều kiện
     này — `len(goi) == 1` và vượt `NGUONG_PHAN_KY_TU` — trước khi gọi hàm này).
@@ -420,6 +476,7 @@ def _hieu_theo_phan(llm, model: str, cau_hoi: str, goi: list[dict], prompt_path:
             cau_hoi=cau_hoi,
             tai_lieu=_khoi_tai_lieu(goi_phan),
             phan_doan=_phan_doan(i, so_phan, nhan_chu, lo, hi, muc_dich_da_biet),
+            ban_thao_dang_co=khoi_ban_thao,
         )
         try:
             raw, usage = llm.chat(model, messages(prompt), json_schema=schema_hieu(nhan), max_tokens=TOI_DA_TOKEN_RA)
@@ -1448,18 +1505,30 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None) -
 def _nguon_soan(goi: list[dict], state: dict, truong: list[dict], quan_sat: list[dict]) -> str:
     """Chữ mà một mục của bản thảo được phép lấy giá trị từ đó.
 
-    Bốn nguồn, và không nguồn thứ năm: TOÀN BỘ đơn vị của tài liệu trong lượt
-    (không chỉ phần đã gửi cho mô hình — phép lọc đầu vào là chuyện chi phí,
-    không phải chuyện bằng chứng, cùng lý lẽ với phép neo `quan_sat`), đoạn
-    trích đã neo của lượt, chính lời người hỏi, và hồ sơ tình huống của hội
-    thoại. Đoạn trích đã neo về mặt tập hợp nằm trong đơn vị rồi; giữ nó ở đây
-    để khi phép neo nới ra (nối nhiều đơn vị) thì nguồn không hụt theo.
+    NĂM nguồn (review, fix round 1 — trước đây bốn): TOÀN BỘ đơn vị của tài
+    liệu trong lượt (không chỉ phần đã gửi cho mô hình — phép lọc đầu vào là
+    chuyện chi phí, không phải chuyện bằng chứng, cùng lý lẽ với phép neo
+    `quan_sat`), đoạn trích đã neo của lượt, chính lời người hỏi, hồ sơ tình
+    huống của hội thoại, và (mới) chính BẢN THẢO ĐANG CÓ (R4,
+    `ban_thao_tong_quat_dang_mo`) khi hội thoại này đã có một. Đoạn trích đã
+    neo về mặt tập hợp nằm trong đơn vị rồi; giữ nó ở đây để khi phép neo nới
+    ra (nối nhiều đơn vị) thì nguồn không hụt theo.
+
+    Thiếu nguồn thứ năm là chính lỗ hổng R4 để lại: prompt (R4) đã ra lệnh
+    "giữ nguyên câu người dùng đã viết", nhưng lưới chặn bịa (`_sach`/
+    `_vuong_luoi_chan` ngay dưới đây) không hề biết bản thảo đang có là một
+    nguồn hợp lệ — một mã số sinh viên/số điện thoại/ngày tháng người dùng
+    tự gõ ở LƯỢT TRƯỚC (đã nằm trong `document`, không phải bịa) sẽ bị coi là
+    KHÔNG CÓ NGUỒN ở lượt SAU, thay bằng `[…]` hoặc bị bỏ nguyên mục — biến
+    "mô hình quên" thành "mô hình nhớ đúng rồi bị lưới chặn xoá", cùng một
+    mất mát, khó thấy hơn.
     """
     phan = [d.noi_dung for t in goi for d in t["don_vi"]]
     phan += [q.get("trich") or "" for q in quan_sat]
     phan += [str(state.get(k) or "") for k in ("cau_hoi_goc", "query", "cau_hoi_day_du")]
     phan += [str(v.get("gia_tri") or "") for v in (state.get("ho_so") or {}).values() if isinstance(v, dict)]
     phan += [str(o.get("gia_tri") or "") for o in truong]
+    phan.append(str((state.get("ban_thao_tong_quat_dang_mo") or {}).get("document") or ""))
     return "\n".join(phan)
 
 
@@ -1595,6 +1664,29 @@ def _khoi_tai_lieu(goi: list[dict]) -> str:
     return "\n".join(dong)
 
 
+# Phase 3 (Half A, R4) — lượt `sua_ban_thao` KHÔNG được để mô hình tưởng nó
+# đang soạn LẠI TỪ ĐẦU từ tài liệu nguồn: nếu hội thoại này đã có một bản
+# thảo tổng quát, `hieu_tai_lieu()` cho mô hình thấy CHÍNH bản thảo đó (không
+# chỉ tài liệu nguồn), và nói thẳng khi nó đã bị NGƯỜI DÙNG sửa tay — một mô
+# hình tin rằng chính nó viết ra câu đó sẽ âm thầm viết đè lên câu người dùng
+# vừa gõ (đúng cảnh báo brief nêu). Rỗng khi hội thoại chưa có bản thảo tổng
+# quát nào — `.format()` vẫn chạy bình thường vì nối một chuỗi rỗng, không đổi
+# hành vi của mọi lượt khác (`tom_tat`/`hoi`/… không đọc mục này).
+def _khoi_ban_thao_dang_co(bt: dict | None) -> str:
+    if not bt or not bt.get("document"):
+        return ""
+    da_sua_tay = bool((bt.get("audit") or {}).get("sua_tay"))
+    canh_bao = (
+        "Phần dưới đây đã có chỗ do NGƯỜI DÙNG tự tay sửa lại (không phải bạn soạn ra) — "
+        "KHÔNG được coi câu người dùng viết là câu của chính bạn. GIỮ NGUYÊN từng câu người "
+        "dùng đã viết, chỉ áp dụng đúng phần lượt này yêu cầu đổi.\n"
+        if da_sua_tay
+        else "Đây là bản thảo bạn đã soạn ở lượt trước — coi nó là NỀN để sửa, không phải bắt "
+        "đầu lại từ tài liệu nguồn.\n"
+    )
+    return f"\n# Bản thảo đang có\n\n{canh_bao}\n{bt['document']}\n"
+
+
 def _ket(muc_dich: str, mo_ta: str | None, tra_loi: str, quan_sat: list[dict],
          suy_luan: list[str], can_du_kien: list[str], da_dung: list[dict],
          phep_tinh: list[dict] | None = None, khac_biet: list[dict] | None = None) -> dict:
@@ -1660,12 +1752,23 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         # nó tự nghĩ ra một tài liệu.
         return _hong(CHUA_DOC_DUOC, "khong_co_tai_lieu")
 
+    # Fix round 1 (review, cùng I2) — bản thảo đang có (R4) cộng thêm vào
+    # CHÍNH prompt này, không phải một prompt riêng — trần chi phí phải đếm cả
+    # nó, không chỉ tài liệu nguồn, nếu không một lượt sua_ban_thao có thể tốn
+    # gấp đôi trần 0,05 USD/request mà trần đó tồn tại để chặn.
+    ban_thao_dang_co = state.get("ban_thao_tong_quat_dang_mo")
+    do_dai_ban_thao = len((ban_thao_dang_co or {}).get("document") or "")
     so_ky_tu_vao = sum(len(d.noi_dung) for t in goi for d in t["gui"])
     try:
-        kiem_tran_chi_phi_tai_lieu(so_ky_tu_vao)
+        kiem_tran_chi_phi_tai_lieu(so_ky_tu_vao + do_dai_ban_thao)
     except VuotTran:
-        return _hong(QUA_DAI, "vuot_tran")
+        # Fix round 2 (N3) — thông điệp riêng khi bản thảo góp phần vượt trần,
+        # xem chú thích tại `QUA_DAI_VOI_BAN_THAO`.
+        return _hong(QUA_DAI_VOI_BAN_THAO if do_dai_ban_thao > 0 else QUA_DAI, "vuot_tran")
 
+    # Bản thảo đang có (Phase 3 R4) đi kèm MỌI lượt gọi, kể cả từng phần khi
+    # chia lượt (Phase 16): một lượt sửa cần thấy nền để sửa ở bất kỳ phần nào.
+    khoi_ban_thao = _khoi_ban_thao_dang_co(ban_thao_dang_co)
     nhan = [t["nhan"] for t in goi]
     usage = None
     try:
@@ -1677,10 +1780,10 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         # Ngắn hơn ngưỡng: ĐÚNG một lượt như trước bản vá này, không đổi hành
         # vi, không đổi chi phí.
         if len(goi) == 1 and so_ky_tu_vao > NGUONG_PHAN_KY_TU:
-            ra, usage = _hieu_theo_phan(llm, model, cau_hoi, goi, prompt_path or PROMPT_PATH)
+            ra, usage = _hieu_theo_phan(llm, model, cau_hoi, goi, prompt_path or PROMPT_PATH, khoi_ban_thao)
         else:
             prompt = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8").format(
-                cau_hoi=cau_hoi, tai_lieu=_khoi_tai_lieu(goi), phan_doan="",
+                cau_hoi=cau_hoi, tai_lieu=_khoi_tai_lieu(goi), phan_doan="", ban_thao_dang_co=khoi_ban_thao,
             )
             raw, usage = llm.chat(model, messages(prompt), json_schema=schema_hieu(nhan), max_tokens=TOI_DA_TOKEN_RA)
             ra = json.loads(raw)
@@ -1739,6 +1842,15 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
 
     giu = giu[:TOI_DA_QUAN_SAT]
     muc_dich = str(ra.get("muc_dich") or "hoi")
+    # Phase 3 Half B, fix round 1 — safety net: một `muc_dich` SOẠN (có thể
+    # GHI ĐÈ bản thảo thật) không đủ tin nếu ý kiến ĐỘC LẬP của `route()` (nếu
+    # có chạy cho lượt này) không CŨNG là `Intent.soan_thao` — xem
+    # `_muc_dich_soan_da_xac_nhan`. Hạ về `hoi` TRƯỚC khi bất cứ điều gì dưới
+    # đây (kể cả `lam_sach_van_ban`) chạy trên nó, để
+    # `_re_sau_hieu_tai_lieu`/`dung_ban_thao_tong_quat` không bao giờ thấy
+    # được một `sua_ban_thao`/`tao_van_ban` chưa được xác nhận.
+    if muc_dich in MUC_DICH_SOAN and not _muc_dich_soan_da_xac_nhan(state.get("intent")):
+        muc_dich = "hoi"
     phep_tinh, phep_tinh_bo = _lay_phep_tinh(ra, goi)
     truong, truong_bo = _lay_truong(ra, goi)
     # Chỉ lượt SO SÁNH mới có khác biệt: một danh sách "khác biệt" trong lượt

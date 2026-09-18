@@ -485,3 +485,87 @@ def test_khoa_chi_phi_duong_tai_lieu_nam_trong_ba_danh_sach_cong_don():
     })
     assert (tong["token_in"], tong["token_out"]) == (16, 20)
     assert tong["cost_usd"] == pytest.approx(0.03)
+
+
+# ══════════════ Phase 3 (Half A, R4) — mô hình được cho thấy bản thảo đang có
+
+
+def test_khong_co_ban_thao_tong_quat_dang_mo_thi_prompt_khong_doi():
+    """Không có bản thảo tổng quát nào cho hội thoại này (giá trị mặc định
+    của mọi state cũ, trước Phase 3) — prompt KHÔNG có mục "Bản thảo đang
+    có": hành vi của mọi lượt khác (`hoi`/`tom_tat`/`tao_van_ban` lần đầu…)
+    không đổi."""
+    llm = _LLM(_ra())
+    h.hieu_tai_lieu(ST, MOT, llm, "m")
+    assert "# Bản thảo đang có" not in llm.prompt
+
+
+def test_co_ban_thao_tong_quat_dang_mo_thi_prompt_mang_theo_van_ban():
+    """R4 — hội thoại đã có một bản thảo tổng quát (`ban_thao_tong_quat_dang_mo`,
+    Phase 3 Half B) thì `hieu_tai_lieu` cho mô hình thấy CHÍNH văn bản đó,
+    không chỉ tài liệu nguồn — nếu không có mục này, một lượt "sửa" không có
+    gì để giữ nguyên ngoài việc soạn lại từ đầu."""
+    bt = {"document": "# VĂN BẢN\n\n## 1. Nội dung\n\nCâu đã soạn trước đó.\n", "audit": {}}
+    llm = _LLM(_ra())
+    h.hieu_tai_lieu({**ST, "ban_thao_tong_quat_dang_mo": bt}, MOT, llm, "m")
+    assert "# Bản thảo đang có" in llm.prompt
+    assert "Câu đã soạn trước đó." in llm.prompt
+
+
+def test_ban_thao_da_sua_tay_thi_prompt_canh_bao_khong_duoc_viet_de():
+    """R4's câu chữ chính xác — `sua_tay=True` (Phase 3 R2/R3, hạ `muc_kiem`)
+    phải đổi LỜI CẢNH BÁO đi kèm bản thảo, không chỉ đính kèm văn bản: mô
+    hình phải được nói THẲNG là phần đó do người dùng viết, không phải chính
+    nó, để không tưởng nó đang sửa lại câu của chính mình."""
+    bt_sua_tay = {"document": "# VĂN BẢN\n\nCâu người dùng tự viết.\n", "audit": {"sua_tay": True}}
+    llm = _LLM(_ra())
+    h.hieu_tai_lieu({**ST, "ban_thao_tong_quat_dang_mo": bt_sua_tay}, MOT, llm, "m")
+    assert "NGƯỜI DÙNG" in llm.prompt and "sửa lại" in llm.prompt
+
+    bt_chua_sua = {"document": "# VĂN BẢN\n\nCâu KLAW tự soạn.\n", "audit": {}}
+    llm2 = _LLM(_ra())
+    h.hieu_tai_lieu({**ST, "ban_thao_tong_quat_dang_mo": bt_chua_sua}, MOT, llm2, "m")
+    assert "NGƯỜI DÙNG" not in llm2.prompt
+
+
+def test_tran_chi_phi_dem_ca_do_dai_ban_thao_dang_co(monkeypatch):
+    """Review (I2/finding 3) — `_khoi_ban_thao_dang_co` cộng CẢ bản thảo đang
+    có vào CHÍNH prompt tài liệu, nhưng trần chi phí trước bản vá này chỉ đếm
+    độ dài tài liệu NGUỒN — một lượt `sua_ban_thao` có thể tốn gấp đôi trần
+    0,05 USD/request mà trần đó tồn tại để chặn. Test này khoá đúng THAM SỐ
+    (số ký tự) truyền vào `kiem_tran_chi_phi_tai_lieu`, không chỉ hành vi khi
+    vượt trần."""
+    goi_voi = {}
+
+    def gia(so_ky_tu):
+        goi_voi["so_ky_tu"] = so_ky_tu
+
+    monkeypatch.setattr(h, "kiem_tran_chi_phi_tai_lieu", gia)
+    do_dai_nguon = sum(len(d.noi_dung) for d in DV_A)
+    ban_thao = {"document": "x" * 500, "audit": {}}
+    h.hieu_tai_lieu({**ST, "ban_thao_tong_quat_dang_mo": ban_thao}, MOT, _LLM(_ra()), "m")
+    assert goi_voi["so_ky_tu"] == do_dai_nguon + 500, (
+        "trần chi phí phải đếm CẢ độ dài bản thảo đang có, không chỉ tài liệu nguồn"
+    )
+
+
+def test_vuot_tran_voi_ban_thao_dang_co_bao_dung_thu(monkeypatch):
+    """Fix round 2 (N3) — khi bản thảo đang có (I2's fix) góp phần đẩy trần
+    chi phí vượt ngưỡng, thông điệp "tách nhỏ tài liệu rồi gửi lại" (`QUA_DAI`)
+    không làm được gì — tài liệu không phải thứ vượt trần, và lượt sửa TIẾP
+    THEO sẽ vấp lại y hệt vì bản thảo vẫn còn đó. Phải là nhánh riêng
+    (`QUA_DAI_VOI_BAN_THAO`, nói người dùng tự rút ngắn bản thảo)."""
+
+    def vuot(_):
+        raise VuotTran("chi_phi", 1, 2)
+
+    monkeypatch.setattr(h, "kiem_tran_chi_phi_tai_lieu", vuot)
+    ban_thao = {"document": "x" * 500, "audit": {}}
+    ra = h.hieu_tai_lieu({**ST, "ban_thao_tong_quat_dang_mo": ban_thao}, MOT, _LLM(_ra()), "m")
+    tra_loi = ra["tai_lieu_ket"]["tra_loi_ngan"]
+    assert "rút ngắn bản thảo" in tra_loi, "phải nói người dùng tự rút ngắn bản thảo, không phải tài liệu"
+    assert tra_loi == h.QUA_DAI_VOI_BAN_THAO
+
+    # Không có bản thảo đang có (đường cũ, trước Half B) — vẫn thông điệp cũ.
+    ra2 = h.hieu_tai_lieu(ST, MOT, _LLM(_ra()), "m")
+    assert ra2["tai_lieu_ket"]["tra_loi_ngan"] == h.QUA_DAI
