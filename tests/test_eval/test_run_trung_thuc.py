@@ -5,8 +5,8 @@ là ĐẦU RA (bị .gitignore), nên một máy vừa clone về không có t�
 xanh vì không đo gì. Quan trọng hơn: cả tập mẫu hiện có chỉ khai `w:p`/`w:tbl`,
 không tệp nào khai đường viền, chiều cao hàng, `w:rPr`, lề trang hay ảnh — đo
 trên chúng thì mọi mục "CHƯA CÀI" ăn 0 mà không ai chứng minh được là tại bộ
-đọc chứ không phải tại nguồn im lặng. Tệp dưới đây khai ĐỦ CẢ MƯỜI MỤC, nên mỗi
-số 0 là một lời khẳng định có bằng chứng.
+đọc chứ không phải tại nguồn im lặng. Tệp dưới đây khai ĐỦ CẢ MƯỜI MỘT MỤC, nên
+mỗi số 0 là một lời khẳng định có bằng chứng.
 
 Bốn thứ test này gác:
 * điểm của mục đã cài không tụt (cấu trúc, căn lề, có-nét-hay-không của bảng,
@@ -21,7 +21,12 @@ Bốn thứ test này gác:
   đúng;
 * `dinh_dang_run` khớp CẢ trong ô bảng, nơi khoá chân lý có thêm một chặng
   `p{j}` cho từng `w:p` của ô. Tệp mẫu trên không có run nào khai `w:rPr`
-  trong bảng, nên một lỗi đánh khoá ở đó sẽ đi qua nó mà không ai thấy.
+  trong bảng, nên một lỗi đánh khoá ở đó sẽ đi qua nó mà không ai thấy;
+* `media` KHÔNG đếm một hộp chữ thành một tấm ảnh. Tệp mẫu để cạnh nhau một
+  `w:drawing` CÓ `a:blip` (ảnh thật, giải qua `.rels`) và một `w:drawing` RỖNG
+  (hộp chữ/đường kẻ), nên một cái thước đếm gộp hai thứ sẽ ĐỎ ở đây. Đó chính
+  là phép đếm gộp mà bản trước 2026-09-18 làm, và nó chấm 2/8 cho một bộ tách
+  ảnh chạy đúng trên tám biểu mẫu thật.
 """
 
 import zipfile
@@ -32,7 +37,15 @@ import pytest
 
 from eval.run_trung_thuc import chay, dac_ta_nguon
 
-_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+_NS = " ".join(
+    (
+        'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"',
+        'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"',
+        'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"',
+        'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"',
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
+    )
+)
 
 # Một trang giấy tí hon nhưng khai đủ mười mục: đoạn căn giữa in đậm có giãn
 # cách và thụt lề, một bảng hai cột có lưới + viền + chiều cao hàng + ô căn
@@ -41,7 +54,14 @@ _THAN = (
     '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="120" w:after="240"/>'
     '<w:ind w:firstLine="720"/></w:pPr>'
     '<w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM</w:t></w:r>'
-    '<w:r><w:drawing/></w:r></w:p>'
+    # Ảnh THẬT: `a:blip` trỏ rId1 → `word/media/anh1.png`, kèm `wp:extent`.
+    '<w:r><w:drawing><wp:inline><wp:extent cx="1733550" cy="537039"/>'
+    "<a:graphic><a:graphicData><pic:pic><pic:blipFill>"
+    '<a:blip r:embed="rId1"/></pic:blipFill></pic:pic></a:graphicData></a:graphic>'
+    "</wp:inline></w:drawing></w:r>"
+    # Hình KHÔNG mang ảnh, ngay cạnh: hộp chữ/đường kẻ của một biểu mẫu thật.
+    # Đây là thứ bản thước cũ đếm thành media.
+    "<w:r><w:drawing/></w:r></w:p>"
     '<w:tbl><w:tblPr><w:tblBorders><w:top w:val="single" w:sz="4"/>'
     '<w:bottom w:val="single" w:sz="4"/></w:tblBorders></w:tblPr>'
     '<w:tblGrid><w:gridCol w:w="4000"/><w:gridCol w:w="6000"/></w:tblGrid>'
@@ -82,9 +102,15 @@ _HOM_NAY = {
     # lề thân trang; tệp này không khai `header`/`footer`/`gutter`, và bộ đọc
     # cũng không được bịa ra chúng.
     "le_trang": (4, 1.0),
-    "media": (2, 0.0),
+    # Cài 2026-09-18 (`DonViVanBan.anh`): 0% → 100%. BA dữ kiện cho MỘT ảnh —
+    # part nào, `cx`, `cy` — vì một bộ đọc lấy đúng ảnh mà sai cỡ phải lộ ra ở
+    # đúng cỡ. Hình `w:drawing` RỖNG đứng ngay cạnh KHÔNG được tính ở đây; nó
+    # đi về `hinh_ve_hop_chu`, và đó là chỗ phép tách mục ngày 2026-09-18 phải
+    # chứng minh mình.
+    "media": (3, 1.0),
+    "hinh_ve_hop_chu": (1, 0.0),
 }
-_CHUA_CAI = {"media"}
+_CHUA_CAI = {"hinh_ve_hop_chu"}
 
 
 def _docx(duong: Path) -> Path:
@@ -92,6 +118,13 @@ def _docx(duong: Path) -> Path:
     with zipfile.ZipFile(buf, "w") as z:
         z.writestr("[Content_Types].xml", '<?xml version="1.0"?><Types/>')
         z.writestr("word/document.xml", f"<w:document {_NS}><w:body>{_THAN}</w:body></w:document>")
+        z.writestr(
+            "word/_rels/document.xml.rels",
+            '<?xml version="1.0"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+            'relationships/image" Target="media/anh1.png"/></Relationships>',
+        )
         z.writestr("word/media/anh1.png", b"\x89PNG\r\n\x1a\n")
     duong.write_bytes(buf.getvalue())
     return duong
@@ -105,7 +138,7 @@ def test_diem_tung_muc_KHONG_TUT_va_muc_chua_cai_KHONG_DOI_LANG_LE(tmp_path):
     for ten, (khai, diem) in _HOM_NAY.items():
         assert muc[ten]["khai"] == khai, f"{ten}: nguồn khai khác trước — tệp mẫu đổi thì mọi số dưới đây vô nghĩa"
         assert muc[ten]["diem"] == pytest.approx(diem), ten
-    assert ket["tong"] == pytest.approx(9 / 10)
+    assert ket["tong"] == pytest.approx(10 / 11)
 
 
 def test_MAT_TOA_DO_BANG_thi_diem_cau_truc_TUT(tmp_path):

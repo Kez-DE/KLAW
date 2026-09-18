@@ -1779,6 +1779,36 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
     le_trang = next(
         (list(d.le_trang) for t in (goi or []) for d in t["don_vi"] if d.le_trang), []
     )
+    # Ảnh đã tách (quyết định 2026-09-18) đi ĐÚNG đường lề trang: cũng là sự
+    # thật cấp TÀI LIỆU, cũng chép trên mọi đơn vị, cũng lấy ở đơn vị đầu đọc
+    # được. Không tra theo dòng như `chu`/`gian_cach` được: một logo letterhead
+    # nằm trong một `w:p` KHÔNG CÓ CHỮ, nên không có chuỗi nguyên văn nào để
+    # làm khoá.
+    #
+    # Ra giao diện là một ĐƯỜNG DẪN, không phải bytes: nhúng data URI vào đây
+    # sẽ đẩy con dấu của bên thứ ba vào mọi phản hồi bản thảo và mọi khung SSE.
+    # `routes_tai_lieu.anh` mới là chỗ phát bytes, và nó kiểm chủ sở hữu.
+    anh = next(
+        (
+            [
+                {
+                    "url": f"/tai-lieu/{t['id']}/anh/{d_anh.phan.rsplit('/', 1)[-1]}",
+                    "rong": d_anh.rong,
+                    "cao": d_anh.cao,
+                    "vung": d_anh.vung,
+                    "thu_tu": d_anh.thu_tu,
+                }
+                for d_anh in d.anh
+            ]
+            for t in (goi or [])
+            for d in t["don_vi"]
+            # `t.get("id")`: một gói KHÔNG có id việc đọc (mã gọi cũ, kịch bản
+            # kiểm) không dựng được đường dẫn ảnh nào — bỏ hẳn thay vì sinh một
+            # `/tai-lieu//anh/...` chắc chắn 404.
+            if d.anh and t.get("id")
+        ),
+        [],
+    )
     dem = {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0, "bo_nho_khong_dien": 0}
     # Giá trị đã nhớ mà CÓ trong `nguon` thì KHÔNG cấm: ở đó nó tới bằng chính
     # lời người hỏi lượt này (hay tài liệu, hay bản thảo đang có), không bằng ký
@@ -2099,6 +2129,9 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
             # một mục không có lề nguồn giữ nguyên hình dạng cũ, và ba nơi vẽ
             # giữ lề mặc định của chính chúng.
             **({"le_trang": le_trang} if le_trang else {}),
+            # Cùng luật `le_trang`: chỉ CÓ MẶT khi tệp có ảnh, nên một bản thảo
+            # KLAW tự soạn giữ nguyên hình dạng cũ.
+            **({"anh": anh} if anh else {}),
         })
     return {"tieu_de": tieu_de_sach, "muc": giu}, dem
 

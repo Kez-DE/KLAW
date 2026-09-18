@@ -13,6 +13,19 @@ thấy — bảng còn nguyên mà đường viền mất sạch vẫn ra 99%. M
 CÀI thì ăn 0 và hiện chữ "CHƯA CÀI", không bỏ qua và không miễn trừ: bỏ qua
 đúng những mục chưa làm là cách một cái thước tự cho mình điểm cao.
 
+`media` bị TÁCH ĐÔI ngày 2026-09-18, cùng một lẽ — và lần này lẽ ấy đo được.
+Bản cũ hỏi "có bao nhiêu `w:drawing`/`w:pict` trong thân" và gọi đó là media.
+Đếm trên tám biểu mẫu thật của chủ dự án: 12 hình cấp thân, trong đó ĐÚNG MỘT
+mang ảnh — 11 còn lại là hộp chữ, đường kẻ và khung, thứ không có một byte ảnh
+nào để tách. Bản cũ còn đếm mỗi hình HAI LẦN, vì `mc:AlternateContent` chở cùng
+một hình dưới cả `w:drawing` (Choice) lẫn `w:pict` (Fallback) — đúng cái bẫy
+`_khoi_than` đã tránh bằng cách bỏ `mc:Fallback`. Gộp lại thì một bộ tách ảnh
+CHẠY ĐÚNG vẫn bị chấm 2/8, và chỗ hỏng thật (hộp chữ) trốn trong cùng con số.
+Nên: `media` hỏi ảnh — mỗi tham chiếu `a:blip`/`v:imagedata` giải được qua
+`.rels` cho ba dữ kiện (part nào, rộng bao nhiêu, cao bao nhiêu). `hinh_ve_hop_chu`
+hỏi phần còn lại, ăn 0 và mang chữ CHƯA CÀI, không được miễn trừ. Tổng số dữ
+kiện KHÔNG giảm vì phép tách này: 8 → 15 trên cùng tám tệp ấy.
+
 Một mục bị TÁCH ĐÔI khi hai nửa của nó là hai câu hỏi khác nhau:
 `vien_bang_co_net` hỏi "bảng này có vẽ nét nào không" — đúng thứ một cờ bool
 mỗi bảng chở được; `vien_bang_tung_canh` hỏi hình dạng viền theo từng cạnh,
@@ -75,7 +88,8 @@ _TRUONG_DOC_RA: dict[str, tuple[str, ...]] = {
     "dinh_dang_run": ("dinh_dang",),
     "gian_cach_thut_le": ("gian_cach",),
     "le_trang": ("le_trang",),
-    "media": (),
+    "media": ("anh",),
+    "hinh_ve_hop_chu": (),
 }
 
 _CO_THUC = {f.name for f in fields(DonViVanBan)}
@@ -268,18 +282,113 @@ def _khoi_than(nut: ET.Element):
             yield from _khoi_than(con)
 
 
+_A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+_R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+_V = "{urn:schemas-microsoft-com:vml}"
+_WP = "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}"
+
+
+def _bo_fallback(goc: ET.Element) -> ET.Element:
+    """Bỏ `mc:Fallback` — cùng phép `_khoi_than` đã làm, viết lại ở đây thay vì
+    gọi `doc_tai_lieu._bo_fallback`: một cái thước gọi chính vật nó đo thì luôn
+    đo ra 100%. Không bỏ thì mỗi hình của `mc:AlternateContent` đếm hai lần."""
+    for cha in list(goc.iter()):
+        for con in [c for c in cha if c.tag == _MC_FALLBACK]:
+            cha.remove(con)
+    return goc
+
+
+def _rels(z: zipfile.ZipFile, ten_phan: str) -> dict[str, str]:
+    """`rId` → part đích, chuẩn hoá về gốc zip. Viết LẠI, không mượn của bộ đọc."""
+    thu_muc, _, ten = ten_phan.rpartition("/")
+    ten_rel = f"{thu_muc}/_rels/{ten}.rels" if thu_muc else f"_rels/{ten}.rels"
+    if ten_rel not in z.namelist():
+        return {}
+    try:
+        goc = ET.fromstring(z.read(ten_rel))
+    except ET.ParseError:
+        return {}
+    ra: dict[str, str] = {}
+    for r in goc:
+        rid, dich = r.get("Id"), r.get("Target")
+        if not rid or not dich or r.get("TargetMode") == "External":
+            continue
+        ra[rid] = dich[1:] if dich.startswith("/") else f"{thu_muc}/{dich}" if thu_muc else dich
+    return ra
+
+
+def _hinh(z: zipfile.ZipFile, ra: dict[str, dict[str, str]]) -> None:
+    """Hai mục hình: `media` (ảnh thật) và `hinh_ve_hop_chu` (phần còn lại).
+
+    Duyệt CẢ thân bài lẫn đầu/chân trang: logo letterhead gần như luôn nằm
+    trong `word/headerN.xml`, và một cái thước chỉ nhìn `document.xml` sẽ khai
+    "nguồn không khai media" cho đúng tệp có logo.
+
+    Một ảnh cho tối đa BA dữ kiện — part nào, `cx`, `cy` — và chỉ dữ kiện tệp
+    thật sự khai (một `wp:extent` thiếu `cy` không đẻ ra khoá `cy`), đúng luật
+    "chỉ đếm những gì TỆP KHAI" của cả tệp này. Ba khoá riêng chứ không một
+    chuỗi ghép: một bộ đọc lấy đúng ảnh mà sai cỡ phải LỘ RA ở đúng cỡ, không
+    được kéo cả ba xuống 0.
+    """
+    phan_vung = [("word/document.xml", "than")]
+    for tien_to, vung in (("word/header", "dau_trang"), ("word/footer", "chan_trang")):
+        phan_vung += [
+            (n, vung)
+            for n in sorted(z.namelist())
+            if n.startswith(tien_to) and n.endswith(".xml")
+        ]
+    # HAI bộ đếm, không một: ảnh đánh số theo ẢNH, hình vẽ theo HÌNH VẼ. Dùng
+    # chung một bộ đếm thì thứ tự của một ảnh phụ thuộc số hộp chữ đứng trước
+    # nó — một sự thật bộ đọc KHÔNG chở được (nó không rút hộp chữ), nên hai
+    # không gian khoá sẽ không bao giờ gặp nhau và một bộ tách ảnh chạy đúng
+    # vẫn bị chấm trượt. Đúng cái bẫy phép tách mục này tồn tại để gỡ.
+    dem_anh: dict[str, int] = {}
+    dem_khung: dict[str, int] = {}
+    for ten_phan, vung in phan_vung:
+        if ten_phan not in z.namelist():
+            continue
+        try:
+            goc = _bo_fallback(ET.fromstring(z.read(ten_phan)))
+        except ET.ParseError:
+            continue
+        lien_he = _rels(z, ten_phan)
+        for hinh in goc.iter():
+            if hinh.tag == _q("drawing"):
+                blip = hinh.find(f".//{_A}blip")
+                rid = blip.get(f"{_R}embed") if blip is not None else None
+                ext = hinh.find(f"{_WP}inline/{_WP}extent")
+                if ext is None:
+                    ext = hinh.find(f"{_WP}anchor/{_WP}extent")
+                co = {k: v for k in ("cx", "cy") if (v := ext.get(k) if ext is not None else None)}
+            elif hinh.tag == _q("pict"):
+                du_lieu = hinh.find(f".//{_V}imagedata")
+                rid = du_lieu.get(f"{_R}id") if du_lieu is not None else None
+                co = {}
+            else:
+                continue
+            phan = lien_he.get(rid or "", "")
+            if not phan.startswith("word/media/") or phan not in z.namelist():
+                # Không giải ra một part media nào thì đây là hộp chữ, đường kẻ
+                # hay khung — không có byte ảnh nào để tách.
+                k = dem_khung.get(vung, 0)
+                dem_khung[vung] = k + 1
+                ra["hinh_ve_hop_chu"][f"{vung}/khung{k}"] = hinh.tag.split("}")[-1]
+                continue
+            i = dem_anh.get(vung, 0)
+            dem_anh[vung] = i + 1
+            ra["media"][f"{vung}/hinh{i}/phan"] = phan
+            for k, v in co.items():
+                ra["media"][f"{vung}/hinh{i}/{k}"] = v
+
+
 def dac_ta_nguon(du_lieu: bytes) -> dict[str, dict[str, str]]:
-    """Những gì tệp .docx THẬT SỰ khai, theo mười mục — chân lý để đối chiếu."""
+    """Những gì tệp .docx THẬT SỰ khai, theo mười MỘT mục — chân lý để đối chiếu."""
     ra: dict[str, dict[str, str]] = {m: {} for m in _TRUONG_DOC_RA}
     with zipfile.ZipFile(BytesIO(du_lieu)) as z:
         goc = ET.fromstring(z.read("word/document.xml"))
         kieu = _jc_theo_kieu(z)
         vien_kieu = _vien_theo_kieu(z)
-        for ten in z.namelist():
-            if ten.startswith("word/media/"):
-                ra["media"][ten] = "co"
-    if (n := sum(1 for _ in goc.iter(_q("drawing"))) + sum(1 for _ in goc.iter(_q("pict")))):
-        ra["media"]["so_hinh_trong_than"] = str(n)
+        _hinh(z, ra)
     if (than := goc.find(_q("body"))) is None:
         return ra
     if (pg := than.find(f'{_q("sectPr")}/{_q("pgMar")}')) is not None:
@@ -349,6 +458,19 @@ def dac_ta_bo_doc(tai_lieu: TaiLieuDaDoc) -> dict[str, dict[str, str]]:
     # rỗng). Không lấy từ vòng lặp dưới: vòng ấy bỏ đầu/chân trang.
     for ten, v in (tai_lieu.don_vi[0].le_trang if tai_lieu.don_vi else ()):
         ra["le_trang"][f"pgMar/{ten}"] = str(v)
+
+    # Ảnh cũng là sự thật của cả TỆP, chép lên mọi đơn vị đúng khuôn lề trang
+    # (`DonViVanBan.anh`) — đọc một đơn vị là đủ. `thu_tu` của bộ đọc đếm
+    # TRONG vùng, cùng hệ với khoá `{vung}/hinh{i}` bên chân lý, nên hai không
+    # gian khoá gặp nhau. `rong`/`cao` bằng 0 nghĩa là bộ đọc không đọc được
+    # cỡ: KHÔNG ghi khoá, để nó thành một dữ kiện THIẾU chứ không phải một số
+    # 0 khớp nhầm với một nguồn cũng không khai.
+    for a in (tai_lieu.don_vi[0].anh if tai_lieu.don_vi else ()):
+        ra["media"][f"{a.vung}/hinh{a.thu_tu}/phan"] = a.phan
+        if a.rong:
+            ra["media"][f"{a.vung}/hinh{a.thu_tu}/cx"] = str(a.rong)
+        if a.cao:
+            ra["media"][f"{a.vung}/hinh{a.thu_tu}/cy"] = str(a.cao)
 
     def _run(tien_to: str, d) -> None:
         """`DinhDangChu.khai` → đúng khoá `_run_va_gian_cach` bên chân lý dựng.

@@ -20,7 +20,7 @@ import {
   type TruongFact,
 } from "@/lib/klaw";
 import { dongTrenCung, moTam, type Tam } from "@/lib/ngan-xep-drawer";
-import { leTrangTuBanThao, mucTuBanThao, tieuDeTuBanThao } from "@/lib/xuat-tep";
+import { anhTuBanThao, leTrangTuBanThao, mucTuBanThao, tieuDeTuBanThao } from "@/lib/xuat-tep";
 import { cn } from "@/lib/utils";
 import { DrawerSuaMuc } from "./DrawerSuaMuc";
 import { XemTruocA4 } from "./XemTruocA4";
@@ -186,6 +186,8 @@ export function SanKhauBanThao({
   // Lề trang là sự thật của cả TÀI LIỆU, không của một mục — đọc riêng thay vì
   // thêm một trường vào `Muc` (xem `leTrangTuBanThao`).
   const leTrang = useMemo(() => leTrangTuBanThao(banThao), [banThao]);
+  // Ảnh đã tách cũng là sự thật của cả TÀI LIỆU, đọc riêng cùng lý do lề trang.
+  const anh = useMemo(() => anhTuBanThao(banThao), [banThao]);
   const nhanDoi = nhanFactDoi(banThao.doi_so_voi_truoc, truongMau);
   const [hienThayDoi, datHienThayDoi] = useState(false);
   const [thuPhong, datThuPhongRaw] = useState(100);
@@ -608,6 +610,10 @@ export function SanKhauBanThao({
               // 2026-09-18) — `null` với bản thảo KLAW tự soạn và mọi bản thảo
               // lưu trước trường này, và ở đó trang giữ lề tự đặt như cũ.
               leTrang={leTrang}
+              // Ảnh NGUỒN đã tách (logo, con dấu, chữ ký quét — 2026-09-18);
+              // rỗng với bản thảo KLAW tự soạn và mọi bản thảo lưu trước
+              // trường này, và ở đó trang không có thẻ `<img>` nào.
+              anh={anh}
               thuPhong={thuPhong}
               hienCanCu={hienCanCu}
               mucDangChon={mucDangChon}

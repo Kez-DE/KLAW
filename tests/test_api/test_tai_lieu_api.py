@@ -589,3 +589,143 @@ async def test_tai_len_loai_tong_quat_doc_XONG_khong_rut_du_kien(client, khoa_ky
     assert body["loai"] == "tong_quat"
     assert body["du_kien"] == []
     assert body["chay_nen"] is False
+
+
+# ═══ Ảnh đã tách — quyết định 2026-09-18, migration 035 ══════════════════════
+
+_PNG = (
+    b"\x89PNG\r\n\x1a\n"
+    b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4"
+    b"\x00\x00\x00\x00IENDaE\x82"
+)
+
+
+def _docx_co_anh() -> bytes:
+    """Biểu mẫu có LOGO trong đầu trang — đúng chỗ một logo letterhead thật
+    nằm, và là ca `word/document.xml` một mình không thấy."""
+    ns = " ".join(
+        (
+            'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"',
+            'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"',
+            'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"',
+            'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"',
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
+        )
+    )
+    rels = (
+        '<?xml version="1.0"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+        'relationships/image" Target="media/logo.png"/></Relationships>'
+    )
+    anh = (
+        '<w:p><w:r><w:drawing><wp:inline><wp:extent cx="1733550" cy="537039"/>'
+        "<a:graphic><a:graphicData><pic:pic><pic:blipFill>"
+        '<a:blip r:embed="rId1"/></pic:blipFill></pic:pic></a:graphicData></a:graphic>'
+        "</wp:inline></w:drawing></w:r></w:p>"
+    )
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("[Content_Types].xml", '<?xml version="1.0"?><Types/>')
+        z.writestr(
+            "word/document.xml",
+            f"<w:document {ns}><w:body>"
+            f"<w:p><w:r><w:t>{DONG_LUONG}</w:t></w:r></w:p>"
+            f"<w:p><w:r><w:t>{DONG_THU_VIEC}</w:t></w:r></w:p>"
+            "</w:body></w:document>",
+        )
+        z.writestr("word/header1.xml", f"<w:hdr {ns}>{anh}</w:hdr>")
+        z.writestr("word/_rels/header1.xml.rels", rels)
+        z.writestr("word/media/logo.png", _PNG)
+    return buf.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_anh_tach_duoc_phat_lai_dung_bytes_va_dung_kieu(client, khoa_ky, hai_nguoi, llm_gia):
+    """Logo đi hết đường: tệp tải lên → `word/media/` → bảng `anh_tai_lieu` →
+    một request thật của chính chủ. Kèm hai tiêu đề an toàn: `nosniff` để
+    trình duyệt không tự đoán lại kiểu và chạy nội dung tệp người lạ như
+    HTML/SVG, và `private` để một proxy dùng chung không phát con dấu của
+    người này cho người khác."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _tai_len(client, ha, phien, tep=_docx_co_anh(), ten="co-logo.docx")).json()["id"]
+
+    r = await client.get(f"/api/v1/tai-lieu/{viec}/anh/logo.png", headers=ha)
+
+    assert r.status_code == 200
+    assert r.content == _PNG
+    assert r.headers["content-type"] == "image/png"
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert "private" in r.headers["cache-control"]
+
+
+@pytest.mark.asyncio
+async def test_anh_cua_NGUOI_KHAC_la_404(client, khoa_ky, hai_nguoi, llm_gia):
+    """Con dấu và chữ ký quét là dữ liệu cá nhân của BÊN THỨ BA. B biết đúng
+    `viec_id` và đúng tên tệp của A — và vẫn không lấy được một byte nào; 404
+    y hệt một ảnh không tồn tại, không tiết lộ rằng tài liệu đó có thật."""
+    a, b = hai_nguoi
+    ha, hb = _bearer(khoa_ky, a), _bearer(khoa_ky, b)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _tai_len(client, ha, phien, tep=_docx_co_anh(), ten="co-logo.docx")).json()["id"]
+
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}/anh/logo.png", headers=ha)).status_code == 200
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}/anh/logo.png", headers=hb)).status_code == 404
+    assert (
+        await client.get(f"/api/v1/tai-lieu/{uuid.uuid4()}/anh/logo.png", headers=ha)
+    ).status_code == 404
+    # Không đăng nhập thì 401, không phải 404 im lặng.
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}/anh/logo.png")).status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "ten",
+    [
+        "..%2f..%2fdocument.xml",
+        "%2e%2e%2f%2e%2e%2fword%2fdocument.xml",
+        "logo.png%00.txt",
+        "khong-co.png",
+    ],
+)
+async def test_ten_anh_LA_la_404_khong_doc_duoc_part_nao_khac(
+    client, khoa_ky, hai_nguoi, llm_gia, ten
+):
+    """Endpoint chỉ nhận TÊN TỆP trần rồi tự ghép `word/media/`, nên không có
+    đường nào để một tên dựng sẵn đọc ra một part khác của zip."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _tai_len(client, ha, phien, tep=_docx_co_anh(), ten="co-logo.docx")).json()["id"]
+
+    r = await client.get(f"/api/v1/tai-lieu/{viec}/anh/{ten}", headers=ha)
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_xoa_hoi_thoai_mang_CON_DAU_di_cung(client, khoa_ky, hai_nguoi, llm_gia):
+    """Điều khoản đánh đổi của quyết định 2026-09-18: ảnh nằm trong Postgres
+    ĐÚNG BẰNG đời cuộc hội thoại. Đo ở tầng HTTP, nơi người dùng thật bấm nút
+    xoá — không chỉ ở tầng service."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _tai_len(client, ha, phien, tep=_docx_co_anh(), ten="co-logo.docx")).json()["id"]
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}/anh/logo.png", headers=ha)).status_code == 200
+
+    assert (
+        await client.delete(f"/api/v1/tai-lieu/hoi-thoai/{phien}", headers=ha)
+    ).status_code == 204
+
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}/anh/logo.png", headers=ha)).status_code == 404
+    with get_engine().connect() as c:
+        assert (
+            c.execute(
+                text("SELECT count(*) FROM anh_tai_lieu WHERE viec_id = CAST(:v AS uuid)"),
+                {"v": viec},
+            ).scalar_one()
+            == 0
+        )
