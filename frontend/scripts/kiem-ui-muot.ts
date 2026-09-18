@@ -330,7 +330,7 @@ const MUC: Muc[] = [
     vung: "than",
     canCu: null,
     khoi: [
-      { kind: "vanXuoi", noiDung: CHU_GOC, canhLe: "trai" },
+      { kind: "vanXuoi", noiDung: CHU_GOC, canhLe: "trai", chu: [] },
       {
         kind: "bang",
         hang: [
