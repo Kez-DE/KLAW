@@ -9,6 +9,31 @@ import {
   type Muc,
 } from "@/lib/xuat-tep";
 
+/** `CanLe` của MỘT Ô bảng → lớp căn lề. Ô giữ căn lề nguồn của chính nó
+ * (`w:jc`, đọc qua `BangThat.canLeO`) thay vì bị căn giữa cả bảng: khối ký và
+ * letterhead của biểu mẫu tiếng Việt căn giữa TỪNG cột, còn một bảng dữ liệu
+ * căn trái phần chữ — cùng một quy tắc đọc ra cả hai. */
+const CAN_LE_O: Record<CanLe, string> = {
+  trai: "text-left",
+  giua: "text-center",
+  phai: "text-right",
+};
+
+/**
+ * Chiều cao KHAI BÁO của một hàng (twip, `w:trHeight`) → chiều cao TỐI THIỂU
+ * để vẽ, cộng con số gốc để `docBangTuPhanTu` đọc lại khi xuất tệp.
+ *
+ * Đơn vị `pt`, không `em`: trang A4 ở đây rộng cố định 794px (≈210mm ở 96dpi)
+ * và `thuPhong` chỉ phóng CỠ CHỮ, không phóng trang — nên một chiều cao đo
+ * bằng `em` sẽ trôi theo mức phóng, còn `pt` giữ đúng kích thước vật lý mà
+ * `.docx`/PDF cũng dùng. 1 twip = 1/20 pt.
+ */
+function caoTrenTrang(
+  twip: number | undefined,
+): { twip: number; style: { height: string } } | undefined {
+  return twip && twip > 0 ? { twip, style: { height: `${twip / 20}pt` } } : undefined;
+}
+
 /**
  * Fix round 1 (review, CRITICAL #1) — một khối văn xuôi editable, tách riêng
  * để đồng bộ DOM ↦ `noiDung` bằng TAY (`useLayoutEffect`), không qua
@@ -391,8 +416,19 @@ export function XemTruocA4({
                   />
                 ) : (
                   // Khối BẢNG trong tài liệu nguồn (Phase 7 R1/R2) — `<table>`
-                  // THẬT, không phải chữ `|` improv: hàng đầu là tiêu đề, viền
-                  // thấy được. Hàng ngắn hơn hàng tiêu đề (Phase 8 R4, ô gộp
+                  // THẬT, không phải chữ `|` improv. NGUỒN quyết định nó trông
+                  // như một bảng hay như một khối BỐ CỤC: `k.vien` (đọc
+                  // `w:tblBorders`/`w:tcBorders`/`w:tblStyle`) bật/tắt CÙNG
+                  // LÚC nét viền và hàng tiêu đề giả (tô nền + in đậm + căn
+                  // giữa) — biểu mẫu tiếng Việt xếp cột bằng bảng KHÔNG viền
+                  // (letterhead "tên đơn vị trái / quốc hiệu phải", khối ký
+                  // cuối trang), và ở đó hàng đầu không phải tiêu đề của gì
+                  // cả. Mỗi ô giữ căn lề NGUỒN của nó (`k.canLeO`, `w:jc`),
+                  // mỗi hàng giữ chiều cao khai báo (`k.cao`, `w:trHeight` —
+                  // chỗ để ký tay). Ba thứ đó đi ra DOM thành `data-vien`/
+                  // `data-can-le`/`data-cao` để `docBangTuPhanTu` đọc lại khi
+                  // xuất `.docx`/PDF: một nguồn, ba nơi dùng.
+                  // Hàng ngắn hơn hàng tiêu đề (Phase 8 R4, ô gộp
                   // trong tài liệu nguồn) dùng `colSpan` qua `k.nhip` — nhịp
                   // THẬT khi bảng có khai lưới nguồn (Phase 11 R6, đọc
                   // `w:gridSpan`), suy từ số ô khi không (`nhipHangVe` rơi về
@@ -442,6 +478,7 @@ export function XemTruocA4({
                         <table
                           aria-describedby={onSuaKhoi !== undefined ? idChuThichBang : undefined}
                           className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
+                          data-vien={k.vien ? undefined : "khong"}
                           style={{ tableLayout: "fixed" }}
                         >
                           <colgroup>
@@ -449,34 +486,43 @@ export function XemTruocA4({
                               <col key={oi} data-ti-le={ti} style={{ width: `${ti}%` }} />
                             ))}
                           </colgroup>
-                          <thead>
-                            <tr>
-                              {(k.hang[0] ?? []).map((o, oi) => {
-                                const cot = spanTieuDe[oi] ?? 1;
-                                return (
-                                  <th
-                                    key={oi}
-                                    colSpan={cot > 1 ? cot : undefined}
-                                    className="border border-[#999] bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold"
-                                  >
-                                    {o}
-                                  </th>
-                                );
-                              })}
-                            </tr>
-                          </thead>
+                          {k.vien && (
+                            <thead>
+                              <tr data-cao={caoTrenTrang(k.cao?.[0])?.twip}>
+                                {(k.hang[0] ?? []).map((o, oi) => {
+                                  const cot = spanTieuDe[oi] ?? 1;
+                                  return (
+                                    <th
+                                      key={oi}
+                                      colSpan={cot > 1 ? cot : undefined}
+                                      data-can-le={k.canLeO?.[0]?.[oi] ?? "trai"}
+                                      className="border border-[#999] bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold"
+                                    >
+                                      {o}
+                                    </th>
+                                  );
+                                })}
+                              </tr>
+                            </thead>
+                          )}
                           <tbody>
-                            {k.hang.slice(1).map((hang, hi) => {
-                              const span = nhipHangVe(hang, k.nhip[hi + 1], soCot);
+                            {(k.vien ? k.hang.slice(1) : k.hang).map((hang, hi) => {
+                              const hiThat = k.vien ? hi + 1 : hi;
+                              const span = nhipHangVe(hang, k.nhip[hiThat], soCot);
+                              const cao = caoTrenTrang(k.cao?.[hiThat]);
                               return (
-                                <tr key={hi}>
+                                <tr key={hi} data-cao={cao?.twip} style={cao?.style}>
                                   {hang.map((o, oi) => {
                                     const cot = span[oi] ?? 1;
+                                    const canLe = k.canLeO?.[hiThat]?.[oi] ?? "trai";
                                     return (
                                       <td
                                         key={oi}
                                         colSpan={cot > 1 ? cot : undefined}
-                                        className="border border-[#999] px-2 py-1 align-top font-serif"
+                                        data-can-le={canLe}
+                                        className={`px-2 py-1 align-top font-serif ${CAN_LE_O[canLe]} ${
+                                          k.vien ? "border border-[#999]" : ""
+                                        }`}
                                       >
                                         {o}
                                       </td>
