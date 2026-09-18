@@ -23,7 +23,8 @@ câu trả lời có trích dẫn — vẫn không bao giờ được gọi trê
 Phase 14 (R6, quyết định owner) thêm một vai THỨ BA cho các ngõ cụt "truy hồi
 không cho gì kiểm chứng được": `giai_thich_chung` — mô hình giải thích CHUNG
 bằng kiến thức của nó (khái niệm là gì, thủ tục thường ra sao), KHÔNG một số
-Điều/Khoản/số hiệu nào (lưới 0 token loại cả lời khi vướng), đi vào `answer`
+Điều/Khoản/số hiệu/mốc pháp lý nào (lưới 0 token loại cả lời khi vướng, dùng
+lại `hoi_lai.bi_loai` — xem chú thích ở `giai_thich_chung`), đi vào `answer`
 trong khi `result_type` vẫn là `abstain`. Nới điều được NÓI, không nới điều
 được TRÍCH DẪN: một trích dẫn chỉ có thể là một neo đã qua hai tầng kiểm.
 
@@ -63,7 +64,7 @@ from src.models.schemas import Bang
 from src.services.bao_ve import LOI_SOAN_THAO_DANG_NHAP
 from src.services.bo_nho import ho_so_da_dung, khoi_tinh_huong
 from src.services.effectivity import EffectivityVerdict as V
-from src.services.kho import hien_van_ban
+from src.services.kho import hien_van_ban, moi_so_hieu_trong
 from src.services.llm import Usage
 from src.services.prompts import messages
 
@@ -667,8 +668,31 @@ GIAI_THICH_SCHEMA = {
     "required": ["giai_thich"],
     "properties": {"giai_thich": {"type": "string"}},
 }
-# `Khoản N`/`Điểm x` đứng một mình cũng là một trích dẫn (không cần Điều đi
-# kèm); `_RE_DIEU`/`_RE_SO_KY_HIEU`/`_RE_THE`/`_RE_URL` có sẵn lo phần còn lại.
+# Lưới của lời giải thích dùng lại ĐÚNG những bộ nhận diện đã có, không dựng
+# bản thứ hai của cùng quy tắc — chính quy tắc `giai_nghia.dinh_danh_bia` đã
+# ghi cho mình ("mỗi họ định danh dùng lại bộ nhận diện ĐÃ CÓ").
+#
+# * `bi_loai` (`hoi_lai`) — "câu này có phát biểu một quy tắc pháp luật không".
+#   Nó đang được áp cho câu hỏi lại của CHÍNH lượt abstain này, nên lời giải
+#   thích của cùng lượt không có lý do gì được đi qua một lưới lỏng hơn. Bản
+#   chép tay trước đây (`_RE_DIEU` ở file này) hụt ở đúng những chỗ `bi_loai`
+#   đã vá: `Ðiều` U+00D0, `Điều47` không khoảng trắng, và MỐC PHÁP LÝ ("60
+#   ngày", "ba mươi ngày") — một phát biểu luật không mang số Điều nào nhưng
+#   cũng không có neo nào chống đỡ.
+# * `kho.moi_so_hieu_trong` — bản LỎNG của số hiệu, bắt cả "145/2020" viết
+#   thiếu đuôi loại văn bản (đúng cách người ta thật sự gõ), chỗ
+#   `_RE_SO_KY_HIEU` (đòi đủ hậu tố) và `bi_loai` (đòi dấu `/` thứ hai) đều hụt.
+# * `_RE_KHOAN_DIEM` ở lại: `Khoản N`/`Điểm x` đứng một mình cũng là một trích
+#   dẫn (R6) và KHÔNG họ nào ở trên phủ nó.
+# * `_RE_THE`/`_RE_URL` — thẻ trích dẫn và đường dẫn, như cũ.
+#
+# GIÁ phải trả, chấp nhận CÓ CHỦ Ý theo hướng đóng: `bi_loai` cố ý THÔ, nên
+# một lời giải thích đúng mực nhưng có "khoảng hai tuần" hay "trong ba ngày"
+# cũng bị bỏ CẢ LỜI — tỉ lệ rơi cao hơn hẳn, kể cả với văn xuôi dè dặt hợp lệ.
+# Đổi lại: không một mốc/số Điều không có neo nào tới được người đọc, và không
+# định danh bịa nào được `dinh_danh_bia` bạch hoá ở lượt sau qua `tra_loi` đã
+# lưu của lượt này. Mất một câu giải thích là rơi về abstain trơ; để lọt một
+# mốc bịa là đúng chế độ hỏng cả khoá luận tồn tại để chống.
 _RE_KHOAN_DIEM = re.compile(r"[Kk]hoản\s+\d|[Đđ]iểm\s+[a-zđ]\b")
 
 
@@ -691,11 +715,16 @@ def giai_thich_chung(cau_hoi: str, llm, model: str) -> tuple[str | None, Usage |
         return None, usage, "loi"
     if not loi_giai_thich:
         return None, usage, "loi"
-    vuong = (_RE_DIEU.search(loi_giai_thich) or _RE_KHOAN_DIEM.search(loi_giai_thich)
-             or _RE_SO_KY_HIEU.search(loi_giai_thich) or _RE_THE.search(loi_giai_thich)
-             or _RE_URL.search(loi_giai_thich))
-    if vuong:
-        logger.warning("giai_thich_chung: lời giải thích dẫn %r — loại, không tới người đọc", vuong.group(0))
+    # `normalize` TRƯỚC khi lọc, cùng lý do `verify_tier1` dùng nó ở cả hai
+    # phía: mô hình sinh được NFD và `Ð` U+00D0, và một chữ chỉ khác cách biểu
+    # diễn không được là đường vòng qua lưới.
+    chuan = normalize(loi_giai_thich)
+    if (bi_loai(chuan) or moi_so_hieu_trong(chuan) or _RE_KHOAN_DIEM.search(chuan)
+            or _RE_THE.search(chuan) or _RE_URL.search(chuan)):
+        # Ghi CẢ LỜI (cắt ngắn) chứ không chỉ cụm khớp: `bi_loai` trả bool, và
+        # tần suất lưới này nổ là số liệu cần đọc được — xem `hoi_lai._cau_dung_duoc`.
+        logger.warning("giai_thich_chung: lời giải thích phát biểu quy tắc pháp luật hay dẫn nguồn "
+                       "— loại cả lời, không tới người đọc: %r", chuan[:200])
         return None, usage, "bi_loc"
     return loi_giai_thich, usage, "llm"
 

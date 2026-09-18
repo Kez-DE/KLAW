@@ -1167,16 +1167,63 @@ def test_khong_can_cu_kiem_chung_thi_tra_giai_thich_chung_trong_answer():
     "Nghị định 145/2020/NĐ-CP hướng dẫn việc này.",
     "Xem [Điều 25](cite:1).",
     "Chi tiết tại https://thuvienphapluat.vn.",
+    # Năm hình dạng bản lưới CHÉP TAY (`_RE_DIEU|_RE_KHOAN_DIEM|_RE_SO_KY_HIEU|
+    # _RE_THE|_RE_URL`) để lọt, còn `bi_loai`/`moi_so_hieu_trong` — hai bộ nhận
+    # diện repo đã có, đang được áp cho CÂU HỎI LẠI của chính lượt abstain này
+    # — chặn. Đây là lý do lưới nay dùng lại chúng thay vì giữ bản thứ hai.
+    "Bộ luật Lao động 2019 quy định thời gian thử việc tối đa 60 ngày.",  # mốc, không số Điều
+    "Bạn thường phải báo trước 45 ngày trước khi nghỉ.",                  # mốc trong văn xuôi dè dặt
+    "Ðiều 47 quy định về trợ cấp thôi việc.",                             # Ð U+00D0
+    "Điều47 quy định về trợ cấp.",                                        # thiếu khoảng trắng
+    "Thời hạn báo trước là ba mươi ngày làm việc.",                       # mốc viết bằng chữ
+    "Nghị định 145/2020 hướng dẫn việc này.",                             # số hiệu viết thiếu đuôi
 ])
 def test_giai_thich_chung_mang_so_dieu_hay_so_hieu_thi_bi_loai_khong_toi_nguoi_doc(bia):
-    """Lưới 0 token: mô hình lỡ dẫn một số Điều/Khoản/số hiệu/thẻ/URL trong lời
-    giải thích → cả lời giải thích bị bỏ (rơi về abstain trơ như trước), vì ở
-    đây KHÔNG có trích dẫn nào đã kiểm để đối chiếu — mọi số Điều đều là bịa."""
+    """Lưới 0 token: mô hình lỡ dẫn một số Điều/Khoản/số hiệu/mốc pháp lý/thẻ/
+    URL trong lời giải thích → cả lời giải thích bị bỏ (rơi về abstain trơ như
+    trước), vì ở đây KHÔNG có trích dẫn nào đã kiểm để đối chiếu — mọi số Điều
+    đều là bịa. Giá đã chấp nhận: văn xuôi dè dặt hợp lệ có mốc cũng rơi."""
     llm = FakeLlm()
     llm.giai_thich = bia
     st = assemble(_st_khong_can_cu(), DB, llm, "m")
     assert st["result_type"] is ResultType.abstain and st["answer"] is None
     assert st["traces"]["assemble_giai_thich"] == "bi_loc"
+
+
+def test_loi_giai_thich_qua_luoi_KHONG_bach_hoa_dinh_danh_nao_cho_luot_sau():
+    """Từ Phase 14 `answer` của một lượt abstain ĐƯỢC LƯU — `hoi_thoai.
+    _luot_thanh_lich_su` đọc đúng khoá `answer` — rồi chảy vào
+    `giai_nghia.ngu_canh(lich_su)`. Ở đó `dinh_danh_bia` tính "bịa" bằng phép
+    TRỪ: định danh trong câu đã giải nghĩa TRỪ định danh có ở `cau_goc` + lịch
+    sử. Nên bất cứ định danh nào lọt lưới `giai_thich_chung` sẽ được BẠCH HOÁ
+    từ lượt N+1 trở đi, và tầng kiểm tiền đề của câu HỎI mất tác dụng với nó.
+
+    Khoá cửa đó bằng chính lưới đã có, KHÔNG bằng một cơ chế thứ hai: lời nào
+    qua được lưới thì `dinh_danh_bia` không tìm thấy định danh nào trong nó —
+    tức lưới phủ đủ ba họ `dinh_danh_bia` kiểm (số Điều, số hiệu, mốc pháp lý).
+    Nới lưới ở `giai_thich_chung` mà quên chỗ này sẽ đỏ ngay tại đây."""
+    from src.agents.nodes.assemble import giai_thich_chung
+    from src.agents.nodes.giai_nghia import dinh_danh_bia
+
+    ung_vien = [
+        FakeLlm.giai_thich,
+        "Thử việc là giai đoạn hai bên làm thử trước khi ký hợp đồng chính thức.",
+        "Bộ luật Lao động 2019 quy định thời gian thử việc tối đa 60 ngày.",
+        "Bạn thường phải báo trước 45 ngày trước khi nghỉ.",
+        "Ðiều 47 quy định về trợ cấp thôi việc.",
+        "Điều47 quy định về trợ cấp.",
+        "Thời hạn báo trước là ba mươi ngày làm việc.",
+        "Nghị định 145/2020 hướng dẫn việc này.",
+        "Mức trợ cấp thường là nửa tháng lương cho mỗi năm làm việc.",
+    ]
+    for van in ung_vien:
+        llm = FakeLlm()
+        llm.giai_thich = van
+        loi, _, nguon = giai_thich_chung("thử việc là gì", llm, "m")
+        if nguon == "bi_loc":
+            assert loi is None
+            continue
+        assert dinh_danh_bia(loi, "", []) == [], f"lời qua lưới vẫn bạch hoá định danh: {van!r}"
 
 
 def test_giai_thich_chung_loi_mo_hinh_roi_ve_abstain_tro():
