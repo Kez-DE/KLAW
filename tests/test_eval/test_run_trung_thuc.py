@@ -10,7 +10,8 @@ số 0 là một lời khẳng định có bằng chứng.
 
 Bốn thứ test này gác:
 * điểm của mục đã cài không tụt (cấu trúc, căn lề, có-nét-hay-không của bảng,
-  chiều cao hàng, định dạng chữ và giãn cách/thụt lề đang 100%);
+  viền từng cạnh, chiều cao hàng và luật của nó, định dạng chữ, giãn cách/thụt
+  lề và lề trang — chín mục đang 100%);
 * danh sách mục CHƯA CÀI không đổi lặng lẽ — cài xong một mục thì test này ĐỎ,
   và người cài phải sửa con số ở đây. Đó chính là điều muốn: một cái thước đổi
   giá trị mà không ai ký tên thì không gác được gì;
@@ -58,9 +59,16 @@ _THAN = (
 _HOM_NAY = {
     "cau_truc": (6, 1.0),
     "vien_bang_co_net": (1, 1.0),
-    "vien_bang_tung_canh": (3, 0.0),
+    # Cài 2026-09-18 (`DonViVanBan.bang_vien_canh`/`o_vien_canh`): 0% → 100%
+    # trên tệp này. Ba dữ kiện là `tblBorders/top`, `tblBorders/bottom` và
+    # `o0,0/tcBorders/right` — CẢ HAI cấp (bảng và ô), nên một lỗi chỉ đọc một
+    # cấp không đi lọt.
+    "vien_bang_tung_canh": (3, 1.0),
     "chieu_cao_hang": (1, 1.0),
-    "chieu_cao_hang_hrule": (1, 0.0),
+    # Cài 2026-09-18 (`DonViVanBan.bang_cao_luat`): 0% → 100%. Thước chấm SỰ
+    # THẬT ĐỌC RA (`atLeast` của tệp này), không chấm nét đã vẽ — ba nơi vẽ cố
+    # ý coi `exact` như tối thiểu, xem `bang_cao_luat`.
+    "chieu_cao_hang_hrule": (1, 1.0),
     "can_le": (2, 1.0),
     # Cài 2026-09-18 (`DonViVanBan.dinh_dang`): 0% → 100% trên tệp này. Hai dữ
     # kiện ở đây là `w:b` không `w:val` và `w:sz` — hai HÌNH DẠNG khác nhau
@@ -70,15 +78,13 @@ _HOM_NAY = {
     # kiện là `w:spacing/@w:before`, `@w:after` và `w:ind/@w:firstLine` — hai
     # phần tử khác nhau, nên một lỗi chỉ đọc `w:spacing` không đi lọt.
     "gian_cach_thut_le": (3, 1.0),
-    "le_trang": (4, 0.0),
+    # Cài 2026-09-18 (`DonViVanBan.le_trang`): 0% → 100%. Bốn dữ kiện là bốn
+    # lề thân trang; tệp này không khai `header`/`footer`/`gutter`, và bộ đọc
+    # cũng không được bịa ra chúng.
+    "le_trang": (4, 1.0),
     "media": (2, 0.0),
 }
-_CHUA_CAI = {
-    "vien_bang_tung_canh",
-    "chieu_cao_hang_hrule",
-    "le_trang",
-    "media",
-}
+_CHUA_CAI = {"media"}
 
 
 def _docx(duong: Path) -> Path:
@@ -99,7 +105,7 @@ def test_diem_tung_muc_KHONG_TUT_va_muc_chua_cai_KHONG_DOI_LANG_LE(tmp_path):
     for ten, (khai, diem) in _HOM_NAY.items():
         assert muc[ten]["khai"] == khai, f"{ten}: nguồn khai khác trước — tệp mẫu đổi thì mọi số dưới đây vô nghĩa"
         assert muc[ten]["diem"] == pytest.approx(diem), ten
-    assert ket["tong"] == pytest.approx(6 / 10)
+    assert ket["tong"] == pytest.approx(9 / 10)
 
 
 def test_MAT_TOA_DO_BANG_thi_diem_cau_truc_TUT(tmp_path):

@@ -438,6 +438,34 @@ def _gian_cach_tu_hang(tho: Any) -> tuple[GianCach, ...]:
     return tuple(ra)
 
 
+def _canh_tu_hang(tho: Any) -> tuple[tuple[str, str, str], ...]:
+    """JSON → `DonViVanBan.bang_vien_canh`/`o_vien_canh`.
+
+    Bỏ RIÊNG phần tử sai hình dạng, không bỏ cả dãy: một cạnh hỏng vẫn để năm
+    cạnh còn lại vẽ đúng, và `hieu_tai_lieu._vien_o_bang` mới là chỗ quyết
+    định lùi cả bảng về nét đều khi cái nó nhận không dùng được.
+    """
+    if not isinstance(tho, list):
+        return ()
+    return tuple((str(c[0]), str(c[1]), str(c[2])) for c in tho if isinstance(c, list) and len(c) == 3)
+
+
+def _le_tu_hang(tho: Any) -> tuple[tuple[str, int], ...]:
+    """JSON → `DonViVanBan.le_trang`. Số đọc không ra bỏ RIÊNG thuộc tính đó,
+    cùng luật `_le_trang` lúc đọc tệp."""
+    if not isinstance(tho, list):
+        return ()
+    ra: list[tuple[str, int]] = []
+    for x in tho:
+        if not isinstance(x, list) or len(x) != 2:
+            continue
+        try:
+            ra.append((str(x[0]), int(x[1])))
+        except (TypeError, ValueError):
+            continue
+    return tuple(ra)
+
+
 def _hang_don_vi(d: DonViVanBan) -> dict:
     return {
         "chi_so": d.chi_so,
@@ -466,6 +494,14 @@ def _hang_don_vi(d: DonViVanBan) -> dict:
         # này nếu không ghi ra — và một khối ký không viền sẽ mọc lại viền.
         "bang_vien": d.bang_vien,
         "bang_cao": d.bang_cao,
+        # Cùng lý do: viền TỪNG CẠNH (`w:tblBorders`/`w:tcBorders`), luật
+        # chiều cao hàng (`@w:hRule`) và lề trang (`w:pgMar`) đã đọc đúng từ
+        # tệp sẽ mất ngay tại ranh giới này nếu không ghi ra — và một biểu mẫu
+        # chỉ kẻ khung ngoài sẽ dựng lại thành một cái lưới kẻ đủ mọi ô.
+        "bang_cao_luat": d.bang_cao_luat,
+        "bang_vien_canh": [list(c) for c in d.bang_vien_canh],
+        "o_vien_canh": [list(c) for c in d.o_vien_canh],
+        "le_trang": [list(x) for x in d.le_trang],
         # Cùng lý do mọi khoá trên: định dạng chữ (`w:rPr`) đã đọc đúng từ tệp
         # mất ngay tại ranh giới lưu/đọc này nếu không ghi ra — và một biểu
         # mẫu in đậm quốc hiệu sẽ dựng lại thành chữ thường.
@@ -531,6 +567,13 @@ def don_vi_cua(engine: Engine, viec_id: str, user_sub: str) -> list[DonViVanBan]
             # xem `DonViVanBan.bang_vien`), không suy đoán lại từ nội dung.
             bang_vien=bool(d.get("bang_vien", True)),
             bang_cao=int(d.get("bang_cao") or 0),
+            # Một dòng lưu TRƯỚC bản vá viền-từng-cạnh không có bốn khoá này:
+            # về đúng mặc định dataclass (rỗng / `""`), tức ba nơi vẽ lùi đúng
+            # về nét đều của `bang_vien` và lề mặc định của chính chúng.
+            bang_cao_luat=str(d.get("bang_cao_luat") or ""),
+            bang_vien_canh=_canh_tu_hang(d.get("bang_vien_canh")),
+            o_vien_canh=_canh_tu_hang(d.get("o_vien_canh")),
+            le_trang=_le_tu_hang(d.get("le_trang")),
             dinh_dang=_dinh_dang_tu_hang(d.get("dinh_dang")),
             gian_cach=_gian_cach_tu_hang(d.get("gian_cach")),
         )
