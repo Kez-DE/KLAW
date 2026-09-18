@@ -33,7 +33,7 @@ import threading
 import time
 import xml.etree.ElementTree as ET
 import zipfile
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from io import BytesIO
 from math import ceil
@@ -308,6 +308,42 @@ class GianCach:
 
 
 @dataclass(frozen=True)
+class AnhTaiLieu:
+    """MỘT ảnh đã tách khỏi tệp — quyết định 2026-09-18, mục "media đã tách".
+
+    Đây là phần MÔ TẢ, đi cùng biểu diễn văn bản và lưu trong `don_vi`. Bytes
+    đi đường KHÁC (`TaiLieuDaDoc.anh_byte` → bảng `anh_tai_lieu`, migration
+    035): một khối bytea trong cột JSONB của biểu diễn sẽ đi theo mọi truy vấn
+    đọc biểu diễn, và nội dung ảnh của bên thứ ba không được đi qua dây mỗi
+    lần có người neo một trích dẫn.
+
+    `phan` là tên part trong zip (`word/media/image1.png`) — vừa là khoá lưu
+    bytes, vừa là thứ `eval.run_trung_thuc` đối chiếu. Giữ tên NGUỒN chứ không
+    đánh số lại: hai tham chiếu tới cùng một logo phải nhận ra là cùng một ảnh,
+    và tên part là thứ duy nhất nói được điều đó.
+
+    `rong`/`cao` là EMU (English Metric Unit, 914400 EMU = 1 inch) — đơn vị
+    của chính `wp:extent`. Giữ nguyên EMU thay vì quy ra pt hay mm ở đây, đúng
+    lý lẽ `DinhDangChu.co` giữ nửa điểm: `.docx` tải về ghi lại chính đơn vị
+    này, còn màn hình và PDF mới là nơi quy đổi. `0` nghĩa là nguồn KHÔNG khai
+    cỡ — ba nơi vẽ khi đó dùng cỡ thật của chính ảnh.
+
+    `vung` (`than`/`dau_trang`/`chan_trang`) và `thu_tu` (thứ mấy TRONG vùng
+    ấy, theo thứ tự tài liệu) là vị trí. Không mang toạ độ tuyệt đối: giữ
+    `wp:anchor/@posOffset` cần cả hệ quy chiếu neo của OOXML, và quyết định
+    2026-09-18 đã nói thẳng vị trí tuyệt đối nằm ngoài phạm vi khi không lưu
+    OOXML.
+    """
+
+    phan: str
+    kieu: str
+    rong: int = 0
+    cao: int = 0
+    vung: str = "than"
+    thu_tu: int = 0
+
+
+@dataclass(frozen=True)
 class DonViVanBan:
     """Một mẩu văn bản liền mạch trong tài liệu, kèm chỗ nó nằm.
 
@@ -474,6 +510,20 @@ class DonViVanBan:
     dính nhau, lề thụt biến mất, và dòng "……" để điền tay không còn.
 
     Rỗng với mọi dòng lưu TRƯỚC trường này."""
+    anh: tuple[AnhTaiLieu, ...] = ()
+    """Ảnh đã tách khỏi tệp — quyết định 2026-09-18, mục "media đã tách".
+
+    GIỐNG NHAU trên MỌI đơn vị của cùng tài liệu, đúng khuôn `le_trang`: một
+    logo letterhead nằm trong một `w:p` KHÔNG CÓ CHỮ, nên không có đơn vị nào
+    để treo nó lên theo kiểu `dinh_dang`/`gian_cach` (vốn tra theo chữ nguyên
+    văn của từng dòng). Và ranh giới lưu/đọc (`tai_lieu.luu_don_vi`) chỉ chở
+    MỘT mảng đơn vị, nên một sự thật cấp tài liệu không nằm trên đơn vị sẽ
+    biến mất ngay tại đó — đúng chỗ căn lề đã mất một lần.
+
+    Chỉ MÔ TẢ, không bytes: xem `AnhTaiLieu` và `TaiLieuDaDoc.anh_byte`.
+
+    Rỗng với mọi dòng lưu TRƯỚC trường này, và với mọi tài liệu không phải
+    DOCX — PDF và ảnh OCR chưa có đường tách media nào."""
 
 
 @dataclass(frozen=True)
@@ -481,6 +531,15 @@ class TaiLieuDaDoc:
     don_vi: list[DonViVanBan]
     so_trang: int
     so_ky_tu: int
+    anh_byte: dict[str, tuple[str, bytes]] = field(default_factory=dict)
+    """`tên part` → `(kiểu MIME, bytes)` của từng ảnh đã tách.
+
+    Kênh RIÊNG, cố ý không nằm trên `DonViVanBan`: biểu diễn đã đọc đi vào cột
+    JSONB `don_vi` và được đọc lại mỗi lần có người neo một trích dẫn, còn
+    bytes ảnh chỉ cần đi đúng MỘT lần — từ `doc()` sang `tai_lieu.luu_anh`
+    (bảng `anh_tai_lieu`, migration 035) — rồi người gọi buông, đúng tinh thần
+    FR-022 với chính tệp gốc.
+    """
 
     @property
     def co_ocr(self) -> bool:
@@ -509,6 +568,8 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
     """
     ten = (ten_tep or "").lower()
     le: tuple[tuple[str, int], ...] = ()
+    anh: tuple[AnhTaiLieu, ...] = ()
+    anh_byte: dict[str, tuple[str, bytes]] = {}
     if ten.endswith(".pdf"):
         thoi = _doc_pdf(du_lieu)
         if not thoi:
@@ -517,11 +578,11 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
             # đánh đồng với PDF có lớp chữ.
             thoi = _ocr_pdf(du_lieu)
     elif ten.endswith(".docx"):
-        thoi, le = _doc_docx(du_lieu)
+        thoi, le, anh, anh_byte = _doc_docx(du_lieu)
     elif ten.endswith(".doc"):
         # Chuyển trước, đọc sau — bằng ĐÚNG một hàm `_doc_docx`, không nhánh
         # riêng nào biết tệp .docx này từng là .doc.
-        thoi, le = _doc_docx(_chuyen_doc_sang_docx(du_lieu))
+        thoi, le, anh, anh_byte = _doc_docx(_chuyen_doc_sang_docx(du_lieu))
     elif ten.endswith(_DUOI_ANH):
         thoi = _ocr_anh(du_lieu)
     else:
@@ -532,7 +593,7 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
 
     if not thoi:
         raise KhongDocDuoc(LoaiHong.khong_co_lop_chu, "không rút được ký tự nào")
-    return _dat_vi_tri(thoi, le)
+    return _dat_vi_tri(thoi, le, anh, anh_byte)
 
 
 # ------------------------------------------------------------------------ DOCX
@@ -927,6 +988,247 @@ def _le_trang(goc: ET.Element) -> tuple[tuple[str, int], ...]:
         except ValueError:
             continue
     return tuple(ra)
+
+
+# ─── ẢNH ĐÃ TÁCH ───────────────────────────────────────────────────────────
+# Quyết định 2026-09-18 (`docs/decisions/2026-09-18-trung-thuc-bieu-mau-va-media.md`)
+# cho phép lưu MEDIA ĐÃ TÁCH khỏi tệp — và CHỈ thế: bytes tệp gốc và OOXML vẫn
+# bị cấm nguyên văn. Nên chỗ này rút ra đúng hai thứ: khối bytes của từng ảnh,
+# và một mô tả vị trí/kích thước đủ để ba nơi vẽ đặt lại nó. Không giữ một
+# mảnh XML nào.
+
+
+def _rel(ten_phan: str) -> str:
+    """`word/header1.xml` → `word/_rels/header1.xml.rels`. Mỗi phần XML có bảng
+    quan hệ RIÊNG — logo letterhead nằm trong rels của đầu trang, không phải
+    của `document.xml`, và tra nhầm bảng thì `r:embed` không giải ra gì."""
+    thu_muc, _, ten = ten_phan.rpartition("/")
+    return f"{thu_muc}/_rels/{ten}.rels" if thu_muc else f"_rels/{ten}.rels"
+
+
+def _quan_he(z: zipfile.ZipFile, ten_phan: str) -> dict[str, str]:
+    """`rId` → đường dẫn part ĐÃ chuẩn hoá về gốc zip, cho một phần XML.
+
+    `Target` trong `.rels` là đường dẫn TƯƠNG ĐỐI so với thư mục của phần XML
+    (`media/image1.png` từ `word/header1.xml` là `word/media/image1.png`).
+    Ghép sai gốc thì mọi ảnh trong đầu trang đọc ra rỗng.
+
+    `.rels` hỏng hay vắng trả về rỗng — mất ảnh là khoản lỗ sống chung được,
+    mất nguyên tài liệu thì không (cùng luật `styles.xml` ở `_doc_docx`).
+    """
+    ten_rel = _rel(ten_phan)
+    if ten_rel not in z.namelist():
+        return {}
+    try:
+        goc = ET.fromstring(z.read(ten_rel))
+    except ET.ParseError:
+        return {}
+    thu_muc = ten_phan.rpartition("/")[0]
+    ra: dict[str, str] = {}
+    for r in goc:
+        rid, dich = r.get("Id"), r.get("Target")
+        if not rid or not dich or r.get("TargetMode") == "External":
+            # Ảnh liên kết NGOÀI (`TargetMode="External"`) không có bytes trong
+            # tệp — không có gì để tách, và đi lấy nó là để tài liệu của khách
+            # gọi ra mạng. Bỏ, đúng luật fail-closed.
+            continue
+        ra[rid] = dich[1:] if dich.startswith("/") else f"{thu_muc}/{dich}" if thu_muc else dich
+    return ra
+
+
+_A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+_R_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+_V = "{urn:schemas-microsoft-com:vml}"
+_WP = "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}"
+_DRAWING = f"{{{_NS['w']}}}drawing"
+_PICT = f"{{{_NS['w']}}}pict"
+
+# 1pt = 12700 EMU. VML khai cỡ bằng CSS (`style="width:136.5pt;height:42.3pt"`)
+# chứ không bằng `wp:extent`, nên hai đường phải quy về cùng một đơn vị trước
+# khi `AnhTaiLieu.rong`/`cao` mang được cả hai.
+_EMU_MOI_PT = 12700
+
+# Nhận dạng ảnh theo BYTES ĐẦU, không theo đuôi tệp: đuôi nằm trong tài liệu
+# của người lạ và đổi được, còn bytes thì không. Bốn kiểu này là GIAO của ba
+# nơi vẽ — trình duyệt vẽ cả bốn, `docx.ImageRun` nhận đúng bốn
+# (`"jpg" | "png" | "gif" | "bmp"`), jsPDF nhận qua chính thẻ `<img>` đã vẽ.
+#
+# SVG bị loại CÓ CHỦ Ý dù trình duyệt vẽ được: nó là XML chạy được script, và
+# phát lại nó từ một tệp người lạ tải lên là mở một đường XSS ngay trong trang
+# của chủ tài liệu. EMF/WMF loại vì không nơi vẽ nào của dự án dựng được chúng
+# — giữ bytes cho một thứ không ai vẽ là lưu dữ liệu cá nhân của bên thứ ba mà
+# không đổi lại được gì.
+_ANH_NHAN_DANG: tuple[tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+    (b"BM", "image/bmp"),
+)
+
+# Trần MỖI ảnh. Một logo letterhead, một con dấu hay một chữ ký quét đều nằm
+# sâu dưới mức này (đo trên tám biểu mẫu thật của chủ dự án: ảnh lớn nhất là
+# ảnh bìa 5819775×8165347 EMU, dưới 200 KB). 2 MB để một ảnh chụp cả trang ở
+# 150 dpi vẫn qua, mà một tệp nhồi ảnh khổng lồ thì không.
+TRAN_ANH_BYTE = 2 * 1024 * 1024
+
+# Trần CẢ TÀI LIỆU. Cần riêng với trần mỗi ảnh vì trăm ảnh nhỏ cộng lại vẫn
+# đầy một dòng Postgres — và bytea ở đây sống suốt đời cuộc hội thoại. 8 MB
+# nằm dưới `TRAN_BYTE` (20 MB, `tai_lieu.kiem_kich_thuoc`) nên một tệp hợp lệ
+# không bao giờ chạm trần này trước khi chạm trần kia.
+TRAN_ANH_TONG_BYTE = 8 * 1024 * 1024
+
+
+def _co_vml(hinh: ET.Element) -> tuple[int, int]:
+    """Cỡ của một `v:shape` VML từ `style="width:…;height:…"` → EMU.
+
+    VML đo bằng CSS nên đơn vị có thể là `pt`, `in`, `cm`, `mm` hay `px`. Chỉ
+    đọc những đơn vị QUY ĐỔI ĐƯỢC chắc chắn; giá trị phần trăm hay không đơn vị
+    trả 0 — "không khai cỡ" an toàn hơn một con số đoán sai cả chục lần.
+    """
+    don_vi = {"pt": 1.0, "in": 72.0, "cm": 72 / 2.54, "mm": 72 / 25.4, "px": 0.75, "pc": 12.0}
+    ra = {"width": 0, "height": 0}
+    for muc in (hinh.get("style") or "").split(";"):
+        ten, _, gia = muc.partition(":")
+        ten, gia = ten.strip().lower(), gia.strip().lower()
+        if ten not in ra or len(gia) < 3:
+            continue
+        he = don_vi.get(gia[-2:])
+        if he is None:
+            continue
+        try:
+            ra[ten] = round(float(gia[:-2]) * he * _EMU_MOI_PT)
+        except ValueError:
+            continue
+    return (ra["width"], ra["height"])
+
+
+def _co_drawing(hinh: ET.Element) -> tuple[int, int]:
+    """Cỡ khai báo của một `w:drawing` — `wp:extent` của `wp:inline` hay
+    `wp:anchor`, EMU sẵn. `(0, 0)` khi không khai hoặc khai không ra số."""
+    e = hinh.find(f"{_WP}inline/{_WP}extent")
+    if e is None:
+        e = hinh.find(f"{_WP}anchor/{_WP}extent")
+    if e is None:
+        return (0, 0)
+    try:
+        return (max(0, int(e.get("cx") or 0)), max(0, int(e.get("cy") or 0)))
+    except ValueError:
+        return (0, 0)
+
+
+def _tham_chieu_anh(goc: ET.Element, vung: str) -> list[tuple[str, str, int, int]]:
+    """`(rId, vung, rộng EMU, cao EMU)` của từng ảnh trong MỘT phần XML, theo
+    thứ tự tài liệu.
+
+    Duyệt `w:drawing` (DrawingML, `a:blip/@r:embed`) và `w:pict` (VML,
+    `v:imagedata/@r:id`) trong CÙNG một lượt `iter` để thứ tự trả về đúng thứ
+    tự chúng đứng trên trang — hai lượt riêng sẽ dồn hết ảnh VML xuống sau,
+    và một biểu mẫu cũ trộn hai lối sẽ đặt lại logo sai chỗ.
+
+    Hình KHÔNG mang ảnh (hộp chữ, đường kẻ, khung — `w:drawing` chứa `wps:wsp`,
+    `w:pict` chứa `v:line`/`v:rect`) không trả về gì: chúng không có bytes để
+    tách, và đếm chúng như ảnh là hứa một thứ không tồn tại. Đo trên tám biểu
+    mẫu thật của chủ dự án: 11 trong 13 hình cấp thân là hộp chữ và đường kẻ
+    kiểu này, chỉ 2 là ảnh thật.
+
+    Người gọi phải bỏ `mc:Fallback` TRƯỚC (`_bo_fallback`): `mc:AlternateContent`
+    chở cùng một hình hai lần — `w:drawing` cho Word mới, `w:pict` VML cho Word
+    cũ — nên không bỏ thì mọi logo đếm và tách hai lần.
+    """
+    ra: list[tuple[str, str, int, int]] = []
+    for hinh in goc.iter():
+        if hinh.tag == _DRAWING:
+            blip = hinh.find(f".//{_A}blip")
+            if blip is None or not (rid := blip.get(f"{_R_NS}embed")):
+                continue
+            rong, cao = _co_drawing(hinh)
+            ra.append((rid, vung, rong, cao))
+        elif hinh.tag == _PICT:
+            for du_lieu in hinh.iter(f"{_V}imagedata"):
+                if not (rid := du_lieu.get(f"{_R_NS}id")):
+                    continue
+                # Cỡ nằm trên `v:shape` BAO NGOÀI, không trên `v:imagedata`.
+                rong = cao = 0
+                for hd in hinh.iter():
+                    if du_lieu in list(hd):
+                        rong, cao = _co_vml(hd)
+                        break
+                ra.append((rid, vung, rong, cao))
+    return ra
+
+
+def _kieu_anh(du_lieu: bytes) -> str:
+    """Kiểu MIME theo BYTES ĐẦU, `""` khi không nhận ra — xem `_ANH_NHAN_DANG`."""
+    return next((k for dau, k in _ANH_NHAN_DANG if du_lieu.startswith(dau)), "")
+
+
+def _doc_anh(
+    z: zipfile.ZipFile, goc_than: ET.Element
+) -> tuple[tuple[AnhTaiLieu, ...], dict[str, tuple[str, bytes]]]:
+    """Mọi ảnh của một DOCX: phần mô tả (đi cùng biểu diễn) và bytes (đi riêng).
+
+    `goc_than` là `word/document.xml` ĐÃ qua `_bo_fallback` — dùng lại chính
+    cây `_doc_docx` vừa dựng thay vì phân tích lần hai. Đầu/chân trang thì
+    phân tích RIÊNG ở đây: đường đọc chữ của chúng (`_duyet_phang`) cố ý KHÔNG
+    bỏ `mc:Fallback`, và đổi điều đó sẽ đổi `noi_dung` của những đơn vị ấy —
+    thứ mọi neo trích dẫn đang tra. Một lượt phân tích thêm cho vài KB đầu
+    trang rẻ hơn nhiều so với một lần neo lệch.
+
+    FAIL CLOSED ở mọi cửa: rel không giải được, part vắng, bytes không nhận ra
+    kiểu, quá trần một ảnh hay quá trần cả tài liệu — ảnh đó bị BỎ và phần còn
+    lại của tài liệu vẫn dựng đủ. Không ném lỗi: một con dấu hỏng không đáng
+    làm cả tờ giấy không đọc được.
+    """
+    phan_vung = [("word/document.xml", "than", goc_than)]
+    for tien_to, vung in (("word/header", "dau_trang"), ("word/footer", "chan_trang")):
+        for ten in sorted(n for n in z.namelist() if n.startswith(tien_to) and n.endswith(".xml")):
+            try:
+                phan_vung.append((ten, vung, _bo_fallback(ET.fromstring(z.read(ten)))))
+            except (ET.ParseError, KeyError):
+                continue
+
+    anh: list[AnhTaiLieu] = []
+    kho: dict[str, tuple[str, bytes]] = {}
+    tong = 0
+    dem_vung: dict[str, int] = {}
+    co_trong_zip = set(z.namelist())
+    for ten_phan, vung, goc in phan_vung:
+        quan_he = _quan_he(z, ten_phan)
+        for rid, _, rong, cao in _tham_chieu_anh(goc, vung):
+            phan = quan_he.get(rid, "")
+            # CHỈ `word/media/`: một `r:embed` trỏ ra chỗ khác trong zip là
+            # đường đọc một part tuỳ ý của tệp người lạ, không phải một ảnh.
+            if not phan.startswith("word/media/") or phan not in co_trong_zip:
+                continue
+            if phan in kho:
+                kieu = kho[phan][0]
+            else:
+                try:
+                    du_lieu = z.read(phan)
+                except (KeyError, zipfile.BadZipFile, OSError):
+                    continue
+                if len(du_lieu) > TRAN_ANH_BYTE or tong + len(du_lieu) > TRAN_ANH_TONG_BYTE:
+                    # Chỉ ghi SỐ, không ghi bytes và không ghi chữ nào của tài
+                    # liệu — FR-027.
+                    logger.info("doc_tai_lieu: bỏ 1 ảnh %d byte (vượt trần)", len(du_lieu))
+                    continue
+                if not (kieu := _kieu_anh(du_lieu)):
+                    continue
+                kho[phan] = (kieu, du_lieu)
+                tong += len(du_lieu)
+            anh.append(
+                AnhTaiLieu(
+                    phan=phan,
+                    kieu=kieu,
+                    rong=rong,
+                    cao=cao,
+                    vung=vung,
+                    thu_tu=dem_vung.get(vung, 0),
+                )
+            )
+            dem_vung[vung] = dem_vung.get(vung, 0) + 1
+    return tuple(anh), kho
 
 
 def _rpr_tho(rpr: ET.Element | None) -> dict[str, str]:
@@ -1503,8 +1805,10 @@ def _duyet_than(
     return ra
 
 
-def _doc_docx(du_lieu: bytes) -> tuple[list[tuple], tuple[tuple[str, int], ...]]:
-    """Thân bài theo cấu trúc, rồi đầu trang, rồi chân trang — kèm LỀ TRANG.
+def _doc_docx(
+    du_lieu: bytes,
+) -> tuple[list[tuple], tuple[tuple[str, int], ...], tuple[AnhTaiLieu, ...], dict[str, tuple[str, bytes]]]:
+    """Thân bài theo cấu trúc, rồi đầu trang, rồi chân trang — kèm LỀ TRANG và ẢNH.
 
     Lề trang trả về RIÊNG chứ không nhét vào từng tuple: nó là sự thật của cả
     tệp, một giá trị duy nhất, và chép nó vào mười hai phần tử của mỗi tuple
@@ -1566,7 +1870,11 @@ def _doc_docx(du_lieu: bytes) -> tuple[list[tuple], tuple[tuple[str, int], ...]]
                     ra.extend(
                         _duyet_phang(_goc_xml(z.read(ten), ten), vung, theo_kieu, kieu_chu, kieu_gc)
                     )
-            return ra, _le_trang(goc)
+            # Ảnh đi RIÊNG khỏi `ra` cùng lý lẽ lề trang: mô tả ảnh là sự thật
+            # cấp TÀI LIỆU (`_dat_vi_tri` dán nó lên từng đơn vị), còn bytes
+            # không bao giờ đi vào một đơn vị nào.
+            anh, anh_byte = _doc_anh(z, goc)
+            return ra, _le_trang(goc), anh, anh_byte
     except KeyError as e:
         raise KhongDocDuoc(LoaiHong.tep_hong, "thiếu word/document.xml") from e
     except zipfile.BadZipFile as e:
@@ -1849,8 +2157,13 @@ def _doc_pdf(du_lieu: bytes) -> list[tuple[int | None, str]]:
 # ---------------------------------------------------------------- gán vị trí
 
 
-def _dat_vi_tri(thoi: list[tuple], le_trang: tuple[tuple[str, int], ...] = ()) -> TaiLieuDaDoc:
-    """Gán `trang`, `offset_dau`, nguồn chữ và LỀ TRANG cho từng đơn vị.
+def _dat_vi_tri(
+    thoi: list[tuple],
+    le_trang: tuple[tuple[str, int], ...] = (),
+    anh: tuple[AnhTaiLieu, ...] = (),
+    anh_byte: dict[str, tuple[str, bytes]] | None = None,
+) -> TaiLieuDaDoc:
+    """Gán `trang`, `offset_dau`, nguồn chữ, LỀ TRANG và ẢNH cho từng đơn vị.
 
     Nhận cả sáu hình dạng: `(trang, noi_dung)` từ nhánh đọc chữ thật,
     `(trang, noi_dung, do_tin)` từ nhánh OCR,
@@ -1864,6 +2177,15 @@ def _dat_vi_tri(thoi: list[tuple], le_trang: tuple[tuple[str, int], ...] = ()) -
     `le_trang` là sự thật của cả TỆP, không của một tuple nào: nó vào đây một
     lần rồi dán lên MỌI đơn vị (xem `DonViVanBan.le_trang`). Mặc định rỗng để
     ba nhánh không phải DOCX (PDF, OCR ảnh) và mọi lời gọi cũ chạy y nguyên.
+    `anh` đi ĐÚNG đường đó, cùng một lý lẽ (xem `DonViVanBan.anh`).
+
+    `anh_byte` thì KHÔNG dán lên đơn vị nào: nó chỉ đi qua đây để về
+    `TaiLieuDaDoc`, nơi duy nhất cầm bytes ảnh (xem `TaiLieuDaDoc.anh_byte`).
+
+    Hàm này KHÔNG chạm `noi_dung`, `offset_dau` hay `chi_so` vì có ảnh hay
+    không: một ảnh không đẻ ra đơn vị mới và không dịch một ký tự nào, nên mọi
+    neo trích dẫn đã lưu vẫn trỏ đúng chỗ cũ (xem
+    `test_anh_khong_doi_noi_dung_hay_neo`).
 
     `dinh_dang`/`gian_cach` chèn vào giữa (sau `can_le`) chứ không nối vào
     cuối: đoạn văn thân bài khi đó chỉ cần 8 phần tử thay vì 12 phần tử toàn
@@ -1919,6 +2241,7 @@ def _dat_vi_tri(thoi: list[tuple], le_trang: tuple[tuple[str, int], ...] = ()) -
                 le_trang=le_trang,
                 dinh_dang=dinh_dang,
                 gian_cach=gian_cach,
+                anh=anh,
             )
         )
         offset += len(noi_dung) + 1   # +1 cho dấu xuống dòng giữa hai đơn vị
@@ -1928,7 +2251,9 @@ def _dat_vi_tri(thoi: list[tuple], le_trang: tuple[tuple[str, int], ...] = ()) -
     so_trang = max((d.trang for d in don_vi), default=1)
     if theo_ky_tu:   # DOCX: trang là xấp xỉ theo ký tự
         so_trang = max(1, ceil(so_ky_tu / KY_TU_MOI_TRANG))
-    return TaiLieuDaDoc(don_vi=don_vi, so_trang=so_trang, so_ky_tu=so_ky_tu)
+    return TaiLieuDaDoc(
+        don_vi=don_vi, so_trang=so_trang, so_ky_tu=so_ky_tu, anh_byte=anh_byte or {}
+    )
 
 
 # ═══ OCR ════════════════════════════════════════════════════════════════════

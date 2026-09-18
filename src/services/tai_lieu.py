@@ -23,7 +23,14 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from src.services.doc_tai_lieu import DinhDangChu, DonViVanBan, GianCach, MocTab, NguonChu
+from src.services.doc_tai_lieu import (
+    AnhTaiLieu,
+    DinhDangChu,
+    DonViVanBan,
+    GianCach,
+    MocTab,
+    NguonChu,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -450,6 +457,55 @@ def _canh_tu_hang(tho: Any) -> tuple[tuple[str, str, str], ...]:
     return tuple((str(c[0]), str(c[1]), str(c[2])) for c in tho if isinstance(c, list) and len(c) == 3)
 
 
+def _hang_anh(a: AnhTaiLieu) -> dict:
+    """Một `AnhTaiLieu` → JSON. Chỉ MÔ TẢ; bytes đi đường `luu_anh` bên dưới.
+
+    Giữ đủ sáu trường kể cả khi ở mặc định (khác `_hang_dinh_dang`/
+    `_hang_gian_cach`, vốn bỏ mặc định): một tài liệu điển hình có 0–3 ảnh,
+    nên phép bỏ ấy tiết kiệm được vài chục byte trong khi làm mất khả năng
+    đọc thẳng một dòng để biết ảnh đó khai gì.
+    """
+    return {
+        "phan": a.phan,
+        "kieu": a.kieu,
+        "rong": a.rong,
+        "cao": a.cao,
+        "vung": a.vung,
+        "thu_tu": a.thu_tu,
+    }
+
+
+def _anh_tu_hang(tho: Any) -> tuple[AnhTaiLieu, ...]:
+    """JSON → `DonViVanBan.anh`. Một dòng lưu TRƯỚC trường này (hoặc một phần
+    tử sai hình dạng) về `()` — "tài liệu này không có ảnh nào", đúng mặc định
+    của dataclass.
+
+    Bỏ RIÊNG phần tử không có `phan`: một mô tả ảnh không nói được nó là ảnh
+    nào thì không tra ra bytes, và vẽ một khung rỗng ở chỗ đó tệ hơn không vẽ
+    gì — cùng luật fail-closed `_canh_tu_hang` đã theo.
+    """
+    if not isinstance(tho, list):
+        return ()
+    ra: list[AnhTaiLieu] = []
+    for a in tho:
+        if not isinstance(a, dict) or not a.get("phan"):
+            continue
+        try:
+            ra.append(
+                AnhTaiLieu(
+                    phan=str(a["phan"]),
+                    kieu=str(a.get("kieu") or ""),
+                    rong=int(a.get("rong") or 0),
+                    cao=int(a.get("cao") or 0),
+                    vung=str(a.get("vung") or "than"),
+                    thu_tu=int(a.get("thu_tu") or 0),
+                )
+            )
+        except (TypeError, ValueError):
+            continue
+    return tuple(ra)
+
+
 def _le_tu_hang(tho: Any) -> tuple[tuple[str, int], ...]:
     """JSON → `DonViVanBan.le_trang`. Số đọc không ra bỏ RIÊNG thuộc tính đó,
     cùng luật `_le_trang` lúc đọc tệp."""
@@ -511,6 +567,11 @@ def _hang_don_vi(d: DonViVanBan) -> dict:
         # này nếu không ghi ra — và dòng "……" để điền tay của một biểu mẫu sẽ
         # dựng lại thành một dòng cụt.
         "gian_cach": [_hang_gian_cach(g) for g in d.gian_cach],
+        # Cùng lý do mọi khoá trên: MÔ TẢ ảnh đã tách (`a:blip`/`v:imagedata`
+        # giải qua `.rels`) mất ngay tại ranh giới lưu/đọc này nếu không ghi ra
+        # — và logo letterhead sẽ biến mất khỏi bản dựng lại dù bytes của nó
+        # đã nằm yên trong `anh_tai_lieu`.
+        "anh": [_hang_anh(a) for a in d.anh],
     }
 
 
@@ -526,6 +587,61 @@ def luu_don_vi(engine: Engine, viec_id: str, don_vi: list[DonViVanBan]) -> None:
             text("UPDATE viec_doc_tai_lieu SET don_vi = CAST(:d AS jsonb) WHERE id = :i"),
             {"d": json.dumps([_hang_don_vi(d) for d in don_vi], ensure_ascii=False), "i": viec_id},
         )
+
+
+def luu_anh(engine: Engine, viec_id: str, anh_byte: dict[str, tuple[str, bytes]]) -> int:
+    """Ghi bytes ảnh đã tách vào `anh_tai_lieu` (migration 035), trả số dòng ghi.
+
+    Gọi NGAY cạnh `luu_don_vi` và chỉ ở đó: mô tả ảnh nằm trong `don_vi` chỉ
+    dựng lại được khi bytes của nó có mặt, nên hai phép ghi phải đi cùng nhau
+    hoặc cùng vắng.
+
+    `ON CONFLICT DO NOTHING` chứ không ghi đè: khoá `(viec_id, phan)` là danh
+    tính của đúng một ảnh trong đúng một tệp, nên một lần ghi thứ hai là cùng
+    bytes ấy — ghi đè chỉ tốn một lượt viết. Cũng là thứ làm cho một lần tải
+    lại/thử lại cùng tài liệu không nhân đôi con dấu.
+
+    Tài liệu không có ảnh nào KHÔNG chạm DB: phần lớn biểu mẫu rơi vào đây (đo
+    trên tám biểu mẫu thật của chủ dự án: 2/8 có ảnh).
+    """
+    if not anh_byte:
+        return 0
+    hang = [
+        {"v": viec_id, "p": phan, "k": kieu, "s": len(du_lieu), "d": du_lieu}
+        for phan, (kieu, du_lieu) in sorted(anh_byte.items())
+    ]
+    with engine.begin() as c:
+        c.execute(
+            text(
+                "INSERT INTO anh_tai_lieu (viec_id, phan, kieu, so_byte, du_lieu) "
+                "VALUES (:v, :p, :k, :s, :d) ON CONFLICT (viec_id, phan) DO NOTHING"
+            ),
+            hang,
+        )
+    return len(hang)
+
+
+def anh_cua(engine: Engine, viec_id: str, user_sub: str, phan: str) -> tuple[str, bytes] | None:
+    """`(kiểu MIME, bytes)` của MỘT ảnh, hoặc `None` khi không có hoặc không
+    phải của mình.
+
+    Lọc theo `user_sub` bằng JOIN sang `viec_doc_tai_lieu` — bảng ảnh không có
+    cột chủ sở hữu riêng (xem migration 035). Một `viec_id` của người khác trả
+    `None` ở ĐÂY, tầng dữ liệu, không phải ở một phép kiểm thứ hai tại tầng
+    API: cùng nguyên tắc `don_vi_cua`/`ban_thao`/`hoi_thoai` đã theo, và là thứ
+    làm cho con dấu của một người không bao giờ rời khỏi tài khoản đã tải nó
+    lên (quyết định 2026-09-18, phần "media là dữ liệu cá nhân của bên thứ ba").
+    """
+    with engine.connect() as c:
+        r = c.execute(
+            text(
+                "SELECT a.kieu, a.du_lieu FROM anh_tai_lieu a "
+                "JOIN viec_doc_tai_lieu v ON v.id = a.viec_id "
+                "WHERE a.viec_id = :i AND a.phan = :p AND v.user_sub = :u"
+            ),
+            {"i": viec_id, "p": phan, "u": user_sub},
+        ).first()
+    return (str(r[0]), bytes(r[1])) if r else None
 
 
 def don_vi_cua(engine: Engine, viec_id: str, user_sub: str) -> list[DonViVanBan] | None:
@@ -576,6 +692,7 @@ def don_vi_cua(engine: Engine, viec_id: str, user_sub: str) -> list[DonViVanBan]
             le_trang=_le_tu_hang(d.get("le_trang")),
             dinh_dang=_dinh_dang_tu_hang(d.get("dinh_dang")),
             gian_cach=_gian_cach_tu_hang(d.get("gian_cach")),
+            anh=_anh_tu_hang(d.get("anh")),
         )
         for d in (r[0] or [])
     ]

@@ -11,9 +11,11 @@ nó ra đĩa hay vào DB (FR-022).
 """
 
 import logging
+import re
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
@@ -31,6 +33,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 KHONG_THAY = "Không tìm thấy tài liệu"
+
+# Tên tệp ảnh trong `word/media/` — chữ, số, chấm, gạch. KHÔNG có `/` nên
+# không ghép được một đường dẫn nào khác, và `fullmatch` nên một `..` đứng
+# riêng cũng không lọt (nó không có phần tên trước dấu chấm).
+_TEN_ANH = re.compile(r"[A-Za-z0-9_-]+\.[A-Za-z0-9]{1,8}")
 
 # Thông điệp cho từng nguyên nhân. Mỗi câu nói được MỘT việc người dùng làm tiếp
 # được — đó là toàn bộ lý do bốn nguyên nhân không bị gộp thành một nhãn.
@@ -321,6 +328,11 @@ async def tai_len(
     # theo loại — quyết định 2026-09-16. Lưu sau khi rẽ thì nhánh không có
     # checklist lại ra về tay không, đúng cái ngõ cụt việc này đang gỡ.
     await run_in_threadpool(tl.luu_don_vi, get_engine(), viec_id, tai_lieu.don_vi)
+    # Bytes ảnh đi NGAY cạnh biểu diễn: mô tả ảnh nằm trong `don_vi` chỉ dựng
+    # lại được khi bytes có mặt (quyết định 2026-09-18). Sau dòng này không
+    # nhánh nào còn cầm chúng — `tai_lieu` là tham chiếu duy nhất, và nó chết
+    # khi request kết thúc, đúng tinh thần FR-022 với chính tệp gốc.
+    await run_in_threadpool(tl.luu_anh, get_engine(), viec_id, tai_lieu.anh_byte)
     chung = {
         "id": viec_id, "hoi_thoai_id": hoi_thoai_id,
         "so_trang": tai_lieu.so_trang, "co_ocr": tai_lieu.co_ocr,
@@ -442,6 +454,46 @@ async def don_vi(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Do
             )
             for d in (don_vi or [])
         ],
+    )
+
+
+@router.get("/tai-lieu/{viec_id}/anh/{ten}")
+async def anh(viec_id: str, ten: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Response:
+    """Bytes của MỘT ảnh đã tách khỏi tài liệu (quyết định 2026-09-18).
+
+    Đường ra DUY NHẤT của media, nên nó gánh cả bốn hàng rào:
+
+    1. CHỦ SỞ HỮU — `tl.anh_cua` lọc theo `user_sub` bằng JOIN ở tầng dữ liệu,
+       và ảnh của người khác trả 404 y như `chi_tiet`/`don_vi`: không tiết lộ
+       rằng tài liệu đó tồn tại. Con dấu và chữ ký là dữ liệu cá nhân của bên
+       thứ ba, nên "không rời khỏi tài khoản đã tải lên" là ràng buộc, không
+       phải một lời hứa.
+    2. TÊN — chỉ nhận TÊN TỆP trần rồi tự ghép `word/media/`, nên không có
+       đường nào để một `..%2f` đọc ra một part khác của zip. Tên trong
+       `word/media/` là duy nhất, nên tên trần định danh đủ.
+    3. KIỂU — `Content-Type` lấy từ cột `kieu`, vốn do `doc_tai_lieu._kieu_anh`
+       nhận ra từ BYTES ĐẦU và bị `ck_anh_tai_lieu_kieu` khoá ở bốn kiểu ảnh.
+       Cộng `X-Content-Type-Options: nosniff` để trình duyệt không tự đoán lại
+       và không bao giờ chạy nội dung này như HTML/SVG.
+    4. BỘ NHỚ ĐỆM — `private`: một proxy dùng chung không được giữ con dấu của
+       một người rồi phát cho người khác.
+    """
+    viec_id = _uuid_hop_le(viec_id)
+    if not _TEN_ANH.fullmatch(ten):
+        raise HTTPException(status_code=404, detail=KHONG_THAY)
+    ra = await run_in_threadpool(
+        tl.anh_cua, get_engine(), viec_id, nguoi["sub"], f"word/media/{ten}"
+    )
+    if ra is None:
+        raise HTTPException(status_code=404, detail=KHONG_THAY)
+    kieu, du_lieu = ra
+    return Response(
+        content=du_lieu,
+        media_type=kieu,
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, max-age=3600",
+        },
     )
 
 
