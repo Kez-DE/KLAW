@@ -884,7 +884,6 @@ assert.ok(
 assert.equal(oDeu[0]?.getAttribute("data-can-le"), "deu", "căn đều phải đọc lại được lúc xuất tệp");
 assert.equal(oDeu[1]?.getAttribute("data-can-le"), "giua", "ô cạnh nó KHÔNG bị kéo theo");
 
-console.log("kiem-ui-muot: 81/81 OK");
 
 // ───── 8. DÒNG CHẢY TRANG: nhiều TỜ A4, cắt đúng chỗ nguồn khai ngắt ───────
 // Ở đây chứ không trong `kiem-dong-trang.ts` vì đúng lý lẽ phép kiểm 5 đã ghi:
@@ -1044,4 +1043,4 @@ assert.equal(
   "và không bị áp một lề nguồn bịa ra",
 );
 
-console.log("kiem-ui-muot: 96/96 OK");
+console.log("kiem-ui-muot: 101/101 OK");
