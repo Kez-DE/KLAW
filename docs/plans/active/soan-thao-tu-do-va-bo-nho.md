@@ -5,7 +5,8 @@ Date: 2026-09-18
 ## Status
 
 Active. Phases 15 and 16 are merged and pushed. Phase 14 and Phase 12 part A are
-implemented, reviewed, fixed and merged locally; Phase 12 part B has not started.
+implemented, reviewed, fixed and merged locally. Phase 12 part B is implemented
+on `feat/bo-nho-tai-khoan` and awaiting review.
 
 ## Outcome
 
@@ -98,6 +99,21 @@ file is the part that has to outlive them.
   would mean punching a hole in a guard that is right for its own purpose.
 - **D12-B — seeing and erasing personal data is not a plan perk.** The `da-nho`
   endpoints are behind `nguoi_dung_bat_buoc` but not Pro-gated.
+- **D12-C (2026-09-18) — "the user asking in that turn" is a deterministic
+  per-key test, not the model's judgement.** `hieu_tai_lieu.BO_NHO_KHOA` maps
+  each key to the Vietnamese labels people type for it; a turn naming one
+  ("điền họ và tên của tôi vào") makes that key's value a legal source for
+  `_nguon_soan`, and every other remembered value goes into `cam`. The whole
+  memory is still in the prompt as context, because the guarantee has to live
+  in code — `lam_sach_van_ban` — not in a prompt instruction, and because a
+  negative test that only proves "the model never saw it" proves nothing about
+  the document. Recognising a request is biased toward "not asked": a missed
+  fill is one field the user retypes, a wrong fill breaks the one rule.
+- **D12-D (2026-09-18) — the existing value cleaner could not carry this
+  alone.** `_RE_GIA_TRI` only sees digit-bearing strings and email addresses,
+  so a remembered NAME sailed through it untouched; the `cam` pass is the
+  narrow addition that closes exactly that hole, counted separately in
+  `traces.dung_ban_thao_so_bo_nho_chan` so the rate is measured, not assumed.
 
 ## Progress
 
@@ -114,10 +130,14 @@ file is the part that has to outlive them.
       never ran; fixed in `b965e77`, `7fdfe25`, `3373ebd`, `9862e01`. Final gate
       on `main`: 2772 passed, 5 standing failures, ruff clean, `npm run kiem`
       exit 0.
-- [ ] Phase 12 part B — brief written; not started. It calls
-      `bo_nho_tai_khoan.ghi(...)` and announces only when the result is not
-      `"giu"`, and it recalls through `liet_ke(sub)` into the prompt, never into
-      `facts` or `clauses`.
+- [x] Phase 12 part B — implemented. Extraction is a deterministic 0-token
+      read of the user's own sentence (`hieu_tai_lieu.rut_bo_nho`), so no
+      drafting turn gains a model call; `graph_tra_cuu._ghi_bo_nho` writes it
+      and keeps the labels `ghi` reported as `"moi"`/`"doi"`, which
+      `assemble.DA_NHO` says in that turn's answer. Recall reaches the model as
+      a prompt block (`_khoi_bo_nho`), the same way `# Bản thảo đang có` does,
+      and `lam_sach_van_ban(cam=…)` replaces any remembered value the turn did
+      not ask for with `[…]` before it can become a clause.
 
 ## Risks And Recovery
 
