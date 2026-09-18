@@ -1801,6 +1801,9 @@ def nguoi():
     yield sub
     with get_engine().begin() as c:
         c.execute(text("DELETE FROM ban_thao WHERE user_sub = CAST(:s AS uuid)"), {"s": sub})
+        # `traces.user_sub` là text (không phải uuid) và dòng hạn mức của lượt
+        # dựng ghi vào đó — không dọn thì mỗi lần chạy để lại một lượt đã đếm.
+        c.execute(text("DELETE FROM traces WHERE user_sub = :s"), {"s": sub})
         c.execute(text("DELETE FROM hoi_thoai WHERE user_sub = CAST(:s AS uuid)"), {"s": sub})
         c.execute(text("DELETE FROM users WHERE sub = CAST(:s AS uuid)"), {"s": sub})
 
@@ -1886,6 +1889,95 @@ def test_het_tran_sua_chan_bang_dung_bo_dem_cua_ban_thao(nguoi):
         ban_thao.sua(nguoi, bt["id"], {}, d.ket_ban_thao(VAN_BAN))
     ra = d.dung_ban_thao_tong_quat({**st, "muc_dich_tai_lieu": "sua_ban_thao"})
     assert ra["ban_thao_ket"] is None and ra["ban_thao_tong_quat_loi"] == ban_thao.LOI_HET_LAN_SUA
+
+
+# ── Hạn mức: hai đường soạn, MỘT cổng ──────────────────────────────────────
+#
+# Phase 14 đưa đường soạn MẶC ĐỊNH của chat từ `gom_du_kien`/`n_dung_ban_thao`
+# (có kiểm hạn mức, có ghi dòng `traces` mà `bao_ve.dem_luot` đếm) sang
+# `hieu_tai_lieu`/`dung_ban_thao_tong_quat` — và node mới không có cả hai.
+# Không phép kiểm nào của lát cắt đó đỏ vì không test nào đo HẠN MỨC của đường
+# soạn mới: các test đường chat đo `result_type`, `ban_thao_ket`, `muc_kiem`.
+# Ba test dưới đây là phép đo còn thiếu ấy, đặt ở chính node để mọi caller
+# (hôm nay `graph_tra_cuu`, mai có thể thêm) đều bị nó gác.
+
+
+def _dem_dong_soan(sub: str) -> int:
+    from sqlalchemy import text
+
+    from src.services import bao_ve
+    from src.services.db import get_engine
+
+    with get_engine().connect() as c:
+        return int(
+            c.execute(
+                text("SELECT count(*) FROM traces WHERE user_sub = :s AND endpoint = :ep"),
+                {"s": sub, "ep": bao_ve.EP_SOAN_THAO},
+            ).scalar_one()
+        )
+
+
+@pytest.mark.integration
+def test_dung_lan_dau_ghi_mot_dong_de_han_muc_dem_duoc(nguoi):
+    """`bao_ve.dem_luot` đếm SỐ DÒNG `traces` của `EP_SOAN_THAO` — một bản thảo
+    tổng quát không ghi dòng đó là một bản thảo không bao giờ trừ lượt, tức
+    hạn mức soạn thảo không tồn tại với đường chat dù `kiem_han_muc` có được
+    gọi hay không."""
+    from src.services import hoi_thoai
+
+    pid = hoi_thoai.tao_phien(nguoi, "biên bản bàn giao")
+    st = {"user_sub": nguoi, "hoi_thoai_id": pid, "muc_dich_tai_lieu": "tao_van_ban",
+          "van_ban_tong_quat": VAN_BAN}
+    assert _dem_dong_soan(nguoi) == 0
+    assert d.dung_ban_thao_tong_quat(st)["ban_thao_ket"] is not None
+    assert _dem_dong_soan(nguoi) == 1
+
+
+@pytest.mark.integration
+def test_het_han_muc_thi_khong_luu_gi_va_noi_dung_ly_do(nguoi, monkeypatch):
+    """Hết hạn mức: không bản thảo nào được lưu, không dòng nào được ghi, và
+    lời từ chối là CÂU CỦA CỔNG HẠN MỨC — không phải `KHONG_SOAN_DUOC`
+    ("Hãy thử lại"), câu sẽ khiến người đã hết lượt thử lại và tốn thêm một
+    lượt mô hình cho cùng một lời từ chối."""
+    from fastapi import HTTPException
+
+    from src.services import bao_ve, hoi_thoai
+
+    cau = "Hôm nay bạn đã dùng 3/3 lượt bản thảo của gói Miễn phí. Mở lại lúc 07:00 ngày 19/09."
+
+    def het(sub, plan, endpoint):
+        raise HTTPException(status_code=429, detail=cau)
+
+    monkeypatch.setattr(bao_ve, "kiem_han_muc", het)
+    pid = hoi_thoai.tao_phien(nguoi, "biên bản bàn giao")
+    ra = d.dung_ban_thao_tong_quat({"user_sub": nguoi, "hoi_thoai_id": pid,
+                                    "muc_dich_tai_lieu": "tao_van_ban", "van_ban_tong_quat": VAN_BAN})
+    assert ra["ban_thao_ket"] is None
+    assert ra["ban_thao_tong_quat_loi"] == cau
+    assert ra["ban_thao_tong_quat_loi"] != d.KHONG_SOAN_DUOC
+    assert ban_thao.moi_nhat_cua_hoi_thoai(nguoi, pid, "tong_quat") is None
+    assert _dem_dong_soan(nguoi) == 0
+
+
+@pytest.mark.integration
+def test_luot_sua_khong_di_qua_han_muc_dung_lan_dau(nguoi, monkeypatch):
+    """Nửa kia của cổng: lượt SỬA không tiêu hạn mức DỰNG (đúng như nhánh
+    `la_sua` của `n_dung_ban_thao`) — trần của nó là `TRAN_SUA` trên chính bản
+    thảo, đã khoá ở `test_het_tran_sua_...`. Áp nhầm hạn mức dựng cho lượt sửa
+    sẽ chặn oan người còn lượt sửa."""
+    from src.services import bao_ve, hoi_thoai
+
+    pid = hoi_thoai.tao_phien(nguoi, "biên bản bàn giao")
+    st = {"user_sub": nguoi, "hoi_thoai_id": pid, "muc_dich_tai_lieu": "tao_van_ban",
+          "van_ban_tong_quat": VAN_BAN}
+    assert d.dung_ban_thao_tong_quat(st)["ban_thao_ket"] is not None
+
+    goi: list = []
+    monkeypatch.setattr(bao_ve, "kiem_han_muc", lambda *a, **k: goi.append(a))
+    moi = {**VAN_BAN, "muc": [VAN_BAN["muc"][0], _muc("Giá trị", "Tổng 20.000.000 đồng.")]}
+    ra = d.dung_ban_thao_tong_quat({**st, "muc_dich_tai_lieu": "sua_ban_thao", "van_ban_tong_quat": moi})
+    assert ra["ban_thao_ket"]["phien_ban"] == 2
+    assert goi == [], "lượt sửa không được tiêu hạn mức dựng lần đầu"
 
 
 # ═══ Phase 3 Half B — sự cố THẬT: một CÂU HỎI không được phép GHI ĐÈ ═══════
