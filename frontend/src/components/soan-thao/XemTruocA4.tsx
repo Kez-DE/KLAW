@@ -4,12 +4,18 @@ import {
   catTheoChu,
   nhipHangVe,
   phongTrenManHinh,
+  PT_MOI_TWIP,
   soCotThat,
   THUOC_TINH_CHU,
+  THUOC_TINH_GIAN_CACH,
+  THUOC_TINH_TAB,
   tiLeCotVe,
   type CanLe,
   type DoanChu,
+  type GianCachKhoi,
   type KhoangChu,
+  type KhoangTab,
+  type MocTab,
   type Muc,
 } from "@/lib/xuat-tep";
 
@@ -17,6 +23,108 @@ import {
  * ra `em`. Khớp `xuat-tep.ts::coChuPt("thuong")` và `size: 26` của `.docx`,
  * nên ba nơi vẽ cùng gọi một cỡ là "cỡ thường". */
 const CO_THUONG_PT = 13;
+
+/** `w:leader` → kiểu nét CSS vẽ ra nó. `dot`/`middleDot` là hàng chấm quen
+ *  thuộc của một dòng điền tay, `hyphen` là gạch ngắn, `underscore` là nét
+ *  liền. Giá trị nào không có ở đây thì không vẽ gì — mặc định của chính
+ *  `w:leader` là `none`, và đoán thêm một nét là vẽ thứ tệp không hề nói. */
+const NET_DAN: Record<string, NonNullable<CSSProperties["borderBottomStyle"]>> = {
+  dot: "dotted",
+  middleDot: "dotted",
+  hyphen: "dashed",
+  underscore: "solid",
+};
+
+/**
+ * MỘT mốc tab → thuộc tính `data-*` (tệp tải về đọc lại) và `style` (màn hình
+ * vẽ) của `<span>` chở nó.
+ *
+ * Bề rộng ĐẨY bằng 0 (`margin-right` âm đúng bằng `width`): đường dẫn phải vẽ
+ * dài tới mốc mà KHÔNG được tự đẩy mình xuống dòng — một hộp rộng 468pt trong
+ * một dòng còn trống 100pt sẽ xuống dòng, và cả đường dẫn rơi xuống một dòng
+ * trống của riêng nó. Phần vẽ tràn quá mép chữ bị `<p>` cắt (`overflow:
+ * hidden`, xem `kieuGianCach`).
+ *
+ * ponytail: màn hình vẽ đường dẫn DÀI bằng chính toạ độ mốc rồi để trang cắt,
+ * chứ không nhảy con trỏ tới đúng mốc như Word (`.docx`) và PDF làm. Nhảy
+ * đúng cần biết con trỏ đang đứng đâu — tức phải ĐO chữ đã vẽ — và hệ quy
+ * chiếu để đo là lề trang NGUỒN (`w:pgMar`, mục `le_trang` của thước đo, còn
+ * CHƯA CÀI), không phải lề 8% của khung xem trước. Nâng lên khi đọc được lề
+ * trang; đến lúc đó trang vẫn hiện đúng chỗ để điền, chỉ dài hơn vài milimét.
+ */
+function thuocTinhTab(m: MocTab): { thuoc: Record<string, string>; style: CSSProperties } {
+  const thuoc: Record<string, string> = {
+    [THUOC_TINH_CHU.moc]: "",
+    [THUOC_TINH_TAB.moc]: "",
+    [THUOC_TINH_TAB.val]: m.val,
+    [THUOC_TINH_TAB.pos]: String(m.pos),
+  };
+  if (m.leader) thuoc[THUOC_TINH_TAB.leader] = m.leader;
+  const net = NET_DAN[m.leader];
+  if (!net) return { thuoc, style: {} };
+  const rong = `${m.pos * PT_MOI_TWIP}pt`;
+  return {
+    thuoc,
+    style: {
+      display: "inline-block",
+      width: rong,
+      marginRight: `-${rong}`,
+      borderBottomWidth: "1px",
+      borderBottomStyle: net,
+      verticalAlign: "baseline",
+    },
+  };
+}
+
+/**
+ * Giãn cách/thụt lề NGUỒN của một khối → `data-*` (tệp tải về đọc lại) và
+ * `style` (màn hình vẽ) của thẻ `<p>` chở nó.
+ *
+ * Đơn vị `pt`, không `em`: trang A4 ở đây rộng cố định và `thuPhong` chỉ phóng
+ * CỠ CHỮ, nên một khoảng cách đo bằng `em` sẽ trôi theo mức phóng — đúng lý lẽ
+ * `caoTrenTrang` đã theo cho `w:trHeight`.
+ *
+ * `text-indent` mang HIỆU `firstLine − hanging`, một số duy nhất: hai thuộc
+ * tính ấy loại trừ nhau trong OOXML và cùng nói về dòng ĐẦU, còn `margin-left`
+ * đã chở `w:ind/@w:left` cho mọi dòng. Đây cũng đúng `lechDau` mà PDF dùng.
+ *
+ * Khối CÓ khai nhịp thì nhịp nguồn thắng HẲN, kể cả chỗ nó khai 0: `mt-1` của
+ * lớp CSS là thể thức của một bản thảo KLAW tự soạn, không phải câu trả lời
+ * về tài liệu của khách — cùng luật `.docx`/PDF đặt.
+ */
+function kieuGianCach(g: GianCachKhoi | null): {
+  thuoc: Record<string, string>;
+  style: CSSProperties;
+} {
+  if (!g) return { thuoc: {}, style: {} };
+  const pt = (twip: number) => `${twip * PT_MOI_TWIP}pt`;
+  const thuoc: Record<string, string> = {};
+  const style: CSSProperties = { marginTop: pt(g.truoc), marginBottom: pt(g.sau) };
+  if (g.truoc) thuoc[THUOC_TINH_GIAN_CACH.truoc] = String(g.truoc);
+  if (g.sau) thuoc[THUOC_TINH_GIAN_CACH.sau] = String(g.sau);
+  if (g.dong > 0) {
+    thuoc[THUOC_TINH_GIAN_CACH.dong] = String(g.dong);
+    if (g.luatDong) thuoc[THUOC_TINH_GIAN_CACH.luatDong] = g.luatDong;
+    // `auto` đo theo BỘI SỐ của 240 (một hệ số không đơn vị); `exact`/`atLeast`
+    // là twip tuyệt đối. `line-height` của CSS nhận đúng hai hình dạng ấy.
+    style.lineHeight = g.luatDong === "auto" || !g.luatDong ? String(g.dong / 240) : pt(g.dong);
+  }
+  if (g.trai) {
+    thuoc[THUOC_TINH_GIAN_CACH.trai] = String(g.trai);
+    style.marginLeft = pt(g.trai);
+  }
+  if (g.phai) {
+    thuoc[THUOC_TINH_GIAN_CACH.phai] = String(g.phai);
+    style.marginRight = pt(g.phai);
+  }
+  if (g.dauDong) thuoc[THUOC_TINH_GIAN_CACH.dauDong] = String(g.dauDong);
+  if (g.treo) thuoc[THUOC_TINH_GIAN_CACH.treo] = String(g.treo);
+  if (g.dauDong || g.treo) style.textIndent = pt(g.dauDong - g.treo);
+  // Đường dẫn của một mốc tab cố tình vẽ dài quá mép chữ (xem `thuocTinhTab`);
+  // chính thẻ này là chỗ cắt nó lại đúng bề rộng cột chữ.
+  if (g.tab.length > 0) style.overflow = "hidden";
+  return { thuoc, style };
+}
 
 /**
  * MỘT đoạn chữ → thuộc tính `data-*` (tệp tải về đọc lại) và `style` (màn
@@ -37,6 +145,7 @@ const CO_THUONG_PT = 13;
  * giữ phông của trang thay vì khai một họ chữ kho này không có.
  */
 function thuocTinhChu(o: DoanChu): { thuoc: Record<string, string>; style: CSSProperties } {
+  if (o.tab) return thuocTinhTab(o.tab);
   const thuoc: Record<string, string> = { [THUOC_TINH_CHU.moc]: "" };
   const style: CSSProperties = {};
   if (o.inDam) {
@@ -72,13 +181,13 @@ function thuocTinhChu(o: DoanChu): { thuoc: Record<string, string>; style: CSSPr
  * ngoài span nào — cùng khuôn `data-*` mà `docBangTuPhanTu` đã dùng để
  * `.docx`/PDF đọc lại đúng thứ màn hình đã vẽ.
  */
-function veChuVaoThe(el: HTMLElement, noiDung: string, chu: KhoangChu[]) {
-  if (chu.length === 0) {
+function veChuVaoThe(el: HTMLElement, noiDung: string, chu: KhoangChu[], tab: KhoangTab[] = []) {
+  if (chu.length === 0 && tab.length === 0) {
     el.textContent = noiDung;
     return;
   }
   el.textContent = "";
-  for (const o of catTheoChu(noiDung, chu)) {
+  for (const o of catTheoChu(noiDung, chu, tab)) {
     const s = document.createElement("span");
     const { thuoc, style } = thuocTinhChu(o);
     for (const [ten, giaTri] of Object.entries(thuoc)) s.setAttribute(ten, giaTri);
@@ -170,6 +279,7 @@ function KhoiVanXuoi({
   noiDung,
   canhLe,
   chu,
+  gianCach,
   mucKey,
   khoiIndex,
   phienBan,
@@ -187,6 +297,15 @@ function KhoiVanXuoi({
    * lên chữ MỚI sẽ in đậm nửa từ, tệ hơn hẳn chữ thường.
    */
   chu: KhoangChu[];
+  /**
+   * Giãn cách/thụt lề/mốc tab NGUỒN của khối (2026-09-18) — đi ra `style` và
+   * `data-*` của chính thẻ `<p>` này qua `kieuGianCach`, để `docDong`
+   * (`xuat-tep.ts`) đọc lại đúng con số nguồn khi xuất `.docx`/PDF.
+   *
+   * `null` khi khối không tra được dòng nguồn nào: cùng luật `chu` — chữ đã
+   * đổi thì mọi sự thật đo trên chữ CŨ đều không còn áp được.
+   */
+  gianCach: GianCachKhoi | null;
   mucKey: string;
   khoiIndex: number;
   phienBan: number;
@@ -210,20 +329,23 @@ function KhoiVanXuoi({
   // Khoá SO SÁNH của định dạng, không phải chính mảng: `chu` là một mảng mới
   // ở mỗi lượt render (`khoiMotHopLe` dựng lại), nên so tham chiếu sẽ vẽ lại
   // khối ở mọi lượt — kể cả những lượt không đổi gì.
-  const chuKhoa = JSON.stringify(chu);
+  const chuKhoa = JSON.stringify([chu, gianCach?.tab ?? []]);
+  const { thuoc: thuocNhip, style: kieuNhip } = kieuGianCach(gianCach);
 
   useLayoutEffect(() => {
     if (dangSua.current) return;
     const el = oNoiDung.current;
     if (!el) return;
     if (el.textContent === noiDung && el.getAttribute("data-chu-khoa") === chuKhoa) return;
-    veChuVaoThe(el, noiDung, chu);
+    veChuVaoThe(el, noiDung, chu, gianCach?.tab ?? []);
     el.setAttribute("data-chu-khoa", chuKhoa);
-  }, [noiDung, chuKhoa, chu]);
+  }, [noiDung, chuKhoa, chu, gianCach]);
 
   return (
     <p
       ref={oNoiDung}
+      {...thuocNhip}
+      style={kieuNhip}
       contentEditable={coTheSua}
       suppressContentEditableWarning={coTheSua}
       // Review #3 — vùng biên tập cần TÊN RIÊNG cho trình đọc màn hình,
@@ -322,7 +444,7 @@ function KhoiVanXuoi({
             // xoá sạch các `<span data-chu>` mà hiệu ứng đã dựng, và khối
             // mất định dạng chỉ vì người dùng bấm vào rồi bấm ra.
             if (oNoiDung.current) {
-              veChuVaoThe(oNoiDung.current, noiDung, chu);
+              veChuVaoThe(oNoiDung.current, noiDung, chu, gianCach?.tab ?? []);
               oNoiDung.current.setAttribute("data-chu-khoa", chuKhoa);
             }
             return;
@@ -544,6 +666,7 @@ export function XemTruocA4({
                     noiDung={k.noiDung}
                     canhLe={k.canhLe}
                     chu={k.chu}
+                    gianCach={k.gianCach}
                     mucKey={m.key}
                     khoiIndex={i}
                     // Fix round 2 (N1) — không dùng khi chỉ đọc; giá trị mặc

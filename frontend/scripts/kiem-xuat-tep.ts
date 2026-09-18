@@ -92,7 +92,7 @@ assert.ok(mucCu[1]?.noiDung.includes("---|---|---|---"));
 // đúng MỘT khối văn xuôi mang nguyên chuỗi pipe — `XemTruocA4` render nó
 // bằng đúng một `<p>`, không parse `|` ra bảng (brief cấm).
 assert.deepEqual(mucCu[1]?.khoi, [
-  { kind: "vanXuoi", noiDung: mucCu[1]!.noiDung, canhLe: "trai", chu: [] },
+  { kind: "vanXuoi", noiDung: mucCu[1]!.noiDung, canhLe: "trai", chu: [], gianCach: null },
 ]);
 assert.equal(mucCu[1]?.vung, "than");
 
@@ -414,6 +414,7 @@ assert.deepEqual(mucKhoiCaHai[0], {
   noiDung: "Chú thích bảng:",
   canhLe: "trai",
   chu: [],
+  gianCach: null,
 });
 assert.deepEqual(mucKhoiCaHai[1], {
   kind: "bang",
