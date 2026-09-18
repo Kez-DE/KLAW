@@ -267,10 +267,14 @@ async def test_het_han_muc_dung_lan_dau_thi_hoi_lai_khong_tao_ban_thao(
     don_dep,
     monkeypatch,
 ):
-    """Hạn mức NGÀY/THÁNG (`bao_ve.kiem_han_muc`, chỉ kiểm khi DỰNG lần đầu —
-    xem `n_dung_ban_thao`) hết thì không có bản thảo nào được tạo, không có
-    dòng trace `/api/v1/soan-thao` nào, và người dùng nhận lại đúng thông
-    điệp 429 của cổng hạn mức, không phải một 500."""
+    """Hạn mức NGÀY/THÁNG (`bao_ve.kiem_han_muc`, chỉ kiểm khi DỰNG lần đầu)
+    hết thì không có bản thảo nào được tạo, không có dòng trace
+    `/api/v1/soan-thao` nào, và người dùng nhận lại đúng thông điệp 429 của
+    cổng hạn mức, không phải một 500.
+
+    Từ Phase 14 lượt này đi đường soạn TỔNG QUÁT (`dung_ban_thao_tong_quat`),
+    không còn `n_dung_ban_thao` — cổng hạn mức phải đứng ở CẢ HAI đường, nếu
+    không đường mới thành lối vòng qua nó."""
     cai_dat(supabase_url=SUPABASE)
     sub = str(uuid.uuid4())
     don_dep.append(sub)
