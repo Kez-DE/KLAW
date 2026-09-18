@@ -96,6 +96,11 @@ def clauses_tu(van_ban: dict) -> list[dict]:
             "ten_that": m.get("ten_that", True),
             "vung": m.get("vung") or "than",
             "khoi": m.get("khoi") or [],
+            # Lề trang nguồn (`w:pgMar`, 2026-09-18) — sự thật của cả TÀI LIỆU
+            # chứ không của mục này, chép lên mọi mục vì `clauses` là kênh duy
+            # nhất ra giao diện; `mucTuBanThao` đọc lại ở mục đầu. `.get`, cùng
+            # luật ba khoá trên: một `muc` viết tay (test, fixture) không có nó.
+            "le_trang": m.get("le_trang") or [],
         }
         for i, m in enumerate((van_ban or {}).get("muc") or [], 1)
     ]

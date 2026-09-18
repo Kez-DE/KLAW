@@ -410,7 +410,12 @@ def test_bang_theo_nhan_dung_lai_dung_luoi_tu_don_vi():
             "nhip": [[1, 1], [1, 1]],
             "ti_le": [],
             "vien": True,
+            # Không đơn vị nào khai `w:tblBorders`/`w:tcBorders`, nên không có
+            # chi tiết theo cạnh nào để ghép: `vien_o` RỖNG, và ba nơi vẽ lùi
+            # về đúng nét đều của `vien` như trước bản vá viền-từng-cạnh.
+            "vien_o": [],
             "cao": [0, 0],
+            "cao_luat": ["", ""],
             "can_le_o": [["trai", "trai"], ["trai", "trai"]],
             # Không đơn vị nào của `GOI_LETTERHEAD` khai `w:rPr`, nên mỗi ô
             # không mang khoảng định dạng nào — hình dạng vẫn đi CÙNG `hang`.

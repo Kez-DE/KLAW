@@ -1310,6 +1310,61 @@ def _hang_gon(
     return hang, nhip, can_le, chu
 
 
+_CSS_CANH = ("top", "right", "bottom", "left")
+
+
+def _vien_o_bang(
+    vien_canh: tuple[tuple[str, str, str], ...],
+    o_canh: dict[tuple[int, int], tuple[tuple[str, str, str], ...]],
+    nhip: list[list[int]],
+    so_cot: int,
+) -> list[list[str]] | None:
+    """Viền của TỪNG Ô sau khi ghép, cùng hình dạng `hang` — `None` khi bảng
+    không có chi tiết theo cạnh nào để ghép.
+
+    Mỗi ô ra MỘT chuỗi `"trên|phải|dưới|trái"`, mỗi phần là `"w:val/w:sz"`
+    NGUYÊN VĂN nguồn (phần rỗng = cạnh đó không có nét). Thứ tự trên/phải/
+    dưới/trái là thứ tự của chính CSS, để ba nơi vẽ đọc cùng một dãy mà không
+    nơi nào phải nhớ một quy ước riêng.
+
+    Đây là chỗ DUY NHẤT biết cả hình dạng bảng lẫn khai báo từng cạnh, nên
+    cũng là chỗ duy nhất ghép được luật của Word: cạnh `w:tcBorders` của
+    chính ô ĐÈ; không khai thì ô lấy cạnh BẢNG tương ứng với CHỖ nó đứng —
+    `top` của hàng đầu là `top` của bảng, của hàng giữa là `insideH`; `left`
+    của cột đầu là `left`, của cột giữa là `insideV`. Một ô đứng một mình
+    không biết nó có phải hàng cuối không, nên phép ghép này không thể nằm ở
+    `doc_tai_lieu`.
+
+    FAIL CLOSED CẢ BẢNG khi một `w:sz` khai giá trị không phải số: nửa bảng vẽ
+    theo cạnh nguồn, nửa kia vẽ theo một bề dày đoán bừa là tệ hơn hẳn cả bảng
+    lùi về nét đều của `vien` — đúng luật `_gian_cach_doan` đã theo cho một
+    `w:spacing` hỏng.
+    """
+    moi_canh = (*vien_canh, *(c for canh in o_canh.values() for c in canh))
+    if not moi_canh:
+        return None
+    if any(sz and not sz.isdigit() for _, _, sz in moi_canh):
+        return None
+    bang = {canh: f"{val}/{sz}" for canh, val, sz in vien_canh}
+    so_hang = len(nhip)
+    ra: list[list[str]] = []
+    for h, nhip_hang in enumerate(nhip):
+        cot = 0
+        dong: list[str] = []
+        for n in nhip_hang:
+            rieng = {canh: f"{val}/{sz}" for canh, val, sz in o_canh.get((h, cot), ())}
+            thua_ke = {
+                "top": "top" if h == 0 else "insideH",
+                "bottom": "bottom" if h == so_hang - 1 else "insideH",
+                "left": "left" if cot == 0 else "insideV",
+                "right": "right" if cot + n >= so_cot else "insideV",
+            }
+            dong.append("|".join(rieng.get(c, bang.get(thua_ke[c], "")) for c in _CSS_CANH))
+            cot += n
+        ra.append(dong)
+    return ra
+
+
 def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
     """Mọi bảng THẬT của lượt này, dựng lại 0 token thẳng từ `don_vi` — khoá
     "A0"/"B2" (nhãn tài liệu + số bảng, 0-based, đúng số `_vi_tri` đã hiện cho
@@ -1324,8 +1379,12 @@ def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
     (số cột mỗi ô CHIẾM, cùng hình dạng `hang`, đọc thẳng `bang_nhip` —
     RENDER dùng trực tiếp, không suy đoán lại từ số ô như `coSpanHang` cũ),
     `ti_le` (% mỗi cột lưới, đọc `bang_ti_le`, rỗng khi bảng không khai
-    lưới), `vien` (bảng có vẽ viền không, đọc `bang_vien`), `cao` (chiều cao
-    khai báo mỗi HÀNG theo twip, đọc `bang_cao`, `0` khi hàng không khai),
+    lưới), `vien` (bảng có vẽ viền không, đọc `bang_vien`), `vien_o` (viền
+    TỪNG CẠNH của từng ô sau khi ghép bảng+ô+vị trí, cùng hình dạng `hang` —
+    xem `_vien_o_bang`; RỖNG khi bảng không có chi tiết theo cạnh, và ba nơi
+    vẽ khi đó lùi về nét đều của `vien`), `cao` (chiều cao khai báo mỗi HÀNG
+    theo twip, đọc `bang_cao`, `0` khi hàng không khai), `cao_luat`
+    (`@w:hRule` mỗi hàng, đọc `bang_cao_luat`, `""` khi không khai),
     `can_le_o` (căn lề TỪNG Ô, cùng hình dạng `hang`, đọc `can_le`) và
     `chu_o` (định dạng chữ TỪNG Ô — dãy khoảng `[dau, cuoi)` trên CHÍNH chữ
     của ô, cùng hình dạng `hang`, đọc `dinh_dang`). Không đẻ ra một hàm/một
@@ -1350,6 +1409,9 @@ def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
         vien_bang: dict[int, bool] = {}
         cao_bang: dict[int, dict[int, int]] = {}
         cot_toi_da: dict[int, int] = {}
+        vien_canh_bang: dict[int, tuple[tuple[str, str, str], ...]] = {}
+        o_canh_bang: dict[int, dict[tuple[int, int], tuple[tuple[str, str, str], ...]]] = {}
+        cao_luat_bang: dict[int, dict[int, str]] = {}
         for d in t["don_vi"]:
             if d.bang is None:
                 continue
@@ -1368,6 +1430,16 @@ def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
             vien_bang[b] = vien_bang.get(b, False) or d.bang_vien
             cao_hang = cao_bang.setdefault(b, {})
             cao_hang[h] = max(cao_hang.get(h, 0), d.bang_cao)
+            # Viền từng cạnh CẤP BẢNG cũng chép trên mọi ô (như `bang_ti_le`),
+            # nên ô đầu gặp là đủ; viền cấp Ô thì khoá theo (hàng, cột LƯỚI) vì
+            # nó là sự thật riêng của chính ô đó. `bang_cao_luat` giống
+            # `bang_cao`: một giá trị cho cả hàng.
+            if d.bang_vien_canh and b not in vien_canh_bang:
+                vien_canh_bang[b] = d.bang_vien_canh
+            if d.o_vien_canh:
+                o_canh_bang.setdefault(b, {})[(h, c)] = d.o_vien_canh
+            if d.bang_cao_luat:
+                cao_luat_bang.setdefault(b, {})[h] = d.bang_cao_luat
         for b, theo_hang in theo_bang.items():
             ti_le = ti_le_bang.get(b, ())
             so_cot = len(ti_le) or cot_toi_da.get(b, 0)
@@ -1389,12 +1461,17 @@ def _bang_theo_nhan(goi: list[dict]) -> dict[str, dict]:
                 can_le_o.append(h_can_le)
                 chu_o.append(h_chu)
                 cao.append(cao_bang.get(b, {}).get(h, 0))
+            vien_o = _vien_o_bang(
+                vien_canh_bang.get(b, ()), o_canh_bang.get(b, {}), nhip, so_cot
+            )
             ra[f"{t['nhan']}{b}"] = {
                 "hang": hang,
                 "nhip": nhip,
                 "ti_le": list(ti_le),
                 "vien": vien_bang.get(b, True),
+                "vien_o": vien_o or [],
                 "cao": cao,
+                "cao_luat": [cao_luat_bang.get(b, {}).get(h, "") for h in range(len(hang))],
                 "can_le_o": can_le_o,
                 "chu_o": chu_o,
             }
@@ -1609,6 +1686,12 @@ def _khop_bang(
                 "vien": bang["vien"],
                 "cao": bang["cao"],
                 "can_le_o": bang["can_le_o"],
+                # `vien_o`/`cao_luat` cùng luật `chu_o` ngay dưới: chỉ CÓ MẶT
+                # khi nguồn nói một điều gì đó. Một bảng không có chi tiết theo
+                # cạnh giữ NGUYÊN hình dạng khối cũ, và mọi phía đọc vốn đã
+                # mặc định rỗng — nét đều của `vien` chạy y như trước bản vá.
+                **({"vien_o": bang["vien_o"]} if bang["vien_o"] else {}),
+                **({"cao_luat": bang["cao_luat"]} if any(bang["cao_luat"]) else {}),
                 # `chu_o` chỉ CÓ MẶT khi có ít nhất một ô mang định dạng —
                 # cùng luật `chu` của khối văn xuôi: một bảng không định dạng
                 # giữ NGUYÊN hình dạng khối cũ, và mọi phía đọc
@@ -1687,6 +1770,15 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
     # Giãn cách/thụt lề/mốc tab (`w:spacing`/`w:ind`/`w:tabs`) — lưới thứ tư
     # cùng nguồn `goi`, cũng tra theo chữ NGUYÊN VĂN, xem `_gian_cach_theo_dong`.
     theo_gc = _gian_cach_theo_dong(goi or [])
+    # Lề trang (`w:sectPr/w:pgMar`) — KHÔNG phải một lưới tra theo dòng như bốn
+    # cái trên: nó là sự thật của cả TỆP, một bộ số duy nhất, và mọi đơn vị đều
+    # chở đúng nó (xem `DonViVanBan.le_trang`). Lấy ở đơn vị đầu đọc được rồi
+    # gắn lên TỪNG mục vì `clauses` là kênh duy nhất đi ra giao diện — bản thảo
+    # không có chỗ nào cất một sự thật cấp tài liệu, và `XemTruocA4` đọc lại ở
+    # mục đầu.
+    le_trang = next(
+        (list(d.le_trang) for t in (goi or []) for d in t["don_vi"] if d.le_trang), []
+    )
     dem = {"muc_lam_sach": 0, "gia_tri_lam_sach": 0, "muc_bo": 0, "bo_nho_khong_dien": 0}
     # Giá trị đã nhớ mà CÓ trong `nguon` thì KHÔNG cấm: ở đó nó tới bằng chính
     # lời người hỏi lượt này (hay tài liệu, hay bản thảo đang có), không bằng ký
@@ -1998,7 +2090,16 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
             continue
         if dem_delta > 0:
             dem["muc_lam_sach"] += 1
-        giu.append({"ten": ten, "ten_that": ten_that, "vung": vung, "khoi": khoi})
+        giu.append({
+            "ten": ten,
+            "ten_that": ten_that,
+            "vung": vung,
+            "khoi": khoi,
+            # Chỉ CÓ MẶT khi tệp khai — cùng luật `chu`/`gian_cach` của khối:
+            # một mục không có lề nguồn giữ nguyên hình dạng cũ, và ba nơi vẽ
+            # giữ lề mặc định của chính chúng.
+            **({"le_trang": le_trang} if le_trang else {}),
+        })
     return {"tieu_de": tieu_de_sach, "muc": giu}, dem
 
 
