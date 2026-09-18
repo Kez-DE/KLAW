@@ -475,7 +475,13 @@ export function XemTruocA4({
                         </colgroup>
                         {k.vien && (
                           <thead>
-                            <tr data-cao={caoTrenTrang(k.cao?.[0])?.twip}>
+                            {/* Hàng tiêu đề cũng mang chiều cao khai báo: nó
+                                đi vào tệp qua `data-cao`, nên màn hình phải
+                                dành đúng chỗ đó — nếu không, hai bên lệch. */}
+                            <tr
+                              data-cao={caoTrenTrang(k.cao?.[0])?.twip}
+                              style={caoTrenTrang(k.cao?.[0])?.style}
+                            >
                               {(k.hang[0] ?? []).map((o, oi) => {
                                 const cot = spanTieuDe[oi] ?? 1;
                                 return (
