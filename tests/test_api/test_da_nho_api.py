@@ -38,6 +38,9 @@ def hai_nguoi(cai_dat, khoa_ky):
 async def test_chua_dang_nhap_401(client, hai_nguoi):
     assert (await client.get(URL)).status_code == 401
     assert (await client.delete(URL)).status_code == 401
+    # Xoá MỘT mục cũng phải chặn ở cửa: `nguoi_dung_bat_buoc` chạy trước thân
+    # hàm nên id có thật hay không cũng không lộ ra cho người chưa đăng nhập.
+    assert (await client.delete(f"{URL}/{uuid.uuid4()}")).status_code == 401
 
 
 @pytest.mark.asyncio
@@ -65,7 +68,9 @@ async def test_a_xem_roi_xoa_mot_roi_xoa_het(client, khoa_ky, hai_nguoi):
     id_ten = d["muc"][0]["id"]
     assert (await client.delete(f"{URL}/{id_ten}", headers=ha)).status_code == 204
     assert (await client.delete(f"{URL}/{id_ten}", headers=ha)).status_code == 404  # đã xoá thật, không còn để xoá
-    assert (await client.delete(f"{URL}/khong-phai-uuid", headers=ha)).status_code == 422
+    # Chuỗi rác cũng 404, không 422: một câu trả lời duy nhất cho mọi id không
+    # xoá được, nên không tách được id sai dạng khỏi id của người khác.
+    assert (await client.delete(f"{URL}/khong-phai-uuid", headers=ha)).status_code == 404
     with get_engine().connect() as c:
         assert c.execute(text("SELECT count(*) FROM bo_nho_tai_khoan WHERE id = CAST(:i AS uuid)"), {"i": id_ten}).scalar_one() == 0
     assert (await client.delete(URL, headers=ha)).status_code == 204

@@ -34,17 +34,23 @@ NHAN_KHOA = {
 _RE_KHOA = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 
 _COT = "id::text AS id, loai, khoa, gia_tri, nguon_hoi_thoai_id::text AS nguon_hoi_thoai_id, cap_nhat_luc"
-# `FOR UPDATE` khoá đúng dòng (nếu có) cho tới khi upsert bên dưới commit, nên
-# hai lượt ghi cùng khoá gần như đồng thời không cùng báo "mới".
-_SQL_DOC_MOT = text(
-    "SELECT gia_tri FROM bo_nho_tai_khoan"
-    " WHERE user_sub = CAST(:sub AS uuid) AND loai = :loai AND khoa = :khoa FOR UPDATE"
-)
+# Trạng thái trả về phải sinh ra từ CHÍNH lệnh ghi. Một `SELECT ... FOR UPDATE`
+# đọc trước không khoá được dòng CHƯA tồn tại, nên hai lượt ghi đầu tiên cùng
+# (sub, loai, khoa) sẽ cùng thấy "chưa có" và cùng báo "moi" — người dùng nghe
+# "đã nhớ" hai lần. Ở đây `ON CONFLICT` tự khoá dòng đụng độ: `xmax = 0` chỉ
+# đúng với dòng vừa CHÈN, còn `WHERE` chặn nhánh sửa khi giá trị y hệt nên
+# lệnh không trả dòng nào. Ba kết cục phân biệt được bằng một lượt đi Postgres,
+# không còn khoảng hở giữa đọc và ghi.
+#
+# Đổi lại: giá trị không đổi thì `nguon_hoi_thoai_id` và `cap_nhat_luc` giữ
+# nguyên — đúng nghĩa "giu" (không có gì đổi), và tránh một lượt ghi thừa.
 _SQL_GHI = text(
     "INSERT INTO bo_nho_tai_khoan (user_sub, loai, khoa, gia_tri, nguon_hoi_thoai_id)"
     " VALUES (CAST(:sub AS uuid), :loai, :khoa, :gia_tri, CAST(:pid AS uuid))"
     " ON CONFLICT (user_sub, loai, khoa) DO UPDATE SET gia_tri = EXCLUDED.gia_tri,"
     " nguon_hoi_thoai_id = EXCLUDED.nguon_hoi_thoai_id, cap_nhat_luc = now()"
+    " WHERE bo_nho_tai_khoan.gia_tri IS DISTINCT FROM EXCLUDED.gia_tri"
+    " RETURNING (xmax = 0) AS la_moi"
 )
 _SQL_LIET_KE = text(f"SELECT {_COT} FROM bo_nho_tai_khoan WHERE user_sub = CAST(:sub AS uuid) ORDER BY loai, khoa")
 _SQL_XOA_MOT = text("DELETE FROM bo_nho_tai_khoan WHERE id = CAST(:id AS uuid) AND user_sub = CAST(:sub AS uuid)")
@@ -60,11 +66,13 @@ def ghi(sub: str, loai: str, khoa: str, gia_tri: str, nguon_hoi_thoai_id: str | 
     if loai not in LOAI or not _RE_KHOA.match(khoa or "") or not g or len(g) > GIA_TRI_TOI_DA:
         raise ValueError("loai, khoa hoặc gia_tri không hợp lệ")
     with get_engine().begin() as c:
-        cu = c.execute(_SQL_DOC_MOT, {"sub": sub, "loai": loai, "khoa": khoa}).scalar_one_or_none()
-        c.execute(_SQL_GHI, {"sub": sub, "loai": loai, "khoa": khoa, "gia_tri": g, "pid": nguon_hoi_thoai_id})
-    if cu is None:
-        return "moi"
-    return "giu" if cu == g else "doi"
+        la_moi = c.execute(
+            _SQL_GHI, {"sub": sub, "loai": loai, "khoa": khoa, "gia_tri": g, "pid": nguon_hoi_thoai_id}
+        ).scalar_one_or_none()
+    # Không dòng nào trả về = `WHERE` đã chặn nhánh sửa = giá trị y hệt cái đang có.
+    if la_moi is None:
+        return "giu"
+    return "moi" if la_moi else "doi"
 
 
 def liet_ke(sub: str) -> list[dict]:

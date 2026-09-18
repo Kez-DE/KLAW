@@ -346,6 +346,18 @@ async def xoa_het_bo_nho(nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Response
 LOI_DA_NHO_KHONG_THAY = "Không tìm thấy mục này."
 
 
+def _uuid_hop_le(id: str) -> str:
+    # Chuỗi không phải UUID → 404 như mục không tồn tại (cùng khuôn
+    # `routes_ban_thao._uuid_hop_le`, `routes_hoi_thoai._uuid_hop_le`). 422 cho
+    # chuỗi rác và 404 cho id của người khác là HAI câu trả lời khác nhau, tức
+    # đã nói cho kẻ dò biết id nào đúng dạng — chỉ một câu cho mọi id không xoá
+    # được mới kín.
+    try:
+        return str(uuid.UUID(id))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=LOI_DA_NHO_KHONG_THAY) from e
+
+
 def _da_nho_out(sub: str) -> DanhSachDaNhoOut:
     return DanhSachDaNhoOut(muc=[MucDaNhoOut(**m) for m in bo_nho_tai_khoan.liet_ke(sub)])
 
@@ -356,11 +368,11 @@ async def da_nho_cua_toi(nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> DanhSach
 
 
 @router.delete("/tai-khoan/da-nho/{id}", status_code=204)
-async def xoa_mot_da_nho(id: uuid.UUID, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Response:
+async def xoa_mot_da_nho(id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Response:
     # 404 cả khi `id` tồn tại nhưng thuộc người khác: 403 sẽ xác nhận với kẻ dò
-    # rằng id đó có thật. `uuid.UUID` ở tham số đường dẫn để chuỗi rác thành 422
-    # ngay tại biên, không tới CAST của Postgres.
-    if not await run_in_threadpool(bo_nho_tai_khoan.xoa_mot, nguoi["sub"], str(id)):
+    # rằng id đó có thật. `_uuid_hop_le` chặn chuỗi rác trước CAST của Postgres
+    # và trả CÙNG một 404.
+    if not await run_in_threadpool(bo_nho_tai_khoan.xoa_mot, nguoi["sub"], _uuid_hop_le(id)):
         raise HTTPException(status_code=404, detail=LOI_DA_NHO_KHONG_THAY)
     return Response(status_code=204)
 

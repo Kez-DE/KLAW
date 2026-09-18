@@ -7,6 +7,7 @@ import uuid
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from src.services import bao_ve, hoi_thoai
 from src.services import bo_nho_tai_khoan as bn
@@ -57,6 +58,25 @@ def test_034_chay_hai_lan_tren_db_da_co_024_den_033_va_du_cot():
         ).scalar_one()
     assert cot == {"id", "user_sub", "loai", "khoa", "gia_tri", "nguon_hoi_thoai_id", "tao_luc", "cap_nhat_luc"}
     assert fk_hoi_thoai == 0
+
+
+@pytest.mark.integration
+def test_db_tu_choi_loai_ngoai_hai_gia_tri(hai_nguoi):
+    a, _ = hai_nguoi
+    # `ghi` đã chặn `loai` lạ bằng `ValueError`, nhưng lưới đó nằm trong Python:
+    # một script, một migration sau hay một lượt sửa tay đi thẳng SQL sẽ đi vòng
+    # qua nó. CHECK của 034 là hàng rào CUỐI, nên phải có test ghi thẳng bằng SQL
+    # mới chứng minh được nó thật sự đang gác.
+    with pytest.raises(IntegrityError):
+        with get_engine().begin() as c:
+            c.execute(
+                text(
+                    "INSERT INTO bo_nho_tai_khoan (user_sub, loai, khoa, gia_tri)"
+                    " VALUES (CAST(:s AS uuid), 'transcript', 'ho_ten', 'x')"
+                ),
+                {"s": a},
+            )
+    assert _dem(a) == 0
 
 
 @pytest.mark.integration
