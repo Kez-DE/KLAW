@@ -35,7 +35,13 @@ from src.agents.nodes.route import Intent
 from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU
 from src.services.bo_nho import _vuong_luoi_chan
 from src.services.bo_nho_tai_khoan import GIA_TRI_TOI_DA
-from src.services.doc_tai_lieu import DinhDangChu, DonViVanBan, GianCach, NguonChu
+from src.services.doc_tai_lieu import (
+    KY_TU_MOI_TRANG,
+    DinhDangChu,
+    DonViVanBan,
+    GianCach,
+    NguonChu,
+)
 from src.services.llm import TruncatedOutputError, Usage
 from src.services.neo_du_kien import LyDoNeo, Neo, normalize, xac_minh
 from src.services.phep_tinh import SAI_SO, so_bang_nhau, tinh, viet_so
@@ -504,8 +510,18 @@ def _tu_khoa(s: str) -> set[str]:
 def loc_don_vi(don_vi: list[DonViVanBan], cau_hoi: str) -> list[DonViVanBan]:
     """Phần tài liệu được gửi cho mô hình. Hàm THUẦN: không LLM, không I/O.
 
-    Dưới `NGUONG_TRANG` trang thì gửi cả tài liệu — cắt xén một tài liệu ngắn
-    chỉ tạo ra rủi ro bỏ sót mà không tiết kiệm được gì đáng kể.
+    Dưới `NGUONG_TRANG` trang VÀ dưới ngần ấy trang quy theo KÝ TỰ thì gửi cả
+    tài liệu — cắt xén một tài liệu ngắn chỉ tạo ra rủi ro bỏ sót mà không tiết
+    kiệm được gì đáng kể.
+
+    Hai điều kiện chứ không một, và điều kiện thứ hai là điều kiện THẬT cho
+    `.docx`: từ khi `doc_tai_lieu` đọc trang theo ngắt tệp KHAI
+    (`_DemTrang`), `d.trang` của một `.docx` không còn là thước đo độ DÀY —
+    một hợp đồng 40 trang không ấn Ctrl+Enter lần nào khai đúng 1 trang. Chỉ
+    còn `d.trang` ở đây thì cả tài liệu ấy đi thẳng vào prompt. Số ký tự là
+    thứ `KY_TU_MOI_TRANG` vẫn luôn đo (xem ghi chú tại hằng số đó), nên cổng
+    này hỏi nó trực tiếp thay vì hỏi qua một số trang đã đổi nghĩa. PDF giữ
+    nguyên hành vi cũ: ở đó `d.trang` là trang thật, và nó vẫn chặn trước.
 
     Trên ngưỡng: giữ `GIU_DAU` đơn vị ĐẦU (tiêu đề, các bên, số hiệu — thứ gần
     như mọi câu hỏi đều cần) cộng `GIU_THEO_CAU_HOI` đơn vị trùng từ khoá với
@@ -523,7 +539,10 @@ def loc_don_vi(don_vi: list[DonViVanBan], cau_hoi: str) -> list[DonViVanBan]:
     don_vi = [d for d in don_vi if d.noi_dung]
     if not don_vi:
         return []
-    if max((d.trang for d in don_vi), default=1) <= NGUONG_TRANG:
+    if (
+        max((d.trang for d in don_vi), default=1) <= NGUONG_TRANG
+        and sum(len(d.noi_dung) for d in don_vi) <= NGUONG_TRANG * KY_TU_MOI_TRANG
+    ):
         return list(don_vi)
     tu = _tu_khoa(cau_hoi)
     theo_diem = sorted(don_vi[GIU_DAU:], key=lambda d: (-len(tu & _tu_khoa(d.noi_dung)), d.chi_so))
@@ -2166,9 +2185,13 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
     # lặp — cùng ca R4 xử lý ở phía render) hay khi không định vị được (soạn
     # từ đầu, không có vị trí nguồn nào để dùng) — hai ca đó `<h1>` phía
     # render đã lo đúng, không cần khối này.
+    # Vị trí nguồn dựng MỘT lần, dùng cho HAI việc: chèn tiêu đề vào đúng chỗ
+    # (dưới) và gán TRANG NGUỒN cho từng mục (khối `giu` phía sau). Trước bản
+    # vá dòng chảy trang, nó chỉ tồn tại bên trong nhánh tiêu đề.
+    vi_tri = _vi_tri_theo_don_vi(goi)
+    trang_theo_chi_so = {d.chi_so: d.trang for d in goi[0]["don_vi"]} if goi else {}
     tieu_de_sach = _sach(str((van_ban or {}).get("tieu_de") or "").strip())
     if goi and tieu_de_sach and muc_sach:
-        vi_tri = _vi_tri_theo_don_vi(goi)
         tieu_de_ch = _khong_hoa(tieu_de_sach)
         tieu_de_vt = vi_tri.get(tieu_de_ch)
         # Fix round 3 (reviewer I2) — quét CẢ ô bảng, không chỉ đoạn văn xuôi:
@@ -2221,6 +2244,12 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
             })
 
     giu: list[dict] = []
+    # Trang NGUỒN của mục đã in gần nhất — cái sàn để một mục không định vị
+    # được (mô hình paraphrase hết, không còn khớp nguyên văn dòng nào) THEO
+    # mục đứng trước nó thay vì tự tụt về trang 1. Fail closed về phía "cùng
+    # trang với khối liền trước": vẽ một ngắt trang không có thật xé đôi tài
+    # liệu ở chỗ nguồn không hề ngắt, tệ hơn hẳn thiếu một ngắt.
+    trang_gan_nhat = 1
     for m in muc_sach:
         ten, vung, khoi, dem_delta = m["ten"], m["vung"], m["khoi"], m["dem_delta"]
         # `ten_that` (Phase 9 U1, fix round 1 gập hoa/thường qua `_khong_hoa`
@@ -2266,10 +2295,20 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
             continue
         if dem_delta > 0:
             dem["muc_lam_sach"] += 1
+        # Trang NGUỒN của mục — `DonViVanBan.trang` của đơn vị mà khối đầu của
+        # mục định vị được (`_vi_tri_khoi`), tức số trang tệp KHAI
+        # (`doc_tai_lieu._DemTrang`), không phải một con số mô hình tự đặt:
+        # `van_ban.muc[*]` không có trường nào cho trang, và hỏi mô hình một
+        # sự thật đọc thẳng ra được từ XML là mời nó bịa. Chỉ TIẾN, không lùi:
+        # mô hình có thể đảo thứ tự mục, và một trang lùi lại sẽ vẽ ra một
+        # ngắt trang ngược đời trên màn hình.
+        if (vt := _vi_tri_khoi(khoi, vi_tri)) is not None:
+            trang_gan_nhat = max(trang_gan_nhat, trang_theo_chi_so.get(vt, trang_gan_nhat))
         giu.append({
             "ten": ten,
             "ten_that": ten_that,
             "vung": vung,
+            "trang": trang_gan_nhat,
             "khoi": khoi,
             # Chỉ CÓ MẶT khi tệp khai — cùng luật `chu`/`gian_cach` của khối:
             # một mục không có lề nguồn giữ nguyên hình dạng cũ, và ba nơi vẽ

@@ -598,7 +598,9 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
 
     if not thoi:
         raise KhongDocDuoc(LoaiHong.khong_co_lop_chu, "không rút được ký tự nào")
-    return _dat_vi_tri(thoi, le, anh, anh_byte)
+    # `uoc_do_day` chỉ cho DOCX/DOC: PDF và ảnh OCR đã có số trang THẬT, cộng
+    # thêm một ước lượng theo ký tự ở đó là bịa một tài liệu dày hơn nó.
+    return _dat_vi_tri(thoi, le, anh, anh_byte, uoc_do_day=ten.endswith((".docx", ".doc")))
 
 
 # ------------------------------------------------------------------------ DOCX
@@ -640,6 +642,8 @@ _SZ = f"{{{_NS['w']}}}sz"
 _HRULE = f"{{{_NS['w']}}}hRule"
 _SECTPR = f"{{{_NS['w']}}}sectPr"
 _PGMAR = f"{{{_NS['w']}}}pgMar"
+_BR = f"{{{_NS['w']}}}br"
+_TYPE = f"{{{_NS['w']}}}type"
 
 # Sáu cạnh của một nhóm viền OOXML (`w:tblBorders`/`w:tcBorders`), theo thứ tự
 # CỐ ĐỊNH: hai lần đọc cùng một tệp phải cho cùng một dãy, đúng luật
@@ -1695,6 +1699,125 @@ def _gc_mot(p: ET.Element, kieu_gc: dict[str, _KieuGC]) -> tuple[GianCach, ...]:
     return (g,) if g is not None else ()
 
 
+# ─── DÒNG CHẢY TRANG ───────────────────────────────────────────────────────
+# Một `.docx` KHÔNG nói nó dày mấy trang: chỗ ngắt THẬT là kết quả của việc dàn
+# trang (phông chữ có trên máy, lề, luật widow/orphan, bảng bị xé) mà chỉ
+# Word/LibreOffice lúc MỞ tệp mới tính được. Nhưng tệp CÓ KHAI hai loại ngắt,
+# và hai loại ấy đọc thẳng ra được, không cần dàn trang:
+#
+#   1. `w:br w:type="page"` — người soạn ấn Ctrl+Enter, một ngắt trang CỨNG.
+#   2. Ngắt PHÂN ĐOẠN bắt đầu trang mới. `w:type` VẮNG MẶT nghĩa là `nextPage`
+#      (mặc định của OOXML), nên ở riêng chỗ này "không khai" LÀ một ngắt —
+#      không phải "không biết", và đây là ngoại lệ có căn cứ của luật "chỉ đọc
+#      những gì tệp nói" mà cả tệp này theo.
+#
+# KHÔNG đọc `w:lastRenderedPageBreak`. Nó không phải lời khai của người soạn mà
+# là BỘ NHỚ ĐỆM dàn trang của lần cuối một bản Word nào đó mở tệp: công cụ khác
+# (LibreOffice — chính đường `.doc` → `.docx` của dự án này — python-docx, trình
+# sinh biểu mẫu) không ghi nó; nó ôi ngay khi ai đó sửa phần TRÊN mà chưa dựng
+# lại hình; và tin nó thì CÙNG một tài liệu đọc ra hai số trang khác nhau trước
+# và sau một vòng mở-lưu bằng Word — đúng kiểu bất định mà phép neo trích dẫn
+# tồn tại để chặn. Đo trên BM.M05: đúng MỘT `lastRenderedPageBreak`, và nó nằm
+# ngay sau `w:br w:type="page"` — bỏ qua nó không mất một sự thật nào.
+#
+# Mô hình này CỐ Ý KHÔNG khẳng định: có bao nhiêu trang GIỮA hai ngắt đã khai
+# (phải dàn trang mới biết), trang TRẮNG mà `evenPage`/`oddPage` chèn thêm để
+# về đúng chẵn/lẻ (phụ thuộc số trang thật của phần đứng trước), và việc Word
+# bỏ qua một ngắt cứng nằm trong ô bảng ở một số ca. Số ký tự vẫn ước lượng ĐỘ
+# DÀY tài liệu — nhưng chỉ ở `TaiLieuDaDoc.so_trang` (định tuyến FR-029/030,
+# xem `KY_TU_MOI_TRANG`), KHÔNG bao giờ ở `DonViVanBan.trang` mà người dùng
+# đọc thành "tr. 2".
+_SECT_SANG_TRANG = {"", "nextPage", "evenPage", "oddPage"}
+
+
+def _kieu_phan_doan(goc: ET.Element) -> list[str]:
+    """`w:type` của TỪNG phân đoạn, theo thứ tự tài liệu.
+
+    `w:sectPr` nằm trong `w:pPr` KẾT THÚC một phân đoạn, còn `w:type` của nó
+    khai phân đoạn ấy BẮT ĐẦU thế nào (cùng cách `python-docx` đọc
+    `Section.start_type`). Nên ngắt đứng SAU đoạn kết phân đoạn `j` do `w:type`
+    của phân đoạn `j+1` quyết định, không phải của chính `j` — phần tử CUỐI
+    danh sách này là `w:sectPr` cấp `w:body`, tức phân đoạn cuối cùng, và nó
+    không đẻ ra ngắt nào vì sau nó không còn gì.
+
+    Rỗng với `word/headerN.xml`/`footerN.xml`: ở đó không có `w:body`, và một
+    đầu trang không khai ngắt trang nào cả.
+    """
+    than = goc.find(_BODY)
+    if than is None:
+        return []
+
+    def _kieu(sect: ET.Element) -> str:
+        t = sect.find(_TYPE)
+        return (t.get(_VAL) or "") if t is not None else ""
+
+    ra = [
+        _kieu(sect)
+        for p in than.iter(_P)
+        if (sect := p.find(f"{_PPR}/{_SECTPR}")) is not None
+    ]
+    if (cuoi := than.find(_SECTPR)) is not None:
+        ra.append(_kieu(cuoi))
+    return ra
+
+
+def _ngat_trong_doan(nut: ET.Element) -> tuple[int, int]:
+    """(số ngắt TRƯỚC ký tự đầu tiên, số ngắt SAU nó) do chính `nut` khai.
+
+    Nhận cả `w:p` lẫn `w:tc`: một ô bảng là MỘT đơn vị dù chứa nhiều `w:p`, nên
+    câu hỏi "ngắt đứng trước hay sau chữ của đơn vị này" giống hệt nhau ở hai
+    mức. `iter()` đi đúng thứ tự tài liệu, nên nó cũng là thứ tự các run chạy.
+
+    Tách hai vế vì chỗ ĐỨNG của ngắt đổi hẳn nghĩa: ngắt trước chữ đẩy CHÍNH
+    đơn vị này sang trang mới, ngắt sau chữ chỉ đẩy đơn vị KẾ TIẾP. Một đoạn
+    KHÔNG có chữ nào (đoạn chỉ chứa mỗi ngắt — đúng hình dạng của BM.M05, và
+    là cách Word ghi một Ctrl+Enter đứng riêng) không sinh ra đơn vị nào, nên
+    mọi ngắt của nó rơi vào vế trước và đẩy đúng đơn vị đứng sau.
+    """
+    truoc = sau = 0
+    da_co_chu = False
+    for con in nut.iter():
+        if con.tag == _BR and con.get(_TYPE) == "page":
+            if da_co_chu:
+                sau += 1
+            else:
+                truoc += 1
+        elif con.tag == _T and (con.text or "").strip():
+            da_co_chu = True
+    return truoc, sau
+
+
+class _DemTrang:
+    """Số trang KHAI hiện tại khi đi dọc thân bài, và phép đẩy nó.
+
+    Một đối tượng nhỏ thay vì ba biến cục bộ lặp ở hai bộ duyệt: `_duyet_than`
+    và `_duyet_phang` phải đếm GIỐNG HỆT nhau, nếu không thì cùng một tệp đọc
+    ra hai số trang khác nhau tuỳ đường nào thắng phép so `0.9 * tong`.
+    """
+
+    def __init__(self, goc: ET.Element) -> None:
+        self.trang = 1
+        self._sau = 0
+        self._kieu = _kieu_phan_doan(goc)
+        self._da_qua = 0
+
+    def truoc(self, nut: ET.Element) -> int:
+        """Đẩy theo ngắt đứng TRƯỚC chữ, trả về số trang của chính `nut`."""
+        truoc, self._sau = _ngat_trong_doan(nut)
+        self.trang += truoc
+        return self.trang
+
+    def sau(self, p: ET.Element | None = None) -> None:
+        """Đẩy theo ngắt đứng SAU chữ, rồi theo ngắt phân đoạn của `p` (nếu có)."""
+        self.trang += self._sau
+        self._sau = 0
+        if p is None or p.find(f"{_PPR}/{_SECTPR}") is None:
+            return
+        self._da_qua += 1
+        if self._da_qua < len(self._kieu) and self._kieu[self._da_qua] in _SECT_SANG_TRANG:
+            self.trang += 1
+
+
 def _duyet_phang(
     goc: ET.Element,
     vung: str,
@@ -1706,15 +1829,25 @@ def _duyet_phang(
 
     Vừa là đường lùi của thân bài, vừa là đường duy nhất cho đầu/chân trang —
     ở đó một `w:p` là một dòng và không có gì để định vị thêm.
+
+    Đếm ngắt trang y hệt `_duyet_than` (cùng `_DemTrang`): đây là đường LÙI của
+    thân bài, nên một tài liệu rơi vào đây không được mất số trang. Với đầu/chân
+    trang thì bộ đếm đứng nguyên ở 1 — không `w:body`, không `w:sectPr`, và một
+    chân trang lặp lại ở mọi trang thì trang 1 là chỗ nó xuất hiện lần đầu.
     """
     tk = theo_kieu or {}
     kc = kieu_chu or {}
     kg = kieu_gc or {}
-    return [
-        (None, c, None, vung, None, _can_le_doan(p, tk), _dinh_dang_doan(p, kc), _gc_mot(p, kg))
-        for p in goc.iter(_P)
-        if (c := _chu(p))
-    ]
+    dem = _DemTrang(goc)
+    ra: list[tuple] = []
+    for p in goc.iter(_P):
+        trang = dem.truoc(p)
+        if c := _chu(p):
+            ra.append(
+                (trang, c, None, vung, None, _can_le_doan(p, tk), _dinh_dang_doan(p, kc), _gc_mot(p, kg))
+            )
+        dem.sau(p)
+    return ra
 
 
 def _duyet_than(
@@ -1753,12 +1886,14 @@ def _duyet_than(
     kcanh = kieu_canh or {}
     ra: list[tuple] = []
     so_bang = 0
+    dem = _DemTrang(goc)
     for con in than:
         if con.tag == _P:
+            trang = dem.truoc(con)
             if chu := _chu(con):
                 ra.append(
                     (
-                        None,
+                        trang,
                         chu,
                         None,
                         "than",
@@ -1768,6 +1903,7 @@ def _duyet_than(
                         _gc_mot(con, kg),
                     )
                 )
+            dem.sau(con)
         elif con.tag == _TBL:
             ti_le = _ti_le_luoi(con)
             vien = _vien_bang(con, vk)
@@ -1789,6 +1925,12 @@ def _duyet_than(
                     # hàng dựng lại). Ô rỗng CŨNG là ý nghĩa của biểu mẫu —
                     # cùng nguyên tắc dấu chấm điền của một dòng trường tự do,
                     # chỉ khác hình dạng (một Ô thay vì một cụm ký tự).
+                    # Ngắt trang đọc ở mức Ô, không ở mức `w:p` bên trong: ô
+                    # LÀ đơn vị, nên câu hỏi duy nhất trả lời được là ô này rơi
+                    # vào trang nào. Word bỏ qua ngắt cứng trong bảng ở một số
+                    # ca — trần đã ghi ở `_SECT_SANG_TRANG` phía trên; ở đây
+                    # tệp khai gì thì đọc nấy, không đoán thay Word.
+                    trang = dem.truoc(tc)
                     chu, dinh_dang, gian_cach = _chu_va_dinh_dang_o(tc, kc, kg)
                     # Căn lề của Ô lấy từ ĐOẠN VĂN ĐẦU của chính ô đó — một
                     # ô có thể có nhiều `w:p` lồng, nhưng căn lề hiển thị
@@ -1796,7 +1938,7 @@ def _duyet_than(
                     can_le = _can_le_doan(tc.find(_P), tk)
                     ra.append(
                         (
-                            None,
+                            trang,
                             chu,
                             None,
                             "than",
@@ -1813,6 +1955,7 @@ def _duyet_than(
                             _vien_canh_o(tc),
                         )
                     )
+                    dem.sau()
             so_bang += 1
     return ra
 
@@ -2174,6 +2317,7 @@ def _dat_vi_tri(
     le_trang: tuple[tuple[str, int], ...] = (),
     anh: tuple[AnhTaiLieu, ...] = (),
     anh_byte: dict[str, tuple[str, bytes]] | None = None,
+    uoc_do_day: bool = False,
 ) -> TaiLieuDaDoc:
     """Gán `trang`, `offset_dau`, nguồn chữ, LỀ TRANG và ẢNH cho từng đơn vị.
 
@@ -2204,8 +2348,21 @@ def _dat_vi_tri(
     giá trị mặc định. Cả hai nơi dựng tuple (`_duyet_than`, `_duyet_phang`)
     đổi cùng lúc với hàm này, nên không có hình dạng cũ nào còn chạy qua đây.
 
-    PDF đã biết trang thật. DOCX chưa, nên trang được suy ra từ số ký tự đã đi
-    qua — xem ghi chú ở `KY_TU_MOI_TRANG`.
+    `trang` đến SẴN từ người gọi ở cả bốn nhánh, và nghĩa của nó khác nhau theo
+    nguồn — đó là chủ ý: PDF/OCR biết trang THẬT (đã dàn trang rồi), DOCX chỉ
+    biết trang KHAI (`w:br w:type="page"` và ngắt phân đoạn, xem `_DemTrang`).
+    Cả hai đều là những gì nguồn nói được, không phải một con số suy ra.
+
+    `uoc_do_day` chỉ đổi `so_trang`, không đổi một `DonViVanBan.trang` nào: với
+    DOCX, số trang KHAI là một SÀN (tệp nói ít nhất bấy nhiêu trang) chứ không
+    phải độ dày, nên `so_trang` — thứ định tuyến FR-029/030 và cổng độ dài của
+    `hieu_tai_lieu.loc_don_vi` đọc — lấy thêm ước lượng theo ký tự
+    (`KY_TU_MOI_TRANG`) và giữ số LỚN HƠN. Một hợp đồng 40 trang không khai
+    ngắt nào vẫn phải lộ ra là dài; một biểu mẫu 2 trang khai đúng một ngắt
+    vẫn phải lộ ra là 2 trang.
+
+    `trang is None` (lời gọi cũ, test dựng tay) vẫn chạy: khi đó trang quay về
+    đúng phép quy đổi theo ký tự trước bản vá này, không ném lỗi.
     """
     don_vi: list[DonViVanBan] = []
     da_di = 0          # ký tự đã đi qua trong toàn tài liệu (nhánh DOCX)
@@ -2261,8 +2418,8 @@ def _dat_vi_tri(
 
     so_ky_tu = sum(len(d.noi_dung) for d in don_vi)
     so_trang = max((d.trang for d in don_vi), default=1)
-    if theo_ky_tu:   # DOCX: trang là xấp xỉ theo ký tự
-        so_trang = max(1, ceil(so_ky_tu / KY_TU_MOI_TRANG))
+    if theo_ky_tu or uoc_do_day:
+        so_trang = max(so_trang, 1, ceil(so_ky_tu / KY_TU_MOI_TRANG))
     return TaiLieuDaDoc(
         don_vi=don_vi, so_trang=so_trang, so_ky_tu=so_ky_tu, anh_byte=anh_byte or {}
     )
