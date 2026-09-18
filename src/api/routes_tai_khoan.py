@@ -27,6 +27,7 @@ bị bỏ vì lười: các endpoint này không gọi LLM, không gọi embeddi
 """
 
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
@@ -37,11 +38,13 @@ from src.models.schemas import (
     BoNhoTaiKhoanOut,
     CaiDatBoNhoRequest,
     DaDocRequest,
+    DanhSachDaNhoOut,
     DanhSachThongBaoOut,
     HanMucResponse,
     HoatDongNgay,
     HoSoResponse,
     MucBoNhoOut,
+    MucDaNhoOut,
     MucHanMuc,
     NguoiDungResponse,
     PhanLoai,
@@ -50,7 +53,7 @@ from src.models.schemas import (
     YeuCauNangGoiOut,
     YeuCauNangGoiRequest,
 )
-from src.services import bao_ve, bo_nho, ho_so, nang_goi, thong_bao, xac_thuc
+from src.services import bao_ve, bo_nho, bo_nho_tai_khoan, ho_so, nang_goi, thong_bao, xac_thuc
 from src.services.bao_ve import kiem_api_key, nguoi_dung_bat_buoc, nguoi_dung_ke_ca_khoa, xac_thuc_nguoi_goi
 
 logger = logging.getLogger(__name__)
@@ -326,4 +329,43 @@ async def xoa_mot_bo_nho(khoa: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) 
 async def xoa_het_bo_nho(nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Response:
     sub = await _pro_bat_buoc(nguoi)
     await run_in_threadpool(bo_nho.xoa_het_tai_khoan, sub)
+    return Response(status_code=204)
+
+
+# ══ /tai-khoan/da-nho — điều KLAW đã nhớ về tài khoản (Phase 12, R2) ══════
+#
+# KHÁC `/tai-khoan/bo-nho` ngay trên: đó là hồ sơ TÌNH HUỐNG pháp lý (chỉ Pro,
+# bảy khoá, loại định danh). Đây là dữ kiện cá nhân và thói quen soạn mà người
+# dùng tự khai — tên, mã SV — nên mở cho MỌI tài khoản đã đăng nhập: đây là dữ
+# liệu cá nhân, quyền xem và xoá nó không phải quyền lợi của một gói.
+#
+# Chỉ đọc và xoá, không sửa: sửa là nói lại trong lượt soạn thảo (R5 lấy dữ
+# kiện từ lượt đã có), và một biểu mẫu sửa tay ở đây là một đường ghi thứ hai
+# phải giữ đồng bộ mà chưa ai cần.
+
+LOI_DA_NHO_KHONG_THAY = "Không tìm thấy mục này."
+
+
+def _da_nho_out(sub: str) -> DanhSachDaNhoOut:
+    return DanhSachDaNhoOut(muc=[MucDaNhoOut(**m) for m in bo_nho_tai_khoan.liet_ke(sub)])
+
+
+@router.get("/tai-khoan/da-nho", response_model=DanhSachDaNhoOut)
+async def da_nho_cua_toi(nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> DanhSachDaNhoOut:
+    return await run_in_threadpool(_da_nho_out, nguoi["sub"])
+
+
+@router.delete("/tai-khoan/da-nho/{id}", status_code=204)
+async def xoa_mot_da_nho(id: uuid.UUID, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Response:
+    # 404 cả khi `id` tồn tại nhưng thuộc người khác: 403 sẽ xác nhận với kẻ dò
+    # rằng id đó có thật. `uuid.UUID` ở tham số đường dẫn để chuỗi rác thành 422
+    # ngay tại biên, không tới CAST của Postgres.
+    if not await run_in_threadpool(bo_nho_tai_khoan.xoa_mot, nguoi["sub"], str(id)):
+        raise HTTPException(status_code=404, detail=LOI_DA_NHO_KHONG_THAY)
+    return Response(status_code=204)
+
+
+@router.delete("/tai-khoan/da-nho", status_code=204)
+async def xoa_het_da_nho(nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> Response:
+    await run_in_threadpool(bo_nho_tai_khoan.xoa_het, nguoi["sub"])
     return Response(status_code=204)
