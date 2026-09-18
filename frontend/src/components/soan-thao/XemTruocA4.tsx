@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { nhipHangVe, soCotThat, tiLeCotVe, type CanLe, type Muc } from "@/lib/xuat-tep";
 
@@ -454,89 +454,72 @@ export function XemTruocA4({
                   (() => {
                     const soCot = soCotThat(k.hang, k.tiLe);
                     const spanTieuDe = nhipHangVe(k.hang[0] ?? [], k.nhip[0], soCot);
-                    // Phase 15 R9 — nối ghi chú với bảng bằng `aria-describedby`:
-                    // người dùng trình đọc màn hình nhảy theo bảng (phím T)
-                    // không đi qua dòng chữ đứng TRƯỚC nó. `m.key`+`i` là đủ
-                    // duy nhất trong một trang; ghi chú chỉ render khi sửa
-                    // được, nên id chỉ được trỏ tới trong đúng trường hợp đó.
-                    const idChuThichBang = `bang-chua-sua-${m.key}-${i}`;
+                    // Không có ghi chú "bảng chưa sửa trực tiếp được" ở đây
+                    // nữa (chủ dự án bỏ, 2026-09-18): nó lặp lại trên MỖI
+                    // bảng — hai lần trên một trang biểu mẫu bình thường — và
+                    // đứng chen giữa hai khối của chính văn bản. Bảng vẫn chỉ
+                    // đọc như trước, không đổi gì ở đó; `aria-describedby`
+                    // (Phase 15 R9) đi theo vì nó chỉ tồn tại để trỏ vào ghi
+                    // chú đó.
                     return (
-                      <Fragment key={i}>
-                        {/* Quyết định D (R1, phase 3) — bảng CHƯA sửa trực
-                            tiếp được ở giai đoạn này (xem ghi chú `onSuaKhoi`
-                            ở khai báo `Props`): nói RA thay vì để người dùng
-                            tự đoán vì sao gõ vào ô không có tác dụng gì.
-                            `data-khong-xuat`: chú thích màn hình, không phải
-                            chữ của văn bản — cùng quy ước dòng "Căn cứ" bên
-                            dưới. */}
-                        {onSuaKhoi !== undefined && (
-                          <p
-                            data-khong-xuat
-                            id={idChuThichBang}
-                            className="m-0 mt-1 font-mono text-[0.7em] text-muted-foreground"
-                          >
-                            Bảng — chưa sửa trực tiếp được ở đây, hãy nói với trợ lý điều cần đổi.
-                          </p>
+                      <table
+                        key={i}
+                        className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
+                        data-vien={k.vien ? undefined : "khong"}
+                        style={{ tableLayout: "fixed" }}
+                      >
+                        <colgroup>
+                          {tiLeCotVe(k.tiLe, soCot).map((ti, oi) => (
+                            <col key={oi} data-ti-le={ti} style={{ width: `${ti}%` }} />
+                          ))}
+                        </colgroup>
+                        {k.vien && (
+                          <thead>
+                            <tr data-cao={caoTrenTrang(k.cao?.[0])?.twip}>
+                              {(k.hang[0] ?? []).map((o, oi) => {
+                                const cot = spanTieuDe[oi] ?? 1;
+                                return (
+                                  <th
+                                    key={oi}
+                                    colSpan={cot > 1 ? cot : undefined}
+                                    data-can-le={k.canLeO?.[0]?.[oi] ?? "trai"}
+                                    className="border border-[#999] bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold"
+                                  >
+                                    {o}
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                          </thead>
                         )}
-                        <table
-                          aria-describedby={onSuaKhoi !== undefined ? idChuThichBang : undefined}
-                          className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
-                          data-vien={k.vien ? undefined : "khong"}
-                          style={{ tableLayout: "fixed" }}
-                        >
-                          <colgroup>
-                            {tiLeCotVe(k.tiLe, soCot).map((ti, oi) => (
-                              <col key={oi} data-ti-le={ti} style={{ width: `${ti}%` }} />
-                            ))}
-                          </colgroup>
-                          {k.vien && (
-                            <thead>
-                              <tr data-cao={caoTrenTrang(k.cao?.[0])?.twip}>
-                                {(k.hang[0] ?? []).map((o, oi) => {
-                                  const cot = spanTieuDe[oi] ?? 1;
+                        <tbody>
+                          {(k.vien ? k.hang.slice(1) : k.hang).map((hang, hi) => {
+                            const hiThat = k.vien ? hi + 1 : hi;
+                            const span = nhipHangVe(hang, k.nhip[hiThat], soCot);
+                            const cao = caoTrenTrang(k.cao?.[hiThat]);
+                            return (
+                              <tr key={hi} data-cao={cao?.twip} style={cao?.style}>
+                                {hang.map((o, oi) => {
+                                  const cot = span[oi] ?? 1;
+                                  const canLe = k.canLeO?.[hiThat]?.[oi] ?? "trai";
                                   return (
-                                    <th
+                                    <td
                                       key={oi}
                                       colSpan={cot > 1 ? cot : undefined}
-                                      data-can-le={k.canLeO?.[0]?.[oi] ?? "trai"}
-                                      className="border border-[#999] bg-[var(--color-paper-100)] px-2 py-1 text-center align-middle font-serif font-semibold"
+                                      data-can-le={canLe}
+                                      className={`px-2 py-1 align-top font-serif ${CAN_LE_O[canLe]} ${
+                                        k.vien ? "border border-[#999]" : ""
+                                      }`}
                                     >
                                       {o}
-                                    </th>
+                                    </td>
                                   );
                                 })}
                               </tr>
-                            </thead>
-                          )}
-                          <tbody>
-                            {(k.vien ? k.hang.slice(1) : k.hang).map((hang, hi) => {
-                              const hiThat = k.vien ? hi + 1 : hi;
-                              const span = nhipHangVe(hang, k.nhip[hiThat], soCot);
-                              const cao = caoTrenTrang(k.cao?.[hiThat]);
-                              return (
-                                <tr key={hi} data-cao={cao?.twip} style={cao?.style}>
-                                  {hang.map((o, oi) => {
-                                    const cot = span[oi] ?? 1;
-                                    const canLe = k.canLeO?.[hiThat]?.[oi] ?? "trai";
-                                    return (
-                                      <td
-                                        key={oi}
-                                        colSpan={cot > 1 ? cot : undefined}
-                                        data-can-le={canLe}
-                                        className={`px-2 py-1 align-top font-serif ${CAN_LE_O[canLe]} ${
-                                          k.vien ? "border border-[#999]" : ""
-                                        }`}
-                                      >
-                                        {o}
-                                      </td>
-                                    );
-                                  })}
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     );
                   })()
                 ),

@@ -392,14 +392,17 @@ assert.match(
   "viền lỗi phải theo `aria-invalid`",
 );
 
-// R9 — ghi chú "chưa sửa được" nối với bảng bằng `aria-describedby`.
+// Ghi chú "chưa sửa trực tiếp được" đã bị bỏ (chủ dự án, 2026-09-18) — nó
+// lặp lại trên MỖI bảng và chen giữa hai khối của chính văn bản. Khoá lại là
+// KHÔNG còn: một ghi chú đã bỏ mà mọc lại vẫn là lỗi.
 const bang = tim(khungSua, (n) => n.tagName === "TABLE");
 assert.ok(bang !== null);
-const idChuThich = bang.getAttribute("aria-describedby");
-assert.ok(idChuThich, "bảng phải trỏ `aria-describedby` tới ghi chú 'chưa sửa được'");
-const chuThich = tim(khungSua, (n) => n.getAttribute("id") === idChuThich);
-assert.ok(chuThich !== null, `không có phần tử nào mang id="${idChuThich}"`);
-assert.match(chuThich.textContent, /chưa sửa trực tiếp được/);
+assert.equal(bang.getAttribute("aria-describedby"), null, "bảng không còn trỏ tới ghi chú nào");
+assert.equal(
+  tim(khungSua, (n) => /chưa sửa trực tiếp được/.test(n.nodeValue ?? "")),
+  null,
+  "ghi chú 'bảng chưa sửa trực tiếp được' phải biến mất khỏi trang",
+);
 
 // Chỉ đọc (không `onSuaKhoi`): không khối nào gõ được, không role textbox.
 const { onSuaKhoi: _boQua1, phienBan: _boQua2, ...propsDoc } = propsSua;
@@ -610,4 +613,4 @@ assert.ok(
   "bảng có viền vẫn kẻ khung như trước bản vá",
 );
 
-console.log("kiem-ui-muot: 45/45 OK");
+console.log("kiem-ui-muot: 44/44 OK");
