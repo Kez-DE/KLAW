@@ -8,10 +8,19 @@ KHÔNG gọi mô hình, KHÔNG ra mạng. Chân lý ở đây là XML nằm tron
 `src.services.doc_tai_lieu.doc`. Một câu hỏi thuần đọc tệp không cần LLM, và
 một cái thước tốn tiền mỗi lần chạy thì không ai chạy.
 
-Tám mục chấm RIÊNG chứ không gộp thành một số: "99%" gộp lại che đúng thứ cần
+Mười mục chấm RIÊNG chứ không gộp thành một số: "99%" gộp lại che đúng thứ cần
 thấy — bảng còn nguyên mà đường viền mất sạch vẫn ra 99%. Mục nào bộ đọc CHƯA
 CÀI thì ăn 0 và hiện chữ "CHƯA CÀI", không bỏ qua và không miễn trừ: bỏ qua
 đúng những mục chưa làm là cách một cái thước tự cho mình điểm cao.
+
+Một mục bị TÁCH ĐÔI khi biểu diễn của bộ đọc chỉ trả lời được một PHẦN câu hỏi:
+`vien_bang_co_net` hỏi "bảng này có vẽ nét nào không" — đúng thứ một cờ bool
+mỗi bảng chở được; `vien_bang_tung_canh` hỏi hình dạng viền theo từng cạnh,
+từng ô — thứ không có chỗ nào cất, nên ăn 0 và mang chữ "CHƯA CÀI". Cặp
+`chieu_cao_hang` (số twip mỗi hàng) / `chieu_cao_hang_hrule` (`exact` hay
+`atLeast`) tách cùng một lẽ. Gộp lại thì không gian khoá hai bên không bao giờ
+gặp nhau và một khả năng CHẠY ĐÚNG bị chấm 0 — sai đúng bằng cách chấm 100%
+cho một khả năng không chạy.
 
 Chỉ đếm những gì TỆP KHAI. `w:jc` vắng mặt không phải "căn trái", nó là "không
 khai"; tính nó thành một dữ kiện đúng là thổi điểm bằng những thứ tệp không hề
@@ -31,6 +40,7 @@ import zipfile
 from dataclasses import fields
 from io import BytesIO
 from pathlib import Path
+from typing import TypeVar
 
 from src.services.doc_tai_lieu import DonViVanBan, KhongDocDuoc, TaiLieuDaDoc, doc
 
@@ -54,8 +64,10 @@ def _q(ten: str) -> str:
 # việc phải sửa bảng này làm cho lần cài đó không thể đi qua im lặng.
 _TRUONG_DOC_RA: dict[str, tuple[str, ...]] = {
     "cau_truc": ("bang", "bang_nhip", "bang_ti_le"),
-    "vien_bang": ("bang_vien",),
+    "vien_bang_co_net": ("bang_vien",),
+    "vien_bang_tung_canh": (),
     "chieu_cao_hang": ("bang_cao",),
+    "chieu_cao_hang_hrule": (),
     "can_le": ("can_le",),
     "dinh_dang_run": (),
     "gian_cach_thut_le": (),
@@ -69,6 +81,9 @@ if _thieu := sorted({t for ts in _TRUONG_DOC_RA.values() for t in ts} - _CO_THUC
 
 _JC_RA_CAN_LE = {"center": "giua", "right": "phai", "end": "phai"}
 _CANH_VIEN = ("top", "left", "bottom", "right", "insideH", "insideV")
+_VIEN_KHONG_VE = {"none", "nil"}
+
+_T = TypeVar("_T")
 
 
 def _val(e: ET.Element | None) -> str | None:
@@ -77,6 +92,23 @@ def _val(e: ET.Element | None) -> str | None:
 
 def _chu(p: ET.Element) -> str:
     return "".join(t.text or "" for t in p.iter(_q("t"))).strip()
+
+
+def _giai_chuoi(truc: dict[str, _T], cha: dict[str, str]) -> dict[str, _T]:
+    """id kiểu → giá trị THẬT sau khi đi hết chuỗi `w:basedOn`.
+
+    Kiểu nào cả chuỗi cha không ai khai thì KHÔNG có mặt trong kết quả: "không
+    khai" phải phân biệt được với "khai rồi", đúng luật của cả tệp này.
+    """
+    ra: dict[str, _T] = {}
+    for sid in {*truc, *cha}:
+        cur, da_qua = sid, set()
+        while cur and cur not in da_qua and cur not in truc:
+            da_qua.add(cur)
+            cur = cha.get(cur)
+        if cur in truc:
+            ra[sid] = truc[cur]
+    return ra
 
 
 def _jc_theo_kieu(z: zipfile.ZipFile) -> dict[str, str]:
@@ -96,15 +128,65 @@ def _jc_theo_kieu(z: zipfile.ZipFile) -> dict[str, str]:
             cha[sid] = v
         if v := _val(st.find(f'{_q("pPr")}/{_q("jc")}')):
             truc[sid] = v
-    ra: dict[str, str] = {}
-    for sid in {*truc, *cha}:
-        cur, da_qua = sid, set()
-        while cur and cur not in da_qua and cur not in truc:
-            da_qua.add(cur)
-            cur = cha.get(cur)
-        if cur in truc:
-            ra[sid] = truc[cur]
-    return ra
+    return _giai_chuoi(truc, cha)
+
+
+def _co_net(vien: ET.Element) -> bool:
+    """Một nhóm viền (`w:tblBorders`/`w:tcBorders`) có vẽ cạnh nào không — một
+    cạnh khai giá trị ngoài `none`/`nil` là đủ."""
+    return any(c.get(_q("val")) not in _VIEN_KHONG_VE for c in vien)
+
+
+def _vien_theo_kieu(z: zipfile.ZipFile) -> dict[str, bool]:
+    """id kiểu BẢNG → kiểu đó có vẽ viền không, đã đi hết chuỗi `w:basedOn`.
+
+    Cần vì `TableGrid` (kiểu bảng có viền sẵn của Word) là cách phổ biến nhất
+    để một biểu mẫu tiếng Việt có viền: bảng ấy chỉ khai `w:tblStyle`, không
+    khai `w:tblBorders` nào trong `document.xml`. Bỏ qua `styles.xml` thì chính
+    CHÂN LÝ đọc bảng đó thành "không viền", và bộ đọc bị trừ điểm cho một câu
+    nó trả lời đúng — cái thước sai theo hướng ngược lại vẫn là thước sai.
+    """
+    if "word/styles.xml" not in z.namelist():
+        return {}
+    goc = ET.fromstring(z.read("word/styles.xml"))
+    truc: dict[str, bool] = {}
+    cha: dict[str, str] = {}
+    for st in goc.findall(_q("style")):
+        if not (sid := st.get(_q("styleId"))) or st.get(_q("type")) != "table":
+            continue
+        if v := _val(st.find(_q("basedOn"))):
+            cha[sid] = v
+        if (e := st.find(f'{_q("tblPr")}/{_q("tblBorders")}')) is not None:
+            truc[sid] = _co_net(e)
+    return _giai_chuoi(truc, cha)
+
+
+def _net_bang(tbl: ET.Element, vien_kieu: dict[str, bool]) -> bool | None:
+    """Bảng này có vẽ nét nào không, `None` khi tệp KHÔNG khai gì về viền.
+
+    Gộp ba nguồn bằng HOẶC — `w:tblPr/w:tblBorders`, `w:tblStyle` đã giải qua
+    `w:basedOn`, và `w:tcPr/w:tcBorders` của ô — vì đó đúng là câu hỏi mà biểu
+    diễn của bộ đọc trả lời được: một cờ bool mỗi bảng, "tệp có vẽ nét nào
+    không". Hình dạng viền theo cạnh đi về mục `vien_bang_tung_canh` bên cạnh.
+
+    `None` giữ nguyên luật "chỉ đếm những gì tệp khai": một bảng không nhắc tới
+    viền ở đâu cả thì không phải một dữ kiện, dù OOXML mặc định là không viền —
+    cùng lý lẽ đã dùng cho `w:jc` vắng mặt.
+    """
+    nguon: list[bool] = []
+    if (e := tbl.find(f'{_q("tblPr")}/{_q("tblBorders")}')) is not None:
+        nguon.append(_co_net(e))
+    if (sid := _val(tbl.find(f'{_q("tblPr")}/{_q("tblStyle")}'))) in vien_kieu:
+        nguon.append(vien_kieu[sid])
+    # Chỉ ô của CHÍNH bảng này (`findall`, không `iter`): một bảng lồng trong
+    # một ô là bảng khác, viền của nó không nói gì về bảng bao ngoài.
+    nguon.extend(
+        _co_net(e)
+        for tr in tbl.findall(_q("tr"))
+        for tc in tr.findall(_q("tc"))
+        if (e := tc.find(f'{_q("tcPr")}/{_q("tcBorders")}')) is not None
+    )
+    return any(nguon) if nguon else None
 
 
 def _jc_khai(p: ET.Element | None, kieu: dict[str, str]) -> str | None:
@@ -184,11 +266,12 @@ def _khoi_than(nut: ET.Element):
 
 
 def dac_ta_nguon(du_lieu: bytes) -> dict[str, dict[str, str]]:
-    """Những gì tệp .docx THẬT SỰ khai, theo tám mục — chân lý để đối chiếu."""
+    """Những gì tệp .docx THẬT SỰ khai, theo mười mục — chân lý để đối chiếu."""
     ra: dict[str, dict[str, str]] = {m: {} for m in _TRUONG_DOC_RA}
     with zipfile.ZipFile(BytesIO(du_lieu)) as z:
         goc = ET.fromstring(z.read("word/document.xml"))
         kieu = _jc_theo_kieu(z)
+        vien_kieu = _vien_theo_kieu(z)
         for ten in z.namelist():
             if ten.startswith("word/media/"):
                 ra["media"][ten] = "co"
@@ -218,10 +301,17 @@ def dac_ta_nguon(du_lieu: bytes) -> dict[str, dict[str, str]]:
             ra["cau_truc"][f"khoi{khoi}"] = "bang"
             if ti_le := _ti_le_luoi(con):
                 ra["cau_truc"][f"bang{b}/luoi"] = ti_le
-            _vien(con.find(f'{_q("tblPr")}/{_q("tblBorders")}'), f"bang{b}/tblBorders", ra["vien_bang"])
+            if (net := _net_bang(con, vien_kieu)) is not None:
+                ra["vien_bang_co_net"][f"bang{b}"] = "co" if net else "khong"
+            _vien(con.find(f'{_q("tblPr")}/{_q("tblBorders")}'), f"bang{b}/tblBorders", ra["vien_bang_tung_canh"])
             for h, tr in enumerate(con.findall(_q("tr"))):
                 if (th := tr.find(f'{_q("trPr")}/{_q("trHeight")}')) is not None:
-                    ra["chieu_cao_hang"][f"bang{b}/hang{h}"] = f'{_val(th) or ""}/{th.get(_q("hRule")) or ""}'
+                    # Số twip và `hRule` tách làm HAI dữ kiện: bộ đọc chở được
+                    # số, không chở được luật cắt chữ — gộp thì cả hai cùng sai.
+                    if (cao := _val(th)) is not None:
+                        ra["chieu_cao_hang"][f"bang{b}/hang{h}"] = cao
+                    if hrule := th.get(_q("hRule")):
+                        ra["chieu_cao_hang_hrule"][f"bang{b}/hang{h}"] = hrule
                 cot = 0
                 for tc in tr.findall(_q("tc")):
                     nhip = int(_val(tc.find(f'{_q("tcPr")}/{_q("gridSpan")}')) or 1)
@@ -233,7 +323,7 @@ def dac_ta_nguon(du_lieu: bytes) -> dict[str, dict[str, str]]:
                     ra["cau_truc"][o] = str(nhip)
                     if (jc := _jc_khai(tc.find(_q("p")), kieu)) is not None:
                         ra["can_le"][o] = jc
-                    _vien(tc.find(f'{_q("tcPr")}/{_q("tcBorders")}'), f"{o}/tcBorders", ra["vien_bang"])
+                    _vien(tc.find(f'{_q("tcPr")}/{_q("tcBorders")}'), f"{o}/tcBorders", ra["vien_bang_tung_canh"])
                     for j, p in enumerate(tc.iter(_q("p"))):
                         _run_va_gian_cach(p, f"{o}/p{j}", ra)
             so_bang += 1
@@ -266,6 +356,10 @@ def dac_ta_bo_doc(tai_lieu: TaiLieuDaDoc) -> dict[str, dict[str, str]]:
             bang_truoc = b
             if d.bang_ti_le:
                 ra["cau_truc"][f"bang{b}/luoi"] = ",".join(str(x) for x in d.bang_ti_le)
+        # `bang_vien` là MỘT cờ cho cả bảng và `bang_cao` MỘT số cho cả hàng:
+        # mọi ô của cùng bảng/hàng ghi lại đúng một giá trị, nên ghi đè vô hại.
+        ra["vien_bang_co_net"][f"bang{b}"] = "co" if d.bang_vien else "khong"
+        ra["chieu_cao_hang"][f"bang{b}/hang{h}"] = str(d.bang_cao)
         ra["cau_truc"][f"bang{b}/o{h},{c}"] = str(d.bang_nhip)
         ra["can_le"][f"bang{b}/o{h},{c}"] = d.can_le
     return ra
@@ -340,11 +434,11 @@ def chay(tep: list[Path]) -> dict:
 def _in_bang(ket: dict) -> None:
     print(f"commit_hash={ket['commit_hash']}")
     print(f"tệp đo: {ket['so_tep']}")
-    print(f"  {'mục':<20}{'khai':>6}{'khớp':>6}{'điểm':>8}   ghi chú")
+    print(f"  {'mục':<22}{'khai':>6}{'khớp':>6}{'điểm':>8}   ghi chú")
     for m, v in ket["tong_hop"].items():
         d = "—" if v["diem"] is None else f"{v['diem']:.0%}"
         ghi = "CHƯA CÀI" if v["chua_cai"] else ("NGUỒN KHÔNG KHAI" if v["diem"] is None else "")
-        print(f"  {m:<20}{v['khai']:>6}{v['khop']:>6}{d:>8}   {ghi}")
+        print(f"  {m:<22}{v['khai']:>6}{v['khop']:>6}{d:>8}   {ghi}")
     chua = sum(1 for v in ket["tong_hop"].values() if v["chua_cai"])
     ngoai = sum(1 for v in ket["tong_hop"].values() if v["diem"] is None)
     tong = "—" if ket["tong"] is None else f"{ket['tong']:.0%}"

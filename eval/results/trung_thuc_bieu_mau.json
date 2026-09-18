@@ -1,5 +1,5 @@
 {
-  "commit_hash": "91ef9d05fc7ea3e734cdedffd5b6a5ac9159412c",
+  "commit_hash": "491d7f794920bafaaf34bf5109632b766cacc9ed",
   "so_tep": 12,
   "chi_tiet": [
     {
@@ -12,7 +12,14 @@
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang": {
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -20,6 +27,13 @@
           "diem": 0.0
         },
         "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -73,7 +87,14 @@
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang": {
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -81,6 +102,13 @@
           "diem": 0.0
         },
         "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -134,7 +162,14 @@
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang": {
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -142,6 +177,13 @@
           "diem": 0.0
         },
         "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -195,7 +237,14 @@
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang": {
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -203,6 +252,13 @@
           "diem": 0.0
         },
         "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -256,7 +312,14 @@
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang": {
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -264,6 +327,13 @@
           "diem": 0.0
         },
         "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -317,7 +387,14 @@
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang": {
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -325,6 +402,13 @@
           "diem": 0.0
         },
         "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -378,7 +462,14 @@
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang": {
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -386,6 +477,13 @@
           "diem": 0.0
         },
         "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -439,7 +537,14 @@
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang": {
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -447,6 +552,13 @@
           "diem": 0.0
         },
         "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -500,7 +612,14 @@
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang": {
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -508,6 +627,13 @@
           "diem": 0.0
         },
         "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -561,7 +687,14 @@
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang": {
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -569,6 +702,13 @@
           "diem": 0.0
         },
         "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -622,7 +762,14 @@
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang": {
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -630,6 +777,13 @@
           "diem": 0.0
         },
         "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -683,7 +837,14 @@
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang": {
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -691,6 +852,13 @@
           "diem": 0.0
         },
         "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
@@ -742,13 +910,25 @@
       "chua_cai": false,
       "diem": 1.0
     },
-    "vien_bang": {
+    "vien_bang_co_net": {
+      "khai": 0,
+      "khop": 0,
+      "chua_cai": false,
+      "diem": null
+    },
+    "vien_bang_tung_canh": {
       "khai": 0,
       "khop": 0,
       "chua_cai": true,
       "diem": 0.0
     },
     "chieu_cao_hang": {
+      "khai": 0,
+      "khop": 0,
+      "chua_cai": false,
+      "diem": null
+    },
+    "chieu_cao_hang_hrule": {
       "khai": 0,
       "khop": 0,
       "chua_cai": true,
