@@ -257,3 +257,155 @@ def test_sdt_o_cap_than_VAN_lui_ve_duyet_phang():
     than = _p("Có") + f"<w:sdt><w:sdtContent>{_p('Nội dung trong sdt dài hơn hẳn')}</w:sdtContent></w:sdt>"
     t = doc("x.docx", _docx(than))
     assert [d.noi_dung for d in t.don_vi] == ["Có", "Nội dung trong sdt dài hơn hẳn"]
+
+
+# ------------------------------------------------------------------ viền bảng
+#
+# Biểu mẫu tiếng Việt dùng bảng KHÔNG viền để xếp cột — cặp ô ký tên cuối
+# trang, khối "tên đơn vị trái / quốc hiệu phải" đầu trang. Trước bản vá này,
+# reader không đọc `w:tblBorders`/`w:tcBorders` nên mọi bảng ra màn hình đều có
+# kẻ ô: một khối ký thành cái lưới, không còn chỗ ký. Điều phải khoá ở đây là
+# NGUỒN quyết định, không phải một phép đoán theo chữ trong ô.
+
+
+def _tbl_pr(*noi: str) -> str:
+    return f"<w:tblPr>{''.join(noi)}</w:tblPr>"
+
+
+def _canh(*ten: str) -> str:
+    return "".join(f'<w:{t} w:val="single" w:sz="4" w:space="0" w:color="auto"/>' for t in ten)
+
+
+def _vien_cua(t, bang: int) -> set[bool]:
+    return {d.bang_vien for d in t.don_vi if d.bang and d.bang[0] == bang}
+
+
+def test_bang_KHONG_khai_vien_nao_doc_ra_KHONG_VIEN():
+    """Ô ký của BM.ĐT.18.05 (đo 2026-09-18): `w:tbl` không `w:tblBorders`,
+    không `w:tblStyle`, không `w:tcBorders` — Word vẽ nó không viền, và reader
+    phải nói đúng như vậy thay vì để render tự kẻ khung."""
+    than = _tbl(_tr(_tc(_p("Giảng viên hướng dẫn")), _tc(_p("Sinh viên thực tập"))))
+    t = doc("ke-hoach.docx", _docx(than))
+
+    assert _vien_cua(t, 0) == {False}
+
+
+def test_bang_khai_tblBorders_doc_ra_CO_VIEN():
+    """Bảng kế hoạch của cùng biểu mẫu đó KHAI `w:tblBorders` single đủ sáu
+    cạnh — bỏ viền của nó là làm hỏng một bảng đang đúng."""
+    than = _tbl(
+        _tbl_pr(
+            f"<w:tblBorders>{_canh('top', 'left', 'bottom', 'right', 'insideH', 'insideV')}</w:tblBorders>"
+        ),
+        _tr(_tc(_p("TT")), _tc(_p("Thời gian"))),
+    )
+    t = doc("ke-hoach.docx", _docx(than))
+
+    assert _vien_cua(t, 0) == {True}
+
+
+def test_tblBorders_toan_nil_doc_ra_KHONG_VIEN():
+    """`w:val="nil"` là cách Word ghi "đã tắt viền" — khai báo CÓ mặt nhưng
+    không vẽ nét nào. Đọc "có `w:tblBorders` nghĩa là có viền" sẽ sai đúng ở
+    những bảng người soạn cố ý tắt viền."""
+    canh = "".join(f'<w:{c} w:val="nil"/>' for c in ("top", "left", "bottom", "right"))
+    than = _tbl(_tbl_pr(f"<w:tblBorders>{canh}</w:tblBorders>"), _tr(_tc(_p("Bên A")), _tc(_p("Bên B"))))
+    t = doc("hop-dong.docx", _docx(than))
+
+    assert _vien_cua(t, 0) == {False}
+
+
+def test_MOT_o_khai_tcBorders_du_lam_ca_bang_CO_VIEN():
+    """Bảng im lặng ở cấp bảng nhưng kẻ khung cho một ô vẫn là bảng có nét —
+    một cờ cho cả bảng phải nghiêng về "giữ nét tệp có vẽ", không bỏ mất nó."""
+    o_co_vien = f"<w:tc><w:tcPr><w:tcBorders>{_canh('top')}</w:tcBorders></w:tcPr>{_p('1')}</w:tc>"
+    than = _tbl(_tr(o_co_vien, _tc(_p("Tuần 1"))))
+    t = doc("x.docx", _docx(than))
+
+    assert _vien_cua(t, 0) == {True}
+
+
+def test_vien_thua_ke_tu_KIEU_bang_TableGrid():
+    """`TableGrid` là cách phổ biến nhất để một biểu mẫu có viền: bảng chỉ khai
+    `w:tblStyle`, còn nét nằm trong `styles.xml`. Bỏ qua phần đó là đọc mọi
+    bảng TableGrid thành không viền — mất nét tệp CÓ vẽ."""
+    canh = _canh("top", "left", "bottom", "right", "insideH", "insideV")
+    styles = (
+        f'<?xml version="1.0"?><w:styles xmlns:w="{_NSW}">'
+        '<w:style w:type="table" w:styleId="TableGrid">'
+        f"<w:tblPr><w:tblBorders>{canh}</w:tblBorders></w:tblPr></w:style></w:styles>"
+    )
+    than = _tbl(_tbl_pr('<w:tblStyle w:val="TableGrid"/>'), _tr(_tc(_p("TT")), _tc(_p("Nội dung"))))
+    t = doc("x.docx", _docx(than, {"word/styles.xml": styles}))
+
+    assert _vien_cua(t, 0) == {True}
+
+
+def test_kieu_con_TAT_vien_cua_kieu_cha():
+    """Thừa kế `w:basedOn` phải đi đúng chiều: kiểu con khai viền `nil` thì
+    bảng dùng kiểu con KHÔNG có viền, dù kiểu cha có."""
+    canh = _canh("top", "left", "bottom", "right")
+    nil = "".join(f'<w:{c} w:val="nil"/>' for c in ("top", "left", "bottom", "right"))
+    styles = (
+        f'<?xml version="1.0"?><w:styles xmlns:w="{_NSW}">'
+        '<w:style w:type="table" w:styleId="Luoi">'
+        f"<w:tblPr><w:tblBorders>{canh}</w:tblBorders></w:tblPr></w:style>"
+        '<w:style w:type="table" w:styleId="LuoiTrang"><w:basedOn w:val="Luoi"/>'
+        f"<w:tblPr><w:tblBorders>{nil}</w:tblBorders></w:tblPr></w:style></w:styles>"
+    )
+    than = _tbl(_tbl_pr('<w:tblStyle w:val="LuoiTrang"/>'), _tr(_tc(_p("Bên A")), _tc(_p("Bên B"))))
+    t = doc("x.docx", _docx(than, {"word/styles.xml": styles}))
+
+    assert _vien_cua(t, 0) == {False}
+
+
+def test_hai_bang_trong_MOT_tai_lieu_giu_vien_RIENG():
+    """Cờ viền phải theo từng BẢNG, không phải một giá trị cho cả tài liệu —
+    BM.ĐT.18.05 có đúng hình dạng này: đầu trang không viền, bảng kế hoạch có
+    viền, ô ký không viền."""
+    co_vien = _tbl(
+        _tbl_pr(f"<w:tblBorders>{_canh('top', 'left', 'bottom', 'right')}</w:tblBorders>"),
+        _tr(_tc(_p("TT")), _tc(_p("Thời gian"))),
+    )
+    khong_vien = _tbl(_tr(_tc(_p("Giảng viên hướng dẫn")), _tc(_p("Sinh viên thực tập"))))
+    t = doc("ke-hoach.docx", _docx(co_vien + khong_vien))
+
+    assert _vien_cua(t, 0) == {True}
+    assert _vien_cua(t, 1) == {False}
+
+
+def test_trHeight_doc_ra_chieu_cao_hang_theo_twip():
+    """Chiều cao khai báo là thứ cho hàng ký chỗ ký tay: hàng ký của
+    BM.ĐT.18.05 khai 1499 twip trong khi chữ của nó chỉ chiếm hai dòng. Hàng
+    không khai thì `0`, không đoán một con số nào."""
+    than = _tbl(
+        f'<w:tr><w:trPr><w:trHeight w:val="1499"/></w:trPr>{_tc(_p("Giảng viên hướng dẫn"))}</w:tr>',
+        _tr(_tc(_p("Ghi chú"))),
+    )
+    t = doc("x.docx", _docx(than))
+
+    assert [(d.bang, d.bang_cao) for d in t.don_vi if d.bang] == [((0, 0, 0), 1499), ((0, 1, 0), 0)]
+
+
+def test_tep_docx_THAT_cua_tap_mau_doc_ra_bang_KHONG_VIEN():
+    """Cùng phép đọc trên một tệp `.docx` THẬT, không phải chuỗi XML dựng trong
+    test: `phieu-cham-trang.docx` của tập mẫu đường tổng quát có `w:tbl` không
+    khai viền nào, và reader phải nói đúng như vậy — kể cả khi tên tệp gợi ý
+    một phiếu chấm (thứ người ta hay kẻ khung). NGUỒN quyết định, không phải
+    loại giấy tờ.
+
+    Tệp là ĐẦU RA của `eval/datasets/tai_lieu_tong_quat/dung_mau.py`, không
+    commit (xem docstring script đó) — chưa dựng thì bỏ qua, không dựng hộ:
+    một phép kiểm tự sinh đầu vào của chính nó không còn kiểm được gì.
+    """
+    from pathlib import Path
+
+    tep = Path("eval/datasets/tai_lieu_tong_quat/phieu-cham-trang.docx")
+    if not tep.exists():
+        pytest.skip("chưa dựng tập mẫu: python eval/datasets/tai_lieu_tong_quat/dung_mau.py")
+
+    t = doc(tep.name, tep.read_bytes())
+    o_bang = [d for d in t.don_vi if d.bang is not None]
+
+    assert o_bang, "tệp mẫu này phải có bảng thật"
+    assert {d.bang_vien for d in o_bang} == {False}
