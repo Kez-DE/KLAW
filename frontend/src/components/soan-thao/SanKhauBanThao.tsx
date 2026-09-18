@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChevronLeft, Download, FileDown, Minus, Plus, X } from "lucide-react";
 import { Toggle } from "@/components/draft/DraftBits";
@@ -177,7 +177,12 @@ export function SanKhauBanThao({
   onPhimTat,
   toanMan,
 }: Props) {
-  const muc = mucTuBanThao(banThao, cauTruc);
+  // Phase 15 R3 — sân khấu render lại trên MỌI pixel kéo `TayKeo` (`datRongMuc`
+  // đặt state ngay trong component này) và trên mọi token chat đang stream ở
+  // nơi gọi; không memo thì mỗi lượt đó dựng lại toàn bộ `Muc[]` và một tham
+  // chiếu mới ép `XemTruocA4` diff lại cả trang — nay là hàng loạt nút
+  // `contentEditable`, đắt hơn hẳn `<p>` thuần trước Phase 3.
+  const muc = useMemo(() => mucTuBanThao(banThao, cauTruc), [banThao, cauTruc]);
   const nhanDoi = nhanFactDoi(banThao.doi_so_voi_truoc, truongMau);
   const [hienThayDoi, datHienThayDoi] = useState(false);
   const [thuPhong, datThuPhongRaw] = useState(100);
