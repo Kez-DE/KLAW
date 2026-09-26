@@ -27,6 +27,11 @@ pyjwt[crypto]>=2.10.0
 # Đọc tài liệu người dùng — PDF có lớp chữ. DOCX đọc bằng `zipfile` của thư viện
 # chuẩn (đã dùng ở `services/vbhn_parser.py`), nên không cần thêm dep cho nhánh đó.
 pypdf>=5.1.0
+# Điền tại chỗ trên khuôn gốc (quyết định 2026-09-26). GHI OOXML bằng `lxml`, không
+# `ElementTree`: `ET.register_namespace` dùng chung cả tiến trình và ném lỗi với tiền
+# tố `ns\d+`, không an toàn trong threadpool. `reportlab` dựng lớp chữ đè lên PDF.
+lxml>=6.1.0
+reportlab>=5.0.0
 # Upload tệp (multipart) cho `POST /tai-lieu`.
 python-multipart>=0.0.20
 
