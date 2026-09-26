@@ -167,8 +167,13 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
 - `POST /tai-lieu` — unchanged shape; `TaiLieuOut` gains `co_khuon_goc: bool`.
 - `GET /tai-lieu/{viec_id}/trang` — the khuôn gốc as uploaded:
   `{"kho": [[w, h], …], "trang": ["<base64 png>", …]}`, one request for every page.
+  A render takes one of the three LibreOffice slots (503 `qua_tai`) and holds at
+  most 12 Mpx for the whole document; `kho` is always in (0, 14400] pt.
 - `POST /tai-lieu/{viec_id}/doc-lai` `{"loai"}` — re-extract by type from the
-  stored khuôn gốc (no re-upload, no new viec, no quota hit).
+  stored khuôn gốc (no re-upload, no new viec, no quota hit). At most
+  `so_lan_thu` (FR-037, 3) paid re-extracts per document, then 429; `tong_quat`
+  calls no model and is free. The cost estimate (422) and the daily cost cap run
+  before the claim, so a refusal leaves the viec as it was.
 - `GET /ban-thao/{id}/trang?phien_ban=N` — the filled version, same shape.
 - `GET /ban-thao/{id}/tai-xuong?dang=docx|pdf&phien_ban=N` — attachment bytes.
 - `PATCH /ban-thao/{id}/o-dien` `{"phien_ban", "gia_tri": [{"don_vi",
@@ -214,6 +219,11 @@ open risks, and follows the TDD order: failing test first, then code.
   Roman; page counts can differ between the two. The ruler reports both.
 - **LibreOffice load.** Every upload and save costs one of 3 slots shared with
   `.doc` conversion; overload returns the existing `qua_tai` 503.
+- **LibreOffice network egress.** Every docx upload and every `GET /trang` of a
+  docx runs LibreOffice, whose sandbox does not block the network (residual risk,
+  decision Tradeoffs). Measured 2026-09-27 on LibreOffice 26.2.4 (dev Mac): no
+  outbound request for external image or `INCLUDEPICTURE` links. Not yet measured
+  on the production image.
 - **Rate limit.** 10 requests / 60 s per IP; page images come in one request.
 - **Scanned PDFs.** Tesseract emits no words for long dotted leaders; blanks are
   located by label-relative placement and pixel runs, and the accuracy is measured,
@@ -227,7 +237,7 @@ open risks, and follows the TDD order: failing test first, then code.
 
 - [x] Decisions Q1–Q20 settled; decision record, glossary term, spec notes.
 - [x] Wave A — P1a, P1b, P1c (merges `9e4474c`, `8dcc8a9`, `ea86a9b`; CI lane 2163 passed on main).
-- [ ] Wave B — P2b merged (`a8fd793`); P2a waits for a merge-up with main and a replacement privacy review (the first security reviewer was stopped by a platform safety filter, not by a finding).
+- [ ] Wave B — P2b merged (`a8fd793`); P2a merged up with main (`a2180ee`) and its replacement review findings fixed on the branch; P2a not yet merged into main.
 - [ ] Wave C — P3a, P3b.
 - [ ] Wave D — P4.
 - [ ] Wave E — P5.
@@ -250,6 +260,13 @@ open risks, and follows the TDD order: failing test first, then code.
   coordinates are media-box space (poppler measured, CropBox ignored). The
   reader's new walks are linear in the part and render one scanned page at a
   time under a pixel cap.
+- 2026-09-27 (P2a review): `doc-lai` spends FR-037's retry cap (`so_lan_thu: 3`,
+  the value it had before it was dropped for lack of a stored file); a `tong_quat`
+  re-extract calls no model and is free. `chi_phi_usd` accumulates per viec. A
+  viec that keeps a khuôn gốc always counts against `tai_lieu_ngay`; an upload the
+  cost estimate will refuse stores no file, so FR-038 still exempts it. Page
+  renders: `kho` validated to (0, 14400] pt (ISO 32000-1 Annex C), 12 Mpx per
+  document, `pdftoppm` crops at 2400 px and takes a LibreOffice slot.
 
 ## Validation
 
@@ -263,6 +280,10 @@ open risks, and follows the TDD order: failing test first, then code.
   in `.tham-dinh-shots/` (owner's untracked folder).
 - Ruler: page count equal to LibreOffice and to Word on all 8 forms; unchanged
   pages pixel-identical after a fill; every filled docx opens in Word.
+- Egress (P6): run
+  `tests/test_services/test_dung_trang.py::test_dung_pdf_KHONG_goi_ra_mang_voi_lien_ket_ngoai`
+  inside the production image; red there means network isolation for the
+  converter is needed before release.
 - Repository-required checks: CI lane
   `KLAW_SUPABASE_URL= python -m pytest -q -m 'not integration and not pending_review' --deselect tests/test_services/test_moi_mau.py`.
 

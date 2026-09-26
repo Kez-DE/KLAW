@@ -86,6 +86,19 @@ Tradeoffs:
   khai, không hứa trước.
 - Mỗi lần tải lên và mỗi lần lưu tốn một lượt LibreOffice (khoảng 1–2 giây, 3 lượt
   đồng thời), dùng chung với quy đổi `.doc`.
+- **LibreOffice mở MỌI docx tải lên và mọi lần `GET /trang` dựng lại một docx**,
+  không chỉ `.doc` như trước. Hộp cát (`doc_tai_lieu._chuyen_doc_sang_docx`) có
+  thư mục tạm, hồ sơ riêng, môi trường tối giản, trần thời gian và ba suất chung,
+  nhưng KHÔNG chặn mạng ở tầng hệ điều hành và không che được
+  `/proc/<pid>/environ` dưới cùng người dùng hệ điều hành. Rủi ro còn lại đó đã
+  ghi từ Phase 13, nay chạm tới thường xuyên hơn nhiều. Đo ngày 2026-09-27 trên
+  máy dev (LibreOffice 26.2.4, đúng cờ của hộp cát): ảnh liên kết ngoài (`r:link`)
+  và trường `INCLUDEPICTURE` trỏ về một máy nghe 127.0.0.1 không tạo yêu cầu nào.
+  `test_dung_pdf_KHONG_goi_ra_mang_voi_lien_ket_ngoai` lặp phép đo ở mọi máy có
+  LibreOffice (cả CI); image triển khai CHƯA được đo. Đây là rủi ro đã công khai,
+  chờ chủ dự án chấp nhận hoặc yêu cầu cách ly mạng cho tiến trình chuyển đổi
+  (network namespace, hay một dịch vụ chuyển đổi không có mạng) — chưa phải rủi
+  ro đã được chấp nhận.
 - PDF không dàn lại được: trên PDF chỉ điền chỗ trống và thay chữ trong đúng ô của
   nó; không chèn hay xoá đoạn. Định vị chỗ trống trên PDF scan là xấp xỉ.
 - `ban_thao` và `luot_hoi_thoai` vẫn chỉ bị xoá mềm cùng hội thoại, nên phép sửa
