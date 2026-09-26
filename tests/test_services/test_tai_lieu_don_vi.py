@@ -20,7 +20,7 @@ from sqlalchemy import text
 
 from src.services import tai_lieu as tl
 from src.services.db import get_engine
-from src.services.doc_tai_lieu import DonViVanBan, NguonChu
+from src.services.doc_tai_lieu import ChoTrong, DiaChi, DonViVanBan, NguonChu
 
 DON_VI = [
     DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="PHIẾU ĐÁNH GIÁ"),
@@ -133,6 +133,42 @@ def test_bang_nhip_va_ti_le_di_va_ve_dung_gia_tri(phien):
     assert [d.bang_nhip for d in ve] == [2, 1]
     assert [d.bang_ti_le for d in ve] == [(7, 15, 30, 34, 15), (7, 15, 30, 34, 15)]
     assert isinstance(ve[0].bang_ti_le, tuple), "JSON không có tuple — quên chuyển lại thì so sánh hỏng im lặng"
+
+
+@pytest.mark.integration
+def test_dia_chi_cho_trong_hop_di_va_ve_NGUYEN_VEN(phien):
+    """P2b — cùng lớp lỗi `can_le`: bộ áp (P3a/P3b) đọc đơn vị qua `don_vi_cua`,
+    nên địa chỉ, chỗ trống và hộp phải về NGUYÊN VẸN, đúng kiểu tuple, qua cột
+    JSONB thật — kể cả đơn vị không khai gì về đúng mặc định."""
+    sub, ht = phien
+    viec = _viec(sub, ht)
+    don_vi = [
+        DonViVanBan(
+            chi_so=0,
+            trang=1,
+            offset_dau=0,
+            noi_dung="Số: …… ngày ……",
+            dia_chi=DiaChi("word/document.xml", (1, 3, 2)),
+            cho_trong=(
+                ChoTrong(so=0, kieu="cham", nhan="Số:", doan=2, dau=4, cuoi=6),
+                ChoTrong(so=1, kieu="tab", nhan="ngày", doan=2, dau=14, cuoi=14),
+            ),
+        ),
+        DonViVanBan(
+            chi_so=1,
+            trang=2,
+            offset_dau=0,
+            noi_dung="Họ tên: ……",
+            hop=(72.0, 33.38, 214.1, 44.48),
+            cho_trong=(ChoTrong(so=0, kieu="cham", nhan="Họ tên:", hop=(114.02, 33.38, 214.1, 44.48), co_chu=11.1),),
+        ),
+        DonViVanBan(chi_so=2, trang=2, offset_dau=11, noi_dung="Không khai gì"),
+    ]
+    tl.luu_don_vi(get_engine(), viec, don_vi)
+
+    ve = tl.don_vi_cua(get_engine(), viec, sub)
+    assert ve == don_vi
+    assert isinstance(ve[0].dia_chi.chi_muc, tuple) and isinstance(ve[1].hop, tuple)
 
 
 @pytest.mark.integration
