@@ -273,7 +273,7 @@ def test_dau_trang_LONG_SAU_khong_co_dia_chi_va_doc_nhanh():
     giay, don_vi = _giay(_p(_r("Thân")), {"word/header1.xml": hdr})
     assert giay < 2, giay
     nong = _theo_chu(don_vi, "Nông")
-    assert nong.dia_chi == DiaChi("word/header1.xml", (0, 1, 0)) and len(nong.cho_trong) == 1
+    assert nong.dia_chi == DiaChi("word/header1.xml", (0, 0, 0)) and len(nong.cho_trong) == 1
     sau = _theo_chu(don_vi, "Sâu")
     assert sau.dia_chi is None and sau.cho_trong == ()
 

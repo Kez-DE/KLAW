@@ -28,6 +28,7 @@ import os
 import re
 import shutil
 import signal
+import struct
 import subprocess
 import tempfile
 import threading
@@ -35,6 +36,7 @@ import time
 import unicodedata
 import xml.etree.ElementTree as ET
 import zipfile
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from io import BytesIO
@@ -146,6 +148,12 @@ RE_CHO_DIEN = re.compile(r"…|[._–—-]{3,}")
 # ảnh xám — không phải để đọc chữ. 60 giây cùng lý lẽ `_HAN_CHUYEN_DOI_GIAY`:
 # một tệp cố ý làm treo bộ phân tích phải lộ ra trong một phút.
 _HAN_CONG_CU_GIAY = 60
+
+# ponytail: trần điểm ảnh của MỘT trang xám cho bộ dò chỗ trống scan — ảnh
+# uint8 cộng mặt nạ bool ≈ 2 byte/px nằm TRONG tiến trình API. A3 ở 200 dpi là
+# 7,7 Mpx; trang lớn hơn trần không có chỗ trống (fail closed). Nâng khi có
+# biểu mẫu khổ lớn thật.
+_PX_XAM_TOI_DA = 16_000_000
 
 
 class NguonChu(StrEnum):
@@ -1787,6 +1795,7 @@ def _gc_mot(p: ET.Element, kieu_gc: dict[str, _KieuGC]) -> tuple[GianCach, ...]:
 
 _MC_AC = "{http://schemas.openxmlformats.org/markup-compatibility/2006}AlternateContent"
 _DAY_CHAM = re.compile(r"[.…]+")
+_SAU_DIA_CHI = 16
 
 
 def _day_cham(s: str) -> list[tuple[int, int]]:
@@ -1826,7 +1835,9 @@ def _cho_trong_doan(p: ET.Element, doan: int) -> list[ChoTrong]:
     ra: list[ChoTrong] = []
     truoc = 0
     for dau, _, kieu, cuoi in sorted(vi):
-        cat = [truoc, *(t for t in tab if truoc < t < dau), dau]
+        # `tab` đã tăng dần: cắt bằng bisect, không quét lại cả dãy cho mỗi chỗ
+        # trống (một đoạn vài KB có hàng vạn cả hai thì quét là bậc hai).
+        cat = [truoc, *tab[bisect_right(tab, truoc) : bisect_left(tab, dau)], dau]
         nhan = _duoi_nhan(" ".join(tho[a:b] for a, b in zip(cat, cat[1:])))
         ra.append(ChoTrong(so=0, kieu=kieu, nhan=nhan, doan=doan, dau=dau, cuoi=cuoi))
         truoc = cuoi
@@ -1842,13 +1853,21 @@ def _cho_trong_don_vi(nut: ET.Element) -> tuple[ChoTrong, ...]:
     (Choice/Fallback), điền một bản là để bản kia sai. Đoạn CHỨA chúng và đoạn
     NẰM TRONG chúng không có chỗ trống nào (đo trên BM.ĐT.18.05: "Phụ lục 4" hai
     lần trên cây thô).
+
+    Hai lượt TUYẾN TÍNH trên một danh sách tiền thứ tự, không đi lại cây con cho
+    từng phần tử: một tệp vài KB lồng hàng vạn tầng `mc:AlternateContent` thì
+    đi lại là bậc hai theo độ sâu (đo 2026-09-26: 32.000 tầng mất 30 s).
     """
-    chan: set[ET.Element] = set()
-    for e in nut.iter():
-        if e.tag in (_P, _MC_AC) and (trong := [x for x in e.iter() if x is not e and x.tag in (_P, _MC_AC)]):
-            chan.add(e)
-            chan.update(trong)
-    ra = [c for j, p in enumerate(nut.iter(_P)) if p not in chan for c in _cho_trong_doan(p, j)]
+    thu_tu = list(nut.iter())
+    trong: set[ET.Element] = set()  # có tổ tiên P/AC (trong `nut`)
+    for e in thu_tu:  # cha trước con
+        if e in trong or e.tag in (_P, _MC_AC):
+            trong.update(e)
+    chua: set[ET.Element] = set()  # có hậu duệ P/AC
+    for e in reversed(thu_tu):  # con trước cha
+        if any(c.tag in (_P, _MC_AC) or c in chua for c in e):
+            chua.add(e)
+    ra = [c for j, p in enumerate(nut.iter(_P)) if p not in trong and p not in chua for c in _cho_trong_doan(p, j)]
     return tuple(replace(c, so=i) for i, c in enumerate(ra))
 
 
@@ -1882,7 +1901,13 @@ def _dinh_vi_phang(goc: ET.Element, phan: str) -> dict[ET.Element, dict]:
 
     KHÔNG đi vào một `w:p` (hộp chữ) hay `mc:AlternateContent`: đoạn ở đó có
     hai bản, nên nó không có địa chỉ nào (fail closed). Ngăn xếp thay đệ quy —
-    một tệp lồng sâu cố ý không được làm tràn ngăn gọi."""
+    một tệp lồng sâu cố ý không được làm tràn ngăn gọi.
+
+    ponytail: không đi sâu quá `_SAU_DIA_CHI` tầng — đoạn dưới đó không có địa
+    chỉ (fail closed). Tám biểu mẫu thật sâu 1 (đo 2026-09-26), `w:sdt` quanh
+    bảng lồng bảng ~9; không trần thì một tệp vài KB lồng 32.000 tầng là bậc
+    hai khi chép đường và 32.000 số trong DB cho MỘT đơn vị. Nâng trần khi một
+    đầu trang thật cần."""
     ra: dict[ET.Element, dict] = {}
     ngan: list[tuple[ET.Element, tuple[int, ...]]] = [(goc, ())]
     while ngan:
@@ -1890,7 +1915,7 @@ def _dinh_vi_phang(goc: ET.Element, phan: str) -> dict[ET.Element, dict]:
         for i, con in enumerate(nut):
             if con.tag == _P:
                 ra[con] = _vi_tri(phan, (*duong, i), con)
-            elif con.tag != _MC_AC:
+            elif con.tag != _MC_AC and len(duong) < _SAU_DIA_CHI:
                 ngan.append((con, (*duong, i)))
     return ra
 
@@ -2661,8 +2686,10 @@ def _gan_hop_pdf(thoi: list[tuple], du_lieu: bytes) -> list[tuple]:
 
     ponytail: một từ trộn nhãn với chấm ("Số…./….") không thành chỗ trống — poppler
     chỉ cho hộp TỪNG TỪ, chia hộp theo ký tự là đoán. Toạ độ là không gian hiển
-    thị của poppler (hộp cắt, sau `/Rotate`); P3b phải đổi về không gian người
-    dùng của trang.
+    thị của poppler: điểm, gốc ở góc trên-trái của MEDIA box (KHÔNG phải
+    CropBox — đo 2026-09-26: CropBox [50 50 562 742] vẫn cho x = 100 ở chữ vẽ
+    tại x = 100), sau `/Rotate`; cùng hệ với `pdftoppm` mặc định của nhánh scan.
+    P3b phải đổi về không gian người dùng của trang.
     """
     tu = _tu_pdf(du_lieu) if thoi else {}
     if not tu:
@@ -3029,6 +3056,11 @@ def _ocr_pdf(du_lieu: bytes) -> list[tuple]:
     trên ảnh XÁM của cùng trang, cùng DPI — `_cho_trong_trang`). Ảnh xám là một
     lượt `pdftoppm -gray` RIÊNG: ảnh PNG tesseract đọc giữ nguyên như trước, nên
     chữ OCR không đổi một byte; thiếu ảnh xám thì chỉ mất chỗ trống.
+
+    Ảnh xám đi qua `communicate()` vào CHÍNH tiến trình này, nên dựng từng trang
+    một (`-f N -l N`), chỉ khi cỡ trang — đọc ở IHDR của PNG vừa dựng — không
+    quá `_PX_XAM_TOI_DA`, và cả lượt xám chung một hạn `_HAN_CONG_CU_GIAY` như
+    khi còn là một lệnh.
     """
     if not co_ocr() or not shutil.which("pdftoppm"):
         raise KhongDocDuoc(
@@ -3048,14 +3080,18 @@ def _ocr_pdf(du_lieu: bytes) -> list[tuple]:
             raise KhongDocDuoc(LoaiHong.tep_hong, "không dựng được ảnh từ pdf")
         from pathlib import Path as _P  # noqa: N814
 
-        cac_anh = sorted(_P(thu_muc).glob("t-*.png"))
-        xam = _cac_trang_pgm(_chay_cong_cu(["pdftoppm", "-r", str(_DPI_OCR), "-gray", "-"], du_lieu) or b"")
         pt = 72 / _DPI_OCR
-        for so, anh in enumerate(cac_anh, start=1):
+        han_xam = time.monotonic() + _HAN_CONG_CU_GIAY
+        for so, anh in enumerate(sorted(_P(thu_muc).glob("t-*.png")), start=1):
             dong = _tesseract(str(anh))
             cho: list[tuple[ChoTrong, ...]] = [()] * len(dong)
-            if len(xam) == len(cac_anh):
-                cho = _cho_trong_trang(xam[so - 1] < 160, dong, _DPI_OCR)
+            with anh.open("rb") as f:
+                rong, cao = struct.unpack(">II", f.read(24)[16:24])  # IHDR
+            if rong * cao <= _PX_XAM_TOI_DA and time.monotonic() < han_xam:
+                lenh = ["pdftoppm", "-r", str(_DPI_OCR), "-gray", "-f", str(so), "-l", str(so), "-"]
+                xam = _cac_trang_pgm(_chay_cong_cu(lenh, du_lieu) or b"")
+                if len(xam) == 1 and xam[0].shape == (cao, rong):
+                    cho = _cho_trong_trang(xam[0] < 160, dong, _DPI_OCR)
             for (chu, tin, hop, _), ct in zip(dong, cho, strict=True):
                 them = {
                     **({"hop": _tron(tuple(v * pt for v in hop))} if hop else {}),
