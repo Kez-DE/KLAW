@@ -598,7 +598,10 @@ async def doc_lai(
     if body.loai != ban_thao.LOAI_TONG_QUAT and body.loai not in cac_loai():
         raise HTTPException(status_code=422, detail="Loại văn bản này chưa có mẫu để rút dữ kiện.")
     don_vi = await run_in_threadpool(tl.don_vi_cua, get_engine(), viec_id, nguoi["sub"])
-    if viec["trang_thai"] == "dang_doc" or not don_vi:
+    # Nhận việc (`dang_doc`) TRƯỚC khi rút, ở cả đường tại chỗ lẫn đường nền:
+    # chỉ kiểm `viec["trang_thai"]` thì dòng vẫn ghi `xong` suốt lượt rút, và lần
+    # bấm thứ hai lọt qua chặn này để trả tiền mô hình thêm một lượt.
+    if not don_vi or not await run_in_threadpool(tl.nhan_rut_lai, get_engine(), viec_id, nguoi["sub"]):
         raise HTTPException(status_code=409, detail="Tài liệu này chưa đọc xong nên chưa rút lại được.")
 
     tai_lieu = TaiLieuDaDoc(

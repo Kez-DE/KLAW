@@ -280,6 +280,26 @@ def dat_trang_thai(
         )
 
 
+def nhan_rut_lai(engine: Engine, viec_id: str, user_sub: str) -> bool:
+    """Đưa việc về `dang_doc` để rút lại, trừ khi nó ĐANG đọc; `False` là đã có
+    một lượt đang chạy.
+
+    Kiểm và ghi là MỘT câu UPDATE có điều kiện chứ không phải đọc rồi ghi: hai
+    lần bấm "rút lại" sát nhau thì Postgres khoá dòng, lần sau thấy `dang_doc`
+    của lần trước và không khớp — không có lượt rút trả tiền thứ hai.
+    """
+    with engine.begin() as c:
+        so_dong = c.execute(
+            text(
+                "UPDATE viec_doc_tai_lieu SET trang_thai = 'dang_doc', ly_do_hong = NULL, "
+                "cap_nhat_luc = now() "
+                "WHERE id = :i AND user_sub = :u AND trang_thai <> 'dang_doc'"
+            ),
+            {"i": viec_id, "u": user_sub},
+        ).rowcount
+    return so_dong == 1
+
+
 def dat_loai(engine: Engine, viec_id: str, user_sub: str, loai: str) -> None:
     """Ghi loại văn bản hệ thống đã nhận ra (hoặc người dùng đã chọn)."""
     with engine.begin() as c:
