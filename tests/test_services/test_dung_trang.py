@@ -88,6 +88,20 @@ def pdf_trang(*kho: tuple[float, float], xoay: int = 0) -> bytes:
     return buf.getvalue()
 
 
+def pdf_hop(*hop: list) -> bytes:
+    """PDF trắng, mỗi phần tử là `/MediaBox` NGUYÊN VĂN của một trang — kể cả
+    hộp ngược hay hộp sai số phần tử, thứ một tệp người lạ khai được."""
+    from pypdf import PdfWriter
+    from pypdf.generic import ArrayObject, FloatObject, NameObject
+
+    w = PdfWriter()
+    for h in hop:
+        w.add_blank_page(100, 100)[NameObject("/MediaBox")] = ArrayObject(FloatObject(v) for v in h)
+    buf = BytesIO()
+    w.write(buf)
+    return buf.getvalue()
+
+
 def co_png(du_lieu: bytes) -> tuple[int, int]:
     """(rộng, cao) điểm ảnh đọc từ khối IHDR — không cần Pillow."""
     assert du_lieu[:8] == b"\x89PNG\r\n\x1a\n", "phải là PNG"
@@ -107,6 +121,27 @@ def test_trang_XOAY_90_do_dao_rong_cao_dung_nhu_khi_hien():
     """Bản scan ngang thường là trang dọc khai `/Rotate 90`. pdftoppm vẽ nó
     NẰM NGANG, nên khổ phải nói đúng chiều người dùng nhìn thấy."""
     assert dung_trang.kho_trang(pdf_trang(_A4, xoay=90)) == [[842.0, 595.0]]
+
+
+def test_hop_media_NGUOC_ra_kho_DUONG_dung_nhu_poppler_ve():
+    """`/MediaBox [3000 3000 0 0]`: pypdf trả rộng/cao ÂM, poppler lật hộp và vẽ
+    đủ 3000 pt. Khổ âm làm trần điểm ảnh không bao giờ hạ dpi, và nó bị ghi
+    thẳng vào `khuon_goc.kho`."""
+    assert dung_trang.kho_trang(pdf_hop([3000, 3000, 0, 0])) == [[3000.0, 3000.0]]
+
+
+@pytest.mark.parametrize(
+    "hop",
+    [[0, 0, 0, 842], [0, 0, 14401, 842], [0, 0, 595, 1e9], [0, 842]],
+    ids=["rong_0", "qua_14400", "khong_lo", "thieu_so"],
+)
+def test_kho_NGOAI_gioi_han_PDF_la_tep_hong(hop):
+    """14400 pt (200 inch) là trần khổ trang của chuẩn PDF (ISO 32000-1, phụ
+    lục C). Hộp rỗng, vượt trần hay sai số phần tử là tệp hỏng — không phải
+    500 và không phải một khổ lạ nằm trong `khuon_goc`."""
+    with pytest.raises(KhongDocDuoc) as e:
+        dung_trang.kho_trang(pdf_hop(hop))
+    assert e.value.ly_do is LoaiHong.tep_hong
 
 
 @pytest.mark.parametrize("du_lieu", [b"khong phai pdf", b"%PDF-1.4\n rac"])
@@ -146,6 +181,61 @@ def test_trang_KHONG_LO_bi_ha_dpi_khong_nuot_ram():
     w, h = co_png(png)
     assert w <= dung_trang._CANH_TOI_DA_PX
     assert abs(w / h - 2.0) < 0.01
+
+
+@pytest.mark.skipif(not _CO_PDFTOPPM, reason="cần pdftoppm (poppler)")
+def test_hop_media_NGUOC_van_bi_tran_canh_chan():
+    """Đầu cuối của lỗ hổng: trước bản vá, hộp ngược 3000 pt ra PNG 4584×4584."""
+    (png,) = dung_trang.anh_trang(pdf_hop([3000, 3000, 0, 0]))
+    assert max(co_png(png)) <= dung_trang._CANH_TOI_DA_PX
+
+
+@pytest.mark.skipif(not _CO_PDFTOPPM, reason="cần pdftoppm (poppler)")
+def test_tran_canh_do_CHINH_pdftoppm_giu_khi_kho_doc_sai(monkeypatch):
+    """Phép tính dpi tin khổ pypdf đọc. Nếu pypdf và poppler hiểu một hộp khác
+    nhau, trần vẫn phải đứng: poppler tự cắt ảnh ở cạnh tối đa, nên bộ nhớ của
+    MỘT trang không bao giờ theo khổ tệp tự khai."""
+    monkeypatch.setattr(dung_trang, "kho_trang", lambda pdf: [[100.0, 100.0]])
+    (png,) = dung_trang.anh_trang(pdf_trang((4000.0, 4000.0)))
+    assert max(co_png(png)) <= dung_trang._CANH_TOI_DA_PX
+
+
+@pytest.mark.skipif(not _CO_PDFTOPPM, reason="cần pdftoppm (poppler)")
+def test_TONG_diem_anh_ca_tai_lieu_bi_chan_nen_phan_hoi_co_tran():
+    """`/trang` trả MỌI trang trong một JSON. Mười trang 2000 pt đều dưới trần
+    cạnh vẫn ra ~57 Mpx (~170 MB PNG khó nén); trần tổng hạ dpi đều."""
+    anh = dung_trang.anh_trang(pdf_trang(*[(2000.0, 2000.0)] * 10))
+    assert sum(w * h for w, h in map(co_png, anh)) <= dung_trang._PX_TAI_LIEU_TOI_DA
+
+
+@pytest.mark.skipif(not _CO_PDFTOPPM, reason="cần pdftoppm (poppler)")
+def test_MUOI_trang_A4_van_giu_110_dpi_duoi_tran_tong():
+    for png in dung_trang.anh_trang(pdf_trang(*[_A4] * 10)):
+        w, h = co_png(png)
+        assert abs(w - _A4[0] * 110 / 72) <= 2 and abs(h - _A4[1] * 110 / 72) <= 2
+
+
+@pytest.mark.skipif(not _CO_PDFTOPPM, reason="cần pdftoppm (poppler)")
+def test_anh_VUOT_tran_byte_la_tep_hong_khong_doc_vao_bo_nho(monkeypatch):
+    """Chốt cuối, đo bằng kích thước tệp TRƯỚC khi đọc: trong trần điểm ảnh thì
+    PNG không thể vượt ~3 byte/px, nên vượt nghĩa là phép tính khổ đã sai."""
+    monkeypatch.setattr(dung_trang, "_BYTE_ANH_TOI_DA", 10)
+    with pytest.raises(KhongDocDuoc) as e:
+        dung_trang.anh_trang(pdf_trang(_A4))
+    assert e.value.ly_do is LoaiHong.tep_hong
+
+
+def test_anh_trang_DUNG_CHUNG_suat_voi_LibreOffice(monkeypatch):
+    """Vẽ ảnh trang lặp được và không trừ hạn mức, nên nó chia đúng ba suất của
+    `.doc`/docx thay vì mở pdftoppm song song không giới hạn."""
+    monkeypatch.setattr(dung_trang.shutil, "which", lambda ten: "/usr/bin/pdftoppm")
+    monkeypatch.setattr("src.services.doc_tai_lieu._HAN_CHO_SUAT_GIAY", 0.2)
+    suat = threading.Semaphore(1)
+    suat.acquire()
+    monkeypatch.setattr("src.services.doc_tai_lieu._suat_chuyen_doi", suat)
+    with pytest.raises(ChuyenDoiKhongSanSang) as e:
+        dung_trang.anh_trang(pdf_trang(_A4))
+    assert e.value.ly_do == "qua_tai"
 
 
 def test_thieu_pdftoppm_la_loi_HE_THONG(monkeypatch):

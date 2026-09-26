@@ -933,6 +933,31 @@ async def test_trang_cua_PDF_la_chinh_tep_giu_tung_kho(client, khoa_ky, hai_nguo
     assert "private" in t.headers["cache-control"]
 
 
+@can_pdftoppm
+@pytest.mark.asyncio
+async def test_hop_media_NGUOC_luu_kho_DUONG_va_trang_trong_tran_canh(client, khoa_ky, hai_nguoi):
+    """Đầu cuối của lỗ hổng reviewer dò được: `/MediaBox [3000 3000 0 0]` có lớp
+    chữ tải lên 201, `khuon_goc.kho` ghi `[-3000, -3000]` và `/trang` ra PNG
+    4584×4584 vượt trần 2400 — trần không hạ dpi khi khổ âm."""
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import RectangleObject
+
+    w = PdfWriter(clone_from=PdfReader(BytesIO(_pdf_co_chu((3000.0, 3000.0)))))
+    w.pages[0].mediabox = RectangleObject([3000, 3000, 0, 0])
+    buf = BytesIO()
+    w.write(buf)
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+
+    r = await _dinh_kem(client, ha, phien, buf.getvalue(), "nguoc.pdf")
+    assert r.status_code == 201, r.text
+    assert rtl.tl.khuon_goc_cua(get_engine(), r.json()["id"], a)["kho"] == [[3000.0, 3000.0]]
+    t = await client.get(f"/api/v1/tai-lieu/{r.json()['id']}/trang", headers=ha)
+    assert t.status_code == 200
+    assert max(co_png(base64.b64decode(t.json()["trang"][0]))) <= rtl.dung_trang._CANH_TOI_DA_PX
+
+
 @pytest.mark.asyncio
 async def test_ANH_khong_co_khuon_goc_trang_la_404(client, khoa_ky, hai_nguoi, monkeypatch):
     """Ảnh giữ đường OCR hôm nay (ngoài phạm vi quyết định): không có gì để hiện
