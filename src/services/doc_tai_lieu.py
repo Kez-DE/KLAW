@@ -37,6 +37,7 @@ import unicodedata
 import xml.etree.ElementTree as ET
 import zipfile
 from bisect import bisect_left, bisect_right
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from io import BytesIO
@@ -2466,21 +2467,30 @@ def _quy_doi_soffice(du_lieu: bytes, vao: str, loc: str, ra: str) -> bytes:
         )
         raise ChuyenDoiKhongSanSang("khong_co_cong_cu", "chưa cài LibreOffice")
 
+    with _giu_suat_chuyen_doi():
+        return _chay_soffice(du_lieu, soffice, vao, loc, ra)
+
+
+@contextmanager
+def _giu_suat_chuyen_doi():
+    """Giữ một trong `_SO_CHUYEN_DOI_DONG_THOI` suất quanh một tiến trình con
+    nặng, hoặc `ChuyenDoiKhongSanSang("qua_tai")` sau `_HAN_CHO_SUAT_GIAY`.
+    Dùng chung cho LibreOffice và `dung_trang.anh_trang` (`pdftoppm` của
+    `/trang`, lặp được và không trừ hạn mức)."""
     if not _suat_chuyen_doi.acquire(timeout=_HAN_CHO_SUAT_GIAY):
-        # Quá tải TẠM THỜI — tự hết khi tải giảm, khác hẳn ca thiếu công cụ ở
-        # trên. Log ở mức INFO: đây là hành vi ĐÚNG của một cái phanh dưới
-        # tải cao, không phải một lỗi cần báo động.
+        # Quá tải TẠM THỜI — tự hết khi tải giảm, khác hẳn ca thiếu công cụ.
+        # Log ở mức INFO: đây là hành vi ĐÚNG của một cái phanh dưới tải cao,
+        # không phải một lỗi cần báo động.
         logger.info(
-            "doc_tai_lieu: không giành được suất LibreOffice trong %ss (đang có %d suất)",
+            "doc_tai_lieu: không giành được suất chuyển đổi trong %ss (đang có %d suất)",
             _HAN_CHO_SUAT_GIAY,
             _SO_CHUYEN_DOI_DONG_THOI,
         )
         raise ChuyenDoiKhongSanSang(
             "qua_tai", f"không giành được suất chuyển đổi trong {_HAN_CHO_SUAT_GIAY}s"
         )
-
     try:
-        return _chay_soffice(du_lieu, soffice, vao, loc, ra)
+        yield
     finally:
         _suat_chuyen_doi.release()
 
