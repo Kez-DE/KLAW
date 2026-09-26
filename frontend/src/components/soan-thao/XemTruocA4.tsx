@@ -1,8 +1,11 @@
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { taiAnhNguon } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   catTheoChu,
   chiaTrang,
+  choCatTran,
+  diaChiKhoi,
   kieuNetCSS,
   netCanh,
   nhipHangVe,
@@ -42,6 +45,11 @@ const RONG_A4_TWIP = 11906;
  * lớp trình bày đổi được mà không ai nhớ sửa phép đo. Cùng luật
  * `THUOC_TINH_LE`/`THUOC_TINH_BANG` — một sự thật, một cái tên. */
 const THUOC_TINH_TO = "data-to";
+
+/** Thuộc tính đánh dấu MỘT KHỐI (đơn vị cắt trang), mang `diaChiKhoi` của nó
+ *  — phép đo tràn trang đọc đúng tên này, cùng luật `THUOC_TINH_TO`. Một mục
+ *  không có khối nào mang nó trên chính `<section>`. */
+const THUOC_TINH_KHOI = "data-khoi";
 
 /** Cỡ chữ "thường" của thể thức hành chính, điểm — mốc quy `w:sz` (nửa điểm)
  * ra `em`. Khớp `xuat-tep.ts::coChuPt("thuong")` và `size: 26` của `.docx`,
@@ -360,6 +368,7 @@ function KhoiVanXuoi({
   gianCach,
   mucKey,
   khoiIndex,
+  diaChi,
   phienBan,
   onSuaKhoi,
 }: {
@@ -386,6 +395,8 @@ function KhoiVanXuoi({
   gianCach: GianCachKhoi | null;
   mucKey: string;
   khoiIndex: number;
+  /** `diaChiKhoi` của khối — đi ra `data-khoi` cho phép đo tràn trang. */
+  diaChi: string;
   phienBan: number;
   onSuaKhoi:
     | ((
@@ -423,6 +434,7 @@ function KhoiVanXuoi({
     <p
       ref={oNoiDung}
       {...thuocNhip}
+      {...{ [THUOC_TINH_KHOI]: diaChi }}
       style={kieuNhip}
       contentEditable={coTheSua}
       suppressContentEditableWarning={coTheSua}
@@ -652,6 +664,42 @@ interface Props {
 }
 
 /**
+ * Đường dẫn ảnh nguồn → object URL của bytes đã tải CÓ xác thực.
+ *
+ * `<img src={a.url}>` trần không vẽ được gì: `url` là đường dẫn tương đối
+ * không có gốc API, và endpoint ảnh chỉ nhận Bearer — thứ một thẻ `<img>`
+ * không gửi được. `taiAnhNguon` là CÙNG hàm tệp tải về dùng.
+ *
+ * Khoá bằng CHUỖI đường dẫn, không bằng mảng: sân khấu vẽ lại theo từng token
+ * chat với một mảng `anh` mới mỗi lượt, và so tham chiếu sẽ tải lại mọi ảnh ở
+ * mỗi token. Đổi đường dẫn hay tháo component → huỷ lượt tải dở và thu hồi
+ * mọi object URL đã cấp.
+ */
+function useAnhDaTai(duongDan: readonly string[]): Readonly<Record<string, string>> {
+  const khoa = [...new Set(duongDan)].join("\n");
+  const [daTai, datDaTai] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (khoa === "") return;
+    const huy = new AbortController();
+    const daCap: string[] = [];
+    for (const duong of khoa.split("\n")) {
+      void taiAnhNguon(duong, huy.signal).then((blob) => {
+        if (!blob || huy.signal.aborted) return;
+        const url = URL.createObjectURL(blob);
+        daCap.push(url);
+        datDaTai((cu) => ({ ...cu, [duong]: url }));
+      });
+    }
+    return () => {
+      huy.abort();
+      daCap.forEach((u) => URL.revokeObjectURL(u));
+      datDaTai({});
+    };
+  }, [khoa]);
+  return daTai;
+}
+
+/**
  * Trang A4 xem trước cho bản thảo `BanThao` (khung "sân khấu", Task 24).
  *
  * Bấm một mục để đánh dấu nó là đích cho lệnh sửa kế tiếp (khuôn Canvas "chọn vùng").
@@ -735,17 +783,27 @@ export function XemTruocA4({
    * `alt=""` và `aria-hidden`: đây là ảnh TRÌNH BÀY của tài liệu nguồn (logo,
    * dấu), và KLAW không biết nó vẽ gì — bịa một câu mô tả là nói thay tài
    * liệu, còn một `alt` lặp tên tệp thì chỉ làm trình đọc màn hình đọc rác.
+   *
+   * `src` là object URL (`useAnhDaTai`), vắng mặt cho tới khi bytes về; đường
+   * dẫn NGUỒN ở `data-anh-url` để tệp tải về tự tải lại có xác thực.
+   * `aspect-ratio` theo cỡ nguồn giữ chỗ cho khung ảnh TRƯỚC khi bytes về, để
+   * phép đo tràn trang bên dưới không đo một ảnh cao 0.
    */
+  const anhDaTai = useAnhDaTai(anh.map((a) => a.url));
   const veAnh = (a: AnhNguon, i: number) => (
     <img
       key={`${a.vung}-${a.thuTu}-${i}`}
-      src={a.url}
+      src={anhDaTai[a.url]}
       alt=""
       aria-hidden
       className="mx-auto block h-auto max-w-full"
-      style={{ width: `${a.rong / EMU_MOI_PT}pt` }}
+      style={{
+        width: `${a.rong / EMU_MOI_PT}pt`,
+        aspectRatio: a.rong > 0 && a.cao > 0 ? `${a.rong} / ${a.cao}` : undefined,
+      }}
       {...{
         [THUOC_TINH_ANH.moc]: "",
+        [THUOC_TINH_ANH.url]: a.url,
         [THUOC_TINH_ANH.rong]: String(a.rong),
         [THUOC_TINH_ANH.cao]: String(a.cao),
       }}
@@ -754,10 +812,11 @@ export function XemTruocA4({
 
   const khungRef = useRef<HTMLElement>(null);
   /**
-   * Chỉ số những mục phải MỞ một tờ mới vì nội dung TRÀN khỏi tờ đang đứng —
-   * nửa của phép chia trang mà chỉ trình duyệt trả lời được (xem `chiaTrang`).
+   * Địa chỉ những KHỐI phải MỞ một tờ mới vì nội dung TRÀN khỏi tờ đang đứng
+   * (`diaChiKhoi`) — nửa của phép chia trang mà chỉ trình duyệt trả lời được
+   * (xem `chiaTrang`).
    */
-  const [catThem, setCatThem] = useState<number[]>([]);
+  const [catThem, setCatThem] = useState<string[]>([]);
   const to = useMemo(() => chiaTrang(muc, catThem), [muc, catThem]);
 
   /**
@@ -797,54 +856,59 @@ export function XemTruocA4({
   // lại. Nâng lên bằng một `ResizeObserver` khi đo thấy nó phiền thật.
   //
   // Hội tụ: mỗi lượt chỉ THÊM chỗ cắt, không bao giờ bỏ; không bao giờ cắt ở
-  // mục ĐẦU của một tờ (nên không sinh tờ rỗng, và một mục cao hơn cả trang
-  // không quay vòng vô hạn); số chỗ cắt chặn trên bằng số mục. `setCatThem`
-  // chỉ được gọi khi tập chỗ cắt THẬT SỰ lớn hơn, nên vòng dừng hẳn.
+  // khối ĐẦU của một tờ (`choCatTran` — nên không sinh tờ rỗng, và một khối
+  // cao hơn cả trang không quay vòng vô hạn); số chỗ cắt chặn trên bằng số
+  // khối cộng số mục. `setCatThem` chỉ được gọi khi tập chỗ cắt THẬT SỰ lớn
+  // hơn, nên vòng dừng hẳn.
   //
   // FAIL CLOSED: không đo được (chưa dựng xong, chiều cao 0, môi trường không
   // có bố cục) thì KHÔNG cắt gì — khung lùi về đúng các tờ NGUỒN khai, và
-  // trường hợp xấu nhất là hành vi trước bản vá này (một tờ, cuộn bên trong),
-  // không phải mất nội dung.
+  // trường hợp xấu nhất là một tờ tự cao thêm cho vừa chữ, không phải mất nội
+  // dung hay chữ nằm khuất trong một tờ cuộn.
   //
-  // ponytail: trần là ẢNH chưa tải xong — `<img>` chưa biết cỡ thì cao 0 lúc
-  // đo, nên một tờ có letterhead nặng có thể thiếu một chỗ cắt tới lượt vẽ
-  // sau. Nâng lên bằng một `ResizeObserver` khi đo thấy nó xảy ra thật.
+  // ponytail: trần là ẢNH nguồn KHÔNG khai cỡ — ảnh có cỡ thì `aspect-ratio`
+  // giữ chỗ trước khi bytes về (`veAnh`), ảnh không khai cỡ thì cao 0 lúc đo
+  // và một tờ có thể thiếu một chỗ cắt tới lượt vẽ sau. Nâng lên bằng một
+  // `ResizeObserver` khi đo thấy nó xảy ra thật.
   useLayoutEffect(() => {
     const khung = khungRef.current;
     // Cửa FAIL CLOSED của cả phép chia trang: không có một DOM đo được (dựng
     // phía máy chủ, khung DOM tối giản của `kiem-ui-muot`, trình duyệt chưa
-    // gắn thẻ) thì KHÔNG cắt gì. Khung khi đó lùi về đúng các tờ NGUỒN khai,
-    // và trường hợp xấu nhất là hành vi trước bản vá này — một tờ, cuộn bên
-    // trong — chứ không phải mất nội dung hay ném lỗi giữa lượt vẽ.
+    // gắn thẻ) thì KHÔNG cắt gì. Khung khi đó lùi về đúng các tờ NGUỒN khai
+    // — trường hợp xấu nhất là một tờ cao hơn khổ A4 — chứ không phải mất nội
+    // dung hay ném lỗi giữa lượt vẽ.
     if (typeof khung?.querySelectorAll !== "function" || typeof getComputedStyle !== "function") {
       return;
     }
-    const them: number[] = [];
-    let i = 0;
+    const them: string[] = [];
     for (const to of Array.from(khung.querySelectorAll<HTMLElement>(`[${THUOC_TINH_TO}]`))) {
       const kieu = getComputedStyle(to);
       const tren = parseFloat(kieu.paddingTop) || 0;
-      const tran = to.clientHeight - tren - (parseFloat(kieu.paddingBottom) || 0);
+      const hop = to.getBoundingClientRect();
+      // Chiều cao DANH NGHĨA của tờ A4 (rộng × 297/210), không `clientHeight`:
+      // tờ tự cao thêm khi một khối đơn lẻ cao hơn cả trang, nên chiều cao
+      // THẬT của nó không còn là thước đo chỗ tràn.
+      const tran = (hop.width * 297) / 210 - tren - (parseFloat(kieu.paddingBottom) || 0);
       if (!(tran > 0)) return;
-      // Đo BỐ CỤC, không đo chỗ người dùng đã cuộn tới: `getBoundingClientRect`
-      // trừ đi `scrollTop`, nên một tờ đang cuộn dở sẽ báo mọi mục nằm cao hơn
-      // thật và không mục nào "tràn".
-      to.scrollTop = 0;
-      const mocTren = to.getBoundingClientRect().top + tren;
-      const mucTrang = Array.from(to.querySelectorAll<HTMLElement>("[data-muc]"));
-      for (let j = 1; j < mucTrang.length; j += 1) {
-        // 0,5px dung sai: chiều cao dưới điểm ảnh của trình duyệt không đáng
-        // để mở hẳn một tờ mới.
-        if (mucTrang[j]!.getBoundingClientRect().bottom - mocTren > tran + 0.5) {
-          them.push(i + j);
-          break;
-        }
-      }
-      i += mucTrang.length;
+      const mocTren = hop.top + tren;
+      const khoi = Array.from(to.querySelectorAll<HTMLElement>(`[${THUOC_TINH_KHOI}]`));
+      const donVi = khoi.map((el, j) => {
+        // Khối CUỐI của một mảnh mục mang theo đuôi của mục (dòng căn cứ, đệm
+        // dưới): đo bằng đáy MỤC, không phải đáy khối — nếu không, chính đuôi
+        // ấy tràn mà không ai cắt.
+        const cuaMuc = el.closest<HTMLElement>("[data-muc]") ?? el;
+        const cuoi = khoi[j + 1]?.closest("[data-muc]") !== cuaMuc;
+        return {
+          cat: el.getAttribute(THUOC_TINH_KHOI) ?? "",
+          day: (cuoi ? cuaMuc : el).getBoundingClientRect().bottom - mocTren,
+        };
+      });
+      const cat = choCatTran(donVi, tran);
+      if (cat !== null) them.push(cat);
     }
     if (them.length === 0) return;
     setCatThem((cu) => {
-      const gop = Array.from(new Set([...cu, ...them])).sort((a, b) => a - b);
+      const gop = Array.from(new Set([...cu, ...them]));
       return gop.length === cu.length ? cu : gop;
     });
   }, [chuKy, catThem]);
@@ -867,7 +931,10 @@ export function XemTruocA4({
             className={cn(
               // `relative`: mốc cho phép đo tràn trang bên dưới, và không đổi
               // nét vẽ nào vì trong tờ không có thẻ nào định vị tuyệt đối.
-              "relative aspect-[210/297] overflow-y-auto rounded-md border border-border bg-white text-[#111] shadow-soft",
+              // Tờ KHÔNG cuộn bên trong: chữ tràn chảy sang tờ sau (phép đo
+              // bên trên), và một khối đơn lẻ cao hơn cả trang làm tờ tự cao
+              // thêm — `aspect-ratio` của một hộp không cuộn nhường cho nội dung.
+              "relative aspect-[210/297] rounded-md border border-border bg-white text-[#111] shadow-soft",
               leTrang === null && "px-[8%] py-[7%]",
             )}
             style={kieuLe}
@@ -889,13 +956,22 @@ export function XemTruocA4({
               <p className="mt-1 text-center font-mono text-[0.85em] text-[#555]">Số: {kyHieu}</p>
             )}
             <div className={cn("space-y-4", ti === 0 && "mt-6")}>
-              {mucTrang.map((m) => (
+              {/* MỖI phần tử là một MẢNH mục (`chiaTrang`): mục dài hơn phần
+                  còn lại của tờ chảy sang tờ sau theo ranh giới khối. Tên mục
+                  chỉ ở mảnh ĐẦU, dòng căn cứ chỉ ở mảnh CUỐI — `docNoiDungTuDOM`
+                  đọc các tờ theo thứ tự DOM nên tệp tải về vẫn là MỘT mục liền. */}
+              {mucTrang.map(({ m, i: chiSoMuc, tu, den }) => (
                 <section
                   key={m.key}
                   data-muc={m.key}
+                  {...(m.khoi.length === 0 ? { [THUOC_TINH_KHOI]: diaChiKhoi(chiSoMuc, 0) } : {})}
                   onClick={onChonMuc ? () => chonMuc(m.key) : undefined}
+                  // Nút "chọn mục" (phím, role, tabIndex, nhãn, aria-current) chỉ
+                  // ở mảnh ĐẦU (`tu === 0`): mục chia nhiều tờ vẫn là MỘT điều
+                  // khiển, không phải một điểm dừng Tab cùng nhãn trên mỗi tờ.
+                  // `onClick` ở mọi mảnh: bấm chuột vào phần tiếp vẫn chọn mục.
                   onKeyDown={
-                    onChonMuc
+                    onChonMuc && tu === 0
                       ? (e) => {
                           // Phase 3 (Half A, R1) — đang gõ TRONG một khối
                           // `contentEditable`: Enter xuống dòng, dấu cách gõ chữ
@@ -910,11 +986,13 @@ export function XemTruocA4({
                         }
                       : undefined
                   }
-                  role={onChonMuc ? "button" : undefined}
-                  tabIndex={onChonMuc ? 0 : undefined}
-                  aria-current={mucDangChon === m.key ? "true" : undefined}
+                  role={onChonMuc && tu === 0 ? "button" : undefined}
+                  tabIndex={onChonMuc && tu === 0 ? 0 : undefined}
+                  aria-current={tu === 0 && mucDangChon === m.key ? "true" : undefined}
                   aria-label={
-                    onChonMuc ? `Chọn mục ${m.stt}. ${m.ten} làm đích chỉnh sửa` : undefined
+                    onChonMuc && tu === 0
+                      ? `Chọn mục ${m.stt}. ${m.ten} làm đích chỉnh sửa`
+                      : undefined
                   }
                   className={cn(
                     "rounded-sm px-2 py-1 -mx-2",
@@ -936,7 +1014,7 @@ export function XemTruocA4({
                   không thấy nó, đúng yêu cầu "sửa ở một chỗ, đúng cả ba nơi".
                   Bản thảo checklist (`!laTongQuat`) luôn hiện: tên mục ở đó
                   đến từ chính checklist, chưa từng là chữ mô hình bịa. */}
-                  {(!laTongQuat || m.tenThat) && (
+                  {tu === 0 && (!laTongQuat || m.tenThat) && (
                     <p className="dieu-head m-0 font-serif text-[1em] font-semibold">
                       {laTongQuat ? m.ten : `Mục ${m.stt}. ${m.ten}`}
                     </p>
@@ -945,7 +1023,9 @@ export function XemTruocA4({
                   (Phase 8 R1, thay hai điều kiện độc lập noiDung/bang cố định
                   của Phase 7): câu dẫn, bảng, câu kết là BA khối riêng, render
                   lần lượt — không còn nén về "văn xuôi rồi bảng" cứng nhắc. */}
-                  {m.khoi.map((k, i) =>
+                  {/* Chỉ số TRONG MỤC là `tu + j`, không phải `j` (chỉ số trong
+                  mảnh): `onSuaKhoi` lưu theo nó, lệch là lưu vào nhầm khối. */}
+                  {m.khoi.slice(tu, den).map((k, j) =>
                     k.kind === "vanXuoi" ? (
                       // Phase 3 (Half A, R1) — gõ tay tại chỗ: `contentEditable`
                       // CHỈ khi nơi gọi cho `onSuaKhoi` (bản thảo đã lưu, có `id`
@@ -955,13 +1035,14 @@ export function XemTruocA4({
                       // round 1, review CRITICAL #1) đồng bộ DOM bằng tay, không
                       // qua `children` — xem chú thích ở khai báo component đó.
                       <KhoiVanXuoi
-                        key={i}
+                        key={tu + j}
                         noiDung={k.noiDung}
                         canhLe={k.canhLe}
                         chu={k.chu}
                         gianCach={k.gianCach}
                         mucKey={m.key}
-                        khoiIndex={i}
+                        khoiIndex={tu + j}
+                        diaChi={diaChiKhoi(chiSoMuc, tu + j)}
                         // Fix round 2 (N1) — không dùng khi chỉ đọc; giá trị mặc
                         // định vô hại vì `onSuaKhoi` cũng vắng mặt trong trường
                         // hợp đó nên không đường nào đọc tới `phienBan`.
@@ -1017,9 +1098,10 @@ export function XemTruocA4({
                         // chú đó.
                         return (
                           <table
-                            key={i}
+                            key={tu + j}
                             className="klaw-bang mt-1 w-full border-collapse text-[0.92em]"
                             data-vien={k.vien ? undefined : "khong"}
+                            {...{ [THUOC_TINH_KHOI]: diaChiKhoi(chiSoMuc, tu + j) }}
                             style={{ tableLayout: "fixed" }}
                           >
                             <colgroup>
@@ -1112,7 +1194,7 @@ export function XemTruocA4({
                   {/* `data-khong-xuat`: dòng căn cứ là chú thích cho người ĐỌC
                   MÀN HÌNH, không phải một phần của văn bản. Thiếu dấu này thì
                   công tắc "Hiển thị căn cứ" đổi luôn nội dung tệp tải về. */}
-                  {hienCanCu && m.canCu && (
+                  {den === m.khoi.length && hienCanCu && m.canCu && (
                     <p
                       data-khong-xuat
                       className="m-0 mt-1 font-mono text-[0.75em] text-[var(--color-brass-600)]"

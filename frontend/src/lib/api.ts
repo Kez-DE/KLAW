@@ -249,6 +249,36 @@ export async function goi<T>(
 /** Guard cho thân 204 (DELETE /hoi-thoai/{id}) — `goi` đã đặt `than: null`. */
 export const laKhongThan = (x: unknown): x is null => x === null;
 
+/**
+ * Bytes của MỘT ảnh nguồn đã tách khỏi tài liệu (`/tai-lieu/{viec}/anh/{tên}`,
+ * quyết định 2026-09-18) — `null` khi không lấy được.
+ *
+ * Qua đây chứ không `<img src>` trần hay `fetch` riêng: endpoint ảnh chỉ nhận
+ * Bearer (con dấu, chữ ký là dữ liệu của bên thứ ba), còn `url` trong `clauses`
+ * là đường dẫn TƯƠNG ĐỐI không có gốc API. Màn hình (`XemTruocA4`, object URL)
+ * và tệp tải về (`xuatWord`/`xuatPDF`) gọi CÙNG hàm này.
+ *
+ * Chỉ nhận đường dẫn bắt đầu bằng `/tai-lieu/`: hàm này gắn Bearer, nên một
+ * chuỗi lạ (`@tên-miền-lạ/…` ghép sau một `VITE_API_GOC` không có đường dẫn)
+ * không được có cách nào đổi máy nhận token. Phép kiểm ĐỦ hình dạng vẫn ở cửa
+ * vào (`xuat-tep.ts::laDuongAnh`).
+ *
+ * FAIL CLOSED: mọi lỗi về `null`, và nơi gọi bỏ đúng tấm ảnh đó.
+ */
+export async function taiAnhNguon(duongDan: string, signal?: AbortSignal): Promise<Blob | null> {
+  if (!duongDan.startsWith("/tai-lieu/")) return null;
+  const hetGio = AbortSignal.timeout(HAN_GIO_DOC);
+  try {
+    const phanHoi = await fetch(`${apiGoc()}${duongDan}`, {
+      signal: signal === undefined ? hetGio : AbortSignal.any([signal, hetGio]),
+      headers: await tieuDeXacThuc(),
+    });
+    return phanHoi.ok ? await phanHoi.blob() : null;
+  } catch {
+    return null;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * /tai-khoan/bo-nho — bộ nhớ tài khoản, CHỈ gói trả phí (spec 2026-09-09 §6.6).
  * /hoi-thoai/{id}/ghi-nho · /hoi-thoai/{id}/ho-so — mở cho mọi chủ phiên đã

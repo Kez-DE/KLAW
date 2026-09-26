@@ -17,8 +17,9 @@
  *   4. FAIL CLOSED: ảnh không tải được thì `.docx` vẫn ra tệp và PDF vẫn ra
  *      trang — một con dấu hỏng không đáng làm hỏng cả bản tải về.
  *
- * `fetch` bị thay bằng một hàm giả ở đây: kịch bản này chạy trong Node, không
- * có máy chủ, và điều đang đo là phép DỰNG TỆP chứ không phải phép gọi mạng.
+ * Bộ tải ảnh là một hàm giả TIÊM vào (ở trình duyệt là `taiAnhNguon` của
+ * `api.ts`, mang Bearer): kịch bản này chạy trong Node, không có máy chủ, và
+ * điều đang đo là phép DỰNG TỆP chứ không phải phép gọi mạng.
  *
  * Ảnh dùng để thử là PNG 1×1 sinh tại chỗ — không một con dấu hay chữ ký thật
  * nào vào kho mã (quyết định 2026-09-18, phần "media là dữ liệu cá nhân của
@@ -136,7 +137,10 @@ const docKhoi = (con: unknown[]) => docNoiDungTuDOM(toGia(con)).khoi;
 bang(
   docKhoi([
     imgGia({
-      src: URL_THAT,
+      // `src` là object URL màn hình đã tải CÓ xác thực — tệp tải về KHÔNG
+      // đọc nó; đường dẫn tương đối nằm ở `data-anh-url`.
+      src: "blob:http://localhost:3000/9f1c",
+      [THUOC_TINH_ANH.url]: URL_THAT,
       [THUOC_TINH_ANH.moc]: "",
       [THUOC_TINH_ANH.rong]: "1733550",
       [THUOC_TINH_ANH.cao]: "537039",
@@ -147,7 +151,7 @@ bang(
 );
 
 bang(
-  docKhoi([imgGia({ src: URL_THAT, [THUOC_TINH_ANH.moc]: "" }, { w: 96, h: 48 })]),
+  docKhoi([imgGia({ [THUOC_TINH_ANH.url]: URL_THAT, [THUOC_TINH_ANH.moc]: "" }, { w: 96, h: 48 })]),
   [
     {
       kind: "anh",
@@ -158,23 +162,63 @@ bang(
 );
 
 bang(
-  docKhoi([imgGia({ src: URL_THAT, [THUOC_TINH_ANH.moc]: "" })]),
+  docKhoi([imgGia({ [THUOC_TINH_ANH.url]: URL_THAT, [THUOC_TINH_ANH.moc]: "" })]),
   [],
   "ảnh chưa tải được (cỡ nguồn 0 và cỡ thật 0) bị BỎ — chừa chỗ cho thứ không vẽ ra sẽ đẩy lệch mọi khối sau",
 );
 bang(
   docKhoi([imgGia({ [THUOC_TINH_ANH.moc]: "", [THUOC_TINH_ANH.rong]: "100" }, { w: 1, h: 1 })]),
   [],
-  "thẻ không có `src` bị bỏ",
+  "thẻ không có `data-anh-url` bị bỏ",
 );
+bang(
+  docKhoi([
+    imgGia(
+      {
+        src: "blob:http://localhost:3000/9f1c",
+        [THUOC_TINH_ANH.moc]: "",
+        [THUOC_TINH_ANH.rong]: "9",
+      },
+      { w: 1, h: 1 },
+    ),
+  ]),
+  [],
+  "chỉ có `src` (object URL) mà không có đường dẫn nguồn → bỏ: tệp không đi tải một `blob:` bằng Bearer",
+);
+for (const xau of [
+  "https://ke-tan-cong.example/logo.png",
+  "@ke-tan-cong.example/x.png",
+  "/tai-lieu/x/anh/../y.png",
+]) {
+  bang(
+    docKhoi([
+      imgGia(
+        {
+          [THUOC_TINH_ANH.url]: xau,
+          [THUOC_TINH_ANH.moc]: "",
+          [THUOC_TINH_ANH.rong]: "9",
+          [THUOC_TINH_ANH.cao]: "9",
+        },
+        { w: 1, h: 1 },
+      ),
+    ]),
+    [],
+    `đường dẫn lạ đọc lại từ DOM bị chặn bằng CÙNG phép kiểm của cửa vào \`clauses\`: ${xau}`,
+  );
+}
 
 // ───────────────────────────────────────────────────── 3. `.docx` — ImageRun
 
-const fetchThat = globalThis.fetch;
-const datFetch = (tra: () => Promise<Response>) => {
-  globalThis.fetch = tra as typeof fetch;
+/** Bộ tải ảnh GIẢ tiêm vào (ở trình duyệt là `taiAnhNguon` của `api.ts`, có
+ *  Bearer): ghi lại mọi đường dẫn được xin để kiểm tệp xin ĐÚNG đường dẫn
+ *  tương đối, không phải một `src` nào khác. */
+const daXin: string[] = [];
+const taiDuoc = (bytes: Uint8Array | null) => async (duong: string) => {
+  daXin.push(duong);
+  return bytes ? new Blob([new Uint8Array(bytes)]) : null;
 };
-const fetchOk = () => datFetch(async () => new Response(new Uint8Array(PNG), { status: 200 }));
+const taiOk = taiDuoc(new Uint8Array(PNG));
+const taiHong = taiDuoc(null);
 
 const anhMau: AnhNguon = {
   url: URL_THAT,
@@ -200,8 +244,8 @@ function timNut(nut: unknown, ten: string): Record<string, unknown>[] {
   return ra;
 }
 
-fetchOk();
-const doanAnh = await anhThanhParagraph(anhMau);
+const doanAnh = await anhThanhParagraph(anhMau, taiOk);
+bang(daXin, [URL_THAT], "`.docx` xin bytes qua bộ tải ĐƯỢC TIÊM, đúng đường dẫn tương đối của ảnh");
 ok(timNut(doanAnh, "w:drawing").length === 1, "`.docx` có ĐÚNG một `w:drawing` cho một ảnh");
 const ext = timNut(doanAnh, "wp:extent")[0] as { root?: Record<string, unknown> } | undefined;
 const thuoc = (ext?.root as Record<string, unknown> | undefined) ?? {};
@@ -211,17 +255,18 @@ ok(
   `cỡ trong .docx đúng bằng cỡ NGUỒN khai, không qua một phép làm tròn nào của mình (${cx.slice(0, 200)})`,
 );
 
-datFetch(async () => new Response(null, { status: 404 }));
-const doanHong = await anhThanhParagraph(anhMau);
+const doanHong = await anhThanhParagraph(anhMau, taiHong);
 bang(
   timNut(doanHong, "w:drawing").length,
   0,
   "ảnh không tải được → đoạn RỖNG, không ném: cả tệp vẫn tải về được",
 );
 
-datFetch(async () => new Response(new Uint8Array([0x3c, 0x73, 0x76, 0x67]), { status: 200 }));
 bang(
-  timNut(await anhThanhParagraph(anhMau), "w:drawing").length,
+  timNut(
+    await anhThanhParagraph(anhMau, taiDuoc(new Uint8Array([0x3c, 0x73, 0x76, 0x67]))),
+    "w:drawing",
+  ).length,
   0,
   "bytes KHÔNG phải png/jpg/gif/bmp bị từ chối ở phía tệp nữa, kể cả khi máy chủ phát ra",
 );
@@ -243,8 +288,7 @@ const noiDungAnh = (a: AnhNguon | null): NoiDungXuat => ({
   leTrang: null,
 });
 
-fetchOk();
-const { pdf: pdfCoAnh } = await noiDungThanhPDF(noiDungAnh(anhMau), "Có ảnh", phongChuPDF);
+const { pdf: pdfCoAnh } = await noiDungThanhPDF(noiDungAnh(anhMau), "Có ảnh", phongChuPDF, taiOk);
 const { pdf: pdfKhongAnh } = await noiDungThanhPDF(noiDungAnh(null), "Không ảnh", phongChuPDF);
 /** Số XObject ẢNH thật trong tệp. `"/Image"` trần trụi KHÔNG dùng được: jsPDF
  *  luôn ghi sẵn một bảng `/XObject` và chuỗi `ImageI` vào mọi tệp, kể cả tệp
@@ -268,19 +312,36 @@ const { pdf: pdfNhieu } = await noiDungThanhPDF(
   },
   "Ba ảnh cao",
   phongChuPDF,
+  taiOk,
 );
 ok(
   pdfNhieu.getNumberOfPages() > 1,
   `ba tấm ảnh cao 5,47cm mỗi tấm phải tràn sang trang mới (${pdfNhieu.getNumberOfPages()} trang)`,
 );
 
-datFetch(async () => new Response(null, { status: 404 }));
-const { pdf: pdfAnhHong } = await noiDungThanhPDF(noiDungAnh(anhMau), "Ảnh hỏng", phongChuPDF);
+const { pdf: pdfAnhHong } = await noiDungThanhPDF(
+  noiDungAnh(anhMau),
+  "Ảnh hỏng",
+  phongChuPDF,
+  taiHong,
+);
 ok(
   pdfAnhHong.getNumberOfPages() === 1 &&
     demAnh(Buffer.from(pdfAnhHong.output("arraybuffer")).toString("latin1")) === 0,
   "ảnh không tải được → PDF vẫn ra trang, không ném và không chừa chỗ trống",
 );
 
-globalThis.fetch = fetchThat;
+// Không tiêm bộ tải (mọi lời gọi PDF không có ảnh của các kịch bản kiểm
+// khác) → KHÔNG ảnh nào, không ném: fail closed, không rơi về một `fetch`
+// trần thiếu Bearer.
+const { pdf: pdfKhongBoTai } = await noiDungThanhPDF(
+  noiDungAnh(anhMau),
+  "Không bộ tải",
+  phongChuPDF,
+);
+ok(
+  demAnh(Buffer.from(pdfKhongBoTai.output("arraybuffer")).toString("latin1")) === 0,
+  "không có bộ tải → PDF không có ảnh nào, không ném",
+);
+
 console.info(`kiem-anh: ${dat}/${dat} đạt`);
