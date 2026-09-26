@@ -275,6 +275,80 @@ def test_dung_pdf_DUNG_CHUNG_suat_voi_doc(monkeypatch):
     assert e.value.ly_do == "qua_tai"
 
 
+_NS_ANH = (
+    'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
+    'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
+    'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+    'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"'
+)
+
+
+def _docx_lien_ket_ngoai(goc: str) -> bytes:
+    """Một docx với hai đường liên kết ngoài phổ biến: ảnh DrawingML liên kết
+    (`r:link`, `TargetMode="External"`) và trường `INCLUDEPICTURE`."""
+    anh = (
+        '<w:p><w:r><w:drawing><wp:inline><wp:extent cx="914400" cy="914400"/><wp:docPr id="1" name="p"/>'
+        '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic>'
+        '<pic:nvPicPr><pic:cNvPr id="1" name="p"/><pic:cNvPicPr/></pic:nvPicPr>'
+        '<pic:blipFill><a:blip r:link="rIdNgoai"/></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/>'
+        '<a:ext cx="914400" cy="914400"/></a:xfrm><a:prstGeom prst="rect"/></pic:spPr>'
+        "</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>"
+    )
+    truong = (
+        '<w:p><w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+        f'<w:r><w:instrText> INCLUDEPICTURE "{goc}/truong.png" \\d </w:instrText></w:r>'
+        '<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>x</w:t></w:r>'
+        '<w:r><w:fldChar w:fldCharType="end"/></w:r></w:p>'
+    )
+    rels = (
+        '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rIdNgoai" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" '
+        f'Target="{goc}/anh.png" TargetMode="External"/></Relationships>'
+    )
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("[Content_Types].xml", _CT)
+        z.writestr("_rels/.rels", _RELS)
+        z.writestr("word/_rels/document.xml.rels", rels)
+        z.writestr(
+            "word/document.xml",
+            f'<?xml version="1.0"?><w:document {_NS_ANH}><w:body>{anh}{truong}</w:body></w:document>',
+        )
+    return buf.getvalue()
+
+
+@pytest.mark.skipif(not _CO_SOFFICE, reason="cần LibreOffice")
+def test_dung_pdf_KHONG_goi_ra_mang_voi_lien_ket_ngoai():
+    """PHÉP ĐO rủi ro còn lại, không phải rào chắn: hộp cát LibreOffice không
+    chặn mạng ở tầng hệ điều hành (`doc_tai_lieu._chuyen_doc_sang_docx`), và
+    từ quyết định 2026-09-26 MỌI docx tải lên và mọi `GET /trang` của docx đi
+    qua nó. Liên kết trỏ về một máy nghe 127.0.0.1; bản LibreOffice đang chạy
+    test không được gọi tới. Đỏ trên một image nào nghĩa là rủi ro đã thật ở
+    đó — cần cách ly mạng cho tiến trình chuyển đổi trước khi phát hành."""
+    import http.server
+    import socketserver
+
+    goi: list[str] = []
+
+    class _Nghe(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802 — tên do http.server đặt
+            goi.append(self.path)
+            self.send_response(404)
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    with socketserver.TCPServer(("127.0.0.1", 0), _Nghe) as may:
+        threading.Thread(target=may.serve_forever, daemon=True).start()
+        try:
+            dung_trang.dung_pdf(_docx_lien_ket_ngoai(f"http://127.0.0.1:{may.server_address[1]}"))
+        finally:
+            may.shutdown()
+    assert goi == []
+
+
 @pytest.mark.skipif(not _CO_SOFFICE, reason="cần LibreOffice")
 def test_docx_LibreOffice_khong_mo_duoc_la_tep_hong():
     """Zip hợp lệ với bộ đọc của KLAW nhưng không phải một docx soffice nạp
