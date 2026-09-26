@@ -88,6 +88,19 @@ def test_DOC_khong_bi_tu_choi_vi_DINH_DANG():
         pass  # máy không có LibreOffice — vẫn KHÔNG phải "định dạng không hỗ trợ"
 
 
+def test_DOC_mang_theo_ban_docx_da_quy_doi_lam_khuon_goc(monkeypatch):
+    """Quyết định 2026-09-26: khuôn gốc của một `.doc` là bản `.docx` đã quy
+    đổi — `doc()` phải trao lại đúng bytes đó thay vì bắt tầng trên quy đổi
+    lần hai. `.docx` gửi thẳng thì không có gì để trao: khuôn gốc là chính tệp."""
+    from tests.test_services.test_dung_trang import docx_that
+
+    docx = docx_that("Giấy tiếp nhận")
+    monkeypatch.setattr("src.services.doc_tai_lieu._chuyen_doc_sang_docx", lambda du_lieu: docx)
+
+    assert doc("cu.doc", _OLE2_MAGIC + b"\x00" * 100).docx_quy_doi == docx
+    assert doc("moi.docx", docx).docx_quy_doi is None
+
+
 def test_DOC_gia_mao_KHONG_phai_OLE2_bi_chan_TRUOC_bo_chuyen_doi():
     """Một .docx (chữ ký zip `PK`) bị đổi tên nhầm thành .doc — lỗi người dùng
     thường gặp. Đuôi tên tệp nói .doc nhưng byte nói khác; phải tin byte, và

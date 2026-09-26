@@ -22,11 +22,24 @@ from sqlalchemy import text
 
 from src.api import routes_tai_lieu as rtl
 from src.services import bao_ve, hoi_thoai
-from src.services.db import get_engine
+from src.services.db import get_engine, run_migrations
 from tests.test_api.test_xac_thuc_han_muc import _URL as SUPABASE
 from tests.test_api.test_xac_thuc_han_muc import _bearer
+from tests.test_services.test_dung_trang import pdf_trang
 
 pytestmark = pytest.mark.integration
+
+_DUNG_PDF_THAT = rtl.dung_trang.dung_pdf
+
+
+@pytest.fixture(autouse=True)
+def _dung_pdf_gia(monkeypatch):
+    """`_docx` dưới đây là zip tối thiểu bộ đọc của KLAW nhận nhưng LibreOffice
+    KHÔNG nạp được, nên dựng trang thật sẽ từ chối nó. Mọi test ở đây không
+    hỏi về trang thì nhận một PDF A4 một trang; test hỏi về trang xin lại
+    LibreOffice thật bằng fixture `dung_that`."""
+    run_migrations("036")
+    monkeypatch.setattr(rtl.dung_trang, "dung_pdf", lambda docx: pdf_trang((595.0, 842.0)))
 
 LOAI = "hdld"
 DONG_LUONG = "Lương chính thức: 20.000.000 đồng/tháng"
@@ -740,3 +753,307 @@ async def test_xoa_hoi_thoai_mang_CON_DAU_di_cung(client, khoa_ky, hai_nguoi, ll
             ).scalar_one()
             == 0
         )
+
+
+# ═══ Khuôn gốc — quyết định 2026-09-26, migration 036 ══════════════════════
+# Tệp tải lên được giữ theo hội thoại để hiện ĐÚNG như bản tải lên; số trang là
+# số trang dàn thật, trần 10; tệp đi cùng cuộc hội thoại và cùng tài khoản.
+
+import base64  # noqa: E402
+import shutil  # noqa: E402
+
+from tests.test_services.test_dung_trang import co_png, docx_that  # noqa: E402
+
+_KHO_MAU = pathlib.Path.home() / "giấy tờ thực tập"
+_CO_SOFFICE = shutil.which("soffice") is not None
+_CO_PDFTOPPM = shutil.which("pdftoppm") is not None
+can_soffice = pytest.mark.skipif(not _CO_SOFFICE, reason="cần LibreOffice")
+can_pdftoppm = pytest.mark.skipif(not _CO_PDFTOPPM, reason="cần pdftoppm (poppler)")
+
+
+@pytest.fixture
+def dung_that(monkeypatch):
+    """LibreOffice THẬT thay cho PDF giả của `_dung_pdf_gia`."""
+    monkeypatch.setattr(rtl.dung_trang, "dung_pdf", _DUNG_PDF_THAT)
+
+
+def _pdf_co_chu(*kho: tuple[float, float]) -> bytes:
+    """PDF có LỚP CHỮ (bộ đọc không phải OCR), mỗi trang một khổ."""
+    from reportlab.pdfgen import canvas
+
+    buf = BytesIO()
+    c = canvas.Canvas(buf)
+    for i, k in enumerate(kho, start=1):
+        c.setPageSize(k)
+        c.drawString(72, k[1] - 72, f"Trang {i}: {DONG_LUONG}")
+        c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+async def _dinh_kem(client, headers, phien, tep: bytes, ten: str):
+    """Đính kèm KHÔNG chọn loại — không gọi mô hình."""
+    return await client.post(
+        "/api/v1/tai-lieu", headers=headers, files={"tep": (ten, tep)}, data={"hoi_thoai_id": phien}
+    )
+
+
+def _dem(sql: str, **p) -> int:
+    with get_engine().connect() as c:
+        return c.execute(text(sql), p).scalar_one()
+
+
+def _kiem_trang(body: dict, so_trang: int) -> None:
+    """Đúng `so_trang` PNG, và cỡ từng ảnh đi theo khổ của CHÍNH trang đó."""
+    assert len(body["kho"]) == len(body["trang"]) == so_trang
+    for (rong, cao), anh in zip(body["kho"], body["trang"], strict=True):
+        w, h = co_png(base64.b64decode(anh))
+        assert abs(w - rong * 110 / 72) <= 2 and abs(h - cao * 110 / 72) <= 2
+
+
+@can_soffice
+@can_pdftoppm
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("ten", "so_trang", "kho_dau"),
+    [
+        ("BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx", 2, None),
+        ("Evaluation Form.docx", 4, [612.0, 792.0]),
+        ("Report_instruction.docx", 3, None),
+    ],
+)
+async def test_bieu_mau_THAT_ra_dung_so_trang_dan_that(
+    client, khoa_ky, hai_nguoi, dung_that, ten, so_trang, kho_dau
+):
+    """Evaluation Form đọc theo ngắt trang khai báo ra 1 trang; dàn thật là 4,
+    và nó là khổ Letter — hiện ra vẫn phải là Letter."""
+    tep = _KHO_MAU / ten
+    if not tep.exists():
+        pytest.skip("kho mẫu ngoài repo không có trên máy này")
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+
+    r = await _dinh_kem(client, ha, phien, tep.read_bytes(), ten)
+    assert r.status_code == 201, r.text
+    assert (r.json()["so_trang"], r.json()["co_khuon_goc"]) == (so_trang, True)
+    assert (await client.get(f"/api/v1/tai-lieu/{r.json()['id']}", headers=ha)).json()["so_trang"] == so_trang
+
+    trang = await client.get(f"/api/v1/tai-lieu/{r.json()['id']}/trang", headers=ha)
+    assert trang.status_code == 200, trang.text
+    _kiem_trang(trang.json(), so_trang)
+    if kho_dau:
+        assert trang.json()["kho"][0] == kho_dau
+
+
+@can_soffice
+@pytest.mark.asyncio
+async def test_DOCX_11_trang_bi_tu_choi_neu_10_trang_va_KHONG_tru_han_muc(
+    client, khoa_ky, hai_nguoi, dung_that, monkeypatch
+):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    monkeypatch.setattr(rtl.tl, "han_muc_ngay", lambda goi: 1)
+
+    r = await _dinh_kem(client, ha, phien, docx_that(DONG_LUONG, ngat_trang=10), "dai.docx")
+    assert r.status_code == 422, r.text
+    assert "10 trang" in r.json()["detail"]
+    assert _dem("SELECT count(*) FROM khuon_goc k JOIN viec_doc_tai_lieu v ON v.id = k.viec_id"
+                " WHERE v.hoi_thoai_id = CAST(:h AS uuid)", h=phien) == 0
+
+    r = await _dinh_kem(client, ha, phien, docx_that(DONG_LUONG, ngat_trang=9), "du.docx")
+    assert r.status_code == 201, "tài liệu bị từ chối vì trần trang không được tiêu lượt của ngày"
+    assert r.json()["so_trang"] == 10
+
+
+@pytest.mark.asyncio
+async def test_PDF_11_trang_bi_tu_choi_TRUOC_khi_doc_va_KHONG_tru_han_muc(
+    client, khoa_ky, hai_nguoi, monkeypatch
+):
+    """Bản scan 11 trang bị đếm trang trước khi OCR — không tốn công đọc từng
+    trang cho một tài liệu sẽ bị từ chối."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    monkeypatch.setattr(rtl.tl, "han_muc_ngay", lambda goi: 1)
+    doc_that = rtl.doc
+
+    def _khong_doc(*a, **k):
+        raise AssertionError("PDF vượt trần trang không được đi tới bộ đọc")
+
+    monkeypatch.setattr(rtl, "doc", _khong_doc)
+    r = await _dinh_kem(client, ha, phien, pdf_trang(*[(595.0, 842.0)] * 11), "scan.pdf")
+    assert r.status_code == 422, r.text
+    assert "10 trang" in r.json()["detail"]
+
+    monkeypatch.setattr(rtl, "doc", doc_that)
+    r = await _dinh_kem(client, ha, phien, _pdf_co_chu((595.0, 842.0)), "mot.pdf")
+    assert r.status_code == 201, r.text
+
+
+@pytest.mark.asyncio
+async def test_thieu_LibreOffice_la_503_va_KHONG_tru_han_muc(client, khoa_ky, hai_nguoi, monkeypatch):
+    from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang
+
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    monkeypatch.setattr(rtl.tl, "han_muc_ngay", lambda goi: 1)
+
+    def _thieu(docx):
+        raise ChuyenDoiKhongSanSang("khong_co_cong_cu")
+
+    monkeypatch.setattr(rtl.dung_trang, "dung_pdf", _thieu)
+    r = await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "hd.docx")
+    assert r.status_code == 503, r.text
+    assert ".doc" not in r.json()["detail"].replace(".docx", ""), "câu cũ chỉ nói về .doc"
+
+    r = await _dinh_kem(client, ha, phien, _pdf_co_chu((595.0, 842.0)), "mot.pdf")
+    assert r.status_code == 201, r.text
+
+
+@can_pdftoppm
+@pytest.mark.asyncio
+async def test_trang_cua_PDF_la_chinh_tep_giu_tung_kho(client, khoa_ky, hai_nguoi):
+    """Không có LibreOffice ở đường này: PDF là khuôn gốc của chính nó."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    r = await _dinh_kem(client, ha, phien, _pdf_co_chu((595.0, 842.0), (612.0, 792.0)), "hai.pdf")
+    assert (r.status_code, r.json()["so_trang"], r.json()["co_khuon_goc"]) == (201, 2, True)
+
+    t = await client.get(f"/api/v1/tai-lieu/{r.json()['id']}/trang", headers=ha)
+    assert t.status_code == 200
+    assert t.json()["kho"] == [[595.0, 842.0], [612.0, 792.0]]
+    _kiem_trang(t.json(), 2)
+    assert t.headers["x-content-type-options"] == "nosniff"
+    assert "private" in t.headers["cache-control"]
+
+
+@pytest.mark.asyncio
+async def test_ANH_khong_co_khuon_goc_trang_la_404(client, khoa_ky, hai_nguoi, monkeypatch):
+    """Ảnh giữ đường OCR hôm nay (ngoài phạm vi quyết định): không có gì để hiện
+    "như bản tải lên", nên `/trang` nói không có — giao diện lùi về bản xem HTML."""
+    from src.services.doc_tai_lieu import DonViVanBan, TaiLieuDaDoc
+
+    tl_gia = TaiLieuDaDoc(don_vi=[DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung=DONG_LUONG)],
+                          so_trang=1, so_ky_tu=len(DONG_LUONG))
+    monkeypatch.setattr(rtl, "doc", lambda ten, du_lieu: tl_gia)
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "ảnh")
+    r = await _dinh_kem(client, ha, phien, b"\xff\xd8\xff\xe0", "chup.jpg")
+    assert (r.status_code, r.json()["co_khuon_goc"]) == (201, False)
+    assert (await client.get(f"/api/v1/tai-lieu/{r.json()['id']}/trang", headers=ha)).status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("duong", ["tai_lieu_hoi_thoai", "hoi_thoai", "tai_khoan"])
+async def test_khuon_goc_di_cung_hoi_thoai_va_tai_khoan(client, khoa_ky, hai_nguoi, duong):
+    """Điều khoản đánh đổi của quyết định: tệp nằm trong Postgres ĐÚNG BẰNG
+    đời cuộc hội thoại — cả ba đường xoá người dùng thật có."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    viec = (await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "hd.docx")).json()["id"]
+    dem = "SELECT count(*) FROM khuon_goc WHERE viec_id = CAST(:v AS uuid)"
+    assert _dem(dem, v=viec) == 1
+
+    if duong == "tai_lieu_hoi_thoai":
+        assert (await client.delete(f"/api/v1/tai-lieu/hoi-thoai/{phien}", headers=ha)).status_code == 204
+    elif duong == "hoi_thoai":
+        assert (await client.delete(f"/api/v1/hoi-thoai/{phien}", headers=ha)).status_code == 204
+    else:
+        with get_engine().begin() as c:
+            c.execute(text("DELETE FROM users WHERE sub = CAST(:s AS uuid)"), {"s": a})
+    assert _dem(dem, v=viec) == 0
+
+
+@pytest.mark.asyncio
+async def test_trang_va_doc_lai_cua_NGUOI_KHAC_la_404_khong_dang_nhap_la_401(
+    client, khoa_ky, hai_nguoi, llm_gia
+):
+    a, b = hai_nguoi
+    ha, hb = _bearer(khoa_ky, a), _bearer(khoa_ky, b)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "hd.docx")).json()["id"]
+
+    for id_ in (viec, str(uuid.uuid4()), "khong-phai-uuid"):
+        assert (await client.get(f"/api/v1/tai-lieu/{id_}/trang", headers=hb)).status_code == 404
+        r = await client.post(f"/api/v1/tai-lieu/{id_}/doc-lai", headers=hb, json={"loai": LOAI})
+        assert r.status_code == 404
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}/trang")).status_code == 401
+    assert (await client.post(f"/api/v1/tai-lieu/{viec}/doc-lai", json={"loai": LOAI})).status_code == 401
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}", headers=ha)).json()["du_kien"] == [], (
+        "B gọi rút lại trên việc của A không được chạy gì"
+    )
+
+
+@pytest.mark.asyncio
+async def test_DOC_LAI_rut_theo_loai_tren_CHINH_viec_da_luu_khong_tru_han_muc(
+    client, khoa_ky, hai_nguoi, llm_gia, monkeypatch
+):
+    """Chọn loại sau khi đính kèm từng là TẢI LÊN LẠI: một việc mới và một lượt
+    hạn mức mỗi lần đổi ý. Giờ tệp đã ở lại, nên rút lại chạy trên chính việc cũ."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    monkeypatch.setattr(rtl.tl, "han_muc_ngay", lambda goi: 1)
+    viec = (await _dinh_kem(client, ha, phien, _docx(DONG_LUONG, DONG_THU_VIEC), "hd.docx")).json()
+
+    for _ in range(2):  # hạn mức 1 đã dùng hết cho lần tải lên — rút lại vẫn đi
+        r = await client.post(f"/api/v1/tai-lieu/{viec['id']}/doc-lai", headers=ha, json={"loai": LOAI})
+        assert r.status_code == 200, r.text
+    d = r.json()
+    assert (d["id"], d["loai"], d["trang_thai"], d["co_khuon_goc"]) == (viec["id"], LOAI, "xong", True)
+    assert {x["khoa"] for x in d["du_kien"]} == {"luong_chinh_thuc"}
+    assert _dem("SELECT count(*) FROM viec_doc_tai_lieu WHERE hoi_thoai_id = CAST(:h AS uuid)", h=phien) == 1
+
+
+@pytest.mark.asyncio
+async def test_DOC_LAI_loai_LA_la_422_viec_chua_doc_xong_la_409(client, khoa_ky, hai_nguoi, llm_gia):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "hd.docx")).json()["id"]
+    r = await client.post(f"/api/v1/tai-lieu/{viec}/doc-lai", headers=ha, json={"loai": "../../etc"})
+    assert r.status_code == 422
+    assert (await client.get(f"/api/v1/tai-lieu/{viec}", headers=ha)).json()["trang_thai"] == "xong", (
+        "một loại lạ không được đẩy việc đang tốt sang `hong`"
+    )
+
+    assert (await _dinh_kem(client, ha, phien, b"khong phai zip", "hong.docx")).status_code == 422
+    with get_engine().connect() as c:
+        hong = c.execute(
+            text("SELECT id FROM viec_doc_tai_lieu WHERE hoi_thoai_id = CAST(:h AS uuid) AND trang_thai = 'hong'"),
+            {"h": phien},
+        ).scalar_one()
+    r = await client.post(f"/api/v1/tai-lieu/{hong}/doc-lai", headers=ha, json={"loai": LOAI})
+    assert r.status_code == 409
+
+
+@can_soffice
+@can_pdftoppm
+@pytest.mark.asyncio
+async def test_chuoi_BI_MAT_trong_tep_KHONG_vao_traces_luot_hoi_thoai_hay_log(
+    client, khoa_ky, hai_nguoi, llm_gia, dung_that, caplog
+):
+    """Khuôn gốc chỉ nằm ở `khuon_goc` (FR-027): tải lên, xem trang và rút lại
+    đều không để một mẩu chữ của tài liệu rơi vào traces, lượt hội thoại hay log."""
+    bi_mat = f"BI-MAT-KHUON-GOC-{uuid.uuid4().hex}"
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+
+    with caplog.at_level("DEBUG", logger="src"):
+        r = await _dinh_kem(client, ha, phien, docx_that(DONG_LUONG, f"Bên B: {bi_mat}"), "hd.docx")
+        assert r.status_code == 201, r.text
+        viec = r.json()["id"]
+        assert (await client.get(f"/api/v1/tai-lieu/{viec}/trang", headers=ha)).status_code == 200
+        r = await client.post(f"/api/v1/tai-lieu/{viec}/doc-lai", headers=ha, json={"loai": LOAI})
+        assert r.status_code == 200, r.text
+
+    assert bi_mat not in caplog.text
+    for bang in ("traces", "luot_hoi_thoai"):
+        assert _dem(f"SELECT count(*) FROM {bang} t WHERE t::text LIKE :s", s=f"%{bi_mat}%") == 0, bang
