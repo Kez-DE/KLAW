@@ -60,6 +60,12 @@ def test_tai_lieu_thuong_DI_QUA():
     kiem_tran_chi_phi_tai_lieu(12_000)
 
 
+def test_tai_lieu_10_trang_day_dac_DI_QUA():
+    """Trần 10 trang (quyết định 2026-09-26) hứa gửi TRỌN tài liệu cho mô hình:
+    10 trang A4 dày đặc ~ 4.000 ký tự/trang phải lọt trần chi phí."""
+    kiem_tran_chi_phi_tai_lieu(40_000)
+
+
 def test_tai_lieu_KHONG_LO_bi_chan_TRUOC_khi_goi_mo_hinh():
     with pytest.raises(VuotTran) as e:
         kiem_tran_chi_phi_tai_lieu(50_000_000)

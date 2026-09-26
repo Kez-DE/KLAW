@@ -58,7 +58,9 @@ chu_ky_pro_ngay: 30
 # KHÔNG có trần "số lần thử lại": hệ thống không giữ tệp gốc (FR-022), nên thử
 # lại chính là tải lên lại, và `tai_lieu_ngay` đã đếm việc đó.
 tai_lieu:
-  chi_phi_usd: 0.05
+  # 0.10 = 50.000 ký tự theo `usd_moi_nghin_ky_tu`: đủ cho trọn một tài liệu
+  # 10 trang, trần số trang của quyết định 2026-09-26 (không cắt ngầm).
+  chi_phi_usd: 0.10
   # Số tài liệu đọc được mỗi ngày, theo gói (FR-004). Đọc một tài liệu tốn hơn
   # một câu hỏi, nên số nhỏ hơn hạn mức hỏi đáp.
   theo_goi:

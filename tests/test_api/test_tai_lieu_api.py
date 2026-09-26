@@ -261,6 +261,17 @@ async def test_tep_hong_VAN_tinh_vao_han_muc(client, khoa_ky, hai_nguoi, llm_gia
 
 
 @pytest.mark.asyncio
+async def test_tep_3MB_toi_duoc_bo_doc(client, khoa_ky, hai_nguoi, llm_gia):
+    """Trần body 2 MB chung từng chặn mọi tệp trên 2 MB dưới giao diện hứa 20 MB
+    (quyết định 2026-09-26). 422 của bộ đọc = đã qua mọi cổng kích thước."""
+    a, _ = hai_nguoi
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+
+    r = await _tai_len(client, _bearer(khoa_ky, a), phien, tep=b"x" * (3 * 1024 * 1024))
+    assert r.status_code == 422, r.text
+
+
+@pytest.mark.asyncio
 async def test_dau_van_ban_nhan_ra_hai_lan_gui_CUNG_mot_tep(client, khoa_ky, hai_nguoi, llm_gia):
     a, _ = hai_nguoi
     ha = _bearer(khoa_ky, a)

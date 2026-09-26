@@ -121,6 +121,9 @@ def da_dung_hom_nay(engine: Engine, user_sub: str) -> int:
     đang quá tải là lỗi của HỆ THỐNG, không phải người dùng gửi một tệp có vấn
     đề — tính vào hạn mức của họ là phạt người dùng cho một việc họ không gây
     ra và không sửa được bằng cách đổi tệp.
+
+    `vuot_tran_so_trang` cũng KHÔNG tính (quyết định 2026-09-26): tài liệu vượt
+    trần số trang bị từ chối lúc tải lên, trước khi tốn một lượt mô hình nào.
     """
     from src.services.bao_ve import moc_ngay
 
@@ -137,7 +140,8 @@ def da_dung_hom_nay(engine: Engine, user_sub: str) -> int:
                 # Vô hại hôm nay vì chưa có `ly_do_hong` nào mang hình dạng
                 # đó, nhưng là một bẫy cho lần thêm giá trị kế tiếp. `left()`
                 # so khớp CHUỖI, không có ký tự đại diện nào để hiểu lầm.
-                "(ly_do_hong <> 'vuot_tran_chi_phi' AND left(ly_do_hong, 9) <> 'he_thong_'))"
+                "(ly_do_hong NOT IN ('vuot_tran_chi_phi', 'vuot_tran_so_trang') "
+                "AND left(ly_do_hong, 9) <> 'he_thong_'))"
             ),
             {"u": user_sub, "m": moc_ngay()},
         ).scalar_one()
