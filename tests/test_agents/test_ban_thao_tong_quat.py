@@ -1895,8 +1895,9 @@ def test_trang_va_anh_song_sot_qua_luu_tai_lai_va_sua_tay(nguoi):
     anh = [{"url": f"/tai-lieu/{A_ID}/anh/logo.png", "rong": 10, "cao": 5, "vung": "than", "thu_tu": 0}]
     van_ban = {**VAN_BAN, "muc": [{**m, "trang": i, "anh": anh} for i, m in enumerate(VAN_BAN["muc"], 1)]}
     pid = hoi_thoai.tao_phien(nguoi, "biên bản bàn giao")
-    bt = d.dung_ban_thao_tong_quat({"user_sub": nguoi, "hoi_thoai_id": pid, "muc_dich_tai_lieu": "tao_van_ban",
-                                    "van_ban_tong_quat": van_ban})["ban_thao_ket"]
+    bt = d.dung_ban_thao_tong_quat(
+        {"user_sub": nguoi, "hoi_thoai_id": pid, "muc_dich_tai_lieu": "tao_van_ban", "van_ban_tong_quat": van_ban}
+    )["ban_thao_ket"]
     doc_lai = ban_thao.chi_tiet(nguoi, bt["id"])
     sua = ban_thao.sua_tay(nguoi, bt["id"], "muc_2", 0, "Tổng 20.000.000 đồng.", doc_lai["phien_ban"])
     for cl in (doc_lai["clauses"], sua["clauses"]):

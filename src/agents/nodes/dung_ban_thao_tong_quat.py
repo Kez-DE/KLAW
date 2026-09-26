@@ -101,6 +101,12 @@ def clauses_tu(van_ban: dict) -> list[dict]:
             # nhất ra giao diện; `mucTuBanThao` đọc lại ở mục đầu. `.get`, cùng
             # luật ba khoá trên: một `muc` viết tay (test, fixture) không có nó.
             "le_trang": m.get("le_trang") or [],
+            # Trang nguồn và ảnh nguồn (`lam_sach_van_ban`), `xuat-tep.ts` đọc
+            # lại `c.trang`/`c.anh`. Từng bị rơi ở đây nên mọi bản thảo hiện
+            # trên MỘT tờ và mất ảnh. Chỉ CÓ MẶT khi mục mang chúng — cùng luật
+            # phía đọc: vắng `trang` là trang 1, vắng `anh` là không ảnh.
+            **({"trang": m["trang"]} if m.get("trang") else {}),
+            **({"anh": m["anh"]} if m.get("anh") else {}),
         }
         for i, m in enumerate((van_ban or {}).get("muc") or [], 1)
     ]
