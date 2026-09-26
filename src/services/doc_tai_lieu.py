@@ -25,18 +25,24 @@ chúng thành một nhãn "không đọc được" là vứt đi thứ duy nhấ
 
 import logging
 import os
+import re
 import shutil
 import signal
 import subprocess
 import tempfile
 import threading
 import time
+import unicodedata
 import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from io import BytesIO
 from math import ceil
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +134,18 @@ _HAN_TREO_GIAY = 300
 # vài chục mục và vài MB giải nén, nên trần này chỉ chạm tệp dựng ra để phá.
 TRAN_SO_MUC_ZIP = 512
 TRAN_GIAI_NEN_BYTE = 64 * 1024 * 1024
+
+# Dấu hiệu của một chỗ ĐỂ ĐIỀN: dấu chấm lửng `…`, hoặc một dãy từ ba dấu chấm
+# / gạch ngang / gạch dưới trở lên. Một dấu chấm lẻ thì không — `20.000.000`
+# phân nhóm nghìn bằng đúng ký tự đó. DÙNG CHUNG hai nơi: `hieu_tai_lieu.
+# vung_trong` (một giá trị có phải chỗ trống không) và bộ đọc chỗ trống ở đây
+# (`_day_cham`) — hai câu trả lời cho "chỗ này để điền" không được lệch nhau.
+RE_CHO_DIEN = re.compile(r"…|[._–—-]{3,}")
+
+# Công cụ poppler nhẹ (`pdftotext -tsv`, `pdftoppm -gray`) chỉ để lấy HỘP chữ và
+# ảnh xám — không phải để đọc chữ. 60 giây cùng lý lẽ `_HAN_CHUYEN_DOI_GIAY`:
+# một tệp cố ý làm treo bộ phân tích phải lộ ra trong một phút.
+_HAN_CONG_CU_GIAY = 60
 
 
 class NguonChu(StrEnum):
@@ -344,6 +362,57 @@ class AnhTaiLieu:
 
 
 @dataclass(frozen=True)
+class DiaChi:
+    """Chỗ một đơn vị DOCX đứng trong khuôn gốc — kế hoạch
+    `khuon-goc-dien-tai-cho.md`, hợp đồng "Đơn vị văn bản additions".
+
+    `phan` là tên part THẬT trong zip (`word/document.xml`, `word/header2.xml`).
+    `chi_muc` là chỉ số con PHẦN TỬ ở từng cấp, đi từ `w:body` (hoặc gốc
+    `w:hdr`/`w:ftr`) xuống vật chứa của đơn vị: `(i,)` cho một đoạn thân bài,
+    `(bảng, hàng, ô)` cho một ô. Mọi cấp đếm TẤT CẢ con phần tử (`w:tblPr`,
+    `w:tblGrid`, `w:trPr` cũng được đếm); chú thích XML và PI thì không — bộ
+    đọc (ElementTree) không giữ chúng, nên bộ áp (lxml) phải lọc đúng như vậy.
+
+    Đo trên part THÔ đúng như nằm trong tệp, TRƯỚC khi `_bo_fallback` gỡ gì:
+    bộ áp đi lại trên chính bytes đã lưu, nơi `mc:Fallback` vẫn còn. Ghim lúc
+    đọc; bộ áp không bao giờ duyệt lại bằng mã mới hơn.
+    """
+
+    phan: str
+    chi_muc: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class ChoTrong:
+    """MỘT chỗ để điền của một đơn vị, theo thứ tự đọc.
+
+    `so` là chỉ số của chỗ trống TRONG đơn vị, đếm từ 0 — đúng thứ phép sửa
+    `{"loai": "dien", "cho_trong": n}` trỏ tới. `kieu`: `cham` (dãy `.`/`…`
+    mà `RE_CHO_DIEN` nhận) hoặc `tab` (một `w:tab` rơi vào mốc có đường dẫn
+    `dot`). `nhan` là tối đa 60 ký tự CUỐI của chữ đứng trước chỗ trống (sau
+    chỗ trống liền trước, nếu có) — phần sát chỗ trống mới là nhãn của nó.
+
+    DOCX dùng `doan`/`dau`/`cuoi`: `doan` là thứ tự `w:p` trong
+    `vật_chứa.iter(w:p)` THÔ (0 với đoạn thân bài), `[dau, cuoi)` là offset
+    trên chuỗi `w:t` nối THÔ của chính đoạn đó — chưa `strip()`, `w:tab`/
+    `w:br` không góp ký tự nào. Một chỗ `tab` có `dau == cuoi`.
+
+    PDF dùng `hop`/`co_chu`: `hop` là `(x0, y0, x1, y1)` bằng điểm PDF, gốc
+    TRÊN-trái, trên `trang` của đơn vị; `co_chu` là chiều cao (điểm) của dòng
+    chữ chỗ trống ấy nằm — không phải cỡ phông danh nghĩa.
+    """
+
+    so: int
+    kieu: str
+    nhan: str = ""
+    doan: int = 0
+    dau: int = 0
+    cuoi: int = 0
+    hop: tuple[float, float, float, float] | None = None
+    co_chu: float = 0.0
+
+
+@dataclass(frozen=True)
 class DonViVanBan:
     """Một mẩu văn bản liền mạch trong tài liệu, kèm chỗ nó nằm.
 
@@ -529,6 +598,16 @@ class DonViVanBan:
 
     Rỗng với mọi dòng lưu TRƯỚC trường này, và với mọi tài liệu không phải
     DOCX — PDF và ảnh OCR chưa có đường tách media nào."""
+    dia_chi: DiaChi | None = None
+    """Vật chứa của đơn vị trong khuôn gốc DOCX (xem `DiaChi`). `None` khi
+    nguồn không cho một địa chỉ đáng tin: PDF, ảnh, thân bài đọc bằng đường lùi
+    duyệt phẳng, đoạn trong hộp chữ — và mọi dòng lưu TRƯỚC trường này."""
+    cho_trong: tuple[ChoTrong, ...] = ()
+    """Chỗ để điền của đơn vị, theo thứ tự đọc (xem `ChoTrong`). Đi CẠNH
+    `noi_dung`, không chạm nó — cùng luật `dinh_dang`/`gian_cach`."""
+    hop: tuple[float, float, float, float] | None = None
+    """Hộp của DÒNG (PDF có lớp chữ, PDF scan) — điểm PDF, gốc trên-trái, trên
+    `trang`. `None` khi không định vị được chắc chắn."""
 
 
 @dataclass(frozen=True)
@@ -1699,6 +1778,130 @@ def _gc_mot(p: ET.Element, kieu_gc: dict[str, _KieuGC]) -> tuple[GianCach, ...]:
     return (g,) if g is not None else ()
 
 
+# ─── ĐỊA CHỈ VÀ CHỖ TRỐNG (P2b) ────────────────────────────────────────────
+# Bộ áp phép sửa (P3a) đi THẲNG tới `DiaChi` trên bytes khuôn gốc đã lưu và thay
+# đúng `[dau:cuoi]` của một chỗ trống. Nên mọi hàm dưới đây chạy trên cây THÔ —
+# `_doc_docx` gọi chúng TRƯỚC `_bo_fallback` — và trả về một bảng tra theo
+# chính phần tử, để hai bộ duyệt (chạy trên cây đã gỡ Fallback, CÙNG các phần
+# tử ấy) chỉ việc tra.
+
+_MC_AC = "{http://schemas.openxmlformats.org/markup-compatibility/2006}AlternateContent"
+_DAY_CHAM = re.compile(r"[.…]+")
+
+
+def _day_cham(s: str) -> list[tuple[int, int]]:
+    """`[dau, cuoi)` của mọi CHỖ ĐIỀN kẻ bằng chấm trong `s`: dãy `.`/`…` liền
+    nhau DÀI NHẤT mà `RE_CHO_DIEN` nhận — có `…`, hoặc từ ba `.` liền trở lên.
+    `"…."` là một chỗ; `"20.000.000"` và dấu chấm hết câu thì không."""
+    return [m.span() for m in _DAY_CHAM.finditer(s) if RE_CHO_DIEN.search(m.group())]
+
+
+def _la_cham(tu: str) -> bool:
+    """Cả `tu` là MỘT chỗ điền kẻ chấm (một từ của poppler/tesseract)."""
+    return bool(tu) and _day_cham(tu) == [(0, len(tu))]
+
+
+def _duoi_nhan(s: str) -> str:
+    """Nhãn: gộp khoảng trắng, giữ 60 ký tự CUỐI — sát chỗ trống mới là nhãn."""
+    return " ".join(s.split())[-60:].strip()
+
+
+def _cho_trong_doan(p: ET.Element, doan: int) -> list[ChoTrong]:
+    """Chỗ trống của MỘT `w:p` thô, `so` tạm 0 (`_cho_trong_don_vi` đánh lại).
+
+    Chuỗi và vị trí tab lấy đúng từ `_vi_tri_chu`/`_vi_tri_tab` — cùng phép nối
+    `noi_dung` dựa vào, chỉ là KHÔNG `strip()`. Tab thứ n nhảy tới mốc thứ n
+    (đúng xấp xỉ phía vẽ dùng, xem `_moc_tab`); nó là chỗ trống khi mốc ấy có
+    đường dẫn `dot`. Trong nhãn, mỗi `w:tab` là một chỗ ngắt chữ.
+    """
+    _, tho = _vi_tri_chu(p)
+    tab = _vi_tri_tab(p)
+    ppr = p.find(_PPR)
+    # ponytail: chỉ mốc khai TRỰC TIẾP ở `w:pPr/w:tabs`. Mốc thừa kế từ kiểu
+    # (1/46 đoạn có tab của Evaluation Form) không thành chỗ trống — đọc thêm
+    # `_kieu_gian_cach` khi một biểu mẫu thật cần.
+    moc = _moc_tab(ppr.find(_TABS) if ppr is not None else None)[0]
+    vi = [(dau, 1, "cham", cuoi) for dau, cuoi in _day_cham(tho)]
+    vi += [(t, 0, "tab", t) for i, t in enumerate(tab) if i < len(moc) and moc[i].leader == "dot"]
+    ra: list[ChoTrong] = []
+    truoc = 0
+    for dau, _, kieu, cuoi in sorted(vi):
+        cat = [truoc, *(t for t in tab if truoc < t < dau), dau]
+        nhan = _duoi_nhan(" ".join(tho[a:b] for a, b in zip(cat, cat[1:])))
+        ra.append(ChoTrong(so=0, kieu=kieu, nhan=nhan, doan=doan, dau=dau, cuoi=cuoi))
+        truoc = cuoi
+    return ra
+
+
+def _cho_trong_don_vi(nut: ET.Element) -> tuple[ChoTrong, ...]:
+    """Chỗ trống của một vật chứa (`w:p` hoặc `w:tc`) trên cây THÔ, theo thứ tự
+    đọc, `so` đánh liền qua các đoạn. `doan` là thứ tự trong `nut.iter(w:p)`
+    THÔ — tính cả đoạn trong `mc:Fallback` — đúng như bộ áp đi lại.
+
+    Fail closed với hộp chữ và `mc:AlternateContent`: nội dung ở đó có HAI bản
+    (Choice/Fallback), điền một bản là để bản kia sai. Đoạn CHỨA chúng và đoạn
+    NẰM TRONG chúng không có chỗ trống nào (đo trên BM.ĐT.18.05: "Phụ lục 4" hai
+    lần trên cây thô).
+    """
+    chan: set[ET.Element] = set()
+    for e in nut.iter():
+        if e.tag in (_P, _MC_AC) and (trong := [x for x in e.iter() if x is not e and x.tag in (_P, _MC_AC)]):
+            chan.add(e)
+            chan.update(trong)
+    ra = [c for j, p in enumerate(nut.iter(_P)) if p not in chan for c in _cho_trong_doan(p, j)]
+    return tuple(replace(c, so=i) for i, c in enumerate(ra))
+
+
+def _vi_tri(phan: str, chi_muc: tuple[int, ...], nut: ET.Element) -> dict:
+    ct = _cho_trong_don_vi(nut)
+    return {"dia_chi": DiaChi(phan=phan, chi_muc=chi_muc), **({"cho_trong": ct} if ct else {})}
+
+
+def _dinh_vi_than(goc: ET.Element, phan: str) -> dict[ET.Element, dict]:
+    """Vật chứa → địa chỉ + chỗ trống, cho ĐÚNG những vật chứa `_duyet_than`
+    biến thành đơn vị: `w:p` con của `w:body` và `w:tc` của một `w:tbl` con của
+    `w:body`. Chỉ số đếm MỌI con phần tử (`enumerate`, không `findall`)."""
+    than = goc.find(_BODY)
+    if than is None:
+        return {}
+    ra: dict[ET.Element, dict] = {}
+    for i, con in enumerate(than):
+        if con.tag == _P:
+            ra[con] = _vi_tri(phan, (i,), con)
+        elif con.tag == _TBL:
+            for h, tr in enumerate(con):
+                for c, tc in enumerate(tr) if tr.tag == _TR else ():
+                    if tc.tag == _TC:
+                        ra[tc] = _vi_tri(phan, (i, h, c), tc)
+    return ra
+
+
+def _dinh_vi_phang(goc: ET.Element, phan: str) -> dict[ET.Element, dict]:
+    """Mọi `w:p` của một đầu/chân trang (gốc `w:hdr`/`w:ftr`) → địa chỉ + chỗ
+    trống; đường dẫn đi qua bảng, `w:sdt`… tới đúng `w:p` ấy.
+
+    KHÔNG đi vào một `w:p` (hộp chữ) hay `mc:AlternateContent`: đoạn ở đó có
+    hai bản, nên nó không có địa chỉ nào (fail closed). Ngăn xếp thay đệ quy —
+    một tệp lồng sâu cố ý không được làm tràn ngăn gọi."""
+    ra: dict[ET.Element, dict] = {}
+    ngan: list[tuple[ET.Element, tuple[int, ...]]] = [(goc, ())]
+    while ngan:
+        nut, duong = ngan.pop()
+        for i, con in enumerate(nut):
+            if con.tag == _P:
+                ra[con] = _vi_tri(phan, (*duong, i), con)
+            elif con.tag != _MC_AC:
+                ngan.append((con, (*duong, i)))
+    return ra
+
+
+def _duoi_vi_tri(dinh_vi: dict[ET.Element, dict] | None, nut: ET.Element) -> tuple:
+    """Đuôi tuple cho `_dat_vi_tri`: `(dict,)` khi `nut` có địa chỉ, `()` khi
+    không — mọi hình dạng tuple cũ đi qua y nguyên."""
+    v = (dinh_vi or {}).get(nut)
+    return (v,) if v else ()
+
+
 # ─── DÒNG CHẢY TRANG ───────────────────────────────────────────────────────
 # Một `.docx` KHÔNG nói nó dày mấy trang: chỗ ngắt THẬT là kết quả của việc dàn
 # trang (phông chữ có trên máy, lề, luật widow/orphan, bảng bị xé) mà chỉ
@@ -1824,11 +2027,17 @@ def _duyet_phang(
     theo_kieu: dict[str, str] | None = None,
     kieu_chu: dict[str, dict[str, str]] | None = None,
     kieu_gc: dict[str, _KieuGC] | None = None,
+    dinh_vi: dict[ET.Element, dict] | None = None,
 ) -> list[tuple]:
     """Mọi `w:p` theo thứ tự tài liệu, KHÔNG toạ độ bảng.
 
     Vừa là đường lùi của thân bài, vừa là đường duy nhất cho đầu/chân trang —
     ở đó một `w:p` là một dòng và không có gì để định vị thêm.
+
+    `dinh_vi` (`_dinh_vi_phang`) chỉ có với đầu/chân trang. Thân bài rơi vào
+    đường lùi thì KHÔNG có địa chỉ hay chỗ trống nào: đường lùi tồn tại chính vì
+    cấu trúc không đọc được hết, nên không còn chỉ số con nào đáng tin (fail
+    closed; thêm khi một biểu mẫu thật cần điền tại chỗ qua `w:sdt` cấp thân).
 
     Đếm ngắt trang y hệt `_duyet_than` (cùng `_DemTrang`): đây là đường LÙI của
     thân bài, nên một tài liệu rơi vào đây không được mất số trang. Với đầu/chân
@@ -1844,7 +2053,17 @@ def _duyet_phang(
         trang = dem.truoc(p)
         if c := _chu(p):
             ra.append(
-                (trang, c, None, vung, None, _can_le_doan(p, tk), _dinh_dang_doan(p, kc), _gc_mot(p, kg))
+                (
+                    trang,
+                    c,
+                    None,
+                    vung,
+                    None,
+                    _can_le_doan(p, tk),
+                    _dinh_dang_doan(p, kc),
+                    _gc_mot(p, kg),
+                    *_duoi_vi_tri(dinh_vi, p),
+                )
             )
         dem.sau(p)
     return ra
@@ -1857,6 +2076,7 @@ def _duyet_than(
     kieu_chu: dict[str, dict[str, str]] | None = None,
     kieu_gc: dict[str, _KieuGC] | None = None,
     kieu_canh: dict[str, dict[str, tuple[str, str]]] | None = None,
+    dinh_vi: dict[ET.Element, dict] | None = None,
 ) -> list[tuple]:
     """Con trực tiếp của `w:body` theo thứ tự: `w:p` là một đơn vị, `w:tbl` cho
     một đơn vị mỗi ô kèm toạ độ (bảng, hàng, cột).
@@ -1901,6 +2121,7 @@ def _duyet_than(
                         _can_le_doan(con, tk),
                         _dinh_dang_doan(con, kc),
                         _gc_mot(con, kg),
+                        *_duoi_vi_tri(dinh_vi, con),
                     )
                 )
             dem.sau(con)
@@ -1953,6 +2174,7 @@ def _duyet_than(
                             cao_luat,
                             vien_canh,
                             _vien_canh_o(tc),
+                            *_duoi_vi_tri(dinh_vi, tc),
                         )
                     )
                     dem.sau()
@@ -1978,7 +2200,12 @@ def _doc_docx(
     try:
         with zipfile.ZipFile(BytesIO(du_lieu)) as z:
             _kiem_zip(z)
-            goc = _bo_fallback(_goc_xml(z.read("word/document.xml"), "word/document.xml"))
+            goc = _goc_xml(z.read("word/document.xml"), "word/document.xml")
+            # Địa chỉ và chỗ trống đo trên cây THÔ, TRƯỚC khi gỡ `mc:Fallback`:
+            # bộ áp (P3a) đi lại trên chính bytes đã lưu, nơi Fallback vẫn còn,
+            # và một hộp chữ đứng trước làm lệch `doan` nếu đo trên cây đã gỡ.
+            dinh_vi = _dinh_vi_than(goc, "word/document.xml")
+            goc = _bo_fallback(goc)
             # Căn lề theo KIỂU (Phase 9 U5) — `styles.xml` không bắt buộc có
             # trong một DOCX hợp lệ, và hỏng ở đó không được làm hỏng cả tài
             # liệu: mất căn lề theo kiểu là khoản lỗ sống chung được (`jc` trực
@@ -2009,7 +2236,7 @@ def _doc_docx(
                     # Giãn cách/thụt lề theo KIỂU — mất nó thì một biểu mẫu
                     # đặt giãn dòng bằng kiểu đọc ra không giãn dòng gì cả.
                     kieu_gc = _kieu_gian_cach(goc_kieu)
-            than = _duyet_than(goc, theo_kieu, vien_kieu, kieu_chu, kieu_gc, kieu_canh)
+            than = _duyet_than(goc, theo_kieu, vien_kieu, kieu_chu, kieu_gc, kieu_canh, dinh_vi)
             # Thước đo để lùi về là TỔNG chữ `w:t` của thân, KHÔNG phải duyệt
             # phẳng: duyệt phẳng đếm hai lần chữ trong hộp chữ (một `w:p` lồng
             # trong `w:p`), và với thước đó cấu trúc luôn "thua". Đo 2026-09-16
@@ -2022,9 +2249,8 @@ def _doc_docx(
             ra = list(than)
             for tien_to, vung in (("word/header", "dau_trang"), ("word/footer", "chan_trang")):
                 for ten in sorted(n for n in z.namelist() if n.startswith(tien_to) and n.endswith(".xml")):
-                    ra.extend(
-                        _duyet_phang(_goc_xml(z.read(ten), ten), vung, theo_kieu, kieu_chu, kieu_gc)
-                    )
+                    goc_phan = _goc_xml(z.read(ten), ten)
+                    ra.extend(_duyet_phang(goc_phan, vung, theo_kieu, kieu_chu, kieu_gc, _dinh_vi_phang(goc_phan, ten)))
             # Ảnh đi RIÊNG khỏi `ra` cùng lý lẽ lề trang: mô tả ảnh là sự thật
             # cấp TÀI LIỆU (`_dat_vi_tri` dán nó lên từng đơn vị), còn bytes
             # không bao giờ đi vào một đơn vị nào.
@@ -2280,7 +2506,7 @@ def _chay_soffice(du_lieu: bytes, soffice: str) -> bytes:
 # ------------------------------------------------------------------------- PDF
 
 
-def _doc_pdf(du_lieu: bytes) -> list[tuple[int | None, str]]:
+def _doc_pdf(du_lieu: bytes) -> list[tuple]:
     from pypdf import PdfReader
 
     try:
@@ -2306,6 +2532,153 @@ def _doc_pdf(du_lieu: bytes) -> list[tuple[int | None, str]]:
         for dong in chu.splitlines():
             if dong.strip():
                 ra.append((so, dong.strip()))
+    return _gan_hop_pdf(ra, du_lieu)
+
+
+def _chay_cong_cu(lenh: list[str], vao: bytes) -> bytes | None:
+    """stdout của một công cụ poppler chạy trong hộp cát, hoặc `None` — thiếu
+    công cụ, mã thoát khác 0, hay treo quá `_HAN_CONG_CU_GIAY`. `None` nghĩa là
+    "không có hộp", KHÔNG phải tài liệu hỏng: chữ đã đọc xong bằng đường khác.
+
+    Cùng khuôn `_chay_soffice`: môi trường tối giản, HOME riêng trong thư mục tạm
+    sắp bị xoá, phiên mới để `_giet_sach_nhom` diệt được cả nhóm khi treo. Không
+    giữ suất `_suat_chuyen_doi`: một lượt `pdftotext`/`pdftoppm` tốn vài chục
+    mili giây, không phải ~171 MB như soffice. Không log stderr — nó bắt nguồn
+    từ tài liệu người dùng; chỉ tên công cụ và mã thoát.
+    """
+    if shutil.which(lenh[0]) is None:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        proc = subprocess.Popen(
+            lenh,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=tmp,
+            env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": tmp},
+            start_new_session=True,
+        )
+        try:
+            ra, _ = proc.communicate(vao, timeout=_HAN_CONG_CU_GIAY)
+        except subprocess.TimeoutExpired:
+            _giet_sach_nhom(proc)
+            logger.warning("doc_tai_lieu: %s treo quá %ss, đọc tiếp không hộp", lenh[0], _HAN_CONG_CU_GIAY)
+            return None
+    if proc.returncode != 0:
+        logger.warning("doc_tai_lieu: %s thoát mã %s, đọc tiếp không hộp", lenh[0], proc.returncode)
+        return None
+    return ra
+
+
+_Hop = tuple[float, float, float, float]
+
+
+def _tu_pdf(du_lieu: bytes) -> dict[int, list[tuple[tuple[str, ...], str, _Hop]]]:
+    """Trang → mọi TỪ của poppler: (khoá dòng poppler, chữ, hộp điểm gốc
+    trên-trái). Rỗng khi không có công cụ hay đầu ra không đọc được.
+
+    `-tsv` chứ không `-bbox-layout`: cùng hộp từ, nhưng `-bbox-layout` in
+    siêu dữ liệu vào đầu HTML, và poppler 26.04 (máy dev) CHẾT ở đó (exit 134)
+    khi `/Keywords` rỗng — đúng thứ reportlab ghi mặc định (đo 2026-09-26;
+    poppler 25.03 của image triển khai thì không). TSV không in siêu dữ liệu,
+    và có sẵn trong cả hai bản.
+    """
+    ra = _chay_cong_cu(["pdftotext", "-tsv", "-", "-"], du_lieu)
+    tu: dict[int, list[tuple[tuple[str, ...], str, _Hop]]] = {}
+    for hang in (ra or b"").decode("utf-8", errors="replace").splitlines()[1:]:
+        c = hang.split("\t")
+        if len(c) != 12 or c[0] != "5" or not c[11]:
+            continue
+        try:
+            trang = int(c[1])
+            x, y, w, h = (float(v) for v in c[6:10])
+        except ValueError:
+            continue
+        tu.setdefault(trang, []).append((tuple(c[1:5]), c[11], (x, y, x + w, y + h)))
+    return tu
+
+
+def _cung_dong(a: _Hop, b: _Hop) -> bool:
+    """Hai hộp cùng một dòng THỊ GIÁC: tâm dọc của mỗi hộp nằm trong hộp kia."""
+    return a[1] <= (b[1] + b[3]) / 2 <= a[3] and b[1] <= (a[1] + a[3]) / 2 <= b[3]
+
+
+def _dong_ung_vien(tu: list[tuple[tuple[str, ...], str, _Hop]]) -> list[list[tuple[str, _Hop]]]:
+    """Các dòng một đơn vị pypdf có thể khớp: dòng của poppler, CỘNG dòng thị
+    giác gom theo độ cao. Cần cả hai: căn đều hai lề làm poppler tách một dòng
+    thành nhiều "dòng" (mỗi từ một dòng khi khoảng cách lớn — đo trên BM.M05 dựng
+    bằng LibreOffice), còn hai cột cùng độ cao thì chỉ dòng poppler tách đúng.
+    Hai ứng viên cùng một bộ từ là MỘT ứng viên."""
+    theo_khoa: dict[tuple[str, ...], list[tuple[str, _Hop]]] = {}
+    for khoa, chu, hop in tu:
+        theo_khoa.setdefault(khoa, []).append((chu, hop))
+    nhom: list[list[tuple[str, _Hop]]] = []
+    for chu, hop in sorted(((c, h) for _, c, h in tu), key=lambda t: (t[1][1] + t[1][3]) / 2):
+        if nhom and _cung_dong(nhom[-1][0][1], hop):
+            nhom[-1].append((chu, hop))
+        else:
+            nhom.append([(chu, hop)])
+    ra: dict[tuple[_Hop, ...], list[tuple[str, _Hop]]] = {}
+    for dong in [*theo_khoa.values(), *nhom]:
+        dong = sorted(dong, key=lambda t: t[1][0])
+        ra.setdefault(tuple(sorted(h for _, h in dong)), dong)
+    return list(ra.values())
+
+
+def _chuan_khop(s: str) -> str:
+    """Khoá so dòng pypdf với dòng poppler: NFC, bỏ MỌI khoảng trắng — hai bộ
+    đọc chia khoảng trắng khác nhau (pypdf giữ hai dấu cách của chữ giãn đều)."""
+    return "".join(unicodedata.normalize("NFC", s).split())
+
+
+def _tron(hop: tuple[float, ...]) -> _Hop:
+    x0, y0, x1, y1 = (round(v, 2) for v in hop)
+    return (x0, y0, x1, y1)
+
+
+def _them_dong_pdf(dong: list[tuple[str, _Hop]]) -> dict:
+    """Hộp của dòng và chỗ trống của nó: mỗi TỪ toàn chấm là một chỗ, nhãn là
+    các từ đứng trước nó trên dòng (sau chỗ trống liền trước)."""
+    x0, y0, x1, y1 = zip(*(h for _, h in dong), strict=True)
+    hop = _tron((min(x0), min(y0), max(x1), max(y1)))
+    cho: list[ChoTrong] = []
+    nhan: list[str] = []
+    for chu, h in dong:
+        if _la_cham(chu):
+            nhan_cho = _duoi_nhan(" ".join(nhan))
+            cho.append(ChoTrong(so=len(cho), kieu="cham", nhan=nhan_cho, hop=_tron(h), co_chu=round(h[3] - h[1], 2)))
+            nhan = []
+        else:
+            nhan.append(chu)
+    return {"hop": hop, **({"cho_trong": tuple(cho)} if cho else {})}
+
+
+def _gan_hop_pdf(thoi: list[tuple], du_lieu: bytes) -> list[tuple]:
+    """Gắn hộp dòng + chỗ trống cho những dòng pypdf khớp DUY NHẤT một dòng
+    poppler trên CÙNG trang — hai phía đều duy nhất. `noi_dung` vẫn là đúng dòng
+    pypdf như trước; dòng không khớp, hay khớp hai nơi, không có hộp nào (bộ đè
+    chữ đặt nhầm dòng tệ hơn không đặt).
+
+    ponytail: một từ trộn nhãn với chấm ("Số…./….") không thành chỗ trống — poppler
+    chỉ cho hộp TỪNG TỪ, chia hộp theo ký tự là đoán. Toạ độ là không gian hiển
+    thị của poppler (hộp cắt, sau `/Rotate`); P3b phải đổi về không gian người
+    dùng của trang.
+    """
+    tu = _tu_pdf(du_lieu) if thoi else {}
+    if not tu:
+        return thoi
+    ung: dict[tuple[int, str], list[list[tuple[str, _Hop]]]] = {}
+    for trang, cac_tu in tu.items():
+        for dong in _dong_ung_vien(cac_tu):
+            ung.setdefault((trang, _chuan_khop(" ".join(c for c, _ in dong))), []).append(dong)
+    dem: dict[tuple[int, str], int] = {}
+    for so, dong in thoi:
+        dem[(so, _chuan_khop(dong))] = dem.get((so, _chuan_khop(dong)), 0) + 1
+    ra: list[tuple] = []
+    for so, dong in thoi:
+        khoa = (so, _chuan_khop(dong))
+        khop = ung.get(khoa, [])
+        ra.append((so, dong, _them_dong_pdf(khop[0])) if dem[khoa] == 1 and len(khop) == 1 else (so, dong))
     return ra
 
 
@@ -2363,6 +2736,10 @@ def _dat_vi_tri(
 
     `trang is None` (lời gọi cũ, test dựng tay) vẫn chạy: khi đó trang quay về
     đúng phép quy đổi theo ký tự trước bản vá này, không ném lỗi.
+
+    Mọi hình dạng trên có thể mang thêm MỘT đuôi `dict` (P2b) — `dia_chi`,
+    `cho_trong`, `hop` — chỉ khi nguồn khai. Đuôi ấy được gỡ TRƯỚC khi đọc
+    theo vị trí, nên không một hình dạng cũ nào đổi nghĩa.
     """
     don_vi: list[DonViVanBan] = []
     da_di = 0          # ký tự đã đi qua trong toàn tài liệu (nhánh DOCX)
@@ -2371,6 +2748,9 @@ def _dat_vi_tri(
     theo_ky_tu = bool(thoi) and thoi[0][0] is None
 
     for i, muc in enumerate(thoi):
+        them: dict = {}
+        if isinstance(muc[-1], dict):
+            them, muc = muc[-1], muc[:-1]
         trang, noi_dung = muc[0], muc[1]
         do_tin = muc[2] if len(muc) > 2 else None
         vung = muc[3] if len(muc) > 3 else "than"
@@ -2411,6 +2791,9 @@ def _dat_vi_tri(
                 dinh_dang=dinh_dang,
                 gian_cach=gian_cach,
                 anh=anh,
+                dia_chi=them.get("dia_chi"),
+                cho_trong=them.get("cho_trong", ()),
+                hop=them.get("hop"),
             )
         )
         offset += len(noi_dung) + 1   # +1 cho dấu xuống dòng giữa hai đơn vị
@@ -2431,11 +2814,27 @@ def _dat_vi_tri(
 # đúng việc đó. Bản thân `tesseract` với gói `vie` vẫn là điều kiện bắt buộc.
 
 
-def _tesseract(duong_anh: str) -> list[tuple[str, float]]:
-    """(dòng, độ tin) cho một ảnh. TSV vì nó cho độ tin TỪNG TỪ.
+_HopPx = tuple[int, int, int, int]
+_DongOcr = tuple[str, float, _HopPx | None, list[tuple[str, _HopPx | None]]]
+
+
+def _hop_tsv(c: list[str]) -> _HopPx | None:
+    """Cột `left top width height` của một hàng TSV → `(x0, y0, x1, y1)` px."""
+    try:
+        x, y, w, h = (int(v) for v in c[6:10])
+    except ValueError:
+        return None
+    return (x, y, x + w, y + h)
+
+
+def _tesseract(duong_anh: str) -> list[_DongOcr]:
+    """(dòng, độ tin, hộp dòng px, [(từ, hộp px)]) cho một ảnh. TSV vì nó cho
+    độ tin TỪNG TỪ — và, từ P2b, hộp từng từ (cột 6–9, px ở DPI của ảnh).
 
     Độ tin của một dòng là trung bình độ tin các từ trong dòng đó — thấp nghĩa
     là máy đang đoán, và một dòng máy đang đoán không nên thành bằng chứng.
+    Hộp dòng là hộp bao các từ ấy; một hộp đọc không ra số làm cả dòng mất hộp,
+    không làm mất chữ — chữ và độ tin đi đúng đường cũ.
     """
     ra = subprocess.run(
         ["tesseract", duong_anh, "-", "-l", "vie", "tsv"],
@@ -2445,7 +2844,7 @@ def _tesseract(duong_anh: str) -> list[tuple[str, float]]:
     if ra.returncode != 0:
         raise KhongDocDuoc(LoaiHong.tep_hong, "tesseract không đọc được ảnh")
 
-    dong: dict[tuple, list[tuple[str, float]]] = {}
+    dong: dict[tuple, list[tuple[str, float, _HopPx | None]]] = {}
     for hang in ra.stdout.decode("utf-8", errors="replace").splitlines()[1:]:
         c = hang.split("\t")
         if len(c) < 12 or not c[11].strip():
@@ -2456,14 +2855,18 @@ def _tesseract(duong_anh: str) -> list[tuple[str, float]]:
             continue
         if tin < 0:
             continue
-        dong.setdefault(tuple(c[2:5]), []).append((c[11], tin / 100.0))
+        dong.setdefault(tuple(c[2:5]), []).append((c[11], tin / 100.0, _hop_tsv(c)))
 
-    ket: list[tuple[str, float]] = []
+    ket: list[_DongOcr] = []
     for tu in dong.values():
-        chu = " ".join(t for t, _ in tu).strip()
-        tin = sum(d for _, d in tu) / len(tu)
+        chu = " ".join(t for t, _, _ in tu).strip()
+        tin = sum(d for _, d, _ in tu) / len(tu)
         if chu and tin >= NGUONG_TIN_OCR:
-            ket.append((chu, tin))
+            hop = None
+            if all(h for _, _, h in tu):
+                x0, y0, x1, y1 = zip(*(h for _, _, h in tu), strict=True)
+                hop = (min(x0), min(y0), max(x1), max(y1))
+            ket.append((chu, tin, hop, [(t, h) for t, _, h in tu]))
     return ket
 
 
@@ -2476,17 +2879,163 @@ def _ocr_anh(du_lieu: bytes) -> list[tuple[int | None, str, float]]:
     with tempfile.NamedTemporaryFile(suffix=".img", delete=True) as f:
         f.write(du_lieu)
         f.flush()
-        return [(1, chu, tin) for chu, tin in _tesseract(f.name)]
+        # Ảnh tải lên không có khuôn gốc (ngoài phạm vi kế hoạch khuôn gốc), nên
+        # không mang hộp: chỉ chữ và độ tin, đúng như trước.
+        return [(1, chu, tin) for chu, tin, _, _ in _tesseract(f.name)]
 
 
-def _ocr_pdf(du_lieu: bytes) -> list[tuple[int | None, str, float]]:
-    """Rasterize từng trang rồi OCR. Cần `pdftoppm` của poppler."""
+_PGM = re.compile(rb"P5\s+(\d+)\s+(\d+)\s+255\s")
+
+
+def _cac_trang_pgm(du_lieu: bytes) -> list["np.ndarray"]:
+    """Mọi ảnh PGM 8-bit nối liền nhau (stdout của `pdftoppm -gray` khi không có
+    tên gốc) → mảng `(cao, rộng)`. Dừng ở ảnh đầu tiên sai hình dạng.
+
+    Đọc tay định dạng PGM thay vì thêm Pillow làm phụ thuộc trực tiếp: đầu đề
+    là một dòng chữ, phần còn lại là đúng `rộng × cao` byte."""
+    import numpy as np
+
+    ra: list[np.ndarray] = []
+    i = 0
+    while m := _PGM.match(du_lieu, i):
+        w, h = int(m[1]), int(m[2])
+        if m.end() + w * h > len(du_lieu):
+            break
+        ra.append(np.frombuffer(du_lieu, dtype=np.uint8, count=w * h, offset=m.end()).reshape(h, w))
+        i = m.end() + w * h
+    return ra
+
+
+def _doan_lien(mat: "np.ndarray") -> list[tuple[int, int]]:
+    """`[dau, cuoi)` của mọi đoạn `True` liền nhau trên một mảng bool 1 chiều."""
+    import numpy as np
+
+    bien = np.diff(np.concatenate(([0], mat.astype(np.int8), [0])))
+    return list(zip(np.flatnonzero(bien == 1).tolist(), np.flatnonzero(bien == -1).tolist(), strict=True))
+
+
+def _day_cham_anh(den: "np.ndarray", y0: int, y1: int, xa: int, xb: int, dpi: int) -> list[tuple[int, int]]:
+    """`[x0, x1)` của mọi dãy chấm trong vùng `[y0, y1) × [xa, xb)` của ảnh mực
+    `den` (bool): từ BA đốm nhỏ trở lên, liền nhau không quá một khe chấm, mỗi
+    đốm nằm ở phần DƯỚI dải (chấm đứng trên đường chân chữ; dấu thanh và chấm
+    chữ "i" thì ở trên). Một dải mỏng hơn một chấm thì mọi đốm đều "dưới".
+
+    Tesseract không đọc ra chữ nào cho một dãy chấm dài, nên chỗ trống của bản
+    scan phải tìm bằng điểm ảnh.
+
+    ponytail: ngưỡng đo trên bản dựng 200 dpi của 8 biểu mẫu thật (chữ 11–13 pt:
+    chấm ≈ 4 px, bước ≈ 12 px); ảnh chụp nghiêng, nhoè hay nhiễu thật chưa đo —
+    đo lại và chỉnh hai hằng số dưới đây khi có bản scan thật.
+    """
+    import numpy as np
+
+    vung = den[y0:y1, xa:xb]
+    if vung.size == 0:
+        return []
+    cao = vung.shape[0]
+    toi_da = round(2.5 * dpi / 72)  # cạnh lớn nhất của một chấm (2,5 pt)
+    khe = round(4 * dpi / 72)  # khe lớn nhất giữa hai chấm liền (4 pt)
+    co = vung.any(axis=0)
+    tren = np.where(co, vung.argmax(axis=0), cao)
+    duoi = np.where(co, cao - 1 - vung[::-1].argmax(axis=0), -1)
+    thap = co & (duoi - tren < toi_da) & ((tren >= cao * 0.4) | (cao <= toi_da))
+    ra: list[tuple[int, int]] = []
+    day: list[tuple[int, int]] = []
+    for s, e in _doan_lien(co):
+        cham = e - s <= toi_da and bool(thap[s:e].all())
+        if cham and day and s - day[-1][1] <= khe:
+            day.append((s, e))
+            continue
+        if len(day) >= 3:
+            ra.append((xa + day[0][0], xa + day[-1][1]))
+        day = [(s, e)] if cham else []
+    if len(day) >= 3:
+        ra.append((xa + day[0][0], xa + day[-1][1]))
+    return ra
+
+
+def _cho_trong_trang(den: "np.ndarray", dong: list[_DongOcr], dpi: int) -> list[tuple[ChoTrong, ...]]:
+    """Chỗ trống của từng dòng OCR trên một trang scan, cùng thứ tự `dong`.
+
+    Hai nơi một dãy chấm đứng:
+
+    1. Cùng dải với dòng OCR — sau nhãn ("Họ tên:"), hay chính những từ "…"
+       ngắn tesseract có đọc ra. Tìm từ mép trái dòng tới dòng OCR kế tiếp bên
+       phải (hoặc hết trang), nhãn là các từ đứng trước dãy chấm.
+    2. Một dải CHỈ có chấm, không dòng OCR nào phủ — dòng chấm dài xuống hàng
+       dưới nhãn (LibreOffice và Word đều ngắt như vậy). Gắn vào dòng OCR gần
+       nhất PHÍA TRÊN cùng cột, với nhãn là phần chữ cuối dòng ấy — nhưng chỉ
+       khi giữa hai dải không có dòng chữ nào tesseract bỏ qua: không biết nhãn
+       thật thì không gắn (fail closed).
+
+    `hop` bằng điểm (px × 72 / dpi); `co_chu` là chiều cao dòng chữ chủ.
+    """
+    import numpy as np
+
+    cao_trang, rong = den.shape
+    pt = 72 / dpi
+    toi_da = round(2.5 * dpi / 72)
+    ket: list[list[ChoTrong]] = [[] for _ in dong]
+    duoi_nhan: list[str] = []
+
+    def _them(i: int, x0: int, y0: int, x1: int, y1: int, nhan: str, cao: int) -> None:
+        hop = _tron((x0 * pt, y0 * pt, x1 * pt, y1 * pt))
+        ket[i].append(ChoTrong(so=len(ket[i]), kieu="cham", nhan=nhan, hop=hop, co_chu=round(cao * pt, 2)))
+
+    for i, (_, _, hop, tu) in enumerate(dong):
+        # Tesseract hay dính nhãn với chấm thành MỘT từ ("ten:......"): phần chữ
+        # trước dãy chấm đầu tiên mới là nhãn.
+        chu_tu = [(t[: _day_cham(t)[0][0]] if _day_cham(t) else t, h) for t, h in tu if h]
+        chu_tu = [(t, h) for t, h in chu_tu if t]
+        if hop is None:
+            duoi_nhan.append("")
+            continue
+        x0, y0, x1, y1 = hop
+        phai = min(
+            (h[0] for _, _, h, _ in dong if h and h[0] > x1 and h[1] < y1 and y0 < h[3]),
+            default=rong,
+        )
+        truoc = x0
+        for a, b in _day_cham_anh(den, y0, y1, x0, phai, dpi):
+            _them(i, a, y0, b, y1, _duoi_nhan(" ".join(t for t, h in chu_tu if truoc <= h[0] < a)), y1 - y0)
+            truoc = b
+        duoi_nhan.append(_duoi_nhan(" ".join(t for t, h in chu_tu if h[0] >= truoc)))
+
+    phu = np.zeros(cao_trang, dtype=bool)
+    for _, _, hop, _ in dong:
+        if hop:
+            phu[hop[1] : hop[3]] = True
+    dai = _doan_lien(den.any(axis=1) & ~phu)
+    la_chu = [(s, e) for s, e in dai if e - s > toi_da]
+    for s, e in dai:
+        if e - s > toi_da:
+            continue
+        for a, b in _day_cham_anh(den, s, e, 0, rong, dpi):
+            tren = [(h[3], i) for i, (_, _, h, _) in enumerate(dong) if h and h[3] <= s and h[0] < b and a < h[2]]
+            if not tren:
+                continue
+            day_chu, i = max(tren)
+            if any(day_chu <= cs and ce <= s for cs, ce in la_chu):
+                continue
+            _, _, h, _ = dong[i]
+            _them(i, a, s, b, e, duoi_nhan[i], h[3] - h[1])
+    return [tuple(c) for c in ket]
+
+
+def _ocr_pdf(du_lieu: bytes) -> list[tuple]:
+    """Rasterize từng trang rồi OCR. Cần `pdftoppm` của poppler.
+
+    Mỗi dòng OCR mang `hop` (hộp TSV đổi ra điểm) và `cho_trong` (dãy chấm tìm
+    trên ảnh XÁM của cùng trang, cùng DPI — `_cho_trong_trang`). Ảnh xám là một
+    lượt `pdftoppm -gray` RIÊNG: ảnh PNG tesseract đọc giữ nguyên như trước, nên
+    chữ OCR không đổi một byte; thiếu ảnh xám thì chỉ mất chỗ trống.
+    """
     if not co_ocr() or not shutil.which("pdftoppm"):
         raise KhongDocDuoc(
             LoaiHong.khong_co_lop_chu,
             "tệp không có lớp chữ và máy chủ chưa đọc được bản scan",
         )
-    ra: list[tuple[int | None, str, float]] = []
+    ra: list[tuple] = []
     with tempfile.TemporaryDirectory() as thu_muc:
         goc = f"{thu_muc}/t"
         kq = subprocess.run(
@@ -2499,6 +3048,18 @@ def _ocr_pdf(du_lieu: bytes) -> list[tuple[int | None, str, float]]:
             raise KhongDocDuoc(LoaiHong.tep_hong, "không dựng được ảnh từ pdf")
         from pathlib import Path as _P  # noqa: N814
 
-        for so, anh in enumerate(sorted(_P(thu_muc).glob("t-*.png")), start=1):
-            ra.extend((so, chu, tin) for chu, tin in _tesseract(str(anh)))
+        cac_anh = sorted(_P(thu_muc).glob("t-*.png"))
+        xam = _cac_trang_pgm(_chay_cong_cu(["pdftoppm", "-r", str(_DPI_OCR), "-gray", "-"], du_lieu) or b"")
+        pt = 72 / _DPI_OCR
+        for so, anh in enumerate(cac_anh, start=1):
+            dong = _tesseract(str(anh))
+            cho: list[tuple[ChoTrong, ...]] = [()] * len(dong)
+            if len(xam) == len(cac_anh):
+                cho = _cho_trong_trang(xam[so - 1] < 160, dong, _DPI_OCR)
+            for (chu, tin, hop, _), ct in zip(dong, cho, strict=True):
+                them = {
+                    **({"hop": _tron(tuple(v * pt for v in hop))} if hop else {}),
+                    **({"cho_trong": ct} if ct else {}),
+                }
+                ra.append((so, chu, tin, them) if them else (so, chu, tin))
     return ra

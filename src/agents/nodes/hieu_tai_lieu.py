@@ -37,6 +37,7 @@ from src.services.bo_nho import _vuong_luoi_chan
 from src.services.bo_nho_tai_khoan import GIA_TRI_TOI_DA
 from src.services.doc_tai_lieu import (
     KY_TU_MOI_TRANG,
+    RE_CHO_DIEN,
     DinhDangChu,
     DonViVanBan,
     GianCach,
@@ -920,9 +921,9 @@ def _lay_phep_tinh(ra: dict, goi: list[dict]) -> tuple[list[dict], int]:
     return giu, bo
 
 
-# Ký tự người ta kẻ một chỗ ĐỂ ĐIỀN, và dấu hiệu của một chỗ như vậy: dấu chấm
-# lửng `…`, hoặc một dãy từ ba dấu chấm / gạch ngang / gạch dưới trở lên. Một
-# dấu chấm lẻ thì không — `20.000.000` phân nhóm nghìn bằng đúng ký tự đó.
+# Ký tự người ta kẻ một chỗ ĐỂ ĐIỀN. DẤU HIỆU của một chỗ như vậy
+# (`RE_CHO_DIEN`: `…`, hoặc từ ba chấm / gạch ngang / gạch dưới liền) nằm ở
+# `doc_tai_lieu`, dùng chung với bộ đọc chỗ trống của khuôn gốc.
 _KY_TU_KE = "._–—-… \t"
 
 # Chữ nói "chỗ này trống". Đo trên tập mẫu 2026-09-16: cấm chép dãy chấm thì mô
@@ -934,7 +935,6 @@ _CUM_TRONG = frozenset({
     "không có", "không rõ", "không xác định", "không đề cập", "không ghi",
     "để trống", "bỏ trống", "trống", "rỗng", "n/a", "na", "none", "null", "-",
 })
-_RE_CHO_DIEN = re.compile(r"…|[._–—-]{3,}")
 
 
 def vung_trong(gia_tri: str) -> bool:
@@ -955,7 +955,7 @@ def vung_trong(gia_tri: str) -> bool:
     gõ lại được, còn một chỗ trống lọt vào bản thảo thì không ai thấy.
     """
     s = (gia_tri or "").strip()
-    if not s.strip(_KY_TU_KE) or _RE_CHO_DIEN.search(s):
+    if not s.strip(_KY_TU_KE) or RE_CHO_DIEN.search(s):
         return True
     # So CẢ giá trị đã chuẩn hoá, không tìm từ trong câu: "Trống Đồng Group" là
     # một cái tên thật, và một phép tìm từ sẽ xoá mọi công ty có chữ ấy khỏi

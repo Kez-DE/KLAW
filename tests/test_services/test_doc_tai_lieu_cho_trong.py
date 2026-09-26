@@ -284,7 +284,12 @@ def test_docx_di_va_ve_qua_hang_nguyen_ven():
     assert hang["dia_chi"] == {"phan": "word/document.xml", "chi_muc": [0]}
     dau = len("Điện thoại: ")
     assert hang["cho_trong"][0] == {
-        "so": 0, "kieu": "cham", "doan": 0, "dau": dau, "cuoi": dau + len("………."), "nhan": "Điện thoại:"
+        "so": 0,
+        "kieu": "cham",
+        "doan": 0,
+        "dau": dau,
+        "cuoi": dau + len("………."),
+        "nhan": "Điện thoại:",
     }
     assert _dia_chi_tu_hang(hang["dia_chi"]) == d.dia_chi
     assert _cho_trong_tu_hang(hang["cho_trong"]) == d.cho_trong
@@ -294,16 +299,25 @@ def test_pdf_di_va_ve_qua_hang_nguyen_ven():
     c = ChoTrong(so=0, kieu="cham", nhan="Họ tên:", hop=(10.0, 20.5, 90.25, 33.0), co_chu=12.5)
     d = DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="Họ tên: ……", hop=(5.0, 20.0, 95.0, 33.5), cho_trong=(c,))
     hang = _hang_don_vi(d)
-    assert hang["cho_trong"] == [{"so": 0, "kieu": "cham", "hop": [10.0, 20.5, 90.25, 33.0], "co_chu": 12.5, "nhan": "Họ tên:"}]
+    assert hang["cho_trong"] == [
+        {"so": 0, "kieu": "cham", "hop": [10.0, 20.5, 90.25, 33.0], "co_chu": 12.5, "nhan": "Họ tên:"}
+    ]
     assert _hop_tu_hang(hang["hop"]) == d.hop
     assert _cho_trong_tu_hang(hang["cho_trong"]) == d.cho_trong
 
 
 @pytest.mark.parametrize(
     "tho",
-    [None, "hỏng", {}, {"phan": "", "chi_muc": [0]}, {"phan": "word/document.xml", "chi_muc": []},
-     {"phan": "word/document.xml", "chi_muc": [0, -1]}, {"phan": "word/document.xml", "chi_muc": [True]},
-     {"phan": "word/document.xml", "chi_muc": ["0"]}],
+    [
+        None,
+        "hỏng",
+        {},
+        {"phan": "", "chi_muc": [0]},
+        {"phan": "word/document.xml", "chi_muc": []},
+        {"phan": "word/document.xml", "chi_muc": [0, -1]},
+        {"phan": "word/document.xml", "chi_muc": [True]},
+        {"phan": "word/document.xml", "chi_muc": ["0"]},
+    ],
 )
 def test_dia_chi_hong_hinh_dang_doc_ra_VANG(tho):
     assert _dia_chi_tu_hang(tho) is None
@@ -398,4 +412,8 @@ def test_moi_dia_chi_va_cho_trong_GIAI_DUNG_tren_bytes_tho_cua_tep_that(tep):
                 moc = doan[c.doan].find(f"{_W}pPr/{_W}tabs")
                 assert moc is not None and any(m.get(f"{_W}leader") == "dot" for m in moc)
     if tep.stem == "Evaluation Form":
-        assert sum(c.kieu == "tab" for d in t.don_vi for c in d.cho_trong) == 45
+        # 45 đoạn có tab dẫn chấm: 12 đoạn có nhãn ("Company name:<tab>") và 33
+        # dòng chấm nối tiếp KHÔNG có chữ nào. Đoạn không chữ không phải đơn vị
+        # văn bản (chuỗi đơn vị phải giữ nguyên từng byte), nên chỗ trống của nó
+        # không có đơn vị nào để treo — đo, không phải lỗi sót.
+        assert sum(c.kieu == "tab" for d in t.don_vi for c in d.cho_trong) == 12
