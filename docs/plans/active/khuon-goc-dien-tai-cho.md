@@ -211,13 +211,13 @@ open risks, and follows the TDD order: failing test first, then code.
 ## Progress
 
 - [x] Decisions Q1–Q20 settled; decision record, glossary term, spec notes.
-- [ ] Wave A — P1a, P1b, P1c.
+- [x] Wave A — P1a, P1b, P1c (merges `9e4474c`, `8dcc8a9`, `ea86a9b`; CI lane 2163 passed on main).
 - [ ] Wave B — P2a, P2b.
 - [ ] Wave C — P3a, P3b.
 - [ ] Wave D — P4.
 - [ ] Wave E — P5.
 - [ ] Wave F — P6.
-- [ ] Issue opened for the soft-delete gap.
+- [x] Issue opened for the soft-delete gap (#3).
 
 ## Decisions
 
