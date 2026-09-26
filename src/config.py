@@ -290,6 +290,13 @@ class Settings(BaseSettings):
     # nên đường dẫn là DỮ LIỆU cấu hình, không phải hằng số cứng trong code.
     soffice_path: str = Field(default="", validation_alias="KLAW_SOFFICE_PATH")
 
+    # ══ Khuôn gốc — phông điền lên PDF (P3b) ════════════════════════════════
+    # RỖNG = dò theo `dien_khuon_pdf._UNG_VIEN_PHONG` (Liberation Serif của
+    # Debian, Times New Roman của macOS, phông kèm LibreOffice). CÓ đặt thì chỉ
+    # dùng đúng tệp này: phông cấu hình hỏng phải lộ ra, không lặng lẽ lùi về
+    # danh sách — cùng lý lẽ `soffice_path`, đường dẫn là dữ liệu cấu hình.
+    phong_dien_path: str = Field(default="", validation_alias="KLAW_PHONG_DIEN_PATH")
+
 
 @lru_cache
 def get_settings() -> Settings:
