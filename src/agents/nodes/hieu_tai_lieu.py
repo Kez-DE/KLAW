@@ -192,9 +192,9 @@ TOI_DA_TOKEN_RA = 64_000
 # đo trực tiếp trên ca đó) ⇒ ~3,42 token/ký tự khi LẬP KẾ HOẠCH; dành 90%
 # `TOI_DA_TOKEN_RA` cho `van_ban` (10% còn lại cho các mảng khác dù được dặn để
 # rỗng — không dựa vào việc mô hình có nghe lời): 57.600 ÷ 3,42 ≈ 16.842, làm
-# tròn XUỐNG một số dễ nhớ. Với trần chi phí hiện tại (25.000 ký tự,
+# tròn XUỐNG một số dễ nhớ. Với trần chi phí hiện tại (50.000 ký tự,
 # `tai_lieu.kiem_tran_chi_phi_tai_lieu`), tài liệu LỚN NHẤT được phép chỉ cần
-# chia tối đa 2 lượt (`ceil(25000/15000)`).
+# chia tối đa 4 lượt (`ceil(50000/15000)`).
 NGUONG_PHAN_KY_TU = 15_000
 
 QUA_DAI = ("Tài liệu quá dài để đọc trong một lượt. Hãy tách nhỏ rồi gửi lại, "
