@@ -22,6 +22,7 @@ from src.config import get_settings
 from src.services import checklist as checklist_svc
 from src.services import db as db_svc
 from src.services import rules as rules_svc
+from src.services.tai_lieu import TRAN_BYTE
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,10 @@ app = FastAPI(
 # 2 MB. Mọi payload HỢP LỆ nhỏ hơn thế rất nhiều: `SoatRequest.text` tối đa
 # 500k ký tự, còn `/tra-cuu.query` và `facts` của `/soan-thao` thì bé.
 BODY_TOI_DA = 2 * 1024 * 1024
+# Ngoại lệ DUY NHẤT: `POST /tai-lieu` mang chính tệp, nên trần của nó là trần của
+# tệp (`tai_lieu.TRAN_BYTE`, 20 MB — quyết định 2026-09-26). Khớp đúng phương
+# thức + đường, không theo tiền tố: `/tai-lieu/{id}/huy` vẫn 2 MB.
+TRAN_RIENG = {("POST", "/api/v1/tai-lieu"): TRAN_BYTE}
 
 
 class GioiHanKichThuoc:
@@ -169,6 +174,7 @@ class GioiHanKichThuoc:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         h = Headers(scope=scope)
+        toi_da = TRAN_RIENG.get((scope["method"], scope["path"]), self.toi_da)
         # `chunked` là cách DUY NHẤT gửi thân mà không khai `Content-Length`
         # trong HTTP/1.1 — tức cách duy nhất đi vòng qua phép kiểm dưới đây.
         # 411 là mã đúng cho "khai độ dài đi rồi hẵng gửi"; không client hợp lệ
@@ -176,13 +182,13 @@ class GioiHanKichThuoc:
         if "chunked" in h.get("transfer-encoding", "").lower():
             return await self._tu_choi(
                 scope, receive, send, 411,
-                f"Cần khai Content-Length; tối đa {self.toi_da // (1024 * 1024)} MB.",
+                f"Cần khai Content-Length; tối đa {toi_da // (1024 * 1024)} MB.",
             )
         cl = h.get("content-length")
-        if cl and cl.isdigit() and int(cl) > self.toi_da:
+        if cl and cl.isdigit() and int(cl) > toi_da:
             return await self._tu_choi(
                 scope, receive, send, 413,
-                f"Thân yêu cầu vượt {self.toi_da // (1024 * 1024)} MB.",
+                f"Thân yêu cầu vượt {toi_da // (1024 * 1024)} MB.",
             )
         return await self.app(scope, receive, send)
 
