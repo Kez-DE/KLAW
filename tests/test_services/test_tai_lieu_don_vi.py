@@ -315,6 +315,7 @@ def test_da_dung_hom_nay_KHONG_tinh_loi_HE_THONG_va_CHI_PHI(phien):
         "tep_hong",  # lỗi CHÍNH tài liệu — TÍNH
         "vuot_tran_so_byte",  # vượt trần kích thước — TÍNH (không đổi bởi fix này)
         "vuot_tran_chi_phi",  # FR-038, hệ thống từ chối — KHÔNG tính
+        "vuot_tran_so_trang",  # trần 10 trang, quyết định 2026-09-26 — KHÔNG tính
         "he_thong_khong_co_cong_cu",  # ChuyenDoiKhongSanSang — KHÔNG tính
         "he_thong_qua_tai",  # ChuyenDoiKhongSanSang — KHÔNG tính
     ):

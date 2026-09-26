@@ -75,6 +75,37 @@ async def test_chunked_KHONG_di_vong_duoc_qua_tran(client):
     assert r.status_code == 411
 
 
+# `POST /tai-lieu` mang chính tệp, nên trần của nó là trần của tệp
+# (`tai_lieu.TRAN_BYTE`, 20 MB — quyết định 2026-09-26). Trước đây trần 2 MB
+# chung chặn mọi bản PDF scan lớn hơn 2 MB dưới một giao diện hứa 20 MB.
+
+
+def _tep(so_byte: int) -> dict:
+    return {"tep": ("scan.pdf", b"x" * so_byte, "application/pdf")}
+
+
+async def test_tai_len_3MB_KHONG_bi_chan_o_cong_kich_thuoc(client):
+    r = await client.post("/api/v1/tai-lieu", files=_tep(3 * 1024 * 1024))
+    assert r.status_code != 413  # dừng ở cổng đăng nhập = đã qua cổng kích thước
+
+
+async def test_tai_len_vuot_20MB_van_413(client):
+    from src.services.tai_lieu import TRAN_BYTE
+
+    r = await client.post("/api/v1/tai-lieu", files=_tep(TRAN_BYTE + 1))
+    assert r.status_code == 413
+    assert "20 MB" in r.json()["detail"]
+
+
+async def test_route_khac_cung_tien_to_tai_lieu_van_tran_2MB(client):
+    """Trần 20 MB khớp ĐÚNG một đường và một phương thức, không theo tiền tố."""
+    r = await client.post(
+        "/api/v1/tai-lieu/00000000-0000-0000-0000-000000000000/huy",
+        content=b"x" * (3 * 1024 * 1024),
+    )
+    assert r.status_code == 413
+
+
 # ══ 2. 422 KHÔNG phản chiếu payload ═════════════════════════════════════════
 
 
