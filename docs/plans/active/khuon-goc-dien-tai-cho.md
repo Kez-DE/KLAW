@@ -227,7 +227,7 @@ open risks, and follows the TDD order: failing test first, then code.
 
 - [x] Decisions Q1–Q20 settled; decision record, glossary term, spec notes.
 - [x] Wave A — P1a, P1b, P1c (merges `9e4474c`, `8dcc8a9`, `ea86a9b`; CI lane 2163 passed on main).
-- [ ] Wave B — P2a, P2b.
+- [ ] Wave B — P2b merged (`a8fd793`); P2a waits for a merge-up with main and a replacement privacy review (the first security reviewer was stopped by a platform safety filter, not by a finding).
 - [ ] Wave C — P3a, P3b.
 - [ ] Wave D — P4.
 - [ ] Wave E — P5.
