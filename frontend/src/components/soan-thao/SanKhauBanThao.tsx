@@ -8,7 +8,7 @@ import { NoiDungDieuKhoan } from "@/components/klaw/NoiDungDieuKhoan";
 import { NganXepDrawer } from "@/components/ui/NganXepDrawer";
 import { TayKeo } from "@/components/ui/TayKeo";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
-import { dungLaiBanThao, suaMucBanThao } from "@/lib/api";
+import { dungLaiBanThao, suaMucBanThao, taiAnhNguon } from "@/lib/api";
 import { docRongDaLuu, kepRong, luuRong, type Bien } from "@/lib/keo-dan";
 import {
   LOAI_TONG_QUAT,
@@ -414,8 +414,8 @@ export function SanKhauBanThao({
     const id = toast.loading(dinhDang === "docx" ? "Đang tạo tệp Word…" : "Đang tạo tệp PDF…");
     try {
       const { xuatWord, xuatPDF } = await import("@/lib/xuat-tep");
-      if (dinhDang === "docx") await xuatWord(sheet, banThao.ten);
-      else await xuatPDF(sheet, banThao.ten);
+      if (dinhDang === "docx") await xuatWord(sheet, banThao.ten, taiAnhNguon);
+      else await xuatPDF(sheet, banThao.ten, taiAnhNguon);
       toast.success(dinhDang === "docx" ? "Đã tải tệp .docx." : "Đã tải tệp .pdf.", {
         id,
         description: "Bản thảo cần được pháp chế rà soát trước khi ký kết.",

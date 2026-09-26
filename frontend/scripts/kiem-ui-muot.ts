@@ -884,7 +884,6 @@ assert.ok(
 assert.equal(oDeu[0]?.getAttribute("data-can-le"), "deu", "căn đều phải đọc lại được lúc xuất tệp");
 assert.equal(oDeu[1]?.getAttribute("data-can-le"), "giua", "ô cạnh nó KHÔNG bị kéo theo");
 
-
 // ───── 8. DÒNG CHẢY TRANG: nhiều TỜ A4, cắt đúng chỗ nguồn khai ngắt ───────
 // Ở đây chứ không trong `kiem-dong-trang.ts` vì đúng lý lẽ phép kiểm 5 đã ghi:
 // khung DOM giả + `runnerImport` của tệp này là chỗ DUY NHẤT trong repo render
@@ -1043,4 +1042,253 @@ assert.equal(
   "và không bị áp một lề nguồn bịa ra",
 );
 
-console.log("kiem-ui-muot: 101/101 OK");
+// ───── 9. ẢNH NGUỒN tải CÓ xác thực, vẽ bằng object URL ────────────────────
+// Endpoint ảnh (`GET /api/v1/tai-lieu/{viec}/anh/{tên}`) chỉ nhận Bearer, còn
+// `url` trong `clauses` là đường dẫn TƯƠNG ĐỐI không có `/api/v1`. Một
+// `<img src={a.url}>` trần vì vậy hỏng ba lần: sai gốc, thiếu `/api/v1`, thiếu
+// Bearer. `fetch` thay bằng hàm giả: không một lượt gọi mạng thật nào.
+//
+// `tieuDeXacThuc` THẬT chạy ở đây, nên client Supabase (Proxy lười) được dựng
+// lần đầu. Trong `window`/`document` giả, `GoTrueClient` tưởng mình ở trình
+// duyệt và mở một `BroadcastChannel` có người nghe — thứ giữ Node sống mãi sau
+// dòng tổng kết. Khung giả không có tab nào khác để phát tới: bỏ nó đi.
+delete (globalThis as { BroadcastChannel?: unknown }).BroadcastChannel;
+const { apiGoc } = await nap<typeof import("../src/lib/api.ts")>("src/lib/api.ts");
+const GIF = Uint8Array.from(atob("R0lGODlhAQABAAAAACw="), (c) => c.charCodeAt(0));
+const daGoi: { url: string; headers: Record<string, string> }[] = [];
+globalThis.fetch = (async (url: string, init?: RequestInit) => {
+  daGoi.push({ url: String(url), headers: (init?.headers ?? {}) as Record<string, string> });
+  return new Response(GIF, { status: 200 });
+}) as typeof fetch;
+const daThuHoi: string[] = [];
+const thuHoiThat = URL.revokeObjectURL.bind(URL);
+URL.revokeObjectURL = (u: string) => {
+  daThuHoi.push(u);
+  thuHoiThat(u);
+};
+/** Chờ chuỗi `await` của lượt tải (phiên Supabase → `fetch` → `blob`) chạy xong. */
+async function choDen(dieu: () => boolean) {
+  for (let i = 0; i < 50 && !dieu(); i += 1) {
+    await act(async () => {
+      await nhip();
+    });
+  }
+}
+
+const DUONG_LOGO = "/tai-lieu/11111111-2222-3333-4444-555555555555/anh/logo.gif";
+const DUONG_DAU = "/tai-lieu/11111111-2222-3333-4444-555555555555/anh/dau.gif";
+const anhLogo = (url: string) => [
+  { url, rong: 914400, cao: 457200, vung: "dau_trang" as const, thuTu: 0 },
+];
+const { khung: khungXacThuc, root: rootXacThuc } = taoRoot();
+await act(() => {
+  rootXacThuc.render(h(XemTruocA4, { ...propsBang, muc: mucTrang([1]), anh: anhLogo(DUONG_LOGO) }));
+});
+const theAnh = () => tim(khungXacThuc, (n) => n.getAttribute("data-anh") !== null)!;
+await choDen(() => theAnh().getAttribute("src") !== null);
+assert.deepEqual(
+  daGoi.map((g) => g.url),
+  [`${apiGoc()}${DUONG_LOGO}`],
+  "ảnh tải từ `apiGoc()` + đường dẫn tương đối — đúng gốc API, có `/api/v1`, đúng MỘT lượt",
+);
+assert.ok(
+  "Authorization" in daGoi[0]!.headers || "X-Khach-Id" in daGoi[0]!.headers,
+  "lượt tải mang header danh tính của `tieuDeXacThuc` (Bearer khi đã đăng nhập)",
+);
+assert.match(
+  theAnh().getAttribute("src") ?? "",
+  /^blob:/,
+  "màn hình vẽ bằng object URL của bytes đã tải",
+);
+assert.equal(
+  theAnh().getAttribute("data-anh-url"),
+  DUONG_LOGO,
+  "đường dẫn TƯƠNG ĐỐI ở lại trên thẻ để tệp tải về tự tải lại có xác thực",
+);
+assert.ok(
+  (theAnh().style["aspectRatio"] as string | undefined)?.replace(/\s/g, "") === "914400/457200",
+  "khung ảnh giữ chỗ theo tỉ lệ NGUỒN trước khi bytes về — phép đo tràn trang không đo một ảnh cao 0",
+);
+const srcCu = theAnh().getAttribute("src")!;
+// Sân khấu vẽ lại theo TỪNG token chat: mảng `anh` mới mỗi lượt, cùng đường dẫn.
+await act(() => {
+  rootXacThuc.render(
+    h(XemTruocA4, { ...propsBang, thuPhong: 110, muc: mucTrang([1]), anh: anhLogo(DUONG_LOGO) }),
+  );
+});
+await choDen(() => false);
+assert.equal(daGoi.length, 1, "vẽ lại với CÙNG đường dẫn không tải lại ảnh");
+assert.equal(theAnh().getAttribute("src"), srcCu, "và giữ nguyên object URL cũ");
+// Đổi ảnh → object URL cũ bị thu hồi, ảnh mới được tải.
+await act(() => {
+  rootXacThuc.render(h(XemTruocA4, { ...propsBang, muc: mucTrang([1]), anh: anhLogo(DUONG_DAU) }));
+});
+await choDen(() => (theAnh().getAttribute("src") ?? srcCu) !== srcCu);
+assert.ok(daThuHoi.includes(srcCu), "đổi đường dẫn thu hồi object URL cũ");
+assert.equal(daGoi.at(-1)?.url, `${apiGoc()}${DUONG_DAU}`, "và tải đường dẫn mới");
+const srcMoi = theAnh().getAttribute("src")!;
+await act(() => rootXacThuc.unmount());
+assert.ok(daThuHoi.includes(srcMoi), "tháo component thu hồi object URL đang dùng");
+// Một `url` không phải đường dẫn ảnh tài liệu (ví dụ lọt qua nơi gọi, không
+// qua `anhHopLe`) KHÔNG được mang Bearer đi đâu cả.
+const soGoiTruoc = daGoi.length;
+const { root: rootLa } = taoRoot();
+await act(() => {
+  rootLa.render(
+    h(XemTruocA4, { ...propsBang, muc: mucTrang([1]), anh: anhLogo("@ke-tan-cong.example/x.gif") }),
+  );
+});
+await choDen(() => false);
+assert.equal(daGoi.length, soGoiTruoc, "đường dẫn lạ → không một lượt `fetch` nào");
+
+// ───── 10. tràn GIỮA một mục chảy sang tờ sau theo ranh giới KHỐI ──────────
+// Trước bản vá: chỉ cắt GIỮA các mục, và tờ `overflow-y-auto` — một mục (hay
+// một bảng) dài hơn một tờ cuộn BÊN TRONG tờ đó, chủ dự án thấy "1 trang".
+// Bố cục giả tối thiểu cho phép đo: tờ rộng 210 → cao danh nghĩa 297, mỗi khối
+// cao 100 (khối có chữ "CAO" cao 400), nên một tờ vừa ĐÚNG hai khối.
+const CAO_KHOI = 100;
+const caoCua = (n: Nut) => (n.textContent.includes("CAO") ? 4 * CAO_KHOI : CAO_KHOI);
+const coThuoc = (chon: string) => {
+  const ten = /^\[([\w-]+)\]$/.exec(chon)?.[1];
+  assert.ok(ten, `bộ chọn giả không hỗ trợ: ${chon}`);
+  return (x: Nut) => x.nodeType === 1 && x.getAttribute(ten) !== null;
+};
+function dayCua(n: Nut): number {
+  let to: Nut | null = n;
+  while (to && to.getAttribute("data-to") === null) to = to.parentNode;
+  const donVi = timTatNut(to!, coThuoc("[data-khoi]"));
+  const j = donVi.indexOf(n);
+  if (j >= 0) return donVi.slice(0, j + 1).reduce((s, x) => s + caoCua(x), 0);
+  const cuaMuc = donVi.filter((x) => n.contains(x)); // `<section>`: đáy khối cuối của nó
+  return dayCua(cuaMuc[cuaMuc.length - 1]!);
+}
+const ganNhat = (x: Nut | null, khop: (n: Nut) => boolean): Nut | null =>
+  x === null || khop(x) ? x : ganNhat(x.parentNode, khop);
+Object.assign(Nut.prototype, {
+  querySelectorAll(this: Nut, chon: string) {
+    return timTatNut(this, coThuoc(chon)).filter((x) => x !== this);
+  },
+  closest(this: Nut, chon: string) {
+    return ganNhat(this, coThuoc(chon));
+  },
+  getBoundingClientRect(this: Nut) {
+    return this.getAttribute("data-to") !== null
+      ? { top: 0, width: 210, bottom: 0 }
+      : { top: 0, width: 0, bottom: dayCua(this) };
+  },
+});
+Object.assign(globalThis, {
+  getComputedStyle: () => ({ paddingTop: "0px", paddingBottom: "0px" }),
+});
+
+const mucKhoi = (key: string, chu: string[]): Muc => ({
+  stt: 1,
+  key,
+  ten: `Tên ${key}`,
+  tenThat: true,
+  noiDung: chu.join(" "),
+  bang: null,
+  vung: "than",
+  trang: 1,
+  canCu: "Điều 113 BLLĐ 2019",
+  khoi: chu.map((c) => ({
+    kind: "vanXuoi" as const,
+    noiDung: c,
+    canhLe: "trai" as const,
+    chu: [],
+    gianCach: null,
+  })),
+});
+const chuTheoTo = (khung: Nut) =>
+  toTrong(khung).map((t) => timTatNut(t, coThuoc("[data-khoi]")).map((x) => x.textContent));
+
+const goiSuaTran: unknown[][] = [];
+const { khung: khungTran5, root: rootTran5 } = taoRoot();
+await act(() => {
+  rootTran5.render(
+    h(XemTruocA4, {
+      ...propsBang,
+      laTongQuat: false,
+      hienCanCu: true,
+      muc: [mucKhoi("m1", ["Khối 1", "Khối 2", "Khối 3", "Khối 4", "Khối 5"])],
+      onSuaKhoi: (...a: unknown[]) => {
+        goiSuaTran.push(a);
+        return Promise.resolve(true);
+      },
+      phienBan: 7,
+    }),
+  );
+});
+assert.deepEqual(
+  chuTheoTo(khungTran5),
+  [["Khối 1", "Khối 2"], ["Khối 3", "Khối 4"], ["Khối 5"]],
+  "MỘT mục năm khối cao hơn một tờ chảy sang BA tờ, cắt ở ranh giới khối",
+);
+assert.ok(
+  toTrong(khungTran5).every((t) => !(t.getAttribute("class") ?? "").includes("overflow-y-auto")),
+  "không tờ nào cuộn bên trong",
+);
+const dauMuc = timTatNut(khungTran5, (n) => (n.getAttribute("class") ?? "").includes("dieu-head"));
+assert.equal(dauMuc.length, 1, "tên mục vẽ ĐÚNG MỘT lần — ở mảnh đầu — không lặp trên mỗi tờ");
+assert.ok(toTrong(khungTran5)[0]!.contains(dauMuc[0]!), "và nó ở tờ ĐẦU");
+const dongCanCu = timTatNut(khungTran5, (n) => n.getAttribute("data-khong-xuat") !== null);
+assert.equal(dongCanCu.length, 1, "dòng căn cứ vẽ ĐÚNG MỘT lần — ở mảnh cuối");
+assert.ok(toTrong(khungTran5)[2]!.contains(dongCanCu[0]!), "và nó ở tờ CUỐI");
+assert.equal(
+  timTatNut(khungTran5, (n) => n.tagName === "ARTICLE").length,
+  1,
+  "vẫn ĐÚNG MỘT `<article>` cho mọi tờ — thẻ `docNoiDungTuDOM` nhận",
+);
+// Chỉ số khối gửi đi khi lưu phải là chỉ số TRONG MỤC, không phải trong mảnh:
+// lệch ở đây là lưu chữ người dùng gõ vào NHẦM khối.
+const khoi3 = tim(
+  khungTran5,
+  (n) => n.getAttribute("contenteditable") === "true" && n.textContent === "Khối 3",
+)!;
+await act(() => khoi3.focus());
+khoi3.textContent = "Khối 3 đã sửa";
+await act(async () => {
+  khoi3.blur();
+  await nhip();
+});
+assert.deepEqual(
+  goiSuaTran,
+  [["m1", 2, "Khối 3 đã sửa", 7]],
+  "sửa khối đầu của tờ 2 lưu vào khối 2 của mục",
+);
+
+// MỘT khối cao hơn cả tờ đứng đầu tờ: tờ đó tự cao thêm (không cắt ở đầu tờ —
+// cắt ở đó chỉ đẻ tờ rỗng và vòng đo không bao giờ dừng), phần sau chảy tiếp.
+const { khung: khungCao, root: rootCao } = taoRoot();
+await act(() => {
+  rootCao.render(
+    h(XemTruocA4, { ...propsBang, muc: [mucKhoi("m1", ["Bảng CAO", "Sau 1", "Sau 2"])] }),
+  );
+});
+assert.deepEqual(
+  chuTheoTo(khungCao),
+  [["Bảng CAO"], ["Sau 1", "Sau 2"]],
+  "khối quá cao ở lại một mình trên tờ của nó; hai khối sau sang tờ kế",
+);
+
+// Hai mục, khối ĐẦU của mục sau tràn → cả mục sang tờ mới, tên mục đi CÙNG khối
+// đầu của nó chứ không bị bỏ lại cuối tờ trước.
+const { khung: khungHaiMuc, root: rootHaiMuc } = taoRoot();
+await act(() => {
+  rootHaiMuc.render(
+    h(XemTruocA4, {
+      ...propsBang,
+      laTongQuat: false,
+      muc: [mucKhoi("m1", ["A1", "A2"]), mucKhoi("m2", ["B1"])],
+    }),
+  );
+});
+assert.deepEqual(chuTheoTo(khungHaiMuc), [["A1", "A2"], ["B1"]], "mục sau sang trọn tờ mới");
+assert.equal(
+  timTatNut(toTrong(khungHaiMuc)[1]!, (n) => (n.getAttribute("class") ?? "").includes("dieu-head"))
+    .length,
+  1,
+  "tên mục `m2` sang tờ mới cùng khối đầu của nó",
+);
+
+console.log("kiem-ui-muot: 123/123 OK");

@@ -821,15 +821,30 @@ function khoiTuClause(c: ClauseTho | undefined): KhoiMuc[] {
  * mà `clauses` chưa sinh (model bỏ sót, hoặc đang chờ) thì hiện "[…]" — không suy đoán
  * nội dung để lấp chỗ trống.
  */
+/** MỘT mảnh của mục `m` (chỉ số `i`) trên một tờ: các khối `[tu, den)` của
+ *  `m.khoi`. Mục không bị chẻ là một mảnh trọn `[0, m.khoi.length)`. */
+export type ManhMuc<T> = { m: T; i: number; tu: number; den: number };
+
+/** Địa chỉ một CHỖ CẮT: "mở tờ mới trước khối `khoi` của mục `muc`". Khối 0
+ *  là trước cả mục (tên mục đi cùng khối đầu của nó). Chuỗi, để một tập chỗ
+ *  cắt so được bằng `Set`; `XemTruocA4` ghi nó lên từng khối để phép đo đọc. */
+export const diaChiKhoi = (muc: number, khoi: number) => `${muc}.${khoi}`;
+
 /**
- * `muc` → các TỜ A4, mỗi tờ một mảng mục theo đúng thứ tự văn bản.
+ * `muc` → các TỜ A4, mỗi tờ một mảng MẢNH mục theo đúng thứ tự văn bản.
  *
  * Hàm THUẦN, không đo DOM: đây là nửa mà tài liệu NGUỒN trả lời được — cắt ở
  * chính chỗ `Muc.trang` tăng, tức chỗ tệp KHAI một ngắt (`w:br w:type="page"`
  * hoặc ngắt phân đoạn). Nửa còn lại — nội dung dài quá một tờ — chỉ đo được
- * sau khi trình duyệt dựng xong, và đi vào đây qua `catThem`: chỉ số những mục
- * phải MỞ một tờ mới. Tách hai nửa vì chỉ nửa đầu kiểm được mà không cần trình
- * duyệt, và nửa đầu là nửa có một câu trả lời ĐÚNG duy nhất.
+ * sau khi trình duyệt dựng xong, và đi vào đây qua `catThem`: địa chỉ những
+ * khối phải MỞ một tờ mới (`diaChiKhoi`, xem `choCatTran`). Tách hai nửa vì chỉ
+ * nửa đầu kiểm được mà không cần trình duyệt, và nửa đầu là nửa có một câu
+ * trả lời ĐÚNG duy nhất.
+ *
+ * Cắt được GIỮA một mục, theo ranh giới KHỐI: một mục (hay một bảng) dài hơn
+ * phần còn lại của tờ chảy sang tờ sau thay vì cuộn bên trong tờ. Một khối
+ * không bao giờ bị chẻ — ponytail: bảng dài hơn một tờ không chia theo HÀNG;
+ * tờ chở nó tự cao thêm. Nâng lên khi có một phép đo hàng trên màn hình.
  *
  * Chỉ TIẾN, không lùi (`Math.max`): mô hình có thể đảo thứ tự mục, và một
  * trang lùi lại sẽ cắt ra một tờ mới ở chỗ nguồn không hề ngắt.
@@ -837,20 +852,49 @@ function khoiTuClause(c: ClauseTho | undefined): KhoiMuc[] {
  * `muc` rỗng vẫn cho MỘT tờ — khung xem trước của một bản thảo chưa có mục nào
  * vẫn là một tờ giấy trắng, đúng hành vi trước bản vá này.
  */
-export function chiaTrang<T extends { trang: number }>(
+export function chiaTrang<T extends { trang: number; khoi: readonly unknown[] }>(
   muc: readonly T[],
-  catThem: readonly number[] = [],
-): T[][] {
+  catThem: readonly string[] = [],
+): ManhMuc<T>[][] {
   if (muc.length === 0) return [[]];
   const cat = new Set(catThem);
-  const to: T[][] = [[]];
+  const to: ManhMuc<T>[][] = [[]];
   let trang = muc[0]!.trang;
   muc.forEach((m, i) => {
-    if (i > 0 && (m.trang > trang || cat.has(i))) to.push([]);
+    if (i > 0 && (m.trang > trang || cat.has(diaChiKhoi(i, 0)))) to.push([]);
     trang = Math.max(trang, m.trang);
-    to[to.length - 1]!.push(m);
+    // Khối 0 đã xét ở trên; khối cuối trở đi không có gì sau nó để mở tờ mới
+    // — nên không bao giờ sinh một mảnh rỗng.
+    let tu = 0;
+    for (let k = 1; k < m.khoi.length; k += 1) {
+      if (!cat.has(diaChiKhoi(i, k))) continue;
+      to[to.length - 1]!.push({ m, i, tu, den: k });
+      to.push([]);
+      tu = k;
+    }
+    to[to.length - 1]!.push({ m, i, tu, den: m.khoi.length });
   });
   return to;
+}
+
+/**
+ * MỘT tờ đã đo → địa chỉ khối phải MỞ tờ kế tiếp, `null` khi tờ không tràn.
+ *
+ * `donVi` là các khối trên tờ theo thứ tự tài liệu, `day` là đáy của mỗi khối
+ * đo từ mép trên vùng chữ, `tran` là chiều cao vùng chữ của một tờ A4.
+ *
+ * Không bao giờ chọn đơn vị ĐẦU của tờ: cắt ở đó chỉ đẻ ra một tờ rỗng và vòng
+ * đo/cắt không bao giờ dừng. Một khối cao hơn cả tờ vì vậy ở lại một mình trên
+ * tờ của nó (tờ tự cao thêm) và phần sau nó chảy tiếp.
+ *
+ * 0,5px dung sai: chiều cao dưới điểm ảnh của trình duyệt không đáng để mở hẳn
+ * một tờ mới.
+ */
+export function choCatTran(
+  donVi: readonly { cat: string; day: number }[],
+  tran: number,
+): string | null {
+  return donVi.find((d, j) => j > 0 && d.day > tran + 0.5)?.cat ?? null;
 }
 
 export function mucTuBanThao(banThao: BanThao, cauTruc: CauTruc | null): Muc[] {
@@ -943,6 +987,14 @@ export function leTrangTuBanThao(banThao: BanThao): LeTrang | null {
   return null;
 }
 
+/** Đường dẫn ảnh nguồn hợp lệ DUY NHẤT: `/tai-lieu/{viec}/anh/{tên}`, đúng
+ *  hình dạng `hieu_tai_lieu` dựng và `routes_tai_lieu.anh` nhận. Hai cửa vào
+ *  cùng gọi nó — `clauses` (`anhHopLe`) và DOM đọc lại khi xuất tệp
+ *  (`docNoiDungTuDOM`) — vì cả hai đều dẫn tới một lượt tải kèm Bearer. */
+function laDuongAnh(url: string): boolean {
+  return /^\/tai-lieu\/[^/]+\/anh\/[A-Za-z0-9_-]+\.[A-Za-z0-9]{1,8}$/.test(url);
+}
+
 /**
  * `c.anh` thô → danh sách ảnh nguồn, bỏ RIÊNG phần tử sai hình dạng.
  *
@@ -951,9 +1003,10 @@ export function leTrangTuBanThao(banThao: BanThao): LeTrang | null {
  * không tồn tại ở đâu cả — còn hai tấm ảnh là HAI sự thật độc lập, và mất
  * con dấu không phải lý do để mất luôn logo.
  *
- * `url` phải là đường dẫn TƯƠNG ĐỐI bắt đầu bằng `/tai-lieu/`: đây là chuỗi
- * đi thẳng vào `src` của một `<img>`, nên một `javascript:` hay một tên miền
- * lạ lọt vào `clauses` không được có đường nào ra tới đó.
+ * `url` phải là đường dẫn TƯƠNG ĐỐI bắt đầu bằng `/tai-lieu/` (`laDuongAnh`):
+ * đây là chuỗi được tải KÈM Bearer rồi vẽ ra một `<img>`, nên một
+ * `javascript:` hay một tên miền lạ lọt vào `clauses` không được có đường nào
+ * ra tới đó.
  */
 function anhHopLe(tho: unknown): AnhNguon[] {
   if (!Array.isArray(tho)) return [];
@@ -962,7 +1015,7 @@ function anhHopLe(tho: unknown): AnhNguon[] {
     if (typeof x !== "object" || x === null) continue;
     const a = x as Record<string, unknown>;
     const url = typeof a["url"] === "string" ? (a["url"] as string) : "";
-    if (!/^\/tai-lieu\/[^/]+\/anh\/[A-Za-z0-9_-]+\.[A-Za-z0-9]{1,8}$/.test(url)) continue;
+    if (!laDuongAnh(url)) continue;
     const so = (v: unknown) => (Number.isFinite(Number(v)) ? Math.max(0, Number(v)) : 0);
     ra.push({
       url,
@@ -1186,6 +1239,8 @@ export const THUOC_TINH_ANH = {
   moc: "data-anh",
   rong: "data-anh-rong",
   cao: "data-anh-cao",
+  /** Đường dẫn TƯƠNG ĐỐI của ảnh — `src` là object URL chỉ sống trên màn hình. */
+  url: "data-anh-url",
 } as const;
 
 /** Tên thuộc tính chở MỘT mốc tab — cùng luật `THUOC_TINH_CHU`: `XemTruocA4`
@@ -1434,8 +1489,11 @@ export function docNoiDungTuDOM(sheet: HTMLElement): NoiDungXuat {
       // nghĩa là ảnh chưa tải được: BỎ, và phần còn lại của tệp vẫn đủ.
       const rong = so(THUOC_TINH_ANH.rong) || img.naturalWidth * EMU_MOI_PX;
       const cao = so(THUOC_TINH_ANH.cao) || img.naturalHeight * EMU_MOI_PX;
-      const url = img.getAttribute("src") ?? "";
-      if (url && rong > 0 && cao > 0) {
+      // Đường dẫn NGUỒN, không `src`: `src` là object URL màn hình đã tải, còn
+      // tệp tải về tự tải lại bytes có xác thực — nên chuỗi này đi qua CÙNG
+      // phép kiểm của cửa vào `clauses`.
+      const url = img.getAttribute(THUOC_TINH_ANH.url) ?? "";
+      if (laDuongAnh(url) && rong > 0 && cao > 0) {
         khoi.push({ kind: "anh", a: { url, rong, cao, vung: "than", thuTu: 0 } });
       }
       continue;
@@ -1850,23 +1908,36 @@ const NHAN_DANG_ANH: ReadonlyArray<readonly [readonly number[], "png" | "jpg" | 
 ];
 
 /**
+ * Bộ tải bytes của MỘT ảnh nguồn theo đường dẫn tương đối — ở trình duyệt là
+ * `taiAnhNguon` (`api.ts`, kèm Bearer: endpoint ảnh kiểm chủ sở hữu). TIÊM vào
+ * chứ không import: tệp này chạy được trong Node cho các kịch bản kiểm (chỉ
+ * `import type`), còn đường có xác thực cần Supabase.
+ */
+export type TaiAnh = (duongDan: string) => Promise<Blob | null>;
+
+/** Không có bộ tải → không ảnh nào: fail closed, không rơi về một `fetch`
+ *  trần thiếu Bearer mà endpoint chắc chắn từ chối. */
+const khongTaiAnh: TaiAnh = async () => null;
+
+/**
  * Bytes của MỘT ảnh nguồn, `null` khi không lấy được hoặc không nhận ra kiểu.
  *
- * `fetch` chứ không vẽ lại qua `<canvas>`: canvas mã hoá LẠI ảnh (mất nét ở
- * một con dấu quét, và đổi hẳn kiểu tệp), còn ở đây trình duyệt đã tải chính
- * đường dẫn này để vẽ ra màn hình nên lượt `fetch` thứ hai gần như luôn trúng
- * bộ nhớ đệm. `credentials: "include"` vì endpoint ảnh kiểm chủ sở hữu.
+ * Tải lại bytes chứ không vẽ lại qua `<canvas>`: canvas mã hoá LẠI ảnh (mất
+ * nét ở một con dấu quét, và đổi hẳn kiểu tệp). Màn hình đã tải chính đường
+ * dẫn này, và endpoint trả `Cache-Control: private, max-age=3600`, nên lượt
+ * thứ hai thường trúng bộ nhớ đệm của trình duyệt.
  *
  * FAIL CLOSED: mọi lỗi về `null`, và người gọi bỏ đúng tấm ảnh đó — cả tệp
  * tải về vẫn đủ phần còn lại, đúng luật `leTrangHopLe` đã đặt ở cửa vào.
  */
 async function bytesAnh(
   url: string,
+  taiAnh: TaiAnh,
 ): Promise<{ data: Uint8Array; kieu: "png" | "jpg" | "gif" | "bmp" } | null> {
   try {
-    const res = await fetch(url, { credentials: "include" });
-    if (!res.ok) return null;
-    const data = new Uint8Array(await res.arrayBuffer());
+    const blob = await taiAnh(url);
+    if (!blob) return null;
+    const data = new Uint8Array(await blob.arrayBuffer());
     const kieu = NHAN_DANG_ANH.find(([dau]) => dau.every((b, i) => data[i] === b))?.[1];
     return kieu ? { data, kieu } : null;
   } catch {
@@ -1893,9 +1964,9 @@ async function bytesAnh(
  * `wp:anchor/@positionH` được đọc — việc đó cần một quyết định cho vị trí
  * tuyệt đối, thứ quyết định 2026-09-18 đã để ngoài phạm vi.
  */
-export async function anhThanhParagraph(a: AnhNguon) {
+export async function anhThanhParagraph(a: AnhNguon, taiAnh: TaiAnh) {
   const { AlignmentType, ImageRun, Paragraph } = await import("docx");
-  const anh = await bytesAnh(a.url);
+  const anh = await bytesAnh(a.url, taiAnh);
   if (!anh) return new Paragraph({ children: [] });
   return new Paragraph({
     alignment: AlignmentType.CENTER,
@@ -1912,7 +1983,7 @@ export async function anhThanhParagraph(a: AnhNguon) {
   });
 }
 
-export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
+export async function xuatWord(sheet: HTMLElement, tieuDe: string, taiAnh: TaiAnh) {
   const {
     AlignmentType,
     Document,
@@ -1987,7 +2058,7 @@ export async function xuatWord(sheet: HTMLElement, tieuDe: string) {
       k.kind === "dong"
         ? dongThanhParagraph(k.d)
         : k.kind === "anh"
-          ? await anhThanhParagraph(k.a)
+          ? await anhThanhParagraph(k.a, taiAnh)
           : bangThanhTable(
               k.hang,
               k.nhip,
@@ -2174,8 +2245,8 @@ function dangKyPhongChuPDF(pdf: JsPDF, phongChu: PhongChuPDF) {
 
 /**
  * Dựng PDF THẬT từ `{ khoi, oKy }` (Phase 5 R1) — hàm THUẦN: không đụng DOM,
- * không `fetch`, nhận bytes phông chữ qua tham số, để `kiem-xuat-tep.ts` gọi
- * được thẳng từ Node.
+ * không `fetch`, nhận bytes phông chữ và bộ tải ảnh (`TaiAnh`) qua tham số, để
+ * `kiem-xuat-tep.ts` gọi được thẳng từ Node.
  *
  * Trả thêm `trangCuaKhoi`/`trangCuaKy` — số trang (1-based, tính từ lúc BẮT
  * ĐẦU vẽ khối đó) — CHỈ để kiểm luật phân trang (R3) mà không phải bóc PDF
@@ -2185,6 +2256,7 @@ export async function noiDungThanhPDF(
   noiDung: NoiDungXuat,
   tieuDe: string,
   phongChu: PhongChuPDF,
+  taiAnh: TaiAnh = khongTaiAnh,
 ): Promise<{ pdf: JsPDF; trangCuaKhoi: number[]; trangCuaKy: number | null }> {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "mm", format: "a4", compress: true });
@@ -2203,7 +2275,7 @@ export async function noiDungThanhPDF(
   const byteAnh = new Map<string, { data: Uint8Array; kieu: "png" | "jpg" | "gif" | "bmp" }>();
   for (const k of noiDung.khoi) {
     if (k.kind !== "anh" || byteAnh.has(k.a.url)) continue;
-    const b = await bytesAnh(k.a.url);
+    const b = await bytesAnh(k.a.url, taiAnh);
     if (b) byteAnh.set(k.a.url, b);
   }
 
@@ -3011,10 +3083,10 @@ async function taiPhongChuPDF(): Promise<PhongChuPDF> {
  * (`html2canvas`) và không còn trần trang giả — một tài liệu dài ra bao
  * nhiêu trang thì cần bấy nhiêu (R3).
  */
-export async function xuatPDF(sheet: HTMLElement, tieuDe: string) {
+export async function xuatPDF(sheet: HTMLElement, tieuDe: string, taiAnh: TaiAnh) {
   const noiDung = docNoiDungTuDOM(sheet);
   const phongChu = await taiPhongChuPDF();
-  const { pdf } = await noiDungThanhPDF(noiDung, tieuDe, phongChu);
+  const { pdf } = await noiDungThanhPDF(noiDung, tieuDe, phongChu, taiAnh);
   pdf.setProperties({ title: tieuDe, creator: "KLAW" });
   taiBlob(pdf.output("blob"), `${tenTepAnToan(tieuDe)}.pdf`);
 }

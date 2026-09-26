@@ -29,6 +29,8 @@ import { readFileSync } from "node:fs";
 
 import {
   chiaTrang,
+  choCatTran,
+  diaChiKhoi,
   docNoiDungTuDOM,
   mucTuBanThao,
   THUOC_TINH_LE,
@@ -50,9 +52,16 @@ const bang = (a: unknown, b: unknown, vi: string) => {
 
 /** Chỉ đúng những trường `chiaTrang` đọc — nó cố tình generic để kiểm được mà
  *  không phải dựng cả một `Muc`. */
-const m = (key: string, trang: number) => ({ key, trang });
+const m = (key: string, trang: number, soKhoi = 1) => ({
+  key,
+  trang,
+  khoi: Array.from({ length: soKhoi }, (_, k) => k),
+});
 
-const khoa = (to: { key: string }[][]) => to.map((t) => t.map((x) => x.key));
+type Manh = { m: { key: string }; tu: number; den: number };
+const khoa = (to: Manh[][]) => to.map((t) => t.map((x) => x.m.key));
+/** Mảnh viết gọn `a[0,2)` — khối `[tu, den)` của mục `a` trên một tờ. */
+const manh = (to: Manh[][]) => to.map((t) => t.map((x) => `${x.m.key}[${x.tu},${x.den})`));
 
 bang(
   khoa(chiaTrang([m("a", 1), m("b", 1), m("c", 1)])),
@@ -102,22 +111,90 @@ bang(
 bang(khoa(chiaTrang([])), [[]], "không mục nào vẫn là MỘT tờ giấy trắng, không phải KHÔNG tờ nào");
 
 bang(
-  khoa(chiaTrang([m("a", 1), m("b", 1), m("c", 1)], [2])),
+  khoa(chiaTrang([m("a", 1), m("b", 1), m("c", 1)], [diaChiKhoi(2, 0)])),
   [["a", "b"], ["c"]],
   "`catThem` (chỗ TRÀN đo được trên trình duyệt) cắt thêm tờ dù nguồn không khai ngắt nào",
 );
 
 bang(
-  khoa(chiaTrang([m("a", 1), m("b", 2), m("c", 2)], [2])),
+  khoa(chiaTrang([m("a", 1), m("b", 2), m("c", 2)], [diaChiKhoi(2, 0)])),
   [["a"], ["b"], ["c"]],
   "hai nửa cộng lại: ngắt NGUỒN và chỗ TRÀN cắt độc lập, không nuốt nhau",
 );
 
 bang(
-  khoa(chiaTrang([m("a", 1), m("b", 1)], [0])),
+  khoa(chiaTrang([m("a", 1), m("b", 1)], [diaChiKhoi(0, 0)])),
   [["a", "b"]],
   "chỗ cắt ở mục ĐẦU bị bỏ qua — cắt ở đó chỉ sinh ra một tờ rỗng",
 );
+
+// Cắt GIỮA một mục: một mục (hay một bảng dài) cao hơn phần còn lại của tờ
+// phải chảy sang tờ sau theo ranh giới KHỐI, không cuộn bên trong một tờ.
+bang(
+  manh(chiaTrang([m("a", 1, 5)])),
+  [["a[0,5)"]],
+  "không chỗ cắt nào → mục là MỘT mảnh trọn, đúng hành vi trước bản vá",
+);
+bang(
+  manh(chiaTrang([m("a", 1, 5)], [diaChiKhoi(0, 2)])),
+  [["a[0,2)"], ["a[2,5)"]],
+  "chỗ cắt ở khối 2 của mục ĐẦU chẻ nó thành hai mảnh trên hai tờ — mục đầu KHÔNG được miễn cắt giữa",
+);
+bang(
+  manh(chiaTrang([m("a", 1, 5)], [diaChiKhoi(0, 4), diaChiKhoi(0, 2)])),
+  [["a[0,2)"], ["a[2,4)"], ["a[4,5)"]],
+  "nhiều chỗ cắt trong một mục, không theo thứ tự nhập, vẫn ra các mảnh LIỀN nhau theo thứ tự khối",
+);
+bang(
+  manh(chiaTrang([m("a", 1, 2), m("b", 1, 3), m("c", 1, 1)], [diaChiKhoi(1, 1)])),
+  [
+    ["a[0,2)", "b[0,1)"],
+    ["b[1,3)", "c[0,1)"],
+  ],
+  "mảnh đầu của `b` ở lại tờ cũ cùng `a`; mảnh sau mở tờ mới và `c` chảy tiếp trên tờ đó",
+);
+bang(
+  manh(chiaTrang([m("a", 1, 3), m("b", 2, 2)], [diaChiKhoi(0, 1), diaChiKhoi(1, 1)])),
+  [["a[0,1)"], ["a[1,3)"], ["b[0,1)"], ["b[1,2)"]],
+  "chỗ cắt KHỐI và ngắt trang NGUỒN cộng dồn, không nuốt nhau",
+);
+bang(
+  manh(chiaTrang([m("a", 1, 2)], [diaChiKhoi(0, 2), diaChiKhoi(0, 9), diaChiKhoi(3, 1)])),
+  [["a[0,2)"]],
+  "chỗ cắt ở/ngoài CUỐI mục hay ở một mục không tồn tại bị bỏ — không sinh mảnh rỗng",
+);
+bang(
+  manh(chiaTrang([m("a", 1, 1), m("b", 1, 0)], [diaChiKhoi(1, 0)])),
+  [["a[0,1)"], ["b[0,0)"]],
+  "mục KHÔNG có khối nào vẫn là một mảnh (tên mục vẫn vẽ), và vẫn cắt được trước nó",
+);
+
+// ─────────────────────────── 1b. `choCatTran` — nửa ĐO, quyết định chỗ cắt
+
+const dv = (cat: string, day: number) => ({ cat, day });
+
+bang(choCatTran([dv("0.0", 100), dv("0.1", 290)], 297), null, "tờ vừa chữ → không cắt");
+bang(
+  choCatTran([dv("0.0", 100), dv("0.1", 200), dv("0.2", 300), dv("1.0", 400)], 297),
+  "0.2",
+  "cắt TRƯỚC đơn vị đầu tiên vượt đáy tờ, không phải đơn vị sau nó",
+);
+bang(
+  choCatTran([dv("0.0", 900)], 297),
+  null,
+  "MỘT khối cao hơn cả trang đứng đầu tờ → KHÔNG cắt (tờ tự cao thêm) — cắt ở đó chỉ đẻ tờ rỗng và quay vòng mãi",
+);
+bang(
+  choCatTran([dv("0.0", 900), dv("0.1", 1000)], 297),
+  "0.1",
+  "khối quá cao đứng đầu tờ ở lại một mình; phần còn lại chảy sang tờ sau",
+);
+bang(
+  choCatTran([dv("0.0", 100), dv("0.1", 297.4)], 297),
+  null,
+  "dung sai 0,5px: chiều cao dưới điểm ảnh không đáng mở hẳn một tờ mới",
+);
+bang(choCatTran([], 297), null, "tờ không có đơn vị nào → không cắt");
 
 // ───────────────────────────── 2. `Muc.trang` — trang nguồn đi tới được màn hình
 
@@ -313,6 +390,10 @@ ok(
 ok(
   /aspect-\[210\/297\]/.test(NGUON) && !/<article[\s\S]{0,200}aspect-\[210\/297\]/.test(NGUON),
   "khổ A4 chuyển xuống TỜ; `<article>` không còn là một tờ giấy",
+);
+ok(
+  !/overflow-y-auto/.test(NGUON),
+  "tờ KHÔNG cuộn bên trong: chữ tràn phải chảy sang tờ sau (hoặc tờ tự cao thêm), không bao giờ nằm khuất trong một tờ cuộn",
 );
 
 console.log(`kiem-dong-trang: ${dat} phép kiểm ĐẠT`);

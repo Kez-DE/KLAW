@@ -53,7 +53,7 @@ import {
   type PhanND,
 } from "@/lib/khung-van-ban";
 import { laMau, type CauTruc } from "@/lib/klaw";
-import { goi } from "@/lib/api";
+import { goi, taiAnhNguon } from "@/lib/api";
 // `toanVan` tĩnh được: `docx` và `jspdf` nằm sau `await import()` bên trong
 // `xuat-tep.ts`, nên nhập hàm này KHÔNG kéo hai thư viện nặng vào gói đầu tiên.
 import { toanVan } from "@/lib/xuat-tep";
@@ -462,8 +462,8 @@ export function KhongGianSoanThao({
     const id = toast.loading(dinhDang === "docx" ? "Đang tạo tệp Word…" : "Đang tạo tệp PDF…");
     try {
       const { xuatWord, xuatPDF } = await import("@/lib/xuat-tep");
-      if (dinhDang === "docx") await xuatWord(sheet, mau.ten);
-      else await xuatPDF(sheet, mau.ten);
+      if (dinhDang === "docx") await xuatWord(sheet, mau.ten, taiAnhNguon);
+      else await xuatPDF(sheet, mau.ten, taiAnhNguon);
       toast.success(dinhDang === "docx" ? "Đã tải tệp .docx." : "Đã tải tệp .pdf.", {
         id,
         description: "Bản thảo cần được pháp chế rà soát trước khi ký kết.",
