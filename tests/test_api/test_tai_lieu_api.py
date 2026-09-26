@@ -952,6 +952,36 @@ async def test_ANH_khong_co_khuon_goc_trang_la_404(client, khoa_ky, hai_nguoi, m
 
 
 @pytest.mark.asyncio
+async def test_DOC_khuon_goc_la_DUNG_ban_docx_bo_doc_da_doc(client, khoa_ky, hai_nguoi, monkeypatch):
+    """`dia_chi`/`cho_trong` (P2b) được ghim vào ĐÚNG bytes docx bộ đọc đã đọc,
+    và bộ áp (P3a) nhận khuôn gốc đã lưu. Với `.doc`, hai thứ đó chỉ là một khi
+    LibreOffice chạy ĐÚNG một lần: lượt quy đổi thứ hai không hứa ra cùng bytes,
+    và địa chỉ đã ghim sẽ trỏ vào một tệp khác. Bộ quy đổi giả ở đây cố ý trả
+    bản KHÁC ở lượt thứ hai để lộ ngay mọi lượt quy đổi lại."""
+    from src.services import doc_tai_lieu as dtl
+
+    ban = [_docx("Họ và tên: ..........", DONG_LUONG), _docx("Bản quy đổi lần hai", DONG_LUONG)]
+    goi: list[bytes] = []
+    monkeypatch.setattr(dtl, "_chuyen_doc_sang_docx", lambda du_lieu: goi.append(du_lieu) or ban[len(goi) - 1])
+    dung: list[bytes] = []
+    monkeypatch.setattr(rtl.dung_trang, "dung_pdf", lambda docx: dung.append(docx) or pdf_trang((595.0, 842.0)))
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+
+    r = await _dinh_kem(client, ha, phien, b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 100, "cu.doc")
+    assert (r.status_code, r.json()["co_khuon_goc"]) == (201, True), r.text
+    assert len(goi) == 1, "`.doc` quy đổi đúng một lần"
+    k = rtl.tl.khuon_goc_cua(get_engine(), r.json()["id"], a)
+    assert (k["dinh_dang"], k["noi_dung"]) == ("docx", ban[0])
+    assert dung == [ban[0]], "số trang dàn từ chính bản đã lưu"
+
+    luu = rtl.tl.don_vi_cua(get_engine(), r.json()["id"], a)
+    assert luu[0].dia_chi and luu[0].cho_trong, "phải có địa chỉ để phép so dưới đây có nghĩa"
+    assert luu == dtl.doc("x.docx", k["noi_dung"]).don_vi, "địa chỉ đã lưu trỏ đúng vào khuôn gốc đã lưu"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("duong", ["tai_lieu_hoi_thoai", "hoi_thoai", "tai_khoan"])
 async def test_khuon_goc_di_cung_hoi_thoai_va_tai_khoan(client, khoa_ky, hai_nguoi, duong):
     """Điều khoản đánh đổi của quyết định: tệp nằm trong Postgres ĐÚNG BẰNG
