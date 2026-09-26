@@ -1,6 +1,9 @@
 .git
 .gitignore
 .env
+# Local secret files (.env.local, .env.production…) must never enter the image.
+.env.*
+!.env.example
 .venv
 __pycache__
 *.pyc
