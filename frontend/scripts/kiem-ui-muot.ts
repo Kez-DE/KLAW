@@ -1203,6 +1203,7 @@ const chuTheoTo = (khung: Nut) =>
   toTrong(khung).map((t) => timTatNut(t, coThuoc("[data-khoi]")).map((x) => x.textContent));
 
 const goiSuaTran: unknown[][] = [];
+const chonTran: string[] = [];
 const { khung: khungTran5, root: rootTran5 } = taoRoot();
 await act(() => {
   rootTran5.render(
@@ -1210,6 +1211,8 @@ await act(() => {
       ...propsBang,
       laTongQuat: false,
       hienCanCu: true,
+      mucDangChon: "m1",
+      onChonMuc: (k: string) => chonTran.push(k),
       muc: [mucKhoi("m1", ["Khối 1", "Khối 2", "Khối 3", "Khối 4", "Khối 5"])],
       onSuaKhoi: (...a: unknown[]) => {
         goiSuaTran.push(a);
@@ -1239,6 +1242,18 @@ assert.equal(
   1,
   "vẫn ĐÚNG MỘT `<article>` cho mọi tờ — thẻ `docNoiDungTuDOM` nhận",
 );
+// Một mục chia ba mảnh vẫn là MỘT điều khiển "chọn mục": lặp role/tabindex/nhãn
+// trên mỗi mảnh là bắt người dùng bàn phím/trình đọc màn hình gặp CÙNG một nút
+// ba lần. Mảnh sau vẫn bấm chuột chọn được mục.
+const manhMuc = timTatNut(khungTran5, (n) => n.getAttribute("data-muc") === "m1");
+for (const t of ["role", "tabindex", "aria-label", "aria-current"])
+  assert.deepEqual(
+    manhMuc.map((n) => n.getAttribute(t) !== null),
+    [true, false, false],
+    `\`${t}\` chỉ ở mảnh ĐẦU của mục`,
+  );
+await act(() => phat(manhMuc[2]!, "click"));
+assert.deepEqual(chonTran, ["m1"], "bấm vào mảnh cuối vẫn chọn đúng mục của nó");
 // Chỉ số khối gửi đi khi lưu phải là chỉ số TRONG MỤC, không phải trong mảnh:
 // lệch ở đây là lưu chữ người dùng gõ vào NHẦM khối.
 const khoi3 = tim(
@@ -1291,4 +1306,4 @@ assert.equal(
   "tên mục `m2` sang tờ mới cùng khối đầu của nó",
 );
 
-console.log("kiem-ui-muot: 123/123 OK");
+console.log("kiem-ui-muot: 128/128 OK");

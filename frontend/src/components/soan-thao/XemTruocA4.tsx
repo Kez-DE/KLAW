@@ -966,8 +966,12 @@ export function XemTruocA4({
                   data-muc={m.key}
                   {...(m.khoi.length === 0 ? { [THUOC_TINH_KHOI]: diaChiKhoi(chiSoMuc, 0) } : {})}
                   onClick={onChonMuc ? () => chonMuc(m.key) : undefined}
+                  // Nút "chọn mục" (phím, role, tabIndex, nhãn, aria-current) chỉ
+                  // ở mảnh ĐẦU (`tu === 0`): mục chia nhiều tờ vẫn là MỘT điều
+                  // khiển, không phải một điểm dừng Tab cùng nhãn trên mỗi tờ.
+                  // `onClick` ở mọi mảnh: bấm chuột vào phần tiếp vẫn chọn mục.
                   onKeyDown={
-                    onChonMuc
+                    onChonMuc && tu === 0
                       ? (e) => {
                           // Phase 3 (Half A, R1) — đang gõ TRONG một khối
                           // `contentEditable`: Enter xuống dòng, dấu cách gõ chữ
@@ -982,11 +986,13 @@ export function XemTruocA4({
                         }
                       : undefined
                   }
-                  role={onChonMuc ? "button" : undefined}
-                  tabIndex={onChonMuc ? 0 : undefined}
-                  aria-current={mucDangChon === m.key ? "true" : undefined}
+                  role={onChonMuc && tu === 0 ? "button" : undefined}
+                  tabIndex={onChonMuc && tu === 0 ? 0 : undefined}
+                  aria-current={tu === 0 && mucDangChon === m.key ? "true" : undefined}
                   aria-label={
-                    onChonMuc ? `Chọn mục ${m.stt}. ${m.ten} làm đích chỉnh sửa` : undefined
+                    onChonMuc && tu === 0
+                      ? `Chọn mục ${m.stt}. ${m.ten} làm đích chỉnh sửa`
+                      : undefined
                   }
                   className={cn(
                     "rounded-sm px-2 py-1 -mx-2",
