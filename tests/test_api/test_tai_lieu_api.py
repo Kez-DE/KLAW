@@ -1142,6 +1142,140 @@ async def test_chuoi_BI_MAT_trong_tep_KHONG_vao_traces_luot_hoi_thoai_hay_log(
         assert _dem(f"SELECT count(*) FROM {bang} t WHERE t::text LIKE :s", s=f"%{bi_mat}%") == 0, bang
 
 
+class _LLMDem(_LLM):
+    """`_LLM` có đếm lượt gọi và chi phí tuỳ chọn — mỗi lượt là một lượt trả tiền thật."""
+
+    def __init__(self, chi_phi: float = _Usage.cost_usd) -> None:
+        self.so_lan = 0
+        self.chi_phi = chi_phi
+
+    def chat(self, model, messages, json_schema=None):
+        self.so_lan += 1
+        ra, dung = super().chat(model, messages, json_schema)
+        dung = type("_U", (), {"token_in": dung.token_in, "token_out": dung.token_out, "cost_usd": self.chi_phi})()
+        return ra, dung
+
+
+@pytest.fixture
+def llm_dem(monkeypatch):
+    llm = _LLMDem()
+    monkeypatch.setattr(rtl.llm_svc, "from_settings", lambda: llm)
+    monkeypatch.setattr(rtl.llm_svc, "generate_model", lambda: "gia-lap")
+    return llm
+
+
+def _rut_lai(client, headers, viec: str, loai: str = LOAI):
+    return client.post(f"/api/v1/tai-lieu/{viec}/doc-lai", headers=headers, json={"loai": loai})
+
+
+@pytest.mark.asyncio
+async def test_DOC_LAI_co_TRAN_so_lan_FR037_va_cong_don_chi_phi(client, khoa_ky, hai_nguoi, llm_dem, monkeypatch):
+    """Reviewer dò được: sau một lần tải lên, 25 lượt `doc-lai` đều 200 — 25
+    lượt gọi mô hình trả tiền, `chi_phi_usd` chỉ còn giá của lượt cuối. FR-037
+    đòi trần số lần; rút "tổng quát" không gọi mô hình nên không tốn lượt."""
+    monkeypatch.setattr(rtl.tl, "TRAN_THU_LAI", 2, raising=False)
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _tai_len(client, ha, phien)).json()["id"]
+    assert llm_dem.so_lan == 1
+
+    assert (await _rut_lai(client, ha, viec, rtl.ban_thao.LOAI_TONG_QUAT)).status_code == 200
+    ma = [(await _rut_lai(client, ha, viec)).status_code for _ in range(4)]
+    assert ma == [200, 200, 429, 429]
+    assert llm_dem.so_lan == 3, "tải lên + đúng 2 lượt rút lại có trả tiền"
+    r = await _rut_lai(client, ha, viec)
+    assert "2 lần" in r.json()["detail"]
+    v = rtl.tl.lay_viec(get_engine(), viec, a)
+    assert v["trang_thai"] == "xong", "429 không được đẩy việc sang `dang_doc`"
+    assert v["chi_phi_usd"] == pytest.approx(3 * _Usage.cost_usd), "chi phí cộng dồn, không ghi đè"
+
+
+@pytest.mark.asyncio
+async def test_DOC_LAI_het_tran_chi_phi_NGAY_la_429_khong_goi_mo_hinh(client, khoa_ky, hai_nguoi, llm_dem, monkeypatch):
+    """Cổng cuối trước ví tiền của mọi endpoint trả tiền (`bao_ve.kiem_tran_chi_phi`)."""
+    from fastapi import HTTPException
+
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _tai_len(client, ha, phien)).json()["id"]
+
+    def _het():
+        raise HTTPException(status_code=429, detail="Đã đạt trần chi phí ngày")
+
+    monkeypatch.setattr(bao_ve, "kiem_tran_chi_phi", _het)
+    r = await _rut_lai(client, ha, viec)
+    assert r.status_code == 429, r.text
+    assert llm_dem.so_lan == 1
+    assert rtl.tl.lay_viec(get_engine(), viec, a)["trang_thai"] == "xong"
+
+
+@pytest.mark.asyncio
+async def test_DOC_LAI_vuot_uoc_chi_phi_la_422_viec_van_xong_khong_ton_luot(
+    client, khoa_ky, hai_nguoi, llm_dem, monkeypatch
+):
+    """Ước chi phí đã biết TRƯỚC khi nhận việc: rút lại chắc chắn bị từ chối thì
+    không được đẩy một tài liệu đang dùng được sang `hong` (nó rơi khỏi ngữ
+    cảnh chat) và không được tốn một lượt FR-037."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "hd.docx")).json()["id"]
+    monkeypatch.setattr(rtl.tl, "TRAN_CHI_PHI_TAI_LIEU_USD", 1e-9)
+
+    r = await _rut_lai(client, ha, viec)
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"] == rtl.THONG_DIEP_TRAN["chi_phi"]
+    assert llm_dem.so_lan == 0
+    v = rtl.tl.lay_viec(get_engine(), viec, a)
+    assert (v["trang_thai"], v["so_lan_thu"]) == ("xong", 0)
+
+
+@pytest.mark.asyncio
+async def test_tai_len_bi_tran_chi_phi_KHONG_giu_tep_va_KHONG_tru_han_muc(
+    client, khoa_ky, hai_nguoi, llm_dem, monkeypatch
+):
+    """Reviewer dò được: sáu lượt tải lên bị trần chi phí từ chối đều 201, sáu
+    dòng `khuon_goc` ở lại, hạn mức đã dùng 0/1. Bị từ chối thì không để lại
+    byte nào (docstring module) và không trừ hạn mức (FR-038)."""
+    monkeypatch.setattr(rtl.tl, "han_muc_ngay", lambda goi: 1)
+    monkeypatch.setattr(rtl.tl, "TRAN_CHI_PHI_TAI_LIEU_USD", 1e-9)
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+
+    for _ in range(2):
+        r = await _tai_len(client, ha, phien)
+        assert r.status_code == 201, r.text
+        assert (r.json()["trang_thai"], r.json()["co_khuon_goc"]) == ("hong", False)
+    dem = (
+        "SELECT count(*) FROM khuon_goc k JOIN viec_doc_tai_lieu v ON v.id = k.viec_id "
+        "WHERE v.hoi_thoai_id = CAST(:h AS uuid)"
+    )
+    assert _dem(dem, h=phien) == 0
+    assert llm_dem.so_lan == 0
+
+
+@pytest.mark.asyncio
+async def test_DOC_LAI_vuot_chi_phi_THUC_khong_hoan_luot_tai_lieu_da_luu(client, khoa_ky, hai_nguoi, monkeypatch):
+    """Tệp đã lưu và đã đếm; một lượt rút lại có chi phí thật vượt trần đẩy việc
+    sang `vuot_tran_chi_phi`, nhưng tệp vẫn nằm đó — lượt tải lên không được
+    hoàn lại, không thì lặp đính kèm + rút lại là lưu không giới hạn."""
+    llm = _LLMDem(chi_phi=rtl.tl.TRAN_CHI_PHI_TAI_LIEU_USD + 1)
+    monkeypatch.setattr(rtl.llm_svc, "from_settings", lambda: llm)
+    monkeypatch.setattr(rtl.llm_svc, "generate_model", lambda: "gia-lap")
+    monkeypatch.setattr(rtl.tl, "han_muc_ngay", lambda goi: 1)
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "hd.docx")).json()["id"]
+
+    r = await _rut_lai(client, ha, viec)
+    assert (r.status_code, r.json()["trang_thai"], r.json()["ly_do_hong"]) == (200, "hong", "vuot_tran_chi_phi")
+    assert (await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "hai.docx")).status_code == 429
+
+
 @pytest.mark.asyncio
 async def test_DOC_LAI_sau_lan_rut_hong_thi_xong_va_KHONG_mang_ly_do_hong_cu(client, khoa_ky, hai_nguoi, llm_gia):
     """Rút lại là THỬ LẠI được: một việc hỏng vì mô hình lỗi mà rút lại thành
