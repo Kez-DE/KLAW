@@ -20,6 +20,7 @@ thay đúng các ký tự `[dau:cuoi]` của một chỗ trống. Nên mọi con
 5. `noi_dung`, `chi_so`, neo và bộ đếm `lam_sach_van_ban` không đổi một byte.
 """
 
+import time
 import zipfile
 from dataclasses import replace
 from io import BytesIO
@@ -231,6 +232,59 @@ def test_nhan_toi_da_60_ky_tu_la_DUOI_cua_nhan():
     dai = "x" * 70 + " Họ và tên người đại diện:"
     d = _theo_chu(_mot(_p(_r(dai + " ……"))), "xxx")
     assert d.cho_trong[0].nhan == dai[-60:]
+
+
+# ─────────────────────────────────────────── chi phí tuyến tính theo tệp
+# Bộ đọc chạy trên MỌI tệp tải lên, trong threadpool, không hạn giờ. Vài KB
+# lồng sâu hay lặp dày mà tốn bậc hai là giữ một worker hàng giờ (đo 2026-09-26:
+# 32.000 tầng `mc:AlternateContent` mất 30 s trước khi sửa, 0,03 s trên main).
+
+
+def _giay(than: str, phan: dict[str, str] | None = None) -> tuple[float, list[DonViVanBan]]:
+    du_lieu = _docx(than, phan)
+    t = time.perf_counter()
+    don_vi = doc("x.docx", du_lieu).don_vi
+    return time.perf_counter() - t, don_vi
+
+
+def test_mc_AlternateContent_LONG_SAU_doc_trong_thoi_gian_tuyen_tinh():
+    n = 16_000
+    ac = '<mc:AlternateContent><mc:Choice Requires="wps">' * n + "</mc:Choice></mc:AlternateContent>" * n
+    giay, don_vi = _giay(_p(_r("Họ tên: ……"), f"<w:r>{ac}</w:r>"))
+    assert giay < 2, giay
+    d = _theo_chu(don_vi, "Họ tên")
+    assert d.dia_chi == DiaChi("word/document.xml", (0,))
+    assert d.cho_trong == (), "đoạn chứa mc:AlternateContent vẫn fail closed"
+
+
+def test_dau_trang_LONG_SAU_khong_co_dia_chi_va_doc_nhanh():
+    """`chi_muc` dài đúng bằng độ sâu: 32.000 tầng `w:sdt` là 32.000 số lưu vào
+    DB cho MỘT đơn vị và một lần chép đường mỗi tầng. Sâu quá trần thì không có
+    địa chỉ (fail closed); nông thì như cũ."""
+    n = 32_000
+    sdt = "<w:sdt><w:sdtContent>{}</w:sdtContent></w:sdt>"
+    hdr = (
+        f'<?xml version="1.0"?><w:hdr {_KHAI_NS}>{sdt.format(_p(_r("Nông: ……")))}'
+        + "<w:sdt><w:sdtContent>" * n
+        + _p(_r("Sâu: ……"))
+        + "</w:sdtContent></w:sdt>" * n
+        + "</w:hdr>"
+    )
+    giay, don_vi = _giay(_p(_r("Thân")), {"word/header1.xml": hdr})
+    assert giay < 2, giay
+    nong = _theo_chu(don_vi, "Nông")
+    assert nong.dia_chi == DiaChi("word/header1.xml", (0, 1, 0)) and len(nong.cho_trong) == 1
+    sau = _theo_chu(don_vi, "Sâu")
+    assert sau.dia_chi is None and sau.cho_trong == ()
+
+
+def test_doan_NHIEU_cho_trong_va_tab_doc_trong_thoi_gian_tuyen_tinh():
+    n = 30_000
+    giay, don_vi = _giay(_p(*["<w:r><w:t>a…</w:t><w:tab/></w:r>"] * n))
+    assert giay < 2, giay
+    (d,) = don_vi
+    assert len(d.cho_trong) == n
+    assert d.cho_trong[1].nhan == "a"
 
 
 # ───────────────────────────────────────────────── bất biến neo trích dẫn

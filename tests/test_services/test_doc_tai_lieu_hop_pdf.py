@@ -41,15 +41,16 @@ _DONG = [
 ]
 
 
-def _pdf(dong=_DONG) -> bytes:
+def _pdf(dong=_DONG, trang: int = 1) -> bytes:
     from reportlab.pdfgen import canvas
 
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=(595.0, _H))
-    c.setFont("Helvetica", 12)
-    for x, y, chu in dong:
-        c.drawString(x, y, chu)
-    c.showPage()
+    for _ in range(trang):
+        c.setFont("Helvetica", 12)
+        for x, y, chu in dong:
+            c.drawString(x, y, chu)
+        c.showPage()
     c.save()
     return buf.getvalue()
 
@@ -129,6 +130,26 @@ def test_dong_chu_bi_gian_rong_van_khop_theo_dong_thi_giac():
         assert d.hop[0] < d.hop[2]
 
 
+@pytest.mark.skipif(not _CO_PDFTOTEXT, reason="cần pdftotext (poppler)")
+def test_hop_do_tu_goc_tren_trai_cua_MEDIA_BOX_ke_ca_khi_co_CropBox():
+    """poppler (`pdftotext -tsv`, và `pdftoppm` mặc định của nhánh scan) đo trên
+    MEDIA box, không phải CropBox: chữ vẽ ở x = 100 của một trang cắt
+    [50 50 545 792] vẫn có x0 = 100 (hệ CropBox sẽ cho 50). P3b đặt chữ bằng
+    đúng hệ này — lệch nó là lệch mọi chữ điền theo độ cắt."""
+    from reportlab.pdfgen import canvas
+
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=(595.0, _H))
+    c.setCropBox((50, 50, 545, 792))
+    c.setFont("Helvetica", 12)
+    c.drawString(100, 700, "Ho ten: ..............")
+    c.showPage()
+    c.save()
+    (d,) = _theo_chu(doc("x.pdf", buf.getvalue()).don_vi, "Ho ten")
+    assert abs(d.hop[0] - 100) < 0.5, d.hop
+    assert d.hop[1] < _H - 700 < d.hop[3], "y đo từ mép TRÊN của media box"
+
+
 def test_THIEU_pdftotext_thi_khong_co_hop_va_noi_dung_y_het(monkeypatch):
     goc = doc("x.pdf", _pdf()).don_vi
     that = shutil.which
@@ -196,6 +217,47 @@ def test_scan_THIEU_anh_xam_thi_noi_dung_y_het_va_khong_cho_trong(tmp_path, monk
     thieu = doc("scan.pdf", anh).don_vi
     assert [(d.noi_dung, d.do_tin, d.hop) for d in thieu] == [(d.noi_dung, d.do_tin, d.hop) for d in goc]
     assert all(d.cho_trong == () for d in thieu)
+
+
+def _ghi_lenh(monkeypatch) -> list[list[str]]:
+    """Ghi lại mọi lệnh `_chay_cong_cu` nhận, vẫn chạy thật."""
+    lenh: list[list[str]] = []
+    that = dtl._chay_cong_cu
+
+    def ghi(mot, vao):
+        lenh.append(mot)
+        return that(mot, vao)
+
+    monkeypatch.setattr(dtl, "_chay_cong_cu", ghi)
+    return lenh
+
+
+@pytest.mark.skipif(not _CO_SCAN, reason="cần tesseract + vie + pdftoppm")
+def test_scan_anh_xam_dung_TUNG_TRANG_mot(tmp_path, monkeypatch):
+    """`communicate()` nhận TRỌN stdout vào tiến trình API: ảnh xám của mọi trang
+    trong một lượt là cả tệp điểm ảnh nằm trong worker (đo 2026-09-26: 60 trang
+    A4 trắng = 464 MB). Mỗi lượt chỉ dựng đúng một trang."""
+    anh = _scan(_pdf(trang=2), tmp_path)
+    lenh = _ghi_lenh(monkeypatch)
+    don_vi = doc("scan.pdf", anh).don_vi
+    xam = [mot[-5:] for mot in lenh if "-gray" in mot]
+    assert xam == [["-f", "1", "-l", "1", "-"], ["-f", "2", "-l", "2", "-"]]
+    assert {d.trang for d in don_vi if d.cho_trong} == {1, 2}
+
+
+@pytest.mark.skipif(not _CO_SCAN, reason="cần tesseract + vie + pdftoppm")
+def test_scan_trang_QUA_TRAN_diem_anh_khong_dung_anh_xam(tmp_path, monkeypatch):
+    """Một PDF 1,3 KB khai trang 6000×6000 pt là ~280 Mpx ở 200 dpi. Cỡ trang
+    đọc từ PNG đã dựng cho tesseract, TRƯỚC khi xin ảnh xám; quá trần thì trang
+    ấy không có chỗ trống (fail closed), chữ OCR và hộp y nguyên."""
+    anh = _scan(_pdf(), tmp_path)
+    goc = doc("scan.pdf", anh).don_vi
+    monkeypatch.setattr(dtl, "_PX_XAM_TOI_DA", 1000, raising=False)
+    lenh = _ghi_lenh(monkeypatch)
+    qua = doc("scan.pdf", anh).don_vi
+    assert [mot for mot in lenh if "-gray" in mot] == []
+    assert [(d.noi_dung, d.do_tin, d.hop) for d in qua] == [(d.noi_dung, d.do_tin, d.hop) for d in goc]
+    assert all(d.cho_trong == () for d in qua)
 
 
 # ────────────────────────────────────────────── bộ dò dãy chấm trên ảnh
