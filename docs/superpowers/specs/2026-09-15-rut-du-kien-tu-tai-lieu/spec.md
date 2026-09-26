@@ -108,6 +108,7 @@ Người dùng tải lên một bản scan chụp điện thoại. Hệ thống 
 - **FR-003**: Hệ thống MUST phân biệt và báo riêng bốn nguyên nhân không xử lý được: định dạng không hỗ trợ, tệp hỏng, tệp cần mật khẩu, PDF không có lớp chữ.
 - **FR-004**: Hệ thống MUST áp hạn mức số tài liệu theo gói tài khoản và chặn trước khi xử lý khi vượt.
 - **FR-005**: Hệ thống MUST từ chối tài liệu dài quá **100 trang** hoặc nặng quá **20 MB**, và MUST nêu đúng trần đã vượt trong thông báo từ chối.
+  - _Ghi chú 2026-09-26_: trần trang nay là **10 trang**, đếm bằng dàn trang thật (LibreOffice cho docx và `.doc`, số trang của PDF); tài liệu vượt trần bị từ chối lúc tải lên và không trừ vào hạn mức ngày. Xem `docs/decisions/2026-09-26-luu-khuon-goc-va-dien-tai-cho.md`.
 
 **Cách xử lý và phản hồi tiến trình**
 

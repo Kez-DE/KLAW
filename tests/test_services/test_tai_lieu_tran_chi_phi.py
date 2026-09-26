@@ -34,9 +34,10 @@ def test_moi_tran_la_DU_LIEU_khong_phai_so_trong_code():
 
 
 def test_KHONG_con_tran_so_lan_thu_lai():
-    """Không giữ tệp gốc thì không thử lại được: thử lại = tải lên lại, và
-    `tai_lieu_ngay` đã đếm việc đó. Một hằng số không có nơi cưỡng chế là một
-    lời hứa, không phải một quy tắc."""
+    """Không có trần số lần thử lại. Rút lại theo loại (`doc-lai`, quyết định
+    2026-09-26) chạy trên chính việc đọc đã lưu, không trừ `tai_lieu_ngay`;
+    mỗi lần vẫn qua trần chi phí mỗi tài liệu. Một hằng số không có nơi cưỡng
+    chế là một lời hứa, không phải một quy tắc."""
     import src.services.tai_lieu as m
 
     assert not hasattr(m, "TRAN_THU_LAI") and not hasattr(m, "con_thu_lai")

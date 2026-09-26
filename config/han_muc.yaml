@@ -55,8 +55,10 @@ chu_ky_pro_ngay: 30
 # `chi_phi_usd` cho MỘT lần đọc một tài liệu. Ước theo số ký tự trước khi gọi mô
 # hình, và đối chiếu lại bằng chi phí thật sau khi gọi.
 #
-# KHÔNG có trần "số lần thử lại": hệ thống không giữ tệp gốc (FR-022), nên thử
-# lại chính là tải lên lại, và `tai_lieu_ngay` đã đếm việc đó.
+# KHÔNG có trần "số lần thử lại". Từ quyết định 2026-09-26 tệp được giữ làm
+# khuôn gốc, nên rút lại theo loại chạy trên CHÍNH việc đọc đã lưu
+# (`POST /tai-lieu/{id}/doc-lai`) và không trừ `tai_lieu_ngay` — mỗi lần rút vẫn
+# qua `chi_phi_usd` dưới đây và giới hạn theo IP, nhưng không có trần số lần.
 tai_lieu:
   # 0.10 = 50.000 ký tự theo `usd_moi_nghin_ky_tu`: đủ cho trọn một tài liệu
   # 10 trang, trần số trang của quyết định 2026-09-26 (không cắt ngầm).
