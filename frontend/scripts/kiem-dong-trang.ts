@@ -120,6 +120,11 @@ bang(
 );
 
 // ───────────────────────────── 2. `Muc.trang` — trang nguồn đi tới được màn hình
+//
+// Các clause dưới đây VIẾT TAY khoá `trang`, nên chúng chỉ chứng minh nửa đọc.
+// Nửa ghi (`clauses_tu` từng làm rơi `trang`/`anh`, mọi bản thảo ra một tờ) được
+// chốt ở `tests/test_agents/test_ban_thao_tong_quat.py`
+// `::test_clauses_tu_mang_trang_va_anh_cua_lam_sach_van_ban`.
 
 const banThao = (clauses: unknown[]) => ({ clauses }) as unknown as BanThao;
 
