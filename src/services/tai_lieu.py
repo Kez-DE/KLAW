@@ -1,18 +1,19 @@
 """Vòng đời một việc đọc tài liệu và tập dữ kiện của nó (spec 2026-09-15).
 
-Tệp gốc không chạm đĩa QUA MODULE NÀY: nó vào bằng bytes, đi qua
-`doc_tai_lieu`, và người gọi buông tham chiếu ngay sau đó — kể cả khi việc
-hỏng giữa chừng. (Sửa fix round 2, task review — Minor #2: câu cũ ở đây nói
-"KHÔNG bao giờ chạm đĩa" tuyệt đối, không còn đúng kể từ `.doc`.) Với
-`.pdf`/`.docx`/ảnh, lời hứa đó vẫn nguyên vẹn. Với `.doc` thì
-`doc_tai_lieu._chuyen_doc_sang_docx` — MỘT tầng dưới module này, không phải
-ở đây — phải ghi một bản tạm ra đĩa để LibreOffice đọc được, và xoá nó ngay
-khi trả về hoặc ném lỗi; chỉ một tiến trình bị giết/hết bộ nhớ đúng lúc đang
-chuyển đổi mới để sót tệp đó lại trong `/tmp` của container. Thứ được lưu Ở
-ĐÂY, trong DB, luôn đúng như câu cũ: chỉ dữ kiện đã rút cùng dấu vân một
-chiều của tài liệu, cùng chính sách `traces.dau_van_ban` đã đặt cho `/soat`:
-dữ liệu cá nhân trong tài liệu của khách thường thuộc về người thứ ba chưa
-từng dùng KLAW và chưa đồng ý gì cả.
+Từ quyết định 2026-09-26 (`docs/decisions/2026-09-26-luu-khuon-goc-va-dien-tai-cho.md`)
+tệp tải lên ĐƯỢC LƯU: `.docx`, `.doc` (dưới dạng `.docx` đã quy đổi) và PDF
+thành **khuôn gốc** ở bảng `khuon_goc` (migration 036), để "Bản tải lên" hiện
+đúng từng trang như tệp. Ảnh thì không: chúng giữ đường OCR và chỉ phần đã đọc
+được lưu. Khuôn gốc sống ĐÚNG BẰNG đời cuộc hội thoại — xoá hội thoại (mềm hay
+cứng) hoặc xoá tài khoản là xoá cứng nó qua khoá ngoại tới
+`viec_doc_tai_lieu` — và không đi vào log, trace, hồ sơ tài khoản, bộ nhớ dài
+hạn hay dataset: dữ liệu cá nhân trong tài liệu của khách thường thuộc về
+người thứ ba chưa từng dùng KLAW và chưa đồng ý gì cả.
+
+Ngoài DB, tệp chỉ chạm đĩa trong thư mục tạm của LibreOffice/`pdftoppm`
+(`doc_tai_lieu._chay_soffice`, `dung_trang.anh_trang`), xoá ngay khi trả về
+hoặc ném lỗi; chỉ một tiến trình bị giết/hết bộ nhớ đúng lúc đang chuyển đổi
+mới để sót tệp đó lại trong `/tmp` của container.
 """
 
 import hashlib
@@ -35,8 +36,10 @@ from src.services.doc_tai_lieu import (
 logger = logging.getLogger(__name__)
 
 # FR-005 — hai trần tuyệt đối. Vượt thì từ chối và NÊU ĐÚNG trần nào bị vượt:
-# "tệp quá lớn" không cho người dùng biết phải làm gì, "quá 100 trang" thì có.
-TRAN_TRANG = 100
+# "tệp quá lớn" không cho người dùng biết phải làm gì, "quá 10 trang" thì có.
+# 10 trang, đếm bằng dàn trang THẬT (quyết định 2026-09-26): tài liệu trong
+# trần được gửi trọn cho mô hình, không cắt ngầm.
+TRAN_TRANG = 10
 TRAN_BYTE = 20 * 1024 * 1024
 
 # FR-029/030 — từ ngưỡng này trở lên thì chuyển sang chạy nền. Hợp đồng lao
@@ -224,8 +227,8 @@ def tao_viec(
 ) -> str:
     """Ghi một việc đọc ở trạng thái `dang_doc`, trả `id`.
 
-    `du_lieu` chỉ được dùng để tính dấu vân rồi bỏ; không nhánh nào ghi nó ra
-    đĩa hay vào DB (FR-022, FR-023).
+    `du_lieu` ở đây chỉ được dùng để tính dấu vân. Tệp tự nó được lưu ở
+    đường khác, `luu_khuon_goc`, sau khi đã đọc được và nằm trong trần trang.
     """
     kiem_kich_thuoc(len(du_lieu))
     # Hash thẳng trên BYTES. `traces.dau_van_ban` nhận `str` vì nó dùng cho văn
@@ -261,11 +264,15 @@ def dat_trang_thai(
         # Cùng ràng buộc `ck_viec_doc_hong_co_ly_do` ở DB, chặn sớm hơn một tầng
         # để lỗi chỉ ra đúng dòng gọi sai.
         raise ValueError("trạng thái 'hong' phải có ly_do_hong")
+    # Lý do hỏng chỉ sống cùng trạng thái `hong`: rút lại (`doc_lai`) là thử
+    # lại được, và một lần thử lại thành công không được ra `xong` kèm lý do
+    # hỏng của lần trước.
     with engine.begin() as c:
         c.execute(
             text(
                 "UPDATE viec_doc_tai_lieu SET trang_thai = :s, cap_nhat_luc = now(), "
-                "ly_do_hong = COALESCE(:r, ly_do_hong), so_trang = COALESCE(:p, so_trang), "
+                "ly_do_hong = CASE WHEN :s = 'hong' THEN COALESCE(:r, ly_do_hong) END, "
+                "so_trang = COALESCE(:p, so_trang), "
                 "chi_phi_usd = COALESCE(:c, chi_phi_usd) "
                 "WHERE id = :i AND user_sub = :u"
             ),
@@ -625,6 +632,47 @@ def luu_anh(engine: Engine, viec_id: str, anh_byte: dict[str, tuple[str, bytes]]
     return len(hang)
 
 
+def luu_khuon_goc(engine: Engine, viec_id: str, dinh_dang: str, noi_dung: bytes, kho: list) -> None:
+    """Ghi khuôn gốc của một việc đọc vào `khuon_goc` (migration 036).
+
+    Gọi cạnh `luu_don_vi`/`luu_anh`, sau khi tệp đã đọc được và đã qua trần
+    số trang — một tệp bị từ chối không để lại byte nào. `so_trang` là
+    `len(kho)`: một nguồn sự thật, và `ck_khuon_goc_kho` khoá hai cột bằng nhau.
+    """
+    with engine.begin() as c:
+        c.execute(
+            text(
+                "INSERT INTO khuon_goc (viec_id, dinh_dang, noi_dung, so_byte, so_trang, kho) "
+                "VALUES (:v, :d, :n, :s, :t, CAST(:k AS jsonb))"
+            ),
+            {"v": viec_id, "d": dinh_dang, "n": noi_dung, "s": len(noi_dung), "t": len(kho), "k": json.dumps(kho)},
+        )
+
+
+def khuon_goc_cua(engine: Engine, viec_id: str, user_sub: str) -> dict[str, Any] | None:
+    """`{dinh_dang, noi_dung, so_trang, kho}` của một việc, hoặc `None` khi
+    không có (ảnh, tài liệu trước 2026-09-26) hoặc không phải của mình.
+
+    Chủ sở hữu lọc bằng JOIN sang `viec_doc_tai_lieu` ở tầng dữ liệu, cùng
+    khuôn `anh_cua`: một `viec_id` của người khác ra `None` ở ĐÂY, và tầng API
+    trả 404 y như một việc không có thật.
+    """
+    with engine.connect() as c:
+        r = (
+            c.execute(
+                text(
+                    "SELECT k.dinh_dang, k.noi_dung, k.so_trang, k.kho FROM khuon_goc k "
+                    "JOIN viec_doc_tai_lieu v ON v.id = k.viec_id "
+                    "WHERE k.viec_id = :i AND v.user_sub = :u"
+                ),
+                {"i": viec_id, "u": user_sub},
+            )
+            .mappings()
+            .first()
+        )
+    return {**dict(r), "noi_dung": bytes(r["noi_dung"])} if r else None
+
+
 def anh_cua(engine: Engine, viec_id: str, user_sub: str, phan: str) -> tuple[str, bytes] | None:
     """`(kiểu MIME, bytes)` của MỘT ảnh, hoặc `None` khi không có hoặc không
     phải của mình.
@@ -730,13 +778,18 @@ def tai_lieu_cua_hoi_thoai(engine: Engine, hoi_thoai_id: str, user_sub: str) -> 
 
 def lay_viec(engine: Engine, viec_id: str, user_sub: str) -> dict[str, Any] | None:
     with engine.connect() as c:
-        r = c.execute(
-            text(
-                f"SELECT {_COT_VIEC}, COALESCE(jsonb_array_length(don_vi), 0) AS so_don_vi "
-                "FROM viec_doc_tai_lieu WHERE id = :i AND user_sub = :u"
-            ),
-            {"i": viec_id, "u": user_sub},
-        ).mappings().first()
+        r = (
+            c.execute(
+                text(
+                    f"SELECT {_COT_VIEC}, COALESCE(jsonb_array_length(don_vi), 0) AS so_don_vi, "
+                    "EXISTS (SELECT 1 FROM khuon_goc k WHERE k.viec_id = viec_doc_tai_lieu.id) AS co_khuon_goc "
+                    "FROM viec_doc_tai_lieu WHERE id = :i AND user_sub = :u"
+                ),
+                {"i": viec_id, "u": user_sub},
+            )
+            .mappings()
+            .first()
+        )
     return dict(r) if r else None
 
 

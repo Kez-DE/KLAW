@@ -72,9 +72,12 @@ def _chen(viec_id: str, *, dinh_dang="pdf", noi_dung=b"%PDF", so_byte=None, so_t
                 " VALUES (:v, :d, :n, :s, :t, CAST(:k AS jsonb))"
             ),
             {
-                "v": viec_id, "d": dinh_dang, "n": noi_dung,
+                "v": viec_id,
+                "d": dinh_dang,
+                "n": noi_dung,
                 "s": len(noi_dung) if so_byte is None else so_byte,
-                "t": so_trang, "k": json.dumps(kho if kho is not None else [[595, 842]] * so_trang),
+                "t": so_trang,
+                "k": json.dumps(kho if kho is not None else [[595, 842]] * so_trang),
             },
         )
 

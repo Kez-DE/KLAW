@@ -164,7 +164,8 @@ class KhongDocDuoc(Exception):  # noqa: N818
 
 
 class ChuyenDoiKhongSanSang(Exception):  # noqa: N818
-    """Nhánh chuyển đổi .doc không làm được việc NGAY BÂY GIỜ — vì HỆ THỐNG,
+    """Nhánh chuyển đổi .doc — và, từ quyết định 2026-09-26, việc dựng trang
+    khuôn gốc (`dung_trang`) — không làm được việc NGAY BÂY GIỜ — vì HỆ THỐNG,
     không phải vì tài liệu của người dùng (fix round 2, task review — Important
     và Minor #4).
 
@@ -173,8 +174,8 @@ class ChuyenDoiKhongSanSang(Exception):  # noqa: N818
     khẩu, không lớp chữ) — mỗi nguyên nhân người dùng có thể tự sửa bằng cách
     đổi tệp họ gửi. Hai nguyên nhân ở đây thì người dùng không sửa được gì cả:
 
-    - `"khong_co_cong_cu"` — máy chủ chưa cài LibreOffice. Lỗi CẤU HÌNH, cần
-      người vận hành sửa, không tự hết.
+    - `"khong_co_cong_cu"` — máy chủ chưa cài LibreOffice (hay `pdftoppm` cho
+      ảnh trang). Lỗi CẤU HÌNH, cần người vận hành sửa, không tự hết.
     - `"qua_tai"` — không giành được một suất chuyển đổi trong thời gian chờ
       hợp lý (`_HAN_CHO_SUAT_GIAY`). TẠM THỜI, tự hết khi tải giảm.
 
@@ -542,9 +543,13 @@ class TaiLieuDaDoc:
     Kênh RIÊNG, cố ý không nằm trên `DonViVanBan`: biểu diễn đã đọc đi vào cột
     JSONB `don_vi` và được đọc lại mỗi lần có người neo một trích dẫn, còn
     bytes ảnh chỉ cần đi đúng MỘT lần — từ `doc()` sang `tai_lieu.luu_anh`
-    (bảng `anh_tai_lieu`, migration 035) — rồi người gọi buông, đúng tinh thần
-    FR-022 với chính tệp gốc.
+    (bảng `anh_tai_lieu`, migration 035) — rồi người gọi buông. Tệp tự nó đi
+    đường riêng, khuôn gốc (`tai_lieu.luu_khuon_goc`, quyết định 2026-09-26).
     """
+    docx_quy_doi: bytes | None = None
+    """Bytes `.docx` LibreOffice quy đổi từ một `.doc`, `None` với mọi định dạng
+    khác. Đây là khuôn gốc của `.doc` (quyết định 2026-09-26): tầng trên lưu
+    và dựng trang từ chính bản này thay vì quy đổi lần thứ hai."""
 
     @property
     def co_ocr(self) -> bool:
@@ -561,8 +566,8 @@ def co_ocr() -> bool:
 def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
     """Đọc `du_lieu` thành các đơn vị văn bản, hoặc ném `KhongDocDuoc`.
 
-    Vào bằng bytes, ra bằng dataclass; người gọi chịu trách nhiệm buông tham
-    chiếu ngay khi hàm này trả về hoặc ném lỗi — tinh thần FR-022. Nhánh
+    Vào bằng bytes, ra bằng dataclass; hàm này KHÔNG lưu gì — tệp chỉ được giữ
+    ở tầng trên, làm khuôn gốc (quyết định 2026-09-26). Nhánh
     `.pdf`/`.docx`/ảnh giữ đúng lời hứa cũ, KHÔNG ghi gì ra đĩa. Nhánh `.doc`
     thì KHÔNG (sửa fix round 2, task review — Minor #2: câu cũ ở đây khẳng
     định sai cho nhánh này): `_chuyen_doc_sang_docx` cần một tệp thật trên
@@ -575,6 +580,7 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
     le: tuple[tuple[str, int], ...] = ()
     anh: tuple[AnhTaiLieu, ...] = ()
     anh_byte: dict[str, tuple[str, bytes]] = {}
+    docx_quy_doi: bytes | None = None
     if ten.endswith(".pdf"):
         thoi = _doc_pdf(du_lieu)
         if not thoi:
@@ -587,7 +593,8 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
     elif ten.endswith(".doc"):
         # Chuyển trước, đọc sau — bằng ĐÚNG một hàm `_doc_docx`, không nhánh
         # riêng nào biết tệp .docx này từng là .doc.
-        thoi, le, anh, anh_byte = _doc_docx(_chuyen_doc_sang_docx(du_lieu))
+        docx_quy_doi = _chuyen_doc_sang_docx(du_lieu)
+        thoi, le, anh, anh_byte = _doc_docx(docx_quy_doi)
     elif ten.endswith(_DUOI_ANH):
         thoi = _ocr_anh(du_lieu)
     else:
@@ -600,7 +607,8 @@ def doc(ten_tep: str, du_lieu: bytes) -> TaiLieuDaDoc:
         raise KhongDocDuoc(LoaiHong.khong_co_lop_chu, "không rút được ký tự nào")
     # `uoc_do_day` chỉ cho DOCX/DOC: PDF và ảnh OCR đã có số trang THẬT, cộng
     # thêm một ước lượng theo ký tự ở đó là bịa một tài liệu dày hơn nó.
-    return _dat_vi_tri(thoi, le, anh, anh_byte, uoc_do_day=ten.endswith((".docx", ".doc")))
+    t = _dat_vi_tri(thoi, le, anh, anh_byte, uoc_do_day=ten.endswith((".docx", ".doc")))
+    return replace(t, docx_quy_doi=docx_quy_doi)
 
 
 # ------------------------------------------------------------------------ DOCX
@@ -1009,9 +1017,10 @@ def _le_trang(goc: ET.Element) -> tuple[tuple[str, int], ...]:
 # ─── ẢNH ĐÃ TÁCH ───────────────────────────────────────────────────────────
 # Quyết định 2026-09-18 (`docs/decisions/2026-09-18-trung-thuc-bieu-mau-va-media.md`)
 # cho phép lưu MEDIA ĐÃ TÁCH khỏi tệp — và CHỈ thế: bytes tệp gốc và OOXML vẫn
-# bị cấm nguyên văn. Nên chỗ này rút ra đúng hai thứ: khối bytes của từng ảnh,
-# và một mô tả vị trí/kích thước đủ để ba nơi vẽ đặt lại nó. Không giữ một
-# mảnh XML nào.
+# bị cấm nguyên văn (quyết định 2026-09-26 mở riêng cho khuôn gốc, lưu ở
+# `tai_lieu.luu_khuon_goc`, không ở đây). Nên chỗ này rút ra đúng hai thứ: khối
+# bytes của từng ảnh, và một mô tả vị trí/kích thước đủ để ba nơi vẽ đặt lại
+# nó. Không giữ một mảnh XML nào.
 
 
 def _rel(ten_phan: str) -> str:
@@ -2181,7 +2190,15 @@ def _chuyen_doc_sang_docx(du_lieu: bytes) -> bytes:
     """
     if not _la_ole2(du_lieu):
         raise KhongDocDuoc(LoaiHong.tep_hong, "tệp .doc không đúng định dạng OLE2")
+    return _quy_doi_soffice(du_lieu, "vao.doc", "docx:MS Word 2007 XML", "vao.docx")
 
+
+def _quy_doi_soffice(du_lieu: bytes, vao: str, loc: str, ra: str) -> bytes:
+    """Một lượt LibreOffice trong hộp cát của `_chuyen_doc_sang_docx` (xem
+    docstring của nó), dùng chung cho `.doc` → `.docx` và cho
+    `dung_trang.dung_pdf` (`.docx` → PDF, quyết định 2026-09-26): cùng ba suất
+    `_suat_chuyen_doi`, cùng hai lỗi hệ thống. `vao`/`ra` là TÊN tệp trong thư
+    mục tạm, `loc` là đối số `--convert-to`."""
     soffice = _duong_soffice()
     if not soffice:
         # LỖI CẤU HÌNH, không phải lỗi của người dùng — phải ồn ào với người
@@ -2193,7 +2210,7 @@ def _chuyen_doc_sang_docx(du_lieu: bytes) -> bytes:
         # không phải sửa lại câu chữ dùng chung, mà không còn dùng chung nữa.
         logger.error(
             "doc_tai_lieu: máy chủ chưa cài LibreOffice (KLAW_SOFFICE_PATH rỗng và "
-            "không thấy 'soffice' trên PATH) — MỌI tải lên .doc sẽ hỏng cho tới khi "
+            "không thấy 'soffice' trên PATH) — MỌI tải lên .doc/.docx sẽ hỏng cho tới khi "
             "khắc phục. Đây là lỗi cấu hình, không phải lỗi của người dùng."
         )
         raise ChuyenDoiKhongSanSang("khong_co_cong_cu", "chưa cài LibreOffice")
@@ -2203,7 +2220,7 @@ def _chuyen_doc_sang_docx(du_lieu: bytes) -> bytes:
         # trên. Log ở mức INFO: đây là hành vi ĐÚNG của một cái phanh dưới
         # tải cao, không phải một lỗi cần báo động.
         logger.info(
-            "doc_tai_lieu: không giành được suất chuyển đổi .doc trong %ss (đang có %d suất)",
+            "doc_tai_lieu: không giành được suất LibreOffice trong %ss (đang có %d suất)",
             _HAN_CHO_SUAT_GIAY,
             _SO_CHUYEN_DOI_DONG_THOI,
         )
@@ -2212,21 +2229,21 @@ def _chuyen_doc_sang_docx(du_lieu: bytes) -> bytes:
         )
 
     try:
-        return _chay_soffice(du_lieu, soffice)
+        return _chay_soffice(du_lieu, soffice, vao, loc, ra)
     finally:
         _suat_chuyen_doi.release()
 
 
-def _chay_soffice(du_lieu: bytes, soffice: str) -> bytes:
-    """Phần THẬT SỰ tốn tài nguyên của `_chuyen_doc_sang_docx` — tách riêng để
+def _chay_soffice(du_lieu: bytes, soffice: str, vao: str, loc: str, ra: str) -> bytes:
+    """Phần THẬT SỰ tốn tài nguyên của `_quy_doi_soffice` — tách riêng để
     suất chuyển đổi (`_suat_chuyen_doi`) chỉ bị giữ quanh ĐÚNG đoạn này, không
     quanh các cổng chặn sớm (OLE2, thiếu soffice) phía trên."""
     from pathlib import Path as _P  # noqa: N814 — cùng cách `_ocr_pdf` làm
 
     with tempfile.TemporaryDirectory() as tmp:
         thu_muc = _P(tmp)
-        vao = thu_muc / "vao.doc"
-        vao.write_bytes(du_lieu)
+        tep_vao = thu_muc / vao
+        tep_vao.write_bytes(du_lieu)
         moi_truong = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": tmp}
         proc = subprocess.Popen(
             [
@@ -2241,10 +2258,10 @@ def _chay_soffice(du_lieu: bytes, soffice: str) -> bytes:
                 "--norestore",
                 f"-env:UserInstallation=file://{thu_muc / 'ho_so'}",
                 "--convert-to",
-                "docx:MS Word 2007 XML",
+                loc,
                 "--outdir",
                 tmp,
-                str(vao),
+                str(tep_vao),
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -2258,10 +2275,10 @@ def _chay_soffice(du_lieu: bytes, soffice: str) -> bytes:
             proc.communicate(timeout=_HAN_CHUYEN_DOI_GIAY)
         except subprocess.TimeoutExpired as e:
             _giet_sach_nhom(proc)
-            raise KhongDocDuoc(LoaiHong.tep_hong, "chuyển đổi tệp .doc quá lâu") from e
+            raise KhongDocDuoc(LoaiHong.tep_hong, "chuyển đổi tệp quá lâu") from e
 
-        ra = thu_muc / "vao.docx"
-        if proc.returncode != 0 or not ra.exists():
+        tep_ra = thu_muc / ra
+        if proc.returncode != 0 or not tep_ra.exists():
             # KHÔNG log nội dung `stderr` của soffice (fix round 2, task
             # review — Minor #3): chuỗi đó bắt nguồn từ TÀI LIỆU người dùng
             # (tên tệp, đôi khi trích cả một đoạn nội dung soffice không phân
@@ -2269,18 +2286,21 @@ def _chay_soffice(du_lieu: bytes, soffice: str) -> bytes:
             # liệu vào log. Chỉ ghi lại SỰ KIỆN (hỏng) và mã thoát — đủ để vận
             # hành biết CÓ hỏng, không đủ để lộ tài liệu của ai đó.
             logger.warning(
-                "doc_tai_lieu: soffice không chuyển được .doc (mã thoát %s)",
+                "doc_tai_lieu: soffice không chuyển được tệp (mã thoát %s)",
                 proc.returncode,
             )
-            raise KhongDocDuoc(LoaiHong.tep_hong, "không chuyển đổi được tệp .doc")
+            raise KhongDocDuoc(LoaiHong.tep_hong, "không chuyển đổi được tệp")
 
-        return ra.read_bytes()
+        return tep_ra.read_bytes()
 
 
 # ------------------------------------------------------------------------- PDF
 
 
-def _doc_pdf(du_lieu: bytes) -> list[tuple[int | None, str]]:
+def _mo_pdf(du_lieu: bytes):
+    """`PdfReader` đã mở, hoặc `KhongDocDuoc` đúng nguyên nhân. Dùng chung với
+    `dung_trang` (đếm trang, khổ trang) để một PDF hỏng hay có mật khẩu ra cùng
+    một câu trả lời dù bị hỏi số trang trước khi đọc chữ."""
     from pypdf import PdfReader
 
     try:
@@ -2293,7 +2313,11 @@ def _doc_pdf(du_lieu: bytes) -> list[tuple[int | None, str]]:
 
     if reader.is_encrypted:
         raise KhongDocDuoc(LoaiHong.can_mat_khau, "pdf được bảo vệ bằng mật khẩu")
+    return reader
 
+
+def _doc_pdf(du_lieu: bytes) -> list[tuple[int | None, str]]:
+    reader = _mo_pdf(du_lieu)
     ra: list[tuple[int | None, str]] = []
     for so, trang in enumerate(reader.pages, start=1):
         try:

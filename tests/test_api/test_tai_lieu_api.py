@@ -822,9 +822,7 @@ def _kiem_trang(body: dict, so_trang: int) -> None:
         ("Report_instruction.docx", 3, None),
     ],
 )
-async def test_bieu_mau_THAT_ra_dung_so_trang_dan_that(
-    client, khoa_ky, hai_nguoi, dung_that, ten, so_trang, kho_dau
-):
+async def test_bieu_mau_THAT_ra_dung_so_trang_dan_that(client, khoa_ky, hai_nguoi, dung_that, ten, so_trang, kho_dau):
     """Evaluation Form đọc theo ngắt trang khai báo ra 1 trang; dàn thật là 4,
     và nó là khổ Letter — hiện ra vẫn phải là Letter."""
     tep = _KHO_MAU / ten
@@ -859,8 +857,14 @@ async def test_DOCX_11_trang_bi_tu_choi_neu_10_trang_va_KHONG_tru_han_muc(
     r = await _dinh_kem(client, ha, phien, docx_that(DONG_LUONG, ngat_trang=10), "dai.docx")
     assert r.status_code == 422, r.text
     assert "10 trang" in r.json()["detail"]
-    assert _dem("SELECT count(*) FROM khuon_goc k JOIN viec_doc_tai_lieu v ON v.id = k.viec_id"
-                " WHERE v.hoi_thoai_id = CAST(:h AS uuid)", h=phien) == 0
+    assert (
+        _dem(
+            "SELECT count(*) FROM khuon_goc k JOIN viec_doc_tai_lieu v ON v.id = k.viec_id"
+            " WHERE v.hoi_thoai_id = CAST(:h AS uuid)",
+            h=phien,
+        )
+        == 0
+    )
 
     r = await _dinh_kem(client, ha, phien, docx_that(DONG_LUONG, ngat_trang=9), "du.docx")
     assert r.status_code == 201, "tài liệu bị từ chối vì trần trang không được tiêu lượt của ngày"
@@ -868,9 +872,7 @@ async def test_DOCX_11_trang_bi_tu_choi_neu_10_trang_va_KHONG_tru_han_muc(
 
 
 @pytest.mark.asyncio
-async def test_PDF_11_trang_bi_tu_choi_TRUOC_khi_doc_va_KHONG_tru_han_muc(
-    client, khoa_ky, hai_nguoi, monkeypatch
-):
+async def test_PDF_11_trang_bi_tu_choi_TRUOC_khi_doc_va_KHONG_tru_han_muc(client, khoa_ky, hai_nguoi, monkeypatch):
     """Bản scan 11 trang bị đếm trang trước khi OCR — không tốn công đọc từng
     trang cho một tài liệu sẽ bị từ chối."""
     a, _ = hai_nguoi
@@ -937,8 +939,9 @@ async def test_ANH_khong_co_khuon_goc_trang_la_404(client, khoa_ky, hai_nguoi, m
     "như bản tải lên", nên `/trang` nói không có — giao diện lùi về bản xem HTML."""
     from src.services.doc_tai_lieu import DonViVanBan, TaiLieuDaDoc
 
-    tl_gia = TaiLieuDaDoc(don_vi=[DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung=DONG_LUONG)],
-                          so_trang=1, so_ky_tu=len(DONG_LUONG))
+    tl_gia = TaiLieuDaDoc(
+        don_vi=[DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung=DONG_LUONG)], so_trang=1, so_ky_tu=len(DONG_LUONG)
+    )
     monkeypatch.setattr(rtl, "doc", lambda ten, du_lieu: tl_gia)
     a, _ = hai_nguoi
     ha = _bearer(khoa_ky, a)
@@ -971,9 +974,7 @@ async def test_khuon_goc_di_cung_hoi_thoai_va_tai_khoan(client, khoa_ky, hai_ngu
 
 
 @pytest.mark.asyncio
-async def test_trang_va_doc_lai_cua_NGUOI_KHAC_la_404_khong_dang_nhap_la_401(
-    client, khoa_ky, hai_nguoi, llm_gia
-):
+async def test_trang_va_doc_lai_cua_NGUOI_KHAC_la_404_khong_dang_nhap_la_401(client, khoa_ky, hai_nguoi, llm_gia):
     a, b = hai_nguoi
     ha, hb = _bearer(khoa_ky, a), _bearer(khoa_ky, b)
     phien = hoi_thoai.tao_phien(a, "hợp đồng")
@@ -1057,3 +1058,18 @@ async def test_chuoi_BI_MAT_trong_tep_KHONG_vao_traces_luot_hoi_thoai_hay_log(
     assert bi_mat not in caplog.text
     for bang in ("traces", "luot_hoi_thoai"):
         assert _dem(f"SELECT count(*) FROM {bang} t WHERE t::text LIKE :s", s=f"%{bi_mat}%") == 0, bang
+
+
+@pytest.mark.asyncio
+async def test_DOC_LAI_sau_lan_rut_hong_thi_xong_va_KHONG_mang_ly_do_hong_cu(client, khoa_ky, hai_nguoi, llm_gia):
+    """Rút lại là THỬ LẠI được: một việc hỏng vì mô hình lỗi mà rút lại thành
+    công phải ra `xong` sạch, không `xong` kèm lý do hỏng của lần trước."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "hd.docx")).json()["id"]
+    rtl.tl.dat_trang_thai(get_engine(), viec, a, "hong", ly_do_hong="loi_mo_hinh")
+
+    r = await client.post(f"/api/v1/tai-lieu/{viec}/doc-lai", headers=ha, json={"loai": LOAI})
+    assert r.status_code == 200, r.text
+    assert (r.json()["trang_thai"], r.json()["ly_do_hong"]) == ("xong", None)
