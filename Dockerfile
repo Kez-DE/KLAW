@@ -15,11 +15,16 @@ WORKDIR /app
 # src/services/doc_tai_lieu.py::_chuyen_doc_sang_docx). `libreoffice-writer`
 # pulls the Writer component and its core deps, not the ~600 MB `libreoffice`
 # metapackage (Calc/Impress/Draw are dead weight for a service that only ever
-# converts Word documents). `fonts-liberation` gives it metric-compatible
-# stand-ins for Times New Roman/Arial/Calibri so a form's layout doesn't
-# reflow differently just because the exact font isn't installed.
+# converts Word documents). Metric-compatible stand-ins so a form's layout
+# doesn't reflow just because the exact font isn't installed:
+# `fonts-liberation` for Times New Roman/Arial/Courier New,
+# `fonts-crosextra-carlito`/`-caladea` for Calibri/Cambria.
+# `poppler-utils` (pdftoppm) renders page images; `tesseract-ocr` +
+# `tesseract-ocr-vie` read scanned pages (decision 2026-09-26, khuôn gốc).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libreoffice-writer fonts-liberation \
+        fonts-crosextra-carlito fonts-crosextra-caladea \
+        poppler-utils tesseract-ocr tesseract-ocr-vie \
     && rm -rf /var/lib/apt/lists/*
 
 # Security: run as non-root user. Create it BEFORE copying the packages so the
