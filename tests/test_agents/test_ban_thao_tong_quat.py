@@ -26,6 +26,7 @@ sang `khoi` — mảng khối theo đúng thứ tự tài liệu, mỗi khối l
 
 import json
 import uuid
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -36,7 +37,7 @@ from src.agents.nodes.assemble import ResultType, assemble
 from src.agents.nodes.verify_tier1 import normalize
 from src.models.schemas import TraCuuResponse
 from src.services import ban_thao
-from src.services.doc_tai_lieu import DonViVanBan, doc
+from src.services.doc_tai_lieu import AnhTaiLieu, DonViVanBan, doc
 from src.services.llm import TruncatedOutputError, Usage
 
 A_ID = "aaaaaaaa-0000-0000-0000-000000000001"
@@ -1644,6 +1645,34 @@ def test_clauses_tu_giu_khoi_va_vung_mac_dinh_than():
     assert cl_thieu[0]["khoi"] == [] and cl_thieu[0]["vung"] == "than"
 
 
+def test_clauses_tu_mang_trang_va_anh_cua_lam_sach_van_ban():
+    """Plan `khuon-goc-dien-tai-cho.md` P1a — `lam_sach_van_ban` gán `trang` và
+    `anh` cho từng mục, `xuat-tep.ts` đọc lại `c.trang`/`c.anh`, và `clauses_tu`
+    đứng giữa hai đầu đó. Nó từng làm rơi cả hai khoá: mọi bản thảo hiện trên
+    MỘT tờ và ảnh nguồn biến mất, mà không test nào đỏ — test của hai đầu đều
+    tự viết tay khoá ở phía mình. Ở đây đầu ra THẬT đi thẳng vào `ket_ban_thao`."""
+    logo = AnhTaiLieu(phan="word/media/logo.png", kieu="image/png", rong=10, cao=5)
+    dv = [DV_A[0], DV_A[1], replace(DV_A[2], trang=2, anh=(logo,))]
+    van_ban, _ = h.lam_sach_van_ban(
+        {"tieu_de": "T", "muc": [_muc("Thời gian", DV_A[1].noi_dung), _muc("Giá trị", DV_A[2].noi_dung)]},
+        NGUON,
+        [{"id": A_ID, "ten_tep": "bienban.docx", "don_vi": dv}],
+    )
+    anh = van_ban["muc"][0]["anh"]
+    assert anh and [m["trang"] for m in van_ban["muc"]] == [1, 2]
+
+    for cl in (d.clauses_tu(van_ban), d.ket_ban_thao(van_ban)["clauses"]):
+        assert [c["trang"] for c in cl] == [1, 2]
+        assert [c["anh"] for c in cl] == [anh, anh]
+
+
+def test_clauses_tu_khong_them_trang_anh_khi_muc_khong_co():
+    """Mục KHÔNG mang hai khoá (viết tay, fixture) giữ nguyên hình dạng cũ — cùng
+    luật `le_trang`: `xuat-tep.ts` tự về trang 1 và không ảnh khi vắng khoá."""
+    for cl in (d.clauses_tu(VAN_BAN), d.ket_ban_thao(VAN_BAN)["clauses"]):
+        assert all("trang" not in c and "anh" not in c for c in cl)
+
+
 def test_ket_ban_thao_dung_markdown_va_audit_muc_kiem():
     ket = d.ket_ban_thao(VAN_BAN)
     assert ket["document"].startswith("# BIÊN BẢN BÀN GIAO THIẾT BỊ")
@@ -1855,6 +1884,24 @@ def test_tao_roi_sua_len_phien_ban_2_va_lui_ve_duoc(nguoi):
 
     ve = ban_thao.lui(nguoi, bt["id"])
     assert ve["phien_ban"] == 1 and ve["document"] == bt["document"]
+
+
+@pytest.mark.integration
+def test_trang_va_anh_song_sot_qua_luu_tai_lai_va_sua_tay(nguoi):
+    """P1a — `trang`/`anh` phải còn sau khi lưu (`tao`), tải lại (`chi_tiet`) và
+    một sửa tay (`sua_tay`): đó là đường màn hình đọc bản thảo."""
+    from src.services import hoi_thoai
+
+    anh = [{"url": f"/tai-lieu/{A_ID}/anh/logo.png", "rong": 10, "cao": 5, "vung": "than", "thu_tu": 0}]
+    van_ban = {**VAN_BAN, "muc": [{**m, "trang": i, "anh": anh} for i, m in enumerate(VAN_BAN["muc"], 1)]}
+    pid = hoi_thoai.tao_phien(nguoi, "biên bản bàn giao")
+    bt = d.dung_ban_thao_tong_quat({"user_sub": nguoi, "hoi_thoai_id": pid, "muc_dich_tai_lieu": "tao_van_ban",
+                                    "van_ban_tong_quat": van_ban})["ban_thao_ket"]
+    doc_lai = ban_thao.chi_tiet(nguoi, bt["id"])
+    sua = ban_thao.sua_tay(nguoi, bt["id"], "muc_2", 0, "Tổng 20.000.000 đồng.", doc_lai["phien_ban"])
+    for cl in (doc_lai["clauses"], sua["clauses"]):
+        assert [c["trang"] for c in cl] == [1, 2]
+        assert all(c["anh"] == anh for c in cl)
 
 
 @pytest.mark.integration
