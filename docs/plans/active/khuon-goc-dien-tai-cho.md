@@ -105,7 +105,22 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   `w:t` text (not the stripped `noi_dung`), `nhan` is at most 60 chars of the
   label before the blank. `kieu: "tab"` is a `w:tab` whose stop has a dot leader.
   For PDF: `{"so", "kieu": "cham", "hop": [x0, y0, x1, y1], "co_chu": float,
-  "nhan"}` in PDF points, origin top-left, on the unit's `trang`.
+  "nhan"}` in PDF points on the unit's `trang`, in poppler display space: origin
+  at the top-left of the page's MEDIA box (not the CropBox), after `/Rotate`.
+- Blanks hang only on đơn vị văn bản. A paragraph with no text is not a unit, so
+  a text-less dotted or dot-leader continuation line (the lines under
+  "Comments (góp ý thêm):") has no blank: it keeps its dots, is never filled and
+  is not listed as unfilled. Measured on Evaluation Form: 45 dot-leader tab
+  paragraphs, 12 addressable (label + leader), 33 text-less continuation lines;
+  the "best strength" and "weakness" questions have only continuation lines, so
+  an answer there can come only from `chen_sau` after the label unit. Upgrade
+  path, only on an owner request: an optional per-blank locator for following
+  text-less sibling paragraphs.
+- Fail closed, measured limits: a header/footer paragraph deeper than 16
+  element levels or inside `mc:AlternateContent` has no `dia_chi`; a paragraph
+  that contains or sits inside a text box / `mc:AlternateContent` has no
+  `cho_trong`; a scanned page above 16 Mpx at 200 dpi (about 2× A3) has line
+  boxes but no blanks.
 - `hop` (PDF, scanned PDF): the unit's line box, same coordinates.
 - `noi_dung`, `chi_so`, anchors and every existing counter stay byte-identical;
   each reader change ships the equivalence test pattern of
@@ -212,7 +227,7 @@ open risks, and follows the TDD order: failing test first, then code.
 
 - [x] Decisions Q1–Q20 settled; decision record, glossary term, spec notes.
 - [x] Wave A — P1a, P1b, P1c (merges `9e4474c`, `8dcc8a9`, `ea86a9b`; CI lane 2163 passed on main).
-- [ ] Wave B — P2a, P2b.
+- [ ] Wave B — P2b merged (`a8fd793`); P2a waits for a merge-up with main and a replacement privacy review (the first security reviewer was stopped by a platform safety filter, not by a finding).
 - [ ] Wave C — P3a, P3b.
 - [ ] Wave D — P4.
 - [ ] Wave E — P5.
@@ -230,6 +245,11 @@ open risks, and follows the TDD order: failing test first, then code.
 - 2026-09-26: Renders are rebuilt on demand, not stored, until measured slow.
 - 2026-09-26: Upload body limit 20 MB for `POST /tai-lieu` only; every other route
   keeps 2 MB.
+- 2026-09-26 (P2b review): text-less continuation leader lines keep their dots
+  and carry no blank — the existing contract made explicit, not a new key; PDF
+  coordinates are media-box space (poppler measured, CropBox ignored). The
+  reader's new walks are linear in the part and render one scanned page at a
+  time under a pixel cap.
 
 ## Validation
 

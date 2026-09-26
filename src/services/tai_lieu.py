@@ -26,6 +26,8 @@ from sqlalchemy.engine import Engine
 
 from src.services.doc_tai_lieu import (
     AnhTaiLieu,
+    ChoTrong,
+    DiaChi,
     DinhDangChu,
     DonViVanBan,
     GianCach,
@@ -553,6 +555,68 @@ def _le_tu_hang(tho: Any) -> tuple[tuple[str, int], ...]:
     return tuple(ra)
 
 
+def _hang_cho_trong(c: ChoTrong) -> dict:
+    """Một `ChoTrong` → JSON, đúng bộ khoá hợp đồng của TỪNG định dạng: PDF
+    (có `hop`) mang `hop`/`co_chu`, DOCX mang `doan`/`dau`/`cuoi`."""
+    if c.hop:
+        return {"so": c.so, "kieu": c.kieu, "hop": list(c.hop), "co_chu": c.co_chu, "nhan": c.nhan}
+    return {"so": c.so, "kieu": c.kieu, "doan": c.doan, "dau": c.dau, "cuoi": c.cuoi, "nhan": c.nhan}
+
+
+def _so_tu_nhien(x: Any) -> bool:
+    # `bool` là con của `int` trong Python; `True` không phải chỉ số.
+    return type(x) is int and x >= 0
+
+
+def _dia_chi_tu_hang(tho: Any) -> DiaChi | None:
+    """JSON → `DonViVanBan.dia_chi`. Sai hình dạng → `None` ("không có địa
+    chỉ"): bộ áp đi theo một địa chỉ hỏng là sửa nhầm chỗ, còn không có địa chỉ
+    thì đơn vị lùi về đường HTML — hỏng an toàn."""
+    if not isinstance(tho, dict):
+        return None
+    phan, chi_muc = tho.get("phan"), tho.get("chi_muc")
+    if not isinstance(phan, str) or not phan or not isinstance(chi_muc, list) or not chi_muc:
+        return None
+    if not all(_so_tu_nhien(i) for i in chi_muc):
+        return None
+    return DiaChi(phan=phan, chi_muc=tuple(chi_muc))
+
+
+def _hop_tu_hang(tho: Any) -> tuple[float, float, float, float] | None:
+    """JSON → một hộp `(x0, y0, x1, y1)`; sai hình dạng → `None`."""
+    if not isinstance(tho, list) or len(tho) != 4 or not all(type(v) in (int, float) for v in tho):
+        return None
+    x0, y0, x1, y1 = (float(v) for v in tho)
+    return (x0, y0, x1, y1) if x0 <= x1 and y0 <= y1 else None
+
+
+def _cho_trong_tu_hang(tho: Any) -> tuple[ChoTrong, ...]:
+    """JSON → `DonViVanBan.cho_trong`. Bỏ RIÊNG phần tử sai hình dạng, cùng
+    luật `_canh_tu_hang`: phép sửa trỏ theo `so`, không theo vị trí trong dãy,
+    nên một chỗ hỏng không làm lệch chỗ khác — phép sửa trỏ vào chỗ đã bỏ thì
+    bộ áp báo "không hợp lệ" chứ không đoán."""
+    if not isinstance(tho, list):
+        return ()
+    ra: list[ChoTrong] = []
+    for c in tho:
+        if not isinstance(c, dict) or not _so_tu_nhien(c.get("so")) or c.get("kieu") not in ("cham", "tab"):
+            continue
+        nhan = c["nhan"] if isinstance(c.get("nhan"), str) else ""
+        if "hop" in c:
+            hop, co = _hop_tu_hang(c["hop"]), c.get("co_chu")
+            if hop is None or c["kieu"] != "cham" or type(co) not in (int, float) or co <= 0:
+                continue
+            ra.append(ChoTrong(so=c["so"], kieu="cham", nhan=nhan, hop=hop, co_chu=float(co)))
+            continue
+        doan, dau, cuoi = c.get("doan"), c.get("dau"), c.get("cuoi")
+        if not (_so_tu_nhien(doan) and _so_tu_nhien(dau) and _so_tu_nhien(cuoi)):
+            continue
+        if (c["kieu"] == "cham" and dau >= cuoi) or (c["kieu"] == "tab" and dau != cuoi):
+            continue
+        ra.append(ChoTrong(so=c["so"], kieu=c["kieu"], nhan=nhan, doan=doan, dau=dau, cuoi=cuoi))
+    return tuple(ra)
+
+
 def _hang_don_vi(d: DonViVanBan) -> dict:
     return {
         "chi_so": d.chi_so,
@@ -603,6 +667,13 @@ def _hang_don_vi(d: DonViVanBan) -> dict:
         # — và logo letterhead sẽ biến mất khỏi bản dựng lại dù bytes của nó
         # đã nằm yên trong `anh_tai_lieu`.
         "anh": [_hang_anh(a) for a in d.anh],
+        # P2b — khoá TUỲ CHỌN, chỉ có mặt khi nguồn khai (hợp đồng "Đơn vị văn
+        # bản additions"): địa chỉ OOXML, chỗ trống, hộp dòng PDF. Cùng lý do mọi
+        # khoá trên: thiếu ở đây là mất ngay tại ranh giới lưu/đọc, và bộ áp
+        # (P3a/P3b) sẽ không còn biết điền vào đâu.
+        **({"dia_chi": {"phan": d.dia_chi.phan, "chi_muc": list(d.dia_chi.chi_muc)}} if d.dia_chi else {}),
+        **({"cho_trong": [_hang_cho_trong(c) for c in d.cho_trong]} if d.cho_trong else {}),
+        **({"hop": list(d.hop)} if d.hop else {}),
     }
 
 
@@ -765,6 +836,9 @@ def don_vi_cua(engine: Engine, viec_id: str, user_sub: str) -> list[DonViVanBan]
             dinh_dang=_dinh_dang_tu_hang(d.get("dinh_dang")),
             gian_cach=_gian_cach_tu_hang(d.get("gian_cach")),
             anh=_anh_tu_hang(d.get("anh")),
+            dia_chi=_dia_chi_tu_hang(d.get("dia_chi")),
+            cho_trong=_cho_trong_tu_hang(d.get("cho_trong")),
+            hop=_hop_tu_hang(d.get("hop")),
         )
         for d in (r[0] or [])
     ]
