@@ -1034,6 +1034,33 @@ async def test_DOC_LAI_loai_LA_la_422_viec_chua_doc_xong_la_409(client, khoa_ky,
     assert r.status_code == 409
 
 
+@pytest.mark.parametrize("so_trang", [3, rtl.tl.NGUONG_NEN_TRANG], ids=["tai_cho", "chay_nen"])
+@pytest.mark.asyncio
+async def test_DOC_LAI_ghi_dang_doc_TRUOC_khi_rut_lan_bam_thu_hai_la_409(
+    client, khoa_ky, hai_nguoi, llm_gia, monkeypatch, so_trang
+):
+    """Chặn 409 của rút lại chỉ đứng được khi DB nói thật. Việc cũ đang `xong`;
+    nếu lượt rút chạy (tại chỗ hay nền) mà dòng vẫn ghi `xong`, lần bấm thứ hai
+    lọt qua và trả tiền mô hình thêm một lượt cho cùng tờ giấy."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "hợp đồng")
+    viec = (await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "hd.docx")).json()["id"]
+    rtl.tl.dat_trang_thai(get_engine(), viec, a, "xong", so_trang=so_trang)
+    luc_rut: list[str] = []
+    # `_chay` giả không ghi trạng thái cuối: lượt rút coi như vẫn đang chạy.
+    monkeypatch.setattr(
+        rtl, "_chay", lambda v, u, *_: luc_rut.append(rtl.tl.lay_viec(get_engine(), v, u)["trang_thai"])
+    )
+
+    r = await client.post(f"/api/v1/tai-lieu/{viec}/doc-lai", headers=ha, json={"loai": LOAI})
+    assert r.status_code == 200, r.text
+    assert luc_rut == ["dang_doc"], "lượt rút chạy lúc dòng chưa ghi `dang_doc`"
+    r = await client.post(f"/api/v1/tai-lieu/{viec}/doc-lai", headers=ha, json={"loai": LOAI})
+    assert r.status_code == 409, r.text
+    assert luc_rut == ["dang_doc"], "lần bấm thứ hai không được mở lượt rút nào"
+
+
 @can_soffice
 @can_pdftoppm
 @pytest.mark.asyncio
