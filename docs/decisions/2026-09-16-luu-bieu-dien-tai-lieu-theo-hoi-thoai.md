@@ -4,7 +4,8 @@ Ngày: 2026-09-16
 
 ## Status
 
-Accepted
+Accepted. Thay thế một phần bởi `2026-09-26-luu-khuon-goc-va-dien-tai-cho.md`
+(lưu khuôn gốc theo hội thoại).
 
 ## Bối cảnh
 

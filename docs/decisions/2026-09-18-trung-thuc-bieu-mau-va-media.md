@@ -4,7 +4,9 @@ Ngày: 2026-09-18
 
 ## Status
 
-Accepted
+Accepted. Thay thế một phần bởi `2026-09-26-luu-khuon-goc-va-dien-tai-cho.md`
+(lưu khuôn gốc theo hội thoại). Mục 3 (cấm lưu bytes
+tệp gốc và OOXML) không còn áp cho khuôn gốc.
 
 ## Bối cảnh
 

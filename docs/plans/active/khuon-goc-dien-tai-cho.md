@@ -1,0 +1,251 @@
+# Execution Plan: Show an uploaded document as uploaded, and fill it in place
+
+Date: 2026-09-26
+
+## Status
+
+Active. Decisions settled with the owner on 2026-09-26 (Q1–Q20 of that session);
+execution delegated to agents without a further approval gate, by the owner's
+instruction: "tự động thực thi vs agent và sửa đổi, thực thi plan với agent luôn,
+ko cần tôi duyệt".
+
+## Outcome
+
+Observable in the real app once complete:
+
+1. Uploading `BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx` and opening
+   **Bản tải lên** shows two pages that match the file page for page.
+2. A `.docx`, `.doc`, digital PDF or scanned PDF of up to 10 pages is accepted;
+   an 11-page one is refused at upload with a message naming the 10-page limit,
+   and that refusal does not count against the daily document quota.
+3. Asking KLAW to fill the form produces a draft whose pages are the uploaded
+   file with the blanks filled: everything KLAW did not touch keeps its position,
+   font, borders and page breaks. Blanks KLAW had no value for keep their dots and
+   are listed in the chat answer.
+4. The fill-field panel beside the pages edits any blank; saving re-renders the
+   pages as a new version on the existing version bar, and **Lùi** walks back.
+5. Downloads: the filled `.docx` (opens in Microsoft Word without a repair
+   prompt) plus a PDF for docx/`.doc` inputs; the filled PDF for PDF inputs.
+6. The whole document (≤10 pages) reaches the model; nothing is trimmed silently.
+7. Drafts without a source, and documents uploaded before this change, still use
+   the HTML A4 preview, which now flows across sheets and draws source images.
+
+## Context
+
+- Decision: `docs/decisions/2026-09-26-luu-khuon-goc-va-dien-tai-cho.md` (partly
+  supersedes 2026-09-16 and item 3 of 2026-09-18). Glossary: **khuôn gốc** in
+  `CONTEXT.md`.
+- Previous fidelity work: `docs/plans/active/trung-thuc-bieu-mau.md` (the reader
+  ruler `eval/run_trung_thuc.py`, 99.84% by declaration).
+- Grounding evidence (session scratchpad, not reproducible from the repo until
+  ported into tests): an ElementTree round trip that keeps the root start tag
+  verbatim is pixel-identical on all 8 owner forms; `soffice --convert-to pdf`
+  is 0.8–2.0 s per document; `pdftoppm -r 110` is 0.1–0.5 s; a pypdf overlay
+  renders Vietnamese diacritics correctly.
+- Owner forms live in `~/giấy tờ thực tập/` and are never committed; tests gate on
+  the folder existing (`tests/test_services/test_doc_tai_lieu_doc.py:37-38`).
+
+### Root causes this plan removes (confirmed 2026-09-26)
+
+| Symptom | Cause |
+|---|---|
+| Draft stuck on one sheet | `clauses_tu` drops `trang` and `anh` (`src/agents/nodes/dung_ban_thao_tong_quat.py:92-106`); overflow split only between sections, sheets `overflow-y-auto` (`XemTruocA4.tsx:835,870`) |
+| "Renders like a table" | model rewrites every block; layout re-attached by verbatim text lookup; unmatched tables forced `vien: True` with a shaded header row (`hieu_tai_lieu.py:2128-2137`, `XemTruocA4.tsx:1030-1062`) |
+| Wrong page count | pages = declared breaks only; Evaluation Form is 4 pages, read as 1 |
+| Whole document not understood | `loc_don_vi` trims above 30,000 chars; per-document cost cap ≈25,000 chars |
+| Source images missing | image URL is relative, lacks `/api/v1`, and is fetched without the Bearer header |
+| Scanned PDF > 2 MB refused | global 2 MB body cap (`src/main.py:145`) under a UI that says 20 MB |
+
+## Scope
+
+In scope:
+
+- Storage of khuôn gốc (migration `036`), true page count, 10-page cap.
+- Reader: an OOXML locator and blank records per đơn vị văn bản; word boxes for
+  digital PDF; OCR boxes for scanned PDF.
+- Edit-operation engine for docx (lxml) and PDF (reportlab overlay merged with
+  pypdf).
+- Graph: edit operations instead of `van_ban` for a document with a khuôn gốc.
+- API: page images, downloads, fill-field save, re-extract from the stored file.
+- Frontend: page-image viewer, **Bản tải lên**, fill-field panel, downloads.
+- HTML path fixes: `trang`/`anh` in `clauses_tu`, authed source images, sheet
+  overflow split at block boundaries.
+- Docker (`poppler-utils`, `tesseract-ocr`, `tesseract-ocr-vie`,
+  `fonts-crosextra-carlito`, `fonts-crosextra-caladea`), CI apt step (owner
+  authorised 2026-09-26, Q18), `lxml` and `reportlab` in `requirements.txt`.
+- Ruler: page count and per-page image comparison, LibreOffice automatic and
+  Microsoft Word through `osascript` on the owner's Mac.
+
+Out of scope:
+
+- The checklist drafting path (`gom_du_kien` → `dung_ban_thao`): named exception,
+  it drafts KLAW's own form from facts.
+- Hard-deleting `ban_thao` / `luot_hoi_thoai` on conversation delete (issue).
+- Inserting or deleting paragraphs in a PDF.
+- Image uploads (`.png`/`.jpg`…) as khuôn gốc; they keep today's OCR path.
+- Pushing to `origin`, deploying to Railway.
+
+## Contracts
+
+Every phase codes against these; changing one is a plan edit first.
+
+### Đơn vị văn bản additions (persisted in `viec_doc_tai_lieu.don_vi`)
+
+Optional keys, present only when the source states them (`**({"k": v} if v
+else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
+
+- `dia_chi` (docx): `{"phan": "word/document.xml" | "word/header1.xml" | …,
+  "chi_muc": [int, …]}` — element-child indices from the part's body (or
+  `w:hdr`/`w:ftr` root) down to the unit's container (`w:p`, or `w:tc` for a
+  cell). Pinned at read time; the applier never re-walks with newer code.
+- `cho_trong`: list of blanks in reading order,
+  `{"so": int, "kieu": "cham" | "tab", "doan": int, "dau": int, "cuoi": int,
+  "nhan": str}` — `doan` is the paragraph index inside the unit (0 for a body
+  paragraph), `dau`/`cuoi` are offsets into that paragraph's RAW concatenated
+  `w:t` text (not the stripped `noi_dung`), `nhan` is at most 60 chars of the
+  label before the blank. `kieu: "tab"` is a `w:tab` whose stop has a dot leader.
+  For PDF: `{"so", "kieu": "cham", "hop": [x0, y0, x1, y1], "co_chu": float,
+  "nhan"}` in PDF points, origin top-left, on the unit's `trang`.
+- `hop` (PDF, scanned PDF): the unit's line box, same coordinates.
+- `noi_dung`, `chi_so`, anchors and every existing counter stay byte-identical;
+  each reader change ships the equivalence test pattern of
+  `tests/test_services/test_doc_tai_lieu_trang.py:193-231`.
+
+### Edit operations (`phep_sua`)
+
+```json
+{"loai": "dien", "don_vi": 12, "cho_trong": 0, "gia_tri": "Nguyễn Văn A"}
+{"loai": "thay", "don_vi": 14, "noi_dung": "…"}
+{"loai": "chen_sau", "don_vi": 14, "noi_dung": "…"}
+{"loai": "xoa", "don_vi": 15}
+```
+
+- `dien` replaces only the blank's characters (possibly spanning runs) with the
+  value in the formatting of the blank's first run; a `tab` blank inserts a run
+  before the `w:tab` so the leader shrinks as in Word.
+- `thay` keeps `w:pPr` and the first run's `w:rPr`; `chen_sau` clones them;
+  `xoa` removes the paragraph (a cell keeps one empty `w:p`).
+- PDF accepts `dien` and `thay` only; `thay` must fit the unit's box at ≥70% of
+  its font size or the operation is refused.
+- The applier is pure: `(bytes, don_vi, phep_sua) -> (bytes, bao_cao)`; an
+  invalid operation is skipped and reported, never guessed.
+- `dien` values must pass the provenance check (`_co_trong_nguon`: the user's
+  text this conversation, hồ sơ, or the document) and the memory rules
+  (`_chan_bo_nho`). `_vuong_luoi_chan`'s identifier rule does not apply to `dien`
+  values — a phone number the user stated is a legitimate fill — but its
+  Điều/Khoản rule still applies to `thay`/`chen_sau` text.
+
+### Storage
+
+- `khuon_goc`: `viec_id uuid PRIMARY KEY REFERENCES viec_doc_tai_lieu(id) ON
+  DELETE CASCADE`, `dinh_dang text CHECK IN ('docx','pdf')`, `noi_dung bytea`,
+  `so_byte int CHECK (so_byte = octet_length(noi_dung) AND so_byte <= 20 MB)`,
+  `so_trang int CHECK (so_trang BETWEEN 1 AND 10)`, `kho jsonb` (per-page
+  `[w_pt, h_pt]`), `tao_luc timestamptz`. Owner reads JOIN `viec_doc_tai_lieu`.
+- `ban_thao` gains `viec_id uuid NULL REFERENCES viec_doc_tai_lieu(id) ON DELETE
+  SET NULL` and `phep_sua jsonb NULL`; version snapshots in `phien_ban_truoc`
+  carry `phep_sua`. Rendered PDFs and PNGs are not stored; they are rebuilt on
+  demand (ponytail: add a cache table when a measured render is too slow).
+
+### API (all under `/api/v1`, `nguoi_dung_bat_buoc`, another owner = 404)
+
+- `POST /tai-lieu` — unchanged shape; `TaiLieuOut` gains `co_khuon_goc: bool`.
+- `GET /tai-lieu/{viec_id}/trang` — the khuôn gốc as uploaded:
+  `{"kho": [[w, h], …], "trang": ["<base64 png>", …]}`, one request for every page.
+- `POST /tai-lieu/{viec_id}/doc-lai` `{"loai"}` — re-extract by type from the
+  stored khuôn gốc (no re-upload, no new viec, no quota hit).
+- `GET /ban-thao/{id}/trang?phien_ban=N` — the filled version, same shape.
+- `GET /ban-thao/{id}/tai-xuong?dang=docx|pdf&phien_ban=N` — attachment bytes.
+- `PATCH /ban-thao/{id}/o-dien` `{"phien_ban", "gia_tri": [{"don_vi",
+  "cho_trong", "gia_tri"}]}` — one new version per save, optimistic lock.
+- `BanThaoOut` gains `khuon: {"viec_id", "dinh_dang", "so_trang", "cho_trong":
+  [{"don_vi", "so", "nhan", "gia_tri" | null}]} | null` (default null).
+- Binary responses: `nosniff`, `Cache-Control: private`. Logs carry ids and
+  counts only.
+
+## Approach
+
+Phases run in throwaway worktrees under the session scratchpad, one implementer
+and one independent reviewer each, then a fix round, then a `--no-ff` merge into
+local `main` (`merge: <summary>`). Nothing is pushed. Waves:
+
+| Wave | Phase | Tree | Depends on |
+|---|---|---|---|
+| A | P1a `clauses_tu` carries `trang`, `anh` | backend node | – |
+| A | P1b HTML preview: authed images + overflow split at blocks | frontend | – |
+| A | P1c Tooling: Docker, CI apt, requirements, 20 MB upload path, cost cap 0.10, refusal not counted | infra + config | – |
+| B | P2a Khuôn gốc storage, true page count, 10-page cap, page routes, re-extract, copy/docstrings | upload/storage | P1c |
+| B | P2b Reader: `dia_chi`, `cho_trong` (docx); `hop`, `cho_trong` (PDF word boxes, OCR boxes) | reader | P1c |
+| C | P3a docx applier (lxml) | new service | P2b |
+| C | P3b PDF / scanned PDF applier (reportlab + pypdf) | new service | P2b |
+| D | P4 Graph: ops schema + prompt, validation, `ban_thao` columns, fill save, downloads, memory exclusion, no silent trim | graph + ban_thao | P2a, P3a, P3b |
+| E | P5 Frontend: viewer, Bản tải lên, fill panel, downloads, re-extract call | frontend | P4 |
+| F | P6 Ruler + Word check + end-to-end capture in the real app | eval + e2e | P5 |
+
+Each phase report states outcome, changed files, validation run with output, and
+open risks, and follows the TDD order: failing test first, then code.
+
+## Risks And Recovery
+
+- **Word rejects a filled docx while LibreOffice renders it.** LibreOffice is
+  tolerant of broken markup-compatibility declarations; only Word proves the file.
+  P3a keeps the root start tag verbatim and P6 opens every filled form in Word.
+- **Locator drift.** `dia_chi` is pinned at read time; old rows without it fall
+  back to the HTML path, never to a re-walk.
+- **Blank shapes vary.** Dots share a `w:t` with the label, span 2–3 runs, or are
+  tab leaders; several blanks share a paragraph. The contract addresses a blank by
+  unit + index + raw offsets, measured on all 8 forms in P2b.
+- **Fonts.** Production has Liberation/Carlito/Caladea, the Mac has Times New
+  Roman; page counts can differ between the two. The ruler reports both.
+- **LibreOffice load.** Every upload and save costs one of 3 slots shared with
+  `.doc` conversion; overload returns the existing `qua_tai` 503.
+- **Rate limit.** 10 requests / 60 s per IP; page images come in one request.
+- **Scanned PDFs.** Tesseract emits no words for long dotted leaders; blanks are
+  located by label-relative placement and pixel runs, and the accuracy is measured,
+  not promised.
+- **Edit cap.** `TRAN_SUA = 10` is shared by chat edits and panel saves; the panel
+  saves every changed field in one version.
+- Recovery: each phase is one merge commit on `main`; `git revert -m 1 <merge>`
+  undoes it. Migration `036` is additive (new table, nullable columns).
+
+## Progress
+
+- [x] Decisions Q1–Q20 settled; decision record, glossary term, spec notes.
+- [ ] Wave A — P1a, P1b, P1c.
+- [ ] Wave B — P2a, P2b.
+- [ ] Wave C — P3a, P3b.
+- [ ] Wave D — P4.
+- [ ] Wave E — P5.
+- [ ] Wave F — P6.
+- [ ] Issue opened for the soft-delete gap.
+
+## Decisions
+
+- 2026-09-26: Label **Bản tải lên**, not "bản gốc", which already means the
+  statute's original text in the UI and is on the glossary's avoid list.
+- 2026-09-26: `lxml` over ElementTree for writing OOXML: `ET.register_namespace`
+  is process-global and raises on `ns\d+` prefixes, unsafe in a threadpool.
+- 2026-09-26: `reportlab` for the PDF overlay instead of a hand-built Type0 font:
+  the prototype works but embeds the whole TTF and puts glyph-width code in KLAW.
+- 2026-09-26: Renders are rebuilt on demand, not stored, until measured slow.
+- 2026-09-26: Upload body limit 20 MB for `POST /tai-lieu` only; every other route
+  keeps 2 MB.
+
+## Validation
+
+- Focused proof: per-phase pytest files run by path; `frontend` `npm run kiem`
+  and `npm run typecheck`; `ruff check src/ tests/`; `ruff format --check` on
+  changed files only (never `make format`).
+- Integration: `docker compose up -d db`, then the integration lane for the files
+  each phase touches (cascade, ownership, migration re-run).
+- End-to-end: upload BM.M05 and Evaluation Form in the real app, open Bản tải lên,
+  ask KLAW to fill, save one field in the panel, download both files; screenshots
+  in `.tham-dinh-shots/` (owner's untracked folder).
+- Ruler: page count equal to LibreOffice and to Word on all 8 forms; unchanged
+  pages pixel-identical after a fill; every filled docx opens in Word.
+- Repository-required checks: CI lane
+  `KLAW_SUPABASE_URL= python -m pytest -q -m 'not integration and not pending_review' --deselect tests/test_services/test_moi_mau.py`.
+
+## Result
+
+Pending.

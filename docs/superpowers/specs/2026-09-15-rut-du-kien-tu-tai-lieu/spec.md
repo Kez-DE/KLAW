@@ -155,6 +155,7 @@ Người dùng tải lên một bản scan chụp điện thoại. Hệ thống 
 
 - **FR-022**: Hệ thống MUST KHÔNG lưu tệp gốc của người dùng sau khi xử lý xong.
   - _Ghi chú 2026-09-16_: vẫn đúng nguyên văn — tệp gốc không được lưu. Nhưng **biểu diễn văn bản đã đọc** (`don_vi`: chữ + trang + toạ độ bảng + nguồn chữ) nay được lưu theo cuộc hội thoại và xoá cùng nó; không lưu bytes, không lưu OOXML. Xem `docs/decisions/2026-09-16-luu-bieu-dien-tai-lieu-theo-hoi-thoai.md`.
+  - _Ghi chú 2026-09-26_: không còn đúng cho **khuôn gốc**. Tệp tải lên (docx, `.doc` dưới dạng docx đã quy đổi, PDF) nay được lưu theo cuộc hội thoại và xoá cứng cùng nó, để hiển thị đúng như bản tải lên và điền tại chỗ. Xem `docs/decisions/2026-09-26-luu-khuon-goc-va-dien-tai-cho.md`. SC-005 đổi theo: sau khi hội thoại bị xoá, 0 khuôn gốc của nó còn tồn tại.
 - **FR-023**: Hệ thống MUST KHÔNG ghi toàn văn tài liệu vào nhật ký vận hành hoặc dữ liệu đánh giá.
 - **FR-024**: Hệ thống MUST cho người dùng xoá toàn bộ dữ kiện đã rút của một cuộc hội thoại bằng một thao tác.
 - **FR-025**: Mọi thông báo lỗi MUST KHÔNG lặp lại nội dung tài liệu.
@@ -164,7 +165,7 @@ Người dùng tải lên một bản scan chụp điện thoại. Hệ thống 
 
 ### Key Entities
 
-- **Tài liệu tải lên**: một tệp người dùng đưa vào để đọc. Tồn tại trong thời gian xử lý, không lưu lại. Có: tên tệp, định dạng, kích thước, dấu vân (để nhận ra tải trùng), kết quả xử lý.
+- **Tài liệu tải lên**: một tệp người dùng đưa vào để đọc. Tồn tại trong thời gian xử lý, không lưu lại. _(2026-09-26: tệp nay được giữ làm khuôn gốc theo hội thoại — xem quyết định 2026-09-26.)_ Có: tên tệp, định dạng, kích thước, dấu vân (để nhận ra tải trùng), kết quả xử lý.
 - **Dữ kiện có neo**: một mẩu thông tin hệ thống đọc ra được. Có: tên trường, giá trị, nguồn (*rút từ tài liệu* / *người dùng nhập* / *người dùng sửa*), và — khi nguồn là tài liệu — một **Neo nguồn**.
 - **Neo nguồn**: bằng chứng cho một dữ kiện. Có: đoạn trích nguyên văn, vị trí trong tài liệu, và trạng thái xác minh. Một dữ kiện không có neo hợp lệ thì không tồn tại đối với người dùng.
 - **Tập mẫu đánh giá**: bộ tài liệu tự dựng kèm nhãn dữ kiện đúng, do chủ dự án duyệt tay, dùng để đo SC-002. Đứng ngang hàng với các bộ dữ liệu đánh giá sẵn có của dự án.

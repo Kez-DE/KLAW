@@ -99,6 +99,13 @@ One contiguous piece of a tài liệu with its position: page, table cell, heade
 or footer. The smallest thing a neo tài liệu can point to.
 _Avoid_: block, chunk, paragraph, đoạn
 
+**khuôn gốc**:
+The uploaded file itself, kept with one conversation so a tài liệu can be shown
+exactly as uploaded and filled in place: a `.docx`, a legacy `.doc` kept as its
+converted `.docx`, or a PDF. At most one per tài liệu; a tài liệu uploaded before
+it existed has none. Deleted with the conversation; never căn cứ.
+_Avoid_: template, original, bản gốc, mẫu
+
 **neo tài liệu**:
 The verified pointer from a statement about a tài liệu to one đơn vị văn bản,
 checked by string lookup, never by a model. Same principle as a citation,
