@@ -72,6 +72,11 @@ _HM = _han_muc_tai_lieu()
 TRAN_CHI_PHI_TAI_LIEU_USD = _HM["chi_phi_usd"]
 _USD_MOI_NGHIN_KY_TU = _HM["usd_moi_nghin_ky_tu"]
 
+# FR-037 — số lần rút lại CÓ TRẢ TIỀN trên một tài liệu (`nhan_rut_lai`). `doc-lai`
+# không trừ `tai_lieu_ngay`, nên không có trần này thì một tệp đã lưu là số lượt
+# gọi mô hình không giới hạn.
+TRAN_THU_LAI = int(_HM["so_lan_thu"])
+
 # Số tài liệu mỗi ngày theo gói — FR-004. Cùng nguồn dữ liệu với hạn mức hỏi đáp
 # và soạn thảo, nên đổi số vẫn chỉ là sửa `config/han_muc.yaml`.
 TAI_LIEU_NGAY = {goi: int(v["tai_lieu_ngay"]) for goi, v in _HM["theo_goi"].items()}
@@ -87,13 +92,15 @@ def uoc_chi_phi(so_ky_tu: int) -> float:
     return max(0, so_ky_tu) / 1000 * _USD_MOI_NGHIN_KY_TU
 
 
+def vuot_tran_uoc(so_ky_tu: int) -> bool:
+    """Ước chi phí có vượt trần không. 0 = TẮT, cùng quy ước `bao_ve.kiem_tran_chi_phi`."""
+    return TRAN_CHI_PHI_TAI_LIEU_USD > 0 and uoc_chi_phi(so_ky_tu) > TRAN_CHI_PHI_TAI_LIEU_USD
+
+
 def kiem_tran_chi_phi_tai_lieu(so_ky_tu: int) -> None:
-    """Chặn trước khi gọi mô hình. 0 = TẮT, cùng quy ước `bao_ve.kiem_tran_chi_phi`."""
-    if TRAN_CHI_PHI_TAI_LIEU_USD <= 0:
-        return
-    uoc = uoc_chi_phi(so_ky_tu)
-    if uoc > TRAN_CHI_PHI_TAI_LIEU_USD:
-        raise VuotTran("chi_phi", TRAN_CHI_PHI_TAI_LIEU_USD, uoc)
+    """Chặn trước khi gọi mô hình."""
+    if vuot_tran_uoc(so_ky_tu):
+        raise VuotTran("chi_phi", TRAN_CHI_PHI_TAI_LIEU_USD, uoc_chi_phi(so_ky_tu))
 
 
 def vuot_chi_phi_thuc(chi_phi_usd: float) -> bool:
@@ -129,6 +136,14 @@ def da_dung_hom_nay(engine: Engine, user_sub: str) -> int:
 
     `vuot_tran_so_trang` cũng KHÔNG tính (quyết định 2026-09-26): tài liệu vượt
     trần số trang bị từ chối lúc tải lên, trước khi tốn một lượt mô hình nào.
+
+    Mọi miễn trừ trên chỉ dành cho việc KHÔNG giữ khuôn gốc: miễn trừ là "hệ
+    thống từ chối, người dùng không nhận được gì", còn một tệp nằm lại trong
+    `khuon_goc` là một tài liệu đã lưu (rút lại được, kể cả loại tổng quát).
+    Không có điều kiện này thì mỗi tài khoản lưu được không giới hạn tệp mỗi
+    ngày, và một lượt `doc-lai` chạm trần chi phí hoàn lại lượt của một tệp đã
+    đếm. Lượt tải lên bị ước chi phí từ chối không lưu tệp
+    (`routes_tai_lieu.tai_len`), nên nó vẫn được miễn đúng FR-038.
     """
     from src.services.bao_ve import moc_ngay
 
@@ -137,7 +152,8 @@ def da_dung_hom_nay(engine: Engine, user_sub: str) -> int:
             text(
                 "SELECT count(*) FROM viec_doc_tai_lieu "
                 "WHERE user_sub = :u AND tao_luc >= :m "
-                "AND (ly_do_hong IS NULL OR "
+                "AND (ly_do_hong IS NULL "
+                "OR EXISTS (SELECT 1 FROM khuon_goc k WHERE k.viec_id = viec_doc_tai_lieu.id) OR "
                 # `left(…, 9) <> 'he_thong_'` — KHÔNG `LIKE 'he_thong_%'` (fix
                 # round 3, task review): `_` trong LIKE là ký tự đại diện MỘT
                 # KÝ TỰ BẤT KỲ, không phải gạch dưới nghĩa đen, nên mẫu đó
@@ -269,37 +285,53 @@ def dat_trang_thai(
     # Lý do hỏng chỉ sống cùng trạng thái `hong`: rút lại (`doc_lai`) là thử
     # lại được, và một lần thử lại thành công không được ra `xong` kèm lý do
     # hỏng của lần trước.
+    #
+    # `chi_phi_usd` CỘNG DỒN mọi lượt rút của việc (tải lên và mọi `doc-lai`):
+    # ghi đè bằng lượt cuối là xoá khỏi sổ số tiền đã tiêu.
     with engine.begin() as c:
         c.execute(
             text(
                 "UPDATE viec_doc_tai_lieu SET trang_thai = :s, cap_nhat_luc = now(), "
                 "ly_do_hong = CASE WHEN :s = 'hong' THEN COALESCE(:r, ly_do_hong) END, "
                 "so_trang = COALESCE(:p, so_trang), "
-                "chi_phi_usd = COALESCE(:c, chi_phi_usd) "
+                "chi_phi_usd = chi_phi_usd + COALESCE(CAST(:c AS double precision), 0) "
                 "WHERE id = :i AND user_sub = :u"
             ),
             {"s": trang_thai, "r": ly_do_hong, "p": so_trang, "c": chi_phi_usd, "i": viec_id, "u": user_sub},
         )
 
 
-def nhan_rut_lai(engine: Engine, viec_id: str, user_sub: str) -> bool:
+def nhan_rut_lai(engine: Engine, viec_id: str, user_sub: str, *, tra_phi: bool) -> bool:
     """Đưa việc về `dang_doc` để rút lại, trừ khi nó ĐANG đọc; `False` là đã có
     một lượt đang chạy.
 
     Kiểm và ghi là MỘT câu UPDATE có điều kiện chứ không phải đọc rồi ghi: hai
     lần bấm "rút lại" sát nhau thì Postgres khoá dòng, lần sau thấy `dang_doc`
     của lần trước và không khớp — không có lượt rút trả tiền thứ hai.
+
+    `tra_phi` (lượt rút sẽ gọi mô hình) tốn một lượt FR-037 trong CÙNG câu đó:
+    hết `TRAN_THU_LAI` lượt thì `VuotTran("thu_lai")` và dòng giữ nguyên.
     """
+    tang = 1 if tra_phi else 0
     with engine.begin() as c:
         so_dong = c.execute(
             text(
                 "UPDATE viec_doc_tai_lieu SET trang_thai = 'dang_doc', ly_do_hong = NULL, "
-                "cap_nhat_luc = now() "
-                "WHERE id = :i AND user_sub = :u AND trang_thai <> 'dang_doc'"
+                "cap_nhat_luc = now(), so_lan_thu = so_lan_thu + :p "
+                "WHERE id = :i AND user_sub = :u AND trang_thai <> 'dang_doc' "
+                "AND (:p = 0 OR so_lan_thu < :t)"
             ),
-            {"i": viec_id, "u": user_sub},
+            {"i": viec_id, "u": user_sub, "p": tang, "t": TRAN_THU_LAI},
         ).rowcount
-    return so_dong == 1
+        if so_dong == 1:
+            return True
+        da_thu = c.execute(
+            text("SELECT so_lan_thu FROM viec_doc_tai_lieu WHERE id = :i AND user_sub = :u"),
+            {"i": viec_id, "u": user_sub},
+        ).scalar()
+    if tra_phi and da_thu is not None and da_thu >= TRAN_THU_LAI:
+        raise VuotTran("thu_lai", TRAN_THU_LAI, da_thu)
+    return False
 
 
 def dat_loai(engine: Engine, viec_id: str, user_sub: str, loai: str) -> None:

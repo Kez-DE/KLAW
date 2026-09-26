@@ -7,8 +7,10 @@ tiết lộ tồn tại.
 
 Tệp tải lên được GIỮ cùng cuộc hội thoại làm **khuôn gốc** (quyết định
 2026-09-26, migration 036) để "Bản tải lên" hiện đúng từng trang như tệp, và bị
-xoá cứng cùng hội thoại. Chỉ ghi khi tệp đã đọc được và nằm trong trần 10 trang;
-một tệp bị từ chối không để lại byte nào. Ảnh không có khuôn gốc.
+xoá cứng cùng hội thoại. Chỉ ghi khi tệp đã đọc được, nằm trong trần 10 trang
+và lượt rút đã chọn (nếu có) không bị ước chi phí từ chối; một tệp bị từ chối
+không để lại byte nào. Tệp đã giữ luôn tính vào hạn mức ngày
+(`tai_lieu.da_dung_hom_nay`). Ảnh không có khuôn gốc.
 """
 
 import base64
@@ -316,6 +318,11 @@ async def tai_len(
         loai=loai,
     )
 
+    # `tong_quat` KHÔNG có checklist (`config/checklist_tong_quat.yaml` không tồn
+    # tại), nên `rut_du_kien` đi qua nó là `ValueError` ở `duong_dan_checklist` —
+    # xem nhánh "đính kèm không phân tích" ở `_theo_loai`.
+    nguoi_chon_loai = loai is not None and loai != ban_thao.LOAI_TONG_QUAT
+
     # Đọc ĐÚNG MỘT LẦN. Số trang quyết định đường đi, nên phải đọc trước khi
     # chọn đường; `_chay` nhận lại kết quả đó thay vì phân tích lần thứ hai.
     ten = (tep.filename or "").lower()
@@ -333,6 +340,11 @@ async def tai_len(
         if khuon:
             tai_lieu = replace(tai_lieu, so_trang=khuon.so_trang)
         tl.kiem_so_trang(tai_lieu.so_trang)
+        if khuon and nguoi_chon_loai and tl.vuot_tran_uoc(tai_lieu.so_ky_tu):
+            # Lượt rút sắp bị trần chi phí từ chối (`_chay`, FR-036): không giữ
+            # tệp, để bị từ chối vẫn là không để lại byte nào và không trừ hạn
+            # mức (FR-038, `tl.da_dung_hom_nay` chỉ miễn việc không giữ tệp).
+            khuon = None
         if khuon:
             # `.doc` quy đổi có thể nở ra; `ck_khuon_goc_so_byte` sẽ từ chối
             # bằng một lỗi 500, nên nói trần ra trước.
@@ -377,13 +389,11 @@ async def tai_len(
     # hệ thống đọc lấy — và khi không nhận ra thì tài liệu vẫn ĐỌC XONG: cái
     # thiếu là bộ trường của một checklist, không phải cả tài liệu. Trạng thái
     # `can_chon_loai` không còn được ghi; nó chỉ còn đọc được ở dòng cũ.
-    # `tong_quat` KHÔNG có checklist (`config/checklist_tong_quat.yaml` không tồn
-    # tại), nên `rut_du_kien` đi qua nó là `ValueError` ở `duong_dan_checklist` —
-    # việc đọc bị ghi `hong`/`loi_he_thong` và người dùng thấy "không phân tích
-    # được" dù tệp đọc hoàn toàn bình thường. Bản thảo tổng quát rút dữ kiện ở
+    # `tong_quat` (`nguoi_chon_loai` ở trên) đi qua `rut_du_kien` thì việc đọc bị
+    # ghi `hong`/`loi_he_thong` và người dùng thấy "không phân tích được" dù tệp
+    # đọc hoàn toàn bình thường. Bản thảo tổng quát rút dữ kiện ở
     # `hieu_tai_lieu` chứ không ở đây, nên nó đi CHÍNH đường "đính kèm không phân
     # tích" bên dưới: đọc xong, không `du_kien`, không gọi mô hình lần hai.
-    nguoi_chon_loai = loai is not None and loai != ban_thao.LOAI_TONG_QUAT
     doan = None if loai else phan_loai(tai_lieu.don_vi)
     loai = loai or (doan.loai if doan else None)
     return await _theo_loai(nen, viec_id, nguoi, hoi_thoai_id, loai, nguoi_chon_loai, doan, tai_lieu, chung)
@@ -581,7 +591,8 @@ async def doc_lai(
     nguoi: dict = Depends(nguoi_dung_bat_buoc),
 ) -> TaiLieuOut:
     """Rút lại theo loại văn bản trên CHÍNH việc đọc đã lưu (quyết định
-    2026-09-26) — không tải lên lại, không mở việc mới, không trừ hạn mức.
+    2026-09-26) — không tải lên lại, không mở việc mới, không trừ hạn mức, và
+    tối đa `tl.TRAN_THU_LAI` lượt có trả tiền mỗi tài liệu (FR-037).
 
     Chọn loại sau khi đính kèm từng là tải lên lại cả tệp: một việc đọc mới và
     một lượt hạn mức mỗi lần người dùng đổi ý. Việc rút chỉ cần các đơn vị văn
@@ -590,6 +601,7 @@ async def doc_lai(
     (`luu_du_kien` bỏ qua khoá đã có).
     """
     from src.agents.graph_soan_thao import cac_loai
+    from src.services import bao_ve
 
     viec_id = _uuid_hop_le(viec_id)
     viec = await run_in_threadpool(tl.lay_viec, get_engine(), viec_id, nguoi["sub"])
@@ -598,17 +610,38 @@ async def doc_lai(
     if body.loai != ban_thao.LOAI_TONG_QUAT and body.loai not in cac_loai():
         raise HTTPException(status_code=422, detail="Loại văn bản này chưa có mẫu để rút dữ kiện.")
     don_vi = await run_in_threadpool(tl.don_vi_cua, get_engine(), viec_id, nguoi["sub"])
-    # Nhận việc (`dang_doc`) TRƯỚC khi rút, ở cả đường tại chỗ lẫn đường nền:
-    # chỉ kiểm `viec["trang_thai"]` thì dòng vẫn ghi `xong` suốt lượt rút, và lần
-    # bấm thứ hai lọt qua chặn này để trả tiền mô hình thêm một lượt.
-    if not don_vi or not await run_in_threadpool(tl.nhan_rut_lai, get_engine(), viec_id, nguoi["sub"]):
-        raise HTTPException(status_code=409, detail="Tài liệu này chưa đọc xong nên chưa rút lại được.")
+    chua_xong = HTTPException(status_code=409, detail="Tài liệu này chưa đọc xong nên chưa rút lại được.")
+    if not don_vi:
+        raise chua_xong
 
     tai_lieu = TaiLieuDaDoc(
         don_vi=don_vi,
         so_trang=viec.get("so_trang") or max(d.trang for d in don_vi),
         so_ky_tu=sum(len(d.noi_dung) for d in don_vi),
     )
+    nguoi_chon_loai = body.loai != ban_thao.LOAI_TONG_QUAT
+    if nguoi_chon_loai:
+        # Mọi cổng của lượt trả tiền đứng TRƯỚC khi nhận việc: bị từ chối thì
+        # dòng giữ nguyên (một tài liệu `xong` không rơi sang `hong` và ra khỏi
+        # ngữ cảnh chat) và không tốn lượt FR-037. Ước chi phí đã biết từ đây;
+        # trần chi phí ngày là cổng cuối trước ví tiền như mọi endpoint trả tiền.
+        if tl.vuot_tran_uoc(tai_lieu.so_ky_tu):
+            raise HTTPException(status_code=422, detail=THONG_DIEP_TRAN["chi_phi"])
+        await run_in_threadpool(bao_ve.kiem_tran_chi_phi)
+    # Nhận việc (`dang_doc`) TRƯỚC khi rút, ở cả đường tại chỗ lẫn đường nền:
+    # chỉ kiểm `viec["trang_thai"]` thì dòng vẫn ghi `xong` suốt lượt rút, và lần
+    # bấm thứ hai lọt qua chặn này để trả tiền mô hình thêm một lượt.
+    try:
+        nhan = await run_in_threadpool(tl.nhan_rut_lai, get_engine(), viec_id, nguoi["sub"], tra_phi=nguoi_chon_loai)
+    except VuotTran as e:
+        # FR-038 — nói đúng nguyên nhân. 429: đã hết lượt, không phải tệp hỏng.
+        raise HTTPException(
+            status_code=429,
+            detail=f"Tài liệu này đã được rút lại đủ {e.gioi_han} lần. Hãy tải lên lại nếu cần rút tiếp.",
+        ) from e
+    if not nhan:
+        raise chua_xong
+
     hoi_thoai_id = str(viec["hoi_thoai_id"])
     chung = {
         "id": viec_id,
@@ -619,7 +652,6 @@ async def doc_lai(
         "so_don_vi": len(don_vi),
         "co_khuon_goc": bool(viec.get("co_khuon_goc")),
     }
-    nguoi_chon_loai = body.loai != ban_thao.LOAI_TONG_QUAT
     return await _theo_loai(nen, viec_id, nguoi, hoi_thoai_id, body.loai, nguoi_chon_loai, None, tai_lieu, chung)
 
 
