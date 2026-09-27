@@ -384,6 +384,9 @@ class _BanThaoGia:
             "clauses": ket["clauses"],
             "audit": ket["audit_report"],
             "facts": facts,
+            # Cột migration 037 như dòng thật trả về (viec của chủ thì giữ).
+            "viec_id": ket.get("viec_id"),
+            "phep_sua": ket.get("phep_sua"),
         }
 
     def sua(self, sub, id, facts, ket):
@@ -395,6 +398,9 @@ class _BanThaoGia:
             "clauses": ket["clauses"],
             "audit": ket["audit_report"],
             "facts": facts,
+            # Cột migration 037 như dòng thật trả về (viec của chủ thì giữ).
+            "viec_id": ket.get("viec_id"),
+            "phep_sua": ket.get("phep_sua"),
         }
 
 
@@ -750,23 +756,50 @@ def test_graph_nap_tai_lieu_kem_khuon_goc_theo_chu(phien):
 
 @pytest.mark.integration
 def test_luu_that_ban_thao_khuon_goc_qua_ban_thao_tao(phien):
-    from src.services import hoi_thoai
+    """Một việc đọc THẬT có khuôn gốc: `viec_id` phải còn trên dòng đã lưu (P4a
+    ghi nó qua truy vấn con kiểm chủ, id lạ ra NULL), không chỉ trong state."""
+    from src.services import tai_lieu as tl
+    from src.services.db import get_engine
 
-    sub, _ = phien
+    sub, ht = phien
     bao_ve.ghi_nhan_nguoi_dung(sub, None)
-    pid = hoi_thoai.tao_phien(sub, "điền biểu mẫu")
+    vid = _viec(sub, ht)
+    tl.luu_khuon_goc(get_engine(), vid, "docx", b"PK\x03\x04", [[595.0, 842.0], [595.0, 842.0]])
     ra = d.dung_ban_thao_tong_quat(
         {
             "user_sub": sub,
-            "hoi_thoai_id": pid,
+            "hoi_thoai_id": ht,
             "muc_dich_tai_lieu": "tao_van_ban",
-            "khuon_tong_quat": _khuon([_p(1, 0, "Công ty Mẫu Thử")]),
+            "khuon_tong_quat": {**_khuon([_p(1, 0, "Công ty Mẫu Thử")]), "viec_id": vid},
         }
     )
     bt = ra["ban_thao_ket"]
     assert bt["phien_ban"] == 1 and bt["loai"] == "tong_quat" and bt["clauses"] == []
     assert bt["document"] == "# BM.M05\n\n- Cơ quan/Đơn vị tiếp nhận: Công ty Mẫu Thử\n"
-    assert bt["viec_id"] == A_ID and bt["phep_sua"] == [_p(1, 0, "Công ty Mẫu Thử")]
+    assert bt["viec_id"] == vid and bt["phep_sua"] == [_p(1, 0, "Công ty Mẫu Thử")]
+    assert (bt["khuon"]["viec_id"], bt["khuon"]["so_trang"]) == (vid, 2)
+    luu = ban_thao.chi_tiet(sub, bt["id"])
+    assert (luu["viec_id"], luu["phep_sua"]) == (vid, [_p(1, 0, "Công ty Mẫu Thử")])
+    assert luu["khuon"] == bt["khuon"]
+
+
+@pytest.mark.integration
+def test_viec_khong_ton_tai_thi_state_noi_dung_dong_da_luu(phien):
+    """`ban_thao_ket` là dòng ĐÃ LƯU: một `viec_id` không có hàng (hay của người
+    khác) ra NULL trên dòng, nên state không được mang id đó sang `BanThaoOut`."""
+    sub, ht = phien
+    bao_ve.ghi_nhan_nguoi_dung(sub, None)
+    ra = d.dung_ban_thao_tong_quat(
+        {
+            "user_sub": sub,
+            "hoi_thoai_id": ht,
+            "muc_dich_tai_lieu": "tao_van_ban",
+            "khuon_tong_quat": _khuon([_p(1, 0, "Công ty Mẫu Thử")]),
+        }
+    )
+    bt = ra["ban_thao_ket"]
+    assert (bt["viec_id"], bt["khuon"]) == (None, None)
+    assert ban_thao.chi_tiet(sub, bt["id"])["viec_id"] is None
 
 
 # ─────────────────────────────────────── tệp thật của chủ dự án (không commit)

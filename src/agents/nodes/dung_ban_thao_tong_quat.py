@@ -225,17 +225,19 @@ def doi_muc(cu: list[dict], moi: list[dict]) -> list[str]:
     return [c["ten"] for c in (moi or []) if truoc.get(c["key"]) != c.get("khoi")]
 
 
-def _ket_state(bt: dict, ten: str, doi: list[str], ket: dict | None = None) -> dict:
+def _ket_state(bt: dict, ten: str, doi: list[str]) -> dict:
     """Một dòng `ban_thao` → `state["ban_thao_ket"]`. Song sinh với
     `graph_tra_cuu._ban_thao_ket` (đường checklist) và bị ghim bởi cùng một hợp
     đồng, `schemas.BanThaoOut` — cột DB tên `audit`, trường ra tên `audit_report`.
 
-    `viec_id`/`phep_sua` lấy từ `ket` vừa lưu khi nó mang (bản thảo khuôn gốc),
-    không thì từ dòng; `khuon` (khuôn gốc + chỗ trống kèm giá trị) do service
-    tính từ dòng — `assemble` chuyển nguyên sang `BanThaoOut.khuon`.
+    `viec_id`/`phep_sua` lấy từ DÒNG đã lưu, không từ `ket`: `ban_thao` ghi
+    `viec_id` qua truy vấn con kiểm chủ, một id lạ ra NULL (bản thảo HTML).
+    `khuon` (khuôn gốc + chỗ trống kèm giá trị) do service tính từ dòng —
+    `assemble` chuyển nguyên sang `BanThaoOut.khuon`; `None` cho bản thảo HTML.
     """
     return {
-        **{k: (ket or {}).get(k, bt.get(k)) for k in ("viec_id", "phep_sua")},
+        "viec_id": bt.get("viec_id"),
+        "phep_sua": bt.get("phep_sua"),
         "khuon": bt.get("khuon"),
         "id": bt["id"],
         "loai": LOAI_TONG_QUAT,
@@ -246,8 +248,6 @@ def _ket_state(bt: dict, ten: str, doi: list[str], ket: dict | None = None) -> d
         "audit_report": bt["audit"],
         "facts": bt["facts"],
         "doi_so_voi_truoc": doi,
-        # P4a — ô điền của khuôn gốc, do `ban_thao` tính; `None` cho bản thảo HTML.
-        "khuon": bt.get("khuon"),
     }
 
 
@@ -347,7 +347,7 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
             if khuon
             else doi_muc(cu["clauses"], ket["clauses"])
         )
-        return {**state, "ban_thao_ket": _ket_state(bt, ten, doi, ket), "ban_thao_tong_quat_loi": None}
+        return {**state, "ban_thao_ket": _ket_state(bt, ten, doi), "ban_thao_tong_quat_loi": None}
 
     bat_dau = time.monotonic()
     bt = ban_thao.tao(sub, str(hoi_thoai_id), LOAI_TONG_QUAT, {}, ket)
@@ -370,4 +370,4 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
         # Best-effort như mọi nơi ghi trace khác: không chặn bản thảo đã lưu
         # thật chỉ vì hàng đo đếm không ghi được.
         logger.exception("dung_ban_thao_tong_quat: không ghi được traces")
-    return {**state, "ban_thao_ket": _ket_state(bt, ten, [], ket), "ban_thao_tong_quat_loi": None}
+    return {**state, "ban_thao_ket": _ket_state(bt, ten, []), "ban_thao_tong_quat_loi": None}
