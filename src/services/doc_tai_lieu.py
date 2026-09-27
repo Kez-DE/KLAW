@@ -1877,6 +1877,21 @@ def nhan_sach(nhan: str, truoc: str = "") -> str:
     return s.lstrip(" ,;:(").rstrip(" :")
 
 
+def nhan_sach_don_vi(don_vi: list[DonViVanBan]) -> list[DonViVanBan]:
+    """`nhan_sach` trên mọi chỗ trống theo thứ tự đọc, `truoc` là nhãn sạch của
+    chỗ trống liền trước qua mọi đơn vị. Bộ đọc gọi lúc tải lên, `hieu_tai_lieu`
+    gọi lại trên hàng đã lưu — lũy đẳng, nên hàng lưu trước bộ đọc làm sạch nhãn
+    cũng lên prompt bằng đúng tên trang hiện."""
+    ra, truoc = [], ""
+    for d in don_vi:
+        cho = []
+        for c in d.cho_trong:
+            truoc = nhan_sach(c.nhan, truoc)
+            cho.append(replace(c, nhan=truoc))
+        ra.append(replace(d, cho_trong=tuple(cho)) if cho else d)
+    return ra
+
+
 def _cho_trong_doan(p: ET.Element, doan: int) -> list[ChoTrong]:
     """Chỗ trống của MỘT `w:p` thô, `so` tạm 0 (`_cho_trong_don_vi` đánh lại).
 
@@ -2947,7 +2962,6 @@ def _dat_vi_tri(
     trang_hien = None
     offset = 0
     theo_ky_tu = bool(thoi) and thoi[0][0] is None
-    nhan_truoc = ""  # nhãn sạch của chỗ trống liền trước, qua mọi đơn vị (`nhan_sach`)
 
     for i, muc in enumerate(thoi):
         them: dict = {}
@@ -2971,10 +2985,6 @@ def _dat_vi_tri(
             trang = 1 + da_di // KY_TU_MOI_TRANG
         if trang != trang_hien:
             trang_hien, offset = trang, 0
-        cho_trong = []
-        for c in them.get("cho_trong", ()):
-            nhan_truoc = nhan_sach(c.nhan, nhan_truoc)
-            cho_trong.append(replace(c, nhan=nhan_truoc))
         don_vi.append(
             DonViVanBan(
                 chi_so=i,
@@ -2998,7 +3008,7 @@ def _dat_vi_tri(
                 gian_cach=gian_cach,
                 anh=anh,
                 dia_chi=them.get("dia_chi"),
-                cho_trong=tuple(cho_trong),
+                cho_trong=them.get("cho_trong", ()),
                 hop=them.get("hop"),
                 doan_chu=them.get("doan_chu", ()),
             )
@@ -3006,6 +3016,7 @@ def _dat_vi_tri(
         offset += len(noi_dung) + 1   # +1 cho dấu xuống dòng giữa hai đơn vị
         da_di += len(noi_dung) + 1
 
+    don_vi = nhan_sach_don_vi(don_vi)
     so_ky_tu = sum(len(d.noi_dung) for d in don_vi)
     so_trang = max((d.trang for d in don_vi), default=1)
     if theo_ky_tu or uoc_do_day:

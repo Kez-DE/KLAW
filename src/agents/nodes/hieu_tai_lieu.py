@@ -45,6 +45,7 @@ from src.services.doc_tai_lieu import (
     GianCach,
     NguonChu,
     _la_cham,
+    nhan_sach_don_vi,
 )
 from src.services.llm import TruncatedOutputError, Usage
 from src.services.neo_du_kien import LyDoNeo, Neo, normalize, xac_minh
@@ -2965,6 +2966,10 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
     # Khuôn gốc (P4b): ≤10 trang thật đã được cam kết lúc tải lên, nên gửi TRỌN —
     # kể cả ô bảng rỗng, chỗ duy nhất một phép `thay` điền được một hàng danh
     # sách. Trần chi phí bên dưới vẫn từ chối (`QUA_DAI`) thay vì cắt ngầm.
+    # Nhãn chỗ trống qua `nhan_sach_don_vi`: hàng lưu TRƯỚC bộ đọc làm sạch nhãn
+    # mang nhãn thô, còn prompt, "Còn trống" và `khong_khop_nhan` phải gọi ô đúng
+    # tên trang hiện (`ban_thao.cho_trong_khuon`).
+    tai_lieu = [{**t, "don_vi": nhan_sach_don_vi(t["don_vi"])} if co_khuon(t) else t for t in tai_lieu]
     goi = [
         {**t, "nhan": NHAN[i], "gui": list(t["don_vi"]) if co_khuon(t) else loc_don_vi(t["don_vi"], cau_hoi)}
         for i, t in enumerate(tai_lieu[: len(NHAN)])

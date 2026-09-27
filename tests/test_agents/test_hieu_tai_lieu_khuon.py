@@ -147,9 +147,11 @@ def test_khuon_goc_dung_prompt_v2_va_luoc_do_khuon_khong_van_ban():
 
 def test_prompt_liet_ke_cho_trong_ngay_duoi_don_vi():
     _, llm = _chay([])
-    assert "[A-2] (tr. 1) Điện thoại: ……………… Fax: ………………\n  chỗ trống: 0 «Điện thoại:» | 1 «Fax:»" in llm.prompt
+    # Nhãn qua `nhan_sach` cả với hàng lưu trước bộ đọc làm sạch nhãn: cùng tên
+    # với trang (`ban_thao.cho_trong_khuon`).
+    assert "[A-2] (tr. 1) Điện thoại: ……………… Fax: ………………\n  chỗ trống: 0 «Điện thoại» | 1 «Fax»" in llm.prompt
     # Đơn vị không có địa chỉ ghim thì không điền được — không mời mô hình điền nó.
-    assert "«Ghi chú:»" not in llm.prompt
+    assert "«Ghi chú" not in llm.prompt
 
 
 # Ô tiêu đề thư của BM.M05 như bộ đọc trả (đo trên tệp thật 2026-09-27): ba đoạn
@@ -337,8 +339,8 @@ def test_luot_tao_giu_gia_tri_co_nguon_bo_gia_tri_khong_nguon():
     # Đếm, không chép: không khoá traces nào mang giá trị đã điền.
     assert "0912345678" not in json.dumps(tr, ensure_ascii=False)
     assert k["cho_trong"][:2] == [
-        {"don_vi": 1, "so": 0, "kieu": "cham", "nhan": "Cơ quan/Đơn vị tiếp nhận:", "doan": 0},
-        {"don_vi": 2, "so": 0, "kieu": "cham", "nhan": "Điện thoại:", "doan": 0},
+        {"don_vi": 1, "so": 0, "kieu": "cham", "nhan": "Cơ quan/Đơn vị tiếp nhận", "doan": 0},
+        {"don_vi": 2, "so": 0, "kieu": "cham", "nhan": "Điện thoại", "doan": 0},
     ]
     assert all(c["don_vi"] != 6 for c in k["cho_trong"])
 
@@ -625,7 +627,7 @@ def test_luot_sua_cho_mo_hinh_thay_gia_tri_hien_tai_va_chi_tra_thay_doi():
         muc_dich="sua_ban_thao",
         ban_thao_tong_quat_dang_mo=DANG_MO,
     )
-    assert "chỗ trống: 0 «Điện thoại:» = «0912345678» | 1 «Fax:»" in llm.prompt
+    assert "chỗ trống: 0 «Điện thoại» = «0912345678» | 1 «Fax»" in llm.prompt
     assert ra["muc_dich_tai_lieu"] == "sua_ban_thao"
     assert ra["khuon_tong_quat"]["phep_sua"] == [
         {"loai": "dien", "don_vi": 2, "cho_trong": 1, "gia_tri": "0243999888"},
@@ -862,7 +864,7 @@ def test_cau_cua_owner_soan_thao_van_ban_nay_dung_lai_dung_tep_tai_len(bt_gia):
     assert out["answer"].startswith(
         "Tôi đã dựng lại biểu mẫu đúng như tệp bạn tải lên (2 trang): mở bản thảo để xem, tải Word hoặc PDF ngay."
     )
-    assert "Còn trống: «Cơ quan/Đơn vị tiếp nhận:», «Điện thoại:», «Fax:», «Ngành:» và 1 chỗ khác." in out["answer"]
+    assert "Còn trống: «Cơ quan/Đơn vị tiếp nhận», «Điện thoại», «Fax», «Ngành» và 1 chỗ khác." in out["answer"]
     assert "Muốn điền, hãy nói giá trị cần điền hoặc bấm vào chỗ trống trên trang." in out["answer"]
     assert "bản gốc" not in out["answer"] and "tài liệu gốc" not in out["answer"]
 
@@ -1344,8 +1346,8 @@ def test_dong_nhe_cho_prompt_luot_sua_thay_gia_tri_dang_dien_sau_khi_gop(phien):
         tai_lieu=[{**TL_KHUON[0], "id": vid, "viec_id": vid}],
         ban_thao_tong_quat_dang_mo=nhe,
     )
-    assert "chỗ trống: 0 «Cơ quan/Đơn vị tiếp nhận:» = «Công ty Mẫu Thử»" in llm.prompt
-    assert "chỗ trống: 0 «Điện thoại:» = «0912345678» | 1 «Fax:»" in llm.prompt
+    assert "chỗ trống: 0 «Cơ quan/Đơn vị tiếp nhận» = «Công ty Mẫu Thử»" in llm.prompt
+    assert "chỗ trống: 0 «Điện thoại» = «0912345678» | 1 «Fax»" in llm.prompt
 
 
 @pytest.mark.integration
@@ -1382,7 +1384,7 @@ def test_hoi_thoai_xen_ke_nen_prompt_la_ban_thao_cung_loai_nguon_voi_luot(phien)
 
     _luot("tao_van_ban", van_ban_tong_quat=_VAN_BAN)
     p = _prompt(vid)
-    assert "chỗ trống: 0 «Cơ quan/Đơn vị tiếp nhận:» = «Công ty Mẫu Thử»" in p, "bản HTML mới hơn không che giá trị"
+    assert "chỗ trống: 0 «Cơ quan/Đơn vị tiếp nhận» = «Công ty Mẫu Thử»" in p, "bản HTML mới hơn không che giá trị"
     assert "Việc gia đình." not in p
 
     _luot("sua_ban_thao", khuon_tong_quat={**_khuon([_p(2, 0, "0912345678")]), "viec_id": vid})
