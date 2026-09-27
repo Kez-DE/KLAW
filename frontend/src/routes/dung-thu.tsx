@@ -331,10 +331,18 @@ function ManHoiKlaw() {
   /** Kết quả mới của CHÍNH bản thảo đang mở → cập nhật `banThaoMo` (phiên bản
    *  mới, mục vừa đổi tô được qua `doi_so_voi_truoc`). So khớp theo id vì lượt
    *  hỏi tiếp theo có thể không nói gì tới bản thảo (một câu hỏi tra cứu khác). */
+  //
+  // CHỈ kết quả MỚI: một kết quả đã thấy (kể cả lúc sân khấu đóng) không được
+  // áp lại khi sân khấu MỞ — mở đã có `layBanThao`/bản vừa trả về. Áp lại thì
+  // một phiên bản cũ của lượt chat trước lên sân khấu trước bản mới nhất, và với
+  // bản thảo trên khuôn gốc đó là HAI lượt dựng trang chồng nhau (lượt sau 503).
+  const ketQuaDaAp = useRef<TraCuuKetQua | null>(null);
   useEffect(() => {
-    if (banThaoIdSanKhau === null || traCuu.dangChay) return;
+    if (traCuu.dangChay || traCuu.ketQua === ketQuaDaAp.current) return;
+    ketQuaDaAp.current = traCuu.ketQua;
     const bt = traCuu.ketQua?.ban_thao;
-    if (bt !== null && bt !== undefined && bt.id === banThaoIdSanKhau) datBanThaoMo(bt);
+    if (banThaoIdSanKhau !== null && bt !== null && bt !== undefined && bt.id === banThaoIdSanKhau)
+      datBanThaoMo(bt);
   }, [banThaoIdSanKhau, traCuu.dangChay, traCuu.ketQua]);
 
   /** Đóng sân khấu — nút X, Esc, bị một khung khác (đối chiếu/soạn thảo) thay
