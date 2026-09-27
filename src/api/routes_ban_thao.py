@@ -331,8 +331,11 @@ _KIEU_TAI_VE = {
 _ASCII_TEN = re.compile(r'[^\x20-\x7e]|["\\]')
 
 
-def _tai_ve_dau(ten_tep: str, dang: str) -> str:
-    """`Content-Disposition` của bản đã điền: `<tên tệp tải lên> - đã điền.<dang>`.
+def _tai_ve_dau(ten_tep: str, dang: str, co_doi: bool) -> str:
+    """`Content-Disposition` của một phiên bản: `<tên tệp tải lên> - đã điền.<dang>`
+    khi phiên bản có thay đổi (`co_doi`), còn không thì CHÍNH tên tệp tải lên,
+    `<tên>.<dang>` (B7, owner 2026-09-27): một bản chưa đổi gì là tệp tải lên, không
+    phải "bản đã điền".
 
     Chỉ PHẦN TÊN (bỏ thư mục và đuôi — một `.doc` tải về là `.docx`), bỏ ký tự
     không in được (không `\r\n` nào chen được vào header). `filename*` (RFC 5987,
@@ -341,7 +344,11 @@ def _tai_ve_dau(ten_tep: str, dang: str) -> str:
     goc = re.split(r"[\\/]", unicodedata.normalize("NFC", ten_tep or ""))[-1]
     ten = "".join(ch for ch in PurePath(goc).stem if ch.isprintable()).strip() or "ban-thao"
     ascii_ = _ASCII_TEN.sub("_", _bo_dau(ten))
-    return f"attachment; filename=\"{ascii_} - da dien.{dang}\"; filename*=UTF-8''{quote(f'{ten} - đã điền.{dang}', safe='')}"
+    duoi, duoi_ascii = (" - đã điền", " - da dien") if co_doi else ("", "")
+    return (
+        f'attachment; filename="{ascii_}{duoi_ascii}.{dang}"; '
+        f"filename*=UTF-8''{quote(f'{ten}{duoi}.{dang}', safe='')}"
+    )
 
 
 async def _khuon_phien_ban(sub: str, id: str, phien_ban: int | None) -> dict:
@@ -427,7 +434,10 @@ async def tai_xuong(
         content=ban,
         media_type=_KIEU_TAI_VE[dang],
         headers={
-            "Content-Disposition": _tai_ve_dau(k.get("ten_tep") or "", dang),
+            # Phép gộp bỏ `dien` rỗng: một phiên bản chỉ còn phép đó là tệp tải lên.
+            "Content-Disposition": _tai_ve_dau(
+                k.get("ten_tep") or "", dang, bool(ban_thao.gop_phep_sua([], k["phep_sua"]))
+            ),
             "X-Content-Type-Options": "nosniff",
             "Cache-Control": "private, no-store",
         },
@@ -444,19 +454,20 @@ class ODienIn(BaseModel):
 class SuaODienRequest(BaseModel):
     # Phiên bản người dùng ĐANG NHÌN THẤY — khoá lạc quan, cùng lý do `SuaMucRequest`.
     phien_ban: int = Field(..., ge=1)
-    # Mọi ô đổi trong MỘT lần lưu (một phiên bản, một lần tính vào `TRAN_SUA`).
+    # Mọi ô đổi trong MỘT lần lưu: một phiên bản, không tính vào `TRAN_SUA` (B6).
     gia_tri: list[ODienIn] = Field(..., min_length=1, max_length=500)
 
 
 @router.patch("/ban-thao/{id}/o-dien", response_model=BanThaoOut)
 async def sua_o_dien(id: str, body: SuaODienRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BanThaoOut:
     """Lưu các ô của bảng ô điền thành MỘT phiên bản mới — 0 lượt gọi mô hình,
-    cùng trần sửa của lượt sửa bằng lời (`ban_thao.sua_o_dien`). Không dựng
-    trang: giao diện gọi `GET …/trang` một lần sau khi lưu.
+    nên KHÔNG tính vào trần sửa `TRAN_SUA` của lượt sửa bằng lời
+    (`ban_thao.sua_o_dien`, B6). Không dựng trang: giao diện gọi `GET …/trang` một
+    lần sau khi lưu.
 
-    422 (chuỗi `detail`) khi phiên bản đã đổi, hết trần, bản thảo không trên
-    khuôn gốc, ô lạ, giá trị nhiều dòng hay bộ áp không điền được một ô — cùng
-    quy ước `PATCH …/muc`. 404 khi không thấy/không phải chủ."""
+    422 (chuỗi `detail`) khi phiên bản đã đổi, bản thảo không trên khuôn gốc, ô
+    lạ, giá trị nhiều dòng hay bộ áp không điền được một ô — cùng quy ước
+    `PATCH …/muc`. 404 khi không thấy/không phải chủ."""
     id = _uuid_hop_le(id)
     ket = await run_in_threadpool(
         ban_thao.sua_o_dien, nguoi["sub"], id, body.phien_ban, [g.model_dump() for g in body.gia_tri]

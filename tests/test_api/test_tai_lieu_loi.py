@@ -87,3 +87,15 @@ def test_id_khong_phai_uuid_thanh_404_chu_khong_de_postgres_no():
 
 def test_uuid_hop_le_di_qua():
     assert _uuid_hop_le("0f9d2c1a-1111-4222-8333-444455556666")
+
+
+def test_vuot_tran_trang_NEU_TEN_TEP_va_SO_TRANG_THAT():
+    """B5 (owner 2026-09-27): lời từ chối nói tệp nào và nó dài bao nhiêu trang. Tên
+    tệp không phải nội dung tài liệu (FR-025 vẫn giữ); chỉ phần tên, không thư mục,
+    không ký tự điều khiển."""
+    e = _loi_http(VuotTran("so_trang", TRAN_TRANG, 11), "muoi-mot-trang.docx")
+    assert (e.status_code, e.detail) == (422, "«muoi-mot-trang.docx» có 11 trang, vượt giới hạn 10 trang.")
+    e = _loi_http(VuotTran("so_trang", TRAN_TRANG, 12), "C:\\giay to\\ban\r\n dai.pdf")
+    assert e.detail == "«ban dai.pdf» có 12 trang, vượt giới hạn 10 trang."
+    assert _loi_http(VuotTran("so_trang", TRAN_TRANG, 11), "").detail == THONG_DIEP_TRAN["so_trang"]
+    assert _loi_http(VuotTran("so_byte", TRAN_BYTE, TRAN_BYTE + 1), "x.docx").detail == THONG_DIEP_TRAN["so_byte"]

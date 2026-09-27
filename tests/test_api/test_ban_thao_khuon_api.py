@@ -306,7 +306,44 @@ async def test_tai_xuong_DOCX_la_khuon_goc_da_dien_ten_tep_theo_ban_tai_len(clie
     ids=["bm_m05", "doc_ve_docx", "ten_doc_hai", "rong"],
 )
 def test_ten_tai_ve_ASCII_du_phong_va_RFC_5987(ten, dang, ra):
-    assert rbt._tai_ve_dau(ten, dang) == ra
+    assert rbt._tai_ve_dau(ten, dang, True) == ra
+
+
+@pytest.mark.parametrize(
+    ("ten", "dang", "ra"),
+    [
+        ("bm-m05.pdf", "pdf", "attachment; filename=\"bm-m05.pdf\"; filename*=UTF-8''bm-m05.pdf"),
+        (
+            "Giấy tiếp nhận.docx",
+            "pdf",
+            "attachment; filename=\"Giay tiep nhan.pdf\"; filename*=UTF-8''Gi%E1%BA%A5y%20ti%E1%BA%BFp%20nh%E1%BA%ADn.pdf",
+        ),
+        ("Đơn cũ.doc", "docx", "attachment; filename=\"Don cu.docx\"; filename*=UTF-8''%C4%90%C6%A1n%20c%C5%A9.docx"),
+    ],
+    ids=["pdf", "docx_ra_pdf", "doc_ve_docx"],
+)
+def test_ten_tai_ve_CHUA_SUA_GI_la_ten_tep_tai_len(ten, dang, ra):
+    """B7: phiên bản không có phép nào là chính tệp tải lên — tải về đúng tên của nó
+    (phần tên + đuôi của bản tải về); chỉ bản có thay đổi mới mang " - đã điền"."""
+    assert rbt._tai_ve_dau(ten, dang, False) == ra
+
+
+@pytest.mark.asyncio
+async def test_tai_xuong_PHIEN_BAN_CHUA_DOI_GI_mang_ten_tep_tai_len(client, khoa_ky, hai_nguoi, dung_gia):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    # Một `dien` chỉ khoảng trắng là "gỡ ô": sau phép gộp, phiên bản không có phép nào.
+    id_, _ = _ban_thao(a, [{"loai": "dien", "don_vi": 0, "cho_trong": 0, "gia_tri": "  "}])
+    for dang in ("docx", "pdf"):
+        r = await client.get(f"/api/v1/ban-thao/{id_}/tai-xuong?dang={dang}", headers=ha)
+        assert r.status_code == 200, r.text
+        assert r.headers["content-disposition"].startswith(f'attachment; filename="Giay tiep nhan.{dang}"'), dang
+    ban_thao.sua_o_dien(a, id_, 1, [{"don_vi": 0, "cho_trong": 0, "gia_tri": _TEN}])
+    r = await client.get(f"/api/v1/ban-thao/{id_}/tai-xuong?dang=docx", headers=ha)
+    assert r.headers["content-disposition"].startswith('attachment; filename="Giay tiep nhan - da dien.docx"')
+    r = await client.get(f"/api/v1/ban-thao/{id_}/tai-xuong?dang=docx&phien_ban=1", headers=ha)
+    assert r.headers["content-disposition"].startswith('attachment; filename="Giay tiep nhan.docx"'), "theo phiên bản"
+
 
 
 @can_poppler

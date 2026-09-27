@@ -158,11 +158,13 @@ class SangSoanThaoOut(BaseModel):
     da_ghi_vao_hoi_thoai: bool = False
 
 
-def _loi_http(e: Exception) -> HTTPException:
+def _loi_http(e: Exception, ten_tep: str = "") -> HTTPException:
     """Ánh xạ lỗi đọc sang HTTP. Hàm thuần, tách ra để test được không cần DB.
 
     Vượt trần và không đọc được đều là 422: yêu cầu hợp lệ về cú pháp nhưng
-    không xử lý được, và cả hai đều nói rõ người dùng phải làm gì khác.
+    không xử lý được, và cả hai đều nói rõ người dùng phải làm gì khác. Trần trang
+    có `ten_tep` thì nói tệp nào và số trang thật (B5, owner 2026-09-27): tên tệp
+    không phải nội dung tài liệu (FR-025), và chỉ phần tên đi vào câu.
 
     `ChuyenDoiKhongSanSang` (fix round 2) là 503, KHÔNG phải 422: đây không
     phải "tệp của bạn có vấn đề" (422 nói đúng cho bốn nguyên nhân
@@ -170,6 +172,9 @@ def _loi_http(e: Exception) -> HTTPException:
     nghĩa Service Unavailable, và đúng tín hiệu để một client tự động biết
     nên thử lại thay vì coi tệp là hỏng.
     """
+    ten = "".join(ch for ch in re.split(r"[\\/]", ten_tep or "")[-1] if ch.isprintable()).strip()[:120]
+    if isinstance(e, VuotTran) and e.tran == "so_trang" and ten:
+        return HTTPException(status_code=422, detail=f"«{ten}» có {e.thuc_te} trang, vượt giới hạn {e.gioi_han} trang.")
     if isinstance(e, VuotTran):
         return HTTPException(status_code=422, detail=THONG_DIEP_TRAN[e.tran])
     if isinstance(e, KhongDocDuoc):
@@ -295,7 +300,8 @@ async def tai_len(
     # đặt cho mọi endpoint tiêu tiền: kiểm quyền trước, làm việc sau.
     await _kiem_han_muc(nguoi)
 
-    if not hoi_thoai_id:
+    mo_ho = not hoi_thoai_id
+    if mo_ho:
         # Đính kèm ở một đoạn chat chưa mở KHÔNG được là ngõ cụt. Phiên chỉ sinh
         # ra sau câu hỏi đầu, nên đòi `hoi_thoai_id` ở đây bắt người dùng hỏi một
         # câu vu vơ trước khi được đưa tờ giấy họ đang cầm. Tên tệp làm tiêu đề:
@@ -303,7 +309,9 @@ async def tai_len(
         #
         # SAU hai cổng trên, không trước: mở phiên là một lần GHI, và `danh_sach`
         # không lọc phiên rỗng — một 422/429 mở phiên hộ sẽ để lại một dòng mang
-        # tên tệp nằm mãi trong thanh bên mà không có gì dọn nó.
+        # tên tệp nằm mãi trong thanh bên mà không có gì dọn nó. Các cổng CÒN LẠI
+        # (trần trang, định dạng, tệp hỏng, máy chủ bận) chỉ biết được khi đọc,
+        # nên phiên mở hộ bị xoá cứng khi tệp bị từ chối (nhánh `except` dưới).
         hoi_thoai_id = await run_in_threadpool(
             ht.tao_phien, nguoi["sub"], tep.filename or "Tài liệu"
         )
@@ -360,10 +368,15 @@ async def tai_len(
             ly_do = f"he_thong_{e.ly_do}"
         else:
             ly_do = f"vuot_tran_{e.tran}"
-        await run_in_threadpool(
-            tl.dat_trang_thai, get_engine(), viec_id, nguoi["sub"], "hong", ly_do_hong=ly_do
-        )
-        raise _loi_http(e) from e
+        if mo_ho:
+            # B5 (owner 2026-09-27): tệp bị từ chối không để lại hội thoại nào. Phiên
+            # này do CHÍNH lần tải lên mở hộ, chưa có lượt nào: xoá cứng, và dòng việc
+            # đọc đi theo khoá ngoại (`ON DELETE CASCADE`, migration 026) — lượt hỏng
+            # ấy thôi tính hạn mức ngày, đúng như khi người dùng tự xoá hội thoại.
+            await run_in_threadpool(ht.xoa_cung_phien_mo_ho, nguoi["sub"], hoi_thoai_id)
+        else:
+            await run_in_threadpool(tl.dat_trang_thai, get_engine(), viec_id, nguoi["sub"], "hong", ly_do_hong=ly_do)
+        raise _loi_http(e, tep.filename or "") from e
     finally:
         # Tệp đã nằm ở `khuon_goc` (hoặc bị từ chối); request không cần cầm
         # thêm bản nào của nó.

@@ -426,7 +426,7 @@ def _snap(row: dict, *, doi: list[str] | None = None) -> dict:
     return snap
 
 
-def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
+def sua(sub: str, id: str, facts: dict, ket: dict, *, tang: int = 1) -> dict | None:
     # Fix round 1 (Critical) — đọc bằng `_SQL_LAY_KHOA` (FOR UPDATE) TRONG CÙNG
     # transaction với cú ghi bên dưới, không phải `chi_tiet()` trên một
     # connection riêng: xem chú thích ở khai báo `_SQL_LAY_KHOA` — đây là chỗ
@@ -473,8 +473,9 @@ def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
                     "phien_ban_ke_tiep": cu["phien_ban_ke_tiep"] + 1,
                     "truoc": _j(truoc),
                     **_cot_khuon(ket.get("viec_id"), ket.get("phep_sua")),
-                    # Bộ đếm trần sửa — chỉ ĐI LÊN, và chỉ ở đây (xem `lui`).
-                    "tang": 1,
+                    # Bộ đếm trần sửa — chỉ ĐI LÊN, và chỉ ở đây (xem `lui`). `tang` 0:
+                    # phiên bản không do mô hình sửa (`tao_lai` dựng lại đúng tệp tải lên).
+                    "tang": tang,
                 },
             )
             .mappings()
@@ -700,7 +701,7 @@ LOI_KHONG_PHAI_KHUON = (
 LOI_O_KHONG_THAY = "Không tìm thấy ô điền này trên tài liệu tải lên — tải lại bản thảo rồi thử lại."
 # Bộ áp bỏ một phép: ô không còn khớp tài liệu (`cho_trong_da_doi`…) hay, trên
 # PDF, chữ không vừa ô kể cả khi thu nhỏ (`khong_vua`) — hai việc người dùng làm
-# được là rút gọn hoặc bỏ trống. `{o}` nêu TÊN các ô bị bỏ (`_nhan_o`, cùng tên
+# được là rút gọn hoặc bỏ trống. `{o}` nêu TÊN các ô bị bỏ (`ten_cho_trong`, cùng tên
 # bảng ô điền hiện) — không thì "ô đó" không chỉ ra ô nào giữa các ô vừa sửa.
 LOI_KHONG_AP_DUOC = (
     "Không lưu được: {n} ô không điền được vào tài liệu tải lên{o} — giá trị quá dài cho ô,"
@@ -738,12 +739,17 @@ def khuon_cua_phien_ban(sub: str, id: str, phien_ban: int | None = None) -> dict
 
 def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict | str | None:
     """Lưu các ô người dùng sửa ở bảng ô điền thành MỘT phiên bản mới — 0 lượt
-    gọi mô hình, cùng giao dịch/khoá/trần của `sua_tay` (xem docstring đó).
+    gọi mô hình, cùng giao dịch/khoá của `sua_tay` (xem docstring đó).
+
+    KHÔNG tính vào `TRAN_SUA` (owner 2026-09-27, B6): trần đó chặn lượt sửa gọi mô
+    hình, còn lưu ô điền không gọi gì — tính nó thì một biểu mẫu 30 ô lưu từng ô cụt ở
+    lần thứ 11. `so_lan_sua` không tăng (`tang` 0), lượt sửa bằng lời vẫn đếm; lịch
+    sử vẫn chỉ giữ `TRAN_SUA` bản gần nhất (`[-TRAN_SUA:]`).
 
     `gia_tri`: `[{don_vi, cho_trong, gia_tri}]`, `gia_tri` rỗng gỡ ô. Trả `dict`
     (bản thảo, kể cả KHÔNG đổi gì — khi đó không tốn phiên bản), chuỗi lỗi tiếng
-    Việt (422: phiên bản đã đổi, hết trần, không trên khuôn gốc, ô lạ, giá trị
-    nhiều dòng, bộ áp bỏ một phép), `None` khi không thấy/không phải chủ (404).
+    Việt (422: phiên bản đã đổi, không trên khuôn gốc, ô lạ, giá trị nhiều dòng,
+    bộ áp bỏ một phép), `None` khi không thấy/không phải chủ (404).
 
     Gộp bằng `gop_phep_sua` vào phép của phiên bản ĐANG có, rồi CHẠY THỬ bộ áp
     trên khuôn gốc nguyên: một phép rơi vào `bo_qua` thì không lưu gì — không
@@ -765,10 +771,6 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
         cu = dict(cu)
         if cu["phien_ban"] != phien_ban:
             return LOI_PHIEN_BAN_DA_DOI
-        try:
-            kiem_tran_sua(cu)
-        except ValueError as e:
-            return str(e)
         k = _khuon_goc(c, sub, cu["viec_id"], bytes_=True)
         if k is None:
             return LOI_KHONG_PHAI_KHUON
@@ -796,8 +798,9 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
             # Chỉ số `phep` trỏ vào đúng danh sách bộ áp nhận (`ap_phep_sua` gộp lại
             # một lần nữa — gộp là lũy đẳng). Phép không phải `dien` không có tên ô.
             ap = gop_phep_sua([], phep, doan)
+            ten_o = ten_cho_trong(khuon_cu["cho_trong"])
             ten = [
-                _nhan_o(o_theo_khoa[k])
+                ten_o[k]
                 for b in bao_cao["bo_qua"]
                 if (k := (ap[b["phep"]].get("don_vi"), ap[b["phep"]].get("cho_trong"))) in o_theo_khoa
             ]
@@ -824,7 +827,8 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
                     "phien_ban_ke_tiep": cu["phien_ban_ke_tiep"] + 1,
                     "truoc": _j(truoc),
                     **_cot_khuon(cu["viec_id"], phep),
-                    "tang": 1,
+                    # Không phải một lần sửa của `TRAN_SUA` (docstring).
+                    "tang": 0,
                 },
             )
             .mappings()
@@ -1178,18 +1182,28 @@ def chuan_hoa_dien(gia_tri: str, o: dict) -> str:
     return s
 
 
-def _nhan_o(o: dict) -> str:
-    return (o.get("nhan") or "").strip().rstrip(":").strip() or f"Ô {o['don_vi']}.{o['so']}"
+def ten_cho_trong(ds: list[dict]) -> dict[tuple[int, int], str]:
+    """Tên người đọc thấy của từng ô `{don_vi, so, nhan}`: nhãn sạch (bỏ `:` cuối),
+    hay "Chỗ trống" khi ô không có nhãn — thay cho "Ô x.y", một mã nội bộ (B8, owner
+    2026-09-27). Hai ô không nhãn trở lên sẽ đọc giống hệt nhau, nên chỉ khi đó mỗi ô
+    thêm " (n)" theo thứ tự đọc."""
+    ten = {(o["don_vi"], o["so"]): (o.get("nhan") or "").strip().rstrip(":").strip() for o in ds}
+    rong = [k for k, v in ten.items() if not v]
+    for i, k in enumerate(rong, 1):
+        ten[k] = "Chỗ trống" + (f" ({i})" if len(rong) > 1 else "")
+    return ten
 
 
 def _doi_o(a: dict | None, b: dict | None) -> list[str]:
     cu = {(o["don_vi"], o["so"]): o for o in (a or {}).get("cho_trong") or []}
     moi = {(o["don_vi"], o["so"]): o for o in (b or {}).get("cho_trong") or []}
+    thu_tu = [*moi, *(k for k in cu if k not in moi)]
+    ten = ten_cho_trong([moi.get(k) or cu[k] for k in thu_tu])
     ra = []
-    for k in [*moi, *(k for k in cu if k not in moi)]:
+    for k in thu_tu:
         x, y = (cu.get(k) or {}).get("gia_tri"), (moi.get(k) or {}).get("gia_tri")
         if x != y:
-            ra.append(f"{_nhan_o(moi.get(k) or cu[k])}: {(x or '').strip() or '…'} → {(y or '').strip() or '…'}")
+            ra.append(f"{ten[k]}: {(x or '').strip() or '…'} → {(y or '').strip() or '…'}")
     return ra
 
 
@@ -1197,7 +1211,9 @@ def tom_tat_khuon(tieu_de: str | None, khuon: dict | None) -> str:
     """`document` Markdown của một bản thảo trên khuôn gốc: tiêu đề và một dòng
     cho mỗi ô đã điền. Bản thật là khuôn gốc đã áp phép; `document` chỉ để chat,
     tìm kiếm và `_tieu_de_tu_document` có chữ để đọc."""
-    dong = [f"- {_nhan_o(o)}: {o['gia_tri'].strip()}" for o in (khuon or {}).get("cho_trong") or [] if o.get("gia_tri")]
+    cho = (khuon or {}).get("cho_trong") or []
+    ten = ten_cho_trong(cho)
+    dong = [f"- {ten[(o['don_vi'], o['so'])]}: {o['gia_tri'].strip()}" for o in cho if o.get("gia_tri")]
     return f"# {tieu_de or 'Văn bản'}\n" + ("\n" + "\n".join(dong) + "\n" if dong else "")
 
 
