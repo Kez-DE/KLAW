@@ -2676,25 +2676,29 @@ def _khong_dau(s: str) -> str:
     return "".join(ch for ch in s if not unicodedata.combining(ch))
 
 
-def _them_khong_nguon(moi: str, cu: str, nguon_kh: str, so_nguon: list) -> bool:
-    """`moi` có THÊM cụm từ nào so với `cu` mà không qua phép nguồn của `dien`
-    không. So DÃY từ (`SequenceMatcher`), không so tập: một cụm của chính `cu` lặp
-    lại hay chuyển chỗ là chữ THÊM — review fix/g4-backend đo được «…Trường Đại học
-    Phenikaa, thuộc Khoa Trường Đại học Phenikaa» lọt qua phép so tập. Cụm = một
-    đoạn `insert`/`replace` của `moi`; mỗi cụm đi `_co_trong_nguon` NGUYÊN cụm (chặt
-    hơn từng từ: "Công ty Bịa Việt" không lọt nhờ "Việt" có ở nguồn). Thay cho lời
-    từ chối `co_cho_trong`: điền cụm giữ chỗ viết hoa hay đè một dòng có chỗ trống
-    là một lần điền, dù đi đường nào."""
+def _cum_them(moi: str, cu: str) -> list[str]:
+    """Các cụm từ `moi` THÊM so với `cu`: mỗi đoạn `insert`/`replace` của phép so
+    DÃY từ (`SequenceMatcher`, không so tập — xem `_them_khong_nguon`), cắt nguyên
+    văn từ `moi` (NFC)."""
     moi, cu = unicodedata.normalize("NFC", moi), unicodedata.normalize("NFC", cu)
     tu = list(_RE_TU.finditer(moi))
     so = SequenceMatcher(
         None, [_khong_dau(m) for m in _RE_TU.findall(cu)], [_khong_dau(m.group()) for m in tu], autojunk=False
     )
-    return any(
-        not _co_trong_nguon(moi[tu[j1].start() : tu[j2 - 1].end()].casefold(), nguon_kh, so_nguon)
-        for op, _, _, j1, j2 in so.get_opcodes()
-        if op in ("insert", "replace")
-    )
+    return [
+        moi[tu[j1].start() : tu[j2 - 1].end()] for op, _, _, j1, j2 in so.get_opcodes() if op in ("insert", "replace")
+    ]
+
+
+def _them_khong_nguon(moi: str, cu: str, nguon_kh: str, so_nguon: list) -> bool:
+    """`moi` có THÊM cụm từ nào so với `cu` mà không qua phép nguồn của `dien`
+    không. So DÃY từ (`_cum_them`), không so tập: một cụm của chính `cu` lặp
+    lại hay chuyển chỗ là chữ THÊM — review fix/g4-backend đo được «…Trường Đại học
+    Phenikaa, thuộc Khoa Trường Đại học Phenikaa» lọt qua phép so tập. Mỗi cụm đi
+    `_co_trong_nguon` NGUYÊN cụm (chặt hơn từng từ: "Công ty Bịa Việt" không lọt
+    nhờ "Việt" có ở nguồn). Thay cho lời từ chối `co_cho_trong`: điền cụm giữ chỗ
+    viết hoa hay đè một dòng có chỗ trống là một lần điền, dù đi đường nào."""
+    return any(not _co_trong_nguon(c.casefold(), nguon_kh, so_nguon) for c in _cum_them(moi, cu))
 
 
 # Nhãn số hiệu NGẮN ("Số", "Số:", "No.") và nhãn phần ngày ("… ngày", "tháng",
@@ -2703,13 +2707,19 @@ def _them_khong_nguon(moi: str, cu: str, nguon_kh: str, so_nguon: list) -> bool:
 # khác: phép nguồn không bắt được một giá trị THẬT đặt sai chỗ.
 _RE_NHAN_SO = re.compile(r"(?:số|no\.?)\s*:?")
 _RE_NHAN_NGAY = re.compile(r"(?:^|\W)(?:ngày|tháng|năm)\W*$")
+# Cột bảng danh sách (chỗ `o`, G5) mang một mã hay số: «Mã sinh viên…», «Số điện
+# thoại», «STT»/«TT». Đo được 2026-09-27: tên sinh viên (có nguồn) vào ô «Mã sinh
+# viên/ học viên» của BM.M05 — cùng lỗi «Số» ở trên, hình dạng bảng.
+_RE_COT_SO = re.compile(r"(?:mã|số|s?tt)\b")
+_RE_DONG_O = re.compile(r" \(dòng \d+\)$")
 
 
-def _khop_nhan(nhan: str, v: str) -> bool:
+def _khop_nhan(nhan: str, v: str, kieu: str = "cham") -> bool:
     n = _khong_hoa(nhan).strip()
-    if _RE_NHAN_SO.fullmatch(n) or _RE_NHAN_NGAY.search(n):
-        return any(ch.isdigit() for ch in v)
-    return True
+    can_so = (
+        _RE_COT_SO.match(_RE_DONG_O.sub("", n)) if kieu == "o" else _RE_NHAN_SO.fullmatch(n) or _RE_NHAN_NGAY.search(n)
+    )
+    return any(ch.isdigit() for ch in v) if can_so else True
 
 
 def _mot_phep(
@@ -2757,7 +2767,7 @@ def _mot_phep(
             # áp ở đây — số điện thoại người hỏi tự nói là một giá trị điền đúng.
             if not _co_trong_nguon(v.casefold(), nguon_kh, so_nguon):
                 return "khong_nguon"
-            if not _khop_nhan(c.nhan, v):
+            if not _khop_nhan(c.nhan, v, c.kieu):
                 return "khong_khop_nhan"
             # Chỗ trống `tab`: bộ áp đặt giá trị NGAY sau nhãn, không dấu cách.
             # ponytail: `nhan` đã `strip()` nên luôn thêm một dấu cách; một nhãn
@@ -2883,10 +2893,27 @@ def _tach_ngay(phep: list, theo_chi_so: dict[int, DonViVanBan]) -> list:
     return ra
 
 
+def _gia_tri_cua(p: object, theo_chi_so: dict[int, DonViVanBan]) -> list[str]:
+    """Giá trị một phép mang tới: chữ `dien`, hay các cụm `thay`/`chen_sau` THÊM so
+    với chữ cũ của đoạn (hay đơn vị) nó thay (`_cum_them`; `chen_sau` không thay gì)."""
+    if not isinstance(p, dict):
+        return []
+    if p.get("loai") == "dien":
+        return [v] if isinstance(v := p.get("gia_tri"), str) and v.strip() else []
+    chu, dv, doan = p.get("noi_dung"), p.get("don_vi"), p.get("doan")
+    if p.get("loai") not in ("thay", "chen_sau") or not isinstance(chu, str):
+        return []
+    d = theo_chi_so.get(dv) if type(dv) is int else None
+    cu = ""
+    if p["loai"] == "thay" and d is not None:
+        cu = d.doan_chu[doan] if type(doan) is int and 0 <= doan < len(d.doan_chu) else d.noi_dung
+    return _cum_them(chu, cu)
+
+
 def kiem_phep_sua(
     phep: object, t: dict, nguon: str, cam: list[str], dang_co: list[dict] | None = None
-) -> tuple[list[dict], list[dict]]:
-    """Phép sửa mô hình trả cho tài liệu `t` → `(giữ, bỏ)`. Hàm THUẦN, 0 token.
+) -> tuple[list[dict], list[dict], list[str]]:
+    """Phép sửa mô hình trả cho tài liệu `t` → `(giữ, bỏ, giá trị bỏ)`. Hàm THUẦN, 0 token.
 
     `giu` theo đúng thứ tự mô hình trả, CHƯA khử trùng: lượt sửa mang THAY ĐỔI, và
     một `dien` rỗng (gỡ chỗ điền) chỉ có nghĩa khi gộp với phép đang có —
@@ -2899,6 +2926,10 @@ def kiem_phep_sua(
     `dang_co`: phép của phiên bản đang mở trên khuôn này. Một phép y hệt một phép
     trong đó không phải giá trị MỚI (phép gộp giữ nó), nên bị bỏ qua lặng lẽ — không
     vào `bo`, không qua phép nguồn mà giá trị của một lượt trước sẽ trượt.
+
+    `giá trị bỏ` (`_gia_tri_cua` của mỗi phép bị bỏ, theo thứ tự) CHỈ cho
+    `_lay_khong_dat`: giá trị người hỏi đưa mà phép của nó bị bỏ không được mất lặng
+    lẽ (G5) — không đi traces hay `bo`.
     """
     nguon_kh = _khong_hoa(nguon or "")
     so_nguon = [v for m in _RE_SO_THUAN.findall(nguon_kh) if (v := tinh(m)) is not None]
@@ -2907,6 +2938,7 @@ def kiem_phep_sua(
     da_co = {_khoa_giong(q) for q in dang_co or []}
     giu: list[dict] = []
     bo: list[dict] = []
+    gia_tri_bo: list[str] = []
     for p in _tach_ngay(phep if isinstance(phep, list) else [], theo_chi_so):
         if isinstance(p, dict) and _khoa_giong(p) in da_co:
             continue
@@ -2914,6 +2946,7 @@ def kiem_phep_sua(
         if isinstance(ra, dict):
             giu.append(ra)
             continue
+        gia_tri_bo += _gia_tri_cua(p, theo_chi_so)
         q = p if isinstance(p, dict) else {}
         bo.append(
             {
@@ -2922,14 +2955,15 @@ def kiem_phep_sua(
                 "ly_do": ra,
             }
         )
-    return giu, bo
+    return giu, bo, gia_tri_bo
 
 
 def _lay_khong_dat(tho: object, loi_nguoi: str, phep: list[dict]) -> list[str]:
-    """`khuon.khong_dat` của mô hình → giá trị người hỏi đưa mà chưa đặt được vào chỗ
-    nào. Chỉ giữ mục là CHUỖI CON của lời người hỏi (không phân biệt hoa/thường, dấu —
-    `_khong_dau`): lời đáp nhắc lại nó, nên một mục mô hình tự nghĩ ra không được lên
-    đó. Bỏ trùng, bỏ mục đã nằm trong một phép vừa giữ (mô hình vừa đặt vừa kể)."""
+    """Giá trị của các phép bị bỏ, rồi `khuon.khong_dat` của mô hình → giá trị người
+    hỏi đưa mà chưa đặt được vào chỗ nào. Chỉ giữ mục là CHUỖI CON của lời người hỏi
+    (không phân biệt hoa/thường, dấu — `_khong_dau`): lời đáp nhắc lại nó, nên một
+    mục mô hình tự nghĩ ra không được lên đó. Bỏ trùng, bỏ mục đã nằm trong một phép
+    vừa giữ (mô hình vừa đặt vừa kể)."""
     nguon = _khong_dau(" ".join(loi_nguoi.split()))
     da_dat = [_khong_dau(" ".join(str(p.get("gia_tri") or p.get("noi_dung") or "").split())) for p in phep]
     ra: list[str] = []
@@ -3009,6 +3043,10 @@ def _khoi_tai_lieu(goi: list[dict], ban_thao_dang_mo: dict | None = None) -> str
             cho = [c for c in _cho_dien_duoc(d, t["dinh_dang"]) if (d.chi_so, c.doan) not in thay] if khuon else []
             if khuon and (tai_cho := _dong_tai_cho(d, cho, hien, thay)) is not None:
                 dong.append(f"[{t['nhan']}-{d.chi_so}] ({_vi_tri(d)}) {tai_cho}")
+                # Ô rỗng (`o`, G5): dấu đứng một mình trong ô, nên tên cột và số dòng
+                # của nó đi ở dòng `chỗ trống:` ngay dưới.
+                if o := [c for c in cho if c.kieu == "o"]:
+                    dong.append("  chỗ trống: " + " | ".join(f"{c.so} «{c.nhan}»" for c in o))
                 continue
             dong.append(f"[{t['nhan']}-{d.chi_so}] ({_vi_tri(d)}) {d.noi_dung}")
             if cho:
@@ -3347,11 +3385,11 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
             # Thiếu hay lạ (kể cả `van_ban_nay` của lược đồ cũ) là `dien_sua` (`YEU_CAU`).
             yeu_cau = k_ra.get("yeu_cau") if k_ra.get("yeu_cau") in YEU_CAU else "dien_sua"
             de_xuat = k_ra.get("phep_sua") if isinstance(k_ra.get("phep_sua"), list) else []
-            phep, bo, khong_dat = [], [], []
+            phep, bo, khong_dat, gia_tri_bo = [], [], [], []
             # `tao_lai` BỎ mọi phép đề xuất, tất định, trước cả phép kiểm: "bảo soạn thảo
             # văn bản ra thì phải đúng 100%" — bản thảo là chính tệp tải lên.
             if yeu_cau != "tao_lai":
-                phep, bo = kiem_phep_sua(
+                phep, bo, gia_tri_bo = kiem_phep_sua(
                     de_xuat,
                     t_k,
                     _nguon_nguoi(state, bo_nho_cho_phep),
@@ -3359,7 +3397,10 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
                     _phep_dang_mo(ban_thao_dang_co, t_k["id"]),
                 )
             if yeu_cau == "dien_sua":
-                khong_dat = _lay_khong_dat(k_ra.get("khong_dat"), _loi_nguoi_hoi(state), phep)
+                # Giá trị của phép BỊ BỎ đứng trước danh sách của mô hình (G5): tên đặt
+                # sai cột không được mất lặng lẽ khi mô hình tưởng đã đặt được nó.
+                tho = [*gia_tri_bo, *(k_ra.get("khong_dat") if isinstance(k_ra.get("khong_dat"), list) else [])]
+                khong_dat = _lay_khong_dat(tho, _loi_nguoi_hoi(state), phep)
             khuon_tong_quat = {
                 "viec_id": t_k["id"],
                 "ten_tep": t_k["ten_tep"],

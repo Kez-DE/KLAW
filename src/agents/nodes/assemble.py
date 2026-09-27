@@ -1064,12 +1064,12 @@ def _ban_thao_khuon(state: dict, bt: dict) -> dict:
             + _cau_da_nho(state)
         )
     bo = khuon.get("bo_qua") or []
+    # Tên chỗ trống từ TRỌN danh sách (cả chỗ của đoạn đã viết lại), không bao giờ số
+    # đơn vị: "đoạn 29" là chỉ số nội bộ người đọc không thấy ở đâu (G5).
+    ten = {(c["don_vi"], c["so"]): c["nhan"] or "chỗ trống" for c in khuon.get("cho_trong") or []}
     ten_bo = list(
         dict.fromkeys(
-            f"«{nhan[(b.get('don_vi'), b.get('cho_trong'))]}»"
-            if (b.get("don_vi"), b.get("cho_trong")) in nhan
-            else (f"đoạn {b['don_vi']}" if b.get("don_vi") is not None else "một thay đổi")
-            for b in bo
+            f"«{ten[k]}»" if (k := (b.get("don_vi"), b.get("cho_trong"))) in ten else "một thay đổi" for b in bo
         )
     )
     ghi_chu = (
@@ -1121,13 +1121,18 @@ def _ban_thao_tong_quat(state: dict) -> dict:
     # đúng tình huống "chưa dựng được, đây là lý do" — không dựng loại thứ chín.
     can_dang_nhap = state.get("user_sub") is None
     loi = state.get("ban_thao_tong_quat_loi")
+    # Khuôn gốc: giá trị người hỏi đưa mà chưa đặt được vẫn được kể (G5), kể cả khi
+    # lượt không lưu gì — điền trên trang không tốn hạn mức nào.
+    khong_dat = _cau_khong_dat(state.get("khuon_tong_quat") or {}) if loi else ""
     # Lượt soạn HỎNG (hết hạn mức chẳng hạn) vẫn có thể đã nhớ: `hieu_tai_lieu`
     # chạy TRƯỚC `dung_ban_thao_tong_quat`, nên điều họ vừa khai đã ghi rồi. Im
     # lặng ở đây là giấu đúng cái R3 bắt phải nói ra.
     return _base(
         state,
         ResultType.soan_thao_hoi,
-        answer=(LOI_SOAN_THAO_DANG_NHAP if can_dang_nhap else (loi or KHONG_SOAN_DUOC)) + _cau_da_nho(state),
+        answer=(LOI_SOAN_THAO_DANG_NHAP if can_dang_nhap else (loi or KHONG_SOAN_DUOC))
+        + (" " + khong_dat if khong_dat and not can_dang_nhap else "")
+        + _cau_da_nho(state),
         soan_thao_goi_y=None,
         soan_thao_hoi={
             "loai": LOAI_TONG_QUAT,

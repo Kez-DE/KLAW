@@ -631,7 +631,7 @@ def _cho_trong_tu_hang(tho: Any) -> tuple[ChoTrong, ...]:
         return ()
     ra: list[ChoTrong] = []
     for c in tho:
-        if not isinstance(c, dict) or not _so_tu_nhien(c.get("so")) or c.get("kieu") not in ("cham", "tab"):
+        if not isinstance(c, dict) or not _so_tu_nhien(c.get("so")) or c.get("kieu") not in ("cham", "tab", "o"):
             continue
         nhan = c["nhan"] if isinstance(c.get("nhan"), str) else ""
         if "hop" in c:
@@ -643,7 +643,10 @@ def _cho_trong_tu_hang(tho: Any) -> tuple[ChoTrong, ...]:
         doan, dau, cuoi = c.get("doan"), c.get("dau"), c.get("cuoi")
         if not (_so_tu_nhien(doan) and _so_tu_nhien(dau) and _so_tu_nhien(cuoi)):
             continue
+        # `o` (ô rỗng, G5): đoạn đầu của ô, không ký tự nào — `doan`/`dau`/`cuoi` 0.
         if (c["kieu"] == "cham" and dau >= cuoi) or (c["kieu"] == "tab" and dau != cuoi):
+            continue
+        if c["kieu"] == "o" and (doan, dau, cuoi) != (0, 0, 0):
             continue
         ra.append(ChoTrong(so=c["so"], kieu=c["kieu"], nhan=nhan, doan=doan, dau=dau, cuoi=cuoi))
     return tuple(ra)

@@ -398,14 +398,17 @@ class ChoTrong:
 
     `so` là chỉ số của chỗ trống TRONG đơn vị, đếm từ 0 — đúng thứ phép sửa
     `{"loai": "dien", "cho_trong": n}` trỏ tới. `kieu`: `cham` (dãy `.`/`…`
-    mà `RE_CHO_DIEN` nhận) hoặc `tab` (một `w:tab` rơi vào mốc có đường dẫn
-    `dot`). `nhan` là tối đa 60 ký tự CUỐI của chữ đứng trước chỗ trống (sau
-    chỗ trống liền trước, nếu có) — phần sát chỗ trống mới là nhãn của nó.
+    mà `RE_CHO_DIEN` nhận), `tab` (một `w:tab` rơi vào mốc có đường dẫn
+    `dot`) hoặc `o` (G5: một ô RỖNG của bảng có viền, dưới một cột có tên —
+    `_o_bang`). `nhan` là tối đa 60 ký tự CUỐI của chữ đứng trước chỗ trống (sau
+    chỗ trống liền trước, nếu có) — phần sát chỗ trống mới là nhãn của nó; với
+    `o` là tên cột cộng " (dòng n)", n đếm từ hàng dữ liệu đầu.
 
     DOCX dùng `doan`/`dau`/`cuoi`: `doan` là thứ tự `w:p` trong
     `vật_chứa.iter(w:p)` THÔ (0 với đoạn thân bài), `[dau, cuoi)` là offset
     trên chuỗi `w:t` nối THÔ của chính đoạn đó — chưa `strip()`, `w:tab`/
-    `w:br` không góp ký tự nào. Một chỗ `tab` có `dau == cuoi`.
+    `w:br` không góp ký tự nào. Một chỗ `tab` có `dau == cuoi`; một chỗ `o` là
+    `doan == dau == cuoi == 0` (đoạn đầu của ô, không có ký tự nào để thay).
 
     PDF dùng `hop`/`co_chu`: `hop` là `(x0, y0, x1, y1)` bằng điểm PDF, gốc
     TRÊN-trái, trên `trang` của đơn vị; `co_chu` là chiều cao (điểm) của dòng
@@ -1839,6 +1842,8 @@ _NGAT_NHAN = re.compile(r"[,;:()]|[.!?](?=\s)")
 _SAU_O_TRUOC = re.compile(r" \(sau ([^()]*)\)$")
 # Chú thích ngoặc CUỐI nhãn ("(nếu có)", "(ghi rõ …)"): tên ô đứng trước nó.
 _NGOAC_CUOI = re.compile(r"\s*\([^()]*\)[\s:]*$")
+# Số dòng của một chỗ trống `o` ("Họ và tên (dòng 1)"): không phải chú thích.
+_DONG_O = re.compile(r" \(dòng \d+\)$")
 
 
 def _co_chu_cai(s: str) -> bool:
@@ -1856,8 +1861,11 @@ def nhan_sach(nhan: str, truoc: str = "") -> str:
     có chữ sau dấu `,;:()` hay chỗ hết câu cuối cùng, và nhãn bị cắt 60 ký tự
     giữa một từ thì bỏ mẩu từ đó; bỏ dấu ngắt đầu và `:` cuối. Nhãn không có
     chữ cái nào ("/", "=") lấy nhãn ô trước: "Số" rồi "Số (sau /)". Rỗng là
-    rỗng — giao diện tự gọi "Chỗ trống"."""
+    rỗng — giao diện tự gọi "Chỗ trống". Nhãn chỗ `o` làm sạch tên cột, giữ
+    " (dòng n)"."""
     s = " ".join((nhan or "").split())
+    if m := _DONG_O.search(s):
+        return nhan_sach(s[: m.start()]) + m[0]
     if not _co_chu_cai(s):
         m = _SAU_O_TRUOC.search(truoc)
         goc = truoc[: m.start()] if m and not _co_chu_cai(m[1]) else truoc
@@ -2012,11 +2020,70 @@ def _dinh_vi_phang(goc: ET.Element, phan: str) -> dict[ET.Element, dict]:
     return ra
 
 
-def _duoi_vi_tri(dinh_vi: dict[ET.Element, dict] | None, nut: ET.Element) -> tuple:
+def _duoi_vi_tri(dinh_vi: dict[ET.Element, dict] | None, nut: ET.Element, nhan_o: str | None = None) -> tuple:
     """Đuôi tuple cho `_dat_vi_tri`: `(dict,)` khi `nut` có địa chỉ, `()` khi
-    không — mọi hình dạng tuple cũ đi qua y nguyên."""
+    không — mọi hình dạng tuple cũ đi qua y nguyên. `nhan_o` (`_o_bang`): ô rỗng
+    mang MỘT chỗ trống `o`, và `doan_chu` để prompt đặt dấu của nó tại chỗ."""
     v = (dinh_vi or {}).get(nut)
+    if v and nhan_o is not None:
+        chu = v.get("doan_chu") or tuple(_vi_tri_chu(p)[1] for p in nut.iter(_P))
+        v = {**v, "cho_trong": (ChoTrong(so=0, kieu="o", nhan=nhan_o),), "doan_chu": chu}
     return (v,) if v else ()
+
+
+# Ô mang thứ sẽ lệch hay vỡ khi chèn một run vào đoạn đầu (hình, hộp chữ, trường,
+# bảng lồng, content control) không phải chỗ `o` — fail closed như hộp chữ.
+_KHONG_O = frozenset(
+    (_MC_AC, _TBL, *(f"{{{_NS['w']}}}{x}" for x in ("drawing", "pict", "object", "sdt", "fldSimple", "fldChar")))
+)
+
+
+def o_rong(tc) -> bool:
+    """`w:tc` này là một ô RỖNG điền được: không chữ nào (`strip`), có đoạn, không
+    phải ô gộp dọc nối tiếp (`w:vMerge` không `restart`), không mang `_KHONG_O`.
+    Nhận cả cây ElementTree (bộ đọc) lẫn lxml (bộ áp kiểm lại trước khi sửa)."""
+    gop = tc.find(f"{_TCPR}/{{{_NS['w']}}}vMerge")
+    return (
+        not "".join(t.text or "" for t in tc.iter(_T)).strip()
+        and tc.find(_P) is not None
+        and (gop is None or gop.get(_VAL) == "restart")
+        and not any(e.tag in _KHONG_O for e in tc.iter())
+    )
+
+
+def _o_bang(tbl: ET.Element, dinh_vi: dict[ET.Element, dict]) -> dict[ET.Element, str]:
+    """Ô rỗng → nhãn thô của chỗ trống `o` của nó, cho một bảng CÓ VIỀN (người gọi
+    kiểm `bang_vien`: bảng không viền là bảng xếp chỗ, không phải bảng dữ liệu).
+
+    Tên cột (theo cột LƯỚI, `w:gridSpan` phủ mọi cột nó chiếm) là chữ của hàng
+    tiêu đề CUỐI có chữ cái ở cột đó, đứng trên hàng dữ liệu đầu tiên: hàng 0 luôn
+    là tiêu đề, và một hàng không có ô `o` nào trước hàng dữ liệu đầu ("(1) (2)",
+    tầng dưới của tiêu đề hai tầng) cũng thế. Hàng dữ liệu là hàng có ô rỗng
+    dưới một cột có tên; "dòng n" đếm từ hàng dữ liệu đầu. Chỉ ô có địa chỉ và
+    chưa có chỗ trống nào (một ô rỗng chữ có thể mang `tab` dẫn chấm).
+
+    ponytail: tiêu đề nhận bằng vị trí (trên hàng dữ liệu đầu), không bằng định
+    dạng — đo trên tám biểu mẫu: mọi bảng có ô `o` có đúng một hàng tiêu đề."""
+    ten: dict[int, str] = {}
+    dau: int | None = None
+    ra: dict[ET.Element, str] = {}
+    for h, tr in enumerate(tbl.findall(_TR)):
+        cot, o, chu_hang = 0, [], []
+        for tc in tr.findall(_TC):
+            nhip = _nhip_o(tc)
+            chu_hang.append((cot, nhip, " ".join(x for p in tc.iter(_P) if (x := _chu(p)))))
+            v = dinh_vi.get(tc)
+            if h and ten.get(cot) and v and "cho_trong" not in v and o_rong(tc):
+                o.append((tc, cot))
+            cot += nhip
+        if o:
+            dau = h if dau is None else dau
+            ra.update({tc: f"{_duoi_nhan(ten[c])} (dòng {h - dau + 1})" for tc, c in o})
+        elif dau is None:
+            for c, nhip, chu in chu_hang:
+                if _co_chu_cai(chu):
+                    ten.update(dict.fromkeys(range(c, c + nhip), chu))
+    return ra
 
 
 # ─── DÒNG CHẢY TRANG ───────────────────────────────────────────────────────
@@ -2246,6 +2313,7 @@ def _duyet_than(
             ti_le = _ti_le_luoi(con)
             vien = _vien_bang(con, vk)
             vien_canh = _vien_canh_bang(con, kcanh)
+            o_nhan = _o_bang(con, dinh_vi) if vien and dinh_vi else {}
             for h, tr in enumerate(con.findall(_TR)):
                 cao = _cao_hang(tr)
                 cao_luat = _luat_cao_hang(tr)
@@ -2291,7 +2359,7 @@ def _duyet_than(
                             cao_luat,
                             vien_canh,
                             _vien_canh_o(tc),
-                            *_duoi_vi_tri(dinh_vi, tc),
+                            *_duoi_vi_tri(dinh_vi, tc, o_nhan.get(tc)),
                         )
                     )
                     dem.sau()

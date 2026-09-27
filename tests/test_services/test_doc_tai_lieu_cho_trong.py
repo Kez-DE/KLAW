@@ -407,6 +407,129 @@ def test_NOI_DUNG_NEO_va_LAM_SACH_y_HET_khi_bo_truong_moi():
     assert ra_co == ra_khong
 
 
+# ─────────────────────────────── ô trống của bảng dữ liệu (`kieu` "o", G5)
+# Bảng danh sách của BM.M05 trang 2: hàng tiêu đề có chữ, các hàng dưới là ô RỖNG
+# — không dãy chấm nào. Mỗi ô rỗng của một bảng CÓ VIỀN, dưới một cột có tên, là
+# một chỗ trống `o`: điền vào đoạn đầu của ô, không có offset nào để trỏ.
+
+_VIEN = '<w:tblPr><w:tblBorders><w:insideH w:val="single" w:sz="4"/></w:tblBorders></w:tblPr>'
+
+
+def _tc(chu: str = "", tcpr: str = "", noi: str = "") -> str:
+    return f"<w:tc>{tcpr}{_p(_r(chu)) if chu else _p(noi)}</w:tc>"
+
+
+def _bang(*hang: list[str], tblpr: str = _VIEN) -> str:
+    return f"<w:tbl>{tblpr}" + "".join(f"<w:tr>{''.join(h)}</w:tr>" for h in hang) + "</w:tbl>"
+
+
+def _o(don_vi: list[DonViVanBan]) -> list[tuple[tuple[int, int, int], str, int, int, int]]:
+    return [(d.bang, c.nhan, c.doan, c.dau, c.cuoi) for d in don_vi for c in d.cho_trong if c.kieu == "o"]
+
+
+def test_o_rong_cua_bang_co_vien_duoi_cot_co_ten_la_cho_trong_o():
+    bang = _bang(
+        [_tc("STT"), _tc("Mã sinh viên/ học viên"), _tc("Họ và tên")],
+        [_tc(), _tc(), _tc()],
+        [_tc("2"), _tc(), _tc("Đã có tên")],
+    )
+    don_vi = _mot(_p(_r("DANH SÁCH")) + bang)
+    assert _o(don_vi) == [
+        ((0, 1, 0), "STT (dòng 1)", 0, 0, 0),
+        ((0, 1, 1), "Mã sinh viên/ học viên (dòng 1)", 0, 0, 0),
+        ((0, 1, 2), "Họ và tên (dòng 1)", 0, 0, 0),
+        ((0, 2, 1), "Mã sinh viên/ học viên (dòng 2)", 0, 0, 0),
+    ]
+    o = next(d for d in don_vi if d.bang == (0, 1, 2))
+    assert (o.noi_dung, o.doan_chu, o.dia_chi) == ("", ("",), DiaChi("word/document.xml", (1, 2, 2)))
+    assert [c.so for c in o.cho_trong] == [0]
+
+
+def test_bang_KHONG_vien_o_khong_ten_cot_hang_tieu_de_va_o_khong_an_toan_KHONG_co_cho_trong_o():
+    """Bảng không viền là bảng xếp chỗ (tiêu đề thư, cặp chữ ký), không phải bảng dữ
+    liệu. Ô không có tên cột, ô của chính hàng tiêu đề, ô gộp dọc nối tiếp, ô mang
+    hình hay bảng lồng: không có chỗ `o` nào (fail closed)."""
+    tieu_de = [_tc("Họ và tên"), _tc(), _tc("Ghi chú"), _tc("Ảnh"), _tc("Lồng")]
+    hinh = "<w:r><w:drawing/></w:r>"
+    long = _bang([_tc()], tblpr="<w:tblPr/>")
+    hang = [
+        _tc(tcpr='<w:tcPr><w:vMerge w:val="restart"/></w:tcPr>'),
+        _tc(),
+        _tc(),
+        _tc(noi=hinh),
+        f"<w:tc>{long}{_p()}</w:tc>",
+    ]
+    noi_tiep = [_tc(tcpr="<w:tcPr><w:vMerge/></w:tcPr>"), _tc(), _tc()]
+    assert _o(_mot(_bang(tieu_de, hang, tblpr="<w:tblPr/>"))) == []
+    assert _o(_mot(_bang(tieu_de, hang, noi_tiep))) == [
+        ((0, 1, 0), "Họ và tên (dòng 1)", 0, 0, 0),
+        ((0, 1, 2), "Ghi chú (dòng 1)", 0, 0, 0),
+        ((0, 2, 2), "Ghi chú (dòng 2)", 0, 0, 0),
+    ]
+
+
+def test_ten_cot_la_hang_tieu_de_CUOI_co_chu_va_dong_dem_tu_hang_du_lieu_dau():
+    """Hàng đánh số cột "(1) (2)" dưới tiêu đề không phải tên cột và không phải hàng
+    dữ liệu; tiêu đề hai tầng lấy tên ở tầng dưới."""
+    bang = _bang(
+        [_tc("Họ tên"), _tc("Điểm", tcpr='<w:tcPr><w:gridSpan w:val="2"/></w:tcPr>')],
+        [_tc("(1)"), _tc("Tối đa"), _tc("Đánh giá")],
+        [_tc("Nguyễn Văn A"), _tc("10"), _tc()],
+    )
+    assert _o(_mot(bang)) == [((0, 2, 2), "Đánh giá (dòng 1)", 0, 0, 0)]
+
+
+def test_nhan_o_dai_giu_so_dong_qua_nhan_sach_luy_dang():
+    dai = "Kết quả thực hiện nhiệm vụ được giao của sinh viên thực tập (tự đánh giá)"
+    (c,) = [c for d in _mot(_bang([_tc(dai)], [_tc()])) for c in d.cho_trong]
+    assert c.nhan.endswith(" (dòng 1)") and "(tự đánh giá)" not in c.nhan
+    assert nhan_sach(c.nhan, "Số") == c.nhan
+
+
+def test_o_rong_NOI_DUNG_NEO_va_LAM_SACH_y_HET_bang_khong_vien():
+    """Cùng phép đo equivalence: chỗ `o` đi CẠNH chuỗi — cùng bảng có viền hay không
+    thì `noi_dung`, `chi_so`, neo và bộ đếm `lam_sach_van_ban` y hệt."""
+    hang = ([_tc("Họ và tên"), _tc("Thưởng 5.000.000 đồng")], [_tc(), _tc()])
+    co, khong = _mot(_bang(*hang)), _mot(_bang(*hang, tblpr="<w:tblPr/>"))
+    assert _o(co) and not _o(khong)
+    assert [d.noi_dung for d in co] == [d.noi_dung for d in khong]
+    assert [d.chi_so for d in co] == [d.chi_so for d in khong]
+    a, b = xac_minh("Thưởng 5.000.000 đồng", co), xac_minh("Thưởng 5.000.000 đồng", khong)
+    assert a.ly_do is b.ly_do is LyDoNeo.ok and a.chi_so_don_vi == b.chi_so_don_vi
+    van_ban = {"muc": [{"ten": "A", "khoi": [{"noi_dung": "Thưởng 5.000.000 đồng"}]}]}
+    nguon = " ".join(d.noi_dung for d in co)
+    assert lam_sach_van_ban(van_ban, nguon, [{"nhan": "A", "don_vi": co}]) == lam_sach_van_ban(
+        van_ban, nguon, [{"nhan": "A", "don_vi": khong}]
+    )
+
+
+def test_o_di_va_ve_qua_hang_va_o_hong_bi_bo():
+    d = next(d for d in _mot(_bang([_tc("Họ và tên")], [_tc()])) if d.cho_trong)
+    hang = _hang_don_vi(d)
+    assert hang["cho_trong"] == [{"so": 0, "kieu": "o", "doan": 0, "dau": 0, "cuoi": 0, "nhan": "Họ và tên (dòng 1)"}]
+    assert _cho_trong_tu_hang(hang["cho_trong"]) == d.cho_trong
+    assert _cho_trong_tu_hang([{"so": 0, "kieu": "o", "doan": 0, "dau": 0, "cuoi": 1}]) == ()
+
+
+@pytest.mark.skipif(not (_KHO_MAU / "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx").exists(), reason="kho mẫu")
+def test_bang_danh_sach_that_cua_BM_M05_co_24_o_cot_hang_dung_ten():
+    tep = _KHO_MAU / "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx"
+    don_vi = doc(tep.name, tep.read_bytes()).don_vi
+    o = {d.chi_so: c.nhan for d in don_vi for c in d.cho_trong if c.kieu == "o"}
+    assert len(o) == 24 and sorted(o) == list(range(27, 51))
+    assert [o[27], o[28], o[29], o[30], o[31], o[32], o[50]] == [
+        "STT (dòng 1)",
+        "Lớp quản lý (dòng 1)",
+        "Mã sinh viên/ học viên (dòng 1)",
+        "Họ và tên (dòng 1)",
+        "Ngày sinh (dòng 1)",
+        "Ghi chú (dòng 1)",
+        "Ghi chú (dòng 4)",
+    ]
+    assert sum(1 for d in don_vi for c in d.cho_trong if c.kieu != "o") == 32, "chỗ trống cũ không đổi"
+    assert not [c for d in don_vi if d.bang and d.bang[0] == 0 for c in d.cho_trong if c.kieu == "o"], "tiêu đề thư"
+
+
 # ──────────────────────────────────────────────────────── lưu / đọc lại
 
 
@@ -584,6 +707,8 @@ def test_moi_dia_chi_va_cho_trong_GIAI_DUNG_tren_bytes_tho_cua_tep_that(tep):
             if c.kieu == "cham":
                 lat = tho[c.dau : c.cuoi]
                 assert lat and set(lat) <= {".", "…"}, (d.noi_dung, c)
+            elif c.kieu == "o":
+                assert nut.tag == f"{_W}tc" and (c.doan, c.dau, c.cuoi) == (0, 0, 0) and not "".join(d.doan_chu).strip()
             else:
                 assert c.kieu == "tab" and c.dau == c.cuoi and c.dau in tab
                 moc = doan[c.doan].find(f"{_W}pPr/{_W}tabs")

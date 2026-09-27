@@ -678,6 +678,70 @@ def test_ban_do_KHONG_moc_cho_bo_ap_khong_toi_va_khong_long_lien_ket():
     assert _lien_ket(danh_dau_docx(vao, hang, [(0, 0), (1, 0)])) == [(f"{O_URI}0/0", "……"), ("", "Mã: ……")]
 
 
+# ─────────────────────────────────── ô rỗng của bảng dữ liệu (`kieu` "o", G5)
+# Bảng danh sách: đơn vị 0 "STT", 1 "Họ và tên" (hàng tiêu đề), 2 và 3 là hai ô
+# rỗng của hàng dữ liệu đầu. Ô 3 khai định dạng dấu đoạn (đậm, cỡ 12, kèm một dấu
+# sửa đổi chỉ hợp lệ ở dấu đoạn).
+
+_VIEN = '<w:tblPr><w:tblBorders><w:insideH w:val="single" w:sz="4"/></w:tblBorders></w:tblPr>'
+_PPR_O = '<w:pPr><w:jc w:val="both"/><w:rPr><w:ins w:id="9" w:author="a"/><w:b/><w:sz w:val="24"/></w:rPr></w:pPr>'
+
+
+def _ds(o3: str = "", o2: str = "") -> str:
+    return (
+        f"<w:tbl>{_VIEN}<w:tr><w:tc>{_p(_r('STT'))}</w:tc><w:tc>{_p(_r('Họ và tên'))}</w:tc></w:tr>"
+        f"<w:tr><w:tc>{o2 or _p()}</w:tc><w:tc><w:tcPr><w:tcW w:w='3000'/><w:vAlign w:val='center'/></w:tcPr>"
+        f"{o3 or _p(ppr=_PPR_O)}</w:tc></w:tr></w:tbl>"
+    )
+
+
+def _o_du_lieu(du_lieu: bytes, cot: int):
+    return _than(du_lieu)[0].findall(f"{_W}tr")[1].findall(f"{_W}tc")[cot]
+
+
+def test_dien_O_RONG_them_MOT_run_mang_dinh_dang_dau_doan_vao_doan_dau_cua_o():
+    vao, ra, bc = _ap(_ds(), [_dien(3, 0, _TEN), _dien(2, 0, "1")])
+    assert bc == {"da_ap": [0, 1], "bo_qua": []}
+    (p,) = _o_du_lieu(ra, 1).findall(f"{_W}p")
+    (r,) = p.findall(f"{_W}r")
+    assert _chu(r) == _TEN
+    assert [etree.QName(c).localname for c in r.find(f"{_W}rPr")] == ["b", "sz"], "dấu sửa đổi của dấu đoạn không chép"
+    assert etree.tostring(p.find(f"{_W}pPr")) == etree.tostring(_o_du_lieu(vao, 1).find(f"{_W}p/{_W}pPr"))
+    assert _run(_o_du_lieu(ra, 0).find(f"{_W}p")) == [("", "1")], "không dấu đoạn: run không rPr, theo kiểu đoạn/bảng"
+    assert _noi_dung(ra) == ["STT", "Họ và tên", "1", _TEN]
+
+
+def test_dien_O_ma_o_KHONG_con_rong_hay_da_bi_thay_thi_bo_khong_ghi_de():
+    """Kiểm trước khi sửa: dòng lưu nói ô rỗng mà tệp có chữ (hay một hình) ở đó thì bỏ
+    (`cho_trong_da_doi`); `thay` cả ô cùng lượt thắng `dien` (`xung_dot`)."""
+    hang = _hang(_docx(_ds()))
+    for o3 in (_p(_r("Trần Thị B")), _p("<w:r><w:drawing/></w:r>")):
+        vao, ra, bc = _ap(_ds(o3), [_dien(3, 0, _TEN)], hang=hang)
+        assert ra == vao and bc["bo_qua"] == [{"phep": 0, "ly_do": "cho_trong_da_doi"}]
+    _, ra, bc = _ap(_ds(), [{"loai": "thay", "don_vi": 3, "noi_dung": "Lê C"}, _dien(3, 0, _TEN)])
+    assert bc["bo_qua"] == [{"phep": 1, "ly_do": "xung_dot"}] and _noi_dung(ra)[3] == "Lê C"
+
+
+def test_ban_do_O_RONG_to_nen_mau_mang_so_don_vi_chu_va_bo_ap_giu_nguyen():
+    """Ô rỗng không có ký tự nào để bọc liên kết, và MỌI run chèn vào đoạn rỗng (kể cả
+    chữ ẩn) đổi chiều cao hàng dưới LibreOffice (đo 2026-09-27 trên BM.M05). Nền ô thì
+    không đổi dàn trang: bản dò tô nền `01` + số đơn vị (hex) cho ô đó, không gì khác."""
+    vao = _docx(_ds())
+    hang = _hang(vao)
+    do = danh_dau_docx(vao, hang, [(2, 0), (3, 0)])
+    assert _noi_dung(do) == _noi_dung(vao)
+    nen = [
+        (tc.find(f"{_W}tcPr/{_W}shd") is not None and tc.find(f"{_W}tcPr/{_W}shd").get(f"{_W}fill"))
+        for tc in _goc(do).iter(f"{_W}tc")
+    ]
+    assert nen == [False, False, "010002", "010003"]
+    tcpr = _o_du_lieu(do, 1).find(f"{_W}tcPr")
+    assert [etree.QName(c).localname for c in tcpr] == ["tcW", "shd", "vAlign"], "đúng thứ tự lược đồ CT_TcPr"
+    assert "word/_rels/document.xml.rels" not in zipfile.ZipFile(BytesIO(do)).namelist()
+    phep = [_dien(3, 0, _TEN)]
+    assert _noi_dung(ap_dung_docx(do, hang, phep)[0]) == _noi_dung(ap_dung_docx(vao, hang, phep)[0])
+
+
 # ───────────────────────────────────────── tám biểu mẫu thật của chủ dự án
 # Kho mẫu ngoài repo, không bao giờ commit; không có thì bỏ qua (CI). Dựng bằng
 # LibreOffice + poppler, so ảnh xám 60 dpi từng trang.
