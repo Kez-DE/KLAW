@@ -50,13 +50,16 @@ KHONG_CO_BAN_THAO = "Cuộc trò chuyện này chưa có bản thảo tổng qu�
 # — không bao giờ giá trị. Lượt không xin đổi gì (người dùng chỉ xin lại chính tệp:
 # "soạn thảo văn bản này" lần hai, hay sau "Điền biểu mẫu") không tới đây: nó trả
 # CHÍNH bản đang có (`khuon_tong_quat.co_san`, lời đáp ở `assemble`), không đòi giá
-# trị (owner 2026-09-27 bác đúng loại lời đó).
+# trị (owner 2026-09-27 bác đúng loại lời đó). `tao_lai` luôn là lượt không đổi gì:
+# node đọc đã bỏ mọi phép của nó, nên tạo mới là phiên bản 1 đúng tệp tải lên, còn
+# sửa là trả bản đang có.
 KHONG_DOI_KHUON = (
     "Lượt này tôi chưa áp được thay đổi nào bạn xin ({ly_do}), nên bản thảo trên tệp bạn tải lên giữ nguyên: "
     "mở bản thảo để xem, {tai}. Muốn điền, hãy nói giá trị cần điền hoặc bấm vào chỗ trống trên trang."
 )
 _LY_DO_BO = {
-    "khong_nguon": "giá trị không có trong lời bạn nói, hồ sơ hay chính tài liệu",
+    # Luật owner 2026-09-27: chữ in sẵn của tài liệu không phải nguồn điền.
+    "khong_nguon": "giá trị không có trong lời bạn nói hay hồ sơ",
     "bo_nho": "giá trị lấy từ điều tôi nhớ mà lượt này bạn không nhắc tới",
     "khong_khop_nhan": "giá trị không hợp với nhãn của chỗ trống",
     "dieu_luat": "thêm số Điều, Khoản chưa được kiểm pháp lý",

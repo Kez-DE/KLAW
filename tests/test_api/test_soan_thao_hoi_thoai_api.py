@@ -122,8 +122,9 @@ class LlmGia:
                 }
             ), Usage(1, 1, 0.0)
         if "khuon" in props:  # hieu_tai_lieu trên khuôn gốc (`schema_khuon`)
-            # Câu owner "soạn thảo văn bản này cho tôi": xin CHÍNH tài liệu, chưa có
-            # giá trị nào để điền (quyết định owner 2026-09-27).
+            # Câu owner "soạn thảo văn bản này cho tôi" (`tao_lai`, luật owner
+            # 2026-09-27). Mô hình vẫn đề xuất một phép — kể cả phép có nguồn — để đo
+            # rằng lượt `tao_lai` bỏ nó tất định.
             return json.dumps(
                 {
                     "muc_dich": "tao_van_ban",
@@ -136,7 +137,21 @@ class LlmGia:
                     "truong": [],
                     "khac_biet": [],
                     "dieu_khoan": [],
-                    "khuon": {"tai_lieu": "A", "yeu_cau": "van_ban_nay", "phep_sua": []},
+                    "khuon": {
+                        "tai_lieu": "A",
+                        "yeu_cau": "tao_lai",
+                        "phep_sua": [
+                            {
+                                "loai": "dien",
+                                "don_vi": 1,
+                                "cho_trong": 0,
+                                "gia_tri": "văn bản này",
+                                "noi_dung": None,
+                                "doan": None,
+                            }
+                        ],
+                        "khong_dat": [],
+                    },
                 }
             ), Usage(1, 1, 0.0)
         if "van_ban" in props:  # hieu_tai_lieu (`schema_hieu`) — đường soạn tổng quát
@@ -736,9 +751,11 @@ async def test_soan_thao_van_ban_nay_tren_khuon_goc_tai_ve_dung_tep_tai_len(
     assert (bt["khuon"]["viec_id"], bt["khuon"]["dinh_dang"], bt["khuon"]["so_trang"]) == (vid, dinh_dang, 1)
     assert all(o["gia_tri"] is None for o in bt["khuon"]["cho_trong"]), "không ô nào đã điền"
     assert ban_thao.chi_tiet(sub, bt["id"])["phep_sua"] == []
-    assert d["answer"].startswith("Tôi đã dựng lại biểu mẫu đúng như tệp bạn tải lên (1 trang)")
+    assert d["answer"].startswith("Tôi đã dựng lại văn bản đúng như tệp bạn tải lên (1 trang)")
     assert _dem_trace(sub, "/api/v1/soan-thao") == 1, "cùng hạn mức dựng lần đầu như mọi lượt dựng"
 
     tai = await client.get(f"/api/v1/ban-thao/{bt['id']}/tai-xuong", params={"dang": dinh_dang}, headers=h)
     assert tai.status_code == 200
     assert tai.content == tl.khuon_goc_cua(get_engine(), vid, sub)["noi_dung"] == tep
+    # B7: chưa đổi gì thì tải về đúng tên tệp tải lên, không " - đã điền".
+    assert tai.headers["content-disposition"].startswith(f'attachment; filename="BM.M05.{dinh_dang}"')
