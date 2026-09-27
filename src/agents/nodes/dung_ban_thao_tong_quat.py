@@ -50,9 +50,9 @@ KHONG_CO_BAN_THAO = "Cuộc trò chuyện này chưa có bản thảo tổng qu�
 # — không bao giờ giá trị. Lượt không xin đổi gì (người dùng chỉ xin lại chính tệp:
 # "soạn thảo văn bản này" lần hai, hay sau "Điền biểu mẫu") không tới đây: nó trả
 # CHÍNH bản đang có (`khuon_tong_quat.co_san`, lời đáp ở `assemble`), không đòi giá
-# trị (owner 2026-09-27 bác đúng loại lời đó). `tao_lai` luôn là lượt không đổi gì:
-# node đọc đã bỏ mọi phép của nó, nên tạo mới là phiên bản 1 đúng tệp tải lên, còn
-# sửa là trả bản đang có.
+# trị (owner 2026-09-27 bác đúng loại lời đó). `tao_lai` không bao giờ tới đây: node
+# đọc đã bỏ mọi phép của nó, nên tạo mới là phiên bản 1 đúng tệp tải lên; trên bản đã
+# có thì bản đúng tệp là bản có sẵn, bản đã điền lên một phiên bản phép rỗng.
 KHONG_DOI_KHUON = (
     "Lượt này tôi chưa áp được thay đổi nào bạn xin ({ly_do}), nên bản thảo trên tệp bạn tải lên giữ nguyên: "
     "mở bản thảo để xem, {tai}. Muốn điền, hãy nói giá trị cần điền hoặc bấm vào chỗ trống trên trang."
@@ -302,6 +302,7 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
         # hạn mức — trước cả phép kiểm hạn mức, vì lượt này không lưu gì.
         return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_DIEN_KHUON}
     la_sua = state.get("muc_dich_tai_lieu") == "sua_ban_thao"
+    tao_lai = bool(khuon) and khuon.get("yeu_cau") == "tao_lai"
     cu = None
     if khuon:
         # Sửa hay dựng mới quyết định bằng DỮ LIỆU, không bằng nhãn của mô hình:
@@ -342,7 +343,11 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
         cu_phep = ((cu or {}).get("phep_sua") or []) if la_sua else []
         # `thay` theo đoạn chỉ gỡ ô của chính đoạn đó: `cho_trong` của lượt mang `doan`.
         doan = {(c["don_vi"], c["so"]): c["doan"] for c in khuon.get("cho_trong") or [] if "doan" in c}
-        gop = ban_thao.gop_phep_sua(cu_phep, khuon["phep_sua"], doan)
+        # `tao_lai` ("bảo soạn thảo văn bản ra thì phải đúng 100%", owner 2026-09-27):
+        # bản thảo của lượt là ĐÚNG tệp tải lên, kể cả trên bản đã điền — không gộp.
+        # Bản đã đúng tệp là lượt không đổi gì (`co_san` bên dưới); bản đã điền lên
+        # một phiên bản phép rỗng, giá trị cũ còn ở phiên bản trước (Lùi).
+        gop = [] if tao_lai else ban_thao.gop_phep_sua(cu_phep, khuon["phep_sua"], doan)
         # `dien` vào đơn vị/đoạn đã bị `thay`/`xoa` bị gộp gỡ đi: đó là một giá trị
         # người hỏi vừa nói, nên nó vào `bo_qua` (mã, không giá trị) chứ không mất lặng.
         con = {(p["don_vi"], p["cho_trong"]) for p in gop if p["loai"] == "dien"}
@@ -381,11 +386,14 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
         cu = cu or ban_thao.moi_nhat_cua_hoi_thoai(sub, str(hoi_thoai_id), LOAI_TONG_QUAT, viec_id=None)
         if cu is None:
             return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_CO_BAN_THAO}
-        try:
-            ban_thao.kiem_tran_sua(cu)
-        except ValueError as e:
-            return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": str(e)}
-        bt = ban_thao.sua(sub, cu["id"], {}, ket)
+        # `tao_lai` không sửa gì bằng mô hình (như lưu ô điền, B6): không tính `TRAN_SUA`
+        # và không bị trần chặn — bản đầy trần vẫn trở về được đúng tệp tải lên.
+        if not tao_lai:
+            try:
+                ban_thao.kiem_tran_sua(cu)
+            except ValueError as e:
+                return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": str(e)}
+        bt = ban_thao.sua(sub, cu["id"], {}, ket, tang=0 if tao_lai else 1)
         if bt is None:
             # Bị xoá giữa chừng (đua với một lượt xoá khác) — cùng hợp đồng
             # "không tìm thấy" của cả service, không spread `None`.

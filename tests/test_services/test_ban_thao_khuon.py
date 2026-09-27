@@ -480,6 +480,21 @@ def test_VONG_phien_ban_tao_chi_tiet_sua_lui_khoi_phuc_phep_sua(nguoi):
 
 
 @pytest.mark.integration
+def test_sua_TANG_0_dung_lai_dung_tep_khong_tinh_tran_sua_va_lui_lay_lai_gia_tri(nguoi):
+    """`tao_lai` trên bản đã điền (review fix/g4-backend): một phiên bản phép rỗng,
+    `so_lan_sua` không tăng; Lùi trả lại đúng các giá trị cũ."""
+    a, _ = nguoi
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    viec = _viec(a, phien)
+    v1 = [_d(0, 0, "Nguyễn Văn Ánh")]
+    bt = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec, v1))
+    moi = ban_thao.sua(a, bt["id"], {}, _ket(viec, []), tang=0)
+    assert (moi["phien_ban"], moi["phep_sua"], moi["so_lan_sua"]) == (2, [], bt["so_lan_sua"])
+    assert _gia_tri(moi)[(0, 0)] is None
+    assert ban_thao.lui(a, bt["id"])["phep_sua"] == v1
+
+
+@pytest.mark.integration
 def test_ban_thao_HTML_khong_co_khuon_va_viec_NGUOI_KHAC_khong_duoc_gan(nguoi):
     a, b = nguoi
     phien_a, phien_b = hoi_thoai.tao_phien(a, "a"), hoi_thoai.tao_phien(b, "b")

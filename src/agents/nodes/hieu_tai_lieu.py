@@ -30,6 +30,7 @@ import logging
 import re
 import unicodedata
 from collections import Counter
+from difflib import SequenceMatcher
 from pathlib import Path
 
 from src.agents.nodes.route import Intent
@@ -2677,25 +2678,23 @@ def _khong_dau(s: str) -> str:
 
 def _them_khong_nguon(moi: str, cu: str, nguon_kh: str, so_nguon: list) -> bool:
     """`moi` có THÊM cụm từ nào so với `cu` mà không qua phép nguồn của `dien`
-    không. Cụm = các từ liền nhau không có trong `cu`; mỗi cụm đi `_co_trong_nguon`
-    NGUYÊN cụm (chặt hơn từng từ: "Công ty Bịa Việt" không lọt nhờ "Việt" có ở
-    nguồn). Thay cho lời từ chối `co_cho_trong`: điền cụm giữ chỗ viết hoa hay đè
-    một dòng có chỗ trống là một lần điền, dù đi đường nào."""
+    không. So DÃY từ (`SequenceMatcher`), không so tập: một cụm của chính `cu` lặp
+    lại hay chuyển chỗ là chữ THÊM — review fix/g4-backend đo được «…Trường Đại học
+    Phenikaa, thuộc Khoa Trường Đại học Phenikaa» lọt qua phép so tập. Cụm = một
+    đoạn `insert`/`replace` của `moi`; mỗi cụm đi `_co_trong_nguon` NGUYÊN cụm (chặt
+    hơn từng từ: "Công ty Bịa Việt" không lọt nhờ "Việt" có ở nguồn). Thay cho lời
+    từ chối `co_cho_trong`: điền cụm giữ chỗ viết hoa hay đè một dòng có chỗ trống
+    là một lần điền, dù đi đường nào."""
     moi, cu = unicodedata.normalize("NFC", moi), unicodedata.normalize("NFC", cu)
-    co = {_khong_dau(m) for m in _RE_TU.findall(cu)}
-    tu = [(m, _khong_dau(m.group()) in co) for m in _RE_TU.finditer(moi)]
-    i = 0
-    while i < len(tu):
-        if tu[i][1]:
-            i += 1
-            continue
-        j = i
-        while j + 1 < len(tu) and not tu[j + 1][1]:
-            j += 1
-        if not _co_trong_nguon(moi[tu[i][0].start() : tu[j][0].end()].casefold(), nguon_kh, so_nguon):
-            return True
-        i = j + 1
-    return False
+    tu = list(_RE_TU.finditer(moi))
+    so = SequenceMatcher(
+        None, [_khong_dau(m) for m in _RE_TU.findall(cu)], [_khong_dau(m.group()) for m in tu], autojunk=False
+    )
+    return any(
+        not _co_trong_nguon(moi[tu[j1].start() : tu[j2 - 1].end()].casefold(), nguon_kh, so_nguon)
+        for op, _, _, j1, j2 in so.get_opcodes()
+        if op in ("insert", "replace")
+    )
 
 
 # Nhãn số hiệu NGẮN ("Số", "Số:", "No.") và nhãn phần ngày ("… ngày", "tháng",
@@ -2806,7 +2805,8 @@ def _mot_phep(
     # `[…]`: một `[…]` áp lên tệp thật là chữ lạ in lên biểu mẫu của người hỏi.
     # Cộng phép nguồn của `dien` cho mọi giá trị sau "Nhãn:" — một đoạn mới
     # "Họ và tên: <tên bịa>" là một lần điền, dù đi đường nào. Số đã có trong chữ
-    # cũ của đoạn không phải số mới.
+    # cũ của đoạn không phải số mới Ở ĐÂY; chép nó sang chỗ khác hay lặp lại nó là
+    # chữ THÊM, và `_them_khong_nguon` (so dãy từ) bên dưới đòi nguồn cho nó.
     if any(
         not _co_trong_nguon(m.group(0).casefold(), nguon_p, so_p) for m in _RE_GIA_TRI.finditer(chu)
     ) or _nhan_khong_nguon(chu, nguon_p, so_p):

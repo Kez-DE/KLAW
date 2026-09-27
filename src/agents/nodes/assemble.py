@@ -1028,9 +1028,12 @@ def _ban_thao_khuon(state: dict, bt: dict) -> dict:
     con = [f"«{nhan[k]}»" for k in nhan if k not in da]
     doi = [f"«{x}»" for x in bt.get("doi_so_voi_truoc") or []]
     tran_con = 320 - len(khong_dat)
-    if not phep and not doi:
+    tao_lai = khuon.get("yeu_cau") == "tao_lai"
+    if not phep and (not doi or tao_lai):
         # Phiên bản chưa có phép nào (owner 2026-09-27): bản thảo LÀ tệp tải lên —
-        # `tao_lai` luôn tới đây. Khuôn PDF không có bản Word (`routes_ban_thao.tai_xuong`).
+        # `tao_lai` luôn tới đây, kể cả khi nó vừa gỡ các giá trị của bản đã điền
+        # (`doi`): chúng còn ở phiên bản trước. Khuôn PDF không có bản Word
+        # (`routes_ban_thao.tai_xuong`).
         so_trang = khuon.get("so_trang")
         answer = (
             "Tôi đã dựng lại văn bản đúng như tệp bạn tải lên"
@@ -1042,6 +1045,7 @@ def _ban_thao_khuon(state: dict, bt: dict) -> dict:
                 if con
                 else "Muốn đổi gì cứ nói với tôi."
             )
+            + (" Giá trị đã điền trước đó vẫn ở phiên bản trước: bấm Lùi để lấy lại." if doi else "")
             + (" " + khong_dat if khong_dat else "")
             + _cau_da_nho(state)
         )

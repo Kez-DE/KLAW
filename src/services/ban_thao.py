@@ -426,7 +426,7 @@ def _snap(row: dict, *, doi: list[str] | None = None) -> dict:
     return snap
 
 
-def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
+def sua(sub: str, id: str, facts: dict, ket: dict, *, tang: int = 1) -> dict | None:
     # Fix round 1 (Critical) — đọc bằng `_SQL_LAY_KHOA` (FOR UPDATE) TRONG CÙNG
     # transaction với cú ghi bên dưới, không phải `chi_tiet()` trên một
     # connection riêng: xem chú thích ở khai báo `_SQL_LAY_KHOA` — đây là chỗ
@@ -473,8 +473,9 @@ def sua(sub: str, id: str, facts: dict, ket: dict) -> dict | None:
                     "phien_ban_ke_tiep": cu["phien_ban_ke_tiep"] + 1,
                     "truoc": _j(truoc),
                     **_cot_khuon(ket.get("viec_id"), ket.get("phep_sua")),
-                    # Bộ đếm trần sửa — chỉ ĐI LÊN, và chỉ ở đây (xem `lui`).
-                    "tang": 1,
+                    # Bộ đếm trần sửa — chỉ ĐI LÊN, và chỉ ở đây (xem `lui`). `tang` 0:
+                    # phiên bản không do mô hình sửa (`tao_lai` dựng lại đúng tệp tải lên).
+                    "tang": tang,
                 },
             )
             .mappings()

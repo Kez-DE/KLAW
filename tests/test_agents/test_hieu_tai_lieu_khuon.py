@@ -660,7 +660,7 @@ class _BanThaoGia:
     """`ban_thao` giả cho `dung_ban_thao_tong_quat` — ghi lại `ket` được lưu."""
 
     def __init__(self, cu: dict | None):
-        self.cu, self.tao_ket, self.sua_ket = cu, None, None
+        self.cu, self.tao_ket, self.sua_ket, self.sua_tang = cu, None, None, None
 
     def moi_nhat(self, sub, pid, loai, *, viec_id):
         # Cùng luật `_SQL_MOI_NHAT`: chỉ bản thảo mà phiên bản đang sống trên `viec_id`.
@@ -680,8 +680,8 @@ class _BanThaoGia:
             "phep_sua": ket.get("phep_sua"),
         }
 
-    def sua(self, sub, id, facts, ket):
-        self.sua_ket = ket
+    def sua(self, sub, id, facts, ket, *, tang=1):
+        self.sua_ket, self.sua_tang = ket, tang
         return {
             "id": id,
             "phien_ban": 2,
@@ -903,13 +903,12 @@ def test_cau_cua_owner_soan_thao_van_ban_nay_dung_lai_dung_tep_tai_len(bt_gia):
     assert "bản gốc" not in out["answer"] and "tài liệu gốc" not in out["answer"]
 
 
-@pytest.mark.parametrize("phep_cu", [[], DANG_MO["phep_sua"]], ids=["v1_rong_tu_khung_dien", "da_dien"])
-def test_cau_cua_owner_khi_da_co_ban_thao_khong_doi_gia_tri(bt_gia, monkeypatch, phep_cu):
-    """Cùng câu owner khi hội thoại ĐÃ có bản thảo trên khuôn này (bấm "Điền biểu
-    mẫu" tạo phiên bản 1 rỗng, hoặc nói câu đó lần hai): lượt sửa không đổi gì nên
-    không lên phiên bản, không tính hạn mức — nhưng lời đáp nói bản thảo đã có sẵn
-    để mở/tải, KHÔNG đòi giá trị điền (đúng loại lời owner đã bác 2026-09-27)."""
-    g = bt_gia(_cu(phep_cu, so_lan_sua=0))
+def test_cau_cua_owner_khi_da_co_ban_thao_khong_doi_gia_tri(bt_gia, monkeypatch):
+    """Cùng câu owner khi hội thoại ĐÃ có bản thảo ĐÚNG tệp tải lên trên khuôn này
+    (bấm "Điền biểu mẫu" tạo phiên bản 1 rỗng, hoặc nói câu đó lần hai): lượt không
+    đổi gì nên không lên phiên bản, không tính hạn mức — nhưng lời đáp nói bản thảo
+    đã có sẵn để mở/tải, KHÔNG đòi giá trị điền (đúng loại lời owner đã bác 2026-09-27)."""
+    g = bt_gia(_cu([], so_lan_sua=0))
     monkeypatch.setattr(bao_ve, "kiem_han_muc", lambda *a, **k: pytest.fail("lượt sửa không kiểm hạn mức dựng"))
     monkeypatch.setattr(d, "_ghi_traces", lambda *a, **k: pytest.fail("không phiên bản mới thì không đếm hạn mức"))
     ra, _ = _chay(
@@ -930,6 +929,35 @@ def test_cau_cua_owner_khi_da_co_ban_thao_khong_doi_gia_tri(bt_gia, monkeypatch,
     )
     assert "phải có trong lời bạn" not in out["answer"] and "Bạn nói rõ giá trị" not in out["answer"]
     assert "bản gốc" not in out["answer"] and "tài liệu gốc" not in out["answer"]
+
+
+def test_tao_lai_tren_ban_da_dien_len_phien_ban_moi_dung_tep_tai_len(bt_gia, monkeypatch):
+    """Luật owner "bảo soạn thảo văn bản ra thì phải đúng 100%" trên bản thảo ĐÃ điền
+    (hội thoại mang phép cũ — kể cả phép sai trước bản sửa này): `tao_lai` lên MỘT phiên
+    bản mới phép rỗng, đúng tệp tải lên. Không gọi mô hình để sửa nên không tính
+    `TRAN_SUA` (`tang` 0) và không bị trần chặn; giá trị cũ còn ở phiên bản trước (Lùi)."""
+    g = bt_gia(_cu(DANG_MO["phep_sua"], so_lan_sua=ban_thao.TRAN_SUA))
+    monkeypatch.setattr(bao_ve, "kiem_han_muc", lambda *a, **k: pytest.fail("không phải lượt dựng lần đầu"))
+    monkeypatch.setattr(d, "_ghi_traces", lambda *a, **k: pytest.fail("không phải lượt dựng lần đầu"))
+    ra, _ = _chay(
+        [_dien(2, 1, "0243999888")],
+        cau="soạn thảo văn bản này cho tôi",
+        yeu_cau="tao_lai",
+        user_sub="u",
+        hoi_thoai_id="p",
+    )
+    ra = d.dung_ban_thao_tong_quat(ra)
+    assert g.tao_ket is None and (g.sua_ket["phep_sua"], g.sua_tang) == ([], 0)
+    assert ra["ban_thao_tong_quat_loi"] is None and "co_san" not in ra["khuon_tong_quat"]
+    bt = ra["ban_thao_ket"]
+    assert (bt["id"], bt["phep_sua"]) == ("bt-1", [])
+    assert bt["doi_so_voi_truoc"] == ["Cơ quan/Đơn vị tiếp nhận", "Điện thoại"]
+    out = assemble(ra, {}, _No(), "m")
+    assert out["answer"].startswith(
+        "Tôi đã dựng lại văn bản đúng như tệp bạn tải lên (2 trang): mở bản thảo để xem, tải Word hoặc PDF ngay."
+    )
+    assert "Giá trị đã điền trước đó vẫn ở phiên bản trước: bấm Lùi để lấy lại." in out["answer"]
+    assert out["coverage_note"] is None
 
 
 @pytest.mark.parametrize("yeu_cau", [None, "khong_ro", "van_ban_nay"], ids=["thieu", "la", "gia_tri_cu"])
@@ -1651,6 +1679,93 @@ def test_bm_m05_that_ten_truong_in_san_khong_bao_gio_len_cho_trong(bt_gia, yeu_c
     assert (g.tao_ket["phep_sua"], ra["ban_thao_ket"]["phien_ban"]) == ([], 1)
     moi, _ = ban_thao.ap_phep_sua("docx", goc, hang, g.tao_ket["phep_sua"])
     assert moi == goc, "bản thảo `tao_lai` là CHÍNH tệp tải lên, từng byte"
+
+
+def _thay_khoa(g9: str, bien: str) -> tuple[str, int | None]:
+    """Bốn cách `thay` đưa chữ IN SẴN «Trường Đại học …» của chính câu vào «Khoa»
+    (review fix/g4-backend): lặp lại (`doan` 0 hay null), một từ, hay CHUYỂN cụm đó."""
+    dau = g9[: g9.index("thuộc Khoa") + len("thuộc Khoa")]
+    ten = dau[dau.index("Trường") : dau.index(", thuộc")]
+    return {
+        "lap": (f"{dau} {ten}", 0),
+        "lap_doan_null": (f"{dau} {ten}", None),
+        "mot_tu": (f"{dau} {ten.split()[-1]}", 0),
+        "chuyen": (f"{dau.replace(' ' + ten + ',', ',')} {ten}", 0),
+    }[bien]
+
+
+BIEN_KHOA = ["lap", "lap_doan_null", "mot_tu", "chuyen"]
+
+
+@pytest.mark.skipif(not BM_M05.exists(), reason="biểu mẫu thật của chủ dự án không có trên máy này")
+@pytest.mark.parametrize("yeu_cau", [None, "dien_sua"], ids=["thieu", "dien_sua"])
+@pytest.mark.parametrize("bien", BIEN_KHOA)
+def test_bm_m05_that_thay_lap_hay_chuyen_chu_in_san_vao_khoa_bi_bo(bt_gia, yeu_cau, bien):
+    """Cùng lỗi owner thấy 2026-09-27, đi đường `thay`: so từ theo DÃY, không theo tập —
+    chữ in sẵn lặp lại hay chuyển chỗ trong chính đoạn là chữ THÊM, phải là lời người
+    hỏi. Bị bỏ (`khong_nguon`), phiên bản 1 phép rỗng, tải về đúng từng byte."""
+    goc, hang, tl = _m05()
+    noi_dung, doan = _thay_khoa(tl[0]["don_vi"][9].noi_dung, bien)
+    g = bt_gia(None)
+    ra, _ = _chay(
+        [_doan("thay", 9, noi_dung, doan=doan)],
+        cau="soạn thảo văn bản này cho tôi",
+        yeu_cau=yeu_cau,
+        tai_lieu=tl,
+        user_sub="u",
+        hoi_thoai_id="p",
+    )
+    k = ra["khuon_tong_quat"]
+    assert (k["phep_sua"], k["bo_qua"]) == ([], [{"don_vi": 9, "cho_trong": None, "ly_do": "khong_nguon"}])
+    ra = d.dung_ban_thao_tong_quat(ra)
+    assert (g.tao_ket["phep_sua"], ra["ban_thao_ket"]["phien_ban"]) == ([], 1)
+    moi, _ = ban_thao.ap_phep_sua("docx", goc, hang, g.tao_ket["phep_sua"])
+    assert moi == goc
+
+
+def _khoa_mau() -> list[dict]:
+    return _tl(
+        _dv_cham(9, "là sinh viên Trường Đại học Mẫu, thuộc Khoa ……", "thuộc Khoa"),
+        _dv_cham(2, "Điện thoại 0912345678, fax ……", "fax"),
+    )
+
+
+@pytest.mark.parametrize("bien", BIEN_KHOA)
+def test_thay_lap_hay_chuyen_chu_cua_chinh_doan_la_chu_them(bien):
+    """Bản không cần tệp thật của phép thử trên (CI không có BM.M05): một cụm, một từ
+    hay một SỐ của chính đoạn, lặp lại hay chuyển chỗ, là chữ thêm không có nguồn."""
+    tl = _khoa_mau()
+    noi_dung, doan = _thay_khoa(tl[0]["don_vi"][0].noi_dung, bien)
+    ra, _ = _chay(
+        [_doan("thay", 9, noi_dung, doan=doan), _doan("thay", 2, "Điện thoại 0912345678, fax 0912345678")],
+        cau="soạn thảo văn bản này cho tôi",
+        yeu_cau=None,
+        tai_lieu=tl,
+    )
+    k = ra["khuon_tong_quat"]
+    assert k["phep_sua"] == []
+    assert [(b["don_vi"], b["ly_do"]) for b in k["bo_qua"]] == [(9, "khong_nguon"), (2, "khong_nguon")]
+
+
+def test_thay_giu_chu_cu_dung_cho_va_them_loi_nguoi_hoi_thi_giu():
+    """Đối chứng: chữ cũ giữ đúng chỗ, chữ thêm là lời người hỏi (kể cả một số người hỏi
+    nói trùng số in sẵn) — giữ; bớt chữ thì không có gì để kiểm."""
+    ra, _ = _chay(
+        [
+            _doan("thay", 9, "là sinh viên Trường Đại học Mẫu, thuộc Khoa Luật"),
+            _doan("thay", 2, "Điện thoại 0912345678, fax 0912345678"),
+            _doan("thay", 9, "là sinh viên Trường Đại học Mẫu"),
+        ],
+        cau="điền khoa Luật, fax cũng là 0912345678",
+        tai_lieu=_khoa_mau(),
+    )
+    k = ra["khuon_tong_quat"]
+    assert [p["noi_dung"] for p in k["phep_sua"]] == [
+        "là sinh viên Trường Đại học Mẫu, thuộc Khoa Luật",
+        "Điện thoại 0912345678, fax 0912345678",
+        "là sinh viên Trường Đại học Mẫu",
+    ]
+    assert k["bo_qua"] == []
 
 
 def test_chu_cua_tai_lieu_quan_sat_va_ban_thao_dang_mo_khong_la_nguon_gia_tri_moi():
