@@ -2431,9 +2431,11 @@ def _chuyen_doc_sang_docx(du_lieu: bytes) -> bytes:
       là cùng MỘT thứ: cách ly ở tầng hệ điều hành/container, chưa có ở đây.
       Đo 2026-09-27 (LibreOffice 26.2.4): ảnh liên kết ngoài (`r:link`) CÓ bị
       tải về — `http://` là SSRF, `file://` nhúng tệp của máy chủ vào PDF đã
-      dựng. Lớp chặn ở tầng ứng dụng là `_HO_SO_CHAN_LIEN_KET` (docx vào);
-      bộ nhập `.doc` vẫn gửi một GET mù bất kể lớp đó — xem
-      `test_quy_doi_doc_KHONG_goi_ra_mang_voi_lien_ket_ngoai`.
+      dựng. Lớp chặn ở tầng ứng dụng là `_HO_SO_CHAN_LIEN_KET` cộng
+      `_MOI_TRUONG_PROXY_CHET`: rào referer cho docx, proxy chết cho lượt tải
+      của bộ nhập `.doc` — xem `test_dung_trang`, ba test `*lien_ket*` /
+      `*tep_may_chu*`. Vẫn KHÔNG phải cách ly mạng: chúng chặn các đường đã đo,
+      không chặn một đường mở socket bỏ qua cấu hình proxy.
     - **SỐ LƯỢT CHẠY ĐỒNG THỜI bị chặn bằng `_suat_chuyen_doi`** (fix round
       2, task review — Important). Mỗi lượt chuyển đổi chiếm một luồng
       threadpool DÙNG CHUNG với mọi lệnh gọi DB khác của ứng dụng, và tự bản
@@ -2510,19 +2512,45 @@ def _giu_suat_chuyen_doi():
         _suat_chuyen_doi.release()
 
 
-# Gieo vào hồ sơ riêng của MỖI lượt soffice. Tài liệu mở từ thư mục tạm không
-# nằm trong "vị trí tin cậy" nào, nên `BlockUntrustedRefererLinks` chặn mọi ảnh
-# liên kết nó trỏ tới. Đo 2026-09-27 (LibreOffice 26.2.4, docx → PDF): không có
-# nó thì `r:link` `http://` bị tải về, `file://` nhúng tệp của máy chủ vào PDF;
-# có nó thì cả hai đều không. `test_dung_trang` lặp phép đo ở mọi máy có soffice.
+# Gieo vào hồ sơ riêng của MỖI lượt soffice. Hai rào, cùng đo 2026-09-27; mỗi
+# lần đo `test_dung_trang` lặp lại ở mọi máy có soffice.
+# 1. Tài liệu mở từ thư mục tạm không nằm trong "vị trí tin cậy" nào, nên
+#    `BlockUntrustedRefererLinks` chặn mọi ảnh liên kết nó trỏ tới (docx → PDF):
+#    không có nó thì `r:link` `http://` bị tải về, `file://` nhúng tệp của máy
+#    chủ vào PDF.
+# 2. Bộ nhập `.doc` vẫn tải ảnh liên kết bất kể rào 1 (`OPTIONS`, `HEAD`, `GET`
+#    với `http://`; một bắt tay TLS với `https://`), nhưng qua proxy của
+#    LibreOffice: proxy trỏ vào một máy nghe loopback nhận `GET http://…/anh.png`.
+#    Proxy thủ công về `_PROXY_CHET` thì không kết nối nào tới đích.
+#    `DisableActiveContent` không chặn được đường này (đã đo).
+# Đây là rào tầng ứng dụng, không phải cách ly mạng: một đường mở socket mà bỏ
+# qua cấu hình proxy thì vẫn lọt (xem docstring `_chuyen_doc_sang_docx`).
+_PROXY_CHET = ("127.0.0.1", 9)  # cổng discard: không ai nghe, kết nối bị từ chối ngay
 _HO_SO_CHAN_LIEN_KET = (
     '<?xml version="1.0" encoding="UTF-8"?>'
     '<oor:items xmlns:oor="http://openoffice.org/2001/registry" '
     'xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
     '<item oor:path="/org.openoffice.Office.Common/Security/Scripting">'
     '<prop oor:name="BlockUntrustedRefererLinks" oor:op="fuse"><value>true</value></prop></item>'
-    "</oor:items>"
+    + "".join(
+        f'<item oor:path="/org.openoffice.Inet/Settings"><prop oor:name="{ten}" oor:op="fuse">'
+        f"<value>{gia_tri}</value></prop></item>"
+        for ten, gia_tri in [
+            ("ooInetProxyType", 2),  # 2 = thủ công
+            ("ooInetNoProxy", ""),
+            *((f"ooInet{g}ProxyName", _PROXY_CHET[0]) for g in ("HTTP", "HTTPS", "FTP")),
+            *((f"ooInet{g}ProxyPort", _PROXY_CHET[1]) for g in ("HTTP", "HTTPS", "FTP")),
+        ]
+    )
+    + "</oor:items>"
 )
+# Lớp phụ cho cùng đường: soffice theo biến môi trường proxy khi hồ sơ không đặt
+# proxy (đo: một mình lớp này cũng chặn được lượt tải của `.doc`).
+_MOI_TRUONG_PROXY_CHET = {
+    ten: f"http://{_PROXY_CHET[0]}:{_PROXY_CHET[1]}"
+    for g in ("http", "https", "ftp", "all")
+    for ten in (f"{g}_proxy", f"{g.upper()}_PROXY")
+} | {"no_proxy": "", "NO_PROXY": ""}
 
 
 def _chay_soffice(du_lieu: bytes, soffice: str, vao: str, loc: str, ra: str) -> bytes:
@@ -2538,7 +2566,7 @@ def _chay_soffice(du_lieu: bytes, soffice: str, vao: str, loc: str, ra: str) -> 
         ho_so = thu_muc / "ho_so" / "user"
         ho_so.mkdir(parents=True)
         (ho_so / "registrymodifications.xcu").write_text(_HO_SO_CHAN_LIEN_KET, encoding="utf-8")
-        moi_truong = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": tmp}
+        moi_truong = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": tmp, **_MOI_TRUONG_PROXY_CHET}
         proc = subprocess.Popen(
             [
                 soffice,

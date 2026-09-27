@@ -418,15 +418,12 @@ def test_dung_pdf_KHONG_nhung_tep_may_chu_qua_lien_ket_file(tmp_path):
 
 
 @pytest.mark.skipif(not _CO_SOFFICE, reason="cần LibreOffice")
-@pytest.mark.xfail(
-    reason="rủi ro còn lại đã đo (quyết định 2026-09-26, Tradeoffs): bộ nhập .doc "
-    "tải ảnh liên kết bất kể BlockUntrustedRefererLinks — chặn cần cách ly mạng",
-)
 def test_quy_doi_doc_KHONG_goi_ra_mang_voi_lien_ket_ngoai(tmp_path):
-    """PHÉP ĐO, không phải rào: `.doc` là nhị phân, không có rào nào ở tầng tệp.
-    Đo 2026-09-27 (LibreOffice 26.2.4): một GET mù lúc nhập; bản docx quy đổi
-    giữ liên kết chứ không giữ bytes đã tải, và bước dựng PDF sau đó bị rào
-    chặn. XFAIL trong image triển khai = rủi ro có thật ở đó."""
+    """Rào thứ hai. Bộ nhập `.doc` tải ảnh liên kết bất kể
+    `BlockUntrustedRefererLinks` — đo 2026-09-27: một GET mù lúc nhập, ở cả
+    LibreOffice 26.2.4 lẫn 25.2.3. Lượt tải đó đi qua proxy của LibreOffice, nên
+    hồ sơ riêng trỏ proxy về một cổng loopback chết (`_HO_SO_CHAN_LIEN_KET`).
+    Đỏ trên một image nào nghĩa là rào không giữ ở bản LibreOffice đó."""
     from src.services.doc_tai_lieu import _chuyen_doc_sang_docx
 
     with _may_nghe() as (goc, goi):
