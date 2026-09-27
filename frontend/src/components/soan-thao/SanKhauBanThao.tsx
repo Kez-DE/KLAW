@@ -10,7 +10,13 @@ import { TayKeo } from "@/components/ui/TayKeo";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { dungLaiBanThao, suaMucBanThao, suaODien, taiAnhNguon, taiXuongBanThao } from "@/lib/api";
 import { docRongDaLuu, kepRong, luuRong, type Bien } from "@/lib/keo-dan";
-import { CAU_MAY_BAN, DUONG_DAN_KHUON, giaTriHienThi, type ODienGui } from "@/lib/khuon-goc";
+import {
+  CAU_MAY_BAN,
+  chiGiuThayDoi,
+  DUONG_DAN_KHUON,
+  giaTriHienThi,
+  type ODienGui,
+} from "@/lib/khuon-goc";
 import {
   khuonHopLe,
   LOAI_TONG_QUAT,
@@ -143,13 +149,19 @@ interface Props {
   /** Bản thảo vừa dựng lại xong (drawer sửa mục, Task 25) → cập nhật state
    *  `banThaoMo` của nơi gọi (cùng việc `onLui` đã làm cho phiên bản lùi). */
   capNhatBanThao: (bt: BanThao) => void;
-  onLui: () => void;
+  /** `true` = đã lùi (bản lùi về đã tới qua state của nơi gọi). */
+  onLui: () => Promise<boolean>;
   onDong: () => void;
   onPhimTat: (loai: "rut_gon" | "trang_trong" | "soat_luat") => void;
   /** Dưới ngưỡng hai cột (Task 26, spec 2026-09-09 §9.7): cột mục cố định bề
    *  rộng không còn chỗ đứng — gấp lại thành `<details>` phía trên xem trước,
    *  và drawer sửa mục bên dưới phủ toàn màn (xem `NganXepDrawer.toanMan`). */
   toanMan: boolean;
+  /** Chữ đang gõ ở bảng ô điền của bản thảo này — nơi gọi giữ nó ở TRÊN sân
+   *  khấu (xem `BangODien`), vì sân khấu bị tháo ra ở tab "Trợ lý" của bố cục
+   *  hẹp, khi vượt ngưỡng 68rem và khi đóng. */
+  nhapODien: Readonly<Record<string, string>>;
+  datNhapODien: (doi: (cu: Readonly<Record<string, string>>) => Record<string, string>) => void;
 }
 
 const KHOA_RONG_MUC = "klaw.san-khau.muc";
@@ -185,6 +197,8 @@ export function SanKhauBanThao({
   onDong,
   onPhimTat,
   toanMan,
+  nhapODien,
+  datNhapODien,
 }: Props) {
   // Phase 15 R3 — sân khấu render lại trên MỌI pixel kéo `TayKeo` (`datRongMuc`
   // đặt state ngay trong component này) và trên mọi token chat đang stream ở
@@ -340,8 +354,16 @@ export function SanKhauBanThao({
   const tieuDeKhuon = tieuDeTuBanThao(banThao.document) ?? banThao.ten;
 
   /** Bảng ô điền → `PATCH …/o-dien`, cùng khuôn `onSuaKhoi`: một toast mỗi
-   *  lượt, gác xuất tệp trong lúc chờ, bỏ phản hồi cũ hơn bản đang hiện. */
-  const onLuuO = async (doi: ODienGui[]): Promise<boolean> => {
+   *  lượt, gác xuất tệp trong lúc chờ, bỏ phản hồi cũ hơn bản đang hiện. Trả
+   *  câu từ chối để bảng giữ nó cạnh nút Lưu (`null` = đã lưu). */
+  const onLuuO = async (doi: ODienGui[]): Promise<string | null> => {
+    // Một lượt Lùi (hay lưu khác) còn chưa về: hai lượt ghi phiên bản độc lập
+    // thì phản hồi về SAU thắng trên màn hình, không theo thứ tự máy chủ đã ghi.
+    if (soLuuDangCho > 0) {
+      const cau = "Đang lưu hay lùi một phiên bản — đợi xong rồi lưu lại.";
+      toast.error(cau);
+      return cau;
+    }
     const lucGoi = banThaoRef.current;
     datSoLuuDangCho((n) => n + 1);
     const idToast = toast.loading(`Đang lưu ${doi.length} ô…`);
@@ -349,7 +371,7 @@ export function SanKhauBanThao({
       const kq = await suaODien(lucGoi.id, lucGoi.phien_ban, doi);
       if (!kq.ok) {
         toast.error(kq.error.message, { id: idToast, duration: 6000 });
-        return false;
+        return kq.error.message;
       }
       toast.success(
         kq.data.phien_ban === lucGoi.phien_ban
@@ -358,7 +380,27 @@ export function SanKhauBanThao({
         { id: idToast, duration: 4000 },
       );
       if (kq.data.phien_ban >= banThaoRef.current.phien_ban) capNhatBanThao(kq.data);
-      return true;
+      return null;
+    } finally {
+      datSoLuuDangCho((n) => n - 1);
+    }
+  };
+
+  /** Lùi đi qua CÙNG cổng `soLuuDangCho` với lưu và tải tệp: một lượt ghi
+   *  phiên bản một lúc. Lùi trong lúc một lượt lưu chưa về thì phản hồi nào về
+   *  sau thắng, không theo thứ tự máy chủ đã ghi — màn hình có thể đứng ở một
+   *  phiên bản máy chủ đã bỏ; bấm hai lần thì lùi hai bậc. Lùi xong, bảng ô điền
+   *  chỉ giữ ô ĐỔI THẬT so với bản vừa bỏ (`chiGiuThayDoi`). */
+  const lui = async () => {
+    if (soLuuDangCho > 0) {
+      toast.error("Đang lưu hay lùi một phiên bản — đợi xong rồi thử lại.");
+      return;
+    }
+    const khuonBo = khuon;
+    datSoLuuDangCho((n) => n + 1);
+    try {
+      if ((await onLui()) && khuonBo !== null)
+        datNhapODien((cu) => chiGiuThayDoi(khuonBo.cho_trong, cu));
     } finally {
       datSoLuuDangCho((n) => n - 1);
     }
@@ -461,7 +503,17 @@ export function SanKhauBanThao({
 
   const soODaDien = khuon?.cho_trong.filter((o) => giaTriHienThi(o) !== "").length ?? 0;
   const cotTrai =
-    khuon !== null ? <BangODien key={banThao.id} khuon={khuon} onLuu={onLuuO} /> : danhSachMuc;
+    khuon !== null ? (
+      <BangODien
+        key={banThao.id}
+        khuon={khuon}
+        nhap={nhapODien}
+        datNhap={datNhapODien}
+        onLuu={onLuuO}
+      />
+    ) : (
+      danhSachMuc
+    );
 
   const xuatTep = async (dinhDang: "docx" | "pdf") => {
     if (khuon !== null) return taiTepKhuon(dinhDang);
@@ -533,10 +585,14 @@ export function SanKhauBanThao({
             <>
               <button
                 type="button"
-                onClick={onLui}
+                onClick={() => void lui()}
+                // `aria-disabled`, không `disabled`: cùng lý do nút Lưu của
+                // `BangODien` — nút đang giữ tiêu điểm mà bị `disabled` thì
+                // tiêu điểm rơi về `<body>` ngay giữa lượt lùi. `lui` tự chặn.
+                aria-disabled={soLuuDangCho > 0}
                 title={CANH_BAO_LUI}
                 aria-describedby="san-khau-canh-bao-lui"
-                className={NUT_PHU}
+                className={cn(NUT_PHU, "aria-disabled:cursor-not-allowed aria-disabled:opacity-60")}
               >
                 <ChevronLeft className="size-3.5" aria-hidden /> Lùi
               </button>
@@ -617,7 +673,12 @@ export function SanKhauBanThao({
                   ? `Ô điền · đã điền ${soODaDien}/${khuon.cho_trong.length}`
                   : "Các mục"}
               </summary>
-              <div className="mt-2">{cotTrai}</div>
+              {/* Giới hạn cao + tự cuộn: `<details>` là `shrink-0` và không tổ
+                  tiên nào tới dialog cố định cuộn được, nên 8+ ô đẩy nút Lưu
+                  xuống dưới thanh tab (tiêu điểm vào đó cũng không kéo nó ra —
+                  WCAG 2.4.11) và 6+ ô đẩy khung trang ra khỏi màn. `p-1` chừa
+                  chỗ cho vòng tiêu điểm (2px + offset 2px) khỏi bị cắt. */}
+              <div className="mt-2 max-h-[50dvh] overflow-y-auto p-1">{cotTrai}</div>
             </details>
           ) : (
             <>

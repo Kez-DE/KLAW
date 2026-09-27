@@ -58,8 +58,14 @@ kiem("nút đã rời DOM, không có khoá hay không tìm thấy → ô hỏi"
   );
 });
 kiem("mở không từ nút nào (liên kết `?ban_thao=`) → ô hỏi", () => {
-  assert.equal(noiTraTieuDiem(null, () => null, oHoi), oHoi);
-  assert.equal(noiTraTieuDiem(null, () => null, null), null);
+  assert.equal(
+    noiTraTieuDiem(null, () => null, oHoi),
+    oHoi,
+  );
+  assert.equal(
+    noiTraTieuDiem(null, () => null, null),
+    null,
+  );
 });
 
 console.log(`kiem-tieu-diem: ${dat}/${tong} đạt`);

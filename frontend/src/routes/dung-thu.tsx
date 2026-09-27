@@ -17,6 +17,7 @@ import { loiTruocKhiGui, seDungOcr } from "@/lib/tai-lieu";
 import { taiLen } from "@/lib/tai-lieu-api";
 import { loaiBackendCua } from "@/lib/mau-van-ban";
 import { daTat, ghiNhoDaTat, khoaHetHan } from "@/lib/tat-thong-bao";
+import { noiTraTieuDiem } from "@/lib/tieu-diem";
 import { SanKhauBanThao } from "@/components/soan-thao/SanKhauBanThao";
 import { SanKhauBanTaiLen } from "@/components/soan-thao/KhungTrangAnh";
 import { TheTaiKhoanKhoa } from "@/components/tai-khoan/TheTaiKhoanKhoa";
@@ -268,6 +269,22 @@ function ManHoiKlaw() {
   >(null);
   const banThaoIdSanKhau = sanKhau?.loai === "ban_thao" ? sanKhau.banThaoId : null;
   const [banThaoMo, datBanThaoMo] = useState<BanThao | null>(null);
+  /** Chữ đang gõ dở ở bảng ô điền, theo id bản thảo. Ở ĐÂY, không trong bảng:
+   *  tab "Trợ lý" ở bố cục hẹp, vượt ngưỡng 68rem và đóng sân khấu đều tháo
+   *  bảng ra — giữ trong bảng là bắt gõ lại mọi ô (WCAG 3.3.7). Mất khi rời
+   *  trang, như chữ đang gõ ở ô hỏi. */
+  const [nhapODien, datNhapODien] = useState<Record<string, Record<string, string>>>({});
+  /** Nút đã mở sân khấu — ghi trong HANDLER mở (`ghiNoiMoSanKhau`), lúc nút
+   *  còn trong DOM và còn tiêu điểm: ở bố cục hẹp lượt vẽ mở sân khấu tháo cả
+   *  cây chat, nên tới lúc một effect chạy thì `activeElement` đã là `<body>`. */
+  const noiMoSanKhau = useRef<HTMLElement | null>(null);
+  /** Chỉ ghi khi sân khấu đang ĐÓNG: đổi chế độ lúc đang mở ("Điền biểu mẫu"
+   *  từ "Bản tải lên") vẫn trả tiêu điểm về nút mở ban đầu. */
+  const ghiNoiMoSanKhau = () => {
+    if (sanKhau !== null) return;
+    const n = document.activeElement;
+    noiMoSanKhau.current = n instanceof HTMLElement && n !== document.body ? n : null;
+  };
   const [mucDangChonSanKhau, datMucDangChonSanKhau] = useState<string | null>(null);
   /** Tab đang hiện ở bố cục hẹp (Task 26, spec 2026-09-09 §9.7): dưới 68rem
    *  sân khấu không còn chỗ cho cửa sổ trợ lý nổi, nên nó lùi thành một trong
@@ -374,12 +391,15 @@ function ManHoiKlaw() {
       });
     }
   }, [banThaoTrenUrl, cauHoiTrenUrl, phienId, navigate]);
-  const onLuiSanKhau = () => {
-    if (banThaoMo === null) return;
-    void luiBanThao(banThaoMo.id).then((kq) => {
-      if (kq.ok) datBanThaoMo(kq.data);
-      else toast.error(kq.error.message);
-    });
+  const onLuiSanKhau = async () => {
+    if (banThaoMo === null) return false;
+    const kq = await luiBanThao(banThaoMo.id);
+    if (!kq.ok) {
+      toast.error(kq.error.message);
+      return false;
+    }
+    datBanThaoMo(kq.data);
+    return true;
   };
   const onPhimTatSanKhau = (loai: "rut_gon" | "trang_trong" | "soat_luat") => {
     const mucChon =
@@ -395,6 +415,7 @@ function ManHoiKlaw() {
    *  `ban_thao.id`, không phải id lượt hỏi hay id phiên. `coSan`: bản thảo
    *  vừa về từ chính lời gọi mở ("Điền biểu mẫu") — không tải lại lần hai. */
   const moSanKhau = (id: string, coSan?: BanThao) => {
+    ghiNoiMoSanKhau();
     datDangMo(null);
     doiChieu.dong();
     datSoanThao(null);
@@ -422,6 +443,7 @@ function ManHoiKlaw() {
    *  mở qua ĐÚNG cửa đóng (gỡ `?ban_thao=`), rồi mở chế độ này — cùng lượt vẽ,
    *  nên sân khấu không chớp đóng/mở. */
   const moBanTaiLen = (tl: { id: string; ten_tep: string; so_trang: number | null }) => {
+    ghiNoiMoSanKhau();
     datDangMo(null);
     doiChieu.dong();
     datSoanThao(null);
@@ -899,18 +921,24 @@ function ManHoiKlaw() {
         : banThaoMo !== null && banThaoMo.id === sanKhau.banThaoId
           ? `ban_thao:${sanKhau.banThaoId}`
           : null;
-  // Nhại effect focus/mở của khung soạn thảo (~783-802) — TÁCH khỏi effect Esc
-  // ngay dưới (không gộp theo `onDongSanKhau`): nơi mở chỉ ghi MỘT lần lúc mở
-  // (đổi chế độ khi đang mở vẫn trả tiêu điểm về đúng nút đã mở sân khấu),
-  // không phải mỗi khi `onDongSanKhau` đổi tham chiếu.
-  const noiMoSanKhau = useRef<HTMLElement | null>(null);
+  // Trả tiêu điểm khi đóng — TÁCH khỏi effect Esc ngay dưới (không gộp theo
+  // `onDongSanKhau`, đổi tham chiếu theo URL). Nơi mở đã ghi ở handler mở
+  // (`ghiNoiMoSanKhau`). Cleanup chạy SAU lượt commit đóng, nên ở bố cục hẹp
+  // cây chat đã dựng lại: nút mở cũ đã rời DOM thì tìm bản dựng lại của nó
+  // (`data-mo-san-khau`), không thì ô hỏi — không bao giờ `<body>`.
   useEffect(() => {
     if (!dangMoSanKhau) return;
-    noiMoSanKhau.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     return () => {
-      const noiMo = noiMoSanKhau.current;
-      if (noiMo !== null && noiMo.isConnected) noiMo.focus();
+      const noiTra = noiTraTieuDiem(
+        noiMoSanKhau.current,
+        (khoa) => document.querySelector<HTMLElement>(`[data-mo-san-khau="${CSS.escape(khoa)}"]`),
+        // Cố ý đọc LÚC cleanup: ở bố cục hẹp ô hỏi vừa được dựng lại (nút mới),
+        // còn lúc mở thì nó không có trong DOM (`null`).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        oHoi.current,
+      );
+      noiMoSanKhau.current = null;
+      noiTra?.focus();
     };
   }, [dangMoSanKhau]);
   // Tiêu điểm vào TIÊU ĐỀ sân khấu (`data-tieu-de-san-khau`, `tabIndex=-1`):
@@ -1039,6 +1067,13 @@ function ManHoiKlaw() {
         onDong={onDongSanKhau}
         onPhimTat={onPhimTatSanKhau}
         toanMan={toanMan}
+        nhapODien={nhapODien[banThaoDangTaiXong.id] ?? {}}
+        datNhapODien={(doi) =>
+          datNhapODien((cu) => ({
+            ...cu,
+            [banThaoDangTaiXong.id]: doi(cu[banThaoDangTaiXong.id] ?? {}),
+          }))
+        }
       />
     ) : (
       <div className="flex h-full items-center justify-center">

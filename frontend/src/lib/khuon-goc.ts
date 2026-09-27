@@ -47,6 +47,36 @@ export function oDaDoi(
   });
 }
 
+/**
+ * Chữ đang gõ còn giữ khi LÙI khỏi phiên bản `choTrong`: chỉ ô ĐỔI THẬT so với
+ * bản bị bỏ. Ô đã chạm mà không đổi (gõ lại đúng giá trị) phải rơi — giữ lại
+ * thì trên bản lùi về nó thành "đổi", và một lần Lưu áp lại chữ của chính bản
+ * người dùng vừa bỏ. Ô đổi thật là chữ người dùng gõ, còn hiện trên màn hình:
+ * giữ, đừng bắt gõ lại.
+ */
+export function chiGiuThayDoi(
+  choTrong: ChoTrongKhuon[],
+  nhap: Readonly<Record<string, string>>,
+): Record<string, string> {
+  return Object.fromEntries(
+    oDaDoi(choTrong, nhap).map((d) => [khoaO({ don_vi: d.don_vi, so: d.cho_trong }), d.gia_tri]),
+  );
+}
+
+/** Lưu xong: bỏ ô đã gửi ĐÚNG chữ đó. Ô người dùng gõ tiếp trong lúc lưu (chữ
+ *  đã khác chữ vừa gửi) còn nguyên để lưu lần sau. */
+export function boDaGui(
+  nhap: Readonly<Record<string, string>>,
+  daGui: readonly ODienGui[],
+): Record<string, string> {
+  const ra = { ...nhap };
+  for (const d of daGui) {
+    const k = khoaO({ don_vi: d.don_vi, so: d.cho_trong });
+    if (ra[k] === d.gia_tri) delete ra[k];
+  }
+  return ra;
+}
+
 /** Chỉ phần tên (không thư mục), không ký tự điều khiển; rỗng → `null`. */
 function tenSach(ten: string): string | null {
   // eslint-disable-next-line no-control-regex -- đây đúng là bộ lọc ký tự điều khiển

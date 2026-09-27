@@ -1385,8 +1385,7 @@ type GoiKhuon = { url: string; method: string; body: unknown; headers: Record<st
 const goiKhuon: GoiKhuon[] = [];
 const traJson = (x: unknown, status = 200) =>
   new Response(JSON.stringify(x), { status, headers: { "Content-Type": "application/json" } });
-let traPatch: () => Response | Promise<Response> = () =>
-  traJson({ detail: "chưa đặt" }, 500);
+let traPatch: () => Response | Promise<Response> = () => traJson({ detail: "chưa đặt" }, 500);
 let moCongBanTaiLen: () => void = () => {};
 const congBanTaiLen = new Promise<void>((r) => {
   moCongBanTaiLen = r;
@@ -1835,7 +1834,11 @@ assert.deepEqual(
 );
 toanManL = true;
 await act(() => veL());
-assert.deepEqual(giaTriL(), ["Nguyễn Văn Ánh ", "a@b.vn", "Hà Nội"], "đổi bố cục hẹp: chữ còn nguyên");
+assert.deepEqual(
+  giaTriL(),
+  ["Nguyễn Văn Ánh ", "a@b.vn", "Hà Nội"],
+  "đổi bố cục hẹp: chữ còn nguyên",
+);
 // Bố cục hẹp: bảng ô điền có giới hạn cao và tự cuộn — không thì 8+ ô đẩy nút
 // Lưu xuống dưới thanh tab, không cuộn tới được, và khung trang mất hẳn.
 const cuonHep = tim(khungL, (n) => n.tagName === "DETAILS")!.childNodes.find(
@@ -1857,12 +1860,19 @@ traPatch = () =>
   });
 await act(() => phat(formL(), "submit"));
 await choDen(() => soGoi((g) => g.method === "PATCH" && g.url === "/ban-thao/bl/o-dien") === 1);
-assert.equal(nutLui().getAttribute("disabled"), "", "lượt lưu ô điền chưa về: Lùi bị khoá");
+assert.equal(
+  nutLui().getAttribute("aria-disabled"),
+  "true",
+  "lượt lưu ô điền chưa về: Lùi bị khoá",
+);
 const CAU_AP =
   "Không lưu được: 1 ô không điền được vào tài liệu gốc (“Ô 1.1”) — giá trị quá dài cho ô, hoặc ô không còn khớp tài liệu. Rút gọn hay bỏ trống ô đó rồi lưu lại.";
-traPatchL(traJson({ detail: CAU_AP }, 422));
-await choDen(() => nutLui().getAttribute("disabled") === null);
-assert.equal(nutLui().getAttribute("disabled"), null, "lưu đã về: Lùi mở lại");
+await act(async () => {
+  traPatchL(traJson({ detail: CAU_AP }, 422));
+  await nhip();
+});
+await choDen(() => nutLui().getAttribute("aria-disabled") === "false");
+assert.equal(nutLui().getAttribute("aria-disabled"), "false", "lưu đã về: Lùi mở lại");
 const moTaLoi = nutLuuL().getAttribute("aria-describedby");
 assert.equal(
   moTaLoi === null ? null : tim(khungL, (n) => n.getAttribute("id") === moTaLoi)?.textContent,
@@ -1875,12 +1885,24 @@ assert.equal(nutLuuL().getAttribute("aria-describedby"), null, "gõ tiếp: câu
 // Lùi đang chạy: không bấm được lần hai (lùi hai bậc), Lưu không gửi gì.
 await act(() => phat(nutLui(), "click"));
 await choDen(() => soLui.length === 1);
-assert.equal(nutLui().getAttribute("disabled"), "", "Lùi đang chạy: nút Lùi khoá");
-const soPatchTruocLui = soGoi((g) => g.method === "PATCH");
-await act(() => phat(formL(), "submit"));
+assert.equal(nutLui().getAttribute("aria-disabled"), "true", "Lùi đang chạy: nút Lùi khoá");
+await act(() => phat(nutLui(), "click"));
 await choDen(() => false);
-assert.equal(soGoi((g) => g.method === "PATCH"), soPatchTruocLui, "Lùi đang chạy: Lưu không gửi");
-moCongLui();
+assert.equal(soLui.length, 1, "bấm Lùi lần hai trong lúc lùi: không lùi hai bậc");
+const soPatchTruocLui = soGoi((g) => g.method === "PATCH");
+await act(async () => {
+  phat(formL(), "submit");
+  await nhip();
+});
+assert.equal(
+  soGoi((g) => g.method === "PATCH"),
+  soPatchTruocLui,
+  "Lùi đang chạy: Lưu không gửi",
+);
+await act(async () => {
+  moCongLui();
+  await nhip();
+});
 await choDen(() => giaTriL()[0] === "Trần Thị B");
 assert.deepEqual(
   giaTriL(),
@@ -1889,4 +1911,4 @@ assert.deepEqual(
 );
 assert.match(formL().textContent, /1 thay đổi chưa lưu/, "chỉ ô đổi thật còn chờ lưu");
 
-console.log("kiem-ui-muot: 170/170 OK");
+console.log("kiem-ui-muot: 185/185 OK");

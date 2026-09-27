@@ -1,14 +1,19 @@
 import { useId, useState, type FormEvent } from "react";
-import { giaTriHienThi, khoaO, nhanO, oDaDoi, type ODienGui } from "@/lib/khuon-goc";
+import { boDaGui, giaTriHienThi, khoaO, nhanO, oDaDoi, type ODienGui } from "@/lib/khuon-goc";
 import type { KhuonBanThao } from "@/lib/klaw";
 import { cn } from "@/lib/utils";
 
 interface Props {
   khuon: KhuonBanThao;
-  /** Lưu MỌI ô đổi thành MỘT phiên bản. `true` = đã lưu (bảng bỏ chữ đang gõ
-   *  và đọc lại giá trị từ phiên bản mới); `false` = bị từ chối — chữ người
-   *  dùng gõ PHẢI còn nguyên để sửa rồi lưu lại. Nơi gọi báo lỗi. */
-  onLuu: (doi: ODienGui[]) => Promise<boolean>;
+  /** Chữ đang gõ, theo `khoaO` — nơi gọi GIỮ nó ở trên sân khấu: tab "Trợ lý"
+   *  ở bố cục hẹp, vượt ngưỡng 68rem và đóng sân khấu đều tháo bảng này ra, và
+   *  người dùng không phải gõ lại (WCAG 3.3.7). */
+  nhap: Readonly<Record<string, string>>;
+  datNhap: (doi: (cu: Readonly<Record<string, string>>) => Record<string, string>) => void;
+  /** Lưu MỌI ô đổi thành MỘT phiên bản. `null` = đã lưu (bảng bỏ chữ vừa gửi
+   *  và đọc lại giá trị từ phiên bản mới); chuỗi = câu từ chối — chữ người dùng
+   *  gõ PHẢI còn nguyên để sửa rồi lưu lại, và câu đứng lại cạnh nút Lưu. */
+  onLuu: (doi: ODienGui[]) => Promise<string | null>;
 }
 
 /**
@@ -20,10 +25,12 @@ interface Props {
  * đang gõ dở ở ô này. Nơi gọi đặt `key={banThao.id}`: sang bản thảo khác là
  * một bảng mới.
  */
-export function BangODien({ khuon, onLuu }: Props) {
+export function BangODien({ khuon, nhap, datNhap, onLuu }: Props) {
   const goc = useId();
-  const [nhap, datNhap] = useState<Record<string, string>>({});
   const [dangLuu, datDangLuu] = useState(false);
+  /** Câu từ chối của lần lưu gần nhất — toast tự tắt sau vài giây, câu này ở
+   *  lại cạnh nút Lưu tới lần gõ hay lần lưu kế tiếp (WCAG 3.3.1). */
+  const [loi, datLoi] = useState<string | null>(null);
   const doi = oDaDoi(khuon.cho_trong, nhap);
   const daDien = khuon.cho_trong.filter((o) => giaTriHienThi(o) !== "").length;
 
@@ -31,9 +38,11 @@ export function BangODien({ khuon, onLuu }: Props) {
     e.preventDefault();
     if (dangLuu || doi.length === 0) return;
     datDangLuu(true);
-    const ok = await onLuu(doi);
+    datLoi(null);
+    const cau = await onLuu(doi);
     datDangLuu(false);
-    if (ok) datNhap({});
+    if (cau === null) datNhap((cu) => boDaGui(cu, doi));
+    else datLoi(cau);
   };
 
   if (khuon.cho_trong.length === 0) {
@@ -70,6 +79,7 @@ export function BangODien({ khuon, onLuu }: Props) {
                 onChange={(e) => {
                   const v = e.target.value;
                   datNhap((cu) => ({ ...cu, [khoa]: v }));
+                  datLoi(null);
                 }}
                 maxLength={500}
                 autoComplete="off"
@@ -88,6 +98,7 @@ export function BangODien({ khuon, onLuu }: Props) {
         // nút khoá hẳn thì rời vòng Tab — người dùng bàn phím không tìm ra nó.
         // `luu` tự chặn khi đang lưu hay chưa đổi gì.
         aria-disabled={dangLuu || doi.length === 0}
+        aria-describedby={loi === null ? undefined : `${goc}-loi`}
         className={cn(
           "focus-brass mt-4 inline-flex min-h-10 cursor-pointer items-center rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90",
           "aria-disabled:cursor-not-allowed aria-disabled:opacity-60",
@@ -95,6 +106,13 @@ export function BangODien({ khuon, onLuu }: Props) {
       >
         {dangLuu ? "Đang lưu…" : "Lưu"}
       </button>
+      {/* Không `role="alert"`: toast của cùng lượt lưu đã đọc câu này lên một
+          lần; đây là bản ở lại để đọc lại và tìm ô cần sửa. */}
+      {loi !== null && (
+        <p id={`${goc}-loi`} className="m-0 mt-2 text-[12.5px] leading-5 text-destructive">
+          {loi}
+        </p>
+      )}
     </form>
   );
 }
