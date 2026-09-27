@@ -248,31 +248,6 @@ def _tieu_de_tu_document(document: str | None) -> str | None:
     return m.group(1).strip() if m else None
 
 
-def gop_phep_sua(cu: list[dict] | None, moi: list[dict] | None) -> list[dict]:
-    """Gộp phép sửa MỚI vào phép của phiên bản đang có — MỘT luật cho lượt sửa
-    bằng lời (graph) và lần lưu ô điền (`PATCH o-dien`). Hàm thuần.
-
-    `dien` khoá theo `(don_vi, cho_trong)`, mới thắng; `gia_tri` rỗng gỡ chỗ điền
-    (dãy chấm trở lại). `thay`/`xoa` khoá theo `don_vi`, mới thắng. `chen_sau`
-    khoá theo `(don_vi, noi_dung)`: trùng thì bỏ, giữ thứ tự. Kết quả đã khử
-    trùng — điều bộ áp PDF (giữ phép ĐẦU trên vùng chồng nhau) đòi trước khi gọi.
-    """
-    ra: dict[tuple, dict] = {}
-    for p in [*(cu or []), *(moi or [])]:
-        loai, dv = p.get("loai"), p.get("don_vi")
-        if loai == "dien":
-            khoa: tuple = ("dien", dv, p.get("cho_trong"))
-            if not str(p.get("gia_tri") or "").strip():
-                ra.pop(khoa, None)
-                continue
-        elif loai in ("thay", "xoa"):
-            khoa = ("doan", dv)
-        else:
-            khoa = (loai, dv, p.get("noi_dung"))
-        ra[khoa] = p
-    return list(ra.values())
-
-
 def kiem_tran_sua(cu: dict) -> None:
     """Trần sửa của MỘT bản thảo, phát biểu ở đúng một chỗ.
 
