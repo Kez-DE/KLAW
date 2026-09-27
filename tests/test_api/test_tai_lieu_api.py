@@ -905,6 +905,88 @@ async def test_PDF_11_trang_bi_tu_choi_TRUOC_khi_doc_va_KHONG_tru_han_muc(client
     assert r.status_code == 201, r.text
 
 
+def _hoi_thoai_cua(sub: str) -> int:
+    """MỌI dòng `hoi_thoai` của tài khoản, kể cả dòng đã xoá mềm."""
+    return _dem("SELECT count(*) FROM hoi_thoai WHERE user_sub = CAST(:u AS uuid)", u=sub)
+
+
+def _loi_dung(loi):
+    def _nem(docx):
+        raise loi
+
+    return _nem
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("ten", "tep", "dung", "ma", "chi_tiet"),
+    [
+        (
+            "muoi-mot-trang.docx",
+            _docx(DONG_LUONG),
+            lambda docx: pdf_trang(*[(595.0, 842.0)] * 11),
+            422,
+            "«muoi-mot-trang.docx» có 11 trang, vượt giới hạn 10 trang.",
+        ),
+        ("hong.docx", b"khong phai zip", None, 422, None),
+        ("bang.xyz", b"abc", None, 422, None),
+        ("qua-tai.docx", _docx(DONG_LUONG), "qua_tai", 503, None),
+    ],
+    ids=["11_trang", "tep_hong", "dinh_dang", "qua_tai"],
+)
+async def test_TAI_LEN_BI_TU_CHOI_khong_de_lai_hoi_thoai_nao(
+    client, khoa_ky, hai_nguoi, monkeypatch, ten, tep, dung, ma, chi_tiet
+):
+    """B5 (owner 2026-09-27): đính kèm ở một đoạn chat chưa mở mà tệp bị từ chối (trần
+    trang, định dạng, tệp hỏng, máy chủ bận) thì KHÔNG để lại hội thoại nào — không dòng
+    `hoi_thoai` nào (kể cả xoá mềm), thanh bên không đổi. Phiên do CHÍNH lần tải lên đó
+    mở hộ bị xoá cứng, dòng việc đọc đi theo khoá ngoại."""
+    from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang
+
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    if dung == "qua_tai":
+        dung = _loi_dung(ChuyenDoiKhongSanSang("qua_tai"))
+    if dung is not None:
+        monkeypatch.setattr(rtl.dung_trang, "dung_pdf", dung)
+    _, truoc = hoi_thoai.danh_sach(a, 50, 0)
+
+    r = await client.post("/api/v1/tai-lieu", headers=ha, files={"tep": (ten, tep)}, data={})
+    assert r.status_code == ma, r.text
+    if chi_tiet:
+        assert r.json()["detail"] == chi_tiet
+    assert _hoi_thoai_cua(a) == 0, "không dòng hoi_thoai nào ở lại"
+    assert hoi_thoai.danh_sach(a, 50, 0)[1] == truoc == 0
+    assert _dem("SELECT count(*) FROM viec_doc_tai_lieu WHERE user_sub = CAST(:u AS uuid)", u=a) == 0
+
+
+@pytest.mark.asyncio
+async def test_TU_CHOI_trong_HOI_THOAI_CO_SAN_giu_hoi_thoai_va_viec_nhu_cu(client, khoa_ky, hai_nguoi, monkeypatch):
+    """Tải lên vào một hội thoại đã có: hội thoại là của người dùng, không phải của lần
+    tải lên — nó ở lại, và dòng việc đọc `hong` ở lại như hôm nay (hạn mức đếm nó)."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    monkeypatch.setattr(rtl.dung_trang, "dung_pdf", lambda docx: pdf_trang(*[(595.0, 842.0)] * 11))
+    _, truoc = hoi_thoai.danh_sach(a, 50, 0)
+
+    r = await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "muoi-mot-trang.docx")
+    assert (r.status_code, r.json()["detail"]) == (422, "«muoi-mot-trang.docx» có 11 trang, vượt giới hạn 10 trang.")
+    assert hoi_thoai.lay_phien(a, phien) is not None and hoi_thoai.danh_sach(a, 50, 0)[1] == truoc == 1
+    assert (
+        _dem(
+            "SELECT count(*) FROM viec_doc_tai_lieu WHERE hoi_thoai_id = CAST(:h AS uuid) AND ly_do_hong = :l",
+            h=phien,
+            l="vuot_tran_so_trang",
+        )
+        == 1
+    )
+    # Lần tải kế tiếp vào CÙNG hội thoại đi như thường.
+    monkeypatch.setattr(rtl.dung_trang, "dung_pdf", lambda docx: pdf_trang((595.0, 842.0)))
+    r = await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "hd.docx")
+    assert (r.status_code, r.json()["hoi_thoai_id"]) == (201, phien), r.text
+
+
 @pytest.mark.asyncio
 async def test_thieu_LibreOffice_la_503_va_KHONG_tru_han_muc(client, khoa_ky, hai_nguoi, monkeypatch):
     from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang

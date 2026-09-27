@@ -196,6 +196,21 @@ def xoa_mem(sub: str, id: str) -> bool:
         return n > 0
 
 
+_SQL_XOA_CUNG_MO_HO = text(
+    "DELETE FROM hoi_thoai h WHERE h.id = :id AND h.user_sub = :sub"
+    " AND NOT EXISTS (SELECT 1 FROM luot_hoi_thoai l WHERE l.hoi_thoai_id = h.id)"
+)
+
+
+def xoa_cung_phien_mo_ho(sub: str, id: str) -> bool:
+    """Xoá CỨNG một phiên mà `routes_tai_lieu.tai_len` vừa mở hộ cho một tệp rồi từ
+    chối tệp đó (B5): người dùng chưa từng thấy phiên này. Chỉ phiên của `sub` và
+    chưa có lượt nào — một phiên đã trò chuyện không bao giờ đi đường này. Khoá ngoại
+    cascade dòng việc đọc của lần tải lên ấy."""
+    with get_engine().begin() as c:
+        return c.execute(_SQL_XOA_CUNG_MO_HO, {"sub": sub, "id": id}).rowcount > 0
+
+
 def bo_nho_cua_phien(id: str) -> dict:
     """Ba lớp bộ nhớ của phiên (spec 2026-09-09 §6.1). Không lọc theo chủ: caller
     (`_chuan_bi_phien`) đã kiểm chủ bằng `lay_phien` trước đó."""
