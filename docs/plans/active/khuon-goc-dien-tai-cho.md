@@ -539,6 +539,16 @@ open risks, and follows the TDD order: failing test first, then code.
   Agent default within that rule, open for the owner to reverse: exempting fill
   saves from the cap (`sua_o_dien` skips `kiem_tran_sua`, writes `tang: 0`,
   keeps the `[-TRAN_SUA:]` trim) would allow an instant save per blank.
+- 2026-09-27 (wave G integration, `integ/wave-g`): `cho_trong_khuon` keeps
+  both rules — a blank of a paragraph replaced by `thay` with `doan` is not
+  listed, and every listed label goes through `nhan_sach` — so the probe
+  (`ban_do`) marks exactly the blanks still on the page. Measured on BM.M05
+  with LibreOffice 26.2.4: 32/32 blanks positioned untouched, 32/32 after
+  `thay` of the letterhead's name paragraph plus fills, 30/30 after `thay` of
+  its "Số …./…." paragraph. The node reads labels through
+  `doc_tai_lieu.nhan_sach_don_vi` (the reader's own threading, now one helper),
+  so rows stored before `nhan_sach` reach the prompt, the chat's "Còn trống"
+  and `khong_khop_nhan` with the names the page shows.
 
 ## Validation
 
