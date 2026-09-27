@@ -262,9 +262,38 @@ def test_chen_sau_o_bang_them_vao_CUOI_o():
     assert [_chu(p) for p in tc.iter(f"{_W}p")] == ["Dòng 1", "Dòng 2"]
 
 
+@pytest.mark.parametrize("loai", ["thay", "chen_sau"])
+def test_o_co_doan_DAU_rong_mau_lay_tu_run_mang_chu_dau_tien_cua_o(loai):
+    # BM.M05 ô "Ghi chú": đoạn đầu rỗng, chữ đậm TNR ở đoạn hai.
+    _, ra, bc = _ap(_o(_p(), _p(_r("Ghi chú", _B), ppr=_GIUA)), [{"loai": loai, "don_vi": 0, "noi_dung": "X\nY"}])
+    assert bc["da_ap"] == [0]
+    moi = list(next(_goc(ra).iter(f"{_W}tc")).iter(f"{_W}p"))[-2:]
+    assert [(_run(p), p.find(f"{_W}pPr/{_W}jc") is not None) for p in moi] == [
+        ([("b", "X")], True),
+        ([("b", "Y")], True),
+    ]
+
+
+def test_o_KHONG_co_chu_mau_lay_tu_dinh_dang_dau_doan():
+    _, ra, bc = _ap(
+        _o('<w:p><w:pPr><w:jc w:val="center"/><w:rPr><w:b/></w:rPr></w:pPr></w:p>'),
+        [{"loai": "thay", "don_vi": 0, "noi_dung": _TEN}],
+    )
+    assert bc["da_ap"] == [0]
+    assert _run(next(_goc(ra).iter(f"{_W}p"))) == [("b", _TEN)]
+
+
 def test_xoa_doan_than_bai():
     _, ra, bc = _ap(_p(_r("Bỏ đi")) + _p(_r("Giữ")), [{"loai": "xoa", "don_vi": 0}])
     assert bc["da_ap"] == [0] and _noi_dung(ra) == ["Giữ"]
+
+
+@pytest.mark.parametrize("noi_dung", [None, 5, "", ["x"]])
+def test_xoa_bo_qua_noi_dung_du_mang_hinh_dang_gi(noi_dung):
+    # Một phép `xoa` mang `noi_dung: null` (model_dump không exclude_none) không
+    # được làm nổ cả phiên bản: phiên bản nào cũng áp lại TRỌN danh sách phép.
+    _, ra, bc = _ap(_p(_r("Bỏ đi")) + _p(_r("Giữ")), [{"loai": "xoa", "don_vi": 0, "noi_dung": noi_dung}])
+    assert bc == {"da_ap": [0], "bo_qua": []} and _noi_dung(ra) == ["Giữ"]
 
 
 def test_xoa_o_bang_giu_MOT_w_p_rong_va_tcPr():
