@@ -214,10 +214,13 @@ def test_nhanh_khong_co_cau_tra_loi_van_hien_duoc_coverage_note_nhieu_doan():
     Task 14 thêm nhánh thứ ba: `answer` nay cũng có thể mang một đuôi hỏi thêm
     ngắn trong `coverage_note` (`duoi_hoi_them`), cùng khối hiện với `abstain`
     và `partial_coverage`.
+
+    Nhánh thứ tư (2026-09-27): lượt dựng bản thảo trên khuôn gốc (`ban_thao`
+    có `khuon`) hiện `coverage_note` gọi tên thay đổi không áp được.
     """
     ma = _bo_chu_thich(TSX.read_text(encoding="utf-8"))
-    assert ma.count("<KhoiVanXuoi chu={ghiChuPhamVi}") == 3, (
-        "nhánh abstain, partial_coverage và answer phải cùng hiện coverage_note qua catDoan"
+    assert ma.count("<KhoiVanXuoi chu={ghiChuPhamVi}") == 4, (
+        "nhánh abstain, partial_coverage, answer và bản thảo khuôn gốc phải cùng hiện coverage_note qua catDoan"
     )
 
 

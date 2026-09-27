@@ -498,7 +498,6 @@ open risks, and follows the TDD order: failing test first, then code.
   check (digits/email and `Nhãn: giá trị`) — the prompt sends placeholders to
   `thay`. Reverse only with an owner decision that accepts model-worded
   rewrites on the user's own form.
-
 - 2026-09-27 (G1, blank positions): `dien_khuon.danh_dau_docx` builds a PROBE
   copy — each reachable blank's characters split into their own runs (same
   `w:rPr`) and wrapped in a `w:hyperlink` to `https://klaw.invalid/o/{don_vi}/{so}`;
@@ -530,6 +529,16 @@ open risks, and follows the TDD order: failing test first, then code.
   the PDF export of BM.M05 (`bm-m05.pdf`, 30 blanks — the owner's "0/30 ô"): a
   dots-only line under its label had no words before it. A `.doc` converted by
   LibreOffice reads the same labels as the `.docx`.
+- 2026-09-27 (on-page filling, G3 review): the owner dropped the fill panel
+  ("tình trạng ô này thì ko cần thiết, có thể để người dùng trực tiếp thao tác
+  trên" the page), so blanks are edited on the page image. Values typed there
+  stay unsaved (the map lifted to `dung-thu.tsx`, shown over the blank with a
+  dashed outline), and one toolbar **Lưu** sends every changed blank in one
+  `PATCH …/o-dien`, i.e. one version: the Risks "Edit cap" rule. Saving per
+  blank spends one of `TRAN_SUA` = 10 per field and dead-ends a 30-blank form.
+  Agent default within that rule, open for the owner to reverse: exempting fill
+  saves from the cap (`sua_o_dien` skips `kiem_tran_sua`, writes `tang: 0`,
+  keeps the `[-TRAN_SUA:]` trim) would allow an instant save per blank.
 
 ## Validation
 

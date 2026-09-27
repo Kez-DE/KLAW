@@ -1,24 +1,42 @@
 /**
  * Khuôn gốc ở giao diện (quyết định 2026-09-26, kế hoạch
- * `khuon-goc-dien-tai-cho.md`): nhãn và phần đổi của bảng ô điền, tên tệp tải
- * về, đường dẫn và câu lỗi của khung trang.
+ * `khuon-goc-dien-tai-cho.md`): nhãn, vị trí và thứ tự của chỗ trống điền tại
+ * chỗ trên trang, tên tệp tải về, đường dẫn và câu lỗi của khung trang.
  *
  * Chỉ `import type`: chạy được bằng `node` trần, nên `scripts/kiem-khuon-goc.ts`
  * kiểm được mà không cần dựng ứng dụng. Lời gọi mạng ở `api.ts`.
  */
-import type { ApiError, ChoTrongKhuon } from "./klaw";
+import type { ApiError, ChoTrongKhuon, KhuonBanThao } from "./klaw";
 
-/** Khoá của một ô trong bảng ô điền — `(don_vi, so)` là địa chỉ máy chủ nhận. */
+/** Khoá của một chỗ trống — `(don_vi, so)` là địa chỉ máy chủ nhận. */
 export const khoaO = (o: Pick<ChoTrongKhuon, "don_vi" | "so">) => `${o.don_vi}.${o.so}`;
 
-/** Nhãn hiển thị — CÙNG luật `ban_thao._nhan_o` phía máy chủ (dòng "Hiện thay
- *  đổi" dùng nhãn đó), để một ô mang một tên ở cả hai nơi. */
-export function nhanO(o: ChoTrongKhuon): string {
-  return o.nhan.trim().replace(/:+$/, "").trim() || `Ô ${o.don_vi}.${o.so}`;
+/** Nhãn hiển thị: bỏ dấu hai chấm cuối; không có nhãn thì "chỗ trống" — KHÔNG
+ *  bịa một mã như "Ô 9.0" mà người dùng không đọc ra được gì. */
+export function nhanO(o: Pick<ChoTrongKhuon, "nhan">): string {
+  return o.nhan.trim().replace(/:+$/, "").trim() || "chỗ trống";
 }
 
 /** Giá trị đang điền, như người dùng đọc: ô `tab` lưu kèm một dấu cách đầu. */
-export const giaTriHienThi = (o: ChoTrongKhuon) => (o.gia_tri ?? "").trim();
+export const giaTriHienThi = (o: Pick<ChoTrongKhuon, "gia_tri">) => (o.gia_tri ?? "").trim();
+
+/** Tên đọc lên của nút phủ một chỗ trống: việc sẽ làm, tên chỗ, và giá trị
+ *  đang có — người dùng trình đọc màn hình không đọc được chữ trên ảnh trang.
+ *  `choLuu` = chữ đã gõ mà chưa lưu (`nhapODien`); gõ lại đúng giá trị cũ thì
+ *  không phải một thay đổi (cùng luật `oDaDoi`). */
+export function nhanNutDien(o: Pick<ChoTrongKhuon, "nhan" | "gia_tri">, choLuu?: string): string {
+  const gt = giaTriHienThi(o);
+  const moi = choLuu?.trim();
+  const duoi =
+    moi !== undefined && moi !== gt
+      ? moi === ""
+        ? " — chưa lưu, sẽ để trống"
+        : ` — chưa lưu “${moi}”`
+      : gt === ""
+        ? " — còn trống"
+        : ` — đang là “${gt}”`;
+  return `Điền: ${nhanO(o)}${duoi}`;
+}
 
 /** Một phần tử `gia_tri` của `PATCH /ban-thao/{id}/o-dien`. */
 export interface ODienGui {
@@ -30,6 +48,9 @@ export interface ODienGui {
 /**
  * Các ô ĐÃ ĐỔI so với phiên bản đang có, theo thứ tự đọc — MỘT lần lưu gửi
  * đúng chừng này. `nhap` chỉ giữ ô người dùng đã chạm (khoá `khoaO`).
+ *
+ * Gom lại chứ không lưu từng chỗ: mỗi lần lưu là một phiên bản tính vào trần
+ * sửa (`TRAN_SUA` = 10, chung với lượt chat — kế hoạch, Risks "Edit cap").
  *
  * So SAU khi cắt khoảng trắng hai đầu, vì máy chủ cắt y hệt (`chuan_hoa_dien`):
  * gõ lại đúng giá trị cũ không được tốn một phiên bản của trần sửa. Giá trị gửi
@@ -51,7 +72,7 @@ export function oDaDoi(
  * Chữ đang gõ còn giữ khi LÙI khỏi phiên bản `choTrong`: chỉ ô ĐỔI THẬT so với
  * bản bị bỏ. Ô đã chạm mà không đổi (gõ lại đúng giá trị) phải rơi — giữ lại
  * thì trên bản lùi về nó thành "đổi", và một lần Lưu áp lại chữ của chính bản
- * người dùng vừa bỏ. Ô đổi thật là chữ người dùng gõ, còn hiện trên màn hình:
+ * người dùng vừa bỏ. Ô đổi thật là chữ người dùng gõ, còn hiện trên trang:
  * giữ, đừng bắt gõ lại.
  */
 export function chiGiuThayDoi(
@@ -75,6 +96,50 @@ export function boDaGui(
     if (ra[k] === d.gia_tri) delete ra[k];
   }
   return ra;
+}
+
+/**
+ * Hộp của một chỗ trống (pt, gốc trên-trái của trang) → vị trí trên ảnh trang,
+ * theo PHẦN TRĂM khổ trang. Ảnh vẽ đúng tỉ lệ `kho`, nên phần trăm của khung
+ * bọc ảnh LÀ `pt × (bề rộng ảnh đang vẽ / kho[0])` px ở mọi mức thu phóng và
+ * mọi bề rộng — CSS tự tính lại, không đo DOM, không `ResizeObserver`.
+ *
+ * `coChu`: cỡ chữ ô nhập theo đơn vị `cqw` (phần trăm bề rộng trang): 80% chiều
+ * cao hộp, cỡ chữ gần đúng của dòng chữ quanh chỗ trống.
+ */
+export function viTriO(
+  hop: readonly [number, number, number, number],
+  kho: readonly [number, number],
+): { trai: number; tren: number; rong: number; cao: number; coChu: number } {
+  const [x0, y0, x1, y1] = hop;
+  const [w, h] = kho;
+  return {
+    trai: (x0 * 100) / w,
+    tren: (y0 * 100) / h,
+    rong: ((x1 - x0) * 100) / w,
+    cao: ((y1 - y0) * 100) / h,
+    coChu: ((y1 - y0) * 80) / w,
+  };
+}
+
+/** Khoá của chỗ trống kế tiếp (`huong` 1) hay trước đó (-1) theo thứ tự đọc
+ *  của `ds`; `null` ở hai đầu hay khi `khoa` không có trong `ds`. */
+export function oKeTiep(
+  ds: readonly Pick<ChoTrongKhuon, "don_vi" | "so">[],
+  khoa: string,
+  huong: 1 | -1,
+): string | null {
+  const i = ds.findIndex((o) => khoaO(o) === khoa);
+  const ke = i < 0 ? undefined : ds[i + huong];
+  return ke === undefined ? null : khoaO(ke);
+}
+
+/** Dòng phụ của thẻ bản thảo khuôn gốc trong chat: đếm chỗ ĐÃ điền (giá trị
+ *  không rỗng), không đếm "dữ kiện" hay "mục" — hai thứ đó không có trên một
+ *  biểu mẫu tải lên. */
+export function phuDeKhuon(k: Pick<KhuonBanThao, "so_trang" | "cho_trong">): string {
+  const da = k.cho_trong.filter((o) => giaTriHienThi(o) !== "").length;
+  return `Biểu mẫu · ${k.so_trang} trang · đã điền ${da} chỗ`;
 }
 
 /** Chỉ phần tên (không thư mục), không ký tự điều khiển; rỗng → `null`. */

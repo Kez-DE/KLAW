@@ -9,6 +9,7 @@ import type {
   TraCuuKetQua,
   VanBanTraLoi,
 } from "@/lib/klaw";
+import { khuonHopLe } from "@/lib/klaw";
 import { mauTheoId, slugCuaLoai } from "@/lib/mau-van-ban";
 import { canCuConHieuLuc, chiSoCuaThe, coTagBamDuoc } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
@@ -635,8 +636,23 @@ function NoiDungKetQua({
   }
 
   if (loai === "ban_thao") {
+    // Bản thảo trên khuôn gốc: lời đáp nói đã điền gì và CÒN TRỐNG chỗ nào
+    // (kế hoạch khuon-goc Outcome 3), `coverage_note` gọi tên thay đổi không áp
+    // được — thẻ bàn giao một mình không nói được điều nào trong đó. Bản thảo
+    // HTML giữ nguyên: thẻ của nó đã nói đủ.
+    const laKhuon = khuonHopLe(ketQua.ban_thao?.khuon) !== null;
     return (
       <>
+        {laKhuon && answer !== null && answer.trim() !== "" && (
+          <div className="doc-prose mb-4 text-foreground">
+            <KhoiVanXuoi chu={answer} />
+          </div>
+        )}
+        {laKhuon && ghiChuPhamVi !== null && ghiChuPhamVi !== "" && (
+          <div className="mb-4 text-[13px] leading-6 text-muted-foreground">
+            <KhoiVanXuoi chu={ghiChuPhamVi} />
+          </div>
+        )}
         <TheBanThao ketQua={ketQua} onMo={onMoBanThao ?? (() => undefined)} />
         {/* Phase 14 (R3): router nhận ra một trong 29 mẫu → lời MỜI biểu mẫu,
             không phải cổng — bản thảo đã dựng xong ở thẻ trên rồi. */}

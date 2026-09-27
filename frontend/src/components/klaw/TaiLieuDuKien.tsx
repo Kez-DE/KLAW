@@ -304,12 +304,14 @@ export function TaiLieuDuKien({
       aria-label="Tài liệu và dữ kiện"
       className="rounded-lg border border-border bg-[var(--color-paper-50)] p-4"
     >
-      <div className="mb-3 flex items-center gap-2">
-        <h2 className="flex flex-1 items-center gap-2 text-sm font-semibold">
-          <FileText aria-hidden className="size-4" />
-          Đọc dữ kiện từ tài liệu
-        </h2>
-        {onDong && (
+      {/* Đặt trong drawer ("Dữ kiện đã đọc") thì drawer đã có tiêu đề và nút
+          đóng — không lặp lại hàng này. */}
+      {onDong && (
+        <div className="mb-3 flex items-center gap-2">
+          <h2 className="flex flex-1 items-center gap-2 text-sm font-semibold">
+            <FileText aria-hidden className="size-4" />
+            Đọc dữ kiện từ tài liệu
+          </h2>
           <button
             type="button"
             aria-label="Đóng khung đính kèm tài liệu"
@@ -318,8 +320,8 @@ export function TaiLieuDuKien({
           >
             <X aria-hidden className="size-4" />
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {tenHienThi !== null && (
         <div className="mb-3 flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
