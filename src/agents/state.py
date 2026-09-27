@@ -164,6 +164,12 @@ class KLawState(TypedDict, total=False):
     # với `bang`/`nguon`/`ban_thao_ket`: không khai ở đây thì khoá bị loại ÂM
     # THẦM khỏi state trả về và node dựng bản thảo nhận `None` mãi mãi.
     van_ban_tong_quat: dict | None
+    # Tài liệu có KHUÔN GỐC (P4b): thay cho `van_ban_tong_quat`, phép sửa ĐÃ KIỂM
+    # của lượt `{viec_id, ten_tep, dinh_dang, phep_sua, bo_qua, cho_trong}` —
+    # `phep_sua` là THAY ĐỔI của lượt (gộp vào phiên bản đang có ở
+    # `dung_ban_thao_tong_quat`), `bo_qua` chỉ mang đơn vị/chỗ trống/lý do, không
+    # mang giá trị. `None` ở mọi lượt khác. Cùng bẫy LangGraph với `van_ban_tong_quat`.
+    khuon_tong_quat: dict | None
     # Lý do KHÔNG dựng được bản thảo tổng quát ở lượt này (hết trần sửa, chưa có
     # bản thảo nào để sửa, mô hình không soạn được mục nào). `assemble` biến nó
     # thành một lượt hỏi lại — một lượt soạn hỏng mà im lặng là tệ nhất.
