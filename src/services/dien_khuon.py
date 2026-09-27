@@ -70,6 +70,11 @@ _MAT_KHI_THAY = (
     ),
 )
 _GIU_KHI_THAY = {_PPR, *(f"{_W}{x}" for x in ("bookmarkStart", "bookmarkEnd", "permStart", "permEnd"))}
+# `thay` MỘT đoạn (`doan`) chỉ thay CHỮ của đoạn: hình không chữ (đường kẻ dưới tên
+# cơ quan của BM.M05 là một `mc:AlternateContent` → `w:drawing`) ở nguyên chỗ.
+# Hộp chữ, trường, chú thích thì vẫn từ chối như `thay` cả đơn vị.
+_HINH = (f"{_MC}AlternateContent", *(f"{_W}{x}" for x in ("drawing", "pict", "object")))
+_MAT_KHI_THAY_DOAN = tuple(x for x in _MAT_KHI_THAY if x not in _HINH)
 # Gỡ khỏi bản CHÉP `w:pPr`/`w:rPr`: ngắt phân đoạn không được nhân lên, và dấu
 # sửa đổi mang `w:id` phải duy nhất trong tệp.
 _BO_KHI_CHEP = tuple(f"{_W}{x}" for x in ("sectPr", "pPrChange", "rPrChange", "ins", "del", "moveFrom", "moveTo"))
@@ -106,9 +111,11 @@ class LyDoBoQua(StrEnum):
     """Vật chứa nằm trong/chứa hộp chữ; hoặc `thay`/`xoa` sẽ phá thứ nằm ngoài
     `noi_dung` (`_MAT_KHI_THAY`), hay `xoa` một đoạn mang ngắt phân đoạn."""
     xung_dot = "xung_dot"
-    """`thay`/`xoa` thứ hai trên cùng đơn vị, `dien` trên đơn vị đã bị
-    `thay`/`xoa`, hay `dien` lần hai vào cùng một chỗ trống. PDF: vùng vẽ chồng
-    lên vùng của một phép ĐỨNG TRƯỚC đã nhận trên cùng trang — phép trước giữ chỗ."""
+    """`thay`/`xoa` thứ hai trên cùng đơn vị (hay cùng đoạn, với `thay` theo
+    `doan`; cả đơn vị và theo đoạn trên cùng đơn vị cũng vậy), `dien` trên đơn vị
+    đã bị `thay`/`xoa` hay vào đoạn đã bị `thay`, hoặc `dien` lần hai vào cùng
+    một chỗ trống. PDF: vùng vẽ chồng lên vùng của một phép ĐỨNG TRƯỚC đã nhận
+    trên cùng trang — phép trước giữ chỗ."""
     khong_vua = "khong_vua"
     """PDF: chữ không vừa bề rộng hộp kể cả khi thu nhỏ tới 70 %."""
     khong_co_phong = "khong_co_phong"
@@ -160,6 +167,10 @@ class _Phep:
     cuoi: int = 0
     tab: Any = None
     cho: tuple[int, int] = (0, 0)
+    so_doan: int | None = None
+    """Đoạn (thứ tự `vat.iter(w:p)`) một `dien` rơi vào, hay một `thay` theo đoạn thay."""
+    p: Any = None
+    """`w:p` của một `thay` theo đoạn; `None` với `thay` cả đơn vị."""
 
 
 class _Khuon:
@@ -256,6 +267,8 @@ class _Khuon:
         if isinstance(vat, LyDoBoQua):
             return vat
         phan, vat = vat
+        if loai == "thay" and phep.get("doan") is not None:
+            return self._chuan_bi_doan(i, chi_so, vat, phan, phep)
         if loai != "dien":
             if next(vat.iter(*(_HOP_CHU if loai == "chen_sau" else _MAT_KHI_THAY)), None) is not None:
                 return LyDoBoQua.khong_an_toan
@@ -280,7 +293,17 @@ class _Khuon:
         if d.hop_chu:
             return LyDoBoQua.khong_an_toan
         ra = _Phep(
-            i, loai, chi_so, vat, phan, gia_tri=phep["gia_tri"], doan=d, dau=c.dau, cuoi=c.cuoi, cho=(chi_so, c.so)
+            i,
+            loai,
+            chi_so,
+            vat,
+            phan,
+            gia_tri=phep["gia_tri"],
+            doan=d,
+            dau=c.dau,
+            cuoi=c.cuoi,
+            cho=(chi_so, c.so),
+            so_doan=c.doan,
         )
         if c.kieu == "cham":
             k = bisect_right(d.ngat, c.dau)
@@ -294,6 +317,26 @@ class _Khuon:
         ra.tab = d.tab[k][1]
         return ra
 
+    def _chuan_bi_doan(self, i: int, chi_so: int, vat: Any, phan: str, phep: dict) -> _Phep | LyDoBoQua:
+        """`thay` MỘT đoạn: đoạn thứ `doan` của `vat.iter(w:p)` THÔ (cùng thứ tự
+        `ChoTrong.doan`). Từ chối đoạn trong/chứa hộp chữ, trường hay chú thích,
+        và chữ nằm trong một hình — thứ sẽ mất mà mô hình không thấy."""
+        if vat not in self.ds:
+            self.ds[vat] = list(vat.iter(_P))
+        so = phep["doan"]
+        if so >= len(self.ds[vat]):
+            return LyDoBoQua.khong_co_dia_chi
+        p = self.ds[vat][so]
+        if (
+            any(a.tag in _HOP_CHU for a in p.iterancestors())
+            or next(p.iter(*_MAT_KHI_THAY_DOAN), None) is not None
+            or any(next(t.iterancestors(*_HINH), None) is not None for t in p.iter(_T))
+        ):
+            return LyDoBoQua.khong_an_toan
+        if p not in self.mau:  # chụp TRƯỚC mọi phép, như `thay` cả đơn vị
+            self.mau[p] = _mau(p)
+        return _Phep(i, "thay", chi_so, vat, phan, dong=(phep["noi_dung"],), so_doan=so, p=p)
+
     # ─── áp ─────────────────────────────────────────────────────────────
 
     def ap(self, phep_sua: list, docx: bytes) -> tuple[bytes, dict]:
@@ -306,18 +349,25 @@ class _Khuon:
             else:
                 hop_le.append(x)
 
-        # Xung đột: `thay`/`xoa` ĐẦU TIÊN của một vật chứa thắng; `dien` lên vật
-        # chứa ấy, hay lần hai vào cùng một chỗ trống, bị bỏ.
+        # Xung đột: `thay`/`xoa` ĐẦU TIÊN của một vật chứa (hay của một đoạn, với
+        # `thay` theo `doan`) thắng; `dien` lên vật chứa/đoạn ấy, hay lần hai vào
+        # cùng một chỗ trống, bị bỏ. Cả vật chứa và theo đoạn cũng xung đột nhau.
         doi: dict[Any, _Phep] = {}
+        doi_doan: set[tuple[Any, int | None]] = set()
+        co_doan: set[Any] = set()
         for x in hop_le:
-            if x.loai in ("thay", "xoa"):
-                if x.vat in doi:
-                    bo_qua[x.i] = LyDoBoQua.xung_dot
-                else:
-                    doi[x.vat] = x
+            if x.loai not in ("thay", "xoa"):
+                continue
+            if x.vat in doi or (x.p is None and x.vat in co_doan) or (x.vat, x.so_doan) in doi_doan:
+                bo_qua[x.i] = LyDoBoQua.xung_dot
+            elif x.p is None:
+                doi[x.vat] = x
+            else:
+                doi_doan.add((x.vat, x.so_doan))
+                co_doan.add(x.vat)
         da_dien: set[tuple[int, int]] = set()
         for x in hop_le:
-            if x.loai == "dien" and (x.vat in doi or x.cho in da_dien):
+            if x.loai == "dien" and (x.vat in doi or (x.vat, x.so_doan) in doi_doan or x.cho in da_dien):
                 bo_qua[x.i] = LyDoBoQua.xung_dot
             elif x.loai == "dien":
                 da_dien.add(x.cho)
@@ -333,10 +383,13 @@ class _Khuon:
         for x in dien:
             if x.tab is not None:
                 x.tab.addprevious(_t_moi(x.gia_tri))
+        for x in chay:
+            if x.p is not None:
+                _thay_doan(x.p, x.dong[0], self.mau[x.p][1])
 
         theo_vat: dict[Any, list[_Phep]] = {}
         for x in chay:
-            if x.loai != "dien":
+            if x.loai != "dien" and x.p is None:
                 theo_vat.setdefault(x.vat, []).append(x)
         for vat, ds in theo_vat.items():
             _cau_truc(vat, ds, *self.mau[vat])
@@ -365,6 +418,9 @@ def _kiem_hinh(phep: Any) -> LyDoBoQua | None:
         return LyDoBoQua.khong_hop_le
     if loai == "dien":
         ok = _so_tu_nhien(phep.get("cho_trong")) and _chu_hop_le(phep.get("gia_tri"), mot_dong=True)
+    elif loai == "thay" and phep.get("doan") is not None:
+        # Một đoạn là MỘT dòng: nhiều dòng thì chỉ số các đoạn sau trong ô lệch đi.
+        ok = _so_tu_nhien(phep["doan"]) and _chu_hop_le(phep.get("noi_dung"), mot_dong=True)
     else:
         ok = loai == "xoa" or _chu_hop_le(phep.get("noi_dung"))
     return None if ok else LyDoBoQua.khong_hop_le
@@ -409,6 +465,29 @@ def _dien_cham(d: _Doan, dau: int, cuoi: int, gia_tri: str) -> None:
         r.remove(t)
         if r.tag == _R and all(c.tag == _RPR for c in r if isinstance(c.tag, str)):
             r.getparent().remove(r)
+
+
+def _thay_doan(p: Any, chu: str, rpr: Any) -> None:
+    """`thay` MỘT đoạn: gỡ mọi con mang chữ của `p` — giữ `w:pPr` của CHÍNH đoạn
+    này, dấu trang/vùng quyền (`_GIU_KHI_THAY`), và con mang hình (`_HINH`, chỉ bỏ
+    chữ/tab/ngắt của nó) — rồi đặt MỘT run `chu` với `w:rPr` của run mang chữ đầu
+    tiên của đoạn, đúng chỗ con mang chữ đầu tiên đứng."""
+    cho = None
+    for c in list(p):
+        if not isinstance(c.tag, str) or c.tag in _GIU_KHI_THAY:
+            continue
+        if next(c.iter(*_HINH), None) is not None:
+            for e in list(c.iter(_T, *_NGAT)):
+                e.getparent().remove(e)
+            continue
+        if cho is None:
+            cho = p.index(c)
+        p.remove(c)
+    r = _run_moi(chu, rpr)
+    if cho is None:
+        p.append(r)
+    else:
+        p.insert(cho, r)
 
 
 def _sach(e: Any) -> Any:

@@ -160,6 +160,55 @@ def test_cho_trong_cua_doan_da_THAY_hay_XOA_khong_con_dien_duoc():
     assert ra == []
 
 
+# ─────────────────────────────────────────── `thay` theo đoạn (`doan`)
+
+
+def _thay_doan(don_vi: int, doan: int, noi_dung: str) -> dict:
+    return {"loai": "thay", "don_vi": don_vi, "doan": doan, "noi_dung": noi_dung}
+
+
+# Ô tiêu đề thư kiểu BM.M05: chỗ trống 0 ở đoạn 0, chỗ trống 1 và 2 ở đoạn 2.
+_O = [
+    {
+        "chi_so": 3,
+        "noi_dung": "Tên: …… Số …./….",
+        "dia_chi": {"phan": "word/document.xml", "chi_muc": [1, 3, 1]},
+        "cho_trong": [
+            {"so": 0, "kieu": "cham", "doan": 0, "dau": 5, "cuoi": 7, "nhan": "Tên:"},
+            {"so": 1, "kieu": "cham", "doan": 2, "dau": 3, "cuoi": 5, "nhan": "Số"},
+            {"so": 2, "kieu": "cham", "doan": 2, "dau": 6, "cuoi": 8, "nhan": "/"},
+        ],
+    }
+]
+
+
+def test_gop_thay_THEO_DOAN_khoa_theo_don_vi_va_doan_ca_don_vi_chung_khoa_cau_truc():
+    assert gop_phep_sua([_thay_doan(3, 0, "A")], [_thay_doan(3, 0, "B")]) == [_thay_doan(3, 0, "B")]
+    assert gop_phep_sua([_thay_doan(3, 0, "A")], [_thay_doan(3, 2, "B")]) == [
+        _thay_doan(3, 0, "A"),
+        _thay_doan(3, 2, "B"),
+    ]
+    # Phép sau thắng giữa cả đơn vị và theo đoạn — bộ áp coi cả hai là xung đột.
+    assert gop_phep_sua([_thay_doan(3, 0, "A"), _thay_doan(3, 2, "B")], [_xoa(3)]) == [_xoa(3)]
+    assert gop_phep_sua([_thay(3, "x")], [_thay_doan(3, 0, "A")]) == [_thay_doan(3, 0, "A")]
+
+
+def test_gop_thay_THEO_DOAN_chi_go_dien_cua_CHINH_doan_do():
+    doan = ban_thao.doan_cua_cho(_O)
+    assert doan == {(3, 0): 0, (3, 1): 2, (3, 2): 2}
+    cu = [_d(3, 0, "A"), _d(3, 1, "12"), _d(3, 2, "2026")]
+    assert gop_phep_sua(cu, [_thay_doan(3, 2, "Số 12/2026")], doan) == [_d(3, 0, "A"), _thay_doan(3, 2, "Số 12/2026")]
+    assert gop_phep_sua([_thay_doan(3, 0, "B")], [_d(3, 0, "A"), _d(3, 1, "12")], doan) == [
+        _thay_doan(3, 0, "B"),
+        _d(3, 1, "12"),
+    ], "dien SAU vào đoạn đã thay là dien vào chỗ trống không còn"
+
+
+def test_cho_trong_cua_doan_da_THAY_THEO_DOAN_khong_con_con_doan_khac_van_dien_duoc():
+    ra = cho_trong_khuon("docx", _O, [_thay_doan(3, 2, "Số 12/2026"), _d(3, 0, "A")])
+    assert ra == [{"don_vi": 3, "so": 0, "kieu": "cham", "nhan": "Tên:", "gia_tri": "A"}]
+
+
 def test_cho_trong_don_vi_rong_hay_sai_hinh_dang():
     assert cho_trong_khuon("docx", [], []) == []
     assert cho_trong_khuon("docx", [None, {"chi_so": "x"}], None) == []
@@ -234,6 +283,7 @@ def test_ket_qua_chat_mang_CUNG_khuon_voi_GET_ban_thao():
 
 import json  # noqa: E402
 import uuid  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 from sqlalchemy import text  # noqa: E402
 
@@ -252,6 +302,23 @@ _AUDIT = {
     "findings": [],
     "muc_kiem": "tong_quat",
 }
+
+
+_BM_M05 = Path.home() / "giấy tờ thực tập" / "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx"
+
+
+@pytest.mark.skipif(not _BM_M05.exists(), reason="BM.M05 của chủ dự án không có trên máy này")
+def test_BM_M05_thay_THEO_DOAN_sau_khi_da_dien_so_bo_ap_khong_bo_phep_nao():
+    """Ba nơi đọc một sự thật trên tệp thật: `ap_phep_sua` gộp với bản đồ đoạn nên
+    `dien` cũ của đoạn "Số …./…." không tới bộ áp (không `xung_dot`), và
+    `cho_trong_khuon` không mời điền hai chỗ trống của đoạn đã thay."""
+    du_lieu = _BM_M05.read_bytes()
+    don_vi = json.loads(json.dumps([tl._hang_don_vi(d) for d in doc(_BM_M05.name, du_lieu).don_vi]))
+    phep = [_d(3, 0, "12"), _d(3, 1, "2026"), _d(6, 0, "Công ty A"), _thay_doan(3, 2, "Số 12/2026")]
+    _, bao_cao = ban_thao.ap_phep_sua("docx", du_lieu, don_vi, phep)
+    assert bao_cao == {"da_ap": [0, 1], "bo_qua": []}
+    assert not [o for o in cho_trong_khuon("docx", don_vi, phep) if o["don_vi"] == 3]
+    assert [o["gia_tri"] for o in cho_trong_khuon("docx", don_vi, phep) if o["don_vi"] == 6] == ["Công ty A"]
 
 
 def _ket(viec_id: str | None, phep: list | None, tieu_de: str = "Giấy tiếp nhận") -> dict:

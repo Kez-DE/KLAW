@@ -309,6 +309,15 @@ def test_phep_khong_hop_le_bi_bo_qua_voi_dung_ma(phong_moi):
     }
 
 
+def test_thay_THEO_DOAN_la_loai_khong_ho_tro_tren_PDF():
+    """PDF giữ `thay` cả dòng; `doan` (một đoạn của ô DOCX) không có nghĩa ở đây."""
+    pdf = _pdf()
+    don_vi = _don_vi(pdf)
+    ho_ten = _mot(don_vi, "Ho ten")
+    ra, bao_cao = ap_dung_pdf(pdf, don_vi, [{"loai": "thay", "don_vi": ho_ten["chi_so"], "doan": 0, "noi_dung": "A"}])
+    assert bao_cao == {"da_ap": [], "bo_qua": [{"phep": 0, "ly_do": "loai_khong_ho_tro"}]} and ra == pdf
+
+
 def test_hop_ngoai_trang_la_khong_co_dia_chi():
     """Toạ độ không thuộc trang này (dòng lưu hỏng, trang không tồn tại) thì
     không vẽ ra ngoài trang — bỏ qua."""
