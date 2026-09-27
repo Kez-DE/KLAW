@@ -38,7 +38,7 @@ from typing import Any
 from lxml import etree
 
 from src.services.doc_tai_lieu import _NS, KhongDocDuoc, LoaiHong, _kiem_zip, _la_cham, _moc_tab
-from src.services.tai_lieu import _cho_trong_tu_hang, _dia_chi_tu_hang, _so_tu_nhien
+from src.services.tai_lieu import _cho_trong_tu_hang, _dia_chi_tu_hang, _doan_chu_tu_hang, _so_tu_nhien
 
 _W = f"{{{_NS['w']}}}"
 _MC = "{http://schemas.openxmlformats.org/markup-compatibility/2006}"
@@ -70,6 +70,11 @@ _MAT_KHI_THAY = (
     ),
 )
 _GIU_KHI_THAY = {_PPR, *(f"{_W}{x}" for x in ("bookmarkStart", "bookmarkEnd", "permStart", "permEnd"))}
+# `thay` MỘT đoạn (`doan`) chỉ thay CHỮ của đoạn: hình không chữ (đường kẻ dưới tên
+# cơ quan của BM.M05 là một `mc:AlternateContent` → `w:drawing`) ở nguyên chỗ.
+# Hộp chữ, trường, chú thích thì vẫn từ chối như `thay` cả đơn vị.
+_HINH = (f"{_MC}AlternateContent", *(f"{_W}{x}" for x in ("drawing", "pict", "object")))
+_MAT_KHI_THAY_DOAN = tuple(x for x in _MAT_KHI_THAY if x not in _HINH)
 # Gỡ khỏi bản CHÉP `w:pPr`/`w:rPr`: ngắt phân đoạn không được nhân lên, và dấu
 # sửa đổi mang `w:id` phải duy nhất trong tệp.
 _BO_KHI_CHEP = tuple(f"{_W}{x}" for x in ("sectPr", "pPrChange", "rPrChange", "ins", "del", "moveFrom", "moveTo"))
@@ -106,9 +111,11 @@ class LyDoBoQua(StrEnum):
     """Vật chứa nằm trong/chứa hộp chữ; hoặc `thay`/`xoa` sẽ phá thứ nằm ngoài
     `noi_dung` (`_MAT_KHI_THAY`), hay `xoa` một đoạn mang ngắt phân đoạn."""
     xung_dot = "xung_dot"
-    """`thay`/`xoa` thứ hai trên cùng đơn vị, `dien` trên đơn vị đã bị
-    `thay`/`xoa`, hay `dien` lần hai vào cùng một chỗ trống. PDF: vùng vẽ chồng
-    lên vùng của một phép ĐỨNG TRƯỚC đã nhận trên cùng trang — phép trước giữ chỗ."""
+    """`thay`/`xoa` thứ hai trên cùng đơn vị (hay cùng đoạn, với `thay` theo
+    `doan`; cả đơn vị và theo đoạn trên cùng đơn vị cũng vậy), `dien` trên đơn vị
+    đã bị `thay`/`xoa` hay vào đoạn đã bị `thay`, hoặc `dien` lần hai vào cùng
+    một chỗ trống. PDF: vùng vẽ chồng lên vùng của một phép ĐỨNG TRƯỚC đã nhận
+    trên cùng trang — phép trước giữ chỗ."""
     khong_vua = "khong_vua"
     """PDF: chữ không vừa bề rộng hộp kể cả khi thu nhỏ tới 70 %."""
     khong_co_phong = "khong_co_phong"
@@ -126,6 +133,37 @@ def ap_dung_docx(docx: bytes, don_vi: list[dict], phep_sua: list[dict]) -> tuple
         with zipfile.ZipFile(BytesIO(docx)) as z:
             _kiem_zip(z)
             return _Khuon(z, don_vi).ap(phep_sua, docx)
+    except _ZIP_HONG as e:
+        raise KhongDocDuoc(LoaiHong.tep_hong, "khuôn gốc không mở được như docx") from e
+
+
+# Đích của mốc dò: `.invalid` không bao giờ phân giải (RFC 6761), và liên kết
+# không bị LibreOffice tải (đo 2026-09-27, quyết định 2026-09-26 mục Tradeoffs).
+O_URI = "https://klaw.invalid/o/"
+_R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_PKG_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+_HL = f"{_W}hyperlink"
+
+
+def danh_dau_docx(docx: bytes, don_vi: list[dict], o: list[tuple[int, int]]) -> bytes:
+    """Bản DÒ của khuôn gốc: ký tự của mỗi chỗ trống `(don_vi, so)` trong `o` —
+    dãy chấm, hay `w:tab` của chỗ trống `tab` — tách vào run riêng (cùng `w:rPr`)
+    và bọc trong một `w:hyperlink` trỏ tới `O_URI{don_vi}/{so}`. LibreOffice xuất
+    mỗi liên kết thành một `/Link` có `/Rect` (`dung_trang.vi_tri_o`).
+
+    Chuỗi thô, `dia_chi` và `[dau:cuoi]` không đổi, nên bộ áp đi lại đúng chỗ
+    trống trên bản dò, và giá trị nó điền rơi vào run đầu của chỗ trống — trong
+    liên kết. Chỗ trống bộ áp không tới (`_chuan_bi` bỏ), hay đã nằm trong một
+    liên kết của tài liệu, không có mốc. Không mốc nào thì trả chính `docx`.
+
+    Liên kết đổi cách LibreOffice ngắt dòng ở ranh giới của nó (đo trên BM.M05:
+    "Khoa .……" xuống dòng khác), nên bản dò chỉ để ĐO, không để hiện."""
+    if not o:
+        return docx
+    try:
+        with zipfile.ZipFile(BytesIO(docx)) as z:
+            _kiem_zip(z)
+            return _Khuon(z, don_vi).danh_dau(o, docx)
     except _ZIP_HONG as e:
         raise KhongDocDuoc(LoaiHong.tep_hong, "khuôn gốc không mở được như docx") from e
 
@@ -160,6 +198,10 @@ class _Phep:
     cuoi: int = 0
     tab: Any = None
     cho: tuple[int, int] = (0, 0)
+    so_doan: int | None = None
+    """Đoạn (thứ tự `vat.iter(w:p)`) một `dien` rơi vào, hay một `thay` theo đoạn thay."""
+    p: Any = None
+    """`w:p` của một `thay` theo đoạn; `None` với `thay` cả đơn vị."""
 
 
 class _Khuon:
@@ -256,6 +298,8 @@ class _Khuon:
         if isinstance(vat, LyDoBoQua):
             return vat
         phan, vat = vat
+        if loai == "thay" and phep.get("doan") is not None:
+            return self._chuan_bi_doan(i, chi_so, vat, phan, phep)
         if loai != "dien":
             if next(vat.iter(*(_HOP_CHU if loai == "chen_sau" else _MAT_KHI_THAY)), None) is not None:
                 return LyDoBoQua.khong_an_toan
@@ -280,7 +324,17 @@ class _Khuon:
         if d.hop_chu:
             return LyDoBoQua.khong_an_toan
         ra = _Phep(
-            i, loai, chi_so, vat, phan, gia_tri=phep["gia_tri"], doan=d, dau=c.dau, cuoi=c.cuoi, cho=(chi_so, c.so)
+            i,
+            loai,
+            chi_so,
+            vat,
+            phan,
+            gia_tri=phep["gia_tri"],
+            doan=d,
+            dau=c.dau,
+            cuoi=c.cuoi,
+            cho=(chi_so, c.so),
+            so_doan=c.doan,
         )
         if c.kieu == "cham":
             k = bisect_right(d.ngat, c.dau)
@@ -294,6 +348,30 @@ class _Khuon:
         ra.tab = d.tab[k][1]
         return ra
 
+    def _chuan_bi_doan(self, i: int, chi_so: int, vat: Any, phan: str, phep: dict) -> _Phep | LyDoBoQua:
+        """`thay` MỘT đoạn: đoạn thứ `doan` của `vat.iter(w:p)` THÔ (cùng thứ tự
+        `ChoTrong.doan`). Từ chối đoạn trong/chứa hộp chữ, trường hay chú thích,
+        và chữ nằm trong một hình — thứ sẽ mất mà mô hình không thấy.
+
+        Số đoạn đã lưu (`doan_chu`; không có = một đoạn) phải bằng số `w:p` của
+        vật chứa: dòng lưu TRƯỚC `doan_chu` có ô nhiều đoạn mà phép kiểm coi là
+        một đoạn, và `w:p` thô số 0 của ô ấy có thể là một đoạn rỗng."""
+        if vat not in self.ds:
+            self.ds[vat] = list(vat.iter(_P))
+        so, luu = phep["doan"], len(_doan_chu_tu_hang(self.hang[chi_so].get("doan_chu"))) or 1
+        if so >= len(self.ds[vat]) or luu != len(self.ds[vat]):
+            return LyDoBoQua.khong_co_dia_chi
+        p = self.ds[vat][so]
+        if (
+            any(a.tag in _HOP_CHU for a in p.iterancestors())
+            or next(p.iter(*_MAT_KHI_THAY_DOAN), None) is not None
+            or any(next(t.iterancestors(*_HINH), None) is not None for t in p.iter(_T))
+        ):
+            return LyDoBoQua.khong_an_toan
+        if p not in self.mau:  # chụp TRƯỚC mọi phép, như `thay` cả đơn vị
+            self.mau[p] = _mau(p)
+        return _Phep(i, "thay", chi_so, vat, phan, dong=(phep["noi_dung"],), so_doan=so, p=p)
+
     # ─── áp ─────────────────────────────────────────────────────────────
 
     def ap(self, phep_sua: list, docx: bytes) -> tuple[bytes, dict]:
@@ -306,18 +384,25 @@ class _Khuon:
             else:
                 hop_le.append(x)
 
-        # Xung đột: `thay`/`xoa` ĐẦU TIÊN của một vật chứa thắng; `dien` lên vật
-        # chứa ấy, hay lần hai vào cùng một chỗ trống, bị bỏ.
+        # Xung đột: `thay`/`xoa` ĐẦU TIÊN của một vật chứa (hay của một đoạn, với
+        # `thay` theo `doan`) thắng; `dien` lên vật chứa/đoạn ấy, hay lần hai vào
+        # cùng một chỗ trống, bị bỏ. Cả vật chứa và theo đoạn cũng xung đột nhau.
         doi: dict[Any, _Phep] = {}
+        doi_doan: set[tuple[Any, int | None]] = set()
+        co_doan: set[Any] = set()
         for x in hop_le:
-            if x.loai in ("thay", "xoa"):
-                if x.vat in doi:
-                    bo_qua[x.i] = LyDoBoQua.xung_dot
-                else:
-                    doi[x.vat] = x
+            if x.loai not in ("thay", "xoa"):
+                continue
+            if x.vat in doi or (x.p is None and x.vat in co_doan) or (x.vat, x.so_doan) in doi_doan:
+                bo_qua[x.i] = LyDoBoQua.xung_dot
+            elif x.p is None:
+                doi[x.vat] = x
+            else:
+                doi_doan.add((x.vat, x.so_doan))
+                co_doan.add(x.vat)
         da_dien: set[tuple[int, int]] = set()
         for x in hop_le:
-            if x.loai == "dien" and (x.vat in doi or x.cho in da_dien):
+            if x.loai == "dien" and (x.vat in doi or (x.vat, x.so_doan) in doi_doan or x.cho in da_dien):
                 bo_qua[x.i] = LyDoBoQua.xung_dot
             elif x.loai == "dien":
                 da_dien.add(x.cho)
@@ -333,10 +418,13 @@ class _Khuon:
         for x in dien:
             if x.tab is not None:
                 x.tab.addprevious(_t_moi(x.gia_tri))
+        for x in chay:
+            if x.p is not None:
+                _thay_doan(x.p, x.dong[0], self.mau[x.p][1])
 
         theo_vat: dict[Any, list[_Phep]] = {}
         for x in chay:
-            if x.loai != "dien":
+            if x.loai != "dien" and x.p is None:
                 theo_vat.setdefault(x.vat, []).append(x)
         for vat, ds in theo_vat.items():
             _cau_truc(vat, ds, *self.mau[vat])
@@ -345,6 +433,64 @@ class _Khuon:
         return _dong_goi(self.z, {phan: _xml(self.cay[phan], self.z.read(phan)) for phan in sua}), _bao_cao(
             [x.i for x in chay], bo_qua
         )
+
+    def danh_dau(self, o: list[tuple[int, int]], docx: bytes) -> bytes:
+        """Xem `danh_dau_docx`. Giải MỌI chỗ trống trên cây nguyên như `ap`, rồi
+        tách phải → trái: phần trái của một `w:t` bị tách giữ nguyên phần tử và
+        offset, nên chỗ trống bên trái cùng `w:t` vẫn đúng."""
+        chon = []
+        for i, (d, so) in enumerate(o):
+            x = self._chuan_bi(i, {"loai": "dien", "don_vi": d, "cho_trong": so, "gia_tri": "x"})
+            if not isinstance(x, LyDoBoQua):
+                chon.append(x)
+        moc: dict[str, list[tuple[str, str]]] = {}
+        for x in sorted(chon, key=lambda x: -x.dau):
+            if x.tab is not None:
+                ky_tu = [x.tab]
+            else:
+                ky_tu = []
+                for a, b, t in x.doan.t:
+                    if b <= x.dau or a >= x.cuoi:
+                        continue
+                    if b > x.cuoi:
+                        _tach_t(t, x.cuoi - a)
+                    ky_tu.append(_tach_t(t, x.dau - a) if a < x.dau else t)
+            rid = f"rIdKlawO{x.cho[0]}_{x.cho[1]}"
+            run = [r for e in ky_tu if (r := _run_rieng(e)) is not None]
+            for r in run:
+                hl = r.makeelement(_HL, {f"{{{_R_NS}}}id": rid})
+                r.addprevious(hl)
+                hl.append(r)
+            if run:
+                moc.setdefault(x.phan, []).append((rid, f"{O_URI}{x.cho[0]}/{x.cho[1]}"))
+        if not moc:
+            return docx
+        sua = {phan: _xml(self.cay[phan], self.z.read(phan)) for phan in moc}
+        them = {}
+        for phan, lien_ket in moc.items():
+            thu_muc, ten = phan.rsplit("/", 1)
+            ten_rels = f"{thu_muc}/_rels/{ten}.rels"
+            nguon = self.z.read(ten_rels) if ten_rels in self.z.namelist() else None
+            try:
+                goc = (
+                    etree.fromstring(nguon, etree.XMLParser(resolve_entities=False, no_network=True)) if nguon else None
+                )
+            except etree.XMLSyntaxError:
+                del sua[phan]  # rels hỏng: part đó không mốc — ô của nó "chưa định vị"
+                continue
+            if goc is None:
+                goc = etree.Element(f"{{{_PKG_NS}}}Relationships", nsmap={None: _PKG_NS})
+            for rid, dich in lien_ket:
+                etree.SubElement(
+                    goc,
+                    f"{{{_PKG_NS}}}Relationship",
+                    {"Id": rid, "Type": f"{_R_NS}/hyperlink", "Target": dich, "TargetMode": "External"},
+                )
+            if nguon:
+                sua[ten_rels] = _xml(goc, nguon)
+            else:
+                them[ten_rels] = etree.tostring(goc, xml_declaration=True, encoding="UTF-8", standalone=True)
+        return _dong_goi(self.z, sua, them)
 
 
 def _bao_cao(da_ap: list[int], bo_qua: dict[int, LyDoBoQua]) -> dict:
@@ -365,6 +511,9 @@ def _kiem_hinh(phep: Any) -> LyDoBoQua | None:
         return LyDoBoQua.khong_hop_le
     if loai == "dien":
         ok = _so_tu_nhien(phep.get("cho_trong")) and _chu_hop_le(phep.get("gia_tri"), mot_dong=True)
+    elif loai == "thay" and phep.get("doan") is not None:
+        # Một đoạn là MỘT dòng: nhiều dòng thì chỉ số các đoạn sau trong ô lệch đi.
+        ok = _so_tu_nhien(phep["doan"]) and _chu_hop_le(phep.get("noi_dung"), mot_dong=True)
     else:
         ok = loai == "xoa" or _chu_hop_le(phep.get("noi_dung"))
     return None if ok else LyDoBoQua.khong_hop_le
@@ -409,6 +558,69 @@ def _dien_cham(d: _Doan, dau: int, cuoi: int, gia_tri: str) -> None:
         r.remove(t)
         if r.tag == _R and all(c.tag == _RPR for c in r if isinstance(c.tag, str)):
             r.getparent().remove(r)
+
+
+def _thay_doan(p: Any, chu: str, rpr: Any) -> None:
+    """`thay` MỘT đoạn: gỡ mọi con mang chữ của `p` — giữ `w:pPr` của CHÍNH đoạn
+    này, dấu trang/vùng quyền (`_GIU_KHI_THAY`), và con mang hình (`_HINH`, chỉ bỏ
+    chữ/tab/ngắt của nó) — rồi đặt MỘT run `chu` với `w:rPr` của run mang chữ đầu
+    tiên của đoạn, đúng chỗ con mang chữ đầu tiên đứng."""
+    cho = None
+    for c in list(p):
+        if not isinstance(c.tag, str) or c.tag in _GIU_KHI_THAY:
+            continue
+        if next(c.iter(*_HINH), None) is not None:
+            for e in list(c.iter(_T, *_NGAT)):
+                e.getparent().remove(e)
+            continue
+        if cho is None:
+            cho = p.index(c)
+        p.remove(c)
+    r = _run_moi(chu, rpr)
+    if cho is None:
+        p.append(r)
+    else:
+        p.insert(cho, r)
+
+
+def _tach_t(t: Any, k: int) -> Any:
+    """Tách `w:t` tại ký tự `k`: `t` giữ phần trái, phần phải là một `w:t` mới
+    ngay sau nó, cùng run — trả phần phải."""
+    s = t.text or ""
+    t.text = s[:k]
+    _khoang(t)
+    moi = _t_moi(s[k:])
+    t.addnext(moi)
+    return moi
+
+
+def _run_rieng(e: Any) -> Any:
+    """Run chỉ chứa `e` (một `w:t`/`w:tab`), cùng `w:rPr`: phần tử đứng trước và
+    sau nó trong run cũ sang run anh em mới. `None` khi `e` không trong `w:r`
+    hay đã trong một `w:hyperlink` — liên kết lồng nhau không hợp lệ. Run cùng
+    `w:rPr` không đổi dàn trang (đo pixel trên tám biểu mẫu, 2026-09-27)."""
+    r = e.getparent()
+    if r is None or r.tag != _R or next(r.iterancestors(_HL), None) is not None:
+        return None
+    rpr = r.find(_RPR)
+
+    def _anh_em() -> Any:
+        moi = r.makeelement(_R, {})
+        if rpr is not None:
+            moi.append(deepcopy(rpr))
+        return moi
+
+    sau = list(e.itersiblings())
+    if sau:
+        r2 = _anh_em()
+        r2.extend(sau)
+        r.addnext(r2)
+    if any(isinstance(c.tag, str) and c.tag != _RPR for c in e.itersiblings(preceding=True)):
+        r1 = _anh_em()
+        r.addnext(r1)
+        r1.append(e)
+        return r1
+    return r
 
 
 def _sach(e: Any) -> Any:
@@ -537,15 +749,17 @@ def _xml(goc: Any, nguon: bytes) -> bytes:
     return dau + ra
 
 
-def _dong_goi(z: zipfile.ZipFile, sua: dict[str, bytes]) -> bytes:
+def _dong_goi(z: zipfile.ZipFile, sua: dict[str, bytes], them: dict[str, bytes] | None = None) -> bytes:
     """Zip mới: đúng thứ tự, tên, kiểu nén, giờ và thuộc tính của từng mục; mục
     không sửa mang NGUYÊN nội dung (luồng nén thì dựng lại — `zipfile` không có
-    phép chép thô)."""
+    phép chép thô). `them`: mục mới nối vào cuối (rels mới của bản dò)."""
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w") as ra:
         for m in z.infolist():
             moi = zipfile.ZipInfo(m.filename, m.date_time)
             moi.compress_type, moi.external_attr, moi.create_system = m.compress_type, m.external_attr, m.create_system
             ra.writestr(moi, sua[m.filename] if m.filename in sua else z.read(m))
+        for ten, du_lieu in (them or {}).items():
+            ra.writestr(ten, du_lieu)
         ra.comment = z.comment
     return buf.getvalue()

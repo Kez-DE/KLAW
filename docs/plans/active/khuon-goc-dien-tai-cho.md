@@ -22,8 +22,10 @@ Observable in the real app once complete:
    file with the blanks filled: everything KLAW did not touch keeps its position,
    font, borders and page breaks. Blanks KLAW had no value for keep their dots and
    are listed in the chat answer.
-4. The fill-field panel beside the pages edits any blank; saving re-renders the
-   pages as a new version on the existing version bar, and **Lùi** walks back.
+4. Any blank is filled on the page itself: clicking it opens it for typing, and
+   Enter, Tab or leaving it saves that blank as a new version on the existing
+   version bar (fill saves do not count toward the edit cap); the pages re-render
+   after the last save, and **Lùi** walks back.
 5. Downloads: the filled `.docx` (opens in Microsoft Word without a repair
    prompt) plus a PDF for docx/`.doc` inputs; the filled PDF for PDF inputs.
 6. The whole document (≤10 pages) reaches the model; nothing is trimmed silently.
@@ -102,8 +104,15 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   `{"so": int, "kieu": "cham" | "tab", "doan": int, "dau": int, "cuoi": int,
   "nhan": str}` — `doan` is the paragraph index inside the unit (0 for a body
   paragraph), `dau`/`cuoi` are offsets into that paragraph's RAW concatenated
-  `w:t` text (not the stripped `noi_dung`), `nhan` is at most 60 chars of the
-  label before the blank. `kieu: "tab"` is a `w:tab` whose stop has a dot leader.
+  `w:t` text (not the stripped `noi_dung`), `nhan` is the display label:
+  `doc_tai_lieu.nhan_sach` of at most 60 chars of the text before the blank
+  (long label → drop a trailing `(nếu có)`/`(ghi rõ …)` note, then if still
+  long the tail after the last `,;:()`/sentence break, no trailing `:`,
+  a letterless label → previous blank's label + ` (sau /)`, `""` when unknown;
+  the same pure function runs again in `ban_thao.cho_trong_khuon`, so rows
+  stored before it read clean too). A PDF line that is only dots takes the tail
+  of the line above on the same page. `kieu: "tab"` is a `w:tab` whose stop has
+  a dot leader.
   For PDF: `{"so", "kieu": "cham", "hop": [x0, y0, x1, y1], "co_chu": float,
   "nhan"}` in PDF points on the unit's `trang`, in poppler display space: origin
   at the top-left of the page's MEDIA box (not the CropBox), after `/Rotate`.
@@ -122,6 +131,15 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   `cho_trong`; a scanned page above 16 Mpx at 200 dpi (about 2× A3) has line
   boxes but no blanks.
 - `hop` (PDF, scanned PDF): the unit's line box, same coordinates.
+- `doan_chu` (docx): `[str, …]`, the RAW concatenated `w:t` text of every `w:p`
+  in `container.iter(w:p)` order on the raw part (the string `cho_trong`'s
+  `doan`/`dau`/`cuoi` index; empty paragraphs included), present only when the
+  unit has `cho_trong` or more than one paragraph. The tolerant reader reads
+  anything but a list of strings as absent. Rows stored before this key have no
+  `doan_chu`: the prompt falls back to the `chỗ trống:` list and a `thay` with
+  `doan` on a unit that has blanks is refused (`khong_co_doan`); on a
+  blank-less container with several paragraphs the applier refuses it
+  (`khong_co_dia_chi`) instead of writing into raw paragraph 0.
 - `noi_dung`, `chi_so`, anchors and every existing counter stay byte-identical;
   each reader change ships the equivalence test pattern of
   `tests/test_services/test_doc_tai_lieu_trang.py:193-231`.
@@ -131,6 +149,7 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
 ```json
 {"loai": "dien", "don_vi": 12, "cho_trong": 0, "gia_tri": "Nguyễn Văn A"}
 {"loai": "thay", "don_vi": 14, "noi_dung": "…"}
+{"loai": "thay", "don_vi": 3, "doan": 0, "noi_dung": "…"}
 {"loai": "chen_sau", "don_vi": 14, "noi_dung": "…"}
 {"loai": "xoa", "don_vi": 15}
 ```
@@ -140,15 +159,75 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   before the `w:tab` so the leader shrinks as in Word.
 - `thay` keeps `w:pPr` and the first run's `w:rPr`; `chen_sau` clones them;
   `xoa` removes the paragraph (a cell keeps one empty `w:p`).
+- `thay` with `doan` (docx only, one line; `doan` is the `container.iter(w:p)`
+  index, the `¶n` of the prompt) replaces only that paragraph's text: it keeps
+  THAT paragraph's `w:pPr`, bookmarks and text-less drawings (the rule under the
+  BM.M05 letterhead is an `mc:AlternateContent` shape), and writes one run in
+  its first text run's `w:rPr` where that run stood. The unit's other paragraphs
+  and their blanks stay. Refused: a paragraph index the container lacks, or a
+  stored paragraph count (`doan_chu`, absent = one) that differs from the
+  container's `w:p` count (`khong_co_dia_chi`), a paragraph in or holding a text box, field, comment or
+  note reference, or text inside a drawing (`khong_an_toan`), several lines
+  (`khong_hop_le`). A second `thay` on the same paragraph, a whole-unit
+  `thay`/`xoa` together with a paragraph `thay` on one unit, and a `dien` into a
+  replaced paragraph are `xung_dot`. PDF refuses `doan` (`loai_khong_ho_tro`).
+- Merge (`ban_thao.gop_phep_sua`): a paragraph `thay` keys on `(don_vi, doan)`;
+  it and a whole-unit `thay`/`xoa` of the same unit displace each other (later
+  wins); it removes only the `dien` of blanks in that paragraph (the blank →
+  paragraph map, `ban_thao.doan_cua_cho`, comes from the stored units, or from
+  the turn's `cho_trong[].doan`). `cho_trong_khuon` and `assemble` exclude only
+  that paragraph's blanks. A chat turn's non-empty `dien` that the merge removes
+  (its unit or paragraph is `thay`/`xoa`-ed) goes to `bo_qua` as `da_viet_lai`,
+  never lost silently; a turn whose proposals all ended that way answers
+  `KHONG_DOI_KHUON`, not the existing-draft card.
 - PDF accepts `dien` and `thay` only; `thay` must fit the unit's box at ≥70% of
   its font size or the operation is refused.
+- Prompt (khuôn gốc, docx): each unit's text shows every fillable blank IN PLACE
+  as `⟦so⟧` (`⟦so=«giá trị»⟧` when the open draft filled it) and, for a unit
+  with several paragraphs, `¶doan` before each non-empty paragraph. A unit whose
+  positions cannot be proven (no `doan_chu`, paragraphs not joining to
+  `noi_dung`, a blank no longer dots at its offsets) keeps the `chỗ trống:` list
+  line; a marker is never placed by guess. A paragraph (or unit) the open draft
+  `thay`-ed shows its current text and none of its blanks.
 - The applier is pure: `(bytes, don_vi, phep_sua) -> (bytes, bao_cao)`; an
   invalid operation is skipped and reported, never guessed.
-- `dien` values must pass the provenance check (`_co_trong_nguon`: the user's
-  text this conversation, hồ sơ, or the document) and the memory rules
-  (`_chan_bo_nho`). `_vuong_luoi_chan`'s identifier rule does not apply to `dien`
+- `dien` values must pass the provenance check (`_co_trong_nguon` over
+  `hieu_tai_lieu._nguon_nguoi`: the USER's text this conversation — `cau_hoi_goc`,
+  `query`, `cau_hoi_day_du` —, hồ sơ except `suy_dien` entries, and memory values
+  the user asked for this turn) and the memory rules (`_chan_bo_nho`). The
+  document's own text, `quan_sat` quotes and the open draft's `document` are NOT
+  sources for a new value (owner rule 2026-09-27, Decisions); an op identical to
+  one of the open version's ops is not new and is skipped silently (the merge
+  keeps it). `_vuong_luoi_chan`'s identifier rule does not apply to `dien`
   values — a phone number the user stated is a legitimate fill — but its
   Điều/Khoản rule still applies to `thay`/`chen_sau` text.
+- Every `thay` (with or without `doan`, on any unit) and every `chen_sau`: every
+  run of consecutive words it ADDS — relative to that paragraph's (or unit's)
+  original text for `thay`, to nothing for `chen_sau` — case- and
+  diacritic-insensitive word-SEQUENCE comparison (`difflib.SequenceMatcher`: a
+  word of the replaced text repeated or moved elsewhere is added) — must pass
+  `_co_trong_nguon` over the same source set as `dien`, whole run at a time, else
+  `khong_nguon` (replaces the `co_cho_trong` refusal). Numbers and `Nhãn: giá
+  trị` values the replaced text keeps in place are not new. `doan` belongs to `thay` only: a `xoa` or
+  `chen_sau` carrying one is `sai_hinh_dang`.
+- `khuon.yeu_cau` (strict, required): `tao_lai` (recreate THIS document as it is:
+  every proposed op is discarded before validation; a create turn saves version
+  1 with `phep_sua: []`, byte-identical download; on an existing draft that is
+  already the upload it is the no-change case and returns that draft, on a filled
+  one it saves a new version with `phep_sua: []`, not counted toward `TRAN_SUA`),
+  `dien_sua` (fill or edit it; missing or
+  unknown values read as this), `van_ban_khac` (a different document: nothing
+  built). `khuon.khong_dat: [str]` (strict, required): values the user gave that
+  the model could not place; kept only when a case- and diacritic-insensitive
+  substring of the user's text and not inside a kept op; `assemble` lists them.
+- Date split (deterministic, docx rows with `doan_chu` only): a `dien` whose value
+  is a full date (`d/m/yyyy`, `dd/mm/yyyy`, `-` or `.` separators) into blank k
+  becomes three `dien` (day, month, year) when blanks k, k+1, k+2 of the same
+  paragraph are separated only by `/`, or read `ngày … tháng … năm …` with k the
+  `ngày` blank — unless the turn itself fills k+1 or k+2.
+- Plausibility (`dien` only, model output only): a blank whose label is a short
+  number label (`Số`, `Số:`, `No.`) or ends with `ngày`/`tháng`/`năm` takes a
+  value with a digit, else `khong_khop_nhan`. No other label heuristic.
 
 ### Storage
 
@@ -168,9 +247,23 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
 
 ### API (all under `/api/v1`, `nguoi_dung_bat_buoc`, another owner = 404)
 
-- `POST /tai-lieu` — unchanged shape; `TaiLieuOut` gains `co_khuon_goc: bool`.
+- `POST /tai-lieu` — unchanged shape; `TaiLieuOut` gains `co_khuon_goc: bool`. A
+  refused upload (page cap, format, broken file, converter busy) leaves no
+  conversation it opened itself; the page-cap 422 names the file and its real
+  page count (`«<tên tệp>» có N trang, vượt giới hạn 10 trang.`).
 - `GET /tai-lieu/{viec_id}/trang` — the khuôn gốc as uploaded:
-  `{"kho": [[w, h], …], "trang": ["<base64 png>", …]}`, one request for every page.
+  `{"kho": [[w, h], …], "trang": ["<base64 png>", …], "o": [...]}`, one request
+  for every page. `o` (added 2026-09-27, owner feedback "để người dùng trực
+  tiếp thao tác trên" the page): `[{"don_vi", "so", "trang": int | null,
+  "hop": [x0, y0, x1, y1] | null, "nhan", "gia_tri": str | null}]`, exactly the
+  `khuon.cho_trong` set of the pristine file (or of the version, below), in
+  reading order; `trang` is a 0-based index into `trang`, `hop` is in points
+  from the top-left of that page (the space of `kho`; pixel scale = PNG width /
+  `kho[i][0]`) and covers the blank's dots, or its value once filled;
+  `gia_tri` is trimmed. PDF: the reader's stored blank box on the unit's page.
+  DOCX: measured on the rendered page with a probe copy (Decisions, G1).
+  `trang`/`hop` are null only when the position was not measured. Old clients
+  ignore `o`.
   A render takes one of the three LibreOffice slots (503 `qua_tai`) and holds at
   most 12 Mpx for the whole document; `kho` is always in (0, 14400] pt. One
   render per account at a time: a second concurrent `/trang` from the same
@@ -180,9 +273,10 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   `so_lan_thu` (FR-037, 3) paid re-extracts per document, then 429; `tong_quat`
   calls no model and is free. The cost estimate (422) and the daily cost cap run
   before the claim, so a refusal leaves the viec as it was.
-- `GET /ban-thao/{id}/trang?phien_ban=N` — the filled version, same shape; the
-  apply and the render are one slot of the same per-account guard (a held slot
-  is 503 `qua_tai` before the applier runs). No `phien_ban` (live
+- `GET /ban-thao/{id}/trang?phien_ban=N` — the filled version, same shape
+  (with `o` for that version's op list); the apply, the probe and the render
+  are one slot of the same per-account guard (a held slot is 503 `qua_tai`
+  before the applier runs). No `phien_ban` (live
   version): `private, no-store`; with `phien_ban`: `private, max-age=3600`
   (version numbers are never reissued). 404: not found/foreign, unknown version,
   HTML version, khuôn gốc deleted. Render errors map like `/tai-lieu/…/trang`
@@ -193,19 +287,22 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   per-account slot; PDF khuôn: `pdf` only, `docx` =
   422. `Content-Disposition: attachment; filename="<ASCII stem> - da dien.<dang>";
   filename*=UTF-8''<stem> - đã điền.<dang>` (stem of `ten_tep`, so a `.doc`
-  downloads as `.docx`); `nosniff`, `private, no-store`.
+  downloads as `.docx`) for a version with changes; a version whose merged op
+  list is empty downloads as the upload itself, `<stem>.<dang>`; `nosniff`,
+  `private, no-store`.
 - `PATCH /ban-thao/{id}/o-dien` `{"phien_ban", "gia_tri": [{"don_vi",
   "cho_trong", "gia_tri"}]}` (1–500 items, value ≤ 500 chars, `""` clears) →
-  `BanThaoOut`. One new version per save, counted in `TRAN_SUA`, `audit.sua_tay`;
+  `BanThaoOut`. One new version per save, NOT counted in `TRAN_SUA` (`so_lan_sua`
+  unchanged; history still keeps the last `TRAN_SUA` snapshots), `audit.sua_tay`;
   a save that changes nothing returns the draft without a version. Every
-  refusal is 422 with a Vietnamese string `detail` (stale `phien_ban`, edit cap,
-  not a khuôn draft, unknown blank, multi-line value, an op the applier skips) —
-  the `PATCH …/muc` convention, not 409. No render.
+  refusal is 422 with a Vietnamese string `detail` (stale `phien_ban`, not a
+  khuôn draft, unknown blank, multi-line value, an op the applier skips) — the
+  `PATCH …/muc` convention, not 409. No render.
 - `BanThaoOut` and `BanThaoPhienBanChiTietOut` gain `khuon: {"viec_id",
   "dinh_dang", "so_trang", "cho_trong": [{"don_vi", "so", "kieu", "nhan",
   "gia_tri" | null}]} | null` (default null). `cho_trong` lists only blanks the
   applier can reach (docx: unit has `dia_chi`; PDF: blank has `hop`) and not on
-  a unit the version `thay`/`xoa`-ed.
+  a unit the version `thay`/`xoa`-ed or in a paragraph it `thay`-ed by `doan`.
 - `POST /tai-lieu/{viec_id}/ban-thao` (no body) → `BanThaoOut` with `khuon` —
   opens the fill panel when no model turn filled anything. Explicit user action:
   no model call, no quota row. 200 with the newest draft of this account whose
@@ -277,8 +374,13 @@ open risks, and follows the TDD order: failing test first, then code.
 - **Scanned PDFs.** Tesseract emits no words for long dotted leaders; blanks are
   located by label-relative placement and pixel runs, and the accuracy is measured,
   not promised.
-- **Edit cap.** `TRAN_SUA = 10` is shared by chat edits and panel saves; the panel
-  saves every changed field in one version. A draft opened by `POST
+- **Edit cap.** `TRAN_SUA = 10` caps chat edits (each calls a model); fill saves
+  (`PATCH …/o-dien`) call no model and do not count (owner rule, fix/g4-backend
+  B6), nor does a `tao_lai` reset to the upload (it edits nothing with a model;
+  counting it would lock a capped draft out of the exact upload), so a 30-blank
+  form saved blank by blank never dead-ends; every save is
+  still one version under the optimistic lock, and history keeps the last
+  `TRAN_SUA` snapshots, so **Lùi** reaches at most that far back. A draft opened by `POST
   /tai-lieu/{viec_id}/ban-thao` costs no first-build quota, so later chat fills on
   it are edit turns under `TRAN_SUA`, not `EP_SOAN_THAO` (one draft per viec, and
   each viec already spent `tai_lieu_ngay`). A chat create turn spends one
@@ -298,6 +400,12 @@ open risks, and follows the TDD order: failing test first, then code.
 - [x] Wave D — P4a storage/routes, P4b graph edit operations, P2c .doc egress barrier, integrated on `integ/wave-d` and merged (`d32a50b`); CI lane 2437 passed on main.
 - [ ] Wave E — P5.
 - [ ] Wave F — P6.
+- [x] Wave G — fill on the page: paragraph `thay` by `doan` and label checks
+  (`dbbd151`), G1 blank positions on rendered pages (`191872f`), G3 on-page
+  filling (`4982040`), label/probe integration fixes, G4 owner-rule fixes
+  backend (`5a63e0d`) and frontend (`78dd14a`), integrated on `integ/wave-g`;
+  CI lane 2583 passed (only the worktree-only `test_data_raw_VAN_bi_gitignore`
+  failure); ruler unchanged on every LibreOffice measure.
 - [x] Issue opened for the soft-delete gap (#3).
 
 ## Decisions
@@ -356,7 +464,8 @@ open risks, and follows the TDD order: failing test first, then code.
   default under the owner's standing delegation, open for the owner to reverse
   (the reverse keeps an empty draft so the fill panel opens before any value is
   stated). Blanks are filled only by `dien`: `thay` on a unit with a fillable
-  blank is refused (`co_cho_trong`), each `Nhãn: giá trị` value in `thay`/
+  blank is refused (`co_cho_trong`; superseded 2026-09-27 by the provenance rule,
+  see the fix/dien-dung-o decision below), each `Nhãn: giá trị` value in `thay`/
   `chen_sau` passes the `dien` provenance check, and Điều/Khoản numbers compare
   as whole tokens.
 - 2026-09-27 (wave D integration): `gop_phep_sua` is defined once (P4a's body);
@@ -391,6 +500,191 @@ open risks, and follows the TDD order: failing test first, then code.
   values: the owner's sentence repeated, or said after **Điền biểu mẫu**, lands
   there. `POST /tai-lieu/{viec_id}/ban-thao` stays: it opens the
   fill panel without a chat turn and without quota.
+- 2026-09-27 (fix/dien-dung-o, from the owner's real run with
+  gemini-2.5-flash-lite on BM.M05, "Điền giúp tôi biểu mẫu này: tên cơ quan tiếp
+  nhận là Công ty TNHH Luật Việt, số 12/2026, …"): the model wrote the company
+  into the `Số` blank and "12/2026" into the `/` blank of the letterhead cell,
+  leaving "Cơ quan/Đơn vị tiếp nhận: ……" empty. Causes: the prompt listed blanks
+  apart from their sentence (`chỗ trống: 0 «Số» | 1 «/»`), and the uppercase
+  placeholder "TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN" — a fill target in Vietnamese forms
+  — could not be replaced (`co_cho_trong`), while a whole-cell `thay` would
+  restyle every paragraph with the first run's format. Changes: the reader
+  persists `doan_chu`; the prompt places `⟦n⟧` and `¶n` in the text (list-line
+  fallback when unproven); `thay` gains `doan` (the plan's original contract
+  allowed paragraph-level replace); the provenance rule on added words replaces
+  `co_cho_trong`; `khong_khop_nhan` catches a real value in a number/date-part
+  blank, because the provenance rule cannot. The prompt is what steers the model
+  to the right blanks; on the observed wrong output the narrow label rule drops
+  only the company in `Số`, and its `/` value ("12/2026": digits, grounded) still
+  lands. Traces count `khuon_yeu_cau_khac` and `khuon_so_phep_bo_yeu_cau_khac`.
+- 2026-09-27 (fix/dien-dung-o, refines the owner's no-change rule above): an
+  edit turn with `yeu_cau = van_ban_nay` whose merged ops equal the current ones
+  and that proposed nothing (no dropped op, including a `dien` the merge removed
+  as `da_viet_lai`) returns the EXISTING draft as the
+  turn's `ban_thao` (chat card, no version, no quota, no traces row), answering
+  "Bản thảo trên tệp bạn tải lên đã có sẵn (phiên bản N): …". `KHONG_DOI_KHUON`
+  remains only for turns whose proposed changes were all dropped and names the
+  kinds of problem (never values). User-facing copy says "bấm vào chỗ trống trên
+  trang" instead of the side-panel "dùng các ô điền bên cạnh trang" (on-page
+  filling, `feat/sua-tren-trang`); the khuôn answer's "sửa từng ô hoặc tải về ở
+  bên cạnh" follows for the same reason.
+- 2026-09-27 (fix/dien-dung-o review, agent default under the standing
+  delegation, open for the owner; supersedes the narrower default of the same
+  day): the added-words provenance rule applies to EVERY `thay`. Measured on the
+  real BM.M05: `thay(1, doan=null, "BỘ GIÁO DỤC VÀ ĐÀO TẠO")` on the one-paragraph
+  "TÊN CHỦ QUẢN…" cell was kept while the byte-identical `doan: 0` was dropped,
+  and multi-paragraph blank-less cells (the letterhead's own shape) left the same
+  hole; `goc.isupper()` does not catch "… (nếu có)". Cost: a sentence the model
+  rewrites in words nobody typed (and that are not in the document or hồ sơ) is
+  dropped as `khong_nguon`; the prompt says so. `chen_sau` keeps the looser
+  check (digits/email and `Nhãn: giá trị`) — the prompt sends placeholders to
+  `thay`. Reverse only with an owner decision that accepts model-worded
+  rewrites on the user's own form.
+- 2026-09-27 (G1, blank positions): `dien_khuon.danh_dau_docx` builds a PROBE
+  copy — each reachable blank's characters split into their own runs (same
+  `w:rPr`) and wrapped in a `w:hyperlink` to `https://klaw.invalid/o/{don_vi}/{so}`;
+  the applier fills the probe exactly as the clean copy (split runs keep the
+  raw string, so `[dau:cuoi]` holds, and a value lands inside its link).
+  LibreOffice exports each link as a `/Link` `/Rect`. Measured on the 8 owner
+  forms (LibreOffice 26.2.4): splitting runs alone is pixel-identical, but ANY
+  marker boundary (hyperlink, bookmark, colour) can move LibreOffice's line
+  break — a marker portion with no break inside that overflows the line wraps
+  at its own boundary (BM.M05 "Khoa .……" wraps one line differently and every
+  later line of page 1 shifts) — and shifts glyphs by ≤ 1 px elsewhere (6/7
+  forms with blanks are not pixel-identical). So pages are always rendered
+  from the CLEAN copy; the probe is converted in the same soffice process (two
+  files take 1.4–1.7 s, as one does), and positions are transferred by
+  character: the non-space `pdftotext -tsv` streams of probe and clean are
+  identical on all 8 forms before and after filling, so the chars under a
+  probe `/Link` are found on the clean page (word kept intact → exact offset;
+  word split differently → evenly divided width) and the box is their part on
+  the first clean line. Streams that differ → no positions (logged). Result:
+  247/248 blanks positioned (124 unfilled + 124 filled); the miss is the single
+  "…" ending the right-aligned "… năm 20…" of BM.ĐT.18.03 while empty
+  (LibreOffice emits no annotation for it; a trailing tab or ZWSP makes one but
+  changes the layout). 38 blanks span several rects (split across runs or
+  lines); the first clean line is used. A blank in a header shows on its first
+  page only. `GET …/trang` median +0.10 s (1.66 → 1.76 s over the 8 forms, max
+  +0.29 s on the 4-page Evaluation Form). A failed paired run falls back to the
+  clean render alone (page returned, no positions).
+- 2026-09-27 (G1, labels): the empty labels behind "Ô 9.0"/"Ô 11.0" come from
+  the PDF export of BM.M05 (`bm-m05.pdf`, 30 blanks — the owner's "0/30 ô"): a
+  dots-only line under its label had no words before it. A `.doc` converted by
+  LibreOffice reads the same labels as the `.docx`.
+- 2026-09-27 (on-page filling, G3 review): the owner dropped the fill panel
+  ("tình trạng ô này thì ko cần thiết, có thể để người dùng trực tiếp thao tác
+  trên" the page), so blanks are edited on the page image. Values typed there
+  stay unsaved (the map lifted to `dung-thu.tsx`, shown over the blank with a
+  dashed outline), and one toolbar **Lưu** sends every changed blank in one
+  `PATCH …/o-dien`, i.e. one version: the Risks "Edit cap" rule. Saving per
+  blank spends one of `TRAN_SUA` = 10 per field and dead-ends a 30-blank form.
+  Agent default within that rule, open for the owner to reverse: exempting fill
+  saves from the cap (`sua_o_dien` skips `kiem_tran_sua`, writes `tang: 0`,
+  keeps the `[-TRAN_SUA:]` trim) would allow an instant save per blank.
+- 2026-09-27 (wave G integration, `integ/wave-g`): `cho_trong_khuon` keeps
+  both rules — a blank of a paragraph replaced by `thay` with `doan` is not
+  listed, and every listed label goes through `nhan_sach` — so the probe
+  (`ban_do`) marks exactly the blanks still on the page. Measured on BM.M05
+  with LibreOffice 26.2.4: 32/32 blanks positioned untouched, 32/32 after
+  `thay` of the letterhead's name paragraph plus fills, 30/30 after `thay` of
+  its "Số …./…." paragraph. The node reads labels through
+  `doc_tai_lieu.nhan_sach_don_vi` (the reader's own threading, now one helper),
+  so rows stored before `nhan_sach` reach the prompt, the chat's "Còn trống"
+  and `khong_khop_nhan` with the names the page shows.
+- 2026-09-27 (owner rule, fix/g4-backend): "nếu người dùng yêu cầu sửa thì hãy
+  sửa, còn nếu bảo soạn thảo văn bản ra thì phải đúng 100%". Observed in the
+  owner's app the same day: "soạn thảo văn bản này cho tôi" on BM.M05 produced a
+  draft with «Trường Đại học Phenikaa» — words PRINTED in unit 9 — in that
+  sentence's «Khoa» blank; the provenance check let it through because the
+  document was one of its sources. Changes (supersede the `yeu_cau` values and the
+  looser `chen_sau` check of the decisions above; the no-change edit answer is
+  unchanged):
+  - B1: `yeu_cau` is `tao_lai | dien_sua | van_ban_khac`. `tao_lai` discards every
+    proposed op before validation (traces count `khuon_tao_lai`,
+    `khuon_so_phep_bo_tao_lai`): a create turn saves version 1, `phep_sua: []`,
+    byte-identical download, answer "Tôi đã dựng lại văn bản đúng như tệp bạn tải
+    lên (N trang) …"; on an existing draft see the review entry below (reset to
+    the upload). Missing/unknown (including the old `van_ban_nay`) reads as
+    `dien_sua`: B2 keeps every ADDED word to the user's text; deletions are not
+    covered (see the review entry).
+  - B2: a `dien` value and every word a `thay`/`chen_sau` adds must come from the
+    user (`_nguon_nguoi`: `cau_hoi_goc`/`query`/`cau_hoi_day_du`, hồ sơ minus
+    `suy_dien`, memory asked for this turn). The document's text, `quan_sat`
+    quotes and the open draft's `document` are no longer sources; a `thay` still
+    keeps the words and numbers of the text it replaces. A re-proposed op
+    identical to the open version's is skipped silently, so a repeated value from
+    an earlier turn is neither refused nor re-applied. Cost: a model-worded label
+    ("Người liên hệ:") in a `chen_sau` is now dropped unless the user said it.
+  - B3: `khuon.khong_dat` (values the user gave that the model could not place),
+    filtered to substrings of the user's text; `assemble` lists them ("Chưa đặt
+    được: «…» — hãy nói rõ chỗ cần điền hoặc bấm vào chỗ trống trên trang.") and
+    takes their length out of the 320-character "Còn trống" budget, so the longest
+    answer stays under 900 characters. Empty list-table cells (BM.M05 page 2) are
+    filled by `thay` on the cell unit; the prompt says so.
+  - B4: a full date into the first blank of a `… / … / …` triple, or into the
+    `ngày` blank of `ngày … tháng … năm …`, is split into three `dien` in the node
+    (not left to the model), unless the turn fills the other two itself.
+  - B5: a refused upload (page cap, format, broken file, converter busy) into a
+    conversation the upload opened itself hard-deletes that conversation
+    (`hoi_thoai.xoa_cung_phien_mo_ho`, own and turn-less only); its viec row goes
+    with it by the migration-026 cascade, so that refusal stops counting toward
+    `tai_lieu_ngay` — the same as deleting the conversation already does. Agent
+    default: the viec row cannot outlive its conversation (`hoi_thoai_id NOT
+    NULL … ON DELETE CASCADE`), and keeping a soft-deleted row would leave a
+    `hoi_thoai` row behind. Uploads into an existing conversation keep today's
+    `hong` row. The page-cap 422 names the file and the real page count.
+  - B6: fill saves no longer count toward `TRAN_SUA` (the G3 review's option,
+    now taken): `sua_o_dien` skips `kiem_tran_sua` and writes `tang: 0`, still one
+    version per save under the optimistic lock, history trimmed to the last
+    `TRAN_SUA` snapshots. Chat edits still count.
+  - B7: a version whose merged op list is empty downloads under the upload's own
+    name (`<stem>.<dang>`); only versions with changes get " - đã điền".
+  - B8: the backend's unlabeled-blank name is "Chỗ trống" (`ban_thao.ten_cho_trong`),
+    with " (n)" in reading order only when two unlabeled blanks would read the same;
+    "Ô x.y" is gone from saved documents, history diffs and save refusals.
+- 2026-09-27 (fix/g4-backend review): two holes in B1/B2, measured with a fake
+  LLM on the real BM.M05 unit 9 ("… Trường Đại học Phenikaa, thuộc Khoa ……").
+  - B2 compared the words a `thay` adds as a SET, so repeating or moving printed
+    words of the same paragraph read as "not added":
+    `thay(9, doan 0, "<same prefix> thuộc Khoa Trường Đại học Phenikaa")` on
+    "soạn thảo văn bản này cho tôi" was kept with `yeu_cau` missing or
+    `dien_sua` (also `doan` null, "thuộc Khoa Phenikaa", and the move variant).
+    Now `_them_khong_nguon` diffs word sequences (`difflib.SequenceMatcher`,
+    `autojunk=False`); every inserted or replacing run needs a user source. The
+    placeholder and empty list-cell fills still pass: their run is the user's
+    value.
+  - B1 `tao_lai` on an existing FILLED draft returned it unchanged (`co_san`), so a
+    conversation carrying the pre-fix bad fill stayed wrong when the user asked
+    again. Agent default under the standing delegation (the reviewer's option A),
+    open for the owner to reverse: `tao_lai` on a filled draft saves one new
+    version with `phep_sua: []` (`ban_thao.sua(tang=0)`: not counted toward
+    `TRAN_SUA`, not blocked by it); the answer is "Tôi đã dựng lại văn bản đúng
+    như tệp bạn tải lên …" plus "Giá trị đã điền trước đó vẫn ở phiên bản trước:
+    bấm Lùi để lấy lại." A draft that already is the upload keeps the no-change
+    answer. The reverse (option B) keeps `co_san` and says how many values the
+    draft still holds. Cost: "xuất file này" on a filled draft, classified
+    `tao_lai`, now yields the empty version first; one Lùi restores it.
+  - Not closed: a `thay` or `xoa` that only DELETES printed text (e.g. the
+    "thuộc Khoa ……" clause) adds no value, so B2 does not see it; with `yeu_cau`
+    misclassified as `dien_sua` on a drafting request it still lands. Only the
+    classifier guards that case; widening B2 to deletions needs an owner
+    decision, because "bỏ dòng …" is a legitimate edit.
+- 2026-09-27 (owner rules, wave G close-out): the day's owner rules as they now
+  stand together. (1) Blanks are filled on the page, not in a side panel
+  ("có thể để người dùng trực tiếp thao tác trên" the page). (2) "Soạn thảo văn
+  bản ra thì phải đúng 100%": `tao_lai` returns the upload exactly; "yêu cầu sửa
+  thì hãy sửa": `dien_sua` fills and edits with values from the user only (B1,
+  B2). (3) Fill saves are outside `TRAN_SUA` (B6), so fix/g4-frontend saves each
+  blank as its own version — Enter, Tab/Shift+Tab or leaving the blank saves,
+  Esc drops the unsaved text, saves queue so each sends the version the previous
+  one created, and the batch **Lưu** of the G3 review is gone (supersedes that
+  entry's one-save-per-batch default). Pages re-render once, 1.2 s after the
+  last save; renders and downloads run one at a time per tab, matching the
+  server's one render per account. Known ceiling: history keeps the last
+  `TRAN_SUA` snapshots, so after more than 10 blank saves **Lùi** cannot reach
+  the first ones. Still open for the owner: the deletion-only `thay`/`xoa` gap
+  and the `tao_lai`-on-a-filled-draft default (option A), both above. Both g4
+  branches merged into `integ/wave-g` without conflicts.
 
 ## Validation
 

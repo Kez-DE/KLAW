@@ -30,6 +30,7 @@ from tests.test_services.test_dung_trang import pdf_trang
 pytestmark = pytest.mark.integration
 
 _DUNG_PDF_THAT = rtl.dung_trang.dung_pdf
+_DUNG_PDF_KEM_THAT = rtl.dung_trang.dung_pdf_kem
 
 
 @pytest.fixture(autouse=True)
@@ -40,6 +41,7 @@ def _dung_pdf_gia(monkeypatch):
     LibreOffice thật bằng fixture `dung_that`."""
     run_migrations("036")
     monkeypatch.setattr(rtl.dung_trang, "dung_pdf", lambda docx: pdf_trang((595.0, 842.0)))
+    monkeypatch.setattr(rtl.dung_trang, "dung_pdf_kem", lambda docx, do: (pdf_trang((595.0, 842.0)), None))
 
 LOAI = "hdld"
 DONG_LUONG = "Lương chính thức: 20.000.000 đồng/tháng"
@@ -775,6 +777,7 @@ can_pdftoppm = pytest.mark.skipif(not _CO_PDFTOPPM, reason="cần pdftoppm (popp
 def dung_that(monkeypatch):
     """LibreOffice THẬT thay cho PDF giả của `_dung_pdf_gia`."""
     monkeypatch.setattr(rtl.dung_trang, "dung_pdf", _DUNG_PDF_THAT)
+    monkeypatch.setattr(rtl.dung_trang, "dung_pdf_kem", _DUNG_PDF_KEM_THAT)
 
 
 def _pdf_co_chu(*kho: tuple[float, float]) -> bytes:
@@ -815,16 +818,19 @@ def _kiem_trang(body: dict, so_trang: int) -> None:
 @can_pdftoppm
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("ten", "so_trang", "kho_dau"),
+    ("ten", "so_trang", "kho_dau", "so_o"),
     [
-        ("BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx", 2, None),
-        ("Evaluation Form.docx", 4, [612.0, 792.0]),
-        ("Report_instruction.docx", 3, None),
+        ("BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx", 2, None, 32),
+        ("Evaluation Form.docx", 4, [612.0, 792.0], 17),
+        ("Report_instruction.docx", 3, None, 3),
     ],
 )
-async def test_bieu_mau_THAT_ra_dung_so_trang_dan_that(client, khoa_ky, hai_nguoi, dung_that, ten, so_trang, kho_dau):
+async def test_bieu_mau_THAT_ra_dung_so_trang_dan_that(
+    client, khoa_ky, hai_nguoi, dung_that, ten, so_trang, kho_dau, so_o
+):
     """Evaluation Form đọc theo ngắt trang khai báo ra 1 trang; dàn thật là 4,
-    và nó là khổ Letter — hiện ra vẫn phải là Letter."""
+    và nó là khổ Letter — hiện ra vẫn phải là Letter. `o`: mọi ô của tệp nguyên
+    có trang và hộp nằm trong trang đó."""
     tep = _KHO_MAU / ten
     if not tep.exists():
         pytest.skip("kho mẫu ngoài repo không có trên máy này")
@@ -842,6 +848,11 @@ async def test_bieu_mau_THAT_ra_dung_so_trang_dan_that(client, khoa_ky, hai_nguo
     _kiem_trang(trang.json(), so_trang)
     if kho_dau:
         assert trang.json()["kho"][0] == kho_dau
+    o = trang.json()["o"]
+    assert len(o) == so_o and all(x["gia_tri"] is None and x["nhan"] is not None for x in o)
+    for x in o:
+        rong, cao = trang.json()["kho"][x["trang"]]
+        assert 0 <= x["hop"][0] < x["hop"][2] <= rong + 0.5 and 0 <= x["hop"][1] < x["hop"][3] <= cao + 0.5, x
 
 
 @can_soffice
@@ -894,6 +905,88 @@ async def test_PDF_11_trang_bi_tu_choi_TRUOC_khi_doc_va_KHONG_tru_han_muc(client
     assert r.status_code == 201, r.text
 
 
+def _hoi_thoai_cua(sub: str) -> int:
+    """MỌI dòng `hoi_thoai` của tài khoản, kể cả dòng đã xoá mềm."""
+    return _dem("SELECT count(*) FROM hoi_thoai WHERE user_sub = CAST(:u AS uuid)", u=sub)
+
+
+def _loi_dung(loi):
+    def _nem(docx):
+        raise loi
+
+    return _nem
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("ten", "tep", "dung", "ma", "chi_tiet"),
+    [
+        (
+            "muoi-mot-trang.docx",
+            _docx(DONG_LUONG),
+            lambda docx: pdf_trang(*[(595.0, 842.0)] * 11),
+            422,
+            "«muoi-mot-trang.docx» có 11 trang, vượt giới hạn 10 trang.",
+        ),
+        ("hong.docx", b"khong phai zip", None, 422, None),
+        ("bang.xyz", b"abc", None, 422, None),
+        ("qua-tai.docx", _docx(DONG_LUONG), "qua_tai", 503, None),
+    ],
+    ids=["11_trang", "tep_hong", "dinh_dang", "qua_tai"],
+)
+async def test_TAI_LEN_BI_TU_CHOI_khong_de_lai_hoi_thoai_nao(
+    client, khoa_ky, hai_nguoi, monkeypatch, ten, tep, dung, ma, chi_tiet
+):
+    """B5 (owner 2026-09-27): đính kèm ở một đoạn chat chưa mở mà tệp bị từ chối (trần
+    trang, định dạng, tệp hỏng, máy chủ bận) thì KHÔNG để lại hội thoại nào — không dòng
+    `hoi_thoai` nào (kể cả xoá mềm), thanh bên không đổi. Phiên do CHÍNH lần tải lên đó
+    mở hộ bị xoá cứng, dòng việc đọc đi theo khoá ngoại."""
+    from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang
+
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    if dung == "qua_tai":
+        dung = _loi_dung(ChuyenDoiKhongSanSang("qua_tai"))
+    if dung is not None:
+        monkeypatch.setattr(rtl.dung_trang, "dung_pdf", dung)
+    _, truoc = hoi_thoai.danh_sach(a, 50, 0)
+
+    r = await client.post("/api/v1/tai-lieu", headers=ha, files={"tep": (ten, tep)}, data={})
+    assert r.status_code == ma, r.text
+    if chi_tiet:
+        assert r.json()["detail"] == chi_tiet
+    assert _hoi_thoai_cua(a) == 0, "không dòng hoi_thoai nào ở lại"
+    assert hoi_thoai.danh_sach(a, 50, 0)[1] == truoc == 0
+    assert _dem("SELECT count(*) FROM viec_doc_tai_lieu WHERE user_sub = CAST(:u AS uuid)", u=a) == 0
+
+
+@pytest.mark.asyncio
+async def test_TU_CHOI_trong_HOI_THOAI_CO_SAN_giu_hoi_thoai_va_viec_nhu_cu(client, khoa_ky, hai_nguoi, monkeypatch):
+    """Tải lên vào một hội thoại đã có: hội thoại là của người dùng, không phải của lần
+    tải lên — nó ở lại, và dòng việc đọc `hong` ở lại như hôm nay (hạn mức đếm nó)."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    monkeypatch.setattr(rtl.dung_trang, "dung_pdf", lambda docx: pdf_trang(*[(595.0, 842.0)] * 11))
+    _, truoc = hoi_thoai.danh_sach(a, 50, 0)
+
+    r = await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "muoi-mot-trang.docx")
+    assert (r.status_code, r.json()["detail"]) == (422, "«muoi-mot-trang.docx» có 11 trang, vượt giới hạn 10 trang.")
+    assert hoi_thoai.lay_phien(a, phien) is not None and hoi_thoai.danh_sach(a, 50, 0)[1] == truoc == 1
+    assert (
+        _dem(
+            "SELECT count(*) FROM viec_doc_tai_lieu WHERE hoi_thoai_id = CAST(:h AS uuid) AND ly_do_hong = :l",
+            h=phien,
+            l="vuot_tran_so_trang",
+        )
+        == 1
+    )
+    # Lần tải kế tiếp vào CÙNG hội thoại đi như thường.
+    monkeypatch.setattr(rtl.dung_trang, "dung_pdf", lambda docx: pdf_trang((595.0, 842.0)))
+    r = await _dinh_kem(client, ha, phien, _docx(DONG_LUONG), "hd.docx")
+    assert (r.status_code, r.json()["hoi_thoai_id"]) == (201, phien), r.text
+
+
 @pytest.mark.asyncio
 async def test_thieu_LibreOffice_la_503_va_KHONG_tru_han_muc(client, khoa_ky, hai_nguoi, monkeypatch):
     from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang
@@ -929,8 +1022,32 @@ async def test_trang_cua_PDF_la_chinh_tep_giu_tung_kho(client, khoa_ky, hai_nguo
     assert t.status_code == 200
     assert t.json()["kho"] == [[595.0, 842.0], [612.0, 792.0]]
     _kiem_trang(t.json(), 2)
+    assert t.json()["o"] == [], "PDF không có dãy chấm nào thì không có ô"
     assert t.headers["x-content-type-options"] == "nosniff"
     assert "private" in t.headers["cache-control"]
+
+
+@can_pdftoppm
+@pytest.mark.asyncio
+async def test_trang_PDF_o_la_hop_bo_doc_da_luu_tren_trang_cua_don_vi(client, khoa_ky, hai_nguoi):
+    """Khuôn PDF không cần bản dò: hộp của từng chỗ trống bộ đọc đã đo (hệ hiển
+    thị của poppler, cùng hệ `kho`), trên trang của đơn vị."""
+    from tests.test_services.test_dien_khuon_pdf import _pdf
+
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    r = await _dinh_kem(client, ha, hoi_thoai.tao_phien(a, "báo cáo"), _pdf(), "bao_cao.pdf")
+    assert r.status_code == 201, r.text
+    luu = rtl.tl.don_vi_cua(get_engine(), r.json()["id"], a)
+    t = await client.get(f"/api/v1/tai-lieu/{r.json()['id']}/trang", headers=ha)
+    assert t.status_code == 200, t.text
+    assert t.json()["o"] == [
+        {"don_vi": d.chi_so, "so": c.so, "trang": d.trang - 1, "hop": list(c.hop), "nhan": c.nhan, "gia_tri": None}
+        for d in luu
+        for c in d.cho_trong
+        if c.hop
+    ]
+    assert t.json()["o"], "tệp mẫu có chỗ trống"
 
 
 @can_pdftoppm

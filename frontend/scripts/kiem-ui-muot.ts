@@ -23,6 +23,7 @@
  * Chạy: `npm run kiem-ui-muot`.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BanThao } from "../src/lib/klaw.ts";
@@ -1311,11 +1312,12 @@ assert.equal(
   "tên mục `m2` sang tờ mới cùng khối đầu của nó",
 );
 
-// ───── 11. KHUÔN GỐC: khung trang ảnh, bảng ô điền, bản tải lên (P5) ───────
+// ───── 11. KHUÔN GỐC: khung trang ảnh, điền TẠI CHỖ trên trang, bản tải lên ─
 // Bản thảo trên khuôn gốc (`banThao.khuon`) vẽ ĐÚNG ảnh trang máy chủ dựng,
 // không phải A4 HTML. Một lượt dựng giữ suất LibreOffice của CẢ tài khoản
 // (lượt thứ hai đồng thời là 503), nên khung trang tải MỘT lần cho mỗi (id,
 // phiên bản) dù sân khấu vẽ lại theo từng token chat hay từng pixel kéo.
+// Chủ dự án 2026-09-27: không bảng ô điền bên cạnh — điền ngay trên trang.
 const { TaiLieuDuKien } = await nap<typeof import("../src/components/klaw/TaiLieuDuKien.tsx")>(
   "src/components/klaw/TaiLieuDuKien.tsx",
 );
@@ -1323,6 +1325,15 @@ const { KhungTrangAnh, SanKhauBanTaiLen } = await nap<
   typeof import("../src/components/soan-thao/KhungTrangAnh.tsx")
 >("src/components/soan-thao/KhungTrangAnh.tsx");
 const { taiXuongBanThao } = await nap<typeof import("../src/lib/api.ts")>("src/lib/api.ts");
+const { ChipTaiLieu } = await nap<typeof import("../src/components/klaw/ChipTaiLieu.tsx")>(
+  "src/components/klaw/ChipTaiLieu.tsx",
+);
+const { OSoanCauHoi } = await nap<typeof import("../src/components/klaw/OSoanCauHoi.tsx")>(
+  "src/components/klaw/OSoanCauHoi.tsx",
+);
+const { TheKetQua } = await nap<typeof import("../src/components/klaw/TheKetQua.tsx")>(
+  "src/components/klaw/TheKetQua.tsx",
+);
 
 // Mỗi `nap` là một đồ thị module riêng, nên mỗi đồ thị dựng client Supabase
 // của nó ở lượt gọi đầu cần header danh tính, và GoTrue cảnh báo "Multiple
@@ -1331,6 +1342,13 @@ const canhBaoThat = console.warn.bind(console);
 console.warn = (...a: unknown[]) => {
   if (!String(a[0]).includes("Multiple GoTrueClient instances")) canhBaoThat(...a);
 };
+
+// Ô nhập chữ giữ tiêu điểm thì `SelectEventPlugin` của React đọc
+// `window.getSelection()` ở mỗi phím; khung giả chưa từng có `<input>` nào nhận
+// tiêu điểm trước phần này. Một vùng chọn rỗng là đủ.
+Object.assign(window, {
+  getSelection: () => ({ anchorNode: null, anchorOffset: 0, focusNode: null, focusOffset: 0 }),
+});
 
 // `<select>` của React đọc `node.options`; khung giả không có — thêm đúng một
 // getter, không phép kiểm cũ nào dùng `<select>`.
@@ -1349,6 +1367,22 @@ const TRANG_HAI = {
   ],
   trang: ["AAAA", "BBBB"],
 };
+/** Payload trang CÓ `o` (G1): hai chỗ định vị được (mỗi trang một), một chỗ
+ *  không đo được vị trí. Số tròn để phần trăm kiểm được bằng mắt: 119/595 =
+ *  20%, 210,5/842 = 25%; 61,2/612 = 10%, 79,2/792 = 10%, bề rộng 40%. */
+const O_TRANG = [
+  {
+    don_vi: 0,
+    so: 0,
+    trang: 0,
+    hop: [119, 210.5, 297.5, 227.34],
+    nhan: "Họ và tên:",
+    gia_tri: "Nguyễn Văn Ánh",
+  },
+  { don_vi: 1, so: 0, trang: 1, hop: [61.2, 79.2, 306, 95.04], nhan: "Email", gia_tri: null },
+  { don_vi: 1, so: 1, trang: null, hop: null, nhan: "", gia_tri: null },
+];
+const TRANG_O = { ...TRANG_HAI, o: O_TRANG };
 const TAI_LIEU_KHUON = {
   id: VIEC,
   hoi_thoai_id: "p1",
@@ -1374,7 +1408,7 @@ const KHUON = {
   so_trang: 2,
   cho_trong: [
     { don_vi: 0, so: 0, kieu: "cham", nhan: "Họ và tên:", gia_tri: "Nguyễn Văn Ánh" },
-    { don_vi: 1, so: 0, kieu: "tab", nhan: "Email", gia_tri: " a@b.vn" },
+    { don_vi: 1, so: 0, kieu: "tab", nhan: "Email", gia_tri: null },
     { don_vi: 1, so: 1, kieu: "cham", nhan: "", gia_tri: null },
   ],
 };
@@ -1385,12 +1419,67 @@ type GoiKhuon = { url: string; method: string; body: unknown; headers: Record<st
 const goiKhuon: GoiKhuon[] = [];
 const traJson = (x: unknown, status = 200) =>
   new Response(JSON.stringify(x), { status, headers: { "Content-Type": "application/json" } });
-let traPatch: () => Response | Promise<Response> = () => traJson({ detail: "chưa đặt" }, 500);
 let moCongBanTaiLen: () => void = () => {};
 const congBanTaiLen = new Promise<void>((r) => {
   moCongBanTaiLen = r;
 });
 let lan503 = 0;
+const { khuonHopLe } = await nap<typeof import("../src/lib/klaw.ts")>("src/lib/klaw.ts");
+const { NGHI_DUNG_TRANG_MS } =
+  await nap<typeof import("../src/lib/khuon-goc.ts")>("src/lib/khuon-goc.ts");
+/** Máy chủ giả của ô điền, cho mỗi bản thảo khuôn: MỌI phiên bản đã có (để
+ *  `/trang?phien_ban=N` vẽ đúng giá trị của phiên bản đó) và luật phiên bản của
+ *  máy chủ thật — gửi phiên bản cũ là 422, không đổi gì thì không tăng. */
+const banMayChu = new Map<string, BanThao[]>();
+const CAU_CU =
+  "Bản thảo đã đổi (một lượt sửa khác vừa chạy) — tải lại bản thảo trước khi sửa tiếp.";
+const CAU_AP =
+  "Không lưu được: 1 ô không điền được vào tài liệu tải lên (“Email”) — giá trị quá dài cho ô, hoặc ô không còn khớp tài liệu. Rút gọn hay bỏ trống ô đó rồi lưu lại.";
+/** Giá trị máy chủ giả từ chối (422 `CAU_AP`). */
+let tuChoiO: string | null = null;
+/** Cổng giữ phản hồi `PATCH …/o-dien` / `GET /ban-thao/{id}/trang` (của ĐÚNG
+ *  một bản thảo): đứng giữa lúc chờ thì quan sát được "đang lưu"/"đang dựng".
+ *  Mỗi lượt chờ ĐÚNG cổng đặt lúc nó tới. */
+let congPatch: Promise<void> | null = null;
+let congTrang: { id: string; cong: Promise<void> } | null = null;
+function taoCong() {
+  let mo: () => void = () => {};
+  const cong = new Promise<void>((r) => {
+    mo = r;
+  });
+  return { cong, mo };
+}
+type ODienTho = { don_vi: number; cho_trong: number; gia_tri: string };
+function oDienGia(id: string, than: { phien_ban: number; gia_tri: ODienTho[] }): Response {
+  const ds = banMayChu.get(id);
+  const bt = ds?.at(-1);
+  if (ds === undefined || bt === undefined) return traJson({ detail: "Không tìm thấy" }, 404);
+  if (than.phien_ban !== bt.phien_ban) return traJson({ detail: CAU_CU }, 422);
+  if (than.gia_tri.some((g) => g.gia_tri.trim() === tuChoiO))
+    return traJson({ detail: CAU_AP }, 422);
+  const k = khuonHopLe(bt.khuon)!;
+  const cho_trong = k.cho_trong.map((c) => {
+    const g = than.gia_tri.find((x) => x.don_vi === c.don_vi && x.cho_trong === c.so);
+    return g === undefined ? c : { ...c, gia_tri: g.gia_tri.trim() === "" ? null : g.gia_tri };
+  });
+  if (cho_trong.every((c, i) => c.gia_tri === k.cho_trong[i]!.gia_tri)) return traJson(bt);
+  const moi: BanThao = { ...bt, phien_ban: bt.phien_ban + 1, khuon: { ...k, cho_trong } };
+  ds.push(moi);
+  return traJson(moi);
+}
+/** Trang của phiên bản N mà máy chủ giả biết: `TRANG_O` mang giá trị CỦA N. */
+function trangCua(id: string, pb: number) {
+  const bt = banMayChu.get(id)?.find((b) => b.phien_ban === pb);
+  if (bt === undefined) return TRANG_O;
+  const k = khuonHopLe(bt.khuon)!;
+  return {
+    ...TRANG_HAI,
+    o: O_TRANG.map((x) => {
+      const gt = k.cho_trong.find((c) => c.don_vi === x.don_vi && c.so === x.so)?.gia_tri?.trim();
+      return { ...x, gia_tri: gt ? gt : null };
+    }),
+  };
+}
 globalThis.fetch = (async (url: string, init?: RequestInit) => {
   const u = String(url).replace(apiGoc(), "");
   const method = init?.method ?? "GET";
@@ -1402,20 +1491,31 @@ globalThis.fetch = (async (url: string, init?: RequestInit) => {
   });
   if (u === `/tai-lieu/${VIEC}/trang`) {
     await congBanTaiLen;
-    return traJson(TRANG_HAI);
+    return traJson(TRANG_O); // có `o` — "Bản tải lên" vẫn phải sạch
   }
   if (u === "/ban-thao/b503/trang?phien_ban=1") {
     lan503 += 1;
     return lan503 === 1 ? traJson({ detail: "qua_tai" }, 503) : traJson(TRANG_HAI);
   }
   if (u === "/ban-thao/b404/trang?phien_ban=1") return traJson({ detail: "Không tìm thấy" }, 404);
-  if (u.includes("/trang")) return traJson(TRANG_HAI);
+  if (u.startsWith("/ban-thao/bcu/")) return traJson(TRANG_HAI); // máy chủ cũ: không `o`
+  if (u.includes("/trang")) {
+    const bt = /^\/ban-thao\/([^/]+)\/trang\?phien_ban=(\d+)$/.exec(u);
+    const cong = congTrang;
+    if (cong !== null && bt?.[1] === cong.id) await cong.cong;
+    return traJson(bt === null ? TRANG_O : trangCua(bt[1]!, Number(bt[2])));
+  }
   if (u.includes("/tai-xuong"))
     return new Response(new Uint8Array([37, 80, 68, 70]), {
       status: 200,
       headers: { "Content-Disposition": DAU_TAI_VE, "Content-Type": "application/pdf" },
     });
-  if (method === "PATCH") return traPatch();
+  if (method === "PATCH") {
+    const cong = congPatch;
+    if (cong !== null) await cong;
+    const id = /^\/ban-thao\/([^/]+)\/o-dien$/.exec(u)?.[1] ?? "";
+    return oDienGia(id, JSON.parse(String(init?.body)));
+  }
   if (u.endsWith("/doc-lai")) return traJson(TAI_LIEU_KHUON);
   if (u.endsWith("/don-vi"))
     return traJson({ id: VIEC, ten_tep: "BM.M05.docx", so_trang: 2, don_vi: [] });
@@ -1424,21 +1524,81 @@ globalThis.fetch = (async (url: string, init?: RequestInit) => {
     return traJson({ ...TAI_LIEU_KHUON, id: VIEC_CU, co_khuon_goc: false });
   return traJson({ detail: "không có" }, 404);
 }) as typeof fetch;
+/** So hai nút bằng DANH TÍNH, hỏng thì báo bằng một câu. `assert.equal` trên
+ *  nút giả in CẢ đồ thị DOM giả khi hỏng, và Node chết vì hết bộ nhớ (thoát
+ *  137) thay vì nói phép kiểm nào sai. */
+const cungNut = (a: Nut | null | undefined, b: Nut | null | undefined, thongDiep?: string) =>
+  assert.ok(a === b, thongDiep ?? "hai nút phải là một");
 const soGoi = (khop: (g: GoiKhuon) => boolean) => goiKhuon.filter(khop).length;
+const soPatch = () => soGoi((g) => g.method === "PATCH");
 const laTrangCua = (id: string, pb: number) => (g: GoiKhuon) =>
   g.url === `/ban-thao/${id}/trang?phien_ban=${pb}`;
 const anhTrang = (khung: Nut) => timTatNut(khung, (n) => n.tagName === "IMG");
 const nutChu = (khung: Nut, chu: string) =>
   tim(khung, (n) => n.tagName === "BUTTON" && n.textContent.includes(chu));
+/** Nút phủ chỗ trống, theo thứ tự DOM (= thứ tự Tab). */
+const nutO = (khung: Nut) =>
+  timTatNut(khung, (n) => n.tagName === "BUTTON" && n.getAttribute("data-o") !== null);
+const nutOKhoa = (khung: Nut, k: string) =>
+  tim(khung, (n) => n.tagName === "BUTTON" && n.getAttribute("data-o") === k);
+const oNhapCua = (khung: Nut) => tim(khung, (n) => n.tagName === "INPUT");
+const giaTri = (n: Nut | null) => (n as unknown as { value: string } | null)?.value;
+/** Lượt tải của khung trang đã về (vùng hết `aria-busy`). */
+const daTaiXong = (khung: Nut) =>
+  tim(khung, (n) => n.getAttribute("role") === "region")?.getAttribute("aria-busy") === "false";
+const go = async (o: Nut, chu: string) => {
+  await act(() => {
+    (o as unknown as { value: string }).value = chu;
+    phat(o, "input");
+  });
+};
+/** Một phím, rồi một nhịp TRONG `act`: lượt lưu bất đồng bộ nó mở ra (fetch
+ *  giả → state của ô nhập) cập nhật bên trong `act`, không rơi ra ngoài. */
+const phim = async (o: Nut, key: string, them: Record<string, unknown> = {}) => {
+  await act(async () => {
+    phat(o, "keydown", { key, ...them });
+    await nhip();
+  });
+};
+const theoMoTa = (khung: Nut, o: Nut) =>
+  (o.getAttribute("aria-describedby") ?? "")
+    .split(" ")
+    .map((id) => tim(khung, (n) => n.getAttribute("id") === id)?.textContent ?? "");
+/** Nút "Lưu" gom của thanh công cụ khuôn gốc — đã bỏ; tìm để chắc nó không mọc lại. */
+const nutLuu = (khung: Nut) =>
+  tim(khung, (n) => n.tagName === "BUTTON" && /^(Lưu|Đang lưu)/.test(n.textContent));
+/** Mọi `PATCH …/o-dien` đã gửi: [đường dẫn, thân]. */
+const thanPatch = () =>
+  goiKhuon.filter((g) => g.method === "PATCH").map((g) => [g.url, g.body] as const);
+const cho = (ms: number) =>
+  act(async () => {
+    await new Promise((r) => setTimeout(r, ms));
+  });
 type PropsSanKhau = Parameters<typeof SanKhauBanThao>[0];
-/** Chữ đang gõ của bảng ô điền giữ ở TRÊN sân khấu — đúng chỗ `dung-thu.tsx`
- *  giữ nó. `hien: false` tháo sân khấu ra (tab "Trợ lý" ở bố cục hẹp, đóng
- *  sân khấu) như trang thật làm. */
+/** Trang gọi thu nhỏ — đúng hai việc `dung-thu.tsx` làm cho sân khấu: giữ chữ
+ *  chưa lưu xong ở TRÊN sân khấu (`hien: false` tháo sân khấu ra như tab "Trợ
+ *  lý"/đóng), và đưa bản thảo vừa lưu lên lại (`capNhatBanThao`, chỉ cùng id).
+ *  Một `banThao` MỚI truyền từ ngoài (lượt chat, lùi) thay bản đang giữ. */
 function VoNhap(p: Omit<PropsSanKhau, "nhapODien" | "datNhapODien"> & { hien?: boolean }) {
   const [nhap, datNhap] = useState<Record<string, string>>({});
+  const [bt, datBt] = useState(p.banThao);
+  const [tuNgoai, datTuNgoai] = useState(p.banThao);
+  if (p.banThao !== tuNgoai) {
+    datTuNgoai(p.banThao);
+    datBt(p.banThao);
+  }
   return p.hien === false
     ? null
-    : h(SanKhauBanThao, { ...p, nhapODien: nhap, datNhapODien: datNhap });
+    : h(SanKhauBanThao, {
+        ...p,
+        banThao: bt,
+        capNhatBanThao: (moi: BanThao) => {
+          p.capNhatBanThao(moi);
+          datBt((cu) => (cu.id === moi.id ? moi : cu));
+        },
+        nhapODien: nhap,
+        datNhapODien: datNhap,
+      });
 }
 
 // (a) Khuôn DOCX: trang ảnh thay A4, đúng tỉ lệ từng trang, MỘT lượt tải.
@@ -1449,6 +1609,7 @@ const banThaoKhuon: BanThao = {
   document: "# BM.M05\n",
   khuon: KHUON,
 };
+banMayChu.set("bk", [banThaoKhuon]);
 const capNhatKhuon: BanThao[] = [];
 const propsKhuon = {
   ...propsSanKhau,
@@ -1460,7 +1621,7 @@ await act(() => {
   rootKhuon.render(h(VoNhap, propsKhuon));
 });
 await choDen(() => anhTrang(khungKhuon).length === 2);
-assert.equal(
+cungNut(
   tim(khungKhuon, (n) => n.tagName === "ARTICLE"),
   null,
   "bản thảo trên khuôn gốc KHÔNG vẽ A4 HTML (`XemTruocA4`)",
@@ -1492,10 +1653,11 @@ for (let i = 0; i < 5; i += 1) {
 await choDen(() => false);
 assert.equal(soGoi(laTrangCua("bk", 1)), 1, "vẽ lại với CÙNG (id, phiên bản) không tải lại trang");
 const banThaoKhuonV2: BanThao = { ...banThaoKhuon, phien_ban: 2 };
+banMayChu.get("bk")!.push(banThaoKhuonV2); // một lượt chat vừa sửa
 await act(() => {
   rootKhuon.render(h(VoNhap, { ...propsKhuon, banThao: banThaoKhuonV2 }));
 });
-await choDen(() => soGoi(laTrangCua("bk", 2)) === 1 && anhTrang(khungKhuon).length === 2);
+await choDen(() => soGoi(laTrangCua("bk", 2)) === 1 && daTaiXong(khungKhuon));
 assert.equal(
   soGoi(laTrangCua("bk", 2)),
   1,
@@ -1503,87 +1665,449 @@ assert.equal(
 );
 assert.ok(nutChu(khungKhuon, "Tải Word") !== null, "khuôn DOCX tải được Word");
 
-// (b) Bảng ô điền: nhãn gắn ô, giá trị đang có, lưu MỘT PATCH chỉ ô đổi.
-const oNhap = () => timTatNut(khungKhuon, (n) => n.tagName === "INPUT");
-assert.equal(oNhap().length, 3, "một ô nhập cho mỗi chỗ trống, theo thứ tự đọc");
-assert.deepEqual(
-  oNhap().map(
-    (i) =>
-      tim(
-        khungKhuon,
-        (n) => n.tagName === "LABEL" && n.getAttribute("for") === i.getAttribute("id"),
-      )?.textContent,
-  ),
-  ["Họ và tên", "Email", "Ô 1.1"],
-  "mỗi ô có nhãn NHÌN THẤY gắn bằng htmlFor; bỏ ':' cuối; nhãn rỗng → 'Ô {don_vi}.{so}'",
+// (b) Điền TẠI CHỖ, TỪNG chỗ (chủ dự án 2026-09-27: "để người dùng trực tiếp
+// thao tác trên" trang; lưu ô điền không tính vào trần sửa): Enter lưu ngay,
+// Tab lưu rồi MỞ chỗ kế, Esc huỷ, bấm sang chỗ khác lưu chỗ đang mở trước. Không
+// còn bảng ô điền, không còn nút "Lưu n chỗ" gom lại.
+cungNut(
+  tim(khungKhuon, (n) => n.tagName === "FORM"),
+  null,
+  "không còn bảng ô điền",
 );
+assert.doesNotMatch(khungKhuon.textContent, /Ô điền|Đã điền \d+\/\d+/, "không dòng 'Ô điền · k/T'");
+cungNut(nutChu(khungKhuon, "Rút gọn"), null, "khuôn gốc: không phím tắt viết lại văn bản");
+cungNut(nutChu(khungKhuon, "Trang trọng hơn"), null);
+cungNut(nutChu(khungKhuon, "Soát lại theo luật"), null);
+cungNut(nutLuu(khungKhuon), null, "không còn nút 'Lưu n chỗ': mỗi chỗ tự lưu");
 assert.deepEqual(
-  oNhap().map((i) => (i as unknown as { value: string }).value),
-  ["Nguyễn Văn Ánh", "a@b.vn", ""],
-  "giá trị đang điền hiện sẵn, ô tab bỏ dấu cách đầu",
+  nutO(khungKhuon).map((n) => n.getAttribute("data-o")),
+  ["0.0", "1.0"],
+  "một nút cho mỗi chỗ ĐỊNH VỊ được, theo thứ tự đọc (trang 1 rồi trang 2)",
 );
-const form = () => tim(khungKhuon, (n) => n.tagName === "FORM")!;
-const nutLuu = () =>
-  tim(form(), (n) => n.tagName === "BUTTON" && n.getAttribute("type") === "submit")!;
-assert.equal(nutLuu().getAttribute("aria-disabled"), "true", "chưa đổi gì thì 'Lưu' bị khoá");
-assert.match(form().textContent, /Đã điền 2\/3/, "đếm ô đã điền");
-const go = async (i: number, chu: string) => {
-  const o = oNhap()[i]!;
-  await act(() => {
-    (o as unknown as { value: string }).value = chu;
-    phat(o, "input");
-  });
-};
-await go(1, " a@b.vn "); // gõ lại đúng giá trị cũ — không phải một thay đổi
-await go(2, "Hà Nội");
-assert.equal(nutLuu().getAttribute("aria-disabled"), "false", "có ô đổi thì 'Lưu' bấm được");
-traPatch = () =>
-  traJson(
-    {
-      detail: "Bản thảo đã đổi (một lượt sửa khác vừa chạy) — tải lại bản thảo trước khi sửa tiếp.",
-    },
-    422,
+const phanTram = (n: Nut, k: string) => Number.parseFloat(String(n.style[k]));
+{
+  const [o0, o1] = nutO(khungKhuon) as [Nut, Nut];
+  assert.deepEqual(
+    [phanTram(o0, "left"), phanTram(o0, "top"), phanTram(o0, "width")],
+    [20, 25, 30],
+    "pt → phần trăm khổ trang 1 (595×842)",
   );
-await act(() => phat(form(), "submit"));
-await choDen(
-  () =>
-    soGoi((g) => g.method === "PATCH") === 1 && nutLuu().getAttribute("aria-disabled") === "false",
+  assert.ok(Math.abs(phanTram(o0, "height") - 2) < 1e-6);
+  assert.deepEqual(
+    [phanTram(o1, "left"), phanTram(o1, "top"), phanTram(o1, "width")],
+    [10, 10, 40],
+    "trang 2 dùng khổ CỦA NÓ (612×792)",
+  );
+  assert.ok(
+    anhTrang(khungKhuon)[1]!.parentNode!.contains(o1) &&
+      !anhTrang(khungKhuon)[0]!.parentNode!.contains(o1),
+    "nút nằm trong khung của ĐÚNG trang nó thuộc về",
+  );
+  assert.equal(o0.getAttribute("aria-label"), "Điền: Họ và tên — đang là “Nguyễn Văn Ánh”");
+  assert.equal(o1.getAttribute("aria-label"), "Điền: Email — còn trống");
+  assert.match(o0.getAttribute("class") ?? "", /bg-brass-500\/15/, "chỗ đã điền tô nhạt");
+  assert.doesNotMatch(o1.getAttribute("class") ?? "", /bg-brass-500\/15/, "chỗ trống không tô");
+  assert.match(o0.getAttribute("class") ?? "", /focus-brass/, "vòng tiêu điểm thấy được");
+  assert.equal(o0.textContent, "", "ảnh đã có đúng chữ: không vẽ đè");
+}
+// Bấm → ô nhập đè đúng chỗ đó, sẵn giá trị đang có, nhận tiêu điểm, có nhãn.
+await act(() => phat(nutOKhoa(khungKhuon, "0.0")!, "click"));
+const oNhap = oNhapCua(khungKhuon)!;
+assert.ok(oNhap !== null, "bấm chỗ trống mở ô nhập tại chỗ");
+assert.equal(giaTri(oNhap), "Nguyễn Văn Ánh");
+cungNut(document.activeElement, oNhap, "ô nhập nhận tiêu điểm ngay");
+assert.equal(oNhap.getAttribute("aria-label"), "Giá trị cho Họ và tên");
+assert.match(
+  theoMoTa(khungKhuon, oNhap).join(" "),
+  /Enter lưu · Esc huỷ · Tab lưu rồi sang chỗ kế/,
 );
+{
+  const boc = oNhap.parentNode!;
+  assert.equal(
+    boc.style["left"],
+    "min(20%, calc(100% - max(12ch, 30%)))",
+    "ô nhập không tràn mép phải tờ",
+  );
+  assert.equal(boc.style["width"], "max(12ch, 30%)", "ít nhất bề rộng chỗ trống, tối thiểu 12ch");
+  assert.match(String(boc.style["fontSize"]), /^max\(12px, [\d.]+cqw\)$/, "cỡ chữ theo bề rộng tờ");
+  assert.match(boc.getAttribute("class") ?? "", /\bz-10\b/, "ô nhập đè lên nút các chỗ phía sau");
+}
+// Esc: không gửi gì, chữ gõ nhầm bỏ đi, tiêu điểm về đúng nút đó.
+await go(oNhap, "Gõ nhầm");
+await phim(oNhap, "Escape");
+await choDen(() => oNhapCua(khungKhuon) === null);
+assert.equal(soPatch(), 0, "Esc không gửi gì");
+assert.equal(
+  nutOKhoa(khungKhuon, "0.0")?.getAttribute("aria-label"),
+  "Điền: Họ và tên — đang là “Nguyễn Văn Ánh”",
+  "Esc: chữ gõ nhầm bỏ đi",
+);
+cungNut(document.activeElement, nutOKhoa(khungKhuon, "0.0"), "Esc: tiêu điểm về nút 0.0");
+
+// Enter: MỘT PATCH ngay — chỉ chỗ đó, phiên bản mới nhất. Đang lưu: ô chỉ đọc,
+// báo "Đang lưu…", Lùi khoá. Lưu xong: ô đóng, tiêu điểm về ĐÚNG nút đó, chữ mới
+// hiện ngay trên trang dù ảnh chưa dựng lại.
+let cong = taoCong();
+congPatch = cong.cong;
+await act(() => phat(nutOKhoa(khungKhuon, "0.0")!, "click"));
+await go(oNhapCua(khungKhuon)!, "Hà Nội");
+await phim(oNhapCua(khungKhuon)!, "Enter");
+await choDen(() => soPatch() === 1);
 assert.deepEqual(
-  goiKhuon.filter((g) => g.method === "PATCH").map((g) => [g.url, g.body]),
+  thanPatch(),
   [
     [
       "/ban-thao/bk/o-dien",
-      { phien_ban: 2, gia_tri: [{ don_vi: 1, cho_trong: 1, gia_tri: "Hà Nội" }] },
+      { phien_ban: 2, gia_tri: [{ don_vi: 0, cho_trong: 0, gia_tri: "Hà Nội" }] },
     ],
   ],
-  "MỘT PATCH, phiên bản đang nhìn, CHỈ ô đổi (ô gõ lại giá trị cũ không đi)",
+  "Enter: MỘT PATCH, chỉ chỗ đó, phiên bản đang nhìn",
 );
-assert.equal(capNhatKhuon.length, 0, "422: không cập nhật bản thảo");
+assert.ok(oNhapCua(khungKhuon)?.getAttribute("readonly") !== null, "đang lưu: ô chỉ đọc");
+assert.match(theoMoTa(khungKhuon, oNhapCua(khungKhuon)!).join(" "), /Đang lưu…/);
 assert.equal(
-  (oNhap()[2] as unknown as { value: string }).value,
-  "Hà Nội",
-  "422: chữ người dùng gõ còn nguyên để sửa rồi lưu lại",
+  nutChu(khungKhuon, "Lùi")?.getAttribute("aria-disabled"),
+  "true",
+  "đang lưu: Lùi khoá",
 );
-const khuonV3 = {
-  ...KHUON,
-  cho_trong: KHUON.cho_trong.map((c, i) => (i === 2 ? { ...c, gia_tri: "Hà Nội" } : c)),
-};
-traPatch = () => traJson({ ...banThaoKhuonV2, phien_ban: 3, khuon: khuonV3 });
-await act(() => phat(form(), "submit"));
-await choDen(() => capNhatKhuon.length === 1);
+congPatch = null;
+await act(async () => {
+  cong.mo();
+  await nhip();
+});
+await choDen(() => oNhapCua(khungKhuon) === null);
+cungNut(document.activeElement, nutOKhoa(khungKhuon, "0.0"), "Enter: tiêu điểm về chính chỗ đó");
+assert.equal(capNhatKhuon.at(-1)?.phien_ban, 3, "lưu xong → phiên bản mới lên sân khấu");
+{
+  const n = nutOKhoa(khungKhuon, "0.0")!;
+  assert.equal(n.getAttribute("aria-label"), "Điền: Họ và tên — đang là “Hà Nội”");
+  assert.equal(n.textContent, "Hà Nội", "chữ vừa lưu hiện NGAY trên chỗ trống, đè ảnh cũ");
+  assert.match(n.getAttribute("class") ?? "", /bg-white/);
+  assert.doesNotMatch(
+    n.getAttribute("class") ?? "",
+    /outline-dashed/,
+    "đã lưu: không còn viền chờ",
+  );
+}
+assert.equal(soGoi(laTrangCua("bk", 3)), 0, "vừa lưu: chưa dựng lại — đợi người dùng dừng tay");
+
+// Tab: lưu rồi MỞ chỗ kế (không chỉ dời tiêu điểm); Shift+Tab mở chỗ trước.
+// Không đổi gì: không gửi. Mở lại chỗ vừa lưu: giá trị MỚI NHẤT của bản thảo,
+// không phải chữ trên ảnh cũ.
+await act(() => phat(nutOKhoa(khungKhuon, "0.0")!, "click"));
+assert.equal(giaTri(oNhapCua(khungKhuon)), "Hà Nội", "mở lại: giá trị đã lưu, không phải ảnh cũ");
+await phim(oNhapCua(khungKhuon)!, "Tab");
+await choDen(() => oNhapCua(khungKhuon)?.getAttribute("aria-label") === "Giá trị cho Email");
+assert.equal(soPatch(), 1, "Tab mà không đổi gì: không gửi");
+cungNut(document.activeElement, oNhapCua(khungKhuon), "Tab: ô của chỗ kế MỞ và nhận tiêu điểm");
+await go(oNhapCua(khungKhuon)!, "x@y.vn");
+await phim(oNhapCua(khungKhuon)!, "Tab", { shiftKey: true });
+await choDen(() => oNhapCua(khungKhuon)?.getAttribute("aria-label") === "Giá trị cho Họ và tên");
+assert.deepEqual(
+  thanPatch().at(-1),
+  [
+    "/ban-thao/bk/o-dien",
+    { phien_ban: 3, gia_tri: [{ don_vi: 1, cho_trong: 0, gia_tri: "x@y.vn" }] },
+  ],
+  "Shift+Tab: lưu chỗ đó bằng phiên bản vừa tạo, rồi mở chỗ trước",
+);
+cungNut(document.activeElement, oNhapCua(khungKhuon), "Shift+Tab: ô chỗ trước nhận tiêu điểm");
+assert.equal(nutOKhoa(khungKhuon, "1.0")?.textContent, "x@y.vn", "chỗ vừa lưu hiện chữ ngay");
+// 422 khi Tab: ô ở lại, chữ còn nguyên, câu lỗi ngay dưới ô, KHÔNG sang chỗ kế.
+tuChoiO = "Sai chỗ";
+await go(oNhapCua(khungKhuon)!, "Sai chỗ");
+await phim(oNhapCua(khungKhuon)!, "Tab");
+await choDen(() => oNhapCua(khungKhuon)?.getAttribute("aria-invalid") === "true");
+assert.equal(soPatch(), 3);
 assert.equal(
-  soGoi((g) => g.method === "PATCH"),
-  2,
-  "lưu lại được: đúng một PATCH nữa",
+  oNhapCua(khungKhuon)?.getAttribute("aria-label"),
+  "Giá trị cho Họ và tên",
+  "422: không sang chỗ kế",
 );
-assert.equal(capNhatKhuon[0]?.phien_ban, 3, "lưu xong → bản thảo phiên bản mới lên sân khấu");
-await act(() => phat(form(), "submit"));
+assert.equal(giaTri(oNhapCua(khungKhuon)), "Sai chỗ", "422: chữ còn nguyên");
+assert.ok(
+  theoMoTa(khungKhuon, oNhapCua(khungKhuon)!).includes(CAU_AP),
+  "422: câu lỗi gắn với ô qua aria-describedby",
+);
+cungNut(document.activeElement, oNhapCua(khungKhuon), "422: tiêu điểm ở lại ô");
+// Gõ tiếp gỡ câu lỗi cũ; Esc bỏ chữ chưa lưu, chỗ đó về giá trị đã lưu.
+await go(oNhapCua(khungKhuon)!, "Sai chỗ nữa");
+assert.equal(oNhapCua(khungKhuon)?.getAttribute("aria-invalid"), null, "gõ tiếp: gỡ câu lỗi cũ");
+await phim(oNhapCua(khungKhuon)!, "Escape");
+await choDen(() => oNhapCua(khungKhuon) === null);
+assert.equal(
+  nutOKhoa(khungKhuon, "0.0")?.getAttribute("aria-label"),
+  "Điền: Họ và tên — đang là “Hà Nội”",
+  "Esc: bỏ chữ chưa lưu",
+);
+assert.equal(soPatch(), 3, "Esc không gửi gì");
+tuChoiO = null;
+
+// Bấm sang chỗ khác: chỗ đang mở LƯU TRƯỚC (rời ô = blur, trình duyệt phát nó ở
+// `mousedown`, trước cú click), chỗ mới mở ngay; chữ vừa gõ hiện NGAY trên chỗ cũ
+// trong lúc lưu. Hai lượt lưu xếp hàng: lượt sau gửi phiên bản lượt trước vừa
+// tạo. Lượt về muộn không kéo tiêu điểm khỏi chỗ đang mở.
+cong = taoCong();
+congPatch = cong.cong;
+await act(() => phat(nutOKhoa(khungKhuon, "0.0")!, "click"));
+await go(oNhapCua(khungKhuon)!, "Hải Phòng");
+await act(() => oNhapCua(khungKhuon)!.blur());
+await act(() => phat(nutOKhoa(khungKhuon, "1.0")!, "click"));
+await choDen(() => soPatch() === 4);
+assert.deepEqual(
+  thanPatch().at(-1),
+  [
+    "/ban-thao/bk/o-dien",
+    { phien_ban: 4, gia_tri: [{ don_vi: 0, cho_trong: 0, gia_tri: "Hải Phòng" }] },
+  ],
+  "rời ô: lưu chỗ đó",
+);
+assert.equal(
+  oNhapCua(khungKhuon)?.getAttribute("aria-label"),
+  "Giá trị cho Email",
+  "chỗ vừa bấm mở ngay, không đợi lượt lưu",
+);
+{
+  const n = nutOKhoa(khungKhuon, "0.0")!;
+  assert.equal(n.textContent, "Hải Phòng", "đang lưu: chữ vừa gõ hiện ngay trên chỗ cũ");
+  assert.equal(n.getAttribute("aria-label"), "Điền: Họ và tên — đang lưu “Hải Phòng”");
+  assert.match(n.getAttribute("class") ?? "", /outline-dashed/, "đang lưu: viền đứt");
+}
+await go(oNhapCua(khungKhuon)!, "z@z.vn");
+await phim(oNhapCua(khungKhuon)!, "Enter");
 await choDen(() => false);
 assert.equal(
-  soGoi((g) => g.method === "PATCH"),
-  2,
-  "lưu xong, chưa đổi gì nữa: 'Lưu' không gửi gì",
+  soPatch(),
+  4,
+  "lượt lưu thứ hai CHỜ lượt đầu — cùng gửi một phiên bản thì lượt sau 422",
+);
+const congDau = cong;
+cong = taoCong();
+congPatch = cong.cong;
+await act(async () => {
+  congDau.mo();
+  await nhip();
+});
+await choDen(() => soPatch() === 5);
+assert.deepEqual(
+  thanPatch().at(-1),
+  [
+    "/ban-thao/bk/o-dien",
+    { phien_ban: 5, gia_tri: [{ don_vi: 1, cho_trong: 0, gia_tri: "z@z.vn" }] },
+  ],
+  "lượt sau gửi phiên bản lượt trước vừa tạo",
+);
+assert.equal(oNhapCua(khungKhuon)?.getAttribute("aria-label"), "Giá trị cho Email");
+cungNut(
+  document.activeElement,
+  oNhapCua(khungKhuon),
+  "lượt lưu về muộn của chỗ cũ không kéo tiêu điểm",
+);
+assert.equal(
+  nutOKhoa(khungKhuon, "0.0")?.getAttribute("aria-label"),
+  "Điền: Họ và tên — đang là “Hải Phòng”",
+);
+congPatch = null;
+await act(async () => {
+  cong.mo();
+  await nhip();
+});
+await choDen(() => oNhapCua(khungKhuon) === null);
+cungNut(document.activeElement, nutOKhoa(khungKhuon, "1.0"), "Enter: tiêu điểm về chính chỗ đó");
+assert.equal(nutOKhoa(khungKhuon, "1.0")?.textContent, "z@z.vn");
+// 422 khi đã rời ô: câu lỗi đứng ngay dưới chỗ đó trên trang (gắn qua
+// aria-describedby), chữ còn đè lên ảnh, tiêu điểm ở lại chỗ đang mở.
+tuChoiO = "bị từ chối";
+await act(() => phat(nutOKhoa(khungKhuon, "1.0")!, "click"));
+await go(oNhapCua(khungKhuon)!, "bị từ chối");
+await act(() => oNhapCua(khungKhuon)!.blur());
+await act(() => phat(nutOKhoa(khungKhuon, "0.0")!, "click"));
+await choDen(() => nutOKhoa(khungKhuon, "1.0")?.getAttribute("aria-describedby") != null);
+{
+  const n = nutOKhoa(khungKhuon, "1.0")!;
+  assert.deepEqual(theoMoTa(khungKhuon, n), [CAU_AP], "câu từ chối gắn với nút của chỗ đó");
+  assert.equal(n.getAttribute("aria-label"), "Điền: Email — chưa lưu “bị từ chối”");
+  assert.equal(n.textContent, "bị từ chối", "chữ bị từ chối còn trên trang");
+  assert.match(n.getAttribute("class") ?? "", /outline-destructive/, "viền đỏ liền");
+}
+assert.equal(oNhapCua(khungKhuon)?.getAttribute("aria-label"), "Giá trị cho Họ và tên");
+cungNut(document.activeElement, oNhapCua(khungKhuon), "422 về muộn: tiêu điểm ở lại chỗ đang mở");
+await phim(oNhapCua(khungKhuon)!, "Escape");
+// Mở lại: chữ bị từ chối và câu lỗi còn đó; rời ô với ĐÚNG chữ đó không gửi lại
+// một 422 y hệt; Esc bỏ nó.
+await act(() => phat(nutOKhoa(khungKhuon, "1.0")!, "click"));
+assert.equal(giaTri(oNhapCua(khungKhuon)), "bị từ chối");
+assert.equal(oNhapCua(khungKhuon)?.getAttribute("aria-invalid"), "true");
+const soTruocRoi = soPatch();
+await act(() => oNhapCua(khungKhuon)!.blur());
+await choDen(() => oNhapCua(khungKhuon) === null);
+assert.equal(soPatch(), soTruocRoi, "rời ô với đúng chữ vừa bị từ chối: không gửi lại");
+await act(() => phat(nutOKhoa(khungKhuon, "1.0")!, "click"));
+await phim(oNhapCua(khungKhuon)!, "Escape");
+assert.equal(
+  nutOKhoa(khungKhuon, "1.0")?.getAttribute("aria-label"),
+  "Điền: Email — đang là “z@z.vn”",
+  "Esc: bỏ chữ bị từ chối, về giá trị đã lưu",
+);
+assert.equal(nutOKhoa(khungKhuon, "1.0")?.getAttribute("aria-describedby"), null);
+tuChoiO = null;
+// Chỗ chưa định vị: một nút nhỏ ở thanh công cụ, CÙNG ô nhập và cùng luật lưu.
+const nutChuaDinhVi = nutChu(khungKhuon, "Chỗ trống chưa định vị (1)")!;
+assert.ok(nutChuaDinhVi !== null, "chỗ không có vị trí: nút 'Chỗ trống chưa định vị (n)'");
+assert.equal(nutChuaDinhVi.getAttribute("aria-expanded"), "false");
+await act(() => phat(nutChuaDinhVi, "click"));
+const dsChuaDinhVi = () =>
+  tim(khungKhuon, (n) => n.getAttribute("aria-label") === "Chỗ trống chưa định vị")!;
+assert.equal(nutChuaDinhVi.getAttribute("aria-expanded"), "true");
+assert.deepEqual(
+  nutO(dsChuaDinhVi()).map((n) => n.getAttribute("aria-label")),
+  ["Điền: chỗ trống — còn trống"],
+  "danh sách chỉ gồm chỗ chưa định vị; nhãn rỗng đọc là 'chỗ trống', không 'Ô 1.1'",
+);
+await act(() => phat(nutO(dsChuaDinhVi())[0]!, "click"));
+await go(oNhapCua(dsChuaDinhVi())!, "Hà Nội");
+await phim(oNhapCua(dsChuaDinhVi())!, "Enter");
+await choDen(() => oNhapCua(dsChuaDinhVi()) === null);
+assert.deepEqual(
+  thanPatch().at(-1),
+  [
+    "/ban-thao/bk/o-dien",
+    { phien_ban: 6, gia_tri: [{ don_vi: 1, cho_trong: 1, gia_tri: "Hà Nội" }] },
+  ],
+  "danh sách chưa định vị: Enter cũng lưu ngay",
+);
+cungNut(document.activeElement, nutO(dsChuaDinhVi())[0], "Enter: tiêu điểm về mục đó");
+assert.equal(
+  nutO(dsChuaDinhVi())[0]?.getAttribute("aria-label"),
+  "Điền: chỗ trống — đang là “Hà Nội”",
+);
+// Gõ dở rồi bấm ra ngoài (kể cả một chỗ trên trang): ô trong danh sách LƯU trước
+// khi danh sách đóng ở `mousedown`.
+await act(() => phat(nutO(dsChuaDinhVi())[0]!, "click"));
+await go(oNhapCua(dsChuaDinhVi())!, "Hải Phòng");
+await act(() => phat(khungKhuon, "mousedown"));
+assert.equal(nutChuaDinhVi.getAttribute("aria-expanded"), "false", "bấm ra ngoài: danh sách đóng");
+await choDen(() => soPatch() === 8);
+assert.deepEqual(
+  thanPatch().at(-1),
+  [
+    "/ban-thao/bk/o-dien",
+    { phien_ban: 7, gia_tri: [{ don_vi: 1, cho_trong: 1, gia_tri: "Hải Phòng" }] },
+  ],
+  "bấm ra ngoài: chữ gõ dở trong danh sách được lưu, không chỉ 'chưa lưu'",
+);
+await choDen(() => capNhatKhuon.at(-1)?.phien_ban === 8);
+await act(() => phat(nutChuaDinhVi, "click"));
+cungNut(oNhapCua(dsChuaDinhVi()), null, "mở lại danh sách: không bật lại ô nhập còn dở");
+assert.match(dsChuaDinhVi().textContent, /Hải Phòng/);
+assert.doesNotMatch(dsChuaDinhVi().textContent, /chưa lưu/);
+await act(() => phat(nutO(dsChuaDinhVi())[0]!, "keydown", { key: "Escape" }));
+assert.equal(nutChuaDinhVi.getAttribute("aria-expanded"), "false", "Esc đóng danh sách");
+cungNut(document.activeElement, nutChuaDinhVi, "Esc: tiêu điểm về nút mở danh sách");
+
+// (b2) Máy chủ cũ (payload không có `o`): không nút phủ nào, và MỌI chỗ của
+// `khuon` thành "chưa định vị" — vẫn điền được, không ngõ cụt.
+const { khung: khungCu2, root: rootCu2 } = taoRoot();
+await act(() => {
+  rootCu2.render(h(SanKhauBanThao, { ...propsKhuon, banThao: { ...banThaoKhuon, id: "bcu" } }));
+});
+await choDen(() => daTaiXong(khungCu2) && anhTrang(khungCu2).length === 2);
+assert.equal(nutO(khungCu2).length, 0, "không `o`: không nút phủ nào trên trang");
+assert.ok(nutChu(khungCu2, "Chỗ trống chưa định vị (3)") !== null, "mọi chỗ vào danh sách");
+
+// (b3) Trang dựng lại MỘT lần, lúc người dùng dừng tay (`NGHI_DUNG_TRANG_MS`
+// sau lần lưu cuối) — không lần nào cho mỗi lần lưu: mỗi lượt dựng giữ suất
+// LibreOffice của cả tài khoản. Trong lúc dựng, ảnh cũ đứng yên (mờ), chỗ trống
+// vẫn điền được, nút giữ tiêu điểm không bị tháo; ảnh mới về thì chữ vẽ đè
+// nhường chỗ cho chữ thật trên ảnh.
+const btD: BanThao = { ...banThaoKhuon, id: "bd", phien_ban: 1 };
+banMayChu.set("bd", [btD]);
+const { khung: khungD, root: rootD } = taoRoot();
+await act(() => {
+  rootD.render(h(VoNhap, { ...propsKhuon, banThao: btD }));
+});
+await choDen(() => daTaiXong(khungD) && nutO(khungD).length === 2);
+await act(() => phat(nutOKhoa(khungD, "0.0")!, "click"));
+await go(oNhapCua(khungD)!, "A");
+await phim(oNhapCua(khungD)!, "Tab");
+await choDen(() => oNhapCua(khungD)?.getAttribute("aria-label") === "Giá trị cho Email");
+await go(oNhapCua(khungD)!, "B");
+await phim(oNhapCua(khungD)!, "Enter");
+await choDen(() => oNhapCua(khungD) === null);
+assert.deepEqual(
+  [2, 3].map((pb) => soGoi(laTrangCua("bd", pb))),
+  [0, 0],
+  "vừa lưu hai chỗ liền tay: chưa dựng lại lần nào",
+);
+assert.deepEqual(
+  ["0.0", "1.0"].map((k) => nutOKhoa(khungD, k)?.textContent),
+  ["A", "B"],
+  "chữ vừa lưu đè lên ảnh cũ trong lúc chờ",
+);
+const congD = taoCong();
+congTrang = { id: "bd", cong: congD.cong };
+await cho(NGHI_DUNG_TRANG_MS + 150);
+await choDen(() => soGoi(laTrangCua("bd", 3)) === 1);
+assert.equal(soGoi(laTrangCua("bd", 2)), 0, "phiên bản giữa không bao giờ được dựng");
+assert.equal(soGoi(laTrangCua("bd", 3)), 1, "dừng tay: ĐÚNG một lượt dựng, bản mới nhất");
+assert.equal(anhTrang(khungD).length, 2, "đang dựng: trang cũ còn đó, không chớp khung chờ");
+assert.equal(daTaiXong(khungD), false, "đang dựng: vùng trang `aria-busy`");
+assert.match(anhTrang(khungD)[0]!.getAttribute("class") ?? "", /opacity-60/, "ảnh cũ mờ");
+assert.equal(nutOKhoa(khungD, "1.0")?.getAttribute("aria-disabled"), null);
+await act(() => phat(nutOKhoa(khungD, "1.0")!, "click"));
+assert.ok(oNhapCua(khungD) !== null, "trang đang dựng lại vẫn điền được");
+await phim(oNhapCua(khungD)!, "Escape");
+await act(() => nutOKhoa(khungD, "0.0")!.focus());
+const nutTruocKhiDung = nutOKhoa(khungD, "0.0");
+congTrang = null;
+await act(async () => {
+  congD.mo();
+  await nhip();
+});
+await choDen(() => daTaiXong(khungD));
+cungNut(nutOKhoa(khungD, "0.0"), nutTruocKhiDung, "cùng một nút qua lượt dựng lại");
+cungNut(document.activeElement, nutTruocKhiDung, "không mất tiêu điểm khi trang dựng lại");
+assert.equal(nutOKhoa(khungD, "0.0")?.textContent, "", "ảnh mới đã có chữ: không vẽ đè nữa");
+assert.equal(nutOKhoa(khungD, "0.0")?.getAttribute("aria-label"), "Điền: Họ và tên — đang là “A”");
+assert.doesNotMatch(anhTrang(khungD)[0]!.getAttribute("class") ?? "", /opacity-60/);
+
+// (b4) MỘT lượt dựng một lúc cho cả tab: đổi đường dẫn giữa lúc dựng thì lượt
+// mới CHỜ lượt cũ xong (máy chủ vẫn dựng lượt cũ tới cùng và giữ suất — gọi ngay
+// là 503), và lượt bị thay trước khi tới lượt thì không bao giờ gửi.
+const congQ = taoCong();
+congTrang = { id: "bq", cong: congQ.cong };
+const { khung: khungQ, root: rootQ } = taoRoot();
+const veQ = (pb: number) =>
+  act(() => {
+    rootQ.render(
+      h(KhungTrangAnh, {
+        duongDan: `/ban-thao/bq/trang?phien_ban=${pb}`,
+        soTrang: 2,
+        thuPhong: 100,
+        nhan: "Trang",
+      }),
+    );
+  });
+await veQ(1);
+await choDen(() => soGoi(laTrangCua("bq", 1)) === 1);
+await veQ(2);
+await veQ(3);
+await choDen(() => false);
+assert.deepEqual(
+  [2, 3].map((pb) => soGoi(laTrangCua("bq", pb))),
+  [0, 0],
+  "lượt đang dựng chưa xong: không gửi lượt mới",
+);
+congTrang = null;
+await act(async () => {
+  congQ.mo();
+  await nhip();
+});
+await choDen(() => daTaiXong(khungQ));
+assert.deepEqual(
+  [2, 3].map((pb) => soGoi(laTrangCua("bq", pb))),
+  [0, 1],
+  "xong: gửi ĐÚNG lượt mới nhất; lượt bị thay trước khi tới lượt không đi",
 );
 
 // (c) Khuôn PDF: không có Word; tải PDF đọc tên từ Content-Disposition.
@@ -1591,11 +2115,11 @@ await act(() => {
   rootKhuon.render(
     h(VoNhap, {
       ...propsKhuon,
-      banThao: { ...banThaoKhuonV2, khuon: { ...KHUON, dinh_dang: "pdf" } },
+      banThao: { ...banThaoKhuonV2, phien_ban: 3, khuon: { ...KHUON, dinh_dang: "pdf" } },
     }),
   );
 });
-assert.equal(nutChu(khungKhuon, "Tải Word"), null, "khuôn PDF chỉ tải được PDF");
+cungNut(nutChu(khungKhuon, "Tải Word"), null, "khuôn PDF chỉ tải được PDF");
 const taiVe = await taiXuongBanThao("bk", "pdf", 2);
 assert.ok(taiVe.ok && taiVe.data.ten === "BM.M05 - đã điền.pdf", "tên tệp lấy từ filename*");
 assert.equal(
@@ -1608,9 +2132,12 @@ assert.ok(
     "X-Khach-Id" in (goiKhuon.at(-1)?.headers ?? {}),
   "tải tệp mang header danh tính",
 );
+// Hẹn dựng lại trang của các sân khấu trên đã tới giờ: không để nó chạy giữa
+// những phép đếm lượt tải ở dưới.
+await cho(NGHI_DUNG_TRANG_MS + 200);
 
-// (d) Bản thảo HTML: vẫn A4, không một lượt tải trang, không bảng ô điền.
-const soTrangTruoc = soGoi((g) => g.url.includes("/trang"));
+// (d) Bản thảo HTML: vẫn A4, không một lượt tải trang, không nút phủ, còn phím tắt.
+const soTrangTruoc = soGoi((g) => g.url.startsWith("/ban-thao/b1/"));
 const { khung: khungHtml, root: rootHtml } = taoRoot();
 await act(() => {
   rootHtml.render(h(SanKhauBanThao, propsSanKhau));
@@ -1618,15 +2145,19 @@ await act(() => {
 await choDen(() => false);
 assert.ok(tim(khungHtml, (n) => n.tagName === "ARTICLE") !== null, "bản thảo HTML vẫn là A4");
 assert.equal(
-  soGoi((g) => g.url.includes("/trang")),
+  soGoi((g) => g.url.startsWith("/ban-thao/b1/")),
   soTrangTruoc,
   "không tải trang ảnh nào",
 );
-assert.equal(
+cungNut(
   tim(khungHtml, (n) => n.tagName === "INPUT"),
   null,
-  "không có bảng ô điền",
+  "không có ô điền",
 );
+assert.equal(nutO(khungHtml).length, 0, "không nút phủ");
+for (const chu of ["Rút gọn", "Trang trọng hơn", "Soát lại theo luật"])
+  assert.ok(nutChu(khungHtml, chu) !== null, `HTML giữ phím tắt '${chu}'`);
+cungNut(nutChu(khungHtml, "Chỗ trống chưa định vị"), null);
 
 // (e) Khung trang: 503 nói máy chủ bận + Thử lại; 404 không Thử lại.
 const { khung: khung503, root: root503 } = taoRoot();
@@ -1661,10 +2192,10 @@ await act(() => {
   );
 });
 await choDen(() => tim(khung404, (n) => n.getAttribute("role") === "alert") !== null);
-assert.equal(nutChu(khung404, "Thử lại"), null, "404 không tự hết: không mời thử lại");
+cungNut(nutChu(khung404, "Thử lại"), null, "404 không tự hết: không mời thử lại");
 
-// (f) Sân khấu "Bản tải lên": chỉ đọc, chờ có thông báo, tiêu đề nhận tiêu
-// điểm được, nút đóng đi qua ĐÚNG `onDong` (cửa đóng duy nhất của trang).
+// (f) Sân khấu "Bản tải lên": chỉ đọc, SẠCH (payload có `o` cũng không phủ gì),
+// chờ có thông báo, tiêu đề nhận tiêu điểm, nút đóng đi qua ĐÚNG `onDong`.
 const dongBanTaiLen: number[] = [];
 const dienTuBanTaiLen: number[] = [];
 const { khung: khungBtl, root: rootBtl } = taoRoot();
@@ -1707,11 +2238,13 @@ assert.equal(
 const tieuDeBtl = tim(khungBtl, (n) => n.getAttribute("data-tieu-de-san-khau") !== null);
 assert.equal(tieuDeBtl?.textContent, "BM.M05.docx");
 assert.equal(tieuDeBtl?.getAttribute("tabindex"), "-1", "tiêu đề nhận tiêu điểm khi sân khấu mở");
-assert.equal(
+cungNut(
   tim(khungBtl, (n) => n.tagName === "INPUT"),
   null,
   "bản tải lên chỉ đọc",
 );
+assert.equal(nutO(khungBtl).length, 0, "bản tải lên: không nút phủ nào dù payload có `o`");
+cungNut(nutChu(khungBtl, "Chỗ trống chưa định vị"), null);
 await act(() => phat(nutChu(khungBtl, "Điền biểu mẫu")!, "click"));
 await act(() =>
   phat(
@@ -1738,6 +2271,11 @@ await act(() => {
   );
 });
 await choDen(() => nutChu(khungTl, "Bản tải lên") !== null);
+assert.doesNotMatch(
+  khungTl.textContent,
+  /Đọc dữ kiện từ tài liệu/,
+  "trong drawer (không `onDong`): không lặp tiêu đề và nút đóng của khung",
+);
 await act(() => phat(nutChu(khungTl, "Bản tải lên")!, "click"));
 await act(() => phat(nutChu(khungTl, "Điền biểu mẫu")!, "click"));
 assert.deepEqual(moBtl, [{ id: VIEC, ten_tep: "BM.M05.docx", so_trang: 2 }]);
@@ -1775,148 +2313,416 @@ await choDen(
   () => /Đã đọc/.test(khungCu.textContent) && soGoi((g) => g.url === `/tai-lieu/${VIEC_CU}`) === 1,
 );
 await choDen(() => false);
-assert.equal(nutChu(khungCu, "Bản tải lên"), null, "tài liệu không có khuôn gốc: không có nút");
+cungNut(nutChu(khungCu, "Bản tải lên"), null, "tài liệu không có khuôn gốc: không có nút");
 
-// (h) Chữ đang gõ ở bảng ô điền sống TRÊN sân khấu (WCAG 3.3.7); Lùi và Lưu là
-// hai lượt ghi phiên bản, không chạy đua nhau; lỗi lưu ở lại cạnh nút Lưu; lùi
-// xong, chữ của bản vừa bỏ không quay lại qua một ô đã chạm mà không đổi.
+// (h) Lùi và lưu là hai lượt ghi phiên bản, không chạy đua nhau; chữ bị từ chối
+// sống TRÊN sân khấu (WCAG 3.3.7) và chặn tải tệp; lùi xong, chữ của bản vừa bỏ
+// không quay lại qua một chỗ đã chạm mà không đổi.
 const KHUON_V1 = {
   ...KHUON,
   cho_trong: KHUON.cho_trong.map((c) => (c.don_vi === 0 ? { ...c, gia_tri: "Trần Thị B" } : c)),
 };
+const btLuiV1: BanThao = { ...banThaoKhuon, id: "bl", phien_ban: 1, khuon: KHUON_V1 };
 const btLuiV2: BanThao = { ...banThaoKhuon, id: "bl", phien_ban: 2 };
+banMayChu.set("bl", [btLuiV1, btLuiV2]);
 let btL: BanThao = btLuiV2;
 let hienL = true;
-let toanManL = false;
 let moCongLui: () => void = () => {};
 const soLui: number[] = [];
 const { khung: khungL, root: rootL } = taoRoot();
+function veL() {
+  rootL.render(h(VoNhap, { ...propsSanKhau, banThao: btL, hien: hienL, onLui: luiL }));
+}
 async function luiL() {
   soLui.push(1);
   await new Promise<void>((r) => {
     moCongLui = r;
   });
-  btL = { ...btLuiV2, phien_ban: 1, khuon: KHUON_V1 };
+  banMayChu.get("bl")!.pop(); // máy chủ bỏ hẳn bản đang đứng
+  btL = btLuiV1;
   veL();
   return true;
 }
-function veL() {
-  rootL.render(
-    h(VoNhap, {
-      ...propsSanKhau,
-      banThao: btL,
-      hien: hienL,
-      toanMan: toanManL,
-      onLui: luiL,
-    }),
-  );
-}
-const oL = () => timTatNut(khungL, (n) => n.tagName === "INPUT");
-const giaTriL = () => oL().map((i) => (i as unknown as { value: string }).value);
-const goL = async (i: number, chu: string) => {
-  const o = oL()[i]!;
-  await act(() => {
-    (o as unknown as { value: string }).value = chu;
-    phat(o, "input");
-  });
-};
-const formL = () => tim(khungL, (n) => n.tagName === "FORM")!;
-const nutLuuL = () =>
-  tim(formL(), (n) => n.tagName === "BUTTON" && n.getAttribute("type") === "submit")!;
+await act(() => veL());
+await choDen(() => daTaiXong(khungL) && nutO(khungL).length === 2);
 const nutLui = () => nutChu(khungL, "Lùi")!;
-await act(() => veL());
-await choDen(() => anhTrang(khungL).length === 2);
-await goL(0, "Nguyễn Văn Ánh "); // chạm, gõ lại đúng giá trị đang có — không đổi
-await goL(2, "Hà Nội");
-assert.match(formL().textContent, /1 thay đổi chưa lưu/);
-hienL = false;
-await act(() => veL());
-assert.equal(oL().length, 0, "sân khấu đã tháo (tab 'Trợ lý', đóng)");
-hienL = true;
-await act(() => veL());
-await choDen(() => oL().length === 3);
-assert.deepEqual(
-  giaTriL(),
-  ["Nguyễn Văn Ánh ", "a@b.vn", "Hà Nội"],
-  "tháo rồi lắp lại sân khấu: chữ đang gõ còn nguyên, không phải gõ lại",
-);
-toanManL = true;
-await act(() => veL());
-assert.deepEqual(
-  giaTriL(),
-  ["Nguyễn Văn Ánh ", "a@b.vn", "Hà Nội"],
-  "đổi bố cục hẹp: chữ còn nguyên",
-);
-// Bố cục hẹp: bảng ô điền có giới hạn cao và tự cuộn — không thì 8+ ô đẩy nút
-// Lưu xuống dưới thanh tab, không cuộn tới được, và khung trang mất hẳn.
-const cuonHep = tim(khungL, (n) => n.tagName === "DETAILS")!.childNodes.find(
-  (n) => n.tagName === "DIV",
-)!;
+// Chạm mà không đổi (gõ lại đúng giá trị đang có): không gửi, không giữ gì.
+await act(() => phat(nutOKhoa(khungL, "0.0")!, "click"));
+await go(oNhapCua(khungL)!, "Nguyễn Văn Ánh ");
+await phim(oNhapCua(khungL)!, "Enter");
+await choDen(() => oNhapCua(khungL) === null);
+const soPatchL = () => soGoi((g) => g.method === "PATCH" && g.url === "/ban-thao/bl/o-dien");
+assert.equal(soPatchL(), 0, "gõ lại đúng giá trị đã lưu: không gửi");
+// Một lượt lưu chưa về khoá Lùi và tải tệp; 422 thì Lùi mở lại, câu lỗi ngay dưới ô.
+const congL = taoCong();
+congPatch = congL.cong;
+tuChoiO = "x@y.vn";
+await act(() => phat(nutOKhoa(khungL, "1.0")!, "click"));
+await go(oNhapCua(khungL)!, "x@y.vn");
+await phim(oNhapCua(khungL)!, "Enter");
+await choDen(() => soPatchL() === 1);
+assert.equal(nutLui().getAttribute("aria-disabled"), "true", "lượt lưu chưa về: Lùi bị khoá");
 assert.ok(
-  /\bmax-h-\[50dvh\]/.test(cuonHep.getAttribute("class") ?? "") &&
-    /\boverflow-y-auto\b/.test(cuonHep.getAttribute("class") ?? ""),
-  "bố cục hẹp: bảng ô điền giới hạn cao và tự cuộn",
+  nutChu(khungL, "Tải PDF")?.getAttribute("disabled") !== null,
+  "lượt lưu chưa về: không tải tệp",
 );
-toanManL = false;
-await act(() => veL());
-// Một lượt lưu chưa về khoá Lùi: hai lượt ghi độc lập thì phản hồi về SAU
-// thắng, không theo thứ tự máy chủ đã ghi.
-let traPatchL: (r: Response) => void = () => {};
-traPatch = () =>
-  new Promise<Response>((r) => {
-    traPatchL = r;
-  });
-await act(() => phat(formL(), "submit"));
-await choDen(() => soGoi((g) => g.method === "PATCH" && g.url === "/ban-thao/bl/o-dien") === 1);
-assert.equal(
-  nutLui().getAttribute("aria-disabled"),
-  "true",
-  "lượt lưu ô điền chưa về: Lùi bị khoá",
-);
-const CAU_AP =
-  "Không lưu được: 1 ô không điền được vào tài liệu tải lên (“Ô 1.1”) — giá trị quá dài cho ô, hoặc ô không còn khớp tài liệu. Rút gọn hay bỏ trống ô đó rồi lưu lại.";
+congPatch = null;
 await act(async () => {
-  traPatchL(traJson({ detail: CAU_AP }, 422));
+  congL.mo();
   await nhip();
 });
-await choDen(() => nutLui().getAttribute("aria-disabled") === "false");
+await choDen(() => oNhapCua(khungL)?.getAttribute("aria-invalid") === "true");
 assert.equal(nutLui().getAttribute("aria-disabled"), "false", "lưu đã về: Lùi mở lại");
-const moTaLoi = nutLuuL().getAttribute("aria-describedby");
+assert.ok(theoMoTa(khungL, oNhapCua(khungL)!).includes(CAU_AP), "422: câu lỗi ngay dưới ô");
+// Rời ô: chữ bị từ chối ở lại trên trang; tháo rồi lắp lại sân khấu (tab "Trợ
+// lý", đóng) không mất nó.
+await act(() => oNhapCua(khungL)!.blur());
+await choDen(() => oNhapCua(khungL) === null);
+assert.equal(nutOKhoa(khungL, "1.0")?.textContent, "x@y.vn");
+hienL = false;
+await act(() => veL());
+assert.equal(nutO(khungL).length, 0, "sân khấu đã tháo (tab 'Trợ lý', đóng)");
+hienL = true;
+await act(() => veL());
+await choDen(() => daTaiXong(khungL) && nutO(khungL).length === 2);
 assert.equal(
-  moTaLoi === null ? null : tim(khungL, (n) => n.getAttribute("id") === moTaLoi)?.textContent,
-  CAU_AP,
-  "422: câu lỗi đứng lại cạnh nút Lưu (gắn bằng aria-describedby), không chỉ một toast tự tắt",
+  nutOKhoa(khungL, "1.0")?.textContent,
+  "x@y.vn",
+  "tháo rồi lắp lại sân khấu: chữ chưa lưu còn nguyên, không phải gõ lại",
 );
-assert.deepEqual(giaTriL(), ["Nguyễn Văn Ánh ", "a@b.vn", "Hà Nội"], "422: chữ đang gõ còn nguyên");
-await goL(2, "Hà Nội ");
-assert.equal(nutLuuL().getAttribute("aria-describedby"), null, "gõ tiếp: câu lỗi cũ gỡ đi");
-// Lùi đang chạy: không bấm được lần hai (lùi hai bậc), Lưu không gửi gì.
+assert.equal(
+  nutOKhoa(khungL, "1.0")?.getAttribute("aria-label"),
+  "Điền: Email — chưa lưu “x@y.vn”",
+);
+// Trang đang HIỆN chữ chưa lưu: tải tệp lúc đó là tải một tệp thiếu chữ ấy.
+const soTaiTruoc = soGoi((g) => g.url.includes("/tai-xuong"));
+await act(async () => {
+  phat(nutChu(khungL, "Tải PDF")!, "click");
+  await nhip();
+});
+assert.equal(
+  soGoi((g) => g.url.includes("/tai-xuong")),
+  soTaiTruoc,
+  "còn chỗ chưa lưu: không tải",
+);
+// Lùi đang chạy: không bấm được lần hai (lùi hai bậc), và lưu một chỗ bị từ chối
+// NGAY tại chỗ đó, không gửi gì.
 await act(() => phat(nutLui(), "click"));
 await choDen(() => soLui.length === 1);
 assert.equal(nutLui().getAttribute("aria-disabled"), "true", "Lùi đang chạy: nút Lùi khoá");
 await act(() => phat(nutLui(), "click"));
 await choDen(() => false);
 assert.equal(soLui.length, 1, "bấm Lùi lần hai trong lúc lùi: không lùi hai bậc");
-const soPatchTruocLui = soGoi((g) => g.method === "PATCH");
-await act(async () => {
-  phat(formL(), "submit");
-  await nhip();
-});
-assert.equal(
-  soGoi((g) => g.method === "PATCH"),
-  soPatchTruocLui,
-  "Lùi đang chạy: Lưu không gửi",
-);
+const soPatchTruocLui = soPatchL();
+await act(() => phat(nutOKhoa(khungL, "0.0")!, "click"));
+await go(oNhapCua(khungL)!, "Mới");
+await phim(oNhapCua(khungL)!, "Enter");
+await choDen(() => oNhapCua(khungL)?.getAttribute("aria-invalid") === "true");
+assert.equal(soPatchL(), soPatchTruocLui, "Lùi đang chạy: không gửi lượt lưu nào");
+assert.match(theoMoTa(khungL, oNhapCua(khungL)!).join(" "), /Đang lùi/, "và nói lý do ngay dưới ô");
+await phim(oNhapCua(khungL)!, "Escape");
 await act(async () => {
   moCongLui();
   await nhip();
 });
-await choDen(() => giaTriL()[0] === "Trần Thị B");
-assert.deepEqual(
-  giaTriL(),
-  ["Trần Thị B", "a@b.vn", "Hà Nội "],
-  "lùi xong: ô đã chạm mà không đổi đọc lại bản lùi về; ô đổi thật giữ chữ đang gõ",
+await choDen(() => nutChu(khungL, "Lùi") === null && daTaiXong(khungL));
+assert.equal(
+  nutOKhoa(khungL, "1.0")?.textContent,
+  "x@y.vn",
+  "lùi xong: chỗ đổi thật so với bản vừa bỏ giữ chữ chưa lưu",
 );
-assert.match(formL().textContent, /1 thay đổi chưa lưu/, "chỉ ô đổi thật còn chờ lưu");
+assert.equal(
+  nutOKhoa(khungL, "0.0")?.getAttribute("aria-label"),
+  "Điền: Họ và tên — đang là “Trần Thị B”",
+  "lùi xong: chỗ chỉ chạm mà không đổi đọc lại bản lùi về",
+);
+tuChoiO = null;
 
-console.log("kiem-ui-muot: 185/185 OK");
+// (h2) Chỉ bản do CHÍNH lượt lưu tạo ra mới đợi người dùng dừng tay: Lùi ngay
+// sau hai lần lưu thì trang của bản lùi về dựng NGAY, không đợi nốt
+// `NGHI_DUNG_TRANG_MS` của lần lưu vừa rồi.
+const btM: BanThao = { ...banThaoKhuon, id: "bm", phien_ban: 1 };
+banMayChu.set("bm", [btM]);
+let btMNgoai = btM;
+const { khung: khungM, root: rootM } = taoRoot();
+const veM = () => rootM.render(h(VoNhap, { ...propsKhuon, banThao: btMNgoai, onLui: luiM }));
+async function luiM() {
+  const ds = banMayChu.get("bm")!;
+  ds.pop();
+  btMNgoai = ds.at(-1)!;
+  veM();
+  return true;
+}
+await act(() => veM());
+await choDen(() => daTaiXong(khungM) && nutO(khungM).length === 2);
+await act(() => phat(nutOKhoa(khungM, "0.0")!, "click"));
+await go(oNhapCua(khungM)!, "A");
+await phim(oNhapCua(khungM)!, "Tab");
+await choDen(() => oNhapCua(khungM)?.getAttribute("aria-label") === "Giá trị cho Email");
+await go(oNhapCua(khungM)!, "B");
+await phim(oNhapCua(khungM)!, "Enter");
+await choDen(
+  () =>
+    oNhapCua(khungM) === null && nutChu(khungM, "Lùi")?.getAttribute("aria-disabled") === "false",
+);
+assert.equal(soGoi(laTrangCua("bm", 3)), 0, "vừa lưu: trang chưa dựng lại");
+await act(async () => {
+  phat(nutChu(khungM, "Lùi")!, "click");
+  await nhip();
+});
+await choDen(() => soGoi(laTrangCua("bm", 2)) === 1);
+assert.equal(
+  soGoi(laTrangCua("bm", 2)),
+  1,
+  "Lùi ngay sau lần lưu: trang của bản lùi về dựng NGAY, không đợi hết lúc dừng tay",
+);
+assert.equal(soGoi(laTrangCua("bm", 3)), 0, "bản đã bỏ không bao giờ được dựng");
+await choDen(() => daTaiXong(khungM));
+
+// (i) Tài liệu đọc DƯỚI NỀN: con chip là lối vào duy nhất, menu nhỏ của nó mở
+// bản tải lên / điền / dữ kiện theo yêu cầu. Ô soạn không bung bảng dữ kiện nào.
+const viec: string[] = [];
+const hanhDong = {
+  onXemBanTaiLen: (t: { id: string; ten_tep: string; so_trang: number | null }) =>
+    viec.push(`xem:${t.id}:${t.ten_tep}:${t.so_trang}`),
+  onDienBieuMau: (id: string) => viec.push(`dien:${id}`),
+  onDuKien: (id: string) => viec.push(`du-kien:${id}`),
+};
+const boDi: string[] = [];
+const { khung: khungSoan, root: rootSoan } = taoRoot();
+await act(() => {
+  rootSoan.render(
+    h(OSoanCauHoi, {
+      oHoi: { current: null },
+      nhap: "",
+      datNhap: () => {},
+      khoa: false,
+      onGui: () => {},
+      mucChip: null,
+      dangCho: false,
+      onChonTep: () => {},
+      tepDaDinhKem: [
+        { id: VIEC, ten_tep: "BM.M05.docx", co_khuon_goc: true, so_trang: 2 },
+        { id: VIEC_CU, ten_tep: "cu.pdf" },
+      ],
+      hanhDongTep: hanhDong,
+      onBoDinhKem: (id: string) => boDi.push(id),
+    }),
+  );
+});
+assert.doesNotMatch(
+  khungSoan.textContent,
+  /Đọc dữ kiện|Đã đọc \d+ đơn vị/,
+  "đính kèm không bung bảng dữ kiện, không đếm đơn vị",
+);
+const chip = (ten: string) =>
+  tim(khungSoan, (n) => n.getAttribute("aria-label") === `Tài liệu ${ten}`)!;
+const menu = () => tim(khungSoan, (n) => n.getAttribute("role") === "menu");
+const mucMenu = () => timTatNut(menu()!, (n) => n.getAttribute("role") === "menuitem");
+assert.equal(chip("BM.M05.docx").getAttribute("aria-haspopup"), "menu");
+cungNut(menu(), null, "menu đóng cho tới khi bấm");
+await act(() => phat(chip("BM.M05.docx"), "click"));
+assert.equal(chip("BM.M05.docx").getAttribute("aria-expanded"), "true");
+assert.deepEqual(
+  mucMenu().map((n) => n.textContent),
+  ["Xem bản tải lên", "Điền biểu mẫu", "Dữ kiện đã đọc"],
+  "có khuôn gốc: đủ ba việc",
+);
+cungNut(document.activeElement, mucMenu()[0], "mở menu: tiêu điểm vào mục đầu");
+await act(() => phat(mucMenu()[2]!, "click"));
+cungNut(menu(), null, "chọn xong: menu đóng");
+cungNut(document.activeElement, chip("BM.M05.docx"), "tiêu điểm về con chip (nơi mở)");
+await act(() => phat(chip("BM.M05.docx"), "click"));
+await act(() => phat(mucMenu()[0]!, "click"));
+await act(() => phat(chip("BM.M05.docx"), "click"));
+await act(() => phat(mucMenu()[1]!, "click"));
+assert.deepEqual(viec, [`du-kien:${VIEC}`, `xem:${VIEC}:BM.M05.docx:2`, `dien:${VIEC}`]);
+await act(() => phat(chip("BM.M05.docx"), "click"));
+await act(() => phat(mucMenu()[0]!, "keydown", { key: "Escape" }));
+cungNut(menu(), null, "Esc đóng menu");
+cungNut(document.activeElement, chip("BM.M05.docx"), "Esc: tiêu điểm về con chip");
+await act(() => phat(chip("cu.pdf"), "click"));
+assert.deepEqual(
+  mucMenu().map((n) => n.textContent),
+  ["Dữ kiện đã đọc"],
+  "chưa biết có khuôn gốc: chỉ 'Dữ kiện đã đọc'",
+);
+await act(() => phat(khungSoan, "mousedown"));
+cungNut(menu(), null, "bấm ra ngoài: menu đóng");
+await act(() =>
+  phat(
+    tim(khungSoan, (n) => n.getAttribute("aria-label") === "Bỏ đính kèm cu.pdf")!,
+    "click",
+  ),
+);
+assert.deepEqual(boDi, [VIEC_CU], "nút bỏ đính kèm giữ nguyên");
+// Tải tệp bị từ chối: câu của máy chủ (tên tệp, số trang thật) ở lại cạnh chỗ
+// đính kèm sau khi toast tắt — nơi gọi giữ nó tới lần tải kế tiếp.
+const CAU_TU_CHOI = "Tệp “BM dài.docx” có 11 trang — KLAW nhận tối đa 10 trang.";
+const propsSoan = {
+  oHoi: { current: null },
+  nhap: "",
+  datNhap: () => {},
+  khoa: false,
+  onGui: () => {},
+  mucChip: null,
+  dangCho: false,
+  onChonTep: () => {},
+  hanhDongTep: hanhDong,
+};
+const { khung: khungTuChoi, root: rootTuChoi } = taoRoot();
+await act(() => rootTuChoi.render(h(OSoanCauHoi, { ...propsSoan, loiTaiLen: CAU_TU_CHOI })));
+assert.ok(
+  tim(khungTuChoi, (n) => n.tagName === "P" && n.textContent === CAU_TU_CHOI) !== null,
+  "câu từ chối đứng cạnh chỗ đính kèm",
+);
+await act(() => rootTuChoi.render(h(OSoanCauHoi, { ...propsSoan, loiTaiLen: null })));
+assert.doesNotMatch(khungTuChoi.textContent, /11 trang/, "lần tải kế: câu cũ đi");
+// Chip trên lượt đã gửi: cùng menu, KHÔNG có nút bỏ.
+const { khung: khungChip, root: rootChip } = taoRoot();
+await act(() => {
+  rootChip.render(
+    h(ChipTaiLieu, {
+      tep: { id: VIEC, ten_tep: "BM.M05.docx", co_khuon_goc: true, so_trang: 2 },
+      hanhDong,
+      moLen: false,
+    }),
+  );
+});
+cungNut(
+  tim(khungChip, (n) => /^Bỏ đính kèm/.test(n.getAttribute("aria-label") ?? "")),
+  null,
+  "lượt đã gửi: không bỏ đính kèm được",
+);
+
+// (j) Lượt dựng bản thảo trên khuôn gốc: chat hiện LỜI ĐÁP (đã điền gì, còn
+// trống chỗ nào) và thẻ nói "Biểu mẫu · n trang · đã điền k chỗ"; bản thảo
+// HTML giữ nguyên thẻ cũ.
+const LOI_KHUON =
+  "Bản thảo phiên bản 2 là chính biểu mẫu bạn tải lên: đã điền 2/3 chỗ trống. Còn trống: «chỗ trống».";
+const ketQuaBanThao = (bt: BanThao) =>
+  ({
+    result_type: "ban_thao",
+    answer: LOI_KHUON,
+    citations: [],
+    nguon: [],
+    warnings: [],
+    coverage_note: "Không áp 1 thay đổi (thiếu nguồn hoặc sai chỗ): «Email».",
+    trace_id: "t-bt",
+    cau_hoi_day_du: null,
+    bang: [],
+    documents: [],
+    ban_thao: bt,
+  }) as unknown as Parameters<typeof TheKetQua>[0]["ketQua"];
+const { khung: khungTraLoi, root: rootTraLoi } = taoRoot();
+await act(() => {
+  rootTraLoi.render(
+    h(TheKetQua, {
+      ketQua: ketQuaBanThao({ ...banThaoKhuon, phien_ban: 2, doi_so_voi_truoc: ["a", "b"] }),
+    }),
+  );
+});
+assert.match(khungTraLoi.textContent, /đã điền 2\/3 chỗ trống/, "lời đáp khuôn gốc hiện ra");
+assert.match(khungTraLoi.textContent, /Không áp 1 thay đổi/, "và thay đổi không áp được");
+assert.match(khungTraLoi.textContent, /Biểu mẫu · 2 trang · đã điền 1 chỗ/);
+assert.doesNotMatch(khungTraLoi.textContent, /dữ kiện|\d+ mục/, "không '… dữ kiện · 0 mục'");
+await act(() => {
+  rootTraLoi.render(h(TheKetQua, { ketQua: ketQuaBanThao({ ...banThao, phien_ban: 2 }) }));
+});
+assert.doesNotMatch(khungTraLoi.textContent, /đã điền 2\/3/, "bản thảo HTML: thẻ như cũ");
+assert.match(khungTraLoi.textContent, /Phiên bản 2 · 0 mục/);
+
+// ───── 12. SÂN KHẤU: mở bản khác lúc đang mở, "Phiên mới" đi qua cửa đóng ───
+// `dung-thu.tsx` không dựng được trong khung giả này (router, tài khoản, vỏ ứng
+// dụng), nên các quyết định của nó là hàm thuần `lib/san-khau.ts` — kiểm ở đây
+// — và phần nối dây kiểm trên chính nguồn: MỘT cửa đóng, mọi lối vào đi qua nó.
+const { apNeuCungBan, thamSoSanKhau, urlCoBanThao, urlTroBanKhac, vanNham } =
+  await nap<typeof import("../src/lib/san-khau.ts")>("src/lib/san-khau.ts");
+assert.deepEqual(
+  thamSoSanKhau(undefined, "p", "b"),
+  { phien: "p", ban_thao: "b" },
+  "mở (thẻ trong chat) hay chuyển sang bản b: `?ban_thao=` là b — tải lại mở lại đúng b",
+);
+assert.deepEqual(
+  thamSoSanKhau("x", "p", null),
+  { q: "x", phien: "p" },
+  "đóng: gỡ `?ban_thao=`, giữ `?q=`/`?phien=`",
+);
+assert.equal(
+  urlCoBanThao(undefined, { loai: "ban_thao", banThaoId: "b" }),
+  true,
+  "mở từ thẻ rồi `layBanThao` hỏng về muộn: closure cũ chưa thấy `?ban_thao=` vừa ghi, vẫn gỡ",
+);
+assert.equal(urlCoBanThao("a", null), true);
+assert.equal(
+  urlCoBanThao(undefined, { loai: "ban_tai_len", viecId: "a", tenTep: "x", soTrang: 1 }),
+  false,
+  "'Bản tải lên' không ghi URL: đóng không điều hướng",
+);
+assert.equal(urlCoBanThao(undefined, null), false);
+assert.equal(vanNham({ loai: "ban_thao", banThaoId: "a" }, "a"), true);
+assert.equal(
+  vanNham({ loai: "ban_thao", banThaoId: "b" }, "a"),
+  false,
+  "đã chuyển sang bản b: phản hồi của bản a về muộn bị bỏ, sân khấu không kẹt ở 'Đang mở'",
+);
+assert.equal(vanNham(null, "a"), false, "đã đóng: lỗi về muộn của bản a không đóng gì thêm");
+assert.equal(vanNham({ loai: "ban_tai_len", viecId: "a", tenTep: "x", soTrang: 1 }, "a"), false);
+assert.equal(urlTroBanKhac("a", "b"), true, "URL còn bản a, bấm mở bản b: gỡ URL cũ");
+assert.equal(urlTroBanKhac("b", "b"), false, "mở ĐÚNG bản trên URL (vỏ trang, tải lại): giữ");
+assert.equal(urlTroBanKhac(undefined, "b"), false);
+{
+  const a1 = { id: "a", v: 1 };
+  const a2 = { id: "a", v: 2 };
+  const b1 = { id: "b", v: 1 };
+  assert.equal(apNeuCungBan(a1, a2), a2, "cùng bản: nhận phiên bản mới");
+  assert.equal(apNeuCungBan(b1, a2), b1, "lượt lưu về muộn của bản a không thay bản b đang mở");
+  assert.equal(apNeuCungBan(null, a2), null, "sân khấu đã đóng: không mở lại");
+}
+{
+  const NGUON = readFileSync(join(goc, "src/routes/dung-thu.tsx"), "utf8");
+  /** Thân của `const ten = …` tới dấu đóng khối đầu tiên ở đúng thụt lề đó. */
+  const than = (ten: string) => {
+    const i = NGUON.indexOf(`  const ${ten} = `);
+    assert.ok(i >= 0, `không thấy \`${ten}\` trong dung-thu.tsx`);
+    const j = NGUON.indexOf("\n  }", i);
+    return NGUON.slice(i, j);
+  };
+  // Câu lệnh (có `;`), không phải chú thích nhắc tên nó.
+  assert.equal(NGUON.split("datSanKhau(null);").length - 1, 1, "đóng sân khấu ở ĐÚNG một chỗ");
+  assert.match(than("onDongSanKhau"), /datSanKhau\(null\)/, "chỗ đó là cửa đóng `onDongSanKhau`");
+  assert.match(than("phienMoi"), /onDongSanKhau\(\)/, "'Phiên mới' đóng sân khấu qua cửa đóng");
+  assert.match(
+    than("moSanKhau"),
+    /if \(urlTroBanKhac\(banThaoTrenUrl, id\)\) onDongSanKhau\(\);/,
+    "mở bản khác: `?ban_thao=` cũ rời URL qua cửa đóng",
+  );
+  assert.match(
+    than("moSanKhau"),
+    /if \(!vanNham\(sanKhauRef\.current, id\)\) return;/,
+    "mở bản khác: phản hồi của bản cũ về muộn không đè bản mới",
+  );
+  assert.match(
+    than("moSanKhau"),
+    /if \(banThaoTrenUrl !== id\) \{\s*daMoTuUrl\.current = id;[^\n]*\s*void navigate\(\{\s*to: "\/dung-thu",\s*search: thamSoSanKhau\(cauHoiTrenUrl, phienId, id\),\s*replace: true,/,
+    "mọi lối mở ghi `?ban_thao=` của bản đang mở (không thêm mục lịch sử), và hiệu ứng đọc URL không mở nó lần hai",
+  );
+  assert.match(
+    than("onDongSanKhau"),
+    /if \(urlCoBanThao\(banThaoTrenUrl, sanKhauRef\.current\)\) \{\s*void navigate\(\{\s*to: "\/dung-thu",\s*search: thamSoSanKhau\(cauHoiTrenUrl, phienId, null\),/,
+    "cửa đóng gỡ `?ban_thao=` cả khi closure chưa thấy nó (mở từ thẻ, lỗi về muộn)",
+  );
+  assert.match(
+    than("moBanTaiLen"),
+    /onDongSanKhau\(\)/,
+    "'Xem bản tải lên' của tệp khác chuyển sân khấu",
+  );
+  assert.match(
+    NGUON,
+    /capNhatBanThao=\{capNhatBanThaoMo\}/,
+    "sân khấu cập nhật qua `apNeuCungBan`",
+  );
+  assert.match(NGUON, /key=\{banThaoDangTaiXong\.id\}/, "bản thảo khác = sân khấu mới");
+}
+
+console.log("kiem-ui-muot: OK");

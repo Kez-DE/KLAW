@@ -1,4 +1,5 @@
-import { Paperclip, Send, X } from "lucide-react";
+import { Send } from "lucide-react";
+import { ChipTaiLieu, type HanhDongTep, type TepDinhKem } from "@/components/klaw/ChipTaiLieu";
 import { MenuDinhKem } from "@/components/klaw/MenuDinhKem";
 import { cauChip, mucMau, phanTram } from "@/lib/han-muc";
 import type { MucHanMuc } from "@/lib/klaw";
@@ -37,8 +38,9 @@ export function OSoanCauHoi({
   dangCho,
   onChonTep,
   dangDocTep,
+  loiTaiLen = null,
   tepDaDinhKem,
-  onMoDinhKem,
+  hanhDongTep,
   onBoDinhKem,
 }: {
   oHoi: React.RefObject<HTMLTextAreaElement | null>;
@@ -54,6 +56,9 @@ export function OSoanCauHoi({
   onChonTep: (tep: File) => void;
   /** Đang đọc một tệp — khoá nút cho tới khi xong. */
   dangDocTep?: boolean | undefined;
+  /** Câu từ chối của lần tải tệp gần nhất (máy chủ nói tên tệp, số trang thật)
+   *  — nơi gọi giữ tới lần tải kế tiếp. */
+  loiTaiLen?: string | null;
   /**
    * Tài liệu sẽ đi kèm câu hỏi sắp gửi — tối đa hai (nhánh so sánh).
    *
@@ -61,10 +66,10 @@ export function OSoanCauHoi({
    * một nút "bỏ đính kèm" chung không nói được người dùng sắp bỏ tờ nào. Rỗng
    * hoặc vắng ⇒ lượt sau là một câu hỏi thường.
    */
-  tepDaDinhKem?: { id: string; ten_tep: string }[] | null;
-  /** Mở khung xem tài liệu đó. Đính kèm KHÔNG tự mở khung nào — con chip là
-   *  đường duy nhất vào đó, nên nó phải bấm được. */
-  onMoDinhKem?: ((id: string) => void) | undefined;
+  tepDaDinhKem?: TepDinhKem[] | null;
+  /** Việc làm được với tệp — menu của con chip. Đính kèm KHÔNG tự mở khung
+   *  nào — con chip là đường duy nhất vào đó, nên nó phải bấm được. */
+  hanhDongTep: HanhDongTep;
   /** Bỏ ĐÚNG một tệp khỏi lượt sắp gửi. */
   onBoDinhKem?: ((id: string) => void) | undefined;
 }) {
@@ -80,45 +85,21 @@ export function OSoanCauHoi({
                 nó trả lời câu hỏi "câu tôi sắp gửi có kèm tệp này không" đúng
                 lúc người dùng đang gõ câu đó. Khung tài liệu có thể đã đóng. */}
             {daDinhKem.length > 0 && (
-              <ul className="mb-2 flex list-none flex-wrap gap-2 p-0">
+              // `relative`: menu của mỗi chip neo vào mép trái danh sách này,
+              // không tràn khỏi màn hẹp (xem `ChipTaiLieu`).
+              <ul className="relative mb-2 flex list-none flex-wrap gap-2 p-0">
                 {daDinhKem.map((tep) => (
-                  <li
-                    key={tep.id}
-                    className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px]"
-                  >
-                    <Paperclip aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-                    {onMoDinhKem ? (
-                      <button
-                        type="button"
-                        onClick={() => onMoDinhKem(tep.id)}
-                        aria-label={`Xem tài liệu ${tep.ten_tep}`}
-                        title={`Xem nội dung đã đọc của ${tep.ten_tep}`}
-                        // `min-h-6` chứ không để vùng bấm bằng dòng chữ 12px:
-                        // nó đứng sát nút bỏ đính kèm, và hai đích dưới 24px
-                        // cạnh nhau là chỗ ngón tay bấm nhầm (WCAG 2.5.8 AA).
-                        className="focus-brass inline-flex min-h-6 min-w-0 cursor-pointer items-center truncate rounded px-0.5 underline decoration-dotted underline-offset-2"
-                      >
-                        {tep.ten_tep}
-                      </button>
-                    ) : (
-                      <span className="min-w-0 truncate" title={tep.ten_tep}>
-                        {tep.ten_tep}
-                      </span>
-                    )}
-                    {onBoDinhKem && (
-                      <button
-                        type="button"
-                        onClick={() => onBoDinhKem(tep.id)}
-                        aria-label={`Bỏ đính kèm ${tep.ten_tep}`}
-                        title="Bỏ đính kèm"
-                        className="focus-brass -mr-1 grid size-5 shrink-0 place-items-center rounded-full hover:bg-background"
-                      >
-                        <X aria-hidden className="size-3.5" />
-                      </button>
-                    )}
+                  <li key={tep.id} className="max-w-full">
+                    <ChipTaiLieu tep={tep} hanhDong={hanhDongTep} onBo={onBoDinhKem} />
                   </li>
                 ))}
               </ul>
+            )}
+            {/* Ngay trên nút đính kèm: toast từ chối tự tắt sau 8 giây, câu này
+                ở lại để người dùng còn đọc được vì sao tệp không vào. Không
+                `role="alert"`: toast đã đọc nó lên một lần. */}
+            {loiTaiLen !== null && (
+              <p className="m-0 mb-2 px-1 text-[12.5px] leading-5 text-destructive">{loiTaiLen}</p>
             )}
             <div className="flex items-end gap-2">
               <MenuDinhKem onChonTep={onChonTep} khoa={dangDocTep} />

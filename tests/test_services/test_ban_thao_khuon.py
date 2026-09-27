@@ -142,15 +142,15 @@ _PDF = [
 def test_cho_trong_DOCX_chi_don_vi_co_dia_chi_va_gia_tri_theo_phien_ban():
     ra = cho_trong_khuon("docx", _DOCX, [_d(1, 1, " a@b.vn")])
     assert ra == [
-        {"don_vi": 0, "so": 0, "kieu": "cham", "nhan": "Họ và tên:", "gia_tri": None},
-        {"don_vi": 1, "so": 0, "kieu": "cham", "nhan": "Điện thoại:", "gia_tri": None},
-        {"don_vi": 1, "so": 1, "kieu": "tab", "nhan": "Email:", "gia_tri": " a@b.vn"},
+        {"don_vi": 0, "so": 0, "kieu": "cham", "nhan": "Họ và tên", "gia_tri": None},
+        {"don_vi": 1, "so": 0, "kieu": "cham", "nhan": "Điện thoại", "gia_tri": None},
+        {"don_vi": 1, "so": 1, "kieu": "tab", "nhan": "Email", "gia_tri": " a@b.vn"},
     ]
 
 
 def test_cho_trong_PDF_chi_cho_trong_co_hop():
     ra = cho_trong_khuon("pdf", _PDF, [_d(0, 0, "Ánh")])
-    assert ra == [{"don_vi": 0, "so": 0, "kieu": "cham", "nhan": "Ho ten:", "gia_tri": "Ánh"}]
+    assert ra == [{"don_vi": 0, "so": 0, "kieu": "cham", "nhan": "Ho ten", "gia_tri": "Ánh"}]
 
 
 def test_cho_trong_cua_doan_da_THAY_hay_XOA_khong_con_dien_duoc():
@@ -158,6 +158,126 @@ def test_cho_trong_cua_doan_da_THAY_hay_XOA_khong_con_dien_duoc():
     lưu chắc chắn bị bộ áp bỏ (`xung_dot`)."""
     ra = cho_trong_khuon("docx", _DOCX, [_thay(0, "Họ và tên: A"), _xoa(1)])
     assert ra == []
+
+
+# ─────────────────────────────────────────── `thay` theo đoạn (`doan`)
+
+
+def _thay_doan(don_vi: int, doan: int, noi_dung: str) -> dict:
+    return {"loai": "thay", "don_vi": don_vi, "doan": doan, "noi_dung": noi_dung}
+
+
+# Ô tiêu đề thư kiểu BM.M05: chỗ trống 0 ở đoạn 0, chỗ trống 1 và 2 ở đoạn 2.
+_O = [
+    {
+        "chi_so": 3,
+        "noi_dung": "Tên: …… Số …./….",
+        "dia_chi": {"phan": "word/document.xml", "chi_muc": [1, 3, 1]},
+        "cho_trong": [
+            {"so": 0, "kieu": "cham", "doan": 0, "dau": 5, "cuoi": 7, "nhan": "Tên:"},
+            {"so": 1, "kieu": "cham", "doan": 2, "dau": 3, "cuoi": 5, "nhan": "Số"},
+            {"so": 2, "kieu": "cham", "doan": 2, "dau": 6, "cuoi": 8, "nhan": "/"},
+        ],
+    }
+]
+
+
+def test_gop_thay_THEO_DOAN_khoa_theo_don_vi_va_doan_ca_don_vi_chung_khoa_cau_truc():
+    assert gop_phep_sua([_thay_doan(3, 0, "A")], [_thay_doan(3, 0, "B")]) == [_thay_doan(3, 0, "B")]
+    assert gop_phep_sua([_thay_doan(3, 0, "A")], [_thay_doan(3, 2, "B")]) == [
+        _thay_doan(3, 0, "A"),
+        _thay_doan(3, 2, "B"),
+    ]
+    # Phép sau thắng giữa cả đơn vị và theo đoạn — bộ áp coi cả hai là xung đột.
+    assert gop_phep_sua([_thay_doan(3, 0, "A"), _thay_doan(3, 2, "B")], [_xoa(3)]) == [_xoa(3)]
+    assert gop_phep_sua([_thay(3, "x")], [_thay_doan(3, 0, "A")]) == [_thay_doan(3, 0, "A")]
+
+
+def test_gop_thay_THEO_DOAN_chi_go_dien_cua_CHINH_doan_do():
+    doan = ban_thao.doan_cua_cho(_O)
+    assert doan == {(3, 0): 0, (3, 1): 2, (3, 2): 2}
+    cu = [_d(3, 0, "A"), _d(3, 1, "12"), _d(3, 2, "2026")]
+    assert gop_phep_sua(cu, [_thay_doan(3, 2, "Số 12/2026")], doan) == [_d(3, 0, "A"), _thay_doan(3, 2, "Số 12/2026")]
+    assert gop_phep_sua([_thay_doan(3, 0, "B")], [_d(3, 0, "A"), _d(3, 1, "12")], doan) == [
+        _thay_doan(3, 0, "B"),
+        _d(3, 1, "12"),
+    ], "dien SAU vào đoạn đã thay là dien vào chỗ trống không còn"
+
+
+def test_cho_trong_cua_doan_da_THAY_THEO_DOAN_khong_con_con_doan_khac_van_dien_duoc():
+    ra = cho_trong_khuon("docx", _O, [_thay_doan(3, 2, "Số 12/2026"), _d(3, 0, "A")])
+    # `cho_trong_khuon` trả nhãn qua `nhan_sach`: "Tên:" → "Tên".
+    assert ra == [{"don_vi": 3, "so": 0, "kieu": "cham", "nhan": "Tên", "gia_tri": "A"}]
+
+
+def test_ban_do_sau_THAY_THEO_DOAN_moc_dung_o_con_lai_va_chu_trung_ban_sach():
+    """Bản dò (`ban_do`) + bộ áp của một phiên bản có `thay` theo đoạn: ô của
+    đoạn đã thay không có mốc, ô của đoạn khác và của đơn vị khác có mốc mang
+    giá trị, và chữ bản dò trùng bản sạch — điều `dung_trang.vi_tri_o` cần."""
+    from src.services.dien_khuon import O_URI
+    from tests.test_services.test_dien_khuon import _B, _GIUA, _KE, _docx, _hang, _lien_ket, _noi_dung, _o, _p, _r
+
+    vao = _docx(_o(_p(_KE, _r("TÊN CƠ QUAN: ……", _B), ppr=_GIUA), _p(), _p(_r("Số …./…."))) + _p(_r("Họ tên: ……")))
+    hang = _hang(vao)
+    phep = [{"loai": "thay", "don_vi": 0, "doan": 0, "noi_dung": "CÔNG TY A"}, _d(0, 1, "12"), _d(1, 0, "Ánh")]
+    assert [(o["don_vi"], o["so"]) for o in cho_trong_khuon("docx", hang, phep)] == [(0, 1), (0, 2), (1, 0)]
+    sach, bc = ban_thao.ap_phep_sua("docx", vao, hang, phep)
+    do, bc_do = ban_thao.ap_phep_sua("docx", ban_thao.ban_do("docx", hang, phep)(vao), hang, phep)
+    assert bc_do == bc == {"da_ap": [0, 1, 2], "bo_qua": []}
+    assert _noi_dung(do) == _noi_dung(sach)
+    assert _lien_ket(do) == [(f"{O_URI}0/1", "12"), (f"{O_URI}0/2", "…."), (f"{O_URI}1/0", "Ánh")]
+
+
+def test_cho_trong_NHAN_SACH_ca_voi_hang_luu_truoc_khi_bo_doc_lam_sach():
+    """Tài liệu tải lên trước `nhan_sach` mang nhãn thô trong DB; bảng ô điền
+    (và `o` của trang) vẫn thấy nhãn sạch — cùng một hàm với bộ đọc."""
+    cu = [
+        {
+            "chi_so": 3,
+            "dia_chi": {"phan": "word/document.xml", "chi_muc": [3]},
+            "cho_trong": [
+                {"so": 0, "kieu": "cham", "doan": 0, "dau": 3, "cuoi": 7, "nhan": "Số"},
+                {"so": 1, "kieu": "cham", "doan": 0, "dau": 8, "cuoi": 12, "nhan": "/"},
+            ],
+        },
+        {
+            "chi_so": 9,
+            "dia_chi": {"phan": "word/document.xml", "chi_muc": [9]},
+            "cho_trong": [
+                {
+                    "so": 0,
+                    "kieu": "cham",
+                    "doan": 0,
+                    "dau": 90,
+                    "cuoi": 99,
+                    "nhan": "o) là sinh viên/học viên Trường Đại học Phenikaa, thuộc Khoa",
+                }
+            ],
+        },
+    ]
+    assert [o["nhan"] for o in cho_trong_khuon("docx", cu, [])] == ["Số", "Số (sau /)", "thuộc Khoa"]
+
+
+# ───────────────────────────────────────────────────────── o_tren_trang
+
+
+def test_o_tren_trang_DOCX_lay_vi_tri_do_duoc_va_o_chua_dinh_vi_la_null():
+    vi_tri = {(0, 0): (0, [100.0, 50.0, 200.0, 64.0]), (1, 1): (1, [10.0, 20.0, 30.0, 34.0]), (9, 9): (0, [0, 0, 1, 1])}
+    ra = ban_thao.o_tren_trang("docx", _DOCX, [_d(1, 1, " a@b.vn ")], vi_tri)
+    assert ra == [
+        {"don_vi": 0, "so": 0, "trang": 0, "hop": [100.0, 50.0, 200.0, 64.0], "nhan": "Họ và tên", "gia_tri": None},
+        {"don_vi": 1, "so": 0, "trang": None, "hop": None, "nhan": "Điện thoại", "gia_tri": None},
+        {"don_vi": 1, "so": 1, "trang": 1, "hop": [10.0, 20.0, 30.0, 34.0], "nhan": "Email", "gia_tri": "a@b.vn"},
+    ]
+
+
+def test_o_tren_trang_PDF_la_hop_da_luu_tren_trang_cua_don_vi_ke_ca_khi_da_dien():
+    ra = ban_thao.o_tren_trang("pdf", [{**_PDF[0], "trang": 2}, _PDF[1]], [_d(0, 0, "Ánh")])
+    assert ra == [
+        {"don_vi": 0, "so": 0, "trang": 1, "hop": [120.0, 30.0, 300.0, 44.0], "nhan": "Ho ten", "gia_tri": "Ánh"}
+    ]
+    khong_trang = [{k: v for k, v in _PDF[0].items() if k != "trang"}]
+    assert [(o["trang"], o["hop"]) for o in ban_thao.o_tren_trang("pdf", khong_trang, [])] == [(None, None)]
 
 
 def test_cho_trong_don_vi_rong_hay_sai_hinh_dang():
@@ -214,8 +334,19 @@ def test_doi_so_voi_KHONG_khuon_giu_hinh_dang_facts():
 
 def test_tom_tat_khuon_la_tieu_de_va_mot_dong_moi_o_da_dien():
     k = _khuon((0, 0, "Họ và tên:", "Ánh"), (1, 0, "Email:", None), (1, 1, "", " a@b.vn"))
-    assert tom_tat_khuon("Giấy tiếp nhận", k) == "# Giấy tiếp nhận\n\n- Họ và tên: Ánh\n- Ô 1.1: a@b.vn\n"
+    assert tom_tat_khuon("Giấy tiếp nhận", k) == "# Giấy tiếp nhận\n\n- Họ và tên: Ánh\n- Chỗ trống: a@b.vn\n"
     assert tom_tat_khuon(None, _khuon()) == "# Văn bản\n"
+
+
+def test_o_khong_nhan_la_CHO_TRONG_danh_so_chi_khi_hai_o_doc_giong_nhau():
+    """B8: "Ô x.y" là mã nội bộ, không phải chữ người dùng đọc. Ô không nhãn là "Chỗ
+    trống"; thêm " (n)" theo thứ tự đọc CHỈ khi hai ô trở lên sẽ đọc giống hệt nhau."""
+    k = _khuon((0, 0, "", "A"), (1, 0, "Email:", "b"), (2, 0, "", "C"))
+    assert tom_tat_khuon("X", k) == "# X\n\n- Chỗ trống (1): A\n- Email: b\n- Chỗ trống (2): C\n"
+    truoc = {"facts": {}, "khuon": _khuon((0, 0, "", None), (1, 0, "Email:", "b"), (2, 0, "", None))}
+    assert doi_so_voi(truoc, {"facts": {}, "khuon": k}) == ["Chỗ trống (1): … → A", "Chỗ trống (2): … → C"]
+    assert ban_thao.ten_cho_trong(k["cho_trong"]) == {(0, 0): "Chỗ trống (1)", (1, 0): "Email", (2, 0): "Chỗ trống (2)"}
+    assert "Ô " not in tom_tat_khuon("X", k)
 
 
 def test_ket_qua_chat_mang_CUNG_khuon_voi_GET_ban_thao():
@@ -234,6 +365,7 @@ def test_ket_qua_chat_mang_CUNG_khuon_voi_GET_ban_thao():
 
 import json  # noqa: E402
 import uuid  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 from sqlalchemy import text  # noqa: E402
 
@@ -252,6 +384,23 @@ _AUDIT = {
     "findings": [],
     "muc_kiem": "tong_quat",
 }
+
+
+_BM_M05 = Path.home() / "giấy tờ thực tập" / "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx"
+
+
+@pytest.mark.skipif(not _BM_M05.exists(), reason="BM.M05 của chủ dự án không có trên máy này")
+def test_BM_M05_thay_THEO_DOAN_sau_khi_da_dien_so_bo_ap_khong_bo_phep_nao():
+    """Ba nơi đọc một sự thật trên tệp thật: `ap_phep_sua` gộp với bản đồ đoạn nên
+    `dien` cũ của đoạn "Số …./…." không tới bộ áp (không `xung_dot`), và
+    `cho_trong_khuon` không mời điền hai chỗ trống của đoạn đã thay."""
+    du_lieu = _BM_M05.read_bytes()
+    don_vi = json.loads(json.dumps([tl._hang_don_vi(d) for d in doc(_BM_M05.name, du_lieu).don_vi]))
+    phep = [_d(3, 0, "12"), _d(3, 1, "2026"), _d(6, 0, "Công ty A"), _thay_doan(3, 2, "Số 12/2026")]
+    _, bao_cao = ban_thao.ap_phep_sua("docx", du_lieu, don_vi, phep)
+    assert bao_cao == {"da_ap": [0, 1], "bo_qua": []}
+    assert not [o for o in cho_trong_khuon("docx", don_vi, phep) if o["don_vi"] == 3]
+    assert [o["gia_tri"] for o in cho_trong_khuon("docx", don_vi, phep) if o["don_vi"] == 6] == ["Công ty A"]
 
 
 def _ket(viec_id: str | None, phep: list | None, tieu_de: str = "Giấy tiếp nhận") -> dict:
@@ -331,6 +480,21 @@ def test_VONG_phien_ban_tao_chi_tiet_sua_lui_khoi_phuc_phep_sua(nguoi):
 
 
 @pytest.mark.integration
+def test_sua_TANG_0_dung_lai_dung_tep_khong_tinh_tran_sua_va_lui_lay_lai_gia_tri(nguoi):
+    """`tao_lai` trên bản đã điền (review fix/g4-backend): một phiên bản phép rỗng,
+    `so_lan_sua` không tăng; Lùi trả lại đúng các giá trị cũ."""
+    a, _ = nguoi
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    viec = _viec(a, phien)
+    v1 = [_d(0, 0, "Nguyễn Văn Ánh")]
+    bt = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec, v1))
+    moi = ban_thao.sua(a, bt["id"], {}, _ket(viec, []), tang=0)
+    assert (moi["phien_ban"], moi["phep_sua"], moi["so_lan_sua"]) == (2, [], bt["so_lan_sua"])
+    assert _gia_tri(moi)[(0, 0)] is None
+    assert ban_thao.lui(a, bt["id"])["phep_sua"] == v1
+
+
+@pytest.mark.integration
 def test_ban_thao_HTML_khong_co_khuon_va_viec_NGUOI_KHAC_khong_duoc_gan(nguoi):
     a, b = nguoi
     phien_a, phien_b = hoi_thoai.tao_phien(a, "a"), hoi_thoai.tao_phien(b, "b")
@@ -368,7 +532,9 @@ def _o(don_vi: int, cho: int, gia_tri: str) -> dict:
 
 
 @pytest.mark.integration
-def test_sua_o_dien_GOP_vao_phien_ban_dang_co_va_tinh_vao_tran_sua(nguoi):
+def test_sua_o_dien_GOP_vao_phien_ban_dang_co_va_KHONG_tinh_vao_tran_sua(nguoi):
+    """B6 (owner 2026-09-27): lưu ô điền không gọi mô hình nào, nên không phải một lần
+    sửa của `TRAN_SUA` — vẫn đúng một phiên bản mỗi lần lưu, cùng khoá lạc quan."""
     a, _ = nguoi
     phien = hoi_thoai.tao_phien(a, "biểu mẫu")
     viec = _viec(a, phien)
@@ -376,7 +542,7 @@ def test_sua_o_dien_GOP_vao_phien_ban_dang_co_va_tinh_vao_tran_sua(nguoi):
 
     ra = ban_thao.sua_o_dien(a, bt["id"], 1, [_o(1, 1, "  a@b.vn "), _o(1, 0, "")])
     assert isinstance(ra, dict), ra
-    assert ra["phien_ban"] == 2 and ra["so_lan_sua"] == 1
+    assert ra["phien_ban"] == 2 and ra["so_lan_sua"] == 0
     assert ra["phep_sua"] == [_d(0, 0, "Ánh"), _d(1, 1, "a@b.vn")]
     assert _gia_tri(ra) == {(0, 0): "Ánh", (1, 0): None, (1, 1): "a@b.vn"}
     assert ra["document"] == "# Giấy tiếp nhận\n\n- Họ và tên: Ánh\n- Email: a@b.vn\n"
@@ -386,14 +552,39 @@ def test_sua_o_dien_GOP_vao_phien_ban_dang_co_va_tinh_vao_tran_sua(nguoi):
 
     assert ban_thao.sua_o_dien(a, bt["id"], 1, [_o(0, 0, "Bình")]) == ban_thao.LOI_PHIEN_BAN_DA_DOI
     khong_doi = ban_thao.sua_o_dien(a, bt["id"], 2, [_o(0, 0, "Ánh")])
-    assert (khong_doi["phien_ban"], khong_doi["so_lan_sua"]) == (2, 1), "lưu không đổi gì không tốn một phiên bản"
+    assert (khong_doi["phien_ban"], khong_doi["so_lan_sua"]) == (2, 0), "lưu không đổi gì không tốn một phiên bản"
 
     with get_engine().begin() as c:
         c.execute(
             text("UPDATE ban_thao SET so_lan_sua = :n WHERE id = CAST(:i AS uuid)"),
             {"n": ban_thao.TRAN_SUA, "i": bt["id"]},
         )
-    assert ban_thao.sua_o_dien(a, bt["id"], 2, [_o(0, 0, "Bình")]) == ban_thao.LOI_HET_LAN_SUA
+    ra = ban_thao.sua_o_dien(a, bt["id"], 2, [_o(0, 0, "Bình")])
+    assert isinstance(ra, dict) and (ra["phien_ban"], ra["so_lan_sua"]) == (3, ban_thao.TRAN_SUA), (
+        "chat đã hết lượt sửa vẫn lưu được ô điền"
+    )
+    # Lượt sửa bằng lời (có gọi mô hình) vẫn chịu trần.
+    with pytest.raises(ValueError, match="đã sửa"):
+        ban_thao.kiem_tran_sua(ban_thao.chi_tiet(a, bt["id"]))
+
+
+@pytest.mark.integration
+def test_sua_o_dien_NHIEU_lan_moi_lan_mot_phien_ban_lich_su_giu_TRAN_SUA_ban(nguoi):
+    """Một biểu mẫu 30 ô lưu từng ô một không còn cụt ở lần thứ 11; lịch sử vẫn chỉ giữ
+    `TRAN_SUA` bản gần nhất (cùng lần cắt `[-TRAN_SUA:]` như trước), và `lui` vẫn lùi."""
+    a, _ = nguoi
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    viec = _viec(a, phien)
+    bt = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec, []))
+    so = ban_thao.TRAN_SUA + 2
+    for i in range(1, so + 1):
+        ra = ban_thao.sua_o_dien(a, bt["id"], i, [_o(0, 0, f"Tên {i}")])
+        assert isinstance(ra, dict), (i, ra)
+    assert (ra["phien_ban"], ra["so_lan_sua"]) == (so + 1, 0)
+    assert len(ra["phien_ban_truoc"]) == ban_thao.TRAN_SUA
+    assert [t["phien_ban"] for t in ra["phien_ban_truoc"]] == list(range(so + 1 - ban_thao.TRAN_SUA, so + 1))
+    ve = ban_thao.lui(a, bt["id"])
+    assert _gia_tri(ve)[(0, 0)] == f"Tên {so - 1}"
 
 
 @pytest.mark.integration

@@ -168,10 +168,15 @@ class KLawState(TypedDict, total=False):
     van_ban_tong_quat: dict | None
     # Tài liệu có KHUÔN GỐC (P4b): thay cho `van_ban_tong_quat`, phép sửa ĐÃ KIỂM
     # của lượt `{viec_id, ten_tep, dinh_dang, so_trang, yeu_cau, phep_sua, bo_qua,
-    # cho_trong}` — `phep_sua` là THAY ĐỔI của lượt (gộp vào phiên bản đang có ở
-    # `dung_ban_thao_tong_quat`), `bo_qua` chỉ mang đơn vị/chỗ trống/lý do, không
-    # mang giá trị. `yeu_cau` (owner 2026-09-27): `van_ban_nay` dựng/sửa chính tài
-    # liệu, kể cả khi phép rỗng; `van_ban_khac` không dựng gì, chỉ sang checklist.
+    # khong_dat, cho_trong}` — `phep_sua` là THAY ĐỔI của lượt (gộp vào phiên bản
+    # đang có ở `dung_ban_thao_tong_quat`), `bo_qua` chỉ mang đơn vị/chỗ trống/lý do,
+    # không mang giá trị. `yeu_cau` (luật owner 2026-09-27, `hieu_tai_lieu.YEU_CAU`):
+    # `tao_lai` dựng lại CHÍNH tệp — mọi phép đề xuất bị bỏ, bản thảo đúng từng byte
+    # tệp tải lên; `dien_sua` (mặc định khi thiếu hay lạ) điền/sửa nó bằng lời người
+    # hỏi; `van_ban_khac` không dựng gì, chỉ sang checklist. `khong_dat`: giá trị người
+    # hỏi đưa (chuỗi con lời họ) mà mô hình chưa đặt được — `assemble` kể lại.
+    # `co_san: True` do `dung_ban_thao_tong_quat` gắn khi lượt không xin đổi gì trên
+    # bản thảo đã có: `ban_thao_ket` là chính bản đó, không phiên bản mới.
     # `None` ở mọi lượt khác. Cùng bẫy LangGraph với `van_ban_tong_quat`.
     khuon_tong_quat: dict | None
     # Lý do KHÔNG dựng được bản thảo tổng quát ở lượt này (hết trần sửa, chưa có

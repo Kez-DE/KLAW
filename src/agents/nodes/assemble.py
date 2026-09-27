@@ -965,46 +965,88 @@ def tinh_muc_chac(dung_cho_prose: list, khung_yeu_cau: dict | None, ho_so: dict 
 # trống; phép bị phép kiểm bỏ đi thì `coverage_note` gọi tên chúng. Trần tên
 # dùng lại `TRAN_GACH` (bốn mục người đọc còn nắm được), trần ghi chú 160 ký tự.
 TRAN_GHI_CHU_KHUON = 160
+# Giá trị người hỏi đưa mà mô hình chưa đặt được (`khuon.khong_dat`, B3): câu riêng,
+# danh sách tối đa 160 ký tự; phần nó chiếm trừ vào trần 320 của "Còn trống" nên lời
+# đáp dài nhất vẫn dài như trước (≤ 900 ký tự, `TRAN_KY_TU`).
+TRAN_KHONG_DAT = 160
+DUOI_KHONG_DAT = " — hãy nói rõ chỗ cần điền hoặc bấm vào chỗ trống trên trang."
 
 
-def _liet_ke(dau: str, ten: list[str], tran_ky_tu: int) -> str:
+def _liet_ke(dau: str, ten: list[str], tran_ky_tu: int, loai: str = "chỗ") -> str:
     """`dau` + tối đa `TRAN_GACH` tên, cắt để vừa `tran_ky_tu`; phần cắt nói bằng SỐ."""
     for n in range(min(len(ten), TRAN_GACH), -1, -1):
         du = len(ten) - n
-        s = dau + ", ".join(ten[:n]) + ((" và " if n else "") + f"{du} chỗ khác" if du else "")
+        s = dau + ", ".join(ten[:n]) + ((" và " if n else "") + f"{du} {loai} khác" if du else "")
         if len(s) <= tran_ky_tu:
             return s
     return dau[:tran_ky_tu]
+
+
+def _cau_khong_dat(khuon: dict) -> str:
+    """Câu "Chưa đặt được: «…» — …" cho giá trị người hỏi đưa mà chưa có chỗ; rỗng
+    khi không có. Giá trị là chuỗi con lời người hỏi (`hieu_tai_lieu._lay_khong_dat`)."""
+    ten = [f"«{v}»" for v in khuon.get("khong_dat") or []]
+    return _liet_ke("Chưa đặt được: ", ten, TRAN_KHONG_DAT, "giá trị") + DUOI_KHONG_DAT if ten else ""
 
 
 def _ban_thao_khuon(state: dict, bt: dict) -> dict:
     """Lời đáp 0 token cho một bản thảo khuôn gốc — đọc `bt["phep_sua"]` (TRỌN phép
     của phiên bản vừa lưu) và `khuon_tong_quat` (chỗ trống, phép đã bỏ) của lượt."""
     khuon = state.get("khuon_tong_quat") or {}
+    tai = "tải PDF" if khuon.get("dinh_dang") == "pdf" else "tải Word hoặc PDF"
+    khong_dat = _cau_khong_dat(khuon)
+    if khuon.get("co_san"):
+        # Lượt không xin đổi gì trên bản thảo đã có (`dung_ban_thao_tong_quat`):
+        # thẻ là CHÍNH bản đang có, không phiên bản mới.
+        return _base(
+            state,
+            ResultType.ban_thao,
+            answer=f"Bản thảo trên tệp bạn tải lên đã có sẵn (phiên bản {bt['phien_ban']}): mở bản thảo để xem, "
+            f"{tai}. Muốn điền, hãy nói giá trị cần điền hoặc bấm vào chỗ trống trên trang."
+            + (" " + khong_dat if khong_dat else "")
+            + _cau_da_nho(state),
+            ban_thao=bt,
+            soan_thao_goi_y=None,
+        )
     phep = bt.get("phep_sua") or []
-    # Đoạn đã thay/xoá không còn dãy chấm — cùng luật `ban_thao.cho_trong_khuon`.
-    da_doi = {p.get("don_vi") for p in phep if p.get("loai") in ("thay", "xoa")}
-    cho = [c for c in khuon.get("cho_trong") or [] if c["don_vi"] not in da_doi]
+    # Đơn vị đã thay/xoá (hay ĐOẠN đã thay theo `doan`) không còn dãy chấm — cùng
+    # luật `ban_thao.cho_trong_khuon`.
+    theo_doan = {
+        (p.get("don_vi"), p.get("doan")) for p in phep if p.get("loai") == "thay" and p.get("doan") is not None
+    }
+    da_doi = {
+        p.get("don_vi") for p in phep if p.get("loai") == "xoa" or (p.get("loai") == "thay" and p.get("doan") is None)
+    }
+    cho = [
+        c
+        for c in khuon.get("cho_trong") or []
+        if c["don_vi"] not in da_doi and (c["don_vi"], c.get("doan", 0)) not in theo_doan
+    ]
     nhan = {(c["don_vi"], c["so"]): c["nhan"] or "chỗ trống" for c in cho}
     da = {(p.get("don_vi"), p.get("cho_trong")) for p in phep if p.get("loai") == "dien"}
     so_doan = sum(1 for p in phep if p.get("loai") != "dien")
     con = [f"«{nhan[k]}»" for k in nhan if k not in da]
     doi = [f"«{x}»" for x in bt.get("doi_so_voi_truoc") or []]
-    if not phep and not doi:
-        # Phiên bản chưa có phép nào (owner 2026-09-27): bản thảo LÀ tệp tải lên.
-        # Khuôn PDF không có bản Word (`routes_ban_thao.tai_xuong`).
+    tran_con = 320 - len(khong_dat)
+    tao_lai = khuon.get("yeu_cau") == "tao_lai"
+    if not phep and (not doi or tao_lai):
+        # Phiên bản chưa có phép nào (owner 2026-09-27): bản thảo LÀ tệp tải lên —
+        # `tao_lai` luôn tới đây, kể cả khi nó vừa gỡ các giá trị của bản đã điền
+        # (`doi`): chúng còn ở phiên bản trước. Khuôn PDF không có bản Word
+        # (`routes_ban_thao.tai_xuong`).
         so_trang = khuon.get("so_trang")
         answer = (
-            "Tôi đã dựng lại biểu mẫu đúng như tệp bạn tải lên"
+            "Tôi đã dựng lại văn bản đúng như tệp bạn tải lên"
             + (f" ({so_trang} trang)" if so_trang else "")
-            + ": mở bản thảo để xem, "
-            + ("tải PDF ngay. " if khuon.get("dinh_dang") == "pdf" else "tải Word hoặc PDF ngay. ")
+            + f": mở bản thảo để xem, {tai} ngay. "
             + (
-                _liet_ke("Còn trống: ", con, 320)
-                + ". Muốn điền, hãy nói giá trị cần điền hoặc dùng các ô điền bên cạnh trang."
+                _liet_ke("Còn trống: ", con, tran_con)
+                + ". Muốn điền, hãy nói giá trị cần điền hoặc bấm vào chỗ trống trên trang."
                 if con
                 else "Muốn đổi gì cứ nói với tôi."
             )
+            + (" Giá trị đã điền trước đó vẫn ở phiên bản trước: bấm Lùi để lấy lại." if doi else "")
+            + (" " + khong_dat if khong_dat else "")
             + _cau_da_nho(state)
         )
     else:
@@ -1014,9 +1056,11 @@ def _ban_thao_khuon(state: dict, bt: dict) -> dict:
             + (f" và sửa {so_doan} đoạn" if so_doan else "")
             + ("; " + _liet_ke("đã đổi: ", doi, 160) if doi else "")
             + ". "
-            + (_liet_ke("Còn trống: ", con, 320) + ". " if con else "")
-            + "Tôi chỉ điền điều bạn đã nói, hồ sơ hoặc chính tài liệu; chỗ chưa có giá trị giữ nguyên dãy chấm. "
-            + "Bạn xem, sửa từng ô hoặc tải về ở bên cạnh; muốn đổi gì cứ nói với tôi."
+            + (_liet_ke("Còn trống: ", con, tran_con) + ". " if con else "")
+            + (khong_dat + " " if khong_dat else "")
+            # Luật owner 2026-09-27: chữ của chính tài liệu không còn là nguồn điền.
+            + "Tôi chỉ điền điều bạn đã nói hoặc có trong hồ sơ; chỗ chưa có giá trị giữ nguyên dãy chấm. "
+            + "Bạn xem, bấm vào chỗ trống trên trang để sửa, hoặc tải về; muốn đổi gì cứ nói với tôi."
             + _cau_da_nho(state)
         )
     bo = khuon.get("bo_qua") or []

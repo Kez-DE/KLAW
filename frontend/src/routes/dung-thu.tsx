@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
+import { ChipTaiLieu, type HanhDongTep, type TepDinhKem } from "@/components/klaw/ChipTaiLieu";
 import { ManChao } from "@/components/klaw/ManChao";
 import { MaTruyVet } from "@/components/klaw/MaTruyVet";
 import { KhungDoiChieu, useHaiCot } from "@/components/klaw/KhungDoiChieu";
@@ -13,6 +13,14 @@ import { TheKetQua } from "@/components/klaw/TheKetQua";
 import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
 import { TaiLieuDuKien } from "@/components/klaw/TaiLieuDuKien";
+import {
+  apNeuCungBan,
+  thamSoSanKhau,
+  urlCoBanThao,
+  urlTroBanKhac,
+  vanNham,
+  type SanKhau,
+} from "@/lib/san-khau";
 import { loiTruocKhiGui, seDungOcr } from "@/lib/tai-lieu";
 import { taiLen } from "@/lib/tai-lieu-api";
 import { loaiBackendCua } from "@/lib/mau-van-ban";
@@ -21,6 +29,7 @@ import { noiTraTieuDiem } from "@/lib/tieu-diem";
 import { SanKhauBanThao } from "@/components/soan-thao/SanKhauBanThao";
 import { SanKhauBanTaiLen } from "@/components/soan-thao/KhungTrangAnh";
 import { TheTaiKhoanKhoa } from "@/components/tai-khoan/TheTaiKhoanKhoa";
+import { NganXepDrawer } from "@/components/ui/NganXepDrawer";
 import { TayKeo } from "@/components/ui/TayKeo";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
@@ -91,7 +100,8 @@ const CAU_PHIM_TAT_SAN_KHAU: Record<"rut_gon" | "trang_trong" | "soat_luat", str
 function Luot({
   cauHoi,
   traceId,
-  tenTepDinhKem,
+  tepDinhKem,
+  hanhDongTep,
   children,
 }: {
   cauHoi: string;
@@ -100,23 +110,20 @@ function Luot({
    *  lượt phải nói ra là nó có tệp — nếu không, đọc lại dòng hội thoại sẽ thấy
    *  một câu trả lời về một tài liệu không xuất hiện ở đâu cả. Một MẢNG vì lượt
    *  so sánh mang hai tờ, và "tài liệu nào" là nửa câu hỏi ở lượt đó. */
-  tenTepDinhKem?: string[] | undefined;
+  tepDinhKem?: TepDinhKem[] | undefined;
+  /** Menu của con chip (xem `ChipTaiLieu`) — cùng việc như chip ở ô soạn. */
+  hanhDongTep?: HanhDongTep;
   children?: React.ReactNode;
 }) {
   return (
     <div {...(traceId === null ? {} : { "data-trace": traceId })}>
       <div className="flex flex-col items-end gap-1.5">
-        {(tenTepDinhKem ?? []).map((ten) => (
-          <span
-            key={ten}
-            className="inline-flex max-w-[70%] items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px]"
-          >
-            <Paperclip aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 truncate" title={ten}>
-              {ten}
+        {hanhDongTep !== undefined &&
+          (tepDinhKem ?? []).map((tep) => (
+            <span key={tep.id} className="max-w-[70%]">
+              <ChipTaiLieu tep={tep} hanhDong={hanhDongTep} moLen={false} />
             </span>
-          </span>
-        ))}
+          ))}
         <p className="max-w-[70%] rounded-2xl rounded-br-sm bg-[var(--color-ink-900)] px-4 py-2.5 text-sm leading-relaxed text-white">
           {cauHoi}
         </p>
@@ -262,17 +269,22 @@ function ManHoiKlaw() {
   /** Sân khấu đang mở: bản thảo, hoặc "Bản tải lên" (khuôn gốc đúng như tệp,
    *  chỉ xem). MỘT state cho cả hai nên chúng loại trừ nhau và dùng chung một
    *  cửa đóng (`onDongSanKhau`), một bố cục (cột phải/dialog hẹp), một Esc. */
-  const [sanKhau, datSanKhau] = useState<
-    | { loai: "ban_thao"; banThaoId: string }
-    | { loai: "ban_tai_len"; viecId: string; tenTep: string; soTrang: number | null }
-    | null
-  >(null);
+  const [sanKhau, datSanKhau] = useState<SanKhau>(null);
+  /** `sanKhau` mới nhất cho phản hồi bất đồng bộ về muộn (`vanNham`). */
+  const sanKhauRef = useRef(sanKhau);
+  sanKhauRef.current = sanKhau;
   const banThaoIdSanKhau = sanKhau?.loai === "ban_thao" ? sanKhau.banThaoId : null;
   const [banThaoMo, datBanThaoMo] = useState<BanThao | null>(null);
-  /** Chữ đang gõ dở ở bảng ô điền, theo id bản thảo. Ở ĐÂY, không trong bảng:
-   *  tab "Trợ lý" ở bố cục hẹp, vượt ngưỡng 68rem và đóng sân khấu đều tháo
-   *  bảng ra — giữ trong bảng là bắt gõ lại mọi ô (WCAG 3.3.7). Mất khi rời
-   *  trang, như chữ đang gõ ở ô hỏi. */
+  /** Bản thảo vừa lưu/lùi/dựng lại xong lên sân khấu — CHỈ khi sân khấu vẫn là
+   *  chính bản đó: một lượt lưu về muộn của bản trước không thay bản vừa mở. */
+  const capNhatBanThaoMo = useCallback(
+    (bt: BanThao) => datBanThaoMo((cu) => apNeuCungBan(cu, bt)),
+    [],
+  );
+  /** Chữ đã gõ trên trang biểu mẫu mà chưa lưu xong, theo id bản thảo. Ở ĐÂY,
+   *  không trong sân khấu: tab "Trợ lý" ở bố cục hẹp, vượt ngưỡng 68rem và đóng
+   *  sân khấu đều tháo nó ra — giữ trong đó là bắt gõ lại mọi chỗ (WCAG 3.3.7).
+   *  Mất khi rời trang, như chữ đang gõ ở ô hỏi. */
   const [nhapODien, datNhapODien] = useState<Record<string, Record<string, string>>>({});
   /** Nút đã mở sân khấu — ghi trong HANDLER mở (`ghiNoiMoSanKhau`), lúc nút
    *  còn trong DOM và còn tiêu điểm: ở bố cục hẹp lượt vẽ mở sân khấu tháo cả
@@ -380,13 +392,10 @@ function ManHoiKlaw() {
     datSanKhau(null);
     datBanThaoMo(null);
     datMucDangChonSanKhau(null);
-    if (banThaoTrenUrl !== undefined) {
+    if (urlCoBanThao(banThaoTrenUrl, sanKhauRef.current)) {
       void navigate({
         to: "/dung-thu",
-        search: {
-          ...(cauHoiTrenUrl !== undefined ? { q: cauHoiTrenUrl } : {}),
-          ...(phienId !== undefined ? { phien: phienId } : {}),
-        },
+        search: thamSoSanKhau(cauHoiTrenUrl, phienId, null),
         replace: true,
       });
     }
@@ -398,7 +407,7 @@ function ManHoiKlaw() {
       toast.error(kq.error.message);
       return false;
     }
-    datBanThaoMo(kq.data);
+    capNhatBanThaoMo(kq.data);
     return true;
   };
   const onPhimTatSanKhau = (loai: "rut_gon" | "trang_trong" | "soat_luat") => {
@@ -413,20 +422,35 @@ function ManHoiKlaw() {
   /** Nhánh `ban_thao` (Task 21 → Task 24): mở sân khấu thật với bản thảo vừa
    *  dựng/sửa xong. `TheBanThao` gọi `onMo(bt.id)`, nên `id` ở đây LÀ
    *  `ban_thao.id`, không phải id lượt hỏi hay id phiên. `coSan`: bản thảo
-   *  vừa về từ chính lời gọi mở ("Điền biểu mẫu") — không tải lại lần hai. */
+   *  vừa về từ chính lời gọi mở ("Điền biểu mẫu") — không tải lại lần hai.
+   *
+   *  Sân khấu đang mở bản KHÁC thì CHUYỂN sang bản này, không bỏ qua cú bấm:
+   *  bản cũ đóng qua đúng cửa đóng (`urlTroBanKhac`), và phản hồi của bản cũ
+   *  về muộn không đè lên bản mới (`vanNham`). `?ban_thao=` rồi ghi bản NÀY
+   *  (`thamSoSanKhau`, thay mục lịch sử hiện tại): tải lại trang mở lại đúng nó. */
   const moSanKhau = (id: string, coSan?: BanThao) => {
     ghiNoiMoSanKhau();
     datDangMo(null);
     doiChieu.dong();
     datSoanThao(null);
+    if (urlTroBanKhac(banThaoTrenUrl, id)) onDongSanKhau();
     datMucDangChonSanKhau(null);
     datTabHep("ban_thao");
     datSanKhau({ loai: "ban_thao", banThaoId: id });
+    if (banThaoTrenUrl !== id) {
+      daMoTuUrl.current = id; // hiệu ứng đọc URL không mở (tải lại) nó lần hai
+      void navigate({
+        to: "/dung-thu",
+        search: thamSoSanKhau(cauHoiTrenUrl, phienId, id),
+        replace: true,
+      });
+    }
     if (coSan !== undefined) {
       datBanThaoMo(coSan);
       return;
     }
     void layBanThao(id).then((kq) => {
+      if (!vanNham(sanKhauRef.current, id)) return;
       if (kq.ok) datBanThaoMo(kq.data);
       else {
         toast.error(kq.error.message);
@@ -453,16 +477,19 @@ function ManHoiKlaw() {
   };
 
   /** "Điền biểu mẫu": bản thảo trên khuôn gốc (mới nhất, hoặc phiên bản 1 rỗng
-   *  máy chủ vừa tạo — 0 lượt mô hình, không tính hạn mức) lên sân khấu, bảng ô
-   *  điền sẵn sàng kể cả khi KLAW chưa điền ô nào. */
+   *  máy chủ vừa tạo — 0 lượt mô hình, không tính hạn mức) lên sân khấu, điền
+   *  được ngay trên trang kể cả khi KLAW chưa điền chỗ nào. */
   const dienBieuMau = async (viecId: string) => {
-    const idToast = toast.loading("Đang mở bảng ô điền…");
+    const idToast = toast.loading("Đang mở biểu mẫu…");
     const kq = await moBanThaoKhuon(viecId);
     if (!kq.ok) {
       toast.error(kq.error.message, { id: idToast, duration: 6000 });
       return;
     }
-    toast.success("Đã mở bảng ô điền.", { id: idToast, duration: 3000 });
+    toast.success("Đã mở biểu mẫu — bấm vào chỗ trống trên trang để điền.", {
+      id: idToast,
+      duration: 4000,
+    });
     moSanKhau(kq.data.id, kq.data);
   };
 
@@ -471,7 +498,8 @@ function ManHoiKlaw() {
    *  LẠI trên URL suốt lúc sân khấu mở — tải lại trang hay bấm Back phải mở
    *  lại đúng bản thảo đang xem, không phải một trang trắng. `onDongSanKhau`
    *  gỡ tham số khi đóng. `daMoTuUrl` chặn mở lại đúng bản thảo đó lần thứ hai
-   *  khi hiệu ứng này chạy lại ở một render khác mà tham số chưa đổi. */
+   *  khi hiệu ứng này chạy lại ở một render khác mà tham số chưa đổi, hay khi
+   *  tham số là do chính `moSanKhau` vừa ghi. */
   const daMoTuUrl = useRef<string | null>(null);
   useEffect(() => {
     if (banThaoTrenUrl === undefined) {
@@ -503,16 +531,20 @@ function ManHoiKlaw() {
    *  không biết vì sao. */
   const [daTatHetHan, datDaTatHetHan] = useState(false);
   const [dangDocTep, datDangDocTep] = useState(false);
+  /** Câu từ chối của lần tải tệp gần nhất — toast tự tắt, câu này đứng lại cạnh
+   *  chỗ đính kèm tới lần tải kế tiếp, để lý do (tên tệp, số trang thật) không
+   *  mất theo toast. */
+  const [loiTaiLen, datLoiTaiLen] = useState<string | null>(null);
   /** Phiên do chính lần ĐÍNH KÈM này mở ra, trong khoảng `?phien=` chưa kịp đổi. */
   const phienVuaTao = useRef<string | null>(null);
   /** Tài liệu đã đọc xong và sẽ đi kèm câu hỏi SẮP gửi — tối đa `TOI_DA_DINH_KEM`.
    *  Đọc xong là đính kèm ngay, kể cả khi tài liệu không khớp mẫu checklist nào. */
-  const [tepDaDinhKem, datTepDaDinhKem] = useState<{ id: string; ten_tep: string }[]>([]);
+  const [tepDaDinhKem, datTepDaDinhKem] = useState<TepDinhKem[]>([]);
   /** Tên tệp của lượt ĐANG chạy, và của các lượt đã lùi vào dòng hội thoại (khoá
    *  theo `trace_id`). Không nhét vào `LuotDaXong`: kiểu đó còn được ghi vào
    *  localStorage của khách, và một tên tệp không có việc gì nằm ở đó. */
-  const [tepCuaLuot, datTepCuaLuot] = useState<string[]>([]);
-  const [tepDaLuu, datTepDaLuu] = useState<Record<string, string[]>>({});
+  const [tepCuaLuot, datTepCuaLuot] = useState<TepDinhKem[]>([]);
+  const [tepDaLuu, datTepDaLuu] = useState<Record<string, TepDinhKem[]>>({});
   /** Bản mới nhất của `tepDaDinhKem` cho `ghiNhoDinhKem`, vốn phải ổn định
    *  tham chiếu (xem doc ở đó) nên không đọc được state qua closure. */
   const dsDinhKem = useRef(tepDaDinhKem);
@@ -552,6 +584,7 @@ function ManHoiKlaw() {
     datTepDaDinhKem([]);
     datTepCuaLuot([]);
     datTepDaLuu({});
+    datLoiTaiLen(null);
     phienVuaTao.current = null;
     datDonViDangMo(null);
     datMoTaiLieu(false);
@@ -670,7 +703,7 @@ function ManHoiKlaw() {
     // vì máy chủ giữ nội dung trong hội thoại, nên gửi lại id là trả tiền hai
     // lần cho cùng một tài liệu.
     const ids = tepDaDinhKem.map((t) => t.id);
-    datTepCuaLuot(tepDaDinhKem.map((t) => t.ten_tep));
+    datTepCuaLuot(tepDaDinhKem);
     datTepDaDinhKem([]);
 
     datDangMo(null);
@@ -698,14 +731,24 @@ function ManHoiKlaw() {
     datMoTaiLieu(true);
   };
 
-  /** Bấm con chip đính kèm: mở chính tài liệu đó, không tô đơn vị nào.
+  /** "Dữ kiện đã đọc" trong menu con chip: mở chính tài liệu đó, không tô đơn
+   *  vị nào.
    *
-   *  Đây là đường DUY NHẤT còn mở khung tài liệu bằng tay. Đính kèm không mở
-   *  nó nữa: kẹp một tờ giấy vào câu hỏi rồi gõ tiếp là việc người dùng đang
-   *  làm, và bung một bảng dữ kiện giữa lúc đó là chen ngang. */
+   *  Đọc tài liệu là việc NỀN (chủ dự án 2026-09-27): đính kèm không mở khung
+   *  nào, chat chỉ trả lời câu hỏi. Bảng dữ kiện là thứ người dùng tự mở. */
   const moTaiLieuDinhKem = (taiLieuId: string) => {
     datDonViDangMo({ taiLieuId, chiSo: null });
     datMoTaiLieu(true);
+  };
+  const dongTaiLieu = useCallback(() => {
+    datMoTaiLieu(false);
+    datDonViDangMo(null);
+  }, []);
+  /** Menu con chip — CÙNG việc ở ô soạn và ở lượt đã gửi. */
+  const hanhDongTep: HanhDongTep = {
+    onXemBanTaiLen: moBanTaiLen,
+    onDienBieuMau: (id) => void dienBieuMau(id),
+    onDuKien: moTaiLieuDinhKem,
   };
 
   /**
@@ -727,9 +770,11 @@ function ManHoiKlaw() {
       toast.error("Đăng nhập để KLAW đọc tài liệu của bạn.");
       return;
     }
+    datLoiTaiLen(null);
     const loiTep = loiTruocKhiGui(tep.name, tep.size);
     if (loiTep) {
-      toast.error(loiTep);
+      toast.error(loiTep, { duration: 8000 });
+      datLoiTaiLen(loiTep);
       return;
     }
     const idToast = toast.loading(
@@ -746,10 +791,18 @@ function ManHoiKlaw() {
       // thành `error`/`success` nếu lượt gọi sau không tự khai lại — toast
       // "kết quả" thừa kế "không bao giờ tắt" của toast "đang tải", và đó là
       // lý do nó nằm lì đè lên nút gửi. Khai lại `duration` ở CẢ hai nhánh.
-      toast.error(kq.error.message, { id: idToast, duration: 4000 });
+      // Câu của máy chủ nói tên tệp và số trang thật: đủ lâu để đọc hết (8 giây),
+      // và ở lại cạnh chỗ đính kèm sau khi toast tắt.
+      toast.error(kq.error.message, { id: idToast, duration: 8000 });
+      datLoiTaiLen(kq.error.message);
       return;
     }
-    ghiNhoDinhKem({ id: kq.data.id, ten_tep: kq.data.ten_tep || tep.name });
+    ghiNhoDinhKem({
+      id: kq.data.id,
+      ten_tep: kq.data.ten_tep || tep.name,
+      co_khuon_goc: kq.data.co_khuon_goc === true,
+      so_trang: kq.data.so_trang,
+    });
     toast.success("Đã đính kèm. Hỏi gì về tài liệu này cũng được.", {
       id: idToast,
       duration: 4000,
@@ -772,7 +825,7 @@ function ManHoiKlaw() {
    * giữ hai tờ gần nhất chứ không phải vứt việc họ vừa làm. Nói ra bằng toast
    * để không ai mất một tài liệu mà không biết.
    */
-  const ghiNhoDinhKem = useCallback((tep: { id: string; ten_tep: string }) => {
+  const ghiNhoDinhKem = useCallback((tep: TepDinhKem) => {
     // Đọc danh sách qua ref chứ không qua updater của `setState`: updater phải
     // THUẦN (React gọi nó hai lần ở StrictMode), nên một `toast` bên trong sẽ
     // bật hai lần. Ref cũng giữ `ghiNhoDinhKem` không đổi tham chiếu.
@@ -813,10 +866,14 @@ function ManHoiKlaw() {
   // hết lượt effect của lần render đó, và effect (2) sẽ thấy `phienId ===
   // undefined` + `hoiThoaiId !== null` rồi bật ngược URL về phiên vừa rời —
   // "Phiên mới" lặng lẽ ghi tiếp vào phiên cũ (có thể đã bị xoá).
+  //
+  // Sân khấu (bản thảo, bản tải lên) thuộc về phiên đang rời: đóng qua ĐÚNG cửa
+  // đóng, không để nó đứng cạnh một cuộc trò chuyện trắng.
   const phienMoi = useCallback(() => {
+    onDongSanKhau();
     datLaiTraCuu();
     void navigate({ to: "/dung-thu", search: {} });
-  }, [datLaiTraCuu, navigate]);
+  }, [onDongSanKhau, datLaiTraCuu, navigate]);
 
   // Vỏ ứng dụng có nút "Phiên mới" riêng và nó phải làm ĐÚNG việc ở trên, không
   // phải chỉ đổi URL — nên trang mượn hàm của mình cho context khi đang đứng ở
@@ -1054,6 +1111,9 @@ function ManHoiKlaw() {
       />
     ) : banThaoDangTaiXong !== null ? (
       <SanKhauBanThao
+        // Bản thảo khác = sân khấu mới: lượt lưu, câu lỗi, mức thu phóng và
+        // tấm "Sửa mục" của bản trước không sang bản này.
+        key={banThaoDangTaiXong.id}
         banThao={banThaoDangTaiXong}
         cauTruc={cauTrucSanKhau}
         truongMau={truongMauSanKhau}
@@ -1062,7 +1122,7 @@ function ManHoiKlaw() {
         onTaiLaiKhung={() => datLanTaiKhungSanKhau((n) => n + 1)}
         mucDangChon={mucDangChonSanKhau}
         onChonMuc={datMucDangChonSanKhau}
-        capNhatBanThao={datBanThaoMo}
+        capNhatBanThao={capNhatBanThaoMo}
         onLui={onLuiSanKhau}
         onDong={onDongSanKhau}
         onPhimTat={onPhimTatSanKhau}
@@ -1183,7 +1243,8 @@ function ManHoiKlaw() {
                   key={luot.ketQua.trace_id}
                   cauHoi={luot.cauHoi}
                   traceId={luot.ketQua.trace_id}
-                  tenTepDinhKem={tepDaLuu[luot.ketQua.trace_id]}
+                  tepDinhKem={tepDaLuu[luot.ketQua.trace_id]}
+                  hanhDongTep={hanhDongTep}
                 >
                   <TheKetQua
                     ketQua={luot.ketQua}
@@ -1201,7 +1262,12 @@ function ManHoiKlaw() {
               ))}
 
               {traCuu.cauHoi !== null && (
-                <Luot cauHoi={traCuu.cauHoi} traceId={traCuu.traceId} tenTepDinhKem={tepCuaLuot}>
+                <Luot
+                  cauHoi={traCuu.cauHoi}
+                  traceId={traCuu.traceId}
+                  tepDinhKem={tepCuaLuot}
+                  hanhDongTep={hanhDongTep}
+                >
                   {traCuu.dangChay && (
                     <TrangThaiCho
                       cacBuoc={traCuu.cacBuoc}
@@ -1340,22 +1406,32 @@ function ManHoiKlaw() {
         )}
       </div>
 
-      {moTaiLieu && (
-        <div className="mx-auto w-full max-w-[860px] px-4 pb-2">
+      {/* Bảng dữ kiện chỉ mở THEO YÊU CẦU ("Dữ kiện đã đọc" trên con chip, hay
+          một neo trong câu trả lời) — trong drawer, không chen vào dòng chat. */}
+      <NganXepDrawer
+        ngan={moTaiLieu ? [{ id: "du-kien", tieuDe: "Dữ kiện đã đọc", noiDung: null }] : []}
+        onDong={dongTaiLieu}
+        toanMan={!haiCot}
+        render={() => (
           <TaiLieuDuKien
             hoiThoaiId={phienId ?? traCuu.hoiThoaiId}
             loai={loaiDangSoan}
-            onMoBanTaiLen={moBanTaiLen}
-            onDienBieuMau={(id) => void dienBieuMau(id)}
-            onChip={dienGoiY}
-            donViDangMo={donViDangMo}
-            onDong={() => {
-              datMoTaiLieu(false);
-              datDonViDangMo(null);
+            onMoBanTaiLen={(tl) => {
+              dongTaiLieu();
+              moBanTaiLen(tl);
             }}
+            onDienBieuMau={(id) => {
+              dongTaiLieu();
+              void dienBieuMau(id);
+            }}
+            onChip={(cau) => {
+              dongTaiLieu();
+              dienGoiY(cau);
+            }}
+            donViDangMo={donViDangMo}
           />
-        </div>
-      )}
+        )}
+      />
       <OSoanCauHoi
         oHoi={oHoi}
         nhap={nhap}
@@ -1366,8 +1442,9 @@ function ManHoiKlaw() {
         dangCho={dangKiemPhien && !chuaCauHinh}
         onChonTep={(tep) => void taiTepLen(tep)}
         dangDocTep={dangDocTep}
+        loiTaiLen={loiTaiLen}
         tepDaDinhKem={tepDaDinhKem}
-        onMoDinhKem={moTaiLieuDinhKem}
+        hanhDongTep={hanhDongTep}
         onBoDinhKem={(id) => {
           datTepDaDinhKem((truoc) => truoc.filter((t) => t.id !== id));
         }}

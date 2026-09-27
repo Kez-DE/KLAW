@@ -255,6 +255,22 @@ export interface KhuonBanThao {
 export interface TrangAnh {
   kho: [number, number][];
   trang: string[];
+  /** Chỗ trống của ĐÚNG phiên bản vừa dựng — THÔ như máy chủ gửi, vắng ở máy
+   *  chủ cũ. Chỉ đọc qua `oHopLe`. */
+  o?: unknown;
+}
+
+/** Một chỗ trống trên ảnh trang (phần tử `o` của payload trang), theo thứ tự
+ *  đọc. `trang`/`hop` cùng `null` khi máy chủ không đo được vị trí. */
+export interface OTrang {
+  don_vi: number;
+  so: number;
+  /** Chỉ số trang (0-based) trong `TrangAnh.trang`. */
+  trang: number | null;
+  /** `[x0, y0, x1, y1]` pt, gốc trên-trái của trang đó — cùng hệ với `kho`. */
+  hop: [number, number, number, number] | null;
+  nhan: string;
+  gia_tri: string | null;
 }
 
 /**
@@ -1511,6 +1527,59 @@ export function laTrangAnh(x: unknown): x is TrangAnh {
     kho.every((k) => Array.isArray(k) && k.length === 2 && laKhoPt(k[0]) && laKhoPt(k[1])) &&
     trang.every((t) => typeof t === "string" && BASE64.test(t))
   );
+}
+
+/**
+ * `TrangAnh.o` → chỗ trống dùng được, hoặc `null` khi payload không mang `o`
+ * (máy chủ cũ: nơi gọi tự lùi về `khuon.cho_trong`, không để người dùng mất
+ * đường điền).
+ *
+ * Fail-closed TỪNG ô như `khuonHopLe`: ô dị dạng bị bỏ, ô trùng `(don_vi, so)`
+ * giữ ô ĐẦU. Vị trí không tin được (trang ngoài `kho`, hộp ngược hay ra ngoài
+ * trang) KHÔNG làm rơi ô — ô vẫn điền được, chỉ thành "chưa định vị".
+ */
+export function oHopLe(x: unknown, kho: readonly [number, number][]): OTrang[] | null {
+  if (!Array.isArray(x)) return null;
+  const daCo = new Set<string>();
+  const ra: OTrang[] = [];
+  for (const c of x as unknown[]) {
+    if (
+      !laBanGhi(c) ||
+      !laSoTuNhien(c["don_vi"]) ||
+      !laSoTuNhien(c["so"]) ||
+      typeof c["nhan"] !== "string" ||
+      (c["gia_tri"] !== undefined && c["gia_tri"] !== null && typeof c["gia_tri"] !== "string")
+    )
+      continue;
+    const khoa = `${c["don_vi"]}.${c["so"]}`;
+    if (daCo.has(khoa)) continue;
+    daCo.add(khoa);
+    const t = c["trang"];
+    const h = c["hop"];
+    const khoTrang = laSoTuNhien(t) ? kho[t] : undefined;
+    const hop =
+      khoTrang !== undefined &&
+      Array.isArray(h) &&
+      h.length === 4 &&
+      h.every((v) => typeof v === "number" && Number.isFinite(v)) &&
+      h[0] >= 0 &&
+      h[1] >= 0 &&
+      h[0] < h[2] &&
+      h[1] < h[3] &&
+      h[2] <= khoTrang[0] &&
+      h[3] <= khoTrang[1]
+        ? (h as [number, number, number, number])
+        : null;
+    ra.push({
+      don_vi: c["don_vi"],
+      so: c["so"],
+      trang: hop === null ? null : (t as number),
+      hop,
+      nhan: c["nhan"],
+      gia_tri: typeof c["gia_tri"] === "string" ? c["gia_tri"] : null,
+    });
+  }
+  return ra;
 }
 
 export function laDanhSachBanThao(x: unknown): x is { tong: number; items: BanThaoTomTat[] } {

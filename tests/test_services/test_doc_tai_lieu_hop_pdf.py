@@ -17,6 +17,7 @@ của từng dãy chấm, bằng điểm PDF, gốc trên-trái. Bốn điều f
 import shutil
 import subprocess
 from io import BytesIO
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -100,13 +101,54 @@ def test_dong_co_hop_bang_diem_goc_tren_trai():
 def test_cho_trong_la_tu_TOAN_CHAM_kem_nhan_va_co_chu():
     don_vi = doc("x.pdf", _pdf()).don_vi
     (d,) = _theo_chu(don_vi, "Dien thoai")
-    assert [(c.so, c.kieu, c.nhan) for c in d.cho_trong] == [(0, "cham", "Dien thoai:"), (1, "cham", "Fax:")]
+    assert [(c.so, c.kieu, c.nhan) for c in d.cho_trong] == [(0, "cham", "Dien thoai"), (1, "cham", "Fax")]
     for c in d.cho_trong:
         assert c.hop[0] >= d.hop[0] and c.hop[2] <= d.hop[2] + 0.01
         assert 8 < c.co_chu < 16
     assert d.cho_trong[0].hop[2] < d.cho_trong[1].hop[0]
     (ngay,) = _theo_chu(don_vi, "Ngay")
     assert [c.nhan for c in ngay.cho_trong] == ["Ngay", "thang", "nam"]
+
+
+@pytest.mark.skipif(not _CO_PDFTOTEXT, reason="cần pdftotext (poppler)")
+def test_dong_CHI_co_cham_lay_nhan_la_duoi_dong_ngay_tren():
+    """Dãy chấm dài xuống hàng dưới nhãn ("Dia chi:" rồi một dòng toàn chấm):
+    trên dòng của nó không có chữ nào, nên nhãn là phần chữ cuối dòng ngay trên
+    cùng trang — cùng luật nhánh scan. Trước đây nhãn rỗng, và bảng ô điền hiện
+    "Ô 9.0" (BM.M05 xuất ra PDF, đo 2026-09-27)."""
+    (d,) = _theo_chu(doc("x.pdf", _pdf()).don_vi, "......")
+    assert [c.nhan for c in d.cho_trong] == ["Dia chi"]
+
+
+@pytest.mark.skipif(not _CO_PDFTOTEXT, reason="cần pdftotext (poppler)")
+def test_nhan_dong_tren_KHONG_vuot_trang_hay_dong_khong_khop():
+    """Dòng chấm đầu trang không mượn nhãn của trang trước; dòng pypdf không
+    khớp poppler (không biết giữa hai dòng có gì) cũng không cho mượn."""
+    don_vi = doc(
+        "x.pdf", _pdf([(72, 800, "......................................"), (72, 776, "Dia chi:")], trang=2)
+    ).don_vi
+    assert [c.nhan for d in don_vi for c in d.cho_trong] == ["", ""]
+    trung = [(72, 800, "Ghi chu"), (72, 776, "Ghi chu"), (72, 752, "......................................")]
+    assert [c.nhan for d in doc("x.pdf", _pdf(trung)).don_vi for c in d.cho_trong] == [""]
+
+
+_BM_M05 = Path.home() / "giấy tờ thực tập" / "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx"
+
+
+@pytest.mark.skipif(
+    not (_BM_M05.exists() and shutil.which("soffice") and _CO_PDFTOTEXT), reason="kho mẫu ngoài repo + LibreOffice"
+)
+def test_BM_M05_xuat_PDF_dong_chi_co_cham_mang_nhan_dong_tren():
+    """BM.M05 xuất ra PDF là nơi bảng ô điền hiện "Ô 9.0", "Ô 11.0" (bản `.doc`
+    quy đổi thì không — nhãn ở đó y như `.docx`). Mọi dòng chấm dài xuống hàng
+    dưới nhãn giờ mang nhãn dòng trên; chỉ dòng chấm nối tiếp MỘT chỗ trống
+    ("Khoa ……" rồi "……") còn rỗng."""
+    from src.services.dung_trang import dung_pdf
+
+    nhan = [c.nhan for d in doc("bm.pdf", dung_pdf(_BM_M05.read_bytes())).don_vi for c in d.cho_trong]
+    for n in ("Cơ quan/Đơn vị tiếp nhận", "Địa chỉ", "Fax", "Ngành", "Thực hành/thực tập tại bộ phận"):
+        assert n in nhan, (n, nhan)
+    assert nhan.count("") == 1, nhan
 
 
 @pytest.mark.skipif(not _CO_PDFTOTEXT, reason="cần pdftotext (poppler)")

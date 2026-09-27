@@ -404,19 +404,40 @@ export const suaMucBanThao = (
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /**
+ * MỘT lượt dựng trang hay tải tệp khuôn gốc một lúc cho cả tab: máy chủ giữ một
+ * suất dựng cho mỗi tài khoản và trả 503 `qua_tai` cho lượt thứ hai cùng lúc.
+ * Lượt kế chờ lượt trước XONG HẲN. Huỷ chỉ bỏ lượt chưa tới lượt và bỏ phản hồi
+ * — không cắt lượt đang dựng: máy chủ vẫn dựng tới cùng và giữ suất, cắt ngang
+ * rồi gọi ngay là tự chuốc một 503.
+ * ponytail: một hàng cho cả tab; hai tab cùng tài khoản vẫn có thể gặp 503
+ * (khung trang nói "bận" và mời thử lại).
+ */
+let suatDung: Promise<unknown> = Promise.resolve();
+function quaSuatDung<T>(lam: () => Promise<T>): Promise<T> {
+  const lan = suatDung.then(lam);
+  suatDung = lan.catch(() => undefined);
+  return lan;
+}
+
+/**
  * Trang của một khuôn gốc — `duongDan` là `DUONG_DAN_KHUON.trangTaiLieu`/
  * `trangBanThao`. Một lượt dựng mất 1,5–3 giây (LibreOffice + `pdftoppm`) và có
  * thể xếp sau ba suất chung, nên hạn giờ là của đường nặng, không phải 15 giây
- * của một lượt đọc thuần.
+ * của một lượt đọc thuần. Đi qua `quaSuatDung`: `signal` huỷ lượt còn xếp hàng,
+ * lượt đã gửi thì chạy tới cùng (nơi gọi tự bỏ phản hồi của nó).
  */
 export const layTrang = (duongDan: string, signal?: AbortSignal) =>
-  goi<TrangAnh>(duongDan, laTrangAnh, {
-    hanGioMs: HAN_GIO_TRA_CUU,
-    ...(signal === undefined ? {} : { signal }),
-  });
+  quaSuatDung(() =>
+    signal?.aborted
+      ? Promise.resolve<ApiResult<TrangAnh>>({
+          ok: false,
+          error: loiTruocKhiCoPhanHoi(signal.reason),
+        })
+      : goi<TrangAnh>(duongDan, laTrangAnh, { hanGioMs: HAN_GIO_TRA_CUU }),
+  );
 
-/** Lưu MỌI ô đổi của bảng ô điền thành MỘT phiên bản (`phienBan` = phiên bản
- *  người dùng đang nhìn). Mọi từ chối là 422 kèm câu tiếng Việt. */
+/** Lưu ô điền (`phienBan` = phiên bản mới nhất người dùng đang sửa) — một
+ *  phiên bản mới mỗi lần đổi. Mọi từ chối là 422 kèm câu tiếng Việt. */
 export const suaODien = (id: string, phienBan: number, giaTri: ODienGui[]) =>
   goi<BanThao>(DUONG_DAN_KHUON.oDien(id), laBanThao, {
     method: "PATCH",
@@ -432,32 +453,35 @@ export const moBanThaoKhuon = (viecId: string) =>
  * Bytes tệp đã điền của MỘT phiên bản, kèm tên máy chủ đặt (`filename*` rồi
  * `filename` của `Content-Disposition`; `null` khi không đọc được — CORS phải
  * khai lộ header này). Endpoint chỉ nhận Bearer, nên không `<a href>` trần được;
- * lưu tệp là việc của nơi gọi (`xuat-tep.ts::taiBlob`).
+ * lưu tệp là việc của nơi gọi (`xuat-tep.ts::taiBlob`). Cùng suất dựng với
+ * trang (`quaSuatDung`): bấm tải lúc trang vừa dựng lại thì chờ, không 503.
  */
-export async function taiXuongBanThao(
+export function taiXuongBanThao(
   id: string,
   dang: "docx" | "pdf",
   phienBan: number,
 ): Promise<ApiResult<{ blob: Blob; ten: string | null }>> {
-  let phanHoi: Response;
-  let blob: Blob;
-  try {
-    phanHoi = await fetch(`${apiGoc()}${DUONG_DAN_KHUON.taiXuong(id, dang, phienBan)}`, {
-      signal: AbortSignal.timeout(HAN_GIO_TRA_CUU),
-      headers: await tieuDeXacThuc(),
-    });
-    if (!phanHoi.ok) {
-      const { cau, tho } = await docDetail(phanHoi);
-      return { ok: false, error: loiTheoStatus(phanHoi.status, cau, tho) };
+  return quaSuatDung(async () => {
+    let phanHoi: Response;
+    let blob: Blob;
+    try {
+      phanHoi = await fetch(`${apiGoc()}${DUONG_DAN_KHUON.taiXuong(id, dang, phienBan)}`, {
+        signal: AbortSignal.timeout(HAN_GIO_TRA_CUU),
+        headers: await tieuDeXacThuc(),
+      });
+      if (!phanHoi.ok) {
+        const { cau, tho } = await docDetail(phanHoi);
+        return { ok: false, error: loiTheoStatus(phanHoi.status, cau, tho) };
+      }
+      blob = await phanHoi.blob();
+    } catch (loi) {
+      return { ok: false, error: loiTruocKhiCoPhanHoi(loi) };
     }
-    blob = await phanHoi.blob();
-  } catch (loi) {
-    return { ok: false, error: loiTruocKhiCoPhanHoi(loi) };
-  }
-  return {
-    ok: true,
-    data: { blob, ten: tenTepTuContentDisposition(phanHoi.headers.get("Content-Disposition")) },
-  };
+    return {
+      ok: true,
+      data: { blob, ten: tenTepTuContentDisposition(phanHoi.headers.get("Content-Disposition")) },
+    };
+  });
 }
 
 /** Dựng query string, bỏ qua giá trị rỗng. Tham số lặp lại được (`loai`, `co_quan`). */

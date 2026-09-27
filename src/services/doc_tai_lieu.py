@@ -618,6 +618,12 @@ class DonViVanBan:
     hop: tuple[float, float, float, float] | None = None
     """Hộp của DÒNG (PDF có lớp chữ, PDF scan) — điểm PDF, gốc trên-trái, trên
     `trang`. `None` khi không định vị được chắc chắn."""
+    doan_chu: tuple[str, ...] = ()
+    """Chữ THÔ của từng `w:p` trong vật chứa (DOCX), đúng thứ tự
+    `vật_chứa.iter(w:p)` trên cây thô mà `ChoTrong.doan` đếm — chưa `strip()`,
+    chính chuỗi `dau`/`cuoi` trỏ vào. Chỉ có khi đơn vị có chỗ trống hoặc nhiều
+    đoạn: prompt khuôn gốc đặt dấu chỗ trống tại chỗ và `thay` theo đoạn so với
+    chữ cũ của đúng đoạn đó. Đi CẠNH `noi_dung`, không chạm nó."""
 
 
 @dataclass(frozen=True)
@@ -1826,6 +1832,66 @@ def _duoi_nhan(s: str) -> str:
     return " ".join(s.split())[-60:].strip()
 
 
+# Nhãn dài hơn chừng này chỉ giữ phần đuôi sau dấu ngắt cuối cùng — phần sát chỗ
+# trống ("…, thuộc Khoa" → "thuộc Khoa").
+_NHAN_DAI = 40
+_NGAT_NHAN = re.compile(r"[,;:()]|[.!?](?=\s)")
+_SAU_O_TRUOC = re.compile(r" \(sau ([^()]*)\)$")
+# Chú thích ngoặc CUỐI nhãn ("(nếu có)", "(ghi rõ …)"): tên ô đứng trước nó.
+_NGOAC_CUOI = re.compile(r"\s*\([^()]*\)[\s:]*$")
+
+
+def _co_chu_cai(s: str) -> bool:
+    return any(c.isalpha() for c in s)
+
+
+def nhan_sach(nhan: str, truoc: str = "") -> str:
+    """Nhãn HIỂN THỊ của một chỗ trống, từ nhãn thô (`_duoi_nhan`). `truoc` là
+    nhãn SẠCH của chỗ trống liền trước theo thứ tự đọc. Thuần và lũy đẳng: bộ
+    đọc gọi lúc tải lên, `ban_thao.cho_trong_khuon` gọi lại trên hàng đã lưu —
+    tài liệu tải lên trước hàm này cũng có nhãn sạch.
+
+    Gộp khoảng trắng; nhãn dài hơn `_NHAN_DAI` bỏ chú thích ngoặc cuối
+    ("(nếu có)", "(ghi rõ …)") nếu trước nó còn chữ, còn dài thì giữ phần đuôi
+    có chữ sau dấu `,;:()` hay chỗ hết câu cuối cùng, và nhãn bị cắt 60 ký tự
+    giữa một từ thì bỏ mẩu từ đó; bỏ dấu ngắt đầu và `:` cuối. Nhãn không có
+    chữ cái nào ("/", "=") lấy nhãn ô trước: "Số" rồi "Số (sau /)". Rỗng là
+    rỗng — giao diện tự gọi "Chỗ trống"."""
+    s = " ".join((nhan or "").split())
+    if not _co_chu_cai(s):
+        m = _SAU_O_TRUOC.search(truoc)
+        goc = truoc[: m.start()] if m and not _co_chu_cai(m[1]) else truoc
+        return f"{goc} (sau {s})" if s and goc else ""
+    if (m := _SAU_O_TRUOC.search(s)) and not _co_chu_cai(m[1]):
+        return s  # đã suy từ ô trước
+    if len(s) > _NHAN_DAI:
+        # 60 ký tự cuối (`_duoi_nhan`): từ đầu có thể bị cắt giữa.
+        cat = len(s) >= 60
+        if _co_chu_cai(g := _NGOAC_CUOI.sub("", s)):
+            s = g
+        phan = [p.strip() for p in _NGAT_NHAN.split(s)] if len(s) > _NHAN_DAI else [s]
+        i = max(i for i, p in enumerate(phan) if _co_chu_cai(p))
+        # Giữ đúng phần đầu cửa sổ 60 ký tự: bỏ mẩu từ bị cắt.
+        bo_tu_dau = i == 0 and cat and _co_chu_cai(phan[0].partition(" ")[2])
+        s = phan[0].partition(" ")[2] if bo_tu_dau else phan[i]
+    return s.lstrip(" ,;:(").rstrip(" :")
+
+
+def nhan_sach_don_vi(don_vi: list[DonViVanBan]) -> list[DonViVanBan]:
+    """`nhan_sach` trên mọi chỗ trống theo thứ tự đọc, `truoc` là nhãn sạch của
+    chỗ trống liền trước qua mọi đơn vị. Bộ đọc gọi lúc tải lên, `hieu_tai_lieu`
+    gọi lại trên hàng đã lưu — lũy đẳng, nên hàng lưu trước bộ đọc làm sạch nhãn
+    cũng lên prompt bằng đúng tên trang hiện."""
+    ra, truoc = [], ""
+    for d in don_vi:
+        cho = []
+        for c in d.cho_trong:
+            truoc = nhan_sach(c.nhan, truoc)
+            cho.append(replace(c, nhan=truoc))
+        ra.append(replace(d, cho_trong=tuple(cho)) if cho else d)
+    return ra
+
+
 def _cho_trong_doan(p: ET.Element, doan: int) -> list[ChoTrong]:
     """Chỗ trống của MỘT `w:p` thô, `so` tạm 0 (`_cho_trong_don_vi` đánh lại).
 
@@ -1893,7 +1959,13 @@ def _cho_trong_don_vi(nut: ET.Element) -> tuple[ChoTrong, ...]:
 
 def _vi_tri(phan: str, chi_muc: tuple[int, ...], nut: ET.Element) -> dict:
     ct = _cho_trong_don_vi(nut)
-    return {"dia_chi": DiaChi(phan=phan, chi_muc=chi_muc), **({"cho_trong": ct} if ct else {})}
+    doan = list(nut.iter(_P))
+    chu = tuple(_vi_tri_chu(p)[1] for p in doan) if ct or len(doan) > 1 else ()
+    return {
+        "dia_chi": DiaChi(phan=phan, chi_muc=chi_muc),
+        **({"cho_trong": ct} if ct else {}),
+        **({"doan_chu": chu} if chu else {}),
+    }
 
 
 def _dinh_vi_than(goc: ET.Element, phan: str) -> dict[ET.Element, dict]:
@@ -2468,6 +2540,15 @@ def _quy_doi_soffice(du_lieu: bytes, vao: str, loc: str, ra: str) -> bytes:
     `dung_trang.dung_pdf` (`.docx` → PDF, quyết định 2026-09-26): cùng ba suất
     `_suat_chuyen_doi`, cùng hai lỗi hệ thống. `vao`/`ra` là TÊN tệp trong thư
     mục tạm, `loc` là đối số `--convert-to`."""
+    return _quy_doi_soffice_kem(loc, (du_lieu, vao, ra))[0]
+
+
+def _quy_doi_soffice_kem(loc: str, chinh: tuple[bytes, str, str], *kem: tuple[bytes, str, str]) -> list:
+    """`_quy_doi_soffice` cho nhiều tệp `(bytes, tên vào, tên ra)` trong CÙNG một
+    tiến trình soffice — một suất, một lần khởi động (phần lớn của ~1,5 s một
+    lượt; hai tệp một lượt đo 1,4–1,7 s trên tám biểu mẫu, 2026-09-27). Tệp
+    `chinh` hỏng là lượt hỏng; một tệp `kem` không ra được thì `None` ở chỗ của
+    nó — tệp kèm không bao giờ làm hỏng tệp chính."""
     soffice = _duong_soffice()
     if not soffice:
         # LỖI CẤU HÌNH, không phải lỗi của người dùng — phải ồn ào với người
@@ -2485,7 +2566,7 @@ def _quy_doi_soffice(du_lieu: bytes, vao: str, loc: str, ra: str) -> bytes:
         raise ChuyenDoiKhongSanSang("khong_co_cong_cu", "chưa cài LibreOffice")
 
     with _giu_suat_chuyen_doi():
-        return _chay_soffice(du_lieu, soffice, vao, loc, ra)
+        return _chay_soffice([chinh, *kem], soffice, loc)
 
 
 @contextmanager
@@ -2553,7 +2634,7 @@ _MOI_TRUONG_PROXY_CHET = {
 } | {"no_proxy": "", "NO_PROXY": ""}
 
 
-def _chay_soffice(du_lieu: bytes, soffice: str, vao: str, loc: str, ra: str) -> bytes:
+def _chay_soffice(tep: list[tuple[bytes, str, str]], soffice: str, loc: str) -> list:
     """Phần THẬT SỰ tốn tài nguyên của `_quy_doi_soffice` — tách riêng để
     suất chuyển đổi (`_suat_chuyen_doi`) chỉ bị giữ quanh ĐÚNG đoạn này, không
     quanh các cổng chặn sớm (OLE2, thiếu soffice) phía trên."""
@@ -2561,8 +2642,8 @@ def _chay_soffice(du_lieu: bytes, soffice: str, vao: str, loc: str, ra: str) -> 
 
     with tempfile.TemporaryDirectory() as tmp:
         thu_muc = _P(tmp)
-        tep_vao = thu_muc / vao
-        tep_vao.write_bytes(du_lieu)
+        for du_lieu, vao, _ in tep:
+            (thu_muc / vao).write_bytes(du_lieu)
         ho_so = thu_muc / "ho_so" / "user"
         ho_so.mkdir(parents=True)
         (ho_so / "registrymodifications.xcu").write_text(_HO_SO_CHAN_LIEN_KET, encoding="utf-8")
@@ -2583,7 +2664,7 @@ def _chay_soffice(du_lieu: bytes, soffice: str, vao: str, loc: str, ra: str) -> 
                 loc,
                 "--outdir",
                 tmp,
-                str(tep_vao),
+                *(str(thu_muc / vao) for _, vao, _ in tep),
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -2599,8 +2680,8 @@ def _chay_soffice(du_lieu: bytes, soffice: str, vao: str, loc: str, ra: str) -> 
             _giet_sach_nhom(proc)
             raise KhongDocDuoc(LoaiHong.tep_hong, "chuyển đổi tệp quá lâu") from e
 
-        tep_ra = thu_muc / ra
-        if proc.returncode != 0 or not tep_ra.exists():
+        ra = [p.read_bytes() if (p := thu_muc / ten_ra).exists() else None for _, _, ten_ra in tep]
+        if proc.returncode != 0 or ra[0] is None:
             # KHÔNG log nội dung `stderr` của soffice (fix round 2, task
             # review — Minor #3): chuỗi đó bắt nguồn từ TÀI LIỆU người dùng
             # (tên tệp, đôi khi trích cả một đoạn nội dung soffice không phân
@@ -2613,7 +2694,7 @@ def _chay_soffice(du_lieu: bytes, soffice: str, vao: str, loc: str, ra: str) -> 
             )
             raise KhongDocDuoc(LoaiHong.tep_hong, "không chuyển đổi được tệp")
 
-        return tep_ra.read_bytes()
+        return ra
 
 
 # ------------------------------------------------------------------------- PDF
@@ -2756,21 +2837,24 @@ def _tron(hop: tuple[float, ...]) -> _Hop:
     return (x0, y0, x1, y1)
 
 
-def _them_dong_pdf(dong: list[tuple[str, _Hop]]) -> dict:
-    """Hộp của dòng và chỗ trống của nó: mỗi TỪ toàn chấm là một chỗ, nhãn là
-    các từ đứng trước nó trên dòng (sau chỗ trống liền trước)."""
+def _them_dong_pdf(dong: list[tuple[str, _Hop]], nhan_tren: str = "") -> tuple[dict, str]:
+    """Hộp của dòng và chỗ trống của nó, cùng phần chữ CUỐI dòng (sau chỗ trống
+    cuối) cho dòng kế tiếp. Mỗi TỪ toàn chấm là một chỗ, nhãn là các từ đứng
+    trước nó trên dòng (sau chỗ trống liền trước). Chỗ trống đầu tiên không có
+    chữ nào đứng trước trên dòng — dãy chấm dài xuống hàng dưới nhãn — lấy nhãn
+    là `nhan_tren`, phần chữ cuối dòng ngay trên (cùng luật nhánh scan)."""
     x0, y0, x1, y1 = zip(*(h for _, h in dong), strict=True)
     hop = _tron((min(x0), min(y0), max(x1), max(y1)))
     cho: list[ChoTrong] = []
     nhan: list[str] = []
     for chu, h in dong:
         if _la_cham(chu):
-            nhan_cho = _duoi_nhan(" ".join(nhan))
+            nhan_cho = _duoi_nhan(" ".join(nhan)) or ("" if cho else nhan_tren)
             cho.append(ChoTrong(so=len(cho), kieu="cham", nhan=nhan_cho, hop=_tron(h), co_chu=round(h[3] - h[1], 2)))
             nhan = []
         else:
             nhan.append(chu)
-    return {"hop": hop, **({"cho_trong": tuple(cho)} if cho else {})}
+    return {"hop": hop, **({"cho_trong": tuple(cho)} if cho else {})}, _duoi_nhan(" ".join(nhan))
 
 
 def _gan_hop_pdf(thoi: list[tuple], du_lieu: bytes) -> list[tuple]:
@@ -2797,10 +2881,20 @@ def _gan_hop_pdf(thoi: list[tuple], du_lieu: bytes) -> list[tuple]:
     for so, dong in thoi:
         dem[(so, _chuan_khop(dong))] = dem.get((so, _chuan_khop(dong)), 0) + 1
     ra: list[tuple] = []
+    # Chữ cuối dòng khớp liền trước, CÙNG trang; dòng không khớp xoá nó — không
+    # biết giữa hai dòng có gì thì không cho mượn nhãn.
+    nhan_tren, trang_tren = "", None
     for so, dong in thoi:
         khoa = (so, _chuan_khop(dong))
         khop = ung.get(khoa, [])
-        ra.append((so, dong, _them_dong_pdf(khop[0])) if dem[khoa] == 1 and len(khop) == 1 else (so, dong))
+        if so != trang_tren:
+            nhan_tren, trang_tren = "", so
+        if dem[khoa] == 1 and len(khop) == 1:
+            them, nhan_tren = _them_dong_pdf(khop[0], nhan_tren)
+            ra.append((so, dong, them))
+        else:
+            nhan_tren = ""
+            ra.append((so, dong))
     return ra
 
 
@@ -2916,11 +3010,13 @@ def _dat_vi_tri(
                 dia_chi=them.get("dia_chi"),
                 cho_trong=them.get("cho_trong", ()),
                 hop=them.get("hop"),
+                doan_chu=them.get("doan_chu", ()),
             )
         )
         offset += len(noi_dung) + 1   # +1 cho dấu xuống dòng giữa hai đơn vị
         da_di += len(noi_dung) + 1
 
+    don_vi = nhan_sach_don_vi(don_vi)
     so_ky_tu = sum(len(d.noi_dung) for d in don_vi)
     so_trang = max((d.trang for d in don_vi), default=1)
     if theo_ky_tu or uoc_do_day:
