@@ -244,8 +244,8 @@ open risks, and follows the TDD order: failing test first, then code.
 
 - [x] Decisions Q1–Q20 settled; decision record, glossary term, spec notes.
 - [x] Wave A — P1a, P1b, P1c (merges `9e4474c`, `8dcc8a9`, `ea86a9b`; CI lane 2163 passed on main).
-- [ ] Wave B — P2b merged (`a8fd793`); P2a merged up with main (`a2180ee`) and its replacement review findings fixed on the branch; P2a not yet merged into main.
-- [ ] Wave C — P3a, P3b.
+- [x] Wave B — P2b (`a8fd793`), P2a (`3d3871d`, after a merge-up and a replacement privacy review that found and fixed unbounded re-extracts, a reversed-MediaBox render bypass, uncounted kept files, and LibreOffice fetching linked images).
+- [x] Wave C — P3a docx applier (`d2ee30a`), P3b PDF overlay applier (`570c805`); CI lane 2381 passed on main.
 - [ ] Wave D — P4.
 - [ ] Wave E — P5.
 - [ ] Wave F — P6.
