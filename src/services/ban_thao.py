@@ -664,7 +664,13 @@ LOI_KHONG_PHAI_KHUON = (
     "Bản thảo này không điền trên tài liệu gốc (hoặc tài liệu gốc đã bị xoá), nên không có ô nào để lưu."
 )
 LOI_O_KHONG_THAY = "Không tìm thấy ô điền này trên tài liệu gốc — tải lại bản thảo rồi thử lại."
-LOI_KHONG_AP_DUOC = "Không lưu được: {n} ô không điền được vào đúng chỗ trên tài liệu gốc. Bỏ trống ô đó rồi lưu lại."
+# Bộ áp bỏ một phép: ô không còn khớp tài liệu (`cho_trong_da_doi`…) hay, trên
+# PDF, chữ không vừa ô kể cả khi thu nhỏ (`khong_vua`) — hai việc người dùng làm
+# được là rút gọn hoặc bỏ trống.
+LOI_KHONG_AP_DUOC = (
+    "Không lưu được: {n} ô không điền được vào tài liệu gốc (giá trị quá dài cho ô,"
+    " hoặc ô không còn khớp tài liệu). Rút gọn hay bỏ trống ô đó rồi lưu lại."
+)
 LOI_KHUON_HONG = "Không mở được tài liệu gốc để điền. Hãy tải tài liệu lên lại."
 
 
