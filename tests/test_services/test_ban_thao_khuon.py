@@ -334,8 +334,19 @@ def test_doi_so_voi_KHONG_khuon_giu_hinh_dang_facts():
 
 def test_tom_tat_khuon_la_tieu_de_va_mot_dong_moi_o_da_dien():
     k = _khuon((0, 0, "Họ và tên:", "Ánh"), (1, 0, "Email:", None), (1, 1, "", " a@b.vn"))
-    assert tom_tat_khuon("Giấy tiếp nhận", k) == "# Giấy tiếp nhận\n\n- Họ và tên: Ánh\n- Ô 1.1: a@b.vn\n"
+    assert tom_tat_khuon("Giấy tiếp nhận", k) == "# Giấy tiếp nhận\n\n- Họ và tên: Ánh\n- Chỗ trống: a@b.vn\n"
     assert tom_tat_khuon(None, _khuon()) == "# Văn bản\n"
+
+
+def test_o_khong_nhan_la_CHO_TRONG_danh_so_chi_khi_hai_o_doc_giong_nhau():
+    """B8: "Ô x.y" là mã nội bộ, không phải chữ người dùng đọc. Ô không nhãn là "Chỗ
+    trống"; thêm " (n)" theo thứ tự đọc CHỈ khi hai ô trở lên sẽ đọc giống hệt nhau."""
+    k = _khuon((0, 0, "", "A"), (1, 0, "Email:", "b"), (2, 0, "", "C"))
+    assert tom_tat_khuon("X", k) == "# X\n\n- Chỗ trống (1): A\n- Email: b\n- Chỗ trống (2): C\n"
+    truoc = {"facts": {}, "khuon": _khuon((0, 0, "", None), (1, 0, "Email:", "b"), (2, 0, "", None))}
+    assert doi_so_voi(truoc, {"facts": {}, "khuon": k}) == ["Chỗ trống (1): … → A", "Chỗ trống (2): … → C"]
+    assert ban_thao.ten_cho_trong(k["cho_trong"]) == {(0, 0): "Chỗ trống (1)", (1, 0): "Email", (2, 0): "Chỗ trống (2)"}
+    assert "Ô " not in tom_tat_khuon("X", k)
 
 
 def test_ket_qua_chat_mang_CUNG_khuon_voi_GET_ban_thao():
@@ -506,7 +517,9 @@ def _o(don_vi: int, cho: int, gia_tri: str) -> dict:
 
 
 @pytest.mark.integration
-def test_sua_o_dien_GOP_vao_phien_ban_dang_co_va_tinh_vao_tran_sua(nguoi):
+def test_sua_o_dien_GOP_vao_phien_ban_dang_co_va_KHONG_tinh_vao_tran_sua(nguoi):
+    """B6 (owner 2026-09-27): lưu ô điền không gọi mô hình nào, nên không phải một lần
+    sửa của `TRAN_SUA` — vẫn đúng một phiên bản mỗi lần lưu, cùng khoá lạc quan."""
     a, _ = nguoi
     phien = hoi_thoai.tao_phien(a, "biểu mẫu")
     viec = _viec(a, phien)
@@ -514,7 +527,7 @@ def test_sua_o_dien_GOP_vao_phien_ban_dang_co_va_tinh_vao_tran_sua(nguoi):
 
     ra = ban_thao.sua_o_dien(a, bt["id"], 1, [_o(1, 1, "  a@b.vn "), _o(1, 0, "")])
     assert isinstance(ra, dict), ra
-    assert ra["phien_ban"] == 2 and ra["so_lan_sua"] == 1
+    assert ra["phien_ban"] == 2 and ra["so_lan_sua"] == 0
     assert ra["phep_sua"] == [_d(0, 0, "Ánh"), _d(1, 1, "a@b.vn")]
     assert _gia_tri(ra) == {(0, 0): "Ánh", (1, 0): None, (1, 1): "a@b.vn"}
     assert ra["document"] == "# Giấy tiếp nhận\n\n- Họ và tên: Ánh\n- Email: a@b.vn\n"
@@ -524,14 +537,39 @@ def test_sua_o_dien_GOP_vao_phien_ban_dang_co_va_tinh_vao_tran_sua(nguoi):
 
     assert ban_thao.sua_o_dien(a, bt["id"], 1, [_o(0, 0, "Bình")]) == ban_thao.LOI_PHIEN_BAN_DA_DOI
     khong_doi = ban_thao.sua_o_dien(a, bt["id"], 2, [_o(0, 0, "Ánh")])
-    assert (khong_doi["phien_ban"], khong_doi["so_lan_sua"]) == (2, 1), "lưu không đổi gì không tốn một phiên bản"
+    assert (khong_doi["phien_ban"], khong_doi["so_lan_sua"]) == (2, 0), "lưu không đổi gì không tốn một phiên bản"
 
     with get_engine().begin() as c:
         c.execute(
             text("UPDATE ban_thao SET so_lan_sua = :n WHERE id = CAST(:i AS uuid)"),
             {"n": ban_thao.TRAN_SUA, "i": bt["id"]},
         )
-    assert ban_thao.sua_o_dien(a, bt["id"], 2, [_o(0, 0, "Bình")]) == ban_thao.LOI_HET_LAN_SUA
+    ra = ban_thao.sua_o_dien(a, bt["id"], 2, [_o(0, 0, "Bình")])
+    assert isinstance(ra, dict) and (ra["phien_ban"], ra["so_lan_sua"]) == (3, ban_thao.TRAN_SUA), (
+        "chat đã hết lượt sửa vẫn lưu được ô điền"
+    )
+    # Lượt sửa bằng lời (có gọi mô hình) vẫn chịu trần.
+    with pytest.raises(ValueError, match="đã sửa"):
+        ban_thao.kiem_tran_sua(ban_thao.chi_tiet(a, bt["id"]))
+
+
+@pytest.mark.integration
+def test_sua_o_dien_NHIEU_lan_moi_lan_mot_phien_ban_lich_su_giu_TRAN_SUA_ban(nguoi):
+    """Một biểu mẫu 30 ô lưu từng ô một không còn cụt ở lần thứ 11; lịch sử vẫn chỉ giữ
+    `TRAN_SUA` bản gần nhất (cùng lần cắt `[-TRAN_SUA:]` như trước), và `lui` vẫn lùi."""
+    a, _ = nguoi
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    viec = _viec(a, phien)
+    bt = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec, []))
+    so = ban_thao.TRAN_SUA + 2
+    for i in range(1, so + 1):
+        ra = ban_thao.sua_o_dien(a, bt["id"], i, [_o(0, 0, f"Tên {i}")])
+        assert isinstance(ra, dict), (i, ra)
+    assert (ra["phien_ban"], ra["so_lan_sua"]) == (so + 1, 0)
+    assert len(ra["phien_ban_truoc"]) == ban_thao.TRAN_SUA
+    assert [t["phien_ban"] for t in ra["phien_ban_truoc"]] == list(range(so + 1 - ban_thao.TRAN_SUA, so + 1))
+    ve = ban_thao.lui(a, bt["id"])
+    assert _gia_tri(ve)[(0, 0)] == f"Tên {so - 1}"
 
 
 @pytest.mark.integration
