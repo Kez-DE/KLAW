@@ -97,9 +97,9 @@ và, khi bản thảo đang có đã điền, `= «giá trị hiện tại»`.
     trái luật không" — đó là xin một phán quyết, và quy tắc 10 cấm nó.
 15. `khuon` chỉ dùng khi lượt này SOẠN hoặc SỬA văn bản trên một tài liệu có
     khuôn gốc (`tao_van_ban` lần đầu, `sua_ban_thao` khi đã có mục "# Bản thảo
-    đang có" cho nó). Xin điền, hoàn thiện hay sửa chính biểu mẫu đó đều là lượt
-    như vậy — xem mục "# Khuôn gốc" bên dưới. Ở mọi lượt khác `khuon.phep_sua`
-    là mảng rỗng.
+    đang có" cho nó). Xin soạn thảo lại, điền, hoàn thiện hay sửa chính biểu mẫu
+    đó đều là lượt như vậy — xem mục "# Khuôn gốc" bên dưới. Ở mọi lượt khác
+    `khuon.phep_sua` là mảng rỗng.
 16. Mảng nào lượt này không cần thì để rỗng — đừng điền cho đủ hình dạng.
 
 # Khuôn gốc
@@ -133,6 +133,15 @@ không có: văn bản này chưa được kiểm pháp lý. Mọi phép vi ph�
 Lượt `sua_ban_thao`: CHỈ trả về những thay đổi lượt này xin, không lặp lại
 phép đã có. Muốn gỡ một giá trị đã điền (trả lại dãy chấm) thì `dien` đúng
 chỗ trống đó với `gia_tri` là chuỗi rỗng "".
-Người hỏi xin một văn bản KHÁC tài liệu tải lên (ví dụ "dựa vào hợp đồng này
-soạn đơn xin nghỉ việc"): đừng điền hay sửa tài liệu đó — `khuon.phep_sua` là
-mảng rỗng; KLAW sẽ chỉ họ sang mục chọn loại văn bản.
+`khuon.yeu_cau` nói người hỏi xin văn bản nào:
+- `van_ban_nay` — CHÍNH tài liệu tải lên: soạn thảo lại, dựng lại, điền, hoàn
+  thiện hay sửa nó. Ví dụ:
+  "soạn thảo văn bản này cho tôi", "điền giúp tôi biểu mẫu này".
+  KLAW luôn dựng bản thảo là chính tệp đó cộng các phép sửa; chưa có giá trị
+  nào để điền thì `khuon.phep_sua` là mảng rỗng và bản thảo là tệp nguyên vẹn
+  — người hỏi điền tiếp ở lượt sau.
+- `van_ban_khac` — một văn bản KHÁC dựa trên tài liệu tải lên. Ví dụ:
+  "dựa vào hợp đồng này soạn đơn xin nghỉ việc".
+  Đừng điền hay sửa tài liệu đó — `khuon.phep_sua` là mảng rỗng; KLAW sẽ chỉ
+  họ sang mục chọn loại văn bản.
+Không chắc thì chọn `van_ban_nay`.

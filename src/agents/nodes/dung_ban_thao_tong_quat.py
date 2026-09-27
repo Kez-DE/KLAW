@@ -51,14 +51,13 @@ KHONG_DOI_KHUON = (
     "Lượt này không có thay đổi nào áp được lên biểu mẫu — giá trị cần điền phải có trong lời bạn, "
     "hồ sơ hoặc chính tài liệu. Bạn nói rõ giá trị cần điền, hoặc sửa thẳng ở khung điền bên cạnh."
 )
-# Lượt TẠO trên khuôn gốc mà không phép nào còn lại: không lưu một bản sao trắng
-# của tệp tải lên. Văn bản KHÁC tệp đó là việc của đường checklist (quyết định
-# 2026-09-26 mục 3), nên lời đáp chỉ sang đó.
+# Lượt xin một văn bản KHÁC dựa trên tệp tải lên (`yeu_cau="van_ban_khac"`): văn
+# bản khác là việc của đường checklist (quyết định 2026-09-26 mục 3), nên không
+# dựng gì và chỉ sang đó. Không đòi giá trị điền: người hỏi không xin điền tệp này.
 KHONG_DIEN_KHUON = (
-    "Lượt này chưa có giá trị nào điền được vào biểu mẫu bạn tải lên, nên tôi chưa tạo bản thảo. "
-    "Tôi điền tại chỗ chính tệp đó, chỉ bằng giá trị có trong lời bạn, hồ sơ hoặc chính tài liệu — "
-    "bạn nói rõ giá trị cần điền. Cần một văn bản khác (ví dụ một lá đơn) thì vào Soạn thảo và "
-    "chọn loại văn bản."
+    "Bạn đang xin một văn bản khác dựa trên tệp bạn tải lên, nên tôi không dựng bản thảo trên "
+    "chính tệp đó. Để soạn văn bản mới (ví dụ một lá đơn), bạn vào Soạn thảo và chọn loại văn bản. "
+    'Nếu bạn cần chính tệp đó, cứ nói "soạn thảo văn bản này".'
 )
 
 
@@ -273,6 +272,10 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
     sub, hoi_thoai_id = state.get("user_sub"), state.get("hoi_thoai_id")
     if sub is None or hoi_thoai_id is None:
         return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": None}
+    if khuon and khuon.get("yeu_cau") == "van_ban_khac":
+        # Văn bản KHÁC tệp tải lên: không dựng, không sửa bản đang có, không chạm
+        # hạn mức — trước cả phép kiểm hạn mức, vì lượt này không lưu gì.
+        return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_DIEN_KHUON}
     la_sua = state.get("muc_dich_tai_lieu") == "sua_ban_thao"
     cu = None
     if khuon:
@@ -307,16 +310,14 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
             # lại" sẽ thử lại, tốn thêm một lượt mô hình cho cùng lời từ chối.
             return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": str(e.detail)}
     if khuon:
-        # Lượt sửa mang THAY ĐỔI; phiên bản mới là phép đang có gộp với chúng.
-        # Không đổi gì thì không lưu gì: lượt sửa không lên một phiên bản giống
-        # hệt, lượt tạo không lưu một bản sao trắng (cũng không ghi hàng traces
-        # đếm hạn mức). Bản sao trắng ấy cũng là thứ duy nhất một lời xin văn bản
-        # KHÁC — "dựa vào hợp đồng này soạn đơn xin nghỉ việc" — dựng ra được ở đây.
+        # Lượt sửa mang THAY ĐỔI; phiên bản mới là phép đang có gộp với chúng, và
+        # không đổi gì thì không lên một phiên bản giống hệt. Lượt TẠO luôn dựng
+        # phiên bản 1 (owner 2026-09-27), kể cả phép rỗng: bản thảo là chính tệp
+        # tải lên, tải về ngay được, điền tiếp ở lượt sau hay ở khung điền.
         cu_phep = ((cu or {}).get("phep_sua") or []) if la_sua else []
         ket = ket_ban_thao_khuon(khuon, ban_thao.gop_phep_sua(cu_phep, khuon["phep_sua"]))
-        if ket["phep_sua"] == cu_phep:
-            loi = KHONG_DOI_KHUON if la_sua else KHONG_DIEN_KHUON
-            return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": loi}
+        if la_sua and ket["phep_sua"] == cu_phep:
+            return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_DOI_KHUON}
     if ket is None:
         return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_SOAN_DUOC}
 

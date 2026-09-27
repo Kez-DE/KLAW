@@ -14,6 +14,9 @@ Khoá ở đây, tất cả bằng mô hình GIẢ (0 lượt gọi thật):
    quá trần chi phí thì `QUA_DAI`, không cắt.
 5. Lượt soạn trên khuôn gốc không gộp vào hồ sơ tài khoản (FR-028); đường checklist
    không đổi.
+6. Quyết định owner 2026-09-27: lượt soạn xin CHÍNH tài liệu (`yeu_cau` =
+   `van_ban_nay`, thiếu hay lạ cũng vậy) luôn dựng phiên bản 1, phép rỗng là chính
+   tệp tải lên; chỉ `van_ban_khac` không dựng gì và chỉ sang checklist.
 """
 
 import json
@@ -98,7 +101,8 @@ def _doan(loai, don_vi, noi_dung=None):
     return {"loai": loai, "don_vi": don_vi, "cho_trong": None, "gia_tri": None, "noi_dung": noi_dung}
 
 
-def _ra(phep, muc_dich="tao_van_ban", nhan="A") -> dict:
+def _ra(phep, muc_dich="tao_van_ban", nhan="A", yeu_cau="van_ban_nay") -> dict:
+    """`yeu_cau=None`: mô hình bỏ trường này (ngoài lược đồ strict)."""
     return {
         "muc_dich": muc_dich,
         "mo_ta": "Giấy tiếp nhận",
@@ -110,12 +114,12 @@ def _ra(phep, muc_dich="tao_van_ban", nhan="A") -> dict:
         "truong": [],
         "khac_biet": [],
         "dieu_khoan": [],
-        "khuon": {"tai_lieu": nhan, "phep_sua": phep},
+        "khuon": {"tai_lieu": nhan, **({"yeu_cau": yeu_cau} if yeu_cau else {}), "phep_sua": phep},
     }
 
 
 def _chay(phep, cau=CAU, tai_lieu=TL_KHUON, **st):
-    llm = _LLM(_ra(phep, **{k: st.pop(k) for k in ("muc_dich", "nhan") if k in st}))
+    llm = _LLM(_ra(phep, **{k: st.pop(k) for k in ("muc_dich", "nhan", "yeu_cau") if k in st}))
     ra = h.hieu_tai_lieu({"query": cau, "cau_hoi_goc": cau, **st}, tai_lieu, llm, "m")
     return ra, llm
 
@@ -132,7 +136,12 @@ def test_khuon_goc_dung_prompt_v2_va_luoc_do_khuon_khong_van_ban():
     assert phep["required"] == ["loai", "don_vi", "cho_trong", "gia_tri", "noi_dung"]
     assert phep["properties"]["loai"]["enum"] == ["dien", "thay", "chen_sau", "xoa"]
     assert props["khuon"]["properties"]["tai_lieu"]["enum"] == ["A"]
+    assert props["khuon"]["required"] == ["tai_lieu", "yeu_cau", "phep_sua"]
+    assert props["khuon"]["properties"]["yeu_cau"] == {"type": "string", "enum": ["van_ban_nay", "van_ban_khac"]}
     assert "# Khuôn gốc" in llm.prompt, "prompt v2 mang mục khuôn gốc"
+    # Hai ví dụ của quyết định owner 2026-09-27, mỗi cái đúng một giá trị.
+    assert '"soạn thảo văn bản này cho tôi"' in llm.prompt and "`van_ban_nay`" in llm.prompt
+    assert '"dựa vào hợp đồng này soạn đơn xin nghỉ việc"' in llm.prompt and "`van_ban_khac`" in llm.prompt
 
 
 def test_prompt_liet_ke_cho_trong_ngay_duoi_don_vi():
@@ -496,40 +505,93 @@ def test_nhan_tao_van_ban_tren_khuon_da_co_ban_thao_van_la_luot_sua(bt_gia):
 
 
 @pytest.mark.parametrize("phep", [[], [_p(1, 0, "")]], ids=["khong_phep", "chi_go_o"])
-def test_luot_tao_khong_gia_tri_nao_thi_khong_luu_ban_sao_trang(bt_gia, monkeypatch, phep):
-    """Không giá trị nào điền được thì KHÔNG lưu một bản sao trắng của tệp tải lên
-    làm phiên bản 1, và không tốn lượt dựng lần đầu (hàng traces `EP_SOAN_THAO`)."""
+def test_luot_tao_khong_phep_nao_van_dung_phien_ban_1_la_chinh_tep_tai_len(bt_gia, monkeypatch, phep):
+    """Quyết định owner 2026-09-27: lượt soạn trên khuôn gốc LUÔN dựng phiên bản 1,
+    kể cả khi chưa có giá trị nào — phép rỗng, bản thảo là chính tệp tải lên. Cùng
+    hạn mức dựng lần đầu và cùng hàng traces `EP_SOAN_THAO` như mọi lượt dựng."""
     g = bt_gia(None)
-    monkeypatch.setattr(d, "_ghi_traces", lambda *a, **k: pytest.fail("không lưu thì không đếm hạn mức"))
+    goi = []
+    monkeypatch.setattr(bao_ve, "kiem_han_muc", lambda *a, **k: goi.append(("han_muc", a[2])))
+    monkeypatch.setattr(d, "_ghi_traces", lambda *a, **k: goi.append(("traces", a[1])))
     ra = d.dung_ban_thao_tong_quat(
         {"user_sub": "u", "hoi_thoai_id": "p", "muc_dich_tai_lieu": "tao_van_ban", "khuon_tong_quat": _khuon(phep)}
     )
-    assert g.tao_ket is None and ra["ban_thao_ket"] is None
-    assert ra["ban_thao_tong_quat_loi"] == d.KHONG_DIEN_KHUON
+    assert (g.tao_ket["viec_id"], g.tao_ket["phep_sua"], g.tao_ket["document"]) == (A_ID, [], "# BM.M05\n")
+    assert ra["ban_thao_tong_quat_loi"] is None
+    assert (ra["ban_thao_ket"]["phien_ban"], ra["ban_thao_ket"]["phep_sua"]) == (1, [])
+    assert goi == [("han_muc", bao_ve.EP_SOAN_THAO), ("traces", bao_ve.EP_SOAN_THAO)]
 
 
-def test_xin_van_ban_khac_tu_tai_lieu_khuon_goc_chi_duong_checklist(bt_gia):
-    """Lời xin "dựa vào hợp đồng này soạn đơn xin nghỉ việc": trên tài liệu có khuôn gốc
-    chỉ có phép sửa (quyết định 2026-09-26 mục 3), mô hình không có gì để điền, nên lượt
-    nói thật và chỉ sang đường checklist — văn bản khác là ngoại lệ có tên của nó."""
+def test_cau_cua_owner_soan_thao_van_ban_nay_dung_lai_dung_tep_tai_len(bt_gia):
+    """Đúng câu owner gõ trên một biểu mẫu vừa tải lên: mô hình không có giá trị nào
+    để điền (`phep_sua` rỗng) nhưng xin CHÍNH văn bản này — lượt dựng phiên bản 1 trên
+    khuôn gốc và lời đáp nói bản thảo là tệp tải lên, tải về được ngay."""
+    g = bt_gia(None)
+    ra, _ = _chay([], cau="soạn thảo văn bản này cho tôi", yeu_cau="van_ban_nay", user_sub="u", hoi_thoai_id="p")
+    assert ra["muc_dich_tai_lieu"] == "tao_van_ban"
+    assert (ra["khuon_tong_quat"]["yeu_cau"], ra["khuon_tong_quat"]["phep_sua"]) == ("van_ban_nay", [])
+    ra = d.dung_ban_thao_tong_quat(ra)
+    assert (g.tao_ket["viec_id"], g.tao_ket["phep_sua"]) == (A_ID, [])
+    bt = ra["ban_thao_ket"]
+    assert (bt["phien_ban"], bt["viec_id"], bt["phep_sua"]) == (1, A_ID, [])
+    out = assemble(ra, {}, _No(), "m")
+    assert out["result_type"] is ResultType.ban_thao and out["ban_thao"]["id"] == "bt-moi"
+    assert out["answer"].startswith(
+        "Tôi đã dựng lại biểu mẫu đúng như tệp bạn tải lên (2 trang): mở bản thảo để xem, tải Word hoặc PDF ngay."
+    )
+    assert "Còn trống: «Cơ quan/Đơn vị tiếp nhận:», «Điện thoại:», «Fax:», «Ngành:» và 1 chỗ khác." in out["answer"]
+    assert "Muốn điền, hãy nói giá trị cần điền hoặc dùng các ô điền bên cạnh trang." in out["answer"]
+    assert "bản gốc" not in out["answer"] and "tài liệu gốc" not in out["answer"]
+
+
+@pytest.mark.parametrize("yeu_cau", [None, "khong_ro"], ids=["thieu", "la"])
+def test_yeu_cau_thieu_hoac_la_thi_coi_la_van_ban_nay_va_dung(bt_gia, yeu_cau):
+    """Mặc định owner nói: dựng. Chỉ `van_ban_khac` rõ ràng mới không dựng gì."""
+    g = bt_gia(None)
+    ra, _ = _chay([], yeu_cau=yeu_cau, user_sub="u", hoi_thoai_id="p")
+    assert ra["khuon_tong_quat"]["yeu_cau"] == "van_ban_nay"
+    ra = d.dung_ban_thao_tong_quat(ra)
+    assert g.tao_ket["phep_sua"] == [] and ra["ban_thao_ket"]["phien_ban"] == 1
+
+
+def test_luot_tao_co_phep_hop_le_van_dien_nhu_cu(bt_gia):
+    g = bt_gia(None)
+    ra, _ = _chay([_dien(1, 0, "Công ty Mẫu Thử")], user_sub="u", hoi_thoai_id="p")
+    ra = d.dung_ban_thao_tong_quat(ra)
+    assert g.tao_ket["phep_sua"] == [_p(1, 0, "Công ty Mẫu Thử")]
+    out = assemble(ra, {}, _No(), "m")
+    assert out["answer"].startswith("Bản thảo phiên bản 1 là chính biểu mẫu bạn tải lên: đã điền 1/5 chỗ trống")
+    assert "dựng lại" not in out["answer"]
+
+
+@pytest.mark.parametrize("cu", [None, "cung_khuon"], ids=["chua_co_ban_thao", "da_co_ban_thao"])
+def test_xin_van_ban_khac_tu_tai_lieu_khuon_goc_chi_duong_checklist(bt_gia, monkeypatch, cu):
+    """Lời xin "dựa vào hợp đồng này soạn đơn xin nghỉ việc" (`yeu_cau` =
+    `van_ban_khac`): văn bản khác là ngoại lệ có tên của quyết định 2026-09-26 mục 3,
+    nên KHÔNG dựng, không sửa bản đang có, không đếm hạn mức — chỉ sang đường
+    checklist, và không đòi giá trị điền nào."""
     from src.agents.nodes.route import Intent
 
-    g = bt_gia(None)
+    g = bt_gia({"id": "bt-1", "viec_id": A_ID, "so_lan_sua": 0, "clauses": [], "phep_sua": []} if cu else None)
+    monkeypatch.setattr(bao_ve, "kiem_han_muc", lambda *a, **k: pytest.fail("không dựng thì không kiểm hạn mức"))
+    monkeypatch.setattr(d, "_ghi_traces", lambda *a, **k: pytest.fail("không dựng thì không đếm hạn mức"))
     ra, llm = _chay(
-        [],
-        cau="dựa vào hợp đồng này soạn giúp tôi đơn xin nghỉ việc",
+        [_dien(1, 0, "Công ty Mẫu Thử")],
+        cau="dựa vào hợp đồng này soạn giúp tôi đơn xin nghỉ việc, cơ quan là Công ty Mẫu Thử",
         muc_dich="hoi",
+        yeu_cau="van_ban_khac",
         intent=Intent.soan_thao,
         user_sub="u",
         hoi_thoai_id="p",
     )
-    assert "văn bản KHÁC tài liệu tải lên" in llm.prompt, "prompt v2 bảo mô hình không điền tài liệu nguồn"
-    assert ra["muc_dich_tai_lieu"] == "tao_van_ban" and ra["khuon_tong_quat"]["phep_sua"] == []
+    assert ra["muc_dich_tai_lieu"] == "tao_van_ban" and ra["khuon_tong_quat"]["yeu_cau"] == "van_ban_khac"
     ra = d.dung_ban_thao_tong_quat(ra)
-    assert g.tao_ket is None and ra["ban_thao_ket"] is None
+    assert g.tao_ket is None and g.sua_ket is None and ra["ban_thao_ket"] is None
+    assert ra["ban_thao_tong_quat_loi"] == d.KHONG_DIEN_KHUON
     out = assemble(ra, {}, _No(), "m")
     assert out["result_type"] is ResultType.soan_thao_hoi and out.get("ban_thao") is None
-    assert "chọn loại văn bản" in out["answer"] and "đã điền" not in out["answer"]
+    assert "chọn loại văn bản" in out["answer"] and "văn bản khác" in out["answer"]
+    assert "giá trị" not in out["answer"] and "đã điền" not in out["answer"]
 
 
 # ───────────────────────────────────────────────── không cắt ngầm, trần chi phí
@@ -615,6 +677,27 @@ def test_assemble_noi_so_cho_da_dien_va_liet_ke_cho_con_trong_co_tran():
     assert "sửa 0 đoạn" not in ra["answer"] and "đã đổi" not in ra["answer"]
     assert ra["coverage_note"] and len(ra["coverage_note"]) <= 160
     assert ra["coverage_note"].startswith("Không áp 8 thay đổi") and "«Nhãn số 5 " in ra["coverage_note"]
+
+
+@pytest.mark.parametrize("dinh_dang,tai", [("docx", "tải Word hoặc PDF ngay"), ("pdf", "tải PDF ngay")])
+def test_assemble_ban_thao_khuon_chua_dien_gi_noi_la_tep_tai_len_co_tran(dinh_dang, tai):
+    """Phiên bản 1 phép rỗng: lời đáp nói bản thảo là tệp tải lên (PDF không có bản
+    Word), vẫn liệt kê chỗ còn trống trong trần 900 ký tự / 4 tên."""
+    st = {
+        "query": "soạn thảo văn bản này cho tôi",
+        "muc_dich_tai_lieu": "tao_van_ban",
+        "user_sub": "u",
+        "ban_thao_ket": {"id": "bt", "phien_ban": 1, "viec_id": A_ID, "phep_sua": [], "clauses": []},
+        "khuon_tong_quat": {**_khuon([], _cho(30)), "dinh_dang": dinh_dang, "so_trang": 3},
+    }
+    ra = assemble(st, {}, _No(), "m")
+    assert ra["result_type"] is ResultType.ban_thao
+    assert ra["answer"].startswith(
+        f"Tôi đã dựng lại biểu mẫu đúng như tệp bạn tải lên (3 trang): mở bản thảo để xem, {tai}. Còn trống: «Nhãn số 0 "
+    )
+    assert "và 26 chỗ khác" in ra["answer"] and ra["answer"].count("«") == 4
+    assert len(ra["answer"]) <= TRAN_KY_TU and "đã điền" not in ra["answer"]
+    assert ("Word" in ra["answer"]) is (dinh_dang == "docx")
 
 
 def test_assemble_khuon_du_het_thi_khong_liet_ke_va_khong_ghi_chu():

@@ -2541,16 +2541,19 @@ def _hoac_null(kieu: str) -> dict:
 def schema_khuon(nhan: list[str], nhan_khuon: list[str], loai: list[str]) -> dict:
     """`schema_hieu` với `khuon` THAY cho `van_ban`: không còn đường nào để mô hình
     viết lại văn bản. `tai_lieu` là enum nhãn của tài liệu CÓ khuôn gốc; mọi trường
-    của một phép đều `required` (strict), trường không dùng thì `null`."""
+    của một phép đều `required` (strict), trường không dùng thì `null`. `yeu_cau`
+    (quyết định owner 2026-09-27): người hỏi xin CHÍNH tài liệu này hay một văn bản
+    khác dựa trên nó — không suy ra từ việc `phep_sua` rỗng."""
     s = schema_hieu(nhan)
     del s["properties"]["van_ban"]
     s["required"] = [k for k in s["required"] if k != "van_ban"] + ["khuon"]
     s["properties"]["khuon"] = {
         "type": "object",
         "additionalProperties": False,
-        "required": ["tai_lieu", "phep_sua"],
+        "required": ["tai_lieu", "yeu_cau", "phep_sua"],
         "properties": {
             "tai_lieu": {"type": "string", "enum": nhan_khuon},
+            "yeu_cau": {"type": "string", "enum": ["van_ban_nay", "van_ban_khac"]},
             "phep_sua": {
                 "type": "array",
                 "items": {
@@ -3072,6 +3075,10 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
                 "viec_id": t_k["id"],
                 "ten_tep": t_k["ten_tep"],
                 "dinh_dang": t_k["dinh_dang"],
+                "so_trang": t_k.get("so_trang"),
+                # Chỉ một `van_ban_khac` RÕ mới không dựng; thiếu hay lạ là mặc định
+                # owner đã nói: dựng chính tài liệu này.
+                "yeu_cau": "van_ban_khac" if k_ra.get("yeu_cau") == "van_ban_khac" else "van_ban_nay",
                 "phep_sua": phep,
                 "bo_qua": bo,
                 "cho_trong": cho_trong_khuon(t_k),

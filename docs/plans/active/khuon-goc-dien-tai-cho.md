@@ -281,7 +281,10 @@ open risks, and follows the TDD order: failing test first, then code.
   saves every changed field in one version. A draft opened by `POST
   /tai-lieu/{viec_id}/ban-thao` costs no first-build quota, so later chat fills on
   it are edit turns under `TRAN_SUA`, not `EP_SOAN_THAO` (one draft per viec, and
-  each viec already spent `tai_lieu_ngay`).
+  each viec already spent `tai_lieu_ngay`). A chat create turn spends one
+  `EP_SOAN_THAO` even when it fills nothing (owner 2026-09-27): its version 1 is
+  the upload unchanged, so a user who only wants the file back pays one
+  first-build, the same as any drafting turn.
 - Recovery: each phase is one merge commit on `main`; `git revert -m 1 <merge>`
   undoes it. Migration `036` is additive (new table, nullable columns).
 
@@ -344,7 +347,8 @@ open risks, and follows the TDD order: failing test first, then code.
   dry-runs the applier on the pristine khuôn gốc and refuses when any op lands in
   `bo_qua`. The reader strips `nhan`, so `chuan_hoa_dien` gives every `tab`
   value one leading space.
-- 2026-09-27 (P4b review): on a document with a khuôn gốc, a chat turn that asks
+- 2026-09-27 (P4b review; the empty-create rule is superseded by the owner
+  decision of 2026-09-27 below): on a document with a khuôn gốc, a chat turn that asks
   for a different document ("dựa vào hợp đồng này soạn đơn xin nghỉ việc") gets
   no edit-draft of the upload: decision item 3 leaves "a different document" to
   the checklist, so a create turn that ends with no valid operation saves nothing,
@@ -369,6 +373,21 @@ open risks, and follows the TDD order: failing test first, then code.
   row's `viec_id`/`phep_sua`, not the ket's. Because a zero-op create turn saves
   nothing (P4b review), `POST /tai-lieu/{viec_id}/ban-thao` opens the fill panel
   with an empty version 1.
+- 2026-09-27 (owner): a drafting request on a khuôn document always creates
+  version 1 (possibly the upload unchanged); only an explicit different-document
+  request points to the checklist; supersedes the P4b review default. The owner's
+  words: "tôi ko muốn điền mà là tạo lại, soạn thảo lại cái file ấy để tôi lưu
+  về, hoặc là sau đó tôi cần agent sửa thì tôi mới bảo nó điền tiếp". The strict
+  schema carries `khuon.yeu_cau` (`van_ban_nay` | `van_ban_khac`, required);
+  missing or unknown reads as `van_ban_nay`. `van_ban_nay` with an empty op list
+  goes through `ban_thao.tao`, the `EP_SOAN_THAO` quota check and the traces row
+  like any create; its download is byte-identical to the stored khuôn gốc (both
+  appliers return the input for an empty list) and its pages are the Bản tải lên
+  pages. `van_ban_khac` creates nothing, edits no existing draft, touches no
+  quota and says the request is for a different document, pointing to **Chọn
+  loại văn bản**. An edit turn that changes nothing still answers
+  `KHONG_DOI_KHUON`. `POST /tai-lieu/{viec_id}/ban-thao` stays: it opens the
+  fill panel without a chat turn and without quota.
 
 ## Validation
 

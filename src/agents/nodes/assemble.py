@@ -990,17 +990,35 @@ def _ban_thao_khuon(state: dict, bt: dict) -> dict:
     so_doan = sum(1 for p in phep if p.get("loai") != "dien")
     con = [f"«{nhan[k]}»" for k in nhan if k not in da]
     doi = [f"«{x}»" for x in bt.get("doi_so_voi_truoc") or []]
-    answer = (
-        f"Bản thảo phiên bản {bt['phien_ban']} là chính biểu mẫu bạn tải lên: đã điền "
-        f"{len(da & nhan.keys())}/{len(nhan)} chỗ trống"
-        + (f" và sửa {so_doan} đoạn" if so_doan else "")
-        + ("; " + _liet_ke("đã đổi: ", doi, 160) if doi else "")
-        + ". "
-        + (_liet_ke("Còn trống: ", con, 320) + ". " if con else "")
-        + "Tôi chỉ điền điều bạn đã nói, hồ sơ hoặc chính tài liệu; chỗ chưa có giá trị giữ nguyên dãy chấm. "
-        + "Bạn xem, sửa từng ô hoặc tải về ở bên cạnh; muốn đổi gì cứ nói với tôi."
-        + _cau_da_nho(state)
-    )
+    if not phep and not doi:
+        # Phiên bản chưa có phép nào (owner 2026-09-27): bản thảo LÀ tệp tải lên.
+        # Khuôn PDF không có bản Word (`routes_ban_thao.tai_xuong`).
+        so_trang = khuon.get("so_trang")
+        answer = (
+            "Tôi đã dựng lại biểu mẫu đúng như tệp bạn tải lên"
+            + (f" ({so_trang} trang)" if so_trang else "")
+            + ": mở bản thảo để xem, "
+            + ("tải PDF ngay. " if khuon.get("dinh_dang") == "pdf" else "tải Word hoặc PDF ngay. ")
+            + (
+                _liet_ke("Còn trống: ", con, 320)
+                + ". Muốn điền, hãy nói giá trị cần điền hoặc dùng các ô điền bên cạnh trang."
+                if con
+                else "Muốn đổi gì cứ nói với tôi."
+            )
+            + _cau_da_nho(state)
+        )
+    else:
+        answer = (
+            f"Bản thảo phiên bản {bt['phien_ban']} là chính biểu mẫu bạn tải lên: đã điền "
+            f"{len(da & nhan.keys())}/{len(nhan)} chỗ trống"
+            + (f" và sửa {so_doan} đoạn" if so_doan else "")
+            + ("; " + _liet_ke("đã đổi: ", doi, 160) if doi else "")
+            + ". "
+            + (_liet_ke("Còn trống: ", con, 320) + ". " if con else "")
+            + "Tôi chỉ điền điều bạn đã nói, hồ sơ hoặc chính tài liệu; chỗ chưa có giá trị giữ nguyên dãy chấm. "
+            + "Bạn xem, sửa từng ô hoặc tải về ở bên cạnh; muốn đổi gì cứ nói với tôi."
+            + _cau_da_nho(state)
+        )
     bo = khuon.get("bo_qua") or []
     ten_bo = list(
         dict.fromkeys(
