@@ -383,6 +383,85 @@ def test_PDF_hong_hay_co_mat_khau_nem_loi_co_ma():
     assert e.value.ly_do is LoaiHong.can_mat_khau
 
 
+# ──────────────────────────── luồng của khuôn gốc: không bao giờ giải mã
+
+
+def _them_luong(pdf: bytes, bo_loc: str) -> bytes:
+    """Thêm vào tài nguyên trang 1 một ảnh (không vẽ) mang bộ lọc `bo_loc` và
+    dữ liệu rác — như ảnh JBIG2 của máy scan văn phòng hay luồng riêng của
+    một trình soạn: poppler, và bộ đọc, vẫn đọc được tệp."""
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import DictionaryObject, NameObject, NumberObject, StreamObject
+
+    w = PdfWriter(clone_from=PdfReader(BytesIO(pdf)))
+    luong = StreamObject.initialize_from_dictionary(
+        {
+            NameObject("/Type"): NameObject("/XObject"),
+            NameObject("/Subtype"): NameObject("/Image"),
+            NameObject("/Width"): NumberObject(8),
+            NameObject("/Height"): NumberObject(8),
+            NameObject("/BitsPerComponent"): NumberObject(1),
+            NameObject("/Filter"): NameObject(bo_loc),
+            "__streamdata__": b"\x97JB2\r\n\x1a\nrac",
+        }
+    )
+    w.pages[0]["/Resources"][NameObject("/XObject")] = DictionaryObject({NameObject("/Rac"): w._add_object(luong)})
+    ra = BytesIO()
+    w.write(ra)
+    return ra.getvalue()
+
+
+@pytest.mark.parametrize("bo_loc", ["/JBIG2Decode", "/BoLocRieng"])
+def test_luong_goc_khong_giai_ma_duoc_van_dien_duoc(bo_loc):
+    """Ảnh Docker không có `jbig2dec`, và pypdf không có mọi bộ lọc: bộ áp chỉ
+    ghi phần nối thêm nên KHÔNG được giải mã luồng nào của khuôn gốc."""
+    import pypdf
+
+    pdf = _them_luong(_pdf(), bo_loc)
+    don_vi = _don_vi(pdf)
+    ho_ten = _mot(don_vi, "Ho ten")
+    phep = [{"loai": "dien", "don_vi": ho_ten["chi_so"], "cho_trong": 0, "gia_tri": _TEN}]
+    with pypdf.apply_configuration(jbig2dec_binary=None):
+        ra, bao_cao = ap_dung_pdf(pdf, don_vi, phep)
+    assert bao_cao == {"da_ap": [0], "bo_qua": []}
+    assert ra.startswith(pdf)
+    assert _chu_trong(ra, 1, _cho(ho_ten)["hop"]).startswith(_TEN)
+
+
+def test_ban_scan_anh_khong_mat_du_lieu_khong_bi_giai_ma():
+    """Scan lưu ảnh không mất dữ liệu: vài KB trên đĩa, hàng chục MB khi giải
+    mã. Đỉnh bộ nhớ một lượt điền phải dưới MỘT trang ảnh đã giải mã — tức là
+    không ảnh nào của khuôn gốc bị giải mã."""
+    import tracemalloc
+
+    from PIL import Image
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfgen import canvas
+
+    rong, cao = 1654, 2339  # A4 200 dpi, RGB: 11,6 MB mỗi trang khi giải mã
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=(_W, _H))
+    for xam in (240, 245):  # hai ảnh KHÁC nhau: reportlab gộp ảnh trùng
+        c.drawImage(ImageReader(Image.new("RGB", (rong, cao), (xam,) * 3)), 0, 0, _W, _H)
+        c.setFont("Helvetica", 12)
+        for x, y, chu in _DONG:
+            c.drawString(x, y, chu)
+        c.showPage()
+    c.save()
+    pdf = buf.getvalue()
+    ho_ten = next(d for d in _don_vi(pdf) if d["noi_dung"].startswith("Ho ten") and d["trang"] == 1)
+    phep = [{"loai": "dien", "don_vi": ho_ten["chi_so"], "cho_trong": 0, "gia_tri": _TEN}]
+    ap_dung_pdf(pdf, [ho_ten], phep)  # làm nóng: dò phông, import
+    tracemalloc.start()
+    try:
+        _, bao_cao = ap_dung_pdf(pdf, [ho_ten], phep)
+        _, dinh = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert bao_cao["da_ap"] == [0]
+    assert dinh < rong * cao * 3, dinh
+
+
 # ─────────────────────────────────────────────────────────────── phông chữ
 
 
@@ -405,6 +484,24 @@ def test_khong_tim_thay_phong_thi_moi_phep_la_khong_co_phong(monkeypatch, tmp_pa
     monkeypatch.setattr(dkp, "get_settings", lambda: SimpleNamespace(phong_dien_path=str(tmp_path / "khong.ttf")))
     _, bao_cao = ap_dung_pdf(pdf, don_vi, phep)
     assert [b["ly_do"] for b in bao_cao["bo_qua"]] == ["khong_co_phong", "khong_co_phong"]
+
+
+def test_phong_hong_cau_truc_la_khong_co_phong(monkeypatch, tmp_path, phong_moi):
+    """Tệp TTF cụt: reportlab ném `struct.error`, không phải `TTFError`."""
+    pdf = _pdf()
+    don_vi = _don_vi(pdf)
+    ho_ten, het = _mot(don_vi, "Ho ten"), _mot(don_vi, "Het")
+    phep = [
+        {"loai": "dien", "don_vi": ho_ten["chi_so"], "cho_trong": 0, "gia_tri": _TEN},
+        {"loai": "thay", "don_vi": het["chi_so"], "noi_dung": "B"},
+    ]
+    cut = tmp_path / "cut.ttf"
+    cut.write_bytes(Path(dkp._phong().face.filename).read_bytes()[:20_000])
+    dkp._phong.cache_clear()
+    monkeypatch.setattr(dkp, "get_settings", lambda: SimpleNamespace(phong_dien_path=str(cut)))
+    ra, bao_cao = ap_dung_pdf(pdf, don_vi, phep)
+    assert ra == pdf
+    assert bao_cao["bo_qua"] == [{"phep": 0, "ly_do": "khong_co_phong"}, {"phep": 1, "ly_do": "khong_co_phong"}]
 
 
 def test_duong_dan_phong_cau_hinh_duoc_dung_va_co_alias_KLAW(monkeypatch, phong_moi):
