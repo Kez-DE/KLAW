@@ -625,6 +625,23 @@ def test_assemble_khuon_du_het_thi_khong_liet_ke_va_khong_ghi_chu():
     assert ra["coverage_note"] is None
 
 
+def test_assemble_khong_dem_cho_trong_cua_doan_da_xoa():
+    """Tích hợp wave D: đoạn đã `xoa`/`thay` không còn dãy chấm — cùng luật
+    `ban_thao.cho_trong_khuon` (bảng ô điền): không đếm, không kể là còn trống."""
+    cho = _cho(3)
+    phep = [_p(0, 0, "A"), {"loai": "xoa", "don_vi": 2}]
+    st = {
+        "query": "q",
+        "muc_dich_tai_lieu": "tao_van_ban",
+        "user_sub": "u",
+        "ban_thao_ket": {"id": "bt", "phien_ban": 1, "viec_id": A_ID, "phep_sua": phep, "clauses": []},
+        "khuon_tong_quat": _khuon(phep, cho),
+    }
+    ra = assemble(st, {}, _No(), "m")
+    assert "đã điền 1/2 chỗ trống và sửa 1 đoạn" in ra["answer"]
+    assert "«Nhãn số 1 " in ra["answer"] and "«Nhãn số 2 " not in ra["answer"]
+
+
 # ──────────────────────────────────────────────── bộ nhớ và đường checklist
 
 

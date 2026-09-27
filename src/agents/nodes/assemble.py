@@ -981,9 +981,11 @@ def _ban_thao_khuon(state: dict, bt: dict) -> dict:
     """Lời đáp 0 token cho một bản thảo khuôn gốc — đọc `bt["phep_sua"]` (TRỌN phép
     của phiên bản vừa lưu) và `khuon_tong_quat` (chỗ trống, phép đã bỏ) của lượt."""
     khuon = state.get("khuon_tong_quat") or {}
-    cho = khuon.get("cho_trong") or []
-    nhan = {(c["don_vi"], c["so"]): c["nhan"] or "chỗ trống" for c in cho}
     phep = bt.get("phep_sua") or []
+    # Đoạn đã thay/xoá không còn dãy chấm — cùng luật `ban_thao.cho_trong_khuon`.
+    da_doi = {p.get("don_vi") for p in phep if p.get("loai") in ("thay", "xoa")}
+    cho = [c for c in khuon.get("cho_trong") or [] if c["don_vi"] not in da_doi]
+    nhan = {(c["don_vi"], c["so"]): c["nhan"] or "chỗ trống" for c in cho}
     da = {(p.get("don_vi"), p.get("cho_trong")) for p in phep if p.get("loai") == "dien"}
     so_doan = sum(1 for p in phep if p.get("loai") != "dien")
     con = [f"«{nhan[k]}»" for k in nhan if k not in da]

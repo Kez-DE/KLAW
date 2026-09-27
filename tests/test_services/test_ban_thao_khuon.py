@@ -69,6 +69,29 @@ def test_gop_bo_phep_khong_thuoc_bon_loai():
     assert gop_phep_sua(None, []) == []
 
 
+def test_gop_thay_xoa_tren_don_vi_go_moi_dien_cua_don_vi_do():
+    """Tích hợp wave D: `dien` và `thay`/`xoa` khoá riêng, nên một danh sách gộp
+    từng giữ được `dien(10,…)` cùng `xoa(10)` — bộ áp bỏ `dien` (`xung_dot`) còn
+    `assemble` đếm nó là đã điền. Đoạn đã thay/xoá không còn dãy chấm nào."""
+    cu = [_d(10, 0, "A"), _d(10, 1, "B"), _d(11, 0, "C")]
+    assert gop_phep_sua(cu, [_xoa(10)]) == [_d(11, 0, "C"), _xoa(10)]
+    assert gop_phep_sua([_thay(10, "x")], [_d(10, 0, "A"), _d(11, 0, "C")]) == [_thay(10, "x"), _d(11, 0, "C")], (
+        "dien SAU lên đơn vị đã thay/xoá là dien vào chỗ trống không còn"
+    )
+    assert gop_phep_sua([], [_d(10, 0, "A"), _xoa(10), _d(10, 0, "B")]) == [_xoa(10)]
+
+
+def test_gop_cheo_loai_bo_ap_khong_bo_phep_nao_va_cho_trong_khop():
+    """Bộ áp DOCX thật trên danh sách gộp chéo loại: không phép nào vào `bo_qua`,
+    và `cho_trong_khuon` không mời điền đoạn đã xoá — ba nơi đọc một sự thật."""
+    du_lieu = docx_that(*_DONG)
+    don_vi = [tl._hang_don_vi(d) for d in doc("x.docx", du_lieu).don_vi]
+    phep = gop_phep_sua([_d(0, 0, "Ánh"), _d(1, 0, "0912")], [_xoa(1)])
+    _, bao_cao = ban_thao.ap_phep_sua("docx", du_lieu, don_vi, phep)
+    assert bao_cao["bo_qua"] == []
+    assert [(o["don_vi"], o["gia_tri"]) for o in cho_trong_khuon("docx", don_vi, phep)] == [(0, "Ánh")]
+
+
 # ───────────────────────────────────────────────────────── cho_trong_khuon
 
 _DOCX = [

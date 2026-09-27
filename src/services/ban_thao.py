@@ -1000,7 +1000,11 @@ def gop_phep_sua(cu: list[dict] | None, moi: list[dict] | None) -> list[dict]:
     phép sau thắng (bộ áp coi phép cấu trúc thứ hai trên một vật chứa là xung
     đột). `chen_sau` khoá theo `(don_vi, noi_dung)`: bỏ trùng, giữ thứ tự. Phép
     đổi giá trị giữ CHỖ cũ trong danh sách, nên bộ áp PDF (phép trước giữ vùng)
-    thấy một danh sách đã bỏ trùng."""
+    thấy một danh sách đã bỏ trùng.
+
+    Chéo loại: một `thay`/`xoa` trên một đơn vị gỡ MỌI `dien` của đơn vị ấy, dù
+    đến trước hay sau — đoạn đã thay/xoá không còn dãy chấm nào, bộ áp sẽ bỏ
+    `dien` đó (`xung_dot`) mà `assemble` lại đếm là đã điền."""
     gop: dict[tuple, dict] = {}
     for p in [*(cu or []), *(moi or [])]:
         k = _khoa_phep(p)
@@ -1012,7 +1016,8 @@ def gop_phep_sua(cu: list[dict] | None, moi: list[dict] | None) -> list[dict]:
             gop.setdefault(k, p)
         else:
             gop[k] = p
-    return list(gop.values())
+    da_doi = {k[1] for k in gop if k[0] == "cau_truc"}
+    return [p for k, p in gop.items() if not (k[0] == "dien" and k[1] in da_doi)]
 
 
 def cho_trong_khuon(dinh_dang: str, don_vi: list | None, phep_sua: list | None) -> list[dict]:
