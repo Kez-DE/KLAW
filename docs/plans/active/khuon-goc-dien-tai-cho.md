@@ -369,6 +369,16 @@ open risks, and follows the TDD order: failing test first, then code.
   row's `viec_id`/`phep_sua`, not the ket's. Because a zero-op create turn saves
   nothing (P4b review), `POST /tai-lieu/{viec_id}/ban-thao` opens the fill panel
   with an empty version 1.
+- 2026-09-27 (on-page filling, G3 review): the owner dropped the fill panel
+  ("tình trạng ô này thì ko cần thiết, có thể để người dùng trực tiếp thao tác
+  trên" the page), so blanks are edited on the page image. Values typed there
+  stay unsaved (the map lifted to `dung-thu.tsx`, shown over the blank with a
+  dashed outline), and one toolbar **Lưu** sends every changed blank in one
+  `PATCH …/o-dien`, i.e. one version: the Risks "Edit cap" rule. Saving per
+  blank spends one of `TRAN_SUA` = 10 per field and dead-ends a 30-blank form.
+  Agent default within that rule, open for the owner to reverse: exempting fill
+  saves from the cap (`sua_o_dien` skips `kiem_tran_sua`, writes `tang: 0`,
+  keeps the `[-TRAN_SUA:]` trim) would allow an instant save per blank.
 
 ## Validation
 

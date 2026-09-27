@@ -80,9 +80,16 @@ export function ChipTaiLieu({
 
   const coKhuon = tep.co_khuon_goc === true;
   return (
+    // Ô soạn (`moLen`): menu neo vào DANH SÁCH chip (nơi gọi đặt `relative`),
+    // mép trái — chip nằm sát lề trái màn hẹp, menu 240px neo `right-0` vào một
+    // chip ngắn thì tràn khỏi mép trái; neo `left-0` vào chip thứ hai thì tràn
+    // mép phải. Lượt đã gửi: chip canh phải, neo `right-0` vào chính nó.
     <span
       ref={khung}
-      className="relative inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px]"
+      className={cn(
+        "inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[12px]",
+        !moLen && "relative",
+      )}
     >
       <Paperclip aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
       <button
@@ -118,8 +125,8 @@ export function ChipTaiLieu({
           role="menu"
           aria-label={`Việc với ${tep.ten_tep}`}
           className={cn(
-            "absolute right-0 z-50 flex w-[240px] flex-col rounded-xl border border-border bg-card p-1.5 text-foreground shadow-lg",
-            moLen ? "bottom-full mb-2" : "top-full mt-2",
+            "absolute z-50 flex w-[240px] flex-col rounded-xl border border-border bg-card p-1.5 text-foreground shadow-lg",
+            moLen ? "bottom-full left-0 mb-2" : "top-full right-0 mt-2",
           )}
         >
           {coKhuon && (

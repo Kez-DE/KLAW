@@ -81,7 +81,9 @@ export function OSoanCauHoi({
                 nó trả lời câu hỏi "câu tôi sắp gửi có kèm tệp này không" đúng
                 lúc người dùng đang gõ câu đó. Khung tài liệu có thể đã đóng. */}
             {daDinhKem.length > 0 && (
-              <ul className="mb-2 flex list-none flex-wrap gap-2 p-0">
+              // `relative`: menu của mỗi chip neo vào mép trái danh sách này,
+              // không tràn khỏi màn hẹp (xem `ChipTaiLieu`).
+              <ul className="relative mb-2 flex list-none flex-wrap gap-2 p-0">
                 {daDinhKem.map((tep) => (
                   <li key={tep.id} className="max-w-full">
                     <ChipTaiLieu tep={tep} hanhDong={hanhDongTep} onBo={onBoDinhKem} />

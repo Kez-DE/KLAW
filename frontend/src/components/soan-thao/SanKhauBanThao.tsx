@@ -10,7 +10,14 @@ import { TayKeo } from "@/components/ui/TayKeo";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { dungLaiBanThao, suaMucBanThao, suaODien, taiAnhNguon, taiXuongBanThao } from "@/lib/api";
 import { docRongDaLuu, kepRong, luuRong, type Bien } from "@/lib/keo-dan";
-import { CAU_MAY_BAN, DUONG_DAN_KHUON, type ODienGui } from "@/lib/khuon-goc";
+import {
+  boDaGui,
+  CAU_MAY_BAN,
+  chiGiuThayDoi,
+  DUONG_DAN_KHUON,
+  oDaDoi,
+  type ODienGui,
+} from "@/lib/khuon-goc";
 import {
   khuonHopLe,
   LOAI_TONG_QUAT,
@@ -151,6 +158,11 @@ interface Props {
    *  rộng không còn chỗ đứng — gấp lại thành `<details>` phía trên xem trước,
    *  và drawer sửa mục bên dưới phủ toàn màn (xem `NganXepDrawer.toanMan`). */
   toanMan: boolean;
+  /** Chữ đã gõ trên trang mà chưa "Lưu", của bản thảo này — nơi gọi GIỮ nó ở
+   *  TRÊN sân khấu, vì sân khấu bị tháo ra ở tab "Trợ lý" của bố cục hẹp, khi
+   *  vượt ngưỡng 68rem và khi đóng (WCAG 3.3.7: không bắt gõ lại). */
+  nhapODien: Readonly<Record<string, string>>;
+  datNhapODien: (doi: (cu: Readonly<Record<string, string>>) => Record<string, string>) => void;
 }
 
 const KHOA_RONG_MUC = "klaw.san-khau.muc";
@@ -186,6 +198,8 @@ export function SanKhauBanThao({
   onDong,
   onPhimTat,
   toanMan,
+  nhapODien,
+  datNhapODien,
 }: Props) {
   // Phase 15 R3 — sân khấu render lại trên MỌI pixel kéo `TayKeo` (`datRongMuc`
   // đặt state ngay trong component này) và trên mọi token chat đang stream ở
@@ -356,7 +370,7 @@ export function SanKhauBanThao({
 
   /** Lưu ô điền → `PATCH …/o-dien`, cùng khuôn `onSuaKhoi`: một toast mỗi
    *  lượt, gác xuất tệp trong lúc chờ, bỏ phản hồi cũ hơn bản đang hiện. Trả
-   *  câu từ chối để ô nhập giữ nó ngay dưới ô (`null` = đã lưu). */
+   *  câu từ chối để nó đứng lại cạnh nút Lưu (`null` = đã lưu). */
   const onLuuO = async (doi: ODienGui[]): Promise<string | null> => {
     // Một lượt Lùi (hay lưu khác) còn chưa về: hai lượt ghi phiên bản độc lập
     // thì phản hồi về SAU thắng trên màn hình, không theo thứ tự máy chủ đã ghi.
@@ -387,22 +401,50 @@ export function SanKhauBanThao({
     }
   };
 
-  /** MỘT chỗ trống sửa trên trang (hay trong "Chỗ trống chưa định vị"). */
-  const luuMotO = (o: OTrang, giaTri: string) =>
-    onLuuO([{ don_vi: o.don_vi, cho_trong: o.so, gia_tri: giaTri }]);
+  // Chữ gõ trên trang (hay trong "Chỗ trống chưa định vị") KHÔNG tự lưu: mỗi
+  // lần lưu là một phiên bản tính vào trần sửa (`TRAN_SUA` = 10, chung với lượt
+  // chat), nên lưu từng chỗ thì biểu mẫu 30 chỗ kẹt ở chỗ thứ 10. Một lần
+  // "Lưu" gửi MỌI chỗ đổi thành MỘT phiên bản (kế hoạch, Risks "Edit cap").
+  const doiO = khuon === null ? [] : oDaDoi(khuon.cho_trong, nhapODien);
+  const [dangLuuO, datDangLuuO] = useState(false);
+  /** Câu từ chối của lần lưu gần nhất — toast tự tắt, câu này ở lại cạnh nút
+   *  Lưu tới lần gõ hay lần lưu kế tiếp (WCAG 3.3.1). */
+  const [loiLuuO, datLoiLuuO] = useState<string | null>(null);
+  const datMotO = (khoa: string, giaTri: string | undefined) => {
+    datLoiLuuO(null);
+    datNhapODien((cu) => {
+      const ra = { ...cu };
+      if (giaTri === undefined) delete ra[khoa];
+      else ra[khoa] = giaTri;
+      return ra;
+    });
+  };
+  const luuODien = async () => {
+    if (dangLuuO || doiO.length === 0) return;
+    const gui = doiO;
+    datDangLuuO(true);
+    datLoiLuuO(null);
+    const cau = await onLuuO(gui);
+    datDangLuuO(false);
+    if (cau === null) datNhapODien((cu) => boDaGui(cu, gui));
+    else datLoiLuuO(cau);
+  };
 
   /** Lùi đi qua CÙNG cổng `soLuuDangCho` với lưu và tải tệp: một lượt ghi
    *  phiên bản một lúc. Lùi trong lúc một lượt lưu chưa về thì phản hồi nào về
    *  sau thắng, không theo thứ tự máy chủ đã ghi — màn hình có thể đứng ở một
-   *  phiên bản máy chủ đã bỏ; bấm hai lần thì lùi hai bậc. */
+   *  phiên bản máy chủ đã bỏ; bấm hai lần thì lùi hai bậc. Lùi xong, chữ chờ
+   *  lưu chỉ giữ chỗ ĐỔI THẬT so với bản vừa bỏ (`chiGiuThayDoi`). */
   const lui = async () => {
     if (soLuuDangCho > 0) {
       toast.error("Đang lưu hay lùi một phiên bản — đợi xong rồi thử lại.");
       return;
     }
+    const khuonBo = khuon;
     datSoLuuDangCho((n) => n + 1);
     try {
-      await onLui();
+      if ((await onLui()) && khuonBo !== null)
+        datNhapODien((cu) => chiGiuThayDoi(khuonBo.cho_trong, cu));
     } finally {
       datSoLuuDangCho((n) => n - 1);
     }
@@ -413,6 +455,11 @@ export function SanKhauBanThao({
   const taiTepKhuon = async (dang: "docx" | "pdf") => {
     if (soLuuDangCho > 0) {
       toast.error("Đang lưu ô điền — đợi lưu xong rồi tải lại.");
+      return;
+    }
+    // Trang đang HIỆN chữ chưa lưu; tệp tải về chỉ có những gì đã lưu.
+    if (doiO.length > 0) {
+      toast.error(`Còn ${doiO.length} chỗ chưa lưu — bấm “Lưu” rồi tải lại.`);
       return;
     }
     datDangXuat(dang);
@@ -688,7 +735,9 @@ export function SanKhauBanThao({
           ))}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex flex-wrap items-center gap-3 border-b border-border px-3 py-2">
+          {/* `relative`: ở bố cục hẹp danh sách "Chỗ trống chưa định vị" neo
+              vào thanh này (xem `NutChuaDinhVi`). */}
+          <div className="relative flex flex-wrap items-center gap-3 border-b border-border px-3 py-2">
             <ThanhThuPhong thuPhong={thuPhong} datThuPhong={datThuPhong} />
             {/* Trang ảnh không mang dòng căn cứ nào để bật/tắt. */}
             {khuon === null && (
@@ -702,7 +751,33 @@ export function SanKhauBanThao({
               </label>
             )}
             {khuon !== null && chuaDinhVi.length > 0 && (
-              <NutChuaDinhVi ds={chuaDinhVi} onLuu={luuMotO} />
+              <NutChuaDinhVi ds={chuaDinhVi} nhap={nhapODien} onNhap={datMotO} />
+            )}
+            {khuon !== null && khuon.cho_trong.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void luuODien()}
+                  // `aria-disabled`, không `disabled`: nút đang giữ tiêu điểm mà
+                  // bị `disabled` thì tiêu điểm rơi về `<body>` ngay lúc lưu
+                  // xong. `luuODien` tự chặn khi đang lưu hay chưa đổi gì.
+                  aria-disabled={dangLuuO || doiO.length === 0}
+                  aria-describedby={loiLuuO === null ? undefined : "san-khau-loi-luu-o"}
+                  className="focus-brass ml-auto inline-flex min-h-8 cursor-pointer items-center rounded-lg bg-primary px-4 text-[12.5px] font-medium text-primary-foreground transition-opacity hover:opacity-90 aria-disabled:cursor-not-allowed aria-disabled:opacity-60 max-[68rem]:min-h-11"
+                >
+                  {dangLuuO ? "Đang lưu…" : doiO.length > 0 ? `Lưu ${doiO.length} chỗ` : "Lưu"}
+                </button>
+                {/* Không `role="alert"`: toast của cùng lượt lưu đã đọc câu này
+                    lên một lần; đây là bản ở lại để đọc lại. */}
+                {loiLuuO !== null && (
+                  <p
+                    id="san-khau-loi-luu-o"
+                    className="m-0 basis-full text-[12.5px] leading-5 text-destructive"
+                  >
+                    {loiLuuO}
+                  </p>
+                )}
+              </>
             )}
             {/* Ba phím tắt viết lại VĂN BẢN — chỉ bản thảo HTML có văn bản để
                 viết lại; khuôn gốc chỉ điền chỗ trống, không rút gọn được. */}
@@ -733,7 +808,8 @@ export function SanKhauBanThao({
                 soTrang={khuon.so_trang}
                 thuPhong={thuPhong}
                 nhan="Các trang của bản đã điền — bấm vào chỗ trống để điền"
-                onLuuO={luuMotO}
+                nhap={nhapODien}
+                onNhap={datMotO}
                 onO={baoO}
               />
             ) : (

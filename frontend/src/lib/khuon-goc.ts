@@ -21,10 +21,21 @@ export function nhanO(o: Pick<ChoTrongKhuon, "nhan">): string {
 export const giaTriHienThi = (o: Pick<ChoTrongKhuon, "gia_tri">) => (o.gia_tri ?? "").trim();
 
 /** Tên đọc lên của nút phủ một chỗ trống: việc sẽ làm, tên chỗ, và giá trị
- *  đang có — người dùng trình đọc màn hình không đọc được chữ trên ảnh trang. */
-export function nhanNutDien(o: Pick<ChoTrongKhuon, "nhan" | "gia_tri">): string {
+ *  đang có — người dùng trình đọc màn hình không đọc được chữ trên ảnh trang.
+ *  `choLuu` = chữ đã gõ mà chưa lưu (`nhapODien`); gõ lại đúng giá trị cũ thì
+ *  không phải một thay đổi (cùng luật `oDaDoi`). */
+export function nhanNutDien(o: Pick<ChoTrongKhuon, "nhan" | "gia_tri">, choLuu?: string): string {
   const gt = giaTriHienThi(o);
-  return `Điền: ${nhanO(o)}${gt === "" ? " — còn trống" : ` — đang là “${gt}”`}`;
+  const moi = choLuu?.trim();
+  const duoi =
+    moi !== undefined && moi !== gt
+      ? moi === ""
+        ? " — chưa lưu, sẽ để trống"
+        : ` — chưa lưu “${moi}”`
+      : gt === ""
+        ? " — còn trống"
+        : ` — đang là “${gt}”`;
+  return `Điền: ${nhanO(o)}${duoi}`;
 }
 
 /** Một phần tử `gia_tri` của `PATCH /ban-thao/{id}/o-dien`. */
@@ -32,6 +43,59 @@ export interface ODienGui {
   don_vi: number;
   cho_trong: number;
   gia_tri: string;
+}
+
+/**
+ * Các ô ĐÃ ĐỔI so với phiên bản đang có, theo thứ tự đọc — MỘT lần lưu gửi
+ * đúng chừng này. `nhap` chỉ giữ ô người dùng đã chạm (khoá `khoaO`).
+ *
+ * Gom lại chứ không lưu từng chỗ: mỗi lần lưu là một phiên bản tính vào trần
+ * sửa (`TRAN_SUA` = 10, chung với lượt chat — kế hoạch, Risks "Edit cap").
+ *
+ * So SAU khi cắt khoảng trắng hai đầu, vì máy chủ cắt y hệt (`chuan_hoa_dien`):
+ * gõ lại đúng giá trị cũ không được tốn một phiên bản của trần sửa. Giá trị gửi
+ * đi vẫn NGUYÊN chữ người dùng gõ — chuẩn hoá là việc của máy chủ. `""` gỡ ô.
+ */
+export function oDaDoi(
+  choTrong: ChoTrongKhuon[],
+  nhap: Readonly<Record<string, string>>,
+): ODienGui[] {
+  return choTrong.flatMap((o) => {
+    const moi = nhap[khoaO(o)];
+    return moi !== undefined && moi.trim() !== giaTriHienThi(o)
+      ? [{ don_vi: o.don_vi, cho_trong: o.so, gia_tri: moi }]
+      : [];
+  });
+}
+
+/**
+ * Chữ đang gõ còn giữ khi LÙI khỏi phiên bản `choTrong`: chỉ ô ĐỔI THẬT so với
+ * bản bị bỏ. Ô đã chạm mà không đổi (gõ lại đúng giá trị) phải rơi — giữ lại
+ * thì trên bản lùi về nó thành "đổi", và một lần Lưu áp lại chữ của chính bản
+ * người dùng vừa bỏ. Ô đổi thật là chữ người dùng gõ, còn hiện trên trang:
+ * giữ, đừng bắt gõ lại.
+ */
+export function chiGiuThayDoi(
+  choTrong: ChoTrongKhuon[],
+  nhap: Readonly<Record<string, string>>,
+): Record<string, string> {
+  return Object.fromEntries(
+    oDaDoi(choTrong, nhap).map((d) => [khoaO({ don_vi: d.don_vi, so: d.cho_trong }), d.gia_tri]),
+  );
+}
+
+/** Lưu xong: bỏ ô đã gửi ĐÚNG chữ đó. Ô người dùng gõ tiếp trong lúc lưu (chữ
+ *  đã khác chữ vừa gửi) còn nguyên để lưu lần sau. */
+export function boDaGui(
+  nhap: Readonly<Record<string, string>>,
+  daGui: readonly ODienGui[],
+): Record<string, string> {
+  const ra = { ...nhap };
+  for (const d of daGui) {
+    const k = khoaO({ don_vi: d.don_vi, so: d.cho_trong });
+    if (ra[k] === d.gia_tri) delete ra[k];
+  }
+  return ra;
 }
 
 /**

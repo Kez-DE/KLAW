@@ -5,20 +5,25 @@
  *
  * Vì sao đáng kiểm riêng: `khuonHopLe` quyết định giao diện vẽ trang hay A4
  * HTML, và mỗi ô nó bỏ sót là một ô người dùng không điền được; `oHopLe` và
- * `viTriO` quyết định nút điền nằm ĐÚNG trên chỗ trống nào của ảnh trang, và
- * `oKeTiep` quyết định Tab đi sang chỗ nào.
+ * `viTriO` quyết định nút điền nằm ĐÚNG trên chỗ trống nào của ảnh trang,
+ * `oKeTiep` quyết định Tab đi sang chỗ nào, và `oDaDoi` quyết định lần lưu gửi
+ * ĐÚNG những ô nào — gửi thừa là một phiên bản vô ích tính vào trần sửa, gửi
+ * thiếu là chữ người dùng gõ biến mất.
  *
  * Chạy: `npm run kiem-khuon-goc`.
  */
 import assert from "node:assert/strict";
 import { khuonHopLe, laTrangAnh, oHopLe, type ChoTrongKhuon } from "../src/lib/klaw.ts";
 import {
+  boDaGui,
+  chiGiuThayDoi,
   DUONG_DAN_KHUON,
   giaTriHienThi,
   khoaO,
   loiTrang,
   nhanNutDien,
   nhanO,
+  oDaDoi,
   oKeTiep,
   phuDeKhuon,
   tenTepTuContentDisposition,
@@ -167,6 +172,13 @@ kiem("nút phủ chỗ trống đọc lên việc, tên chỗ và giá trị đa
     "Điền: chỗ trống — đang là “Hà Nội”",
   );
 });
+kiem("chữ đã gõ mà chưa lưu được đọc lên; gõ lại đúng giá trị cũ thì không", () => {
+  const daDien = o({ nhan: "Email", gia_tri: " a@b.vn" });
+  assert.equal(nhanNutDien(daDien, " x@y.vn "), "Điền: Email — chưa lưu “x@y.vn”");
+  assert.equal(nhanNutDien(daDien, ""), "Điền: Email — chưa lưu, sẽ để trống");
+  assert.equal(nhanNutDien(daDien, "a@b.vn "), "Điền: Email — đang là “a@b.vn”");
+  assert.equal(nhanNutDien(daDien, undefined), "Điền: Email — đang là “a@b.vn”");
+});
 kiem("dòng phụ thẻ khuôn: số trang và số chỗ ĐÃ điền (bỏ null và khoảng trắng)", () => {
   const k = khuonHopLe(KHUON)!;
   assert.equal(phuDeKhuon(k), "Biểu mẫu · 2 trang · đã điền 2 chỗ");
@@ -174,6 +186,57 @@ kiem("dòng phụ thẻ khuôn: số trang và số chỗ ĐÃ điền (bỏ nul
     phuDeKhuon({ so_trang: 1, cho_trong: [o({ gia_tri: "  " }), o({ gia_tri: null })] }),
     "Biểu mẫu · 1 trang · đã điền 0 chỗ",
   );
+});
+
+// ─────────────────────────────────────────────────────────────── oDaDoi
+// Mỗi lần lưu là một phiên bản tính vào `TRAN_SUA` (10) — lưu từng chỗ một thì
+// một biểu mẫu 30 chỗ kẹt ở chỗ thứ 10. Chữ gõ trên trang gom lại, MỘT lần Lưu
+// gửi mọi chỗ đổi (kế hoạch, Risks "Edit cap").
+const CT = khuonHopLe(KHUON)!.cho_trong;
+kiem("không gõ gì → không gửi gì", () => {
+  assert.deepEqual(oDaDoi(CT, {}), []);
+});
+kiem("chỉ ô đổi được gửi, giá trị NGUYÊN chữ người dùng gõ", () => {
+  assert.deepEqual(oDaDoi(CT, { "1.1": "  Hà Nội ", "0.0": "Nguyễn Văn Ánh" }), [
+    { don_vi: 1, cho_trong: 1, gia_tri: "  Hà Nội " },
+  ]);
+});
+kiem("gõ lại đúng giá trị đang có (ô tab không dấu cách đầu) → không đổi", () => {
+  assert.deepEqual(oDaDoi(CT, { "1.0": "a@b.vn" }), []);
+  assert.deepEqual(oDaDoi(CT, { "0.0": " Nguyễn Văn Ánh  " }), []);
+});
+kiem("xoá trắng một ô đã điền gửi '' (gỡ ô); ô chưa điền để trống → không đổi", () => {
+  assert.deepEqual(oDaDoi(CT, { "0.0": "", "1.1": "   " }), [
+    { don_vi: 0, cho_trong: 0, gia_tri: "" },
+  ]);
+});
+kiem("khoá không phải ô của phiên bản này bị bỏ; thứ tự là thứ tự ĐỌC", () => {
+  assert.deepEqual(oDaDoi(CT, { "9.9": "lạ", "1.1": "B", "0.0": "A" }), [
+    { don_vi: 0, cho_trong: 0, gia_tri: "A" },
+    { don_vi: 1, cho_trong: 1, gia_tri: "B" },
+  ]);
+});
+
+// ──────────────────────────────────────────── chiGiuThayDoi / boDaGui
+kiem("Lùi: ô đã chạm mà KHÔNG đổi so với bản bị bỏ rơi khỏi chữ đang gõ", () => {
+  // "0.0" gõ lại đúng giá trị của bản sắp bị bỏ: giữ lại thì sau khi lùi nó
+  // thành "đổi" và một lần Lưu áp lại chữ của bản đã bỏ.
+  assert.deepEqual(chiGiuThayDoi(CT, { "0.0": "Nguyễn Văn Ánh ", "1.1": " Hà Nội" }), {
+    "1.1": " Hà Nội",
+  });
+  assert.deepEqual(chiGiuThayDoi(CT, { "9.9": "lạ" }), {}, "khoá không phải ô của bản này bị bỏ");
+  assert.deepEqual(chiGiuThayDoi(CT, {}), {});
+});
+kiem("lưu xong: chỉ bỏ ô đã gửi ĐÚNG chữ đó; ô gõ tiếp trong lúc lưu còn nguyên", () => {
+  const gui = [
+    { don_vi: 0, cho_trong: 0, gia_tri: "A" },
+    { don_vi: 1, cho_trong: 1, gia_tri: "B" },
+  ];
+  assert.deepEqual(boDaGui({ "0.0": "A", "1.1": "B2", "1.0": "x" }, gui), {
+    "1.1": "B2",
+    "1.0": "x",
+  });
+  assert.deepEqual(boDaGui({ "0.0": "A", "1.1": "B" }, gui), {});
 });
 
 // ─────────────────────────────────────────── oHopLe — chỗ trống trên ảnh trang

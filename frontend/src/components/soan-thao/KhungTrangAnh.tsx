@@ -60,8 +60,9 @@ export function ThanhThuPhong({
   );
 }
 
-/** Lưu MỘT chỗ trống: `null` = đã lưu, chuỗi = câu từ chối (hiện ngay cạnh ô). */
-type LuuO = (o: OTrang, giaTri: string) => Promise<string | null>;
+/** Ghi chữ chờ lưu của MỘT chỗ trống vào `nhapODien` của trang gọi (khoá
+ *  `khoaO`); `undefined` = bỏ chữ chờ lưu, chỗ đó đọc lại giá trị đang có. */
+type DatNhap = (khoa: string, giaTri: string | undefined) => void;
 /** Đóng ô nhập: 0 = tiêu điểm về nút của chính chỗ đó, ±1 = sang chỗ kế/trước
  *  theo thứ tự đọc, `null` = không dời tiêu điểm (người dùng đã bấm chỗ khác). */
 type Huong = -1 | 0 | 1 | null;
@@ -85,12 +86,16 @@ function useSuaTaiCho(ds: readonly OTrang[]) {
   return {
     dangMo,
     mo: datDangMo,
+    // Chỉ ô ĐANG mở được đóng và dời tiêu điểm: một lời gọi muộn từ ô đã đóng
+    // (blur tới sau Enter) không được kéo tiêu điểm khỏi ô người dùng vừa mở ở
+    // chỗ khác. Ghi ref trong updater là lũy đẳng (StrictMode gọi hai lần).
     xong: (khoa: string, huong: Huong) => {
-      veTieuDiem.current =
-        huong === null ? null : huong === 0 ? khoa : (oKeTiep(ds, khoa, huong) ?? khoa);
-      // Chỉ đóng ĐÚNG ô này: một lượt lưu-khi-rời về muộn không được đóng ô
-      // người dùng vừa mở ở chỗ khác.
-      datDangMo((cu) => (cu === khoa ? null : cu));
+      datDangMo((cu) => {
+        if (cu !== khoa) return cu;
+        veTieuDiem.current =
+          huong === null ? null : huong === 0 ? khoa : (oKeTiep(ds, khoa, huong) ?? khoa);
+        return null;
+      });
     },
     refNut: (khoa: string) => (el: HTMLButtonElement | null) => {
       if (el === null) nut.current.delete(khoa);
@@ -100,112 +105,79 @@ function useSuaTaiCho(ds: readonly OTrang[]) {
 }
 
 /**
- * Ô nhập tại chỗ của MỘT chỗ trống. Enter lưu và ở lại chỗ đó; Tab/Shift+Tab
- * LƯU rồi sang chỗ kế/trước (lưu-rồi-đi, như bảng tính: rời ô là xong ô); Esc
- * huỷ, không gửi gì; rời ô bằng chuột thì lưu như `XemTruocA4` lưu khối văn
- * xuôi khi blur. Không đổi gì thì không gửi — mỗi lần lưu là một phiên bản của
- * trần sửa. Lỗi 422 đứng ngay dưới ô (`aria-describedby`), chữ còn nguyên.
+ * Ô nhập tại chỗ của MỘT chỗ trống. KHÔNG tự lưu: mỗi lần lưu là một phiên bản
+ * tính vào trần sửa (`TRAN_SUA` = 10, chung với lượt chat), nên lưu từng chỗ
+ * thì một biểu mẫu 30 chỗ kẹt ở chỗ thứ 10. Chữ gõ tới đâu vào `nhapODien` của
+ * trang gọi tới đó, và "Lưu" trên thanh công cụ gửi MỌI chỗ đổi trong MỘT
+ * phiên bản (`oDaDoi`). Ô nhập không giữ chữ riêng, nên bị tháo giữa chừng
+ * (danh sách đóng ở `mousedown`, trước cả blur) cũng không mất chữ.
+ *
+ * Enter xong và ở lại chỗ đó; Tab/Shift+Tab sang chỗ kế/trước theo thứ tự đọc;
+ * Esc trả chỗ đó về chữ lúc mở ô; rời ô bằng chuột thì chỉ đóng ô.
  */
 function ONhapTaiCho({
   o,
-  onLuu,
+  nhap,
+  onNhap,
   onXong,
+  phai = false,
   className,
   style,
 }: {
   o: OTrang;
-  onLuu: LuuO;
+  /** Chữ chờ lưu của chỗ này (vắng = chưa gõ gì, ô hiện giá trị đang có). */
+  nhap: string | undefined;
+  onNhap: (giaTri: string | undefined) => void;
   onXong: (huong: Huong) => void;
+  /** Chỗ nằm ở nửa phải trang: dòng gợi ý canh theo mép PHẢI ô nhập, không tràn
+   *  khỏi tờ. */
+  phai?: boolean;
   className?: string;
   style?: CSSProperties;
 }) {
   const id = useId();
-  const [chu, datChu] = useState(() => giaTriHienThi(o));
-  const [dangLuu, datDangLuu] = useState(false);
-  const [loi, datLoi] = useState<string | null>(null);
-  // Ref, không state: cú blur do CHÍNH việc đóng ô gây ra (tiêu điểm về nút)
-  // chạy trước lượt vẽ kế, và không được lưu lần thứ hai.
-  const daXong = useRef(false);
-  const dangGui = useRef(false);
-  /** Chữ vừa bị từ chối: rời ô với đúng chữ đó không gửi lại một 422 y hệt. */
-  const tuChoi = useRef<string | null>(null);
-
-  const ket = async (huong: Huong) => {
-    if (dangGui.current || daXong.current) return;
-    if (chu.trim() === giaTriHienThi(o)) {
-      daXong.current = true;
-      onXong(huong);
-      return;
-    }
-    dangGui.current = true;
-    datDangLuu(true);
-    datLoi(null);
-    const cau = await onLuu(o, chu);
-    dangGui.current = false;
-    datDangLuu(false);
-    if (cau === null) {
-      daXong.current = true;
-      onXong(huong);
-      return;
-    }
-    tuChoi.current = chu;
-    datLoi(cau);
-  };
-
+  // Chữ chờ lưu lúc MỞ ô (có thể chưa có) — Esc trả về đúng nó.
+  const [lucMo] = useState(nhap);
   return (
-    <div className={className} style={style}>
+    <div className={cn(className, phai && "flex flex-col items-end")} style={style}>
       <input
         // Mở ô là do chính người dùng bấm/Enter trên chỗ trống đó.
         autoFocus
         type="text"
-        value={chu}
-        onChange={(e) => {
-          datChu(e.target.value);
-          datLoi(null);
-        }}
+        value={nhap ?? giaTriHienThi(o)}
+        onChange={(e) => onNhap(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            void ket(0);
+            onXong(0);
           } else if (e.key === "Escape") {
             // `preventDefault`: Esc của sân khấu/popover không đóng thêm lớp ngoài.
             e.preventDefault();
-            daXong.current = true;
+            onNhap(lucMo);
             onXong(0);
           } else if (e.key === "Tab") {
             e.preventDefault();
-            void ket(e.shiftKey ? -1 : 1);
+            onXong(e.shiftKey ? -1 : 1);
           }
         }}
-        onBlur={() => {
-          if (chu !== tuChoi.current) void ket(null);
-        }}
-        readOnly={dangLuu}
+        onBlur={() => onXong(null)}
         aria-label={`Giá trị cho ${nhanO(o)}`}
-        aria-describedby={loi === null ? `${id}-goi-y` : `${id}-loi ${id}-goi-y`}
-        aria-invalid={loi !== null || undefined}
+        aria-describedby={`${id}-goi-y`}
         maxLength={500}
         autoComplete="off"
         spellCheck={false}
         lang="vi"
         // `--ring` (brass, 3,20:1): ranh giới ô nhập phải đạt 3:1 (WCAG 1.4.11);
         // `brass-500` chỉ 1,93:1 (DESIGN.md).
-        className="focus-brass min-h-7 w-full rounded-[3px] border border-[var(--ring)] bg-white px-1 text-foreground shadow-soft read-only:opacity-70"
+        className="focus-brass min-h-7 w-full rounded-[3px] border border-[var(--ring)] bg-white px-1 text-foreground shadow-soft"
       />
-      <div className="mt-1 w-max max-w-[22rem] rounded-md bg-card/95 px-1.5 py-0.5 shadow-soft">
-        <p
-          id={`${id}-goi-y`}
-          role="status"
-          className="m-0 text-[11px] leading-4 text-muted-foreground"
-        >
-          {dangLuu ? "Đang lưu…" : "Enter lưu · Esc huỷ · Tab lưu rồi sang chỗ kế"}
-        </p>
-        {loi !== null && (
-          <p id={`${id}-loi`} className="m-0 mt-0.5 text-[12px] leading-5 text-destructive">
-            {loi}
-          </p>
-        )}
-      </div>
+      {/* `100cqw` = bề rộng tờ (`@container` của trang): gợi ý không tràn tờ. */}
+      <p
+        id={`${id}-goi-y`}
+        className="m-0 mt-1 w-max max-w-[min(22rem,100cqw)] rounded-md bg-card/95 px-1.5 py-0.5 text-[11px] leading-4 text-muted-foreground shadow-soft"
+      >
+        Enter xong · Esc huỷ · Tab sang chỗ kế
+      </p>
     </div>
   );
 }
@@ -214,8 +186,20 @@ function ONhapTaiCho({
  * "Chỗ trống chưa định vị (n)": chỗ máy chủ không đo được vị trí trên trang vẫn
  * điền được, bằng CÙNG ô nhập, trong một danh sách nhỏ ở thanh công cụ. Bấm ra
  * ngoài hay Esc (ngoài ô nhập) thì đóng, tiêu điểm về nút mở.
+ *
+ * Bố cục hẹp: danh sách neo vào THANH CÔNG CỤ (nơi gọi đặt `relative`), không
+ * vào nút — nút đứng sau thanh thu phóng, neo vào nó thì danh sách tràn mép
+ * phải màn 390px. Bố cục rộng: neo ngay dưới nút.
  */
-export function NutChuaDinhVi({ ds, onLuu }: { ds: OTrang[]; onLuu: LuuO }) {
+export function NutChuaDinhVi({
+  ds,
+  nhap,
+  onNhap,
+}: {
+  ds: OTrang[];
+  nhap: Readonly<Record<string, string>>;
+  onNhap: DatNhap;
+}) {
   const id = useId();
   const [mo, datMo] = useState(false);
   const sua = useSuaTaiCho(ds);
@@ -243,13 +227,17 @@ export function NutChuaDinhVi({ ds, onLuu }: { ds: OTrang[]; onLuu: LuuO }) {
   }, [mo]);
 
   return (
-    <div ref={khung} className="relative">
+    <div ref={khung} className="min-[68rem]:relative">
       <button
         ref={nutMo}
         type="button"
         aria-expanded={mo}
         aria-controls={`${id}-ds`}
-        onClick={() => datMo((v) => !v)}
+        onClick={() => {
+          datMo((v) => !v);
+          // Mở lại danh sách là mở lại từ đầu, không bật lại ô nhập còn dở.
+          sua.mo(null);
+        }}
         className={cn(NUT_PHU, "max-[68rem]:min-h-11")}
       >
         <TextCursorInput className="size-3.5 text-[var(--color-brass-600)]" aria-hidden />
@@ -260,7 +248,7 @@ export function NutChuaDinhVi({ ds, onLuu }: { ds: OTrang[]; onLuu: LuuO }) {
           id={`${id}-ds`}
           role="group"
           aria-label="Chỗ trống chưa định vị"
-          className="absolute top-full left-0 z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-border bg-card p-2 shadow-lg"
+          className="absolute top-full left-3 z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-border bg-card p-2 shadow-lg min-[68rem]:left-0"
         >
           <p className="m-0 px-1.5 pb-1.5 text-[12px] leading-5 text-muted-foreground">
             KLAW chưa định vị được những chỗ này trên trang — điền ở đây.
@@ -269,12 +257,15 @@ export function NutChuaDinhVi({ ds, onLuu }: { ds: OTrang[]; onLuu: LuuO }) {
             {ds.map((o) => {
               const k = khoaO(o);
               const gt = giaTriHienThi(o);
+              const choLuu = nhap[k];
+              const doi = choLuu !== undefined && choLuu.trim() !== gt;
               return (
                 <li key={k}>
                   {sua.dangMo === k ? (
                     <ONhapTaiCho
                       o={o}
-                      onLuu={onLuu}
+                      nhap={choLuu}
+                      onNhap={(v) => onNhap(k, v)}
                       onXong={(huong) => sua.xong(k, huong)}
                       className="text-[13.5px]"
                     />
@@ -283,12 +274,14 @@ export function NutChuaDinhVi({ ds, onLuu }: { ds: OTrang[]; onLuu: LuuO }) {
                       ref={sua.refNut(k)}
                       type="button"
                       data-o={k}
-                      aria-label={nhanNutDien(o)}
+                      aria-label={nhanNutDien(o, choLuu)}
                       onClick={() => sua.mo(k)}
                       className="focus-brass flex min-h-10 w-full cursor-pointer flex-col items-start rounded-md px-2 py-1 text-left hover:bg-[var(--color-paper-100)]"
                     >
                       <span className="text-[12.5px] text-foreground">{nhanO(o)}</span>
-                      <span className="text-[12px] text-muted-foreground">{gt || "còn trống"}</span>
+                      <span className="text-[12px] text-muted-foreground">
+                        {doi ? `${choLuu.trim() || "để trống"} · chưa lưu` : gt || "còn trống"}
+                      </span>
                     </button>
                   )}
                 </li>
@@ -310,10 +303,13 @@ interface PropsKhung {
   thuPhong: number;
   /** Tên vùng cho trình đọc màn hình. */
   nhan: string;
+  /** Chữ chờ lưu theo `khoaO` (`nhapODien` của trang gọi) — hiện ngay trên chỗ
+   *  trống cho tới khi "Lưu" gửi nó. */
+  nhap?: Readonly<Record<string, string>>;
   /** Có = sửa tại chỗ: mỗi chỗ trống ĐỊNH VỊ ĐƯỢC của payload `o` thành một
    *  nút phủ đúng hộp của nó trên trang. Vắng = chỉ xem, không phủ gì ("Bản
    *  tải lên" giữ sạch). */
-  onLuuO?: LuuO;
+  onNhap?: DatNhap;
   /** Báo chỗ trống của payload vừa hiện (`null` = máy chủ cũ không gửi `o`) —
    *  thanh công cụ dựng "Chỗ trống chưa định vị" từ đó. PHẢI ổn định tham chiếu. */
   onO?: (o: OTrang[] | null) => void;
@@ -322,7 +318,7 @@ interface PropsKhung {
 /**
  * Các trang của một khuôn gốc, đúng như máy chủ dựng (LibreOffice → PDF →
  * PNG), xếp chồng như những tờ giấy — mỗi tờ theo khổ CỦA NÓ (Letter vẫn là
- * Letter). Có `onLuuO` thì điền được NGAY TRÊN trang.
+ * Letter). Có `onNhap` thì điền được NGAY TRÊN trang.
  *
  * Tải MỘT lần cho mỗi `duongDan`: một lượt dựng giữ suất LibreOffice của CẢ
  * tài khoản (lượt thứ hai cùng lúc là 503 `qua_tai`), còn sân khấu vẽ lại trên
@@ -330,11 +326,19 @@ interface PropsKhung {
  * muộn của nó (so `duongDan`, không tin thứ tự về). Ảnh là `data:` URL dựng
  * một lần mỗi payload (`useMemo`) — không object URL nào để thu hồi.
  *
- * Trong lúc phiên bản KẾ đang dựng (vừa lưu một chỗ), trang cũ đứng yên, mờ,
+ * Trong lúc phiên bản KẾ đang dựng (vừa "Lưu"), trang cũ đứng yên, mờ,
  * nút chỉ nhận tiêu điểm: chớp thành khung chờ là tháo đúng nút đang giữ tiêu
  * điểm. Nơi gọi đặt `key` theo bản thảo, nên trang cũ luôn là của cùng nguồn.
  */
-export function KhungTrangAnh({ duongDan, soTrang, thuPhong, nhan, onLuuO, onO }: PropsKhung) {
+export function KhungTrangAnh({
+  duongDan,
+  soTrang,
+  thuPhong,
+  nhan,
+  nhap = {},
+  onNhap,
+  onO,
+}: PropsKhung) {
   const [lanThu, datLanThu] = useState(0);
   const [ket, datKet] = useState<{ duongDan: string; kq: ApiResult<TrangAnh> } | null>(null);
   // Payload hiện gần nhất: khung chờ của lượt kế đứng đúng tỉ lệ, và trang cũ
@@ -378,7 +382,10 @@ export function KhungTrangAnh({ duongDan, soTrang, thuPhong, nhan, onLuuO, onO }
   const sua = useSuaTaiCho(dsDoc);
 
   const loi = kq !== null && !kq.ok ? loiTrang(kq.error, duongDan) : null;
-  const rong = (w: number) => `${(w * PX_MOI_PT * thuPhong) / 100}px`;
+  // Khổ thật (pt → px) nhưng không quá khung, RỒI nhân mức thu phóng: màn hẹp
+  // vừa khung ở 100% mà "Phóng to"/"Thu nhỏ" vẫn đổi cỡ thật (vùng cuộn của sân
+  // khấu cuộn ngang) — chặn `maxWidth: 100%` sau khi nhân thì phóng to vô hiệu.
+  const rong = (w: number) => `calc(min(100%, ${w * PX_MOI_PT}px) * ${thuPhong / 100})`;
   const thuLai = () => {
     datKet(null);
     datLanThu((n) => n + 1);
@@ -397,11 +404,13 @@ export function KhungTrangAnh({ duongDan, soTrang, thuPhong, nhan, onLuuO, onO }
       >
         {dangTai ? "Đang dựng trang…" : anh !== null ? `Đã hiện ${anh.length} trang.` : ""}
       </p>
+      {/* `items-center-safe`: tờ phóng rộng hơn khung thì canh TRÁI, không tràn
+          về bên trái nơi không cuộn tới được. */}
       <div
         role="region"
         aria-label={nhan}
         aria-busy={dangTai}
-        className="flex flex-col items-center gap-4"
+        className="flex flex-col items-center-safe gap-4"
       >
         {loi !== null && (
           <div
@@ -431,21 +440,24 @@ export function KhungTrangAnh({ duongDan, soTrang, thuPhong, nhan, onLuuO, onO }
                 data-khung-cho=""
                 aria-hidden
                 className="animate-pulse rounded-md border border-border bg-white/70 shadow-soft"
-                style={{ width: rong(w), maxWidth: "100%", aspectRatio: `${w} / ${h}` }}
+                style={{ width: rong(w), aspectRatio: `${w} / ${h}` }}
               />
             );
           })}
         {anh?.map((a, i) => (
           // `@container`: cỡ chữ ô nhập tính bằng `cqw` (phần trăm bề rộng tờ)
-          // — theo đúng tờ đang vẽ ở mọi mức thu phóng và bề rộng.
+          // — theo đúng tờ đang vẽ ở mọi mức thu phóng và bề rộng. `isolate`:
+          // vùng bấm nới rộng (`before:`) của MỌI chỗ nằm DƯỚI hộp thật của mọi
+          // chỗ (và trên ảnh `-z-20`) — dòng cách dòng ~8px ở màn 390px, nên
+          // vùng nới của chỗ dòng dưới không được đè lên chấm của chỗ dòng trên.
           <div
             key={i}
             className={cn(
-              "@container relative",
+              "@container relative isolate",
               sua.dangMo !== null && oTheoTrang[i]?.some((x) => khoaO(x) === sua.dangMo) && "z-10",
               laCu && "opacity-60",
             )}
-            style={{ width: rong(a.kho[0]), maxWidth: "100%" }}
+            style={{ width: rong(a.kho[0]) }}
           >
             <img
               src={a.src}
@@ -453,22 +465,27 @@ export function KhungTrangAnh({ duongDan, soTrang, thuPhong, nhan, onLuuO, onO }
               width={Math.round(a.kho[0] * PX_MOI_PT)}
               height={Math.round(a.kho[1] * PX_MOI_PT)}
               decoding="async"
-              className="block h-auto w-full rounded-md border border-border bg-white shadow-soft"
+              className="relative -z-20 block h-auto w-full rounded-md border border-border bg-white shadow-soft"
               style={{ aspectRatio: `${a.kho[0]} / ${a.kho[1]}` }}
             />
-            {onLuuO !== undefined &&
+            {onNhap !== undefined &&
               (oTheoTrang[i] ?? []).map((x) => {
                 const k = khoaO(x);
                 const v = viTriO(x.hop!, a.kho);
+                const choLuu = nhap[k];
+                const doi = choLuu !== undefined && choLuu.trim() !== giaTriHienThi(x);
                 return sua.dangMo === k ? (
                   <ONhapTaiCho
                     key={k}
                     o={x}
-                    onLuu={onLuuO}
+                    nhap={choLuu}
+                    onNhap={(gt) => onNhap(k, gt)}
                     onXong={(huong) => sua.xong(k, huong)}
-                    className="absolute"
+                    phai={v.trai > 50}
+                    className="absolute z-10"
                     style={{
-                      left: `${v.trai}%`,
+                      // Không tràn mép phải tờ: chỗ sát lề phải lùi vào vừa ô.
+                      left: `min(${v.trai}%, calc(100% - max(12ch, ${v.rong}%)))`,
                       top: `${v.tren}%`,
                       width: `max(12ch, ${v.rong}%)`,
                       fontSize: `max(12px, ${v.coChu}cqw)`,
@@ -480,7 +497,7 @@ export function KhungTrangAnh({ duongDan, soTrang, thuPhong, nhan, onLuuO, onO }
                     ref={sua.refNut(k)}
                     type="button"
                     data-o={k}
-                    aria-label={nhanNutDien(x)}
+                    aria-label={nhanNutDien(x, choLuu)}
                     // Trang cũ đang chờ bản mới: nút giữ tiêu điểm, không mở ô
                     // trên một phiên bản sắp bị thay.
                     aria-disabled={laCu || undefined}
@@ -490,16 +507,27 @@ export function KhungTrangAnh({ duongDan, soTrang, thuPhong, nhan, onLuuO, onO }
                     className={cn(
                       // `before:`: vùng bấm cao tối thiểu 24px (WCAG 2.5.8) dù
                       // dòng chấm trên ảnh chỉ cao ~12px.
-                      "focus-brass absolute cursor-text rounded-[2px] transition-colors before:absolute before:inset-x-0 before:top-1/2 before:h-6 before:min-h-full before:-translate-y-1/2 before:content-[''] hover:bg-brass-500/10 hover:outline hover:outline-1 hover:outline-brass-500",
-                      giaTriHienThi(x) !== "" && "bg-brass-500/15",
+                      "focus-brass absolute flex cursor-text items-center rounded-[2px] transition-colors before:absolute before:inset-x-0 before:top-1/2 before:-z-10 before:h-6 before:min-h-full before:-translate-y-1/2 before:content-[''] hover:bg-brass-500/10 hover:outline hover:outline-1 hover:outline-brass-500",
+                      // Chữ chưa lưu che chấm/giá trị cũ trên ảnh, viền đứt: thấy
+                      // ngay chỗ nào còn chờ "Lưu".
+                      doi
+                        ? "bg-white outline-1 outline-[var(--ring)] outline-dashed hover:bg-white"
+                        : giaTriHienThi(x) !== "" && "bg-brass-500/15",
                     )}
                     style={{
                       left: `${v.trai}%`,
                       top: `${v.tren}%`,
                       width: `${v.rong}%`,
                       height: `${v.cao}%`,
+                      fontSize: `max(10px, ${v.coChu}cqw)`,
                     }}
-                  />
+                  >
+                    {doi && (
+                      <span aria-hidden className="w-full truncate px-px leading-none">
+                        {choLuu.trim()}
+                      </span>
+                    )}
+                  </button>
                 );
               })}
           </div>

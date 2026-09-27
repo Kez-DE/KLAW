@@ -268,6 +268,11 @@ function ManHoiKlaw() {
   >(null);
   const banThaoIdSanKhau = sanKhau?.loai === "ban_thao" ? sanKhau.banThaoId : null;
   const [banThaoMo, datBanThaoMo] = useState<BanThao | null>(null);
+  /** Chữ đã gõ trên trang biểu mẫu mà chưa "Lưu", theo id bản thảo. Ở ĐÂY,
+   *  không trong sân khấu: tab "Trợ lý" ở bố cục hẹp, vượt ngưỡng 68rem và đóng
+   *  sân khấu đều tháo nó ra — giữ trong đó là bắt gõ lại mọi chỗ (WCAG 3.3.7).
+   *  Mất khi rời trang, như chữ đang gõ ở ô hỏi. */
+  const [nhapODien, datNhapODien] = useState<Record<string, Record<string, string>>>({});
   /** Nút đã mở sân khấu — ghi trong HANDLER mở (`ghiNoiMoSanKhau`), lúc nút
    *  còn trong DOM và còn tiêu điểm: ở bố cục hẹp lượt vẽ mở sân khấu tháo cả
    *  cây chat, nên tới lúc một effect chạy thì `activeElement` đã là `<body>`. */
@@ -1079,6 +1084,13 @@ function ManHoiKlaw() {
         onDong={onDongSanKhau}
         onPhimTat={onPhimTatSanKhau}
         toanMan={toanMan}
+        nhapODien={nhapODien[banThaoDangTaiXong.id] ?? {}}
+        datNhapODien={(doi) =>
+          datNhapODien((cu) => ({
+            ...cu,
+            [banThaoDangTaiXong.id]: doi(cu[banThaoDangTaiXong.id] ?? {}),
+          }))
+        }
       />
     ) : (
       <div className="flex h-full items-center justify-center">
