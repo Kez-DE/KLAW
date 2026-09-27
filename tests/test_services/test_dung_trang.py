@@ -269,6 +269,29 @@ def test_MOT_tai_khoan_MOT_luot_dung_mot_luc(monkeypatch):
     assert dung_trang.dung("pdf", b"trong", "a")[1] == [b"png"], "lượt hỏng vẫn nhả chỗ"
 
 
+def test_PDF_TAI_VE_giu_CUNG_mot_luot_moi_tai_khoan_voi_dung(monkeypatch):
+    """Tải bản đã điền dạng PDF cũng dựng bằng LibreOffice (một trong ba suất):
+    đi qua CÙNG chỗ giữ của `dung`, nếu không một tài khoản vừa xem trang vừa bấm
+    tải lại giữ hai suất. PDF khuôn gốc là chính nó — không LibreOffice, không giữ."""
+    monkeypatch.setattr(dung_trang, "kho_trang", lambda pdf: [list(_A4)])
+    monkeypatch.setattr(dung_trang, "dung_pdf", lambda docx: b"%PDF-" + docx)
+    thay: list[str] = []
+
+    def _anh(pdf):
+        for ai in ("a", "b"):
+            try:
+                thay.append(f"{ai}:{dung_trang.pdf_cua('docx', b'x', ai)!r}")
+            except ChuyenDoiKhongSanSang as e:
+                thay.append(f"{ai}:{e.ly_do}")
+        thay.append(f"a:{dung_trang.pdf_cua('pdf', b'%PDF-goc', 'a')!r}")
+        return [b"png"]
+
+    monkeypatch.setattr(dung_trang, "anh_trang", _anh)
+    dung_trang.dung("pdf", b"%PDF", "a")
+    assert thay == ["a:qua_tai", "b:b'%PDF-x'", "a:b'%PDF-goc'"]
+    assert dung_trang.pdf_cua("docx", b"y", "a") == b"%PDF-y", "xong lượt dựng thì nhả chỗ"
+
+
 def test_thieu_pdftoppm_la_loi_HE_THONG(monkeypatch):
     monkeypatch.setattr(dung_trang.shutil, "which", lambda ten: None)
     with pytest.raises(ChuyenDoiKhongSanSang) as e:
