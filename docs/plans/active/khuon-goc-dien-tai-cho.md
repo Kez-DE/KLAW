@@ -227,10 +227,17 @@ open risks, and follows the TDD order: failing test first, then code.
   Dockerfile's base + `libreoffice-writer`): an external linked image (`r:link`)
   is fetched (SSRF), and a `file://` one embeds a server file into the rendered
   PDF. Every soffice run now gets a profile seeded with
-  `BlockUntrustedRefererLinks`, which stops both on both versions. Still open on
-  both: the `.doc` importer sends one blind GET regardless — on main since Phase
-  13; closing it needs network isolation for the converter or dropping `.doc`
-  (owner's call).
+  `BlockUntrustedRefererLinks`, which stops both on both versions. The `.doc`
+  importer fetched regardless (on main since Phase 13; raw loopback listener:
+  `OPTIONS`+`HEAD`+`GET` for `http://`, one TLS handshake for `https://`, none
+  for `ftp://`). P2c closed it: the same profile sets a manual proxy to the dead
+  loopback port `127.0.0.1:9` and the subprocess env carries `*_proxy` to the
+  same port; each layer alone gives zero connections on both versions, and
+  `DisableActiveContent` does nothing for this path. Still open: these are
+  application-level barriers, not network isolation; a LibreOffice path that
+  opens sockets while ignoring proxy settings (none measured) would escape, and
+  nothing in the container may listen on `127.0.0.1:9`. OS-level isolation for
+  the converter stays the owner's call.
 - **Rate limit.** 10 requests / 60 s per IP; page images come in one request.
 - **Scanned PDFs.** Tesseract emits no words for long dotted leaders; blanks are
   located by label-relative placement and pixel runs, and the accuracy is measured,
@@ -246,6 +253,7 @@ open risks, and follows the TDD order: failing test first, then code.
 - [x] Wave A — P1a, P1b, P1c (merges `9e4474c`, `8dcc8a9`, `ea86a9b`; CI lane 2163 passed on main).
 - [x] Wave B — P2b (`a8fd793`), P2a (`3d3871d`, after a merge-up and a replacement privacy review that found and fixed unbounded re-extracts, a reversed-MediaBox render bypass, uncounted kept files, and LibreOffice fetching linked images).
 - [x] Wave C — P3a docx applier (`d2ee30a`), P3b PDF overlay applier (`570c805`); CI lane 2381 passed on main.
+- [x] P2c — `.doc` importer egress closed with a dead loopback proxy (`fix/soffice-chan-mang`).
 - [ ] Wave D — P4.
 - [ ] Wave E — P5.
 - [ ] Wave F — P6.
@@ -281,6 +289,15 @@ open risks, and follows the TDD order: failing test first, then code.
   `file://` server file into the render. Every soffice run gets a profile seeded
   with `BlockUntrustedRefererLinks`; the `.doc` importer's blind GET stays open
   and is the owner's call (isolation or drop `.doc`).
+- 2026-09-27 (P2c): the `.doc` importer's fetch goes through LibreOffice's proxy
+  (a live loopback proxy receives `GET http://…/anh.png`), so every soffice run
+  now points `org.openoffice.Inet/Settings` (`ooInetProxyType=2`, HTTP/HTTPS/FTP
+  name and port, empty `ooInetNoProxy`) and the `*_proxy` env vars at the dead
+  port `127.0.0.1:9`. Both layers kept: each alone is enough on 26.2.4 (Mac) and
+  25.2.3 (Dockerfile base, aarch64 and amd64); one is LibreOffice's own setting,
+  the other the env it honours when the profile sets no proxy. The `.doc` egress
+  test is a normal test now. `.doc` stays accepted; network isolation remains an
+  optional further layer.
 
 ## Validation
 
@@ -295,9 +312,9 @@ open risks, and follows the TDD order: failing test first, then code.
 - Ruler: page count equal to LibreOffice and to Word on all 8 forms; unchanged
   pages pixel-identical after a fill; every filled docx opens in Word.
 - Egress (P6): run the three `*lien_ket*` / `*tep_may_chu*` tests of
-  `tests/test_services/test_dung_trang.py` inside the production image. The two
-  docx barriers must pass; the `.doc` measurement is `xfail` while the blind GET
-  remains (XPASS there means the importer no longer fetches).
+  `tests/test_services/test_dung_trang.py` inside the production image. All
+  three must pass (the `.doc` one since P2c); a failure there means that
+  LibreOffice build fetches linked content again.
 - Repository-required checks: CI lane
   `KLAW_SUPABASE_URL= python -m pytest -q -m 'not integration and not pending_review' --deselect tests/test_services/test_moi_mau.py`.
 

@@ -101,14 +101,29 @@ Tradeoffs:
   `INCLUDETEXT`, VML, `attachedTemplate` và hyperlink không gọi ra ngoài.
   Lớp chặn ở tầng ứng dụng: mỗi lượt soffice nhận hồ sơ riêng gieo sẵn
   `BlockUntrustedRefererLinks` (`doc_tai_lieu._HO_SO_CHAN_LIEN_KET`); đo trên cả
-  hai phiên bản, docx → PDF không còn yêu cầu nào và không nhúng tệp nào. CÒN LẠI,
-  đo được ở cả hai phiên bản: bộ nhập `.doc` gửi MỘT GET mù lúc quy đổi bất kể
-  lớp đó (bản docx quy đổi giữ liên kết, không giữ bytes đã tải). Đường `.doc` đã
-  có trên main từ Phase 13, nên đây là rủi ro của bản đang chạy, không riêng P2a.
-  `tests/test_services/test_dung_trang.py` lặp cả ba phép đo ở mọi máy có
-  LibreOffice (cả CI). Chặn phần còn lại cần cách ly mạng cho tiến trình chuyển
-  đổi (network namespace, hay một dịch vụ chuyển đổi không có mạng) hoặc ngừng
-  nhận `.doc` — chờ chủ dự án quyết, chưa phải rủi ro đã được chấp nhận.
+  hai phiên bản, docx → PDF không còn yêu cầu nào và không nhúng tệp nào. Bộ
+  nhập `.doc` vẫn tải ảnh liên kết bất kể lớp đó (bản docx quy đổi giữ liên kết,
+  không giữ bytes đã tải); đường này có trên main từ Phase 13. Đo lại 2026-09-27
+  (P2c; 25.2.3 trong image dựng cho cả aarch64 lẫn amd64, chạy `--network none`)
+  bằng máy nghe TCP thô trên loopback: `http://` gây ba kết nối (`OPTIONS`,
+  `HEAD`, `GET`), `https://` một bắt tay TLS, `ftp://` không kết nối nào, ở cả
+  hai phiên bản. Lượt tải đó đi qua proxy của LibreOffice (trỏ proxy vào một máy
+  nghe loopback thì nó nhận `GET http://…/anh.png`), nên hồ sơ riêng nay đặt thêm
+  proxy thủ công về cổng loopback chết `127.0.0.1:9` (`org.openoffice.Inet/Settings`:
+  `ooInetProxyType=2`, tên và cổng HTTP/HTTPS/FTP, `ooInetNoProxy` rỗng), và môi
+  trường tối giản của tiến trình con mang `http_proxy`/`https_proxy`/… về cùng
+  cổng (`doc_tai_lieu._MOI_TRUONG_PROXY_CHET`). Mỗi lớp một mình đã đưa `http://`
+  và `https://` về không kết nối nào, ở cả hai phiên bản; `DisableActiveContent`
+  (`Office.Common/Security/Scripting`) không tác dụng. Một `.doc` liên kết
+  `file://` tới tệp máy chủ không nhúng tệp đó vào docx quy đổi, và PDF tải lên
+  (liên kết URI, ảnh XObject trỏ URL ngoài) không gây kết nối nào qua
+  `doc()`/`pdftoppm`. `tests/test_services/test_dung_trang.py` lặp cả ba phép đo
+  ở mọi máy có LibreOffice (cả CI), nay đều là test thường. CÒN LẠI: đây là rào
+  tầng ứng dụng, không phải cách ly mạng — một đường trong LibreOffice mở socket
+  mà bỏ qua cấu hình proxy (chưa thấy ở phép đo nào) vẫn lọt, và rào dựa vào việc
+  không tiến trình nào trong container nghe `127.0.0.1:9`. Ranh giới thật vẫn là
+  cách ly mạng cho tiến trình chuyển đổi (network namespace, hay một dịch vụ
+  chuyển đổi không có mạng); chủ dự án quyết có cần thêm lớp đó hay không.
 - PDF không dàn lại được: trên PDF chỉ điền chỗ trống và thay chữ trong đúng ô của
   nó; không chèn hay xoá đoạn. Định vị chỗ trống trên PDF scan là xấp xỉ.
 - `ban_thao` và `luot_hoi_thoai` vẫn chỉ bị xoá mềm cùng hội thoại, nên phép sửa

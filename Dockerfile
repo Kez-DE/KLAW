@@ -19,6 +19,8 @@ WORKDIR /app
 # doesn't reflow just because the exact font isn't installed:
 # `fonts-liberation` for Times New Roman/Arial/Courier New,
 # `fonts-crosextra-carlito`/`-caladea` for Calibri/Cambria.
+# soffice runs with its proxy pointed at the dead port 127.0.0.1:9 so linked
+# content in uploads is never fetched: nothing in this image may listen there.
 # `poppler-utils` (pdftoppm) renders page images; `tesseract-ocr` +
 # `tesseract-ocr-vie` read scanned pages (decision 2026-09-26, khuôn gốc).
 RUN apt-get update && apt-get install -y --no-install-recommends \
