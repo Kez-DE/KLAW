@@ -2608,7 +2608,12 @@ const { khung: khungTai, root: rootTai } = taoRoot();
 await act(() => rootTai.render(h(OSoanCauHoi, { ...propsDangTai, dangDocTep: true })));
 const nutGui = () => tim(khungTai, (n) => n.getAttribute("aria-label") === "Gửi câu hỏi")!;
 const oGo = () => tim(khungTai, (n) => n.tagName === "TEXTAREA")!;
-const cauDangTai = tim(khungTai, (n) => n.tagName === "P" && n.textContent === "Đang tải tệp lên…");
+// Chính câu chờ, KHÔNG gồm nút Huỷ đứng cạnh: `aria-describedby` đọc nó mỗi
+// lần tới nút gửi, và "…Huỷ tải lên" đọc kèm là nói một nút khác.
+const cauDangTai = tim(
+  khungTai,
+  (n) => n.tagName === "SPAN" && n.textContent === "Đang tải tệp lên…",
+);
 assert.ok(cauDangTai !== null, "đang tải: câu 'Đang tải tệp lên…' hiện ra");
 assert.equal(nutGui().getAttribute("aria-disabled"), "true", "đang tải: nút gửi aria-disabled");
 assert.equal(nutGui().hasAttribute("disabled"), false, "…chứ không `disabled`");
@@ -2636,6 +2641,33 @@ for (const [xong, kem] of [
   await act(() => phat(nutGui(), "click"));
   assert.equal(soLanGui - truoc, 2, `tải ${xong}: Enter và Gửi đều gửi`);
 }
+// Lượt tải treo (kết nối chết, máy chủ đứng) khoá cả lối gửi, nên phải có lối
+// thoát KHÔNG mất chữ đã gõ: nút "Huỷ tải lên". Không hạn giờ thay nó — FR-032
+// cấm huỷ một lần đọc chỉ vì nó chạy lâu. Huỷ trả tiêu điểm về ô gõ, như
+// "Huỷ lượt tra cứu", chứ không để nó rơi về `<body>` khi nút biến mất.
+let soLanHuy = 0;
+const guiTruocHuy = soLanGui;
+await act(() =>
+  rootTai.render(
+    h(OSoanCauHoi, {
+      ...propsDangTai,
+      oHoi: { current: null },
+      dangDocTep: true,
+      onHuyTaiTep: () => {
+        soLanHuy += 1;
+      },
+    }),
+  ),
+);
+const nutHuyTai = tim(khungTai, (n) => n.tagName === "BUTTON" && n.textContent === "Huỷ tải lên");
+assert.ok(nutHuyTai !== null, "đang tải: có nút 'Huỷ tải lên'");
+assert.equal(nutHuyTai.getAttribute("type"), "button");
+assert.match(nutHuyTai.getAttribute("class") ?? "", /min-h-11/, "nút huỷ chạm được: cao 44px");
+nutHuyTai.focus();
+await act(() => phat(nutHuyTai, "click"));
+assert.equal(soLanHuy, 1, "'Huỷ tải lên' gọi đúng một lần huỷ");
+cungNut(document.activeElement, oGo(), "huỷ tải: tiêu điểm về ô gõ");
+assert.equal(soLanGui, guiTruocHuy, "huỷ tải: không tự gửi câu đã gõ");
 await act(() => rootTai.unmount());
 // Chip trên lượt đã gửi: cùng menu, KHÔNG có nút bỏ.
 const { khung: khungChip, root: rootChip } = taoRoot();
@@ -2802,11 +2834,41 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
     /if \(noiDung === "" \|\| traCuu\.dangChay \|\| dangDocTep\) return;/,
     "tệp đang tải: `gui` không gửi",
   );
+  // Lượt đã huỷ về muộn (kể cả về ĐƯỢC) bỏ đi im lặng: người dùng có thể đã
+  // tải tệp khác, và cờ của lượt đó không được lượt này hạ.
   assert.match(
     than("taiTepLen"),
-    /await taiLen\([^;]*\);\s*datDangDocTep\(false\);\s*if \(!kq\.ok\)/,
+    /await taiLen\(tep, phienHienCo, loaiDangSoan, huy\.signal\);(?:\s*\/\/[^\n]*)*\s*if \(huy\.signal\.aborted\) return;\s*datDangDocTep\(false\);\s*if \(!kq\.ok\)/,
     "tải xong (được hay bị từ chối): lối gửi mở lại",
   );
+  // Huỷ mở khoá NGAY trên sự kiện abort, không đợi `await` về: chỗ treo có thể
+  // nằm trước `fetch` (lấy phiên đăng nhập), nơi tín hiệu không với tới.
+  assert.match(
+    than("taiTepLen"),
+    /huy\.signal\.addEventListener\("abort", \(\) => \{\s*toast\.dismiss\(idToast\);\s*datDangDocTep\(false\);\s*\}\);\s*huyTaiLen\.current = huy;/,
+    "huỷ tải: tắt toast chờ, mở lại lối gửi",
+  );
+  assert.match(
+    NGUON,
+    /onHuyTaiTep=\{\(\) => huyTaiLen\.current\?\.abort\(\)\}/,
+    "nút 'Huỷ tải lên' huỷ ĐÚNG lượt đang tải",
+  );
+  // FR-032: không huỷ một lần đọc vì nó chạy lâu — lối thoát là nút huỷ của
+  // người dùng, không phải hạn giờ.
+  const NGUON_TAI = readFileSync(join(goc, "src/lib/tai-lieu-api.ts"), "utf8");
+  const iTai = NGUON_TAI.indexOf("export async function taiLen(");
+  assert.ok(iTai >= 0, "không thấy `taiLen` trong tai-lieu-api.ts");
+  const thanTaiLen = NGUON_TAI.slice(iTai, NGUON_TAI.indexOf("\n}\n", iTai));
+  for (const [ten, ma] of [
+    ["taiTepLen", than("taiTepLen")],
+    ["taiLen", thanTaiLen],
+  ] as const) {
+    assert.doesNotMatch(
+      ma,
+      /AbortSignal\.timeout|hanGioMs|HAN_GIO_/,
+      `${ten}: không hạn giờ (FR-032)`,
+    );
+  }
   // Câu lệnh (có `;`), không phải chú thích nhắc tên nó.
   assert.equal(NGUON.split("datSanKhau(null);").length - 1, 1, "đóng sân khấu ở ĐÚNG một chỗ");
   assert.match(than("onDongSanKhau"), /datSanKhau\(null\)/, "chỗ đó là cửa đóng `onDongSanKhau`");

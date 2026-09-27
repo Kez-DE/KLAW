@@ -41,6 +41,7 @@ export function OSoanCauHoi({
   dangCho,
   onChonTep,
   dangDocTep,
+  onHuyTaiTep,
   loiTaiLen = null,
   tepDaDinhKem,
   hanhDongTep,
@@ -60,6 +61,8 @@ export function OSoanCauHoi({
   /** Đang đọc một tệp — khoá nút đính kèm VÀ lối gửi (chữ đã gõ vẫn giữ) cho
    *  tới khi xong, dù được hay bị từ chối. */
   dangDocTep?: boolean | undefined;
+  /** Người dùng thôi chờ lượt tải đang chạy. */
+  onHuyTaiTep: () => void;
   /** Câu từ chối của lần tải tệp gần nhất (máy chủ nói tên tệp, số trang thật)
    *  — nơi gọi giữ tới lần tải kế tiếp. */
   loiTaiLen?: string | null;
@@ -106,11 +109,22 @@ export function OSoanCauHoi({
               <p className="m-0 mb-2 px-1 text-[12.5px] leading-5 text-destructive">{loiTaiLen}</p>
             )}
             {dangDocTep === true && (
-              <p
-                id={ID_DANG_TAI}
-                className="m-0 mb-2 px-1 text-[12.5px] leading-5 text-muted-foreground"
-              >
-                Đang tải tệp lên…
+              <p className="m-0 mb-2 px-1 text-[12.5px] leading-5 text-muted-foreground">
+                <span id={ID_DANG_TAI}>Đang tải tệp lên…</span>{" "}
+                {/* Lượt tải khoá cả lối gửi, nên một kết nối chết cần lối
+                    thoát không mất chữ đã gõ. Nút, không hạn giờ: FR-032 cấm
+                    huỷ một lần đọc chỉ vì nó chạy lâu. Cùng dáng và cùng cách
+                    trả tiêu điểm với "Huỷ lượt tra cứu" (`TrangThaiCho`). */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onHuyTaiTep();
+                    oHoi.current?.focus();
+                  }}
+                  className="focus-brass -mx-1 inline-flex min-h-11 cursor-pointer items-center rounded px-1 underline underline-offset-2 hover:text-foreground"
+                >
+                  Huỷ tải lên
+                </button>
               </p>
             )}
             <div className="flex items-end gap-2">
