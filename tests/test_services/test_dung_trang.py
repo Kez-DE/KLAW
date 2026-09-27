@@ -15,8 +15,11 @@ Ca cần công cụ thật (`soffice`, `pdftoppm`) tự bỏ qua khi máy không
 
 import shutil
 import struct
+import subprocess
 import threading
 import zipfile
+import zlib
+from contextlib import contextmanager
 from io import BytesIO
 
 import pytest
@@ -312,9 +315,10 @@ _NS_ANH = (
 )
 
 
-def _docx_lien_ket_ngoai(goc: str) -> bytes:
+def _docx_lien_ket_ngoai(goc: str, dich_anh: str | None = None) -> bytes:
     """Một docx với hai đường liên kết ngoài phổ biến: ảnh DrawingML liên kết
-    (`r:link`, `TargetMode="External"`) và trường `INCLUDEPICTURE`."""
+    (`r:link`, `TargetMode="External"`, đích `dich_anh` hay `{goc}/anh.png`) và
+    trường `INCLUDEPICTURE`."""
     anh = (
         '<w:p><w:r><w:drawing><wp:inline><wp:extent cx="914400" cy="914400"/><wp:docPr id="1" name="p"/>'
         '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic>'
@@ -332,7 +336,7 @@ def _docx_lien_ket_ngoai(goc: str) -> bytes:
     rels = (
         '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
         '<Relationship Id="rIdNgoai" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" '
-        f'Target="{goc}/anh.png" TargetMode="External"/></Relationships>'
+        f'Target="{dich_anh or goc + "/anh.png"}" TargetMode="External"/></Relationships>'
     )
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w") as z:
@@ -346,14 +350,9 @@ def _docx_lien_ket_ngoai(goc: str) -> bytes:
     return buf.getvalue()
 
 
-@pytest.mark.skipif(not _CO_SOFFICE, reason="cần LibreOffice")
-def test_dung_pdf_KHONG_goi_ra_mang_voi_lien_ket_ngoai():
-    """PHÉP ĐO rủi ro còn lại, không phải rào chắn: hộp cát LibreOffice không
-    chặn mạng ở tầng hệ điều hành (`doc_tai_lieu._chuyen_doc_sang_docx`), và
-    từ quyết định 2026-09-26 MỌI docx tải lên và mọi `GET /trang` của docx đi
-    qua nó. Liên kết trỏ về một máy nghe 127.0.0.1; bản LibreOffice đang chạy
-    test không được gọi tới. Đỏ trên một image nào nghĩa là rủi ro đã thật ở
-    đó — cần cách ly mạng cho tiến trình chuyển đổi trước khi phát hành."""
+@contextmanager
+def _may_nghe():
+    """Máy nghe HTTP 127.0.0.1: `(gốc URL, các đường đã bị gọi tới)`."""
     import http.server
     import socketserver
 
@@ -371,9 +370,85 @@ def test_dung_pdf_KHONG_goi_ra_mang_voi_lien_ket_ngoai():
     with socketserver.TCPServer(("127.0.0.1", 0), _Nghe) as may:
         threading.Thread(target=may.serve_forever, daemon=True).start()
         try:
-            dung_trang.dung_pdf(_docx_lien_ket_ngoai(f"http://127.0.0.1:{may.server_address[1]}"))
+            yield f"http://127.0.0.1:{may.server_address[1]}", goi
         finally:
             may.shutdown()
+
+
+def _png_do(canh: int = 20) -> bytes:
+    """Một PNG đỏ hợp lệ, dựng bằng stdlib."""
+
+    def khoi(loai: bytes, du_lieu: bytes) -> bytes:
+        return struct.pack(">I", len(du_lieu)) + loai + du_lieu + struct.pack(">I", zlib.crc32(loai + du_lieu))
+
+    dong = b"".join(b"\x00" + b"\xff\x00\x00" * canh for _ in range(canh))
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + khoi(b"IHDR", struct.pack(">IIBBBBB", canh, canh, 8, 2, 0, 0, 0))
+        + khoi(b"IDAT", zlib.compress(dong))
+        + khoi(b"IEND", b"")
+    )
+
+
+@pytest.mark.skipif(not _CO_SOFFICE, reason="cần LibreOffice")
+def test_dung_pdf_KHONG_goi_ra_mang_voi_lien_ket_ngoai():
+    """Rào SSRF. Hộp cát LibreOffice không chặn mạng ở tầng hệ điều hành, và từ
+    quyết định 2026-09-26 MỌI docx tải lên và mọi `GET /trang` của docx đi qua
+    nó. Đo 2026-09-27 (LibreOffice 26.2.4): không có rào, ảnh `r:link` bị tải
+    về ba lần. Rào là `BlockUntrustedRefererLinks` trong hồ sơ riêng
+    (`doc_tai_lieu._chay_soffice`); đỏ trên một image nào nghĩa là rào không
+    giữ ở bản LibreOffice đó."""
+    with _may_nghe() as (goc, goi):
+        dung_trang.dung_pdf(_docx_lien_ket_ngoai(goc))
+    assert goi == []
+
+
+@pytest.mark.skipif(not _CO_SOFFICE, reason="cần LibreOffice")
+def test_dung_pdf_KHONG_nhung_tep_may_chu_qua_lien_ket_file(tmp_path):
+    """Cùng rào, đường `file://`. Đo 2026-09-27: không có rào, ảnh liên kết tới
+    một tệp CỦA MÁY CHỦ được nhúng vào PDF đã dựng — và `/trang` trả nó, dưới
+    dạng ảnh trang, cho người tải tệp lên."""
+    from pypdf import PdfReader
+
+    anh = tmp_path / "may_chu.png"
+    anh.write_bytes(_png_do())
+    with _may_nghe() as (goc, _):
+        pdf = dung_trang.dung_pdf(_docx_lien_ket_ngoai(goc, f"file://{anh}"))
+    assert sum(len(t.images) for t in PdfReader(BytesIO(pdf)).pages) == 0
+
+
+@pytest.mark.skipif(not _CO_SOFFICE, reason="cần LibreOffice")
+@pytest.mark.xfail(
+    reason="rủi ro còn lại đã đo (quyết định 2026-09-26, Tradeoffs): bộ nhập .doc "
+    "tải ảnh liên kết bất kể BlockUntrustedRefererLinks — chặn cần cách ly mạng",
+)
+def test_quy_doi_doc_KHONG_goi_ra_mang_voi_lien_ket_ngoai(tmp_path):
+    """PHÉP ĐO, không phải rào: `.doc` là nhị phân, không có rào nào ở tầng tệp.
+    Đo 2026-09-27 (LibreOffice 26.2.4): một GET mù lúc nhập; bản docx quy đổi
+    giữ liên kết chứ không giữ bytes đã tải, và bước dựng PDF sau đó bị rào
+    chặn. XFAIL trong image triển khai = rủi ro có thật ở đó."""
+    from src.services.doc_tai_lieu import _chuyen_doc_sang_docx
+
+    with _may_nghe() as (goc, goi):
+        nguon = tmp_path / "lien_ket.docx"
+        nguon.write_bytes(_docx_lien_ket_ngoai(goc))
+        subprocess.run(
+            [
+                shutil.which("soffice"),
+                "--headless",
+                f"-env:UserInstallation=file://{tmp_path / 'ho_so'}",
+                "--convert-to",
+                "doc",
+                "--outdir",
+                str(tmp_path),
+                str(nguon),
+            ],
+            capture_output=True,
+            timeout=60,
+            check=True,
+        )
+        goi.clear()  # lượt tạo `.doc` ở trên là dựng test, không qua hộp cát
+        _chuyen_doc_sang_docx((tmp_path / "lien_ket.doc").read_bytes())
     assert goi == []
 
 
