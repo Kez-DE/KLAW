@@ -210,6 +210,24 @@ def test_cho_trong_cua_doan_da_THAY_THEO_DOAN_khong_con_con_doan_khac_van_dien_d
     assert ra == [{"don_vi": 3, "so": 0, "kieu": "cham", "nhan": "Tên", "gia_tri": "A"}]
 
 
+def test_ban_do_sau_THAY_THEO_DOAN_moc_dung_o_con_lai_va_chu_trung_ban_sach():
+    """Bản dò (`ban_do`) + bộ áp của một phiên bản có `thay` theo đoạn: ô của
+    đoạn đã thay không có mốc, ô của đoạn khác và của đơn vị khác có mốc mang
+    giá trị, và chữ bản dò trùng bản sạch — điều `dung_trang.vi_tri_o` cần."""
+    from src.services.dien_khuon import O_URI
+    from tests.test_services.test_dien_khuon import _B, _GIUA, _KE, _docx, _hang, _lien_ket, _noi_dung, _o, _p, _r
+
+    vao = _docx(_o(_p(_KE, _r("TÊN CƠ QUAN: ……", _B), ppr=_GIUA), _p(), _p(_r("Số …./…."))) + _p(_r("Họ tên: ……")))
+    hang = _hang(vao)
+    phep = [{"loai": "thay", "don_vi": 0, "doan": 0, "noi_dung": "CÔNG TY A"}, _d(0, 1, "12"), _d(1, 0, "Ánh")]
+    assert [(o["don_vi"], o["so"]) for o in cho_trong_khuon("docx", hang, phep)] == [(0, 1), (0, 2), (1, 0)]
+    sach, bc = ban_thao.ap_phep_sua("docx", vao, hang, phep)
+    do, bc_do = ban_thao.ap_phep_sua("docx", ban_thao.ban_do("docx", hang, phep)(vao), hang, phep)
+    assert bc_do == bc == {"da_ap": [0, 1, 2], "bo_qua": []}
+    assert _noi_dung(do) == _noi_dung(sach)
+    assert _lien_ket(do) == [(f"{O_URI}0/1", "12"), (f"{O_URI}0/2", "…."), (f"{O_URI}1/0", "Ánh")]
+
+
 def test_cho_trong_NHAN_SACH_ca_voi_hang_luu_truoc_khi_bo_doc_lam_sach():
     """Tài liệu tải lên trước `nhan_sach` mang nhãn thô trong DB; bảng ô điền
     (và `o` của trang) vẫn thấy nhãn sạch — cùng một hàm với bộ đọc."""
