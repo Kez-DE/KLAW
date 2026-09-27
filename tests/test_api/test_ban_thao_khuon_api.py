@@ -113,6 +113,8 @@ async def test_chi_tiet_va_luu_o_dien_tra_khuon_va_phien_ban_moi(client, khoa_ky
     assert moi["phien_ban"] == 2 and moi["audit_report"]["sua_tay"] is True
     gia_tri = {(o["don_vi"], o["so"]): o["gia_tri"] for o in moi["khuon"]["cho_trong"]}
     assert gia_tri == {(0, 0): _TEN, (1, 0): None, (1, 1): "a@b.vn"}
+    # "Hiện thay đổi" đọc đúng danh sách ô vừa đổi mà snapshot của lần lưu ghi.
+    assert moi["doi_so_voi_truoc"] == ["Email: … → a@b.vn"]
     assert (await client.get(f"/api/v1/ban-thao/{id_}", headers=ha)).json()["khuon"] == moi["khuon"]
 
     cu = await client.get(f"/api/v1/ban-thao/{id_}/phien-ban/1", headers=ha)

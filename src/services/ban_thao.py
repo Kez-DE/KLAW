@@ -803,8 +803,9 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
             o = f" ({', '.join(f'“{t}”' for t in ten)})" if ten else ""
             return LOI_KHONG_AP_DUOC.format(n=len(bao_cao["bo_qua"]), o=o)
         khuon_moi = _khuon_tu(k, cu["viec_id"], phep)
+        doi = doi_so_voi({"khuon": khuon_cu}, {"khuon": khuon_moi})
         truoc = sorted(
-            [*(cu["phien_ban_truoc"] or []), _snap(cu, doi=doi_so_voi({"khuon": khuon_cu}, {"khuon": khuon_moi}))],
+            [*(cu["phien_ban_truoc"] or []), _snap(cu, doi=doi)],
             key=lambda t: t["phien_ban"],
         )[-TRAN_SUA:]
         r = (
@@ -828,7 +829,7 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
             .mappings()
             .one()
         )
-    return {**dict(r), "khuon": khuon_moi}
+    return {**dict(r), "khuon": khuon_moi, "doi_so_voi_truoc": doi}
 
 
 async def dung_lai(sub: str, id: str, facts: dict, hoi_thoai_id: str | None = None) -> dict | None:

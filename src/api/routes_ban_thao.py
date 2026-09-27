@@ -83,6 +83,8 @@ def _out(bt: dict) -> BanThaoOut:
         clauses=bt["clauses"],
         audit_report=bt["audit"],
         facts=bt["facts"],
+        # Chỉ `sua_o_dien` mang khoá này (ô vừa đổi); mọi nơi gọi khác giữ `[]`.
+        doi_so_voi_truoc=bt.get("doi_so_voi_truoc", []),
         khuon=bt.get("khuon"),
     )
 
