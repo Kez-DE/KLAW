@@ -340,6 +340,94 @@ def test_chen_sau_roi_xoa_cung_doan_doan_moi_dung_dung_cho_doan_cu():
     assert bc["da_ap"] == [0, 1] and _noi_dung(ra) == ["Thế chỗ", "Sau"]
 
 
+# ────────────────────────────────────────────────── `thay` MỘT đoạn (`doan`)
+# Ô tiêu đề thư của BM.M05: đoạn tên cơ quan (đậm, có đường kẻ là một hình) và
+# đoạn "Số …./…." (chữ thường) trong CÙNG một ô. `thay` cả ô dựng mọi đoạn bằng
+# định dạng của run đầu; `thay` theo `doan` chỉ đụng đúng một đoạn.
+
+
+def _thay(don_vi: int, noi_dung: str, doan=None) -> dict:
+    return {"loai": "thay", "don_vi": don_vi, "noi_dung": noi_dung, **({"doan": doan} if doan is not None else {})}
+
+
+_KE = "<w:r><w:drawing/></w:r>"
+
+
+def test_thay_THEO_DOAN_chi_thay_doan_do_giu_pPr_rPr_cua_no_va_cho_trong_doan_khac():
+    than = _o(_p(_KE, _r("TÊN CƠ QUAN", _B), ppr=_GIUA), _p(), _p(_r("Số …./….")))
+    _, ra, bc = _ap(than, [_thay(0, "CÔNG TY A", doan=0), _dien(0, 0, "12"), _dien(0, 1, "2026")])
+    assert bc == {"da_ap": [0, 1, 2], "bo_qua": []}
+    p0, p1, p2 = next(_goc(ra).iter(f"{_W}tc")).iter(f"{_W}p")
+    assert p0.find(f"{_W}pPr/{_W}jc").get(f"{_W}val") == "center"
+    assert [etree.QName(c).localname for c in p0] == ["pPr", "r", "r"]
+    assert p0[1].find(f"{_W}drawing") is not None, "đường kẻ (hình) của đoạn giữ nguyên, đúng chỗ"
+    assert _run(p0) == [("", ""), ("b", "CÔNG TY A")]
+    assert _chu(p1) == "" and _run(p2) == [("", "Số 12/2026")]
+
+
+def test_thay_THEO_DOAN_than_bai_doan_0_giu_hinh_ma_thay_ca_don_vi_tu_choi():
+    than = _p(_r("Ký tên: ……", _I), _KE)
+    _, ra, bc = _ap(than, [_thay(0, _TEN, doan=0)])
+    assert bc == {"da_ap": [0], "bo_qua": []}
+    p = _than(ra)[0]
+    assert _run(p) == [("i", _TEN), ("", "")] and p.find(f"{_W}r/{_W}drawing") is not None
+
+
+@pytest.mark.parametrize(
+    ("than", "phep", "ly_do"),
+    [
+        (_o(_p(_r("A")), _p(_r("B"))), _thay(0, "X", doan=2), "khong_co_dia_chi"),
+        (_o(_p(_r("A")), _p(_r("B"))), _thay(0, "X\nY", doan=0), "khong_hop_le"),
+        (_o(_p(_r("A")), _p(_r("B"))), _thay(0, "X", doan=-1), "khong_hop_le"),
+        (_o(_p(_r("A")), _p(_r("B"))), {**_thay(0, "X"), "doan": "0"}, "khong_hop_le"),
+        (_o(_p(_r("Tiêu đề"), _hop_chu("Hộp")), _p(_r("B"))), _thay(0, "X", doan=0), "khong_an_toan"),
+        (_o(_p(_r("Tiêu đề"), _hop_chu("Hộp")), _p(_r("B"))), _thay(0, "X", doan=1), "khong_an_toan"),
+        (
+            _o(_p('<w:r><w:fldChar w:fldCharType="begin"/></w:r>', _r("A")), _p(_r("B"))),
+            _thay(0, "X", doan=0),
+            "khong_an_toan",
+        ),
+    ],
+    ids=["doan_vang", "nhieu_dong", "am", "chuoi", "doan_chua_hop_chu", "doan_trong_hop_chu", "truong"],
+)
+def test_thay_THEO_DOAN_hong_bi_bo_dung_ly_do(than, phep, ly_do):
+    vao, ra, bc = _ap(than, [phep])
+    assert bc == {"da_ap": [], "bo_qua": [{"phep": 0, "ly_do": ly_do}]} and ra == vao
+
+
+def test_thay_THEO_DOAN_dong_luu_TRUOC_doan_chu_o_nhieu_doan_bi_tu_choi():
+    """Dòng lưu trước `doan_chu` (như bản BM.M05 owner đã tải lên): phép kiểm coi
+    ô nhiều đoạn không chỗ trống là một đoạn. Bộ áp không đoán `w:p` thô số 0 là
+    đoạn ấy — ô "Ghi chú" mở bằng một đoạn rỗng — mà bỏ phép. Đơn vị một đoạn
+    (không bao giờ mang `doan_chu`) vẫn thay được đoạn 0."""
+    vao = _docx(_o(_p(), _p(_r("Ghi chú", _B)), _p()))
+    hang = _hang(vao)
+    cu = [{k: v for k, v in x.items() if k != "doan_chu"} for x in hang]
+    ra, bc = ap_dung_docx(vao, cu, [_thay(0, "GHI CHÚ", doan=0)])
+    assert bc == {"da_ap": [], "bo_qua": [{"phep": 0, "ly_do": "khong_co_dia_chi"}]} and ra == vao
+    assert ap_dung_docx(vao, hang, [_thay(0, "GHI CHÚ", doan=1)])[1]["da_ap"] == [0]
+    mot = _docx(_p(_r("TÊN CHỦ QUẢN", _B)))
+    assert "doan_chu" not in _hang(mot)[0]
+    assert ap_dung_docx(mot, _hang(mot), [_thay(0, "BỘ X", doan=0)])[1]["da_ap"] == [0]
+
+
+def test_thay_THEO_DOAN_xung_dot_theo_doan_khong_theo_ca_don_vi():
+    than = _o(_p(_r("A: ……")), _p(_r("B: ……")))
+    phep = [
+        _thay(0, "X", doan=0),
+        _thay(0, "Y", doan=0),  # cùng đoạn: phép sau xung đột
+        _thay(0, "Z", doan=1),  # đoạn khác: áp được
+        _dien(0, 0, "1"),  # chỗ trống của đoạn đã thay
+        {"loai": "thay", "don_vi": 0, "noi_dung": "Cả ô"},  # cả ô sau khi đã thay theo đoạn
+    ]
+    _, ra, bc = _ap(than, phep)
+    assert bc["da_ap"] == [0, 2]
+    assert bc["bo_qua"] == [{"phep": i, "ly_do": "xung_dot"} for i in (1, 3, 4)]
+    assert [_chu(p) for p in next(_goc(ra).iter(f"{_W}tc")).iter(f"{_W}p")] == ["X", "Z"]
+    _, _, bc = _ap(than, [{"loai": "xoa", "don_vi": 0}, _thay(0, "X", doan=1)])
+    assert bc["bo_qua"] == [{"phep": 1, "ly_do": "xung_dot"}], "cả ô trước thì theo đoạn sau xung đột"
+
+
 # ─────────────────────────────────────────────── phép hỏng, địa chỉ hỏng
 
 
@@ -573,6 +661,57 @@ def test_tep_that_DIEN_MOI_cho_trong_co_du_gia_tri_va_trang_khong_dien_giu_nguye
         if not _giong([x], [y]):
             assert any("".join(v.split()) in chu[i] for v in GIA_TRI_MAU), f"trang {i + 1} đổi mà không có giá trị nào"
     assert not any(c.kieu == "cham" for d in doc(tep.name, ra).don_vi for c in d.cho_trong)
+
+
+_BM_M05 = _KHO_MAU / "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx"
+
+
+def _doan_cua(docx: bytes, dia_chi: dict) -> list:
+    """Các `w:p` (thứ tự `iter`) của vật chứa ở `dia_chi`, đi bằng lxml trên bytes."""
+    nut = _goc(docx, dia_chi["phan"]).find(f"{_W}body")
+    for i in dia_chi["chi_muc"]:
+        nut = [c for c in nut if isinstance(c.tag, str)][i]
+    return list(nut.iter(f"{_W}p"))
+
+
+def _rpr_chu(p) -> bytes:
+    r = next(r for r in p.iter(f"{_W}r") if _chu(r))
+    return etree.tostring(r.find(f"{_W}rPr"))
+
+
+@_THAT
+@pytest.mark.skipif(not _BM_M05.exists(), reason="BM.M05 của chủ dự án không có trên máy này")
+def test_tep_that_BM_M05_thay_TEN_CO_QUAN_theo_doan_va_dien_so_giu_dinh_dang_tung_doan():
+    """Đúng ca owner thấy 2026-09-27: tên cơ quan thay cụm giữ chỗ "TÊN CƠ QUAN/ĐƠN
+    VỊ TIẾP NHẬN" (đoạn 0, đậm, có đường kẻ là một hình), số vào `Số …./….` (đoạn
+    2, chữ thường) của CÙNG ô. Mỗi đoạn giữ `w:pPr`/`w:rPr` của chính nó, đường kẻ
+    còn nguyên, và bản dựng đọc ra "Số 12/2026"."""
+    from scripts.kiem_mo_bang_word import chu_trang, dung_pdf, hang_don_vi
+
+    du_lieu = _BM_M05.read_bytes()
+    hang = hang_don_vi(_BM_M05.name, du_lieu)
+    o = next(h for h in hang if h["noi_dung"].startswith("TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN"))
+    so = o["cho_trong"][0]["doan"]
+    assert (so, o["doan_chu"][0]) == (2, "TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN")
+    phep = [
+        _thay(o["chi_so"], "CÔNG TY TNHH LUẬT VIỆT", doan=0),
+        _dien(o["chi_so"], 0, "12"),
+        _dien(o["chi_so"], 1, "2026"),
+    ]
+    ra, bc = ap_dung_docx(du_lieu, hang, phep)
+    assert bc == {"da_ap": [0, 1, 2], "bo_qua": []}
+
+    truoc, sau = _doan_cua(du_lieu, o["dia_chi"]), _doan_cua(ra, o["dia_chi"])
+    assert [_chu(p) for p in sau] == ["CÔNG TY TNHH LUẬT VIỆT", "", "Số 12/2026"]
+    for j in (0, so):
+        assert etree.tostring(sau[j].find(f"{_W}pPr")) == etree.tostring(truoc[j].find(f"{_W}pPr"))
+        assert _rpr_chu(sau[j]) == _rpr_chu(truoc[j])
+    assert b"<w:b/>" in _rpr_chu(sau[0]) and b"<w:b/>" not in _rpr_chu(sau[so]), "đậm ở đoạn 0, thường ở đoạn 2"
+    assert next(sau[0].iter(f"{{{_NSMC}}}AlternateContent"), None) is not None, "đường kẻ dưới tên cơ quan còn"
+
+    chu = "\n".join(chu_trang(dung_pdf(ra)))
+    assert "Số 12/2026" in chu and "CÔNG TY TNHH LUẬT VIỆT" in chu
+    assert "TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN" not in chu
 
 
 def test_bo_ap_PDF_dung_CHUNG_tap_ma_ly_do_voi_DOCX():

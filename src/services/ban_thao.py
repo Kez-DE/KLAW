@@ -715,7 +715,7 @@ def ap_phep_sua(dinh_dang: str, khuon_goc: bytes, don_vi: list | None, phep_sua:
     cho phép ĐẦU giữ vùng, còn một phiên bản muốn phép SAU thắng. Việc CPU —
     route gọi qua `run_in_threadpool`. `KhongDocDuoc` khi khuôn gốc không mở được."""
     ap = ap_dung_docx if dinh_dang == "docx" else ap_dung_pdf
-    return ap(khuon_goc, don_vi or [], gop_phep_sua([], phep_sua))
+    return ap(khuon_goc, don_vi or [], gop_phep_sua([], phep_sua, doan_cua_cho(don_vi)))
 
 
 def khuon_cua_phien_ban(sub: str, id: str, phien_ban: int | None = None) -> dict | None:
@@ -784,7 +784,8 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
             except ValueError as e:
                 return str(e)
             moi.append({"loai": "dien", "don_vi": o["don_vi"], "cho_trong": o["so"], "gia_tri": gia_tri_o})
-        phep = gop_phep_sua(cu["phep_sua"], moi)
+        doan = doan_cua_cho(k["don_vi"])
+        phep = gop_phep_sua(cu["phep_sua"], moi, doan)
         if phep == (cu["phep_sua"] or []):
             return {**cu, "khuon": khuon_cu}
         try:
@@ -794,7 +795,7 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
         if bao_cao["bo_qua"]:
             # Chỉ số `phep` trỏ vào đúng danh sách bộ áp nhận (`ap_phep_sua` gộp lại
             # một lần nữa — gộp là lũy đẳng). Phép không phải `dien` không có tên ô.
-            ap = gop_phep_sua([], phep)
+            ap = gop_phep_sua([], phep, doan)
             ten = [
                 _nhan_o(o_theo_khoa[k])
                 for b in bao_cao["bo_qua"]
@@ -1032,10 +1033,26 @@ def _khoa_phep(p: Any) -> tuple | None:
         return ("dien", p["don_vi"], p["cho_trong"]) if _so_tu_nhien(p.get("cho_trong")) else None
     if p["loai"] == "chen_sau":
         return ("chen_sau", p["don_vi"], p["noi_dung"]) if isinstance(p.get("noi_dung"), str) else None
+    if p["loai"] == "thay" and _so_tu_nhien(p.get("doan")):
+        return ("thay_doan", p["don_vi"], p["doan"])
     return ("cau_truc", p["don_vi"])
 
 
-def gop_phep_sua(cu: list[dict] | None, moi: list[dict] | None) -> list[dict]:
+def doan_cua_cho(don_vi: list | None) -> dict[tuple[int, int], int]:
+    """`(don_vi, so)` → đoạn chứa chỗ trống DOCX đó — để `gop_phep_sua` biết
+    `thay` theo đoạn gỡ ô nào."""
+    return {
+        (d["chi_so"], c.so): c.doan
+        for d in don_vi or []
+        if isinstance(d, dict) and _so_tu_nhien(d.get("chi_so"))
+        for c in _cho_trong_tu_hang(d.get("cho_trong"))
+        if c.hop is None
+    }
+
+
+def gop_phep_sua(
+    cu: list[dict] | None, moi: list[dict] | None, doan_cua: dict[tuple[int, int], int] | None = None
+) -> list[dict]:
     """Danh sách phép của phiên bản mới: `cu` (phiên bản đang có) cộng CHỈ PHẦN
     ĐỔI `moi` — MỘT luật cho lượt sửa bằng lời (P4b) và bảng ô điền
     (`sua_o_dien`). Thuần, không sửa đầu vào.
@@ -1049,7 +1066,13 @@ def gop_phep_sua(cu: list[dict] | None, moi: list[dict] | None) -> list[dict]:
 
     Chéo loại: một `thay`/`xoa` trên một đơn vị gỡ MỌI `dien` của đơn vị ấy, dù
     đến trước hay sau — đoạn đã thay/xoá không còn dãy chấm nào, bộ áp sẽ bỏ
-    `dien` đó (`xung_dot`) mà `assemble` lại đếm là đã điền."""
+    `dien` đó (`xung_dot`) mà `assemble` lại đếm là đã điền.
+
+    `thay` theo `doan` khoá theo `(don_vi, doan)`, phép sau thắng; nó và phép cả
+    đơn vị (`thay`/`xoa`) trên cùng đơn vị cũng loại nhau, phép sau thắng (bộ áp
+    coi hai thứ ấy là xung đột). Nó chỉ gỡ `dien` của chỗ trống thuộc CHÍNH đoạn
+    đó — `doan_cua` (`doan_cua_cho`) nói chỗ trống nào ở đoạn nào; thiếu thì
+    không gỡ `dien` nào (bộ áp sẽ báo `xung_dot` cho chỗ trống của đoạn đã thay)."""
     gop: dict[tuple, dict] = {}
     for p in [*(cu or []), *(moi or [])]:
         k = _khoa_phep(p)
@@ -1060,9 +1083,16 @@ def gop_phep_sua(cu: list[dict] | None, moi: list[dict] | None) -> list[dict]:
         elif k[0] == "chen_sau":
             gop.setdefault(k, p)
         else:
+            for cu_k in [c for c in gop if c[1] == k[1] and {c[0], k[0]} == {"cau_truc", "thay_doan"}]:
+                del gop[cu_k]
             gop[k] = p
     da_doi = {k[1] for k in gop if k[0] == "cau_truc"}
-    return [p for k, p in gop.items() if not (k[0] == "dien" and k[1] in da_doi)]
+    doan_doi = {k[1:] for k in gop if k[0] == "thay_doan"}
+    return [
+        p
+        for k, p in gop.items()
+        if not (k[0] == "dien" and (k[1] in da_doi or (k[1], (doan_cua or {}).get(k[1:], -1)) in doan_doi))
+    ]
 
 
 def cho_trong_khuon(dinh_dang: str, don_vi: list | None, phep_sua: list | None) -> list[dict]:
@@ -1070,10 +1100,14 @@ def cho_trong_khuon(dinh_dang: str, don_vi: list | None, phep_sua: list | None) 
     `gia_tri` là giá trị phiên bản đó đã điền hay `None` (còn dãy chấm).
 
     Chỉ ô bộ áp tới được: DOCX cần đơn vị có `dia_chi` và chỗ trống kiểu DOCX,
-    PDF cần chỗ trống có `hop`. Đoạn đã bị `thay`/`xoa` không còn dãy chấm nào,
-    nên ô của nó không được mời điền — một lần lưu chắc chắn bị bỏ."""
-    phep = gop_phep_sua([], phep_sua)
-    da_doi = {p["don_vi"] for p in phep if p["loai"] in ("thay", "xoa")}
+    PDF cần chỗ trống có `hop`. Đơn vị đã bị `thay`/`xoa` (hay ĐOẠN đã bị `thay`
+    theo `doan`) không còn dãy chấm nào, nên ô của nó không được mời điền — một
+    lần lưu chắc chắn bị bỏ."""
+    phep = gop_phep_sua([], phep_sua, doan_cua_cho(don_vi))
+    doan_doi = {(p["don_vi"], p["doan"]) for p in phep if p["loai"] == "thay" and _so_tu_nhien(p.get("doan"))}
+    da_doi = {
+        p["don_vi"] for p in phep if p["loai"] == "xoa" or (p["loai"] == "thay" and not _so_tu_nhien(p.get("doan")))
+    }
     gia_tri = {(p["don_vi"], p["cho_trong"]): p["gia_tri"] for p in phep if p["loai"] == "dien"}
     ra = []
     for d in don_vi or []:
@@ -1082,7 +1116,7 @@ def cho_trong_khuon(dinh_dang: str, don_vi: list | None, phep_sua: list | None) 
         if dinh_dang == "docx" and _dia_chi_tu_hang(d.get("dia_chi")) is None:
             continue
         for c in _cho_trong_tu_hang(d.get("cho_trong")):
-            if (c.hop is not None) == (dinh_dang == "pdf"):
+            if (c.hop is not None) == (dinh_dang == "pdf") and (d["chi_so"], c.doan) not in doan_doi:
                 o = {"don_vi": d["chi_so"], "so": c.so, "kieu": c.kieu, "nhan": c.nhan}
                 ra.append({**o, "gia_tri": gia_tri.get((d["chi_so"], c.so))})
     return ra

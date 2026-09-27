@@ -152,7 +152,8 @@ def _lap(
     if not isinstance(p, dict):
         return LyDoBoQua.khong_hop_le
     loai = p.get("loai")
-    if loai not in ("dien", "thay"):
+    # `thay` theo `doan` (một đoạn của ô DOCX) không có trên PDF: dòng là đơn vị.
+    if loai not in ("dien", "thay") or (loai == "thay" and p.get("doan") is not None):
         return LyDoBoQua.loai_khong_ho_tro
     chu = p.get("gia_tri" if loai == "dien" else "noi_dung")
     # `isprintable()` loại cả `\n`: trên PDF mọi giá trị nằm trên MỘT dòng.

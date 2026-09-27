@@ -649,6 +649,15 @@ def _cho_trong_tu_hang(tho: Any) -> tuple[ChoTrong, ...]:
     return tuple(ra)
 
 
+def _doan_chu_tu_hang(tho: Any) -> tuple[str, ...]:
+    """JSON → `DonViVanBan.doan_chu`. Cả dãy hoặc không gì: một phần tử hỏng làm
+    lệch chỉ số `doan` của mọi đoạn sau, nên đọc ra rỗng (prompt lùi về danh
+    sách chỗ trống, `thay` theo đoạn bị bỏ) chứ không đoán."""
+    if not isinstance(tho, list) or not all(isinstance(s, str) for s in tho):
+        return ()
+    return tuple(tho)
+
+
 def _hang_don_vi(d: DonViVanBan) -> dict:
     return {
         "chi_so": d.chi_so,
@@ -706,6 +715,7 @@ def _hang_don_vi(d: DonViVanBan) -> dict:
         **({"dia_chi": {"phan": d.dia_chi.phan, "chi_muc": list(d.dia_chi.chi_muc)}} if d.dia_chi else {}),
         **({"cho_trong": [_hang_cho_trong(c) for c in d.cho_trong]} if d.cho_trong else {}),
         **({"hop": list(d.hop)} if d.hop else {}),
+        **({"doan_chu": list(d.doan_chu)} if d.doan_chu else {}),
     }
 
 
@@ -891,6 +901,7 @@ def don_vi_cua(engine: Engine, viec_id: str, user_sub: str) -> list[DonViVanBan]
             dia_chi=_dia_chi_tu_hang(d.get("dia_chi")),
             cho_trong=_cho_trong_tu_hang(d.get("cho_trong")),
             hop=_hop_tu_hang(d.get("hop")),
+            doan_chu=_doan_chu_tu_hang(d.get("doan_chu")),
         )
         for d in (r[0] or [])
     ]

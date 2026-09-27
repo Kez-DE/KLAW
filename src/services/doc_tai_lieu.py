@@ -618,6 +618,12 @@ class DonViVanBan:
     hop: tuple[float, float, float, float] | None = None
     """Hộp của DÒNG (PDF có lớp chữ, PDF scan) — điểm PDF, gốc trên-trái, trên
     `trang`. `None` khi không định vị được chắc chắn."""
+    doan_chu: tuple[str, ...] = ()
+    """Chữ THÔ của từng `w:p` trong vật chứa (DOCX), đúng thứ tự
+    `vật_chứa.iter(w:p)` trên cây thô mà `ChoTrong.doan` đếm — chưa `strip()`,
+    chính chuỗi `dau`/`cuoi` trỏ vào. Chỉ có khi đơn vị có chỗ trống hoặc nhiều
+    đoạn: prompt khuôn gốc đặt dấu chỗ trống tại chỗ và `thay` theo đoạn so với
+    chữ cũ của đúng đoạn đó. Đi CẠNH `noi_dung`, không chạm nó."""
 
 
 @dataclass(frozen=True)
@@ -1893,7 +1899,13 @@ def _cho_trong_don_vi(nut: ET.Element) -> tuple[ChoTrong, ...]:
 
 def _vi_tri(phan: str, chi_muc: tuple[int, ...], nut: ET.Element) -> dict:
     ct = _cho_trong_don_vi(nut)
-    return {"dia_chi": DiaChi(phan=phan, chi_muc=chi_muc), **({"cho_trong": ct} if ct else {})}
+    doan = list(nut.iter(_P))
+    chu = tuple(_vi_tri_chu(p)[1] for p in doan) if ct or len(doan) > 1 else ()
+    return {
+        "dia_chi": DiaChi(phan=phan, chi_muc=chi_muc),
+        **({"cho_trong": ct} if ct else {}),
+        **({"doan_chu": chu} if chu else {}),
+    }
 
 
 def _dinh_vi_than(goc: ET.Element, phan: str) -> dict[ET.Element, dict]:
@@ -2916,6 +2928,7 @@ def _dat_vi_tri(
                 dia_chi=them.get("dia_chi"),
                 cho_trong=them.get("cho_trong", ()),
                 hop=them.get("hop"),
+                doan_chu=them.get("doan_chu", ()),
             )
         )
         offset += len(noi_dung) + 1   # +1 cho dấu xuống dòng giữa hai đơn vị
