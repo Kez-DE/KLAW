@@ -373,19 +373,28 @@ async def trang(
     id: str, phien_ban: int | None = Query(default=None, ge=1), nguoi: dict = Depends(nguoi_dung_bat_buoc)
 ) -> JSONResponse:
     """Trang của MỘT phiên bản đã điền — cùng hình dạng `GET /tai-lieu/{id}/trang`:
-    `{"kho": [[rộng_pt, cao_pt], …], "trang": ["<base64 png>", …]}`, áp và dựng
-    MỘT lần mỗi request, trong một lượt mỗi tài khoản (`dung_trang.dung`).
+    `{"kho": [[rộng_pt, cao_pt], …], "trang": ["<base64 png>", …], "o": [...]}`,
+    áp và dựng MỘT lần mỗi request, trong một lượt mỗi tài khoản
+    (`dung_trang.dung`) — bản dò đo vị trí ô cũng trong lượt đó. `o`: các ô
+    `khuon.cho_trong` của CHÍNH phiên bản này, kèm chỗ trên trang và giá trị.
 
     Không `phien_ban`: bản đang sống — đổi sau mỗi lần lưu, nên `no-store`. Có
     `phien_ban`: số phiên bản không bao giờ cấp lại, nội dung của nó không đổi,
     nên trình duyệt giữ được một giờ như `/tai-lieu/{id}/trang`."""
     k = await _khuon_phien_ban(nguoi["sub"], id, phien_ban)
+    do = ban_thao.ban_do(k["dinh_dang"], k["don_vi"], k["phep_sua"])
     try:
-        kho, png = await run_in_threadpool(dung_trang.dung, k["dinh_dang"], k["noi_dung"], nguoi["sub"], _bo_ap(id, k))
+        kho, png, vi_tri = await run_in_threadpool(
+            dung_trang.dung, k["dinh_dang"], k["noi_dung"], nguoi["sub"], _bo_ap(id, k), do
+        )
     except (KhongDocDuoc, ChuyenDoiKhongSanSang) as e:
         raise _loi_http(e) from e
     return JSONResponse(
-        {"kho": kho, "trang": [base64.b64encode(p).decode("ascii") for p in png]},
+        {
+            "kho": kho,
+            "trang": [base64.b64encode(p).decode("ascii") for p in png],
+            "o": ban_thao.o_tren_trang(k["dinh_dang"], k["don_vi"], k["phep_sua"], vi_tri),
+        },
         headers={
             "X-Content-Type-Options": "nosniff",
             "Cache-Control": "private, no-store" if phien_ban is None else "private, max-age=3600",

@@ -560,8 +560,9 @@ async def anh(viec_id: str, ten: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)
 @router.get("/tai-lieu/{viec_id}/trang")
 async def trang(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> JSONResponse:
     """Khuôn gốc đúng như bản tải lên: `{"kho": [[rộng_pt, cao_pt], …],
-    "trang": ["<base64 png>", …]}` — MỌI trang trong MỘT request, vì giới hạn
-    theo IP là 10 request/60 giây (quyết định 2026-09-26).
+    "trang": ["<base64 png>", …], "o": [...]}` — MỌI trang trong MỘT request,
+    vì giới hạn theo IP là 10 request/60 giây (quyết định 2026-09-26). `o`: mỗi
+    ô bộ áp tới được của tệp nguyên và chỗ nó nằm (`ban_thao.o_tren_trang`).
 
     Dựng lại mỗi lần gọi (LibreOffice cho docx, `pdftoppm` cho mọi trang);
     `kho` đọc từ CHÍNH PDF vừa vẽ, nên `kho[i]` luôn là khổ của `trang[i]`.
@@ -573,12 +574,19 @@ async def trang(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> JSO
     k = await run_in_threadpool(tl.khuon_goc_cua, get_engine(), viec_id, nguoi["sub"])
     if k is None:
         raise HTTPException(status_code=404, detail=KHONG_THAY)
+    do = ban_thao.ban_do(k["dinh_dang"], k["don_vi"], [])
     try:
-        kho, png = await run_in_threadpool(dung_trang.dung, k["dinh_dang"], k["noi_dung"], nguoi["sub"])
+        kho, png, vi_tri = await run_in_threadpool(
+            dung_trang.dung, k["dinh_dang"], k["noi_dung"], nguoi["sub"], None, do
+        )
     except (KhongDocDuoc, ChuyenDoiKhongSanSang) as e:
         raise _loi_http(e) from e
     return JSONResponse(
-        {"kho": kho, "trang": [base64.b64encode(p).decode("ascii") for p in png]},
+        {
+            "kho": kho,
+            "trang": [base64.b64encode(p).decode("ascii") for p in png],
+            "o": ban_thao.o_tren_trang(k["dinh_dang"], k["don_vi"], [], vi_tri),
+        },
         headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=3600"},
     )
 

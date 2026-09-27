@@ -102,8 +102,14 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   `{"so": int, "kieu": "cham" | "tab", "doan": int, "dau": int, "cuoi": int,
   "nhan": str}` — `doan` is the paragraph index inside the unit (0 for a body
   paragraph), `dau`/`cuoi` are offsets into that paragraph's RAW concatenated
-  `w:t` text (not the stripped `noi_dung`), `nhan` is at most 60 chars of the
-  label before the blank. `kieu: "tab"` is a `w:tab` whose stop has a dot leader.
+  `w:t` text (not the stripped `noi_dung`), `nhan` is the display label:
+  `doc_tai_lieu.nhan_sach` of at most 60 chars of the text before the blank
+  (long label → tail after the last `,;:()`/sentence break, no trailing `:`,
+  a letterless label → previous blank's label + ` (sau /)`, `""` when unknown;
+  the same pure function runs again in `ban_thao.cho_trong_khuon`, so rows
+  stored before it read clean too). A PDF line that is only dots takes the tail
+  of the line above on the same page. `kieu: "tab"` is a `w:tab` whose stop has
+  a dot leader.
   For PDF: `{"so", "kieu": "cham", "hop": [x0, y0, x1, y1], "co_chu": float,
   "nhan"}` in PDF points on the unit's `trang`, in poppler display space: origin
   at the top-left of the page's MEDIA box (not the CropBox), after `/Rotate`.
@@ -170,7 +176,18 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
 
 - `POST /tai-lieu` — unchanged shape; `TaiLieuOut` gains `co_khuon_goc: bool`.
 - `GET /tai-lieu/{viec_id}/trang` — the khuôn gốc as uploaded:
-  `{"kho": [[w, h], …], "trang": ["<base64 png>", …]}`, one request for every page.
+  `{"kho": [[w, h], …], "trang": ["<base64 png>", …], "o": [...]}`, one request
+  for every page. `o` (added 2026-09-27, owner feedback "để người dùng trực
+  tiếp thao tác trên" the page): `[{"don_vi", "so", "trang": int | null,
+  "hop": [x0, y0, x1, y1] | null, "nhan", "gia_tri": str | null}]`, exactly the
+  `khuon.cho_trong` set of the pristine file (or of the version, below), in
+  reading order; `trang` is a 0-based index into `trang`, `hop` is in points
+  from the top-left of that page (the space of `kho`; pixel scale = PNG width /
+  `kho[i][0]`) and covers the blank's dots, or its value once filled;
+  `gia_tri` is trimmed. PDF: the reader's stored blank box on the unit's page.
+  DOCX: measured on the rendered page with a probe copy (Decisions, G1).
+  `trang`/`hop` are null only when the position was not measured. Old clients
+  ignore `o`.
   A render takes one of the three LibreOffice slots (503 `qua_tai`) and holds at
   most 12 Mpx for the whole document; `kho` is always in (0, 14400] pt. One
   render per account at a time: a second concurrent `/trang` from the same
@@ -180,9 +197,10 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   `so_lan_thu` (FR-037, 3) paid re-extracts per document, then 429; `tong_quat`
   calls no model and is free. The cost estimate (422) and the daily cost cap run
   before the claim, so a refusal leaves the viec as it was.
-- `GET /ban-thao/{id}/trang?phien_ban=N` — the filled version, same shape; the
-  apply and the render are one slot of the same per-account guard (a held slot
-  is 503 `qua_tai` before the applier runs). No `phien_ban` (live
+- `GET /ban-thao/{id}/trang?phien_ban=N` — the filled version, same shape
+  (with `o` for that version's op list); the apply, the probe and the render
+  are one slot of the same per-account guard (a held slot is 503 `qua_tai`
+  before the applier runs). No `phien_ban` (live
   version): `private, no-store`; with `phien_ban`: `private, max-age=3600`
   (version numbers are never reissued). 404: not found/foreign, unknown version,
   HTML version, khuôn gốc deleted. Render errors map like `/tai-lieu/…/trang`
@@ -369,6 +387,38 @@ open risks, and follows the TDD order: failing test first, then code.
   row's `viec_id`/`phep_sua`, not the ket's. Because a zero-op create turn saves
   nothing (P4b review), `POST /tai-lieu/{viec_id}/ban-thao` opens the fill panel
   with an empty version 1.
+
+- 2026-09-27 (G1, blank positions): `dien_khuon.danh_dau_docx` builds a PROBE
+  copy — each reachable blank's characters split into their own runs (same
+  `w:rPr`) and wrapped in a `w:hyperlink` to `https://klaw.invalid/o/{don_vi}/{so}`;
+  the applier fills the probe exactly as the clean copy (split runs keep the
+  raw string, so `[dau:cuoi]` holds, and a value lands inside its link).
+  LibreOffice exports each link as a `/Link` `/Rect`. Measured on the 8 owner
+  forms (LibreOffice 26.2.4): splitting runs alone is pixel-identical, but ANY
+  marker boundary (hyperlink, bookmark, colour) can move LibreOffice's line
+  break — a marker portion with no break inside that overflows the line wraps
+  at its own boundary (BM.M05 "Khoa .……" wraps one line differently and every
+  later line of page 1 shifts) — and shifts glyphs by ≤ 1 px elsewhere (6/7
+  forms with blanks are not pixel-identical). So pages are always rendered
+  from the CLEAN copy; the probe is converted in the same soffice process (two
+  files take 1.4–1.7 s, as one does), and positions are transferred by
+  character: the non-space `pdftotext -tsv` streams of probe and clean are
+  identical on all 8 forms before and after filling, so the chars under a
+  probe `/Link` are found on the clean page (word kept intact → exact offset;
+  word split differently → evenly divided width) and the box is their part on
+  the first clean line. Streams that differ → no positions (logged). Result:
+  247/248 blanks positioned (124 unfilled + 124 filled); the miss is the single
+  "…" ending the right-aligned "… năm 20…" of BM.ĐT.18.03 while empty
+  (LibreOffice emits no annotation for it; a trailing tab or ZWSP makes one but
+  changes the layout). 38 blanks span several rects (split across runs or
+  lines); the first clean line is used. A blank in a header shows on its first
+  page only. `GET …/trang` median +0.10 s (1.66 → 1.76 s over the 8 forms, max
+  +0.29 s on the 4-page Evaluation Form). A failed paired run falls back to the
+  clean render alone (page returned, no positions).
+- 2026-09-27 (G1, labels): the empty labels behind "Ô 9.0"/"Ô 11.0" come from
+  the PDF export of BM.M05 (`bm-m05.pdf`, 30 blanks — the owner's "0/30 ô"): a
+  dots-only line under its label had no words before it. A `.doc` converted by
+  LibreOffice reads the same labels as the `.docx`.
 
 ## Validation
 

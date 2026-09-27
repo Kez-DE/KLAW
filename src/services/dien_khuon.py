@@ -130,6 +130,37 @@ def ap_dung_docx(docx: bytes, don_vi: list[dict], phep_sua: list[dict]) -> tuple
         raise KhongDocDuoc(LoaiHong.tep_hong, "khuôn gốc không mở được như docx") from e
 
 
+# Đích của mốc dò: `.invalid` không bao giờ phân giải (RFC 6761), và liên kết
+# không bị LibreOffice tải (đo 2026-09-27, quyết định 2026-09-26 mục Tradeoffs).
+O_URI = "https://klaw.invalid/o/"
+_R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_PKG_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+_HL = f"{_W}hyperlink"
+
+
+def danh_dau_docx(docx: bytes, don_vi: list[dict], o: list[tuple[int, int]]) -> bytes:
+    """Bản DÒ của khuôn gốc: ký tự của mỗi chỗ trống `(don_vi, so)` trong `o` —
+    dãy chấm, hay `w:tab` của chỗ trống `tab` — tách vào run riêng (cùng `w:rPr`)
+    và bọc trong một `w:hyperlink` trỏ tới `O_URI{don_vi}/{so}`. LibreOffice xuất
+    mỗi liên kết thành một `/Link` có `/Rect` (`dung_trang.vi_tri_o`).
+
+    Chuỗi thô, `dia_chi` và `[dau:cuoi]` không đổi, nên bộ áp đi lại đúng chỗ
+    trống trên bản dò, và giá trị nó điền rơi vào run đầu của chỗ trống — trong
+    liên kết. Chỗ trống bộ áp không tới (`_chuan_bi` bỏ), hay đã nằm trong một
+    liên kết của tài liệu, không có mốc. Không mốc nào thì trả chính `docx`.
+
+    Liên kết đổi cách LibreOffice ngắt dòng ở ranh giới của nó (đo trên BM.M05:
+    "Khoa .……" xuống dòng khác), nên bản dò chỉ để ĐO, không để hiện."""
+    if not o:
+        return docx
+    try:
+        with zipfile.ZipFile(BytesIO(docx)) as z:
+            _kiem_zip(z)
+            return _Khuon(z, don_vi).danh_dau(o, docx)
+    except _ZIP_HONG as e:
+        raise KhongDocDuoc(LoaiHong.tep_hong, "khuôn gốc không mở được như docx") from e
+
+
 @dataclass
 class _Doan:
     """Một `w:p` thô như bộ đọc thấy (`_vi_tri_chu`/`_vi_tri_tab`), đo MỘT lần
@@ -346,6 +377,64 @@ class _Khuon:
             [x.i for x in chay], bo_qua
         )
 
+    def danh_dau(self, o: list[tuple[int, int]], docx: bytes) -> bytes:
+        """Xem `danh_dau_docx`. Giải MỌI chỗ trống trên cây nguyên như `ap`, rồi
+        tách phải → trái: phần trái của một `w:t` bị tách giữ nguyên phần tử và
+        offset, nên chỗ trống bên trái cùng `w:t` vẫn đúng."""
+        chon = []
+        for i, (d, so) in enumerate(o):
+            x = self._chuan_bi(i, {"loai": "dien", "don_vi": d, "cho_trong": so, "gia_tri": "x"})
+            if not isinstance(x, LyDoBoQua):
+                chon.append(x)
+        moc: dict[str, list[tuple[str, str]]] = {}
+        for x in sorted(chon, key=lambda x: -x.dau):
+            if x.tab is not None:
+                ky_tu = [x.tab]
+            else:
+                ky_tu = []
+                for a, b, t in x.doan.t:
+                    if b <= x.dau or a >= x.cuoi:
+                        continue
+                    if b > x.cuoi:
+                        _tach_t(t, x.cuoi - a)
+                    ky_tu.append(_tach_t(t, x.dau - a) if a < x.dau else t)
+            rid = f"rIdKlawO{x.cho[0]}_{x.cho[1]}"
+            run = [r for e in ky_tu if (r := _run_rieng(e)) is not None]
+            for r in run:
+                hl = r.makeelement(_HL, {f"{{{_R_NS}}}id": rid})
+                r.addprevious(hl)
+                hl.append(r)
+            if run:
+                moc.setdefault(x.phan, []).append((rid, f"{O_URI}{x.cho[0]}/{x.cho[1]}"))
+        if not moc:
+            return docx
+        sua = {phan: _xml(self.cay[phan], self.z.read(phan)) for phan in moc}
+        them = {}
+        for phan, lien_ket in moc.items():
+            thu_muc, ten = phan.rsplit("/", 1)
+            ten_rels = f"{thu_muc}/_rels/{ten}.rels"
+            nguon = self.z.read(ten_rels) if ten_rels in self.z.namelist() else None
+            try:
+                goc = (
+                    etree.fromstring(nguon, etree.XMLParser(resolve_entities=False, no_network=True)) if nguon else None
+                )
+            except etree.XMLSyntaxError:
+                del sua[phan]  # rels hỏng: part đó không mốc — ô của nó "chưa định vị"
+                continue
+            if goc is None:
+                goc = etree.Element(f"{{{_PKG_NS}}}Relationships", nsmap={None: _PKG_NS})
+            for rid, dich in lien_ket:
+                etree.SubElement(
+                    goc,
+                    f"{{{_PKG_NS}}}Relationship",
+                    {"Id": rid, "Type": f"{_R_NS}/hyperlink", "Target": dich, "TargetMode": "External"},
+                )
+            if nguon:
+                sua[ten_rels] = _xml(goc, nguon)
+            else:
+                them[ten_rels] = etree.tostring(goc, xml_declaration=True, encoding="UTF-8", standalone=True)
+        return _dong_goi(self.z, sua, them)
+
 
 def _bao_cao(da_ap: list[int], bo_qua: dict[int, LyDoBoQua]) -> dict:
     return {"da_ap": sorted(da_ap), "bo_qua": [{"phep": i, "ly_do": str(v)} for i, v in sorted(bo_qua.items())]}
@@ -409,6 +498,46 @@ def _dien_cham(d: _Doan, dau: int, cuoi: int, gia_tri: str) -> None:
         r.remove(t)
         if r.tag == _R and all(c.tag == _RPR for c in r if isinstance(c.tag, str)):
             r.getparent().remove(r)
+
+
+def _tach_t(t: Any, k: int) -> Any:
+    """Tách `w:t` tại ký tự `k`: `t` giữ phần trái, phần phải là một `w:t` mới
+    ngay sau nó, cùng run — trả phần phải."""
+    s = t.text or ""
+    t.text = s[:k]
+    _khoang(t)
+    moi = _t_moi(s[k:])
+    t.addnext(moi)
+    return moi
+
+
+def _run_rieng(e: Any) -> Any:
+    """Run chỉ chứa `e` (một `w:t`/`w:tab`), cùng `w:rPr`: phần tử đứng trước và
+    sau nó trong run cũ sang run anh em mới. `None` khi `e` không trong `w:r`
+    hay đã trong một `w:hyperlink` — liên kết lồng nhau không hợp lệ. Run cùng
+    `w:rPr` không đổi dàn trang (đo pixel trên tám biểu mẫu, 2026-09-27)."""
+    r = e.getparent()
+    if r is None or r.tag != _R or next(r.iterancestors(_HL), None) is not None:
+        return None
+    rpr = r.find(_RPR)
+
+    def _anh_em() -> Any:
+        moi = r.makeelement(_R, {})
+        if rpr is not None:
+            moi.append(deepcopy(rpr))
+        return moi
+
+    sau = list(e.itersiblings())
+    if sau:
+        r2 = _anh_em()
+        r2.extend(sau)
+        r.addnext(r2)
+    if any(isinstance(c.tag, str) and c.tag != _RPR for c in e.itersiblings(preceding=True)):
+        r1 = _anh_em()
+        r.addnext(r1)
+        r1.append(e)
+        return r1
+    return r
 
 
 def _sach(e: Any) -> Any:
@@ -537,15 +666,17 @@ def _xml(goc: Any, nguon: bytes) -> bytes:
     return dau + ra
 
 
-def _dong_goi(z: zipfile.ZipFile, sua: dict[str, bytes]) -> bytes:
+def _dong_goi(z: zipfile.ZipFile, sua: dict[str, bytes], them: dict[str, bytes] | None = None) -> bytes:
     """Zip mới: đúng thứ tự, tên, kiểu nén, giờ và thuộc tính của từng mục; mục
     không sửa mang NGUYÊN nội dung (luồng nén thì dựng lại — `zipfile` không có
-    phép chép thô)."""
+    phép chép thô). `them`: mục mới nối vào cuối (rels mới của bản dò)."""
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w") as ra:
         for m in z.infolist():
             moi = zipfile.ZipInfo(m.filename, m.date_time)
             moi.compress_type, moi.external_attr, moi.create_system = m.compress_type, m.external_attr, m.create_system
             ra.writestr(moi, sua[m.filename] if m.filename in sua else z.read(m))
+        for ten, du_lieu in (them or {}).items():
+            ra.writestr(ten, du_lieu)
         ra.comment = z.comment
     return buf.getvalue()

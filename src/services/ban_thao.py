@@ -17,9 +17,9 @@ from starlette.concurrency import run_in_threadpool
 from src.agents.graph_soan_thao import graph_soan_thao_cached, load_checklist_cached
 from src.config import get_settings
 from src.services.db import get_engine
-from src.services.dien_khuon import ap_dung_docx
+from src.services.dien_khuon import ap_dung_docx, danh_dau_docx
 from src.services.dien_khuon_pdf import ap_dung_pdf
-from src.services.doc_tai_lieu import KhongDocDuoc
+from src.services.doc_tai_lieu import KhongDocDuoc, nhan_sach
 from src.services.tai_lieu import _cho_trong_tu_hang, _dia_chi_tu_hang, _so_tu_nhien
 from src.services.traces import _ghi_traces
 
@@ -1076,6 +1076,7 @@ def cho_trong_khuon(dinh_dang: str, don_vi: list | None, phep_sua: list | None) 
     da_doi = {p["don_vi"] for p in phep if p["loai"] in ("thay", "xoa")}
     gia_tri = {(p["don_vi"], p["cho_trong"]): p["gia_tri"] for p in phep if p["loai"] == "dien"}
     ra = []
+    nhan = ""  # `nhan_sach` lại trên hàng đã lưu: tài liệu cũ mang nhãn thô
     for d in don_vi or []:
         if not isinstance(d, dict) or not _so_tu_nhien(d.get("chi_so")) or d["chi_so"] in da_doi:
             continue
@@ -1083,8 +1084,45 @@ def cho_trong_khuon(dinh_dang: str, don_vi: list | None, phep_sua: list | None) 
             continue
         for c in _cho_trong_tu_hang(d.get("cho_trong")):
             if (c.hop is not None) == (dinh_dang == "pdf"):
-                o = {"don_vi": d["chi_so"], "so": c.so, "kieu": c.kieu, "nhan": c.nhan}
+                nhan = nhan_sach(c.nhan, nhan)
+                o = {"don_vi": d["chi_so"], "so": c.so, "kieu": c.kieu, "nhan": nhan}
                 ra.append({**o, "gia_tri": gia_tri.get((d["chi_so"], c.so))})
+    return ra
+
+
+def ban_do(dinh_dang: str, don_vi: list | None, phep_sua: list | None):
+    """Bước `do` của `dung_trang.dung` cho một phiên bản: bản dò mốc ĐÚNG các ô
+    `o_tren_trang` sẽ liệt kê (cùng `cho_trong_khuon`). `None` với PDF — hộp đã
+    lưu — hay khi phiên bản không có ô nào."""
+    o = [(x["don_vi"], x["so"]) for x in cho_trong_khuon(dinh_dang, don_vi, phep_sua)]
+    if dinh_dang != "docx" or not o:
+        return None
+    return lambda docx: danh_dau_docx(docx, don_vi or [], o)
+
+
+def o_tren_trang(dinh_dang: str, don_vi: list | None, phep_sua: list | None, vi_tri: dict | None = None) -> list[dict]:
+    """Khoá `o` của hai route trang: mỗi ô `cho_trong_khuon` của phiên bản, theo
+    thứ tự đọc, `{don_vi, so, trang, hop, nhan, gia_tri}` — `trang` chỉ số từ 0
+    vào `trang` của phản hồi, `hop` bằng điểm gốc trên-trái như `kho`, `gia_tri`
+    đã `strip` hay `None`.
+
+    PDF: hộp bộ đọc đã lưu, trên trang của đơn vị (ô đã điền giữ hộp của nó).
+    DOCX: `vi_tri` đo trên chính trang vừa dựng (`dung_trang.vi_tri_o`). Không
+    đo được thì `trang`/`hop` là `None` — giao diện gọi là "chưa định vị"."""
+    if dinh_dang == "pdf":
+        vi_tri = {}
+        for d in don_vi or []:
+            if isinstance(d, dict) and _so_tu_nhien(d.get("chi_so")) and _so_tu_nhien(d.get("trang")) and d["trang"]:
+                for c in _cho_trong_tu_hang(d.get("cho_trong")):
+                    if c.hop is not None:
+                        vi_tri[(d["chi_so"], c.so)] = (d["trang"] - 1, list(c.hop))
+    ra = []
+    for o in cho_trong_khuon(dinh_dang, don_vi, phep_sua):
+        trang, hop = (vi_tri or {}).get((o["don_vi"], o["so"]), (None, None))
+        gia_tri = (o["gia_tri"] or "").strip() or None
+        ra.append(
+            {"don_vi": o["don_vi"], "so": o["so"], "trang": trang, "hop": hop, "nhan": o["nhan"], "gia_tri": gia_tri}
+        )
     return ra
 
 

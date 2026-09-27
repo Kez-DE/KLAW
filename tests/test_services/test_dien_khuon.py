@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 from lxml import etree
 
-from src.services.dien_khuon import _dong_goi, _xml, ap_dung_docx
+from src.services.dien_khuon import O_URI, _dong_goi, _xml, ap_dung_docx, danh_dau_docx
 from src.services.doc_tai_lieu import KhongDocDuoc, doc
 from src.services.tai_lieu import _hang_don_vi
 
@@ -509,6 +509,85 @@ def test_phan_tu_moi_dung_tien_to_w_khong_khai_lai_namespace():
     assert bc["da_ap"] == [0, 1, 2]
     xml = zipfile.ZipFile(BytesIO(ra)).read("word/document.xml")
     assert xml.count(b"xmlns:w=") == 1 and b"ns0" not in xml
+
+
+# ─────────────────────────────────────────── bản dò vị trí ô (`danh_dau_docx`)
+# `GET …/trang` cần biết mỗi ô nằm ở đâu trên trang đã dựng. Bản dò bọc đúng ký
+# tự của từng chỗ trống trong một `w:hyperlink` trỏ tới `O_URI{don_vi}/{so}`;
+# LibreOffice xuất mỗi liên kết thành một chú thích `/Link` có `/Rect`.
+
+_R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+
+def _lien_ket(du_lieu: bytes, phan: str = "word/document.xml") -> list[tuple[str, str]]:
+    """(URI đích, chữ) của từng `w:hyperlink` của part, theo thứ tự tài liệu."""
+    thu_muc, ten = phan.rsplit("/", 1)
+    rels = etree.fromstring(zipfile.ZipFile(BytesIO(du_lieu)).read(f"{thu_muc}/_rels/{ten}.rels"))
+    dich = {r.get("Id"): r.get("Target") for r in rels if r.get("TargetMode") == "External"}
+    return [(dich.get(h.get(f"{{{_R_NS}}}id"), ""), _chu(h)) for h in _goc(du_lieu, phan).iter(f"{_W}hyperlink")]
+
+
+_THAN_DO = (
+    _p(_r("Họ tên: ……", _B), _r("…. Hết"))  # dãy chấm chung `w:t` với nhãn, vắt qua hai run
+    + _p(_r("Số …./…."))  # hai chỗ trống trong MỘT `w:t`
+    + _p(_r("Tên:"), "<w:r><w:tab/><w:t>x</w:t></w:r>", ppr=_MOC_CHAM)  # `w:tab` chung run với chữ
+)
+_O_DO = [(0, 0), (1, 0), (1, 1), (2, 0)]
+
+
+def test_ban_do_BOC_dung_ky_tu_cua_tung_cho_trong_chu_va_dinh_dang_giu_nguyen():
+    vao = _docx(_THAN_DO)
+    ra = danh_dau_docx(vao, _hang(vao), _O_DO)
+    assert _noi_dung(ra) == _noi_dung(vao)
+    assert _lien_ket(ra) == [
+        (f"{O_URI}0/0", "……"),
+        (f"{O_URI}0/0", "…."),
+        (f"{O_URI}1/0", "…."),
+        (f"{O_URI}1/1", "…."),
+        (f"{O_URI}2/0", ""),
+    ]
+    assert _run(_than(ra)[0]) == [("b", "Họ tên: "), ("b", "……"), ("", "…."), ("", " Hết")]
+    tab = _than(ra)[2].find(f"{_W}hyperlink/{_W}r")
+    assert [etree.QName(c).localname for c in tab] == ["tab"], "chỉ `w:tab`, chữ cùng run ở lại ngoài liên kết"
+
+
+def test_bo_ap_tren_ban_do_ra_CUNG_chu_voi_ban_sach_va_gia_tri_nam_TRONG_lien_ket():
+    """Trang dựng từ `ap(ban_do)`: bộ áp đi lại đúng chỗ trống trên bản dò (tách
+    run không đổi chuỗi thô), và giá trị vào `w:t` đầu của chỗ trống — trong
+    liên kết của nó."""
+    vao = _docx(_THAN_DO)
+    hang = _hang(vao)
+    phep = [_dien(0, 0, _TEN), _dien(1, 1, "12"), _dien(2, 0, " a@b.vn")]
+    sach, bc = ap_dung_docx(vao, hang, phep)
+    do, bc_do = ap_dung_docx(danh_dau_docx(vao, hang, _O_DO), hang, phep)
+    assert bc_do == bc == {"da_ap": [0, 1, 2], "bo_qua": []}
+    assert _noi_dung(do) == _noi_dung(sach)
+    assert [x for x in _lien_ket(do) if x[1]] == [
+        (f"{O_URI}0/0", _TEN),
+        (f"{O_URI}1/0", "…."),
+        (f"{O_URI}1/1", "12"),
+        (f"{O_URI}2/0", " a@b.vn"),
+    ]
+
+
+def test_cho_trong_dau_trang_co_rels_RIENG_cua_part_do():
+    vao = _docx(_p(_r("Thân")), {"word/header1.xml": _hdr(_p(_r("Mã: ……")))})
+    hang = _hang(vao)
+    d = next(h for h in hang if h.get("dia_chi", {}).get("phan") == "word/header1.xml")
+    ra = danh_dau_docx(vao, hang, [(d["chi_so"], 0)])
+    assert _lien_ket(ra, "word/header1.xml") == [(f"{O_URI}{d['chi_so']}/0", "……")]
+    assert "word/_rels/document.xml.rels" not in zipfile.ZipFile(BytesIO(ra)).namelist()
+
+
+def test_ban_do_KHONG_moc_cho_bo_ap_khong_toi_va_khong_long_lien_ket():
+    """Ô lạ, đơn vị lạ, hay chỗ trống đã nằm trong một liên kết của tài liệu
+    (liên kết lồng nhau không hợp lệ): không mốc — ô đó "chưa định vị" — và
+    không mốc nào thì trả CHÍNH bytes vào."""
+    vao = _docx(_p(_r("Tên: ……")) + _p('<w:hyperlink w:anchor="a">' + _r("Mã: ……") + "</w:hyperlink>"))
+    hang = _hang(vao)
+    assert danh_dau_docx(vao, hang, []) == vao
+    assert danh_dau_docx(vao, hang, [(0, 5), (9, 0), (1, 0)]) == vao
+    assert _lien_ket(danh_dau_docx(vao, hang, [(0, 0), (1, 0)])) == [(f"{O_URI}0/0", "……"), ("", "Mã: ……")]
 
 
 # ───────────────────────────────────────── tám biểu mẫu thật của chủ dự án

@@ -957,7 +957,8 @@ def test_bm_m05_that_phep_giu_lai_ap_duoc_len_khuon_goc():
         cau="Điện thoại của cơ quan là 0912345678, ngành Luật kinh tế",
         tai_lieu=tl,
     )
-    assert "«Điện thoại:» | 1 «Fax:»" in llm.prompt
+    # Bộ đọc lưu nhãn SẠCH (`doc_tai_lieu.nhan_sach`): không còn dấu `:` cuối.
+    assert "«Điện thoại» | 1 «Fax»" in llm.prompt
     phep = ban_thao.gop_phep_sua([], ra["khuon_tong_quat"]["phep_sua"])
     assert len(phep) == 2
     hang = json.loads(json.dumps([_hang_don_vi(x) for x in don_vi], ensure_ascii=False))

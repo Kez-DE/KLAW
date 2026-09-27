@@ -142,15 +142,15 @@ _PDF = [
 def test_cho_trong_DOCX_chi_don_vi_co_dia_chi_va_gia_tri_theo_phien_ban():
     ra = cho_trong_khuon("docx", _DOCX, [_d(1, 1, " a@b.vn")])
     assert ra == [
-        {"don_vi": 0, "so": 0, "kieu": "cham", "nhan": "Họ và tên:", "gia_tri": None},
-        {"don_vi": 1, "so": 0, "kieu": "cham", "nhan": "Điện thoại:", "gia_tri": None},
-        {"don_vi": 1, "so": 1, "kieu": "tab", "nhan": "Email:", "gia_tri": " a@b.vn"},
+        {"don_vi": 0, "so": 0, "kieu": "cham", "nhan": "Họ và tên", "gia_tri": None},
+        {"don_vi": 1, "so": 0, "kieu": "cham", "nhan": "Điện thoại", "gia_tri": None},
+        {"don_vi": 1, "so": 1, "kieu": "tab", "nhan": "Email", "gia_tri": " a@b.vn"},
     ]
 
 
 def test_cho_trong_PDF_chi_cho_trong_co_hop():
     ra = cho_trong_khuon("pdf", _PDF, [_d(0, 0, "Ánh")])
-    assert ra == [{"don_vi": 0, "so": 0, "kieu": "cham", "nhan": "Ho ten:", "gia_tri": "Ánh"}]
+    assert ra == [{"don_vi": 0, "so": 0, "kieu": "cham", "nhan": "Ho ten", "gia_tri": "Ánh"}]
 
 
 def test_cho_trong_cua_doan_da_THAY_hay_XOA_khong_con_dien_duoc():
@@ -158,6 +158,58 @@ def test_cho_trong_cua_doan_da_THAY_hay_XOA_khong_con_dien_duoc():
     lưu chắc chắn bị bộ áp bỏ (`xung_dot`)."""
     ra = cho_trong_khuon("docx", _DOCX, [_thay(0, "Họ và tên: A"), _xoa(1)])
     assert ra == []
+
+
+def test_cho_trong_NHAN_SACH_ca_voi_hang_luu_truoc_khi_bo_doc_lam_sach():
+    """Tài liệu tải lên trước `nhan_sach` mang nhãn thô trong DB; bảng ô điền
+    (và `o` của trang) vẫn thấy nhãn sạch — cùng một hàm với bộ đọc."""
+    cu = [
+        {
+            "chi_so": 3,
+            "dia_chi": {"phan": "word/document.xml", "chi_muc": [3]},
+            "cho_trong": [
+                {"so": 0, "kieu": "cham", "doan": 0, "dau": 3, "cuoi": 7, "nhan": "Số"},
+                {"so": 1, "kieu": "cham", "doan": 0, "dau": 8, "cuoi": 12, "nhan": "/"},
+            ],
+        },
+        {
+            "chi_so": 9,
+            "dia_chi": {"phan": "word/document.xml", "chi_muc": [9]},
+            "cho_trong": [
+                {
+                    "so": 0,
+                    "kieu": "cham",
+                    "doan": 0,
+                    "dau": 90,
+                    "cuoi": 99,
+                    "nhan": "o) là sinh viên/học viên Trường Đại học Phenikaa, thuộc Khoa",
+                }
+            ],
+        },
+    ]
+    assert [o["nhan"] for o in cho_trong_khuon("docx", cu, [])] == ["Số", "Số (sau /)", "thuộc Khoa"]
+
+
+# ───────────────────────────────────────────────────────── o_tren_trang
+
+
+def test_o_tren_trang_DOCX_lay_vi_tri_do_duoc_va_o_chua_dinh_vi_la_null():
+    vi_tri = {(0, 0): (0, [100.0, 50.0, 200.0, 64.0]), (1, 1): (1, [10.0, 20.0, 30.0, 34.0]), (9, 9): (0, [0, 0, 1, 1])}
+    ra = ban_thao.o_tren_trang("docx", _DOCX, [_d(1, 1, " a@b.vn ")], vi_tri)
+    assert ra == [
+        {"don_vi": 0, "so": 0, "trang": 0, "hop": [100.0, 50.0, 200.0, 64.0], "nhan": "Họ và tên", "gia_tri": None},
+        {"don_vi": 1, "so": 0, "trang": None, "hop": None, "nhan": "Điện thoại", "gia_tri": None},
+        {"don_vi": 1, "so": 1, "trang": 1, "hop": [10.0, 20.0, 30.0, 34.0], "nhan": "Email", "gia_tri": "a@b.vn"},
+    ]
+
+
+def test_o_tren_trang_PDF_la_hop_da_luu_tren_trang_cua_don_vi_ke_ca_khi_da_dien():
+    ra = ban_thao.o_tren_trang("pdf", [{**_PDF[0], "trang": 2}, _PDF[1]], [_d(0, 0, "Ánh")])
+    assert ra == [
+        {"don_vi": 0, "so": 0, "trang": 1, "hop": [120.0, 30.0, 300.0, 44.0], "nhan": "Ho ten", "gia_tri": "Ánh"}
+    ]
+    khong_trang = [{k: v for k, v in _PDF[0].items() if k != "trang"}]
+    assert [(o["trang"], o["hop"]) for o in ban_thao.o_tren_trang("pdf", khong_trang, [])] == [(None, None)]
 
 
 def test_cho_trong_don_vi_rong_hay_sai_hinh_dang():

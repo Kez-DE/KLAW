@@ -29,7 +29,7 @@ from pathlib import Path
 import pytest
 
 from src.agents.nodes.hieu_tai_lieu import lam_sach_van_ban, vung_trong
-from src.services.doc_tai_lieu import ChoTrong, DiaChi, DonViVanBan, doc
+from src.services.doc_tai_lieu import ChoTrong, DiaChi, DonViVanBan, doc, nhan_sach
 from src.services.neo_du_kien import LyDoNeo, normalize, xac_minh
 from src.services.tai_lieu import _cho_trong_tu_hang, _dia_chi_tu_hang, _hang_don_vi, _hop_tu_hang
 
@@ -57,6 +57,7 @@ def _p(*run: str, ppr: str = "") -> str:
     return f"<w:p>{ppr}{''.join(run)}</w:p>"
 
 
+_KHO_MAU = Path.home() / "giấy tờ thực tập"
 _TAB = "<w:r><w:tab/></w:r>"
 _MOC_CHAM = '<w:pPr><w:tabs><w:tab w:val="right" w:pos="9000" w:leader="dot"/></w:tabs></w:pPr>'
 
@@ -149,8 +150,8 @@ def test_nhieu_cho_trong_mot_doan_offset_tren_chuoi_THO_truoc_strip():
     tho = "  Điện thoại: ………. Fax: …………"
     assert d.noi_dung == tho.strip()
     assert [(c.so, c.kieu, c.doan, c.nhan) for c in d.cho_trong] == [
-        (0, "cham", 0, "Điện thoại:"),
-        (1, "cham", 0, "Fax:"),
+        (0, "cham", 0, "Điện thoại"),
+        (1, "cham", 0, "Fax"),
     ]
     assert [tho[c.dau : c.cuoi] for c in d.cho_trong] == ["……….", "…………"]
 
@@ -204,7 +205,7 @@ def test_moi_cho_trong_cham_deu_la_vung_trong_theo_dinh_nghia_dung_chung():
 def test_tab_co_moc_dan_cham_TRUC_TIEP_la_cho_trong_tab():
     tho = "Company name:"
     d = _theo_chu(_mot(_p(_r(tho), _TAB, _r(" "), ppr=_MOC_CHAM)), "Company")
-    assert [(c.kieu, c.dau, c.cuoi, c.nhan) for c in d.cho_trong] == [("tab", 13, 13, "Company name:")]
+    assert [(c.kieu, c.dau, c.cuoi, c.nhan) for c in d.cho_trong] == [("tab", 13, 13, "Company name")]
 
 
 def test_tab_KHONG_dan_cham_hoac_moc_tu_KIEU_thi_khong_phai_cho_trong():
@@ -238,7 +239,7 @@ def test_o_bang_nhieu_doan_doan_la_chi_so_THO_ke_ca_hop_chu_co_fallback():
     cây đã gỡ Fallback nó sẽ là 2, và bộ áp sẽ sửa nhầm đoạn."""
     o = "<w:tc>" + _p(_r("Tiêu đề"), _hop_chu("Hộp: ……")) + _p(_r("Số: ………")) + "</w:tc>"
     d = _theo_chu(_mot(f"<w:tbl><w:tr>{o}</w:tr></w:tbl>"), "Tiêu đề")
-    assert [(c.doan, c.dau, c.cuoi, c.nhan) for c in d.cho_trong] == [(3, len("Số: "), len("Số: ………"), "Số:")]
+    assert [(c.doan, c.dau, c.cuoi, c.nhan) for c in d.cho_trong] == [(3, len("Số: "), len("Số: ………"), "Số")]
 
 
 def test_doan_than_bai_chua_hop_chu_co_dia_chi_nhung_KHONG_co_cho_trong():
@@ -253,10 +254,60 @@ def test_so_danh_lien_tuc_qua_cac_doan_cua_mot_o():
     assert [(c.so, c.kieu, c.doan) for c in d.cho_trong] == [(0, "cham", 0), (1, "cham", 1), (2, "tab", 1)]
 
 
-def test_nhan_toi_da_60_ky_tu_la_DUOI_cua_nhan():
+def test_nhan_la_DUOI_60_ky_tu_bo_tu_bi_cat_do():
+    """Nhãn là 60 ký tự CUỐI trước chỗ trống (sát chỗ trống mới là nhãn), rồi
+    `nhan_sach`: cắt giữa một từ thì bỏ mẩu từ đó, bỏ dấu `:` cuối."""
     dai = "x" * 70 + " Họ và tên người đại diện:"
     d = _theo_chu(_mot(_p(_r(dai + " ……"))), "xxx")
-    assert d.cho_trong[0].nhan == dai[-60:]
+    assert d.cho_trong[0].nhan == "Họ và tên người đại diện"
+
+
+# Nhãn thô của BM.M05 đúng như bộ đọc cắt ra (60 ký tự cuối, đo 2026-09-27 trên
+# tệp của chủ dự án) → nhãn hiển thị. `truoc`: nhãn SẠCH của chỗ trống liền trước.
+@pytest.mark.parametrize(
+    ("tho", "truoc", "sach"),
+    [
+        ("Cơ quan/Đơn vị tiếp nhận:", "", "Cơ quan/Đơn vị tiếp nhận"),
+        ("o) là sinh viên/học viên Trường Đại học Phenikaa, thuộc Khoa", "Fax", "thuộc Khoa"),
+        ("Số", "", "Số"),
+        ("/", "Số", "Số (sau /)"),
+        ("/20", "Thời gian thực tập: từ ngày (sau /)", "Thời gian thực tập: từ ngày (sau /20)"),
+        ("=", "", ""),
+        ("Thời gian: từ ngày", "", "Thời gian: từ ngày"),
+        ("tháng", "Thời gian: từ ngày", "tháng"),
+        ("năm", "tháng", "năm"),
+        (", ngày", "năm", "ngày"),
+        ("(Kèm theo Giấy tiếp nhận thực hành/thực tập số", "", "Kèm theo Giấy tiếp nhận thực hành/thực tập số"),
+        ("What are his/her contributions (đóng góp đó là gì)?:", "", "đóng góp đó là gì"),
+        ("gì, hoàn thành mục tiêu gì, sẽ tiếp tục thực hiện nhưng gì?", "", "sẽ tiếp tục thực hiện nhưng gì?"),
+        (
+            "DANH SÁCH SINH VIÊN/HỌC VIÊN THỰC HÀNH/THỰC TẬP TẠI",
+            "",
+            "DANH SÁCH SINH VIÊN/HỌC VIÊN THỰC HÀNH/THỰC TẬP TẠI",
+        ),
+        ("  Họ   và tên:  ", "", "Họ và tên"),
+        ("x" * 58 + ": 1", "", "x" * 58),  # cắt 60 ký tự mà mẩu có chữ không có dấu cách
+        ("", "Số", ""),
+    ],
+)
+def test_nhan_sach(tho, truoc, sach):
+    assert nhan_sach(tho, truoc) == sach
+    assert nhan_sach(sach, truoc) == sach, "lũy đẳng: nhãn đã lưu sạch đọc lại không đổi"
+
+
+@pytest.mark.skipif(not (_KHO_MAU / "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx").exists(), reason="kho mẫu")
+def test_nhan_that_cua_BM_M05_da_sach_ngay_luc_doc():
+    tep = _KHO_MAU / "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx"
+    nhan = {(d.chi_so, c.so): c.nhan for d in doc(tep.name, tep.read_bytes()).don_vi for c in d.cho_trong}
+    assert [nhan[3, 0], nhan[3, 1], nhan[6, 0], nhan[9, 0], nhan[14, 0]] == [
+        "Số",
+        "Số (sau /)",
+        "Cơ quan/Đơn vị tiếp nhận",
+        "thuộc Khoa",
+        "ngày",
+    ]
+    assert [nhan[13, i] for i in range(6)] == ["Thời gian: từ ngày", "tháng", "năm", "đến ngày", "tháng", "năm"]
+    assert [nhan[20, i] for i in range(3)] == ["Thời gian: từ", "Thời gian: từ (sau /)", "Thời gian: từ (sau /)"]
 
 
 # ─────────────────────────────────────────── chi phí tuyến tính theo tệp
@@ -368,7 +419,7 @@ def test_docx_di_va_ve_qua_hang_nguyen_ven():
         "doan": 0,
         "dau": dau,
         "cuoi": dau + len("………."),
-        "nhan": "Điện thoại:",
+        "nhan": "Điện thoại",
     }
     assert _dia_chi_tu_hang(hang["dia_chi"]) == d.dia_chi
     assert _cho_trong_tu_hang(hang["cho_trong"]) == d.cho_trong
@@ -423,7 +474,6 @@ def test_cho_trong_hong_hinh_dang_bo_RIENG_phan_tu_do():
 
 # ───────────────────────────────────────── tám biểu mẫu thật của chủ dự án
 
-_KHO_MAU = Path.home() / "giấy tờ thực tập"
 _MAU = sorted(_KHO_MAU.glob("*.docx")) if _KHO_MAU.exists() else []
 _W = f"{{{_NSW}}}"
 
