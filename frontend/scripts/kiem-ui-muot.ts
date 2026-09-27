@@ -239,6 +239,7 @@ function phat(dich: Nut, type: string, them: Record<string, unknown> = {}) {
       f(e);
     }
   }
+  return e;
 }
 
 function tim(n: Nut, ok: (x: Nut) => boolean): Nut | null {
@@ -2590,6 +2591,84 @@ assert.ok(
 );
 await act(() => rootTuChoi.render(h(OSoanCauHoi, { ...propsSoan, loiTaiLen: null })));
 assert.doesNotMatch(khungTuChoi.textContent, /11 trang/, "lần tải kế: câu cũ đi");
+// Tệp đang tải: Gửi lẫn Enter KHÔNG gửi — câu hỏi sẽ đi thiếu tệp, và ở đoạn
+// chat mới lượt tải lẫn lượt hỏi mỗi bên mở một phiên. `aria-disabled`, không
+// `disabled`: tiêu điểm ở lại ô gõ; `onGui` không chạy nên chữ đã gõ không bị
+// xoá (`gui` là nơi duy nhất xoá nó). Tải xong — được hay bị từ chối — là gửi
+// được ngay.
+let soLanGui = 0;
+const propsDangTai = {
+  ...propsSoan,
+  nhap: "Hợp đồng này có hợp lệ không?",
+  onGui: () => {
+    soLanGui += 1;
+  },
+};
+const { khung: khungTai, root: rootTai } = taoRoot();
+await act(() => rootTai.render(h(OSoanCauHoi, { ...propsDangTai, dangDocTep: true })));
+const nutGui = () => tim(khungTai, (n) => n.getAttribute("aria-label") === "Gửi câu hỏi")!;
+const oGo = () => tim(khungTai, (n) => n.tagName === "TEXTAREA")!;
+// Chính câu chờ, KHÔNG gồm nút Huỷ đứng cạnh: `aria-describedby` đọc nó mỗi
+// lần tới nút gửi, và "…Huỷ tải lên" đọc kèm là nói một nút khác.
+const cauDangTai = tim(
+  khungTai,
+  (n) => n.tagName === "SPAN" && n.textContent === "Đang tải tệp lên…",
+);
+assert.ok(cauDangTai !== null, "đang tải: câu 'Đang tải tệp lên…' hiện ra");
+assert.equal(nutGui().getAttribute("aria-disabled"), "true", "đang tải: nút gửi aria-disabled");
+assert.equal(nutGui().hasAttribute("disabled"), false, "…chứ không `disabled`");
+assert.equal(
+  nutGui().getAttribute("aria-describedby"),
+  cauDangTai.getAttribute("id"),
+  "nút gửi trỏ tới câu 'Đang tải tệp lên…'",
+);
+assert.equal(oGo().hasAttribute("disabled"), false, "đang tải: ô gõ vẫn gõ được");
+oGo().focus();
+await act(() => phat(oGo(), "keydown", { key: "Enter" }));
+await act(() => phat(nutGui(), "click"));
+assert.equal(soLanGui, 0, "đang tải: Enter lẫn Gửi đều không gửi");
+cungNut(document.activeElement, oGo(), "đang tải: tiêu điểm ở lại ô gõ");
+for (const [xong, kem] of [
+  ["được", {}],
+  ["bị từ chối", { loiTaiLen: CAU_TU_CHOI }],
+] as const) {
+  await act(() => rootTai.render(h(OSoanCauHoi, { ...propsDangTai, dangDocTep: true })));
+  await act(() => rootTai.render(h(OSoanCauHoi, { ...propsDangTai, ...kem, dangDocTep: false })));
+  assert.notEqual(nutGui().getAttribute("aria-disabled"), "true", `tải ${xong}: gửi được`);
+  assert.doesNotMatch(khungTai.textContent, /Đang tải tệp lên/, `tải ${xong}: câu chờ đi`);
+  const truoc = soLanGui;
+  await act(() => phat(oGo(), "keydown", { key: "Enter" }));
+  await act(() => phat(nutGui(), "click"));
+  assert.equal(soLanGui - truoc, 2, `tải ${xong}: Enter và Gửi đều gửi`);
+}
+// Lượt tải treo (kết nối chết, máy chủ đứng) khoá cả lối gửi, nên phải có lối
+// thoát KHÔNG mất chữ đã gõ: nút "Huỷ tải lên". Không hạn giờ thay nó — FR-032
+// cấm huỷ một lần đọc chỉ vì nó chạy lâu. Huỷ trả tiêu điểm về ô gõ, như
+// "Huỷ lượt tra cứu", chứ không để nó rơi về `<body>` khi nút biến mất.
+let soLanHuy = 0;
+const guiTruocHuy = soLanGui;
+await act(() =>
+  rootTai.render(
+    h(OSoanCauHoi, {
+      ...propsDangTai,
+      oHoi: { current: null },
+      dangDocTep: true,
+      onHuyTaiTep: () => {
+        soLanHuy += 1;
+      },
+    }),
+  ),
+);
+const nutHuyTai = tim(khungTai, (n) => n.tagName === "BUTTON" && n.textContent === "Huỷ tải lên");
+assert.ok(nutHuyTai !== null, "đang tải: có nút 'Huỷ tải lên'");
+assert.equal(nutHuyTai.getAttribute("type"), "button");
+assert.match(nutHuyTai.getAttribute("class") ?? "", /min-h-11/, "nút huỷ chạm được: cao 44px");
+nutHuyTai.focus();
+await act(() => phat(nutHuyTai, "click"));
+assert.equal(soLanHuy, 1, "'Huỷ tải lên' gọi đúng một lần huỷ");
+cungNut(document.activeElement, oGo(), "huỷ tải: tiêu điểm về ô gõ");
+assert.equal(soLanGui, guiTruocHuy, "huỷ tải: không tự gửi câu đã gõ");
+await act(() => rootTai.unmount());
 // Chip trên lượt đã gửi: cùng menu, KHÔNG có nút bỏ.
 const { khung: khungChip, root: rootChip } = taoRoot();
 await act(() => {
@@ -2643,6 +2722,37 @@ await act(() => {
 });
 assert.doesNotMatch(khungTraLoi.textContent, /đã điền 2\/3/, "bản thảo HTML: thẻ như cũ");
 assert.match(khungTraLoi.textContent, /Phiên bản 2 · 0 mục/);
+// "Mở bản thảo" trên thẻ chat: bấm theo ref của công cụ tự động hoá hỏng, bấm
+// theo toạ độ thì ăn. Kiểm đúng hai lối KHÔNG dò toạ độ: `element.click()` —
+// một click phát ngay trên phần tử rồi nổi bọt, đúng việc `phat` làm — và bàn
+// phím: Enter/Space trên một <button> gốc thành click do trình duyệt, miễn
+// không ai `preventDefault` phím đó trên đường nổi bọt.
+const moBanThao: string[] = [];
+await act(() => {
+  rootTraLoi.render(
+    h(TheKetQua, {
+      ketQua: ketQuaBanThao({ ...banThao, phien_ban: 2 }),
+      onMoBanThao: (id: string) => moBanThao.push(id),
+    }),
+  );
+});
+const nutMo = tim(khungTraLoi, (n) => n.nodeType === 1 && n.textContent === "Mở bản thảo")!;
+assert.equal(nutMo.tagName, "BUTTON", "'Mở bản thảo' là chính <button>, không lớp bọc");
+assert.equal(nutMo.getAttribute("type"), "button");
+assert.equal(nutMo.hasAttribute("disabled"), false);
+assert.equal(nutMo.getAttribute("aria-disabled"), null);
+assert.equal(nutMo.getAttribute("tabindex"), null, "vào được bằng Tab");
+await act(() => phat(nutMo, "click"));
+assert.deepEqual(moBanThao, [banThao.id], "element.click(): mở ĐÚNG bản thảo của thẻ");
+for (const phim of ["Enter", " "]) {
+  for (const loai of ["keydown", "keyup"]) {
+    let bi = true;
+    await act(() => {
+      bi = phat(nutMo, loai, { key: phim })["defaultPrevented"] === true;
+    });
+    assert.equal(bi, false, `${loai} '${phim}' không bị chặn: trình duyệt còn biến nó thành click`);
+  }
+}
 
 // ───── 12. SÂN KHẤU: mở bản khác lúc đang mở, "Phiên mới" đi qua cửa đóng ───
 // `dung-thu.tsx` không dựng được trong khung giả này (router, tài khoản, vỏ ứng
@@ -2716,6 +2826,49 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
     const j = NGUON.indexOf("\n  }", i);
     return NGUON.slice(i, j);
   };
+  // Tệp đang tải: MỌI lối gửi (ô soạn, phím tắt sân khấu) đi qua `gui`, nên
+  // chặn ở đó; lượt tải hạ cờ TRƯỚC khi rẽ nhánh — được hay bị từ chối đều mở
+  // lại lối gửi.
+  assert.match(
+    than("gui"),
+    /if \(noiDung === "" \|\| traCuu\.dangChay \|\| dangDocTep\) return;/,
+    "tệp đang tải: `gui` không gửi",
+  );
+  // Lượt đã huỷ về muộn (kể cả về ĐƯỢC) bỏ đi im lặng: người dùng có thể đã
+  // tải tệp khác, và cờ của lượt đó không được lượt này hạ.
+  assert.match(
+    than("taiTepLen"),
+    /await taiLen\(tep, phienHienCo, loaiDangSoan, huy\.signal\);(?:\s*\/\/[^\n]*)*\s*if \(huy\.signal\.aborted\) return;\s*datDangDocTep\(false\);\s*if \(!kq\.ok\)/,
+    "tải xong (được hay bị từ chối): lối gửi mở lại",
+  );
+  // Huỷ mở khoá NGAY trên sự kiện abort, không đợi `await` về: chỗ treo có thể
+  // nằm trước `fetch` (lấy phiên đăng nhập), nơi tín hiệu không với tới.
+  assert.match(
+    than("taiTepLen"),
+    /huy\.signal\.addEventListener\("abort", \(\) => \{\s*toast\.dismiss\(idToast\);\s*datDangDocTep\(false\);\s*\}\);\s*huyTaiLen\.current = huy;/,
+    "huỷ tải: tắt toast chờ, mở lại lối gửi",
+  );
+  assert.match(
+    NGUON,
+    /onHuyTaiTep=\{\(\) => huyTaiLen\.current\?\.abort\(\)\}/,
+    "nút 'Huỷ tải lên' huỷ ĐÚNG lượt đang tải",
+  );
+  // FR-032: không huỷ một lần đọc vì nó chạy lâu — lối thoát là nút huỷ của
+  // người dùng, không phải hạn giờ.
+  const NGUON_TAI = readFileSync(join(goc, "src/lib/tai-lieu-api.ts"), "utf8");
+  const iTai = NGUON_TAI.indexOf("export async function taiLen(");
+  assert.ok(iTai >= 0, "không thấy `taiLen` trong tai-lieu-api.ts");
+  const thanTaiLen = NGUON_TAI.slice(iTai, NGUON_TAI.indexOf("\n}\n", iTai));
+  for (const [ten, ma] of [
+    ["taiTepLen", than("taiTepLen")],
+    ["taiLen", thanTaiLen],
+  ] as const) {
+    assert.doesNotMatch(
+      ma,
+      /AbortSignal\.timeout|hanGioMs|HAN_GIO_/,
+      `${ten}: không hạn giờ (FR-032)`,
+    );
+  }
   // Câu lệnh (có `;`), không phải chú thích nhắc tên nó.
   assert.equal(NGUON.split("datSanKhau(null);").length - 1, 1, "đóng sân khấu ở ĐÚNG một chỗ");
   assert.match(than("onDongSanKhau"), /datSanKhau\(null\)/, "chỗ đó là cửa đóng `onDongSanKhau`");

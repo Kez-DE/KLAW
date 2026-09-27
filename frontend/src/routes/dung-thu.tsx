@@ -532,6 +532,8 @@ function ManHoiKlaw() {
    *  không biết vì sao. */
   const [daTatHetHan, datDaTatHetHan] = useState(false);
   const [dangDocTep, datDangDocTep] = useState(false);
+  /** Lượt tải đang chạy — nút "Huỷ tải lên" của ô soạn huỷ đúng lượt này. */
+  const huyTaiLen = useRef<AbortController | null>(null);
   /** Câu từ chối của lần tải tệp gần nhất — toast tự tắt, câu này đứng lại cạnh
    *  chỗ đính kèm tới lần tải kế tiếp, để lý do (tên tệp, số trang thật) không
    *  mất theo toast. */
@@ -685,7 +687,10 @@ function ManHoiKlaw() {
 
   const gui = (tho?: string) => {
     const noiDung = (tho ?? nhap).trim();
-    if (noiDung === "" || traCuu.dangChay) return;
+    // Tệp đang tải: câu hỏi sẽ đi thiếu tệp, và ở đoạn chat mới lượt tải lẫn
+    // lượt hỏi mỗi bên mở một phiên. Chặn ở đây cho MỌI lối gửi (ô soạn, phím
+    // tắt sân khấu); ô soạn tự báo "Đang tải tệp lên…".
+    if (noiDung === "" || traCuu.dangChay || dangDocTep) return;
 
     // Lượt đang hiện được xếp vào lịch sử TRƯỚC khi lượt mới chạy. Không dùng
     // `useEffect` theo dõi `ketQua`: hiệu ứng đó chạy lại mỗi lần React thấy
@@ -785,9 +790,25 @@ function ManHoiKlaw() {
     const idToast = toast.loading(
       seDungOcr(tep.name) ? "Đang nhận dạng chữ trong ảnh…" : "Đang đọc tài liệu…",
     );
+    // Không hạn giờ (FR-032: không huỷ một lần đọc vì nó chạy lâu), nhưng lượt
+    // tải khoá cả lối gửi, nên người dùng phải huỷ được. Huỷ mở khoá NGAY trên
+    // sự kiện abort: chỗ treo có thể nằm trước `fetch` (lấy phiên đăng nhập),
+    // nơi tín hiệu không với tới. Huỷ chỉ là trình duyệt thôi chờ — máy chủ có
+    // thể vẫn đọc xong, như khi tải lại trang. Tệp đó không đi kèm câu hỏi nào
+    // (câu hỏi chỉ mang `tai_lieu_ids` của chip), nhưng ở đoạn chat mới thì
+    // phiên máy chủ mở hộ vẫn nằm lại.
+    const huy = new AbortController();
+    huy.signal.addEventListener("abort", () => {
+      toast.dismiss(idToast);
+      datDangDocTep(false);
+    });
+    huyTaiLen.current = huy;
     datDangDocTep(true);
     const phienHienCo = phienId ?? traCuu.hoiThoaiId ?? phienVuaTao.current;
-    const kq = await taiLen(tep, phienHienCo, loaiDangSoan);
+    const kq = await taiLen(tep, phienHienCo, loaiDangSoan, huy.signal);
+    // Đã huỷ thì lượt về muộn — kể cả về ĐƯỢC — bỏ đi im lặng: người dùng có
+    // thể đã tải tệp khác, và cờ đang dựng là của lượt đó.
+    if (huy.signal.aborted) return;
     datDangDocTep(false);
     if (!kq.ok) {
       // `duration` TƯỜNG MINH (Phase 9 U3): `toast.loading` mặc định
@@ -1446,6 +1467,7 @@ function ManHoiKlaw() {
         dangCho={dangKiemPhien && !chuaCauHinh}
         onChonTep={(tep) => void taiTepLen(tep)}
         dangDocTep={dangDocTep}
+        onHuyTaiTep={() => huyTaiLen.current?.abort()}
         loiTaiLen={loiTaiLen}
         tepDaDinhKem={tepDaDinhKem}
         hanhDongTep={hanhDongTep}
