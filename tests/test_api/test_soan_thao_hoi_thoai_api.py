@@ -121,6 +121,24 @@ class LlmGia:
                     "y_dinh_phu": "khong",
                 }
             ), Usage(1, 1, 0.0)
+        if "khuon" in props:  # hieu_tai_lieu trên khuôn gốc (`schema_khuon`)
+            # Câu owner "soạn thảo văn bản này cho tôi": xin CHÍNH tài liệu, chưa có
+            # giá trị nào để điền (quyết định owner 2026-09-27).
+            return json.dumps(
+                {
+                    "muc_dich": "tao_van_ban",
+                    "mo_ta": "",
+                    "tra_loi_ngan": "",
+                    "quan_sat": [],
+                    "suy_luan": [],
+                    "can_du_kien": [],
+                    "phep_tinh": [],
+                    "truong": [],
+                    "khac_biet": [],
+                    "dieu_khoan": [],
+                    "khuon": {"tai_lieu": "A", "yeu_cau": "van_ban_nay", "phep_sua": []},
+                }
+            ), Usage(1, 1, 0.0)
         if "van_ban" in props:  # hieu_tai_lieu (`schema_hieu`) — đường soạn tổng quát
             self.lan_soan += 1
             # Mô hình THẬT chọn `tao_van_ban` hay `sua_ban_thao` bằng chính
@@ -666,3 +684,61 @@ async def test_chi_co_ban_thao_khuon_thi_luot_soan_tren_tai_lieu_thuong_dung_ban
     assert d["result_type"] == "ban_thao", d.get("answer")
     assert d["ban_thao"]["id"] != k["id"] and d["ban_thao"]["phien_ban"] == 1
     assert ban_thao.chi_tiet(sub, k["id"])["phien_ban"] == 1, "bản khuôn không bị đụng"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "dinh_dang,tep",
+    [("docx", b"PK\x03\x04 khuon goc docx"), ("pdf", b"%PDF-1.4 khuon goc pdf")],
+    ids=["docx", "pdf"],
+)
+async def test_soan_thao_van_ban_nay_tren_khuon_goc_tai_ve_dung_tep_tai_len(
+    client,
+    cai_dat,
+    khoa_ky,
+    graph_that_llm_gia,
+    don_dep,
+    dinh_dang,
+    tep,
+):
+    """Quyết định owner 2026-09-27, đầu-cuối qua route chat: "soạn thảo văn bản này
+    cho tôi" trên một biểu mẫu vừa tải lên, chưa có giá trị nào, dựng phiên bản 1
+    phép rỗng (tính một lượt dựng lần đầu), và tệp tải về là ĐÚNG từng byte khuôn
+    gốc đã lưu — khuôn PDF tải `dang=pdf`, khuôn DOCX tải `dang=docx`."""
+    from src.services import tai_lieu as tl
+    from tests.test_agents.test_hieu_tai_lieu_khuon import _viec
+
+    cai_dat(supabase_url=SUPABASE)
+    sub = str(uuid.uuid4())
+    don_dep.append(sub)
+    bao_ve.ghi_nhan_nguoi_dung(sub, None)
+    with get_engine().begin() as c:
+        pid = str(
+            c.execute(
+                text("INSERT INTO hoi_thoai (user_sub, tieu_de) VALUES (CAST(:u AS uuid), 'thử') RETURNING id"),
+                {"u": sub},
+            ).scalar_one()
+        )
+    vid = _viec(sub, pid)
+    tl.luu_khuon_goc(get_engine(), vid, dinh_dang, tep, [[595.0, 842.0]])
+    h = _bearer(khoa_ky, sub)
+
+    r = await client.post(
+        "/api/v1/tra-cuu",
+        json={"query": "soạn thảo văn bản này cho tôi", "hoi_thoai_id": pid, "tai_lieu_ids": [vid]},
+        headers=h,
+    )
+    assert r.status_code == 200
+    d = r.json()
+    assert d["result_type"] == "ban_thao", d.get("answer")
+    bt = d["ban_thao"]
+    assert bt["phien_ban"] == 1 and bt["clauses"] == []
+    assert (bt["khuon"]["viec_id"], bt["khuon"]["dinh_dang"], bt["khuon"]["so_trang"]) == (vid, dinh_dang, 1)
+    assert all(o["gia_tri"] is None for o in bt["khuon"]["cho_trong"]), "không ô nào đã điền"
+    assert ban_thao.chi_tiet(sub, bt["id"])["phep_sua"] == []
+    assert d["answer"].startswith("Tôi đã dựng lại biểu mẫu đúng như tệp bạn tải lên (1 trang)")
+    assert _dem_trace(sub, "/api/v1/soan-thao") == 1, "cùng hạn mức dựng lần đầu như mọi lượt dựng"
+
+    tai = await client.get(f"/api/v1/ban-thao/{bt['id']}/tai-xuong", params={"dang": dinh_dang}, headers=h)
+    assert tai.status_code == 200
+    assert tai.content == tl.khuon_goc_cua(get_engine(), vid, sub)["noi_dung"] == tep
