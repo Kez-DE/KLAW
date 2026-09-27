@@ -292,7 +292,7 @@ open risks, and follows the TDD order: failing test first, then code.
 - [x] Wave B — P2b (`a8fd793`), P2a (`3d3871d`, after a merge-up and a replacement privacy review that found and fixed unbounded re-extracts, a reversed-MediaBox render bypass, uncounted kept files, and LibreOffice fetching linked images).
 - [x] Wave C — P3a docx applier (`d2ee30a`), P3b PDF overlay applier (`570c805`); CI lane 2381 passed on main.
 - [x] P2c — `.doc` importer egress closed with a dead loopback proxy (`fix/soffice-chan-mang`).
-- [ ] Wave D — P4.
+- [x] Wave D — P4a storage/routes, P4b graph edit operations, P2c .doc egress barrier, integrated on `integ/wave-d` and merged (`d32a50b`); CI lane 2437 passed on main.
 - [ ] Wave E — P5.
 - [ ] Wave F — P6.
 - [x] Issue opened for the soft-delete gap (#3).
