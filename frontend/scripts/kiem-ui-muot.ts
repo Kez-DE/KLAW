@@ -239,6 +239,7 @@ function phat(dich: Nut, type: string, them: Record<string, unknown> = {}) {
       f(e);
     }
   }
+  return e;
 }
 
 function tim(n: Nut, ok: (x: Nut) => boolean): Nut | null {
@@ -2689,6 +2690,37 @@ await act(() => {
 });
 assert.doesNotMatch(khungTraLoi.textContent, /đã điền 2\/3/, "bản thảo HTML: thẻ như cũ");
 assert.match(khungTraLoi.textContent, /Phiên bản 2 · 0 mục/);
+// "Mở bản thảo" trên thẻ chat: bấm theo ref của công cụ tự động hoá hỏng, bấm
+// theo toạ độ thì ăn. Kiểm đúng hai lối KHÔNG dò toạ độ: `element.click()` —
+// một click phát ngay trên phần tử rồi nổi bọt, đúng việc `phat` làm — và bàn
+// phím: Enter/Space trên một <button> gốc thành click do trình duyệt, miễn
+// không ai `preventDefault` phím đó trên đường nổi bọt.
+const moBanThao: string[] = [];
+await act(() => {
+  rootTraLoi.render(
+    h(TheKetQua, {
+      ketQua: ketQuaBanThao({ ...banThao, phien_ban: 2 }),
+      onMoBanThao: (id: string) => moBanThao.push(id),
+    }),
+  );
+});
+const nutMo = tim(khungTraLoi, (n) => n.nodeType === 1 && n.textContent === "Mở bản thảo")!;
+assert.equal(nutMo.tagName, "BUTTON", "'Mở bản thảo' là chính <button>, không lớp bọc");
+assert.equal(nutMo.getAttribute("type"), "button");
+assert.equal(nutMo.hasAttribute("disabled"), false);
+assert.equal(nutMo.getAttribute("aria-disabled"), null);
+assert.equal(nutMo.getAttribute("tabindex"), null, "vào được bằng Tab");
+await act(() => phat(nutMo, "click"));
+assert.deepEqual(moBanThao, [banThao.id], "element.click(): mở ĐÚNG bản thảo của thẻ");
+for (const phim of ["Enter", " "]) {
+  for (const loai of ["keydown", "keyup"]) {
+    let bi = true;
+    await act(() => {
+      bi = phat(nutMo, loai, { key: phim })["defaultPrevented"] === true;
+    });
+    assert.equal(bi, false, `${loai} '${phim}' không bị chặn: trình duyệt còn biến nó thành click`);
+  }
+}
 
 // ───── 12. SÂN KHẤU: mở bản khác lúc đang mở, "Phiên mới" đi qua cửa đóng ───
 // `dung-thu.tsx` không dựng được trong khung giả này (router, tài khoản, vỏ ứng
