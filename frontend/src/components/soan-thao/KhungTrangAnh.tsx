@@ -109,66 +109,73 @@ export function KhungTrangAnh({ duongDan, soTrang, thuPhong, nhan }: PropsKhung)
   };
 
   return (
-    <div
-      role="region"
-      aria-label={nhan}
-      aria-busy={dangTai}
-      className="flex flex-col items-center gap-4"
-    >
+    <>
+      {/* NGOÀI vùng `aria-busy`: trình đọc màn hình hoãn thông báo trong một cây
+          đang bận, nên "Đang dựng trang…" nằm trong đó thì không được đọc. */}
       <p
         role="status"
-        className={cn("m-0 text-[13px] text-muted-foreground", !dangTai && "sr-only")}
+        className={cn(
+          "m-0 mb-4 text-center text-[13px] text-muted-foreground",
+          !dangTai && "sr-only",
+        )}
       >
         {dangTai ? "Đang dựng trang…" : anh !== null ? `Đã hiện ${anh.length} trang.` : ""}
       </p>
-      {loi !== null && (
-        <div
-          role="alert"
-          className="w-full max-w-[794px] rounded-xl border border-l-2 border-border bg-[var(--color-paper-50)] p-4"
-          style={{ borderLeftColor: "var(--color-status-neutral)" }}
-        >
-          <p className="m-0 text-[14px] leading-6 text-foreground">{loi.cau}</p>
-          {loi.thuLai && (
-            <button
-              type="button"
-              onClick={thuLai}
-              className={cn(NUT_PHU, "mt-3 max-[68rem]:min-h-11")}
-            >
-              <RotateCcw className="size-3.5" aria-hidden /> Thử lại
-            </button>
-          )}
-        </div>
-      )}
-      {dangTai &&
-        Array.from({ length: soTrang ?? khoCu?.length ?? 1 }, (_, i) => {
-          const [w, h] = khoCu?.[i] ?? khoCu?.[0] ?? KHO_A4;
-          return (
-            <div
-              key={i}
-              data-khung-cho=""
-              aria-hidden
-              className="animate-pulse rounded-md border border-border bg-white/70 shadow-soft"
-              style={{ width: rong(w), maxWidth: "100%", aspectRatio: `${w} / ${h}` }}
-            />
-          );
-        })}
-      {anh?.map((a, i) => (
-        <img
-          key={i}
-          src={a.src}
-          alt={`Trang ${i + 1} / ${anh.length}`}
-          width={Math.round(a.kho[0] * PX_MOI_PT)}
-          height={Math.round(a.kho[1] * PX_MOI_PT)}
-          decoding="async"
-          className="block h-auto rounded-md border border-border bg-white shadow-soft"
-          style={{
-            width: rong(a.kho[0]),
-            maxWidth: "100%",
-            aspectRatio: `${a.kho[0]} / ${a.kho[1]}`,
-          }}
-        />
-      ))}
-    </div>
+      <div
+        role="region"
+        aria-label={nhan}
+        aria-busy={dangTai}
+        className="flex flex-col items-center gap-4"
+      >
+        {loi !== null && (
+          <div
+            role="alert"
+            className="w-full max-w-[794px] rounded-xl border border-l-2 border-border bg-[var(--color-paper-50)] p-4"
+            style={{ borderLeftColor: "var(--color-status-neutral)" }}
+          >
+            <p className="m-0 text-[14px] leading-6 text-foreground">{loi.cau}</p>
+            {loi.thuLai && (
+              <button
+                type="button"
+                onClick={thuLai}
+                className={cn(NUT_PHU, "mt-3 max-[68rem]:min-h-11")}
+              >
+                <RotateCcw className="size-3.5" aria-hidden /> Thử lại
+              </button>
+            )}
+          </div>
+        )}
+        {dangTai &&
+          Array.from({ length: soTrang ?? khoCu?.length ?? 1 }, (_, i) => {
+            const [w, h] = khoCu?.[i] ?? khoCu?.[0] ?? KHO_A4;
+            return (
+              <div
+                key={i}
+                data-khung-cho=""
+                aria-hidden
+                className="animate-pulse rounded-md border border-border bg-white/70 shadow-soft"
+                style={{ width: rong(w), maxWidth: "100%", aspectRatio: `${w} / ${h}` }}
+              />
+            );
+          })}
+        {anh?.map((a, i) => (
+          <img
+            key={i}
+            src={a.src}
+            alt={`Trang ${i + 1} / ${anh.length}`}
+            width={Math.round(a.kho[0] * PX_MOI_PT)}
+            height={Math.round(a.kho[1] * PX_MOI_PT)}
+            decoding="async"
+            className="block h-auto rounded-md border border-border bg-white shadow-soft"
+            style={{
+              width: rong(a.kho[0]),
+              maxWidth: "100%",
+              aspectRatio: `${a.kho[0]} / ${a.kho[1]}`,
+            }}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 

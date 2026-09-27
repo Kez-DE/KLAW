@@ -1684,6 +1684,14 @@ assert.match(
   /Đang dựng trang/,
   "đang tải: vùng trạng thái đọc lên lịch sự",
 );
+{
+  let n = tim(khungBtl, (x) => x.getAttribute("role") === "status")?.parentNode ?? null;
+  while (n !== null && n.getAttribute("aria-busy") !== "true") n = n.parentNode;
+  assert.ok(
+    n === null,
+    "vùng trạng thái NGOÀI cây aria-busy: trong đó trình đọc màn hình hoãn đọc",
+  );
+}
 assert.equal(
   timTatNut(khungBtl, (n) => n.getAttribute("data-khung-cho") !== null).length,
   2,
