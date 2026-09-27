@@ -1,5 +1,5 @@
 {
-  "commit_hash": "0e558d25805bca79f5e85ce18faddb08d8c253dc",
+  "commit_hash": "9445f547efc2c920ab501fa1b724994c8563b2ac",
   "word": true,
   "word_chan": null,
   "so_tep": 8,
@@ -23,6 +23,17 @@
         "iou_muc": [
           0.1694,
           0.5532
+        ]
+      },
+      "o_bang": {
+        "so_cho": 24,
+        "da_ap": 24,
+        "bo_qua": {},
+        "so_trang_truoc": 2,
+        "so_trang_sau": 2,
+        "doc_lai_dung": [
+          24,
+          24
         ]
       },
       "dien": {
@@ -116,6 +127,9 @@
           0.4049
         ]
       },
+      "o_bang": {
+        "so_cho": 0
+      },
       "dien": {
         "so_cho": 15,
         "da_ap": 15,
@@ -205,6 +219,17 @@
           0.524
         ]
       },
+      "o_bang": {
+        "so_cho": 13,
+        "da_ap": 13,
+        "bo_qua": {},
+        "so_trang_truoc": 1,
+        "so_trang_sau": 1,
+        "doc_lai_dung": [
+          13,
+          13
+        ]
+      },
       "dien": {
         "so_cho": 15,
         "da_ap": 15,
@@ -288,6 +313,17 @@
         ],
         "iou_muc": [
           0.5611
+        ]
+      },
+      "o_bang": {
+        "so_cho": 5,
+        "da_ap": 5,
+        "bo_qua": {},
+        "so_trang_truoc": 1,
+        "so_trang_sau": 1,
+        "doc_lai_dung": [
+          5,
+          5
         ]
       },
       "dien": {
@@ -387,6 +423,9 @@
           0.0948
         ]
       },
+      "o_bang": {
+        "so_cho": 0
+      },
       "dien": {
         "so_cho": 17,
         "da_ap": 17,
@@ -477,6 +516,9 @@
           0.7187
         ]
       },
+      "o_bang": {
+        "so_cho": 0
+      },
       "dien": {
         "so_cho": 0,
         "da_ap": 0,
@@ -566,6 +608,9 @@
           0.1311
         ]
       },
+      "o_bang": {
+        "so_cho": 0
+      },
       "dien": {
         "so_cho": 3,
         "da_ap": 3,
@@ -653,6 +698,17 @@
         ],
         "iou_muc": [
           0.5606
+        ]
+      },
+      "o_bang": {
+        "so_cho": 5,
+        "da_ap": 5,
+        "bo_qua": {},
+        "so_trang_truoc": 1,
+        "so_trang_sau": 1,
+        "doc_lai_dung": [
+          5,
+          5
         ]
       },
       "dien": {
@@ -880,6 +936,31 @@
         56
       ],
       "loi": 0
+    },
+    "o_bang": {
+      "so_cho_theo_tep": {
+        "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx": 24,
+        "BM.ĐT.18.03. Đơn đăng ký đi thực tập tốt nghiệp Ver 02.docx": 0,
+        "BM.ĐT.18.05. Kế hoạch thực tập tại cơ sở Ver 02.docx": 13,
+        "BM.ĐT.18.11. Phiếu đánh giá quá trình thực tập tốt nghiệp của sinh viên tại cơ sở thực tập Ver 02 (1).docx": 5,
+        "Evaluation Form.docx": 0,
+        "Report_cover.docx": 0,
+        "Report_instruction.docx": 0,
+        "phiếu đánh giá thực tập công nghiệp.docx": 5
+      },
+      "da_ap": [
+        47,
+        47
+      ],
+      "bo_qua": {},
+      "so_trang_giu": [
+        4,
+        4
+      ],
+      "doc_lai_dung": [
+        47,
+        47
+      ]
     }
   }
 }
