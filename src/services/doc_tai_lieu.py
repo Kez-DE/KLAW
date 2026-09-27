@@ -2419,6 +2419,11 @@ def _chuyen_doc_sang_docx(du_lieu: bytes) -> bytes:
       TIẾN TRÌNH CHA (ứng dụng) nếu quyền tệp cho phép — bất kể `env=` truyền
       cho `Popen` là gì. Ranh giới thật cho cả hai rủi ro (mạng, môi trường)
       là cùng MỘT thứ: cách ly ở tầng hệ điều hành/container, chưa có ở đây.
+      Đo 2026-09-27 (LibreOffice 26.2.4): ảnh liên kết ngoài (`r:link`) CÓ bị
+      tải về — `http://` là SSRF, `file://` nhúng tệp của máy chủ vào PDF đã
+      dựng. Lớp chặn ở tầng ứng dụng là `_HO_SO_CHAN_LIEN_KET` (docx vào);
+      bộ nhập `.doc` vẫn gửi một GET mù bất kể lớp đó — xem
+      `test_quy_doi_doc_KHONG_goi_ra_mang_voi_lien_ket_ngoai`.
     - **SỐ LƯỢT CHẠY ĐỒNG THỜI bị chặn bằng `_suat_chuyen_doi`** (fix round
       2, task review — Important). Mỗi lượt chuyển đổi chiếm một luồng
       threadpool DÙNG CHUNG với mọi lệnh gọi DB khác của ứng dụng, và tự bản
@@ -2495,6 +2500,21 @@ def _giu_suat_chuyen_doi():
         _suat_chuyen_doi.release()
 
 
+# Gieo vào hồ sơ riêng của MỖI lượt soffice. Tài liệu mở từ thư mục tạm không
+# nằm trong "vị trí tin cậy" nào, nên `BlockUntrustedRefererLinks` chặn mọi ảnh
+# liên kết nó trỏ tới. Đo 2026-09-27 (LibreOffice 26.2.4, docx → PDF): không có
+# nó thì `r:link` `http://` bị tải về, `file://` nhúng tệp của máy chủ vào PDF;
+# có nó thì cả hai đều không. `test_dung_trang` lặp phép đo ở mọi máy có soffice.
+_HO_SO_CHAN_LIEN_KET = (
+    '<?xml version="1.0" encoding="UTF-8"?>'
+    '<oor:items xmlns:oor="http://openoffice.org/2001/registry" '
+    'xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+    '<item oor:path="/org.openoffice.Office.Common/Security/Scripting">'
+    '<prop oor:name="BlockUntrustedRefererLinks" oor:op="fuse"><value>true</value></prop></item>'
+    "</oor:items>"
+)
+
+
 def _chay_soffice(du_lieu: bytes, soffice: str, vao: str, loc: str, ra: str) -> bytes:
     """Phần THẬT SỰ tốn tài nguyên của `_quy_doi_soffice` — tách riêng để
     suất chuyển đổi (`_suat_chuyen_doi`) chỉ bị giữ quanh ĐÚNG đoạn này, không
@@ -2505,6 +2525,9 @@ def _chay_soffice(du_lieu: bytes, soffice: str, vao: str, loc: str, ra: str) -> 
         thu_muc = _P(tmp)
         tep_vao = thu_muc / vao
         tep_vao.write_bytes(du_lieu)
+        ho_so = thu_muc / "ho_so" / "user"
+        ho_so.mkdir(parents=True)
+        (ho_so / "registrymodifications.xcu").write_text(_HO_SO_CHAN_LIEN_KET, encoding="utf-8")
         moi_truong = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": tmp}
         proc = subprocess.Popen(
             [
