@@ -2636,8 +2636,24 @@ assert.match(khungTraLoi.textContent, /Phiên bản 2 · 0 mục/);
 // `dung-thu.tsx` không dựng được trong khung giả này (router, tài khoản, vỏ ứng
 // dụng), nên các quyết định của nó là hàm thuần `lib/san-khau.ts` — kiểm ở đây
 // — và phần nối dây kiểm trên chính nguồn: MỘT cửa đóng, mọi lối vào đi qua nó.
-const { apNeuCungBan, thamSoSanKhau, urlCoBanThao, urlTroBanKhac, vanNham } =
+const { apNeuCungBan, dongKhiDoiPhien, thamSoSanKhau, urlCoBanThao, urlTroBanKhac, vanNham } =
   await nap<typeof import("../src/lib/san-khau.ts")>("src/lib/san-khau.ts");
+{
+  const BT = { loai: "ban_thao", banThaoId: "x" } as const;
+  const BTL = { loai: "ban_tai_len", viecId: "v", tenTep: "t", soTrang: 1 } as const;
+  assert.equal(
+    dongKhiDoiPhien(undefined, BT),
+    true,
+    "chọn cuộc trò chuyện khác ở vỏ trang (`?phien=B`, không `?ban_thao=`): bản thảo của cuộc cũ đóng",
+  );
+  assert.equal(dongKhiDoiPhien(undefined, BTL), true, "'Bản tải lên' của cuộc cũ cũng đóng");
+  assert.equal(
+    dongKhiDoiPhien("y", BT),
+    false,
+    "URL mới mang `?ban_thao=` (danh sách 'Bản thảo' của vỏ trang): lối mở qua URL lo, không đóng",
+  );
+  assert.equal(dongKhiDoiPhien(undefined, null), false, "sân khấu đã đóng: không điều hướng thêm");
+}
 assert.deepEqual(
   thamSoSanKhau(undefined, "p", "b"),
   { phien: "p", ban_thao: "b" },
@@ -2692,6 +2708,17 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
   assert.equal(NGUON.split("datSanKhau(null);").length - 1, 1, "đóng sân khấu ở ĐÚNG một chỗ");
   assert.match(than("onDongSanKhau"), /datSanKhau\(null\)/, "chỗ đó là cửa đóng `onDongSanKhau`");
   assert.match(than("phienMoi"), /onDongSanKhau\(\)/, "'Phiên mới' đóng sân khấu qua cửa đóng");
+  {
+    // Hiệu ứng đổi phiên (MỌI lối: vỏ trang, "Phiên mới", URL) đóng sân khấu
+    // qua cửa đóng, sau hai lối ra sớm (cùng phiên; phiên vừa `bat_dau`).
+    const i = NGUON.indexOf("phienDangHien.current = phienId;");
+    assert.ok(i >= 0, "không thấy hiệu ứng đổi phiên");
+    assert.match(
+      NGUON.slice(i, NGUON.indexOf("\n  }, [", i)),
+      /return;\s*if \(dongKhiDoiPhien\(banThaoTrenUrl, sanKhauRef\.current\)\) onDongSanKhau\(\);/,
+      "đổi phiên: sân khấu của cuộc cũ đóng qua `onDongSanKhau`",
+    );
+  }
   assert.match(
     than("moSanKhau"),
     /if \(urlTroBanKhac\(banThaoTrenUrl, id\)\) onDongSanKhau\(\);/,
