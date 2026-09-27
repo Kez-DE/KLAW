@@ -739,6 +739,7 @@ _HRULE = f"{{{_NS['w']}}}hRule"
 _SECTPR = f"{{{_NS['w']}}}sectPr"
 _PGMAR = f"{{{_NS['w']}}}pgMar"
 _BR = f"{{{_NS['w']}}}br"
+_CR = f"{{{_NS['w']}}}cr"
 _TYPE = f"{{{_NS['w']}}}type"
 
 # Sáu cạnh của một nhóm viền OOXML (`w:tblBorders`/`w:tcBorders`), theo thứ tự
@@ -1614,10 +1615,10 @@ def _kieu_gian_cach(goc_styles: ET.Element | None) -> dict[str, _KieuGC]:
     return {sid: _giai(sid, frozenset()) for sid in truc}
 
 
-def _vi_tri_tab(p: ET.Element) -> list[int]:
-    """Offset của mỗi `<w:tab/>` trên chuỗi nối CHƯA cắt khoảng trắng — cùng
-    phép nối `_chu`/`_vi_tri_chu` dùng, nên trừ phần `strip()` đi là ra offset
-    trên chính `_chu(p)`.
+def _vi_tri_tab(p: ET.Element, the: tuple[str, ...] = (_TAB,)) -> list[int]:
+    """Offset của mỗi `<w:tab/>` (hoặc mỗi thẻ trong `the`) trên chuỗi nối CHƯA
+    cắt khoảng trắng — cùng phép nối `_chu`/`_vi_tri_chu` dùng, nên trừ phần
+    `strip()` đi là ra offset trên chính `_chu(p)`.
 
     BỎ QUA `w:pPr`: `w:tab` nằm trong đó là ĐỊNH NGHĨA mốc, không phải ký tự
     tab. Hai thứ trùng tên thẻ, khác hẳn nghĩa.
@@ -1630,7 +1631,7 @@ def _vi_tri_tab(p: ET.Element) -> list[int]:
         for e in con.iter():
             if e.tag == _T:
                 n += len(e.text or "")
-            elif e.tag == _TAB:
+            elif e.tag in the:
                 vi.append(n)
     return vi
 
@@ -1832,15 +1833,24 @@ def _cho_trong_doan(p: ET.Element, doan: int) -> list[ChoTrong]:
     `noi_dung` dựa vào, chỉ là KHÔNG `strip()`. Tab thứ n nhảy tới mốc thứ n
     (đúng xấp xỉ phía vẽ dùng, xem `_moc_tab`); nó là chỗ trống khi mốc ấy có
     đường dẫn `dot`. Trong nhãn, mỗi `w:tab` là một chỗ ngắt chữ.
+
+    Một dãy chấm bị `w:tab`/`w:br`/`w:cr` chen giữa là HAI chỗ trống: chuỗi thô
+    không có ký tự nào cho các thẻ đó, nên không cắt thì "……<tab>……" thành một
+    chỗ, và điền nó xoá chấm vắt qua cả tab lẫn ngắt dòng. Mảnh còn lại không
+    đủ `RE_CHO_DIEN` (".." trước một tab) thì không phải chỗ trống.
     """
     _, tho = _vi_tri_chu(p)
     tab = _vi_tri_tab(p)
+    ngat = _vi_tri_tab(p, (_TAB, _BR, _CR))
     ppr = p.find(_PPR)
     # ponytail: chỉ mốc khai TRỰC TIẾP ở `w:pPr/w:tabs`. Mốc thừa kế từ kiểu
     # (1/46 đoạn có tab của Evaluation Form) không thành chỗ trống — đọc thêm
     # `_kieu_gian_cach` khi một biểu mẫu thật cần.
     moc = _moc_tab(ppr.find(_TABS) if ppr is not None else None)[0]
-    vi = [(dau, 1, "cham", cuoi) for dau, cuoi in _day_cham(tho)]
+    vi: list[tuple[int, int, str, int]] = []
+    for dau, cuoi in _day_cham(tho):
+        cat = [dau, *ngat[bisect_right(ngat, dau) : bisect_left(ngat, cuoi)], cuoi]
+        vi += [(a, 1, "cham", b) for a, b in zip(cat, cat[1:]) if RE_CHO_DIEN.search(tho[a:b])]
     vi += [(t, 0, "tab", t) for i, t in enumerate(tab) if i < len(moc) and moc[i].leader == "dot"]
     ra: list[ChoTrong] = []
     truoc = 0

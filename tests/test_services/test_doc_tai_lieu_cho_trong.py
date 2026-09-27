@@ -161,6 +161,31 @@ def test_cho_trong_VAT_qua_nhieu_run_la_MOT_cho():
     assert [(c.dau, c.cuoi) for c in d.cho_trong] == [(len("Địa chỉ: "), len("".join(run)))]
 
 
+@pytest.mark.parametrize(
+    "doan",
+    [
+        _p(_r("Tên: ……"), "<w:r><w:tab/></w:r>", _r("……")),
+        _p(_r("Tên: ……"), "<w:r><w:br/></w:r>", _r("……")),
+        _p(_r("Tên: ……"), "<w:r><w:cr/></w:r>", _r("……")),
+        _p("<w:r><w:t>Tên: ……</w:t><w:tab/><w:t>……</w:t></w:r>"),
+    ],
+    ids=["tab", "br", "cr", "cung_run"],
+)
+def test_day_cham_bi_TAB_hoac_NGAT_DONG_chen_giua_la_HAI_cho_trong(doan):
+    """`w:tab`/`w:br` không góp ký tự nào vào chuỗi `w:t` thô, nên "……<tab>……"
+    nối ra MỘT dãy chấm liền. Điền dãy ấy là xoá chấm vắt qua tab hay ngắt dòng
+    (P2b review) — mỗi phía của chỗ ngắt là một chỗ trống riêng."""
+    d = _theo_chu(_mot(doan), "Tên")
+    dau = len("Tên: ")
+    assert [(c.kieu, c.dau, c.cuoi) for c in d.cho_trong] == [("cham", dau, dau + 2), ("cham", dau + 2, dau + 4)]
+
+
+def test_manh_cham_con_lai_sau_khi_cat_QUA_NGAN_thi_KHONG_la_cho_trong():
+    d = _theo_chu(_mot(_p(_r("Số: .."), _TAB, _r("...."))), "Số")
+    dau = len("Số: ..")
+    assert [(c.kieu, c.dau, c.cuoi) for c in d.cho_trong] == [("cham", dau, dau + 4)]
+
+
 def test_ngay_thang_nam_moi_dau_lung_la_mot_cho_trong_so_nghin_thi_KHONG():
     d = _theo_chu(_mot(_p(_r("Lương 20.000.000 đồng, ngày … tháng … năm …… hết."))), "Lương")
     assert [c.nhan for c in d.cho_trong] == ["Lương 20.000.000 đồng, ngày", "tháng", "năm"]
