@@ -276,15 +276,14 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
     la_sua = state.get("muc_dich_tai_lieu") == "sua_ban_thao"
     cu = None
     if khuon:
-        cu = ban_thao.moi_nhat_cua_hoi_thoai(sub, str(hoi_thoai_id), LOAI_TONG_QUAT)
         # Sửa hay dựng mới quyết định bằng DỮ LIỆU, không bằng nhãn của mô hình:
-        # bản thảo mới nhất nằm trên ĐÚNG khuôn gốc này thì lượt này là một phiên
-        # bản mới của nó (mô hình gán `tao_van_ban` cho một lời xin sửa sẽ không
-        # mở bản thứ hai chỉ mang phần thay đổi). Nằm trên khuôn khác, hay là
-        # bản HTML, thì gộp vào nó là trỏ nhầm tài liệu — dựng bản MỚI, chịu hạn
-        # mức dựng lần đầu. ponytail: chỉ nhìn bản MỚI NHẤT của hội thoại; tra
-        # theo `viec_id` khi một hội thoại thật xen kẽ hai bản thảo.
-        la_sua = cu is not None and str(cu.get("viec_id") or "") == khuon["viec_id"]
+        # hội thoại đã có bản thảo mà phiên bản đang sống nằm trên ĐÚNG khuôn gốc
+        # này thì lượt này là một phiên bản mới của nó (mô hình gán `tao_van_ban`
+        # cho một lời xin sửa sẽ không mở bản thứ hai chỉ mang phần thay đổi), kể
+        # cả khi một bản HTML hay bản trên khuôn khác mới hơn. Không có thì dựng
+        # bản MỚI, chịu hạn mức dựng lần đầu.
+        cu = ban_thao.moi_nhat_cua_hoi_thoai(sub, str(hoi_thoai_id), LOAI_TONG_QUAT, viec_id=khuon["viec_id"])
+        la_sua = cu is not None
     if not la_sua:
         # Hạn mức DỰNG LẦN ĐẦU — CÙNG giỏ `EP_SOAN_THAO` mà đường checklist
         # kiểm ở `graph_tra_cuu.n_dung_ban_thao`, không phải một giỏ thứ hai.
@@ -330,7 +329,8 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
     # đọc ra từ đó.
     ten = TEN_TONG_QUAT
     if la_sua:
-        cu = cu or ban_thao.moi_nhat_cua_hoi_thoai(sub, str(hoi_thoai_id), LOAI_TONG_QUAT)
+        # Bản HTML (`viec_id=None`): một bản khuôn gốc mới hơn không hút lượt sửa này.
+        cu = cu or ban_thao.moi_nhat_cua_hoi_thoai(sub, str(hoi_thoai_id), LOAI_TONG_QUAT, viec_id=None)
         if cu is None:
             return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_CO_BAN_THAO}
         try:

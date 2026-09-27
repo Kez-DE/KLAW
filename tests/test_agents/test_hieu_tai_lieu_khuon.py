@@ -372,8 +372,9 @@ class _BanThaoGia:
     def __init__(self, cu: dict | None):
         self.cu, self.tao_ket, self.sua_ket = cu, None, None
 
-    def moi_nhat(self, sub, pid, loai):
-        return self.cu
+    def moi_nhat(self, sub, pid, loai, *, viec_id):
+        # Cùng luật `_SQL_MOI_NHAT`: chỉ bản thảo mà phiên bản đang sống trên `viec_id`.
+        return self.cu if self.cu and self.cu.get("viec_id") == viec_id else None
 
     def tao(self, sub, pid, loai, facts, ket):
         self.tao_ket = ket
@@ -800,6 +801,45 @@ def test_viec_khong_ton_tai_thi_state_noi_dung_dong_da_luu(phien):
     bt = ra["ban_thao_ket"]
     assert (bt["viec_id"], bt["khuon"]) == (None, None)
     assert ban_thao.chi_tiet(sub, bt["id"])["viec_id"] is None
+
+
+_VAN_BAN = {
+    "tieu_de": "ĐƠN XIN NGHỈ PHÉP",
+    "muc": [{"ten": "Lý do", "vung": "than", "khoi": [{"noi_dung": "Việc gia đình.", "bang": []}]}],
+}
+
+
+@pytest.mark.integration
+def test_hoi_thoai_xen_ke_ban_thao_khuon_va_HTML_moi_luot_sua_dung_ban_cua_no(phien):
+    """Sửa hay dựng mới theo `viec_id` của phiên bản ĐANG sống, không theo bản mới
+    nhất của hội thoại: một lượt sửa khuôn gốc không mở bản thứ hai chỉ vì bản
+    HTML vừa được dựng, và một lượt sửa HTML không ghi đè bản khuôn gốc (P4a lưu
+    `viec_id` của `ket`, nên ghi nhầm là biến bản khuôn thành bản HTML)."""
+    from src.services import tai_lieu as tl
+    from src.services.db import get_engine
+
+    sub, ht = phien
+    bao_ve.ghi_nhan_nguoi_dung(sub, None)
+    vid = _viec(sub, ht)
+    tl.luu_khuon_goc(get_engine(), vid, "docx", b"PK\x03\x04", [[595.0, 842.0]])
+    goc = {"user_sub": sub, "hoi_thoai_id": ht}
+
+    def _luot(muc_dich, **st):
+        return d.dung_ban_thao_tong_quat({**goc, "muc_dich_tai_lieu": muc_dich, **st})["ban_thao_ket"]
+
+    k1 = _luot("tao_van_ban", khuon_tong_quat={**_khuon([_p(1, 0, "Công ty Mẫu Thử")]), "viec_id": vid})
+    h1 = _luot("tao_van_ban", van_ban_tong_quat=_VAN_BAN)
+    assert h1["id"] != k1["id"] and h1["viec_id"] is None
+
+    k2 = _luot("sua_ban_thao", khuon_tong_quat={**_khuon([_p(2, 0, "0912345678")]), "viec_id": vid})
+    assert (k2["id"], k2["phien_ban"]) == (k1["id"], 2), "bản HTML mới hơn không che bản khuôn gốc"
+    assert k2["phep_sua"] == [_p(1, 0, "Công ty Mẫu Thử"), _p(2, 0, "0912345678")]
+
+    moi = {**_VAN_BAN, "muc": [{**_VAN_BAN["muc"][0], "khoi": [{"noi_dung": "Việc riêng.", "bang": []}]}]}
+    h2 = _luot("sua_ban_thao", van_ban_tong_quat=moi)
+    assert (h2["id"], h2["phien_ban"], h2["viec_id"]) == (h1["id"], 2, None), "bản khuôn mới hơn không hút lượt sửa HTML"
+    k = ban_thao.chi_tiet(sub, k1["id"])
+    assert (k["phien_ban"], k["viec_id"], k["phep_sua"]) == (2, vid, k2["phep_sua"])
 
 
 # ─────────────────────────────────────── tệp thật của chủ dự án (không commit)

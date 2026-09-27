@@ -104,9 +104,14 @@ _SQL_DS = text(
 _SQL_DEM = text(
     f"SELECT count(*)::int FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL AND {_KHONG_MO_COI}"
 )
+# Tích hợp wave D — lọc theo `viec_id` của phiên bản ĐANG sống (`IS NOT DISTINCT
+# FROM`: `NULL` là bản thảo HTML), vì một hội thoại có thể xen kẽ bản thảo trên
+# khuôn gốc và bản thảo HTML; bản mới nhất của hội thoại không nói lượt sửa này
+# nhắm bản nào.
 _SQL_MOI_NHAT = text(
     f"SELECT {_COT} FROM ban_thao WHERE user_sub = CAST(:sub AS uuid)"
     " AND hoi_thoai_id = CAST(:pid AS uuid) AND loai = :loai AND xoa_luc IS NULL"
+    " AND viec_id IS NOT DISTINCT FROM CAST(:viec_id AS uuid)"
     " ORDER BY cap_nhat_luc DESC LIMIT 1"
 )
 # Phase 3 (PostgreSQL review) — bản NHẸ của truy vấn trên, CHỈ hai cột
@@ -260,21 +265,28 @@ def kiem_tran_sua(cu: dict) -> None:
         raise ValueError(LOI_HET_LAN_SUA)
 
 
-def moi_nhat_cua_hoi_thoai(sub: str, hoi_thoai_id: str, loai: str) -> dict | None:
-    """Bản thảo `loai` MỚI NHẤT của chính hội thoại này, hoặc `None`.
+def moi_nhat_cua_hoi_thoai(sub: str, hoi_thoai_id: str, loai: str, *, viec_id: str | None) -> dict | None:
+    """Bản thảo `loai` MỚI NHẤT của chính hội thoại này mà phiên bản đang sống
+    nằm trên khuôn gốc `viec_id` (`None`: bản thảo HTML), hoặc `None`.
 
     Một lệnh sửa bằng lời ("đổi mục 2 thành…") không mang id nào, nên "bản thảo
-    nào" phải suy ra được: trong một cuộc trò chuyện, đó là bản vừa dựng. Lọc
-    theo `user_sub` ở tầng dữ liệu như mọi hàm khác trong file này.
+    nào" phải suy ra được: trong một cuộc trò chuyện, đó là bản vừa dựng TRÊN
+    CÙNG loại nguồn — `viec_id` bắt buộc nói ra, vì sửa nhầm loại là ghi đè
+    (`sua` lưu `viec_id` của `ket`). Lọc theo `user_sub` ở tầng dữ liệu như mọi
+    hàm khác trong file này.
     """
     with get_engine().connect() as c:
-        r = c.execute(_SQL_MOI_NHAT, {"sub": sub, "pid": hoi_thoai_id, "loai": loai}).mappings().one_or_none()
+        r = (
+            c.execute(_SQL_MOI_NHAT, {"sub": sub, "pid": hoi_thoai_id, "loai": loai, "viec_id": viec_id})
+            .mappings()
+            .one_or_none()
+        )
         return _voi_khuon(c, sub, dict(r)) if r is not None else None
 
 
 def ban_thao_tong_quat_dang_mo_nhe(sub: str, hoi_thoai_id: str) -> dict | None:
-    """Bản NHẸ của `moi_nhat_cua_hoi_thoai(sub, hoi_thoai_id, LOAI_TONG_QUAT)`
-    — CHỈ `document`/`audit`, đúng hai cột `routes._chuan_bi_phien` (chạy
+    """Bản thảo tổng quát MỚI NHẤT của hội thoại, bản NHẸ và KHÔNG lọc theo
+    `viec_id` (khác `moi_nhat_cua_hoi_thoai`) — CHỈ `document`/`audit`, đúng hai cột `routes._chuan_bi_phien` (chạy
     MỖI lượt hỏi có danh tính) và `hieu_tai_lieu._khoi_ban_thao_dang_co` thật
     sự đọc. Không kéo `clauses`/`facts`/`phien_ban_truoc` — nặng, và không ai
     ở hai nơi đó cần tới.

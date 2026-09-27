@@ -314,7 +314,7 @@ def test_VONG_phien_ban_tao_chi_tiet_sua_lui_khoi_phuc_phep_sua(nguoi):
     }
     assert _gia_tri(bt) == {(0, 0): "Nguyễn Văn Ánh", (1, 0): None, (1, 1): None}
     assert ban_thao.chi_tiet(a, bt["id"])["khuon"] == bt["khuon"]
-    assert ban_thao.moi_nhat_cua_hoi_thoai(a, phien, ban_thao.LOAI_TONG_QUAT)["khuon"] == bt["khuon"]
+    assert ban_thao.moi_nhat_cua_hoi_thoai(a, phien, ban_thao.LOAI_TONG_QUAT, viec_id=viec)["khuon"] == bt["khuon"]
 
     v2 = [*v1, _d(1, 1, "a@b.vn")]
     bt2 = ban_thao.sua(a, bt["id"], {}, _ket(viec, v2))

@@ -1874,7 +1874,7 @@ def test_tao_roi_sua_len_phien_ban_2_va_lui_ve_duoc(nguoi):
     bt = ra["ban_thao_ket"]
     assert bt["phien_ban"] == 1 and bt["loai"] == "tong_quat"
     assert bt["audit_report"]["muc_kiem"] == "tong_quat"
-    assert ban_thao.moi_nhat_cua_hoi_thoai(nguoi, pid, "tong_quat")["id"] == bt["id"]
+    assert ban_thao.moi_nhat_cua_hoi_thoai(nguoi, pid, "tong_quat", viec_id=None)["id"] == bt["id"]
 
     moi = {**VAN_BAN, "muc": [VAN_BAN["muc"][0], _muc("Giá trị", "Tổng 20.000.000 đồng.")]}
     ra2 = d.dung_ban_thao_tong_quat({**st, "muc_dich_tai_lieu": "sua_ban_thao", "van_ban_tong_quat": moi})
@@ -2027,7 +2027,7 @@ def test_het_han_muc_thi_khong_luu_gi_va_noi_dung_ly_do(nguoi, monkeypatch):
     assert ra["ban_thao_ket"] is None
     assert ra["ban_thao_tong_quat_loi"] == cau
     assert ra["ban_thao_tong_quat_loi"] != d.KHONG_SOAN_DUOC
-    assert ban_thao.moi_nhat_cua_hoi_thoai(nguoi, pid, "tong_quat") is None
+    assert ban_thao.moi_nhat_cua_hoi_thoai(nguoi, pid, "tong_quat", viec_id=None) is None
     assert _dem_dong_soan(nguoi) == 0
 
 
