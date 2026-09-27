@@ -25,12 +25,12 @@ import logging
 import statistics
 import unicodedata
 from dataclasses import dataclass
-from enum import StrEnum
 from functools import cache
 from io import BytesIO
 from typing import TYPE_CHECKING, Any
 
 from src.config import get_settings
+from src.services.dien_khuon import LyDoBoQua
 from src.services.doc_tai_lieu import KhongDocDuoc, LoaiHong
 from src.services.tai_lieu import _cho_trong_tu_hang, _hop_tu_hang, _so_tu_nhien
 
@@ -68,29 +68,6 @@ _UNG_VIEN_PHONG = (
 _CHU_VIET = "ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝàáâãèéêìíòóôõùúýĂăĐđĨĩŨũƠơƯư" + "".join(map(chr, range(0x1EA0, 0x1EFA)))
 
 _Hop = tuple[float, float, float, float]
-
-
-class LyDoBoQua(StrEnum):
-    """Tập ĐÓNG các lý do một phép sửa không được áp (`bao_cao["bo_qua"]`)."""
-
-    khong_hop_le = "khong_hop_le"
-    """Phép sai hình dạng: không phải dict, `don_vi`/`cho_trong` không phải số
-    tự nhiên, giá trị không phải chuỗi, rỗng hay có ký tự điều khiển."""
-    loai_khong_ho_tro = "loai_khong_ho_tro"
-    """`chen_sau`, `xoa` hay một `loai` lạ — PDF chỉ nhận `dien`, `thay`."""
-    khong_co_don_vi = "khong_co_don_vi"
-    """Không đơn vị nào có `chi_so` bằng `don_vi` của phép."""
-    khong_co_dia_chi = "khong_co_dia_chi"
-    """Đơn vị không có `hop` (`thay`), hoặc hộp/trang không thuộc tệp này."""
-    khong_co_cho_trong = "khong_co_cho_trong"
-    """Đơn vị không có chỗ trống PDF nào mang `so` bằng `cho_trong` của phép."""
-    xung_dot = "xung_dot"
-    """Vùng vẽ chồng lên vùng của một phép ĐỨNG TRƯỚC đã nhận trên cùng trang
-    (cùng chỗ trống hai lần, `dien` trong dòng đã `thay`…): phép trước giữ chỗ."""
-    khong_vua = "khong_vua"
-    """Chữ không vừa bề rộng hộp kể cả khi thu nhỏ tới 70 %."""
-    khong_co_phong = "khong_co_phong"
-    """Không có phông tiếng Việt, hoặc phông không vẽ được một ký tự của giá trị."""
 
 
 @dataclass(frozen=True)

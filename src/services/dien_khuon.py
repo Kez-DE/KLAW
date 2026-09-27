@@ -84,15 +84,20 @@ _ZIP_HONG = (zipfile.BadZipFile, zlib.error, NotImplementedError, EOFError)
 
 
 class LyDoBoQua(StrEnum):
-    """Tập ĐÓNG mã lý do một phép bị bỏ (`bao_cao["bo_qua"][i]["ly_do"]`)."""
+    """Tập ĐÓNG mã lý do một phép bị bỏ (`bao_cao["bo_qua"][i]["ly_do"]`) — dùng
+    CHUNG cho bộ áp DOCX (ở đây) và PDF (`dien_khuon_pdf`); hai mã cuối chỉ PDF
+    phát ra."""
 
     khong_hop_le = "khong_hop_le"
     """Phép sai hình dạng: không phải dict, chỉ số không phải số tự nhiên, giá
     trị rỗng hay mang ký tự điều khiển (`\\n` trong `dien`)."""
     loai_khong_ho_tro = "loai_khong_ho_tro"
+    """`loai` lạ; với PDF cả `chen_sau`/`xoa` — PDF chỉ nhận `dien`, `thay`."""
     khong_co_don_vi = "khong_co_don_vi"
     khong_co_dia_chi = "khong_co_dia_chi"
-    """Đơn vị không có `dia_chi`, hoặc địa chỉ không giải ra đúng `w:p`/`w:tc`."""
+    """DOCX: đơn vị không có `dia_chi`, hoặc địa chỉ không giải ra đúng
+    `w:p`/`w:tc`. PDF: đơn vị không có `hop` (`thay`), hoặc hộp/trang không
+    thuộc tệp này."""
     khong_co_cho_trong = "khong_co_cho_trong"
     cho_trong_da_doi = "cho_trong_da_doi"
     """`[dau:cuoi]` trên chuỗi thô không còn là một dãy chấm (hoặc vắt qua một
@@ -102,7 +107,12 @@ class LyDoBoQua(StrEnum):
     `noi_dung` (`_MAT_KHI_THAY`), hay `xoa` một đoạn mang ngắt phân đoạn."""
     xung_dot = "xung_dot"
     """`thay`/`xoa` thứ hai trên cùng đơn vị, `dien` trên đơn vị đã bị
-    `thay`/`xoa`, hay `dien` lần hai vào cùng một chỗ trống."""
+    `thay`/`xoa`, hay `dien` lần hai vào cùng một chỗ trống. PDF: vùng vẽ chồng
+    lên vùng của một phép ĐỨNG TRƯỚC đã nhận trên cùng trang — phép trước giữ chỗ."""
+    khong_vua = "khong_vua"
+    """PDF: chữ không vừa bề rộng hộp kể cả khi thu nhỏ tới 70 %."""
+    khong_co_phong = "khong_co_phong"
+    """PDF: không có phông tiếng Việt, hoặc phông không vẽ được một ký tự của giá trị."""
 
 
 def ap_dung_docx(docx: bytes, don_vi: list[dict], phep_sua: list[dict]) -> tuple[bytes, dict]:
