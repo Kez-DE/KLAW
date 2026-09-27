@@ -440,7 +440,15 @@ open risks, and follows the TDD order: failing test first, then code.
   failure); ruler unchanged on every LibreOffice measure.
 - [x] Issue opened for the soft-delete gap (#3).
 - [x] G5 backend — empty list-table cells as `o` blanks, dropped user values
-  always named, no unit index in answers (`fix/g5-backend`, merge pending).
+  always named, no unit index in answers; the column digit rule also covers a
+  `thay`/`chen_sau` on an `o` cell (`fix/g5-backend`, merged `1cb43e7`).
+- [x] G5 frontend — the draft stage closes on conversation change, the chat
+  scrolls past the composer, the sidebar's Bản thảo list follows the live
+  version (`fix/g5-frontend`, merged `5ecded2`).
+- [x] Wave G5 integrated on `integ/wave-g5` without conflicts: khuôn test
+  files 783 passed; CI lane 2613 passed (only the worktree-only
+  `test_data_raw_VAN_bi_gitignore` failure); ruler LibreOffice measures
+  byte-identical, `o` 47/47 applied and read back, page count kept 4/4.
 
 ## Decisions
 
@@ -750,6 +758,22 @@ open risks, and follows the TDD order: failing test first, then code.
   not formatting — every measured table has one header row. Agent defaults under
   the standing delegation, open for the owner: `TT` counts as a number column;
   a dropped op's value is listed only when it is a substring of the user's text.
+- 2026-09-27 (wave G5 integration, `integ/wave-g5`): the owner-forms API test
+  `test_bieu_mau_THAT_ra_dung_so_trang_dan_that` still expected BM.M05's pre-G5
+  32 blanks on `GET …/trang`; the reader now gives 32 chấm + 24 `o` (the
+  Contracts' count), so it expects 56, and its per-blank check (a page and a box
+  inside it, a label, no value) now covers the 24 `o` cells too. Ruler
+  (`eval.run_khuon_goc` without `--word`) against `eval/results/khuon_goc.json`:
+  every LibreOffice measure is byte-identical — pages, round trip 8/8, chấm/tab
+  fill 124/124 with the page count kept on 6/7 (BM.ĐT.18.05 still grows to 2
+  pages, as before), pdf_so, pdf_scan, the 11-page refusal. The `o` blanks change
+  no chấm/tab count because the ruler measures them apart (`o_bang`: BM.M05 24,
+  BM.ĐT.18.05 13, BM.ĐT.18.11 5, phiếu đánh giá 5; applied 47/47, page count
+  kept 4/4, read back 47/47). The Word fields are empty only because the run had
+  no `--word`: Word is not re-measured for G5, and the committed result file is
+  kept. The sidebar's Bản thảo list patches the drafts `api.ts` announces
+  instead of re-fetching, because a GET per blank save would spend the per-IP
+  rate bucket.
 
 ## Validation
 
