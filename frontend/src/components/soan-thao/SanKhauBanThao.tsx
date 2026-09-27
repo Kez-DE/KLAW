@@ -667,8 +667,10 @@ export function SanKhauBanThao({
             lên, nên hiện cả khi bản thảo là tổng quát. */}
         {(!laTongQuat || khuon !== null) &&
           (toanMan ? (
-            <details className="shrink-0 border-b border-border p-3">
-              <summary className="cursor-pointer text-[13px] font-medium text-foreground">
+            // Tóm tắt là vùng chạm 44px (DESIGN.md, bố cục hẹp); đệm dưới chỉ khi
+            // mở, nên lúc gập không cao hơn trước (≈ 12 + dòng chữ + 12).
+            <details className="shrink-0 border-b border-border px-3 open:pb-3">
+              <summary className="focus-brass min-h-11 cursor-pointer content-center text-[13px] font-medium text-foreground">
                 {khuon !== null
                   ? `Ô điền · đã điền ${soODaDien}/${khuon.cho_trong.length}`
                   : "Các mục"}

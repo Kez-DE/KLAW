@@ -85,7 +85,8 @@ export function BangODien({ khuon, nhap, datNhap, onLuu }: Props) {
                 autoComplete="off"
                 spellCheck={false}
                 lang="vi"
-                className="focus-brass min-h-10 w-full rounded-md border border-[var(--input)] bg-background px-2.5 text-[13.5px] text-foreground"
+                // `max-[68rem]:` = bố cục hẹp (`useHaiCot`): vùng chạm 44px (DESIGN.md).
+                className="focus-brass min-h-10 w-full rounded-md border border-[var(--input)] bg-background px-2.5 text-[13.5px] text-foreground max-[68rem]:min-h-11"
               />
             </li>
           );
@@ -100,7 +101,7 @@ export function BangODien({ khuon, nhap, datNhap, onLuu }: Props) {
         aria-disabled={dangLuu || doi.length === 0}
         aria-describedby={loi === null ? undefined : `${goc}-loi`}
         className={cn(
-          "focus-brass mt-4 inline-flex min-h-10 cursor-pointer items-center rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90",
+          "focus-brass mt-4 inline-flex min-h-10 cursor-pointer items-center rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90 max-[68rem]:min-h-11",
           "aria-disabled:cursor-not-allowed aria-disabled:opacity-60",
         )}
       >

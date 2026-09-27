@@ -14,6 +14,8 @@ const PX_MOI_PT = 4 / 3;
 /** Khung chờ khi chưa biết khổ nào (lần tải đầu): A4 dọc. */
 const KHO_A4: [number, number] = [595.28, 841.89];
 
+// `max-[68rem]:` = bố cục hẹp (`useHaiCot`, `min-width: 68rem`): vùng chạm 44px
+// (DESIGN.md Responsive) chỉ ở đó, bố cục rộng giữ nguyên mật độ.
 const NUT_PHU =
   "focus-brass inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[12.5px] text-primary transition-colors hover:bg-[var(--color-paper-100)] disabled:cursor-not-allowed disabled:opacity-60";
 
@@ -127,7 +129,11 @@ export function KhungTrangAnh({ duongDan, soTrang, thuPhong, nhan }: PropsKhung)
         >
           <p className="m-0 text-[14px] leading-6 text-foreground">{loi.cau}</p>
           {loi.thuLai && (
-            <button type="button" onClick={thuLai} className={cn(NUT_PHU, "mt-3")}>
+            <button
+              type="button"
+              onClick={thuLai}
+              className={cn(NUT_PHU, "mt-3 max-[68rem]:min-h-11")}
+            >
               <RotateCcw className="size-3.5" aria-hidden /> Thử lại
             </button>
           )}
@@ -203,7 +209,11 @@ export function SanKhauBanTaiLen({
         <span className="rounded-md bg-[var(--color-paper-50)] px-2 py-0.5 text-[12px] text-muted-foreground">
           Bản tải lên · chỉ xem
         </span>
-        <button type="button" onClick={onDienBieuMau} className={NUT_PHU}>
+        <button
+          type="button"
+          onClick={onDienBieuMau}
+          className={cn(NUT_PHU, "max-[68rem]:min-h-11")}
+        >
           <FilePen className="size-3.5 text-[var(--color-brass-600)]" aria-hidden />
           Điền biểu mẫu
         </button>
@@ -211,7 +221,7 @@ export function SanKhauBanTaiLen({
           type="button"
           onClick={onDong}
           aria-label="Đóng bản tải lên"
-          className="focus-brass cursor-pointer rounded-md border border-border p-1.5 text-muted-foreground hover:bg-[var(--color-paper-100)]"
+          className="focus-brass inline-grid cursor-pointer place-items-center rounded-md border border-border p-1.5 text-muted-foreground hover:bg-[var(--color-paper-100)] max-[68rem]:size-11"
         >
           <X className="size-4" aria-hidden />
         </button>
