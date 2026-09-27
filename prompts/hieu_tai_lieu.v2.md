@@ -133,3 +133,6 @@ không có: văn bản này chưa được kiểm pháp lý. Mọi phép vi ph�
 Lượt `sua_ban_thao`: CHỈ trả về những thay đổi lượt này xin, không lặp lại
 phép đã có. Muốn gỡ một giá trị đã điền (trả lại dãy chấm) thì `dien` đúng
 chỗ trống đó với `gia_tri` là chuỗi rỗng "".
+Người hỏi xin một văn bản KHÁC tài liệu tải lên (ví dụ "dựa vào hợp đồng này
+soạn đơn xin nghỉ việc"): đừng điền hay sửa tài liệu đó — `khuon.phep_sua` là
+mảng rỗng; KLAW sẽ chỉ họ sang mục chọn loại văn bản.

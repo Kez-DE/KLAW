@@ -2592,6 +2592,24 @@ def _dien_bo_nho(s: str, cam_bo: set[str]) -> bool:
     return False
 
 
+def _nhan_khong_nguon(chu: str, nguon_kh: str, so_nguon: list) -> bool:
+    """Có dòng "Nhãn: giá trị" nào mà giá trị KHÔNG qua phép nguồn của `dien` không.
+    Dãy chấm cắt giá trị thành từng mảnh (chấm đi kèm không rửa được một tên bịa);
+    dấu câu cuối mảnh là trình bày, không phải dữ kiện."""
+    for dong in chu.split("\n"):
+        for manh in RE_CHO_DIEN.split(dong.partition(":")[2]):
+            v = manh.strip().rstrip(".;,").strip()
+            if v and not _co_trong_nguon(v.casefold(), nguon_kh, so_nguon):
+                return True
+    return False
+
+
+def _so_dieu(s: str) -> set[str]:
+    """Số Điều/Khoản/Điểm của `s`, mỗi số một CỤM ("điều50"): so theo cụm, không
+    theo chuỗi con — "Điều 5" không nằm trong "Điều 50"."""
+    return {re.sub(r"[\s.]", "", m.group(0)) for m in _RE_DIEU.finditer(_khong_hoa(s))}
+
+
 def _mot_phep(
     p: object, theo_chi_so: dict[int, DonViVanBan], dinh_dang: str, nguon_kh: str, so_nguon: list, cam_bo: set[str]
 ) -> dict | str:
@@ -2645,16 +2663,26 @@ def _mot_phep(
     chu = chu.replace("\r\n", "\n").strip()
     if not chu or _RE_DIEU_KHIEN.search(chu.replace("\n", "") if dinh_dang == "docx" else chu):
         return "sai_hinh_dang"
+    # Chỗ trống chỉ điền bằng `dien` (prompt v2 nói đúng vậy): `thay` trên một
+    # đơn vị có chỗ trống là lối vòng qua phép nguồn của `dien`, và bộ áp vốn coi
+    # `dien` + `thay` trên cùng một đơn vị là `xung_dot`.
+    if loai == "thay" and _cho_dien_duoc(d, dinh_dang):
+        return "co_cho_trong"
     if _dien_bo_nho(chu, cam_bo):
         return "bo_nho"
     # Luật Điều/Khoản của `_vuong_luoi_chan`, theo cụm: một số Điều mà CHÍNH đơn
     # vị gốc đã có thì giữ, số Điều mới thì không — bản thảo chưa kiểm pháp lý.
-    goc = _khong_hoa(d.noi_dung)
-    if any(_khong_hoa(m.group(0)) not in goc for m in _RE_DIEU.finditer(chu)):
+    if _so_dieu(chu) - _so_dieu(d.noi_dung):
         return "dieu_luat"
     # Cùng lưới giá trị của `lam_sach_van_ban`, nhưng BỎ cả phép thay vì chừa
     # `[…]`: một `[…]` áp lên tệp thật là chữ lạ in lên biểu mẫu của người hỏi.
-    if any(not _co_trong_nguon(m.group(0).casefold(), nguon_kh, so_nguon) for m in _RE_GIA_TRI.finditer(chu)):
+    # Cộng phép nguồn của `dien` cho mọi giá trị sau "Nhãn:" — một đoạn mới
+    # "Họ và tên: <tên bịa>" là một lần điền, dù đi đường nào.
+    # ponytail: văn xuôi KHÔNG dạng "Nhãn:" chỉ qua lưới chữ số/email như đường
+    # HTML; một tên bịa giữa câu vẫn lọt — nâng khi đo thấy mô hình làm vậy.
+    if any(
+        not _co_trong_nguon(m.group(0).casefold(), nguon_kh, so_nguon) for m in _RE_GIA_TRI.finditer(chu)
+    ) or _nhan_khong_nguon(chu, nguon_kh, so_nguon):
         return "khong_nguon"
     return {"loai": loai, "don_vi": dv, "noi_dung": chu}
 

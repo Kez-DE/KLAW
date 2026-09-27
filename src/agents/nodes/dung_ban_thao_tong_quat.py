@@ -51,6 +51,15 @@ KHONG_DOI_KHUON = (
     "Lượt này không có thay đổi nào áp được lên biểu mẫu — giá trị cần điền phải có trong lời bạn, "
     "hồ sơ hoặc chính tài liệu. Bạn nói rõ giá trị cần điền, hoặc sửa thẳng ở khung điền bên cạnh."
 )
+# Lượt TẠO trên khuôn gốc mà không phép nào còn lại: không lưu một bản sao trắng
+# của tệp tải lên. Văn bản KHÁC tệp đó là việc của đường checklist (quyết định
+# 2026-09-26 mục 3), nên lời đáp chỉ sang đó.
+KHONG_DIEN_KHUON = (
+    "Lượt này chưa có giá trị nào điền được vào biểu mẫu bạn tải lên, nên tôi chưa tạo bản thảo. "
+    "Tôi điền tại chỗ chính tệp đó, chỉ bằng giá trị có trong lời bạn, hồ sơ hoặc chính tài liệu — "
+    "bạn nói rõ giá trị cần điền. Cần một văn bản khác (ví dụ một lá đơn) thì vào Soạn thảo và "
+    "chọn loại văn bản."
+)
 
 
 def _khoi_thanh_van_ban(khoi: list[dict]) -> str:
@@ -298,12 +307,15 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
             return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": str(e.detail)}
     if khuon:
         # Lượt sửa mang THAY ĐỔI; phiên bản mới là phép đang có gộp với chúng.
-        # Lượt tạo không có gì để gộp — và vẫn dựng bản thảo khi không phép nào
-        # còn lại: biểu mẫu trắng cộng khung điền là điều người hỏi dùng được.
+        # Không đổi gì thì không lưu gì: lượt sửa không lên một phiên bản giống
+        # hệt, lượt tạo không lưu một bản sao trắng (cũng không ghi hàng traces
+        # đếm hạn mức). Bản sao trắng ấy cũng là thứ duy nhất một lời xin văn bản
+        # KHÁC — "dựa vào hợp đồng này soạn đơn xin nghỉ việc" — dựng ra được ở đây.
         cu_phep = ((cu or {}).get("phep_sua") or []) if la_sua else []
         ket = ket_ban_thao_khuon(khuon, ban_thao.gop_phep_sua(cu_phep, khuon["phep_sua"]))
-        if la_sua and ket["phep_sua"] == cu_phep:
-            return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_DOI_KHUON}
+        if ket["phep_sua"] == cu_phep:
+            loi = KHONG_DOI_KHUON if la_sua else KHONG_DIEN_KHUON
+            return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": loi}
     if ket is None:
         return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_SOAN_DUOC}
 

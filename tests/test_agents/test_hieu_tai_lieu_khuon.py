@@ -283,7 +283,7 @@ def test_thay_khong_dien_cho_trong_va_gia_tri_sau_nhan_phai_co_nguon():
 
 
 def test_thay_so_dieu_so_theo_cum_khong_theo_chuoi_con():
-    """"Điều 5" không được lọt chỉ vì đơn vị gốc có "Điều 50" (và "Khoản 1" vì "Khoản 12")."""
+    """Số Điều so theo cụm: "Điều 5" không lọt vì đơn vị gốc có "Điều 50" ("Khoản 1" vì "Khoản 12")."""
     tl = [{**TL_KHUON[0], "don_vi": [*DV_M05, _dv(7, "Thực hiện theo Điều 50 và Khoản 12 của quy chế.")]}]
     ra, _ = _chay(
         [
@@ -502,13 +502,13 @@ def test_luot_tao_khong_gia_tri_nao_thi_khong_luu_ban_sao_trang(bt_gia, monkeypa
 
 
 def test_xin_van_ban_khac_tu_tai_lieu_khuon_goc_chi_duong_checklist(bt_gia):
-    """"Dựa vào hợp đồng này soạn đơn xin nghỉ việc": trên tài liệu có khuôn gốc chỉ
-    có phép sửa (quyết định 2026-09-26 mục 3), mô hình không có gì để điền, nên lượt
+    """Lời xin "dựa vào hợp đồng này soạn đơn xin nghỉ việc": trên tài liệu có khuôn gốc
+    chỉ có phép sửa (quyết định 2026-09-26 mục 3), mô hình không có gì để điền, nên lượt
     nói thật và chỉ sang đường checklist — văn bản khác là ngoại lệ có tên của nó."""
     from src.agents.nodes.route import Intent
 
     g = bt_gia(None)
-    ra, _ = _chay(
+    ra, llm = _chay(
         [],
         cau="dựa vào hợp đồng này soạn giúp tôi đơn xin nghỉ việc",
         muc_dich="hoi",
@@ -516,11 +516,12 @@ def test_xin_van_ban_khac_tu_tai_lieu_khuon_goc_chi_duong_checklist(bt_gia):
         user_sub="u",
         hoi_thoai_id="p",
     )
+    assert "văn bản KHÁC tài liệu tải lên" in llm.prompt, "prompt v2 bảo mô hình không điền tài liệu nguồn"
     assert ra["muc_dich_tai_lieu"] == "tao_van_ban" and ra["khuon_tong_quat"]["phep_sua"] == []
     ra = d.dung_ban_thao_tong_quat(ra)
     assert g.tao_ket is None and ra["ban_thao_ket"] is None
     out = assemble(ra, {}, _No(), "m")
-    assert out["result_type"] is ResultType.soan_thao_hoi and out["ban_thao"] is None
+    assert out["result_type"] is ResultType.soan_thao_hoi and out.get("ban_thao") is None
     assert "chọn loại văn bản" in out["answer"] and "đã điền" not in out["answer"]
 
 

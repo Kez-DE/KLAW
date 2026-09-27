@@ -281,6 +281,17 @@ open risks, and follows the TDD order: failing test first, then code.
   `file://` server file into the render. Every soffice run gets a profile seeded
   with `BlockUntrustedRefererLinks`; the `.doc` importer's blind GET stays open
   and is the owner's call (isolation or drop `.doc`).
+- 2026-09-27 (P4b review): on a document with a khuôn gốc, a chat turn that asks
+  for a different document ("dựa vào hợp đồng này soạn đơn xin nghỉ việc") gets
+  no edit-draft of the upload: decision item 3 leaves "a different document" to
+  the checklist, so a create turn that ends with no valid operation saves nothing,
+  writes no `EP_SOAN_THAO` trace, and points to **Chọn loại văn bản**. Agent
+  default under the owner's standing delegation, open for the owner to reverse
+  (the reverse keeps an empty draft so the fill panel opens before any value is
+  stated). Blanks are filled only by `dien`: `thay` on a unit with a fillable
+  blank is refused (`co_cho_trong`), each `Nhãn: giá trị` value in `thay`/
+  `chen_sau` passes the `dien` provenance check, and Điều/Khoản numbers compare
+  as whole tokens.
 
 ## Validation
 
