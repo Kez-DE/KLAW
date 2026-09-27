@@ -1,27 +1,28 @@
 /**
  * Khuôn gốc ở giao diện (kế hoạch `khuon-goc-dien-tai-cho.md`, P5) — phần
- * THUẦN: cửa vào `khuon` của bản thảo, cửa vào tải trang, nhãn và phần đổi của
- * bảng ô điền, tên tệp tải về, đường dẫn và câu lỗi của khung trang.
+ * THUẦN: cửa vào `khuon` của bản thảo, cửa vào tải trang và chỗ trống của nó,
+ * vị trí pt → trang, thứ tự đọc, nhãn, tên tệp tải về, đường dẫn và câu lỗi.
  *
  * Vì sao đáng kiểm riêng: `khuonHopLe` quyết định giao diện vẽ trang hay A4
- * HTML, và mỗi ô nó bỏ sót là một ô người dùng không điền được; `oDaDoi` quyết
- * định lần lưu gửi ĐÚNG những ô nào — gửi thừa là một phiên bản vô ích tính vào
- * trần sửa, gửi thiếu là chữ người dùng gõ biến mất.
+ * HTML, và mỗi ô nó bỏ sót là một ô người dùng không điền được; `oHopLe` và
+ * `viTriO` quyết định nút điền nằm ĐÚNG trên chỗ trống nào của ảnh trang, và
+ * `oKeTiep` quyết định Tab đi sang chỗ nào.
  *
  * Chạy: `npm run kiem-khuon-goc`.
  */
 import assert from "node:assert/strict";
-import { khuonHopLe, laTrangAnh, type ChoTrongKhuon } from "../src/lib/klaw.ts";
+import { khuonHopLe, laTrangAnh, oHopLe, type ChoTrongKhuon } from "../src/lib/klaw.ts";
 import {
-  boDaGui,
-  chiGiuThayDoi,
   DUONG_DAN_KHUON,
   giaTriHienThi,
   khoaO,
   loiTrang,
+  nhanNutDien,
   nhanO,
-  oDaDoi,
+  oKeTiep,
+  phuDeKhuon,
   tenTepTuContentDisposition,
+  viTriO,
 } from "../src/lib/khuon-goc.ts";
 
 let dat = 0;
@@ -145,64 +146,129 @@ kiem("ảnh không phải base64 trần → từ chối (không gì lạ ghép �
 });
 
 // ─────────────────────────────────────────────── nhãn và giá trị hiển thị
-kiem("nhãn bỏ dấu hai chấm cuối, nhãn rỗng → 'Ô {don_vi}.{so}'", () => {
+kiem("nhãn bỏ dấu hai chấm cuối; nhãn rỗng → 'chỗ trống', không bịa mã 'Ô 3.1'", () => {
   assert.equal(nhanO(o({ nhan: "Họ và tên:" })), "Họ và tên");
   assert.equal(nhanO(o({ nhan: " Ngày :: " })), "Ngày");
-  assert.equal(nhanO(o({ don_vi: 3, so: 1, nhan: "" })), "Ô 3.1");
-  assert.equal(nhanO(o({ don_vi: 3, so: 1, nhan: "  :  " })), "Ô 3.1");
+  assert.equal(nhanO(o({ don_vi: 3, so: 1, nhan: "" })), "chỗ trống");
+  assert.equal(nhanO(o({ don_vi: 3, so: 1, nhan: "  :  " })), "chỗ trống");
 });
 kiem("giá trị hiển thị: ô tab mang dấu cách đầu thì cắt; chưa điền → rỗng", () => {
   assert.equal(giaTriHienThi(o({ kieu: "tab", gia_tri: " Nguyễn Văn A" })), "Nguyễn Văn A");
   assert.equal(giaTriHienThi(o({ gia_tri: null })), "");
   assert.equal(khoaO(o({ don_vi: 12, so: 3 })), "12.3");
 });
-
-// ─────────────────────────────────────────────────────────────── oDaDoi
-const CT = khuonHopLe(KHUON)!.cho_trong;
-kiem("không gõ gì → không gửi gì", () => {
-  assert.deepEqual(oDaDoi(CT, {}), []);
+kiem("nút phủ chỗ trống đọc lên việc, tên chỗ và giá trị đang có", () => {
+  assert.equal(
+    nhanNutDien(o({ nhan: "Họ và tên:", gia_tri: null })),
+    "Điền: Họ và tên — còn trống",
+  );
+  assert.equal(
+    nhanNutDien(o({ nhan: "", gia_tri: " Hà Nội" })),
+    "Điền: chỗ trống — đang là “Hà Nội”",
+  );
 });
-kiem("chỉ ô đổi được gửi, giá trị NGUYÊN chữ người dùng gõ", () => {
-  assert.deepEqual(oDaDoi(CT, { "1.1": "  Hà Nội ", "0.0": "Nguyễn Văn Ánh" }), [
-    { don_vi: 1, cho_trong: 1, gia_tri: "  Hà Nội " },
-  ]);
-});
-kiem("gõ lại đúng giá trị đang có (ô tab không dấu cách đầu) → không đổi", () => {
-  assert.deepEqual(oDaDoi(CT, { "1.0": "a@b.vn" }), []);
-  assert.deepEqual(oDaDoi(CT, { "0.0": " Nguyễn Văn Ánh  " }), []);
-});
-kiem("xoá trắng một ô đã điền gửi '' (gỡ ô); ô chưa điền để trống → không đổi", () => {
-  assert.deepEqual(oDaDoi(CT, { "0.0": "", "1.1": "   " }), [
-    { don_vi: 0, cho_trong: 0, gia_tri: "" },
-  ]);
-});
-kiem("khoá không phải ô của phiên bản này bị bỏ; thứ tự là thứ tự ĐỌC", () => {
-  assert.deepEqual(oDaDoi(CT, { "9.9": "lạ", "1.1": "B", "0.0": "A" }), [
-    { don_vi: 0, cho_trong: 0, gia_tri: "A" },
-    { don_vi: 1, cho_trong: 1, gia_tri: "B" },
-  ]);
+kiem("dòng phụ thẻ khuôn: số trang và số chỗ ĐÃ điền (bỏ null và khoảng trắng)", () => {
+  const k = khuonHopLe(KHUON)!;
+  assert.equal(phuDeKhuon(k), "Biểu mẫu · 2 trang · đã điền 2 chỗ");
+  assert.equal(
+    phuDeKhuon({ so_trang: 1, cho_trong: [o({ gia_tri: "  " }), o({ gia_tri: null })] }),
+    "Biểu mẫu · 1 trang · đã điền 0 chỗ",
+  );
 });
 
-// ──────────────────────────────────────────── chiGiuThayDoi / boDaGui
-kiem("Lùi: ô đã chạm mà KHÔNG đổi so với bản bị bỏ rơi khỏi chữ đang gõ", () => {
-  // "0.0" gõ lại đúng giá trị của bản sắp bị bỏ: giữ lại thì sau khi lùi nó
-  // thành "đổi" và một lần Lưu áp lại chữ của bản đã bỏ.
-  assert.deepEqual(chiGiuThayDoi(CT, { "0.0": "Nguyễn Văn Ánh ", "1.1": " Hà Nội" }), {
-    "1.1": " Hà Nội",
-  });
-  assert.deepEqual(chiGiuThayDoi(CT, { "9.9": "lạ" }), {}, "khoá không phải ô của bản này bị bỏ");
-  assert.deepEqual(chiGiuThayDoi(CT, {}), {});
+// ─────────────────────────────────────────── oHopLe — chỗ trống trên ảnh trang
+const KHO: [number, number][] = [
+  [595, 842],
+  [612, 792],
+];
+const oTho = (p: Record<string, unknown>) => ({
+  don_vi: 0,
+  so: 0,
+  trang: 0,
+  hop: [100, 200, 300, 214],
+  nhan: "Họ và tên",
+  gia_tri: null,
+  ...p,
 });
-kiem("lưu xong: chỉ bỏ ô đã gửi ĐÚNG chữ đó; ô gõ tiếp trong lúc lưu còn nguyên", () => {
-  const gui = [
-    { don_vi: 0, cho_trong: 0, gia_tri: "A" },
-    { don_vi: 1, cho_trong: 1, gia_tri: "B" },
+kiem("payload không mang `o` (máy chủ cũ) → null; mảng rỗng → []", () => {
+  assert.equal(oHopLe(undefined, KHO), null);
+  assert.equal(oHopLe({ a: 1 }, KHO), null);
+  assert.deepEqual(oHopLe([], KHO), []);
+});
+kiem("ô lành đi qua đúng hình dạng, giữ thứ tự đọc, khoá lạ không lọt", () => {
+  const ra = oHopLe(
+    [oTho({ la: 1 }), oTho({ don_vi: 1, trang: 1, hop: [10, 20, 30, 40], gia_tri: " x" })],
+    KHO,
+  );
+  assert.deepEqual(ra, [
+    { don_vi: 0, so: 0, trang: 0, hop: [100, 200, 300, 214], nhan: "Họ và tên", gia_tri: null },
+    { don_vi: 1, so: 0, trang: 1, hop: [10, 20, 30, 40], nhan: "Họ và tên", gia_tri: " x" },
+  ]);
+});
+kiem("ô dị dạng bị BỎ; ô trùng (don_vi, so) giữ ô ĐẦU", () => {
+  const ra = oHopLe(
+    [
+      oTho({ don_vi: -1 }),
+      oTho({ so: "0" }),
+      oTho({ nhan: 3 }),
+      oTho({ gia_tri: 5 }),
+      "lạ",
+      oTho({ don_vi: 2, gia_tri: "đầu" }),
+      oTho({ don_vi: 2, gia_tri: "sau" }),
+    ],
+    KHO,
+  );
+  assert.deepEqual(
+    ra?.map((x) => [x.don_vi, x.gia_tri]),
+    [[2, "đầu"]],
+  );
+});
+kiem("vị trí không tin được → ô vẫn điền được, chỉ 'chưa định vị' (trang/hop null)", () => {
+  const hong = [
+    oTho({ trang: null, hop: null }),
+    oTho({ so: 1, trang: 2 }), // ngoài `kho`
+    oTho({ so: 2, trang: 0.5 }),
+    oTho({ so: 3, hop: [300, 200, 100, 214] }), // hộp ngược
+    oTho({ so: 4, hop: [100, 200, 600, 214] }), // tràn bề rộng trang 0 (595)
+    oTho({ so: 5, hop: [100, 200, 300] }),
+    oTho({ so: 6, hop: [100, 200, 300, Number.NaN] }),
+    oTho({ so: 7, hop: null }),
+    oTho({ so: 8, trang: 1, hop: [-1, 0, 10, 10] }),
   ];
-  assert.deepEqual(boDaGui({ "0.0": "A", "1.1": "B2", "1.0": "x" }, gui), {
-    "1.1": "B2",
-    "1.0": "x",
-  });
-  assert.deepEqual(boDaGui({ "0.0": "A", "1.1": "B" }, gui), {});
+  const ra = oHopLe(hong, KHO)!;
+  assert.equal(ra.length, hong.length, "không ô nào bị bỏ vì vị trí");
+  for (const x of ra) assert.deepEqual([x.trang, x.hop], [null, null], `so ${x.so}`);
+  assert.deepEqual(oHopLe([oTho({ trang: 1, hop: [0, 0, 612, 792] })], KHO)?.[0]?.trang, 1);
+});
+
+// ─────────────────────────────────────── viTriO — pt → vị trí trên ảnh trang
+kiem("pt → phần trăm khổ trang; nhân bề rộng ảnh đang vẽ ra đúng pt × (W / kho[0]) px", () => {
+  const v = viTriO([119, 210.5, 297.5, 227.34], [595, 842]);
+  assert.ok(Math.abs(v.trai - 20) < 1e-9 && Math.abs(v.rong - 30) < 1e-9);
+  assert.ok(Math.abs(v.tren - 25) < 1e-9 && Math.abs(v.cao - 2) < 1e-9);
+  for (const W of [793.33, 400, 1190]) {
+    const tiLe = W / 595;
+    const H = W * (842 / 595); // ảnh giữ đúng tỉ lệ khổ trang
+    const px = (phanTram: number, canh: number) => (phanTram / 100) * canh;
+    assert.ok(Math.abs(px(v.trai, W) - 119 * tiLe) < 1e-6, `left @${W}`);
+    assert.ok(Math.abs(px(v.rong, W) - 178.5 * tiLe) < 1e-6, `width @${W}`);
+    assert.ok(Math.abs(px(v.tren, H) - 210.5 * tiLe) < 1e-6, `top @${W}`);
+    assert.ok(Math.abs(px(v.cao, H) - 16.84 * tiLe) < 1e-6, `height @${W}`);
+    // cqw = 1% bề rộng trang: cỡ chữ = 80% chiều cao hộp, theo cùng tỉ lệ.
+    assert.ok(Math.abs(px(v.coChu, W) - 16.84 * 0.8 * tiLe) < 1e-6, `font @${W}`);
+  }
+});
+
+// ──────────────────────────────────────────── oKeTiep — Tab theo thứ tự đọc
+kiem("Tab/Shift+Tab: chỗ kế/trước theo thứ tự đọc; hai đầu và khoá lạ → null", () => {
+  const ds = [o({ don_vi: 0, so: 0 }), o({ don_vi: 0, so: 1 }), o({ don_vi: 3, so: 0 })];
+  assert.equal(oKeTiep(ds, "0.0", 1), "0.1");
+  assert.equal(oKeTiep(ds, "0.1", 1), "3.0");
+  assert.equal(oKeTiep(ds, "3.0", -1), "0.1");
+  assert.equal(oKeTiep(ds, "3.0", 1), null);
+  assert.equal(oKeTiep(ds, "0.0", -1), null);
+  assert.equal(oKeTiep(ds, "9.9", 1), null);
+  assert.equal(oKeTiep([], "0.0", 1), null);
 });
 
 // ─────────────────────────────────────────── tên tệp từ Content-Disposition

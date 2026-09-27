@@ -10,13 +10,7 @@ import { TayKeo } from "@/components/ui/TayKeo";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { dungLaiBanThao, suaMucBanThao, suaODien, taiAnhNguon, taiXuongBanThao } from "@/lib/api";
 import { docRongDaLuu, kepRong, luuRong, type Bien } from "@/lib/keo-dan";
-import {
-  CAU_MAY_BAN,
-  chiGiuThayDoi,
-  DUONG_DAN_KHUON,
-  giaTriHienThi,
-  type ODienGui,
-} from "@/lib/khuon-goc";
+import { CAU_MAY_BAN, DUONG_DAN_KHUON, type ODienGui } from "@/lib/khuon-goc";
 import {
   khuonHopLe,
   LOAI_TONG_QUAT,
@@ -25,6 +19,7 @@ import {
   nhanMucKiem,
   type BanThao,
   type CauTruc,
+  type OTrang,
   type TruongFact,
 } from "@/lib/klaw";
 import { dongTrenCung, moTam, type Tam } from "@/lib/ngan-xep-drawer";
@@ -37,9 +32,8 @@ import {
   tieuDeTuBanThao,
 } from "@/lib/xuat-tep";
 import { cn } from "@/lib/utils";
-import { BangODien } from "./BangODien";
 import { DrawerSuaMuc } from "./DrawerSuaMuc";
-import { KhungTrangAnh, ThanhThuPhong } from "./KhungTrangAnh";
+import { KhungTrangAnh, NutChuaDinhVi, ThanhThuPhong } from "./KhungTrangAnh";
 import { XemTruocA4 } from "./XemTruocA4";
 
 /**
@@ -157,11 +151,6 @@ interface Props {
    *  rộng không còn chỗ đứng — gấp lại thành `<details>` phía trên xem trước,
    *  và drawer sửa mục bên dưới phủ toàn màn (xem `NganXepDrawer.toanMan`). */
   toanMan: boolean;
-  /** Chữ đang gõ ở bảng ô điền của bản thảo này — nơi gọi giữ nó ở TRÊN sân
-   *  khấu (xem `BangODien`), vì sân khấu bị tháo ra ở tab "Trợ lý" của bố cục
-   *  hẹp, khi vượt ngưỡng 68rem và khi đóng. */
-  nhapODien: Readonly<Record<string, string>>;
-  datNhapODien: (doi: (cu: Readonly<Record<string, string>>) => Record<string, string>) => void;
 }
 
 const KHOA_RONG_MUC = "klaw.san-khau.muc";
@@ -197,8 +186,6 @@ export function SanKhauBanThao({
   onDong,
   onPhimTat,
   toanMan,
-  nhapODien,
-  datNhapODien,
 }: Props) {
   // Phase 15 R3 — sân khấu render lại trên MỌI pixel kéo `TayKeo` (`datRongMuc`
   // đặt state ngay trong component này) và trên mọi token chat đang stream ở
@@ -348,14 +335,28 @@ export function SanKhauBanThao({
   };
 
   // Khuôn gốc (quyết định 2026-09-26): có thì thân sân khấu là ảnh trang máy
-  // chủ dựng và cột trái là bảng ô điền; `null` là bản thảo HTML, giữ nguyên
-  // `XemTruocA4`. Memo cùng lý do `muc`: sân khấu vẽ lại trên mọi token/pixel.
+  // chủ dựng, điền NGAY TRÊN trang (chủ dự án 2026-09-27: không bảng ô điền
+  // bên cạnh); `null` là bản thảo HTML, giữ nguyên `XemTruocA4`. Memo cùng lý
+  // do `muc`: sân khấu vẽ lại trên mọi token/pixel.
   const khuon = useMemo(() => khuonHopLe(banThao.khuon), [banThao.khuon]);
   const tieuDeKhuon = tieuDeTuBanThao(banThao.document) ?? banThao.ten;
+  /** Chỗ trống của trang đang hiện, do `KhungTrangAnh` báo lên — kèm id bản
+   *  thảo, để chỗ trống của bản thảo trước không lọt sang bản vừa mở. */
+  const [oTrang, datOTrang] = useState<{ id: string; o: OTrang[] | null } | null>(null);
+  const baoO = useCallback((o: OTrang[] | null) => datOTrang({ id: banThaoRef.current.id, o }), []);
+  const oCuaBan = oTrang !== null && oTrang.id === banThao.id ? oTrang : null;
+  // Máy chủ cũ không gửi `o`: mọi chỗ của `khuon` thành "chưa định vị" — vẫn
+  // điền được, không ngõ cụt.
+  const chuaDinhVi: OTrang[] =
+    khuon === null || oCuaBan === null
+      ? []
+      : oCuaBan.o === null
+        ? khuon.cho_trong.map((c) => ({ ...c, trang: null, hop: null }))
+        : oCuaBan.o.filter((x) => x.hop === null);
 
-  /** Bảng ô điền → `PATCH …/o-dien`, cùng khuôn `onSuaKhoi`: một toast mỗi
+  /** Lưu ô điền → `PATCH …/o-dien`, cùng khuôn `onSuaKhoi`: một toast mỗi
    *  lượt, gác xuất tệp trong lúc chờ, bỏ phản hồi cũ hơn bản đang hiện. Trả
-   *  câu từ chối để bảng giữ nó cạnh nút Lưu (`null` = đã lưu). */
+   *  câu từ chối để ô nhập giữ nó ngay dưới ô (`null` = đã lưu). */
   const onLuuO = async (doi: ODienGui[]): Promise<string | null> => {
     // Một lượt Lùi (hay lưu khác) còn chưa về: hai lượt ghi phiên bản độc lập
     // thì phản hồi về SAU thắng trên màn hình, không theo thứ tự máy chủ đã ghi.
@@ -386,21 +387,22 @@ export function SanKhauBanThao({
     }
   };
 
+  /** MỘT chỗ trống sửa trên trang (hay trong "Chỗ trống chưa định vị"). */
+  const luuMotO = (o: OTrang, giaTri: string) =>
+    onLuuO([{ don_vi: o.don_vi, cho_trong: o.so, gia_tri: giaTri }]);
+
   /** Lùi đi qua CÙNG cổng `soLuuDangCho` với lưu và tải tệp: một lượt ghi
    *  phiên bản một lúc. Lùi trong lúc một lượt lưu chưa về thì phản hồi nào về
    *  sau thắng, không theo thứ tự máy chủ đã ghi — màn hình có thể đứng ở một
-   *  phiên bản máy chủ đã bỏ; bấm hai lần thì lùi hai bậc. Lùi xong, bảng ô điền
-   *  chỉ giữ ô ĐỔI THẬT so với bản vừa bỏ (`chiGiuThayDoi`). */
+   *  phiên bản máy chủ đã bỏ; bấm hai lần thì lùi hai bậc. */
   const lui = async () => {
     if (soLuuDangCho > 0) {
       toast.error("Đang lưu hay lùi một phiên bản — đợi xong rồi thử lại.");
       return;
     }
-    const khuonBo = khuon;
     datSoLuuDangCho((n) => n + 1);
     try {
-      if ((await onLui()) && khuonBo !== null)
-        datNhapODien((cu) => chiGiuThayDoi(khuonBo.cho_trong, cu));
+      await onLui();
     } finally {
       datSoLuuDangCho((n) => n - 1);
     }
@@ -501,20 +503,6 @@ export function SanKhauBanThao({
     </ol>
   );
 
-  const soODaDien = khuon?.cho_trong.filter((o) => giaTriHienThi(o) !== "").length ?? 0;
-  const cotTrai =
-    khuon !== null ? (
-      <BangODien
-        key={banThao.id}
-        khuon={khuon}
-        nhap={nhapODien}
-        datNhap={datNhapODien}
-        onLuu={onLuuO}
-      />
-    ) : (
-      danhSachMuc
-    );
-
   const xuatTep = async (dinhDang: "docx" | "pdf") => {
     if (khuon !== null) return taiTepKhuon(dinhDang);
     // Fix round 1 (review #5) — một khối vừa blur còn đang chờ máy chủ trả
@@ -586,9 +574,9 @@ export function SanKhauBanThao({
               <button
                 type="button"
                 onClick={() => void lui()}
-                // `aria-disabled`, không `disabled`: cùng lý do nút Lưu của
-                // `BangODien` — nút đang giữ tiêu điểm mà bị `disabled` thì
-                // tiêu điểm rơi về `<body>` ngay giữa lượt lùi. `lui` tự chặn.
+                // `aria-disabled`, không `disabled`: nút đang giữ tiêu điểm mà
+                // bị `disabled` thì tiêu điểm rơi về `<body>` ngay giữa lượt
+                // lùi. `lui` tự chặn.
                 aria-disabled={soLuuDangCho > 0}
                 title={CANH_BAO_LUI}
                 aria-describedby="san-khau-canh-bao-lui"
@@ -663,24 +651,22 @@ export function SanKhauBanThao({
             `<details>` ở bố cục hẹp — và để A4 chiếm trọn; giữ lại cho bản
             thảo theo checklist, nơi "Sửa" vẫn là lối DUY NHẤT vào
             `DrawerSuaMuc` cho tới khi sửa tại chỗ thay được nó. */}
-        {/* Khuôn gốc: cột này LÀ bảng ô điền — lối sửa chính của biểu mẫu tải
-            lên, nên hiện cả khi bản thảo là tổng quát. */}
-        {(!laTongQuat || khuon !== null) &&
+        {/* Khuôn gốc: không cột nào — điền ngay trên trang (chủ dự án
+            2026-09-27: "tình trạng ô này thì ko cần thiết"). */}
+        {!laTongQuat &&
+          khuon === null &&
           (toanMan ? (
             // Tóm tắt là vùng chạm 44px (DESIGN.md, bố cục hẹp); đệm dưới chỉ khi
             // mở, nên lúc gập không cao hơn trước (≈ 12 + dòng chữ + 12).
             <details className="shrink-0 border-b border-border px-3 open:pb-3">
               <summary className="focus-brass min-h-11 cursor-pointer content-center text-[13px] font-medium text-foreground">
-                {khuon !== null
-                  ? `Ô điền · đã điền ${soODaDien}/${khuon.cho_trong.length}`
-                  : "Các mục"}
+                Các mục
               </summary>
               {/* Giới hạn cao + tự cuộn: `<details>` là `shrink-0` và không tổ
-                  tiên nào tới dialog cố định cuộn được, nên 8+ ô đẩy nút Lưu
-                  xuống dưới thanh tab (tiêu điểm vào đó cũng không kéo nó ra —
-                  WCAG 2.4.11) và 6+ ô đẩy khung trang ra khỏi màn. `p-1` chừa
-                  chỗ cho vòng tiêu điểm (2px + offset 2px) khỏi bị cắt. */}
-              <div className="mt-2 max-h-[50dvh] overflow-y-auto p-1">{cotTrai}</div>
+                  tiên nào tới dialog cố định cuộn được, nên danh sách dài đẩy
+                  khung xem trước ra khỏi màn (WCAG 2.4.11). `p-1` chừa chỗ cho
+                  vòng tiêu điểm (2px + offset 2px) khỏi bị cắt. */}
+              <div className="mt-2 max-h-[50dvh] overflow-y-auto p-1">{danhSachMuc}</div>
             </details>
           ) : (
             <>
@@ -688,17 +674,13 @@ export function SanKhauBanThao({
                 id="san-khau-danh-sach-muc"
                 className="w-[var(--rong-muc)] shrink-0 overflow-y-auto border-r border-border p-3"
               >
-                {cotTrai}
+                {danhSachMuc}
               </div>
 
               <TayKeo
                 giaTri={rongMuc}
                 bien={BIEN_MUC}
-                nhan={
-                  khuon !== null
-                    ? "Kéo để đổi bề rộng bảng ô điền"
-                    : "Kéo để đổi bề rộng danh sách mục"
-                }
+                nhan="Kéo để đổi bề rộng danh sách mục"
                 dieuKhienId="san-khau-danh-sach-muc"
                 onDoi={datRongMuc}
               />
@@ -719,17 +701,24 @@ export function SanKhauBanThao({
                 Hiển thị căn cứ
               </label>
             )}
-            <div className="ml-auto flex flex-wrap gap-2">
-              <button type="button" onClick={() => onPhimTat("rut_gon")} className={NUT_PHU}>
-                Rút gọn
-              </button>
-              <button type="button" onClick={() => onPhimTat("trang_trong")} className={NUT_PHU}>
-                Trang trọng hơn
-              </button>
-              <button type="button" onClick={() => onPhimTat("soat_luat")} className={NUT_PHU}>
-                Soát lại theo luật
-              </button>
-            </div>
+            {khuon !== null && chuaDinhVi.length > 0 && (
+              <NutChuaDinhVi ds={chuaDinhVi} onLuu={luuMotO} />
+            )}
+            {/* Ba phím tắt viết lại VĂN BẢN — chỉ bản thảo HTML có văn bản để
+                viết lại; khuôn gốc chỉ điền chỗ trống, không rút gọn được. */}
+            {khuon === null && (
+              <div className="ml-auto flex flex-wrap gap-2">
+                <button type="button" onClick={() => onPhimTat("rut_gon")} className={NUT_PHU}>
+                  Rút gọn
+                </button>
+                <button type="button" onClick={() => onPhimTat("trang_trong")} className={NUT_PHU}>
+                  Trang trọng hơn
+                </button>
+                <button type="button" onClick={() => onPhimTat("soat_luat")} className={NUT_PHU}>
+                  Soát lại theo luật
+                </button>
+              </div>
+            )}
           </div>
           <div
             ref={khungRef}
@@ -737,10 +726,15 @@ export function SanKhauBanThao({
           >
             {khuon !== null ? (
               <KhungTrangAnh
+                // Bản thảo khác = khung mới: trang cũ đứng chờ bản kế chỉ khi
+                // đó là CÙNG bản thảo (xem `KhungTrangAnh`).
+                key={banThao.id}
                 duongDan={DUONG_DAN_KHUON.trangBanThao(banThao.id, banThao.phien_ban)}
                 soTrang={khuon.so_trang}
                 thuPhong={thuPhong}
-                nhan="Các trang của bản đã điền"
+                nhan="Các trang của bản đã điền — bấm vào chỗ trống để điền"
+                onLuuO={luuMotO}
+                onO={baoO}
               />
             ) : (
               <XemTruocA4

@@ -1,5 +1,6 @@
 import { FileText } from "lucide-react";
-import { nhanMucKiem, type TraCuuKetQua } from "@/lib/klaw";
+import { phuDeKhuon } from "@/lib/khuon-goc";
+import { khuonHopLe, nhanMucKiem, type TraCuuKetQua } from "@/lib/klaw";
 import { tieuDeTuBanThao } from "@/lib/xuat-tep";
 
 /** Thẻ bàn giao (theo teardown Claude Artifacts): báo có sản phẩm, KHÔNG phải
@@ -22,6 +23,10 @@ export function TheBanThao({ ketQua, onMo }: { ketQua: TraCuuKetQua; onMo: (id: 
   // không còn lệch với khung xem trước bên cạnh nó. Không có H1 hợp lệ (lỗi
   // đọc, hoặc loại văn bản không dùng khuôn này) thì lùi về `bt.ten` như cũ.
   const tieuDe = tieuDeTuBanThao(bt.document) ?? bt.ten;
+  // Biểu mẫu tải lên (khuôn gốc) không có "dữ kiện" hay "mục" nào để đếm —
+  // `doi_so_voi_truoc` của nó là tên CHỖ TRỐNG, `clauses` rỗng. Nói điều người
+  // dùng nhìn thấy trên trang: mấy trang, đã điền mấy chỗ.
+  const khuon = khuonHopLe(bt.khuon);
   return (
     <section
       aria-label="Bản thảo đã sẵn sàng"
@@ -34,13 +39,20 @@ export function TheBanThao({ ketQua, onMo }: { ketQua: TraCuuKetQua; onMo: (id: 
             {nhan ?? "Bản thảo đã sẵn sàng"} · {tieuDe}
           </p>
           <p className="m-0 mt-0.5 text-[13px] text-muted-foreground">
-            Phiên bản {bt.phien_ban}
-            {/* ĐẾM, không liệt kê: `doi_so_voi_truoc` là khoá field thô
-                (`luong`, `thoi_han_hop_dong`) và nhãn tiếng Việt của chúng chỉ
-                có sau khi `GET /mau/{loai}` về — thẻ này không nạp mẫu. Tên
-                từng dữ kiện đã hiện đúng ở sân khấu, nơi nhãn đã có. */}
-            {bt.doi_so_voi_truoc.length > 0 && ` · đã đổi ${bt.doi_so_voi_truoc.length} dữ kiện`} ·{" "}
-            {bt.clauses.length} mục
+            {khuon !== null ? (
+              phuDeKhuon(khuon)
+            ) : (
+              <>
+                Phiên bản {bt.phien_ban}
+                {/* ĐẾM, không liệt kê: `doi_so_voi_truoc` là khoá field thô
+                    (`luong`, `thoi_han_hop_dong`) và nhãn tiếng Việt của chúng
+                    chỉ có sau khi `GET /mau/{loai}` về — thẻ này không nạp mẫu.
+                    Tên từng dữ kiện đã hiện đúng ở sân khấu, nơi nhãn đã có. */}
+                {bt.doi_so_voi_truoc.length > 0 &&
+                  ` · đã đổi ${bt.doi_so_voi_truoc.length} dữ kiện`}{" "}
+                · {bt.clauses.length} mục
+              </>
+            )}
           </p>
         </div>
         <button
