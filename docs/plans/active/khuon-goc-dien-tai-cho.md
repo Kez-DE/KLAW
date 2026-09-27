@@ -158,8 +158,12 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   `so_trang int CHECK (so_trang BETWEEN 1 AND 10)`, `kho jsonb` (per-page
   `[w_pt, h_pt]`), `tao_luc timestamptz`. Owner reads JOIN `viec_doc_tai_lieu`.
 - `ban_thao` gains `viec_id uuid NULL REFERENCES viec_doc_tai_lieu(id) ON DELETE
-  SET NULL` and `phep_sua jsonb NULL`; version snapshots in `phien_ban_truoc`
-  carry `phep_sua`. Rendered PDFs and PNGs are not stored; they are rebuilt on
+  SET NULL` and `phep_sua jsonb NULL` (migration `037`); version snapshots in
+  `phien_ban_truoc` carry `viec_id` and `phep_sua` (HTML snapshots keep their
+  old shape). A version IS its full op list on its viec: `sua` writes the ket's
+  pair, `lui` restores the snapshot's pair, and every write stores `viec_id`
+  only when that viec still exists and belongs to the draft's owner (else NULL,
+  an HTML version). Rendered PDFs and PNGs are not stored; they are rebuilt on
   demand (ponytail: add a cache table when a measured render is too slow).
 
 ### API (all under `/api/v1`, `nguoi_dung_bat_buoc`, another owner = 404)
@@ -176,12 +180,32 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   `so_lan_thu` (FR-037, 3) paid re-extracts per document, then 429; `tong_quat`
   calls no model and is free. The cost estimate (422) and the daily cost cap run
   before the claim, so a refusal leaves the viec as it was.
-- `GET /ban-thao/{id}/trang?phien_ban=N` — the filled version, same shape.
+- `GET /ban-thao/{id}/trang?phien_ban=N` — the filled version, same shape; the
+  apply and the render are one slot of the same per-account guard (a held slot
+  is 503 `qua_tai` before the applier runs). No `phien_ban` (live
+  version): `private, no-store`; with `phien_ban`: `private, max-age=3600`
+  (version numbers are never reissued). 404: not found/foreign, unknown version,
+  HTML version, khuôn gốc deleted. Render errors map like `/tai-lieu/…/trang`
+  (503 `qua_tai`/`khong_co_cong_cu`, 422 `tep_hong`).
 - `GET /ban-thao/{id}/tai-xuong?dang=docx|pdf&phien_ban=N` — attachment bytes.
+  `dang` required. docx khuôn: `docx` = the filled khuôn gốc, `pdf` = its
+  LibreOffice render; every branch, applier included, holds the same
+  per-account slot; PDF khuôn: `pdf` only, `docx` =
+  422. `Content-Disposition: attachment; filename="<ASCII stem> - da dien.<dang>";
+  filename*=UTF-8''<stem> - đã điền.<dang>` (stem of `ten_tep`, so a `.doc`
+  downloads as `.docx`); `nosniff`, `private, no-store`.
 - `PATCH /ban-thao/{id}/o-dien` `{"phien_ban", "gia_tri": [{"don_vi",
-  "cho_trong", "gia_tri"}]}` — one new version per save, optimistic lock.
-- `BanThaoOut` gains `khuon: {"viec_id", "dinh_dang", "so_trang", "cho_trong":
-  [{"don_vi", "so", "nhan", "gia_tri" | null}]} | null` (default null).
+  "cho_trong", "gia_tri"}]}` (1–500 items, value ≤ 500 chars, `""` clears) →
+  `BanThaoOut`. One new version per save, counted in `TRAN_SUA`, `audit.sua_tay`;
+  a save that changes nothing returns the draft without a version. Every
+  refusal is 422 with a Vietnamese string `detail` (stale `phien_ban`, edit cap,
+  not a khuôn draft, unknown blank, multi-line value, an op the applier skips) —
+  the `PATCH …/muc` convention, not 409. No render.
+- `BanThaoOut` and `BanThaoPhienBanChiTietOut` gain `khuon: {"viec_id",
+  "dinh_dang", "so_trang", "cho_trong": [{"don_vi", "so", "kieu", "nhan",
+  "gia_tri" | null}]} | null` (default null). `cho_trong` lists only blanks the
+  applier can reach (docx: unit has `dia_chi`; PDF: blank has `hop`) and not on
+  a unit the version `thay`/`xoa`-ed.
 - Binary responses: `nosniff`, `Cache-Control: private`. Logs carry ids and
   counts only.
 
@@ -239,6 +263,11 @@ open risks, and follows the TDD order: failing test first, then code.
   nothing in the container may listen on `127.0.0.1:9`. OS-level isolation for
   the converter stays the owner's call.
 - **Rate limit.** 10 requests / 60 s per IP; page images come in one request.
+- **Panel-save dry run.** `PATCH …/o-dien` runs the applier (≤ 1 s, 10-page
+  docx) outside the per-account render slot on purpose: that slot refuses at
+  once, and a save must not 503 while the preview renders. The draft's row lock
+  serializes saves of one draft; one account saving many drafts from many IPs
+  still dry-runs in parallel. Add a waiting per-account slot when measured.
 - **Scanned PDFs.** Tesseract emits no words for long dotted leaders; blanks are
   located by label-relative placement and pixel runs, and the accuracy is measured,
   not promised.
@@ -298,6 +327,14 @@ open risks, and follows the TDD order: failing test first, then code.
   the other the env it honours when the profile sets no proxy. The `.doc` egress
   test is a normal test now. `.doc` stays accepted; network isolation remains an
   optional further layer.
+- 2026-09-27 (P4a): one merge for chat edits and panel saves,
+  `ban_thao.gop_phep_sua(cu, moi)` — `dien` by `(don_vi, cho_trong)` latest
+  wins and `""` clears; `thay`/`xoa` share one key per `don_vi`; `chen_sau`
+  deduplicated in order; changed ops keep their position. `ap_phep_sua`
+  re-deduplicates before every applier call (PDF is first-wins). A panel save
+  dry-runs the applier on the pristine khuôn gốc and refuses when any op lands in
+  `bo_qua`. The reader strips `nhan`, so `chuan_hoa_dien` gives every `tab`
+  value one leading space.
 
 ## Validation
 

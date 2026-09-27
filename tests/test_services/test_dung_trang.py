@@ -269,6 +269,40 @@ def test_MOT_tai_khoan_MOT_luot_dung_mot_luc(monkeypatch):
     assert dung_trang.dung("pdf", b"trong", "a")[1] == [b"png"], "lượt hỏng vẫn nhả chỗ"
 
 
+def test_BO_AP_va_TAI_VE_chay_TRONG_CUNG_mot_luot_voi_dung(monkeypatch):
+    """Bộ áp phép sửa là việc CPU trên khuôn gốc tới 20 MB, bản PDF tải về dựng
+    bằng LibreOffice (một trong ba suất): cả hai chạy TRONG lượt của tài khoản,
+    không trước lượt — nếu không, một tài khoản gọi từ nhiều IP chạy bao nhiêu
+    lượt áp song song cũng được. Mọi nhánh tải về giữ lượt, kể cả khuôn PDF (bộ
+    áp PDF vẫn chạy); lượt hỏng giữa chừng vẫn nhả chỗ."""
+    monkeypatch.setattr(dung_trang, "kho_trang", lambda pdf: [list(_A4)])
+    monkeypatch.setattr(dung_trang, "anh_trang", lambda pdf: [pdf])
+    monkeypatch.setattr(dung_trang, "dung_pdf", lambda docx: b"%PDF-" + docx)
+    thay: list[str] = []
+
+    def _ap(ban: bytes) -> bytes:
+        for ai in ("a", "b"):
+            try:
+                dung_trang.dung("pdf", b"x", ai)
+                thay.append(f"{ai}:dung")
+            except ChuyenDoiKhongSanSang as e:
+                thay.append(f"{ai}:{e.ly_do}")
+        return ban + b"!"
+
+    assert dung_trang.dung("docx", b"d", "a", _ap) == ([list(_A4)], [b"%PDF-d!"])
+    assert dung_trang.tep_tai_ve("docx", b"d", "docx", "a", _ap) == b"d!"
+    assert dung_trang.tep_tai_ve("docx", b"d", "pdf", "a", _ap) == b"%PDF-d!"
+    assert dung_trang.tep_tai_ve("pdf", b"%PDF", "pdf", "a", _ap) == b"%PDF!"
+    assert thay == ["a:qua_tai", "b:dung"] * 4
+
+    def _hong(ban: bytes) -> bytes:
+        raise KhongDocDuoc(LoaiHong.tep_hong, "x")
+
+    with pytest.raises(KhongDocDuoc):
+        dung_trang.tep_tai_ve("docx", b"d", "docx", "a", _hong)
+    assert dung_trang.tep_tai_ve("docx", b"y", "pdf", "a", lambda b: b) == b"%PDF-y", "xong lượt thì nhả chỗ"
+
+
 def test_thieu_pdftoppm_la_loi_HE_THONG(monkeypatch):
     monkeypatch.setattr(dung_trang.shutil, "which", lambda ten: None)
     with pytest.raises(ChuyenDoiKhongSanSang) as e:
