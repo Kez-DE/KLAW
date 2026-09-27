@@ -2719,6 +2719,14 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
       "đổi phiên: sân khấu của cuộc cũ đóng qua `onDongSanKhau`",
     );
   }
+  // Mốc cuộn cuối chat nằm SAU ô soạn (sticky bottom-0): cuộn tới nó là tới đáy
+  // thật, ô soạn về chỗ tĩnh và không đè lên thẻ cuối — nút "Mở bản thảo" của
+  // lượt vừa xong từng nằm dưới ô soạn, một cú bấm vào tâm nút rơi vào ô soạn.
+  assert.ok(
+    NGUON.indexOf("<OSoanCauHoi") > 0 &&
+      NGUON.indexOf("ref={cuoi}") > NGUON.indexOf("<OSoanCauHoi"),
+    "mốc cuộn `cuoi` đứng sau `<OSoanCauHoi`",
+  );
   assert.match(
     than("moSanKhau"),
     /if \(urlTroBanKhac\(banThaoTrenUrl, id\)\) onDongSanKhau\(\);/,

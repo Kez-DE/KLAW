@@ -1406,7 +1406,6 @@ function ManHoiKlaw() {
                 )}
               </div>
             )}
-            <div ref={cuoi} />
           </div>
         )}
       </div>
@@ -1454,6 +1453,10 @@ function ManHoiKlaw() {
           datTepDaDinhKem((truoc) => truoc.filter((t) => t.id !== id));
         }}
       />
+      {/* Mốc cuộn SAU ô soạn (sticky bottom-0): cuộn tới đây là tới đáy thật,
+          ô soạn về chỗ tĩnh của nó. Đặt trước ô soạn thì đáy thẻ cuối — nút
+          "Mở bản thảo" — nằm dưới ô soạn. Màn chào không cuộn. */}
+      {!chuaHoiGiCa && <div ref={cuoi} />}
     </div>
   );
 
