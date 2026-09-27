@@ -98,7 +98,7 @@ export function KhungTrangAnh({ duongDan, soTrang, thuPhong, nhan }: PropsKhung)
         : null,
     [kq],
   );
-  const loi = kq !== null && !kq.ok ? loiTrang(kq.error) : null;
+  const loi = kq !== null && !kq.ok ? loiTrang(kq.error, duongDan) : null;
   const dangTai = kq === null;
   const rong = (w: number) => `${(w * PX_MOI_PT * thuPhong) / 100}px`;
   const thuLai = () => {

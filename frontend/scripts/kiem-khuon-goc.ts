@@ -263,18 +263,28 @@ kiem("đường dẫn tính từ gốc API (không lặp /api/v1), mã hoá id, 
   ])
     assert.ok(!d.startsWith("/api/v1"), d);
 });
-kiem("503 = máy chủ bận, cho thử lại; 404 = phiên bản không hiện được, không thử lại", () => {
-  const ban = loiTrang({
-    kind: "server_error",
-    status: 503,
-    message: "Máy chủ KLAW gặp lỗi khi xử lý.",
-  });
+kiem("503 = máy chủ bận, cho thử lại; 404 = không hiện được, không thử lại", () => {
+  const banThao = DUONG_DAN_KHUON.trangBanThao("b", 2);
+  const banTaiLen = DUONG_DAN_KHUON.trangTaiLieu("v");
+  const ban = loiTrang(
+    { kind: "server_error", status: 503, message: "Máy chủ KLAW gặp lỗi khi xử lý." },
+    banThao,
+  );
   assert.equal(ban.thuLai, true);
   assert.match(ban.cau, /bận/);
-  const mat = loiTrang({ kind: "not_found", status: 404, message: "Không tìm thấy tài liệu" });
+  const mat = loiTrang({ kind: "not_found", status: 404, message: "Không tìm thấy" }, banThao);
   assert.equal(mat.thuLai, false);
-  assert.match(mat.cau, /không hiển thị được/i);
-  const hetGio = loiTrang({ kind: "timeout", message: "Máy chủ KLAW không trả lời." });
+  assert.match(mat.cau, /không hiển thị được phiên bản này/i);
+  // Khung "Bản tải lên" không có phiên bản nào: câu 404 của nó không được nhắc tới phiên bản.
+  const matTaiLen = loiTrang(
+    { kind: "not_found", status: 404, message: "Không tìm thấy" },
+    banTaiLen,
+  );
+  assert.equal(matTaiLen.thuLai, false);
+  assert.match(matTaiLen.cau, /bản tải lên/i);
+  assert.doesNotMatch(matTaiLen.cau, /phiên bản|dựng/i);
+  for (const c of [mat.cau, matTaiLen.cau]) assert.doesNotMatch(c, /bản gốc|tài liệu gốc/i);
+  const hetGio = loiTrang({ kind: "timeout", message: "Máy chủ KLAW không trả lời." }, banTaiLen);
   assert.deepEqual(hetGio, { cau: "Máy chủ KLAW không trả lời.", thuLai: true });
 });
 

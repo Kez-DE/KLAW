@@ -1866,7 +1866,7 @@ assert.equal(
   "lượt lưu ô điền chưa về: Lùi bị khoá",
 );
 const CAU_AP =
-  "Không lưu được: 1 ô không điền được vào tài liệu gốc (“Ô 1.1”) — giá trị quá dài cho ô, hoặc ô không còn khớp tài liệu. Rút gọn hay bỏ trống ô đó rồi lưu lại.";
+  "Không lưu được: 1 ô không điền được vào tài liệu tải lên (“Ô 1.1”) — giá trị quá dài cho ô, hoặc ô không còn khớp tài liệu. Rút gọn hay bỏ trống ô đó rồi lưu lại.";
 await act(async () => {
   traPatchL(traJson({ detail: CAU_AP }, 422));
   await nhip();

@@ -320,7 +320,7 @@ async def sua_muc(id: str, body: SuaMucRequest, nguoi: dict = Depends(nguoi_dung
 # lượt mỗi tài khoản (`dung_trang._mot_luot`) cho cả hai. Log chỉ mang id và số
 # đếm — không một giá trị đã điền nào.
 
-LOI_PDF_KHONG_CO_DOCX = "Tài liệu gốc là PDF nên chỉ tải được bản PDF đã điền."
+LOI_PDF_KHONG_CO_DOCX = "Tài liệu tải lên là PDF nên chỉ tải được bản PDF đã điền."
 _KIEU_TAI_VE = {
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "pdf": "application/pdf",

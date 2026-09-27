@@ -48,8 +48,8 @@ export function BangODien({ khuon, nhap, datNhap, onLuu }: Props) {
   if (khuon.cho_trong.length === 0) {
     return (
       <p className="m-0 text-[13px] leading-5 text-muted-foreground">
-        KLAW không tìm thấy chỗ trống nào điền được trên tài liệu này. Bạn vẫn nhờ trợ lý sửa bằng
-        lời được.
+        KLAW không tìm thấy chỗ trống nào điền được trên tài liệu này. Bạn vẫn có thể nhờ trợ lý sửa
+        bằng lời.
       </p>
     );
   }

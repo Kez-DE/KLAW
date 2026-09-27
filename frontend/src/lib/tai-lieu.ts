@@ -141,7 +141,7 @@ export function coNeo(dk: DuKien): boolean {
 }
 
 const CAU_CANH_BAO_OCR =
-  "Máy đọc chưa chắc chắn ở dòng này. Hãy đối chiếu với bản gốc trước khi dùng.";
+  "Máy đọc chưa chắc chắn ở dòng này. Hãy đối chiếu với tài liệu tải lên trước khi dùng.";
 
 /**
  * Câu cảnh báo cho một mẩu chữ máy đọc từ ảnh, hoặc `null` khi không cần.
