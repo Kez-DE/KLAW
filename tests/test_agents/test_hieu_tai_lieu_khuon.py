@@ -837,9 +837,52 @@ def test_hoi_thoai_xen_ke_ban_thao_khuon_va_HTML_moi_luot_sua_dung_ban_cua_no(ph
 
     moi = {**_VAN_BAN, "muc": [{**_VAN_BAN["muc"][0], "khoi": [{"noi_dung": "Việc riêng.", "bang": []}]}]}
     h2 = _luot("sua_ban_thao", van_ban_tong_quat=moi)
-    assert (h2["id"], h2["phien_ban"], h2["viec_id"]) == (h1["id"], 2, None), "bản khuôn mới hơn không hút lượt sửa HTML"
+    assert (h2["id"], h2["phien_ban"], h2["viec_id"]) == (h1["id"], 2, None), (
+        "bản khuôn mới hơn không hút lượt sửa HTML"
+    )
     k = ban_thao.chi_tiet(sub, k1["id"])
     assert (k["phien_ban"], k["viec_id"], k["phep_sua"]) == (2, vid, k2["phep_sua"])
+
+
+@pytest.mark.integration
+def test_dong_nhe_cho_prompt_luot_sua_thay_gia_tri_dang_dien_sau_khi_gop(phien):
+    """Dòng NHẸ (`ban_thao_tong_quat_dang_mo_nhe`, đọc mỗi lượt hỏi) mang `viec_id`
+    + `phep_sua` của phiên bản đang sống, nên prompt lượt sửa kế tiếp thấy giá trị
+    đã gộp từ HAI lượt: `= «giá trị»` dưới đúng chỗ trống."""
+    from src.services import tai_lieu as tl
+    from src.services.db import get_engine
+
+    sub, ht = phien
+    bao_ve.ghi_nhan_nguoi_dung(sub, None)
+    vid = _viec(sub, ht)
+    tl.luu_khuon_goc(get_engine(), vid, "docx", b"PK\x03\x04", [[595.0, 842.0]])
+    goc = {"user_sub": sub, "hoi_thoai_id": ht}
+    d.dung_ban_thao_tong_quat(
+        {
+            **goc,
+            "muc_dich_tai_lieu": "tao_van_ban",
+            "khuon_tong_quat": {**_khuon([_p(1, 0, "Công ty Mẫu Thử")]), "viec_id": vid},
+        }
+    )
+    d.dung_ban_thao_tong_quat(
+        {
+            **goc,
+            "muc_dich_tai_lieu": "sua_ban_thao",
+            "khuon_tong_quat": {**_khuon([_p(2, 0, "0912345678")]), "viec_id": vid},
+        }
+    )
+
+    nhe = ban_thao.ban_thao_tong_quat_dang_mo_nhe(sub, ht)
+    assert nhe["viec_id"] == vid
+    _, llm = _chay(
+        [_dien(2, 1, "0243999888")],
+        cau="đổi fax thành 0243999888",
+        muc_dich="sua_ban_thao",
+        tai_lieu=[{**TL_KHUON[0], "id": vid, "viec_id": vid}],
+        ban_thao_tong_quat_dang_mo=nhe,
+    )
+    assert "chỗ trống: 0 «Cơ quan/Đơn vị tiếp nhận:» = «Công ty Mẫu Thử»" in llm.prompt
+    assert "chỗ trống: 0 «Điện thoại:» = «0912345678» | 1 «Fax:»" in llm.prompt
 
 
 # ─────────────────────────────────────── tệp thật của chủ dự án (không commit)
