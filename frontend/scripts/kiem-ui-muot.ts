@@ -264,7 +264,7 @@ Object.assign(globalThis, { document, window, IS_REACT_ACT_ENVIRONMENT: true });
 
 // `react-dom` chốt `canUseDOM` NGAY lúc nạp module, nên phải nạp SAU khi đã
 // dựng `window`/`document` giả ở trên — vì thế mới dùng `import()` động.
-const { act, createElement: h } = await import("react");
+const { act, createElement: h, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { runnerImport } = await import("vite");
 
@@ -499,10 +499,12 @@ const propsSanKhau = {
   mucDangChon: null,
   onChonMuc: () => {},
   capNhatBanThao: () => {},
-  onLui: () => {},
+  onLui: async () => false,
   onDong: () => {},
   onPhimTat: () => {},
   toanMan: false,
+  nhapODien: {},
+  datNhapODien: () => {},
 };
 const { root: rootSanKhau } = taoRoot();
 demMucTuBanThao = 0;
@@ -1383,7 +1385,8 @@ type GoiKhuon = { url: string; method: string; body: unknown; headers: Record<st
 const goiKhuon: GoiKhuon[] = [];
 const traJson = (x: unknown, status = 200) =>
   new Response(JSON.stringify(x), { status, headers: { "Content-Type": "application/json" } });
-let traPatch: () => Response = () => traJson({ detail: "chưa đặt" }, 500);
+let traPatch: () => Response | Promise<Response> = () =>
+  traJson({ detail: "chưa đặt" }, 500);
 let moCongBanTaiLen: () => void = () => {};
 const congBanTaiLen = new Promise<void>((r) => {
   moCongBanTaiLen = r;
@@ -1428,6 +1431,16 @@ const laTrangCua = (id: string, pb: number) => (g: GoiKhuon) =>
 const anhTrang = (khung: Nut) => timTatNut(khung, (n) => n.tagName === "IMG");
 const nutChu = (khung: Nut, chu: string) =>
   tim(khung, (n) => n.tagName === "BUTTON" && n.textContent.includes(chu));
+type PropsSanKhau = Parameters<typeof SanKhauBanThao>[0];
+/** Chữ đang gõ của bảng ô điền giữ ở TRÊN sân khấu — đúng chỗ `dung-thu.tsx`
+ *  giữ nó. `hien: false` tháo sân khấu ra (tab "Trợ lý" ở bố cục hẹp, đóng
+ *  sân khấu) như trang thật làm. */
+function VoNhap(p: Omit<PropsSanKhau, "nhapODien" | "datNhapODien"> & { hien?: boolean }) {
+  const [nhap, datNhap] = useState<Record<string, string>>({});
+  return p.hien === false
+    ? null
+    : h(SanKhauBanThao, { ...p, nhapODien: nhap, datNhapODien: datNhap });
+}
 
 // (a) Khuôn DOCX: trang ảnh thay A4, đúng tỉ lệ từng trang, MỘT lượt tải.
 const banThaoKhuon: BanThao = {
@@ -1445,7 +1458,7 @@ const propsKhuon = {
 };
 const { khung: khungKhuon, root: rootKhuon } = taoRoot();
 await act(() => {
-  rootKhuon.render(h(SanKhauBanThao, propsKhuon));
+  rootKhuon.render(h(VoNhap, propsKhuon));
 });
 await choDen(() => anhTrang(khungKhuon).length === 2);
 assert.equal(
@@ -1469,7 +1482,7 @@ assert.equal(soGoi(laTrangCua("bk", 1)), 1, "một lượt tải cho (bk, v1)");
 for (let i = 0; i < 5; i += 1) {
   await act(() => {
     rootKhuon.render(
-      h(SanKhauBanThao, {
+      h(VoNhap, {
         ...propsKhuon,
         mucDangChon: `m${i}`,
         banThao: { ...banThaoKhuon, khuon: { ...KHUON } },
@@ -1481,7 +1494,7 @@ await choDen(() => false);
 assert.equal(soGoi(laTrangCua("bk", 1)), 1, "vẽ lại với CÙNG (id, phiên bản) không tải lại trang");
 const banThaoKhuonV2: BanThao = { ...banThaoKhuon, phien_ban: 2 };
 await act(() => {
-  rootKhuon.render(h(SanKhauBanThao, { ...propsKhuon, banThao: banThaoKhuonV2 }));
+  rootKhuon.render(h(VoNhap, { ...propsKhuon, banThao: banThaoKhuonV2 }));
 });
 await choDen(() => soGoi(laTrangCua("bk", 2)) === 1 && anhTrang(khungKhuon).length === 2);
 assert.equal(
@@ -1577,7 +1590,7 @@ assert.equal(
 // (c) Khuôn PDF: không có Word; tải PDF đọc tên từ Content-Disposition.
 await act(() => {
   rootKhuon.render(
-    h(SanKhauBanThao, {
+    h(VoNhap, {
       ...propsKhuon,
       banThao: { ...banThaoKhuonV2, khuon: { ...KHUON, dinh_dang: "pdf" } },
     }),
@@ -1756,5 +1769,124 @@ await choDen(
 );
 await choDen(() => false);
 assert.equal(nutChu(khungCu, "Bản tải lên"), null, "tài liệu không có khuôn gốc: không có nút");
+
+// (h) Chữ đang gõ ở bảng ô điền sống TRÊN sân khấu (WCAG 3.3.7); Lùi và Lưu là
+// hai lượt ghi phiên bản, không chạy đua nhau; lỗi lưu ở lại cạnh nút Lưu; lùi
+// xong, chữ của bản vừa bỏ không quay lại qua một ô đã chạm mà không đổi.
+const KHUON_V1 = {
+  ...KHUON,
+  cho_trong: KHUON.cho_trong.map((c) => (c.don_vi === 0 ? { ...c, gia_tri: "Trần Thị B" } : c)),
+};
+const btLuiV2: BanThao = { ...banThaoKhuon, id: "bl", phien_ban: 2 };
+let btL: BanThao = btLuiV2;
+let hienL = true;
+let toanManL = false;
+let moCongLui: () => void = () => {};
+const soLui: number[] = [];
+const { khung: khungL, root: rootL } = taoRoot();
+async function luiL() {
+  soLui.push(1);
+  await new Promise<void>((r) => {
+    moCongLui = r;
+  });
+  btL = { ...btLuiV2, phien_ban: 1, khuon: KHUON_V1 };
+  veL();
+  return true;
+}
+function veL() {
+  rootL.render(
+    h(VoNhap, {
+      ...propsSanKhau,
+      banThao: btL,
+      hien: hienL,
+      toanMan: toanManL,
+      onLui: luiL,
+    }),
+  );
+}
+const oL = () => timTatNut(khungL, (n) => n.tagName === "INPUT");
+const giaTriL = () => oL().map((i) => (i as unknown as { value: string }).value);
+const goL = async (i: number, chu: string) => {
+  const o = oL()[i]!;
+  await act(() => {
+    (o as unknown as { value: string }).value = chu;
+    phat(o, "input");
+  });
+};
+const formL = () => tim(khungL, (n) => n.tagName === "FORM")!;
+const nutLuuL = () =>
+  tim(formL(), (n) => n.tagName === "BUTTON" && n.getAttribute("type") === "submit")!;
+const nutLui = () => nutChu(khungL, "Lùi")!;
+await act(() => veL());
+await choDen(() => anhTrang(khungL).length === 2);
+await goL(0, "Nguyễn Văn Ánh "); // chạm, gõ lại đúng giá trị đang có — không đổi
+await goL(2, "Hà Nội");
+assert.match(formL().textContent, /1 thay đổi chưa lưu/);
+hienL = false;
+await act(() => veL());
+assert.equal(oL().length, 0, "sân khấu đã tháo (tab 'Trợ lý', đóng)");
+hienL = true;
+await act(() => veL());
+await choDen(() => oL().length === 3);
+assert.deepEqual(
+  giaTriL(),
+  ["Nguyễn Văn Ánh ", "a@b.vn", "Hà Nội"],
+  "tháo rồi lắp lại sân khấu: chữ đang gõ còn nguyên, không phải gõ lại",
+);
+toanManL = true;
+await act(() => veL());
+assert.deepEqual(giaTriL(), ["Nguyễn Văn Ánh ", "a@b.vn", "Hà Nội"], "đổi bố cục hẹp: chữ còn nguyên");
+// Bố cục hẹp: bảng ô điền có giới hạn cao và tự cuộn — không thì 8+ ô đẩy nút
+// Lưu xuống dưới thanh tab, không cuộn tới được, và khung trang mất hẳn.
+const cuonHep = tim(khungL, (n) => n.tagName === "DETAILS")!.childNodes.find(
+  (n) => n.tagName === "DIV",
+)!;
+assert.ok(
+  /\bmax-h-\[50dvh\]/.test(cuonHep.getAttribute("class") ?? "") &&
+    /\boverflow-y-auto\b/.test(cuonHep.getAttribute("class") ?? ""),
+  "bố cục hẹp: bảng ô điền giới hạn cao và tự cuộn",
+);
+toanManL = false;
+await act(() => veL());
+// Một lượt lưu chưa về khoá Lùi: hai lượt ghi độc lập thì phản hồi về SAU
+// thắng, không theo thứ tự máy chủ đã ghi.
+let traPatchL: (r: Response) => void = () => {};
+traPatch = () =>
+  new Promise<Response>((r) => {
+    traPatchL = r;
+  });
+await act(() => phat(formL(), "submit"));
+await choDen(() => soGoi((g) => g.method === "PATCH" && g.url === "/ban-thao/bl/o-dien") === 1);
+assert.equal(nutLui().getAttribute("disabled"), "", "lượt lưu ô điền chưa về: Lùi bị khoá");
+const CAU_AP =
+  "Không lưu được: 1 ô không điền được vào tài liệu gốc (“Ô 1.1”) — giá trị quá dài cho ô, hoặc ô không còn khớp tài liệu. Rút gọn hay bỏ trống ô đó rồi lưu lại.";
+traPatchL(traJson({ detail: CAU_AP }, 422));
+await choDen(() => nutLui().getAttribute("disabled") === null);
+assert.equal(nutLui().getAttribute("disabled"), null, "lưu đã về: Lùi mở lại");
+const moTaLoi = nutLuuL().getAttribute("aria-describedby");
+assert.equal(
+  moTaLoi === null ? null : tim(khungL, (n) => n.getAttribute("id") === moTaLoi)?.textContent,
+  CAU_AP,
+  "422: câu lỗi đứng lại cạnh nút Lưu (gắn bằng aria-describedby), không chỉ một toast tự tắt",
+);
+assert.deepEqual(giaTriL(), ["Nguyễn Văn Ánh ", "a@b.vn", "Hà Nội"], "422: chữ đang gõ còn nguyên");
+await goL(2, "Hà Nội ");
+assert.equal(nutLuuL().getAttribute("aria-describedby"), null, "gõ tiếp: câu lỗi cũ gỡ đi");
+// Lùi đang chạy: không bấm được lần hai (lùi hai bậc), Lưu không gửi gì.
+await act(() => phat(nutLui(), "click"));
+await choDen(() => soLui.length === 1);
+assert.equal(nutLui().getAttribute("disabled"), "", "Lùi đang chạy: nút Lùi khoá");
+const soPatchTruocLui = soGoi((g) => g.method === "PATCH");
+await act(() => phat(formL(), "submit"));
+await choDen(() => false);
+assert.equal(soGoi((g) => g.method === "PATCH"), soPatchTruocLui, "Lùi đang chạy: Lưu không gửi");
+moCongLui();
+await choDen(() => giaTriL()[0] === "Trần Thị B");
+assert.deepEqual(
+  giaTriL(),
+  ["Trần Thị B", "a@b.vn", "Hà Nội "],
+  "lùi xong: ô đã chạm mà không đổi đọc lại bản lùi về; ô đổi thật giữ chữ đang gõ",
+);
+assert.match(formL().textContent, /1 thay đổi chưa lưu/, "chỉ ô đổi thật còn chờ lưu");
 
 console.log("kiem-ui-muot: 170/170 OK");

@@ -415,7 +415,8 @@ def test_sua_o_dien_tu_choi_ban_thao_HTML_o_la_va_gia_tri_nhieu_dong(nguoi):
 def test_sua_o_dien_TU_CHOI_luu_khi_bo_ap_bo_mot_phep(nguoi):
     """Chỗ trống lệch khỏi dãy chấm thật (khuôn gốc không khớp địa chỉ đã ghim):
     bộ áp bỏ phép `cho_trong_da_doi` — không được lưu một phiên bản mà phép của
-    nó không áp được, và lời từ chối nói số ô."""
+    nó không áp được, và lời từ chối nói số ô và TÊN ô bị bỏ — không thì "rút
+    gọn ô đó" không chỉ ra ô nào giữa các ô vừa sửa (WCAG 3.3.1)."""
     a, _ = nguoi
     phien = hoi_thoai.tao_phien(a, "biểu mẫu")
     lech = [
@@ -425,6 +426,7 @@ def test_sua_o_dien_TU_CHOI_luu_khi_bo_ap_bo_mot_phep(nguoi):
     viec = _viec(a, phien, don_vi_them=lech)
     bt = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec, []))
     ra = ban_thao.sua_o_dien(a, bt["id"], 1, [_o(0, 0, "Ánh"), _o(0, 1, "X")])
-    assert ra == ban_thao.LOI_KHONG_AP_DUOC.format(n=1)
+    assert ra == ban_thao.LOI_KHONG_AP_DUOC.format(n=1, o=" (“Lệch”)")
+    assert "“Lệch”" in ra and "Họ và tên" not in ra, "chỉ ô bộ áp bỏ, không ô đã áp được"
     assert ban_thao.chi_tiet(a, bt["id"])["phien_ban"] == 1
     assert isinstance(ban_thao.sua_o_dien(a, bt["id"], 1, [_o(0, 0, "Ánh")]), dict)

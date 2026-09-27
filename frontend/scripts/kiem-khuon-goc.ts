@@ -13,6 +13,8 @@
 import assert from "node:assert/strict";
 import { khuonHopLe, laTrangAnh, type ChoTrongKhuon } from "../src/lib/klaw.ts";
 import {
+  boDaGui,
+  chiGiuThayDoi,
   DUONG_DAN_KHUON,
   giaTriHienThi,
   khoaO,
@@ -179,6 +181,28 @@ kiem("khoá không phải ô của phiên bản này bị bỏ; thứ tự là t
     { don_vi: 0, cho_trong: 0, gia_tri: "A" },
     { don_vi: 1, cho_trong: 1, gia_tri: "B" },
   ]);
+});
+
+// ──────────────────────────────────────────── chiGiuThayDoi / boDaGui
+kiem("Lùi: ô đã chạm mà KHÔNG đổi so với bản bị bỏ rơi khỏi chữ đang gõ", () => {
+  // "0.0" gõ lại đúng giá trị của bản sắp bị bỏ: giữ lại thì sau khi lùi nó
+  // thành "đổi" và một lần Lưu áp lại chữ của bản đã bỏ.
+  assert.deepEqual(chiGiuThayDoi(CT, { "0.0": "Nguyễn Văn Ánh ", "1.1": " Hà Nội" }), {
+    "1.1": " Hà Nội",
+  });
+  assert.deepEqual(chiGiuThayDoi(CT, { "9.9": "lạ" }), {}, "khoá không phải ô của bản này bị bỏ");
+  assert.deepEqual(chiGiuThayDoi(CT, {}), {});
+});
+kiem("lưu xong: chỉ bỏ ô đã gửi ĐÚNG chữ đó; ô gõ tiếp trong lúc lưu còn nguyên", () => {
+  const gui = [
+    { don_vi: 0, cho_trong: 0, gia_tri: "A" },
+    { don_vi: 1, cho_trong: 1, gia_tri: "B" },
+  ];
+  assert.deepEqual(boDaGui({ "0.0": "A", "1.1": "B2", "1.0": "x" }, gui), {
+    "1.1": "B2",
+    "1.0": "x",
+  });
+  assert.deepEqual(boDaGui({ "0.0": "A", "1.1": "B" }, gui), {});
 });
 
 // ─────────────────────────────────────────── tên tệp từ Content-Disposition
