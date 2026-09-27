@@ -18,12 +18,13 @@ import { taiLen } from "@/lib/tai-lieu-api";
 import { loaiBackendCua } from "@/lib/mau-van-ban";
 import { daTat, ghiNhoDaTat, khoaHetHan } from "@/lib/tat-thong-bao";
 import { SanKhauBanThao } from "@/components/soan-thao/SanKhauBanThao";
+import { SanKhauBanTaiLen } from "@/components/soan-thao/KhungTrangAnh";
 import { TheTaiKhoanKhoa } from "@/components/tai-khoan/TheTaiKhoanKhoa";
 import { TayKeo } from "@/components/ui/TayKeo";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { useTraCuu } from "@/hooks/use-tra-cuu";
-import { goi, layBanThao, luiBanThao, suaHoSoPhien } from "@/lib/api";
+import { goi, layBanThao, luiBanThao, moBanThaoKhuon, suaHoSoPhien } from "@/lib/api";
 import { dinhDangMoc, laBiKhoa, laKhongGioiHan } from "@/lib/han-muc";
 import { layThreadKhach, xoaThreadKhach } from "@/lib/khach";
 import {
@@ -257,7 +258,15 @@ function ManHoiKlaw() {
   // Nhánh `ban_thao` giờ mở SÂN KHẤU thật (bản thảo chiếm toàn `<main>`, trợ
   // lý lùi thành cửa sổ nổi) thay vì mượn tạm khung soạn thảo theo mẫu (Task
   // 21) — đúng như ghi chú "tạm thời cho tới khi giai đoạn 5" ở đó đã báo trước.
-  const [sanKhau, datSanKhau] = useState<{ banThaoId: string } | null>(null);
+  /** Sân khấu đang mở: bản thảo, hoặc "Bản tải lên" (khuôn gốc đúng như tệp,
+   *  chỉ xem). MỘT state cho cả hai nên chúng loại trừ nhau và dùng chung một
+   *  cửa đóng (`onDongSanKhau`), một bố cục (cột phải/dialog hẹp), một Esc. */
+  const [sanKhau, datSanKhau] = useState<
+    | { loai: "ban_thao"; banThaoId: string }
+    | { loai: "ban_tai_len"; viecId: string; tenTep: string; soTrang: number | null }
+    | null
+  >(null);
+  const banThaoIdSanKhau = sanKhau?.loai === "ban_thao" ? sanKhau.banThaoId : null;
   const [banThaoMo, datBanThaoMo] = useState<BanThao | null>(null);
   const [mucDangChonSanKhau, datMucDangChonSanKhau] = useState<string | null>(null);
   /** Tab đang hiện ở bố cục hẹp (Task 26, spec 2026-09-09 §9.7): dưới 68rem
@@ -323,10 +332,10 @@ function ManHoiKlaw() {
    *  mới, mục vừa đổi tô được qua `doi_so_voi_truoc`). So khớp theo id vì lượt
    *  hỏi tiếp theo có thể không nói gì tới bản thảo (một câu hỏi tra cứu khác). */
   useEffect(() => {
-    if (sanKhau === null || traCuu.dangChay) return;
+    if (banThaoIdSanKhau === null || traCuu.dangChay) return;
     const bt = traCuu.ketQua?.ban_thao;
-    if (bt !== null && bt !== undefined && bt.id === sanKhau.banThaoId) datBanThaoMo(bt);
-  }, [sanKhau, traCuu.dangChay, traCuu.ketQua]);
+    if (bt !== null && bt !== undefined && bt.id === banThaoIdSanKhau) datBanThaoMo(bt);
+  }, [banThaoIdSanKhau, traCuu.dangChay, traCuu.ketQua]);
 
   /** Đóng sân khấu — nút X, Esc, bị một khung khác (đối chiếu/soạn thảo) thay
    *  chỗ, HOẶC `layBanThao` thất bại (bản thảo đã xoá/không truy cập được).
@@ -375,14 +384,19 @@ function ManHoiKlaw() {
 
   /** Nhánh `ban_thao` (Task 21 → Task 24): mở sân khấu thật với bản thảo vừa
    *  dựng/sửa xong. `TheBanThao` gọi `onMo(bt.id)`, nên `id` ở đây LÀ
-   *  `ban_thao.id`, không phải id lượt hỏi hay id phiên. */
-  const moSanKhau = (id: string) => {
+   *  `ban_thao.id`, không phải id lượt hỏi hay id phiên. `coSan`: bản thảo
+   *  vừa về từ chính lời gọi mở ("Điền biểu mẫu") — không tải lại lần hai. */
+  const moSanKhau = (id: string, coSan?: BanThao) => {
     datDangMo(null);
     doiChieu.dong();
     datSoanThao(null);
     datMucDangChonSanKhau(null);
     datTabHep("ban_thao");
-    datSanKhau({ banThaoId: id });
+    datSanKhau({ loai: "ban_thao", banThaoId: id });
+    if (coSan !== undefined) {
+      datBanThaoMo(coSan);
+      return;
+    }
     void layBanThao(id).then((kq) => {
       if (kq.ok) datBanThaoMo(kq.data);
       else {
@@ -394,6 +408,32 @@ function ManHoiKlaw() {
         onDongSanKhau();
       }
     });
+  };
+
+  /** "Bản tải lên": khuôn gốc đúng như tệp, trên sân khấu. Đóng sân khấu đang
+   *  mở qua ĐÚNG cửa đóng (gỡ `?ban_thao=`), rồi mở chế độ này — cùng lượt vẽ,
+   *  nên sân khấu không chớp đóng/mở. */
+  const moBanTaiLen = (tl: { id: string; ten_tep: string; so_trang: number | null }) => {
+    datDangMo(null);
+    doiChieu.dong();
+    datSoanThao(null);
+    onDongSanKhau();
+    datTabHep("ban_thao");
+    datSanKhau({ loai: "ban_tai_len", viecId: tl.id, tenTep: tl.ten_tep, soTrang: tl.so_trang });
+  };
+
+  /** "Điền biểu mẫu": bản thảo trên khuôn gốc (mới nhất, hoặc phiên bản 1 rỗng
+   *  máy chủ vừa tạo — 0 lượt mô hình, không tính hạn mức) lên sân khấu, bảng ô
+   *  điền sẵn sàng kể cả khi KLAW chưa điền ô nào. */
+  const dienBieuMau = async (viecId: string) => {
+    const idToast = toast.loading("Đang mở bảng ô điền…");
+    const kq = await moBanThaoKhuon(viecId);
+    if (!kq.ok) {
+      toast.error(kq.error.message, { id: idToast, duration: 6000 });
+      return;
+    }
+    toast.success("Đã mở bảng ô điền.", { id: idToast, duration: 3000 });
+    moSanKhau(kq.data.id, kq.data);
   };
 
   /** `?ban_thao=`: danh sách "Bản thảo" ở vỏ trang mở sân khấu qua URL — lối
@@ -433,10 +473,6 @@ function ManHoiKlaw() {
    *  không biết vì sao. */
   const [daTatHetHan, datDaTatHetHan] = useState(false);
   const [dangDocTep, datDangDocTep] = useState(false);
-  /** Tệp GỐC theo id việc đọc — chỉ để rút lại theo mẫu trong khung tài liệu.
-   *  Ref chứ không state: nó không vẽ ra gì, và giữ nó trong state làm mọi lượt
-   *  đính kèm dựng lại cả màn hỏi. */
-  const tepGocTheoId = useRef(new Map<string, File>());
   /** Phiên do chính lần ĐÍNH KÈM này mở ra, trong khoảng `?phien=` chưa kịp đổi. */
   const phienVuaTao = useRef<string | null>(null);
   /** Tài liệu đã đọc xong và sẽ đi kèm câu hỏi SẮP gửi — tối đa `TOI_DA_DINH_KEM`.
@@ -487,7 +523,6 @@ function ManHoiKlaw() {
     datTepCuaLuot([]);
     datTepDaLuu({});
     phienVuaTao.current = null;
-    tepGocTheoId.current.clear();
     datDonViDangMo(null);
     datMoTaiLieu(false);
     if (phienId !== undefined && daDangNhap) taiChiTiet(phienId);
@@ -684,7 +719,6 @@ function ManHoiKlaw() {
       toast.error(kq.error.message, { id: idToast, duration: 4000 });
       return;
     }
-    tepGocTheoId.current.set(kq.data.id, tep);
     ghiNhoDinhKem({ id: kq.data.id, ten_tep: kq.data.ten_tep || tep.name });
     toast.success("Đã đính kèm. Hỏi gì về tài liệu này cũng được.", {
       id: idToast,
@@ -703,10 +737,6 @@ function ManHoiKlaw() {
   };
 
   /**
-   * Ổn định qua `useCallback`: `TaiLieuDuKien` giữ nó trong `useCallback` của
-   * chính nó, và một tham chiếu mới mỗi lần dựng lại sẽ khiến khung đó tải
-   * LẠI cùng một tệp.
-   *
    * Quá trần thì đẩy tờ CŨ NHẤT ra, không từ chối tờ mới: người dùng vừa bỏ
    * công tải lên một tệp, và câu trả lời đúng cho "tôi vừa đưa tờ thứ ba" là
    * giữ hai tờ gần nhất chứ không phải vứt việc họ vừa làm. Nói ra bằng toast
@@ -719,11 +749,6 @@ function ManHoiKlaw() {
     const conLai = dsDinhKem.current.filter((t) => t.id !== tep.id);
     const day = conLai.length >= TOI_DA_DINH_KEM;
     const giu = day ? conLai.slice(conLai.length - TOI_DA_DINH_KEM + 1) : conLai;
-    // Tờ bị đẩy ra cũng rời `tepGocTheoId`: không còn con chip nào trỏ tới nó
-    // thì cũng không còn đường rút lại theo mẫu, và giữ `File` lại là giữ rác
-    // cho tới hết phiên.
-    for (const bo of conLai.slice(0, conLai.length - giu.length))
-      tepGocTheoId.current.delete(bo.id);
     datTepDaDinhKem([...giu, tep]);
     if (day) toast.info(`Mỗi lượt gửi được tối đa ${TOI_DA_DINH_KEM} tài liệu`);
   }, []);
@@ -855,20 +880,42 @@ function ManHoiKlaw() {
   // chỉ một trong hai còn trong DOM tại một thời điểm.
   const khungSanKhau = useRef<HTMLDivElement | null>(null);
   const dangMoSanKhau = sanKhau !== null;
+  /** Nội dung sân khấu ĐÃ vẽ được: bản thảo đã tải, hoặc bản tải lên. Đổi khoá
+   *  (mở, tải xong, chuyển từ "Bản tải lên" sang bản thảo vừa mở) là lúc đưa
+   *  tiêu điểm vào tiêu đề — không phải lúc mở khi chỉ có "Đang mở bản thảo…". */
+  const noiDungSanKhau =
+    sanKhau === null
+      ? null
+      : sanKhau.loai === "ban_tai_len"
+        ? `ban_tai_len:${sanKhau.viecId}`
+        : banThaoMo !== null && banThaoMo.id === sanKhau.banThaoId
+          ? `ban_thao:${sanKhau.banThaoId}`
+          : null;
   // Nhại effect focus/mở của khung soạn thảo (~783-802) — TÁCH khỏi effect Esc
-  // ngay dưới (không gộp theo `onDongSanKhau`): việc dò control đầu khung và
-  // ghi lại nơi mở chỉ nên chạy MỘT lần lúc mở, không phải mỗi khi
-  // `onDongSanKhau` đổi tham chiếu (nó đọc `banThaoTrenUrl`/`phienId`).
+  // ngay dưới (không gộp theo `onDongSanKhau`): nơi mở chỉ ghi MỘT lần lúc mở
+  // (đổi chế độ khi đang mở vẫn trả tiêu điểm về đúng nút đã mở sân khấu),
+  // không phải mỗi khi `onDongSanKhau` đổi tham chiếu.
+  const noiMoSanKhau = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (!dangMoSanKhau) return;
-    const noiMo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    khungSanKhau.current
-      ?.querySelector<HTMLElement>("button, [href], input, textarea, select")
-      ?.focus();
+    noiMoSanKhau.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     return () => {
+      const noiMo = noiMoSanKhau.current;
       if (noiMo !== null && noiMo.isConnected) noiMo.focus();
     };
   }, [dangMoSanKhau]);
+  // Tiêu điểm vào TIÊU ĐỀ sân khấu (`data-tieu-de-san-khau`, `tabIndex=-1`):
+  // trình đọc màn hình đọc tên thứ vừa mở, Tab đi tiếp vào thanh công cụ. Không
+  // giật tiêu điểm khi tab hẹp đang là "Trợ lý" (sân khấu không có trong DOM).
+  useEffect(() => {
+    if (noiDungSanKhau === null || (!haiCot && tabHep !== "ban_thao")) return;
+    const khung = khungSanKhau.current;
+    (
+      khung?.querySelector<HTMLElement>("[data-tieu-de-san-khau]") ??
+      khung?.querySelector<HTMLElement>("button, [href], input, textarea, select")
+    )?.focus();
+  }, [noiDungSanKhau, haiCot, tabHep]);
   // Esc đóng sân khấu — cùng khuôn `KhungDoiChieu.tsx:132-138`, cộng chốt
   // input/textarea/select của khung soạn thảo: sửa dữ kiện một mục
   // (`DrawerSuaMuc`) cũng là gõ trong ô, Esc ở đó phải thoát dropdown/bỏ gõ chứ
@@ -950,11 +997,48 @@ function ManHoiKlaw() {
    *  còn đang chạy (chuyển thẳng từ bản thảo A sang bản thảo B). Dùng chung ở
    *  CẢ hai bố cục (rộng/hẹp, Task 26) — tính một lần, không hai bản chép tay. */
   const banThaoDangTaiXong =
-    sanKhau !== null && banThaoMo !== null && banThaoMo.id === sanKhau.banThaoId ? banThaoMo : null;
+    banThaoIdSanKhau !== null && banThaoMo !== null && banThaoMo.id === banThaoIdSanKhau
+      ? banThaoMo
+      : null;
   /** Sân khấu chiếm `<main>` chỉ khi CÓ bản thảo đang mở VÀ đủ rộng — dưới
    *  68rem có nhánh riêng (Task 26, tab "Bản thảo | Trợ lý" toàn màn). */
   const dangSanKhau = sanKhau !== null && haiCot;
-  const banThaoSanKhau = dangSanKhau ? banThaoDangTaiXong : null;
+  const nhanSanKhau = sanKhau?.loai === "ban_tai_len" ? "Bản tải lên" : "Bản thảo";
+  /** Nội dung sân khấu — MỘT chỗ cho cả hai bố cục (cột phải / tab hẹp). Đang
+   *  tải ĐÚNG bản thảo đang mở, hoặc đang chuyển sang bản khác: trạng thái chờ
+   *  thay vì thoáng hiện nội dung của bản trước. */
+  const veSanKhau = (toanMan: boolean) =>
+    sanKhau?.loai === "ban_tai_len" ? (
+      <SanKhauBanTaiLen
+        viecId={sanKhau.viecId}
+        tenTep={sanKhau.tenTep}
+        soTrang={sanKhau.soTrang}
+        onDong={onDongSanKhau}
+        onDienBieuMau={() => void dienBieuMau(sanKhau.viecId)}
+      />
+    ) : banThaoDangTaiXong !== null ? (
+      <SanKhauBanThao
+        banThao={banThaoDangTaiXong}
+        cauTruc={cauTrucSanKhau}
+        truongMau={truongMauSanKhau}
+        dangTai={dangTaiKhungSanKhau}
+        loiKhung={loiKhungSanKhau}
+        onTaiLaiKhung={() => datLanTaiKhungSanKhau((n) => n + 1)}
+        mucDangChon={mucDangChonSanKhau}
+        onChonMuc={datMucDangChonSanKhau}
+        capNhatBanThao={datBanThaoMo}
+        onLui={onLuiSanKhau}
+        onDong={onDongSanKhau}
+        onPhimTat={onPhimTatSanKhau}
+        toanMan={toanMan}
+      />
+    ) : (
+      <div className="flex h-full items-center justify-center">
+        <p className="m-0 text-[14px] text-muted-foreground" role="status">
+          Đang mở bản thảo…
+        </p>
+      </div>
+    );
 
   // Cột chat (dòng hội thoại + ô hỏi) — MỘT cây JSX dùng ở NHIỀU chỗ tuỳ bố
   // cục: bình thường nó đứng một mình; khi sân khấu mở ở bố cục rộng nó là
@@ -1218,12 +1302,8 @@ function ManHoiKlaw() {
           <TaiLieuDuKien
             hoiThoaiId={phienId ?? traCuu.hoiThoaiId}
             loai={loaiDangSoan}
-            tepGoc={
-              donViDangMo === null
-                ? null
-                : (tepGocTheoId.current.get(donViDangMo.taiLieuId) ?? null)
-            }
-            onDaDinhKem={ghiNhoDinhKem}
+            onMoBanTaiLen={moBanTaiLen}
+            onDienBieuMau={(id) => void dienBieuMau(id)}
             onChip={dienGoiY}
             donViDangMo={donViDangMo}
             onDong={() => {
@@ -1246,7 +1326,6 @@ function ManHoiKlaw() {
         tepDaDinhKem={tepDaDinhKem}
         onMoDinhKem={moTaiLieuDinhKem}
         onBoDinhKem={(id) => {
-          tepGocTheoId.current.delete(id);
           datTepDaDinhKem((truoc) => truoc.filter((t) => t.id !== id));
         }}
       />
@@ -1263,35 +1342,13 @@ function ManHoiKlaw() {
           <div
             role="dialog"
             aria-modal
-            aria-label="Bản thảo"
+            aria-label={nhanSanKhau}
             ref={khungSanKhau}
             className="fixed inset-0 z-50 flex flex-col bg-background"
           >
             <div className="min-h-0 flex-1">
               {tabHep === "ban_thao" ? (
-                banThaoDangTaiXong !== null ? (
-                  <SanKhauBanThao
-                    banThao={banThaoDangTaiXong}
-                    cauTruc={cauTrucSanKhau}
-                    truongMau={truongMauSanKhau}
-                    dangTai={dangTaiKhungSanKhau}
-                    loiKhung={loiKhungSanKhau}
-                    onTaiLaiKhung={() => datLanTaiKhungSanKhau((n) => n + 1)}
-                    mucDangChon={mucDangChonSanKhau}
-                    onChonMuc={datMucDangChonSanKhau}
-                    capNhatBanThao={datBanThaoMo}
-                    onLui={onLuiSanKhau}
-                    onDong={onDongSanKhau}
-                    onPhimTat={onPhimTatSanKhau}
-                    toanMan
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <p className="m-0 text-[14px] text-muted-foreground" role="status">
-                      Đang mở bản thảo…
-                    </p>
-                  </div>
-                )
+                veSanKhau(true)
               ) : (
                 <div className="h-full overflow-y-auto">{noiDungChat}</div>
               )}
@@ -1304,7 +1361,7 @@ function ManHoiKlaw() {
             <div className="flex shrink-0 border-t border-border bg-background">
               {(
                 [
-                  ["ban_thao", "Bản thảo"],
+                  ["ban_thao", nhanSanKhau],
                   ["tro_ly", "Trợ lý"],
                 ] as const
               ).map(([id, nhan]) => (
@@ -1351,36 +1408,11 @@ function ManHoiKlaw() {
               id="san-khau-ban-thao"
               ref={khungSanKhau}
               role="region"
-              aria-label="Bản thảo"
+              aria-label={nhanSanKhau}
               className="min-h-0 shrink-0 border-l border-border"
               style={{ width: kepRong(rongSanKhau, bienSanKhau) }}
             >
-              {/* Đang tải ĐÚNG bản thảo đang mở, hoặc đang chuyển sang một bản
-                  thảo khác: hiện trạng thái chờ đơn giản thay vì thoáng hiện
-                  nội dung của bản thảo trước. */}
-              {banThaoSanKhau !== null ? (
-                <SanKhauBanThao
-                  banThao={banThaoSanKhau}
-                  cauTruc={cauTrucSanKhau}
-                  truongMau={truongMauSanKhau}
-                  dangTai={dangTaiKhungSanKhau}
-                  loiKhung={loiKhungSanKhau}
-                  onTaiLaiKhung={() => datLanTaiKhungSanKhau((n) => n + 1)}
-                  mucDangChon={mucDangChonSanKhau}
-                  onChonMuc={datMucDangChonSanKhau}
-                  capNhatBanThao={datBanThaoMo}
-                  onLui={onLuiSanKhau}
-                  onDong={onDongSanKhau}
-                  onPhimTat={onPhimTatSanKhau}
-                  toanMan={false}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <p className="m-0 text-[14px] text-muted-foreground" role="status">
-                    Đang mở bản thảo…
-                  </p>
-                </div>
-              )}
+              {veSanKhau(false)}
             </div>
           </>
         ) : (

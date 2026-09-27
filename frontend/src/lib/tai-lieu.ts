@@ -92,6 +92,10 @@ export interface TaiLieu {
   /** Dòng trong tài liệu đã dẫn tới kết luận. */
   loai_can_cu: string | null;
   du_kien: DuKien[];
+  /** Tệp được giữ làm khuôn gốc (quyết định 2026-09-26): "Bản tải lên" vẽ
+   *  được nó đúng như tệp, và "Điền biểu mẫu" điền được tại chỗ. Vắng ở máy chủ
+   *  cũ; `false` với ảnh và tài liệu tải lên trước đó. */
+  co_khuon_goc?: boolean;
 }
 
 /** Định dạng backend đọc được. Ảnh và bản scan đi qua OCR. */

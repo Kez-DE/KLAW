@@ -1322,6 +1322,14 @@ const { KhungTrangAnh, SanKhauBanTaiLen } = await nap<
 >("src/components/soan-thao/KhungTrangAnh.tsx");
 const { taiXuongBanThao } = await nap<typeof import("../src/lib/api.ts")>("src/lib/api.ts");
 
+// Mỗi `nap` là một đồ thị module riêng, nên mỗi đồ thị dựng client Supabase
+// của nó ở lượt gọi đầu cần header danh tính, và GoTrue cảnh báo "Multiple
+// GoTrueClient instances". Ứng dụng thật chỉ có một đồ thị: lọc ĐÚNG câu đó.
+const canhBaoThat = console.warn.bind(console);
+console.warn = (...a: unknown[]) => {
+  if (!String(a[0]).includes("Multiple GoTrueClient instances")) canhBaoThat(...a);
+};
+
 // `<select>` của React đọc `node.options`; khung giả không có — thêm đúng một
 // getter, không phép kiểm cũ nào dùng `<select>`.
 Object.defineProperty(Nut.prototype, "options", {
@@ -1505,7 +1513,7 @@ assert.deepEqual(
 const form = () => tim(khungKhuon, (n) => n.tagName === "FORM")!;
 const nutLuu = () =>
   tim(form(), (n) => n.tagName === "BUTTON" && n.getAttribute("type") === "submit")!;
-assert.ok(nutLuu().hasAttribute("disabled"), "chưa đổi gì thì 'Lưu' bị khoá");
+assert.equal(nutLuu().getAttribute("aria-disabled"), "true", "chưa đổi gì thì 'Lưu' bị khoá");
 assert.match(form().textContent, /Đã điền 2\/3/, "đếm ô đã điền");
 const go = async (i: number, chu: string) => {
   const o = oNhap()[i]!;
@@ -1516,7 +1524,7 @@ const go = async (i: number, chu: string) => {
 };
 await go(1, " a@b.vn "); // gõ lại đúng giá trị cũ — không phải một thay đổi
 await go(2, "Hà Nội");
-assert.ok(!nutLuu().hasAttribute("disabled"), "có ô đổi thì 'Lưu' bấm được");
+assert.equal(nutLuu().getAttribute("aria-disabled"), "false", "có ô đổi thì 'Lưu' bấm được");
 traPatch = () =>
   traJson(
     {
@@ -1525,7 +1533,10 @@ traPatch = () =>
     422,
   );
 await act(() => phat(form(), "submit"));
-await choDen(() => soGoi((g) => g.method === "PATCH") === 1 && !nutLuu().hasAttribute("disabled"));
+await choDen(
+  () =>
+    soGoi((g) => g.method === "PATCH") === 1 && nutLuu().getAttribute("aria-disabled") === "false",
+);
 assert.deepEqual(
   goiKhuon.filter((g) => g.method === "PATCH").map((g) => [g.url, g.body]),
   [
@@ -1555,6 +1566,13 @@ assert.equal(
   "lưu lại được: đúng một PATCH nữa",
 );
 assert.equal(capNhatKhuon[0]?.phien_ban, 3, "lưu xong → bản thảo phiên bản mới lên sân khấu");
+await act(() => phat(form(), "submit"));
+await choDen(() => false);
+assert.equal(
+  soGoi((g) => g.method === "PATCH"),
+  2,
+  "lưu xong, chưa đổi gì nữa: 'Lưu' không gửi gì",
+);
 
 // (c) Khuôn PDF: không có Word; tải PDF đọc tên từ Content-Disposition.
 await act(() => {
@@ -1739,4 +1757,4 @@ await choDen(
 await choDen(() => false);
 assert.equal(nutChu(khungCu, "Bản tải lên"), null, "tài liệu không có khuôn gốc: không có nút");
 
-console.log("kiem-ui-muot: 128/128 OK");
+console.log("kiem-ui-muot: 170/170 OK");

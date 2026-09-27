@@ -1555,7 +1555,7 @@ export function tenTepAnToan(ten: string) {
   return `${slug || "van-ban"}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
 }
 
-function taiBlob(blob: Blob, tenTep: string) {
+export function taiBlob(blob: Blob, tenTep: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

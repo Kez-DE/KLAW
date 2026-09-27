@@ -2,7 +2,8 @@
  * Gọi API `/tai-lieu` (spec 2026-09-15). Kiểu dữ liệu và quy tắc trình bày
  * nằm ở `tai-lieu.ts`, vốn không nhập gì để kiểm được bằng `node` trần.
  */
-import { apiGoc, goi, tieuDeXacThuc } from "./api";
+import { apiGoc, goi, HAN_GIO_TRA_CUU, tieuDeXacThuc } from "./api";
+import { DUONG_DAN_KHUON } from "./khuon-goc";
 import type { ApiError, ApiErrorKind, ApiResult } from "./klaw";
 import {
   DUONG_DAN,
@@ -74,6 +75,21 @@ export async function taiLen(
     };
   }
   return { ok: true, data: than };
+}
+
+/**
+ * Rút lại theo loại văn bản trên CHÍNH việc đọc đã lưu — không tải lên lại,
+ * không mở việc mới, không trừ hạn mức ngày. Chạy được với mọi tài liệu có
+ * đơn vị văn bản đã lưu (kể cả ảnh, tài liệu cũ). 409 khi chưa đọc xong, 429
+ * sau 3 lượt có trả phí, 422 cho loại lạ — mỗi mã kèm câu tiếng Việt. Lượt rút
+ * gọi mô hình ngay trong request, nên hạn giờ là của đường nặng.
+ */
+export function docLai(viecId: string, loai: string) {
+  return goi<TaiLieu>(DUONG_DAN_KHUON.docLai(viecId), laTaiLieu, {
+    method: "POST",
+    body: { loai },
+    hanGioMs: HAN_GIO_TRA_CUU,
+  });
 }
 
 export function chiTiet(viecId: string, signal?: AbortSignal) {
