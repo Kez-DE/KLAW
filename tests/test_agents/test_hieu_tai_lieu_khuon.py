@@ -209,6 +209,22 @@ def test_prompt_luot_sua_mang_gia_tri_dang_dien_trong_dau():
     assert "Cơ quan/Đơn vị tiếp nhận: ⟦0=«Công ty Mẫu Thử»⟧" in llm.prompt
 
 
+THAY_SO = {"loai": "thay", "don_vi": 3, "doan": 2, "noi_dung": "Số 12/2026"}
+
+
+def test_prompt_luot_sua_doan_da_thay_hien_chu_moi_khong_con_dau():
+    """Đoạn (hay cả đơn vị) mà bản thảo đang mở đã `thay` không còn dãy chấm nào:
+    prompt hiện chữ HIỆN TẠI, không dấu — một dấu ở đó mời mô hình `dien` vào chỗ
+    `gop_phep_sua` sẽ gỡ."""
+    thay_cq = {"loai": "thay", "don_vi": 6, "noi_dung": "Cơ quan/Đơn vị tiếp nhận: Công ty TNHH Luật Việt"}
+    dang_mo = {**DANG_MO, "phep_sua": [THAY_SO, thay_cq]}
+    _, llm = _chay([], muc_dich="sua_ban_thao", tai_lieu=_tl(O_TIEU_DE, CO_QUAN), ban_thao_tong_quat_dang_mo=dang_mo)
+    phan = llm.prompt.split("## Tài liệu A")[1].split("# Quy tắc")[0]
+    assert "[A-3] (tr. 1, bảng 1 hàng 2 cột 1) ¶0 TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN ¶2 Số 12/2026\n" in phan
+    assert "[A-6] (tr. 1) Cơ quan/Đơn vị tiếp nhận: Công ty TNHH Luật Việt" in phan
+    assert "⟦" not in phan and "chỗ trống:" not in phan
+
+
 @pytest.mark.parametrize(
     "hong",
     [
@@ -233,6 +249,8 @@ def test_prompt_noi_quy_uoc_dau_va_thay_cum_viet_hoa_giu_cho():
     _, llm = _chay([])
     assert "⟦n⟧" in llm.prompt and "¶n" in llm.prompt
     assert "TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN" in llm.prompt and "`doan`" in llm.prompt
+    # Cùng luật với phép kiểm: chữ `thay` thêm phải có nguồn; `doan` chỉ cho `thay`.
+    assert "đừng tự viết lại câu bằng lời của bạn" in llm.prompt and "luôn để `doan` = `null`" in llm.prompt
 
 
 def test_tai_lieu_khong_khuon_goc_giu_nguyen_duong_html():
@@ -332,6 +350,8 @@ def test_thay_giu_so_dieu_co_san_trong_don_vi_goc_va_chuan_hoa_xuong_dong():
             _doan("thay", 7, "Thực hiện theo Điều 5 của quy chế.\r\nKhông áp dụng ngoại lệ."),
             _doan("chen_sau", 5, "Mã số sinh viên 20260099."),
         ],
+        # Chữ `thay` thêm phải có nguồn như mọi `thay`: người hỏi nói câu đó.
+        cau="thêm vào đoạn đó: không áp dụng ngoại lệ",
         tai_lieu=tl,
     )
     k = ra["khuon_tong_quat"]
@@ -434,6 +454,51 @@ def test_thay_theo_doan_tren_don_vi_khong_co_doan_chu_chi_nhan_doan_0():
     k = ra["khuon_tong_quat"]
     assert k["phep_sua"] == [{"loai": "thay", "don_vi": 7, "doan": 0, "noi_dung": "CÔNG TY MẪU THỬ"}]
     assert [b["ly_do"] for b in k["bo_qua"]] == ["khong_co_doan"]
+
+
+def test_moi_thay_qua_phep_nguon_cua_chu_them_du_doan_null():
+    """`thay` cả đơn vị (`doan` null) trên đơn vị một đoạn ghi ĐÚNG những byte của
+    `doan` 0, và một ô nhiều đoạn không chỗ trống cũng có thể là cụm giữ chỗ: chỉ
+    một trường null không được quyết định tên bịa có lên biểu mẫu không. Mọi
+    `thay` qua cùng phép nguồn của chữ nó thêm; bớt chữ thì không có gì để kiểm."""
+    chu_quan = _dv(7, "TÊN CHỦ QUẢN CỦA CƠ QUAN/ĐƠN VỊ TIẾP NHẬN (nếu có)")
+    ghi_chu = DonViVanBan(
+        chi_so=8,
+        trang=1,
+        offset_dau=0,
+        noi_dung="Ghi chú",
+        dia_chi=DiaChi("word/document.xml", (9,)),
+        doan_chu=("", "Ghi chú", ""),
+    )
+    ra, _ = _chay(
+        [
+            _doan("thay", 7, "BỘ GIÁO DỤC VÀ ĐÀO TẠO"),
+            _doan("thay", 7, "BỘ GIÁO DỤC VÀ ĐÀO TẠO", doan=0),
+            _doan("thay", 8, "BỘ GIÁO DỤC VÀ ĐÀO TẠO"),
+            _doan("thay", 7, "CÔNG TY MẪU THỬ"),
+            _doan("thay", 7, "TÊN CHỦ QUẢN CỦA CƠ QUAN"),
+        ],
+        tai_lieu=[{**TL_KHUON[0], "don_vi": [*DV_M05, chu_quan, ghi_chu]}],
+    )
+    k = ra["khuon_tong_quat"]
+    assert k["phep_sua"] == [
+        {"loai": "thay", "don_vi": 7, "noi_dung": "CÔNG TY MẪU THỬ"},
+        {"loai": "thay", "don_vi": 7, "noi_dung": "TÊN CHỦ QUẢN CỦA CƠ QUAN"},
+    ]
+    assert [(b["don_vi"], b["ly_do"]) for b in k["bo_qua"]] == [(7, "khong_nguon")] * 2 + [(8, "khong_nguon")]
+
+
+def test_xoa_va_chen_sau_khong_nhan_doan():
+    """`doan` chỉ có nghĩa với `thay`. Một `xoa` mang `doan` 2 mà bị nới ra cả đơn vị
+    là xoá cả ô tiêu đề thư — tên cơ quan kèm theo — khi người hỏi chỉ xin bỏ dòng
+    "Số …/…"; `chen_sau` mang `doan` cũng vậy. Không đoán: bỏ."""
+    ra, _ = _chay(
+        [_doan("xoa", 3, doan=2), _doan("chen_sau", 3, "Công ty Mẫu Thử", doan=0), _doan("xoa", 3)],
+        tai_lieu=_tl(O_TIEU_DE, CO_QUAN),
+    )
+    k = ra["khuon_tong_quat"]
+    assert k["phep_sua"] == [{"loai": "xoa", "don_vi": 3}]
+    assert [b["ly_do"] for b in k["bo_qua"]] == ["sai_hinh_dang", "sai_hinh_dang"]
 
 
 def test_pdf_khong_nhan_thay_theo_doan():
@@ -708,6 +773,27 @@ def test_luot_sua_moi_thay_doi_deu_bi_bo_thi_noi_loai_loi_khong_noi_gia_tri(bt_g
     assert loi.count("giá trị không có trong lời bạn nói") == 1 and "không hợp với nhãn" in loi
     assert "sai chỗ hoặc sai dạng" in loi and "bấm vào chỗ trống trên trang" in loi
     assert "0243999888" not in loi and "«" not in loi
+
+
+def test_luot_sua_dien_vao_doan_da_thay_khong_bi_nuot_am_tham(bt_gia):
+    """Dòng "Số …/…" đã bị `thay` ở phiên bản trước; lượt này mô hình `dien` 3.0/3.1 —
+    `gop_phep_sua` gỡ chúng (đoạn đó không còn dãy chấm). Không được đáp "đã có
+    sẵn" như thể người hỏi không xin gì: nói lý do. Có phép khác áp được thì phiên
+    bản mới vẫn lên, và phép bị gỡ vào `bo_qua` (ghi chú của `assemble`)."""
+    cho = h.cho_trong_khuon(_tl(O_TIEU_DE, CO_QUAN)[0])
+    g = bt_gia(_cu([THAY_SO]))
+    st = {"user_sub": "u", "hoi_thoai_id": "p", "muc_dich_tai_lieu": "sua_ban_thao"}
+    ra = d.dung_ban_thao_tong_quat({**st, "khuon_tong_quat": _khuon([_p(3, 0, "13"), _p(3, 1, "2026")], cho)})
+    assert g.sua_ket is None and ra["ban_thao_ket"] is None
+    loi = ra["ban_thao_tong_quat_loi"]
+    assert loi.startswith("Lượt này tôi chưa áp được thay đổi nào bạn xin (") and "viết lại" in loi
+    assert "13" not in loi and "«" not in loi
+    ra = d.dung_ban_thao_tong_quat(
+        {**st, "khuon_tong_quat": _khuon([_p(3, 0, "13"), _p(6, 0, "Công ty Mẫu Thử")], cho)}
+    )
+    assert g.sua_ket["phep_sua"] == [THAY_SO, _p(6, 0, "Công ty Mẫu Thử")]
+    assert ra["khuon_tong_quat"]["bo_qua"] == [{"don_vi": 3, "cho_trong": 0, "ly_do": "da_viet_lai"}]
+    assert ra["ban_thao_ket"]["phien_ban"] == 2
 
 
 def test_ban_thao_dang_mo_tren_khuon_khac_thi_mo_ban_moi(bt_gia):
@@ -1467,10 +1553,17 @@ def test_bm_m05_that_dau_ra_sai_owner_thay_ten_co_quan_vao_so_bi_bo_khong_khop_n
 
 @pytest.mark.skipif(not BM_M05.exists(), reason="biểu mẫu thật của chủ dự án không có trên máy này")
 def test_bm_m05_that_thay_cum_giu_cho_bang_ten_bia_bi_bo():
+    """Cả phép thử của reviewer: đơn vị 1 ("TÊN CHỦ QUẢN…", MỘT `w:p`, không chỗ
+    trống) — `doan` null hay 0 ghi cùng byte, nên cùng bị bỏ."""
     _, _, tl = _m05()
-    ra, _ = _chay([_doan("thay", 3, "CÔNG TY TNHH BỊA ĐẶT", doan=0)], cau=CAU_OWNER, tai_lieu=tl)
+    bia = "BỘ GIÁO DỤC VÀ ĐÀO TẠO"
+    ra, _ = _chay(
+        [_doan("thay", 3, "CÔNG TY TNHH BỊA ĐẶT", doan=0), _doan("thay", 1, bia), _doan("thay", 1, bia, doan=0)],
+        cau=CAU_OWNER,
+        tai_lieu=tl,
+    )
     assert ra["khuon_tong_quat"]["phep_sua"] == []
-    assert [b["ly_do"] for b in ra["khuon_tong_quat"]["bo_qua"]] == ["khong_nguon"]
+    assert [b["ly_do"] for b in ra["khuon_tong_quat"]["bo_qua"]] == ["khong_nguon"] * 3
 
 
 def test_traces_dem_luot_yeu_cau_van_ban_khac_va_so_phep_bi_bo_theo():

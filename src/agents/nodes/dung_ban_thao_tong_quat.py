@@ -61,6 +61,7 @@ _LY_DO_BO = {
     "khong_khop_nhan": "giá trị không hợp với nhãn của chỗ trống",
     "dieu_luat": "thêm số Điều, Khoản chưa được kiểm pháp lý",
     "vung_trong": "giá trị chỉ là dãy chấm",
+    "da_viet_lai": "chỗ trống đó thuộc dòng đã được viết lại hay đã xoá ở phiên bản trước",
 }
 _LY_DO_KHAC = "chỗ cần sửa không có trên tệp, sai chỗ hoặc sai dạng"
 
@@ -338,7 +339,18 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
         cu_phep = ((cu or {}).get("phep_sua") or []) if la_sua else []
         # `thay` theo đoạn chỉ gỡ ô của chính đoạn đó: `cho_trong` của lượt mang `doan`.
         doan = {(c["don_vi"], c["so"]): c["doan"] for c in khuon.get("cho_trong") or [] if "doan" in c}
-        ket = ket_ban_thao_khuon(khuon, ban_thao.gop_phep_sua(cu_phep, khuon["phep_sua"], doan))
+        gop = ban_thao.gop_phep_sua(cu_phep, khuon["phep_sua"], doan)
+        # `dien` vào đơn vị/đoạn đã bị `thay`/`xoa` bị gộp gỡ đi: đó là một giá trị
+        # người hỏi vừa nói, nên nó vào `bo_qua` (mã, không giá trị) chứ không mất lặng.
+        con = {(p["don_vi"], p["cho_trong"]) for p in gop if p["loai"] == "dien"}
+        if nuot := [
+            {"don_vi": p["don_vi"], "cho_trong": p["cho_trong"], "ly_do": "da_viet_lai"}
+            for p in khuon["phep_sua"]
+            if p["loai"] == "dien" and p["gia_tri"].strip() and (p["don_vi"], p["cho_trong"]) not in con
+        ]:
+            khuon = {**khuon, "bo_qua": [*(khuon.get("bo_qua") or []), *nuot]}
+            state = {**state, "khuon_tong_quat": khuon}
+        ket = ket_ban_thao_khuon(khuon, gop)
         if la_sua and ket["phep_sua"] == cu_phep:
             if khuon.get("bo_qua"):
                 return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": khong_doi_khuon(khuon)}

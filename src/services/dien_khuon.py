@@ -38,7 +38,7 @@ from typing import Any
 from lxml import etree
 
 from src.services.doc_tai_lieu import _NS, KhongDocDuoc, LoaiHong, _kiem_zip, _la_cham, _moc_tab
-from src.services.tai_lieu import _cho_trong_tu_hang, _dia_chi_tu_hang, _so_tu_nhien
+from src.services.tai_lieu import _cho_trong_tu_hang, _dia_chi_tu_hang, _doan_chu_tu_hang, _so_tu_nhien
 
 _W = f"{{{_NS['w']}}}"
 _MC = "{http://schemas.openxmlformats.org/markup-compatibility/2006}"
@@ -320,11 +320,15 @@ class _Khuon:
     def _chuan_bi_doan(self, i: int, chi_so: int, vat: Any, phan: str, phep: dict) -> _Phep | LyDoBoQua:
         """`thay` MỘT đoạn: đoạn thứ `doan` của `vat.iter(w:p)` THÔ (cùng thứ tự
         `ChoTrong.doan`). Từ chối đoạn trong/chứa hộp chữ, trường hay chú thích,
-        và chữ nằm trong một hình — thứ sẽ mất mà mô hình không thấy."""
+        và chữ nằm trong một hình — thứ sẽ mất mà mô hình không thấy.
+
+        Số đoạn đã lưu (`doan_chu`; không có = một đoạn) phải bằng số `w:p` của
+        vật chứa: dòng lưu TRƯỚC `doan_chu` có ô nhiều đoạn mà phép kiểm coi là
+        một đoạn, và `w:p` thô số 0 của ô ấy có thể là một đoạn rỗng."""
         if vat not in self.ds:
             self.ds[vat] = list(vat.iter(_P))
-        so = phep["doan"]
-        if so >= len(self.ds[vat]):
+        so, luu = phep["doan"], len(_doan_chu_tu_hang(self.hang[chi_so].get("doan_chu"))) or 1
+        if so >= len(self.ds[vat]) or luu != len(self.ds[vat]):
             return LyDoBoQua.khong_co_dia_chi
         p = self.ds[vat][so]
         if (

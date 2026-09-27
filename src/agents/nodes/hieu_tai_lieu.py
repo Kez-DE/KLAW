@@ -2578,14 +2578,27 @@ def schema_khuon(nhan: list[str], nhan_khuon: list[str], loai: list[str]) -> dic
     return s
 
 
+def _phep_dang_mo(bt: dict | None, viec_id: str, loai: str) -> list[dict]:
+    """Phép `loai` của bản thảo đang mở, khi nó nằm trên đúng khuôn gốc này."""
+    if not bt or str(bt.get("viec_id") or "") != viec_id:
+        return []
+    return [p for p in bt.get("phep_sua") or [] if isinstance(p, dict) and p.get("loai") == loai]
+
+
 def _dang_dien(bt: dict | None, viec_id: str) -> dict[tuple[int, int], str]:
     """Giá trị ĐANG điền của bản thảo đang mở, khi nó nằm trên đúng khuôn gốc này."""
-    if not bt or str(bt.get("viec_id") or "") != viec_id:
-        return {}
     return {
-        (p.get("don_vi"), p.get("cho_trong")): str(p.get("gia_tri") or "")
-        for p in bt.get("phep_sua") or []
-        if isinstance(p, dict) and p.get("loai") == "dien"
+        (p.get("don_vi"), p.get("cho_trong")): str(p.get("gia_tri") or "") for p in _phep_dang_mo(bt, viec_id, "dien")
+    }
+
+
+def _dang_thay(bt: dict | None, viec_id: str) -> dict[tuple[int, int | None], str]:
+    """Chữ HIỆN TẠI của đoạn (`doan`) hay cả đơn vị (`None`) mà bản thảo đang mở đã
+    `thay`: prompt hiện chữ đó thay cho chữ gốc, không còn dấu chỗ trống nào — một
+    dấu ở đó mời `dien` vào chỗ mà `gop_phep_sua` sẽ gỡ."""
+    return {
+        (p.get("don_vi"), p.get("doan")): " ".join(str(p.get("noi_dung") or "").split())
+        for p in _phep_dang_mo(bt, viec_id, "thay")
     }
 
 
@@ -2684,6 +2697,10 @@ def _mot_phep(
         return "khong_co_don_vi"
     if not _dia_duoc(d, dinh_dang):
         return "khong_co_dia_chi"
+    # `doan` chỉ có nghĩa với `thay`: `xoa`/`chen_sau` mang nó mà nới ra cả đơn vị
+    # là xoá cả ô tiêu đề thư khi người hỏi chỉ xin bỏ dòng "Số …/…".
+    if loai in ("xoa", "chen_sau") and p.get("doan") is not None:
+        return "sai_hinh_dang"
     if loai == "xoa":
         return {"loai": "xoa", "don_vi": dv}
     if loai == "dien":
@@ -2725,8 +2742,9 @@ def _mot_phep(
     # phải có. Đơn vị không mang `doan_chu` là một đoạn — trừ khi nó có chỗ trống:
     # khi đó đó là dòng lưu TRƯỚC `doan_chu`, số đoạn không biết, nên bỏ.
     # ponytail: ô bảng NHIỀU đoạn không chỗ trống của dòng cũ cũng không mang
-    # `doan_chu` và bị coi là một đoạn (`doan` 0 = đoạn đầu); đọc lại tệp (`doc-lai`)
-    # là đủ — thêm dấu phiên bản bộ đọc khi đo thấy dòng cũ còn dùng.
+    # `doan_chu` và ở đây bị coi là một đoạn; bộ áp đếm `w:p` thật và bỏ phép
+    # (`khong_co_dia_chi`), không ghi sai đoạn. Đọc lại tệp (`doc-lai`) là đủ —
+    # thêm dấu phiên bản bộ đọc khi đo thấy dòng cũ còn dùng.
     doan = p.get("doan") if loai == "thay" else None
     goc = d.noi_dung
     if doan is not None:
@@ -2754,12 +2772,14 @@ def _mot_phep(
         not _co_trong_nguon(m.group(0).casefold(), nguon_kh, so_nguon) for m in _RE_GIA_TRI.finditer(chu)
     ) or _nhan_khong_nguon(chu, nguon_kh, so_nguon):
         return "khong_nguon"
-    # Thay cho lời từ chối `co_cho_trong` cũ: `thay` một đoạn, hay cả một đơn vị có
-    # chỗ trống, là một lần ĐIỀN (cụm giữ chỗ "TÊN CƠ QUAN…", dòng có dãy chấm), nên
-    # mọi chữ nó thêm so với chữ cũ của đoạn đó qua phép nguồn của `dien`.
-    if loai == "thay" and (doan is not None or _cho_dien_duoc(d, dinh_dang)):
-        if _them_khong_nguon(chu, goc, nguon_kh, so_nguon):
-            return "khong_nguon"
+    # Thay cho lời từ chối `co_cho_trong` cũ: MỌI `thay` qua phép nguồn của `dien`
+    # cho chữ nó thêm so với chữ cũ của đoạn (hay đơn vị) đó. Cụm giữ chỗ ("TÊN CHỦ
+    # QUẢN…") có thể là đơn vị một đoạn không chỗ trống — nơi `doan` null ghi đúng
+    # byte của `doan` 0 — hay ô nhiều đoạn: một trường null không được quyết định
+    # tên bịa có lên biểu mẫu không. Đổi lại, câu mô hình tự viết lại bằng chữ
+    # không ai nói bị bỏ (khuôn gốc: "Bạn KHÔNG viết lại văn bản").
+    if loai == "thay" and _them_khong_nguon(chu, goc, nguon_kh, so_nguon):
+        return "khong_nguon"
     return {"loai": loai, "don_vi": dv, **({"doan": doan} if doan is not None else {}), "noi_dung": chu}
 
 
@@ -2797,11 +2817,14 @@ def kiem_phep_sua(phep: object, t: dict, nguon: str, cam: list[str]) -> tuple[li
     return giu, bo
 
 
-def _dong_tai_cho(d: DonViVanBan, cho: list[ChoTrong], hien: dict[tuple[int, int], str]) -> str | None:
+def _dong_tai_cho(
+    d: DonViVanBan, cho: list[ChoTrong], hien: dict[tuple[int, int], str], thay: dict[tuple[int, int | None], str]
+) -> str | None:
     """Chữ của đơn vị với mỗi chỗ trống điền được đặt TẠI CHỖ của nó — `⟦so⟧`, hay
     `⟦so=«giá trị»⟧` khi bản thảo đang điền — và, đơn vị nhiều đoạn, mỗi đoạn mở
     bằng `¶doan` (chỉ số thô, đoạn rỗng vẫn được đếm). Dãy chấm của chỗ trống
-    nhường chỗ cho dấu; `tab` thì dấu đứng ngay sau nhãn.
+    nhường chỗ cho dấu; `tab` thì dấu đứng ngay sau nhãn. Đoạn bản thảo đang mở đã
+    `thay` hiện chữ mới (`_dang_thay`; `cho` đã bỏ chỗ trống của nó).
 
     `None` khi vị trí KHÔNG chứng minh được — không `doan_chu` (dòng cũ, PDF), chữ
     các đoạn ghép lại khác `noi_dung`, hay một chỗ trống không còn đúng là dãy chấm
@@ -2818,6 +2841,7 @@ def _dong_tai_cho(d: DonViVanBan, cho: list[ChoTrong], hien: dict[tuple[int, int
         theo_doan.setdefault(c.doan, []).append(c)
     phan = []
     for j, s in enumerate(doan):
+        s = thay.get((d.chi_so, j), s)
         ra, truoc = [], 0
         # Cùng thứ tự đọc của bộ đọc: `tab` đứng trước dãy chấm bắt đầu cùng chỗ.
         for c in sorted(theo_doan.get(j, []), key=lambda c: (c.dau, c.kieu == "cham")):
@@ -2848,9 +2872,15 @@ def _khoi_tai_lieu(goi: list[dict], ban_thao_dang_mo: dict | None = None) -> str
             + (f" (khuôn gốc {t['dinh_dang']}, {t.get('so_trang') or '?'} trang)" if khuon else "")
         )
         hien = _dang_dien(ban_thao_dang_mo, t["id"]) if khuon else {}
+        thay = _dang_thay(ban_thao_dang_mo, t["id"]) if khuon else {}
         for d in t["gui"]:
-            cho = _cho_dien_duoc(d, t["dinh_dang"]) if khuon else []
-            if khuon and (tai_cho := _dong_tai_cho(d, cho, hien)) is not None:
+            # Cả đơn vị đã viết lại — đơn vị không `doan_chu` là một đoạn, `doan` 0 là nó.
+            moi = thay.get((d.chi_so, None), None if d.doan_chu else thay.get((d.chi_so, 0)))
+            if moi is not None:
+                dong.append(f"[{t['nhan']}-{d.chi_so}] ({_vi_tri(d)}) {moi}")
+                continue
+            cho = [c for c in _cho_dien_duoc(d, t["dinh_dang"]) if (d.chi_so, c.doan) not in thay] if khuon else []
+            if khuon and (tai_cho := _dong_tai_cho(d, cho, hien, thay)) is not None:
                 dong.append(f"[{t['nhan']}-{d.chi_so}] ({_vi_tri(d)}) {tai_cho}")
                 continue
             dong.append(f"[{t['nhan']}-{d.chi_so}] ({_vi_tri(d)}) {d.noi_dung}")

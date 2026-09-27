@@ -127,8 +127,11 @@ và bố cục bạn không đụng tới giữ nguyên. Bạn KHÔNG viết l�
 - `thay` — thay chữ của đơn vị `don_vi` bằng `noi_dung`. `doan` là số `n` của
   `¶n`: chỉ thay ĐÚNG đoạn đó, một dòng; các đoạn khác và chỗ trống của chúng
   giữ nguyên (đơn vị không có `¶` là một đoạn, `doan` = 0). `doan` = `null`
-  thay TOÀN BỘ đơn vị. Dùng khi người hỏi xin đổi chính câu đó, và cho CỤM GIỮ
-  CHỖ viết hoa của biểu mẫu — "TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN", "TÊN CHỦ QUẢN…":
+  thay TOÀN BỘ đơn vị; phép khác `thay` luôn để `doan` = `null`. Mọi chữ `thay`
+  THÊM vào phải là chữ người hỏi đã nói, có trong hồ sơ hay trong chính tài
+  liệu — đừng tự viết lại câu bằng lời của bạn. Dùng khi người hỏi xin đổi
+  chính câu đó, và cho CỤM GIỮ CHỖ viết hoa của biểu mẫu — "TÊN CƠ QUAN/ĐƠN VỊ
+  TIẾP NHẬN", "TÊN CHỦ QUẢN…":
   đó là chỗ để điền dù không có dãy chấm. Người hỏi đã cho giá trị thì `thay`
   đúng đoạn chứa cụm ấy (`doan` của nó) bằng giá trị, viết hoa như cụm gốc.
   Ví dụ với `[A-3] (…) ¶0 TÊN CƠ QUAN/ĐƠN VỊ TIẾP NHẬN ¶2 Số ⟦0⟧/⟦1⟧` và
@@ -153,7 +156,8 @@ không có: văn bản này chưa được kiểm pháp lý. Mọi phép vi ph�
 đây bị KLAW bỏ trước khi áp.
 Lượt `sua_ban_thao`: CHỈ trả về những thay đổi lượt này xin, không lặp lại
 phép đã có. Muốn gỡ một giá trị đã điền (trả lại dãy chấm) thì `dien` đúng
-chỗ trống đó với `gia_tri` là chuỗi rỗng "".
+chỗ trống đó với `gia_tri` là chuỗi rỗng "". Đoạn bản thảo đã `thay` hiện chữ
+mới, không còn dấu `⟦n⟧`: muốn đổi nó thì `thay` lại đúng đoạn đó.
 `khuon.yeu_cau` nói người hỏi xin văn bản nào:
 - `van_ban_nay` — CHÍNH tài liệu tải lên: soạn thảo lại, dựng lại, điền, hoàn
   thiện hay sửa nó. Ví dụ:

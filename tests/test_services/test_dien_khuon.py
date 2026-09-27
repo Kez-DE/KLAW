@@ -395,6 +395,22 @@ def test_thay_THEO_DOAN_hong_bi_bo_dung_ly_do(than, phep, ly_do):
     assert bc == {"da_ap": [], "bo_qua": [{"phep": 0, "ly_do": ly_do}]} and ra == vao
 
 
+def test_thay_THEO_DOAN_dong_luu_TRUOC_doan_chu_o_nhieu_doan_bi_tu_choi():
+    """Dòng lưu trước `doan_chu` (như bản BM.M05 owner đã tải lên): phép kiểm coi
+    ô nhiều đoạn không chỗ trống là một đoạn. Bộ áp không đoán `w:p` thô số 0 là
+    đoạn ấy — ô "Ghi chú" mở bằng một đoạn rỗng — mà bỏ phép. Đơn vị một đoạn
+    (không bao giờ mang `doan_chu`) vẫn thay được đoạn 0."""
+    vao = _docx(_o(_p(), _p(_r("Ghi chú", _B)), _p()))
+    hang = _hang(vao)
+    cu = [{k: v for k, v in x.items() if k != "doan_chu"} for x in hang]
+    ra, bc = ap_dung_docx(vao, cu, [_thay(0, "GHI CHÚ", doan=0)])
+    assert bc == {"da_ap": [], "bo_qua": [{"phep": 0, "ly_do": "khong_co_dia_chi"}]} and ra == vao
+    assert ap_dung_docx(vao, hang, [_thay(0, "GHI CHÚ", doan=1)])[1]["da_ap"] == [0]
+    mot = _docx(_p(_r("TÊN CHỦ QUẢN", _B)))
+    assert "doan_chu" not in _hang(mot)[0]
+    assert ap_dung_docx(mot, _hang(mot), [_thay(0, "BỘ X", doan=0)])[1]["da_ap"] == [0]
+
+
 def test_thay_THEO_DOAN_xung_dot_theo_doan_khong_theo_ca_don_vi():
     than = _o(_p(_r("A: ……")), _p(_r("B: ……")))
     phep = [
