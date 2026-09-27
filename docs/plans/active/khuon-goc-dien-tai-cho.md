@@ -22,8 +22,10 @@ Observable in the real app once complete:
    file with the blanks filled: everything KLAW did not touch keeps its position,
    font, borders and page breaks. Blanks KLAW had no value for keep their dots and
    are listed in the chat answer.
-4. The fill-field panel beside the pages edits any blank; saving re-renders the
-   pages as a new version on the existing version bar, and **Lùi** walks back.
+4. Any blank is filled on the page itself: clicking it opens it for typing, and
+   Enter, Tab or leaving it saves that blank as a new version on the existing
+   version bar (fill saves do not count toward the edit cap); the pages re-render
+   after the last save, and **Lùi** walks back.
 5. Downloads: the filled `.docx` (opens in Microsoft Word without a repair
    prompt) plus a PDF for docx/`.doc` inputs; the filled PDF for PDF inputs.
 6. The whole document (≤10 pages) reaches the model; nothing is trimmed silently.
@@ -398,6 +400,12 @@ open risks, and follows the TDD order: failing test first, then code.
 - [x] Wave D — P4a storage/routes, P4b graph edit operations, P2c .doc egress barrier, integrated on `integ/wave-d` and merged (`d32a50b`); CI lane 2437 passed on main.
 - [ ] Wave E — P5.
 - [ ] Wave F — P6.
+- [x] Wave G — fill on the page: paragraph `thay` by `doan` and label checks
+  (`dbbd151`), G1 blank positions on rendered pages (`191872f`), G3 on-page
+  filling (`4982040`), label/probe integration fixes, G4 owner-rule fixes
+  backend (`5a63e0d`) and frontend (`78dd14a`), integrated on `integ/wave-g`;
+  CI lane 2583 passed (only the worktree-only `test_data_raw_VAN_bi_gitignore`
+  failure); ruler unchanged on every LibreOffice measure.
 - [x] Issue opened for the soft-delete gap (#3).
 
 ## Decisions
@@ -661,6 +669,22 @@ open risks, and follows the TDD order: failing test first, then code.
     misclassified as `dien_sua` on a drafting request it still lands. Only the
     classifier guards that case; widening B2 to deletions needs an owner
     decision, because "bỏ dòng …" is a legitimate edit.
+- 2026-09-27 (owner rules, wave G close-out): the day's owner rules as they now
+  stand together. (1) Blanks are filled on the page, not in a side panel
+  ("có thể để người dùng trực tiếp thao tác trên" the page). (2) "Soạn thảo văn
+  bản ra thì phải đúng 100%": `tao_lai` returns the upload exactly; "yêu cầu sửa
+  thì hãy sửa": `dien_sua` fills and edits with values from the user only (B1,
+  B2). (3) Fill saves are outside `TRAN_SUA` (B6), so fix/g4-frontend saves each
+  blank as its own version — Enter, Tab/Shift+Tab or leaving the blank saves,
+  Esc drops the unsaved text, saves queue so each sends the version the previous
+  one created, and the batch **Lưu** of the G3 review is gone (supersedes that
+  entry's one-save-per-batch default). Pages re-render once, 1.2 s after the
+  last save; renders and downloads run one at a time per tab, matching the
+  server's one render per account. Known ceiling: history keeps the last
+  `TRAN_SUA` snapshots, so after more than 10 blank saves **Lùi** cannot reach
+  the first ones. Still open for the owner: the deletion-only `thay`/`xoa` gap
+  and the `tao_lai`-on-a-filled-draft default (option A), both above. Both g4
+  branches merged into `integ/wave-g` without conflicts.
 
 ## Validation
 
