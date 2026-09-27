@@ -37,7 +37,7 @@ from typing import Any
 
 from lxml import etree
 
-from src.services.doc_tai_lieu import _NS, KhongDocDuoc, LoaiHong, _kiem_zip, _la_cham, _moc_tab
+from src.services.doc_tai_lieu import _NS, KhongDocDuoc, LoaiHong, _kiem_zip, _la_cham, _moc_tab, o_rong
 from src.services.tai_lieu import _cho_trong_tu_hang, _dia_chi_tu_hang, _doan_chu_tu_hang, _so_tu_nhien
 
 _W = f"{{{_NS['w']}}}"
@@ -106,7 +106,8 @@ class LyDoBoQua(StrEnum):
     khong_co_cho_trong = "khong_co_cho_trong"
     cho_trong_da_doi = "cho_trong_da_doi"
     """`[dau:cuoi]` trên chuỗi thô không còn là một dãy chấm (hoặc vắt qua một
-    `w:tab`/`w:br`), hay không còn `w:tab` mốc dẫn chấm ở đó."""
+    `w:tab`/`w:br`), hay không còn `w:tab` mốc dẫn chấm ở đó; ô của chỗ `o` không
+    còn rỗng (`doc_tai_lieu.o_rong`)."""
     khong_an_toan = "khong_an_toan"
     """Vật chứa nằm trong/chứa hộp chữ; hoặc `thay`/`xoa` sẽ phá thứ nằm ngoài
     `noi_dung` (`_MAT_KHI_THAY`), hay `xoa` một đoạn mang ngắt phân đoạn."""
@@ -140,6 +141,10 @@ def ap_dung_docx(docx: bytes, don_vi: list[dict], phep_sua: list[dict]) -> tuple
 # Đích của mốc dò: `.invalid` không bao giờ phân giải (RFC 6761), và liên kết
 # không bị LibreOffice tải (đo 2026-09-27, quyết định 2026-09-26 mục Tradeoffs).
 O_URI = "https://klaw.invalid/o/"
+# Nền mốc của chỗ `o` trên bản dò: đỏ `O_MAU_DO`, xanh lá + xanh lam là số đơn vị
+# (`mau_o`). ponytail: một ô CỦA tài liệu tô đúng #01xxxx trùng mốc của đơn vị xxxx
+# (chưa thấy ở biểu mẫu nào) — thêm kênh kiểm khi đo thấy.
+O_MAU_DO = 1
 _R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 _PKG_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 _HL = f"{_W}hyperlink"
@@ -157,7 +162,13 @@ def danh_dau_docx(docx: bytes, don_vi: list[dict], o: list[tuple[int, int]]) -> 
     liên kết của tài liệu, không có mốc. Không mốc nào thì trả chính `docx`.
 
     Liên kết đổi cách LibreOffice ngắt dòng ở ranh giới của nó (đo trên BM.M05:
-    "Khoa .……" xuống dòng khác), nên bản dò chỉ để ĐO, không để hiện."""
+    "Khoa .……" xuống dòng khác), nên bản dò chỉ để ĐO, không để hiện.
+
+    Chỗ `o` (ô rỗng, G5) không có ký tự nào để bọc, và mọi run chèn vào đoạn rỗng
+    — NBSP, ZWSP, WJ, chữ ẩn, có hay không liên kết — làm hàng thấp đi (đo trên
+    BM.M05, LibreOffice 26.2.4: dòng dưới bảng lên 1,4 pt sau bốn hàng). Nên ô được
+    tô NỀN `mau_o(don_vi)` (`w:shd`): không đổi từ nào (0 hộp từ lệch trên BM.M05),
+    và LibreOffice vẽ nền thành một hình chữ nhật đúng màu ấy (`dung_trang`)."""
     if not o:
         return docx
     try:
@@ -202,6 +213,10 @@ class _Phep:
     """Đoạn (thứ tự `vat.iter(w:p)`) một `dien` rơi vào, hay một `thay` theo đoạn thay."""
     p: Any = None
     """`w:p` của một `thay` theo đoạn; `None` với `thay` cả đơn vị."""
+    o: Any = None
+    """`w:p` đầu của ô rỗng mà một `dien` vào chỗ `o` chèn run vào."""
+    rpr: Any = None
+    """`w:rPr` của run đó: dấu đoạn của `o`, chụp trên cây nguyên (`_sach`)."""
 
 
 class _Khuon:
@@ -315,6 +330,15 @@ class _Khuon:
         c = cho.get(phep["cho_trong"])
         if c is None:
             return LyDoBoQua.khong_co_cho_trong
+        if c.kieu == "o":
+            # Ô rỗng (G5): kiểm lại trên cây nguyên — ô vẫn rỗng, vẫn an toàn — rồi
+            # giá trị là MỘT run mới cuối đoạn đầu, định dạng của dấu đoạn đó (thứ
+            # Word dùng khi gõ vào đoạn rỗng); không dấu đoạn thì theo kiểu đoạn/bảng.
+            if vat.tag != _TC or not o_rong(vat):
+                return LyDoBoQua.cho_trong_da_doi
+            p = next(vat.iter(_P))
+            rpr = _sach(p.find(f"{_PPR}/{_RPR}"))
+            return _Phep(i, loai, chi_so, vat, phan, phep["gia_tri"], cho=(chi_so, c.so), so_doan=0, o=p, rpr=rpr)
         if vat not in self.ds:
             self.ds[vat] = list(vat.iter(_P))
         ds = self.ds[vat]
@@ -413,11 +437,13 @@ class _Khuon:
         dien = [x for x in chay if x.loai == "dien"]
         # Phải → trái: một `w:t` mang hai chỗ trống vẫn đúng offset NGUYÊN của chỗ
         # bên trái. `tab` chèn theo phần tử, sau cùng, không chạm chữ của `w:t` nào.
-        for x in sorted((x for x in dien if x.tab is None), key=lambda x: -x.dau):
+        for x in sorted((x for x in dien if x.tab is None and x.o is None), key=lambda x: -x.dau):
             _dien_cham(x.doan, x.dau, x.cuoi, x.gia_tri)
         for x in dien:
             if x.tab is not None:
                 x.tab.addprevious(_t_moi(x.gia_tri))
+            elif x.o is not None:
+                x.o.append(_run_moi(x.gia_tri, x.rpr))
         for x in chay:
             if x.p is not None:
                 _thay_doan(x.p, x.dong[0], self.mau[x.p][1])
@@ -444,7 +470,13 @@ class _Khuon:
             if not isinstance(x, LyDoBoQua):
                 chon.append(x)
         moc: dict[str, list[tuple[str, str]]] = {}
+        to: set[str] = set()
         for x in sorted(chon, key=lambda x: -x.dau):
+            if x.o is not None:
+                if x.cho[1] == 0 and x.cho[0] <= 0xFFFF:
+                    _to_nen(x.vat, mau_o(x.cho[0]))
+                    to.add(x.phan)
+                continue
             if x.tab is not None:
                 ky_tu = [x.tab]
             else:
@@ -463,9 +495,9 @@ class _Khuon:
                 hl.append(r)
             if run:
                 moc.setdefault(x.phan, []).append((rid, f"{O_URI}{x.cho[0]}/{x.cho[1]}"))
-        if not moc:
+        if not moc and not to:
             return docx
-        sua = {phan: _xml(self.cay[phan], self.z.read(phan)) for phan in moc}
+        sua = {phan: _xml(self.cay[phan], self.z.read(phan)) for phan in {*moc, *to}}
         them = {}
         for phan, lien_ket in moc.items():
             thu_muc, ten = phan.rsplit("/", 1)
@@ -621,6 +653,35 @@ def _run_rieng(e: Any) -> Any:
         r1.append(e)
         return r1
     return r
+
+
+def mau_o(don_vi: int) -> str:
+    """Màu nền mốc (hex `RRGGBB`) của chỗ `o` của đơn vị `don_vi` ≤ 0xFFFF."""
+    return f"{O_MAU_DO:02X}{don_vi:04X}"
+
+
+# Con của `w:tcPr` đứng SAU `w:shd` trong lược đồ CT_TcPr (ECMA-376 §17.4.70).
+_SAU_SHD = {
+    f"{_W}{x}"
+    for x in ("noWrap", "tcMar", "textDirection", "tcFitText", "vAlign", "hideMark", "headers")
+    + ("cellIns", "cellDel", "cellMerge", "tcPrChange")
+}
+
+
+def _to_nen(tc: Any, mau: str) -> None:
+    """Nền đặc `mau` cho ô `tc` (thay nền cũ của nó) — chỉ trên bản DÒ."""
+    tcpr = tc.find(_TCPR)
+    if tcpr is None:
+        tcpr = tc.makeelement(_TCPR, {})
+        tc.insert(0, tcpr)
+    for cu in tcpr.findall(f"{_W}shd"):
+        tcpr.remove(cu)
+    shd = tcpr.makeelement(f"{_W}shd", {f"{_W}val": "clear", f"{_W}color": "auto", f"{_W}fill": mau})
+    sau = next((c for c in tcpr if c.tag in _SAU_SHD), None)
+    if sau is None:
+        tcpr.append(shd)
+    else:
+        sau.addprevious(shd)
 
 
 def _sach(e: Any) -> Any:

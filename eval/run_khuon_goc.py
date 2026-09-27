@@ -21,6 +21,9 @@ hoá giá trị, `dien_khuon.ap_dung_docx` / `dien_khuon_pdf.ap_dung_pdf` áp. V
 5. Đường PDF: bản LibreOffice dựng đọc lại như một PDF số, và bản scan chỉ-ảnh
    (200 dpi) đọc bằng OCR — số ô tìm được, điểm ảnh đổi ngoài hộp tô trắng, giá
    trị trong `pdftotext`.
+6. Chỗ `o` (ô rỗng của bảng có viền, G5) đo RIÊNG (`do_o`), nên mục 3 và 5 vẫn là
+   đúng phép đo của kiểu chấm/tab: số ô mỗi tệp, áp/bỏ, số trang sau khi điền mọi
+   ô, và đọc lại tệp ra đúng giá trị ở đúng đơn vị.
 
 Cộng một ca tổng hợp: tệp 11 trang bị phép đếm lúc tải lên TỪ CHỐI, không cắt.
 
@@ -344,6 +347,30 @@ def _thu(ham, *args) -> dict:
         return {"error": f"{type(e).__name__}: {e}"}
 
 
+# Giá trị ngắn có chữ số cho MỌI ô `o`: ô hẹp («STT» 33 pt) ngắt một giá trị dài
+# thành nhiều dòng, và cột «Mã …»/«STT» chỉ nhận giá trị có chữ số.
+GIA_TRI_O = "12"
+
+
+def do_o(ten: str, du_lieu: bytes, hang: list[dict], o: list[dict], so_trang: int) -> dict:
+    """Điền MỌI chỗ `o` bằng `GIA_TRI_O`: áp/bỏ theo lý do, số trang sau (LibreOffice),
+    và đọc lại tệp — đúng giá trị trong đúng đơn vị (không qua `pdftotext`, vốn đọc
+    bảng theo dòng và xen chữ các ô)."""
+    if not o:
+        return {"so_cho": 0}
+    phep = [{"loai": "dien", "don_vi": x["don_vi"], "cho_trong": x["so"], "gia_tri": GIA_TRI_O} for x in o]
+    moi, bao_cao = ap_dung_docx(du_lieu, hang, phep)
+    doc_lai = {d.chi_so: d.noi_dung for d in doc(ten, moi).don_vi}
+    return {
+        "so_cho": len(o),
+        "da_ap": len(bao_cao["da_ap"]),
+        "bo_qua": dem_ly_do(bao_cao),
+        "so_trang_truoc": so_trang,
+        "so_trang_sau": dung_trang.so_trang_pdf(dung_trang.dung_pdf(moi)),
+        "doc_lai_dung": _cap(phep, lambda p: doc_lai.get(p["don_vi"]) == GIA_TRI_O),
+    }
+
+
 def do_tep(ten: str, du_lieu: bytes, word: _Word | None) -> dict:
     tai_lieu = doc(ten, du_lieu)
     hang = _hang(tai_lieu)
@@ -371,7 +398,11 @@ def do_tep(ten: str, du_lieu: bytes, word: _Word | None) -> dict:
             ],
         }
 
-    o = cho_trong_khuon("docx", hang, [])
+    tat_ca = cho_trong_khuon("docx", hang, [])
+    # Chỗ `o` (ô rỗng của bảng, G5) đo RIÊNG (`do_o`): số của các kiểu chấm/tab giữ
+    # nguyên phép đo cũ, và đường PDF (chỉ tìm dãy chấm) so với đúng các kiểu đó.
+    o = [x for x in tat_ca if x["kieu"] != "o"]
+    ket["o_bang"] = do_o(ten, du_lieu, hang, [x for x in tat_ca if x["kieu"] == "o"], so_lo)
     phep = phep_dien(o)
     moi, bao_cao = ap_dung_docx(du_lieu, hang, phep)
     da_ap = [phep[i]["gia_tri"] for i in bao_cao["da_ap"]]
@@ -496,6 +527,7 @@ def tong_hop(chi_tiet: list[dict]) -> dict:
     ]
     tkd = [c["dien"]["trang_khong_dien"] for c in co_dien if c["dien"]["trang_khong_dien"]]
     lw = [c["lo_word"] for c in ok if "lo_word" in c]
+    co_o = [c for c in ok if c["o_bang"]["so_cho"]]
     giong = [v for x in lw for v in x["giong_diem_anh"]]
     iou = [v for x in lw for v in x["iou_muc"] if v is not None]
     return {
@@ -546,6 +578,13 @@ def tong_hop(chi_tiet: list[dict]) -> dict:
         },
         "pdf_so": _tong_pdf(ok, "so"),
         "pdf_scan": _tong_pdf(ok, "scan"),
+        "o_bang": {
+            "so_cho_theo_tep": {c["tep"]: c["o_bang"]["so_cho"] for c in ok},
+            "da_ap": [sum(c["o_bang"].get("da_ap", 0) for c in co_o), sum(c["o_bang"]["so_cho"] for c in co_o)],
+            "bo_qua": dict(sum((Counter(c["o_bang"]["bo_qua"]) for c in co_o), Counter())),
+            "so_trang_giu": _cap(co_o, lambda c: c["o_bang"]["so_trang_sau"] == c["o_bang"]["so_trang_truoc"]),
+            "doc_lai_dung": _cong([c["o_bang"]["doc_lai_dung"] for c in co_o]),
+        },
     }
 
 
@@ -639,6 +678,12 @@ def _in_bang(ket: dict) -> None:
                 f"(ngoài dải chữ {_ti(p['tep_khong_doi_ngoai_dai_chu'])}), giá trị {_ti(p['gia_tri'])} "
                 f"(bỏ chấm {_ti(p['gia_tri_bo_cham'])}), lỗi {p['loi']}"
             )
+    ob = th["o_bang"]
+    print(
+        f"  ô bảng (o): {', '.join(f'{t[:24]} {n}' for t, n in ob['so_cho_theo_tep'].items() if n) or 0}; "
+        f"áp {_ti(ob['da_ap'])}, bỏ {ob['bo_qua'] or 0}; số trang giữ LO {_ti(ob['so_trang_giu'])}; "
+        f"đọc lại đúng {_ti(ob['doc_lai_dung'])}"
+    )
     print(f"  11 trang: {tc}")
 
 

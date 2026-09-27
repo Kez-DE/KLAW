@@ -41,6 +41,14 @@ export const thamSoSanKhau = (
 export const urlCoBanThao = (banThaoTrenUrl: string | undefined, sk: SanKhau) =>
   banThaoTrenUrl !== undefined || sk?.loai === "ban_thao";
 
+/** Cuộc trò chuyện đang mở vừa đổi (vỏ trang, "Phiên mới", URL): sân khấu thuộc
+ *  cuộc trò chuyện đã mở nó, nên đóng qua cửa đóng — TRỪ khi chính URL mới mang
+ *  `?ban_thao=`. Lối duy nhất ghi cả hai là danh sách "Bản thảo" của vỏ trang,
+ *  với `?phien=` của chính bản thảo đó, và hiệu ứng đọc URL (chạy trước) đã
+ *  mở/chuyển sang nó. Không đọc `sk` để so id: lúc này nó còn là bản cũ. */
+export const dongKhiDoiPhien = (banThaoTrenUrl: string | undefined, sk: SanKhau) =>
+  sk !== null && banThaoTrenUrl === undefined;
+
 /** Cập nhật bản thảo đang mở CHỈ bằng chính nó (cùng `id`): một lượt lưu hay lùi
  *  về muộn của bản thảo trước không được thay bản người dùng vừa chuyển sang. */
 export const apNeuCungBan = <T extends { id: string }>(cu: T | null, moi: T): T | null =>

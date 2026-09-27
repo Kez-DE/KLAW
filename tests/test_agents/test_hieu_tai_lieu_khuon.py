@@ -1892,7 +1892,8 @@ def test_assemble_gia_tri_chua_dat_duoc_trong_tran_900_ky_tu():
 @pytest.mark.skipif(not BM_M05.exists(), reason="biểu mẫu thật của chủ dự án không có trên máy này")
 def test_bm_m05_that_o_trong_cua_bang_danh_sach_dien_bang_thay():
     """Trang 2 của BM.M05: cột «Họ và tên» của bảng danh sách là các ô RỖNG, không dãy
-    chấm nào. `thay` đúng đơn vị ô đó bằng tên người hỏi nói được giữ và áp đúng ô."""
+    chấm nào. Từ G5 ô đó là chỗ trống `o` (prompt mời `dien`), nhưng `thay` đúng đơn vị
+    ô đó bằng tên người hỏi nói vẫn được giữ và áp đúng ô."""
     from src.services.doc_tai_lieu import doc
 
     goc, hang, tl = _m05()
@@ -1901,7 +1902,7 @@ def test_bm_m05_that_o_trong_cua_bang_danh_sach_dien_bang_thay():
     ra, llm = _chay(
         [_doan("thay", ho_ten.chi_so, "Nguyễn Văn Ánh")], cau="thêm sinh viên Nguyễn Văn Ánh vào danh sách", tai_lieu=tl
     )
-    assert f"[A-{ho_ten.chi_so}] (tr. 2, bảng 2 hàng 2 cột 4) \n" in llm.prompt
+    assert f"[A-{ho_ten.chi_so}] (tr. 2, bảng 2 hàng 2 cột 4) ⟦0⟧\n  chỗ trống: 0 «Họ và tên (dòng 1)»\n" in llm.prompt
     k = ra["khuon_tong_quat"]
     assert (k["phep_sua"], k["bo_qua"]) == (
         [{"loai": "thay", "don_vi": ho_ten.chi_so, "noi_dung": "Nguyễn Văn Ánh"}],
@@ -1910,6 +1911,226 @@ def test_bm_m05_that_o_trong_cua_bang_danh_sach_dien_bang_thay():
     moi, bc = ban_thao.ap_phep_sua("docx", goc, hang, k["phep_sua"])
     assert bc["bo_qua"] == []
     assert doc(BM_M05.name, moi).don_vi[ho_ten.chi_so].noi_dung == "Nguyễn Văn Ánh"
+
+
+@pytest.mark.skipif(not BM_M05.exists(), reason="biểu mẫu thật của chủ dự án không có trên máy này")
+@pytest.mark.parametrize(
+    ("phep", "giu"),
+    [
+        (_doan("thay", 29, "Nguyễn Văn Ánh"), False),
+        (_doan("thay", 29, "Nguyễn Văn Ánh", doan=0), False),
+        (_doan("thay", 27, "Nguyễn Văn Ánh"), False),
+        (_doan("chen_sau", 29, "Nguyễn Văn Ánh"), False),
+        (_doan("thay", 29, "20260099"), True),
+    ],
+)
+def test_bm_m05_that_thay_ten_vao_cot_Ma_STT_bi_bo_va_ke_chua_dat(phep, giu):
+    """Luật chữ số của cột «Mã …»/«STT» không chỉ cho `dien`: `thay` cả ô, `thay` đoạn
+    0 hay `chen_sau` (bộ áp chèn đoạn VÀO ô) đặt tên vào đúng cột đó — bỏ
+    (`khong_khop_nhan`) và kể dưới "Chưa đặt được", không ghi lặng lẽ sai cột."""
+    _, _, tl = _m05()
+    ra, _ = _chay([phep], cau=CAU_G5 + " Mã sinh viên 20260099.", tai_lieu=tl)
+    k = ra["khuon_tong_quat"]
+    if giu:
+        assert (k["bo_qua"], k["khong_dat"]) == ([], [])
+        assert k["phep_sua"] == [{"loai": "thay", "don_vi": 29, "noi_dung": "20260099"}]
+        return
+    assert k["phep_sua"] == []
+    assert k["bo_qua"] == [{"don_vi": phep["don_vi"], "cho_trong": None, "ly_do": "khong_khop_nhan"}]
+    assert k["khong_dat"] == ["Nguyễn Văn Ánh"]
+
+
+# ─────────── ô rỗng của bảng danh sách (`kieu` "o", G5) — lượt owner 2026-09-27 trên
+# BM.M05 với gemini-2.5-flash-lite: mọi giá trị vào đúng chỗ TRỪ «Nguyễn Văn Ánh», rơi
+# vào ô «Mã sinh viên» (đơn vị 29), bị bỏ lặng lẽ: `khong_dat` rỗng, ghi chú "đoạn 29".
+
+CAU_G5 = (
+    "Điền giúp tôi biểu mẫu này: tên cơ quan tiếp nhận là Công ty TNHH Luật Việt, số 12/2026, "
+    "sinh viên Nguyễn Văn Ánh, ngành Luật kinh tế, thời gian từ 01/10/2026 đến 31/12/2026."
+)
+
+
+def _o(chi_so: int, cot: int, nhan: str) -> DonViVanBan:
+    """Ô rỗng của bảng danh sách BM.M05 (bảng 2, hàng 2) như bộ đọc G5 trả."""
+    return DonViVanBan(
+        chi_so=chi_so,
+        trang=2,
+        offset_dau=0,
+        noi_dung="",
+        bang=(1, 1, cot),
+        dia_chi=DiaChi("word/document.xml", (22, 3, cot)),
+        cho_trong=(ChoTrong(so=0, kieu="o", nhan=nhan),),
+        doan_chu=("",),
+    )
+
+
+O_STT, O_MA, O_TEN = (
+    _o(27, 0, "STT (dòng 1)"),
+    _o(29, 2, "Mã sinh viên/ học viên (dòng 1)"),
+    _o(30, 3, "Họ và tên (dòng 1)"),
+)
+
+
+def test_prompt_O_RONG_dau_trong_o_ten_cot_o_dong_cho_trong_va_luat_dien_tung_hang():
+    _, llm = _chay([], tai_lieu=_tl(O_MA, O_TEN))
+    assert "[A-29] (tr. 2, bảng 2 hàng 2 cột 3) ⟦0⟧\n  chỗ trống: 0 «Mã sinh viên/ học viên (dòng 1)»\n" in llm.prompt
+    assert "[A-30] (tr. 2, bảng 2 hàng 2 cột 4) ⟦0⟧\n  chỗ trống: 0 «Họ và tên (dòng 1)»" in llm.prompt
+    assert "TỪNG HÀNG" in llm.prompt and "«Mã sinh viên" in llm.prompt, "điền theo hàng, đúng cột"
+    dang_mo = {**DANG_MO, "phep_sua": [_p(30, 0, "Nguyễn Văn Ánh")]}
+    _, llm = _chay([], muc_dich="sua_ban_thao", tai_lieu=_tl(O_MA, O_TEN), ban_thao_tong_quat_dang_mo=dang_mo)
+    assert "[A-30] (tr. 2, bảng 2 hàng 2 cột 4) ⟦0=«Nguyễn Văn Ánh»⟧\n" in llm.prompt
+
+
+@pytest.mark.parametrize(
+    ("o", "gia_tri", "giu"),
+    [(O_MA, "Nguyễn Văn Ánh", False), (O_MA, "20260099", True), (O_STT, "một", False), (O_STT, "1", True)]
+    + [(O_TEN, "Nguyễn Văn Ánh", True)],
+)
+def test_cot_Ma_So_STT_chi_nhan_gia_tri_co_chu_so(o, gia_tri, giu):
+    ra, _ = _chay([_dien(o.chi_so, 0, gia_tri)], cau=f"điền {gia_tri}", tai_lieu=_tl(o))
+    k = ra["khuon_tong_quat"]
+    assert (k["phep_sua"] == [_p(o.chi_so, 0, gia_tri)]) is giu
+    assert k["bo_qua"] == ([] if giu else [{"don_vi": o.chi_so, "cho_trong": 0, "ly_do": "khong_khop_nhan"}])
+
+
+def test_gia_tri_nguoi_hoi_ma_phep_bi_bo_vao_khong_dat_khong_mat_lang_le():
+    """Phép bị bỏ mà giá trị (chữ `dien`, hay cụm `thay`/`chen_sau` THÊM) là lời người
+    hỏi thì vào `khong_dat` — bỏ trùng không phân biệt hoa/thường, dấu; giá trị không
+    nguồn không lên, giá trị một phép giữ lại đã đặt thì không kể."""
+    ra, _ = _chay(
+        [
+            _dien(29, 0, "Nguyễn Văn Ánh"),
+            _dien(30, 0, "Trần Thị Bịa"),
+            _doan("thay", 99, "Ngành Luật kinh tế"),
+            _dien(27, 0, "20260099"),
+            _dien(29, 0, "Lớp Kinh tế"),
+        ],
+        cau="sinh viên Nguyễn Văn Ánh, lớp Kinh tế, mã 20260099, ngành Luật kinh tế",
+        tai_lieu=_tl(O_STT, O_MA, O_TEN),
+        khong_dat=["nguyen van anh", "20260099"],
+    )
+    k = ra["khuon_tong_quat"]
+    assert k["phep_sua"] == [_p(27, 0, "20260099")]
+    assert [b["ly_do"] for b in k["bo_qua"]] == ["khong_khop_nhan", "khong_nguon", "khong_co_don_vi", "khong_khop_nhan"]
+    assert k["khong_dat"] == ["Nguyễn Văn Ánh", "Ngành Luật kinh tế", "Lớp Kinh tế"]
+    ra, _ = _chay(
+        [_dien(29, 0, "Nguyễn Văn Ánh"), _dien(30, 0, "Nguyễn Văn Ánh")], cau=CAU_G5, tai_lieu=_tl(O_MA, O_TEN)
+    )
+    assert ra["khuon_tong_quat"]["khong_dat"] == [], "đã đặt đúng ô ở phép khác"
+
+
+def test_assemble_ghi_chu_KHONG_bao_gio_goi_so_don_vi():
+    cho = [
+        {"don_vi": 0, "so": 0, "kieu": "cham", "nhan": "Họ tên"},
+        {"don_vi": 1, "so": 0, "kieu": "cham", "nhan": "Fax"},
+    ]
+    st = _st_khuon([_p(0, 0, "A")], cho)
+    st["khuon_tong_quat"]["bo_qua"] = [
+        {"don_vi": 29, "cho_trong": 0, "ly_do": "khong_co_cho_trong"},
+        {"don_vi": 1, "cho_trong": 0, "ly_do": "khong_nguon"},
+        {"don_vi": 7, "cho_trong": None, "ly_do": "khong_nguon"},
+    ]
+    ra = assemble(st, {}, _No(), "m")
+    assert ra["coverage_note"] == "Không áp 3 thay đổi (thiếu nguồn hoặc sai chỗ): một thay đổi, «Fax»"
+
+
+def test_luot_sua_moi_phep_bi_bo_van_noi_gia_tri_chua_dat(bt_gia):
+    """Lượt sửa mà phép duy nhất bị bỏ (tên vào cột «Mã sinh viên»): lời "chưa áp được"
+    vẫn kể giá trị người hỏi đã nói."""
+    g = bt_gia(_cu([]))
+    ra, _ = _chay(
+        [_dien(29, 0, "Nguyễn Văn Ánh")],
+        cau="thêm sinh viên Nguyễn Văn Ánh",
+        muc_dich="sua_ban_thao",
+        tai_lieu=_tl(O_MA, O_TEN),
+        ban_thao_tong_quat_dang_mo={**DANG_MO, "phep_sua": []},
+        user_sub="u",
+        hoi_thoai_id="p",
+    )
+    ra = d.dung_ban_thao_tong_quat(ra)
+    assert ra["ban_thao_ket"] is None and g.sua_ket is None
+    out = assemble(ra, {}, _No(), "m")
+    assert out["answer"].startswith("Lượt này tôi chưa áp được thay đổi nào bạn xin (giá trị không hợp với nhãn")
+    assert "Chưa đặt được: «Nguyễn Văn Ánh» — hãy nói rõ chỗ cần điền" in out["answer"]
+
+
+def _dung_o_that(phep: list[dict], bt_gia) -> tuple[dict, dict, bytes, list[dict], list[dict]]:
+    """BM.M05 thật qua đúng đường lượt tạo: node đọc → lưu (giả) → `assemble`."""
+    goc, hang, tl = _m05()
+    g = bt_gia(None)
+    ra, llm = _chay(phep, cau=CAU_G5, tai_lieu=tl, user_sub="u", hoi_thoai_id="p")
+    assert "[A-30] (tr. 2, bảng 2 hàng 2 cột 4) ⟦0⟧\n  chỗ trống: 0 «Họ và tên (dòng 1)»\n" in llm.prompt
+    k = ra["khuon_tong_quat"]
+    out = assemble(d.dung_ban_thao_tong_quat(ra), {}, _No(), "m")
+    return k, out, goc, hang, g.tao_ket["phep_sua"]
+
+
+def _dung_cho_m05() -> list[dict]:
+    """Các phép ĐÚNG của lượt owner quan sát (mọi giá trị trừ tên)."""
+    return [_dien(3, 0, "12"), _dien(3, 1, "2026"), _dien(6, 0, "Công ty TNHH Luật Việt")] + [
+        _dien(10, 0, "Luật kinh tế"),
+        *_ngay_m05(13),
+    ]
+
+
+@pytest.mark.skipif(not BM_M05.exists(), reason="biểu mẫu thật của chủ dự án không có trên máy này")
+def test_bm_m05_that_ten_vao_cot_Ma_sinh_vien_bi_bo_va_KE_RA_chua_dat(bt_gia):
+    """(a) Đúng đầu ra owner quan sát: tên vào đơn vị 29 (cột «Mã sinh viên/ học
+    viên»). Bị bỏ (`khong_khop_nhan`), và lời đáp nói «Nguyễn Văn Ánh» chưa đặt được;
+    không chữ nào gọi số đơn vị ("đoạn 29")."""
+    k, out, goc, hang, phep = _dung_o_that([*_dung_cho_m05(), _dien(29, 0, "Nguyễn Văn Ánh")], bt_gia)
+    assert k["bo_qua"] == [{"don_vi": 29, "cho_trong": 0, "ly_do": "khong_khop_nhan"}]
+    assert k["khong_dat"] == ["Nguyễn Văn Ánh"]
+    assert (
+        "Chưa đặt được: «Nguyễn Văn Ánh» — hãy nói rõ chỗ cần điền hoặc bấm vào chỗ trống trên trang." in out["answer"]
+    )
+    assert out["coverage_note"] == "Không áp 1 thay đổi (thiếu nguồn hoặc sai chỗ): «Mã sinh viên/ học viên (dòng 1)»"
+    import re
+
+    assert not re.search(r"đoạn \d|Ô \d", out["answer"] + out["coverage_note"])
+    from src.services.doc_tai_lieu import doc
+
+    moi, bc = ban_thao.ap_phep_sua("docx", goc, hang, phep)
+    assert bc["bo_qua"] == [] and "Nguyễn Văn Ánh" not in " ".join(x.noi_dung for x in doc(BM_M05.name, moi).don_vi)
+
+
+@pytest.mark.skipif(not BM_M05.exists(), reason="biểu mẫu thật của chủ dự án không có trên máy này")
+def test_bm_m05_that_ten_vao_o_Ho_va_ten_ap_dung_dinh_dang_bang_va_dung_duoc(bt_gia):
+    """(b) Phép đúng `dien(30, 0, "Nguyễn Văn Ánh")`: giữ, lưu, áp; tệp tải về có tên
+    trong ô «Họ và tên» bằng định dạng dấu đoạn của ô (Times New Roman 12, không đậm
+    như hàng tiêu đề), LibreOffice dựng được, số trang không đổi."""
+    import shutil
+
+    from lxml import etree
+
+    from src.services import dung_trang
+    from src.services.doc_tai_lieu import doc
+
+    k, out, goc, hang, phep = _dung_o_that([*_dung_cho_m05(), _dien(30, 0, "Nguyễn Văn Ánh")], bt_gia)
+    assert (k["bo_qua"], k["khong_dat"], out["coverage_note"]) == ([], [], None)
+    assert _p(30, 0, "Nguyễn Văn Ánh") in phep and "Chưa đặt được" not in out["answer"]
+    assert "«Họ và tên (dòng 1)»" not in out["answer"], "ô đã điền không còn kể là trống"
+    moi, bc = ban_thao.ap_phep_sua("docx", goc, hang, phep)
+    assert bc["bo_qua"] == []
+    assert doc(BM_M05.name, moi).don_vi[30].noi_dung == "Nguyễn Văn Ánh"
+
+    w = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    import zipfile
+    from io import BytesIO
+
+    def _o_ten(du_lieu: bytes):
+        than = etree.fromstring(zipfile.ZipFile(BytesIO(du_lieu)).read("word/document.xml")).find(f"{w}body")
+        return [c for c in than[22] if c.tag == f"{w}tr"][1].findall(f"{w}tc")[3].find(f"{w}p")
+
+    truoc, sau = _o_ten(goc), _o_ten(moi)
+    (r,) = sau.findall(f"{w}r")
+    assert r.findtext(f"{w}t") == "Nguyễn Văn Ánh"
+    assert etree.tostring(r.find(f"{w}rPr")) == etree.tostring(truoc.find(f"{w}pPr/{w}rPr"))
+    assert r.find(f"{w}rPr/{w}rFonts").get(f"{w}ascii") == "Times New Roman" and r.find(f"{w}rPr/{w}b") is None
+    if shutil.which("soffice") and shutil.which("pdftotext"):
+        pdf = dung_trang.dung_pdf(moi)
+        assert dung_trang.so_trang_pdf(pdf) == dung_trang.so_trang_pdf(dung_trang.dung_pdf(goc)) == 2
+        assert any(c == "Ánh" for _, c, _ in dung_trang._tu_pdf(pdf)[2])
 
 
 def _dv_cham(chi_so: int, s: str, *nhan: str) -> DonViVanBan:
