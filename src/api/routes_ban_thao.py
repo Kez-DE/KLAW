@@ -23,7 +23,8 @@ from starlette.concurrency import run_in_threadpool
 from src.agents.graph_soan_thao import load_checklist_cached, rules_cho
 from src.agents.nodes.gom_du_kien import con_thieu, lua_chon_sai
 from src.api.routes import _validate_facts
-from src.api.routes_tai_lieu import _loi_http
+from src.api.routes_tai_lieu import KHONG_THAY, _loi_http
+from src.api.routes_tai_lieu import _uuid_hop_le as _uuid_viec
 from src.models.schemas import (
     BanThaoOut,
     BanThaoPhienBanChiTietOut,
@@ -454,6 +455,23 @@ async def sua_o_dien(id: str, body: SuaODienRequest, nguoi: dict = Depends(nguoi
     if isinstance(ket, str):
         raise HTTPException(status_code=422, detail=ket)
     return _out(ket)
+
+
+@router.post("/tai-lieu/{viec_id}/ban-thao", response_model=BanThaoOut)
+async def mo_ban_thao(viec_id: str, response: Response, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BanThaoOut:
+    """Mở bảng ô điền trên khuôn gốc của một tài liệu khi KLAW chưa điền ô nào
+    (lượt mô hình không điền được gì thì không lưu bản thảo). Thao tác RÕ của
+    người dùng: 0 lượt mô hình, không tính hạn mức. 200 + bản thảo MỚI NHẤT của
+    việc đó, hay 201 + phiên bản 1 với `phep_sua` rỗng. 404: việc lạ, của người
+    khác, hoặc không có khuôn gốc (ảnh, tài liệu tải lên trước khuôn gốc)."""
+    viec_id = _uuid_viec(viec_id)
+    ra = await run_in_threadpool(ban_thao.mo_ban_thao_khuon, nguoi["sub"], viec_id)
+    if ra is None:
+        raise HTTPException(status_code=404, detail=KHONG_THAY)
+    bt, da_tao = ra
+    if da_tao:
+        response.status_code = 201
+    return _out(bt)
 
 
 @router.delete("/ban-thao/{id}", status_code=204)

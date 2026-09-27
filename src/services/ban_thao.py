@@ -8,6 +8,7 @@ import time
 import unicodedata
 import uuid
 from datetime import UTC, datetime
+from pathlib import PurePath
 from typing import Any
 
 from sqlalchemy import text
@@ -1094,3 +1095,61 @@ def tom_tat_khuon(tieu_de: str | None, khuon: dict | None) -> str:
     tìm kiếm và `_tieu_de_tu_document` có chữ để đọc."""
     dong = [f"- {_nhan_o(o)}: {o['gia_tri'].strip()}" for o in (khuon or {}).get("cho_trong") or [] if o.get("gia_tri")]
     return f"# {tieu_de or 'Văn bản'}\n" + ("\n" + "\n".join(dong) + "\n" if dong else "")
+
+
+# Khoá dòng việc đọc (chính chủ) cho `mo_ban_thao_khuon`: hai cú bấm "mở bảng ô
+# điền" đồng thời nối tiếp nhau, nên cú thứ hai thấy bản cú đầu vừa tạo.
+_SQL_KHOA_VIEC = text(
+    "SELECT hoi_thoai_id::text AS hoi_thoai_id, ten_tep FROM viec_doc_tai_lieu"
+    " WHERE id = CAST(:viec_id AS uuid) AND user_sub = CAST(:sub AS uuid) FOR UPDATE"
+)
+
+
+def mo_ban_thao_khuon(sub: str, viec_id: str) -> tuple[dict, bool] | None:
+    """Bản thảo để bảng ô điền mở được trên khuôn gốc `viec_id` — thao tác RÕ của
+    người dùng, 0 lượt mô hình, không hạn mức (Outcome 4 của kế hoạch). `(bản
+    thảo, đã_tạo)`: bản MỚI NHẤT của việc đó (phiên bản đang sống trên
+    `viec_id`), hay phiên bản 1 mới với `phep_sua` rỗng. `None` khi việc đọc lạ,
+    của người khác, hoặc không có khuôn gốc (404)."""
+    with get_engine().begin() as c:
+        v = c.execute(_SQL_KHOA_VIEC, {"sub": sub, "viec_id": viec_id}).mappings().one_or_none()
+        k = _khuon_goc(c, sub, viec_id) if v is not None else None
+        if k is None:
+            return None
+        cu = (
+            c.execute(
+                _SQL_MOI_NHAT,
+                {"sub": sub, "pid": v["hoi_thoai_id"], "loai": LOAI_TONG_QUAT, "viec_id": viec_id},
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if cu is not None:
+            return _voi_khuon(c, sub, dict(cu)), False
+        khuon = _khuon_tu(k, viec_id, [])
+        audit = {
+            "dat": None,
+            "completeness": None,
+            "so_dieu_khoan": 0,
+            "self_audit": False,
+            "findings": [],
+            "muc_kiem": LOAI_TONG_QUAT,
+        }
+        r = (
+            c.execute(
+                _SQL_TAO,
+                {
+                    "sub": sub,
+                    "pid": v["hoi_thoai_id"],
+                    "loai": LOAI_TONG_QUAT,
+                    "facts": _j({}),
+                    "document": tom_tat_khuon(PurePath(v["ten_tep"] or "").stem or None, khuon),
+                    "clauses": _j([]),
+                    "audit": _j(audit),
+                    **_cot_khuon(viec_id, []),
+                },
+            )
+            .mappings()
+            .one()
+        )
+    return {**dict(r), "khuon": khuon}, True

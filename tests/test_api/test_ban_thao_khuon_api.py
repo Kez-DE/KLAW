@@ -394,3 +394,80 @@ async def test_NGUOI_KHAC_404_va_KHONG_DANG_NHAP_401_o_moi_route(client, khoa_ky
         assert (await getattr(client, method)(la, headers=hb, **kw)).status_code == 404, la
     assert dung_gia == [], "không một lần dựng nào cho người không phải chủ"
     assert ban_thao.chi_tiet(a, id_)["phien_ban"] == 1
+
+
+# ─────────────────────────── mở bảng ô điền khi KLAW chưa điền ô nào (Outcome 4)
+
+
+def _dem_traces(sub: str) -> int:
+    with get_engine().connect() as c:
+        return c.execute(text("SELECT count(*) FROM traces WHERE user_sub = :s"), {"s": sub}).scalar_one()
+
+
+@pytest.mark.asyncio
+async def test_mo_ban_thao_TAO_phien_ban_1_rong_roi_tra_lai_dung_ban_do(client, khoa_ky, hai_nguoi):
+    """Lượt mô hình không điền ô nào thì không lưu bản thảo (P4b), nên bảng ô điền
+    mở bằng một thao tác RÕ của người dùng: 0 lượt mô hình, 0 hạn mức, phiên bản 1
+    với `phep_sua` rỗng; gọi lại trả đúng bản đó (200), không mở bản thứ hai."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    viec = _viec(a, hoi_thoai.tao_phien(a, "biểu mẫu"))
+
+    r = await client.post(f"/api/v1/tai-lieu/{viec}/ban-thao", headers=ha)
+    assert r.status_code == 201, r.text
+    bt = r.json()
+    assert (bt["phien_ban"], bt["loai"], bt["clauses"]) == (1, "tong_quat", [])
+    assert bt["document"] == "# Giấy tiếp nhận\n" and bt["audit_report"]["muc_kiem"] == "tong_quat"
+    assert (bt["khuon"]["viec_id"], bt["khuon"]["dinh_dang"]) == (viec, "docx")
+    assert [o["gia_tri"] for o in bt["khuon"]["cho_trong"]] == [None, None, None]
+    luu = ban_thao.chi_tiet(a, bt["id"])
+    assert (luu["viec_id"], luu["phep_sua"], luu["so_lan_sua"]) == (viec, [], 0)
+    assert _dem_traces(a) == 0, "không một dòng traces nào: không tính vào hạn mức bản thảo"
+
+    lai = await client.post(f"/api/v1/tai-lieu/{viec}/ban-thao", headers=ha)
+    assert lai.status_code == 200 and lai.json() == bt
+
+    r = await client.patch(
+        f"/api/v1/ban-thao/{bt['id']}/o-dien",
+        headers=ha,
+        json={"phien_ban": 1, "gia_tri": [{"don_vi": 0, "cho_trong": 0, "gia_tri": _TEN}]},
+    )
+    assert r.status_code == 200 and r.json()["phien_ban"] == 2, r.text
+
+
+@pytest.mark.asyncio
+async def test_mo_ban_thao_tra_ban_MOI_NHAT_tren_viec_do_khong_phai_ban_HTML(client, khoa_ky, hai_nguoi):
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    id_, viec = _ban_thao(a)
+    phien = ban_thao.chi_tiet(a, id_)["hoi_thoai_id"]
+    ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(None, None, "Đơn xin nghỉ"))
+
+    r = await client.post(f"/api/v1/tai-lieu/{viec}/ban-thao", headers=ha)
+    assert r.status_code == 200, r.text
+    assert r.json()["id"] == id_ and r.json()["khuon"]["cho_trong"][0]["gia_tri"] == _TEN
+
+
+@pytest.mark.asyncio
+async def test_mo_ban_thao_404_NGUOI_KHAC_viec_la_va_viec_khong_khuon_goc_401_khong_dang_nhap(
+    client, khoa_ky, hai_nguoi
+):
+    a, b = hai_nguoi
+    ha, hb = _bearer(khoa_ky, a), _bearer(khoa_ky, b)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    viec = _viec(a, phien)
+    anh = tl.tao_viec(get_engine(), user_sub=a, hoi_thoai_id=phien, ten_tep="anh.png", du_lieu=b"x", loai=None)
+    for duong, h in [
+        (f"/api/v1/tai-lieu/{viec}/ban-thao", hb),
+        (f"/api/v1/tai-lieu/{uuid.uuid4()}/ban-thao", ha),
+        ("/api/v1/tai-lieu/khong-phai-uuid/ban-thao", ha),
+        (f"/api/v1/tai-lieu/{anh}/ban-thao", ha),
+    ]:
+        assert (await client.post(duong, headers=h)).status_code == 404, duong
+    assert (await client.post(f"/api/v1/tai-lieu/{viec}/ban-thao")).status_code == 401
+    with get_engine().connect() as c:
+        n = c.execute(
+            text("SELECT count(*) FROM ban_thao WHERE user_sub IN (CAST(:a AS uuid), CAST(:b AS uuid))"),
+            {"a": a, "b": b},
+        ).scalar_one()
+    assert n == 0, "không lần từ chối nào mở một bản thảo"
