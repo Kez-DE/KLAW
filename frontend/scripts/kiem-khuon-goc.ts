@@ -6,9 +6,9 @@
  * Vì sao đáng kiểm riêng: `khuonHopLe` quyết định giao diện vẽ trang hay A4
  * HTML, và mỗi ô nó bỏ sót là một ô người dùng không điền được; `oHopLe` và
  * `viTriO` quyết định nút điền nằm ĐÚNG trên chỗ trống nào của ảnh trang,
- * `oKeTiep` quyết định Tab đi sang chỗ nào, và `oDaDoi` quyết định lần lưu gửi
- * ĐÚNG những ô nào — gửi thừa là một phiên bản vô ích tính vào trần sửa, gửi
- * thiếu là chữ người dùng gõ biến mất.
+ * `oKeTiep` quyết định Tab đi sang chỗ nào, và `oDaDoi` quyết định chỗ nào còn
+ * chữ trên trang mà tệp tải về chưa có — bỏ sót là tải về một tệp thiếu chữ
+ * người dùng đang nhìn thấy.
  *
  * Chạy: `npm run kiem-khuon-goc`.
  */
@@ -179,6 +179,16 @@ kiem("chữ đã gõ mà chưa lưu được đọc lên; gõ lại đúng giá 
   assert.equal(nhanNutDien(daDien, "a@b.vn "), "Điền: Email — đang là “a@b.vn”");
   assert.equal(nhanNutDien(daDien, undefined), "Điền: Email — đang là “a@b.vn”");
 });
+kiem("lượt lưu đang chờ máy chủ được đọc lên là 'đang lưu', không phải 'chưa lưu'", () => {
+  const daDien = o({ nhan: "Email", gia_tri: " a@b.vn" });
+  assert.equal(nhanNutDien(daDien, " x@y.vn ", true), "Điền: Email — đang lưu “x@y.vn”");
+  assert.equal(nhanNutDien(daDien, "", true), "Điền: Email — đang lưu: để trống");
+  assert.equal(
+    nhanNutDien(daDien, "a@b.vn", true),
+    "Điền: Email — đang là “a@b.vn”",
+    "chữ đang lưu trùng giá trị đã lưu: không có gì đang đổi",
+  );
+});
 kiem("dòng phụ thẻ khuôn: số trang và số chỗ ĐÃ điền (bỏ null và khoảng trắng)", () => {
   const k = khuonHopLe(KHUON)!;
   assert.equal(phuDeKhuon(k), "Biểu mẫu · 2 trang · đã điền 2 chỗ");
@@ -189,9 +199,8 @@ kiem("dòng phụ thẻ khuôn: số trang và số chỗ ĐÃ điền (bỏ nul
 });
 
 // ─────────────────────────────────────────────────────────────── oDaDoi
-// Mỗi lần lưu là một phiên bản tính vào `TRAN_SUA` (10) — lưu từng chỗ một thì
-// một biểu mẫu 30 chỗ kẹt ở chỗ thứ 10. Chữ gõ trên trang gom lại, MỘT lần Lưu
-// gửi mọi chỗ đổi (kế hoạch, Risks "Edit cap").
+// Chữ gõ trên trang mà chưa lưu xong (bị từ chối, hay còn đang gõ): tải tệp lúc
+// đó là tải một tệp thiếu chữ ấy, nên nơi gọi chặn tải theo đúng danh sách này.
 const CT = khuonHopLe(KHUON)!.cho_trong;
 kiem("không gõ gì → không gửi gì", () => {
   assert.deepEqual(oDaDoi(CT, {}), []);
