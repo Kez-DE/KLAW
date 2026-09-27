@@ -168,7 +168,9 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
 - `GET /tai-lieu/{viec_id}/trang` — the khuôn gốc as uploaded:
   `{"kho": [[w, h], …], "trang": ["<base64 png>", …]}`, one request for every page.
   A render takes one of the three LibreOffice slots (503 `qua_tai`) and holds at
-  most 12 Mpx for the whole document; `kho` is always in (0, 14400] pt.
+  most 12 Mpx for the whole document; `kho` is always in (0, 14400] pt. One
+  render per account at a time: a second concurrent `/trang` from the same
+  account is the same 503 `qua_tai`, so the viewer fetches once.
 - `POST /tai-lieu/{viec_id}/doc-lai` `{"loai"}` — re-extract by type from the
   stored khuôn gốc (no re-upload, no new viec, no quota hit). At most
   `so_lan_thu` (FR-037, 3) paid re-extracts per document, then 429; `tong_quat`
@@ -220,10 +222,15 @@ open risks, and follows the TDD order: failing test first, then code.
 - **LibreOffice load.** Every upload and save costs one of 3 slots shared with
   `.doc` conversion; overload returns the existing `qua_tai` 503.
 - **LibreOffice network egress.** Every docx upload and every `GET /trang` of a
-  docx runs LibreOffice, whose sandbox does not block the network (residual risk,
-  decision Tradeoffs). Measured 2026-09-27 on LibreOffice 26.2.4 (dev Mac): no
-  outbound request for external image or `INCLUDEPICTURE` links. Not yet measured
-  on the production image.
+  docx runs LibreOffice, whose sandbox does not block the network (decision
+  Tradeoffs). Measured 2026-09-27 on LibreOffice 26.2.4 (dev Mac) and 25.2.3 (the
+  Dockerfile's base + `libreoffice-writer`): an external linked image (`r:link`)
+  is fetched (SSRF), and a `file://` one embeds a server file into the rendered
+  PDF. Every soffice run now gets a profile seeded with
+  `BlockUntrustedRefererLinks`, which stops both on both versions. Still open on
+  both: the `.doc` importer sends one blind GET regardless — on main since Phase
+  13; closing it needs network isolation for the converter or dropping `.doc`
+  (owner's call).
 - **Rate limit.** 10 requests / 60 s per IP; page images come in one request.
 - **Scanned PDFs.** Tesseract emits no words for long dotted leaders; blanks are
   located by label-relative placement and pixel runs, and the accuracy is measured,
@@ -266,7 +273,14 @@ open risks, and follows the TDD order: failing test first, then code.
   viec that keeps a khuôn gốc always counts against `tai_lieu_ngay`; an upload the
   cost estimate will refuse stores no file, so FR-038 still exempts it. Page
   renders: `kho` validated to (0, 14400] pt (ISO 32000-1 Annex C), 12 Mpx per
-  document, `pdftoppm` crops at 2400 px and takes a LibreOffice slot.
+  document, `pdftoppm` crops at 2400 px and takes a LibreOffice slot; one
+  render per account at a time (the rate limit before `/trang` is per IP, so
+  one account on several IPs could otherwise hold all three slots).
+- 2026-09-27 (P2a egress): the review's residual-risk finding measured real —
+  a docx `r:link` image made LibreOffice fetch the URL (SSRF) or embed a
+  `file://` server file into the render. Every soffice run gets a profile seeded
+  with `BlockUntrustedRefererLinks`; the `.doc` importer's blind GET stays open
+  and is the owner's call (isolation or drop `.doc`).
 
 ## Validation
 
@@ -280,10 +294,10 @@ open risks, and follows the TDD order: failing test first, then code.
   in `.tham-dinh-shots/` (owner's untracked folder).
 - Ruler: page count equal to LibreOffice and to Word on all 8 forms; unchanged
   pages pixel-identical after a fill; every filled docx opens in Word.
-- Egress (P6): run
-  `tests/test_services/test_dung_trang.py::test_dung_pdf_KHONG_goi_ra_mang_voi_lien_ket_ngoai`
-  inside the production image; red there means network isolation for the
-  converter is needed before release.
+- Egress (P6): run the three `*lien_ket*` / `*tep_may_chu*` tests of
+  `tests/test_services/test_dung_trang.py` inside the production image. The two
+  docx barriers must pass; the `.doc` measurement is `xfail` while the blind GET
+  remains (XPASS there means the importer no longer fetches).
 - Repository-required checks: CI lane
   `KLAW_SUPABASE_URL= python -m pytest -q -m 'not integration and not pending_review' --deselect tests/test_services/test_moi_mau.py`.
 

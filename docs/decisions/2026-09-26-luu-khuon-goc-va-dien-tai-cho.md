@@ -88,17 +88,27 @@ Tradeoffs:
   đồng thời), dùng chung với quy đổi `.doc`.
 - **LibreOffice mở MỌI docx tải lên và mọi lần `GET /trang` dựng lại một docx**,
   không chỉ `.doc` như trước. Hộp cát (`doc_tai_lieu._chuyen_doc_sang_docx`) có
-  thư mục tạm, hồ sơ riêng, môi trường tối giản, trần thời gian và ba suất chung,
-  nhưng KHÔNG chặn mạng ở tầng hệ điều hành và không che được
-  `/proc/<pid>/environ` dưới cùng người dùng hệ điều hành. Rủi ro còn lại đó đã
-  ghi từ Phase 13, nay chạm tới thường xuyên hơn nhiều. Đo ngày 2026-09-27 trên
-  máy dev (LibreOffice 26.2.4, đúng cờ của hộp cát): ảnh liên kết ngoài (`r:link`)
-  và trường `INCLUDEPICTURE` trỏ về một máy nghe 127.0.0.1 không tạo yêu cầu nào.
-  `test_dung_pdf_KHONG_goi_ra_mang_voi_lien_ket_ngoai` lặp phép đo ở mọi máy có
-  LibreOffice (cả CI); image triển khai CHƯA được đo. Đây là rủi ro đã công khai,
-  chờ chủ dự án chấp nhận hoặc yêu cầu cách ly mạng cho tiến trình chuyển đổi
-  (network namespace, hay một dịch vụ chuyển đổi không có mạng) — chưa phải rủi
-  ro đã được chấp nhận.
+  thư mục tạm, hồ sơ riêng, môi trường tối giản, trần thời gian, ba suất chung và
+  một lượt dựng `/trang` mỗi tài khoản mỗi lúc, nhưng KHÔNG chặn mạng ở tầng hệ
+  điều hành và không che được `/proc/<pid>/environ` dưới cùng người dùng hệ điều
+  hành. Rủi ro còn lại đó đã
+  ghi từ Phase 13, nay chạm tới thường xuyên hơn nhiều, và đã đo được là THẬT
+  (2026-09-27, đúng cờ của hộp cát, cả LibreOffice 26.2.4 trên máy dev lẫn 25.2.3
+  trong `python:3.11-slim` + `libreoffice-writer` của Dockerfile): một ảnh liên
+  kết ngoài (`r:link`, `TargetMode="External"`) trong docx làm máy chủ gửi GET tới
+  URL tệp tự chọn (SSRF), và với `file://` thì nhúng một tệp CỦA MÁY CHỦ vào PDF
+  đã dựng — `/trang` trả nó cho người tải lên. Trường `INCLUDEPICTURE`,
+  `INCLUDETEXT`, VML, `attachedTemplate` và hyperlink không gọi ra ngoài.
+  Lớp chặn ở tầng ứng dụng: mỗi lượt soffice nhận hồ sơ riêng gieo sẵn
+  `BlockUntrustedRefererLinks` (`doc_tai_lieu._HO_SO_CHAN_LIEN_KET`); đo trên cả
+  hai phiên bản, docx → PDF không còn yêu cầu nào và không nhúng tệp nào. CÒN LẠI,
+  đo được ở cả hai phiên bản: bộ nhập `.doc` gửi MỘT GET mù lúc quy đổi bất kể
+  lớp đó (bản docx quy đổi giữ liên kết, không giữ bytes đã tải). Đường `.doc` đã
+  có trên main từ Phase 13, nên đây là rủi ro của bản đang chạy, không riêng P2a.
+  `tests/test_services/test_dung_trang.py` lặp cả ba phép đo ở mọi máy có
+  LibreOffice (cả CI). Chặn phần còn lại cần cách ly mạng cho tiến trình chuyển
+  đổi (network namespace, hay một dịch vụ chuyển đổi không có mạng) hoặc ngừng
+  nhận `.doc` — chờ chủ dự án quyết, chưa phải rủi ro đã được chấp nhận.
 - PDF không dàn lại được: trên PDF chỉ điền chỗ trống và thay chữ trong đúng ô của
   nó; không chèn hay xoá đoạn. Định vị chỗ trống trên PDF scan là xấp xỉ.
 - `ban_thao` và `luot_hoi_thoai` vẫn chỉ bị xoá mềm cùng hội thoại, nên phép sửa
