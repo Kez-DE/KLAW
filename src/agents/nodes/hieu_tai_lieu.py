@@ -2829,6 +2829,12 @@ def _mot_phep(
     # người hỏi không nói bị bỏ (khuôn gốc: "Bạn KHÔNG viết lại văn bản").
     if _them_khong_nguon(chu, cu, nguon_kh, so_nguon):
         return "khong_nguon"
+    # Luật cột của `dien` cho ô rỗng (`o`): `thay` hay `chen_sau` (bộ áp chèn đoạn VÀO
+    # ô) lên ô ấy cũng đặt chữ vào cột đó — tên vào «Mã sinh viên» bị bỏ, không lặng lẽ.
+    if (o := next((c for c in d.cho_trong if c.kieu == "o"), None)) and not _khop_nhan(
+        o.nhan, " ".join(_cum_them(chu, cu)), "o"
+    ):
+        return "khong_khop_nhan"
     return {"loai": loai, "don_vi": dv, **({"doan": doan} if doan is not None else {}), "noi_dung": chu}
 
 

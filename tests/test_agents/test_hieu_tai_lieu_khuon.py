@@ -1913,6 +1913,33 @@ def test_bm_m05_that_o_trong_cua_bang_danh_sach_dien_bang_thay():
     assert doc(BM_M05.name, moi).don_vi[ho_ten.chi_so].noi_dung == "Nguyễn Văn Ánh"
 
 
+@pytest.mark.skipif(not BM_M05.exists(), reason="biểu mẫu thật của chủ dự án không có trên máy này")
+@pytest.mark.parametrize(
+    ("phep", "giu"),
+    [
+        (_doan("thay", 29, "Nguyễn Văn Ánh"), False),
+        (_doan("thay", 29, "Nguyễn Văn Ánh", doan=0), False),
+        (_doan("thay", 27, "Nguyễn Văn Ánh"), False),
+        (_doan("chen_sau", 29, "Nguyễn Văn Ánh"), False),
+        (_doan("thay", 29, "20260099"), True),
+    ],
+)
+def test_bm_m05_that_thay_ten_vao_cot_Ma_STT_bi_bo_va_ke_chua_dat(phep, giu):
+    """Luật chữ số của cột «Mã …»/«STT» không chỉ cho `dien`: `thay` cả ô, `thay` đoạn
+    0 hay `chen_sau` (bộ áp chèn đoạn VÀO ô) đặt tên vào đúng cột đó — bỏ
+    (`khong_khop_nhan`) và kể dưới "Chưa đặt được", không ghi lặng lẽ sai cột."""
+    _, _, tl = _m05()
+    ra, _ = _chay([phep], cau=CAU_G5 + " Mã sinh viên 20260099.", tai_lieu=tl)
+    k = ra["khuon_tong_quat"]
+    if giu:
+        assert (k["bo_qua"], k["khong_dat"]) == ([], [])
+        assert k["phep_sua"] == [{"loai": "thay", "don_vi": 29, "noi_dung": "20260099"}]
+        return
+    assert k["phep_sua"] == []
+    assert k["bo_qua"] == [{"don_vi": phep["don_vi"], "cho_trong": None, "ly_do": "khong_khop_nhan"}]
+    assert k["khong_dat"] == ["Nguyễn Văn Ánh"]
+
+
 # ─────────── ô rỗng của bảng danh sách (`kieu` "o", G5) — lượt owner 2026-09-27 trên
 # BM.M05 với gemini-2.5-flash-lite: mọi giá trị vào đúng chỗ TRỪ «Nguyễn Văn Ánh», rơi
 # vào ô «Mã sinh viên» (đơn vị 29), bị bỏ lặng lẽ: `khong_dat` rỗng, ghi chú "đoạn 29".
