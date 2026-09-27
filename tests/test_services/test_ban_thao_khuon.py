@@ -195,6 +195,18 @@ def test_tom_tat_khuon_la_tieu_de_va_mot_dong_moi_o_da_dien():
     assert tom_tat_khuon(None, _khuon()) == "# Văn bản\n"
 
 
+def test_ket_qua_chat_mang_CUNG_khuon_voi_GET_ban_thao():
+    """`assemble` đưa `state["ban_thao_ket"]` thẳng vào `BanThaoOut`: thiếu `khuon`
+    ở đó thì kết quả SSE của lượt soạn và `GET /ban-thao/{id}` nói hai điều khác nhau."""
+    from src.agents.nodes.dung_ban_thao_tong_quat import _ket_state
+    from src.models.schemas import BanThaoOut
+
+    khuon = _khuon((0, 0, "Họ và tên:", "Ánh"))
+    bt = {"id": "x", "phien_ban": 1, "document": "# A\n", "clauses": [], "audit": {}, "facts": {}, "khuon": khuon}
+    assert BanThaoOut(**_ket_state(bt, "Bản thảo tổng quát", [])).khuon == khuon
+    assert BanThaoOut(**_ket_state({**bt, "khuon": None}, "Bản thảo tổng quát", [])).khuon is None
+
+
 # ═══ Chạm DB thật ══════════════════════════════════════════════════════════
 
 import json  # noqa: E402

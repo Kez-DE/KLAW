@@ -172,6 +172,8 @@ def _ket_state(bt: dict, ten: str, doi: list[str]) -> dict:
         "audit_report": bt["audit"],
         "facts": bt["facts"],
         "doi_so_voi_truoc": doi,
+        # P4a — ô điền của khuôn gốc, do `ban_thao` tính; `None` cho bản thảo HTML.
+        "khuon": bt.get("khuon"),
     }
 
 
