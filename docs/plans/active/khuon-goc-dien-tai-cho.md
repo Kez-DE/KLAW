@@ -116,6 +116,21 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   For PDF: `{"so", "kieu": "cham", "hop": [x0, y0, x1, y1], "co_chu": float,
   "nhan"}` in PDF points on the unit's `trang`, in poppler display space: origin
   at the top-left of the page's MEDIA box (not the CropBox), after `/Rotate`.
+- `kieu: "o"` (G5, docx body tables only): an EMPTY cell (`doc_tai_lieu.o_rong`:
+  no text after `strip`, a `w:p`, not a `w:vMerge` continuation, no drawing,
+  picture, object, `mc:AlternateContent`, nested table, `w:sdt` or field) of a
+  BORDERED table (`bang_vien`; a borderless table lays out a letterhead or a
+  signature pair and is never a data table), with an address and no other
+  blank, under a named column. Column name: the text of the LAST row above the
+  first data row whose cell covering that grid column (`w:gridSpan` included)
+  has a letter — row 0 is always a header, and a row with no empty named cell
+  before the first data row ("(1) (2)", the lower tier of a two-tier header)
+  is one too. `{"so": 0, "kieu": "o", "doan": 0, "dau": 0, "cuoi": 0, "nhan":
+  "<column> (dòng n)"}`, n counted from the first data row; `nhan_sach` cleans
+  the column and keeps " (dòng n)". The unit carries `doan_chu` (the raw empty
+  paragraph texts). Measured on the 8 owner forms: BM.M05 24, BM.ĐT.18.05 13,
+  BM.ĐT.18.11 5, phiếu đánh giá 5, the other four 0 (47 in all); chấm/tab
+  counts unchanged (124).
 - Blanks hang only on đơn vị văn bản. A paragraph with no text is not a unit, so
   a text-less dotted or dot-leader continuation line (the lines under
   "Comments (góp ý thêm):") has no blank: it keeps its dots, is never filled and
@@ -156,7 +171,11 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
 
 - `dien` replaces only the blank's characters (possibly spanning runs) with the
   value in the formatting of the blank's first run; a `tab` blank inserts a run
-  before the `w:tab` so the leader shrinks as in Word.
+  before the `w:tab` so the leader shrinks as in Word. An `o` blank appends ONE
+  run to the cell's first paragraph, its `w:rPr` a copy of that paragraph mark's
+  `w:pPr/w:rPr` without revision marks (none: no `w:rPr`, the paragraph and
+  table styles apply); the cell must still be `o_rong` on the stored bytes, else
+  `cho_trong_da_doi`.
 - `thay` keeps `w:pPr` and the first run's `w:rPr`; `chen_sau` clones them;
   `xoa` removes the paragraph (a cell keeps one empty `w:p`).
 - `thay` with `doan` (docx only, one line; `doan` is the `container.iter(w:p)`
@@ -220,6 +239,11 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   built). `khuon.khong_dat: [str]` (strict, required): values the user gave that
   the model could not place; kept only when a case- and diacritic-insensitive
   substring of the user's text and not inside a kept op; `assemble` lists them.
+  The values of the turn's DROPPED ops (a `dien` value, each run a `thay`/
+  `chen_sau` adds) go through the same filter first (G5), so a user's value
+  whose op the checks dropped is always named ("Chưa đặt được: «…»"), also in
+  the no-change and other refusal answers. `coverage_note` and every answer name
+  a blank by its label, else "một thay đổi" — never a unit index ("đoạn 29").
 - Date split (deterministic, docx rows with `doan_chu` only): a `dien` whose value
   is a full date (`d/m/yyyy`, `dd/mm/yyyy`, `-` or `.` separators) into blank k
   becomes three `dien` (day, month, year) when blanks k, k+1, k+2 of the same
@@ -227,7 +251,12 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   `ngày` blank — unless the turn itself fills k+1 or k+2.
 - Plausibility (`dien` only, model output only): a blank whose label is a short
   number label (`Số`, `Số:`, `No.`) or ends with `ngày`/`tháng`/`năm` takes a
-  value with a digit, else `khong_khop_nhan`. No other label heuristic.
+  value with a digit, else `khong_khop_nhan`; so does an `o` blank whose column
+  starts with `Mã`, `Số`, `STT` or `TT` (G5). No other label heuristic.
+- Prompt: an `o` blank shows as `⟦0⟧` inside its cell unit plus a `chỗ trống:`
+  line with its label (`[A-30] (tr. 2, bảng 2 hàng 2 cột 4) ⟦0⟧` /
+  `chỗ trống: 0 «Họ và tên (dòng 1)»`); the rules say a list table is filled
+  row by row, each value in the column that names it.
 
 ### Storage
 
@@ -261,7 +290,8 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   from the top-left of that page (the space of `kho`; pixel scale = PNG width /
   `kho[i][0]`) and covers the blank's dots, or its value once filled;
   `gia_tri` is trimmed. PDF: the reader's stored blank box on the unit's page.
-  DOCX: measured on the rendered page with a probe copy (Decisions, G1).
+  DOCX: measured on the rendered page with a probe copy (Decisions, G1); an `o`
+  blank's box is its whole cell, from a probe-only cell shading (Decisions, G5).
   `trang`/`hop` are null only when the position was not measured. Old clients
   ignore `o`.
   A render takes one of the three LibreOffice slots (503 `qua_tai`) and holds at
@@ -407,6 +437,8 @@ open risks, and follows the TDD order: failing test first, then code.
   CI lane 2583 passed (only the worktree-only `test_data_raw_VAN_bi_gitignore`
   failure); ruler unchanged on every LibreOffice measure.
 - [x] Issue opened for the soft-delete gap (#3).
+- [x] G5 backend — empty list-table cells as `o` blanks, dropped user values
+  always named, no unit index in answers (`fix/g5-backend`, merge pending).
 
 ## Decisions
 
@@ -685,6 +717,36 @@ open risks, and follows the TDD order: failing test first, then code.
   the first ones. Still open for the owner: the deletion-only `thay`/`xoa` gap
   and the `tao_lai`-on-a-filled-draft default (option A), both above. Both g4
   branches merged into `integ/wave-g` without conflicts.
+- 2026-09-27 (G5, from the owner's real run with gemini-2.5-flash-lite on BM.M05,
+  "Điền giúp tôi biểu mẫu này: tên cơ quan tiếp nhận là Công ty TNHH Luật Việt, số
+  12/2026, sinh viên Nguyễn Văn Ánh, ngành Luật kinh tế, thời gian từ 01/10/2026
+  đến 31/12/2026."): every value landed except «Nguyễn Văn Ánh», silently dropped
+  — the page-2 list table's empty cells had no blank, the model's op went to unit
+  29 («Mã sinh viên/ học viên», wrong column), `khong_dat` stayed empty and the
+  note said "đoạn 29". Changes (supersede B3's "filled by `thay` on the cell
+  unit"; a whole-cell `thay` is still accepted): empty cells of a bordered table
+  under a named column are `o` blanks (Contracts); the applier appends one run
+  in the paragraph mark's format; a `Mã`/`Số`/`STT`/`TT` column needs a digit;
+  dropped ops' user values feed `khong_dat`; answers name blanks, never units.
+  Probe: an empty cell has no character to wrap in a link, and ANY run put in
+  the empty paragraph — NBSP, ZWSP, WJ, hidden text, with or without a link or
+  `w:rPr` — shortens the row under LibreOffice 26.2.4 (the line below the BM.M05
+  table rises 1.4 pt after four rows; with `w:ptab` the cell wraps). A cell
+  SHADING changes no word box (0 of 207 on BM.M05) and LibreOffice exports it as
+  `r g b rg` + `re` + `f*`, so the probe shades each `o` cell `#01` + unit (hex)
+  and `dung_trang._nen_o` reads the rectangles; the box is used as is only when
+  every probe word above the cell's bottom sits within 1 pt of the clean page
+  (a link wrapping differently above would move the cell: "chưa định vị").
+  Measured on the 8 forms: 47/47 `o` positioned empty and 47/47 filled; chấm/tab
+  unchanged at 123/124 empty and 124/124 filled; `eval.run_khuon_goc` numbers for
+  chấm/tab byte-identical, `o` measured apart (47/47 applied, page count kept on
+  4/4 forms, 47/47 read back in the right unit); `eval.run_trung_thuc` unchanged.
+  Open: LibreOffice 25.2.3 (the Dockerfile's) not measured for the shading path —
+  a build that draws cell fills otherwise leaves `o` blanks unpositioned, never
+  misplaced; column names come from position (rows above the first data row),
+  not formatting — every measured table has one header row. Agent defaults under
+  the standing delegation, open for the owner: `TT` counts as a number column;
+  a dropped op's value is listed only when it is a substring of the user's text.
 
 ## Validation
 
