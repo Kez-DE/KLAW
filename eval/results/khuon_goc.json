@@ -1,5 +1,5 @@
 {
-  "commit_hash": "5e6eec0cd86e8566986a2f68bbf10a861fd3ef80",
+  "commit_hash": "0e558d25805bca79f5e85ce18faddb08d8c253dc",
   "word": true,
   "word_chan": null,
   "so_tep": 8,
@@ -40,6 +40,7 @@
           32,
           32
         ],
+        "muc_zip_doi": [],
         "word_mo": true,
         "so_trang_word_sau": 2,
         "gia_tri_word": [
@@ -130,6 +131,7 @@
           15,
           15
         ],
+        "muc_zip_doi": [],
         "word_mo": true,
         "so_trang_word_sau": 1,
         "gia_tri_word": [
@@ -214,6 +216,7 @@
           15,
           15
         ],
+        "muc_zip_doi": [],
         "word_mo": true,
         "so_trang_word_sau": 1,
         "gia_tri_word": [
@@ -302,6 +305,7 @@
           21,
           21
         ],
+        "muc_zip_doi": [],
         "word_mo": true,
         "so_trang_word_sau": 1,
         "gia_tri_word": [
@@ -398,6 +402,7 @@
           17,
           17
         ],
+        "muc_zip_doi": [],
         "word_mo": true,
         "so_trang_word_sau": 4,
         "gia_tri_word": [
@@ -487,6 +492,7 @@
           0,
           0
         ],
+        "muc_zip_doi": [],
         "word_mo": true,
         "so_trang_word_sau": 1,
         "gia_tri_word": [
@@ -575,6 +581,7 @@
           3,
           3
         ],
+        "muc_zip_doi": [],
         "word_mo": true,
         "so_trang_word_sau": 3,
         "gia_tri_word": [
@@ -663,6 +670,7 @@
           21,
           21
         ],
+        "muc_zip_doi": [],
         "word_mo": true,
         "so_trang_word_sau": 1,
         "gia_tri_word": [
@@ -729,6 +737,10 @@
   "tong_hop": {
     "so_tep": 8,
     "loi": 0,
+    "khong_dien_gi": [
+      "Report_cover.docx"
+    ],
+    "word_loi": 0,
     "so_trang_lo": {
       "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx": 2,
       "BM.ĐT.18.03. Đơn đăng ký đi thực tập tốt nghiệp Ver 02.docx": 1,
@@ -743,29 +755,36 @@
       8,
       8
     ],
-    "khu_hoi_bytes_giong": [
-      8,
-      8
-    ],
-    "khu_hoi_trang_giong": [
-      8,
-      8
-    ],
+    "khu_hoi": {
+      "kieu": "rong_la_dong_nhat",
+      "bytes_giong": [
+        8,
+        8
+      ],
+      "trang_giong": [
+        8,
+        8
+      ]
+    },
     "dien": {
       "so_cho": 124,
       "da_ap": 124,
       "bo_qua": {},
       "so_trang_giu_lo": [
-        7,
-        8
+        6,
+        7
       ],
       "so_trang_giu_word": [
-        8,
-        8
+        7,
+        7
       ],
       "trang_khong_dien_giong": [
-        2,
-        2
+        1,
+        1
+      ],
+      "zip_giu_muc_khac": [
+        7,
+        7
       ],
       "gia_tri": [
         124,
@@ -776,8 +795,8 @@
         124
       ],
       "word_mo": [
-        8,
-        8
+        7,
+        7
       ]
     },
     "lo_word": {
@@ -794,17 +813,26 @@
       "so_cho": 93,
       "so_cho_docx": 124,
       "ti_le_so_voi_docx": 0.75,
+      "cho_toi_da_khop": [
+        93,
+        124
+      ],
+      "cho_thua": 0,
       "da_ap": 48,
       "bo_qua": {
         "khong_vua": 45
       },
+      "khong_dien_gi": [
+        "Report_cover.docx",
+        "Report_instruction.docx"
+      ],
       "tep_khong_doi_ngoai_hop": [
-        8,
-        8
+        6,
+        6
       ],
       "tep_khong_doi_ngoai_dai_chu": [
-        8,
-        8
+        6,
+        6
       ],
       "gia_tri": [
         40,
@@ -820,17 +848,28 @@
       "so_cho": 112,
       "so_cho_docx": 124,
       "ti_le_so_voi_docx": 0.9032,
+      "cho_toi_da_khop": [
+        86,
+        124
+      ],
+      "cho_thua": 26,
       "da_ap": 56,
       "bo_qua": {
         "khong_vua": 56
       },
+      "khong_dien_gi": [
+        "BM.ĐT.18.03. Đơn đăng ký đi thực tập tốt nghiệp Ver 02.docx",
+        "BM.ĐT.18.05. Kế hoạch thực tập tại cơ sở Ver 02.docx",
+        "Report_cover.docx",
+        "Report_instruction.docx"
+      ],
       "tep_khong_doi_ngoai_hop": [
-        4,
-        8
+        0,
+        4
       ],
       "tep_khong_doi_ngoai_dai_chu": [
-        8,
-        8
+        4,
+        4
       ],
       "gia_tri": [
         56,
