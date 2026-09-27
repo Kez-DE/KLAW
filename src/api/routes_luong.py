@@ -165,7 +165,7 @@ async def _chay_nen(
                 except Exception:
                     logger.exception("bo_nho: không lưu được giả định suy_dien (phien=%s)", hoi_thoai_id)
                 if user_sub is not None:
-                    bo_nho.len_lich_cap_nhat(hoi_thoai_id, user_sub, payload.get("result_type"))
+                    bo_nho.len_lich_cap_nhat(hoi_thoai_id, user_sub, bo_nho.loai_luot(payload))
             # Task 19 — cùng khối chốt `soan_thao_dang_mo` với `routes.tra_cuu`;
             # xem chú thích ở đó cho lý do bỏ qua khi ý định là `tra_cuu`.
             sd = payload.get("soan_thao_dang_mo")

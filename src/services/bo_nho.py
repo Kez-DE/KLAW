@@ -130,7 +130,21 @@ def gop_ho_so(cu: dict, moi: dict, nguon: str) -> dict:
 # của người hỏi chỉ được sống trong ĐÚNG hội thoại đã nhận nó và chết cùng hội
 # thoại đó. Gộp nó vào `ho_so` là đẩy nó sang hồ sơ TÀI KHOẢN (`gop_vao_tai_khoan`
 # ngay dưới) — tức ra khỏi hội thoại, vĩnh viễn, không ai bấm nút nào.
-KHONG_GOP_HO_SO = frozenset({"gioi_thieu", "hoi_ve_kho", "out_of_scope", "tai_lieu"})
+#
+# `ban_thao_khuon` (quyết định 2026-09-26 mục 6, FR-028): lượt soạn trên KHUÔN GỐC
+# mang giá trị đã điền vào tệp người hỏi tải lên — dữ kiện của TÀI LIỆU, không
+# được ra khỏi hội thoại. Mạnh hơn cả `tai_lieu`: `cap_nhat_phien` không chạy
+# chút nào cho lượt đó (không tóm tắt, không hồ sơ), xem `loai_luot`.
+BAN_THAO_KHUON = "ban_thao_khuon"
+KHONG_GOP_HO_SO = frozenset({"gioi_thieu", "hoi_ve_kho", "out_of_scope", "tai_lieu", BAN_THAO_KHUON})
+
+
+def loai_luot(payload: dict) -> str | None:
+    """`result_type` của lượt, NHÌN CHO BỘ NHỚ: một bản thảo mang `viec_id` (bản
+    thảo trên khuôn gốc) là `BAN_THAO_KHUON`, dù response vẫn nói `ban_thao`."""
+    if (payload.get("ban_thao") or {}).get("viec_id"):
+        return BAN_THAO_KHUON
+    return payload.get("result_type")
 
 
 def ho_so_sau_luot(result_type: str | None, cu: dict, moi: dict) -> dict:
@@ -250,7 +264,12 @@ def cap_nhat_phien(
     hoi_thoai_id: str, user_sub: str, llm=None, model: str | None = None, result_type: str | None = None
 ) -> None:
     """Một lời gọi LLM sau mỗi lượt: tóm tắt cuộn các lượt vừa rơi khỏi cửa sổ K và cập
-    nhật hồ sơ từ lượt mới nhất. KHÔNG BAO GIỜ raise; lỗi → log, giữ bản cũ."""
+    nhật hồ sơ từ lượt mới nhất. KHÔNG BAO GIỜ raise; lỗi → log, giữ bản cũ.
+
+    Lượt `BAN_THAO_KHUON` không chạy gì — 0 truy vấn, 0 lượt gọi mô hình (FR-028).
+    Tóm tắt không mất lượt nào: lượt sau gộp từ `tom_tat_den_thu_tu` trở đi."""
+    if result_type == BAN_THAO_KHUON:
+        return
     bat_dau = time.monotonic()
     usage: Usage | None = None
     try:

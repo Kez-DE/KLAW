@@ -961,6 +961,61 @@ def tinh_muc_chac(dung_cho_prose: list, khung_yeu_cau: dict | None, ho_so: dict 
     return "chac"
 
 
+# Bản thảo trên KHUÔN GỐC (P4b): lời đáp nói số chỗ đã điền và gọi tên chỗ còn
+# trống; phép bị phép kiểm bỏ đi thì `coverage_note` gọi tên chúng. Trần tên
+# dùng lại `TRAN_GACH` (bốn mục người đọc còn nắm được), trần ghi chú 160 ký tự.
+TRAN_GHI_CHU_KHUON = 160
+
+
+def _liet_ke(dau: str, ten: list[str], tran_ky_tu: int) -> str:
+    """`dau` + tối đa `TRAN_GACH` tên, cắt để vừa `tran_ky_tu`; phần cắt nói bằng SỐ."""
+    for n in range(min(len(ten), TRAN_GACH), -1, -1):
+        du = len(ten) - n
+        s = dau + ", ".join(ten[:n]) + ((" và " if n else "") + f"{du} chỗ khác" if du else "")
+        if len(s) <= tran_ky_tu:
+            return s
+    return dau[:tran_ky_tu]
+
+
+def _ban_thao_khuon(state: dict, bt: dict) -> dict:
+    """Lời đáp 0 token cho một bản thảo khuôn gốc — đọc `bt["phep_sua"]` (TRỌN phép
+    của phiên bản vừa lưu) và `khuon_tong_quat` (chỗ trống, phép đã bỏ) của lượt."""
+    khuon = state.get("khuon_tong_quat") or {}
+    cho = khuon.get("cho_trong") or []
+    nhan = {(c["don_vi"], c["so"]): c["nhan"] or "chỗ trống" for c in cho}
+    phep = bt.get("phep_sua") or []
+    da = {(p.get("don_vi"), p.get("cho_trong")) for p in phep if p.get("loai") == "dien"}
+    so_doan = sum(1 for p in phep if p.get("loai") != "dien")
+    con = [f"«{nhan[k]}»" for k in nhan if k not in da]
+    doi = [f"«{x}»" for x in bt.get("doi_so_voi_truoc") or []]
+    answer = (
+        f"Bản thảo phiên bản {bt['phien_ban']} là chính biểu mẫu bạn tải lên: đã điền "
+        f"{len(da & nhan.keys())}/{len(nhan)} chỗ trống"
+        + (f" và sửa {so_doan} đoạn" if so_doan else "")
+        + ("; " + _liet_ke("đã đổi: ", doi, 160) if doi else "")
+        + ". "
+        + (_liet_ke("Còn trống: ", con, 320) + ". " if con else "")
+        + "Tôi chỉ điền điều bạn đã nói, hồ sơ hoặc chính tài liệu; chỗ chưa có giá trị giữ nguyên dãy chấm. "
+        + "Bạn xem, sửa từng ô hoặc tải về ở bên cạnh; muốn đổi gì cứ nói với tôi."
+        + _cau_da_nho(state)
+    )
+    bo = khuon.get("bo_qua") or []
+    ten_bo = list(
+        dict.fromkeys(
+            f"«{nhan[(b.get('don_vi'), b.get('cho_trong'))]}»"
+            if (b.get("don_vi"), b.get("cho_trong")) in nhan
+            else (f"đoạn {b['don_vi']}" if b.get("don_vi") is not None else "một thay đổi")
+            for b in bo
+        )
+    )
+    ghi_chu = (
+        _liet_ke(f"Không áp {len(bo)} thay đổi (thiếu nguồn hoặc sai chỗ): ", ten_bo, TRAN_GHI_CHU_KHUON)
+        if bo
+        else None
+    )
+    return _base(state, ResultType.ban_thao, answer=answer, ban_thao=bt, soan_thao_goi_y=None, coverage_note=ghi_chu)
+
+
 def _ban_thao_tong_quat(state: dict) -> dict:
     """Lượt SOẠN từ tài liệu (S6) — `dung_ban_thao_tong_quat` đã chạy xong.
 
@@ -973,6 +1028,8 @@ def _ban_thao_tong_quat(state: dict) -> dict:
     đã dùng.
     """
     bt = state.get("ban_thao_ket")
+    if bt and bt.get("viec_id"):
+        return _ban_thao_khuon(state, bt)
     if bt:
         doi = bt.get("doi_so_voi_truoc") or []
         co_tai_lieu = bool((state.get("tai_lieu_ket") or {}).get("tai_lieu_da_dung"))
