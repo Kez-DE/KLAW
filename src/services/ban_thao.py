@@ -5,8 +5,10 @@ import json
 import logging
 import re
 import time
+import unicodedata
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import text
 from starlette.concurrency import run_in_threadpool
@@ -14,6 +16,7 @@ from starlette.concurrency import run_in_threadpool
 from src.agents.graph_soan_thao import graph_soan_thao_cached, load_checklist_cached
 from src.config import get_settings
 from src.services.db import get_engine
+from src.services.tai_lieu import _cho_trong_tu_hang, _dia_chi_tu_hang, _so_tu_nhien
 from src.services.traces import _ghi_traces
 
 logger = logging.getLogger(__name__)
@@ -739,5 +742,123 @@ def phien_ban_chi_tiet(sub: str, id: str, so: int) -> dict | None:
 
 
 def doi_so_voi(truoc: dict, sau: dict) -> list[str]:
+    """Những gì đổi giữa hai phiên bản. Bản thảo trên khuôn gốc (một trong hai
+    mang `khuon`): các ô đổi giá trị, `"nhãn: cũ → mới"` theo `(don_vi, so)`.
+    Mọi bản thảo khác: các khoá `facts` đổi, đúng hình dạng trước P4a."""
+    if truoc.get("khuon") or sau.get("khuon"):
+        return _doi_o(truoc.get("khuon"), sau.get("khuon"))
     a, b = truoc.get("facts") or {}, sau.get("facts") or {}
     return sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
+
+
+# ═══ Khuôn gốc — quyết định 2026-09-26, kế hoạch `khuon-goc-dien-tai-cho.md` ═══
+# Bản thảo trên một tài liệu có khuôn gốc mang `viec_id` + `phep_sua` (migration
+# 037) thay cho văn bản mô hình viết lại. Mỗi phiên bản là danh sách phép ĐẦY
+# ĐỦ của nó, áp lên khuôn gốc NGUYÊN (`ap_phep_sua`); `khuon` là thứ giao diện
+# cần để vẽ bảng ô điền, tính lại từ `don_vi` đã lưu mỗi lần đọc.
+
+LOI_GIA_TRI_DIEN = "Giá trị điền chỉ được một dòng chữ, không xuống dòng hay ký tự điều khiển."
+_LOAI_PHEP = ("dien", "thay", "xoa", "chen_sau")
+
+
+def _khoa_phep(p: Any) -> tuple | None:
+    """Khoá gộp của một phép, hay `None` khi nó không phải một trong bốn loại
+    đúng hình dạng khoá (bộ áp sẽ bỏ nó dù sao; ở đây nó không được chiếm chỗ)."""
+    if not isinstance(p, dict) or p.get("loai") not in _LOAI_PHEP or not _so_tu_nhien(p.get("don_vi")):
+        return None
+    if p["loai"] == "dien":
+        return ("dien", p["don_vi"], p["cho_trong"]) if _so_tu_nhien(p.get("cho_trong")) else None
+    if p["loai"] == "chen_sau":
+        return ("chen_sau", p["don_vi"], p["noi_dung"]) if isinstance(p.get("noi_dung"), str) else None
+    return ("cau_truc", p["don_vi"])
+
+
+def gop_phep_sua(cu: list[dict] | None, moi: list[dict] | None) -> list[dict]:
+    """Danh sách phép của phiên bản mới: `cu` (phiên bản đang có) cộng CHỈ PHẦN
+    ĐỔI `moi` — MỘT luật cho lượt sửa bằng lời (P4b) và bảng ô điền
+    (`sua_o_dien`). Thuần, không sửa đầu vào.
+
+    `dien` khoá theo `(don_vi, cho_trong)`, phép sau thắng; `gia_tri` rỗng (sau
+    `strip`) gỡ ô đó — dãy chấm trở lại. `thay`/`xoa` chung MỘT khoá `don_vi`,
+    phép sau thắng (bộ áp coi phép cấu trúc thứ hai trên một vật chứa là xung
+    đột). `chen_sau` khoá theo `(don_vi, noi_dung)`: bỏ trùng, giữ thứ tự. Phép
+    đổi giá trị giữ CHỖ cũ trong danh sách, nên bộ áp PDF (phép trước giữ vùng)
+    thấy một danh sách đã bỏ trùng."""
+    gop: dict[tuple, dict] = {}
+    for p in [*(cu or []), *(moi or [])]:
+        k = _khoa_phep(p)
+        if k is None:
+            continue
+        if k[0] == "dien" and not str(p.get("gia_tri") or "").strip():
+            gop.pop(k, None)
+        elif k[0] == "chen_sau":
+            gop.setdefault(k, p)
+        else:
+            gop[k] = p
+    return list(gop.values())
+
+
+def cho_trong_khuon(dinh_dang: str, don_vi: list | None, phep_sua: list | None) -> list[dict]:
+    """Các ô điền được của MỘT phiên bản: `[{don_vi, so, kieu, nhan, gia_tri}]`,
+    `gia_tri` là giá trị phiên bản đó đã điền hay `None` (còn dãy chấm).
+
+    Chỉ ô bộ áp tới được: DOCX cần đơn vị có `dia_chi` và chỗ trống kiểu DOCX,
+    PDF cần chỗ trống có `hop`. Đoạn đã bị `thay`/`xoa` không còn dãy chấm nào,
+    nên ô của nó không được mời điền — một lần lưu chắc chắn bị bỏ."""
+    phep = gop_phep_sua([], phep_sua)
+    da_doi = {p["don_vi"] for p in phep if p["loai"] in ("thay", "xoa")}
+    gia_tri = {(p["don_vi"], p["cho_trong"]): p["gia_tri"] for p in phep if p["loai"] == "dien"}
+    ra = []
+    for d in don_vi or []:
+        if not isinstance(d, dict) or not _so_tu_nhien(d.get("chi_so")) or d["chi_so"] in da_doi:
+            continue
+        if dinh_dang == "docx" and _dia_chi_tu_hang(d.get("dia_chi")) is None:
+            continue
+        for c in _cho_trong_tu_hang(d.get("cho_trong")):
+            if (c.hop is not None) == (dinh_dang == "pdf"):
+                ra.append(
+                    {"don_vi": d["chi_so"], "so": c.so, "kieu": c.kieu, "nhan": c.nhan,
+                     "gia_tri": gia_tri.get((d["chi_so"], c.so))}
+                )
+    return ra
+
+
+def chuan_hoa_dien(gia_tri: str, o: dict) -> str:
+    """Giá trị người dùng gõ cho ô `o` → giá trị bộ áp nhận, hoặc `ValueError`
+    (`LOI_GIA_TRI_DIEN`). Rỗng sau `strip` là "gỡ ô".
+
+    Khoảng trắng Unicode (NBSP dán từ Word) về dấu cách thường, NFC, `strip`;
+    còn ký tự không in được (xuống dòng, tab, điều khiển, zero-width) thì từ
+    chối — bộ áp PDF bỏ chúng, còn một ô điền là một dòng. Ô `tab` đặt giá trị
+    ngay sau nhãn, không ký tự nào xen giữa: thêm một dấu cách khi nhãn không kết
+    bằng khoảng trắng (bộ đọc `strip` nhãn, nên thực tế là luôn thêm)."""
+    s = "".join(" " if unicodedata.category(ch) == "Zs" else ch for ch in gia_tri or "")
+    s = unicodedata.normalize("NFC", s).strip()
+    if not s.isprintable():
+        raise ValueError(LOI_GIA_TRI_DIEN)
+    if s and o.get("kieu") == "tab" and not (o.get("nhan") or "")[-1:].isspace():
+        s = " " + s
+    return s
+
+
+def _nhan_o(o: dict) -> str:
+    return (o.get("nhan") or "").strip().rstrip(":").strip() or f"Ô {o['don_vi']}.{o['so']}"
+
+
+def _doi_o(a: dict | None, b: dict | None) -> list[str]:
+    cu = {(o["don_vi"], o["so"]): o for o in (a or {}).get("cho_trong") or []}
+    moi = {(o["don_vi"], o["so"]): o for o in (b or {}).get("cho_trong") or []}
+    ra = []
+    for k in [*moi, *(k for k in cu if k not in moi)]:
+        x, y = (cu.get(k) or {}).get("gia_tri"), (moi.get(k) or {}).get("gia_tri")
+        if x != y:
+            ra.append(f"{_nhan_o(moi.get(k) or cu[k])}: {(x or '').strip() or '…'} → {(y or '').strip() or '…'}")
+    return ra
+
+
+def tom_tat_khuon(tieu_de: str | None, khuon: dict | None) -> str:
+    """`document` Markdown của một bản thảo trên khuôn gốc: tiêu đề và một dòng
+    cho mỗi ô đã điền. Bản thật là khuôn gốc đã áp phép; `document` chỉ để chat,
+    tìm kiếm và `_tieu_de_tu_document` có chữ để đọc."""
+    dong = [f"- {_nhan_o(o)}: {o['gia_tri'].strip()}" for o in (khuon or {}).get("cho_trong") or [] if o.get("gia_tri")]
+    return f"# {tieu_de or 'Văn bản'}\n" + ("\n" + "\n".join(dong) + "\n" if dong else "")
