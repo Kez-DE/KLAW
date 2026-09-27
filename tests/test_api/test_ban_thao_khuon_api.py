@@ -66,6 +66,8 @@ def dung_gia(monkeypatch):
         return pdf_trang((595.0, 842.0))
 
     monkeypatch.setattr(dung_trang, "dung_pdf", _pdf)
+    # `/trang` dựng bản sạch cùng bản dò trong một lượt; PDF trắng không có liên kết.
+    monkeypatch.setattr(dung_trang, "dung_pdf_kem", lambda docx, do: (_pdf(docx), None))
     monkeypatch.setattr(dung_trang, "anh_trang", lambda pdf: [b"\x89PNG-gia"])
     return vao
 
@@ -100,7 +102,7 @@ async def test_chi_tiet_va_luu_o_dien_tra_khuon_va_phien_ban_moi(client, khoa_ky
     assert r.status_code == 200, r.text
     k = r.json()["khuon"]
     assert (k["viec_id"], k["dinh_dang"], k["so_trang"]) == (viec, "docx", 1)
-    assert k["cho_trong"][0] == {"don_vi": 0, "so": 0, "kieu": "cham", "nhan": "Họ và tên:", "gia_tri": _TEN}
+    assert k["cho_trong"][0] == {"don_vi": 0, "so": 0, "kieu": "cham", "nhan": "Họ và tên", "gia_tri": _TEN}
 
     caplog.set_level(logging.DEBUG)
     r = await client.patch(
@@ -160,7 +162,16 @@ async def test_trang_dung_BAN_DA_DIEN_cua_dung_phien_ban(client, khoa_ky, hai_ng
 
     r = await client.get(f"/api/v1/ban-thao/{id_}/trang", headers=ha)
     assert r.status_code == 200, r.text
-    assert r.json() == {"kho": [[595.0, 842.0]], "trang": [base64.b64encode(b"\x89PNG-gia").decode()]}
+    assert r.json() == {
+        "kho": [[595.0, 842.0]],
+        "trang": [base64.b64encode(b"\x89PNG-gia").decode()],
+        # PDF giả không có liên kết của bản dò: mọi ô "chưa định vị", vẫn liệt kê.
+        "o": [
+            {"don_vi": 0, "so": 0, "trang": None, "hop": None, "nhan": "Họ và tên", "gia_tri": _TEN},
+            {"don_vi": 1, "so": 0, "trang": None, "hop": None, "nhan": "Số điện thoại", "gia_tri": None},
+            {"don_vi": 1, "so": 1, "trang": None, "hop": None, "nhan": "Email", "gia_tri": "a@b.vn"},
+        ],
+    }
     assert r.headers["x-content-type-options"] == "nosniff"
     assert r.headers["cache-control"] == "private, no-store", "bản đang sống đổi sau mỗi lần lưu"
     assert _TEN in _chu(dung_gia[-1]) and "a@b.vn" in _chu(dung_gia[-1])
@@ -168,6 +179,7 @@ async def test_trang_dung_BAN_DA_DIEN_cua_dung_phien_ban(client, khoa_ky, hai_ng
     r = await client.get(f"/api/v1/ban-thao/{id_}/trang?phien_ban=1", headers=ha)
     assert r.status_code == 200 and r.headers["cache-control"] == "private, max-age=3600"
     assert _TEN in _chu(dung_gia[-1]) and "a@b.vn" not in _chu(dung_gia[-1])
+    assert [o["gia_tri"] for o in r.json()["o"]] == [_TEN, None, None], "`o` của CHÍNH phiên bản được hỏi"
     assert len(dung_gia) == 2, "mỗi request dựng đúng một lần"
 
     assert (await client.get(f"/api/v1/ban-thao/{id_}/trang?phien_ban=99", headers=ha)).status_code == 404
@@ -187,10 +199,11 @@ async def test_trang_loi_dung_di_qua_anh_xa_cua_tai_lieu(client, khoa_ky, hai_ng
     a, _ = hai_nguoi
     id_, _ = _ban_thao(a)
 
-    def _hong(docx):
+    def _hong(docx, do=None):
         raise loi
 
     monkeypatch.setattr(dung_trang, "dung_pdf", _hong)
+    monkeypatch.setattr(dung_trang, "dung_pdf_kem", _hong)
     r = await client.get(f"/api/v1/ban-thao/{id_}/trang", headers=_bearer(khoa_ky, a))
     assert r.status_code == ma, r.text
 
@@ -214,7 +227,7 @@ async def test_BO_AP_chay_TRONG_luot_cua_tai_khoan_o_moi_route_dung(client, khoa
     assert ap == [], "không một lần áp nào ngoài lượt của tài khoản"
     for d in duong:
         assert (await client.get(d, headers=ha)).status_code == 200, d
-    assert ap == ["docx"] * 3
+    assert ap == ["docx"] * 4, "`/trang` áp lên bản sạch VÀ bản dò, cả hai trong lượt"
 
 
 @pytest.mark.asyncio
@@ -326,6 +339,10 @@ async def test_khuon_PDF_tai_ve_PDF_da_dien_va_tu_choi_DOCX(client, khoa_ky, hai
 
     t = await client.get(f"/api/v1/ban-thao/{bt['id']}/trang", headers=ha)
     assert t.status_code == 200 and len(t.json()["trang"]) == 1
+    # Khuôn PDF: hộp bộ đọc đã lưu, trên trang của đơn vị — ô đã điền giữ hộp của nó.
+    (o,) = [o for o in t.json()["o"] if o["gia_tri"] == _TEN]
+    assert (o["trang"], o["hop"]) == (ho_ten.trang - 1, list(ho_ten.cho_trong[0].hop))
+    assert all(o["trang"] == 0 and o["hop"] for o in t.json()["o"])
     assert (await client.get(f"/api/v1/ban-thao/{bt['id']}/trang", headers=_bearer(khoa_ky, b))).status_code == 404
 
 
@@ -349,24 +366,67 @@ async def test_BM_M05_THAT_trang_hai_PNG_co_gia_tri_va_tai_ve_mo_lai_duoc(client
     bt = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec, [_d(o["don_vi"], o["so"], _TEN)]))
 
     ve: list[bytes] = []
-    that = dung_trang.dung_pdf
+    that = dung_trang.dung_pdf_kem
 
-    def _giu(docx: bytes) -> bytes:
-        ve.append(that(docx))
-        return ve[-1]
+    def _giu(docx: bytes, do: bytes) -> tuple:
+        sach, ban_do = that(docx, do)
+        ve.append(sach)
+        return sach, ban_do
 
-    monkeypatch.setattr(dung_trang, "dung_pdf", _giu)
+    monkeypatch.setattr(dung_trang, "dung_pdf_kem", _giu)
     t = await client.get(f"/api/v1/ban-thao/{bt['id']}/trang", headers=ha)
     assert t.status_code == 200, t.text
     assert len(t.json()["trang"]) == len(t.json()["kho"]) == 2
     assert all(co_png(base64.b64decode(p))[0] > 800 for p in t.json()["trang"])
     assert _TEN in _pdftotext(ve[-1]), "trang dựng từ CHÍNH bản đã điền"
+    o_trang = t.json()["o"]
+    assert [(x["don_vi"], x["so"]) for x in o_trang] == [(x["don_vi"], x["so"]) for x in bt["khuon"]["cho_trong"]]
+    assert all(x["trang"] is not None and x["hop"] for x in o_trang), "mọi ô của BM.M05 định vị được"
+    (dien,) = [x for x in o_trang if x["gia_tri"] == _TEN]
+    assert _cat_chu(ve[-1], dien, _TEN.split()), "hộp ô đã điền phủ chữ của giá trị trên trang sạch"
 
     d = await client.get(f"/api/v1/ban-thao/{bt['id']}/tai-xuong?dang=docx", headers=ha)
     assert d.status_code == 200 and _TEN in _chu(d.content), "bộ đọc P2b mở lại được bản tải về"
     p = await client.get(f"/api/v1/ban-thao/{bt['id']}/tai-xuong?dang=pdf", headers=ha)
     assert p.status_code == 200 and _TEN in _pdftotext(p.content)
     assert "filename*=UTF-8''BM.M05." in d.headers["content-disposition"]
+
+
+def _cat_chu(pdf: bytes, o: dict, tu: list[str]) -> bool:
+    """Một từ `pdftotext` mang một phần giá trị cắt `o["hop"]` trên trang `o["trang"]`."""
+    from src.services.doc_tai_lieu import _tu_pdf
+
+    x0, y0, x1, y1 = o["hop"]
+    return any(
+        any(t in c for t in tu) and h[0] < x1 and x0 < h[2] and h[1] < y1 and y0 < h[3]
+        for _, c, h in _tu_pdf(pdf)[o["trang"] + 1]
+    )
+
+
+@can_soffice
+@pytest.mark.asyncio
+async def test_trang_THAT_o_nam_tren_trang_da_dung_theo_ti_le_anh(client, khoa_ky, hai_nguoi):
+    """LibreOffice thật trên khuôn dựng tay: mỗi ô có `trang` + `hop`; đổi sang
+    điểm ảnh đúng như giao diện (`rộng PNG / kho[0]`), hộp phủ điểm ảnh tối —
+    dãy chấm của ô trống, chữ của ô đã điền."""
+    import io
+
+    import numpy as np
+    from PIL import Image
+
+    a, _ = hai_nguoi
+    id_, _ = _ban_thao(a)
+    t = await client.get(f"/api/v1/ban-thao/{id_}/trang", headers=_bearer(khoa_ky, a))
+    assert t.status_code == 200, t.text
+    body = t.json()
+    anh = Image.open(io.BytesIO(base64.b64decode(body["trang"][0]))).convert("L")
+    ti_le = anh.width / body["kho"][0][0]
+    assert [(o["don_vi"], o["so"], o["gia_tri"]) for o in body["o"]] == [(0, 0, _TEN), (1, 0, None), (1, 1, None)]
+    for o in body["o"]:
+        assert o["trang"] == 0, o
+        x0, y0, x1, y1 = (round(v * ti_le) for v in o["hop"])
+        assert 0 <= x0 < x1 <= anh.width and 0 <= y0 < y1 <= anh.height, o
+        assert np.asarray(anh.crop((x0, y0, x1 + 1, y1 + 1))).min() < 128, o
 
 
 def _hang(viec: str) -> list[dict]:

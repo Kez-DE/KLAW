@@ -21,6 +21,7 @@ import zipfile
 import zlib
 from contextlib import contextmanager
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 
@@ -262,7 +263,7 @@ def test_MOT_tai_khoan_MOT_luot_dung_mot_luc(monkeypatch):
         return [b"png"]
 
     monkeypatch.setattr(dung_trang, "anh_trang", _anh)
-    assert dung_trang.dung("pdf", b"ngoai", "a") == ([list(_A4)], [b"png"])
+    assert dung_trang.dung("pdf", b"ngoai", "a") == ([list(_A4)], [b"png"], {})
     assert thay == ["a:qua_tai", "b:dung"]
     with pytest.raises(KhongDocDuoc):
         dung_trang.dung("pdf", b"hong", "a")
@@ -289,7 +290,7 @@ def test_BO_AP_va_TAI_VE_chay_TRONG_CUNG_mot_luot_voi_dung(monkeypatch):
                 thay.append(f"{ai}:{e.ly_do}")
         return ban + b"!"
 
-    assert dung_trang.dung("docx", b"d", "a", _ap) == ([list(_A4)], [b"%PDF-d!"])
+    assert dung_trang.dung("docx", b"d", "a", _ap) == ([list(_A4)], [b"%PDF-d!"], {})
     assert dung_trang.tep_tai_ve("docx", b"d", "docx", "a", _ap) == b"d!"
     assert dung_trang.tep_tai_ve("docx", b"d", "pdf", "a", _ap) == b"%PDF-d!"
     assert dung_trang.tep_tai_ve("pdf", b"%PDF", "pdf", "a", _ap) == b"%PDF!"
@@ -301,6 +302,146 @@ def test_BO_AP_va_TAI_VE_chay_TRONG_CUNG_mot_luot_voi_dung(monkeypatch):
     with pytest.raises(KhongDocDuoc):
         dung_trang.tep_tai_ve("docx", b"d", "docx", "a", _hong)
     assert dung_trang.tep_tai_ve("docx", b"y", "pdf", "a", lambda b: b) == b"%PDF-y", "xong lượt thì nhả chỗ"
+
+
+# ═══ Vị trí ô trên trang — bản dò (`dien_khuon.danh_dau_docx`) ════════════
+
+
+def _tu(*dong: tuple[float, list[tuple[str, float, float]]]) -> dict:
+    """`_tu_pdf` giả của MỘT trang: mỗi dòng `(y0, [(chữ, x0, x1)])`, cao 14 pt."""
+    return {1: [(("1", "1", str(i), "1"), c, (a, y, b, y + 14)) for i, (y, tu) in enumerate(dong) for c, a, b in tu]}
+
+
+def test_vi_tri_o_theo_KY_TU_khi_ban_do_NGAT_DONG_KHAC():
+    """BM.M05: liên kết của bản dò cho LibreOffice ngắt trước ".……" thay vì
+    trước "Khoa" — cùng chuỗi chữ, khác dòng. Hộp liên kết đo trên bản dò được
+    tìm lại theo ký tự trên bản SẠCH: ô nằm sau "Khoa" ở dòng 2, không ở dòng
+    liên kết của bản dò."""
+    sach = _tu((10, [("thuộc", 0, 30)]), (30, [("Khoa", 0, 30), (".……", 35, 100)]))
+    do = _tu((10, [("thuộc", 0, 30), ("Khoa", 35, 65)]), (30, [(".……", 0, 65)]))
+    assert dung_trang._chuyen_vi_tri({(9, 0): [(0, (0, 30, 65, 44))]}, sach, do) == {(9, 0): (0, [35, 30, 100, 44])}
+
+
+def test_vi_tri_o_trong_MOT_tu_doi_nguyen_van_phan_hop_lien_ket():
+    """ "Số …./….": hai ô trong một từ của poppler. Từ giữ nguyên ranh giới ở
+    bản sạch thì phần hộp liên kết trong từ dời nguyên văn, không chia đều."""
+    sach = _tu((50, [("Số", 0, 20), ("…./….", 125, 175)]))
+    do = _tu((40, [("Số", 0, 20), ("…./….", 100, 150)]))
+    lien_ket = {(3, 0): [(0, (100, 40, 118, 54))], (3, 1): [(0, (131, 40, 150, 54))]}
+    assert dung_trang._chuyen_vi_tri(lien_ket, sach, do) == {
+        (3, 0): (0, [125, 50, 143, 64]),
+        (3, 1): (0, [156, 50, 175, 64]),
+    }
+
+
+def test_vi_tri_o_O_VAT_DONG_lay_dong_DAU_tren_ban_sach_va_chu_khac_thi_khong_doan():
+    sach = _tu((10, [("A:", 0, 20), ("……", 25, 100)]), (30, [("……", 0, 40)]))
+    do = _tu((10, [("A:", 0, 20)]), (30, [("……", 0, 75), ("……", 80, 120)]))
+    lien_ket = {(0, 0): [(0, (0, 30, 120, 44))]}
+    assert dung_trang._chuyen_vi_tri(lien_ket, sach, do) == {(0, 0): (0, [25, 10, 100, 24])}
+    khac = _tu((10, [("B:", 0, 20)]), (30, [("……", 0, 75), ("……", 80, 120)]))
+    assert dung_trang._chuyen_vi_tri(lien_ket, sach, khac) == {}
+
+
+def test_dung_DOCX_co_ban_do_dung_ANH_ban_sach_va_ban_do_hong_van_ra_trang(monkeypatch):
+    """Bản dò đi qua CÙNG bộ áp và cùng lượt LibreOffice với bản sạch; ảnh là
+    của bản sạch. Lượt đôi hỏng thì dựng riêng bản sạch — trang về, không vị trí."""
+    monkeypatch.setattr(dung_trang, "kho_trang", lambda pdf: [list(_A4)])
+    monkeypatch.setattr(dung_trang, "anh_trang", lambda pdf: [pdf])
+    kem: list[tuple[bytes, bytes]] = []
+    monkeypatch.setattr(dung_trang, "dung_pdf_kem", lambda a, b: kem.append((a, b)) or (b"%PDF-" + a, b"%DO-" + b))
+    monkeypatch.setattr(dung_trang, "vi_tri_o", lambda sach, do: {"sach": sach, "do": do})
+    ra = dung_trang.dung("docx", b"d", "a", lambda b: b + b"!", lambda b: b + b"?")
+    assert kem == [(b"d!", b"d?!")]
+    assert ra == ([list(_A4)], [b"%PDF-d!"], {"sach": b"%PDF-d!", "do": b"%DO-d?!"})
+
+    def _vo(sach, do):
+        raise ValueError("pypdf ném trên chú thích lạ")
+
+    monkeypatch.setattr(dung_trang, "vi_tri_o", _vo)
+    assert dung_trang.dung("docx", b"d", "a", None, lambda b: b)[2] == {}, "vị trí hỏng không làm mất trang"
+
+    def _hong(a, b):
+        raise KhongDocDuoc(LoaiHong.tep_hong, "x")
+
+    monkeypatch.setattr(dung_trang, "dung_pdf_kem", _hong)
+    monkeypatch.setattr(dung_trang, "dung_pdf", lambda docx: b"%PDF-" + docx)
+    assert dung_trang.dung("docx", b"d", "a", None, lambda b: b + b"?") == ([list(_A4)], [b"%PDF-d"], {})
+
+
+_CO_BA = _CO_SOFFICE and _CO_PDFTOPPM and shutil.which("pdftotext") is not None
+
+
+@pytest.mark.skipif(not _CO_BA, reason="cần LibreOffice + poppler")
+def test_vi_tri_o_that_nam_tren_DAY_CHAM_cua_trang_sach():
+    """Đường thật: LibreOffice xuất liên kết của bản dò thành `/Link`, và hộp
+    của mỗi ô phủ điểm ảnh tối (dãy chấm) trên ảnh 72 dpi của bản SẠCH."""
+    from src.services.dien_khuon import danh_dau_docx
+    from tests.test_services.test_dien_khuon import _hang
+
+    vao = docx_that("Họ và tên: ………………………………", "Điện thoại: ………… Fax: …………")
+    hang = _hang(vao)
+    o = [(0, 0), (1, 0), (1, 1)]
+    kho, png, vi_tri = dung_trang.dung("docx", vao, "a", do=lambda b: danh_dau_docx(b, hang, o))
+    assert set(vi_tri) == set(o) and len(png) == 1
+    anh = _anh_xam_72(dung_trang.dung_pdf(vao))[0]
+    for trang, (x0, y0, x1, y1) in vi_tri.values():
+        assert trang == 0 and 0 <= x0 < x1 <= kho[0][0] and 0 <= y0 < y1 <= kho[0][1]
+        assert anh[int(y0) : int(y1) + 1, int(x0) : int(x1) + 1].min() < 128
+    assert vi_tri[1, 0][1][2] < vi_tri[1, 1][1][0], "ô Fax nằm bên phải ô Điện thoại"
+
+
+def _anh_xam_72(pdf: bytes) -> list:
+    from src.services.doc_tai_lieu import _cac_trang_pgm, _chay_cong_cu
+
+    return _cac_trang_pgm(_chay_cong_cu(["pdftoppm", "-r", "72", "-gray", "-"], pdf) or b"")
+
+
+# Kho mẫu ngoài repo, không bao giờ commit; không có thì bỏ qua (CI).
+_KHO_MAU = Path.home() / "giấy tờ thực tập"
+_MAU = sorted(_KHO_MAU.glob("*.docx")) if _KHO_MAU.exists() else []
+# Đo 2026-09-27 (LibreOffice 26.2.4): LibreOffice không xuất liên kết của MỘT ô
+# chỉ là "…" ở cuối đoạn căn phải ("… năm 20…" của BM.ĐT.18.03) khi ô còn trống
+# — ô đó "chưa định vị"; điền rồi thì có.
+_CHUA_DINH_VI = {"BM.ĐT.18.03. Đơn đăng ký đi thực tập tốt nghiệp Ver 02.docx": {(2, 2)}}
+
+
+@pytest.mark.skipif(not (_MAU and _CO_BA), reason="kho mẫu ngoài repo hoặc LibreOffice/poppler không có")
+@pytest.mark.parametrize("tep", _MAU, ids=lambda p: p.stem[:24])
+@pytest.mark.parametrize("dien", [False, True], ids=["trong", "da_dien"])
+def test_tep_that_MOI_o_co_trang_va_hop_tren_day_cham_hay_gia_tri(tep, dien):
+    """Tám biểu mẫu thật, trước và sau khi điền MỌI ô: mỗi ô bộ áp tới được có
+    `trang` + `hop` (trừ `_CHUA_DINH_VI`), hộp nằm trong trang và phủ điểm ảnh
+    tối trên ảnh 72 dpi của bản sạch; ô đã điền thì một từ `pdftotext` của giá
+    trị cắt hộp. BM.M05 là ca bản dò ngắt dòng khác ("Khoa .……")."""
+    import unicodedata
+
+    from scripts.kiem_mo_bang_word import hang_don_vi, phep_dien_het
+    from src.services.ban_thao import ap_phep_sua, cho_trong_khuon
+    from src.services.dien_khuon import danh_dau_docx
+    from src.services.doc_tai_lieu import _tu_pdf
+
+    du_lieu = tep.read_bytes()
+    hang = hang_don_vi(tep.name, du_lieu)
+    o = [(x["don_vi"], x["so"]) for x in cho_trong_khuon("docx", hang, [])]
+    phep = phep_dien_het(hang) if dien else []
+    gia_tri = {(p["don_vi"], p["cho_trong"]): p["gia_tri"] for p in phep}
+
+    def ap(b: bytes) -> bytes:
+        return ap_phep_sua("docx", b, hang, phep)[0]
+
+    pdf, pdf_do = dung_trang.dung_pdf_kem(ap(du_lieu), ap(danh_dau_docx(du_lieu, hang, o)))
+    vi_tri = dung_trang.vi_tri_o(pdf, pdf_do)
+    assert set(o) - set(vi_tri) <= (set() if dien else _CHUA_DINH_VI.get(unicodedata.normalize("NFC", tep.name), set()))
+    kho, anh, tu = dung_trang.kho_trang(pdf), _anh_xam_72(pdf), _tu_pdf(pdf)
+    for k, (trang, (x0, y0, x1, y1)) in vi_tri.items():
+        rong, cao = kho[trang]
+        assert 0 <= x0 < x1 <= rong + 0.5 and 0 <= y0 < y1 <= cao + 0.5, k
+        assert anh[trang][int(y0) : int(y1) + 1, int(x0) : int(x1) + 1].min() < 128, k
+        if k in gia_tri:
+            v = "".join(unicodedata.normalize("NFC", gia_tri[k]).split())
+            cat = [c for _, c, h in tu[trang + 1] if h[0] < x1 and x0 < h[2] and h[1] < y1 and y0 < h[3]]
+            assert any(c in v or any(t in c for t in gia_tri[k].split()) for c in cat), (k, cat)
 
 
 def test_thieu_pdftoppm_la_loi_HE_THONG(monkeypatch):

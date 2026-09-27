@@ -1421,6 +1421,8 @@ def test_bm_m05_that_phep_giu_lai_ap_duoc_len_khuon_goc():
         tai_lieu=tl,
     )
     assert f"[A-{dt.chi_so}] (tr. 1) Điện thoại: ⟦0⟧ Fax: ⟦1⟧\n" in llm.prompt, "chỗ trống đứng tại chỗ trong câu"
+    # Bộ đọc lưu nhãn SẠCH (`doc_tai_lieu.nhan_sach`): không còn dấu `:` cuối.
+    assert [c["nhan"] for c in ra["khuon_tong_quat"]["cho_trong"] if c["don_vi"] == dt.chi_so] == ["Điện thoại", "Fax"]
     phep = ban_thao.gop_phep_sua([], ra["khuon_tong_quat"]["phep_sua"])
     assert len(phep) == 2
     hang = json.loads(json.dumps([_hang_don_vi(x) for x in don_vi], ensure_ascii=False))
@@ -1542,7 +1544,7 @@ def test_bm_m05_that_dau_ra_sai_owner_thay_ten_co_quan_vao_so_bi_bo_khong_khop_n
     ra = d.dung_ban_thao_tong_quat(ra)
     out = assemble(ra, {}, _No(), "m")
     assert out["coverage_note"].startswith("Không áp 1 thay đổi") and "«Số»" in out["coverage_note"]
-    assert "«Cơ quan/Đơn vị tiếp nhận:»" in out["answer"], "chỗ cơ quan vẫn được kể là còn trống"
+    assert "«Cơ quan/Đơn vị tiếp nhận»" in out["answer"], "chỗ cơ quan vẫn được kể là còn trống"
 
     from src.services.doc_tai_lieu import doc
 

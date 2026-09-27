@@ -27,16 +27,21 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+from src.services.dien_khuon import O_URI
+from src.services.dien_khuon_pdf import _khung
 from src.services.doc_tai_lieu import (
     _HAN_CHUYEN_DOI_GIAY,
     ChuyenDoiKhongSanSang,
     KhongDocDuoc,
     LoaiHong,
     TaiLieuDaDoc,
+    _cung_dong,
     _giet_sach_nhom,
     _giu_suat_chuyen_doi,
     _mo_pdf,
     _quy_doi_soffice,
+    _quy_doi_soffice_kem,
+    _tu_pdf,
 )
 
 logger = logging.getLogger(__name__)
@@ -90,6 +95,121 @@ class KhuonGoc:
 def dung_pdf(docx: bytes) -> bytes:
     """`.docx` → PDF bằng LibreOffice, trong một suất chung với `.doc`."""
     return _quy_doi_soffice(docx, "vao.docx", "pdf:writer_pdf_Export", "vao.pdf")
+
+
+def dung_pdf_kem(docx: bytes, do: bytes) -> tuple[bytes, bytes | None]:
+    """`dung_pdf` của bản sạch VÀ bản dò (`dien_khuon.danh_dau_docx`) trong MỘT
+    lượt LibreOffice — một suất, một lần khởi động: hai tệp một lượt đo 1,4–1,7 s,
+    bằng một tệp (tám biểu mẫu, 2026-09-27). Bản dò không ra được thì `None`."""
+    sach, ban_do = _quy_doi_soffice_kem(
+        "pdf:writer_pdf_Export", (docx, "vao.docx", "vao.pdf"), (do, "do.docx", "do.pdf")
+    )
+    return sach, ban_do
+
+
+ViTri = dict[tuple[int, int], tuple[int, list[float]]]
+"""`(don_vi, so)` → `(trang, hop)`: chỉ số trang từ 0, hộp `[x0, y0, x1, y1]` bằng
+điểm, gốc trên-trái của trang — cùng hệ `kho` và hộp của bộ đọc PDF."""
+
+
+def vi_tri_o(pdf: bytes, pdf_do: bytes) -> ViTri:
+    """Vị trí mỗi ô trên bản SẠCH `pdf`, đo bằng bản DÒ `pdf_do` của cùng phiên
+    bản.
+
+    Liên kết của bản dò đổi cách LibreOffice ngắt dòng ở ranh giới của nó
+    (BM.M05: "Khoa .……" xuống một dòng khác, mọi dòng dưới lệch theo), nên hộp
+    `/Link` không dùng thẳng được cho trang sạch. Chữ hai bản thì là MỘT chuỗi
+    (đo trên tám biểu mẫu, trước và sau khi điền): ký tự trong hộp liên kết của
+    bản dò được tìm lại theo thứ tự trên bản sạch (`pdftotext -tsv`), và hộp là
+    phần của chúng trên dòng ĐẦU. Hai chuỗi khác nhau thì không định vị ô nào —
+    không đoán."""
+    lien_ket = _lien_ket_o(pdf_do)
+    return _chuyen_vi_tri(lien_ket, _tu_pdf(pdf), _tu_pdf(pdf_do)) if lien_ket else {}
+
+
+def _lien_ket_o(pdf: bytes) -> dict[tuple[int, int], list[tuple[int, tuple[float, ...]]]]:
+    """`/Link` trỏ tới `O_URI{don_vi}/{so}` → `[(trang, hộp)]` theo thứ tự trang,
+    hộp đổi từ hệ người dùng về hệ hiển thị gốc trên-trái (`/MediaBox`,
+    `/Rotate` — nghịch đảo `dien_khuon_pdf._khung`). Một ô vắt qua dòng có nhiều
+    hộp."""
+    ra: dict[tuple[int, int], list[tuple[int, tuple[float, ...]]]] = {}
+    for i, trang in enumerate(_mo_pdf(pdf).pages):
+        khung = _khung(trang)
+        if khung is None:
+            continue
+        (a, b, c, d, e, f), _, cao = khung
+        for chu_thich in trang.get("/Annots") or []:
+            chu_thich = chu_thich.get_object()
+            hanh_dong = chu_thich.get("/A")
+            uri = hanh_dong.get_object().get("/URI") if hanh_dong is not None else None
+            if chu_thich.get("/Subtype") != "/Link" or not isinstance(uri, str) or not uri.startswith(O_URI):
+                continue
+            try:
+                khoa = tuple(int(x) for x in uri[len(O_URI) :].split("/"))
+                x0, y0, x1, y1 = (float(v) for v in chu_thich["/Rect"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if len(khoa) != 2:
+                continue
+            diem = [(a * (u - e) + b * (v - f), cao - (c * (u - e) + d * (v - f))) for u, v in ((x0, y0), (x1, y1))]
+            (xa, xb), (ya, yb) = sorted(p[0] for p in diem), sorted(p[1] for p in diem)
+            ra.setdefault(khoa, []).append((i, (xa, ya, xb, yb)))
+    return ra
+
+
+def _chu_theo_ky_tu(tu: dict) -> tuple[str, list[tuple[int, int, int, tuple[float, ...]]]]:
+    """Chuỗi ký tự không trắng của cả PDF theo thứ tự `pdftotext`, và cho mỗi
+    ký tự `(trang, ký tự đầu của từ, số ký tự của từ, hộp từ)`."""
+    chu, ra = [], []
+    for trang in sorted(tu):
+        for _, tu_, hop in tu[trang]:
+            s = "".join(tu_.split())
+            dau = len(ra)
+            chu.append(s)
+            ra += [(trang - 1, dau, len(s), hop)] * len(s)
+    return "".join(chu), ra
+
+
+def _chuyen_vi_tri(lien_ket: dict, tu_sach: dict, tu_do: dict) -> ViTri:
+    """Hộp liên kết của bản dò → hộp trên bản sạch, theo chỉ số ký tự (xem
+    `vi_tri_o`). Ký tự của một từ lấy phần bề rộng chia đều (poppler chỉ cho hộp
+    TỪ); từ giữ nguyên ranh giới ở bản sạch thì phần hộp liên kết trong từ được
+    dời nguyên văn — chính xác, không chia đều."""
+    chu_sach, sach = _chu_theo_ky_tu(tu_sach)
+    chu_do, do = _chu_theo_ky_tu(tu_do)
+    if chu_sach != chu_do:
+        logger.warning(
+            "dung_trang: chữ bản dò khác bản sạch (%d/%d ký tự) — không định vị ô", len(chu_do), len(chu_sach)
+        )
+        return {}
+    theo_trang: dict[int, list[int]] = {}
+    for k, (trang, dau, _, _) in enumerate(do):
+        if k == dau:
+            theo_trang.setdefault(trang, []).append(k)
+    ra: ViTri = {}
+    for khoa, cac_hop in lien_ket.items():
+        manh: list[tuple[int, tuple[float, ...]]] = []
+        for trang, lk in cac_hop:
+            for dau in theo_trang.get(trang, []):
+                _, _, n, h = do[dau]
+                if not (h[0] < lk[2] and lk[0] < h[2] and lk[1] <= (h[1] + h[3]) / 2 <= lk[3]):
+                    continue
+                for m in range(n):
+                    if not lk[0] <= h[0] + (h[2] - h[0]) * (m + 0.5) / n <= lk[2]:
+                        continue
+                    trang_s, dau_s, n_s, hs = sach[dau + m]
+                    if (dau_s, n_s) == (dau, n):  # cùng từ: dời phần hộp liên kết nguyên văn
+                        x0, x1 = max(lk[0], h[0]) - h[0] + hs[0], min(lk[2], h[2]) - h[0] + hs[0]
+                    else:
+                        x0 = hs[0] + (hs[2] - hs[0]) * (dau + m - dau_s) / n_s
+                        x1 = hs[0] + (hs[2] - hs[0]) * (dau + m - dau_s + 1) / n_s
+                    manh.append((dau + m, (trang_s, x0, hs[1], min(x1, hs[2]), hs[3])))
+        if not manh:
+            continue
+        trang_s, *dong = min(manh)[1]
+        x0, y0, x1, y1 = zip(*(p[1:] for _, p in manh if p[0] == trang_s and _cung_dong(p[1:], dong)), strict=True)
+        ra[khoa] = (trang_s, [round(v, 2) for v in (min(x0), min(y0), max(x1), max(y1))])
+    return ra
 
 
 def so_trang_pdf(pdf: bytes) -> int:
@@ -182,20 +302,47 @@ def _mot_luot(user_sub: str):
 
 
 def dung(
-    dinh_dang: str, noi_dung: bytes, user_sub: str, ap: Callable[[bytes], bytes] | None = None
-) -> tuple[list[list[float]], list[bytes]]:
-    """`(khổ, PNG)` từng trang của một khuôn gốc. Khổ đọc từ CHÍNH PDF vừa vẽ,
-    nên `kho[i]` luôn là khổ của ảnh `i`. Một lượt mỗi tài khoản mỗi lúc
+    dinh_dang: str,
+    noi_dung: bytes,
+    user_sub: str,
+    ap: Callable[[bytes], bytes] | None = None,
+    do: Callable[[bytes], bytes] | None = None,
+) -> tuple[list[list[float]], list[bytes], ViTri]:
+    """`(khổ, PNG, vị trí ô)` từng trang của một khuôn gốc. Khổ đọc từ CHÍNH PDF
+    vừa vẽ, nên `kho[i]` luôn là khổ của ảnh `i`. Một lượt mỗi tài khoản mỗi lúc
     (`_mot_luot`).
 
     `ap`: bước biến `noi_dung` thành bản đã điền cùng định dạng (bộ áp phép sửa
     của một bản thảo), chạy TRONG cùng lượt: bộ áp là việc CPU trên tệp tới
-    20 MB, nên áp và dựng là một lượt, không phải việc nặng đứng ngoài hàng rào."""
+    20 MB, nên áp và dựng là một lượt, không phải việc nặng đứng ngoài hàng rào.
+
+    `do` (chỉ docx): dựng bản DÒ từ khuôn gốc (`dien_khuon.danh_dau_docx`); `ap`
+    áp lên nó như lên bản sạch, hai bản ra PDF trong cùng lượt LibreOffice, và
+    `vi_tri_o` đo ô trên bản sạch. Ảnh luôn từ bản SẠCH — bản dò có thể ngắt
+    dòng khác. Bản dò hỏng thì trang vẫn về, không có vị trí nào."""
+    ap = ap or (lambda b: b)
     with _mot_luot(user_sub):
-        if ap is not None:
-            noi_dung = ap(noi_dung)
-        pdf = dung_pdf(noi_dung) if dinh_dang == "docx" else noi_dung
-        return kho_trang(pdf), anh_trang(pdf)
+        ban = ap(noi_dung)
+        vi_tri: ViTri = {}
+        if dinh_dang != "docx":
+            pdf = ban
+        elif do is None:
+            pdf = dung_pdf(ban)
+        else:
+            try:
+                pdf, pdf_do = dung_pdf_kem(ban, ap(do(noi_dung)))
+            except KhongDocDuoc:
+                # ponytail: lượt đôi hỏng thì dựng lại riêng bản sạch — bản dò
+                # không bao giờ làm mất trang; tệp tự hỏng thì hỏng hai lần.
+                logger.warning("dung_trang: lượt kèm bản dò hỏng, dựng riêng bản sạch")
+                pdf, pdf_do = dung_pdf(ban), None
+            try:
+                vi_tri = vi_tri_o(pdf, pdf_do) if pdf_do else {}
+            except Exception:
+                # Bắt rộng cùng lý do `_mo_pdf`: pypdf ném đủ loại lỗi trên một
+                # PDF lạ, và vị trí ô không bao giờ được làm mất trang.
+                logger.warning("dung_trang: không đọc được vị trí ô từ bản dò")
+        return kho_trang(pdf), anh_trang(pdf), vi_tri
 
 
 def tep_tai_ve(dinh_dang: str, noi_dung: bytes, dang: str, user_sub: str, ap: Callable[[bytes], bytes]) -> bytes:

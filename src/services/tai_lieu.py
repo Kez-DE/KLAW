@@ -783,8 +783,9 @@ def luu_khuon_goc(engine: Engine, viec_id: str, dinh_dang: str, noi_dung: bytes,
 
 
 def khuon_goc_cua(engine: Engine, viec_id: str, user_sub: str) -> dict[str, Any] | None:
-    """`{dinh_dang, noi_dung, so_trang, kho}` của một việc, hoặc `None` khi
-    không có (ảnh, tài liệu trước 2026-09-26) hoặc không phải của mình.
+    """`{dinh_dang, noi_dung, so_trang, kho, don_vi}` của một việc, hoặc `None`
+    khi không có (ảnh, tài liệu trước 2026-09-26) hoặc không phải của mình.
+    `don_vi` (mảng JSON đã lưu) cho khoá `o` của `GET …/trang`.
 
     Chủ sở hữu lọc bằng JOIN sang `viec_doc_tai_lieu` ở tầng dữ liệu, cùng
     khuôn `anh_cua`: một `viec_id` của người khác ra `None` ở ĐÂY, và tầng API
@@ -794,7 +795,7 @@ def khuon_goc_cua(engine: Engine, viec_id: str, user_sub: str) -> dict[str, Any]
         r = (
             c.execute(
                 text(
-                    "SELECT k.dinh_dang, k.noi_dung, k.so_trang, k.kho FROM khuon_goc k "
+                    "SELECT k.dinh_dang, k.noi_dung, k.so_trang, k.kho, v.don_vi FROM khuon_goc k "
                     "JOIN viec_doc_tai_lieu v ON v.id = k.viec_id "
                     "WHERE k.viec_id = :i AND v.user_sub = :u"
                 ),
