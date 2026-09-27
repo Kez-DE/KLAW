@@ -959,6 +959,35 @@ async def test_hop_media_NGUOC_luu_kho_DUONG_va_trang_trong_tran_canh(client, kh
 
 
 @pytest.mark.asyncio
+async def test_trang_giu_MOT_luot_dung_theo_DUNG_tai_khoan_goi(client, khoa_ky, hai_nguoi, monkeypatch):
+    """Chặn theo tài khoản chỉ có nghĩa khi route giữ chỗ bằng `sub` của CHÍNH
+    người gọi: trong lúc lượt của A đang vẽ, một lượt nữa của A là `qua_tai`."""
+    from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang
+
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    r = await _dinh_kem(client, ha, phien, _pdf_co_chu((595.0, 842.0)), "mot.pdf")
+    assert r.status_code == 201, r.text
+    thay: list[str] = []
+
+    def _anh(pdf):
+        if not thay:
+            thay.append("dang_ve")
+            try:
+                rtl.dung_trang.dung("pdf", pdf, a)
+                thay.append("lot")
+            except ChuyenDoiKhongSanSang as e:
+                thay.append(e.ly_do)
+        return [b"png"]
+
+    monkeypatch.setattr(rtl.dung_trang, "anh_trang", _anh)
+    t = await client.get(f"/api/v1/tai-lieu/{r.json()['id']}/trang", headers=ha)
+    assert t.status_code == 200, t.text
+    assert thay == ["dang_ve", "qua_tai"]
+
+
+@pytest.mark.asyncio
 async def test_ANH_khong_co_khuon_goc_trang_la_404(client, khoa_ky, hai_nguoi, monkeypatch):
     """Ảnh giữ đường OCR hôm nay (ngoài phạm vi quyết định): không có gì để hiện
     "như bản tải lên", nên `/trang` nói không có — giao diện lùi về bản xem HTML."""

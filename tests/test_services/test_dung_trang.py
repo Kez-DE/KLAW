@@ -238,6 +238,34 @@ def test_anh_trang_DUNG_CHUNG_suat_voi_LibreOffice(monkeypatch):
     assert e.value.ly_do == "qua_tai"
 
 
+def test_MOT_tai_khoan_MOT_luot_dung_mot_luc(monkeypatch):
+    """Giới hạn nhịp trước `/trang` đếm theo IP, nên một tài khoản gọi từ nhiều
+    IP giữ được cả ba suất chung và mọi lượt tải lên của người khác thành 503.
+    Một tài khoản chỉ một lượt dựng mỗi lúc; tài khoản khác vẫn dựng song song,
+    và một lượt đã xong — kể cả hỏng — nhả chỗ."""
+    monkeypatch.setattr(dung_trang, "kho_trang", lambda pdf: [list(_A4)])
+    thay: list[str] = []
+
+    def _anh(pdf):
+        if pdf == b"hong":
+            raise KhongDocDuoc(LoaiHong.tep_hong, "x")
+        if pdf == b"ngoai":
+            for ai in ("a", "b"):
+                try:
+                    dung_trang.dung("pdf", b"trong", ai)
+                    thay.append(f"{ai}:dung")
+                except ChuyenDoiKhongSanSang as e:
+                    thay.append(f"{ai}:{e.ly_do}")
+        return [b"png"]
+
+    monkeypatch.setattr(dung_trang, "anh_trang", _anh)
+    assert dung_trang.dung("pdf", b"ngoai", "a") == ([list(_A4)], [b"png"])
+    assert thay == ["a:qua_tai", "b:dung"]
+    with pytest.raises(KhongDocDuoc):
+        dung_trang.dung("pdf", b"hong", "a")
+    assert dung_trang.dung("pdf", b"trong", "a")[1] == [b"png"], "lượt hỏng vẫn nhả chỗ"
+
+
 def test_thieu_pdftoppm_la_loi_HE_THONG(monkeypatch):
     monkeypatch.setattr(dung_trang.shutil, "which", lambda ten: None)
     with pytest.raises(ChuyenDoiKhongSanSang) as e:
