@@ -39,7 +39,7 @@ from src.agents.nodes.generate_claims import generate_claims
 from src.agents.nodes.giai_nghia import giai_nghia
 from src.agents.nodes.gioi_thieu import can_kho, cau_gioi_thieu, chi_hoi_kho, khia_canh
 from src.agents.nodes.gom_du_kien import gom_du_kien
-from src.agents.nodes.hieu_tai_lieu import MUC_DICH_SOAN, hieu_tai_lieu
+from src.agents.nodes.hieu_tai_lieu import MUC_DICH_SOAN, co_khuon, hieu_tai_lieu
 from src.agents.nodes.rewrite_query import rewrite_query
 from src.agents.nodes.route import Intent, route
 from src.agents.nodes.suy_dien import suy_dien
@@ -349,6 +349,56 @@ def _ghi_bo_nho(st: dict) -> dict:
     return {**st, "bo_nho_da_nho": nhan, "bo_nho_moi": []}
 
 
+def _nap_tai_lieu(engine: Engine, ids: list, ten: dict[str, str], sub: str | None) -> list[dict]:
+    """Tài liệu của lượt THEO CHỦ, mỗi cái kèm cờ khuôn gốc (P4b) — phần DB của
+    `hieu_tai_lieu`, để node đó thuần.
+
+    `don_vi_cua` tra bằng `(viec_id, user_sub)` và trả `None` khi không thuộc
+    người gọi: id của người khác không đọc được ở đây kể cả khi nó lọt qua biên
+    HTTP. `khuon_goc_nhe` cùng luật, và không kéo bytes của tệp.
+    """
+    ra = []
+    for vid in map(str, ids):
+        don_vi = tl.don_vi_cua(engine, vid, sub)
+        if not don_vi:
+            continue
+        k = tl.khuon_goc_nhe(engine, vid, sub) or {}
+        ra.append(
+            {
+                "id": vid,
+                "viec_id": vid,
+                "ten_tep": ten.get(vid, ""),
+                "don_vi": don_vi,
+                "co_khuon_goc": bool(k),
+                "dinh_dang": k.get("dinh_dang"),
+                "so_trang": k.get("so_trang"),
+            }
+        )
+    return ra
+
+
+def _nap_ban_thao_dang_mo(st: dict, tai_lieu: list[dict]) -> dict:
+    """Nền "# Bản thảo đang có" của lượt theo CÙNG luật với đích lưu
+    (`dung_ban_thao_tong_quat` → `moi_nhat_cua_hoi_thoai(viec_id=…)`): bản trên
+    khuôn gốc của tài liệu lượt này đọc, hoặc bản HTML (`None`) khi lượt không
+    có khuôn gốc. `_chuan_bi_phien` đọc bản mới nhất của hội thoại, bất kể loại
+    — trùng loại thì dùng lại, không đọc thêm; lệch thì một lượt HTML sẽ dựng
+    lại bản HTML từ tóm tắt biểu mẫu, và một lượt khuôn không thấy giá trị ô.
+
+    ponytail: khuôn gốc ĐẦU TIÊN của lượt; mô hình chọn khuôn khác trong lượt
+    nhiều khuôn thì nền lệch — đọc theo `khuon.tai_lieu` khi ca đó có thật.
+    """
+    viec = next((t["viec_id"] for t in tai_lieu if co_khuon(t)), None)
+    if not st.get("user_sub") or (st.get("ban_thao_tong_quat_dang_mo") or {}).get("viec_id") == viec:
+        return st
+    return {
+        **st,
+        "ban_thao_tong_quat_dang_mo": ban_thao.ban_thao_tong_quat_dang_mo_nhe(
+            st["user_sub"], str(st["hoi_thoai_id"]), viec_id=viec
+        ),
+    }
+
+
 def _re_sau_hieu_tai_lieu(st: dict) -> str:
     """Đối chiếu luật đi tiếp vào ĐƯỜNG PHÁP LÝ ĐÃ CÓ (`tien_de` → rewrite →
     retrieve → expand → generate → hai tầng kiểm → assemble), không một đường
@@ -392,30 +442,20 @@ def build_graph_tra_cuu():
         return route(st, llm, router_model(), prompt_path=Path(s.route_prompt))
 
     async def n_hieu_tai_lieu(st: KLawState) -> KLawState:
-        """Nạp đơn vị văn bản THEO CHỦ rồi giao cho node đọc.
-
-        `don_vi_cua` tra bằng `(viec_id, user_sub)` và trả `None` khi không
-        thuộc người gọi, nên id của người khác không đọc được ở đây kể cả khi nó
-        lọt qua biên HTTP — cùng nguyên tắc "kiểm chủ ở tầng dữ liệu" của
+        """Nạp đơn vị văn bản (và cờ khuôn gốc) THEO CHỦ — `_nap_tai_lieu` — rồi
+        giao cho node đọc. Kiểm chủ ở tầng dữ liệu, cùng nguyên tắc
         `ban_thao`/`hoi_thoai`, không phải một phép kiểm thứ hai ở tầng API.
 
         Lượt NỐI TIẾP (router chọn `tai_lieu`, không đính kèm gì) đọc tài liệu
         MỚI NHẤT của hội thoại: `tai_lieu_cua_hoi_thoai` trả mới-trước, và
         "phiếu này" trong một câu hỏi tiếp theo gần như luôn là tệp vừa gửi.
-
-        `tl.don_vi_cua` tra qua module chứ không nhập tên: S1 đang thêm hàm này
-        trong một lát cắt chạy SONG SONG, và một `from … import` ở đầu file sẽ
-        làm cả API không khởi động được cho tới khi lát cắt đó xong.
         """
         ids = list(st.get("tai_lieu_ids") or [])
         if not ids:
             ids = [r["id"] for r in (st.get("tai_lieu_phien") or [])[:1]]
         ten = {str(r["id"]): r.get("ten_tep") or "" for r in (st.get("tai_lieu_phien") or [])}
-        tai_lieu = []
-        for vid in ids:
-            don_vi = await run_in_threadpool(tl.don_vi_cua, engine, str(vid), st.get("user_sub"))
-            if don_vi:
-                tai_lieu.append({"id": str(vid), "ten_tep": ten.get(str(vid), ""), "don_vi": don_vi})
+        tai_lieu = await run_in_threadpool(_nap_tai_lieu, engine, ids, ten, st.get("user_sub"))
+        st = await run_in_threadpool(_nap_ban_thao_dang_mo, st, tai_lieu)
         # Ký ức tài khoản vào TRƯỚC (prompt cần nó), điều vừa khai ghi ra SAU —
         # hai phép DB kẹp lấy node thuần, đúng hình dạng `_ghi_du_kien_tai_lieu`.
         st = await run_in_threadpool(_nap_bo_nho, st)

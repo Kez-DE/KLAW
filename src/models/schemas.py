@@ -199,6 +199,12 @@ class BanThaoOut(BaseModel):
     audit_report: dict
     facts: dict
     doi_so_voi_truoc: list[str] = []
+    khuon: dict | None = None
+    """Bản thảo trên khuôn gốc (quyết định 2026-09-26): `{viec_id, dinh_dang,
+    so_trang, cho_trong: [{don_vi, so, kieu, nhan, gia_tri: str | None}]}` —
+    các ô điền được của phiên bản này; `gia_tri` `None` là còn dãy chấm. `None`
+    cho bản thảo HTML hay khi khuôn gốc đã bị xoá cùng hội thoại: giao diện lùi
+    về bản xem HTML. Trang: `GET /ban-thao/{id}/trang`."""
 
 
 class BanThaoTomTatOut(BaseModel):
@@ -246,6 +252,8 @@ class BanThaoPhienBanChiTietOut(BaseModel):
     facts: dict
     clauses: list[dict]
     audit_report: dict
+    khuon: dict | None = None
+    """Cùng hình dạng `BanThaoOut.khuon`, cho phiên bản cũ này."""
 
 
 class Bang(BaseModel):

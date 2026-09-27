@@ -689,7 +689,7 @@ async def tra_cuu(
             except Exception:
                 logger.exception("bo_nho: không lưu được giả định suy_dien (phien=%s)", hoi_thoai_id)
             if user_sub is not None:
-                bo_nho.len_lich_cap_nhat(hoi_thoai_id, user_sub, payload.get("result_type"))
+                bo_nho.len_lich_cap_nhat(hoi_thoai_id, user_sub, bo_nho.loai_luot(payload))
         # Task 19 — chốt trạng thái soạn thảo của phiên SAU lượt này. Bỏ qua
         # khi ý định lượt này thật sự là `tra_cuu`: một câu hỏi luật thường hỏi
         # giữa một hội thoại đang soạn dở vẫn đi qua `gom_du_kien` (xem

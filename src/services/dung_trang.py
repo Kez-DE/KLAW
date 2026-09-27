@@ -22,6 +22,8 @@ import shutil
 import subprocess
 import tempfile
 import threading
+from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -163,22 +165,46 @@ def anh_trang(pdf: bytes, dpi: int = DPI_TRANG) -> list[bytes]:
         return [p.read_bytes() for p in tep]
 
 
-def dung(dinh_dang: str, noi_dung: bytes, user_sub: str) -> tuple[list[list[float]], list[bytes]]:
-    """`(khổ, PNG)` từng trang của một khuôn gốc (hay một bản đã điền cùng định
-    dạng). Khổ đọc từ CHÍNH PDF vừa vẽ, nên `kho[i]` luôn là khổ của ảnh `i`.
-
-    Một lượt mỗi tài khoản mỗi lúc: lượt thứ hai trong khi lượt đầu còn vẽ là
-    `ChuyenDoiKhongSanSang("qua_tai")`, cùng 503 của ba suất chung."""
+@contextmanager
+def _mot_luot(user_sub: str):
+    """Một lượt LibreOffice/`pdftoppm` mỗi tài khoản mỗi lúc: lượt thứ hai trong
+    khi lượt đầu còn chạy là `ChuyenDoiKhongSanSang("qua_tai")`, cùng 503 của ba
+    suất chung. Nhả chỗ cả khi lượt hỏng."""
     with _khoa_dang_dung:
         if user_sub in _dang_dung:
             raise ChuyenDoiKhongSanSang("qua_tai", "tài khoản đang có một lượt dựng trang")
         _dang_dung.add(user_sub)
     try:
-        pdf = dung_pdf(noi_dung) if dinh_dang == "docx" else noi_dung
-        return kho_trang(pdf), anh_trang(pdf)
+        yield
     finally:
         with _khoa_dang_dung:
             _dang_dung.discard(user_sub)
+
+
+def dung(
+    dinh_dang: str, noi_dung: bytes, user_sub: str, ap: Callable[[bytes], bytes] | None = None
+) -> tuple[list[list[float]], list[bytes]]:
+    """`(khổ, PNG)` từng trang của một khuôn gốc. Khổ đọc từ CHÍNH PDF vừa vẽ,
+    nên `kho[i]` luôn là khổ của ảnh `i`. Một lượt mỗi tài khoản mỗi lúc
+    (`_mot_luot`).
+
+    `ap`: bước biến `noi_dung` thành bản đã điền cùng định dạng (bộ áp phép sửa
+    của một bản thảo), chạy TRONG cùng lượt: bộ áp là việc CPU trên tệp tới
+    20 MB, nên áp và dựng là một lượt, không phải việc nặng đứng ngoài hàng rào."""
+    with _mot_luot(user_sub):
+        if ap is not None:
+            noi_dung = ap(noi_dung)
+        pdf = dung_pdf(noi_dung) if dinh_dang == "docx" else noi_dung
+        return kho_trang(pdf), anh_trang(pdf)
+
+
+def tep_tai_ve(dinh_dang: str, noi_dung: bytes, dang: str, user_sub: str, ap: Callable[[bytes], bytes]) -> bytes:
+    """Tệp tải về của một bản đã điền: `ap(noi_dung)`, và với `dang="pdf"` trên
+    khuôn DOCX là bản LibreOffice dựng từ nó. Mọi nhánh trong MỘT lượt như
+    `dung` — kể cả khuôn PDF và `dang="docx"`, nơi chỉ bộ áp chạy."""
+    with _mot_luot(user_sub):
+        ban = ap(noi_dung)
+        return dung_pdf(ban) if dinh_dang == "docx" and dang == "pdf" else ban
 
 
 def khuon_goc(ten_tep: str, du_lieu: bytes, tai_lieu: TaiLieuDaDoc) -> KhuonGoc | None:

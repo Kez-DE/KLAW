@@ -269,6 +269,40 @@ def test_MOT_tai_khoan_MOT_luot_dung_mot_luc(monkeypatch):
     assert dung_trang.dung("pdf", b"trong", "a")[1] == [b"png"], "lượt hỏng vẫn nhả chỗ"
 
 
+def test_BO_AP_va_TAI_VE_chay_TRONG_CUNG_mot_luot_voi_dung(monkeypatch):
+    """Bộ áp phép sửa là việc CPU trên khuôn gốc tới 20 MB, bản PDF tải về dựng
+    bằng LibreOffice (một trong ba suất): cả hai chạy TRONG lượt của tài khoản,
+    không trước lượt — nếu không, một tài khoản gọi từ nhiều IP chạy bao nhiêu
+    lượt áp song song cũng được. Mọi nhánh tải về giữ lượt, kể cả khuôn PDF (bộ
+    áp PDF vẫn chạy); lượt hỏng giữa chừng vẫn nhả chỗ."""
+    monkeypatch.setattr(dung_trang, "kho_trang", lambda pdf: [list(_A4)])
+    monkeypatch.setattr(dung_trang, "anh_trang", lambda pdf: [pdf])
+    monkeypatch.setattr(dung_trang, "dung_pdf", lambda docx: b"%PDF-" + docx)
+    thay: list[str] = []
+
+    def _ap(ban: bytes) -> bytes:
+        for ai in ("a", "b"):
+            try:
+                dung_trang.dung("pdf", b"x", ai)
+                thay.append(f"{ai}:dung")
+            except ChuyenDoiKhongSanSang as e:
+                thay.append(f"{ai}:{e.ly_do}")
+        return ban + b"!"
+
+    assert dung_trang.dung("docx", b"d", "a", _ap) == ([list(_A4)], [b"%PDF-d!"])
+    assert dung_trang.tep_tai_ve("docx", b"d", "docx", "a", _ap) == b"d!"
+    assert dung_trang.tep_tai_ve("docx", b"d", "pdf", "a", _ap) == b"%PDF-d!"
+    assert dung_trang.tep_tai_ve("pdf", b"%PDF", "pdf", "a", _ap) == b"%PDF!"
+    assert thay == ["a:qua_tai", "b:dung"] * 4
+
+    def _hong(ban: bytes) -> bytes:
+        raise KhongDocDuoc(LoaiHong.tep_hong, "x")
+
+    with pytest.raises(KhongDocDuoc):
+        dung_trang.tep_tai_ve("docx", b"d", "docx", "a", _hong)
+    assert dung_trang.tep_tai_ve("docx", b"y", "pdf", "a", lambda b: b) == b"%PDF-y", "xong lượt thì nhả chỗ"
+
+
 def test_thieu_pdftoppm_la_loi_HE_THONG(monkeypatch):
     monkeypatch.setattr(dung_trang.shutil, "which", lambda ten: None)
     with pytest.raises(ChuyenDoiKhongSanSang) as e:
@@ -418,15 +452,12 @@ def test_dung_pdf_KHONG_nhung_tep_may_chu_qua_lien_ket_file(tmp_path):
 
 
 @pytest.mark.skipif(not _CO_SOFFICE, reason="cần LibreOffice")
-@pytest.mark.xfail(
-    reason="rủi ro còn lại đã đo (quyết định 2026-09-26, Tradeoffs): bộ nhập .doc "
-    "tải ảnh liên kết bất kể BlockUntrustedRefererLinks — chặn cần cách ly mạng",
-)
 def test_quy_doi_doc_KHONG_goi_ra_mang_voi_lien_ket_ngoai(tmp_path):
-    """PHÉP ĐO, không phải rào: `.doc` là nhị phân, không có rào nào ở tầng tệp.
-    Đo 2026-09-27 (LibreOffice 26.2.4): một GET mù lúc nhập; bản docx quy đổi
-    giữ liên kết chứ không giữ bytes đã tải, và bước dựng PDF sau đó bị rào
-    chặn. XFAIL trong image triển khai = rủi ro có thật ở đó."""
+    """Rào thứ hai. Bộ nhập `.doc` tải ảnh liên kết bất kể
+    `BlockUntrustedRefererLinks` — đo 2026-09-27: một GET mù lúc nhập, ở cả
+    LibreOffice 26.2.4 lẫn 25.2.3. Lượt tải đó đi qua proxy của LibreOffice, nên
+    hồ sơ riêng trỏ proxy về một cổng loopback chết (`_HO_SO_CHAN_LIEN_KET`).
+    Đỏ trên một image nào nghĩa là rào không giữ ở bản LibreOffice đó."""
     from src.services.doc_tai_lieu import _chuyen_doc_sang_docx
 
     with _may_nghe() as (goc, goi):

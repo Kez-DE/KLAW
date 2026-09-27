@@ -25,6 +25,7 @@ phân biệt được bản thảo đã kiểm với bản thảo chưa kiểm.
 import logging
 import time
 import uuid
+from pathlib import Path
 
 from fastapi import HTTPException
 
@@ -44,6 +45,21 @@ TEN_TONG_QUAT = "Bản thảo tổng quát"
 # Không nói "từ tài liệu": từ Phase 14 lượt soạn có thể không có tài liệu nào.
 KHONG_SOAN_DUOC = "Lượt này tôi chưa soạn được mục nào. Bạn nói rõ cần văn bản gì và gồm mục nào."
 KHONG_CO_BAN_THAO = "Cuộc trò chuyện này chưa có bản thảo tổng quát nào để sửa. Bạn nói rõ cần soạn văn bản gì."
+# Lượt sửa trên khuôn gốc mà không phép nào còn lại sau phép kiểm: không lên một
+# phiên bản giống hệt (mỗi phiên bản tốn một lần của `TRAN_SUA`), nói vì sao.
+KHONG_DOI_KHUON = (
+    "Lượt này không có thay đổi nào áp được lên biểu mẫu — giá trị cần điền phải có trong lời bạn, "
+    "hồ sơ hoặc chính tài liệu. Bạn nói rõ giá trị cần điền, hoặc sửa thẳng ở khung điền bên cạnh."
+)
+# Lượt TẠO trên khuôn gốc mà không phép nào còn lại: không lưu một bản sao trắng
+# của tệp tải lên. Văn bản KHÁC tệp đó là việc của đường checklist (quyết định
+# 2026-09-26 mục 3), nên lời đáp chỉ sang đó.
+KHONG_DIEN_KHUON = (
+    "Lượt này chưa có giá trị nào điền được vào biểu mẫu bạn tải lên, nên tôi chưa tạo bản thảo. "
+    "Tôi điền tại chỗ chính tệp đó, chỉ bằng giá trị có trong lời bạn, hồ sơ hoặc chính tài liệu — "
+    "bạn nói rõ giá trị cần điền. Cần một văn bản khác (ví dụ một lá đơn) thì vào Soạn thảo và "
+    "chọn loại văn bản."
+)
 
 
 def _khoi_thanh_van_ban(khoi: list[dict]) -> str:
@@ -144,6 +160,58 @@ def ket_ban_thao(van_ban: dict) -> dict | None:
     }
 
 
+def _nhan_cho(khuon: dict) -> dict[tuple, str]:
+    return {(c["don_vi"], c["so"]): c["nhan"] for c in khuon.get("cho_trong") or []}
+
+
+def ket_ban_thao_khuon(khuon: dict, phep_sua: list[dict]) -> dict:
+    """Bản thảo trên KHUÔN GỐC (P4b) — cùng bộ khoá `ket_ban_thao` cộng `viec_id`
+    và `phep_sua` (TRỌN danh sách của phiên bản mới, đã gộp và khử trùng).
+
+    `clauses` rỗng: văn bản là chính tệp người hỏi tải lên cộng các phép sửa,
+    không có mục nào do KLAW dựng. `document` chỉ tóm tắt những gì đã điền (tiêu
+    đề + mỗi chỗ trống đã điền một dòng "nhãn: giá trị") — nó là thứ lượt sửa
+    sau thấy trong "# Bản thảo đang có", và là Markdown cho mọi nơi đọc cũ.
+    """
+    nhan = _nhan_cho(khuon)
+    # Nhãn của biểu mẫu thường đã kết bằng dấu hai chấm ("Fax:") — không nhân đôi.
+    dong = [
+        f"- {(nhan.get((p['don_vi'], p['cho_trong'])) or 'Chỗ trống').rstrip(': ')}: {p['gia_tri'].strip()}"
+        for p in phep_sua
+        if p.get("loai") == "dien"
+    ]
+    tieu_de = Path(khuon.get("ten_tep") or "").stem or "Biểu mẫu"
+    return {
+        "document": f"# {tieu_de}\n" + ("\n" + "\n".join(dong) + "\n" if dong else ""),
+        "clauses": [],
+        "audit_report": {
+            "dat": None,
+            "completeness": None,
+            "so_dieu_khoan": 0,
+            "self_audit": False,
+            "findings": [],
+            "muc_kiem": MUC_KIEM,
+        },
+        "viec_id": khuon["viec_id"],
+        "phep_sua": phep_sua,
+    }
+
+
+def doi_cho_dien(cu: list[dict], moi: list[dict], khuon: dict) -> list[str]:
+    """Nhãn các chỗ trống đổi giá trị so với phiên bản trước, theo thứ tự đọc —
+    `doi_muc` của bản thảo khuôn gốc (không có mục nào để so)."""
+
+    def _gia_tri(ds: list[dict]) -> dict[tuple, str]:
+        return {(p["don_vi"], p["cho_trong"]): p["gia_tri"] for p in ds if p.get("loai") == "dien"}
+
+    truoc, sau, nhan = _gia_tri(cu), _gia_tri(moi), _nhan_cho(khuon)
+    return list(
+        dict.fromkeys(
+            nhan.get(k) or "Chỗ trống" for k in sorted(truoc.keys() | sau.keys()) if truoc.get(k) != sau.get(k)
+        )
+    )
+
+
 def doi_muc(cu: list[dict], moi: list[dict]) -> list[str]:
     """Tên các mục đổi nội dung so với phiên bản trước — để lời đáp GỌI TÊN
     được cái vừa đổi.
@@ -161,8 +229,16 @@ def _ket_state(bt: dict, ten: str, doi: list[str]) -> dict:
     """Một dòng `ban_thao` → `state["ban_thao_ket"]`. Song sinh với
     `graph_tra_cuu._ban_thao_ket` (đường checklist) và bị ghim bởi cùng một hợp
     đồng, `schemas.BanThaoOut` — cột DB tên `audit`, trường ra tên `audit_report`.
+
+    `viec_id`/`phep_sua` lấy từ DÒNG đã lưu, không từ `ket`: `ban_thao` ghi
+    `viec_id` qua truy vấn con kiểm chủ, một id lạ ra NULL (bản thảo HTML).
+    `khuon` (khuôn gốc + chỗ trống kèm giá trị) do service tính từ dòng —
+    `assemble` chuyển nguyên sang `BanThaoOut.khuon`; `None` cho bản thảo HTML.
     """
     return {
+        "viec_id": bt.get("viec_id"),
+        "phep_sua": bt.get("phep_sua"),
+        "khuon": bt.get("khuon"),
         "id": bt["id"],
         "loai": LOAI_TONG_QUAT,
         "ten": ten,
@@ -192,11 +268,22 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
     `soan_thao_hoi` đã có. (Tài liệu vốn đã đòi đăng nhập, nên đây là lớp thứ
     hai — chỗ để chặn khi lớp thứ nhất bị nới.)
     """
-    ket = ket_ban_thao(state.get("van_ban_tong_quat") or {})
+    khuon = state.get("khuon_tong_quat")
+    ket = None if khuon else ket_ban_thao(state.get("van_ban_tong_quat") or {})
     sub, hoi_thoai_id = state.get("user_sub"), state.get("hoi_thoai_id")
     if sub is None or hoi_thoai_id is None:
         return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": None}
     la_sua = state.get("muc_dich_tai_lieu") == "sua_ban_thao"
+    cu = None
+    if khuon:
+        # Sửa hay dựng mới quyết định bằng DỮ LIỆU, không bằng nhãn của mô hình:
+        # hội thoại đã có bản thảo mà phiên bản đang sống nằm trên ĐÚNG khuôn gốc
+        # này thì lượt này là một phiên bản mới của nó (mô hình gán `tao_van_ban`
+        # cho một lời xin sửa sẽ không mở bản thứ hai chỉ mang phần thay đổi), kể
+        # cả khi một bản HTML hay bản trên khuôn khác mới hơn. Không có thì dựng
+        # bản MỚI, chịu hạn mức dựng lần đầu.
+        cu = ban_thao.moi_nhat_cua_hoi_thoai(sub, str(hoi_thoai_id), LOAI_TONG_QUAT, viec_id=khuon["viec_id"])
+        la_sua = cu is not None
     if not la_sua:
         # Hạn mức DỰNG LẦN ĐẦU — CÙNG giỏ `EP_SOAN_THAO` mà đường checklist
         # kiểm ở `graph_tra_cuu.n_dung_ban_thao`, không phải một giỏ thứ hai.
@@ -219,6 +306,17 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
             # rơi về `KHONG_SOAN_DUOC` — người dùng hết lượt mà đọc "hãy thử
             # lại" sẽ thử lại, tốn thêm một lượt mô hình cho cùng lời từ chối.
             return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": str(e.detail)}
+    if khuon:
+        # Lượt sửa mang THAY ĐỔI; phiên bản mới là phép đang có gộp với chúng.
+        # Không đổi gì thì không lưu gì: lượt sửa không lên một phiên bản giống
+        # hệt, lượt tạo không lưu một bản sao trắng (cũng không ghi hàng traces
+        # đếm hạn mức). Bản sao trắng ấy cũng là thứ duy nhất một lời xin văn bản
+        # KHÁC — "dựa vào hợp đồng này soạn đơn xin nghỉ việc" — dựng ra được ở đây.
+        cu_phep = ((cu or {}).get("phep_sua") or []) if la_sua else []
+        ket = ket_ban_thao_khuon(khuon, ban_thao.gop_phep_sua(cu_phep, khuon["phep_sua"]))
+        if ket["phep_sua"] == cu_phep:
+            loi = KHONG_DOI_KHUON if la_sua else KHONG_DIEN_KHUON
+            return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": loi}
     if ket is None:
         return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_SOAN_DUOC}
 
@@ -231,7 +329,8 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
     # đọc ra từ đó.
     ten = TEN_TONG_QUAT
     if la_sua:
-        cu = ban_thao.moi_nhat_cua_hoi_thoai(sub, str(hoi_thoai_id), LOAI_TONG_QUAT)
+        # Bản HTML (`viec_id=None`): một bản khuôn gốc mới hơn không hút lượt sửa này.
+        cu = cu or ban_thao.moi_nhat_cua_hoi_thoai(sub, str(hoi_thoai_id), LOAI_TONG_QUAT, viec_id=None)
         if cu is None:
             return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_CO_BAN_THAO}
         try:
@@ -243,11 +342,12 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
             # Bị xoá giữa chừng (đua với một lượt xoá khác) — cùng hợp đồng
             # "không tìm thấy" của cả service, không spread `None`.
             return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_CO_BAN_THAO}
-        return {
-            **state,
-            "ban_thao_ket": _ket_state(bt, ten, doi_muc(cu["clauses"], ket["clauses"])),
-            "ban_thao_tong_quat_loi": None,
-        }
+        doi = (
+            doi_cho_dien(cu.get("phep_sua") or [], ket["phep_sua"], khuon)
+            if khuon
+            else doi_muc(cu["clauses"], ket["clauses"])
+        )
+        return {**state, "ban_thao_ket": _ket_state(bt, ten, doi), "ban_thao_tong_quat_loi": None}
 
     bat_dau = time.monotonic()
     bt = ban_thao.tao(sub, str(hoi_thoai_id), LOAI_TONG_QUAT, {}, ket)

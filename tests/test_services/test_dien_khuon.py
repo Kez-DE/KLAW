@@ -573,3 +573,23 @@ def test_tep_that_DIEN_MOI_cho_trong_co_du_gia_tri_va_trang_khong_dien_giu_nguye
         if not _giong([x], [y]):
             assert any("".join(v.split()) in chu[i] for v in GIA_TRI_MAU), f"trang {i + 1} đổi mà không có giá trị nào"
     assert not any(c.kieu == "cham" for d in doc(tep.name, ra).don_vi for c in d.cho_trong)
+
+
+def test_bo_ap_PDF_dung_CHUNG_tap_ma_ly_do_voi_DOCX():
+    """Một tập mã đóng cho cả hai bộ áp: người gọi (P4) đọc `bo_qua` của bộ áp nào
+    cũng bằng cùng một enum; chuỗi phát ra không đổi."""
+    from src.services import dien_khuon, dien_khuon_pdf
+
+    assert dien_khuon_pdf.LyDoBoQua is dien_khuon.LyDoBoQua
+    assert {m.value for m in dien_khuon.LyDoBoQua} == {
+        "khong_hop_le",
+        "loai_khong_ho_tro",
+        "khong_co_don_vi",
+        "khong_co_dia_chi",
+        "khong_co_cho_trong",
+        "cho_trong_da_doi",
+        "khong_an_toan",
+        "xung_dot",
+        "khong_vua",
+        "khong_co_phong",
+    }

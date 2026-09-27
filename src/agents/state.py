@@ -134,6 +134,8 @@ class KLawState(TypedDict, total=False):
     # 1, PostgreSQL review), CHỈ mang `document`/`audit`, không phải bản đầy đủ
     # của `moi_nhat_cua_hoi_thoai` — không có `id`/`clauses`/`phien_ban`/…; xem
     # docstring hàm đó cho ba nơi đã kiểm là không cần cột nào khác.
+    # Review wave D: `graph_tra_cuu._nap_ban_thao_dang_mo` đọc LẠI theo `viec_id`
+    # của lượt khi bản mới nhất là loại kia (khuôn gốc ↔ HTML), trước `hieu_tai_lieu`.
     # Nơi đọc: `hieu_tai_lieu` cho mô hình thấy bản thảo ĐANG CÓ khi sửa (R4)
     # thay vì coi mọi lượt sửa là soạn lại từ đầu, và (Phase 14) chọn
     # `sua_ban_thao` thay vì mở bản thứ hai khi mô hình gán nhầm mục đích.
@@ -164,6 +166,12 @@ class KLawState(TypedDict, total=False):
     # với `bang`/`nguon`/`ban_thao_ket`: không khai ở đây thì khoá bị loại ÂM
     # THẦM khỏi state trả về và node dựng bản thảo nhận `None` mãi mãi.
     van_ban_tong_quat: dict | None
+    # Tài liệu có KHUÔN GỐC (P4b): thay cho `van_ban_tong_quat`, phép sửa ĐÃ KIỂM
+    # của lượt `{viec_id, ten_tep, dinh_dang, phep_sua, bo_qua, cho_trong}` —
+    # `phep_sua` là THAY ĐỔI của lượt (gộp vào phiên bản đang có ở
+    # `dung_ban_thao_tong_quat`), `bo_qua` chỉ mang đơn vị/chỗ trống/lý do, không
+    # mang giá trị. `None` ở mọi lượt khác. Cùng bẫy LangGraph với `van_ban_tong_quat`.
+    khuon_tong_quat: dict | None
     # Lý do KHÔNG dựng được bản thảo tổng quát ở lượt này (hết trần sửa, chưa có
     # bản thảo nào để sửa, mô hình không soạn được mục nào). `assemble` biến nó
     # thành một lượt hỏi lại — một lượt soạn hỏng mà im lặng là tệ nhất.

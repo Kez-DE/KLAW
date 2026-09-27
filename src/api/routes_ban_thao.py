@@ -6,15 +6,25 @@ tầng `src.services.ban_thao` — bản thảo của người khác là 404, kh
 tồn tại (không phân biệt được với một id không có thật).
 """
 
+import base64
+import logging
+import re
+import unicodedata
 import uuid
+from pathlib import PurePath
+from typing import Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from src.agents.graph_soan_thao import load_checklist_cached, rules_cho
 from src.agents.nodes.gom_du_kien import con_thieu, lua_chon_sai
 from src.api.routes import _validate_facts
+from src.api.routes_tai_lieu import KHONG_THAY, _loi_http
+from src.api.routes_tai_lieu import _uuid_hop_le as _uuid_viec
 from src.models.schemas import (
     BanThaoOut,
     BanThaoPhienBanChiTietOut,
@@ -23,9 +33,12 @@ from src.models.schemas import (
     DanhSachBanThaoOut,
     DanhSachPhienBanOut,
 )
-from src.services import ban_thao, bao_ve
+from src.services import ban_thao, bao_ve, dung_trang
 from src.services.bao_ve import nguoi_dung_bat_buoc
+from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang, KhongDocDuoc
+from src.services.retrieval import _bo_dau
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -70,6 +83,7 @@ def _out(bt: dict) -> BanThaoOut:
         clauses=bt["clauses"],
         audit_report=bt["audit"],
         facts=bt["facts"],
+        khuon=bt.get("khuon"),
     )
 
 
@@ -136,6 +150,7 @@ async def phien_ban_chi_tiet(
         facts=snap["facts"],
         clauses=snap["clauses"],
         audit_report=snap["audit"],
+        khuon=snap.get("khuon"),
     )
 
 
@@ -242,6 +257,7 @@ async def dung(id: str, body: DungLaiRequest, nguoi: dict = Depends(nguoi_dung_b
         audit_report=bt["audit"],
         facts=bt["facts"],
         doi_so_voi_truoc=bt["doi_so_voi_truoc"],
+        khuon=bt.get("khuon"),
     )
 
 
@@ -294,6 +310,168 @@ async def sua_muc(id: str, body: SuaMucRequest, nguoi: dict = Depends(nguoi_dung
     if isinstance(ket, str):
         raise HTTPException(status_code=422, detail=ket)
     return _out(ket)
+
+
+# ═══ Khuôn gốc — quyết định 2026-09-26, kế hoạch `khuon-goc-dien-tai-cho.md` ═══
+# Ba route cho bản thảo trên khuôn gốc: trang đã điền, tải về, lưu ô điền. Cùng
+# hàng rào của `routes_tai_lieu.trang`: chủ sở hữu lọc ở tầng dữ liệu (người
+# khác, bản thảo HTML, khuôn gốc đã xoá đều 404), `nosniff`, `private`. Áp phép
+# và dựng là việc CPU/tiến trình con: luôn qua `run_in_threadpool`, trong MỘT
+# lượt mỗi tài khoản (`dung_trang._mot_luot`) cho cả hai. Log chỉ mang id và số
+# đếm — không một giá trị đã điền nào.
+
+LOI_PDF_KHONG_CO_DOCX = "Tài liệu gốc là PDF nên chỉ tải được bản PDF đã điền."
+_KIEU_TAI_VE = {
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "pdf": "application/pdf",
+}
+# ASCII in được, trừ hai ký tự phải thoát trong một quoted-string (RFC 6266).
+_ASCII_TEN = re.compile(r'[^\x20-\x7e]|["\\]')
+
+
+def _tai_ve_dau(ten_tep: str, dang: str) -> str:
+    """`Content-Disposition` của bản đã điền: `<tên tệp tải lên> - đã điền.<dang>`.
+
+    Chỉ PHẦN TÊN (bỏ thư mục và đuôi — một `.doc` tải về là `.docx`), bỏ ký tự
+    không in được (không `\r\n` nào chen được vào header). `filename*` (RFC 5987,
+    UTF-8) cho tên thật; `filename` ASCII dự phòng: bỏ dấu, ký tự còn lại ngoài
+    ASCII và `"`/`\\` thành `_`."""
+    goc = re.split(r"[\\/]", unicodedata.normalize("NFC", ten_tep or ""))[-1]
+    ten = "".join(ch for ch in PurePath(goc).stem if ch.isprintable()).strip() or "ban-thao"
+    ascii_ = _ASCII_TEN.sub("_", _bo_dau(ten))
+    return f"attachment; filename=\"{ascii_} - da dien.{dang}\"; filename*=UTF-8''{quote(f'{ten} - đã điền.{dang}', safe='')}"
+
+
+async def _khuon_phien_ban(sub: str, id: str, phien_ban: int | None) -> dict:
+    k = await run_in_threadpool(ban_thao.khuon_cua_phien_ban, sub, _uuid_hop_le(id), phien_ban)
+    if k is None:
+        raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY)
+    return k
+
+
+def _bo_ap(id: str, k: dict):
+    """Bước `ap` của `dung_trang`: khuôn gốc NGUYÊN + phép ĐẦY ĐỦ của phiên bản,
+    chạy TRONG lượt dựng của tài khoản (không trước lượt). Phép bị bộ áp bỏ vẫn
+    cho ra trang (phần áp được) — chỉ `sua_o_dien` từ chối lưu; ở đây chỉ log
+    số đếm. `KhongDocDuoc` đi ra cùng lỗi dựng."""
+
+    def ap(khuon_goc: bytes) -> bytes:
+        ban, bao_cao = ban_thao.ap_phep_sua(k["dinh_dang"], khuon_goc, k["don_vi"], k["phep_sua"])
+        if bo := len(bao_cao["bo_qua"]):
+            logger.warning(
+                "ban_thao %s phiên bản %s: bộ áp bỏ %d/%d phép", id, k["phien_ban"], bo, bo + len(bao_cao["da_ap"])
+            )
+        return ban
+
+    return ap
+
+
+@router.get("/ban-thao/{id}/trang")
+async def trang(
+    id: str, phien_ban: int | None = Query(default=None, ge=1), nguoi: dict = Depends(nguoi_dung_bat_buoc)
+) -> JSONResponse:
+    """Trang của MỘT phiên bản đã điền — cùng hình dạng `GET /tai-lieu/{id}/trang`:
+    `{"kho": [[rộng_pt, cao_pt], …], "trang": ["<base64 png>", …]}`, áp và dựng
+    MỘT lần mỗi request, trong một lượt mỗi tài khoản (`dung_trang.dung`).
+
+    Không `phien_ban`: bản đang sống — đổi sau mỗi lần lưu, nên `no-store`. Có
+    `phien_ban`: số phiên bản không bao giờ cấp lại, nội dung của nó không đổi,
+    nên trình duyệt giữ được một giờ như `/tai-lieu/{id}/trang`."""
+    k = await _khuon_phien_ban(nguoi["sub"], id, phien_ban)
+    try:
+        kho, png = await run_in_threadpool(dung_trang.dung, k["dinh_dang"], k["noi_dung"], nguoi["sub"], _bo_ap(id, k))
+    except (KhongDocDuoc, ChuyenDoiKhongSanSang) as e:
+        raise _loi_http(e) from e
+    return JSONResponse(
+        {"kho": kho, "trang": [base64.b64encode(p).decode("ascii") for p in png]},
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store" if phien_ban is None else "private, max-age=3600",
+        },
+    )
+
+
+@router.get("/ban-thao/{id}/tai-xuong")
+async def tai_xuong(
+    id: str,
+    dang: Literal["docx", "pdf"] = Query(...),
+    phien_ban: int | None = Query(default=None, ge=1),
+    nguoi: dict = Depends(nguoi_dung_bat_buoc),
+) -> Response:
+    """Tệp đã điền của một phiên bản (mặc định bản đang sống), dạng tệp đính kèm.
+
+    Khuôn DOCX: `dang=docx` là chính khuôn gốc đã áp phép (mở bằng Word), `dang=pdf`
+    là bản LibreOffice dựng từ nó. Khuôn PDF: chỉ `dang=pdf` (422 cho `docx` —
+    PDF không dàn lại được). `private, no-store`: bytes mang dữ liệu cá nhân."""
+    k = await _khuon_phien_ban(nguoi["sub"], id, phien_ban)
+    if k["dinh_dang"] == "pdf" and dang == "docx":
+        raise HTTPException(status_code=422, detail=LOI_PDF_KHONG_CO_DOCX)
+    try:
+        ban = await run_in_threadpool(
+            dung_trang.tep_tai_ve, k["dinh_dang"], k["noi_dung"], dang, nguoi["sub"], _bo_ap(id, k)
+        )
+    except (KhongDocDuoc, ChuyenDoiKhongSanSang) as e:
+        raise _loi_http(e) from e
+    return Response(
+        content=ban,
+        media_type=_KIEU_TAI_VE[dang],
+        headers={
+            "Content-Disposition": _tai_ve_dau(k.get("ten_tep") or "", dang),
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+class ODienIn(BaseModel):
+    don_vi: int = Field(..., ge=0)
+    cho_trong: int = Field(..., ge=0)
+    # Một ô là một dòng; cùng trần của một `facts` (`GIA_TRI_TOI_DA`).
+    gia_tri: str = Field(..., max_length=GIA_TRI_TOI_DA)
+
+
+class SuaODienRequest(BaseModel):
+    # Phiên bản người dùng ĐANG NHÌN THẤY — khoá lạc quan, cùng lý do `SuaMucRequest`.
+    phien_ban: int = Field(..., ge=1)
+    # Mọi ô đổi trong MỘT lần lưu (một phiên bản, một lần tính vào `TRAN_SUA`).
+    gia_tri: list[ODienIn] = Field(..., min_length=1, max_length=500)
+
+
+@router.patch("/ban-thao/{id}/o-dien", response_model=BanThaoOut)
+async def sua_o_dien(id: str, body: SuaODienRequest, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BanThaoOut:
+    """Lưu các ô của bảng ô điền thành MỘT phiên bản mới — 0 lượt gọi mô hình,
+    cùng trần sửa của lượt sửa bằng lời (`ban_thao.sua_o_dien`). Không dựng
+    trang: giao diện gọi `GET …/trang` một lần sau khi lưu.
+
+    422 (chuỗi `detail`) khi phiên bản đã đổi, hết trần, bản thảo không trên
+    khuôn gốc, ô lạ, giá trị nhiều dòng hay bộ áp không điền được một ô — cùng
+    quy ước `PATCH …/muc`. 404 khi không thấy/không phải chủ."""
+    id = _uuid_hop_le(id)
+    ket = await run_in_threadpool(
+        ban_thao.sua_o_dien, nguoi["sub"], id, body.phien_ban, [g.model_dump() for g in body.gia_tri]
+    )
+    if ket is None:
+        raise HTTPException(status_code=404, detail=ban_thao.LOI_KHONG_THAY)
+    if isinstance(ket, str):
+        raise HTTPException(status_code=422, detail=ket)
+    return _out(ket)
+
+
+@router.post("/tai-lieu/{viec_id}/ban-thao", response_model=BanThaoOut)
+async def mo_ban_thao(viec_id: str, response: Response, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BanThaoOut:
+    """Mở bảng ô điền trên khuôn gốc của một tài liệu khi KLAW chưa điền ô nào
+    (lượt mô hình không điền được gì thì không lưu bản thảo). Thao tác RÕ của
+    người dùng: 0 lượt mô hình, không tính hạn mức. 200 + bản thảo MỚI NHẤT của
+    việc đó, hay 201 + phiên bản 1 với `phep_sua` rỗng. 404: việc lạ, của người
+    khác, hoặc không có khuôn gốc (ảnh, tài liệu tải lên trước khuôn gốc)."""
+    viec_id = _uuid_viec(viec_id)
+    ra = await run_in_threadpool(ban_thao.mo_ban_thao_khuon, nguoi["sub"], viec_id)
+    if ra is None:
+        raise HTTPException(status_code=404, detail=KHONG_THAY)
+    bt, da_tao = ra
+    if da_tao:
+        response.status_code = 201
+    return _out(bt)
 
 
 @router.delete("/ban-thao/{id}", status_code=204)

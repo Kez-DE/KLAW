@@ -33,5 +33,10 @@ def test_024_chay_hai_lan_va_du_cot():
         "tao_luc",
         "cap_nhat_luc",
         "xoa_luc",
+        # `run_migrations()` chạy cả danh sách: cột của các migration sau 024.
+        "so_lan_sua",  # 025
+        "phien_ban_ke_tiep",  # 033
+        "viec_id",  # 037
+        "phep_sua",  # 037
     } == _cot("ban_thao")
     assert "soan_thao" in _cot("hoi_thoai")

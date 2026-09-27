@@ -158,8 +158,12 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   `so_trang int CHECK (so_trang BETWEEN 1 AND 10)`, `kho jsonb` (per-page
   `[w_pt, h_pt]`), `tao_luc timestamptz`. Owner reads JOIN `viec_doc_tai_lieu`.
 - `ban_thao` gains `viec_id uuid NULL REFERENCES viec_doc_tai_lieu(id) ON DELETE
-  SET NULL` and `phep_sua jsonb NULL`; version snapshots in `phien_ban_truoc`
-  carry `phep_sua`. Rendered PDFs and PNGs are not stored; they are rebuilt on
+  SET NULL` and `phep_sua jsonb NULL` (migration `037`); version snapshots in
+  `phien_ban_truoc` carry `viec_id` and `phep_sua` (HTML snapshots keep their
+  old shape). A version IS its full op list on its viec: `sua` writes the ket's
+  pair, `lui` restores the snapshot's pair, and every write stores `viec_id`
+  only when that viec still exists and belongs to the draft's owner (else NULL,
+  an HTML version). Rendered PDFs and PNGs are not stored; they are rebuilt on
   demand (ponytail: add a cache table when a measured render is too slow).
 
 ### API (all under `/api/v1`, `nguoi_dung_bat_buoc`, another owner = 404)
@@ -176,12 +180,38 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   `so_lan_thu` (FR-037, 3) paid re-extracts per document, then 429; `tong_quat`
   calls no model and is free. The cost estimate (422) and the daily cost cap run
   before the claim, so a refusal leaves the viec as it was.
-- `GET /ban-thao/{id}/trang?phien_ban=N` — the filled version, same shape.
+- `GET /ban-thao/{id}/trang?phien_ban=N` — the filled version, same shape; the
+  apply and the render are one slot of the same per-account guard (a held slot
+  is 503 `qua_tai` before the applier runs). No `phien_ban` (live
+  version): `private, no-store`; with `phien_ban`: `private, max-age=3600`
+  (version numbers are never reissued). 404: not found/foreign, unknown version,
+  HTML version, khuôn gốc deleted. Render errors map like `/tai-lieu/…/trang`
+  (503 `qua_tai`/`khong_co_cong_cu`, 422 `tep_hong`).
 - `GET /ban-thao/{id}/tai-xuong?dang=docx|pdf&phien_ban=N` — attachment bytes.
+  `dang` required. docx khuôn: `docx` = the filled khuôn gốc, `pdf` = its
+  LibreOffice render; every branch, applier included, holds the same
+  per-account slot; PDF khuôn: `pdf` only, `docx` =
+  422. `Content-Disposition: attachment; filename="<ASCII stem> - da dien.<dang>";
+  filename*=UTF-8''<stem> - đã điền.<dang>` (stem of `ten_tep`, so a `.doc`
+  downloads as `.docx`); `nosniff`, `private, no-store`.
 - `PATCH /ban-thao/{id}/o-dien` `{"phien_ban", "gia_tri": [{"don_vi",
-  "cho_trong", "gia_tri"}]}` — one new version per save, optimistic lock.
-- `BanThaoOut` gains `khuon: {"viec_id", "dinh_dang", "so_trang", "cho_trong":
-  [{"don_vi", "so", "nhan", "gia_tri" | null}]} | null` (default null).
+  "cho_trong", "gia_tri"}]}` (1–500 items, value ≤ 500 chars, `""` clears) →
+  `BanThaoOut`. One new version per save, counted in `TRAN_SUA`, `audit.sua_tay`;
+  a save that changes nothing returns the draft without a version. Every
+  refusal is 422 with a Vietnamese string `detail` (stale `phien_ban`, edit cap,
+  not a khuôn draft, unknown blank, multi-line value, an op the applier skips) —
+  the `PATCH …/muc` convention, not 409. No render.
+- `BanThaoOut` and `BanThaoPhienBanChiTietOut` gain `khuon: {"viec_id",
+  "dinh_dang", "so_trang", "cho_trong": [{"don_vi", "so", "kieu", "nhan",
+  "gia_tri" | null}]} | null` (default null). `cho_trong` lists only blanks the
+  applier can reach (docx: unit has `dia_chi`; PDF: blank has `hop`) and not on
+  a unit the version `thay`/`xoa`-ed.
+- `POST /tai-lieu/{viec_id}/ban-thao` (no body) → `BanThaoOut` with `khuon` —
+  opens the fill panel when no model turn filled anything. Explicit user action:
+  no model call, no quota row. 200 with the newest draft of this account whose
+  live version is on that viec, else 201 with version 1, `phep_sua: []`,
+  `document` = `# <ten_tep stem>`. 404 for a foreign/unknown viec or one with no
+  khuôn gốc; 401 without login. Concurrent opens serialize on the viec row.
 - Binary responses: `nosniff`, `Cache-Control: private`. Logs carry ids and
   counts only.
 
@@ -227,16 +257,31 @@ open risks, and follows the TDD order: failing test first, then code.
   Dockerfile's base + `libreoffice-writer`): an external linked image (`r:link`)
   is fetched (SSRF), and a `file://` one embeds a server file into the rendered
   PDF. Every soffice run now gets a profile seeded with
-  `BlockUntrustedRefererLinks`, which stops both on both versions. Still open on
-  both: the `.doc` importer sends one blind GET regardless — on main since Phase
-  13; closing it needs network isolation for the converter or dropping `.doc`
-  (owner's call).
+  `BlockUntrustedRefererLinks`, which stops both on both versions. The `.doc`
+  importer fetched regardless (on main since Phase 13; raw loopback listener:
+  `OPTIONS`+`HEAD`+`GET` for `http://`, one TLS handshake for `https://`, none
+  for `ftp://`). P2c closed it: the same profile sets a manual proxy to the dead
+  loopback port `127.0.0.1:9` and the subprocess env carries `*_proxy` to the
+  same port; each layer alone gives zero connections on both versions, and
+  `DisableActiveContent` does nothing for this path. Still open: these are
+  application-level barriers, not network isolation; a LibreOffice path that
+  opens sockets while ignoring proxy settings (none measured) would escape, and
+  nothing in the container may listen on `127.0.0.1:9`. OS-level isolation for
+  the converter stays the owner's call.
 - **Rate limit.** 10 requests / 60 s per IP; page images come in one request.
+- **Panel-save dry run.** `PATCH …/o-dien` runs the applier (≤ 1 s, 10-page
+  docx) outside the per-account render slot on purpose: that slot refuses at
+  once, and a save must not 503 while the preview renders. The draft's row lock
+  serializes saves of one draft; one account saving many drafts from many IPs
+  still dry-runs in parallel. Add a waiting per-account slot when measured.
 - **Scanned PDFs.** Tesseract emits no words for long dotted leaders; blanks are
   located by label-relative placement and pixel runs, and the accuracy is measured,
   not promised.
 - **Edit cap.** `TRAN_SUA = 10` is shared by chat edits and panel saves; the panel
-  saves every changed field in one version.
+  saves every changed field in one version. A draft opened by `POST
+  /tai-lieu/{viec_id}/ban-thao` costs no first-build quota, so later chat fills on
+  it are edit turns under `TRAN_SUA`, not `EP_SOAN_THAO` (one draft per viec, and
+  each viec already spent `tai_lieu_ngay`).
 - Recovery: each phase is one merge commit on `main`; `git revert -m 1 <merge>`
   undoes it. Migration `036` is additive (new table, nullable columns).
 
@@ -246,6 +291,7 @@ open risks, and follows the TDD order: failing test first, then code.
 - [x] Wave A — P1a, P1b, P1c (merges `9e4474c`, `8dcc8a9`, `ea86a9b`; CI lane 2163 passed on main).
 - [x] Wave B — P2b (`a8fd793`), P2a (`3d3871d`, after a merge-up and a replacement privacy review that found and fixed unbounded re-extracts, a reversed-MediaBox render bypass, uncounted kept files, and LibreOffice fetching linked images).
 - [x] Wave C — P3a docx applier (`d2ee30a`), P3b PDF overlay applier (`570c805`); CI lane 2381 passed on main.
+- [x] P2c — `.doc` importer egress closed with a dead loopback proxy (`fix/soffice-chan-mang`).
 - [ ] Wave D — P4.
 - [ ] Wave E — P5.
 - [ ] Wave F — P6.
@@ -281,6 +327,48 @@ open risks, and follows the TDD order: failing test first, then code.
   `file://` server file into the render. Every soffice run gets a profile seeded
   with `BlockUntrustedRefererLinks`; the `.doc` importer's blind GET stays open
   and is the owner's call (isolation or drop `.doc`).
+- 2026-09-27 (P2c): the `.doc` importer's fetch goes through LibreOffice's proxy
+  (a live loopback proxy receives `GET http://…/anh.png`), so every soffice run
+  now points `org.openoffice.Inet/Settings` (`ooInetProxyType=2`, HTTP/HTTPS/FTP
+  name and port, empty `ooInetNoProxy`) and the `*_proxy` env vars at the dead
+  port `127.0.0.1:9`. Both layers kept: each alone is enough on 26.2.4 (Mac) and
+  25.2.3 (Dockerfile base, aarch64 and amd64); one is LibreOffice's own setting,
+  the other the env it honours when the profile sets no proxy. The `.doc` egress
+  test is a normal test now. `.doc` stays accepted; network isolation remains an
+  optional further layer.
+- 2026-09-27 (P4a): one merge for chat edits and panel saves,
+  `ban_thao.gop_phep_sua(cu, moi)` — `dien` by `(don_vi, cho_trong)` latest
+  wins and `""` clears; `thay`/`xoa` share one key per `don_vi`; `chen_sau`
+  deduplicated in order; changed ops keep their position. `ap_phep_sua`
+  re-deduplicates before every applier call (PDF is first-wins). A panel save
+  dry-runs the applier on the pristine khuôn gốc and refuses when any op lands in
+  `bo_qua`. The reader strips `nhan`, so `chuan_hoa_dien` gives every `tab`
+  value one leading space.
+- 2026-09-27 (P4b review): on a document with a khuôn gốc, a chat turn that asks
+  for a different document ("dựa vào hợp đồng này soạn đơn xin nghỉ việc") gets
+  no edit-draft of the upload: decision item 3 leaves "a different document" to
+  the checklist, so a create turn that ends with no valid operation saves nothing,
+  writes no `EP_SOAN_THAO` trace, and points to **Chọn loại văn bản**. Agent
+  default under the owner's standing delegation, open for the owner to reverse
+  (the reverse keeps an empty draft so the fill panel opens before any value is
+  stated). Blanks are filled only by `dien`: `thay` on a unit with a fillable
+  blank is refused (`co_cho_trong`), each `Nhãn: giá trị` value in `thay`/
+  `chen_sau` passes the `dien` provenance check, and Điều/Khoản numbers compare
+  as whole tokens.
+- 2026-09-27 (wave D integration): `gop_phep_sua` is defined once (P4a's body);
+  a `thay`/`xoa` on a unit removes every `dien` on that unit, before or after it,
+  so the applier, `cho_trong_khuon` and `assemble` agree on what is filled. The
+  create-vs-edit target is the newest draft of the conversation whose live
+  version has the turn's `viec_id` (`None` = HTML draft), so alternating kinds
+  never edit, or overwrite, the other kind. The prompt's "Bản thảo đang có" base
+  and `= «value»` hints use the same key: `graph_tra_cuu._nap_ban_thao_dang_mo`
+  re-reads the light row by the turn's `viec_id` (first khuôn document of the
+  turn, else `None`) when the per-turn read is the other kind, so an HTML turn
+  never rebuilds from a form summary and a khuôn-only conversation never shows
+  an HTML turn a base it cannot edit. `ban_thao_ket` reports the stored
+  row's `viec_id`/`phep_sua`, not the ket's. Because a zero-op create turn saves
+  nothing (P4b review), `POST /tai-lieu/{viec_id}/ban-thao` opens the fill panel
+  with an empty version 1.
 
 ## Validation
 
@@ -295,9 +383,9 @@ open risks, and follows the TDD order: failing test first, then code.
 - Ruler: page count equal to LibreOffice and to Word on all 8 forms; unchanged
   pages pixel-identical after a fill; every filled docx opens in Word.
 - Egress (P6): run the three `*lien_ket*` / `*tep_may_chu*` tests of
-  `tests/test_services/test_dung_trang.py` inside the production image. The two
-  docx barriers must pass; the `.doc` measurement is `xfail` while the blind GET
-  remains (XPASS there means the importer no longer fetches).
+  `tests/test_services/test_dung_trang.py` inside the production image. All
+  three must pass (the `.doc` one since P2c); a failure there means that
+  LibreOffice build fetches linked content again.
 - Repository-required checks: CI lane
   `KLAW_SUPABASE_URL= python -m pytest -q -m 'not integration and not pending_review' --deselect tests/test_services/test_moi_mau.py`.
 

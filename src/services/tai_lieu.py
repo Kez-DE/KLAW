@@ -796,6 +796,26 @@ def khuon_goc_cua(engine: Engine, viec_id: str, user_sub: str) -> dict[str, Any]
     return {**dict(r), "noi_dung": bytes(r["noi_dung"])} if r else None
 
 
+def khuon_goc_nhe(engine: Engine, viec_id: str, user_sub: str) -> dict[str, Any] | None:
+    """`{dinh_dang, so_trang}` — `khuon_goc_cua` KHÔNG kèm bytes. Graph hỏi hàm này
+    mỗi lượt đọc tài liệu chỉ để biết có khuôn gốc không; kéo tới 20 MB qua dây
+    cho một câu trả lời có/không là việc không ai cần. Cùng luật chủ sở hữu."""
+    with engine.connect() as c:
+        r = (
+            c.execute(
+                text(
+                    "SELECT k.dinh_dang, k.so_trang FROM khuon_goc k "
+                    "JOIN viec_doc_tai_lieu v ON v.id = k.viec_id "
+                    "WHERE k.viec_id = :i AND v.user_sub = :u"
+                ),
+                {"i": viec_id, "u": user_sub},
+            )
+            .mappings()
+            .first()
+        )
+    return dict(r) if r else None
+
+
 def anh_cua(engine: Engine, viec_id: str, user_sub: str, phan: str) -> tuple[str, bytes] | None:
     """`(kiểu MIME, bytes)` của MỘT ảnh, hoặc `None` khi không có hoặc không
     phải của mình.
