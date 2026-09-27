@@ -820,7 +820,8 @@ def _kiem_trang(body: dict, so_trang: int) -> None:
 @pytest.mark.parametrize(
     ("ten", "so_trang", "kho_dau", "so_o"),
     [
-        ("BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx", 2, None, 32),
+        # 32 chấm + 24 ô trống của bảng danh sách trang 2 (`o`, G5).
+        ("BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx", 2, None, 56),
         ("Evaluation Form.docx", 4, [612.0, 792.0], 17),
         ("Report_instruction.docx", 3, None, 3),
     ],
