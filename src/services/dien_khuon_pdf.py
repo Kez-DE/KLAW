@@ -110,14 +110,16 @@ class _Ve:
 def _phong() -> "TTFont | None":
     """Phông điền, dò và đăng ký MỘT lần mỗi tiến trình. `None` khi không có."""
     from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFError, TTFont
+    from reportlab.pdfbase.ttfonts import TTFont
 
     cau_hinh = get_settings().phong_dien_path
     ung_vien = [cau_hinh] if cau_hinh else [p for mau in _UNG_VIEN_PHONG for p in sorted(glob.glob(mau))]
     for duong in ung_vien:
         try:
             phong = TTFont("KlawDien", duong)
-        except (TTFError, OSError):
+        except Exception:
+            # Tệp cụt/hỏng: reportlab ném cả `struct.error`, `IndexError`… chứ
+            # không chỉ `TTFError`/`OSError` — ứng viên nào hỏng thì thử cái sau.
             continue
         if all(ord(c) in phong.face.charToGlyph for c in _CHU_VIET):
             pdfmetrics.registerFont(phong)
@@ -303,10 +305,13 @@ def ap_dung_pdf(pdf: bytes, don_vi: list[dict], phep_sua: list[dict]) -> tuple[b
         lop.mediabox = RectangleObject([float(v) for v in trang.mediabox])
         trang.merge_page(lop)
         trang.compress_content_streams()
-    # `merge_page` và `compress_content_streams` mỗi lượt để lại một luồng nội
-    # dung KHÔNG nén, không ai trỏ tới; chế độ tăng dần vẫn ghi chúng ra. Đo
-    # 2026-09-26: Report_sample 19 trang +422 KB → +105 KB khi bỏ chúng.
-    writer.compress_identical_objects(remove_duplicates=False, remove_unreferenced=True)
+    # ponytail: mỗi trang sửa để lại hai luồng nội dung KHÔNG nén không ai trỏ
+    # tới (nội dung gốc chép lại + lớp phủ, do `merge_page`); ghi tăng dần vẫn
+    # ghi chúng ra — chừng 7–20 KB mỗi trang. KHÔNG dọn bằng
+    # `compress_identical_objects`: nó băm bằng cách GIẢI MÃ mọi luồng của khuôn
+    # gốc — JBIG2 thiếu `jbig2dec`, bộ lọc lạ, ảnh quá 75 MB ném lỗi; scan không
+    # mất dữ liệu tốn hàng trăm MB. Dọn riêng các luồng nối thêm khi dung lượng
+    # tải về thành vấn đề.
     ra = BytesIO()
     writer.write(ra)
     logger.info("dien_khuon_pdf: áp %d/%d phép trên %d trang", len(ve), len(phep_sua), len(cac_trang))

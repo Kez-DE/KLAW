@@ -26,9 +26,10 @@ pyjwt[crypto]>=2.10.0
 
 # Đọc tài liệu người dùng — PDF có lớp chữ. DOCX đọc bằng `zipfile` của thư viện
 # chuẩn (đã dùng ở `services/vbhn_parser.py`), nên không cần thêm dep cho nhánh đó.
-# >=6.10: `compress_identical_objects(remove_unreferenced=...)` của bộ áp PDF
-# (`services/dien_khuon_pdf.py`); tên cũ `remove_orphans` bị bỏ ở pypdf 7.
-pypdf>=6.10.0
+# >=6.18: bộ áp PDF (`services/dien_khuon_pdf.py`) ghi TĂNG DẦN — các bản sửa
+# `incremental=True` tới 6.10.2 (#3735: `/Size` sai của tệp người dùng); test của
+# nó ẩn `jbig2dec` bằng `pypdf.apply_configuration` (6.18.0, #4044).
+pypdf>=6.18.0
 # Điền tại chỗ trên khuôn gốc (quyết định 2026-09-26). GHI OOXML bằng `lxml`, không
 # `ElementTree`: `ET.register_namespace` dùng chung cả tiến trình và ném lỗi với tiền
 # tố `ns\d+`, không an toàn trong threadpool. `reportlab` dựng lớp chữ đè lên PDF.
