@@ -206,6 +206,12 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   "gia_tri" | null}]} | null` (default null). `cho_trong` lists only blanks the
   applier can reach (docx: unit has `dia_chi`; PDF: blank has `hop`) and not on
   a unit the version `thay`/`xoa`-ed.
+- `POST /tai-lieu/{viec_id}/ban-thao` (no body) → `BanThaoOut` with `khuon` —
+  opens the fill panel when no model turn filled anything. Explicit user action:
+  no model call, no quota row. 200 with the newest draft of this account whose
+  live version is on that viec, else 201 with version 1, `phep_sua: []`,
+  `document` = `# <ten_tep stem>`. 404 for a foreign/unknown viec or one with no
+  khuôn gốc; 401 without login. Concurrent opens serialize on the viec row.
 - Binary responses: `nosniff`, `Cache-Control: private`. Logs carry ids and
   counts only.
 
@@ -272,7 +278,17 @@ open risks, and follows the TDD order: failing test first, then code.
   located by label-relative placement and pixel runs, and the accuracy is measured,
   not promised.
 - **Edit cap.** `TRAN_SUA = 10` is shared by chat edits and panel saves; the panel
-  saves every changed field in one version.
+  saves every changed field in one version. A draft opened by `POST
+  /tai-lieu/{viec_id}/ban-thao` costs no first-build quota, so later chat fills on
+  it are edit turns under `TRAN_SUA`, not `EP_SOAN_THAO` (one draft per viec, and
+  each viec already spent `tai_lieu_ngay`).
+- **Prompt draft in a mixed conversation.** The edit prompt's "Bản thảo đang có"
+  and the `= «value»` hints come from the conversation's newest `tong_quat` draft
+  (`ban_thao_tong_quat_dang_mo_nhe`, read before the document is known). When a
+  conversation alternates a khuôn draft and an HTML draft, a turn on one kind can
+  see the other kind's `document` and no current values; the save still lands on
+  the right draft (edit target is keyed by `viec_id`). Upgrade path: key the light
+  row by the turn's `viec_id` in `graph_tra_cuu.n_hieu_tai_lieu`.
 - Recovery: each phase is one merge commit on `main`; `git revert -m 1 <merge>`
   undoes it. Migration `036` is additive (new table, nullable columns).
 
@@ -346,6 +362,15 @@ open risks, and follows the TDD order: failing test first, then code.
   blank is refused (`co_cho_trong`), each `Nhãn: giá trị` value in `thay`/
   `chen_sau` passes the `dien` provenance check, and Điều/Khoản numbers compare
   as whole tokens.
+- 2026-09-27 (wave D integration): `gop_phep_sua` is defined once (P4a's body);
+  a `thay`/`xoa` on a unit removes every `dien` on that unit, before or after it,
+  so the applier, `cho_trong_khuon` and `assemble` agree on what is filled. The
+  create-vs-edit target is the newest draft of the conversation whose live
+  version has the turn's `viec_id` (`None` = HTML draft), so alternating kinds
+  never edit, or overwrite, the other kind. `ban_thao_ket` reports the stored
+  row's `viec_id`/`phep_sua`, not the ket's. Because a zero-op create turn saves
+  nothing (P4b review), `POST /tai-lieu/{viec_id}/ban-thao` opens the fill panel
+  with an empty version 1.
 
 ## Validation
 
