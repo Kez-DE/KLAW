@@ -31,13 +31,17 @@ def test_037_ap_dung_sach_va_idempotent_dung_cot_va_khoa_ngoai():
                 )
             ).mappings()
         }
-        fk = c.execute(
-            text(
-                "SELECT pg_get_constraintdef(oid) FROM pg_constraint"
-                " WHERE conrelid = 'ban_thao'::regclass AND contype = 'f'"
-                " AND conname = 'ban_thao_viec_id_fkey'"
+        fk = (
+            c.execute(
+                text(
+                    "SELECT pg_get_constraintdef(oid) FROM pg_constraint"
+                    " WHERE conrelid = 'ban_thao'::regclass AND contype = 'f'"
+                    " AND conname = 'ban_thao_viec_id_fkey'"
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert cot == {"viec_id": ("uuid", "YES"), "phep_sua": ("jsonb", "YES")}
     assert len(fk) == 1, "chạy lại migration không được nhân khoá ngoại"
     assert "REFERENCES viec_doc_tai_lieu(id) ON DELETE SET NULL" in fk[0]

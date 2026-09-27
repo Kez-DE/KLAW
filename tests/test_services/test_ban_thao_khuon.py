@@ -9,7 +9,7 @@ chuẩn hoá giá trị điền, "đã đổi" và bản tóm tắt Markdown. Ph
 import pytest
 
 from src.services import ban_thao
-from src.services.ban_thao import chuan_hoa_dien, cho_trong_khuon, doi_so_voi, gop_phep_sua, tom_tat_khuon
+from src.services.ban_thao import cho_trong_khuon, chuan_hoa_dien, doi_so_voi, gop_phep_sua, tom_tat_khuon
 
 
 def _d(don_vi: int, cho: int, gia_tri: str) -> dict:
@@ -89,16 +89,30 @@ _DOCX = [
         ],
     },
     # Không có địa chỉ: bộ áp không tới được, bảng điền không được mời điền nó.
-    {"chi_so": 2, "noi_dung": "Ngày: ......", "cho_trong": [{"so": 0, "kieu": "cham", "doan": 0, "dau": 6, "cuoi": 12, "nhan": "Ngày:"}]},
+    {
+        "chi_so": 2,
+        "noi_dung": "Ngày: ......",
+        "cho_trong": [{"so": 0, "kieu": "cham", "doan": 0, "dau": 6, "cuoi": 12, "nhan": "Ngày:"}],
+    },
     {"chi_so": 3, "noi_dung": "Ghi chú", "dia_chi": {"phan": "word/document.xml", "chi_muc": [3]}},
 ]
 
 _PDF = [
-    {"chi_so": 0, "trang": 1, "hop": [72, 30, 300, 44], "noi_dung": "Ho ten: ....",
-     "cho_trong": [{"so": 0, "kieu": "cham", "hop": [120, 30, 300, 44], "co_chu": 14.0, "nhan": "Ho ten:"}]},
+    {
+        "chi_so": 0,
+        "trang": 1,
+        "hop": [72, 30, 300, 44],
+        "noi_dung": "Ho ten: ....",
+        "cho_trong": [{"so": 0, "kieu": "cham", "hop": [120, 30, 300, 44], "co_chu": 14.0, "nhan": "Ho ten:"}],
+    },
     # Chỗ trống mang hình dạng DOCX trên khuôn PDF: bộ áp PDF không có toạ độ.
-    {"chi_so": 1, "trang": 1, "hop": [72, 50, 300, 64], "noi_dung": "Ngay: ....",
-     "cho_trong": [{"so": 0, "kieu": "cham", "doan": 0, "dau": 6, "cuoi": 10, "nhan": "Ngay:"}]},
+    {
+        "chi_so": 1,
+        "trang": 1,
+        "hop": [72, 50, 300, 64],
+        "noi_dung": "Ngay: ....",
+        "cho_trong": [{"so": 0, "kieu": "cham", "doan": 0, "dau": 6, "cuoi": 10, "nhan": "Ngay:"}],
+    },
 ]
 
 
@@ -179,3 +193,203 @@ def test_tom_tat_khuon_la_tieu_de_va_mot_dong_moi_o_da_dien():
     k = _khuon((0, 0, "Họ và tên:", "Ánh"), (1, 0, "Email:", None), (1, 1, "", " a@b.vn"))
     assert tom_tat_khuon("Giấy tiếp nhận", k) == "# Giấy tiếp nhận\n\n- Họ và tên: Ánh\n- Ô 1.1: a@b.vn\n"
     assert tom_tat_khuon(None, _khuon()) == "# Văn bản\n"
+
+
+# ═══ Chạm DB thật ══════════════════════════════════════════════════════════
+
+import json  # noqa: E402
+import uuid  # noqa: E402
+
+from sqlalchemy import text  # noqa: E402
+
+from src.services import bao_ve, hoi_thoai  # noqa: E402
+from src.services import tai_lieu as tl  # noqa: E402
+from src.services.db import get_engine, run_migrations  # noqa: E402
+from src.services.doc_tai_lieu import doc  # noqa: E402
+from tests.test_services.test_dung_trang import docx_that  # noqa: E402
+
+_DONG = ("Họ và tên: ..............................", "Số điện thoại: ................ Email: ................")
+_AUDIT = {
+    "dat": None,
+    "completeness": None,
+    "so_dieu_khoan": 0,
+    "self_audit": False,
+    "findings": [],
+    "muc_kiem": "tong_quat",
+}
+
+
+def _ket(viec_id: str | None, phep: list | None, tieu_de: str = "Giấy tiếp nhận") -> dict:
+    ket = {"document": f"# {tieu_de}\n", "clauses": [], "audit_report": dict(_AUDIT)}
+    if viec_id:
+        ket |= {"viec_id": viec_id, "phep_sua": phep}
+    return ket
+
+
+def _viec(sub: str, phien: str, du_lieu: bytes | None = None, don_vi_them: dict | None = None) -> str:
+    """Một việc đọc CÓ khuôn gốc: bytes docx thật, `don_vi` của chính bộ đọc."""
+    du_lieu = du_lieu or docx_that(*_DONG)
+    viec = tl.tao_viec(
+        get_engine(), user_sub=sub, hoi_thoai_id=phien, ten_tep="Giấy tiếp nhận.docx", du_lieu=du_lieu, loai=None
+    )
+    tl.luu_don_vi(get_engine(), viec, doc("x.docx", du_lieu).don_vi)
+    tl.luu_khuon_goc(get_engine(), viec, "docx", du_lieu, [[595.0, 842.0]])
+    if don_vi_them:
+        with get_engine().begin() as c:
+            c.execute(
+                text(
+                    "UPDATE viec_doc_tai_lieu SET don_vi = jsonb_set(don_vi, '{0,cho_trong}', CAST(:c AS jsonb)) WHERE id = :i"
+                ),
+                {"c": json.dumps(don_vi_them), "i": viec},
+            )
+    return viec
+
+
+@pytest.fixture
+def nguoi():
+    run_migrations("036")
+    run_migrations("037")
+    subs = [str(uuid.uuid4()), str(uuid.uuid4())]
+    for s in subs:
+        bao_ve.ghi_nhan_nguoi_dung(s, None)
+    yield subs
+    with get_engine().begin() as c:
+        for s in subs:
+            c.execute(text("DELETE FROM ban_thao WHERE user_sub = CAST(:s AS uuid)"), {"s": s})
+            c.execute(text("DELETE FROM hoi_thoai WHERE user_sub = CAST(:s AS uuid)"), {"s": s})
+            c.execute(text("DELETE FROM users WHERE sub = CAST(:s AS uuid)"), {"s": s})
+
+
+def _gia_tri(bt: dict) -> dict:
+    return {(o["don_vi"], o["so"]): o["gia_tri"] for o in bt["khuon"]["cho_trong"]}
+
+
+@pytest.mark.integration
+def test_VONG_phien_ban_tao_chi_tiet_sua_lui_khoi_phuc_phep_sua(nguoi):
+    a, _ = nguoi
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    viec = _viec(a, phien)
+    v1 = [_d(0, 0, "Nguyễn Văn Ánh")]
+    bt = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec, v1))
+    assert (bt["viec_id"], bt["phep_sua"]) == (viec, v1)
+    assert {k: bt["khuon"][k] for k in ("viec_id", "dinh_dang", "so_trang")} == {
+        "viec_id": viec,
+        "dinh_dang": "docx",
+        "so_trang": 1,
+    }
+    assert _gia_tri(bt) == {(0, 0): "Nguyễn Văn Ánh", (1, 0): None, (1, 1): None}
+    assert ban_thao.chi_tiet(a, bt["id"])["khuon"] == bt["khuon"]
+    assert ban_thao.moi_nhat_cua_hoi_thoai(a, phien, ban_thao.LOAI_TONG_QUAT)["khuon"] == bt["khuon"]
+
+    v2 = [*v1, _d(1, 1, "a@b.vn")]
+    bt2 = ban_thao.sua(a, bt["id"], {}, _ket(viec, v2))
+    assert (bt2["phien_ban"], bt2["phep_sua"], _gia_tri(bt2)[(1, 1)]) == (2, v2, "a@b.vn")
+    snap = bt2["phien_ban_truoc"][-1]
+    assert (snap["phien_ban"], snap["phep_sua"], snap["viec_id"]) == (1, v1, viec)
+    assert snap["doi"] == ["Email: … → a@b.vn"], "lịch sử nói ô nào đổi, không phải facts rỗng"
+    cu = ban_thao.phien_ban_chi_tiet(a, bt["id"], 1)
+    assert cu["phep_sua"] == v1 and _gia_tri(cu)[(1, 1)] is None
+
+    bt3 = ban_thao.lui(a, bt["id"])
+    assert (bt3["phien_ban"], bt3["phep_sua"], bt3["viec_id"]) == (1, v1, viec)
+    assert _gia_tri(bt3) == _gia_tri(bt)
+
+
+@pytest.mark.integration
+def test_ban_thao_HTML_khong_co_khuon_va_viec_NGUOI_KHAC_khong_duoc_gan(nguoi):
+    a, b = nguoi
+    phien_a, phien_b = hoi_thoai.tao_phien(a, "a"), hoi_thoai.tao_phien(b, "b")
+    html = ban_thao.tao(a, phien_a, ban_thao.LOAI_TONG_QUAT, {}, _ket(None, None))
+    assert (html["viec_id"], html["phep_sua"], html["khuon"]) == (None, None, None)
+    viec_b = _viec(b, phien_b)
+    la = ban_thao.tao(a, phien_a, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec_b, [_d(0, 0, "X")]))
+    assert (la["viec_id"], la["khuon"]) == (None, None), "khuôn gốc của tài khoản khác không bao giờ gắn vào được"
+
+
+@pytest.mark.integration
+def test_XOA_viec_doc_thi_ban_thao_van_mo_duoc_nhu_van_ban(nguoi):
+    a, _ = nguoi
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    viec = _viec(a, phien)
+    bt = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec, [_d(0, 0, "Ánh")]))
+    ban_thao.sua(a, bt["id"], {}, _ket(viec, [_d(0, 0, "Bình")]))
+    tl.xoa_theo_hoi_thoai(get_engine(), phien, a)
+
+    ct = ban_thao.chi_tiet(a, bt["id"])
+    assert (ct["viec_id"], ct["khuon"], ct["document"]) == (None, None, "# Giấy tiếp nhận\n")
+    assert ct["phep_sua"] == [_d(0, 0, "Bình")]
+    assert ban_thao.phien_ban_chi_tiet(a, bt["id"], 1)["khuon"] is None
+    ve = ban_thao.lui(a, bt["id"])
+    assert (ve["phien_ban"], ve["viec_id"], ve["khuon"]) == (1, None, None), (
+        "lùi không khôi phục một khoá ngoại đã chết"
+    )
+
+
+# ─────────────────────────────────────────────────────────── sua_o_dien
+
+
+def _o(don_vi: int, cho: int, gia_tri: str) -> dict:
+    return {"don_vi": don_vi, "cho_trong": cho, "gia_tri": gia_tri}
+
+
+@pytest.mark.integration
+def test_sua_o_dien_GOP_vao_phien_ban_dang_co_va_tinh_vao_tran_sua(nguoi):
+    a, _ = nguoi
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    viec = _viec(a, phien)
+    bt = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec, [_d(0, 0, "Ánh"), _d(1, 0, "0912")]))
+
+    ra = ban_thao.sua_o_dien(a, bt["id"], 1, [_o(1, 1, "  a@b.vn "), _o(1, 0, "")])
+    assert isinstance(ra, dict), ra
+    assert ra["phien_ban"] == 2 and ra["so_lan_sua"] == 1
+    assert ra["phep_sua"] == [_d(0, 0, "Ánh"), _d(1, 1, "a@b.vn")]
+    assert _gia_tri(ra) == {(0, 0): "Ánh", (1, 0): None, (1, 1): "a@b.vn"}
+    assert ra["document"] == "# Giấy tiếp nhận\n\n- Họ và tên: Ánh\n- Email: a@b.vn\n"
+    assert ra["audit"]["sua_tay"] is True and ra["audit"]["muc_kiem"] == "tong_quat"
+    # Thứ tự đọc của chỗ trống, không thứ tự gửi lên.
+    assert ra["phien_ban_truoc"][-1]["doi"] == ["Số điện thoại: 0912 → …", "Email: … → a@b.vn"]
+
+    assert ban_thao.sua_o_dien(a, bt["id"], 1, [_o(0, 0, "Bình")]) == ban_thao.LOI_PHIEN_BAN_DA_DOI
+    khong_doi = ban_thao.sua_o_dien(a, bt["id"], 2, [_o(0, 0, "Ánh")])
+    assert (khong_doi["phien_ban"], khong_doi["so_lan_sua"]) == (2, 1), "lưu không đổi gì không tốn một phiên bản"
+
+    with get_engine().begin() as c:
+        c.execute(
+            text("UPDATE ban_thao SET so_lan_sua = :n WHERE id = CAST(:i AS uuid)"),
+            {"n": ban_thao.TRAN_SUA, "i": bt["id"]},
+        )
+    assert ban_thao.sua_o_dien(a, bt["id"], 2, [_o(0, 0, "Bình")]) == ban_thao.LOI_HET_LAN_SUA
+
+
+@pytest.mark.integration
+def test_sua_o_dien_tu_choi_ban_thao_HTML_o_la_va_gia_tri_nhieu_dong(nguoi):
+    a, b = nguoi
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    viec = _viec(a, phien)
+    bt = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec, []))
+    html = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(None, None))
+
+    assert ban_thao.sua_o_dien(a, html["id"], 1, [_o(0, 0, "A")]) == ban_thao.LOI_KHONG_PHAI_KHUON
+    assert ban_thao.sua_o_dien(a, bt["id"], 1, [_o(0, 7, "A")]) == ban_thao.LOI_O_KHONG_THAY
+    assert ban_thao.sua_o_dien(a, bt["id"], 1, [_o(0, 0, "A\nB")]) == ban_thao.LOI_GIA_TRI_DIEN
+    assert ban_thao.sua_o_dien(b, bt["id"], 1, [_o(0, 0, "A")]) is None, "bản thảo của người khác là không thấy"
+    assert ban_thao.chi_tiet(a, bt["id"])["phien_ban"] == 1, "không lần từ chối nào ghi một phiên bản"
+
+
+@pytest.mark.integration
+def test_sua_o_dien_TU_CHOI_luu_khi_bo_ap_bo_mot_phep(nguoi):
+    """Chỗ trống lệch khỏi dãy chấm thật (khuôn gốc không khớp địa chỉ đã ghim):
+    bộ áp bỏ phép `cho_trong_da_doi` — không được lưu một phiên bản mà phép của
+    nó không áp được, và lời từ chối nói số ô."""
+    a, _ = nguoi
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    lech = [
+        {"so": 0, "kieu": "cham", "doan": 0, "dau": 11, "cuoi": 41, "nhan": "Họ và tên:"},
+        {"so": 1, "kieu": "cham", "doan": 0, "dau": 0, "cuoi": 5, "nhan": "Lệch"},
+    ]
+    viec = _viec(a, phien, don_vi_them=lech)
+    bt = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec, []))
+    ra = ban_thao.sua_o_dien(a, bt["id"], 1, [_o(0, 0, "Ánh"), _o(0, 1, "X")])
+    assert ra == ban_thao.LOI_KHONG_AP_DUOC.format(n=1)
+    assert ban_thao.chi_tiet(a, bt["id"])["phien_ban"] == 1
+    assert isinstance(ban_thao.sua_o_dien(a, bt["id"], 1, [_o(0, 0, "Ánh")]), dict)

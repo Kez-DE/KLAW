@@ -147,7 +147,8 @@ def test_snapshot_tu_truoc_phase_4_khong_co_luc_doi_van_doc_duoc(nguoi):
     assert lich_su == [{"phien_ban": 1, "luc": None, "doi": []}]
 
     chi_tiet_cu = ban_thao.phien_ban_chi_tiet(nguoi, bt["id"], 1)
-    assert chi_tiet_cu == snap_cu
+    # P4a: mọi hàm trả một phiên bản cũng trả `khuon` — `None` cho phiên bản HTML.
+    assert chi_tiet_cu == {**snap_cu, "khuon": None}
 
     ve_v1 = ban_thao.lui(nguoi, bt["id"])
     assert ve_v1["phien_ban"] == 1 and ve_v1["document"] == "# ĐƠN cũ"
