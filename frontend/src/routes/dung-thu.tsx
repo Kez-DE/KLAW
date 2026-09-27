@@ -13,6 +13,7 @@ import { TheKetQua } from "@/components/klaw/TheKetQua";
 import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
 import { TaiLieuDuKien } from "@/components/klaw/TaiLieuDuKien";
+import { apNeuCungBan, urlTroBanKhac, vanNham, type SanKhau } from "@/lib/san-khau";
 import { loiTruocKhiGui, seDungOcr } from "@/lib/tai-lieu";
 import { taiLen } from "@/lib/tai-lieu-api";
 import { loaiBackendCua } from "@/lib/mau-van-ban";
@@ -261,14 +262,19 @@ function ManHoiKlaw() {
   /** Sân khấu đang mở: bản thảo, hoặc "Bản tải lên" (khuôn gốc đúng như tệp,
    *  chỉ xem). MỘT state cho cả hai nên chúng loại trừ nhau và dùng chung một
    *  cửa đóng (`onDongSanKhau`), một bố cục (cột phải/dialog hẹp), một Esc. */
-  const [sanKhau, datSanKhau] = useState<
-    | { loai: "ban_thao"; banThaoId: string }
-    | { loai: "ban_tai_len"; viecId: string; tenTep: string; soTrang: number | null }
-    | null
-  >(null);
+  const [sanKhau, datSanKhau] = useState<SanKhau>(null);
+  /** `sanKhau` mới nhất cho phản hồi bất đồng bộ về muộn (`vanNham`). */
+  const sanKhauRef = useRef(sanKhau);
+  sanKhauRef.current = sanKhau;
   const banThaoIdSanKhau = sanKhau?.loai === "ban_thao" ? sanKhau.banThaoId : null;
   const [banThaoMo, datBanThaoMo] = useState<BanThao | null>(null);
-  /** Chữ đã gõ trên trang biểu mẫu mà chưa "Lưu", theo id bản thảo. Ở ĐÂY,
+  /** Bản thảo vừa lưu/lùi/dựng lại xong lên sân khấu — CHỈ khi sân khấu vẫn là
+   *  chính bản đó: một lượt lưu về muộn của bản trước không thay bản vừa mở. */
+  const capNhatBanThaoMo = useCallback(
+    (bt: BanThao) => datBanThaoMo((cu) => apNeuCungBan(cu, bt)),
+    [],
+  );
+  /** Chữ đã gõ trên trang biểu mẫu mà chưa lưu xong, theo id bản thảo. Ở ĐÂY,
    *  không trong sân khấu: tab "Trợ lý" ở bố cục hẹp, vượt ngưỡng 68rem và đóng
    *  sân khấu đều tháo nó ra — giữ trong đó là bắt gõ lại mọi chỗ (WCAG 3.3.7).
    *  Mất khi rời trang, như chữ đang gõ ở ô hỏi. */
@@ -397,7 +403,7 @@ function ManHoiKlaw() {
       toast.error(kq.error.message);
       return false;
     }
-    datBanThaoMo(kq.data);
+    capNhatBanThaoMo(kq.data);
     return true;
   };
   const onPhimTatSanKhau = (loai: "rut_gon" | "trang_trong" | "soat_luat") => {
@@ -412,12 +418,17 @@ function ManHoiKlaw() {
   /** Nhánh `ban_thao` (Task 21 → Task 24): mở sân khấu thật với bản thảo vừa
    *  dựng/sửa xong. `TheBanThao` gọi `onMo(bt.id)`, nên `id` ở đây LÀ
    *  `ban_thao.id`, không phải id lượt hỏi hay id phiên. `coSan`: bản thảo
-   *  vừa về từ chính lời gọi mở ("Điền biểu mẫu") — không tải lại lần hai. */
+   *  vừa về từ chính lời gọi mở ("Điền biểu mẫu") — không tải lại lần hai.
+   *
+   *  Sân khấu đang mở bản KHÁC thì CHUYỂN sang bản này, không bỏ qua cú bấm:
+   *  `?ban_thao=` của bản cũ rời URL qua đúng cửa đóng (`urlTroBanKhac`), và
+   *  phản hồi của bản cũ về muộn không đè lên bản mới (`vanNham`). */
   const moSanKhau = (id: string, coSan?: BanThao) => {
     ghiNoiMoSanKhau();
     datDangMo(null);
     doiChieu.dong();
     datSoanThao(null);
+    if (urlTroBanKhac(banThaoTrenUrl, id)) onDongSanKhau();
     datMucDangChonSanKhau(null);
     datTabHep("ban_thao");
     datSanKhau({ loai: "ban_thao", banThaoId: id });
@@ -426,6 +437,7 @@ function ManHoiKlaw() {
       return;
     }
     void layBanThao(id).then((kq) => {
+      if (!vanNham(sanKhauRef.current, id)) return;
       if (kq.ok) datBanThaoMo(kq.data);
       else {
         toast.error(kq.error.message);
@@ -505,6 +517,10 @@ function ManHoiKlaw() {
    *  không biết vì sao. */
   const [daTatHetHan, datDaTatHetHan] = useState(false);
   const [dangDocTep, datDangDocTep] = useState(false);
+  /** Câu từ chối của lần tải tệp gần nhất — toast tự tắt, câu này đứng lại cạnh
+   *  chỗ đính kèm tới lần tải kế tiếp, để lý do (tên tệp, số trang thật) không
+   *  mất theo toast. */
+  const [loiTaiLen, datLoiTaiLen] = useState<string | null>(null);
   /** Phiên do chính lần ĐÍNH KÈM này mở ra, trong khoảng `?phien=` chưa kịp đổi. */
   const phienVuaTao = useRef<string | null>(null);
   /** Tài liệu đã đọc xong và sẽ đi kèm câu hỏi SẮP gửi — tối đa `TOI_DA_DINH_KEM`.
@@ -554,6 +570,7 @@ function ManHoiKlaw() {
     datTepDaDinhKem([]);
     datTepCuaLuot([]);
     datTepDaLuu({});
+    datLoiTaiLen(null);
     phienVuaTao.current = null;
     datDonViDangMo(null);
     datMoTaiLieu(false);
@@ -739,9 +756,11 @@ function ManHoiKlaw() {
       toast.error("Đăng nhập để KLAW đọc tài liệu của bạn.");
       return;
     }
+    datLoiTaiLen(null);
     const loiTep = loiTruocKhiGui(tep.name, tep.size);
     if (loiTep) {
-      toast.error(loiTep);
+      toast.error(loiTep, { duration: 8000 });
+      datLoiTaiLen(loiTep);
       return;
     }
     const idToast = toast.loading(
@@ -758,7 +777,10 @@ function ManHoiKlaw() {
       // thành `error`/`success` nếu lượt gọi sau không tự khai lại — toast
       // "kết quả" thừa kế "không bao giờ tắt" của toast "đang tải", và đó là
       // lý do nó nằm lì đè lên nút gửi. Khai lại `duration` ở CẢ hai nhánh.
-      toast.error(kq.error.message, { id: idToast, duration: 4000 });
+      // Câu của máy chủ nói tên tệp và số trang thật: đủ lâu để đọc hết (8 giây),
+      // và ở lại cạnh chỗ đính kèm sau khi toast tắt.
+      toast.error(kq.error.message, { id: idToast, duration: 8000 });
+      datLoiTaiLen(kq.error.message);
       return;
     }
     ghiNhoDinhKem({
@@ -830,10 +852,14 @@ function ManHoiKlaw() {
   // hết lượt effect của lần render đó, và effect (2) sẽ thấy `phienId ===
   // undefined` + `hoiThoaiId !== null` rồi bật ngược URL về phiên vừa rời —
   // "Phiên mới" lặng lẽ ghi tiếp vào phiên cũ (có thể đã bị xoá).
+  //
+  // Sân khấu (bản thảo, bản tải lên) thuộc về phiên đang rời: đóng qua ĐÚNG cửa
+  // đóng, không để nó đứng cạnh một cuộc trò chuyện trắng.
   const phienMoi = useCallback(() => {
+    onDongSanKhau();
     datLaiTraCuu();
     void navigate({ to: "/dung-thu", search: {} });
-  }, [datLaiTraCuu, navigate]);
+  }, [onDongSanKhau, datLaiTraCuu, navigate]);
 
   // Vỏ ứng dụng có nút "Phiên mới" riêng và nó phải làm ĐÚNG việc ở trên, không
   // phải chỉ đổi URL — nên trang mượn hàm của mình cho context khi đang đứng ở
@@ -1071,6 +1097,9 @@ function ManHoiKlaw() {
       />
     ) : banThaoDangTaiXong !== null ? (
       <SanKhauBanThao
+        // Bản thảo khác = sân khấu mới: lượt lưu, câu lỗi, mức thu phóng và
+        // tấm "Sửa mục" của bản trước không sang bản này.
+        key={banThaoDangTaiXong.id}
         banThao={banThaoDangTaiXong}
         cauTruc={cauTrucSanKhau}
         truongMau={truongMauSanKhau}
@@ -1079,7 +1108,7 @@ function ManHoiKlaw() {
         onTaiLaiKhung={() => datLanTaiKhungSanKhau((n) => n + 1)}
         mucDangChon={mucDangChonSanKhau}
         onChonMuc={datMucDangChonSanKhau}
-        capNhatBanThao={datBanThaoMo}
+        capNhatBanThao={capNhatBanThaoMo}
         onLui={onLuiSanKhau}
         onDong={onDongSanKhau}
         onPhimTat={onPhimTatSanKhau}
@@ -1399,6 +1428,7 @@ function ManHoiKlaw() {
         dangCho={dangKiemPhien && !chuaCauHinh}
         onChonTep={(tep) => void taiTepLen(tep)}
         dangDocTep={dangDocTep}
+        loiTaiLen={loiTaiLen}
         tepDaDinhKem={tepDaDinhKem}
         hanhDongTep={hanhDongTep}
         onBoDinhKem={(id) => {

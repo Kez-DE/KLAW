@@ -22,21 +22,39 @@ export const giaTriHienThi = (o: Pick<ChoTrongKhuon, "gia_tri">) => (o.gia_tri ?
 
 /** Tên đọc lên của nút phủ một chỗ trống: việc sẽ làm, tên chỗ, và giá trị
  *  đang có — người dùng trình đọc màn hình không đọc được chữ trên ảnh trang.
- *  `choLuu` = chữ đã gõ mà chưa lưu (`nhapODien`); gõ lại đúng giá trị cũ thì
- *  không phải một thay đổi (cùng luật `oDaDoi`). */
-export function nhanNutDien(o: Pick<ChoTrongKhuon, "nhan" | "gia_tri">, choLuu?: string): string {
+ *  `o.gia_tri` = giá trị ĐÃ LƯU của bản thảo; `choLuu` = chữ đã gõ mà chưa lưu
+ *  xong (`nhapODien`), `dangLuu` = lượt lưu của nó đang chờ máy chủ. Gõ lại đúng
+ *  giá trị đã lưu thì không phải một thay đổi (cùng luật `oDaDoi`). */
+export function nhanNutDien(
+  o: Pick<ChoTrongKhuon, "nhan" | "gia_tri">,
+  choLuu?: string,
+  dangLuu = false,
+): string {
   const gt = giaTriHienThi(o);
   const moi = choLuu?.trim();
   const duoi =
     moi !== undefined && moi !== gt
-      ? moi === ""
-        ? " — chưa lưu, sẽ để trống"
-        : ` — chưa lưu “${moi}”`
+      ? dangLuu
+        ? moi === ""
+          ? " — đang lưu: để trống"
+          : ` — đang lưu “${moi}”`
+        : moi === ""
+          ? " — chưa lưu, sẽ để trống"
+          : ` — chưa lưu “${moi}”`
       : gt === ""
         ? " — còn trống"
         : ` — đang là “${gt}”`;
   return `Điền: ${nhanO(o)}${duoi}`;
 }
+
+/**
+ * Nghỉ bao lâu sau lần lưu một chỗ trống cuối cùng thì mới dựng lại ảnh trang.
+ * Mỗi lần lưu là một phiên bản, còn một lượt dựng giữ suất LibreOffice của CẢ
+ * tài khoản 1,5–3 giây (lượt thứ hai cùng lúc là 503): điền liền tay năm chỗ
+ * chỉ dựng MỘT lần, lúc người dùng dừng tay. Trong lúc chờ, chữ vừa lưu hiện đè
+ * lên chỗ trống của ảnh cũ.
+ */
+export const NGHI_DUNG_TRANG_MS = 1200;
 
 /** Một phần tử `gia_tri` của `PATCH /ban-thao/{id}/o-dien`. */
 export interface ODienGui {
@@ -46,15 +64,13 @@ export interface ODienGui {
 }
 
 /**
- * Các ô ĐÃ ĐỔI so với phiên bản đang có, theo thứ tự đọc — MỘT lần lưu gửi
- * đúng chừng này. `nhap` chỉ giữ ô người dùng đã chạm (khoá `khoaO`).
- *
- * Gom lại chứ không lưu từng chỗ: mỗi lần lưu là một phiên bản tính vào trần
- * sửa (`TRAN_SUA` = 10, chung với lượt chat — kế hoạch, Risks "Edit cap").
+ * Các ô có chữ đã gõ KHÁC giá trị đã lưu của phiên bản đang có, theo thứ tự đọc
+ * — chữ trên trang mà tệp tải về chưa có (lượt lưu bị từ chối, hay còn đang
+ * gõ). `nhap` chỉ giữ ô người dùng đã chạm (khoá `khoaO`).
  *
  * So SAU khi cắt khoảng trắng hai đầu, vì máy chủ cắt y hệt (`chuan_hoa_dien`):
- * gõ lại đúng giá trị cũ không được tốn một phiên bản của trần sửa. Giá trị gửi
- * đi vẫn NGUYÊN chữ người dùng gõ — chuẩn hoá là việc của máy chủ. `""` gỡ ô.
+ * gõ lại đúng giá trị cũ không phải một thay đổi. Giá trị trả ra vẫn NGUYÊN chữ
+ * người dùng gõ — chuẩn hoá là việc của máy chủ. `""` gỡ ô.
  */
 export function oDaDoi(
   choTrong: ChoTrongKhuon[],
@@ -71,7 +87,7 @@ export function oDaDoi(
 /**
  * Chữ đang gõ còn giữ khi LÙI khỏi phiên bản `choTrong`: chỉ ô ĐỔI THẬT so với
  * bản bị bỏ. Ô đã chạm mà không đổi (gõ lại đúng giá trị) phải rơi — giữ lại
- * thì trên bản lùi về nó thành "đổi", và một lần Lưu áp lại chữ của chính bản
+ * thì trên bản lùi về nó thành "đổi", và lần lưu kế áp lại chữ của chính bản
  * người dùng vừa bỏ. Ô đổi thật là chữ người dùng gõ, còn hiện trên trang:
  * giữ, đừng bắt gõ lại.
  */
@@ -84,7 +100,7 @@ export function chiGiuThayDoi(
   );
 }
 
-/** Lưu xong: bỏ ô đã gửi ĐÚNG chữ đó. Ô người dùng gõ tiếp trong lúc lưu (chữ
+/** Lưu xong: bỏ ô đã gửi ĐÚNG chữ đó. Ô người dùng gõ lại trong lúc lưu (chữ
  *  đã khác chữ vừa gửi) còn nguyên để lưu lần sau. */
 export function boDaGui(
   nhap: Readonly<Record<string, string>>,

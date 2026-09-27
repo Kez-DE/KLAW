@@ -68,7 +68,10 @@ export async function taiLen(
   }
   const than = await phanHoi.json().catch(() => null);
   if (!phanHoi.ok || !laTaiLieu(than)) {
-    const cau = (than as { detail?: string } | null)?.detail ?? "Không đọc được tệp này.";
+    // Chỉ câu CHỮ của máy chủ (tên tệp, số trang thật); lỗi kiểm dạng mảng của
+    // pydantic là ngôn ngữ máy, không hiện ra.
+    const chiTiet = (than as { detail?: unknown } | null)?.detail;
+    const cau = typeof chiTiet === "string" && chiTiet !== "" ? chiTiet : "Không đọc được tệp này.";
     return {
       ok: false,
       error: _loi(cau, phanHoi.status >= 500 ? "server_error" : "invalid_request", phanHoi.status),

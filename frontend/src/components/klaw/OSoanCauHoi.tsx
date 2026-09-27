@@ -38,6 +38,7 @@ export function OSoanCauHoi({
   dangCho,
   onChonTep,
   dangDocTep,
+  loiTaiLen = null,
   tepDaDinhKem,
   hanhDongTep,
   onBoDinhKem,
@@ -55,6 +56,9 @@ export function OSoanCauHoi({
   onChonTep: (tep: File) => void;
   /** Đang đọc một tệp — khoá nút cho tới khi xong. */
   dangDocTep?: boolean | undefined;
+  /** Câu từ chối của lần tải tệp gần nhất (máy chủ nói tên tệp, số trang thật)
+   *  — nơi gọi giữ tới lần tải kế tiếp. */
+  loiTaiLen?: string | null;
   /**
    * Tài liệu sẽ đi kèm câu hỏi sắp gửi — tối đa hai (nhánh so sánh).
    *
@@ -90,6 +94,12 @@ export function OSoanCauHoi({
                   </li>
                 ))}
               </ul>
+            )}
+            {/* Ngay trên nút đính kèm: toast từ chối tự tắt sau 8 giây, câu này
+                ở lại để người dùng còn đọc được vì sao tệp không vào. Không
+                `role="alert"`: toast đã đọc nó lên một lần. */}
+            {loiTaiLen !== null && (
+              <p className="m-0 mb-2 px-1 text-[12.5px] leading-5 text-destructive">{loiTaiLen}</p>
             )}
             <div className="flex items-end gap-2">
               <MenuDinhKem onChonTep={onChonTep} khoa={dangDocTep} />
