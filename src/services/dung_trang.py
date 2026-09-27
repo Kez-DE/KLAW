@@ -21,6 +21,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -62,6 +63,13 @@ _PX_TAI_LIEU_TOI_DA = 12_000_000
 # dòng, khung zlib). Trong trần điểm ảnh thì không bản dựng nào chạm con số
 # này; chạm nghĩa là khổ đã đọc sai, và việc dựng hỏng đóng (fail closed).
 _BYTE_ANH_TOI_DA = _PX_TAI_LIEU_TOI_DA * 3 + (1 << 20)
+
+# ponytail: tập trong bộ nhớ, cùng phạm vi tiến trình với `_suat_chuyen_doi`;
+# nhiều worker thì mỗi worker một tập — chuyển sang khoá DB khi chạy nhiều tiến
+# trình. Giới hạn nhịp trước `/trang` đếm theo IP, nên không có tập này thì một
+# tài khoản gọi từ nhiều IP giữ được cả ba suất chung.
+_dang_dung: set[str] = set()
+_khoa_dang_dung = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -155,11 +163,22 @@ def anh_trang(pdf: bytes, dpi: int = DPI_TRANG) -> list[bytes]:
         return [p.read_bytes() for p in tep]
 
 
-def dung(dinh_dang: str, noi_dung: bytes) -> tuple[list[list[float]], list[bytes]]:
+def dung(dinh_dang: str, noi_dung: bytes, user_sub: str) -> tuple[list[list[float]], list[bytes]]:
     """`(khổ, PNG)` từng trang của một khuôn gốc (hay một bản đã điền cùng định
-    dạng). Khổ đọc từ CHÍNH PDF vừa vẽ, nên `kho[i]` luôn là khổ của ảnh `i`."""
-    pdf = dung_pdf(noi_dung) if dinh_dang == "docx" else noi_dung
-    return kho_trang(pdf), anh_trang(pdf)
+    dạng). Khổ đọc từ CHÍNH PDF vừa vẽ, nên `kho[i]` luôn là khổ của ảnh `i`.
+
+    Một lượt mỗi tài khoản mỗi lúc: lượt thứ hai trong khi lượt đầu còn vẽ là
+    `ChuyenDoiKhongSanSang("qua_tai")`, cùng 503 của ba suất chung."""
+    with _khoa_dang_dung:
+        if user_sub in _dang_dung:
+            raise ChuyenDoiKhongSanSang("qua_tai", "tài khoản đang có một lượt dựng trang")
+        _dang_dung.add(user_sub)
+    try:
+        pdf = dung_pdf(noi_dung) if dinh_dang == "docx" else noi_dung
+        return kho_trang(pdf), anh_trang(pdf)
+    finally:
+        with _khoa_dang_dung:
+            _dang_dung.discard(user_sub)
 
 
 def khuon_goc(ten_tep: str, du_lieu: bytes, tai_lieu: TaiLieuDaDoc) -> KhuonGoc | None:

@@ -574,7 +574,7 @@ async def trang(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> JSO
     if k is None:
         raise HTTPException(status_code=404, detail=KHONG_THAY)
     try:
-        kho, png = await run_in_threadpool(dung_trang.dung, k["dinh_dang"], k["noi_dung"])
+        kho, png = await run_in_threadpool(dung_trang.dung, k["dinh_dang"], k["noi_dung"], nguoi["sub"])
     except (KhongDocDuoc, ChuyenDoiKhongSanSang) as e:
         raise _loi_http(e) from e
     return JSONResponse(
