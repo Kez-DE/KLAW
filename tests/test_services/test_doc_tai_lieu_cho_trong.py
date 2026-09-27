@@ -327,8 +327,8 @@ def test_NOI_DUNG_NEO_va_LAM_SACH_y_HET_khi_bo_truong_moi():
     mới đi CẠNH chuỗi, không chạm nó — gỡ chúng ra thì mọi thứ phía sau neo
     trích dẫn cho đúng kết quả cũ, kể cả bộ đếm."""
     co = _mot(_THAN_MAU)
-    assert any(d.dia_chi for d in co) and any(d.cho_trong for d in co)
-    khong = [replace(d, dia_chi=None, cho_trong=(), hop=None) for d in co]
+    assert any(d.dia_chi for d in co) and any(d.cho_trong for d in co) and any(d.doan_chu for d in co)
+    khong = [replace(d, dia_chi=None, cho_trong=(), hop=None, doan_chu=()) for d in co]
 
     assert [d.noi_dung for d in co] == [d.noi_dung for d in khong]
     assert [normalize(d.noi_dung) for d in co] == [normalize(d.noi_dung) for d in khong]
@@ -354,7 +354,43 @@ def test_khoa_moi_CHI_co_mat_khi_nguon_khai():
     """Luật `**({"k": v} if v else {})` của hợp đồng: đơn vị không có địa chỉ
     thì dòng lưu không có khoá, không phải khoá mang `null`."""
     hang = _hang_don_vi(DonViVanBan(chi_so=0, trang=1, offset_dau=0, noi_dung="x"))
-    assert not {"dia_chi", "cho_trong", "hop"} & hang.keys()
+    assert not {"dia_chi", "cho_trong", "hop", "doan_chu"} & hang.keys()
+
+
+# ───────────────────────────────────────────── chữ thô từng đoạn (`doan_chu`)
+# Prompt khuôn gốc đặt dấu chỗ trống NGAY TẠI chỗ của nó trong câu, và `thay`
+# theo `doan` so chữ mới với chữ cũ của ĐÚNG đoạn ấy — cả hai cần chuỗi thô mà
+# `doan`/`dau`/`cuoi` trỏ vào, thứ `noi_dung` (đã `strip`, các đoạn nối bằng dấu
+# cách) không giữ lại được.
+
+
+def test_doan_chu_la_chu_THO_tung_doan_theo_iter_w_p_cua_vat_chua():
+    o = "<w:tc>" + _p(_r("TÊN CƠ QUAN")) + _p() + _p(_r(" Số …./…. ")) + "</w:tc>"
+    d = _theo_chu(_mot(f"<w:tbl><w:tr>{o}</w:tr></w:tbl>"), "TÊN")
+    assert d.doan_chu == ("TÊN CƠ QUAN", "", " Số …./…. ")
+    assert [d.doan_chu[c.doan][c.dau : c.cuoi] for c in d.cho_trong] == ["….", "…."]
+
+
+def test_doan_chu_CHI_co_khi_don_vi_co_cho_trong_hoac_nhieu_doan():
+    o = "<w:tc>" + _p(_r("A")) + _p(_r("B")) + "</w:tc><w:tc>" + _p(_r("C")) + "</w:tc>"
+    don_vi = _mot(_p(_r("Tiêu đề")) + _p(_r("Họ tên: ……")) + f"<w:tbl><w:tr>{o}</w:tr></w:tbl>")
+    assert [(d.noi_dung, d.doan_chu) for d in don_vi] == [
+        ("Tiêu đề", ()),
+        ("Họ tên: ……", ("Họ tên: ……",)),
+        ("A B", ("A", "B")),
+        ("C", ()),
+    ]
+
+
+def test_doan_chu_di_va_ve_qua_hang_va_hang_hong_doc_ra_rong():
+    from src.services.tai_lieu import _doan_chu_tu_hang
+
+    d = _theo_chu(_mot(_p(_r("Họ tên: ……"))), "Họ tên")
+    hang = _hang_don_vi(d)
+    assert hang["doan_chu"] == ["Họ tên: ……"]
+    assert _doan_chu_tu_hang(hang["doan_chu"]) == d.doan_chu
+    for hong in (None, "Họ tên", [1], ["a", None], {}):
+        assert _doan_chu_tu_hang(hong) == ()
 
 
 def test_docx_di_va_ve_qua_hang_nguyen_ven():
@@ -481,8 +517,11 @@ def test_moi_dia_chi_va_cho_trong_GIAI_DUNG_tren_bytes_tho_cua_tep_that(tep):
         )
         assert "".join(d.noi_dung.split())[:12] in "".join(chu_nut.split())
         doan = list(nut.iter(f"{_W}p"))
+        if d.doan_chu:
+            assert d.doan_chu == tuple(_tho_va_tab(p)[0] for p in doan), "doan_chu là chữ THÔ, cùng thứ tự bộ áp"
         for c in d.cho_trong:
             tho, tab = _tho_va_tab(doan[c.doan])
+            assert tho == d.doan_chu[c.doan]
             if c.kieu == "cham":
                 lat = tho[c.dau : c.cuoi]
                 assert lat and set(lat) <= {".", "…"}, (d.noi_dung, c)
