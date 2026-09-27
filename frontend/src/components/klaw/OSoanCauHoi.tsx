@@ -18,6 +18,9 @@ const MAU_CHIP: Record<"brass" | "amber" | "do", string> = {
   do: "bg-status-expired/10 text-status-expired",
 };
 
+/** Câu "đang tải tệp" — nút gửi trỏ `aria-describedby` vào đây. */
+const ID_DANG_TAI = "o-soan-dang-tai-tep";
+
 /**
  * Ô soạn câu hỏi của màn hỏi, kèm chip hạn mức và câu miễn trừ.
  *
@@ -54,7 +57,8 @@ export function OSoanCauHoi({
   dangCho: boolean;
   /** Người dùng vừa chọn một tệp từ máy. */
   onChonTep: (tep: File) => void;
-  /** Đang đọc một tệp — khoá nút cho tới khi xong. */
+  /** Đang đọc một tệp — khoá nút đính kèm VÀ lối gửi (chữ đã gõ vẫn giữ) cho
+   *  tới khi xong, dù được hay bị từ chối. */
   dangDocTep?: boolean | undefined;
   /** Câu từ chối của lần tải tệp gần nhất (máy chủ nói tên tệp, số trang thật)
    *  — nơi gọi giữ tới lần tải kế tiếp. */
@@ -101,6 +105,14 @@ export function OSoanCauHoi({
             {loiTaiLen !== null && (
               <p className="m-0 mb-2 px-1 text-[12.5px] leading-5 text-destructive">{loiTaiLen}</p>
             )}
+            {dangDocTep === true && (
+              <p
+                id={ID_DANG_TAI}
+                className="m-0 mb-2 px-1 text-[12.5px] leading-5 text-muted-foreground"
+              >
+                Đang tải tệp lên…
+              </p>
+            )}
             <div className="flex items-end gap-2">
               <MenuDinhKem onChonTep={onChonTep} khoa={dangDocTep} />
               <textarea
@@ -112,7 +124,7 @@ export function OSoanCauHoi({
                 onKeyDown={(su) => {
                   if (su.key === "Enter" && !su.shiftKey) {
                     su.preventDefault();
-                    onGui();
+                    if (!dangDocTep) onGui();
                   }
                 }}
                 aria-label="Câu hỏi pháp lý"
@@ -148,10 +160,18 @@ export function OSoanCauHoi({
                 // `() =>` chứ không truyền thẳng `onGui`: React đưa MouseEvent vào
                 // đối số thứ nhất, và nơi gọi có thể nhận một tham số tuỳ chọn ở
                 // đúng chỗ đó.
-                onClick={() => onGui()}
+                onClick={() => {
+                  if (!dangDocTep) onGui();
+                }}
                 disabled={nhap.trim() === "" || khoa}
+                // Tệp đang tải: gửi lúc này là câu hỏi đi THIẾU tệp, và ở đoạn
+                // chat mới thì lượt tải lẫn lượt hỏi mỗi bên mở một phiên.
+                // `aria-disabled` chứ không `disabled`: nút đang giữ tiêu điểm
+                // không đánh rơi nó về `<body>`; hai lối gửi tự chặn ở trên.
+                aria-disabled={dangDocTep}
+                aria-describedby={dangDocTep === true ? ID_DANG_TAI : undefined}
                 aria-label="Gửi câu hỏi"
-                className="focus-brass bg-gradient-ink mb-0.5 cursor-pointer rounded-lg p-2 text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-40"
+                className="focus-brass bg-gradient-ink mb-0.5 cursor-pointer rounded-lg p-2 text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-40 aria-disabled:cursor-default aria-disabled:opacity-40"
               >
                 <Send className="size-4" aria-hidden />
               </button>

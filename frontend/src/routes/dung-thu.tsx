@@ -685,7 +685,10 @@ function ManHoiKlaw() {
 
   const gui = (tho?: string) => {
     const noiDung = (tho ?? nhap).trim();
-    if (noiDung === "" || traCuu.dangChay) return;
+    // Tệp đang tải: câu hỏi sẽ đi thiếu tệp, và ở đoạn chat mới lượt tải lẫn
+    // lượt hỏi mỗi bên mở một phiên. Chặn ở đây cho MỌI lối gửi (ô soạn, phím
+    // tắt sân khấu); ô soạn tự báo "Đang tải tệp lên…".
+    if (noiDung === "" || traCuu.dangChay || dangDocTep) return;
 
     // Lượt đang hiện được xếp vào lịch sử TRƯỚC khi lượt mới chạy. Không dùng
     // `useEffect` theo dõi `ketQua`: hiệu ứng đó chạy lại mỗi lần React thấy

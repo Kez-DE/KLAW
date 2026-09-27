@@ -2590,6 +2590,52 @@ assert.ok(
 );
 await act(() => rootTuChoi.render(h(OSoanCauHoi, { ...propsSoan, loiTaiLen: null })));
 assert.doesNotMatch(khungTuChoi.textContent, /11 trang/, "lần tải kế: câu cũ đi");
+// Tệp đang tải: Gửi lẫn Enter KHÔNG gửi — câu hỏi sẽ đi thiếu tệp, và ở đoạn
+// chat mới lượt tải lẫn lượt hỏi mỗi bên mở một phiên. `aria-disabled`, không
+// `disabled`: tiêu điểm ở lại ô gõ; `onGui` không chạy nên chữ đã gõ không bị
+// xoá (`gui` là nơi duy nhất xoá nó). Tải xong — được hay bị từ chối — là gửi
+// được ngay.
+let soLanGui = 0;
+const propsDangTai = {
+  ...propsSoan,
+  nhap: "Hợp đồng này có hợp lệ không?",
+  onGui: () => {
+    soLanGui += 1;
+  },
+};
+const { khung: khungTai, root: rootTai } = taoRoot();
+await act(() => rootTai.render(h(OSoanCauHoi, { ...propsDangTai, dangDocTep: true })));
+const nutGui = () => tim(khungTai, (n) => n.getAttribute("aria-label") === "Gửi câu hỏi")!;
+const oGo = () => tim(khungTai, (n) => n.tagName === "TEXTAREA")!;
+const cauDangTai = tim(khungTai, (n) => n.tagName === "P" && n.textContent === "Đang tải tệp lên…");
+assert.ok(cauDangTai !== null, "đang tải: câu 'Đang tải tệp lên…' hiện ra");
+assert.equal(nutGui().getAttribute("aria-disabled"), "true", "đang tải: nút gửi aria-disabled");
+assert.equal(nutGui().hasAttribute("disabled"), false, "…chứ không `disabled`");
+assert.equal(
+  nutGui().getAttribute("aria-describedby"),
+  cauDangTai.getAttribute("id"),
+  "nút gửi trỏ tới câu 'Đang tải tệp lên…'",
+);
+assert.equal(oGo().hasAttribute("disabled"), false, "đang tải: ô gõ vẫn gõ được");
+oGo().focus();
+await act(() => phat(oGo(), "keydown", { key: "Enter" }));
+await act(() => phat(nutGui(), "click"));
+assert.equal(soLanGui, 0, "đang tải: Enter lẫn Gửi đều không gửi");
+cungNut(document.activeElement, oGo(), "đang tải: tiêu điểm ở lại ô gõ");
+for (const [xong, kem] of [
+  ["được", {}],
+  ["bị từ chối", { loiTaiLen: CAU_TU_CHOI }],
+] as const) {
+  await act(() => rootTai.render(h(OSoanCauHoi, { ...propsDangTai, dangDocTep: true })));
+  await act(() => rootTai.render(h(OSoanCauHoi, { ...propsDangTai, ...kem, dangDocTep: false })));
+  assert.notEqual(nutGui().getAttribute("aria-disabled"), "true", `tải ${xong}: gửi được`);
+  assert.doesNotMatch(khungTai.textContent, /Đang tải tệp lên/, `tải ${xong}: câu chờ đi`);
+  const truoc = soLanGui;
+  await act(() => phat(oGo(), "keydown", { key: "Enter" }));
+  await act(() => phat(nutGui(), "click"));
+  assert.equal(soLanGui - truoc, 2, `tải ${xong}: Enter và Gửi đều gửi`);
+}
+await act(() => rootTai.unmount());
 // Chip trên lượt đã gửi: cùng menu, KHÔNG có nút bỏ.
 const { khung: khungChip, root: rootChip } = taoRoot();
 await act(() => {
@@ -2716,6 +2762,19 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
     const j = NGUON.indexOf("\n  }", i);
     return NGUON.slice(i, j);
   };
+  // Tệp đang tải: MỌI lối gửi (ô soạn, phím tắt sân khấu) đi qua `gui`, nên
+  // chặn ở đó; lượt tải hạ cờ TRƯỚC khi rẽ nhánh — được hay bị từ chối đều mở
+  // lại lối gửi.
+  assert.match(
+    than("gui"),
+    /if \(noiDung === "" \|\| traCuu\.dangChay \|\| dangDocTep\) return;/,
+    "tệp đang tải: `gui` không gửi",
+  );
+  assert.match(
+    than("taiTepLen"),
+    /await taiLen\([^;]*\);\s*datDangDocTep\(false\);\s*if \(!kq\.ok\)/,
+    "tải xong (được hay bị từ chối): lối gửi mở lại",
+  );
   // Câu lệnh (có `;`), không phải chú thích nhắc tên nó.
   assert.equal(NGUON.split("datSanKhau(null);").length - 1, 1, "đóng sân khấu ở ĐÚNG một chỗ");
   assert.match(than("onDongSanKhau"), /datSanKhau\(null\)/, "chỗ đó là cửa đóng `onDongSanKhau`");
