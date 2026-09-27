@@ -249,10 +249,12 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   becomes three `dien` (day, month, year) when blanks k, k+1, k+2 of the same
   paragraph are separated only by `/`, or read `ngày … tháng … năm …` with k the
   `ngày` blank — unless the turn itself fills k+1 or k+2.
-- Plausibility (`dien` only, model output only): a blank whose label is a short
+- Plausibility (model output only): a `dien` into a blank whose label is a short
   number label (`Số`, `Số:`, `No.`) or ends with `ngày`/`tháng`/`năm` takes a
   value with a digit, else `khong_khop_nhan`; so does an `o` blank whose column
-  starts with `Mã`, `Số`, `STT` or `TT` (G5). No other label heuristic.
+  starts with `Mã`, `Số`, `STT` or `TT` (G5), and a `thay` (any `doan`) or
+  `chen_sau` on that cell's unit, whose added words go into the same column
+  (G5 review). No other label heuristic.
 - Prompt: an `o` blank shows as `⟦0⟧` inside its cell unit plus a `chỗ trống:`
   line with its label (`[A-30] (tr. 2, bảng 2 hàng 2 cột 4) ⟦0⟧` /
   `chỗ trống: 0 «Họ và tên (dòng 1)»`); the rules say a list table is filled
@@ -724,7 +726,8 @@ open risks, and follows the TDD order: failing test first, then code.
   — the page-2 list table's empty cells had no blank, the model's op went to unit
   29 («Mã sinh viên/ học viên», wrong column), `khong_dat` stayed empty and the
   note said "đoạn 29". Changes (supersede B3's "filled by `thay` on the cell
-  unit"; a whole-cell `thay` is still accepted): empty cells of a bordered table
+  unit"; a whole-cell `thay` is still accepted, under the same column digit
+  check as `dien`): empty cells of a bordered table
   under a named column are `o` blanks (Contracts); the applier appends one run
   in the paragraph mark's format; a `Mã`/`Số`/`STT`/`TT` column needs a digit;
   dropped ops' user values feed `khong_dat`; answers name blanks, never units.
