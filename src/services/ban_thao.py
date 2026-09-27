@@ -700,10 +700,11 @@ LOI_KHONG_PHAI_KHUON = (
 LOI_O_KHONG_THAY = "Không tìm thấy ô điền này trên tài liệu gốc — tải lại bản thảo rồi thử lại."
 # Bộ áp bỏ một phép: ô không còn khớp tài liệu (`cho_trong_da_doi`…) hay, trên
 # PDF, chữ không vừa ô kể cả khi thu nhỏ (`khong_vua`) — hai việc người dùng làm
-# được là rút gọn hoặc bỏ trống.
+# được là rút gọn hoặc bỏ trống. `{o}` nêu TÊN các ô bị bỏ (`_nhan_o`, cùng tên
+# bảng ô điền hiện) — không thì "ô đó" không chỉ ra ô nào giữa các ô vừa sửa.
 LOI_KHONG_AP_DUOC = (
-    "Không lưu được: {n} ô không điền được vào tài liệu gốc (giá trị quá dài cho ô,"
-    " hoặc ô không còn khớp tài liệu). Rút gọn hay bỏ trống ô đó rồi lưu lại."
+    "Không lưu được: {n} ô không điền được vào tài liệu gốc{o} — giá trị quá dài cho ô,"
+    " hoặc ô không còn khớp tài liệu. Rút gọn hay bỏ trống ô đó rồi lưu lại."
 )
 LOI_KHUON_HONG = "Không mở được tài liệu gốc để điền. Hãy tải tài liệu lên lại."
 
@@ -791,7 +792,16 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
         except KhongDocDuoc:
             return LOI_KHUON_HONG
         if bao_cao["bo_qua"]:
-            return LOI_KHONG_AP_DUOC.format(n=len(bao_cao["bo_qua"]))
+            # Chỉ số `phep` trỏ vào đúng danh sách bộ áp nhận (`ap_phep_sua` gộp lại
+            # một lần nữa — gộp là lũy đẳng). Phép không phải `dien` không có tên ô.
+            ap = gop_phep_sua([], phep)
+            ten = [
+                _nhan_o(o_theo_khoa[k])
+                for b in bao_cao["bo_qua"]
+                if (k := (ap[b["phep"]].get("don_vi"), ap[b["phep"]].get("cho_trong"))) in o_theo_khoa
+            ]
+            o = f" ({', '.join(f'“{t}”' for t in ten)})" if ten else ""
+            return LOI_KHONG_AP_DUOC.format(n=len(bao_cao["bo_qua"]), o=o)
         khuon_moi = _khuon_tu(k, cu["viec_id"], phep)
         truoc = sorted(
             [*(cu["phien_ban_truoc"] or []), _snap(cu, doi=doi_so_voi({"khuon": khuon_cu}, {"khuon": khuon_moi}))],

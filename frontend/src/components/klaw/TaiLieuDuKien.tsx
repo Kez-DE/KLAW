@@ -8,21 +8,19 @@
  * được — cùng lỗi mà `KhungDoiChieu` tồn tại để không mắc với trích dẫn điều luật.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileText, Loader2, X } from "lucide-react";
+import { Eye, FilePen, FileText, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
 import { BangDuKien } from "@/components/klaw/DongDuKien";
 import {
-  loiTruocKhiGui,
   nhanNeo,
   nhanVung,
-  seDungOcr,
   type DonVi,
   type DonViTaiLieu,
   type DuKien,
   type TaiLieu,
 } from "@/lib/tai-lieu";
-import { chiTiet, donVi, sangSoanThao, suaDuKien, taiLen, xoaDuKien } from "@/lib/tai-lieu-api";
+import { chiTiet, docLai, donVi, sangSoanThao, suaDuKien, xoaDuKien } from "@/lib/tai-lieu-api";
 import { LOAI_BACKEND, MAU } from "@/lib/mau-van-ban";
 import { cn } from "@/lib/utils";
 import type { ApiError } from "@/lib/klaw";
@@ -40,17 +38,12 @@ interface Props {
   onDaDungDeSoan?: () => void;
   /** Đóng khung. `undefined` khi khung không tự đóng được (đặt cố định). */
   onDong?: (() => void) | undefined;
-  /**
-   * Tệp GỐC của tài liệu đang xem, để rút lại theo mẫu.
-   *
-   * Khung này KHÔNG tải lên nữa: đính kèm xảy ra ở ô soạn câu hỏi và không mở
-   * khung nào cả (giống ChatGPT/Claude — kẹp tệp xong là gõ tiếp). Tệp gốc chỉ
-   * còn cần cho một việc: người dùng tự chọn loại văn bản, và KLAW đọc lại
-   * chính tờ đó để rút đúng bộ trường mẫu ấy cần.
-   */
-  tepGoc?: File | null;
-  /** Rút lại theo mẫu sinh ra một việc đọc MỚI — chip ở ô soạn phải trỏ sang nó. */
-  onDaDinhKem?: ((tep: { id: string; ten_tep: string }) => void) | undefined;
+  /** Mở "Bản tải lên" (tệp đúng như đã tải lên) trên sân khấu. Chỉ hiện khi
+   *  tài liệu có khuôn gốc (`co_khuon_goc`). */
+  onMoBanTaiLen?:
+    ((taiLieu: { id: string; ten_tep: string; so_trang: number | null }) => void) | undefined;
+  /** "Điền biểu mẫu": mở bảng ô điền trên khuôn gốc của tài liệu này. */
+  onDienBieuMau?: ((viecId: string) => void) | undefined;
   /** Điền một câu vào ô hỏi (chip câu hỏi đầu tiên). KHÔNG tự gửi. */
   onChip?: ((chu: string) => void) | undefined;
   /** Neo vừa bấm ở thẻ kết quả: mở đúng tài liệu đó và tô đúng đơn vị đó. */
@@ -70,13 +63,16 @@ const LOAI_CHON_DUOC = MAU.flatMap((m) => {
 const CHIP =
   "focus-brass cursor-pointer rounded-full border border-border bg-card px-3 py-1 text-[13px] text-foreground hover:bg-[var(--color-paper-100)]";
 
+const NUT_KHUON =
+  "focus-brass inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium text-primary hover:bg-[var(--color-paper-100)]";
+
 export function TaiLieuDuKien({
   hoiThoaiId,
   loai,
   onDaDungDeSoan,
   onDong,
-  tepGoc,
-  onDaDinhKem,
+  onMoBanTaiLen,
+  onDienBieuMau,
   onChip,
   donViDangMo,
 }: Props) {
@@ -91,7 +87,6 @@ export function TaiLieuDuKien({
   const [dangTai, datDangTai] = useState(false);
   const [loiTai, datLoiTai] = useState<ApiError | null>(null);
   const [loaiChon, datLoaiChon] = useState<string>("");
-  const [tepHienTai, datTepHienTai] = useState<File | null>(null);
   const [doiLoai, datDoiLoai] = useState(false);
   /** Nguyên văn đã đọc của tài liệu đang xem — nền của danh sách đơn vị và của
    *  mọi neo bấm được. Tách khỏi `tep` vì neo có thể trỏ tới một tài liệu của
@@ -105,26 +100,19 @@ export function TaiLieuDuKien({
   const loaiDung = loai ?? (loaiChon || null);
   const san = hoiThoaiId !== null && loaiDung !== null;
 
-  const gui = useCallback(
-    async (f: File) => {
-      if (hoiThoaiId === null) {
-        toast.error("Cần một cuộc trò chuyện đã đăng nhập để đọc tài liệu.");
-        return;
-      }
-      const loi = loiTruocKhiGui(f.name, f.size);
-      if (loi) {
-        toast.error(loi);
-        return;
-      }
-      // Ảnh phải qua nhận dạng chữ, chậm hơn hẳn — nói trước thay vì để người
-      // dùng nhìn một cái quay vòng không biết nó đang làm gì.
-      const id = toast.loading(
-        seDungOcr(f.name) ? "Đang nhận dạng chữ trong ảnh…" : "Đang đọc tài liệu…",
-      );
-      datTepHienTai(f);
+  /**
+   * Rút lại theo loại vừa chọn trên CHÍNH việc đọc đã lưu (`POST …/doc-lai`):
+   * không tải tệp lên lần hai, không mở việc mới, không trừ hạn mức ngày — nên
+   * không cần giữ `File` nào trong bộ nhớ, và chạy được cả với tài liệu mở từ
+   * một lượt trước. 409/429/422 mang câu tiếng Việt của máy chủ.
+   */
+  const rutLai = useCallback(
+    async (viecId: string) => {
+      if (loaiDung === null) return;
+      const id = toast.loading("Đang rút dữ kiện theo mẫu…");
       datDangTai(true);
       datLoiTai(null);
-      const kq = await taiLen(f, hoiThoaiId, loaiDung);
+      const kq = await docLai(viecId, loaiDung);
       datDangTai(false);
       if (!kq.ok) {
         datLoiTai(kq.error);
@@ -132,10 +120,6 @@ export function TaiLieuDuKien({
         return;
       }
       datTep(kq.data);
-      // Đính kèm cho lượt hỏi kế tiếp NGAY, không chờ người dùng chọn loại văn
-      // bản: tài liệu ngoài 29 mẫu vẫn là tài liệu đọc được, và bắt họ ép nó
-      // vào một mẫu trước khi được hỏi là dựng lại đúng ngõ cụt vừa gỡ.
-      onDaDinhKem?.({ id: kq.data.id, ten_tep: f.name });
       const n = kq.data.du_kien.length;
       toast.success(
         kq.data.loai === null
@@ -146,29 +130,24 @@ export function TaiLieuDuKien({
         { id },
       );
     },
-    [hoiThoaiId, loaiDung, onDaDinhKem],
+    [loaiDung],
   );
 
-  // Tệp gốc đi từ ngoài vào để rút lại theo mẫu. KHÔNG có hiệu ứng nào tự gọi
-  // `gui` theo nó: đọc phải là một việc người dùng vừa yêu cầu, không phải một
-  // phản ứng với state — đường cũ đọc lại chính tệp đó mỗi lần đổi phiên.
-  useEffect(() => {
-    datTepHienTai(tepGoc ?? null);
-  }, [tepGoc]);
-
-  // Người dùng vừa chọn loại: đọc lại chính tệp đó với loại đã chọn. `tep.loai
-  // === null` là đường mới (tài liệu ngoài mẫu, đã đọc xong) — họ vẫn rút được
-  // dữ kiện theo mẫu, chỉ là bằng một lựa chọn chứ không bằng một cửa chắn.
+  // Người dùng vừa chọn loại: rút lại chính tài liệu đó với loại đã chọn.
+  // `tep.loai === null` là đường mới (tài liệu ngoài mẫu, đã đọc xong) — họ vẫn
+  // rút được dữ kiện theo mẫu, chỉ là bằng một lựa chọn chứ không bằng một cửa
+  // chắn. Chỉ chạy theo `loaiChon`: rút phải là việc người dùng vừa yêu cầu,
+  // không phải một phản ứng với state.
   useEffect(() => {
     if (
       loaiChon &&
-      tepHienTai &&
-      (tep?.trang_thai === "can_chon_loai" || doiLoai || tep?.du_kien.length === 0)
+      tep &&
+      (tep.trang_thai === "can_chon_loai" || doiLoai || tep.du_kien.length === 0)
     ) {
       datDoiLoai(false);
-      void gui(tepHienTai);
+      void rutLai(tep.id);
     }
-    // `gui` đọc `loaiDung`, vốn đã bao gồm `loaiChon`.
+    // `rutLai` đọc `loaiDung`, vốn đã bao gồm `loaiChon`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaiChon]);
 
@@ -285,9 +264,8 @@ export function TaiLieuDuKien({
           : tep.loai_ten
         : (tep?.mo_ta ?? "Tệp");
 
-  /** Tên tài liệu đang xem. Mở khung bằng cách bấm chip thì không có `File`
-   *  nào trong tay — `/don-vi` đã trả tên tệp, dùng nó. */
-  const tenHienThi = tepHienTai?.name ?? banDoc?.ten_tep ?? null;
+  /** Tên tài liệu đang xem: từ `/don-vi`, hoặc từ chi tiết khi nguyên văn chưa về. */
+  const tenHienThi = banDoc?.ten_tep || tep?.ten_tep || null;
   const soDonVi = banDoc !== null ? banDoc.don_vi.length : (tep?.so_don_vi ?? 0);
   const soTrang = banDoc?.so_trang ?? tep?.so_trang ?? null;
   /** Nguyên văn nhóm theo trang, đúng thứ tự tài liệu. */
@@ -353,13 +331,39 @@ export function TaiLieuDuKien({
             <span className="block truncate text-xs text-muted-foreground">{phuDe}</span>
           </span>
           {dangTai && <Loader2 aria-hidden className="size-4 shrink-0 animate-spin" />}
-          {tep?.loai_ten && !doiLoai && tepHienTai !== null && (
+          {tep?.loai_ten && !doiLoai && (
             <button
               type="button"
               onClick={() => datDoiLoai(true)}
               className="focus-brass shrink-0 rounded px-2 py-1 text-xs text-muted-foreground underline"
             >
               Đổi
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Khuôn gốc (quyết định 2026-09-26): tệp được giữ nguyên, nên xem được
+          đúng như đã tải lên và điền được tại chỗ. "Bản tải lên", không phải
+          "bản gốc" — chữ đó là nguyên văn luật (`CONTEXT.md`). */}
+      {tep?.co_khuon_goc === true && (onMoBanTaiLen || onDienBieuMau) && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {onMoBanTaiLen && (
+            <button
+              type="button"
+              onClick={() =>
+                onMoBanTaiLen({ id: tep.id, ten_tep: tep.ten_tep, so_trang: tep.so_trang })
+              }
+              className={NUT_KHUON}
+            >
+              <Eye aria-hidden className="size-4 text-[var(--color-brass-600)]" />
+              Bản tải lên
+            </button>
+          )}
+          {onDienBieuMau && (
+            <button type="button" onClick={() => onDienBieuMau(tep.id)} className={NUT_KHUON}>
+              <FilePen aria-hidden className="size-4 text-[var(--color-brass-600)]" />
+              Điền biểu mẫu
             </button>
           )}
         </div>
@@ -473,7 +477,7 @@ export function TaiLieuDuKien({
 
       {/* Rút dữ kiện theo mẫu vẫn còn nguyên, chỉ thôi đứng chắn đường: nó là
           MỘT việc làm được với tài liệu, không phải cửa vào. */}
-      {ngoaiMau && tepHienTai !== null && (
+      {ngoaiMau && (
         <details className="mt-3 rounded-lg border border-border bg-background p-3">
           <summary className="focus-brass cursor-pointer text-sm">Rút dữ kiện theo mẫu</summary>
           <p className="mt-2 mb-2 text-xs text-muted-foreground">

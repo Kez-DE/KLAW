@@ -284,6 +284,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Tên tệp đã điền (`GET /ban-thao/{id}/tai-xuong`): giao diện khác gốc tải
+    # bằng `fetch`, và không khai lộ thì JS không đọc được header này.
+    expose_headers=["Content-Disposition"],
 )
 
 app.include_router(router, prefix="/api/v1")

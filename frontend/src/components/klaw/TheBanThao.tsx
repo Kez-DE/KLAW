@@ -46,6 +46,9 @@ export function TheBanThao({ ketQua, onMo }: { ketQua: TraCuuKetQua; onMo: (id: 
         <button
           type="button"
           onClick={() => onMo(bt.id)}
+          // Đóng sân khấu ở bố cục hẹp dựng lại cả cây chat, nút này cũng vậy:
+          // trang tìm lại ĐÚNG thẻ này bằng khoá, để trả tiêu điểm về đây.
+          data-mo-san-khau={`ban_thao:${bt.id}:v${bt.phien_ban}`}
           className="focus-brass bg-gradient-ink cursor-pointer rounded-lg px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
         >
           Mở bản thảo

@@ -24,6 +24,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { KHACH_HEADER, layKhachId } from "./khach";
+import { DUONG_DAN_KHUON, tenTepTuContentDisposition, type ODienGui } from "./khuon-goc";
 import {
   laBanThao,
   laBoNhoTaiKhoan,
@@ -31,6 +32,7 @@ import {
   laDanhSachDaNho,
   laHoSoPhienOut,
   laPhienTomTat,
+  laTrangAnh,
 } from "./klaw";
 import type {
   ApiError,
@@ -41,6 +43,7 @@ import type {
   DanhSachDaNho,
   HoSoDaDung,
   PhienTomTat,
+  TrangAnh,
 } from "./klaw";
 
 /**
@@ -393,6 +396,69 @@ export const suaMucBanThao = (
     method: "PATCH",
     body: { muc_key: mucKey, khoi_index: khoiIndex, noi_dung: noiDung, phien_ban: phienBan },
   });
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Khuôn gốc — quyết định 2026-09-26, kế hoạch `khuon-goc-dien-tai-cho.md`.
+ * Trang (bản tải lên, bản đã điền), lưu ô điền, mở bảng ô điền, tải tệp đã
+ * điền. Đường dẫn ở `khuon-goc.ts::DUONG_DAN_KHUON`.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Trang của một khuôn gốc — `duongDan` là `DUONG_DAN_KHUON.trangTaiLieu`/
+ * `trangBanThao`. Một lượt dựng mất 1,5–3 giây (LibreOffice + `pdftoppm`) và có
+ * thể xếp sau ba suất chung, nên hạn giờ là của đường nặng, không phải 15 giây
+ * của một lượt đọc thuần.
+ */
+export const layTrang = (duongDan: string, signal?: AbortSignal) =>
+  goi<TrangAnh>(duongDan, laTrangAnh, {
+    hanGioMs: HAN_GIO_TRA_CUU,
+    ...(signal === undefined ? {} : { signal }),
+  });
+
+/** Lưu MỌI ô đổi của bảng ô điền thành MỘT phiên bản (`phienBan` = phiên bản
+ *  người dùng đang nhìn). Mọi từ chối là 422 kèm câu tiếng Việt. */
+export const suaODien = (id: string, phienBan: number, giaTri: ODienGui[]) =>
+  goi<BanThao>(DUONG_DAN_KHUON.oDien(id), laBanThao, {
+    method: "PATCH",
+    body: { phien_ban: phienBan, gia_tri: giaTri },
+  });
+
+/** "Điền biểu mẫu": bản thảo của khuôn gốc này (mới nhất, hoặc phiên bản 1
+ *  rỗng) — 0 lượt mô hình, không tính hạn mức. */
+export const moBanThaoKhuon = (viecId: string) =>
+  goi<BanThao>(DUONG_DAN_KHUON.moBanThao(viecId), laBanThao, { method: "POST" });
+
+/**
+ * Bytes tệp đã điền của MỘT phiên bản, kèm tên máy chủ đặt (`filename*` rồi
+ * `filename` của `Content-Disposition`; `null` khi không đọc được — CORS phải
+ * khai lộ header này). Endpoint chỉ nhận Bearer, nên không `<a href>` trần được;
+ * lưu tệp là việc của nơi gọi (`xuat-tep.ts::taiBlob`).
+ */
+export async function taiXuongBanThao(
+  id: string,
+  dang: "docx" | "pdf",
+  phienBan: number,
+): Promise<ApiResult<{ blob: Blob; ten: string | null }>> {
+  let phanHoi: Response;
+  let blob: Blob;
+  try {
+    phanHoi = await fetch(`${apiGoc()}${DUONG_DAN_KHUON.taiXuong(id, dang, phienBan)}`, {
+      signal: AbortSignal.timeout(HAN_GIO_TRA_CUU),
+      headers: await tieuDeXacThuc(),
+    });
+    if (!phanHoi.ok) {
+      const { cau, tho } = await docDetail(phanHoi);
+      return { ok: false, error: loiTheoStatus(phanHoi.status, cau, tho) };
+    }
+    blob = await phanHoi.blob();
+  } catch (loi) {
+    return { ok: false, error: loiTruocKhiCoPhanHoi(loi) };
+  }
+  return {
+    ok: true,
+    data: { blob, ten: tenTepTuContentDisposition(phanHoi.headers.get("Content-Disposition")) },
+  };
+}
 
 /** Dựng query string, bỏ qua giá trị rỗng. Tham số lặp lại được (`loai`, `co_quan`). */
 export function thamSo(cap: [string, string | number | undefined | null][]): string {

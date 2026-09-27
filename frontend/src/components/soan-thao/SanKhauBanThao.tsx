@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ChevronLeft, Download, FileDown, Minus, Plus, X } from "lucide-react";
+import { ChevronLeft, Download, FileDown, X } from "lucide-react";
 import { Toggle } from "@/components/draft/DraftBits";
 import { BadgeHieuLuc } from "@/components/klaw/BadgeHieuLuc";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
@@ -8,9 +8,17 @@ import { NoiDungDieuKhoan } from "@/components/klaw/NoiDungDieuKhoan";
 import { NganXepDrawer } from "@/components/ui/NganXepDrawer";
 import { TayKeo } from "@/components/ui/TayKeo";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
-import { dungLaiBanThao, suaMucBanThao, taiAnhNguon } from "@/lib/api";
+import { dungLaiBanThao, suaMucBanThao, suaODien, taiAnhNguon, taiXuongBanThao } from "@/lib/api";
 import { docRongDaLuu, kepRong, luuRong, type Bien } from "@/lib/keo-dan";
 import {
+  CAU_MAY_BAN,
+  chiGiuThayDoi,
+  DUONG_DAN_KHUON,
+  giaTriHienThi,
+  type ODienGui,
+} from "@/lib/khuon-goc";
+import {
+  khuonHopLe,
   LOAI_TONG_QUAT,
   neenGuiLaiPhienBan,
   nhanFactDoi,
@@ -20,9 +28,18 @@ import {
   type TruongFact,
 } from "@/lib/klaw";
 import { dongTrenCung, moTam, type Tam } from "@/lib/ngan-xep-drawer";
-import { anhTuBanThao, leTrangTuBanThao, mucTuBanThao, tieuDeTuBanThao } from "@/lib/xuat-tep";
+import {
+  anhTuBanThao,
+  leTrangTuBanThao,
+  mucTuBanThao,
+  taiBlob,
+  tenTepAnToan,
+  tieuDeTuBanThao,
+} from "@/lib/xuat-tep";
 import { cn } from "@/lib/utils";
+import { BangODien } from "./BangODien";
 import { DrawerSuaMuc } from "./DrawerSuaMuc";
+import { KhungTrangAnh, ThanhThuPhong } from "./KhungTrangAnh";
 import { XemTruocA4 } from "./XemTruocA4";
 
 /**
@@ -132,20 +149,24 @@ interface Props {
   /** Bản thảo vừa dựng lại xong (drawer sửa mục, Task 25) → cập nhật state
    *  `banThaoMo` của nơi gọi (cùng việc `onLui` đã làm cho phiên bản lùi). */
   capNhatBanThao: (bt: BanThao) => void;
-  onLui: () => void;
+  /** `true` = đã lùi (bản lùi về đã tới qua state của nơi gọi). */
+  onLui: () => Promise<boolean>;
   onDong: () => void;
   onPhimTat: (loai: "rut_gon" | "trang_trong" | "soat_luat") => void;
   /** Dưới ngưỡng hai cột (Task 26, spec 2026-09-09 §9.7): cột mục cố định bề
    *  rộng không còn chỗ đứng — gấp lại thành `<details>` phía trên xem trước,
    *  và drawer sửa mục bên dưới phủ toàn màn (xem `NganXepDrawer.toanMan`). */
   toanMan: boolean;
+  /** Chữ đang gõ ở bảng ô điền của bản thảo này — nơi gọi giữ nó ở TRÊN sân
+   *  khấu (xem `BangODien`), vì sân khấu bị tháo ra ở tab "Trợ lý" của bố cục
+   *  hẹp, khi vượt ngưỡng 68rem và khi đóng. */
+  nhapODien: Readonly<Record<string, string>>;
+  datNhapODien: (doi: (cu: Readonly<Record<string, string>>) => Record<string, string>) => void;
 }
 
 const KHOA_RONG_MUC = "klaw.san-khau.muc";
 const RONG_MUC_MAC_DINH = 320;
 const BIEN_MUC: Bien = { min: 240, max: 480 };
-const BIEN_ZOOM: Bien = { min: 50, max: 150 };
-const BUOC_ZOOM = 10;
 
 const CANH_BAO_LUI = "Lùi về bản trước; bản hiện tại bị bỏ, không làm lại được";
 
@@ -176,6 +197,8 @@ export function SanKhauBanThao({
   onDong,
   onPhimTat,
   toanMan,
+  nhapODien,
+  datNhapODien,
 }: Props) {
   // Phase 15 R3 — sân khấu render lại trên MỌI pixel kéo `TayKeo` (`datRongMuc`
   // đặt state ngay trong component này) và trên mọi token chat đang stream ở
@@ -190,8 +213,7 @@ export function SanKhauBanThao({
   const anh = useMemo(() => anhTuBanThao(banThao), [banThao]);
   const nhanDoi = nhanFactDoi(banThao.doi_so_voi_truoc, truongMau);
   const [hienThayDoi, datHienThayDoi] = useState(false);
-  const [thuPhong, datThuPhongRaw] = useState(100);
-  const datThuPhong = (delta: number) => datThuPhongRaw((z) => kepRong(z + delta, BIEN_ZOOM));
+  const [thuPhong, datThuPhong] = useState(100);
   const [hienCanCu, datHienCanCu] = useState(false);
   const [dangXuat, datDangXuat] = useState<"docx" | "pdf" | null>(null);
 
@@ -325,6 +347,91 @@ export function SanKhauBanThao({
     }
   };
 
+  // Khuôn gốc (quyết định 2026-09-26): có thì thân sân khấu là ảnh trang máy
+  // chủ dựng và cột trái là bảng ô điền; `null` là bản thảo HTML, giữ nguyên
+  // `XemTruocA4`. Memo cùng lý do `muc`: sân khấu vẽ lại trên mọi token/pixel.
+  const khuon = useMemo(() => khuonHopLe(banThao.khuon), [banThao.khuon]);
+  const tieuDeKhuon = tieuDeTuBanThao(banThao.document) ?? banThao.ten;
+
+  /** Bảng ô điền → `PATCH …/o-dien`, cùng khuôn `onSuaKhoi`: một toast mỗi
+   *  lượt, gác xuất tệp trong lúc chờ, bỏ phản hồi cũ hơn bản đang hiện. Trả
+   *  câu từ chối để bảng giữ nó cạnh nút Lưu (`null` = đã lưu). */
+  const onLuuO = async (doi: ODienGui[]): Promise<string | null> => {
+    // Một lượt Lùi (hay lưu khác) còn chưa về: hai lượt ghi phiên bản độc lập
+    // thì phản hồi về SAU thắng trên màn hình, không theo thứ tự máy chủ đã ghi.
+    if (soLuuDangCho > 0) {
+      const cau = "Đang lưu hay lùi một phiên bản — đợi xong rồi lưu lại.";
+      toast.error(cau);
+      return cau;
+    }
+    const lucGoi = banThaoRef.current;
+    datSoLuuDangCho((n) => n + 1);
+    const idToast = toast.loading(`Đang lưu ${doi.length} ô…`);
+    try {
+      const kq = await suaODien(lucGoi.id, lucGoi.phien_ban, doi);
+      if (!kq.ok) {
+        toast.error(kq.error.message, { id: idToast, duration: 6000 });
+        return kq.error.message;
+      }
+      toast.success(
+        kq.data.phien_ban === lucGoi.phien_ban
+          ? "Giá trị không đổi nên không tạo phiên bản mới."
+          : `Đã lưu ${doi.length} ô — phiên bản v${kq.data.phien_ban}.`,
+        { id: idToast, duration: 4000 },
+      );
+      if (kq.data.phien_ban >= banThaoRef.current.phien_ban) capNhatBanThao(kq.data);
+      return null;
+    } finally {
+      datSoLuuDangCho((n) => n - 1);
+    }
+  };
+
+  /** Lùi đi qua CÙNG cổng `soLuuDangCho` với lưu và tải tệp: một lượt ghi
+   *  phiên bản một lúc. Lùi trong lúc một lượt lưu chưa về thì phản hồi nào về
+   *  sau thắng, không theo thứ tự máy chủ đã ghi — màn hình có thể đứng ở một
+   *  phiên bản máy chủ đã bỏ; bấm hai lần thì lùi hai bậc. Lùi xong, bảng ô điền
+   *  chỉ giữ ô ĐỔI THẬT so với bản vừa bỏ (`chiGiuThayDoi`). */
+  const lui = async () => {
+    if (soLuuDangCho > 0) {
+      toast.error("Đang lưu hay lùi một phiên bản — đợi xong rồi thử lại.");
+      return;
+    }
+    const khuonBo = khuon;
+    datSoLuuDangCho((n) => n + 1);
+    try {
+      if ((await onLui()) && khuonBo !== null)
+        datNhapODien((cu) => chiGiuThayDoi(khuonBo.cho_trong, cu));
+    } finally {
+      datSoLuuDangCho((n) => n - 1);
+    }
+  };
+
+  /** Tải tệp ĐÃ ĐIỀN của đúng phiên bản đang nhìn — máy chủ áp phép lên khuôn
+   *  gốc (Word mở được), không đọc DOM như bản thảo HTML. */
+  const taiTepKhuon = async (dang: "docx" | "pdf") => {
+    if (soLuuDangCho > 0) {
+      toast.error("Đang lưu ô điền — đợi lưu xong rồi tải lại.");
+      return;
+    }
+    datDangXuat(dang);
+    const id = toast.loading(dang === "docx" ? "Đang tạo tệp Word…" : "Đang tạo tệp PDF…");
+    const kq = await taiXuongBanThao(banThao.id, dang, banThao.phien_ban);
+    datDangXuat(null);
+    if (!kq.ok) {
+      toast.error(kq.error.status === 503 ? CAU_MAY_BAN : kq.error.message, {
+        id,
+        duration: 6000,
+      });
+      return;
+    }
+    taiBlob(kq.data.blob, kq.data.ten ?? `${tenTepAnToan(tieuDeKhuon)}.${dang}`);
+    toast.success(dang === "docx" ? "Đã tải tệp .docx." : "Đã tải tệp .pdf.", {
+      id,
+      duration: 4000,
+      description: "Bản thảo cần được pháp chế rà soát trước khi ký kết.",
+    });
+  };
+
   const onMoCanCu = (canCu: string) => {
     datNgan((cur) => moTam(cur, { id: "can-cu", tieuDe: "Căn cứ", noiDung: canCu }));
     const kq = timCanCuKhaDung(banThao.audit_report, canCu);
@@ -394,7 +501,22 @@ export function SanKhauBanThao({
     </ol>
   );
 
+  const soODaDien = khuon?.cho_trong.filter((o) => giaTriHienThi(o) !== "").length ?? 0;
+  const cotTrai =
+    khuon !== null ? (
+      <BangODien
+        key={banThao.id}
+        khuon={khuon}
+        nhap={nhapODien}
+        datNhap={datNhapODien}
+        onLuu={onLuuO}
+      />
+    ) : (
+      danhSachMuc
+    );
+
   const xuatTep = async (dinhDang: "docx" | "pdf") => {
+    if (khuon !== null) return taiTepKhuon(dinhDang);
     // Fix round 1 (review #5) — một khối vừa blur còn đang chờ máy chủ trả
     // lời (bấm nút tải đóng vai một cú click ra ngoài khối, TỰ NÓ đã kích
     // hoạt `onBlur`/lượt lưu đó trước khi handler này chạy) thì DOM sống đọc
@@ -433,8 +555,15 @@ export function SanKhauBanThao({
     <div className="grid h-full min-w-0 flex-1 grid-rows-[auto_1fr]">
       <div className="border-b border-border">
         <header className="flex flex-wrap items-center gap-2 px-4 py-2.5">
-          <h2 className="m-0 min-w-0 flex-1 truncate font-display text-base font-semibold text-primary">
-            {banThao.ten}
+          {/* Tiêu điểm vào đây khi sân khấu mở (trang gọi tìm
+              `data-tieu-de-san-khau`): người dùng trình đọc màn hình nghe tên
+              bản thảo trước, Tab đi tiếp vào thanh công cụ. */}
+          <h2
+            data-tieu-de-san-khau=""
+            tabIndex={-1}
+            className="focus-brass m-0 min-w-0 flex-1 truncate rounded-sm font-display text-base font-semibold text-primary"
+          >
+            {khuon !== null ? tieuDeKhuon : banThao.ten}
           </h2>
           <span className="font-jetbrains text-[12.5px] text-muted-foreground">
             v{banThao.phien_ban}
@@ -456,10 +585,14 @@ export function SanKhauBanThao({
             <>
               <button
                 type="button"
-                onClick={onLui}
+                onClick={() => void lui()}
+                // `aria-disabled`, không `disabled`: cùng lý do nút Lưu của
+                // `BangODien` — nút đang giữ tiêu điểm mà bị `disabled` thì
+                // tiêu điểm rơi về `<body>` ngay giữa lượt lùi. `lui` tự chặn.
+                aria-disabled={soLuuDangCho > 0}
                 title={CANH_BAO_LUI}
                 aria-describedby="san-khau-canh-bao-lui"
-                className={NUT_PHU}
+                className={cn(NUT_PHU, "aria-disabled:cursor-not-allowed aria-disabled:opacity-60")}
               >
                 <ChevronLeft className="size-3.5" aria-hidden /> Lùi
               </button>
@@ -478,15 +611,19 @@ export function SanKhauBanThao({
               Hiện thay đổi
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => void xuatTep("docx")}
-            disabled={dangXuat !== null || soLuuDangCho > 0}
-            className={NUT_PHU}
-          >
-            <FileDown className="size-3.5 text-[var(--color-brass-600)]" aria-hidden />
-            {dangXuat === "docx" ? "Đang tạo tệp Word…" : "Tải Word (.docx)"}
-          </button>
+          {/* Khuôn PDF không dàn lại được thành Word (`tai-xuong?dang=docx` là
+              422): chỉ mời đúng thứ máy chủ làm được. */}
+          {khuon?.dinh_dang !== "pdf" && (
+            <button
+              type="button"
+              onClick={() => void xuatTep("docx")}
+              disabled={dangXuat !== null || soLuuDangCho > 0}
+              className={NUT_PHU}
+            >
+              <FileDown className="size-3.5 text-[var(--color-brass-600)]" aria-hidden />
+              {dangXuat === "docx" ? "Đang tạo tệp Word…" : "Tải Word (.docx)"}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void xuatTep("pdf")}
@@ -526,13 +663,22 @@ export function SanKhauBanThao({
             `<details>` ở bố cục hẹp — và để A4 chiếm trọn; giữ lại cho bản
             thảo theo checklist, nơi "Sửa" vẫn là lối DUY NHẤT vào
             `DrawerSuaMuc` cho tới khi sửa tại chỗ thay được nó. */}
-        {!laTongQuat &&
+        {/* Khuôn gốc: cột này LÀ bảng ô điền — lối sửa chính của biểu mẫu tải
+            lên, nên hiện cả khi bản thảo là tổng quát. */}
+        {(!laTongQuat || khuon !== null) &&
           (toanMan ? (
             <details className="shrink-0 border-b border-border p-3">
               <summary className="cursor-pointer text-[13px] font-medium text-foreground">
-                Các mục
+                {khuon !== null
+                  ? `Ô điền · đã điền ${soODaDien}/${khuon.cho_trong.length}`
+                  : "Các mục"}
               </summary>
-              <div className="mt-2">{danhSachMuc}</div>
+              {/* Giới hạn cao + tự cuộn: `<details>` là `shrink-0` và không tổ
+                  tiên nào tới dialog cố định cuộn được, nên 8+ ô đẩy nút Lưu
+                  xuống dưới thanh tab (tiêu điểm vào đó cũng không kéo nó ra —
+                  WCAG 2.4.11) và 6+ ô đẩy khung trang ra khỏi màn. `p-1` chừa
+                  chỗ cho vòng tiêu điểm (2px + offset 2px) khỏi bị cắt. */}
+              <div className="mt-2 max-h-[50dvh] overflow-y-auto p-1">{cotTrai}</div>
             </details>
           ) : (
             <>
@@ -540,13 +686,17 @@ export function SanKhauBanThao({
                 id="san-khau-danh-sach-muc"
                 className="w-[var(--rong-muc)] shrink-0 overflow-y-auto border-r border-border p-3"
               >
-                {danhSachMuc}
+                {cotTrai}
               </div>
 
               <TayKeo
                 giaTri={rongMuc}
                 bien={BIEN_MUC}
-                nhan="Kéo để đổi bề rộng danh sách mục"
+                nhan={
+                  khuon !== null
+                    ? "Kéo để đổi bề rộng bảng ô điền"
+                    : "Kéo để đổi bề rộng danh sách mục"
+                }
                 dieuKhienId="san-khau-danh-sach-muc"
                 onDoi={datRongMuc}
               />
@@ -555,29 +705,18 @@ export function SanKhauBanThao({
 
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center gap-3 border-b border-border px-3 py-2">
-            <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
-              <button
-                type="button"
-                aria-label="Thu nhỏ"
-                onClick={() => datThuPhong(-BUOC_ZOOM)}
-                className="focus-brass cursor-pointer rounded-md p-1.5 hover:bg-[var(--color-paper-100)]"
-              >
-                <Minus className="size-3.5" aria-hidden />
-              </button>
-              <span className="font-jetbrains w-10 text-center text-[11px]">{thuPhong}%</span>
-              <button
-                type="button"
-                aria-label="Phóng to"
-                onClick={() => datThuPhong(BUOC_ZOOM)}
-                className="focus-brass cursor-pointer rounded-md p-1.5 hover:bg-[var(--color-paper-100)]"
-              >
-                <Plus className="size-3.5" aria-hidden />
-              </button>
-            </div>
-            <label className="flex items-center gap-2 text-[12px]">
-              <Toggle checked={hienCanCu} onChange={datHienCanCu} label="Hiển thị căn cứ pháp lý" />
-              Hiển thị căn cứ
-            </label>
+            <ThanhThuPhong thuPhong={thuPhong} datThuPhong={datThuPhong} />
+            {/* Trang ảnh không mang dòng căn cứ nào để bật/tắt. */}
+            {khuon === null && (
+              <label className="flex items-center gap-2 text-[12px]">
+                <Toggle
+                  checked={hienCanCu}
+                  onChange={datHienCanCu}
+                  label="Hiển thị căn cứ pháp lý"
+                />
+                Hiển thị căn cứ
+              </label>
+            )}
             <div className="ml-auto flex flex-wrap gap-2">
               <button type="button" onClick={() => onPhimTat("rut_gon")} className={NUT_PHU}>
                 Rút gọn
@@ -594,46 +733,55 @@ export function SanKhauBanThao({
             ref={khungRef}
             className="min-h-0 flex-1 overflow-y-auto bg-[var(--color-paper-100)] p-6"
           >
-            <XemTruocA4
-              // Bản thảo tổng quát không có `cau_truc` (không `GET /mau/tong_quat`)
-              // — tiêu đề THẬT của nó nằm ở dòng H1 đầu `document`, do chính mô
-              // hình đặt từ tài liệu nguồn (Phase 7 R4), KHÔNG phải `banThao.ten`
-              // (đó là tên LOẠI, "Bản thảo tổng quát", một câu hỏi khác).
-              tieuDe={
-                laTongQuat
-                  ? (tieuDeTuBanThao(banThao.document) ?? banThao.ten)
-                  : (cauTruc?.tieu_de ?? banThao.ten)
-              }
-              kyHieu={null}
-              muc={muc}
-              // Lề trang NGUỒN của tài liệu khách tải lên (`w:pgMar`,
-              // 2026-09-18) — `null` với bản thảo KLAW tự soạn và mọi bản thảo
-              // lưu trước trường này, và ở đó trang giữ lề tự đặt như cũ.
-              leTrang={leTrang}
-              // Ảnh NGUỒN đã tách (logo, con dấu, chữ ký quét — 2026-09-18);
-              // rỗng với bản thảo KLAW tự soạn và mọi bản thảo lưu trước
-              // trường này, và ở đó trang không có thẻ `<img>` nào.
-              anh={anh}
-              thuPhong={thuPhong}
-              hienCanCu={hienCanCu}
-              mucDangChon={mucDangChon}
-              onChonMuc={onChonMuc}
-              laTongQuat={laTongQuat}
-              // Fix round 1 (Q-C2) — CHỈ bản thảo tổng quát, cùng điều kiện
-              // đã ẩn nút "Sửa" ở trên (`!laTongQuat`): một bản thảo
-              // checklist có CẢ HAI cơ chế sống trên cùng một màn hình nếu
-              // không gác — sửa tay mục 2 tại đây, rồi bấm "Sửa" mục 5 →
-              // `dungLaiBanThao` chạy `draft_generate` và THAY TOÀN BỘ
-              // `clauses` qua `sua()`, xoá câu vừa gõ mà không cảnh báo, và
-              // xoá luôn `audit.sua_tay`/`muc_kiem` (huy hiệu cũng biến mất
-              // theo). Bản thảo tổng quát không có "Sửa" nào để cạnh tranh
-              // (không checklist, không `facts`), nên đây là bề mặt DUY
-              // NHẤT sửa tay an toàn tồn tại. Prop bỏ hẳn (không phải
-              // `undefined` tường minh) khi `!laTongQuat` — `exactOptionalPropertyTypes`
-              // phân biệt hai điều đó. `phienBan` (fix round 2, N1) đi kèm
-              // `onSuaKhoi` — `KhoiVanXuoi` cần nó để chụp lại lúc focus.
-              {...(laTongQuat ? { onSuaKhoi, phienBan: banThao.phien_ban } : {})}
-            />
+            {khuon !== null ? (
+              <KhungTrangAnh
+                duongDan={DUONG_DAN_KHUON.trangBanThao(banThao.id, banThao.phien_ban)}
+                soTrang={khuon.so_trang}
+                thuPhong={thuPhong}
+                nhan="Các trang của bản đã điền"
+              />
+            ) : (
+              <XemTruocA4
+                // Bản thảo tổng quát không có `cau_truc` (không `GET /mau/tong_quat`)
+                // — tiêu đề THẬT của nó nằm ở dòng H1 đầu `document`, do chính mô
+                // hình đặt từ tài liệu nguồn (Phase 7 R4), KHÔNG phải `banThao.ten`
+                // (đó là tên LOẠI, "Bản thảo tổng quát", một câu hỏi khác).
+                tieuDe={
+                  laTongQuat
+                    ? (tieuDeTuBanThao(banThao.document) ?? banThao.ten)
+                    : (cauTruc?.tieu_de ?? banThao.ten)
+                }
+                kyHieu={null}
+                muc={muc}
+                // Lề trang NGUỒN của tài liệu khách tải lên (`w:pgMar`,
+                // 2026-09-18) — `null` với bản thảo KLAW tự soạn và mọi bản thảo
+                // lưu trước trường này, và ở đó trang giữ lề tự đặt như cũ.
+                leTrang={leTrang}
+                // Ảnh NGUỒN đã tách (logo, con dấu, chữ ký quét — 2026-09-18);
+                // rỗng với bản thảo KLAW tự soạn và mọi bản thảo lưu trước
+                // trường này, và ở đó trang không có thẻ `<img>` nào.
+                anh={anh}
+                thuPhong={thuPhong}
+                hienCanCu={hienCanCu}
+                mucDangChon={mucDangChon}
+                onChonMuc={onChonMuc}
+                laTongQuat={laTongQuat}
+                // Fix round 1 (Q-C2) — CHỈ bản thảo tổng quát, cùng điều kiện
+                // đã ẩn nút "Sửa" ở trên (`!laTongQuat`): một bản thảo
+                // checklist có CẢ HAI cơ chế sống trên cùng một màn hình nếu
+                // không gác — sửa tay mục 2 tại đây, rồi bấm "Sửa" mục 5 →
+                // `dungLaiBanThao` chạy `draft_generate` và THAY TOÀN BỘ
+                // `clauses` qua `sua()`, xoá câu vừa gõ mà không cảnh báo, và
+                // xoá luôn `audit.sua_tay`/`muc_kiem` (huy hiệu cũng biến mất
+                // theo). Bản thảo tổng quát không có "Sửa" nào để cạnh tranh
+                // (không checklist, không `facts`), nên đây là bề mặt DUY
+                // NHẤT sửa tay an toàn tồn tại. Prop bỏ hẳn (không phải
+                // `undefined` tường minh) khi `!laTongQuat` — `exactOptionalPropertyTypes`
+                // phân biệt hai điều đó. `phienBan` (fix round 2, N1) đi kèm
+                // `onSuaKhoi` — `KhoiVanXuoi` cần nó để chụp lại lúc focus.
+                {...(laTongQuat ? { onSuaKhoi, phienBan: banThao.phien_ban } : {})}
+              />
+            )}
           </div>
         </div>
       </div>

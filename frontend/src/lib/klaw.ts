@@ -220,6 +220,41 @@ export interface BanThao {
   audit_report: Record<string, unknown>;
   facts: Record<string, string>;
   doi_so_voi_truoc: string[];
+  /**
+   * Bản thảo trên khuôn gốc (quyết định 2026-09-26) — THÔ như máy chủ gửi,
+   * `null`/vắng ở bản thảo HTML. Chỉ đọc qua `khuonHopLe`: bản thảo tới từ năm
+   * đường (tải, lùi, lưu, stream, lượt đã lưu), và `unknown` bắt mọi chỗ đọc
+   * đi qua đúng một cửa kiểm thay vì năm bản chép của nó.
+   */
+  khuon?: unknown;
+}
+
+/** Một ô điền được trên khuôn gốc, theo thứ tự đọc — khớp một phần tử
+ *  `cho_trong` của `BanThaoOut.khuon`. `gia_tri` `null` là còn dãy chấm; ô
+ *  `tab` lưu giá trị có một dấu cách đầu (máy chủ chuẩn hoá, xem
+ *  `ban_thao.chuan_hoa_dien`). `kieu` để `string`: một kiểu backend thêm sau
+ *  không được làm rơi cả ô. */
+export interface ChoTrongKhuon {
+  don_vi: number;
+  so: number;
+  kieu: string;
+  nhan: string;
+  gia_tri: string | null;
+}
+
+/** `BanThaoOut.khuon` đã qua `khuonHopLe`. */
+export interface KhuonBanThao {
+  viec_id: string;
+  dinh_dang: "docx" | "pdf";
+  so_trang: number;
+  cho_trong: ChoTrongKhuon[];
+}
+
+/** Thân của `GET /tai-lieu/{id}/trang` và `GET /ban-thao/{id}/trang`: khổ từng
+ *  trang (`[rộng, cao]` pt) và ảnh PNG base64 TRẦN của đúng trang đó. */
+export interface TrangAnh {
+  kho: [number, number][];
+  trang: string[];
 }
 
 /**
@@ -1403,6 +1438,79 @@ export function neenGuiLaiPhienBan(
 
 export function laBanThao(x: unknown): x is BanThao {
   return laBanGhi(x) && typeof x["id"] === "string" && typeof x["document"] === "string";
+}
+
+const laSoTuNhien = (x: unknown): x is number => Number.isInteger(x) && (x as number) >= 0;
+
+/**
+ * `BanThao.khuon` → khuôn dùng được, hoặc `null` (bản thảo HTML, hay vỏ sai:
+ * không biết định dạng thì không biết tải gì, không vẽ được trang nào).
+ *
+ * Fail-closed TỪNG Ô, không cả khuôn: một ô dị dạng bị bỏ, các ô còn lại vẫn
+ * điền được. Ô trùng `(don_vi, so)` giữ ô ĐẦU — hai ô cùng khoá là hai ô nhập
+ * cùng ghi vào một chỗ. Chỉ khoá của hợp đồng đi ra, không khoá lạ nào lọt.
+ */
+export function khuonHopLe(x: unknown): KhuonBanThao | null {
+  if (
+    !laBanGhi(x) ||
+    typeof x["viec_id"] !== "string" ||
+    x["viec_id"] === "" ||
+    (x["dinh_dang"] !== "docx" && x["dinh_dang"] !== "pdf") ||
+    !Number.isInteger(x["so_trang"]) ||
+    (x["so_trang"] as number) < 1
+  )
+    return null;
+  const daCo = new Set<string>();
+  const choTrong: ChoTrongKhuon[] = [];
+  for (const c of Array.isArray(x["cho_trong"]) ? x["cho_trong"] : []) {
+    if (
+      !laBanGhi(c) ||
+      !laSoTuNhien(c["don_vi"]) ||
+      !laSoTuNhien(c["so"]) ||
+      typeof c["kieu"] !== "string" ||
+      typeof c["nhan"] !== "string" ||
+      (c["gia_tri"] !== undefined && c["gia_tri"] !== null && typeof c["gia_tri"] !== "string")
+    )
+      continue;
+    const khoa = `${c["don_vi"]}.${c["so"]}`;
+    if (daCo.has(khoa)) continue;
+    daCo.add(khoa);
+    choTrong.push({
+      don_vi: c["don_vi"],
+      so: c["so"],
+      kieu: c["kieu"],
+      nhan: c["nhan"],
+      gia_tri: typeof c["gia_tri"] === "string" ? c["gia_tri"] : null,
+    });
+  }
+  return {
+    viec_id: x["viec_id"],
+    dinh_dang: x["dinh_dang"],
+    so_trang: x["so_trang"] as number,
+    cho_trong: choTrong,
+  };
+}
+
+/** Base64 TRẦN (không tiền tố `data:`, không khoảng trắng) — thứ duy nhất được
+ *  ghép vào `data:image/png;base64,…`. */
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+/** Khổ trang máy chủ đã kiểm (ISO 32000-1 Annex C, `routes_tai_lieu.trang`). */
+const KHO_TOI_DA_PT = 14_400;
+const laKhoPt = (n: unknown) =>
+  typeof n === "number" && Number.isFinite(n) && n > 0 && n <= KHO_TOI_DA_PT;
+
+/** Payload trang: cả gói hoặc không gì — một ảnh thiếu khổ (hay ngược lại) là
+ *  trang vẽ sai tỉ lệ hoặc sai thứ tự, tệ hơn một lời báo lỗi. */
+export function laTrangAnh(x: unknown): x is TrangAnh {
+  if (!laBanGhi(x) || !Array.isArray(x["kho"]) || !Array.isArray(x["trang"])) return false;
+  const kho: unknown[] = x["kho"];
+  const trang: unknown[] = x["trang"];
+  return (
+    kho.length > 0 &&
+    kho.length === trang.length &&
+    kho.every((k) => Array.isArray(k) && k.length === 2 && laKhoPt(k[0]) && laKhoPt(k[1])) &&
+    trang.every((t) => typeof t === "string" && BASE64.test(t))
+  );
 }
 
 export function laDanhSachBanThao(x: unknown): x is { tong: number; items: BanThaoTomTat[] } {
