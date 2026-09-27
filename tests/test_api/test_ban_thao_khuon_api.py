@@ -194,6 +194,28 @@ async def test_trang_loi_dung_di_qua_anh_xa_cua_tai_lieu(client, khoa_ky, hai_ng
 
 
 @pytest.mark.asyncio
+async def test_BO_AP_chay_TRONG_luot_cua_tai_khoan_o_moi_route_dung(client, khoa_ky, hai_nguoi, dung_gia, monkeypatch):
+    """Bộ áp là việc CPU trên khuôn gốc tới 20 MB, và bản đang sống là `no-store`
+    (trình duyệt không giữ): nó chạy TRONG lượt dựng của tài khoản, không trước
+    lượt. Đang giữ lượt thì cả ba đường áp là 503 `qua_tai` và bộ áp không chạy."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    id_, _ = _ban_thao(a)
+    ap: list[str] = []
+    that = ban_thao.ap_phep_sua
+    monkeypatch.setattr(ban_thao, "ap_phep_sua", lambda *x: (ap.append(x[0]), that(*x))[1])
+    duong = [f"/api/v1/ban-thao/{id_}/{d}" for d in ("trang", "tai-xuong?dang=docx", "tai-xuong?dang=pdf")]
+
+    with dung_trang._mot_luot(a):
+        for d in duong:
+            assert (await client.get(d, headers=ha)).status_code == 503, d
+    assert ap == [], "không một lần áp nào ngoài lượt của tài khoản"
+    for d in duong:
+        assert (await client.get(d, headers=ha)).status_code == 200, d
+    assert ap == ["docx"] * 3
+
+
+@pytest.mark.asyncio
 async def test_ban_thao_HTML_va_khuon_da_xoa_khong_co_trang(client, khoa_ky, hai_nguoi, dung_gia):
     a, _ = hai_nguoi
     ha = _bearer(khoa_ky, a)

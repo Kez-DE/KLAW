@@ -315,8 +315,9 @@ async def sua_muc(id: str, body: SuaMucRequest, nguoi: dict = Depends(nguoi_dung
 # Ba route cho bản thảo trên khuôn gốc: trang đã điền, tải về, lưu ô điền. Cùng
 # hàng rào của `routes_tai_lieu.trang`: chủ sở hữu lọc ở tầng dữ liệu (người
 # khác, bản thảo HTML, khuôn gốc đã xoá đều 404), `nosniff`, `private`. Áp phép
-# và dựng là việc CPU/tiến trình con: luôn qua `run_in_threadpool`. Log chỉ mang
-# id và số đếm — không một giá trị đã điền nào.
+# và dựng là việc CPU/tiến trình con: luôn qua `run_in_threadpool`, trong MỘT
+# lượt mỗi tài khoản (`dung_trang._mot_luot`) cho cả hai. Log chỉ mang id và số
+# đếm — không một giá trị đã điền nào.
 
 LOI_PDF_KHONG_CO_DOCX = "Tài liệu gốc là PDF nên chỉ tải được bản PDF đã điền."
 _KIEU_TAI_VE = {
@@ -347,20 +348,21 @@ async def _khuon_phien_ban(sub: str, id: str, phien_ban: int | None) -> dict:
     return k
 
 
-async def _ban_da_dien(id: str, k: dict) -> bytes:
-    """Khuôn gốc NGUYÊN + phép ĐẦY ĐỦ của phiên bản. Phép bị bộ áp bỏ vẫn cho ra
-    trang (phần áp được) — chỉ `sua_o_dien` từ chối lưu; ở đây chỉ log số đếm."""
-    try:
-        ban, bao_cao = await run_in_threadpool(
-            ban_thao.ap_phep_sua, k["dinh_dang"], k["noi_dung"], k["don_vi"], k["phep_sua"]
-        )
-    except KhongDocDuoc as e:
-        raise _loi_http(e) from e
-    if bo := len(bao_cao["bo_qua"]):
-        logger.warning(
-            "ban_thao %s phiên bản %s: bộ áp bỏ %d/%d phép", id, k["phien_ban"], bo, bo + len(bao_cao["da_ap"])
-        )
-    return ban
+def _bo_ap(id: str, k: dict):
+    """Bước `ap` của `dung_trang`: khuôn gốc NGUYÊN + phép ĐẦY ĐỦ của phiên bản,
+    chạy TRONG lượt dựng của tài khoản (không trước lượt). Phép bị bộ áp bỏ vẫn
+    cho ra trang (phần áp được) — chỉ `sua_o_dien` từ chối lưu; ở đây chỉ log
+    số đếm. `KhongDocDuoc` đi ra cùng lỗi dựng."""
+
+    def ap(khuon_goc: bytes) -> bytes:
+        ban, bao_cao = ban_thao.ap_phep_sua(k["dinh_dang"], khuon_goc, k["don_vi"], k["phep_sua"])
+        if bo := len(bao_cao["bo_qua"]):
+            logger.warning(
+                "ban_thao %s phiên bản %s: bộ áp bỏ %d/%d phép", id, k["phien_ban"], bo, bo + len(bao_cao["da_ap"])
+            )
+        return ban
+
+    return ap
 
 
 @router.get("/ban-thao/{id}/trang")
@@ -368,16 +370,15 @@ async def trang(
     id: str, phien_ban: int | None = Query(default=None, ge=1), nguoi: dict = Depends(nguoi_dung_bat_buoc)
 ) -> JSONResponse:
     """Trang của MỘT phiên bản đã điền — cùng hình dạng `GET /tai-lieu/{id}/trang`:
-    `{"kho": [[rộng_pt, cao_pt], …], "trang": ["<base64 png>", …]}`, dựng MỘT
-    lần mỗi request (một lượt mỗi tài khoản, `dung_trang.dung`).
+    `{"kho": [[rộng_pt, cao_pt], …], "trang": ["<base64 png>", …]}`, áp và dựng
+    MỘT lần mỗi request, trong một lượt mỗi tài khoản (`dung_trang.dung`).
 
     Không `phien_ban`: bản đang sống — đổi sau mỗi lần lưu, nên `no-store`. Có
     `phien_ban`: số phiên bản không bao giờ cấp lại, nội dung của nó không đổi,
     nên trình duyệt giữ được một giờ như `/tai-lieu/{id}/trang`."""
     k = await _khuon_phien_ban(nguoi["sub"], id, phien_ban)
-    ban = await _ban_da_dien(id, k)
     try:
-        kho, png = await run_in_threadpool(dung_trang.dung, k["dinh_dang"], ban, nguoi["sub"])
+        kho, png = await run_in_threadpool(dung_trang.dung, k["dinh_dang"], k["noi_dung"], nguoi["sub"], _bo_ap(id, k))
     except (KhongDocDuoc, ChuyenDoiKhongSanSang) as e:
         raise _loi_http(e) from e
     return JSONResponse(
@@ -404,12 +405,12 @@ async def tai_xuong(
     k = await _khuon_phien_ban(nguoi["sub"], id, phien_ban)
     if k["dinh_dang"] == "pdf" and dang == "docx":
         raise HTTPException(status_code=422, detail=LOI_PDF_KHONG_CO_DOCX)
-    ban = await _ban_da_dien(id, k)
-    if dang == "pdf":
-        try:
-            ban = await run_in_threadpool(dung_trang.pdf_cua, k["dinh_dang"], ban, nguoi["sub"])
-        except (KhongDocDuoc, ChuyenDoiKhongSanSang) as e:
-            raise _loi_http(e) from e
+    try:
+        ban = await run_in_threadpool(
+            dung_trang.tep_tai_ve, k["dinh_dang"], k["noi_dung"], dang, nguoi["sub"], _bo_ap(id, k)
+        )
+    except (KhongDocDuoc, ChuyenDoiKhongSanSang) as e:
+        raise _loi_http(e) from e
     return Response(
         content=ban,
         media_type=_KIEU_TAI_VE[dang],

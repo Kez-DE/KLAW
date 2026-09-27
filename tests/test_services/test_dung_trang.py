@@ -269,27 +269,38 @@ def test_MOT_tai_khoan_MOT_luot_dung_mot_luc(monkeypatch):
     assert dung_trang.dung("pdf", b"trong", "a")[1] == [b"png"], "lượt hỏng vẫn nhả chỗ"
 
 
-def test_PDF_TAI_VE_giu_CUNG_mot_luot_moi_tai_khoan_voi_dung(monkeypatch):
-    """Tải bản đã điền dạng PDF cũng dựng bằng LibreOffice (một trong ba suất):
-    đi qua CÙNG chỗ giữ của `dung`, nếu không một tài khoản vừa xem trang vừa bấm
-    tải lại giữ hai suất. PDF khuôn gốc là chính nó — không LibreOffice, không giữ."""
+def test_BO_AP_va_TAI_VE_chay_TRONG_CUNG_mot_luot_voi_dung(monkeypatch):
+    """Bộ áp phép sửa là việc CPU trên khuôn gốc tới 20 MB, bản PDF tải về dựng
+    bằng LibreOffice (một trong ba suất): cả hai chạy TRONG lượt của tài khoản,
+    không trước lượt — nếu không, một tài khoản gọi từ nhiều IP chạy bao nhiêu
+    lượt áp song song cũng được. Mọi nhánh tải về giữ lượt, kể cả khuôn PDF (bộ
+    áp PDF vẫn chạy); lượt hỏng giữa chừng vẫn nhả chỗ."""
     monkeypatch.setattr(dung_trang, "kho_trang", lambda pdf: [list(_A4)])
+    monkeypatch.setattr(dung_trang, "anh_trang", lambda pdf: [pdf])
     monkeypatch.setattr(dung_trang, "dung_pdf", lambda docx: b"%PDF-" + docx)
     thay: list[str] = []
 
-    def _anh(pdf):
+    def _ap(ban: bytes) -> bytes:
         for ai in ("a", "b"):
             try:
-                thay.append(f"{ai}:{dung_trang.pdf_cua('docx', b'x', ai)!r}")
+                dung_trang.dung("pdf", b"x", ai)
+                thay.append(f"{ai}:dung")
             except ChuyenDoiKhongSanSang as e:
                 thay.append(f"{ai}:{e.ly_do}")
-        thay.append(f"a:{dung_trang.pdf_cua('pdf', b'%PDF-goc', 'a')!r}")
-        return [b"png"]
+        return ban + b"!"
 
-    monkeypatch.setattr(dung_trang, "anh_trang", _anh)
-    dung_trang.dung("pdf", b"%PDF", "a")
-    assert thay == ["a:qua_tai", "b:b'%PDF-x'", "a:b'%PDF-goc'"]
-    assert dung_trang.pdf_cua("docx", b"y", "a") == b"%PDF-y", "xong lượt dựng thì nhả chỗ"
+    assert dung_trang.dung("docx", b"d", "a", _ap) == ([list(_A4)], [b"%PDF-d!"])
+    assert dung_trang.tep_tai_ve("docx", b"d", "docx", "a", _ap) == b"d!"
+    assert dung_trang.tep_tai_ve("docx", b"d", "pdf", "a", _ap) == b"%PDF-d!"
+    assert dung_trang.tep_tai_ve("pdf", b"%PDF", "pdf", "a", _ap) == b"%PDF!"
+    assert thay == ["a:qua_tai", "b:dung"] * 4
+
+    def _hong(ban: bytes) -> bytes:
+        raise KhongDocDuoc(LoaiHong.tep_hong, "x")
+
+    with pytest.raises(KhongDocDuoc):
+        dung_trang.tep_tai_ve("docx", b"d", "docx", "a", _hong)
+    assert dung_trang.tep_tai_ve("docx", b"y", "pdf", "a", lambda b: b) == b"%PDF-y", "xong lượt thì nhả chỗ"
 
 
 def test_thieu_pdftoppm_la_loi_HE_THONG(monkeypatch):

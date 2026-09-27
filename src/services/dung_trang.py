@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -180,22 +181,30 @@ def _mot_luot(user_sub: str):
             _dang_dung.discard(user_sub)
 
 
-def dung(dinh_dang: str, noi_dung: bytes, user_sub: str) -> tuple[list[list[float]], list[bytes]]:
-    """`(khổ, PNG)` từng trang của một khuôn gốc (hay một bản đã điền cùng định
-    dạng). Khổ đọc từ CHÍNH PDF vừa vẽ, nên `kho[i]` luôn là khổ của ảnh `i`.
-    Một lượt mỗi tài khoản mỗi lúc (`_mot_luot`)."""
+def dung(
+    dinh_dang: str, noi_dung: bytes, user_sub: str, ap: Callable[[bytes], bytes] | None = None
+) -> tuple[list[list[float]], list[bytes]]:
+    """`(khổ, PNG)` từng trang của một khuôn gốc. Khổ đọc từ CHÍNH PDF vừa vẽ,
+    nên `kho[i]` luôn là khổ của ảnh `i`. Một lượt mỗi tài khoản mỗi lúc
+    (`_mot_luot`).
+
+    `ap`: bước biến `noi_dung` thành bản đã điền cùng định dạng (bộ áp phép sửa
+    của một bản thảo), chạy TRONG cùng lượt: bộ áp là việc CPU trên tệp tới
+    20 MB, nên áp và dựng là một lượt, không phải việc nặng đứng ngoài hàng rào."""
     with _mot_luot(user_sub):
+        if ap is not None:
+            noi_dung = ap(noi_dung)
         pdf = dung_pdf(noi_dung) if dinh_dang == "docx" else noi_dung
         return kho_trang(pdf), anh_trang(pdf)
 
 
-def pdf_cua(dinh_dang: str, noi_dung: bytes, user_sub: str) -> bytes:
-    """PDF của một khuôn gốc hay bản đã điền — cho tải về. DOCX dựng bằng
-    LibreOffice dưới CÙNG chỗ giữ của `dung`; PDF là chính nó."""
-    if dinh_dang != "docx":
-        return noi_dung
+def tep_tai_ve(dinh_dang: str, noi_dung: bytes, dang: str, user_sub: str, ap: Callable[[bytes], bytes]) -> bytes:
+    """Tệp tải về của một bản đã điền: `ap(noi_dung)`, và với `dang="pdf"` trên
+    khuôn DOCX là bản LibreOffice dựng từ nó. Mọi nhánh trong MỘT lượt như
+    `dung` — kể cả khuôn PDF và `dang="docx"`, nơi chỉ bộ áp chạy."""
     with _mot_luot(user_sub):
-        return dung_pdf(noi_dung)
+        ban = ap(noi_dung)
+        return dung_pdf(ban) if dinh_dang == "docx" and dang == "pdf" else ban
 
 
 def khuon_goc(ten_tep: str, du_lieu: bytes, tai_lieu: TaiLieuDaDoc) -> KhuonGoc | None:

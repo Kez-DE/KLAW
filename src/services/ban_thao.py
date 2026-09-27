@@ -717,7 +717,12 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
 
     ponytail: lần chạy thử (≤ 1 s cho một docx 10 trang) nằm TRONG khoá
     `FOR UPDATE` của đúng một bản thảo; đưa ra ngoài khoá (đọc, thử, ghi kèm so
-    `phien_ban`) khi hai lần lưu cùng bản thảo đo được là chờ nhau."""
+    `phien_ban`) khi hai lần lưu cùng bản thảo đo được là chờ nhau. Nó KHÔNG giữ
+    lượt dựng của tài khoản (`dung_trang._mot_luot`, từ chối ngay khi bận): một
+    lần lưu trong lúc trang đang dựng không được thành 503. Khoá hàng đã nối
+    tiếp mọi lần lưu của một bản thảo; nhiều bản thảo × nhiều IP của một tài
+    khoản vẫn chạy thử song song — thêm một suất chờ theo tài khoản khi đo
+    được."""
     with get_engine().begin() as c:
         cu = c.execute(_SQL_LAY_KHOA, {"sub": sub, "id": id}).mappings().one_or_none()
         if cu is None:

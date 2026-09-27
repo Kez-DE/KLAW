@@ -180,15 +180,17 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   `so_lan_thu` (FR-037, 3) paid re-extracts per document, then 429; `tong_quat`
   calls no model and is free. The cost estimate (422) and the daily cost cap run
   before the claim, so a refusal leaves the viec as it was.
-- `GET /ban-thao/{id}/trang?phien_ban=N` — the filled version, same shape, one
-  render per request under the same per-account guard. No `phien_ban` (live
+- `GET /ban-thao/{id}/trang?phien_ban=N` — the filled version, same shape; the
+  apply and the render are one slot of the same per-account guard (a held slot
+  is 503 `qua_tai` before the applier runs). No `phien_ban` (live
   version): `private, no-store`; with `phien_ban`: `private, max-age=3600`
   (version numbers are never reissued). 404: not found/foreign, unknown version,
   HTML version, khuôn gốc deleted. Render errors map like `/tai-lieu/…/trang`
   (503 `qua_tai`/`khong_co_cong_cu`, 422 `tep_hong`).
 - `GET /ban-thao/{id}/tai-xuong?dang=docx|pdf&phien_ban=N` — attachment bytes.
   `dang` required. docx khuôn: `docx` = the filled khuôn gốc, `pdf` = its
-  LibreOffice render (same per-account guard); PDF khuôn: `pdf` only, `docx` =
+  LibreOffice render; every branch, applier included, holds the same
+  per-account slot; PDF khuôn: `pdf` only, `docx` =
   422. `Content-Disposition: attachment; filename="<ASCII stem> - da dien.<dang>";
   filename*=UTF-8''<stem> - đã điền.<dang>` (stem of `ten_tep`, so a `.doc`
   downloads as `.docx`); `nosniff`, `private, no-store`.
@@ -254,6 +256,11 @@ open risks, and follows the TDD order: failing test first, then code.
   13; closing it needs network isolation for the converter or dropping `.doc`
   (owner's call).
 - **Rate limit.** 10 requests / 60 s per IP; page images come in one request.
+- **Panel-save dry run.** `PATCH …/o-dien` runs the applier (≤ 1 s, 10-page
+  docx) outside the per-account render slot on purpose: that slot refuses at
+  once, and a save must not 503 while the preview renders. The draft's row lock
+  serializes saves of one draft; one account saving many drafts from many IPs
+  still dry-runs in parallel. Add a waiting per-account slot when measured.
 - **Scanned PDFs.** Tesseract emits no words for long dotted leaders; blanks are
   located by label-relative placement and pixel runs, and the accuracy is measured,
   not promised.
