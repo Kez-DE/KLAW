@@ -4,10 +4,11 @@ Date: 2026-09-26
 
 ## Status
 
-Active. Decisions settled with the owner on 2026-09-26 (Q1–Q20 of that session);
-execution delegated to agents without a further approval gate, by the owner's
-instruction: "tự động thực thi vs agent và sửa đổi, thực thi plan với agent luôn,
-ko cần tôi duyệt".
+Completed 2026-09-27. Decisions settled with the owner on 2026-09-26 (Q1–Q20)
+and refined by owner feedback on 2026-09-27; execution delegated to agents
+without a further approval gate, by the owner's instruction: "tự động thực thi vs
+agent và sửa đổi, thực thi plan với agent luôn, ko cần tôi duyệt". Nothing pushed
+or deployed.
 
 ## Outcome
 
@@ -430,8 +431,8 @@ open risks, and follows the TDD order: failing test first, then code.
 - [x] Wave C — P3a docx applier (`d2ee30a`), P3b PDF overlay applier (`570c805`); CI lane 2381 passed on main.
 - [x] P2c — `.doc` importer egress closed with a dead loopback proxy (`fix/soffice-chan-mang`).
 - [x] Wave D — P4a storage/routes, P4b graph edit operations, P2c .doc egress barrier, integrated on `integ/wave-d` and merged (`d32a50b`); CI lane 2437 passed on main.
-- [ ] Wave E — P5.
-- [ ] Wave F — P6.
+- [x] Wave E — P5 frontend: page viewer, Bản tải lên, downloads, re-extract without re-upload (`98028af`).
+- [x] Wave F — P6 ruler `eval/run_khuon_goc.py` (`de4de72`), copy/touch-target polish (`f911bd6`), owner reversal: a drafting request always drafts (`a1ed1e7`), end-to-end runs in the owner's app (four rounds, defects fed into waves G–G6).
 - [x] Wave G — fill on the page: paragraph `thay` by `doan` and label checks
   (`dbbd151`), G1 blank positions on rendered pages (`191872f`), G3 on-page
   filling (`4982040`), label/probe integration fixes, G4 owner-rule fixes
@@ -449,6 +450,7 @@ open risks, and follows the TDD order: failing test first, then code.
   files 783 passed; CI lane 2613 passed (only the worktree-only
   `test_data_raw_VAN_bi_gitignore` failure); ruler LibreOffice measures
   byte-identical, `o` 47/47 applied and read back, page count kept 4/4.
+- [x] Wave G merged to main (`740c147`), G5 (`9445f54`), G6 send held while a file uploads, with a visible cancel (`5981b44`); ruler re-recorded with Microsoft Word (`cea07b5`).
 
 ## Decisions
 
@@ -796,4 +798,50 @@ open risks, and follows the TDD order: failing test first, then code.
 
 ## Result
 
-Pending.
+Verified outcome on local `main` (`5981b44`), 2026-09-27:
+
+- Ruler (`eval/results/khuon_goc.json`, Word on, 8 owner forms): LibreOffice page
+  count equals Word 8/8; empty-op round trip byte-identical 8/8 and
+  pixel-identical 8/8; dot/tab blanks 124/124 applied and read back, Word opens
+  7/7 filled files and keeps their page count 7/7; empty list-table cells 47/47
+  applied and read back; the 11-page file is counted 11 and refused, the 10-page
+  file accepted.
+- Real app, owner's browser (four chunked runs, ~12 model calls in total):
+  'soạn thảo văn bản này cho tôi' on BM.M05 answers in chat and yields version 1
+  whose Word download is sha256-identical to the upload (PDF upload: PDF download
+  byte-identical); repeating it creates no version. 'Điền giúp tôi …' places the
+  company on 'Cơ quan/Đơn vị tiếp nhận', 'Số 12/2026' in the letterhead, the
+  major, both page-1 dates and 'Nguyễn Văn Ánh' in 'Họ và tên (dòng 1)'; no
+  printed form text is copied into a blank. On-page filling: click, type, Enter
+  saves a version, Tab saves and moves, Esc sends nothing, Lùi walks back,
+  `so_lan_sua` unchanged. No document panel or fill side panel; the attachment
+  is a chip with a menu. Phiên mới and a sidebar switch close the stage. The
+  11-page refusal names the file and its count and leaves no conversation.
+- Test lanes on main: CI lane 2615 passed; khuôn files 783 passed; frontend
+  `npm run typecheck` and `npm run kiem` pass.
+
+Limits, stated plainly:
+
+- 'Bản tải lên' and page images are LibreOffice renders: page counts match Word,
+  but line positions differ (ink IoU vs Word mean 0.37, min 0.08 on Evaluation
+  Form p3). The downloaded `.docx` is the user's own file, filled.
+- PDF inputs: blanks found 93/124 (digital) and 112/124 with 26 extras (scan);
+  about half of long values are refused as `khong_vua`; the overlay covers but
+  does not remove the original text layer.
+- Evaluation Form's 33 text-less dot-leader continuation lines are not fillable
+  (contract, upgrade path recorded).
+- Positions of `o` cells rely on probe shading measured on LibreOffice 26.2.4
+  only; the production image (25.2.3) is unmeasured end to end and falls back to
+  'Chỗ trống chưa định vị' if shading differs. The P6 in-image egress run is
+  still pending (P2c measured a same-base throwaway image).
+- History keeps the last 10 snapshots, so Lùi cannot reach the earliest of many
+  on-page saves.
+
+Follow-up (owner decisions left open, each recorded above as an agent default):
+`tao_lai` on a filled draft saves a reset version; 'TT' counts as a number column;
+a dropped value is named only when it appears in the user's words; a refused
+broken file in a fresh chat no longer counts toward the daily quota; a
+`thay`/`xoa` that only deletes printed text is not provenance-checked when a
+request is misclassified as `dien_sua`. Also: soft-deleted drafts and turns
+(issue #3); document spend does not reach `traces`, so the shared daily cost cap
+does not see it — add a per-account cap before opening the app to many users.

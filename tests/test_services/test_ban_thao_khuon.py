@@ -1,4 +1,4 @@
-"""Bản thảo trên khuôn gốc (P4a) — kế hoạch `docs/plans/active/khuon-goc-dien-tai-cho.md`,
+"""Bản thảo trên khuôn gốc (P4a) — kế hoạch `docs/plans/completed/khuon-goc-dien-tai-cho.md`,
 hợp đồng Storage và "Edit operations"; quyết định 2026-09-26.
 
 Phần đầu là hàm THUẦN (không DB): gộp phép sửa, chỗ trống của một phiên bản,

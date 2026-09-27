@@ -1,5 +1,5 @@
 """Áp phép sửa lên khuôn gốc PDF (P3b) — kế hoạch
-`docs/plans/active/khuon-goc-dien-tai-cho.md`, hợp đồng "Edit operations".
+`docs/plans/completed/khuon-goc-dien-tai-cho.md`, hợp đồng "Edit operations".
 
 PDF không dàn lại được, nên bộ áp KHÔNG đụng vào nội dung trang gốc: mỗi trang
 có phép sửa nhận một trang PHỦ dựng bằng reportlab — hình chữ nhật trắng che

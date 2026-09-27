@@ -1,5 +1,5 @@
 """Bộ áp phép sửa lên khuôn gốc PDF (P3b) — kế hoạch
-`docs/plans/active/khuon-goc-dien-tai-cho.md`, hợp đồng "Edit operations".
+`docs/plans/completed/khuon-goc-dien-tai-cho.md`, hợp đồng "Edit operations".
 
 `ap_dung_pdf(pdf, don_vi, phep_sua)` đè một trang phủ (reportlab) lên trang
 gốc bằng `pypdf` — KHÔNG dựng lại trang gốc. Mọi đơn vị ở đây đến từ CHÍNH bộ

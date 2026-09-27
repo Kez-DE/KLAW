@@ -1,4 +1,4 @@
-"""Bộ áp phép sửa DOCX (P3a) — kế hoạch `docs/plans/active/khuon-goc-dien-tai-cho.md`,
+"""Bộ áp phép sửa DOCX (P3a) — kế hoạch `docs/plans/completed/khuon-goc-dien-tai-cho.md`,
 hợp đồng "Edit operations".
 
 `ap_dung_docx(docx, don_vi, phep_sua)` là hàm thuần: `don_vi` là ĐÚNG mảng dict

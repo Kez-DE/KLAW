@@ -1,5 +1,5 @@
 """Microsoft Word có mở được bản đã điền không — thước đo P3a của kế hoạch
-`docs/plans/active/khuon-goc-dien-tai-cho.md` (mục Risks: "only Word proves the
+`docs/plans/completed/khuon-goc-dien-tai-cho.md` (mục Risks: "only Word proves the
 file").
 
 LibreOffice dung thứ khai báo markup-compatibility hỏng mà Word từ chối, nên bằng

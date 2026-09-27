@@ -1,4 +1,4 @@
-"""Thước đo khuôn gốc — P6 của `docs/plans/active/khuon-goc-dien-tai-cho.md`
+"""Thước đo khuôn gốc — P6 của `docs/plans/completed/khuon-goc-dien-tai-cho.md`
 (quyết định `2026-09-26-luu-khuon-goc-va-dien-tai-cho`).
 
     python -m eval.run_khuon_goc [--bo PATH ...] [--out PATH] [--word]

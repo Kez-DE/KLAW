@@ -1,6 +1,6 @@
 """`/ban-thao` trên khuôn gốc (P4a) — trang đã điền, tải về, lưu ô điền.
 
-Kế hoạch `docs/plans/active/khuon-goc-dien-tai-cho.md` (API), quyết định
+Kế hoạch `docs/plans/completed/khuon-goc-dien-tai-cho.md` (API), quyết định
 2026-09-26. Mọi route: người khác 404, không đăng nhập 401. Test chạy ở mọi máy
 giả LibreOffice/pdftoppm và bắt đúng bytes đưa vào dựng; test mang
 `can_soffice`/`can_poppler` chạy công cụ thật trên biểu mẫu thật hoặc PDF dựng.

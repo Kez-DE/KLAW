@@ -1,5 +1,5 @@
 """Hộp dòng và chỗ trống của PDF có lớp chữ và PDF scan — kế hoạch
-`docs/plans/active/khuon-goc-dien-tai-cho.md`, hợp đồng "Đơn vị văn bản
+`docs/plans/completed/khuon-goc-dien-tai-cho.md`, hợp đồng "Đơn vị văn bản
 additions" (P2b).
 
 Bộ đè chữ (P3b) cần biết chữ nằm Ở ĐÂU trên trang: `hop` của mỗi dòng và `hop`

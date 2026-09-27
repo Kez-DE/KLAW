@@ -1,4 +1,4 @@
-"""Áp phép sửa lên khuôn gốc DOCX — kế hoạch `docs/plans/active/khuon-goc-dien-tai-cho.md`,
+"""Áp phép sửa lên khuôn gốc DOCX — kế hoạch `docs/plans/completed/khuon-goc-dien-tai-cho.md`,
 hợp đồng "Edit operations"; quyết định 2026-09-26 (`luu-khuon-goc-va-dien-tai-cho`).
 
 `ap_dung_docx(docx, don_vi, phep_sua) -> (docx_moi, bao_cao)` là hàm THUẦN: không

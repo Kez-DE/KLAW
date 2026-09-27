@@ -1,5 +1,5 @@
 """Địa chỉ OOXML và chỗ trống của từng đơn vị DOCX — kế hoạch
-`docs/plans/active/khuon-goc-dien-tai-cho.md`, hợp đồng "Đơn vị văn bản
+`docs/plans/completed/khuon-goc-dien-tai-cho.md`, hợp đồng "Đơn vị văn bản
 additions" (P2b).
 
 Bộ áp phép sửa (P3a) sẽ đi THẲNG tới `dia_chi` trên bytes khuôn gốc đã lưu, và
