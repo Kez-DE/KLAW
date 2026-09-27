@@ -6,7 +6,7 @@
  */
 import assert from "node:assert/strict";
 import { chuanHoaLuot, laChiTietPhien, laDanhSachPhien } from "../src/lib/klaw.ts";
-import { thoiGianTuongDoi } from "../src/lib/phien.ts";
+import { thoiGianTuongDoi, vaBanThaoGanDay } from "../src/lib/phien.ts";
 
 // 1. Thời gian tương đối — mốc cố định để kiểm không lệch theo giờ chạy.
 {
@@ -44,4 +44,34 @@ import { thoiGianTuongDoi } from "../src/lib/phien.ts";
   assert.equal(l.cauHoi, "Hỏi?");
   assert.equal(l.thuTu, 1);
 }
-console.info("kiem-phien: 3/3 đạt");
+
+// 4. `vaBanThaoGanDay`: lưu/lùi/lượt chat ra phiên bản mới → danh sách "Bản
+// thảo" của vỏ trang đổi TẠI CHỖ (không gọi lại máy chủ), bản đó lên đầu.
+{
+  const tt = (id: string, phien_ban: number) => ({
+    id,
+    loai: "tong_quat",
+    ten: `Bản ${id}`,
+    phien_ban,
+    cap_nhat_luc: "2026-09-27T08:00:00Z",
+    hoi_thoai_id: "p",
+  });
+  const ds = [tt("a", 1), tt("b", 1)];
+  const LUC = "2026-09-27T09:00:00Z";
+  assert.deepEqual(
+    vaBanThaoGanDay(ds, { id: "b", ten: "Bản b", phien_ban: 3 }, LUC),
+    [{ ...tt("b", 3), cap_nhat_luc: LUC }, tt("a", 1)],
+    "phiên bản 1 → 3: đúng số mới, lên đầu, giữ `hoi_thoai_id`",
+  );
+  assert.equal(
+    vaBanThaoGanDay(ds, { id: "a", ten: "Bản a", phien_ban: 1 }, LUC),
+    ds,
+    "cùng phiên bản (lượt chat trả bản có sẵn): giữ nguyên danh sách",
+  );
+  assert.equal(
+    vaBanThaoGanDay(ds, { id: "c", ten: "Bản c", phien_ban: 1 }, LUC),
+    null,
+    "bản chưa có trong danh sách (vừa tạo): nơi gọi tải lại",
+  );
+}
+console.info("kiem-phien: 4/4 đạt");

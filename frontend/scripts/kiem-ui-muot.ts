@@ -302,6 +302,18 @@ const cauHinhVite = {
         );
       },
     },
+    {
+      // Phép kiểm 13: danh sách "Bản thảo" và lời gọi lưu/lùi phải dùng CHUNG
+      // một `@/lib/api` — mỗi `nap` là một đồ thị module riêng.
+      name: "kiem-ui-muot:mot-do-thi",
+      resolveId: (id: string) =>
+        id === "kiem:ban-thao-gan-day" ? "\0kiem:ban-thao-gan-day" : null,
+      load: (id: string) =>
+        id === "\0kiem:ban-thao-gan-day"
+          ? 'export { DanhSachBanThaoGanDay } from "/src/components/klaw/DanhSachPhien.tsx";\n' +
+            'export { luiBanThao, moBanThaoKhuon, suaODien, traCuuLuong } from "/src/lib/api.ts";'
+          : null,
+    },
   ],
 };
 async function nap<T>(duong: string): Promise<T> {
@@ -2758,6 +2770,65 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
     "sân khấu cập nhật qua `apNeuCungBan`",
   );
   assert.match(NGUON, /key=\{banThaoDangTaiXong\.id\}/, "bản thảo khác = sân khấu mới");
+}
+
+// ───── 13. "Bản thảo" của vỏ trang theo kịp phiên bản (lưu, lùi, lượt chat) ──
+// Owner thấy "Phiên bản 1" đứng lì sau khi lưu trên trang đã lên v2/v3.
+{
+  type DoThi = typeof import("../src/components/klaw/DanhSachPhien.tsx") &
+    typeof import("../src/lib/api.ts");
+  const { DanhSachBanThaoGanDay, luiBanThao, moBanThaoKhuon, suaODien, traCuuLuong } = (
+    await runnerImport<DoThi>("kiem:ban-thao-gan-day", cauHinhVite)
+  ).module;
+  const tomTat = (id: string, phien_ban: number) => ({
+    id,
+    loai: "tong_quat",
+    ten: `Bản ${id}`,
+    phien_ban,
+    cap_nhat_luc: new Date(Date.now() - 3_600_000).toISOString(),
+    hoi_thoai_id: null,
+  });
+  let dsMayChu = [tomTat("bk", 1)];
+  let soGoiDs = 0;
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    const u = String(url).replace(apiGoc(), "");
+    if (u.startsWith("/ban-thao?")) {
+      soGoiDs += 1;
+      return traJson({ tong: dsMayChu.length, items: dsMayChu });
+    }
+    if (init?.method === "PATCH") return traJson({ ...banThaoKhuon, phien_ban: 3 });
+    if (u === "/ban-thao/bk/lui") return traJson({ ...banThaoKhuon, phien_ban: 2 });
+    if (u === "/tai-lieu/v-moi/ban-thao") return traJson({ ...banThaoKhuon, id: "moi" }, 201);
+    if (u === "/tra-cuu/luong")
+      return new Response(
+        `event: ket_qua\ndata: ${JSON.stringify(ketQuaBanThao({ ...banThaoKhuon, phien_ban: 4 }))}\n\n`,
+      );
+    return traJson({ detail: "không có" }, 404);
+  }) as typeof fetch;
+  const { khung: khungDs, root: rootDs } = taoRoot();
+  await act(() => rootDs.render(h(DanhSachBanThaoGanDay, { onMo: () => {} })));
+  await choDen(() => /Phiên bản 1/.test(khungDs.textContent));
+  assert.match(khungDs.textContent, /Phiên bản 1 · 1 giờ trước/);
+  await act(async () => {
+    await suaODien("bk", 1, [{ don_vi: 0, cho_trong: 0, gia_tri: "x" }]);
+  });
+  assert.match(khungDs.textContent, /Phiên bản 3 · vừa xong/, "lưu một chỗ trống trên trang: v3");
+  await act(async () => {
+    await luiBanThao("bk");
+  });
+  assert.match(khungDs.textContent, /Phiên bản 2/, "Lùi: v2");
+  await act(async () => {
+    await traCuuLuong({ query: "điền giúp tôi" });
+  });
+  assert.match(khungDs.textContent, /Phiên bản 4/, "lượt chat ra phiên bản mới: v4");
+  assert.equal(soGoiDs, 1, "vá tại chỗ: không gọi lại `GET /ban-thao` (giỏ nhịp theo IP)");
+  dsMayChu = [tomTat("moi", 1), tomTat("bk", 4)];
+  await act(async () => {
+    await moBanThaoKhuon("v-moi");
+  });
+  await choDen(() => /Bản moi/.test(khungDs.textContent));
+  assert.equal(soGoiDs, 2, "bản vừa tạo (chưa có trong danh sách): tải lại đúng một lần");
+  await act(() => rootDs.unmount());
 }
 
 console.log("kiem-ui-muot: OK");

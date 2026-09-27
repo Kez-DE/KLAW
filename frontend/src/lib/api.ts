@@ -342,6 +342,23 @@ export const suaHoSoPhien = (id: string, khoa: string, gia_tri: string | null) =
  * `goi()` đã dịch cả hai qua `loiTheoStatus`, không cần xử thêm ở đây.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
+/** Nơi nghe mọi bản thảo máy chủ vừa trả về từ một lượt đổi (lưu, lùi, dựng lại,
+ *  mở biểu mẫu, lượt chat) — danh sách "Bản thảo" của vỏ trang theo kịp phiên
+ *  bản mà không tự hỏi lại. Báo ở ĐÂY, nơi mọi lời gọi đi qua, không ở từng
+ *  nơi gọi. Trả hàm gỡ. */
+const ngheBanThao = new Set<(bt: BanThao) => void>();
+export function ngheBanThaoDoi(nghe: (bt: BanThao) => void): () => void {
+  ngheBanThao.add(nghe);
+  return () => ngheBanThao.delete(nghe);
+}
+function baoBanThao(bt: BanThao) {
+  for (const nghe of ngheBanThao) nghe(bt);
+}
+const baoNeuDoi = (kq: ApiResult<BanThao>) => {
+  if (kq.ok) baoBanThao(kq.data);
+  return kq;
+};
+
 export const danhSachBanThao = (limit = 20, offset = 0) =>
   goi<{ tong: number; items: BanThaoTomTat[] }>(
     `/ban-thao?limit=${limit}&offset=${offset}`,
@@ -355,7 +372,9 @@ export const layBanThao = (id: string) =>
  *  KHÔNG có đường quay lại (spec 2026-09-09 §8.3). Giao diện gọi hàm này không
  *  bao giờ được đề nghị một nút "làm lại" sau đó. */
 export const luiBanThao = (id: string) =>
-  goi<BanThao>(`/ban-thao/${encodeURIComponent(id)}/lui`, laBanThao, { method: "POST" });
+  goi<BanThao>(`/ban-thao/${encodeURIComponent(id)}/lui`, laBanThao, { method: "POST" }).then(
+    baoNeuDoi,
+  );
 
 /** Dựng lại một mục từ facts mới — drawer xếp chồng sửa từng mục (Task 25,
  *  spec 2026-09-09 §9.4). Cùng đường tốn LLM với `/soan-thao`, nên cùng hạn
@@ -365,7 +384,7 @@ export const dungLaiBanThao = (id: string, facts: Record<string, unknown>) =>
     method: "POST",
     body: { facts },
     hanGioMs: HAN_GIO_TRA_CUU,
-  });
+  }).then(baoNeuDoi);
 
 export const xoaBanThao = (id: string) =>
   goi<null>(`/ban-thao/${encodeURIComponent(id)}`, laKhongThan, { method: "DELETE" });
@@ -395,7 +414,7 @@ export const suaMucBanThao = (
   goi<BanThao>(`/ban-thao/${encodeURIComponent(id)}/muc`, laBanThao, {
     method: "PATCH",
     body: { muc_key: mucKey, khoi_index: khoiIndex, noi_dung: noiDung, phien_ban: phienBan },
-  });
+  }).then(baoNeuDoi);
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Khuôn gốc — quyết định 2026-09-26, kế hoạch `khuon-goc-dien-tai-cho.md`.
@@ -442,12 +461,12 @@ export const suaODien = (id: string, phienBan: number, giaTri: ODienGui[]) =>
   goi<BanThao>(DUONG_DAN_KHUON.oDien(id), laBanThao, {
     method: "PATCH",
     body: { phien_ban: phienBan, gia_tri: giaTri },
-  });
+  }).then(baoNeuDoi);
 
 /** "Điền biểu mẫu": bản thảo của khuôn gốc này (mới nhất, hoặc phiên bản 1
  *  rỗng) — 0 lượt mô hình, không tính hạn mức. */
 export const moBanThaoKhuon = (viecId: string) =>
-  goi<BanThao>(DUONG_DAN_KHUON.moBanThao(viecId), laBanThao, { method: "POST" });
+  goi<BanThao>(DUONG_DAN_KHUON.moBanThao(viecId), laBanThao, { method: "POST" }).then(baoNeuDoi);
 
 /**
  * Bytes tệp đã điền của MỘT phiên bản, kèm tên máy chủ đặt (`filename*` rồi
@@ -672,7 +691,10 @@ export async function traCuuLuong(
   }
 
   if (loiTrongLuong !== null) return { ok: false, error: loiTrongLuong };
-  if (ketQua !== null) return { ok: true, data: ketQua };
+  if (ketQua !== null) {
+    if (ketQua.ban_thao) baoBanThao(ketQua.ban_thao);
+    return { ok: true, data: ketQua };
+  }
   // Stream đóng mà không có `ket_qua` lẫn `loi`: proxy cắt giữa chừng, hoặc máy
   // chủ chết. Im lặng ở đây sẽ để màn hình chờ quay mãi mãi.
   return {
