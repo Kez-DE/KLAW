@@ -35,6 +35,15 @@ async def test_loi_chua_bat_tra_500_kem_cors(client, route_nem_loi):
     assert "loi-gia-de-kiem-tra-500-toan-cuc" not in r.text
 
 
+async def test_cors_lo_content_disposition_cho_tep_tai_ve(client):
+    """Giao diện chạy khác gốc với API và tải tệp bằng `fetch` (Bearer), nên
+    trình duyệt chỉ cho JS đọc `Content-Disposition` — tên `… - đã điền.docx`
+    của `GET /ban-thao/{id}/tai-xuong` — khi CORS khai lộ nó."""
+    r = await client.get("/api/v1/ban-thao", headers={"Origin": "http://localhost:3000"})
+    lo = {h.strip().lower() for h in r.headers.get("access-control-expose-headers", "").split(",")}
+    assert "content-disposition" in lo
+
+
 async def test_http_exception_khong_bi_nuot(client):
     """`HTTPException` (401 của `nguoi_dung_bat_buoc`) vẫn hành xử y hệt —
     handler mới không được đổi hành vi của route bình thường."""
