@@ -360,3 +360,22 @@ def test_da_dung_hom_nay_KHONG_tinh_loi_HE_THONG_va_CHI_PHI(phien):
             tl.dat_trang_thai(get_engine(), viec, sub, "hong", ly_do_hong=ly_do)
 
     assert tl.da_dung_hom_nay(get_engine(), sub) == 3
+
+
+@pytest.mark.integration
+def test_da_dung_hom_nay_TINH_viec_con_giu_khuon_goc_du_bi_tu_choi(phien):
+    """Miễn trừ FR-038 là cho lần từ chối KHÔNG để lại gì. Một việc còn giữ
+    khuôn gốc (tới 20 MB dữ liệu của bên thứ ba) là một tài liệu đã lưu, nên
+    nó tính — không thì mỗi tài khoản lưu được không giới hạn tệp mỗi ngày, và
+    một lượt `doc-lai` chạm trần chi phí hoàn lại lượt của một tệp đã đếm."""
+    from src.services.db import run_migrations
+
+    run_migrations("036")
+    sub, ht = phien
+    for giu in (True, False):
+        viec = _viec(sub, ht)
+        if giu:
+            tl.luu_khuon_goc(get_engine(), viec, "pdf", b"%PDF-1.4", [[595.0, 842.0]])
+        tl.dat_trang_thai(get_engine(), viec, sub, "hong", ly_do_hong="vuot_tran_chi_phi")
+
+    assert tl.da_dung_hom_nay(get_engine(), sub) == 1

@@ -5,28 +5,33 @@ Cùng khuôn `routes_ban_thao.py`: dữ liệu THEO NGƯỜI ⇒ `nguoi_dung_bat
 (401 kể cả khi Supabase chưa cấu hình). Tài liệu của người khác là 404, không
 tiết lộ tồn tại.
 
-Tệp gốc không rời khỏi bộ nhớ của request. Nó được đọc thành `TaiLieuDaDoc` rồi
-tham chiếu bị buông; không nhánh nào — kể cả nhánh hỏng và nhánh chạy nền — ghi
-nó ra đĩa hay vào DB (FR-022).
+Tệp tải lên được GIỮ cùng cuộc hội thoại làm **khuôn gốc** (quyết định
+2026-09-26, migration 036) để "Bản tải lên" hiện đúng từng trang như tệp, và bị
+xoá cứng cùng hội thoại. Chỉ ghi khi tệp đã đọc được, nằm trong trần 10 trang
+và lượt rút đã chọn (nếu có) không bị ước chi phí từ chối; một tệp bị từ chối
+không để lại byte nào. Tệp đã giữ luôn tính vào hạn mức ngày
+(`tai_lieu.da_dung_hom_nay`). Ảnh không có khuôn gốc.
 """
 
+import base64
 import logging
 import re
 import uuid
+from dataclasses import replace
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from src.agents.nodes.rut_du_kien import rut_du_kien
-from src.services import ban_thao
+from src.services import ban_thao, dung_trang
 from src.services import llm as llm_svc
 from src.services import tai_lieu as tl
 from src.services.bao_ve import nguoi_dung_bat_buoc
 from src.services.db import get_engine
 from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang, KhongDocDuoc, LoaiHong, TaiLieuDaDoc, doc
-from src.services.phan_loai_tai_lieu import phan_loai
+from src.services.phan_loai_tai_lieu import KetQuaPhanLoai, phan_loai
 from src.services.tai_lieu import VuotTran
 
 logger = logging.getLogger(__name__)
@@ -59,11 +64,13 @@ THONG_DIEP_TRAN = {
 # Fix round 2 — hai nguyên nhân hỏng vì HỆ THỐNG (`ChuyenDoiKhongSanSang`),
 # không vì tài liệu: không được nói như bốn nguyên nhân `_THONG_DIEP` ("tệp
 # của bạn có vấn đề"), vì tệp không có vấn đề gì cả. Câu cho `khong_co_cong_cu`
-# gợi ý một việc làm được NGAY (gửi .docx/.pdf) thay vì chỉ bảo "thử lại" —
-# một lỗi cấu hình không tự hết, và không có gì đảm bảo thử lại sẽ khác.
+# gợi ý một việc làm được NGAY (gửi .pdf) thay vì chỉ bảo "thử lại" — một lỗi
+# cấu hình không tự hết. Từ quyết định 2026-09-26 LibreOffice dựng trang cho
+# MỌI tệp Word (.doc lẫn .docx) và `pdftoppm` vẽ ảnh trang, nên câu không còn
+# chỉ nói về .doc.
 _THONG_DIEP_HE_THONG = {
-    "khong_co_cong_cu": "Máy chủ chưa sẵn sàng đọc tệp .doc lúc này. Hãy gửi bản .docx hoặc .pdf, hoặc thử lại sau.",
-    "qua_tai": "Hệ thống đang xử lý nhiều tệp .doc cùng lúc. Hãy thử lại sau ít phút.",
+    "khong_co_cong_cu": "Máy chủ chưa sẵn sàng xử lý tệp này lúc này. Hãy thử lại sau, hoặc gửi bản .pdf nếu đang tải tệp Word lên.",
+    "qua_tai": "Hệ thống đang xử lý nhiều tài liệu cùng lúc. Hãy thử lại sau ít phút.",
 }
 
 
@@ -111,6 +118,14 @@ class TaiLieuOut(BaseModel):
     mo_ta: str | None = None
     """Một câu tài liệu này là gì, do lượt hỏi đầu tiên ghi lại (S2). Trống cho
     tới khi có người thật sự hỏi về tài liệu."""
+    co_khuon_goc: bool = False
+    """Tệp được giữ làm khuôn gốc (quyết định 2026-09-26): `GET …/trang` vẽ được
+    nó đúng như bản tải lên. `False` với ảnh và tài liệu tải lên trước đó —
+    giao diện lùi về bản xem HTML."""
+
+
+class DocLaiIn(BaseModel):
+    loai: str
 
 
 class DonViOut(BaseModel):
@@ -198,14 +213,15 @@ def _uuid_hop_le(id: str) -> str:
 
 
 def _chay(viec_id: str, user_sub: str, hoi_thoai_id: str, loai: str, tai_lieu: TaiLieuDaDoc) -> None:
-    """Rút + neo + lưu. Dùng chung cho đường tại chỗ và đường chạy nền.
+    """Rút + neo + lưu. Dùng chung cho đường tại chỗ, đường chạy nền và rút
+    lại (`doc_lai`).
 
     Nhận tài liệu ĐÃ ĐỌC chứ không nhận bytes: số trang quyết định đường đi nên
     phải đọc trước khi chọn đường, và đọc lại lần thứ hai ở đây là trả giá phân
-    tích hai lần cho mỗi tài liệu. Bytes gốc không đi vào hàm này, nên không có
-    nhánh nào ở đây còn cầm tệp của người dùng (FR-022).
+    tích hai lần cho mỗi tài liệu. Việc rút chỉ cần các đơn vị văn bản, nên
+    bytes tệp không đi vào hàm này — khuôn gốc nằm yên ở `khuon_goc`.
 
-    Một hàm cho cả hai đường, nên trần chi phí và cách ghi trạng thái chỉ tồn
+    Một hàm cho cả ba đường, nên trần chi phí và cách ghi trạng thái chỉ tồn
     tại ở một chỗ (bài học `ban_thao.dung_lai`).
     """
     engine = get_engine()
@@ -302,11 +318,38 @@ async def tai_len(
         loai=loai,
     )
 
+    # `tong_quat` KHÔNG có checklist (`config/checklist_tong_quat.yaml` không tồn
+    # tại), nên `rut_du_kien` đi qua nó là `ValueError` ở `duong_dan_checklist` —
+    # xem nhánh "đính kèm không phân tích" ở `_theo_loai`.
+    nguoi_chon_loai = loai is not None and loai != ban_thao.LOAI_TONG_QUAT
+
     # Đọc ĐÚNG MỘT LẦN. Số trang quyết định đường đi, nên phải đọc trước khi
     # chọn đường; `_chay` nhận lại kết quả đó thay vì phân tích lần thứ hai.
+    ten = (tep.filename or "").lower()
+    khuon = None
     try:
+        if ten.endswith(".pdf"):
+            # Đếm trang TRƯỚC khi đọc: một bản scan 11 trang bị từ chối trước
+            # khi OCR tốn công từng trang của nó.
+            tl.kiem_so_trang(await run_in_threadpool(dung_trang.so_trang_pdf, du_lieu))
         tai_lieu = await run_in_threadpool(doc, tep.filename or "", du_lieu)
+        # Số trang THẬT (quyết định 2026-09-26): LibreOffice dàn trang Word,
+        # PDF tự có trang. Nó thay số trang khai báo/ước theo ký tự ở MỌI chỗ
+        # sau — trần, đường nền, cột `so_trang` của việc đọc.
+        khuon = await run_in_threadpool(dung_trang.khuon_goc, ten, du_lieu, tai_lieu)
+        if khuon:
+            tai_lieu = replace(tai_lieu, so_trang=khuon.so_trang)
         tl.kiem_so_trang(tai_lieu.so_trang)
+        if khuon and nguoi_chon_loai and tl.vuot_tran_uoc(tai_lieu.so_ky_tu):
+            # Lượt rút sắp bị trần chi phí từ chối (`_chay`, FR-036): không giữ
+            # tệp, để bị từ chối vẫn là không để lại byte nào và không trừ hạn
+            # mức (FR-038, `tl.da_dung_hom_nay` chỉ miễn việc không giữ tệp).
+            khuon = None
+        if khuon:
+            # `.doc` quy đổi có thể nở ra; `ck_khuon_goc_so_byte` sẽ từ chối
+            # bằng một lỗi 500, nên nói trần ra trước.
+            tl.kiem_kich_thuoc(len(khuon.noi_dung))
+            await run_in_threadpool(tl.luu_khuon_goc, get_engine(), viec_id, khuon.dinh_dang, khuon.noi_dung, khuon.kho)
     except (KhongDocDuoc, VuotTran, ChuyenDoiKhongSanSang) as e:
         # `ChuyenDoiKhongSanSang` (fix round 2) tiền tố `he_thong_` — cùng
         # khuôn `vuot_tran_*`, để `tai_lieu.da_dung_hom_nay` loại được CẢ HAI
@@ -322,21 +365,23 @@ async def tai_len(
         )
         raise _loi_http(e) from e
     finally:
-        del du_lieu  # FR-022 — buông tệp ngay, kể cả khi đọc hỏng
+        # Tệp đã nằm ở `khuon_goc` (hoặc bị từ chối); request không cần cầm
+        # thêm bản nào của nó.
+        del du_lieu
 
     # Biểu diễn đã đọc được lưu cho MỌI tài liệu đọc được, TRƯỚC khi rẽ nhánh
     # theo loại — quyết định 2026-09-16. Lưu sau khi rẽ thì nhánh không có
     # checklist lại ra về tay không, đúng cái ngõ cụt việc này đang gỡ.
     await run_in_threadpool(tl.luu_don_vi, get_engine(), viec_id, tai_lieu.don_vi)
     # Bytes ảnh đi NGAY cạnh biểu diễn: mô tả ảnh nằm trong `don_vi` chỉ dựng
-    # lại được khi bytes có mặt (quyết định 2026-09-18). Sau dòng này không
-    # nhánh nào còn cầm chúng — `tai_lieu` là tham chiếu duy nhất, và nó chết
-    # khi request kết thúc, đúng tinh thần FR-022 với chính tệp gốc.
+    # lại được khi bytes có mặt (quyết định 2026-09-18). Cùng đời hội thoại
+    # với khuôn gốc ở trên: cả hai cascade theo dòng việc đọc.
     await run_in_threadpool(tl.luu_anh, get_engine(), viec_id, tai_lieu.anh_byte)
     chung = {
         "id": viec_id, "hoi_thoai_id": hoi_thoai_id,
         "so_trang": tai_lieu.so_trang, "co_ocr": tai_lieu.co_ocr,
         "ten_tep": tep.filename or "", "so_don_vi": len(tai_lieu.don_vi),
+        "co_khuon_goc": khuon is not None,
     }
 
     # Người dùng không phải chọn loại văn bản từ một danh sách 29 mục trước khi
@@ -344,15 +389,29 @@ async def tai_len(
     # hệ thống đọc lấy — và khi không nhận ra thì tài liệu vẫn ĐỌC XONG: cái
     # thiếu là bộ trường của một checklist, không phải cả tài liệu. Trạng thái
     # `can_chon_loai` không còn được ghi; nó chỉ còn đọc được ở dòng cũ.
-    # `tong_quat` KHÔNG có checklist (`config/checklist_tong_quat.yaml` không tồn
-    # tại), nên `rut_du_kien` đi qua nó là `ValueError` ở `duong_dan_checklist` —
-    # việc đọc bị ghi `hong`/`loi_he_thong` và người dùng thấy "không phân tích
-    # được" dù tệp đọc hoàn toàn bình thường. Bản thảo tổng quát rút dữ kiện ở
+    # `tong_quat` (`nguoi_chon_loai` ở trên) đi qua `rut_du_kien` thì việc đọc bị
+    # ghi `hong`/`loi_he_thong` và người dùng thấy "không phân tích được" dù tệp
+    # đọc hoàn toàn bình thường. Bản thảo tổng quát rút dữ kiện ở
     # `hieu_tai_lieu` chứ không ở đây, nên nó đi CHÍNH đường "đính kèm không phân
     # tích" bên dưới: đọc xong, không `du_kien`, không gọi mô hình lần hai.
-    nguoi_chon_loai = loai is not None and loai != ban_thao.LOAI_TONG_QUAT
     doan = None if loai else phan_loai(tai_lieu.don_vi)
     loai = loai or (doan.loai if doan else None)
+    return await _theo_loai(nen, viec_id, nguoi, hoi_thoai_id, loai, nguoi_chon_loai, doan, tai_lieu, chung)
+
+
+async def _theo_loai(
+    nen: BackgroundTasks,
+    viec_id: str,
+    nguoi: dict,
+    hoi_thoai_id: str,
+    loai: str | None,
+    nguoi_chon_loai: bool,
+    doan: KetQuaPhanLoai | None,
+    tai_lieu: TaiLieuDaDoc,
+    chung: dict,
+) -> TaiLieuOut:
+    """Nhánh theo loại văn bản sau khi tài liệu đã đọc và đã lưu — chung cho
+    tải lên và rút lại (`doc_lai`), để hai đường không lệch nhau."""
     if loai is not None:
         await run_in_threadpool(tl.dat_loai, get_engine(), viec_id, nguoi["sub"], loai)
 
@@ -414,6 +473,7 @@ async def chi_tiet(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> 
     return TaiLieuOut(
         id=str(viec["id"]),
         hoi_thoai_id=str(viec["hoi_thoai_id"]),
+        co_khuon_goc=bool(viec.get("co_khuon_goc")),
         trang_thai=viec["trang_thai"],
         so_trang=viec.get("so_trang"),
         chay_nen=tl.chay_nen(viec.get("so_trang")),
@@ -495,6 +555,104 @@ async def anh(viec_id: str, ten: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)
             "Cache-Control": "private, max-age=3600",
         },
     )
+
+
+@router.get("/tai-lieu/{viec_id}/trang")
+async def trang(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> JSONResponse:
+    """Khuôn gốc đúng như bản tải lên: `{"kho": [[rộng_pt, cao_pt], …],
+    "trang": ["<base64 png>", …]}` — MỌI trang trong MỘT request, vì giới hạn
+    theo IP là 10 request/60 giây (quyết định 2026-09-26).
+
+    Dựng lại mỗi lần gọi (LibreOffice cho docx, `pdftoppm` cho mọi trang);
+    `kho` đọc từ CHÍNH PDF vừa vẽ, nên `kho[i]` luôn là khổ của `trang[i]`.
+    Cùng bốn hàng rào của `anh`: chủ sở hữu lọc ở tầng dữ liệu (người khác và
+    việc không có khuôn gốc đều 404), không nhận đường dẫn nào, `nosniff`,
+    `private`.
+    """
+    viec_id = _uuid_hop_le(viec_id)
+    k = await run_in_threadpool(tl.khuon_goc_cua, get_engine(), viec_id, nguoi["sub"])
+    if k is None:
+        raise HTTPException(status_code=404, detail=KHONG_THAY)
+    try:
+        kho, png = await run_in_threadpool(dung_trang.dung, k["dinh_dang"], k["noi_dung"], nguoi["sub"])
+    except (KhongDocDuoc, ChuyenDoiKhongSanSang) as e:
+        raise _loi_http(e) from e
+    return JSONResponse(
+        {"kho": kho, "trang": [base64.b64encode(p).decode("ascii") for p in png]},
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=3600"},
+    )
+
+
+@router.post("/tai-lieu/{viec_id}/doc-lai", response_model=TaiLieuOut)
+async def doc_lai(
+    viec_id: str,
+    body: DocLaiIn,
+    nen: BackgroundTasks,
+    nguoi: dict = Depends(nguoi_dung_bat_buoc),
+) -> TaiLieuOut:
+    """Rút lại theo loại văn bản trên CHÍNH việc đọc đã lưu (quyết định
+    2026-09-26) — không tải lên lại, không mở việc mới, không trừ hạn mức, và
+    tối đa `tl.TRAN_THU_LAI` lượt có trả tiền mỗi tài liệu (FR-037).
+
+    Chọn loại sau khi đính kèm từng là tải lên lại cả tệp: một việc đọc mới và
+    một lượt hạn mức mỗi lần người dùng đổi ý. Việc rút chỉ cần các đơn vị văn
+    bản đã lưu (`don_vi`), nên nó chạy trên đó — kể cả với tài liệu không có
+    khuôn gốc (ảnh, tài liệu cũ). Dữ kiện người dùng đã sửa vẫn thắng
+    (`luu_du_kien` bỏ qua khoá đã có).
+    """
+    from src.agents.graph_soan_thao import cac_loai
+    from src.services import bao_ve
+
+    viec_id = _uuid_hop_le(viec_id)
+    viec = await run_in_threadpool(tl.lay_viec, get_engine(), viec_id, nguoi["sub"])
+    if not viec:
+        raise HTTPException(status_code=404, detail=KHONG_THAY)
+    if body.loai != ban_thao.LOAI_TONG_QUAT and body.loai not in cac_loai():
+        raise HTTPException(status_code=422, detail="Loại văn bản này chưa có mẫu để rút dữ kiện.")
+    don_vi = await run_in_threadpool(tl.don_vi_cua, get_engine(), viec_id, nguoi["sub"])
+    chua_xong = HTTPException(status_code=409, detail="Tài liệu này chưa đọc xong nên chưa rút lại được.")
+    if not don_vi:
+        raise chua_xong
+
+    tai_lieu = TaiLieuDaDoc(
+        don_vi=don_vi,
+        so_trang=viec.get("so_trang") or max(d.trang for d in don_vi),
+        so_ky_tu=sum(len(d.noi_dung) for d in don_vi),
+    )
+    nguoi_chon_loai = body.loai != ban_thao.LOAI_TONG_QUAT
+    if nguoi_chon_loai:
+        # Mọi cổng của lượt trả tiền đứng TRƯỚC khi nhận việc: bị từ chối thì
+        # dòng giữ nguyên (một tài liệu `xong` không rơi sang `hong` và ra khỏi
+        # ngữ cảnh chat) và không tốn lượt FR-037. Ước chi phí đã biết từ đây;
+        # trần chi phí ngày là cổng cuối trước ví tiền như mọi endpoint trả tiền.
+        if tl.vuot_tran_uoc(tai_lieu.so_ky_tu):
+            raise HTTPException(status_code=422, detail=THONG_DIEP_TRAN["chi_phi"])
+        await run_in_threadpool(bao_ve.kiem_tran_chi_phi)
+    # Nhận việc (`dang_doc`) TRƯỚC khi rút, ở cả đường tại chỗ lẫn đường nền:
+    # chỉ kiểm `viec["trang_thai"]` thì dòng vẫn ghi `xong` suốt lượt rút, và lần
+    # bấm thứ hai lọt qua chặn này để trả tiền mô hình thêm một lượt.
+    try:
+        nhan = await run_in_threadpool(tl.nhan_rut_lai, get_engine(), viec_id, nguoi["sub"], tra_phi=nguoi_chon_loai)
+    except VuotTran as e:
+        # FR-038 — nói đúng nguyên nhân. 429: đã hết lượt, không phải tệp hỏng.
+        raise HTTPException(
+            status_code=429,
+            detail=f"Tài liệu này đã được rút lại đủ {e.gioi_han} lần. Hãy tải lên lại nếu cần rút tiếp.",
+        ) from e
+    if not nhan:
+        raise chua_xong
+
+    hoi_thoai_id = str(viec["hoi_thoai_id"])
+    chung = {
+        "id": viec_id,
+        "hoi_thoai_id": hoi_thoai_id,
+        "so_trang": tai_lieu.so_trang,
+        "co_ocr": tai_lieu.co_ocr,
+        "ten_tep": viec.get("ten_tep") or "",
+        "so_don_vi": len(don_vi),
+        "co_khuon_goc": bool(viec.get("co_khuon_goc")),
+    }
+    return await _theo_loai(nen, viec_id, nguoi, hoi_thoai_id, body.loai, nguoi_chon_loai, None, tai_lieu, chung)
 
 
 @router.post("/tai-lieu/{viec_id}/huy", status_code=204)

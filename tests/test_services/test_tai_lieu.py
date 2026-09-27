@@ -3,7 +3,7 @@ FR-015, §FR-019/020, §FR-029/030).
 
 Phần thuần (không DB) khoá bốn điều:
 
-1. Trần 100 trang / 20 MB là hai con số nêu tên được, và thông báo từ chối nói
+1. Trần 10 trang / 20 MB là hai con số nêu tên được, và thông báo từ chối nói
    ĐÚNG trần nào bị vượt (FR-005).
 2. Ngưỡng chuyển nền là một hằng số, không phải số rải trong code (FR-029/030).
 3. Sửa một dữ kiện rút từ tài liệu GIỮ trích gốc và ĐỔI nguồn — giá trị đã sửa
@@ -30,7 +30,8 @@ from src.services.tai_lieu import (
 
 
 def test_hai_tran_la_hai_hang_so_dung_con_so_da_chot():
-    assert TRAN_TRANG == 100
+    # Quyết định 2026-09-26: 10 trang, đếm bằng dàn trang thật.
+    assert TRAN_TRANG == 10
     assert TRAN_BYTE == 20 * 1024 * 1024
 
 

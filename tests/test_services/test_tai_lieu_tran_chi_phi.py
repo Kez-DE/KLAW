@@ -33,13 +33,18 @@ def test_moi_tran_la_DU_LIEU_khong_phai_so_trong_code():
     assert TAI_LIEU_NGAY == {g: v["tai_lieu_ngay"] for g, v in d["theo_goi"].items()}
 
 
-def test_KHONG_con_tran_so_lan_thu_lai():
-    """Không giữ tệp gốc thì không thử lại được: thử lại = tải lên lại, và
-    `tai_lieu_ngay` đã đếm việc đó. Một hằng số không có nơi cưỡng chế là một
-    lời hứa, không phải một quy tắc."""
-    import src.services.tai_lieu as m
+def test_tran_so_lan_rut_lai_FR037_la_DU_LIEU():
+    """FR-037 có lại nơi cưỡng chế. Trần cũ bị bỏ chỉ vì "không giữ tệp thì thử
+    lại là tải lên lại, `tai_lieu_ngay` đã đếm"; từ quyết định 2026-09-26 tệp ở
+    lại và `doc-lai` đứng ngoài hạn mức ngày, nên trần này là thứ chặn số lượt
+    gọi mô hình trả tiền trên một tệp (`nhan_rut_lai`)."""
+    import yaml
 
-    assert not hasattr(m, "TRAN_THU_LAI") and not hasattr(m, "con_thu_lai")
+    import src.services.tai_lieu as m
+    from src.services.bao_ve import HAN_MUC_PATH
+
+    d = yaml.safe_load(HAN_MUC_PATH.read_text(encoding="utf-8"))["tai_lieu"]
+    assert m.TRAN_THU_LAI == d["so_lan_thu"] > 0
 
 
 def test_han_muc_pro_cao_hon_free():

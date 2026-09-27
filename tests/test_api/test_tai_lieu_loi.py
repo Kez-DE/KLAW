@@ -44,7 +44,7 @@ def test_vuot_tran_byte_neu_MB_chu_khong_phai_so_byte_tho():
 
 def test_vuot_tran_trang_neu_SO_TRANG():
     e = _loi_http(VuotTran("so_trang", TRAN_TRANG, TRAN_TRANG + 1))
-    assert e.status_code == 422 and "100 trang" in e.detail
+    assert e.status_code == 422 and "10 trang" in e.detail and "100" not in e.detail
 
 
 def test_vuot_tran_CHI_PHI_co_cau_rieng_khong_noi_ve_tien():

@@ -55,12 +55,18 @@ chu_ky_pro_ngay: 30
 # `chi_phi_usd` cho MỘT lần đọc một tài liệu. Ước theo số ký tự trước khi gọi mô
 # hình, và đối chiếu lại bằng chi phí thật sau khi gọi.
 #
-# KHÔNG có trần "số lần thử lại": hệ thống không giữ tệp gốc (FR-022), nên thử
-# lại chính là tải lên lại, và `tai_lieu_ngay` đã đếm việc đó.
+# `so_lan_thu` là trần số lần RÚT LẠI có trả tiền trên một tài liệu (FR-037).
+# Trần này từng bị bỏ vì không giữ tệp thì thử lại là tải lên lại, đã bị
+# `tai_lieu_ngay` đếm. Từ quyết định 2026-09-26 tệp ở lại làm khuôn gốc và rút
+# lại theo loại (`POST /tai-lieu/{id}/doc-lai`) KHÔNG trừ `tai_lieu_ngay`, nên
+# trần này là thứ duy nhất chặn số lượt gọi mô hình trên một tệp. Rút "tổng
+# quát" không gọi mô hình nên không tốn lượt.
 tai_lieu:
   # 0.10 = 50.000 ký tự theo `usd_moi_nghin_ky_tu`: đủ cho trọn một tài liệu
   # 10 trang, trần số trang của quyết định 2026-09-26 (không cắt ngầm).
   chi_phi_usd: 0.10
+  # 3 = giá trị trần này mang trước khi bị bỏ (commit 51d5e4d).
+  so_lan_thu: 3
   # Số tài liệu đọc được mỗi ngày, theo gói (FR-004). Đọc một tài liệu tốn hơn
   # một câu hỏi, nên số nhỏ hơn hạn mức hỏi đáp.
   theo_goi:

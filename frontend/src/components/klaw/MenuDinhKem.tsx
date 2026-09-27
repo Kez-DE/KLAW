@@ -90,13 +90,14 @@ export function MenuDinhKem({
               </span>
             </span>
           </button>
-          {/* Câu này đổi cùng lúc với cơ chế: từ 2026-09-16 KLAW giữ NGUYÊN VĂN
-              đã đọc trong hội thoại (để lượt sau còn hỏi tiếp về tài liệu), chứ
-              không chỉ giữ mấy dữ kiện rút ra. Nói đúng thứ hệ thống giữ và
-              đúng lúc nó biến mất là điều kiện để người dùng quyết định được
-              có gửi tệp hay không. */}
+          {/* Câu này đổi cùng lúc với cơ chế: từ 2026-09-26 KLAW giữ CHÍNH TỆP
+              PDF/DOCX/DOC (khuôn gốc) trong hội thoại để hiện đúng như bản tải
+              lên, cạnh nguyên văn đã đọc (từ 2026-09-16). Nói đúng thứ hệ thống
+              giữ và đúng lúc nó biến mất là điều kiện để người dùng quyết định
+              được có gửi tệp hay không. */}
           <p className="px-3 py-1.5 text-[11px] text-muted-foreground">
-            Tệp gốc không được lưu. Nội dung đã đọc ở lại trong cuộc trò chuyện này và xoá cùng nó.
+            Tệp PDF, DOCX, DOC và nội dung đã đọc được giữ trong cuộc trò chuyện này để hiện đúng
+            như bản tải lên, và xoá cùng nó.
           </p>
         </div>
       )}
