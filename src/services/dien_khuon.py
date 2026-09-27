@@ -253,7 +253,9 @@ class _Khuon:
                 return LyDoBoQua.khong_an_toan
             if vat not in self.mau:  # chụp TRƯỚC mọi phép: mẫu luôn lấy từ cây nguyên
                 self.mau[vat] = _mau(vat)
-            return _Phep(i, loai, chi_so, vat, phan, dong=tuple(phep.get("noi_dung", "").split("\n")))
+            # `xoa` không đọc `noi_dung`: `_kiem_hinh` không kiểm nó ở đó.
+            dong = () if loai == "xoa" else tuple(phep["noi_dung"].split("\n"))
+            return _Phep(i, loai, chi_so, vat, phan, dong=dong)
 
         cho, hang_tab = self._cho_trong(chi_so)
         c = cho.get(phep["cho_trong"])
@@ -409,15 +411,19 @@ def _sach(e: Any) -> Any:
 
 
 def _mau(vat: Any) -> tuple[Any, Any]:
-    """`(w:pPr, w:rPr)` MẪU của một vật chứa: `w:pPr` của đoạn đầu, `w:rPr` của
-    run ĐẦU MANG CHỮ trong đoạn ấy (lùi về run đầu) — một run chỉ chứa `w:tab`
-    hay dấu trường không nói chữ của đoạn trông thế nào."""
+    """`(w:pPr, w:rPr)` MẪU của một vật chứa: `w:rPr` của run ĐẦU MANG CHỮ ở BẤT
+    KỲ đoạn nào (lùi về run đầu) và `w:pPr` của đoạn chứa run ấy — một run chỉ
+    chứa `w:tab` hay dấu trường không nói chữ trông thế nào, và ô "Ghi chú" của
+    BM.M05 mở bằng một đoạn rỗng. Không có run: định dạng dấu đoạn của đoạn đầu,
+    thứ Word dùng khi gõ vào đoạn rỗng."""
     p0 = vat if vat.tag == _P else next(vat.iter(_P), None)
     if p0 is None:
         return None, None
-    run = list(p0.iter(_R))
+    run = list(vat.iter(_R))
     r0 = next((r for r in run if any(t.text for t in r.iter(_T))), run[0] if run else None)
-    return _sach(p0.find(_PPR)), _sach(r0.find(_RPR) if r0 is not None else None)
+    if r0 is None:
+        return _sach(p0.find(_PPR)), _sach(p0.find(f"{_PPR}/{_RPR}"))
+    return _sach(next(r0.iterancestors(_P), p0).find(_PPR)), _sach(r0.find(_RPR))
 
 
 def _run_moi(chu: str, rpr: Any) -> Any:
