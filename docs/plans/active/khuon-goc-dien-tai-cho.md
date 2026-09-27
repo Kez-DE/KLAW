@@ -202,15 +202,18 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
 - Every `thay` (with or without `doan`, on any unit) and every `chen_sau`: every
   run of consecutive words it ADDS — relative to that paragraph's (or unit's)
   original text for `thay`, to nothing for `chen_sau` — case- and
-  diacritic-insensitive token comparison — must pass `_co_trong_nguon` over the
-  same source set as `dien`, whole run at a time, else `khong_nguon` (replaces
-  the `co_cho_trong` refusal). Numbers and `Nhãn: giá trị` values already in the
-  replaced text are not new. `doan` belongs to `thay` only: a `xoa` or
+  diacritic-insensitive word-SEQUENCE comparison (`difflib.SequenceMatcher`: a
+  word of the replaced text repeated or moved elsewhere is added) — must pass
+  `_co_trong_nguon` over the same source set as `dien`, whole run at a time, else
+  `khong_nguon` (replaces the `co_cho_trong` refusal). Numbers and `Nhãn: giá
+  trị` values the replaced text keeps in place are not new. `doan` belongs to `thay` only: a `xoa` or
   `chen_sau` carrying one is `sai_hinh_dang`.
 - `khuon.yeu_cau` (strict, required): `tao_lai` (recreate THIS document as it is:
   every proposed op is discarded before validation; a create turn saves version
-  1 with `phep_sua: []`, byte-identical download; an edit turn is the no-change
-  case and returns the existing draft), `dien_sua` (fill or edit it; missing or
+  1 with `phep_sua: []`, byte-identical download; on an existing draft that is
+  already the upload it is the no-change case and returns that draft, on a filled
+  one it saves a new version with `phep_sua: []`, not counted toward `TRAN_SUA`),
+  `dien_sua` (fill or edit it; missing or
   unknown values read as this), `van_ban_khac` (a different document: nothing
   built). `khuon.khong_dat: [str]` (strict, required): values the user gave that
   the model could not place; kept only when a case- and diacritic-insensitive
@@ -371,7 +374,9 @@ open risks, and follows the TDD order: failing test first, then code.
   not promised.
 - **Edit cap.** `TRAN_SUA = 10` caps chat edits (each calls a model); fill saves
   (`PATCH …/o-dien`) call no model and do not count (owner rule, fix/g4-backend
-  B6), so a 30-blank form saved blank by blank never dead-ends; every save is
+  B6), nor does a `tao_lai` reset to the upload (it edits nothing with a model;
+  counting it would lock a capped draft out of the exact upload), so a 30-blank
+  form saved blank by blank never dead-ends; every save is
   still one version under the optimistic lock, and history keeps the last
   `TRAN_SUA` snapshots, so **Lùi** reaches at most that far back. A draft opened by `POST
   /tai-lieu/{viec_id}/ban-thao` costs no first-build quota, so later chat fills on
@@ -590,10 +595,10 @@ open risks, and follows the TDD order: failing test first, then code.
     proposed op before validation (traces count `khuon_tao_lai`,
     `khuon_so_phep_bo_tao_lai`): a create turn saves version 1, `phep_sua: []`,
     byte-identical download, answer "Tôi đã dựng lại văn bản đúng như tệp bạn tải
-    lên (N trang) …"; an edit turn is the existing no-change case (the draft as it
-    is, no version, no quota) — fills the user made stay, nothing the model
-    proposed lands. Missing/unknown (including the old `van_ban_nay`) reads as
-    `dien_sua`, safe because of B2.
+    lên (N trang) …"; on an existing draft see the review entry below (reset to
+    the upload). Missing/unknown (including the old `van_ban_nay`) reads as
+    `dien_sua`: B2 keeps every ADDED word to the user's text; deletions are not
+    covered (see the review entry).
   - B2: a `dien` value and every word a `thay`/`chen_sau` adds must come from the
     user (`_nguon_nguoi`: `cau_hoi_goc`/`query`/`cau_hoi_day_du`, hồ sơ minus
     `suy_dien`, memory asked for this turn). The document's text, `quan_sat`
@@ -629,6 +634,33 @@ open risks, and follows the TDD order: failing test first, then code.
   - B8: the backend's unlabeled-blank name is "Chỗ trống" (`ban_thao.ten_cho_trong`),
     with " (n)" in reading order only when two unlabeled blanks would read the same;
     "Ô x.y" is gone from saved documents, history diffs and save refusals.
+- 2026-09-27 (fix/g4-backend review): two holes in B1/B2, measured with a fake
+  LLM on the real BM.M05 unit 9 ("… Trường Đại học Phenikaa, thuộc Khoa ……").
+  - B2 compared the words a `thay` adds as a SET, so repeating or moving printed
+    words of the same paragraph read as "not added":
+    `thay(9, doan 0, "<same prefix> thuộc Khoa Trường Đại học Phenikaa")` on
+    "soạn thảo văn bản này cho tôi" was kept with `yeu_cau` missing or
+    `dien_sua` (also `doan` null, "thuộc Khoa Phenikaa", and the move variant).
+    Now `_them_khong_nguon` diffs word sequences (`difflib.SequenceMatcher`,
+    `autojunk=False`); every inserted or replacing run needs a user source. The
+    placeholder and empty list-cell fills still pass: their run is the user's
+    value.
+  - B1 `tao_lai` on an existing FILLED draft returned it unchanged (`co_san`), so a
+    conversation carrying the pre-fix bad fill stayed wrong when the user asked
+    again. Agent default under the standing delegation (the reviewer's option A),
+    open for the owner to reverse: `tao_lai` on a filled draft saves one new
+    version with `phep_sua: []` (`ban_thao.sua(tang=0)`: not counted toward
+    `TRAN_SUA`, not blocked by it); the answer is "Tôi đã dựng lại văn bản đúng
+    như tệp bạn tải lên …" plus "Giá trị đã điền trước đó vẫn ở phiên bản trước:
+    bấm Lùi để lấy lại." A draft that already is the upload keeps the no-change
+    answer. The reverse (option B) keeps `co_san` and says how many values the
+    draft still holds. Cost: "xuất file này" on a filled draft, classified
+    `tao_lai`, now yields the empty version first; one Lùi restores it.
+  - Not closed: a `thay` or `xoa` that only DELETES printed text (e.g. the
+    "thuộc Khoa ……" clause) adds no value, so B2 does not see it; with `yeu_cau`
+    misclassified as `dien_sua` on a drafting request it still lands. Only the
+    classifier guards that case; widening B2 to deletions needs an owner
+    decision, because "bỏ dòng …" is a legitimate edit.
 
 ## Validation
 
