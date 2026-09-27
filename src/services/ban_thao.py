@@ -123,9 +123,12 @@ _SQL_MOI_NHAT = text(
 # (xem chú thích `_COT_DS`), trên một đường còn NÓNG hơn. `dung_ban_thao_tong_quat`
 # (chỉ chạy ở lượt soạn thật) vẫn dùng `_SQL_MOI_NHAT`/`moi_nhat_cua_hoi_thoai`
 # đầy đủ — nó cần `id`/`so_lan_sua`/`clauses` mà bản nhẹ này không có.
+# `:moi_loai` (không lọc) cho `_chuan_bi_phien`; `graph_tra_cuu._nap_ban_thao_dang_mo`
+# lọc theo `viec_id` của lượt, cùng mệnh đề với `_SQL_MOI_NHAT`.
 _SQL_MOI_NHAT_NHE = text(
     "SELECT document, audit, viec_id::text AS viec_id, phep_sua FROM ban_thao WHERE user_sub = CAST(:sub AS uuid)"
     " AND hoi_thoai_id = CAST(:pid AS uuid) AND loai = :loai AND xoa_luc IS NULL"
+    " AND (:moi_loai OR viec_id IS NOT DISTINCT FROM CAST(:viec_id AS uuid))"
     " ORDER BY cap_nhat_luc DESC LIMIT 1"
 )
 # `khuon` của một bản thảo: KHÔNG kéo `noi_dung` (bytea, tới 20 MB) — chỉ khổ và
@@ -266,6 +269,10 @@ def kiem_tran_sua(cu: dict) -> None:
         raise ValueError(LOI_HET_LAN_SUA)
 
 
+# Giá trị mặc định của `ban_thao_tong_quat_dang_mo_nhe(viec_id=…)`: KHÔNG lọc — khác `None` (bản HTML).
+_MOI_LOAI = object()
+
+
 def moi_nhat_cua_hoi_thoai(sub: str, hoi_thoai_id: str, loai: str, *, viec_id: str | None) -> dict | None:
     """Bản thảo `loai` MỚI NHẤT của chính hội thoại này mà phiên bản đang sống
     nằm trên khuôn gốc `viec_id` (`None`: bản thảo HTML), hoặc `None`.
@@ -285,9 +292,12 @@ def moi_nhat_cua_hoi_thoai(sub: str, hoi_thoai_id: str, loai: str, *, viec_id: s
         return _voi_khuon(c, sub, dict(r)) if r is not None else None
 
 
-def ban_thao_tong_quat_dang_mo_nhe(sub: str, hoi_thoai_id: str) -> dict | None:
-    """Bản thảo tổng quát MỚI NHẤT của hội thoại, bản NHẸ và KHÔNG lọc theo
-    `viec_id` (khác `moi_nhat_cua_hoi_thoai`) — CHỈ `document`/`audit`, đúng hai cột `routes._chuan_bi_phien` (chạy
+def ban_thao_tong_quat_dang_mo_nhe(
+    sub: str, hoi_thoai_id: str, *, viec_id: str | None | object = _MOI_LOAI
+) -> dict | None:
+    """Bản thảo tổng quát MỚI NHẤT của hội thoại, bản NHẸ; KHÔNG lọc theo
+    `viec_id` trừ khi được truyền (`None`: bản HTML, cùng luật `moi_nhat_cua_hoi_thoai`
+    — `graph_tra_cuu._nap_ban_thao_dang_mo`) — CHỈ `document`/`audit`, đúng hai cột `routes._chuan_bi_phien` (chạy
     MỖI lượt hỏi có danh tính) và `hieu_tai_lieu._khoi_ban_thao_dang_co` thật
     sự đọc. Không kéo `clauses`/`facts`/`phien_ban_truoc` — nặng, và không ai
     ở hai nơi đó cần tới.
@@ -296,9 +306,20 @@ def ban_thao_tong_quat_dang_mo_nhe(sub: str, hoi_thoai_id: str) -> dict | None:
     gốc cần biết phiên bản đang có đã điền gì. KHÔNG tính `khuon` ở đây (một lần
     đọc `don_vi` trên MỌI lượt hỏi); `moi_nhat_cua_hoi_thoai` có nó."""
     with get_engine().connect() as c:
-        r = c.execute(
-            _SQL_MOI_NHAT_NHE, {"sub": sub, "pid": hoi_thoai_id, "loai": LOAI_TONG_QUAT}
-        ).mappings().one_or_none()
+        r = (
+            c.execute(
+                _SQL_MOI_NHAT_NHE,
+                {
+                    "sub": sub,
+                    "pid": hoi_thoai_id,
+                    "loai": LOAI_TONG_QUAT,
+                    "moi_loai": viec_id is _MOI_LOAI,
+                    "viec_id": None if viec_id is _MOI_LOAI else viec_id,
+                },
+            )
+            .mappings()
+            .one_or_none()
+        )
     return dict(r) if r is not None else None
 
 

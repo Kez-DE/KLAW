@@ -613,3 +613,56 @@ async def test_cau_hoi_that_giua_luc_dang_soan_duoc_tra_loi_binh_thuong_va_giu_n
     assert d3["result_type"] == "ban_thao"
     assert d3["ban_thao"]["id"] == bt_id
     assert d3["ban_thao"]["phien_ban"] == 2
+
+
+@pytest.mark.asyncio
+async def test_chi_co_ban_thao_khuon_thi_luot_soan_tren_tai_lieu_thuong_dung_ban_moi(
+    client,
+    cai_dat,
+    khoa_ky,
+    graph_that_llm_gia,
+    don_dep,
+):
+    """Review wave D — bản thảo DUY NHẤT của hội thoại nằm trên khuôn gốc, còn
+    tài liệu mới nhất (lượt nối tiếp đọc nó) không có khuôn gốc: lượt soạn đi
+    đường HTML, nên nền "# Bản thảo đang có" phải là bản HTML của hội thoại
+    (không có), không phải bản khuôn. Thấy bản khuôn làm nền, mô hình gán
+    `sua_ban_thao` rồi nhận `KHONG_CO_BAN_THAO` — một lời sai: bản thảo có, chỉ
+    không cùng loại. Double chọn nhãn bằng CHÍNH dấu nền trong prompt."""
+    from src.agents.nodes.dung_ban_thao_tong_quat import dung_ban_thao_tong_quat
+    from src.services import tai_lieu as tl
+    from tests.test_agents.test_hieu_tai_lieu_khuon import _khuon, _p, _viec
+
+    cai_dat(supabase_url=SUPABASE)
+    sub = str(uuid.uuid4())
+    don_dep.append(sub)
+    bao_ve.ghi_nhan_nguoi_dung(sub, None)
+    with get_engine().begin() as c:
+        pid = str(
+            c.execute(
+                text("INSERT INTO hoi_thoai (user_sub, tieu_de) VALUES (CAST(:u AS uuid), 'thử') RETURNING id"),
+                {"u": sub},
+            ).scalar_one()
+        )
+    vid = _viec(sub, pid)
+    tl.luu_khuon_goc(get_engine(), vid, "docx", b"PK\x03\x04", [[595.0, 842.0]])
+    k = dung_ban_thao_tong_quat(
+        {
+            "user_sub": sub,
+            "hoi_thoai_id": pid,
+            "muc_dich_tai_lieu": "tao_van_ban",
+            "khuon_tong_quat": {**_khuon([_p(1, 0, "Công ty Mẫu Thử")]), "viec_id": vid},
+        }
+    )["ban_thao_ket"]
+    _viec(sub, pid)  # tài liệu thường, MỚI hơn: lượt nối tiếp đọc nó
+
+    r = await client.post(
+        "/api/v1/tra-cuu",
+        json={"query": "soạn hợp đồng lao động từ tài liệu này", "hoi_thoai_id": pid},
+        headers=_bearer(khoa_ky, sub),
+    )
+    assert r.status_code == 200
+    d = r.json()
+    assert d["result_type"] == "ban_thao", d.get("answer")
+    assert d["ban_thao"]["id"] != k["id"] and d["ban_thao"]["phien_ban"] == 1
+    assert ban_thao.chi_tiet(sub, k["id"])["phien_ban"] == 1, "bản khuôn không bị đụng"

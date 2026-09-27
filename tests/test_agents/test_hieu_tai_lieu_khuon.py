@@ -885,6 +885,49 @@ def test_dong_nhe_cho_prompt_luot_sua_thay_gia_tri_dang_dien_sau_khi_gop(phien):
     assert "chỗ trống: 0 «Điện thoại:» = «0912345678» | 1 «Fax:»" in llm.prompt
 
 
+@pytest.mark.integration
+def test_hoi_thoai_xen_ke_nen_prompt_la_ban_thao_cung_loai_nguon_voi_luot(phien):
+    """Nền "# Bản thảo đang có" theo `viec_id` của LƯỢT (khuôn gốc của tài liệu
+    đang đọc, `None` cho lượt HTML) — cùng luật với đích lưu — không theo bản
+    mới nhất của hội thoại mà `_chuan_bi_phien` đọc (review wave D): lượt HTML
+    dựng lại bản HTML từ tóm tắt biểu mẫu, và một hội thoại chỉ có bản khuôn
+    thấy "nền để sửa" rồi nhận `KHONG_CO_BAN_THAO`."""
+    from src.agents import graph_tra_cuu as g
+    from src.services import tai_lieu as tl
+    from src.services.db import get_engine
+
+    sub, ht = phien
+    bao_ve.ghi_nhan_nguoi_dung(sub, None)
+    vid, vid_html = _viec(sub, ht), _viec(sub, ht)
+    tl.luu_khuon_goc(get_engine(), vid, "docx", b"PK\x03\x04", [[595.0, 842.0]])
+    goc = {"user_sub": sub, "hoi_thoai_id": ht}
+
+    def _luot(muc_dich, **st):
+        d.dung_ban_thao_tong_quat({**goc, "muc_dich_tai_lieu": muc_dich, **st})
+
+    def _prompt(viec: str) -> str:
+        # Đúng thứ tự `n_hieu_tai_lieu`: dòng nhẹ của `_chuan_bi_phien`, nạp tài liệu, chọn nền.
+        nhe = ban_thao.ban_thao_tong_quat_dang_mo_nhe(sub, ht)
+        st = {**goc, "query": "sửa giúp tôi", "ban_thao_tong_quat_dang_mo": nhe}
+        tai_lieu = g._nap_tai_lieu(get_engine(), [viec], {viec: "BM.M05.docx"}, sub)
+        llm = _LLM(_ra([], muc_dich="sua_ban_thao"))
+        h.hieu_tai_lieu(g._nap_ban_thao_dang_mo(st, tai_lieu), tai_lieu, llm, "m")
+        return llm.prompt
+
+    _luot("tao_van_ban", khuon_tong_quat={**_khuon([_p(1, 0, "Công ty Mẫu Thử")]), "viec_id": vid})
+    assert "# Bản thảo đang có" not in _prompt(vid_html), "chỉ có bản khuôn: lượt HTML không có nền nào"
+
+    _luot("tao_van_ban", van_ban_tong_quat=_VAN_BAN)
+    p = _prompt(vid)
+    assert "chỗ trống: 0 «Cơ quan/Đơn vị tiếp nhận:» = «Công ty Mẫu Thử»" in p, "bản HTML mới hơn không che giá trị"
+    assert "Việc gia đình." not in p
+
+    _luot("sua_ban_thao", khuon_tong_quat={**_khuon([_p(2, 0, "0912345678")]), "viec_id": vid})
+    p = _prompt(vid_html)
+    assert "# Bản thảo đang có" in p and "Việc gia đình." in p, "bản khuôn mới hơn không thay nền HTML"
+    assert "Công ty Mẫu Thử" not in p and "# BM.M05" not in p
+
+
 # ─────────────────────────────────────── tệp thật của chủ dự án (không commit)
 
 

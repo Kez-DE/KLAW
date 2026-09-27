@@ -134,6 +134,8 @@ class KLawState(TypedDict, total=False):
     # 1, PostgreSQL review), CHỈ mang `document`/`audit`, không phải bản đầy đủ
     # của `moi_nhat_cua_hoi_thoai` — không có `id`/`clauses`/`phien_ban`/…; xem
     # docstring hàm đó cho ba nơi đã kiểm là không cần cột nào khác.
+    # Review wave D: `graph_tra_cuu._nap_ban_thao_dang_mo` đọc LẠI theo `viec_id`
+    # của lượt khi bản mới nhất là loại kia (khuôn gốc ↔ HTML), trước `hieu_tai_lieu`.
     # Nơi đọc: `hieu_tai_lieu` cho mô hình thấy bản thảo ĐANG CÓ khi sửa (R4)
     # thay vì coi mọi lượt sửa là soạn lại từ đầu, và (Phase 14) chọn
     # `sua_ban_thao` thay vì mở bản thứ hai khi mô hình gán nhầm mục đích.

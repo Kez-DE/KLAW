@@ -39,7 +39,7 @@ from src.agents.nodes.generate_claims import generate_claims
 from src.agents.nodes.giai_nghia import giai_nghia
 from src.agents.nodes.gioi_thieu import can_kho, cau_gioi_thieu, chi_hoi_kho, khia_canh
 from src.agents.nodes.gom_du_kien import gom_du_kien
-from src.agents.nodes.hieu_tai_lieu import MUC_DICH_SOAN, hieu_tai_lieu
+from src.agents.nodes.hieu_tai_lieu import MUC_DICH_SOAN, co_khuon, hieu_tai_lieu
 from src.agents.nodes.rewrite_query import rewrite_query
 from src.agents.nodes.route import Intent, route
 from src.agents.nodes.suy_dien import suy_dien
@@ -377,6 +377,28 @@ def _nap_tai_lieu(engine: Engine, ids: list, ten: dict[str, str], sub: str | Non
     return ra
 
 
+def _nap_ban_thao_dang_mo(st: dict, tai_lieu: list[dict]) -> dict:
+    """Nền "# Bản thảo đang có" của lượt theo CÙNG luật với đích lưu
+    (`dung_ban_thao_tong_quat` → `moi_nhat_cua_hoi_thoai(viec_id=…)`): bản trên
+    khuôn gốc của tài liệu lượt này đọc, hoặc bản HTML (`None`) khi lượt không
+    có khuôn gốc. `_chuan_bi_phien` đọc bản mới nhất của hội thoại, bất kể loại
+    — trùng loại thì dùng lại, không đọc thêm; lệch thì một lượt HTML sẽ dựng
+    lại bản HTML từ tóm tắt biểu mẫu, và một lượt khuôn không thấy giá trị ô.
+
+    ponytail: khuôn gốc ĐẦU TIÊN của lượt; mô hình chọn khuôn khác trong lượt
+    nhiều khuôn thì nền lệch — đọc theo `khuon.tai_lieu` khi ca đó có thật.
+    """
+    viec = next((t["viec_id"] for t in tai_lieu if co_khuon(t)), None)
+    if not st.get("user_sub") or (st.get("ban_thao_tong_quat_dang_mo") or {}).get("viec_id") == viec:
+        return st
+    return {
+        **st,
+        "ban_thao_tong_quat_dang_mo": ban_thao.ban_thao_tong_quat_dang_mo_nhe(
+            st["user_sub"], str(st["hoi_thoai_id"]), viec_id=viec
+        ),
+    }
+
+
 def _re_sau_hieu_tai_lieu(st: dict) -> str:
     """Đối chiếu luật đi tiếp vào ĐƯỜNG PHÁP LÝ ĐÃ CÓ (`tien_de` → rewrite →
     retrieve → expand → generate → hai tầng kiểm → assemble), không một đường
@@ -433,6 +455,7 @@ def build_graph_tra_cuu():
             ids = [r["id"] for r in (st.get("tai_lieu_phien") or [])[:1]]
         ten = {str(r["id"]): r.get("ten_tep") or "" for r in (st.get("tai_lieu_phien") or [])}
         tai_lieu = await run_in_threadpool(_nap_tai_lieu, engine, ids, ten, st.get("user_sub"))
+        st = await run_in_threadpool(_nap_ban_thao_dang_mo, st, tai_lieu)
         # Ký ức tài khoản vào TRƯỚC (prompt cần nó), điều vừa khai ghi ra SAU —
         # hai phép DB kẹp lấy node thuần, đúng hình dạng `_ghi_du_kien_tai_lieu`.
         st = await run_in_threadpool(_nap_bo_nho, st)

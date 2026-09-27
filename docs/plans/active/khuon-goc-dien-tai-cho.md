@@ -282,13 +282,6 @@ open risks, and follows the TDD order: failing test first, then code.
   /tai-lieu/{viec_id}/ban-thao` costs no first-build quota, so later chat fills on
   it are edit turns under `TRAN_SUA`, not `EP_SOAN_THAO` (one draft per viec, and
   each viec already spent `tai_lieu_ngay`).
-- **Prompt draft in a mixed conversation.** The edit prompt's "Bản thảo đang có"
-  and the `= «value»` hints come from the conversation's newest `tong_quat` draft
-  (`ban_thao_tong_quat_dang_mo_nhe`, read before the document is known). When a
-  conversation alternates a khuôn draft and an HTML draft, a turn on one kind can
-  see the other kind's `document` and no current values; the save still lands on
-  the right draft (edit target is keyed by `viec_id`). Upgrade path: key the light
-  row by the turn's `viec_id` in `graph_tra_cuu.n_hieu_tai_lieu`.
 - Recovery: each phase is one merge commit on `main`; `git revert -m 1 <merge>`
   undoes it. Migration `036` is additive (new table, nullable columns).
 
@@ -367,7 +360,12 @@ open risks, and follows the TDD order: failing test first, then code.
   so the applier, `cho_trong_khuon` and `assemble` agree on what is filled. The
   create-vs-edit target is the newest draft of the conversation whose live
   version has the turn's `viec_id` (`None` = HTML draft), so alternating kinds
-  never edit, or overwrite, the other kind. `ban_thao_ket` reports the stored
+  never edit, or overwrite, the other kind. The prompt's "Bản thảo đang có" base
+  and `= «value»` hints use the same key: `graph_tra_cuu._nap_ban_thao_dang_mo`
+  re-reads the light row by the turn's `viec_id` (first khuôn document of the
+  turn, else `None`) when the per-turn read is the other kind, so an HTML turn
+  never rebuilds from a form summary and a khuôn-only conversation never shows
+  an HTML turn a base it cannot edit. `ban_thao_ket` reports the stored
   row's `viec_id`/`phep_sua`, not the ket's. Because a zero-op create turn saves
   nothing (P4b review), `POST /tai-lieu/{viec_id}/ban-thao` opens the fill panel
   with an empty version 1.
