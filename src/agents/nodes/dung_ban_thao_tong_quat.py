@@ -46,10 +46,13 @@ TEN_TONG_QUAT = "Bản thảo tổng quát"
 KHONG_SOAN_DUOC = "Lượt này tôi chưa soạn được mục nào. Bạn nói rõ cần văn bản gì và gồm mục nào."
 KHONG_CO_BAN_THAO = "Cuộc trò chuyện này chưa có bản thảo tổng quát nào để sửa. Bạn nói rõ cần soạn văn bản gì."
 # Lượt sửa trên khuôn gốc mà không phép nào còn lại sau phép kiểm: không lên một
-# phiên bản giống hệt (mỗi phiên bản tốn một lần của `TRAN_SUA`), nói vì sao.
+# phiên bản giống hệt (mỗi phiên bản tốn một lần của `TRAN_SUA`). Nhánh này chỉ
+# chạy khi bản thảo trên khuôn này ĐÃ có — kể cả khi người dùng chỉ xin lại chính
+# tệp ("soạn thảo văn bản này" lần hai, hay sau "Điền biểu mẫu") — nên chỉ về bản
+# đang có, không đòi giá trị (owner 2026-09-27 bác đúng loại lời đó).
 KHONG_DOI_KHUON = (
-    "Lượt này không có thay đổi nào áp được lên biểu mẫu — giá trị cần điền phải có trong lời bạn, "
-    "hồ sơ hoặc chính tài liệu. Bạn nói rõ giá trị cần điền, hoặc sửa thẳng ở khung điền bên cạnh."
+    "Bản thảo trên tệp bạn tải lên đã có sẵn và lượt này không đổi gì trên đó: mở bản thảo để xem, "
+    "tải Word hoặc PDF. Muốn điền, hãy nói giá trị cần điền hoặc dùng các ô điền bên cạnh trang."
 )
 # Lượt xin một văn bản KHÁC dựa trên tệp tải lên (`yeu_cau="van_ban_khac"`): văn
 # bản khác là việc của đường checklist (quyết định 2026-09-26 mục 3), nên không

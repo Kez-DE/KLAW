@@ -544,6 +544,26 @@ def test_cau_cua_owner_soan_thao_van_ban_nay_dung_lai_dung_tep_tai_len(bt_gia):
     assert "bản gốc" not in out["answer"] and "tài liệu gốc" not in out["answer"]
 
 
+@pytest.mark.parametrize("phep_cu", [[], DANG_MO["phep_sua"]], ids=["v1_rong_tu_khung_dien", "da_dien"])
+def test_cau_cua_owner_khi_da_co_ban_thao_khong_doi_gia_tri(bt_gia, monkeypatch, phep_cu):
+    """Cùng câu owner khi hội thoại ĐÃ có bản thảo trên khuôn này (bấm "Điền biểu
+    mẫu" tạo phiên bản 1 rỗng, hoặc nói câu đó lần hai): lượt sửa không đổi gì nên
+    không lên phiên bản, không tính hạn mức — nhưng lời đáp nói bản thảo đã có sẵn
+    để mở/tải, KHÔNG đòi giá trị điền (đúng loại lời owner đã bác 2026-09-27)."""
+    g = bt_gia({"id": "bt-1", "viec_id": A_ID, "so_lan_sua": 0, "clauses": [], "phep_sua": phep_cu})
+    monkeypatch.setattr(bao_ve, "kiem_han_muc", lambda *a, **k: pytest.fail("lượt sửa không kiểm hạn mức dựng"))
+    ra, _ = _chay([], cau="soạn thảo văn bản này cho tôi", yeu_cau="van_ban_nay", user_sub="u", hoi_thoai_id="p")
+    ra = d.dung_ban_thao_tong_quat(ra)
+    assert g.tao_ket is None and g.sua_ket is None and ra["ban_thao_ket"] is None
+    assert ra["ban_thao_tong_quat_loi"] == d.KHONG_DOI_KHUON
+    out = assemble(ra, {}, _No(), "m")
+    assert out["answer"].startswith("Bản thảo trên tệp bạn tải lên đã có sẵn")
+    assert "tải Word hoặc PDF" in out["answer"]
+    assert "Muốn điền, hãy nói giá trị cần điền hoặc dùng các ô điền bên cạnh trang." in out["answer"]
+    assert "phải có trong lời bạn" not in out["answer"] and "Bạn nói rõ giá trị" not in out["answer"]
+    assert "bản gốc" not in out["answer"] and "tài liệu gốc" not in out["answer"]
+
+
 @pytest.mark.parametrize("yeu_cau", [None, "khong_ro"], ids=["thieu", "la"])
 def test_yeu_cau_thieu_hoac_la_thi_coi_la_van_ban_nay_va_dung(bt_gia, yeu_cau):
     """Mặc định owner nói: dựng. Chỉ `van_ban_khac` rõ ràng mới không dựng gì."""

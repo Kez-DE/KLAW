@@ -386,7 +386,10 @@ open risks, and follows the TDD order: failing test first, then code.
   pages. `van_ban_khac` creates nothing, edits no existing draft, touches no
   quota and says the request is for a different document, pointing to **Chọn
   loại văn bản**. An edit turn that changes nothing still answers
-  `KHONG_DOI_KHUON`. `POST /tai-lieu/{viec_id}/ban-thao` stays: it opens the
+  `KHONG_DOI_KHUON`, reworded to point at the existing draft (open, download
+  Word or PDF, fill by saying the value or in the panel) instead of demanding
+  values: the owner's sentence repeated, or said after **Điền biểu mẫu**, lands
+  there. `POST /tai-lieu/{viec_id}/ban-thao` stays: it opens the
   fill panel without a chat turn and without quota.
 
 ## Validation
