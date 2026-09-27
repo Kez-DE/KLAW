@@ -248,6 +248,58 @@ def test_thay_giu_so_dieu_co_san_trong_don_vi_goc_va_chuan_hoa_xuong_dong():
     assert [b["ly_do"] for b in k["bo_qua"]] == ["khong_nguon"], "con số bịa trong đoạn chèn cũng bị bỏ"
 
 
+def test_thay_khong_dien_cho_trong_va_gia_tri_sau_nhan_phai_co_nguon():
+    """`thay`/`chen_sau` không phải lối vòng qua phép nguồn của `dien`: chỗ trống chỉ
+    điền bằng `dien` (thay trên đơn vị có chỗ trống bị bỏ), và giá trị sau "Nhãn:"
+    của một đoạn mới qua đúng phép nguồn ấy — dãy chấm đi kèm không rửa được nó."""
+    nho = [{"loai": "ca_nhan", "khoa": "nganh", "gia_tri": "Luật kinh tế"}]
+    tl = [{**TL_KHUON[0], "don_vi": [*DV_M05, _dv(7, "Người liên hệ: Nguyễn Văn Thử")]}]
+    ra, _ = _chay(
+        [
+            _doan("thay", 1, "Cơ quan/Đơn vị tiếp nhận: Công ty Bịa Đặt"),
+            _doan("thay", 4, "Họ và tên: Trần Thị Bịa"),
+            _doan("thay", 3, "Ngành Luật kinh tế"),  # ký ức lượt này không hỏi tới
+            _doan("thay", 7, "Người liên hệ: Trần Thị Bịa"),
+            _doan("chen_sau", 5, "Họ và tên: Trần Thị Bịa ……"),
+            _doan("chen_sau", 5, "Người liên hệ: Nguyễn Văn Thử."),
+            _doan("chen_sau", 5, "Ghi chú: ……"),
+        ],
+        cau="điền giúp tôi, họ và tên Nguyễn Văn Thử",
+        tai_lieu=tl,
+        bo_nho_tai_khoan=nho,
+    )
+    k = ra["khuon_tong_quat"]
+    assert k["phep_sua"] == [
+        {"loai": "chen_sau", "don_vi": 5, "noi_dung": "Người liên hệ: Nguyễn Văn Thử."},
+        {"loai": "chen_sau", "don_vi": 5, "noi_dung": "Ghi chú: ……"},
+    ]
+    assert [(b["don_vi"], b["ly_do"]) for b in k["bo_qua"]] == [
+        (1, "co_cho_trong"),
+        (4, "co_cho_trong"),
+        (3, "co_cho_trong"),
+        (7, "khong_nguon"),
+        (5, "khong_nguon"),
+    ]
+
+
+def test_thay_so_dieu_so_theo_cum_khong_theo_chuoi_con():
+    """"Điều 5" không được lọt chỉ vì đơn vị gốc có "Điều 50" (và "Khoản 1" vì "Khoản 12")."""
+    tl = [{**TL_KHUON[0], "don_vi": [*DV_M05, _dv(7, "Thực hiện theo Điều 50 và Khoản 12 của quy chế.")]}]
+    ra, _ = _chay(
+        [
+            _doan("thay", 7, "Thực hiện theo Điều 5 và Khoản 12 của quy chế."),
+            _doan("thay", 7, "Thực hiện theo Điều 50 và Khoản 1 của quy chế."),
+            _doan("thay", 7, "Thực hiện theo điều  50 và Khoản 12 của quy chế hiện hành."),
+        ],
+        tai_lieu=tl,
+    )
+    k = ra["khuon_tong_quat"]
+    assert k["phep_sua"] == [
+        {"loai": "thay", "don_vi": 7, "noi_dung": "Thực hiện theo điều  50 và Khoản 12 của quy chế hiện hành."}
+    ], "cùng số Điều/Khoản, khác cách viết hoa hay khoảng trắng, vẫn là số đã có"
+    assert [b["ly_do"] for b in k["bo_qua"]] == ["dieu_luat", "dieu_luat"]
+
+
 def test_gia_tri_rong_la_go_cho_dien_va_hinh_dang_sai_bi_bo():
     ra, _ = _chay(
         [
@@ -436,13 +488,40 @@ def test_nhan_tao_van_ban_tren_khuon_da_co_ban_thao_van_la_luot_sua(bt_gia):
     assert g.sua_ket["phep_sua"] == [*DANG_MO["phep_sua"], _p(2, 1, "0243999888")]
 
 
-def test_luot_tao_khong_gia_tri_nao_van_dung_ban_de_dien_tay(bt_gia):
+@pytest.mark.parametrize("phep", [[], [_p(1, 0, "")]], ids=["khong_phep", "chi_go_o"])
+def test_luot_tao_khong_gia_tri_nao_thi_khong_luu_ban_sao_trang(bt_gia, monkeypatch, phep):
+    """Không giá trị nào điền được thì KHÔNG lưu một bản sao trắng của tệp tải lên
+    làm phiên bản 1, và không tốn lượt dựng lần đầu (hàng traces `EP_SOAN_THAO`)."""
     g = bt_gia(None)
+    monkeypatch.setattr(d, "_ghi_traces", lambda *a, **k: pytest.fail("không lưu thì không đếm hạn mức"))
     ra = d.dung_ban_thao_tong_quat(
-        {"user_sub": "u", "hoi_thoai_id": "p", "muc_dich_tai_lieu": "tao_van_ban", "khuon_tong_quat": _khuon([])}
+        {"user_sub": "u", "hoi_thoai_id": "p", "muc_dich_tai_lieu": "tao_van_ban", "khuon_tong_quat": _khuon(phep)}
     )
-    assert g.tao_ket["phep_sua"] == [] and g.tao_ket["document"] == "# BM.M05\n"
-    assert ra["ban_thao_ket"]["phep_sua"] == []
+    assert g.tao_ket is None and ra["ban_thao_ket"] is None
+    assert ra["ban_thao_tong_quat_loi"] == d.KHONG_DIEN_KHUON
+
+
+def test_xin_van_ban_khac_tu_tai_lieu_khuon_goc_chi_duong_checklist(bt_gia):
+    """"Dựa vào hợp đồng này soạn đơn xin nghỉ việc": trên tài liệu có khuôn gốc chỉ
+    có phép sửa (quyết định 2026-09-26 mục 3), mô hình không có gì để điền, nên lượt
+    nói thật và chỉ sang đường checklist — văn bản khác là ngoại lệ có tên của nó."""
+    from src.agents.nodes.route import Intent
+
+    g = bt_gia(None)
+    ra, _ = _chay(
+        [],
+        cau="dựa vào hợp đồng này soạn giúp tôi đơn xin nghỉ việc",
+        muc_dich="hoi",
+        intent=Intent.soan_thao,
+        user_sub="u",
+        hoi_thoai_id="p",
+    )
+    assert ra["muc_dich_tai_lieu"] == "tao_van_ban" and ra["khuon_tong_quat"]["phep_sua"] == []
+    ra = d.dung_ban_thao_tong_quat(ra)
+    assert g.tao_ket is None and ra["ban_thao_ket"] is None
+    out = assemble(ra, {}, _No(), "m")
+    assert out["result_type"] is ResultType.soan_thao_hoi and out["ban_thao"] is None
+    assert "chọn loại văn bản" in out["answer"] and "đã điền" not in out["answer"]
 
 
 # ───────────────────────────────────────────────── không cắt ngầm, trần chi phí
@@ -711,3 +790,24 @@ def test_bm_m05_that_phep_giu_lai_ap_duoc_len_khuon_goc():
     assert moi_dv[dt.chi_so].noi_dung.startswith("Điện thoại: 0912345678")
     assert "Fax: ……" in moi_dv[dt.chi_so].noi_dung, "chỗ không có nguồn giữ nguyên dãy chấm"
     assert moi_dv[nganh.chi_so].noi_dung.startswith("Ngành: Luật kinh tế")
+
+
+@pytest.mark.skipif(not BM_M05.exists(), reason="biểu mẫu thật của chủ dự án không có trên máy này")
+def test_bm_m05_that_thay_khong_dien_duoc_gia_tri_bia_vao_cho_trong():
+    """Đúng phép thử của reviewer trên tệp thật: `dien` bịa bị bỏ, `thay` cùng giá trị
+    trên chính đơn vị ấy cũng bị bỏ — không còn phép nào tới bộ áp."""
+    from src.services.doc_tai_lieu import doc
+
+    don_vi = doc(BM_M05.name, BM_M05.read_bytes()).don_vi
+    cq = next(x for x in don_vi if x.noi_dung.startswith("Cơ quan/Đơn vị tiếp nhận:"))
+    ra, _ = _chay(
+        [
+            _dien(cq.chi_so, 0, "Công ty Bịa Đặt"),
+            _doan("thay", cq.chi_so, "Cơ quan/Đơn vị tiếp nhận: Công ty Bịa Đặt"),
+        ],
+        cau="điền giúp tôi",
+        tai_lieu=[{**TL_KHUON[0], "ten_tep": BM_M05.name, "don_vi": don_vi}],
+    )
+    k = ra["khuon_tong_quat"]
+    assert k["phep_sua"] == []
+    assert [b["ly_do"] for b in k["bo_qua"]] == ["khong_nguon", "co_cho_trong"]
