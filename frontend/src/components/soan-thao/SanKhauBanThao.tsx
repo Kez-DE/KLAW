@@ -394,8 +394,9 @@ export function SanKhauBanThao({
   /** Hàng lưu: MỘT `PATCH …/o-dien` một lúc, lượt sau gửi phiên bản lượt trước
    *  vừa tạo — hai lượt cùng gửi một phiên bản thì lượt sau là 422 "đã đổi". */
   const hangLuu = useRef<Promise<unknown>>(Promise.resolve());
-  /** Lúc lưu được một chỗ gần nhất — trang dựng lại `NGHI_DUNG_TRANG_MS` sau. */
-  const lanLuuCuoi = useRef(0);
+  /** Lần lưu được một chỗ gần nhất: lúc nào, ra phiên bản nào — trang của ĐÚNG
+   *  phiên bản đó dựng lại `NGHI_DUNG_TRANG_MS` sau. */
+  const lanLuuCuoi = useRef({ luc: 0, phienBan: -1 });
   const dangLui = useRef(false);
 
   /** Lưu MỘT chỗ trống (Enter, Tab, rời ô, bấm sang chỗ khác). Không đổi gì thì
@@ -429,7 +430,7 @@ export function SanKhauBanThao({
           toast.error(kq.error.message, { duration: 6000 });
           return kq.error.message;
         }
-        lanLuuCuoi.current = Date.now();
+        lanLuuCuoi.current = { luc: Date.now(), phienBan: kq.data.phien_ban };
         // Lượt kế trong hàng gửi phiên bản này, không đợi nơi gọi vẽ lại. Phản
         // hồi cũ hơn bản đang hiện (một lượt chat vừa sửa xong) không kéo màn
         // hình lùi.
@@ -474,11 +475,13 @@ export function SanKhauBanThao({
   // Trang dựng lại MỘT lần khi người dùng dừng tay: `NGHI_DUNG_TRANG_MS` sau lần
   // lưu cuối, không lúc còn lượt lưu chờ — mỗi lượt dựng giữ suất LibreOffice
   // của cả tài khoản. Trong lúc chờ, chữ vừa lưu đè lên ảnh cũ (`dien.luu`).
-  // Phiên bản đổi vì việc khác (lượt chat, Lùi) thì dựng ngay.
+  // Phiên bản đổi vì việc khác (lượt chat, Lùi) thì dựng ngay, dù vừa lưu xong:
+  // chỉ phiên bản do CHÍNH lần lưu cuối tạo ra mới đợi.
   const [phienBanTrang, datPhienBanTrang] = useState(banThao.phien_ban);
   useEffect(() => {
     if (phienBanTrang === banThao.phien_ban || soLuuDangCho > 0) return;
-    const con = lanLuuCuoi.current + NGHI_DUNG_TRANG_MS - Date.now();
+    const { luc, phienBan } = lanLuuCuoi.current;
+    const con = phienBan === banThao.phien_ban ? luc + NGHI_DUNG_TRANG_MS - Date.now() : 0;
     if (con <= 0) {
       datPhienBanTrang(banThao.phien_ban);
       return;

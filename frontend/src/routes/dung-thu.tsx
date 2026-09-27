@@ -13,7 +13,14 @@ import { TheKetQua } from "@/components/klaw/TheKetQua";
 import { TrangThaiCho } from "@/components/klaw/TrangThaiCho";
 import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
 import { TaiLieuDuKien } from "@/components/klaw/TaiLieuDuKien";
-import { apNeuCungBan, urlTroBanKhac, vanNham, type SanKhau } from "@/lib/san-khau";
+import {
+  apNeuCungBan,
+  thamSoSanKhau,
+  urlCoBanThao,
+  urlTroBanKhac,
+  vanNham,
+  type SanKhau,
+} from "@/lib/san-khau";
 import { loiTruocKhiGui, seDungOcr } from "@/lib/tai-lieu";
 import { taiLen } from "@/lib/tai-lieu-api";
 import { loaiBackendCua } from "@/lib/mau-van-ban";
@@ -385,13 +392,10 @@ function ManHoiKlaw() {
     datSanKhau(null);
     datBanThaoMo(null);
     datMucDangChonSanKhau(null);
-    if (banThaoTrenUrl !== undefined) {
+    if (urlCoBanThao(banThaoTrenUrl, sanKhauRef.current)) {
       void navigate({
         to: "/dung-thu",
-        search: {
-          ...(cauHoiTrenUrl !== undefined ? { q: cauHoiTrenUrl } : {}),
-          ...(phienId !== undefined ? { phien: phienId } : {}),
-        },
+        search: thamSoSanKhau(cauHoiTrenUrl, phienId, null),
         replace: true,
       });
     }
@@ -421,8 +425,9 @@ function ManHoiKlaw() {
    *  vừa về từ chính lời gọi mở ("Điền biểu mẫu") — không tải lại lần hai.
    *
    *  Sân khấu đang mở bản KHÁC thì CHUYỂN sang bản này, không bỏ qua cú bấm:
-   *  `?ban_thao=` của bản cũ rời URL qua đúng cửa đóng (`urlTroBanKhac`), và
-   *  phản hồi của bản cũ về muộn không đè lên bản mới (`vanNham`). */
+   *  bản cũ đóng qua đúng cửa đóng (`urlTroBanKhac`), và phản hồi của bản cũ
+   *  về muộn không đè lên bản mới (`vanNham`). `?ban_thao=` rồi ghi bản NÀY
+   *  (`thamSoSanKhau`, thay mục lịch sử hiện tại): tải lại trang mở lại đúng nó. */
   const moSanKhau = (id: string, coSan?: BanThao) => {
     ghiNoiMoSanKhau();
     datDangMo(null);
@@ -432,6 +437,14 @@ function ManHoiKlaw() {
     datMucDangChonSanKhau(null);
     datTabHep("ban_thao");
     datSanKhau({ loai: "ban_thao", banThaoId: id });
+    if (banThaoTrenUrl !== id) {
+      daMoTuUrl.current = id; // hiệu ứng đọc URL không mở (tải lại) nó lần hai
+      void navigate({
+        to: "/dung-thu",
+        search: thamSoSanKhau(cauHoiTrenUrl, phienId, id),
+        replace: true,
+      });
+    }
     if (coSan !== undefined) {
       datBanThaoMo(coSan);
       return;
@@ -485,7 +498,8 @@ function ManHoiKlaw() {
    *  LẠI trên URL suốt lúc sân khấu mở — tải lại trang hay bấm Back phải mở
    *  lại đúng bản thảo đang xem, không phải một trang trắng. `onDongSanKhau`
    *  gỡ tham số khi đóng. `daMoTuUrl` chặn mở lại đúng bản thảo đó lần thứ hai
-   *  khi hiệu ứng này chạy lại ở một render khác mà tham số chưa đổi. */
+   *  khi hiệu ứng này chạy lại ở một render khác mà tham số chưa đổi, hay khi
+   *  tham số là do chính `moSanKhau` vừa ghi. */
   const daMoTuUrl = useRef<string | null>(null);
   useEffect(() => {
     if (banThaoTrenUrl === undefined) {

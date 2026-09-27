@@ -2438,6 +2438,47 @@ assert.equal(
 );
 tuChoiO = null;
 
+// (h2) Chỉ bản do CHÍNH lượt lưu tạo ra mới đợi người dùng dừng tay: Lùi ngay
+// sau hai lần lưu thì trang của bản lùi về dựng NGAY, không đợi nốt
+// `NGHI_DUNG_TRANG_MS` của lần lưu vừa rồi.
+const btM: BanThao = { ...banThaoKhuon, id: "bm", phien_ban: 1 };
+banMayChu.set("bm", [btM]);
+let btMNgoai = btM;
+const { khung: khungM, root: rootM } = taoRoot();
+const veM = () => rootM.render(h(VoNhap, { ...propsKhuon, banThao: btMNgoai, onLui: luiM }));
+async function luiM() {
+  const ds = banMayChu.get("bm")!;
+  ds.pop();
+  btMNgoai = ds.at(-1)!;
+  veM();
+  return true;
+}
+await act(() => veM());
+await choDen(() => daTaiXong(khungM) && nutO(khungM).length === 2);
+await act(() => phat(nutOKhoa(khungM, "0.0")!, "click"));
+await go(oNhapCua(khungM)!, "A");
+await phim(oNhapCua(khungM)!, "Tab");
+await choDen(() => oNhapCua(khungM)?.getAttribute("aria-label") === "Giá trị cho Email");
+await go(oNhapCua(khungM)!, "B");
+await phim(oNhapCua(khungM)!, "Enter");
+await choDen(
+  () =>
+    oNhapCua(khungM) === null && nutChu(khungM, "Lùi")?.getAttribute("aria-disabled") === "false",
+);
+assert.equal(soGoi(laTrangCua("bm", 3)), 0, "vừa lưu: trang chưa dựng lại");
+await act(async () => {
+  phat(nutChu(khungM, "Lùi")!, "click");
+  await nhip();
+});
+await choDen(() => soGoi(laTrangCua("bm", 2)) === 1);
+assert.equal(
+  soGoi(laTrangCua("bm", 2)),
+  1,
+  "Lùi ngay sau lần lưu: trang của bản lùi về dựng NGAY, không đợi hết lúc dừng tay",
+);
+assert.equal(soGoi(laTrangCua("bm", 3)), 0, "bản đã bỏ không bao giờ được dựng");
+await choDen(() => daTaiXong(khungM));
+
 // (i) Tài liệu đọc DƯỚI NỀN: con chip là lối vào duy nhất, menu nhỏ của nó mở
 // bản tải lên / điền / dữ kiện theo yêu cầu. Ô soạn không bung bảng dữ kiện nào.
 const viec: string[] = [];
@@ -2595,8 +2636,30 @@ assert.match(khungTraLoi.textContent, /Phiên bản 2 · 0 mục/);
 // `dung-thu.tsx` không dựng được trong khung giả này (router, tài khoản, vỏ ứng
 // dụng), nên các quyết định của nó là hàm thuần `lib/san-khau.ts` — kiểm ở đây
 // — và phần nối dây kiểm trên chính nguồn: MỘT cửa đóng, mọi lối vào đi qua nó.
-const { apNeuCungBan, urlTroBanKhac, vanNham } =
+const { apNeuCungBan, thamSoSanKhau, urlCoBanThao, urlTroBanKhac, vanNham } =
   await nap<typeof import("../src/lib/san-khau.ts")>("src/lib/san-khau.ts");
+assert.deepEqual(
+  thamSoSanKhau(undefined, "p", "b"),
+  { phien: "p", ban_thao: "b" },
+  "mở (thẻ trong chat) hay chuyển sang bản b: `?ban_thao=` là b — tải lại mở lại đúng b",
+);
+assert.deepEqual(
+  thamSoSanKhau("x", "p", null),
+  { q: "x", phien: "p" },
+  "đóng: gỡ `?ban_thao=`, giữ `?q=`/`?phien=`",
+);
+assert.equal(
+  urlCoBanThao(undefined, { loai: "ban_thao", banThaoId: "b" }),
+  true,
+  "mở từ thẻ rồi `layBanThao` hỏng về muộn: closure cũ chưa thấy `?ban_thao=` vừa ghi, vẫn gỡ",
+);
+assert.equal(urlCoBanThao("a", null), true);
+assert.equal(
+  urlCoBanThao(undefined, { loai: "ban_tai_len", viecId: "a", tenTep: "x", soTrang: 1 }),
+  false,
+  "'Bản tải lên' không ghi URL: đóng không điều hướng",
+);
+assert.equal(urlCoBanThao(undefined, null), false);
 assert.equal(vanNham({ loai: "ban_thao", banThaoId: "a" }, "a"), true);
 assert.equal(
   vanNham({ loai: "ban_thao", banThaoId: "b" }, "a"),
@@ -2638,6 +2701,16 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
     than("moSanKhau"),
     /if \(!vanNham\(sanKhauRef\.current, id\)\) return;/,
     "mở bản khác: phản hồi của bản cũ về muộn không đè bản mới",
+  );
+  assert.match(
+    than("moSanKhau"),
+    /if \(banThaoTrenUrl !== id\) \{\s*daMoTuUrl\.current = id;[^\n]*\s*void navigate\(\{\s*to: "\/dung-thu",\s*search: thamSoSanKhau\(cauHoiTrenUrl, phienId, id\),\s*replace: true,/,
+    "mọi lối mở ghi `?ban_thao=` của bản đang mở (không thêm mục lịch sử), và hiệu ứng đọc URL không mở nó lần hai",
+  );
+  assert.match(
+    than("onDongSanKhau"),
+    /if \(urlCoBanThao\(banThaoTrenUrl, sanKhauRef\.current\)\) \{\s*void navigate\(\{\s*to: "\/dung-thu",\s*search: thamSoSanKhau\(cauHoiTrenUrl, phienId, null\),/,
+    "cửa đóng gỡ `?ban_thao=` cả khi closure chưa thấy nó (mở từ thẻ, lỗi về muộn)",
   );
   assert.match(
     than("moBanTaiLen"),

@@ -21,6 +21,26 @@ export const vanNham = (sk: SanKhau, id: string) => sk?.loai === "ban_thao" && s
 export const urlTroBanKhac = (banThaoTrenUrl: string | undefined, id: string) =>
   banThaoTrenUrl !== undefined && banThaoTrenUrl !== id;
 
+/** `?…` của `/dung-thu` khi sân khấu mở bản thảo `id` (`null`: đóng). BẤT BIẾN:
+ *  `?ban_thao=` LÀ bản đang mở — mọi lối mở (vỏ trang, thẻ trong chat, chuyển
+ *  sang bản khác) ghi nó, cửa đóng gỡ nó — nên tải lại trang mở lại đúng bản
+ *  đang xem (R6). Giữ `?q=`/`?phien=`. */
+export const thamSoSanKhau = (
+  q: string | undefined,
+  phien: string | undefined,
+  id: string | null,
+): { q?: string; phien?: string; ban_thao?: string } => ({
+  ...(q !== undefined ? { q } : {}),
+  ...(phien !== undefined ? { phien } : {}),
+  ...(id !== null ? { ban_thao: id } : {}),
+});
+
+/** Cửa đóng phải gỡ `?ban_thao=`: URL đang mang nó, HOẶC sân khấu là một bản
+ *  thảo — lối mở đã ghi nó dù closure gọi đóng (một `layBanThao` hỏng về muộn)
+ *  dựng từ lúc URL chưa có. "Bản tải lên" không ghi URL. */
+export const urlCoBanThao = (banThaoTrenUrl: string | undefined, sk: SanKhau) =>
+  banThaoTrenUrl !== undefined || sk?.loai === "ban_thao";
+
 /** Cập nhật bản thảo đang mở CHỈ bằng chính nó (cùng `id`): một lượt lưu hay lùi
  *  về muộn của bản thảo trước không được thay bản người dùng vừa chuyển sang. */
 export const apNeuCungBan = <T extends { id: string }>(cu: T | null, moi: T): T | null =>
