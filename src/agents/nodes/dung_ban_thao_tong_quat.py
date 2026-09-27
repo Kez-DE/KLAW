@@ -45,15 +45,33 @@ TEN_TONG_QUAT = "Bản thảo tổng quát"
 # Không nói "từ tài liệu": từ Phase 14 lượt soạn có thể không có tài liệu nào.
 KHONG_SOAN_DUOC = "Lượt này tôi chưa soạn được mục nào. Bạn nói rõ cần văn bản gì và gồm mục nào."
 KHONG_CO_BAN_THAO = "Cuộc trò chuyện này chưa có bản thảo tổng quát nào để sửa. Bạn nói rõ cần soạn văn bản gì."
-# Lượt sửa trên khuôn gốc mà không phép nào còn lại sau phép kiểm: không lên một
-# phiên bản giống hệt (mỗi phiên bản tốn một lần của `TRAN_SUA`). Nhánh này chỉ
-# chạy khi bản thảo trên khuôn này ĐÃ có — kể cả khi người dùng chỉ xin lại chính
-# tệp ("soạn thảo văn bản này" lần hai, hay sau "Điền biểu mẫu") — nên chỉ về bản
-# đang có, không đòi giá trị (owner 2026-09-27 bác đúng loại lời đó).
+# Lượt sửa trên khuôn gốc đã XIN đổi mà mọi phép bị phép kiểm bỏ: không lên một
+# phiên bản giống hệt (mỗi phiên bản tốn một lần của `TRAN_SUA`), và nói LOẠI lỗi
+# — không bao giờ giá trị. Lượt không xin đổi gì (người dùng chỉ xin lại chính tệp:
+# "soạn thảo văn bản này" lần hai, hay sau "Điền biểu mẫu") không tới đây: nó trả
+# CHÍNH bản đang có (`khuon_tong_quat.co_san`, lời đáp ở `assemble`), không đòi giá
+# trị (owner 2026-09-27 bác đúng loại lời đó).
 KHONG_DOI_KHUON = (
-    "Bản thảo trên tệp bạn tải lên đã có sẵn và lượt này không đổi gì trên đó: mở bản thảo để xem, "
-    "tải Word hoặc PDF. Muốn điền, hãy nói giá trị cần điền hoặc dùng các ô điền bên cạnh trang."
+    "Lượt này tôi chưa áp được thay đổi nào bạn xin ({ly_do}), nên bản thảo trên tệp bạn tải lên giữ nguyên: "
+    "mở bản thảo để xem, {tai}. Muốn điền, hãy nói giá trị cần điền hoặc bấm vào chỗ trống trên trang."
 )
+_LY_DO_BO = {
+    "khong_nguon": "giá trị không có trong lời bạn nói, hồ sơ hay chính tài liệu",
+    "bo_nho": "giá trị lấy từ điều tôi nhớ mà lượt này bạn không nhắc tới",
+    "khong_khop_nhan": "giá trị không hợp với nhãn của chỗ trống",
+    "dieu_luat": "thêm số Điều, Khoản chưa được kiểm pháp lý",
+    "vung_trong": "giá trị chỉ là dãy chấm",
+}
+_LY_DO_KHAC = "chỗ cần sửa không có trên tệp, sai chỗ hoặc sai dạng"
+
+
+def khong_doi_khuon(khuon: dict) -> str:
+    """`KHONG_DOI_KHUON` với các LOẠI lỗi của `bo_qua` (mã → câu, không giá trị)."""
+    ly_do = dict.fromkeys(_LY_DO_BO.get(b.get("ly_do"), _LY_DO_KHAC) for b in khuon.get("bo_qua") or [])
+    tai = "tải PDF" if khuon.get("dinh_dang") == "pdf" else "tải Word hoặc PDF"
+    return KHONG_DOI_KHUON.format(ly_do="; ".join(ly_do), tai=tai)
+
+
 # Lượt xin một văn bản KHÁC dựa trên tệp tải lên (`yeu_cau="van_ban_khac"`): văn
 # bản khác là việc của đường checklist (quyết định 2026-09-26 mục 3), nên không
 # dựng gì và chỉ sang đó. Không đòi giá trị điền: người hỏi không xin điền tệp này.
@@ -318,9 +336,20 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
         # phiên bản 1 (owner 2026-09-27), kể cả phép rỗng: bản thảo là chính tệp
         # tải lên, tải về ngay được, điền tiếp ở lượt sau hay ở khung điền.
         cu_phep = ((cu or {}).get("phep_sua") or []) if la_sua else []
-        ket = ket_ban_thao_khuon(khuon, ban_thao.gop_phep_sua(cu_phep, khuon["phep_sua"]))
+        # `thay` theo đoạn chỉ gỡ ô của chính đoạn đó: `cho_trong` của lượt mang `doan`.
+        doan = {(c["don_vi"], c["so"]): c["doan"] for c in khuon.get("cho_trong") or [] if "doan" in c}
+        ket = ket_ban_thao_khuon(khuon, ban_thao.gop_phep_sua(cu_phep, khuon["phep_sua"], doan))
         if la_sua and ket["phep_sua"] == cu_phep:
-            return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_DOI_KHUON}
+            if khuon.get("bo_qua"):
+                return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": khong_doi_khuon(khuon)}
+            # Không xin đổi gì: CHÍNH bản đang có là bản thảo của lượt — chat hiện
+            # thẻ của nó; không phiên bản mới, không hạn mức, không traces.
+            return {
+                **state,
+                "khuon_tong_quat": {**khuon, "co_san": True},
+                "ban_thao_ket": _ket_state(cu, TEN_TONG_QUAT, []),
+                "ban_thao_tong_quat_loi": None,
+            }
     if ket is None:
         return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_SOAN_DUOC}
 

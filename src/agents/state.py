@@ -172,6 +172,8 @@ class KLawState(TypedDict, total=False):
     # `dung_ban_thao_tong_quat`), `bo_qua` chỉ mang đơn vị/chỗ trống/lý do, không
     # mang giá trị. `yeu_cau` (owner 2026-09-27): `van_ban_nay` dựng/sửa chính tài
     # liệu, kể cả khi phép rỗng; `van_ban_khac` không dựng gì, chỉ sang checklist.
+    # `co_san: True` do `dung_ban_thao_tong_quat` gắn khi lượt không xin đổi gì trên
+    # bản thảo đã có: `ban_thao_ket` là chính bản đó, không phiên bản mới.
     # `None` ở mọi lượt khác. Cùng bẫy LangGraph với `van_ban_tong_quat`.
     khuon_tong_quat: dict | None
     # Lý do KHÔNG dựng được bản thảo tổng quát ở lượt này (hết trần sửa, chưa có
