@@ -11,10 +11,12 @@ hoá giá trị, `dien_khuon.ap_dung_docx` / `dien_khuon_pdf.ap_dung_pdf` áp. V
 
 1. Số trang THẬT (LibreOffice, như lúc tải lên); `--word`: số trang Word.
 2. Khứ hồi: danh sách phép rỗng trả đúng bytes vào, và bản dựng trùng từng điểm
-   ảnh với bản dựng của tệp gốc.
+   ảnh với bản dựng của tệp gốc. `ap_dung_docx([])` trả CHÍNH bytes vào, nên
+   phép này không thể trượt (`rong_la_dong_nhat`) và không chạm bộ ghi.
 3. Điền MỌI ô điền được bằng bốn giá trị mẫu xoay vòng: áp/bỏ theo lý do, số
-   trang trước/sau, trang không mang giá trị nào phải trùng từng điểm ảnh, mọi
-   giá trị phải có trong `pdftotext`; `--word`: Word mở được và xuất PDF.
+   trang trước/sau, trang không mang giá trị nào phải trùng từng điểm ảnh, mục
+   zip ngoài part đã sửa giữ nguyên nội dung (`muc_zip_doi`, qua `_dong_goi`),
+   mọi giá trị phải có trong `pdftotext`; `--word`: Word mở được và xuất PDF.
 4. `--word`: LibreOffice so với Word trên tệp GỐC, từng trang ở 72 dpi xám.
 5. Đường PDF: bản LibreOffice dựng đọc lại như một PDF số, và bản scan chỉ-ảnh
    (200 dpi) đọc bằng OCR — số ô tìm được, điểm ảnh đổi ngoài hộp tô trắng, giá
@@ -22,17 +24,23 @@ hoá giá trị, `dien_khuon.ap_dung_docx` / `dien_khuon_pdf.ap_dung_pdf` áp. V
 
 Cộng một ca tổng hợp: tệp 11 trang bị phép đếm lúc tải lên TỪ CHỐI, không cắt.
 
-Hai số dễ đọc nhầm, ghi rõ ở đây:
+Mấy số dễ đọc nhầm, ghi rõ ở đây:
 
 * `ti_le_so_voi_docx` của đường PDF là TỈ LỆ SỐ Ô (PDF / docx), không phải một
   phép khớp một-một: hai bộ đọc không chung khoá nào (nhãn PDF rỗng khi nhãn
-  nằm ở ô khác), và nó có thể vượt 1.
+  nằm ở ô khác), và nó có thể vượt 1. Tổng của nó để ô tìm thừa ở một tệp che
+  ô thiếu ở tệp khác; `cho_toi_da_khop` (mỗi tệp tính tối đa số ô docx) là trần
+  của độ phủ, `cho_thua` là phần thừa.
+* Tệp không điền/vẽ được ô nào trả đúng bytes vào: mọi phép "không đổi" đạt
+  hiển nhiên. Tổng hợp liệt kê chúng ở `khong_dien_gi` và bỏ khỏi mẫu số.
+* Mẫu số Word là mọi tệp Word đã chạy: một lỗi là trượt, chỉ `blocked` ra ngoài.
 * `giong_diem_anh` LibreOffice–Word bị nền trắng chi phối: hai trang lệch hết
   chữ vẫn ra trên 90 %. `iou_muc` (giao/hợp của điểm ảnh có mực, xám < 160) là
   số nói thật về chữ; báo cả hai.
 
 Word chạy qua `scripts/kiem_mo_bang_word.py` (osascript, trần 90 s mỗi tệp). Một
-lượt treo hay thiếu quyền Automation thì phần Word của mọi tệp sau ghi
+lượt treo (hết giờ AppleScript -1712 hay trần subprocess) hay thiếu quyền
+Automation (-1743) thì phần Word của mọi tệp sau ghi
 `blocked` — không chờ thêm, không giết tiến trình nào của người dùng.
 """
 
@@ -204,6 +212,16 @@ def doi_ngoai_hop(a: np.ndarray, b: np.ndarray, hops: list[list[float]]) -> tupl
     return int(doi.sum()), int((doi & ~duoc).sum())
 
 
+def muc_zip_doi(goc: bytes, moi: bytes, sua: set[str]) -> list[str]:
+    """Mục zip ngoài `sua` (part bộ áp sửa) mà nội dung giải nén đổi, thêm hay mất.
+
+    Đây là phép đi qua `_dong_goi`: mục không sửa được viết lại từ luồng giải nén,
+    nên chúng phải ra cùng nội dung — `[]` là đạt."""
+    with zipfile.ZipFile(BytesIO(goc)) as a, zipfile.ZipFile(BytesIO(moi)) as b:
+        ta, tb = set(a.namelist()), set(b.namelist())
+        return sorted(t for t in (ta | tb) - sua if t not in ta or t not in tb or a.read(t) != b.read(t))
+
+
 # ─────────────────────────────────────────────────────────── công cụ
 
 
@@ -261,9 +279,11 @@ class _Word:
         vao, ra = self.thu_muc / f"t{self._n}.docx", self.thu_muc / f"t{self._n}.pdf"
         vao.write_bytes(docx)
         loi = mo_bang_word(vao, ra)
-        # `mo_bang_word` báo treo bằng "treo quá"; -1743 là "Not authorized to
-        # send Apple events" — cả hai đúng cho MỌI tệp sau, không phải tệp này.
-        if loi and ("treo quá" in loi or "-1743" in loi):
+        # `mo_bang_word` báo treo bằng "treo quá"; -1712 là "AppleEvent timed
+        # out" — `with timeout of 85 seconds` của kịch bản ném nó TRƯỚC trần 90 s,
+        # nên Word đứng vì hộp thoại hiện ra ở đây; -1743 là "Not authorized to
+        # send Apple events". Cả ba đúng cho MỌI tệp sau, không phải tệp này.
+        if loi and ("treo quá" in loi or "-1712" in loi or "-1743" in loi):
             self.chan = loi
             return CHAN
         return f"lỗi: {loi}" if loi else ra.read_bytes()
@@ -355,6 +375,7 @@ def do_tep(ten: str, du_lieu: bytes, word: _Word | None) -> dict:
     phep = phep_dien(o)
     moi, bao_cao = ap_dung_docx(du_lieu, hang, phep)
     da_ap = [phep[i]["gia_tri"] for i in bao_cao["da_ap"]]
+    phan = {h["chi_so"]: h["dia_chi"]["phan"] for h in hang if h.get("dia_chi")}
     pdf_moi = dung_trang.dung_pdf(moi)
     anh_moi, chu_moi = _anh(pdf_moi), chu_trang(pdf_moi)
     d = {
@@ -365,6 +386,7 @@ def do_tep(ten: str, du_lieu: bytes, word: _Word | None) -> dict:
         "so_trang_sau": len(anh_moi),
         "trang_khong_dien": trang_khong_dien(anh_goc, anh_moi, chu_moi, da_ap),
         "gia_tri": list(dem_gia_tri(chu_goc, chu_moi, da_ap)),
+        "muc_zip_doi": muc_zip_doi(du_lieu, moi, {phan[phep[i]["don_vi"]] for i in bao_cao["da_ap"]}),
     }
     if word:
         word_moi = word.pdf(moi)
@@ -420,22 +442,38 @@ def _cong(ds: list[list[int]]) -> list[int]:
     return [sum(x[0] for x in ds), sum(x[1] for x in ds)]
 
 
+def _chay_word(v: object) -> bool:
+    """Word đã chạy trên tệp này (được bật, không bị chặn) — kết quả lỗi vẫn tính."""
+    return v is not None and v != CHAN
+
+
 def _tong_pdf(ok: list[dict], nhanh: str) -> dict | None:
-    p = [c["pdf"][nhanh] for c in ok if isinstance(c["pdf"][nhanh], dict) and "error" not in c["pdf"][nhanh]]
+    p = [
+        {**c["pdf"][nhanh], "tep": c["tep"]}
+        for c in ok
+        if isinstance(c["pdf"][nhanh], dict) and "error" not in c["pdf"][nhanh]
+    ]
     if not p:
         return None
     bo_qua: Counter = Counter()
     for x in p:
         bo_qua.update(x["bo_qua"])
     cho, docx = sum(x["so_cho"] for x in p), sum(x["so_cho_docx"] for x in p)
+    # Tệp không vẽ gì trả đúng PDF vào: "không đổi ngoài hộp" đạt hiển nhiên.
+    co_ap = [x for x in p if x["da_ap"] > 0]
     return {
         "so_cho": cho,
         "so_cho_docx": docx,
         "ti_le_so_voi_docx": round(cho / docx, 4) if docx else None,
+        # Trần của độ phủ: mỗi tệp tính tối đa số ô docx của nó, để ô tìm thừa ở
+        # tệp này không che ô thiếu ở tệp khác.
+        "cho_toi_da_khop": [sum(min(x["so_cho"], x["so_cho_docx"]) for x in p), docx],
+        "cho_thua": sum(max(0, x["so_cho"] - x["so_cho_docx"]) for x in p),
         "da_ap": sum(x["da_ap"] for x in p),
         "bo_qua": dict(bo_qua),
-        "tep_khong_doi_ngoai_hop": _cap(p, lambda x: x["diem_anh_ngoai_hop"] == 0),
-        "tep_khong_doi_ngoai_dai_chu": _cap(p, lambda x: x["diem_anh_ngoai_dai_chu"] == 0),
+        "khong_dien_gi": [x["tep"] for x in p if x["da_ap"] == 0],
+        "tep_khong_doi_ngoai_hop": _cap(co_ap, lambda x: x["diem_anh_ngoai_hop"] == 0),
+        "tep_khong_doi_ngoai_dai_chu": _cap(co_ap, lambda x: x["diem_anh_ngoai_dai_chu"] == 0),
         "gia_tri": _cong([x["gia_tri"] for x in p]),
         "gia_tri_bo_cham": _cong([x["gia_tri_bo_cham"] for x in p]),
         "loi": sum(1 for c in ok if isinstance(c["pdf"][nhanh], dict) and "error" in c["pdf"][nhanh]),
@@ -448,36 +486,59 @@ def tong_hop(chi_tiet: list[dict]) -> dict:
     bo_qua: Counter = Counter()
     for d in dien:
         bo_qua.update(d["bo_qua"])
-    co_word = [c for c in ok if isinstance(c["so_trang"].get("word"), int)]
-    tkd = [d["trang_khong_dien"] for d in dien if d["trang_khong_dien"]]
+    # Mẫu số Word: mọi tệp Word ĐÃ chạy — một lỗi là trượt, chỉ `blocked` ra ngoài.
+    co_word = [c for c in ok if _chay_word(c["so_trang"].get("word"))]
+    # Tệp không điền được ô nào trả CHÍNH bytes vào (`ap_dung_docx([])`): mọi phép
+    # "không đổi" đạt hiển nhiên, nên liệt kê riêng, không cộng vào mẫu số.
+    co_dien = [c for c in ok if c["dien"]["da_ap"] > 0]
+    dien_word = [
+        c for c in co_dien if _chay_word(c["so_trang"].get("word")) and _chay_word(c["dien"].get("so_trang_word_sau"))
+    ]
+    tkd = [c["dien"]["trang_khong_dien"] for c in co_dien if c["dien"]["trang_khong_dien"]]
     lw = [c["lo_word"] for c in ok if "lo_word" in c]
     giong = [v for x in lw for v in x["giong_diem_anh"]]
     iou = [v for x in lw for v in x["iou_muc"] if v is not None]
     return {
         "so_tep": len(chi_tiet),
         "loi": len(chi_tiet) - len(ok),
+        "khong_dien_gi": [c["tep"] for c in ok if c["dien"]["da_ap"] == 0],
+        "word_loi": sum(
+            1
+            for c in ok
+            if any(isinstance(v, str) and v != CHAN for v in (c["so_trang"].get("word"), c["dien"].get("word_mo")))
+        ),
         "so_trang_lo": {c["tep"]: c["so_trang"]["lo"] for c in ok},
         "so_trang_lo_bang_word": _cap(co_word, lambda c: c["so_trang"]["lo"] == c["so_trang"]["word"]),
-        "khu_hoi_bytes_giong": _cap(ok, lambda c: c["khu_hoi"]["bytes_giong"]),
-        "khu_hoi_trang_giong": _cap(ok, lambda c: c["khu_hoi"]["trang_giong"]),
+        # Danh sách phép rỗng trả đúng bytes vào (`ap_dung_docx`) — phép này KHÔNG
+        # thể trượt, không phải bằng chứng cho bộ ghi; `dien.zip_giu_muc_khac` và
+        # `dien.trang_khong_dien_giong` mới là.
+        "khu_hoi": {
+            "kieu": "rong_la_dong_nhat",
+            "bytes_giong": _cap(ok, lambda c: c["khu_hoi"]["bytes_giong"]),
+            "trang_giong": _cap(ok, lambda c: c["khu_hoi"]["trang_giong"]),
+        },
         "dien": {
             "so_cho": sum(d["so_cho"] for d in dien),
             "da_ap": sum(d["da_ap"] for d in dien),
             "bo_qua": dict(bo_qua),
-            "so_trang_giu_lo": _cap(dien, lambda d: d["so_trang_sau"] == d["so_trang_truoc"]),
+            "so_trang_giu_lo": _cap(co_dien, lambda c: c["dien"]["so_trang_sau"] == c["dien"]["so_trang_truoc"]),
             "so_trang_giu_word": _cap(
-                [c for c in co_word if isinstance(c["dien"].get("so_trang_word_sau"), int)],
-                lambda c: c["dien"]["so_trang_word_sau"] == c["so_trang"]["word"],
+                dien_word,
+                lambda c: (
+                    isinstance(c["dien"]["so_trang_word_sau"], int)
+                    and c["dien"]["so_trang_word_sau"] == c["so_trang"]["word"]
+                ),
             ),
             "trang_khong_dien_giong": [sum(t["giong"] for t in tkd), sum(t["trang"] for t in tkd)],
+            "zip_giu_muc_khac": _cap(co_dien, lambda c: c["dien"]["muc_zip_doi"] == []),
             "gia_tri": _cong([d["gia_tri"] for d in dien]),
-            "gia_tri_word": _cong([d["gia_tri_word"] for d in dien if "gia_tri_word" in d]),
+            "gia_tri_word": _cong([c["dien"].get("gia_tri_word", [0, c["dien"]["da_ap"]]) for c in dien_word]),
             "word_mo": _cap(
-                [d for d in dien if "word_mo" in d and d["word_mo"] != CHAN], lambda d: d["word_mo"] is True
+                [c for c in co_dien if _chay_word(c["dien"].get("word_mo"))], lambda c: c["dien"]["word_mo"] is True
             ),
         },
         "lo_word": {
-            "trung_so_trang": _cap(lw, lambda x: x["trung_so_trang"]),
+            "trung_so_trang": _cap(co_word, lambda c: "lo_word" in c and c["lo_word"]["trung_so_trang"]),
             "giong_diem_anh_tb": round(sum(giong) / len(giong), 4) if giong else None,
             "giong_diem_anh_min": min(giong) if giong else None,
             "iou_muc_tb": round(sum(iou) / len(iou), 4) if iou else None,
@@ -527,14 +588,14 @@ def _ti(x: list[int]) -> str:
 def _in_bang(ket: dict) -> None:
     print(f"commit_hash={ket['commit_hash']}  word={'bật' if ket['word'] else 'tắt'}")
     print(
-        f"  {'tệp':<30}{'LO':>3}{'Word':>8}{'khứ hồi':>9}{'chỗ':>5}{'áp':>4}{'bỏ':>4}{'LO sau':>7}{'W sau':>8}"
+        f"  {'tệp':<30}{'LO':>3}{'Word':>8}{'zip khác':>9}{'chỗ':>5}{'áp':>4}{'bỏ':>4}{'LO sau':>7}{'W sau':>8}"
         f"{'giữ':>6}{'giá trị':>9}{'LO~W iou':>10}{'PDF':>7}{'scan':>7}"
     )
     for c in ket["chi_tiet"]:
         if "error" in c:
             print(f"  {c['tep'][:30]:<30}LỖI {c['error']}")
             continue
-        d, kh, lw = c["dien"], c["khu_hoi"], c.get("lo_word")
+        d, lw = c["dien"], c.get("lo_word")
         tkd = d["trang_khong_dien"]
         iou = [v for v in (lw or {}).get("iou_muc", []) if v is not None]
         pdf = [
@@ -543,23 +604,27 @@ def _in_bang(ket: dict) -> None:
         ]
         print(
             f"  {c['tep'][:30]:<30}{c['so_trang']['lo']:>3}{str(c['so_trang'].get('word', '-')):>8}"
-            f"{'=' if kh['bytes_giong'] and kh['trang_giong'] else 'LỆCH':>9}{d['so_cho']:>5}{d['da_ap']:>4}"
+            f"{', '.join(d['muc_zip_doi']) or '=':>9}{d['so_cho']:>5}{d['da_ap']:>4}"
             f"{sum(d['bo_qua'].values()):>4}{d['so_trang_sau']:>7}{str(d.get('so_trang_word_sau', '-')):>8}"
             f"{_ti([tkd['giong'], tkd['trang']]) if tkd else '—':>6}{_ti(d['gia_tri']):>9}"
             f"{f'{min(iou):.2f}' if iou else '-':>10}" + "".join(f"{p:>7}" for p in pdf)
         )
     th, tc = ket["tong_hop"], ket["tu_choi_11_trang"]
     dn, lw = th["dien"], th["lo_word"]
-    print(f"TỔNG ({th['so_tep']} tệp, {th['loi']} lỗi)")
+    kh = th["khu_hoi"]
+    print(f"TỔNG ({th['so_tep']} tệp, {th['loi']} lỗi; không điền gì: {th['khong_dien_gi'] or 0})")
     print(
-        f"  số trang LO = Word: {_ti(th['so_trang_lo_bang_word'])}"
+        f"  số trang LO = Word: {_ti(th['so_trang_lo_bang_word'])}, Word lỗi {th['word_loi']}"
         + (f"  (Word: {ket['word_chan']})" if ket["word_chan"] else "")
     )
-    print(f"  khứ hồi: bytes {_ti(th['khu_hoi_bytes_giong'])}, điểm ảnh {_ti(th['khu_hoi_trang_giong'])}")
+    print(
+        f"  khứ hồi ({kh['kieu']}, không thể trượt): bytes {_ti(kh['bytes_giong'])}, điểm ảnh {_ti(kh['trang_giong'])}"
+    )
     print(
         f"  điền: {dn['da_ap']}/{dn['so_cho']} áp, bỏ {dn['bo_qua'] or 0}; số trang giữ LO {_ti(dn['so_trang_giu_lo'])}, "
         f"Word {_ti(dn['so_trang_giu_word'])}; trang không điền trùng {_ti(dn['trang_khong_dien_giong'])}; "
-        f"giá trị {_ti(dn['gia_tri'])} (Word {_ti(dn['gia_tri_word'])}); Word mở {_ti(dn['word_mo'])}"
+        f"zip giữ mục khác {_ti(dn['zip_giu_muc_khac'])}; giá trị {_ti(dn['gia_tri'])} "
+        f"(Word {_ti(dn['gia_tri_word'])}); Word mở {_ti(dn['word_mo'])}"
     )
     print(
         f"  LO~Word gốc: số trang {_ti(lw['trung_so_trang'])}, điểm ảnh tb {lw['giong_diem_anh_tb']} "
@@ -568,8 +633,9 @@ def _in_bang(ket: dict) -> None:
     for k in ("pdf_so", "pdf_scan"):
         if p := th[k]:
             print(
-                f"  {k}: chỗ {p['so_cho']}/{p['so_cho_docx']} docx ({p['ti_le_so_voi_docx']}), áp {p['da_ap']}, "
-                f"bỏ {p['bo_qua'] or 0}, tệp không đổi ngoài hộp {_ti(p['tep_khong_doi_ngoai_hop'])} "
+                f"  {k}: tỉ lệ số ô {p['so_cho']}/{p['so_cho_docx']} docx ({p['ti_le_so_voi_docx']}), "
+                f"trần khớp {_ti(p['cho_toi_da_khop'])}, thừa {p['cho_thua']}; áp {p['da_ap']}, "
+                f"bỏ {p['bo_qua'] or 0}, không điền gì {p['khong_dien_gi'] or 0}; tệp không đổi ngoài hộp {_ti(p['tep_khong_doi_ngoai_hop'])} "
                 f"(ngoài dải chữ {_ti(p['tep_khong_doi_ngoai_dai_chu'])}), giá trị {_ti(p['gia_tri'])} "
                 f"(bỏ chấm {_ti(p['gia_tri_bo_cham'])}), lỗi {p['loi']}"
             )

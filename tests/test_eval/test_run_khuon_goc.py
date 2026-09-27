@@ -7,6 +7,8 @@ máy không có.
 """
 
 import shutil
+import zipfile
+from io import BytesIO
 
 import numpy as np
 import pytest
@@ -123,6 +125,131 @@ def test_doi_ngoai_hop_dem_diem_anh_doi_ngoai_hop_gian_1pt():
     assert r.doi_ngoai_hop(a, b, []) == (103, 103)
 
 
+def test_muc_zip_doi_bat_muc_doi_them_mat_ngoai_part_da_sua():
+    """Kiểm bộ đóng gói: ngoài part bộ áp sửa, mọi mục zip phải giữ NGUYÊN nội
+    dung giải nén — khứ hồi rỗng không chạm tới `_dong_goi`, phép này thì có."""
+
+    def _zip(muc: dict[str, bytes]) -> bytes:
+        buf = BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            for ten, v in muc.items():
+                z.writestr(ten, v)
+        return buf.getvalue()
+
+    goc = _zip({"a.xml": b"a", "b.xml": b"b", "c.xml": b"c"})
+    assert r.muc_zip_doi(goc, _zip({"a.xml": b"A", "b.xml": b"b", "c.xml": b"c"}), {"a.xml"}) == []
+    moi = _zip({"a.xml": b"A", "b.xml": b"B", "d.xml": b"d"})
+    assert r.muc_zip_doi(goc, moi, {"a.xml"}) == ["b.xml", "c.xml", "d.xml"]
+
+
+# ─────────────────────────────────────────────────────────── Word
+
+
+def test_word_het_gio_applescript_chan_moi_luot_sau(tmp_path, monkeypatch):
+    """`with timeout of 85 seconds` ném -1712 TRƯỚC trần 90 s của subprocess:
+    Word đứng (hộp thoại) phải chặn các lượt sau, không chờ thêm 85 s mỗi lần."""
+    goi: list[str] = []
+
+    def _mo(vao, ra):
+        goi.append(vao.name)
+        return goi_tra.pop(0)
+
+    monkeypatch.setattr(r, "mo_bang_word", _mo)
+    goi_tra = ["Word chạy xong nhưng không có PDF", "execution error: AppleEvent timed out. (-1712)"]
+    w = r._Word(tmp_path)
+    assert w.pdf(b"x") == "lỗi: Word chạy xong nhưng không có PDF" and w.chan is None  # lỗi của riêng tệp
+    assert w.pdf(b"x") == r.CHAN and "-1712" in w.chan
+    assert w.pdf(b"x") == r.CHAN
+    assert len(goi) == 2
+
+
+# ─────────────────────────────────────────────────────────── tổng hợp
+
+
+def _pdf(so_cho: int, so_cho_docx: int, da_ap: int, ngoai_hop: int = 0) -> dict:
+    return {
+        "so_cho": so_cho,
+        "so_cho_docx": so_cho_docx,
+        "da_ap": da_ap,
+        "bo_qua": {},
+        "diem_anh_ngoai_hop": ngoai_hop,
+        "diem_anh_ngoai_dai_chu": 0,
+        "gia_tri": [da_ap, da_ap],
+        "gia_tri_bo_cham": [da_ap, da_ap],
+    }
+
+
+def _ket(tep: str, da_ap: int, word: int | str = 1, word_sau: int | str = 1, lo_sau: int = 1, pdf=None) -> dict:
+    """Một dòng `chi_tiet` như `do_tep` ghi: tệp 1 trang, Word như đã cho."""
+    d = {
+        "so_cho": da_ap,
+        "da_ap": da_ap,
+        "bo_qua": {},
+        "so_trang_truoc": 1,
+        "so_trang_sau": lo_sau,
+        "trang_khong_dien": {"trang": 1, "giong": 1, "doi_khong_gia_tri": []} if lo_sau == 1 else None,
+        "gia_tri": [da_ap, da_ap],
+        "muc_zip_doi": [],
+        "word_mo": True if isinstance(word_sau, int) else word_sau,
+        "so_trang_word_sau": word_sau,
+    }
+    c = {
+        "tep": tep,
+        "so_trang": {"lo": 1, "word": word},
+        "khu_hoi": {"bytes_giong": True, "trang_giong": True},
+        "dien": d,
+        "pdf": {"so": pdf or _pdf(da_ap, da_ap, da_ap), "scan": "không có tesseract"},
+    }
+    if isinstance(word, int):
+        c["lo_word"] = {"trung_so_trang": word == 1, "giong_diem_anh": [1.0], "iou_muc": [1.0]}
+        if isinstance(word_sau, int):
+            d["gia_tri_word"] = [da_ap, da_ap]
+    return c
+
+
+def test_tong_hop_khong_tinh_tep_khong_dien_gi_la_dat():
+    """Tệp không điền được ô nào trả CHÍNH bytes vào: mọi phép "không đổi" đạt
+    hiển nhiên. Nó được liệt kê, không được cộng vào mẫu số."""
+    th = r.tong_hop(
+        [
+            _ket("rong.docx", 0, pdf=_pdf(0, 0, 0)),
+            _ket("a.docx", 2, lo_sau=2, pdf=_pdf(3, 2, 2, ngoai_hop=5)),
+            _ket("b.docx", 3, pdf=_pdf(1, 3, 1)),
+        ]
+    )
+    assert th["khong_dien_gi"] == ["rong.docx"]
+    dn = th["dien"]
+    assert dn["so_trang_giu_lo"] == [1, 2]
+    assert dn["so_trang_giu_word"] == [2, 2]
+    assert dn["word_mo"] == [2, 2]
+    assert dn["trang_khong_dien_giong"] == [1, 1]
+    assert dn["zip_giu_muc_khac"] == [2, 2]
+    p = th["pdf_so"]
+    assert p["khong_dien_gi"] == ["rong.docx"]
+    assert p["tep_khong_doi_ngoai_hop"] == [1, 2]
+    assert p["tep_khong_doi_ngoai_dai_chu"] == [2, 2]
+    # Tỉ lệ số ô 4/5 để tìm thừa ở a.docx che chỗ thiếu ở b.docx; trần khớp thì không.
+    assert p["ti_le_so_voi_docx"] == 0.8
+    assert p["cho_toi_da_khop"] == [3, 5]
+    assert p["cho_thua"] == 1
+    assert th["pdf_scan"] is None
+    assert th["khu_hoi"]["kieu"] == "rong_la_dong_nhat"
+
+
+def test_tong_hop_loi_word_la_truot_khong_roi_khoi_mau_so():
+    """Word lỗi trên tệp GỐC là một lần trượt; chỉ `blocked` (không chạy) mới ra
+    khỏi mẫu số. Hai chuỗi lỗi giống nhau không phải "cùng số trang"."""
+    loi = "lỗi: Word chạy xong nhưng không có PDF"
+    th = r.tong_hop([_ket("a.docx", 2), _ket("loi.docx", 2, loi, loi), _ket("chan.docx", 2, r.CHAN, r.CHAN)])
+    assert th["so_trang_lo_bang_word"] == [1, 2]
+    assert th["lo_word"]["trung_so_trang"] == [1, 2]
+    assert th["word_loi"] == 1
+    dn = th["dien"]
+    assert dn["so_trang_giu_word"] == [1, 2]
+    assert dn["gia_tri_word"] == [2, 4]
+    assert dn["word_mo"] == [1, 2]
+
+
 # ─────────────────────────────────────────────────────────── lượt chạy
 
 
@@ -174,6 +301,7 @@ def test_mot_bieu_mau_hai_trang_do_du_cac_duong():
     assert (d["so_trang_truoc"], d["so_trang_sau"]) == (2, 2)
     assert d["trang_khong_dien"] == {"trang": 1, "giong": 1, "doi_khong_gia_tri": []}
     assert d["gia_tri"] == [2, 2]
+    assert d["muc_zip_doi"] == []
     p = ket["pdf"]["so"]
     assert (p["so_cho"], p["so_cho_docx"], p["da_ap"], p["bo_qua"]) == (2, 2, 2, {})
     assert p["so_trang_giu"] and p["diem_anh_doi"] > 0
