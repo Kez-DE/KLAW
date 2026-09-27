@@ -1684,6 +1684,14 @@ assert.match(
   /Đang dựng trang/,
   "đang tải: vùng trạng thái đọc lên lịch sự",
 );
+{
+  let n = tim(khungBtl, (x) => x.getAttribute("role") === "status")?.parentNode ?? null;
+  while (n !== null && n.getAttribute("aria-busy") !== "true") n = n.parentNode;
+  assert.ok(
+    n === null,
+    "vùng trạng thái NGOÀI cây aria-busy: trong đó trình đọc màn hình hoãn đọc",
+  );
+}
 assert.equal(
   timTatNut(khungBtl, (n) => n.getAttribute("data-khung-cho") !== null).length,
   2,
@@ -1866,7 +1874,7 @@ assert.equal(
   "lượt lưu ô điền chưa về: Lùi bị khoá",
 );
 const CAU_AP =
-  "Không lưu được: 1 ô không điền được vào tài liệu gốc (“Ô 1.1”) — giá trị quá dài cho ô, hoặc ô không còn khớp tài liệu. Rút gọn hay bỏ trống ô đó rồi lưu lại.";
+  "Không lưu được: 1 ô không điền được vào tài liệu tải lên (“Ô 1.1”) — giá trị quá dài cho ô, hoặc ô không còn khớp tài liệu. Rút gọn hay bỏ trống ô đó rồi lưu lại.";
 await act(async () => {
   traPatchL(traJson({ detail: CAU_AP }, 422));
   await nhip();

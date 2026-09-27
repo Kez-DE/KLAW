@@ -132,17 +132,24 @@ export const CAU_MAY_BAN =
 /**
  * Câu hiện trong khung trang khi tải hỏng, và có đáng thử lại không. `503`
  * (`qua_tai`) là bận — `loiTheoStatus` cố ý bỏ `detail` của dải 5xx nên câu nói
- * ở đây. `404` không tự hết: phiên bản HTML, hay khuôn gốc đã bị xoá cùng hội
- * thoại. Mọi lỗi khác giữ nguyên câu của tầng gọi API.
+ * ở đây. `404` không tự hết: khuôn gốc đã bị xoá cùng hội thoại, hay (chỉ bản
+ * thảo) phiên bản HTML. `duongDan` (`DUONG_DAN_KHUON`) cho biết khung nào: khung
+ * "Bản tải lên" không có phiên bản, nên câu của nó không nhắc tới phiên bản.
+ * Mọi lỗi khác giữ nguyên câu của tầng gọi API.
  */
-export function loiTrang(loi: Pick<ApiError, "kind" | "status" | "message">): {
+export function loiTrang(
+  loi: Pick<ApiError, "kind" | "status" | "message">,
+  duongDan: string,
+): {
   cau: string;
   thuLai: boolean;
 } {
   if (loi.status === 503) return { cau: CAU_MAY_BAN, thuLai: true };
   if (loi.status === 404 || loi.kind === "not_found")
     return {
-      cau: "Không hiển thị được phiên bản này dưới dạng trang: bản tải lên không còn, hoặc phiên bản này không dựng trên bản tải lên.",
+      cau: duongDan.startsWith("/tai-lieu/")
+        ? "Không hiển thị được bản tải lên: KLAW không còn giữ tệp này."
+        : "Không hiển thị được phiên bản này dưới dạng trang: KLAW không còn giữ tài liệu tải lên, hoặc phiên bản này không điền trên tài liệu đó.",
       thuLai: false,
     };
   return { cau: loi.message, thuLai: true };

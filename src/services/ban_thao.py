@@ -695,18 +695,18 @@ def sua_tay(
 
 
 LOI_KHONG_PHAI_KHUON = (
-    "Bản thảo này không điền trên tài liệu gốc (hoặc tài liệu gốc đã bị xoá), nên không có ô nào để lưu."
+    "Bản thảo này không điền trên tài liệu tải lên (hoặc tài liệu đó đã bị xoá), nên không có ô nào để lưu."
 )
-LOI_O_KHONG_THAY = "Không tìm thấy ô điền này trên tài liệu gốc — tải lại bản thảo rồi thử lại."
+LOI_O_KHONG_THAY = "Không tìm thấy ô điền này trên tài liệu tải lên — tải lại bản thảo rồi thử lại."
 # Bộ áp bỏ một phép: ô không còn khớp tài liệu (`cho_trong_da_doi`…) hay, trên
 # PDF, chữ không vừa ô kể cả khi thu nhỏ (`khong_vua`) — hai việc người dùng làm
 # được là rút gọn hoặc bỏ trống. `{o}` nêu TÊN các ô bị bỏ (`_nhan_o`, cùng tên
 # bảng ô điền hiện) — không thì "ô đó" không chỉ ra ô nào giữa các ô vừa sửa.
 LOI_KHONG_AP_DUOC = (
-    "Không lưu được: {n} ô không điền được vào tài liệu gốc{o} — giá trị quá dài cho ô,"
+    "Không lưu được: {n} ô không điền được vào tài liệu tải lên{o} — giá trị quá dài cho ô,"
     " hoặc ô không còn khớp tài liệu. Rút gọn hay bỏ trống ô đó rồi lưu lại."
 )
-LOI_KHUON_HONG = "Không mở được tài liệu gốc để điền. Hãy tải tài liệu lên lại."
+LOI_KHUON_HONG = "Không mở được tài liệu tải lên để điền. Hãy tải tài liệu lên lại."
 
 
 def ap_phep_sua(dinh_dang: str, khuon_goc: bytes, don_vi: list | None, phep_sua: list | None) -> tuple[bytes, dict]:
@@ -803,8 +803,9 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
             o = f" ({', '.join(f'“{t}”' for t in ten)})" if ten else ""
             return LOI_KHONG_AP_DUOC.format(n=len(bao_cao["bo_qua"]), o=o)
         khuon_moi = _khuon_tu(k, cu["viec_id"], phep)
+        doi = doi_so_voi({"khuon": khuon_cu}, {"khuon": khuon_moi})
         truoc = sorted(
-            [*(cu["phien_ban_truoc"] or []), _snap(cu, doi=doi_so_voi({"khuon": khuon_cu}, {"khuon": khuon_moi}))],
+            [*(cu["phien_ban_truoc"] or []), _snap(cu, doi=doi)],
             key=lambda t: t["phien_ban"],
         )[-TRAN_SUA:]
         r = (
@@ -828,7 +829,7 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
             .mappings()
             .one()
         )
-    return {**dict(r), "khuon": khuon_moi}
+    return {**dict(r), "khuon": khuon_moi, "doi_so_voi_truoc": doi}
 
 
 async def dung_lai(sub: str, id: str, facts: dict, hoi_thoai_id: str | None = None) -> dict | None:
