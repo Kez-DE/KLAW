@@ -1,0 +1,846 @@
+{
+  "commit_hash": "5e6eec0cd86e8566986a2f68bbf10a861fd3ef80",
+  "word": true,
+  "word_chan": null,
+  "so_tep": 8,
+  "chi_tiet": [
+    {
+      "tep": "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx",
+      "so_trang": {
+        "lo": 2,
+        "word": 2
+      },
+      "khu_hoi": {
+        "bytes_giong": true,
+        "trang_giong": true
+      },
+      "lo_word": {
+        "trung_so_trang": true,
+        "giong_diem_anh": [
+          0.9218,
+          0.9788
+        ],
+        "iou_muc": [
+          0.1694,
+          0.5532
+        ]
+      },
+      "dien": {
+        "so_cho": 32,
+        "da_ap": 32,
+        "bo_qua": {},
+        "so_trang_truoc": 2,
+        "so_trang_sau": 2,
+        "trang_khong_dien": {
+          "trang": 0,
+          "giong": 0,
+          "doi_khong_gia_tri": []
+        },
+        "gia_tri": [
+          32,
+          32
+        ],
+        "word_mo": true,
+        "so_trang_word_sau": 2,
+        "gia_tri_word": [
+          32,
+          32
+        ]
+      },
+      "pdf": {
+        "so": {
+          "so_cho": 30,
+          "so_cho_docx": 32,
+          "ti_le_so_voi_docx": 0.9375,
+          "da_ap": 9,
+          "bo_qua": {
+            "khong_vua": 21
+          },
+          "so_trang_giu": true,
+          "diem_anh_doi": 7475,
+          "diem_anh_ngoai_hop": 0,
+          "trang_doi_ngoai_hop": [],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            9,
+            9
+          ],
+          "gia_tri_bo_cham": [
+            9,
+            9
+          ]
+        },
+        "scan": {
+          "so_cho": 26,
+          "so_cho_docx": 32,
+          "ti_le_so_voi_docx": 0.8125,
+          "da_ap": 5,
+          "bo_qua": {
+            "khong_vua": 21
+          },
+          "so_trang_giu": true,
+          "diem_anh_doi": 9742,
+          "diem_anh_ngoai_hop": 1157,
+          "trang_doi_ngoai_hop": [
+            1
+          ],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            5,
+            5
+          ],
+          "gia_tri_bo_cham": [
+            5,
+            5
+          ]
+        }
+      }
+    },
+    {
+      "tep": "BM.ĐT.18.03. Đơn đăng ký đi thực tập tốt nghiệp Ver 02.docx",
+      "so_trang": {
+        "lo": 1,
+        "word": 1
+      },
+      "khu_hoi": {
+        "bytes_giong": true,
+        "trang_giong": true
+      },
+      "lo_word": {
+        "trung_so_trang": true,
+        "giong_diem_anh": [
+          0.9536
+        ],
+        "iou_muc": [
+          0.4049
+        ]
+      },
+      "dien": {
+        "so_cho": 15,
+        "da_ap": 15,
+        "bo_qua": {},
+        "so_trang_truoc": 1,
+        "so_trang_sau": 1,
+        "trang_khong_dien": {
+          "trang": 0,
+          "giong": 0,
+          "doi_khong_gia_tri": []
+        },
+        "gia_tri": [
+          15,
+          15
+        ],
+        "word_mo": true,
+        "so_trang_word_sau": 1,
+        "gia_tri_word": [
+          15,
+          15
+        ]
+      },
+      "pdf": {
+        "so": {
+          "so_cho": 14,
+          "so_cho_docx": 15,
+          "ti_le_so_voi_docx": 0.9333,
+          "da_ap": 12,
+          "bo_qua": {
+            "khong_vua": 2
+          },
+          "so_trang_giu": true,
+          "diem_anh_doi": 11144,
+          "diem_anh_ngoai_hop": 0,
+          "trang_doi_ngoai_hop": [],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            12,
+            12
+          ],
+          "gia_tri_bo_cham": [
+            12,
+            12
+          ]
+        },
+        "scan": {
+          "so_cho": 3,
+          "so_cho_docx": 15,
+          "ti_le_so_voi_docx": 0.2,
+          "da_ap": 0,
+          "bo_qua": {
+            "khong_vua": 3
+          },
+          "so_trang_giu": true,
+          "diem_anh_doi": 0,
+          "diem_anh_ngoai_hop": 0,
+          "trang_doi_ngoai_hop": [],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            0,
+            0
+          ],
+          "gia_tri_bo_cham": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "tep": "BM.ĐT.18.05. Kế hoạch thực tập tại cơ sở Ver 02.docx",
+      "so_trang": {
+        "lo": 1,
+        "word": 1
+      },
+      "khu_hoi": {
+        "bytes_giong": true,
+        "trang_giong": true
+      },
+      "lo_word": {
+        "trung_so_trang": true,
+        "giong_diem_anh": [
+          0.9547
+        ],
+        "iou_muc": [
+          0.524
+        ]
+      },
+      "dien": {
+        "so_cho": 15,
+        "da_ap": 15,
+        "bo_qua": {},
+        "so_trang_truoc": 1,
+        "so_trang_sau": 2,
+        "trang_khong_dien": null,
+        "gia_tri": [
+          15,
+          15
+        ],
+        "word_mo": true,
+        "so_trang_word_sau": 1,
+        "gia_tri_word": [
+          15,
+          15
+        ]
+      },
+      "pdf": {
+        "so": {
+          "so_cho": 11,
+          "so_cho_docx": 15,
+          "ti_le_so_voi_docx": 0.7333,
+          "da_ap": 8,
+          "bo_qua": {
+            "khong_vua": 3
+          },
+          "so_trang_giu": true,
+          "diem_anh_doi": 6271,
+          "diem_anh_ngoai_hop": 0,
+          "trang_doi_ngoai_hop": [],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            7,
+            8
+          ],
+          "gia_tri_bo_cham": [
+            8,
+            8
+          ]
+        },
+        "scan": {
+          "so_cho": 5,
+          "so_cho_docx": 15,
+          "ti_le_so_voi_docx": 0.3333,
+          "da_ap": 0,
+          "bo_qua": {
+            "khong_vua": 5
+          },
+          "so_trang_giu": true,
+          "diem_anh_doi": 0,
+          "diem_anh_ngoai_hop": 0,
+          "trang_doi_ngoai_hop": [],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            0,
+            0
+          ],
+          "gia_tri_bo_cham": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "tep": "BM.ĐT.18.11. Phiếu đánh giá quá trình thực tập tốt nghiệp của sinh viên tại cơ sở thực tập Ver 02 (1).docx",
+      "so_trang": {
+        "lo": 1,
+        "word": 1
+      },
+      "khu_hoi": {
+        "bytes_giong": true,
+        "trang_giong": true
+      },
+      "lo_word": {
+        "trung_so_trang": true,
+        "giong_diem_anh": [
+          0.9408
+        ],
+        "iou_muc": [
+          0.5611
+        ]
+      },
+      "dien": {
+        "so_cho": 21,
+        "da_ap": 21,
+        "bo_qua": {},
+        "so_trang_truoc": 1,
+        "so_trang_sau": 1,
+        "trang_khong_dien": {
+          "trang": 0,
+          "giong": 0,
+          "doi_khong_gia_tri": []
+        },
+        "gia_tri": [
+          21,
+          21
+        ],
+        "word_mo": true,
+        "so_trang_word_sau": 1,
+        "gia_tri_word": [
+          21,
+          21
+        ]
+      },
+      "pdf": {
+        "so": {
+          "so_cho": 18,
+          "so_cho_docx": 21,
+          "ti_le_so_voi_docx": 0.8571,
+          "da_ap": 9,
+          "bo_qua": {
+            "khong_vua": 9
+          },
+          "so_trang_giu": true,
+          "diem_anh_doi": 5515,
+          "diem_anh_ngoai_hop": 0,
+          "trang_doi_ngoai_hop": [],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            6,
+            9
+          ],
+          "gia_tri_bo_cham": [
+            8,
+            9
+          ]
+        },
+        "scan": {
+          "so_cho": 16,
+          "so_cho_docx": 21,
+          "ti_le_so_voi_docx": 0.7619,
+          "da_ap": 4,
+          "bo_qua": {
+            "khong_vua": 12
+          },
+          "so_trang_giu": true,
+          "diem_anh_doi": 10354,
+          "diem_anh_ngoai_hop": 233,
+          "trang_doi_ngoai_hop": [
+            1
+          ],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            4,
+            4
+          ],
+          "gia_tri_bo_cham": [
+            4,
+            4
+          ]
+        }
+      }
+    },
+    {
+      "tep": "Evaluation Form.docx",
+      "so_trang": {
+        "lo": 4,
+        "word": 4
+      },
+      "khu_hoi": {
+        "bytes_giong": true,
+        "trang_giong": true
+      },
+      "lo_word": {
+        "trung_so_trang": true,
+        "giong_diem_anh": [
+          0.9073,
+          0.8498,
+          0.8246,
+          0.8669
+        ],
+        "iou_muc": [
+          0.4744,
+          0.1487,
+          0.0826,
+          0.0948
+        ]
+      },
+      "dien": {
+        "so_cho": 17,
+        "da_ap": 17,
+        "bo_qua": {},
+        "so_trang_truoc": 4,
+        "so_trang_sau": 4,
+        "trang_khong_dien": {
+          "trang": 0,
+          "giong": 0,
+          "doi_khong_gia_tri": []
+        },
+        "gia_tri": [
+          17,
+          17
+        ],
+        "word_mo": true,
+        "so_trang_word_sau": 4,
+        "gia_tri_word": [
+          17,
+          17
+        ]
+      },
+      "pdf": {
+        "so": {
+          "so_cho": 1,
+          "so_cho_docx": 17,
+          "ti_le_so_voi_docx": 0.0588,
+          "da_ap": 1,
+          "bo_qua": {},
+          "so_trang_giu": true,
+          "diem_anh_doi": 550,
+          "diem_anh_ngoai_hop": 0,
+          "trang_doi_ngoai_hop": [],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            0,
+            1
+          ],
+          "gia_tri_bo_cham": [
+            0,
+            1
+          ]
+        },
+        "scan": {
+          "so_cho": 43,
+          "so_cho_docx": 17,
+          "ti_le_so_voi_docx": 2.5294,
+          "da_ap": 43,
+          "bo_qua": {},
+          "so_trang_giu": true,
+          "diem_anh_doi": 56107,
+          "diem_anh_ngoai_hop": 10776,
+          "trang_doi_ngoai_hop": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            43,
+            43
+          ],
+          "gia_tri_bo_cham": [
+            43,
+            43
+          ]
+        }
+      }
+    },
+    {
+      "tep": "Report_cover.docx",
+      "so_trang": {
+        "lo": 1,
+        "word": 1
+      },
+      "khu_hoi": {
+        "bytes_giong": true,
+        "trang_giong": true
+      },
+      "lo_word": {
+        "trung_so_trang": true,
+        "giong_diem_anh": [
+          0.9123
+        ],
+        "iou_muc": [
+          0.7187
+        ]
+      },
+      "dien": {
+        "so_cho": 0,
+        "da_ap": 0,
+        "bo_qua": {},
+        "so_trang_truoc": 1,
+        "so_trang_sau": 1,
+        "trang_khong_dien": {
+          "trang": 1,
+          "giong": 1,
+          "doi_khong_gia_tri": []
+        },
+        "gia_tri": [
+          0,
+          0
+        ],
+        "word_mo": true,
+        "so_trang_word_sau": 1,
+        "gia_tri_word": [
+          0,
+          0
+        ]
+      },
+      "pdf": {
+        "so": {
+          "so_cho": 0,
+          "so_cho_docx": 0,
+          "ti_le_so_voi_docx": null,
+          "da_ap": 0,
+          "bo_qua": {},
+          "so_trang_giu": true,
+          "diem_anh_doi": 0,
+          "diem_anh_ngoai_hop": 0,
+          "trang_doi_ngoai_hop": [],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            0,
+            0
+          ],
+          "gia_tri_bo_cham": [
+            0,
+            0
+          ]
+        },
+        "scan": {
+          "so_cho": 0,
+          "so_cho_docx": 0,
+          "ti_le_so_voi_docx": null,
+          "da_ap": 0,
+          "bo_qua": {},
+          "so_trang_giu": true,
+          "diem_anh_doi": 0,
+          "diem_anh_ngoai_hop": 0,
+          "trang_doi_ngoai_hop": [],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            0,
+            0
+          ],
+          "gia_tri_bo_cham": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "tep": "Report_instruction.docx",
+      "so_trang": {
+        "lo": 3,
+        "word": 3
+      },
+      "khu_hoi": {
+        "bytes_giong": true,
+        "trang_giong": true
+      },
+      "lo_word": {
+        "trung_so_trang": true,
+        "giong_diem_anh": [
+          0.8726,
+          0.8819,
+          0.9872
+        ],
+        "iou_muc": [
+          0.3752,
+          0.3517,
+          0.1311
+        ]
+      },
+      "dien": {
+        "so_cho": 3,
+        "da_ap": 3,
+        "bo_qua": {},
+        "so_trang_truoc": 3,
+        "so_trang_sau": 3,
+        "trang_khong_dien": {
+          "trang": 1,
+          "giong": 1,
+          "doi_khong_gia_tri": []
+        },
+        "gia_tri": [
+          3,
+          3
+        ],
+        "word_mo": true,
+        "so_trang_word_sau": 3,
+        "gia_tri_word": [
+          3,
+          3
+        ]
+      },
+      "pdf": {
+        "so": {
+          "so_cho": 1,
+          "so_cho_docx": 3,
+          "ti_le_so_voi_docx": 0.3333,
+          "da_ap": 0,
+          "bo_qua": {
+            "khong_vua": 1
+          },
+          "so_trang_giu": true,
+          "diem_anh_doi": 0,
+          "diem_anh_ngoai_hop": 0,
+          "trang_doi_ngoai_hop": [],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            0,
+            0
+          ],
+          "gia_tri_bo_cham": [
+            0,
+            0
+          ]
+        },
+        "scan": {
+          "so_cho": 3,
+          "so_cho_docx": 3,
+          "ti_le_so_voi_docx": 1.0,
+          "da_ap": 0,
+          "bo_qua": {
+            "khong_vua": 3
+          },
+          "so_trang_giu": true,
+          "diem_anh_doi": 0,
+          "diem_anh_ngoai_hop": 0,
+          "trang_doi_ngoai_hop": [],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            0,
+            0
+          ],
+          "gia_tri_bo_cham": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "tep": "phiếu đánh giá thực tập công nghiệp.docx",
+      "so_trang": {
+        "lo": 1,
+        "word": 1
+      },
+      "khu_hoi": {
+        "bytes_giong": true,
+        "trang_giong": true
+      },
+      "lo_word": {
+        "trung_so_trang": true,
+        "giong_diem_anh": [
+          0.9405
+        ],
+        "iou_muc": [
+          0.5606
+        ]
+      },
+      "dien": {
+        "so_cho": 21,
+        "da_ap": 21,
+        "bo_qua": {},
+        "so_trang_truoc": 1,
+        "so_trang_sau": 1,
+        "trang_khong_dien": {
+          "trang": 0,
+          "giong": 0,
+          "doi_khong_gia_tri": []
+        },
+        "gia_tri": [
+          21,
+          21
+        ],
+        "word_mo": true,
+        "so_trang_word_sau": 1,
+        "gia_tri_word": [
+          21,
+          21
+        ]
+      },
+      "pdf": {
+        "so": {
+          "so_cho": 18,
+          "so_cho_docx": 21,
+          "ti_le_so_voi_docx": 0.8571,
+          "da_ap": 9,
+          "bo_qua": {
+            "khong_vua": 9
+          },
+          "so_trang_giu": true,
+          "diem_anh_doi": 5515,
+          "diem_anh_ngoai_hop": 0,
+          "trang_doi_ngoai_hop": [],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            6,
+            9
+          ],
+          "gia_tri_bo_cham": [
+            8,
+            9
+          ]
+        },
+        "scan": {
+          "so_cho": 16,
+          "so_cho_docx": 21,
+          "ti_le_so_voi_docx": 0.7619,
+          "da_ap": 4,
+          "bo_qua": {
+            "khong_vua": 12
+          },
+          "so_trang_giu": true,
+          "diem_anh_doi": 10354,
+          "diem_anh_ngoai_hop": 233,
+          "trang_doi_ngoai_hop": [
+            1
+          ],
+          "diem_anh_ngoai_dai_chu": 0,
+          "gia_tri": [
+            4,
+            4
+          ],
+          "gia_tri_bo_cham": [
+            4,
+            4
+          ]
+        }
+      }
+    }
+  ],
+  "tu_choi_11_trang": {
+    "so_trang_dem": 11,
+    "tu_choi": true,
+    "ly_do": "vuot_tran_so_trang",
+    "bien_10_trang_nhan": true
+  },
+  "tong_hop": {
+    "so_tep": 8,
+    "loi": 0,
+    "so_trang_lo": {
+      "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx": 2,
+      "BM.ĐT.18.03. Đơn đăng ký đi thực tập tốt nghiệp Ver 02.docx": 1,
+      "BM.ĐT.18.05. Kế hoạch thực tập tại cơ sở Ver 02.docx": 1,
+      "BM.ĐT.18.11. Phiếu đánh giá quá trình thực tập tốt nghiệp của sinh viên tại cơ sở thực tập Ver 02 (1).docx": 1,
+      "Evaluation Form.docx": 4,
+      "Report_cover.docx": 1,
+      "Report_instruction.docx": 3,
+      "phiếu đánh giá thực tập công nghiệp.docx": 1
+    },
+    "so_trang_lo_bang_word": [
+      8,
+      8
+    ],
+    "khu_hoi_bytes_giong": [
+      8,
+      8
+    ],
+    "khu_hoi_trang_giong": [
+      8,
+      8
+    ],
+    "dien": {
+      "so_cho": 124,
+      "da_ap": 124,
+      "bo_qua": {},
+      "so_trang_giu_lo": [
+        7,
+        8
+      ],
+      "so_trang_giu_word": [
+        8,
+        8
+      ],
+      "trang_khong_dien_giong": [
+        2,
+        2
+      ],
+      "gia_tri": [
+        124,
+        124
+      ],
+      "gia_tri_word": [
+        124,
+        124
+      ],
+      "word_mo": [
+        8,
+        8
+      ]
+    },
+    "lo_word": {
+      "trung_so_trang": [
+        8,
+        8
+      ],
+      "giong_diem_anh_tb": 0.9138,
+      "giong_diem_anh_min": 0.8246,
+      "iou_muc_tb": 0.3679,
+      "iou_muc_min": 0.0826
+    },
+    "pdf_so": {
+      "so_cho": 93,
+      "so_cho_docx": 124,
+      "ti_le_so_voi_docx": 0.75,
+      "da_ap": 48,
+      "bo_qua": {
+        "khong_vua": 45
+      },
+      "tep_khong_doi_ngoai_hop": [
+        8,
+        8
+      ],
+      "tep_khong_doi_ngoai_dai_chu": [
+        8,
+        8
+      ],
+      "gia_tri": [
+        40,
+        48
+      ],
+      "gia_tri_bo_cham": [
+        45,
+        48
+      ],
+      "loi": 0
+    },
+    "pdf_scan": {
+      "so_cho": 112,
+      "so_cho_docx": 124,
+      "ti_le_so_voi_docx": 0.9032,
+      "da_ap": 56,
+      "bo_qua": {
+        "khong_vua": 56
+      },
+      "tep_khong_doi_ngoai_hop": [
+        4,
+        8
+      ],
+      "tep_khong_doi_ngoai_dai_chu": [
+        8,
+        8
+      ],
+      "gia_tri": [
+        56,
+        56
+      ],
+      "gia_tri_bo_cham": [
+        56,
+        56
+      ],
+      "loi": 0
+    }
+  }
+}
