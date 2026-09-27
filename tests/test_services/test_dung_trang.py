@@ -343,6 +343,82 @@ def test_vi_tri_o_O_VAT_DONG_lay_dong_DAU_tren_ban_sach_va_chu_khac_thi_khong_do
     assert dung_trang._chuyen_vi_tri(lien_ket, sach, khac) == {}
 
 
+def test_vi_tri_o_O_RONG_la_hop_nen_ban_do_khi_chu_phia_tren_KHONG_lech():
+    """Chỗ `o` (ô rỗng, G5): bản dò chỉ tô NỀN ô — không đổi dàn trang — nên hộp nền
+    của bản dò dùng thẳng, khi mọi từ của trang đứng trên đáy ô nằm đúng chỗ trên bản
+    sạch (≤ 1 pt). Một liên kết phía trên ngắt dòng khác thì ô có thể đã dời: không
+    định vị (không đoán). Chữ lệch phía DƯỚI ô không dời ô."""
+    sach = _tu((10, [("Họ", 0, 20), ("tên", 22, 40)]), (60, [("Ghi", 0, 20)]))
+    nen = {(30, 0): (0, (0.0, 26.0, 120.0, 50.0))}
+    assert dung_trang._chuyen_vi_tri({}, sach, sach, nen) == {(30, 0): (0, [0, 26, 120, 50])}
+    duoi = _tu((10, [("Họ", 0, 20), ("tên", 22, 40)]), (75, [("Ghi", 0, 20)]))
+    assert dung_trang._chuyen_vi_tri({}, sach, duoi, nen) == {(30, 0): (0, [0, 26, 120, 50])}
+    tren = _tu((10, [("Họ", 0, 20)]), (30, [("tên", 0, 18)]), (60, [("Ghi", 0, 20)]))
+    assert dung_trang._chuyen_vi_tri({}, sach, tren, nen) == {}
+
+
+def _docx_ds() -> bytes:
+    """Bảng có viền mà LibreOffice mở được: «STT | Họ và tên», một hàng dữ liệu rỗng."""
+
+    def o(chu: str, rong: int) -> str:
+        run = f"<w:r><w:t>{chu}</w:t></w:r>" if chu else ""
+        return f'<w:tc><w:tcPr><w:tcW w:w="{rong}" w:type="dxa"/></w:tcPr><w:p>{run}</w:p></w:tc>'
+
+    vien = "".join(
+        f'<w:{c} w:val="single" w:sz="4"/>' for c in ("top", "left", "bottom", "right", "insideH", "insideV")
+    )
+    than = (
+        f"<w:p><w:r><w:t>DANH SÁCH</w:t></w:r></w:p><w:tbl><w:tblPr><w:tblBorders>{vien}</w:tblBorders></w:tblPr>"
+        '<w:tblGrid><w:gridCol w:w="1000"/><w:gridCol w:w="4000"/></w:tblGrid>'
+        f"<w:tr>{o('STT', 1000)}{o('Họ và tên', 4000)}</w:tr><w:tr>{o('', 1000)}{o('', 4000)}</w:tr></w:tbl>"
+        '<w:p><w:r><w:t>Hết</w:t></w:r></w:p><w:sectPr><w:pgSz w:w="11906" w:h="16838"/></w:sectPr>'
+    )
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("[Content_Types].xml", _CT)
+        z.writestr("_rels/.rels", _RELS)
+        z.writestr(
+            "word/document.xml",
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            f"<w:body>{than}</w:body></w:document>",
+        )
+    return buf.getvalue()
+
+
+@pytest.mark.skipif(
+    not (_CO_SOFFICE and _CO_PDFTOPPM and shutil.which("pdftotext")), reason="cần LibreOffice + poppler"
+)
+@pytest.mark.parametrize("gia_tri", [None, "Nguyễn Văn Ánh"], ids=["trong", "da_dien"])
+def test_vi_tri_o_that_O_RONG_la_CA_O_tren_trang_sach(gia_tri):
+    from src.services.ban_thao import ap_phep_sua, cho_trong_khuon
+    from src.services.dien_khuon import danh_dau_docx
+    from src.services.doc_tai_lieu import _tu_pdf
+    from tests.test_services.test_dien_khuon import _hang
+
+    vao = _docx_ds()
+    hang = _hang(vao)
+    o = [(x["don_vi"], x["so"]) for x in cho_trong_khuon("docx", hang, [])]
+    assert o == [(3, 0), (4, 0)]
+    phep = [{"loai": "dien", "don_vi": 4, "cho_trong": 0, "gia_tri": gia_tri}] if gia_tri else []
+
+    def ap(b: bytes) -> bytes:
+        return ap_phep_sua("docx", b, hang, phep)[0]
+
+    pdf, pdf_do = dung_trang.dung_pdf_kem(ap(vao), ap(danh_dau_docx(vao, hang, o)))
+    vi_tri = dung_trang.vi_tri_o(pdf, pdf_do)
+    assert set(vi_tri) == set(o)
+    (t3, h3), (t4, h4) = vi_tri[3, 0], vi_tri[4, 0]
+    assert t3 == t4 == 0 and h3[2] <= h4[0] + 1, "ô STT bên trái ô Họ và tên"
+    assert h4[2] - h4[0] > 150 and h4[3] - h4[1] > 10, "hộp là cả ô (4000 twip = 200 pt)"
+    tu = _tu_pdf(pdf)[1]
+    assert h4[1] >= next(h for _, c, h in tu if c == "tên")[3] - 1, "ô dữ liệu nằm dưới hàng tiêu đề"
+    if gia_tri:
+        anh = next(h for _, c, h in tu if c == "Ánh")
+        # Hộp từ của poppler theo cỡ phông (cao hơn dòng): so tâm dọc, không so mép.
+        assert h4[0] <= anh[0] and anh[2] <= h4[2] and h4[1] <= (anh[1] + anh[3]) / 2 <= h4[3], "hộp phủ giá trị"
+
+
 def test_dung_DOCX_co_ban_do_dung_ANH_ban_sach_va_ban_do_hong_van_ra_trang(monkeypatch):
     """Bản dò đi qua CÙNG bộ áp và cùng lượt LibreOffice với bản sạch; ảnh là
     của bản sạch. Lượt đôi hỏng thì dựng riêng bản sạch — trang về, không vị trí."""

@@ -124,6 +124,15 @@ và bố cục bạn không đụng tới giữ nguyên. Bạn KHÔNG viết l�
   trống thì tách ra từng chỗ: "số 12/2026" vào `Số ⟦0⟧/⟦1⟧` là `⟦0⟧` = "12",
   `⟦1⟧` = "2026"; ngày "01/10/2026" vào `ngày ⟦0⟧ tháng ⟦1⟧ năm ⟦2⟧` là "01",
   "10", "2026". Điền chỗ trống thì LUÔN dùng `dien`, không dùng `thay`.
+  Ô TRỐNG của một bảng danh sách là một chỗ trống dù không có dãy chấm: ô đó
+  hiện là `⟦0⟧`, và dòng `chỗ trống:` ngay dưới cho tên CỘT và số dòng, ví dụ
+  `[A-30] (tr. 2, bảng 2 hàng 2 cột 4) ⟦0⟧` với `chỗ trống: 0 «Họ và tên (dòng 1)»`
+  — điền bằng `dien` đơn vị 30, `cho_trong` 0. Điền bảng danh sách TỪNG HÀNG,
+  bắt đầu từ dòng 1: mỗi người (hay mỗi mục) người hỏi đưa là một hàng, và mỗi
+  giá trị vào ĐÚNG CỘT nói về nó — họ tên vào cột «Họ và tên», mã sinh viên vào
+  «Mã sinh viên…», ngày sinh vào «Ngày sinh», lớp vào «Lớp…». Cột «Mã …», «Số …»,
+  «STT» chỉ nhận giá trị có chữ số: tên người không bao giờ vào cột mã. Cột nào
+  người hỏi không cho giá trị thì để trống ô đó.
 - `thay` — thay chữ của đơn vị `don_vi` bằng `noi_dung`. `doan` là số `n` của
   `¶n`: chỉ thay ĐÚNG đoạn đó, một dòng; các đoạn khác và chỗ trống của chúng
   giữ nguyên (đơn vị không có `¶` là một đoạn, `doan` = 0). `doan` = `null`
@@ -138,10 +147,6 @@ và bố cục bạn không đụng tới giữ nguyên. Bạn KHÔNG viết l�
   `[A-6] (…) Cơ quan/Đơn vị tiếp nhận: ⟦0⟧`, câu "tên cơ quan tiếp nhận là …,
   số 12/2026" cho bốn phép: `thay` đơn vị 3, `doan` 0, tên cơ quan viết hoa;
   `dien` 3/0 = "12"; `dien` 3/1 = "2026"; `dien` 6/0 = tên cơ quan.
-  Ô TRỐNG của một bảng danh sách cũng là chỗ để điền dù không có dãy chấm: dòng
-  `[A-30] (tr. 2, bảng 2 hàng 2 cột 4)` không có chữ nào, nằm dưới ô tiêu đề cột
-  «Họ và tên» — `thay` đúng đơn vị ô đó (`doan` = `null`) bằng giá trị người hỏi
-  đã nói, mỗi ô một giá trị.
 - `chen_sau` — chèn một đoạn MỚI `noi_dung` ngay sau đơn vị `don_vi`, ví dụ
   câu trả lời dưới một câu hỏi của biểu mẫu không có chỗ trống nào để điền.
   Mọi chữ của nó phải là chữ người hỏi đã nói.

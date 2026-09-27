@@ -199,6 +199,7 @@ def _ket(tep: str, da_ap: int, word: int | str = 1, word_sau: int | str = 1, lo_
         "khu_hoi": {"bytes_giong": True, "trang_giong": True},
         "dien": d,
         "pdf": {"so": pdf or _pdf(da_ap, da_ap, da_ap), "scan": "không có tesseract"},
+        "o_bang": {"so_cho": 0},
     }
     if isinstance(word, int):
         c["lo_word"] = {"trung_so_trang": word == 1, "giong_diem_anh": [1.0], "iou_muc": [1.0]}
@@ -248,6 +249,22 @@ def test_tong_hop_loi_word_la_truot_khong_roi_khoi_mau_so():
     assert dn["so_trang_giu_word"] == [1, 2]
     assert dn["gia_tri_word"] == [2, 4]
     assert dn["word_mo"] == [1, 2]
+
+
+def test_tong_hop_o_bang_dem_RIENG_khong_cong_vao_so_cua_kieu_cu():
+    """Chỗ `o` (ô rỗng của bảng, G5) đo riêng: số chấm/tab của thước giữ nguyên."""
+    a = _ket("a.docx", 2)
+    a["o_bang"] = {"so_cho": 3, "da_ap": 3, "bo_qua": {}, "so_trang_truoc": 1, "so_trang_sau": 1}
+    a["o_bang"]["doc_lai_dung"] = [3, 3]
+    th = r.tong_hop([a, _ket("b.docx", 2)])
+    assert th["o_bang"] == {
+        "so_cho_theo_tep": {"a.docx": 3, "b.docx": 0},
+        "da_ap": [3, 3],
+        "bo_qua": {},
+        "so_trang_giu": [1, 1],
+        "doc_lai_dung": [3, 3],
+    }
+    assert th["dien"]["so_cho"] == 4
 
 
 # ─────────────────────────────────────────────────────────── lượt chạy
@@ -302,6 +319,7 @@ def test_mot_bieu_mau_hai_trang_do_du_cac_duong():
     assert d["trang_khong_dien"] == {"trang": 1, "giong": 1, "doi_khong_gia_tri": []}
     assert d["gia_tri"] == [2, 2]
     assert d["muc_zip_doi"] == []
+    assert ket["o_bang"] == {"so_cho": 0}
     p = ket["pdf"]["so"]
     assert (p["so_cho"], p["so_cho_docx"], p["da_ap"], p["bo_qua"]) == (2, 2, 2, {})
     assert p["so_trang_giu"] and p["diem_anh_doi"] > 0

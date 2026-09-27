@@ -27,7 +27,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.services.dien_khuon import O_URI
+from src.services.dien_khuon import O_MAU_DO, O_URI
 from src.services.dien_khuon_pdf import _khung
 from src.services.doc_tai_lieu import (
     _HAN_CHUYEN_DOI_GIAY,
@@ -122,22 +122,79 @@ def vi_tri_o(pdf: bytes, pdf_do: bytes) -> ViTri:
     (đo trên tám biểu mẫu, trước và sau khi điền): ký tự trong hộp liên kết của
     bản dò được tìm lại theo thứ tự trên bản sạch (`pdftotext -tsv`), và hộp là
     phần của chúng trên dòng ĐẦU. Hai chuỗi khác nhau thì không định vị ô nào —
-    không đoán."""
-    lien_ket = _lien_ket_o(pdf_do)
-    return _chuyen_vi_tri(lien_ket, _tu_pdf(pdf), _tu_pdf(pdf_do)) if lien_ket else {}
+    không đoán. Chỗ `o` (ô rỗng) không có ký tự: hộp NỀN mốc của ô trên bản dò
+    (`_nen_o`) dùng thẳng khi chữ phía trên ô không lệch (`_chuyen_vi_tri`)."""
+    lien_ket, nen = _lien_ket_o(pdf_do), _nen_o(pdf_do)
+    return _chuyen_vi_tri(lien_ket, _tu_pdf(pdf), _tu_pdf(pdf_do), nen) if lien_ket or nen else {}
+
+
+def _hien_thi(khung: tuple, x0: float, y0: float, x1: float, y1: float) -> tuple[float, float, float, float]:
+    """Hộp hệ người dùng → hệ hiển thị gốc trên-trái (`/MediaBox`, `/Rotate` —
+    nghịch đảo `dien_khuon_pdf._khung`)."""
+    (a, b, c, d, e, f), _, cao = khung
+    diem = [(a * (u - e) + b * (v - f), cao - (c * (u - e) + d * (v - f))) for u, v in ((x0, y0), (x1, y1))]
+    (xa, xb), (ya, yb) = sorted(p[0] for p in diem), sorted(p[1] for p in diem)
+    return xa, ya, xb, yb
+
+
+# Toán tử tô của PDF (ISO 32000-1 §8.5.3.3): kết thúc đường đi bằng một lần tô.
+_TO = {b"f", b"F", b"f*", b"B", b"B*", b"b", b"b*"}
+
+
+def _nen_o(pdf: bytes) -> dict[tuple[int, int], tuple[int, tuple[float, ...]]]:
+    """Hình chữ nhật tô màu mốc `dien_khuon.mau_o` của bản dò → `{(don_vi, 0):
+    (trang, hộp)}`, hộp hệ hiển thị; LibreOffice vẽ nền ô thành `r g b rg`, `x y w
+    h re`, `f*` (đo 26.2.4). Màu theo `q`/`Q`; `re` qua ma trận hiện hành.
+
+    ponytail: chỉ `rg` (DeviceRGB) và `re`; nền vẽ bằng đường `m`/`l` hay không
+    gian màu khác thì ô "chưa định vị" (fail closed) — đọc thêm khi một bản
+    LibreOffice khác đo ra thế."""
+    ra: dict[tuple[int, int], tuple[int, tuple[float, ...]]] = {}
+    for i, trang in enumerate(_mo_pdf(pdf).pages):
+        khung = _khung(trang)
+        if khung is None:
+            continue
+        mau: list[tuple[int, ...] | None] = [None]
+        cho: list[tuple[float, ...]] = []
+
+        def _xem(op, so, cm, _tm, khung=khung, i=i, mau=mau, cho=cho) -> None:
+            if op == b"q":
+                mau.append(mau[-1])
+            elif op == b"Q" and len(mau) > 1:
+                mau.pop()
+            elif op == b"rg" and len(so) == 3:
+                mau[-1] = tuple(round(float(v) * 255) for v in so)
+            elif op == b"re" and len(so) == 4:
+                x, y, w, h = (float(v) for v in so)
+                a, b, c, d, e, f = (float(v) for v in cm)
+                goc = [(a * u + c * v + e, b * u + d * v + f) for u, v in ((x, y), (x + w, y + h))]
+                cho.append((*goc[0], *goc[1]))
+            elif op in _TO:
+                if (m := mau[-1]) and m[0] == O_MAU_DO:
+                    for x0, y0, x1, y1 in cho:
+                        ra.setdefault(((m[1] << 8) | m[2], 0), (i, _hien_thi(khung, x0, y0, x1, y1)))
+                cho.clear()
+            elif op in (b"n", b"S", b"s"):
+                cho.clear()
+
+        try:
+            trang.extract_text(visitor_operand_before=_xem)
+        except Exception:
+            # Bắt rộng cùng lý do `_mo_pdf`: nền ô không đọc được không được làm
+            # mất vị trí các ô chấm/tab của cùng bản dò.
+            logger.warning("dung_trang: không đọc được nền ô trang %d của bản dò", i + 1)
+    return ra
 
 
 def _lien_ket_o(pdf: bytes) -> dict[tuple[int, int], list[tuple[int, tuple[float, ...]]]]:
     """`/Link` trỏ tới `O_URI{don_vi}/{so}` → `[(trang, hộp)]` theo thứ tự trang,
-    hộp đổi từ hệ người dùng về hệ hiển thị gốc trên-trái (`/MediaBox`,
-    `/Rotate` — nghịch đảo `dien_khuon_pdf._khung`). Một ô vắt qua dòng có nhiều
-    hộp."""
+    hộp đổi từ hệ người dùng về hệ hiển thị gốc trên-trái (`_hien_thi`). Một ô vắt
+    qua dòng có nhiều hộp."""
     ra: dict[tuple[int, int], list[tuple[int, tuple[float, ...]]]] = {}
     for i, trang in enumerate(_mo_pdf(pdf).pages):
         khung = _khung(trang)
         if khung is None:
             continue
-        (a, b, c, d, e, f), _, cao = khung
         for chu_thich in trang.get("/Annots") or []:
             chu_thich = chu_thich.get_object()
             hanh_dong = chu_thich.get("/A")
@@ -151,9 +208,7 @@ def _lien_ket_o(pdf: bytes) -> dict[tuple[int, int], list[tuple[int, tuple[float
                 continue
             if len(khoa) != 2:
                 continue
-            diem = [(a * (u - e) + b * (v - f), cao - (c * (u - e) + d * (v - f))) for u, v in ((x0, y0), (x1, y1))]
-            (xa, xb), (ya, yb) = sorted(p[0] for p in diem), sorted(p[1] for p in diem)
-            ra.setdefault(khoa, []).append((i, (xa, ya, xb, yb)))
+            ra.setdefault(khoa, []).append((i, _hien_thi(khung, x0, y0, x1, y1)))
     return ra
 
 
@@ -170,11 +225,21 @@ def _chu_theo_ky_tu(tu: dict) -> tuple[str, list[tuple[int, int, int, tuple[floa
     return "".join(chu), ra
 
 
-def _chuyen_vi_tri(lien_ket: dict, tu_sach: dict, tu_do: dict) -> ViTri:
+# Hai bản dựng của CÙNG một dàn trang lệch nhau dưới một điểm (G1: ≤ 1 px ở
+# 110 dpi); một dòng ngắt khác lệch cả một dòng (≥ 10 pt).
+_LECH_TOI_DA_PT = 1.0
+
+
+def _chuyen_vi_tri(lien_ket: dict, tu_sach: dict, tu_do: dict, nen: dict | None = None) -> ViTri:
     """Hộp liên kết của bản dò → hộp trên bản sạch, theo chỉ số ký tự (xem
     `vi_tri_o`). Ký tự của một từ lấy phần bề rộng chia đều (poppler chỉ cho hộp
     TỪ); từ giữ nguyên ranh giới ở bản sạch thì phần hộp liên kết trong từ được
-    dời nguyên văn — chính xác, không chia đều."""
+    dời nguyên văn — chính xác, không chia đều.
+
+    `nen` (`_nen_o`): hộp nền của chỗ `o` trên bản dò, dùng NGUYÊN khi mọi từ của
+    trang đó mà đỉnh nằm trên đáy ô đứng đúng chỗ ở bản sạch (≤ `_LECH_TOI_DA_PT`,
+    cùng trang): nền không đổi dàn trang, nên chỉ một liên kết phía trên ngắt dòng
+    khác mới dời được ô — khi đó ô "chưa định vị", không đoán."""
     chu_sach, sach = _chu_theo_ky_tu(tu_sach)
     chu_do, do = _chu_theo_ky_tu(tu_do)
     if chu_sach != chu_do:
@@ -209,6 +274,14 @@ def _chuyen_vi_tri(lien_ket: dict, tu_sach: dict, tu_do: dict) -> ViTri:
         trang_s, *dong = min(manh)[1]
         x0, y0, x1, y1 = zip(*(p[1:] for _, p in manh if p[0] == trang_s and _cung_dong(p[1:], dong)), strict=True)
         ra[khoa] = (trang_s, [round(v, 2) for v in (min(x0), min(y0), max(x1), max(y1))])
+    for khoa, (trang, hop) in (nen or {}).items():
+        tren = [k for k in theo_trang.get(trang, []) if do[k][3][1] < hop[3]]
+        if all(
+            sach[k][0] == trang
+            and max(abs(u - v) for u, v in zip(sach[k][3], do[k][3], strict=True)) <= _LECH_TOI_DA_PT
+            for k in tren
+        ):
+            ra[khoa] = (trang, [round(v, 2) for v in hop])
     return ra
 
 

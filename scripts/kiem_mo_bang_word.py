@@ -70,8 +70,10 @@ def hang_don_vi(ten: str, du_lieu: bytes) -> list[dict]:
 
 
 def phep_dien_het(hang: list[dict]) -> list[dict]:
-    """Một phép `dien` cho MỖI chỗ trống có địa chỉ, giá trị xoay vòng `GIA_TRI_MAU`."""
-    cho = [(h["chi_so"], c["so"]) for h in hang if "dia_chi" in h for c in h.get("cho_trong", [])]
+    """Một phép `dien` cho MỖI chỗ trống chấm/tab có địa chỉ, giá trị xoay vòng
+    `GIA_TRI_MAU`. Chỗ `o` (ô rỗng của bảng, G5) đo riêng (`eval.run_khuon_goc`): ô
+    hẹp ngắt giá trị dài thành nhiều dòng, và `pdftotext` đọc bảng theo dòng."""
+    cho = [(h["chi_so"], c["so"]) for h in hang if "dia_chi" in h for c in h.get("cho_trong", []) if c["kieu"] != "o"]
     return [
         {"loai": "dien", "don_vi": d, "cho_trong": so, "gia_tri": GIA_TRI_MAU[i % len(GIA_TRI_MAU)]}
         for i, (d, so) in enumerate(cho)
