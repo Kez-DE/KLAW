@@ -15,6 +15,7 @@ import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
 import { TaiLieuDuKien } from "@/components/klaw/TaiLieuDuKien";
 import {
   apNeuCungBan,
+  dongKhiDoiPhien,
   thamSoSanKhau,
   urlCoBanThao,
   urlTroBanKhac,
@@ -561,8 +562,9 @@ function ManHoiKlaw() {
   }, [luuTru, traCuu.ketQua, traCuu.dangChay, daTai.length]);
 
   // `?phien=` là nguồn sự thật về phiên đang mở (tải lại trang giữ được, chia sẻ
-  // được). Đổi phiên ⇒ xoá dòng hội thoại, đóng khung, tải lượt đã lưu. Trường
-  // hợp đặc biệt: sau `bat_dau` của phiên MỚI ta tự `replace` URL sang id đó —
+  // được). Đổi phiên ⇒ xoá dòng hội thoại, đóng khung — cả sân khấu của phiên cũ
+  // (`dongKhiDoiPhien`) — tải lượt đã lưu. Trường hợp đặc biệt: sau `bat_dau`
+  // của phiên MỚI ta tự `replace` URL sang id đó —
   // lúc ấy `traCuu.hoiThoaiId === phienId` và dòng hội thoại đang chạy PHẢI giữ.
   const { datLai: datLaiTraCuu } = traCuu;
   const { dong: dongDoiChieu } = doiChieu; // `useDoiChieu` trả object mới mỗi render; `dong` là useCallback ổn định
@@ -573,6 +575,7 @@ function ManHoiKlaw() {
     if (dangKiemPhien || phienDangHien.current === phienId) return;
     phienDangHien.current = phienId;
     if (phienId !== undefined && phienId === traCuu.hoiThoaiId) return;
+    if (dongKhiDoiPhien(banThaoTrenUrl, sanKhauRef.current)) onDongSanKhau();
     datLuuTru([]);
     datDangMo(null);
     dongDoiChieu();
@@ -592,6 +595,7 @@ function ManHoiKlaw() {
     else xoaChiTiet();
   }, [
     phienId,
+    banThaoTrenUrl,
     dangKiemPhien,
     daDangNhap,
     traCuu.hoiThoaiId,
@@ -599,6 +603,7 @@ function ManHoiKlaw() {
     taiChiTiet,
     xoaChiTiet,
     dongDoiChieu,
+    onDongSanKhau,
   ]);
 
   // Sau `bat_dau` của phiên MỚI (có danh tính, chưa có `?phien=`) → ghim id lên
@@ -1401,7 +1406,6 @@ function ManHoiKlaw() {
                 )}
               </div>
             )}
-            <div ref={cuoi} />
           </div>
         )}
       </div>
@@ -1449,6 +1453,10 @@ function ManHoiKlaw() {
           datTepDaDinhKem((truoc) => truoc.filter((t) => t.id !== id));
         }}
       />
+      {/* Mốc cuộn SAU ô soạn (sticky bottom-0): cuộn tới đây là tới đáy thật,
+          ô soạn về chỗ tĩnh của nó. Đặt trước ô soạn thì đáy thẻ cuối — nút
+          "Mở bản thảo" — nằm dưới ô soạn. Màn chào không cuộn. */}
+      {!chuaHoiGiCa && <div ref={cuoi} />}
     </div>
   );
 

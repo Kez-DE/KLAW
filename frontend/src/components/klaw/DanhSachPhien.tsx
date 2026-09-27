@@ -1,9 +1,9 @@
 import { Check, Eye, EyeOff, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { TrangThaiHoiThoai } from "@/hooks/use-hoi-thoai";
-import { danhSachBanThao } from "@/lib/api";
+import { danhSachBanThao, ngheBanThaoDoi } from "@/lib/api";
 import type { BanThaoTomTat, PhienTomTat } from "@/lib/klaw";
-import { thoiGianTuongDoi } from "@/lib/phien";
+import { thoiGianTuongDoi, vaBanThaoGanDay } from "@/lib/phien";
 import { cn } from "@/lib/utils";
 
 /**
@@ -336,9 +336,9 @@ function MotBanThaoGanDay({ banThao, onMo }: { banThao: BanThaoTomTat; onMo: () 
  * tắt mở lại, không phải nơi quản lý bản thảo.
  *
  * Tự tải `danhSachBanThao(5)` — không có state dùng chung như `hoiThoai` cho
- * phiên. Lỗi tải PHẢI hiện ra, không bị nuốt lặng lẽ: fire-and-forget nuốt
- * lỗi là một phát hiện đã sửa ở nơi khác trong kế hoạch này, không lặp lại ở
- * đây.
+ * phiên — rồi theo kịp phiên bản qua `ngheBanThaoDoi`. Lỗi tải PHẢI hiện ra,
+ * không bị nuốt lặng lẽ: fire-and-forget nuốt lỗi là một phát hiện đã sửa ở
+ * nơi khác trong kế hoạch này, không lặp lại ở đây.
  */
 export function DanhSachBanThaoGanDay({ onMo }: { onMo: (banThao: BanThaoTomTat) => void }) {
   const [trangThai, datTrangThai] = useState<
@@ -346,17 +346,42 @@ export function DanhSachBanThaoGanDay({ onMo }: { onMo: (banThao: BanThaoTomTat)
     | { dang: "loi"; message: string }
     | { dang: "xong"; items: BanThaoTomTat[] }
   >({ dang: "dang_tai" });
+  /** `trangThai` mới nhất cho người nghe `ngheBanThaoDoi` (đăng ký một lần). */
+  const hienTai = useRef(trangThai);
+  hienTai.current = trangThai;
 
   useEffect(() => {
     let huy = false;
-    void danhSachBanThao(5).then((kq) => {
-      if (huy) return;
-      datTrangThai(
-        kq.ok ? { dang: "xong", items: kq.data.items } : { dang: "loi", message: kq.error.message },
-      );
+    let lan = 0;
+    const tai = () => {
+      const lanNay = ++lan; // chỉ lượt tải MỚI NHẤT được ghi
+      void danhSachBanThao(5).then((kq) => {
+        if (huy || lanNay !== lan) return;
+        datTrangThai(
+          kq.ok
+            ? { dang: "xong", items: kq.data.items }
+            : { dang: "loi", message: kq.error.message },
+        );
+      });
+    };
+    tai();
+    // Lưu/lùi/lượt chat ra phiên bản mới: vá tại chỗ ("Phiên bản 1" không đứng
+    // lì sau khi bản thảo đã lên v3). Bản vừa tạo, hay danh sách chưa có: tải lại.
+    // ponytail: một lượt tải đang bay có thể về sau một lần vá và đè nó bằng số
+    // cũ tới lần đổi kế tiếp; khoá theo phiên bản nếu thấy xảy ra thật.
+    const go = ngheBanThaoDoi((bt) => {
+      const cu = hienTai.current;
+      const moi =
+        cu.dang === "xong" ? vaBanThaoGanDay(cu.items, bt, new Date().toISOString()) : null;
+      if (moi === null) tai();
+      else
+        datTrangThai((s) =>
+          s.dang === "xong" && s.items === moi ? s : { dang: "xong", items: moi },
+        );
     });
     return () => {
       huy = true;
+      go();
     };
   }, []);
 
