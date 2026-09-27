@@ -116,7 +116,13 @@ kiem("khoá ngoài hợp đồng không lọt ra", () => {
 });
 
 // ─────────────────────────────────────────────────────────── laTrangAnh
-const TRANG = { kho: [[595.3, 841.9], [612, 792]], trang: ["iVBORw0KGgo=", "AAAA"] };
+const TRANG = {
+  kho: [
+    [595.3, 841.9],
+    [612, 792],
+  ],
+  trang: ["iVBORw0KGgo=", "AAAA"],
+};
 kiem("trang hợp lệ (A4 + Letter) được nhận", () => {
   assert.equal(laTrangAnh(TRANG), true);
 });
@@ -199,10 +205,19 @@ kiem("không có filename* (hay hỏng / không phải UTF-8) → filename", () 
   assert.equal(tenTepTuContentDisposition('attachment; filename="a\\"b.pdf"'), 'a"b.pdf');
 });
 kiem("không đường dẫn, không ký tự điều khiển; không có tên → null", () => {
-  assert.equal(tenTepTuContentDisposition("attachment; filename*=UTF-8''..%2F..%2Fetc%2Fpasswd"), "passwd");
+  assert.equal(
+    tenTepTuContentDisposition("attachment; filename*=UTF-8''..%2F..%2Fetc%2Fpasswd"),
+    "passwd",
+  );
   assert.equal(tenTepTuContentDisposition('attachment; filename="a\\\\b.docx"'), "b.docx");
   assert.equal(tenTepTuContentDisposition("attachment; filename*=UTF-8''a%0D%0Ab.pdf"), "ab.pdf");
-  for (const h of [null, "", "attachment", "inline; filename=\"\"", "attachment; filename*=UTF-8''%2F"])
+  for (const h of [
+    null,
+    "",
+    "attachment",
+    'inline; filename=""',
+    "attachment; filename*=UTF-8''%2F",
+  ])
     assert.equal(tenTepTuContentDisposition(h), null, String(h));
 });
 
@@ -225,7 +240,11 @@ kiem("đường dẫn tính từ gốc API (không lặp /api/v1), mã hoá id, 
     assert.ok(!d.startsWith("/api/v1"), d);
 });
 kiem("503 = máy chủ bận, cho thử lại; 404 = phiên bản không hiện được, không thử lại", () => {
-  const ban = loiTrang({ kind: "server_error", status: 503, message: "Máy chủ KLAW gặp lỗi khi xử lý." });
+  const ban = loiTrang({
+    kind: "server_error",
+    status: 503,
+    message: "Máy chủ KLAW gặp lỗi khi xử lý.",
+  });
   assert.equal(ban.thuLai, true);
   assert.match(ban.cau, /bận/);
   const mat = loiTrang({ kind: "not_found", status: 404, message: "Không tìm thấy tài liệu" });
