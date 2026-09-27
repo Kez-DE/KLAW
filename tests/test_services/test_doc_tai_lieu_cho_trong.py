@@ -288,6 +288,15 @@ def test_nhan_la_DUOI_60_ky_tu_bo_tu_bi_cat_do():
         ("  Họ   và tên:  ", "", "Họ và tên"),
         ("x" * 58 + ": 1", "", "x" * 58),  # cắt 60 ký tự mà mẩu có chữ không có dấu cách
         ("", "Số", ""),
+        # Chú thích ngoặc CUỐI nhãn dài ("(nếu có)", "(ghi rõ …)") không phải tên ô.
+        ("Họ và tên người đại diện theo pháp luật (nếu có):", "", "Họ và tên người đại diện theo pháp luật"),
+        ("Số điện thoại liên hệ của người hướng dẫn (nếu có)", "", "Số điện thoại liên hệ của người hướng dẫn"),
+        ("Địa chỉ nơi ở hiện tại (ghi rõ số nhà, đường, phường):", "", "Địa chỉ nơi ở hiện tại"),
+        ("Người đại diện (ký, ghi rõ họ tên và đóng dấu)", "", "Người đại diện"),
+        ("Họ tên (nếu có):", "", "Họ tên (nếu có)"),  # nhãn ngắn giữ nguyên
+        # 60 ký tự cuối cắt "của" còn "a", rồi chú thích ngoặc: bỏ cả hai.
+        ("a người hướng dẫn tại cơ sở (ký, ghi rõ họ tên và đóng dấu):", "", "người hướng dẫn tại cơ sở"),
+        ("(ghi rõ số nhà, đường, phường, quận, thành phố nơi cư trú):", "", "thành phố nơi cư trú"),
     ],
 )
 def test_nhan_sach(tho, truoc, sach):

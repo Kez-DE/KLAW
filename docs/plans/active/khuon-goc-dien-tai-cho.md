@@ -104,7 +104,8 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   paragraph), `dau`/`cuoi` are offsets into that paragraph's RAW concatenated
   `w:t` text (not the stripped `noi_dung`), `nhan` is the display label:
   `doc_tai_lieu.nhan_sach` of at most 60 chars of the text before the blank
-  (long label → tail after the last `,;:()`/sentence break, no trailing `:`,
+  (long label → drop a trailing `(nếu có)`/`(ghi rõ …)` note, then if still
+  long the tail after the last `,;:()`/sentence break, no trailing `:`,
   a letterless label → previous blank's label + ` (sau /)`, `""` when unknown;
   the same pure function runs again in `ban_thao.cho_trong_khuon`, so rows
   stored before it read clean too). A PDF line that is only dots takes the tail

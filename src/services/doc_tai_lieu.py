@@ -1831,6 +1831,8 @@ def _duoi_nhan(s: str) -> str:
 _NHAN_DAI = 40
 _NGAT_NHAN = re.compile(r"[,;:()]|[.!?](?=\s)")
 _SAU_O_TRUOC = re.compile(r" \(sau ([^()]*)\)$")
+# Chú thích ngoặc CUỐI nhãn ("(nếu có)", "(ghi rõ …)"): tên ô đứng trước nó.
+_NGOAC_CUOI = re.compile(r"\s*\([^()]*\)[\s:]*$")
 
 
 def _co_chu_cai(s: str) -> bool:
@@ -1843,11 +1845,12 @@ def nhan_sach(nhan: str, truoc: str = "") -> str:
     đọc gọi lúc tải lên, `ban_thao.cho_trong_khuon` gọi lại trên hàng đã lưu —
     tài liệu tải lên trước hàm này cũng có nhãn sạch.
 
-    Gộp khoảng trắng; nhãn dài hơn `_NHAN_DAI` giữ phần đuôi có chữ sau dấu
-    `,;:()` hay chỗ hết câu cuối cùng, và nhãn bị cắt 60 ký tự giữa một từ thì bỏ
-    mẩu từ đó; bỏ dấu ngắt đầu và `:` cuối. Nhãn không có chữ cái nào ("/",
-    "=") lấy nhãn ô trước: "Số" rồi "Số (sau /)". Rỗng là rỗng — giao diện tự
-    gọi "Chỗ trống"."""
+    Gộp khoảng trắng; nhãn dài hơn `_NHAN_DAI` bỏ chú thích ngoặc cuối
+    ("(nếu có)", "(ghi rõ …)") nếu trước nó còn chữ, còn dài thì giữ phần đuôi
+    có chữ sau dấu `,;:()` hay chỗ hết câu cuối cùng, và nhãn bị cắt 60 ký tự
+    giữa một từ thì bỏ mẩu từ đó; bỏ dấu ngắt đầu và `:` cuối. Nhãn không có
+    chữ cái nào ("/", "=") lấy nhãn ô trước: "Số" rồi "Số (sau /)". Rỗng là
+    rỗng — giao diện tự gọi "Chỗ trống"."""
     s = " ".join((nhan or "").split())
     if not _co_chu_cai(s):
         m = _SAU_O_TRUOC.search(truoc)
@@ -1856,10 +1859,14 @@ def nhan_sach(nhan: str, truoc: str = "") -> str:
     if (m := _SAU_O_TRUOC.search(s)) and not _co_chu_cai(m[1]):
         return s  # đã suy từ ô trước
     if len(s) > _NHAN_DAI:
-        phan = [p.strip() for p in _NGAT_NHAN.split(s)]
+        # 60 ký tự cuối (`_duoi_nhan`): từ đầu có thể bị cắt giữa.
+        cat = len(s) >= 60
+        if _co_chu_cai(g := _NGOAC_CUOI.sub("", s)):
+            s = g
+        phan = [p.strip() for p in _NGAT_NHAN.split(s)] if len(s) > _NHAN_DAI else [s]
         i = max(i for i, p in enumerate(phan) if _co_chu_cai(p))
-        # 60 ký tự cuối (`_duoi_nhan`) mà không dấu ngắt nào: từ đầu bị cắt giữa.
-        bo_tu_dau = i == 0 and len(s) >= 60 and _co_chu_cai(phan[0].partition(" ")[2])
+        # Giữ đúng phần đầu cửa sổ 60 ký tự: bỏ mẩu từ bị cắt.
+        bo_tu_dau = i == 0 and cat and _co_chu_cai(phan[0].partition(" ")[2])
         s = phan[0].partition(" ")[2] if bo_tu_dau else phan[i]
     return s.lstrip(" ,;:(").rstrip(" :")
 
