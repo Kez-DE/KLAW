@@ -86,8 +86,22 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
 - [ ] K0 baseline eval.
 - [ ] K1 missing documents and edges.
 - [ ] K2 metadata, effectivity, links, cleanup, refresh script.
-- [ ] K3 citation display.
-- [ ] K4 "Căn cứ" in drafts.
+- [x] K3 citation display (2026-09-28, `integ/trich-dan-day-du`). Backend
+  `services/trich_dan.truong_trich_dan` adds `ten_van_ban`, `loai_van_ban`,
+  `co_quan_ban_hanh`, `ngay_ban_hanh`, `ngay_hieu_luc`, `lien_ket`, `cach_trich`
+  to citations, `nguon`, `documents[]` and `GET /van-ban/{id}`, plus
+  `citations[].canh_bao`. Frontend reads the same names: frame header, "Căn cứ
+  pháp lý" list, copy sentence, document page link and dates. The frame's
+  effectivity note now reads `canh_bao` (per provision) and falls back to
+  matching `warnings[]` only for turns cached before the field. Every field is
+  NULL-safe: while `link_vbpl` is empty no link shows. Remaining: the plan's
+  real-app check of one labour answer, once K2 has filled links; `/tim-kiem`
+  rows don't carry `cach_trich`/`lien_ket` yet (the frontend falls back).
+- [x] K4 "Căn cứ" in drafts (2026-09-28, same branch). Checklist drafts get
+  the block in `document` and as `can_cu_van_ban`; `XemTruocA4` draws it under
+  the title as plain paragraphs, so the `.docx`/PDF export (read from the
+  sheet) carries it. General and khuôn-gốc drafts get `[]`. Remaining: open a
+  labour draft in the real app and check the downloaded file.
 - [ ] K6 full text for every shown document, PDFs.
 - [ ] K7 visibility rule and diagnostics hidden.
 - [ ] K5 after eval, credit.

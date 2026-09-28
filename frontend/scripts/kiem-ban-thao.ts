@@ -15,6 +15,7 @@ import {
   nhanMucKiem,
   type TruongFact,
 } from "../src/lib/klaw.ts";
+import { canCuTuBanThao } from "../src/lib/xuat-tep.ts";
 
 /** Ba mẫu: hợp lệ, thiếu trường bắt buộc, và không phải bản ghi. */
 const hopLe = {
@@ -96,4 +97,24 @@ assert.equal(neenGuiLaiPhienBan(loiKhac, 3, 4, 4), false, "lỗi khác lệch ph
 // Không có lỗi (đã thành công) → không áp dụng.
 assert.equal(neenGuiLaiPhienBan(null, 3, 4, 4), false, "không lỗi → không retry");
 
-console.info("kiem-ban-thao: 17/17 đạt");
+// ── `canCuTuBanThao` (quyết định 2026-09-28, mục 5) — khối "Căn cứ" của máy
+// chủ đi vào tờ A4, tức vào tệp tải về. Bản lưu trước trường này, khuôn gốc
+// và bản tổng quát không có khối; khoá sai kiểu không ném, không vẽ rác.
+const canCu = [
+  "Căn cứ Bộ luật Lao động số 45/2019/QH14 ngày 20 tháng 11 năm 2019;",
+  "Căn cứ Nghị định số 145/2020/NĐ-CP ngày 14 tháng 12 năm 2020 của Chính phủ.",
+];
+assert.deepEqual(
+  canCuTuBanThao({ ...hopLe, can_cu_van_ban: canCu }),
+  canCu,
+  "giữ đúng thứ tự máy chủ",
+);
+assert.deepEqual(canCuTuBanThao(hopLe), [], "bản lưu trước trường này → rỗng");
+assert.deepEqual(canCuTuBanThao({ ...hopLe, can_cu_van_ban: "Căn cứ …" }), [], "sai kiểu → rỗng");
+assert.deepEqual(
+  canCuTuBanThao({ ...hopLe, can_cu_van_ban: [canCu[0], 7, null, "  "] }),
+  [canCu[0]],
+  "phần tử không phải chữ hoặc rỗng bị bỏ",
+);
+
+console.info("kiem-ban-thao: 21/21 đạt");

@@ -19,6 +19,7 @@ import {
   type TimKiem,
   type VanBanTomTat,
 } from "@/lib/klaw";
+import { cachTrichHopLe, chuoiSaoChep, trichDieuKhoan, vanBanHopLe } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 
 /**
@@ -279,7 +280,12 @@ function ThanBoLoc({
 /* ─────────────────────────────── Một kết quả ───────────────────────────── */
 
 function TheDong({ dong, q }: { dong: DongTimKiem; q: string }) {
-  const trichDan = `${dong.duong_dan.replace(`${dong.so_ky_hieu} > `, "")} ${dong.so_ky_hieu}`;
+  // `cach_trich` của dòng này (một điều khoản) khi máy chủ gửi; không thì cụm
+  // điều khoản theo lối văn bản luật + số hiệu.
+  const trichDan = chuoiSaoChep(
+    cachTrichHopLe(dong) ?? trichDieuKhoan(dong.duong_dan, dong.so_ky_hieu),
+    vanBanHopLe(dong).lien_ket,
+  );
   return (
     <article className="rounded-xl border border-border bg-card p-4 transition-colors duration-150 hover:border-[var(--color-brass-500)]/50">
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-muted-foreground">

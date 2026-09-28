@@ -276,6 +276,64 @@ async def test_khop_tai_id_khong_bi_loc_o_bien_HTTP(client, monkeypatch):
     assert "Khoản 2" in c["duong_dan"], "duong_dan phải khớp khop_tai_id (dòng THẬT), không phải provision_id"
 
 
+@pytest.mark.asyncio
+async def test_truong_trich_dan_day_du_khong_bi_loc_o_bien_HTTP(client, monkeypatch):
+    """Quyết định 2026-09-28 — cùng kiểu hỏng với `khop_tai_id`/`doc_id`: trường
+    nào CitationOut/NguonOut không khai thì pydantic vứt câm ở biên HTTP."""
+    from src.agents.nodes.assemble import ResultType
+    from src.api import routes
+
+    day_du = {
+        "ten_van_ban": "Bộ Luật lao động",
+        "loai_van_ban": "Bộ luật",
+        "co_quan_ban_hanh": "Quốc hội",
+        "ngay_ban_hanh": "2019-11-20",
+        "ngay_hieu_luc": "2021-01-01",
+        "lien_ket": "https://vbpl.vn/van-ban/chi-tiet/139264",
+        "cach_trich": "khoản 2 Điều 127 Bộ luật Lao động số 45/2019/QH14 ngày 20/11/2019 của Quốc hội",
+    }
+
+    class FakeGraph:
+        async def ainvoke(self, *a, **k):
+            return {
+                "result_type": ResultType.answer,
+                "answer": "x",
+                "citations": [
+                    {
+                        **day_du,
+                        "provision_id": 141418,
+                        "khop_tai_id": 141420,
+                        "doc_id": "139264",
+                        "duong_dan": "45/2019/QH14 > Điều 127 > Khoản 2",
+                        "bo_luat": "Bộ Luật lao động",
+                        "so_ky_hieu": "45/2019/QH14",
+                        "quote": "Phạt tiền...",
+                        "hieu_luc": "mot_phan_khong_xac_dinh",
+                        "tin_cay": "thap",
+                        "canh_bao": "45/2019/QH14 hết hiệu lực một phần: bị 71/2025/QH15 sửa",
+                    }
+                ],
+                "warnings": ["45/2019/QH14 hết hiệu lực một phần: bị 71/2025/QH15 sửa"],
+                "documents": [
+                    {
+                        **day_du,
+                        "doc_id": "139264",
+                        "ten": "Bộ Luật lao động",
+                        "so_ky_hieu": "45/2019/QH14",
+                        "loai_van_ban": "Bộ luật",
+                    }
+                ],
+            }
+
+    monkeypatch.setattr(routes, "_g", lambda: FakeGraph())
+    r = await client.post("/api/v1/tra-cuu", json={"query": "x"})
+    assert r.status_code == 200
+    j = r.json()
+    c, d = j["citations"][0], j["documents"][0]
+    assert {k: c[k] for k in day_du} == day_du and {k: d[k] for k in day_du} == day_du
+    assert c["canh_bao"] == j["warnings"][0]
+
+
 # ══ HIGH (FastAPI review) — _ghi_traces() không được chặn event loop ═══════
 
 
@@ -522,8 +580,10 @@ def test_partial_coverage_giu_duoc_nguon_di_het_duong_graph_ra_HTTP(monkeypatch)
         {"query": "an toàn lao động quy định thế nào", "as_of_date": None})
 
     assert st["result_type"] is ResultType.partial_coverage
-    assert st["nguon"] == [{"doc_id": "84265", "so_ky_hieu": "84/2015/QH13",
-                            "bo_luat": "Luật An toàn, vệ sinh lao động"}], st["nguon"]
+    # Trường trích dẫn đầy đủ (quyết định 2026-09-28) là THÊM; ba khoá cũ giữ nguyên.
+    assert [{k: n[k] for k in ("doc_id", "so_ky_hieu", "bo_luat")} for n in st["nguon"]] == [
+        {"doc_id": "84265", "so_ky_hieu": "84/2015/QH13", "bo_luat": "Luật An toàn, vệ sinh lao động"}
+    ], st["nguon"]
 
     res = tra_cuu_response(_payload_cache(st, st["result_type"].value), "t", "c")
     assert len(res.nguon) == 1

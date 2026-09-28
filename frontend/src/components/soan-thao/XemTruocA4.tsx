@@ -597,6 +597,12 @@ function KhoiVanXuoi({
 interface Props {
   tieuDe: string;
   kyHieu?: string | null;
+  /**
+   * Khối "Căn cứ" dưới tên văn bản (quyết định 2026-09-28, mục 5) — `<p>`
+   * THƯỜNG, không `data-khong-xuat`: khác dòng "Căn cứ:" của công tắc
+   * `hienCanCu`, khối này LÀ nội dung văn bản và phải vào tệp tải về.
+   */
+  canCuVanBan?: readonly string[];
   muc: Muc[];
   thuPhong: number; // 50–150
   hienCanCu: boolean;
@@ -708,6 +714,7 @@ function useAnhDaTai(duongDan: readonly string[]): Readonly<Record<string, strin
 export function XemTruocA4({
   tieuDe,
   kyHieu,
+  canCuVanBan = [],
   muc,
   thuPhong,
   hienCanCu,
@@ -831,6 +838,7 @@ export function XemTruocA4({
     laTongQuat,
     tieuDe,
     kyHieu,
+    canCuVanBan,
     leTrang,
     anh.map((a) => a.url),
     muc.map((m) => [
@@ -954,6 +962,15 @@ export function XemTruocA4({
             )}
             {ti === 0 && kyHieu && (
               <p className="mt-1 text-center font-mono text-[0.85em] text-[#555]">Số: {kyHieu}</p>
+            )}
+            {ti === 0 && canCuVanBan.length > 0 && (
+              <div className="mt-6 space-y-1">
+                {canCuVanBan.map((d, i) => (
+                  <p key={i} className="m-0 font-serif text-[1em] leading-relaxed">
+                    {d}
+                  </p>
+                ))}
+              </div>
             )}
             <div className={cn("space-y-4", ti === 0 && "mt-6")}>
               {/* MỖI phần tử là một MẢNH mục (`chiaTrang`): mục dài hơn phần

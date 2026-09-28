@@ -345,6 +345,21 @@ async def test_tai_xuong_PHIEN_BAN_CHUA_DOI_GI_mang_ten_tep_tai_len(client, khoa
     assert r.headers["content-disposition"].startswith('attachment; filename="Giay tiep nhan.docx"'), "theo phiên bản"
 
 
+@pytest.mark.asyncio
+async def test_tai_xuong_KHUON_GOC_chua_sua_dung_tung_byte_va_KHONG_co_khoi_can_cu(client, khoa_ky, hai_nguoi):
+    """Quyết định 2026-09-28 mục 5: khối "Căn cứ" chỉ vào bản thảo checklist/HTML.
+    Bản trên khuôn gốc giữ luật chủ dự án — soạn lại là đúng 100% tệp tải lên."""
+    a, _ = hai_nguoi
+    ha = _bearer(khoa_ky, a)
+    id_, _ = _ban_thao(a, [_d(0, 0, "  ")])
+    goc = ban_thao.khuon_cua_phien_ban(a, id_)["noi_dung"]
+    r = await client.get(f"/api/v1/ban-thao/{id_}/tai-xuong?dang=docx", headers=ha)
+    assert r.status_code == 200, r.text
+    assert r.content == bytes(goc), "tải về phải là CHÍNH tệp tải lên, từng byte"
+    bt = (await client.get(f"/api/v1/ban-thao/{id_}", headers=ha)).json()
+    assert bt["can_cu_van_ban"] == [] and "Căn cứ" not in bt["document"]
+
+
 
 @can_poppler
 @pytest.mark.asyncio

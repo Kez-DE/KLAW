@@ -35,6 +35,7 @@ import {
 import { dongTrenCung, moTam, type Tam } from "@/lib/ngan-xep-drawer";
 import {
   anhTuBanThao,
+  canCuTuBanThao,
   leTrangTuBanThao,
   mucTuBanThao,
   taiBlob,
@@ -216,6 +217,8 @@ export function SanKhauBanThao({
   const leTrang = useMemo(() => leTrangTuBanThao(banThao), [banThao]);
   // Ảnh đã tách cũng là sự thật của cả TÀI LIỆU, đọc riêng cùng lý do lề trang.
   const anh = useMemo(() => anhTuBanThao(banThao), [banThao]);
+  // Khối "Căn cứ" (quyết định 2026-09-28, mục 5): cấp TÀI LIỆU, cùng lý do.
+  const canCuVanBan = useMemo(() => canCuTuBanThao(banThao), [banThao]);
   const nhanDoi = nhanFactDoi(banThao.doi_so_voi_truoc, truongMau);
   const [hienThayDoi, datHienThayDoi] = useState(false);
   const [thuPhong, datThuPhong] = useState(100);
@@ -862,6 +865,7 @@ export function SanKhauBanThao({
                     : (cauTruc?.tieu_de ?? banThao.ten)
                 }
                 kyHieu={null}
+                canCuVanBan={canCuVanBan}
                 muc={muc}
                 // Lề trang NGUỒN của tài liệu khách tải lên (`w:pgMar`,
                 // 2026-09-18) — `null` với bản thảo KLAW tự soạn và mọi bản thảo

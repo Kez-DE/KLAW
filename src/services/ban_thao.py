@@ -7,6 +7,7 @@ import re
 import time
 import unicodedata
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import PurePath
 from typing import Any
@@ -250,7 +251,7 @@ def _finding_out(f, duong_dan_index: dict[str, dict]) -> dict:
     }
 
 
-def _render_markdown(loai: str, clauses: list, tieu_de: str | None = None) -> str:
+def _render_markdown(loai: str, clauses: list, tieu_de: str | None = None, can_cu: Sequence[str] = ()) -> str:
     """Bản sao của `routes._render_markdown` — cùng khuôn Markdown thuần.
 
     Nhánh `tong_quat` (S6) dựng THẲNG từ `clauses` (dict, không phải
@@ -267,6 +268,11 @@ def _render_markdown(loai: str, clauses: list, tieu_de: str | None = None) -> st
     JSONB) — ép cả hai nhánh về MỘT quy ước đọc là để hàm này dùng lại được
     cho `sua_tay` mà không cần một bản render thứ hai; `tu_state_soan_thao`
     (bên dưới) đổi sang truyền `dataclasses.asdict(c)` TRƯỚC khi gọi vào đây.
+
+    `can_cu` (quyết định 2026-09-28, mục 5) — khối "Căn cứ" ngay sau tiêu đề,
+    mỗi dòng một đoạn, TRƯỚC mục đầu tiên nên `_split_dieu` của đường soát
+    không đếm nó là một mục. Chỉ nhánh checklist: bản thảo tổng quát không có
+    checklist để dựng căn cứ, và bản trên khuôn gốc phải đúng 100% tệp tải lên.
     """
     if loai == "tong_quat":
         phan = [f"# {tieu_de or 'Văn bản'}", ""]
@@ -275,9 +281,21 @@ def _render_markdown(loai: str, clauses: list, tieu_de: str | None = None) -> st
         return "\n".join(phan)
     cl = load_checklist_cached(loai)
     phan = [f"# {cl.tieu_de}", ""]
+    for dong in can_cu:
+        phan += [dong, ""]
     for i, c in enumerate(clauses, 1):
         phan.append(f"## {cl.don_vi_muc} {i}. {c['ten']}\n\n{c['noi_dung']}\n")
     return "\n".join(phan)
+
+
+def can_cu_tu_document(document: str | None) -> list[str]:
+    """Khối "Căn cứ" mà `_render_markdown` đặt giữa tiêu đề và mục đầu tiên —
+    `[]` khi không có. `document` là nơi DUY NHẤT lưu khối này (không cột, không
+    migration), nên mọi phiên bản mang đúng khối của lúc nó được dựng; giao diện
+    đọc nó qua `can_cu_van_ban` thay vì tự parse Markdown."""
+    dong = (document or "").split("\n")[1:]
+    dau_muc = next((i for i, d in enumerate(dong) if d.startswith("## ")), len(dong))
+    return [d for d in dong[:dau_muc] if d.startswith("Căn cứ ")]
 
 
 def _tieu_de_tu_document(document: str | None) -> str | None:
@@ -384,10 +402,14 @@ def tu_state_soan_thao(st: dict) -> dict:
         "self_audit": r.self_audit,
         "findings": [_finding_out(f, idx) for f in r.findings],
     }
+    # Khối "Căn cứ" do `graph_soan_thao.n_retrieve` dựng (DB + hiệu lực), nên
+    # hàm này vẫn THUẦN; state thiếu khoá (test, đường cũ) thì không có khối.
+    can_cu = list(st.get("can_cu_van_ban") or [])
     return {
-        "document": _render_markdown(st["loai"], clauses_dict),
+        "document": _render_markdown(st["loai"], clauses_dict, can_cu=can_cu),
         "clauses": clauses_dict,
         "audit_report": audit_report,
+        "can_cu_van_ban": can_cu,
     }
 
 
@@ -703,7 +725,11 @@ def sua_tay(
             ]
         else:
             hien_thi = clauses_moi
-        document_moi = _render_markdown(cu["loai"], hien_thi, _tieu_de_tu_document(cu["document"]))
+        # Khối "Căn cứ" GIỮ NGUYÊN của phiên bản đang sửa: sửa tay một mục không
+        # dựng lại căn cứ, cùng cách tiêu đề được giữ.
+        document_moi = _render_markdown(
+            cu["loai"], hien_thi, _tieu_de_tu_document(cu["document"]), can_cu_tu_document(cu["document"])
+        )
         # `facts` không đổi — `doi_so_voi` luôn `[]` cho một sửa tay (nó sửa
         # `clauses`, không sửa `facts`); giữ nguyên tham số cho `_snap` không
         # cần một hình dạng thứ hai.

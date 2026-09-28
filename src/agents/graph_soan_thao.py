@@ -15,6 +15,7 @@ hợp lệ nhưng soát sai loại văn bản tệ hơn hẳn việc không soá
 """
 
 import re
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 from typing import TypedDict
@@ -25,11 +26,14 @@ from sqlalchemy import Engine, text
 from src.agents.nodes.draft_audit import draft_audit
 from src.agents.nodes.draft_generate import DraftClause, draft_generate
 from src.agents.nodes.verify_tier1 import normalize
+from src.config import as_of_hieu_luc
 from src.services.checklist import Checklist, cac_can_cu, load_checklist
 from src.services.db import get_engine
+from src.services.effectivity import danh_gia_theo_id
 from src.services.llm import from_settings as llm_from_settings
 from src.services.llm import generate_model
 from src.services.rules import Rule, load_facts_meta, load_rules
+from src.services.trich_dan import khoi_can_cu
 
 RULES_PATH = Path("config/rules.yaml")
 CONFIG_DIR = Path("config")
@@ -63,6 +67,9 @@ class SoanThaoState(TypedDict, total=False):
     muc: list[dict]
     expanded: list[dict]
     db_provisions: dict[int, dict]
+    # Khối "Căn cứ" của bản thảo (quyết định 2026-09-28) — `n_retrieve` dựng,
+    # `ban_thao.tu_state_soan_thao` đặt vào `document`. Không vào prompt nào.
+    can_cu_van_ban: list[str]
     clauses: list[DraftClause]
     schema_error: bool
     usage_generate: object
@@ -83,6 +90,12 @@ _SQL_PROVISIONS_BY_DUONG_DAN = text(
     "SELECT id, document_id, duong_dan, tieu_de, noi_dung FROM provisions WHERE duong_dan = ANY(:paths)"
 )
 _SQL_DOCUMENTS_BY_ID = text("SELECT id, so_ky_hieu, ten FROM documents WHERE id = ANY(:ids)")
+# Riêng cho khối "Căn cứ", KHÔNG gộp vào `_SQL_DOCUMENTS_BY_ID`: dòng của câu
+# trên đi vào `build_context` của `draft_generate`, và thêm `loai_van_ban` vào
+# đó là đổi prompt của mô hình (nó in `loai_van_ban` khi có).
+_SQL_VAN_BAN_CAN_CU = text(
+    "SELECT id, so_ky_hieu, ten, loai_van_ban, ngay_ban_hanh, co_quan_ban_hanh FROM documents WHERE id = ANY(:ids)"
+)
 
 
 @lru_cache
@@ -156,6 +169,19 @@ def requirements(loai: str) -> tuple[list[Rule], Checklist, dict[int, dict]]:
     return load_requirements(get_engine(), loai)
 
 
+def can_cu_van_ban(engine: Engine, db_provisions: dict[int, dict], as_of: date) -> list[str]:
+    """Khối "Căn cứ" từ các văn bản mà `can_cu` của checklist + rules dẫn tới —
+    chỉ văn bản còn hiệu lực TẠI `as_of`, phán bằng `danh_gia_theo_id`, đúng hàm
+    mà câu trả lời dùng (`effectivity_qua_provision`). KHÔNG `lru_cache` như
+    `requirements`: hiệu lực đổi theo ngày, còn tập điều khoản thì không."""
+    ids = sorted({r["document_id"] for r in db_provisions.values()})
+    if not ids:
+        return []
+    with engine.connect() as c:
+        van_ban = [dict(r) for r in c.execute(_SQL_VAN_BAN_CAN_CU, {"ids": ids}).mappings().all()]
+    return khoi_can_cu(van_ban, lambda i: danh_gia_theo_id(engine, i, as_of).verdict)
+
+
 # ── /soan-thao — graph 4 node ────────────────────────────────────────────────
 
 
@@ -179,7 +205,15 @@ def build_graph_soan_thao():
 
     def n_retrieve(st: SoanThaoState) -> SoanThaoState:
         db_provisions = requirements(st["loai"])[2]
-        return {**st, "expanded": list(db_provisions.values()), "db_provisions": db_provisions}
+        # Mốc hiệu lực của bản thảo: bản thảo không có `as_of` riêng, nên theo
+        # đúng quy tắc của request tra cứu (settings → hôm nay).
+        can_cu = can_cu_van_ban(get_engine(), db_provisions, as_of_hieu_luc(None))
+        return {
+            **st,
+            "expanded": list(db_provisions.values()),
+            "db_provisions": db_provisions,
+            "can_cu_van_ban": can_cu,
+        }
 
     def n_generate(st: SoanThaoState) -> SoanThaoState:
         """Nối usage của lượt LLM này vào `state["traces"]` — chỗ DUY NHẤT mà
