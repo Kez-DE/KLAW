@@ -34,6 +34,13 @@ _CAP_VIET_HOA = ("Điều ", "Chương ", "Mục ", "Tiểu mục ", "Phần ", 
 # Thứ bậc hiệu lực pháp lý cho thứ tự dòng "Căn cứ"; loại khác đứng sau cùng.
 _THU_BAC = {"Hiến pháp": 0, "Bộ luật": 1, "Luật": 1, "Nghị định": 2, "Thông tư": 3}
 
+# Văn bản chỉ quy định THỂ THỨC (cách trình bày), không bao giờ là căn cứ ban hành
+# của khối "Căn cứ": NĐ 30/2020 về công tác văn thư. Checklist dẫn nó cho quốc
+# hiệu, số ký hiệu, nơi nhận (checklist_cong_van.yaml mục 1: "không quy định
+# nghiệp vụ"), Đ2.1 của nó không với tới doanh nghiệp tư nhân, và in nó thành căn
+# cứ là bịa căn cứ ban hành (checklist_quyet_dinh_bo_nhiem.yaml mục 6).
+_CHI_THE_THUC = frozenset({"30/2020/NĐ-CP"})
+
 # "Còn hiệu lực" cho khối "Căn cứ": văn bản vẫn sống, kể cả khi một phần đã bị
 # sửa hay hết hiệu lực (Bộ luật Lao động 45/2019 là `mot_phan_khong_xac_dinh`).
 # Không gồm `chua_xac_dinh`/`can_doi_chieu_tay`: chưa kiểm được thì không dẫn.
@@ -178,9 +185,10 @@ def dong_can_cu(van_ban: dict) -> str:
 
 def khoi_can_cu(van_ban: Iterable[dict], verdict_cua: Callable[[str], V]) -> list[str]:
     """Khối "Căn cứ" của bản thảo: mỗi văn bản MỘT dòng, chỉ văn bản còn hiệu lực
-    (`verdict_cua(id)` — cùng phép tính hiệu lực của câu trả lời), xếp theo thứ
-    bậc rồi ngày ban hành; mọi dòng kết bằng ";", dòng cuối bằng "."."""
-    theo_id = {v["id"]: v for v in van_ban}
+    (`verdict_cua(id)` — cùng phép tính hiệu lực của câu trả lời), trừ nguồn chỉ
+    quy định thể thức (`_CHI_THE_THUC`), xếp theo thứ bậc rồi ngày ban hành; mọi
+    dòng kết bằng ";", dòng cuối bằng "."."""
+    theo_id = {v["id"]: v for v in van_ban if v.get("so_ky_hieu") not in _CHI_THE_THUC}
     con = [v for i, v in theo_id.items() if verdict_cua(i) in CON_HIEU_LUC]
     con.sort(
         key=lambda v: (

@@ -220,6 +220,30 @@ def test_khoi_can_cu_xep_theo_thu_bac_khu_trung_bo_van_ban_het_hieu_luc():
     assert not any("hiệu lực" in d for d in khoi), "khối Căn cứ không phán về hiệu lực"
 
 
+def test_khoi_can_cu_KHONG_dan_nghi_dinh_the_thuc_van_thu():
+    """NĐ 30/2020 (công tác văn thư) chỉ quy định THỂ THỨC — checklist dẫn nó cho
+    quốc hiệu, số ký hiệu, nơi nhận — nên không phải căn cứ ban hành của văn bản
+    người dùng đem đi ký, kể cả khi còn hiệu lực."""
+    ldn = {
+        "id": "1",
+        "so_ky_hieu": "59/2020/QH14",
+        "loai_van_ban": "Luật",
+        "ten": "Luật Doanh nghiệp số 59/2020/QH14",
+        "ngay_ban_hanh": date(2020, 6, 17),
+    }
+    nd30 = {
+        "id": "2",
+        "so_ky_hieu": "30/2020/NĐ-CP",
+        "loai_van_ban": "Nghị định",
+        "ten": "Nghị định số 30/2020/NĐ-CP về công tác văn thư",
+        "co_quan_ban_hanh": "Chính phủ",
+        "ngay_ban_hanh": date(2020, 3, 5),
+    }
+    luon_con = lambda _i: V.con_hieu_luc  # noqa: E731
+    assert khoi_can_cu([ldn, nd30], luon_con) == ["Căn cứ Luật Doanh nghiệp số 59/2020/QH14 ngày 17 tháng 6 năm 2020."]
+    assert khoi_can_cu([nd30], luon_con) == [], "chỉ có nguồn thể thức thì không có khối"
+
+
 def test_khoi_can_cu_chi_nhan_van_ban_CON_hieu_luc():
     for v in (V.het_hieu_luc, V.bi_thay_the, V.chua_hieu_luc, V.chua_xac_dinh, V.can_doi_chieu_tay):
         assert khoi_can_cu([BLLD], lambda _i, v=v: v) == [], v

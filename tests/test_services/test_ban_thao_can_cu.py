@@ -103,6 +103,28 @@ def test_van_ban_het_hieu_luc_bi_bo_khoi_can_cu(monkeypatch):
     assert khoi[-1].endswith(".")
 
 
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("loai", "mong"),
+    [
+        ("cong_van", []),
+        ("quyet_dinh_hdqt", []),
+        ("quy_che_noi_bo", []),
+        ("quyet_dinh_bo_nhiem", ["Căn cứ Luật Doanh nghiệp số 59/2020/QH14 ngày 17 tháng 6 năm 2020."]),
+        ("giay_uy_quyen", ["Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24 tháng 11 năm 2015."]),
+    ],
+)
+def test_nguon_the_thuc_ND_30_2020_khong_thanh_can_cu(loai, mong):
+    """Năm checklist này dẫn NĐ 30/2020 cho thể thức (Đ8.2, Đ7). Checklist tự ghi
+    nó không quy định nội dung và Đ2.1 không với tới doanh nghiệp tư nhân — in nó
+    thành căn cứ ban hành là bịa căn cứ (checklist_quyet_dinh_bo_nhiem.yaml mục 6)."""
+    from src.services.db import get_engine
+
+    db = gst.load_requirements(get_engine(), loai)[2]
+    assert any(r["so_ky_hieu"] == "30/2020/NĐ-CP" for r in db.values()), "tiền đề: checklist có dẫn NĐ 30/2020"
+    assert gst.can_cu_van_ban(get_engine(), db, date(2026, 9, 28)) == mong
+
+
 @pytest.fixture
 def nguoi():
     from src.services.db import get_engine
