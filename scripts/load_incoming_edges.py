@@ -80,6 +80,10 @@ CANH_DOI_CHIEU_NGUYEN_VAN: tuple[tuple[str, str, int, str], ...] = (
     # loai 21 cho 44/2013, 45/2013, 49/2013..., riêng 121/2018 thì thiếu. Không
     # có cạnh này, 121/2018 ra `con_hieu_luc` theo effStatus CHL đã cũ của MOJ.
     ("152668", "131010", 21, "Thay thế"),
+    # 38/2019/QH14 Điều 151 khoản 3: "Luật Quản lý thuế số 78/2006/QH11 ... hết
+    # hiệu lực kể từ ngày Luật này có hiệu lực thi hành". Parquet không có cạnh
+    # hiệu lực nào cho 14832 (chỉ hai cạnh MOJ loai 12, Mức 2a không đọc).
+    ("136036", "14832", 21, "Thay thế"),
 )
 
 # Văn bản hợp nhất (Công báo) nêu đích danh luật đi sửa từng điều khoản

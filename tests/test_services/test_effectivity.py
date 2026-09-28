@@ -495,6 +495,17 @@ def test_ND_90_2019_chi_co_canh_doc_tu_nguyen_van_38_2022():
 
 
 @pytest.mark.integration
+def test_luat_quan_ly_thue_78_2006_bi_38_2019_thay():
+    """38/2019/QH14 Điều 151 khoản 3: Luật Quản lý thuế 78/2006/QH11 "hết hiệu lực
+    kể từ ngày Luật này có hiệu lực thi hành". Parquet không có cạnh hiệu lực nào
+    cho 14832 (chỉ hai cạnh MOJ loai 12 mà Mức 2a không đọc), nên thiếu cạnh đọc
+    từ nguyên văn nó ra 'hết hiệu lực một phần' theo effStatus HHL1P."""
+    r = danh_gia_theo_id(get_engine(), "14832", NGAY_CHAP_NHAN)
+    assert (r.verdict, r.tin_cay) == (V.bi_thay_the, "cao"), r
+    assert "38/2019/QH14" in r.ly_do, r.ly_do
+
+
+@pytest.mark.integration
 def test_KHONG_van_ban_nao_TRONG_CORPUS_bi_tuyen_bua_la_da_chet():
     """Quét MỌI văn bản toàn văn của corpus. Bản suy luận Mức 2b ĐẦU TIÊN tuyên nhầm 4 văn
     bản còn sống là đã bị thay thế — Bộ luật Lao động 45/2019 (bởi chính NĐ
