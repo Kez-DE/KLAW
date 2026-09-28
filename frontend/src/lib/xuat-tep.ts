@@ -1049,6 +1049,18 @@ export function anhTuBanThao(banThao: BanThao): AnhNguon[] {
 }
 
 /**
+ * Khối "Căn cứ" của bản thảo (`can_cu_van_ban`, quyết định 2026-09-28 mục 5) —
+ * rỗng khi vắng hoặc sai kiểu. Máy chủ dựng từng dòng (văn bản còn hiệu lực đã
+ * kiểm, dấu kết sẵn); ở đây chỉ bỏ phần tử không phải chữ, không viết lại gì.
+ */
+export function canCuTuBanThao(banThao: BanThao): string[] {
+  const tho = banThao.can_cu_van_ban;
+  return Array.isArray(tho)
+    ? tho.filter((d): d is string => typeof d === "string" && d.trim() !== "")
+    : [];
+}
+
+/**
  * Tiêu đề THẬT của bản thảo — dòng H1 đầu tiên trong `document` (Markdown),
  * đúng cách `ban_thao._render_markdown` dựng từ `tieu_de` mô hình soạn (Phase
  * 7 R4). `BanThao.ten` KHÔNG mang tiêu đề này: nó trả lời "bản thảo này THUỘC

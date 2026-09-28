@@ -258,6 +258,13 @@ export interface BanThao {
   facts: Record<string, string>;
   doi_so_voi_truoc: string[];
   /**
+   * Khối "Căn cứ" của bản thảo checklist (quyết định 2026-09-28, mục 5) — mỗi
+   * phần tử một dòng đã có dấu kết. THÔ như máy chủ gửi; chỉ đọc qua
+   * `canCuTuBanThao`. Vắng ở bản lưu trước trường này; `[]` ở bản tổng quát
+   * và bản trên khuôn gốc.
+   */
+  can_cu_van_ban?: unknown;
+  /**
    * Bản thảo trên khuôn gốc (quyết định 2026-09-26) — THÔ như máy chủ gửi,
    * `null`/vắng ở bản thảo HTML. Chỉ đọc qua `khuonHopLe`: bản thảo tới từ năm
    * đường (tải, lùi, lưu, stream, lượt đã lưu), và `unknown` bắt mọi chỗ đọc
