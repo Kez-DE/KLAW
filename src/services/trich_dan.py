@@ -64,7 +64,8 @@ def _phan_sau_so(loai: str, so_tho: str, ten: str) -> str:
     luật ("lao động"), hay trích yếu của một nghị định ("Quy định mức lương…")."""
     t = html.unescape(ten)
     if so_tho:
-        t = re.sub(rf"\s*(?:số\s+)?{re.escape(so_tho)}", " ", t, count=1)
+        # Không phân biệt hoa thường: tên trong kho có dạng "LUẬT DÂN SỐ SỐ 113/2025/QH15".
+        t = re.sub(rf"\s*(?:số\s+)?{re.escape(so_tho)}", " ", t, count=1, flags=re.IGNORECASE)
     t = " ".join(t.split())
     if loai and t.lower().startswith(loai.lower()):
         t = t[len(loai) :]

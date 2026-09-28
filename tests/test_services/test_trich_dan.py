@@ -116,6 +116,25 @@ def test_luat_thong_tu_quyet_dinh():
     assert _trich(None, qd) == "Quyết định số 71/2026/QĐ-UBND ngày 05/03/2026 của UBND tỉnh Cà Mau"
 
 
+def test_ten_viet_HOA_chu_SO_khong_lap_lai_so():
+    """Tên trong kho viết hoa cả chữ "SỐ" ("LUẬT DÂN SỐ SỐ 113/2025/QH15") — câu
+    trích từng in "Luật Dân số số số 113/2025/QH15", đúng câu nút 'Sao chép trích
+    dẫn' chép đi."""
+    dan_so = {
+        "so_ky_hieu": "113/2025/QH15",
+        "loai_van_ban": "Luật",
+        "ten": "LUẬT DÂN SỐ SỐ 113/2025/QH15",
+        "co_quan_ban_hanh": "Quốc hội",
+        "ngay_ban_hanh": date(2025, 12, 10),
+    }
+    assert _trich("113/2025/QH15 > Điều 5 > Khoản 1", dan_so) == (
+        "khoản 1 Điều 5 Luật Dân số số 113/2025/QH15 ngày 10/12/2025 của Quốc hội"
+    )
+    assert dong_can_cu(dan_so) == "Căn cứ Luật Dân số số 113/2025/QH15 ngày 10 tháng 12 năm 2025"
+    ma_tuy = {"so_ky_hieu": "120/2025/QH15", "loai_van_ban": "Luật", "ten": "LUẬT PHÒNG, CHỐNG MA TÚY SỐ 120/2025/QH15"}
+    assert _trich(None, ma_tuy) == "Luật Phòng, chống ma túy số 120/2025/QH15"
+
+
 def test_thieu_phan_nao_thi_BO_phan_do_khong_dien_cho_trong():
     assert _trich("90/2019/NĐ-CP > Điều 3", {**ND90, "co_quan_ban_hanh": None}) == (
         "Điều 3 Nghị định số 90/2019/NĐ-CP ngày 15/11/2019"
