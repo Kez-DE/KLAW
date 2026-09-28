@@ -298,21 +298,27 @@ def nap_kho(engine: Engine, as_of: date) -> list[dict]:
     # `graph_tra_cuu.py:146` đã lập cho tier 1.
     thieu = Effectivity(V.chua_xac_dinh, "thap",
                         "không có trong bản đồ hiệu lực toàn corpus — không đánh giá được")
-    return [gan_hien_thi(r, hieu_luc.get(r["id"], thieu)) for r in rows]
+    from src.services.hien_thi import duoc_hien
+
+    hien = frozenset(r["id"] for r in rows if duoc_hien(r, hieu_luc.get(r["id"])))
+    return [gan_hien_thi(r, hieu_luc.get(r["id"], thieu), hieu_luc, hien) for r in rows]
 
 
-def gan_hien_thi(r: dict, e: Effectivity) -> dict:
+def gan_hien_thi(
+    r: dict, e: Effectivity, eff: dict[str, Effectivity] | None = None, hien: frozenset[str] = frozenset()
+) -> dict:
     """Một dòng `documents` + phán quyết → dòng kho: cờ `hien` (quy tắc hiển thị),
     câu `mo_ta` cho người đọc, và `cau_an` — câu trả lời cho người nêu đúng số
-    hiệu của một văn bản ẩn. THUẦN, để test dựng dòng ẩn mà không cần Postgres."""
+    hiệu của một văn bản ẩn, nêu văn bản thay thế ĐANG SỐNG (`van_ban_thay` đi
+    hết chuỗi qua `eff`/`hien`). THUẦN, để test dựng dòng ẩn mà không cần Postgres."""
     # Import tại chỗ: `hien_thi` → `trich_dan` → module này (`hien_van_ban`).
     from src.services.hien_thi import cau_van_ban_an, duoc_hien, mo_ta, thong_diep_an, van_ban_thay
 
-    hien = duoc_hien(r, e)
+    duoc = duoc_hien(r, e)
     return {
-        **r, "hieu_luc": e, "hien": hien, "mo_ta": mo_ta(e),
-        "cau_an": None if hien else cau_van_ban_an(
-            thong_diep_an(r, e, goi_ten=True), (v.so_ky_hieu for v in van_ban_thay(e))),
+        **r, "hieu_luc": e, "hien": duoc, "mo_ta": mo_ta(e),
+        "cau_an": None if duoc else cau_van_ban_an(
+            thong_diep_an(r, e, goi_ten=True), (v.so_ky_hieu for v in van_ban_thay(e, eff, hien))),
     }
 
 

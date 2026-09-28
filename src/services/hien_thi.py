@@ -23,7 +23,9 @@ Người đọc không bao giờ thấy `ly_do`, `tin_cay` hay mã nội bộ (m
 và, khi có, MỘT câu thường nêu văn bản sửa đổi/thay thế (`mo_ta`, `canh_bao`).
 """
 
-from collections.abc import Iterable
+import re
+import unicodedata
+from collections.abc import Iterable, Mapping
 from datetime import date
 
 from fastapi import HTTPException
@@ -31,7 +33,7 @@ from sqlalchemy import Connection, Engine, text
 
 from src.services.effectivity import Effectivity, VanBanNeu, danh_gia_toan_bo
 from src.services.effectivity import EffectivityVerdict as V
-from src.services.kho import _khop_so_hieu, moi_so_hieu_trong
+from src.services.kho import _khop_so_hieu
 from src.services.trich_dan import cach_trich, lien_ket, truong_trich_dan
 
 TINH_TRANG_HIEN = ("CHL", "HHL1P")
@@ -156,7 +158,9 @@ def nap_van_ban_dan(conn: Connection, neu: Iterable[VanBanNeu], hien: frozenset[
         t = truong_trich_dan(dict(r))
         ra[n] = {
             "doc_id": r["id"] if r["id"] in hien else None,
-            "so_ky_hieu": r["so_ky_hieu"] or n.so_ky_hieu,
+            # Số hiệu của bằng chứng (đã làm sạch ở `effectivity._neu`), không
+            # giá trị DB thô — một dòng corpus mang 'số: 34/2024/QH15'.
+            "so_ky_hieu": n.so_ky_hieu,
             "ten_van_ban": t["ten_van_ban"],
             "lien_ket": t["lien_ket"],
         }
@@ -179,9 +183,32 @@ def hieu_luc_ra(e: Effectivity, dan: dict[VanBanNeu, dict]) -> dict:
 # ── Văn bản ẩn: trang văn bản và câu hỏi nêu tên nó ─────────────────────────
 
 
-def van_ban_thay(e: Effectivity | None) -> tuple[VanBanNeu, ...]:
-    """Văn bản thay thế theo đồ thị — chỉ khi văn bản thật sự đã chết."""
-    return e.van_ban if e is not None and e.verdict in _DA_CHET else ()
+def van_ban_thay(
+    e: Effectivity | None, eff: Mapping[str, Effectivity] | None = None, hien: frozenset[str] = frozenset()
+) -> tuple[VanBanNeu, ...]:
+    """Văn bản thay thế theo đồ thị — chỉ khi văn bản thật sự đã chết. Văn bản
+    thay mà chính nó cũng đã chết thì đi tiếp theo cạnh thay thế của NÓ (cùng
+    guard `effectivity._van_ban_thay`) tới văn bản đầu tiên được hiện hoặc còn
+    sống: 90/2019 → 38/2022 → 74/2024 → 293/2025. Nhánh cụt ở một văn bản đã
+    chết không ai thay thì không nêu — nêu nó là chỉ người đọc sang một văn bản
+    cũng không còn hiệu lực. `eff` vắng: chỉ văn bản thay trực tiếp."""
+    if e is None or e.verdict not in _DA_CHET:
+        return ()
+    eff = eff or {}
+    ra: list[VanBanNeu] = []
+    da_qua: set[VanBanNeu] = set()
+    hang = list(e.van_ban)
+    while hang:
+        v = hang.pop(0)
+        if v in da_qua:
+            continue
+        da_qua.add(v)
+        tiep = eff.get(v.doc_id) if v.doc_id and v.doc_id not in hien else None
+        if tiep is not None and tiep.verdict in _DA_CHET:
+            hang += tiep.van_ban
+        else:
+            ra.append(v)
+    return tuple(ra)
 
 
 def thong_diep_an(van_ban: dict, e: Effectivity | None, goi_ten: bool = False) -> str:
@@ -204,11 +231,16 @@ def cau_van_ban_an(thong_diep: str, thay_the: Iterable[str]) -> str:
 
 
 def van_ban_an(
-    conn: Connection, van_ban: dict, e: Effectivity | None, hien: frozenset[str], goi_ten: bool = False
+    conn: Connection,
+    van_ban: dict,
+    eff: Mapping[str, Effectivity],
+    hien: frozenset[str],
+    goi_ten: bool = False,
 ) -> dict:
     """`schemas.VanBanAnOut` cho một văn bản ẩn: `thong_diep_an` và văn bản thay
     thế kèm link (`van_ban_thay`)."""
-    thay = van_ban_thay(e)
+    e = eff.get(van_ban.get("id"))
+    thay = van_ban_thay(e, eff, hien)
     dan = nap_van_ban_dan(conn, thay, hien)
     return {
         "ma": "khong_hien_thi",
@@ -237,7 +269,7 @@ def chan_neu_an(engine: Engine, doc_id: str, as_of: date) -> frozenset[str]:
         doc = c.execute(_SQL_DOC, {"i": doc_id}).mappings().one_or_none()
         if doc is None:
             return hien
-        an = van_ban_an(c, dict(doc), eff.get(doc_id), hien)
+        an = van_ban_an(c, dict(doc), eff, hien)
     raise HTTPException(status_code=404, detail={k: an[k] for k in ("ma", "thong_diep", "thay_the")})
 
 
@@ -247,22 +279,45 @@ _SQL_THEO_SO = text(
 )
 
 
+# Số hiệu văn bản trong câu hỏi: `số/năm` đi SAU tên loại văn bản ("nghị định
+# 90/2019", "NĐ 12/2022", "Thông tư số 10/2020"), hoặc số hiệu đủ hậu tố
+# ("90/2019/NĐ-CP"). `số/năm` trơn không đủ: "ký tháng 01/2025", "kỳ lương
+# 10/2025" là ngày tháng, và khi gần hết kho bị ẩn, bắt chúng là báo về một
+# thông tư nông nghiệp người hỏi không hề nhắc tới. Lượt về kho vẫn dùng
+# `kho.moi_so_hieu_trong` (người hỏi ở đó đang hỏi về chính kho).
+_RE_SO_HIEU_VAN_BAN = re.compile(
+    r"(?<!\w)(?:nghị\s+định|nđ|thông\s+tư(?:\s+liên\s+tịch)?|ttlt|tt|bộ\s+luật|luật|pháp\s+lệnh"
+    r"|quyết\s+định|qđ|nghị\s+quyết|nq)\s*(?:số\s*)?:?\s*(\d{1,4}/\d{4})(?![\d/])"
+    r"|(?<![\d/])(\d{1,4}/\d{4}/[^\s,.;:!?()]+)",
+    re.IGNORECASE,
+)
+
+
+def so_hieu_van_ban_trong(cau_hoi: str) -> list[str]:
+    """Số hiệu văn bản câu hỏi nêu, theo thứ tự, không trùng: `số/năm` hoặc số
+    hiệu đủ hậu tố (khớp đúng hậu tố — "hợp đồng số 01/2025/HĐLĐ" không khớp
+    thông tư 01/2025 nào)."""
+    return list(dict.fromkeys(a or b for a, b in _RE_SO_HIEU_VAN_BAN.findall(unicodedata.normalize("NFC", cau_hoi))))
+
+
 def van_ban_an_duoc_nhac(engine: Engine, cau_hoi: str, as_of: date) -> list[dict]:
     """Văn bản ẩn mà câu hỏi nêu số hiệu ("Nghị định 90/2019 còn hiệu lực không")
-    → `VanBanAnOut`. 0 truy vấn khi câu hỏi không có số hiệu nào. Một số hiệu
-    khớp cả văn bản đang hiện thì không báo gì: người hỏi đang nói văn bản đó."""
-    sos = moi_so_hieu_trong(cau_hoi)
+    → `VanBanAnOut`. 0 truy vấn khi câu hỏi không nêu số hiệu văn bản nào. Một số
+    hiệu khớp cả văn bản đang hiện thì không báo gì: người hỏi đang nói văn bản đó."""
+    sos = so_hieu_van_ban_trong(cau_hoi)
     if not sos:
         return []
     eff = danh_gia_toan_bo(engine, as_of)
     ra: list[dict] = []
     with engine.connect() as c:
         hien = tap_hien_thi(c, eff)
-        # `số/năm` chỉ gồm chữ số và "/", nên không có ký tự đại diện LIKE nào lọt vào.
-        rows = [dict(r) for r in c.execute(_SQL_THEO_SO, {"mau": [f"%{so}%" for so in sos]}).mappings()]
+        # LIKE chỉ trên `số/năm` (chữ số và "/", không ký tự đại diện nào lọt
+        # vào); hậu tố so trong Python, không phân biệt hoa thường.
+        mau = [f"%{'/'.join(so.split('/')[:2])}%" for so in sos]
+        rows = [dict(r) for r in c.execute(_SQL_THEO_SO, {"mau": mau}).mappings()]
         for so in sos:
-            khop = [r for r in rows if _khop_so_hieu(so, r["so_ky_hieu"] or "")]
+            khop = [r for r in rows if _khop_so_hieu(so.upper(), (r["so_ky_hieu"] or "").upper())]
             if any(r["id"] in hien for r in khop):
                 continue
-            ra += [van_ban_an(c, r, eff.get(r["id"]), hien, goi_ten=True) for r in khop]
+            ra += [van_ban_an(c, r, eff, hien, goi_ten=True) for r in khop]
     return ra

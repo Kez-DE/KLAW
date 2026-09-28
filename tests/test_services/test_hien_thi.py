@@ -21,7 +21,9 @@ from src.services.hien_thi import (
     duoc_hien,
     hieu_luc_ra,
     mo_ta,
+    so_hieu_van_ban_trong,
     thong_diep_an,
+    van_ban_thay,
 )
 
 VBPL = "https://vbpl.vn/van-ban/chi-tiet/139264"
@@ -262,3 +264,87 @@ def test_van_ban_an_KHONG_chen_vao_luot_khong_phai_tra_cuu():
         assert gan_van_ban_khong_hien_thi(ket, [_AN]) is ket
     ket = {"result_type": ResultType.answer, "warnings": [], "coverage_note": None}
     assert gan_van_ban_khong_hien_thi(ket, []) is ket
+
+
+# ─────────────── số hiệu văn bản trong câu hỏi: ngày tháng KHÔNG phải số hiệu
+
+
+@pytest.mark.parametrize(
+    ("cau_hoi", "so"),
+    [
+        ("Hợp đồng lao động ký tháng 01/2025 có phải đóng bảo hiểm không", []),
+        ("Kỳ lương 10/2025 bị trừ có đúng luật không", []),
+        ("từ ngày 01/01/2025 thì sao", []),
+        ("hợp đồng số 01/2025/HĐLĐ có hợp lệ không", ["01/2025/HĐLĐ"]),
+        ("nghị định 90/2019 còn hiệu lực không", ["90/2019"]),
+        ("Điều 3 NĐ 12/2022 quy định gì", ["12/2022"]),
+        ("Thông tư số 10/2020 và Luật 45/2019", ["10/2020", "45/2019"]),
+        ("theo 90/2019/NĐ-CP?", ["90/2019/NĐ-CP"]),
+    ],
+)
+def test_so_hieu_van_ban_can_ten_loai_hoac_hau_to(cau_hoi, so):
+    assert so_hieu_van_ban_trong(cau_hoi) == so
+
+
+# ─────────────────────────── văn bản thay thế: đi tới văn bản đầu tiên còn sống
+
+
+def test_van_ban_thay_di_het_chuoi_toi_van_ban_dang_hien():
+    """157/2018 → 90/2019 → 38/2022 → 293/2025: chỉ 293/2025 còn sống. Nêu một
+    văn bản đã chết làm "văn bản thay thế" là chỉ người đọc sang một nghị định
+    cũng không còn hiệu lực."""
+    nd90, nd38, nd293 = (
+        VanBanNeu("90", "90/2019/NĐ-CP"),
+        VanBanNeu("38", "38/2022/NĐ-CP"),
+        VanBanNeu("293", "293/2025/NĐ-CP"),
+    )
+    eff = {
+        "90": _e(V.bi_thay_the, van_ban=(nd38,)),
+        "38": _e(V.het_hieu_luc, van_ban=(nd293,)),
+        "293": _e(V.con_hieu_luc),
+    }
+    goc = _e(V.bi_thay_the, van_ban=(nd90,))
+    assert van_ban_thay(goc, eff, frozenset({"293"})) == (nd293,)
+    # Văn bản thay còn sống mà bị ẩn (thiếu link) — vẫn là văn bản thay thế đúng.
+    assert van_ban_thay(goc, eff, frozenset()) == (nd293,)
+    # Nhánh cụt ở một văn bản đã chết không ai thay: không nêu gì, không nêu sai.
+    assert van_ban_thay(goc, {**eff, "38": _e(V.het_hieu_luc)}, frozenset()) == ()
+    vong = {"90": _e(V.bi_thay_the, van_ban=(nd38,)), "38": _e(V.bi_thay_the, van_ban=(nd90,))}
+    assert van_ban_thay(goc, vong, frozenset()) == (), "vòng trong dữ liệu không được treo"
+    assert van_ban_thay(_e(V.con_hieu_luc, van_ban=(nd90,)), eff, frozenset()) == ()
+
+
+# ───────────── văn bản đi sửa: đủ thẩm quyền, số hiệu sạch, theo thứ tự thời gian
+
+
+def _sua(so: str, loai: str, ngay: date, i: str | None = None) -> dict:
+    return {
+        "loai": 20,
+        "chieu": "di_vao",
+        "from_document_id": i or so,
+        "from_so_ky_hieu": so,
+        "from_loai_van_ban": loai,
+        "from_ten": "Luật sửa đổi",
+        "from_ngay_hieu_luc": ngay,
+    }
+
+
+def test_mo_ta_chi_nen_van_ban_du_tham_quyen_sua_theo_thu_tu_thoi_gian():
+    """Đo 2026-09-28 trên Bộ luật Tố tụng dân sự 92/2015/QH13: đồ thị nêu cả một
+    thông tư liên tịch (không sửa được Bộ luật), một số hiệu 'số: 34/2024/QH15',
+    theo thứ tự cạnh SQL chứ không theo thời gian."""
+    canh = [
+        _sua("07/2026/TTLT-VKSNDTC-TANDTC", "Thông tư liên tịch", date(2026, 5, 1)),
+        _sua("19/2023/QH15", "Luật", date(2024, 7, 1)),
+        _sua("85/2025/QH15", "Luật", date(2025, 7, 1)),
+        _sua("số: 34/2024/QH15", "Luật", date(2025, 1, 1)),
+        _sua("15/2026/NQ-HĐND", "Nghị quyết", date(2026, 1, 1)),
+        _sua("01/2026/NQ-QH15", "Nghị quyết", date(2026, 2, 1)),
+    ]
+    blds = _doc(ten="Bộ luật Tố tụng dân sự", loai_van_ban="Bộ luật", so_ky_hieu="92/2015/QH13", tinh_trang="HHL1P")
+    r = danh_gia(blds, canh, AS_OF)
+    assert r.verdict == V.mot_phan_khong_xac_dinh
+    assert mo_ta(r) == "Đã được sửa đổi, bổ sung bởi 19/2023/QH15, 34/2024/QH15, 85/2025/QH15, 01/2026/NQ-QH15."
+    assert "07/2026/TTLT" in r.ly_do, "ly_do giữ cạnh đầu nguyên văn cho eval"
+    nd = danh_gia(_doc(tinh_trang="HHL1P"), [_sua("5/2025/TT-BLĐTBXH", "Thông tư", date(2025, 1, 1))], AS_OF)
+    assert nd.van_ban == () and mo_ta(nd) is None, "thông tư không sửa được nghị định"

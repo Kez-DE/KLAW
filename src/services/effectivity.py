@@ -259,7 +259,43 @@ def _ke_sua_doi(canh: dict) -> str:
 
 
 def _neu(canh: dict) -> VanBanNeu:
-    return VanBanNeu(canh.get("from_document_id"), canh["from_so_ky_hieu"])
+    # Số hiệu như người đọc thấy: một dòng corpus mang 'số: 34/2024/QH15'.
+    so = re.sub(r"^\s*số\s*:?\s*", "", canh["from_so_ky_hieu"], flags=re.IGNORECASE)
+    return VanBanNeu(canh.get("from_document_id"), so)
+
+
+# Thứ bậc hiệu lực pháp lý (Luật Ban hành VBQPPL) — số nhỏ là cao. Nghị quyết
+# mang thứ bậc của cơ quan ban hành, đọc từ hậu tố số hiệu.
+# ponytail: Quyết định xếp ngang Thông tư (QĐ của Bộ trưởng) — QĐ Thủ tướng bị
+# Thông tư "sửa" sẽ lọt; tách theo hậu tố '-TTg' khi có ca đo được.
+_THU_BAC = {
+    "Hiến pháp": 0,
+    "Bộ luật": 1,
+    "Luật": 1,
+    "Sắc luật": 1,
+    "Pháp lệnh": 2,
+    "Nghị định": 3,
+    "Quyết định": 5,
+    "Thông tư": 5,
+    "Thông tư liên tịch": 5,
+    "Chỉ thị": 6,
+}
+
+
+def _thu_bac(loai: str | None, so_ky_hieu: str | None) -> int | None:
+    if loai == "Nghị quyết":
+        so = so_ky_hieu or ""
+        return 2 if "UBTVQH" in so else 1 if "QH" in so else 3 if "NQ-CP" in so else 6
+    return _THU_BAC.get(loai or "")
+
+
+def _du_tham_quyen_sua(doc: dict, canh: dict) -> bool:
+    """Văn bản đi sửa phải cùng hoặc cao thứ bậc hơn văn bản bị sửa: một thông tư
+    liên tịch không sửa được Bộ luật (cạnh như vậy có thật trong đồ thị MOJ).
+    Bỏ qua khi một phía không rõ loại — cùng lệ `_cung_thu_bac`."""
+    a = _thu_bac(doc.get("loai_van_ban"), doc.get("so_ky_hieu"))
+    b = _thu_bac(canh.get("from_loai_van_ban"), canh.get("from_so_ky_hieu"))
+    return a is None or b is None or b <= a
 
 
 def _van_ban_thay(ten_doc: str | None, canh_di_vao: list[dict], bd: date | None, as_of: date) -> tuple[VanBanNeu, ...]:
@@ -275,14 +311,23 @@ def _van_ban_thay(ten_doc: str | None, canh_di_vao: list[dict], bd: date | None,
     ))
 
 
-def _van_ban_sua(canh_di_vao: list[dict], bd: date, as_of: date) -> tuple[VanBanNeu, ...]:
-    """Văn bản đã SỬA ĐỔI, BỔ SUNG `doc` (cạnh đi vào loai 20). Cạnh đi ra loai 23
-    (văn bản kia khai tử MỘT PHẦN tôi) không phải một lần sửa đổi nên không nêu."""
-    return tuple(dict.fromkeys(
-        _neu(c) for c in canh_di_vao
-        if _tac_dong(c) == "sua_doi" and c.get("chieu") != "di_ra" and c.get("from_so_ky_hieu")
-        and _canh_dung_chieu(c, bd, as_of) == "ok"
-    ))
+def _van_ban_sua(doc: dict, canh_di_vao: list[dict], bd: date, as_of: date) -> tuple[VanBanNeu, ...]:
+    """Văn bản đã SỬA ĐỔI, BỔ SUNG `doc` (cạnh đi vào loai 20), theo thứ tự hiệu
+    lực. Cạnh đi ra loai 23 (văn bản kia khai tử MỘT PHẦN tôi) không phải một lần
+    sửa đổi, và văn bản thấp thứ bậc hơn không sửa được `doc` — không nêu."""
+    canh = sorted(
+        (
+            c
+            for c in canh_di_vao
+            if _tac_dong(c) == "sua_doi"
+            and c.get("chieu") != "di_ra"
+            and c.get("from_so_ky_hieu")
+            and _canh_dung_chieu(c, bd, as_of) == "ok"
+            and _du_tham_quyen_sua(doc, c)
+        ),
+        key=lambda c: c["from_ngay_hieu_luc"],
+    )
+    return tuple(dict.fromkeys(_neu(c) for c in canh))
 
 
 def _bao_ngay_mau_thuan(doc: dict, canh: dict, ngay_hieu_luc_doc: date) -> None:
@@ -450,7 +495,7 @@ def danh_gia(
                     f"{_ke_sua_doi(c)} từ {c.get('from_ngay_hieu_luc')}; CSDL quốc gia không "
                     "công bố dữ liệu cấp điều khoản nên không xác định được điều này còn "
                     "hiệu lực hay không",
-                    van_ban=_van_ban_sua(canh_di_vao, bd, as_of))
+                    van_ban=_van_ban_sua(doc, canh_di_vao, bd, as_of))
 
     # ── Chưa hiệu lực ────────────────────────────────────────────────────────
     if bd > as_of:
@@ -508,12 +553,13 @@ _SQL_DOC = text(
 # mất rồi âm thầm rơi vào nhánh "còn hiệu lực".
 _SQL_CANH = text(
     "SELECT r.loai, 'di_vao' AS chieu, r.from_document_id, d2.ten AS from_ten,"
-    " d2.so_ky_hieu AS from_so_ky_hieu, d2.ngay_hieu_luc AS from_ngay_hieu_luc"
+    " d2.so_ky_hieu AS from_so_ky_hieu, d2.ngay_hieu_luc AS from_ngay_hieu_luc,"
+    " d2.loai_van_ban AS from_loai_van_ban"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.from_document_id'
     " WHERE r.to_document_id = :i AND r.loai IN (20, 21)"
     " UNION ALL"
     " SELECT r.loai, 'di_ra', r.to_document_id, d2.ten,"
-    " d2.so_ky_hieu, d2.ngay_hieu_luc"
+    " d2.so_ky_hieu, d2.ngay_hieu_luc, d2.loai_van_ban"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.to_document_id'
     " WHERE r.from_document_id = :i AND r.loai IN (22, 23)"
 )
@@ -769,12 +815,12 @@ _SQL_DOC_TAT_CA = text(
 _SQL_CANH_TAT_CA = text(
     "SELECT r.to_document_id AS chu, r.loai, 'di_vao' AS chieu, d2.ten AS from_ten,"
     " d2.so_ky_hieu AS from_so_ky_hieu, d2.ngay_hieu_luc AS from_ngay_hieu_luc,"
-    " r.from_document_id"
+    " r.from_document_id, d2.loai_van_ban AS from_loai_van_ban"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.from_document_id'
     " WHERE r.loai IN (20, 21)"
     " UNION ALL"
     " SELECT r.from_document_id, r.loai, 'di_ra', d2.ten,"
-    " d2.so_ky_hieu, d2.ngay_hieu_luc, r.to_document_id"
+    " d2.so_ky_hieu, d2.ngay_hieu_luc, r.to_document_id, d2.loai_van_ban"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.to_document_id'
     " WHERE r.loai IN (22, 23)"
 )

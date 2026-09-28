@@ -52,9 +52,9 @@ VAN_BAN = [
     ),
     (
         "k7-mot-phan",
-        "33/2021/QH15",
-        "Luật",
-        "Luật thử nghiệm về tiền lương",
+        "33/2021/NĐ-CP",
+        "Nghị định",
+        "Nghị định thử nghiệm về tiền lương",
         "HHL1P",
         "2020-12-10",
         "2021-01-01",
@@ -102,7 +102,7 @@ DIEU = [
 CANH = [
     # 11/2020 thay 22/2019 (loai 21, đi vào) → văn bản thay thế có link, được hiện.
     ("k7-song", "k7-cu", 21, None),
-    # 11/2020 sửa đổi, bổ sung Luật 33/2021 (loai 20) → `mo_ta` nêu tên nó.
+    # 11/2020 sửa đổi, bổ sung Nghị định 33/2021 (loai 20, cùng thứ bậc) → `mo_ta` nêu tên nó.
     ("k7-song", "k7-mot-phan", 20, None),
     # Căn cứ (loai 3, không phải cạnh hiệu lực): một hiện, một ẩn, một ngoài kho.
     ("k7-mot-phan", "k7-song", 3, None),
@@ -194,7 +194,7 @@ async def test_danh_sach_bo_loc_tim_kiem_pham_vi_chi_dem_van_ban_duoc_hien(clien
     bl = (await client.get("/api/v1/bo-loc")).json()
     assert bl["tong_van_ban"] == ds["tong"], "số cạnh bộ lọc phải bằng số dòng danh sách"
     assert sum(g["so_van_ban"] for g in bl["loai_van_ban"]) == ds["tong"]
-    assert {g["gia_tri"] for g in bl["loai_van_ban"]} == {"Nghị định", "Luật"}, "Thông tư chỉ có ở văn bản ẩn"
+    assert {g["gia_tri"] for g in bl["loai_van_ban"]} == {"Nghị định"}, "Thông tư chỉ có ở văn bản ẩn"
     assert (bl["nam_min"], bl["nam_max"], bl["co_quan_khong_ro"]) == (2020, 2024, 0)
     for g in bl["loai_van_ban"]:
         r = (await client.get("/api/v1/van-ban", params={"loai": g["gia_tri"]})).json()
