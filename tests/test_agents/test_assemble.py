@@ -1,4 +1,5 @@
 import json
+from datetime import date
 
 import pytest
 
@@ -482,10 +483,9 @@ def test_partial_coverage_mang_nguon_co_doc_id_de_mo_duoc_van_ban():
     st = assemble({"intent": "tra_cuu", "expanded": [], "hits_shallow": shallow}, DB, FakeLlm(), "m")
     assert st["result_type"] is ResultType.partial_coverage
     assert st["citations"] == [], "partial_coverage không được dựng trích dẫn chưa kiểm chứng"
-    assert st["nguon"] == [{"doc_id": "84265", "so_ky_hieu": "84/2015/QH13",
-                            "bo_luat": "Luật An toàn, vệ sinh lao động"}], (
-        "gộp theo doc_id — hai Điều cùng một văn bản là MỘT nguồn, không phải hai"
-    )
+    assert [{k: n[k] for k in ("doc_id", "so_ky_hieu", "bo_luat")} for n in st["nguon"]] == [
+        {"doc_id": "84265", "so_ky_hieu": "84/2015/QH13", "bo_luat": "Luật An toàn, vệ sinh lao động"}
+    ], "gộp theo doc_id — hai Điều cùng một văn bản là MỘT nguồn, không phải hai"
 
 
 def test_cac_nhanh_khac_co_nguon_rong():
@@ -737,7 +737,13 @@ def test_v2_danh_so_k_va_dung_documents_khu_trung(tmp_path):
         "tvpl": None,
     }
     assert st["documents"][0]["loai_van_ban"] == "Bộ luật"
-    assert "ngay" not in json.dumps(st["documents"]), "Q2: documents không mang ngày"
+    # Q2 ("documents không mang ngày") đã được quyết định 2026-09-28 thay thế:
+    # ngày là dữ kiện của văn bản; NULL đi nguyên, không bịa. Link mẫu cũ
+    # `vbpq-toanvan.aspx` (về trang chủ) không thành `lien_ket`.
+    d0 = st["documents"][0]
+    assert d0["ngay_ban_hanh"] is None and d0["lien_ket"] is None
+    assert d0["cach_trich"] == "Bộ luật Lao động số 45/2019/QH14"
+    json.dumps(st["documents"])  # vào cache câu trả lời được
 
 
 def test_v2_prompt_mang_mo_dau_theo_lich_su_va_khoi_van_ban(tmp_path):
@@ -1281,3 +1287,111 @@ def test_tien_de_sai_va_ha_cap_vi_so_dieu_bia_KHONG_giai_thich():
                    "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5}, DB, llm, "m")
     assert st["result_type"] is ResultType.abstain and st["answer"] is None
     assert st["traces"]["assemble_dieu_bi_loai"] == ["550"] and llm.so_lan_giai_thich == 0
+
+
+# ═══ Quyết định 2026-09-28 — trích dẫn đầy đủ, liên kết nguồn chính thống ═══
+
+DB_DU = {
+    11: {
+        **DB[11],
+        "document_id": "139264",
+        "duong_dan": "45/2019/QH14 > Điều 26 > Khoản 1",
+        "loai_van_ban": "Bộ luật",
+        "co_quan_ban_hanh": "Quốc hội",
+        "ngay_ban_hanh": date(2019, 11, 20),
+        "ngay_hieu_luc": date(2021, 1, 1),
+        "link_vbpl": "https://vbpl.vn/van-ban/chi-tiet/139264",
+        "link_chinhphu": "https://vanban.chinhphu.vn/?pageid=27160&docid=198540",
+        "link_tvpl": None,
+    }
+}
+
+
+def test_citation_mang_du_truong_trich_dan_va_cach_trich_theo_mau_luat():
+    st = assemble(
+        {
+            "intent": "tra_cuu",
+            "expanded": [DB_DU[11]],
+            "tier1": [_pass()],
+            "tier2": [Tier2Verdict(0, True, "ok")],
+            "abstain_threshold": 0.5,
+        },
+        DB_DU,
+        FakeLlm(),
+        "m",
+    )
+    assert st["result_type"] is ResultType.answer
+    c = st["citations"][0]
+    assert c["ten_van_ban"] == "Bộ Luật lao động" and c["loai_van_ban"] == "Bộ luật"
+    assert c["co_quan_ban_hanh"] == "Quốc hội"
+    assert (c["ngay_ban_hanh"], c["ngay_hieu_luc"]) == ("2019-11-20", "2021-01-01")
+    assert c["lien_ket"] == "https://vbpl.vn/van-ban/chi-tiet/139264", "vbpl.vn trước vanban.chinhphu.vn"
+    assert c["cach_trich"] == "khoản 1 Điều 26 Bộ luật Lao động số 45/2019/QH14 ngày 20/11/2019 của Quốc hội"
+    assert c["canh_bao"] is None, "còn hiệu lực thì không có cảnh báo"
+    # Trường CŨ giữ nguyên cho FE đang chạy.
+    assert (c["bo_luat"], c["so_ky_hieu"]) == ("Bộ Luật lao động", "45/2019/QH14")
+    d = st["documents"][0]
+    assert d["cach_trich"] == "Bộ luật Lao động số 45/2019/QH14 ngày 20/11/2019 của Quốc hội"
+    assert d["links"]["tvpl"] is None and d["lien_ket"] == c["lien_ket"]
+    json.dumps(st["citations"])  # ngày là chuỗi ISO — cache câu trả lời tuần tự hoá được
+
+
+def test_canh_bao_gan_vao_DUNG_trich_dan_cua_no_va_trung_warnings():
+    mp = Effectivity(V.mot_phan_khong_xac_dinh, "thap", "bị 71/2025/QH15 sửa đổi, bổ sung từ 2026-01-01")
+    t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, mp)
+    st = assemble(
+        {
+            "intent": "tra_cuu",
+            "expanded": [DB_DU[11]],
+            "tier1": [t1],
+            "tier2": [Tier2Verdict(0, True, "ok")],
+            "abstain_threshold": 0.5,
+        },
+        DB_DU,
+        FakeLlm(),
+        "m",
+    )
+    (w,) = st["warnings"]
+    c = st["citations"][0]
+    assert c["canh_bao"] == w and "71/2025/QH15" in w, "FE hiện cảnh báo ngay cạnh trích dẫn, không phải dò chuỗi"
+
+
+def test_nguon_partial_coverage_mang_truong_trich_dan_NULL_thi_an():
+    shallow = [
+        {
+            "id": 5,
+            "document_id": "84265",
+            "duong_dan": "84/2015/QH13 > Mở đầu",
+            "so_ky_hieu": "84/2015/QH13",
+            "ten": "Luật An toàn, vệ sinh lao động số 84/2015/QH13",
+            "loai_van_ban": "Luật",
+            "co_quan_ban_hanh": None,
+            "ngay_ban_hanh": date(2015, 6, 25),
+            "ngay_hieu_luc": None,
+            "link_vbpl": None,
+            "link_chinhphu": None,
+        }
+    ]
+    st = assemble({"intent": "tra_cuu", "expanded": [], "hits_shallow": shallow}, DB, FakeLlm(), "m")
+    (n,) = st["nguon"]
+    assert n["cach_trich"] == "Luật An toàn, vệ sinh lao động số 84/2015/QH13 ngày 25/06/2015"
+    assert n["co_quan_ban_hanh"] is None and n["lien_ket"] is None and n["ngay_hieu_luc"] is None
+
+
+def test_CitationOut_NguonOut_DocumentOut_nhan_truong_moi_va_payload_cu_van_hop_le():
+    from src.models.schemas import CitationOut, DocumentOut, NguonOut
+
+    tho = {
+        "provision_id": 11,
+        "khop_tai_id": 11,
+        "doc_id": "1",
+        "duong_dan": "d",
+        "bo_luat": "b",
+        "so_ky_hieu": "s",
+        "quote": "q",
+    }
+    assert CitationOut(**tho).cach_trich is None and CitationOut(**tho).canh_bao is None
+    c = CitationOut(**tho, ngay_ban_hanh="2019-11-20", lien_ket="https://vbpl.vn/van-ban/chi-tiet/1")
+    assert c.model_dump(mode="json")["ngay_ban_hanh"] == "2019-11-20"
+    assert NguonOut(doc_id="1", so_ky_hieu="s", bo_luat="b").lien_ket is None
+    assert DocumentOut(doc_id="1", ten="t", so_ky_hieu="s", loai_van_ban="Luật").ngay_hieu_luc is None
