@@ -72,20 +72,16 @@ async def test_noi_ro_chieu_ngu_nghia_nao_DA_DO_nao_chua(client):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_van_ban_ngoai_corpus_van_hien_nhung_khong_hua_link(client):
-    """273/626 cạnh cấp văn bản trỏ ra ngoài corpus."""
+async def test_chi_liet_ke_van_ban_duoc_hien_moi_dong_mo_duoc(client):
+    """273/626 cạnh cấp văn bản trỏ ra ngoài corpus. Quyết định 2026-09-28 mục 8
+    thay bản cũ ("văn bản ngoài corpus vẫn hiện, không hứa link"): chỉ văn bản
+    được HIỆN mới được liệt kê — văn bản ngoài kho không có tình trạng hay link
+    đã kiểm nên không qua được quy tắc — và mọi dòng mở được trang của nó."""
     d = (await client.get(f"/api/v1/van-ban/{BLLD}/lien-quan")).json()
     tat_ca = [v for n in d["nhom"] for v in n["van_ban"]]
-    ngoai = [v for v in tat_ca if not v["trong_corpus"]]
-    assert ngoai, "BLLĐ có cạnh trỏ ra ngoài corpus — giấu đi là mất nửa bản đồ"
-    for v in ngoai:
-        assert v["doc_id"] is None, (
-            "doc_id khác None nghĩa là FE dựng link tới một trang 404"
-        )
-        assert v["so_ky_hieu"], "vẫn phải nêu được định danh MOJ khai"
     for v in tat_ca:
-        if v["trong_corpus"]:
-            assert v["doc_id"] and v["so_ky_hieu"]
+        assert v["trong_corpus"] and v["doc_id"] and v["so_ky_hieu"], v
+        assert (await client.get(f"/api/v1/van-ban/{v['doc_id']}")).status_code == 200, v
 
 
 @pytest.mark.integration
@@ -124,6 +120,11 @@ async def test_van_ban_tang_metadata_tra_0_dan_chieu_noi_bo_KHONG_loi(client):
         )).scalar_one()
 
     r = await client.get(f"/api/v1/van-ban/{doc}/lien-quan")
+    if r.status_code == 404:
+        # Văn bản tầng metadata không có toàn văn, thường thiếu cả link đã kiểm:
+        # bị ẩn theo quyết định 2026-09-28 mục 8 — 404 có mã, không phải lỗi.
+        assert r.json()["detail"]["ma"] == "khong_hien_thi"
+        return
     assert r.status_code == 200
     d = r.json()
     assert d["dan_chieu_noi_bo"]["so_luong"] == 0

@@ -41,10 +41,11 @@ giống hệt tra cứu, không phải một tính năng tách rời.
 
 Cảnh báo hiệu lực PHẢI chịu tải: Plan 1 đo được cả 6 nghị định lương tối thiểu
 liên quan trên MOJ chỉ có PDF scan (`hasContent: false`), và MOJ tự đánh 4/6
-nghị định đã bị thay thế là "còn hiệu lực". Task 2 sửa được cả 4 và
-`Effectivity.ly_do` nêu đích danh văn bản thay thế — nên khi verdict rơi vào
-`CANH_BAO_NHAN`, nguyên văn `ly_do` phải lên tới người dùng, không phải chỉ
-nằm trong traces.
+nghị định đã bị thay thế là "còn hiệu lực". Task 2 sửa được cả 4, và khi verdict
+rơi vào `CANH_BAO_NHAN` người dùng phải thấy cảnh báo cạnh trích dẫn, nêu đích
+danh văn bản sửa đổi/thay thế. Từ quyết định 2026-09-28 (mục 10) câu đó là LỜI
+CHO NGƯỜI ĐỌC (`hien_thi.canh_bao`), không phải `ly_do` nguyên văn: không mã
+tình trạng, không "độ tin cậy", không ngày ISO.
 """
 
 import json
@@ -64,6 +65,7 @@ from src.models.schemas import Bang
 from src.services.bao_ve import LOI_SOAN_THAO_DANG_NHAP
 from src.services.bo_nho import ho_so_da_dung, khoi_tinh_huong
 from src.services.effectivity import EffectivityVerdict as V
+from src.services.hien_thi import canh_bao, cau_van_ban_an
 from src.services.kho import hien_van_ban, moi_so_hieu_trong
 from src.services.llm import Usage
 from src.services.prompts import messages
@@ -183,11 +185,9 @@ def _dung_documents(citations_prose: list[dict], db: dict[int, dict]) -> list[di
 # giấu bằng cách rơi vào nhánh im lặng). KHÔNG gồm con_hieu_luc — đúng nghĩa của
 # nó là "không có tín hiệu chấm dứt nào", không cảnh báo.
 #
-# Giá trị CHỈ LÀ NHÃN NGẮN để phân loại — câu cảnh báo THẬT ghép nhãn với
-# `eff.ly_do` NGUYÊN VĂN (xem chỗ dùng bên dưới), không phải chính câu cảnh
-# báo. `ly_do` mới là nơi nêu ĐÍCH DANH văn bản thay thế (spec, yêu cầu #1) —
-# một nhãn chung chung như "Văn bản này đã bị thay thế." xoá mất đúng thông
-# tin đó, nên KHÔNG được dùng làm toàn bộ câu cảnh báo.
+# Giá trị CHỈ LÀ NHÃN NGẮN để phân loại — câu cảnh báo THẬT là
+# `hien_thi.canh_bao` (quyết định 2026-09-28 mục 10), nêu đích danh văn bản sửa
+# đổi/thay thế từ `Effectivity.van_ban`, không bao giờ `ly_do` nguyên văn.
 CANH_BAO_NHAN = {
     V.mot_phan_khong_xac_dinh: "hết hiệu lực một phần",
     # Mức 4 — bản đồ sửa đổi cấp điều khoản (VBHN của Công báo). Đây là bản
@@ -578,6 +578,28 @@ def _ly_do_moi_nguon_bi_thay(qua_loc: list) -> str:
                 f"nên tôi chưa đọc được để nói với bạn nó quy định thế nào.")
     return ("Những gì tôi tìm được cho câu hỏi này đều đã bị thay thế hoặc đã hết hiệu lực, "
             "và từ những gì tôi đang có thì tôi chưa xác định được văn bản nào đi thay.")
+
+
+# Loại kết quả của một lượt TRA CỨU — chỉ ở đó câu hỏi nêu tên văn bản ẩn mới
+# nhận câu "không còn hiệu lực" (lượt về kho tự nói, xem `kho._khoi_mot_so`).
+LOAI_BAO_VAN_BAN_AN = frozenset({ResultType.answer, ResultType.abstain, ResultType.partial_coverage})
+
+
+def gan_van_ban_khong_hien_thi(ket: dict, an: list[dict]) -> dict:
+    """Câu hỏi NÊU TÊN văn bản ẩn (quyết định 2026-09-28 mục 8): nói thẳng nó
+    không có trong phạm vi tra cứu và vì sao, nêu văn bản thay thế — ở
+    `coverage_note` (giao diện luôn hiện), `warnings[]`, và
+    `van_ban_khong_hien_thi` (có link). Không trích một chữ nào của văn bản ẩn.
+    0 token: `an` do `hien_thi.van_ban_an_duoc_nhac` tra bảng."""
+    if not an or ket.get("result_type") not in LOAI_BAO_VAN_BAN_AN:
+        return ket
+    cau = [cau_van_ban_an(v["thong_diep"], (t["so_ky_hieu"] for t in v["thay_the"])) for v in an]
+    return {
+        **ket,
+        "warnings": [*cau, *(w for w in ket.get("warnings") or [] if w not in cau)],
+        "coverage_note": "\n\n".join(x for x in (*cau, ket.get("coverage_note")) if x),
+        "van_ban_khong_hien_thi": an,
+    }
 
 
 # `intent == ngoai_pham_vi`. HẰNG SỐ để phép quét giọng (`test_giong_tra_loi`)
@@ -1533,15 +1555,15 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             "canh_bao": None,
         })
         if eff and eff.verdict in CANH_BAO_NHAN:
-            # `ly_do` NGUYÊN VĂN, không viết lại: nó nêu đích danh văn bản thay
-            # thế (vd. "bị 38/2022/NĐ-CP thay thế từ ..."), một nhãn chung
-            # chung như "đã bị thay thế" không mang thông tin đó.
+            # Lời cho người đọc (`hien_thi.canh_bao`), nêu đích danh văn bản sửa
+            # đổi/thay thế khi phán quyết có văn bản làm chứng — không `ly_do`,
+            # không mã nội bộ (quyết định 2026-09-28 mục 10).
             # Nhãn ĐỌC ĐƯỢC, không phải khoá dữ liệu: `so_ky_hieu` thật thì đi
             # qua nguyên vẹn, còn 'Không số' rơi về tên văn bản (`hien_van_ban`).
             # `citations[].so_ky_hieu` ngay trên thì GIỮ NGUYÊN giá trị DB — nó
             # là khoá, và `_neo_vao_van_ban` bên dưới so trên chính giá trị đó.
             so_hien, ten_hien = hien_van_ban(so_ky_hieu, p.get("ten") or "")
-            msg = f"{so_hien or ten_hien} {CANH_BAO_NHAN[eff.verdict]}: {eff.ly_do}"
+            msg = canh_bao(so_hien or ten_hien, eff)
             # Cùng câu, gắn vào CHÍNH trích dẫn: `warnings[]` giữ nguyên hình
             # dạng cho mọi bên đang đọc nó.
             citations[-1]["canh_bao"] = msg

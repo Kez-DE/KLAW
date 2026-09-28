@@ -37,6 +37,10 @@ class _KetQua:
     def all(self):
         return self._rows
 
+    def __iter__(self):
+        # `hien_thi.tap_hien_thi` duyệt thẳng kết quả trên CÙNG kết nối #1.
+        return iter(self._rows)
+
 
 class _KetNoi:
     def __init__(self, engine):

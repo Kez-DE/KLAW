@@ -13,6 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from src.agents.graph_soan_thao import (
     build_graph_soan_thao,
     cac_loai,
+    chi_van_ban_hien,
     extract_clauses,
     load_checklist_cached,
     load_facts_meta_cached,
@@ -52,6 +53,7 @@ from src.services import tai_lieu as tl
 from src.services.bao_ve import cong_bao_ve, cong_bao_ve_khach, cong_nhe
 from src.services.checklist import KHUNG_HOP_DONG, Checklist
 from src.services.db import get_engine
+from src.services.hien_thi import chan_neu_an, hien_thi_luc
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
 
 # _tong_hop_traces re-exported here: test_tra_cuu.py imports it from routes, not services.traces.
@@ -135,6 +137,7 @@ def _payload_cache(st: dict, rt: str) -> dict:
         # hình dạng cho cả hai đường, và `tra_cuu_response` đọc đúng dict này.
         "tai_lieu": st.get("tai_lieu"),
         "tai_lieu_neo": st.get("tai_lieu_neo") or [],
+        "van_ban_khong_hien_thi": st.get("van_ban_khong_hien_thi") or [],
         # NỘI BỘ — dùng để ghi giả định của `suy_dien` vào phiên sau khi lượt
         # này lưu xong (xem `luu_suy_dien` ở `tra_cuu`/`_chay_nen`). KHÔNG đi
         # vào `TraCuuResponse`: `tra_cuu_response` không đọc khoá này.
@@ -692,6 +695,8 @@ def tra_cuu_response(payload: dict, trace_id: str, config_name: str) -> TraCuuRe
         # Cùng lý do `.get` của `bang`: dòng cache ghi trước bản này không có khoá.
         tai_lieu=payload.get("tai_lieu"),
         tai_lieu_neo=payload.get("tai_lieu_neo") or [],
+        # Cùng lý do `.get` của `bang`: dòng cache ghi trước bản này không có khoá.
+        van_ban_khong_hien_thi=payload.get("van_ban_khong_hien_thi") or [],
         trace_id=trace_id, config_name=config_name,
     )
 
@@ -880,7 +885,11 @@ def _van_ban_sync(
     gọi qua `run_in_threadpool` (xem `_ghi_traces` ở trên: thiếu bọc này đã
     từng là một lỗi thật trong dự án). `HTTPException` raise ở đây vẫn nổ
     đúng qua threadpool tới route.
+
+    Văn bản bị ẩn (`services/hien_thi`) trả 404 `khong_hien_thi` ở MỌI dạng,
+    trước cả truy vấn đầu tiên của trang.
     """
+    chan_neu_an(get_engine(), doc_id, as_of_hieu_luc(None))
     with get_engine().connect() as conn:
         doc = conn.execute(_SQL_VAN_BAN_DOC, {"doc_id": doc_id}).mappings().one_or_none()
         if doc is None:
@@ -968,18 +977,23 @@ def _van_ban_sync(
 #
 # `count(...) FILTER` trên LEFT JOIN: văn bản không có provision nào cho `p.cap`
 # NULL, `NULL <> 'mo_dau'` ra NULL, không được đếm — ra 0, đúng ý.
+#
+# `d.id = ANY(:hien)` (quyết định 2026-09-28 mục 8): kích thước kho người đọc
+# thấy là số văn bản được HIỆN, không phải số dòng trong bảng.
 _SQL_PHAM_VI = text(
     "SELECT d.id, d.so_ky_hieu, d.ten, d.loai_van_ban, d.tinh_trang,"
     "       count(p.id) FILTER (WHERE p.cap <> 'mo_dau')::int AS so_dieu_khoan"
     " FROM documents d LEFT JOIN provisions p ON p.document_id = d.id"
+    " WHERE d.id = ANY(CAST(:hien AS text[]))"
     " GROUP BY d.id, d.so_ky_hieu, d.ten, d.loai_van_ban, d.tinh_trang"
     " ORDER BY count(p.id) FILTER (WHERE p.cap <> 'mo_dau') DESC, d.so_ky_hieu"
 )
 
 
 def _pham_vi() -> PhamViResponse:
+    hien = hien_thi_luc(get_engine(), as_of_hieu_luc(None))
     with get_engine().connect() as c:
-        rows = c.execute(_SQL_PHAM_VI).mappings().all()
+        rows = c.execute(_SQL_PHAM_VI, {"hien": list(hien)}).mappings().all()
 
     def ra(r) -> VanBanPhamViOut:
         return VanBanPhamViOut(
@@ -1232,8 +1246,11 @@ async def soat(req: SoatRequest, _=Depends(cong_nhe)) -> SoatResponse:
     except Exception:
         logger.exception("soat: ghi traces thất bại (trace_id=%s) — KHÔNG chặn response", trace_id)
 
+    # Link căn cứ của finding chỉ trỏ văn bản được hiện (`services/hien_thi`);
+    # phép soát vẫn chạy trên đủ tập điều khoản của checklist.
+    hien = await run_in_threadpool(hien_thi_luc, get_engine(), as_of_hieu_luc(None))
     return SoatResponse(
-        audit_report=_audit_report_out(st["audit_report"], _duong_dan_index(db_provisions)),
+        audit_report=_audit_report_out(st["audit_report"], _duong_dan_index(chi_van_ban_hien(db_provisions, hien))),
         trace_id=trace_id,
     )
 

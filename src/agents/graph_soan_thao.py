@@ -30,6 +30,7 @@ from src.config import as_of_hieu_luc
 from src.services.checklist import Checklist, cac_can_cu, load_checklist
 from src.services.db import get_engine
 from src.services.effectivity import danh_gia_theo_id
+from src.services.hien_thi import hien_thi_luc
 from src.services.llm import from_settings as llm_from_settings
 from src.services.llm import generate_model
 from src.services.rules import Rule, load_facts_meta, load_rules
@@ -169,12 +170,20 @@ def requirements(loai: str) -> tuple[list[Rule], Checklist, dict[int, dict]]:
     return load_requirements(get_engine(), loai)
 
 
+def chi_van_ban_hien(db_provisions: dict[int, dict], hien: frozenset[str]) -> dict[int, dict]:
+    """Điều khoản của văn bản được HIỆN (`services/hien_thi`, quyết định
+    2026-09-28 mục 8). Lọc ở đây, không trong `requirements` (lru_cache cả tiến
+    trình): tập được hiện đổi theo ngày và theo lần nạp link, tập điều khoản thì không."""
+    return {pid: r for pid, r in db_provisions.items() if r["document_id"] in hien}
+
+
 def can_cu_van_ban(engine: Engine, db_provisions: dict[int, dict], as_of: date) -> list[str]:
     """Khối "Căn cứ" từ các văn bản mà `can_cu` của checklist + rules dẫn tới —
-    chỉ văn bản còn hiệu lực TẠI `as_of`, phán bằng `danh_gia_theo_id`, đúng hàm
-    mà câu trả lời dùng (`effectivity_qua_provision`). KHÔNG `lru_cache` như
-    `requirements`: hiệu lực đổi theo ngày, còn tập điều khoản thì không."""
-    ids = sorted({r["document_id"] for r in db_provisions.values()})
+    chỉ văn bản được HIỆN (tình trạng, hiệu lực, link chính thống — cùng tập mọi
+    đường đọc dùng) và còn hiệu lực TẠI `as_of`, phán bằng `danh_gia_theo_id`,
+    đúng hàm mà câu trả lời dùng (`effectivity_qua_provision`). KHÔNG `lru_cache`
+    như `requirements`: hiệu lực đổi theo ngày, còn tập điều khoản thì không."""
+    ids = sorted({r["document_id"] for r in chi_van_ban_hien(db_provisions, hien_thi_luc(engine, as_of)).values()})
     if not ids:
         return []
     with engine.connect() as c:
@@ -204,10 +213,13 @@ def build_graph_soan_thao():
         }
 
     def n_retrieve(st: SoanThaoState) -> SoanThaoState:
-        db_provisions = requirements(st["loai"])[2]
         # Mốc hiệu lực của bản thảo: bản thảo không có `as_of` riêng, nên theo
-        # đúng quy tắc của request tra cứu (settings → hôm nay).
-        can_cu = can_cu_van_ban(get_engine(), db_provisions, as_of_hieu_luc(None))
+        # đúng quy tắc của request tra cứu (settings → hôm nay). Chỉ điều khoản
+        # của văn bản được hiện vào nguồn soạn: một căn cứ người đọc không mở
+        # được thì không được là căn cứ của bản thảo.
+        as_of = as_of_hieu_luc(None)
+        db_provisions = chi_van_ban_hien(requirements(st["loai"])[2], hien_thi_luc(get_engine(), as_of))
+        can_cu = can_cu_van_ban(get_engine(), db_provisions, as_of)
         return {
             **st,
             "expanded": list(db_provisions.values()),

@@ -621,7 +621,7 @@ async def test_cau_hoi_that_giua_luc_dang_soan_duoc_tra_loi_binh_thuong_va_giu_n
     bt_id = d1["ban_thao"]["id"]
     truoc = _anh_ban_thao(sub, bt_id)
 
-    monkeypatch.setattr(g.Retriever, "hybrid", lambda self, q: [])
+    monkeypatch.setattr(g.Retriever, "hybrid", lambda self, q, hien=None: [])
     monkeypatch.setattr(g.Retriever, "provision_ids", lambda self, hits: [])
     llm.router_intent = "tra_cuu"
     r2 = await client.post(

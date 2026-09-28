@@ -152,10 +152,10 @@ async def test_corpus_checksum_doi_thi_cache_MISS(client, graph, monkeypatch, do
     không kiểm lại được nữa."""
     g = graph(GraphDem())
 
-    monkeypatch.setattr(cache_tra_loi, "corpus_checksum", lambda: "19135:cu")
+    monkeypatch.setattr(cache_tra_loi, "corpus_checksum", lambda as_of=None: "19135:cu")
     await client.post("/api/v1/tra-cuu", json={"query": _CAU_HOI})
 
-    monkeypatch.setattr(cache_tra_loi, "corpus_checksum", lambda: "19200:moi")
+    monkeypatch.setattr(cache_tra_loi, "corpus_checksum", lambda as_of=None: "19200:moi")
     await client.post("/api/v1/tra-cuu", json={"query": _CAU_HOI})
     assert g.goi == 2, "corpus đã đổi mà vẫn cache hit — đang phục vụ câu trả lời của corpus cũ"
 

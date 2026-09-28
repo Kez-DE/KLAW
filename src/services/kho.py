@@ -35,6 +35,15 @@ ra 12 là sai.
 Lọc bằng `effectivity.danh_gia_theo_id` — cùng cơ chế cạnh đồ thị mà `expand()`
 dùng — rồi loại verdict `het_hieu_luc` và `bi_thay_the`. Đây là một QUY TẮC,
 không phải một danh sách cứng sáu doc_id.
+
+## Quy tắc hiển thị (quyết định 2026-09-28 mục 8–10)
+
+Mọi con số và mọi danh sách ở đây chỉ tính văn bản được HIỆN
+(`services/hien_thi`) — cùng tập với trang Tra cứu, nên "tôi có N văn bản" bằng
+đúng số dòng người đọc duyệt được. Văn bản ẩn chỉ xuất hiện khi người hỏi nêu
+số hiệu của nó, và khi đó câu trả lời nói thẳng nó không có trong phạm vi tra
+cứu, nêu văn bản thay thế. Không dòng nào in `ly_do`: người đọc thấy nhãn và
+câu `hien_thi.mo_ta`.
 """
 
 import re
@@ -95,9 +104,8 @@ _NHAN = {
     V.het_hieu_luc: "đã hết hiệu lực",
     V.bi_thay_the: "đã bị thay thế",
     V.bi_sua_doi: "đã bị sửa đổi",
-    V.mot_phan_khong_xac_dinh: (
-        "hết hiệu lực một phần, cơ sở dữ liệu quốc gia không công bố phần nào"
-    ),
+    # Nhãn chủ dự án chốt cho HHL1P (quyết định 2026-09-28 mục 8).
+    V.mot_phan_khong_xac_dinh: "còn hiệu lực một phần",
     V.can_doi_chieu_tay: "cần đối chiếu tay",
     V.chua_xac_dinh: "chưa xác định được hiệu lực",
 }
@@ -121,7 +129,7 @@ _NHAN_MAC_DINH = "chưa xác định được hiệu lực"
 _RE_SO_HIEU = re.compile(r"(?<![\d/])(\d{1,4}/\d{4})\b")
 
 _SQL_KHO = text(
-    "SELECT id, so_ky_hieu, ten, loai_van_ban, depth, linh_vuc "
+    "SELECT id, so_ky_hieu, ten, loai_van_ban, depth, linh_vuc, tinh_trang, link_vbpl, link_chinhphu "
     "FROM documents ORDER BY so_ky_hieu"
 )
 
@@ -290,7 +298,28 @@ def nap_kho(engine: Engine, as_of: date) -> list[dict]:
     # `graph_tra_cuu.py:146` đã lập cho tier 1.
     thieu = Effectivity(V.chua_xac_dinh, "thap",
                         "không có trong bản đồ hiệu lực toàn corpus — không đánh giá được")
-    return [{**r, "hieu_luc": hieu_luc.get(r["id"], thieu)} for r in rows]
+    return [gan_hien_thi(r, hieu_luc.get(r["id"], thieu)) for r in rows]
+
+
+def gan_hien_thi(r: dict, e: Effectivity) -> dict:
+    """Một dòng `documents` + phán quyết → dòng kho: cờ `hien` (quy tắc hiển thị),
+    câu `mo_ta` cho người đọc, và `cau_an` — câu trả lời cho người nêu đúng số
+    hiệu của một văn bản ẩn. THUẦN, để test dựng dòng ẩn mà không cần Postgres."""
+    # Import tại chỗ: `hien_thi` → `trich_dan` → module này (`hien_van_ban`).
+    from src.services.hien_thi import cau_van_ban_an, duoc_hien, mo_ta, thong_diep_an, van_ban_thay
+
+    hien = duoc_hien(r, e)
+    return {
+        **r, "hieu_luc": e, "hien": hien, "mo_ta": mo_ta(e),
+        "cau_an": None if hien else cau_van_ban_an(
+            thong_diep_an(r, e, goi_ten=True), (v.so_ky_hieu for v in van_ban_thay(e))),
+    }
+
+
+def _duoc_hien(kho: list[dict]) -> list[dict]:
+    """Dòng được hiện. Dòng không mang cờ (bảng dựng tay trong test thuần) là
+    được hiện — cờ chỉ `nap_kho` đặt."""
+    return [r for r in kho if r.get("hien", True)]
 
 
 def _muc_phu(depth: str) -> str:
@@ -298,13 +327,17 @@ def _muc_phu(depth: str) -> str:
             else "tôi chỉ có số hiệu, tên và hiệu lực — chưa có toàn văn")
 
 
+def _hieu_luc_doc(r: dict) -> str:
+    """ "Hiệu lực: <nhãn>." + câu `hien_thi.mo_ta` khi có — nêu ĐÍCH DANH văn bản
+    đi sửa. KHÔNG `ly_do` (quyết định 2026-09-28 mục 10: không dòng chẩn đoán)."""
+    return " ".join(x for x in (f"Hiệu lực: {_nhan(r['hieu_luc'])}.", r.get("mo_ta")) if x)
+
+
 def _dong_van_ban(r: dict) -> str:
-    """Một văn bản, ba dòng. `ly_do` NGUYÊN VĂN của effectivity, không tóm lại:
-    nó là chỗ nêu ĐÍCH DANH văn bản đi thay hoặc đi sửa ("bị 19/2023/QH15 sửa
-    đổi… từ 2024-07-01"), và một nhãn chung chung xoá mất đúng thông tin đó."""
+    """Một văn bản, ba dòng."""
     return (f"- {' — '.join(x for x in hien_van_ban(r['so_ky_hieu'], r['ten']) if x)}\n"
             f"  Mức phủ: {_muc_phu(r['depth'])}.\n"
-            f"  Hiệu lực: {_nhan(r['hieu_luc'])} — {r['hieu_luc'].ly_do}.")
+            f"  {_hieu_luc_doc(r)}")
 
 
 def _khoi_mot_so(so: str, kho: list[dict]) -> list[str]:
@@ -314,7 +347,12 @@ def _khoi_mot_so(so: str, kho: list[dict]) -> list[str]:
     đóng bằng MỘT câu giới hạn phạm vi — lặp câu đó sau mỗi khối làm nó thành
     tiếng ồn, và một câu cảnh báo bị đọc như tiếng ồn thì không còn cảnh báo gì.
     """
-    khop = [r for r in kho if _khop_so_hieu(so, r["so_ky_hieu"])]
+    tat_ca = [r for r in kho if _khop_so_hieu(so, r["so_ky_hieu"])]
+    khop = _duoc_hien(tat_ca)
+    if not khop and tat_ca:
+        # Văn bản CÓ trong DB nhưng bị ẩn: nói thẳng nó không có trong phạm vi
+        # tra cứu và vì sao, nêu văn bản thay thế — không "tôi không có".
+        return list(dict.fromkeys(r["cau_an"] for r in tat_ca))
     if not khop:
         # KHÔNG kéo một văn bản gần giống vào chỗ này. Sai chế độ tệ nhất ở đây
         # không phải "không biết" — mà là gán cho kho một văn bản nó không có.
@@ -329,7 +367,7 @@ def _khoi_mot_so(so: str, kho: list[dict]) -> list[str]:
             "Có. Tôi có "
             f"{' — '.join(x for x in hien_van_ban(r['so_ky_hieu'], r['ten']) if x)}.",
             f"Mức phủ: {_muc_phu(r['depth'])}.",
-            f"Hiệu lực: {_nhan(r['hieu_luc'])} — {r['hieu_luc'].ly_do}.",
+            _hieu_luc_doc(r),
         ]
     # `số/năm` KHÔNG định danh duy nhất. ĐO ĐƯỢC trên corpus: `128/2025` khớp CẢ
     # `128/2025/NĐ-CP` lẫn `128/2025/QH15` — hai văn bản khác nhau, khác cả loại.
@@ -366,7 +404,7 @@ def _van_ban_dang_dung(kho: list[dict]) -> list[dict]:
     riêng vì cả `_tom_tat` (văn xuôi) lẫn `dung_bang` (Bảng 1/2) đều lọc trên
     đúng tập này; một bản lọc lặp lại ở `dung_bang` sẽ lệch khỏi văn xuôi đúng
     vào ngày ai đó sửa một bên."""
-    return [r for r in kho if r["hieu_luc"].verdict not in _LOAI_BO]
+    return [r for r in _duoc_hien(kho) if r["hieu_luc"].verdict not in _LOAI_BO]
 
 
 def _nhom_theo_loai(dang_dung: list[dict]) -> dict[str, list[dict]]:
@@ -424,6 +462,7 @@ def hoi_dich_danh_bo_luat(cau_hoi: str) -> bool:
 
 
 def _tom_tat(kho: list[dict], uu_tien_bo_luat: bool = False) -> str:
+    kho = _duoc_hien(kho)
     dang_dung = _van_ban_dang_dung(kho)
     da_thay = len(kho) - len(dang_dung)
 
