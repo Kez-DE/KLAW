@@ -243,7 +243,7 @@ def _finding_out(f, duong_dan_index: dict[str, dict]) -> dict:
         "muc_do": f.muc_do,
         "thong_diep": f.mo_ta,
         "dieu_khoan_lien_quan": f.dieu_khoan_lien_quan,
-        "can_cu": duong_dan,
+        "can_cu": duong_dan if khop else None,
         "rule_id": f.rule_id,
         "doc_id": khop["document_id"] if khop else None,
         "khop_tai_id": khop["id"] if khop else None,

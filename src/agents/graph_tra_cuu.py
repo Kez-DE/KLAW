@@ -31,7 +31,7 @@ from langgraph.graph import END, StateGraph
 from sqlalchemy import Engine, text
 from starlette.concurrency import run_in_threadpool
 
-from src.agents.graph_soan_thao import graph_soan_thao_cached, load_checklist_cached
+from src.agents.graph_soan_thao import KhongSoanDuocError, graph_soan_thao_cached, load_checklist_cached
 from src.agents.nodes.assemble import LOAI_BAO_VAN_BAN_AN, assemble, gan_van_ban_khong_hien_thi
 from src.agents.nodes.dung_ban_thao_tong_quat import dung_ban_thao_tong_quat
 from src.agents.nodes.expand import expand
@@ -529,9 +529,13 @@ def build_graph_tra_cuu():
         except HTTPException as e:
             return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": str(e.detail)}}
         bat_dau = time.monotonic()
-        ket_st = await graph_soan_thao_cached().ainvoke(
-            {"loai": sd["loai"], "loai_van_ban": sd["loai"], "facts": sd["facts"], "nganh": "thuong_mai"}
-        )
+        try:
+            ket_st = await graph_soan_thao_cached().ainvoke(
+                {"loai": sd["loai"], "loai_van_ban": sd["loai"], "facts": sd["facts"], "nganh": "thuong_mai"}
+            )
+        except KhongSoanDuocError as e:
+            # Cùng lối nói với nhánh sửa (`dung_lai` ném cùng lỗi này): 0 lượt LLM.
+            return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": str(e)}}
         ket = ban_thao.tu_state_soan_thao(ket_st)
         bt = await run_in_threadpool(ban_thao.tao, sub, st.get("hoi_thoai_id"), sd["loai"], sd["facts"], ket)
         try:

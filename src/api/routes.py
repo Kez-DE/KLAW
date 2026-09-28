@@ -11,6 +11,7 @@ from sqlalchemy.exc import OperationalError
 from starlette.concurrency import run_in_threadpool
 
 from src.agents.graph_soan_thao import (
+    KhongSoanDuocError,
     build_graph_soan_thao,
     cac_loai,
     chi_van_ban_hien,
@@ -1124,7 +1125,9 @@ def _finding_out(f, duong_dan_index: dict[str, dict]) -> dict:
         "muc_do": f.muc_do,
         "thong_diep": f.mo_ta,
         "dieu_khoan_lien_quan": f.dieu_khoan_lien_quan,
-        "can_cu": duong_dan,
+        # Chỉ mục chỉ gồm điều khoản của văn bản được hiện: căn cứ vắng mặt ở đó
+        # là căn cứ của văn bản ẩn — không nêu (quyết định 2026-09-28 mục 8).
+        "can_cu": duong_dan if khop else None,
         "rule_id": f.rule_id,
         # None cho citation_khong_hop_le: chính can_cu đó không tồn tại, nên
         # không có gì để panel đối chiếu mở.
@@ -1173,6 +1176,10 @@ async def soan_thao(
             {"loai": req.loai_van_ban, "loai_van_ban": req.loai_van_ban,
              "facts": req.facts, "nganh": req.nganh}
         )
+    except KhongSoanDuocError as e:
+        # Dừng trước lượt LLM (căn cứ gốc thuộc văn bản ẩn): lời thường, 4xx để
+        # giao diện hiện `detail`; không chi phí nào để ghi.
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except (httpx.HTTPStatusError, httpx.TransportError, OperationalError) as e:
         # Cùng phân loại lỗi hạ tầng nhất thời như tra_cuu() — xem docstring ở đó.
         loi = type(e).__name__

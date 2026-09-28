@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from src.agents.graph_soan_thao import load_checklist_cached, rules_cho
+from src.agents.graph_soan_thao import KhongSoanDuocError, load_checklist_cached, rules_cho
 from src.agents.nodes.gom_du_kien import con_thieu, lua_chon_sai
 from src.api.routes import _validate_facts
 from src.api.routes_tai_lieu import KHONG_THAY, _loi_http
@@ -247,6 +247,8 @@ async def dung(id: str, body: DungLaiRequest, nguoi: dict = Depends(nguoi_dung_b
     await run_in_threadpool(bao_ve.kiem_tran_chi_phi)
     try:
         bt = await ban_thao.dung_lai(nguoi["sub"], id, body.facts)
+    except KhongSoanDuocError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=429, detail=str(e)) from e
     if bt is None:

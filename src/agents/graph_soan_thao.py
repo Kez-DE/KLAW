@@ -170,6 +170,12 @@ def requirements(loai: str) -> tuple[list[Rule], Checklist, dict[int, dict]]:
     return load_requirements(get_engine(), loai)
 
 
+class KhongSoanDuocError(ValueError):
+    """Căn cứ gốc của checklist thuộc văn bản ẩn: dừng TRƯỚC lượt LLM trả phí.
+    `ValueError` để các cửa đã bắt lời từ chối soạn (`dung_lai`, nhánh sửa của
+    chat) nhận luôn câu này; câu là lời thường cho người đọc, không số hiệu."""
+
+
 def chi_van_ban_hien(db_provisions: dict[int, dict], hien: frozenset[str]) -> dict[int, dict]:
     """Điều khoản của văn bản được HIỆN (`services/hien_thi`, quyết định
     2026-09-28 mục 8). Lọc ở đây, không trong `requirements` (lru_cache cả tiến
@@ -218,7 +224,16 @@ def build_graph_soan_thao():
         # của văn bản được hiện vào nguồn soạn: một căn cứ người đọc không mở
         # được thì không được là căn cứ của bản thảo.
         as_of = as_of_hieu_luc(None)
-        db_provisions = chi_van_ban_hien(requirements(st["loai"])[2], hien_thi_luc(get_engine(), as_of))
+        _, checklist, tat_ca = requirements(st["loai"])
+        db_provisions = chi_van_ban_hien(tat_ca, hien_thi_luc(get_engine(), as_of))
+        # Căn cứ gốc (điều luật buộc các mục phải có) bị ẩn thì bản thảo không
+        # có căn cứ nào người đọc mở được — đo 2026-09-28: 7/29 mẫu mất trọn
+        # nguồn, `thoa_thuan_bao_mat` mất căn cứ gốc. Dừng ở đây, 0 lượt LLM.
+        if not any(r["duong_dan"] == checklist.can_cu_goc for r in db_provisions.values()):
+            raise KhongSoanDuocError(
+                f"Hiện chưa soạn được {checklist.ten}: văn bản luật làm căn cứ cho loại văn bản này"
+                " chưa có trong phạm vi tra cứu."
+            )
         can_cu = can_cu_van_ban(get_engine(), db_provisions, as_of)
         return {
             **st,

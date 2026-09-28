@@ -185,3 +185,93 @@ def test_ban_thao_out_tra_khoi_can_cu_cho_giao_dien_xuat_tep():
     }
     assert rbt._out(bt).can_cu_van_ban == KHOI
     assert rbt._out({**bt, "document": "# HỢP ĐỒNG LAO ĐỘNG\n"}).can_cu_van_ban == [], "bản lưu trước khối: rỗng"
+
+
+# ───────────────────── căn cứ gốc thuộc văn bản ẩn (quyết định 2026-09-28 mục 8)
+
+
+class _LlmDem:
+    """Mô hình giả đếm lượt gọi: lượt `draft_generate` là một lượt trả phí thật."""
+
+    def __init__(self):
+        self.goi = 0
+
+    def chat(self, model, messages, json_schema=None):
+        from src.services.llm import Usage
+
+        self.goi += 1
+        return '{"clauses": []}', Usage(0, 0, 0.0)
+
+
+def _graph(monkeypatch, loai: str, db: dict, hien: frozenset[str]):
+    llm = _LlmDem()
+    cl = gst.load_checklist_cached(loai)
+    monkeypatch.setattr(gst, "llm_from_settings", lambda: llm)
+    monkeypatch.setattr(gst, "requirements", lambda _loai: ([], cl, db))
+    monkeypatch.setattr(gst, "hien_thi_luc", lambda engine, as_of: hien)
+    monkeypatch.setattr(gst, "get_engine", lambda: None)
+    monkeypatch.setattr(gst, "can_cu_van_ban", lambda engine, db, as_of: [])
+    return gst.build_graph_soan_thao(), llm, cl
+
+
+def test_can_cu_goc_thuoc_van_ban_an_thi_dung_truoc_luot_LLM(monkeypatch):
+    """7/29 mẫu mất trọn nguồn và `thoa_thuan_bao_mat` mất căn cứ gốc (TT 10/2020
+    chưa có link chính thống, đo 2026-09-28). Soạn tiếp là trả tiền một lượt LLM
+    để ra một bản thảo không có căn cứ mà người đọc mở được."""
+    cl = gst.load_checklist_cached("cong_van")
+    db = {1: {"id": 1, "document_id": "an", "duong_dan": cl.can_cu_goc, "so_ky_hieu": "30/2020/NĐ-CP"}}
+    graph, llm, _ = _graph(monkeypatch, "cong_van", db, frozenset())
+    with pytest.raises(gst.KhongSoanDuocError) as loi:
+        graph.invoke({"loai": "cong_van", "loai_van_ban": "cong_van", "facts": {}})
+    assert llm.goi == 0
+    cau = str(loi.value)
+    assert cl.ten in cau and "30/2020" not in cau and "chưa xác định" not in cau.lower(), cau
+
+
+def test_can_cu_goc_duoc_hien_thi_van_soan_du_mat_nguon_phu(monkeypatch):
+    cl = gst.load_checklist_cached("hop_dong_mua_ban")
+    db = {
+        1: {"id": 1, "document_id": "song", "duong_dan": cl.can_cu_goc, "so_ky_hieu": "91/2015/QH13"},
+        2: {"id": 2, "document_id": "an", "duong_dan": "36/2005/QH11 > Điều 301", "so_ky_hieu": "36/2005/QH11"},
+    }
+    graph, llm, _ = _graph(monkeypatch, "hop_dong_mua_ban", db, frozenset({"song"}))
+    st = graph.invoke({"loai": "hop_dong_mua_ban", "loai_van_ban": "hop_dong_mua_ban", "facts": {}})
+    assert llm.goi == 1 and set(st["db_provisions"]) == {1}
+
+
+def test_finding_KHONG_dan_can_cu_cua_van_ban_an():
+    """`db_provisions` đã lọc theo tập được hiện: căn cứ vắng khỏi chỉ mục là căn
+    cứ của văn bản ẩn — không nêu nó, cả ở `/soan-thao` lẫn `/soat`."""
+    from src.agents.nodes.draft_audit import AuditFinding
+    from src.api import routes
+
+    idx = {"91/2015/QH13 > Điều 430": {"id": 7, "document_id": "song"}}
+    an = AuditFinding("trai_luat", "chan", "Mức phạt vượt trần", can_cu={"duong_dan": "36/2005/QH11 > Điều 301"})
+    song = AuditFinding("thieu_noi_dung", "chan", "Thiếu", can_cu={"duong_dan": "91/2015/QH13 > Điều 430"})
+    for f_out in (routes._finding_out, ban_thao._finding_out):
+        assert (f_out(an, idx)["can_cu"], f_out(an, idx)["doc_id"]) == (None, None)
+        assert (f_out(song, idx)["can_cu"], f_out(song, idx)["khop_tai_id"]) == ("91/2015/QH13 > Điều 430", 7)
+
+
+async def test_soan_thao_mau_khong_soan_duoc_tra_422_noi_ro_khong_ghi_chi_phi(monkeypatch):
+    """Cửa `/soan-thao`: lời từ chối thường, 4xx (giao diện hiện `detail` chuỗi), không 500."""
+    from fastapi import HTTPException
+
+    from src.api import routes
+
+    class _G:
+        async def ainvoke(self, st):
+            raise gst.KhongSoanDuocError("Hiện chưa soạn được Công văn.")
+
+    ghi: list = []
+
+    async def _ghi(*a, **k):
+        ghi.append(a)
+
+    monkeypatch.setattr(routes, "_g_soan_thao", lambda: _G())
+    monkeypatch.setattr(routes, "_ghi_traces_nhe", _ghi)
+    req = routes.SoanThaoRequest(loai_van_ban="cong_van", facts={})
+    with pytest.raises(HTTPException) as loi:
+        await routes.soan_thao(req, None)
+    assert (loi.value.status_code, loi.value.detail) == (422, "Hiện chưa soạn được Công văn.")
+    assert ghi == [], "không lượt LLM nào chạy thì không có gì để ghi chi phí"
