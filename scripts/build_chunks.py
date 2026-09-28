@@ -17,15 +17,20 @@ from src.services.embedding import EmbeddingClient
 # lớn hơn mặc định EmbeddingClient.batch=32 để giảm số request cho ~3.283 chunk.
 _EMBED_BATCH = 100
 
-# Văn bản ĐÃ HẾT HIỆU LỰC theo nguyên văn của một văn bản trong kho, nhưng
-# `effectivity` chưa dán được nhãn chết: cạnh chấm dứt nối hai tiêu đề khác chủ
-# đề nên guard `cung_chu_de` hạ nó xuống `can_doi_chieu_tay`, mà assemble chỉ
-# lọc `bi_thay_the`/`het_hieu_luc` khỏi văn xuôi. Nằm trong chỉ mục là câu trả
-# lời lao động được viết từ nghị định 2013-2015 đã bãi bỏ. Provisions vẫn ở DB
-# cho tầng 1 kiểm trích dẫn cũ và chỉ ra văn bản thay thế (quyết định
-# 2026-09-28 mục 8). Đo 2026-09-28: 17 văn bản, 237 chunk voyage.
-# ponytail: bảng tay; bỏ dòng khi `effectivity` có lớp cạnh đọc-từ-nguyên-văn
-# (cần chủ dự án duyệt) hoặc quy tắc hiển thị K7 phủ truy hồi.
+# Văn bản nạp ở K1 CHỈ vì một văn bản trong kho thay thế hoặc bãi bỏ nó — cả 24
+# đều đã hết hiệu lực. Chúng ở DB cho tầng 1 kiểm trích dẫn cũ và cho chuỗi thay
+# thế, KHÔNG làm nguồn truy hồi (quyết định 2026-09-28 mục 8: văn bản hết hiệu
+# lực giữ ẩn, không hiện, không trích như luật đang áp dụng).
+#   * 17 dòng đầu: nguyên văn văn bản trong kho bãi bỏ chúng, nhưng `effectivity`
+#     dán `can_doi_chieu_tay` (cạnh nối hai tiêu đề khác chủ đề, guard
+#     `cung_chu_de`), mà assemble chỉ lọc `bi_thay_the`/`het_hieu_luc` khỏi văn
+#     xuôi — câu trả lời lao động viết từ nghị định 2013-2015 đã bãi bỏ.
+#   * 7 dòng sau: nhãn đúng và assemble lọc khỏi văn xuôi, nhưng vẫn chiếm chỗ
+#     ứng viên. Đo golden 77 khi chúng còn trong chỉ mục: trúng dẫn 56,8% so với
+#     62,7-64,0% trước K1; 28/2020 (112 chunk) nằm trong top-10 hybrid của 7/13
+#     câu đổi kết quả.
+# Đo 2026-09-28: 24 văn bản, 536 chunk voyage.
+# ponytail: bảng tay; quy tắc hiển thị K7 thay nó bằng một quy tắc chung.
 KHONG_DANH_CHI_MUC: dict[str, str] = {
     "33381": "03/2014/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm a",
     "32526": "44/2013/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm b",
@@ -44,6 +49,13 @@ KHONG_DANH_CHI_MUC: dict[str, str] = {
     "43992": "40/2014/TT-NHNN — 29/2019/NĐ-CP Điều 28 khoản 2",
     "43821": "10/2013/TT-BLĐTBXH — 09/2020/TT-BLĐTBXH Điều 13 khoản 2 điểm a",
     "43819": "11/2013/TT-BLĐTBXH — 09/2020/TT-BLĐTBXH Điều 13 khoản 2 điểm b",
+    "154245": "38/2022/NĐ-CP — het_hieu_luc; 74/2024/NĐ-CP Điều 5 khoản 2",
+    "141147": "28/2020/NĐ-CP — bi_thay_the, 12/2022/NĐ-CP",
+    "94345": "54/2015/TT-BLĐTBXH — bi_thay_the (suy luận), 18/2021/TT-BLĐTBXH",
+    "30475": "55/2013/NĐ-CP — het_hieu_luc; 29/2019/NĐ-CP Điều 28 khoản 2",
+    "179969": "07/2025/UBTVQH15 — het_hieu_luc (effTo MOJ 01/7/2026)",
+    "12807": "14/2008/QH12 — bi_thay_the, 67/2025/QH15",
+    "14832": "78/2006/QH11 — bi_thay_the, 38/2019/QH14 Điều 151 khoản 3",
 }
 
 
