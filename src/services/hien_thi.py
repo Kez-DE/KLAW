@@ -5,10 +5,11 @@ ket-nguon.md`).
 Một văn bản được HIỆN khi và chỉ khi đồng thời:
 
   1. `documents.tinh_trang` là mã còn hiệu lực đã biết của Bộ Tư pháp:
-     `TINH_TRANG_HIEN`. Gateway không có mã riêng cho "chưa có hiệu lực" — đo
-     2026-09-28 trên 154 JSON đã cache, `effStatus.code` chỉ có CHL · HHL1P ·
-     HHL — nên một văn bản ban hành mà hiệu lực sau vẫn mang CHL, và điều kiện
-     2 (`chua_hieu_luc`) là chỗ nó được giữ.
+     `TINH_TRANG_HIEN`. Lượt làm mới toàn kho 2026-09-28 thấy gateway có mã
+     `CCHL` (chưa có hiệu lực, 2 văn bản), được nạp thành `chua_hieu_luc`.
+     "Chưa có hiệu lực" không phải "không còn hiệu lực", nên nó được hiện với
+     nhãn của nó; văn bản ban hành mà hiệu lực sau cũng có thể mang CHL, và
+     điều kiện 2 (`chua_hieu_luc`) giữ nó.
   2. Phán quyết của `effectivity` (nơi DUY NHẤT KLAW phán về hiệu lực) tại
      `as_of` là còn sống: `VERDICT_HIEN`.
   3. Có link chính thống đã kiểm — đúng luật của `trich_dan.lien_ket`.
@@ -36,7 +37,7 @@ from src.services.effectivity import EffectivityVerdict as V
 from src.services.kho import _khop_so_hieu
 from src.services.trich_dan import cach_trich, lien_ket, truong_trich_dan
 
-TINH_TRANG_HIEN = ("CHL", "HHL1P")
+TINH_TRANG_HIEN = ("CHL", "HHL1P", "chua_hieu_luc")
 
 VERDICT_HIEN = frozenset({V.con_hieu_luc, V.bi_sua_doi, V.mot_phan_khong_xac_dinh, V.chua_hieu_luc})
 
