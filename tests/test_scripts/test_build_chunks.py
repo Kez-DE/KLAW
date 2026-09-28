@@ -143,3 +143,24 @@ def test_run_that_tren_toan_corpus_TON_TIEN():
             "SELECT count(*) FROM chunks WHERE embedding IS NULL AND embedding_model = :m"
         ), {"m": info["model"]}).scalar_one()
     assert thieu == 0
+
+
+@pytest.mark.integration
+def test_van_ban_KHONG_DANH_CHI_MUC_khong_con_chunk_ke_ca_khi_chi_moi(corpus_nho, monkeypatch):
+    """Văn bản đã hết hiệu lực theo nguyên văn nhưng `effectivity` chưa dán được
+    nhãn chết thì không được truy hồi: `--chi-moi` xoá chunk cũ của nó và không
+    embed chunk mới nào cho nó."""
+    run(model=corpus_nho)
+    with get_engine().connect() as c:
+        doc = c.execute(text(
+            "SELECT p.document_id FROM chunks ch JOIN provisions p ON p.id = ch.provision_id"
+            " WHERE ch.embedding_model = :m LIMIT 1"), {"m": corpus_nho}).scalar_one()
+    monkeypatch.setitem(bc.KHONG_DANH_CHI_MUC, doc, "thử")
+    info = run(model=corpus_nho, chi_moi=True)
+    assert info["moi"] == 0 and info["thua"] > 0, info
+    with get_engine().connect() as c:
+        con = c.execute(text(
+            "SELECT count(*) FROM chunks ch JOIN provisions p ON p.id = ch.provision_id"
+            " WHERE ch.embedding_model = :m AND p.document_id = :d"),
+            {"m": corpus_nho, "d": doc}).scalar_one()
+    assert con == 0

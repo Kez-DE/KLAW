@@ -17,6 +17,35 @@ from src.services.embedding import EmbeddingClient
 # lớn hơn mặc định EmbeddingClient.batch=32 để giảm số request cho ~3.283 chunk.
 _EMBED_BATCH = 100
 
+# Văn bản ĐÃ HẾT HIỆU LỰC theo nguyên văn của một văn bản trong kho, nhưng
+# `effectivity` chưa dán được nhãn chết: cạnh chấm dứt nối hai tiêu đề khác chủ
+# đề nên guard `cung_chu_de` hạ nó xuống `can_doi_chieu_tay`, mà assemble chỉ
+# lọc `bi_thay_the`/`het_hieu_luc` khỏi văn xuôi. Nằm trong chỉ mục là câu trả
+# lời lao động được viết từ nghị định 2013-2015 đã bãi bỏ. Provisions vẫn ở DB
+# cho tầng 1 kiểm trích dẫn cũ và chỉ ra văn bản thay thế (quyết định
+# 2026-09-28 mục 8). Đo 2026-09-28: 17 văn bản, 237 chunk voyage.
+# ponytail: bảng tay; bỏ dòng khi `effectivity` có lớp cạnh đọc-từ-nguyên-văn
+# (cần chủ dự án duyệt) hoặc quy tắc hiển thị K7 phủ truy hồi.
+KHONG_DANH_CHI_MUC: dict[str, str] = {
+    "33381": "03/2014/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm a",
+    "32526": "44/2013/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm b",
+    "48298": "05/2015/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm b",
+    "131643": "148/2018/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm b",
+    "132028": "149/2018/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm d",
+    "30466": "49/2013/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm đ",
+    "131010": "121/2018/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm đ",
+    "30460": "45/2013/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm e",
+    "84922": "85/2015/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm g",
+    "34095": "27/2014/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm h",
+    "30467": "46/2013/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm i",
+    "30472": "41/2013/NĐ-CP — 145/2020/NĐ-CP Điều 114 khoản 2 điểm k",
+    "36843": "73/2014/NĐ-CP — 29/2019/NĐ-CP Điều 28 khoản 2",
+    "37502": "01/2014/TT-BLĐTBXH — 29/2019/NĐ-CP Điều 28 khoản 2",
+    "43992": "40/2014/TT-NHNN — 29/2019/NĐ-CP Điều 28 khoản 2",
+    "43821": "10/2013/TT-BLĐTBXH — 09/2020/TT-BLĐTBXH Điều 13 khoản 2 điểm a",
+    "43819": "11/2013/TT-BLĐTBXH — 09/2020/TT-BLĐTBXH Điều 13 khoản 2 điểm b",
+}
+
 
 def run(model: str | None = None, dry_run: bool = False, chi_moi: bool = False) -> dict:
     """`chi_moi`: chỉ embed chunk (provision_id, noi_dung_embed) CHƯA có cho
@@ -27,7 +56,8 @@ def run(model: str | None = None, dry_run: bool = False, chi_moi: bool = False) 
     run_migrations()
     model = model or s.openrouter_embedding_model_name
 
-    provisions = load_provisions(get_engine())
+    provisions = [p for p in load_provisions(get_engine())
+                  if p["document_id"] not in KHONG_DANH_CHI_MUC]
     chunks = build_chunks(provisions, s.chunk_max_tokens)
     if not chunks:
         raise ValueError("0 chunk — provisions rỗng hoặc chunker lỗi")
