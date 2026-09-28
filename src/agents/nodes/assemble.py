@@ -1102,7 +1102,11 @@ def xem_ban_thao_khuon(bt: dict) -> dict:
             + f". Bấm vào chỗ trống trên trang để sửa, hoặc {tai}."
         )
     return _base(
-        {"traces": {}}, ResultType.ban_thao, answer=answer, ban_thao=_ket_state(bt, TEN_TONG_QUAT, []), soan_thao_goi_y=None
+        {"traces": {}},
+        ResultType.ban_thao,
+        answer=answer,
+        ban_thao=_ket_state(bt, TEN_TONG_QUAT, []),
+        soan_thao_goi_y=None,
     )
 
 

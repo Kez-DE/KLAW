@@ -502,8 +502,14 @@ async def chay_tra_cuu(
             if phat is not None:
                 await phat("xem_ban_thao", {})
             await _ghi_traces_nhe(
-                trace_id, "/api/v1/tra-cuu", req.query, config_name, xem,
-                int((time.monotonic() - bat_dau) * 1000), True, user_sub,
+                trace_id,
+                "/api/v1/tra-cuu",
+                req.query,
+                config_name,
+                xem,
+                int((time.monotonic() - bat_dau) * 1000),
+                True,
+                user_sub,
             )
             return _payload_cache(xem, xem["result_type"].value), config_name
         # Cache TRƯỚC graph. Lỗi ĐỌC cache cố ý KHÔNG được bắt riêng: nó rơi vào
