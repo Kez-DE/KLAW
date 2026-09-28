@@ -56,6 +56,7 @@ from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
 
 # _tong_hop_traces re-exported here: test_tra_cuu.py imports it from routes, not services.traces.
 from src.services.traces import _ghi_traces, _tong_hop_traces, dau_van_ban  # noqa: F401
+from src.services.trich_dan import truong_trich_dan
 
 logger = logging.getLogger(__name__)
 
@@ -768,7 +769,7 @@ async def agent_status():
 # `effectivity.py` chạy.
 _SQL_VAN_BAN_DOC = text(
     "SELECT so_ky_hieu, ten, loai_van_ban, co_quan_ban_hanh, ngay_ban_hanh,"
-    " ngay_hieu_luc, ngay_het_hieu_luc, nguoi_ky, chuc_danh_nguoi_ky"
+    " ngay_hieu_luc, ngay_het_hieu_luc, nguoi_ky, chuc_danh_nguoi_ky, link_vbpl, link_chinhphu"
     " FROM documents WHERE id = :doc_id"
 )
 
@@ -780,7 +781,10 @@ def _meta(doc_id: str, doc) -> dict:
     từng lệch nhau ở `nguon`/`khop_tai_id`/`doc_id` — ba lần, cùng một kiểu
     hỏng, mỗi lần là một trường im lặng biến mất ở đúng một nhánh.
     """
+    # `ten_van_ban`/`lien_ket`/`cach_trich` (quyết định 2026-09-28); các trường
+    # trùng tên của `truong_trich_dan` bị đè bằng đúng giá trị cột bên dưới.
     return {
+        **truong_trich_dan(dict(doc)),
         "doc_id": doc_id, "so_ky_hieu": doc["so_ky_hieu"], "bo_luat": doc["ten"],
         "loai_van_ban": doc["loai_van_ban"], "co_quan_ban_hanh": doc["co_quan_ban_hanh"],
         "ngay_ban_hanh": doc["ngay_ban_hanh"], "ngay_hieu_luc": doc["ngay_hieu_luc"],

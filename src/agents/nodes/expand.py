@@ -83,7 +83,10 @@ from src.services.xref import find_xrefs
 # hiệu xếp hạng: expand vẫn không đụng điểm truy hồi.
 _SQL_PROV = text(
     "SELECT p.id, p.document_id, p.parent_id, p.cap, p.so_hieu_cap, p.tieu_de,"
-    " p.noi_dung, p.duong_dan, d.so_ky_hieu, d.ten, d.loai_van_ban, d.depth"
+    " p.noi_dung, p.duong_dan, d.so_ky_hieu, d.ten, d.loai_van_ban, d.depth,"
+    # Trích dẫn đầy đủ (quyết định 2026-09-28) — nguồn `partial_coverage` đọc
+    # từ đây. KHÔNG vào `build_context`: nó chỉ đọc những khoá nó nêu tên.
+    " d.co_quan_ban_hanh, d.ngay_ban_hanh, d.ngay_hieu_luc, d.link_vbpl, d.link_chinhphu"
     " FROM provisions p JOIN documents d ON d.id = p.document_id"
     " WHERE p.id = ANY(:ids)"
 )

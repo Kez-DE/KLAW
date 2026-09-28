@@ -276,3 +276,29 @@ def test_moi_provision_mang_loai_van_ban_de_generate_claims_ap_thu_bac():
         p_id = c.execute(text("SELECT id FROM provisions LIMIT 1")).scalar_one()
     deep, _ = expand([p_id], get_engine(), date(2026, 8, 27), hops=1)
     assert deep[0].get("loai_van_ban"), "d.loai_van_ban vắng hoặc rỗng — build_context không có gì để đưa"
+
+
+# ══ Quyết định 2026-09-28 — trích dẫn đầy đủ ════════════════════════════════
+@pytest.mark.integration
+def test_dong_deep_va_shallow_mang_cot_trich_dan_day_du():
+    """Nguồn của `partial_coverage` (dòng shallow) và của `documents[]` cần cơ
+    quan, ngày, link — đọc ở ĐÂY, không phải một lượt truy vấn thứ hai. Cột có
+    thể NULL (tầng shallow đang được điền) nhưng KHOÁ phải có."""
+    with get_engine().connect() as c:
+        pid = c.execute(text("SELECT id FROM provisions WHERE document_id = '139264' LIMIT 1")).scalar_one()
+    deep, _ = expand([pid], get_engine(), date(2026, 8, 27), hops=0)
+    p = next(r for r in deep if r["document_id"] == "139264")
+    for k in ("co_quan_ban_hanh", "ngay_ban_hanh", "ngay_hieu_luc", "link_vbpl", "link_chinhphu"):
+        assert k in p, k
+    assert p["ngay_ban_hanh"] == date(2019, 11, 20)
+
+
+@pytest.mark.integration
+def test_db_provisions_mang_cot_trich_dan_day_du():
+    from src.agents.graph_tra_cuu import _db_provisions
+
+    with get_engine().connect() as c:
+        pid = c.execute(text("SELECT id FROM provisions WHERE document_id = '139264' LIMIT 1")).scalar_one()
+    p = _db_provisions([pid], get_engine())[pid]
+    assert (p["co_quan_ban_hanh"], p["ngay_ban_hanh"]) == ("Quốc hội", date(2019, 11, 20))
+    assert "ngay_hieu_luc" in p and "link_vbpl" in p

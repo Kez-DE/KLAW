@@ -66,7 +66,31 @@ class TraCuuRequest(BaseModel):
     tai_lieu_ids: list[UUID] = Field(default_factory=list, max_length=2)
 
 
-class CitationOut(BaseModel):
+class TrichDanMixin(BaseModel):
+    """Trích dẫn ĐẦY ĐỦ (quyết định 2026-09-28, thay Q2 của spec 2026-09-06):
+    văn bản nào, ai ban hành, ngày nào, mở ở đâu. Dựng ở MỘT chỗ,
+    `services/trich_dan.truong_trich_dan`. Mọi trường mặc định `None`: payload
+    cache cũ không có khoá này vẫn hợp lệ, và NULL = KHÔNG BIẾT — giao diện ẩn
+    phần đó, không hiện chỗ trống.
+
+    Ngày là DỮ KIỆN của văn bản, không phải phán quyết: nhãn hiệu lực vẫn là
+    nơi duy nhất KLAW nói về hiệu lực.
+    """
+
+    ten_van_ban: str | None = None
+    loai_van_ban: str | None = None
+    co_quan_ban_hanh: str | None = None
+    ngay_ban_hanh: date | None = None
+    ngay_hieu_luc: date | None = None
+    # MỘT link chính thống đã kiểm (`link_vbpl`, không có thì `link_chinhphu`);
+    # https, không bao giờ `nguon_url` hay thuvienphapluat.
+    lien_ket: str | None = None
+    # Câu trích theo cách chính văn bản luật viết: "khoản 1 Điều 3 Nghị định số
+    # 90/2019/NĐ-CP ngày 15/11/2019 của Chính phủ" — thứ nút "Sao chép trích dẫn" chép.
+    cach_trich: str | None = None
+
+
+class CitationOut(TrichDanMixin):
     provision_id: int
     # `khop_tai_id` THIẾU ở đây từng làm pydantic (`extra="ignore"` mặc định)
     # âm thầm vứt field này tại biên HTTP (silent-failure review): response
@@ -93,9 +117,13 @@ class CitationOut(BaseModel):
     # `ngoai_le`/`che_tai`. None khi prompt sinh chưa hỏi vai trò (mặc định) hoặc
     # payload cache ghi trước trường này — THÊM, không đổi hợp đồng cũ.
     vai_tro: str | None = None
+    # Câu cảnh báo hiệu lực của CHÍNH trích dẫn này — đúng một phần tử của
+    # `warnings[]` (nêu đích danh văn bản thay thế/sửa đổi), để giao diện đặt nó
+    # ngay cạnh trích dẫn thay vì dò chuỗi theo số hiệu. `None` = không cảnh báo.
+    canh_bao: str | None = None
 
 
-class NguonOut(BaseModel):
+class NguonOut(TrichDanMixin):
     """Văn bản chi phối câu hỏi, KHÔNG phải trích dẫn đã kiểm chứng.
 
     Chỉ `partial_coverage` điền. Nó tồn tại vì nhánh đó luôn có `citations: []`
@@ -119,11 +147,13 @@ class LinkVanBanOut(BaseModel):
     tvpl: str | None = None
 
 
-class DocumentOut(BaseModel):
+class DocumentOut(TrichDanMixin):
     """Văn bản được dùng để hành văn — đúng tập mô hình được phép đặt thẻ `doc`.
 
-    KHÔNG mang `ngay_ban_hanh`/`ngay_hieu_luc` (quyết định Q2, spec §2): nhãn
-    hiệu lực cạnh trích dẫn là nơi duy nhất nói về hiệu lực.
+    Mang ngày ban hành/hiệu lực từ quyết định 2026-09-28 (thay Q2 của spec
+    2026-09-06): ngày là dữ kiện, nhãn hiệu lực cạnh trích dẫn vẫn là nơi duy
+    nhất nói về hiệu lực. `links` giữ nguyên cho giao diện cũ; `lien_ket` là
+    MỘT link nên mở.
     """
 
     doc_id: str
@@ -503,7 +533,7 @@ class ProvisionOut(BaseModel):
     la_tam: bool
 
 
-class VanBanMetaMixin(BaseModel):
+class VanBanMetaMixin(TrichDanMixin):
     """Metadata dùng chung cho CẢ BA dạng lazy của `GET /van-ban/{doc_id}`.
 
     FE đi thẳng vào `?so_dieu=` khi mở một liên kết chia sẻ; nếu chỉ dạng mục

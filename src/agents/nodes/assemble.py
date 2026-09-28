@@ -67,6 +67,7 @@ from src.services.effectivity import EffectivityVerdict as V
 from src.services.kho import hien_van_ban, moi_so_hieu_trong
 from src.services.llm import Usage
 from src.services.prompts import messages
+from src.services.trich_dan import truong_trich_dan
 
 logger = logging.getLogger(__name__)
 
@@ -159,9 +160,11 @@ def _khoi_van_ban(citations_prose: list[dict], db: dict[int, dict]) -> str:
 
 def _dung_documents(citations_prose: list[dict], db: dict[int, dict]) -> list[dict]:
     """`documents[]` của response (khớp `schemas.DocumentOut`). Link lấy từ ba
-    cột migration 019; NULL đi nguyên qua để giao diện bỏ dòng đó."""
+    cột migration 019; NULL đi nguyên qua để giao diện bỏ dòng đó. Trường trích
+    dẫn đầy đủ (quyết định 2026-09-28) ở cấp VĂN BẢN — không có vị trí điều khoản."""
     return [
         {
+            **truong_trich_dan(p),
             "doc_id": c["doc_id"],
             "ten": c["bo_luat"],
             "so_ky_hieu": c["so_ky_hieu"],
@@ -1409,7 +1412,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             doc_id = str(p.get("document_id") or "")
             if doc_id and not any(n["doc_id"] == doc_id for n in nguon):
                 so, ten_vb = hien_van_ban(p.get("so_ky_hieu") or "", p.get("ten") or "")
-                nguon.append({"doc_id": doc_id, "so_ky_hieu": so, "bo_luat": ten_vb})
+                nguon.append({**truong_trich_dan(p), "doc_id": doc_id, "so_ky_hieu": so, "bo_luat": ten_vb})
         return _ngo_cut(state, llm, model, ResultType.partial_coverage, nguon=nguon, ghi_chu=(
             f"Tôi tìm được {'; '.join(ten)} khớp từ ngữ với câu hỏi của bạn. "
             f"{'Văn bản này' if len(ten) == 1 else 'Những văn bản này'} tôi mới có tên, "
@@ -1510,6 +1513,9 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         eff = r.effectivity
         so_ky_hieu = p.get("so_ky_hieu", "")
         citations.append({
+            # Quyết định 2026-09-28: tên đầy đủ, cơ quan, ngày, link chính thống
+            # và câu trích theo mẫu luật — dựng theo ĐÚNG dòng hiển thị (`p`).
+            **truong_trich_dan(p, p.get("duong_dan")),
             "provision_id": r.claim.provision_id,
             "khop_tai_id": row_id,
             "doc_id": str(p.get("document_id") or ""),
@@ -1524,6 +1530,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             # GĐ3 — vai trò của căn cứ (kết luận/điều kiện/ngoại lệ/chế tài).
             # `None` với prompt sinh v2; giao diện nhóm được căn cứ khi có.
             "vai_tro": r.claim.vai_tro,
+            "canh_bao": None,
         })
         if eff and eff.verdict in CANH_BAO_NHAN:
             # `ly_do` NGUYÊN VĂN, không viết lại: nó nêu đích danh văn bản thay
@@ -1535,6 +1542,9 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             # là khoá, và `_neo_vao_van_ban` bên dưới so trên chính giá trị đó.
             so_hien, ten_hien = hien_van_ban(so_ky_hieu, p.get("ten") or "")
             msg = f"{so_hien or ten_hien} {CANH_BAO_NHAN[eff.verdict]}: {eff.ly_do}"
+            # Cùng câu, gắn vào CHÍNH trích dẫn: `warnings[]` giữ nguyên hình
+            # dạng cho mọi bên đang đọc nó.
+            citations[-1]["canh_bao"] = msg
             if msg not in warnings:
                 warnings.append(msg)
 

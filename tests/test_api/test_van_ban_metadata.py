@@ -14,6 +14,9 @@ chạy.
 """
 
 import pytest
+from sqlalchemy import text
+
+from src.services.db import get_engine
 
 BLLD = "139264"      # 45/2019/QH14 — tầng sâu, có người ký
 
@@ -167,3 +170,23 @@ def test_migration_015_idempotent_va_chan_chuoi_rong():
 
     with pytest.raises(IntegrityError), get_engine().begin() as c:
         c.execute(text("UPDATE documents SET nguoi_ky = '' WHERE id = :i"), {"i": BLLD})
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_ba_dang_mang_cach_trich_va_lien_ket_chinh_thong(client):
+    """Quyết định 2026-09-28: khung đối chiếu (`?around=`) và trang văn bản cùng
+    mang câu trích theo mẫu luật và MỘT link chính thống — không bao giờ
+    `nguon_url` (endpoint API) hay link giữ chỗ."""
+    with get_engine().connect() as c:
+        pid = c.execute(
+            text("SELECT id FROM provisions WHERE document_id = :d AND cap = 'dieu' LIMIT 1"), {"d": BLLD}
+        ).scalar_one()
+    for params in ({}, {"so_dieu": "139"}, {"around": pid}):
+        d = (await client.get(f"/api/v1/van-ban/{BLLD}", params=params)).json()
+        assert d["cach_trich"] == "Bộ luật Lao động số 45/2019/QH14 ngày 20/11/2019 của Quốc hội", params
+        assert d["ten_van_ban"] == d["bo_luat"]
+        assert d["lien_ket"] is None or d["lien_ket"].startswith(
+            ("https://vbpl.vn/van-ban/chi-tiet/", "https://vanban.chinhphu.vn/")
+        ), d["lien_ket"]
+        assert "gateway" not in (d["lien_ket"] or "")

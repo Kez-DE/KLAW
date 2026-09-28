@@ -42,10 +42,10 @@ async def test_nguon_khong_bi_vut_o_bien_HTTP(client, monkeypatch):
     monkeypatch.setattr(routes, "_g", lambda: FakeGraph())
     r = await client.post("/api/v1/tra-cuu", json={"query": "x"})
     assert r.status_code == 200
-    assert r.json()["nguon"] == [{"doc_id": "84265", "so_ky_hieu": "84/2015/QH13",
-                                  "bo_luat": "Luật An toàn, vệ sinh lao động"}], (
-        "route quên truyền `nguon=`; pydantic lấp `[]` mặc định nên không lỗi nào nổ"
-    )
+    # Trường trích dẫn đầy đủ (quyết định 2026-09-28) là THÊM; ba khoá cũ giữ nguyên.
+    assert [{k: n[k] for k in ("doc_id", "so_ky_hieu", "bo_luat")} for n in r.json()["nguon"]] == [
+        {"doc_id": "84265", "so_ky_hieu": "84/2015/QH13", "bo_luat": "Luật An toàn, vệ sinh lao động"}
+    ], "route quên truyền `nguon=`; pydantic lấp `[]` mặc định nên không lỗi nào nổ"
 
 
 # ── 2. facts KHÔNG được ghi đè tham số của rule ─────────────────────────────

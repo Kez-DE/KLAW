@@ -93,10 +93,16 @@ def _db_provisions(ids: list[int], engine: Engine) -> dict[int, dict]:
                 "link_vbpl": r["link_vbpl"],
                 "link_chinhphu": r["link_chinhphu"],
                 "link_tvpl": r["link_tvpl"],
+                # Trích dẫn đầy đủ (quyết định 2026-09-28): `assemble` dựng câu
+                # trích và link từ đây. NULL = chưa biết, đi nguyên.
+                "co_quan_ban_hanh": r["co_quan_ban_hanh"],
+                "ngay_ban_hanh": r["ngay_ban_hanh"],
+                "ngay_hieu_luc": r["ngay_hieu_luc"],
             }
             for r in c.execute(
                 text(
-                    "SELECT id, so_ky_hieu, ten, loai_van_ban, link_vbpl, link_chinhphu, link_tvpl"
+                    "SELECT id, so_ky_hieu, ten, loai_van_ban, link_vbpl, link_chinhphu, link_tvpl,"
+                    " co_quan_ban_hanh, ngay_ban_hanh, ngay_hieu_luc"
                     " FROM documents WHERE id = ANY(:ids)"
                 ),
                 {"ids": list(doc_ids)},
