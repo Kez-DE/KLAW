@@ -16,7 +16,10 @@ lên, KLAW giữ nguyên để điền tại chỗ. Trong tài liệu ấy:
   `chỗ trống:` liệt kê từng chỗ theo thứ tự — số của nó, «nhãn đứng ngay trước
   nó» và, khi bản thảo đang có đã điền, `= «giá trị hiện tại»`.
 `⟦n⟧` và `¶n` là dấu của KLAW, không phải chữ của tài liệu: không chép chúng vào
-`trich`, và một `trich` không vắt qua một `⟦n⟧`.
+`trich`, và một `trich` không vắt qua một `⟦n⟧`. Không bao giờ viết chúng vào bất
+kỳ trường chữ nào (`tra_loi_ngan`, `mo_ta`, `quan_sat`, `suy_luan`, `can_du_kien`,
+`truong`…): muốn nói tới một chỗ trống thì gọi nó bằng nhãn của nó, ví dụ «Họ và
+tên sinh viên», không bằng số.
 
 {tai_lieu}
 {ban_thao_dang_co}{bo_nho}

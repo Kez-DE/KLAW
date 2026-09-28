@@ -99,7 +99,9 @@ _SQL_SUA = text(
     " WHERE id = CAST(:id AS uuid) AND user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL RETURNING " + _COT
 )
 _SQL_DS = text(
-    f"SELECT {_COT_DS} FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL AND {_KHONG_MO_COI}"
+    f"SELECT {_COT_DS},"
+    " (SELECT v.ten_tep FROM viec_doc_tai_lieu v WHERE v.id = ban_thao.viec_id AND v.user_sub = ban_thao.user_sub)"
+    f" AS ten_tep FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL AND {_KHONG_MO_COI}"
     " ORDER BY cap_nhat_luc DESC LIMIT :limit OFFSET :offset"
 )
 _SQL_DEM = text(
@@ -134,8 +136,17 @@ _SQL_MOI_NHAT_NHE = text(
 # `khuon` của một bản thảo: KHÔNG kéo `noi_dung` (bytea, tới 20 MB) — chỉ khổ và
 # `don_vi` để tính ô điền. Chủ sở hữu lọc bằng JOIN như `tai_lieu.khuon_goc_cua`.
 _SQL_KHUON = text(
-    "SELECT k.dinh_dang, k.so_trang, v.don_vi FROM khuon_goc k JOIN viec_doc_tai_lieu v ON v.id = k.viec_id"
+    "SELECT k.dinh_dang, k.so_trang, v.don_vi, v.ten_tep FROM khuon_goc k JOIN viec_doc_tai_lieu v ON v.id = k.viec_id"
     " WHERE k.viec_id = CAST(:viec_id AS uuid) AND v.user_sub = CAST(:sub AS uuid)"
+)
+# Bản thảo MỚI NHẤT của tài khoản mà phiên bản đang sống nằm trên một khuôn gốc — của
+# một hội thoại (lời xin xem, G7 Q3) hay của một việc đọc (`GET /tai-lieu/{id}/ban-thao`).
+_SQL_MOI_NHAT_KHUON = text(
+    f"SELECT {_COT} FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND loai = :loai AND xoa_luc IS NULL"
+    f" AND {_KHONG_MO_COI} AND viec_id IS NOT NULL"
+    " AND (CAST(:pid AS uuid) IS NULL OR hoi_thoai_id = CAST(:pid AS uuid))"
+    " AND (CAST(:viec_id AS uuid) IS NULL OR viec_id = CAST(:viec_id AS uuid))"
+    " ORDER BY cap_nhat_luc DESC LIMIT 1"
 )
 # Cùng hàng, CÓ bytes — chỉ cho lần áp phép thật (dựng trang, tải về, lưu ô).
 _SQL_KHUON_DAY = text(
@@ -187,7 +198,31 @@ def _khuon(c, sub: str, viec_id: str | None, phep_sua: list | None) -> dict | No
 
 
 def _voi_khuon(c, sub: str, row: dict) -> dict:
-    return {**row, "khuon": _khuon(c, sub, row.get("viec_id"), row.get("phep_sua"))}
+    """Dòng + `khuon` của phiên bản đang sống + `ten_tep` của tệp tải lên (`None`: bản HTML)."""
+    k = _khuon_goc(c, sub, row.get("viec_id"))
+    return {**row, "khuon": _khuon_tu(k, row.get("viec_id"), row.get("phep_sua")), "ten_tep": (k or {}).get("ten_tep")}
+
+
+def ten_ban_thao(bt: dict, mac_dinh: str) -> str:
+    """Tên người đọc thấy của một bản thảo (`BanThaoOut.ten`, danh sách bên cạnh): bản
+    trên khuôn gốc mang tên tệp tải lên, bỏ đuôi (owner 2026-09-28 — "Bản thảo tổng
+    quát" cho mọi biểu mẫu không phân biệt được bản nào); mọi bản khác giữ `mac_dinh`."""
+    return PurePath(bt.get("ten_tep") or "").stem or mac_dinh
+
+
+def moi_nhat_tren_khuon(sub: str, *, hoi_thoai_id: str | None = None, viec_id: str | None = None) -> dict | None:
+    """Bản thảo MỚI NHẤT của `sub` mà phiên bản đang sống nằm trên một khuôn gốc —
+    trong hội thoại `hoi_thoai_id`, trên việc đọc `viec_id` (mỗi điều kiện chỉ khi được
+    truyền) — kèm `khuon` và `ten_tep`; `None` khi không có. 0 lượt mô hình."""
+    with get_engine().connect() as c:
+        r = (
+            c.execute(
+                _SQL_MOI_NHAT_KHUON, {"sub": sub, "loai": LOAI_TONG_QUAT, "pid": hoi_thoai_id, "viec_id": viec_id}
+            )
+            .mappings()
+            .one_or_none()
+        )
+        return _voi_khuon(c, sub, dict(r)) if r is not None else None
 
 
 def _duong_dan_index(db_provisions: dict[int, dict]) -> dict[str, dict]:
@@ -447,7 +482,8 @@ def sua(sub: str, id: str, facts: dict, ket: dict, *, tang: int = 1) -> dict | N
         # P4a — bản thảo trên khuôn gốc: "đổi gì" là các ô đổi giá trị, không
         # phải `facts` (luôn rỗng ở đó). Bản thảo HTML: hai `khuon` là `None`,
         # không truy vấn nào, `doi_so_voi` so `facts` như trước.
-        khuon_moi = _khuon(c, sub, ket.get("viec_id"), ket.get("phep_sua"))
+        k_moi = _khuon_goc(c, sub, ket.get("viec_id"))
+        khuon_moi = _khuon_tu(k_moi, ket.get("viec_id"), ket.get("phep_sua"))
         khuon_cu = _khuon(c, sub, cu.get("viec_id"), cu.get("phep_sua"))
         doi = doi_so_voi({**cu, "khuon": khuon_cu}, {"facts": facts, "khuon": khuon_moi})
         # Fix round 1 (Important) — SẮP XẾP theo `phien_ban` trước khi cắt còn
@@ -482,7 +518,7 @@ def sua(sub: str, id: str, facts: dict, ket: dict, *, tang: int = 1) -> dict | N
             .one()
         )
     # `viec_id` lạ ghi ra NULL (`_VIEC_CUA_CHU`) — cùng lúc `_khuon` trả `None`.
-    return {**dict(r), "khuon": khuon_moi}
+    return {**dict(r), "khuon": khuon_moi, "ten_tep": (k_moi or {}).get("ten_tep")}
 
 
 LOI_MUC_KHONG_THAY = "Không tìm thấy mục này trong bản thảo."
@@ -789,7 +825,7 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
         doan = doan_cua_cho(k["don_vi"])
         phep = gop_phep_sua(cu["phep_sua"], moi, doan)
         if phep == (cu["phep_sua"] or []):
-            return {**cu, "khuon": khuon_cu}
+            return {**cu, "khuon": khuon_cu, "ten_tep": k["ten_tep"]}
         try:
             _, bao_cao = ap_phep_sua(k["dinh_dang"], k["noi_dung"], k["don_vi"], phep)
         except KhongDocDuoc:
@@ -834,7 +870,7 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
             .mappings()
             .one()
         )
-    return {**dict(r), "khuon": khuon_moi, "doi_so_voi_truoc": doi}
+    return {**dict(r), "khuon": khuon_moi, "ten_tep": k["ten_tep"], "doi_so_voi_truoc": doi}
 
 
 async def dung_lai(sub: str, id: str, facts: dict, hoi_thoai_id: str | None = None) -> dict | None:
@@ -1272,4 +1308,4 @@ def mo_ban_thao_khuon(sub: str, viec_id: str) -> tuple[dict, bool] | None:
             .mappings()
             .one()
         )
-    return {**dict(r), "khuon": khuon}, True
+    return {**dict(r), "khuon": khuon, "ten_tep": v["ten_tep"]}, True

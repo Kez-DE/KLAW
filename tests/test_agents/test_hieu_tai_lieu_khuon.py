@@ -624,7 +624,9 @@ def test_ky_uc_duoc_hoi_toi_thi_dien_duoc():
 
 
 def test_luot_khong_soan_thi_khong_co_khuon_tong_quat():
-    ra, _ = _chay([_dien(1, 0, "Công ty Mẫu Thử")], muc_dich="tom_tat")
+    # G7 (Q4): một lời xin điền kèm phép qua kiểm LUÔN là lượt soạn, dù mô hình nói
+    # `tom_tat` (`test_khuon_luot_noi_tiep.py`); lượt tóm tắt thật không có khuôn nào.
+    ra, _ = _chay([], cau="tóm tắt biểu mẫu này", muc_dich="tom_tat")
     assert ra["khuon_tong_quat"] is None and ra["van_ban_tong_quat"] is None
 
 
@@ -965,7 +967,8 @@ def test_yeu_cau_thieu_hoac_la_thi_coi_la_dien_sua_va_dung(bt_gia, yeu_cau):
     """Mặc định: `dien_sua` — vẫn an toàn vì chỉ giá trị người hỏi nói mới qua phép
     nguồn. Lượt tạo vẫn dựng (owner: dựng); chỉ `van_ban_khac` rõ ràng mới không dựng."""
     g = bt_gia(None)
-    ra, _ = _chay([], yeu_cau=yeu_cau, user_sub="u", hoi_thoai_id="p")
+    # Câu không có động từ điền: lời xin điền không phép nào qua thì không dựng (G7).
+    ra, _ = _chay([], cau="hoàn thiện biểu mẫu này giúp tôi", yeu_cau=yeu_cau, user_sub="u", hoi_thoai_id="p")
     assert ra["khuon_tong_quat"]["yeu_cau"] == "dien_sua"
     ra = d.dung_ban_thao_tong_quat(ra)
     assert g.tao_ket["phep_sua"] == [] and ra["ban_thao_ket"]["phien_ban"] == 1
@@ -1659,8 +1662,9 @@ def test_traces_dem_luot_yeu_cau_van_ban_khac_va_so_phep_bi_bo_theo():
 def test_bm_m05_that_ten_truong_in_san_khong_bao_gio_len_cho_trong(bt_gia, yeu_cau):
     """Lỗi owner thấy 2026-09-27: "soạn thảo văn bản này cho tôi", mô hình điền «Trường
     Đại học Phenikaa» — chữ IN SẴN của đơn vị 9 — vào chỗ «Khoa» của chính câu đó.
-    `tao_lai` bỏ mọi phép; và kể cả khi lượt bị gọi là `dien_sua`, chữ của tài liệu
-    không phải nguồn cho một giá trị mới (`khong_nguon`). Tải về đúng từng byte."""
+    `tao_lai` bỏ mọi phép; từ G7 lời "soạn thảo" của người hỏi quyết định `tao_lai` kể
+    cả khi mô hình gọi lượt là `dien_sua` (phép nguồn của đường đó: các test `thay` bên
+    dưới). Tải về đúng từng byte."""
     goc, hang, tl = _m05()
     assert "Trường Đại học Phenikaa, thuộc Khoa" in tl[0]["don_vi"][9].noi_dung
     g = bt_gia(None)
@@ -1673,8 +1677,8 @@ def test_bm_m05_that_ten_truong_in_san_khong_bao_gio_len_cho_trong(bt_gia, yeu_c
         hoi_thoai_id="p",
     )
     k = ra["khuon_tong_quat"]
-    assert k["phep_sua"] == []
-    assert k["bo_qua"] == ([] if yeu_cau == "tao_lai" else [{"don_vi": 9, "cho_trong": 0, "ly_do": "khong_nguon"}])
+    # G7: "soạn thảo" trong lời người hỏi quyết định `tao_lai`, dù mô hình đọc là `dien_sua`.
+    assert (k["yeu_cau"], k["phep_sua"], k["bo_qua"]) == ("tao_lai", [], [])
     ra = d.dung_ban_thao_tong_quat(ra)
     assert (g.tao_ket["phep_sua"], ra["ban_thao_ket"]["phien_ban"]) == ([], 1)
     moi, _ = ban_thao.ap_phep_sua("docx", goc, hang, g.tao_ket["phep_sua"])
@@ -1709,7 +1713,9 @@ def test_bm_m05_that_thay_lap_hay_chuyen_chu_in_san_vao_khoa_bi_bo(bt_gia, yeu_c
     g = bt_gia(None)
     ra, _ = _chay(
         [_doan("thay", 9, noi_dung, doan=doan)],
-        cau="soạn thảo văn bản này cho tôi",
+        # Câu owner ("soạn thảo văn bản này") là `tao_lai` từ G7; câu không động từ giữ
+        # đường `dien_sua`, nơi phép nguồn phải tự chặn chữ in sẵn.
+        cau="hoàn thiện văn bản này cho tôi",
         yeu_cau=yeu_cau,
         tai_lieu=tl,
         user_sub="u",
@@ -1738,7 +1744,7 @@ def test_thay_lap_hay_chuyen_chu_cua_chinh_doan_la_chu_them(bien):
     noi_dung, doan = _thay_khoa(tl[0]["don_vi"][0].noi_dung, bien)
     ra, _ = _chay(
         [_doan("thay", 9, noi_dung, doan=doan), _doan("thay", 2, "Điện thoại 0912345678, fax 0912345678")],
-        cau="soạn thảo văn bản này cho tôi",
+        cau="hoàn thiện văn bản này cho tôi",
         yeu_cau=None,
         tai_lieu=tl,
     )

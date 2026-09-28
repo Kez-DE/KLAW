@@ -20,7 +20,9 @@ from src.agents.graph_soan_thao import (
     rules_cho,
 )
 from src.agents.graph_tra_cuu import build_graph_tra_cuu
+from src.agents.nodes.assemble import xem_ban_thao_khuon
 from src.agents.nodes.draft_audit import draft_audit
+from src.agents.nodes.hieu_tai_lieu import xin_xem_ban_thao
 from src.config import as_of_hieu_luc, get_settings
 from src.models.schemas import (
     AuditReportOut,
@@ -429,6 +431,23 @@ def _bo_qua_cache(
     )
 
 
+async def _xem_ban_thao(
+    req: TraCuuRequest, user_sub: str | None, hoi_thoai_id: str | None, ban_thao_tong_quat: dict | None
+) -> dict | None:
+    """Lời xin XEM bản đã điền (owner 2026-09-28, Q3) → state kết quả `ban_thao` của
+    bản thảo khuôn gốc mới nhất của hội thoại, TRƯỚC graph: không `giai_nghia`, không
+    router, không lượt đọc tài liệu — 0 lượt mô hình, không phiên bản mới. `None` (đi
+    đường thường) khi câu không phải lời xin xem, lượt đính kèm tệp mới (câu nói về
+    tệp đó), hay bản thảo MỚI NHẤT của hội thoại (`ban_thao_tong_quat`, bản nhẹ) không
+    nằm trên khuôn gốc — một lá đơn HTML soạn sau khi điền phiếu là bản "xem bản thảo"
+    muốn thấy, và đường thường mở nó."""
+    moi_nhat_la_khuon = bool((ban_thao_tong_quat or {}).get("viec_id"))
+    if not (user_sub and hoi_thoai_id and moi_nhat_la_khuon) or req.tai_lieu_ids or not xin_xem_ban_thao(req.query):
+        return None
+    bt = await run_in_threadpool(ban_thao.moi_nhat_tren_khuon, user_sub, hoi_thoai_id=hoi_thoai_id)
+    return xem_ban_thao_khuon(bt) if bt and bt.get("khuon") else None
+
+
 async def chay_tra_cuu(
     req: TraCuuRequest,
     user_sub: str | None,
@@ -477,6 +496,16 @@ async def chay_tra_cuu(
     tu_cache = False
     loi: str | None = None
     try:
+        # Lời xin xem bản đã điền: một bước, đúng việc đã làm; dòng traces như cache
+        # hit (`cache_hit` — không lượt mô hình nào, không trừ hạn mức).
+        if (xem := await _xem_ban_thao(req, user_sub, hoi_thoai_id, ban_thao_tong_quat)) is not None:
+            if phat is not None:
+                await phat("xem_ban_thao", {})
+            await _ghi_traces_nhe(
+                trace_id, "/api/v1/tra-cuu", req.query, config_name, xem,
+                int((time.monotonic() - bat_dau) * 1000), True, user_sub,
+            )
+            return _payload_cache(xem, xem["result_type"].value), config_name
         # Cache TRƯỚC graph. Lỗi ĐỌC cache cố ý KHÔNG được bắt riêng: nó rơi vào
         # đúng hai khối except dưới đây (OperationalError → 503). Nếu bảng cache
         # không đọc được thì Postgres đang không lành, và cả pipeline (truy hồi,
