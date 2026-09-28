@@ -68,6 +68,24 @@ Kiểm kho ngày 2026-09-28 (chỉ đọc):
 10. **Không hiện dòng chẩn đoán** (mã tình trạng nội bộ, "độ tin cậy", "đánh giá tại
     ngày"). Chỉ hiện nhãn hiệu lực, và khi có, một câu thường nêu văn bản sửa đổi
     hoặc thay thế kèm link.
+11. **Chưa có hiệu lực không phải hết hiệu lực** (2026-09-28, sau lượt làm mới toàn
+    kho): mã `CCHL` của gateway (nạp thành `chua_hieu_luc`) được hiện với nhãn của nó.
+12. **Văn bản hết hiệu lực luôn chỉ ra văn bản thay thế** (chủ dự án chốt 2026-09-28):
+    văn bản hết hạn theo ngày vẫn nêu văn bản thay thế theo cạnh quan hệ; KLAW đi theo
+    chuỗi thay thế tới văn bản đang còn hiệu lực; cạnh đã đối chiếu với nguyên văn
+    chính thống (điều khoản bãi bỏ và URL được lưu) không bị hạ bởi phép chặn "khác
+    chủ đề". Khi nguyên văn chính thống cho thấy tình trạng của CSDL quốc gia đã cũ
+    (ví dụ 13 nghị định bị 145/2020/NĐ-CP Điều 114 bãi bỏ vẫn mang CHL/HHL1P), KLAW
+    ghi đè có bằng chứng, và lượt làm mới không được ghi ngược lại.
+13. **Công báo là nguồn toàn văn dự phòng**: khi gateway Bộ Tư pháp chưa có một văn
+    bản, bản đăng Công báo (congbao.chinhphu.vn — bản chính thức theo Luật Ban hành
+    văn bản quy phạm pháp luật) được dùng, kèm URL và thời điểm lấy.
+14. **Mở rộng kho đợt K8** (chủ dự án chốt 2026-09-28): 283/2026/NĐ-CP (thay
+    12/2022/NĐ-CP từ 10/09/2026), 158/2025/NĐ-CP nạp sâu, 129/2025/NĐ-CP,
+    66.18/2026/NQ-CP, 148/2025/QH15 (thay 67/2006/QH11 từ 01/07/2026).
+15. **Nhãn golden neo lại theo luật hiện hành**: các câu gắn điều khoản của một văn bản
+    đã hết hiệu lực được neo sang điều khoản tương ứng của văn bản thay thế sau khi
+    đối chiếu nguyên văn; bản nhãn cũ được giữ để so.
 
 ## Alternatives Considered
 

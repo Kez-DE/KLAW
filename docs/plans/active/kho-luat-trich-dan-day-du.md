@@ -146,6 +146,13 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
 
 - 2026-09-28: machine-verified links are shown (HTTP 200 + title carries the number
   + issue date matches), evidence stored; see the decision record.
+- 2026-09-28 (owner): decision items 11–15 — CCHL shown; effectivity names the
+  replacement for date-expired documents, follows the chain to a live document and
+  exempts text-verified edges from the topic guard; Công báo as fallback full-text
+  source; K8 expansion (283/2026, 158/2025, 129/2025, 66.18/2026/NQ-CP, 148/2025);
+  golden labels on 12/2022 re-anchored to 283/2026 after verbatim mapping. Research
+  evidence: scratchpad `k8/ke-hoach-nap.{json,md}`. The owner grants DB write
+  permission for the K8/K6 data work (the permission classifier blocked DELETEs).
 
 ## Validation
 
