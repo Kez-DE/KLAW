@@ -96,6 +96,13 @@ def build(raw: Path, out: Path) -> dict[str, int]:
         if not p.exists():
             raise FileNotFoundError(f"chưa fetch {doc_id}; chạy `python -m scripts.fetch_moj`")
         d = json.loads(p.read_text(encoding="utf-8"))
+        # `so_ky_hieu` của `DOC_IDS` là chữ gõ tay; `docNum` là chữ CSDL quốc gia
+        # khai cho CHÍNH id này. Lệch = id sai hoặc gõ sai (đo 2026-09-28: 53/53
+        # khớp). Không lấy `docNum` đè lên: số hiệu nằm trong mọi `duong_dan`.
+        if d.get("docNum") != so_ky_hieu:
+            raise ValueError(
+                f"doc {doc_id}: so_ky_hieu khai báo {so_ky_hieu!r} lệch docNum gateway "
+                f"{d.get('docNum')!r} — id sai hoặc gõ sai, KHÔNG ghi seed")
         html = (d.get("documentContent") or {}).get("content") or ""
         if not html:
             raise ValueError(f"doc {doc_id} không có documentContent.content — không được bỏ qua im lặng")

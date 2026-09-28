@@ -56,6 +56,7 @@ def test_build_ghi_du_ba_file_va_checksums(tmp_path, monkeypatch):
     raw.mkdir(parents=True)
     _metadata_rong(tmp_path / "raw")
     (raw / "9001.json").write_text(json.dumps({
+        "docNum": "1/2020/NĐ-CP",
         "title": "Nghị định thử",
         "docType": {"name": "Nghị định"},
         "effStatus": {"code": "CHL"},
@@ -88,6 +89,28 @@ def test_build_ghi_du_ba_file_va_checksums(tmp_path, monkeypatch):
                            ("documents.jsonl", "provisions.jsonl", "references.jsonl")}
 
 
+def test_build_FAIL_khi_so_ky_hieu_khai_bao_lech_docNum_cua_gateway(tmp_path, monkeypatch):
+    """`so_ky_hieu` trong `DOC_IDS` là chữ gõ tay; `docNum` là chữ CSDL quốc gia
+    khai cho ĐÚNG id đó. Lệch nhau nghĩa là id sai hoặc gõ sai — nạp tiếp là
+    đặt toàn văn một văn bản dưới số hiệu của văn bản khác (đo 2026-09-28: 53/53
+    khớp, nên cổng này không chặn văn bản nào đang có)."""
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    (raw / "9004.json").write_text(json.dumps({
+        "docNum": "38/2022/NĐ-CP",
+        "docType": {"name": "Nghị định"}, "effStatus": {"code": "HHL"},
+        "documentContent": {"content":
+            '<div class="WordSection1">'
+            '<p id="a1" class="prov-article"><b>Điều 1. Phạm vi</b></p>'
+            '<p class="prov-clause">1. Nội dung khoản một.</p></div>'},
+    }, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(build_seed, "DOC_IDS", {"9004": ("deep", "90/2019/NĐ-CP")})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    with pytest.raises(ValueError, match="docNum"):
+        build_seed.build(tmp_path / "raw", tmp_path / "seed")
+
+
 def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
     """Mục H: parse_anomalies đã tồn tại, đã có test, CHƯA AI CHẠY trên dữ liệu
     thật — build_seed không gọi nó. Đó là lý do cả bốn lỗi kia lọt được."""
@@ -95,6 +118,7 @@ def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
     raw.mkdir(parents=True)
     _metadata_rong(tmp_path / "raw")
     (raw / "9002.json").write_text(json.dumps({
+        "docNum": "2/2020/NĐ-CP",
         "docType": {"name": "Nghị định"}, "effStatus": {"code": "CHL"},
         "documentContent": {"content":
             '<div class="WordSection1">'
@@ -123,6 +147,7 @@ def test_checksum_DOI_khi_parser_doi_du_HTML_khong_doi(tmp_path, monkeypatch):
     raw.mkdir(parents=True)
     _metadata_rong(tmp_path / "raw")
     (raw / "9003.json").write_text(json.dumps({
+        "docNum": "3/2020/NĐ-CP",
         "docType": {"name": "Nghị định"}, "effStatus": {"code": "CHL"},
         "documentContent": {"content":
             '<div class="WordSection1">'
