@@ -246,7 +246,7 @@ _AN = {
 
 
 @pytest.mark.parametrize("rt", [ResultType.answer, ResultType.abstain, ResultType.partial_coverage])
-def test_van_ban_an_duoc_nhac_len_coverage_warnings_va_truong_co_link(rt):
+def test_van_ban_an_duoc_nhac_len_warnings_va_truong_co_link_KHONG_lap_o_coverage(rt):
     ket = {"result_type": rt, "warnings": ["293/2025/NĐ-CP còn hiệu lực một phần."], "coverage_note": "Đuôi hỏi."}
     ra = gan_van_ban_khong_hien_thi(ket, [_AN])
     cau = (
@@ -254,7 +254,9 @@ def test_van_ban_an_duoc_nhac_len_coverage_warnings_va_truong_co_link(rt):
         "Văn bản thay thế: 293/2025/NĐ-CP."
     )
     assert ra["warnings"] == [cau, "293/2025/NĐ-CP còn hiệu lực một phần."]
-    assert ra["coverage_note"] == f"{cau}\n\nĐuôi hỏi."
+    # Giao diện vẽ `van_ban_khong_hien_thi` (TheKetQua): chép thêm vào
+    # `coverage_note` là người đọc thấy cùng một câu hai lần.
+    assert ra["coverage_note"] == "Đuôi hỏi."
     assert ra["van_ban_khong_hien_thi"] == [_AN] and ra["van_ban_khong_hien_thi"][0]["thay_the"][0]["lien_ket"] == CP
 
 

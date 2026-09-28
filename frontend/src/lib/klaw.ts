@@ -505,6 +505,19 @@ export interface TraCuuKetQua {
    * giờ tuyên bố điều khoản đó hợp pháp hay không (QT-1).
    */
   tai_lieu_neo?: NeoTaiLieu[];
+  /**
+   * Văn bản người hỏi NÊU TÊN mà không được hiện (`VanBanAnOut`, quyết định
+   * 2026-09-28 mục 8) — cùng hình dạng với 404 `khong_hien_thi`, đọc qua
+   * `chuanHoaVanBanBiAn`. Chỉ ở `answer`/`abstain`/`partial_coverage`; tuỳ chọn
+   * vì payload lưu trước trường này không có.
+   */
+  van_ban_khong_hien_thi?: VanBanKhongHienThi[];
+}
+
+/** `VanBanAnOut` của `src/models/schemas.py`: 404 `khong_hien_thi` cộng tên văn bản. */
+export interface VanBanKhongHienThi extends VanBanBiAn {
+  so_ky_hieu: string;
+  ten_van_ban: string | null;
 }
 
 /**
@@ -1345,7 +1358,15 @@ export function laVanBanBiAn(x: unknown): x is VanBanBiAn {
  */
 export function vanBanBiAn(loi: ApiError): VanBanBiAn | null {
   const than = loi.detail;
-  const d = loi.kind === "not_found" && laBanGhi(than) ? than["detail"] : null;
+  return chuanHoaVanBanBiAn(loi.kind === "not_found" && laBanGhi(than) ? than["detail"] : null);
+}
+
+/**
+ * MỘT cửa đọc hình dạng `{ma, thong_diep, thay_the}` — `detail` của 404 và mỗi
+ * phần tử `TraCuuKetQua.van_ban_khong_hien_thi` — để trang văn bản và thẻ trả
+ * lời không đọc hai cách. Câu rỗng → `null`; phần tử `thay_the` dị dạng bị loại.
+ */
+export function chuanHoaVanBanBiAn(d: unknown): VanBanBiAn | null {
   if (!laBanGhi(d)) return null;
   const chuanHoa = {
     ma: d["ma"],

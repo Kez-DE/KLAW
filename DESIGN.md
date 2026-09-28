@@ -238,8 +238,12 @@ bản còn hiệu lực được hiện, "Chưa xác định" không bao giờ x
 chẩn đoán nào. `BadgeHieuLuc` nay hiện chip *"Còn hiệu lực một phần"*;
 `nhanDayDu` giữ giới hạn mà không nói "chưa xác định" ("một số điều khoản có
 thể đã được sửa đổi hoặc hết hiệu lực"). `chua_xac_dinh` và `can_doi_chieu_tay`
-không vẽ gì — văn bản chưa rõ tình trạng bị ẩn ở máy chủ. Dưới nhãn chỉ có câu
-`mo_ta` của máy chủ (`MoTaHieuLuc`), không `ly_do`, không độ tin cậy.
+không vẽ nhãn — văn bản chưa rõ tình trạng bị ẩn ở máy chủ — nhưng câu cảnh báo
+cho người đọc của điều khoản (`ghiChu`) vẫn hiện: cảnh báo sửa đổi không được mất
+trong im lặng. Dưới nhãn chỉ có câu `mo_ta` của máy chủ (`MoTaHieuLuc`), không
+`ly_do`, không độ tin cậy. Câu hỏi nêu tên một văn bản ẩn: thẻ trả lời mở đầu
+bằng khay trung tính mang câu của máy chủ và `DanhSachThayThe` — cùng thành phần
+của trang 404 `khong_hien_thi`.
 `npm run kiem-khong-chan-doan` chặn chữ chẩn đoán trên `src/components` và
 `src/routes`.
 

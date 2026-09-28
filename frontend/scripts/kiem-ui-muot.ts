@@ -1072,7 +1072,7 @@ assert.equal(
 // duyệt và mở một `BroadcastChannel` có người nghe — thứ giữ Node sống mãi sau
 // dòng tổng kết. Khung giả không có tab nào khác để phát tới: bỏ nó đi.
 delete (globalThis as { BroadcastChannel?: unknown }).BroadcastChannel;
-const { apiGoc } = await nap<typeof import("../src/lib/api.ts")>("src/lib/api.ts");
+const { apiGoc, dungLaiBanThao } = await nap<typeof import("../src/lib/api.ts")>("src/lib/api.ts");
 const GIF = Uint8Array.from(atob("R0lGODlhAQABAAAAACw="), (c) => c.charCodeAt(0));
 const daGoi: { url: string; headers: Record<string, string> }[] = [];
 globalThis.fetch = (async (url: string, init?: RequestInit) => {
@@ -3457,10 +3457,19 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
   await ve(h(BadgeHieuLuc, { hieuLuc: "mot_phan_khong_xac_dinh" }));
   assert.doesNotMatch(khung.textContent, /xác định|MOJ|CSDL quốc gia không công bố/i);
 
-  // (b) Hai nhãn không bao giờ tới người đọc: nếu lỡ tới, KHÔNG hiện gì.
+  // (b) Hai nhãn không bao giờ tới người đọc: không vẽ nhãn nào. Câu cảnh báo
+  //     cho người đọc (`ghiChu`, đã qua `ghiChuHieuLuc`) VẪN hiện — một điều
+  //     khoản có văn bản sửa đổi (`can_doi_chieu_tay`) không được mất cảnh báo
+  //     trong im lặng.
+  const CAU_SUA =
+    "45/2019/QH14 — điều khoản này có văn bản sửa đổi, bổ sung: 12/2022/QH15; cần đối chiếu ngày áp dụng.";
   for (const nhan of ["chua_xac_dinh", "can_doi_chieu_tay"]) {
-    await ve(h(BadgeHieuLuc, { hieuLuc: nhan, ghiChu: "câu bất kỳ" }));
+    await ve(h(BadgeHieuLuc, { hieuLuc: nhan }));
     assert.equal(khung.textContent, "", `${nhan} không hiện chữ nào`);
+    await ve(h(BadgeHieuLuc, { hieuLuc: nhan, ghiChu: CAU_SUA }));
+    assert.equal(khung.textContent, CAU_SUA, `${nhan}: chỉ câu cảnh báo, không nhãn`);
+    await ve(h(BadgeHieuLuc, { hieuLuc: nhan, ghiChu: CAU_SUA, gonGang: true }));
+    assert.equal(khung.textContent, "", `${nhan} gọn: không câu, như mọi nhãn khác`);
   }
 
   // (c) `mo_ta` + `van_ban_lien_quan`: câu thường, hai loại link đúng hợp đồng.
@@ -3572,7 +3581,71 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
     h(BaoLoi, { loi: { kind: "not_found", status: 404, message: "KLAW chưa có nội dung này." } }),
   );
   assert.match(khung.textContent, /KLAW chưa có nguyên văn của văn bản hoặc điều khoản này\./);
+
+  // (e) Câu hỏi NÊU TÊN một văn bản ẩn (`TraCuuResponse.van_ban_khong_hien_thi`):
+  //     thẻ trả lời nói câu của máy chủ ĐÚNG MỘT lần và mở văn bản thay thế bằng
+  //     chính `DanhSachThayThe` của trang 404. Vắng/rỗng: thẻ không đổi.
+  const { TheKetQua } = await napKhongRouter<typeof import("../src/components/klaw/TheKetQua.tsx")>(
+    "src/components/klaw/TheKetQua.tsx",
+  );
+  const CAU_AN =
+    "Nghị định số 90/2019/NĐ-CP không còn hiệu lực nên không có trong phạm vi tra cứu.";
+  const ketQuaAn = (loai: string, them: Record<string, unknown> = {}) =>
+    ({
+      result_type: loai,
+      answer: loai === "answer" ? "Mức lương tối thiểu vùng I là 4.960.000 đồng/tháng." : null,
+      citations: [],
+      nguon: [],
+      warnings: [],
+      coverage_note: null,
+      trace_id: "t-an",
+      cau_hoi_day_du: null,
+      bang: [],
+      documents: [],
+      ...them,
+    }) as unknown as Parameters<typeof TheKetQua>[0]["ketQua"];
+  const an = {
+    ma: "khong_hien_thi",
+    so_ky_hieu: "90/2019/NĐ-CP",
+    ten_van_ban: "Nghị định 90/2019/NĐ-CP",
+    thong_diep: CAU_AN,
+    thay_the: thayThe.slice(0, 2),
+  };
+  const diDang = { ma: "khong_hien_thi", so_ky_hieu: "1/2000", thong_diep: " ", thay_the: [] };
+  for (const loai of ["answer", "abstain", "partial_coverage"]) {
+    await ve(h(TheKetQua, { ketQua: ketQuaAn(loai, { van_ban_khong_hien_thi: [an, diDang] }) }));
+    assert.equal(khung.textContent.split(CAU_AN).length, 2, `${loai}: câu hiện đúng một lần`);
+    const a = timTatNut(khung, laThe("A")).map((x) => x.getAttribute("href"));
+    assert.ok(a.includes("/tra-cuu/154245"), `${loai}: văn bản thay thế được hiện → link nội bộ`);
+    assert.ok(
+      a.includes("https://vanban.chinhphu.vn/?pageid=27160&docid=1"),
+      `${loai}: văn bản thay thế không hiện → link chính thống`,
+    );
+  }
+  await ve(h(TheKetQua, { ketQua: ketQuaAn("answer") }));
+  const khongCo = khung.textContent;
+  assert.doesNotMatch(khongCo, /Văn bản thay thế|không còn hiệu lực/);
+  await ve(h(TheKetQua, { ketQua: ketQuaAn("answer", { van_ban_khong_hien_thi: [] }) }));
+  assert.equal(khung.textContent, khongCo, "trường rỗng: thẻ không đổi");
   await act(() => root.unmount());
+
+  // (f) Mẫu có căn cứ gốc thuộc văn bản ẩn: `POST /ban-thao/{id}/dung` trả 422
+  //     với câu thường (`KhongSoanDuocError`). `SanKhauBanThao` đưa
+  //     `kq.error.message` vào toast, nên câu đó phải tới NGUYÊN VẸN — không
+  //     câu chung "Yêu cầu … chưa hợp lệ".
+  const CAU_CHAN =
+    "Hiện chưa soạn được Công văn: văn bản luật làm căn cứ cho loại văn bản này chưa có trong phạm vi tra cứu.";
+  globalThis.fetch = (async (url: string) =>
+    String(url).endsWith("/ban-thao/bt-chan/dung")
+      ? traJson({ detail: CAU_CHAN }, 422)
+      : traJson({ detail: "không có" }, 404)) as typeof fetch;
+  const kq = await dungLaiBanThao("bt-chan", {});
+  assert.ok(!kq.ok && kq.error.message === CAU_CHAN, "422 soạn thảo: đúng câu của máy chủ");
+  assert.match(
+    readFileSync(join(goc, "src/components/soan-thao/SanKhauBanThao.tsx"), "utf8"),
+    /await dungLaiBanThao\(banThao\.id, facts\);[\s\S]{0,200}toast\.error\(kq\.error\.message\)/,
+    "lỗi dựng lại hiện đúng `message` của `goi`",
+  );
 }
 
 console.log("kiem-ui-muot: OK");

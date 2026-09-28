@@ -368,7 +368,7 @@ async def test_hoi_dich_danh_van_ban_an_thi_noi_khong_con_hieu_luc_va_neu_van_ba
         "Nghị định số 22/2019/NĐ-CP không còn hiệu lực nên không có trong phạm vi tra cứu. "
         "Văn bản thay thế: 11/2020/NĐ-CP."
     )
-    assert cau in st["warnings"] and st["coverage_note"].startswith(cau)
+    assert cau in st["warnings"] and cau not in (st["coverage_note"] or "")
     res = tra_cuu_response(_payload_cache(st, st["result_type"].value), "t", "c")
     (an,) = res.van_ban_khong_hien_thi
     assert (an.so_ky_hieu, an.thay_the[0].doc_id, an.thay_the[0].lien_ket) == (

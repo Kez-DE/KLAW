@@ -133,7 +133,8 @@ export function docNhanHieuLuc(hieuLuc: string): Nhan | null {
     case "chua_xac_dinh":
       // Quyết định 2026-09-28, mục 8: văn bản chưa rõ tình trạng bị ẩn cho tới
       // khi xác định được, nên hai nhãn này không bao giờ tới người đọc. Lỡ
-      // tới thì KHÔNG vẽ gì — không bao giờ chữ "Chưa xác định".
+      // tới thì KHÔNG vẽ nhãn — không bao giờ chữ "Chưa xác định"; chỉ câu
+      // `ghiChu` (nếu có) còn hiện, xem `BadgeHieuLuc`.
       return null;
 
     default:
@@ -158,7 +159,17 @@ interface BadgeHieuLucProps {
 export function BadgeHieuLuc({ hieuLuc, ghiChu, gonGang, className }: BadgeHieuLucProps) {
   if (hieuLuc === null || hieuLuc === "") return null;
   const nhan = docNhanHieuLuc(hieuLuc);
-  if (nhan === null) return null;
+  const coGhiChu = !gonGang && ghiChu !== undefined && ghiChu !== "";
+  if (nhan === null) {
+    // Không nhãn (`can_doi_chieu_tay`), nhưng câu cảnh báo cho người đọc thì
+    // vẫn hiện: một điều khoản có văn bản sửa đổi không được mất cảnh báo
+    // trong im lặng. Màu "coi chừng" của nhãn sửa đổi, không đỏ.
+    return coGhiChu ? (
+      <span className={cn("block text-[12px] leading-5", className)} style={{ color: MAU.partial }}>
+        {ghiChu}
+      </span>
+    ) : null;
+  }
 
   return (
     <span className={cn("block", className)}>
@@ -192,7 +203,7 @@ export function BadgeHieuLuc({ hieuLuc, ghiChu, gonGang, className }: BadgeHieuL
         </span>
       )}
 
-      {!gonGang && ghiChu !== undefined && ghiChu !== "" && (
+      {coGhiChu && (
         // Màu của CHÍNH nhãn, không phải đỏ cố định. Với `bi_thay_the` và
         // `het_hieu_luc` hai màu trùng nhau nên không đổi gì; với
         // `chua_hieu_luc` thì đỏ là sai — đỏ dành riêng cho luật đã chết, còn

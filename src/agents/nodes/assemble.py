@@ -588,16 +588,17 @@ LOAI_BAO_VAN_BAN_AN = frozenset({ResultType.answer, ResultType.abstain, ResultTy
 def gan_van_ban_khong_hien_thi(ket: dict, an: list[dict]) -> dict:
     """Câu hỏi NÊU TÊN văn bản ẩn (quyết định 2026-09-28 mục 8): nói thẳng nó
     không có trong phạm vi tra cứu và vì sao, nêu văn bản thay thế — ở
-    `coverage_note` (giao diện luôn hiện), `warnings[]`, và
-    `van_ban_khong_hien_thi` (có link). Không trích một chữ nào của văn bản ẩn.
-    0 token: `an` do `hien_thi.van_ban_an_duoc_nhac` tra bảng."""
+    `van_ban_khong_hien_thi` (có link; giao diện vẽ nó ở `TheKetQua`) và
+    `warnings[]` (eval, trace). KHÔNG chép vào `coverage_note`: giao diện đã vẽ
+    trường trên, chép thêm là người đọc thấy cùng một câu hai lần. Không trích
+    một chữ nào của văn bản ẩn. 0 token: `an` do `hien_thi.van_ban_an_duoc_nhac`
+    tra bảng."""
     if not an or ket.get("result_type") not in LOAI_BAO_VAN_BAN_AN:
         return ket
     cau = [cau_van_ban_an(v["thong_diep"], (t["so_ky_hieu"] for t in v["thay_the"])) for v in an]
     return {
         **ket,
         "warnings": [*cau, *(w for w in ket.get("warnings") or [] if w not in cau)],
-        "coverage_note": "\n\n".join(x for x in (*cau, ket.get("coverage_note")) if x),
         "van_ban_khong_hien_thi": an,
     }
 
