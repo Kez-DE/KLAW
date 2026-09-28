@@ -491,6 +491,7 @@ def build_graph_tra_cuu():
             "audit_report": bt["audit"],
             "facts": bt["facts"],
             "doi_so_voi_truoc": doi,
+            "can_cu_van_ban": ban_thao.can_cu_tu_document(bt["document"]),
         }
 
     async def n_dung_ban_thao(st: KLawState) -> KLawState:

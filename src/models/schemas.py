@@ -229,6 +229,11 @@ class BanThaoOut(BaseModel):
     audit_report: dict
     facts: dict
     doi_so_voi_truoc: list[str] = []
+    # Khối "Căn cứ" của bản thảo checklist (quyết định 2026-09-28, mục 5): mỗi
+    # phần tử một dòng đã có dấu kết (";", dòng cuối "."), ĐỌC từ `document`
+    # (`ban_thao.can_cu_tu_document`). Thuộc tệp tải về, đặt trước mục đầu tiên.
+    # `[]` cho bản thảo tổng quát, bản trên khuôn gốc và bản lưu trước trường này.
+    can_cu_van_ban: list[str] = []
     khuon: dict | None = None
     """Bản thảo trên khuôn gốc (quyết định 2026-09-26): `{viec_id, dinh_dang,
     so_trang, cho_trong: [{don_vi, so, kieu, nhan, gia_tri: str | None}]}` —
@@ -282,6 +287,8 @@ class BanThaoPhienBanChiTietOut(BaseModel):
     facts: dict
     clauses: list[dict]
     audit_report: dict
+    # Cùng nghĩa `BanThaoOut.can_cu_van_ban`, của phiên bản cũ này.
+    can_cu_van_ban: list[str] = []
     khuon: dict | None = None
     """Cùng hình dạng `BanThaoOut.khuon`, cho phiên bản cũ này."""
 
@@ -673,6 +680,8 @@ class SoanThaoResponse(BaseModel):
     document: str  # Markdown
     clauses: list[dict]
     audit_report: AuditReportOut
+    # Cùng nghĩa `BanThaoOut.can_cu_van_ban`.
+    can_cu_van_ban: list[str] = []
     trace_id: str
 
 

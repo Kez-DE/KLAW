@@ -85,6 +85,7 @@ def _out(bt: dict) -> BanThaoOut:
         facts=bt["facts"],
         # Chỉ `sua_o_dien` mang khoá này (ô vừa đổi); mọi nơi gọi khác giữ `[]`.
         doi_so_voi_truoc=bt.get("doi_so_voi_truoc", []),
+        can_cu_van_ban=ban_thao.can_cu_tu_document(bt["document"]),
         khuon=bt.get("khuon"),
     )
 
@@ -152,6 +153,7 @@ async def phien_ban_chi_tiet(
         facts=snap["facts"],
         clauses=snap["clauses"],
         audit_report=snap["audit"],
+        can_cu_van_ban=ban_thao.can_cu_tu_document(snap["document"]),
         khuon=snap.get("khuon"),
     )
 
