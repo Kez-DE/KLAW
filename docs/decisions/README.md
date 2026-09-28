@@ -16,3 +16,4 @@ documents here as real choices are accepted, then index them in this file.
 - [2026-09-17 — Đính kèm là một cử chỉ, không phải một lệnh chạy](2026-09-17-dinh-kem-khong-phan-tich.md)
 - [2026-09-18 — Trung thực với biểu mẫu khách tải lên, và cho lưu media đã tách](2026-09-18-trung-thuc-bieu-mau-va-media.md)
 - [2026-09-26 — Lưu khuôn gốc theo hội thoại và điền tại chỗ](2026-09-26-luu-khuon-goc-va-dien-tai-cho.md)
+- [2026-09-28 — Trích dẫn đầy đủ, liên kết nguồn chính thống và khối "Căn cứ" trong bản thảo](2026-09-28-trich-dan-day-du-va-lien-ket-nguon.md)
