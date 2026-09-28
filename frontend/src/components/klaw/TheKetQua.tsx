@@ -1,19 +1,23 @@
 import { Fragment } from "react";
 import { Link } from "@tanstack/react-router";
-import { BookOpenText, FileSearch, Info } from "lucide-react";
-import type {
-  LinkVanBan,
-  Nguon,
-  SoanThaoGoiY,
-  TaiLieuDaDung,
-  TraCuuKetQua,
-  VanBanTraLoi,
-} from "@/lib/klaw";
+import { BookOpenText, ExternalLink, FileSearch, Info } from "lucide-react";
+import type { Nguon, SoanThaoGoiY, TaiLieuDaDung, TraCuuKetQua, VanBanTraLoi } from "@/lib/klaw";
 import { khuonHopLe } from "@/lib/klaw";
 import { mauTheoId, slugCuaLoai } from "@/lib/mau-van-ban";
-import { canCuConHieuLuc, chiSoCuaThe, coTagBamDuoc } from "@/lib/trich-dan";
+import {
+  cachTrichHopLe,
+  canCuConHieuLuc,
+  canCuPhapLy,
+  chiSoCuaThe,
+  coTagBamDuoc,
+  lienKetChinhThuc,
+  trichDieuKhoan,
+  vanBanHopLe,
+  type LienKet,
+} from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { catDoan, catManh, type Manh } from "@/lib/van-xuoi";
+import { BadgeHieuLuc } from "./BadgeHieuLuc";
 import { BangKetQua } from "./BangKetQua";
 import { DuaTren } from "./DuaTren";
 import { TheBanThao } from "./TheBanThao";
@@ -146,51 +150,81 @@ function KhoiNguon({
   );
 }
 
-/** Thứ tự và nhãn cổng — vbpl → chinhphu → tvpl (spec §4.3). Biểu tượng là của
- *  giao diện; `assemble.v2` quy tắc 17 cấm mô hình dùng chúng. */
-const NHAN_CONG: ReadonlyArray<[keyof LinkVanBan, string]> = [
-  ["vbpl", "Cơ sở dữ liệu quốc gia về văn bản pháp luật (Bộ Tư pháp)"],
-  ["chinhphu", "Cổng Thông tin điện tử Chính phủ"],
-  ["tvpl", "Thư Viện Pháp Luật"],
-];
+/** Link chính thống từ `documents[].links` — chỉ cho payload đã lưu trước khi
+ *  trích dẫn mang `lien_ket`. Cùng thứ tự vbpl → chinhphu; Thư Viện Pháp Luật
+ *  là trang thương mại nên không còn được dẫn (quyết định 2026-09-28 mục 2). */
+function lienKetCu(documents: readonly VanBanTraLoi[], docId: string): LienKet | null {
+  const links = documents.find((d) => d.doc_id === docId)?.links;
+  return links === undefined
+    ? null
+    : (lienKetChinhThuc(links.vbpl) ?? lienKetChinhThuc(links.chinhphu));
+}
 
 /**
- * Liên kết toàn văn tới cổng luật, dựng từ `documents[].links` — DB điền, mô
- * hình không bao giờ viết URL (phép kiểm thứ chín). Dòng nào `null` thì không
- * render; không văn bản nào có link thì cả khối ẩn.
+ * "Căn cứ pháp lý" cuối câu trả lời (quyết định 2026-09-28 mục 3): mỗi điều
+ * khoản được dẫn MỘT dòng — câu trích dẫn theo lối văn bản luật, nhãn hiệu lực,
+ * link chính thống khi có. Thay khối "Liên kết tra cứu toàn văn" cũ: link nay đi
+ * theo từng căn cứ. Tập và thứ tự do `canCuPhapLy` quyết (nhóm bị thay thế/hết
+ * hiệu lực không hiện ở đây, chỉ trong khung đối chiếu). Bấm câu trích dẫn mở
+ * khung đối chiếu qua ĐÚNG `onChon` của thẻ trong văn xuôi.
  */
-function KhoiLienKet({ documents }: { documents: VanBanTraLoi[] }) {
-  const dong = documents.flatMap((d) =>
-    NHAN_CONG.flatMap(([khoa, nhan]) => {
-      const url = d.links[khoa];
-      // Phòng thủ chiều sâu cho một <a target="_blank">: chỉ render nếu url
-      // đúng là chuỗi https, dù DB/loader đã đảm bảo điều đó ở tầng trước.
-      return typeof url === "string" && url.startsWith("https://")
-        ? [{ key: `${d.doc_id}-${khoa}`, url, ten: d.ten, nhan }]
-        : [];
-    }),
-  );
+function KhoiCanCuPhapLy({
+  ketQua,
+  chiSoDangMo,
+  onChon,
+}: {
+  ketQua: TraCuuKetQua;
+  chiSoDangMo: number | null;
+  onChon?: ((chiSo: number) => void) | undefined;
+}) {
+  const dong = canCuPhapLy(ketQua);
   if (dong.length === 0) return null;
   return (
-    <section aria-label="Liên kết tra cứu toàn văn" className="mt-4">
-      <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">
-        <span aria-hidden="true">📖</span> Liên kết tra cứu toàn văn
-      </h3>
+    <section aria-label="Căn cứ pháp lý" className="mt-4">
+      <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">Căn cứ pháp lý</h3>
       <ol className="mt-1 mb-0 list-decimal pl-5 text-[13px] leading-6">
-        {dong.map((d) => (
-          <li key={d.key}>
-            <span aria-hidden="true">🔗</span>{" "}
-            <a
-              href={d.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="focus-brass rounded underline underline-offset-2"
-            >
-              Toàn văn {d.ten} — {d.nhan}
-              <span className="sr-only"> (mở tab mới)</span>
-            </a>
-          </li>
-        ))}
+        {dong.map(({ trichDan, chiSoGoc }) => {
+          const cau =
+            cachTrichHopLe(trichDan) ?? trichDieuKhoan(trichDan.duong_dan, trichDan.so_ky_hieu);
+          const lienKet =
+            vanBanHopLe(trichDan).lien_ket ?? lienKetCu(ketQua.documents, trichDan.doc_id);
+          return (
+            <li key={`${trichDan.doc_id}-${trichDan.duong_dan}`} className="mt-1 first:mt-0">
+              {onChon === undefined ? (
+                <span>{cau}</span>
+              ) : (
+                <button
+                  type="button"
+                  className="the-luat"
+                  onClick={() => onChon(chiSoGoc)}
+                  aria-expanded={chiSoDangMo === chiSoGoc}
+                >
+                  {cau}
+                </button>
+              )}{" "}
+              <BadgeHieuLuc
+                hieuLuc={trichDan.hieu_luc}
+                gonGang
+                className="inline-block align-middle"
+              />
+              {lienKet !== null && (
+                <>
+                  {" "}
+                  <a
+                    href={lienKet.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="focus-brass inline-flex items-center gap-1 rounded font-medium whitespace-nowrap text-[var(--color-brass-600)] underline-offset-2 hover:underline"
+                  >
+                    Xem trên {lienKet.nhan}
+                    <ExternalLink className="size-3.5" aria-hidden />
+                    <span className="sr-only"> (mở tab mới)</span>
+                  </a>
+                </>
+              )}
+            </li>
+          );
+        })}
       </ol>
     </section>
   );
@@ -739,7 +773,6 @@ function NoiDungKetQua({
           <KhoiVanXuoi chu={ghiChuPhamVi} />
         </div>
       )}
-      <KhoiLienKet documents={ketQua.documents} />
       <KhoiCanCu ketQua={ketQua} chiSoDangMo={chiSoDangMo} onChon={chon} />
       {daiNeo}
       {ketQua.soan_thao?.ho_tro && ketQua.soan_thao.loai && onSoanThao && (
@@ -752,6 +785,7 @@ function NoiDungKetQua({
           ))}
         </div>
       )}
+      <KhoiCanCuPhapLy ketQua={ketQua} chiSoDangMo={chiSoDangMo} onChon={onChonTrichDan} />
       <NhacMienTru />
     </section>
   );

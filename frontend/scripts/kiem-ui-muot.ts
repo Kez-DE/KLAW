@@ -3182,4 +3182,233 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
   );
 }
 
+// ───── 15. TRÍCH DẪN ĐẦY ĐỦ: đầu khung đối chiếu và "Căn cứ pháp lý" ──────────
+// Quyết định 2026-09-28: văn bản nào, ai ban hành, ngày nào, mở ở đâu — và
+// phần nào không biết thì KHÔNG hiện, không có chỗ giữ chỗ, không link đoán.
+{
+  // `KhungDoiChieu` đọc bề rộng cửa sổ (`useHaiCot`), đặt `requestAnimationFrame`
+  // để cuộn tới vùng tâm, và so `activeElement instanceof HTMLElement`. Khung giả
+  // chỉ cần đủ ba thứ đó; hai cột để khung không khoá cuộn `body`.
+  Object.assign(window, {
+    matchMedia: () => ({ matches: true, addEventListener() {}, removeEventListener() {} }),
+  });
+  Object.assign(globalThis, {
+    HTMLElement: Nut,
+    requestAnimationFrame: () => 0,
+    cancelAnimationFrame: () => undefined,
+  });
+  const { KhungDoiChieu } = await nap<typeof import("../src/components/klaw/KhungDoiChieu.tsx")>(
+    "src/components/klaw/KhungDoiChieu.tsx",
+  );
+  const CAU = "khoản 1 Điều 3 Nghị định số 90/2019/NĐ-CP ngày 15/11/2019 của Chính phủ";
+  const THAY = "90/2019/NĐ-CP đã bị thay thế: bị 38/2022/NĐ-CP thay thế từ 2022-07-01";
+  const DONG = {
+    id: 7,
+    cap: "khoan",
+    so_hieu_cap: "1",
+    duong_dan: "90/2019/NĐ-CP > Điều 3 > Khoản 1",
+    tieu_de: "",
+    noi_dung: "Mức lương tối thiểu vùng áp dụng từ ngày 01 tháng 01 năm 2020.",
+    parent_id: null,
+    la_tam: true,
+  };
+  const laThe = (ten: string) => (n: Nut) => n.nodeType === 1 && n.tagName === ten;
+  const { khung, root } = taoRoot();
+  const ve = (props: Record<string, unknown>) =>
+    act(() =>
+      root.render(
+        h(KhungDoiChieu, {
+          khopTaiId: 7,
+          duongDan: DONG.duong_dan,
+          quote: null,
+          trangThai: "xong",
+          onDong: () => undefined,
+          ...props,
+        } as Parameters<typeof KhungDoiChieu>[0]),
+      ),
+    );
+
+  // (a) Đủ phần: câu trích dẫn, dòng ban hành dd/mm/yyyy, nhãn KÈM câu nêu
+  //     văn bản thay thế, link chính thống ra tab mới, ở NGOÀI tiêu đề.
+  await ve({
+    hieuLuc: "bi_thay_the",
+    ghiChu: THAY,
+    trichDan: { cach_trich: CAU, so_ky_hieu: "90/2019/NĐ-CP" },
+    vanBan: {
+      doc_id: "139094",
+      so_ky_hieu: "90/2019/NĐ-CP",
+      bo_luat: "Nghị định quy định mức lương tối thiểu",
+      co_quan_ban_hanh: "Chính phủ",
+      ngay_ban_hanh: "2019-11-15",
+      ngay_hieu_luc: "2020-01-01",
+      lien_ket: "https://vbpl.vn/van-ban/chi-tiet/139094",
+      provisions: [DONG],
+    },
+  });
+  const h2 = tim(khung, laThe("H2"))!;
+  assert.equal(
+    tim(h2, (n) => n.nodeType === 1 && n.hasAttribute("data-cach-trich"))?.textContent,
+    CAU,
+  );
+  assert.doesNotMatch(h2.textContent, / > /, "có câu trích dẫn thì không in địa chỉ nội bộ");
+  assert.equal(
+    tim(h2, (n) => n.nodeType === 1 && n.hasAttribute("data-dong-ban-hanh"))?.textContent,
+    "Do Chính phủ ban hành ngày 15/11/2019 · hiệu lực từ 01/01/2020",
+  );
+  assert.match(h2.textContent, /Đã bị thay thế/);
+  assert.ok(h2.textContent.includes(THAY), "ghiChu nêu đích danh văn bản thay thế hiện dưới nhãn");
+  const a = tim(khung, laThe("A"))!;
+  assert.equal(a.getAttribute("href"), "https://vbpl.vn/van-ban/chi-tiet/139094");
+  assert.equal(a.getAttribute("target"), "_blank");
+  assert.equal(a.getAttribute("rel"), "noopener noreferrer");
+  assert.match(a.textContent, /^Xem trên CSDL quốc gia về pháp luật/);
+  assert.equal(h2.contains(a), false, "liên kết không nằm trong tiêu đề khung");
+
+  // (b) Thiếu phần: payload cũ không có câu trích dẫn, ngày dị dạng, không cơ
+  //     quan, link http — số hiệu + tên + địa chỉ, KHÔNG dòng ban hành, KHÔNG link.
+  await ve({
+    hieuLuc: "con_hieu_luc",
+    trichDan: { so_ky_hieu: "90/2019/NĐ-CP", bo_luat: "Nghị định quy định mức lương tối thiểu" },
+    vanBan: {
+      doc_id: "139094",
+      so_ky_hieu: "90/2019/NĐ-CP",
+      bo_luat: "Nghị định quy định mức lương tối thiểu",
+      ngay_ban_hanh: "15/11/2019",
+      lien_ket: "http://vbpl.vn/van-ban/chi-tiet/139094",
+      provisions: [DONG],
+    },
+  });
+  const h2Thieu = tim(khung, laThe("H2"))!;
+  assert.equal(
+    tim(h2Thieu, (n) => n.nodeType === 1 && n.hasAttribute("data-cach-trich")),
+    null,
+  );
+  assert.match(h2Thieu.textContent, /90\/2019\/NĐ-CP/);
+  assert.match(h2Thieu.textContent, /Nghị định quy định mức lương tối thiểu/);
+  assert.match(h2Thieu.textContent, /90\/2019\/NĐ-CP > Điều 3 > Khoản 1/);
+  assert.equal(
+    tim(khung, (n) => n.nodeType === 1 && n.hasAttribute("data-dong-ban-hanh")),
+    null,
+  );
+  assert.equal(tim(khung, laThe("A")), null, "link không https: không có link nào");
+  assert.doesNotMatch(khung.textContent, /Không rõ|undefined|null|NaN/, "không chỗ giữ chỗ");
+  await act(() => root.unmount());
+
+  // (c) "Căn cứ pháp lý" cuối câu trả lời: thứ tự thẻ, gộp trùng, bỏ nhóm bị
+  //     thay thế, link chỉ từ hai cổng (kể cả link cũ của `documents[]`), không
+  //     còn khối "Liên kết tra cứu toàn văn" và không Thư Viện Pháp Luật.
+  const trich = (
+    k: number,
+    duong_dan: string,
+    hieu_luc: string,
+    them: Record<string, unknown> = {},
+  ) => ({
+    provision_id: k,
+    khop_tai_id: k,
+    doc_id: duong_dan.split(" > ")[0],
+    duong_dan,
+    bo_luat: "Tên văn bản",
+    so_ky_hieu: duong_dan.split(" > ")[0],
+    quote: "câu trích",
+    hieu_luc,
+    tin_cay: "cao",
+    k,
+    ...them,
+  });
+  const ketQua = {
+    result_type: "answer",
+    answer:
+      "Theo [Điều 3](cite:2) và [Điều 21](cite:1); nhắc lại [khoản đó](cite:4); mức cũ [Điều 3](cite:3).",
+    citations: [
+      trich(1, "45/2019/QH14 > Điều 21", "con_hieu_luc"),
+      trich(2, "293/2025/NĐ-CP > Điều 3 > Khoản 1", "con_hieu_luc", {
+        cach_trich: "khoản 1 Điều 3 Nghị định số 293/2025/NĐ-CP ngày 10/11/2025 của Chính phủ",
+        lien_ket: "https://vbpl.vn/van-ban/chi-tiet/1",
+      }),
+      trich(3, "90/2019/NĐ-CP > Điều 3", "bi_thay_the", { cach_trich: "Điều 3 Nghị định 90" }),
+      trich(4, "45/2019/QH14 > Điều 21", "con_hieu_luc"),
+    ],
+    nguon: [],
+    warnings: [THAY],
+    coverage_note: null,
+    trace_id: "t-cc",
+    cau_hoi_day_du: null,
+    bang: [],
+    documents: [
+      {
+        doc_id: "45/2019/QH14",
+        ten: "Bộ luật Lao động",
+        so_ky_hieu: "45/2019/QH14",
+        loai_van_ban: "Bộ luật",
+        links: {
+          vbpl: null,
+          chinhphu: "https://vanban.chinhphu.vn/?pageid=27160&docid=198540",
+          tvpl: "https://thuvienphapluat.vn/van-ban/x",
+        },
+      },
+    ],
+  } as unknown as Parameters<typeof TheKetQua>[0]["ketQua"];
+  // Nhánh `answer` kết bằng lời nhắc miễn trừ có `<Link to="/mien-tru">`, thứ
+  // đòi một router thật. Nạp lại `TheKetQua` trong đồ thị riêng với `Link` giả
+  // là một `<a>` — chỉ `Link` được các thành phần này dùng từ router.
+  const { TheKetQua: TheKetQuaKhongRouter } = (
+    await runnerImport<typeof import("../src/components/klaw/TheKetQua.tsx")>(
+      join(goc, "src/components/klaw/TheKetQua.tsx"),
+      {
+        ...cauHinhVite,
+        plugins: [
+          ...cauHinhVite.plugins,
+          {
+            // Bare import của router bị `runnerImport` externalize trước mọi
+            // `resolveId`, nên thay ngay ở mã nguồn của chính tệp dùng nó.
+            name: "kiem-ui-muot:link-gia",
+            enforce: "pre" as const,
+            transform(code: string, id: string) {
+              const dong = 'import { Link } from "@tanstack/react-router";';
+              if (!id.includes("/src/") || !code.includes(dong)) return null;
+              return code.replace(
+                dong,
+                'import { createElement as taoLinkGia } from "react";\n' +
+                  "const Link = ({ to, children, className }) =>\n" +
+                  '  taoLinkGia("a", { href: to, className }, children);',
+              );
+            },
+          },
+        ],
+      },
+    )
+  ).module;
+  const daChon: number[] = [];
+  const { khung: khungTL, root: rootTL } = taoRoot();
+  await act(() =>
+    rootTL.render(
+      h(TheKetQuaKhongRouter, { ketQua, onChonTrichDan: (i: number) => daChon.push(i) }),
+    ),
+  );
+  const muc = tim(khungTL, (n) => n.getAttribute?.("aria-label") === "Căn cứ pháp lý")!;
+  assert.ok(muc !== null, "có mục Căn cứ pháp lý");
+  const dong = tim(muc, laThe("OL"))!.childNodes;
+  assert.equal(dong.length, 2, "hai điều khoản: trùng gộp một, bị thay thế không hiện");
+  assert.match(
+    dong[0]!.textContent,
+    /^khoản 1 Điều 3 Nghị định số 293\/2025\/NĐ-CP ngày 10\/11\/2025 của Chính phủ Còn hiệu lực Xem trên CSDL quốc gia về pháp luật/,
+  );
+  assert.match(
+    dong[1]!.textContent,
+    /^Điều 21 45\/2019\/QH14 Còn hiệu lực Xem trên Cổng TTĐT Chính phủ/,
+  );
+  const linkTL = [0, 1].map((i) => tim(dong[i]!, laThe("A"))!);
+  assert.deepEqual(
+    linkTL.map((x) => [x.getAttribute("href"), x.getAttribute("target"), x.getAttribute("rel")]),
+    [
+      ["https://vbpl.vn/van-ban/chi-tiet/1", "_blank", "noopener noreferrer"],
+      ["https://vanban.chinhphu.vn/?pageid=27160&docid=198540", "_blank", "noopener noreferrer"],
+    ],
+  );
+  assert.doesNotMatch(khungTL.textContent, /Liên kết tra cứu toàn văn|Thư Viện Pháp Luật/);
+  await act(() => phat(tim(dong[1]!, laThe("BUTTON"))!, "click"));
+  assert.deepEqual(daChon, [0], "bấm câu trích dẫn mở khung đúng trích dẫn gốc");
+  await act(() => rootTL.unmount());
+}
+
 console.log("kiem-ui-muot: OK");

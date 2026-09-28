@@ -1,8 +1,8 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { X } from "lucide-react";
-import type { ApiError, VanBanQuanhDieu } from "@/lib/klaw";
+import { ExternalLink, X } from "lucide-react";
+import type { ApiError, TrichDanDayDu, VanBanQuanhDieu } from "@/lib/klaw";
 import { gomHangBang, type DongCoBang } from "@/lib/bang";
-import { catTheoTrichDan } from "@/lib/trich-dan";
+import { cachTrichHopLe, catTheoTrichDan, dongBanHanh, vanBanHopLe } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { BadgeHieuLuc } from "./BadgeHieuLuc";
 import { BaoLoi } from "./BaoLoi";
@@ -99,6 +99,14 @@ export interface KhungDoiChieuProps {
   /** Có → tô sáng câu trích. Không có → chỉ mở đúng Điều, và im lặng. */
   quote?: string | null;
   hieuLuc?: string | null;
+  /**
+   * Trường trích dẫn đầy đủ của trích dẫn đang mở — có ngay lúc bấm, trước
+   * khi nguyên văn tải xong. `cach_trich` ở đây có điều khoản; siêu dữ liệu
+   * văn bản còn thiếu thì lấy từ `vanBan` khi nó về.
+   */
+  trichDan?: TrichDanDayDu | null;
+  /** Câu `warnings[]` nêu đích danh văn bản thay thế/sửa đổi — `ghiChu` của nhãn. */
+  ghiChu?: string | undefined;
   trangThai: "dang-tai" | "loi" | "xong";
   vanBan?: VanBanQuanhDieu | null;
   loi?: ApiError | null;
@@ -112,6 +120,8 @@ export function KhungDoiChieu({
   duongDan,
   quote = null,
   hieuLuc = null,
+  trichDan = null,
+  ghiChu,
   trangThai,
   vanBan = null,
   loi = null,
@@ -127,6 +137,11 @@ export function KhungDoiChieu({
   // Chuỗi rỗng KHÔNG phải một câu trích. Quy về null một lần ở đây để không
   // nhánh nào bên dưới phải tự nhớ phân biệt.
   const cauTrich = quote !== null && quote.trim() !== "" ? quote : null;
+  // Trích dẫn đầy đủ (quyết định 2026-09-28). Câu `cach_trich` CHỈ của trích
+  // dẫn (có điều khoản); dữ kiện văn bản thì trích dẫn trước, nguyên văn sau.
+  const cachTrich = cachTrichHopLe(trichDan);
+  const vb = vanBanHopLe(trichDan, vanBan);
+  const dongNgay = dongBanHanh(vb);
 
   // Esc đóng khung, kể cả khi tiêu điểm đã đi ra ngoài.
   useEffect(() => {
@@ -209,27 +224,72 @@ export function KhungDoiChieu({
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-elegant">
         <header className="flex items-start gap-3 border-b border-border p-3">
-          <h2
-            ref={tieuDe}
-            tabIndex={-1}
-            className="focus-brass m-0 min-w-0 flex-1 rounded text-[15px] leading-6 font-medium"
-          >
-            <span className="mb-1 block text-[12px] font-normal text-muted-foreground">
-              Nguyên văn
-            </span>
-            <span className="font-jetbrains block text-[13px] text-foreground">
-              {vanBan?.so_ky_hieu ?? ""}
-            </span>
-            {/* Nhãn hiệu lực ở ĐÂY, không ở card: câu trả lời chỉ dẫn luật còn
-                hiệu lực (spec 2026-09-06 §7), nên ai mở nguyên văn mới cần biết
-                văn bản này đang ở trạng thái nào. `BadgeHieuLuc` tự ẩn khi null. */}
-            <BadgeHieuLuc hieuLuc={hieuLuc} gonGang className="mt-1" />
-            {duongDan !== undefined && duongDan !== "" && (
-              <span className="block text-[13px] font-normal text-muted-foreground">
-                {duongDan}
+          <div className="min-w-0 flex-1">
+            <h2
+              ref={tieuDe}
+              tabIndex={-1}
+              className="focus-brass m-0 rounded text-[15px] leading-6 font-medium"
+            >
+              <span className="mb-1 block text-[12px] font-normal text-muted-foreground">
+                Nguyên văn
               </span>
+              {cachTrich !== null ? (
+                <span data-cach-trich className="block text-[14px] leading-6 text-foreground">
+                  {cachTrich}
+                </span>
+              ) : (
+                // Payload chưa có câu trích dẫn (lượt đã lưu trước quyết định
+                // 2026-09-28): số hiệu, tên văn bản, rồi địa chỉ điều khoản.
+                <>
+                  <span className="font-jetbrains block text-[13px] text-foreground">
+                    {vb.so_ky_hieu ?? ""}
+                  </span>
+                  {vb.ten_van_ban !== null && (
+                    <span className="block text-[13px] font-normal text-foreground">
+                      {vb.ten_van_ban}
+                    </span>
+                  )}
+                  {duongDan !== undefined && duongDan !== "" && (
+                    <span className="block text-[13px] font-normal text-muted-foreground">
+                      {duongDan}
+                    </span>
+                  )}
+                </>
+              )}
+              {dongNgay !== null && (
+                <span
+                  data-dong-ban-hanh
+                  className="mt-0.5 block text-[12px] leading-5 font-normal text-muted-foreground"
+                >
+                  {dongNgay}
+                </span>
+              )}
+              {/* Nhãn hiệu lực ĐẦY ĐỦ ở đây — kèm lời giải thích và câu nêu đích
+                  danh văn bản thay thế/sửa đổi. "Căn cứ pháp lý" ở card chỉ mang
+                  nhãn gọn, và không có nhóm bị thay thế/hết hiệu lực (spec
+                  2026-09-06 §7), nên đây là chỗ duy nhất đọc được đủ. `BadgeHieuLuc`
+                  tự ẩn khi null. */}
+              <BadgeHieuLuc
+                hieuLuc={hieuLuc}
+                {...(ghiChu === undefined ? {} : { ghiChu })}
+                className="mt-1 font-normal"
+              />
+            </h2>
+            {/* Liên kết NGOÀI tiêu đề: tiêu điểm vào tiêu đề khi khung mở, và
+                một liên kết trong tiêu đề sẽ bị đọc như một phần tên khung. */}
+            {vb.lien_ket !== null && (
+              <a
+                href={vb.lien_ket.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="focus-brass mt-1 inline-flex items-center gap-1 rounded text-[13px] font-medium text-[var(--color-brass-600)] underline-offset-2 hover:underline"
+              >
+                Xem trên {vb.lien_ket.nhan}
+                <ExternalLink className="size-3.5" aria-hidden />
+                <span className="sr-only"> (mở tab mới)</span>
+              </a>
             )}
-          </h2>
+          </div>
           <button
             type="button"
             onClick={onDong}

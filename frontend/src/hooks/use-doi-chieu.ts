@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { goi as goiApi } from "@/lib/api";
-import { laVanBanProvisions, type VanBanProvisions } from "@/lib/klaw";
+import { laVanBanProvisions, type TrichDanDayDu, type VanBanProvisions } from "@/lib/klaw";
 import { useGoiApi } from "./use-goi-api";
 
 /**
@@ -28,6 +28,10 @@ export interface MoDoiChieu {
   quote?: string | null;
   /** Nhãn hiệu lực của căn cứ đang mở — hiện ở header khung (spec 2026-09-06 §7). */
   hieuLuc?: string | null;
+  /** Trích dẫn đầy đủ của căn cứ đang mở (quyết định 2026-09-28). */
+  trichDan?: TrichDanDayDu;
+  /** Câu `warnings[]` của cùng văn bản — `ghiChu` của nhãn hiệu lực. */
+  ghiChu?: string | undefined;
 }
 
 export interface TrangThaiDoiChieu {
