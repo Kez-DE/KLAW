@@ -4,18 +4,19 @@ import { ChevronDown, ChevronRight, Copy, ExternalLink, ListTree, Search, X } fr
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { NoiDungDieuKhoan } from "@/components/klaw/NoiDungDieuKhoan";
-import { BadgeHieuLuc } from "@/components/klaw/BadgeHieuLuc";
-import { BaoLoi } from "@/components/klaw/BaoLoi";
+import { BadgeHieuLuc, MoTaHieuLuc } from "@/components/klaw/BadgeHieuLuc";
+import { BaoLoi, DanhSachThayThe } from "@/components/klaw/BaoLoi";
 import { goi, thamSo } from "@/lib/api";
 import { gomHangBang } from "@/lib/bang";
 import {
   CAP_CHUA_DIEU,
-  docDoTinCay,
   laTimTrongVanBan,
+  laVanBanBiAn,
   laVanBanHieuLuc,
   laVanBanLienQuan,
   laVanBanMucLuc,
   laVanBanProvisions,
+  vanBanBiAn,
   type DongTimTrongVanBan,
   type MucLucItem,
   type Provision,
@@ -24,7 +25,13 @@ import {
   type VanBanMucLuc,
   type VanBanProvisions,
 } from "@/lib/klaw";
-import { cachTrichHopLe, chuoiSaoChep, trichDieuKhoan, vanBanHopLe } from "@/lib/trich-dan";
+import {
+  cachTrichHopLe,
+  chuoiSaoChep,
+  dongThongTin,
+  trichDieuKhoan,
+  vanBanHopLe,
+} from "@/lib/trich-dan";
 import { cn, ngayVietNam } from "@/lib/utils";
 
 /**
@@ -73,7 +80,9 @@ export const Route = createFileRoute("/tra-cuu/$docId")({
   loader: async ({ params }): Promise<DuLieuTai> => {
     const ketQua = await goi(`/van-ban/${encodeURIComponent(params.docId)}`, laVanBanMucLuc);
     if (!ketQua.ok) {
-      if (ketQua.error.kind === "not_found") throw notFound();
+      // Văn bản bị ẩn (quyết định 2026-09-28, mục 8) mang câu của máy chủ và
+      // văn bản thay thế theo; mã không tồn tại thì `data: null`.
+      if (ketQua.error.kind === "not_found") throw notFound({ data: vanBanBiAn(ketQua.error) });
       throw new Error(ketQua.error.message);
     }
     return { vanBan: ketQua.data };
@@ -87,7 +96,7 @@ export const Route = createFileRoute("/tra-cuu/$docId")({
         : `${vb.loai_van_ban} ${vb.so_ky_hieu}${
             vb.co_quan_ban_hanh === null ? "" : ` do ${vb.co_quan_ban_hanh} ban hành`
           }${
-            vb.ngay_ban_hanh === null ? "" : ` ngày ${vb.ngay_ban_hanh}`
+            vb.ngay_ban_hanh === null ? "" : ` ngày ${ngayVietNam(vb.ngay_ban_hanh)}`
           }. Đọc toàn văn theo điều, khoản, điểm kèm nhãn hiệu lực của KLAW.`;
     return {
       meta: [
@@ -104,17 +113,25 @@ export const Route = createFileRoute("/tra-cuu/$docId")({
   notFoundComponent: KhongCoVanBan,
 });
 
-function KhongCoVanBan() {
+function KhongCoVanBan({ data }: { data?: unknown }) {
+  // Kiểm lại ở đây: `data` qua ranh giới máy chủ → trình duyệt của router.
+  const biAn = laVanBanBiAn(data) ? data : null;
   return (
     <AppShell active="/tra-cuu">
       <div className="mx-auto max-w-xl px-5 py-20 text-center">
         <h1 className="font-display text-2xl font-semibold text-primary">
-          Không có văn bản này trong kho
+          {biAn?.thong_diep ?? "Không có văn bản này trong kho"}
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Kho của KLAW gồm 6 Bộ luật cùng cụm văn bản dưới luật về Lao động. Mã văn bản trên đường
-          dẫn không trỏ tới văn bản nào trong kho.
-        </p>
+        {biAn === null ? (
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            Kho của KLAW gồm 6 Bộ luật cùng cụm văn bản dưới luật về Lao động. Mã văn bản trên đường
+            dẫn không trỏ tới văn bản nào trong kho.
+          </p>
+        ) : (
+          <div className="mx-auto inline-block text-left">
+            <DanhSachThayThe thayThe={biAn.thay_the} />
+          </div>
+        )}
         <Link
           to="/tra-cuu"
           className="focus-brass mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-medium text-primary transition-colors hover:border-accent"
@@ -405,23 +422,13 @@ function NguyenVanDieu({
                 {dieuKhoan.tieu_de}
               </h2>
             )}
+            {/* Quyết định 2026-09-28, mục 10: nhãn và MỘT câu thường nêu văn
+                bản sửa đổi kèm link — không `ly_do`, không dòng `sua_boi` với
+                nguồn và độ tin cậy (API vẫn trả, cho đo đạc). */}
             {nhan !== undefined && (
               <div className="mt-2">
                 <BadgeHieuLuc hieuLuc={nhan.hieu_luc.verdict} gonGang />
-                <p className="mt-1 mb-0 text-[12px] leading-5 text-muted-foreground">
-                  {nhan.hieu_luc.ly_do}
-                </p>
-                {nhan.sua_boi.map((sua) => (
-                  <p
-                    key={`${sua.vi_tri}-${sua.so_ky_hieu ?? ""}`}
-                    className="mt-1 mb-0 text-[12px] leading-5 text-muted-foreground"
-                  >
-                    {sua.vi_tri} — sửa bởi {sua.so_ky_hieu ?? "văn bản chưa rõ số hiệu"}
-                    {sua.duong_dan === null ? "" : ` (${sua.duong_dan})`}
-                    {sua.tu_ngay === null ? "" : ` từ ${ngayVietNam(sua.tu_ngay)}`} · nguồn:{" "}
-                    {sua.nguon} · độ tin cậy: {docDoTinCay(sua.do_tin_cay)}
-                  </p>
-                ))}
+                <MoTaHieuLuc hieuLuc={nhan.hieu_luc} className="text-[12px]" />
               </div>
             )}
             <NoiDungDieuKhoan
@@ -576,20 +583,10 @@ function ManDocVanBan() {
     [docId, navigate],
   );
 
-  const ngay = (iso: string | null, khongCo: string) => (iso === null ? khongCo : ngayVietNam(iso));
   // Link chính thống đã qua cửa kiểm (https, đúng cổng) — vắng thì KHÔNG có dòng.
   const lienKet = vanBanHopLe(vanBan).lien_ket;
-  const meta: [string, string][] = [
-    ["Số hiệu", vanBan.so_ky_hieu],
-    ["Loại văn bản", vanBan.loai_van_ban],
-    // NULL = KHÔNG BIẾT (79/126 văn bản), không phải "không có cơ quan".
-    ["Cơ quan ban hành", vanBan.co_quan_ban_hanh ?? "Không rõ"],
-    ["Người ký", vanBan.nguoi_ky ?? "Không rõ"],
-    ["Chức danh người ký", vanBan.chuc_danh_nguoi_ky ?? "Không rõ"],
-    ["Ngày ban hành", ngay(vanBan.ngay_ban_hanh, "Không rõ")],
-    ["Ngày có hiệu lực", ngay(vanBan.ngay_hieu_luc, "Không rõ")],
-    ["Ngày hết hiệu lực", ngay(vanBan.ngay_het_hieu_luc, "Chưa có")],
-  ];
+  // Trường NULL = KHÔNG BIẾT, nên cả dòng bỏ đi — không "Không rõ", không "Chưa có".
+  const meta = dongThongTin(vanBan);
 
   const thanhBen = (
     <div>
@@ -683,11 +680,11 @@ function ManDocVanBan() {
         </aside>
 
         <div className="min-w-0 flex-1">
-          {/* KHÔNG sticky. Khối này cao ~200px vì nhãn hiệu lực luôn kèm câu nêu
-              lý do (câu đó là thứ khiến nhãn trung thực, không được rút gọn), và
-              một dải cố định cao chừng đó ăn hết một phần tư màn hình đọc. Nhãn
-              cấp ĐIỀU KHOẢN vẫn nằm ngay cạnh từng điều trong nguyên văn, nên
-              không có chỗ nào người đọc thấy điều luật mà không thấy nhãn. */}
+          {/* KHÔNG sticky. Tên văn bản dài xuống hai, ba dòng, cộng nhãn và câu
+              `mo_ta` bên dưới, và một dải cố định cao chừng đó ăn mất một phần
+              màn hình đọc. Nhãn cấp ĐIỀU KHOẢN vẫn nằm ngay cạnh từng điều trong
+              nguyên văn, nên không có chỗ nào người đọc thấy điều luật mà không
+              thấy nhãn. */}
           <div className="border-b border-border bg-background px-5 py-3">
             <div className="mx-auto max-w-[760px]">
               <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
@@ -700,21 +697,15 @@ function ManDocVanBan() {
               <h1 className="font-display mt-1 text-[22px] leading-tight font-bold text-primary">
                 {vanBan.bo_luat}
               </h1>
-              {/* Nhãn hiệu lực CẤP VĂN BẢN — nguồn duy nhất là `/hieu-luc`. */}
+              {/* Nhãn hiệu lực CẤP VĂN BẢN — nguồn duy nhất là `/hieu-luc`. Dưới
+                  nhãn chỉ có câu `mo_ta` (quyết định 2026-09-28, mục 10): không
+                  lý do nội bộ, không ngày đánh giá, không độ tin cậy. Câu đó ở
+                  màu trung tính, không qua `ghiChu` — `ghiChu` mang màu của
+                  nhãn, dành cho câu nêu văn bản thay thế trong khung đối chiếu. */}
               {hieuLuc !== null && (
                 <div className="mt-2">
                   <BadgeHieuLuc hieuLuc={hieuLuc.van_ban.verdict} gonGang />
-                  {/* `ly_do` là LÝ DO, không phải cảnh báo. Prop `ghiChu` tô đỏ
-                      vì nó dành cho câu nêu đích danh văn bản thay thế; đưa lý
-                      do của một nhãn hổ phách vào khay đỏ là dán mức báo động
-                      của nhãn nặng nhất lên mọi nhãn. */}
-                  <p className="mt-1 mb-0 text-[13px] leading-5 text-muted-foreground">
-                    {hieuLuc.van_ban.ly_do}
-                  </p>
-                  <p className="mt-1 mb-0 text-[11px] text-muted-foreground">
-                    Đánh giá tại ngày {ngayVietNam(hieuLuc.as_of)} · độ tin cậy:{" "}
-                    {docDoTinCay(hieuLuc.van_ban.tin_cay)}
-                  </p>
+                  <MoTaHieuLuc hieuLuc={hieuLuc.van_ban} />
                 </div>
               )}
             </div>

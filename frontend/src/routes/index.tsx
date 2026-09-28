@@ -64,7 +64,7 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: "Nhãn hiệu lực đi kèm trích dẫn",
-    desc: "Mỗi trích dẫn mang nhãn hiệu lực thấy được, kể cả khi nhãn đó là “chưa xác định được”.",
+    desc: "Mỗi trích dẫn mang nhãn hiệu lực thấy được. KLAW chỉ dẫn văn bản còn hiệu lực và có nguồn chính thống.",
   },
   {
     icon: Landmark,
@@ -123,7 +123,7 @@ const FAQS = [
   },
   {
     q: "KLAW dựa trên nguồn nào?",
-    a: "KLAW truy hồi trên một kho văn bản gốc lấy từ Cơ sở dữ liệu quốc gia về văn bản quy phạm pháp luật, tập trung vào pháp luật lao động, và luôn nêu tên văn bản kèm điều, khoản, điểm để bạn tự kiểm chứng. Kho là văn bản GỐC, không phải bản hợp nhất — KLAW bảo đảm đúng nguyên văn, không bảo đảm đó là bản hiện hành, và nói rõ khi không xác định được.",
+    a: "KLAW truy hồi trên một kho văn bản gốc lấy từ Cơ sở dữ liệu quốc gia về văn bản quy phạm pháp luật, tập trung vào pháp luật lao động, và luôn nêu tên văn bản kèm điều, khoản, điểm để bạn tự kiểm chứng. Kho là văn bản GỐC, không phải bản hợp nhất — KLAW bảo đảm đúng nguyên văn, không bảo đảm đó là bản hiện hành, và chỉ hiện văn bản còn hiệu lực.",
   },
   {
     q: "Tôi có cần biết thuật ngữ pháp lý không?",

@@ -144,6 +144,13 @@ async function docDetail(phanHoi: Response): Promise<{ cau: string | null; tho: 
   if (typeof than === "object" && than !== null && !Array.isArray(than)) {
     const detail = (than as Record<string, unknown>)["detail"];
     if (typeof detail === "string" && detail !== "") return { cau: detail, tho: than };
+    // 404 văn bản bị ẩn (`{ma, thong_diep, thay_the}`): câu cho người đọc nằm
+    // trong object. Cả object vẫn đi tiếp ở `tho` — `vanBanBiAn` đọc nó.
+    const cau =
+      typeof detail === "object" && detail !== null
+        ? (detail as Record<string, unknown>)["thong_diep"]
+        : null;
+    if (typeof cau === "string" && cau.trim() !== "") return { cau: cau.trim(), tho: than };
   }
   return { cau: null, tho: than };
 }

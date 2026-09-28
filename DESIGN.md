@@ -233,9 +233,15 @@ chuyện khác nhau:
 - *"Bị sửa một phần, chưa xác định được điều này còn hiệu lực hay không"* — hệ
   thống **không biết**, và nói ra.
 
-`BadgeHieuLuc` hiện chip *"Một phần không xác định"*, `nhanDayDu` cho trình đọc
-màn hình mang trọn mệnh đề thứ hai, và ngay dưới chip là câu nói ra lý do: CSDL
-quốc gia không công bố dữ liệu cấp điều khoản.
+**Thay bởi quyết định 2026-09-28, mục 8 và 10** (luật của chủ dự án): chỉ văn
+bản còn hiệu lực được hiện, "Chưa xác định" không bao giờ xuất hiện, không dòng
+chẩn đoán nào. `BadgeHieuLuc` nay hiện chip *"Còn hiệu lực một phần"*;
+`nhanDayDu` giữ giới hạn mà không nói "chưa xác định" ("một số điều khoản có
+thể đã được sửa đổi hoặc hết hiệu lực"). `chua_xac_dinh` và `can_doi_chieu_tay`
+không vẽ gì — văn bản chưa rõ tình trạng bị ẩn ở máy chủ. Dưới nhãn chỉ có câu
+`mo_ta` của máy chủ (`MoTaHieuLuc`), không `ly_do`, không độ tin cậy.
+`npm run kiem-khong-chan-doan` chặn chữ chẩn đoán trên `src/components` và
+`src/routes`.
 
 **Còn nợ, ghi rõ:** `van-ban.ts` và `VanBanUI.tsx` **chưa** đổi. Năm chuỗi trong
 `TinhTrang` là giá trị thô của cột `documents.tinh_trang` do MOJ cấp, không phải
