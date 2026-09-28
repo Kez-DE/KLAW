@@ -830,10 +830,16 @@ Limits, stated plainly:
   does not remove the original text layer.
 - Evaluation Form's 33 text-less dot-leader continuation lines are not fillable
   (contract, upgrade path recorded).
-- Positions of `o` cells rely on probe shading measured on LibreOffice 26.2.4
-  only; the production image (25.2.3) is unmeasured end to end and falls back to
-  'Chỗ trống chưa định vị' if shading differs. The P6 in-image egress run is
-  still pending (P2c measured a same-base throwaway image).
+- Production image measured 2026-09-28 (local build of main, linux/arm64,
+  LibreOffice 25.2.3, `--network none`): 8/8 forms give the true page count,
+  every blank positioned except the known BM.ĐT.18.03 '… năm 20…', `o` cells
+  filled and positioned, the four egress tests pass. Render 0.4–2.0 s per
+  document. Peak memory per render ≈ 236 MB soffice.bin + 85 MB oosplash + 23 MB
+  pdftoppm; with 3 shared slots plan for ≥ 2 GB RAM (0.5 GB will not hold one
+  render next to the app). LibreOffice 25.2 lays BM.M05 page 1 out closer to
+  Word than the Mac's 26.2 (ink IoU vs Word 0.28 vs 0.17; page 2 0.61 vs 0.55).
+  Railway builds linux/amd64 from a fresh base — re-check `soffice --version`
+  on the deployed service.
 - History keeps the last 10 snapshots, so Lùi cannot reach the earliest of many
   on-page saves.
 
