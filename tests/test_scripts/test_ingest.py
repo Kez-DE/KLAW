@@ -145,3 +145,87 @@ def test_ingest_dung_lai_canh_cap_dieu_khoan():
             _text('SELECT count(*) FROM "references" WHERE from_provision_id IS NOT NULL')
         ).scalar_one()
     assert con_lai > 2000, f"ingest phải dựng lại cạnh cấp điều khoản, chỉ thấy {con_lai}"
+
+
+# ══ Nâng tầng nông TẠI CHỖ — không DELETE văn bản đã có hàng shallow ══
+
+_ID_NANG = "__k1_nang_tai_cho__"
+
+
+@pytest.mark.integration
+def test_nang_tang_nong_TAI_CHO_giu_canh_va_thay_mo_dau_gia():
+    """Một văn bản `shallow` (tên + một hàng `mo_dau`, cạnh hiệu lực trỏ vào và
+    đi ra) có toàn văn → phải lên `deep` TẠI CHỖ. Nhánh DELETE-rồi-INSERT của
+    `ingest` CASCADE xoá cạnh đi ra (`references_from_document_fk`) và chunk
+    của nó: cạnh loai 22 "văn bản X quy định tôi hết hiệu lực" là chứng từ hiệu
+    lực của chính văn bản này, mất nó là `effectivity` tụt phán quyết mà không
+    ai thấy. Cạnh loai 22 còn sống sau lời gọi = văn bản KHÔNG bị xoá.
+
+    Chạy trong một transaction rồi ROLLBACK: không để lại gì trong DB dùng chung.
+    """
+    from sqlalchemy import text as _text
+
+    from scripts.ingest import _ghi_van_ban
+    from src.services.db import get_engine
+
+    sk = "999/2099/NĐ-CP"
+    with get_engine().connect() as conn:
+        tx = conn.begin()
+        try:
+            conn.execute(_text(
+                "INSERT INTO documents (id, so_ky_hieu, loai_van_ban, ten, tinh_trang, depth, checksum)"
+                " VALUES (:i, :sk, 'Nghị định', 'Nghị định số 999/2099/NĐ-CP thử nâng tầng',"
+                "         'chua_xac_dinh', 'shallow', 'metadata-only')"), {"i": _ID_NANG, "sk": sk})
+            gia = conn.execute(_text(
+                "INSERT INTO provisions (document_id, cap, so_hieu_cap, noi_dung, duong_dan, thu_tu)"
+                " VALUES (:i, 'mo_dau', '', 'Nghị định số 999/2099/NĐ-CP thử nâng tầng', :dd, 0)"
+                " RETURNING id"), {"i": _ID_NANG, "dd": f"{sk} > Mở đầu"}).scalar_one()
+            conn.execute(_text(
+                'INSERT INTO "references" (from_document_id, to_document_id, loai, raw_text) VALUES'
+                " (:i, '139264', 22, 'Văn bản quy định hết hiệu lực'),"
+                " ('139264', :i, 21, 'Thay thế')"), {"i": _ID_NANG})
+
+            d = {"id": _ID_NANG, "so_ky_hieu": sk, "loai_van_ban": "Nghị định",
+                 "ten": "Nghị định số 999/2099/NĐ-CP thử nâng tầng", "co_quan_ban_hanh": "Chính phủ",
+                 "ngay_ban_hanh": "2099-01-01", "ngay_hieu_luc": "2099-02-01",
+                 "ngay_het_hieu_luc": None, "tinh_trang": "HHL", "nguoi_ky": None,
+                 "chuc_danh_nguoi_ky": None, "linh_vuc": None, "depth": "deep",
+                 "nguon_url": f"vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/{_ID_NANG}",
+                 "checksum": "toan-van"}
+            mine = [
+                {"local_id": 0, "parent_local_id": None, "cap": "mo_dau", "so_hieu_cap": "",
+                 "tieu_de": "", "noi_dung": "CHÍNH PHỦ Căn cứ Bộ luật Lao động;", "duong_dan":
+                 f"{sk} > Mở đầu", "source_node_id": None, "thu_tu": 0, "document_id": _ID_NANG},
+                {"local_id": 1, "parent_local_id": None, "cap": "dieu", "so_hieu_cap": "1",
+                 "tieu_de": "Điều 1", "noi_dung": "Điều 1. Phạm vi", "duong_dan":
+                 f"{sk} > Điều 1", "source_node_id": "a1", "thu_tu": 1, "document_id": _ID_NANG},
+                {"local_id": 2, "parent_local_id": 1, "cap": "khoan", "so_hieu_cap": "1",
+                 "tieu_de": "Khoản 1", "noi_dung": "1. Nội dung khoản một.", "duong_dan":
+                 f"{sk} > Điều 1 > Khoản 1", "source_node_id": None, "thu_tu": 2,
+                 "document_id": _ID_NANG},
+            ]
+            refs = [{"from_document_id": _ID_NANG, "to_document_id": "139264", "loai": 12,
+                     "raw_text": "45/2019/QH14"}]
+
+            assert _ghi_van_ban(conn, d, mine, refs, "shallow") == (3, 1)
+
+            doc = conn.execute(_text(
+                "SELECT depth, checksum, co_quan_ban_hanh, tinh_trang FROM documents WHERE id = :i"),
+                {"i": _ID_NANG}).one()
+            assert tuple(doc) == ("deep", "toan-van", "Chính phủ", "HHL")
+            mo_dau = conn.execute(_text(
+                "SELECT id, noi_dung FROM provisions WHERE document_id = :i AND cap = 'mo_dau'"),
+                {"i": _ID_NANG}).all()
+            assert len(mo_dau) == 1 and mo_dau[0].id != gia, "hàng mo_dau giả phải nhường chỗ lời mở đầu thật"
+            assert mo_dau[0].noi_dung.startswith("CHÍNH PHỦ")
+            khoan_cha = conn.execute(_text(
+                "SELECT c.duong_dan FROM provisions k JOIN provisions c ON c.id = k.parent_id"
+                " WHERE k.document_id = :i AND k.cap = 'khoan'"), {"i": _ID_NANG}).scalar_one()
+            assert khoan_cha == f"{sk} > Điều 1"
+            canh = set(conn.execute(_text(
+                'SELECT from_document_id, to_document_id, loai FROM "references"'
+                " WHERE :i IN (from_document_id, to_document_id)"), {"i": _ID_NANG}).all())
+            assert canh == {(_ID_NANG, "139264", 22), ("139264", _ID_NANG, 21),
+                            (_ID_NANG, "139264", 12)}, canh
+        finally:
+            tx.rollback()
