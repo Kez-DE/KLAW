@@ -126,6 +126,11 @@ export interface Citation extends TrichDanDayDu {
   k?: number | null;
   /** Vai trò của căn cứ: `ket_luan` | `dieu_kien` | `ngoai_le` | `che_tai`. `null`/vắng = prompt sinh chưa gắn vai trò. */
   vai_tro?: string | null;
+  /**
+   * Câu `warnings[]` của CHÍNH trích dẫn này (2026-09-28); `null` = không cảnh
+   * báo, vắng = payload lưu trước trường này. Đọc qua `ghiChuHieuLuc`.
+   */
+  canh_bao?: string | null;
 }
 
 /**

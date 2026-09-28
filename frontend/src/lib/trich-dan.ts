@@ -368,13 +368,22 @@ export function chuoiSaoChep(cachTrich: string, lienKet: LienKet | null): string
 }
 
 /**
- * Câu `warnings[]` của ĐÚNG văn bản — nó nêu đích danh văn bản thay thế/sửa
- * đổi (`assemble`: `"{số hiệu} {nhãn}: {lý do}"`), và là `ghiChu` của
- * `BadgeHieuLuc`. So cả dấu cách sau số hiệu: "2/2022/NĐ-CP" không được nhận
- * câu của "12/2022/NĐ-CP".
+ * Câu cảnh báo hiệu lực của ĐÚNG trích dẫn — nó nêu đích danh văn bản thay
+ * thế/sửa đổi (`assemble`: `"{số hiệu} {nhãn}: {lý do}"`), và là `ghiChu` của
+ * `BadgeHieuLuc`.
+ *
+ * `canh_bao` (máy chủ gắn vào CHÍNH trích dẫn) thắng: hiệu lực tính theo điều
+ * khoản, nên dò `warnings[]` theo số hiệu có thể đặt câu của điều đã bị thay
+ * thế cạnh một điều còn hiệu lực cùng văn bản. Dò chỉ cho payload lưu trước
+ * trường này; so cả dấu cách sau số hiệu: "2/2022/NĐ-CP" không được nhận câu
+ * của "12/2022/NĐ-CP".
  */
-export function ghiChuHieuLuc(warnings: readonly string[], soKyHieu: string): string | undefined {
-  return warnings.find((w) => w.startsWith(`${soKyHieu} `));
+export function ghiChuHieuLuc(
+  warnings: readonly string[],
+  trichDan: { so_ky_hieu: string; canh_bao?: string | null },
+): string | undefined {
+  if (trichDan.canh_bao !== undefined) return trichDan.canh_bao ?? undefined;
+  return warnings.find((w) => w.startsWith(`${trichDan.so_ky_hieu} `));
 }
 
 /**

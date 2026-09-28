@@ -1027,7 +1027,7 @@ function ManHoiKlaw() {
       quote: trichDan.quote,
       hieuLuc: trichDan.hieu_luc,
       trichDan,
-      ghiChu: ghiChuHieuLuc(ketQua.warnings, trichDan.so_ky_hieu),
+      ghiChu: ghiChuHieuLuc(ketQua.warnings, trichDan),
     });
   };
 

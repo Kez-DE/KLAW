@@ -234,16 +234,25 @@ type Citation = import("../src/lib/klaw.ts").Citation;
   assert.equal(chuoiSaoChep(cau, null), cau);
 }
 
-// 12. Ghi chú hiệu lực: câu `warnings[]` của ĐÚNG văn bản, không của văn bản
-//     trùng tiền tố số hiệu.
+// 12. Ghi chú hiệu lực: `canh_bao` của CHÍNH trích dẫn khi máy chủ gửi (hiệu
+//     lực tính theo điều khoản — hai trích dẫn cùng văn bản khác nhãn được);
+//     payload cũ thì câu `warnings[]` của ĐÚNG văn bản, không của văn bản trùng
+//     tiền tố số hiệu.
 {
   const canhBao = [
     "12/2022/NĐ-CP đã hết hiệu lực: hết hiệu lực từ 2026-09-10",
     "90/2019/NĐ-CP đã bị thay thế: bị 38/2022/NĐ-CP thay thế từ 2022-07-01",
   ];
-  assert.equal(ghiChuHieuLuc(canhBao, "90/2019/NĐ-CP"), canhBao[1]);
-  assert.equal(ghiChuHieuLuc(canhBao, "2/2022/NĐ-CP"), undefined);
-  assert.equal(ghiChuHieuLuc(canhBao, "45/2019/QH14"), undefined);
+  assert.equal(ghiChuHieuLuc(canhBao, { so_ky_hieu: "90/2019/NĐ-CP" }), canhBao[1]);
+  assert.equal(ghiChuHieuLuc(canhBao, { so_ky_hieu: "2/2022/NĐ-CP" }), undefined);
+  assert.equal(ghiChuHieuLuc(canhBao, { so_ky_hieu: "45/2019/QH14" }), undefined);
+  // Điều khác của cùng văn bản, còn hiệu lực: máy chủ nói `null`, không mượn
+  // câu cảnh báo của điều đã bị thay thế.
+  assert.equal(ghiChuHieuLuc(canhBao, { so_ky_hieu: "90/2019/NĐ-CP", canh_bao: null }), undefined);
+  assert.equal(
+    ghiChuHieuLuc(canhBao, { so_ky_hieu: "12/2022/NĐ-CP", canh_bao: canhBao[0] }),
+    canhBao[0],
+  );
 }
 
 // 13. "Căn cứ pháp lý": thứ tự thẻ trong văn xuôi (rồi ô bảng), mỗi điều khoản
