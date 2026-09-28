@@ -1,8 +1,15 @@
 import { Fragment } from "react";
 import { Link } from "@tanstack/react-router";
 import { BookOpenText, ExternalLink, FileSearch, Info } from "lucide-react";
-import type { Nguon, SoanThaoGoiY, TaiLieuDaDung, TraCuuKetQua, VanBanTraLoi } from "@/lib/klaw";
-import { khuonHopLe } from "@/lib/klaw";
+import type {
+  Nguon,
+  SoanThaoGoiY,
+  TaiLieuDaDung,
+  TraCuuKetQua,
+  VanBanBiAn,
+  VanBanTraLoi,
+} from "@/lib/klaw";
+import { chuanHoaVanBanBiAn, khuonHopLe } from "@/lib/klaw";
 import { mauTheoId, slugCuaLoai } from "@/lib/mau-van-ban";
 import {
   cachTrichHopLe,
@@ -19,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { catDoan, catManh, type Manh } from "@/lib/van-xuoi";
 import { BadgeHieuLuc } from "./BadgeHieuLuc";
 import { BangKetQua } from "./BangKetQua";
+import { DanhSachThayThe } from "./BaoLoi";
 import { DuaTren } from "./DuaTren";
 import { TheBanThao } from "./TheBanThao";
 import { TheSoanThaoHoi } from "./TheSoanThaoHoi";
@@ -538,7 +546,30 @@ function CauHoiDaHieu({ goc, dayDu }: { goc: string | undefined; dayDu: string |
   );
 }
 
+/**
+ * Văn bản người hỏi NÊU TÊN mà không được hiện (quyết định 2026-09-28 mục 8):
+ * câu của máy chủ và văn bản thay thế, bằng CHÍNH `DanhSachThayThe` của trang
+ * 404 — hai chỗ nói một cách. Đứng TRƯỚC câu trả lời: câu trả lời dựa trên văn
+ * bản khác văn bản người hỏi nêu, và họ cần biết điều đó trước khi đọc. Khay
+ * trung tính: văn bản đã được thay thế không phải một lỗi. Rỗng/vắng thì không có gì.
+ */
+function KhoiVanBanAn({ an }: { an: readonly VanBanBiAn[] }) {
+  if (an.length === 0) return null;
+  return (
+    <div className="mb-4 flex flex-col gap-3">
+      {an.map((v, i) => (
+        <KhayTrungTinh key={i} tieuDe={v.thong_diep}>
+          <DanhSachThayThe thayThe={v.thay_the} />
+        </KhayTrungTinh>
+      ))}
+    </div>
+  );
+}
+
 export function TheKetQua(props: TheKetQuaProps) {
+  const an = (props.ketQua.van_ban_khong_hien_thi ?? [])
+    .map(chuanHoaVanBanBiAn)
+    .filter((v) => v !== null);
   return (
     <>
       <CauHoiDaHieu goc={props.cauHoiGoc} dayDu={props.ketQua.cau_hoi_day_du} />
@@ -546,6 +577,7 @@ export function TheKetQua(props: TheKetQuaProps) {
         muc={props.ketQua.ho_so_da_dung ?? []}
         {...(props.onSuaHoSo ? { onSua: props.onSuaHoSo } : {})}
       />
+      <KhoiVanBanAn an={an} />
       <NoiDungKetQua {...props} />
     </>
   );

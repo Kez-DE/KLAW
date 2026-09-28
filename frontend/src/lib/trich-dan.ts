@@ -15,7 +15,7 @@
  * Kiểm chạy được: `npm run kiem-trich-dan`.
  */
 
-import type { Citation, TraCuuKetQua } from "./klaw";
+import { laVanBanDan, type Citation, type TraCuuKetQua, type VanBanDan } from "./klaw.ts";
 import { ngayVietNam } from "./utils.ts";
 import { catManh, type Manh } from "./van-xuoi.ts";
 
@@ -376,14 +376,92 @@ export function chuoiSaoChep(cachTrich: string, lienKet: LienKet | null): string
  * khoản, nên dò `warnings[]` theo số hiệu có thể đặt câu của điều đã bị thay
  * thế cạnh một điều còn hiệu lực cùng văn bản. Dò chỉ cho payload lưu trước
  * trường này; so cả dấu cách sau số hiệu: "2/2022/NĐ-CP" không được nhận câu
- * của "12/2022/NĐ-CP".
+ * của "12/2022/NĐ-CP". Câu nào cũng qua `laCauChoNguoiDoc`: câu chẩn đoán thì
+ * không có ghi chú.
  */
 export function ghiChuHieuLuc(
   warnings: readonly string[],
   trichDan: { so_ky_hieu: string; canh_bao?: string | null },
 ): string | undefined {
-  if (trichDan.canh_bao !== undefined) return trichDan.canh_bao ?? undefined;
-  return warnings.find((w) => w.startsWith(`${trichDan.so_ky_hieu} `));
+  const cau =
+    trichDan.canh_bao !== undefined
+      ? (trichDan.canh_bao ?? undefined)
+      : warnings.find((w) => w.startsWith(`${trichDan.so_ky_hieu} `));
+  return cau !== undefined && laCauChoNguoiDoc(cau) ? cau : undefined;
+}
+
+const DAU_CHAN_DOAN =
+  /MOJ|(?<![\p{L}\p{N}])(?:CHL|HHL1P|HHL)(?![\p{L}\p{N}])|độ tin cậy|tín hiệu|đồ thị|corpus|bảng mã|(?:chưa|không) xác định|đánh giá tại ngày|\p{L}+_\p{L}+/iu;
+
+/**
+ * Câu hiệu lực có được hiện cho người đọc không — ĐỊNH NGHĨA DUY NHẤT của
+ * quyết định 2026-09-28, mục 10: không mã tình trạng nội bộ (MOJ, CHL, HHL…),
+ * không "độ tin cậy", không "tín hiệu", không "đồ thị"/"corpus", không "chưa/
+ * không xác định", không định danh máy (`chua_xac_dinh`). Câu không đạt thì
+ * BỎ HẲN, không sửa lại: nhãn vẫn đứng đó và vẫn đúng.
+ *
+ * Mọi câu hiệu lực từ máy chủ (`canh_bao`, `warnings[]`, `mo_ta`) qua đây. Nó
+ * bắt được cả lượt đã lưu trước khi máy chủ viết lời cho người đọc — các lượt
+ * đó mang nguyên `ly_do` chẩn đoán của `effectivity.py`.
+ */
+export function laCauChoNguoiDoc(cau: string): boolean {
+  const chu = cau.normalize("NFC");
+  return chu.trim() !== "" && !DAU_CHAN_DOAN.test(chu);
+}
+
+/** Một mảnh của câu `mo_ta`: chữ thường, hoặc tên một văn bản bấm được. */
+export type ManhMoTa = string | { chu: string; vanBan: VanBanDan };
+
+/**
+ * `HieuLucOut.mo_ta` cắt thành mảnh: tên mỗi văn bản của `van_ban_lien_quan`
+ * (số hiệu, không thấy thì tên đầy đủ) thành mảnh bấm được, theo đúng thứ tự
+ * danh sách. `null` = không hiện gì: vắng, rỗng, hoặc không phải câu cho người
+ * đọc. Câu không nêu tên một văn bản thì văn bản đó KHÔNG thành link — giao
+ * diện không chèn chữ nào máy chủ không viết.
+ */
+export function manhMoTa(hieuLuc: unknown): ManhMoTa[] | null {
+  const r = banGhi(hieuLuc);
+  const moTa = chuHopLe(r["mo_ta"])?.normalize("NFC") ?? null;
+  if (moTa === null || !laCauChoNguoiDoc(moTa)) return null;
+  const dsTho = r["van_ban_lien_quan"];
+  const ra: ManhMoTa[] = [];
+  let con = moTa;
+  for (const vanBan of Array.isArray(dsTho) ? dsTho.filter(laVanBanDan) : []) {
+    const chu = [vanBan.so_ky_hieu, vanBan.ten_van_ban]
+      .map((c) => chuHopLe(c)?.normalize("NFC"))
+      .find((c): c is string => c !== undefined && con.includes(c));
+    if (chu === undefined) continue;
+    const i = con.indexOf(chu);
+    if (i > 0) ra.push(con.slice(0, i));
+    ra.push({ chu, vanBan });
+    con = con.slice(i + chu.length);
+  }
+  if (con !== "") ra.push(con);
+  return ra;
+}
+
+/**
+ * Các dòng "Thông tin văn bản" của trang văn bản. Trường vắng hoặc dị dạng thì
+ * BỎ dòng — quyết định 2026-09-28, mục 8: không "Không rõ", không "Chưa có".
+ * Ngày dd/mm/yyyy.
+ */
+export function dongThongTin(vanBan: unknown): [string, string][] {
+  const r = banGhi(vanBan);
+  const ngay = (khoa: string) => {
+    const iso = ngayHopLe(r[khoa]);
+    return iso === null ? null : ngayVietNam(iso);
+  };
+  const dong: [string, string | null][] = [
+    ["Số hiệu", chuHopLe(r["so_ky_hieu"])],
+    ["Loại văn bản", chuHopLe(r["loai_van_ban"])],
+    ["Cơ quan ban hành", chuHopLe(r["co_quan_ban_hanh"])],
+    ["Người ký", chuHopLe(r["nguoi_ky"])],
+    ["Chức danh người ký", chuHopLe(r["chuc_danh_nguoi_ky"])],
+    ["Ngày ban hành", ngay("ngay_ban_hanh")],
+    ["Ngày có hiệu lực", ngay("ngay_hieu_luc")],
+    ["Ngày hết hiệu lực", ngay("ngay_het_hieu_luc")],
+  ];
+  return dong.filter((d): d is [string, string] => d[1] !== null);
 }
 
 /**

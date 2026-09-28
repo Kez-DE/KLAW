@@ -46,6 +46,7 @@ from src.models.schemas import (
 from src.services.db import get_engine
 from src.services.effectivity import bac_con_song, danh_gia_toan_bo
 from src.services.embedding import from_settings as embedder_from_settings
+from src.services.hien_thi import chan_neu_an, hieu_luc_ra, nap_van_ban_dan, tap_hien_thi
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,10 @@ TRICH_MAX = 400
 #
 # Tầng metadata KHÔNG bị giấu: `/pham-vi` công bố riêng cả ba tầng — đó là
 # chỗ đúng để nói ra, không phải bộ lọc.
-_KHONG_METADATA = " WHERE depth <> 'metadata'"
+#
+# `id = ANY(:hien)` (quyết định 2026-09-28 mục 8): mọi con số của bộ lọc chỉ đếm
+# văn bản được HIỆN, để số cạnh ô tick luôn bằng số dòng danh sách trả về.
+_KHONG_METADATA = " WHERE depth <> 'metadata' AND id = ANY(CAST(:hien AS text[]))"
 
 _SQL_BO_LOC = text(
     "SELECT count(*)::int AS tong,"
@@ -98,10 +102,12 @@ _SQL_CO_QUAN = text(
 
 
 def _bo_loc_sync() -> BoLocResponse:
+    eff = danh_gia_toan_bo(get_engine(), as_of_hieu_luc(None))
     with get_engine().connect() as c:
-        tong = c.execute(_SQL_BO_LOC).mappings().one()
-        loai = [GiaTriLoc(**dict(r)) for r in c.execute(_SQL_LOAI).mappings().all()]
-        co_quan = [GiaTriLoc(**dict(r)) for r in c.execute(_SQL_CO_QUAN).mappings().all()]
+        hien = {"hien": list(tap_hien_thi(c, eff))}
+        tong = c.execute(_SQL_BO_LOC, hien).mappings().one()
+        loai = [GiaTriLoc(**dict(r)) for r in c.execute(_SQL_LOAI, hien).mappings().all()]
+        co_quan = [GiaTriLoc(**dict(r)) for r in c.execute(_SQL_CO_QUAN, hien).mappings().all()]
     return BoLocResponse(
         tong_van_ban=tong["tong"],
         loai_van_ban=loai,
@@ -147,7 +153,9 @@ _KHOP = (
     "         d.loai_van_ban, d.co_quan_ban_hanh, d.ngay_ban_hanh"
     "  FROM khop k"
     "  JOIN provisions p ON p.id = k.provision_id"
-    "  JOIN documents d ON d.id = p.document_id"
+    # Chỉ văn bản được hiện (`services/hien_thi`) — trong SQL, để hai con số
+    # tổng và phân trang đếm đúng tập người dùng thấy.
+    "  JOIN documents d ON d.id = p.document_id AND d.id = ANY(CAST(:hien AS text[]))"
     # `CAST(... AS text[]) IS NULL` ở CẢ hai vế: psycopg gửi tham số không kèm
     # kiểu, và một `$n IS NULL` trần làm Postgres không suy được kiểu ⇒
     # AmbiguousParameter. Ép kiểu ở vế kiểm NULL, không chỉ ở vế so sánh.
@@ -208,13 +216,16 @@ def _trich(noi_dung: str, chunk: str) -> str:
     return than[:TRICH_MAX] + "…" if len(than) > TRICH_MAX else than
 
 
-def kiem_gia_tri_loc(conn, cot: str, gia_tri: list[str] | None) -> None:
-    """Từ chối một giá trị lọc không có trong DB, nêu tên các giá trị THẬT."""
+def kiem_gia_tri_loc(conn, cot: str, gia_tri: list[str] | None, hien: frozenset[str]) -> None:
+    """Từ chối một giá trị lọc không có trong DB, nêu tên các giá trị THẬT — của
+    văn bản được hiện: một giá trị chỉ văn bản ẩn mang là một chip trả rỗng."""
     if not gia_tri:
         return
     that = {
         r[0] for r in conn.execute(
-            text(f"SELECT DISTINCT {cot} FROM documents WHERE {cot} IS NOT NULL")  # noqa: S608
+            text(f"SELECT DISTINCT {cot} FROM documents WHERE {cot} IS NOT NULL"  # noqa: S608
+                 " AND id = ANY(CAST(:hien AS text[]))"),
+            {"hien": list(hien)},
         ).all()
     }
     la = sorted(set(gia_tri) - that)
@@ -256,8 +267,10 @@ def _tim_kiem_sync(
     eff = danh_gia_toan_bo(get_engine(), as_of)
 
     with get_engine().connect() as c:
-        kiem_gia_tri_loc(c, "loai_van_ban", loai)
-        kiem_gia_tri_loc(c, "co_quan_ban_hanh", co_quan)
+        hien = tap_hien_thi(c, eff)
+        tham_so["hien"] = list(hien)
+        kiem_gia_tri_loc(c, "loai_van_ban", loai, hien)
+        kiem_gia_tri_loc(c, "co_quan_ban_hanh", co_quan, hien)
 
         tong = c.execute(_SQL_TONG, tham_so).mappings().one()
 
@@ -268,6 +281,7 @@ def _tim_kiem_sync(
         rows = c.execute(
             _SQL_TRANG[sap_xep], {**tham_so, "limit": limit, "offset": offset}
         ).mappings().all()
+        dan = nap_van_ban_dan(c, (v for r in rows if r["doc_id"] in eff for v in eff[r["doc_id"]].van_ban), hien)
 
     # `chua_xac_dinh` cho văn bản vắng mặt trong `eff` — KHÔNG `con_hieu_luc`.
     # Nhánh này không đến được hôm nay (`danh_gia_toan_bo` phủ mọi dòng
@@ -287,8 +301,7 @@ def _tim_kiem_sync(
             tieu_de=r["tieu_de"], trich=_trich(r["noi_dung"], r["chunk"]),
             score=float(r["score"]),
             hieu_luc=(
-                HieuLucOut(verdict=e.verdict.value, tin_cay=e.tin_cay, ly_do=e.ly_do)
-                if (e := eff.get(r["doc_id"])) is not None else thieu
+                HieuLucOut(**hieu_luc_ra(e, dan)) if (e := eff.get(r["doc_id"])) is not None else thieu
             ),
         )
         for r in rows
@@ -378,6 +391,7 @@ def _thoat_like(q: str) -> str:
 
 def _tim_trong_van_ban_sync(doc_id: str, q: str, limit: int) -> TimTrongVanBanResponse:
     mau = _thoat_like(q)
+    chan_neu_an(get_engine(), doc_id, as_of_hieu_luc(None))
     with get_engine().connect() as c:
         so_ky_hieu = c.execute(_SQL_DOC_TOI_THIEU, {"doc_id": doc_id}).scalar_one_or_none()
         if so_ky_hieu is None:

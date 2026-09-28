@@ -70,16 +70,20 @@ async def test_bo_loc_chi_mo_ta_van_ban_tim_kiem_toi_duoc(client):
     """
     from sqlalchemy import text as _text
 
+    from src.config import as_of_hieu_luc
     from src.services.db import get_engine
+    from src.services.hien_thi import hien_thi_luc
 
     d = (await client.get("/api/v1/bo-loc")).json()
 
+    # Chỉ văn bản được hiện (quyết định 2026-09-28 mục 8) — tìm kiếm cũng chỉ với tới chúng.
     with get_engine().connect() as c:
         that = dict(c.execute(_text(
             "SELECT loai_van_ban, count(*)::int FROM documents d"
             " WHERE EXISTS (SELECT 1 FROM provisions p WHERE p.document_id = d.id)"
+            "   AND d.id = ANY(CAST(:hien AS text[]))"
             " GROUP BY 1"
-        )).all())
+        ), {"hien": list(hien_thi_luc(get_engine(), as_of_hieu_luc(None)))}).all())
 
     tra_ve = {v["gia_tri"]: v["so_van_ban"] for v in d["loai_van_ban"]}
     assert tra_ve == that, (

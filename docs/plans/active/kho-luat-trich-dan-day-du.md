@@ -103,7 +103,43 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   sheet) carries it. General and khuôn-gốc drafts get `[]`. Remaining: open a
   labour draft in the real app and check the downloaded file.
 - [ ] K6 full text for every shown document, PDFs.
-- [ ] K7 visibility rule and diagnostics hidden.
+- [x] K7 visibility rule and diagnostics hidden (2026-09-28,
+  `integ/hien-thi-con-hieu-luc`, not yet on main). `services/hien_thi` is the
+  one definition: shown = MOJ `tinh_trang` CHL/HHL1P AND KLAW verdict alive
+  (`VERDICT_HIEN`) AND `trich_dan.lien_ket` passes. Lists, bộ lọc counts,
+  tìm kiếm, phạm vi, liên quan, retrieval/expand, drafting sources and the
+  answer-cache key use it; `test_hien_thi_bat_bien` guards every user read.
+  A hidden document answers 404 `{ma: "khong_hien_thi", thong_diep,
+  thay_the}` on the document routes; a question naming one gets
+  `van_ban_khong_hien_thi` (plain sentence + replacing documents with links)
+  and a `warnings[]` line. Readers never see `ly_do`/`tin_cay`/MOJ codes:
+  `HieuLucOut.mo_ta` + `van_ban_lien_quan`, `canh_bao` in reader wording;
+  frontend badge reads "Còn hiệu lực một phần", draws nothing for
+  `chua_xac_dinh`/`can_doi_chieu_tay`, and `kiem-khong-chan-doan` scans
+  components/routes. Integration closed two contract gaps: the answer card
+  renders `van_ban_khong_hien_thi` with the 404 page's `DanhSachThayThe`
+  (the backend no longer copies the sentence into `coverage_note`, so it
+  shows once), and a provision's reader warning (`ghiChu`) still shows when
+  its label draws nothing. Templates whose checklist root basis is hidden
+  stop before the paid call: plain chat reply, 422 sentence as the rebuild
+  toast. Snapshot of the shared DB, read-only, 2026-09-28 09:01 UTC, while
+  K2 was still writing: 1,822 documents, 10 with a verified link, **8
+  shown** (the six codes, 145/2020/NĐ-CP, 293/2025/NĐ-CP); 8/29 templates
+  blocked (root basis in 30/2020/NĐ-CP ×4, 10/2020/TT-BLĐTBXH, 59/2020/QH14,
+  15/2012/QH13, 02/2011/QH13). Golden: 26/77 questions have every expected
+  provision in a hidden document (22 on 12/2022/NĐ-CP, now `het_hieu_luc`;
+  2 on 337/2025/NĐ-CP, 1 on 84/2015/QH13, 1 on 18/2021/TT-BLĐTBXH — no link
+  yet), 1 more partly (135/2020/NĐ-CP). Remaining and open risks: (a) K5
+  must re-baseline and the 12/2022 golden items need re-anchoring to its
+  replacement — golden unchanged here; (b) owner decision: 135/2020/NĐ-CP is
+  HHL1P with a verified link but hidden because KLAW's verdict is
+  `can_doi_chieu_tay` — item 8 names MOJ status and link, the verdict
+  condition is the backend's reading; (c) deploy the frontend with or before
+  the backend, or the hidden-document notice is invisible in between; (d)
+  every data refresh changes the shown set and so invalidates the answer
+  cache (by design); (e) `GET /mau/{loai}` still names a hidden basis — the
+  frame then shows the 404 notice; (f) PDF rows wait for K6; (g) no real-app
+  browser check yet.
 - [ ] K5 after eval, credit.
 
 ## Decisions

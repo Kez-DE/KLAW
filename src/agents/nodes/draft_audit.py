@@ -87,7 +87,9 @@ def draft_audit(state: dict, rules: list[Rule], checklist: Checklist,
             findings.append(AuditFinding(
                 "trai_luat", "canh_bao",
                 f"Phúc lợi khác ({', '.join(khop)}) có vẻ bị gộp vào mục "
-                f"{ten_theo_key[c.key]!r}, TT10 Đ3.5.c yêu cầu ghi thành mục riêng",
+                # Lời không nêu văn bản: điều luật đi ở `can_cu`, nơi tầng API
+                # bỏ nó khi văn bản bị ẩn (quyết định 2026-09-28 mục 8).
+                f"{ten_theo_key[c.key]!r}, phúc lợi khác phải ghi thành mục riêng",
                 dieu_khoan_lien_quan=c.noi_dung[:120],
                 can_cu={"duong_dan": checklist.quy_tac_dinh_dang["can_cu"]}))
 

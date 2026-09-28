@@ -36,6 +36,7 @@ from sqlalchemy import text
 from src.agents.nodes.verify_tier1 import normalize
 from src.config import get_settings
 from src.services.db import get_engine
+from src.services.hien_thi import hien_thi_luc
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +68,12 @@ _SQL_GHI = text(
 )
 
 
-def corpus_checksum() -> str:
-    """Dấu vết của corpus đang nạp: `<số provision>:<lần crawl gần nhất>`.
+def corpus_checksum(as_of: date | None = None) -> str:
+    """Dấu vết của corpus đang nạp: `<số provision>:<lần crawl gần nhất>`, cộng —
+    khi có `as_of` — dấu của TẬP VĂN BẢN ĐƯỢC HIỆN tại mốc đó
+    (`services/hien_thi`, quyết định 2026-09-28 mục 8). Một lần nạp link hay làm
+    mới tình trạng đổi tập được hiện mà không đổi hai đại lượng kia; thiếu phần
+    này thì câu trả lời đã cache vẫn trích một văn bản vừa bị ẩn suốt 7 ngày.
 
     Suy từ hai đại lượng đã có thay vì thêm một bảng phiên bản: cả hai đổi khi
     và chỉ khi corpus được nạp lại (`scripts/ingest.py` chèn provisions và cập
@@ -81,7 +86,11 @@ def corpus_checksum() -> str:
     """
     with get_engine().connect() as c:
         n, moc = c.execute(_SQL_CHECKSUM).one()
-    return f"{n}:{moc.isoformat() if moc else 'chua-crawl'}"
+    goc = f"{n}:{moc.isoformat() if moc else 'chua-crawl'}"
+    if as_of is None:
+        return goc
+    dau = hashlib.sha256("\x1f".join(sorted(hien_thi_luc(get_engine(), as_of))).encode()).hexdigest()[:16]
+    return f"{goc}:{dau}"
 
 
 def khoa_cache(cau_hoi: str, config_name: str, as_of: date, checksum: str) -> str:
@@ -135,7 +144,7 @@ def tra_cache(cau_hoi: str, config_name: str, as_of: date) -> tuple[str | None, 
     ttl = get_settings().cache_ttl_ngay
     if ttl <= 0:
         return None, None, None
-    checksum = corpus_checksum()
+    checksum = corpus_checksum(as_of)
     khoa = khoa_cache(cau_hoi, config_name, as_of, checksum)
     return khoa, checksum, _doc_dong(khoa, ttl)
 

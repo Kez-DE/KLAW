@@ -421,6 +421,25 @@ class TaiLieuKetQuaOut(BaseModel):
     tai_lieu_da_dung: list[TaiLieuDaDungOut] = []
 
 
+class VanBanDan(BaseModel):
+    """Một văn bản được NÊU TÊN cho người đọc (văn bản thay thế, văn bản sửa đổi).
+    `doc_id` chỉ có khi chính văn bản đó được hiện (`services/hien_thi`) — một
+    `doc_id` của văn bản ẩn là mời giao diện dựng link tới trang 404."""
+
+    doc_id: str | None
+    so_ky_hieu: str
+    ten_van_ban: str | None
+    lien_ket: str | None
+
+
+class VanBanAnOut(BaseModel):
+    ma: Literal["khong_hien_thi"] = "khong_hien_thi"
+    so_ky_hieu: str
+    ten_van_ban: str | None
+    thong_diep: str
+    thay_the: list[VanBanDan]
+
+
 class TraCuuResponse(BaseModel):
     # Phải khớp ĐỦ `ResultType` ở `assemble.py`. Một loại có ở enum mà thiếu ở
     # đây thì graph dựng đúng kết quả rồi chết ở khâu tuần tự hoá — đã xảy ra
@@ -486,6 +505,11 @@ class TraCuuResponse(BaseModel):
     # cách nào sửa. Mặc định `None` để một dòng cache ghi trước bản này (payload
     # không có khoá này) vẫn tuần tự hoá được.
     cau_hoi_day_du: str | None = None
+    # Văn bản người hỏi NÊU TÊN mà không được hiện (quyết định 2026-09-28 mục 8):
+    # cùng hình dạng với 404 `khong_hien_thi` của trang văn bản, để giao diện nói
+    # "không còn hiệu lực" và mở văn bản thay thế bằng MỘT thành phần. Mặc định
+    # `[]` cùng lý do `bang`: payload cache cũ không có khoá này.
+    van_ban_khong_hien_thi: list[VanBanAnOut] = []
     trace_id: str
     config_name: str
 
@@ -848,11 +872,17 @@ class BoLocResponse(BaseModel):
 class HieuLucOut(BaseModel):
     """Phán quyết của KLAW (`effectivity.Effectivity`), KHÔNG PHẢI
     `documents.tinh_trang`. Tên `verdict` giữ nguyên chuỗi của `EffectivityVerdict`
-    để FE `switch` trên nó và để nhãn mới rơi vào `default` an toàn."""
+    để FE `switch` trên nó và để nhãn mới rơi vào `default` an toàn.
+
+    `tin_cay`/`ly_do` ở lại cho độ chính xác và eval, KHÔNG để hiện (quyết định
+    2026-09-28 mục 10). Người đọc thấy nhãn và `mo_ta` — một câu thường, không
+    mã nội bộ — kèm đúng các văn bản câu đó nêu (`van_ban_lien_quan`)."""
 
     verdict: str
     tin_cay: str
     ly_do: str
+    mo_ta: str | None = None
+    van_ban_lien_quan: list[VanBanDan] = []
 
 
 class KetQuaTimKiem(BaseModel):

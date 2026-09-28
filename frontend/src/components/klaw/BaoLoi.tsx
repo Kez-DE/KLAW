@@ -1,6 +1,7 @@
 import { RotateCcw } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import type { ApiError, ApiErrorKind } from "@/lib/klaw";
+import { vanBanBiAn, type ApiError, type ApiErrorKind, type VanBanDan } from "@/lib/klaw";
+import { LinkVanBanDan } from "./BadgeHieuLuc";
 
 /**
  * Lỗi hệ thống — mạng, timeout, máy chủ, body sai hình dạng.
@@ -85,7 +86,50 @@ interface BaoLoiProps {
   onNangGoi?: () => void;
 }
 
+/**
+ * Văn bản thay thế một văn bản bị ẩn (404 `khong_hien_thi`, quyết định
+ * 2026-09-28, mục 8): link nội bộ khi văn bản thay thế được hiện, link chính
+ * thống khi không, số hiệu trần khi không có cả hai. Rỗng thì không có gì.
+ */
+export function DanhSachThayThe({ thayThe }: { thayThe: VanBanDan[] }) {
+  if (thayThe.length === 0) return null;
+  return (
+    <div className="mt-3">
+      <p className="m-0 text-[13px] font-medium text-foreground">Văn bản thay thế</p>
+      <ul className="mt-1 mb-0 flex list-none flex-col gap-1 p-0 text-[14px] leading-6">
+        {thayThe.map((vb) => {
+          const ten = typeof vb.ten_van_ban === "string" ? vb.ten_van_ban.trim() : "";
+          return (
+            <li key={`${vb.doc_id ?? ""}-${vb.so_ky_hieu}`}>
+              <LinkVanBanDan vanBan={vb}>
+                <span className="font-jetbrains">{vb.so_ky_hieu}</span>
+              </LinkVanBanDan>
+              {ten !== "" && <span className="text-muted-foreground"> — {ten}</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export function BaoLoi({ loi, onThuLai, onNangGoi }: BaoLoiProps) {
+  // Văn bản bị ẩn không phải một lỗi hệ thống: không gợi ý, không mã HTTP,
+  // không "Thử lại" (thử lại vẫn là cùng câu trả lời). Câu của máy chủ và
+  // văn bản thay thế là toàn bộ điều cần nói.
+  const biAn = vanBanBiAn(loi);
+  if (biAn !== null) {
+    return (
+      <div
+        role="alert"
+        className="mt-4 rounded-xl border-l-2 border border-border bg-[var(--color-paper-50)] p-4"
+        style={{ borderLeftColor: "var(--color-status-neutral)" }}
+      >
+        <p className="doc-prose m-0 text-foreground">{biAn.thong_diep}</p>
+        <DanhSachThayThe thayThe={biAn.thay_the} />
+      </div>
+    );
+  }
   const them = goiY(loi.kind);
   // 429 KHÔNG kèm nút thử lại: bấm lại ngay chỉ nhận đúng 429 đó thêm một lần.
   // Ba nguyên nhân của mã này (quá nhịp, hết hạn mức, trần chi phí) đều cần

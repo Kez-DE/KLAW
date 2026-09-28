@@ -31,8 +31,8 @@ from langgraph.graph import END, StateGraph
 from sqlalchemy import Engine, text
 from starlette.concurrency import run_in_threadpool
 
-from src.agents.graph_soan_thao import graph_soan_thao_cached, load_checklist_cached
-from src.agents.nodes.assemble import assemble
+from src.agents.graph_soan_thao import KhongSoanDuocError, graph_soan_thao_cached, load_checklist_cached
+from src.agents.nodes.assemble import LOAI_BAO_VAN_BAN_AN, assemble, gan_van_ban_khong_hien_thi
 from src.agents.nodes.dung_ban_thao_tong_quat import dung_ban_thao_tong_quat
 from src.agents.nodes.expand import expand
 from src.agents.nodes.generate_claims import generate_claims
@@ -52,6 +52,7 @@ from src.services import tai_lieu as tl
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
+from src.services.hien_thi import hien_thi_luc, van_ban_an_duoc_nhac
 from src.services.kho import dung_bang, loi_dan_bang, nap_kho, tra_loi_ve_kho, xin_dang_bang
 from src.services.llm import from_settings as llm_from_settings
 from src.services.llm import generate_model, judge_model, router_model
@@ -528,9 +529,13 @@ def build_graph_tra_cuu():
         except HTTPException as e:
             return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": str(e.detail)}}
         bat_dau = time.monotonic()
-        ket_st = await graph_soan_thao_cached().ainvoke(
-            {"loai": sd["loai"], "loai_van_ban": sd["loai"], "facts": sd["facts"], "nganh": "thuong_mai"}
-        )
+        try:
+            ket_st = await graph_soan_thao_cached().ainvoke(
+                {"loai": sd["loai"], "loai_van_ban": sd["loai"], "facts": sd["facts"], "nganh": "thuong_mai"}
+            )
+        except KhongSoanDuocError as e:
+            # Cùng lối nói với nhánh sửa (`dung_lai` ném cùng lỗi này): 0 lượt LLM.
+            return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": str(e)}}
         ket = ban_thao.tu_state_soan_thao(ket_st)
         bt = await run_in_threadpool(ban_thao.tao, sub, st.get("hoi_thoai_id"), sd["loai"], sd["facts"], ket)
         try:
@@ -562,9 +567,12 @@ def build_graph_tra_cuu():
         return rewrite_query(st, llm, router_model(), prompt_path=Path(s.rewrite_prompt))
 
     def n_retrieve(st: KLawState) -> KLawState:
+        # Quy tắc hiển thị (`services/hien_thi`) — MỘT lần mỗi lượt, `expand`
+        # dùng lại: văn bản ẩn không bao giờ được truy hồi làm căn cứ.
+        hien = hien_thi_luc(engine, as_of_hieu_luc(st.get("as_of_date")))
         ids: list[int] = []
         for q in st.get("queries") or [st["query"]]:
-            ids += retriever.provision_ids(retriever.hybrid(q))
+            ids += retriever.provision_ids(retriever.hybrid(q, hien))
         ids = list(dict.fromkeys(ids))
         # Spec 2026-09-06 §6 — cộng điểm mềm theo lĩnh vực mô hình đoán. Mặc
         # định `linh_vuc_bonus = 0` (tắt) cho tới khi đo được trên golden.
@@ -576,7 +584,8 @@ def build_graph_tra_cuu():
         mo_rong = False
         if s.linh_vuc_loc and st.get("linh_vuc_du_doan"):
             ids, mo_rong = loc_theo_linh_vuc(ids, retriever.linh_vuc_cua(ids), st["linh_vuc_du_doan"])
-        return {**st, "retrieved": ids, "traces": {**(st.get("traces") or {}), "retrieve_mo_rong": mo_rong}}
+        return {**st, "retrieved": ids, "hien_thi": sorted(hien),
+                "traces": {**(st.get("traces") or {}), "retrieve_mo_rong": mo_rong}}
 
     def n_expand(st: KLawState) -> KLawState:
         # MỘT chủ sở hữu cho quy tắc "mốc hiệu lực" (`config.as_of_hieu_luc`):
@@ -585,7 +594,10 @@ def build_graph_tra_cuu():
         # hiệu lực theo ngày khác, không tầng nào báo lỗi — chỉ trả hiệu lực sai.
         as_of = as_of_hieu_luc(st.get("as_of_date"))
         before = st.get("retrieved") or []
-        deep, shallow = expand(before, engine, as_of, s.expand_reference_hops)
+        # `hien_thi` vắng chỉ khi lượt không qua `retrieve` (không có gì để mở
+        # rộng) — tính lại chứ không mở cửa cho văn bản ẩn.
+        hien = frozenset(st["hien_thi"]) if "hien_thi" in st else hien_thi_luc(engine, as_of)
+        deep, shallow = expand(before, engine, as_of, s.expand_reference_hops, hien)
         prior_traces = st.get("traces") or {}
         # Kích thước tập TRƯỚC/SAU expand — dữ liệu chương đánh giá (đo đóng góp
         # của bước mở rộng, xem task-7-report.md). `after` = len(deep): đây là
@@ -695,13 +707,21 @@ def build_graph_tra_cuu():
             st = {**st, "tra_loi_kho": tra_loi,
                   "tra_loi_kho_bang": [b.model_dump() for b in bang]}
         ids = [r.claim.provision_id for r in (st.get("tier1") or [])]
-        return assemble(
+        ket = assemble(
             {**st, "abstain_threshold": s.abstain_threshold},
             _db_provisions(ids, engine),
             llm,
             generate_model(),
             prompt_path=Path(s.assemble_prompt),
         )
+        # Câu hỏi NÊU TÊN một văn bản ẩn ("Nghị định 90/2019 còn hiệu lực không")
+        # — quyết định 2026-09-28 mục 8: nói thẳng nó không còn hiệu lực, nêu
+        # văn bản thay thế. 0 token; 0 truy vấn khi câu hỏi không có số hiệu.
+        if ket.get("result_type") not in LOAI_BAO_VAN_BAN_AN:
+            return ket
+        cau_hoi = st.get("cau_hoi_day_du") or st["query"]
+        return gan_van_ban_khong_hien_thi(
+            ket, van_ban_an_duoc_nhac(engine, cau_hoi, as_of_hieu_luc(st.get("as_of_date"))))
 
     g = StateGraph(KLawState)
     # Thứ tự khai node = thứ tự `get_graph().nodes`, mà `routes.BUOC_TRA_CUU`

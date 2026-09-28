@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, Copy, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
-import { BadgeHieuLuc } from "@/components/klaw/BadgeHieuLuc";
+import { BadgeHieuLuc, docNhanHieuLuc, MoTaHieuLuc } from "@/components/klaw/BadgeHieuLuc";
 import { BaoLoi } from "@/components/klaw/BaoLoi";
 import { Chip, Highlight } from "@/components/legal/VanBanUI";
 import { goi, thamSo } from "@/lib/api";
@@ -20,7 +20,7 @@ import {
   type VanBanTomTat,
 } from "@/lib/klaw";
 import { cachTrichHopLe, chuoiSaoChep, trichDieuKhoan, vanBanHopLe } from "@/lib/trich-dan";
-import { cn } from "@/lib/utils";
+import { cn, ngayVietNam } from "@/lib/utils";
 
 /**
  * Tìm kiếm điều khoản — `GET /tim-kiem` + `GET /bo-loc`. Ô từ khoá rỗng thì
@@ -307,17 +307,15 @@ function TheDong({ dong, q }: { dong: DongTimKiem; q: string }) {
             <span className="text-border" aria-hidden>
               ·
             </span>
-            <span>Ban hành {dong.ngay_ban_hanh}</span>
+            <span>Ban hành {ngayVietNam(dong.ngay_ban_hanh)}</span>
           </>
         )}
       </div>
 
       {/* Nhãn hiệu lực của CHÍNH văn bản chứa điều khoản này, do
-          `effectivity.py` kết luận — không phải cột `tinh_trang` của MOJ. */}
-      {/* `ly_do` đi ra dưới dạng chữ TRUNG TÍNH, không qua prop `ghiChu`:
-          `ghiChu` tô đỏ vì nó dành cho câu nêu ĐÍCH DANH văn bản thay thế, còn
-          đây là một LÝ DO. Đưa lý do của một nhãn hổ phách vào khay đỏ là dán
-          mức báo động của nhãn nặng nhất lên mọi nhãn. */}
+          `effectivity.py` kết luận — không phải cột `tinh_trang` của MOJ. Dưới
+          nhãn chỉ có câu `mo_ta`, chữ TRUNG TÍNH (quyết định 2026-09-28, mục
+          10): không `ly_do`, không độ tin cậy. */}
       {/* PHẠM VI của nhãn nằm ngay trước nhãn, không nằm trong một chú thích ở
           cuối trang. `/tim-kiem` kết luận hiệu lực ở mức VĂN BẢN (`hieu_luc` là
           của `documents`, không phải của `provisions`), nên một Điều còn nguyên
@@ -327,15 +325,17 @@ function TheDong({ dong, q }: { dong: DongTimKiem; q: string }) {
           "Cả văn bản 293/2025/NĐ-CP" đứng cùng dòng với chip là chỗ rẻ nhất
           nói ra điều đó, và nó lặp lại số hiệu nên nhãn không thể bị đọc thành
           nhãn của dòng trích ngay dưới. */}
-      <p className="m-0 mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1">
-        <span className="text-[12px] leading-5 text-muted-foreground">
-          Cả văn bản <span className="font-jetbrains">{dong.so_ky_hieu}</span>:
-        </span>
-        <BadgeHieuLuc hieuLuc={dong.hieu_luc.verdict} gonGang />
-      </p>
-      <p className="m-0 mt-1 line-clamp-2 text-[12px] leading-5 text-muted-foreground">
-        {dong.hieu_luc.ly_do}
-      </p>
+      {/* Nhãn không vẽ được (không bao giờ tới người đọc) thì bỏ cả dòng, để
+          "Cả văn bản …:" không đứng trơ trọi. */}
+      {docNhanHieuLuc(dong.hieu_luc.verdict) !== null && (
+        <p className="m-0 mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+          <span className="text-[12px] leading-5 text-muted-foreground">
+            Cả văn bản <span className="font-jetbrains">{dong.so_ky_hieu}</span>:
+          </span>
+          <BadgeHieuLuc hieuLuc={dong.hieu_luc.verdict} gonGang />
+        </p>
+      )}
+      <MoTaHieuLuc hieuLuc={dong.hieu_luc} className="text-[12px]" />
 
       <h3 className="font-display mt-2 text-[18px] leading-snug font-semibold text-primary">
         <Link
@@ -424,6 +424,7 @@ function TheVanBan({ vanBan }: { vanBan: VanBanTomTat }) {
       <p className="m-0 mt-2">
         <BadgeHieuLuc hieuLuc={vanBan.hieu_luc.verdict} gonGang />
       </p>
+      <MoTaHieuLuc hieuLuc={vanBan.hieu_luc} className="text-[12px]" />
     </article>
   );
 }
@@ -732,13 +733,13 @@ function ManTimKiem() {
             </div>
 
             {sapXep === "con_hieu_luc_truoc" && (
-              // Ba bậc, không phải hai. Bậc giữa gộp `mot_phan_khong_xac_dinh`,
-              // `bi_sua_doi`, `can_doi_chieu_tay`, `chua_xac_dinh` — đọc nó
-              // thành "đã chết" là vứt 27/126 văn bản còn hiệu lực phần lớn
-              // xuống đáy.
+              // `bac_con_song` của máy chủ: `con_hieu_luc` trước, rồi mọi nhãn
+              // khác. Danh sách chỉ có văn bản ĐƯỢC HIỆN (quyết định 2026-09-28,
+              // mục 8), nên bậc sau chỉ còn `mot_phan_khong_xac_dinh`,
+              // `bi_sua_doi`, `chua_hieu_luc` — không bậc "đã hết hiệu lực".
               <p className="mt-3 mb-0 text-[12px] leading-5 text-muted-foreground">
-                Thứ tự ba bậc: còn hiệu lực → chưa kết luận được → đã hết hiệu lực. Bậc giữa nghĩa
-                là hệ thống chưa xác định được, không phải văn bản đã chết.
+                Văn bản còn hiệu lực đứng trước; sau đó là văn bản còn hiệu lực một phần, đã được
+                sửa đổi hoặc chưa tới ngày có hiệu lực.
               </p>
             )}
 

@@ -121,13 +121,28 @@ def cong_diem_linh_vuc(
     return sorted(provision_ids, key=lambda pid: -diem[pid])
 
 
+# Chỉ chunk của văn bản được HIỆN (`services/hien_thi`, quyết định 2026-09-28
+# mục 8): văn bản ẩn không bao giờ được truy hồi làm căn cứ. Lọc TRONG SQL để
+# top-k lấp bằng văn bản được hiện, không bị văn bản ẩn chiếm chỗ. `hien=None`
+# = không lọc, chỉ cho phép đo truy hồi thô (`eval/run.py`); đường trả lời luôn
+# truyền tập được hiện (`graph_tra_cuu.n_retrieve`).
+_CHI_HIEN = (
+    " AND (CAST(:hien AS text[]) IS NULL OR c.provision_id IN"
+    " (SELECT p.id FROM provisions p WHERE p.document_id = ANY(CAST(:hien AS text[]))))"
+)
+
+
+def _mang(hien: frozenset[str] | None) -> list[str] | None:
+    return None if hien is None else list(hien)
+
+
 class Retriever:
     def __init__(self, engine: Engine, embedder: EmbeddingClient, settings: Settings) -> None:
         self.engine = engine
         self.embedder = embedder
         self.s = settings
 
-    def bm25(self, q: str, topk: int | None = None) -> list[int]:
+    def bm25(self, q: str, topk: int | None = None, hien: frozenset[str] | None = None) -> list[int]:
         # plainto_tsquery nối lexeme bằng AND — một câu hỏi tự nhiên gần như
         # không bao giờ chứa ĐỦ mọi từ của điều luật, nên AND luôn cho rỗng
         # trên truy vấn thật và làm hybrid() thoái hoá thành dense thuần.
@@ -152,15 +167,20 @@ class Retriever:
                     ") SELECT c.id FROM chunks c, q"
                     " WHERE c.embedding_model = :m"
                     "   AND q.tq::text <> ''"
-                    "   AND c.tsv @@ q.tq"
-                    " ORDER BY ts_rank(c.tsv, q.tq, CAST(:norm AS integer)) DESC"
+                    "   AND c.tsv @@ q.tq" + _CHI_HIEN + " ORDER BY ts_rank(c.tsv, q.tq, CAST(:norm AS integer)) DESC"
                     " LIMIT :k"
                 ),
-                {"q": q, "k": topk, "m": self.embedder.model, "norm": self.s.bm25_rank_normalization},
+                {
+                    "q": q,
+                    "k": topk,
+                    "m": self.embedder.model,
+                    "norm": self.s.bm25_rank_normalization,
+                    "hien": _mang(hien),
+                },
             ).all()
         return [r[0] for r in rows]
 
-    def dense(self, q: str, topk: int | None = None) -> list[int]:
+    def dense(self, q: str, topk: int | None = None, hien: frozenset[str] | None = None) -> list[int]:
         topk = topk or self.s.retrieve_dense_topk
         # embed_query lỗi phải nổ ở đây, KHÔNG bắt — một nhánh chết âm thầm sẽ
         # làm hybrid tụt về BM25 thuần mà bảng ablation Task 9 không biết.
@@ -168,17 +188,18 @@ class Retriever:
         with self.engine.connect() as c:
             rows = c.execute(
                 text(
-                    "SELECT id FROM chunks"
-                    " WHERE embedding_model = :m AND embedding IS NOT NULL"
-                    " ORDER BY embedding <=> CAST(:v AS vector)"
+                    "SELECT c.id FROM chunks c"
+                    " WHERE c.embedding_model = :m AND c.embedding IS NOT NULL"
+                    + _CHI_HIEN
+                    + " ORDER BY c.embedding <=> CAST(:v AS vector)"
                     " LIMIT :k"
                 ),
-                {"v": str(vec), "k": topk, "m": self.embedder.model},
+                {"v": str(vec), "k": topk, "m": self.embedder.model, "hien": _mang(hien)},
             ).all()
         return [r[0] for r in rows]
 
-    def hybrid(self, q: str) -> list[int]:
-        fused = rrf([self.bm25(q), self.dense(q)], k=self.s.rrf_k)
+    def hybrid(self, q: str, hien: frozenset[str] | None = None) -> list[int]:
+        fused = rrf([self.bm25(q, hien=hien), self.dense(q, hien=hien)], k=self.s.rrf_k)
         return [cid for cid, _ in fused[: self.s.retrieve_final_topk]]
 
     def provision_ids(self, chunk_ids: list[int]) -> list[int]:

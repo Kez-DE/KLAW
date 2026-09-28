@@ -13,14 +13,26 @@ cho cả hai tầng (125 hàng `mo_dau` = 49 deep + 76 shallow).
 Bản sửa GIỮ nguyên tắc gốc và chỉ làm nó miễn nhiễm với 016: đếm điều khoản
 TRÍCH DẪN ĐƯỢC (`cap <> 'mo_dau'`). Một văn bản `deep` nạp hỏng vẫn có 0 và vẫn
 rơi đúng vào tầng nông — điều mà ruling gốc muốn.
+
+Từ quyết định 2026-09-28 mục 8, `/pham-vi` chỉ đếm văn bản được HIỆN
+(`services/hien_thi`) — mọi phép đếm đối chứng dưới đây cũng vậy.
 """
 
 import pytest
 from sqlalchemy import text
 
 
+def _hien() -> list[str]:
+    from src.config import as_of_hieu_luc
+    from src.services.db import get_engine
+    from src.services.hien_thi import hien_thi_luc
+
+    return list(hien_thi_luc(get_engine(), as_of_hieu_luc(None)))
+
+
 def _dem_tu_db(engine) -> tuple[int, int]:
-    """(số văn bản có điều khoản trích dẫn được, số văn bản có ÍT NHẤT một dòng).
+    """(số văn bản có điều khoản trích dẫn được, số văn bản có ÍT NHẤT một dòng),
+    trong tập được hiện.
 
     Đếm lại từ DB thay vì viết cứng 49/125: một test viết cứng con số sẽ đỏ khi
     corpus lớn lên, và người sửa sẽ cập nhật con số thay vì kiểm quy tắc.
@@ -33,8 +45,9 @@ def _dem_tu_db(engine) -> tuple[int, int]:
             "              count(p.id) AS tat_ca,"
             "              count(p.id) FILTER (WHERE p.cap <> 'mo_dau') AS trich_dan_duoc"
             "       FROM documents d LEFT JOIN provisions p ON p.document_id = d.id"
+            "       WHERE d.id = ANY(CAST(:hien AS text[]))"
             "       GROUP BY d.id) x"
-        )).one())
+        ), {"hien": _hien()}).one())
 
 
 @pytest.mark.integration
@@ -43,9 +56,10 @@ def test_tang_sau_dem_dieu_khoan_TRICH_DAN_DUOC_khong_dem_hang_mo_dau():
     from src.services.db import get_engine
 
     trich_dan_duoc, co_dong = _dem_tu_db(get_engine())
-    assert trich_dan_duoc < co_dong, (
-        "corpus không còn hàng `mo_dau` nào — test này mất đối tượng, xem lại migration 016"
-    )
+    if trich_dan_duoc == co_dong:
+        # Mục 9 của cùng quyết định: mọi văn bản được hiện có toàn văn — khi đó
+        # tầng nông rỗng là ĐÚNG, và test này không còn đối tượng.
+        pytest.skip("không văn bản được hiện nào chỉ có hàng `mo_dau`")
 
     r = _pham_vi()
     assert r.sau.so_van_ban == trich_dan_duoc
@@ -64,7 +78,8 @@ def test_hai_tang_cong_lai_bang_toan_bo_corpus():
     from src.services.db import get_engine
 
     with get_engine().connect() as c:
-        tong = c.execute(_t("SELECT count(*) FROM documents")).scalar_one()
+        tong = c.execute(_t("SELECT count(*) FROM documents WHERE id = ANY(CAST(:hien AS text[]))"),
+                         {"hien": _hien()}).scalar_one()
     r = _pham_vi()
     assert r.sau.so_van_ban + r.nong.so_van_ban == tong
 
@@ -76,6 +91,7 @@ def test_van_ban_tang_nong_bao_0_dieu_khoan_khong_bao_1():
     from src.api.routes import _pham_vi
 
     r = _pham_vi()
-    assert r.nong.van_ban, "không có văn bản tầng nông nào để kiểm"
+    if not r.nong.van_ban:
+        pytest.skip("không văn bản được hiện nào ở tầng nông (quyết định 2026-09-28 mục 9)")
     xau = [v.so_ky_hieu for v in r.nong.van_ban if v.so_dieu_khoan != 0]
     assert not xau, f"tầng nông báo số điều khoản khác 0: {xau[:5]}"
