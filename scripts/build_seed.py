@@ -17,8 +17,9 @@ from src.models.domain import DocumentRow
 from src.services.chinhphu_parser import sang_html_prov
 from src.services.prov_parser import parse_anomalies, parse_provisions
 
+# `CCHL` = "Chưa có hiệu lực" (1/1.648 response gateway, 2026-09-28: 04/2026/QH16).
 TINH_TRANG_MAP = {
-    "CHL": "CHL", "HHL": "HHL", "HHL1P": "HHL1P",
+    "CHL": "CHL", "HHL": "HHL", "HHL1P": "HHL1P", "CCHL": "chua_hieu_luc",
 }
 
 
