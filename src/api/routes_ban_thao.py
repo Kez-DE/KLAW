@@ -77,7 +77,7 @@ def _out(bt: dict) -> BanThaoOut:
     return BanThaoOut(
         id=bt["id"],
         loai=bt["loai"],
-        ten=_ten_loai(bt["loai"]),
+        ten=ban_thao.ten_ban_thao(bt, _ten_loai(bt["loai"])),
         phien_ban=bt["phien_ban"],
         document=bt["document"],
         clauses=bt["clauses"],
@@ -102,7 +102,7 @@ async def danh_sach(
             BanThaoTomTatOut(
                 id=i["id"],
                 loai=i["loai"],
-                ten=_ten_loai(i["loai"]),
+                ten=ban_thao.ten_ban_thao(i, _ten_loai(i["loai"])),
                 phien_ban=i["phien_ban"],
                 cap_nhat_luc=i["cap_nhat_luc"],
                 hoi_thoai_id=i["hoi_thoai_id"],
@@ -493,6 +493,19 @@ async def mo_ban_thao(viec_id: str, response: Response, nguoi: dict = Depends(ng
     bt, da_tao = ra
     if da_tao:
         response.status_code = 201
+    return _out(bt)
+
+
+@router.get("/tai-lieu/{viec_id}/ban-thao", response_model=BanThaoOut)
+async def ban_thao_cua_viec(viec_id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> BanThaoOut:
+    """Bản thảo MỚI NHẤT của tài khoản mà phiên bản đang sống nằm trên việc đọc này,
+    kèm `khuon` — dòng tài liệu trong chat mở đúng bản đã sửa (owner 2026-09-28, Q1).
+    Chỉ đọc: 0 lượt mô hình, không hạn mức, không tạo gì (`POST` cùng đường tạo
+    phiên bản 1). 404: chưa có bản nào, việc lạ, của người khác, id không phải UUID."""
+    viec_id = _uuid_viec(viec_id)
+    bt = await run_in_threadpool(ban_thao.moi_nhat_tren_khuon, nguoi["sub"], viec_id=viec_id)
+    if bt is None:
+        raise HTTPException(status_code=404, detail=KHONG_THAY)
     return _out(bt)
 
 

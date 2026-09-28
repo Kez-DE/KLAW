@@ -570,3 +570,37 @@ async def test_mo_ban_thao_404_NGUOI_KHAC_viec_la_va_viec_khong_khuon_goc_401_kh
             {"a": a, "b": b},
         ).scalar_one()
     assert n == 0, "không lần từ chối nào mở một bản thảo"
+
+
+@pytest.mark.asyncio
+async def test_ban_thao_cua_viec_GET_tra_ban_MOI_NHAT_ten_tep_tai_len_va_khong_tao_gi(client, khoa_ky, hai_nguoi):
+    """Dòng tài liệu trong chat mở bản đã sửa (owner 2026-09-28, Q1): `GET` chỉ ĐỌC —
+    bản mới nhất có phiên bản đang sống trên việc đó, kèm `khuon`; một bản HTML mới hơn
+    không chen vào; chưa có bản nào thì 404 và không tạo gì, không một dòng traces.
+    Bản khuôn gốc mang tên tệp tải lên ở mọi nơi đọc lại (chi tiết, danh sách)."""
+    a, b = hai_nguoi
+    ha, hb = _bearer(khoa_ky, a), _bearer(khoa_ky, b)
+    phien = hoi_thoai.tao_phien(a, "biểu mẫu")
+    viec = _viec(a, phien)
+    duong = f"/api/v1/tai-lieu/{viec}/ban-thao"
+    assert (await client.get(duong, headers=ha)).status_code == 404, "chưa có bản nào: không tạo"
+    id_ = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(viec, [_d(0, 0, _TEN)]))["id"]
+    html = ban_thao.tao(a, phien, ban_thao.LOAI_TONG_QUAT, {}, _ket(None, None, "Đơn xin nghỉ"))["id"]
+
+    r = await client.get(duong, headers=ha)
+    assert r.status_code == 200, r.text
+    bt = r.json()
+    assert (bt["id"], bt["ten"], bt["khuon"]["viec_id"]) == (id_, "Giấy tiếp nhận", viec)
+    assert bt["khuon"]["cho_trong"][0]["gia_tri"] == _TEN
+    assert (await client.get(f"/api/v1/ban-thao/{id_}", headers=ha)).json()["ten"] == "Giấy tiếp nhận"
+    ten = {i["id"]: i["ten"] for i in (await client.get("/api/v1/ban-thao?limit=10", headers=ha)).json()["items"]}
+    assert ten == {id_: "Giấy tiếp nhận", html: "Bản thảo tổng quát"}
+    assert ban_thao.moi_nhat_tren_khuon(a, hoi_thoai_id=phien)["id"] == id_
+    assert ban_thao.moi_nhat_tren_khuon(a, hoi_thoai_id=str(uuid.uuid4())) is None
+
+    for d, h in [(duong, hb), (f"/api/v1/tai-lieu/{uuid.uuid4()}/ban-thao", ha), ("/api/v1/tai-lieu/x/ban-thao", ha)]:
+        assert (await client.get(d, headers=h)).status_code == 404, d
+    assert (await client.get(duong)).status_code == 401
+    with get_engine().connect() as c:
+        n = c.execute(text("SELECT count(*) FROM ban_thao WHERE user_sub = CAST(:a AS uuid)"), {"a": a}).scalar_one()
+    assert (n, _dem_traces(a)) == (2, 0), "chỉ đọc: không bản thảo, không traces"

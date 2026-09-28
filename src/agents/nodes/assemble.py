@@ -55,7 +55,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
-from src.agents.nodes.dung_ban_thao_tong_quat import KHONG_SOAN_DUOC, LOAI_TONG_QUAT, TEN_TONG_QUAT
+from src.agents.nodes.dung_ban_thao_tong_quat import KHONG_SOAN_DUOC, LOAI_TONG_QUAT, TEN_TONG_QUAT, _ket_state
 from src.agents.nodes.gioi_thieu import cau_gioi_thieu
 from src.agents.nodes.hieu_tai_lieu import CHO_TRONG, MUC_DICH_SOAN
 from src.agents.nodes.hoi_lai import bi_loai, cau_hoi_lai_tu_khung, duoi_hoi_them, duoi_tu_khung, hoi_lai
@@ -1078,6 +1078,32 @@ def _ban_thao_khuon(state: dict, bt: dict) -> dict:
         else None
     )
     return _base(state, ResultType.ban_thao, answer=answer, ban_thao=bt, soan_thao_goi_y=None, coverage_note=ghi_chu)
+
+
+def xem_ban_thao_khuon(bt: dict) -> dict:
+    """Lời xin XEM bản đã điền (owner 2026-09-28, Q3): kết quả `ban_thao` 0 token cho
+    bản thảo khuôn gốc mới nhất của hội thoại — không graph, không phiên bản mới. `bt`
+    là dòng `ban_thao` kèm `khuon` và `ten_tep` (`ban_thao.moi_nhat_tren_khuon`)."""
+    k = bt.get("khuon") or {}
+    cho, phep = k.get("cho_trong") or [], bt.get("phep_sua") or []
+    tai = "tải PDF" if k.get("dinh_dang") == "pdf" else "tải Word hoặc PDF"
+    ten, n = bt.get("ten_tep") or "tệp bạn tải lên", bt["phien_ban"]
+    if not phep:
+        answer = (
+            f"Đây là bản thảo (phiên bản {n}) đúng như tệp bạn tải lên «{ten}»: chưa điền chỗ trống nào. "
+            f"Bấm vào chỗ trống trên trang để điền, hoặc {tai}."
+        )
+    else:
+        da = sum(1 for c in cho if (c.get("gia_tri") or "").strip())
+        so_doan = sum(1 for p in phep if p.get("loai") != "dien")
+        answer = (
+            f"Đây là bản đã điền (phiên bản {n}) của «{ten}»: đã điền {da}/{len(cho)} chỗ trống"
+            + (f" và sửa {so_doan} đoạn" if so_doan else "")
+            + f". Bấm vào chỗ trống trên trang để sửa, hoặc {tai}."
+        )
+    return _base(
+        {"traces": {}}, ResultType.ban_thao, answer=answer, ban_thao=_ket_state(bt, TEN_TONG_QUAT, []), soan_thao_goi_y=None
+    )
 
 
 def _ban_thao_tong_quat(state: dict) -> dict:
