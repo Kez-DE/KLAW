@@ -54,6 +54,21 @@ Kiểm kho ngày 2026-09-28 (chỉ đọc):
    Bộ Tư pháp; không chạy theo lịch.
 7. Bộ golden 77 câu (cùng trap và mơ hồ) được đo **trước và sau** khi đổi kho.
 
+8. **Quy tắc hiển thị (chủ dự án, 2026-09-28, bổ sung):** một văn bản chỉ được
+   hiện cho người dùng (kho, tìm kiếm, bộ lọc, trang văn bản, trích dẫn) khi **đồng
+   thời** còn hiệu lực (CHL, hoặc HHL1P — hiện nhãn "Còn hiệu lực một phần"), đã
+   xác định được tình trạng từ Bộ Tư pháp, và có **link chính thống đã kiểm**. Văn
+   bản hết hiệu lực (HHL) được **giữ trong DB ở dạng ẩn** để KLAW còn chỉ ra văn bản
+   thay thế và kiểm trích dẫn cũ, nhưng không bao giờ được hiện hay trích như luật
+   đang áp dụng. Nhãn "Chưa xác định" không bao giờ xuất hiện: văn bản chưa rõ tình
+   trạng bị ẩn cho tới khi xác định được.
+9. **Mọi văn bản được hiện có toàn văn** (chương, điều, khoản) lấy từ Bộ Tư pháp theo
+   đúng quy trình đã kiểm; khi có bản PDF đã ký chính thức (vanban.chinhphu.vn) thì
+   hiện nút "Bản gốc có chữ ký (PDF)" kèm ảnh xem trước trang 1.
+10. **Không hiện dòng chẩn đoán** (mã tình trạng nội bộ, "độ tin cậy", "đánh giá tại
+    ngày"). Chỉ hiện nhãn hiệu lực, và khi có, một câu thường nêu văn bản sửa đổi
+    hoặc thay thế kèm link.
+
 ## Alternatives Considered
 
 1. Chỉ hiện link người đã mở bằng trình duyệt (spec §4.3). Loại: không khả thi cho

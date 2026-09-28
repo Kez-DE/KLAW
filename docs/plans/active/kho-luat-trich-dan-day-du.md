@@ -34,6 +34,11 @@ Observable once complete:
    Bộ Tư pháp database; the data-source page credits the HuggingFace dataset.
 7. The golden 77 + trap 57 + mơ hồ 20 set is measured before and after, on the
    pinned models, and the difference is recorded.
+8. Owner rules added 2026-09-28 (decision items 8–10): only documents that are in
+   force (or partly in force), of known status and with a verified official link
+   are shown anywhere; expired ones stay hidden in the DB; every shown document
+   has full text; an official signed PDF with a page-1 preview is shown when one
+   exists; no diagnostic lines ('tình trạng MOJ…', 'độ tin cậy') anywhere.
 
 ## Context
 
@@ -57,7 +62,9 @@ never shown; drafts export no "Căn cứ". vbpl.vn serves bots again; the old
 | K2 | Metadata + effectivity refresh from the gateway for all rows; machine-verified vbpl.vn links; cleanup; refresh script | K1 |
 | K3 | Citation display (backend fields + frontend frame, list, copy, document page) | G7 merged |
 | K4 | "Căn cứ" block in checklist/HTML drafts | K3 |
-| K5 | Eval AFTER; record the difference; data-source page credit | K2 |
+| K6 | Full text for every shown document; official PDFs + previews | K2 |
+| K7 | Visibility rule in listing/search/filters/doc page/retrieval; hide diagnostics; PDF/link rows | K3, K6 |
+| K5 | Eval AFTER; record the difference; data-source page credit | K6 |
 
 Rules: data writes go through additive migrations and the `nap_*` UPDATE path —
 never re-ingest an existing document (ingest DELETE cascades provisions); new
@@ -81,6 +88,8 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
 - [ ] K2 metadata, effectivity, links, cleanup, refresh script.
 - [ ] K3 citation display.
 - [ ] K4 "Căn cứ" in drafts.
+- [ ] K6 full text for every shown document, PDFs.
+- [ ] K7 visibility rule and diagnostics hidden.
 - [ ] K5 after eval, credit.
 
 ## Decisions
