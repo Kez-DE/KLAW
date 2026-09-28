@@ -7,6 +7,7 @@ from pathlib import Path
 
 from sqlalchemy import text
 
+from scripts.load_incoming_edges import CANH_SAI_MOJ
 from src.services.db import get_engine, run_migrations
 from src.services.xref import resolve_all
 
@@ -109,6 +110,17 @@ def _ghi_van_ban(conn, d: dict, mine: list[dict], refs: list[dict],
     return len(local_to_db), len(refs)
 
 
+def _xoa_canh_sai(conn) -> int:
+    """Xoá cạnh MOJ đã đối chiếu nguyên văn là sai (`CANH_SAI_MOJ`); trả số dòng.
+
+    `build_seed` đã bỏ chúng khỏi seed, nhưng DB nạp từ seed CŨ vẫn giữ: văn bản
+    không đổi checksum nên vòng lặp của `ingest` bỏ qua nó. Idempotent."""
+    return sum(conn.execute(text(
+        'DELETE FROM "references" WHERE from_document_id = :f AND to_document_id = :t'
+        " AND loai = :l AND from_provision_id IS NULL"), {"f": f, "t": t, "l": loai}).rowcount
+        for f, t, loai in CANH_SAI_MOJ)
+
+
 def ingest(seed: Path) -> dict[str, int]:
     _kiem_toan_ven(seed)
     run_migrations()
@@ -138,6 +150,8 @@ def ingest(seed: Path) -> dict[str, int]:
             written["documents"] += 1
             written["provisions"] += n_p
             written["references"] += n_r
+
+        written["canh_sai_da_xoa"] = _xoa_canh_sai(conn)
 
     # NGOÀI khối `begin()` ở trên: `resolve_all` mở giao dịch riêng của nó, nên
     # gọi từ bên trong sẽ lồng giao dịch.

@@ -10,6 +10,7 @@ import pandas as pd
 from scripts.fetch_chinhphu import VAN_BAN as VAN_BAN_CHINHPHU
 from scripts.fetch_chinhphu import url_chi_tiet
 from scripts.fetch_moj import DOC_IDS
+from scripts.load_incoming_edges import CANH_SAI_MOJ
 from scripts.nap_linh_vuc import linh_vuc_tu_hang
 from scripts.nap_nguoi_ky import nguoi_ky_tu_response
 from src.models.domain import DocumentRow
@@ -141,12 +142,21 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             row["document_id"] = doc_id
             provs.append(row)
 
+        # `null` KHÁC `[]`: từ 2026-09-28 gateway trả `references: null` cho mọi
+        # văn bản, kể cả những văn bản bản cache 2026-09-02 có hàng chục quan hệ.
+        # Null là KHÔNG CÓ DỮ LIỆU, không phải "không có quan hệ" — nói ra.
+        if d.get("references") is None:
+            canh_bao_tong.append(
+                f"{doc_id} ({so_ky_hieu}): gateway trả references=null — quan hệ cấp văn "
+                "bản KHÔNG CÓ (không phải rỗng), seed ghi 0 cạnh MOJ cho văn bản này")
         for ref in d.get("references") or []:
             tgt = ref.get("targetDocument") or {}
-            refs.append({"from_document_id": doc_id,
-                         "to_document_id": str(tgt.get("id")) if tgt.get("id") else None,
-                         "loai": ref.get("referenceType") or 0,
-                         "raw_text": tgt.get("docNum")})
+            row = {"from_document_id": doc_id,
+                   "to_document_id": str(tgt.get("id")) if tgt.get("id") else None,
+                   "loai": ref.get("referenceType") or 0,
+                   "raw_text": tgt.get("docNum")}
+            if (doc_id, row["to_document_id"], row["loai"]) not in CANH_SAI_MOJ:
+                refs.append(row)
 
     # ── Nguồn THỨ HAI: vanban.chinhphu.vn ──
     # Chỉ cho văn bản mà bản MOJ hỏng (xem `KHONG_NAP` ở scripts/fetch_moj.py và

@@ -58,6 +58,13 @@ CANH_SAI: frozenset[tuple[str, str, str]] = frozenset({
     ("161263", "139264", "Sửa đổi, bổ sung"),
 })
 
+# Cùng quan hệ sai ấy trong mảng `references` MOJ của 19/2023/QH15 (loai 10,
+# `raw_text` '45/2019/QH14'): `(from, to, loai)`. `build_seed` bỏ nó khỏi seed,
+# `ingest` xoá nó khỏi DB đã nạp từ seed cũ.
+CANH_SAI_MOJ: frozenset[tuple[str, str, int]] = frozenset({
+    ("161263", "139264", 10),
+})
+
 # Cạnh hiệu lực ĐỌC TỪ NGUYÊN VĂN mà parquet không có (0 cạnh hiệu lực nào chạm
 # 154245, đo 2026-09-28): `(from, to, loai, relationship)`, chiều như parquet —
 # `from` là văn bản ĐI THAY.

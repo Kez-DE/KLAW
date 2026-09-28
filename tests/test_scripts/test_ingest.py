@@ -229,3 +229,33 @@ def test_nang_tang_nong_TAI_CHO_giu_canh_va_thay_mo_dau_gia():
                             (_ID_NANG, "139264", 12)}, canh
         finally:
             tx.rollback()
+
+
+@pytest.mark.integration
+def test_xoa_canh_MOJ_da_doi_chieu_la_sai_idempotent():
+    """Seed mới không còn cạnh MOJ 19/2023/QH15 → BLLĐ loai 10
+    (`load_incoming_edges.CANH_SAI_MOJ`), nhưng DB nạp từ seed cũ vẫn giữ nó: văn
+    bản không đổi checksum nên `ingest` bỏ qua. `_xoa_canh_sai` xoá tường minh,
+    gọi lần hai xoá 0, không đụng cạnh MOJ thật của cùng văn bản. ROLLBACK ở cuối.
+    """
+    from scripts.ingest import _xoa_canh_sai
+
+    dem_sai = text('SELECT count(*) FROM "references" WHERE from_document_id = \'161263\''
+                   " AND to_document_id = '139264' AND loai = 10")
+    with get_engine().connect() as conn:
+        tx = conn.begin()
+        try:
+            conn.execute(text(
+                'INSERT INTO "references" (from_document_id, to_document_id, loai, raw_text)'
+                " VALUES ('161263', '139264', 10, '45/2019/QH14')"))
+            khac = conn.execute(text(
+                'SELECT count(*) FROM "references" WHERE from_document_id = \'161263\''
+                " AND loai <= 15 AND to_document_id IS DISTINCT FROM '139264'")).scalar_one()
+            assert _xoa_canh_sai(conn) >= 1
+            assert _xoa_canh_sai(conn) == 0
+            assert conn.execute(dem_sai).scalar_one() == 0
+            assert conn.execute(text(
+                'SELECT count(*) FROM "references" WHERE from_document_id = \'161263\''
+                " AND loai <= 15 AND to_document_id IS DISTINCT FROM '139264'")).scalar_one() == khac
+        finally:
+            tx.rollback()
