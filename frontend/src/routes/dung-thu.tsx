@@ -16,6 +16,7 @@ import { TaiLieuDuKien } from "@/components/klaw/TaiLieuDuKien";
 import {
   apNeuCungBan,
   banThaoTuMo,
+  chiMoiNhat,
   dongKhiDoiPhien,
   thamSoSanKhau,
   urlCoBanThao,
@@ -820,10 +821,15 @@ function ManHoiKlaw() {
 
   /** Bấm dòng tài liệu trên thẻ (chủ dự án 2026-09-28, Q1): bản thảo MỚI NHẤT
    *  của tệp lên sân khấu — đang mở rồi thì chỉ đưa tiêu điểm vào nó; chưa có
-   *  bản thảo nào thì "Bản tải lên". Cùng lối ở lượt đang chạy và lượt đã lưu. */
+   *  bản thảo nào thì "Bản tải lên". Cùng lối ở lượt đang chạy và lượt đã lưu.
+   *  `chiBamMoiNhat`: hai cú bấm trước khi GET đầu về — chỉ cú sau được mở. */
+  const [chiBamMoiNhat] = useState(chiMoiNhat); // khởi tạo MỘT lần: bộ đếm sống qua các lượt vẽ
   const moTaiLieuCuaLuot = async (t: TaiLieuDaDung) => {
     const biet = tepDaBiet[t.id];
-    const viec = await viecMoTaiLieu(biet?.co_khuon_goc, () => banThaoCuaTaiLieu(t.id));
+    const viec = await chiBamMoiNhat(
+      viecMoTaiLieu(biet?.co_khuon_goc, () => banThaoCuaTaiLieu(t.id)),
+    );
+    if (viec === null) return;
     if (viec.loai === "loi") toast.error(viec.cau);
     else if (viec.loai === "du_kien") moTaiLieuDinhKem(t.id);
     else if (viec.loai === "ban_tai_len")

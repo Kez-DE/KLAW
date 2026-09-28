@@ -62,6 +62,18 @@ export const apNeuCungBan = <T extends { id: string }>(cu: T | null, moi: T): T 
 export const banThaoTuMo = (bt: BanThao | null | undefined): BanThao | null =>
   bt != null && khuonHopLe(bt.khuon) !== null ? bt : null;
 
+/** Chỉ cú bấm MỚI NHẤT được áp phản hồi của nó: bấm dòng tài liệu này rồi dòng
+ *  khác (nhãn A/B, thẻ của lượt khác) trước khi GET đầu về thì phản hồi về SAU
+ *  CÙNG không được mở đè lên thứ cú bấm mới hơn đã mở. Vé cũ trả `null`. */
+export function chiMoiNhat() {
+  let so = 0;
+  return async <T>(viec: Promise<T>): Promise<T | null> => {
+    const ve = ++so;
+    const kq = await viec;
+    return ve === so ? kq : null;
+  };
+}
+
 /** Việc của một cú bấm dòng tài liệu trên thẻ chat (Q1). */
 export type ViecMoTaiLieu =
   | { loai: "ban_thao"; banThao: BanThao }

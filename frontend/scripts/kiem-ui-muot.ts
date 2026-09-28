@@ -3018,11 +3018,24 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
   const { khung, root } = taoRoot();
   const nutMoTep = (ten: string) =>
     tim(khung, (n) => n.tagName === "BUTTON" && n.getAttribute("aria-label") === `Mở «${ten}»`);
+  const nutDong = (id: string) =>
+    tim(
+      khung,
+      (n) =>
+        n.tagName === "BUTTON" && n.getAttribute("data-mo-san-khau") === `tai_lieu_dong:t-tl:${id}`,
+    );
+  /** WCAG 2.5.3 Label in Name: tên truy cập CHỨA chữ hiển thị — người dùng
+   *  giọng nói đọc đúng chữ họ thấy ("bấm Phiếu đăng ký") là trúng nút. */
+  const nhanChuaChu = (nut: Nut) =>
+    assert.ok(
+      (nut.getAttribute("aria-label") ?? "").includes(nut.textContent ?? "\u0000"),
+      `tên truy cập «${nut.getAttribute("aria-label")}» phải chứa chữ hiển thị «${nut.textContent}»`,
+    );
 
   // Không có lối mở (nơi gọi chưa nối): dòng tài liệu là chữ thường như cũ.
   await act(() => root.render(h(TheKetQua, { ketQua: ketQuaTaiLieu([TEP], "Phiếu đăng ký") })));
   assert.match(khung.textContent, /Phiếu đăng ký/);
-  cungNut(nutMoTep(TEP.ten_tep), null, "không `onMoTaiLieu`: dòng tài liệu không bấm được");
+  cungNut(nutDong(VIEC), null, "không `onMoTaiLieu`: dòng tài liệu không bấm được");
 
   await act(() =>
     root.render(
@@ -3032,10 +3045,12 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
       }),
     ),
   );
-  const nut = nutMoTep(TEP.ten_tep);
-  assert.ok(nut !== null, "dòng tài liệu là <button> tên truy cập 'Mở «tên tệp»'");
+  const nut = nutDong(VIEC);
+  assert.ok(nut !== null, "dòng tài liệu là <button>");
   assert.equal(nut.getAttribute("type"), "button");
   assert.equal(nut.textContent, "Phiếu đăng ký", "giữ chữ mô tả, không đổi sang tên tệp");
+  assert.equal(nut.getAttribute("aria-label"), `Phiếu đăng ký — mở «${TEP.ten_tep}»`);
+  nhanChuaChu(nut);
   assert.match(nut.getAttribute("class") ?? "", /focus-brass/, "vòng tiêu điểm đồng thau");
   assert.equal(nut.getAttribute("data-mo-san-khau"), `tai_lieu_dong:t-tl:${VIEC}`);
   await act(() => phat(nut, "click"));
@@ -3046,6 +3061,7 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
     root.render(h(TheKetQua, { ketQua: ketQuaTaiLieu([TEP], null), onMoTaiLieu: () => undefined })),
   );
   assert.equal(nutMoTep(TEP.ten_tep)?.textContent, TEP.ten_tep);
+  nhanChuaChu(nutMoTep(TEP.ten_tep)!);
 
   // Hai tệp: mỗi nhãn "A · tên" là một nút mở ĐÚNG tệp của nó.
   daMo.length = 0;
@@ -3064,7 +3080,7 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
 
   // Q1: 200 → bản thảo mới nhất; 404 → Bản tải lên; lỗi khác → câu lỗi; tệp đã
   // biết là không có khuôn gốc → "Dữ kiện đã đọc", KHÔNG tốn lượt gọi.
-  const { banThaoTuMo, viecMoTaiLieu } =
+  const { banThaoTuMo, chiMoiNhat, viecMoTaiLieu } =
     await nap<typeof import("../src/lib/san-khau.ts")>("src/lib/san-khau.ts");
   const { banThaoCuaTaiLieu } = await nap<typeof import("../src/lib/api.ts")>("src/lib/api.ts");
   const goiMang: { url: string; method: string }[] = [];
@@ -3092,6 +3108,27 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
   goiMang.length = 0;
   assert.deepEqual(await viecMoTaiLieu(false, lay), { loai: "du_kien" });
   assert.equal(goiMang.length, 0, "tệp không có khuôn gốc: không gọi");
+
+  // Hai cú bấm (nhãn A rồi B, hay thẻ của hai lượt) trước khi GET đầu về: CHỈ
+  // cú bấm mới nhất được áp phản hồi — phản hồi cũ về sau cùng không mở đè.
+  const hua = <T>() => {
+    let xong!: (v: T) => void;
+    const p = new Promise<T>((r) => (xong = r));
+    return { p, xong };
+  };
+  const bam = chiMoiNhat();
+  const cu = hua<string>();
+  const moi = hua<string>();
+  const kqCu = bam(cu.p);
+  const kqMoi = bam(moi.p);
+  moi.xong("B");
+  assert.equal(await kqMoi, "B", "cú bấm mới nhất: áp phản hồi của nó");
+  cu.xong("A");
+  assert.equal(await kqCu, null, "phản hồi của cú bấm cũ về sau: bỏ, không mở đè");
+  const lai = hua<string>();
+  const kqLai = bam(lai.p);
+  lai.xong("A");
+  assert.equal(await kqLai, "A", "cú bấm sau đó vẫn chạy (bộ đếm không kẹt)");
 
   // Q2: chỉ bản thảo trên khuôn gốc tự mở; bản thảo HTML như cũ.
   assert.equal(banThaoTuMo(banThaoKhuon), banThaoKhuon);
@@ -3126,7 +3163,11 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
   );
   const iMo = NGUON.indexOf("const moTaiLieuCuaLuot = ");
   const thanMo = NGUON.slice(iMo, NGUON.indexOf("\n  };", iMo));
-  assert.match(thanMo, /viecMoTaiLieu\(biet\?\.co_khuon_goc, \(\) => banThaoCuaTaiLieu\(t\.id\)\)/);
+  assert.match(
+    thanMo,
+    /const viec = await chiBamMoiNhat\(\s*viecMoTaiLieu\(biet\?\.co_khuon_goc, \(\) => banThaoCuaTaiLieu\(t\.id\)\),?\s*\);\s*if \(viec === null\) return;/,
+    "phản hồi của cú bấm không còn mới nhất: bỏ trước khi mở gì",
+  );
   assert.match(thanMo, /viec\.loai === "ban_tai_len"\)\s*moBanTaiLen\(/, "404: mở Bản tải lên");
   assert.match(
     thanMo,

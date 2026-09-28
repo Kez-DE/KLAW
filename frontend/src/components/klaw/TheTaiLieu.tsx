@@ -249,11 +249,13 @@ export function TheTaiLieu({
   const motTep = nhieuTaiLieu ? undefined : tl.tai_lieu_da_dung[0];
   /** Dòng tài liệu bấm được (chủ dự án 2026-09-28, Q1): mở bản thảo mới nhất
    *  của tệp, không thì bản tải lên. `data-mo-san-khau`: đóng sân khấu ở bố
-   *  cục hẹp dựng lại cả cây chat, trang tìm lại ĐÚNG nút này để trả tiêu điểm. */
-  const propNutMo = (t: TaiLieuDaDung) => ({
+   *  cục hẹp dựng lại cả cây chat, trang tìm lại ĐÚNG nút này để trả tiêu điểm.
+   *  `chu`: chữ hiển thị khi nó KHÁC tên tệp (mô tả) — tên truy cập mở đầu bằng
+   *  nó (WCAG 2.5.3 Label in Name), người dùng giọng nói gọi đúng chữ họ thấy. */
+  const propNutMo = (t: TaiLieuDaDung, chu: string | null = null) => ({
     type: "button" as const,
     onClick: () => onMoTaiLieu?.(t),
-    "aria-label": `Mở «${t.ten_tep}»`,
+    "aria-label": chu === null ? `Mở «${t.ten_tep}»` : `${chu} — mở «${t.ten_tep}»`,
     "data-mo-san-khau": `tai_lieu_dong:${ketQua.trace_id}:${t.id}`,
   });
 
@@ -261,7 +263,7 @@ export function TheTaiLieu({
     <section aria-label="Kết quả đọc tài liệu">
       {onMoTaiLieu && motTep !== undefined ? (
         <button
-          {...propNutMo(motTep)}
+          {...propNutMo(motTep, moTa)}
           title={motTep.ten_tep}
           className="focus-brass -mx-1 flex min-h-6 max-w-full cursor-pointer items-start gap-2 rounded px-1 text-left text-[13px] leading-5 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
         >
