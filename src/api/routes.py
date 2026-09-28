@@ -438,9 +438,11 @@ async def _xem_ban_thao(
     bản thảo khuôn gốc mới nhất của hội thoại, TRƯỚC graph: không `giai_nghia`, không
     router, không lượt đọc tài liệu — 0 lượt mô hình, không phiên bản mới. `None` (đi
     đường thường) khi câu không phải lời xin xem, lượt đính kèm tệp mới (câu nói về
-    tệp đó), hay hội thoại không có bản thảo khuôn gốc nào. `ban_thao_tong_quat`
-    rỗng là không bản thảo nào: không truy vấn thêm."""
-    if not (user_sub and hoi_thoai_id and ban_thao_tong_quat) or req.tai_lieu_ids or not xin_xem_ban_thao(req.query):
+    tệp đó), hay bản thảo MỚI NHẤT của hội thoại (`ban_thao_tong_quat`, bản nhẹ) không
+    nằm trên khuôn gốc — một lá đơn HTML soạn sau khi điền phiếu là bản "xem bản thảo"
+    muốn thấy, và đường thường mở nó."""
+    moi_nhat_la_khuon = bool((ban_thao_tong_quat or {}).get("viec_id"))
+    if not (user_sub and hoi_thoai_id and moi_nhat_la_khuon) or req.tai_lieu_ids or not xin_xem_ban_thao(req.query):
         return None
     bt = await run_in_threadpool(ban_thao.moi_nhat_tren_khuon, user_sub, hoi_thoai_id=hoi_thoai_id)
     return xem_ban_thao_khuon(bt) if bt and bt.get("khuon") else None

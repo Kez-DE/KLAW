@@ -103,9 +103,32 @@ def test_nhan_ra_loi_xin_dung_lai(cau):
     assert h.xin_tao_lai(cau)
 
 
-@pytest.mark.parametrize("cau", [HOI, DIEN, "dừng lại đi", "phiếu này nói gì"])
+@pytest.mark.parametrize("cau", [HOI, DIEN, "dừng lại đi", "phiếu này nói gì", "Văn bản này được xuất bản năm nào?"])
 def test_khong_nhan_nham_loi_xin_dung_lai(cau):
     assert not h.xin_tao_lai(cau)
+
+
+# Câu hỏi có động từ dựng lại (review G7): chỉ động từ thì chưa đủ thành lượt soạn.
+CAU_HOI_DUNG_LAI = [
+    "Văn bản này do ai soạn thảo?",
+    "Làm sao để xuất file PDF?",
+    "Phiếu này soạn thảo theo quy định nào",
+    "soan thao lai duoc khong",
+]
+
+
+@pytest.mark.parametrize("cau", CAU_HOI_DUNG_LAI)
+def test_nhan_ra_cau_hoi(cau):
+    assert h._la_cau_hoi(cau)
+
+
+@pytest.mark.parametrize(
+    "cau",
+    # "không" chỉ là dấu hỏi ở cuối câu; "gỉ" có dấu khác "gì".
+    ["soạn thảo lại văn bản này cho tôi", "xuất file này", "tạo lại văn bản, không cần điền", "dựng lại bản gỉ"],
+)
+def test_khong_nhan_nham_cau_hoi(cau):
+    assert not h._la_cau_hoi(cau)
 
 
 @pytest.mark.parametrize(
@@ -447,15 +470,19 @@ def test_xem_phat_mot_buoc_rieng_tren_luong_SSE(kho, monkeypatch):
 
 @pytest.mark.parametrize(
     "tinh_huong",
-    ["khong_co_ban_khuon", "dinh_kem_tuoi", "cau_khac"],
+    ["khong_co_ban_khuon", "ban_html_moi_hon", "dinh_kem_tuoi", "cau_khac"],
 )
 def test_xem_roi_ve_duong_thuong_khi_khong_du_dieu_kien(kho, monkeypatch, tinh_huong):
     _, ten, _, hang, _ = _mau(None)
     k = kho(ten, hang)
     if tinh_huong != "khong_co_ban_khuon":
         k.tao("u", "p", ban_thao.LOAI_TONG_QUAT, {}, d.ket_ban_thao_khuon({"viec_id": V, "ten_tep": ten}, []))
+    html = {"nhe": {"document": "# Đơn", "audit": {}, "viec_id": None, "phep_sua": None}}
     kw = {
-        "khong_co_ban_khuon": {"nhe": {"document": "# Đơn", "audit": {}, "viec_id": None, "phep_sua": None}},
+        "khong_co_ban_khuon": html,
+        # Bản mới nhất của hội thoại là bản HTML (lá đơn soạn SAU khi điền phiếu): "xem
+        # bản thảo" không được mở bản khuôn gốc cũ hơn.
+        "ban_html_moi_hon": html,
         "dinh_kem_tuoi": {"req": {"tai_lieu_ids": [V]}},
         "cau_khac": {},
     }[tinh_huong]
@@ -485,6 +512,54 @@ def test_cau_hoi_that_van_la_hoi_dap_va_khong_con_dau_noi_bo(mau_dung):
     assert ket["mo_ta"] == "Phiếu đánh giá thực tập" and ket["suy_luan"] == ["Chỗ là họ tên sinh viên."]
     assert ket["can_du_kien"] == ["giá trị cho"]
     assert k.anh_chup() == truoc, "một câu hỏi không bao giờ đổi bản thảo"
+
+
+def _dien_hai(k: _Kho, tl: list[dict], o: int) -> None:
+    out, _ = _luot(k, tl, DIEN, _ra([_dien(o, 0, TEN), _dien(o, 1, MA)]))
+    assert out["ban_thao"]["phien_ban"] == 2
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        "Văn bản này do ai soạn thảo?",
+        "Làm sao để xuất file PDF?",
+        "Văn bản này được xuất bản năm nào?",
+        "Phiếu này soạn thảo theo quy định nào?",
+    ],
+)
+def test_cau_hoi_co_dong_tu_dung_lai_khong_xoa_gia_tri_da_dien(mau_dung, cau):
+    """Review G7: câu hỏi chứa "soạn thảo"/"xuất file" mà router và mô hình đều đọc là
+    hỏi thì là hỏi đáp — không phiên bản mới, giá trị đã điền còn nguyên, lời đáp của
+    mô hình đi ra."""
+    k, tl, _, o = mau_dung
+    _dien_hai(k, tl, o)
+    truoc = k.anh_chup()
+    out, _ = _luot(k, tl, cau, _ra(tra_loi="Câu trả lời thật của mô hình."))
+    assert out["result_type"] is ResultType.tai_lieu
+    assert out["answer"] == "Câu trả lời thật của mô hình."
+    assert k.anh_chup() == truoc
+
+
+def test_cau_hoi_xuat_file_khi_chua_co_ban_khong_dung_phien_ban_1(kho, monkeypatch):
+    _, ten, dv, hang, _ = _mau(None)
+    k = kho(ten, hang)
+    monkeypatch.setattr(bao_ve, "kiem_han_muc", lambda *a, **kw: pytest.fail("câu hỏi không tiêu hạn mức"))
+    out, _ = _luot(k, _tl(ten, dv), "Làm sao để xuất file PDF?", _ra(tra_loi="Bấm nút Tải PDF."))
+    assert out["result_type"] is ResultType.tai_lieu and out["answer"] == "Bấm nút Tải PDF."
+    assert k.dong == []
+
+
+def test_loi_xin_dung_lai_dang_cau_hoi_theo_cach_doc_cua_mo_hinh(mau_dung):
+    """Lời xin lịch sự "… được không?" có dạng câu hỏi: mô hình đọc là soạn thì vẫn
+    dựng lại đúng tệp tải lên (giá trị cũ ở phiên bản trước, bấm Lùi)."""
+    k, tl, _, o = mau_dung
+    _dien_hai(k, tl, o)
+    out, _ = _luot(
+        k, tl, "soạn thảo lại văn bản này cho tôi được không?", _ra(muc_dich="sua_ban_thao", yeu_cau="tao_lai")
+    )
+    assert out["result_type"] is ResultType.ban_thao
+    assert (out["ban_thao"]["phien_ban"], out["ban_thao"]["phep_sua"]) == (3, [])
 
 
 BIA = _ra([_dien(1, 0, "Trần Văn Bịa")], muc_dich="sua_ban_thao", tra_loi="Tôi đã điền Trần Văn Bịa ⟦0⟧.")
@@ -573,3 +648,42 @@ def test_tai_lieu_khong_khuon_goc_van_chiu_gac_cu():
     ra = h.hieu_tai_lieu({"query": DIEN, "cau_hoi_goc": DIEN, "intent": Intent.tai_lieu}, tl, llm, "m")
     assert ra["muc_dich_tai_lieu"] == "hoi" and ra["khuon_tong_quat"] is None
     assert ra["tai_lieu_ket"]["tra_loi_ngan"] == "Đây là phiếu đánh giá."
+
+
+@pytest.mark.parametrize(
+    "tra_loi,ra_nguoi_doc",
+    [
+        ("Tôi đã sửa mục 2 như bạn yêu cầu.", h.CHUA_THAY_DOI),
+        ("Tôi đã ghi nhận: mục 2 nói về thời gian thực tập.", "Tôi đã ghi nhận: mục 2 nói về thời gian thực tập."),
+    ],
+    ids=["tu_nhan_da_sua", "ghi_nhan_khong_phai_thay_doi"],
+)
+def test_luot_ha_ve_hoi_tren_tai_lieu_khong_khuon_khong_bao_gio_noi_da_sua(tra_loi, ra_nguoi_doc):
+    """Gác cũ (bản HTML) hạ `sua_ban_thao` về `hoi`: lời "Tôi đã sửa …" của mô hình là
+    bịa, câu cố định thay nó; lời không tự nhận thay đổi nào đi ra nguyên."""
+    tl = [{"id": V, "ten_tep": "don.docx", "don_vi": _mau(None)[2]}]
+    llm = _LLM({**_ra(muc_dich="sua_ban_thao", tra_loi=tra_loi), "van_ban": {}})
+    cau = "sửa mục 2 cho trang trọng"
+    ra = h.hieu_tai_lieu({"query": cau, "cau_hoi_goc": cau, "intent": Intent.tai_lieu}, tl, llm, "m")
+    assert ra["muc_dich_tai_lieu"] == "hoi"
+    assert ra["tai_lieu_ket"]["tra_loi_ngan"] == ra_nguoi_doc
+
+
+def test_hai_khuon_khong_ro_tai_lieu_nao_thi_hoi_lai_khong_noi_da_dien():
+    """Hai biểu mẫu có khuôn gốc, mô hình không nêu biểu mẫu nào: không áp gì, và lời
+    "Tôi đã điền" của nó không đi ra — hỏi lại điền vào biểu mẫu nào."""
+    dv = _mau(None)[2]
+    v2 = "dddddddd-0000-0000-0000-00000000000d"
+    tl = [
+        {"id": v, "viec_id": v, "ten_tep": ten, "don_vi": dv, "co_khuon_goc": True, "dinh_dang": "docx", "so_trang": 1}
+        for v, ten in ((V, "a.docx"), (v2, "b.docx"))
+    ]
+    ra_m = _ra(muc_dich="sua_ban_thao", tra_loi="Tôi đã điền họ tên ⟦0⟧.")
+    ra_m["khuon"]["tai_lieu"] = ""
+    st = {"query": DIEN, "cau_hoi_goc": DIEN, "intent": Intent.tai_lieu, "user_sub": "u", "hoi_thoai_id": "p"}
+    ra = h.hieu_tai_lieu(st, tl, _LLM(ra_m), "m")
+    assert ra["muc_dich_tai_lieu"] == "hoi" and ra["khuon_tong_quat"] is None
+    assert ra["tai_lieu_ket"]["tra_loi_ngan"] == (
+        "Lượt này tôi chưa điền gì: bạn có 2 biểu mẫu («a.docx», «b.docx») và tôi chưa rõ bạn muốn "
+        "điền vào biểu mẫu nào. Hãy nói tên biểu mẫu cùng giá trị cần điền, hoặc bấm vào chỗ trống trên trang."
+    )

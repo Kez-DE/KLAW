@@ -139,9 +139,17 @@ _RE_DIEN_SUA = _mau_dong_tu(
     r"dien|ghi\b.{0,40}?\bvao|sua|thay(?!\s+(?:mat|vi))|doi\b.{0,40}?\bthanh|bo\s+sung|xoa"
     r"|them\b.{0,40}?\bvao|cap\s+nhat",
 )
+# Không có "xuất bản" trần: đó là "phát hành" ("được xuất bản năm nào?").
 _RE_TAO_LAI = _mau_dong_tu(
-    r"soạn\s+thảo|soạn\s+lại|tạo\s+lại|dựng\s+lại|xuất\s+(?:ra\s+)?(?:file|tệp|văn\s+bản|bản)|làm\s+lại\s+văn\s+bản",
-    r"soan\s+thao|soan\s+lai|tao\s+lai|dung\s+lai|xuat\s+(?:ra\s+)?(?:file|tep|van\s+ban|ban)|lam\s+lai\s+van\s+ban",
+    r"soạn\s+thảo|soạn\s+lại|tạo\s+lại|dựng\s+lại|xuất\s+(?:ra\s+)?(?:file|tệp|văn\s+bản)|làm\s+lại\s+văn\s+bản",
+    r"soan\s+thao|soan\s+lai|tao\s+lai|dung\s+lai|xuat\s+(?:ra\s+)?(?:file|tep|van\s+ban)|lam\s+lai\s+van\s+ban",
+)
+# Dấu hỏi (review G7): một động từ dựng lại trong câu HỎI ("Văn bản này do ai soạn
+# thảo?") không tự thành lượt soạn — `_quyet_khuon`. "không"/"chưa" chỉ hỏi ở cuối câu
+# ("… được không"); giữa câu chúng phủ định ("không cần điền").
+_RE_CAU_HOI = _mau_dong_tu(
+    r"ai|gì|nào|sao|bao\s+giờ|đâu|(?:không|chưa)(?=[\s.!…]*$)",
+    r"ai|gi|nao|sao|bao\s+gio|dau|(?:khong|chua)(?=[\s.!…]*$)",
 )
 # Lời xin XEM bản đã có (Q3): CẢ câu phải là lời xin xem, trên dạng không dấu — một
 # danh sách đóng, nên "cho tôi xem biểu mẫu này nói gì" (hỏi nội dung) không khớp.
@@ -191,6 +199,12 @@ def xin_tao_lai(cau: str) -> bool:
     return _co_dong_tu(_RE_TAO_LAI, cau)
 
 
+def _la_cau_hoi(cau: str) -> bool:
+    """Câu có dạng câu hỏi: '?' hay một từ hỏi. Lời xin lịch sự ("… được không?")
+    cũng khớp — ở đó cách đọc của mô hình quyết định (`_quyet_khuon`). Hàm thuần."""
+    return "?" in (cau or "") or _co_dong_tu(_RE_CAU_HOI, cau)
+
+
 # Dấu nội bộ của prompt khuôn gốc (`_dong_tai_cho`): `⟦n⟧`, `⟦n=«giá trị»⟧`, `¶n`. Mô
 # hình chép chúng vào lời đáp (đo được: "… vào chỗ trống số 0 … ⟦0⟧ … ⟦1⟧"); người
 # đọc không bao giờ thấy chúng. Dấu mang giá trị nhường chỗ cho giá trị.
@@ -209,9 +223,22 @@ def bo_dau_noi_bo(s: str) -> str:
     return s.strip()
 
 
-# Lời mô hình tự nhận đã làm một thay đổi — không bao giờ ra khỏi một lượt không áp gì.
+# Lời mô hình tự nhận đã làm một thay đổi — không bao giờ ra khỏi một lượt hỏi đáp
+# (không áp gì). "Tôi đã ghi nhận" không phải một thay đổi.
 _RE_DA_LAM = re.compile(
-    r"\btôi\s+(?:đã|vừa)\s+(?:điền|sửa|thay|cập\s+nhật|bổ\s+sung|xoá|xóa|thêm|ghi|dựng|tạo|soạn)", re.IGNORECASE
+    r"\btôi\s+(?:đã|vừa)\s+(?:điền|sửa|thay|cập\s+nhật|bổ\s+sung|xoá|xóa|thêm|ghi(?!\s+nhận)|dựng|tạo|soạn)",
+    re.IGNORECASE,
+)
+# Câu thay cho lời tự nhận đó khi lượt kết thúc là hỏi đáp mà không có khuôn gốc nào
+# để nói cụ thể hơn (`chua_dien_khuon`).
+CHUA_THAY_DOI = (
+    "Lượt này tôi chưa sửa hay điền gì: tôi đọc câu của bạn là một câu hỏi về tài liệu, nên không "
+    "bản thảo nào thay đổi. Nếu bạn muốn sửa, hãy nói rõ chỗ cần sửa và nội dung mới."
+)
+# Nhiều biểu mẫu có khuôn gốc mà mô hình không nêu biểu mẫu nào: không áp gì, hỏi lại.
+CHUA_RO_KHUON = (
+    "Lượt này tôi chưa điền gì: bạn có {so} biểu mẫu ({ds}) và tôi chưa rõ bạn muốn điền vào biểu mẫu "
+    "nào. Hãy nói tên biểu mẫu cùng giá trị cần điền, hoặc bấm vào chỗ trống trên trang."
 )
 
 
@@ -2678,8 +2705,10 @@ def _quyet_khuon(cau: str, soan: bool, tin_soan: bool, yeu_cau: str, co_phep: bo
     có ≥1 phép qua kiểm → lượt điền (không phép nào qua thì `dung_ban_thao_tong_quat`
     không đổi bản thảo nào); lời xin điền mà không ai đọc là soạn và không phép nào
     ("tôi phải điền gì vào ô Mã số?") vẫn là hỏi đáp; lời xin dựng lại → `tao_lai`,
-    đúng tệp tải lên. `van_ban_khac` của mô hình đứng nguyên: bộ nhận câu không biết
-    văn bản NÀO được soạn ("dựa vào phiếu này soạn đơn…, sửa cho trang trọng")."""
+    đúng tệp tải lên — trừ câu hỏi không ai đọc là soạn ("Văn bản này do ai soạn
+    thảo?"): dựng lại xoá mọi giá trị đã điền. `van_ban_khac` của mô hình đứng nguyên:
+    bộ nhận câu không biết văn bản NÀO được soạn ("dựa vào phiếu này soạn đơn…, sửa
+    cho trang trọng")."""
     if yeu_cau == "van_ban_khac":
         return soan, yeu_cau
     dien = xin_dien_sua(cau)
@@ -2687,7 +2716,7 @@ def _quyet_khuon(cau: str, soan: bool, tin_soan: bool, yeu_cau: str, co_phep: bo
         return True, "dien_sua"
     if dien:
         return False, yeu_cau
-    if xin_tao_lai(cau):
+    if xin_tao_lai(cau) and (tin_soan or not _la_cau_hoi(cau)):
         return True, "tao_lai"
     return soan, yeu_cau
 
@@ -3479,6 +3508,8 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         else None
     )
     soan_khuon, chua_dien = False, None
+    # Lời mô hình tự nhận đã thay đổi gì đó ("Tôi đã điền …"): chỉ đi ra ở lượt soạn.
+    da_lam = bool(_RE_DA_LAM.search(unicodedata.normalize("NFC", str(ra.get("tra_loi_ngan") or ""))))
     phep, bo, khong_dat, gia_tri_bo, de_xuat, yeu_cau = [], [], [], [], [], "dien_sua"
     if t_k is not None:
         # Thiếu hay lạ (kể cả `van_ban_nay` của lược đồ cũ) là `dien_sua` (`YEU_CAU`).
@@ -3508,9 +3539,15 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
             # Lượt ai đó tưởng là soạn (mô hình, router, hay một phép đề xuất) mà không áp
             # gì, hay lời mô hình tự nhận đã điền: câu cố định nói thật, không bao giờ lời
             # "Tôi đã điền …" của mô hình.
-            da_lam = _RE_DA_LAM.search(unicodedata.normalize("NFC", str(ra.get("tra_loi_ngan") or "")))
             if tin_soan or da_lam:
                 chua_dien = chua_dien_khuon(t_k["ten_tep"], bo, bool(phep), bool(de_xuat), khong_dat)
+    elif goi_khuon and muc_dich not in MUC_DICH_SOAN and (tin_soan or da_lam):
+        # Nhiều biểu mẫu, mô hình không nêu biểu mẫu nào: không áp gì, hỏi lại.
+        ds = ", ".join(f"«{t['ten_tep']}»" for t in goi_khuon)
+        chua_dien = CHUA_RO_KHUON.format(so=len(goi_khuon), ds=ds)
+    if chua_dien is None and da_lam and muc_dich not in MUC_DICH_SOAN:
+        # Mọi đường hỏi đáp khác (gác cũ trên bản HTML, tài liệu không khuôn gốc).
+        chua_dien = CHUA_THAY_DOI
     phep_tinh, phep_tinh_bo = _lay_phep_tinh(ra, goi)
     truong, truong_bo = _lay_truong(ra, goi)
     # Fix round 1 (review HIGH) — `_lay_truong` kiểm ĐOẠN TRÍCH neo được về tài
