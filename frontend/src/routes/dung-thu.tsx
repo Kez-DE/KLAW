@@ -15,15 +15,17 @@ import { KhongGianSoanThao } from "@/components/soan-thao/KhongGianSoanThao";
 import { TaiLieuDuKien } from "@/components/klaw/TaiLieuDuKien";
 import {
   apNeuCungBan,
+  banThaoTuMo,
   dongKhiDoiPhien,
   thamSoSanKhau,
   urlCoBanThao,
   urlTroBanKhac,
   vanNham,
+  viecMoTaiLieu,
   type SanKhau,
 } from "@/lib/san-khau";
 import { loiTruocKhiGui, seDungOcr } from "@/lib/tai-lieu";
-import { taiLen } from "@/lib/tai-lieu-api";
+import { chiTiet as chiTietTaiLieu, taiLen } from "@/lib/tai-lieu-api";
 import { loaiBackendCua } from "@/lib/mau-van-ban";
 import { daTat, ghiNhoDaTat, khoaHetHan } from "@/lib/tat-thong-bao";
 import { noiTraTieuDiem } from "@/lib/tieu-diem";
@@ -35,7 +37,14 @@ import { TayKeo } from "@/components/ui/TayKeo";
 import { useTaiKhoan } from "@/contexts/tai-khoan";
 import { useDoiChieu } from "@/hooks/use-doi-chieu";
 import { useTraCuu } from "@/hooks/use-tra-cuu";
-import { goi, layBanThao, luiBanThao, moBanThaoKhuon, suaHoSoPhien } from "@/lib/api";
+import {
+  banThaoCuaTaiLieu,
+  goi,
+  layBanThao,
+  luiBanThao,
+  moBanThaoKhuon,
+  suaHoSoPhien,
+} from "@/lib/api";
 import { dinhDangMoc, laBiKhoa, laKhongGioiHan } from "@/lib/han-muc";
 import { layThreadKhach, xoaThreadKhach } from "@/lib/khach";
 import {
@@ -358,23 +367,6 @@ function ManHoiKlaw() {
    *  `trace_id` để bản vá của lượt này không dính sang lượt trả lời kế tiếp. */
   const [hoSoDaSua, datHoSoDaSua] = useState<{ trace: string; hoSo: HoSoDaDung[] } | null>(null);
 
-  /** Kết quả mới của CHÍNH bản thảo đang mở → cập nhật `banThaoMo` (phiên bản
-   *  mới, mục vừa đổi tô được qua `doi_so_voi_truoc`). So khớp theo id vì lượt
-   *  hỏi tiếp theo có thể không nói gì tới bản thảo (một câu hỏi tra cứu khác). */
-  //
-  // CHỈ kết quả MỚI: một kết quả đã thấy (kể cả lúc sân khấu đóng) không được
-  // áp lại khi sân khấu MỞ — mở đã có `layBanThao`/bản vừa trả về. Áp lại thì
-  // một phiên bản cũ của lượt chat trước lên sân khấu trước bản mới nhất, và với
-  // bản thảo trên khuôn gốc đó là HAI lượt dựng trang chồng nhau (lượt sau 503).
-  const ketQuaDaAp = useRef<TraCuuKetQua | null>(null);
-  useEffect(() => {
-    if (traCuu.dangChay || traCuu.ketQua === ketQuaDaAp.current) return;
-    ketQuaDaAp.current = traCuu.ketQua;
-    const bt = traCuu.ketQua?.ban_thao;
-    if (banThaoIdSanKhau !== null && bt !== null && bt !== undefined && bt.id === banThaoIdSanKhau)
-      datBanThaoMo(bt);
-  }, [banThaoIdSanKhau, traCuu.dangChay, traCuu.ketQua]);
-
   /** Đóng sân khấu — nút X, Esc, bị một khung khác (đối chiếu/soạn thảo) thay
    *  chỗ, HOẶC `layBanThao` thất bại (bản thảo đã xoá/không truy cập được).
    *  BẤT BIẾN: sân khấu đóng ⇒ không còn `?ban_thao=` trên URL. R6
@@ -464,6 +456,34 @@ function ManHoiKlaw() {
     });
   };
 
+  /** Kết quả mới của CHÍNH bản thảo đang mở → cập nhật `banThaoMo` (phiên bản
+   *  mới, mục vừa đổi tô được qua `doi_so_voi_truoc`). So khớp theo id vì lượt
+   *  hỏi tiếp theo có thể không nói gì tới bản thảo (một câu hỏi tra cứu khác).
+   *  Bản thảo trên khuôn gốc (lượt điền/sửa/dựng lại, lượt "cho tôi xem"): sân
+   *  khấu TỰ MỞ trên nó (chủ dự án 2026-09-28, Q2) — ở bố cục hẹp là tab "Bản
+   *  thảo" (`moSanKhau`); chat vẫn giữ lời đáp và thẻ. */
+  //
+  // CHỈ kết quả MỚI, MỘT lần: một kết quả đã thấy (kể cả lúc sân khấu đóng)
+  // không được áp lại khi sân khấu MỞ — mở đã có `layBanThao`/bản vừa trả về.
+  // Áp lại thì một phiên bản cũ của lượt chat trước lên sân khấu trước bản mới
+  // nhất, và với bản thảo trên khuôn gốc đó là HAI lượt dựng trang chồng nhau
+  // (lượt sau 503); và người dùng đóng sân khấu rồi thì lượt đó không mở lại.
+  // Lượt đã lưu (`daTai`, `luuTru`) không bao giờ là `traCuu.ketQua`: xem lại
+  // lịch sử không mở gì. `moSanKhau` dựng lại mỗi lượt vẽ: gọi bản mới nhất qua
+  // ref, để hiệu ứng chỉ chạy khi kết quả đổi.
+  const ketQuaDaAp = useRef<TraCuuKetQua | null>(null);
+  const moSanKhauMoiNhat = useRef(moSanKhau);
+  moSanKhauMoiNhat.current = moSanKhau;
+  useEffect(() => {
+    if (traCuu.dangChay || traCuu.ketQua === ketQuaDaAp.current) return;
+    ketQuaDaAp.current = traCuu.ketQua;
+    const bt = traCuu.ketQua?.ban_thao;
+    const tuMo = banThaoTuMo(bt);
+    if (tuMo !== null) moSanKhauMoiNhat.current(tuMo.id, tuMo);
+    else if (banThaoIdSanKhau !== null && bt != null && bt.id === banThaoIdSanKhau)
+      datBanThaoMo(bt);
+  }, [banThaoIdSanKhau, traCuu.dangChay, traCuu.ketQua]);
+
   /** "Bản tải lên": khuôn gốc đúng như tệp, trên sân khấu. Đóng sân khấu đang
    *  mở qua ĐÚNG cửa đóng (gỡ `?ban_thao=`), rồi mở chế độ này — cùng lượt vẽ,
    *  nên sân khấu không chớp đóng/mở. */
@@ -548,6 +568,43 @@ function ManHoiKlaw() {
    *  localStorage của khách, và một tên tệp không có việc gì nằm ở đó. */
   const [tepCuaLuot, datTepCuaLuot] = useState<TepDinhKem[]>([]);
   const [tepDaLuu, datTepDaLuu] = useState<Record<string, TepDinhKem[]>>({});
+  /** Tệp đã biết `co_khuon_goc`/`so_trang` — tệp vừa tải lên, và tệp của các
+   *  lượt ĐÃ LƯU (tải lại trang, mở lại phiên), nơi con chip và dòng tài liệu
+   *  cần biết tệp có khuôn gốc không. Khoá theo id việc đọc, duy nhất toàn hệ
+   *  thống, nên giữ qua các phiên (mở lại phiên cũ không gọi lại). */
+  const [tepDaBiet, datTepDaBiet] = useState<Record<string, TepDinhKem>>({});
+  const daHoiTep = useRef(new Set<string>());
+  const idTepDaLuu = [
+    ...new Set(daTai.flatMap((l) => l.ketQua?.tai_lieu?.tai_lieu_da_dung.map((t) => t.id) ?? [])),
+  ].join(" ");
+  useEffect(() => {
+    // Một `GET /tai-lieu/{id}` cho mỗi tệp CHƯA biết, mỗi lần mở phiên — không
+    // mỗi lượt: giỏ nhịp là 10 lượt gọi / 60 giây mỗi IP. Hỏng thì lần mở phiên
+    // sau hỏi lại; tới lúc đó con chip chỉ mời "Dữ kiện đã đọc".
+    // ponytail: một lượt gọi mỗi tệp; thêm endpoint liệt kê tài liệu của phiên
+    // nếu phiên nhiều tệp chạm giỏ nhịp.
+    for (const id of idTepDaLuu.split(" ")) {
+      if (id === "" || daHoiTep.current.has(id)) continue;
+      daHoiTep.current.add(id);
+      void chiTietTaiLieu(id).then((kq) => {
+        if (!kq.ok) {
+          daHoiTep.current.delete(id);
+          return;
+        }
+        const { ten_tep, co_khuon_goc, so_trang } = kq.data;
+        datTepDaBiet((cu) => ({
+          ...cu,
+          [id]: { id, ten_tep, co_khuon_goc: co_khuon_goc === true, so_trang },
+        }));
+      });
+    }
+  }, [idTepDaLuu]);
+  /** Con chip của một lượt ĐÃ LƯU: các tài liệu lượt đó dùng — lối vào tệp sau
+   *  khi tải lại trang ("Xem bản tải lên", "Điền biểu mẫu" khi tệp có khuôn gốc). */
+  const tepCuaLuotDaLuu = (kq: TraCuuKetQua | null): TepDinhKem[] =>
+    (kq?.tai_lieu?.tai_lieu_da_dung ?? []).map(
+      (t) => tepDaBiet[t.id] ?? { id: t.id, ten_tep: t.ten_tep },
+    );
   /** Bản mới nhất của `tepDaDinhKem` cho `ghiNhoDinhKem`, vốn phải ổn định
    *  tham chiếu (xem doc ở đó) nên không đọc được state qua closure. */
   const dsDinhKem = useRef(tepDaDinhKem);
@@ -761,6 +818,23 @@ function ManHoiKlaw() {
     onDuKien: moTaiLieuDinhKem,
   };
 
+  /** Bấm dòng tài liệu trên thẻ (chủ dự án 2026-09-28, Q1): bản thảo MỚI NHẤT
+   *  của tệp lên sân khấu — đang mở rồi thì chỉ đưa tiêu điểm vào nó; chưa có
+   *  bản thảo nào thì "Bản tải lên". Cùng lối ở lượt đang chạy và lượt đã lưu. */
+  const moTaiLieuCuaLuot = async (t: TaiLieuDaDung) => {
+    const biet = tepDaBiet[t.id];
+    const viec = await viecMoTaiLieu(biet?.co_khuon_goc, () => banThaoCuaTaiLieu(t.id));
+    if (viec.loai === "loi") toast.error(viec.cau);
+    else if (viec.loai === "du_kien") moTaiLieuDinhKem(t.id);
+    else if (viec.loai === "ban_tai_len")
+      moBanTaiLen({ id: t.id, ten_tep: t.ten_tep, so_trang: biet?.so_trang ?? null });
+    else if (vanNham(sanKhauRef.current, viec.banThao.id)) {
+      datTabHep("ban_thao"); // bố cục hẹp: về tab "Bản thảo", hiệu ứng tiêu điểm lo phần còn lại
+      khungSanKhau.current?.querySelector<HTMLElement>("[data-tieu-de-san-khau]")?.focus();
+    } else moSanKhau(viec.banThao.id, viec.banThao);
+  };
+  const onMoTaiLieu = (t: TaiLieuDaDung) => void moTaiLieuCuaLuot(t);
+
   /**
    * Đính kèm một tệp: tải lên, gắn chip, KHÔNG mở khung và KHÔNG phân tích.
    *
@@ -859,6 +933,8 @@ function ManHoiKlaw() {
     const day = conLai.length >= TOI_DA_DINH_KEM;
     const giu = day ? conLai.slice(conLai.length - TOI_DA_DINH_KEM + 1) : conLai;
     datTepDaDinhKem([...giu, tep]);
+    daHoiTep.current.add(tep.id);
+    datTepDaBiet((cu) => ({ ...cu, [tep.id]: tep }));
     if (day) toast.info(`Mỗi lượt gửi được tối đa ${TOI_DA_DINH_KEM} tài liệu`);
   }, []);
 
@@ -1239,7 +1315,13 @@ function ManHoiKlaw() {
             )}
             <div className="flex flex-col gap-8">
               {daTai.map((l) => (
-                <Luot key={`da-luu-${l.thuTu}`} cauHoi={l.cauHoi} traceId={l.traceId}>
+                <Luot
+                  key={`da-luu-${l.thuTu}`}
+                  cauHoi={l.cauHoi}
+                  traceId={l.traceId}
+                  tepDinhKem={tepCuaLuotDaLuu(l.ketQua)}
+                  hanhDongTep={hanhDongTep}
+                >
                   {l.ketQua === null ? (
                     <p className="m-0 text-[14px] leading-6 text-muted-foreground">
                       Lượt này được lưu ở định dạng cũ nên tôi không hiển thị lại được.
@@ -1259,6 +1341,7 @@ function ManHoiKlaw() {
                       onMoBanThao={moSanKhau}
                       onMoNeoTaiLieu={moNeoTaiLieu}
                       onHanhDongTaiLieu={hanhDongTaiLieu}
+                      onMoTaiLieu={onMoTaiLieu}
                     />
                   )}
                 </Luot>
@@ -1283,6 +1366,7 @@ function ManHoiKlaw() {
                     onMoBanThao={moSanKhau}
                     onMoNeoTaiLieu={moNeoTaiLieu}
                     onHanhDongTaiLieu={hanhDongTaiLieu}
+                    onMoTaiLieu={onMoTaiLieu}
                   />
                 </Luot>
               ))}
@@ -1344,6 +1428,7 @@ function ManHoiKlaw() {
                       onMoBanThao={moSanKhau}
                       onMoNeoTaiLieu={moNeoTaiLieu}
                       onHanhDongTaiLieu={hanhDongTaiLieu}
+                      onMoTaiLieu={onMoTaiLieu}
                       onSuaHoSo={(khoa, giaTri) => {
                         const id = phienId ?? traCuu.hoiThoaiId;
                         // `error.message` đã là câu tiếng Việt hiển thị thẳng được

@@ -153,6 +153,7 @@ export function TheTaiLieu({
   onChip,
   onMoNeoTaiLieu,
   onHanhDongTaiLieu,
+  onMoTaiLieu,
 }: {
   ketQua: TraCuuKetQua;
   /** Điền một câu vào ô hỏi. KHÔNG tự gửi — người hỏi còn sửa câu. */
@@ -166,6 +167,9 @@ export function TheTaiLieu({
    * chung chung không nói được người dùng sắp hỏi về tờ giấy nào.
    */
   onHanhDongTaiLieu?: ((cauHoi: string, taiLieu: TaiLieuDaDung[]) => void) | undefined;
+  /** Mở chính tài liệu này (bản thảo mới nhất của nó, không thì bản tải lên).
+   *  Không có thì dòng tài liệu là chữ thường. */
+  onMoTaiLieu?: ((taiLieu: TaiLieuDaDung) => void) | undefined;
 }) {
   /**
    * Sửa/xoá của NGƯỜI DÙNG chồng lên `du_kien` của lượt, khoá theo id.
@@ -241,28 +245,69 @@ export function TheTaiLieu({
     return ten === undefined ? {} : { tenTep: ten };
   };
 
+  const moTa = tl.mo_ta !== null && tl.mo_ta.trim() !== "" ? tl.mo_ta : null;
+  const motTep = nhieuTaiLieu ? undefined : tl.tai_lieu_da_dung[0];
+  /** Dòng tài liệu bấm được (chủ dự án 2026-09-28, Q1): mở bản thảo mới nhất
+   *  của tệp, không thì bản tải lên. `data-mo-san-khau`: đóng sân khấu ở bố
+   *  cục hẹp dựng lại cả cây chat, trang tìm lại ĐÚNG nút này để trả tiêu điểm. */
+  const propNutMo = (t: TaiLieuDaDung) => ({
+    type: "button" as const,
+    onClick: () => onMoTaiLieu?.(t),
+    "aria-label": `Mở «${t.ten_tep}»`,
+    "data-mo-san-khau": `tai_lieu_dong:${ketQua.trace_id}:${t.id}`,
+  });
+
   return (
     <section aria-label="Kết quả đọc tài liệu">
-      {tl.mo_ta !== null && tl.mo_ta.trim() !== "" && (
-        <p className="m-0 flex items-start gap-2 text-[13px] leading-5 text-muted-foreground">
+      {onMoTaiLieu && motTep !== undefined ? (
+        <button
+          {...propNutMo(motTep)}
+          title={motTep.ten_tep}
+          className="focus-brass -mx-1 flex min-h-6 max-w-full cursor-pointer items-start gap-2 rounded px-1 text-left text-[13px] leading-5 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
           <FileText aria-hidden className="mt-0.5 size-4 shrink-0" />
-          <span>{tl.mo_ta}</span>
-        </p>
+          <span>{moTa ?? motTep.ten_tep}</span>
+        </button>
+      ) : (
+        moTa !== null && (
+          <p className="m-0 flex items-start gap-2 text-[13px] leading-5 text-muted-foreground">
+            <FileText aria-hidden className="mt-0.5 size-4 shrink-0" />
+            <span>{moTa}</span>
+          </p>
+        )
       )}
 
       {/* Nhãn "A"/"B" chỉ có nghĩa khi có hơn một tài liệu để phân biệt. Một
           tài liệu mà vẫn dán nhãn là bắt người đọc giải mã một ký hiệu thừa. */}
       {nhieuTaiLieu && (
         <ul className="mt-2 mb-0 flex list-none flex-wrap gap-2 p-0 text-[12px]">
-          {tl.tai_lieu_da_dung.map((t) => (
-            <li
-              key={t.id}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5"
-            >
-              <span className="font-jetbrains">{t.nhan}</span>
-              <span className="truncate text-muted-foreground">{t.ten_tep}</span>
-            </li>
-          ))}
+          {tl.tai_lieu_da_dung.map((t) => {
+            const noiDung = (
+              <>
+                <span className="font-jetbrains">{t.nhan}</span>
+                <span className="truncate text-muted-foreground">{t.ten_tep}</span>
+              </>
+            );
+            const vo =
+              "inline-flex max-w-full items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5";
+            return onMoTaiLieu ? (
+              <li key={t.id} className="max-w-full">
+                <button
+                  {...propNutMo(t)}
+                  className={cn(
+                    vo,
+                    "focus-brass cursor-pointer hover:bg-[var(--color-paper-100)] hover:underline",
+                  )}
+                >
+                  {noiDung}
+                </button>
+              </li>
+            ) : (
+              <li key={t.id} className={vo}>
+                {noiDung}
+              </li>
+            );
+          })}
         </ul>
       )}
 
