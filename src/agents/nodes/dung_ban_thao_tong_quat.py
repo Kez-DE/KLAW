@@ -76,6 +76,34 @@ def khong_doi_khuon(khuon: dict) -> str:
     return KHONG_DOI_KHUON.format(ly_do="; ".join(ly_do), tai=tai)
 
 
+# Owner 2026-09-28 ("không bao giờ nói đã điền khi chưa điền"): lượt trên khuôn gốc mà
+# ai đó tưởng là lượt điền — mô hình, router hay một phép đề xuất — nhưng không áp gì
+# (`hieu_tai_lieu._quyet_khuon`) đáp CÂU NÀY thay cho lời của mô hình ("Tôi đã điền … ⟦0⟧"
+# đo được trong hội thoại a99dfda8…). Không bản thảo nào đổi ở lượt đó.
+CHUA_DIEN_KHUON = (
+    "Lượt này tôi chưa điền gì vào «{ten}»: {ly_do}. {khong_dat}"
+    "Hãy nói rõ giá trị cần điền, hoặc bấm vào chỗ trống trên trang."
+)
+
+
+def chua_dien_khuon(ten_tep: str, bo: list[dict], co_phep: bool, co_de_xuat: bool, khong_dat: list[str]) -> str:
+    """`CHUA_DIEN_KHUON` với lý do bằng lời thường: phép qua kiểm mà lượt không phải lời
+    xin điền, các LOẠI lỗi của phép bị bỏ (không giá trị), phép trùng bản đang có, hay
+    không có phép nào; cộng giá trị người hỏi đưa mà chưa đặt được (chuỗi con lời họ)."""
+    if co_phep:
+        ly_do = "tôi đọc câu của bạn là một câu hỏi, không phải lời xin điền hay sửa"
+    elif bo:
+        ly_do = "; ".join(dict.fromkeys(_LY_DO_BO.get(b.get("ly_do"), _LY_DO_KHAC) for b in bo))
+    elif co_de_xuat:
+        ly_do = "những giá trị đó đã có sẵn trong bản thảo"
+    else:
+        ly_do = "tôi chưa thấy giá trị nào trong câu của bạn để đặt vào chỗ trống"
+    ke = ", ".join(f"«{v}»" for v in khong_dat[:4]) + (
+        f" và {len(khong_dat) - 4} giá trị khác" if len(khong_dat) > 4 else ""
+    )
+    return CHUA_DIEN_KHUON.format(ten=ten_tep, ly_do=ly_do, khong_dat=f"Chưa đặt được: {ke}. " if ke else "")
+
+
 # Lượt xin một văn bản KHÁC dựa trên tệp tải lên (`yeu_cau="van_ban_khac"`): văn
 # bản khác là việc của đường checklist (quyết định 2026-09-26 mục 3), nên không
 # dựng gì và chỉ sang đó. Không đòi giá trị điền: người hỏi không xin điền tệp này.
@@ -258,6 +286,8 @@ def _ket_state(bt: dict, ten: str, doi: list[str]) -> dict:
     `viec_id` qua truy vấn con kiểm chủ, một id lạ ra NULL (bản thảo HTML).
     `khuon` (khuôn gốc + chỗ trống kèm giá trị) do service tính từ dòng —
     `assemble` chuyển nguyên sang `BanThaoOut.khuon`; `None` cho bản thảo HTML.
+    `ten` qua `ban_thao.ten_ban_thao`, cùng luật `routes_ban_thao` (tên tệp tải lên
+    cho bản khuôn gốc), nên thẻ chat và lần tải lại gọi bản thảo cùng một tên.
     """
     return {
         "viec_id": bt.get("viec_id"),
@@ -265,7 +295,7 @@ def _ket_state(bt: dict, ten: str, doi: list[str]) -> dict:
         "khuon": bt.get("khuon"),
         "id": bt["id"],
         "loai": LOAI_TONG_QUAT,
-        "ten": ten,
+        "ten": ban_thao.ten_ban_thao(bt, ten),
         "phien_ban": bt["phien_ban"],
         "document": bt["document"],
         "clauses": bt["clauses"],
@@ -313,6 +343,11 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
         # bản MỚI, chịu hạn mức dựng lần đầu.
         cu = ban_thao.moi_nhat_cua_hoi_thoai(sub, str(hoi_thoai_id), LOAI_TONG_QUAT, viec_id=khuon["viec_id"])
         la_sua = cu is not None
+        if khuon.get("xin_dien_rong") and not la_sua:
+            # Lời xin điền mà không phép nào qua kiểm (G7): không dựng phiên bản 1 nào,
+            # không hạn mức; nói thật. Giá trị chưa đặt được do `assemble` kể tiếp.
+            loi = chua_dien_khuon(khuon.get("ten_tep") or "", khuon.get("bo_qua") or [], False, False, [])
+            return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": loi}
     if not la_sua:
         # Hạn mức DỰNG LẦN ĐẦU — CÙNG giỏ `EP_SOAN_THAO` mà đường checklist
         # kiểm ở `graph_tra_cuu.n_dung_ban_thao`, không phải một giỏ thứ hai.
@@ -373,13 +408,12 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
     if ket is None:
         return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_SOAN_DUOC}
 
-    # `ten` trả lời "bản thảo này THUỘC LOẠI gì" (BanThaoOut.ten) — CỐ ĐỊNH,
-    # không phải tiêu đề riêng của văn bản. `routes_ban_thao._ten_loai` đã trả
-    # cố định TEN_TONG_QUAT cho loai này ở mọi lần tải lại; gán `tieu_de` vào
-    # đây làm `ten` đổi giá trị giữa lượt vừa soạn (SSE) và lần tải lại trang
-    # sau đó — đúng kiểu lẫn lộn Phase 7 R4 cấm. Tiêu đề riêng đi qua
-    # `document` (dòng H1 đầu, `_render_markdown` bên dưới), phía client tự
-    # đọc ra từ đó.
+    # `ten` trả lời "bản thảo này THUỘC LOẠI gì" (BanThaoOut.ten) — CỐ ĐỊNH cho
+    # bản HTML, không phải tiêu đề riêng của văn bản: gán `tieu_de` vào đây làm
+    # `ten` đổi giá trị giữa lượt vừa soạn (SSE) và lần tải lại trang sau đó —
+    # đúng kiểu lẫn lộn Phase 7 R4 cấm. Tiêu đề riêng đi qua `document` (dòng H1
+    # đầu). Bản trên khuôn gốc mang tên tệp tải lên (owner 2026-09-28), qua CÙNG
+    # `ban_thao.ten_ban_thao` ở `_ket_state` và ở mọi route tải lại.
     ten = TEN_TONG_QUAT
     if la_sua:
         # Bản HTML (`viec_id=None`): một bản khuôn gốc mới hơn không hút lượt sửa này.

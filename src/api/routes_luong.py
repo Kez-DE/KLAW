@@ -64,6 +64,8 @@ _NHAN = dict(BUOC_TRA_CUU)
 
 # Bước "cache" không phải một node của graph — nó là nhánh KHÔNG chạy node nào.
 _NHAN["cache"] = "Lấy câu trả lời từ bộ đệm"
+# Lời xin xem bản đã điền (`routes._xem_ban_thao`): cũng không chạy node nào.
+_NHAN["xem_ban_thao"] = "Mở bản thảo đã có"
 
 
 def _thu_tu_va_tong(req: TraCuuRequest) -> tuple[dict[str, int], int]:
@@ -76,7 +78,7 @@ def _thu_tu_va_tong(req: TraCuuRequest) -> tuple[dict[str, int], int]:
     """
     buoc = buoc_cua_luot(req)
     thu_tu = {ten: i for i, (ten, _) in enumerate(buoc, start=1)}
-    thu_tu["cache"] = len(buoc)
+    thu_tu["cache"] = thu_tu["xem_ban_thao"] = len(buoc)
     return thu_tu, len(buoc)
 
 # Giữ tham chiếu mạnh tới task đang chạy: `asyncio.create_task` chỉ giữ tham

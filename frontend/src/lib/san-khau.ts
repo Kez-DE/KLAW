@@ -4,6 +4,8 @@
  * cửa đóng (`onDongSanKhau`). Thuần, không DOM: `scripts/kiem-ui-muot.ts` kiểm
  * được mà không dựng cả trang (router, tài khoản, vỏ ứng dụng).
  */
+import { khuonHopLe, type ApiResult, type BanThao } from "./klaw";
+
 export type SanKhau =
   | { loai: "ban_thao"; banThaoId: string }
   | { loai: "ban_tai_len"; viecId: string; tenTep: string; soTrang: number | null }
@@ -53,3 +55,42 @@ export const dongKhiDoiPhien = (banThaoTrenUrl: string | undefined, sk: SanKhau)
  *  về muộn của bản thảo trước không được thay bản người dùng vừa chuyển sang. */
 export const apNeuCungBan = <T extends { id: string }>(cu: T | null, moi: T): T | null =>
   cu !== null && cu.id === moi.id ? moi : cu;
+
+/** Kết quả chat MỚI mang bản thảo trên khuôn gốc (lượt điền/sửa/dựng lại, hay
+ *  lượt "cho tôi xem bản đã điền"): sân khấu tự mở trên nó (chủ dự án
+ *  2026-09-28, Q2) — chat vẫn giữ lời đáp và thẻ. Bản thảo HTML: không. */
+export const banThaoTuMo = (bt: BanThao | null | undefined): BanThao | null =>
+  bt != null && khuonHopLe(bt.khuon) !== null ? bt : null;
+
+/** Chỉ cú bấm MỚI NHẤT được áp phản hồi của nó: bấm dòng tài liệu này rồi dòng
+ *  khác (nhãn A/B, thẻ của lượt khác) trước khi GET đầu về thì phản hồi về SAU
+ *  CÙNG không được mở đè lên thứ cú bấm mới hơn đã mở. Vé cũ trả `null`. */
+export function chiMoiNhat() {
+  let so = 0;
+  return async <T>(viec: Promise<T>): Promise<T | null> => {
+    const ve = ++so;
+    const kq = await viec;
+    return ve === so ? kq : null;
+  };
+}
+
+/** Việc của một cú bấm dòng tài liệu trên thẻ chat (Q1). */
+export type ViecMoTaiLieu =
+  | { loai: "ban_thao"; banThao: BanThao }
+  | { loai: "ban_tai_len" }
+  | { loai: "du_kien" }
+  | { loai: "loi"; cau: string };
+
+/** Bấm dòng tài liệu (chủ dự án 2026-09-28, Q1): bản thảo MỚI NHẤT của tài liệu
+ *  đó (bản đã sửa) nếu có, không thì "Bản tải lên". Tài liệu đã biết là không
+ *  có khuôn gốc (ảnh, tệp tải lên trước khi có khuôn) không có bản tải lên nào
+ *  để vẽ: mở "Dữ kiện đã đọc", không tốn lượt gọi. */
+export async function viecMoTaiLieu(
+  coKhuonGoc: boolean | undefined,
+  lay: () => Promise<ApiResult<BanThao>>,
+): Promise<ViecMoTaiLieu> {
+  if (coKhuonGoc === false) return { loai: "du_kien" };
+  const kq = await lay();
+  if (kq.ok) return { loai: "ban_thao", banThao: kq.data };
+  return kq.error.status === 404 ? { loai: "ban_tai_len" } : { loai: "loi", cau: kq.error.message };
+}

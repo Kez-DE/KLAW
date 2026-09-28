@@ -468,6 +468,12 @@ export const suaODien = (id: string, phienBan: number, giaTri: ODienGui[]) =>
 export const moBanThaoKhuon = (viecId: string) =>
   goi<BanThao>(DUONG_DAN_KHUON.moBanThao(viecId), laBanThao, { method: "POST" }).then(baoNeuDoi);
 
+/** Bản thảo mới nhất của tài liệu này (bản đã điền/sửa) — dòng tài liệu trên
+ *  thẻ chat mở nó. 404 khi tài liệu chưa có bản thảo nào. Chỉ ĐỌC: không tạo
+ *  gì, không đổi phiên bản, nên không báo `ngheBanThaoDoi`. */
+export const banThaoCuaTaiLieu = (viecId: string) =>
+  goi<BanThao>(DUONG_DAN_KHUON.moBanThao(viecId), laBanThao);
+
 /**
  * Bytes tệp đã điền của MỘT phiên bản, kèm tên máy chủ đặt (`filename*` rồi
  * `filename` của `Content-Disposition`; `null` khi không đọc được — CORS phải

@@ -474,6 +474,9 @@ interface TheKetQuaProps {
   onMoNeoTaiLieu?: (taiLieuId: string, chiSo: number) => void;
   /** Điền câu hỏi VÀ đính kèm lại tài liệu cho lượt kế (nhánh `tai_lieu`). */
   onHanhDongTaiLieu?: (cauHoi: string, taiLieu: TaiLieuDaDung[]) => void;
+  /** Bấm dòng tài liệu (nhánh `tai_lieu`): mở bản thảo mới nhất của tệp, không
+   *  thì bản tải lên. */
+  onMoTaiLieu?: (taiLieu: TaiLieuDaDung) => void;
 }
 
 /**
@@ -525,6 +528,7 @@ function NoiDungKetQua({
   onMoBanThao,
   onMoNeoTaiLieu,
   onHanhDongTaiLieu,
+  onMoTaiLieu,
 }: TheKetQuaProps) {
   const { result_type: loai, answer, citations, nguon, coverage_note: ghiChuPhamVi, bang } = ketQua;
   const chon = onChonTrichDan ?? (() => undefined);
@@ -670,6 +674,7 @@ function NoiDungKetQua({
         onChip={onChip}
         onMoNeoTaiLieu={onMoNeoTaiLieu}
         onHanhDongTaiLieu={onHanhDongTaiLieu}
+        onMoTaiLieu={onMoTaiLieu}
       />
     );
   }
