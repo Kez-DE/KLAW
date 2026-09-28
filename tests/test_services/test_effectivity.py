@@ -387,7 +387,7 @@ SU_THAT = {
     "92898": V.bi_thay_the,    # 122/2015 — MOJ nói CHL
     "126319": V.bi_thay_the,   # 141/2017 — MOJ nói CHL
     "132862": V.bi_thay_the,   # 157/2018 — MOJ nói CHL
-    "139094": V.bi_thay_the,   # 90/2019  — MOJ nói CHL, đồ thị cũng im lặng
+    "139094": V.bi_thay_the,   # 90/2019  — MOJ nói CHL; cạnh duy nhất đọc từ 38/2022 Điều 5 khoản 2
     "168670": V.het_hieu_luc,  # 74/2024
     "183939": V.con_hieu_luc,  # 293/2025 — hiện hành
 }
@@ -410,7 +410,7 @@ def test_CHAP_NHAN_ly_do_neu_dich_danh_van_ban_ke_nhiem():
     """`ly_do` hiện ra trong câu trả lời cho người dùng — phải nêu đích danh."""
     engine = get_engine()
     ke_nhiem = {"92898": "153/2016/NĐ-CP", "126319": "157/2018/NĐ-CP",
-                "132862": "90/2019/NĐ-CP", "139094": "74/2024/NĐ-CP"}
+                "132862": "90/2019/NĐ-CP", "139094": "38/2022/NĐ-CP"}
     for doc_id, so_ky_hieu in ke_nhiem.items():
         r = danh_gia_theo_id(engine, doc_id, NGAY_CHAP_NHAN)
         assert so_ky_hieu in r.ly_do, f"{doc_id}: {r.ly_do}"
@@ -421,7 +421,7 @@ def test_CHAP_NHAN_tin_cay_phan_anh_nguon_phan_quyet():
     """Cạnh đồ thị → cao; suy luận cùng chủ đề → trung_binh."""
     engine = get_engine()
     mong = {"126319": "cao", "132862": "cao", "168670": "cao",
-            "92898": "trung_binh", "139094": "trung_binh"}
+            "92898": "trung_binh", "139094": "cao"}
     thuc = {d: danh_gia_theo_id(engine, d, NGAY_CHAP_NHAN).tin_cay for d in mong}
     assert thuc == mong
 
@@ -484,12 +484,14 @@ def test_chi_nhung_canh_ngay_mau_thuan_DA_BIET_moi_duoc_bo(caplog):
 
 
 @pytest.mark.integration
-def test_ND_90_2019_that_su_KHONG_co_canh_nao_de_dua_vao():
-    """Ghim tiền đề của Mức 2b: phán quyết cho 139094 là do SUY LUẬN, không
-    phải do đồ thị. Test đỏ nếu ai đó nạp parquet mới có cạnh cho ca này —
-    lúc đó `test_CHAP_NHAN_tin_cay...` cũng phải đổi sang "cao"."""
+def test_ND_90_2019_chi_co_canh_doc_tu_nguyen_van_38_2022():
+    """Parquet không có cạnh nào cho 139094; tới K1 (2026-09-28) phán quyết của
+    nó là SUY LUẬN Mức 2b và nêu nhầm 74/2024. Cạnh duy nhất nay là 38/2022/NĐ-CP
+    Điều 5 khoản 2 (`load_incoming_edges.CANH_DOI_CHIEU_NGUYEN_VAN`) — test đỏ
+    nếu parquet mới tự thêm cạnh; khi đó đo lại `test_CHAP_NHAN_tin_cay...`."""
     _, canh, _ = nap_ngu_canh(get_engine(), "139094", NGAY_CHAP_NHAN)
-    assert canh == []
+    assert [(c["chieu"], c["loai"], c["from_so_ky_hieu"]) for c in canh] == [
+        ("di_vao", 21, "38/2022/NĐ-CP")]
 
 
 @pytest.mark.integration
