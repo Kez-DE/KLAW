@@ -83,7 +83,29 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   documents indexed → 61.3% with all 24 unindexed (75/77 ran, the same two
   structural `TruncatedOutputError` rows as K0; answer 78.7%, trích dẫn đúng
   77.0%, equal to K0 run 2). Trap 57: 43 → 45, none lost. Mơ hồ 20: 17 → 17.
-- [ ] K2 metadata, effectivity, links, cleanup, refresh script.
+- [x] K2 metadata, effectivity, links, cleanup, refresh script (2026-09-28,
+  `feat/kho-du-lieu`; backups `backup-truoc-K2.dump` 12:06 and
+  `backup-truoc-K2-lan2.dump` 15:55). 1,822 documents after merging two
+  gateway-duplicate pairs (33/2005/NĐ-CP keeps 18451, 60/2020/QH14 keeps
+  142846; `load_incoming_edges.BAN_TRUNG` stops a reload re-inserting them).
+  Issuing body 78 → 1,822/1,822 and signer 77 → 1,816 (`nap_co_quan_tang_nong`,
+  parquet). `scripts/lam_moi_hieu_luc.py` read 1,812/1,822 from the gateway
+  (`hieu_luc_kiem_luc` set, migration 038): CHL 299 · HHL1P 299 · HHL 1,212 ·
+  chua_hieu_luc 2 (gateway `CCHL`) · unknown 10 (gateway HTTP 400/500 on
+  every retry; vbpl.vn serves its generic page for the same ids). Only deep
+  status change: 12/2022/NĐ-CP CHL → HHL; deep verdicts unchanged. Machine-
+  verified vbpl.vn links 0 → 1,812 (evidence `data/seed/link_vbpl_da_kiem.yaml`;
+  the 10 failures are the unknown-status ids, none has a chinhphu docid): all
+  598 in-force documents carry one. `verified_documents` 0 → 75 (every
+  gateway-loaded deep document whose provisions are verbatim substrings;
+  145/2020 and 135/2020 miss 4 khoản where a formula/table was moved to
+  `hang_bang`). `linh_vuc_chuan` fixed for 64/2020, 15/2012, 43/2024.
+  Open: two wrong MOJ edges into 127/2025/QH15 (from 143/2025/QH15 and
+  231/2026/NĐ-CP) are in `CANH_SAI` but still in the DB — the delete needs the
+  owner (the effectivity date guard skips them, so no verdict changes);
+  3 in-force shallow rows store the number with a "số" prefix until K6
+  re-ingests them from gateway `docNum`; 528 in-force documents still lack
+  full text (K6; their full gateway responses are cached).
 - [ ] K3 citation display.
 - [ ] K4 "Căn cứ" in drafts.
 - [ ] K5 after eval, credit.
