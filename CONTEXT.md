@@ -27,6 +27,11 @@ _Avoid_: câu hỏi cuối, tail question, prompt for more
 The fixed advisory-only notice. Written by the backend, never by the model.
 _Avoid_: disclaimer, cảnh báo
 
+**liên kết nguồn (`lien_ket`)**:
+The public page of a document on an official legal database, shown only after a
+check. Absent when no page has passed the check; never a placeholder.
+_Avoid_: link, nguon_url
+
 ### Reasoning
 
 **claim**:
