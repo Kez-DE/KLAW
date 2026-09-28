@@ -1,4 +1,8 @@
-import type { HieuLuc } from "@/lib/klaw";
+import type { ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
+import { ExternalLink } from "lucide-react";
+import type { HieuLuc, HieuLucChiTiet, VanBanDan } from "@/lib/klaw";
+import { lienKetChinhThuc, manhMoTa } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 
 /**
@@ -54,7 +58,8 @@ const MAU = {
   neutral: "var(--color-status-neutral)",
 } as const;
 
-export function docNhanHieuLuc(hieuLuc: string): Nhan {
+/** `null` = nhãn không bao giờ được tới người đọc — thành phần không vẽ gì. */
+export function docNhanHieuLuc(hieuLuc: string): Nhan | null {
   switch (hieuLuc) {
     case "con_hieu_luc":
       return { kieu: "cham", mau: MAU.active, chu: "Còn hiệu lực", nhanDayDu: "Còn hiệu lực" };
@@ -107,40 +112,29 @@ export function docNhanHieuLuc(hieuLuc: string): Nhan {
       };
 
     case "mot_phan_khong_xac_dinh":
-      // KHÔNG phải "Hết hiệu lực một phần". Câu đó nói hệ thống BIẾT phần nào
-      // đã hết hiệu lực. Sự thật ngược lại: CSDL quốc gia không công bố dữ
-      // liệu cấp điều khoản cho văn bản này, nên hệ thống KHÔNG biết — và
-      // nhãn phải nói ra đúng điều đó. Rút gọn cho vừa chip là bỏ mất chính
-      // lời thú nhận giới hạn, tức bỏ mất thứ khiến nhãn này trung thực.
+      // Văn bản HHL1P (còn hiệu lực một phần). Quyết định 2026-09-28, mục 8:
+      // nhãn nói điều người đọc cần — văn bản vẫn dùng được, một phần đã đổi —
+      // và không bao giờ nói "chưa xác định". Giới hạn vẫn được giữ ở câu đầy
+      // đủ: một số điều khoản CÓ THỂ đã đổi, không khẳng định điều này còn
+      // nguyên. Câu viết cho cả hai cấp (văn bản, điều khoản): cùng một nhãn
+      // hiện ở đầu trang văn bản lẫn trong khung đối chiếu.
       return {
         kieu: "vien",
         mau: MAU.partial,
         nenNhat: "color-mix(in oklab, var(--color-brass-400) 40%, var(--card))",
-        chu: "Một phần không xác định",
-        nhanDayDu: "Bị sửa một phần, chưa xác định được điều này còn hiệu lực hay không",
+        chu: "Còn hiệu lực một phần",
+        nhanDayDu:
+          "Văn bản còn hiệu lực một phần; một số điều khoản có thể đã được sửa đổi hoặc hết hiệu lực",
         giaiThich:
-          "Văn bản đã bị sửa một phần. CSDL quốc gia không công bố dữ liệu cấp điều khoản, nên chưa xác định được điều này còn hiệu lực hay không.",
+          "Một phần văn bản này đã được sửa đổi hoặc hết hiệu lực. Đối chiếu văn bản sửa đổi trước khi áp dụng điều này.",
       };
 
     case "can_doi_chieu_tay":
-      // Trung tính: đây là lời nhờ, không phải lời cảnh báo.
-      return {
-        kieu: "cham",
-        mau: MAU.neutral,
-        chu: "Cần đối chiếu tay",
-        nhanDayDu: "Cần đối chiếu tay với văn bản gốc",
-      };
-
     case "chua_xac_dinh":
-      // CSDL quốc gia không có mã tình trạng cho văn bản này (thường là văn bản
-      // mới ban hành). Trung tính: "chưa biết", không phải "đã chết" — nên không
-      // đỏ, không xanh.
-      return {
-        kieu: "cham",
-        mau: MAU.neutral,
-        chu: "Chưa xác định",
-        nhanDayDu: "Chưa xác định được hiệu lực",
-      };
+      // Quyết định 2026-09-28, mục 8: văn bản chưa rõ tình trạng bị ẩn cho tới
+      // khi xác định được, nên hai nhãn này không bao giờ tới người đọc. Lỡ
+      // tới thì KHÔNG vẽ gì — không bao giờ chữ "Chưa xác định".
+      return null;
 
     default:
       // Nhãn backend thêm sau. Hiện nguyên chuỗi, màu trung tính, không đoán
@@ -164,6 +158,7 @@ interface BadgeHieuLucProps {
 export function BadgeHieuLuc({ hieuLuc, ghiChu, gonGang, className }: BadgeHieuLucProps) {
   if (hieuLuc === null || hieuLuc === "") return null;
   const nhan = docNhanHieuLuc(hieuLuc);
+  if (nhan === null) return null;
 
   return (
     <span className={cn("block", className)}>
@@ -207,5 +202,69 @@ export function BadgeHieuLuc({ hieuLuc, ghiChu, gonGang, className }: BadgeHieuL
         </span>
       )}
     </span>
+  );
+}
+
+const LOP_LINK =
+  "focus-brass rounded font-medium text-[var(--color-brass-600)] underline-offset-2 hover:underline";
+
+/**
+ * Tên một văn bản được nêu trong câu cho người đọc. `doc_id` có ⇒ văn bản đó
+ * đang được hiện ⇒ link nội bộ; không thì link chính thống (qua đúng cửa kiểm
+ * của trích dẫn đầy đủ), mở tab mới; không có cả hai thì chữ trần.
+ */
+export function LinkVanBanDan({ vanBan, children }: { vanBan: VanBanDan; children: ReactNode }) {
+  if (vanBan.doc_id !== null) {
+    return (
+      <Link to="/tra-cuu/$docId" params={{ docId: vanBan.doc_id }} className={LOP_LINK}>
+        {children}
+      </Link>
+    );
+  }
+  const lienKet = lienKetChinhThuc(vanBan.lien_ket);
+  if (lienKet === null) return <>{children}</>;
+  return (
+    <a
+      href={lienKet.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(LOP_LINK, "inline-flex items-center gap-1")}
+    >
+      {children}
+      <ExternalLink className="size-3.5" aria-hidden />
+      <span className="sr-only"> (mở tab mới)</span>
+    </a>
+  );
+}
+
+/**
+ * Câu thường dưới nhãn hiệu lực (`HieuLucOut.mo_ta`, quyết định 2026-09-28,
+ * mục 10): văn bản sửa đổi, hoặc ngày bắt đầu có hiệu lực — tên văn bản bấm
+ * được. Không có câu thì không có gì; không bao giờ `ly_do` hay độ tin cậy.
+ */
+export function MoTaHieuLuc({
+  hieuLuc,
+  className,
+}: {
+  hieuLuc: HieuLucChiTiet;
+  className?: string;
+}) {
+  const manh = manhMoTa(hieuLuc);
+  if (manh === null) return null;
+  return (
+    <p
+      data-mo-ta-hieu-luc
+      className={cn("mt-1 mb-0 text-[13px] leading-5 text-muted-foreground", className)}
+    >
+      {manh.map((m, i) =>
+        typeof m === "string" ? (
+          m
+        ) : (
+          <LinkVanBanDan key={i} vanBan={m.vanBan}>
+            {m.chu}
+          </LinkVanBanDan>
+        ),
+      )}
+    </p>
   );
 }

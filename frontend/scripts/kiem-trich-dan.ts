@@ -16,11 +16,15 @@ import {
   chuoiSaoChep,
   cumDieuKhoan,
   dongBanHanh,
+  dongThongTin,
   ghiChuHieuLuc,
+  laCauChoNguoiDoc,
   lienKetChinhThuc,
+  manhMoTa,
   trichDieuKhoan,
   vanBanHopLe,
 } from "../src/lib/trich-dan.ts";
+import { laVanBanBiAn, vanBanBiAn } from "../src/lib/klaw.ts";
 
 // 1. Khớp thẳng: ba mảnh ghép lại phải bằng đúng nguyên văn.
 {
@@ -289,4 +293,123 @@ type Citation = import("../src/lib/klaw.ts").Citation;
   assert.deepEqual(canCuPhapLy({ answer: null, citations: [], bang: [] }), []);
 }
 
-console.info("kiem-trich-dan: 13/13 đạt");
+// 14. Câu cho người đọc (quyết định 2026-09-28, mục 10): dòng chẩn đoán nội bộ
+//     không bao giờ tới mặt người đọc — kể cả `canh_bao` của lượt đã lưu trước
+//     khi máy chủ viết lại lời, vốn mang nguyên `ly_do` của `effectivity.py`.
+{
+  for (const cau of [
+    "tình trạng MOJ = 'chua_xac_dinh' không nằm trong bảng mã đã biết",
+    "Đánh giá tại ngày 28/09/2026 · độ tin cậy: thấp",
+    "45/2019/QH14 hết hiệu lực một phần: CSDL quốc gia không công bố dữ liệu cấp điều khoản nên không xác định được điều này còn hiệu lực hay không",
+    "90/2019/NĐ-CP đã bị thay thế: đồ thị xác nhận: bị 38/2022/NĐ-CP thay thế",
+    "không có tín hiệu chấm dứt nào; theo tình trạng CHL",
+    "Chưa xác định",
+    "   ",
+  ]) {
+    assert.equal(laCauChoNguoiDoc(cau), false, cau);
+  }
+  for (const cau of [
+    "Đã được sửa đổi, bổ sung bởi Luật số 12/2022/QH15.",
+    "Có hiệu lực từ ngày 01/01/2026.",
+    "Văn bản này không còn hiệu lực nên không có trong phạm vi tra cứu.",
+  ]) {
+    assert.equal(laCauChoNguoiDoc(cau), true, cau);
+  }
+  // `ghiChuHieuLuc` đi qua cùng cửa: câu chẩn đoán bị bỏ, nhãn vẫn đứng đó.
+  const chanDoan = "45/2019/QH14 hết hiệu lực một phần: không xác định được điều này";
+  assert.equal(ghiChuHieuLuc([], { so_ky_hieu: "45/2019/QH14", canh_bao: chanDoan }), undefined);
+  assert.equal(ghiChuHieuLuc([chanDoan], { so_ky_hieu: "45/2019/QH14" }), undefined);
+}
+
+// 15. `mo_ta`: câu thường dưới nhãn, tên văn bản trong câu thành mảnh bấm được
+//     theo ĐÚNG thứ tự `van_ban_lien_quan`; không câu (hoặc câu chẩn đoán) thì
+//     không có gì; văn bản câu không nêu tên thì không dựng link.
+{
+  const noiBo = { doc_id: "99", so_ky_hieu: "12/2022/QH15", ten_van_ban: null, lien_ket: null };
+  const ngoai = {
+    doc_id: null,
+    so_ky_hieu: "145/2020/NĐ-CP",
+    ten_van_ban: "Nghị định hướng dẫn",
+    lien_ket: "https://vbpl.vn/van-ban/chi-tiet/145",
+  };
+  const cau = "Đã được sửa đổi, bổ sung bởi Luật số 12/2022/QH15 và Nghị định số 145/2020/NĐ-CP.";
+  assert.deepEqual(manhMoTa({ mo_ta: cau, van_ban_lien_quan: [noiBo, ngoai] }), [
+    "Đã được sửa đổi, bổ sung bởi Luật số ",
+    { chu: "12/2022/QH15", vanBan: noiBo },
+    " và Nghị định số ",
+    { chu: "145/2020/NĐ-CP", vanBan: ngoai },
+    ".",
+  ]);
+  const khongNeu = { ...ngoai, so_ky_hieu: "1/2000/NĐ-CP", ten_van_ban: null };
+  assert.deepEqual(
+    manhMoTa({ mo_ta: "Có hiệu lực từ ngày 01/01/2026.", van_ban_lien_quan: [khongNeu] }),
+    ["Có hiệu lực từ ngày 01/01/2026."],
+  );
+  assert.deepEqual(manhMoTa({ mo_ta: cau }), [cau], "payload chưa có `van_ban_lien_quan`");
+  assert.equal(manhMoTa({ mo_ta: null, van_ban_lien_quan: [noiBo] }), null);
+  assert.equal(manhMoTa({ verdict: "con_hieu_luc", tin_cay: "thap", ly_do: "x" }), null);
+  assert.equal(manhMoTa({ mo_ta: "độ tin cậy: thấp" }), null);
+  // Phần tử dị dạng bị loại, không làm hỏng cả câu.
+  assert.deepEqual(manhMoTa({ mo_ta: cau, van_ban_lien_quan: [{ doc_id: 7 }, "x", noiBo] }), [
+    "Đã được sửa đổi, bổ sung bởi Luật số ",
+    { chu: "12/2022/QH15", vanBan: noiBo },
+    " và Nghị định số 145/2020/NĐ-CP.",
+  ]);
+}
+
+// 16. "Thông tin văn bản" (trang văn bản): trường vắng thì BỎ dòng — không
+//     "Không rõ", không "Chưa có"; ngày dd/mm/yyyy; ngày dị dạng cũng bỏ.
+{
+  assert.deepEqual(
+    dongThongTin({
+      so_ky_hieu: "45/2019/QH14",
+      loai_van_ban: "Bộ luật",
+      co_quan_ban_hanh: "Quốc hội",
+      nguoi_ky: null,
+      chuc_danh_nguoi_ky: null,
+      ngay_ban_hanh: "2019-11-20",
+      ngay_hieu_luc: "2021-01-01",
+      ngay_het_hieu_luc: null,
+    }),
+    [
+      ["Số hiệu", "45/2019/QH14"],
+      ["Loại văn bản", "Bộ luật"],
+      ["Cơ quan ban hành", "Quốc hội"],
+      ["Ngày ban hành", "20/11/2019"],
+      ["Ngày có hiệu lực", "01/01/2021"],
+    ],
+  );
+  assert.deepEqual(
+    dongThongTin({ so_ky_hieu: "1/2000/NĐ-CP", ngay_ban_hanh: "20/11/2019", nguoi_ky: " " }),
+    [["Số hiệu", "1/2000/NĐ-CP"]],
+  );
+}
+
+// 17. 404 `khong_hien_thi`: `detail` được mang qua `goi` nguyên vẹn; guard lấy
+//     ra câu và danh sách thay thế, bỏ phần tử dị dạng; 404 thường → null.
+{
+  const detail = {
+    ma: "khong_hien_thi",
+    thong_diep: "Văn bản này không còn hiệu lực nên không có trong phạm vi tra cứu.",
+    thay_the: [
+      { doc_id: "154245", so_ky_hieu: "38/2022/NĐ-CP", ten_van_ban: "Nghị định", lien_ket: null },
+      { doc_id: null, so_ky_hieu: "" },
+      { doc_id: null, so_ky_hieu: "1/2000/NĐ-CP", ten_van_ban: null, lien_ket: null },
+    ],
+  };
+  const biAn = vanBanBiAn({ kind: "not_found", message: "", status: 404, detail: { detail } });
+  assert.deepEqual(biAn, {
+    ma: "khong_hien_thi",
+    thong_diep: detail.thong_diep,
+    thay_the: [detail.thay_the[0], detail.thay_the[2]],
+  });
+  assert.equal(laVanBanBiAn(biAn), true, "dữ liệu notFound kiểm lại được ở trang");
+  assert.equal(
+    vanBanBiAn({ kind: "not_found", message: "", detail: { detail: "Not Found" } }),
+    null,
+  );
+  assert.equal(vanBanBiAn({ kind: "server_error", message: "", detail: { detail } }), null);
+  assert.equal(laVanBanBiAn(null), false);
+}
+
+console.info("kiem-trich-dan: 17/17 đạt");

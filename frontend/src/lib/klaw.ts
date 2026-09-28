@@ -623,11 +623,49 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError 
  * nhãn mới có thể xuất hiện, và `BadgeHieuLuc` đã có nhánh `default` cho đúng
  * việc đó. Thu hẹp ở đây chỉ chuyển một nhãn lạ từ "hiện nguyên chuỗi" thành
  * "TypeScript nói dối là chuyện đó không xảy ra được".
+ *
+ * `tin_cay` / `ly_do` là CHẨN ĐOÁN — giữ trong API cho đo đạc và eval, KHÔNG
+ * BAO GIỜ hiển thị (quyết định 2026-09-28, mục 10; `npm run kiem-khong-chan-doan`
+ * chặn). Người đọc thấy nhãn (`verdict`) và câu `mo_ta`.
  */
 export interface HieuLucChiTiet {
   verdict: string;
   tin_cay: string;
   ly_do: string;
+  /**
+   * MỘT câu thường cho người đọc, không mã nội bộ: văn bản sửa đổi (khi có
+   * bằng chứng nêu tên), hoặc ngày bắt đầu có hiệu lực. `null`/vắng = không
+   * hiện gì. Đọc qua `manhMoTa` (`lib/trich-dan.ts`).
+   */
+  mo_ta?: string | null;
+  /** Các văn bản `mo_ta` nêu tên, cùng thứ tự với câu. */
+  van_ban_lien_quan?: VanBanDan[];
+}
+
+/**
+ * Một văn bản được nêu tên trong câu cho người đọc (`mo_ta`, `thay_the` của
+ * 404 `khong_hien_thi`). `doc_id` chỉ có khi CHÍNH văn bản đó được hiện
+ * (quyết định 2026-09-28, mục 8), nên link nội bộ dựng từ nó không ra 404;
+ * `lien_ket` đi qua `lienKetChinhThuc` như mọi link chính thống.
+ */
+export interface VanBanDan {
+  doc_id: string | null;
+  so_ky_hieu: string;
+  ten_van_ban?: string | null;
+  lien_ket?: string | null;
+}
+
+/**
+ * `detail` của 404 khi văn bản CÓ trong DB nhưng bị ẩn (hết hiệu lực, chưa rõ
+ * tình trạng, hoặc chưa có link chính thống đã kiểm — quyết định 2026-09-28,
+ * mục 8). Đọc qua `vanBanBiAn`.
+ */
+export interface VanBanBiAn {
+  ma: "khong_hien_thi";
+  /** Câu tiếng Việt thường, máy chủ viết cho người đọc. */
+  thong_diep: string;
+  /** Văn bản thay thế nó, theo đồ thị hiệu lực. Rỗng là bình thường. */
+  thay_the: VanBanDan[];
 }
 
 /* ── GET /bo-loc — nguồn DUY NHẤT cho giá trị bộ lọc ─────────────────────── */
@@ -724,6 +762,7 @@ export interface VanBanHieuLuc {
   doc_id: string;
   so_ky_hieu: string;
   bo_luat: string;
+  /** Ngày đánh giá — cho đo đạc, KHÔNG hiển thị (quyết định 2026-09-28, mục 10). */
   as_of: string;
   van_ban: HieuLucChiTiet;
   /**
@@ -1278,6 +1317,44 @@ export function laVanBanHieuLuc(x: unknown): x is VanBanHieuLuc {
   );
 }
 
+/** `doc_id` CHẶT (`null` hoặc chuỗi không rỗng): nó dựng thẳng một link nội bộ. */
+export function laVanBanDan(x: unknown): x is VanBanDan {
+  return (
+    laBanGhi(x) &&
+    typeof x["so_ky_hieu"] === "string" &&
+    x["so_ky_hieu"].trim() !== "" &&
+    (x["doc_id"] === null || (typeof x["doc_id"] === "string" && x["doc_id"] !== ""))
+  );
+}
+
+export function laVanBanBiAn(x: unknown): x is VanBanBiAn {
+  return (
+    laBanGhi(x) &&
+    x["ma"] === "khong_hien_thi" &&
+    typeof x["thong_diep"] === "string" &&
+    x["thong_diep"].trim() !== "" &&
+    Array.isArray(x["thay_the"]) &&
+    x["thay_the"].every(laVanBanDan)
+  );
+}
+
+/**
+ * Văn bản bị ẩn, lấy từ một lỗi của `goi` (nó giữ nguyên thân phản hồi ở
+ * `detail`); `null` với mọi lỗi khác, kể cả 404 của mã văn bản không tồn tại.
+ * Phần tử `thay_the` dị dạng bị loại, không kéo đổ cả câu.
+ */
+export function vanBanBiAn(loi: ApiError): VanBanBiAn | null {
+  const than = loi.detail;
+  const d = loi.kind === "not_found" && laBanGhi(than) ? than["detail"] : null;
+  if (!laBanGhi(d)) return null;
+  const chuanHoa = {
+    ma: d["ma"],
+    thong_diep: typeof d["thong_diep"] === "string" ? d["thong_diep"].trim() : null,
+    thay_the: Array.isArray(d["thay_the"]) ? d["thay_the"].filter(laVanBanDan) : [],
+  };
+  return laVanBanBiAn(chuanHoa) ? chuanHoa : null;
+}
+
 export function laVanBanLienQuan(x: unknown): x is VanBanLienQuan {
   return laBanGhi(x) && Array.isArray(x["nhom"]) && laBanGhi(x["dan_chieu_noi_bo"]);
 }
@@ -1650,26 +1727,4 @@ export function laPhamVi(x: unknown): x is PhamVi {
   const sau = laBanGhi(x) ? x["sau"] : null;
   const nong = laBanGhi(x) ? x["nong"] : null;
   return laBanGhi(sau) && laBanGhi(nong) && Array.isArray(sau["van_ban"]);
-}
-
-/**
- * `tin_cay` / `do_tin_cay` là ĐỊNH DANH MÁY, không phải chữ cho người đọc.
- *
- * Backend gửi `trung_binh`; in thẳng lên màn hình thì người dùng đọc được dấu
- * gạch dưới của một enum ngay dưới nhãn hiệu lực — đúng chỗ sản phẩm đang xin
- * người ta tin mình. Lược đồ khai trường này là `string` tự do, nên nhãn lạ
- * trả về NGUYÊN CHUỖI: cùng lối an toàn với `BadgeHieuLuc`, không đoán nghĩa
- * một giá trị mình chưa biết.
- */
-export function docDoTinCay(giaTri: string): string {
-  switch (giaTri) {
-    case "cao":
-      return "cao";
-    case "trung_binh":
-      return "trung bình";
-    case "thap":
-      return "thấp";
-    default:
-      return giaTri;
-  }
 }

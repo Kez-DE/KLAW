@@ -34,22 +34,25 @@ export const Route = createFileRoute("/thanh-phan")({
 
 const SO_HIEU_GIA = "00/0000/QH00";
 
+// Sáu nhãn VẼ ĐƯỢC. `can_doi_chieu_tay` và `chua_xac_dinh` không bao giờ tới
+// người đọc (quyết định 2026-09-28, mục 8) và `BadgeHieuLuc` không vẽ gì cho
+// chúng, nên không có ô trống ở đây.
 const SAU_NHAN = [
   "con_hieu_luc",
+  "chua_hieu_luc",
   "bi_thay_the",
   "bi_sua_doi",
   "het_hieu_luc",
   "mot_phan_khong_xac_dinh",
-  "can_doi_chieu_tay",
 ] as const;
 
 const TY_LE: Record<string, string> = {
   con_hieu_luc: "status-active · 7,64:1 trên --card",
+  chua_hieu_luc: "status-partial · 13,97:1",
   bi_thay_the: "status-expired · 10,32:1",
   bi_sua_doi: "status-partial · 13,97:1",
   het_hieu_luc: "status-expired · 10,32:1",
   mot_phan_khong_xac_dinh: "status-partial · 13,97:1",
-  can_doi_chieu_tay: "status-neutral · 5,49:1",
 };
 
 const TAM_LOI: ApiErrorKind[] = [
