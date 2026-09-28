@@ -2984,4 +2984,202 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
   await act(() => rootDs.unmount());
 }
 
+// ───── 14. DÒNG TÀI LIỆU mở bản thảo mới nhất; sân khấu TỰ MỞ lượt khuôn ─────
+// Chủ dự án 2026-09-28: Q1 bấm dòng tài liệu mở bản thảo MỚI NHẤT của tệp, không
+// thì "Bản tải lên"; Q2 lượt điền/sửa/dựng lại (hay "cho tôi xem") trên khuôn
+// gốc mở sân khấu một lần, lịch sử thì không; lượt đã lưu vẫn vào được tệp.
+{
+  const TEP = { id: VIEC, ten_tep: "BM.ĐT.18.11.docx", nhan: "A" };
+  const TEP_B = { id: VIEC_CU, ten_tep: "HĐLĐ.pdf", nhan: "B" };
+  const ketQuaTaiLieu = (ds: (typeof TEP)[], mo_ta: string | null) =>
+    ({
+      result_type: "tai_lieu",
+      answer: "Ô Mã số là mã sinh viên.",
+      citations: [],
+      nguon: [],
+      warnings: [],
+      coverage_note: null,
+      trace_id: "t-tl",
+      cau_hoi_day_du: null,
+      bang: [],
+      documents: [],
+      tai_lieu: {
+        muc_dich: "hoi",
+        mo_ta,
+        quan_sat: [],
+        suy_luan: [],
+        phep_tinh: [],
+        can_du_kien: [],
+        du_kien: [],
+        tai_lieu_da_dung: ds,
+      },
+    }) as unknown as Parameters<typeof TheKetQua>[0]["ketQua"];
+  const daMo: string[] = [];
+  const { khung, root } = taoRoot();
+  const nutMoTep = (ten: string) =>
+    tim(khung, (n) => n.tagName === "BUTTON" && n.getAttribute("aria-label") === `Mở «${ten}»`);
+  const nutDong = (id: string) =>
+    tim(
+      khung,
+      (n) =>
+        n.tagName === "BUTTON" && n.getAttribute("data-mo-san-khau") === `tai_lieu_dong:t-tl:${id}`,
+    );
+  /** WCAG 2.5.3 Label in Name: tên truy cập CHỨA chữ hiển thị — người dùng
+   *  giọng nói đọc đúng chữ họ thấy ("bấm Phiếu đăng ký") là trúng nút. */
+  const nhanChuaChu = (nut: Nut) =>
+    assert.ok(
+      (nut.getAttribute("aria-label") ?? "").includes(nut.textContent ?? "\u0000"),
+      `tên truy cập «${nut.getAttribute("aria-label")}» phải chứa chữ hiển thị «${nut.textContent}»`,
+    );
+
+  // Không có lối mở (nơi gọi chưa nối): dòng tài liệu là chữ thường như cũ.
+  await act(() => root.render(h(TheKetQua, { ketQua: ketQuaTaiLieu([TEP], "Phiếu đăng ký") })));
+  assert.match(khung.textContent, /Phiếu đăng ký/);
+  cungNut(nutDong(VIEC), null, "không `onMoTaiLieu`: dòng tài liệu không bấm được");
+
+  await act(() =>
+    root.render(
+      h(TheKetQua, {
+        ketQua: ketQuaTaiLieu([TEP], "Phiếu đăng ký"),
+        onMoTaiLieu: (t: { id: string }) => daMo.push(t.id),
+      }),
+    ),
+  );
+  const nut = nutDong(VIEC);
+  assert.ok(nut !== null, "dòng tài liệu là <button>");
+  assert.equal(nut.getAttribute("type"), "button");
+  assert.equal(nut.textContent, "Phiếu đăng ký", "giữ chữ mô tả, không đổi sang tên tệp");
+  assert.equal(nut.getAttribute("aria-label"), `Phiếu đăng ký — mở «${TEP.ten_tep}»`);
+  nhanChuaChu(nut);
+  assert.match(nut.getAttribute("class") ?? "", /focus-brass/, "vòng tiêu điểm đồng thau");
+  assert.equal(nut.getAttribute("data-mo-san-khau"), `tai_lieu_dong:t-tl:${VIEC}`);
+  await act(() => phat(nut, "click"));
+  assert.deepEqual(daMo, [VIEC], "bấm: nơi gọi nhận ĐÚNG id việc đọc của tệp");
+
+  // Không có mô tả: dòng vẫn có (tên tệp) — lối vào tệp không biến mất.
+  await act(() =>
+    root.render(h(TheKetQua, { ketQua: ketQuaTaiLieu([TEP], null), onMoTaiLieu: () => undefined })),
+  );
+  assert.equal(nutMoTep(TEP.ten_tep)?.textContent, TEP.ten_tep);
+  nhanChuaChu(nutMoTep(TEP.ten_tep)!);
+
+  // Hai tệp: mỗi nhãn "A · tên" là một nút mở ĐÚNG tệp của nó.
+  daMo.length = 0;
+  await act(() =>
+    root.render(
+      h(TheKetQua, {
+        ketQua: ketQuaTaiLieu([TEP, TEP_B], "So sánh hai tài liệu"),
+        onMoTaiLieu: (t: { id: string }) => daMo.push(t.id),
+      }),
+    ),
+  );
+  await act(() => phat(nutMoTep(TEP_B.ten_tep)!, "click"));
+  await act(() => phat(nutMoTep(TEP.ten_tep)!, "click"));
+  assert.deepEqual(daMo, [VIEC_CU, VIEC], "hai tệp: mỗi nút mở tệp của chính nó");
+  await act(() => root.unmount());
+
+  // Q1: 200 → bản thảo mới nhất; 404 → Bản tải lên; lỗi khác → câu lỗi; tệp đã
+  // biết là không có khuôn gốc → "Dữ kiện đã đọc", KHÔNG tốn lượt gọi.
+  const { banThaoTuMo, chiMoiNhat, viecMoTaiLieu } =
+    await nap<typeof import("../src/lib/san-khau.ts")>("src/lib/san-khau.ts");
+  const { banThaoCuaTaiLieu } = await nap<typeof import("../src/lib/api.ts")>("src/lib/api.ts");
+  const goiMang: { url: string; method: string }[] = [];
+  let traVe: Response = traJson(banThaoKhuon);
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    goiMang.push({ url: String(url).replace(apiGoc(), ""), method: init?.method ?? "GET" });
+    return traVe.clone();
+  }) as typeof fetch;
+  const lay = () => banThaoCuaTaiLieu(VIEC);
+  assert.deepEqual(await viecMoTaiLieu(true, lay), { loai: "ban_thao", banThao: banThaoKhuon });
+  assert.deepEqual(
+    goiMang,
+    [{ url: `/tai-lieu/${VIEC}/ban-thao`, method: "GET" }],
+    "một GET `/tai-lieu/{id}/ban-thao` — không POST (POST tạo bản thảo)",
+  );
+  traVe = traJson({ detail: "Không tìm thấy" }, 404);
+  assert.deepEqual(
+    await viecMoTaiLieu(undefined, lay),
+    { loai: "ban_tai_len" },
+    "404: bản tải lên",
+  );
+  traVe = traJson({ detail: "x" }, 503);
+  const loi = await viecMoTaiLieu(true, lay);
+  assert.equal(loi.loai, "loi", "503: câu lỗi (toast), không mở gì");
+  goiMang.length = 0;
+  assert.deepEqual(await viecMoTaiLieu(false, lay), { loai: "du_kien" });
+  assert.equal(goiMang.length, 0, "tệp không có khuôn gốc: không gọi");
+
+  // Hai cú bấm (nhãn A rồi B, hay thẻ của hai lượt) trước khi GET đầu về: CHỈ
+  // cú bấm mới nhất được áp phản hồi — phản hồi cũ về sau cùng không mở đè.
+  const hua = <T>() => {
+    let xong!: (v: T) => void;
+    const p = new Promise<T>((r) => (xong = r));
+    return { p, xong };
+  };
+  const bam = chiMoiNhat();
+  const cu = hua<string>();
+  const moi = hua<string>();
+  const kqCu = bam(cu.p);
+  const kqMoi = bam(moi.p);
+  moi.xong("B");
+  assert.equal(await kqMoi, "B", "cú bấm mới nhất: áp phản hồi của nó");
+  cu.xong("A");
+  assert.equal(await kqCu, null, "phản hồi của cú bấm cũ về sau: bỏ, không mở đè");
+  const lai = hua<string>();
+  const kqLai = bam(lai.p);
+  lai.xong("A");
+  assert.equal(await kqLai, "A", "cú bấm sau đó vẫn chạy (bộ đếm không kẹt)");
+
+  // Q2: chỉ bản thảo trên khuôn gốc tự mở; bản thảo HTML như cũ.
+  assert.equal(banThaoTuMo(banThaoKhuon), banThaoKhuon);
+  assert.equal(banThaoTuMo(banThao), null, "bản thảo HTML: không tự mở");
+  assert.equal(banThaoTuMo(null), null);
+  assert.equal(banThaoTuMo(undefined), null);
+
+  // Nối dây trong `dung-thu.tsx` (không dựng được trong khung giả): kiểm nguồn.
+  const NGUON = readFileSync(join(goc, "src/routes/dung-thu.tsx"), "utf8");
+  const i = NGUON.indexOf("const ketQuaDaAp = useRef");
+  const hieuUng = NGUON.slice(i, NGUON.indexOf("\n  }, [", i));
+  assert.match(
+    hieuUng,
+    /if \(traCuu\.dangChay \|\| traCuu\.ketQua === ketQuaDaAp\.current\) return;\s*ketQuaDaAp\.current = traCuu\.ketQua;\s*const bt = traCuu\.ketQua\?\.ban_thao;\s*const tuMo = banThaoTuMo\(bt\);\s*if \(tuMo !== null\) moSanKhauMoiNhat\.current\(tuMo\.id, tuMo\);/,
+    "kết quả chat MỚI mang khuôn: mở sân khấu ĐÚNG một lần mỗi kết quả (đóng rồi không mở lại)",
+  );
+  assert.equal(
+    NGUON.split("banThaoTuMo(").length - 1,
+    1,
+    "chỉ kết quả đang chạy (`traCuu.ketQua`) tự mở — lượt đã lưu không",
+  );
+  assert.equal(
+    NGUON.split("onMoTaiLieu={onMoTaiLieu}").length - 1,
+    3,
+    "dòng tài liệu bấm được ở lượt đã lưu, lượt đã lùi và lượt đang chạy",
+  );
+  const iDaTai = NGUON.indexOf("{daTai.map((l) => (");
+  assert.match(
+    NGUON.slice(iDaTai, NGUON.indexOf("<TheKetQua", iDaTai)),
+    /tepDinhKem=\{tepCuaLuotDaLuu\(l\.ketQua\)\}\s*hanhDongTep=\{hanhDongTep\}/,
+    "lượt đã lưu (tải lại trang): con chip tệp cùng menu",
+  );
+  const iMo = NGUON.indexOf("const moTaiLieuCuaLuot = ");
+  const thanMo = NGUON.slice(iMo, NGUON.indexOf("\n  };", iMo));
+  assert.match(
+    thanMo,
+    /const viec = await chiBamMoiNhat\(\s*viecMoTaiLieu\(biet\?\.co_khuon_goc, \(\) => banThaoCuaTaiLieu\(t\.id\)\),?\s*\);\s*if \(viec === null\) return;/,
+    "phản hồi của cú bấm không còn mới nhất: bỏ trước khi mở gì",
+  );
+  assert.match(thanMo, /viec\.loai === "ban_tai_len"\)\s*moBanTaiLen\(/, "404: mở Bản tải lên");
+  assert.match(
+    thanMo,
+    /vanNham\(sanKhauRef\.current, viec\.banThao\.id\)\) \{[^}]*querySelector<HTMLElement>\("\[data-tieu-de-san-khau\]"\)\?\.focus\(\);\s*\} else moSanKhau\(viec\.banThao\.id, viec\.banThao\);/,
+    "bản thảo đang mở: chỉ đưa tiêu điểm; không thì mở nó (không tải lại lần hai)",
+  );
+  const iHoi = NGUON.indexOf("for (const id of idTepDaLuu.split");
+  assert.match(
+    NGUON.slice(iHoi, NGUON.indexOf("}, [idTepDaLuu]);", iHoi)),
+    /if \(id === "" \|\| daHoiTep\.current\.has\(id\)\) continue;\s*daHoiTep\.current\.add\(id\);\s*void chiTietTaiLieu\(id\)/,
+    "`co_khuon_goc` của lượt đã lưu: một GET mỗi tệp chưa biết, không mỗi lượt",
+  );
+}
+
 console.log("kiem-ui-muot: OK");
