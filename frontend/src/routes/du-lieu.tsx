@@ -104,9 +104,10 @@ function TrangDuLieu() {
 
         <Muc tieuDe="Nguồn thứ nhất — Cơ sở dữ liệu quốc gia về văn bản quy phạm pháp luật">
           <p className="m-0">
-            Toàn bộ nguyên văn và phần thông tin văn bản trong kho đến từ API công khai của{" "}
-            <strong className="font-semibold">Bộ Tư pháp</strong>. Đây là nguồn duy nhất cung cấp
-            chữ: mọi câu trích KLAW hiện ra đều là chữ của nguồn này, giữ nguyên văn.
+            Nguyên văn và phần thông tin của các văn bản có toàn văn đến từ API công khai của{" "}
+            <strong className="font-semibold">Bộ Tư pháp</strong> — riêng Luật Khiếu nại
+            02/2011/QH13 lấy từ Cổng Thông tin điện tử Chính phủ. Mọi câu trích KLAW hiện ra đều là
+            chữ của hai nguồn nhà nước đó, giữ nguyên văn.
           </p>
           <p>
             Nguồn này cũng có một cột trạng thái hiệu lực. KLAW{" "}
@@ -144,6 +145,42 @@ function TrangDuLieu() {
             </Link>{" "}
             có bản đồ này. Các văn bản khác chỉ có nhãn ở mức cả văn bản, và khi hệ thống không biết
             điều khoản nào bị sửa thì nó nói thẳng là không biết.
+          </p>
+        </Muc>
+
+        {/* Ghi nguồn theo điều kiện CC BY 4.0 (tác giả, tên, link, giấy phép) —
+            giấy phép đã đối chiếu trên trang bộ dữ liệu ngày 2026-09-28. */}
+        <Muc tieuDe="Nguồn thứ ba — bộ dữ liệu mở Vietnamese Legal Documents">
+          <p className="m-0">
+            Phần thông tin của các văn bản <em>chỉ có tên</em> (tầng “Chỉ có thông tin văn bản” ở
+            dưới) và đồ thị quan hệ giữa các văn bản — thay thế, sửa đổi, bãi bỏ, hướng dẫn — được
+            nạp hàng loạt từ{" "}
+            <a
+              href="https://huggingface.co/datasets/th1nhng0/vietnamese-legal-documents"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="focus-brass rounded underline underline-offset-2"
+            >
+              th1nhng0/vietnamese-legal-documents (HuggingFace, CC-BY-4.0)
+              <span className="sr-only"> (mở tab mới)</span>
+            </a>
+            , bộ dữ liệu do Thịnh Ngô biên soạn từ vbpl.vn, phát hành theo giấy phép{" "}
+            <a
+              href="https://creativecommons.org/licenses/by/4.0/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="focus-brass rounded underline underline-offset-2"
+            >
+              Creative Commons Ghi công 4.0
+              <span className="sr-only"> (mở tab mới)</span>
+            </a>
+            .
+          </p>
+          <p>
+            <strong className="font-semibold">
+              Không một chữ nguyên văn điều khoản nào lấy từ bộ dữ liệu này.
+            </strong>{" "}
+            Toàn văn vẫn đến từ nguồn thứ nhất.
           </p>
         </Muc>
 
@@ -225,7 +262,7 @@ export const Route = createFileRoute("/du-lieu")({
   head: () => {
     const title = "Nguồn dữ liệu — KLAW";
     const description =
-      "Kho văn bản của KLAW lấy từ API công khai của Bộ Tư pháp và Công báo Chính phủ. Bản kê số lượng, loại văn bản và cơ sở pháp lý để lưu trữ nguyên văn.";
+      "Kho văn bản của KLAW lấy từ API công khai của Bộ Tư pháp, Công báo Chính phủ và bộ dữ liệu mở th1nhng0/vietnamese-legal-documents (CC BY 4.0). Bản kê số lượng, loại văn bản và cơ sở pháp lý để lưu trữ nguyên văn.";
     return {
       meta: [
         { title },

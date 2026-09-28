@@ -69,6 +69,7 @@ import type {
 import { chuanHoaLuot, laMau, laNhapPhien, LOAI_TONG_QUAT } from "@/lib/klaw";
 import type { LuotDaXong } from "@/lib/lich-su";
 import { dungLichSu } from "@/lib/lich-su";
+import { ghiChuHieuLuc } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { mucTuBanThao } from "@/lib/xuat-tep";
 
@@ -1025,6 +1026,8 @@ function ManHoiKlaw() {
       duongDan: trichDan.duong_dan,
       quote: trichDan.quote,
       hieuLuc: trichDan.hieu_luc,
+      trichDan,
+      ghiChu: ghiChuHieuLuc(ketQua.warnings, trichDan.so_ky_hieu),
     });
   };
 
@@ -1698,6 +1701,8 @@ function ManHoiKlaw() {
                       : { duongDan: doiChieu.dang.duongDan })}
                     quote={doiChieu.dang.quote ?? null}
                     hieuLuc={doiChieu.dang.hieuLuc ?? null}
+                    trichDan={doiChieu.dang.trichDan ?? null}
+                    ghiChu={doiChieu.dang.ghiChu}
                     trangThai={doiChieu.trangThai}
                     vanBan={doiChieu.vanBan}
                     loi={doiChieu.loi}

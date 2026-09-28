@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Copy, ListTree, Search, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, ExternalLink, ListTree, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { NoiDungDieuKhoan } from "@/components/klaw/NoiDungDieuKhoan";
@@ -24,7 +24,8 @@ import {
   type VanBanMucLuc,
   type VanBanProvisions,
 } from "@/lib/klaw";
-import { cn } from "@/lib/utils";
+import { cachTrichHopLe, chuoiSaoChep, trichDieuKhoan, vanBanHopLe } from "@/lib/trich-dan";
+import { cn, ngayVietNam } from "@/lib/utils";
 
 /**
  * Màn đọc toàn văn — định danh bằng `doc_id`, KHÔNG bằng số hiệu.
@@ -417,8 +418,8 @@ function NguyenVanDieu({
                   >
                     {sua.vi_tri} — sửa bởi {sua.so_ky_hieu ?? "văn bản chưa rõ số hiệu"}
                     {sua.duong_dan === null ? "" : ` (${sua.duong_dan})`}
-                    {sua.tu_ngay === null ? "" : ` từ ${sua.tu_ngay}`} · nguồn: {sua.nguon} · độ tin
-                    cậy: {docDoTinCay(sua.do_tin_cay)}
+                    {sua.tu_ngay === null ? "" : ` từ ${ngayVietNam(sua.tu_ngay)}`} · nguồn:{" "}
+                    {sua.nguon} · độ tin cậy: {docDoTinCay(sua.do_tin_cay)}
                   </p>
                 ))}
               </div>
@@ -575,6 +576,9 @@ function ManDocVanBan() {
     [docId, navigate],
   );
 
+  const ngay = (iso: string | null, khongCo: string) => (iso === null ? khongCo : ngayVietNam(iso));
+  // Link chính thống đã qua cửa kiểm (https, đúng cổng) — vắng thì KHÔNG có dòng.
+  const lienKet = vanBanHopLe(vanBan).lien_ket;
   const meta: [string, string][] = [
     ["Số hiệu", vanBan.so_ky_hieu],
     ["Loại văn bản", vanBan.loai_van_ban],
@@ -582,9 +586,9 @@ function ManDocVanBan() {
     ["Cơ quan ban hành", vanBan.co_quan_ban_hanh ?? "Không rõ"],
     ["Người ký", vanBan.nguoi_ky ?? "Không rõ"],
     ["Chức danh người ký", vanBan.chuc_danh_nguoi_ky ?? "Không rõ"],
-    ["Ngày ban hành", vanBan.ngay_ban_hanh ?? "Không rõ"],
-    ["Ngày có hiệu lực", vanBan.ngay_hieu_luc ?? "Không rõ"],
-    ["Ngày hết hiệu lực", vanBan.ngay_het_hieu_luc ?? "Chưa có"],
+    ["Ngày ban hành", ngay(vanBan.ngay_ban_hanh, "Không rõ")],
+    ["Ngày có hiệu lực", ngay(vanBan.ngay_hieu_luc, "Không rõ")],
+    ["Ngày hết hiệu lực", ngay(vanBan.ngay_het_hieu_luc, "Chưa có")],
   ];
 
   const thanhBen = (
@@ -708,7 +712,7 @@ function ManDocVanBan() {
                     {hieuLuc.van_ban.ly_do}
                   </p>
                   <p className="mt-1 mb-0 text-[11px] text-muted-foreground">
-                    Đánh giá tại ngày {hieuLuc.as_of} · độ tin cậy:{" "}
+                    Đánh giá tại ngày {ngayVietNam(hieuLuc.as_of)} · độ tin cậy:{" "}
                     {docDoTinCay(hieuLuc.van_ban.tin_cay)}
                   </p>
                 </div>
@@ -752,6 +756,23 @@ function ManDocVanBan() {
                         </dd>
                       </div>
                     ))}
+                    {lienKet !== null && (
+                      <div className="flex justify-between gap-3 border-b border-border/60 py-1.5 last:border-0">
+                        <dt className="text-muted-foreground">Nguồn chính thống</dt>
+                        <dd className="text-right font-medium">
+                          <a
+                            href={lienKet.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="focus-brass inline-flex items-center gap-1 rounded text-[var(--color-brass-600)] underline-offset-2 hover:underline"
+                          >
+                            Xem trên {lienKet.nhan}
+                            <ExternalLink className="size-3.5" aria-hidden />
+                            <span className="sr-only"> (mở tab mới)</span>
+                          </a>
+                        </dd>
+                      </div>
+                    )}
                   </dl>
                 )}
               </div>
@@ -779,12 +800,17 @@ function ManDocVanBan() {
                         // Dựng từ `duong_dan` của dòng tâm — dữ liệu máy chủ
                         // trả về — chứ không từ tham số trên URL: ở dạng
                         // `?quanh=` không có số Điều nào trên URL cả.
+                        // Lối văn bản luật: cụm điều khoản + câu trích dẫn CẤP
+                        // VĂN BẢN của máy chủ (vắng thì số hiệu), kèm link.
                         const tam = noiDung.provisions.find((dk) => dk.la_tam);
                         const dau = tam ?? noiDung.provisions[0];
-                        const chuoi =
+                        const phanVanBan = cachTrichHopLe(vanBan) ?? vanBan.so_ky_hieu;
+                        const chuoi = chuoiSaoChep(
                           dau === undefined
-                            ? vanBan.so_ky_hieu
-                            : `${dau.duong_dan.replace(`${vanBan.so_ky_hieu} > `, "")} ${vanBan.so_ky_hieu}`;
+                            ? phanVanBan
+                            : trichDieuKhoan(dau.duong_dan, phanVanBan),
+                          lienKet,
+                        );
                         void navigator.clipboard?.writeText(chuoi);
                         toast.success("Đã sao chép trích dẫn", { description: chuoi });
                       }}

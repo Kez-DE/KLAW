@@ -15,7 +15,8 @@
  * Kiểm chạy được: `npm run kiem-trich-dan`.
  */
 
-import type { Citation } from "./klaw";
+import type { Citation, TraCuuKetQua } from "./klaw";
+import { ngayVietNam } from "./utils.ts";
 import { catManh, type Manh } from "./van-xuoi.ts";
 
 interface BanChuanHoa {
@@ -226,4 +227,185 @@ export function chiSoCuaThe(
 export function coTagBamDuoc(answer: string | null, citations: readonly Citation[]): boolean {
   if (answer === null) return false;
   return catManh(answer).some((m) => m.kieu === "the" && chiSoCuaThe(m, citations) >= 0);
+}
+
+/* ── Trích dẫn đầy đủ (quyết định 2026-09-28) ─────────────────────────────────
+ * Một trích dẫn nói được văn bản nào, ai ban hành, ngày nào và mở ở đâu. Mọi
+ * trường tới từ máy chủ đều đi qua `vanBanHopLe` / `cachTrichHopLe`: giá trị dị
+ * dạng thành `null`, và `null` nghĩa là giao diện BỎ phần đó — không bao giờ
+ * một chỗ giữ chỗ, không bao giờ một link đoán.
+ */
+
+/** Hai cổng chính thống, theo thứ tự ưu tiên của quyết định (mục 2). `Map`,
+ *  không object: `hostname` "constructor" không được tra ra một hàm. */
+const CONG_CHINH_THONG = new Map([
+  ["vbpl.vn", "CSDL quốc gia về pháp luật"],
+  ["vanban.chinhphu.vn", "Cổng TTĐT Chính phủ"],
+]);
+
+export interface LienKet {
+  url: string;
+  /** Tên cổng cho người đọc, theo host. */
+  nhan: string;
+}
+
+/**
+ * Link chính thống, hoặc `null`. Chỉ https, đúng host của hai cổng, không
+ * tài khoản, không cổng mạng lạ — link này mở ra `target="_blank"` dưới tên
+ * một cơ quan nhà nước, nên phòng thủ ở đây dù máy chủ đã kiểm trước.
+ */
+export function lienKetChinhThuc(url: unknown): LienKet | null {
+  if (typeof url !== "string") return null;
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  const nhan = CONG_CHINH_THONG.get(u.hostname);
+  const sach = u.protocol === "https:" && u.username === "" && u.password === "" && u.port === "";
+  return nhan === undefined || !sach ? null : { url, nhan };
+}
+
+/** Siêu dữ liệu CẤP VĂN BẢN đã qua cửa kiểm — gộp được giữa nhiều nguồn. */
+export interface VanBanDaKiem {
+  ten_van_ban: string | null;
+  so_ky_hieu: string | null;
+  co_quan_ban_hanh: string | null;
+  /** ISO — in ra bằng `ngayVietNam`. */
+  ngay_ban_hanh: string | null;
+  ngay_hieu_luc: string | null;
+  lien_ket: LienKet | null;
+}
+
+const chuHopLe = (v: unknown): string | null =>
+  typeof v === "string" && v.trim() !== "" ? v.trim() : null;
+const ngayHopLe = (v: unknown): string | null =>
+  typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+const banGhi = (x: unknown): Record<string, unknown> =>
+  typeof x === "object" && x !== null ? (x as Record<string, unknown>) : {};
+
+/**
+ * Gộp siêu dữ liệu văn bản từ nhiều nguồn: trường nào nguồn trước không biết
+ * (vắng hoặc dị dạng) thì lấy của nguồn sau. Tên rơi về `bo_luat` — chính
+ * `documents.ten`, thứ mọi payload cũ đã mang.
+ *
+ * KHÔNG gộp `cach_trich`: câu đó mô tả chính đối tượng mang nó (trích dẫn có
+ * điều khoản, metadata văn bản thì không), nên đọc riêng qua `cachTrichHopLe`.
+ */
+export function vanBanHopLe(...nguon: unknown[]): VanBanDaKiem {
+  const ban = nguon.map(banGhi);
+  const dau = <T>(doc: (r: Record<string, unknown>) => T | null): T | null => {
+    for (const r of ban) {
+      const v = doc(r);
+      if (v !== null) return v;
+    }
+    return null;
+  };
+  return {
+    ten_van_ban: dau((r) => chuHopLe(r["ten_van_ban"]) ?? chuHopLe(r["bo_luat"])),
+    so_ky_hieu: dau((r) => chuHopLe(r["so_ky_hieu"])),
+    co_quan_ban_hanh: dau((r) => chuHopLe(r["co_quan_ban_hanh"])),
+    ngay_ban_hanh: dau((r) => ngayHopLe(r["ngay_ban_hanh"])),
+    ngay_hieu_luc: dau((r) => ngayHopLe(r["ngay_hieu_luc"])),
+    lien_ket: dau((r) => lienKetChinhThuc(r["lien_ket"])),
+  };
+}
+
+/** `cach_trich` của CHÍNH `x`, hoặc `null`. */
+export function cachTrichHopLe(x: unknown): string | null {
+  return chuHopLe(banGhi(x)["cach_trich"]);
+}
+
+/**
+ * "Do Chính phủ ban hành ngày 15/11/2019 · hiệu lực từ 01/01/2020" — thiếu phần
+ * nào bỏ đúng phần đó; không biết gì thì `null`. Ngày hiệu lực là DỮ KIỆN của
+ * văn bản; kết luận hiệu lực vẫn chỉ nằm ở nhãn (`BadgeHieuLuc`).
+ */
+export function dongBanHanh(v: VanBanDaKiem): string | null {
+  const banHanh =
+    v.co_quan_ban_hanh === null && v.ngay_ban_hanh === null
+      ? null
+      : [
+          v.co_quan_ban_hanh === null ? null : `do ${v.co_quan_ban_hanh}`,
+          "ban hành",
+          v.ngay_ban_hanh === null ? null : `ngày ${ngayVietNam(v.ngay_ban_hanh)}`,
+        ]
+          .filter((p) => p !== null)
+          .join(" ");
+  const hieuLuc = v.ngay_hieu_luc === null ? null : `hiệu lực từ ${ngayVietNam(v.ngay_hieu_luc)}`;
+  const dong = [banHanh, hieuLuc].filter((p) => p !== null).join(" · ");
+  return dong === "" ? null : dong.charAt(0).toUpperCase() + dong.slice(1);
+}
+
+const DON_VI_TRICH = /^(Điều|Khoản|Điểm) (\S+)$/;
+
+/**
+ * `duong_dan` → cụm điều khoản theo lối văn bản luật: "45/2019/QH14 > Điều 21 >
+ * Khoản 1 > Điểm a" → "điểm a khoản 1 Điều 21" (1.623 điều khoản trong kho viết
+ * "khoản N Điều M", 0 viết "Điều M > Khoản"). Đoạn đầu là số hiệu, bỏ. Hàng
+ * bảng ("Vùng I") không phải đơn vị trích dẫn nên dẫn tới khoản chứa nó; đường
+ * không có Điều/Khoản/Điểm nào ("Phụ lục") giữ nguyên chữ.
+ */
+export function cumDieuKhoan(duongDan: string): string {
+  const doan = duongDan.normalize("NFC").split(" > ").slice(1);
+  const donVi = doan.flatMap((d) => {
+    const m = DON_VI_TRICH.exec(d.trim());
+    if (m === null) return [];
+    return [m[1] === "Điều" ? d.trim() : `${(m[1] ?? "").toLowerCase()} ${m[2] ?? ""}`];
+  });
+  return donVi.length > 0 ? donVi.reverse().join(" ") : doan.join(" ");
+}
+
+/** Cụm điều khoản + phần văn bản (câu `cach_trich` CẤP VĂN BẢN, hoặc số hiệu). */
+export function trichDieuKhoan(duongDan: string, vanBan: string): string {
+  return `${cumDieuKhoan(duongDan)} ${vanBan}`.trim();
+}
+
+/** Thứ "Sao chép trích dẫn" chép: câu trích dẫn, kèm link chính thống khi có. */
+export function chuoiSaoChep(cachTrich: string, lienKet: LienKet | null): string {
+  return lienKet === null ? cachTrich : `${cachTrich} — ${lienKet.url}`;
+}
+
+/**
+ * Câu `warnings[]` của ĐÚNG văn bản — nó nêu đích danh văn bản thay thế/sửa
+ * đổi (`assemble`: `"{số hiệu} {nhãn}: {lý do}"`), và là `ghiChu` của
+ * `BadgeHieuLuc`. So cả dấu cách sau số hiệu: "2/2022/NĐ-CP" không được nhận
+ * câu của "12/2022/NĐ-CP".
+ */
+export function ghiChuHieuLuc(warnings: readonly string[], soKyHieu: string): string | undefined {
+  return warnings.find((w) => w.startsWith(`${soKyHieu} `));
+}
+
+/**
+ * Mục "Căn cứ pháp lý" cuối câu trả lời: MỖI điều khoản được dẫn một dòng, theo
+ * thứ tự thẻ xuất hiện trong văn xuôi rồi trong ô bảng. Văn xuôi không có thẻ
+ * nào bấm được → đúng tập của lưới an toàn `canCuConHieuLuc`.
+ *
+ * Bỏ nhóm 4 (bị thay thế / hết hiệu lực) như `canCuConHieuLuc` — spec
+ * 2026-09-06 §7: thẻ trả lời chỉ dẫn luật còn hiệu lực. Thẻ trong văn xuôi vẫn
+ * mở được chúng trong khung đối chiếu, nơi nhãn và câu nêu văn bản thay thế
+ * hiện ra. Gộp theo `doc_id` + `duong_dan`: hai câu trích của cùng một khoản
+ * là MỘT căn cứ.
+ */
+export function canCuPhapLy(
+  ketQua: Pick<TraCuuKetQua, "answer" | "citations" | "bang">,
+): { trichDan: Citation; chiSoGoc: number }[] {
+  const { citations } = ketQua;
+  const theoThe = [ketQua.answer ?? "", ...ketQua.bang.flatMap((b) => b.dong.flat())]
+    .flatMap(catManh)
+    .flatMap((m) => (m.kieu === "the" ? [chiSoCuaThe(m, citations)] : []))
+    .filter((i) => i >= 0);
+  const thuTu = theoThe.length > 0 ? theoThe : canCuConHieuLuc(citations).map((m) => m.chiSoGoc);
+  const daCo = new Set<string>();
+  const ra: { trichDan: Citation; chiSoGoc: number }[] = [];
+  for (const chiSoGoc of thuTu) {
+    const trichDan = citations[chiSoGoc];
+    if (trichDan === undefined || nhomHieuLuc(trichDan.hieu_luc) === 4) continue;
+    const khoa = `${trichDan.doc_id}\u0000${trichDan.duong_dan}`;
+    if (daCo.has(khoa)) continue;
+    daCo.add(khoa);
+    ra.push({ trichDan, chiSoGoc });
+  }
+  return ra;
 }

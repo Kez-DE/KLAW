@@ -68,7 +68,38 @@ export type HieuLuc =
   | "mot_phan_khong_xac_dinh"
   | "can_doi_chieu_tay";
 
-export interface Citation {
+/**
+ * Trích dẫn đầy đủ (quyết định 2026-09-28): văn bản nào, ai ban hành, ngày nào,
+ * mở ở đâu. Máy chủ gửi kèm mọi đối tượng trích dẫn khi biết; vắng hoặc `null`
+ * là CHƯA BIẾT, và giao diện bỏ đúng phần đó chứ không hiện chỗ giữ chỗ.
+ *
+ * KHÔNG đọc thẳng các trường này ở nơi hiển thị: đi qua `vanBanHopLe` /
+ * `cachTrichHopLe` (`lib/trich-dan.ts`). Đó là cửa DUY NHẤT loại giá trị dị
+ * dạng — ngày không phải ISO, link không https hoặc ngoài hai cổng chính thống
+ * — vì payload tới từ nhiều đường (stream, lượt đã lưu, trang văn bản) mà
+ * guard ở mỗi đường chỉ là predicate thuần.
+ */
+export interface TrichDanDayDu {
+  /** Tên đầy đủ của văn bản. */
+  ten_van_ban?: string | null;
+  loai_van_ban?: string | null;
+  so_ky_hieu?: string | null;
+  co_quan_ban_hanh?: string | null;
+  /** ISO "2019-11-15" — ngày là DỮ KIỆN của văn bản, không phải phán quyết hiệu lực. */
+  ngay_ban_hanh?: string | null;
+  ngay_hieu_luc?: string | null;
+  /** MỘT link chính thống đã kiểm: vbpl.vn, không có thì vanban.chinhphu.vn. */
+  lien_ket?: string | null;
+  /**
+   * Câu trích dẫn theo lối chính văn bản luật dùng, máy chủ dựng. Mô tả CHÍNH
+   * đối tượng mang nó: trên `Citation` có điều khoản ("khoản 1 Điều 3 Nghị định
+   * số 90/2019/NĐ-CP ngày 15/11/2019 của Chính phủ"), trên metadata văn bản chỉ
+   * có văn bản ("Nghị định số 90/2019/NĐ-CP ngày 15/11/2019 của Chính phủ").
+   */
+  cach_trich?: string | null;
+}
+
+export interface Citation extends TrichDanDayDu {
   /** Điều luật mô hình dẫn. */
   provision_id: number;
   /**
@@ -103,7 +134,7 @@ export interface Citation {
  * đó luôn có `citations: []`, nên đây là thứ DUY NHẤT mở được văn bản đang
  * nói tới. Tuyệt đối không cạo `coverage_note` ra để bịa một liên kết.
  */
-export interface Nguon {
+export interface Nguon extends TrichDanDayDu {
   doc_id: string;
   so_ky_hieu: string;
   bo_luat: string;
@@ -118,9 +149,10 @@ export interface LinkVanBan {
 
 /**
  * Văn bản mô hình được phép gắn thẻ `doc:ID` — khớp `DocumentOut` của
- * `src/models/schemas.py`. Không có ngày hiệu lực (quyết định Q2).
+ * `src/models/schemas.py`. Quyết định Q2 (không mang ngày) đã được thay bởi
+ * quyết định 2026-09-28: trường trích dẫn đầy đủ đi kèm khi máy chủ biết.
  */
-export interface VanBanTraLoi {
+export interface VanBanTraLoi extends TrichDanDayDu {
   doc_id: string;
   ten: string;
   so_ky_hieu: string;
@@ -514,7 +546,9 @@ export interface Provision {
   la_tam: boolean;
 }
 
-export interface VanBanQuanhDieu {
+/** Nguyên văn quanh một điều cho khung đối chiếu. Trường trích dẫn đầy đủ là
+ *  metadata CẤP VĂN BẢN (`cach_trich` không có điều khoản). */
+export interface VanBanQuanhDieu extends TrichDanDayDu {
   doc_id: string;
   so_ky_hieu: string;
   bo_luat: string;
@@ -604,7 +638,8 @@ export interface BoLoc {
 
 /* ── GET /tim-kiem — BM25, chất lượng TỪ KHOÁ (không phải ngữ nghĩa) ─────── */
 
-export interface DongTimKiem {
+/** `cach_trich` (nếu máy chủ gửi) mô tả CHÍNH dòng này, tức một điều khoản. */
+export interface DongTimKiem extends TrichDanDayDu {
   provision_id: number;
   doc_id: string;
   so_ky_hieu: string;
@@ -720,7 +755,8 @@ export interface VanBanLienQuan {
 
 /* ── GET /van-ban/{doc_id} — metadata 10 trường, KHÔNG có `tinh_trang` ───── */
 
-export interface VanBanMeta {
+/** Kèm trường trích dẫn đầy đủ CẤP VĂN BẢN (`cach_trich` không có điều khoản). */
+export interface VanBanMeta extends TrichDanDayDu {
   doc_id: string;
   so_ky_hieu: string;
   /** = `documents.ten`. HIỂN THỊ, không bao giờ là khoá định danh. */
