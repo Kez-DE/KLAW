@@ -58,6 +58,13 @@ provision (tái dùng `effectivity_qua_provision` của Task 5, đi qua
 mù tầng 1 trước khi nó kịp cảnh báo, và xoá mất câu trả lời "điều này đã bị
 thay bởi X".
 
+Sửa 2026-09-28 (quyết định trích dẫn đầy đủ, mục 8): LỌC có một cửa, và chỉ
+một — quy tắc hiển thị (`services/hien_thi`). Văn bản ẩn (hết hiệu lực, chưa
+rõ tình trạng, thiếu link chính thống) không vào tập cuối; câu hỏi NÊU TÊN văn
+bản ẩn được trả lời bằng `hien_thi.van_ban_an_duoc_nhac` (không còn hiệu lực,
+văn bản thay thế), không bằng cách trích nguyên văn nó. Nhãn hiệu lực của văn
+bản được hiện (sửa đổi, còn một phần, chưa có hiệu lực) vẫn chỉ ĐÁNH DẤU.
+
 KHÔNG gọi LLM (Global Constraint — expand chạy trước tầng 1, tầng 1 cũng không
 gọi LLM): thuần SQL + Python.
 """
@@ -89,6 +96,10 @@ _SQL_PROV = text(
     " d.co_quan_ban_hanh, d.ngay_ban_hanh, d.ngay_hieu_luc, d.link_vbpl, d.link_chinhphu"
     " FROM provisions p JOIN documents d ON d.id = p.document_id"
     " WHERE p.id = ANY(:ids)"
+    # Tập CUỐI chỉ gồm điều khoản của văn bản được hiện (`services/hien_thi`):
+    # cha/con/hop/điều đi sửa ở các bước trên có thể với sang văn bản ẩn, và văn
+    # bản ẩn không bao giờ vào căn cứ. `hien=None` = không lọc (đo truy hồi thô).
+    " AND (CAST(:hien AS text[]) IS NULL OR p.document_id = ANY(CAST(:hien AS text[])))"
 )
 
 _SQL_PARENT = text(
@@ -185,7 +196,9 @@ def _chia_deep_shallow(rows: list[dict], eff, uu_tien: dict[int, int]) -> tuple[
     return deep, shallow
 
 
-def expand(provision_ids: list[int], engine: Engine, as_of: date, hops: int) -> tuple[list[dict], list[dict]]:
+def expand(
+    provision_ids: list[int], engine: Engine, as_of: date, hops: int, hien: frozenset[str] | None = None
+) -> tuple[list[dict], list[dict]]:
     """`(expanded_deep, hits_shallow)` — xem docstring module. Chỉ lo TRUY VẤN;
     logic gộp cha/con/chia deep-shallow nằm ở ba hàm thuần phía trên.
 
@@ -223,7 +236,9 @@ def expand(provision_ids: list[int], engine: Engine, as_of: date, hops: int) -> 
             frontier = {t for t in targets if t not in ids}
             ids.update(frontier)
 
-        rows = [dict(r) for r in conn.execute(_SQL_PROV, {"ids": list(ids)}).mappings().all()]
+        rows = [dict(r) for r in conn.execute(
+            _SQL_PROV, {"ids": list(ids), "hien": None if hien is None else list(hien)}
+        ).mappings().all()]
 
     db_provisions = {r["id"]: r for r in rows}
     eff = effectivity_qua_provision(engine, db_provisions, as_of)

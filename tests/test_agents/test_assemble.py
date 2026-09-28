@@ -16,7 +16,7 @@ from src.agents.nodes.hoi_lai import HOI_LAI_SCHEMA
 from src.agents.nodes.verify_tier1 import Tier1Reason as R
 from src.agents.nodes.verify_tier1 import Tier1Result
 from src.agents.nodes.verify_tier2 import Tier2Verdict
-from src.services.effectivity import Effectivity
+from src.services.effectivity import Effectivity, VanBanNeu
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.llm import Usage
 
@@ -217,29 +217,26 @@ def test_khop_tai_none_thi_khop_tai_id_bang_provision_id():
     assert c["khop_tai_id"] == c["provision_id"] == 11
 
 
-def test_canh_bao_mang_nguyen_van_ly_do_ca_that_BLLD_45_2019():
-    # Yêu cầu #1 + ruling 2026-08-31: `ly_do` phải NGUYÊN VĂN, không phải câu
-    # mẫu chung chung ("đã bị thay thế."). Effectivity dưới đây KHÔNG bịa — là
-    # kết quả THẬT của `danh_gia_theo_id(get_engine(), "139264", date(2026, 8,
-    # 31))` chạy trên DB thật: chính 45/2019/QH14 (Bộ luật Lao động, văn bản
-    # trung tâm của khoá luận) bị 19/2023/QH15 sửa đổi, bổ sung từ 2024-07-01,
-    # đồ thị không có cạnh xác nhận cấp điều khoản nên rơi vào
-    # `mot_phan_khong_xac_dinh`. `test_hieu_luc_khong_chac_sinh_warning` (test
-    # hợp đồng của brief) chỉ kiểm `warnings` không rỗng, không kiểm NỘI DUNG —
-    # tự thêm test này để một tái phát (quay lại câu mẫu chung chung) không lọt
-    # qua CI.
+def test_canh_bao_neu_dich_danh_van_ban_sua_KHONG_ly_do_ca_that_BLLD_45_2019():
+    # Yêu cầu #1: cảnh báo nêu ĐÍCH DANH văn bản sửa, không một câu mẫu chung
+    # chung. Quyết định 2026-09-28 mục 10 thay ruling 2026-08-31 ("`ly_do`
+    # NGUYÊN VĂN"): người đọc thấy câu thường dựng từ `Effectivity.van_ban`,
+    # không bao giờ dòng chẩn đoán ("CSDL quốc gia…", ngày ISO). Effectivity
+    # dưới đây là hình dạng THẬT `danh_gia` trả cho 45/2019/QH14 bị 19/2023/QH15
+    # sửa đổi, bổ sung (Mức 2c).
     ly_do_that = (
         "bị 19/2023/QH15 sửa đổi, bổ sung từ 2024-07-01; CSDL quốc gia không công bố "
         "dữ liệu cấp điều khoản nên không xác định được điều này còn hiệu lực hay không"
     )
-    blld = Effectivity(V.mot_phan_khong_xac_dinh, "thap", ly_do_that)
+    blld = Effectivity(V.mot_phan_khong_xac_dinh, "thap", ly_do_that, van_ban=(VanBanNeu("1", "19/2023/QH15"),))
     t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, blld)
     st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1],
                    "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
                   DB, FakeLlm(), "m")
-    assert any(ly_do_that in w for w in st["warnings"]), (
-        f"ly_do nguyên văn phải xuất hiện trong warnings, thấy: {st['warnings']!r}"
-    )
+    assert st["warnings"] == [
+        "45/2019/QH14 còn hiệu lực một phần. Đã được sửa đổi, bổ sung bởi 19/2023/QH15."
+    ], st["warnings"]
+    assert not any(x in w for w in st["warnings"] for x in ("CSDL", "2024-07-01", "xác định")), st["warnings"]
 
 
 def test_chua_xac_dinh_cung_sinh_canh_bao_khong_duoc_im_lang():
@@ -503,16 +500,18 @@ def test_bi_sua_doi_sinh_warning_neu_dich_danh_van_ban_sua():
     """
     eff = Effectivity(V.bi_sua_doi, "trung_binh",
                       "Điều 139 > Khoản 1 bị sửa bởi khoản 1 Điều 29 của 113/2025/QH15 "
-                      "từ 2026-07-01 (nguồn: congbao.chinhphu.vn — 18/VBHN-VPQH)")
+                      "từ 2026-07-01 (nguồn: congbao.chinhphu.vn — 18/VBHN-VPQH)",
+                      van_ban=(VanBanNeu(None, "113/2025/QH15"),))
     t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, eff)
     st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1],
                    "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
                   DB, FakeLlm(), "m")
     assert st["warnings"], "điều khoản đã bị sửa đổi phải sinh cảnh báo"
     (w,) = st["warnings"]
-    assert "113/2025/QH15" in w and "2026-07-01" in w, (
-        "cảnh báo phải mang `ly_do` NGUYÊN VĂN — nhãn ngắn một mình xoá mất "
-        "đúng thông tin mà Mức 4 sinh ra để cung cấp")
+    # Nêu đích danh văn bản sửa (Mức 4 sinh ra để cung cấp đúng điều đó) bằng lời
+    # cho người đọc — quyết định 2026-09-28 mục 10: không ngày ISO, không nguồn thô.
+    assert "113/2025/QH15" in w and "trước khi sửa đổi" in w, w
+    assert "2026-07-01" not in w and "VBHN" not in w, w
 
 
 def test_bi_sua_doi_KHONG_bi_loc_khoi_prose():
@@ -1337,7 +1336,8 @@ def test_citation_mang_du_truong_trich_dan_va_cach_trich_theo_mau_luat():
 
 
 def test_canh_bao_gan_vao_DUNG_trich_dan_cua_no_va_trung_warnings():
-    mp = Effectivity(V.mot_phan_khong_xac_dinh, "thap", "bị 71/2025/QH15 sửa đổi, bổ sung từ 2026-01-01")
+    mp = Effectivity(V.mot_phan_khong_xac_dinh, "thap", "bị 71/2025/QH15 sửa đổi, bổ sung từ 2026-01-01",
+                     van_ban=(VanBanNeu("9", "71/2025/QH15"),))
     t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, mp)
     st = assemble(
         {

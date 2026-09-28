@@ -38,6 +38,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
+from typing import NamedTuple
 
 from sqlalchemy import Engine, text
 
@@ -115,11 +116,28 @@ class EffectivityVerdict(StrEnum):
     chua_xac_dinh = "chua_xac_dinh"
 
 
+class VanBanNeu(NamedTuple):
+    """Một văn bản phán quyết NÊU ĐÍCH DANH làm bằng chứng. `doc_id` None khi
+    nguồn chỉ có số hiệu (bản ghi sửa đổi cấp điều khoản của VBHN)."""
+
+    doc_id: str | None
+    so_ky_hieu: str
+
+
 @dataclass(frozen=True)
 class Effectivity:
     verdict: EffectivityVerdict
     tin_cay: str          # cao | trung_binh | thap
     ly_do: str
+    # Quyết định 2026-09-28 mục 10: người đọc thấy nhãn và MỘT câu thường nêu văn
+    # bản thay thế/sửa đổi, không bao giờ `ly_do`. Nên bằng chứng đích danh đi
+    # KÈM phán quyết thay vì nằm trong chuỗi `ly_do`: văn bản thay thế (cạnh đồ
+    # thị đã qua guard ngày + chủ đề) cho văn bản đã chết, văn bản đi sửa (cạnh
+    # "Sửa đổi, bổ sung" hoặc bản ghi cấp điều khoản) cho văn bản bị sửa. Suy
+    # luận Mức 2b không có văn bản làm chứng nên không nêu ai.
+    van_ban: tuple[VanBanNeu, ...] = ()
+    # Ngày hiệu lực của chính văn bản khi phán quyết là `chua_hieu_luc`.
+    tu_ngay: date | None = None
 
 
 def _chuan_hoa(s: str | None) -> str:
@@ -240,6 +258,78 @@ def _ke_sua_doi(canh: dict) -> str:
     return f"bị {sk} sửa đổi, bổ sung"
 
 
+def _neu(canh: dict) -> VanBanNeu:
+    # Số hiệu như người đọc thấy: một dòng corpus mang 'số: 34/2024/QH15'.
+    so = re.sub(r"^\s*số\s*:?\s*", "", canh["from_so_ky_hieu"], flags=re.IGNORECASE)
+    return VanBanNeu(canh.get("from_document_id"), so)
+
+
+# Thứ bậc hiệu lực pháp lý (Luật Ban hành VBQPPL) — số nhỏ là cao. Nghị quyết
+# mang thứ bậc của cơ quan ban hành, đọc từ hậu tố số hiệu.
+# ponytail: Quyết định xếp ngang Thông tư (QĐ của Bộ trưởng) — QĐ Thủ tướng bị
+# Thông tư "sửa" sẽ lọt; tách theo hậu tố '-TTg' khi có ca đo được.
+_THU_BAC = {
+    "Hiến pháp": 0,
+    "Bộ luật": 1,
+    "Luật": 1,
+    "Sắc luật": 1,
+    "Pháp lệnh": 2,
+    "Nghị định": 3,
+    "Quyết định": 5,
+    "Thông tư": 5,
+    "Thông tư liên tịch": 5,
+    "Chỉ thị": 6,
+}
+
+
+def _thu_bac(loai: str | None, so_ky_hieu: str | None) -> int | None:
+    if loai == "Nghị quyết":
+        so = so_ky_hieu or ""
+        return 2 if "UBTVQH" in so else 1 if "QH" in so else 3 if "NQ-CP" in so else 6
+    return _THU_BAC.get(loai or "")
+
+
+def _du_tham_quyen_sua(doc: dict, canh: dict) -> bool:
+    """Văn bản đi sửa phải cùng hoặc cao thứ bậc hơn văn bản bị sửa: một thông tư
+    liên tịch không sửa được Bộ luật (cạnh như vậy có thật trong đồ thị MOJ).
+    Bỏ qua khi một phía không rõ loại — cùng lệ `_cung_thu_bac`."""
+    a = _thu_bac(doc.get("loai_van_ban"), doc.get("so_ky_hieu"))
+    b = _thu_bac(canh.get("from_loai_van_ban"), canh.get("from_so_ky_hieu"))
+    return a is None or b is None or b <= a
+
+
+def _van_ban_thay(ten_doc: str | None, canh_di_vao: list[dict], bd: date | None, as_of: date) -> tuple[VanBanNeu, ...]:
+    """Văn bản THAY `doc` theo đồ thị — đúng những cạnh Mức 2a chấp nhận làm
+    bằng chứng (đúng chiều, đã hiệu lực, cùng chủ đề). Cạnh lỗi dữ liệu không
+    được nêu tên như kẻ thay thế."""
+    if bd is None:
+        return ()
+    return tuple(dict.fromkeys(
+        _neu(c) for c in canh_di_vao
+        if _tac_dong(c) == "thay_the" and c.get("from_so_ky_hieu")
+        and _canh_dung_chieu(c, bd, as_of) == "ok" and cung_chu_de(ten_doc, c.get("from_ten"))
+    ))
+
+
+def _van_ban_sua(doc: dict, canh_di_vao: list[dict], bd: date, as_of: date) -> tuple[VanBanNeu, ...]:
+    """Văn bản đã SỬA ĐỔI, BỔ SUNG `doc` (cạnh đi vào loai 20), theo thứ tự hiệu
+    lực. Cạnh đi ra loai 23 (văn bản kia khai tử MỘT PHẦN tôi) không phải một lần
+    sửa đổi, và văn bản thấp thứ bậc hơn không sửa được `doc` — không nêu."""
+    canh = sorted(
+        (
+            c
+            for c in canh_di_vao
+            if _tac_dong(c) == "sua_doi"
+            and c.get("chieu") != "di_ra"
+            and c.get("from_so_ky_hieu")
+            and _canh_dung_chieu(c, bd, as_of) == "ok"
+            and _du_tham_quyen_sua(doc, c)
+        ),
+        key=lambda c: c["from_ngay_hieu_luc"],
+    )
+    return tuple(dict.fromkeys(_neu(c) for c in canh))
+
+
 def _bao_ngay_mau_thuan(doc: dict, canh: dict, ngay_hieu_luc_doc: date) -> None:
     """Cạnh mang quan hệ chấm dứt nhưng ngày không cho phép — dữ liệu bẩn.
     BỎ QUA và ĐẾM (`logger.warning`, cùng khuôn `xref.py` dùng cho dữ liệu bị
@@ -287,15 +377,16 @@ def danh_gia(
     Lao động 45/2019 — văn bản trung tâm của cả đề tài.
     """
     ten_doc = doc.get("ten")
+    # Mọi so sánh chiều bên dưới cần ngày hiệu lực của chính `doc`.
+    bd = doc.get("ngay_hieu_luc")
 
     # ── Mức 1: ngày hết hiệu lực đã qua ──────────────────────────────────────
     het = doc.get("ngay_het_hieu_luc")
     if het and het <= as_of:
         return Effectivity(EffectivityVerdict.het_hieu_luc, "cao",
-                           f"ngày hết hiệu lực {het} đã qua tại {as_of}")
+                           f"ngày hết hiệu lực {het} đã qua tại {as_of}",
+                           van_ban=_van_ban_thay(ten_doc, canh_di_vao, bd, as_of))
 
-    # Mọi so sánh chiều bên dưới cần ngày hiệu lực của chính `doc`.
-    bd = doc.get("ngay_hieu_luc")
     if bd is None:
         return Effectivity(EffectivityVerdict.chua_xac_dinh, "thap",
                            f"văn bản {doc.get('so_ky_hieu')} thiếu ngày hiệu lực — "
@@ -319,7 +410,8 @@ def danh_gia(
                 if cung_chu_de(ten_doc, c.get("from_ten")):
                     return Effectivity(
                         EffectivityVerdict.bi_thay_the, "cao",
-                        f"đồ thị xác nhận: {_ke_khai_tu(c)} từ {c.get('from_ngay_hieu_luc')}")
+                        f"đồ thị xác nhận: {_ke_khai_tu(c)} từ {c.get('from_ngay_hieu_luc')}",
+                        van_ban=_van_ban_thay(ten_doc, canh_di_vao, bd, as_of))
                 return Effectivity(
                     EffectivityVerdict.can_doi_chieu_tay, "thap",
                     f"có cạnh chấm dứt hiệu lực với {c.get('from_so_ky_hieu')} nhưng KHÁC "
@@ -402,12 +494,13 @@ def danh_gia(
                     EffectivityVerdict.mot_phan_khong_xac_dinh, "thap",
                     f"{_ke_sua_doi(c)} từ {c.get('from_ngay_hieu_luc')}; CSDL quốc gia không "
                     "công bố dữ liệu cấp điều khoản nên không xác định được điều này còn "
-                    "hiệu lực hay không")
+                    "hiệu lực hay không",
+                    van_ban=_van_ban_sua(doc, canh_di_vao, bd, as_of))
 
     # ── Chưa hiệu lực ────────────────────────────────────────────────────────
     if bd > as_of:
         return Effectivity(EffectivityVerdict.chua_hieu_luc, "cao",
-                           f"ngày hiệu lực {bd} còn ở tương lai so với {as_of}")
+                           f"ngày hiệu lực {bd} còn ở tương lai so với {as_of}", tu_ngay=bd)
 
     # ── Mức 3 và mặc định — không biết thì NÓI là không biết ─────────────────
     tinh_trang = doc.get("tinh_trang")
@@ -417,7 +510,8 @@ def danh_gia(
             "văn bản hết hiệu lực một phần; CSDL quốc gia không công bố dữ liệu "
             "cấp điều khoản nên không xác định được điều này còn hiệu lực hay không")
     if tinh_trang == "HHL":
-        return Effectivity(EffectivityVerdict.het_hieu_luc, "cao", "tình trạng MOJ = HHL")
+        return Effectivity(EffectivityVerdict.het_hieu_luc, "cao", "tình trạng MOJ = HHL",
+                           van_ban=_van_ban_thay(ten_doc, canh_di_vao, bd, as_of))
 
     if canh_hong:
         return Effectivity(
@@ -459,12 +553,13 @@ _SQL_DOC = text(
 # mất rồi âm thầm rơi vào nhánh "còn hiệu lực".
 _SQL_CANH = text(
     "SELECT r.loai, 'di_vao' AS chieu, r.from_document_id, d2.ten AS from_ten,"
-    " d2.so_ky_hieu AS from_so_ky_hieu, d2.ngay_hieu_luc AS from_ngay_hieu_luc"
+    " d2.so_ky_hieu AS from_so_ky_hieu, d2.ngay_hieu_luc AS from_ngay_hieu_luc,"
+    " d2.loai_van_ban AS from_loai_van_ban"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.from_document_id'
     " WHERE r.to_document_id = :i AND r.loai IN (20, 21)"
     " UNION ALL"
     " SELECT r.loai, 'di_ra', r.to_document_id, d2.ten,"
-    " d2.so_ky_hieu, d2.ngay_hieu_luc"
+    " d2.so_ky_hieu, d2.ngay_hieu_luc, d2.loai_van_ban"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.to_document_id'
     " WHERE r.from_document_id = :i AND r.loai IN (22, 23)"
 )
@@ -577,20 +672,28 @@ def ap_sua_doi(base: Effectivity, ban_ghi: Sequence[dict], as_of: date) -> Effec
         return Effectivity(
             EffectivityVerdict.bi_sua_doi, _tin_cay_thap_nhat(da_toi),
             f"{ke} (nguồn: {_nguon(da_toi)}). Nguyên văn trong CSDL là bản TRƯỚC sửa đổi — "
-            "trích dẫn đúng văn bản gốc nhưng KHÔNG phải bản hiện hành")
+            "trích dẫn đúng văn bản gốc nhưng KHÔNG phải bản hiện hành",
+            van_ban=_sua_boi(da_toi))
 
     if chua_ro_ngay:
         ke = "; ".join(f"{b['vi_tri']} bị sửa bởi {_ke_sua_boi(b)}" for b in chua_ro_ngay)
         return Effectivity(
             EffectivityVerdict.can_doi_chieu_tay, "thap",
             f"{ke} (nguồn: {_nguon(chua_ro_ngay)}), nhưng KHÔNG đọc được ngày hiệu lực từ "
-            "ghi chú hợp nhất — không kết luận được điều khoản này đã đổi hay chưa")
+            "ghi chú hợp nhất — không kết luận được điều khoản này đã đổi hay chưa",
+            van_ban=_sua_boi(chua_ro_ngay))
 
     ke = "; ".join(f"{b['vi_tri']} sẽ bị {_ke_sua_boi(b)} sửa từ {b['tu_ngay']}"
                    for b in sap_toi)
     return Effectivity(
         EffectivityVerdict.con_hieu_luc, _tin_cay_thap_nhat(sap_toi),
         f"nguyên văn còn đúng tại {as_of}; {ke} (nguồn: {_nguon(sap_toi)})")
+
+
+def _sua_boi(ban_ghi: Sequence[dict]) -> tuple[VanBanNeu, ...]:
+    """Văn bản đi sửa mà bản ghi nêu được số hiệu — không số hiệu thì không nêu."""
+    return tuple(dict.fromkeys(
+        VanBanNeu(None, b["sua_boi_so_ky_hieu"]) for b in ban_ghi if b.get("sua_boi_so_ky_hieu")))
 
 
 def _tin_cay_thap_nhat(ban_ghi: Sequence[dict]) -> str:
@@ -711,12 +814,13 @@ _SQL_DOC_TAT_CA = text(
 # bản mà cạnh này nói VỀ (chủ thể của phán quyết), để gom nhóm trong Python.
 _SQL_CANH_TAT_CA = text(
     "SELECT r.to_document_id AS chu, r.loai, 'di_vao' AS chieu, d2.ten AS from_ten,"
-    " d2.so_ky_hieu AS from_so_ky_hieu, d2.ngay_hieu_luc AS from_ngay_hieu_luc"
+    " d2.so_ky_hieu AS from_so_ky_hieu, d2.ngay_hieu_luc AS from_ngay_hieu_luc,"
+    " r.from_document_id, d2.loai_van_ban AS from_loai_van_ban"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.from_document_id'
     " WHERE r.loai IN (20, 21)"
     " UNION ALL"
     " SELECT r.from_document_id, r.loai, 'di_ra', d2.ten,"
-    " d2.so_ky_hieu, d2.ngay_hieu_luc"
+    " d2.so_ky_hieu, d2.ngay_hieu_luc, r.to_document_id, d2.loai_van_ban"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.to_document_id'
     " WHERE r.loai IN (22, 23)"
 )

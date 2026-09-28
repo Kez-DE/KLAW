@@ -32,6 +32,9 @@ class KLawState(TypedDict, total=False):
     intent: object
     tien_de_sai: str | None    # phép kiểm thứ sáu — lý do nếu câu hỏi tự nêu Điều không tồn tại
     queries: list[str]
+    # `documents.id` được hiện (`services/hien_thi`) — `retrieve` tính MỘT lần,
+    # `expand` dùng lại; văn bản ngoài tập này không bao giờ vào căn cứ.
+    hien_thi: list[str]
     retrieved: list[int]
     expanded: list[dict]
     hits_shallow: list[dict]
@@ -42,6 +45,8 @@ class KLawState(TypedDict, total=False):
     tier2: list
     traces: dict
     # ra
+    # Văn bản ẩn mà câu hỏi nêu số hiệu (`hien_thi.van_ban_an_duoc_nhac`).
+    van_ban_khong_hien_thi: list[dict]
     # `None` = lượt đầu, hoặc không giải nghĩa được. Giao diện chỉ hiện dòng
     # "Mình hiểu câu hỏi của bạn là: …" khi nó KHÁC `cau_hoi_goc` — giải nghĩa
     # sai là chế độ hỏng chắc chắn xảy ra, và không có dòng đó thì người dùng

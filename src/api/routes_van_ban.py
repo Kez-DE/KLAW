@@ -50,6 +50,7 @@ from src.services.effectivity import (
     danh_gia_toan_bo,
     nap_sua_doi_theo_van_ban,
 )
+from src.services.hien_thi import chan_neu_an, hieu_luc_ra, nap_van_ban_dan, tap_hien_thi
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +61,8 @@ router = APIRouter()
 _SQL_DOC = text("SELECT id, so_ky_hieu, ten FROM documents WHERE id = :doc_id")
 
 
-def _ra(e: Effectivity) -> HieuLucOut:
-    return HieuLucOut(verdict=e.verdict.value, tin_cay=e.tin_cay, ly_do=e.ly_do)
+def _ra(e: Effectivity, dan: dict) -> HieuLucOut:
+    return HieuLucOut(**hieu_luc_ra(e, dan))
 
 
 # ── GET /van-ban — duyệt kho theo bộ lọc, không từ khoá ──────────────────────
@@ -69,9 +70,11 @@ def _ra(e: Effectivity) -> HieuLucOut:
 # Cùng bốn mệnh đề lọc với `loc` trong `/tim-kiem` để một chip lọc cho ra cùng
 # tập ở hai chế độ. `depth <> 'metadata'` là tập `/bo-loc` đếm: văn bản chỉ có
 # thông tin không mở được nguyên văn nên không nằm trong danh sách bấm được.
+# `d.id = ANY(:hien)`: chỉ văn bản được hiện (`services/hien_thi`) — lọc TRONG
+# SQL để `tong` và phân trang đếm đúng tập người dùng thấy.
 _LOC_VAN_BAN = (
     " FROM documents d"
-    " WHERE d.depth <> 'metadata'"
+    " WHERE d.depth <> 'metadata' AND d.id = ANY(CAST(:hien AS text[]))"
     "   AND (CAST(:loai AS text[]) IS NULL OR d.loai_van_ban = ANY(CAST(:loai AS text[])))"
     "   AND (CAST(:co_quan AS text[]) IS NULL"
     "        OR d.co_quan_ban_hanh = ANY(CAST(:co_quan AS text[])))"
@@ -116,8 +119,10 @@ def _danh_sach_van_ban_sync(
     # TRƯỚC `connect()`, như `/tim-kiem`: `danh_gia_toan_bo` tự mở connection.
     eff = danh_gia_toan_bo(get_engine(), as_of)
     with get_engine().connect() as c:
-        kiem_gia_tri_loc(c, "loai_van_ban", loai)
-        kiem_gia_tri_loc(c, "co_quan_ban_hanh", co_quan)
+        hien = tap_hien_thi(c, eff)
+        tham_so["hien"] = list(hien)
+        kiem_gia_tri_loc(c, "loai_van_ban", loai, hien)
+        kiem_gia_tri_loc(c, "co_quan_ban_hanh", co_quan, hien)
         tong = c.execute(_SQL_DEM_VAN_BAN, tham_so).mappings().one()["tong"]
         if sap_xep == "con_hieu_luc_truoc":
             tham_so["thu_tu_doc"] = [
@@ -126,6 +131,7 @@ def _danh_sach_van_ban_sync(
         rows = c.execute(
             _SQL_TRANG_VAN_BAN[sap_xep], {**tham_so, "limit": limit, "offset": offset}
         ).mappings().all()
+        dan = nap_van_ban_dan(c, (v for r in rows if r["doc_id"] in eff for v in eff[r["doc_id"]].van_ban), hien)
     return DanhSachVanBanResponse(
         tong=tong, limit=limit, offset=offset, sap_xep=sap_xep,
         ket_qua=[
@@ -133,7 +139,7 @@ def _danh_sach_van_ban_sync(
                 doc_id=r["doc_id"], so_ky_hieu=r["so_ky_hieu"], bo_luat=r["bo_luat"],
                 loai_van_ban=r["loai_van_ban"], co_quan_ban_hanh=r["co_quan_ban_hanh"],
                 ngay_ban_hanh=r["ngay_ban_hanh"],
-                hieu_luc=_ra(e) if (e := eff.get(r["doc_id"])) is not None else _THIEU,
+                hieu_luc=_ra(e, dan) if (e := eff.get(r["doc_id"])) is not None else _THIEU,
             )
             for r in rows
         ],
@@ -166,6 +172,7 @@ async def danh_sach_van_ban(
 
 def _hieu_luc_sync(doc_id: str, as_of: date) -> VanBanHieuLucResponse:
     engine = get_engine()
+    hien = chan_neu_an(engine, doc_id, as_of)
     with engine.connect() as c:
         doc = c.execute(_SQL_DOC, {"doc_id": doc_id}).mappings().one_or_none()
     if doc is None:
@@ -177,11 +184,14 @@ def _hieu_luc_sync(doc_id: str, as_of: date) -> VanBanHieuLucResponse:
     # LỚP PHỦ làm phán quyết cấp văn bản CỤ THỂ hơn, không phải một cơ chế thứ
     # hai chạy song song. Nó cũng tự tôn trọng `_KHOA_O_CAP_VAN_BAN` — một Điều
     # của văn bản đã bị thay thế toàn bộ thì đã chết, bất kể footnote nói gì.
+    theo_dieu = [(p, ban_ghi, ap_sua_doi(goc, ban_ghi, as_of)) for p, ban_ghi in nap_sua_doi_theo_van_ban(engine, doc_id)]
+    with engine.connect() as c:
+        dan = nap_van_ban_dan(c, [*goc.van_ban, *(v for *_, e in theo_dieu for v in e.van_ban)], hien)
     dieu_khoan = [
         DieuKhoanHieuLucOut(
             provision_id=p["provision_id"], duong_dan=p["duong_dan"], cap=p["cap"],
             so_hieu_cap=p["so_hieu_cap"], tieu_de=p["tieu_de"],
-            hieu_luc=_ra(ap_sua_doi(goc, ban_ghi, as_of)),
+            hieu_luc=_ra(e, dan),
             sua_boi=[
                 SuaBoiOut(
                     vi_tri=b["vi_tri"], so_ky_hieu=b["sua_boi_so_ky_hieu"],
@@ -191,12 +201,12 @@ def _hieu_luc_sync(doc_id: str, as_of: date) -> VanBanHieuLucResponse:
                 for b in ban_ghi
             ],
         )
-        for p, ban_ghi in nap_sua_doi_theo_van_ban(engine, doc_id)
+        for p, ban_ghi, e in theo_dieu
     ]
 
     return VanBanHieuLucResponse(
         doc_id=doc["id"], so_ky_hieu=doc["so_ky_hieu"], bo_luat=doc["ten"],
-        as_of=as_of, van_ban=_ra(goc), dieu_khoan=dieu_khoan,
+        as_of=as_of, van_ban=_ra(goc, dan), dieu_khoan=dieu_khoan,
     )
 
 
@@ -257,7 +267,9 @@ LIMIT_MOI_NHOM_MAX = 200
 # Một câu, hai chiều. `doi_dien` là văn bản BÊN KIA của cạnh; `chieu` nói văn
 # bản đang hỏi đứng ở đầu nào. LEFT JOIN (không JOIN): 273/626 cạnh cấp văn bản
 # trỏ tới văn bản ngoài corpus, và JOIN thường sẽ nuốt mất chúng — giấu mất một
-# nửa bản đồ quan hệ mà không một dòng nào báo.
+# nửa bản đồ quan hệ mà không một dòng nào báo. Từ quyết định 2026-09-28 mục 8,
+# chúng (cùng văn bản ẩn) bị bỏ ở `_mot_van_ban` — TƯỜNG MINH, theo quy tắc hiển
+# thị, không phải do một JOIN nuốt im lặng.
 #
 # `from_provision_id IS NULL` lọc ra ĐÚNG cạnh cấp văn bản; cạnh cấp điều khoản
 # đếm riêng ở `_SQL_NOI_BO`.
@@ -284,15 +296,18 @@ _SQL_NOI_BO = text(
 )
 
 
-def _mot_van_ban(r: dict, doc_id: str) -> VanBanLienQuanOut | None:
+def _mot_van_ban(r: dict, doc_id: str, hien: frozenset[str]) -> VanBanLienQuanOut | None:
     """Một dòng cạnh → một văn bản đối diện, hoặc None nếu phải bỏ.
 
-    Bỏ đúng hai ca, cả hai đều là dữ liệu vô nghĩa chứ không phải dữ liệu thiếu:
+    Bỏ ba ca:
       * cạnh tự trỏ (văn bản là chính nó) — không phải "văn bản liên quan";
       * không có CẢ `so_ky_hieu` lẫn `raw_text` — không còn gì để định danh, và
-        một dòng trống trong danh sách chỉ làm người đọc tưởng hệ thống hỏng.
+        một dòng trống trong danh sách chỉ làm người đọc tưởng hệ thống hỏng;
+      * văn bản đối diện không được hiện (`services/hien_thi`, quyết định
+        2026-09-28 mục 8) — kể cả văn bản ngoài kho: không tình trạng, không link
+        đã kiểm, nên nó không qua được quy tắc hiện nào.
     """
-    if r["doi_dien_id"] == doc_id:
+    if r["doi_dien_id"] == doc_id or r["doi_dien_id"] not in hien:
         return None
     trong_corpus = r["doi_dien_so_ky_hieu"] is not None
     so_ky_hieu = r["doi_dien_so_ky_hieu"] or (r["raw_text"] or "")
@@ -309,6 +324,7 @@ def _mot_van_ban(r: dict, doc_id: str) -> VanBanLienQuanOut | None:
 
 
 def _lien_quan_sync(doc_id: str, limit_moi_nhom: int) -> VanBanLienQuanResponse:
+    hien = chan_neu_an(get_engine(), doc_id, as_of_hieu_luc(None))
     with get_engine().connect() as c:
         doc = c.execute(_SQL_DOC, {"doc_id": doc_id}).mappings().one_or_none()
         if doc is None:
@@ -318,7 +334,7 @@ def _lien_quan_sync(doc_id: str, limit_moi_nhom: int) -> VanBanLienQuanResponse:
 
     gom: dict[tuple[int, str], list[VanBanLienQuanOut]] = {}
     for r in canh:
-        v = _mot_van_ban(r, doc_id)
+        v = _mot_van_ban(r, doc_id, hien)
         if v is None:
             continue
         gom.setdefault((r["loai"], r["chieu"]), []).append(v)

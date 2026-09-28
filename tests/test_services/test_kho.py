@@ -23,13 +23,14 @@ from datetime import date
 import pytest
 
 from src.models.schemas import Bang
-from src.services.effectivity import Effectivity
+from src.services.effectivity import Effectivity, VanBanNeu
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.kho import (
     CAU_GIOI_HAN,
     danh_sach_bo_luat,
     dung_bang,
     dung_cau_tra_loi,
+    gan_hien_thi,
     moi_so_hieu_trong,
     ten_ngan_bo_luat,
     tom_tat_linh_vuc,
@@ -207,13 +208,21 @@ def test_so_hieu_khong_co_trong_kho_thi_noi_khong_co_va_KHONG_biu():
         assert r["so_ky_hieu"] not in out, f"bịa {r['so_ky_hieu']} cho một số hiệu không tồn tại"
 
 
-def test_ban_da_bi_thay_the_van_la_CO_trong_kho():
-    """BLLĐ 2012 nằm trong kho thật — nó chỉ không được ĐẾM vào số Bộ luật đang
-    dùng. Trả "không có" là một lời nói sai về chính kho của mình."""
-    out = dung_cau_tra_loi("Bộ luật Lao động 10/2012/QH13 còn trong kho chứ?", KHO)
-    assert out.startswith("Có."), out
-    assert "hết hiệu lực" in out
-    assert "2021-01-01" in out, "phải nêu lý do nguyên văn của effectivity"
+def test_ban_da_bi_thay_the_AN_nhung_hoi_dich_danh_thi_noi_thang_va_neu_van_ban_thay():
+    """BLLĐ 2012 nằm trong DB thật — nhưng quyết định 2026-09-28 mục 8 ẩn nó khỏi
+    mọi danh sách. Hỏi đích danh thì trả "tôi không có" là một lời nói sai; câu
+    đúng là nó không còn hiệu lực, và văn bản nào thay nó. Không `ly_do` (mục 10)."""
+    blld_2012 = gan_hien_thi(
+        {**DA_THAY[0], "tinh_trang": "HHL"},
+        Effectivity(V.het_hieu_luc, "cao", "ngày hết hiệu lực 2021-01-01 đã qua",
+                    van_ban=(VanBanNeu("139264", "45/2019/QH14"),)),
+    )
+    out = dung_cau_tra_loi("Bộ luật Lao động 10/2012/QH13 còn trong kho chứ?", [*HIEN_HANH, blld_2012])
+    assert out.startswith(
+        "Bộ luật Lao động số 10/2012/QH13 không còn hiệu lực nên không có trong phạm vi tra cứu. "
+        "Văn bản thay thế: 45/2019/QH14."
+    ), out
+    assert "2021-01-01" not in out and "không có văn bản nào" not in out, out
 
 
 # ══ Không được trình bày điều chưa biết như điều đã biết ════════════════════
