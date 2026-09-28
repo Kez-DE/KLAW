@@ -77,7 +77,12 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
 
 - [x] Decisions Q1–Q6; decision record; this plan.
 - [ ] K0 baseline eval.
-- [ ] K1 missing documents and edges.
+- [ ] K1 missing documents and edges. Branch `feat/kho-du-lieu`; review round 1
+  fixed. Eval at 9a088ae, pinned models, `eval/results/kho-luat/`: golden 77
+  trúng dẫn 64.0% / 62.7% (K0, two runs) → 56.8% with the 7 labelled superseded
+  documents indexed → 61.3% with all 24 unindexed (75/77 ran, the same two
+  structural `TruncatedOutputError` rows as K0; answer 78.7%, trích dẫn đúng
+  77.0%, equal to K0 run 2). Trap 57: 43 → 45, none lost. Mơ hồ 20: 17 → 17.
 - [ ] K2 metadata, effectivity, links, cleanup, refresh script.
 - [ ] K3 citation display.
 - [ ] K4 "Căn cứ" in drafts.
@@ -87,6 +92,31 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
 
 - 2026-09-28: machine-verified links are shown (HTTP 200 + title carries the number
   + issue date matches), evidence stored; see the decision record.
+- 2026-09-28 (K1): 17 of the 24 new documents are repealed verbatim by a kho
+  document (145/2020/NĐ-CP Điều 114 k2, 29/2019/NĐ-CP Điều 28 k2, 09/2020/TT-BLĐTBXH
+  Điều 13 k2), but `effectivity` labels them `can_doi_chieu_tay`: the repeal edge
+  joins two different titles, so the `cung_chu_de` guard downgrades it, and
+  assemble filters only `bi_thay_the`/`het_hieu_luc` from prose. The other 7 are
+  labelled correctly, but with them indexed golden 77 fell to 56.8% trúng dẫn
+  (K0: 62.7% / 64.0%); 28/2020/NĐ-CP was in the hybrid top 10 of 7 of the 13
+  changed questions. All 24 are superseded, so all 24 stay out of the retrieval
+  index (`scripts/build_chunks.KHONG_DANH_CHI_MUC`, decision item 8); provisions
+  and edges stay for tier 1 and replacement chains. This overrides "indexed" in
+  outcome 4 for superseded documents. The voyage index is again the pre-K1 set
+  (8,517 chunk/provision id pairs). **Owner decision pending:** a text-verified
+  edge class that bypasses `cung_chu_de` (an effectivity invariant change); K7's
+  visibility rule supersedes the list. Pre-existing documents with the same defect
+  are NOT in the list: 29/2019/NĐ-CP (repealed by 145/2020 Điều 114 k2 điểm c, 58
+  chunks, rank 2 for "cho thuê lại lao động"), 135/2020/NĐ-CP, 31/2024/QH15.
+- 2026-09-28 (K1): the gateway `/doc/{id}` now returns `references: null` for every
+  document (33/33 fresh fetches, including 161263 and 152668, whose 2026-09-02
+  cache held 8 and 31); `/doc/154245/related` returned HTTP 500 six times. The 24
+  new documents therefore have 0 document-level MOJ relations. `build_seed` warns
+  per document; K2 treats gateway references as unavailable, not empty, and keeps
+  the cached and parquet relations.
+- 2026-09-28 (K1, for K2): MOJ `effFrom` of 38/2019/QH14 is 2019-07-01, but its
+  Điều 151 khoản 1 says 01/7/2020; the reason text for 78/2006/QH11 carries the
+  MOJ date.
 
 ## Validation
 
