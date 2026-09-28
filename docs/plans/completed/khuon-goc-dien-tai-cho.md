@@ -342,6 +342,10 @@ else {})`), each with an explicit key in `_hang_don_vi` and a tolerant reader:
   live version is on that viec, else 201 with version 1, `phep_sua: []`,
   `document` = `# <ten_tep stem>`. 404 for a foreign/unknown viec or one with no
   khuôn gốc; 401 without login. Concurrent opens serialize on the viec row.
+- `GET /tai-lieu/{viec_id}/ban-thao` (G7) → `BanThaoOut` with `khuon`: the newest
+  draft of this account whose live version is on that viec. Read-only: no model
+  call, no quota, creates nothing. 404 when there is none, for a foreign or
+  unknown viec, or an id that is not a UUID.
 - Binary responses: `nosniff`, `Cache-Control: private`. Logs carry ids and
   counts only.
 
@@ -776,6 +780,73 @@ open risks, and follows the TDD order: failing test first, then code.
   kept. The sidebar's Bản thảo list patches the drafts `api.ts` announces
   instead of re-fetching, because a GET per blank save would spend the per-IP
   rate bucket.
+- 2026-09-28 (owner, G7 Q1–Q4). Source: the owner's real conversation a99dfda8…
+  on BM.ĐT.18.11, with an empty draft opened by **Điền biểu mẫu**. Three turns,
+  'soạn thảo lại văn bản này cho tôi', 'Điền họ và tên … mã số …' and 'cho tôi
+  xem văn bản mới sau khi điền', each answered `tai_lieu`/`hoi` with no draft,
+  and the model's "Tôi đã điền … ⟦0⟧" reached the user. Cause: the router called
+  every follow-up turn `tai_lieu`, and the drafting veto
+  (`_muc_dich_soan_da_xac_nhan`) downgraded each one to `hoi`. The owner rules
+  above still stand: a recreate request yields exactly the upload, values come
+  only from the user, and blanks are filled on the page.
+  - Q1: the document line on a `tai_lieu` chat card is a button. It opens the
+    newest draft of that file (`GET /tai-lieu/{viec_id}/ban-thao`, Contracts),
+    or focuses it when it is already open. A 404 opens **Bản tải lên**. A file
+    known to have no khuôn gốc (`co_khuon_goc: false`, from one `GET
+    /tai-lieu/{id}` per unknown file per conversation load) opens its read facts
+    instead. When the user clicks twice before the first GET returns, only the
+    later click opens. This works the same on live and saved turns.
+  - Q2: a live chat result that carries a khuôn draft (a fill, edit, recreate
+    or view turn) opens the draft stage once; in the narrow layout that is the
+    draft tab. The chat keeps the answer and the card. Saved history never opens
+    the stage. HTML drafts do not open it either.
+  - Q3: a request to VIEW the filled draft returns the conversation's newest
+    khuôn draft as a `ban_thao` result, before the graph runs: zero model calls,
+    no new version, no quota, traced like a cache hit. It is matched by a closed
+    pattern over the whole sentence ("cho tôi xem văn bản mới sau khi điền", "mở
+    bản đã điền", "bản đã điền đâu"); "cho tôi xem biểu mẫu này nói gì" is still
+    a question. It applies only when the conversation's newest draft is a khuôn
+    draft and the turn attaches no new file. A newer HTML draft takes the normal
+    path.
+  - Q4: on a document with a khuôn gốc, deterministic evidence decides whether a
+    turn drafts, not the router's `intent` (`hieu_tai_lieu._quyet_khuon`). The
+    evidence is a verb in the user's own words plus the ops that passed
+    `kiem_phep_sua`. The verb match is accent-aware: an unaccented match counts
+    only when the user typed it unaccented, so "điện thoại" is not "điền".
+    - It is a fill turn when a fill/edit verb comes with a validated op, or with
+      a model or router reading of drafting, or when `dien_sua` has at least one
+      validated op.
+    - A recreate verb makes it `tao_lai`, except in a question nobody read as
+      drafting ("Văn bản này do ai soạn thảo?"), because recreating wipes the
+      fills. "xuất bản" alone is not a recreate verb.
+    - A model `van_ban_khac` stands. Real questions stay Q&A. Documents without
+      a khuôn gốc, and HTML drafts, keep the router veto.
+  - Honest answers:
+    - A fill request that applies nothing never creates version 1. It gets a
+      fixed answer, `CHUA_DIEN_KHUON`, that says why nothing was filled, plus
+      "Chưa đặt được: «…»".
+    - A model claim of a change ("Tôi đã sửa …") never reaches the user on a
+      Q&A path (`CHUA_THAY_DOI`).
+    - Several khuôn forms and no named target: nothing is applied, and the
+      answer asks which form (`CHUA_RO_KHUON`).
+    - `⟦n⟧`/`¶n` markers are stripped from every model text field, and the
+      prompt forbids writing them.
+  - Name: a khuôn draft's `ten` is the uploaded file's stem, through one helper
+    (`ban_thao.ten_ban_thao`), on the chat card, `BanThaoOut` and the sidebar
+    list. HTML drafts keep "Bản thảo tổng quát".
+- 2026-09-28 (wave G7 integration, `integ/wave-g7`): `fix/g7-backend` and
+  `fix/g7-frontend` merged without conflicts. Checked against the backend's
+  final routes and fields:
+  - `banThaoCuaTaiLieu` GETs the path the backend serves and validates the
+    response as `BanThaoOut` (`laBanThao`); 404 maps to **Bản tải lên**.
+  - A view result's `ban_thao` comes from `_ket_state` and carries `khuon`, so
+    `banThaoTuMo` opens the stage.
+  - The new SSE step `xem_ban_thao` gets its label from the server.
+  - Every row that reaches `_out` carries `ten_tep`.
+
+  Two G7 hunks (`assemble.xem_ban_thao_khuon`'s return and the view branch's
+  `_ghi_traces_nhe` call) were laid out as `ruff format` wants. The other format
+  drift in the changed files predates G7, and its size equals `main`'s.
 
 ## Validation
 
@@ -851,3 +922,10 @@ broken file in a fresh chat no longer counts toward the daily quota; a
 request is misclassified as `dien_sua`. Also: soft-deleted drafts and turns
 (issue #3); document spend does not reach `traces`, so the shared daily cost cap
 does not see it — add a per-account cap before opening the app to many users.
+
+G7 on `integ/wave-g7` (2026-09-28), fake LLMs only, zero model calls: khuôn test
+files 778 passed (the new `test_khuon_luot_noi_tiep.py` included); CI lane 2697
+passed, 1 skipped (the `tai_lieu_tong_quat` sample set is not built), and its one
+failure is the worktree-only `test_data_raw_VAN_bi_gitignore`; `ruff check` passes;
+frontend `npm run typecheck` and `npm run kiem` pass. Q1–Q4 have not been
+re-run in the owner's app.
