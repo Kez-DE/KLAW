@@ -18,7 +18,11 @@ from src.services.embedding import EmbeddingClient
 _EMBED_BATCH = 100
 
 
-def run(model: str | None = None, dry_run: bool = False) -> dict:
+def run(model: str | None = None, dry_run: bool = False, chi_moi: bool = False) -> dict:
+    """`chi_moi`: chỉ embed chunk (provision_id, noi_dung_embed) CHƯA có cho
+    `model` và xoá chunk không còn khớp chunker — kết quả bằng một lần chạy
+    đầy đủ, nhưng chunk cũ giữ id và vector (số đo truy hồi trước/sau nạp thêm
+    văn bản vẫn so được với nhau)."""
     s = get_settings()
     run_migrations()
     model = model or s.openrouter_embedding_model_name
@@ -34,6 +38,16 @@ def run(model: str | None = None, dry_run: bool = False) -> dict:
         "model": model,
         "tokens": sum(c.token_count for c in chunks),
     }
+    thua: list[int] = []
+    if chi_moi:
+        with get_engine().connect() as conn:
+            co = {(r[0], r[1]): r[2] for r in conn.execute(text(
+                "SELECT provision_id, noi_dung_embed, id FROM chunks WHERE embedding_model = :m"
+            ), {"m": model})}
+        dung = {(c.provision_id, c.noi_dung_embed) for c in chunks}
+        thua = [i for k, i in co.items() if k not in dung]
+        chunks = [c for c in chunks if (c.provision_id, c.noi_dung_embed) not in co]
+        info |= {"moi": len(chunks), "thua": len(thua), "tokens_moi": sum(c.token_count for c in chunks)}
     if dry_run:
         return info
 
@@ -42,7 +56,7 @@ def run(model: str | None = None, dry_run: bool = False) -> dict:
     )
     embedder.batch = _EMBED_BATCH
 
-    print(f"embed {len(chunks)} chunk (~{info['tokens']:,} token) bằng {model} …")
+    print(f"embed {len(chunks)} chunk (~{info.get('tokens_moi', info['tokens']):,} token) bằng {model} …")
     vectors = embedder.embed([c.noi_dung_embed for c in chunks])
     if len(vectors) != len(chunks):
         raise ValueError(f"{len(vectors)} vector cho {len(chunks)} chunk")
@@ -52,15 +66,19 @@ def run(model: str | None = None, dry_run: bool = False) -> dict:
         for c, v in zip(chunks, vectors, strict=True)
     ]
     with get_engine().begin() as conn:
-        conn.execute(text("DELETE FROM chunks WHERE embedding_model = :m"), {"m": model})
-        conn.execute(
-            text(
-                "INSERT INTO chunks (provision_id, noi_dung_embed, embedding,"
-                " embedding_model, embedding_dim, token_count)"
-                " VALUES (:p, :t, CAST(:v AS vector), :m, :d, :n)"
-            ),
-            rows,
-        )
+        if chi_moi:
+            conn.execute(text("DELETE FROM chunks WHERE id = ANY(:ids)"), {"ids": thua})
+        else:
+            conn.execute(text("DELETE FROM chunks WHERE embedding_model = :m"), {"m": model})
+        if rows:
+            conn.execute(
+                text(
+                    "INSERT INTO chunks (provision_id, noi_dung_embed, embedding,"
+                    " embedding_model, embedding_dim, token_count)"
+                    " VALUES (:p, :t, CAST(:v AS vector), :m, :d, :n)"
+                ),
+                rows,
+            )
     return info
 
 
@@ -69,4 +87,4 @@ if __name__ == "__main__":
     # nếu không lọc, model sẽ bị gán nhầm thành chuỗi "--dry-run"
     positional = [a for a in sys.argv[1:] if not a.startswith("--")]
     mdl = positional[0] if positional else None
-    print(run(model=mdl, dry_run="--dry-run" in sys.argv))
+    print(run(model=mdl, dry_run="--dry-run" in sys.argv, chi_moi="--chi-moi" in sys.argv))

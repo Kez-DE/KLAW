@@ -85,6 +85,47 @@ def test_moi_chunk_co_provision_id_ton_tai_va_co_embedding(corpus_nho):
 
 
 @pytest.mark.integration
+def test_chi_moi_chi_embed_chunk_chua_co_va_xoa_chunk_thua(corpus_nho, monkeypatch):
+    """Nạp thêm văn bản không được embed lại cả corpus: chunk cũ giữ nguyên id
+    và vector (số đo trước/sau vẫn so được), chỉ chunk chưa có mới gọi API, và
+    chunk không còn khớp chunker (vd `mo_dau` của hàng vừa lên deep) bị xoá."""
+    run(model=corpus_nho)
+    with get_engine().begin() as c:
+        ids = sorted(r[0] for r in c.execute(
+            text("SELECT id FROM chunks WHERE embedding_model = :m"), {"m": corpus_nho}))
+        c.execute(text("DELETE FROM chunks WHERE id = :i"), {"i": ids[0]})
+        c.execute(text(
+            "INSERT INTO chunks (provision_id, noi_dung_embed, embedding_model, embedding_dim)"
+            " SELECT provision_id, '__thua__', embedding_model, embedding_dim FROM chunks"
+            " WHERE id = :i"), {"i": ids[1]})
+
+    goi: list[int] = []
+
+    class EmbedderDem:
+        def __init__(self, **kw) -> None:
+            self.dim = kw.get("dim", _DIM)
+            self.batch = 0
+
+        def embed(self, texts: list[str]) -> list[list[float]]:
+            goi.append(len(texts))
+            return [[0.2] * self.dim for _ in texts]
+
+    monkeypatch.setattr(bc, "EmbeddingClient", EmbedderDem)
+    info = run(model=corpus_nho, chi_moi=True)
+
+    assert (info["moi"], info["thua"]) == (1, 1), info
+    assert sum(goi) == 1, "chỉ chunk vừa thiếu mới được embed"
+    with get_engine().connect() as c:
+        sau = {r[0] for r in c.execute(
+            text("SELECT id FROM chunks WHERE embedding_model = :m"), {"m": corpus_nho})}
+        thua = c.execute(text(
+            "SELECT count(*) FROM chunks WHERE embedding_model = :m AND noi_dung_embed = '__thua__'"),
+            {"m": corpus_nho}).scalar_one()
+    assert set(ids[1:]) <= sau, "chunk cũ bị ghi lại — id đổi"
+    assert len(sau) == len(ids) and thua == 0
+
+
+@pytest.mark.integration
 def test_run_that_tren_toan_corpus_TON_TIEN():
     """TỐN TIỀN: embed lại TOÀN BỘ corpus qua OpenRouter — ~891.772 token,
     **~$0,009** với `baai/bge-m3` ($0,010/1M).
