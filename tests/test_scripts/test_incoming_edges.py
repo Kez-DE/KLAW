@@ -54,6 +54,33 @@ def test_canh_hieu_luc_di_vao_MAP_dung_ca_4_ma():
     assert dict(zip(out["raw_text"], out["loai"], strict=True)) == QUAN_HE_HIEU_LUC
 
 
+def test_ban_trung_tro_ve_dong_giu_va_canh_trung_gop_lai():
+    """40022/153788 là bản trùng của 18451/142846 (`BAN_TRUNG`, K2 2026-09-28): nạp
+    lại parquet không được chèn lại dòng thừa — cạnh của nó thuộc về dòng giữ, và
+    cạnh trùng hệt sau khi trỏ thì chỉ còn một."""
+    rel = pd.DataFrame([
+        {"doc_id": "40022", "other_doc_id": "139264", "relationship": "Thay thế"},
+        {"doc_id": "18451", "other_doc_id": "139264", "relationship": "Thay thế"},
+        {"doc_id": "A", "other_doc_id": "153788", "relationship": "Thay thế"},
+    ])
+    out = _canh_hieu_luc_di_vao(rel, {"139264", "142846"})
+    assert sorted(zip(out["from_document_id"], out["to_document_id"], strict=True)) == [
+        ("18451", "139264"), ("A", "142846")]
+
+
+def test_hai_canh_sua_doi_127_2025_bat_nham_bi_loai():
+    """143/2025/QH15 Điều 50 khoản 2 sửa Luật Thuế TNDN 67/2025 "đã được sửa đổi, bổ
+    sung ... theo Luật số ... 127/2025/QH15"; 231/2026/NĐ-CP chỉ "Căn cứ" 127/2025.
+    Không văn bản nào sửa Luật Thi hành án hình sự 127/2025 (đọc toàn văn gateway
+    2026-09-28) — cùng lỗi crawl với 19/2023 → BLLĐ."""
+    rel = pd.DataFrame([
+        {"doc_id": "187601", "other_doc_id": "187035", "relationship": "Sửa đổi, bổ sung"},
+        {"doc_id": "386e5ad0-7d09-11f1-9c00-f9e84f25c1dc", "other_doc_id": "187035",
+         "relationship": "Sửa đổi, bổ sung"},
+    ])
+    assert _canh_hieu_luc_di_vao(rel, {"187035"}).empty
+
+
 def test_canh_hieu_luc_di_vao_LOAI_canh_da_doi_chieu_la_sai():
     """19/2023/QH15 "Sửa đổi, bổ sung" BLLĐ là lỗi của crawl nguồn (toàn văn chỉ
     sửa BLTTDS) — nạp lại parquet không được đưa nó trở lại. Cạnh thật của

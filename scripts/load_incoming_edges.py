@@ -32,6 +32,7 @@ import pandas as pd
 from sqlalchemy import Engine, text
 
 from scripts.fetch_moj import DOC_IDS
+from src.models.domain import sql_khoa_so_ky_hieu
 from src.services.db import run_migrations
 
 # Quan hệ mang TÍN HIỆU HIỆU LỰC (không phải "Căn cứ", "Dẫn chiếu", "Quy định chi
@@ -56,7 +57,23 @@ CANH_SAI: frozenset[tuple[str, str, str]] = frozenset({
     # Bộ luật số 45/2019/QH14, ..." — crawl nguồn bắt nhầm số hiệu trong câu.
     # 18/VBHN-VPQH (hợp nhất BLLĐ) không có 19/2023. Đo 2026-09-28.
     ("161263", "139264", "Sửa đổi, bổ sung"),
+    # Không văn bản nào dưới đây sửa Luật Thi hành án hình sự 127/2025/QH15 (đọc
+    # toàn văn gateway 2026-09-28): 143/2025/QH15 Điều 50 khoản 2 sửa Luật Thuế
+    # TNDN 67/2025 "đã được sửa đổi, bổ sung ... theo Luật số ... 127/2025/QH15"
+    # — cùng lỗi bắt nhầm số hiệu; 231/2026/NĐ-CP chỉ "Căn cứ" và thi hành 127/2025.
+    ("187601", "187035", "Sửa đổi, bổ sung"),
+    ("386e5ad0-7d09-11f1-9c00-f9e84f25c1dc", "187035", "Sửa đổi, bổ sung"),
 })
+
+# Bản ghi trùng (dòng thừa → dòng giữ): gateway và parquet mang HAI id cho cùng một
+# văn bản; `scripts/don_kho.py` gộp chúng trong DB, và ở đây mọi cạnh parquet của
+# dòng thừa được trỏ sang dòng giữ để nạp lại không chèn dòng thừa trở lại.
+# Bằng chứng (response gateway 2026-09-28), cả bốn id đều Publish, cùng số, cùng ngày:
+# - 33/2005/NĐ-CP: 18451 có publicDate 2013-03-02, tệp '33.2005.ND.CP.doc', tiêu
+#   đề "Pháp lệnh Thú y"; 40022 không publicDate, tệp 'ND 33 Huong dan PLTY 15.3.05.doc'.
+# - 60/2020/QH14: 142846 là văn bản Quốc hội thông qua; 153788 là bản sao y
+#   ("SAO Y BẢN CHÍNH … Số: 05/SY-VPCTN") của Văn phòng Chủ tịch nước.
+BAN_TRUNG: dict[str, str] = {"40022": "18451", "153788": "142846"}
 
 # Cùng quan hệ sai ấy trong mảng `references` MOJ của 19/2023/QH15 (loai 10,
 # `raw_text` '45/2019/QH14'): `(from, to, loai)`. `build_seed` bỏ nó khỏi seed,
@@ -93,7 +110,7 @@ _SQL_VBHN = text(
     "SELECT DISTINCT s.sua_boi_so_ky_hieu AS sk, d.id AS f, p.document_id AS t"
     " FROM sua_doi_dieu_khoan s"
     " JOIN provisions p ON p.id = s.provision_id"
-    " JOIN documents d ON d.so_ky_hieu = s.sua_boi_so_ky_hieu"
+    f" JOIN documents d ON {sql_khoa_so_ky_hieu('d.so_ky_hieu')} = {sql_khoa_so_ky_hieu('s.sua_boi_so_ky_hieu')}"
     " WHERE s.do_tin_cay <> 'can_doi_chieu_tay'"
 )
 
@@ -140,10 +157,10 @@ def _canh_hieu_luc_di_vao(rel: pd.DataFrame, corpus: set[str]) -> pd.DataFrame:
     tình cờ vì `other_doc_id` của chúng chưa từng nằm trong corpus hẹp.
     """
     df = rel[["doc_id", "other_doc_id", "relationship"]].copy()
-    df["doc_id"] = df["doc_id"].astype(str)
-    df["other_doc_id"] = df["other_doc_id"].astype(str)
+    df["doc_id"] = df["doc_id"].astype(str).replace(BAN_TRUNG)
+    df["other_doc_id"] = df["other_doc_id"].astype(str).replace(BAN_TRUNG)
     df = df[df["other_doc_id"].isin(corpus) & df["relationship"].isin(QUAN_HE_HIEU_LUC)
-            & (df["doc_id"] != df["other_doc_id"])]
+            & (df["doc_id"] != df["other_doc_id"])].drop_duplicates()
     sai = pd.Series([k in CANH_SAI for k in zip(df["doc_id"], df["other_doc_id"],
                                                   df["relationship"], strict=True)],
                     index=df.index, dtype=bool)

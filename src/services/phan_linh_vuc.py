@@ -73,6 +73,11 @@ NGANH_LUAT = _nap("nganh_luat")
 LINH_VUC = _nap("linh_vuc")
 """27 lĩnh vực — phân loại thực dụng, mịn hơn, lọc retrieval tốt hơn."""
 
+GHI_DE: dict[str, dict[str, str]] = {
+    str(k): v for k, v in (yaml.safe_load(DUONG_DAN.read_text(encoding="utf-8")).get("ghi_de") or {}).items()
+}
+"""`documents.id` → {`linh_vuc`, `nganh_luat`} ghi đè kết quả khớp (xem YAML)."""
+
 
 def phan_nganh_luat(
     *, ten: str = "", linh_vuc_nguon: str = "", co_quan: str = ""

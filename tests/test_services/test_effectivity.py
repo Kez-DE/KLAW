@@ -464,7 +464,15 @@ def test_canh_DI_RA_nang_tin_cay_len_CAO_tren_du_lieu_that():
 # đi sửa có hiệu lực TRƯỚC văn bản bị sửa. Guard 1 bỏ cạnh đó và ghi log — hành
 # vi đúng. Điều phải giữ là "không có cạnh bẩn MỚI nào lọt vào mà không ai biết",
 # nên danh sách này liệt kê từng ca, giống danh sách ngoại lệ của migration 013.
-CANH_NGAY_MAU_THUAN_DA_BIET = {("109/2025/QH15", "09/2026/QH16")}
+# K2 2026-09-28, đọc toàn văn gateway: hai cạnh THẬT mà văn bản đi sửa có hiệu lực
+# CÙNG NGÀY văn bản bị sửa (Guard 1 đòi "sau hẳn"). 08/2020/TT-BNNPTNT "Sửa đổi, bổ
+# sung Điều 2 của Thông tư số 04/2020/TT-BNNPTNT" (cùng 01/7/2020); 71/2014/QH13
+# bãi bỏ "Khoản 4 Điều 86 của Luật Hải quan" (cùng 01/01/2015).
+CANH_NGAY_MAU_THUAN_DA_BIET = {
+    ("109/2025/QH15", "09/2026/QH16"),
+    ("04/2020/TT-BNNPTNT", "08/2020/TT-BNNPTNT"),
+    ("54/2014/QH13", "71/2014/QH13"),
+}
 
 
 @pytest.mark.integration
