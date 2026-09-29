@@ -212,20 +212,27 @@ def can_cu_khung(engine: Engine, loai: str, db_provisions: dict[int, dict], as_o
     chọn của checklist (`khong_bat_buoc`: mục của nó và `can_cu` của khối) dẫn tới
     mang `tuy_chon: True` — `khuon_mau.can_cu_hien` chỉ in nó khi một Điều dẫn văn bản
     ấy. Không thế thì mọi hợp đồng vận chuyển tài sản, cả đường sắt hay đường hàng
-    không, "Căn cứ Luật Đường bộ" chỉ vì mục Giấy vận tải tuỳ chọn."""
+    không, "Căn cứ Luật Đường bộ" chỉ vì mục Giấy vận tải tuỳ chọn. Văn bản không phần
+    nào dẫn tới (luật trao thẩm quyền ban hành, `can_cu_ban_hanh`) luôn in."""
     cl = load_checklist_cached(loai)
     tuy = set(cl.khong_bat_buoc.get("keys") or [])
     ngoai_le = (cl.nganh_duoc_giam, cl.quy_tac_dinh_dang)
     bat_buoc = {
         cl.can_cu_goc,
         cl.can_cu_chi_tiet,
+        *cl.can_cu_ban_hanh,
         *(k["can_cu"] for k in ngoai_le if k.get("can_cu")),
         *(m["can_cu"] for m in cl.muc if m["key"] not in tuy),
         *(r.can_cu for r in rules_cho(loai)),
     }
-    giu = {str(r["document_id"]) for r in db_provisions.values() if r["duong_dan"] in bat_buoc}
+    chi_tuy = {cl.khong_bat_buoc.get("can_cu"), *(m["can_cu"] for m in cl.muc if m["key"] in tuy)}
+
+    def van_ban(dd: set) -> set[str]:
+        return {str(r["document_id"]) for r in db_provisions.values() if r["duong_dan"] in dd}
+
+    tuy_chon = van_ban(chi_tuy) - van_ban(bat_buoc)
     return [
-        x if str(x["doc_id"]) in giu else {**x, "tuy_chon": True}
+        {**x, "tuy_chon": True} if str(x["doc_id"]) in tuy_chon else x
         for x in can_cu_van_ban_co_id(engine, db_provisions, as_of)
     ]
 

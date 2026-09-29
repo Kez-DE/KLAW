@@ -665,3 +665,18 @@ def test_luot_chat_xin_trich_yeu_va_trang_in_mot_lan(monkeypatch):
     )
     chu = [c for _, c, _ in _doan_than(docx)]
     assert "Về việc bổ nhiệm Phó Giám đốc kinh doanh" in chu and not any("Về việc Về việc" in c for c in chu)
+
+
+def test_can_cu_khung_luat_tham_quyen_ban_hanh_khong_la_tuy_chon(monkeypatch):
+    """Hợp nhất nhóm hợp đồng với nhóm hành chính: `can_cu_khung` chỉ gắn `tuy_chon` cho
+    văn bản mà CHỈ phần tuỳ chọn của checklist dẫn tới. Luật trao thẩm quyền ban hành
+    (`can_cu_ban_hanh`: LDN Đ153.3 cho nghị quyết HĐQT, mọi mục khác dẫn NĐ 30) luôn in —
+    không thì quyết định ra đời không căn cứ luật nào."""
+    from datetime import date
+
+    from src.agents import graph_soan_thao as gst
+
+    db = {1: {"id": 1, "document_id": "142881", "duong_dan": "59/2020/QH14 > Điều 153 > Khoản 3"}}
+    monkeypatch.setattr(gst, "can_cu_van_ban_co_id", lambda e, d, a: [CAN_CU[1]])
+    ra = gst.can_cu_khung(None, "quyet_dinh_hdqt", db, date(2026, 9, 29))
+    assert ra == [CAN_CU[1]] and km.can_cu_hien(ra, []) == [CAN_CU[1]]
