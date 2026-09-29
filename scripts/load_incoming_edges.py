@@ -100,12 +100,17 @@ CANH_SAI: frozenset[tuple[str, str, str]] = frozenset({
 #   văn; phá hoà bằng bản ghi gateway: 184706 mang người ký (Lê Văn Hiệu) và
 #   effTo 2030-12-31 đúng Điều 6 khoản 1 ("đến ngày 31 tháng 12 năm 2030"), 185035
 #   ghi người ký "Đang cập nhật" và effTo null.
+# - 115/1998/TT-BTC: giữ 7576. Review K12 tìm ra cặp này bằng `khoa_so_hieu` trên tập
+#   được hiện. Toàn văn gateway của CẢ HAI ghi "ngày 19 tháng 8 năm 1998", cùng thân
+#   bài, cùng người ký Phạm Văn Trọng; 7576 có issueDate 1998-08-19 khớp chính văn bản,
+#   110222 ghi 1998-08-18. Cả hai trang vbpl.vn qua phép kiểm link (2026-09-29).
 BAN_TRUNG: dict[str, str] = {
     "40022": "18451",
     "153788": "142846",
     "187195": "174485",
     "26419": "67884",
     "185035": "184706",
+    "110222": "7576",
 }
 
 # Cùng quan hệ sai ấy trong mảng `references` MOJ của 19/2023/QH15 (loai 10,

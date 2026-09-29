@@ -646,7 +646,11 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
         "114/2025/QH15",
         "hai node cùng neo '114/2025/QH15 > Điều 32 > Khoản 1' ở cấp trích dẫn được",
     ),
-    "110222": ("115/1998/TT-BTC", "HTML MOJ không có thẻ prov-* nào"),
+    "110222": (
+        "115/1998/TT-BTC",
+        "bản ghi gateway trùng 7576 (cùng thân bài, cùng 'ngày 19 tháng 8 năm 1998'; issueDate lệch 1 ngày): "
+        "gộp vào 7576 qua `BAN_TRUNG` + `don_kho --chi-gop` (review K12)",
+    ),
     "7576": ("115/1998/TT-BTC", "HTML MOJ không có thẻ prov-* nào"),
     "170131": ("117/2024/NĐ-CP", "hai node cùng neo '117/2024/NĐ-CP > Điều 1 > Khoản 5' ở cấp trích dẫn được"),
     "122826": (
