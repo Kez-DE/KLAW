@@ -87,6 +87,18 @@ Kiểm kho ngày 2026-09-28 (chỉ đọc):
     đã hết hiệu lực được neo sang điều khoản tương ứng của văn bản thay thế sau khi
     đối chiếu nguyên văn; bản nhãn cũ được giữ để so.
 
+16. **Văn bản chưa tách được toàn văn vẫn được hiện** (chủ dự án chốt 2026-09-29, sửa
+    mục 9): 112/484 văn bản còn hiệu lực có link chưa tách được điều khoản (chủ yếu
+    luật sửa đổi trích lại điều bị sửa). Trang của chúng ghi rõ "chưa có toàn văn trong
+    KLAW" kèm link CSDL quốc gia và bản PDF có chữ ký khi có; không câu nào nói kho có
+    toàn văn của chúng. Parser sẽ được sửa dần để nạp sâu các văn bản này.
+17. **Sửa truy hồi sau khi mở rộng kho** (chủ dự án chốt 2026-09-29): trần chi phí đo
+    trước và sau nâng từ US$6 lên US$10; đo truy hồi (`eval.run`) lọc theo đúng tập văn
+    bản được hiện để đo cái người dùng thấy; bỏ lao-035-0/1 và lao-030-1 khỏi bộ golden
+    chính (283/2026/NĐ-CP không còn quy định tương ứng); 20 câu neo lại chờ chủ dự án
+    duyệt. Bản sao trùng trên CSDL quốc gia: giữ 174485 (07/2025/NĐ-CP) và 67884
+    (18/2011/TT-BNNPTNT), bản kia không hiện ở đâu.
+
 ## Alternatives Considered
 
 1. Chỉ hiện link người đã mở bằng trình duyệt (spec §4.3). Loại: không khả thi cho
