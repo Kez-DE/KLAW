@@ -166,7 +166,8 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   82 old documents first): DB deep 82 → 406, provisions 49,183 → 108,693, no
   `documents` row deleted, status/dates/overrides unchanged (`lam_moi_hieu_luc
   --tu-seed --dry-run`: 0 rows). Verbatim: `verified_documents` 78 → 381 (+303,
-  `don_kho --chi-chua-kiem`); 21 differ only in table rows, as 145/2020 did.
+  `don_kho --chi-chua-kiem`); the other 21 were reported as differing only in table
+  rows — wrong, see review round 1 below.
   Indexed with `build_chunks --chi-moi --chi-id` (the 60 out-of-kho rows stay
   unindexed so the K8 recovery still applies): voyage chunks 8,710 → 19,267
   (+10,557; the 320 placeholder title chunks went with their `mo_dau`), OpenRouter
@@ -202,6 +203,70 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   index — flush `answer_cache` before K5. `provisions.jsonl` is 61 MB. Raw
   responses for K1/K8/K6 live in scratch `kho-cache/raw` (`DATA_RAW_DIR`), not in
   `data/raw/moj`; a rebuild elsewhere re-fetches them.
+  **Review round 1 (2026-09-29, same branch; backup `backup-truoc-K6-sua-review.dump`;
+  every write dry-run first, rerun = 0 rows).** Five findings, all confirmed.
+  (1) Two gateway duplicate pairs had gone deep and shown twice: 07/2025/NĐ-CP
+  (174485; 187195 spells 'СР' in Cyrillic) and 18/2011/TT-BNNPTNT (67884; 26419 has
+  'TT- '). The byte-level `ux_provisions_neo_trich_dan` could not see them.
+  `build_seed` now refuses two seed documents with the same `khoa_so_hieu` (NFC,
+  Cyrillic/Greek lookalikes and Ð folded, whitespace dropped, casefold). The stored
+  number stays the gateway `docNum`. 187195 and 26419 moved to `KHONG_NAP` and back
+  to title-only through the new `scripts/ha_ve_nong.py` (provisions, chunks and
+  `verified_documents` removed; `documents` row and document-level edges kept).
+  Proposed keepers for an owner `BAN_TRUNG`: 174485 and 67884. Both copies are still
+  shown, with MOJ status HHL1P vs CHL for 07/2025.
+  (2) The reported cause of the 41 non-verbatim provisions was wrong. `_noi_dung` put
+  all prose before every table, so prose that follows an inline table moved (e.g.
+  "2. Phương pháp tính thuế: Trong đó: …"). This hit 24 deep documents, including
+  145/2020 and 135/2020. The parser now keeps prose/table order. The rebuilt seed
+  changes text only (0 structure changes), so `ingest` gained an in-place path for
+  deep documents with an unchanged provision frame: provision ids, chunks and edges
+  stay, and stale verification rows are dropped. `--khong-xoa` refuses the DELETE
+  path, `--dry-run` rolls back after forcing the deferred triggers. 22 documents
+  and 38 provisions were rewritten in place. Now 20 more documents are verbatim
+  100% (145/2020 and 135/2020 for the first time). What remains is layout only:
+  158/2025/NĐ-CP 367/368 ('H i' from an unclassed `<p>` with `<sub>`) and
+  65/2026/NĐ-CP 239/240 (split-table rows).
+  (3) Tail text inside an anchor (same class K6 excluded elsewhere) found in
+  21/2017/QH14 Điều 59 Khoản 5 (signature + Phụ lục I–III) and 615 TC/TCT/QĐ
+  Điều 3. Both moved to `KHONG_NAP` and back to title-only.
+  (4) 14681 and 24312 had 0 chunks: their khoản have no Điều. `chunker` now roots
+  a khoản with no citable parent. `build_chunks` stops before embedding when a
+  deep document yields no chunk.
+  (5) Joint circulars 11913 and 26557 had lost Bộ Nội vụ and its signer.
+  `nap_nguoi_ky.co_quan_tu_response`/`nguoi_ky_tu_response` join the bodies and
+  signers when `documentIssues[]` lists more than one agency. `build_seed` and
+  `nap_nguoi_ky` (UPDATE, now with `--dry-run`, 2 rows) share that rule.
+  Item-9 work: `chinhphu_parser.gan_class_prov` tags untagged MOJ HTML in place. It
+  labels `<p>` outside tables by label; signature tables fall into `phu_luc` by
+  position. `build_seed` applies it when the HTML has no `prov-*`. Of the 17 shown
+  untagged documents, 6 pass the gate with 100% verbatim and full character
+  coverage, and were upgraded in place: 08/2017/QH14, 69/2008/NĐ-CP,
+  12/2004/CT-TTg, 13/2004/CT-TTg, 36/2006/CT-TTg and 28/2026/QĐ-UBND. The other 11
+  show duplicate anchors once labelled, or have no labels or no text.
+  Counts (shown set at 2026-09-28 and 2026-09-29, unchanged at 480): deep 366 →
+  368 and shallow 114 → 112, i.e. **112 shown without full text**. By class: 56
+  duplicate anchors (amending texts that quote the amended article), 24 source
+  labels the parser cannot read, 7 tail text inside an anchor, 7 parser
+  moving/losing text, 5 list-promising anchors without children, 4 gateway
+  duplicate copies (07/2025, 18/2011, 55/2025 ×2), 4 without any label, 2 empty
+  gateway content (105/2025/QH15 and 141/2025/QH15, Công báo candidates), 2
+  citable levels inside a table, 1 Chương without an Điều. DB deep 406 → 408,
+  provisions 108,693 → 108,773, voyage chunks 19,267 → 19,275 (+161 embedded,
+  −34 stale, −119 by cascade), `verified_documents` 381 → 405. Deep documents with
+  0 chunks: 0. Order check: 325/326 K6 documents in source order (65/2026, table
+  row). Random 30 K6 provisions: 30/30 strict substrings. OpenRouter usage
+  +US$0.0024 (key total, other sessions included). Post-state documents diff vs
+  the backup: only these 32 rows, plus `co_quan`/`nguoi_ky` of the 2 joint
+  circulars.
+  Open, owner: (a) item 9 is still unmet for 112 shown documents: hide them until
+  they have full text, or accept title-only pages; (b) `BAN_TRUNG` keepers for
+  07/2025 and 18/2011 (and 55/2025); (c) parser rule for labels inside an open
+  quotation (the 56). It changes the frame of existing deep documents such as
+  88/2025 and 31/2024, so it needs the DELETE path or a frame-migration plan.
+  (d) Công báo for 105/2025 and 141/2025 means a gateway id with Công báo text,
+  which `build_seed`/`don_kho` do not support yet (148/2025 used a `cb-` id).
+  (e) the runtime still never reads `verified_documents`.
 - [x] K7 visibility rule and diagnostics hidden (2026-09-28,
   `integ/hien-thi-con-hieu-luc`, on main at 5ec9acf). `services/hien_thi` is the
   one definition: shown = MOJ `tinh_trang` CHL/HHL1P AND KLAW verdict alive
