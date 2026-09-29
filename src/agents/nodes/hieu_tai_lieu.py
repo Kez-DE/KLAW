@@ -3930,6 +3930,35 @@ def _sach_dieu(
     return {"key": key, "ten": ten, "doan": doan_ra}
 
 
+# Trường chỉ khối cá nhân / chỉ khối tổ chức có: giá trị mô hình gán cho một bên tuỳ
+# loại cho biết loại của bên khi nó không nói `ben`.
+_TRUONG_CHI = {
+    "ca_nhan": {"ho_ten", "ngay_sinh", "gioi_tinh", "so_dinh_danh", "noi_cu_tru"},
+    "to_chuc": {"ten_to_chuc", "ma_so_doanh_nghiep", "dia_chi_tru_so", "nguoi_dai_dien"},
+}
+
+
+def _ben_registry(ben_ng: list[dict] | None, ra: dict, ben_cu: list[dict] | None) -> list[dict]:
+    """Các bên của khung một loại registry; bên `tuy` mang `loai`, theo thứ tự: lời mô
+    hình (`ben[].loai`) → loại đã lưu (lượt sửa: một giá trị lẻ không lật loại của bên)
+    → trường của `gia_tri` nó gán cho bên đó (chỉ một loại khớp) → `mac_dinh`."""
+    noi = {b.get("khoa"): b.get("loai") for b in ra.get("ben") or [] if isinstance(b, dict)}
+    gan: dict[str, set] = {}
+    for g in ra.get("gia_tri") or []:
+        if isinstance(g, dict):
+            gan.setdefault(g.get("ben"), set()).add(g.get("truong"))
+    cu = {b.get("khoa"): b.get("loai") for b in ben_cu or [] if isinstance(b, dict)}
+    ds = []
+    for b in ben_ng or []:
+        x = {"khoa": b["khoa"], "vai": b.get("vai")}
+        if b.get("loai") == "tuy":
+            suy = [lo for lo, t in _TRUONG_CHI.items() if gan.get(b["khoa"], set()) & t]
+            chon = (noi.get(b["khoa"]), cu.get(b["khoa"]), suy[0] if len(suy) == 1 else None, b.get("mac_dinh"))
+            x["loai"] = next((lo for lo in chon if lo in khuon_mau.LOAI_BEN), None)
+        ds.append(x)
+    return ds
+
+
 def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu: list[str]) -> dict:
     """Đầu ra v3 → nội dung đã làm sạch (§6, 0 token, thuần). Thứ tự: bỏ số đầu tên
     Điều → viết lại dẫn chiếu "Điều n <loại> này" theo TÊN (sống qua lần đánh số lại)
@@ -3948,13 +3977,16 @@ def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu:
     if muc_tieu == "sua_ban_dang_co":
         khung = {k: khung_cu.get(k) for k in ("loai", "bo_cuc", "tieu_de", "trich_yeu", "ben")}
         khung["can_cu"] = khung_cu.get("can_cu") or []
+        if loai and ngu_canh.get("ben"):
+            # Người hỏi đổi một bên tuỳ loại ("bên thuê là công ty …"): khung đổi theo.
+            khung["ben"] = _ben_registry(ngu_canh.get("ben"), ra, khung_cu.get("ben"))
     elif loai:
         khung = {
             "loai": loai,
             "bo_cuc": ngu_canh.get("bo_cuc"),
             "tieu_de": ngu_canh.get("tieu_de"),
             "trich_yeu": None,
-            "ben": ngu_canh.get("ben") or [],
+            "ben": _ben_registry(ngu_canh.get("ben"), ra, None),
             "can_cu": ngu_canh.get("can_cu") or [],
         }
         if ngu_canh.get("co_trich_yeu"):
@@ -4071,14 +4103,36 @@ def _khoi_muc_khuon_mau(ngu_canh: dict) -> str:
     muc = ngu_canh.get("muc") or []
     if not muc:
         return ""
-    dong = [f"- `{m['key']}` — {m['ten']}" + (f" (căn cứ: {m['trich']})" if m.get("trich") else "") for m in muc]
+    co_dinh = bool(ngu_canh.get("khoa_than")) and not ngu_canh.get("co_dieu")
+    # Mục checklist không bắt buộc (`khong_bat_buoc`): mô hình không viết nó cho mọi
+    # văn bản — một Giấy vận tải đường bộ không thuộc hợp đồng vận chuyển đường sắt.
+    tuy = (
+        {m["key"] for m in muc} - set(ngu_canh.get("bat_buoc") or []) - set(ngu_canh.get("khoa_than") or [])
+        if ngu_canh.get("bat_buoc") and not co_dinh
+        else set()
+    )
+    dong = [
+        f"- `{m['key']}` — {m['ten']}"
+        + (" — TUỲ CHỌN: chỉ viết khi hợp với yêu cầu của người hỏi" if m["key"] in tuy else "")
+        + (f" (căn cứ: {m['trich']})" if m.get("trich") else "")
+        for m in muc
+    ]
     dan = (
         "Chỉ viết đúng các mục dưới đây, mỗi mục là một phần tử `dieu` mang `key` của nó (mẫu cố định vị trí):"
-        if ngu_canh.get("khoa_than") and not ngu_canh.get("co_dieu")
-        else "Văn bản phải có đủ các mục luật đòi dưới đây (mỗi mục một điều, mang `key` của nó), cộng các điều "
-        "thông dụng khác của loại văn bản này (`key` null):"
+        if co_dinh
+        else "Văn bản phải có đủ các mục luật đòi dưới đây (mỗi mục một điều, mang `key` của nó; mục ghi TUỲ CHỌN "
+        "thì chỉ khi hợp), cộng các điều thông dụng khác của loại văn bản này (`key` null):"
     )
     return "# Các mục\n\n" + dan + "\n" + "\n".join(dong) + "\n"
+
+
+def _khoa_ben_prompt(b: dict, ng: dict) -> str:
+    """Khoá một bên ở dòng "Khoá bên" của prompt v3; bên tuỳ loại nói loại đang dựng."""
+    if b.get("loai") != "tuy":
+        return b["khoa"]
+    cu = {x.get("khoa"): x.get("loai") for x in (ng.get("khung_cu") or {}).get("ben") or [] if isinstance(x, dict)}
+    hien = cu.get(b["khoa"]) if cu.get(b["khoa"]) in khuon_mau.LOAI_BEN else b.get("mac_dinh")
+    return f"{b['khoa']} (cá nhân hay tổ chức; đang là {'tổ chức' if hien == 'to_chuc' else 'cá nhân'})"
 
 
 def _soan_khuon_mau(
@@ -4119,7 +4173,7 @@ def _soan_khuon_mau(
             else "Tự soạn (chưa có mẫu sẵn): chọn `tieu_de`, `trich_yeu`, `bo_cuc`, `ben`, `can_cu` theo quy tắc 2–3."
         )
     )
-    ben = ", ".join([*(b["khoa"] for b in (ng.get("ben") or [])), khuon_mau.BEN_VAN_BAN])
+    ben = ", ".join([*(_khoa_ben_prompt(b, ng) for b in (ng.get("ben") or [])), khuon_mau.BEN_VAN_BAN])
     prompt = PROMPT_KHUON_MAU_PATH.read_text(encoding="utf-8").format(
         cau_hoi=cau_hoi,
         loai=loai,

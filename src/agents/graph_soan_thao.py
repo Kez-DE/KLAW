@@ -31,6 +31,7 @@ from src.services.checklist import Checklist, cac_can_cu, load_checklist
 from src.services.db import get_engine
 from src.services.effectivity import danh_gia_theo_id
 from src.services.hien_thi import hien_thi_luc
+from src.services.khuon_mau import can_cu_hien
 from src.services.llm import from_settings as llm_from_settings
 from src.services.llm import generate_model
 from src.services.rules import Rule, load_facts_meta, load_rules
@@ -206,6 +207,29 @@ def can_cu_van_ban(engine: Engine, db_provisions: dict[int, dict], as_of: date) 
     return [x["dong"] for x in can_cu_van_ban_co_id(engine, db_provisions, as_of)]
 
 
+def can_cu_khung(engine: Engine, loai: str, db_provisions: dict[int, dict], as_of: date) -> list[dict]:
+    """Khối căn cứ của KHUNG `loai`: `can_cu_van_ban_co_id`, văn bản mà chỉ phần tuỳ
+    chọn của checklist (`khong_bat_buoc`: mục của nó và `can_cu` của khối) dẫn tới
+    mang `tuy_chon: True` — `khuon_mau.can_cu_hien` chỉ in nó khi một Điều dẫn văn bản
+    ấy. Không thế thì mọi hợp đồng vận chuyển tài sản, cả đường sắt hay đường hàng
+    không, "Căn cứ Luật Đường bộ" chỉ vì mục Giấy vận tải tuỳ chọn."""
+    cl = load_checklist_cached(loai)
+    tuy = set(cl.khong_bat_buoc.get("keys") or [])
+    ngoai_le = (cl.nganh_duoc_giam, cl.quy_tac_dinh_dang)
+    bat_buoc = {
+        cl.can_cu_goc,
+        cl.can_cu_chi_tiet,
+        *(k["can_cu"] for k in ngoai_le if k.get("can_cu")),
+        *(m["can_cu"] for m in cl.muc if m["key"] not in tuy),
+        *(r.can_cu for r in rules_cho(loai)),
+    }
+    giu = {str(r["document_id"]) for r in db_provisions.values() if r["duong_dan"] in bat_buoc}
+    return [
+        x if str(x["doc_id"]) in giu else {**x, "tuy_chon": True}
+        for x in can_cu_van_ban_co_id(engine, db_provisions, as_of)
+    ]
+
+
 _SQL_VAN_BAN_THEO_SO = text(
     "SELECT id, so_ky_hieu, ten, loai_van_ban, ngay_ban_hanh, co_quan_ban_hanh FROM documents"
     " WHERE so_ky_hieu = ANY(:so) AND id = ANY(CAST(:hien AS text[]))"
@@ -263,12 +287,13 @@ def build_graph_soan_thao():
                 f"Hiện chưa soạn được {checklist.ten}: văn bản luật làm căn cứ cho loại văn bản này"
                 " chưa có trong phạm vi tra cứu."
             )
-        can_cu = can_cu_van_ban_co_id(get_engine(), db_provisions, as_of)
+        can_cu = can_cu_khung(get_engine(), st["loai"], db_provisions, as_of)
         return {
             **st,
             "expanded": list(db_provisions.values()),
             "db_provisions": db_provisions,
-            "can_cu_van_ban": [x["dong"] for x in can_cu],
+            # Bản HTML không biết Điều nào dẫn văn bản tuỳ chọn: chỉ khung bắt buộc.
+            "can_cu_van_ban": [x["dong"] for x in can_cu_hien(can_cu, [])],
             "can_cu_co_id": can_cu,
         }
 

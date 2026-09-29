@@ -32,12 +32,23 @@ ben:
   - khoa: ben_su_dung
     vai: Bên sử dụng dịch vụ
     tieu_de: "I. BÊN SỬ DỤNG DỊCH VỤ (sau đây gọi tắt là Bên sử dụng dịch vụ):"
-    dong:
-      - "- Họ và tên:{ho_ten}"
-      - "- Ngày sinh:{ngay_sinh}"
-      - "- Số định danh cá nhân:{so_dinh_danh}"
-      - "- Nơi cư trú:{noi_cu_tru}"
-      - "- Số điện thoại:{dien_thoai}"
+    loai: tuy
+    mac_dinh: ca_nhan
+    ca_nhan:
+      dong:
+        - "- Họ và tên:{ho_ten}"
+        - "- Ngày sinh:{ngay_sinh}"
+        - "- Số định danh cá nhân:{so_dinh_danh}"
+        - "- Nơi cư trú:{noi_cu_tru}"
+        - "- Số điện thoại:{dien_thoai}"
+    to_chuc:
+      dong:
+        - "- Tên tổ chức:{ten_to_chuc}"
+        - "- Mã số doanh nghiệp:{ma_so_doanh_nghiep}"
+        - "- Địa chỉ trụ sở:{dia_chi_tru_so}"
+        - "- Người đại diện theo pháp luật:{nguoi_dai_dien}"
+        - "- Chức vụ:{chuc_vu}"
+        - "- Số điện thoại:{dien_thoai}"
   - khoa: ben_cung_cap
     vai: Bên cung cấp dịch vụ
     tieu_de: "II. BÊN CUNG CẤP DỊCH VỤ (sau đây gọi tắt là Bên cung cấp dịch vụ):"
@@ -60,6 +71,8 @@ muc_khung: [cac_ben]
 ky:
   thu_tu: [ben_su_dung, ben_cung_cap]
   o:
-    - {khoa: ben_su_dung, vai: "BÊN SỬ DỤNG DỊCH VỤ", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+    - khoa: ben_su_dung
+      ca_nhan: {vai: "BÊN SỬ DỤNG DỊCH VỤ", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+      to_chuc: {vai: "ĐẠI DIỆN\nBÊN SỬ DỤNG DỊCH VỤ", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
     - {khoa: ben_cung_cap, vai: "ĐẠI DIỆN\nBÊN CUNG CẤP DỊCH VỤ", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
 truong_tu_facts: {}

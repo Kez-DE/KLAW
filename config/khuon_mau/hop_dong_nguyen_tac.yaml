@@ -30,27 +30,51 @@ ben:
   - khoa: ben_a
     vai: Bên A
     tieu_de: "I. BÊN A:"
-    dong:
-      - "- Tên tổ chức:{ten_to_chuc}"
-      - "- Mã số doanh nghiệp:{ma_so_doanh_nghiep}"
-      - "- Địa chỉ trụ sở:{dia_chi_tru_so}"
-      - "- Người đại diện theo pháp luật:{nguoi_dai_dien}"
-      - "- Chức vụ:{chuc_vu}"
-      - "- Số điện thoại:{dien_thoai}"
-      - "- Số tài khoản:{so_tai_khoan}"
-      - "- Tại ngân hàng:{ngan_hang}"
+    loai: tuy
+    mac_dinh: to_chuc
+    ca_nhan:
+      dong:
+        - "- Họ và tên:{ho_ten}"
+        - "- Ngày sinh:{ngay_sinh}"
+        - "- Số định danh cá nhân:{so_dinh_danh}"
+        - "- Nơi cư trú:{noi_cu_tru}"
+        - "- Số điện thoại:{dien_thoai}"
+        - "- Số tài khoản:{so_tai_khoan}"
+        - "- Tại ngân hàng:{ngan_hang}"
+    to_chuc:
+      dong:
+        - "- Tên tổ chức:{ten_to_chuc}"
+        - "- Mã số doanh nghiệp:{ma_so_doanh_nghiep}"
+        - "- Địa chỉ trụ sở:{dia_chi_tru_so}"
+        - "- Người đại diện theo pháp luật:{nguoi_dai_dien}"
+        - "- Chức vụ:{chuc_vu}"
+        - "- Số điện thoại:{dien_thoai}"
+        - "- Số tài khoản:{so_tai_khoan}"
+        - "- Tại ngân hàng:{ngan_hang}"
   - khoa: ben_b
     vai: Bên B
     tieu_de: "II. BÊN B:"
-    dong:
-      - "- Tên tổ chức:{ten_to_chuc}"
-      - "- Mã số doanh nghiệp:{ma_so_doanh_nghiep}"
-      - "- Địa chỉ trụ sở:{dia_chi_tru_so}"
-      - "- Người đại diện theo pháp luật:{nguoi_dai_dien}"
-      - "- Chức vụ:{chuc_vu}"
-      - "- Số điện thoại:{dien_thoai}"
-      - "- Số tài khoản:{so_tai_khoan}"
-      - "- Tại ngân hàng:{ngan_hang}"
+    loai: tuy
+    mac_dinh: to_chuc
+    ca_nhan:
+      dong:
+        - "- Họ và tên:{ho_ten}"
+        - "- Ngày sinh:{ngay_sinh}"
+        - "- Số định danh cá nhân:{so_dinh_danh}"
+        - "- Nơi cư trú:{noi_cu_tru}"
+        - "- Số điện thoại:{dien_thoai}"
+        - "- Số tài khoản:{so_tai_khoan}"
+        - "- Tại ngân hàng:{ngan_hang}"
+    to_chuc:
+      dong:
+        - "- Tên tổ chức:{ten_to_chuc}"
+        - "- Mã số doanh nghiệp:{ma_so_doanh_nghiep}"
+        - "- Địa chỉ trụ sở:{dia_chi_tru_so}"
+        - "- Người đại diện theo pháp luật:{nguoi_dai_dien}"
+        - "- Chức vụ:{chuc_vu}"
+        - "- Số điện thoại:{dien_thoai}"
+        - "- Số tài khoản:{so_tai_khoan}"
+        - "- Tại ngân hàng:{ngan_hang}"
 than:
   - {dong: "Hai bên chúng tôi gồm:", nghieng: true}
   - {ben: ben_a}
@@ -61,6 +85,10 @@ muc_khung: []
 ky:
   thu_tu: [ben_a, ben_b]
   o:
-    - {khoa: ben_a, vai: "ĐẠI DIỆN BÊN A", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
-    - {khoa: ben_b, vai: "ĐẠI DIỆN BÊN B", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
+    - khoa: ben_a
+      ca_nhan: {vai: "BÊN A", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+      to_chuc: {vai: "ĐẠI DIỆN BÊN A", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
+    - khoa: ben_b
+      ca_nhan: {vai: "BÊN B", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+      to_chuc: {vai: "ĐẠI DIỆN BÊN B", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
 truong_tu_facts: {}

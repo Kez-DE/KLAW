@@ -32,25 +32,47 @@ ben:
   - khoa: ben_dat_gia_cong
     vai: Bên đặt gia công
     tieu_de: "I. BÊN ĐẶT GIA CÔNG (sau đây gọi tắt là Bên đặt gia công):"
-    dong:
-      - "- Tên tổ chức:{ten_to_chuc}"
-      - "- Mã số doanh nghiệp:{ma_so_doanh_nghiep}"
-      - "- Địa chỉ trụ sở:{dia_chi_tru_so}"
-      - "- Người đại diện theo pháp luật:{nguoi_dai_dien}"
-      - "- Chức vụ:{chuc_vu}"
-      - "- Số điện thoại:{dien_thoai}"
+    loai: tuy
+    mac_dinh: to_chuc
+    ca_nhan:
+      dong:
+        - "- Họ và tên:{ho_ten}"
+        - "- Ngày sinh:{ngay_sinh}"
+        - "- Số định danh cá nhân:{so_dinh_danh}"
+        - "- Nơi cư trú:{noi_cu_tru}"
+        - "- Số điện thoại:{dien_thoai}"
+    to_chuc:
+      dong:
+        - "- Tên tổ chức:{ten_to_chuc}"
+        - "- Mã số doanh nghiệp:{ma_so_doanh_nghiep}"
+        - "- Địa chỉ trụ sở:{dia_chi_tru_so}"
+        - "- Người đại diện theo pháp luật:{nguoi_dai_dien}"
+        - "- Chức vụ:{chuc_vu}"
+        - "- Số điện thoại:{dien_thoai}"
   - khoa: ben_nhan_gia_cong
     vai: Bên nhận gia công
     tieu_de: "II. BÊN NHẬN GIA CÔNG (sau đây gọi tắt là Bên nhận gia công):"
-    dong:
-      - "- Tên tổ chức:{ten_to_chuc}"
-      - "- Mã số doanh nghiệp:{ma_so_doanh_nghiep}"
-      - "- Địa chỉ trụ sở:{dia_chi_tru_so}"
-      - "- Người đại diện theo pháp luật:{nguoi_dai_dien}"
-      - "- Chức vụ:{chuc_vu}"
-      - "- Số điện thoại:{dien_thoai}"
-      - "- Số tài khoản:{so_tai_khoan}"
-      - "- Tại ngân hàng:{ngan_hang}"
+    loai: tuy
+    mac_dinh: to_chuc
+    ca_nhan:
+      dong:
+        - "- Họ và tên:{ho_ten}"
+        - "- Ngày sinh:{ngay_sinh}"
+        - "- Số định danh cá nhân:{so_dinh_danh}"
+        - "- Nơi cư trú:{noi_cu_tru}"
+        - "- Số điện thoại:{dien_thoai}"
+        - "- Số tài khoản:{so_tai_khoan}"
+        - "- Tại ngân hàng:{ngan_hang}"
+    to_chuc:
+      dong:
+        - "- Tên tổ chức:{ten_to_chuc}"
+        - "- Mã số doanh nghiệp:{ma_so_doanh_nghiep}"
+        - "- Địa chỉ trụ sở:{dia_chi_tru_so}"
+        - "- Người đại diện theo pháp luật:{nguoi_dai_dien}"
+        - "- Chức vụ:{chuc_vu}"
+        - "- Số điện thoại:{dien_thoai}"
+        - "- Số tài khoản:{so_tai_khoan}"
+        - "- Tại ngân hàng:{ngan_hang}"
 than:
   - {dong: "Hai bên chúng tôi gồm:", nghieng: true}
   - {ben: ben_dat_gia_cong}
@@ -61,6 +83,10 @@ muc_khung: []
 ky:
   thu_tu: [ben_dat_gia_cong, ben_nhan_gia_cong]
   o:
-    - {khoa: ben_dat_gia_cong, vai: "ĐẠI DIỆN\nBÊN ĐẶT GIA CÔNG", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
-    - {khoa: ben_nhan_gia_cong, vai: "ĐẠI DIỆN\nBÊN NHẬN GIA CÔNG", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
+    - khoa: ben_dat_gia_cong
+      ca_nhan: {vai: "BÊN ĐẶT GIA CÔNG", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+      to_chuc: {vai: "ĐẠI DIỆN\nBÊN ĐẶT GIA CÔNG", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
+    - khoa: ben_nhan_gia_cong
+      ca_nhan: {vai: "BÊN NHẬN GIA CÔNG", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+      to_chuc: {vai: "ĐẠI DIỆN\nBÊN NHẬN GIA CÔNG", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
 truong_tu_facts: {}

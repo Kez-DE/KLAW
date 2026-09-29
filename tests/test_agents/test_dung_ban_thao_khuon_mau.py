@@ -429,3 +429,92 @@ def test_nap_khuon_mau_chuan_bi_muc_can_cu_va_nen(monkeypatch):
     tq = g._nap_khuon_mau(None, {"soan_thao_goi_y": {"loai": "hdld"}, "ban_thao_tong_quat_dang_mo": nhe})
     assert tq["khuon_mau_ngu_canh"]["loai"] is None and tq["khuon_mau_ngu_canh"]["sua"] is True
     assert tq["khuon_mau_ngu_canh"]["ben"] == BEN
+
+
+def _ng_thue(monkeypatch, st: dict) -> dict:
+    """`_nap_khuon_mau` thật của hợp đồng thuê tài sản (registry), DB giả: một điều khoản
+    bắt buộc của BLDS nên dòng căn cứ BLDS là khung."""
+    db = {
+        7: {
+            "id": 7,
+            "document_id": "95942",
+            "duong_dan": "91/2015/QH13 > Điều 472",
+            "noi_dung": "Hợp đồng thuê tài sản là sự thỏa thuận giữa các bên…",
+        }
+    }
+    monkeypatch.setattr(g.gst, "requirements", lambda loai: ([], g.gst.load_checklist_cached(loai), db))
+    monkeypatch.setattr(g, "hien_thi_luc", lambda engine, as_of: frozenset({"95942"}))
+    monkeypatch.setattr(
+        g.gst,
+        "can_cu_van_ban_co_id",
+        lambda e, d_, a: [
+            {"dong": "Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24 tháng 11 năm 2015.", "doc_id": "95942"}
+        ],
+    )
+    return g._nap_khuon_mau(None, st)["khuon_mau_ngu_canh"]
+
+
+def _chu_tep(docx: bytes) -> list[str]:
+    return [" ".join(d.noi_dung.split()) for d in doc("k.docx", docx).don_vi]
+
+
+def test_hop_dong_registry_ben_tuy_loai_tao_roi_doi_loai_khi_sua(kho, monkeypatch):
+    """Chủ dự án 2026-09-29: "khi người dùng bảo chỉnh sửa, áp dụng được". Bên thuê là
+    công ty ngay lượt tạo; lượt sau "bên cho thuê là Công ty …" dựng lại khối bên cho
+    thuê thành khối tổ chức, giá trị của bên kia mang sang, giá trị cũ của bên vừa đổi
+    không mạo nhận chỗ mới."""
+    cau = (
+        "Soạn hợp đồng thuê tài sản: bên cho thuê là ông Nguyễn Văn An, điện thoại 0901234567,"
+        " bên thuê là Công ty TNHH An Phát"
+    )
+    ng = _ng_thue(monkeypatch, {"soan_thao_goi_y": {"loai": "hop_dong_thue_tai_san"}})
+    assert {b["khoa"]: b.get("loai") for b in ng["ben"]} == {"ben_cho_thue": "tuy", "ben_thue": "tuy"}
+    ra = _ra(
+        tieu_de=None,
+        bo_cuc=None,
+        can_cu=None,
+        ben=[{"khoa": "ben_thue", "vai": "Bên thuê", "loai": "to_chuc"}],
+        gia_tri=[
+            {"ben": "ben_cho_thue", "truong": "ho_ten", "gia_tri": "Nguyễn Văn An"},
+            {"ben": "ben_cho_thue", "truong": "dien_thoai", "gia_tri": "0901234567"},
+            {"ben": "ben_thue", "truong": "ten_to_chuc", "gia_tri": "Công ty TNHH An Phát"},
+        ],
+        dieu=[
+            {"key": "tai_san_thue", "ten": "Tài sản thuê", "doan": ["Bên cho thuê cho Bên thuê thuê mặt bằng tại ……"]}
+        ],
+    )
+    llm = _LLM(ra)
+    ket = _luot(_st(cau, ng=ng), llm)
+    assert "ben_thue (cá nhân hay tổ chức; đang là cá nhân)" in llm.prompt
+    chu = _chu_tep(kho.luu_goi[0]["docx"])
+    assert kho.luu_goi[0]["loai"] == "hop_dong_thue_tai_san"
+    assert chu[chu.index("II. BÊN THUÊ (sau đây gọi tắt là Bên thuê):") + 1] == "- Tên tổ chức:"
+    assert chu[chu.index("I. BÊN CHO THUÊ (sau đây gọi tắt là Bên cho thuê):") + 1] == "- Họ và tên:"
+    assert _gia_tri(kho) == {"Nguyễn Văn An", "0901234567", "Công ty TNHH An Phát"}
+    assert "Chưa đặt được" not in ket["answer"]
+
+    cau2 = "bên cho thuê là Công ty Cổ phần Bình Minh"
+    nhe = kho.nhe()
+    ng2 = _ng_thue(monkeypatch, {"ban_thao_tong_quat_dang_mo": nhe})
+    assert ng2["sua"] is True and ng2["loai"] == "hop_dong_thue_tai_san"
+    ra2 = _ra(
+        muc_tieu="sua_ban_dang_co",
+        tieu_de=None,
+        bo_cuc=None,
+        can_cu=None,
+        ben=[{"khoa": "ben_cho_thue", "vai": "Bên cho thuê", "loai": "to_chuc"}],
+        gia_tri=[{"ben": "ben_cho_thue", "truong": "ten_to_chuc", "gia_tri": "Công ty Cổ phần Bình Minh"}],
+        dieu=None,
+        sua_dieu=[],
+    )
+    ket2 = _luot(_st(cau2, nhe=nhe, ng=ng2), _LLM(ra2))
+    b = kho.bt["bt-1"]
+    chu2 = _chu_tep(kho.luu_goi[-1]["docx"])
+    assert len(kho.luu_goi) == 2 and b["phien_ban"] == 2 and b["doi"][0] == "Bên cho thuê: tổ chức"
+    assert chu2[chu2.index("I. BÊN CHO THUÊ (sau đây gọi tắt là Bên cho thuê):") + 1] == "- Tên tổ chức:"
+    # Ô ký là MỘT đơn vị của bộ đọc: nhãn vai, ghi chú, chỗ tên.
+    assert any(c.startswith("ĐẠI DIỆN BÊN CHO THUÊ (Ký, ghi rõ họ tên, chức vụ") for c in chu2)
+    # Công ty bên thuê mang sang; họ tên, điện thoại của ông An không thành của công ty
+    # vừa thay ông (dòng "- Số điện thoại:" có ở cả hai khối).
+    assert _gia_tri(kho) == {"Công ty Cổ phần Bình Minh", "Công ty TNHH An Phát"}
+    assert "không mang sang" in ket2["answer"]

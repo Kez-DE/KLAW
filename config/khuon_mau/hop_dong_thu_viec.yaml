@@ -30,14 +30,22 @@ the_thuc:
 ben:
   - khoa: nsdld
     tieu_de: "1. BÊN A: NGƯỜI SỬ DỤNG LAO ĐỘNG"
-    truong: [ten_to_chuc, dia_chi_tru_so, ma_so_doanh_nghiep, nguoi_dai_dien, chuc_vu, dien_thoai]
-    nhan:
-      ten_to_chuc: "Tên người sử dụng lao động"
-      dia_chi_tru_so: "Địa chỉ"
-      ma_so_doanh_nghiep: "Mã số doanh nghiệp"
-      nguoi_dai_dien: "Họ tên người giao kết hợp đồng"
-      chuc_vu: "Chức danh"
-      dien_thoai: "Điện thoại"
+    loai: tuy
+    mac_dinh: to_chuc
+    to_chuc:
+      truong: [ten_to_chuc, dia_chi_tru_so, ma_so_doanh_nghiep, nguoi_dai_dien, chuc_vu, dien_thoai]
+      nhan:
+        ten_to_chuc: "Tên người sử dụng lao động"
+        dia_chi_tru_so: "Địa chỉ"
+        ma_so_doanh_nghiep: "Mã số doanh nghiệp"
+        nguoi_dai_dien: "Họ tên người giao kết hợp đồng"
+        chuc_vu: "Chức danh"
+        dien_thoai: "Điện thoại"
+    ca_nhan:
+      truong: [ho_ten, noi_cu_tru, so_dinh_danh, dien_thoai]
+      nhan:
+        ho_ten: "Họ và tên người sử dụng lao động"
+        dien_thoai: "Điện thoại"
   - khoa: nld
     tieu_de: "2. BÊN B: NGƯỜI LAO ĐỘNG"
     truong: [ho_ten, ngay_sinh, gioi_tinh, noi_cu_tru, so_dinh_danh, dien_thoai]
@@ -53,5 +61,8 @@ ky:
   thu_tu: [nld, nsdld]
   o:
     - {khoa: nld, vai: "NGƯỜI LAO ĐỘNG\n(BÊN B)", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
-    - {khoa: nsdld, vai: "NGƯỜI SỬ DỤNG LAO ĐỘNG\n(BÊN A)", ghi_chu: "(Ký, ghi rõ họ tên, đóng dấu)", ho_ten_tu: nguoi_dai_dien}
+    - khoa: nsdld
+      vai: "NGƯỜI SỬ DỤNG LAO ĐỘNG\n(BÊN A)"
+      to_chuc: {ghi_chu: "(Ký, ghi rõ họ tên, đóng dấu)", ho_ten_tu: nguoi_dai_dien}
+      ca_nhan: {ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
 truong_tu_facts: {}

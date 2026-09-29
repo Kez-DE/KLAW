@@ -41,6 +41,8 @@ NGAY = ("dau", "cot_phai", "cuoi", "khong")
 KIEU_DIEU = ("dieu", "so", "muc")
 # Trường của cả VĂN BẢN, không của bên nào (tên Tòa án ở dòng Kính gửi, cơ quan nhận).
 BEN_VAN_BAN = "van_ban"
+# Hai loại của một bên `loai: tuy` (`chon_ben`).
+LOAI_BEN = ("ca_nhan", "to_chuc")
 
 QUOC_HIEU = "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
 TIEU_NGU = "Độc lập - Tự do - Hạnh phúc"
@@ -151,6 +153,14 @@ def _kiem_muc(d: dict, loai: str) -> str | None:
     ben = {b["khoa"]: b for b in d.get("ben") or []}
     if len(ben) != len(d.get("ben") or []):
         return "khoá bên trùng"
+    tuy = [b for b in ben.values() if b.get("loai") == "tuy"]
+    for b in tuy:
+        if b.get("mac_dinh") not in LOAI_BEN or not all(isinstance(b.get(x), dict) for x in LOAI_BEN):
+            return f"bên {b['khoa']}: `loai: tuy` cần `mac_dinh` và hai khối `ca_nhan`, `to_chuc`"
+    # Mỗi cách chọn là một mục registry thường: kiểm cả hai.
+    for x in LOAI_BEN if tuy else ():
+        if loi := _kiem_muc(chon_ben(d, [{"khoa": b["khoa"], "loai": x} for b in tuy]), loai):
+            return f"khi bên tuỳ loại là {x}: {loi}"
     mau: list[str] = []
     for b in ben.values():
         mau += [_chuoi_cua_dong(x) for x in b.get("dong") or []]
@@ -175,6 +185,50 @@ def _kiem_muc(d: dict, loai: str) -> str | None:
         if b not in ben or t not in danh_muc:
             return f"truong_tu_facts.{k} trỏ tới [{b}, {t}] không có"
     return None
+
+
+def chon_ben(entry: dict, ben: list[dict] | None = None) -> dict:
+    """Bên `loai: tuy` của một mục registry — cá nhân HAY tổ chức (ví dụ BLDS Đ505.2
+    với hợp đồng hợp tác: "cá nhân … pháp nhân"; BLLĐ Đ3.2: người sử dụng lao động có
+    thể là cá nhân) → khối của đúng loại. `ben` (`[{khoa, loai}]`: lời mô hình, hay khung đã lưu) nói loại nào thì lấy
+    khối ấy, không nói thì `mac_dinh`. Khối chọn (`dong`/`truong`/`nhan`) và phần cùng
+    loại của ô ký (`ky.o[].ca_nhan|to_chuc`) gộp vào mục; bên cố định giữ nguyên, nên
+    gọi lại trên mục đã chọn không đổi gì."""
+    noi = {b.get("khoa"): b.get("loai") for b in ben or [] if isinstance(b, dict)}
+    loai = {
+        b["khoa"]: noi[b["khoa"]] if noi.get(b["khoa"]) in LOAI_BEN else b["mac_dinh"]
+        for b in entry.get("ben") or []
+        if b.get("loai") == "tuy"
+    }
+    if not loai:
+        return entry
+
+    def _gop(x: dict) -> dict:
+        if x["khoa"] not in loai:
+            return x
+        return {**{k: v for k, v in x.items() if k not in LOAI_BEN}, **(x.get(loai[x["khoa"]]) or {})}
+
+    ky = entry.get("ky") or {}
+    return {
+        **entry,
+        "ben": [{**_gop(b), "loai": loai[b["khoa"]]} if b["khoa"] in loai else b for b in entry["ben"]],
+        "ky": {**ky, "o": [_gop(o) for o in ky.get("o") or []]},
+    }
+
+
+def can_cu_hien(can_cu: list[dict], dieu: list[dict]) -> list[dict]:
+    """Dòng căn cứ IN trên khung. Dòng `tuy_chon` — văn bản mà chỉ mục tuỳ chọn của
+    checklist dẫn tới (`graph_soan_thao.can_cu_khung`) — chỉ in khi một Điều đang có
+    dẫn chính văn bản ấy; dấu câu tính lại theo dòng cuối còn lại."""
+    co = {
+        str(d["can_cu"].get("doc_id")) for d in dieu or [] if isinstance(d, dict) and isinstance(d.get("can_cu"), dict)
+    }
+    ra = [
+        x
+        for x in can_cu or []
+        if isinstance(x, dict) and x.get("dong") and (not x.get("tuy_chon") or str(x.get("doc_id")) in co)
+    ]
+    return [{**x, "dong": x["dong"].rstrip(";.") + (";" if k < len(ra) - 1 else ".")} for k, x in enumerate(ra)]
 
 
 def khung_tong_quat(bo_cuc: str, ben: list[dict]) -> dict:
@@ -952,12 +1006,21 @@ def dung_docx(spec: dict) -> tuple[bytes, dict[tuple[str, tuple[int, ...]], list
     return _Dung(spec).dung()
 
 
-def spec_tu(entry: dict, *, tieu_de: str | None, trich_yeu: str | None, can_cu: list[dict], dieu: list[dict]) -> dict:
-    """Ghép khung (mục registry hay `khung_tong_quat`) với phần đổi theo lượt."""
+def spec_tu(
+    entry: dict,
+    *,
+    tieu_de: str | None,
+    trich_yeu: str | None,
+    can_cu: list[dict],
+    dieu: list[dict],
+    ben: list[dict] | None = None,
+) -> dict:
+    """Ghép khung (mục registry hay `khung_tong_quat`) với phần đổi theo lượt: loại của
+    bên tuỳ loại (`chon_ben`), căn cứ đúng các Điều đang có (`can_cu_hien`)."""
     return {
-        **entry,
+        **chon_ben(entry, ben),
         "tieu_de": " ".join(str(tieu_de or entry.get("tieu_de") or "VĂN BẢN").split()).upper(),
         "trich_yeu": (" ".join(str(trich_yeu).split()) or None) if trich_yeu else None,
-        "can_cu": list(can_cu or []),
+        "can_cu": can_cu_hien(list(can_cu or []), list(dieu or [])),
         "dieu": list(dieu or []),
     }

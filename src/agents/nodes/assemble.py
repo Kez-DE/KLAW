@@ -67,6 +67,7 @@ from src.services.bo_nho import ho_so_da_dung, khoi_tinh_huong
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.hien_thi import canh_bao, cau_van_ban_an
 from src.services.kho import hien_van_ban, moi_so_hieu_trong
+from src.services.khuon_mau import can_cu_hien
 from src.services.llm import Usage
 from src.services.prompts import messages
 from src.services.trich_dan import truong_trich_dan
@@ -1140,7 +1141,7 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
     khung = (bt.get("audit_report") or {}).get("khung") or {}
     con = [f"«{o['nhan'] or 'chỗ trống'}»" for o in k.get("cho_trong") or [] if not (o.get("gia_tri") or "").strip()]
     da = sum(1 for o in k.get("cho_trong") or [] if (o.get("gia_tri") or "").strip())
-    can_cu = [_ten_can_cu(c["dong"]) for c in khung.get("can_cu") or [] if c.get("dong")]
+    can_cu = [_ten_can_cu(c["dong"]) for c in can_cu_hien(khung.get("can_cu") or [], bt.get("clauses") or [])]
     chen = [f"«{c.get('ten')}»" for c in bt.get("clauses") or [] if c.get("chen")]
     khong_dat = _cau_khong_dat({"khong_dat": x.get("khong_dat") or []})
     ghi = list(x.get("ghi_chu") or [])

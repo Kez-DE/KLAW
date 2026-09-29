@@ -5,13 +5,17 @@ Không DB, không mô hình, không LibreOffice (trang thật: `test_khuon_mau_t
 mọi mục registry), trừ MỘT test `integration` CHỈ ĐỌC: căn cứ của mỗi hợp đồng phân giải
 được thành văn bản đang HIỆN và còn hiệu lực, in đủ số và ngày.
 
-Khoá năm điều cho mỗi loại hợp đồng:
+Khoá tám điều cho mỗi loại hợp đồng:
 
 1. Có mục registry, bố cục `hop_dong`, nguồn là mẫu Chính phủ ghi URL + SHA-256.
 2. Mọi chỗ trống bộ dựng viết là chỗ trống bộ đọc thấy, và bộ áp điền được hết.
 3. Mọi trường của các bên là một chỗ `tab` có nhãn; tên ở khối ký lấy từ trường tên.
 4. Bản dựng lúc TẠO có đủ mọi Điều luật đòi (`them_dieu_bat_buoc`), theo đúng tên mục.
 5. Hình thức luật đòi (công chứng, chứng thực, đăng ký) là một MỤC bắt buộc mang căn cứ.
+6. Nội dung "có thể có" của BLDS Đ398.2 không bao giờ là mục luật đòi.
+7. Mỗi bên là cá nhân HAY tổ chức (`loai: tuy`), trừ khi luật buộc một loại; điều 2, 3
+   đúng với cả hai cách chọn.
+8. Khung chỉ in căn cứ văn bản mà chỉ mục tuỳ chọn dẫn tới khi Điều đó có mặt.
 """
 
 import io
@@ -19,6 +23,7 @@ import re
 import zipfile
 
 import pytest
+import yaml
 from lxml import etree
 
 from src.agents.graph_soan_thao import cac_loai as cac_checklist
@@ -49,14 +54,37 @@ MAU_CHINH_PHU = {
 }
 
 
-def _spec(loai: str) -> dict:
+# Bên chỉ một loại vì luật buộc — mọi bên khác là `loai: tuy`.
+BEN_CO_DINH = {
+    ("hop_dong_van_chuyen_hanh_khach", "ben_van_chuyen"): "to_chuc",  # Luật Đường bộ Đ56.10
+    ("hop_dong_dich_vu_bat_dong_san", "ben_cung_cap"): "to_chuc",  # Luật KDBĐS Đ9.5
+    **{
+        (lo, "nld"): "ca_nhan" for lo in ("hdld", "hop_dong_thu_viec", "thoa_thuan_bao_mat", "thoa_thuan_cham_dut_hdld")
+    },
+}
+# Cách chọn loại cho các bên tuỳ loại: mặc định, tất cả cá nhân, tất cả tổ chức, và lẫn
+# (bên đầu cá nhân, bên sau tổ chức — khối ký hai cột khác dáng nhất).
+CHON = ("mac_dinh", "ca_nhan", "to_chuc", "lan")
+BIEN = [(lo, c) for lo in HOP_DONG for c in CHON]
+
+
+def _ben(loai: str, chon: str = "mac_dinh") -> list[dict]:
+    tuy = [b["khoa"] for b in km.nap(loai)["ben"] if b.get("loai") == "tuy"]
+    if chon == "mac_dinh":
+        return []
+    if chon == "lan":
+        return [{"khoa": k, "loai": km.LOAI_BEN[min(i, 1)]} for i, k in enumerate(tuy)]
+    return [{"khoa": k, "loai": chon} for k in tuy]
+
+
+def _spec(loai: str, chon: str = "mac_dinh") -> dict:
     """Bản TẠO của `loai`: khung registry + mọi Điều luật đòi (mỗi Điều một "……")."""
     dieu, _ = km.them_dieu_bat_buoc([], loai)
-    return km.spec_tu(km.nap(loai), tieu_de=None, trich_yeu=None, can_cu=[], dieu=dieu)
+    return km.spec_tu(km.nap(loai), tieu_de=None, trich_yeu=None, can_cu=[], dieu=dieu, ben=_ben(loai, chon))
 
 
-def _dung(loai: str):
-    docx, ban_do = km.dung_docx(_spec(loai))
+def _dung(loai: str, chon: str = "mac_dinh"):
+    docx, ban_do = km.dung_docx(_spec(loai, chon))
     dv = [_hang_don_vi(d) for d in doc("k.docx", docx).don_vi]
     theo = {(d["dia_chi"]["phan"], tuple(d["dia_chi"]["chi_muc"])): d for d in dv if d.get("dia_chi")}
     return docx, ban_do, dv, theo
@@ -81,9 +109,9 @@ def test_moi_hop_dong_co_khuon_mau_bo_cuc_hop_dong_nguon_mau_chinh_phu(loai):
     assert ng["url"].startswith("https://congbaocdn.chinhphu.vn/")
 
 
-@pytest.mark.parametrize("loai", HOP_DONG)
-def test_moi_cho_trong_bo_doc_thay_va_bo_ap_dien_het(loai):
-    docx, ban_do, dv, theo = _dung(loai)
+@pytest.mark.parametrize(("loai", "chon"), BIEN)
+def test_moi_cho_trong_bo_doc_thay_va_bo_ap_dien_het(loai, chon):
+    docx, ban_do, dv, theo = _dung(loai, chon)
     for k, ds in ban_do.items():
         assert len(theo[k].get("cho_trong") or []) == len(ds), theo[k]["noi_dung"]
     assert {k for k, d in theo.items() if d.get("cho_trong")} == set(ban_do), "chỗ trống lạc ngoài bản đồ"
@@ -96,10 +124,10 @@ def test_moi_cho_trong_bo_doc_thay_va_bo_ap_dien_het(loai):
     assert phep and not bao_cao["bo_qua"]
 
 
-@pytest.mark.parametrize("loai", HOP_DONG)
-def test_truong_cac_ben_la_cho_tab_co_nhan_va_ten_o_khoi_ky(loai):
-    _, ban_do, _, theo = _dung(loai)
-    d = km.nap(loai)
+@pytest.mark.parametrize(("loai", "chon"), BIEN)
+def test_truong_cac_ben_la_cho_tab_co_nhan_va_ten_o_khoi_ky(loai, chon):
+    _, ban_do, _, theo = _dung(loai, chon)
+    d = km.chon_ben(km.nap(loai), _ben(loai, chon))
     tab, ky = {}, set()
     for k, ds in ban_do.items():
         for so, khoa in enumerate(ds):
@@ -210,14 +238,17 @@ def test_can_cu_cua_hop_dong_la_van_ban_dang_hien_du_so_va_ngay(loai):
     for x in dong:
         assert x["dong"].startswith("Căn cứ ") and x["dong"][-1] in ";.", x["dong"]
         assert re.search(r" số \S+/\S+ ngày \d{1,2} tháng \d{1,2} năm \d{4}", x["dong"]), x["dong"]
+    # Khung: chỉ Luật Đường bộ của hợp đồng vận chuyển tài sản là văn bản tuỳ chọn.
+    tuy = {x["dong"].split(" số ")[0] for x in gst.can_cu_khung(e, loai, hien, as_of) if x.get("tuy_chon")}
+    assert tuy == ({"Căn cứ Luật Đường bộ"} if loai == "hop_dong_van_chuyen_tai_san" else set())
 
 
-@pytest.mark.parametrize("loai", HOP_DONG)
-def test_ten_duoi_chu_ky_thang_hang_giua_cac_cot(loai):
+@pytest.mark.parametrize(("loai", "chon"), BIEN)
+def test_ten_duoi_chu_ky_thang_hang_giua_cac_cot(loai, chon):
     """Khối ký nhiều cột: dòng tên (chỗ trống "……") của mọi cột nằm ở CÙNG thứ tự đoạn
     trong ô, dù nhãn vai hay ghi chú của mỗi bên dài ngắn khác nhau — căn chỗ ký thẳng
     hàng (chủ dự án 2026-09-29: "phải căn lề chuẩn chỗ kí")."""
-    with zipfile.ZipFile(io.BytesIO(km.dung_docx(_spec(loai))[0])) as z:
+    with zipfile.ZipFile(io.BytesIO(km.dung_docx(_spec(loai, chon))[0])) as z:
         body = etree.fromstring(z.read("word/document.xml")).find(f"{_W}body")
     bang_ky = body.findall(f"{_W}tbl")[-1]
     vi_tri = [
@@ -237,3 +268,94 @@ def test_noi_dung_co_the_co_cua_dieu_398_khong_la_muc_luat_doi(loai):
     tuy = set(cl.khong_bat_buoc.get("keys") or [])
     diem = {f"91/2015/QH13 > Điều 398 > Khoản 2 > Điểm {x}" for x in "eg"}
     assert all(m["key"] in tuy for m in cl.muc if m["can_cu"] in diem)
+
+
+@pytest.mark.parametrize("loai", HOP_DONG)
+def test_moi_ben_tuy_loai_tru_khi_luat_buoc(loai):
+    for b in km.nap(loai)["ben"]:
+        co_dinh = BEN_CO_DINH.get((loai, b["khoa"]))
+        assert (b.get("loai") == "tuy") is (co_dinh is None), b["khoa"]
+        if co_dinh is None:
+            continue
+        truong = set(b.get("truong") or []) | {o for x in b.get("dong") or [] for o in km._cac_o(km._chuoi_cua_dong(x))}
+        assert ("ten_to_chuc" in truong) is (co_dinh == "to_chuc"), b["khoa"]
+
+
+def _chu(docx: bytes) -> list[str]:
+    return [" ".join("".join(t.text or "" for t in p.iter(f"{_W}t")).split()) for p in _doan(docx)]
+
+
+def test_ben_tuy_loai_doi_khoi_cac_ben_va_o_ky():
+    """Bên thuê là công ty, bên cho thuê là người: khối và ô ký của đúng loại mỗi bên."""
+    ben = [{"khoa": "ben_thue", "loai": "to_chuc"}]
+    chu = _chu(
+        km.dung_docx(
+            km.spec_tu(km.nap("hop_dong_thue_tai_san"), tieu_de=None, trich_yeu=None, can_cu=[], dieu=[], ben=ben)
+        )[0]
+    )
+    ben_thue = chu[chu.index("II. BÊN THUÊ (sau đây gọi tắt là Bên thuê):") + 1 :]
+    assert ben_thue[:2] == ["- Tên tổ chức:", "- Mã số doanh nghiệp:"]
+    assert chu[chu.index("I. BÊN CHO THUÊ (sau đây gọi tắt là Bên cho thuê):") + 1] == "- Họ và tên:"
+    assert "ĐẠI DIỆN BÊN THUÊ" in chu and "BÊN CHO THUÊ" in chu
+    assert "(Ký, ghi rõ họ tên, chức vụ" in chu and "(Ký, ghi rõ họ tên)" in chu
+    # Mặc định: loại cũ của mục (cá nhân), và chọn lại trên mục đã chọn không đổi gì.
+    d = km.chon_ben(km.nap("hop_dong_thue_tai_san"))
+    assert [b["loai"] for b in d["ben"]] == ["ca_nhan", "ca_nhan"] and km.chon_ben(d, ben) == d
+
+
+def test_nguoi_su_dung_lao_dong_ca_nhan_theo_blld_dieu_3():
+    d = km.chon_ben(km.nap("hop_dong_thu_viec"), [{"khoa": "nsdld", "loai": "ca_nhan"}])
+    nsdld = d["ben"][0]
+    assert nsdld["truong"] == ["ho_ten", "noi_cu_tru", "so_dinh_danh", "dien_thoai"]
+    o = {x["khoa"]: x for x in d["ky"]["o"]}["nsdld"]
+    assert o["ho_ten_tu"] == "ho_ten" and o["ghi_chu"] == "(Ký, ghi rõ họ tên)"
+    assert o["vai"] == "NGƯỜI SỬ DỤNG LAO ĐỘNG\n(BÊN A)"
+
+
+@pytest.mark.parametrize(
+    ("sua", "loi"),
+    [
+        ({"mac_dinh": "ho_gia_dinh"}, "mac_dinh"),
+        ({"to_chuc": None}, "hai khối"),
+        ({"to_chuc": {"dong": ["- Tên:{truong_bia}"]}}, "trường lạ"),
+    ],
+)
+def test_ben_tuy_hong_no_luc_nap(sua, loi):
+    d = yaml.safe_load((km.THU_MUC / "hop_dong_vay.yaml").read_text(encoding="utf-8"))
+    d["ben"][0] = {**d["ben"][0], **sua}
+    assert loi in (km._kiem_muc(d, "hop_dong_vay") or "")
+
+
+_BLDS = {"dong": "Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24 tháng 11 năm 2015;", "doc_id": "95942"}
+_LDB = {"dong": "Căn cứ Luật Đường bộ số 35/2024/QH15 ngày 27 tháng 6 năm 2024.", "doc_id": "D35", "tuy_chon": True}
+
+
+def test_khung_van_chuyen_in_luat_duong_bo_chi_khi_co_dieu_giay_van_tai():
+    loai = "hop_dong_van_chuyen_tai_san"
+    dieu, _ = km.them_dieu_bat_buoc([], loai)
+
+    def _can_cu(ds):
+        spec = km.spec_tu(km.nap(loai), tieu_de=None, trich_yeu=None, can_cu=[_BLDS, _LDB], dieu=ds)
+        return [c for c in _chu(km.dung_docx(spec)[0]) if c.startswith("Căn cứ ")]
+
+    assert _can_cu(dieu) == ["Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24 tháng 11 năm 2015."]
+    gvt = {"key": "giay_van_tai", "ten": "Giấy vận tải", "doan": [km.CHO], "can_cu": {"doc_id": "D35"}}
+    assert _can_cu([*dieu, gvt]) == [_BLDS["dong"], _LDB["dong"]]
+
+
+def test_can_cu_khung_danh_dau_van_ban_chi_muc_tuy_chon_dan_toi(monkeypatch):
+    """Không DB: điều khoản của checklist vận chuyển tài sản — Luật Đường bộ chỉ đến từ
+    mục Giấy vận tải (và `can_cu` của khối tuỳ chọn), BLDS từ mọi mục bắt buộc."""
+    from datetime import date
+
+    from src.agents import graph_soan_thao as gst
+
+    db = {
+        1: {"id": 1, "document_id": "95942", "duong_dan": "91/2015/QH13 > Điều 530"},
+        2: {"id": 2, "document_id": "D35", "duong_dan": "35/2024/QH15 > Điều 61 > Khoản 1"},
+    }
+    monkeypatch.setattr(
+        gst, "can_cu_van_ban_co_id", lambda e, d, a: [_BLDS, {k: v for k, v in _LDB.items() if k != "tuy_chon"}]
+    )
+    ra = gst.can_cu_khung(None, "hop_dong_van_chuyen_tai_san", db, date(2026, 9, 29))
+    assert [x.get("tuy_chon", False) for x in ra] == [False, True]
