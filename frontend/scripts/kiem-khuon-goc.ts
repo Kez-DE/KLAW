@@ -190,6 +190,16 @@ kiem("`can_cu`: dòng dị dạng bị BỎ từng dòng, không cả danh sách
   });
   assert.deepEqual(k?.can_cu, [lanh]);
 });
+kiem("`can_cu`: dòng trùng (doc_id, dieu) giữ dòng ĐẦU — cặp đó là khoá của danh sách", () => {
+  const khung = { nhan: "Căn cứ A;", doc_id: "a", khop_tai_id: null, dieu: null };
+  const dieu = { nhan: "Điều 1. X — A > Điều 2", doc_id: "a", khop_tai_id: 9, dieu: 1 };
+  const k = khuonHopLe({
+    ...KHUON,
+    nguon: "khuon_mau",
+    can_cu: [khung, dieu, { ...khung, nhan: "Căn cứ A (lặp);" }, { ...dieu, khop_tai_id: 10 }],
+  });
+  assert.deepEqual(k?.can_cu, [khung, dieu]);
+});
 
 // ─────────────────────────────────────────────────────────── laTrangAnh
 const TRANG = {

@@ -1632,7 +1632,7 @@ const laSoTuNhien = (x: unknown): x is number => Number.isInteger(x) && (x as nu
  * điền được. Ô trùng `(don_vi, so)` giữ ô ĐẦU — hai ô cùng khoá là hai ô nhập
  * cùng ghi vào một chỗ. Chỉ khoá của hợp đồng đi ra, không khoá lạ nào lọt.
  * `nguon` vắng hay lạ là `tai_len` (máy chủ cũ); dòng `can_cu` dị dạng bị bỏ
- * từng dòng, cùng luật với ô.
+ * từng dòng, cùng luật với ô — kể cả dòng trùng `(doc_id, dieu)`: giữ dòng ĐẦU.
  */
 export function khuonHopLe(x: unknown): KhuonBanThao | null {
   if (
@@ -1670,6 +1670,7 @@ export function khuonHopLe(x: unknown): KhuonBanThao | null {
   const soHayNull = (v: unknown, tu: number) =>
     v === undefined || v === null || (Number.isInteger(v) && (v as number) >= tu);
   const canCu: CanCuKhuon[] = [];
+  const daCoCanCu = new Set<string>();
   for (const c of Array.isArray(x["can_cu"]) ? x["can_cu"] : []) {
     if (
       !laBanGhi(c) ||
@@ -1681,11 +1682,16 @@ export function khuonHopLe(x: unknown): KhuonBanThao | null {
       !soHayNull(c["dieu"], 1)
     )
       continue;
+    const dieu = (c["dieu"] as number | null | undefined) ?? null;
+    // `(doc_id, dieu)` là khoá React của danh sách căn cứ trên sân khấu.
+    const khoa = `${c["doc_id"]}:${dieu ?? "khung"}`;
+    if (daCoCanCu.has(khoa)) continue;
+    daCoCanCu.add(khoa);
     canCu.push({
       nhan: c["nhan"],
       doc_id: c["doc_id"],
       khop_tai_id: (c["khop_tai_id"] as number | null | undefined) ?? null,
-      dieu: (c["dieu"] as number | null | undefined) ?? null,
+      dieu,
     });
   }
   return {

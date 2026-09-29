@@ -3829,6 +3829,18 @@ const napKhongRouter = async <T>(duong: string): Promise<T> =>
   );
   const nutDieu = tim(tam1, (n) => n.tagName === "BUTTON" && n.textContent === CAN_CU_KM[1]!.nhan);
   assert.ok(nutDieu !== null, "dòng Điều là nút mở nguyên văn");
+  // Một lượt chat gửi trước khi mở ngăn (Rút gọn…) có thể về LÚC ngăn đang mở và
+  // đổi thứ tự danh sách: mỗi dòng giữ đúng nút của nó (khoá văn bản + Điều, không
+  // theo vị trí), không đổi nhãn hay đích ngay dưới tay người dùng.
+  await ve({
+    ...btKm,
+    khuon: { ...KHUON, nguon: "khuon_mau", can_cu: [CAN_CU_KM[1]!, CAN_CU_KM[0]!] },
+  });
+  assert.ok(
+    tim(khung, (n) => n === nutDieu) !== null,
+    "danh sách đổi thứ tự: nút Điều vẫn là CÙNG nút, không bị dựng lại thành dòng khác",
+  );
+  assert.equal(nutDieu.textContent, CAN_CU_KM[1]!.nhan);
   await act(() => phat(nutDieu, "click"));
   await choDen(() => /là sự thỏa thuận giữa các bên/.test(khung.textContent));
   assert.ok(goiKm.includes("/van-ban/91-2015?around=4812"), "mở bằng khop_tai_id");

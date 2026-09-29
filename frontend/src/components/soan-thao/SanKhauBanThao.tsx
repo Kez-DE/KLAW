@@ -948,13 +948,15 @@ export function SanKhauBanThao({
             return <NoiDungCanCu canCu={tam.noiDung as string} doiChieu={doiChieuCanCu} />;
           }
           if (tam.id === "can-cu-ds") {
-            // Đọc danh sách của phiên bản ĐANG hiện, không bản chụp lúc mở.
+            // Đọc danh sách của phiên bản ĐANG hiện, không bản chụp lúc mở — nó đổi
+            // được khi ngăn đang mở (lượt chat về muộn), nên khoá theo văn bản +
+            // Điều (duy nhất nhờ `khuonHopLe`), không theo vị trí.
             return (
               <ul className="m-0 flex list-none flex-col gap-3 p-0 text-[13px] leading-5">
-                {canCuKhuon.map((c, i) => {
+                {canCuKhuon.map((c) => {
                   const khop = c.khop_tai_id;
                   return (
-                    <li key={i}>
+                    <li key={`${c.doc_id}:${c.dieu ?? "khung"}`}>
                       {khop === null ? (
                         <Link
                           to="/tra-cuu/$docId"
