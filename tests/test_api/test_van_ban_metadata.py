@@ -137,6 +137,23 @@ def test_trich_nguoi_ky_chuoi_rong_thanh_None_khong_thanh_chuoi_rong():
     assert nguoi_ky_tu_response(d) == (None, None)
 
 
+def test_chu_giu_cho_Chua_xac_dinh_cua_gateway_thanh_None():
+    """12/2025/TTLT-VKSNDTC-TANDTC-BCA-BQP (6eea5ec0…): gateway ghi "Chưa xác định"
+    vào `agencyName`, `personName`, `jobTitleName` thay cho "không có". Chép nguyên
+    vào DB thì bộ lọc và trang văn bản hiện chữ đó — trái quyết định 2026-09-28 mục 8."""
+    from scripts.nap_nguoi_ky import co_quan_tu_response, nguoi_ky_tu_response
+
+    d = {
+        "agencyName": "Chưa xác định",
+        "documentIssues": [
+            {"agencyName": "Chưa xác định", "personName": "Chưa xác định",
+             "jobTitleName": "chưa xác định ", "orderIndex": 1},
+        ],
+    }
+    assert co_quan_tu_response(d) is None
+    assert nguoi_ky_tu_response(d) == (None, None)
+
+
 def test_trich_nguoi_ky_KHONG_chuan_hoa_hoa_thuong():
     """13/2023/NĐ-CP công bố "TRẦN LƯU QUANG" viết hoa toàn bộ. Đó là thứ CSDL
     quốc gia công bố; `.title()` sẽ phá những tên mà quy tắc viết hoa tiếng Việt

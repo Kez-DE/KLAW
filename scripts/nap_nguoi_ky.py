@@ -36,8 +36,19 @@ def _theo_thu_tu(d: dict) -> list[dict]:
     return sorted(d.get("documentIssues") or [], key=lambda i: (i.get("orderIndex") is None, i.get("orderIndex", 0)))
 
 
+# Chữ giữ chỗ gateway ghi thay cho "không có" (đo 2026-09-29: 12/2025/TTLT-VKSNDTC-
+# TANDTC-BCA-BQP, 07/2026/TTLT-VKSNDTC-TANDTC). Chép nguyên thì bộ lọc và trang văn
+# bản hiện "Chưa xác định" — trái quyết định 2026-09-28 mục 8. Không biết là NULL.
+_GIU_CHO = frozenset({"chưa xác định"})
+
+
+def _gia_tri(s: str | None) -> str | None:
+    t = (s or "").strip()
+    return t if t and t.casefold() not in _GIU_CHO else None
+
+
 def _khac_nhau(issues: list[dict], truong: str) -> list[str]:
-    return list(dict.fromkeys(t for i in issues if (t := (i.get(truong) or "").strip())))
+    return list(dict.fromkeys(t for i in issues if (t := _gia_tri(i.get(truong)))))
 
 
 def co_quan_tu_response(d: dict) -> str | None:
@@ -46,7 +57,7 @@ def co_quan_tu_response(d: dict) -> str | None:
     BNNPTNT-BNV có `agencyName` chỉ là Bộ Nông nghiệp, còn `documentIssues[]` nêu cả
     Bộ Nội vụ — trích dẫn mất một cơ quan ban hành (quyết định 2026-09-28 mục 3)."""
     co_quan = _khac_nhau(_theo_thu_tu(d), "agencyName")
-    return ", ".join(co_quan) if len(co_quan) > 1 else d.get("agencyName")
+    return ", ".join(co_quan) if len(co_quan) > 1 else _gia_tri(d.get("agencyName"))
 
 
 def nguoi_ky_tu_response(d: dict) -> tuple[str | None, str | None]:
@@ -72,9 +83,7 @@ def nguoi_ky_tu_response(d: dict) -> tuple[str | None, str | None]:
         ten, chuc = _khac_nhau(issues, "personName"), _khac_nhau(issues, "jobTitleName")
         return ", ".join(ten) or None, ", ".join(chuc) or None
     dau = issues[0]
-    ten = (dau.get("personName") or "").strip() or None
-    chuc = (dau.get("jobTitleName") or "").strip() or None
-    return ten, chuc
+    return _gia_tri(dau.get("personName")), _gia_tri(dau.get("jobTitleName"))
 
 
 def nap(raw: Path, engine: Engine, dry_run: bool = False) -> dict[str, int]:
