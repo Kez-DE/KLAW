@@ -395,15 +395,6 @@ items:
   nguon: llm-gen+agent-viet-lai
   da_review: true
   duyet_boi: agent
-- id: lao-030-1
-  cau_hoi: Em đã bị ghi giấy vì trốn ở lại bên Hàn sau khi hết hạn. Tờ giấy đó rồi
-    chuyển đi đâu và ai là người chốt mức phạt em ạ?
-  duong_dan:
-  - 283/2026/NĐ-CP > Điều 63 > Khoản 16
-  bo_luat: Lao động
-  nguon: llm-gen+agent-viet-lai
-  da_review: false
-  duyet_boi: chua-ai
 - id: lao-031-0
   cau_hoi: Tôi làm việc tự do, có ký hợp đồng điện tử với công ty thì có được bảo
     vệ không?
@@ -457,24 +448,6 @@ items:
   - 45/2019/QH14 > Điều 21
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
-  da_review: true
-  duyet_boi: nguoi
-- id: lao-035-0
-  cau_hoi: Nếu tôi lén đưa 5 người đi làm ở Đài Loan mà không có giấy tờ hợp lệ thì
-    bị phạt bao nhiêu tiền?
-  duong_dan:
-  - 12/2022/NĐ-CP > Điều 42 > Khoản 11
-  bo_luat: Lao động
-  nguon: llm-gen+agent-duyet
-  da_review: true
-  duyet_boi: nguoi
-- id: lao-035-1
-  cau_hoi: Công ty tôi bị phát hiện đưa 20 người sang Nhật làm việc chui, không đúng
-    danh sách, thì sẽ bị phạt nặng cỡ nào?
-  duong_dan:
-  - 12/2022/NĐ-CP > Điều 42 > Khoản 11
-  bo_luat: Lao động
-  nguon: llm-gen+agent-duyet
   da_review: true
   duyet_boi: nguoi
 - id: lao-036-0
