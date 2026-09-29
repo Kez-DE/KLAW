@@ -57,7 +57,43 @@ retired for drafts.
 - [ ] D2 real documents.
 - [ ] D3 khuôn mẫu set.
 - [ ] D4 engine.
-- [ ] F1 foundational laws.
+- [x] F1 foundational laws (2026-09-29, `feat/luat-nen-tang`; backup
+  `backup-truoc-F1.dump` 14:00 UTC; each loader dry-run first, rerun = 0 rows;
+  `nap_link_cong_luat` has no dry-run, so a before/after column diff of all rows
+  shows only the four new rows changed).
+  New deep documents through fetch_moj → build_seed → ingest (`--khong-xoa`, insert
+  path only): Hiến pháp 2013 (32801; 11 chương, 120 điều, 375/375 verbatim), NQ
+  203/2025/QH15 (178314; 10/10), Luật 64/2025/QH15 (175440; 589/589), Luật
+  87/2025/QH15 (178717; 45/45) — `verified_documents` 405 → 409, every gateway
+  paragraph present in a provision. Status and dates from the gateway: HHL1P
+  01/01/2014, CHL 16/06/2025, HHL1P 01/04/2025, CHL 01/07/2025. Hiến pháp has
+  `docNum` null: its number is the gateway title "Hiến pháp năm 2013" (`build_seed`
+  accepts only that), cited as "khoản 1 Điều 119 Hiến pháp năm 2013 ngày
+  28/11/2013 của Quốc hội". Links: vbpl.vn machine-verified for the three numbered
+  documents; the Hiến pháp page title ("Hiến pháp của Quốc hội") carries no number,
+  so its shown link is vanban.chinhphu.vn docid 171264, checked with
+  `kiem_trang_chinhphu` (title + ngày ban hành). Edges (`--chi-danh-sach`, evidence
+  in `canh_doi_chieu`, 41 → 44): 87/2025 → 64/2025 loai 20 (Điều 1 khoản 1), 203/2025
+  → Hiến pháp loai 20 (Điều 1 khoản 1–5), 81/2025 → HNGĐ loai 20 (Điều 2 khoản 13;
+  the edge already existed). Five wrong parquet edges into the new documents go to
+  `CANH_SAI` (provincial HĐND/UBND "amending" 87/2025 and 64/2025; 136/2025/QH15,
+  which only cites 203/2025 in its căn cứ). Luật HNGĐ 52/2014/QH13 was already deep,
+  shown and verified (523/523 again against today's gateway); the only amending
+  document on vbpl.vn and in the gateway clause markers is 81/2025/QH15 (deep,
+  shown). Indexed with `build_chunks --chi-moi --chi-id`: +221 voyage chunks
+  (57,563 tokens), key usage +US$0.0020 (key total). Shown 480 → 484 (only the four),
+  no verdict of an existing document changed. Retrieval, dense branch on the shown
+  set, raw question "hiện tại pháp luật Việt Nam chia thành những gì" (one query
+  embedding, 0 LLM calls): 64/2025 Điều 4 rank 7 of 10, 87/2025 Điều 1 khoản 1 rank
+  18 of the 20-chunk dense pool. Open: 64/2025 Điều 4 in the kho is the original
+  14-khoản text (with cấp huyện); only the document-level warning names 87/2025, so
+  F2 must answer from 87/2025 Điều 1 khoản 1 (no provision-level amendment map yet —
+  the gateway HTML marks it: `type="10:<uuid>"` on 64/2025 Điều 4); the Hiến pháp
+  text is the 2013 wording (Điều 9, 10, 84 k1, 110, 111 amended by 203/2025).
+  Found on the way and fixed in their own commits: the committed seed lagged
+  6144954 for two joint circulars (seed only; checksums unchanged), and two
+  link-evidence rows kept the pre-K6 numbers ("số: 34/2024/QH15", "Luật số
+  51/2024/QH15"), which stopped `nap_link_cong_luat` for every run.
 - [ ] F2 routing.
 - [ ] V reviews, e2e, eval.
 
