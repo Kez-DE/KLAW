@@ -86,6 +86,11 @@ _KHONG_METADATA = " WHERE depth <> 'metadata' AND id = ANY(CAST(:hien AS text[])
 
 _SQL_BO_LOC = text(
     "SELECT count(*)::int AS tong,"
+    # Có toàn văn = có ít nhất một điều khoản thật, cùng thước `/pham-vi` (hàng
+    # `mo_dau` của migration 016 chỉ mang tên văn bản). Quyết định 2026-09-28 mục
+    # 16: văn bản chưa có toàn văn vẫn được hiện, nên con số này ≠ `tong`.
+    " count(*) FILTER (WHERE EXISTS (SELECT 1 FROM provisions p"
+    "   WHERE p.document_id = documents.id AND p.cap <> 'mo_dau'))::int AS so_co_toan_van,"
     " count(*) FILTER (WHERE co_quan_ban_hanh IS NULL)::int AS khong_ro_co_quan,"
     " min(extract(year FROM ngay_ban_hanh))::int AS nam_min,"
     " max(extract(year FROM ngay_ban_hanh))::int AS nam_max"
@@ -110,6 +115,7 @@ def _bo_loc_sync() -> BoLocResponse:
         co_quan = [GiaTriLoc(**dict(r)) for r in c.execute(_SQL_CO_QUAN, hien).mappings().all()]
     return BoLocResponse(
         tong_van_ban=tong["tong"],
+        so_co_toan_van=tong["so_co_toan_van"],
         loai_van_ban=loai,
         co_quan_ban_hanh=co_quan,
         co_quan_khong_ro=tong["khong_ro_co_quan"],
