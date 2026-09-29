@@ -193,6 +193,13 @@ def test_chuoi_vong_hay_qua_sau_thi_khong_treo_va_khong_neu_van_ban_chet():
     assert ke_nhiem_con_song(_e(V.het_hieu_luc, A), bang.get, sau_toi_da=2) == ()
 
 
+def test_tran_mac_dinh_du_cho_chuoi_luong_toi_thieu_16_buoc_va_con_du():
+    """Đo 2026-09-29: 03/2006/NĐ-CP → … → 293/2025/NĐ-CP là 16 bước, dài thêm mỗi năm."""
+    vb = [VanBanNeu(str(n), f"{n}/2000/NĐ-CP") for n in range(33)]
+    bang = {v.doc_id: _e(V.het_hieu_luc, vb[n + 1]) for n, v in enumerate(vb[:-1])} | {"32": _e(V.con_hieu_luc)}
+    assert ke_nhiem_con_song(_e(V.het_hieu_luc, vb[0]), bang.get) == (vb[-1],)
+
+
 class _EngineGia:
     """Engine trong bộ nhớ: trả đúng hình dạng hàng của bốn câu SQL phán quyết."""
 

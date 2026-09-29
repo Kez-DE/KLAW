@@ -626,9 +626,11 @@ def nap_ngu_canh(engine: Engine, doc_id: str, as_of: date) -> tuple[dict, list[d
 # điểm dừng này.
 DA_CHET = frozenset({EffectivityVerdict.het_hieu_luc, EffectivityVerdict.bi_thay_the})
 
-# ponytail: trần cứng chống chuỗi bẩn dài (vòng đã có `da_qua` chặn); chuỗi dài
-# nhất đo trên kho 2026-09-29 là 9 bước, từ 03/2006/NĐ-CP. Nâng khi có chuỗi dài hơn.
-SAU_CHUOI_TOI_DA = 16
+# ponytail: trần cứng chống chuỗi bẩn dài (vòng đã có `da_qua` chặn). Chuỗi dài
+# nhất đo trên kho 2026-09-29, sau cạnh 153/2016 → 122/2015 của K8, là 16 bước:
+# nghị định lương tối thiểu 03/2006/NĐ-CP → … → 293/2025/NĐ-CP, và mỗi năm dài
+# thêm một. `danh_gia_theo_id` trả 3 truy vấn mỗi bước — chỉ cho văn bản đã chết.
+SAU_CHUOI_TOI_DA = 64
 
 
 def ke_nhiem_con_song(
