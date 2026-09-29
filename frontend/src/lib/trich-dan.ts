@@ -267,6 +267,32 @@ export function lienKetChinhThuc(url: unknown): LienKet | null {
   return nhan === undefined || !sach ? null : { url, nhan };
 }
 
+/**
+ * "Bản gốc có chữ ký (PDF)" của trang văn bản (quyết định 2026-09-28, mục 9),
+ * hoặc `null` — khi đó trang không vẽ gì. Chỉ một tệp `.pdf` https trên máy chủ
+ * tệp của Cổng TTĐT Chính phủ, không tài khoản, không cổng mạng lạ. `coAnh`:
+ * có ảnh trang 1 để xem trước; ảnh chỉ đi cùng link, vì bấm ảnh là mở PDF.
+ */
+export function banGocKy(vanBan: unknown): { url: string; coAnh: boolean } | null {
+  const r = banGhi(vanBan);
+  const url = r["link_pdf_ban_ky"];
+  if (typeof url !== "string") return null;
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  const sach =
+    u.protocol === "https:" &&
+    u.hostname === "datafiles.chinhphu.vn" &&
+    u.username === "" &&
+    u.password === "" &&
+    u.port === "";
+  if (!sach || !u.pathname.toLowerCase().endsWith(".pdf")) return null;
+  return { url, coAnh: r["co_anh_xem_truoc"] === true };
+}
+
 /** Siêu dữ liệu CẤP VĂN BẢN đã qua cửa kiểm — gộp được giữa nhiều nguồn. */
 export interface VanBanDaKiem {
   ten_van_ban: string | null;

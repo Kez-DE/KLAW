@@ -3648,4 +3648,63 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
   );
 }
 
+// ───── 17. BẢN GỐC CÓ CHỮ KÝ: nút PDF, ảnh trang 1, vắng thì không vẽ gì ───────
+// Quyết định 2026-09-28, mục 9. Link mở tab mới dưới tên cổng nhà nước (rel,
+// target, lời báo cho trình đọc màn hình); ảnh có alt nêu số hiệu, tải lười,
+// giữ chỗ bằng width/height, bấm ảnh cũng mở PDF.
+{
+  const { BanGocCoChuKy } = await nap<typeof import("../src/components/klaw/BanGocCoChuKy.tsx")>(
+    "src/components/klaw/BanGocCoChuKy.tsx",
+  );
+  const laThe = (ten: string) => (n: Nut) => n.nodeType === 1 && n.tagName === ten;
+  const { khung, root } = taoRoot();
+  const ve = (vanBan: Record<string, unknown>) =>
+    act(() =>
+      root.render(
+        h(BanGocCoChuKy, {
+          vanBan: { doc_id: "k10/1", so_ky_hieu: "145/2020/NĐ-CP", ...vanBan } as never,
+        }),
+      ),
+    );
+  const PDF = "https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/12/145.signed.pdf";
+
+  // (a) Có link và ảnh: nút + ảnh, cả hai là link mở tab mới tới đúng PDF.
+  await ve({ link_pdf_ban_ky: PDF, co_anh_xem_truoc: true });
+  assert.equal(tim(khung, laThe("DT"))?.textContent, "Bản gốc có chữ ký");
+  const a = timTatNut(khung, laThe("A"));
+  assert.equal(a.length, 2, "nút PDF + ảnh bấm được");
+  for (const x of a) {
+    assert.equal(x.getAttribute("href"), PDF);
+    assert.equal(x.getAttribute("target"), "_blank");
+    assert.equal(x.getAttribute("rel"), "noopener noreferrer");
+    assert.ok(x.textContent.endsWith(" (mở tab mới)"), "báo mở tab mới cho trình đọc màn hình");
+  }
+  assert.equal(a[0]?.textContent, "Bản gốc có chữ ký (PDF) (mở tab mới)");
+  const anh = tim(a[1] as Nut, laThe("IMG"));
+  assert.ok(anh !== null, "ảnh nằm TRONG link: bấm ảnh mở PDF");
+  assert.equal(anh.getAttribute("alt"), "Trang 1 bản gốc có chữ ký của 145/2020/NĐ-CP");
+  assert.equal(anh.getAttribute("loading"), "lazy");
+  assert.equal(anh.getAttribute("width"), "240");
+  assert.equal(anh.getAttribute("height"), "339");
+  assert.match(anh.getAttribute("class") ?? "", /max-w-\[240px\]/);
+  assert.match(anh.getAttribute("src") ?? "", /^https?:\/\/.+\/van-ban\/k10%2F1\/anh-xem-truoc$/);
+
+  // (b) Có link, không ảnh: chỉ nút.
+  await ve({ link_pdf_ban_ky: PDF, co_anh_xem_truoc: false });
+  assert.equal(timTatNut(khung, laThe("A")).length, 1);
+  assert.equal(tim(khung, laThe("IMG")), null);
+
+  // (c) Vắng hoặc link không qua cửa kiểm: không một nút nào, kể cả khi có ảnh.
+  for (const link of [
+    undefined,
+    null,
+    "http://datafiles.chinhphu.vn/x.pdf",
+    "https://evil.example/x.pdf",
+  ]) {
+    await ve({ link_pdf_ban_ky: link, co_anh_xem_truoc: true });
+    assert.equal(khung.childNodes.length, 0, `không vẽ gì: ${String(link)}`);
+  }
+  await act(() => root.unmount());
+}
+
 console.log("kiem-ui-muot: OK");

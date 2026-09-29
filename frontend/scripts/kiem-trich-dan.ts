@@ -9,6 +9,7 @@
  */
 import assert from "node:assert/strict";
 import {
+  banGocKy,
   cachTrichHopLe,
   canCuPhapLy,
   catTheoTrichDan,
@@ -412,4 +413,36 @@ type Citation = import("../src/lib/klaw.ts").Citation;
   assert.equal(laVanBanBiAn(null), false);
 }
 
-console.info("kiem-trich-dan: 17/17 đạt");
+// 18. "Bản gốc có chữ ký (PDF)" (quyết định 2026-09-28, mục 9): chỉ một tệp PDF
+//     https trên datafiles.chinhphu.vn; ảnh xem trước chỉ đi cùng link đó; vắng
+//     hoặc dị dạng → `null`, trang không vẽ gì.
+{
+  const pdf = "https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/12/145.signed.pdf";
+  assert.deepEqual(banGocKy({ link_pdf_ban_ky: pdf, co_anh_xem_truoc: true }), {
+    url: pdf,
+    coAnh: true,
+  });
+  assert.deepEqual(banGocKy({ link_pdf_ban_ky: pdf }), { url: pdf, coAnh: false });
+  assert.deepEqual(banGocKy({ link_pdf_ban_ky: pdf, co_anh_xem_truoc: "true" }), {
+    url: pdf,
+    coAnh: false,
+  });
+  for (const sai of [
+    undefined,
+    null,
+    7,
+    "",
+    "http://datafiles.chinhphu.vn/cpp/145.signed.pdf",
+    "https://datafiles.chinhphu.vn.evil.example/145.pdf",
+    "https://user@datafiles.chinhphu.vn/cpp/145.pdf",
+    "https://datafiles.chinhphu.vn:8443/cpp/145.pdf",
+    "https://datafiles.chinhphu.vn/cpp/1/Logo/quoc-huy.png",
+    "https://vanban.chinhphu.vn/?pageid=27160&docid=198540",
+    "javascript:alert(1)//.pdf",
+  ]) {
+    assert.equal(banGocKy({ link_pdf_ban_ky: sai, co_anh_xem_truoc: true }), null, String(sai));
+  }
+  assert.equal(banGocKy(null), null);
+}
+
+console.info("kiem-trich-dan: 18/18 đạt");
