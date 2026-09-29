@@ -34,8 +34,8 @@ import re
 import threading
 import time
 import unicodedata
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
 from datetime import date
 from enum import StrEnum
 from typing import NamedTuple
@@ -298,23 +298,33 @@ def _du_tham_quyen_sua(doc: dict, canh: dict) -> bool:
     return a is None or b is None or b <= a
 
 
+def _tin_duoc_chu_de(ten_doc: str | None, canh: dict) -> bool:
+    """Guard 3 (cùng chủ đề) cho MỘT cạnh chấm dứt hiệu lực. Cạnh đã đối chiếu
+    với nguyên văn chính thống (`canh_doi_chieu`: điều khoản bãi bỏ, trích, URL)
+    thì không cần phỏng đoán từ tiêu đề nữa — quyết định 2026-09-28 mục 12. Đo
+    được: 13 nghị định bị 145/2020/NĐ-CP Điều 114 khoản 2 bãi bỏ đều khác chủ đề
+    với nó, nên guard hạ cả 13 xuống `can_doi_chieu_tay`."""
+    return bool(canh.get("da_doi_chieu")) or cung_chu_de(ten_doc, canh.get("from_ten"))
+
+
 def _van_ban_thay(ten_doc: str | None, canh_di_vao: list[dict], bd: date | None, as_of: date) -> tuple[VanBanNeu, ...]:
     """Văn bản THAY `doc` theo đồ thị — đúng những cạnh Mức 2a chấp nhận làm
-    bằng chứng (đúng chiều, đã hiệu lực, cùng chủ đề). Cạnh lỗi dữ liệu không
-    được nêu tên như kẻ thay thế."""
+    bằng chứng (đúng chiều, đã hiệu lực, cùng chủ đề hoặc đã đối chiếu nguyên
+    văn). Cạnh lỗi dữ liệu không được nêu tên như kẻ thay thế."""
     if bd is None:
         return ()
     return tuple(dict.fromkeys(
         _neu(c) for c in canh_di_vao
         if _tac_dong(c) == "thay_the" and c.get("from_so_ky_hieu")
-        and _canh_dung_chieu(c, bd, as_of) == "ok" and cung_chu_de(ten_doc, c.get("from_ten"))
+        and _canh_dung_chieu(c, bd, as_of) == "ok" and _tin_duoc_chu_de(ten_doc, c)
     ))
 
 
 def _van_ban_sua(doc: dict, canh_di_vao: list[dict], bd: date, as_of: date) -> tuple[VanBanNeu, ...]:
     """Văn bản đã SỬA ĐỔI, BỔ SUNG `doc` (cạnh đi vào loai 20), theo thứ tự hiệu
     lực. Cạnh đi ra loai 23 (văn bản kia khai tử MỘT PHẦN tôi) không phải một lần
-    sửa đổi, và văn bản thấp thứ bậc hơn không sửa được `doc` — không nêu."""
+    sửa đổi, và văn bản thấp thứ bậc hơn không sửa được `doc` — không nêu, trừ khi
+    cạnh đã đối chiếu nguyên văn (cùng lệ `_tin_duoc_chu_de`)."""
     canh = sorted(
         (
             c
@@ -323,7 +333,7 @@ def _van_ban_sua(doc: dict, canh_di_vao: list[dict], bd: date, as_of: date) -> t
             and c.get("chieu") != "di_ra"
             and c.get("from_so_ky_hieu")
             and _canh_dung_chieu(c, bd, as_of) == "ok"
-            and _du_tham_quyen_sua(doc, c)
+            and (c.get("da_doi_chieu") or _du_tham_quyen_sua(doc, c))
         ),
         key=lambda c: c["from_ngay_hieu_luc"],
     )
@@ -363,7 +373,9 @@ def danh_gia(
          "văn bản kia tác động lên TÔI"; 22/23 nói ngược lại.
       3. **Cùng chủ đề** (`cung_chu_de`) — cạnh "Thay thế" giữa hai văn bản khác
          chủ đề gần chắc là lỗi dữ liệu (Luật Việc làm "thay thế" Luật BHXH);
-         hạ xuống `can_doi_chieu_tay`, KHÔNG kết luận đã chết.
+         hạ xuống `can_doi_chieu_tay`, KHÔNG kết luận đã chết. Cạnh đã đối
+         chiếu nguyên văn (`da_doi_chieu`) được miễn; một cạnh bị hạ không che
+         cạnh đạt ở sau nó — phán quyết không phụ thuộc thứ tự dòng SQL.
       4. **Thứ bậc** (`_cung_thu_bac`, chỉ Mức 2b) — chỉ văn bản CÙNG loại mới
          thay thế được nhau. Một Nghị định hướng dẫn không khai tử được Bộ luật
          mà nó hướng dẫn.
@@ -394,6 +406,7 @@ def danh_gia(
 
     canh_hong: list[str] = []
     sap_toi: list[str] = []
+    khac_chu_de: dict | None = None
 
     # ── Mức 2a: cạnh đồ thị nói "bị chấm dứt hiệu lực" ───────────────────────
     for c in canh_di_vao:
@@ -407,16 +420,20 @@ def danh_gia(
             case "sap_toi":
                 sap_toi.append(f"{c.get('from_so_ky_hieu')} từ {c.get('from_ngay_hieu_luc')}")
             case "ok":
-                if cung_chu_de(ten_doc, c.get("from_ten")):
+                if _tin_duoc_chu_de(ten_doc, c):
+                    nguyen_van = ", đã đối chiếu nguyên văn" if c.get("da_doi_chieu") else ""
                     return Effectivity(
                         EffectivityVerdict.bi_thay_the, "cao",
-                        f"đồ thị xác nhận: {_ke_khai_tu(c)} từ {c.get('from_ngay_hieu_luc')}",
+                        f"đồ thị xác nhận{nguyen_van}: {_ke_khai_tu(c)} từ {c.get('from_ngay_hieu_luc')}",
                         van_ban=_van_ban_thay(ten_doc, canh_di_vao, bd, as_of))
-                return Effectivity(
-                    EffectivityVerdict.can_doi_chieu_tay, "thap",
-                    f"có cạnh chấm dứt hiệu lực với {c.get('from_so_ky_hieu')} nhưng KHÁC "
-                    f"chủ đề ({c.get('from_ten')!r} vs {ten_doc!r}) — nghi lỗi dữ liệu MOJ, "
-                    "phải đối chiếu tay")
+                khac_chu_de = khac_chu_de or c
+    if khac_chu_de is not None:
+        c = khac_chu_de
+        return Effectivity(
+            EffectivityVerdict.can_doi_chieu_tay, "thap",
+            f"có cạnh chấm dứt hiệu lực với {c.get('from_so_ky_hieu')} nhưng KHÁC "
+            f"chủ đề ({c.get('from_ten')!r} vs {ten_doc!r}) — nghi lỗi dữ liệu MOJ, "
+            "phải đối chiếu tay")
 
     # ── Mức 2b: đồ thị im lặng, suy luận từ chính corpus ─────────────────────
     # Cùng chủ đề + hiệu lực sau + đã có hiệu lực ⇒ văn bản trước bị thay thế.
@@ -551,16 +568,22 @@ _SQL_DOC = text(
 # LEFT JOIN chứ không JOIN: cạnh trỏ tới văn bản đã biến mất phải NỔI LÊN với
 # `from_*` toàn NULL để `danh_gia` trả `chua_xac_dinh`, chứ không bị JOIN nuốt
 # mất rồi âm thầm rơi vào nhánh "còn hiệu lực".
+#
+# `da_doi_chieu`: cạnh có dòng `canh_doi_chieu` (migration 039 — điều khoản, trích
+# và URL của nguyên văn chính thống). `reference_id` là khoá chính nên LEFT JOIN
+# không nhân đôi cạnh nào.
 _SQL_CANH = text(
     "SELECT r.loai, 'di_vao' AS chieu, r.from_document_id, d2.ten AS from_ten,"
     " d2.so_ky_hieu AS from_so_ky_hieu, d2.ngay_hieu_luc AS from_ngay_hieu_luc,"
-    " d2.loai_van_ban AS from_loai_van_ban"
+    " d2.loai_van_ban AS from_loai_van_ban, k.reference_id IS NOT NULL AS da_doi_chieu"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.from_document_id'
+    " LEFT JOIN canh_doi_chieu k ON k.reference_id = r.id"
     " WHERE r.to_document_id = :i AND r.loai IN (20, 21)"
     " UNION ALL"
     " SELECT r.loai, 'di_ra', r.to_document_id, d2.ten,"
-    " d2.so_ky_hieu, d2.ngay_hieu_luc, d2.loai_van_ban"
+    " d2.so_ky_hieu, d2.ngay_hieu_luc, d2.loai_van_ban, k.reference_id IS NOT NULL"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.to_document_id'
+    " LEFT JOIN canh_doi_chieu k ON k.reference_id = r.id"
     " WHERE r.from_document_id = :i AND r.loai IN (22, 23)"
 )
 
@@ -594,9 +617,68 @@ def nap_ngu_canh(engine: Engine, doc_id: str, as_of: date) -> tuple[dict, list[d
     return doc, canh, ung_vien
 
 
-def danh_gia_theo_id(engine: Engine, doc_id: str, as_of: date) -> Effectivity:
+# ── Chuỗi thay thế (quyết định 2026-09-28 mục 12) ─────────────────────────────
+# Văn bản đã chết chỉ ra văn bản đi thay; văn bản đi thay mà chính nó cũng đã
+# chết thì đi tiếp theo `van_ban` của NÓ — tức cạnh đã qua đúng guard của
+# `_van_ban_thay` — tới văn bản đầu tiên còn sống: 157/2018 → 90/2019 → 38/2022
+# → 74/2024 → 293/2025. Văn bản đã chết thì không bao giờ được hiện (`hien_thi`
+# đòi phán quyết còn sống), nên "văn bản đầu tiên được hiện" không nằm trước
+# điểm dừng này.
+DA_CHET = frozenset({EffectivityVerdict.het_hieu_luc, EffectivityVerdict.bi_thay_the})
+
+# ponytail: trần cứng chống chuỗi bẩn dài (vòng đã có `da_qua` chặn); chuỗi dài
+# nhất đo trên kho 2026-09-29 là 9 bước, từ 03/2006/NĐ-CP. Nâng khi có chuỗi dài hơn.
+SAU_CHUOI_TOI_DA = 16
+
+
+def ke_nhiem_con_song(
+    e: Effectivity | None,
+    tra: Callable[[str], Effectivity | None],
+    sau_toi_da: int = SAU_CHUOI_TOI_DA,
+) -> tuple[VanBanNeu, ...]:
+    """Văn bản đi thay ĐANG SỐNG của `e` — `()` khi `e` không chết.
+
+    `tra(doc_id)`: phán quyết của văn bản trên chuỗi (đã nối chuỗi hay chưa đều ra
+    cùng kết quả), `None` khi không biết (ngoài kho, hoặc người gọi coi nó là
+    điểm dừng). Văn bản không biết
+    thì được nêu, như văn bản thay trực tiếp. Nhánh cụt ở một văn bản đã chết
+    không ai thay, vòng, hay quá `sau_toi_da` bước thì KHÔNG nêu: nêu nó là chỉ
+    người đọc sang một văn bản cũng không còn hiệu lực."""
+    if e is None or e.verdict not in DA_CHET:
+        return ()
+    ra: list[VanBanNeu] = []
+    da_qua: set[VanBanNeu] = set()
+    tang = list(e.van_ban)
+    for _ in range(sau_toi_da):
+        tiep: list[VanBanNeu] = []
+        for v in tang:
+            if v in da_qua:
+                continue
+            da_qua.add(v)
+            t = tra(v.doc_id) if v.doc_id else None
+            if t is not None and t.verdict in DA_CHET:
+                tiep += t.van_ban
+            else:
+                ra.append(v)
+        tang = tiep
+    return tuple(ra)
+
+
+def _noi_chuoi(e: Effectivity, tra: Callable[[str], Effectivity | None]) -> Effectivity:
+    """`e` với `van_ban` là văn bản đi thay đang sống — mọi bề mặt (`mo_ta`,
+    `canh_bao`, 404 `thay_the`, lượt hỏi nêu tên văn bản ẩn) đọc cùng một chỗ."""
+    return replace(e, van_ban=ke_nhiem_con_song(e, tra)) if e.verdict in DA_CHET else e
+
+
+def _danh_gia_mot(engine: Engine, doc_id: str, as_of: date) -> Effectivity:
     doc, canh, ung_vien = nap_ngu_canh(engine, doc_id, as_of)
     return danh_gia(doc, canh, as_of, ung_vien)
+
+
+def danh_gia_theo_id(engine: Engine, doc_id: str, as_of: date) -> Effectivity:
+    """Phán quyết của MỘT văn bản, đã nối chuỗi thay thế. Mỗi văn bản chết trên
+    chuỗi thêm một lượt `nap_ngu_canh`; văn bản còn sống không tốn thêm gì."""
+    return _noi_chuoi(_danh_gia_mot(engine, doc_id, as_of), lambda i: _danh_gia_mot(engine, i, as_of))
 
 
 # ══ Mức 4 — bản đồ sửa đổi CẤP ĐIỀU KHOẢN (nguồn: Công báo, VBHN) ═══════════
@@ -815,13 +897,15 @@ _SQL_DOC_TAT_CA = text(
 _SQL_CANH_TAT_CA = text(
     "SELECT r.to_document_id AS chu, r.loai, 'di_vao' AS chieu, d2.ten AS from_ten,"
     " d2.so_ky_hieu AS from_so_ky_hieu, d2.ngay_hieu_luc AS from_ngay_hieu_luc,"
-    " r.from_document_id, d2.loai_van_ban AS from_loai_van_ban"
+    " r.from_document_id, d2.loai_van_ban AS from_loai_van_ban, k.reference_id IS NOT NULL AS da_doi_chieu"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.from_document_id'
+    " LEFT JOIN canh_doi_chieu k ON k.reference_id = r.id"
     " WHERE r.loai IN (20, 21)"
     " UNION ALL"
     " SELECT r.from_document_id, r.loai, 'di_ra', d2.ten,"
-    " d2.so_ky_hieu, d2.ngay_hieu_luc, r.to_document_id, d2.loai_van_ban"
+    " d2.so_ky_hieu, d2.ngay_hieu_luc, r.to_document_id, d2.loai_van_ban, k.reference_id IS NOT NULL"
     ' FROM "references" r LEFT JOIN documents d2 ON d2.id = r.to_document_id'
+    " LEFT JOIN canh_doi_chieu k ON k.reference_id = r.id"
     " WHERE r.loai IN (22, 23)"
 )
 
@@ -841,15 +925,16 @@ def _danh_gia_toan_bo_tinh(engine: Engine, as_of: date) -> dict[str, Effectivity
         canh_cua.setdefault(c["chu"], []).append(c)
 
     co_ngay = [d for d in docs if d["ngay_hieu_luc"] is not None]
-    ra: dict[str, Effectivity] = {}
+    tho: dict[str, Effectivity] = {}
     for d in docs:
         bd = d["ngay_hieu_luc"]
         ung_vien = (
             [u for u in co_ngay if u["id"] != d["id"] and bd < u["ngay_hieu_luc"] <= as_of]
             if bd is not None else []
         )
-        ra[d["id"]] = danh_gia(d, canh_cua.get(d["id"], []), as_of, ung_vien)
-    return ra
+        tho[d["id"]] = danh_gia(d, canh_cua.get(d["id"], []), as_of, ung_vien)
+    # Chuỗi thay thế đi trên chính các phán quyết vừa tính — 0 truy vấn thêm.
+    return {i: _noi_chuoi(e, tho.get) for i, e in tho.items()}
 
 
 _TTL_TOAN_BO_GIAY = 60.0

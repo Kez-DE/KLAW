@@ -32,7 +32,7 @@ from datetime import date
 from fastapi import HTTPException
 from sqlalchemy import Connection, Engine, text
 
-from src.services.effectivity import Effectivity, VanBanNeu, danh_gia_toan_bo
+from src.services.effectivity import DA_CHET, Effectivity, VanBanNeu, danh_gia_toan_bo, ke_nhiem_con_song
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.kho import _khop_so_hieu
 from src.services.trich_dan import cach_trich, lien_ket, truong_trich_dan
@@ -44,7 +44,7 @@ VERDICT_HIEN = frozenset({V.con_hieu_luc, V.bi_sua_doi, V.mot_phan_khong_xac_din
 # Đã chết theo KLAW. Chỉ văn bản thuộc nhóm này (hoặc Bộ Tư pháp khai HHL) mới
 # được nói "không còn hiệu lực"; văn bản ẩn vì thiếu link hay chưa rõ tình trạng
 # thì KHÔNG — nói vậy là nói sai về một văn bản có thể đang sống.
-_DA_CHET = frozenset({V.het_hieu_luc, V.bi_thay_the})
+_DA_CHET = DA_CHET
 
 THONG_DIEP_HET = "{} không còn hiệu lực nên không có trong phạm vi tra cứu."
 THONG_DIEP_CHUA = "{} hiện chưa có trong phạm vi tra cứu."
@@ -188,28 +188,12 @@ def van_ban_thay(
     e: Effectivity | None, eff: Mapping[str, Effectivity] | None = None, hien: frozenset[str] = frozenset()
 ) -> tuple[VanBanNeu, ...]:
     """Văn bản thay thế theo đồ thị — chỉ khi văn bản thật sự đã chết. Văn bản
-    thay mà chính nó cũng đã chết thì đi tiếp theo cạnh thay thế của NÓ (cùng
-    guard `effectivity._van_ban_thay`) tới văn bản đầu tiên được hiện hoặc còn
-    sống: 90/2019 → 38/2022 → 74/2024 → 293/2025. Nhánh cụt ở một văn bản đã
-    chết không ai thay thì không nêu — nêu nó là chỉ người đọc sang một văn bản
-    cũng không còn hiệu lực. `eff` vắng: chỉ văn bản thay trực tiếp."""
-    if e is None or e.verdict not in _DA_CHET:
-        return ()
+    thay mà chính nó cũng đã chết thì đi tiếp theo cạnh thay thế của NÓ tới văn
+    bản đầu tiên được hiện hoặc còn sống (`effectivity.ke_nhiem_con_song`, mà
+    `danh_gia_toan_bo` đã áp sẵn; ở đây nó còn giữ đúng cho `eff` dựng tay).
+    `eff` vắng: chỉ văn bản thay trực tiếp."""
     eff = eff or {}
-    ra: list[VanBanNeu] = []
-    da_qua: set[VanBanNeu] = set()
-    hang = list(e.van_ban)
-    while hang:
-        v = hang.pop(0)
-        if v in da_qua:
-            continue
-        da_qua.add(v)
-        tiep = eff.get(v.doc_id) if v.doc_id and v.doc_id not in hien else None
-        if tiep is not None and tiep.verdict in _DA_CHET:
-            hang += tiep.van_ban
-        else:
-            ra.append(v)
-    return tuple(ra)
+    return ke_nhiem_con_song(e, lambda i: None if i in hien else eff.get(i))
 
 
 def thong_diep_an(van_ban: dict, e: Effectivity | None, goi_ten: bool = False) -> str:
