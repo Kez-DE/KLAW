@@ -758,6 +758,9 @@ class _Dung:
                 self.doan(o_trai)
         for tc, k in zip(o, nguoi, strict=True):
             self._nguoi_ky(tc, k)
+        # Word luôn giữ một đoạn sau bảng cuối thân bài: dựng sẵn (1 pt, rỗng — không
+        # phải đơn vị) để tệp mở ra không phải "sửa".
+        self.doan(self.body, sz=2)
 
     def _noi_nhan(self, tc: Any, ds: list[str]) -> None:
         p = self.doan(tc, can="left", sz=_CO["noi_nhan_nhan"])
