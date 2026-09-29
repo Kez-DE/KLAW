@@ -121,6 +121,8 @@ def kho(monkeypatch):
     with e.begin() as c:
         for bang in ("documents", "provisions", "chunks", '"references"', "sua_doi_dieu_khoan"):
             c.execute(text(f"CREATE TEMP TABLE {bang} (LIKE public.{bang} INCLUDING DEFAULTS INCLUDING CONSTRAINTS)"))
+        # `effectivity` đọc cạnh đã đối chiếu (migration 039); rỗng = mọi cạnh giữ guard cũ.
+        c.execute(text("CREATE TEMP TABLE canh_doi_chieu (reference_id bigint PRIMARY KEY)"))
         for i, so, loai, ten, tt, bh, hl, het, vbpl, cp in VAN_BAN:
             c.execute(
                 text(

@@ -473,10 +473,19 @@ def test_canh_DI_RA_nang_tin_cay_len_CAO_tren_du_lieu_that():
 # CÙNG NGÀY văn bản bị sửa (Guard 1 đòi "sau hẳn"). 08/2020/TT-BNNPTNT "Sửa đổi, bổ
 # sung Điều 2 của Thông tư số 04/2020/TT-BNNPTNT" (cùng 01/7/2020); 71/2014/QH13
 # bãi bỏ "Khoản 4 Điều 86 của Luật Hải quan" (cùng 01/01/2015).
+# K9 2026-09-29: Mức 2a không còn dừng ở cạnh khác chủ đề ĐẦU TIÊN (thứ tự dòng SQL),
+# và LEFT JOIN `canh_doi_chieu` đổi thứ tự đó — ba cạnh bẩn từng bị che lộ ra, không
+# phán quyết nào đổi vì chúng. 71/2024/NĐ-CP "thay" Luật Đất đai 31/2024 (cạnh 5695910:
+# nghị định không thay được luật, kế hoạch K8 B-E3 đề xuất xoá); 43/2024/QH15 sửa
+# 29/2023/QH15 và đưa nó vào hiệu lực CÙNG ngày 01/8/2024 (cạnh 5694146, thật);
+# 21/2009/TT-BGDĐT "thay" 45/2012/TT-BGDĐT ban hành sau nó (cạnh 5692793, ngược chiều).
 CANH_NGAY_MAU_THUAN_DA_BIET = {
     ("109/2025/QH15", "09/2026/QH16"),
     ("04/2020/TT-BNNPTNT", "08/2020/TT-BNNPTNT"),
     ("54/2014/QH13", "71/2014/QH13"),
+    ("31/2024/QH15", "71/2024/NĐ-CP"),
+    ("29/2023/QH15", "43/2024/QH15"),
+    ("45/2012/TT-BGDĐT", "21/2009/TT-BGDĐT"),
 }
 
 
