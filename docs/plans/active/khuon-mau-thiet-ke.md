@@ -426,7 +426,13 @@ per-upload route is unaffected.
   updated spec and stores a new viec. The new version points at it.
 - **Carrying fills** is done by `ban_thao.mang_phep_sang(don_vi_cu, don_vi_moi,
   phep_cu)`:
-  - It runs `difflib.SequenceMatcher` over the two unit-text lists.
+  - It runs `difflib.SequenceMatcher` over the two lists of `(clause, text)`
+    pairs. The builder tags every clause paragraph with its clause
+    (`khuon_mau.dung_docx_thuoc`: checklist key or name, plus occurrence), and
+    the version stores the tags in `audit.khung.thuoc`. Frame units carry no
+    tag. Without the tag, identical "……" bodies were interchangeable and every
+    heading renumbered on an insert, so fills moved to other clauses (code
+    review 2026-09-29, finding 2).
   - A `dien` on a unit inside an `equal` block moves to the mapped index (same
     text ⇒ same blanks, checked by count).
   - A `dien` on a changed unit is dropped, and named in the answer.
@@ -1260,6 +1266,18 @@ Defaults apply unless the owner decides otherwise. Only decision 3 blocks.
 | 9 | medium: a >10-page refusal after a paid call | A measured `NGAN_SACH_KY_TU` and tighter caps in the prompt and in kiem, with non-mandatory Điều trimmed and named. Refusal is the last resort. Open decision 3 is a gate before D4c, with a recommendation (§4, §6, Open decisions). |
 | 10 | medium: the e2e test writes to the shared DB | The test is gated until the parallel eval finishes, as a stated Integrate precondition with cleanup. No disposable DB is created by this wave (§8). |
 
+## §10 Code review resolution (implementation, 2026-09-29)
+
+| # | Finding | Resolution |
+|---|---|---|
+| 1 | high: a request for another type while a khuôn mẫu is open was built in the open draft's frame | `_nap_khuon_mau`: when the router names a type other than the open one, the turn is a create on the router's type, and the open draft is reference only. For a tự soạn draft, only a registry type counts as "other", because the router has no code to name a tự soạn draft again. Tests: three routing cases, same-type edit, and an end-to-end đơn khởi kiện over an open draft. |
+| 2 | high: carried fills landed in the wrong Điều after an insert or delete | Carry-over by `(clause, text)` (§3). Tests: insert first, delete first, frame fills after the Điều list, and a node-level insert after on-page fills. |
+| 3 | high: a paid checklist call went unrecorded when the docx failed | `n_dung_ban_thao` and `dung_lai` write the traces row with the generate cost and `result_type 'loi'`, so the daily cost cap sees it and no quota is spent. `dung_lai` also counts the attempt against `TRAN_SUA` (`tinh_lan_sua_hong`). Nothing is saved, as in §4. No HTML fallback: owner decision 5. |
+| 4 | medium: tieu_de, trich_yeu and vai bypassed both nets | The same two nets as a paragraph. The block net drops the field (defaults "Văn bản", none, "Bên A") and names it; the value net leaves "……". |
+| 5 | medium: checklist docx duplicated the party sections as Điều | `dat_khuon_mau` drops clauses keyed by `khoa_khung(entry)`. |
+| 6 | medium: the answer claimed carried or on-page fills as this turn's | `da_dien` counts only this turn's new or changed ops. The sentence is omitted on `co_san` or when nothing is new. The checklist path states the version total "Đã điền X/Y chỗ trống." with no provenance. |
+| 7 | medium: a tự soạn hành chính draft dropped the signer's name | `bo_cuc hanh_chinh` uses the fixed `co_quan`/`nguoi_ky` parties, and the prompt names them. Rejected `gia_tri` go to `khong_dat`. |
+
 ## Progress
 
 - [x] D1 design written.
@@ -1287,6 +1305,7 @@ Defaults apply unless the owner decides otherwise. Only decision 3 blocks.
       `khuon_mau_ngu_canh`, which it does on every signed-in no-document drafting
       turn. A direct call to the node without it keeps the old `van_ban` path; old
       unit tests rely on that.
+- [x] Code review of D4a–D4c (7 findings), resolved (§10).
 - [ ] D4d frontend.
 - [ ] Integrate: migration 041, integration tests by path; the e2e API test after
       the eval finishes.
