@@ -795,6 +795,38 @@ def test_bang_KHONG_lam_mat_chu_cua_provision_gioi_thieu():
     assert cay.index("như sau:") < cay.index("5.310.000")
 
 
+# Rút gọn từ 66/2025/QH15 Điều 5 Khoản 2 (gateway 180017): công thức dàn bằng
+# bảng một hàng, văn xuôi xen giữa các bảng.
+HTML_CONG_THUC = """
+<div class="WordSection1">
+<p id="d5" class="MsoNormal prov-article"><b>Điều 5. Căn cứ tính thuế</b></p>
+<p id="k2" class="MsoNormal prov-clause">2. Phương pháp tính thuế:</p>
+<table><tr><td>Thuế phải nộp</td><td>=</td><td>Giá tính thuế x Thuế suất</td></tr></table>
+<p class="MsoNormal prov-content">Trong đó:</p>
+<table><tr><td>Giá tính thuế</td><td>=</td><td>Trị giá x Hệ số</td></tr></table>
+<p class="MsoNormal prov-content">Hệ số do Bộ Tài chính công bố.</p>
+</div>
+"""
+
+
+def test_van_xuoi_SAU_bang_giu_dung_cho_cua_no():
+    """Văn xuôi đứng sau một bảng vẫn đứng sau bảng đó trong `noi_dung`.
+
+    Dồn mọi văn xuôi lên trước bảng sinh ra câu "2. Phương pháp tính thuế: Trong
+    đó: Hệ số…" — không có trong nguồn, nhưng một câu trích nó vẫn qua tầng 1
+    (đo 2026-09-29: 41 điều khoản của 24 văn bản tầng sâu, kể cả 145/2020/NĐ-CP).
+    """
+    rows = parse_provisions(HTML_CONG_THUC, "66/2025/QH15")
+    k2 = next(r for r in rows if r.duong_dan == "66/2025/QH15 > Điều 5 > Khoản 2")
+    assert k2.noi_dung.split("\n\n") == [
+        "2. Phương pháp tính thuế:",
+        "| Thuế phải nộp | = | Giá tính thuế x Thuế suất |",
+        "Trong đó:",
+        "| Giá tính thuế | = | Trị giá x Hệ số |",
+        "Hệ số do Bộ Tài chính công bố.",
+    ]
+
+
 @pytest.mark.integration
 def test_ND_293_2025_that_co_bang_luong_trong_dieu_3_khoan_1():
     """Ca thật đã đo trên DB: `293/2025/NĐ-CP > Điều 3 > Khoản 1` kết thúc bằng

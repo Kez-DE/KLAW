@@ -143,3 +143,17 @@ async def test_doc_id_khong_ton_tai_tra_404(client):
 async def test_limit_qua_lon_tra_422(client):
     r = await client.get(f"/api/v1/van-ban/{BLLD}/lien-quan", params={"limit_moi_nhom": 9999})
     assert r.status_code == 422
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_19_2023_KHONG_hien_la_van_ban_sua_BLLD(client):
+    """19/2023/QH15 Điều 78 chỉ sửa BLTTDS 92/2015; mảng `references` MOJ của nó
+    ghi nhầm 45/2019/QH14 (loai 10), và 18/VBHN-VPQH không có 19/2023. Cạnh đó
+    bị loại ở `build_seed`, xoá ở `ingest` (`load_incoming_edges.CANH_SAI_MOJ`).
+    Cạnh sửa đổi thật của 71/2025/QH15 phải còn."""
+    d = (await client.get(f"/api/v1/van-ban/{BLLD}/lien-quan")).json()
+    sua = [v["so_ky_hieu"] for n in d["nhom"] if n["loai"] in (10, 20) and n["chieu"] == "di_vao"
+           for v in n["van_ban"]]
+    assert "19/2023/QH15" not in sua, sua
+    assert "71/2025/QH15" in sua, sua

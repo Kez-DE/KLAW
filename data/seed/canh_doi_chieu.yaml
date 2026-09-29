@@ -1,0 +1,338 @@
+# Cạnh hiệu lực ĐÃ ĐỐI CHIẾU với nguyên văn chính thống (quyết định 2026-09-28 mục 12;
+# nghiên cứu K8b, `docs/plans/active/kho-luat-trich-dan-day-du.md`). Nạp:
+# `python -m scripts.nap_canh_doi_chieu` (cũng chạy cuối `scripts.load_incoming_edges`).
+#
+# Khoá (from_so_ky_hieu, to_so_ky_hieu, loai) theo chiều của bảng "references": loai 21
+# `from` thay `to`; loai 20 `from` sửa `to`; loai 22/23 `to` khai tử (một phần) `from`.
+# `trich` ≤ 400 ký tự, các mảnh nguyên văn nối bằng " … "; `url` là trang chính thống mở
+# được. kiem_boi `doi-chieu-nguyen-van-k8`: từng mảnh là chuỗi con toàn văn gateway Bộ Tư
+# pháp của văn bản khai tử/đi sửa; `doi-chieu-cong-bao-k8`: chuỗi con toàn văn .docx Công báo
+# (văn bản gateway chưa có); `ocr-ban-ky-so-k8`: đọc bằng OCR bản ký số (ảnh quét).
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 49/2013/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm đ
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 49/2013/NĐ-CP ngày 14 tháng 5 năm 2013 của Chính phủ quy định chi tiết thi hành một số điều của Bộ luật Lao động về tiền lương'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 121/2018/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm đ
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 121/2018/NĐ-CP ngày 13 tháng 9 năm 2018 của Chính phủ sửa đổi, bổ sung một số điều của Nghị định số 49/2013/NĐ-CP ngày 14 tháng 5 năm 2013 của Chính phủ quy định chi tiết thi hành một số điều của Bộ luật Lao động về tiền lương'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 44/2013/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm b
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 44/2013/NĐ-CP ngày 09 tháng 5 năm 2013 của Chính phủ quy định chi tiết thi hành một số điều của Bộ luật Lao động về hợp đồng lao động'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 03/2014/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm a
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 03/2014/NĐ-CP ngày 16 tháng 01 năm 2014 của Chính phủ quy định chi tiết thi hành một số điều của Bộ luật Lao động về việc làm'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 05/2015/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm b
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 05/2015/NĐ-CP ngày 12 tháng 01 năm 2015 của Chính phủ quy định chi tiết và hướng dẫn thi hành một số nội dung của Bộ luật Lao động'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 148/2018/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm b
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 148/2018/NĐ-CP ngày 24 tháng 10 năm 2018 của Chính phủ sửa đổi, bổ sung một số điều của Nghị định số 05/2015/NĐ-CP ngày 12 tháng 01 năm 2015 của Chính phủ quy định chi tiết và hướng dẫn thi hành một số nội dung của Bộ luật Lao động'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 29/2019/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm c
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 29/2019/NĐ-CP ngày 20 tháng 3 năm 2019 của Chính phủ quy định chi tiết thi hành khoản 3 Điều 54 của Bộ luật Lao động về việc cấp phép hoạt động cho thuê lại lao động, việc ký quỹ và danh mục công việc được thực hiện cho thuê lại lao động'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 149/2018/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm d
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 149/2018/NĐ-CP ngày 07 tháng 11 năm 2018 của Chính phủ quy định chi tiết khoản 3 Điều 63 của Bộ luật Lao động về thực hiện quy chế dân chủ ở cơ sở tại nơi làm việc'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 45/2013/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm e
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 45/2013/NĐ-CP ngày 10 tháng 5 năm 2013 của Chính phủ quy định chi tiết một số điều của Bộ luật Lao động về thời giờ làm việc, thời giờ nghỉ ngơi và an toàn lao động, vệ sinh lao động'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 85/2015/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm g
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 85/2015/NĐ-CP ngày 01 tháng 10 năm 2015 của Chính phủ quy định chi tiết một số điều của Bộ luật Lao động về chính sách đối với lao động nữ'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 27/2014/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm h
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 27/2014/NĐ-CP ngày 07 tháng 4 năm 2014 của Chính phủ quy định chi tiết thi hành một số điều của Bộ luật Lao động về lao động là người giúp việc gia đình'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 46/2013/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm i
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 46/2013/NĐ-CP ngày 10 tháng 5 năm 2013 của Chính phủ quy định chi tiết thi hành một số điều của Bộ luật Lao động về tranh chấp lao động'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 145/2020/NĐ-CP
+  to_so_ky_hieu: 41/2013/NĐ-CP
+  loai: 21
+  dieu_khoan: 145/2020/NĐ-CP Điều 114 khoản 2 điểm k
+  trich: 'Kể từ ngày Nghị định này có hiệu lực thi hành, các Nghị định sau đây hết hiệu lực thi hành: … Nghị định số 41/2013/NĐ-CP ngày 08 tháng 05 năm 2013 của Chính phủ quy định chi tiết thi hành Điều 220 của Bộ luật Lao động về danh mục đơn vị sử dụng lao động không được đình công và giải quyết yêu cầu của tập thể lao động ở đơn vị sử dụng lao động không được đình công'
+  url: https://vbpl.vn/van-ban/chi-tiet/152668
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 09/2020/TT-BLĐTBXH
+  to_so_ky_hieu: 10/2013/TT-BLĐTBXH
+  loai: 21
+  dieu_khoan: 09/2020/TT-BLĐTBXH Điều 13 khoản 2 điểm a
+  trich: 'Kể từ ngày Thông tư này có hiệu lực thi hành, các Thông tư sau hết hiệu lực thi hành: … Thông tư số 10/2013/TT-BLĐTBXH ngày 10 tháng 6 năm 2013 của Bộ trưởng Bộ Lao động - Thương binh và Xã hội ban hành Danh mục các công việc và nơi làm việc cấm sử dụng lao động là người chưa thành niên'
+  url: https://vbpl.vn/van-ban/chi-tiet/152670
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 09/2020/TT-BLĐTBXH
+  to_so_ky_hieu: 11/2013/TT-BLĐTBXH
+  loai: 21
+  dieu_khoan: 09/2020/TT-BLĐTBXH Điều 13 khoản 2 điểm b
+  trich: 'Kể từ ngày Thông tư này có hiệu lực thi hành, các Thông tư sau hết hiệu lực thi hành: … Thông tư số 11/2013/TT-BLĐTBXH ngày 11 tháng 6 năm 2013 của Bộ trưởng Bộ Lao động - Thương binh và Xã hội ban hành Danh mục công việc nhẹ được sử dụng người dưới 15 tuổi làm việc./'
+  url: https://vbpl.vn/van-ban/chi-tiet/152670
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 12/2022/NĐ-CP
+  to_so_ky_hieu: 28/2020/NĐ-CP
+  loai: 21
+  dieu_khoan: 12/2022/NĐ-CP Điều 62 khoản 2
+  trich: Nghị định số 28/2020/NĐ-CP ngày 01 tháng 3 năm 2020 của Chính phủ quy định xử phạt vi phạm hành chính trong lĩnh vực lao động, bảo hiểm xã hội, đưa người lao động Việt Nam đi làm việc ở nước ngoài theo hợp đồng hết hiệu lực thi hành kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/153913
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 29/2019/NĐ-CP
+  to_so_ky_hieu: 55/2013/NĐ-CP
+  loai: 21
+  dieu_khoan: 29/2019/NĐ-CP Điều 28 khoản 2
+  trich: Các Nghị định số 55/2013/NĐ-CP ngày 22 tháng 5 năm 2013 … hết hiệu lực thi hành kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/134611
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 29/2019/NĐ-CP
+  to_so_ky_hieu: 73/2014/NĐ-CP
+  loai: 21
+  dieu_khoan: 29/2019/NĐ-CP Điều 28 khoản 2
+  trich: Nghị định số 73/2014/NĐ-CP ngày 23 tháng 7 năm 2014 … hết hiệu lực thi hành kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/134611
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 29/2019/NĐ-CP
+  to_so_ky_hieu: 01/2014/TT-BLĐTBXH
+  loai: 21
+  dieu_khoan: 29/2019/NĐ-CP Điều 28 khoản 2
+  trich: Thông tư số 01/2014/TT-BLĐTBXH ngày 08 tháng 01 năm 2014 … hết hiệu lực thi hành kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/134611
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 29/2019/NĐ-CP
+  to_so_ky_hieu: 40/2014/TT-NHNN
+  loai: 21
+  dieu_khoan: 29/2019/NĐ-CP Điều 28 khoản 2
+  trich: Thông tư số 40/2014/TT-NHNN ngày 11 tháng 12 năm 2014 … hết hiệu lực thi hành kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/134611
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 67/2025/QH15
+  to_so_ky_hieu: 14/2008/QH12
+  loai: 21
+  dieu_khoan: 67/2025/QH15 Điều 19 khoản 2
+  trich: Luật Thuế thu nhập doanh nghiệp số 14/2008/QH12 đã được sửa đổi, bổ sung một số điều theo Luật số 32/2013/QH13, Luật số 71/2014/QH13, Luật số 61/2020/QH14, Luật số 12/2022/QH15 và Luật số 15/2023/QH15 hết hiệu lực kể từ ngày Luật này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/179941
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 38/2019/QH14
+  to_so_ky_hieu: 78/2006/QH11
+  loai: 21
+  dieu_khoan: 38/2019/QH14 Điều 151 khoản 3
+  trich: Luật Quản lý thuế số 78/2006/QH11 đã được sửa đổi, bổ sung một số điều theo Luật số 21/2012/QH13, Luật số 71/2014/QH13 và Luật số 106/2016/QH13 hết hiệu lực kể từ ngày Luật này có hiệu lực thi hành, trừ trường hợp quy định tại khoản 1 Điều 152 của Luật này
+  url: https://vbpl.vn/van-ban/chi-tiet/136036
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 38/2019/QH14
+  to_so_ky_hieu: 108/2025/QH15
+  loai: 22
+  dieu_khoan: 108/2025/QH15 Điều 52 khoản 3
+  trich: Luật Quản lý thuế số 38/2019/QH14 đã được sửa đổi, bổ sung một số điều theo Luật số 56/2024/QH15 (sau đây gọi là Luật Quản lý thuế số 38/2019/QH14) hết hiệu lực thi hành kể từ ngày Luật này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/187043
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 38/2022/NĐ-CP
+  to_so_ky_hieu: 90/2019/NĐ-CP
+  loai: 21
+  dieu_khoan: 38/2022/NĐ-CP Điều 5 khoản 2
+  trich: Nghị định số 90/2019/NĐ-CP ngày 15 tháng 11 năm 2019 của Chính phủ quy định mức lương tối thiểu vùng đối với người lao động làm việc theo hợp đồng lao động hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/154245
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 74/2024/NĐ-CP
+  to_so_ky_hieu: 38/2022/NĐ-CP
+  loai: 21
+  dieu_khoan: 74/2024/NĐ-CP Điều 5 khoản 2
+  trich: Nghị định số 38/2022/NĐ-CP ngày 12 tháng 6 năm 2022 của Chính phủ quy định mức lương tối thiểu đối với người lao động làm việc theo hợp đồng lao động hết hiệu lực kể từ ngày 01 tháng 7 năm 2024
+  url: https://vbpl.vn/van-ban/chi-tiet/168670
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 293/2025/NĐ-CP
+  to_so_ky_hieu: 74/2024/NĐ-CP
+  loai: 21
+  dieu_khoan: 293/2025/NĐ-CP Điều 5 khoản 2
+  trich: Nghị định số 74/2024/NĐ-CP ngày 30 tháng 6 năm 2024 của Chính phủ quy định mức lương tối thiểu đối với người lao động làm việc theo hợp đồng lao động hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/183939
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 74/2024/NĐ-CP
+  to_so_ky_hieu: 293/2025/NĐ-CP
+  loai: 22
+  dieu_khoan: 293/2025/NĐ-CP Điều 5 khoản 2
+  trich: Nghị định số 74/2024/NĐ-CP ngày 30 tháng 6 năm 2024 của Chính phủ quy định mức lương tối thiểu đối với người lao động làm việc theo hợp đồng lao động hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/183939
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 90/2019/NĐ-CP
+  to_so_ky_hieu: 157/2018/NĐ-CP
+  loai: 21
+  dieu_khoan: 90/2019/NĐ-CP Điều 6 khoản 1
+  trich: Nghị định này có hiệu lực thi hành từ ngày 01 tháng 01 năm 2020. Nghị định số 157/2018/NĐ-CP ngày 16 tháng 11 năm 2018 của Chính phủ quy định mức lương tối thiểu vùng đối với người lao động làm việc theo họp đồng lao động hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/139094
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 157/2018/NĐ-CP
+  to_so_ky_hieu: 141/2017/NĐ-CP
+  loai: 21
+  dieu_khoan: 157/2018/NĐ-CP Điều 6 khoản 1
+  trich: Nghị định này có hiệu lực thi hành từ ngày 01 tháng 01 năm 2019. Nghị định số 141/2017/NĐ-CP ngày 07 tháng 12 năm 2017 của chính phủ quy định mức lương tối thiểu vùng đối với người lao động làm việc theo hợp đồng lao động hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/132862
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 153/2016/NĐ-CP
+  to_so_ky_hieu: 122/2015/NĐ-CP
+  loai: 21
+  dieu_khoan: 153/2016/NĐ-CP Điều 6 khoản 1
+  trich: Nghị định này có hiệu lực thi hành từ ngày 01 tháng 01 năm 2017. Nghị định số 122/2015/NĐ-CP ngày 14 tháng 11 năm 2015 của Chính phủ quy định mức lương tối thiểu vùng … hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/11/153.signed.pdf
+  kiem_boi: ocr-ban-ky-so-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 356/2025/NĐ-CP
+  to_so_ky_hieu: 13/2023/NĐ-CP
+  loai: 21
+  dieu_khoan: 356/2025/NĐ-CP Điều 42 khoản 2
+  trich: Nghị định số 13/2023/NĐ-CP ngày 17 tháng 4 năm 2023 của Chính phủ về bảo vệ dữ liệu cá nhân hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/187276
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 283/2026/NĐ-CP
+  to_so_ky_hieu: 12/2022/NĐ-CP
+  loai: 21
+  dieu_khoan: 283/2026/NĐ-CP Điều 66 khoản 4
+  trich: Nghị định số 12/2022/NĐ-CP ngày 17 tháng 01 năm 2022 của Chính phủ quy định xử phạt vi phạm hành chính trong lĩnh vực lao động, bảo hiểm xã hội, người lao động Việt Nam đi làm việc ở nước ngoài theo hợp đồng hết hiệu lực thi hành kể từ ngày Nghị định này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/787d3780-866f-11f1-8511-612429c9d15e
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 135/2020/NĐ-CP
+  to_so_ky_hieu: 158/2025/NĐ-CP
+  loai: 23
+  dieu_khoan: 158/2025/NĐ-CP Điều 44 khoản 2 điểm c
+  trich: các Nghị định của Chính phủ và các điều khoản sau đây hết hiệu lực thi hành … Khoản 2 Điều 3; các khoản 1, 3 Điều 7 và khoản 2 Điều 8 của Nghị định số 135/2020/NĐ-CP ngày 18 tháng 11 năm 2020 của Chính phủ quy định về tuổi nghỉ hưu. Phụ lục III ban hành kèm theo Nghị định số 135/2020/NĐ-CP ngày 18 tháng 11 năm 2020 của Chính phủ quy định về tuổi nghỉ hưu
+  url: https://vbpl.vn/van-ban/chi-tiet/178757
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 158/2025/NĐ-CP
+  to_so_ky_hieu: 115/2015/NĐ-CP
+  loai: 21
+  dieu_khoan: 158/2025/NĐ-CP Điều 44 khoản 2 điểm a
+  trich: các Nghị định của Chính phủ và các điều khoản sau đây hết hiệu lực thi hành … Nghị định số 115/2015/NĐ-CP ngày 11 tháng 11 năm 2015 của Chính phủ quy định chi tiết một số điều của Luật Bảo hiểm xã hội về bảo hiểm xã hội bắt buộc
+  url: https://vbpl.vn/van-ban/chi-tiet/178757
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 115/2015/NĐ-CP
+  to_so_ky_hieu: 158/2025/NĐ-CP
+  loai: 22
+  dieu_khoan: 158/2025/NĐ-CP Điều 44 khoản 2 điểm a
+  trich: các Nghị định của Chính phủ và các điều khoản sau đây hết hiệu lực thi hành … Nghị định số 115/2015/NĐ-CP ngày 11 tháng 11 năm 2015 của Chính phủ quy định chi tiết một số điều của Luật Bảo hiểm xã hội về bảo hiểm xã hội bắt buộc
+  url: https://vbpl.vn/van-ban/chi-tiet/178757
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 158/2025/NĐ-CP
+  to_so_ky_hieu: 143/2018/NĐ-CP
+  loai: 21
+  dieu_khoan: 158/2025/NĐ-CP Điều 44 khoản 2 điểm b
+  trich: các Nghị định của Chính phủ và các điều khoản sau đây hết hiệu lực thi hành … Nghị định số 143/2018/NĐ-CP ngày 15 tháng 10 năm 2018 của Chính phủ quy định chi tiết Luật Bảo hiểm xã hội và Luật An toàn, vệ sinh lao động về bảo hiểm xã hội bắt buộc đối với người lao động là công dân nước ngoài làm việc tại Việt Nam
+  url: https://vbpl.vn/van-ban/chi-tiet/178757
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 143/2018/NĐ-CP
+  to_so_ky_hieu: 158/2025/NĐ-CP
+  loai: 22
+  dieu_khoan: 158/2025/NĐ-CP Điều 44 khoản 2 điểm b
+  trich: các Nghị định của Chính phủ và các điều khoản sau đây hết hiệu lực thi hành … Nghị định số 143/2018/NĐ-CP ngày 15 tháng 10 năm 2018 của Chính phủ quy định chi tiết Luật Bảo hiểm xã hội và Luật An toàn, vệ sinh lao động về bảo hiểm xã hội bắt buộc đối với người lao động là công dân nước ngoài làm việc tại Việt Nam
+  url: https://vbpl.vn/van-ban/chi-tiet/178757
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 71/2025/QH15
+  to_so_ky_hieu: 31/2024/QH15
+  loai: 20
+  dieu_khoan: 71/2025/QH15 Điều 49 khoản 5 điểm a
+  trich: Thay thế cụm từ "khu công nghệ thông tin tập trung" bằng cụm từ "khu công nghệ số tập trung" tại các luật, nghị quyết sau đây … Khoản 22 Điều 79 và khoản 1 Điều 202 của Luật Đất đai số 31/2024/QH15
+  url: https://vbpl.vn/van-ban/chi-tiet/179989
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 113/2025/QH15
+  to_so_ky_hieu: 07/2025/UBTVQH15
+  loai: 21
+  dieu_khoan: 113/2025/QH15 Điều 30 khoản 3
+  trich: Pháp lệnh Dân số số 06/2003/PL-UBTVQH11 đã được sửa đổi, bổ sung theo Pháp lệnh số 07/2025/UBTVQH15 hết hiệu lực kể từ ngày Luật này có hiệu lực thi hành
+  url: https://vbpl.vn/van-ban/chi-tiet/6fa2fd20-597e-11f1-add2-7717d93a2118
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 128/2025/NĐ-CP
+  to_so_ky_hieu: 293/2025/NĐ-CP
+  loai: 23
+  dieu_khoan: 293/2025/NĐ-CP Điều 5 khoản 3
+  trich: Bãi bỏ khoản 7 Điều 15 và Phụ lục I kèm theo của Nghị định số 128/2025/NĐ-CP ngày 11 tháng 6 năm 2025 của Chính phủ quy định về phân quyền, phân cấp trong quản lý nhà nước lĩnh vực nội vụ
+  url: https://vbpl.vn/van-ban/chi-tiet/183939
+  kiem_boi: doi-chieu-nguyen-van-k8
+  kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 148/2025/QH15
+  to_so_ky_hieu: 67/2006/QH11
+  loai: 21
+  dieu_khoan: '148/2025/QH15 Điều 47 khoản 2 (ngày: khoản 1)'
+  trich: Luật Công nghệ thông tin số 67/2006/QH11 đã được sửa đổi, bổ sung một số điều theo Luật số 21/2017/QH14 … hết hiệu kể từ ngày Luật này có hiệu lực thi hành, trừ trường hợp quy định tại khoản 1 và khoản 2 Điều 48 của Luật này … Luật này có hiệu lực thi hành từ ngày 01 tháng 7 năm 2026
+  url: https://congbao.chinhphu.vn/van-ban/luat-so-148-2025-qh15-468708.htm
+  kiem_boi: doi-chieu-cong-bao-k8
+  kiem_luc: 2026-09-29 03:43:18+00:00

@@ -8,7 +8,14 @@ Nghị định số 90/2019/NĐ-CP ngày 15/11/2019 của Chính phủ"); `khoi_
 from datetime import date
 
 from src.services.effectivity import EffectivityVerdict as V
-from src.services.trich_dan import cach_trich, dong_can_cu, khoi_can_cu, lien_ket, truong_trich_dan
+from src.services.trich_dan import (
+    cach_trich,
+    dong_can_cu,
+    khoi_can_cu,
+    lien_ket,
+    link_ban_ky,
+    truong_trich_dan,
+)
 
 BLLD = {
     "id": "139264",
@@ -169,6 +176,28 @@ def test_lien_ket_vbpl_truoc_chinhphu_chi_https_dung_mau():
     assert lien_ket("http://vbpl.vn/van-ban/chi-tiet/139264", cp) == cp, "chỉ https"
     assert lien_ket("https://evil.example/van-ban/chi-tiet/1", None) is None
     assert lien_ket(None, "javascript:alert(1)") is None
+
+
+def test_link_ban_ky_chi_pdf_https_tren_datafiles_chinhphu():
+    """Quyết định 2026-09-28 mục 9: nút "Bản gốc có chữ ký (PDF)" mở ra dưới tên
+    Cổng TTĐT Chính phủ, nên chỉ một tệp PDF trên đúng máy chủ tệp của cổng."""
+    pdf = "https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/12/145.signed.pdf"
+    assert link_ban_ky(pdf) == pdf
+    assert link_ban_ky("https://datafiles.chinhphu.vn/cpp/files/vbpq/2013/05/44-ND.PDF")
+    for sai in (
+        None,
+        "",
+        "http://datafiles.chinhphu.vn/cpp/files/vbpq/2020/12/145.signed.pdf",
+        "https://datafiles.chinhphu.vn.evil.example/145.signed.pdf",
+        "https://evil.example/https://datafiles.chinhphu.vn/145.pdf",
+        "https://user@datafiles.chinhphu.vn/cpp/145.pdf",
+        "https://datafiles.chinhphu.vn:8443/cpp/145.pdf",
+        "https://datafiles.chinhphu.vn:abc/cpp/145.pdf",
+        "https://datafiles.chinhphu.vn/cpp/1/Logo/quoc-huy.png",
+        "https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/12/145.doc",
+        "https://vanban.chinhphu.vn/?pageid=27160&docid=198540",
+    ):
+        assert link_ban_ky(sai) is None, sai
 
 
 def test_truong_trich_dan_ngay_ISO_va_NULL_di_nguyen():

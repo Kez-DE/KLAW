@@ -27,12 +27,15 @@ document làm việc đó. Cùng lý lẽ đã dùng cho `congbao_client.py`.
 """
 
 import html as _html
+import io
 import re
+import zipfile
 
 from bs4 import BeautifulSoup
 
 from src.models.domain import Cap
 from src.services.prov_parser import RE_SO, _text
+from src.services.vbhn_parser import W, _doan_sach, _doc_part
 
 CAP_TO_CLASS = {
     Cap.phan: "prov-part",
@@ -63,9 +66,12 @@ _RE_DIEM = re.compile(r"^([a-zăâđêôơư])\s*\)", re.IGNORECASE)
 # Công thức BAN HÀNH chuẩn của văn bản QPPL Việt Nam — mốc bắt đầu KHỐI ĐUÔI
 # (lời chứng thông qua + khối chữ ký). Xem `_khoi_duoi_tu` để biết vì sao phải
 # nhận nó bằng chữ chứ không bằng vị trí.
+# Hai dạng: "… này đã được …" (02/2011/QH13) và "… này được Quốc hội … thông qua" của
+# luật từ 2025 (148/2025/QH15). Dạng sau đòi "Quốc hội" ngay sau "được": câu thân văn bản
+# "Luật này được áp dụng …" không phải khối đuôi.
 _RE_KHOI_DUOI = re.compile(
     r"^(?:Luật|Bộ\s+luật|Pháp\s+lệnh|Nghị\s+quyết|Nghị\s+định|Thông\s+tư|Quyết\s+định)"
-    r"\s+này\s+đã\s+được\b", re.IGNORECASE)
+    r"\s+này\s+(?:đã\s+được\b|được\s+Quốc\s+hội\b)", re.IGNORECASE)
 
 
 def _cap_cua(text: str) -> Cap | None:
@@ -132,6 +138,37 @@ def sang_html_prov(html: str, khoi_id: str = "block_detail") -> str:
         raise ValueError(f"div#{khoi_id} không có thẻ <p> nào có chữ")
     # `div.WordSection1` là khung mà prov_parser mong đợi (xem docstring của nó).
     return '<html><body><div class="WordSection1">' + "".join(the) + "</div></body></html>"
+
+
+def gan_class_prov(html: str) -> str:
+    """HTML MOJ KHÔNG có thẻ `prov-*` nào (văn bản cũ, văn xuôi phẳng) → cùng HTML đó,
+    mỗi `<p>` ngoài bảng mang class suy từ NHÃN (`_cap_cua`), không nhãn thì
+    `prov-content`.
+
+    Gắn TẠI CHỖ, không làm phẳng như `sang_html_prov`: HTML MOJ tách khối đuôi bằng
+    cấu trúc — bảng chữ ký đứng sau đoạn văn cuối — nên giữ nguyên bảng là đủ để
+    `parse_provisions` đặt nó vào `phu_luc` theo VỊ TRÍ, không cần công thức ban hành.
+    Chữ không đổi (chỉ thêm class), nên đối chiếu nguyên văn với gateway vẫn là phép
+    kiểm của đường MOJ.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    for p in soup.find_all("p"):
+        if p.find_parent("table") is None and (t := _text(p)):
+            p["class"] = [*(p.get("class") or []), CAP_TO_CLASS.get(_cap_cua(t), "prov-content")]
+    return str(soup)
+
+
+def docx_sang_html_prov(docx: bytes) -> str:
+    """Bản `.docx` Công báo → HTML `prov-*`, qua CHÍNH `sang_html_prov` (nguồn toàn văn dự
+    phòng, quyết định 2026-09-28 mục 13). Mỗi `<w:p>` của thân văn bản, kể cả trong bảng
+    (khung tiêu đề, khối chữ ký), thành một `<p>` theo thứ tự tài liệu; header/footer là
+    part riêng nên dòng "CÔNG BÁO/Số …" đầu trang không lẫn vào. Chữ đọc bằng
+    `vbhn_parser._doan_sach` — cùng cách đọc docx Công báo đã dùng cho VBHN."""
+    goc = _doc_part(zipfile.ZipFile(io.BytesIO(docx)), "word/document.xml")
+    if goc is None:
+        raise ValueError("docx không có word/document.xml")
+    doan = [t for p in goc.iter(f"{W}p") if (t := _doan_sach(p))]
+    return sang_html_prov('<div id="block_detail">' + "".join(f"<p>{_html.escape(t)}</p>" for t in doan) + "</div>")
 
 
 def _khoi_duoi_tu(doan: list[str]) -> int:

@@ -43,9 +43,49 @@ def test_so_ky_hieu_duy_nhat_tren_toan_seed():
     — một hằng đúng của Python, không bao giờ đỏ được. Định danh nghiệp vụ là
     `so_ky_hieu`: hai doc_id cùng so_ky_hieu thì mọi duong_dan của chúng trùng
     nhau và neo trích dẫn mất tính duy nhất trên toàn corpus."""
-    skh = [v[1] for v in DOC_IDS.values()]
+    skh = [build_seed.khoa_so_hieu(v[1]) for v in DOC_IDS.values()]
     assert len(skh) == len(set(skh)), \
         f"so_ky_hieu trùng: {sorted(x for x in skh if skh.count(x) > 1)}"
+
+
+def test_khoa_so_hieu_gop_chu_dong_hinh_va_khoang_trang():
+    """Hai bản ghi gateway của CÙNG văn bản, đo 2026-09-29: 187195 ghi 'СР' bằng
+    chữ Kirin (U+0421 U+0420), 26419 có khoảng trắng sau 'TT-'. So byte thì khác,
+    nên `ux_provisions_neo_trich_dan` để lọt hai bản sâu của một văn bản."""
+    k = build_seed.khoa_so_hieu
+    assert k("07/2025/NĐ-СР") == k("07/2025/NĐ-CP")
+    assert k("18/2011/TT- BNNPTNT") == k("18/2011/TT-BNNPTNT")
+    assert k("615 TC/TCT/QÐ") == k("615 TC/TCT/QĐ")
+    assert k("07/2025/NĐ-CP") != k("07/2025/NQ-CP")
+
+
+def test_build_FAIL_khi_hai_van_ban_trung_so_hieu_sau_khi_gop(tmp_path, monkeypatch):
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    so = {"9101": "07/2025/NĐ-CP", "9102": "07/2025/NĐ-СР"}
+    for doc_id, docnum in so.items():
+        (raw / f"{doc_id}.json").write_text(
+            json.dumps(
+                {
+                    "docNum": docnum,
+                    "docType": {"name": "Nghị định"},
+                    "effStatus": {"code": "CHL"},
+                    "documentContent": {
+                        "content": '<div class="WordSection1">'
+                        '<p id="a1" class="prov-article"><b>Điều 1. Phạm vi</b></p>'
+                        '<p class="prov-clause">1. Nội dung khoản một.</p></div>'
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+    monkeypatch.setattr(build_seed, "DOC_IDS", {i: ("deep", s) for i, s in so.items()})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    with pytest.raises(ValueError, match="9101.*9102"):
+        build_seed.build(tmp_path / "raw", tmp_path / "seed")
 
 
 # ══ Mục H.1 + H.4 — build() gọi parse_anomalies và fail; build() có test ══
@@ -56,6 +96,7 @@ def test_build_ghi_du_ba_file_va_checksums(tmp_path, monkeypatch):
     raw.mkdir(parents=True)
     _metadata_rong(tmp_path / "raw")
     (raw / "9001.json").write_text(json.dumps({
+        "docNum": "1/2020/NĐ-CP",
         "title": "Nghị định thử",
         "docType": {"name": "Nghị định"},
         "effStatus": {"code": "CHL"},
@@ -71,6 +112,7 @@ def test_build_ghi_du_ba_file_va_checksums(tmp_path, monkeypatch):
     monkeypatch.setattr(build_seed, "DOC_IDS", {"9001": ("deep", "1/2020/NĐ-CP")})
     # Nguồn thứ hai tắt: mỗi test ở đây soi RIÊNG vòng lặp MOJ. Không tắt thì
     # build đi tìm data/raw/chinhphu và đỏ vì một lý do không liên quan.
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
     monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
     out = tmp_path / "seed"
     assert build_seed.build(tmp_path / "raw", out) == {
@@ -88,6 +130,29 @@ def test_build_ghi_du_ba_file_va_checksums(tmp_path, monkeypatch):
                            ("documents.jsonl", "provisions.jsonl", "references.jsonl")}
 
 
+def test_build_FAIL_khi_so_ky_hieu_khai_bao_lech_docNum_cua_gateway(tmp_path, monkeypatch):
+    """`so_ky_hieu` trong `DOC_IDS` là chữ gõ tay; `docNum` là chữ CSDL quốc gia
+    khai cho ĐÚNG id đó. Lệch nhau nghĩa là id sai hoặc gõ sai — nạp tiếp là
+    đặt toàn văn một văn bản dưới số hiệu của văn bản khác (đo 2026-09-28: 53/53
+    khớp, nên cổng này không chặn văn bản nào đang có)."""
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    (raw / "9004.json").write_text(json.dumps({
+        "docNum": "38/2022/NĐ-CP",
+        "docType": {"name": "Nghị định"}, "effStatus": {"code": "HHL"},
+        "documentContent": {"content":
+            '<div class="WordSection1">'
+            '<p id="a1" class="prov-article"><b>Điều 1. Phạm vi</b></p>'
+            '<p class="prov-clause">1. Nội dung khoản một.</p></div>'},
+    }, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(build_seed, "DOC_IDS", {"9004": ("deep", "90/2019/NĐ-CP")})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    with pytest.raises(ValueError, match="docNum"):
+        build_seed.build(tmp_path / "raw", tmp_path / "seed")
+
+
 def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
     """Mục H: parse_anomalies đã tồn tại, đã có test, CHƯA AI CHẠY trên dữ liệu
     thật — build_seed không gọi nó. Đó là lý do cả bốn lỗi kia lọt được."""
@@ -95,6 +160,7 @@ def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
     raw.mkdir(parents=True)
     _metadata_rong(tmp_path / "raw")
     (raw / "9002.json").write_text(json.dumps({
+        "docNum": "2/2020/NĐ-CP",
         "docType": {"name": "Nghị định"}, "effStatus": {"code": "CHL"},
         "documentContent": {"content":
             '<div class="WordSection1">'
@@ -107,9 +173,62 @@ def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
     monkeypatch.setattr(build_seed, "DOC_IDS", {"9002": ("deep", "2/2020/NĐ-CP")})
     # Nguồn thứ hai tắt: mỗi test ở đây soi RIÊNG vòng lặp MOJ. Không tắt thì
     # build đi tìm data/raw/chinhphu và đỏ vì một lý do không liên quan.
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
     monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
     with pytest.raises(ValueError, match="bất thường cấu trúc"):
         build_seed.build(tmp_path / "raw", tmp_path / "seed")
+
+
+def _doc_mot_dieu(so_ky_hieu: str, **them) -> str:
+    return json.dumps({
+        "docNum": so_ky_hieu,
+        "docType": {"name": "Luật"}, "effStatus": {"code": "CHL"},
+        "documentContent": {"content":
+            '<div class="WordSection1">'
+            '<p id="a1" class="prov-article"><b>Điều 1. Phạm vi</b></p>'
+            '<p class="prov-clause">1. Nội dung khoản một.</p></div>'},
+        **them,
+    }, ensure_ascii=False)
+
+
+def test_build_CANH_BAO_khi_gateway_tra_references_null(tmp_path, monkeypatch):
+    """`references: null` KHÁC `[]`. Từ 2026-09-28 gateway trả null cho mọi văn
+    bản — kể cả 161263 và 152668, mà bản cache 2026-09-02 có 8 và 31 quan hệ.
+    Đọc null như rỗng là nạp văn bản với 0 quan hệ cấp văn bản mà không ai hay —
+    cùng lỗi gộp rỗng-với-đổi-shape `MojClient.fetch_related` cấm."""
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    (raw / "9005.json").write_text(_doc_mot_dieu("5/2020/QH14", references=None), encoding="utf-8")
+    (raw / "9006.json").write_text(_doc_mot_dieu("6/2020/QH14", references=[]), encoding="utf-8")
+    monkeypatch.setattr(build_seed, "DOC_IDS", {"9005": ("deep", "5/2020/QH14"),
+                                                "9006": ("deep", "6/2020/QH14")})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    with pytest.warns(UserWarning, match="9005.*references") as bat:
+        build_seed.build(tmp_path / "raw", tmp_path / "seed")
+    assert not any("9006" in str(w.message) for w in bat), "`[]` là rỗng thật, không cảnh báo"
+
+
+def test_build_BO_canh_MOJ_da_doi_chieu_la_sai(tmp_path, monkeypatch):
+    """Mảng `references` của 19/2023/QH15 ghi loai 10 "Sửa đổi, bổ sung" tới
+    BLLĐ 45/2019/QH14, trong khi Điều 78 chỉ sửa BLTTDS 92/2015. Seed không được
+    mang cạnh đó; cạnh thật bên cạnh nó vẫn phải còn."""
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    (raw / "161263.json").write_text(_doc_mot_dieu("19/2023/QH15", references=[
+        {"targetDocument": {"id": 139264, "docNum": "45/2019/QH14"}, "referenceType": 10},
+        {"targetDocument": {"id": 96115, "docNum": "92/2015/QH13"}, "referenceType": 10},
+    ]), encoding="utf-8")
+    monkeypatch.setattr(build_seed, "DOC_IDS", {"161263": ("deep", "19/2023/QH15")})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    out = tmp_path / "seed"
+    build_seed.build(tmp_path / "raw", out)
+    refs = [json.loads(x) for x in (out / "references.jsonl").read_text(encoding="utf-8").splitlines()
+            if x.strip()]
+    assert [(r["to_document_id"], r["loai"]) for r in refs] == [("96115", 10)]
 
 
 def test_checksum_DOI_khi_parser_doi_du_HTML_khong_doi(tmp_path, monkeypatch):
@@ -123,6 +242,7 @@ def test_checksum_DOI_khi_parser_doi_du_HTML_khong_doi(tmp_path, monkeypatch):
     raw.mkdir(parents=True)
     _metadata_rong(tmp_path / "raw")
     (raw / "9003.json").write_text(json.dumps({
+        "docNum": "3/2020/NĐ-CP",
         "docType": {"name": "Nghị định"}, "effStatus": {"code": "CHL"},
         "documentContent": {"content":
             '<div class="WordSection1">'
@@ -132,6 +252,7 @@ def test_checksum_DOI_khi_parser_doi_du_HTML_khong_doi(tmp_path, monkeypatch):
     monkeypatch.setattr(build_seed, "DOC_IDS", {"9003": ("deep", "3/2020/NĐ-CP")})
     # Nguồn thứ hai tắt: mỗi test ở đây soi RIÊNG vòng lặp MOJ. Không tắt thì
     # build đi tìm data/raw/chinhphu và đỏ vì một lý do không liên quan.
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
     monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
 
     def _checksum(out: Path) -> str:
@@ -169,6 +290,7 @@ def test_build_nap_duoc_nguon_chinhphu(tmp_path, monkeypatch):
         "</div></body></html>", encoding="utf-8")
 
     monkeypatch.setattr(build_seed, "DOC_IDS", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
     monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {"777": {
         "so_ky_hieu": "9/2011/QH13", "ten": "Luật thử", "loai_van_ban": "Luật",
         "co_quan_ban_hanh": "Quốc hội", "ngay_ban_hanh": "2011-11-11",
@@ -191,3 +313,88 @@ def test_build_nap_duoc_nguon_chinhphu(tmp_path, monkeypatch):
     dieu = next(p for p in provs if p["cap"] == "dieu")
     assert "CHỦ TỊCH QUỐC HỘI" not in dieu["noi_dung"], \
         "khối chữ ký chui vào Điều — neo trích dẫn giả"
+
+
+def test_build_nap_duoc_nguon_cong_bao_docx(tmp_path, monkeypatch):
+    """Nguồn thứ ba (quyết định 2026-09-28 mục 13): `.docx` Công báo → seed qua ĐÚNG cổng
+    `_soat_va_bam`; id tiền tố `cb-`, `nguon_url` là trang Công báo, khối chữ ký ở `phu_luc`."""
+    import io
+    import zipfile
+
+    raw = tmp_path / "raw" / "congbao"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    doan = [
+        "Điều 1. Phạm vi",
+        "1. Nội dung khoản một.",
+        "Luật này được Quốc hội khóa XV thông qua ngày 11 tháng 12 năm 2025.",
+        "CHỦ TỊCH QUỐC HỘI",
+    ]
+    than = "".join(f"<w:p><w:r><w:t>{t}</w:t></w:r></w:p>" for t in doan)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr(
+            "word/document.xml",
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/'
+            f'wordprocessingml/2006/main"><w:body>{than}</w:body></w:document>',
+        )
+    (raw / "888.docx").write_bytes(buf.getvalue())
+    url = "https://congbao.chinhphu.vn/van-ban/luat-so-9-2025-qh15-888.htm"
+    monkeypatch.setattr(build_seed, "DOC_IDS", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    monkeypatch.setattr(
+        build_seed,
+        "VAN_BAN_CONGBAO",
+        {
+            "888": {
+                "url": url,
+                "so_ky_hieu": "9/2025/QH15",
+                "ten": "Luật thử",
+                "loai_van_ban": "Luật",
+                "co_quan_ban_hanh": "Quốc hội",
+                "ngay_ban_hanh": "2025-12-11",
+                "ngay_hieu_luc": "2026-07-01",
+                "ngay_het_hieu_luc": None,
+                "tinh_trang": "chua_xac_dinh",
+                "depth": "deep",
+            }
+        },
+    )
+
+    out = tmp_path / "seed"
+    assert build_seed.build(tmp_path / "raw", out)["documents"] == 1
+    doc = json.loads((out / "documents.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert (doc["id"], doc["nguon_url"]) == ("cb-888", url)
+    provs = [json.loads(x) for x in (out / "provisions.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert next(p for p in provs if p["cap"] == "khoan")["noi_dung"] == "1. Nội dung khoản một."
+    assert "CHỦ TỊCH QUỐC HỘI" in next(p for p in provs if p["cap"] == "phu_luc")["noi_dung"]
+
+
+def test_build_nap_duoc_html_MOJ_khong_the_prov(tmp_path, monkeypatch):
+    """Văn bản MOJ cũ không có thẻ `prov-*` (69/2008/NĐ-CP): gắn class theo nhãn tại
+    chỗ rồi qua cùng cổng, thay vì chặn cả văn bản."""
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    (raw / "9201.json").write_text(
+        json.dumps(
+            {
+                "docNum": "69/2008/NĐ-CP",
+                "docType": {"name": "Nghị định"},
+                "effStatus": {"code": "HHL1P"},
+                "documentContent": {
+                    "content": "<p>Căn cứ Luật Tổ chức Chính phủ;</p><p>Điều 1. Phạm vi</p>"
+                    "<p>1. Nội dung khoản một.</p>"
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(build_seed, "DOC_IDS", {"9201": ("deep", "69/2008/NĐ-CP")})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    out = tmp_path / "seed"
+    build_seed.build(tmp_path / "raw", out)
+    neo = [json.loads(x)["duong_dan"] for x in (out / "provisions.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert "69/2008/NĐ-CP > Điều 1 > Khoản 1" in neo

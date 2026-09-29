@@ -8,16 +8,37 @@ cạnh đi vào 21 văn bản corpus) là căn cứ pháp lý, KHÔNG phải tí
 và không được đếm chung.
 """
 
+import os
 from pathlib import Path
 
 import pandas as pd
 import pytest
 from sqlalchemy import text
 
-from scripts.load_incoming_edges import QUAN_HE_HIEU_LUC, _canh_hieu_luc_di_vao, load_from_parquet
+from scripts.load_incoming_edges import (
+    CANH_DOI_CHIEU_NGUYEN_VAN,
+    CANH_SAI,
+    CANH_SAI_MOJ,
+    QUAN_HE_HIEU_LUC,
+    _bo_sung,
+    _canh_hieu_luc_di_vao,
+    _canh_tu_vbhn,
+    danh_sach_ap,
+    load_from_parquet,
+)
 from src.services.db import get_engine, run_migrations
 
 RAW = Path("data/raw")
+
+# Test gọi `load_from_parquet` XOÁ RỒI CHÈN LẠI mọi cạnh loai 20..23 (kéo theo
+# `canh_doi_chieu`) và chèn văn bản ngoài kho của DB đang cấu hình — tức DB dev DÙNG
+# CHUNG. 2026-09-29 một lượt chạy từ nhánh chưa có K8 đã hoàn ngược toàn bộ cạnh đã
+# sửa của K8 và thêm 60 văn bản ngoài kho. Chỉ chạy khi người chạy chủ động xác nhận
+# DB là của riêng mình.
+_GHI_DB = pytest.mark.skipif(
+    os.environ.get("KLAW_TEST_GHI_DB") != "1",
+    reason="ghi đè cạnh hiệu lực của DB dùng chung — chỉ chạy trên DB riêng, với KLAW_TEST_GHI_DB=1",
+)
 
 
 # ══ Đơn vị — DataFrame dựng tay, không cần Postgres lẫn file parquet thật ══
@@ -47,6 +68,114 @@ def test_canh_hieu_luc_di_vao_MAP_dung_ca_4_ma():
     assert dict(zip(out["raw_text"], out["loai"], strict=True)) == QUAN_HE_HIEU_LUC
 
 
+def test_ban_trung_tro_ve_dong_giu_va_canh_trung_gop_lai():
+    """40022/153788 là bản trùng của 18451/142846 (`BAN_TRUNG`, K2 2026-09-28): nạp
+    lại parquet không được chèn lại dòng thừa — cạnh của nó thuộc về dòng giữ, và
+    cạnh trùng hệt sau khi trỏ thì chỉ còn một."""
+    rel = pd.DataFrame([
+        {"doc_id": "40022", "other_doc_id": "139264", "relationship": "Thay thế"},
+        {"doc_id": "18451", "other_doc_id": "139264", "relationship": "Thay thế"},
+        {"doc_id": "A", "other_doc_id": "153788", "relationship": "Thay thế"},
+    ])
+    out = _canh_hieu_luc_di_vao(rel, {"139264", "142846"})
+    assert sorted(zip(out["from_document_id"], out["to_document_id"], strict=True)) == [
+        ("18451", "139264"), ("A", "142846")]
+
+
+def test_hai_canh_sua_doi_127_2025_bat_nham_bi_loai():
+    """143/2025/QH15 Điều 50 khoản 2 sửa Luật Thuế TNDN 67/2025 "đã được sửa đổi, bổ
+    sung ... theo Luật số ... 127/2025/QH15"; 231/2026/NĐ-CP chỉ "Căn cứ" 127/2025.
+    Không văn bản nào sửa Luật Thi hành án hình sự 127/2025 (đọc toàn văn gateway
+    2026-09-28) — cùng lỗi crawl với 19/2023 → BLLĐ."""
+    rel = pd.DataFrame([
+        {"doc_id": "187601", "other_doc_id": "187035", "relationship": "Sửa đổi, bổ sung"},
+        {"doc_id": "386e5ad0-7d09-11f1-9c00-f9e84f25c1dc", "other_doc_id": "187035",
+         "relationship": "Sửa đổi, bổ sung"},
+    ])
+    assert _canh_hieu_luc_di_vao(rel, {"187035"}).empty
+
+
+def test_canh_hieu_luc_di_vao_LOAI_canh_da_doi_chieu_la_sai():
+    """19/2023/QH15 "Sửa đổi, bổ sung" BLLĐ là lỗi của crawl nguồn (toàn văn chỉ
+    sửa BLTTDS) — nạp lại parquet không được đưa nó trở lại. Cạnh thật của
+    71/2025/QH15 vào BLLĐ phải còn."""
+    rel = pd.DataFrame([
+        {"doc_id": "161263", "other_doc_id": "139264", "relationship": "Sửa đổi, bổ sung"},
+        {"doc_id": "179989", "other_doc_id": "139264", "relationship": "Sửa đổi, bổ sung"},
+    ])
+    out = _canh_hieu_luc_di_vao(rel, {"139264"})
+    assert list(out["from_document_id"]) == ["179989"]
+
+
+def test_bo_sung_them_canh_moi_va_khong_nhan_doi_canh_da_co():
+    canh = pd.DataFrame([{"from_document_id": "179989", "to_document_id": "139264",
+                          "loai": 20, "raw_text": "Sửa đổi, bổ sung"}])
+    them = [("179989", "139264", 20, "Sửa đổi, bổ sung"),   # parquet đã có → bỏ
+            ("187742", "139264", 20, "Sửa đổi, bổ sung"),
+            ("187742", "139264", 20, "Sửa đổi, bổ sung")]   # trùng trong chính `them` → một
+    out = _bo_sung(canh, them)
+    assert sorted(zip(out["from_document_id"], out["loai"])) == [("179989", 20), ("187742", 20)]
+
+
+def test_canh_doi_chieu_nguyen_van_dung_chieu_va_chi_dai_tu_suy():
+    """Chuỗi lương tối thiểu 90/2019 → 38/2022 → 74/2024 đọc từ Điều 5 khoản 2 của
+    38/2022 và 74/2024. `from` là văn bản ĐI THAY (hiệu lực sau), loai 21."""
+    assert ("154245", "139094", 21, "Thay thế") in CANH_DOI_CHIEU_NGUYEN_VAN
+    assert ("168670", "154245", 21, "Thay thế") in CANH_DOI_CHIEU_NGUYEN_VAN
+    assert all(loai in QUAN_HE_HIEU_LUC.values() and QUAN_HE_HIEU_LUC[ten] == loai
+               for _, _, loai, ten in CANH_DOI_CHIEU_NGUYEN_VAN)
+
+
+def test_canh_K8_doi_chieu_nguyen_van_nap_lai_khong_dua_canh_sai_tro_lai():
+    """K8 (nghiên cứu K8b): bốn cạnh parquet đọc sai nguyên văn không quay lại khi
+    nạp lại; cạnh đúng thay chúng mang đúng chiều/loai; mã MOJ sai bị bỏ khỏi seed."""
+    sai = [
+        ("178757", "152734", "Thay thế"),
+        ("179989", "177815", "Thay thế"),
+        ("168381", "177815", "Thay thế"),
+        ("30475", "37502", "Văn bản quy định hết hiệu lực"),
+    ]
+    rel = pd.DataFrame([{"doc_id": f, "other_doc_id": t, "relationship": r} for f, t, r in sai])
+    assert _canh_hieu_luc_di_vao(rel, {"152734", "177815", "37502"}).empty
+    assert {
+        ("787d3780-866f-11f1-8511-612429c9d15e", "153913", 21, "Thay thế"),  # 283/2026 Điều 66 k4
+        ("152734", "178757", 23, "Văn bản quy định hết hiệu lực 1 phần"),  # 158/2025 Điều 44 k2 c
+        ("179989", "177815", 20, "Sửa đổi, bổ sung"),  # 71/2025 Điều 49 k5 a
+        ("117553", "92898", 21, "Thay thế"),  # 153/2016 Điều 6 k1
+        ("cb-468708", "15066", 21, "Thay thế"),  # 148/2025 Điều 47 k2 (Công báo)
+    } <= set(CANH_DOI_CHIEU_NGUYEN_VAN)
+    assert {("179989", "177815", 12), ("183939", "178260", 1), ("139094", "179273", 3)} <= CANH_SAI_MOJ
+
+
+def test_danh_sach_ap_chi_xoa_canh_sai_va_them_canh_thieu():
+    """Đường áp RIÊNG hai danh sách đã đối chiếu (không nạp lại parquet): xoá đúng cạnh
+    khớp `CANH_SAI` (quy tên quan hệ về loai), thêm cạnh bổ sung còn thiếu (một lần dù
+    trùng), không đụng cạnh parquet khác; chạy lại trên kết quả thì không còn gì làm."""
+    canh_db = [
+        (1, "178757", "152734", 21),  # CANH_SAI K8: 158/2025 "thay" 135/2020
+        (2, "178757", "152734", 20),  # cùng cặp, khác loai: không phải cạnh sai
+        (3, "11824", "13767", 21),  # cạnh parquet thường
+        (4, "154245", "139094", 21),  # cạnh bổ sung đã có
+    ]
+    them = [
+        ("154245", "139094", 21, "Thay thế"),
+        ("152734", "178757", 23, "Văn bản quy định hết hiệu lực 1 phần"),
+        ("152734", "178757", 23, "Văn bản quy định hết hiệu lực 1 phần"),
+    ]
+    xoa, moi = danh_sach_ap(canh_db, them)
+    assert xoa == [1]
+    assert moi == [("152734", "178757", 23, "Văn bản quy định hết hiệu lực 1 phần")]
+    sau = [c for c in canh_db if c[0] not in xoa] + [(9, f, t, loai) for f, t, loai, _ in moi]
+    assert danh_sach_ap(sau, them) == ([], [])
+
+
+def test_canh_sai_va_canh_doi_chieu_khong_chung_khoa():
+    """Một khoá vừa ở `CANH_SAI` vừa ở `CANH_DOI_CHIEU_NGUYEN_VAN` thì `danh_sach_ap`
+    xoá rồi thêm lại nó mỗi lượt — hai danh sách phải rời nhau."""
+    sai = {(f, t, QUAN_HE_HIEU_LUC[r]) for f, t, r in CANH_SAI}
+    assert not sai & {c[:3] for c in CANH_DOI_CHIEU_NGUYEN_VAN}
+
+
 def test_load_from_parquet_RAISE_khi_thieu_metadata_khong_am_tham_bo_qua(tmp_path):
     """Một cạnh trỏ tới văn bản ngoài corpus mà `metadata.parquet` không có: phải
     RAISE (đếm + báo rõ id) TRƯỚC KHI chạm DB, không được continue/skip lặng lẽ
@@ -69,6 +198,7 @@ def test_load_from_parquet_RAISE_khi_thieu_metadata_khong_am_tham_bo_qua(tmp_pat
 
 
 @pytest.mark.integration
+@_GHI_DB
 def test_nap_dung_moi_canh_hieu_luc_di_vao_corpus_va_BLLD_co_3_canh():
     """Số cạnh là hàm của (parquet × corpus), KHÔNG phải hằng số.
 
@@ -89,6 +219,9 @@ def test_nap_dung_moi_canh_hieu_luc_di_vao_corpus_va_BLLD_co_3_canh():
     rel = pd.read_parquet(RAW / "relationships.parquet")
     mong_doi = _canh_hieu_luc_di_vao(rel, corpus)
 
+    with get_engine().connect() as c:
+        mong_doi = _bo_sung(mong_doi, [*CANH_DOI_CHIEU_NGUYEN_VAN, *_canh_tu_vbhn(c)])
+
     n = load_from_parquet(RAW / "relationships.parquet", get_engine())
     assert n == len(mong_doi), f"loader ghi {n} cạnh, hàm thuần nói {len(mong_doi)}"
     with get_engine().connect() as c:
@@ -99,31 +232,38 @@ def test_nap_dung_moi_canh_hieu_luc_di_vao_corpus_va_BLLD_co_3_canh():
             "SELECT count(*) FROM \"references\" WHERE to_document_id = '139264'"
             " AND loai IN (20,21,22,23)")).scalar_one()
     assert theo_loai == dict(mong_doi["loai"].value_counts()), theo_loai
-    assert blld == 3, f"BLLĐ (139264) phải có 3 cạnh hiệu lực đi vào, được {blld}"
+    # 3 của parquet − 19/2023 (cạnh sai) + 124/2025 và 113/2025 (18/VBHN-VPQH).
+    assert blld == 4, f"BLLĐ (139264) phải có 4 cạnh hiệu lực đi vào, được {blld}"
 
 
 @pytest.mark.integration
-def test_nd_90_2019_KHONG_co_canh_hieu_luc_di_vao_trong_du_lieu_hien_tai():
-    """Brief gốc giả định NĐ 90/2019 (139094) có cạnh đi vào loại Thay thế/Bãi bỏ
-    để bắt ca MOJ đánh sai 'còn hiệu lực' (ca then chốt của Mức 2) — ĐÃ ĐO LẠI,
-    giả định đó SAI với dữ liệu hiện có: cả 14 cạnh đi vào 139094 trong
-    `relationships.parquet` đều là 'Căn cứ' (bị loại theo Ruling 4), không cạnh
-    nào thuộc 4 loại hiệu lực. Test này GHIM sự thật đo được thay vì giả định
-    chưa kiểm của brief: T1 KHÔNG có tín hiệu đồ thị cho riêng ca 139094 từ
-    nguồn này — Task 2 cần biết điều này TRƯỚC khi thiết kế guard Mức 2, không
-    phải sau khi guard im lặng bỏ sót nó."""
+def test_canh_tu_vbhn_BLLD_du_ba_luat_sua_doi():
+    """Chỉ ĐỌC: 18/VBHN-VPQH nêu ba luật sửa BLLĐ — 124/2025, 113/2025, 71/2025 —
+    qua bảng `sua_doi_dieu_khoan`; không có 19/2023."""
+    with get_engine().connect() as c:
+        tu = {f for f, t, loai, _ in _canh_tu_vbhn(c) if t == "139264" and loai == 20}
+    assert tu == {"187742", "6fa2fd20-597e-11f1-add2-7717d93a2118", "179989"}, tu
+
+
+@pytest.mark.integration
+@_GHI_DB
+def test_nd_90_2019_chi_co_canh_thay_the_doc_tu_nguyen_van_38_2022():
+    """`relationships.parquet` KHÔNG có cạnh hiệu lực nào đi vào NĐ 90/2019
+    (139094): cả 14 cạnh là 'Căn cứ' (đo ở T1). Từ K1 (2026-09-28) cạnh duy nhất
+    là 38/2022/NĐ-CP → 90/2019 loai 21, đọc từ Điều 5 khoản 2 của 38/2022
+    (`CANH_DOI_CHIEU_NGUYEN_VAN`) — nếu parquet tự có thêm cạnh thì dữ liệu nguồn
+    đã đổi, đo lại trước khi sửa con số."""
     run_migrations()
     load_from_parquet(RAW / "relationships.parquet", get_engine())
     with get_engine().connect() as c:
-        n = c.execute(text(
-            "SELECT count(*) FROM \"references\" WHERE to_document_id = '139094'"
-            " AND loai IN (20,21,22,23)")).scalar_one()
-    assert n == 0, (
-        "139094 giờ CÓ cạnh hiệu lực đi vào — dữ liệu nguồn đã đổi; cập nhật lại "
-        "assumption của Task 2 và xoá dòng ghi chú này")
+        canh = c.execute(text(
+            "SELECT from_document_id, loai FROM \"references\" WHERE to_document_id = '139094'"
+            " AND loai IN (20,21,22,23)")).all()
+    assert [tuple(r) for r in canh] == [("154245", 21)], canh
 
 
 @pytest.mark.integration
+@_GHI_DB
 def test_khong_tu_tro_vao_chinh_no():
     run_migrations()
     load_from_parquet(RAW / "relationships.parquet", get_engine())
@@ -135,6 +275,7 @@ def test_khong_tu_tro_vao_chinh_no():
 
 
 @pytest.mark.integration
+@_GHI_DB
 def test_van_ban_ngoai_corpus_duoc_chen_metadata_va_van_ban_that_khong_bi_dung():
     """FK `references_from_document_fk` bắt `from_document_id` phải có trong
     `documents`, mà cạnh đi vào xuất phát từ văn bản NGOÀI corpus — chèn trước
@@ -192,6 +333,7 @@ def test_van_ban_ngoai_corpus_duoc_chen_metadata_va_van_ban_that_khong_bi_dung()
 
 
 @pytest.mark.integration
+@_GHI_DB
 def test_idempotent_chay_hai_lan_cung_so_dong():
     run_migrations()
 

@@ -59,9 +59,10 @@ def test_seed_co_du_van_ban_cua_DOC_IDS_va_khong_rong(documents, provisions):
     khai báo, không thừa không thiếu", và `>=` sẽ bỏ lọt một văn bản rơi rụng.
     """
     from scripts.fetch_chinhphu import VAN_BAN
+    from scripts.fetch_congbao import VAN_BAN as VAN_BAN_CONGBAO
     from scripts.fetch_moj import DOC_IDS
 
-    mong_doi = set(DOC_IDS) | {f"cp-{k}" for k in VAN_BAN}
+    mong_doi = set(DOC_IDS) | {f"cp-{k}" for k in VAN_BAN} | {f"cb-{k}" for k in VAN_BAN_CONGBAO}
     assert len(documents) == len(mong_doi), len(documents)
     assert {d["id"] for d in documents} == mong_doi
     assert len(provisions) > 19_000, len(provisions)
@@ -134,10 +135,11 @@ def test_chuong_VIII_bo_luat_hinh_su_co_so_hieu(provisions):
 
 def test_tieu_muc_co_mat_trong_seed(provisions):
     """prov-subsection tồn tại 43 lần trong HTML; thiếu cấp này thì 23 Tiểu mục
-    Bộ luật Dân sự mất trắng."""
-    tm = [p for p in provisions if p["cap"] == "tieu_muc"]
-    assert len(tm) == 23, len(tm)
-    assert all(p["document_id"] == "95942" for p in tm)
+    Bộ luật Dân sự mất trắng. K6 (2026-09-29) thêm hai văn bản có Tiểu mục thật:
+    21/2021/NĐ-CP (8 thẻ prov-subsection → 8) và 99/2022/NĐ-CP (4 thẻ → 2, nhãn và
+    tên mỗi Tiểu mục là hai thẻ, như BLDS)."""
+    tm = Counter(p["document_id"] for p in provisions if p["cap"] == "tieu_muc")
+    assert tm == {"95942": 23, "147004": 8, "159372": 2}, tm
 
 
 def test_day_so_DIEU_cua_6_bo_luat_lien_tuc_khong_thieu_khong_trung(documents, provisions):
@@ -245,7 +247,10 @@ def test_moi_van_ban_co_nhieu_nhat_MOT_ban_ghi_phu_luc(provisions, documents):
     # đã đóng cho text và giờ đóng nốt cho bảng.
     # Số lấy từ `documents` chứ không viết cứng: bất biến là "MỖI văn bản đúng
     # một bản ghi phu_luc", không phải "có 21 bản ghi".
-    assert len(pl) == len(documents), \
+    # Trừ văn bản mà HTML gateway KHÔNG có chữ đuôi nào: 69/2008/NĐ-CP (24581) dừng
+    # ở câu cuối Điều 23 — không bảng, không khối chữ ký (đo 2026-09-29).
+    khong_duoi = {"24581"}
+    assert {p["document_id"] for p in pl} == {d["id"] for d in documents} - khong_duoi, \
         f"{len(documents)} văn bản có chữ/bảng đuôi, thấy {len(pl)}"
     assert len({p["duong_dan"] for p in pl}) == len(pl)
     for p in pl:

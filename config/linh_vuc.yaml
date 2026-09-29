@@ -226,3 +226,21 @@ linh_vuc:
     ten: Lĩnh vực khác
     uu_tien: 27
     tu_khoa: [khoa hoc va cong nghe, chuyen giao cong nghe, cong nghe cao, tieu chuan do luong chat luong, nong nghiep, chan nuoi, trong trot, thu y, dien luc, dau khi, su dung nang luong tiet kiem]
+
+# ── Ghi đè theo văn bản (K2, 2026-09-28) ─────────────────────────────────────
+# CHỈ khi nhãn NGUỒN làm phép khớp từ khoá xếp sai và bằng chứng nằm trong chính
+# tiêu đề + trường gateway của văn bản. Khoá là `documents.id`; thiếu một trục thì
+# trục đó giữ kết quả khớp. `scripts/nap_nganh_luat.py` áp SAU phép khớp, nên
+# chạy lại phép xếp không làm sai lại.
+ghi_de:
+  # 64/2020/QH14 "Luật đầu tư theo phương thức đối tác công tư": `linh_vuc` nguồn
+  # = documentMajors gateway "Lao động - Thương binh và Xã hội" (nhãn sai; cơ quan
+  # chủ trì trên gateway là Bộ Tài chính) nên "lao dong" thắng "doi tac cong tu".
+  "142882": {linh_vuc: dau_tu, nganh_luat: kinh_te}
+  # 15/2012/QH13 "Luật Xử lý vi phạm hành chính": nguồn "Hình sự - hành chính" làm
+  # "hinh su" thắng; documentMajors gateway là "Tư pháp", cùng nhóm với 88/2025/QH15.
+  "27621": {linh_vuc: vi_pham_hanh_chinh, nganh_luat: hanh_chinh}
+  # 43/2024/QH15 sửa Luật Đất đai, Luật Nhà ở, Luật Kinh doanh bất động sản và Luật
+  # Các tổ chức tín dụng: 3/4 luật được sửa thuộc bất động sản (ngành đã là dat_dai),
+  # nhưng "to chuc tin dung" có ưu tiên cao hơn.
+  "170509": {linh_vuc: bat_dong_san}

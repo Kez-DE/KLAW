@@ -7,6 +7,7 @@ from pathlib import Path
 
 from sqlalchemy import text
 
+from scripts.load_incoming_edges import CANH_SAI_MOJ
 from src.services.db import get_engine, run_migrations
 from src.services.xref import resolve_all
 
@@ -48,13 +49,152 @@ def _kiem_toan_ven(seed: Path) -> None:
                 "seed bị sửa mà không rebuild; chạy `python -m scripts.build_seed`")
 
 
-def ingest(seed: Path) -> dict[str, int]:
+TANG_NONG = ("shallow", "metadata")
+_KHUNG = ("thu_tu", "cap", "so_hieu_cap", "duong_dan")
+_CHU = ("tieu_de", "noi_dung", "source_node_id")
+
+
+def _khop_khung(cu: list[dict], mine: list[dict]) -> dict[int, int] | None:
+    """Provision DB đang có ↔ dòng seed của CÙNG văn bản: cùng khung (thứ tự, cấp,
+    số hiệu, neo, cha) → `local_id` → id DB; khác bất kỳ chỗ nào → None."""
+    theo_thu_tu = {q["thu_tu"]: q for q in cu}
+    if not (len(theo_thu_tu) == len(cu) == len(mine) == len({p["thu_tu"] for p in mine})):
+        return None
+    ids: dict[int, int] = {}
+    for p in mine:
+        q = theo_thu_tu.get(p["thu_tu"])
+        if q is None or any(q[k] != p[k] for k in _KHUNG):
+            return None
+        ids[p["local_id"]] = q["id"]
+    for p in mine:
+        cha = None if p["parent_local_id"] is None else ids.get(p["parent_local_id"])
+        if theo_thu_tu[p["thu_tu"]]["parent_id"] != cha:
+            return None
+    return ids
+
+
+def _ghi_de_chu(conn, doc_id: str, mine: list[dict], cu: list[dict], ids: dict[int, int]) -> int:
+    """Cùng khung: UPDATE chữ của provision đổi, bỏ bằng chứng đối chiếu nói về chữ cũ
+    (như CASCADE của đường DELETE). Trả số provision đổi."""
+    hien = {q["id"]: q for q in cu}
+    doi = [(ids[p["local_id"]], p) for p in mine if any(hien[ids[p["local_id"]]][k] != p[k] for k in _CHU)]
+    for pid, p in doi:
+        conn.execute(
+            text(
+                "UPDATE provisions SET tieu_de = :tieu_de, noi_dung = :noi_dung, source_node_id = :source_node_id"
+                " WHERE id = :id"
+            ),
+            {**{k: p[k] for k in _CHU}, "id": pid},
+        )
+    if doi:
+        conn.execute(text("DELETE FROM verified_provisions WHERE provision_id = ANY(:i)"), {"i": [i for i, _ in doi]})
+        conn.execute(text("DELETE FROM verified_documents WHERE document_id = :id"), {"id": doc_id})
+    return len(doi)
+
+
+def _ghi_van_ban(conn, d: dict, mine: list[dict], refs: list[dict],
+                 depth_cu: str | None, khong_xoa: bool = False) -> tuple[int, int]:
+    """Ghi MỘT văn bản của seed; trả `(số provision, số reference)` đã ghi.
+
+    `depth_cu` là tầng của hàng đang có trong `documents` (None = chưa có).
+
+    Hàng `shallow`/`metadata` được NÂNG TẠI CHỖ, không DELETE: xoá nó CASCADE
+    cạnh đi ra (`references_from_document_fk` — loai 22/23 "văn bản kia quy
+    định tôi hết hiệu lực" là chứng từ hiệu lực của CHÍNH nó), chunk và bản ghi
+    đối chiếu. Hàng `mo_dau` giả (tên văn bản, `016_tang_nong.sql`) chỉ nhường
+    chỗ khi toàn văn có lời mở đầu thật.
+
+    Văn bản `deep` đổi checksum mà khung provision không đổi (sửa parser chỉ đổi
+    chữ, 2026-09-29) được ghi đè chữ TẠI CHỖ: giữ id provision, chunk, cạnh, dòng
+    sửa đổi; bằng chứng đối chiếu nói về chữ cũ thì bỏ, như CASCADE của đường cũ.
+    Khung đổi thì giữ đường cũ: DELETE rồi INSERT — `khong_xoa` biến nó thành lỗi.
+    """
+    ids, so_doi = None, 0
+    if depth_cu == "deep":
+        cu = [
+            dict(r)
+            for r in conn.execute(
+                text(
+                    "SELECT id, parent_id, thu_tu, cap, so_hieu_cap, duong_dan, tieu_de, noi_dung, source_node_id"
+                    " FROM provisions WHERE document_id = :id"
+                ),
+                {"id": d["id"]},
+            ).mappings()
+        ]
+        ids = _khop_khung(cu, mine)
+    if depth_cu in TANG_NONG or ids is not None:
+        gan = ", ".join(f"{k} = :{k}" for k in d if k != "id")
+        conn.execute(text(f"UPDATE documents SET {gan}, crawled_at = now() WHERE id = :id"), d)
+    if ids is not None:
+        so_doi = _ghi_de_chu(conn, d["id"], mine, cu, ids)
+        mine = []  # cùng khung: không chèn provision nào
+    elif depth_cu in TANG_NONG:
+        if any(p["cap"] == "mo_dau" for p in mine):
+            conn.execute(text("DELETE FROM provisions WHERE document_id = :id AND cap = 'mo_dau'"),
+                         {"id": d["id"]})
+    else:
+        if depth_cu is not None and khong_xoa:
+            raise ValueError(f"{d['id']} ({d['so_ky_hieu']}): khung provision đổi — đường DELETE bị cấm (khong_xoa)")
+        conn.execute(text("DELETE FROM documents WHERE id = :id"), {"id": d["id"]})
+        cols = ", ".join(d)
+        binds = ", ".join(f":{k}" for k in d)
+        conn.execute(text(f"INSERT INTO documents ({cols}) VALUES ({binds})"), d)
+
+    # provisions của document này, theo thứ tự để parent luôn có trước con
+    local_to_db: dict[int, int] = {}
+    for p in sorted(mine, key=lambda x: x["thu_tu"]):
+        parent_db = local_to_db.get(p["parent_local_id"]) if p["parent_local_id"] is not None else None
+        new_id = conn.execute(text(
+            "INSERT INTO provisions"
+            " (document_id, parent_id, cap, so_hieu_cap, tieu_de, noi_dung,"
+            "  duong_dan, source_node_id, thu_tu)"
+            " VALUES (:document_id, :parent_id, :cap, :so_hieu_cap, :tieu_de, :noi_dung,"
+            "         :duong_dan, :source_node_id, :thu_tu) RETURNING id"
+        ), {**{k: p[k] for k in
+               ("document_id", "cap", "so_hieu_cap", "tieu_de", "noi_dung",
+                "duong_dan", "source_node_id", "thu_tu")},
+            "parent_id": parent_db}).scalar_one()
+        if p["parent_local_id"] is not None and parent_db is None:
+            raise ValueError(
+                f"document {d['id']}: provision local_id={p['local_id']} có "
+                f"parent_local_id={p['parent_local_id']} nhưng parent chưa ingest "
+                "(thứ tự thu_tu sai hoặc parent thiếu trong seed)"
+            )
+        local_to_db[p["local_id"]] = new_id
+
+    # Chỉ bảng mã MOJ (0..15) là của seed; dải 20..31 do `load_incoming_edges`
+    # sở hữu — xoá nó ở đây là xoá chứng từ hiệu lực của hàng vừa nâng.
+    conn.execute(text('DELETE FROM "references" WHERE from_document_id = :id AND loai <= 15'),
+                 {"id": d["id"]})
+    for r in refs:
+        conn.execute(text(
+            'INSERT INTO "references" (from_document_id, to_document_id, loai, raw_text)'
+            " VALUES (:from_document_id, :to_document_id, :loai, :raw_text)"), r)
+    return len(local_to_db) + so_doi, len(refs)
+
+
+def _xoa_canh_sai(conn) -> int:
+    """Xoá cạnh MOJ đã đối chiếu nguyên văn là sai (`CANH_SAI_MOJ`); trả số dòng.
+
+    `build_seed` đã bỏ chúng khỏi seed, nhưng DB nạp từ seed CŨ vẫn giữ: văn bản
+    không đổi checksum nên vòng lặp của `ingest` bỏ qua nó. Idempotent."""
+    return sum(conn.execute(text(
+        'DELETE FROM "references" WHERE from_document_id = :f AND to_document_id = :t'
+        " AND loai = :l AND from_provision_id IS NULL"), {"f": f, "t": t, "l": loai}).rowcount
+        for f, t, loai in CANH_SAI_MOJ)
+
+
+def ingest(seed: Path, dry_run: bool = False, khong_xoa: bool = False) -> dict:
+    """`dry_run`: làm hết vòng ghi rồi ROLLBACK (không migration, không `resolve_all`).
+    `khong_xoa`: văn bản đã có mà phải đi đường DELETE thì dừng cả lượt."""
     _kiem_toan_ven(seed)
-    run_migrations()
+    if not dry_run:
+        run_migrations()
     docs = _read(seed / "documents.jsonl")
     provs = _read(seed / "provisions.jsonl")
     refs = _read(seed / "references.jsonl")
-    written = {"documents": 0, "provisions": 0, "references": 0}
+    written: dict = {"documents": 0, "provisions": 0, "references": 0}
+    van_ban: list[str] = []
 
     provs_by_doc: dict[str, list[dict]] = defaultdict(list)
     for p in provs:
@@ -64,49 +204,35 @@ def ingest(seed: Path) -> dict[str, int]:
         refs_by_doc[r["from_document_id"]].append(r)
 
     eng = get_engine()
-    with eng.begin() as conn:
-        existing = dict(conn.execute(text("SELECT id, checksum FROM documents")).all())
+    with eng.connect() as conn, conn.begin() as tx:
+        existing = {r.id: r for r in conn.execute(text("SELECT id, checksum, depth FROM documents"))}
 
         for d in docs:
-            if existing.get(d["id"]) == d["checksum"]:
+            cu = existing.get(d["id"])
+            if cu is not None and cu.checksum == d["checksum"]:
                 continue  # không đổi → bỏ qua cả document lẫn provisions của nó
 
-            conn.execute(text("DELETE FROM documents WHERE id = :id"), {"id": d["id"]})
-            cols = ", ".join(d)
-            binds = ", ".join(f":{k}" for k in d)
-            conn.execute(text(f"INSERT INTO documents ({cols}) VALUES ({binds})"), d)
+            n_p, n_r = _ghi_van_ban(
+                conn,
+                d,
+                provs_by_doc.get(d["id"], []),
+                refs_by_doc.get(d["id"], []),
+                cu.depth if cu else None,
+                khong_xoa,
+            )
+            van_ban.append(d["id"])
             written["documents"] += 1
+            written["provisions"] += n_p
+            written["references"] += n_r
 
-            # provisions của document này, theo thứ tự để parent luôn có trước con
-            mine = sorted(provs_by_doc.get(d["id"], []), key=lambda x: x["thu_tu"])
-            local_to_db: dict[int, int] = {}
-            for p in mine:
-                parent_db = local_to_db.get(p["parent_local_id"]) if p["parent_local_id"] is not None else None
-                new_id = conn.execute(text(
-                    "INSERT INTO provisions"
-                    " (document_id, parent_id, cap, so_hieu_cap, tieu_de, noi_dung,"
-                    "  duong_dan, source_node_id, thu_tu)"
-                    " VALUES (:document_id, :parent_id, :cap, :so_hieu_cap, :tieu_de, :noi_dung,"
-                    "         :duong_dan, :source_node_id, :thu_tu) RETURNING id"
-                ), {**{k: p[k] for k in
-                       ("document_id", "cap", "so_hieu_cap", "tieu_de", "noi_dung",
-                        "duong_dan", "source_node_id", "thu_tu")},
-                    "parent_id": parent_db}).scalar_one()
-                if p["parent_local_id"] is not None and parent_db is None:
-                    raise ValueError(
-                        f"document {d['id']}: provision local_id={p['local_id']} có "
-                        f"parent_local_id={p['parent_local_id']} nhưng parent chưa ingest "
-                        "(thứ tự thu_tu sai hoặc parent thiếu trong seed)"
-                    )
-                local_to_db[p["local_id"]] = new_id
-                written["provisions"] += 1
-
-            conn.execute(text('DELETE FROM "references" WHERE from_document_id = :id'), {"id": d["id"]})
-            for r in refs_by_doc.get(d["id"], []):
-                conn.execute(text(
-                    'INSERT INTO "references" (from_document_id, to_document_id, loai, raw_text)'
-                    " VALUES (:from_document_id, :to_document_id, :loai, :raw_text)"), r)
-                written["references"] += 1
+        written["canh_sai_da_xoa"] = _xoa_canh_sai(conn)
+        written["van_ban"] = van_ban
+        if dry_run:
+            # Trigger DEFERRED (013) chạy lúc COMMIT; ép chạy ngay để lượt thử vấp
+            # đúng lỗi mà lượt thật sẽ vấp.
+            conn.execute(text("SET CONSTRAINTS ALL IMMEDIATE"))
+            tx.rollback()
+            return written
 
     # NGOÀI khối `begin()` ở trên: `resolve_all` mở giao dịch riêng của nó, nên
     # gọi từ bên trong sẽ lồng giao dịch.
@@ -129,6 +255,10 @@ def ingest(seed: Path) -> dict[str, int]:
 
 
 if __name__ == "__main__":
+    import sys
+
     from src.config import get_settings
 
-    print(ingest(Path(get_settings().data_seed_dir)))
+    print(
+        ingest(Path(get_settings().data_seed_dir), dry_run="--dry-run" in sys.argv, khong_xoa="--khong-xoa" in sys.argv)
+    )

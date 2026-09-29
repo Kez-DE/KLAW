@@ -382,12 +382,15 @@ def test_cung_chu_de_tieu_de_rong_tra_False_chu_khong_no():
 
 SAU_NGHI_DINH = ["92898", "126319", "132862", "139094", "168670", "183939"]
 
-# Sự thật pháp lý Kenz tự đo, KHÔNG phải `tinh_trang` của MOJ (MOJ sai 4/6).
+# Sự thật pháp lý Kenz tự đo, KHÔNG phải `tinh_trang` của MOJ (MOJ sai 4/6). Từ K8
+# (2026-09-29) bốn dòng MOJ-nói-CHL mang ghi đè có bằng chứng (`data/seed/hieu_luc_ghi_de.yaml`,
+# quyết định mục 12): HHL + ngày hết hiệu lực chính thống ⇒ Mức 1. Mức 2a/2b vẫn được các test
+# đơn vị ở trên canh bằng dữ liệu dựng tay.
 SU_THAT = {
-    "92898": V.bi_thay_the,    # 122/2015 — MOJ nói CHL
-    "126319": V.bi_thay_the,   # 141/2017 — MOJ nói CHL
-    "132862": V.bi_thay_the,   # 157/2018 — MOJ nói CHL
-    "139094": V.bi_thay_the,   # 90/2019  — MOJ nói CHL, đồ thị cũng im lặng
+    "92898": V.het_hieu_luc,   # 122/2015 — 153/2016 Điều 6 khoản 1, từ 2017-01-01
+    "126319": V.het_hieu_luc,  # 141/2017 — 157/2018 Điều 6 khoản 1, từ 2019-01-01
+    "132862": V.het_hieu_luc,  # 157/2018 — 90/2019 Điều 6 khoản 1, từ 2020-01-01
+    "139094": V.het_hieu_luc,  # 90/2019  — 38/2022 Điều 5 khoản 2, từ 2022-07-01
     "168670": V.het_hieu_luc,  # 74/2024
     "183939": V.con_hieu_luc,  # 293/2025 — hiện hành
 }
@@ -407,21 +410,24 @@ def test_CHAP_NHAN_sau_nghi_dinh_luong_toi_thieu():
 
 @pytest.mark.integration
 def test_CHAP_NHAN_ly_do_neu_dich_danh_van_ban_ke_nhiem():
-    """`ly_do` hiện ra trong câu trả lời cho người dùng — phải nêu đích danh."""
+    """Người đọc thấy văn bản kế nhiệm qua `van_ban` (quyết định mục 10: không bao giờ
+    `ly_do`) — phải nêu đích danh, kể cả khi phán quyết đến từ ngày hết hiệu lực (Mức 1).
+    K9 (quyết định mục 12): đi hết chuỗi 122/2015 → 153/2016 → … → 38/2022 → 74/2024 tới
+    văn bản CÒN hiệu lực, nên cả bốn nêu 293/2025/NĐ-CP chứ không nêu văn bản thay trực tiếp."""
     engine = get_engine()
-    ke_nhiem = {"92898": "153/2016/NĐ-CP", "126319": "157/2018/NĐ-CP",
-                "132862": "90/2019/NĐ-CP", "139094": "74/2024/NĐ-CP"}
+    ke_nhiem = dict.fromkeys(("92898", "126319", "132862", "139094"), "293/2025/NĐ-CP")
     for doc_id, so_ky_hieu in ke_nhiem.items():
         r = danh_gia_theo_id(engine, doc_id, NGAY_CHAP_NHAN)
-        assert so_ky_hieu in r.ly_do, f"{doc_id}: {r.ly_do}"
+        assert so_ky_hieu in [v.so_ky_hieu for v in r.van_ban], f"{doc_id}: {r}"
 
 
 @pytest.mark.integration
 def test_CHAP_NHAN_tin_cay_phan_anh_nguon_phan_quyet():
-    """Cạnh đồ thị → cao; suy luận cùng chủ đề → trung_binh."""
+    """Cạnh đồ thị hay ngày chính thống → cao (suy luận cùng chủ đề → trung_binh: test đơn
+    vị ở trên). 92898 từng là ca suy luận; K8 thêm cạnh 153/2016 → 122/2015 đọc từ nguyên văn."""
     engine = get_engine()
     mong = {"126319": "cao", "132862": "cao", "168670": "cao",
-            "92898": "trung_binh", "139094": "trung_binh"}
+            "92898": "cao", "139094": "cao"}
     thuc = {d: danh_gia_theo_id(engine, d, NGAY_CHAP_NHAN).tin_cay for d in mong}
     assert thuc == mong
 
@@ -464,7 +470,24 @@ def test_canh_DI_RA_nang_tin_cay_len_CAO_tren_du_lieu_that():
 # đi sửa có hiệu lực TRƯỚC văn bản bị sửa. Guard 1 bỏ cạnh đó và ghi log — hành
 # vi đúng. Điều phải giữ là "không có cạnh bẩn MỚI nào lọt vào mà không ai biết",
 # nên danh sách này liệt kê từng ca, giống danh sách ngoại lệ của migration 013.
-CANH_NGAY_MAU_THUAN_DA_BIET = {("109/2025/QH15", "09/2026/QH16")}
+# K2 2026-09-28, đọc toàn văn gateway: hai cạnh THẬT mà văn bản đi sửa có hiệu lực
+# CÙNG NGÀY văn bản bị sửa (Guard 1 đòi "sau hẳn"). 08/2020/TT-BNNPTNT "Sửa đổi, bổ
+# sung Điều 2 của Thông tư số 04/2020/TT-BNNPTNT" (cùng 01/7/2020); 71/2014/QH13
+# bãi bỏ "Khoản 4 Điều 86 của Luật Hải quan" (cùng 01/01/2015).
+# K9 2026-09-29: Mức 2a không còn dừng ở cạnh khác chủ đề ĐẦU TIÊN (thứ tự dòng SQL),
+# và LEFT JOIN `canh_doi_chieu` đổi thứ tự đó — ba cạnh bẩn từng bị che lộ ra, không
+# phán quyết nào đổi vì chúng. 71/2024/NĐ-CP "thay" Luật Đất đai 31/2024 (cạnh 5695910:
+# nghị định không thay được luật, kế hoạch K8 B-E3 đề xuất xoá); 43/2024/QH15 sửa
+# 29/2023/QH15 và đưa nó vào hiệu lực CÙNG ngày 01/8/2024 (cạnh 5694146, thật);
+# 21/2009/TT-BGDĐT "thay" 45/2012/TT-BGDĐT ban hành sau nó (cạnh 5692793, ngược chiều).
+CANH_NGAY_MAU_THUAN_DA_BIET = {
+    ("109/2025/QH15", "09/2026/QH16"),
+    ("04/2020/TT-BNNPTNT", "08/2020/TT-BNNPTNT"),
+    ("54/2014/QH13", "71/2014/QH13"),
+    ("31/2024/QH15", "71/2024/NĐ-CP"),
+    ("29/2023/QH15", "43/2024/QH15"),
+    ("45/2012/TT-BGDĐT", "21/2009/TT-BGDĐT"),
+}
 
 
 @pytest.mark.integration
@@ -484,12 +507,29 @@ def test_chi_nhung_canh_ngay_mau_thuan_DA_BIET_moi_duoc_bo(caplog):
 
 
 @pytest.mark.integration
-def test_ND_90_2019_that_su_KHONG_co_canh_nao_de_dua_vao():
-    """Ghim tiền đề của Mức 2b: phán quyết cho 139094 là do SUY LUẬN, không
-    phải do đồ thị. Test đỏ nếu ai đó nạp parquet mới có cạnh cho ca này —
-    lúc đó `test_CHAP_NHAN_tin_cay...` cũng phải đổi sang "cao"."""
+def test_ND_90_2019_chi_co_canh_doc_tu_nguyen_van_38_2022():
+    """Parquet không có cạnh nào cho 139094; tới K1 (2026-09-28) phán quyết của
+    nó là SUY LUẬN Mức 2b và nêu nhầm 74/2024. Cạnh duy nhất nay là 38/2022/NĐ-CP
+    Điều 5 khoản 2 (`load_incoming_edges.CANH_DOI_CHIEU_NGUYEN_VAN`) — test đỏ
+    nếu parquet mới tự thêm cạnh; khi đó đo lại `test_CHAP_NHAN_tin_cay...`."""
     _, canh, _ = nap_ngu_canh(get_engine(), "139094", NGAY_CHAP_NHAN)
-    assert canh == []
+    assert [(c["chieu"], c["loai"], c["from_so_ky_hieu"]) for c in canh] == [
+        ("di_vao", 21, "38/2022/NĐ-CP")]
+
+
+@pytest.mark.integration
+def test_luat_quan_ly_thue_78_2006_bi_38_2019_thay():
+    """38/2019/QH14 Điều 151 khoản 3: Luật Quản lý thuế 78/2006/QH11 "hết hiệu lực
+    kể từ ngày Luật này có hiệu lực thi hành". Parquet không có cạnh hiệu lực nào
+    cho 14832 (chỉ hai cạnh MOJ loai 12 mà Mức 2a không đọc), nên thiếu cạnh đọc
+    từ nguyên văn nó ra 'hết hiệu lực một phần' theo effStatus HHL1P."""
+    r = danh_gia_theo_id(get_engine(), "14832", NGAY_CHAP_NHAN)
+    # K8: ghi đè có bằng chứng đặt ngày hết hiệu lực 2020-07-01 ⇒ Mức 1, vẫn nêu kẻ thay thế.
+    assert (r.verdict, r.tin_cay) == (V.het_hieu_luc, "cao"), r
+    _, canh, _ = nap_ngu_canh(get_engine(), "14832", NGAY_CHAP_NHAN)
+    assert "38/2019/QH14" in [c["from_so_ky_hieu"] for c in canh], canh
+    # K9 (quyết định mục 12): 38/2019/QH14 cũng đã bị 108/2025/QH15 thay — nêu văn bản còn sống.
+    assert [v.so_ky_hieu for v in r.van_ban] == ["108/2025/QH15"], r
 
 
 @pytest.mark.integration
@@ -504,9 +544,12 @@ def test_KHONG_van_ban_nao_TRONG_CORPUS_bi_tuyen_bua_la_da_chet():
         ids = [r[0] for r in c.execute(text(
             "SELECT id FROM documents WHERE depth <> 'metadata' ORDER BY id")).all()]
     chet: dict[str, tuple[str, str, str]] = {}
+    da_chet: set[str] = set()
     for doc_id in ids:
         doc, canh, ung_vien = nap_ngu_canh(engine, doc_id, NGAY_CHAP_NHAN)
         r = danh_gia(doc, canh, NGAY_CHAP_NHAN, ung_vien)
+        if r.verdict in (V.bi_thay_the, V.het_hieu_luc):
+            da_chet.add(doc_id)
         if r.verdict is V.bi_thay_the:
             chet[doc_id] = (r.tin_cay, doc["tinh_trang"], r.ly_do)
             assert doc["so_ky_hieu"] not in r.ly_do, (
@@ -516,7 +559,8 @@ def test_KHONG_van_ban_nao_TRONG_CORPUS_bi_tuyen_bua_la_da_chet():
     # Chuỗi lương tối thiểu là 4 ca ĐÚNG đã đối chiếu tay — sàn, không phải trần:
     # corpus lớn lên thì tập này được phép lớn theo, nên ghim `==` sẽ đỏ vì một
     # lý do lành và cách sửa dễ dãi là chép lại tập mới.
-    assert {"92898", "126319", "132862", "139094"} <= chet.keys(), sorted(chet)
+    # (từ K8 chúng chết theo ngày chính thống — Mức 1 — nên sàn đặt trên mọi phán quyết "đã chết").
+    assert {"92898", "126319", "132862", "139094"} <= da_chet, sorted(da_chet)
     # Cái phải giữ là mỗi phán quyết `bi_thay_the` đều có CHỖ DỰA: hoặc một cạnh
     # đồ thị (`cao`), hoặc suy luận Mức 2b — và Mức 2b chỉ được chạy khi MOJ nói
     # CHL (guard 5). Thiếu ràng buộc này, mở corpus lên 47 văn bản đã tuyên nhầm

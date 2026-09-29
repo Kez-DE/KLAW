@@ -2,6 +2,8 @@
 
 import hashlib
 import json
+import re
+import unicodedata
 import warnings
 from pathlib import Path
 
@@ -9,20 +11,51 @@ import pandas as pd
 
 from scripts.fetch_chinhphu import VAN_BAN as VAN_BAN_CHINHPHU
 from scripts.fetch_chinhphu import url_chi_tiet
+from scripts.fetch_congbao import VAN_BAN as VAN_BAN_CONGBAO
 from scripts.fetch_moj import DOC_IDS
+from scripts.load_incoming_edges import CANH_SAI_MOJ
 from scripts.nap_linh_vuc import linh_vuc_tu_hang
-from scripts.nap_nguoi_ky import nguoi_ky_tu_response
+from scripts.nap_nguoi_ky import co_quan_tu_response, nguoi_ky_tu_response
 from src.models.domain import DocumentRow
-from src.services.chinhphu_parser import sang_html_prov
+from src.services.chinhphu_parser import docx_sang_html_prov, gan_class_prov, sang_html_prov
 from src.services.prov_parser import parse_anomalies, parse_provisions
 
+# `CCHL` = "Chưa có hiệu lực" (1/1.648 response gateway, 2026-09-28: 04/2026/QH16).
 TINH_TRANG_MAP = {
-    "CHL": "CHL", "HHL": "HHL", "HHL1P": "HHL1P",
+    "CHL": "CHL", "HHL": "HHL", "HHL1P": "HHL1P", "CCHL": "chua_hieu_luc",
 }
 
 
 def _date(v: str | None) -> str | None:
     return v[:10] if v else None
+
+
+# Chữ Kirin/Hy Lạp trông y hệt chữ Latin, và Ð U+00D0 thay Đ. Đo 2026-09-29: gateway
+# ghi '07/2025/NĐ-СР' (С Р Kirin) cho 187195, bản trùng của 174485.
+_DONG_HINH = str.maketrans(
+    "АВСЕНІКМОРТХаеіорсухΑΒΕΗΙΚΜΝΟΡΤΧΥΖÐ",
+    "ABCEHIKMOPTXaeiopcyxABEHIKMNOPTXYZĐ",
+)
+
+
+def khoa_so_hieu(s: str) -> str:
+    """Khoá so trùng số hiệu: NFC, chữ đồng hình → Latin, bỏ mọi khoảng trắng, không
+    phân biệt hoa thường. Chỉ để SO, không lưu — số hiệu lưu là `docNum` nguyên văn."""
+    return re.sub(r"\s+", "", unicodedata.normalize("NFC", s).translate(_DONG_HINH)).casefold()
+
+
+def _kiem_so_hieu_trung(docs: list[dict]) -> None:
+    """Mọi `duong_dan` mở đầu bằng số hiệu, nên hai văn bản cùng khoá số hiệu có neo
+    trích dẫn trùng nhau hoặc chỉ khác ở ký tự không nhìn thấy — `ux_provisions_neo_
+    trich_dan` so byte nên không chặn ca sau (07/2025/NĐ-CP, 18/2011/TT-BNNPTNT)."""
+    nhom: dict[str, list[str]] = {}
+    for d in docs:
+        nhom.setdefault(khoa_so_hieu(d["so_ky_hieu"]), []).append(d["id"])
+    if trung := [ids for ids in nhom.values() if len(ids) > 1]:
+        raise ValueError(
+            f"số hiệu trùng sau khi gộp chữ đồng hình/khoảng trắng: {trung} — chọn bản giữ, "
+            "bản kia vào KHONG_NAP; KHÔNG ghi seed"
+        )
 
 
 def bam_tep(p: Path) -> str:
@@ -96,10 +129,21 @@ def build(raw: Path, out: Path) -> dict[str, int]:
         if not p.exists():
             raise FileNotFoundError(f"chưa fetch {doc_id}; chạy `python -m scripts.fetch_moj`")
         d = json.loads(p.read_text(encoding="utf-8"))
+        # `so_ky_hieu` của `DOC_IDS` là chữ gõ tay; `docNum` là chữ CSDL quốc gia
+        # khai cho CHÍNH id này. Lệch = id sai hoặc gõ sai (đo 2026-09-28: 53/53
+        # khớp). Không lấy `docNum` đè lên: số hiệu nằm trong mọi `duong_dan`.
+        if d.get("docNum") != so_ky_hieu:
+            raise ValueError(
+                f"doc {doc_id}: so_ky_hieu khai báo {so_ky_hieu!r} lệch docNum gateway "
+                f"{d.get('docNum')!r} — id sai hoặc gõ sai, KHÔNG ghi seed")
         html = (d.get("documentContent") or {}).get("content") or ""
         if not html:
             raise ValueError(f"doc {doc_id} không có documentContent.content — không được bỏ qua im lặng")
 
+        if "prov-" not in html:
+            # HTML MOJ cũ, văn xuôi phẳng: gắn class theo nhãn tại chỗ (`gan_class_prov`)
+            # rồi qua CÙNG cổng; `don_kho` đối chiếu provision với HTML gateway gốc.
+            html = gan_class_prov(html)
         prov_rows, checksum = _soat_va_bam(html, so_ky_hieu, doc_id, canh_bao_tong)
         nguoi_ky, chuc_danh = nguoi_ky_tu_response(d)
         checksums[doc_id] = checksum
@@ -109,7 +153,7 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             so_ky_hieu=so_ky_hieu,
             loai_van_ban=(d.get("docType") or {}).get("name") or "Chưa xác định",
             ten=d.get("title") or "",
-            co_quan_ban_hanh=d.get("agencyName"),
+            co_quan_ban_hanh=co_quan_tu_response(d),
             ngay_ban_hanh=_date(d.get("issueDate")),
             ngay_hieu_luc=_date(d.get("effFrom")),
             ngay_het_hieu_luc=_date(d.get("effTo")),
@@ -134,12 +178,21 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             row["document_id"] = doc_id
             provs.append(row)
 
+        # `null` KHÁC `[]`: từ 2026-09-28 gateway trả `references: null` cho mọi
+        # văn bản, kể cả những văn bản bản cache 2026-09-02 có hàng chục quan hệ.
+        # Null là KHÔNG CÓ DỮ LIỆU, không phải "không có quan hệ" — nói ra.
+        if d.get("references") is None:
+            canh_bao_tong.append(
+                f"{doc_id} ({so_ky_hieu}): gateway trả references=null — quan hệ cấp văn "
+                "bản KHÔNG CÓ (không phải rỗng), seed ghi 0 cạnh MOJ cho văn bản này")
         for ref in d.get("references") or []:
             tgt = ref.get("targetDocument") or {}
-            refs.append({"from_document_id": doc_id,
-                         "to_document_id": str(tgt.get("id")) if tgt.get("id") else None,
-                         "loai": ref.get("referenceType") or 0,
-                         "raw_text": tgt.get("docNum")})
+            row = {"from_document_id": doc_id,
+                   "to_document_id": str(tgt.get("id")) if tgt.get("id") else None,
+                   "loai": ref.get("referenceType") or 0,
+                   "raw_text": tgt.get("docNum")}
+            if (doc_id, row["to_document_id"], row["loai"]) not in CANH_SAI_MOJ:
+                refs.append(row)
 
     # ── Nguồn THỨ HAI: vanban.chinhphu.vn ──
     # Chỉ cho văn bản mà bản MOJ hỏng (xem `KHONG_NAP` ở scripts/fetch_moj.py và
@@ -189,6 +242,33 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             row["document_id"] = doc_id
             provs.append(row)
 
+    # ── Nguồn THỨ BA: Công báo `.docx` (quyết định 2026-09-28 mục 13) ──
+    # Chỉ cho văn bản gateway chưa có. Cùng cổng `_soat_va_bam`, cùng lý do không có
+    # `references`, người ký hay `linh_vuc` như nguồn thứ hai.
+    for cbid, meta in VAN_BAN_CONGBAO.items():
+        p = raw / "congbao" / f"{cbid}.docx"
+        if not p.exists():
+            raise FileNotFoundError(f"chưa fetch congbao/{cbid}; chạy `python -m scripts.fetch_congbao`")
+        doc_id = f"cb-{cbid}"
+        html = docx_sang_html_prov(p.read_bytes())
+        prov_rows, checksum = _soat_va_bam(html, meta["so_ky_hieu"], doc_id, canh_bao_tong)
+        checksums[doc_id] = checksum
+        meta_cot = {k: v for k, v in meta.items() if k != "url"}
+        hang = DocumentRow(
+            id=doc_id,
+            nguoi_ky=None,
+            chuc_danh_nguoi_ky=None,
+            linh_vuc=None,
+            nguon_url=meta["url"],
+            checksum=checksum,
+            **meta_cot,
+        )
+        docs.append(hang.model_dump(mode="json"))
+        for row in prov_rows:
+            row["document_id"] = doc_id
+            provs.append(row)
+
+    _kiem_so_hieu_trung(docs)
     tep: list[str] = []
     for name, data in (("documents", docs), ("provisions", provs), ("references", refs)):
         (out / f"{name}.jsonl").write_text(

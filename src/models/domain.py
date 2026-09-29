@@ -1,8 +1,27 @@
+import unicodedata
 from datetime import date
 from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+# Số ký hiệu nạp từ nguồn có "Ð" (U+00D0, nhìn y hệt "Đ" U+0110) và gạch en/em
+# thay gạch nối — đo 2026-09-28: `110/2002/QÐ-BTC`, `43/2010/TT–BNNPTNT`, 4 dòng.
+# Chuẩn hoá LÚC TRA, hai phía như nhau; KHÔNG sửa dữ liệu lưu — số hiệu hiển thị
+# đúng nguyên văn nguồn. Một bảng thay cho cả Python lẫn SQL để hai bên không lệch.
+_THAY_SO_KY_HIEU = {"Ð": "Đ", "ð": "đ", "–": "-", "—": "-"}
+_MAP_SO_KY_HIEU = str.maketrans(_THAY_SO_KY_HIEU)
+
+
+def khoa_so_ky_hieu(s: str | None) -> str:
+    """Khoá so khớp của một số ký hiệu (NFC, Ð→Đ, gạch en/em → '-')."""
+    return unicodedata.normalize("NFC", (s or "").strip()).translate(_MAP_SO_KY_HIEU)
+
+
+def sql_khoa_so_ky_hieu(bieu_thuc: str) -> str:
+    """Cùng phép thay, viết bằng SQL, quanh `bieu_thuc` (tên cột hoặc tham số).
+    Cột `so_ky_hieu` trong kho đã NFC (0 dòng lệch, đo 2026-09-28)."""
+    return f"translate({bieu_thuc}, '{''.join(_THAY_SO_KY_HIEU)}', '{''.join(_THAY_SO_KY_HIEU.values())}')"
 
 
 class Cap(StrEnum):

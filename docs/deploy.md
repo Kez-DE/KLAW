@@ -95,15 +95,32 @@ Supabase → Authentication → URL Configuration: thêm `https://klaw-web-produ
 - Sau đó: API tự áp `MIGRATIONS_KHOI_DONG` (019+) lúc khởi động; migration mới thêm
   vào tuple đó trong `src/main.py` (test guard bắt buộc).
 - Kho luật: sao chép từ DB local (đã có embedding, không tốn OpenRouter):
-  `docker exec klaw-db-1 pg_dump -U klaw -d klaw --data-only --no-owner --no-privileges -t documents -t provisions -t '"references"' -t chunks -t sua_doi_dieu_khoan > corpus.sql`
+  `docker exec klaw-db-1 pg_dump -U klaw -d klaw --data-only --no-owner --no-privileges -t documents -t provisions -t '"references"' -t chunks -t sua_doi_dieu_khoan -t canh_doi_chieu -t anh_van_ban > corpus.sql`
   rồi `railway run -s pgvector -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction -q -f corpus.sql'`
-  (240 MB, vài phút). Không chép các bảng người dùng/runtime (`hoi_thoai`,
+  (240 MB, vài phút). `canh_doi_chieu` (039, bằng chứng cạnh đã đối chiếu nguyên văn)
+  khoá theo `references.id` — COPY giữ nguyên id nên chép cùng lượt là đúng; `anh_van_ban`
+  (040) là ảnh trang 1 của bản PDF đã ký. Không chép các bảng người dùng/runtime (`hoi_thoai`,
   `ban_thao`, `traces`, `users`, `answer_cache`, `verified_*`, …). Xem mục 6 cho
   bẫy trigger tsvector khi COPY.
 - Cách 2 (không có DB local): `railway ssh -s klaw-api -- python -m scripts.ingest`
   rồi `python -m scripts.build_chunks` (embedding qua OpenRouter, tốn tiền thật) và
-  `scripts.nap_link_cong_luat`; `nap_linh_vuc`, `nap_nguoi_ky`,
+  `scripts.nap_link_cong_luat`; `nap_linh_vuc`, `nap_nguoi_ky`, `nap_co_quan_tang_nong`,
   `load_incoming_edges` cần `data/raw/` nên chạy từ máy có raw qua `railway run`.
+  Sau MỖI lần chạy `ingest` hay `load_incoming_edges` (kể cả đường nâng tầng nông
+  lên sâu tại chỗ, vốn ghi `tinh_trang` của `documents.jsonl`) PHẢI chạy
+  `python -m scripts.lam_moi_hieu_luc --tu-seed` (0 request): nạp tình trạng hiệu
+  lực từ `data/seed/hieu_luc_gateway.jsonl` + `hieu_luc_ghi_de.yaml`. Bằng chứng cạnh
+  (`data/seed/canh_doi_chieu.yaml`) được `load_incoming_edges` đặt lại ở cuối mỗi lượt;
+  nạp riêng: `python -m scripts.nap_canh_doi_chieu`.
+  Bản PDF đã ký và ảnh trang 1 (quyết định mục 9): `python -m scripts.nap_pdf_ban_ky
+  --cache DIR --as-of YYYY-MM-DD` (dry-run, ghi `data/seed/pdf_ban_ky.yaml`) rồi thêm
+  `--ghi`; cache trống thì tra lại vanban.chinhphu.vn (≤1 request/giây, ~10 giây/văn bản).
+  Thiếu bước này mọi dòng nông ở `chua_xac_dinh` và bị ẩn (quyết định mục 8), còn
+  `documents.jsonl` mang tình trạng lúc `build_seed`, không phải lượt làm mới.
+  Một lượt `load_incoming_edges` đầy đủ thay MỌI cạnh loai 20..23 bằng parquet × kho
+  hiện tại (thêm cạnh chưa ai soát, mặc định chèn cả văn bản ngoài kho); chỉ áp sửa
+  cạnh đã đối chiếu (`CANH_SAI`, `CANH_DOI_CHIEU_NGUYEN_VAN`) thì dùng
+  `python -m scripts.load_incoming_edges --chi-danh-sach` (dry-run) rồi thêm `--ghi`.
 - CMS: `scripts/start.sh` tự `payload migrate` và từ chối start nếu còn migration
   pending.
 
@@ -128,6 +145,22 @@ Supabase → Authentication → URL Configuration: thêm `https://klaw-web-produ
   làm khi đổi biến, trừ khi đặt với `--skip-deploys`).
 - Chi phí đáng chú ý: mỗi push `main` build lại cả ba service; RAM Railway ~10
   USD/GB/tháng; embedding chỉ tốn khi chạy `build_chunks`.
+- Làm mới hiệu lực + link vbpl.vn (chạy tay, không theo lịch — quyết định
+  2026-09-28 mục 6), trên DB local rồi đưa lên bằng đường dump/restore ở mục 4:
+  `.venv/bin/python -m scripts.lam_moi_hieu_luc --dry-run` (xem thay đổi), rồi bỏ
+  `--dry-run` để ghi hai seed bằng chứng `data/seed/hieu_luc_gateway.jsonl` +
+  `data/seed/link_vbpl_da_kiem.yaml` rồi nạp `documents` TỪ chúng (commit cả hai).
+  `--chi-deep`: chỉ tầng sâu (~3 phút). Cả kho ~1 giờ (gateway ≤1 request/1,5 giây,
+  vbpl.vn ≤1 request/giây, chạy song song; đo 2026-09-28 với 1.658 văn bản). Response
+  giữ ở `data/raw/lam_moi/<ngày>/` (hoặc `--cache DIR`): ngắt giữa chừng thì chạy lại
+  cùng lệnh, id đã có không tải lại; `--tu-id ID` bỏ qua các id trước. Văn bản
+  gateway trả lỗi được liệt kê, dòng DB giữ nguyên (không đoán), lần chạy sau thử lại.
+  Ghi đè có bằng chứng (mục 12) nằm ở `data/seed/hieu_luc_ghi_de.yaml` (khuôn ở đầu
+  tệp): cột ghi đè thắng gateway ở mọi lượt, chỗ gateway nói khác chỉ được báo.
+  Nguồn sập không xoá gì: trang chung "Văn bản pháp luật", 403, 429/5xx hay lỗi mạng
+  giữ link + bằng chứng cũ; một nguồn lỗi 5 lần liền nhau thì thôi gọi nó; lượt làm
+  hơn 5 % văn bản đã kiểm mất link đạt hoặc rơi về "chưa rõ" thì không ghi gì (thoát
+  mã khác 0) — kiểm tay nguồn trước.
 
 ## 7. Bẫy đã gặp ngày 2026-09-10
 

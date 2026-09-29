@@ -158,3 +158,15 @@ def test_HAI_TRUC_doc_lap_nhau():
     """Cùng một văn bản mang một giá trị ở MỖI trục, không phải trục này suy ra trục kia."""
     assert phan_nganh_luat(ten="Luật Sở hữu trí tuệ").linh_vuc == "kinh_te"
     assert phan_linh_vuc(ten="Luật Sở hữu trí tuệ").linh_vuc == "so_huu_tri_tue"
+
+
+def test_ghi_de_theo_van_ban_chi_dung_slug_that_cua_moi_truc():
+    """`ghi_de` (K2 2026-09-28) sửa ba văn bản mà nhãn nguồn làm bộ khớp xếp sai.
+    Một slug gõ nhầm sẽ bị CHECK của DB chặn lúc ghi — bắt nó ở đây trước."""
+    from src.services.phan_linh_vuc import GHI_DE
+
+    assert set(GHI_DE) == {"142882", "27621", "170509"}
+    for doc_id, g in GHI_DE.items():
+        assert set(g) <= {"linh_vuc", "nganh_luat"}, doc_id
+        assert g.get("linh_vuc", "dau_tu") in LINH_VUC, doc_id
+        assert g.get("nganh_luat", "kinh_te") in NGANH_LUAT, doc_id

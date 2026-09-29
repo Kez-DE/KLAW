@@ -136,6 +136,16 @@ def lien_ket(link_vbpl: str | None, link_chinhphu: str | None) -> str | None:
     return None
 
 
+def link_ban_ky(url: str | None) -> str | None:
+    """Link bản PDF đã ký (quyết định 2026-09-28 mục 9), hoặc `None`: https, đúng
+    máy chủ tệp của Cổng TTĐT Chính phủ, không tài khoản hay cổng mạng lạ, đuôi
+    `.pdf`. Nút mở nó ra dưới tên cổng nhà nước, nên kiểm lại dù cột đã có CHECK."""
+    u = urlparse(url or "")
+    # `netloc` đúng bằng tên máy: không `user@`, không `:cổng` (kể cả cổng dị dạng).
+    ok = u.scheme == "https" and u.netloc == "datafiles.chinhphu.vn"
+    return url if ok and u.path.lower().endswith(".pdf") else None
+
+
 def truong_trich_dan(van_ban: dict, duong_dan: str | None = None) -> dict:
     """Các trường trích dẫn của một dòng `documents` (kèm `duong_dan` khi trích
     tới điều khoản). Ngày là chuỗi ISO: dict này đi thẳng vào cache câu trả lời

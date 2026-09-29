@@ -834,6 +834,10 @@ export interface VanBanMeta extends TrichDanDayDu {
   ngay_het_hieu_luc: string | null;
   nguoi_ky: string | null;
   chuc_danh_nguoi_ky: string | null;
+  /** Bản PDF đã ký trên datafiles.chinhphu.vn. Đọc qua `banGocKy`, không đọc thẳng. */
+  link_pdf_ban_ky?: string | null;
+  /** Có ảnh trang 1 ở `/van-ban/{doc_id}/anh-xem-truoc`. */
+  co_anh_xem_truoc?: boolean;
 }
 
 export interface MucLucItem {

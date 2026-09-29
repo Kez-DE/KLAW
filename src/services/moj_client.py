@@ -4,13 +4,21 @@ from pathlib import Path
 
 import httpx
 
+# 400 nằm đây là CỐ Ý: gateway trả 400 thoáng qua (không phải 429) sau ~35
+# request liên tiếp. 404 thì không — id không tồn tại, thử lại vô ích.
+_THU_LAI = {400, 429, 500, 502, 503, 504}
+
 
 class MojClient:
     """Client cho API công khai của CSDL quốc gia về VBPL (Bộ Tư pháp).
 
     Không auth. Quan sát thực: HTTP 400 thoáng qua sau ~35 request liên tiếp,
-    nên nghỉ `sleep` giây trước MỖI request.
+    nên nghỉ `sleep` giây trước MỖI request, và gặp lỗi thoáng qua thì thử lại
+    với backoff luỹ thừa (`backoff_base` × 2^lần). Hết lượt vẫn ném lỗi.
     """
+
+    max_retries = 4
+    backoff_base = 3.0
 
     def __init__(self, base: str, sleep: float) -> None:
         self.base = base.rstrip("/")
@@ -18,10 +26,20 @@ class MojClient:
         self._http = httpx.Client(timeout=60, headers={"User-Agent": "klaw-thesis/1.0"})
 
     def _get(self, path: str) -> dict:
-        time.sleep(self.sleep)
-        r = self._http.get(f"{self.base}{path}")
-        r.raise_for_status()
-        return r.json()
+        for lan in range(self.max_retries + 1):
+            time.sleep(self.sleep)
+            try:
+                r = self._http.get(f"{self.base}{path}")
+                r.raise_for_status()
+                return r.json()
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code not in _THU_LAI or lan == self.max_retries:
+                    raise
+            except httpx.TransportError:
+                if lan == self.max_retries:
+                    raise
+            time.sleep(self.backoff_base * 2**lan)
+        raise AssertionError("unreachable")
 
     def fetch_doc(self, doc_id: str) -> dict:
         payload = self._get(f"/doc/{doc_id}")

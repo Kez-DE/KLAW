@@ -566,12 +566,24 @@ def _van_ban_ke_nhiem(ly_do: str) -> str | None:
     return m.group(0) if m else None
 
 
+def _ten_ke_nhiem(e) -> list[str]:
+    """Văn bản đi thay. Phán quyết chết có bằng chứng (ngày hoặc cạnh đồ thị,
+    `tin_cay` cao) chỉ nêu `Effectivity.van_ban` — đã đi hết chuỗi tới văn bản
+    còn sống (quyết định 2026-09-28 mục 12); nhánh cụt thì không nêu ai, dù
+    `ly_do` còn nhắc văn bản thay trực tiếp đã chết. Suy luận Mức 2b không có
+    văn bản làm chứng nên đọc số hiệu trong `ly_do` như cũ."""
+    if e.verdict in _VERDICT_BI_THAY and e.tin_cay == "cao":
+        return [v.so_ky_hieu for v in e.van_ban]
+    m = _van_ban_ke_nhiem(e.ly_do)
+    return [m] if m else []
+
+
 def _ly_do_moi_nguon_bi_thay(qua_loc: list) -> str:
     """coverage_note khi TOÀN BỘ citation dùng-được-cho-prose đã bị lọc — nêu
-    ĐÍCH DANH văn bản hiện hành (rút từ `ly_do`, không phải một câu chung
-    chung). Không có `ly_do` nào nêu được kế nhiệm (Mức 1 hết hiệu lực không
-    cạnh) thì nói rõ không xác định được, không bịa tên."""
-    ke_nhiem = sorted({m for r in qua_loc for m in [_van_ban_ke_nhiem(r.effectivity.ly_do)] if m})
+    ĐÍCH DANH văn bản hiện hành (`_ten_ke_nhiem`, không phải một câu chung
+    chung). Không phán quyết nào nêu được kế nhiệm thì nói rõ không xác định
+    được, không bịa tên."""
+    ke_nhiem = sorted({m for r in qua_loc for m in _ten_ke_nhiem(r.effectivity)})
     if ke_nhiem:
         return (f"Những gì tôi tìm được cho câu hỏi này đều đã bị thay thế. Văn bản đi thay "
                 f"là {', '.join(ke_nhiem)}, và nội dung của nó thì tôi chưa có, "
