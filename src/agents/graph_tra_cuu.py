@@ -656,7 +656,9 @@ def build_graph_tra_cuu():
         y_dinh = st.get("intent")
         if y_dinh in (Intent.gioi_thieu, Intent.hoi_ve_kho):
             cau_hoi_meta = st.get("cau_hoi_day_du") or st["query"]
-            cac = khia_canh(cau_hoi_meta)
+            # A kho turn that names no facet keeps the kho verdict (trace
+            # fa18ddce): only gioi_thieu falls back to the introduction.
+            cac = khia_canh(cau_hoi_meta, "kho" if y_dinh == Intent.hoi_ve_kho else "nang_luc")
             if not (y_dinh == Intent.hoi_ve_kho and chi_hoi_kho(cac)):
                 kho = nap_kho(engine, as_of_hieu_luc(st.get("as_of_date"))) if can_kho(cac) else None
                 tra_loi = cau_gioi_thieu(

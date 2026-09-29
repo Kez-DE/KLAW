@@ -114,7 +114,9 @@ _RE_NANG_LUC = re.compile(
 # những Bộ luật gì" ≠ "có những lĩnh vực gì" ≠ "kho có gì".
 _RE_BO_LUAT = re.compile(r"bộ\s*luật|bo\s*luat")
 _RE_LINH_VUC = re.compile(r"lĩnh\s*vực|lãnh\s*vực|linh\s*vuc")
-_RE_KHO = re.compile(r"\bkho\b|bao\s+nhiêu\s+văn\s+bản|những\s+văn\s+bản\s+(?:nào|gì)|văn\s+bản\s+nào")
+# "bao nhiêu điều" (trace fa18ddce): an article count is a count over the kho
+# too, whatever the question calls it.
+_RE_KHO = re.compile(r"\bkho\b|bao\s+nhiêu\s+(?:văn\s+bản|điều)|những\s+văn\s+bản\s+(?:nào|gì)|văn\s+bản\s+nào")
 
 # Soạn thảo / rà soát.
 _RE_SOAN_THAO = re.compile(r"soạn|rà\s*soát|soát\s+được")
@@ -355,17 +357,20 @@ def _khop(c: str) -> dict[str, int]:
     return vi
 
 
-def _thu_tu(vi: dict[str, int]) -> list[str]:
-    return sorted(vi, key=lambda t: (vi[t], KHIA_CANH.index(t))) or ["nang_luc"]
+def _thu_tu(vi: dict[str, int], mac_dinh: str = "nang_luc") -> list[str]:
+    return sorted(vi, key=lambda t: (vi[t], KHIA_CANH.index(t))) or [mac_dinh]
 
 
-def khia_canh(cau_hoi: str) -> list[str]:
+def khia_canh(cau_hoi: str, mac_dinh: str = "nang_luc") -> list[str]:
     """Các khía cạnh trong câu hỏi, THEO THỨ TỰ người hỏi nêu (FR-013).
 
-    Mặc định `["nang_luc"]` khi không khớp gì — lời đáp đầy đủ nhất, thay cho
-    màn hình trắng mà cả pha này tồn tại để bỏ đi.
+    Không khớp gì thì trả `[mac_dinh]`. `nang_luc` — lời đáp đầy đủ nhất, thay
+    cho màn hình trắng mà cả pha này tồn tại để bỏ đi — chỉ đúng cho câu hỏi VỀ
+    KLAW (`gioi_thieu`). Một lượt `hoi_ve_kho` truyền `"kho"`: trace fa18ddce
+    (2026-09-29) cho thấy câu hỏi về kho không khớp khía cạnh nào đã nhận bài
+    giới thiệu KLAW thay cho số liệu kho.
     """
-    return _thu_tu(_khop(_chuan(cau_hoi)))
+    return _thu_tu(_khop(_chuan(cau_hoi)), mac_dinh)
 
 
 TOI_DA_LINH_VUC = 6
@@ -396,6 +401,34 @@ def chac_chan_meta(cau_hoi: str) -> bool:
     overridden to gioi_thieu (0 tokens)."""
     c = _chuan(cau_hoi)
     return bool(_RE_META_MANH.search(c)) and not _RE_NOI_DUNG_LUAT.search(c)
+
+
+# Guard in the other direction (decision 2026-09-29 item 4). Production
+# 2026-09-29: the LLM router labelled "pháp luật Việt Nam chia thành những gì"
+# `hoi_ve_kho` and the user got the KLAW introduction. A question about the
+# Vietnamese legal system is answered from statute, so `route` turns such a
+# meta verdict back into tra_cuu. Bare "hiến pháp"/"văn bản quy phạm" are left
+# out: "có Hiến pháp 2013 không" asks whether the kho holds the document.
+_RE_HE_THONG_PHAP_LUAT = re.compile(
+    r"luật\s+(?:của\s+|nước\s+)*(?:việt\s*nam|vn)\b"
+    r"|hệ\s+thống\s+(?:văn\s+bản\s+)?(?:quy\s+phạm\s+)?pháp\s+luật"
+    r"|loại\s+văn\s+bản\s+(?:quy\s+phạm\s+)?pháp\s+luật"
+    r"|văn\s+bản\s+(?:quy\s+phạm\s+)?pháp\s+luật\s+(?:được\s+)?(?:gồm|chia|phân)"
+    r"|ngành\s+luật"
+)
+# ponytail: "bạn"/"em" anywhere counts as a question about KLAW, except the
+# vocative "bạn ơi" and the preamble "bạn cho mình hỏi"; widen if traces show
+# a legal-system question addressed that way staying meta.
+_RE_NOI_VE_KLAW = re.compile(r"\bklaw\b|(?<!trẻ )\b(?:bạn|em)\b(?!\s+(?:ơi|cho)\b)")
+
+
+def hoi_he_thong_phap_luat(cau_hoi: str) -> bool:
+    """True when the question asks about the Vietnamese legal system and neither
+    addresses KLAW nor names a corpus facet (kho, a count or list of documents,
+    Bộ luật, lĩnh vực): those stay on the kho data, which answers them and closes
+    with CAU_GIOI_HAN."""
+    c = _chuan(cau_hoi)
+    return bool(_RE_HE_THONG_PHAP_LUAT.search(c)) and not _RE_NOI_VE_KLAW.search(c) and not can_kho(list(_khop(c)))
 
 
 def chi_hoi_kho(cac_khia_canh: list[str]) -> bool:
