@@ -91,38 +91,38 @@ items:
 - id: lao-006-0
   cau_hoi: Nếu tôi thuê người giúp việc mà không làm giấy tờ gì cả, có bị phạt không?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 30
+  - 283/2026/NĐ-CP > Điều 28
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-006-1
   cau_hoi: Nếu tôi đuổi việc người giúp việc mà không cho tiền xe về quê thì có bị
     phạt không?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 30
+  - 283/2026/NĐ-CP > Điều 28
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-009-0
   cau_hoi: Nếu tôi làm sai gì đó ở nước ngoài, thì cán bộ ở Đại sứ quán Việt Nam có
     thể phạt tôi bao nhiêu tiền?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 56
+  - 283/2026/NĐ-CP > Điều 62
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-009-1
   cau_hoi: Tôi có thể bị phạt tối đa bao nhiêu nếu tôi vi phạm quy định nào đó khi
     làm việc với cơ quan đại diện của Việt Nam ở nước ngoài?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 56
+  - 283/2026/NĐ-CP > Điều 62
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-010-0
   cau_hoi: Tôi muốn làm việc chỉ 4 tiếng một ngày thôi thì có được không ạ?
   duong_dan:
@@ -144,20 +144,20 @@ items:
     từ năm ngoái, mà tới giờ chưa ai trong chúng tôi được đọc. Công ty giấu như vậy
     có sao không?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 16
+  - 283/2026/NĐ-CP > Điều 22
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-011-1
   cau_hoi: Công ty tôi từ chối ngồi lại nói chuyện với đại diện nhân viên để bàn về
     quyền lợi chung thì có bị phạt không?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 16
+  - 283/2026/NĐ-CP > Điều 22
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-013-0
   cau_hoi: Công ty tôi mới mở, tôi cần phải làm gì với mấy bạn nhân viên mới ngay
     từ đầu để đúng quy định của nhà nước?
@@ -252,20 +252,20 @@ items:
   cau_hoi: Bên môi giới hứa với cơ quan cấp phép một đằng, sang tới nơi tôi làm một
     nẻo, khác hẳn giấy tờ họ nộp lúc xin phép. Họ bị phạt cỡ bao nhiêu ạ?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 42 > Khoản 5
+  - 283/2026/NĐ-CP > Điều 49 > Khoản 5
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-020-1
   cau_hoi: Công ty môi giới xuất khẩu lao động mà quảng cáo sai sự thật về lương hoặc
     điều kiện làm việc cho tôi thì có bị phạt không? Nếu có thì phạt bao nhiêu?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 42 > Khoản 5
+  - 283/2026/NĐ-CP > Điều 49 > Khoản 5
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-022-0
   cau_hoi: Nếu tôi muốn thay đổi một vài điều khoản trong hợp đồng lao động với công
     ty thì phải làm thế nào?
@@ -289,21 +289,21 @@ items:
     ví dụ như tai nạn hay bị bệnh nặng, mà công ty không lo liệu gì hết thì có bị
     phạt không?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 43 > Khoản 6
+  - 283/2026/NĐ-CP > Điều 50 > Khoản 6
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-023-1
   cau_hoi: Nếu tôi đi làm ở nước ngoài mà gặp chuyện không may, ví dụ như bị tai nạn
     lao động, mà công ty không báo cho đại sứ quán Việt Nam để họ giúp đỡ thì có bị
     phạt không?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 43 > Khoản 6
+  - 283/2026/NĐ-CP > Điều 50 > Khoản 6
   bo_luat: Lao động
   nguon: llm-gen+agent-duyet
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-024-0
   cau_hoi: Nếu công ty tôi đột nhiên đóng cửa mấy ngày vì lý do kinh doanh, tôi có
     được nhận lương không và bao nhiêu?
@@ -372,38 +372,39 @@ items:
   cau_hoi: Em đi xuất khẩu lao động rồi làm sai luật bên đó. Ông đứng đầu Cục quản
     lý mảng này có quyền phạt em nhiều nhất bao nhiêu tiền?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 50
+  - 283/2026/NĐ-CP > Điều 56
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-029-1
   cau_hoi: Em bị Cục quản lý mảng xuất khẩu lao động xử lý vì làm sai. Ngoài đóng
     tiền ra em còn chịu thêm gì nữa không ạ?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 50
+  - 283/2026/NĐ-CP > Điều 56
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-030-0
   cau_hoi: Hết hạn hợp đồng bên Nhật nhưng em tự ý trốn ở lại, không ai ép em cả.
     Nếu bị phát hiện thì ai là người viết giấy ghi lỗi của em ạ?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 59
+  - 283/2026/NĐ-CP > Điều 5
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-030-1
   cau_hoi: Em đã bị ghi giấy vì trốn ở lại bên Hàn sau khi hết hạn. Tờ giấy đó rồi
     chuyển đi đâu và ai là người chốt mức phạt em ạ?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 59
+  - 283/2026/NĐ-CP > Điều 5
+  - 283/2026/NĐ-CP > Điều 63 > Khoản 16
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-031-0
   cau_hoi: Tôi làm việc tự do, có ký hợp đồng điện tử với công ty thì có được bảo
     vệ không?
@@ -534,20 +535,20 @@ items:
   cau_hoi: Anh em xưởng em muốn lập công đoàn, có người bên liên đoàn quận xuống hướng
     dẫn nhưng bảo vệ chặn ngoài cổng không cho vào. Sếp làm vậy có sao không?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 35
+  - 283/2026/NĐ-CP > Điều 39 > Khoản 1
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-040-1
   cau_hoi: Chị tổ trưởng công đoàn xưởng tôi vừa bị cho nghỉ, mà bên công đoàn không
     hề được hỏi ý trước, cũng chẳng có giấy tờ gì. Công ty làm thế có bị gì không?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 35
+  - 283/2026/NĐ-CP > Điều 39 > Khoản 2
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-041-0
   cau_hoi: Công ty em mới vào làm, sếp bắt làm việc gấp đôi mọi người mà lương vẫn
     vậy, có đúng không ạ?
@@ -570,20 +571,20 @@ items:
   cau_hoi: Công ty tôi mở xưởng bên Lào, tự đưa mấy chục thợ của mình sang đó làm.
     Bên tôi cho họ bay thẳng, không qua lớp học nào trước, như vậy có sao không?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 44
+  - 283/2026/NĐ-CP > Điều 51 > Khoản 3
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-042-1
   cau_hoi: Bên tôi đầu tư nhà máy ở Campuchia và cử thợ của mình sang. Lúc tuyển,
     bên tôi chưa nói rõ trả bao nhiêu, ăn ở thế nào, chế độ ra sao. Có bị gì không?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 44
+  - 283/2026/NĐ-CP > Điều 51 > Khoản 3
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-043-0
   cau_hoi: Đi làm mà em có em bé dưới 1 tuổi, em có được nghỉ thêm giờ nào trong ngày
     không ạ?
@@ -606,20 +607,20 @@ items:
   cau_hoi: Bên môi giới thu của tôi ba mươi triệu tiền phí, giờ mới biết là họ thu
     quá mức cho phép. Tôi lấy lại được không, có tính thêm lãi mấy năm qua không?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 42 > Khoản 14
+  - 283/2026/NĐ-CP > Điều 49 > Khoản 12
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-044-1
   cau_hoi: Công ty môi giới đưa tôi sang Hàn nhưng làm hỏng hồ sơ nên tôi mất mấy
     tháng lương với tiền vé. Tôi đòi họ đền được không ạ?
   duong_dan:
-  - 12/2022/NĐ-CP > Điều 42 > Khoản 14
+  - 283/2026/NĐ-CP > Điều 49 > Khoản 12
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
   da_review: true
-  duyet_boi: nguoi
+  duyet_boi: agent
 - id: lao-hand-01
   cau_hoi: Một ngày mình phải làm việc bao nhiêu tiếng thì đúng luật?
   duong_dan:
