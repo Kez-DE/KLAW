@@ -776,7 +776,10 @@ async def agent_status():
 _SQL_VAN_BAN_DOC = text(
     "SELECT so_ky_hieu, ten, loai_van_ban, co_quan_ban_hanh, ngay_ban_hanh,"
     " ngay_hieu_luc, ngay_het_hieu_luc, nguoi_ky, chuc_danh_nguoi_ky, link_vbpl, link_chinhphu,"
-    " link_pdf_ban_ky, EXISTS (SELECT 1 FROM anh_van_ban a WHERE a.doc_id = d.id) AS co_anh_xem_truoc"
+    " link_pdf_ban_ky, EXISTS (SELECT 1 FROM anh_van_ban a WHERE a.doc_id = d.id) AS co_anh_xem_truoc,"
+    # Cùng thước với `/pham-vi` và `/bo-loc`: có ít nhất một điều khoản thật (không
+    # tính hàng `mo_dau` mang tên văn bản của migration 016).
+    " EXISTS (SELECT 1 FROM provisions p WHERE p.document_id = d.id AND p.cap <> 'mo_dau') AS co_toan_van"
     " FROM documents d WHERE d.id = :doc_id"
 )
 
@@ -795,6 +798,7 @@ def _meta(doc_id: str, doc) -> dict:
         "link_pdf_ban_ky": pdf,
         # Ảnh là trang 1 CỦA bản PDF: không có link để bấm mở thì không hiện ảnh.
         "co_anh_xem_truoc": pdf is not None and doc["co_anh_xem_truoc"],
+        "co_toan_van": doc["co_toan_van"],
         **truong_trich_dan(dict(doc)),
         "doc_id": doc_id, "so_ky_hieu": doc["so_ky_hieu"], "bo_luat": doc["ten"],
         "loai_van_ban": doc["loai_van_ban"], "co_quan_ban_hanh": doc["co_quan_ban_hanh"],

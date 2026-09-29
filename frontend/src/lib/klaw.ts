@@ -690,6 +690,8 @@ export interface GiaTriLoc {
 
 export interface BoLoc {
   tong_van_ban: number;
+  /** Trong `tong_van_ban`, số văn bản có toàn văn. Máy chủ cũ không gửi. */
+  so_co_toan_van?: number;
   loai_van_ban: GiaTriLoc[];
   co_quan_ban_hanh: GiaTriLoc[];
   /** 79/126 văn bản KHÔNG khai cơ quan: tổng theo cơ quan ≠ tổng corpus. */
@@ -697,6 +699,23 @@ export interface BoLoc {
   nam_min: number | null;
   nam_max: number | null;
   sap_xep: string[];
+}
+
+/**
+ * Câu nói ô tìm kiếm tìm trong bao nhiêu văn bản. Văn bản chưa có toàn văn vẫn
+ * được hiện (quyết định 2026-09-28, mục 16) và chỉ khớp được theo tên (hàng
+ * `mo_dau`), nên gọi cả tập là "có toàn văn" là nói sai. Máy chủ chưa gửi
+ * `so_co_toan_van` thì chỉ nói tổng — không đoán phần còn lại.
+ */
+export function cauPhamViTimKiem(boLoc: Pick<BoLoc, "tong_van_ban" | "so_co_toan_van">): string {
+  const tong = boLoc.tong_van_ban;
+  const sau = boLoc.so_co_toan_van;
+  if (typeof sau !== "number") return `Ô này tìm trong ${tong} văn bản.`;
+  if (sau >= tong) return `Ô này tìm trong ${tong} văn bản, văn bản nào cũng có toàn văn.`;
+  return (
+    `Ô này tìm trong ${tong} văn bản, trong đó ${sau} văn bản có toàn văn và tìm được tới từng ` +
+    `điều, khoản, điểm; ${tong - sau} văn bản còn lại KLAW chưa có toàn văn nên chỉ tìm được theo tên.`
+  );
 }
 
 /* ── GET /tim-kiem — BM25, chất lượng TỪ KHOÁ (không phải ngữ nghĩa) ─────── */
@@ -838,6 +857,11 @@ export interface VanBanMeta extends TrichDanDayDu {
   link_pdf_ban_ky?: string | null;
   /** Có ảnh trang 1 ở `/van-ban/{doc_id}/anh-xem-truoc`. */
   co_anh_xem_truoc?: boolean;
+  /**
+   * `false` = văn bản được hiện mà KLAW mới có tên (quyết định 2026-09-28, mục
+   * 16): trang nói thẳng điều đó. Vắng (máy chủ cũ) = không biết, trang giữ lối cũ.
+   */
+  co_toan_van?: boolean;
 }
 
 export interface MucLucItem {

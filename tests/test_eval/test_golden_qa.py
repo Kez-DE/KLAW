@@ -42,6 +42,19 @@ def test_moi_item_co_id_duy_nhat_va_duong_dan_khong_rong():
     assert all(i["duong_dan"] for i in items), "có item không có ground truth"
 
 
+LOAI = Path("eval/datasets/golden_qa.loai-khoi-bo-chinh.yaml")
+
+
+def test_cau_da_loai_khong_con_trong_bo_chinh_va_mang_ly_do():
+    """Quyết định 2026-09-28 mục 17: lao-035-0/1 và lao-030-1 ra khỏi bộ chính
+    (283/2026/NĐ-CP không còn quy định tương ứng) nhưng vẫn giữ ở tệp riêng, mỗi câu
+    một lý do — không câu nào vừa ở đây vừa ở đó."""
+    loai = yaml.safe_load(LOAI.read_text(encoding="utf-8"))["items"]
+    assert {i["id"] for i in loai} >= {"lao-035-0", "lao-035-1", "lao-030-1"}
+    assert all(i.get("ly_do_loai", "").strip() for i in loai), "câu loại thiếu lý do"
+    assert not {i["id"] for i in loai} & {i["id"] for i in _load()}, "câu đã loại còn trong bộ chính"
+
+
 def test_YAML_KHONG_mang_provisions_id():
     """`provisions.id` là BIGSERIAL — ghi nó vào dataset là ghim một con số sẽ
     chết ở lần nạp lại kế tiếp, và chết IM LẶNG (Recall=0, không lỗi)."""
@@ -74,8 +87,9 @@ def test_moi_item_da_qua_review_cua_NGUOI():
     `duyet_boi` mang sự thật: `chua-ai` | `agent` | `nguoi`. Test này chỉ xanh
     khi CON NGƯỜI đã xác nhận — hiện đỏ trên cả 77, đúng như thực tế.
     """
-    chua = [i["id"] for i in _load() if i.get("duyet_boi") != "nguoi"]
-    assert not chua, f"chưa có người duyệt ({len(chua)}/77): {chua[:8]}…"
+    items = _load()
+    chua = [i["id"] for i in items if i.get("duyet_boi") != "nguoi"]
+    assert not chua, f"chưa có người duyệt ({len(chua)}/{len(items)}): {chua[:8]}…"
 
 
 @pytest.mark.pending_review

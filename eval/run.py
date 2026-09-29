@@ -28,9 +28,10 @@ import yaml
 from sqlalchemy import Engine, text
 
 from eval.metrics import mrr_at_k, ndcg_at_k, recall_at_k
-from src.config import Settings, get_settings
+from src.config import Settings, as_of_hieu_luc, get_settings
 from src.services.db import get_engine
 from src.services.embedding import EmbeddingClient
+from src.services.hien_thi import hien_thi_luc
 from src.services.retrieval import Retriever, rrf
 
 CONFIG_DIR = Path("eval/configs")
@@ -113,12 +114,12 @@ def _commit_hash() -> str:
         return "unknown"
 
 
-def _retrieve(r: Retriever, q: str, s: Settings) -> list[int]:
+def _retrieve(r: Retriever, q: str, s: Settings, hien: frozenset[str] | None = None) -> list[int]:
     branches: list[list[int]] = []
     if s.retrieve_bm25_topk > 0:
-        branches.append(r.bm25(q, s.retrieve_bm25_topk))
+        branches.append(r.bm25(q, s.retrieve_bm25_topk, hien))
     if s.retrieve_dense_topk > 0:
-        branches.append(r.dense(q, s.retrieve_dense_topk))
+        branches.append(r.dense(q, s.retrieve_dense_topk, hien))
     if not branches:
         raise ValueError("cả hai nhánh retrieval đều tắt (topk=0) — config sai")
     fused = rrf(branches, k=s.rrf_k)
@@ -126,7 +127,9 @@ def _retrieve(r: Retriever, q: str, s: Settings) -> list[int]:
     return r.provision_ids(chunk_ids)
 
 
-def _run_items(r: Retriever, items: list[dict], s: Settings) -> tuple[list[dict], int]:
+def _run_items(
+    r: Retriever, items: list[dict], s: Settings, hien: frozenset[str] | None = None
+) -> tuple[list[dict], int]:
     """Chạy retrieval + tính metric cho từng câu golden_qa.
 
     Lỗi retrieval được GHI RÕ vào per_item (error_type, error) và KHÔNG cộng
@@ -138,7 +141,7 @@ def _run_items(r: Retriever, items: list[dict], s: Settings) -> tuple[list[dict]
     for it in items:
         gold = set(it["provision_ids"])
         try:
-            got = _retrieve(r, it["cau_hoi"], s)
+            got = _retrieve(r, it["cau_hoi"], s, hien)
         except Exception as e:  # noqa: BLE001 - cố ý bắt rộng để KHÔNG làm sập cả batch, xem docstring
             print(f"[eval] LỖI câu {it['id']!r}: {type(e).__name__}: {e}", file=sys.stderr)
             per_item.append(
@@ -232,10 +235,16 @@ def _load_golden_qa(s: Settings, engine: Engine) -> tuple[list[dict], bool]:
     return phan_giai_gold(engine, items), da_nguoi_duyet(items)
 
 
-def evaluate(config_name: str) -> dict:
+def evaluate(config_name: str, loc_hien: bool = True) -> dict:
+    """`loc_hien` (mặc định): chỉ truy hồi trong tập văn bản được HIỆN tại mốc
+    hiệu lực, đúng như đường trả lời (`graph_tra_cuu.n_retrieve`) — quyết định
+    2026-09-28 mục 17: đo cái người dùng thấy. `False` tái lập số thô cũ trên
+    toàn kho, kể cả văn bản ẩn; file kết quả mang hậu tố `-khong-loc`."""
     s = overlay_settings(load_config(config_name))
     engine = get_engine()
     items, da_duyet = _load_golden_qa(s, engine)
+    as_of = as_of_hieu_luc(s.as_of_date)
+    hien = hien_thi_luc(engine, as_of) if loc_hien else None
 
     embedder = EmbeddingClient(
         api_key=s.openrouter_api_key,
@@ -245,7 +254,7 @@ def evaluate(config_name: str) -> dict:
     )
     r = Retriever(engine, embedder, s)
 
-    per_item, n_ok = _run_items(r, items, s)
+    per_item, n_ok = _run_items(r, items, s, hien)
     per_item = _gan_duong_dan_he_thong(r.engine, per_item)
 
     n = len(items)
@@ -264,6 +273,9 @@ def evaluate(config_name: str) -> dict:
         # ra từ mặc định của Settings ở thời điểm đọc lại file.
         "bm25_rank_normalization": s.bm25_rank_normalization,
         "bm25_strip_stopwords": s.bm25_strip_stopwords,
+        "loc_hien": loc_hien,
+        "as_of_hien": str(as_of) if loc_hien else None,
+        "so_van_ban_hien": len(hien) if hien is not None else None,
         "commit_hash": _commit_hash(),
         "ts": datetime.now(UTC).isoformat(),
         "golden_qa_da_review": da_duyet,
@@ -275,7 +287,8 @@ def evaluate(config_name: str) -> dict:
 
     res_dir = Path(s.eval_result_dir)
     res_dir.mkdir(parents=True, exist_ok=True)
-    f = res_dir / _ten_file_ket_qua(config_name, s.openrouter_embedding_model_name, n)
+    ten = config_name if loc_hien else f"{config_name}-khong-loc"
+    f = res_dir / _ten_file_ket_qua(ten, s.openrouter_embedding_model_name, n)
     f.write_text(
         json.dumps({"summary": summary, "per_item": per_item}, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -351,7 +364,7 @@ def write_report(results: dict[str, dict]) -> str:
         lines.extend(f"- {c}" for c in canh_bao)
         lines.append("")
 
-    lines.append("## 1. Bảng ablation (77 câu golden_qa)")
+    lines.append(f"## 1. Bảng ablation ({mau_co.get('n_queries', '?')} câu golden_qa)")
     lines.append("")
     mau = next((r for r in results.values() if "bm25_rank_normalization" in r), None)
     if mau:
@@ -436,17 +449,23 @@ def main() -> None:
     ap.add_argument(
         "--config", default="hybrid", help="tên preset trong eval/configs/, hoặc 'all' để chạy cả 3 + ghi report.md"
     )
+    ap.add_argument(
+        "--khong-loc-hien",
+        action="store_true",
+        help="đo trên toàn kho, kể cả văn bản ẩn (số thô trước quyết định 2026-09-28 mục 17)",
+    )
     a = ap.parse_args()
+    loc_hien = not a.khong_loc_hien
 
     if a.config == "all":
-        results = {name: evaluate(name) for name in ("hybrid", "lexical_only", "dense_only")}
+        results = {name: evaluate(name, loc_hien) for name in ("hybrid", "lexical_only", "dense_only")}
         p = _ghi_report(results)
         print(f"đã ghi {p}")
         goc = {name: {k: v for k, v in r.items() if k != "per_item"} for name, r in results.items()}
         print(json.dumps(goc, ensure_ascii=False, indent=2))
         return
 
-    r = evaluate(a.config)
+    r = evaluate(a.config, loc_hien)
     print(json.dumps({k: v for k, v in r.items() if k != "per_item"}, ensure_ascii=False, indent=2))
 
 

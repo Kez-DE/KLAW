@@ -25,7 +25,7 @@ import {
   trichDieuKhoan,
   vanBanHopLe,
 } from "../src/lib/trich-dan.ts";
-import { laVanBanBiAn, vanBanBiAn } from "../src/lib/klaw.ts";
+import { cauPhamViTimKiem, laVanBanBiAn, vanBanBiAn } from "../src/lib/klaw.ts";
 
 // 1. Khớp thẳng: ba mảnh ghép lại phải bằng đúng nguyên văn.
 {
@@ -445,4 +445,20 @@ type Citation = import("../src/lib/klaw.ts").Citation;
   assert.equal(banGocKy(null), null);
 }
 
-console.info("kiem-trich-dan: 18/18 đạt");
+// 19. Câu dưới ô tìm kiếm (quyết định 2026-09-28, mục 16): văn bản chưa có toàn
+//     văn vẫn được hiện, nên tổng và phần có toàn văn là HAI con số của máy chủ;
+//     máy chủ cũ chưa gửi phần kia thì chỉ nói tổng, không bao giờ "N có toàn văn".
+{
+  assert.equal(
+    cauPhamViTimKiem({ tong_van_ban: 481, so_co_toan_van: 372 }),
+    "Ô này tìm trong 481 văn bản, trong đó 372 văn bản có toàn văn và tìm được tới từng điều, " +
+      "khoản, điểm; 109 văn bản còn lại KLAW chưa có toàn văn nên chỉ tìm được theo tên.",
+  );
+  assert.equal(
+    cauPhamViTimKiem({ tong_van_ban: 12, so_co_toan_van: 12 }),
+    "Ô này tìm trong 12 văn bản, văn bản nào cũng có toàn văn.",
+  );
+  assert.equal(cauPhamViTimKiem({ tong_van_ban: 484 }), "Ô này tìm trong 484 văn bản.");
+}
+
+console.info("kiem-trich-dan: 19/19 đạt");

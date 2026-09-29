@@ -601,6 +601,9 @@ class VanBanMetaMixin(TrichDanMixin):
     # ảnh trang 1 ở `GET /van-ban/{doc_id}/anh-xem-truoc`, chỉ khi có link đó.
     link_pdf_ban_ky: str | None = None
     co_anh_xem_truoc: bool = False
+    # KLAW có toàn văn tới điều khoản (quyết định 2026-09-28 mục 16): `False` là
+    # văn bản được hiện mà kho mới có tên — trang nói thẳng điều đó.
+    co_toan_van: bool
 
 
 class VanBanMucLucResponse(VanBanMetaMixin):
@@ -863,6 +866,9 @@ class BoLocResponse(BaseModel):
     tồn tại để chữa — lọc hiệu lực đi qua `sap_xep`, xem `TimKiemRequest`)."""
 
     tong_van_ban: int
+    # Trong `tong_van_ban`, số văn bản có toàn văn tới điều khoản (cùng thước
+    # `/pham-vi`); phần còn lại kho mới có tên (quyết định 2026-09-28 mục 16).
+    so_co_toan_van: int
     loai_van_ban: list[GiaTriLoc]
     co_quan_ban_hanh: list[GiaTriLoc]
     # Số văn bản KHÔNG khai cơ quan. Nói ra thay vì lặng lẽ bỏ qua: 79/126 văn

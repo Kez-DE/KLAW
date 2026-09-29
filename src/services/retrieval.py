@@ -124,8 +124,8 @@ def cong_diem_linh_vuc(
 # Chỉ chunk của văn bản được HIỆN (`services/hien_thi`, quyết định 2026-09-28
 # mục 8): văn bản ẩn không bao giờ được truy hồi làm căn cứ. Lọc TRONG SQL để
 # top-k lấp bằng văn bản được hiện, không bị văn bản ẩn chiếm chỗ. `hien=None`
-# = không lọc, chỉ cho phép đo truy hồi thô (`eval/run.py`); đường trả lời luôn
-# truyền tập được hiện (`graph_tra_cuu.n_retrieve`).
+# = không lọc, chỉ cho phép đo truy hồi thô (`eval/run.py --khong-loc-hien`);
+# đường trả lời luôn truyền tập được hiện (`graph_tra_cuu.n_retrieve`).
 _CHI_HIEN = (
     " AND (CAST(:hien AS text[]) IS NULL OR c.provision_id IN"
     " (SELECT p.id FROM provisions p WHERE p.document_id = ANY(CAST(:hien AS text[]))))"

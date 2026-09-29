@@ -193,8 +193,10 @@ function TrangDuLieu() {
           {boLoc.ketQua !== null &&
             boLoc.ketQua.nam_min !== null &&
             boLoc.ketQua.nam_max !== null && (
+              // `/bo-loc` tính khoảng năm trên MỌI văn bản được hiện, kể cả văn bản
+              // KLAW chưa có toàn văn (quyết định 2026-09-28, mục 16).
               <p className="mt-4 mb-0">
-                Phần có toàn văn gồm văn bản{" "}
+                Văn bản trong kho{" "}
                 <strong className="font-semibold">
                   ban hành từ {boLoc.ketQua.nam_min} đến {boLoc.ketQua.nam_max}
                 </strong>

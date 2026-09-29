@@ -3707,4 +3707,52 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
   await act(() => root.unmount());
 }
 
+// ───── 18. VĂN BẢN CHƯA CÓ TOÀN VĂN: nói thẳng, link cổng chính thống, bản gốc ────
+// Quyết định 2026-09-28, mục 16. Câu đầu nói KLAW chưa có toàn văn; link là link
+// đã kiểm (`lien_ket`, mở tab mới); bản gốc có chữ ký chỉ khi có; không câu nào
+// hứa nguyên văn hay mục lục.
+{
+  const { ChuaCoToanVan } = await nap<typeof import("../src/components/klaw/ChuaCoToanVan.tsx")>(
+    "src/components/klaw/ChuaCoToanVan.tsx",
+  );
+  const laThe = (ten: string) => (n: Nut) => n.nodeType === 1 && n.tagName === ten;
+  const { khung, root } = taoRoot();
+  const ve = (vanBan: Record<string, unknown>) =>
+    act(() =>
+      root.render(
+        h(ChuaCoToanVan, {
+          vanBan: { doc_id: "k16/1", so_ky_hieu: "55/2025/NQ-HĐND", ...vanBan } as never,
+        }),
+      ),
+    );
+  const VBPL = "https://vbpl.vn/van-ban/chi-tiet/184706";
+  const PDF = "https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/12/55.signed.pdf";
+
+  // (a) Link + bản gốc: câu nói thẳng, link cổng mở tab mới, rồi nút PDF + ảnh.
+  await ve({ lien_ket: VBPL, link_pdf_ban_ky: PDF, co_anh_xem_truoc: true });
+  assert.ok(khung.textContent.startsWith("KLAW chưa có toàn văn của văn bản này."));
+  const a = timTatNut(khung, laThe("A"));
+  assert.equal(a.length, 3, "link cổng + nút PDF + ảnh");
+  assert.equal(a[0]?.getAttribute("href"), VBPL);
+  assert.equal(a[0]?.getAttribute("target"), "_blank");
+  assert.equal(a[0]?.getAttribute("rel"), "noopener noreferrer");
+  assert.equal(a[0]?.textContent, "Xem toàn văn trên CSDL quốc gia về pháp luật (mở tab mới)");
+  assert.equal(a[1]?.getAttribute("href"), PDF);
+  assert.ok(tim(khung, laThe("DL")) !== null, "hàng bản gốc nằm trong <dl> của chính nó");
+
+  // (b) Link, không bản gốc: không <dl>, không nút PDF.
+  await ve({ lien_ket: VBPL });
+  assert.equal(timTatNut(khung, laThe("A")).length, 1);
+  assert.equal(tim(khung, laThe("DL")), null);
+
+  // (c) Link không qua cửa kiểm (host lạ, http): vẫn nói thẳng, KHÔNG dựng link.
+  for (const sai of ["https://thuvienphapluat.vn/van-ban/x", "http://vbpl.vn/van-ban/chi-tiet/1"]) {
+    await ve({ lien_ket: sai });
+    assert.equal(timTatNut(khung, laThe("A")).length, 0, sai);
+    assert.equal(khung.textContent, "KLAW chưa có toàn văn của văn bản này.");
+  }
+  assert.doesNotMatch(khung.textContent, /mục lục|nguyên văn|Điều/, "không hứa thứ kho không có");
+  await act(() => root.unmount());
+}
+
 console.log("kiem-ui-muot: OK");
