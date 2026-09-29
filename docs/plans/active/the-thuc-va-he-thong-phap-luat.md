@@ -26,14 +26,21 @@ Active. Owner decisions accepted 2026-09-29; decision record
 
 ## Approach
 
+Round two (owner, 2026-09-29, decision items 5–8): every draft is a real `.docx`
+built from a khuôn mẫu and handled by the khuôn gốc engine (LibreOffice pages,
+fill on the page, edit ops, versions, download). The HTML A4 preview path is
+retired for drafts.
+
 | Wave | Work | Depends on |
 |---|---|---|
-| T1 | Research: official thể thức rules (NĐ 30/2020 Phụ lục I) and official sample forms per checklist type and per new contract type, from .gov.vn sources | – |
-| T2 | Thể thức engine: config per document type, render in ban_thao + A4 preview + Word/PDF export, blanks clickable | T1 |
-| T3 | Contract content: mandatory clauses with căn cứ for existing contract checklists; new contract checklists | T1 |
-| F1 | Foundational laws: load Hiến pháp 2013 (+ amendments in force) and 64/2025/QH15 (+ 87/2025/QH15) deep, verified, linked, indexed | K11 final eval done |
-| F2 | Routing: legal-system questions → tra cứu; kho questions → kho data by type; introduction only for KLAW questions | F1 |
-| V | Reviews, e2e in the real app, eval re-run | T2, T3, F2 |
+| T1 | Research: thể thức rules (NĐ 30/2020 Phụ lục I), official forms per type, contract law, foundational laws, routing trace | – |
+| D1 | Design: how a generated draft becomes a khuôn-like document (storage, viec, versions, routes, UI), reviewed | T1 |
+| D2 | Real documents: download official forms (.doc/.docx) and render them with LibreOffice to confirm layout | T1 |
+| D3 | Khuôn mẫu set: 29 existing types + new types (civil contracts, đơn/giấy tờ from history, hôn nhân gia đình), each with blanks and clause slots | D1, D2 |
+| D4 | Engine: generic `.docx` builder for bản thảo tổng quát; code-built căn cứ and party blocks; model writes clauses only; mandatory-clause check; unify with khuôn gốc render/fill/edit/download | D1 |
+| F1 | Foundational laws (+ Luật Hôn nhân và gia đình): load deep, verified, linked, indexed | K11 final eval done |
+| F2 | Routing: legal-system questions → tra cứu; kho questions → kho data by type | F1 for the answer |
+| V | Reviews, real-app check of every type (page images vs official forms), eval re-run | D3, D4, F2 |
 
 ## Risks And Recovery
 
@@ -46,8 +53,10 @@ Active. Owner decisions accepted 2026-09-29; decision record
 
 - [x] Decisions; decision record; this plan.
 - [ ] T1 research.
-- [ ] T2 thể thức engine.
-- [ ] T3 contract content.
+- [ ] D1 design.
+- [ ] D2 real documents.
+- [ ] D3 khuôn mẫu set.
+- [ ] D4 engine.
 - [ ] F1 foundational laws.
 - [ ] F2 routing.
 - [ ] V reviews, e2e, eval.

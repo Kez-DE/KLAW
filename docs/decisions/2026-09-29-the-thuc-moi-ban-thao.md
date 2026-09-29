@@ -48,15 +48,43 @@ nhiều … thêm dữ liệu chính xác các hợp đồng soạn thảo, ph�
    Việt Nam thì tra luật; hỏi về KLAW hay kho thì trả số liệu kho; đoạn giới thiệu
    KLAW chỉ dành cho câu hỏi về chính KLAW.
 
+5. **Mọi bản thảo là một file .docx thật, đi cùng đường với khuôn gốc** (chủ dự án
+   chốt 2026-09-29, lượt hai — thay cách dựng HTML ở mục 1). Mỗi loại văn bản có một
+   **khuôn mẫu** .docx; bản thảo tổng quát được dựng thành .docx theo bố cục chuẩn
+   (bảng hai cột đầu trang: tên cơ quan / quốc hiệu–tiêu ngữ; tên loại và trích yếu;
+   căn cứ; các bên; các điều; bảng chữ ký hai bên; nơi nhận khi có), khổ A4 và lề theo
+   Phụ lục I Nghị định 30/2020/NĐ-CP. Sau đó bản thảo đi CÙNG đường với tệp người dùng
+   tải lên: LibreOffice dựng trang, bấm chỗ trống để điền, "sửa …" thành thao tác sửa
+   tại chỗ, có phiên bản, tải Word/PDF y hệt trang đang xem. Ảnh chụp chủ dự án gửi
+   (các khối xếp chồng, "Bộ luật Dân sự số ………/QH", "[Thông tin về Bên A…]") là lỗi
+   phải hết.
+6. **Nguồn khuôn mẫu**: mẫu chính thức ban hành kèm văn bản pháp luật khi có (tải tệp
+   gốc từ vanban.chinhphu.vn hoặc trang .gov.vn; mẫu kèm văn bản quy phạm pháp luật
+   không được bảo hộ quyền tác giả), ghi nguồn; không có thì tự dựng theo Phụ lục I
+   Nghị định 30/2020/NĐ-CP. Trang thương mại chỉ để tham khảo cách trình bày, không
+   chép.
+7. **Code dựng khung, model chỉ viết điều khoản**: căn cứ lấy từ kho với số hiệu, ngày
+   và cơ quan đầy đủ (chỉ văn bản còn hiệu lực, được hiện); thông tin các bên theo khối
+   chuẩn ("Họ và tên: ……  Ngày sinh: ……  Số CCCD: ……"); model chỉ viết nội dung các
+   điều; điều khoản bắt buộc theo luật được kiểm đủ.
+8. **Mở rộng loại văn bản**: hợp đồng dân sự thông dụng (thuê tài sản, thuê nhà, thuê
+   đất, mua bán tài sản, vay tài sản, đặt cọc, dịch vụ, ủy quyền), đơn và giấy tờ người
+   dùng đã hỏi theo lịch sử (đơn xin tạm hoãn nghĩa vụ quân sự, đơn xin học lại, bản
+   kiểm điểm cá nhân, biên bản họp, giấy tiếp nhận thực tập, phiếu đánh giá thực tập,
+   kế hoạch thực tập…), hôn nhân gia đình (đơn yêu cầu công nhận thuận tình ly hôn,
+   thỏa thuận phân chia tài sản…; nạp Luật Hôn nhân và gia đình vào kho nếu chưa có).
+
 ## Alternatives Considered
 
 1. Chỉ trả lời câu hỏi hệ thống pháp luật từ số liệu kho. Loại: kho không phải
    pháp luật Việt Nam (CONTEXT.md "kho"), người hỏi cần câu trả lời có căn cứ.
 2. Liệt kê ngành luật theo học thuyết. Loại: không có điều luật để trích, trái cam
    kết trích dẫn kiểm chứng được.
-3. Để model tự viết phần đầu văn bản. Loại: đo được 15/38 bản thiếu; thể thức là dữ
+3. Giữ HTML và sửa bố cục bằng CSS (lượt hai). Loại: trang xem và tệp tải về vẫn là
+   hai cách dựng, không giống hệt .docx.
+4. Để model tự viết phần đầu văn bản. Loại: đo được 15/38 bản thiếu; thể thức là dữ
    liệu cố định theo loại văn bản, không phải việc sáng tác.
-4. Tự điền ngày hôm nay và địa danh. Loại: văn bản người dùng đem đi ký; điền sẵn là
+5. Tự điền ngày hôm nay và địa danh. Loại: văn bản người dùng đem đi ký; điền sẵn là
    KLAW khai thay người dùng.
 
 ## Consequences

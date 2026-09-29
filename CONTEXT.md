@@ -111,6 +111,13 @@ converted `.docx`, or a PDF. At most one per tài liệu; a tài liệu uploaded
 it existed has none. Deleted with the conversation; never căn cứ.
 _Avoid_: template, original, bản gốc, mẫu
 
+**khuôn mẫu**:
+KLAW's own `.docx` template for one document type, taken from an official form
+when one exists, otherwise built to the thể thức rules. A draft of that type is
+the khuôn mẫu filled in; it then behaves like a khuôn gốc (rendered pages, fill
+on the page, edits in place, versions, download). Never user material.
+_Avoid_: template, mẫu (alone), form, khuôn gốc (reserved for the upload)
+
 **neo tài liệu**:
 The verified pointer from a statement about a tài liệu to one đơn vị văn bản,
 checked by string lookup, never by a model. Same principle as a citation,
