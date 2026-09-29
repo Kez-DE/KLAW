@@ -29,9 +29,12 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from src.config import get_settings
-from src.services import ban_thao, bao_ve
+from src.agents import graph_soan_thao as gst
+from src.config import as_of_hieu_luc, get_settings
+from src.services import ban_thao, bao_ve, khuon_mau
+from src.services import tai_lieu as tl
 from src.services.ban_thao import LOAI_TONG_QUAT
+from src.services.db import get_engine
 from src.services.traces import _ghi_traces
 
 logger = logging.getLogger(__name__)
@@ -111,6 +114,15 @@ KHONG_DIEN_KHUON = (
     "Bạn đang xin một văn bản khác dựa trên tệp bạn tải lên, nên tôi không dựng bản thảo trên "
     "chính tệp đó. Để soạn văn bản mới (ví dụ một lá đơn), bạn vào Soạn thảo và chọn loại văn bản. "
     'Nếu bạn cần chính tệp đó, cứ nói "soạn thảo văn bản này".'
+)
+
+
+# Khuôn mẫu đang mở + lượt mang ẢNH (hay tệp trước 036) xin điền/sửa (thiết kế §4):
+# giá trị trong ảnh không phải nguồn điền (Open decision 8, như `_nguon_nguoi`), và
+# đường HTML không bao giờ ghi lên khuôn mẫu. Không lưu gì, không tốn hạn mức.
+KHONG_DIEN_TU_ANH = (
+    "Bản thảo «{ten}» là tệp Word; giá trị trong ảnh chưa được điền thẳng vào đó. Hãy gõ giá trị trong chat "
+    "(ví dụ «họ tên bên B là …») hoặc bấm vào chỗ trống trên trang để điền."
 )
 
 
@@ -323,10 +335,16 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
     hai — chỗ để chặn khi lớp thứ nhất bị nới.)
     """
     khuon = state.get("khuon_tong_quat")
-    ket = None if khuon else ket_ban_thao(state.get("van_ban_tong_quat") or {})
     sub, hoi_thoai_id = state.get("user_sub"), state.get("hoi_thoai_id")
     if sub is None or hoi_thoai_id is None:
         return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": None}
+    if state.get("khuon_mau_tong_quat"):
+        return dung_khuon_mau(state, sub, str(hoi_thoai_id))
+    mo = state.get("khuon_mau_dang_mo")
+    if mo and not khuon and _xin_dien_sua(state.get("cau_hoi_goc") or state.get("query") or ""):
+        ten = ((mo.get("audit") or {}).get("khung") or {}).get("tieu_de") or "đang mở"
+        return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": KHONG_DIEN_TU_ANH.format(ten=ten)}
+    ket = None if khuon else ket_ban_thao(state.get("van_ban_tong_quat") or {})
     if khuon and khuon.get("yeu_cau") == "van_ban_khac":
         # Văn bản KHÁC tệp tải lên: không dựng, không sửa bản đang có, không chạm
         # hạn mức — trước cả phép kiểm hạn mức, vì lượt này không lưu gì.
@@ -461,3 +479,259 @@ def dung_ban_thao_tong_quat(state: dict) -> dict:
         # thật chỉ vì hàng đo đếm không ghi được.
         logger.exception("dung_ban_thao_tong_quat: không ghi được traces")
     return {**state, "ban_thao_ket": _ket_state(bt, ten, []), "ban_thao_tong_quat_loi": None}
+
+
+# ═══ Khuôn mẫu — tạo và sửa một tệp .docx (thiết kế `khuon-mau-thiet-ke.md` §4 bước 5) ═══
+
+
+def _xin_dien_sua(cau: str) -> bool:
+    # Nhập trễ: `hieu_tai_lieu` nhập module này ở đầu tệp.
+    from src.agents.nodes.hieu_tai_lieu import xin_dien_sua
+
+    return xin_dien_sua(cau)
+
+
+def _loi(state: dict, loi: str) -> dict:
+    return {**state, "ban_thao_ket": None, "ban_thao_tong_quat_loi": loi}
+
+
+def _clauses(dieu: list[dict], ng: dict, cu: list[dict] | None = None) -> list[dict]:
+    """Điều đã làm sạch → `clauses` của phiên bản khuôn mẫu, căn cứ từng điều theo mục
+    checklist (`khuon_mau_ngu_canh.muc`); một điều giữ khoá của bản cũ giữ căn cứ của nó."""
+    theo_muc = {m["key"]: m.get("can_cu") for m in ng.get("muc") or []}
+    theo_cu = {c.get("key"): c.get("can_cu") for c in cu or [] if c.get("key")}
+    return [
+        {
+            "key": d.get("key"),
+            "ten": d.get("ten") or "",
+            "doan": list(d.get("doan") or []),
+            "can_cu": theo_muc.get(d.get("key")) or theo_cu.get(d.get("key")) if d.get("key") else None,
+            **({"chen": True} if d.get("chen") else {}),
+        }
+        for d in dieu
+    ]
+
+
+def _ap_sua_dieu(cu: list[dict], ops: list[dict], ng: dict) -> list[dict]:
+    """Thao tác theo SỐ ĐIỀU HIỆN TẠI của bản cũ: `thay`, `xoa`, `them_sau` (0 là đầu).
+    Điều không nhắc tới giữ NGUYÊN từng byte (§6)."""
+    o = [[c] for c in cu]
+    dau: list = []
+    for op in ops:
+        n = op["dieu"]
+        if op["thao_tac"] == "xoa":
+            o[n - 1][0] = None
+            continue
+        moi = _clauses([op], ng, cu)[0]
+        if op["thao_tac"] == "thay":
+            goc = cu[n - 1]
+            moi = {**moi, "key": moi["key"] or goc.get("key"), "can_cu": moi["can_cu"] or goc.get("can_cu")}
+            o[n - 1][0] = moi
+        else:
+            (dau if n == 0 else o[n - 1]).append(moi)
+    return dau + [c for khe in o for c in khe if c is not None]
+
+
+def _dieu_doi(cu: list[dict], moi: list[dict]) -> list[str]:
+    """Tên các Điều đổi (theo số mới) và điều đã bỏ — `doi` của phiên bản."""
+    truoc = [(c.get("key"), c.get("ten"), tuple(c.get("doan") or [])) for c in cu]
+    ra = [
+        f"Điều {i}. {c.get('ten') or ''}".strip()
+        for i, c in enumerate(moi, 1)
+        if (c.get("key"), c.get("ten"), tuple(c.get("doan") or [])) not in truoc
+    ]
+    con = {(c.get("key"), c.get("ten")) for c in moi}
+    return ra + [f"Bỏ «{c.get('ten') or 'một điều'}»" for c in cu if (c.get("key"), c.get("ten")) not in con]
+
+
+def _kiem_gia_tri(
+    state: dict, x: dict, o: list[dict], don_vi_goc: list, dang_co: list[dict]
+) -> tuple[list, list, list]:
+    """`gia_tri` của mô hình → phép `dien` lên đúng chỗ trống của tệp, qua CÙNG phép
+    kiểm của khuôn gốc (`kiem_phep_sua`: chỉ lời người hỏi và hồ sơ, nhãn khớp, tách
+    ngày). Trả `(giữ, bỏ, chưa đặt được)` — chưa đặt được là chuỗi con lời người hỏi."""
+    from src.agents.nodes.hieu_tai_lieu import _lay_khong_dat, _loi_nguoi_hoi, kiem_phep_sua
+
+    theo = {(g["ben"], g["truong"]): g["gia_tri"] for g in x.get("gia_tri") or []}
+    phep = ban_thao.phep_tu_gia_tri(o, theo)
+    giu, bo, gia_tri_bo = kiem_phep_sua(
+        phep, {"don_vi": don_vi_goc, "dinh_dang": "docx"}, x.get("nguon_gia_tri") or "", x.get("cam") or [], dang_co
+    )
+    co_cho = {(z["ben"], z["truong"]) for z in o}
+    khong_cho = [v for k, v in theo.items() if k not in co_cho]
+    khong_dat = _lay_khong_dat([*gia_tri_bo, *khong_cho, *(x.get("khong_dat") or [])], _loi_nguoi_hoi(state), giu)
+    return giu, bo, khong_dat
+
+
+def _audit(x: dict, khung: dict, clauses: list[dict], *, tao: bool) -> dict:
+    """`audit` của phiên bản khuôn mẫu: mức kiểm `tong_quat` (chưa qua rule), mục
+    luật đòi còn thiếu là PHÁT HIỆN lúc sửa (lúc tạo nó đã được chèn trống), và `khung`."""
+    loai = khung.get("loai")
+    thieu = x.get("hoan_thanh", {}).get("thieu") or []
+    findings = []
+    if loai in gst.cac_loai() and not tao:
+        _, thieu_moi = khuon_mau.them_dieu_bat_buoc(clauses, loai, tao=False)
+        thieu = thieu_moi["thieu"]
+        cl = gst.load_checklist_cached(loai)
+        ten = {m["key"]: m["ten"] for m in cl.muc}
+        findings = [
+            {
+                "loai": "thieu_noi_dung",
+                "muc_do": cl.muc_do_thieu,
+                "thong_diep": f"Thiếu nội dung bắt buộc: {ten.get(k, k)}",
+                "dieu_khoan_lien_quan": None,
+                "can_cu": None,
+                "rule_id": None,
+                "doc_id": None,
+                "khop_tai_id": None,
+                "khong_kiem_duoc": False,
+            }
+            for k in thieu
+        ]
+    return {
+        "dat": None,
+        "completeness": x.get("hoan_thanh", {}).get("completeness"),
+        "so_dieu_khoan": len(clauses),
+        "self_audit": False,
+        "findings": findings,
+        "muc_kiem": MUC_KIEM,
+        "khung": khung,
+    }
+
+
+def _ghi_trace_soan(sub: str, bat_dau: float) -> None:
+    try:
+        _ghi_traces(
+            str(uuid.uuid4()),
+            bao_ve.EP_SOAN_THAO,
+            LOAI_TONG_QUAT,
+            get_settings().eval_config_name,
+            # Cùng lý do đường HTML: chi phí đã ghi ở dòng `/tra-cuu` của lượt; dòng này ĐẾM.
+            {"result_type": "ban_thao", "traces": {}},
+            int((time.monotonic() - bat_dau) * 1000),
+            user_sub=sub,
+        )
+    except Exception:
+        logger.exception("dung_ban_thao_tong_quat: không ghi được traces (khuôn mẫu)")
+
+
+def dung_khuon_mau(state: dict, sub: str, hoi_thoai_id: str) -> dict:
+    """Lượt soạn trên khuôn mẫu: tạo (`ban_moi`) hay sửa (`sua_ban_dang_co`) một tệp.
+
+    Tạo: hạn mức `EP_SOAN_THAO` → dựng + lưu tệp (một lượt LibreOffice) → giá trị các
+    bên thành phép `dien` đã kiểm → `ban_thao.tao` → dòng traces. Sửa: đọc lại bản đang
+    có (`moi_nhat_khuon_mau`) dưới `TRAN_SUA`; điều khoản đổi thì DỰNG LẠI tệp mới và
+    mang phép điền sang, chỉ giá trị đổi thì cùng tệp, không đổi gì thì bản đang có là
+    thẻ của lượt. Tệp không dựng được hay quá trần trang: không lưu gì, không tốn hạn mức."""
+    x = state["khuon_mau_tong_quat"]
+    ng = state.get("khuon_mau_ngu_canh") or {}
+    if x["muc_tieu"] == "sua_ban_dang_co":
+        return _sua_khuon_mau(state, x, ng, sub, hoi_thoai_id)
+    if not x.get("dieu"):
+        return _loi(state, KHONG_SOAN_DUOC)
+    try:
+        bao_ve.kiem_han_muc(sub, bao_ve.plan_hieu_luc(sub), bao_ve.EP_SOAN_THAO)
+    except HTTPException as e:
+        return _loi(state, str(e.detail))
+    bat_dau = time.monotonic()
+    khung = {k: v for k, v in x["khung"].items() if k != "can_cu_so"}
+    if khung.get("loai") is None:
+        # Tự soạn: căn cứ mô hình nêu bằng số hiệu, tra qua CÙNG bộ lọc hiện/hiệu lực.
+        khung["can_cu"] = gst.can_cu_theo_so_hieu(
+            get_engine(), x["khung"].get("can_cu_so") or [], as_of_hieu_luc(state.get("as_of_date"))
+        )
+    clauses = _clauses(x["dieu"], ng)
+    try:
+        moi = ban_thao.dung_khuon_mau(sub, hoi_thoai_id, khung, clauses)
+    except ban_thao.KhuonMauChuaDungError as e:
+        return _loi(state, str(e))
+    giu, bo, khong_dat = _kiem_gia_tri(state, x, moi["o"], moi["don_vi_goc"], [])
+    phep = ban_thao.gop_phep_sua([], giu, ban_thao.doan_cua_cho(moi["don_vi"]))
+    khung = {**khung, "o": moi["o"]}
+    khuon = {"cho_trong": ban_thao.cho_trong_khuon("docx", moi["don_vi"], phep)}
+    ket = {
+        "document": ban_thao.tom_tat_khuon_mau(khung, clauses, khuon),
+        "clauses": clauses,
+        "audit_report": _audit(x, khung, clauses, tao=True),
+        "viec_id": moi["viec_id"],
+        "phep_sua": phep,
+    }
+    bt = ban_thao.tao(sub, hoi_thoai_id, LOAI_TONG_QUAT, {}, ket)
+    _ghi_trace_soan(sub, bat_dau)
+    return {
+        **state,
+        "khuon_mau_tong_quat": {**x, "bo_qua": bo, "khong_dat": khong_dat, "so_trang": moi["so_trang"]},
+        "ban_thao_ket": _ket_state(bt, TEN_TONG_QUAT, []),
+        "ban_thao_tong_quat_loi": None,
+    }
+
+
+def _sua_khuon_mau(state: dict, x: dict, ng: dict, sub: str, hoi_thoai_id: str) -> dict:
+    cu = ban_thao.moi_nhat_khuon_mau(sub, hoi_thoai_id)
+    if cu is None:
+        return _loi(state, KHONG_CO_BAN_THAO)
+    try:
+        ban_thao.kiem_tran_sua(cu)
+    except ValueError as e:
+        return _loi(state, str(e))
+    khung_cu = (cu.get("audit") or {}).get("khung") or {}
+    clauses_cu = list(cu.get("clauses") or [])
+    if x.get("dieu") is not None:
+        clauses = _clauses(x["dieu"], ng, clauses_cu)
+    elif x.get("sua_dieu"):
+        clauses = _ap_sua_dieu(clauses_cu, x["sua_dieu"], ng)
+    else:
+        clauses = clauses_cu
+    doi = _dieu_doi(clauses_cu, clauses)
+    khung = {k: khung_cu.get(k) for k in ("loai", "bo_cuc", "tieu_de", "trich_yeu", "ben", "can_cu")}
+    bo_mang: list = []
+    if doi:
+        try:
+            moi = ban_thao.dung_khuon_mau(sub, hoi_thoai_id, khung, clauses)
+        except ban_thao.KhuonMauChuaDungError as e:
+            return _loi(state, str(e))
+        mang, bo_mang = ban_thao.mang_phep_sang(
+            ban_thao.don_vi_khuon(sub, cu.get("viec_id")), moi["don_vi"], cu.get("phep_sua")
+        )
+        giu, bo, khong_dat = _kiem_gia_tri(state, x, moi["o"], moi["don_vi_goc"], mang)
+        phep = ban_thao.gop_phep_sua(mang, giu, ban_thao.doan_cua_cho(moi["don_vi"]))
+        viec_id, o, don_vi = moi["viec_id"], moi["o"], moi["don_vi"]
+    else:
+        viec_id, o = cu.get("viec_id"), khung_cu.get("o") or []
+        don_vi = ban_thao.don_vi_khuon(sub, viec_id)
+        don_vi_goc = tl.don_vi_cua(get_engine(), viec_id, sub) or []
+        giu, bo, khong_dat = _kiem_gia_tri(state, x, o, don_vi_goc, cu.get("phep_sua") or [])
+        phep = ban_thao.gop_phep_sua(cu.get("phep_sua"), giu, ban_thao.doan_cua_cho(don_vi))
+        if phep == (cu.get("phep_sua") or []):
+            # Không đổi gì áp được: CHÍNH bản đang có là thẻ của lượt — không phiên bản
+            # mới, không tốn lượt sửa. `assemble` nói điều chưa làm được.
+            return {
+                **state,
+                "khuon_mau_tong_quat": {**x, "co_san": True, "bo_qua": bo, "khong_dat": khong_dat},
+                "ban_thao_ket": _ket_state(cu, TEN_TONG_QUAT, []),
+                "ban_thao_tong_quat_loi": None,
+            }
+    khung = {**khung, "o": o}
+    khuon = {"cho_trong": ban_thao.cho_trong_khuon("docx", don_vi, phep)}
+    ket = {
+        "document": ban_thao.tom_tat_khuon_mau(khung, clauses, khuon),
+        "clauses": clauses,
+        "audit_report": _audit(x, khung, clauses, tao=False),
+        "viec_id": viec_id,
+        "phep_sua": phep,
+    }
+    nhan = {(z["don_vi"], z["so"]): z for z in khuon["cho_trong"]}
+    doi_o = [
+        f"{nhan[(p['don_vi'], p['cho_trong'])]['nhan'] or 'Chỗ trống'}: {p['gia_tri'].strip()}"
+        for p in giu
+        if (p["don_vi"], p["cho_trong"]) in nhan
+    ]
+    bt = ban_thao.sua(sub, cu["id"], {}, ket, doi=[*doi, *doi_o])
+    if bt is None:
+        return _loi(state, KHONG_CO_BAN_THAO)
+    return {
+        **state,
+        "khuon_mau_tong_quat": {**x, "bo_qua": bo, "khong_dat": khong_dat, "khong_mang_sang": len(bo_mang)},
+        "ban_thao_ket": _ket_state(bt, TEN_TONG_QUAT, [*doi, *doi_o]),
+        "ban_thao_tong_quat_loi": None,
+    }

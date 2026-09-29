@@ -138,8 +138,12 @@ class Settings(BaseSettings):
     # Bật làm mặc định vì không bật thì lượt NỐI TIẾP hỏi về tài liệu đã gửi
     # không có đường nào tới `hieu_tai_lieu` (lượt ĐÍNH KÈM rẽ tất định, không
     # qua router). Lùi lại bằng `KLAW_ROUTE_PROMPT=prompts/route.v3.md`.
+    #
+    # v5 = v4 cộng ví dụ khi một khuôn mẫu đang mở (`{dang_soan}` nói "bản thảo Word
+    # đang mở"): lời xin sửa/thêm/bỏ điều là `soan_thao`, câu hỏi LUẬT dạng mệnh lệnh
+    # vẫn là `tra_cuu` (thiết kế khuôn mẫu §4). v4 giữ nguyên để kết quả cũ tái lập.
     route_prompt: str = Field(
-        default="prompts/route.v4.md", validation_alias="KLAW_ROUTE_PROMPT"
+        default="prompts/route.v5.md", validation_alias="KLAW_ROUTE_PROMPT"
     )
     # GĐ3 (cai_thien.md §6): generate_claims.v3 gắn `vai_tro` cho mỗi khẳng định,
     # verify_tier2.v2 chấm thêm độ liên quan. Cả hai đổi HÌNH DẠNG câu trả lời nên

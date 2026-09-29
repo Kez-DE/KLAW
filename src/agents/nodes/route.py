@@ -19,6 +19,7 @@ from pathlib import Path
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.agents.nodes.gioi_thieu import chac_chan_meta
+from src.services import khuon_mau
 from src.services.kho import xin_dang_bang
 
 PROMPT_PATH = Path("prompts/route.v1.md")
@@ -46,7 +47,7 @@ def schema_v2() -> dict:
     dựng LÚC GỌI từ checklist trên đĩa — thêm một file YAML là router biết ngay,
     không có danh sách viết tay để lệch. Strict đòi mọi khoá `required`, nên đây
     là schema riêng thay vì v1 cộng khoá optional (cùng lý do QUERIES_V2_SCHEMA)."""
-    loai = sorted(cac_loai())
+    loai = _cac_loai_router()
     return {
         "type": "object",
         "additionalProperties": False,
@@ -110,9 +111,20 @@ def _tai_lieu_trong_phien(rows: list[dict] | None) -> str:
     )
 
 
+def _cac_loai_router() -> list[str]:
+    """Mã loại router được chọn: mọi checklist cộng mọi khuôn mẫu (khuôn mẫu, §4) —
+    một loại chỉ có khuôn mẫu chỉ tới được `hieu_tai_lieu`, vì `gom_du_kien` và
+    `assemble._goi_y_soan_thao` vẫn kiểm `cac_loai()` của checklist."""
+    return sorted(cac_loai() | khuon_mau.cac_loai())
+
+
+def _ten_loai(loai: str) -> str:
+    return load_checklist_cached(loai).ten if loai in cac_loai() else khuon_mau.nap(loai)["ten"]
+
+
 def danh_sach_loai() -> str:
-    """Một dòng `mã — tên` cho mỗi checklist, điền vào `{danh_sach_loai}` của v2."""
-    return "\n".join(f"- `{loai}` — {load_checklist_cached(loai).ten}" for loai in sorted(cac_loai()))
+    """Một dòng `mã — tên` cho mỗi loại, điền vào `{danh_sach_loai}` của v2."""
+    return "\n".join(f"- `{loai}` — {_ten_loai(loai)}" for loai in _cac_loai_router())
 
 
 class Intent(StrEnum):
@@ -141,7 +153,7 @@ class Intent(StrEnum):
     tai_lieu = "tai_lieu"
 
 
-def _dang_soan(sd: dict | None) -> str:
+def _dang_soan(sd: dict | None, bt: dict | None = None) -> str:
     """`{dang_soan}` của route.v3 (Task 19) — cho model biết hội thoại này có
     đang mở một phiên soạn thảo hay không, và đã gom được bao nhiêu dữ kiện,
     để nó phân biệt một câu trả lời dữ kiện/yêu cầu sửa bản thảo với một câu
@@ -155,12 +167,29 @@ def _dang_soan(sd: dict | None) -> str:
     vào."""
     loai = (sd or {}).get("loai")
     if not loai:
-        return "(không)"
+        return _khuon_mau_dang_mo(bt)
     try:
         ten = load_checklist_cached(loai).ten
     except ValueError:
         return "(không)"
     return f"{ten} (đã có {len(sd.get('facts') or {})} dữ kiện)"
+
+
+def _khuon_mau_dang_mo(bt: dict | None) -> str:
+    """Dòng `{dang_soan}` khi không có checklist đang gom mà hội thoại có một KHUÔN MẪU
+    đang mở (dòng nhẹ `ban_thao_tong_quat_dang_mo`, `nguon = 'khuon_mau'`) — thiết kế
+    §4: router thấy bản thảo đang mở, không có phép đè nào sau nó. Chỉ dựng từ dữ liệu
+    repo (tên loại trong registry, số điều): không bao giờ tiêu đề mô hình viết hay chữ
+    người dùng (QT-3). Bản HTML hay bản trên tệp tải lên: "(không)", như trước."""
+    if (bt or {}).get("nguon") != "khuon_mau":
+        return "(không)"
+    lk = bt.get("loai_khuon")
+    try:
+        ten = khuon_mau.nap(lk)["ten"] if lk in khuon_mau.cac_loai() else "văn bản tự soạn"
+    except ValueError:
+        ten = "văn bản tự soạn"
+    n = int((bt.get("audit") or {}).get("so_dieu_khoan") or 0)
+    return f"{ten} (bản thảo Word đang mở, {n} điều)"
 
 
 def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict:
@@ -180,7 +209,7 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
     prompt = mau.format(
         cau_hoi=state["query"],
         danh_sach_loai=danh_sach_loai() if la_v2 else "",
-        dang_soan=_dang_soan(state.get("soan_thao_dang_mo")),
+        dang_soan=_dang_soan(state.get("soan_thao_dang_mo"), state.get("ban_thao_tong_quat_dang_mo")),
         tai_lieu_trong_phien=_tai_lieu_trong_phien(state.get("tai_lieu_phien")),
     )
     # llm.chat(...) NẰM NGOÀI try: lỗi hạ tầng thật (content rỗng, usage thiếu

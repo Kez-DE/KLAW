@@ -208,7 +208,7 @@ def can_cu_van_ban(engine: Engine, db_provisions: dict[int, dict], as_of: date) 
 
 _SQL_VAN_BAN_THEO_SO = text(
     "SELECT id, so_ky_hieu, ten, loai_van_ban, ngay_ban_hanh, co_quan_ban_hanh FROM documents"
-    " WHERE so_ky_hieu = ANY(:so)"
+    " WHERE so_ky_hieu = ANY(:so) AND id = ANY(CAST(:hien AS text[]))"
 )
 
 
@@ -220,9 +220,9 @@ def can_cu_theo_so_hieu(engine: Engine, so_hieu: list[str], as_of: date) -> list
     so = list(dict.fromkeys(s.strip() for s in so_hieu if isinstance(s, str) and s.strip()))[:8]
     if not so:
         return []
-    hien = hien_thi_luc(engine, as_of)
+    hien = sorted(hien_thi_luc(engine, as_of))
     with engine.connect() as c:
-        van_ban = [dict(r) for r in c.execute(_SQL_VAN_BAN_THEO_SO, {"so": so}).mappings().all() if r["id"] in hien]
+        van_ban = [dict(r) for r in c.execute(_SQL_VAN_BAN_THEO_SO, {"so": so, "hien": hien}).mappings().all()]
     return khoi_can_cu_co_id(van_ban, lambda i: danh_gia_theo_id(engine, i, as_of).verdict)
 
 

@@ -89,3 +89,18 @@ def test_phep_do_dinh_vi_moi_cho_trong_cua_cac_ben():
     cua_ben = {(theo[k], so) for k, ds in ban_do_.items() for so, kh in enumerate(ds) if kh and kh[0] != "van_ban"}
     _, png, vi_tri = dung_trang.dung("docx", docx, "thu-khuon-mau", None, ban_thao.ban_do("docx", dv, []))
     assert png and cua_ben <= set(vi_tri), sorted(cua_ben - set(vi_tri))
+
+
+def test_luu_khuon_mau_do_trang_that_roi_ghi_mot_viec(monkeypatch):
+    """`ban_thao.luu_khuon_mau`: bộ đọc thật + MỘT lượt LibreOffice thật trong suất của
+    tài khoản; phần ghi DB (`tao_viec_khuon_mau`) giả — không ghi DB chung."""
+    ghi: dict = {}
+    monkeypatch.setattr(ban_thao.tl, "tao_viec_khuon_mau", lambda engine, **kw: ghi.update(kw) or "viec-thu")
+    monkeypatch.setattr(ban_thao, "get_engine", lambda: None)
+    docx, _ = km.dung_docx(
+        km.spec_tu(km.nap("hdld"), tieu_de=None, trich_yeu=None, can_cu=_CAN_CU, dieu=_dieu_toi_da()[:3])
+    )
+    luu = ban_thao.luu_khuon_mau("thu-luu", "hoi-thoai", "hdld", "HỢP ĐỒNG LAO ĐỘNG", docx)
+    assert luu["viec_id"] == "viec-thu" and luu["ten_tep"] == "Hợp đồng lao động.docx"
+    assert 1 <= luu["so_trang"] == len(ghi["kho"]) <= 10 and ghi["loai"] == "hdld" and ghi["docx"] is docx
+    assert any(d.get("cho_trong") for d in luu["don_vi"])

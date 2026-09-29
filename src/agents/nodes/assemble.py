@@ -52,7 +52,7 @@ import json
 import logging
 import re
 from enum import StrEnum
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import TypedDict
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
@@ -1118,6 +1118,75 @@ def _ban_thao_khuon(state: dict, bt: dict) -> dict:
     return _base(state, ResultType.ban_thao, answer=answer, ban_thao=bt, soan_thao_goi_y=None, coverage_note=ghi_chu)
 
 
+# Khuôn mẫu (thiết kế `khuon-mau-thiet-ke.md` §6 "Answer"): lời đáp 0 token, chỉ gọi
+# tên phép CÓ trong phiên bản đã lưu (owner: không bao giờ nói đã điền khi chưa điền).
+_RE_TEN_CAN_CU = re.compile(r"^Căn cứ\s+(.+?)(?:\s+ngày\s+\d.*)?[;.]?$")
+
+
+def _ten_can_cu(dong: str) -> str:
+    """Tên văn bản của một dòng căn cứ: "Căn cứ Bộ luật Lao động số 45/2019/QH14 ngày 20
+    tháng 11 năm 2019;" → "Bộ luật Lao động số 45/2019/QH14"."""
+    m = _RE_TEN_CAN_CU.match(dong.strip())
+    return (m[1] if m else dong).strip().rstrip(";.")
+
+
+def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
+    """Lời đáp cho một bản thảo trên KHUÔN MẪU (tệp .docx KLAW dựng), đọc thẳng từ
+    phiên bản vừa lưu (`bt`: `khuon`, `audit_report.khung`, `clauses`) và ghi chú của
+    lượt (`khuon_mau_tong_quat`)."""
+    x = state.get("khuon_mau_tong_quat") or {}
+    k = bt.get("khuon") or {}
+    ten = bt.get("ten") or "văn bản"
+    khung = (bt.get("audit_report") or {}).get("khung") or {}
+    con = [f"«{o['nhan'] or 'chỗ trống'}»" for o in k.get("cho_trong") or [] if not (o.get("gia_tri") or "").strip()]
+    da = sum(1 for o in k.get("cho_trong") or [] if (o.get("gia_tri") or "").strip())
+    can_cu = [_ten_can_cu(c["dong"]) for c in khung.get("can_cu") or [] if c.get("dong")]
+    chen = [f"«{c.get('ten')}»" for c in bt.get("clauses") or [] if c.get("chen")]
+    khong_dat = _cau_khong_dat({"khong_dat": x.get("khong_dat") or []})
+    ghi = list(x.get("ghi_chu") or [])
+    if x.get("khong_mang_sang"):
+        ghi.append(f"{x['khong_mang_sang']} chỗ đã điền nằm ở đoạn vừa viết lại nên không mang sang: hãy điền lại")
+    if x.get("co_san"):
+        dau = f"Bản thảo «{ten}» (phiên bản {bt['phien_ban']}) giữ nguyên: lượt này không có thay đổi nào áp được. "
+    elif bt.get("doi_so_voi_truoc"):
+        dau = (
+            f"Bản thảo «{ten}» đã cập nhật (phiên bản {bt['phien_ban']}"
+            + (f", {k['so_trang']} trang" if k.get("so_trang") else "")
+            + "); "
+            + _liet_ke("đã đổi: ", [f"«{d}»" for d in bt["doi_so_voi_truoc"]], 200)
+            + ". "
+        )
+    else:
+        dau = (
+            f"Bản thảo «{ten}»"
+            + (f" ({k['so_trang']} trang)" if k.get("so_trang") else "")
+            + " đã sẵn sàng: mở bản thảo để xem, tải Word hoặc PDF. "
+        )
+    phan = [
+        dau,
+        (f"Đã điền {da} chỗ trống từ lời bạn nói. " if da else ""),
+        (
+            _liet_ke("Căn cứ: ", can_cu, 220, "văn bản") + ". Bấm «Căn cứ» trên trang để xem nguyên văn. "
+            if can_cu
+            else ""
+        ),
+        (_liet_ke("Điều còn trống vì luật đòi: ", chen, 160, "điều") + ". " if chen else ""),
+        (_liet_ke("Còn trống: ", con, 200) + ". " if con else ""),
+        (" ".join(g.rstrip(".") + "." for g in ghi[:3]) + " " if ghi else ""),
+        (khong_dat + " " if khong_dat else ""),
+        "Bấm vào chỗ trống trên trang để điền; muốn sửa điều nào cứ nói với tôi.",
+        (
+            ""
+            if khung.get("bo_cuc") == "hanh_chinh"
+            else " Thể thức theo tập quán, tham khảo Phụ lục I Nghị định 30/2020/NĐ-CP."
+        ),
+    ]
+    answer = "".join(phan)
+    if len(answer) > TRAN_KY_TU:
+        answer = "".join(p for i, p in enumerate(phan) if i not in (4, 5))[:TRAN_KY_TU]
+    return _base(state, ResultType.ban_thao, answer=answer + _cau_da_nho(state), ban_thao=bt, soan_thao_goi_y=None)
+
+
 def xem_ban_thao_khuon(bt: dict) -> dict:
     """Lời xin XEM bản đã điền (owner 2026-09-28, Q3): kết quả `ban_thao` 0 token cho
     bản thảo khuôn gốc mới nhất của hội thoại — không graph, không phiên bản mới. `bt`
@@ -1126,7 +1195,14 @@ def xem_ban_thao_khuon(bt: dict) -> dict:
     cho, phep = k.get("cho_trong") or [], bt.get("phep_sua") or []
     tai = "tải PDF" if k.get("dinh_dang") == "pdf" else "tải Word hoặc PDF"
     ten, n = bt.get("ten_tep") or "tệp bạn tải lên", bt["phien_ban"]
-    if not phep:
+    if k.get("nguon") == "khuon_mau":
+        # Khuôn mẫu KLAW dựng: không có "tệp bạn tải lên" nào (thiết kế khuôn mẫu §6).
+        da = sum(1 for c in cho if (c.get("gia_tri") or "").strip())
+        answer = (
+            f"Đây là bản thảo «{PurePath(ten).stem}» (phiên bản {n}): đã điền {da}/{len(cho)} chỗ trống. "
+            f"Bấm vào chỗ trống trên trang để điền, hoặc {tai}."
+        )
+    elif not phep:
         answer = (
             f"Đây là bản thảo (phiên bản {n}) đúng như tệp bạn tải lên «{ten}»: chưa điền chỗ trống nào. "
             f"Bấm vào chỗ trống trên trang để điền, hoặc {tai}."
@@ -1160,6 +1236,8 @@ def _ban_thao_tong_quat(state: dict) -> dict:
     đã dùng.
     """
     bt = state.get("ban_thao_ket")
+    if bt and (bt.get("khuon") or {}).get("nguon") == "khuon_mau":
+        return _ban_thao_khuon_mau(state, bt)
     if bt and bt.get("viec_id"):
         return _ban_thao_khuon(state, bt)
     if bt:
@@ -1280,6 +1358,9 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         # dict thiếu khoá của `route()` lọt thẳng ra `_payload_cache["soan_thao"]`
         # rồi vỡ `pydantic.ValidationError` ở `tra_cuu_response` — ĐO ĐƯỢC bằng
         # chính bộ test đầu-cuối của task này trước khi có dòng sửa này.
+        if ((state.get("ban_thao_ket") or {}).get("khuon") or {}).get("nguon") == "khuon_mau":
+            # Bản thảo checklist trên khuôn mẫu (§3): cùng lời đáp của bản tổng quát.
+            return _ban_thao_khuon_mau(state, state["ban_thao_ket"])
         if state.get("ban_thao_ket"):
             bt = state["ban_thao_ket"]
             doi = bt.get("doi_so_voi_truoc") or []
