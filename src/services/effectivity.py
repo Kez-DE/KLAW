@@ -672,15 +672,31 @@ def _noi_chuoi(e: Effectivity, tra: Callable[[str], Effectivity | None]) -> Effe
     return replace(e, van_ban=ke_nhiem_con_song(e, tra)) if e.verdict in DA_CHET else e
 
 
-def _danh_gia_mot(engine: Engine, doc_id: str, as_of: date) -> Effectivity:
+def _mat_xich(doc: dict, e: Effectivity) -> Effectivity:
+    """Phán quyết của `doc` khi nó đứng TRÊN chuỗi thay thế của một văn bản khác.
+
+    Bộ Tư pháp khai `HHL` mà `danh_gia` chưa gọi là chết (cạnh thay thế khác chủ đề
+    hạ nó xuống `can_doi_chieu_tay` ở Mức 2a, hoặc cạnh sửa đổi cho
+    `mot_phan_khong_xac_dinh` ở Mức 2c — cả hai đứng trước Mức 3) thì chuỗi coi nó
+    là nhánh cụt: không nêu, vì trang của nó nói "không còn hiệu lực"
+    (`hien_thi.thong_diep_an`); không đi tiếp, vì nó không có cạnh thay thế nào qua
+    guard. Phán quyết của CHÍNH nó giữ nguyên: guard khác chủ đề đứng trước Mức 3 là
+    cố ý, cho ca MOJ khai HHL sai (Luật BHXH 41/2024, spec 5.2). Đo 2026-09-29: 6 văn
+    bản chết bị chỉ sang một văn bản như vậy, VD 26/2001/QH10 → 23/2008/QH12."""
+    if doc.get("tinh_trang") == "HHL" and e.verdict not in DA_CHET:
+        return replace(e, verdict=EffectivityVerdict.het_hieu_luc, van_ban=())
+    return e
+
+
+def _danh_gia_mot(engine: Engine, doc_id: str, as_of: date) -> tuple[dict, Effectivity]:
     doc, canh, ung_vien = nap_ngu_canh(engine, doc_id, as_of)
-    return danh_gia(doc, canh, as_of, ung_vien)
+    return doc, danh_gia(doc, canh, as_of, ung_vien)
 
 
 def danh_gia_theo_id(engine: Engine, doc_id: str, as_of: date) -> Effectivity:
     """Phán quyết của MỘT văn bản, đã nối chuỗi thay thế. Mỗi văn bản chết trên
     chuỗi thêm một lượt `nap_ngu_canh`; văn bản còn sống không tốn thêm gì."""
-    return _noi_chuoi(_danh_gia_mot(engine, doc_id, as_of), lambda i: _danh_gia_mot(engine, i, as_of))
+    return _noi_chuoi(_danh_gia_mot(engine, doc_id, as_of)[1], lambda i: _mat_xich(*_danh_gia_mot(engine, i, as_of)))
 
 
 # ══ Mức 4 — bản đồ sửa đổi CẤP ĐIỀU KHOẢN (nguồn: Công báo, VBHN) ═══════════
@@ -936,7 +952,8 @@ def _danh_gia_toan_bo_tinh(engine: Engine, as_of: date) -> dict[str, Effectivity
         )
         tho[d["id"]] = danh_gia(d, canh_cua.get(d["id"], []), as_of, ung_vien)
     # Chuỗi thay thế đi trên chính các phán quyết vừa tính — 0 truy vấn thêm.
-    return {i: _noi_chuoi(e, tho.get) for i, e in tho.items()}
+    xich = {d["id"]: _mat_xich(d, tho[d["id"]]) for d in docs}
+    return {i: _noi_chuoi(e, xich.get) for i, e in tho.items()}
 
 
 _TTL_TOAN_BO_GIAY = 60.0

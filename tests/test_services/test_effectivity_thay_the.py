@@ -25,7 +25,7 @@ from src.agents.nodes import assemble as asm
 from src.services import effectivity as eff
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.effectivity import VanBanNeu, danh_gia, ke_nhiem_con_song
-from src.services.hien_thi import VERDICT_HIEN, canh_bao, mo_ta
+from src.services.hien_thi import VERDICT_HIEN, canh_bao, mo_ta, van_ban_thay
 
 AS_OF = date(2026, 9, 29)
 
@@ -263,6 +263,59 @@ def test_chuoi_ba_buoc_CUNG_ket_qua_o_duong_toan_kho_va_duong_tung_van_ban():
         assert eff.danh_gia_theo_id(kho, i, AS_OF) == toan[i], i
     assert mo_ta(toan["n157"]) == "Đã được thay thế bởi 293/2025/NĐ-CP."
     assert toan["n293"].verdict is V.con_hieu_luc
+
+
+_TEN_GTDB = "Luật Giao thông đường bộ"
+_LUAT = {"from_loai_van_ban": "Luật"}
+
+
+@pytest.mark.parametrize(
+    ("tin_hieu", "verdict_23"),
+    [
+        # Đo 2026-09-29: 35/2024/QH15 "Luật Đường bộ" → 23/2008/QH12, khác đầu đề.
+        (_canh("35", "35/2024/QH15", "Luật Đường bộ số 35/2024/QH15", date(2025, 1, 1), **_LUAT), V.can_doi_chieu_tay),
+        # Như 136/2007/NĐ-CP (HHL, bị 94/2015/NĐ-CP sửa): Mức 2c trả lời trước Mức 3.
+        (_canh("94", "94/2015/QH13", "Luật sửa đổi", date(2015, 12, 1), loai=20, **_LUAT), V.mot_phan_khong_xac_dinh),
+    ],
+)
+@pytest.mark.parametrize("tinh_trang_23", ["HHL", "CHL"])
+def test_chuoi_KHONG_neu_van_ban_Bo_Tu_phap_khai_HHL(tin_hieu, verdict_23, tinh_trang_23):
+    """26/2001/QH10 → 23/2008/QH12: 23/2008 do Bộ Tư pháp khai HHL, trang của nó nói
+    "không còn hiệu lực", nên văn bản chết không được chỉ người đọc sang đó. Phán
+    quyết của chính 23/2008 giữ nguyên — guard khác chủ đề trước Mức 3 là cố ý, cho
+    ca MOJ khai HHL sai (Luật BHXH 41/2024). Văn bản chưa rõ mà MOJ không khai HHL
+    thì vẫn được nêu, như trước."""
+    luat = {"loai_van_ban": "Luật"}
+    docs = [
+        _doc(
+            id="26",
+            so_ky_hieu="26/2001/QH10",
+            ten=_TEN_GTDB,
+            ngay_hieu_luc=date(2002, 1, 1),
+            ngay_het_hieu_luc=date(2009, 7, 1),
+            tinh_trang="HHL",
+            **luat,
+        ),
+        _doc(
+            id="23",
+            so_ky_hieu="23/2008/QH12",
+            ten=f"{_TEN_GTDB} số 23/2008/QH12",
+            ngay_hieu_luc=date(2009, 7, 1),
+            tinh_trang=tinh_trang_23,
+            **luat,
+        ),
+    ]
+    canh = [
+        _canh("23", "23/2008/QH12", f"{_TEN_GTDB} số 23/2008/QH12", date(2009, 7, 1), chu="26", **_LUAT),
+        tin_hieu | {"chu": "23"},
+    ]
+    kho = _EngineGia(docs, canh)
+    toan = eff._danh_gia_toan_bo_tinh(kho, AS_OF)
+    assert toan["23"].verdict is verdict_23
+    ke = () if tinh_trang_23 == "HHL" else (VanBanNeu("23", "23/2008/QH12"),)
+    assert toan["26"].verdict is V.het_hieu_luc and toan["26"].van_ban == ke
+    assert eff.danh_gia_theo_id(kho, "26", AS_OF) == toan["26"]
+    assert van_ban_thay(toan["26"], toan, frozenset()) == ke
 
 
 # ─────────────────────── đúng câu SQL, trên bảng TẠM
