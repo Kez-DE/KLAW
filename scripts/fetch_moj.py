@@ -137,7 +137,8 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     # văn bản shallow/metadata trong `hien_thi.tap_hien_thi` tại 2026-09-28 (DB dùng
     # chung, 480 hiện) ∪ tập sau khôi phục K8 (484 hiện) = 438 văn bản; ở đây là
     # những văn bản qua cổng `_soat_va_bam` mà mọi điều khoản ngoài bảng là chuỗi
-    # con nguyên văn của gateway. Phần còn lại ở `KHONG_NAP` (khối K6). Response
+    # con nguyên văn của gateway (văn xuôi giữ đúng chỗ quanh bảng từ 2026-09-29,
+    # `prov_parser._noi_dung`). Phần còn lại ở `KHONG_NAP` (khối K6). Response
     # lấy từ lượt làm mới toàn kho 2026-09-28 (cache `lam_moi_hieu_luc`, cùng dạng
     # data/raw/moj/*.json); `so_ky_hieu` = `docNum`. Dòng đang có được NÂNG TẠI
     # CHỖ (`ingest._ghi_van_ban`), không DELETE.
@@ -167,10 +168,10 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "153251": ("deep", "07/2022/NĐ-CP"),
     "152655": ("deep", "07/2022/QĐ-UBND"),
     "174485": ("deep", "07/2025/NĐ-CP"),
-    "187195": ("deep", "07/2025/NĐ-СР"),
     "5b03a780-5b30-11f1-be19-439d7a536e10": ("deep", "07/2026/TTLT-VKSNDTC-TANDTC"),
     "27706": ("deep", "08/2012/QH13"),
     "106212": ("deep", "08/2016/TT-BNNPTNT"),
+    "126723": ("deep", "08/2017/QH14"),
     "142665": ("deep", "08/2020/TT-BNNPTNT"),
     "163515": ("deep", "08/2022/QH15"),
     "167031": ("deep", "08/2023/TT-BLĐTBXH"),
@@ -208,6 +209,7 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "151943": ("deep", "118/2021/NĐ-CP"),
     "46289": ("deep", "119/2014/TT-BTC"),
     "186573": ("deep", "119/2025/QH15"),
+    "20092": ("deep", "12/2004/CT-TTg"),
     "44043": ("deep", "12/2014/TT-BNNPTTN"),
     "134060": ("deep", "12/2019/NĐ-CP"),
     "145000": ("deep", "12/2020/TT-BNNPTNT"),
@@ -225,6 +227,7 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "185899": ("deep", "126/2025/QH15"),
     "186570": ("deep", "128/2025/QH15"),
     "cf007110-59a3-11f1-8c15-2dbf1042f751": ("deep", "128/2026/NĐ-CP"),
+    "20093": ("deep", "13/2004/CT-TTg"),
     "114551": ("deep", "13/2016/TT-BNNPTNT"),
     "167755": ("deep", "13/2022/QH15"),
     "156126": ("deep", "13/2022/TT-BNNPTNT"),
@@ -271,7 +274,6 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "174197": ("deep", "172/2024/NĐ-CP"),
     "184035": ("deep", "176/2025/NĐ-CP"),
     "19141": ("deep", "178/2004/NĐ-CP"),
-    "26419": ("deep", "18/2011/TT- BNNPTNT"),
     "67884": ("deep", "18/2011/TT-BNNPTNT"),
     "42790": ("deep", "18/2012/TT-BNNPTNT"),
     "67747": ("deep", "18/2015/QĐ-TTg"),
@@ -300,7 +302,6 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "12354": ("deep", "21/2008/QH12"),
     "28026": ("deep", "21/2012/QH13"),
     "67763": ("deep", "21/2015/TT-BNNPTNT"),
-    "131014": ("deep", "21/2017/QH14"),
     "147004": ("deep", "21/2021/NĐ-CP"),
     "173180": ("deep", "21/2024/TT-BNNPTNT"),
     "6728": ("deep", "210/1999/QĐ-TTg"),
@@ -334,6 +335,7 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "31206": ("deep", "2746/2006/QĐ-BTC"),
     "11761": ("deep", "28/2009/QH12"),
     "130821": ("deep", "28/2018/QH14"),
+    "3999d900-48f4-11f1-9108-d1dfc9bf4e51": ("deep", "28/2026/QĐ-UBND"),
     "185254": ("deep", "282/2025/NĐ-CP"),
     "44858": ("deep", "29/2014/TT-BNNPTTN"),
     "100456": ("deep", "30/2015/QĐ-UBND"),
@@ -361,6 +363,7 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "135360": ("deep", "35/2019/NĐ-CP"),
     "158798": ("deep", "35/2022/NĐ-CP"),
     "172475": ("deep", "35/2024/QH15"),
+    "14959": ("deep", "36/2006/CT-TTg"),
     "11716": ("deep", "36/2009/QH12"),
     "134035": ("deep", "36/2018/TT-BNNPTNT"),
     "186980": ("deep", "360/2025/NĐ-CP"),
@@ -413,7 +416,6 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "174877": ("deep", "60/2024/QH15"),
     "26357": ("deep", "61/2010/QH12"),
     "46747": ("deep", "61/2014/QH13"),
-    "108574": ("deep", "615 TC/TCT/QÐ"),
     "24312": ("deep", "62/2008/TT-BNN"),
     "15076": ("deep", "65/2006/QH11"),
     "25402": ("deep", "65/2010/NĐ-CP"),
@@ -424,6 +426,7 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "146648": ("deep", "68/2020/QH14"),
     "176454": ("deep", "68/2025/NĐ-CP"),
     "109880": ("deep", "682/QĐ-BTC"),
+    "24581": ("deep", "69/2008/NĐ-CP"),
     "19451": ("deep", "70/2003/QĐ-BNN"),
     "157020": ("deep", "70/2022/NĐ-CP"),
     "162330": ("deep", "70/2023/NĐ-CP"),
@@ -539,8 +542,9 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
     # K1 2026-09-28 — đích thay thế/bãi bỏ trong lĩnh vực của kho, chặn ở cổng
     # `_soat_va_bam`. Bảy dòng đầu là GIỚI HẠN CỦA NGUỒN + PARSER: HTML MOJ của
     # văn bản cũ là văn xuôi phẳng, không có thẻ `prov-*` nào, nên không dựng
-    # được cây. `chinhphu_parser.sang_html_prov` suy cấp từ nhãn cho đúng ca này
-    # nhưng chưa ai soát nó trên HTML MOJ — không nối vào đây khi chưa soát.
+    # được cây. Từ K6 2026-09-29 `build_seed` gắn class theo nhãn cho HTML MOJ loại
+    # này (`chinhphu_parser.gan_class_prov`, soát trên 17 văn bản đang hiện: 6 qua
+    # cổng và khớp nguyên văn 100%); bảy văn bản ẩn này chưa thử lại.
     "95650":  ("134/2015/NĐ-CP", "HTML MOJ không có thẻ prov-* nào"),
     "103067": ("33/2016/NĐ-CP", "HTML MOJ không có thẻ prov-* nào"),
     "46744":  ("58/2014/QH13", "HTML MOJ không có thẻ prov-* nào"),
@@ -572,7 +576,10 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
         "hai node cùng neo '02/2026/TT-BNNMT > Điều 16 > Điểm a' ở cấp trích dẫn được",
     ),
     "186296": ("03/2026/NĐ-CP", "hai node cùng neo '03/2026/NĐ-CP > Điều 8 > Khoản 2 > Điểm d' ở cấp trích dẫn được"),
-    "163761": ("03/VBHN-VPQH", "HTML MOJ không có thẻ prov-* nào"),
+    "163761": (
+        "03/VBHN-VPQH",
+        "HTML không thẻ prov-*, gắn class theo nhãn: hai node cùng neo '03/VBHN-VPQH > Điều 202 > Khoản 1' ở cấp trích dẫn được",
+    ),
     "5ae3af70-54b9-11f1-b102-07539b2807f6": (
         "04/2026/QH16",
         "hai node cùng neo '04/2026/QH16 > Điều 1 > Khoản 2' ở cấp trích dẫn được",
@@ -586,8 +593,14 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
         "hai node cùng neo '05/2026/QH16 > Điều 1 > Khoản 3' ở cấp trích dẫn được",
     ),
     "24819": ("06/2010/TT-BTC", "hai node cùng neo '06/2010/TT-BTC > Điều 1 > Năm 2009' ở cấp trích dẫn được"),
-    "157722": ("07/2022/QH15", "HTML MOJ không có thẻ prov-* nào"),
-    "126723": ("08/2017/QH14", "HTML MOJ không có thẻ prov-* nào"),
+    "157722": (
+        "07/2022/QH15",
+        "HTML không thẻ prov-*, gắn class theo nhãn: hai node cùng neo '07/2022/QH15 > Điều 1 > Khoản 3' ở cấp trích dẫn được",
+    ),
+    "187195": (
+        "07/2025/NĐ-СР",
+        "bản ghi gateway trùng 174485 (07/2025/NĐ-CP, cùng ngày ban hành, tiêu đề, người ký; docNum ghi 'СР' bằng chữ Kirin): hai bản sâu làm trùng neo trích dẫn — đề xuất giữ 174485 (số hiệu Latin, có documentRelatedList), chủ dự án chốt `BAN_TRUNG`",
+    ),
     "168754": (
         "08/2022/NĐ-CP",
         "'08/2022/NĐ-CP > Điều 8 > Khoản 3' nuốt nguyên văn Khoản 4 — Khoản 4 không có neo riêng",
@@ -636,8 +649,10 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
     "110222": ("115/1998/TT-BTC", "HTML MOJ không có thẻ prov-* nào"),
     "7576": ("115/1998/TT-BTC", "HTML MOJ không có thẻ prov-* nào"),
     "170131": ("117/2024/NĐ-CP", "hai node cùng neo '117/2024/NĐ-CP > Điều 1 > Khoản 5' ở cấp trích dẫn được"),
-    "20092": ("12/2004/CT-TTg", "HTML MOJ không có thẻ prov-* nào"),
-    "122826": ("12/2017/QH14", "HTML MOJ không có thẻ prov-* nào"),
+    "122826": (
+        "12/2017/QH14",
+        "HTML không thẻ prov-*, gắn class theo nhãn: hai node cùng neo '12/2017/QH14 > Điều 1 > Khoản 1' ở cấp trích dẫn được",
+    ),
     "161042": ("12/2022/QH15", "hai node cùng neo '12/2022/QH15 > Điều 53 > Khoản 1 > Điểm a' ở cấp trích dẫn được"),
     "178655": ("12/2025/TT-BNNMT", "parser không bảo toàn chữ: HTML 108462 ký tự, provisions 109166"),
     "151904": (
@@ -653,7 +668,6 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
         "1 node cấp bắt buộc không số hiệu (nhãn nguồn không khớp parser), vd muc 'THI HÀNH ÁN TREO'",
     ),
     "15784": ("128/2004/TT-BTC", "HTML MOJ không có thẻ prov-* nào"),
-    "20093": ("13/2004/CT-TTg", "HTML MOJ không có thẻ prov-* nào"),
     "185641": (
         "130/2025/QH15",
         "Điều 15 Khoản 1 mở đầu bằng ký tự ẩn U+200B trong HTML nguồn — neo không mở bằng nhãn của nó",
@@ -693,10 +707,17 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
         "168/2025/NĐ-CP",
         "hai node cùng neo '168/2025/NĐ-CP > Điều 92 > Khoản 4 > Điểm d' ở cấp trích dẫn được",
     ),
-    "19633": ("17/2004/CT-TTg", "HTML MOJ không có thẻ prov-* nào"),
+    "19633": (
+        "17/2004/CT-TTg",
+        "HTML không thẻ prov-*, gắn class theo nhãn: hai node cùng neo '17/2004/CT-TTg > Khoản 1' ở cấp trích dẫn được",
+    ),
     "179215": (
         "178/2025/NĐ-CP",
         "1 node cấp bắt buộc không số hiệu (nhãn nguồn không khớp parser), vd dieu 'Điểm 15. Trình thẩm định, thẩm định quy hoạch đô t'",
+    ),
+    "26419": (
+        "18/2011/TT- BNNPTNT",
+        "bản ghi gateway trùng 67884 (18/2011/TT-BNNPTNT, cùng ngày ban hành, tiêu đề, cơ quan; docNum có khoảng trắng sau 'TT-'): hai bản sâu làm trùng neo trích dẫn — đề xuất giữ 67884, chủ dự án chốt `BAN_TRUNG`",
     ),
     "126307": ("18/2017/QH14", "hai node cùng neo '18/2017/QH14 > Điều 32 > Khoản 1' ở cấp trích dẫn được"),
     "187372": ("180/2025/NĐ-CP", "dòng công thức 'n: …' gắn thẻ prov-item thành Điều 29 Khoản 5 Điểm không số hiệu"),
@@ -709,6 +730,10 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
         "25 node cấp bắt buộc không số hiệu (nhãn nguồn không khớp parser), vd phan 'I. PHẠM VI ÁP DỤNG'",
     ),
     "148955": ("20/2021/NĐ-CP", "hai node cùng neo '20/2021/NĐ-CP > Điều 11 > Khoản 3 > Điểm b' ở cấp trích dẫn được"),
+    "131014": (
+        "21/2017/QH14",
+        "khối chữ ký và Phụ lục I–III cuối HTML nằm trong Điều 59 Khoản 5 — chữ đuôi nằm trong neo trích dẫn",
+    ),
     "14129": (
         "22/2007/TTLT/BNN-BNV",
         "16 node cấp bắt buộc không số hiệu (nhãn nguồn không khớp parser), vd phan 'I. NHIỆM VỤ, QUYỀN HẠN VÀ CƠ CẤU TỔ CHỨC CỦA CHI C'",
@@ -717,7 +742,10 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
         "22/2018/TT-BNNPTNT",
         "hai node cùng neo '22/2018/TT-BNNPTNT > Điều 16 > Khoản 2 > Điểm c' ở cấp trích dẫn được",
     ),
-    "166741": ("22/2023/NĐ-CP (1)", "HTML MOJ không có thẻ prov-* nào"),
+    "166741": (
+        "22/2023/NĐ-CP (1)",
+        "HTML không thẻ prov-*, gắn class theo nhãn: hai node cùng neo '22/2023/NĐ-CP (1) > Điều 4 > Khoản 1' ở cấp trích dẫn được",
+    ),
     "181906": ("226/2025/NĐ-CP", "1 neo kết thúc bằng ':' mà không có con — neo hứa danh sách mà không giao"),
     "69532": ("23/2015/TT-BLĐTBXH", "1 neo kết thúc bằng ':' mà không có con — neo hứa danh sách mà không giao"),
     "f4b0c320-79e6-11f1-8c8a-3587e086d762": (
@@ -737,7 +765,6 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
         "2 node cấp bắt buộc không số hiệu (nhãn nguồn không khớp parser), vd muc 'I. SỬA ĐỔI, BỒ SUNG NỘI DUNG CỦA GẠCH ĐẦU DÒNG THỨ'",
     ),
     "167282": ("28/2023/QH15", "hai node cùng neo '28/2023/QH15 > Điều 31 > Khoản 1' ở cấp trích dẫn được"),
-    "3999d900-48f4-11f1-9108-d1dfc9bf4e51": ("28/2026/QĐ-UBND", "HTML MOJ không có thẻ prov-* nào"),
     "185124": ("280/2025/NĐ-CP", "parser không bảo toàn chữ: HTML 60133 ký tự, provisions 60765"),
     "32522": (
         "29/2013/QH13",
@@ -746,14 +773,16 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
     "187822": ("291/2025/NĐ-CP", "cấp diem nằm trong <table>, sẽ ra khỏi cây provision"),
     "135971": ("34/2018/TT-BLĐTBXH", "hai node cùng neo '34/2018/TT-BLĐTBXH > Điều 2 > Khoản 6' ở cấp trích dẫn được"),
     "106010": ("35/2016/NĐ-CP", "parser không bảo toàn chữ: HTML 30231 ký tự, provisions 30255"),
-    "14959": ("36/2006/CT-TTg", "HTML MOJ không có thẻ prov-* nào"),
     "154221": ("37/2022/NĐ-CP", "1 neo kết thúc bằng ':' mà không có con — neo hứa danh sách mà không giao"),
     "134036": ("38/2018/TT-BNNPTNT", "hai node cùng neo '38/2018/TT-BNNPTNT > Điều 23 > Khoản 1' ở cấp trích dẫn được"),
     "136038": (
         "39/2019/QH14",
         "2 node cấp bắt buộc không số hiệu (nhãn nguồn không khớp parser), vd chuong 'NHỮNG QUY ĐỊNH CHUNG'",
     ),
-    "27782": ("42/2012/TT-BNNPTNT", "HTML MOJ không có thẻ prov-* nào"),
+    "27782": (
+        "42/2012/TT-BNNPTNT",
+        "HTML không thẻ prov-*, gắn class theo nhãn: hai node cùng neo '42/2012/TT-BNNPTNT > Điều 1 > Khoản 1' ở cấp trích dẫn được",
+    ),
     "133151": ("43/2018/TT-BNNPTNT", "hai node cùng neo '43/2018/TT-BNNPTNT > Điều 3 > Khoản 2' ở cấp trích dẫn được"),
     "136043": ("44/2019/QH14", "hai node cùng neo '44/2019/QH14 > Điều 3 > Khoản 1' ở cấp trích dẫn được"),
     "161034": ("45/2023/NĐ-CP", "hai node cùng neo '45/2023/NĐ-CP > Điều 22 > Khoản 1' ở cấp trích dẫn được"),
@@ -778,6 +807,10 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
     ),
     "97361": ("57/2015/TT-BLĐTBXH", "hai node cùng neo '57/2015/TT-BLĐTBXH > Điều 13 > Khoản 2' ở cấp trích dẫn được"),
     "175425": ("59/2024/QH15", "hai node cùng neo '59/2024/QH15 > Điều 52 > Khoản 1' ở cấp trích dẫn được"),
+    "108574": (
+        "615 TC/TCT/QÐ",
+        "khối chữ ký và Danh mục sửa đổi biểu thuế cuối HTML nằm trong Điều 3 — chữ đuôi nằm trong neo trích dẫn",
+    ),
     "144268": ("62/2020/QH14", "hai node cùng neo '62/2020/QH14 > Điều 1 > Khoản 8 > Điểm a' ở cấp trích dẫn được"),
     "15074": (
         "65/2006/QH11",
@@ -791,14 +824,16 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
     "137800": ("67/2019/NĐ-CP", "tiêu đề 'ĐIỀU KHOẢN THI HÀNH' gắn thẻ prov-clause thành Khoản không số hiệu"),
     "163442": ("67/2023/NĐ-CP", "hai node cùng neo '67/2023/NĐ-CP > Điều 10 > Khoản 2 > Điểm d' ở cấp trích dẫn được"),
     "187224": ("67/2026/NĐ-CP", "hai node cùng neo '67/2026/NĐ-CP > Điều 14 > Khoản 1' ở cấp trích dẫn được"),
-    "24581": ("69/2008/NĐ-CP", "HTML MOJ không có thẻ prov-* nào"),
     "187346": ("69/2025/TT-BTC", "1 neo kết thúc bằng ':' mà không có con — neo hứa danh sách mà không giao"),
     "e4adc8f0-511a-11f1-ac02-8f6e04d42095": (
         "71/2026/QĐ-UBND",
         "thẻ prov-* phủ tới hết HTML nên không tách được bản ghi phu_luc — chữ đuôi nằm trong neo trích dẫn",
     ),
     "123806": ("75/2017/TT-BTC", "HTML MOJ không có thẻ prov-* nào"),
-    "15253": ("78/2006/TT-BTC", "HTML MOJ không có thẻ prov-* nào"),
+    "15253": (
+        "78/2006/TT-BTC",
+        "HTML không thẻ prov-*, gắn class theo nhãn: hai node cùng neo '78/2006/TT-BTC > Khoản 2' ở cấp trích dẫn được",
+    ),
     "186338": (
         "80/2025/TT-BNNMT",
         "1 node cấp bắt buộc không số hiệu (nhãn nguồn không khớp parser), vd chuong 'CHƯƠNG TRÌNH CHỨNG NHẬN THỦY SẢN XUẤT KHẨU'",

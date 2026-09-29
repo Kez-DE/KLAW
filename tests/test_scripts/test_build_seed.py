@@ -43,9 +43,49 @@ def test_so_ky_hieu_duy_nhat_tren_toan_seed():
     — một hằng đúng của Python, không bao giờ đỏ được. Định danh nghiệp vụ là
     `so_ky_hieu`: hai doc_id cùng so_ky_hieu thì mọi duong_dan của chúng trùng
     nhau và neo trích dẫn mất tính duy nhất trên toàn corpus."""
-    skh = [v[1] for v in DOC_IDS.values()]
+    skh = [build_seed.khoa_so_hieu(v[1]) for v in DOC_IDS.values()]
     assert len(skh) == len(set(skh)), \
         f"so_ky_hieu trùng: {sorted(x for x in skh if skh.count(x) > 1)}"
+
+
+def test_khoa_so_hieu_gop_chu_dong_hinh_va_khoang_trang():
+    """Hai bản ghi gateway của CÙNG văn bản, đo 2026-09-29: 187195 ghi 'СР' bằng
+    chữ Kirin (U+0421 U+0420), 26419 có khoảng trắng sau 'TT-'. So byte thì khác,
+    nên `ux_provisions_neo_trich_dan` để lọt hai bản sâu của một văn bản."""
+    k = build_seed.khoa_so_hieu
+    assert k("07/2025/NĐ-СР") == k("07/2025/NĐ-CP")
+    assert k("18/2011/TT- BNNPTNT") == k("18/2011/TT-BNNPTNT")
+    assert k("615 TC/TCT/QÐ") == k("615 TC/TCT/QĐ")
+    assert k("07/2025/NĐ-CP") != k("07/2025/NQ-CP")
+
+
+def test_build_FAIL_khi_hai_van_ban_trung_so_hieu_sau_khi_gop(tmp_path, monkeypatch):
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    so = {"9101": "07/2025/NĐ-CP", "9102": "07/2025/NĐ-СР"}
+    for doc_id, docnum in so.items():
+        (raw / f"{doc_id}.json").write_text(
+            json.dumps(
+                {
+                    "docNum": docnum,
+                    "docType": {"name": "Nghị định"},
+                    "effStatus": {"code": "CHL"},
+                    "documentContent": {
+                        "content": '<div class="WordSection1">'
+                        '<p id="a1" class="prov-article"><b>Điều 1. Phạm vi</b></p>'
+                        '<p class="prov-clause">1. Nội dung khoản một.</p></div>'
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+    monkeypatch.setattr(build_seed, "DOC_IDS", {i: ("deep", s) for i, s in so.items()})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    with pytest.raises(ValueError, match="9101.*9102"):
+        build_seed.build(tmp_path / "raw", tmp_path / "seed")
 
 
 # ══ Mục H.1 + H.4 — build() gọi parse_anomalies và fail; build() có test ══
@@ -328,3 +368,33 @@ def test_build_nap_duoc_nguon_cong_bao_docx(tmp_path, monkeypatch):
     provs = [json.loads(x) for x in (out / "provisions.jsonl").read_text(encoding="utf-8").splitlines()]
     assert next(p for p in provs if p["cap"] == "khoan")["noi_dung"] == "1. Nội dung khoản một."
     assert "CHỦ TỊCH QUỐC HỘI" in next(p for p in provs if p["cap"] == "phu_luc")["noi_dung"]
+
+
+def test_build_nap_duoc_html_MOJ_khong_the_prov(tmp_path, monkeypatch):
+    """Văn bản MOJ cũ không có thẻ `prov-*` (69/2008/NĐ-CP): gắn class theo nhãn tại
+    chỗ rồi qua cùng cổng, thay vì chặn cả văn bản."""
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    (raw / "9201.json").write_text(
+        json.dumps(
+            {
+                "docNum": "69/2008/NĐ-CP",
+                "docType": {"name": "Nghị định"},
+                "effStatus": {"code": "HHL1P"},
+                "documentContent": {
+                    "content": "<p>Căn cứ Luật Tổ chức Chính phủ;</p><p>Điều 1. Phạm vi</p>"
+                    "<p>1. Nội dung khoản một.</p>"
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(build_seed, "DOC_IDS", {"9201": ("deep", "69/2008/NĐ-CP")})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    out = tmp_path / "seed"
+    build_seed.build(tmp_path / "raw", out)
+    neo = [json.loads(x)["duong_dan"] for x in (out / "provisions.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert "69/2008/NĐ-CP > Điều 1 > Khoản 1" in neo

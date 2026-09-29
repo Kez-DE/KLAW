@@ -2,6 +2,8 @@
 
 import hashlib
 import json
+import re
+import unicodedata
 import warnings
 from pathlib import Path
 
@@ -13,9 +15,9 @@ from scripts.fetch_congbao import VAN_BAN as VAN_BAN_CONGBAO
 from scripts.fetch_moj import DOC_IDS
 from scripts.load_incoming_edges import CANH_SAI_MOJ
 from scripts.nap_linh_vuc import linh_vuc_tu_hang
-from scripts.nap_nguoi_ky import nguoi_ky_tu_response
+from scripts.nap_nguoi_ky import co_quan_tu_response, nguoi_ky_tu_response
 from src.models.domain import DocumentRow
-from src.services.chinhphu_parser import docx_sang_html_prov, sang_html_prov
+from src.services.chinhphu_parser import docx_sang_html_prov, gan_class_prov, sang_html_prov
 from src.services.prov_parser import parse_anomalies, parse_provisions
 
 # `CCHL` = "Chưa có hiệu lực" (1/1.648 response gateway, 2026-09-28: 04/2026/QH16).
@@ -26,6 +28,34 @@ TINH_TRANG_MAP = {
 
 def _date(v: str | None) -> str | None:
     return v[:10] if v else None
+
+
+# Chữ Kirin/Hy Lạp trông y hệt chữ Latin, và Ð U+00D0 thay Đ. Đo 2026-09-29: gateway
+# ghi '07/2025/NĐ-СР' (С Р Kirin) cho 187195, bản trùng của 174485.
+_DONG_HINH = str.maketrans(
+    "АВСЕНІКМОРТХаеіорсухΑΒΕΗΙΚΜΝΟΡΤΧΥΖÐ",
+    "ABCEHIKMOPTXaeiopcyxABEHIKMNOPTXYZĐ",
+)
+
+
+def khoa_so_hieu(s: str) -> str:
+    """Khoá so trùng số hiệu: NFC, chữ đồng hình → Latin, bỏ mọi khoảng trắng, không
+    phân biệt hoa thường. Chỉ để SO, không lưu — số hiệu lưu là `docNum` nguyên văn."""
+    return re.sub(r"\s+", "", unicodedata.normalize("NFC", s).translate(_DONG_HINH)).casefold()
+
+
+def _kiem_so_hieu_trung(docs: list[dict]) -> None:
+    """Mọi `duong_dan` mở đầu bằng số hiệu, nên hai văn bản cùng khoá số hiệu có neo
+    trích dẫn trùng nhau hoặc chỉ khác ở ký tự không nhìn thấy — `ux_provisions_neo_
+    trich_dan` so byte nên không chặn ca sau (07/2025/NĐ-CP, 18/2011/TT-BNNPTNT)."""
+    nhom: dict[str, list[str]] = {}
+    for d in docs:
+        nhom.setdefault(khoa_so_hieu(d["so_ky_hieu"]), []).append(d["id"])
+    if trung := [ids for ids in nhom.values() if len(ids) > 1]:
+        raise ValueError(
+            f"số hiệu trùng sau khi gộp chữ đồng hình/khoảng trắng: {trung} — chọn bản giữ, "
+            "bản kia vào KHONG_NAP; KHÔNG ghi seed"
+        )
 
 
 def bam_tep(p: Path) -> str:
@@ -110,6 +140,10 @@ def build(raw: Path, out: Path) -> dict[str, int]:
         if not html:
             raise ValueError(f"doc {doc_id} không có documentContent.content — không được bỏ qua im lặng")
 
+        if "prov-" not in html:
+            # HTML MOJ cũ, văn xuôi phẳng: gắn class theo nhãn tại chỗ (`gan_class_prov`)
+            # rồi qua CÙNG cổng; `don_kho` đối chiếu provision với HTML gateway gốc.
+            html = gan_class_prov(html)
         prov_rows, checksum = _soat_va_bam(html, so_ky_hieu, doc_id, canh_bao_tong)
         nguoi_ky, chuc_danh = nguoi_ky_tu_response(d)
         checksums[doc_id] = checksum
@@ -119,7 +153,7 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             so_ky_hieu=so_ky_hieu,
             loai_van_ban=(d.get("docType") or {}).get("name") or "Chưa xác định",
             ten=d.get("title") or "",
-            co_quan_ban_hanh=d.get("agencyName"),
+            co_quan_ban_hanh=co_quan_tu_response(d),
             ngay_ban_hanh=_date(d.get("issueDate")),
             ngay_hieu_luc=_date(d.get("effFrom")),
             ngay_het_hieu_luc=_date(d.get("effTo")),
@@ -234,6 +268,7 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             row["document_id"] = doc_id
             provs.append(row)
 
+    _kiem_so_hieu_trung(docs)
     tep: list[str] = []
     for name, data in (("documents", docs), ("provisions", provs), ("references", refs)):
         (out / f"{name}.jsonl").write_text(

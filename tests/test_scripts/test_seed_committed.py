@@ -247,7 +247,10 @@ def test_moi_van_ban_co_nhieu_nhat_MOT_ban_ghi_phu_luc(provisions, documents):
     # đã đóng cho text và giờ đóng nốt cho bảng.
     # Số lấy từ `documents` chứ không viết cứng: bất biến là "MỖI văn bản đúng
     # một bản ghi phu_luc", không phải "có 21 bản ghi".
-    assert len(pl) == len(documents), \
+    # Trừ văn bản mà HTML gateway KHÔNG có chữ đuôi nào: 69/2008/NĐ-CP (24581) dừng
+    # ở câu cuối Điều 23 — không bảng, không khối chữ ký (đo 2026-09-29).
+    khong_duoi = {"24581"}
+    assert {p["document_id"] for p in pl} == {d["id"] for d in documents} - khong_duoi, \
         f"{len(documents)} văn bản có chữ/bảng đuôi, thấy {len(pl)}"
     assert len({p["duong_dan"] for p in pl}) == len(pl)
     for p in pl:
