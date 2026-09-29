@@ -85,11 +85,36 @@ retired for drafts.
   no verdict of an existing document changed. Retrieval, dense branch on the shown
   set, raw question "hiện tại pháp luật Việt Nam chia thành những gì" (one query
   embedding, 0 LLM calls): 64/2025 Điều 4 rank 7 of 10, 87/2025 Điều 1 khoản 1 rank
-  18 of the 20-chunk dense pool. Open: 64/2025 Điều 4 in the kho is the original
-  14-khoản text (with cấp huyện); only the document-level warning names 87/2025, so
-  F2 must answer from 87/2025 Điều 1 khoản 1 (no provision-level amendment map yet —
-  the gateway HTML marks it: `type="10:<uuid>"` on 64/2025 Điều 4); the Hiến pháp
-  text is the 2013 wording (Điều 9, 10, 84 k1, 110, 111 amended by 203/2025).
+  18 of the 20-chunk dense pool. 64/2025 Điều 4 in the kho is the original
+  14-khoản text (with cấp huyện) and the Hiến pháp text is the 2013 wording; the
+  amendment map below makes expand bring the current text into the context.
+  Amendment map (review finding, same day; backup `f1-sua/backup-truoc-sua-doi.dump`
+  14:46 UTC): `sua_doi_dieu_khoan` 4 → 47 rows. 54/VBHN-VPQH (congbao 45821, ban hành
+  11/08/2025) and 52/VBHN-VPQH (congbao 45714, 21/07/2025) are published only as
+  `.doc`: fetched with `CongBaoClient` 14:47 UTC, converted with `soffice --headless
+  --convert-to docx`, loaded with `nap_sua_doi_vbhn --tep … --van-ban 64/2025/QH15`
+  (37 rows) and `--van-ban "Hiến pháp năm 2013"` (5 rows), every row `cao`, 0
+  unresolved, 0 fallbacks to a parent. The parser read 0/5 points of the Hiến pháp
+  text and missed one "Đoạn đầu điểm này" footnote; fixed in `vbhn_parser` (tests
+  first). Cross-check against the gateway clause markers (`type="10:<p id>"` on the
+  amended paragraph, pointing at the amending paragraph's id): 37/37 agree for
+  64/2025; one more marker (Điều 63 khoản 3) points at a paragraph id found in no
+  cached document, so it is not mapped. The Hiến pháp has no markers; its 5 points
+  match 203/2025 Điều 1 khoản 1–5 word for word. HNGĐ has no VBHN: one row, Điều 123
+  khoản 3 ← khoản 13 Điều 2 of 81/2025/QH15 from 01/07/2025, nguon
+  "vbpl-bientap-gateway.moj.gov.vn — doc 36870", written by a scratch script
+  (`f1-sua/nap_hngd.py`, dry-run by default, the loader's `ON CONFLICT` insert) that
+  asserts the gateway marker points at exactly that khoản and that 81/2025 Điều 3
+  gives the date. Dry-run first (the loader inside a rolled-back transaction); a
+  second run of all three leaves the table byte-identical; the 4 BLLĐ rows are
+  unchanged; the document edges they imply already existed. Measured again (cached
+  query vector, 0 embeddings, 0 LLM calls, runtime `Retriever.hybrid` + `expand` on
+  the 484 shown): 64/2025 Điều 4 still rank 7, now `bi_sua_doi` naming "khoản 1 Điều 1
+  của 87/2025/QH15 từ 2025-07-01", and 87/2025 Điều 1 khoản 1 (the 15-khoản list, no
+  cấp huyện) is in the context; expand 10 → 81 provisions (was 40), because step 0
+  anchors at the amending Điều and 87/2025 Điều 1 carries all 25 amendments. Expand on
+  Hiến pháp Điều 110 / 84 brings 203/2025 Điều 1 khoản 4 / 3; on HNGĐ Điều 123 it
+  brings 81/2025 Điều 2 khoản 13 (42 provisions: 81/2025 Điều 2 amends many laws).
   Found on the way and fixed in their own commits: the committed seed lagged
   6144954 for two joint circulars (seed only; checksums unchanged), and two
   link-evidence rows kept the pre-K6 numbers ("số: 34/2024/QH15", "Luật số
