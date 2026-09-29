@@ -221,3 +221,41 @@ def test_chi_id_KHONG_embed_KHONG_xoa_chunk_cua_van_ban_khac(monkeypatch):
     assert [r["p"] for r in chen[0]] == [1], chen
     with pytest.raises(ValueError, match="chi_moi"):
         run(model=_MODEL_GIA, chi_id=frozenset({"A"}))
+
+
+def test_van_ban_sau_khong_sinh_chunk_nao_thi_DUNG_truoc_khi_embed(monkeypatch):
+    """Văn bản tầng sâu mà chunker không sinh chunk nào thì vô hình với truy hồi
+    (14681, 24312 sau K6). Dừng trước khi gọi embedder: $0, không DB."""
+    prov = [
+        {
+            "id": 1,
+            "document_id": "A",
+            "parent_id": None,
+            "cap": "dieu",
+            "so_hieu_cap": "1",
+            "noi_dung": "Điều 1. Nội dung.",
+            "duong_dan": "1/2020/NĐ-CP > Điều 1",
+            "depth": "deep",
+        },
+        {
+            "id": 2,
+            "document_id": "B",
+            "parent_id": None,
+            "cap": "phu_luc",
+            "so_hieu_cap": "",
+            "noi_dung": "Phụ lục.",
+            "duong_dan": "2/2020/NĐ-CP > Phụ lục",
+            "depth": "deep",
+        },
+    ]
+
+    class Embedder:
+        def __init__(self, **kw) -> None:
+            raise AssertionError("không được gọi embedder")
+
+    monkeypatch.setattr(bc, "run_migrations", lambda: None)
+    monkeypatch.setattr(bc, "get_engine", lambda: None)
+    monkeypatch.setattr(bc, "load_provisions", lambda e: prov)
+    monkeypatch.setattr(bc, "EmbeddingClient", Embedder)
+    with pytest.raises(ValueError, match=r"\['B'\]"):
+        run(model=_MODEL_GIA, dry_run=True)

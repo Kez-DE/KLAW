@@ -84,6 +84,12 @@ def run(
     chunks = build_chunks(provisions, s.chunk_max_tokens)
     if not chunks:
         raise ValueError("0 chunk — provisions rỗng hoặc chunker lỗi")
+    # Văn bản tầng sâu không có chunk nào thì vô hình với truy hồi mà mọi phép đếm
+    # chunk vẫn xanh (14681, 24312 sau K6). Dừng TRƯỚC khi embed.
+    van_ban_cua = {p["id"]: p["document_id"] for p in provisions}
+    co_chunk = {van_ban_cua[c.provision_id] for c in chunks}
+    if thieu := sorted({p["document_id"] for p in provisions if p["depth"] == "deep"} - co_chunk):
+        raise ValueError(f"văn bản tầng sâu không sinh chunk nào: {thieu}")
 
     info = {
         "provisions": len(provisions),

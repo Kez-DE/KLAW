@@ -81,7 +81,15 @@ def build_chunks(provisions: list[dict], max_tokens: int) -> list[ChunkRow]:
             acc.append(gom(c))
         return " ".join(x for x in acc if x).strip()
 
+    id_citable = {p["id"] for p in citable}
     for p in citable:
+        if p["cap"] == "khoan" and p.get("parent_id") not in id_citable:
+            # Khoản không có Điều cha (07/2007/NQ-CP, 62/2008/TT-BNN đánh số thẳng):
+            # chính nó là gốc, không thì văn bản sâu đó có 0 chunk.
+            if full := gom(p):
+                body = f"{p['duong_dan']}\n{full}"
+                out.append(ChunkRow(p["id"], body, dem_token(body)))
+            continue
         if p["cap"] != "dieu":
             continue
         full = gom(p)

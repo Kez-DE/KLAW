@@ -118,3 +118,48 @@ def test_dieu_khong_co_noi_dung_rieng_van_cat_duoc_theo_khoan():
     chunks = build_chunks([dieu, k1, k2], max_tokens=100)
     assert len(chunks) == 2
     assert all("\n\n" not in c.noi_dung_embed for c in chunks)
+
+
+def test_khoan_KHONG_co_dieu_cha_van_thanh_chunk():
+    """07/2007/NQ-CP (14681) và 62/2008/TT-BNN (24312): toàn văn là các khoản đánh số
+    thẳng, không có Điều nào. Chỉ lấy gốc `dieu` thì văn bản tầng sâu đó có 0 chunk
+    và vô hình với truy hồi (đo 2026-09-29)."""
+    muc = {
+        "id": 20,
+        "cap": "muc",
+        "so_hieu_cap": "I",
+        "parent_id": None,
+        "noi_dung": "I. NHIỆM VỤ",
+        "duong_dan": "07/2007/NQ-CP > Mục I",
+    }
+    k1 = {
+        "id": 21,
+        "cap": "khoan",
+        "so_hieu_cap": "1",
+        "parent_id": 20,
+        "noi_dung": "1. Tiếp tục cải cách thủ tục hành chính.",
+        "duong_dan": "07/2007/NQ-CP > Khoản 1",
+    }
+    diem = {
+        "id": 22,
+        "cap": "diem",
+        "so_hieu_cap": "a",
+        "parent_id": 21,
+        "noi_dung": "a) Rà soát thủ tục;",
+        "duong_dan": "07/2007/NQ-CP > Khoản 1 > Điểm a",
+    }
+    k2 = {
+        "id": 23,
+        "cap": "khoan",
+        "so_hieu_cap": "2",
+        "parent_id": None,
+        "noi_dung": "2. Giao Bộ Kế hoạch và Đầu tư.",
+        "duong_dan": "07/2007/NQ-CP > Khoản 2",
+    }
+    chunks = build_chunks([muc, k1, diem, k2], max_tokens=1500)
+    assert [c.provision_id for c in chunks] == [21, 23]
+    assert (
+        chunks[0].noi_dung_embed
+        == "07/2007/NQ-CP > Khoản 1\n1. Tiếp tục cải cách thủ tục hành chính. a) Rà soát thủ tục;"
+    )
+    assert build_chunks([DIEU, KHOAN_1], max_tokens=1500)[0].provision_id == 10, "khoản dưới Điều vẫn đi theo Điều"
