@@ -277,6 +277,42 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   only partly delivered.
   Order before any other wave runs a loader or an integration test: merge K8
   into `integ/kho-day-du`, then apply the recovery with the owner's permission.
+- [x] K8 + K9 (successor chain) + K10 (signed PDF row) integrated on 2026-09-29,
+  `integ/kho-day-du` (merges b2f9d31, bc13594, a295a49). No textual conflict:
+  K9/K10 add no migration, and `MIGRATIONS_KHOI_DONG` ends 038, 039, 040. K9
+  LEFT JOINs `canh_doi_chieu` on `reference_id` (its primary key, so no fan-out).
+  K10 reads `documents.link_pdf_ban_ky` and `anh_van_ban(doc_id, png)`, exactly
+  K8's 039/040. One semantic conflict: K8's two integration tests expected the
+  direct successor (153/2016, 38/2019) in `Effectivity.van_ban`. K9 walks the
+  chain to the live one (item 12), so they now expect 293/2025/NĐ-CP and
+  108/2025/QH15; the 38/2019 edge is still asserted.
+  Measured with this code, as of 2026-09-28. On the shared DB as it is (still
+  the reverted state; recovery not applied): 480 of 1,885 shown (shallow 433,
+  deep 43, metadata 4); hidden in-force-with-link `can_doi_chieu_tay` 56,
+  `bi_thay_the` 35, `chua_xac_dinh` 5. 12/2022 and 121/2018 return 404 with an
+  empty `thay_the`, 90/2019 returns 404 → 293/2025, and 135/2020 is hidden.
+  Inside the K8 recovery dry run (`khoi_phuc_k8.py`, rolled back): 484 of 1,825
+  shown (shallow 434, deep 46, metadata 4), hidden 52/35/5. This is identical
+  to K8's own snapshot: K9 changes no shown/hidden state and no verdict. It
+  changes the named successor for 347 of 1,270 dead documents. 22 gain a name
+  (121/2018 → 145/2020/NĐ-CP, 67/2006/QH11 → 148/2025/QH15). 143 name a later
+  live one (122/2015 … 90/2019 → 293/2025). 182 lose a name, because their chain
+  ends at a dead document with no successor (K8 named 451, now 291). The 404
+  `thay_the` shows 12/2022 → 283/2026/NĐ-CP, 90/2019 → 293/2025/NĐ-CP and
+  121/2018 → 145/2020/NĐ-CP. 135/2020 is shown (`mot_phan_khong_xac_dinh`, no
+  sentence). Of the 92 hidden, 73 are unresolved: 52 `can_doi_chieu_tay`, 5
+  `chua_xac_dinh` (no effective date) and 16 `bi_thay_the` by same-topic
+  inference. The other 19 `bi_thay_the` rest on a graph edge (e.g. 152/2020 →
+  219/2025, 74/2014/QH13 → 124/2025/QH15) while MOJ still says CHL/HHL1P: they
+  are dead by KLAW but have no evidence-backed override.
+  Validation: CI lane 2,934 passed (1 known worktree-only failure); ruff has
+  only the 6 old errors in `scripts/log_*.py`, and the merged hunks add no
+  format debt (two extra blank lines removed); frontend typecheck, `kiem` and
+  prettier pass. The read-only integration files pass 316/318.
+  `test_CHAP_NHAN_ly_do…` fails on 92898 because the reverted DB lost K8's
+  153/2016 → 122/2015 edge; the dry run gives 293/2025 for all four.
+  `test_kho_that_so_hieu…` is the known 128/2025/NĐ-CP case
+  (`can_doi_chieu_tay`: off-topic 219/2025 edge).
 - [ ] K5 after eval, credit.
 
 ## Decisions
