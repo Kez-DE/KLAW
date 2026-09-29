@@ -3415,31 +3415,32 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
 // Quyết định 2026-09-28, mục 8 và 10: không "Chưa xác định", không dòng chẩn
 // đoán; một câu thường nêu văn bản sửa đổi/thay thế, tên văn bản bấm được —
 // link nội bộ khi văn bản đó được hiện, link chính thống khi không.
-{
-  // `Link` giả mang cả `params`: kiểm được link nội bộ trỏ ĐÚNG văn bản.
-  const napKhongRouter = async <T>(duong: string): Promise<T> =>
-    (
-      await runnerImport<T>(join(goc, duong), {
-        ...cauHinhVite,
-        plugins: [
-          ...cauHinhVite.plugins,
-          {
-            name: "kiem-ui-muot:link-gia-tham-so",
-            enforce: "pre" as const,
-            transform(code: string, id: string) {
-              const dong = 'import { Link } from "@tanstack/react-router";';
-              if (!id.includes("/src/") || !code.includes(dong)) return null;
-              return code.replace(
-                dong,
-                'import { createElement as taoLinkGia } from "react";\n' +
-                  "const Link = ({ to, params, children, className }) =>\n" +
-                  '  taoLinkGia("a", { href: to.replace("$docId", params?.docId ?? ""), "data-noi-bo": "", className }, children);',
-              );
-            },
+// `Link` giả mang cả `params`: kiểm được link nội bộ trỏ ĐÚNG văn bản. Dùng
+// chung với mục 18.
+const napKhongRouter = async <T>(duong: string): Promise<T> =>
+  (
+    await runnerImport<T>(join(goc, duong), {
+      ...cauHinhVite,
+      plugins: [
+        ...cauHinhVite.plugins,
+        {
+          name: "kiem-ui-muot:link-gia-tham-so",
+          enforce: "pre" as const,
+          transform(code: string, id: string) {
+            const dong = 'import { Link } from "@tanstack/react-router";';
+            if (!id.includes("/src/") || !code.includes(dong)) return null;
+            return code.replace(
+              dong,
+              'import { createElement as taoLinkGia } from "react";\n' +
+                "const Link = ({ to, params, children, className }) =>\n" +
+                '  taoLinkGia("a", { href: to.replace("$docId", params?.docId ?? ""), "data-noi-bo": "", className }, children);',
+            );
           },
-        ],
-      })
-    ).module;
+        },
+      ],
+    })
+  ).module;
+{
   const { BadgeHieuLuc, MoTaHieuLuc } = await napKhongRouter<
     typeof import("../src/components/klaw/BadgeHieuLuc.tsx")
   >("src/components/klaw/BadgeHieuLuc.tsx");
@@ -3705,6 +3706,178 @@ assert.equal(urlTroBanKhac(undefined, "b"), false);
     assert.equal(khung.childNodes.length, 0, `không vẽ gì: ${String(link)}`);
   }
   await act(() => root.unmount());
+}
+
+// ───── 18. KHUÔN MẪU: bản thảo mới là .docx KLAW dựng, CÙNG khung trang ───────
+// Thiết kế `khuon-mau-thiet-ke.md` §5 (D4d), hợp đồng API giả lập ở đây: bản
+// thảo mới là trang ảnh (không `XemTruocA4`), điền tại chỗ như khuôn gốc. Khác
+// khuôn gốc tải lên ở ba chỗ: phím tắt viết lại văn bản (lượt chat dựng lại
+// tệp), nhãn trang không nói "bản đã điền", và nút "Căn cứ (N)" — dòng khung mở
+// trang văn bản, dòng của một Điều mở nguyên văn bằng `khop_tai_id`.
+{
+  const { SanKhauBanThao: SanKhauKm } = await napKhongRouter<
+    typeof import("../src/components/soan-thao/SanKhauBanThao.tsx")
+  >("src/components/soan-thao/SanKhauBanThao.tsx");
+  const { banThaoTuMo } = await nap<typeof import("../src/lib/san-khau.ts")>("src/lib/san-khau.ts");
+  const laThe = (ten: string) => (n: Nut) => n.nodeType === 1 && n.tagName === ten;
+  const laTam = (n: Nut) => n.nodeType === 1 && n.getAttribute("role") === "dialog";
+  // `NganXepDrawer` đưa tiêu điểm vào tấm trên cùng bằng `querySelector` một
+  // danh sách tên thẻ; khung giả chưa có — thêm đúng mức đó.
+  Object.assign(Nut.prototype, {
+    querySelector(this: Nut, chon: string) {
+      const ten = chon.split(",").map((t) => t.trim().toUpperCase());
+      assert.ok(
+        ten.every((t) => /^[A-Z]+$/.test(t)),
+        `bộ chọn giả không hỗ trợ: ${chon}`,
+      );
+      return tim(this, (n) => n !== this && n.nodeType === 1 && ten.includes(n.tagName));
+    },
+  });
+  const goiKm: string[] = [];
+  globalThis.fetch = (async (url: string) => {
+    const u = String(url).replace(apiGoc(), "");
+    goiKm.push(u);
+    if (/^\/ban-thao\/k[mg]\/trang\?phien_ban=1$/.test(u)) return traJson(TRANG_O);
+    if (u === "/van-ban/91-2015?around=4812")
+      return traJson({
+        doc_id: "91-2015",
+        provisions: [
+          {
+            id: 4812,
+            cap: "dieu",
+            duong_dan: "Điều 472",
+            tieu_de: "Hợp đồng thuê tài sản",
+            noi_dung: "Hợp đồng thuê tài sản là sự thỏa thuận giữa các bên.",
+            la_tam: true,
+          },
+        ],
+      });
+    return traJson({ detail: "không có" }, 404);
+  }) as typeof fetch;
+  const CAN_CU_KM = [
+    {
+      nhan: "Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24 tháng 11 năm 2015;",
+      doc_id: "91-2015",
+      khop_tai_id: null,
+      dieu: null,
+    },
+    {
+      nhan: "Điều 3. Giá thuê — 91/2015/QH13 > Điều 472",
+      doc_id: "91-2015",
+      khop_tai_id: 4812,
+      dieu: 3,
+    },
+  ];
+  const btKm: BanThao = {
+    ...banThao,
+    id: "km",
+    phien_ban: 1,
+    document: "# HỢP ĐỒNG THUÊ TÀI SẢN\n",
+    khuon: { ...KHUON, nguon: "khuon_mau", can_cu: CAN_CU_KM },
+  };
+  const phimTat: string[] = [];
+  const { khung, root } = taoRoot();
+  const ve = (bt: BanThao) =>
+    act(() =>
+      root.render(
+        h(SanKhauKm, {
+          ...propsSanKhau,
+          banThao: bt,
+          onPhimTat: (l: "rut_gon" | "trang_trong" | "soat_luat") => phimTat.push(l),
+        }),
+      ),
+    );
+  await ve(btKm);
+  await choDen(() => anhTrang(khung).length === 2);
+
+  // (a) Trang ảnh máy chủ dựng, điền tại chỗ, tải đúng tệp đang hiện.
+  cungNut(tim(khung, laThe("ARTICLE")), null, "bản thảo khuôn mẫu KHÔNG vẽ A4 HTML");
+  assert.equal(
+    tim(khung, (n) => n.getAttribute("role") === "region")?.getAttribute("aria-label"),
+    "Các trang của bản thảo — bấm vào chỗ trống để điền",
+  );
+  assert.equal(goiKm.filter((u) => u === "/ban-thao/km/trang?phien_ban=1").length, 1);
+  assert.deepEqual(
+    nutO(khung).map((n) => n.getAttribute("data-o")),
+    ["0.0", "1.0"],
+    "chỗ trống bấm được trên trang, như khuôn gốc",
+  );
+  assert.ok(nutChu(khung, "Tải Word") !== null && nutChu(khung, "Tải PDF") !== null);
+  assert.equal(
+    tim(khung, (n) => n.nodeType === 1 && n.hasAttribute("data-tieu-de-san-khau"))?.textContent,
+    "HỢP ĐỒNG THUÊ TÀI SẢN",
+  );
+  assert.doesNotMatch(khung.textContent, /tải lên|Biểu mẫu|bản đã điền|Hiển thị căn cứ/i);
+
+  // (b) Ba phím tắt là lượt chat, nên dùng được trên bản thảo khuôn mẫu.
+  for (const chu of ["Rút gọn", "Trang trọng hơn", "Soát lại theo luật"])
+    await act(() => phat(nutChu(khung, chu)!, "click"));
+  assert.deepEqual(phimTat, ["rut_gon", "trang_trong", "soat_luat"]);
+
+  // (c) "Căn cứ (2)": tầng một liệt kê; dòng khung là link trang văn bản, dòng
+  //     Điều mở tầng hai với nguyên văn tải bằng `khop_tai_id`.
+  const nutCanCu = nutChu(khung, "Căn cứ (2)");
+  assert.ok(nutCanCu !== null, "nút 'Căn cứ (N)' trên thanh công cụ trang");
+  await act(() => phat(nutCanCu, "click"));
+  const tam1 = tim(khung, laTam)!;
+  assert.equal(tam1.getAttribute("aria-label"), "Căn cứ");
+  const lienKet = timTatNut(tam1, laThe("A"));
+  assert.deepEqual(
+    lienKet.map((a) => [a.getAttribute("href"), a.textContent]),
+    [["/tra-cuu/91-2015", CAN_CU_KM[0]!.nhan]],
+    "dòng khung → trang văn bản nội bộ",
+  );
+  const nutDieu = tim(tam1, (n) => n.tagName === "BUTTON" && n.textContent === CAN_CU_KM[1]!.nhan);
+  assert.ok(nutDieu !== null, "dòng Điều là nút mở nguyên văn");
+  await act(() => phat(nutDieu, "click"));
+  await choDen(() => /là sự thỏa thuận giữa các bên/.test(khung.textContent));
+  assert.ok(goiKm.includes("/van-ban/91-2015?around=4812"), "mở bằng khop_tai_id");
+  const tang = timTatNut(khung, laTam);
+  assert.equal(tang.length, 2, "hai tầng: danh sách, rồi nguyên văn");
+  assert.equal(tang[1]!.getAttribute("aria-label"), "Điều 3");
+  assert.match(tang[1]!.textContent, /Căn cứ › Điều 3/);
+  assert.match(tang[1]!.textContent, /Hợp đồng thuê tài sản là sự thỏa thuận giữa các bên\./);
+
+  // (d) Không căn cứ → không nút; khuôn gốc TẢI LÊN giữ nguyên như cũ.
+  await ve({ ...btKm, khuon: { ...KHUON, nguon: "khuon_mau", can_cu: [] } });
+  cungNut(nutChu(khung, "Căn cứ ("), null, "khuôn mẫu không căn cứ: không nút");
+  await act(() => root.unmount());
+  const { khung: khungKg, root: rootKg } = taoRoot();
+  await act(() =>
+    rootKg.render(
+      h(SanKhauKm, {
+        ...propsSanKhau,
+        banThao: { ...btKm, id: "kg", khuon: { ...KHUON, can_cu: CAN_CU_KM } },
+      }),
+    ),
+  );
+  await choDen(() => anhTrang(khungKg).length === 2);
+  cungNut(nutChu(khungKg, "Căn cứ ("), null, "khuôn gốc tải lên: không nút Căn cứ");
+  cungNut(nutChu(khungKg, "Rút gọn"), null, "khuôn gốc tải lên: không phím tắt viết lại");
+  assert.equal(
+    tim(khungKg, (n) => n.getAttribute("role") === "region")?.getAttribute("aria-label"),
+    "Các trang của bản đã điền — bấm vào chỗ trống để điền",
+  );
+  await act(() => rootKg.unmount());
+
+  // (e) Thẻ chat: sân khấu tự mở; dòng phụ đếm chỗ CÒN trống, không "Biểu mẫu".
+  assert.equal(banThaoTuMo(btKm), btKm, "bản thảo khuôn mẫu tự mở sân khấu");
+  const { khung: khungThe, root: rootThe } = taoRoot();
+  await act(() =>
+    rootThe.render(
+      h(TheKetQua, {
+        ketQua: {
+          ...ketQuaBanThao(btKm),
+          answer: "Bản thảo hợp đồng thuê tài sản (2 trang) đã sẵn sàng.",
+          coverage_note: null,
+        },
+      }),
+    ),
+  );
+  assert.match(khungThe.textContent, /HỢP ĐỒNG THUÊ TÀI SẢN/);
+  assert.match(khungThe.textContent, /Bản thảo · 2 trang · còn 2 chỗ trống/);
+  assert.doesNotMatch(khungThe.textContent, /Biểu mẫu|tải lên|\d+ mục/);
+  await act(() => rootThe.unmount());
 }
 
 console.log("kiem-ui-muot: OK");

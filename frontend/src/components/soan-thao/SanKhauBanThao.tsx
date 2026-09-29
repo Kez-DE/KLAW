@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ChevronLeft, Download, FileDown, X } from "lucide-react";
 import { Toggle } from "@/components/draft/DraftBits";
@@ -28,6 +29,7 @@ import {
   nhanFactDoi,
   nhanMucKiem,
   type BanThao,
+  type CanCuKhuon,
   type CauTruc,
   type OTrang,
   type TruongFact,
@@ -361,6 +363,11 @@ export function SanKhauBanThao({
   // do `muc`: sân khấu vẽ lại trên mọi token/pixel.
   const khuon = useMemo(() => khuonHopLe(banThao.khuon), [banThao.khuon]);
   const tieuDeKhuon = tieuDeTuBanThao(banThao.document) ?? banThao.ten;
+  // Khuôn mẫu (quyết định 2026-09-29 mục 5): tệp .docx KLAW tự dựng, cùng khung
+  // trang với khuôn gốc; nội dung đổi bằng lượt chat (dựng lại tệp), nên có phím
+  // tắt viết lại và danh sách căn cứ, còn khuôn gốc tải lên thì không.
+  const laKhuonMau = khuon?.nguon === "khuon_mau";
+  const canCuKhuon = khuon !== null && laKhuonMau ? khuon.can_cu : [];
   /** Chỗ trống của trang đang hiện, do `KhungTrangAnh` báo lên — kèm id bản
    *  thảo, để chỗ trống của bản thảo trước không lọt sang bản vừa mở. */
   const [oTrang, datOTrang] = useState<{ id: string; o: OTrang[] | null } | null>(null);
@@ -555,6 +562,19 @@ export function SanKhauBanThao({
     if (kq !== null)
       doiChieuCanCu.mo({ docId: kq.docId, khopTaiId: kq.khopTaiId, duongDan: canCu });
     else doiChieuCanCu.dong();
+  };
+
+  /** Dòng căn cứ của một Điều (khuôn mẫu): tầng hai, nguyên văn mở bằng
+   *  `khop_tai_id` — cùng tấm `NoiDungCanCu` của lối mục ở trên. */
+  const onMoCanCuDieu = (c: CanCuKhuon, khopTaiId: number) => {
+    datNgan((cur) =>
+      moTam(cur, {
+        id: "can-cu",
+        tieuDe: c.dieu !== null ? `Điều ${c.dieu}` : "Căn cứ",
+        noiDung: c.nhan,
+      }),
+    );
+    doiChieuCanCu.mo({ docId: c.doc_id, khopTaiId, duongDan: c.nhan });
   };
 
   const [rongMuc, datRongMucRaw] = useState(() =>
@@ -821,9 +841,24 @@ export function SanKhauBanThao({
             {khuon !== null && chuaDinhVi.length > 0 && (
               <NutChuaDinhVi ds={chuaDinhVi} dien={dien} />
             )}
-            {/* Ba phím tắt viết lại VĂN BẢN — chỉ bản thảo HTML có văn bản để
-                viết lại; khuôn gốc chỉ điền chỗ trống, không rút gọn được. */}
-            {khuon === null && (
+            {/* Căn cứ của bản thảo khuôn mẫu (thiết kế khuon-mau §5): ảnh trang
+                không bấm được vào dòng "Căn cứ", nên mở chúng ở đây. */}
+            {canCuKhuon.length > 0 && (
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                onClick={() =>
+                  datNgan((cur) => moTam(cur, { id: "can-cu-ds", tieuDe: "Căn cứ", noiDung: null }))
+                }
+                className={NUT_PHU}
+              >
+                Căn cứ ({canCuKhuon.length})
+              </button>
+            )}
+            {/* Ba phím tắt viết lại VĂN BẢN là lượt chat — bản thảo HTML và
+                khuôn mẫu (lượt chat dựng lại tệp) viết lại được; khuôn gốc tải
+                lên chỉ điền chỗ trống, không rút gọn được. */}
+            {(khuon === null || laKhuonMau) && (
               <div className="ml-auto flex flex-wrap gap-2">
                 <button type="button" onClick={() => onPhimTat("rut_gon")} className={NUT_PHU}>
                   Rút gọn
@@ -849,7 +884,11 @@ export function SanKhauBanThao({
                 duongDan={DUONG_DAN_KHUON.trangBanThao(banThao.id, phienBanTrang)}
                 soTrang={khuon.so_trang}
                 thuPhong={thuPhong}
-                nhan="Các trang của bản đã điền — bấm vào chỗ trống để điền"
+                nhan={
+                  laKhuonMau
+                    ? "Các trang của bản thảo — bấm vào chỗ trống để điền"
+                    : "Các trang của bản đã điền — bấm vào chỗ trống để điền"
+                }
                 dien={dien}
                 onO={baoO}
               />
@@ -907,6 +946,37 @@ export function SanKhauBanThao({
         render={(tam) => {
           if (tam.id === "can-cu") {
             return <NoiDungCanCu canCu={tam.noiDung as string} doiChieu={doiChieuCanCu} />;
+          }
+          if (tam.id === "can-cu-ds") {
+            // Đọc danh sách của phiên bản ĐANG hiện, không bản chụp lúc mở.
+            return (
+              <ul className="m-0 flex list-none flex-col gap-3 p-0 text-[13px] leading-5">
+                {canCuKhuon.map((c, i) => {
+                  const khop = c.khop_tai_id;
+                  return (
+                    <li key={i}>
+                      {khop === null ? (
+                        <Link
+                          to="/tra-cuu/$docId"
+                          params={{ docId: c.doc_id }}
+                          className="focus-brass rounded text-[var(--color-brass-600)] hover:underline"
+                        >
+                          {c.nhan}
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onMoCanCuDieu(c, khop)}
+                          className="focus-brass cursor-pointer rounded text-left text-[var(--color-brass-600)] hover:underline"
+                        >
+                          {c.nhan}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            );
           }
           const m = tam.noiDung as (typeof muc)[number];
           return (

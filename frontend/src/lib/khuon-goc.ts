@@ -152,10 +152,13 @@ export function oKeTiep(
 
 /** Dòng phụ của thẻ bản thảo khuôn gốc trong chat: đếm chỗ ĐÃ điền (giá trị
  *  không rỗng), không đếm "dữ kiện" hay "mục" — hai thứ đó không có trên một
- *  biểu mẫu tải lên. */
-export function phuDeKhuon(k: Pick<KhuonBanThao, "so_trang" | "cho_trong">): string {
+ *  biểu mẫu tải lên. Bản thảo KLAW dựng (khuôn mẫu) không phải "biểu mẫu" của
+ *  người dùng: đếm chỗ CÒN trống, việc người dùng còn phải làm trên trang. */
+export function phuDeKhuon(k: Pick<KhuonBanThao, "nguon" | "so_trang" | "cho_trong">): string {
   const da = k.cho_trong.filter((o) => giaTriHienThi(o) !== "").length;
-  return `Biểu mẫu · ${k.so_trang} trang · đã điền ${da} chỗ`;
+  return k.nguon === "khuon_mau"
+    ? `Bản thảo · ${k.so_trang} trang · còn ${k.cho_trong.length - da} chỗ trống`
+    : `Biểu mẫu · ${k.so_trang} trang · đã điền ${da} chỗ`;
 }
 
 /** Chỉ phần tên (không thư mục), không ký tự điều khiển; rỗng → `null`. */
@@ -216,6 +219,7 @@ export const CAU_MAY_BAN =
  * ở đây. `404` không tự hết: khuôn gốc đã bị xoá cùng hội thoại, hay (chỉ bản
  * thảo) phiên bản HTML. `duongDan` (`DUONG_DAN_KHUON`) cho biết khung nào: khung
  * "Bản tải lên" không có phiên bản, nên câu của nó không nhắc tới phiên bản.
+ * Câu của bản thảo không nói "tải lên": khung này cũng vẽ tệp KLAW tự dựng.
  * Mọi lỗi khác giữ nguyên câu của tầng gọi API.
  */
 export function loiTrang(
@@ -230,7 +234,7 @@ export function loiTrang(
     return {
       cau: duongDan.startsWith("/tai-lieu/")
         ? "Không hiển thị được bản tải lên: KLAW không còn giữ tệp này."
-        : "Không hiển thị được phiên bản này dưới dạng trang: KLAW không còn giữ tài liệu tải lên, hoặc phiên bản này không điền trên tài liệu đó.",
+        : "Không hiển thị được phiên bản này dưới dạng trang: KLAW không còn giữ tệp của bản thảo, hoặc phiên bản này không nằm trên tệp đó.",
       thuLai: false,
     };
   return { cau: loi.message, thuLai: true };

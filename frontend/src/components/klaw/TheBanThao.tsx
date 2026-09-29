@@ -25,7 +25,8 @@ export function TheBanThao({ ketQua, onMo }: { ketQua: TraCuuKetQua; onMo: (id: 
   const tieuDe = tieuDeTuBanThao(bt.document) ?? bt.ten;
   // Biểu mẫu tải lên (khuôn gốc) không có "dữ kiện" hay "mục" nào để đếm —
   // `doi_so_voi_truoc` của nó là tên CHỖ TRỐNG, `clauses` rỗng. Nói điều người
-  // dùng nhìn thấy trên trang: mấy trang, đã điền mấy chỗ.
+  // dùng nhìn thấy trên trang: mấy trang, đã điền mấy chỗ (bản thảo KLAW dựng
+  // — khuôn mẫu — thì còn mấy chỗ trống; `phuDeKhuon` chọn theo `nguon`).
   const khuon = khuonHopLe(bt.khuon);
   return (
     <section
