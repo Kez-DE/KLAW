@@ -427,11 +427,26 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   The mapping and quotes are in `eval/datasets/golden_mapping_12-2022_283-2026.md`,
   and the old labels are in `eval/datasets/golden_qa.truoc-k8.yaml`. lao-035-0/1
   (Taiwan/Japan list, 12/2022 Điều 42 k11) are not re-anchored: 283/2026 has no
-  counterpart, so the owner must choose. lao-030-1 is partial: 283 dropped the
-  record-transfer rule. lao-040 and lao-042 moved to Khoản level, because 283
-  Điều 39 and Điều 51 have no article-level chunk. The 20 changed items are now
-  `duyet_boi: agent`, so `da_nguoi_duyet` is False and K5 reports carry the
-  "not publishable" warning until the owner re-reads them.
+  counterpart, so the owner must choose. lao-040 and lao-042 moved to Khoản
+  level, because 283 Điều 39 and Điều 51 have no article-level chunk. 19 changed
+  items are now `duyet_boi: agent`, so `da_nguoi_duyet` is False and K5 reports
+  carry the "not publishable" warning until the owner re-reads them.
+  Review round 1 fixes:
+  - lao-030-1 is now unresolved (`chua-ai`, Điều 63 k16 only). Điều 5 was
+    removed because it answers neither half of the question. 283 dropped the
+    record-transfer rule, and several Điều 63 clauses grant the competence
+    (k2, k3, k5, k8, k16). The owner rewrites the question or picks the
+    clauses.
+  - "Fails by construction" holds only on the answer path. Before K5: the
+    owner decides whether `eval/run.py::_retrieve` should pass the shown set
+    (`hien`). Today it measures raw retrieval, so the hidden 12/2022
+    near-duplicates still compete with the new 283 gold. On the 20 changed
+    items (lexical_only, zero model calls), mrr@5 is 0.060–0.0625 on old gold
+    and 0.035–0.0375 on new gold unfiltered, but 0.0000 and 0.0767 filtered to
+    the 484 shown documents. Without that decision, eval.run numbers on these
+    items cannot be compared with earlier baselines. The table is in the
+    mapping file. The unfiltered range is tie noise: `Retriever.bm25` orders
+    by `ts_rank` with no tiebreak, and near-identical old/new texts tie.
 - [ ] K5 after eval, credit.
 
 ## Decisions
