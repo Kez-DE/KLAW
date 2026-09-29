@@ -82,6 +82,8 @@ def _phan_sau_so(loai: str, so_tho: str, ten: str) -> str:
 def _ten_goi(loai: str, so_tho: str, ten: str) -> str:
     """ "Bộ luật Lao động số 45/2019/QH14" / "Nghị định số 90/2019/NĐ-CP"."""
     so, ten = hien_van_ban(so_tho, ten)
+    if loai == "Hiến pháp":  # không có số hiệu; văn bản luật gọi bằng tên ("Hiến pháp năm 2013")
+        return html.unescape(ten)
     if so and loai and loai not in _LOAI_CO_TEN:
         return f"{loai} số {so}"
     rieng = _phan_sau_so(loai, so_tho, ten)

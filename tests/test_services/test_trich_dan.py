@@ -142,6 +142,22 @@ def test_ten_viet_HOA_chu_SO_khong_lap_lai_so():
     assert _trich(None, ma_tuy) == "Luật Phòng, chống ma túy số 120/2025/QH15"
 
 
+def test_hien_phap_goi_bang_ten_vi_khong_co_so_hieu():
+    """Hiến pháp 2013 không có số hiệu: kho lưu tiêu đề gateway ("Hiến pháp năm 2013")
+    làm số hiệu. Câu trích từng in "Hiến pháp số Hiến pháp năm 2013"."""
+    hien_phap = {
+        "so_ky_hieu": "Hiến pháp năm 2013",
+        "loai_van_ban": "Hiến pháp",
+        "ten": "Hiến pháp năm 2013",
+        "co_quan_ban_hanh": "Quốc hội",
+        "ngay_ban_hanh": date(2013, 11, 28),
+    }
+    assert _trich("Hiến pháp năm 2013 > Điều 119 > Khoản 1", hien_phap) == (
+        "khoản 1 Điều 119 Hiến pháp năm 2013 ngày 28/11/2013 của Quốc hội"
+    )
+    assert truong_trich_dan(hien_phap)["ten_van_ban"] == "Hiến pháp năm 2013"
+
+
 def test_thieu_phan_nao_thi_BO_phan_do_khong_dien_cho_trong():
     assert _trich("90/2019/NĐ-CP > Điều 3", {**ND90, "co_quan_ban_hanh": None}) == (
         "Điều 3 Nghị định số 90/2019/NĐ-CP ngày 15/11/2019"

@@ -490,6 +490,14 @@ def test_hien_van_ban_khong_cat_khi_ten_khong_lap_so_hieu():
     assert hien_van_ban("Không số", "Luật Thương mại") == ("", "Luật Thương mại")
 
 
+def test_hien_van_ban_so_hieu_la_chinh_ten_thi_chi_hien_ten():
+    """Hiến pháp 2013 không có số hiệu: kho lưu tiêu đề gateway làm số hiệu, nên
+    danh sách kho từng in "Hiến pháp năm 2013 — Hiến pháp năm 2013"."""
+    from src.services.kho import hien_van_ban
+
+    assert hien_van_ban("Hiến pháp năm 2013", "Hiến pháp năm 2013") == ("", "Hiến pháp năm 2013")
+
+
 def test_so_hieu_di_dang_KHONG_xuat_hien_trong_chuoi_nguoi_dung_doc():
     """Phép canh ở tầng CHUỖI THẬT, không chỉ ở hàm thuần: `dung_cau_tra_loi`
     ghép nhiều nhánh, và một nhánh quên gọi `hien_van_ban` vẫn đưa được

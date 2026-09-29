@@ -315,7 +315,8 @@ def tinh_cot(docs: list[dict], bang_chung: dict[str, dict], ghi_de: dict[str, di
             raise ValueError(f"{SEED_GHI_DE}: {d['id']} so_ky_hieu {gd['so_ky_hieu']!r} ≠ DB {d['so_ky_hieu']!r}")
         moi = {k: d[k] for k in (*_COT, "co_quan_ban_hanh", "hieu_luc_kiem_luc")}
         cot = None
-        if h is not None and not cung_so(d["so_ky_hieu"], h["docNum"]):
+        # `docNum` null (Hiến pháp 2013): không có số để so; `build_seed` đã đối chiếu tiêu đề.
+        if h is not None and h["docNum"] is not None and not cung_so(d["so_ky_hieu"], h["docNum"]):
             lech_so.append(f"{ten}: gateway docNum {h['docNum']!r}")
         elif h is not None:
             cot, ap = cot_tu_gateway(h), ap + 1
