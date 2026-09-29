@@ -151,6 +151,42 @@ def test_trich_nguoi_ky_KHONG_chuan_hoa_hoa_thuong():
     assert nguoi_ky_tu_response(d) == ("TRẦN LƯU QUANG", "Phó Thủ tướng Chính phủ")
 
 
+def test_van_ban_lien_tich_giu_du_co_quan_va_nguoi_ky():
+    """31/2009/TTLT-BNNPTNT-BNV (11913): `agencyName` chỉ nêu Bộ Nông nghiệp, nhưng
+    `documentIssues[]` nêu cả Bộ Nội vụ và người ký của nó. Lấy mục đầu thì trích dẫn
+    mất một cơ quan ban hành (quyết định 2026-09-28 mục 3)."""
+    from scripts.nap_nguoi_ky import co_quan_tu_response, nguoi_ky_tu_response
+
+    d = {
+        "agencyName": "Bộ Nông nghiệp và Phát triển nông thôn",
+        "documentIssues": [
+            {"agencyName": "Bộ Nội vụ", "personName": "Trần Văn Tuấn", "jobTitleName": "Bộ trưởng", "orderIndex": 2},
+            {
+                "agencyName": "Bộ Nông nghiệp và Phát triển nông thôn",
+                "personName": "Cao Đức Phát",
+                "jobTitleName": "Bộ trưởng",
+                "orderIndex": 1,
+            },
+        ],
+    }
+    assert co_quan_tu_response(d) == "Bộ Nông nghiệp và Phát triển nông thôn, Bộ Nội vụ"
+    assert nguoi_ky_tu_response(d) == ("Cao Đức Phát, Trần Văn Tuấn", "Bộ trưởng")
+
+
+def test_mot_co_quan_giu_agencyName_va_nguoi_ky_dau():
+    from scripts.nap_nguoi_ky import co_quan_tu_response
+
+    d = {
+        "agencyName": "Chính phủ",
+        "documentIssues": [
+            {"agencyName": "Chính phủ", "personName": "A", "orderIndex": 1},
+            {"agencyName": "Chính phủ", "personName": "B", "orderIndex": 2},
+        ],
+    }
+    assert co_quan_tu_response(d) == "Chính phủ"
+    assert co_quan_tu_response({"agencyName": "Quốc hội"}) == "Quốc hội"
+
+
 @pytest.mark.integration
 def test_migration_015_idempotent_va_chan_chuoi_rong():
     from sqlalchemy import text

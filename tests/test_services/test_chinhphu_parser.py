@@ -19,7 +19,7 @@ một ca được vào đây, không phải "phủ cho đủ dòng":
 
 import pytest
 
-from src.services.chinhphu_parser import sang_html_prov
+from src.services.chinhphu_parser import gan_class_prov, sang_html_prov
 from src.services.prov_parser import parse_anomalies, parse_provisions
 
 
@@ -176,3 +176,24 @@ def test_docx_cong_bao_moi_doan_than_van_ban_ke_ca_trong_bang():
     rows = {r.cap.value: r.noi_dung for r in parse_provisions(docx_sang_html_prov(buf.getvalue()), "9/2025/QH15")}
     assert rows["khoan"] == "1. Nội dung khoản một."
     assert "CHỦ TỊCH QUỐC HỘI" in rows["phu_luc"] and "QUỐC HỘI" in rows["mo_dau"]
+
+
+def test_html_MOJ_khong_the_prov_gan_class_tai_cho_bang_chu_ky_vao_phu_luc():
+    """HTML MOJ cũ không có thẻ `prov-*` (69/2008/NĐ-CP, 12/2004/CT-TTg): gắn class
+    theo nhãn NGAY TRÊN HTML đó thay vì làm phẳng như trang Chính phủ, để bảng giữ
+    nguyên và bảng chữ ký sau đoạn cuối rơi vào `phu_luc` theo VỊ TRÍ như đường MOJ."""
+    goc = (
+        '<div class="WordSection1"><p>CHÍNH PHỦ</p><p>Căn cứ Luật Tổ chức Chính phủ;</p>'
+        "<p><b>Điều 1.</b> Phạm vi điều chỉnh</p><p>1. Nghị định này quy định chính sách.</p>"
+        "<p>Chính sách áp dụng từ năm 2008.</p><p>“2. Câu trích của luật khác.”</p>"
+        "<table><tr><td><p>KT. THỦ TƯỚNG</p><p>(Đã ký)</p><p>Nguyễn Tấn Dũng</p></td></tr></table></div>"
+    )
+    rows = parse_provisions(gan_class_prov(goc), "69/2008/NĐ-CP")
+    theo_neo = {r.duong_dan: r.noi_dung for r in rows}
+    assert theo_neo["69/2008/NĐ-CP > Điều 1 > Khoản 1"] == (
+        "1. Nghị định này quy định chính sách. Chính sách áp dụng từ năm 2008. “2. Câu trích của luật khác.”"
+    )
+    phu_luc = next(r.noi_dung for r in rows if r.cap.value == "phu_luc")
+    assert "Nguyễn Tấn Dũng" in phu_luc
+    assert "Căn cứ Luật Tổ chức Chính phủ" in next(r.noi_dung for r in rows if r.cap.value == "mo_dau")
+    assert not parse_anomalies(gan_class_prov(goc), "69/2008/NĐ-CP")[0]

@@ -140,6 +140,24 @@ def sang_html_prov(html: str, khoi_id: str = "block_detail") -> str:
     return '<html><body><div class="WordSection1">' + "".join(the) + "</div></body></html>"
 
 
+def gan_class_prov(html: str) -> str:
+    """HTML MOJ KHÔNG có thẻ `prov-*` nào (văn bản cũ, văn xuôi phẳng) → cùng HTML đó,
+    mỗi `<p>` ngoài bảng mang class suy từ NHÃN (`_cap_cua`), không nhãn thì
+    `prov-content`.
+
+    Gắn TẠI CHỖ, không làm phẳng như `sang_html_prov`: HTML MOJ tách khối đuôi bằng
+    cấu trúc — bảng chữ ký đứng sau đoạn văn cuối — nên giữ nguyên bảng là đủ để
+    `parse_provisions` đặt nó vào `phu_luc` theo VỊ TRÍ, không cần công thức ban hành.
+    Chữ không đổi (chỉ thêm class), nên đối chiếu nguyên văn với gateway vẫn là phép
+    kiểm của đường MOJ.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    for p in soup.find_all("p"):
+        if p.find_parent("table") is None and (t := _text(p)):
+            p["class"] = [*(p.get("class") or []), CAP_TO_CLASS.get(_cap_cua(t), "prov-content")]
+    return str(soup)
+
+
 def docx_sang_html_prov(docx: bytes) -> str:
     """Bản `.docx` Công báo → HTML `prov-*`, qua CHÍNH `sang_html_prov` (nguồn toàn văn dự
     phòng, quyết định 2026-09-28 mục 13). Mỗi `<w:p>` của thân văn bản, kể cả trong bảng
