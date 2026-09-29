@@ -83,10 +83,15 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
 ## Progress
 
 - [x] Decisions Q1–Q6; decision record; this plan.
-- [ ] K0 baseline eval.
-- [ ] K1 missing documents and edges. Branch `feat/kho-du-lieu`; review round 1
-  fixed. Eval at 9a088ae, pinned models, `eval/results/kho-luat/`: golden 77
-  trúng dẫn 64.0% / 62.7% (K0, two runs) → 56.8% with the 7 labelled superseded
+- [x] K0 baseline eval (2026-09-28, detached worktree at 9a088ae, pinned
+  models gemini-2.5-flash-lite + mistral judge, `eval/results/kho-luat/truoc-*`;
+  corpus 1,634 documents / 43,720 provisions / 14,770 chunks). Golden 77: 75/77
+  ran (two structural `TruncatedOutputError` rows), trúng dẫn 64.0% / 62.7%
+  (two runs), trích dẫn đúng 77.0% / 77.0%, answer 81.3% / 78.7%. Trap 57: 43.
+  Mơ hồ 20: 17.
+- [x] K1 missing documents and edges (2026-09-28, `feat/kho-du-lieu`, review
+  round 1 fixed). Eval at 9a088ae, pinned models,
+  `eval/results/kho-luat/sau-k1-*`: golden 77 trúng dẫn 64.0% / 62.7% (K0, two runs) → 56.8% with the 7 labelled superseded
   documents indexed → 61.3% with all 24 unindexed (75/77 ran, the same two
   structural `TruncatedOutputError` rows as K0; answer 78.7%, trích dẫn đúng
   77.0%, equal to K0 run 2). Trap 57: 43 → 45, none lost. Mơ hồ 20: 17 → 17.
@@ -124,6 +129,19 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   the previous link and evidence, a source is skipped after 5 consecutive
   failures (K2 had at most 2), and a run that would lose >5 % of checked
   documents writes nothing.
+- [x] K1 + K2 integrated with main (K3/K4/K7) on 2026-09-29, `integ/kho-day-du`
+  (merge 5a8482d; only the plan conflicted). K7's rule and K2's `CCHL` →
+  `chua_hieu_luc` both hold: the two `chua_hieu_luc` rows (04/2026/QH16,
+  05/2026/QH16) are shown. Shared DB, read-only, as of 2026-09-29: **480 of
+  1,822 shown** (CHL 250, HHL1P 228, chua_hieu_luc 2; 435 of them shallow —
+  K6); of the 600 candidates by MOJ status every one has a verified link, 120
+  are hidden by the KLAW verdict (`can_doi_chieu_tay` 72, `bi_thay_the` 43,
+  `chua_xac_dinh` 5). CI lane 2,891 passed (1 known worktree-only failure);
+  the six K7/effectivity/kho/route integration files + `test_lien_quan` 264/265:
+  `test_kho_that_so_hieu_trung_thi_neu_het_hai_van_ban` fails on main's code
+  too — data, not the merge: 128/2025/NĐ-CP (HHL1P, linked) is hidden because
+  an MOJ replacement edge from 03/2026/NĐ-CP (a different title) makes it
+  `can_doi_chieu_tay`, the same class as open risk (b) under K7.
 - [x] K3 citation display (2026-09-28, `integ/trich-dan-day-du`). Backend
   `services/trich_dan.truong_trich_dan` adds `ten_van_ban`, `loai_van_ban`,
   `co_quan_ban_hanh`, `ngay_ban_hanh`, `ngay_hieu_luc`, `lien_ket`, `cach_trich`
@@ -142,7 +160,7 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   labour draft in the real app and check the downloaded file.
 - [ ] K6 full text for every shown document, PDFs.
 - [x] K7 visibility rule and diagnostics hidden (2026-09-28,
-  `integ/hien-thi-con-hieu-luc`, not yet on main). `services/hien_thi` is the
+  `integ/hien-thi-con-hieu-luc`, on main at 5ec9acf). `services/hien_thi` is the
   one definition: shown = MOJ `tinh_trang` CHL/HHL1P AND KLAW verdict alive
   (`VERDICT_HIEN`) AND `trich_dan.lien_ket` passes. Lists, bộ lọc counts,
   tìm kiếm, phạm vi, liên quan, retrieval/expand, drafting sources and the
@@ -195,8 +213,8 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   index (`scripts/build_chunks.KHONG_DANH_CHI_MUC`, decision item 8); provisions
   and edges stay for tier 1 and replacement chains. This overrides "indexed" in
   outcome 4 for superseded documents. The voyage index is again the pre-K1 set
-  (8,517 chunk/provision id pairs). **Owner decision pending:** a text-verified
-  edge class that bypasses `cung_chu_de` (an effectivity invariant change); K7's
+  (8,517 chunk/provision id pairs). Owner decision (item 12, 2026-09-28): a
+  text-verified edge is not downgraded by `cung_chu_de` — not implemented yet; K7's
   visibility rule supersedes the list. Pre-existing documents with the same defect
   are NOT in the list: 29/2019/NĐ-CP (repealed by 145/2020 Điều 114 k2 điểm c, 58
   chunks, rank 2 for "cho thuê lại lao động"), 135/2020/NĐ-CP, 31/2024/QH15.
