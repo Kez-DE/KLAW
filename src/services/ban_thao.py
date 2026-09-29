@@ -1677,6 +1677,10 @@ def dat_khuon_mau(
     engine = get_engine()
     hien = hien_thi_luc(engine, as_of_hieu_luc(None))
     theo_id = {pid: r for pid, r in graph_soan_thao.chi_van_ban_hien(db, hien).items()}
+    # Graph checklist viết một điều cho MỌI mục, kể cả mục thể thức mà khung đã dựng
+    # (`muc_khung`: quốc hiệu, số, nơi nhận…): bỏ chúng khỏi điều khoản, không thì trang
+    # in "Điều 1. Quốc hiệu và Tiêu ngữ" và số Điều của trang lệch số Điều đã lưu.
+    khung_co = set(entry.get("muc_khung") or [])
     clauses = [
         {
             "key": c.get("key"),
@@ -1687,6 +1691,7 @@ def dat_khuon_mau(
             "can_cu_provision_id": c.get("can_cu_provision_id"),
         }
         for c in ket.get("clauses") or []
+        if c.get("key") not in khung_co
     ]
     khung = {
         "loai": loai,

@@ -38,7 +38,12 @@ THU_MUC = Path("config/khuon_mau")
 BO_CUC = ("hanh_chinh", "don", "hop_dong")
 NGUON_LOAI = ("mau_chinh_thuc", "tuong_tu", "tu_dung")
 NGAY = ("dau", "cot_phai", "cuoi", "khong")
-KIEU_DIEU = ("dieu", "so", "muc")
+# `lien`: "Điều n." đậm mở đầu đoạn đầu của điều, không dòng tên riêng — quyết định,
+# nghị quyết theo Phụ lục III NĐ 30/2020 (Mẫu 1.1, 1.2: "Điều 1……").
+KIEU_DIEU = ("dieu", "so", "muc", "lien")
+# Chữ đặt vào dòng mẫu, không phải chỗ trống: trích yếu (khi có), tên văn bản viết
+# thường ("Quy chế …", cho quyết định ban hành), tên loại viết thường.
+_TU_KHOA = ("trich_yeu", "ten_van_ban", "loai_thuong")
 # Trường của cả VĂN BẢN, không của bên nào (tên Tòa án ở dòng Kính gửi, cơ quan nhận).
 BEN_VAN_BAN = "van_ban"
 
@@ -77,6 +82,8 @@ _CO_THAN = 28
 _DONG = 276
 _SAU = 120
 _THUT = 720
+# Cao một dòng chữ 14 pt giãn đơn (twip) — bù khoảng trước dòng họ tên ở khối ký.
+_CAO_DONG = 322
 # Chiều dài dòng tiêu ngữ ở cỡ 14 đậm Times New Roman (Liberation Serif cùng số đo),
 # đo trên bản dựng thật bằng `pdftotext -bbox` (2026-09-29): 171,2 pt.
 # ponytail: một hằng số cho một chuỗi cố định; đổi cỡ tiêu ngữ thì đo lại.
@@ -144,9 +151,6 @@ def _kiem_muc(d: dict, loai: str) -> str | None:
         return f"nguon.loai lạ {ng.get('loai')!r}"
     if ng["loai"] == "mau_chinh_thuc" and not (ng.get("tep_d2") and ng.get("sha256") and ng.get("url")):
         return "mẫu chính thức phải có nguon.url, nguon.tep_d2 và nguon.sha256"
-    tt = d["the_thuc"]
-    if tt.get("ngay", "khong") not in NGAY:
-        return f"the_thuc.ngay lạ {tt.get('ngay')!r}"
     danh_muc = truong()
     ben = {b["khoa"]: b for b in d.get("ben") or []}
     if len(ben) != len(d.get("ben") or []):
@@ -156,6 +160,29 @@ def _kiem_muc(d: dict, loai: str) -> str | None:
         mau += [_chuoi_cua_dong(x) for x in b.get("dong") or []]
         if lech := [t for t in b.get("truong") or [] if t not in danh_muc]:
             return f"bên {b['khoa']}: trường lạ {lech}"
+    # Quyết định ban hành đi trước văn bản kèm theo (Mẫu 1.3 NĐ 30/2020): cùng các bên,
+    # thể thức, thân và khối ký riêng — kiểm như chính mục.
+    phan = [d, *([d["ban_hanh"]] if d.get("ban_hanh") else [])]
+    for x in phan:
+        loi = _kiem_phan(x, ben, mau)
+        if loi:
+            return loi
+    if lech := sorted({o for s in mau for o in _cac_o(s) if o and o not in danh_muc and o not in _TU_KHOA}):
+        return f"trường lạ trong dòng mẫu {lech}"
+    for k, (b, t) in (d.get("truong_tu_facts") or {}).items():
+        if b not in ben or t not in danh_muc:
+            return f"truong_tu_facts.{k} trỏ tới [{b}, {t}] không có"
+    return None
+
+
+def _kiem_phan(d: dict, ben: dict, mau: list[str]) -> str | None:
+    """Kiểm thể thức, thân và khối ký của MỘT văn bản trong mục; gom mọi dòng mẫu vào
+    `mau` để kiểm trường một lần."""
+    tt = d.get("the_thuc") or {}
+    if not d.get("than") or not d.get("tieu_de"):
+        return "thiếu `than` hay `tieu_de`"
+    if tt.get("ngay", "khong") not in NGAY:
+        return f"the_thuc.ngay lạ {tt.get('ngay')!r}"
     for m in d["than"]:
         if not isinstance(m, dict) or len({"ben", "muc", "dieu", "dong"} & m.keys()) != 1:
             return f"mục thân lạ {m!r}"
@@ -166,14 +193,12 @@ def _kiem_muc(d: dict, loai: str) -> str | None:
         mau.append(m.get("dong") or "")
     kg = tt.get("kinh_gui") or {}
     mau += [kg.get("dong") or "", tt.get("so") or "", tt.get("ket_thuc") or "", *(tt.get("noi_nhan") or [])]
-    if lech := sorted({o for s in mau for o in _cac_o(s) if o and o not in danh_muc and o != "trich_yeu"}):
-        return f"trường lạ trong dòng mẫu {lech}"
+    mau += [str(tt.get(k) or "") for k in ("tham_quyen", "trich_yeu", "kem_theo", "lenh")]
+    mau += [tt["vv"] if isinstance(tt.get("vv"), str) else ""]
+    mau += [x["dong"] if isinstance(x, dict) else x for x in tt.get("can_cu_them") or []]
     ky = d.get("ky") or {}
     if lech := [k for k in [*(ky.get("thu_tu") or []), *(o["khoa"] for o in ky.get("o") or [])] if k not in ben]:
         return f"khối ký gọi bên lạ {lech}"
-    for k, (b, t) in (d.get("truong_tu_facts") or {}).items():
-        if b not in ben or t not in danh_muc:
-            return f"truong_tu_facts.{k} trỏ tới [{b}, {t}] không có"
     return None
 
 
@@ -361,7 +386,9 @@ def _con(cha: Any, ten: str, **thuoc: Any) -> Any:
     return el
 
 
-def _rpr(cha: Any, *, b: bool = False, i: bool = False, sz: int | None = None) -> None:
+def _rpr(cha: Any, *, b: bool = False, i: bool = False, sz: int | None = None, caps: bool = False) -> None:
+    """`caps`: chữ hiện IN HOA dù người dùng gõ thường — chỗ trống của tên cơ quan,
+    thẩm quyền, chức vụ người ký (Phụ lục I: "chữ in hoa"). Thứ tự con theo CT_RPr."""
     rpr = _e("rPr")
     if b:
         _con(rpr, "b")
@@ -369,6 +396,8 @@ def _rpr(cha: Any, *, b: bool = False, i: bool = False, sz: int | None = None) -
     if i:
         _con(rpr, "i")
         _con(rpr, "iCs")
+    if caps:
+        _con(rpr, "caps")
     if sz:
         _con(rpr, "sz", val=sz)
         _con(rpr, "szCs", val=sz)
@@ -376,9 +405,9 @@ def _rpr(cha: Any, *, b: bool = False, i: bool = False, sz: int | None = None) -
         cha.append(rpr)
 
 
-def _run(chu: str, *, b: bool = False, i: bool = False, sz: int | None = None) -> Any:
+def _run(chu: str, *, b: bool = False, i: bool = False, sz: int | None = None, caps: bool = False) -> Any:
     r = _e("r")
-    _rpr(r, b=b, i=i, sz=sz)
+    _rpr(r, b=b, i=i, sz=sz, caps=caps)
     t = _con(r, "t")
     t.text = chu
     if chu != chu.strip():
@@ -386,9 +415,9 @@ def _run(chu: str, *, b: bool = False, i: bool = False, sz: int | None = None) -
     return r
 
 
-def _run_tab(*, b: bool = False, sz: int | None = None) -> Any:
+def _run_tab(*, b: bool = False, sz: int | None = None, caps: bool = False) -> Any:
     r = _e("r")
-    _rpr(r, b=b, sz=sz)
+    _rpr(r, b=b, sz=sz, caps=caps)
     _con(r, "tab")
     return r
 
@@ -406,6 +435,10 @@ class _Dung:
         self.body = _e("body")
         self.o: dict[Any, list] = {}
         self.ben = {b["khoa"]: b for b in spec.get("ben") or []}
+        self.ten_van_ban = _ten_van_ban(spec)
+        # Dòng trường của các bên và nhãn mục lùi đầu dòng như lời văn (Mẫu 1.9, Mẫu 01
+        # NĐ 124/2020); mặc định sát lề như Mẫu 23-DS.
+        self.thut_nhan = _THUT if tt.get("thut_nhan") else 0
 
     # ─── đoạn và dòng mẫu ───────────────────────────────────────────────
 
@@ -456,31 +489,34 @@ class _Dung:
         i: bool = False,
         sz: int | None = None,
         trai: int = 0,
+        caps: bool = False,
     ) -> None:
         """Điền `p` bằng dòng mẫu `mau`: chữ tĩnh nguyên văn, mỗi `{truong}` (hay `{}`)
         là MỘT chỗ trống ghi vào `self.o[vat]` theo thứ tự đọc. `tab`: chỗ trống là
         `w:tab` tới mốc phải dẫn chấm (dòng trường của các bên — chữ sau chỗ trống
         dạt về mốc); không thì "……" giữa dòng. `{trich_yeu}` là trích yếu của văn bản,
-        in thành chữ khi có."""
+        in thành chữ khi có (bỏ phần lặp chữ tĩnh đứng trước: "V/v V/v …" không lên
+        trang); `{ten_van_ban}` là tên văn bản viết thường."""
         sz = sz or self.co
-        phan = _RE_O.split(mau)
-        o = [k for k in range(1, len(phan), 2) if phan[k] != "trich_yeu" or not self.spec.get("trich_yeu")]
+        ty = self.spec.get("trich_yeu")
+        phan = _RE_O.split(mau.replace("{ten_van_ban}", self.ten_van_ban))
+        o = [k for k in range(1, len(phan), 2) if phan[k] != "trich_yeu" or not ty]
         moc = []
         for k, chu in enumerate(phan):
             if k % 2 == 0:
                 if chu:
-                    p.append(_run(chu, b=b, i=i, sz=sz))
+                    p.append(_run(chu, b=b, i=i, sz=sz, caps=caps))
                 continue
-            if chu == "trich_yeu" and self.spec.get("trich_yeu"):
-                p.append(_run(self.spec["trich_yeu"], b=b, i=i, sz=sz))
+            if chu == "trich_yeu" and ty:
+                p.append(_run(_bo_tien_to(ty, phan[k - 1]), b=b, i=i, sz=sz, caps=caps))
                 continue
             khoa = None if chu in ("", "trich_yeu") else (ben or BEN_VAN_BAN, chu)
             self.o.setdefault(vat, []).append(khoa)
             if tab:
-                p.append(_run_tab(b=b, sz=sz))
+                p.append(_run_tab(b=b, sz=sz, caps=caps))
                 moc.append(trai + (self.rong - trai) * (o.index(k) + 1) // len(o))
             else:
-                p.append(_run(CHO, b=b, i=i, sz=sz))
+                p.append(_run(CHO, b=b, i=i, sz=sz, caps=caps))
         if moc:
             ppr = p.find(_W + "pPr")
             tabs = _e("tabs")
@@ -559,36 +595,56 @@ class _Dung:
         tbl = self.bang(rong)
         o_trai, o_phai = self.hang(tbl, rong)
         p = self.doan(o_trai, can="center", sz=_CO["co_quan"])
-        self.dong_mau(p, "{ten_to_chuc}", o_trai, "co_quan", b=True, sz=_CO["co_quan"])
+        self.dong_mau(p, "{ten_to_chuc}", o_trai, "co_quan", b=True, sz=_CO["co_quan"], caps=True)
         self.ke(o_trai, rong[0], rong[0] // 3)
         p = self.doan(o_phai, can="center", sz=_CO["quoc_hieu"])
         p.append(_run(QUOC_HIEU, b=True, sz=_CO["quoc_hieu"]))
         p = self.doan(o_phai, can="center")
         p.append(_run(TIEU_NGU, b=True))
         self.ke(o_phai, rong[1], _DAI_TIEU_NGU)
-        o_trai, o_phai = self.hang(tbl, rong)
-        p = self.doan(o_trai, can="center", truoc=120, sz=_CO["so"])
-        if tt.get("so"):
-            self.dong_mau(p, tt["so"], o_trai, None, sz=_CO["so"])
-        if tt.get("vv"):
-            p = self.doan(o_trai, can="center", sz=_CO["vv"])
-            self.dong_mau(p, "V/v {trich_yeu}", o_trai, None, sz=_CO["vv"])
-        if tt.get("ngay") == "cot_phai":
-            p = self.doan(o_phai, can="center", truoc=120)
-            self.dong_mau(p, "{}, ngày {} tháng {} năm {}", o_phai, None, i=True)
-        else:
-            self.doan(o_phai, can="center")
+        # Hàng Số | địa danh-ngày. Văn bản kèm theo quyết định không có cả hai (Mẫu 1.3
+        # NĐ 30/2020, "Mẫu văn bản … kèm theo"): không dựng hàng rỗng.
+        if tt.get("so") or tt.get("vv") or tt.get("ngay") == "cot_phai":
+            o_trai, o_phai = self.hang(tbl, rong)
+            p = self.doan(o_trai, can="center", truoc=120, sz=_CO["so"])
+            if tt.get("so"):
+                self.dong_mau(p, tt["so"], o_trai, None, sz=_CO["so"])
+            if tt.get("vv"):
+                p = self.doan(o_trai, can="center", sz=_CO["vv"])
+                vv = tt["vv"] if isinstance(tt["vv"], str) else "V/v {trich_yeu}"
+                self.dong_mau(p, vv, o_trai, None, sz=_CO["vv"])
+            if tt.get("ngay") == "cot_phai":
+                p = self.doan(o_phai, can="center", truoc=120)
+                self.dong_mau(p, "{}, ngày {} tháng {} năm {}", o_phai, None, i=True)
+            else:
+                self.doan(o_phai, can="center")
         if not tt.get("vv"):
-            self._ten_loai(truoc=360, ke_trich_yeu=True)
+            self._ten_loai(truoc=360, ke=True)
+        if tt.get("tham_quyen"):
+            # Thẩm quyền ban hành (Mẫu 1.1–1.3): in hoa đậm giữa trang, trước căn cứ.
+            p = self.doan(self.body, can="center", truoc=240, sau=60, giu_sau=True)
+            self.dong_mau(p, tt["tham_quyen"], p, None, b=True, caps=True)
 
-    def _ten_loai(self, *, truoc: int, ke_trich_yeu: bool = False) -> None:
+    def _ten_loai(self, *, truoc: int, ke: bool = False) -> None:
+        """Tên loại, trích yếu (dòng mẫu `the_thuc.trich_yeu`, hay trích yếu của lượt),
+        dòng "(Kèm theo …)" của văn bản kèm theo; `ke`: đường kẻ ngắn dưới cùng, dài 2/5
+        dòng trích yếu (hay tên loại khi không có trích yếu) — Phụ lục I: 1/3–1/2."""
+        tt = self.spec.get("the_thuc") or {}
         p = self.doan(self.body, can="center", truoc=truoc, giu_sau=True)
         p.append(_run(self.spec["tieu_de"], b=True))
-        if ty := self.spec.get("trich_yeu"):
+        dai = len(self.spec["tieu_de"])
+        mau_ty = tt.get("trich_yeu")
+        if mau_ty or self.spec.get("trich_yeu"):
             p = self.doan(self.body, can="center", giu_sau=True)
-            p.append(_run(ty, b=True))
-            if ke_trich_yeu:
-                self.ke(self.body, self.rong, min(len(ty) * _RONG_KY_TU, self.rong) * 2 // 5)
+            self.dong_mau(p, mau_ty or "{trich_yeu}", p, None, b=True)
+            dai = len(_chu_doan(p))
+        if tt.get("kem_theo"):
+            p = self.doan(self.body, can="center", giu_sau=True)
+            self.dong_mau(p, tt["kem_theo"], p, None, i=True)
+        if ke:
+            self.ke(
+                self.body, self.rong, min(dai * _RONG_KY_TU, self.rong) * 2 // 5, truoc=60 if tt.get("kem_theo") else 0
+            )
 
     def kinh_gui(self) -> None:
         kg = (self.spec.get("the_thuc") or {}).get("kinh_gui")
@@ -600,11 +656,29 @@ class _Dung:
         self.dong_mau(p, kg["dong"], p, None, tab=thut, trai=trai)
 
     def can_cu(self) -> None:
-        if not (self.spec.get("the_thuc") or {}).get("can_cu"):
-            return
-        for i, cc in enumerate(self.spec.get("can_cu") or []):
-            p = self.doan(self.body, thut_dau=_THUT, truoc=120 if i == 0 else 0, sau=60, dong=_DONG)
-            p.append(_run(cc["dong"], i=True))
+        """Dòng căn cứ của kho (đủ số, ngày), rồi dòng căn cứ của khung (`can_cu_them`:
+        "Căn cứ Điều lệ ……;", "Theo đề nghị của ……" — văn bản của chính tổ chức, không
+        phải luật, nên là chỗ trống), rồi dòng lệnh ("QUYẾT ĐỊNH:", "QUYẾT NGHỊ:").
+        Dòng khung đi sau thì dòng kho cuối kết bằng ";" (Phụ lục I: dòng cuối mới ".")."""
+        tt = self.spec.get("the_thuc") or {}
+        if tt.get("can_cu"):
+            kho = [cc["dong"] for cc in self.spec.get("can_cu") or []]
+            them = list(tt.get("can_cu_them") or [])
+            if kho and them:
+                kho[-1] = re.sub(r"\.\s*$", ";", kho[-1])
+            for k, dong in enumerate([*kho, *them]):
+                p = self.doan(self.body, thut_dau=_THUT, truoc=120 if k == 0 else 0, sau=60, dong=_DONG)
+                if k < len(kho):
+                    p.append(_run(dong, i=True))
+                else:
+                    # "……" giữa dòng: điền xong không còn dẫn chấm thừa. `{dong, tab}`: chỗ
+                    # trống cuối dòng trước dấu "." — "……." thì dấu chấm thành một phần
+                    # của chỗ trống và mất khi điền, nên dùng dẫn chấm tới lề.
+                    mau, tab = (dong["dong"], True) if isinstance(dong, dict) else (dong, False)
+                    self.dong_mau(p, mau, p, None, tab=tab, i=True)
+        if tt.get("lenh"):
+            p = self.doan(self.body, can="center", truoc=240, sau=120, giu_sau=True)
+            p.append(_run(tt["lenh"], b=True))
 
     def than(self) -> list[Any]:
         """Thân bài theo `spec["than"]`; trả các đoạn thân bài (để gắn "./." cho
@@ -620,17 +694,25 @@ class _Dung:
             if "ben" in m:
                 self._ben(m["ben"], thut)
             elif "dong" in m:
+                # `tab`: chỗ trống cuối dòng là dẫn chấm tới lề phải (dòng trường của
+                # biên bản); `dau`: phần đậm mở đầu ("Điều 1. ").
+                giua = m.get("can") == "center"
+                deu = bool(m.get("tab") and self.thut_nhan)
                 p = self.doan(
                     self.body,
-                    can=m.get("can", "both"),
-                    thut_dau=0 if thut else _THUT,
+                    can=m.get("can", "left" if m.get("tab") else "both"),
+                    thut_dau=0 if thut or giua else _THUT,
                     trai=thut,
-                    truoc=120,
-                    sau=60,
+                    truoc=60 if deu else 120,
+                    sau=0 if deu else 60,
                     dong=_DONG,
                 )
+                if m.get("dau"):
+                    p.append(_run(m["dau"], b=True))
                 mau = _voi_loai(m["dong"], self.spec["tieu_de"])
-                self.dong_mau(p, mau, p, None, b=bool(m.get("dam")), i=bool(m.get("nghieng")))
+                self.dong_mau(
+                    p, mau, p, None, tab=bool(m.get("tab")), trai=thut, b=bool(m.get("dam")), i=bool(m.get("nghieng"))
+                )
             elif "muc" in m:
                 doan_than += self._muc(m, theo_khoa.get(m["muc"]), thut)
             else:
@@ -648,7 +730,13 @@ class _Dung:
         for k, d in enumerate(dong):
             mau, dam = (d.get("d", ""), bool(d.get("dam"))) if isinstance(d, dict) else (d, False)
             p = self.doan(
-                self.body, can="left", trai=thut, truoc=120 if k == 0 and not b.get("tieu_de") else 0, sau=0, dong=_DONG
+                self.body,
+                can="left",
+                trai=thut,
+                thut_dau=self.thut_nhan,
+                truoc=60 if self.thut_nhan else (120 if k == 0 and not b.get("tieu_de") else 0),
+                sau=0,
+                dong=_DONG,
             )
             self.dong_mau(p, mau, p, khoa, tab=True, trai=thut, b=dam)
 
@@ -664,6 +752,7 @@ class _Dung:
                 self.body,
                 can="left" if not doan else "both",
                 trai=thut,
+                thut_dau=self.thut_nhan,
                 truoc=60,
                 sau=0,
                 dong=_DONG,
@@ -678,6 +767,9 @@ class _Dung:
                 trai=thut,
                 b=bool(m.get("dam")),
             )
+            if not doan and not m.get("danh_sach"):
+                # Dòng nhãn mang chỗ trống là dòng thân của mục ("./." có thể rơi vào nó).
+                ra.append(p)
         if not doan and m.get("danh_sach"):
             for i in range(1, int(m["danh_sach"]) + 1):
                 p = self.doan(self.body, can="left", trai=thut, sau=0, dong=_DONG)
@@ -694,9 +786,22 @@ class _Dung:
 
     def _dieu(self, dieu: list[dict], kieu: str, thut: int) -> list[Any]:
         ra = []
-        mot = len(dieu) == 1 and kieu != "dieu"
+        mot = len(dieu) == 1 and kieu not in ("dieu", "lien")
         for n, d in enumerate(dieu, 1):
             ten = str(d.get("ten") or "").strip()
+            if kieu == "lien":
+                # "Điều n." đậm mở đầu đoạn đầu; tên điều không in. Điều chỉ có chỗ trống
+                # (điều luật đòi, chèn lúc tạo) thì in tên để người đọc biết điền gì.
+                doan = [x for x in d.get("doan") or [] if x.strip()] or [CHO]
+                if ten and all(x.strip() == CHO for x in doan):
+                    doan = [f"{ten}: {CHO}"]
+                for k, x in enumerate(doan):
+                    p = self.doan(self.body, thut_dau=0 if thut else _THUT, trai=thut, sau=_SAU, dong=_DONG)
+                    if k == 0:
+                        p.append(_run(f"Điều {n}. ", b=True))
+                    self._chu(p, x)
+                    ra.append(p)
+                continue
             if not mot and (ten or kieu != "muc"):
                 p = self.doan(
                     self.body, thut_dau=0 if thut else _THUT, trai=thut, truoc=120, sau=60, dong=_DONG, giu_sau=True
@@ -721,12 +826,14 @@ class _Dung:
             if manh:
                 p.append(_run(manh))
 
-    def ket_thuc(self) -> None:
+    def ket_thuc(self) -> Any:
         mau = (self.spec.get("the_thuc") or {}).get("ket_thuc")
-        if mau:
-            # Đi cùng trang với khối ký: câu kết không bị bỏ lại một mình ở trang trước.
-            p = self.doan(self.body, thut_dau=_THUT, truoc=120, sau=_SAU, dong=_DONG, giu_sau=True)
-            self.dong_mau(p, _voi_loai(mau, self.spec["tieu_de"]), p, None)
+        if not mau:
+            return None
+        # Đi cùng trang với khối ký: câu kết không bị bỏ lại một mình ở trang trước.
+        p = self.doan(self.body, thut_dau=_THUT, truoc=120, sau=_SAU, dong=_DONG, giu_sau=True)
+        self.dong_mau(p, _voi_loai(mau, self.spec["tieu_de"]), p, None)
+        return p
 
     def cuoi_ngay(self) -> None:
         if (self.spec.get("the_thuc") or {}).get("ngay") == "cuoi":
@@ -737,39 +844,60 @@ class _Dung:
         ky = self.spec.get("ky") or {}
         theo = {o["khoa"]: o for o in ky.get("o") or []}
         nguoi = [theo[k] for k in ky.get("thu_tu") or [] if k in theo]
-        noi_nhan = (self.spec.get("the_thuc") or {}).get("noi_nhan")
+        tt = self.spec.get("the_thuc") or {}
+        noi_nhan = tt.get("noi_nhan")
+        # Biên bản (Mẫu 1.9): hai người ký cùng hàng, "Nơi nhận" DƯỚI cả hai khối.
+        nn_cot = None if tt.get("noi_nhan_duoi") else noi_nhan
         if not nguoi and not noi_nhan:
             return
         # Khoảng trắng tách thân khỏi khối ký: một đoạn rỗng, không phải đơn vị.
         self.doan(self.body, sau=0, giu_sau=True)
-        cot = len(nguoi) + (1 if noi_nhan or len(nguoi) == 1 else 0)
-        rong = [self.rong // cot] * cot
-        if noi_nhan and cot == 2:
-            # Hành chính: người ký thẳng cột quốc hiệu (38 % / 62 %, D2 §4.4).
-            rong = [round(self.rong * 0.38)] * 2
-        rong[-1] += self.rong - sum(rong)
-        tbl = self.bang(rong)
-        o = self.hang(tbl, rong, khong_tach=True)
-        if noi_nhan or len(nguoi) == 1:
-            o_trai, o = o[0], o[1:]
-            if noi_nhan:
-                self._noi_nhan(o_trai, noi_nhan)
-            else:
-                self.doan(o_trai)
-        for tc, k in zip(o, nguoi, strict=True):
-            self._nguoi_ky(tc, k)
+        if nguoi:
+            cot = len(nguoi) + (1 if nn_cot or len(nguoi) == 1 else 0)
+            rong = [self.rong // cot] * cot
+            if cot == 2 and (nn_cot or tt.get("noi_nhan_duoi")):
+                # Hành chính: người ký thẳng cột quốc hiệu (38 % / 62 %, D2 §4.4).
+                rong = [round(self.rong * 0.38)] * 2
+            rong[-1] += self.rong - sum(rong)
+            tbl = self.bang(rong)
+            o = self.hang(tbl, rong, khong_tach=True)
+            if nn_cot or len(nguoi) == 1:
+                o_trai, o = o[0], o[1:]
+                if nn_cot:
+                    self._noi_nhan(o_trai, nn_cot)
+                else:
+                    self.doan(o_trai)
+            # Dòng họ tên các cột thẳng hàng dù ghi chú dưới chức danh dài ngắn khác nhau.
+            dong = [(_so_dong(k.get("vai")) or 1) + _so_dong(k.get("ghi_chu")) for k in nguoi]
+            for tc, k, n in zip(o, nguoi, dong, strict=True):
+                self._nguoi_ky(tc, k, bu=(max(dong) - n) * _CAO_DONG)
+        if noi_nhan and not nn_cot:
+            self._noi_nhan(self.body, noi_nhan)
+        if xn := ky.get("duoi"):
+            # Khối xác nhận giữa trang dưới chữ ký các bên (Mẫu 02 NĐ 124/2020).
+            for k, dong in enumerate(str(xn["vai"]).split("\n")):
+                p = self.doan(self.body, can="center", truoc=360 if k == 0 else 0, giu_sau=True)
+                p.append(_run(dong, b=True))
+            if xn.get("ghi_chu"):
+                p = self.doan(self.body, can="center", giu_sau=True)
+                p.append(_run(xn["ghi_chu"], i=True))
+            p = self.doan(self.body, can="center", truoc=1300)
+            self.dong_mau(p, "{}", p, None, b=True)
         # Word luôn giữ một đoạn sau bảng cuối thân bài: dựng sẵn (1 pt, rỗng — không
         # phải đơn vị) để tệp mở ra không phải "sửa".
         self.doan(self.body, sz=2)
 
-    def _noi_nhan(self, tc: Any, ds: list[str]) -> None:
-        p = self.doan(tc, can="left", sz=_CO["noi_nhan_nhan"])
+    def _noi_nhan(self, cha: Any, ds: list[str]) -> None:
+        """ "Nơi nhận:" và các dòng "- …;". Trong ô của khối ký thì cả ô là MỘT đơn vị;
+        dưới khối ký (biên bản) thì mỗi dòng là một đơn vị."""
+        o_bang = cha is not self.body
+        p = self.doan(cha, can="left", truoc=0 if o_bang else 240, sz=_CO["noi_nhan_nhan"])
         p.append(_run("Nơi nhận:", b=True, i=True, sz=_CO["noi_nhan_nhan"]))
         for d in ds:
-            p = self.doan(tc, can="left", sz=_CO["noi_nhan"])
-            self.dong_mau(p, f"- {d}", tc, None, sz=_CO["noi_nhan"])
+            p = self.doan(cha, can="left", sz=_CO["noi_nhan"])
+            self.dong_mau(p, f"- {d}", cha if o_bang else p, None, sz=_CO["noi_nhan"])
 
-    def _nguoi_ky(self, tc: Any, o: dict) -> None:
+    def _nguoi_ky(self, tc: Any, o: dict, *, bu: int = 0) -> None:
         vai = o.get("vai")
         p = self.doan(tc, can="center")
         if vai:
@@ -779,28 +907,43 @@ class _Dung:
                 p.append(_run(dong.upper() if o.get("in_hoa", True) else dong, b=True))
         else:
             # Quyền hạn, chức vụ người ký (hành chính): chỗ trống của chính người ký.
-            self.dong_mau(p, "{chuc_vu}", tc, o["khoa"], b=True)
+            self.dong_mau(p, "{chuc_vu}", tc, o["khoa"], b=True, caps=True)
         for dong in str(o.get("ghi_chu") or "").split("\n") if o.get("ghi_chu") else ():
             p = self.doan(tc, can="center")
             p.append(_run(dong, i=True))
         if o.get("ho_ten_tu"):
-            p = self.doan(tc, can="center", truoc=1300)
+            p = self.doan(tc, can="center", truoc=1300 + bu)
             self.dong_mau(p, f"{{{o['ho_ten_tu']}}}", tc, o["khoa"], b=True)
 
     # ─── đóng gói ───────────────────────────────────────────────────────
 
     def dung(self) -> tuple[bytes, dict]:
+        if bh := self.spec.get("ban_hanh"):
+            # Mẫu 1.3 NĐ 30/2020: QUYẾT ĐỊNH ban hành (căn cứ, khối ký, nơi nhận) ở trang
+            # đầu, rồi sang trang mới là văn bản kèm theo mang điều khoản của lượt.
+            chinh = self.spec
+            self.spec = {**chinh, **bh, "trich_yeu": chinh.get("trich_yeu"), "dieu": [], "ban_hanh": None}
+            self._van_ban()
+            p = self.body[-1] if self.body[-1].tag == _W + "p" else self.doan(self.body, sz=2)
+            _con(_con(p, "r"), "br", type="page")
+            self.spec = {**chinh, "can_cu": []}
+        self._van_ban()
+        self._sect()
+        return _dong_goi(self.body), self._ban_do()
+
+    def _van_ban(self) -> None:
         self.dau_trang()
         self.kinh_gui()
         self.can_cu()
         doan_than = self.than()
-        if self.spec.get("bo_cuc") == "hanh_chinh" and doan_than:
-            _ket_bang_dau(doan_than[-1])
-        self.ket_thuc()
+        p_ket = self.ket_thuc()
+        if self.spec.get("bo_cuc") == "hanh_chinh":
+            # "./." sau đoạn cuối thân — câu kết của biên bản khi có (Mẫu 1.9).
+            cuoi = p_ket if p_ket is not None else (doan_than[-1] if doan_than else None)
+            if cuoi is not None:
+                _ket_bang_dau(cuoi)
         self.cuoi_ngay()
         self.khoi_ky()
-        self._sect()
-        return _dong_goi(self.body), self._ban_do()
 
     def _sect(self) -> None:
         s = _con(self.body, "sectPr")
@@ -826,6 +969,33 @@ class _Dung:
         return ra
 
 
+def _so_dong(x: Any) -> int:
+    return len(str(x).split("\n")) if x else 0
+
+
+def _chu_doan(p: Any) -> str:
+    return "".join(t.text or "" for t in p.iter(_W + "t"))
+
+
+def _ten_van_ban(spec: dict) -> str:
+    """Tên văn bản viết thường, hoa chữ đầu, cho câu của quyết định ban hành ("Ban hành
+    kèm theo Quyết định này Quy chế quản lý tài sản"): tên loại, cộng trích yếu khi
+    mẫu có dòng trích yếu — chưa có trích yếu thì là chỗ trống `{trich_yeu}`."""
+    ten = " ".join(str(spec.get("tieu_de") or "văn bản").split()).lower()
+    ten = ten[:1].upper() + ten[1:]
+    if "{trich_yeu}" not in str((spec.get("the_thuc") or {}).get("trich_yeu") or ""):
+        return ten
+    ty = " ".join(str(spec.get("trich_yeu") or "").split())
+    return f"{ten} {ty[:1].lower() + ty[1:]}" if ty else f"{ten} {{trich_yeu}}"
+
+
+def _bo_tien_to(ty: str, truoc: str) -> str:
+    """Trích yếu mô hình viết lặp lại chữ tĩnh đứng ngay trước chỗ của nó ("V/v …",
+    "Về việc …") → bỏ phần lặp."""
+    t = truoc.strip()
+    return re.sub(rf"^\s*{re.escape(t)}\s*:?\s*", "", ty, flags=re.IGNORECASE) if t else ty
+
+
 def _voi_loai(mau: str, tieu_de: str) -> str:
     """`{loai_thuong}` của dòng mẫu → tên loại viết thường ("HỢP ĐỒNG THUÊ NHÀ" →
     "hợp đồng thuê nhà"), hoa chữ đầu khi nó mở đầu câu."""
@@ -841,10 +1011,11 @@ def _ket_bang_dau(p: Any) -> None:
         p.append(_run("./."))
         return
     s = (t.text or "").rstrip()
-    if s.endswith(CHO):
-        # Dòng thân còn trống: dấu cách tách "./." khỏi chỗ trống — dính vào thì
-        # dấu chấm đầu thành một phần của dãy chấm và bị giá trị điền đè mất.
-        s += " ./."
+    if _chu_doan(p).rstrip().rstrip(".").endswith(CHO):
+        # Đoạn kết bằng chỗ trống (có thể kèm dấu chấm của câu, "giữ chức vụ ……."): dấu
+        # cách tách "./." khỏi chỗ trống — dính vào thì dấu chấm thành một phần của dãy
+        # chấm, và điền xong trang còn "Giám đốc/.".
+        s = s.rstrip(".").rstrip() + " ./."
     else:
         s = s[:-1] + "./." if s.endswith(".") else s + "./."
     t.text = s
