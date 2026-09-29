@@ -448,6 +448,86 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
     mapping file. The unfiltered range is tie noise: `Retriever.bm25` orders
     by `ts_rank` with no tiebreak, and near-identical old/new texts tie.
 - [ ] K5 after eval, credit.
+- [ ] K11 retrieval fix (decision item 17), 2026-09-29, `feat/k11-truy-hoi`.
+  NOT LIVE: measured and recorded, but the runtime still runs hybrid until
+  the owner gate below is done; the regression is not closed until then.
+  Cause: K6 made 372 shown documents deep (17,283 shown chunks, 64% new,
+  3.1% labour). `ts_rank` has no IDF and the OR query matches ~96% of the
+  pool, so the lexical branch fills its slots with long off-topic chunks, and
+  equal-weight RRF gives it ~4 of every 10. Dense recall did not regress.
+  The code default `retrieve_bm25_topk=0` (c2f6585) never ran: `.env.local`
+  and `.env.example` set `RETRIEVE_BM25_TOPK=20`, so K0 and K5 ran hybrid.
+  - `eval.run` now filters to the shown set by default (`--khong-loc-hien` for
+    the old numbers). Answer-run `moi_truong` records `truy_hoi`. Baseline at
+    6537fcc, `eval/results/kho-luat/k11-truy-hoi-{hien,khong-loc}/`, exact-id
+    R@5 / R@10 / MRR@5 on 77: shown set hybrid 0.5584 / 0.7208 / 0.3403,
+    dense_only 0.7403 / 0.8182 / 0.5361, lexical_only 0.1234 / 0.2013 /
+    0.0788; unfiltered 0.5455 / 0.6948 / 0.3078, 0.6818 / 0.7857 / 0.5035,
+    0.0974 / 0.1753 / 0.0660.
+  - Fix measured retrieval-only, one cached vector per query, real 3-query
+    pool from one `rewrite_query` pass on the pinned router model. BM25 off
+    beats every other variant: 55 unchanged labels, raw-question hit@10
+    43 → 48 (K0 hybrid 42), R@5 0.58 → 0.78, MRR@5 0.35 → 0.56. 12 stable
+    losses: hit@10 9 → 10. Weighted RRF (BM25 weight 0.3–0.85) gives the
+    same hit@10 but lower MRR@5 (0.50 on 55). BM25 top 5/10 is no better.
+    No golden question hit by hybrid is lost. After `expand` of the
+    3-query pool (all 77), context drops from 79.2K to 37.4K chars, labour
+    share of that text rises 22% → 43%, gold present 66 → 69. Mơ hồ pool
+    labour 57.5% → 69.6%, trap 26.6% → 29.9%. The trap `van_ban_bi_thay`
+    pools keep 293/2025 and 45/2019 in 10/10.
+  - One paid golden run, 6537fcc, `RETRIEVE_BM25_TOPK=0`, pinned models,
+    `eval/results/kho-luat/k11-77.json` (key usage 22.4116 → 22.7628).
+    76/77 ran; the one error is lao-042-1, which errors in every run.
+    trúng dẫn 61.8% (K0 62.7 / 64.0, K5 49.3), trích dẫn đúng 78.9%, answer
+    80.3%, abstain 7.9%, traces cost $0.2097 (K5 $0.2757). On the 70 rows
+    that ran in K0 r2, K5 r2 and K11: unchanged labels 37 → 29 → 36 of 50,
+    main 74 42 → 35 → 45 of 67, item 15 (new labels) 6 → 6 → 9 of 20. 7 of
+    the 12 stable losses hit again. The rest are downstream: 4 of the 5 have
+    gold at raw-query rank ≤ 4. 5 new misses (lao-002-1, 013-1, 017-1,
+    028-0, 040-1) all have gold at rank ≤ 4 too.
+  - Round 2, 6537fcc, same settings (`RETRIEVE_BM25_TOPK=0` in the process
+    env, which overrides `.env.local`), key usage 22.7716 → 23.2289
+    (US$0.457). Files: `k11-77-lan2.json`, `k11-trap.json` (+ `.bo-sung`),
+    `k11-mo_ho.json`. Corpus fingerprint unchanged, `answer_cache` 0.
+    - Golden run 2: 69/77 ran (7 truncated-JSON generation errors + the
+      usual lao-042-1 timeout; run 1 had 1), trúng dẫn 66.7%, trích dẫn đúng
+      79.9%, answer 79.7%, abstain 7.2%, cost $0.1708. Headline, unchanged
+      labels, pairwise on rows that ran in both: K0 r1 → K11 r1 42 → 38 of
+      55, K0 r2 → K11 r1 41 → 38 of 55; K0 r1 → K11 r2 37 → 38 of 49, K0 r2
+      → K11 r2 36 → 38 of 49. On the 49 rows all four ran: K0 37 / 36, K11
+      35 / 38. K5 → K11 is +7 to +8 in all four pairings. Run-to-run
+      disagreement: K0 1 of 55, K5 2 of 49, K11 5 of 49. On the 6 unchanged
+      rows run 2 lost to errors, K0 r1 hits 5 and K11 r1 3, so the 49-row
+      parity is flattered by which rows errored. The K5 drop is recovered;
+      K11 against K0 is −4 to +2 of 49–55, inside K11's own spread, not a
+      proven full return. The same 5 stable losses hit in both K11 runs; 7
+      of 12 in each.
+    - Trap: 43/54 (3 errors, trap-oos-06, oos-08, soul-08); K0 43/57, K5
+      46/57; on the same 54 rows K0 42, K5 45, K11 43. Unchanged by
+      construction: `dieu_khong_ton_tai` 20/20 (premise check runs before
+      retrieval), `ngoai_pham_vi` 8/13 (every flip is SAI in all runs),
+      `soan_thao` 3/3. `van_ban_bi_thay` 5/10 (K0 5, K5 7): the two K5 gains
+      (superseded-04, -09) passed only because the answer also cited
+      45/2019/QH14 Điều 91, whose "còn hiệu lực một phần" warning satisfies
+      `warning_bi_thay_the`. K11 cites only 293/2025/NĐ-CP with the right
+      amounts and no warning, so it scores SAI, as K0 did. That is a scorer
+      limitation (any warning passes), not a quality loss.
+    - Mơ hồ: 15/20, abstain oan 3 (K0 17 / 1, K5 15 / 3). mh-002, mh-006,
+      mh-017 answer again; mh-004 and mh-012 now abstain; mh-009 is back to
+      abstain (it flips between K0 and K1 too). Both new abstains keep their
+      core provisions in the pool (mh-004 gains the probation articles 45/2019
+      Điều 24–25 and keeps Điều 105, 107; mh-012 keeps Điều 90, 94–97)
+      and keep 5 and 10 claims after tier 2, so the demotion is in
+      assemble, not retrieval.
+      K0 → K1 (same index) already flips 2 of 20, so one 20-item run cannot
+      separate 17 → 15 from noise.
+  - Owner gate, open (agents never edit env files). `.env.example` has set
+    `RETRIEVE_BM25_TOPK=20` since 279a7f0 (2026-08-27), before c2f6585 moved
+    the measured default to 0, so the template value is stale, not a choice.
+    To make K11 live: remove `RETRIEVE_BM25_TOPK` from `.env.local` (or set
+    0), set 0 in `.env.example`, and check the Railway service variable.
+    Tick K11 only after that. Every answer run now records the value it used
+    in `moi_truong.truy_hoi.bm25_topk`.
 
 ## Decisions
 
