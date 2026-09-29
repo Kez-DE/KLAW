@@ -1,0 +1,1738 @@
+# Bản PDF đã ký trên datafiles.chinhphu.vn — sinh bởi `python -m scripts.nap_pdf_ban_ky`, đừng sửa tay.
+# Đạt = trang vanban.chinhphu.vn qua `kiem_trang_chinhphu` + tệp *.signed.pdf HTTP 200 application/pdf.
+00aed7c0-5d63-11f1-8f07-fd66ec1fa693:
+  so_ky_hieu: 103/2026/NĐ-CP
+  kiem_luc: '2026-09-29T05:38:41+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=217521
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/4/103-nd.signed.pdf
+  so_byte_pdf: 1635420
+  sha256_pdf: 9c0c32df2d726b9156b955b30ec0c08e2955e9e3f5dcee5b0d38f40e624d57e3
+09a8e5d0-688c-11f1-af8e-adfd6ae9c135:
+  so_ky_hieu: 200/2026/NĐ-CP
+  kiem_luc: '2026-09-29T05:38:48+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218389
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/6/200-ndcp.signed.pdf
+  so_byte_pdf: 3655883
+  sha256_pdf: 3298cb420346d1a2b9f2c2a9ea71ee59081ef8e2cd85bd58579f95f92a294ebc
+0ae72df0-4247-11f1-9aef-8b444472143a:
+  so_ky_hieu: 109/2026/NĐ-CP
+  kiem_luc: '2026-09-29T05:38:54+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=217641
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/4/109-ndcp.signed.pdf
+  so_byte_pdf: 5203290
+  sha256_pdf: 9d1672ae9a0c5e5fd4fb680ed1bc71f44f267b407100c2bc57208046d9198674
+0b18ef50-7f2f-11f1-ac91-b52787e0a2e9:
+  so_ky_hieu: 141/2026/NĐ-CP
+  kiem_luc: '2026-09-29T05:39:00+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=217960
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/4/141-ndcp.signed.pdf
+  so_byte_pdf: 262358
+  sha256_pdf: fa9a7c47b637f47528225d9cdd03dbde1032607ec8c39648071178ce4091413f
+0da53250-5d6b-11f1-807d-c70e99d85013:
+  so_ky_hieu: 104/2026/NĐ-CP
+  kiem_luc: '2026-09-29T05:39:06+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=217644
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/4/104-ndcp.signed.pdf
+  so_byte_pdf: 1525386
+  sha256_pdf: 0cc1b7690b09e428acc7bfa8a75b5fa84872639b60eeec9e4a300aba1d107375
+0ed5a0f0-5434-11f1-9423-23103f50c7ff:
+  so_ky_hieu: 131/2026/NĐ-CP
+  kiem_luc: '2026-09-29T05:39:32+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=217621
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/4/131-ndcp.signed.pdf
+  so_byte_pdf: 559138
+  sha256_pdf: 8aaa78d4eecfb9e9b4413b56c34576aaf8d8f139e89fe8f45ecdcfecac3dffdc
+'100456':
+  so_ky_hieu: 30/2015/QĐ-UBND
+  kiem_luc: '2026-09-29T05:39:39+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=181864
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2015/10/30hn.signed.pdf
+  so_byte_pdf: 746558
+  sha256_pdf: e776d2015822421649510baeab9f4dcf511f6f5cf3add57735379122ad1437c1
+'101897':
+  so_ky_hieu: 107/2016/QH13
+  kiem_luc: '2026-09-29T05:39:46+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=184599
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/05/107.signed.pdf
+  so_byte_pdf: 2068695
+  sha256_pdf: 32841618792a0ef83b8f9dab098d39afe556471a83039489f38e1e9ccd91b04b
+'104462':
+  so_ky_hieu: 16/2014/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:40:00+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=174421
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2014/06/tt-16-1.signed.pdf
+  so_byte_pdf: 2866028
+  sha256_pdf: 5e2853c7350cd4e7e71c501ab95fcdf5cced7337da2812bd0865428690d53e24
+'106010':
+  so_ky_hieu: 35/2016/NĐ-CP
+  kiem_luc: '2026-09-29T05:40:07+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=184914
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/06/35.signed.pdf
+  so_byte_pdf: 1520597
+  sha256_pdf: 7e3a228bdd1226e364febcca936d7809a266f9b66c7823c5e738a2b85d969b90
+'106202':
+  so_ky_hieu: 07/2016/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:40:14+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=185614
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/07/07-bnnptnt.signed.pdf
+  so_byte_pdf: 3362943
+  sha256_pdf: 79590363b37419db7df1b8efda211dab7059583077e3545979facc964eac7af2
+'106212':
+  so_ky_hieu: 08/2016/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:40:21+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=185588
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/07/08-bnnptnt.signed.pdf
+  so_byte_pdf: 860554
+  sha256_pdf: 5dcb8855922d6a142de32614cad41d762cf32c1a4db589305fc6cf8e3714d432
+'110923':
+  so_ky_hieu: 184/2015/TT-BTC
+  kiem_luc: '2026-09-29T05:40:46+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=183527
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/02/184-btc.signed.pdf
+  so_byte_pdf: 2062891
+  sha256_pdf: 0ad38291ceed8b567b3e91d2f359c489a97e4f7431fd811565c784d97291ed2a
+'112157':
+  so_ky_hieu: 99/2016/NĐ-CP
+  kiem_luc: '2026-09-29T05:40:53+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=185639
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/07/99.signed.pdf
+  so_byte_pdf: 998064
+  sha256_pdf: e466af5c8292a881f717f3a0de652b188d1e4088f18527cc65ce82113b494eb0
+'112489':
+  so_ky_hieu: 100/2016/NĐ-CP
+  kiem_luc: '2026-09-29T05:40:59+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=185760
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/08/100-nd.signed.pdf
+  so_byte_pdf: 570769
+  sha256_pdf: 1ea3fbb6fda0197658e0c4861c5adf4368bb45c3de5234506177f1b728c3da2d
+'112967':
+  so_ky_hieu: 83/2016/TT-BTC
+  kiem_luc: '2026-09-29T05:41:06+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=185942
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/08/83-btc.signed.pdf
+  so_byte_pdf: 626298
+  sha256_pdf: 4fa55d03ba9adadbc3cb7fc2207a0f81531ec8ea463f07d5583450ae5d991ab2
+'113073':
+  so_ky_hieu: 102/2016/NĐ-CP
+  kiem_luc: '2026-09-29T05:41:12+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=185867
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/08/102.signed.pdf
+  so_byte_pdf: 822053
+  sha256_pdf: 31b43125a1f226ede7f07d0b52825784533524e97e87aab6903426771ab63aef
+'114476':
+  so_ky_hieu: 143/2016/NĐ-CP
+  kiem_luc: '2026-09-29T05:41:19+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=186920
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/10/143.signed.pdf
+  so_byte_pdf: 2077302
+  sha256_pdf: 07f914757d874fdbe6077f20e026c8eca3b9dec2b2641f282e67b163ce56275f
+'114551':
+  so_ky_hieu: 13/2016/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:41:25+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=185885
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/08/13-bnnptnt.signed.pdf
+  so_byte_pdf: 3882482
+  sha256_pdf: 750f67d4098a05520c4d91e5208a2f9b9ce6ae3af0cc35b0b02822ec32c30617
+'114572':
+  so_ky_hieu: 20/2016/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:41:38+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=186085
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/08/20-bnnptnt.signed.pdf
+  so_byte_pdf: 615689
+  sha256_pdf: db9df2ca6cfa7d3cbb47bb82e2a58fcd750ed9d80bd4d881571cccb8b224bfe1
+'114576':
+  so_ky_hieu: 26/2016/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:41:45+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=186175
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/09/26-bnnptnt.signed.pdf
+  so_byte_pdf: 2537437
+  sha256_pdf: 5eb9fbc85c3f466924cbf8e0f8a1641507f5784064d883ac127541f3f22b20a4
+'117760':
+  so_ky_hieu: 44/2016/NĐ-CP
+  kiem_luc: '2026-09-29T05:42:09+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=185117
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/06/44.signed.pdf
+  so_byte_pdf: 2678400
+  sha256_pdf: 533e22a7d88811de684c9e33ca9129c2253e35e7298725ae1ff2a7319945e7d8
+'118966':
+  so_ky_hieu: 150/2016/TT-BTC
+  kiem_luc: '2026-09-29T05:42:24+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=187534
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/12/150-btc.signed.pdf
+  so_byte_pdf: 254022
+  sha256_pdf: 9f095fed9b49c34d0c3b79c4bb095a589dcbf883124d7813fdfb7bc37547eb80
+'119077':
+  so_ky_hieu: 10/2017/NĐ-CP
+  kiem_luc: '2026-09-29T05:42:31+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=188259
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/02/10.signed.pdf
+  so_byte_pdf: 1611301
+  sha256_pdf: a79bd6a46d197d5f021ce5f6583475d3039ec9e84ea828ab899ca377d320269c
+'119757':
+  so_ky_hieu: 134/2016/NĐ-CP
+  kiem_luc: '2026-09-29T05:42:43+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=186707
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/10/134.signed.pdf
+  so_byte_pdf: 2372956
+  sha256_pdf: 4fe3832d278d03e6ab53c064c6aa3c60063d372570eaa6b57427b0bd252e5460
+'122170':
+  so_ky_hieu: 06/2017/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:42:50+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=189253
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/04/06-bnnptnt.signed.pdf
+  so_byte_pdf: 965151
+  sha256_pdf: 2b170ac4007dd0b142f32055c46356d1583cbf581ccca48d2d986f85970e11f8
+'122443':
+  so_ky_hieu: 02/2017/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:42:58+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=188929
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/03/02-bnnptnt.signed.pdf
+  so_byte_pdf: 325176
+  sha256_pdf: 20e60a7426f3afb18e2d4537c752fe92a2f40e17994cf955c434cc78650591e8
+'122446':
+  so_ky_hieu: 37/2017/TT-BTC
+  kiem_luc: '2026-09-29T05:43:05+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=190012
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/06/37-btc.signed.pdf
+  so_byte_pdf: 266433
+  sha256_pdf: 5c7c981c538d8763432b12cd0356c7544afda5b6aa2503d23d25336631ebf281
+'122449':
+  so_ky_hieu: 34/2017/TT-BTC
+  kiem_luc: '2026-09-29T05:43:13+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=190015
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/06/34-btc.signed.pdf
+  so_byte_pdf: 243381
+  sha256_pdf: 45271a41eea76d6d693ecfc373801a6d96e817dc6871cd998a52dd3b67eee258
+'122584':
+  so_ky_hieu: 23/2017/QĐ-TTG
+  kiem_luc: '2026-09-29T05:43:19+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=190170
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/06/23.signed.pdf
+  so_byte_pdf: 816856
+  sha256_pdf: 0a23f7217182627b6d7aa4e89f02a6d166dbb7ab1cf49c702346bdd3d007a6d4
+'122826':
+  so_ky_hieu: 12/2017/QH14
+  kiem_luc: '2026-09-29T05:43:26+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=190507
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/08/12.signed.pdf
+  so_byte_pdf: 5389381
+  sha256_pdf: f05d9bf3537edf81f0c9a678f29837beac96a9bc4fc3f4865b7d1560049ed2f8
+'122827':
+  so_ky_hieu: 11/2017/QH14
+  kiem_luc: '2026-09-29T05:43:33+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=190303
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/07/11.signed.pdf
+  so_byte_pdf: 1003692
+  sha256_pdf: ec5fba35d050ee0e1feeba9833f5c62d060dbb354ea46ebb3d4d807bbcda68a5
+'123126':
+  so_ky_hieu: 57/2017/NĐ-CP
+  kiem_luc: '2026-09-29T05:43:40+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=189757
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/05/57.signed.pdf
+  so_byte_pdf: 582484
+  sha256_pdf: c73fc5b2e51b81c3c84a0ff8463c3f546d8bddc3c388b23e307d10994d221339
+'123514':
+  so_ky_hieu: 07/2017/QH14
+  kiem_luc: '2026-09-29T05:43:51+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=190284
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/07/07.signed.pdf
+  so_byte_pdf: 1630731
+  sha256_pdf: ccfaaa08b483417e24acd6986c35cd1456a23cb18a22922c771a3ae87d5d542f
+'123806':
+  so_ky_hieu: 75/2017/TT-BTC
+  kiem_luc: '2026-09-29T05:44:02+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=190925
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/08/75-btc.signed.pdf
+  so_byte_pdf: 239546
+  sha256_pdf: 64dca6a16744817dffa3784869401e527a5880275227ac7acf1934216aa5bbdb
+'124612':
+  so_ky_hieu: 15/2017/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:44:14+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=191160
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/09/15-bnnptnt.signed.pdf
+  so_byte_pdf: 1349002
+  sha256_pdf: 0c5d6dbb3a2eaaaaffa5fd524b27ea474944370ebcfb49e89bc39bf356b8a4d3
+'125398':
+  so_ky_hieu: 93/2017/TT-BTC
+  kiem_luc: '2026-09-29T05:44:29+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=191726
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/11/93-btc.signed.pdf
+  so_byte_pdf: 193719
+  sha256_pdf: 63cb5a53579e553dbb15a43749e0c808ecea91f0cf3cef2bbb4e2b39f8ae76c5
+'126307':
+  so_ky_hieu: 18/2017/QH14
+  kiem_luc: '2026-09-29T05:44:35+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=192336
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/12/18.signed.pdf
+  so_byte_pdf: 2874451
+  sha256_pdf: 2fcf695432cae7b0086b05b27ef32b734f1547e55b61b7774da3d75705e62b40
+'126723':
+  so_ky_hieu: 08/2017/QH14
+  kiem_luc: '2026-09-29T05:44:48+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=190309
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/07/08.signed.pdf
+  so_byte_pdf: 1509866
+  sha256_pdf: 7281264a8b69713b83e110501e709c421847f7ee4960306106beb3b178d73969
+'127300':
+  so_ky_hieu: 144/2017/NĐ-CP
+  kiem_luc: '2026-09-29T05:44:55+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=192285
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/12/144.signed.pdf
+  so_byte_pdf: 576335
+  sha256_pdf: 1991ae9e767a7f409ec1f1932d2ba7080562487d0a26a455cf88b14a978b99a3
+'128550':
+  so_ky_hieu: 142/2017/NĐ-CP
+  kiem_luc: '2026-09-29T05:45:05+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=192237
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/12/142.signed.pdf
+  so_byte_pdf: 2292142
+  sha256_pdf: 437bbde0947697216284e608aade5d4b305a7255c17c3a4b63bee0e156b2fb55
+'128706':
+  so_ky_hieu: 04/2017/QH14
+  kiem_luc: '2026-09-29T05:45:12+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=190283
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/07/04.signed.pdf
+  so_byte_pdf: 729247
+  sha256_pdf: 2f5b5b4ee79561c21fda5dd372550b2deb59f3844b68259cf9afe5400a3ec73a
+'128844':
+  so_ky_hieu: 30/2018/TT-BTC
+  kiem_luc: '2026-09-29T05:45:19+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=193807
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2018/06/30-btc.signed.pdf
+  so_byte_pdf: 197792
+  sha256_pdf: af0b1e33b2fe7c751e080de16dac595e59e94c33a1d97f80c83122a1a1f82785
+'131573':
+  so_ky_hieu: 137/2018/NĐ-CP
+  kiem_luc: '2026-09-29T05:45:47+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=194982
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2018/10/137-2018-nd-cp.signed.pdf
+  so_byte_pdf: 852715
+  sha256_pdf: 956b98511ce753312f7f13bce9dfc3d8a32758a55ebf8ed34af6dd85a8769afb
+'132170':
+  so_ky_hieu: 150/2018/NĐ-CP
+  kiem_luc: '2026-09-29T05:45:53+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=195229
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2018/11/150-2018-nd-cp.signed.pdf
+  so_byte_pdf: 454228
+  sha256_pdf: b467f9e2c25123b32356878ed1d7a672016fd9648ffae8579338b00cb7c6f993
+'132374':
+  so_ky_hieu: 162/2018/NĐ-CP
+  kiem_luc: '2026-09-29T05:46:03+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=195480
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2018/12/162.signed.pdf
+  so_byte_pdf: 4817074
+  sha256_pdf: 3915663f8f041032d75b80c7aa96b0d944b27b0b63b4820b43dbc0a5e0789c63
+'132920':
+  so_ky_hieu: 18/2018/TT-BLĐTBXH
+  kiem_luc: '2026-09-29T05:46:11+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=196348
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/03/18-bldtbxh.signed.pdf
+  so_byte_pdf: 1163082
+  sha256_pdf: 27ff38de1a103c75c98edb517aed53c9d8da3a4a39080f9cbdd1a2a6ca45d9ab
+'133543':
+  so_ky_hieu: 25/2018/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:46:38+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=196070
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/01/25-bnnptnt.signed.pdf
+  so_byte_pdf: 1258919
+  sha256_pdf: f2d517c38bebd19642c985ee1e3e9f5c42bf6ce4af3f8dbaf30b887e36c042e7
+'133922':
+  so_ky_hieu: 26/2018/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:46:55+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=196078
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/01/26-bnnptnt.signed.pdf
+  so_byte_pdf: 2122709
+  sha256_pdf: 3f1c9fe0841fd4c3ca916caf0409f3c6600c97ab9ed844d9cd510d70435d2c0b
+'133964':
+  so_ky_hieu: 18/2018/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:47:02+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=196386
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/03/18-bnnptnt.signed.pdf
+  so_byte_pdf: 505893
+  sha256_pdf: 7aa57adc5358cbf32be283345fc6858f8c69c6668ef9c1e9ac394fe08ac84ab1
+'134035':
+  so_ky_hieu: 36/2018/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:47:09+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=196405
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/03/36-bnnptnt.signed.pdf
+  so_byte_pdf: 783186
+  sha256_pdf: 3b8aa5687f3f6bb2962800a9d0513fcb916ecfd20ea9de57ed46826429a903c7
+'134060':
+  so_ky_hieu: 12/2019/NĐ-CP
+  kiem_luc: '2026-09-29T05:47:19+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=196178
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/02/12.signed.pdf
+  so_byte_pdf: 200647
+  sha256_pdf: 3e0aaa0298c7490736337535f0374afb4d89969bf6c95a3c865a93ce35e3707c
+'134195':
+  so_ky_hieu: 15/2019/NĐ-CP
+  kiem_luc: '2026-09-29T05:47:25+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=196167
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/02/15.signed.pdf
+  so_byte_pdf: 3167520
+  sha256_pdf: d89a3bf169355b5d686138316c69ee08b98ee5da6a4ea3b2a2aac86f91492661
+'135360':
+  so_ky_hieu: 35/2019/NĐ-CP
+  kiem_luc: '2026-09-29T05:47:37+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=196878
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/04/35.signed.pdf
+  so_byte_pdf: 3626999
+  sha256_pdf: 890b3c917dc7bade92b850c22fd70de4bfcd7b65d5329b768f9e3ff241c233de
+'135710':
+  so_ky_hieu: 33/2019/TT-BTC
+  kiem_luc: '2026-09-29T05:47:47+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=197273
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/06/33-btc.signed.pdf
+  so_byte_pdf: 371438
+  sha256_pdf: 4ed4773b91d413a421dac0569e2d87f773eb0a3859eee72961095a9579d24cf1
+'135988':
+  so_ky_hieu: 81/2018/TT-BTC
+  kiem_luc: '2026-09-29T05:47:58+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=195138
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2018/10/81-btc.signed.pdf
+  so_byte_pdf: 179388
+  sha256_pdf: acc0892bd1f7eb50fc639df023e91b427a6782a278db915770f4cbf411b07dad
+'136038':
+  so_ky_hieu: 39/2019/QH14
+  kiem_luc: '2026-09-29T05:48:04+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=197308
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/07/39.signed.pdf
+  so_byte_pdf: 3211572
+  sha256_pdf: 733485aa26735256235d8de6bb87c6ae2faddb6a3336470e78a95c61d52049fa
+'136039':
+  so_ky_hieu: 40/2019/QH14
+  kiem_luc: '2026-09-29T05:48:12+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=197313
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/07/40.signed.pdf
+  so_byte_pdf: 1181916
+  sha256_pdf: b9f3d41bcec6b190b784b3e8ebe1e0bca59368a28cd79b4a3506c71e46187e46
+'136041':
+  so_ky_hieu: 42/2019/QH14
+  kiem_luc: '2026-09-29T05:48:20+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=197272
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/07/42.signed.pdf
+  so_byte_pdf: 619641
+  sha256_pdf: ab774ff95e157bd0f3b4f87d42eb10e2fd103434bee899e08e55d1251144ce4b
+'136043':
+  so_ky_hieu: 44/2019/QH14
+  kiem_luc: '2026-09-29T05:48:27+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=197311
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/07/44.signed.pdf
+  so_byte_pdf: 932027
+  sha256_pdf: 32474ddfb5594840f5a56ec8b242ad75f85c54d5d2a94f937aabe28b12f35e07
+'137800':
+  so_ky_hieu: 67/2019/NĐ-CP
+  kiem_luc: '2026-09-29T05:48:39+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=197496
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/08/67.signed.pdf
+  so_byte_pdf: 1456016
+  sha256_pdf: 885bf0f55239d21e355f918f0e0ef14b46f4f93c6a57a602faabd2f11f8fb901
+'139201':
+  so_ky_hieu: 22/2019/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:48:51+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=198568
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/12/22-bnnptnt.signed.pdf
+  so_byte_pdf: 680493
+  sha256_pdf: f105681282f0569dc86e185d25b9eba0af1dd292c315d4e972b5f35b8ccfe010
+'139264':
+  so_ky_hieu: 45/2019/QH14
+  kiem_luc: '2026-09-29T05:48:58+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=198540
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2019/12/45.signed.pdf
+  so_byte_pdf: 5232503
+  sha256_pdf: a0c0fcc3b9e040bcdcab70191f0ab95952183be94a6f5bc6424e8d3e85697139
+'140187':
+  so_ky_hieu: 98/2019/NĐ-CP
+  kiem_luc: '2026-09-29T05:49:06+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=198734
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/01/98.signed.pdf
+  so_byte_pdf: 346047
+  sha256_pdf: 23c9ef7a700e53735ab2ea2892bf1bbf6626c02fdd5251ee55b62ecb178522ec
+'140209':
+  so_ky_hieu: 24/2019/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:49:12+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=198845
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/01/24-bnnptnt.signed.pdf
+  so_byte_pdf: 195827
+  sha256_pdf: 6a420d702d8b5f39a818ced1fb247dbd212e671c9aa5fe64a9a6e93fbed2c190
+'141055':
+  so_ky_hieu: 23/2020/NĐ-CP
+  kiem_luc: '2026-09-29T05:49:19+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=199234
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/02/23.signed.pdf
+  so_byte_pdf: 1225685
+  sha256_pdf: 30ba39378e850a50570edb220151a70b6d9c285312b2c5f2161df0fbbdb7b6e3
+'141142':
+  so_ky_hieu: 30/2020/NĐ-CP
+  kiem_luc: '2026-09-29T05:49:25+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=199378
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/03/30.signed.pdf
+  so_byte_pdf: 3027818
+  sha256_pdf: be2514460c953141923579e4a0ddd0249c611643a59514976790dc1d90589178
+'141413':
+  so_ky_hieu: 04/2020/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:49:35+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=199462
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/03/04-bnnptnt.signed.pdf
+  so_byte_pdf: 809433
+  sha256_pdf: 4ba1d8bc9840bee5224c2bcf9bc352ac440895c29d3015a86c0c3c1903adfc4a
+'142035':
+  so_ky_hieu: 01/2020/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:49:42+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=198983
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/02/01-bnnptnt.signed.pdf
+  so_byte_pdf: 2521361
+  sha256_pdf: d4f7a3a5257c40c896c395b3583714202e78b4e1fc6c3268622946ef1c8dff3a
+'142665':
+  so_ky_hieu: 08/2020/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:49:51+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=200542
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/07/08-bnnptnt.signed.pdf
+  so_byte_pdf: 191545
+  sha256_pdf: 8f3bc55cbf39aecda72e2ec4f644ab7a1f0c4c6e912af174e7506e15006f02d5
+'142815':
+  so_ky_hieu: 58/2020/NĐ-CP
+  kiem_luc: '2026-09-29T05:50:01+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=200108
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/05/58.signed.pdf
+  so_byte_pdf: 1035739
+  sha256_pdf: 6de522f403fac404ad8bf853695a0c5aa954f54e9f5701de7b6f6237b0f28f32
+'142846':
+  so_ky_hieu: 60/2020/QH14
+  kiem_luc: '2026-09-29T05:50:08+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=200448
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/07/60.signed.pdf
+  so_byte_pdf: 797304
+  sha256_pdf: 53320df3256498ffda8f480674d8cc7d48fbb47bb610c214b7ad686c9f3aa038
+'142881':
+  so_ky_hieu: 59/2020/QH14
+  kiem_luc: '2026-09-29T05:50:15+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=200447
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/07/59.signed.pdf
+  so_byte_pdf: 4401655
+  sha256_pdf: f976142056c3f5b3b96198507834ab47138faaaa45ed4a399c44664ca959af41
+'142882':
+  so_ky_hieu: 64/2020/QH14
+  kiem_luc: '2026-09-29T05:50:23+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=200452
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/07/64.signed.pdf
+  so_byte_pdf: 3370505
+  sha256_pdf: 75b3f306b4c4b01146f8f295b0b6526f188a102d19345d2b405fa5eae5fb9047
+'144268':
+  so_ky_hieu: 62/2020/QH14
+  kiem_luc: '2026-09-29T05:50:34+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=200450
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/07/62.signed.pdf
+  so_byte_pdf: 2364578
+  sha256_pdf: 68048d211103e845b2f11c6f2299fe5023a98b39addb6739e02d33b9a1ab1379
+'144399':
+  so_ky_hieu: 51/2017/QH14
+  kiem_luc: '2026-09-29T05:50:47+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=192217
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2017/12/51.signed.pdf
+  so_byte_pdf: 161718
+  sha256_pdf: 0555ee45e27b77ba891e4154cabd5dae6f329f48c7b78b45806efadf25e720a5
+'145000':
+  so_ky_hieu: 12/2020/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:50:54+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=201681
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/11/12-bnnptnt.signed.pdf
+  so_byte_pdf: 1261993
+  sha256_pdf: 340c71c97c2756fbcd2429c5f42570c6085b8f1cd26001f28e6c53c2d93579c5
+'146141':
+  so_ky_hieu: 82/2020/TT-BTC
+  kiem_luc: '2026-09-29T05:51:00+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=201219
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/10/82-btc.signed.pdf
+  so_byte_pdf: 240292
+  sha256_pdf: 17e445c6ad0c6d8b0e110dc9fafbcb494e17b639d7183cd6a7a6617121ba169d
+'146541':
+  so_ky_hieu: 67/2020/QH14
+  kiem_luc: '2026-09-29T05:51:07+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=202608
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/02/67.signed.pdf
+  so_byte_pdf: 1417217
+  sha256_pdf: f8d06eeab469fd8a11f162cb8ed139db859029e44c02bf1d760fd38132b0c715
+'146609':
+  so_ky_hieu: 72/2020/QH14
+  kiem_luc: '2026-09-29T05:51:13+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=202613
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/02/72.signed.pdf
+  so_byte_pdf: 3625151
+  sha256_pdf: 7ae84f135c67f2ccab442bb12d7011b8d00b62dfe7055d68e3179bfd1a2f9614
+'146648':
+  so_ky_hieu: 68/2020/QH14
+  kiem_luc: '2026-09-29T05:51:21+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=202609
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/02/68.signed.pdf
+  so_byte_pdf: 924330
+  sha256_pdf: eba91879a59ea9a7a1d1ddf99265c38f9eb64d8e1dbfe031a941b65f19791760
+'146676':
+  so_ky_hieu: 11/2021/NĐ-CP
+  kiem_luc: '2026-09-29T05:51:28+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=202661
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/02/11.signed.pdf
+  so_byte_pdf: 2872655
+  sha256_pdf: 83d1bdd18135acd04edf9ec89df05749a88a80fa917aeb1e71788878bcae670c
+'147004':
+  so_ky_hieu: 21/2021/NĐ-CP
+  kiem_luc: '2026-09-29T05:51:47+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=202835
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/03/21.signed.pdf
+  so_byte_pdf: 1744467
+  sha256_pdf: 84379042968fd0c41b60cf11c12d594aa2046231293a5bacd853f58399c17bfa
+'148195':
+  so_ky_hieu: 14/2021/NĐ-CP
+  kiem_luc: '2026-09-29T05:52:00+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=202733
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/08/14.signed.pdf
+  so_byte_pdf: 2503851
+  sha256_pdf: 01f215fd1ddbdddbfb72563ccf718ec4e943e83390a01224da70fe4da2fd855b
+'148221':
+  so_ky_hieu: 04/2021/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:52:07+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=203477
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/07/04-bnn.signed.pdf
+  so_byte_pdf: 341903
+  sha256_pdf: 7fc8941b25120e763e36ec4fa934d29b0d0ebacd5973782a7810fab4ffd1c3ff
+'148955':
+  so_ky_hieu: 20/2021/NĐ-CP
+  kiem_luc: '2026-09-29T05:52:17+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=202811
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/03/20.signed.pdf
+  so_byte_pdf: 2552919
+  sha256_pdf: 627922a72141c70f021d234fb616b42c7418baff391f4f01af3ed8823f469de1
+'151157':
+  so_ky_hieu: 18/2021/NĐ-CP
+  kiem_luc: '2026-09-29T05:52:42+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=202806
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/03/18.signed.pdf
+  so_byte_pdf: 4653345
+  sha256_pdf: cb0bf16ab3ee6554929e0d9d2cc4f180f51b8ea10ddd30a37309353edeb050d8
+'151161':
+  so_ky_hieu: 45/2021/NĐ-CP
+  kiem_luc: '2026-09-29T05:52:49+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=202983
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/04/45.signed.pdf
+  so_byte_pdf: 2287307
+  sha256_pdf: f8b74d4e8eee0c5fb56257e83913aa81b8c6a5fc850b87057315279c36df7323
+'151384':
+  so_ky_hieu: 97/2021/NĐ-CP
+  kiem_luc: '2026-09-29T05:52:58+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=204445
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/11/97.signed.pdf
+  so_byte_pdf: 884072
+  sha256_pdf: 9b7b6b830ff0180ca7c4afa8d0edf89e00d78822a1ade1a5c79bd85cfbb846bc
+'151590':
+  so_ky_hieu: 17/2021/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:53:05+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=204774
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/12/17-bnn.signed.pdf
+  so_byte_pdf: 884337
+  sha256_pdf: 7fe86a53faaec9fcafdb8efedef86786041399058e7fe316c9d0c97d6d9c1b0e
+'151904':
+  so_ky_hieu: 120/2021/NĐ-CP
+  kiem_luc: '2026-09-29T05:53:11+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=204803
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/01/120-nd-.signed.pdf
+  so_byte_pdf: 4846867
+  sha256_pdf: 38d32686e9c2caf61a37ab5cc8bbc20515241cf035c7e9d2cd920d20e565962a
+'151943':
+  so_ky_hieu: 118/2021/NĐ-CP
+  kiem_luc: '2026-09-29T05:53:18+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=204830
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/12/118.signed.pdf
+  so_byte_pdf: 5669851
+  sha256_pdf: 8da29a01f32dc02615147526896da854bff69b8bb8c1163228c590bba31c2858
+'152303':
+  so_ky_hieu: 20/2021/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:53:29+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=204999
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/01/20-bnn.signed.pdf
+  so_byte_pdf: 680533
+  sha256_pdf: da1074a14fbff8bc1e66b9f7767c0e9e7982490f2284274b141c32f7343f9a37
+'152668':
+  so_ky_hieu: 145/2020/NĐ-CP
+  kiem_luc: '2026-09-29T05:53:49+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=201967
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/12/145.signed.pdf
+  so_byte_pdf: 6176759
+  sha256_pdf: a72a1ff295cc06fbddd335d57257688f5118826968cd8b62d58f50fc1554b230
+'152734':
+  so_ky_hieu: 135/2020/NĐ-CP
+  kiem_luc: '2026-09-29T05:54:04+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=201650
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/11/135.signed.pdf
+  so_byte_pdf: 697036
+  sha256_pdf: 3e14d2e05041c12b6d71739dbb958015e0604eed41a6432e6d8cbbd4276455b0
+'153251':
+  so_ky_hieu: 07/2022/NĐ-CP
+  kiem_luc: '2026-09-29T05:54:11+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=205078
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/01/07-nd.signed.pdf
+  so_byte_pdf: 2967909
+  sha256_pdf: dadb8a465112de9808304b0d4b300478f8fb9b6773688bfeffb51e4d9dbcbe31
+'153339':
+  so_ky_hieu: 123/2021/NĐ-CP
+  kiem_luc: '2026-09-29T05:54:28+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=204873
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/01/nd-123_2021-12-28-1-.signed.pdf
+  so_byte_pdf: 1150680
+  sha256_pdf: 664e5d08755e92107886767c5ccd0345b89d5a31b05cb923c2fa123bf1198f4e
+'153552':
+  so_ky_hieu: 25/2022/NĐ-CP
+  kiem_luc: '2026-09-29T05:54:35+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=205604
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/04/25-2022-nd.signed.pdf
+  so_byte_pdf: 1136200
+  sha256_pdf: 5f2aa6a51d06bfcabac39544e361c74dce69568f362f776b81a9454661e5b3c6
+'153601':
+  so_ky_hieu: 15/2022/QĐ-UBND
+  kiem_luc: '2026-09-29T05:54:41+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=205680
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/04/15hnoi.signed.pdf
+  so_byte_pdf: 778810
+  sha256_pdf: e8acdcc9f7c0f2a6bd1b337800ad5d65ba90d177670390e1aef7670a3ed2a943
+'153604':
+  so_ky_hieu: 24/2022/NĐ-CP
+  kiem_luc: '2026-09-29T05:54:47+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=205594
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/03/24nd.signed.pdf
+  so_byte_pdf: 7019052
+  sha256_pdf: 22d83bb1dfc1aeb2cdc14c3524c430d1adc100b6d30222d4925cc112d862c258
+'154221':
+  so_ky_hieu: 37/2022/NĐ-CP
+  kiem_luc: '2026-09-29T05:54:55+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=205912
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/06/37nd.signed.pdf
+  so_byte_pdf: 3694684
+  sha256_pdf: e61c60551b7405300f93d249e5c6723bc0e4da473b34d6a4dc44fcfcfc3d7571
+'154327':
+  so_ky_hieu: 148/2021/NĐ-CP
+  kiem_luc: '2026-09-29T05:55:02+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=205033
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/01/148.signed.pdf
+  so_byte_pdf: 1081208
+  sha256_pdf: 5661d5bd9da705a92c4b63b802a00da99642c9a259c3afff4b20cd65218b37b4
+'154637':
+  so_ky_hieu: 46/2022/NĐ-CP
+  kiem_luc: '2026-09-29T05:55:08+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=206127
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/07/46-nd.signed.pdf
+  so_byte_pdf: 3199167
+  sha256_pdf: f2a001ea9be7f541f22f419c167816d2beac663110912c2f0ff2f6920f62f389
+'154794':
+  so_ky_hieu: 20/2022/NĐ-CP
+  kiem_luc: '2026-09-29T05:55:15+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=205455
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/03/20-2022-nd-cp.signed.pdf
+  so_byte_pdf: 265311
+  sha256_pdf: 6c5cdc955d1b99386dce6ff54456b8355868c4fb75d5b2fbc0b45665b944df3c
+'155158':
+  so_ky_hieu: 06/2022/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:55:21+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=206333
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/08/06-bnnptnt.signed.pdf
+  so_byte_pdf: 993602
+  sha256_pdf: 18a1b7631b58b33fb0d0476626e1f0b46a8cb14552614f50188fb82a2d9fc426
+'155947':
+  so_ky_hieu: 116/2021/NĐ-CP
+  kiem_luc: '2026-09-29T05:55:27+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=204866
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2021/12/116.signed.pdf
+  so_byte_pdf: 6200947
+  sha256_pdf: 733c3d06359a43e1f1fa10b960a3a0c2596cea4d12fb285dfbeae919d161da89
+'156126':
+  so_ky_hieu: 13/2022/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:55:34+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=206649
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/10/13-bnnptnt.signed.pdf
+  so_byte_pdf: 956017
+  sha256_pdf: e6cd9dbfd9bb38e67777e1dc876ed248afb8c6a31294a60adfa38eff89c3b2b5
+'157020':
+  so_ky_hieu: 70/2022/NĐ-CP
+  kiem_luc: '2026-09-29T05:55:40+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=206615
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/09/70-nd.signed.pdf
+  so_byte_pdf: 835544
+  sha256_pdf: 4773707ec7d3eb8f7a1a062de4efe1f4e2113936d3384853359beb64f6f2319c
+'158798':
+  so_ky_hieu: 35/2022/NĐ-CP
+  kiem_luc: '2026-09-29T05:56:00+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=205861
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/05/35-2022-nd.signed.pdf
+  so_byte_pdf: 4144850
+  sha256_pdf: e74b6cf08e204c105130e34937044475f27a59d9559bde11720551ef37ef0e35
+'159007':
+  so_ky_hieu: 80/2022/NĐ-CP
+  kiem_luc: '2026-09-29T05:56:10+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=206702
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/10/80-cp.signed.pdf
+  so_byte_pdf: 202600
+  sha256_pdf: abf74f7aeb378ec4c32421d6aa93911beb2711d9f235ce159d77b46fb8b86b15
+'159014':
+  so_ky_hieu: 11/2022/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:56:17+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=206601
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/09/11-bnnptnt.signed.pdf
+  so_byte_pdf: 412132
+  sha256_pdf: e5ff82406e271462c4cc61abbc0230fcf31f78ca310e61881357482c0f347fd1
+'159372':
+  so_ky_hieu: 99/2022/NĐ-CP
+  kiem_luc: '2026-09-29T05:56:23+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=206942
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/12/99-cp.signed.pdf
+  so_byte_pdf: 6315019
+  sha256_pdf: ed0fd85ba8c1cf78b262a9afc1aa185a4d713a3b2a9f51f11bfdcb248d8cb3f2
+'161034':
+  so_ky_hieu: 45/2023/NĐ-CP
+  kiem_luc: '2026-09-29T05:56:39+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=208175
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2023/7/45-cp.signed.pdf
+  so_byte_pdf: 6694360
+  sha256_pdf: 69e09855e5df06d1df06da56ff17c86487b5f41eee731cab73b212d0ff999f45
+'162330':
+  so_ky_hieu: 70/2023/NĐ-CP
+  kiem_luc: '2026-09-29T05:56:56+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=208673
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2023/9/70-cp.signed.pdf
+  so_byte_pdf: 824237
+  sha256_pdf: 323f28188f977c0f04cf1fa8937e37fd80659928d0598ce04ccf6a11ba5f9d0e
+'163098':
+  so_ky_hieu: 56/2023/NĐ-CP
+  kiem_luc: '2026-09-29T05:57:03+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=208341
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2023/7/56-cp.signed.pdf
+  so_byte_pdf: 1085131
+  sha256_pdf: 601fa0aef204c800c7b91562218812713a4497157618fe1e4ba86af4c438dd14
+'163442':
+  so_ky_hieu: 67/2023/NĐ-CP
+  kiem_luc: '2026-09-29T05:57:09+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=208599
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2023/9/67-cp.signed.pdf
+  so_byte_pdf: 5537367
+  sha256_pdf: 85daf36b0811c11299a0e05b28c4ba2afdd8f9216da1e8652136cf74d00b6933
+'164914':
+  so_ky_hieu: 31/2023/NĐ-CP
+  kiem_luc: '2026-09-29T05:57:25+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=208040
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2023/6/31-cp.signed.pdf
+  so_byte_pdf: 1647358
+  sha256_pdf: dd4831146e0db15dca65db51bdf7dda48087816af5168b820f6d37e3a2ea80df
+'165573':
+  so_ky_hieu: 10/2024/NĐ-CP
+  kiem_luc: '2026-09-29T05:57:32+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=209657
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/02/10-cp.signed.pdf
+  so_byte_pdf: 2548271
+  sha256_pdf: 9bbb4c8c7ee072b5b79d89e2444ef6a8686922557719b0138881bd39c6fd30fe
+'166581':
+  so_ky_hieu: 22/2023/QH15
+  kiem_luc: '2026-09-29T05:57:49+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=208419
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2023/11/22-qh-15.signed.pdf
+  so_byte_pdf: 3304262
+  sha256_pdf: 807473b3fd4814e2b96758ee3cb75ec25800544f2ced20959a2b81efc261f704
+'166653':
+  so_ky_hieu: 34/2024/NĐ-CP
+  kiem_luc: '2026-09-29T05:57:56+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=210000
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/4/34-nd-cp.signed.pdf
+  so_byte_pdf: 6856606
+  sha256_pdf: 82e81aaa887dca426fbdb5ab479a174d465570fc3f2ba41ec22858f51f4ca92c
+'167313':
+  so_ky_hieu: 53/2024/NĐ-CP
+  kiem_luc: '2026-09-29T05:58:17+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=210246
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/5/53-nd-cp.signed.pdf
+  so_byte_pdf: 4347244
+  sha256_pdf: fd0f368db6feaa36c6d79ccd5ed2f9e75ef5f1a5734ed341cf4625c817949006
+'168125':
+  so_ky_hieu: 15/2023/QH15
+  kiem_luc: '2026-09-29T05:58:38+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=207396
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2023/02/15luat.signed.pdf
+  so_byte_pdf: 3067180
+  sha256_pdf: a59ad4c3a08156d3bafb8557e7d1c9be0a6e676338f6e625268afcf7afb4c4ef
+'168754':
+  so_ky_hieu: 08/2022/NĐ-CP
+  kiem_luc: '2026-09-29T05:58:49+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=205092
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/01/08-nd.signed.pdf
+  so_byte_pdf: 12723260
+  sha256_pdf: 28f893ccbba3a8e3b13f15816840140a2bcb6838d2fd6a1c053afc05ac82d35f
+'169619':
+  so_ky_hieu: 97/2022/NĐ-CP
+  kiem_luc: '2026-09-29T05:59:10+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=206935
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2022/12/97.signed.pdf
+  so_byte_pdf: 1156921
+  sha256_pdf: 0e134593d1fcce158a43f0e5e91392cc88524f15ad162edbbf5abf2f3c399212
+'169708':
+  so_ky_hieu: 96/2024/NĐ-CP
+  kiem_luc: '2026-09-29T05:59:17+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=210798
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/8/96-nd.signed.pdf
+  so_byte_pdf: 13809926
+  sha256_pdf: c46e3d8dfd1c96a9900d741453f89df92ffc242f79b4ceb2680744319ebbd98d
+'169712':
+  so_ky_hieu: 100/2024/NĐ-CP
+  kiem_luc: '2026-09-29T05:59:24+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=210760
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/11/100-2024-cp.signed.pdf
+  so_byte_pdf: 3289314
+  sha256_pdf: e6e2e0d8d55ea5a7263104ac121da1cb826644f3090841c1f0ae136a90c16b50
+'170131':
+  so_ky_hieu: 117/2024/NĐ-CP
+  kiem_luc: '2026-09-29T05:59:31+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=211238
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/9/117-cp.signed.pdf
+  so_byte_pdf: 1530956
+  sha256_pdf: 140b36efa22a71bfb6e459d825279b99b7a776b7d861108e0a18e6b02bbc32fb
+'170834':
+  so_ky_hieu: 12/2024/TT-BNNPTNT
+  kiem_luc: '2026-09-29T05:59:51+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=211574
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/11/12-bnnptnt.signed.pdf
+  so_byte_pdf: 548420
+  sha256_pdf: a6a6d8f28046d6c6af1c73f1faafcf026aa4e6acbd2f4a10652100c769511b84
+'172699':
+  so_ky_hieu: 85/2024/NĐ-CP
+  kiem_luc: '2026-09-29T06:00:15+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=210648
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/8/85-cp.signed.pdf
+  so_byte_pdf: 2620719
+  sha256_pdf: 8313562596653bd32dc81cd1ff531b7e066404e813c28f3f7713eb800f884105
+'172729':
+  so_ky_hieu: 103/2024/NĐ-CP
+  kiem_luc: '2026-09-29T06:00:22+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=210797
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/8/103-nd.signed.pdf
+  so_byte_pdf: 5028692
+  sha256_pdf: 01db4fbbed2e8d593947fa959b687bc70c2e2012c525ad6fb104f62d7f352a55
+'173177':
+  so_ky_hieu: 18/2024/TT-BNNPTNT
+  kiem_luc: '2026-09-29T06:00:42+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=212039
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/12/18-bnn.signed.pdf
+  so_byte_pdf: 210942
+  sha256_pdf: 9c2cdb7afa0b5bfcfd2888a72422b876315e0f8540007467a68f80013aba5f84
+'173641':
+  so_ky_hieu: 76/2024/NĐ-CP
+  kiem_luc: '2026-09-29T06:00:58+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=210543
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/7/76-cp.signed.pdf
+  so_byte_pdf: 205835
+  sha256_pdf: df1bf46267d805db185e1163335f40392fdc1fc120f710e38dcf9140916c8cab
+'173920':
+  so_ky_hieu: 168/2024/NĐ-CP
+  kiem_luc: '2026-09-29T06:01:10+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=212167
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/01/168-nd-cp.signed.pdf
+  so_byte_pdf: 5088723
+  sha256_pdf: 7bb11b939d162499ab404aa41a940cce05dbf071d9cbae7a8898b00d4b4a48bd
+'174197':
+  so_ky_hieu: 172/2024/NĐ-CP
+  kiem_luc: '2026-09-29T06:01:27+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=212171
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/12/172-cp.signed.pdf
+  so_byte_pdf: 960749
+  sha256_pdf: bbad1da156e9746318f26f14d06ec01a2a6ec6f35f030530b45b68f2adf9ef7d
+'174485':
+  so_ky_hieu: 07/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:01:33+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=212416
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/01/07-nd-cp.signed.pdf
+  so_byte_pdf: 1335631
+  sha256_pdf: c6fba263de749572fcd7f1af804172c630c77254307206baab17c9b417b35a03
+'174967':
+  so_ky_hieu: 157/2024/NĐ-CP
+  kiem_luc: '2026-09-29T06:01:45+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=212006
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/12/157-cp.signed.pdf
+  so_byte_pdf: 192409
+  sha256_pdf: f14f5476bd9516a2cafe1de24af4f94882f0ac0fae38d46627ace0990e02d3c6
+'176454':
+  so_ky_hieu: 68/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:02:06+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=213182
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/3/68-nd.signed.pdf
+  so_byte_pdf: 1996732
+  sha256_pdf: ab77ae33ee62d5fe537f45ae1cddea8296402da0bdfb9631bc31ca6078c63a86
+'176975':
+  so_ky_hieu: 11/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:02:14+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=212581
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/01/11-nd-cp.signed.pdf
+  so_byte_pdf: 1688133
+  sha256_pdf: da3198c06c6588fb86d4dd874877da8b45e1efe07f89302dfea375d3fa003519
+'176976':
+  so_ky_hieu: 10/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:02:23+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=212435
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/01/10-nd.signed.pdf
+  so_byte_pdf: 3095862
+  sha256_pdf: 769e2dae1dbbce477fb94596d3580ffc32c28e331b987f8f9a43cb8685ad6b50
+'177733':
+  so_ky_hieu: 105/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:02:37+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=213702
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/5/105-ndcp.signed.pdf
+  so_byte_pdf: 6565982
+  sha256_pdf: 21f2c7373b57fdf0c88617a504521e72b31f1948a71279a8d2f52a40b0ae116d
+'177779':
+  so_ky_hieu: 97/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:02:45+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=213537
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/5/97-ndcp.signed.pdf
+  so_byte_pdf: 430122
+  sha256_pdf: 511deac70c7e5abcf8dd00eaa51ae116e8e7653cdbafe4aa2214d15e86127d06
+'178104':
+  so_ky_hieu: 104/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:02:53+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=213663
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/5/104-ndcp.signed.pdf
+  so_byte_pdf: 2157368
+  sha256_pdf: 4d2c72968d740e6711409e3cf837237670c4825cd7bc9926d2bb6acd65110473
+'178105':
+  so_ky_hieu: 112/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:03:00+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=213764
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/5/112-cp.signed.pdf
+  so_byte_pdf: 1729705
+  sha256_pdf: 48557ffb11ff7cd6b6cf6b3d55cf226248b5d564b1ff92ce40af88c727576b45
+'178222':
+  so_ky_hieu: 121/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:03:07+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=213895
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/6/121cp.signed.pdf
+  so_byte_pdf: 1678142
+  sha256_pdf: 6e43d66053028f1f206b21676bfdf897c550ee8499ee6d8dab86b997f86a617e
+'178259':
+  so_ky_hieu: 151/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:03:16+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=213927
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/6/151-ndcp.signed.pdf
+  so_byte_pdf: 8434610
+  sha256_pdf: fc534e89997b61b6c8c1538824063c1b2e42c1d2b1da1acdde5aa62eaf1fec52
+'178265':
+  so_ky_hieu: 120/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:03:26+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=213894
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/6/120-cp.signed.pdf
+  so_byte_pdf: 699907
+  sha256_pdf: cec002f9eab02f4d6ef0f1bbd8d97161eec31cf6aea0a5eb9a8acd91fad2e8a4
+'178294':
+  so_ky_hieu: 129/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:03:33+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=213920
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/6/129nd.signed.pdf
+  so_byte_pdf: 2106957
+  sha256_pdf: 72735be7240c01db3c66295ea27161d92e6f87432e48459f6284f94d60c1a113
+'178737':
+  so_ky_hieu: 88/2025/QH15
+  kiem_luc: '2026-09-29T06:04:01+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214591
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/88qh.signed.pdf
+  so_byte_pdf: 937451
+  sha256_pdf: 28c2788835ef7cadb0449e501b11ef03a9aa7bd61e96d10aa33315f4bfad350c
+'178757':
+  so_ky_hieu: 158/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:04:08+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214189
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/6/158-ndcp.signed.pdf
+  so_byte_pdf: 2276739
+  sha256_pdf: 51b605010600da706432e19bf80bada5f099f66806e3eba502517febc70d3e95
+'179095':
+  so_ky_hieu: 76/2025/QH15
+  kiem_luc: '2026-09-29T06:04:11+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214562
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/76qh.signed.pdf
+  so_byte_pdf: 398245
+  sha256_pdf: d31219decfe6aff74f4d2aadaa74f2d9ab8403117f88400f24e65dd08dbb483a
+'179096':
+  so_ky_hieu: 168/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:04:18+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214334
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/168nd.signed.pdf
+  so_byte_pdf: 5795826
+  sha256_pdf: 8aaebe71098660410bae3be7af2a951a3b57376b987a2f2ba1facc76065e3f6a
+'179140':
+  so_ky_hieu: 164/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:04:32+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214282
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/164-cp.signed.pdf
+  so_byte_pdf: 592690
+  sha256_pdf: fbbaafcc148998dff6f6fef0c05c4689f8e540c51628ba4ddc64d1d37ace8cfd
+'179149':
+  so_ky_hieu: 159/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:04:39+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214269
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/6/159-cp.signed.pdf
+  so_byte_pdf: 760542
+  sha256_pdf: 8ffa3bdce6cdf2856eb0ffd21161dc194d38f8c7ff88114b91e24ea3d7b07b36
+'179167':
+  so_ky_hieu: 75/2025/QH15
+  kiem_luc: '2026-09-29T06:04:46+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214561
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/75qh.signed.pdf
+  so_byte_pdf: 659900
+  sha256_pdf: ddfe34525adbebd4908e9a5eb96d113eedf27b29ba4e185ae310bb6ef440d5de
+'179215':
+  so_ky_hieu: 178/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:04:52+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214327
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/178nd.signed.pdf
+  so_byte_pdf: 1251630
+  sha256_pdf: 4f74578dd23098308d8f11307d7036a9f63b16c8e2c4cec3ffa9a71c69d3d034
+'179252':
+  so_ky_hieu: 91/2025/QH15
+  kiem_luc: '2026-09-29T06:04:58+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214590
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/91qh.signed.pdf
+  so_byte_pdf: 1113153
+  sha256_pdf: c3b87f994cedcedb69d38c590dcca2bb7700aab65e518a2a3a5ffbf22048b9ee
+'179389':
+  so_ky_hieu: 190/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:05:06+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214521
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/190-cp.signed.pdf
+  so_byte_pdf: 966782
+  sha256_pdf: af8acd039e9137a578498be8850284ba5a3cf7313864bde3badb07b58ae7a07e
+'179416':
+  so_ky_hieu: 81/2025/QH15
+  kiem_luc: '2026-09-29T06:05:12+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214577
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/81qh.signed.pdf
+  so_byte_pdf: 1165057
+  sha256_pdf: 8dde2d587feabb8ec6431f1399c18c1671c6bd88cd15ebdfa885d8e0a60a087a
+'179420':
+  so_ky_hieu: 85/2025/QH15
+  kiem_luc: '2026-09-29T06:05:19+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214582
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/85qh.signed.pdf
+  so_byte_pdf: 840856
+  sha256_pdf: 1ccb1e4a674e395fd623217a1b5f85126770974d00162cd55e8da6a9298af70c
+'179427':
+  so_ky_hieu: 89/2025/QH15
+  kiem_luc: '2026-09-29T06:05:25+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214601
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/89qh.signed.pdf
+  so_byte_pdf: 2521330
+  sha256_pdf: 8a4b596021891728a1cc6ec5fb1c0de60077415ed3c019b566aa4aba5dd85a68
+'179825':
+  so_ky_hieu: 184/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:05:40+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214457
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/184-nd.signed.pdf
+  so_byte_pdf: 2872498
+  sha256_pdf: 39b1de0315d85dd4ba33cc91c03a5c3480d0fcb204f52c0b77037b9785cb8048
+'179893':
+  so_ky_hieu: 78/2025/QH15
+  kiem_luc: '2026-09-29T06:05:46+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214606
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/78qh.signed.pdf
+  so_byte_pdf: 1406443
+  sha256_pdf: 40f70d4d5842ab1a19312c0458a2b547713d21700e8f848ff6a3f51d459e9060
+'179941':
+  so_ky_hieu: 67/2025/QH15
+  kiem_luc: '2026-09-29T06:05:53+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214607
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/67qh.signed.pdf
+  so_byte_pdf: 1009447
+  sha256_pdf: ae706468190afe8d111dd0fccf240e7a980eb002c5d0b5cb1cfe127d92f9c1cd
+'179989':
+  so_ky_hieu: 71/2025/QH15
+  kiem_luc: '2026-09-29T06:05:56+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214609
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/71qh15.signed.pdf
+  so_byte_pdf: 1355976
+  sha256_pdf: b80b983f152d364e0e3299d20ef967cb646df5d75d02caff661d1dd88ae8df51
+'180017':
+  so_ky_hieu: 66/2025/QH15
+  kiem_luc: '2026-09-29T06:06:05+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214598
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/66qhm.signed.pdf
+  so_byte_pdf: 528822
+  sha256_pdf: 1ea6a08f907728416e6dc68b2fc3b35cedb3488c03839f417cc0781154a80a2f
+'180273':
+  so_ky_hieu: 219/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:06:12+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214840
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/8/219-cp.signed.pdf
+  so_byte_pdf: 1409245
+  sha256_pdf: 4757806c7e00ecdee50184e7c563732ca83bb559ea74f2d5578458efb42a184f
+'180281':
+  so_ky_hieu: 218/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:06:17+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214822
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/8/218nd.signed.pdf
+  so_byte_pdf: 2141056
+  sha256_pdf: 174aad1088d4984edc5daf345f8ecd6a4b0d190920eb03223495a1dd018be958
+'181906':
+  so_ky_hieu: 226/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:06:32+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214955
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/8/226nd.signed.pdf
+  so_byte_pdf: 1831402
+  sha256_pdf: 95b338841599826589af709811e8987ddd8e8daab0f7edf20b4893e01ed16bd4
+'182774':
+  so_ky_hieu: 261/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:06:38+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=215594
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/10/261nd.signed.pdf
+  so_byte_pdf: 524571
+  sha256_pdf: c1bd0cd9c0e982589373a5275b4d72c67c5e76c9dac3878192f92426594cce1d
+'183939':
+  so_ky_hieu: 293/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:06:48+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=215832
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/11/293-cp.signed.pdf
+  so_byte_pdf: 711910
+  sha256_pdf: 80d2943b04403338a18af20c488b4f215a98b023046ba3775f99b6e2cda93169
+'184035':
+  so_ky_hieu: 176/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:06:54+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214435
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/176nd.signed.pdf
+  so_byte_pdf: 381990
+  sha256_pdf: 7942675d74c11a731cc3d57fcbd218e85aad853b7e881fbe0988ad2d2edfeb3f
+'185124':
+  so_ky_hieu: 280/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:07:12+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=215722
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/10/280-cp.signed.pdf
+  so_byte_pdf: 1539024
+  sha256_pdf: b0b1f67f40b8a6c0988c24caa79d14151d65265979d24084791be4656f1be7ad
+'185254':
+  so_ky_hieu: 282/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:07:23+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=215770
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/11/282-cp.signed.pdf
+  so_byte_pdf: 3857065
+  sha256_pdf: 84b0a58b766bb85826ea22e91bf78a7da3efa5c71568459fdf56bf78fe3f8750
+'185561':
+  so_ky_hieu: 337/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:07:31+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216284
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/12/337-cp.signed.pdf
+  so_byte_pdf: 802003
+  sha256_pdf: 9a04efe6691b871da3cc8ac3fd6984cc9425040a973f27990e6a3081d9d76fec
+'185946':
+  so_ky_hieu: 102/2025/QH15
+  kiem_luc: '2026-09-29T06:08:01+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216572
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/102-qh15.signed.pdf
+  so_byte_pdf: 672915
+  sha256_pdf: b2ad568ca88d895f896dbf10648396292c930192c577b823d5a30ceae86052f2
+'186271':
+  so_ky_hieu: 147/2025/QH15
+  kiem_luc: '2026-09-29T06:08:07+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216553
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/luat147.signed.pdf
+  so_byte_pdf: 895307
+  sha256_pdf: bc023ce7f6bc90793604127fbf102770d38868070c2ef29aed846c20c7c033bd
+'186296':
+  so_ky_hieu: 03/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:08:15+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216622
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/03-nd.signed.pdf
+  so_byte_pdf: 3732497
+  sha256_pdf: a21fd7e6e9e29276efa2496b0aba1e0ba6f477659e0737ef2c32ffa0f3310335
+'186425':
+  so_ky_hieu: 14/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:08:44+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216631
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/14-2026ndcp.signed.pdf
+  so_byte_pdf: 2674672
+  sha256_pdf: 8f3267c30323cc581dfe8fbc5999af86992955b2aecca1d23832acb2840d3a39
+'186426':
+  so_ky_hieu: 17/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:08:51+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216640
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/17-nd.signed.pdf
+  so_byte_pdf: 410215
+  sha256_pdf: ad450e40a691f69a14ba6fa0271a1dbe091024c0875648745c4c91648ae796ba
+'186456':
+  so_ky_hieu: 23/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:09:02+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216670
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/23ndcp.signed.pdf
+  so_byte_pdf: 7850692
+  sha256_pdf: 46b64d7148b9a5024a9537c492ee6834da5448dbc54b1460b00bf3dfbc9f7d69
+'186493':
+  so_ky_hieu: 320/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:09:12+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216219
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/12/320-ndcp.signed.pdf
+  so_byte_pdf: 3728566
+  sha256_pdf: 4a426bbe928511d278aa23318156d27747c45669e8ee9002fb7a635794f51e06
+'186600':
+  so_ky_hieu: 111/2025/QH15
+  kiem_luc: '2026-09-29T06:09:32+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216549
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/111-qh15-2025.signed.pdf
+  so_byte_pdf: 873364
+  sha256_pdf: 15249c0c788b44315c8d8da0b43a19b93539f4e22052fafa98448b79556a3b03
+'186739':
+  so_ky_hieu: 43/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:09:39+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216791
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/43-ndcp.signed.pdf
+  so_byte_pdf: 1726280
+  sha256_pdf: e1c8f05102192d1842c9a3ca276a4a42042aa5600af0283955ba444dd4e9079f
+'186852':
+  so_ky_hieu: 54/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:09:46+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216924
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/02/54-ndcp.signed.pdf
+  so_byte_pdf: 1045065
+  sha256_pdf: e4890cf0d33c8bab894a6ffd19ea286cfe9fef977f3e33087e206184b2b30221
+'186980':
+  so_ky_hieu: 360/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:09:52+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216390
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/360-ndcp.signed.pdf
+  so_byte_pdf: 798598
+  sha256_pdf: d28b067c07b559a7d4ad8e83ab82ce4714c759f1e60965b161fdec5efd6b6c8f
+'187035':
+  so_ky_hieu: 127/2025/QH15
+  kiem_luc: '2026-09-29T06:10:10+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216548
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/127-qh15-2025.signed.pdf
+  so_byte_pdf: 6311916
+  sha256_pdf: d81469f0edcbe697946bf41a863258a15b0520e46f5277b51e654f55e456d358
+'187036':
+  so_ky_hieu: 100/2025/QH15
+  kiem_luc: '2026-09-29T06:10:20+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216574
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/100-qh15.signed.pdf
+  so_byte_pdf: 1013070
+  sha256_pdf: 73e4dcb834569b23173faa3b4c3a36dd2e8d30c0fb5ca94e3068b5fcfe7b3a00
+'187037':
+  so_ky_hieu: 101/2025/QH15
+  kiem_luc: '2026-09-29T06:10:27+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216573
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/101-qh15.signed.pdf
+  so_byte_pdf: 1262659
+  sha256_pdf: 3de8bee46bbe5a471368c68809c213518ec5ac07e337b203b2a000ee8f5b6ec7
+'187040':
+  so_ky_hieu: 107/2025/QH15
+  kiem_luc: '2026-09-29T06:10:34+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216571
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/107-qh15.signed.pdf
+  so_byte_pdf: 633632
+  sha256_pdf: 8d214efb18bdd0d22ae5623049e084af6ad2999e1e088ca81f4166e3cf425db6
+'187043':
+  so_ky_hieu: 108/2025/QH15
+  kiem_luc: '2026-09-29T06:10:40+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216541
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/108-qh15.signed.pdf
+  so_byte_pdf: 3031876
+  sha256_pdf: c1128f09f90b43d509fc75067caa5ad734a8773c2f82f4fdf46d54592107ae72
+'187063':
+  so_ky_hieu: 59/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:10:53+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216976
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/02/59nd.signed.pdf
+  so_byte_pdf: 1092270
+  sha256_pdf: 9491306f0ebdcb32e0a5986d41d36aa837525fe37614af4428062688a111557f
+'187092':
+  so_ky_hieu: 34/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:11:01+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216748
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/34-cp.signed.pdf
+  so_byte_pdf: 326325
+  sha256_pdf: f5d6889d5aa2cf38a1e6bd6912d59d67190dd27fdbfd6624e1c887e3408f1db7
+'187157':
+  so_ky_hieu: 49/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:11:09+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216860
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/49-2026ndcp.signed.pdf
+  so_byte_pdf: 1670193
+  sha256_pdf: 5cc593a9a9861a83784d4b88bec1528b61f6244f2fd2db06c706b3131bf1b332
+'187224':
+  so_ky_hieu: 67/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:11:20+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=217106
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/3/67-ndcp.signed.pdf
+  so_byte_pdf: 1564971
+  sha256_pdf: fff957dd4dd55dc13a05ea222dacbcfc3ce1ec399066a5545a845e43b6b4bf77
+'187276':
+  so_ky_hieu: 356/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:11:27+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216387
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/356-nd.signed.pdf
+  so_byte_pdf: 2357540
+  sha256_pdf: 5b36a060c22db1df6c32b8c66da63b0c36571a1f7fa01765e719baac215b6c12
+'187346':
+  so_ky_hieu: 69/2025/TT-BTC
+  kiem_luc: '2026-09-29T06:11:30+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214417
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/69-btc.signed.pdf
+  so_byte_pdf: 1060568
+  sha256_pdf: e9f743a8db84b9373ba49b6e82c41defd3a3fce07617f7b8da72dedaba7c8a2f
+'187372':
+  so_ky_hieu: 180/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:11:36+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214328
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/180nd.signed.pdf
+  so_byte_pdf: 1234959
+  sha256_pdf: d0335038aba62edec9991f6dbd2616c5049381f5e4bb6c4d11e6368e891a5331
+'187432':
+  so_ky_hieu: 48/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:11:43+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216867
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/48-cp.signed.pdf
+  so_byte_pdf: 2668328
+  sha256_pdf: 3902145d9d3fb8201b501076a5abb3c828a97e5d877206e2220456dc9a17abbb
+'187505':
+  so_ky_hieu: 80/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:11:55+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=217258
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/3/80-ndcp.signed.pdf
+  so_byte_pdf: 2101410
+  sha256_pdf: 4ca1c0769f33449f16e196af4cec55977a41ce8321ff5a14755b2f31588501bf
+'187552':
+  so_ky_hieu: 10/2026/TT-BGDĐT
+  kiem_luc: '2026-09-29T06:12:02+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=217140
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/3/10-bgd.signed.pdf
+  so_byte_pdf: 1225224
+  sha256_pdf: e8a68d557295a7db8c8123f913b8269865ab613a4b5203ac2c6bac3bb3ea0946
+'187582':
+  so_ky_hieu: 18/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:12:09+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216651
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/18-ndcp.signed.pdf
+  so_byte_pdf: 1779089
+  sha256_pdf: 2b9bf8fa4fe5916a76e15f5aa2a1cbe36e9113640d56728522c82734277faa18
+'187585':
+  so_ky_hieu: 65/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:12:19+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=217218
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/3/65-ndcp.signed.pdf
+  so_byte_pdf: 1597002
+  sha256_pdf: 8c461e361fe6faedeceaa514b2e2a83c83ac1f3687409d29997533535b6884f4
+'187758':
+  so_ky_hieu: 105/2025/QH15
+  kiem_luc: '2026-09-29T06:12:36+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216551
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/105-qh15-2025.signed.pdf
+  so_byte_pdf: 1458594
+  sha256_pdf: ca65de1bdfc622e6e79ecd8b485cd60db30a90303039594507263ba01a0bc7ce
+'187818':
+  so_ky_hieu: 253/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:12:53+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=215448
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/9/253-cp.signed.pdf
+  so_byte_pdf: 691705
+  sha256_pdf: 40efaba1b2bd1b8916cab39370e61bf7e811a04be8b70bbdb87231045dbbdfaa
+'187822':
+  so_ky_hieu: 291/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:13:00+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=215808
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/11/291-nd.signed.pdf
+  so_byte_pdf: 1832544
+  sha256_pdf: 76d420daf2bf6c849462b4eb0316f9a912165ad70991a1a5a1c1643cd9e14dd6
+251c4420-5265-11f1-848d-2bb321e41052:
+  so_ky_hieu: 02/2026/QH16
+  kiem_luc: '2026-09-29T06:14:43+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218093
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/5/02-qh.signed.pdf
+  so_byte_pdf: 1921238
+  sha256_pdf: 90f612fa2fe4ec950621664fa5c4949bbde39ea5512dda210213e9528eaf7874
+2f53d590-68a2-11f1-abca-2fa19d617f21:
+  so_ky_hieu: 144/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:17:18+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218020
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/4/144-ndcp.signed.pdf
+  so_byte_pdf: 983186
+  sha256_pdf: 2ab7fc38ad68e435447299126982014bf1d2b6a3051e40f709ae3e14b92bd98a
+'36141':
+  so_ky_hieu: 52/2014/NĐ-CP
+  kiem_luc: '2026-09-29T06:18:06+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=174049
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2014/05/nd52.signed.pdf
+  so_byte_pdf: 681625
+  sha256_pdf: 3f3966b050a9b9303fd831c040be01db5585f026d5ebdad4afce5e0e1543e07f
+'36572':
+  so_ky_hieu: 59/2014/NĐ-CP
+  kiem_luc: '2026-09-29T06:18:12+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=174470
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2014/06/59-nd.signed.pdf
+  so_byte_pdf: 536304
+  sha256_pdf: 715f476d7f2890d65cac12a4961cf0469700cb15cae0ab89231948dd65d84ced
+'36793':
+  so_ky_hieu: 46/2014/QH13
+  kiem_luc: '2026-09-29T06:18:19+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=175349
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2014/08/46_sd_bhyte.signed.pdf
+  so_byte_pdf: 1149904
+  sha256_pdf: 3d42f69c19848edb02a2e576c5ac5c34b73e8876da8fc546b2a6f849d2b0525b
+'36870':
+  so_ky_hieu: 52/2014/QH13
+  kiem_luc: '2026-09-29T06:18:26+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=175351
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2014/08/52_honnhan_gd.signed.pdf
+  so_byte_pdf: 2984064
+  sha256_pdf: 5c8b6404a81129b5f90b9ff2cfb96701a178a81aacb86c12e9126a3a3abc87c1
+'36878':
+  so_ky_hieu: 54/2014/QH13
+  kiem_luc: '2026-09-29T06:18:33+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=175358
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2014/08/54_haiquan.signed.pdf
+  so_byte_pdf: 3834753
+  sha256_pdf: 1c16477bd2fb5aea74f714c86e80255faedd179e91876b3b7191b83da044e9bf
+'36921':
+  so_ky_hieu: 80/2014/NĐ-CP
+  kiem_luc: '2026-09-29T06:18:39+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=175375
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2014/08/80nd.signed.pdf
+  so_byte_pdf: 1887100
+  sha256_pdf: 14184438ed202c05ca5597cc8688f2240c868d67f023c807ca7e3d17eaec8f61
+'37769':
+  so_ky_hieu: 77/2014/TT-BTC
+  kiem_luc: '2026-09-29T06:18:56+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=174752
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2014/07/tt-77.signed.pdf
+  so_byte_pdf: 1222067
+  sha256_pdf: 458df7f36ef313661ff5ea458e89250957239cd80c13ac739375b7bc818c4c50
+386e5ad0-7d09-11f1-9c00-f9e84f25c1dc:
+  so_ky_hieu: 231/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:19:02+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218582
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/6/231-ndcp.signed.pdf
+  so_byte_pdf: 863922
+  sha256_pdf: be1cee52be17e29de1b5a8871edb6bb1612d5e4047ba1180168b9c3b99b9b0ce
+'45756':
+  so_ky_hieu: 39/2014/TT-BTC
+  kiem_luc: '2026-09-29T06:19:31+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=173887
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2014/05/tt-39.signed.pdf
+  so_byte_pdf: 2178856
+  sha256_pdf: 1bd210d97caae8243f221ab0e5fcdf7d50582b73aad88879cdceda1ea92e7e20
+'46747':
+  so_ky_hieu: 61/2014/QH13
+  kiem_luc: '2026-09-29T06:19:42+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=178130
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2014/12/61.signed.pdf
+  so_byte_pdf: 664967
+  sha256_pdf: 2ea62924c09b80e0d75c60937196c4ab4762a750245cf1d23150df741edfeb2a
+'47412':
+  so_ky_hieu: 126/2014/NĐ-CP
+  kiem_luc: '2026-09-29T06:19:51+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=178372
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2015/01/126-nd.signed.pdf
+  so_byte_pdf: 1575518
+  sha256_pdf: 0011d2b58da62d01eaae0319f8279cfa16ae69902b10ea4f88df5033f0b6eaa3
+539a1450-7a13-11f1-bfab-2d6d51f414a0:
+  so_ky_hieu: 26/2026/NQ-CP
+  kiem_luc: '2026-09-29T06:19:58+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218026
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/4/26-nqcp.signed.pdf
+  so_byte_pdf: 318900
+  sha256_pdf: be8b08acdb1d707d5e8a4d2771c035cc68929da451adfa235f32daebe0510bb8
+56844f80-7e93-11f1-92c2-fd52353fce98:
+  so_ky_hieu: 253/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:20:04+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218684
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/7/253m-ndcp.signed.pdf
+  so_byte_pdf: 2908482
+  sha256_pdf: c4d5e03e2c8235230acb72dd656b848fdbbf53e50e54e8c9fbfa9dfe734d8a8a
+5a100a90-6f7a-11f1-b30f-9993cb99e536:
+  so_ky_hieu: 182/2025/NĐ-CP
+  kiem_luc: '2026-09-29T06:20:11+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=214329
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/7/182nd.signed.pdf
+  so_byte_pdf: 269220
+  sha256_pdf: 7d40bb6ad447f9661b471e97ccb31deba06fec42049cfafc4865ba9874f061f5
+5ae3af70-54b9-11f1-b102-07539b2807f6:
+  so_ky_hieu: 04/2026/QH16
+  kiem_luc: '2026-09-29T06:20:17+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218099
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/5/04-qh.signed.pdf
+  so_byte_pdf: 510589
+  sha256_pdf: e991e4fbc4b9c510ffbfec5848c9eae0ee35a4b248eb8956b44329ead3d1fd33
+'67438':
+  so_ky_hieu: 26/2015/TT-BTC
+  kiem_luc: '2026-09-29T06:20:49+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=179270
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2015/03/26tt.signed.pdf
+  so_byte_pdf: 2082965
+  sha256_pdf: c82351a7f3adb0866cb2ab9b19a60799902c04c599d15d9bcdc78d7210bfd300
+'67747':
+  so_ky_hieu: 18/2015/QĐ-TTg
+  kiem_luc: '2026-09-29T06:20:56+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=180226
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2015/06/18.signed.pdf
+  so_byte_pdf: 223799
+  sha256_pdf: d071e0cd6af4e4d0e4bf08dfd699405c6f16e89976df84c8d9414560f1143a17
+'67763':
+  so_ky_hieu: 21/2015/TT-BNNPTNT
+  kiem_luc: '2026-09-29T06:21:04+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=180383
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2015/06/21-tt-bnnptnt.signed.pdf
+  so_byte_pdf: 4890552
+  sha256_pdf: 9dfedd4bbe4ee065bc810ee0d6e32586d785806273632e15276edfd9901c1227
+'69532':
+  so_ky_hieu: 23/2015/TT-BLĐTBXH
+  kiem_luc: '2026-09-29T06:21:19+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=180631
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2015/07/23-tt-bldtbxh.signed.pdf
+  so_byte_pdf: 436425
+  sha256_pdf: 5802aa35e9cafff19080e6048ffa539ba2e6609356b9ad487fec71529684ba45
+6ad0bc90-62ea-11f1-8d8f-7326969477ba:
+  so_ky_hieu: 57/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:21:26+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216960
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/02/57-nd.signed.pdf
+  so_byte_pdf: 5792347
+  sha256_pdf: 72dbaeac710965c18dde48658389eeef5c520cc71c1761e6850034e545742d1c
+6dbee1e0-6e19-11f1-91ec-bfa56133551d:
+  so_ky_hieu: 09/2026/QH16
+  kiem_luc: '2026-09-29T06:21:33+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218095
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/5/09-qh.signed.pdf
+  so_byte_pdf: 176913
+  sha256_pdf: d9207c14c9af462454dd7ce9ef5b23c8a22dfea8d3462438be9ffd3897a1f94e
+'70811':
+  so_ky_hieu: 84/2015/QH13
+  kiem_luc: '2026-09-29T06:21:54+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=180606
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2015/07/84.signed.pdf
+  so_byte_pdf: 4629724
+  sha256_pdf: 7b2eb250573593b9bd479e164f27269ed8d5cb6f9ffb5bc30266d7f8c9f27f1a
+'73839':
+  so_ky_hieu: 31/2015/QĐ-TTg
+  kiem_luc: '2026-09-29T06:22:01+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=180903
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2015/08/31.signed.pdf
+  so_byte_pdf: 602867
+  sha256_pdf: 2d4e2a179a898bc3c392fafde14f64c76b0887af84c076de48f6c61460a1273d
+787d3780-866f-11f1-8511-612429c9d15e:
+  so_ky_hieu: 283/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:22:12+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218871
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/7/283-ndcp.signed.pdf
+  so_byte_pdf: 4373852
+  sha256_pdf: b99a15a503d63e5da9ba3125a9f23a3970933eb2ffc8830fa7d579f5962b0e58
+7da35fe0-7f31-11f1-8df0-5f93228b4774:
+  so_ky_hieu: 220/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:22:14+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218555
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/6/220-ndcp.signed.pdf
+  so_byte_pdf: 1170278
+  sha256_pdf: 8f8c9090ff3523b6fd1e28270c9ea1759bad61a562e439137a3c55007be7d73f
+860f7bf0-5fbf-11f1-baad-7baf349e4825:
+  so_ky_hieu: 95/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:22:31+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=217724
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/4/95-ndcp.signed.pdf
+  so_byte_pdf: 2786009
+  sha256_pdf: 047a836e0bde5c1c0ec0b876cc1c55fe86178027a6a02002b1c983802fac0f80
+'92155':
+  so_ky_hieu: 105/2015/NĐ-CP
+  kiem_luc: '2026-09-29T06:22:57+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=181866
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2015/10/105.signed.pdf
+  so_byte_pdf: 966593
+  sha256_pdf: 1dc423d62a765d40f629a27b5ac2b557095c97929daf3174fbb4495a719b029e
+'92225':
+  so_ky_hieu: 35/2015/TT-BNNPTNT
+  kiem_luc: '2026-09-29T06:23:04+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=182737
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2015/12/35-bnnptnt.signed.pdf
+  so_byte_pdf: 527999
+  sha256_pdf: 53c2de29b79c68878d5120b67e1ac8c99060d50d5aed27f025608b1cb23653b9
+'92437':
+  so_ky_hieu: 94/2015/NĐ-CP
+  kiem_luc: '2026-09-29T06:23:11+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=181886
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2015/10/94.signed.pdf
+  so_byte_pdf: 854282
+  sha256_pdf: 06d855abb6249aab22a43cb105a1274654bf0ac7bf0675094b509b4a4f788c56
+'92897':
+  so_ky_hieu: 123/2015/NĐ-CP
+  kiem_luc: '2026-09-29T06:23:17+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=182158
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2015/11/123.signed.pdf
+  so_byte_pdf: 1856571
+  sha256_pdf: 25bf07ef36b00e12fed602f484578940afbcfdea0148e69fcb96e63653c6887a
+'95942':
+  so_ky_hieu: 91/2015/QH13
+  kiem_luc: '2026-09-29T06:23:25+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=183188
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/01/91.signed.pdf
+  so_byte_pdf: 6675593
+  sha256_pdf: d2f9e486faa8aa205dff952c813251acb82475a614b388d2a52449a05dd37205
+'96035':
+  so_ky_hieu: 93/2015/QH13
+  kiem_luc: '2026-09-29T06:23:32+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=183190
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/01/93.signed.pdf
+  so_byte_pdf: 4440870
+  sha256_pdf: 775492b9e1680e1b4dec71aa2cf4b02a1798fa7970f6aa6a17b2b0575ab800e8
+'96117':
+  so_ky_hieu: 95/2015/QH13
+  kiem_luc: '2026-09-29T06:23:41+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=183192
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/01/95.signed.pdf
+  so_byte_pdf: 8885342
+  sha256_pdf: dcd0daf253c314c1ef6eb06a84756f3a2eaaf7e3cfca515be6314af78544b99a
+'96119':
+  so_ky_hieu: 97/2015/QH13
+  kiem_luc: '2026-09-29T06:23:51+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=183214
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/01/97.signed.pdf
+  so_byte_pdf: 1780279
+  sha256_pdf: 8fe591ec3e724aa704e492a9fee54b00c86a05a9dd114d3011ae00543adc854c
+'97361':
+  so_ky_hieu: 57/2015/TT-BLĐTBXH
+  kiem_luc: '2026-09-29T06:24:01+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=183538
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2016/02/57-bldtbxh.signed.pdf
+  so_byte_pdf: 1566874
+  sha256_pdf: fe9fdbccf77bbfc32f79c274a0fdd91b51baadc2b3231e0ea55d8ba13e33ab7c
+99391630-5b07-11f1-a02d-c7bf6cb95c18:
+  so_ky_hieu: 50/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:24:13+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216861
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/50-ndcp.signed.pdf
+  so_byte_pdf: 1518795
+  sha256_pdf: 7c602d77590866f50a506f1338cc59c96ed7a15846b00d0b7dd96b191c5931a0
+9f320090-54c9-11f1-aa08-59e3f5ee2be8:
+  so_ky_hieu: 05/2026/QH16
+  kiem_luc: '2026-09-29T06:24:19+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218097
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/5/05-qh.signed.pdf
+  so_byte_pdf: 499160
+  sha256_pdf: bff44c4afd61d29420c982d0ae7c60871a6b4afdfebad0c3f58faccd73ca9100
+aaff53a0-767f-11f1-a26c-15d47590a02f:
+  so_ky_hieu: 32/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:24:26+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=216731
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/01/32-1.signed.pdf
+  so_byte_pdf: 1238949
+  sha256_pdf: 0391ffeb355dd93c3a90fdebc1257309fac5967c4f369fce9441ce6907231cd5
+cf007110-59a3-11f1-8c15-2dbf1042f751:
+  so_ky_hieu: 128/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:24:39+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=217625
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/4/128-nd.signed.pdf
+  so_byte_pdf: 516483
+  sha256_pdf: 857c44eeccb96ae6fec798e84b385d6e3c91e126f56e6fb851a407d96af86998
+f4b0c320-79e6-11f1-8c8a-3587e086d762:
+  so_ky_hieu: 238/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:25:13+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218613
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/7/238-ndcp.signed.pdf
+  so_byte_pdf: 626064
+  sha256_pdf: f132e2e941d4b0d704b9790b65dc451c8642062624030cfc24f7c8186f5d7d21
+f8fc0770-8033-11f1-9ecb-65d57157638f:
+  so_ky_hieu: 273/2026/NĐ-CP
+  kiem_luc: '2026-09-29T06:25:19+00:00'
+  trang: https://vanban.chinhphu.vn/?pageid=27160&docid=218801
+  pdf: https://datafiles.chinhphu.vn/cpp/files/vbpq/2026/7/273-m-ndcp.signed.pdf
+  so_byte_pdf: 2663794
+  sha256_pdf: 9c72fcf8b95f57f889439ded604be6a732793b05d9c8ce016539970498dbe825
