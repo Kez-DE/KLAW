@@ -120,6 +120,56 @@ def test_khoan_bo_sung_moi_giu_nguyen_so_hieu_chu_la():
     assert s.tu_ngay == date(2026, 1, 1)
 
 
+def test_dieu_hien_phap_khong_tieu_de_va_hieu_luc_thi_hanh_tu_ngay():
+    """Khuôn `52/VBHN-VPQH` (Hiến pháp) đo 2026-09-29: điều không có tiêu đề nên
+    dòng chỉ là "Điều 110", không dấu chấm; footnote viết "có hiệu lực thi hành
+    từ ngày", không có "kể". Trước bản sửa: 0/5 điểm sửa đọc được."""
+    fn = (
+        "Điều này được sửa đổi, bổ sung theo quy định tại khoản {k} Điều 1 của Nghị "
+        "quyết số 203/2025/QH15 sửa đổi, bổ sung một số điều của Hiến pháp nước Cộng "
+        "hòa xã hội chủ nghĩa Việt Nam, có hiệu lực thi hành từ ngày 16 tháng 6 năm 2025."
+    )
+    b = _docx(
+        [
+            _txt("Điều 84"),
+            # Câu văn mở đầu bằng "Điều 12 …" KHÔNG phải dòng tiêu đề điều.
+            _txt("Điều 12 của Luật này không mở một điều mới."),
+            _neo("1.", "4", "Chủ tịch nước, Ủy ban thường vụ Quốc hội có quyền trình dự án luật."),
+            _p(_r(text="Điều 110"), _r(text="5", sup=True), _r(sup=True, fn="5")),
+        ],
+        {"4": fn.format(k=3).replace("Điều này", "Khoản này"), "5": fn.format(k=4)},
+    )
+    k1, d110 = doc_sua_doi(b)
+    assert (k1.vi_tri, k1.sua_boi_duong_dan) == ("Điều 84 > Khoản 1", "khoản 3 Điều 1")
+    assert (d110.vi_tri, d110.sua_boi_duong_dan) == ("Điều 110", "khoản 4 Điều 1")
+    assert {s.sua_boi_so_ky_hieu for s in (k1, d110)} == {"203/2025/QH15"}
+    assert {s.tu_ngay for s in (k1, d110)} == {date(2025, 6, 16)}
+    assert {s.do_tin_cay for s in (k1, d110)} == {"trung_binh"}
+
+
+def test_sua_doan_dau_diem_van_la_ghi_chu_sua_doi():
+    """`54/VBHN-VPQH` fn23, đo 2026-09-29: "Đoạn đầu điểm này được sửa đổi…" —
+    36/37 dấu sửa của cổng MOJ khớp VBHN, dấu còn lại là chính điểm này."""
+    b = _docx(
+        [
+            _txt("Điều 46. Xây dựng, ban hành nghị quyết"),
+            _txt("1. Xây dựng, ban hành nghị quyết của Hội đồng Thẩm phán:"),
+            _neo("b)", "23", "Dự thảo nghị quyết được đăng tải trên Cổng thông tin điện tử"),
+        ],
+        {
+            "23": (
+                "Đoạn đầu điểm này được sửa đổi, bổ sung theo quy định tại điểm a khoản 14 "
+                "Điều 1 của Luật số 87/2025/QH15 sửa đổi, bổ sung một số điều của Luật Ban hành "
+                "văn bản quy phạm pháp luật, có hiệu lực kể từ ngày 01 tháng 7 năm 2025."
+            )
+        },
+    )
+    (s,) = doc_sua_doi(b)
+    assert s.vi_tri == "Điều 46 > Khoản 1 > Điểm b"
+    assert (s.sua_boi_so_ky_hieu, s.sua_boi_duong_dan) == ("87/2025/QH15", "điểm a khoản 14 Điều 1")
+    assert s.tu_ngay == date(2025, 7, 1)
+
+
 # ── Cạm bẫy 1: `<w:tab>` ─────────────────────────────────────────────────────
 
 def test_tab_khong_nuot_mat_dieu():
