@@ -142,6 +142,7 @@ def test_gia_tri_loc_ben_va_truong_la():
         )
     )
     assert kq["gia_tri"] == [{"ben": "ben_a", "truong": "ho_ten", "gia_tri": "Nguyễn Văn An"}]
+    assert kq["khong_dat"] == ["X", "Y"]
 
 
 def test_sua_dieu_ngoai_pham_vi_hoi_lai_dieu_nao():
@@ -207,3 +208,73 @@ def test_don_chi_nhan_muc_cua_mau():
     kq = _kiem(_ra(dieu=[_dieu("Buộc trả tiền.", ten="Yêu cầu", key="yeu_cau"), _dieu("Lan man.", ten="Khác")]), ng)
     assert [d["key"] for d in kq["dieu"] if not d.get("chen")] == ["yeu_cau"]
     assert any("Khác" in g for g in kq["ghi_chu"])
+
+
+# ─── khung mô hình viết (tên loại, trích yếu, vai) qua CÙNG hai lưới ─────────
+
+
+def test_trich_yeu_dan_so_hieu_bi_bo_va_neu_ten():
+    ng = {"loai": "cong_van", "sua": False, "co_trich_yeu": True, "tieu_de": "CÔNG VĂN", "bo_cuc": "hanh_chinh"}
+    ty = "V/v thi hành Điều 5 Nghị định 99/2099/NĐ-CP, thanh toán 750 triệu đồng cho ông Trần Văn Bình"
+    kq = _kiem(_ra(tieu_de=None, trich_yeu=ty, bo_cuc=None, ben=None, dieu=[_dieu("Đề nghị xem xét.")]), ng)
+    assert kq["khung"]["trich_yeu"] is None and any("trích yếu" in g for g in kq["ghi_chu"])
+
+
+def test_tieu_de_va_vai_dan_so_hay_dinh_danh_bi_bo_ve_mac_dinh():
+    kq = _kiem(
+        _ra(
+            tieu_de="Hợp đồng số 12/2025/HĐ theo Điều 473 Bộ luật Dân sự",
+            ben=[{"khoa": "ben_a", "vai": "Ông Trần Văn Bình, CCCD 001099012345", "loai": "ca_nhan"}],
+            dieu=[_dieu("Giá thuê do hai bên thỏa thuận.")],
+        )
+    )
+    assert kq["khung"]["tieu_de"] == "Văn bản" and kq["khung"]["ben"][0]["vai"] is None
+    assert any("tên văn bản" in g for g in kq["ghi_chu"]) and any("một bên" in g for g in kq["ghi_chu"])
+    spec = km.spec_tu(
+        {**km.khung_tong_quat("hop_dong", kq["khung"]["ben"]), "loai": None},
+        tieu_de=kq["khung"]["tieu_de"],
+        trich_yeu=None,
+        can_cu=[],
+        dieu=kq["dieu"],
+    )
+    assert spec["ben"][0]["tieu_de"] == "I. BÊN A (sau đây gọi là Bên A):", "vai trống thì khối bên gọi mặc định"
+
+
+def test_tieu_de_trich_yeu_khong_dan_so_giu_nguyen():
+    kq = _kiem(_ra(trich_yeu="Về việc thuê nhà", dieu=[_dieu("Giá thuê do hai bên thỏa thuận.")]))
+    assert kq["khung"]["tieu_de"] == "Hợp đồng thuê tài sản" and kq["khung"]["trich_yeu"] == "Về việc thuê nhà"
+    assert kq["khung"]["ben"][0]["vai"] == "Bên cho thuê" and kq["ghi_chu"] == []
+
+
+def test_hanh_chinh_tu_soan_hai_ben_co_dinh_cua_khung_gia_tri_la_vao_khong_dat():
+    kq = h.kiem_khuon_mau(
+        _ra(
+            tieu_de="Thông báo",
+            trich_yeu="Về việc nghỉ lễ",
+            bo_cuc="hanh_chinh",
+            ben=[{"khoa": "cong_ty", "vai": "Công ty", "loai": "to_chuc"}],
+            can_cu=[],
+            gia_tri=[
+                {"ben": "nguoi_ky", "truong": "ho_ten", "gia_tri": "Trần Văn Bình"},
+                {"ben": "cong_ty", "truong": "ten_to_chuc", "gia_tri": "Công ty TNHH Minh An"},
+            ],
+            dieu=[_dieu("Công ty thông báo lịch nghỉ lễ.", ten="")],
+        ),
+        NG_TQ,
+        "thông báo nghỉ lễ, người ký Trần Văn Bình, Công ty TNHH Minh An",
+        [],
+        [],
+    )
+    assert [b["khoa"] for b in kq["khung"]["ben"]] == ["co_quan", "nguoi_ky"]
+    assert kq["gia_tri"] == [{"ben": "nguoi_ky", "truong": "ho_ten", "gia_tri": "Trần Văn Bình"}]
+    assert kq["khong_dat"] == ["Công ty TNHH Minh An"], "giá trị không đặt được thì báo, không bỏ im"
+    _, ban_do = km.dung_docx(
+        km.spec_tu(
+            {**km.khung_tong_quat("hanh_chinh", kq["khung"]["ben"]), "loai": None},
+            tieu_de="Thông báo",
+            trich_yeu=None,
+            can_cu=[],
+            dieu=kq["dieu"],
+        )
+    )
+    assert {k for v in ban_do.values() for k in v if k} >= {("nguoi_ky", "ho_ten"), ("co_quan", "ten_to_chuc")}

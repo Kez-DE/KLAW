@@ -1138,8 +1138,15 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
     k = bt.get("khuon") or {}
     ten = bt.get("ten") or "văn bản"
     khung = (bt.get("audit_report") or {}).get("khung") or {}
-    con = [f"«{o['nhan'] or 'chỗ trống'}»" for o in k.get("cho_trong") or [] if not (o.get("gia_tri") or "").strip()]
-    da = sum(1 for o in k.get("cho_trong") or [] if (o.get("gia_tri") or "").strip())
+    cho = k.get("cho_trong") or []
+    con = [f"«{o['nhan'] or 'chỗ trống'}»" for o in cho if not (o.get("gia_tri") or "").strip()]
+    # Lượt chat (`khuon_mau_tong_quat.da_dien`): chỉ chỗ LƯỢT NÀY điền từ lời người hỏi.
+    # Đường checklist không có số đó: nói tổng của phiên bản, không nói nguồn.
+    if "da_dien" in x:
+        dien = f"Đã điền {x['da_dien']} chỗ trống từ lời bạn nói. " if x["da_dien"] and not x.get("co_san") else ""
+    else:
+        da = sum(1 for o in cho if (o.get("gia_tri") or "").strip())
+        dien = f"Đã điền {da}/{len(cho)} chỗ trống. " if da else ""
     can_cu = [_ten_can_cu(c["dong"]) for c in khung.get("can_cu") or [] if c.get("dong")]
     chen = [f"«{c.get('ten')}»" for c in bt.get("clauses") or [] if c.get("chen")]
     khong_dat = _cau_khong_dat({"khong_dat": x.get("khong_dat") or []})
@@ -1164,7 +1171,7 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
         )
     phan = [
         dau,
-        (f"Đã điền {da} chỗ trống từ lời bạn nói. " if da else ""),
+        dien,
         (
             _liet_ke("Căn cứ: ", can_cu, 220, "văn bản") + ". Bấm «Căn cứ» trên trang để xem nguyên văn. "
             if can_cu

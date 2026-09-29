@@ -59,10 +59,10 @@ def _dap(bt: dict, x: dict | None = None) -> dict:
 
 
 def test_loi_dap_goi_ten_dung_cho_da_dien_con_trong_va_can_cu():
-    ket = _dap(_bt())
+    ket = _dap(_bt(), {"da_dien": 1})
     a = ket["answer"]
     assert ket["result_type"] == ResultType.ban_thao and ket["ban_thao"]["khuon"]["nguon"] == "khuon_mau"
-    assert "Đã điền 1 chỗ trống" in a and "Còn trống: «Ngày sinh»" in a
+    assert "Đã điền 1 chỗ trống từ lời bạn nói" in a and "Còn trống: «Ngày sinh»" in a
     assert "Căn cứ: Bộ luật Dân sự số 91/2015/QH13" in a and "Điều còn trống vì luật đòi: «Mức lương»" in a
     assert "(2 trang)" in a and "tệp bạn tải lên" not in a and "⟦" not in a
     assert "Thể thức theo tập quán" in a and len(a) <= TRAN_KY_TU
@@ -73,6 +73,15 @@ def test_khong_dien_gi_thi_khong_noi_da_dien():
     bt["khuon"]["cho_trong"] = [{**o, "gia_tri": None} for o in bt["khuon"]["cho_trong"]]
     a = _dap(bt)["answer"]
     assert "Đã điền" not in a and "Còn trống: «Họ và tên», «Ngày sinh»" in a
+
+
+def test_chi_noi_da_dien_cho_luot_nay_dien_khong_dem_gia_tri_mang_sang():
+    """Owner: không bao giờ nói đã điền khi chưa điền. Phiên bản có một chỗ đã điền (mang
+    sang hay điền trên trang), lượt này không điền gì: không câu "Đã điền"."""
+    a = _dap(_bt(), {"da_dien": 0})["answer"]
+    assert "Đã điền" not in a
+    a = _dap(_bt(), {"da_dien": 1, "co_san": True})["answer"]
+    assert "giữ nguyên" in a and "Đã điền" not in a
 
 
 def test_gia_tri_chua_dat_duoc_va_ghi_chu_duoc_ke():
@@ -97,6 +106,8 @@ def test_ban_thao_checklist_tren_khuon_mau_cung_loi_dap():
     }
     a = assemble(st, {}, None, "")["answer"]
     assert "Bấm vào chỗ trống trên trang để điền" in a and "sửa từng mục" not in a
+    # Đường checklist không biết chỗ nào lượt này điền: nói tổng của phiên bản, không nguồn.
+    assert "Đã điền 1/2 chỗ trống." in a and "từ lời bạn nói" not in a
 
 
 def test_xem_ban_thao_khuon_mau_khong_noi_tep_tai_len():

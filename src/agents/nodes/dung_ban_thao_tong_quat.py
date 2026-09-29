@@ -563,6 +563,13 @@ def _kiem_gia_tri(
     return giu, bo, khong_dat
 
 
+def _moi_dien(giu: list[dict], truoc: list | None) -> int:
+    """Số chỗ trống LƯỢT NÀY điền (hay đổi giá trị) từ lời người hỏi — giá trị mang sang
+    hay điền trên trang từ trước không tính (owner: không nói đã điền khi chưa điền)."""
+    cu = {(p.get("don_vi"), p.get("cho_trong"), str(p.get("gia_tri") or "").strip()) for p in truoc or []}
+    return sum(1 for p in giu if (p["don_vi"], p["cho_trong"], str(p["gia_tri"]).strip()) not in cu)
+
+
 def _audit(x: dict, khung: dict, clauses: list[dict], *, tao: bool) -> dict:
     """`audit` của phiên bản khuôn mẫu: mức kiểm `tong_quat` (chưa qua rule), mục
     luật đòi còn thiếu là PHÁT HIỆN lúc sửa (lúc tạo nó đã được chèn trống), và `khung`."""
@@ -647,7 +654,7 @@ def dung_khuon_mau(state: dict, sub: str, hoi_thoai_id: str) -> dict:
         return _loi(state, str(e))
     giu, bo, khong_dat = _kiem_gia_tri(state, x, moi["o"], moi["don_vi_goc"], [])
     phep = ban_thao.gop_phep_sua([], giu, ban_thao.doan_cua_cho(moi["don_vi"]))
-    khung = {**khung, "o": moi["o"]}
+    khung = {**khung, "o": moi["o"], "thuoc": moi["thuoc"]}
     khuon = {"cho_trong": ban_thao.cho_trong_khuon("docx", moi["don_vi"], phep)}
     ket = {
         "document": ban_thao.tom_tat_khuon_mau(khung, clauses, khuon),
@@ -660,7 +667,13 @@ def dung_khuon_mau(state: dict, sub: str, hoi_thoai_id: str) -> dict:
     _ghi_trace_soan(sub, bat_dau)
     return {
         **state,
-        "khuon_mau_tong_quat": {**x, "bo_qua": bo, "khong_dat": khong_dat, "so_trang": moi["so_trang"]},
+        "khuon_mau_tong_quat": {
+            **x,
+            "bo_qua": bo,
+            "khong_dat": khong_dat,
+            "so_trang": moi["so_trang"],
+            "da_dien": _moi_dien(giu, []),
+        },
         "ban_thao_ket": _ket_state(bt, TEN_TONG_QUAT, []),
         "ban_thao_tong_quat_loi": None,
     }
@@ -691,27 +704,33 @@ def _sua_khuon_mau(state: dict, x: dict, ng: dict, sub: str, hoi_thoai_id: str) 
         except ban_thao.KhuonMauChuaDungError as e:
             return _loi(state, str(e))
         mang, bo_mang = ban_thao.mang_phep_sang(
-            ban_thao.don_vi_khuon(sub, cu.get("viec_id")), moi["don_vi"], cu.get("phep_sua")
+            ban_thao.don_vi_khuon(sub, cu.get("viec_id")),
+            moi["don_vi"],
+            cu.get("phep_sua"),
+            khung_cu.get("thuoc"),
+            moi["thuoc"],
         )
         giu, bo, khong_dat = _kiem_gia_tri(state, x, moi["o"], moi["don_vi_goc"], mang)
+        da_dien = _moi_dien(giu, mang)
         phep = ban_thao.gop_phep_sua(mang, giu, ban_thao.doan_cua_cho(moi["don_vi"]))
-        viec_id, o, don_vi = moi["viec_id"], moi["o"], moi["don_vi"]
+        viec_id, o, thuoc, don_vi = moi["viec_id"], moi["o"], moi["thuoc"], moi["don_vi"]
     else:
-        viec_id, o = cu.get("viec_id"), khung_cu.get("o") or []
+        viec_id, o, thuoc = cu.get("viec_id"), khung_cu.get("o") or [], khung_cu.get("thuoc")
         don_vi = ban_thao.don_vi_khuon(sub, viec_id)
         don_vi_goc = tl.don_vi_cua(get_engine(), viec_id, sub) or []
         giu, bo, khong_dat = _kiem_gia_tri(state, x, o, don_vi_goc, cu.get("phep_sua") or [])
+        da_dien = _moi_dien(giu, cu.get("phep_sua"))
         phep = ban_thao.gop_phep_sua(cu.get("phep_sua"), giu, ban_thao.doan_cua_cho(don_vi))
         if phep == (cu.get("phep_sua") or []):
             # Không đổi gì áp được: CHÍNH bản đang có là thẻ của lượt — không phiên bản
             # mới, không tốn lượt sửa. `assemble` nói điều chưa làm được.
             return {
                 **state,
-                "khuon_mau_tong_quat": {**x, "co_san": True, "bo_qua": bo, "khong_dat": khong_dat},
+                "khuon_mau_tong_quat": {**x, "co_san": True, "bo_qua": bo, "khong_dat": khong_dat, "da_dien": 0},
                 "ban_thao_ket": _ket_state(cu, TEN_TONG_QUAT, []),
                 "ban_thao_tong_quat_loi": None,
             }
-    khung = {**khung, "o": o}
+    khung = {**khung, "o": o, "thuoc": thuoc}
     khuon = {"cho_trong": ban_thao.cho_trong_khuon("docx", don_vi, phep)}
     ket = {
         "document": ban_thao.tom_tat_khuon_mau(khung, clauses, khuon),
@@ -731,7 +750,13 @@ def _sua_khuon_mau(state: dict, x: dict, ng: dict, sub: str, hoi_thoai_id: str) 
         return _loi(state, KHONG_CO_BAN_THAO)
     return {
         **state,
-        "khuon_mau_tong_quat": {**x, "bo_qua": bo, "khong_dat": khong_dat, "khong_mang_sang": len(bo_mang)},
+        "khuon_mau_tong_quat": {
+            **x,
+            "bo_qua": bo,
+            "khong_dat": khong_dat,
+            "khong_mang_sang": len(bo_mang),
+            "da_dien": da_dien,
+        },
         "ban_thao_ket": _ket_state(bt, TEN_TONG_QUAT, [*doi, *doi_o]),
         "ban_thao_tong_quat_loi": None,
     }

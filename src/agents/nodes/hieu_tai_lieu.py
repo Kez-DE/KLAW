@@ -3943,6 +3943,19 @@ def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu:
     khung_cu = ngu_canh.get("khung_cu") or {}
     ghi: list[str] = []
     dem: Counter = Counter()
+
+    def _luoi_khung(chu: str, ten: str) -> str | None:
+        # Chữ khung mô hình viết (tên loại, trích yếu, vai một bên) in lên trang như chữ
+        # điều khoản, nên qua CÙNG hai lưới: lưới chặn bỏ cả trường (người gọi dùng mặc
+        # định) và nêu tên; lưới giá trị để "……" chỗ giá trị không nguồn.
+        if not chu:
+            return None
+        sach, so = _luoi_doan(chu, nguon, cam)
+        dem["gia_tri_lam_sach"] += so
+        if sach is None:
+            ghi.append(f"Bỏ {ten} vì dẫn số điều luật, số hiệu hay thông tin định danh không kiểm được")
+        return sach or None
+
     # Khung: loại registry lấy từ dữ liệu; tự soạn lấy lời mô hình lúc TẠO, giữ khung
     # đã lưu lúc SỬA (sửa điều khoản không đổi loại văn bản hay các bên).
     if muc_tieu == "sua_ban_dang_co":
@@ -3958,10 +3971,15 @@ def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu:
             "can_cu": ngu_canh.get("can_cu") or [],
         }
         if ngu_canh.get("co_trich_yeu"):
-            khung["trich_yeu"] = khuon_mau.chuan_chu(str(ra.get("trich_yeu") or ""))[0] or None
+            khung["trich_yeu"] = _luoi_khung(khuon_mau.chuan_chu(str(ra.get("trich_yeu") or ""))[0][:200], "trích yếu")
     else:
-        ben, da = [], set()
-        for b in ra.get("ben") or []:
+        bo_cuc = ra.get("bo_cuc") if ra.get("bo_cuc") in khuon_mau.BO_CUC else "hop_dong"
+        # Văn bản hành chính: cơ quan ban hành và người ký là HAI bên cố định của khung
+        # (`khung_tong_quat`) — chỗ trống trên tệp mang đúng hai khoá đó, không khoá mô
+        # hình tự đặt.
+        co_dinh = khuon_mau.khung_tong_quat("hanh_chinh", [])["ben"] if bo_cuc == "hanh_chinh" else []
+        ben, da = [{k: b[k] for k in ("khoa", "vai", "loai")} for b in co_dinh], set()
+        for b in [] if co_dinh else ra.get("ben") or []:
             if not isinstance(b, dict):
                 continue
             k = (
@@ -3974,16 +3992,16 @@ def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu:
             ben.append(
                 {
                     "khoa": k,
-                    "vai": khuon_mau.chuan_chu(str(b.get("vai") or ""))[0] or None,
+                    "vai": _luoi_khung(khuon_mau.chuan_chu(str(b.get("vai") or ""))[0], "tên gọi của một bên"),
                     "loai": "to_chuc" if b.get("loai") == "to_chuc" else "ca_nhan",
                 }
             )
         tieu_de, _ = khuon_mau.chuan_chu(khuon_mau.bo_so_dau(str(ra.get("tieu_de") or "")))
         khung = {
             "loai": None,
-            "bo_cuc": ra.get("bo_cuc") if ra.get("bo_cuc") in khuon_mau.BO_CUC else "hop_dong",
-            "tieu_de": tieu_de[:150] or "Văn bản",
-            "trich_yeu": khuon_mau.chuan_chu(str(ra.get("trich_yeu") or ""))[0][:200] or None,
+            "bo_cuc": bo_cuc,
+            "tieu_de": (_luoi_khung(tieu_de, "tên văn bản") or "")[:150] or "Văn bản",
+            "trich_yeu": _luoi_khung(khuon_mau.chuan_chu(str(ra.get("trich_yeu") or ""))[0][:200], "trích yếu"),
             "ben": ben[:8],
             "can_cu_so": [s.strip() for s in ra.get("can_cu") or [] if isinstance(s, str) and s.strip()][:8],
         }
@@ -4046,12 +4064,20 @@ def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu:
         dieu, hoan_thanh = khuon_mau.them_dieu_bat_buoc(dieu, loai, tao=muc_tieu == "ban_moi")
         dieu = [{k: v for k, v in d.items() if k != "chen"} | ({"chen": True} if d.get("chen") else {}) for d in dieu]
     ben_hop_le = {b["khoa"] for b in khung.get("ben") or []} | {khuon_mau.BEN_VAN_BAN}
-    gia_tri = []
+    gia_tri, khong_cho = [], []
     for g in ra.get("gia_tri") or []:
         v = " ".join(str((g or {}).get("gia_tri") or "").split()) if isinstance(g, dict) else ""
-        if v and len(v) <= GIA_TRI_TOI_DA and g.get("ben") in ben_hop_le and g.get("truong") in khuon_mau.truong():
+        if not v or len(v) > GIA_TRI_TOI_DA:
+            continue
+        if g.get("ben") in ben_hop_le and g.get("truong") in khuon_mau.truong():
             gia_tri.append({"ben": g["ben"], "truong": g["truong"], "gia_tri": v})
-    khong_dat = [" ".join(x.split()) for x in ra.get("khong_dat") or [] if isinstance(x, str) and x.strip()][:8]
+        else:
+            # Bên hay trường không có trên tệp: không có chỗ trống nào nhận — báo "chưa
+            # đặt được" (người gọi lọc theo lời người hỏi), không bỏ im.
+            khong_cho.append(v)
+    khong_dat = [
+        " ".join(x.split()) for x in [*(ra.get("khong_dat") or []), *khong_cho] if isinstance(x, str) and x.strip()
+    ][:8]
     return {
         "muc_tieu": muc_tieu,
         "khung": khung,
@@ -4132,7 +4158,10 @@ def _soan_khuon_mau(
         ngan_sach=khuon_mau.NGAN_SACH_KY_TU,
         so_trang=khuon_mau.NGAN_SACH_KY_TU // 2500,
         truong=", ".join(f"{k} ({v})" for k, v in khuon_mau.truong().items()),
-        ben=ben if ng.get("ben") else f"{khuon_mau.BEN_VAN_BAN}; với văn bản tự soạn là `khoa` bạn đặt ở `ben`",
+        ben=ben
+        if ng.get("ben")
+        else f"{khuon_mau.BEN_VAN_BAN}; `co_quan`, `nguoi_ky` với văn bản hành chính; với văn bản tự soạn khác là "
+        "`khoa` bạn đặt ở `ben`",
     )
     usage = None
     try:

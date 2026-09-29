@@ -67,6 +67,69 @@ def test_gia_tri_trong_doan_khong_doi_van_mang_sang():
     assert bo == [] and giu[0]["don_vi"] == next(d["chi_so"] for d in dv2 if d["noi_dung"].startswith("Giá thuê"))
 
 
+# ─── điều chỉ có "……": giá trị theo ĐIỀU của nó, không theo chữ trơn ─────────
+# Chèn hay bỏ một điều đánh số lại mọi tiêu đề, và các thân "……" giống hệt nhau: so chữ
+# trơn thì giá trị của người dùng trượt sang điều khác mà không báo gì.
+
+DAT_COC = {"key": None, "ten": "Đặt cọc", "doan": [km.CHO]}
+THOI_HAN = {"key": None, "ten": "Thời hạn thuê", "doan": [km.CHO]}
+MUC_DICH = {"key": None, "ten": "Mục đích thuê", "doan": [km.CHO]}
+
+
+def _dung_thuoc(dieu: list[dict]) -> tuple[list[dict], dict]:
+    spec = km.spec_tu(
+        {**km.khung_tong_quat("hop_dong", BEN), "loai": None},
+        tieu_de="Hợp đồng thuê",
+        trich_yeu=None,
+        can_cu=[],
+        dieu=dieu,
+    )
+    docx, _, thuoc = km.dung_docx_thuoc(spec)
+    dv = [_hang_don_vi(d) for d in doc("k.docx", docx).don_vi]
+    return dv, ban_thao.thuoc_don_vi(dv, thuoc)
+
+
+def _dien_duoi(dv: list[dict], ten: str, v: str) -> dict:
+    i = next(k for k, d in enumerate(dv) if d["noi_dung"].endswith(f". {ten}"))
+    return {"loai": "dien", "don_vi": dv[i + 1]["chi_so"], "cho_trong": 0, "gia_tri": v}
+
+
+def _tieu_de_cua(dv: list[dict], don_vi: int) -> str:
+    return [d["noi_dung"] for d in dv if d["chi_so"] < don_vi and d["noi_dung"].startswith("Điều ")][-1]
+
+
+def test_chen_dieu_len_dau_gia_tri_o_lai_dieu_cua_no():
+    dv1, t1 = _dung_thuoc([DAT_COC, THOI_HAN, D2])
+    phep = [_dien_duoi(dv1, "Đặt cọc", "50 triệu đồng"), _dien_duoi(dv1, "Thời hạn thuê", "12 tháng")]
+    dv2, t2 = _dung_thuoc([MUC_DICH, DAT_COC, THOI_HAN, D2])
+    giu, bo = ban_thao.mang_phep_sang(dv1, dv2, phep, t1, t2)
+    assert bo == []
+    assert {p["gia_tri"]: _tieu_de_cua(dv2, p["don_vi"]) for p in giu} == {
+        "50 triệu đồng": "Điều 2. Đặt cọc",
+        "12 tháng": "Điều 3. Thời hạn thuê",
+    }
+
+
+def test_bo_dieu_dau_giu_gia_tri_dieu_khong_dong_toi_va_bao_gia_tri_mat():
+    dv1, t1 = _dung_thuoc([DAT_COC, THOI_HAN, D2])
+    phep = [_dien_duoi(dv1, "Đặt cọc", "50 triệu đồng"), _dien_duoi(dv1, "Thời hạn thuê", "12 tháng")]
+    dv2, t2 = _dung_thuoc([THOI_HAN, D2])
+    giu, bo = ban_thao.mang_phep_sang(dv1, dv2, phep, t1, t2)
+    assert [p["gia_tri"] for p in bo] == ["50 triệu đồng"]
+    assert [(p["gia_tri"], _tieu_de_cua(dv2, p["don_vi"])) for p in giu] == [("12 tháng", "Điều 1. Thời hạn thuê")]
+
+
+def test_khung_khong_thuoc_dieu_nao_van_mang_sang_khi_bo_dieu_cuoi():
+    dv1, t1 = _dung_thuoc([D1, D2])
+    _, o1 = _dung([D1, D2])
+    dv2, t2 = _dung_thuoc([D1])
+    _, o2 = _dung([D1])
+    giu, bo = ban_thao.mang_phep_sang(dv1, dv2, _phep(o1, "ben_b", "ho_ten", "Trần Thị Bình"), t1, t2)
+    assert bo == [] and {(p["don_vi"], p["cho_trong"]) for p in giu} == {
+        (p["don_vi"], p["cho_trong"]) for p in _phep(o2, "ben_b", "ho_ten", "Trần Thị Bình")
+    }, "tên ở khối các bên và ở khối ký (sau danh sách điều) đều mang sang"
+
+
 # ─── thứ tự ưu tiên ở bản thảo checklist (`dat_khuon_mau`) ───────────────────
 
 
@@ -143,3 +206,17 @@ def test_fact_khong_doi_thua_gia_tri_dien_tren_trang(checklist_hdld):
 def test_khong_hoi_thoai_giu_ban_html(checklist_hdld):
     ket = _ket()
     assert ban_thao.dat_khuon_mau("s", None, "hdld", {}, ket) is ket
+
+
+def test_muc_checklist_la_khoi_cac_ben_khong_thanh_dieu(checklist_hdld):
+    """`draft_generate` viết cả mục các bên (`nsdld`, `nld`); khung đã có khối các bên nên
+    bản docx không có Điều nào mang khoá đó — số điều theo đúng phần điều khoản."""
+    clauses = [
+        {"key": "nsdld", "ten": "Tên, địa chỉ NSDLĐ", "noi_dung": "Công ty TNHH ABC.", "can_cu_provision_id": 0},
+        {"key": "nld", "ten": "Người lao động", "noi_dung": "Ông Nguyễn Văn An.", "can_cu_provision_id": 0},
+        {"key": "cong_viec", "ten": "Công việc", "noi_dung": "Nhân viên kinh doanh.", "can_cu_provision_id": 0},
+    ]
+    k = ban_thao.dat_khuon_mau("s", "h", "hdld", {}, _ket(clauses))
+    assert [c["key"] for c in k["clauses"]] == ["cong_viec"]
+    noi_dung = [d["noi_dung"] for d in checklist_hdld[k["viec_id"]]]
+    assert "Điều 1. Công việc" in noi_dung and not any("ABC" in x or "Nguyễn Văn An" in x for x in noi_dung)

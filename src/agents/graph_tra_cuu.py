@@ -434,11 +434,21 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
     """Phần DB của lượt soạn khuôn mẫu (thiết kế §4 bước 3), trước node thuần: mục
     registry, mục checklist kèm căn cứ (nguyên văn rút gọn), dòng căn cứ của khung, và
     nền. Nền là khuôn mẫu đang mở (light row) — sửa được; một bản HTML cũ chỉ là tham
-    khảo. Loại lấy từ khung đã lưu khi sửa, từ router khi tạo."""
+    khảo. Loại lấy từ khung đã lưu khi sửa, từ router khi tạo.
+
+    Router nêu một loại KHÁC loại đang mở ("soạn đơn khởi kiện" khi HĐLĐ đang mở): người
+    hỏi xin văn bản MỚI — lượt tạo trên khung của loại đó (mẫu chính thức khi có), bản
+    đang mở chỉ còn là tham khảo. Bản tự soạn không có mã để router gọi lại, nên với nó
+    chỉ một loại CÓ khuôn mẫu mới là "khác".
+    ponytail: bản tự soạn của loại mới có khuôn mẫu SAU khi soạn cũng rẽ thành lượt tạo;
+    lưu loại router nêu lúc tạo vào `khung` khi ca đó đo được."""
     bt = st.get("ban_thao_tong_quat_dang_mo") or {}
+    router = (st.get("soan_thao_goi_y") or {}).get("loai")
     sua = bt.get("nguon") == ban_thao.NGUON_KHUON_MAU
     khung_cu = ((bt.get("audit") or {}).get("khung") or {}) if sua else {}
-    loai = khung_cu.get("loai") if sua else (st.get("soan_thao_goi_y") or {}).get("loai")
+    if sua and router and router != khung_cu.get("loai") and (khung_cu.get("loai") or router in khuon_mau.cac_loai()):
+        sua, khung_cu = False, {}
+    loai = khung_cu.get("loai") if sua else router
     loai = loai if loai in khuon_mau.cac_loai() else None
     ng: dict = {"loai": loai, "sua": sua, "khung_cu": khung_cu, "muc": [], "khoa": [], "can_cu": [], "bat_buoc": []}
     if loai is None:
@@ -615,28 +625,34 @@ def build_graph_tra_cuu():
             # Cùng lối nói với nhánh sửa (`dung_lai` ném cùng lỗi này): 0 lượt LLM.
             return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": str(e)}}
         ket = ban_thao.tu_state_soan_thao(ket_st)
+        loi = None
         try:
             # Khuôn mẫu (§3): bản thảo checklist trong hội thoại là một tệp .docx.
             ket = await run_in_threadpool(
                 ban_thao.dat_khuon_mau, sub, st.get("hoi_thoai_id"), sd["loai"], sd["facts"], ket
             )
         except ban_thao.KhuonMauChuaDungError as e:
-            # Không lưu gì, không ghi traces: lượt này không tính vào hạn mức.
-            return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": str(e)}}
-        bt = await run_in_threadpool(ban_thao.tao, sub, st.get("hoi_thoai_id"), sd["loai"], sd["facts"], ket)
+            loi = str(e)
+        bt = None
+        if loi is None:
+            bt = await run_in_threadpool(ban_thao.tao, sub, st.get("hoi_thoai_id"), sd["loai"], sd["facts"], ket)
         try:
+            # Tệp không dựng được sau lượt sinh trả phí: không lưu gì, nhưng chi phí VẪN vào
+            # traces (trần chi phí ngày đọc bảng đó) — `result_type` "loi" không trừ lượt.
             await run_in_threadpool(
                 _ghi_traces,
                 str(uuid.uuid4()),
                 bao_ve.EP_SOAN_THAO,
                 sd["loai"],
                 s.eval_config_name,
-                {"result_type": "ban_thao", "traces": ket_st.get("traces") or {}},
+                {"result_type": "loi" if loi else "ban_thao", "traces": ket_st.get("traces") or {}},
                 int((time.monotonic() - bat_dau) * 1000),
                 user_sub=sub,
             )
         except Exception:
             logger.exception("dung_ban_thao: không ghi được traces")
+        if loi is not None:
+            return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": loi}}
         ban_thao_ket = _ban_thao_ket(sd["loai"], bt, load_checklist_cached(sd["loai"]).ten, [])
         return {
             **st,

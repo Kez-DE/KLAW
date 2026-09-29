@@ -228,6 +228,7 @@ def test_tao_luu_viec_khuon_mau_va_phien_ban_1_voi_phep_dien(kho):
     assert _gia_tri(kho) == {"Nguyễn Văn An", "Trần Thị Bình"}
     assert sum(1 for p in kho.bt["bt-1"]["phep_sua"] if p["gia_tri"].strip() == "Nguyễn Văn An") == 2
     assert "0987654321" not in ket["answer"]
+    assert "Đã điền 4 chỗ trống từ lời bạn nói" in ket["answer"]
     assert bt["khuon"]["can_cu"][0]["doc_id"] == "95942"
 
 
@@ -304,6 +305,39 @@ def test_sua_dieu_dung_lai_tep_moi_mang_phep_dien_sang(kho):
     assert b["clauses"][:2] == kho.bt["bt-1"]["clauses"][:2]
     assert _gia_tri(kho) == {"Nguyễn Văn An", "Trần Thị Bình"}, "giá trị các bên mang sang tệp mới"
     assert "Phạt vi phạm" in ket["answer"]
+    assert "Đã điền" not in ket["answer"], "giá trị mang sang không phải lượt này điền"
+
+
+def test_chen_dieu_len_dau_gia_tri_dien_tren_trang_khong_truot_sang_dieu_khac(kho):
+    ra = _ra(
+        gia_tri=[],
+        dieu=[
+            {"key": None, "ten": "Đặt cọc", "doan": [km.CHO]},
+            {"key": None, "ten": "Thời hạn thuê", "doan": [km.CHO]},
+        ],
+    )
+    _luot(_st(), _LLM(ra))
+    dv = kho.viec[kho.bt["bt-1"]["viec_id"]]["don_vi"]
+
+    def _duoi(dv, ten):
+        i = next(k for k, d in enumerate(dv) if d["noi_dung"].endswith(f". {ten}"))
+        return dv[i + 1]["chi_so"]
+
+    # Người dùng điền trên trang hai thân "……" giống hệt nhau.
+    kho.bt["bt-1"]["phep_sua"] = [
+        {"loai": "dien", "don_vi": _duoi(dv, "Đặt cọc"), "cho_trong": 0, "gia_tri": "50 triệu đồng"},
+        {"loai": "dien", "don_vi": _duoi(dv, "Thời hạn thuê"), "cho_trong": 0, "gia_tri": "12 tháng"},
+    ]
+    them = {"thao_tac": "them_sau", "dieu": 0, "key": None, "ten": "Mục đích thuê", "doan": ["Bên thuê dùng để ở."]}
+    ket = _luot(
+        _st("thêm điều mục đích thuê lên đầu", nhe=kho.nhe()),
+        _LLM(_ra(muc_tieu="sua_ban_dang_co", dieu=None, gia_tri=[], sua_dieu=[them])),
+    )
+    b = kho.bt["bt-1"]
+    dv2 = kho.viec[b["viec_id"]]["don_vi"]
+    theo = {p["don_vi"]: p["gia_tri"].strip() for p in b["phep_sua"]}
+    assert theo[_duoi(dv2, "Đặt cọc")] == "50 triệu đồng" and theo[_duoi(dv2, "Thời hạn thuê")] == "12 tháng"
+    assert _duoi(dv2, "Mục đích thuê") not in theo and "không mang sang" not in ket["answer"]
 
 
 def test_chi_doi_gia_tri_giu_nguyen_tep(kho):
@@ -332,6 +366,7 @@ def test_khong_doi_gi_la_ban_dang_co_khong_phien_ban_moi(kho):
     ket = _luot(_st("sửa điều 9", nhe=kho.nhe()), _LLM(ra))
     assert kho.bt["bt-1"]["phien_ban"] == 1
     assert h.CHUA_RO_DIEU.rstrip(".") in ket["answer"]
+    assert "Đã điền" not in ket["answer"], "lượt không đổi gì không nói đã điền"
 
 
 def test_ban_html_cu_chi_la_tham_khao_tao_ban_moi(kho):
@@ -424,8 +459,72 @@ def test_nap_khuon_mau_chuan_bi_muc_can_cu_va_nen(monkeypatch):
     don = g._nap_khuon_mau(None, {"soan_thao_goi_y": {"loai": "don_khoi_kien"}})["khuon_mau_ngu_canh"]
     assert don["khoa"] == ["tai_lieu", "thong_tin_khac", "yeu_cau"] and don["co_dieu"] is False
     assert set(don["bat_buoc"]) == {"yeu_cau", "tai_lieu"}
-    # Sửa: loại theo khung đã lưu, không theo router; tự soạn giữ các bên của khung.
+    # Sửa: loại theo khung đã lưu; tự soạn giữ các bên của khung. Router không nêu loại,
+    # hay nêu một loại KHÔNG có khuôn mẫu (nó không có mã nào để gọi lại bản tự soạn):
+    # vẫn là lượt trên chính bản đang mở.
     nhe = {"nguon": "khuon_mau", "audit": {"khung": {"loai": None, "ben": BEN, "tieu_de": "T"}}}
-    tq = g._nap_khuon_mau(None, {"soan_thao_goi_y": {"loai": "hdld"}, "ban_thao_tong_quat_dang_mo": nhe})
-    assert tq["khuon_mau_ngu_canh"]["loai"] is None and tq["khuon_mau_ngu_canh"]["sua"] is True
-    assert tq["khuon_mau_ngu_canh"]["ben"] == BEN
+    for goi_y in ({}, {"loai": None}, {"loai": "hop_dong_thue_tai_san"}):
+        tq = g._nap_khuon_mau(None, {"soan_thao_goi_y": goi_y, "ban_thao_tong_quat_dang_mo": nhe})
+        assert tq["khuon_mau_ngu_canh"]["loai"] is None and tq["khuon_mau_ngu_canh"]["sua"] is True
+        assert tq["khuon_mau_ngu_canh"]["ben"] == BEN
+
+
+NHE_HDLD = {
+    "nguon": "khuon_mau",
+    "loai_khuon": "hdld",
+    "audit": {"khung": {"loai": "hdld", "ben": [], "tieu_de": "HỢP ĐỒNG LAO ĐỘNG"}},
+}
+
+
+@pytest.fixture
+def db_nap(monkeypatch):
+    monkeypatch.setattr(g.gst, "requirements", lambda loai: ([], g.gst.load_checklist_cached(loai), {}))
+    monkeypatch.setattr(g, "hien_thi_luc", lambda engine, as_of: frozenset())
+    monkeypatch.setattr(g.gst, "can_cu_van_ban_co_id", lambda e, d_, a: [])
+
+
+@pytest.mark.parametrize(
+    "dang_mo, loai",
+    [
+        (NHE_HDLD, "don_khoi_kien"),
+        (NHE_HDLD, "don_xin_nghi_viec"),
+        ({"nguon": "khuon_mau", "loai_khuon": None, "audit": {"khung": {"loai": None, "ben": BEN}}}, "don_khoi_kien"),
+    ],
+    ids=["hdld-mo-xin-don-co-mau", "hdld-mo-xin-loai-chua-co-mau", "tu-soan-mo-xin-don-co-mau"],
+)
+def test_router_neu_loai_khac_loai_dang_mo_la_luot_tao(db_nap, dang_mo, loai):
+    """Một khuôn mẫu đang mở mà router nêu một loại KHÁC: người hỏi xin văn bản MỚI —
+    khung của loại router nêu (mẫu chính thức khi có), bản đang mở chỉ là tham khảo."""
+    ng = g._nap_khuon_mau(None, {"soan_thao_goi_y": {"loai": loai}, "ban_thao_tong_quat_dang_mo": dang_mo})[
+        "khuon_mau_ngu_canh"
+    ]
+    assert ng["sua"] is False and ng["khung_cu"] == {}
+    assert ng["loai"] == (loai if loai in km.cac_loai() else None)
+
+
+def test_router_neu_dung_loai_dang_mo_van_la_luot_sua(db_nap):
+    ng = g._nap_khuon_mau(None, {"soan_thao_goi_y": {"loai": "hdld"}, "ban_thao_tong_quat_dang_mo": NHE_HDLD})
+    assert ng["khuon_mau_ngu_canh"]["loai"] == "hdld" and ng["khuon_mau_ngu_canh"]["sua"] is True
+
+
+def test_ban_dang_mo_xin_don_khoi_kien_luu_khung_mau_don(kho, db_nap):
+    """Đầu tới cuối: bản tự soạn đang mở, người hỏi xin đơn khởi kiện — bản MỚI trên
+    khung Mẫu 23-DS, bản đang mở không đổi."""
+    _luot(_st(), _LLM(_ra()))
+    st = g._nap_khuon_mau(
+        None, _st("soạn đơn khởi kiện đòi tiền lương", nhe=kho.nhe(), soan_thao_goi_y={"loai": "don_khoi_kien"})
+    )
+    ra = _ra(
+        tieu_de=None,
+        bo_cuc=None,
+        ben=None,
+        can_cu=None,
+        gia_tri=[],
+        dieu=[{"key": "yeu_cau", "ten": "", "doan": ["Buộc bị đơn trả tiền lương còn nợ."]}],
+    )
+    llm = _LLM(ra)
+    ket = _luot(st, llm)
+    assert llm.schema["properties"]["muc_tieu"]["enum"] == ["ban_moi"] and "Bản thảo cũ" in llm.prompt
+    assert list(kho.bt) == ["bt-1", "bt-2"] and kho.bt["bt-1"]["phien_ban"] == 1
+    assert kho.bt["bt-2"]["audit"]["khung"]["loai"] == "don_khoi_kien" and kho.luu_goi[-1]["loai"] == "don_khoi_kien"
+    assert ket["ban_thao"]["id"] == "bt-2"

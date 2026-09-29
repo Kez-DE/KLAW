@@ -27,6 +27,7 @@ class _Graph:
             "can_cu_co_id": [
                 {"dong": "Căn cứ Bộ luật Lao động số 45/2019/QH14 ngày 20 tháng 11 năm 2019.", "doc_id": "139264"}
             ],
+            "traces": {"draft_generate_cost_usd": 0.002},
         }
 
 
@@ -132,3 +133,51 @@ def test_xem_ban_thao_tim_ca_ban_checklist_tren_khuon():
     thảo checklist nằm trên một khuôn mẫu."""
     sql = str(ban_thao._SQL_MOI_NHAT_KHUON)
     assert "loai = :loai" not in sql and "viec_id IS NOT NULL" in sql
+
+
+# ─── tệp không dựng được SAU lượt sinh trả phí: chi phí vẫn ghi, lượt vẫn đếm ─────
+
+
+def _ban(*a):
+    raise ban_thao.KhuonMauChuaDungError(ban_thao.LOI_KHUON_MAU_BAN)
+
+
+async def test_sua_tep_khong_dung_duoc_van_ghi_chi_phi_va_tinh_lan_sua(moi_truong, monkeypatch):
+    """`draft_generate` đã chạy (trả phí) thì dòng traces mang chi phí của nó — trần chi phí
+    ngày đọc `traces` — với `result_type` "loi" (không trừ lượt), và lần thử TÍNH vào
+    `TRAN_SUA`: không thì drawer lặp lại mãi, mỗi lần một lượt trả phí không ai đếm."""
+    _, ghi = moi_truong
+    cu = {"id": "b1", "loai": "hdld", "hoi_thoai_id": "h1", "so_lan_sua": 0, "facts": {}, "viec_id": None}
+    monkeypatch.setattr(ban_thao, "chi_tiet", lambda sub, id: cu)
+    monkeypatch.setattr(ban_thao, "luu_khuon_mau", _ban)
+    traces, dem = [], []
+    monkeypatch.setattr(ban_thao, "_ghi_traces", lambda *a, **k: traces.append((a, k)))
+    monkeypatch.setattr(ban_thao, "tinh_lan_sua_hong", lambda sub, id: dem.append((sub, id)))
+    with pytest.raises(ban_thao.KhuonMauChuaDungError):
+        await ban_thao.dung_lai("s", "b1", {"luong_thang": "2"})
+    assert "ket" not in ghi, "không lưu phiên bản nào"
+    ((a, k),) = traces
+    assert a[4] == {"result_type": "loi", "traces": {"draft_generate_cost_usd": 0.002}} and k["user_sub"] == "s"
+    assert dem == [("s", "b1")]
+
+
+async def test_tao_tep_khong_dung_duoc_van_ghi_chi_phi_khong_luu(monkeypatch):
+    from src.agents import graph_tra_cuu as g
+
+    monkeypatch.setattr(g, "llm_from_settings", lambda: None)
+    monkeypatch.setattr(g, "embedder_from_settings", lambda: None)
+    monkeypatch.setattr(g, "Retriever", lambda *a: None)
+    monkeypatch.setattr(g, "get_engine", lambda: None)
+    monkeypatch.setattr(g.bao_ve, "plan_hieu_luc", lambda sub: "free")
+    monkeypatch.setattr(g.bao_ve, "kiem_han_muc", lambda *a: None)
+    monkeypatch.setattr(g, "graph_soan_thao_cached", lambda: _Graph())
+    monkeypatch.setattr(g.ban_thao, "dat_khuon_mau", _ban)
+    tao, traces = [], []
+    monkeypatch.setattr(g.ban_thao, "tao", lambda *a: tao.append(a))
+    monkeypatch.setattr(g, "_ghi_traces", lambda *a, **k: traces.append((a, k)))
+    node = g.build_graph_tra_cuu().builder.nodes["dung_ban_thao"].runnable.afunc
+    ra = await node({"soan_thao_dang_mo": {"loai": "hdld", "facts": {}}, "user_sub": "s", "hoi_thoai_id": "h"})
+    assert ra["soan_thao_dang_mo"]["het_han_muc"] == ban_thao.LOI_KHUON_MAU_BAN and tao == []
+    ((a, k),) = traces
+    assert a[1] == g.bao_ve.EP_SOAN_THAO and a[4]["result_type"] == "loi"
+    assert a[4]["traces"] == {"draft_generate_cost_usd": 0.002} and k["user_sub"] == "s"

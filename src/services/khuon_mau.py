@@ -26,6 +26,7 @@ cho chỗ trống không thuộc trường nào (ngày, số, chỗ trống tron
 
 import re
 import zipfile
+from collections import Counter
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
@@ -184,16 +185,15 @@ def khung_tong_quat(bo_cuc: str, ben: list[dict]) -> dict:
     ca_nhan = ["ho_ten", "ngay_sinh", "so_dinh_danh", "noi_cu_tru", "dien_thoai"]
     to_chuc = ["ten_to_chuc", "ma_so_doanh_nghiep", "dia_chi_tru_so", "nguoi_dai_dien", "chuc_vu", "dien_thoai"]
     ds = [b for b in ben if isinstance(b, dict) and b.get("khoa")][: len(_BEN_CHU)]
+    vai = [str(b.get("vai") or "").strip() or f"Bên {_BEN_CHU[i]}" for i, b in enumerate(ds)]
     cac_ben = [
         {
             "khoa": b["khoa"],
-            "vai": str(b.get("vai") or f"Bên {_BEN_CHU[i]}").strip(),
+            "vai": vai[i],
             "loai": "to_chuc" if b.get("loai") == "to_chuc" else "ca_nhan",
             "truong": to_chuc if b.get("loai") == "to_chuc" else ca_nhan,
             **(
-                {
-                    "tieu_de": f"{_LA_MA[i]}. {str(b.get('vai') or '').strip().upper()} (sau đây gọi là Bên {_BEN_CHU[i]}):"
-                }
+                {"tieu_de": f"{_LA_MA[i]}. {vai[i].upper()} (sau đây gọi là Bên {_BEN_CHU[i]}):"}
                 if bo_cuc == "hop_dong"
                 else {}
             ),
@@ -258,8 +258,8 @@ def khung_tong_quat(bo_cuc: str, ben: list[dict]) -> dict:
             "noi_nhan": ["{};", "Lưu: {}"],
         },
         "ben": [
-            {"khoa": "co_quan", "vai": "Cơ quan, tổ chức ban hành", "truong": ["ten_to_chuc"]},
-            {"khoa": "nguoi_ky", "vai": "Người ký", "truong": ["chuc_vu", "ho_ten"]},
+            {"khoa": "co_quan", "vai": "Cơ quan, tổ chức ban hành", "loai": "to_chuc", "truong": ["ten_to_chuc"]},
+            {"khoa": "nguoi_ky", "vai": "Người ký", "loai": "ca_nhan", "truong": ["chuc_vu", "ho_ten"]},
         ],
         "than": [{"dieu": "so"}],
         "ky": {"thu_tu": ["nguoi_ky"], "o": [{"khoa": "nguoi_ky", "vai": None, "ho_ten_tu": "ho_ten"}]},
@@ -405,6 +405,9 @@ class _Dung:
         self.co = int(tt.get("co_chu", 14)) * 2
         self.body = _e("body")
         self.o: dict[Any, list] = {}
+        # Đoạn → Điều/mục nó thuộc ("khoá hay tên#lần"): `ban_thao.mang_phep_sang` so theo
+        # đó, nên chèn/bỏ một điều (đánh số lại mọi tiêu đề) không đẩy giá trị sang điều khác.
+        self.thuoc: dict[Any, str] = {}
         self.ben = {b["khoa"]: b for b in spec.get("ben") or []}
 
     # ─── đoạn và dòng mẫu ───────────────────────────────────────────────
@@ -658,6 +661,7 @@ class _Dung:
         dòng đánh số)."""
         doan = [x for x in (d or {}).get("doan") or [] if x.strip()]
         ra = []
+        truoc = len(self.body)
         nhan = m.get("nhan")
         if nhan:
             p = self.doan(
@@ -690,13 +694,19 @@ class _Dung:
             p = self.doan(self.body, thut_dau=0 if thut else _THUT, trai=thut, sau=_SAU // 2, dong=_DONG)
             self._chu(p, x)
             ra.append(p)
+        for p in self.body[truoc:]:
+            self.thuoc[p] = m["muc"]
         return ra
 
     def _dieu(self, dieu: list[dict], kieu: str, thut: int) -> list[Any]:
         ra = []
         mot = len(dieu) == 1 and kieu != "dieu"
+        lan: Counter = Counter()
         for n, d in enumerate(dieu, 1):
             ten = str(d.get("ten") or "").strip()
+            goc = str(d.get("key") or " ".join(ten.split()))
+            thuoc, lan[goc] = f"{goc}#{lan[goc]}", lan[goc] + 1
+            truoc = len(self.body)
             if not mot and (ten or kieu != "muc"):
                 p = self.doan(
                     self.body, thut_dau=0 if thut else _THUT, trai=thut, truoc=120, sau=60, dong=_DONG, giu_sau=True
@@ -710,6 +720,8 @@ class _Dung:
                 p = self.doan(self.body, thut_dau=0 if thut else _THUT, trai=thut, sau=_SAU, dong=_DONG)
                 self._chu(p, x)
                 ra.append(p)
+            for p in self.body[truoc:]:
+                self.thuoc[p] = thuoc
         return ra
 
     def _chu(self, p: Any, chu: str) -> None:
@@ -811,19 +823,22 @@ class _Dung:
         _con(s, "pgMar", top=tren, right=phai, bottom=duoi, left=trai, header=567, footer=567, gutter=0)
         _con(s, "titlePg")
 
-    def _ban_do(self) -> dict[tuple[str, tuple[int, ...]], list]:
+    def _duong(self, vat: Any) -> tuple[str, tuple[int, ...]]:
         """Vật chứa → `(part, chi_muc)` đúng như bộ đọc ghim: chỉ số con PHẦN TỬ ở mỗi
         cấp từ `w:body` (`doc_tai_lieu.DiaChi`)."""
-        ra = {}
-        for vat, khoa in self.o.items():
-            duong = []
-            nut = vat
-            while nut is not self.body:
-                cha = nut.getparent()
-                duong.append(cha.index(nut))
-                nut = cha
-            ra[("word/document.xml", tuple(reversed(duong)))] = khoa
-        return ra
+        duong = []
+        nut = vat
+        while nut is not self.body:
+            cha = nut.getparent()
+            duong.append(cha.index(nut))
+            nut = cha
+        return ("word/document.xml", tuple(reversed(duong)))
+
+    def _ban_do(self) -> dict[tuple[str, tuple[int, ...]], list]:
+        return {self._duong(vat): khoa for vat, khoa in self.o.items()}
+
+    def thuoc_duong(self) -> dict[tuple[str, tuple[int, ...]], str]:
+        return {self._duong(p): t for p, t in self.thuoc.items()}
 
 
 def _voi_loai(mau: str, tieu_de: str) -> str:
@@ -933,7 +948,15 @@ def dung_docx(spec: dict) -> tuple[bytes, dict[tuple[str, tuple[int, ...]], list
     """`spec` (mục registry hay `khung_tong_quat`, cộng `tieu_de`, `trich_yeu`,
     `can_cu: [{dong, doc_id}]`, `dieu: [{key, ten, doan, can_cu}]`) → `(docx, ban_do)`.
     Thuần: cùng `spec` ra cùng bytes."""
-    return _Dung(spec).dung()
+    return dung_docx_thuoc(spec)[:2]
+
+
+def dung_docx_thuoc(spec: dict) -> tuple[bytes, dict, dict[tuple[str, tuple[int, ...]], str]]:
+    """`dung_docx` cộng đoạn nào thuộc Điều/mục nào: `{(part, chi_muc): "khoá#lần"}`
+    (khoá checklist hay tên điều; đoạn khung không có mặt)."""
+    d = _Dung(spec)
+    docx, ban_do = d.dung()
+    return docx, ban_do, d.thuoc_duong()
 
 
 def spec_tu(entry: dict, *, tieu_de: str | None, trich_yeu: str | None, can_cu: list[dict], dieu: list[dict]) -> dict:

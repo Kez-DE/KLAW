@@ -970,6 +970,38 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
     return {**dict(r), "khuon": khuon_moi, "ten_tep": k["ten_tep"], "doi_so_voi_truoc": doi}
 
 
+_SQL_TINH_LAN_SUA = text(
+    "UPDATE ban_thao SET so_lan_sua = so_lan_sua + 1"
+    " WHERE id = CAST(:id AS uuid) AND user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL"
+)
+
+
+def tinh_lan_sua_hong(sub: str, id: str) -> None:
+    """Một lần sửa đã chạy lượt sinh trả phí mà không lưu được phiên bản nào (tệp khuôn
+    mẫu không dựng được): vẫn TÍNH vào `so_lan_sua`, để `TRAN_SUA` chặn được vòng lặp
+    trả phí dù không lần nào thành công. Ghi hỏng thì chỉ log — lỗi của lượt là lỗi dựng."""
+    try:
+        with get_engine().begin() as c:
+            c.execute(_SQL_TINH_LAN_SUA, {"sub": sub, "id": id})
+    except Exception:
+        logger.exception("ban_thao.tinh_lan_sua_hong: không tăng được so_lan_sua")
+
+
+def _ghi_trace_sua(sub: str, loai: str, st: dict, bat_dau: float, result_type: str) -> None:
+    try:
+        _ghi_traces(
+            str(uuid.uuid4()),
+            "/api/v1/soan-thao/sua",
+            loai,
+            get_settings().eval_config_name,
+            {"result_type": result_type, "traces": st.get("traces") or {}},
+            int((time.monotonic() - bat_dau) * 1000),
+            user_sub=sub,
+        )
+    except Exception:
+        logger.exception("ban_thao.dung_lai: không ghi được traces")
+
+
 async def dung_lai(sub: str, id: str, facts: dict, hoi_thoai_id: str | None = None) -> dict | None:
     """Sửa bản thảo từ facts mới — MỘT đường dùng chung cho drawer xếp chồng
     (`POST /ban-thao/{id}/dung`, Task 25) và cho lệnh bằng lời trong hội thoại
@@ -1005,28 +1037,23 @@ async def dung_lai(sub: str, id: str, facts: dict, hoi_thoai_id: str | None = No
     # Khuôn mẫu (§3): bản thảo trong một hội thoại dựng lại thành tệp MỚI, phép điền
     # mang sang; ngoài hội thoại giữ HTML. "Đổi gì" là các dữ kiện đổi — so ô giữa
     # hai tệp khác nhau không nói gì.
-    ket = await run_in_threadpool(
-        dat_khuon_mau, sub, cu.get("hoi_thoai_id"), cu["loai"], facts, tu_state_soan_thao(st), cu
-    )
+    try:
+        ket = await run_in_threadpool(
+            dat_khuon_mau, sub, cu.get("hoi_thoai_id"), cu["loai"], facts, tu_state_soan_thao(st), cu
+        )
+    except KhuonMauChuaDungError:
+        # Lượt sinh trả phí ĐÃ chạy: chi phí vào traces (trần chi phí ngày đọc bảng đó),
+        # `result_type` "loi" để không trừ lượt, và lần thử tính vào `TRAN_SUA`.
+        await run_in_threadpool(_ghi_trace_sua, sub, cu["loai"], st, bat_dau, "loi")
+        await run_in_threadpool(tinh_lan_sua_hong, sub, id)
+        raise
     doi = doi_so_voi({"facts": cu.get("facts")}, {"facts": facts}) if ket.get("viec_id") else None
     bt = await run_in_threadpool(lambda: sua(sub, id, facts, ket, doi=doi))
     if bt is None:
         # Bản thảo bị xoá giữa lúc dựng lại (đua với một lượt xoá khác) — fail
         # closed, KHÔNG spread `None`: cùng hợp đồng 404 với mọi hàm khác ở đây.
         return None
-    try:
-        await run_in_threadpool(
-            _ghi_traces,
-            str(uuid.uuid4()),
-            "/api/v1/soan-thao/sua",
-            cu["loai"],
-            get_settings().eval_config_name,
-            {"result_type": "ban_thao", "traces": st.get("traces") or {}},
-            int((time.monotonic() - bat_dau) * 1000),
-            user_sub=sub,
-        )
-    except Exception:
-        logger.exception("ban_thao.dung_lai: không ghi được traces")
+    await run_in_threadpool(_ghi_trace_sua, sub, cu["loai"], st, bat_dau, "ban_thao")
     return {
         **bt,
         "ten": load_checklist_cached(cu["loai"]).ten,
@@ -1507,6 +1534,14 @@ def o_truong(don_vi: list[dict], ban_do: dict) -> list[dict]:
     return ra
 
 
+def thuoc_don_vi(don_vi: list[dict], thuoc_duong: dict) -> dict[str, str]:
+    """Đoạn thuộc Điều/mục nào của bộ dựng (`khuon_mau.dung_docx_thuoc`) trên đơn vị bộ
+    đọc đã lưu → `{str(chi_so): "khoá#lần"}` (khoá JSON được). Lưu ở `audit.khung.thuoc`
+    cho lần dựng lại sau (`mang_phep_sang`); đơn vị khung không có mặt."""
+    theo = {(d["dia_chi"]["phan"], tuple(d["dia_chi"]["chi_muc"])): d for d in don_vi if d.get("dia_chi")}
+    return {str(theo[k]["chi_so"]): t for k, t in thuoc_duong.items() if k in theo}
+
+
 def phep_tu_gia_tri(o: list[dict], gia_tri: dict[tuple[str, str], str]) -> list[dict]:
     """`{(ben, truong): giá trị}` → phép `dien` lên MỌI chỗ trống của trường đó (tên
     ở khối các bên và ở khối ký). Giá trị chưa qua phép kiểm nguồn — người gọi kiểm."""
@@ -1518,14 +1553,25 @@ def phep_tu_gia_tri(o: list[dict], gia_tri: dict[tuple[str, str], str]) -> list[
     return ra
 
 
-def mang_phep_sang(don_vi_cu: list[dict], don_vi_moi: list[dict], phep_cu: list[dict] | None) -> tuple[list, list]:
-    """Phép `dien` của tệp cũ → tệp vừa dựng lại (`(giữ, bỏ)`). Đơn vị ĐỒNG chữ ở hai
-    bản (`SequenceMatcher` trên dãy chữ đơn vị, cùng số chỗ trống) mang phép sang chỉ
-    số mới; phép trên đơn vị đã đổi chữ bị bỏ — người gọi nêu tên nó. Khung (các bên,
-    ngày, khối ký) không đổi chữ khi chỉ một Điều đổi, nên giá trị các bên luôn mang
-    sang, kể cả khi khối ký dời chỗ."""
-    a = [str(d.get("noi_dung") or "") for d in don_vi_cu]
-    b = [str(d.get("noi_dung") or "") for d in don_vi_moi]
+def mang_phep_sang(
+    don_vi_cu: list[dict],
+    don_vi_moi: list[dict],
+    phep_cu: list[dict] | None,
+    thuoc_cu: dict | None = None,
+    thuoc_moi: dict | None = None,
+) -> tuple[list, list]:
+    """Phép `dien` của tệp cũ → tệp vừa dựng lại (`(giữ, bỏ)`). Đơn vị ĐỒNG chữ VÀ cùng
+    Điều ở hai bản (`SequenceMatcher` trên dãy `(điều, chữ)`, cùng số chỗ trống) mang
+    phép sang chỉ số mới; phép trên đơn vị đã đổi chữ hay thuộc điều đã bỏ bị bỏ — người
+    gọi nêu tên nó. `thuoc_*` (`thuoc_don_vi`, `audit.khung.thuoc`): chèn hay bỏ một điều
+    đánh số lại mọi tiêu đề, và hai thân "……" giống hệt nhau — so chữ trơn thì giá trị
+    trượt sang điều khác. Thiếu một trong hai thì so chữ trơn. Khung (các bên, ngày, khối
+    ký) không thuộc điều nào và không đổi chữ, nên giá trị các bên luôn mang sang, kể cả
+    khi khối ký dời chỗ."""
+    if thuoc_cu is None or thuoc_moi is None:
+        thuoc_cu = thuoc_moi = {}
+    a = [(thuoc_cu.get(str(d.get("chi_so"))), str(d.get("noi_dung") or "")) for d in don_vi_cu]
+    b = [(thuoc_moi.get(str(d.get("chi_so"))), str(d.get("noi_dung") or "")) for d in don_vi_moi]
     sang: dict[int, int] = {}
     for tag, i1, i2, j1, _ in SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
         if tag != "equal":
@@ -1606,11 +1652,11 @@ def spec_cua_khung(khung: dict, clauses: list) -> dict:
 
 
 def dung_khuon_mau(sub: str, hoi_thoai_id: str, khung: dict, clauses: list) -> dict:
-    """Dựng + lưu một tệp khuôn mẫu: `{viec_id, don_vi, so_trang, ten_tep, o, ban_do}`.
+    """Dựng + lưu một tệp khuôn mẫu: `{viec_id, don_vi, so_trang, ten_tep, o, thuoc}`.
     `khung` mang `loai` (id registry hay `None`), `tieu_de`, `trich_yeu`, `bo_cuc`,
     `ben`, `can_cu`."""
     spec = spec_cua_khung(khung, clauses)
-    docx, ban_do_ = khuon_mau.dung_docx(spec)
+    docx, ban_do_, thuoc = khuon_mau.dung_docx_thuoc(spec)
     try:
         luu = luu_khuon_mau(sub, hoi_thoai_id, khung.get("loai"), spec["tieu_de"], docx)
     except KhuonMauChuaDungError as e:
@@ -1622,7 +1668,7 @@ def dung_khuon_mau(sub: str, hoi_thoai_id: str, khung: dict, clauses: list) -> d
         raise KhuonMauChuaDungError(
             LOI_KHUON_MAU_DAI.format(so=e.so_trang, tran=tl.TRAN_TRANG, dieu=dieu), so_trang=e.so_trang
         ) from e
-    return {**luu, "o": o_truong(luu["don_vi"], ban_do_)}
+    return {**luu, "o": o_truong(luu["don_vi"], ban_do_), "thuoc": thuoc_don_vi(luu["don_vi"], thuoc)}
 
 
 def don_vi_khuon(sub: str, viec_id: str | None) -> list[dict]:
@@ -1677,6 +1723,9 @@ def dat_khuon_mau(
     engine = get_engine()
     hien = hien_thi_luc(engine, as_of_hieu_luc(None))
     theo_id = {pid: r for pid, r in graph_soan_thao.chi_van_ban_hien(db, hien).items()}
+    # Mục checklist mà khung đã dựng (khối các bên…): không thành một Điều thứ hai — dữ
+    # kiện của nó đi vào trường của bên qua `truong_tu_facts`.
+    khung_co = khuon_mau.khoa_khung(entry)
     clauses = [
         {
             "key": c.get("key"),
@@ -1687,6 +1736,7 @@ def dat_khuon_mau(
             "can_cu_provision_id": c.get("can_cu_provision_id"),
         }
         for c in ket.get("clauses") or []
+        if c.get("key") not in khung_co
     ]
     khung = {
         "loai": loai,
@@ -1706,7 +1756,8 @@ def dat_khuon_mau(
         with engine.connect() as c:
             k_cu = _khuon_goc(c, sub, cu["viec_id"])
         if k_cu:
-            mang, bo = mang_phep_sang(k_cu["don_vi"] or [], moi["don_vi"], cu.get("phep_sua"))
+            thuoc_cu = (((cu.get("audit") or {}).get("khung")) or {}).get("thuoc")
+            mang, bo = mang_phep_sang(k_cu["don_vi"] or [], moi["don_vi"], cu.get("phep_sua"), thuoc_cu, moi["thuoc"])
     doi_fact = {k for k in theo_fact if str(facts.get(k) or "") != str(((cu or {}).get("facts") or {}).get(k) or "")}
     o_doi = {
         (x["don_vi"], x["so"])
@@ -1718,7 +1769,7 @@ def dat_khuon_mau(
         p for p in phep_fact if (p["don_vi"], p["cho_trong"]) in o_doi or (p["don_vi"], p["cho_trong"]) not in da_mang
     ]
     phep = gop_phep_sua(mang, chon, doan_cua_cho(moi["don_vi"]))
-    khung = {**khung, "o": moi["o"]}
+    khung = {**khung, "o": moi["o"], "thuoc": moi["thuoc"]}
     audit = {**ket["audit_report"], "khung": khung, **({"khong_mang_sang": len(bo)} if bo else {})}
     khuon = {"cho_trong": cho_trong_khuon("docx", moi["don_vi"], phep)}
     return {
