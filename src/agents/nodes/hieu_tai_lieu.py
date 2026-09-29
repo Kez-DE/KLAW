@@ -36,6 +36,7 @@ from pathlib import Path
 from src.agents.nodes.dung_ban_thao_tong_quat import chua_dien_khuon
 from src.agents.nodes.route import Intent
 from src.agents.nodes.verify_tier1 import QUOTE_TOI_THIEU
+from src.services import khuon_mau
 from src.services.bo_nho import _RE_DIEU, _vuong_luoi_chan
 from src.services.bo_nho_tai_khoan import GIA_TRI_TOI_DA
 from src.services.doc_tai_lieu import (
@@ -3359,6 +3360,15 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         # nó tự nghĩ ra một tài liệu.
         return _hong(CHUA_DOC_DUOC, "khong_co_tai_lieu")
 
+    # Khuôn mẫu (quyết định 2026-09-29 mục 5): mọi lượt soạn không tài liệu mà
+    # `graph_tra_cuu` đã chuẩn bị khuôn mẫu ra một tệp .docx — prompt v3, mô hình chỉ
+    # viết điều khoản. Thiếu `khuon_mau_ngu_canh` (người gọi trực tiếp node, không qua
+    # graph) giữ đường `van_ban` cũ bên dưới.
+    if soan_tu_do and state.get("khuon_mau_ngu_canh") is not None:
+        return _soan_khuon_mau(
+            state, llm, model, cau_hoi, cau_hoi_nguoi, bo_nho_cho_phep, bo_nho_cam, khoi_bo_nho, _hong
+        )
+
     # Fix round 1 (review, cùng I2) — bản thảo đang có (R4) cộng thêm vào
     # CHÍNH prompt này, không phải một prompt riêng — trần chi phí phải đếm cả
     # nó, không chỉ tài liệu nguồn, nếu không một lượt sua_ban_thao có thể tốn
@@ -3708,3 +3718,495 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         ket["cau_hoi_day_du"] = cau_hoi_doi_chieu(dieu_khoan)
         ket["query"] = ket["cau_hoi_day_du"]
     return ket
+
+
+# ═══ Khuôn mẫu — soạn tự do thành một tệp .docx (thiết kế `khuon-mau-thiet-ke.md` §4, §6) ═══
+#
+# Lượt SOẠN không tài liệu (`soan_tu_do`) mà `graph_tra_cuu` đã chuẩn bị khuôn mẫu
+# (`khuon_mau_ngu_canh`: loại registry hay tự soạn, các mục checklist, căn cứ, bản thảo
+# đang có) đi prompt v3: mô hình chỉ viết ĐIỀU KHOẢN và chỉ ra giá trị người hỏi nói
+# cho trường nào của bên nào; khung do `khuon_mau.dung_docx` dựng. Một lượt gọi, rồi
+# `kiem_khuon_mau` (0 token) làm sạch — ra khỏi đây chữ điều khoản không mang số điều
+# luật, số hiệu, danh tính hay giá trị không nguồn nào.
+
+PROMPT_KHUON_MAU_PATH = Path("prompts/hieu_tai_lieu.v3.md")
+MUC_TIEU = ("ban_moi", "sua_ban_dang_co")
+THAO_TAC = ("thay", "them_sau", "xoa")
+# Câu hỏi lại khi lượt sửa không chỉ được Điều nào (§4 bước 5).
+CHUA_RO_DIEU = "Tôi chưa xác định được điều cần sửa — hãy nêu số hoặc tên điều."
+_RE_KHOA_BEN = re.compile(r"[^a-z0-9_]")
+_RE_DIEU_NAY = re.compile(r"\b(?:khoản|điểm)\s+\w+(?:\s*(?:,|và)\s*\w+)*\s+(?:của\s+)?Điều\s+này\b", re.IGNORECASE)
+_THAM_CHIEU_LOAI = ("hợp đồng", "văn bản", "quy chế", "nội quy", "quyết định", "thỏa thuận", "thoả thuận", "đơn")
+_RE_TIEU_DE_DIEU = re.compile(r"^##\s+Điều\s+(\d+)\.\s*(.*)$", re.MULTILINE)
+
+
+def schema_khuon_mau(sua: bool, khoa: list[str] | None = None) -> dict:
+    """Lược đồ strict của prompt v3 (§6). `sua=False` (không có khuôn mẫu đang mở,
+    hay bản cũ là HTML): `muc_tieu` chỉ `ban_moi`, `sua_dieu` chỉ `null` — lượt ấy
+    luôn dựng một bản MỚI. `khoa`: mã mục checklist và mục thân của loại."""
+    chu = {"type": "string"}
+    key = _hoac_null("string") if not khoa else {"anyOf": [{"type": "null"}, {"type": "string", "enum": sorted(khoa)}]}
+    dieu = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["key", "ten", "doan"],
+        "properties": {"key": key, "ten": chu, "doan": {"type": "array", "items": chu}},
+    }
+    thao_tac = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["thao_tac", "dieu", "key", "ten", "doan"],
+        "properties": {
+            "thao_tac": {"type": "string", "enum": list(THAO_TAC)},
+            "dieu": {"type": "integer"},
+            "key": key,
+            "ten": _hoac_null("string"),
+            "doan": {"anyOf": [{"type": "null"}, {"type": "array", "items": chu}]},
+        },
+    }
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "muc_tieu",
+            "tieu_de",
+            "trich_yeu",
+            "bo_cuc",
+            "ben",
+            "can_cu",
+            "gia_tri",
+            "dieu",
+            "sua_dieu",
+            "khong_dat",
+        ],
+        "properties": {
+            "muc_tieu": {"type": "string", "enum": list(MUC_TIEU) if sua else ["ban_moi"]},
+            "tieu_de": _hoac_null("string"),
+            "trich_yeu": _hoac_null("string"),
+            "bo_cuc": {"anyOf": [{"type": "null"}, {"type": "string", "enum": list(khuon_mau.BO_CUC)}]},
+            "ben": {
+                "anyOf": [
+                    {"type": "null"},
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["khoa", "vai", "loai"],
+                            "properties": {
+                                "khoa": chu,
+                                "vai": chu,
+                                "loai": {"type": "string", "enum": ["ca_nhan", "to_chuc"]},
+                            },
+                        },
+                    },
+                ]
+            },
+            "can_cu": {"anyOf": [{"type": "null"}, {"type": "array", "items": chu}]},
+            "gia_tri": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["ben", "truong", "gia_tri"],
+                    "properties": {
+                        "ben": chu,
+                        "truong": {"type": "string", "enum": sorted(khuon_mau.truong())},
+                        "gia_tri": chu,
+                    },
+                },
+            },
+            "dieu": {"anyOf": [{"type": "null"}, {"type": "array", "items": dieu}]},
+            "sua_dieu": {"anyOf": [{"type": "null"}, {"type": "array", "items": thao_tac}]}
+            if sua
+            else {"type": "null"},
+            "khong_dat": {"type": "array", "items": chu},
+        },
+    }
+
+
+def _chu_giu(i: int) -> str:
+    """Mã giữ chỗ CHỈ chữ cái (không số, không @): hai lưới không bao giờ cắn nó."""
+    s = ""
+    i += 1
+    while i:
+        i, r = divmod(i - 1, 26)
+        s = chr(65 + r) + s
+    return f"KLAWGIU{s}Q"
+
+
+def _luoi_doan(chu: str, nguon: str, cam: list[str]) -> tuple[str | None, int]:
+    """MỘT đoạn qua hai lưới (§6 bước 5): lưới chặn (`_vuong_luoi_chan` — số điều luật,
+    số hiệu văn bản, dấu vết định danh) BỎ cả đoạn; lưới giá trị (`lam_sach_van_ban`,
+    đoạn là một mục của chính nó) đổi mỗi giá trị không nguồn thành "……". "khoản n
+    Điều này" (dẫn chiếu trong CHÍNH điều) được che trước cả hai lưới rồi trả lại.
+    Trả `(đoạn | None, số giá trị đã thay)`."""
+    giu: list[str] = []
+
+    def _che(m: re.Match) -> str:
+        giu.append(m.group(0))
+        return _chu_giu(len(giu) - 1)
+
+    an = _RE_DIEU_NAY.sub(_che, chu)
+    if _vuong_luoi_chan(an):
+        return None, 0
+    vb, dem = lam_sach_van_ban(
+        {"tieu_de": "", "muc": [{"ten": "_", "vung": "than", "khoi": [{"noi_dung": an, "bang": []}]}]}, nguon, None, cam
+    )
+    khoi = vb["muc"][0]["khoi"] if vb["muc"] else []
+    if not khoi:
+        return None, 0
+    s = khoi[0]["noi_dung"].replace(CHO_TRONG, khuon_mau.CHO)
+    for i, g in enumerate(giu):
+        s = s.replace(_chu_giu(i), g)
+    return khuon_mau.chuan_chu(s)[0], dem["gia_tri_lam_sach"]
+
+
+def _viet_thuong_dau(s: str) -> str:
+    return s[:1].lower() + s[1:]
+
+
+def _re_tham_chieu(ten_loai: str | None) -> re.Pattern:
+    loai = [re.escape(x) for x in {*(_THAM_CHIEU_LOAI), *([ten_loai.lower()] if ten_loai else [])}]
+    return re.compile(
+        r"\bĐiều\s+(\d+)\s+(?:(?:của|tại)\s+)?(?:" + "|".join(sorted(loai, key=len, reverse=True)) + r")\s+này\b",
+        re.IGNORECASE,
+    )
+
+
+def ten_dieu_cua(document: str | None) -> list[str]:
+    """Tên các Điều theo SỐ HIỆN TẠI trong `document` của một khuôn mẫu
+    (`ban_thao.tom_tat_khuon_mau`) — để một lượt sửa gọi đúng điều bằng số."""
+    return [m[2].strip() for m in _RE_TIEU_DE_DIEU.finditer(document or "")]
+
+
+def _sach_dieu(
+    d: dict,
+    ten_ds: list[str],
+    re_tc: re.Pattern,
+    nguon: str,
+    cam: list[str],
+    khoa: set,
+    n: int,
+    ghi: list[str],
+    dem: Counter,
+) -> dict | None:
+    """Một điều mô hình viết → điều bộ dựng ghi được, hay `None` khi không còn đoạn nào."""
+    ten, so = khuon_mau.chuan_chu(khuon_mau.bo_so_dau(str(d.get("ten") or "")))
+    dem["cho_mo_hinh"] += so
+    if ten and _vuong_luoi_chan(_RE_DIEU_NAY.sub("", ten)):
+        ghi.append(f"Bỏ tên của Điều {n} vì dẫn số điều luật không kiểm được")
+        ten = ""
+    key = d.get("key") if d.get("key") in khoa else None
+
+    def _doi_ten(m: re.Match) -> str:
+        k = int(m[1])
+        return f"Điều về {_viet_thuong_dau(ten_ds[k - 1])}" if 1 <= k <= len(ten_ds) and ten_ds[k - 1] else m[0]
+
+    doan_ra = []
+    tho = [x for x in d.get("doan") or [] if isinstance(x, str) and x.strip()]
+    if tho and ten and normalize(khuon_mau.bo_so_dau(tho[0])).casefold() == normalize(ten).casefold():
+        tho = tho[1:]
+    for x in tho:
+        x, so = khuon_mau.chuan_chu(re_tc.sub(_doi_ten, x))
+        dem["cho_mo_hinh"] += so
+        if not x:
+            continue
+        sach, so = _luoi_doan(x, nguon, cam)
+        dem["gia_tri_lam_sach"] += so
+        if sach is None:
+            ghi.append(f"Bỏ 1 đoạn ở Điều {n} vì dẫn số điều luật, số hiệu hay thông tin định danh không kiểm được")
+            dem["doan_bo"] += 1
+            continue
+        if len(sach) > khuon_mau.TOI_DA_KY_TU_DOAN:
+            sach = sach[: khuon_mau.TOI_DA_KY_TU_DOAN].rsplit(" ", 1)[0].rstrip(",;:") + "."
+            ghi.append(f"Cắt bớt một đoạn quá dài ở Điều {n}")
+        doan_ra.append(sach)
+    if len(doan_ra) > khuon_mau.TOI_DA_DOAN:
+        doan_ra = doan_ra[: khuon_mau.TOI_DA_DOAN]
+        ghi.append(f"Điều {n} quá {khuon_mau.TOI_DA_DOAN} đoạn: bỏ các đoạn sau")
+    if not doan_ra:
+        return None
+    return {"key": key, "ten": ten, "doan": doan_ra}
+
+
+def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu: list[str]) -> dict:
+    """Đầu ra v3 → nội dung đã làm sạch (§6, 0 token, thuần). Thứ tự: bỏ số đầu tên
+    Điều → viết lại dẫn chiếu "Điều n <loại> này" theo TÊN (sống qua lần đánh số lại)
+    → giữ chỗ và dãy chấm lẻ → hai lưới từng đoạn → trần và ngân sách → điều bắt buộc
+    (chỉ lúc tạo) → giá trị các bên (lọc hình dạng; phép kiểm nguồn chạy sau khi dựng,
+    trên chính chỗ trống của tệp). Trả `{muc_tieu, khung, dieu, sua_dieu, gia_tri,
+    khong_dat, ghi_chu, hoan_thanh, dem}`."""
+    sua = bool(ngu_canh.get("sua"))
+    muc_tieu = ra.get("muc_tieu") if sua and ra.get("muc_tieu") in MUC_TIEU else "ban_moi"
+    loai = ngu_canh.get("loai")
+    khung_cu = ngu_canh.get("khung_cu") or {}
+    ghi: list[str] = []
+    dem: Counter = Counter()
+
+    def _luoi_khung(chu: str, ten: str) -> str | None:
+        # Chữ khung mô hình viết (tên loại, trích yếu, vai một bên) in lên trang như chữ
+        # điều khoản, nên qua CÙNG hai lưới: lưới chặn bỏ cả trường (người gọi dùng mặc
+        # định) và nêu tên; lưới giá trị để "……" chỗ giá trị không nguồn.
+        if not chu:
+            return None
+        sach, so = _luoi_doan(chu, nguon, cam)
+        dem["gia_tri_lam_sach"] += so
+        if sach is None:
+            ghi.append(f"Bỏ {ten} vì dẫn số điều luật, số hiệu hay thông tin định danh không kiểm được")
+        return sach or None
+
+    # Khung: loại registry lấy từ dữ liệu; tự soạn lấy lời mô hình lúc TẠO, giữ khung
+    # đã lưu lúc SỬA (sửa điều khoản không đổi loại văn bản hay các bên).
+    if muc_tieu == "sua_ban_dang_co":
+        khung = {k: khung_cu.get(k) for k in ("loai", "bo_cuc", "tieu_de", "trich_yeu", "ben")}
+        khung["can_cu"] = khung_cu.get("can_cu") or []
+    elif loai:
+        khung = {
+            "loai": loai,
+            "bo_cuc": ngu_canh.get("bo_cuc"),
+            "tieu_de": ngu_canh.get("tieu_de"),
+            "trich_yeu": None,
+            "ben": ngu_canh.get("ben") or [],
+            "can_cu": ngu_canh.get("can_cu") or [],
+        }
+        if ngu_canh.get("co_trich_yeu"):
+            khung["trich_yeu"] = _luoi_khung(khuon_mau.chuan_chu(str(ra.get("trich_yeu") or ""))[0][:200], "trích yếu")
+    else:
+        bo_cuc = ra.get("bo_cuc") if ra.get("bo_cuc") in khuon_mau.BO_CUC else "hop_dong"
+        # Văn bản hành chính: cơ quan ban hành và người ký là HAI bên cố định của khung
+        # (`khung_tong_quat`) — chỗ trống trên tệp mang đúng hai khoá đó, không khoá mô
+        # hình tự đặt.
+        co_dinh = khuon_mau.khung_tong_quat("hanh_chinh", [])["ben"] if bo_cuc == "hanh_chinh" else []
+        ben, da = [{k: b[k] for k in ("khoa", "vai", "loai")} for b in co_dinh], set()
+        for b in [] if co_dinh else ra.get("ben") or []:
+            if not isinstance(b, dict):
+                continue
+            k = (
+                _RE_KHOA_BEN.sub("_", _bo_dau(str(b.get("khoa") or "")).lower()).strip("_")[:30]
+                or f"ben_{len(ben) + 1}"
+            )
+            if k in da or k == khuon_mau.BEN_VAN_BAN:
+                continue
+            da.add(k)
+            ben.append(
+                {
+                    "khoa": k,
+                    "vai": _luoi_khung(khuon_mau.chuan_chu(str(b.get("vai") or ""))[0], "tên gọi của một bên"),
+                    "loai": "to_chuc" if b.get("loai") == "to_chuc" else "ca_nhan",
+                }
+            )
+        tieu_de, _ = khuon_mau.chuan_chu(khuon_mau.bo_so_dau(str(ra.get("tieu_de") or "")))
+        khung = {
+            "loai": None,
+            "bo_cuc": bo_cuc,
+            "tieu_de": (_luoi_khung(tieu_de, "tên văn bản") or "")[:150] or "Văn bản",
+            "trich_yeu": _luoi_khung(khuon_mau.chuan_chu(str(ra.get("trich_yeu") or ""))[0][:200], "trích yếu"),
+            "ben": ben[:8],
+            "can_cu_so": [s.strip() for s in ra.get("can_cu") or [] if isinstance(s, str) and s.strip()][:8],
+        }
+    khoa = set(ngu_canh.get("khoa") or [])
+    re_tc = _re_tham_chieu(khung.get("tieu_de"))
+
+    def _sach_ds(ds: list, ten_ds: list[str]) -> list[dict]:
+        ra_ds = []
+        for n, d in enumerate(ds, 1):
+            if isinstance(d, dict) and (x := _sach_dieu(d, ten_ds, re_tc, nguon, cam, khoa, n, ghi, dem)):
+                ra_ds.append(x)
+        return ra_ds
+
+    dieu = sua_dieu = None
+    if isinstance(ra.get("dieu"), list) and (muc_tieu == "ban_moi" or ra["dieu"]):
+        ten_moi = [khuon_mau.bo_so_dau(str((d or {}).get("ten") or "")) for d in ra["dieu"] if isinstance(d, dict)]
+        dieu = _sach_ds(ra["dieu"], ten_moi)
+    elif muc_tieu == "sua_ban_dang_co" and isinstance(ra.get("sua_dieu"), list):
+        sua_dieu = []
+        for op in ra["sua_dieu"]:
+            if not isinstance(op, dict) or op.get("thao_tac") not in THAO_TAC or type(op.get("dieu")) is not int:
+                continue
+            n = op["dieu"]
+            if not (0 if op["thao_tac"] == "them_sau" else 1) <= n <= len(ten_cu):
+                ghi.append(CHUA_RO_DIEU)
+                continue
+            if op["thao_tac"] == "xoa":
+                sua_dieu.append({"thao_tac": "xoa", "dieu": n})
+                continue
+            x = _sach_dieu(op, ten_cu, re_tc, nguon, cam, khoa, max(n, 1), ghi, dem)
+            if x is None:
+                ghi.append(f"Chưa sửa được Điều {max(n, 1)}: nội dung đề xuất không còn đoạn nào dùng được")
+                continue
+            sua_dieu.append({"thao_tac": op["thao_tac"], "dieu": n, **x})
+    # Loại có mục thân cố định (đơn, công văn) mà không có danh sách Điều: điều khoản
+    # phải đúng một mục của mẫu — mẫu quyết định vị trí.
+    if dieu is not None and ngu_canh.get("khoa_than") and not ngu_canh.get("co_dieu"):
+        than = set(ngu_canh["khoa_than"])
+        for d in [d for d in dieu if d["key"] not in than]:
+            ghi.append(f"Chưa đưa vào: «{d['ten'] or 'một mục'}» — mẫu này không có mục đó")
+        dieu = [d for d in dieu if d["key"] in than]
+    if dieu is not None:
+        bat_buoc = set(ngu_canh.get("bat_buoc") or [])
+        if len(dieu) > khuon_mau.TOI_DA_DIEU:
+            giu = [d for d in dieu if d["key"] in bat_buoc]
+            du = khuon_mau.TOI_DA_DIEU - len(giu)
+            khac = [d for d in dieu if d["key"] not in bat_buoc]
+            for d in khac[max(du, 0) :]:
+                ghi.append(f"Chưa đưa vào vì quá {khuon_mau.TOI_DA_DIEU} điều: «{d['ten']}»")
+            con = set(map(id, giu + khac[: max(du, 0)]))
+            dieu = [d for d in dieu if id(d) in con]
+        while sum(len(x) for d in dieu for x in d["doan"]) > khuon_mau.NGAN_SACH_KY_TU:
+            khac = [d for d in dieu if d["key"] not in bat_buoc]
+            if not khac:
+                break
+            ghi.append(f"Chưa đưa vào vì quá dài: «{khac[-1]['ten']}»")
+            dieu = [d for d in dieu if d is not khac[-1]]
+    hoan_thanh = {"thieu": [], "completeness": None}
+    if dieu is not None and loai:
+        dieu, hoan_thanh = khuon_mau.them_dieu_bat_buoc(dieu, loai, tao=muc_tieu == "ban_moi")
+        dieu = [{k: v for k, v in d.items() if k != "chen"} | ({"chen": True} if d.get("chen") else {}) for d in dieu]
+    ben_hop_le = {b["khoa"] for b in khung.get("ben") or []} | {khuon_mau.BEN_VAN_BAN}
+    gia_tri, khong_cho = [], []
+    for g in ra.get("gia_tri") or []:
+        v = " ".join(str((g or {}).get("gia_tri") or "").split()) if isinstance(g, dict) else ""
+        if not v or len(v) > GIA_TRI_TOI_DA:
+            continue
+        if g.get("ben") in ben_hop_le and g.get("truong") in khuon_mau.truong():
+            gia_tri.append({"ben": g["ben"], "truong": g["truong"], "gia_tri": v})
+        else:
+            # Bên hay trường không có trên tệp: không có chỗ trống nào nhận — báo "chưa
+            # đặt được" (người gọi lọc theo lời người hỏi), không bỏ im.
+            khong_cho.append(v)
+    khong_dat = [
+        " ".join(x.split()) for x in [*(ra.get("khong_dat") or []), *khong_cho] if isinstance(x, str) and x.strip()
+    ][:8]
+    return {
+        "muc_tieu": muc_tieu,
+        "khung": khung,
+        "dieu": dieu,
+        "sua_dieu": sua_dieu,
+        "gia_tri": gia_tri,
+        "khong_dat": khong_dat,
+        "ghi_chu": list(dict.fromkeys(ghi)),
+        "hoan_thanh": hoan_thanh,
+        "dem": dict(dem),
+    }
+
+
+def _khoi_muc_khuon_mau(ngu_canh: dict) -> str:
+    """Khối "Các mục" của prompt v3: mục checklist (và căn cứ của nó, nguyên văn rút
+    gọn) hay mục thân cố định của mẫu."""
+    muc = ngu_canh.get("muc") or []
+    if not muc:
+        return ""
+    dong = [f"- `{m['key']}` — {m['ten']}" + (f" (căn cứ: {m['trich']})" if m.get("trich") else "") for m in muc]
+    dan = (
+        "Chỉ viết đúng các mục dưới đây, mỗi mục là một phần tử `dieu` mang `key` của nó (mẫu cố định vị trí):"
+        if ngu_canh.get("khoa_than") and not ngu_canh.get("co_dieu")
+        else "Văn bản phải có đủ các mục luật đòi dưới đây (mỗi mục một điều, mang `key` của nó), cộng các điều "
+        "thông dụng khác của loại văn bản này (`key` null):"
+    )
+    return "# Các mục\n\n" + dan + "\n" + "\n".join(dong) + "\n"
+
+
+def _soan_khuon_mau(
+    state: dict,
+    llm,
+    model: str,
+    cau_hoi: str,
+    cau_hoi_nguoi: str,
+    bo_nho_cho_phep: list[str],
+    bo_nho_cam: list[str],
+    khoi_bo_nho: str,
+    hong,
+) -> dict:
+    """Lượt soạn tự do trên khuôn mẫu: MỘT lượt v3 → `kiem_khuon_mau` → state
+    `khuon_mau_tong_quat` cho `dung_ban_thao_tong_quat`."""
+    prior = state.get("traces") or {}
+    ng = state["khuon_mau_ngu_canh"]
+    bt = state.get("ban_thao_tong_quat_dang_mo") or {}
+    sua = bool(ng.get("sua"))
+    tai_lieu_cu = str(bt.get("document") or "")
+    khoi_ban_thao = (
+        f"\n# Bản thảo đang có\n\nĐây là bản thảo bạn đã soạn — số Điều là số HIỆN TẠI.\n\n{tai_lieu_cu}\n"
+        if sua and tai_lieu_cu
+        else (f"\n# Bản thảo cũ (chỉ để tham khảo)\n\n{tai_lieu_cu}\n" if tai_lieu_cu else "")
+    )
+    khoi_muc = _khoi_muc_khuon_mau(ng)
+    try:
+        kiem_tran_chi_phi_tai_lieu(len(khoi_ban_thao) + len(khoi_muc) + len(khoi_bo_nho))
+    except VuotTran:
+        return hong(QUA_DAI_VOI_BAN_THAO, "vuot_tran")
+    loai = (
+        f"{ng.get('ten') or ng.get('tieu_de')} — loại có sẵn: khung, các bên và căn cứ do hệ thống dựng; bạn chỉ "
+        "viết điều khoản."
+        if ng.get("loai")
+        else (
+            f"Văn bản tự soạn «{(ng.get('khung_cu') or {}).get('tieu_de')}» — giữ tên loại, bố cục và các bên."
+            if sua
+            else "Tự soạn (chưa có mẫu sẵn): chọn `tieu_de`, `trich_yeu`, `bo_cuc`, `ben`, `can_cu` theo quy tắc 2–3."
+        )
+    )
+    ben = ", ".join([*(b["khoa"] for b in (ng.get("ben") or [])), khuon_mau.BEN_VAN_BAN])
+    prompt = PROMPT_KHUON_MAU_PATH.read_text(encoding="utf-8").format(
+        cau_hoi=cau_hoi,
+        loai=loai,
+        muc=khoi_muc,
+        ban_thao_dang_co=khoi_ban_thao,
+        bo_nho=khoi_bo_nho,
+        toi_da_dieu=khuon_mau.TOI_DA_DIEU,
+        toi_da_doan=khuon_mau.TOI_DA_DOAN,
+        toi_da_ky_tu_doan=khuon_mau.TOI_DA_KY_TU_DOAN,
+        ngan_sach=khuon_mau.NGAN_SACH_KY_TU,
+        so_trang=khuon_mau.NGAN_SACH_KY_TU // 2500,
+        truong=", ".join(f"{k} ({v})" for k, v in khuon_mau.truong().items()),
+        ben=ben
+        if ng.get("ben")
+        else f"{khuon_mau.BEN_VAN_BAN}; `co_quan`, `nguoi_ky` với văn bản hành chính; với văn bản tự soạn khác là "
+        "`khoa` bạn đặt ở `ben`",
+    )
+    usage = None
+    try:
+        raw, usage = llm.chat(
+            model, messages(prompt), json_schema=schema_khuon_mau(sua, ng.get("khoa")), max_tokens=TOI_DA_TOKEN_RA
+        )
+        ra = json.loads(raw)
+        if not isinstance(ra, dict):
+            raise TypeError(f"phản hồi phải là object, được {type(ra).__name__}")
+    except TruncatedOutputError as e:
+        return hong(CHUA_SOAN_DUOC, "qua_dai_dau_ra", e.usage)
+    except json.JSONDecodeError:
+        return hong(CHUA_SOAN_DUOC, "json_hong", usage)
+    except Exception as e:
+        logger.warning("hieu_tai_lieu khuôn mẫu: lỗi (%s: %s)", type(e).__name__, e, exc_info=True)
+        return hong(CHUA_SOAN_DUOC, "loi")
+    kq = kiem_khuon_mau(
+        ra, ng, _nguon_soan([], state, [], [], bo_nho_cho_phep), bo_nho_cam, ten_dieu_cua(tai_lieu_cu) if sua else []
+    )
+    muc_dich = "sua_ban_thao" if kq["muc_tieu"] == "sua_ban_dang_co" else "tao_van_ban"
+    return {
+        **state,
+        "muc_dich_tai_lieu": muc_dich,
+        "tai_lieu_ket": _ket(muc_dich, None, "", [], [], [], []),
+        "tai_lieu_neo": [],
+        "tai_lieu_du_kien_moi": [],
+        "van_ban_tong_quat": None,
+        "khuon_tong_quat": None,
+        # Nguồn của GIÁ TRỊ các bên (lời người hỏi, hồ sơ trừ giả định, ký ức được hỏi
+        # tới) và ký ức bị cấm: `dung_ban_thao_tong_quat` kiểm `gia_tri` trên chính chỗ
+        # trống của tệp vừa dựng bằng `kiem_phep_sua` — luật khuôn gốc (B2).
+        "khuon_mau_tong_quat": {**kq, "nguon_gia_tri": _nguon_nguoi(state, bo_nho_cho_phep), "cam": bo_nho_cam},
+        "bo_nho_moi": rut_bo_nho(cau_hoi_nguoi),
+        "traces": {
+            **prior,
+            "hieu_tai_lieu_nguon": "llm",
+            "hieu_tai_lieu_model": model,
+            "hieu_tai_lieu_muc_dich": muc_dich,
+            "hieu_tai_lieu_prompt": "v3",
+            "khuon_mau_so_dieu": len(kq["dieu"] or []),
+            "khuon_mau_so_sua_dieu": len(kq["sua_dieu"] or []),
+            "khuon_mau_so_gia_tri": len(kq["gia_tri"]),
+            **{f"khuon_mau_{k}": v for k, v in kq["dem"].items()},
+            "hieu_tai_lieu_token_in": usage.token_in if usage else 0,
+            "hieu_tai_lieu_token_out": usage.token_out if usage else 0,
+            "hieu_tai_lieu_cost_usd": usage.cost_usd if usage else 0.0,
+        },
+    }

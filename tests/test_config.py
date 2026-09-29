@@ -122,13 +122,20 @@ def test_prompt_path_va_linh_vuc_bonus_co_mac_dinh_an_toan():
     assert s.linh_vuc_bonus == 0.0, "cộng điểm lĩnh vực phải TẮT mặc định cho tới khi đo được"
 
 
-def test_route_prompt_mac_dinh_v4():
-    """v4 = v3 cộng ý định `tai_lieu` CÓ ĐIỀU KIỆN (plan tài-liệu-tổng-quát).
-    Không bật mặc định thì lượt nối tiếp hỏi về tài liệu đã gửi không có đường
-    nào tới `hieu_tai_lieu`."""
+def test_route_prompt_mac_dinh_v5():
+    """v4 = v3 cộng ý định `tai_lieu` CÓ ĐIỀU KIỆN (plan tài-liệu-tổng-quát); v5 = v4
+    cộng ví dụ khi một khuôn mẫu đang mở (thiết kế khuôn mẫu §4). v4 vẫn nằm trên đĩa
+    để kết quả cũ tái lập được."""
+    from pathlib import Path
+
     from src.config import Settings
 
-    assert Settings(_env_file=None).route_prompt == "prompts/route.v4.md"
+    assert Settings(_env_file=None).route_prompt == "prompts/route.v5.md"
+    v4, v5 = (
+        Path("prompts/route.v4.md").read_text(encoding="utf-8"),
+        Path("prompts/route.v5.md").read_text(encoding="utf-8"),
+    )
+    assert v5.startswith(v4.split("ĐANG SOẠN:")[0]), "v5 giữ nguyên phần đầu của v4"
 
 
 def test_linh_vuc_loc_mac_dinh_bat():

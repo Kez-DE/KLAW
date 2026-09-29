@@ -1,0 +1,77 @@
+# Đơn khởi kiện — Mẫu số 23-DS, Nghị quyết 01/2017/NQ-HĐTP. Mẫu CHÍNH THỨC: mọi chữ
+# tĩnh chép nguyên văn từ tệp của toaan.gov.vn (`pdftotext -layout -f 1 -l 1`,
+# 2026-09-29), theo đúng thứ tự của mẫu; chỉ bỏ dãy chấm (thành chỗ trống), chỉ số chú
+# thích "(n)" và dòng chú thích phụ lục (Open decision 7). Giữ nguyên văn cả "chứng
+# kèm theo" và "Địa chỉ" không dấu hai chấm ở người bị kiện (Open decision 4, mặc
+# định: nguyên văn). Nhãn đã ghi ở `tests/test_services/du_lieu/nhan_mau_chinh_thuc.yaml`.
+loai: don_khoi_kien
+ten: đơn khởi kiện
+tieu_de: ĐƠN KHỞI KIỆN
+bo_cuc: don
+nguon:
+  loai: mau_chinh_thuc
+  van_ban: "Nghị quyết 01/2017/NQ-HĐTP, Mẫu số 23-DS"
+  url: https://www.toaan.gov.vn/webcenter/ShowProperty?nodeId=%2FUCMServer%2FTAND279888
+  tep_d2: goc/m23-ds_toaan-TAND279888.pdf
+  sha256: 6881d9dda626033de033c120d790a3ef064c301b089ec3b754219cf5228a8a0a
+  trang: 1
+  ghi_chu: "Tên Toà án để trống: Toà án nhân dân khu vực thay Toà cấp huyện (NQ 01/2025 Đ7.1)."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: dau
+  kinh_gui: {dong: "Kính gửi: Toà án nhân dân {toa_an}", can: thut, thut_mm: 30}
+  can_cu: false
+  noi_nhan: null
+  ket_thuc: null
+  le_mm: [20, 20, 30, 20]
+  thut_dong_mm: 10
+ben:
+  - khoa: nguoi_khoi_kien
+    dong:
+      - {d: "Người khởi kiện: {ho_ten}", dam: true}
+      - "Địa chỉ: {dia_chi}"
+      - "Số điện thoại: {dien_thoai}(nếu có); số fax: {fax}(nếu có)"
+      - "Địa chỉ thư điện tử: {thu_dien_tu} (nếu có)"
+  - khoa: nguoi_bi_kien
+    dong:
+      - {d: "Người bị kiện: {ho_ten}", dam: true}
+      - "Địa chỉ {dia_chi}"
+      - "Số điện thoại: {dien_thoai}(nếu có); số fax: {fax}(nếu có)"
+      - "Địa chỉ thư điện tử: {thu_dien_tu} (nếu có)"
+  - khoa: nguoi_duoc_bao_ve
+    dong:
+      - {d: "Người có quyền, lợi ích được bảo vệ (nếu có) {ho_ten}", dam: true}
+      - "Địa chỉ: {dia_chi}"
+      - "Số điện thoại: {dien_thoai}(nếu có); số fax: {fax}(nếu có)"
+      - "Địa chỉ thư điện tử : {thu_dien_tu}(nếu có)"
+  - khoa: nguoi_lien_quan
+    dong:
+      - {d: "Người có quyền lợi, nghĩa vụ liên quan (nếu có) {ho_ten}", dam: true}
+      - "Địa chỉ: {dia_chi}"
+      - "Số điện thoại: {dien_thoai}(nếu có); số fax: {fax}(nếu có)"
+      - "Địa chỉ thư điện tử: {thu_dien_tu} (nếu có)"
+  - khoa: nguoi_lam_chung
+    dong:
+      - "Người làm chứng (nếu có) {ho_ten}"
+      - "Địa chỉ: {dia_chi}"
+      - "Số điện thoại: {dien_thoai}(nếu có); số fax: {fax}(nếu có)"
+      - "Địa chỉ thư điện tử: {thu_dien_tu} (nếu có)."
+# Thứ tự của mẫu. `muc` là khoá mục checklist (`checklist_don_khoi_kien.yaml`), để mô
+# hình viết đúng mục và phép kiểm mục bắt buộc đếm đúng.
+than:
+  - {ben: nguoi_khoi_kien}
+  - {ben: nguoi_bi_kien}
+  - {ben: nguoi_duoc_bao_ve}
+  - {ben: nguoi_lien_quan}
+  - {muc: yeu_cau, nhan: "Yêu cầu Tòa án giải quyết những vấn đề sau đây:", dam: true}
+  - {ben: nguoi_lam_chung}
+  - {muc: tai_lieu, nhan: "Danh mục tài liệu, chứng kèm theo đơn khởi kiện gồm có:", dam: true, danh_sach: 2}
+  - {muc: thong_tin_khac, nhan: "(Các thông tin khác mà người khởi kiện xét thấy cần thiết cho việc giải quyết vụ án)"}
+# Mục checklist mà khung tự có: dòng ngày làm đơn và Tòa án ở dòng Kính gửi.
+muc_khung: [ngay_lam_don, toa_an]
+ky:
+  thu_tu: [nguoi_khoi_kien]
+  o: [{khoa: nguoi_khoi_kien, vai: "Người khởi kiện", in_hoa: false, ghi_chu: null, ho_ten_tu: null}]
+truong_tu_facts: {}

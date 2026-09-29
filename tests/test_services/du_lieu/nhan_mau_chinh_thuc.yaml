@@ -1,0 +1,72 @@
+# Chữ tĩnh của mỗi khuôn mẫu `nguon.loai: mau_chinh_thuc`, chép từ tệp chính thức
+# (thiết kế `khuon-mau-thiet-ke.md` §7 "Recorded labels"). Mỗi dòng là một đoạn của
+# mẫu theo thứ tự đọc (bảng đầu trang và khối ký: cột trái rồi cột phải), đã bỏ dãy
+# chấm, chỉ số chú thích "(n)", khung Công báo/dòng chú thích phụ lục, và gộp khoảng
+# trắng. `bo_qua` kể chữ của tệp gốc KHÔNG dựng lại, kèm lý do — không gì bị bỏ lặng lẽ.
+# `test_khuon_mau_registry.py` dựng từng mục (không điều khoản nào) và so dãy đoạn
+# của bản dựng với `nhan`, sau khi bỏ "……" và gộp khoảng trắng như trên.
+don_khoi_kien:
+  tep_d2: goc/m23-ds_toaan-TAND279888.pdf
+  sha256: 6881d9dda626033de033c120d790a3ef064c301b089ec3b754219cf5228a8a0a
+  lenh: "pdftotext -layout -f 1 -l 1 goc/m23-ds_toaan-TAND279888.pdf -"
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - ", ngày tháng năm"
+    - "ĐƠN KHỞI KIỆN"
+    - "Kính gửi: Toà án nhân dân"
+    - "Người khởi kiện:"
+    - "Địa chỉ:"
+    - "Số điện thoại: (nếu có); số fax: (nếu có)"
+    - "Địa chỉ thư điện tử: (nếu có)"
+    - "Người bị kiện:"
+    - "Địa chỉ"
+    - "Số điện thoại: (nếu có); số fax: (nếu có)"
+    - "Địa chỉ thư điện tử: (nếu có)"
+    - "Người có quyền, lợi ích được bảo vệ (nếu có)"
+    - "Địa chỉ:"
+    - "Số điện thoại: (nếu có); số fax: (nếu có)"
+    - "Địa chỉ thư điện tử : (nếu có)"
+    - "Người có quyền lợi, nghĩa vụ liên quan (nếu có)"
+    - "Địa chỉ:"
+    - "Số điện thoại: (nếu có); số fax: (nếu có)"
+    - "Địa chỉ thư điện tử: (nếu có)"
+    - "Yêu cầu Tòa án giải quyết những vấn đề sau đây:"
+    - "Người làm chứng (nếu có)"
+    - "Địa chỉ:"
+    - "Số điện thoại: (nếu có); số fax: (nếu có)"
+    - "Địa chỉ thư điện tử: (nếu có)."
+    - "Danh mục tài liệu, chứng kèm theo đơn khởi kiện gồm có:"
+    - "1"
+    - "2"
+    - "(Các thông tin khác mà người khởi kiện xét thấy cần thiết cho việc giải quyết vụ án)"
+    - "Người khởi kiện"
+  bo_qua:
+    - {chu: "Mẫu số 23-DS (Ban hành kèm theo Nghị quyết số 01/2017/NQ-HĐTP ngày 13 tháng 01 năm 2017 của Hội đồng Thẩm phán Tòa án nhân dân tối cao)", ly_do: "dòng chú thích phụ lục, không phải lá đơn (D2 §4.1; Open decision 7)"}
+    - {chu: "Hướng dẫn sử dụng mẫu số 23-DS: (1)…(16)", ly_do: "hướng dẫn điền, không phải lá đơn (D2 §4.1)"}
+cong_van:
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  lenh: "pdftotext -layout -f 53 -l 53 goc/nd30-2020_congbao-283-284.pdf -"
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - "Số: /-"
+    - "V/v"
+    - ", ngày tháng năm"
+    - "Kính gửi:"
+    - "./."
+    - "Nơi nhận:"
+    - "- Như trên;"
+    - "- ;"
+    - "- Lưu: VT,"
+    - "(Chữ ký của người có thẩm quyền,"
+    - "dấu/chữ ký số của cơ quan, tổ chức)"
+  bo_qua:
+    - {chu: "TÊN CQ, TC CHỦ QUẢN", ly_do: "cụm giữ chỗ; dòng tuỳ chọn theo chú thích 1 của mẫu (nếu có) — không dựng"}
+    - {chu: "TÊN CƠ QUAN, TỔ CHỨC", ly_do: "cụm giữ chỗ — thành chỗ trống"}
+    - {chu: "- ;  /  -  (hai dòng nơi nhận dưới Kính gửi)", ly_do: "biến thể nhiều nơi nhận; dựng biến thể MỘT nơi nhận cùng dòng (Phụ lục I, ô 9a)"}
+    - {chu: "QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ", ly_do: "cụm giữ chỗ — thành chỗ trống"}
+    - {chu: "Họ và tên", ly_do: "cụm giữ chỗ — thành chỗ trống"}
+    - {chu: "(ô 13) địa chỉ, thư điện tử, điện thoại, Fax", ly_do: "tuỳ chọn theo chú thích 10 của mẫu (nếu cần) — không dựng"}
+    - {chu: "Ghi chú: 1…10", ly_do: "chú thích của mẫu, không phải công văn (D2 §4.1)"}

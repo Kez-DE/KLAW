@@ -439,8 +439,12 @@ async def tai_xuong(
         media_type=_KIEU_TAI_VE[dang],
         headers={
             # Phép gộp bỏ `dien` rỗng: một phiên bản chỉ còn phép đó là tệp tải lên.
+            # Khuôn mẫu KLAW dựng không có "bản gốc" nào để phân biệt: tên loại, không
+            # " - đã điền" (thiết kế khuôn mẫu §4).
             "Content-Disposition": _tai_ve_dau(
-                k.get("ten_tep") or "", dang, bool(ban_thao.gop_phep_sua([], k["phep_sua"]))
+                k.get("ten_tep") or "",
+                dang,
+                bool(ban_thao.gop_phep_sua([], k["phep_sua"])) and k.get("nguon") != ban_thao.NGUON_KHUON_MAU,
             ),
             "X-Content-Type-Options": "nosniff",
             "Cache-Control": "private, no-store",

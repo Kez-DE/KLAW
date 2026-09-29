@@ -144,6 +144,9 @@ def da_dung_hom_nay(engine: Engine, user_sub: str) -> int:
     ngày, và một lượt `doc-lai` chạm trần chi phí hoàn lại lượt của một tệp đã
     đếm. Lượt tải lên bị ước chi phí từ chối không lưu tệp
     (`routes_tai_lieu.tai_len`), nên nó vẫn được miễn đúng FR-038.
+
+    Chỉ tệp NGƯỜI DÙNG tải lên (`nguon = 'tai_len'`, migration 041): bản thảo KLAW
+    dựng từ khuôn mẫu cũng là một dòng ở đây, nhưng nó tính vào hạn mức soạn thảo.
     """
     from src.services.bao_ve import moc_ngay
 
@@ -151,7 +154,7 @@ def da_dung_hom_nay(engine: Engine, user_sub: str) -> int:
         return c.execute(
             text(
                 "SELECT count(*) FROM viec_doc_tai_lieu "
-                "WHERE user_sub = :u AND tao_luc >= :m "
+                "WHERE user_sub = :u AND tao_luc >= :m AND nguon = 'tai_len' "
                 "AND (ly_do_hong IS NULL "
                 "OR EXISTS (SELECT 1 FROM khuon_goc k WHERE k.viec_id = viec_doc_tai_lieu.id) OR "
                 # `left(…, 9) <> 'he_thong_'` — KHÔNG `LIKE 'he_thong_%'` (fix
@@ -785,6 +788,54 @@ def luu_khuon_goc(engine: Engine, viec_id: str, dinh_dang: str, noi_dung: bytes,
         )
 
 
+def tao_viec_khuon_mau(
+    engine: Engine,
+    *,
+    user_sub: str,
+    hoi_thoai_id: str,
+    ten_tep: str,
+    loai: str | None,
+    docx: bytes,
+    don_vi: list[DonViVanBan],
+    kho: list,
+) -> str:
+    """Lưu một bản thảo KLAW dựng từ khuôn mẫu như một tệp đã đọc xong (thiết kế
+    `khuon-mau-thiet-ke.md` §3): dòng `viec_doc_tai_lieu` `nguon = 'khuon_mau'`,
+    `xong`, đủ `don_vi` và `so_trang`, cộng `khuon_goc` — trong MỘT giao dịch, nên
+    không bao giờ có một việc đọc mà không có tệp. Trả `id`."""
+    kiem_kich_thuoc(len(docx))
+    kiem_so_trang(len(kho))
+    dau = f"sha256:{hashlib.sha256(docx).hexdigest()} len={len(docx)}"
+    with engine.begin() as c:
+        viec_id = str(
+            c.execute(
+                text(
+                    "INSERT INTO viec_doc_tai_lieu (user_sub, hoi_thoai_id, ten_tep, dau_van_ban, so_byte,"
+                    " so_trang, loai, trang_thai, don_vi, nguon)"
+                    " VALUES (:u, :h, :t, :d, :b, :p, :l, 'xong', CAST(:dv AS jsonb), 'khuon_mau') RETURNING id"
+                ),
+                {
+                    "u": user_sub,
+                    "h": hoi_thoai_id,
+                    "t": ten_tep,
+                    "d": dau,
+                    "b": len(docx),
+                    "p": len(kho),
+                    "l": loai,
+                    "dv": json.dumps([_hang_don_vi(d) for d in don_vi], ensure_ascii=False),
+                },
+            ).scalar_one()
+        )
+        c.execute(
+            text(
+                "INSERT INTO khuon_goc (viec_id, dinh_dang, noi_dung, so_byte, so_trang, kho)"
+                " VALUES (:v, 'docx', :n, :s, :t, CAST(:k AS jsonb))"
+            ),
+            {"v": viec_id, "n": docx, "s": len(docx), "t": len(kho), "k": json.dumps(kho)},
+        )
+    return viec_id
+
+
 def khuon_goc_cua(engine: Engine, viec_id: str, user_sub: str) -> dict[str, Any] | None:
     """`{dinh_dang, noi_dung, so_trang, kho, don_vi}` của một việc, hoặc `None`
     khi không có (ảnh, tài liệu trước 2026-09-26) hoặc không phải của mình.
@@ -918,6 +969,9 @@ def tai_lieu_cua_hoi_thoai(engine: Engine, hoi_thoai_id: str, user_sub: str) -> 
     để hỏi, và đưa nó vào danh sách chỉ làm mô hình nhắc tới một tài liệu nó
     không đọc được. `co_ocr` tính bằng phép chứa của jsonb nên nội dung tài
     liệu không rời khỏi Postgres chỉ để đếm một cờ.
+
+    Chỉ tệp người dùng tải lên (`nguon = 'tai_len'`, migration 041): một khuôn mẫu
+    KLAW dựng không phải tài liệu của người hỏi (CONTEXT.md "khuôn mẫu").
     """
     with engine.connect() as c:
         return [
@@ -928,7 +982,7 @@ def tai_lieu_cua_hoi_thoai(engine: Engine, hoi_thoai_id: str, user_sub: str) -> 
                     "       jsonb_array_length(don_vi) AS so_don_vi, "
                     "       don_vi @> '[{\"nguon_chu\": \"ocr\"}]' AS co_ocr "
                     "FROM viec_doc_tai_lieu "
-                    "WHERE hoi_thoai_id = :h AND user_sub = :u "
+                    "WHERE hoi_thoai_id = :h AND user_sub = :u AND nguon = 'tai_len' "
                     "      AND trang_thai = 'xong' AND don_vi IS NOT NULL "
                     "ORDER BY tao_luc DESC"
                 ),

@@ -31,6 +31,7 @@ from langgraph.graph import END, StateGraph
 from sqlalchemy import Engine, text
 from starlette.concurrency import run_in_threadpool
 
+from src.agents import graph_soan_thao as gst
 from src.agents.graph_soan_thao import KhongSoanDuocError, graph_soan_thao_cached, load_checklist_cached
 from src.agents.nodes.assemble import LOAI_BAO_VAN_BAN_AN, assemble, gan_van_ban_khong_hien_thi
 from src.agents.nodes.dung_ban_thao_tong_quat import dung_ban_thao_tong_quat
@@ -47,7 +48,7 @@ from src.agents.nodes.verify_tier1 import nap_provisions, tien_de_cau_hoi_sai, v
 from src.agents.nodes.verify_tier2 import verify_tier2_and_trace
 from src.agents.state import KLawState
 from src.config import as_of_hieu_luc, get_settings
-from src.services import ban_thao, bao_ve, bo_nho_tai_khoan
+from src.services import ban_thao, bao_ve, bo_nho_tai_khoan, khuon_mau
 from src.services import tai_lieu as tl
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
@@ -384,6 +385,18 @@ def _nap_tai_lieu(engine: Engine, ids: list, ten: dict[str, str], sub: str | Non
     return ra
 
 
+def tai_lieu_cua_luot(st: dict) -> list:
+    """Tài liệu lượt này đọc: tệp đính kèm, hay — lượt nối tiếp — tệp MỚI NHẤT của hội
+    thoại. Trừ một ca (khuôn mẫu, thiết kế §4): lượt SOẠN không đính kèm gì khi một khuôn
+    mẫu đang mở là lượt trên chính khuôn mẫu đó — không kéo tệp tải lên cũ vào, kẻo nó
+    bắt mất lời sửa. Quyết định bằng phán quyết của router cộng dữ liệu, không bằng động từ."""
+    ids = list(st.get("tai_lieu_ids") or [])
+    mo_khuon_mau = (st.get("ban_thao_tong_quat_dang_mo") or {}).get("nguon") == ban_thao.NGUON_KHUON_MAU
+    if not ids and not (st.get("intent") == Intent.soan_thao and mo_khuon_mau):
+        ids = [r["id"] for r in (st.get("tai_lieu_phien") or [])[:1]]
+    return ids
+
+
 def _nap_ban_thao_dang_mo(st: dict, tai_lieu: list[dict]) -> dict:
     """Nền "# Bản thảo đang có" của lượt theo CÙNG luật với đích lưu
     (`dung_ban_thao_tong_quat` → `moi_nhat_cua_hoi_thoai(viec_id=…)`): bản trên
@@ -395,8 +408,19 @@ def _nap_ban_thao_dang_mo(st: dict, tai_lieu: list[dict]) -> dict:
     ponytail: khuôn gốc ĐẦU TIÊN của lượt; mô hình chọn khuôn khác trong lượt
     nhiều khuôn thì nền lệch — đọc theo `khuon.tai_lieu` khi ca đó có thật.
     """
+    bt = st.get("ban_thao_tong_quat_dang_mo") or {}
+    if bt.get("nguon") == ban_thao.NGUON_KHUON_MAU:
+        # Khuôn mẫu (thiết kế §4): lượt KHÔNG tài liệu giữ nó làm nền v3. Lượt mang
+        # ảnh hay tệp trước 036 (không khuôn gốc) đi đường `van_ban` cũ — nó không
+        # được thấy khuôn mẫu làm nền (đường HTML không bao giờ ghi lên khuôn mẫu), chỉ
+        # biết là có một khuôn mẫu đang mở (`KHONG_DIEN_TU_ANH`). Lượt khuôn gốc đọc lại
+        # theo tệp tải lên như dưới.
+        if not tai_lieu:
+            return st
+        if not any(co_khuon(t) for t in tai_lieu):
+            return {**st, "ban_thao_tong_quat_dang_mo": None, "khuon_mau_dang_mo": bt}
     viec = next((t["viec_id"] for t in tai_lieu if co_khuon(t)), None)
-    if not st.get("user_sub") or (st.get("ban_thao_tong_quat_dang_mo") or {}).get("viec_id") == viec:
+    if not st.get("user_sub") or bt.get("viec_id") == viec:
         return st
     return {
         **st,
@@ -404,6 +428,67 @@ def _nap_ban_thao_dang_mo(st: dict, tai_lieu: list[dict]) -> dict:
             st["user_sub"], str(st["hoi_thoai_id"]), viec_id=viec
         ),
     }
+
+
+def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
+    """Phần DB của lượt soạn khuôn mẫu (thiết kế §4 bước 3), trước node thuần: mục
+    registry, mục checklist kèm căn cứ (nguyên văn rút gọn), dòng căn cứ của khung, và
+    nền. Nền là khuôn mẫu đang mở (light row) — sửa được; một bản HTML cũ chỉ là tham
+    khảo. Loại lấy từ khung đã lưu khi sửa, từ router khi tạo.
+
+    Router nêu một loại KHÁC loại đang mở ("soạn đơn khởi kiện" khi HĐLĐ đang mở): người
+    hỏi xin văn bản MỚI — lượt tạo trên khung của loại đó (mẫu chính thức khi có), bản
+    đang mở chỉ còn là tham khảo. Bản tự soạn không có mã để router gọi lại, nên với nó
+    chỉ một loại CÓ khuôn mẫu mới là "khác".
+    ponytail: bản tự soạn của loại mới có khuôn mẫu SAU khi soạn cũng rẽ thành lượt tạo;
+    lưu loại router nêu lúc tạo vào `khung` khi ca đó đo được."""
+    bt = st.get("ban_thao_tong_quat_dang_mo") or {}
+    router = (st.get("soan_thao_goi_y") or {}).get("loai")
+    sua = bt.get("nguon") == ban_thao.NGUON_KHUON_MAU
+    khung_cu = ((bt.get("audit") or {}).get("khung") or {}) if sua else {}
+    if sua and router and router != khung_cu.get("loai") and (khung_cu.get("loai") or router in khuon_mau.cac_loai()):
+        sua, khung_cu = False, {}
+    loai = khung_cu.get("loai") if sua else router
+    loai = loai if loai in khuon_mau.cac_loai() else None
+    ng: dict = {"loai": loai, "sua": sua, "khung_cu": khung_cu, "muc": [], "khoa": [], "can_cu": [], "bat_buoc": []}
+    if loai is None:
+        return {**st, "khuon_mau_ngu_canh": {**ng, "ben": khung_cu.get("ben") or []}}
+    entry = khuon_mau.nap(loai)
+    khoa_than = sorted(khuon_mau.muc_than(entry))
+    ng.update(
+        ten=entry["ten"],
+        tieu_de=entry["tieu_de"],
+        bo_cuc=entry["bo_cuc"],
+        ben=[{"khoa": b["khoa"], "vai": b.get("vai") or b.get("tieu_de")} for b in entry.get("ben") or []],
+        khoa_than=khoa_than,
+        co_dieu=any("dieu" in m for m in entry["than"]),
+        co_trich_yeu=bool(entry["the_thuc"].get("vv")) or entry["bo_cuc"] == "hanh_chinh",
+    )
+    muc = [{"key": m["muc"], "ten": m.get("nhan") or m["muc"], "trich": ""} for m in entry["than"] if "muc" in m]
+    if loai in gst.cac_loai():
+        as_of = as_of_hieu_luc(st.get("as_of_date"))
+        _, cl, db = gst.requirements(loai)
+        hien = gst.chi_van_ban_hien(db, hien_thi_luc(engine, as_of))
+        theo_dd = {r["duong_dan"]: r for r in hien.values()}
+        khung_co = khuon_mau.khoa_khung(entry)
+        khong_bb = set(cl.khong_bat_buoc.get("keys") or [])
+        ng["bat_buoc"] = [m["key"] for m in cl.muc if m["key"] not in khong_bb and m["key"] not in khung_co]
+        ten_muc = {x["key"]: x for x in muc}
+        for m in cl.muc:
+            if m["key"] in khung_co:
+                continue
+            r = theo_dd.get(m.get("can_cu"))
+            trich = " ".join(str((r or {}).get("noi_dung") or "").split())[:300]
+            cc = {"duong_dan": r["duong_dan"], "doc_id": str(r["document_id"]), "khop_tai_id": r["id"]} if r else None
+            if m["key"] in ten_muc:
+                ten_muc[m["key"]].update(trich=trich, can_cu=cc)
+            elif not khoa_than or ng["co_dieu"]:
+                muc.append({"key": m["key"], "ten": m["ten"], "trich": trich, "can_cu": cc})
+        if entry["the_thuc"].get("can_cu"):
+            ng["can_cu"] = gst.can_cu_van_ban_co_id(engine, hien, as_of)
+    ng["muc"] = muc
+    ng["khoa"] = sorted({m["key"] for m in muc})
+    return {**st, "khuon_mau_ngu_canh": ng}
 
 
 def _re_sau_hieu_tai_lieu(st: dict) -> str:
@@ -457,12 +542,12 @@ def build_graph_tra_cuu():
         MỚI NHẤT của hội thoại: `tai_lieu_cua_hoi_thoai` trả mới-trước, và
         "phiếu này" trong một câu hỏi tiếp theo gần như luôn là tệp vừa gửi.
         """
-        ids = list(st.get("tai_lieu_ids") or [])
-        if not ids:
-            ids = [r["id"] for r in (st.get("tai_lieu_phien") or [])[:1]]
+        ids = tai_lieu_cua_luot(st)
         ten = {str(r["id"]): r.get("ten_tep") or "" for r in (st.get("tai_lieu_phien") or [])}
         tai_lieu = await run_in_threadpool(_nap_tai_lieu, engine, ids, ten, st.get("user_sub"))
         st = await run_in_threadpool(_nap_ban_thao_dang_mo, st, tai_lieu)
+        if not tai_lieu and st.get("intent") == Intent.soan_thao and st.get("user_sub") and st.get("hoi_thoai_id"):
+            st = await run_in_threadpool(_nap_khuon_mau, engine, st)
         # Ký ức tài khoản vào TRƯỚC (prompt cần nó), điều vừa khai ghi ra SAU —
         # hai phép DB kẹp lấy node thuần, đúng hình dạng `_ghi_du_kien_tai_lieu`.
         st = await run_in_threadpool(_nap_bo_nho, st)
@@ -483,6 +568,9 @@ def build_graph_tra_cuu():
         (cột `audit`, không phải `audit_report`) — dùng chung cho nhánh tạo VÀ
         nhánh sửa, để đổi hình dạng chỉ phải sửa một chỗ."""
         return {
+            "viec_id": bt.get("viec_id"),
+            "phep_sua": bt.get("phep_sua"),
+            "khuon": bt.get("khuon"),
             "id": bt["id"],
             "loai": loai,
             "ten": ten,
@@ -537,20 +625,34 @@ def build_graph_tra_cuu():
             # Cùng lối nói với nhánh sửa (`dung_lai` ném cùng lỗi này): 0 lượt LLM.
             return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": str(e)}}
         ket = ban_thao.tu_state_soan_thao(ket_st)
-        bt = await run_in_threadpool(ban_thao.tao, sub, st.get("hoi_thoai_id"), sd["loai"], sd["facts"], ket)
+        loi = None
         try:
+            # Khuôn mẫu (§3): bản thảo checklist trong hội thoại là một tệp .docx.
+            ket = await run_in_threadpool(
+                ban_thao.dat_khuon_mau, sub, st.get("hoi_thoai_id"), sd["loai"], sd["facts"], ket
+            )
+        except ban_thao.KhuonMauChuaDungError as e:
+            loi = str(e)
+        bt = None
+        if loi is None:
+            bt = await run_in_threadpool(ban_thao.tao, sub, st.get("hoi_thoai_id"), sd["loai"], sd["facts"], ket)
+        try:
+            # Tệp không dựng được sau lượt sinh trả phí: không lưu gì, nhưng chi phí VẪN vào
+            # traces (trần chi phí ngày đọc bảng đó) — `result_type` "loi" không trừ lượt.
             await run_in_threadpool(
                 _ghi_traces,
                 str(uuid.uuid4()),
                 bao_ve.EP_SOAN_THAO,
                 sd["loai"],
                 s.eval_config_name,
-                {"result_type": "ban_thao", "traces": ket_st.get("traces") or {}},
+                {"result_type": "loi" if loi else "ban_thao", "traces": ket_st.get("traces") or {}},
                 int((time.monotonic() - bat_dau) * 1000),
                 user_sub=sub,
             )
         except Exception:
             logger.exception("dung_ban_thao: không ghi được traces")
+        if loi is not None:
+            return {**st, "soan_thao_dang_mo": {**sd, "het_han_muc": loi}}
         ban_thao_ket = _ban_thao_ket(sd["loai"], bt, load_checklist_cached(sd["loai"]).ten, [])
         return {
             **st,

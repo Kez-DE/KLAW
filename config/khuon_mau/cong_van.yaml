@@ -1,0 +1,47 @@
+# Công văn — Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.5 (Công báo 283+284, tr. 54).
+# Mẫu CHÍNH THỨC, DỰNG LẠI chứ không dùng thẳng tệp .doc của Công báo: LibreOffice
+# đọc tệp đó ra sai chữ đậm (D2 §3). Chữ tĩnh chép nguyên văn từ bản PDF Công báo
+# (`pdftotext -layout -f 53 -l 53`, 2026-09-29), bỏ dãy chấm (thành chỗ trống), chỉ số
+# chú thích và khung Công báo. Các cụm GIỮ CHỖ của mẫu ("TÊN CƠ QUAN, TỔ CHỨC",
+# "QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ", "Họ và tên") là chỗ điền, không phải chữ tĩnh:
+# chúng thành chỗ trống. Dòng tên cơ quan chủ quản ("nếu có") và dòng địa chỉ ô 13
+# ("nếu cần") không dựng: tuỳ chọn theo chính chú thích 1 và 10 của mẫu.
+loai: cong_van
+ten: công văn
+tieu_de: CÔNG VĂN
+bo_cuc: hanh_chinh
+nguon:
+  loai: mau_chinh_thuc
+  van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.5"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  trang: 53
+  ghi_chu: "Trang PDF 53 = Công báo tr. 54. Thể thức bắt buộc với cơ quan nhà nước (NĐ 30 Đ2.1); với tổ chức khác là tham khảo."
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: "Số: {}/{}-{}"
+  vv: true
+  ngay: cot_phai
+  # Mẫu 1.5: "Kính gửi:" bắt đầu ~41 mm từ mép trái khối chữ (D2 layout note).
+  kinh_gui: {dong: "Kính gửi: {co_quan_nhan}", can: thut, thut_mm: 40}
+  can_cu: false
+  noi_nhan: ["Như trên;", "{};", "Lưu: VT, {}"]
+  ket_thuc: null
+ben:
+  - {khoa: co_quan, vai: "Cơ quan, tổ chức ban hành", truong: [ten_to_chuc]}
+  - {khoa: nguoi_ky, vai: "Người ký", truong: [chuc_vu, ho_ten]}
+# Thân công văn: một khối nội dung, không đề mục (mẫu không có tên loại hay Điều).
+than:
+  - {muc: noi_dung}
+# Tám thành phần thể thức của checklist (NĐ 30 Đ8.2) do chính khung dựng.
+muc_khung: [quoc_hieu, ten_co_quan, so_ky_hieu, dia_danh_thoi_gian, trich_yeu, chuc_vu_chu_ky, dau_chu_ky_so, noi_nhan]
+ky:
+  thu_tu: [nguoi_ky]
+  o:
+    - khoa: nguoi_ky
+      vai: null
+      ghi_chu: "(Chữ ký của người có thẩm quyền,\ndấu/chữ ký số của cơ quan, tổ chức)"
+      ho_ten_tu: ho_ten
+truong_tu_facts: {}
