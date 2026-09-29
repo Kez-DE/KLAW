@@ -275,7 +275,6 @@ def test_build_nap_duoc_nguon_chinhphu(tmp_path, monkeypatch):
         "khối chữ ký chui vào Điều — neo trích dẫn giả"
 
 
-
 def test_build_nap_duoc_nguon_cong_bao_docx(tmp_path, monkeypatch):
     """Nguồn thứ ba (quyết định 2026-09-28 mục 13): `.docx` Công báo → seed qua ĐÚNG cổng
     `_soat_va_bam`; id tiền tố `cb-`, `nguon_url` là trang Công báo, khối chữ ký ở `phu_luc`."""

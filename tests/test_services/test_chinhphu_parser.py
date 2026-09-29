@@ -123,7 +123,6 @@ def test_cong_thuc_ban_hanh_o_giua_than_khong_cat_nham():
     assert "<p>Áp dụng" not in out  # không bị đẩy thành khối đuôi
 
 
-
 def test_cong_thuc_moi_luat_nay_duoc_quoc_hoi_thong_qua_la_khoi_duoi():
     """Luật từ 2025 viết "Luật này được Quốc hội … thông qua" (không "đã"; 148/2025/QH15,
     Công báo số 43). Không nhận ra thì lời chứng và tên người ký chui vào Điều cuối. Một
