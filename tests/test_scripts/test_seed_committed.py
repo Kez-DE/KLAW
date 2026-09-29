@@ -135,10 +135,11 @@ def test_chuong_VIII_bo_luat_hinh_su_co_so_hieu(provisions):
 
 def test_tieu_muc_co_mat_trong_seed(provisions):
     """prov-subsection tồn tại 43 lần trong HTML; thiếu cấp này thì 23 Tiểu mục
-    Bộ luật Dân sự mất trắng."""
-    tm = [p for p in provisions if p["cap"] == "tieu_muc"]
-    assert len(tm) == 23, len(tm)
-    assert all(p["document_id"] == "95942" for p in tm)
+    Bộ luật Dân sự mất trắng. K6 (2026-09-29) thêm hai văn bản có Tiểu mục thật:
+    21/2021/NĐ-CP (8 thẻ prov-subsection → 8) và 99/2022/NĐ-CP (4 thẻ → 2, nhãn và
+    tên mỗi Tiểu mục là hai thẻ, như BLDS)."""
+    tm = Counter(p["document_id"] for p in provisions if p["cap"] == "tieu_muc")
+    assert tm == {"95942": 23, "147004": 8, "159372": 2}, tm
 
 
 def test_day_so_DIEU_cua_6_bo_luat_lien_tuc_khong_thieu_khong_trung(documents, provisions):
