@@ -164,3 +164,60 @@ def test_van_ban_KHONG_DANH_CHI_MUC_khong_con_chunk_ke_ca_khi_chi_moi(corpus_nho
             " WHERE ch.embedding_model = :m AND p.document_id = :d"),
             {"m": corpus_nho, "d": doc}).scalar_one()
     assert con == 0
+
+
+def test_chi_id_KHONG_embed_KHONG_xoa_chunk_cua_van_ban_khac(monkeypatch):
+    """K6: `--chi-moi --chi-id` chỉ đụng văn bản được nêu. Văn bản B có một chunk
+    cũ không còn khớp chunker: lượt `chi_moi` thường xoá nó, lượt `chi_id={"A"}`
+    thì không. $0, không DB: engine và embedder đều giả."""
+    prov = [
+        {
+            "id": i,
+            "document_id": d,
+            "parent_id": None,
+            "cap": "dieu",
+            "so_hieu_cap": "1",
+            "noi_dung": f"Điều 1. Nội dung {d}.",
+            "duong_dan": f"{i}/2020/NĐ-CP > Điều 1",
+            "depth": "deep",
+        }
+        for i, d in ((1, "A"), (2, "B"))
+    ]
+    ghi: list[tuple[str, object]] = []
+
+    class Conn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def execute(self, sql, params=None):
+            if str(sql).startswith("SELECT provision_id"):
+                return [(2, "__cu__", 99)]
+            ghi.append((str(sql).split()[0], params))
+
+    class Engine:
+        connect = begin = staticmethod(Conn)
+
+    class EmbedderGia:
+        def __init__(self, **kw) -> None:
+            self.dim, self.batch = kw.get("dim", _DIM), 0
+
+        def embed(self, texts: list[str]) -> list[list[float]]:
+            return [[0.1] * self.dim for _ in texts]
+
+    monkeypatch.setattr(bc, "run_migrations", lambda: None)
+    monkeypatch.setattr(bc, "get_engine", Engine)
+    monkeypatch.setattr(bc, "load_provisions", lambda e: prov)
+    monkeypatch.setattr(bc, "EmbeddingClient", EmbedderGia)
+
+    assert (run(model=_MODEL_GIA, dry_run=True, chi_moi=True) | {})["thua"] == 1
+    info = run(model=_MODEL_GIA, chi_moi=True, chi_id=frozenset({"A"}))
+    assert (info["moi"], info["thua"]) == (1, 0), info
+    xoa = [p for k, p in ghi if k == "DELETE"]
+    chen = [p for k, p in ghi if k == "INSERT"]
+    assert xoa == [{"ids": []}], xoa
+    assert [r["p"] for r in chen[0]] == [1], chen
+    with pytest.raises(ValueError, match="chi_moi"):
+        run(model=_MODEL_GIA, chi_id=frozenset({"A"}))

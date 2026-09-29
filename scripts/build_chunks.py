@@ -59,16 +59,28 @@ KHONG_DANH_CHI_MUC: dict[str, str] = {
 }
 
 
-def run(model: str | None = None, dry_run: bool = False, chi_moi: bool = False) -> dict:
+def run(
+    model: str | None = None, dry_run: bool = False, chi_moi: bool = False, chi_id: frozenset[str] | None = None
+) -> dict:
     """`chi_moi`: chỉ embed chunk (provision_id, noi_dung_embed) CHƯA có cho
     `model` và xoá chunk không còn khớp chunker — kết quả bằng một lần chạy
     đầy đủ, nhưng chunk cũ giữ id và vector (số đo truy hồi trước/sau nạp thêm
-    văn bản vẫn so được với nhau)."""
+    văn bản vẫn so được với nhau).
+
+    `chi_id` (chỉ đi cùng `chi_moi`): chỉ xét các văn bản này — chunk của văn bản
+    khác không embed, không xoá. K6 cần nó: 60 hàng ngoài kho chèn nhầm 2026-09-29
+    chưa có chunk, và bản khôi phục K8 xoá chúng với điều kiện 0 chunk."""
+    if chi_id is not None and not chi_moi:
+        raise ValueError("chi_id chỉ đi cùng chi_moi: lượt đầy đủ xoá chunk của mọi văn bản khác")
     s = get_settings()
     run_migrations()
     model = model or s.openrouter_embedding_model_name
 
-    provisions = [p for p in load_provisions(get_engine()) if p["document_id"] not in KHONG_DANH_CHI_MUC]
+    provisions = [
+        p
+        for p in load_provisions(get_engine())
+        if p["document_id"] not in KHONG_DANH_CHI_MUC and (chi_id is None or p["document_id"] in chi_id)
+    ]
     chunks = build_chunks(provisions, s.chunk_max_tokens)
     if not chunks:
         raise ValueError("0 chunk — provisions rỗng hoặc chunker lỗi")
@@ -88,6 +100,9 @@ def run(model: str | None = None, dry_run: bool = False, chi_moi: bool = False) 
                     text("SELECT provision_id, noi_dung_embed, id FROM chunks WHERE embedding_model = :m"), {"m": model}
                 )
             }
+        if chi_id is not None:
+            cua_tap = {p["id"] for p in provisions}
+            co = {k: i for k, i in co.items() if k[0] in cua_tap}
         dung = {(c.provision_id, c.noi_dung_embed) for c in chunks}
         thua = [i for k, i in co.items() if k not in dung]
         chunks = [c for c in chunks if (c.provision_id, c.noi_dung_embed) not in co]
@@ -129,6 +144,9 @@ def run(model: str | None = None, dry_run: bool = False, chi_moi: bool = False) 
 if __name__ == "__main__":
     # tách flag ("--dry-run") khỏi model — sys.argv[1] có thể LÀ "--dry-run"
     # nếu không lọc, model sẽ bị gán nhầm thành chuỗi "--dry-run"
+    # `--chi-id=TỆP`: tệp id văn bản, cách nhau bằng khoảng trắng (đi cùng --chi-moi).
     positional = [a for a in sys.argv[1:] if not a.startswith("--")]
     mdl = positional[0] if positional else None
-    print(run(model=mdl, dry_run="--dry-run" in sys.argv, chi_moi="--chi-moi" in sys.argv))
+    tep = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--chi-id=")), None)
+    ids = frozenset(open(tep, encoding="utf-8").read().split()) if tep else None
+    print(run(model=mdl, dry_run="--dry-run" in sys.argv, chi_moi="--chi-moi" in sys.argv, chi_id=ids))
