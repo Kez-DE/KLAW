@@ -135,16 +135,35 @@ def test_trang_chung_cua_vbpl_neu_ro_tieu_de_trong_ly_do():
     assert "Văn bản pháp luật" in ly_do and "canonical" in ly_do
 
 
-@pytest.mark.parametrize("status, cache", [(503, False), (429, False), (200, True), (404, True)])
-def test_vbpl_chi_cache_ket_qua_ben_khong_cache_loi_tam(tmp_path, monkeypatch, status, cache):
-    """Chạy lại được: 429/5xx còn sau hết lượt thử là lỗi TẠM — lần sau phải tải
-    lại, không đọc 'trượt' từ cache. 200/404 là kết quả bền thì giữ."""
+# Trang chung vbpl.vn trả với HTTP 200 khi không phục vụ trang chi tiết: canonical
+# không có slug, không published_time (đo 2026-09-28 17:02–17:21 UTC, 23/23 id).
+DAU_CHUNG = (
+    "<title>Văn bản pháp luật | CSDL quốc gia về pháp luật</title>"
+    '<link rel="canonical" href="https://vbpl.vn/van-ban/chi-tiet/139264"/>'
+)
+
+
+@pytest.mark.parametrize(
+    "status, dau, cache",
+    [
+        (503, "", False),
+        (429, "", False),
+        (403, "", False),
+        (200, DAU_CHUNG, False),
+        (200, DAU_BLLD, True),
+        (404, "", True),
+    ],
+)
+def test_vbpl_chi_cache_ket_qua_ben_khong_cache_loi_tam(tmp_path, monkeypatch, status, dau, cache):
+    """Chạy lại được: 429/5xx còn sau hết lượt thử, 403 và trang chung là vbpl.vn
+    đang không phục vụ — lần sau phải tải lại, không đọc 'trượt' từ cache. Trang
+    chi tiết thật và 404 là kết quả bền thì giữ."""
     import httpx
 
     from scripts import lam_moi_hieu_luc as m
 
     monkeypatch.setattr(m.time, "sleep", lambda s: None)
-    http = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(status, text="<head></head>")))
+    http = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(status, text=f"<head>{dau}</head>")))
     assert m._lay_vbpl(http, "139264", tmp_path)["status"] == status
     assert (tmp_path / "139264.json").exists() is cache
 
@@ -178,3 +197,237 @@ def test_du_phong_chinhphu_truot_neu_ly_do(so, ngay, status, trang, manh):
 
     ly_do = kiem_trang_chinhphu(so, ngay, status, trang)
     assert ly_do is not None and manh in ly_do
+
+
+# ── Vòng xem xét K2 (2026-09-29): nguồn sập không xoá link, cầu dao, ghi đè có bằng chứng ──
+from datetime import UTC, datetime  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+from scripts.lam_moi_hieu_luc import (  # noqa: E402
+    NGAT_SAU,
+    SEED_GHI_DE,
+    SEED_HIEU_LUC,
+    doc_bang_chung,
+    doc_ghi_de,
+    doi_chieu_link,
+    hang_bang_chung,
+    ket_luan_duoc,
+    kiem_ghi_de,
+    lan_luot,
+    ngat_ghi,
+    tinh_cot,
+)
+
+GOC = Path(__file__).resolve().parents[2]
+
+
+@pytest.mark.parametrize(
+    "status, canonical, ket_luan",
+    [
+        (404, None, True),
+        (410, None, True),
+        (200, CANON, True),
+        (200, "https://vbpl.vn/van-ban/chi-tiet/luat-khac--139265", True),  # trang thật của id khác
+        (200, "https://vbpl.vn/van-ban/chi-tiet/139264", False),  # trang chung, không slug
+        (200, "https://vbpl.vn", False),
+        (200, None, False),
+        (403, CANON, False),
+        (429, None, False),
+        (503, None, False),
+        (None, None, False),  # lỗi mạng
+    ],
+)
+def test_chi_404_hay_trang_chi_tiet_that_moi_ket_luan_duoc(status, canonical, ket_luan):
+    assert ket_luan_duoc(status, canonical) is ket_luan
+
+
+DOC = {"id": "139264", "so_ky_hieu": "45/2019/QH14", "ngay_ban_hanh": date(2019, 11, 20), "link_chinhphu": None}
+CU_DAT = {
+    "139264": {
+        "so_ky_hieu": "45/2019/QH14",
+        "url": URL,
+        "canonical": CANON,
+        "kiem_boi": "may-doi-chieu-tieu-de",
+        "kiem_luc": datetime(2026, 9, 28, 5, tzinfo=UTC),
+    }
+}
+LUC = "2026-09-29T01:00:00+00:00"
+
+
+@pytest.mark.parametrize(
+    "trang",
+    [
+        {"status": 200, "url": URL, "dau": DAU_CHUNG, "luc": LUC},
+        {"status": 403, "url": URL, "dau": "", "luc": LUC},
+        {"status": 503, "url": URL, "dau": ""},
+        {"status": None, "url": URL, "dau": "", "loi": "ConnectError"},
+        None,  # cầu dao đã ngắt vòng vbpl.vn trước id này
+    ],
+)
+def test_vbpl_khong_phuc_vu_thi_giu_link_va_bang_chung_cu(trang):
+    """Reviewer K2: trang chung/403/5xx/lỗi mạng mà xoá link thì một lượt chạy lúc
+    vbpl.vn sập ẩn gần hết kho (K7 chỉ hiện văn bản có link đã kiểm)."""
+    seed, bao = doi_chieu_link([DOC], {} if trang is None else {"139264": trang}, CU_DAT)
+    assert seed["139264"] == CU_DAT["139264"]
+    assert bao["mat_link"] == 0 and len(bao["giu_dong_cu_vi_khong_ket_luan"]) == 1
+
+
+@pytest.mark.parametrize(
+    "trang, manh",
+    [
+        ({"status": 200, "url": URL, "dau": DAU_BLLD.replace("2019-11-19T17", "2019-11-20T17"), "luc": LUC}, "ngày"),
+        ({"status": 404, "url": URL, "dau": "", "luc": LUC}, "HTTP 404"),
+    ],
+)
+def test_truot_ve_noi_dung_thi_xoa_link_va_dem_mat(trang, manh):
+    seed, bao = doi_chieu_link([DOC], {"139264": trang}, CU_DAT)
+    assert manh in seed["139264"]["ly_do"] and bao["mat_link"] == 1
+
+
+def test_trang_dat_ghi_bang_chung_moi():
+    seed, bao = doi_chieu_link([DOC], {"139264": {"status": 200, "url": URL, "dau": DAU_BLLD, "luc": LUC}}, {})
+    assert seed["139264"]["canonical"] == CANON and "ly_do" not in seed["139264"]
+    assert seed["139264"]["kiem_luc"] == datetime.fromisoformat(LUC) and bao["dat"] == 1
+
+
+def test_nguon_sap_thi_thoi_goi_sau_NGAT_SAU_loi_lien_tiep():
+    goi = []
+    ra = lan_luot("x", [str(i) for i in range(50)], lambda g: goi.append(g) or "loi", lambda r: r == "loi")
+    assert len(goi) == NGAT_SAU and list(ra) == goi
+
+
+def test_loi_xen_ke_nhu_K2_that_khong_ngat():
+    """K2 thật: 10 id gateway lỗi trên 1.822, nhiều nhất 2 id liền nhau."""
+    kq = {str(i): "loi" if i % 3 == 0 else "ok" for i in range(30)}
+    assert len(lan_luot("x", list(kq), kq.get, lambda r: r == "loi")) == 30
+
+
+@pytest.mark.parametrize("mat, tong, ngat", [(0, 1822, False), (91, 1822, False), (92, 1822, True), (4, 78, True)])
+def test_cau_dao_ghi_ngat_khi_mat_hon_5_phan_tram(mat, tong, ngat):
+    assert (ngat_ghi(mat, tong) is not None) is ngat
+
+
+# Dòng DB 49/2013/NĐ-CP: gateway còn ghi HHL1P, 145/2020/NĐ-CP Điều 114 khoản 2 bãi bỏ
+# toàn bộ từ 2021-02-01 (scratchpad K8 ke-hoach-nap.md B-R1, B-R4).
+DONG = {
+    "id": "30466",
+    "so_ky_hieu": "49/2013/NĐ-CP",
+    "depth": "shallow",
+    "tinh_trang": "HHL",
+    "ngay_hieu_luc": date(2013, 7, 1),
+    "ngay_het_hieu_luc": date(2021, 2, 1),
+    "co_quan_ban_hanh": "Chính phủ",
+    "hieu_luc_kiem_luc": datetime(2026, 9, 28, 5, tzinfo=UTC),
+}
+GATEWAY = {
+    "docNum": "49/2013/NĐ-CP",
+    "effStatus": {"code": "HHL1P", "name": "Hết hiệu lực một phần"},
+    "effFrom": "2013-07-01T00:00:00",
+    "effTo": None,
+    "agencyName": "Chính phủ",
+}
+GHI_DE = {
+    "so_ky_hieu": "49/2013/NĐ-CP",
+    "tinh_trang": "HHL",
+    "ngay_het_hieu_luc": date(2021, 2, 1),
+    "dieu_khoan": "145/2020/NĐ-CP Điều 114 khoản 2: bãi bỏ Nghị định số 49/2013/NĐ-CP",
+    "url": "https://congbao.chinhphu.vn/noi-dung-van-ban-so-145-2020-nd-cp-32043",
+    "lay_luc": datetime(2026, 9, 28, 10, tzinfo=UTC),
+}
+
+
+def _bang(gw=GATEWAY):
+    return {"30466": hang_bang_chung("30466", gw, datetime.fromisoformat(LUC))}
+
+
+def test_hang_bang_chung_giu_du_truong_ma_cot_tu_gateway_doc():
+    h = _bang()["30466"]
+    assert cot_tu_gateway(h) == {**cot_tu_gateway(GATEWAY), "ngay_ban_hanh": None}
+    assert h["url"].endswith("/doc/30466") and h["luc"] == LUC
+    assert hang_bang_chung("cp-162374", GATEWAY, datetime.fromisoformat(LUC))["url"].endswith("/doc/27325")
+
+
+@pytest.mark.parametrize("tinh_trang_db", ["HHL", "HHL1P"])
+def test_ghi_de_thang_gateway_va_bao_cho_gateway_noi_khac(tinh_trang_db):
+    """Quyết định mục 12: lượt làm mới KHÔNG được ghi ngược lại một ghi đè có bằng chứng."""
+    cap_nhat, bao = tinh_cot([{**DONG, "tinh_trang": tinh_trang_db}], _bang(), {"30466": GHI_DE})
+    assert cap_nhat[0]["tinh_trang"] == "HHL" and cap_nhat[0]["ngay_het_hieu_luc"] == date(2021, 2, 1)
+    assert [x for x in bao["ghi_de"]["gateway_noi_khac"] if "HHL1P" in x and "145/2020" in x]
+    assert bao["tinh_trang_doi_tang_nong_metadata"] == ({} if tinh_trang_db == "HHL" else {"HHL1P → HHL": 1})
+
+
+def test_khong_ghi_de_thi_gateway_thang_ngay_trong_giu_ngay_kho():
+    cap_nhat, bao = tinh_cot([DONG], _bang(), {})
+    assert cap_nhat[0]["tinh_trang"] == "HHL1P"
+    assert cap_nhat[0]["ngay_het_hieu_luc"] == date(2021, 2, 1)  # gateway effTo null: giữ ngày đang có
+    assert cap_nhat[0]["hieu_luc_kiem_luc"] == datetime.fromisoformat(LUC)
+
+
+def test_nap_lai_cung_bang_chung_la_khong_doi_gi():
+    """Dựng lại kho rồi nạp seed: DB đã đúng seed thì 0 dòng cập nhật (idempotent)."""
+    dong = {**DONG, "tinh_trang": "HHL1P", "hieu_luc_kiem_luc": datetime.fromisoformat(LUC)}
+    assert tinh_cot([dong], _bang(), {})[0] == []
+
+
+def test_ma_la_lam_van_ban_da_biet_roi_ve_chua_ro_bi_dem_cho_cau_dao():
+    _, bao = tinh_cot([DONG], _bang({**GATEWAY, "effStatus": None}), {})
+    assert bao["mat_tinh_trang"] == 1
+
+
+def test_so_ky_hieu_lech_thi_khong_ap_bang_chung():
+    cap_nhat, bao = tinh_cot([DONG], _bang({**GATEWAY, "docNum": "149/2013/NĐ-CP"}), {})
+    assert cap_nhat == [] and len(bao["lech_so_ky_hieu"]) == 1
+
+
+def test_ghi_de_lech_so_ky_hieu_hay_id_khong_co_trong_db_la_loi():
+    with pytest.raises(ValueError, match="so_ky_hieu"):
+        tinh_cot([DONG], {}, {"30466": {**GHI_DE, "so_ky_hieu": "50/2013/NĐ-CP"}})
+    with pytest.raises(ValueError, match="không có trong documents"):
+        tinh_cot([DONG], {}, {"99999": GHI_DE})
+
+
+BAY_GIO = datetime(2026, 9, 29, tzinfo=UTC)
+
+
+def test_kiem_ghi_de_nhan_dong_du_bang_chung():
+    assert kiem_ghi_de("30466", GHI_DE, BAY_GIO) == GHI_DE
+    assert kiem_ghi_de("30466", {**GHI_DE, "ngay_het_hieu_luc": None}, BAY_GIO)  # null = xoá ngày gateway ghi sai
+
+
+@pytest.mark.parametrize(
+    "sua, loi",
+    [
+        ({"dieu_khoan": " "}, "dieu_khoan"),
+        ({"url": "https://thuvienphapluat.vn/van-ban/x"}, "nguồn nhà nước"),  # trang thương mại
+        ({"url": "http://congbao.chinhphu.vn/x"}, "nguồn nhà nước"),
+        ({"tinh_trang": "chua_xac_dinh"}, "tinh_trang"),
+        ({"ngay_het_hieu_luc": "2021-02-01"}, "ngay_het_hieu_luc"),
+        ({"lay_luc": datetime(2026, 9, 30, tzinfo=UTC)}, "lay_luc"),
+        ({"lay_luc": datetime(2026, 9, 28)}, "lay_luc"),  # không múi giờ
+        ({"so_ky_hieu": None}, "so_ky_hieu"),
+        ({"ghi_chu": "x"}, "khoá lạ"),
+    ],
+)
+def test_kiem_ghi_de_tu_choi(sua, loi):
+    with pytest.raises(ValueError, match=loi):
+        kiem_ghi_de("30466", {**GHI_DE, **sua}, BAY_GIO)
+
+
+def test_kiem_ghi_de_tu_choi_dong_khong_ghi_de_cot_nao():
+    with pytest.raises(ValueError, match="không ghi đè cột nào"):
+        kiem_ghi_de("30466", {k: v for k, v in GHI_DE.items() if k not in ("tinh_trang", "ngay_het_hieu_luc")}, BAY_GIO)
+
+
+def test_seed_bang_chung_tu_choi_url_khong_phai_gateway(tmp_path):
+    import json
+
+    p = tmp_path / "hl.jsonl"
+    p.write_text(json.dumps({**_bang()["30466"], "url": "https://vbpl.vn/doc/30466"}) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="url"):
+        doc_bang_chung(p)
+
+
+def test_hai_seed_commit_doc_duoc_va_hop_le():
+    bang = doc_bang_chung(GOC / SEED_HIEU_LUC)
+    assert len(bang) >= 1812
+    doc_ghi_de(GOC / SEED_GHI_DE)
