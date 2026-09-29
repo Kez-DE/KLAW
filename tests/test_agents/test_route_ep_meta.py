@@ -86,9 +86,28 @@ HOI_HE_THONG = [
     "hệ thống pháp luật việt nam có bao nhiêu loại văn bản",
     "pháp luật VN chia thành những gì",
     "có những ngành luật nào",
-    # a vocative or a polite preamble is not a question about KLAW
+    # a vocative or a polite preamble is not a question about KLAW; "em" is
+    # usually the user speaking of themselves
     "bạn ơi, pháp luật việt nam chia thành những gì",
     "bạn cho mình hỏi hệ thống pháp luật gồm những gì",
+    "cho em hỏi pháp luật việt nam chia thành những gì",
+    "cho em hỏi hệ thống pháp luật việt nam là gì",
+    "chào bạn, mình muốn hỏi hệ thống pháp luật việt nam gồm những gì",
+    "bạn có thể cho mình biết pháp luật việt nam chia thành mấy ngành không",
+    "em chào anh, em muốn hỏi các ngành luật ở việt nam",
+    "hệ thống pháp luật việt nam là gì vậy bạn",
+    # synonyms, "ở Việt Nam", the abbreviation, no diacritics
+    "luật pháp việt nam là gì",
+    "luật pháp việt nam chia thành những gì",
+    "thứ bậc hiệu lực của văn bản pháp luật ở việt nam",
+    "nguồn của luật ở việt nam gồm những gì",
+    "các loại vbqppl hiện nay",
+    "phap luat viet nam chia thanh nhung gi",
+    "hien phap viet nam la gi",
+    "hiến pháp việt nam là gì",
+    # "văn bản nào" / "bao nhiêu điều kiện" are not corpus markers
+    "văn bản nào có hiệu lực cao nhất trong hệ thống pháp luật việt nam",
+    "hệ thống pháp luật việt nam quy định bao nhiêu điều kiện thành lập doanh nghiệp",
 ]
 
 
@@ -116,14 +135,22 @@ HOI_VE_KHO_HAY_KLAW = [
     "có bao nhiêu điều luật , chia thành các loại naoif",
     "hiện có bao nhiêu bộ luật",
     "Bộ luật Hàng hải Việt Nam có hiệu lực không",
+    # addressed to KLAW without "bạn"/"klaw", or naming the kho data
+    "klaw có tra được luật việt nam không",
+    "có tra cứu được luật việt nam không",
+    "trợ lý này có hiểu hệ thống pháp luật việt nam không",
+    "app này hỗ trợ những ngành luật nào",
+    "dữ liệu có những luật việt nam nào",
+    "trong dữ liệu có những ngành luật nào",
 ]
 
 
+@pytest.mark.parametrize("y_dinh", ["hoi_ve_kho", "gioi_thieu"])
 @pytest.mark.parametrize("cau", HOI_VE_KHO_HAY_KLAW)
-def test_cau_hoi_ve_kho_hay_klaw_giu_nguyen_y_dinh(cau, tmp_path):
+def test_cau_hoi_ve_kho_hay_klaw_giu_nguyen_y_dinh(cau, y_dinh, tmp_path):
     assert not hoi_he_thong_phap_luat(cau)
-    st = _route(cau, LlmY("hoi_ve_kho"), tmp_path)
-    assert st["intent"] is Intent.hoi_ve_kho
+    st = _route(cau, LlmY(y_dinh), tmp_path)
+    assert st["intent"] is Intent(y_dinh)
     assert st["traces"]["route_ep_luat"] is False
 
 

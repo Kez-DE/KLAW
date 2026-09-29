@@ -37,7 +37,7 @@ from src.agents.nodes.dung_ban_thao_tong_quat import dung_ban_thao_tong_quat
 from src.agents.nodes.expand import expand
 from src.agents.nodes.generate_claims import generate_claims
 from src.agents.nodes.giai_nghia import giai_nghia
-from src.agents.nodes.gioi_thieu import can_kho, cau_gioi_thieu, chi_hoi_kho, khia_canh
+from src.agents.nodes.gioi_thieu import can_kho, cau_gioi_thieu, chi_hoi_kho, khia_canh, khia_canh_kho
 from src.agents.nodes.gom_du_kien import gom_du_kien
 from src.agents.nodes.hieu_tai_lieu import MUC_DICH_SOAN, co_khuon, hieu_tai_lieu
 from src.agents.nodes.rewrite_query import rewrite_query
@@ -656,13 +656,14 @@ def build_graph_tra_cuu():
         y_dinh = st.get("intent")
         if y_dinh in (Intent.gioi_thieu, Intent.hoi_ve_kho):
             cau_hoi_meta = st.get("cau_hoi_day_du") or st["query"]
-            # A kho turn that names no facet keeps the kho verdict (trace
-            # fa18ddce): only gioi_thieu falls back to the introduction.
-            cac = khia_canh(cau_hoi_meta, "kho" if y_dinh == Intent.hoi_ve_kho else "nang_luc")
+            # A kho turn keeps the kho verdict: the introduction only for a
+            # question that addresses KLAW (see gioi_thieu.khia_canh_kho).
+            cac = khia_canh_kho(cau_hoi_meta) if y_dinh == Intent.hoi_ve_kho else khia_canh(cau_hoi_meta)
             if not (y_dinh == Intent.hoi_ve_kho and chi_hoi_kho(cac)):
                 kho = nap_kho(engine, as_of_hieu_luc(st.get("as_of_date"))) if can_kho(cac) else None
                 tra_loi = cau_gioi_thieu(
-                    cau_hoi_meta, kho=kho, luot_dau=not (st.get("lich_su") or st.get("tom_tat"))
+                    cau_hoi_meta, kho=kho, luot_dau=not (st.get("lich_su") or st.get("tom_tat")),
+                    cac_khia_canh=cac,
                 )
                 st = {**st, "tra_loi_gioi_thieu": tra_loi, "tra_loi_kho": tra_loi, "tra_loi_kho_bang": [],
                       "traces": {**(st.get("traces") or {}), "gioi_thieu_khia_canh": cac}}

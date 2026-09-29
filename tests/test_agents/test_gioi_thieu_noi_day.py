@@ -1,7 +1,7 @@
 """Wiring contracts for the composed meta answer (ex.md §3.3, FR-014)."""
 
 from src.agents.nodes.assemble import ResultType, assemble
-from src.agents.nodes.gioi_thieu import TOI_DA_LINH_VUC, cau_gioi_thieu, chi_hoi_kho, khia_canh
+from src.agents.nodes.gioi_thieu import TOI_DA_LINH_VUC, cau_gioi_thieu, chi_hoi_kho, khia_canh, khia_canh_kho
 from src.services.effectivity import Effectivity
 from src.services.effectivity import EffectivityVerdict as V
 
@@ -27,14 +27,30 @@ def test_cau_khong_khop_khia_canh_nao_nhan_mac_dinh_cua_chu_goi():
     inherit the gioi_thieu default (the KLAW introduction)."""
     cau = "pháp luật việt nam có những gì"
     assert khia_canh(cau) == ["nang_luc"]
-    assert khia_canh(cau, "kho") == ["kho"] and chi_hoi_kho(khia_canh(cau, "kho"))
-    # an explicit facet beats the default
-    assert khia_canh("bạn làm được gì", "kho") == ["nang_luc"]
+    assert khia_canh_kho(cau) == ["kho"] and chi_hoi_kho(khia_canh_kho(cau))
+    # a question that addresses KLAW keeps its own facet
+    assert khia_canh_kho("bạn làm được gì") == ["nang_luc"]
+
+
+def test_hoi_ve_kho_chi_giu_khia_canh_ve_klaw_khi_cau_hoi_noi_voi_klaw():
+    """Decision 2026-09-29 item 4: the KLAW introduction is for questions about
+    KLAW itself. "là gì" / "làm gì" in a question that does not address KLAW are
+    not the ban_chat / nang_luc facets of a kho turn."""
+    for cau in (
+        "luật pháp việt nam là gì",
+        "cho em hỏi hệ thống pháp luật việt nam là gì",
+        "hệ thống pháp luật việt nam hoạt động thế nào",
+    ):
+        assert khia_canh_kho(cau) == ["kho"], cau
+    assert khia_canh_kho("bạn là gì, kho có bao nhiêu văn bản") == ["ban_chat", "kho"]
+    assert khia_canh_kho("dữ liệu lấy từ đâu") == ["nguon"]
 
 
 def test_dem_dieu_luat_la_khia_canh_kho():
     for cau in (HOI_DIEU_LUAT, "trong KLAW có bao nhiêu điều luật"):
         assert khia_canh(cau) == ["kho"], cau
+    # "bao nhiêu điều kiện" counts conditions, not the kho
+    assert "kho" not in khia_canh("cần bao nhiêu điều kiện")
 
 
 def _graph_hoi_ve_kho(monkeypatch, kho):
@@ -73,6 +89,28 @@ def test_hoi_ve_kho_khong_khop_khia_canh_tra_so_lieu_kho_theo_loai(monkeypatch):
         assert "- Nghị định: 1" in st["answer"] and CAU_GIOI_HAN in st["answer"], cau
         assert NANG_LUC not in st["answer"], cau
         assert st["traces"]["assemble_token_in"] == 0
+
+
+def test_hoi_ve_kho_khong_noi_voi_klaw_khong_nhan_bai_gioi_thieu(monkeypatch):
+    """The router's observed verdict for a legal-system question is `hoi_ve_kho`.
+    When the route guard misses it, "là gì" must not bring back BAN_CHAT."""
+    from src.agents.nodes.gioi_thieu import BAN_CHAT, NANG_LUC
+
+    kho = [_vb("45/2019/QH14", "Bộ luật Lao động", loai="Bộ luật")]
+    for cau in ("luật pháp việt nam là gì", "cho em hỏi hệ thống pháp luật việt nam là gì"):
+        st = _graph_hoi_ve_kho(monkeypatch, kho).invoke({"query": cau})
+        assert st["result_type"] == ResultType.hoi_ve_kho, cau
+        assert "Phân theo loại văn bản" in st["answer"], cau
+        assert BAN_CHAT not in st["answer"] and NANG_LUC not in st["answer"], cau
+
+
+def test_hoi_ve_kho_noi_voi_klaw_van_ghep_khia_canh_klaw(monkeypatch):
+    from src.agents.nodes.gioi_thieu import BAN_CHAT
+
+    kho = [_vb("45/2019/QH14", "Bộ luật Lao động", loai="Bộ luật")]
+    st = _graph_hoi_ve_kho(monkeypatch, kho).invoke({"query": "bạn là gì, kho có bao nhiêu văn bản"})
+    assert st["result_type"] == ResultType.hoi_ve_kho
+    assert BAN_CHAT in st["answer"] and "Phân theo loại văn bản" in st["answer"]
 
 
 def test_assemble_uu_tien_cau_tra_loi_da_ghep_o_graph():
