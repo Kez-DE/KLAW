@@ -382,12 +382,15 @@ def test_cung_chu_de_tieu_de_rong_tra_False_chu_khong_no():
 
 SAU_NGHI_DINH = ["92898", "126319", "132862", "139094", "168670", "183939"]
 
-# Sự thật pháp lý Kenz tự đo, KHÔNG phải `tinh_trang` của MOJ (MOJ sai 4/6).
+# Sự thật pháp lý Kenz tự đo, KHÔNG phải `tinh_trang` của MOJ (MOJ sai 4/6). Từ K8
+# (2026-09-29) bốn dòng MOJ-nói-CHL mang ghi đè có bằng chứng (`data/seed/hieu_luc_ghi_de.yaml`,
+# quyết định mục 12): HHL + ngày hết hiệu lực chính thống ⇒ Mức 1. Mức 2a/2b vẫn được các test
+# đơn vị ở trên canh bằng dữ liệu dựng tay.
 SU_THAT = {
-    "92898": V.bi_thay_the,    # 122/2015 — MOJ nói CHL
-    "126319": V.bi_thay_the,   # 141/2017 — MOJ nói CHL
-    "132862": V.bi_thay_the,   # 157/2018 — MOJ nói CHL
-    "139094": V.bi_thay_the,   # 90/2019  — MOJ nói CHL; cạnh duy nhất đọc từ 38/2022 Điều 5 khoản 2
+    "92898": V.het_hieu_luc,   # 122/2015 — 153/2016 Điều 6 khoản 1, từ 2017-01-01
+    "126319": V.het_hieu_luc,  # 141/2017 — 157/2018 Điều 6 khoản 1, từ 2019-01-01
+    "132862": V.het_hieu_luc,  # 157/2018 — 90/2019 Điều 6 khoản 1, từ 2020-01-01
+    "139094": V.het_hieu_luc,  # 90/2019  — 38/2022 Điều 5 khoản 2, từ 2022-07-01
     "168670": V.het_hieu_luc,  # 74/2024
     "183939": V.con_hieu_luc,  # 293/2025 — hiện hành
 }
@@ -407,21 +410,23 @@ def test_CHAP_NHAN_sau_nghi_dinh_luong_toi_thieu():
 
 @pytest.mark.integration
 def test_CHAP_NHAN_ly_do_neu_dich_danh_van_ban_ke_nhiem():
-    """`ly_do` hiện ra trong câu trả lời cho người dùng — phải nêu đích danh."""
+    """Người đọc thấy văn bản kế nhiệm qua `van_ban` (quyết định mục 10: không bao giờ
+    `ly_do`) — phải nêu đích danh, kể cả khi phán quyết đến từ ngày hết hiệu lực (Mức 1)."""
     engine = get_engine()
     ke_nhiem = {"92898": "153/2016/NĐ-CP", "126319": "157/2018/NĐ-CP",
                 "132862": "90/2019/NĐ-CP", "139094": "38/2022/NĐ-CP"}
     for doc_id, so_ky_hieu in ke_nhiem.items():
         r = danh_gia_theo_id(engine, doc_id, NGAY_CHAP_NHAN)
-        assert so_ky_hieu in r.ly_do, f"{doc_id}: {r.ly_do}"
+        assert so_ky_hieu in [v.so_ky_hieu for v in r.van_ban], f"{doc_id}: {r}"
 
 
 @pytest.mark.integration
 def test_CHAP_NHAN_tin_cay_phan_anh_nguon_phan_quyet():
-    """Cạnh đồ thị → cao; suy luận cùng chủ đề → trung_binh."""
+    """Cạnh đồ thị hay ngày chính thống → cao (suy luận cùng chủ đề → trung_binh: test đơn
+    vị ở trên). 92898 từng là ca suy luận; K8 thêm cạnh 153/2016 → 122/2015 đọc từ nguyên văn."""
     engine = get_engine()
     mong = {"126319": "cao", "132862": "cao", "168670": "cao",
-            "92898": "trung_binh", "139094": "cao"}
+            "92898": "cao", "139094": "cao"}
     thuc = {d: danh_gia_theo_id(engine, d, NGAY_CHAP_NHAN).tin_cay for d in mong}
     assert thuc == mong
 
@@ -509,8 +514,9 @@ def test_luat_quan_ly_thue_78_2006_bi_38_2019_thay():
     cho 14832 (chỉ hai cạnh MOJ loai 12 mà Mức 2a không đọc), nên thiếu cạnh đọc
     từ nguyên văn nó ra 'hết hiệu lực một phần' theo effStatus HHL1P."""
     r = danh_gia_theo_id(get_engine(), "14832", NGAY_CHAP_NHAN)
-    assert (r.verdict, r.tin_cay) == (V.bi_thay_the, "cao"), r
-    assert "38/2019/QH14" in r.ly_do, r.ly_do
+    # K8: ghi đè có bằng chứng đặt ngày hết hiệu lực 2020-07-01 ⇒ Mức 1, vẫn nêu kẻ thay thế.
+    assert (r.verdict, r.tin_cay) == (V.het_hieu_luc, "cao"), r
+    assert "38/2019/QH14" in [v.so_ky_hieu for v in r.van_ban], r
 
 
 @pytest.mark.integration
@@ -525,9 +531,12 @@ def test_KHONG_van_ban_nao_TRONG_CORPUS_bi_tuyen_bua_la_da_chet():
         ids = [r[0] for r in c.execute(text(
             "SELECT id FROM documents WHERE depth <> 'metadata' ORDER BY id")).all()]
     chet: dict[str, tuple[str, str, str]] = {}
+    da_chet: set[str] = set()
     for doc_id in ids:
         doc, canh, ung_vien = nap_ngu_canh(engine, doc_id, NGAY_CHAP_NHAN)
         r = danh_gia(doc, canh, NGAY_CHAP_NHAN, ung_vien)
+        if r.verdict in (V.bi_thay_the, V.het_hieu_luc):
+            da_chet.add(doc_id)
         if r.verdict is V.bi_thay_the:
             chet[doc_id] = (r.tin_cay, doc["tinh_trang"], r.ly_do)
             assert doc["so_ky_hieu"] not in r.ly_do, (
@@ -537,7 +546,8 @@ def test_KHONG_van_ban_nao_TRONG_CORPUS_bi_tuyen_bua_la_da_chet():
     # Chuỗi lương tối thiểu là 4 ca ĐÚNG đã đối chiếu tay — sàn, không phải trần:
     # corpus lớn lên thì tập này được phép lớn theo, nên ghim `==` sẽ đỏ vì một
     # lý do lành và cách sửa dễ dãi là chép lại tập mới.
-    assert {"92898", "126319", "132862", "139094"} <= chet.keys(), sorted(chet)
+    # (từ K8 chúng chết theo ngày chính thống — Mức 1 — nên sàn đặt trên mọi phán quyết "đã chết").
+    assert {"92898", "126319", "132862", "139094"} <= da_chet, sorted(da_chet)
     # Cái phải giữ là mỗi phán quyết `bi_thay_the` đều có CHỖ DỰA: hoặc một cạnh
     # đồ thị (`cao`), hoặc suy luận Mức 2b — và Mức 2b chỉ được chạy khi MOJ nói
     # CHL (guard 5). Thiếu ràng buộc này, mở corpus lên 47 văn bản đã tuyên nhầm

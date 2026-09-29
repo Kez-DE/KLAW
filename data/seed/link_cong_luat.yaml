@@ -86,10 +86,10 @@
   kiem_boi: claude-fable-qua-chrome
 "134611":  # 29/2019/NĐ-CP
   vbpl: null
-  chinhphu: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=196496
   tvpl: null
-  kiem_luc: 2026-09-06
-  kiem_boi: claude-fable-qua-chrome
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
 "70811":  # 84/2015/QH13
   vbpl: null
   chinhphu: null
@@ -98,28 +98,28 @@
   kiem_boi: claude-fable-qua-chrome
 "168670":  # 74/2024/NĐ-CP
   vbpl: null
-  chinhphu: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=210536
   tvpl: null
-  kiem_luc: 2026-09-06
-  kiem_boi: claude-fable-qua-chrome
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
 "139094":  # 90/2019/NĐ-CP
   vbpl: null
-  chinhphu: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=198341
   tvpl: null
-  kiem_luc: 2026-09-06
-  kiem_boi: claude-fable-qua-chrome
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
 "132862":  # 157/2018/NĐ-CP
   vbpl: null
-  chinhphu: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=195540
   tvpl: null
-  kiem_luc: 2026-09-06
-  kiem_boi: claude-fable-qua-chrome
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
 "126319":  # 141/2017/NĐ-CP
   vbpl: null
-  chinhphu: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=192163
   tvpl: null
-  kiem_luc: 2026-09-06
-  kiem_boi: claude-fable-qua-chrome
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
 "92898":  # 122/2015/NĐ-CP
   vbpl: null
   chinhphu: null
@@ -140,16 +140,16 @@
   kiem_boi: claude-fable-qua-chrome
 "179252":  # 91/2025/QH15
   vbpl: null
-  chinhphu: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=214590
   tvpl: null
-  kiem_luc: 2026-09-06
-  kiem_boi: claude-fable-qua-chrome
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
 "187276":  # 356/2025/NĐ-CP
   vbpl: null
-  chinhphu: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=216387
   tvpl: null
-  kiem_luc: 2026-09-06
-  kiem_boi: claude-fable-qua-chrome
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
 "132957":  # 24/2018/QH14
   vbpl: null
   chinhphu: null
@@ -170,10 +170,10 @@
   kiem_boi: claude-fable-qua-chrome
 "187043":  # 108/2025/QH15
   vbpl: null
-  chinhphu: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=216541
   tvpl: null
-  kiem_luc: 2026-09-06
-  kiem_boi: claude-fable-qua-chrome
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
 "187601":  # 143/2025/QH15
   vbpl: null
   chinhphu: null
@@ -212,10 +212,10 @@
   kiem_boi: claude-fable-qua-chrome
 "177815":  # 31/2024/QH15
   vbpl: null
-  chinhphu: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=211189
   tvpl: null
-  kiem_luc: 2026-09-06
-  kiem_boi: claude-fable-qua-chrome
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
 "170509":  # 43/2024/QH15
   vbpl: null
   chinhphu: null
@@ -230,10 +230,10 @@
   kiem_boi: claude-fable-qua-chrome
 "179941":  # 67/2025/QH15
   vbpl: null
-  chinhphu: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=214607
   tvpl: null
-  kiem_luc: 2026-09-06
-  kiem_boi: claude-fable-qua-chrome
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
 "166581":  # 22/2023/QH15
   vbpl: null
   chinhphu: null
@@ -278,10 +278,10 @@
   kiem_boi: claude-fable-qua-chrome
 "161106":  # 13/2023/NĐ-CP
   vbpl: null
-  chinhphu: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=207759
   tvpl: null
-  kiem_luc: 2026-09-06
-  kiem_boi: claude-fable-qua-chrome
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
 "15066":  # 67/2006/QH11
   vbpl: null
   chinhphu: null
@@ -314,7 +314,31 @@
   kiem_boi: claude-fable-qua-chrome
 "136036":  # 38/2019/QH14
   vbpl: null
-  chinhphu: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=197312
   tvpl: null
-  kiem_luc: 2026-09-06
-  kiem_boi: claude-fable-qua-chrome
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
+"178757":  # 158/2025/NĐ-CP
+  vbpl: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=214189
+  tvpl: null
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
+"154245":  # 38/2022/NĐ-CP
+  vbpl: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=205950
+  tvpl: null
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
+"787d3780-866f-11f1-8511-612429c9d15e":  # 283/2026/NĐ-CP
+  vbpl: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=218871
+  tvpl: null
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de
+"178294":  # 129/2025/NĐ-CP
+  vbpl: null
+  chinhphu: https://vanban.chinhphu.vn/?pageid=27160&docid=213920
+  tvpl: null
+  kiem_luc: 2026-09-29
+  kiem_boi: may-doi-chieu-tieu-de

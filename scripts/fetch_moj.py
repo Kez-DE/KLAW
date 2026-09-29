@@ -127,6 +127,11 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "179969": ("deep", "07/2025/UBTVQH15"),     # HHL
     "12807":  ("deep", "14/2008/QH12"),         # HHL1P
     "14832":  ("deep", "78/2006/QH11"),         # HHL1P
+    # ── K8 2026-09-29 — mở rộng kho theo quyết định 2026-09-28 mục 14. Id gateway
+    # (= id vbpl.vn) đọc từ trang chi tiết vbpl.vn, `docNum` đối chiếu lúc fetch.
+    "787d3780-866f-11f1-8511-612429c9d15e": ("deep", "283/2026/NĐ-CP"),  # xử phạt lao động, thay 12/2022
+    "178757": ("deep", "158/2025/NĐ-CP"),  # BHXH bắt buộc; đang shallow → nâng tại chỗ
+    "178294": ("deep", "129/2025/NĐ-CP"),  # phân định thẩm quyền 2 cấp, Bộ Nội vụ
 }
 
 # Mảnh tiêu đề đối chiếu TRƯỚC KHI GHI file raw — 11/13 id của T1 (169032,

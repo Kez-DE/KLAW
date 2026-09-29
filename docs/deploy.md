@@ -95,9 +95,11 @@ Supabase → Authentication → URL Configuration: thêm `https://klaw-web-produ
 - Sau đó: API tự áp `MIGRATIONS_KHOI_DONG` (019+) lúc khởi động; migration mới thêm
   vào tuple đó trong `src/main.py` (test guard bắt buộc).
 - Kho luật: sao chép từ DB local (đã có embedding, không tốn OpenRouter):
-  `docker exec klaw-db-1 pg_dump -U klaw -d klaw --data-only --no-owner --no-privileges -t documents -t provisions -t '"references"' -t chunks -t sua_doi_dieu_khoan > corpus.sql`
+  `docker exec klaw-db-1 pg_dump -U klaw -d klaw --data-only --no-owner --no-privileges -t documents -t provisions -t '"references"' -t chunks -t sua_doi_dieu_khoan -t canh_doi_chieu -t anh_van_ban > corpus.sql`
   rồi `railway run -s pgvector -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction -q -f corpus.sql'`
-  (240 MB, vài phút). Không chép các bảng người dùng/runtime (`hoi_thoai`,
+  (240 MB, vài phút). `canh_doi_chieu` (039, bằng chứng cạnh đã đối chiếu nguyên văn)
+  khoá theo `references.id` — COPY giữ nguyên id nên chép cùng lượt là đúng; `anh_van_ban`
+  (040) là ảnh trang 1 của bản PDF đã ký. Không chép các bảng người dùng/runtime (`hoi_thoai`,
   `ban_thao`, `traces`, `users`, `answer_cache`, `verified_*`, …). Xem mục 6 cho
   bẫy trigger tsvector khi COPY.
 - Cách 2 (không có DB local): `railway ssh -s klaw-api -- python -m scripts.ingest`
@@ -107,9 +109,15 @@ Supabase → Authentication → URL Configuration: thêm `https://klaw-web-produ
   Sau MỖI lần chạy `ingest` hay `load_incoming_edges` (kể cả đường nâng tầng nông
   lên sâu tại chỗ, vốn ghi `tinh_trang` của `documents.jsonl`) PHẢI chạy
   `python -m scripts.lam_moi_hieu_luc --tu-seed` (0 request): nạp tình trạng hiệu
-  lực từ `data/seed/hieu_luc_gateway.jsonl` + `hieu_luc_ghi_de.yaml`.
+  lực từ `data/seed/hieu_luc_gateway.jsonl` + `hieu_luc_ghi_de.yaml`. Bằng chứng cạnh
+  (`data/seed/canh_doi_chieu.yaml`) được `load_incoming_edges` đặt lại ở cuối mỗi lượt;
+  nạp riêng: `python -m scripts.nap_canh_doi_chieu`.
   Thiếu bước này mọi dòng nông ở `chua_xac_dinh` và bị ẩn (quyết định mục 8), còn
   `documents.jsonl` mang tình trạng lúc `build_seed`, không phải lượt làm mới.
+  Một lượt `load_incoming_edges` đầy đủ thay MỌI cạnh loai 20..23 bằng parquet × kho
+  hiện tại (thêm cạnh chưa ai soát, mặc định chèn cả văn bản ngoài kho); chỉ áp sửa
+  cạnh đã đối chiếu (`CANH_SAI`, `CANH_DOI_CHIEU_NGUYEN_VAN`) thì dùng
+  `python -m scripts.load_incoming_edges --chi-danh-sach` (dry-run) rồi thêm `--ghi`.
 - CMS: `scripts/start.sh` tự `payload migrate` và từ chối start nếu còn migration
   pending.
 

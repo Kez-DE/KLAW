@@ -196,6 +196,87 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   cache (by design); (e) `GET /mau/{loai}` still names a hidden basis — the
   frame then shows the 404 notice; (f) PDF rows wait for K6; (g) no real-app
   browser check yet.
+- [x] K8 data (2026-09-29, `feat/k8-du-lieu` from `integ/kho-day-du`; backups
+  `backup-truoc-K8-{1-migration,2-van-ban,3-canh,4-dong,5-cong-bao}.dump`).
+  Migrations 039 `canh_doi_chieu` and 040 `documents.link_pdf_ban_ky` +
+  `anh_van_ban`, applied. New deep documents: 283/2026/NĐ-CP (gateway
+  787d3780-…, 1173/1173 verbatim), 129/2025/NĐ-CP (178294, 241/241),
+  158/2025/NĐ-CP upgraded in place (365/368: three formula provisions differ in
+  layout, not in `verified_documents`), 148/2025/QH15 from Công báo `.docx`
+  (`scripts/fetch_congbao.py`, decision item 13; 348/348; no gateway record, so
+  `chua_xac_dinh` and hidden). 66.18/2026/NQ-CP not loaded: its substance is 217
+  annex tables the parser folds into one uncitable `phu_luc` — wait for the
+  gateway copy. Edges: B-E1/2/3/5 (parquet) and B-E2/4/7/9/10 (MOJ) removed via
+  `CANH_SAI`/`CANH_SAI_MOJ` (CSV backups in scratchpad `k8/xoa/`); six edges read
+  from the official text added (283/2026 → 12/2022, 135/2020 → 158/2025 loai 23,
+  71/2025 → 31/2024 loai 20, 153/2016 → 122/2015, 113/2025 → 07/2025, 148/2025 →
+  67/2006). B-E8 (systemic MOJ duplicate rows, 86 keys) and optional B-E11 not
+  done; B-R6 skipped: `sua_doi_dieu_khoan` can only say "bị sửa bởi", not "hết
+  hiệu lực". Evidence: `data/seed/canh_doi_chieu.yaml` (41 edges, quote fragments
+  machine-checked against the source text; `load_incoming_edges` re-applies it),
+  29 overrides in `hieu_luc_ghi_de.yaml` (B-R1–B-R4), 16 vanban.chinhphu.vn links
+  (B-R5). As of 2026-09-28 with this branch's code: **480 → 484 shown** (+135/2020,
+  +31/2024, +129/2025, +283/2026; none lost); hidden in-force-with-link
+  `can_doi_chieu_tay` 72 → 52, `bi_thay_the` 43 → 35, `chua_xac_dinh` 5 → 5.
+  12/2022 now names 283/2026 and 122/2015 names 153/2016; the 145/2020, 29/2019,
+  09/2020 groups, 07/2025, 67/2006 and 135/2020 still name nothing (topic guard,
+  loai-23 naming — K9 on `canh_doi_chieu`). A full parquet reload would add 23
+  unreviewed edges (re-measured below): not applied.
+  **Review round 1 (2026-09-29): the shared DB lost K8's edge state.** At
+  04:14 UTC a full `load_from_parquet` from a branch without K8 (several calls,
+  the pattern of the `test_incoming_edges` integration tests) replaced every
+  loai 20–23 edge (3,778 → 3,920, all new ids; the four wrong edges back, the
+  six K8 edges gone), emptied `canh_doi_chieu` (CASCADE) and added 60 out-of-kho
+  `metadata-only` rows (item 4; `shallow` after 016). The 29 overrides and the
+  MOJ deletions survived. Reverted DB: 480 shown (vs K8: −135/2020, −31/2024,
+  −129/2025, −42/2010/TT-BLĐTBXH), hidden in-force-with-link 56/35/5.
+  Recovery is prepared, **not applied**: the permission classifier denied the
+  write. Backup of the reverted state `backup-truoc-K8-6-khoi-phuc.dump`;
+  one-off scratchpad `k8/khoi-phuc/khoi_phuc_k8.py` runs one transaction. It
+  syncs loai 20–23 by key to `backup-truoc-K8-5-cong-bao.dump` plus the curated
+  keys, puts back the five K8 edges with ids 5699708–5699712, deletes the 60
+  `metadata-only` rows missing from that backup, then runs `ap_danh_sach`. Dry
+  run: −148/+5 edges, −60 documents (60 `mo_dau` provisions, 0 chunks), +1 edge
+  (148/2025 → 67/2006), 41 evidence rows. Result: 3,778 edges, 1,825 documents.
+  Measured inside that rolled-back transaction with the runtime code: **484
+  shown, 52/35/5**. No document is shown/hidden differently from K8's own
+  after-snapshot; three list the same amending laws in a different order (edge
+  id order). New committed path:
+  `python -m scripts.load_incoming_edges --chi-danh-sach [--ghi]` applies only
+  `CANH_SAI`, `CANH_DOI_CHIEU_NGUYEN_VAN` and the VBHN edges, then re-seeds
+  `canh_doi_chieu`. It is a dry run by default and writes timestamped CSV
+  backups that are never overwritten. It replaces scratchpad `sua_canh_k8.py`,
+  which now refuses to run (original CSVs in `k8/xoa-goc-20260929/`). The five
+  `test_incoming_edges` integration tests that call `load_from_parquet` now
+  skip unless `KLAW_TEST_GHI_DB=1`. Re-measured on the recovered state: a
+  K8-code full reload adds 23 edges with `--khong-them-van-ban-ngoai`, and 39
+  edges plus 16 documents with the default. Each later call adds more, because
+  016 makes those rows `shallow` and the next call pulls edges into them. Two
+  of the 23 change what readers see: 03/2026/NĐ-CP → 129/2025 loai 21 hides
+  129/2025 (the gateway says HHL1P, so it is probably partial, unverified) and
+  57/2015/TT-BLĐTBXH → 42/2010/TT-BLĐTBXH loai 20 hides 42/2010. No dump of
+  K8's final state exists; take one right after the recovery is applied.
+  Owner decisions still open, all verified read-only on 2026-09-29:
+  (h) K8 now shows 135/2020/NĐ-CP, with known gaps. The gateway
+  `documentContent` has no annexes: Phụ lục I–III are only referred to, and
+  the kho's one `phu_luc` node, 166839, is the closing clause (a parser label
+  error). From 2025-07-01, 158/2025 Điều 44 k2 c repeals khoản 166811, 166827,
+  166829 and 166834, but they carry no marker (B-R6: no provision-level
+  expiry). The reader sentence names nothing, because outgoing loai 23 is not
+  named (K9). Either accept and keep this record, or hide it until the annexes
+  (Công báo) and the provision marks exist.
+  (i) 283/2026/NĐ-CP shows as `con_hieu_luc`, but under Điều 66 some of its
+  provisions start later. Khoản 2 (k2 Điều 61, k11 Điều 63) starts when the
+  decree amending 189/2025 takes effect. Khoản 3 (điểm e, g, h k2 Điều 7;
+  Điều 14) starts when the decree amending 152/2020 takes effect. The model has
+  no provision-level "not yet in force" state.
+  (j) 148/2025/QH15 exists only from Công báo, so it is `chua_xac_dinh`, has no
+  link and is hidden, and 67/2006/QH11 (HHL) names no replacement. Items 8
+  (status from Bộ Tư pháp plus a verified link) and 13 (Công báo fallback)
+  conflict here. 66.18/2026/NQ-CP is deferred (annex tables), so item 14 is
+  only partly delivered.
+  Order before any other wave runs a loader or an integration test: merge K8
+  into `integ/kho-day-du`, then apply the recovery with the owner's permission.
 - [ ] K5 after eval, credit.
 
 ## Decisions

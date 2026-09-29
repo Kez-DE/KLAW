@@ -121,3 +121,59 @@ def test_cong_thuc_ban_hanh_o_giua_than_khong_cat_nham():
         "<p>Điều 2. Giải thích</p>"))
     assert out.count('class="prov-article"') == 2
     assert "<p>Áp dụng" not in out  # không bị đẩy thành khối đuôi
+
+
+
+def test_cong_thuc_moi_luat_nay_duoc_quoc_hoi_thong_qua_la_khoi_duoi():
+    """Luật từ 2025 viết "Luật này được Quốc hội … thông qua" (không "đã"; 148/2025/QH15,
+    Công báo số 43). Không nhận ra thì lời chứng và tên người ký chui vào Điều cuối. Một
+    câu thân văn bản "Luật này được áp dụng …" thì KHÔNG phải khối đuôi."""
+    out = sang_html_prov(
+        _trang(
+            "<p>Điều 2. Đối tượng áp dụng</p>"
+            "<p>Luật này được áp dụng đối với cơ quan, tổ chức, cá nhân.</p>"
+            "<p>Điều 48. Điều khoản chuyển tiếp</p>"
+            "<p>1. Chiến lược đã được phê duyệt được tiếp tục thực hiện.</p>"
+            "<p>Luật này được Quốc hội nước Cộng hòa xã hội chủ nghĩa Việt Nam khóa XV thông qua ngày 11 tháng 12 năm 2025.</p>"
+            "<p>CHỦ TỊCH QUỐC HỘI</p><p>Trần Thanh Mẫn</p>"
+        )
+    )
+    rows = [(r.cap.value, r.noi_dung) for r in parse_provisions(out, "148/2025/QH15")]
+    dieu = [n for c, n in rows if c == "dieu"]
+    assert "Luật này được áp dụng" in dieu[0]
+    assert not any("Trần Thanh Mẫn" in n or "thông qua ngày" in n for c, n in rows if c != "phu_luc")
+
+
+def test_docx_cong_bao_moi_doan_than_van_ban_ke_ca_trong_bang():
+    """Bản `.docx` Công báo → cùng adapter: mỗi `<w:p>` thân văn bản (cả ô bảng: tiêu đề,
+    khối chữ ký) thành một đoạn, theo đúng thứ tự tài liệu."""
+    import io
+    import zipfile
+
+    from src.services.chinhphu_parser import docx_sang_html_prov
+
+    def p(t):
+        return f'<w:p><w:r><w:t xml:space="preserve">{t}</w:t></w:r></w:p>'
+
+    than = (
+        "<w:tbl><w:tr><w:tc>"
+        + p("QUỐC HỘI")
+        + p("Luật số: 9/2025/QH15")
+        + "</w:tc></w:tr></w:tbl>"
+        + p("Điều 1. Phạm vi")
+        + p("1. Nội dung khoản một.")
+        + p("Luật này được Quốc hội khóa XV thông qua ngày 11 tháng 12 năm 2025.")
+        + "<w:tbl><w:tr><w:tc>"
+        + p("CHỦ TỊCH QUỐC HỘI")
+        + "</w:tc></w:tr></w:tbl>"
+    )
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr(
+            "word/document.xml",
+            '<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w='
+            f'"http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>{than}</w:body></w:document>',
+        )
+    rows = {r.cap.value: r.noi_dung for r in parse_provisions(docx_sang_html_prov(buf.getvalue()), "9/2025/QH15")}
+    assert rows["khoan"] == "1. Nội dung khoản một."
+    assert "CHỦ TỊCH QUỐC HỘI" in rows["phu_luc"] and "QUỐC HỘI" in rows["mo_dau"]

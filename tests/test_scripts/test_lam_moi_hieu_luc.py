@@ -431,3 +431,24 @@ def test_hai_seed_commit_doc_duoc_va_hop_le():
     bang = doc_bang_chung(GOC / SEED_HIEU_LUC)
     assert len(bang) >= 1812
     doc_ghi_de(GOC / SEED_GHI_DE)
+
+
+def test_lam_moi_khong_ghi_nguoc_ghi_de_K8_da_commit():
+    """Quyết định mục 12 trên CHÍNH seed commit: gateway (dữ kiện cũ) khai CHL, không ngày hết
+    hiệu lực, ngày hiệu lực khác — sau một lượt làm mới mọi dòng ghi đè vẫn giữ đúng cột của nó."""
+    ghi_de = doc_ghi_de(GOC / SEED_GHI_DE)
+    assert sum(g.get("tinh_trang") == "HHL" for g in ghi_de.values()) >= 26  # B-R1
+    gw = {"effStatus": {"code": "CHL"}, "effFrom": "2000-01-01T00:00:00", "effTo": None, "agencyName": None}
+    docs = [
+        {**DONG, "id": i, "so_ky_hieu": g["so_ky_hieu"], "tinh_trang": "CHL", "ngay_het_hieu_luc": None}
+        for i, g in ghi_de.items()
+    ]
+    bang = {
+        i: hang_bang_chung(i, {**gw, "docNum": g["so_ky_hieu"]}, datetime.fromisoformat(LUC)) for i, g in ghi_de.items()
+    }
+    cap_nhat, _ = tinh_cot(docs, bang, ghi_de)
+    sau = {u["id"]: u for u in cap_nhat}
+    for i, g in ghi_de.items():
+        for k in ("tinh_trang", "ngay_hieu_luc", "ngay_het_hieu_luc"):
+            if k in g:
+                assert sau[i][k] == g[k], (i, k)
