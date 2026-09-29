@@ -4214,6 +4214,12 @@
   canonical: https://vbpl.vn/van-ban/chi-tiet/luat-tu-phap-nguoi-chua-thanh-nien-so-59-2024-qh15--175425
   kiem_boi: may-doi-chieu-tieu-de
   kiem_luc: 2026-09-28 05:30:18.499151+00:00
+'175440':
+  so_ky_hieu: 64/2025/QH15
+  url: https://vbpl.vn/van-ban/chi-tiet/175440
+  canonical: https://vbpl.vn/van-ban/chi-tiet/luat-ban-hanh-van-ban-quy-pham-phap-luat-so-64-2025-qh15--175440
+  kiem_boi: may-doi-chieu-tieu-de
+  kiem_luc: 2026-09-29 14:13:38.349190+00:00
 '175635':
   so_ky_hieu: 01/2025/TT-BNNPTNT
   url: https://vbpl.vn/van-ban/chi-tiet/175635
@@ -4370,6 +4376,12 @@
   canonical: https://vbpl.vn/van-ban/chi-tiet/nghi-dinh-so-129-2025-nd-cp-quy-dinh-ve-phan-dinh-tham-quyen-cua-chinh-quyen-dia-phuong-02-cap-trong-linh-vuc-quan-ly-nha-nuoc-cua-bo-noi-vu--178294
   kiem_boi: may-doi-chieu-tieu-de
   kiem_luc: 2026-09-29 03:14:59.863817+00:00
+'178314':
+  so_ky_hieu: 203/2025/QH15
+  url: https://vbpl.vn/van-ban/chi-tiet/178314
+  canonical: https://vbpl.vn/van-ban/chi-tiet/nghi-quyet-so-203-2025-qh15-sua-doi-bo-sung-mot-so-dieu-cua-hien-phap-nuoc-cong-hoa-xa-hoi-chu-nghia-viet-nam--178314
+  kiem_boi: may-doi-chieu-tieu-de
+  kiem_luc: 2026-09-29 14:13:39.471669+00:00
 '178371':
   so_ky_hieu: 30/2025/TT-BTC
   url: https://vbpl.vn/van-ban/chi-tiet/178371
@@ -4406,6 +4418,12 @@
   canonical: https://vbpl.vn/van-ban/chi-tiet/thong-tu-so-05-2025-tt-bnnmt-sua-doi-bo-sung-mot-so-thong-tu-trong-linh-vuc-khai-thac-thuy-san--178681
   kiem_boi: may-doi-chieu-tieu-de
   kiem_luc: 2026-09-28 05:30:53.856618+00:00
+'178717':
+  so_ky_hieu: 87/2025/QH15
+  url: https://vbpl.vn/van-ban/chi-tiet/178717
+  canonical: https://vbpl.vn/van-ban/chi-tiet/luat-sua-doi-bo-sung-mot-so-dieu-cua-luat-ban-hanh-van-ban-quy-pham-phap-luat-so-87-2025-qh15--178717
+  kiem_boi: may-doi-chieu-tieu-de
+  kiem_luc: 2026-09-29 14:13:40.640467+00:00
 '178737':
   so_ky_hieu: 88/2025/QH15
   url: https://vbpl.vn/van-ban/chi-tiet/178737
@@ -8375,6 +8393,13 @@
   canonical: https://vbpl.vn/van-ban/chi-tiet/nghi-dinh-so-207-2013-nd-cp-sua-doi-bo-sung-mot-so-dieu-cua-nghi-dinh-so-48-2010-nd-cp-ngay-07-thang-5-nam-2010-cua-chinh-phu-ve-hop-dong-trong-hoat-dong-xay-dung--32799
   kiem_boi: may-doi-chieu-tieu-de
   kiem_luc: 2026-09-28 05:44:16.243175+00:00
+'32801':
+  so_ky_hieu: Hiến pháp năm 2013
+  url: https://vbpl.vn/van-ban/chi-tiet/32801
+  canonical: https://vbpl.vn/van-ban/chi-tiet/hien-phap-nam-2013--32801
+  kiem_boi: may-doi-chieu-tieu-de
+  kiem_luc: 2026-09-29 14:13:41.845407+00:00
+  ly_do: 'tiêu đề ''Hiến pháp của Quốc hội | CSDL quốc gia về pháp luật'' không chứa số hiệu ''Hiến pháp năm 2013''; dự phòng https://vanban.chinhphu.vn/?pageid=27160&docid=171264: đạt'
 '32825':
   so_ky_hieu: 193/2013/NĐ-CP
   url: https://vbpl.vn/van-ban/chi-tiet/32825

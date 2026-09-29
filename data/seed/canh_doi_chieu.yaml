@@ -8,6 +8,7 @@
 # được. kiem_boi `doi-chieu-nguyen-van-k8`: từng mảnh là chuỗi con toàn văn gateway Bộ Tư
 # pháp của văn bản khai tử/đi sửa; `doi-chieu-cong-bao-k8`: chuỗi con toàn văn .docx Công báo
 # (văn bản gateway chưa có); `ocr-ban-ky-so-k8`: đọc bằng OCR bản ký số (ảnh quét).
+# `doi-chieu-nguyen-van-f1`: như `-k8`, đợt F1 (luật nền tảng, quyết định 2026-09-29 mục 4, 8).
 - from_so_ky_hieu: 145/2020/NĐ-CP
   to_so_ky_hieu: 49/2013/NĐ-CP
   loai: 21
@@ -336,3 +337,27 @@
   url: https://congbao.chinhphu.vn/van-ban/luat-so-148-2025-qh15-468708.htm
   kiem_boi: doi-chieu-cong-bao-k8
   kiem_luc: 2026-09-29 03:43:18+00:00
+- from_so_ky_hieu: 87/2025/QH15
+  to_so_ky_hieu: 64/2025/QH15
+  loai: 20
+  dieu_khoan: 87/2025/QH15 Điều 1 khoản 1
+  trich: 'Quốc hội ban hành Luật sửa đổi, bổ sung một số điều của Luật Ban hành văn bản quy phạm pháp luật số 64/2025/QH15. … 1. Sửa đổi, bổ sung Điều 4 như sau: “Điều 4. Hệ thống văn bản quy phạm pháp luật'
+  url: https://vbpl.vn/van-ban/chi-tiet/178717
+  kiem_boi: doi-chieu-nguyen-van-f1
+  kiem_luc: 2026-09-29 14:10:00+00:00
+- from_so_ky_hieu: 203/2025/QH15
+  to_so_ky_hieu: Hiến pháp năm 2013
+  loai: 20
+  dieu_khoan: 203/2025/QH15 Điều 1 khoản 1–5
+  trich: 'Sửa đổi, bổ sung một số điều của Hiến pháp nước Cộng hòa xã hội chủ nghĩa Việt Nam như sau: … 1. Sửa đổi, bổ sung Điều 9 như sau: … 2. Sửa đổi, bổ sung Điều 10 như sau: … 3. Sửa đổi, bổ sung khoản 1 Điều 84 như sau: … 4. Sửa đổi, bổ sung Điều 110 như sau: … 5. Sửa đổi, bổ sung Điều 111 như sau:'
+  url: https://vbpl.vn/van-ban/chi-tiet/178314
+  kiem_boi: doi-chieu-nguyen-van-f1
+  kiem_luc: 2026-09-29 14:10:00+00:00
+- from_so_ky_hieu: 81/2025/QH15
+  to_so_ky_hieu: 52/2014/QH13
+  loai: 20
+  dieu_khoan: 81/2025/QH15 Điều 2 khoản 13
+  trich: 13. Thay thế cụm từ "Tòa án nhân dân cấp huyện" bằng cụm từ "Tòa án nhân dân khu vực" tại khoản 3 Điều 123 của Luật Hôn nhân và gia đình số 52/2014/QH13.
+  url: https://vbpl.vn/van-ban/chi-tiet/179416
+  kiem_boi: doi-chieu-nguyen-van-f1
+  kiem_luc: 2026-09-29 14:10:00+00:00
