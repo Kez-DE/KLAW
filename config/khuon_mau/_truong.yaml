@@ -1,0 +1,22 @@
+# Danh mục trường của khuôn mẫu (thiết kế `khuon-mau-thiet-ke.md` §7): khoá → nhãn.
+# Mỗi khoá là một chỗ trống bộ dựng biết tên, để giá trị người dùng nói ("họ tên bên
+# B là …") thành đúng một phép `dien`. Một dòng mẫu chỉ được gọi khoá có ở đây —
+# `khuon_mau.nap` nổ lúc nạp khi gặp khoá lạ.
+ho_ten: "Họ và tên"
+ngay_sinh: "Ngày sinh"
+gioi_tinh: "Giới tính"
+so_dinh_danh: "Số định danh cá nhân"
+noi_cu_tru: "Nơi cư trú"
+dia_chi: "Địa chỉ"
+dien_thoai: "Số điện thoại"
+fax: "Số fax"
+thu_dien_tu: "Địa chỉ thư điện tử"
+ten_to_chuc: "Tên tổ chức"
+ma_so_doanh_nghiep: "Mã số doanh nghiệp"
+dia_chi_tru_so: "Địa chỉ trụ sở"
+nguoi_dai_dien: "Người đại diện"
+chuc_vu: "Chức vụ"
+so_tai_khoan: "Số tài khoản"
+ngan_hang: "Tại ngân hàng"
+toa_an: "Tòa án"
+co_quan_nhan: "Cơ quan nhận"

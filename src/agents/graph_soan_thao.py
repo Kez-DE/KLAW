@@ -34,7 +34,7 @@ from src.services.hien_thi import hien_thi_luc
 from src.services.llm import from_settings as llm_from_settings
 from src.services.llm import generate_model
 from src.services.rules import Rule, load_facts_meta, load_rules
-from src.services.trich_dan import khoi_can_cu
+from src.services.trich_dan import khoi_can_cu_co_id
 
 RULES_PATH = Path("config/rules.yaml")
 CONFIG_DIR = Path("config")
@@ -71,6 +71,9 @@ class SoanThaoState(TypedDict, total=False):
     # Khối "Căn cứ" của bản thảo (quyết định 2026-09-28) — `n_retrieve` dựng,
     # `ban_thao.tu_state_soan_thao` đặt vào `document`. Không vào prompt nào.
     can_cu_van_ban: list[str]
+    # Cùng khối, mỗi dòng kèm `doc_id` (`can_cu_van_ban_co_id`) — khuôn mẫu cần để
+    # trang bản thảo mở được văn bản của từng dòng (`ban_thao.dat_khuon_mau`).
+    can_cu_co_id: list[dict]
     clauses: list[DraftClause]
     schema_error: bool
     usage_generate: object
@@ -183,18 +186,44 @@ def chi_van_ban_hien(db_provisions: dict[int, dict], hien: frozenset[str]) -> di
     return {pid: r for pid, r in db_provisions.items() if r["document_id"] in hien}
 
 
-def can_cu_van_ban(engine: Engine, db_provisions: dict[int, dict], as_of: date) -> list[str]:
-    """Khối "Căn cứ" từ các văn bản mà `can_cu` của checklist + rules dẫn tới —
-    chỉ văn bản được HIỆN (tình trạng, hiệu lực, link chính thống — cùng tập mọi
-    đường đọc dùng) và còn hiệu lực TẠI `as_of`, phán bằng `danh_gia_theo_id`,
-    đúng hàm mà câu trả lời dùng (`effectivity_qua_provision`). KHÔNG `lru_cache`
-    như `requirements`: hiệu lực đổi theo ngày, còn tập điều khoản thì không."""
+def can_cu_van_ban_co_id(engine: Engine, db_provisions: dict[int, dict], as_of: date) -> list[dict]:
+    """Khối "Căn cứ" `[{dong, doc_id}]` từ các văn bản mà `can_cu` của checklist +
+    rules dẫn tới — chỉ văn bản được HIỆN (tình trạng, hiệu lực, link chính thống —
+    cùng tập mọi đường đọc dùng) và còn hiệu lực TẠI `as_of`, phán bằng
+    `danh_gia_theo_id`, đúng hàm mà câu trả lời dùng (`effectivity_qua_provision`).
+    `doc_id` để trang bản thảo mở được văn bản của từng dòng (khuôn mẫu, §5). KHÔNG
+    `lru_cache` như `requirements`: hiệu lực đổi theo ngày, còn tập điều khoản thì không."""
     ids = sorted({r["document_id"] for r in chi_van_ban_hien(db_provisions, hien_thi_luc(engine, as_of)).values()})
     if not ids:
         return []
     with engine.connect() as c:
         van_ban = [dict(r) for r in c.execute(_SQL_VAN_BAN_CAN_CU, {"ids": ids}).mappings().all()]
-    return khoi_can_cu(van_ban, lambda i: danh_gia_theo_id(engine, i, as_of).verdict)
+    return khoi_can_cu_co_id(van_ban, lambda i: danh_gia_theo_id(engine, i, as_of).verdict)
+
+
+def can_cu_van_ban(engine: Engine, db_provisions: dict[int, dict], as_of: date) -> list[str]:
+    """Các dòng của `can_cu_van_ban_co_id`."""
+    return [x["dong"] for x in can_cu_van_ban_co_id(engine, db_provisions, as_of)]
+
+
+_SQL_VAN_BAN_THEO_SO = text(
+    "SELECT id, so_ky_hieu, ten, loai_van_ban, ngay_ban_hanh, co_quan_ban_hanh FROM documents"
+    " WHERE so_ky_hieu = ANY(:so)"
+)
+
+
+def can_cu_theo_so_hieu(engine: Engine, so_hieu: list[str], as_of: date) -> list[dict]:
+    """Căn cứ mà một bản thảo TỔNG QUÁT nêu bằng số hiệu (khuôn mẫu, §2) → `[{dong,
+    doc_id}]` qua CÙNG bộ lọc hiện/hiệu lực của `can_cu_van_ban_co_id`. Số hiệu
+    không có trong kho, văn bản ẩn hay hết hiệu lực không in gì — không bao giờ một
+    dòng căn cứ thiếu số."""
+    so = list(dict.fromkeys(s.strip() for s in so_hieu if isinstance(s, str) and s.strip()))[:8]
+    if not so:
+        return []
+    hien = hien_thi_luc(engine, as_of)
+    with engine.connect() as c:
+        van_ban = [dict(r) for r in c.execute(_SQL_VAN_BAN_THEO_SO, {"so": so}).mappings().all() if r["id"] in hien]
+    return khoi_can_cu_co_id(van_ban, lambda i: danh_gia_theo_id(engine, i, as_of).verdict)
 
 
 # ── /soan-thao — graph 4 node ────────────────────────────────────────────────
@@ -234,12 +263,13 @@ def build_graph_soan_thao():
                 f"Hiện chưa soạn được {checklist.ten}: văn bản luật làm căn cứ cho loại văn bản này"
                 " chưa có trong phạm vi tra cứu."
             )
-        can_cu = can_cu_van_ban(get_engine(), db_provisions, as_of)
+        can_cu = can_cu_van_ban_co_id(get_engine(), db_provisions, as_of)
         return {
             **st,
             "expanded": list(db_provisions.values()),
             "db_provisions": db_provisions,
-            "can_cu_van_ban": can_cu,
+            "can_cu_van_ban": [x["dong"] for x in can_cu],
+            "can_cu_co_id": can_cu,
         }
 
     def n_generate(st: SoanThaoState) -> SoanThaoState:
