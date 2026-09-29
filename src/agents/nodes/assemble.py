@@ -62,6 +62,7 @@ from src.agents.nodes.hieu_tai_lieu import CHO_TRONG, MUC_DICH_SOAN
 from src.agents.nodes.hoi_lai import bi_loai, cau_hoi_lai_tu_khung, duoi_hoi_them, duoi_tu_khung, hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
 from src.models.schemas import Bang
+from src.services import khuon_mau
 from src.services.bao_ve import LOI_SOAN_THAO_DANG_NHAP
 from src.services.bo_nho import ho_so_da_dung, khoi_tinh_huong
 from src.services.effectivity import EffectivityVerdict as V
@@ -1130,6 +1131,18 @@ def _ten_can_cu(dong: str) -> str:
     return (m[1] if m else dong).strip().rstrip(";.")
 
 
+def _cau_the_thuc(khung: dict) -> str:
+    """Câu thể thức cuối lời đáp. Mẫu ban hành kèm văn bản pháp luật (NĐ 124/2020 Mẫu 01,
+    Mẫu 23-DS…) là mẫu của CHÍNH văn bản ấy, không phải "tập quán" — nói đúng nguồn;
+    văn bản hành chính theo NĐ 30 không cần câu nào; còn lại là tập quán."""
+    nguon = (khuon_mau.nap(khung["loai"]) if khung.get("loai") in khuon_mau.cac_loai() else {}).get("nguon") or {}
+    if nguon.get("loai") == "mau_chinh_thuc" and khung.get("bo_cuc") != "hanh_chinh":
+        return f" Trình bày theo {nguon['van_ban']}."
+    if khung.get("bo_cuc") == "hanh_chinh":
+        return ""
+    return " Thể thức theo tập quán, tham khảo Phụ lục I Nghị định 30/2020/NĐ-CP."
+
+
 def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
     """Lời đáp cho một bản thảo trên KHUÔN MẪU (tệp .docx KLAW dựng), đọc thẳng từ
     phiên bản vừa lưu (`bt`: `khuon`, `audit_report.khung`, `clauses`) và ghi chú của
@@ -1175,11 +1188,7 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
         (" ".join(g.rstrip(".") + "." for g in ghi[:3]) + " " if ghi else ""),
         (khong_dat + " " if khong_dat else ""),
         "Bấm vào chỗ trống trên trang để điền; muốn sửa điều nào cứ nói với tôi.",
-        (
-            ""
-            if khung.get("bo_cuc") == "hanh_chinh"
-            else " Thể thức theo tập quán, tham khảo Phụ lục I Nghị định 30/2020/NĐ-CP."
-        ),
+        _cau_the_thuc(khung),
     ]
     answer = "".join(phan)
     if len(answer) > TRAN_KY_TU:
