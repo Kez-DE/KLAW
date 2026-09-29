@@ -1267,8 +1267,27 @@ Defaults apply unless the owner decides otherwise. Only decision 3 blocks.
 - [ ] D1 review round 2.
 - [ ] Owner: decision 3 (gate before D4c); defaults stand for 1, 2 and 4–8
       unless the owner says otherwise.
-- [ ] D3 registry, recorded labels, new checklists.
-- [ ] D4a builder and budget measurement; D4b storage; D4c graph; D4d frontend.
+- [ ] D3 registry, recorded labels, new checklists. Started on `feat/khuon-mau`: the
+      field catalog and three reference entries (`hdld` after NĐ 145 Mẫu 01/PLV,
+      `don_khoi_kien` Mẫu 23-DS, `cong_van` NĐ 30 Mẫu 1.5) with their recorded labels.
+      The other 26 checklist types and the new types remain; `test_moi_checklist_co_khuon_mau`
+      is a strict xfail until they land.
+- [x] D4a builder and budget measurement (`src/services/khuon_mau.py`). Measured
+      2026-09-29 on LibreOffice 26.2: the maximal spec gives 8 pages per `bo_cuc` at
+      16,000 and 18,000 characters, 10 at 20,000; `NGAN_SACH_KY_TU` stays 16,000.
+      The tiêu ngữ rule is 171.2 pt, measured with `pdftotext -bbox`.
+- [x] D4b storage: migration 041 written, not applied; `tai_lieu.tao_viec_khuon_mau`
+      writes viec + `khuon_goc` in one transaction; `ban_thao` lookups, carry-over,
+      `dat_khuon_mau`, `khuon.nguon`/`can_cu`, the download name.
+- [x] D4c graph: prompt v3, `schema_khuon_mau`/`kiem_khuon_mau`, `_nap_khuon_mau`,
+      the no-pull rule, `KHONG_DIEN_TU_ANH`, the create/edit branch, the answer,
+      `_dang_soan` and `route.v5` as the default. Open decision 3 defaulted to (a):
+      the 10-page cap stays; an overflow saves nothing and names the longest Điều.
+      Implementation note: the v3 path runs when `graph_tra_cuu` has prepared
+      `khuon_mau_ngu_canh`, which it does on every signed-in no-document drafting
+      turn. A direct call to the node without it keeps the old `van_ban` path; old
+      unit tests rely on that.
+- [ ] D4d frontend.
 - [ ] Integrate: migration 041, integration tests by path; the e2e API test after
       the eval finishes.
 - [ ] V: real-app check, Word check, routing set, eval re-run.
