@@ -36,8 +36,8 @@ can_cu_goc: "91/2015/QH13 > Điều 562"
 # chấm dứt (Đ569) là quyền luật định, có hay không ghi vào hợp đồng cũng không
 # mất.
 #
-# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm trách
-# nhiệm do vi phạm (Đ398.2.e) và hai mục tuỳ chọn: thù lao khi có thoả thuận (Đ562) và
+# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm ba mục
+# tuỳ chọn: thù lao khi có thoả thuận (Đ562), trách nhiệm do vi phạm (Đ398.2.e) và
 # giải quyết tranh chấp (Đ398.2.g).
 # Đã tự tra DB:
 #   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|562)';
@@ -47,8 +47,8 @@ khong_bat_buoc:
     Uỷ quyền lại (Đ564) là thoả thuận tuỳ chọn; đơn phương chấm dứt (Đ569) là
     quyền luật định. Vắng mặt không được báo là thiếu.
     Thù lao chỉ phải trả khi có thoả thuận hoặc pháp luật quy định (Đ562);
-    giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2.
-  keys: [uy_quyen_lai, don_phuong_cham_dut, thu_lao, tranh_chap]
+    trách nhiệm do vi phạm và giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2 (điểm e, g).
+  keys: [uy_quyen_lai, don_phuong_cham_dut, thu_lao, trach_nhiem_vi_pham, tranh_chap]
 
 muc:
   - {stt: 1, key: cong_viec_uy_quyen, ten: "Công việc uỷ quyền và phạm vi uỷ quyền", can_cu: "91/2015/QH13 > Điều 562", tu_khoa: ["phạm vi uỷ quyền", "phạm vi ủy quyền", "công việc uỷ quyền", "công việc ủy quyền", "nội dung uỷ quyền", "nội dung ủy quyền"]}

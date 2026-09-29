@@ -31,20 +31,21 @@ can_cu_goc: "91/2015/QH13 > Điều 472"
 # Cho thuê lại (Đ475) chỉ đặt ra khi các bên muốn cho phép; đặt cọc (Đ328) là
 # một biện pháp bảo đảm TUỲ CHỌN, không phải điều kiện của hợp đồng thuê.
 #
-# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm ba mục
+# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm hai mục
 # có điều luật riêng — bảo đảm quyền sử dụng ổn định (Đ478), bảo quản tài sản thuê
-# (Đ479), trách nhiệm do vi phạm (Đ398.2.e) — và hai mục tuỳ chọn: đơn phương chấm
-# dứt khi không trả tiền thuê ba kỳ liên tiếp (Đ481.2, quyền luật định) và giải quyết
-# tranh chấp (Đ398.2.g, "có thể có"). Đã tự tra DB:
+# (Đ479) — và ba mục tuỳ chọn: đơn phương chấm dứt khi không trả tiền thuê ba kỳ liên
+# tiếp (Đ481.2, quyền luật định), trách nhiệm do vi phạm (Đ398.2.e) và giải quyết
+# tranh chấp (Đ398.2.g) — hai điểm "có thể có". Đã tự tra DB:
 #   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|47[89]|481)';
 khong_bat_buoc:
   can_cu: "91/2015/QH13 > Điều 475"
   ghi_chu: >
     Cho thuê lại (Đ475) và đặt cọc (Đ328) là thoả thuận tuỳ chọn; đơn phương chấm
     dứt khi bên thuê không trả tiền ba kỳ liên tiếp (Đ481.2) là quyền luật định;
-    giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2. Một hợp đồng
-    thuê không có các điều khoản này vẫn đầy đủ; vắng mặt không báo là thiếu.
-  keys: [cho_thue_lai, dat_coc, don_phuong_cham_dut, tranh_chap]
+    trách nhiệm do vi phạm và giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2 (điểm e, g).
+    Một hợp đồng thuê không có các điều khoản này vẫn đầy đủ; vắng mặt không báo
+    là thiếu.
+  keys: [cho_thue_lai, dat_coc, don_phuong_cham_dut, trach_nhiem_vi_pham, tranh_chap]
 
 muc:
   - {stt: 1, key: tai_san_thue, ten: "Tài sản thuê và mục đích thuê", can_cu: "91/2015/QH13 > Điều 472", tu_khoa: ["tài sản thuê", "đối tượng thuê", "đối tượng của hợp đồng thuê", "mặt bằng cho thuê"]}

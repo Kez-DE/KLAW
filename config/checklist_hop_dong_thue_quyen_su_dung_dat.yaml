@@ -36,9 +36,10 @@ khong_bat_buoc:
   can_cu: "31/2024/QH15 > Điều 27 > Khoản 3 > Điểm b"
   ghi_chu: >
     Hợp đồng cho thuê quyền sử dụng đất được công chứng, chứng thực theo yêu cầu các
-    bên (Luật Đất đai Đ27.3.b); điều khoản giải quyết tranh chấp nằm trong danh mục
-    "có thể có" của BLDS Đ398.2. Vắng mặt không được báo là thiếu.
-  keys: [cong_chung, tranh_chap]
+    bên (Luật Đất đai Đ27.3.b); điều khoản trách nhiệm do vi phạm và giải quyết
+    tranh chấp nằm trong danh mục "có thể có" của BLDS Đ398.2 (điểm e, g). Vắng mặt
+    không được báo là thiếu.
+  keys: [cong_chung, trach_nhiem_vi_pham, tranh_chap]
 
 muc:
   - {stt: 1, key: thua_dat, ten: "Thông tin thửa đất cho thuê và mục đích sử dụng", can_cu: "91/2015/QH13 > Điều 501 > Khoản 2", tu_khoa: ["thông tin thửa đất", "thửa đất số", "tờ bản đồ", "mục đích sử dụng đất"]}

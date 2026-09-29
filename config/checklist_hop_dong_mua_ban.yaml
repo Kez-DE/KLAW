@@ -44,9 +44,9 @@ can_cu_chi_tiet: "36/2005/QH11 > Điều 24"
 # thoả thuận khác, nên hợp đồng im lặng vẫn có đủ quy tắc điều chỉnh — im lặng
 # ở đó không phải khuyết thiếu.
 #
-# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm trách
-# nhiệm do vi phạm hợp đồng (BLDS Đ398.2.e) — rule `tran_phat_vi_pham_hop_dong` kiểm
-# MỨC phạt, còn đây là MỤC điều khoản.
+# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm mục tuỳ
+# chọn trách nhiệm do vi phạm hợp đồng (BLDS Đ398.2.e, danh mục "có thể có") — rule
+# `tran_phat_vi_pham_hop_dong` kiểm MỨC phạt, còn đây là MỤC điều khoản.
 # Đã tự tra DB:
 #   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều 398';
 khong_bat_buoc:
@@ -54,8 +54,9 @@ khong_bat_buoc:
   ghi_chu: >
     Kiểm tra hàng hoá (Đ44) và bảo hành (Đ49) chỉ đặt ra khi các bên có thoả
     thuận; chuyển rủi ro (Đ57) và chuyển quyền sở hữu (Đ62) là quy tắc mặc định
-    của luật. Vắng mặt không được báo là thiếu.
-  keys: [kiem_tra_hang, bao_hanh, chuyen_rui_ro, quyen_so_huu]
+    của luật. Trách nhiệm do vi phạm nằm trong danh mục "có thể có" của BLDS Đ398.2
+    (điểm e). Vắng mặt không được báo là thiếu.
+  keys: [kiem_tra_hang, bao_hanh, chuyen_rui_ro, quyen_so_huu, trach_nhiem_vi_pham]
 
 muc:
   - {stt: 1, key: hang_hoa, ten: "Tên hàng, chủng loại, số lượng, chất lượng hàng hoá", can_cu: "91/2015/QH13 > Điều 431", tu_khoa: ["hàng hoá", "hàng hóa", "tên hàng hoá", "tên hàng hóa", "đối tượng của hợp đồng", "chủng loại hàng hoá", "số lượng, chất lượng"]}

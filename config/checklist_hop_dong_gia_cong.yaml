@@ -28,9 +28,9 @@ can_cu_chi_tiet: "36/2005/QH11 > Điều 179"
 # luật định áp dụng dù hợp đồng có nhắc hay không — im lặng ở đó không để lại
 # khoảng trống nào.
 #
-# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm trách
-# nhiệm do vi phạm (Đ398.2.e) và hai mục tuỳ chọn: giữ bí mật quy trình gia công
-# (Đ546.4) và giải quyết tranh chấp (Đ398.2.g).
+# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm ba mục
+# tuỳ chọn: giữ bí mật quy trình gia công (Đ546.4), trách nhiệm do vi phạm (Đ398.2.e)
+# và giải quyết tranh chấp (Đ398.2.g).
 # Đã tự tra DB:
 #   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|546)';
 khong_bat_buoc:
@@ -39,8 +39,8 @@ khong_bat_buoc:
     Chậm giao/chậm nhận sản phẩm (Đ550) và đơn phương chấm dứt (Đ551) là quy tắc
     luật định, áp dụng dù hợp đồng không nhắc. Vắng mặt không báo là thiếu.
     Giữ bí mật quy trình gia công (Đ546.4) là nghĩa vụ luật định của bên nhận;
-    giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2.
-  keys: [cham_giao_cham_nhan, don_phuong_cham_dut, bi_mat, tranh_chap]
+    trách nhiệm do vi phạm và giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2 (điểm e, g).
+  keys: [cham_giao_cham_nhan, don_phuong_cham_dut, bi_mat, trach_nhiem_vi_pham, tranh_chap]
 
 muc:
   - {stt: 1, key: doi_tuong_gia_cong, ten: "Đối tượng của hợp đồng: sản phẩm gia công", can_cu: "91/2015/QH13 > Điều 543", tu_khoa: ["sản phẩm gia công", "đối tượng gia công", "đối tượng của hợp đồng"]}

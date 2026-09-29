@@ -35,16 +35,17 @@ can_cu_chi_tiet: "91/2015/QH13 > Điều 398"
 #
 # 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm yêu cầu
 # về chất lượng, kết quả dịch vụ (Đ519.4 — căn cứ giảm tiền dịch vụ khi không đạt) và
-# trách nhiệm do vi phạm (Đ398.2.e).
+# mục TUỲ CHỌN trách nhiệm do vi phạm (Đ398.2.e — danh mục "có thể có", như tranh chấp).
 # Đã tự tra DB:
 #   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|519)';
 khong_bat_buoc:
   can_cu: "91/2015/QH13 > Điều 398 > Khoản 2"
   ghi_chu: >
     Quyền đơn phương chấm dứt (Đ520) là quyền luật định, có hay không ghi vào
-    hợp đồng cũng không mất; điều khoản giải quyết tranh chấp nằm trong danh
-    mục "có thể có" của Đ398.2. Vắng mặt không được báo là thiếu.
-  keys: [don_phuong_cham_dut, tranh_chap]
+    hợp đồng cũng không mất; điều khoản trách nhiệm do vi phạm và giải quyết
+    tranh chấp nằm trong danh mục "có thể có" của Đ398.2 (điểm e, g). Vắng mặt
+    không được báo là thiếu.
+  keys: [don_phuong_cham_dut, trach_nhiem_vi_pham, tranh_chap]
 
 muc:
   - {stt: 1, key: cong_viec_dich_vu, ten: "Đối tượng của hợp đồng: công việc phải thực hiện", can_cu: "91/2015/QH13 > Điều 514", tu_khoa: ["đối tượng của hợp đồng", "công việc dịch vụ", "nội dung dịch vụ", "phạm vi công việc", "phạm vi dịch vụ"]}

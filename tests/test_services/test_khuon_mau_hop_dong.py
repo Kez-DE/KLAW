@@ -225,3 +225,15 @@ def test_ten_duoi_chu_ky_thang_hang_giua_cac_cot(loai):
         for tc in bang_ky.iter(f"{_W}tc")
     ]
     assert len(vi_tri) >= 2 and all(len(v) == 1 for v in vi_tri) and len({v[0] for v in vi_tri}) == 1, vi_tri
+
+
+@pytest.mark.parametrize("loai", sorted(set(HOP_DONG) - {"hop_dong_nguyen_tac"}))
+def test_noi_dung_co_the_co_cua_dieu_398_khong_la_muc_luat_doi(loai):
+    """BLDS Đ398.2: "Hợp đồng CÓ THỂ có các nội dung sau đây" — trách nhiệm do vi phạm
+    (điểm e) và giải quyết tranh chấp (điểm g) là mục tuỳ chọn: /soat không báo "thiếu"
+    với căn cứ là một điều luật nói "có thể". `hop_dong_nguyen_tac` dựng CẢ checklist
+    trên Đ398.2 có chủ ý (xem tệp của nó)."""
+    cl = load_checklist_cached(loai)
+    tuy = set(cl.khong_bat_buoc.get("keys") or [])
+    diem = {f"91/2015/QH13 > Điều 398 > Khoản 2 > Điểm {x}" for x in "eg"}
+    assert all(m["key"] in tuy for m in cl.muc if m["can_cu"] in diem)

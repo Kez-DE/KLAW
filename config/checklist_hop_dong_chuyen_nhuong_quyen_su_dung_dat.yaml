@@ -36,9 +36,9 @@ can_cu_chi_tiet: "91/2015/QH13 > Điều 501 > Khoản 1"
 khong_bat_buoc:
   can_cu: "91/2015/QH13 > Điều 398 > Khoản 2"
   ghi_chu: >
-    Điều khoản giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2;
-    vắng mặt không được báo là thiếu.
-  keys: [tranh_chap]
+    Điều khoản trách nhiệm do vi phạm và giải quyết tranh chấp nằm trong danh mục
+    "có thể có" của Đ398.2 (điểm e, g); vắng mặt không được báo là thiếu.
+  keys: [trach_nhiem_vi_pham, tranh_chap]
 
 muc:
   - {stt: 1, key: thua_dat, ten: "Thông tin thửa đất chuyển nhượng", can_cu: "91/2015/QH13 > Điều 501 > Khoản 2", tu_khoa: ["thông tin thửa đất", "thửa đất số", "tờ bản đồ", "đối tượng chuyển nhượng"]}

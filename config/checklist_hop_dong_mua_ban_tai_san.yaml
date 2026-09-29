@@ -63,9 +63,9 @@ can_cu_chi_tiet: "91/2015/QH13 > Điều 431"
 #     (Đ450) — chỉ đặt ra KHI đối tượng là quyền tài sản. Với một chiếc xe hay
 #     một lô máy móc, ba mục đó vô nghĩa.
 #
-# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm trách
-# nhiệm do vi phạm (Đ398.2.e) và hai mục tuỳ chọn: bảo hành khi các bên thoả thuận
-# (Đ446) và giải quyết tranh chấp (Đ398.2.g).
+# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm ba mục
+# tuỳ chọn: bảo hành khi các bên thoả thuận (Đ446), trách nhiệm do vi phạm (Đ398.2.e)
+# và giải quyết tranh chấp (Đ398.2.g).
 # Đã tự tra DB:
 #   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|446)';
 khong_bat_buoc:
@@ -77,9 +77,10 @@ khong_bat_buoc:
     với quyền tài sản, bảo đảm khả năng thanh toán của quyền đòi nợ) chỉ đặt ra
     khi đối tượng hợp đồng là QUYỀN TÀI SẢN. Vắng mặt không được báo là thiếu.
     Bảo hành (Đ446) chỉ đặt ra khi các bên thoả thuận hoặc pháp luật quy định;
-    giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2.
+    trách nhiệm do vi phạm và giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2 (điểm e, g).
   keys: [chat_luong, thoi_han, dia_diem_giao, rui_ro,
-         giay_to_quyen_tai_san, thoi_diem_chuyen_quyen_tai_san, bao_dam_doi_no, bao_hanh, tranh_chap]
+         giay_to_quyen_tai_san, thoi_diem_chuyen_quyen_tai_san, bao_dam_doi_no, bao_hanh,
+         trach_nhiem_vi_pham, tranh_chap]
 
 muc:
   - {stt: 1, key: doi_tuong, ten: "Đối tượng của hợp đồng (tài sản hoặc quyền tài sản được bán)", can_cu: "91/2015/QH13 > Điều 431 > Khoản 1", tu_khoa: ["đối tượng của hợp đồng", "đối tượng hợp đồng", "tài sản mua bán", "tài sản được bán", "quyền tài sản"]}
