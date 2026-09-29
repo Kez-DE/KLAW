@@ -158,7 +158,50 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   the title as plain paragraphs, so the `.docx`/PDF export (read from the
   sheet) carries it. General and khuôn-gốc drafts get `[]`. Remaining: open a
   labour draft in the real app and check the downloaded file.
-- [ ] K6 full text for every shown document, PDFs.
+- [ ] K6 full text for every shown document, PDFs — partly done (2026-09-29,
+  `integ/kho-day-du`). Target: the 438 shallow/metadata rows among the shown set at
+  2026-09-28 (480 on the shared DB ∪ 484 after the K8 recovery). **324 upgraded in
+  place** from the 2026-09-28 gateway cache through the same `build_seed` gate
+  (`DOC_IDS` K6 block, `so_ky_hieu` = `docNum`; seed rebuilt byte-identical for the
+  82 old documents first): DB deep 82 → 406, provisions 49,183 → 108,693, no
+  `documents` row deleted, status/dates/overrides unchanged (`lam_moi_hieu_luc
+  --tu-seed --dry-run`: 0 rows). Verbatim: `verified_documents` 78 → 381 (+303,
+  `don_kho --chi-chua-kiem`); 21 differ only in table rows, as 145/2020 did.
+  Indexed with `build_chunks --chi-moi --chi-id` (the 60 out-of-kho rows stay
+  unindexed so the K8 recovery still applies): voyage chunks 8,710 → 19,267
+  (+10,557; the 320 placeholder title chunks went with their `mo_dau`), OpenRouter
+  usage +US$0.065. Shown set unchanged (480, same verdicts); shown by depth deep 43
+  → 366, shallow/metadata 437 → 114. **114 shown documents still have no full
+  text** (113 in the `KHONG_NAP` K6 block + 27/2023/QH15): duplicate citable anchors
+  (~50, mostly amending laws that quote the amended article), unnumbered required
+  nodes, no `prov-*` tags, empty content, text not preserved, parser moving text
+  between anchors, tail text inside an anchor, and the gateway duplicate pair
+  55/2025/NQ-HĐND (184706/185035). Proposal for the owner (rule unchanged): either
+  hide shown documents without full text until the parser handles these classes,
+  or accept title-only pages for them. Process deviation: the in-place ingest ran
+  through `test_ingest.py`'s integration tests (run without the marker filter)
+  before the planned backup/dry run; the result equals the planned `ingest` (column
+  diff against `backup-truoc-K8-6-khoi-phuc.dump`: only the 324 target rows changed,
+  in `depth`, `nguon_url`, `checksum`, `linh_vuc` (224 filled), `ten` (28, gateway
+  whitespace), `chuc_danh_nguoi_ky` (7), `so_ky_hieu` (2 'số' prefixes dropped),
+  `co_quan_ban_hanh`/`nguoi_ky` (2 joint circulars lose their second body — the
+  gateway lists one)); post-state `backup-K6-sau-ingest-tu-test.dump`.
+  Signed PDFs (`scripts/nap_pdf_ban_ky.py`, evidence `data/seed/pdf_ban_ky.yaml`,
+  backup `backup-truoc-K6-pdf.dump`): 484 looked up at ≤1 request/s, **248 signed
+  PDFs + page-1 previews** (60 dpi, 68–166 KB, longest side ≤728 px; 246 of the 480
+  shown now + 135/2020, 129/2025 after the recovery; 189 deep, 59 shallow). 145
+  pages carry only an unsigned `.pdf` (mostly ministry circulars, e.g.
+  `20-btc.pdf`) — not shown as "có chữ ký" without evidence; owner decision. 91 are
+  not on vanban.chinhphu.vn (local HĐND/UBND, old documents). Reload is a no-op
+  (0/0). Validation: CI lane 2,939 passed (1 known worktree-only failure); ruff has
+  only the 6 old `scripts/log_*.py` errors and the changed hunks add no format
+  debt; no frontend change. Open: the K8 recovery (still not applied) keeps
+  working — it touches loai 20–23 edges and the 60 unindexed `metadata-only` rows
+  only; after it, expect 484 shown (deep 370). The answer cache key depends on the
+  shown set, which did not change, so answers cached before K6 survive the new
+  index — flush `answer_cache` before K5. `provisions.jsonl` is 61 MB. Raw
+  responses for K1/K8/K6 live in scratch `kho-cache/raw` (`DATA_RAW_DIR`), not in
+  `data/raw/moj`; a rebuild elsewhere re-fetches them.
 - [x] K7 visibility rule and diagnostics hidden (2026-09-28,
   `integ/hien-thi-con-hieu-luc`, on main at 5ec9acf). `services/hien_thi` is the
   one definition: shown = MOJ `tinh_trang` CHL/HHL1P AND KLAW verdict alive
