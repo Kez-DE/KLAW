@@ -1,0 +1,83 @@
+# Văn bản thỏa thuận phân chia tài sản chung của vợ chồng — KHÔNG có mẫu chính thức.
+# Luật HNGĐ 52/2014/QH13 Đ38.2 chỉ đòi: "Thỏa thuận về việc chia tài sản chung phải lập
+# thành văn bản. Văn bản này được công chứng theo yêu cầu của vợ chồng hoặc theo quy
+# định của pháp luật." Dựng TƯƠNG TỰ mẫu hợp đồng Nhà nước gần nhất, NĐ 96/2024 Phụ lục
+# II (D2 §4.9): quốc hiệu và tiêu ngữ giữa trang; dòng địa danh-ngày nghiêng giữa trang
+# TRÊN tên văn bản; tên văn bản in hoa đậm; căn cứ mỗi dòng một đoạn; "Hai bên chúng tôi
+# gồm:" nghiêng; "I. BÊN …:" đậm với các dòng "- trường: …"; câu dẫn; "Điều n." đậm;
+# khối ký hai cột ngay sau. Không dòng "Số": văn bản giữa hai vợ chồng, không phải hợp
+# đồng của một tổ chức (Open decision 2).
+#
+# Không checklist: điều luật của từng điều nằm ở `muc` (thiết kế §7 "New types"). Căn cứ
+# đã tra kho thật 2026-09-29: 52/2014/QH13 (id 36870) và 91/2015/QH13 (id 95942) đều được
+# hiện, còn hiệu lực; mọi đường dẫn dưới đây có trong `provisions`.
+loai: thoa_thuan_chia_tai_san_chung
+ten: văn bản thỏa thuận phân chia tài sản chung của vợ chồng
+tieu_de: VĂN BẢN THỎA THUẬN PHÂN CHIA TÀI SẢN CHUNG CỦA VỢ CHỒNG
+bo_cuc: hop_dong
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 96/2024/NĐ-CP, Phụ lục II (tham chiếu bố cục); thể thức theo Phụ lục I Nghị định 30/2020/NĐ-CP"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/7/42491/51289-1-2024939-94096-2024-nd-cp.pdf
+  tep_d2: goc/nd96-2024_congbao-939-940.pdf
+  sha256: 5b41a37fec6af317480a600f70cb4233ae852d6b297613ebe32222f531322174
+  trang: 14
+  ghi_chu: "Không có mẫu chính thức cho thỏa thuận chia tài sản chung của vợ chồng; Luật HNGĐ Đ38.2 chỉ đòi lập thành văn bản. Trang PDF 14 = Công báo tr. 15 (đầu Phụ lục II)."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: dau
+  ten_loai:
+    - "VĂN BẢN THỎA THUẬN"
+    - "PHÂN CHIA TÀI SẢN CHUNG CỦA VỢ CHỒNG"
+  kinh_gui: null
+  can_cu: true
+  noi_nhan: null
+  ket_thuc: "Văn bản thỏa thuận này được lập thành {} bản, mỗi bên giữ {} bản, có giá trị pháp lý như nhau."
+ben:
+  - khoa: chong
+    vai: "Bên chồng"
+    tieu_de: "I. BÊN CHỒNG:"
+    dong:
+      - "- Họ và tên: {ho_ten}"
+      - "- Ngày sinh: {ngay_sinh}"
+      - "- Số định danh cá nhân: {so_dinh_danh}"
+      - "- Nơi cư trú: {noi_cu_tru}"
+      - "- Số điện thoại: {dien_thoai}"
+  - khoa: vo
+    vai: "Bên vợ"
+    tieu_de: "II. BÊN VỢ:"
+    dong:
+      - "- Họ và tên: {ho_ten}"
+      - "- Ngày sinh: {ngay_sinh}"
+      - "- Số định danh cá nhân: {so_dinh_danh}"
+      - "- Nơi cư trú: {noi_cu_tru}"
+      - "- Số điện thoại: {dien_thoai}"
+than:
+  - {dong: "Hai bên chúng tôi gồm:", nghieng: true}
+  - {ben: chong}
+  - {ben: vo}
+  - {dong: "Hai bên là vợ chồng theo Giấy chứng nhận kết hôn số {} do {} cấp ngày {} tháng {} năm {}."}
+  - {dong: "Hai bên chúng tôi thống nhất lập văn bản thỏa thuận phân chia tài sản chung của vợ chồng với các nội dung sau đây:"}
+  - {dieu: dieu}
+# Điều khoản làm căn cứ cho CẢ văn bản (ngoài các điều của `muc`): Đ38.2 — thỏa thuận
+# phải lập thành văn bản.
+can_cu: ["52/2014/QH13 > Điều 38 > Khoản 2"]
+# Nội dung luật đòi: tài sản nào là tài sản chung được chia (Luật HNGĐ Đ33.1) và phần
+# mỗi bên được nhận (BLDS Đ213.4: tài sản chung của vợ chồng phân chia theo thỏa thuận).
+# Hiệu lực và nghĩa vụ với người thứ ba: luật có quy tắc mặc định (Luật HNGĐ Đ39.1,
+# Đ39.4) nên không bắt buộc.
+muc:
+  - {key: tai_san_chung, ten: "Tài sản chung được phân chia", can_cu: "52/2014/QH13 > Điều 33 > Khoản 1"}
+  - {key: phan_chong, ten: "Phần tài sản bên chồng được nhận", can_cu: "91/2015/QH13 > Điều 213 > Khoản 4"}
+  - {key: phan_vo, ten: "Phần tài sản bên vợ được nhận", can_cu: "91/2015/QH13 > Điều 213 > Khoản 4"}
+  - {key: nghia_vu_nguoi_thu_ba, ten: "Quyền, nghĩa vụ về tài sản đối với người thứ ba", can_cu: "52/2014/QH13 > Điều 39 > Khoản 4", bat_buoc: false}
+  - {key: hieu_luc, ten: "Thời điểm có hiệu lực", can_cu: "52/2014/QH13 > Điều 39 > Khoản 1", bat_buoc: false}
+muc_khung: []
+ky:
+  thu_tu: [chong, vo]
+  o:
+    - {khoa: chong, vai: "BÊN CHỒNG", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+    - {khoa: vo, vai: "BÊN VỢ", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+truong_tu_facts: {}

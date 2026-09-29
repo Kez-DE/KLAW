@@ -1,0 +1,92 @@
+# Văn bản thỏa thuận về việc nuôi con sau khi ly hôn — KHÔNG có mẫu chính thức. Luật HNGĐ
+# 52/2014/QH13 Đ81.2: "Vợ, chồng thỏa thuận về người trực tiếp nuôi con, nghĩa vụ, quyền
+# của mỗi bên sau khi ly hôn đối với con"; BLTTDS Đ396.3 đòi tài liệu chứng minh thỏa
+# thuận nuôi con kèm đơn thuận tình ly hôn (`don_thuan_tinh_ly_hon`). Bố cục TƯƠNG TỰ
+# NĐ 96/2024 Phụ lục II, cùng khung với `thoa_thuan_chia_tai_san_chung`; thêm khối con
+# chung (hai con — con thứ hai "nếu có").
+#
+# Không checklist: điều luật của từng điều nằm ở `muc`. Mọi đường dẫn đã tra kho thật
+# 2026-09-29 (52/2014/QH13, id 36870, được hiện, còn hiệu lực).
+loai: thoa_thuan_nuoi_con
+ten: văn bản thỏa thuận về việc nuôi con sau khi ly hôn
+tieu_de: VĂN BẢN THỎA THUẬN VỀ VIỆC NUÔI CON SAU KHI LY HÔN
+bo_cuc: hop_dong
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 96/2024/NĐ-CP, Phụ lục II (tham chiếu bố cục); thể thức theo Phụ lục I Nghị định 30/2020/NĐ-CP"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/7/42491/51289-1-2024939-94096-2024-nd-cp.pdf
+  tep_d2: goc/nd96-2024_congbao-939-940.pdf
+  sha256: 5b41a37fec6af317480a600f70cb4233ae852d6b297613ebe32222f531322174
+  trang: 14
+  ghi_chu: "Không có mẫu chính thức cho thỏa thuận nuôi con; nội dung theo Luật HNGĐ Đ81–84, Đ116, Đ117. Trang PDF 14 = Công báo tr. 15 (đầu Phụ lục II)."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: dau
+  ten_loai:
+    - "VĂN BẢN THỎA THUẬN"
+    - "VỀ VIỆC NUÔI CON SAU KHI LY HÔN"
+  kinh_gui: null
+  can_cu: true
+  noi_nhan: null
+  ket_thuc: "Văn bản thỏa thuận này được lập thành {} bản, mỗi bên giữ {} bản, có giá trị pháp lý như nhau."
+ben:
+  - khoa: chong
+    vai: "Bên chồng (cha)"
+    tieu_de: "I. BÊN CHỒNG:"
+    dong:
+      - "- Họ và tên: {ho_ten}"
+      - "- Ngày sinh: {ngay_sinh}"
+      - "- Số định danh cá nhân: {so_dinh_danh}"
+      - "- Nơi cư trú: {noi_cu_tru}"
+      - "- Số điện thoại: {dien_thoai}"
+  - khoa: vo
+    vai: "Bên vợ (mẹ)"
+    tieu_de: "II. BÊN VỢ:"
+    dong:
+      - "- Họ và tên: {ho_ten}"
+      - "- Ngày sinh: {ngay_sinh}"
+      - "- Số định danh cá nhân: {so_dinh_danh}"
+      - "- Nơi cư trú: {noi_cu_tru}"
+      - "- Số điện thoại: {dien_thoai}"
+  # Con chung: không ký, chỉ là khối thông tin. Mỗi con một khoá bên, để "con thứ nhất
+  # tên …" thành đúng một phép điền.
+  - khoa: con_thu_nhat
+    vai: "Con chung thứ nhất"
+    tieu_de: "III. CON CHUNG:"
+    dong:
+      - "- Họ và tên con thứ nhất: {ho_ten}"
+      - "- Ngày sinh: {ngay_sinh}"
+  - khoa: con_thu_hai
+    vai: "Con chung thứ hai (nếu có)"
+    dong:
+      - "- Họ và tên con thứ hai (nếu có): {ho_ten}"
+      - "- Ngày sinh: {ngay_sinh}"
+than:
+  - {dong: "Hai bên chúng tôi gồm:", nghieng: true}
+  - {ben: chong}
+  - {ben: vo}
+  - {dong: "Hai bên là vợ chồng theo Giấy chứng nhận kết hôn số {} do {} cấp ngày {} tháng {} năm {}."}
+  - {ben: con_thu_nhat}
+  - {ben: con_thu_hai}
+  - {dong: "Hai bên chúng tôi thống nhất lập văn bản thỏa thuận về việc nuôi con chung sau khi ly hôn với các nội dung sau đây:"}
+  - {dieu: dieu}
+# Nội dung luật đòi (Luật HNGĐ): người trực tiếp nuôi con (Đ81.2); cấp dưỡng — bên không
+# trực tiếp nuôi có nghĩa vụ (Đ82.2), mức do các bên thỏa thuận (Đ116.1), phương thức
+# (Đ117); quyền, nghĩa vụ của MỖI bên đối với con (Đ81.2): thăm nom (Đ82.3) và không cản
+# trở (Đ83.2). Thay đổi người trực tiếp nuôi (Đ84.2.a) là tùy chọn.
+muc:
+  - {key: nguoi_truc_tiep_nuoi, ten: "Người trực tiếp nuôi con", can_cu: "52/2014/QH13 > Điều 81 > Khoản 2"}
+  - {key: cap_duong, ten: "Mức cấp dưỡng nuôi con", can_cu: "52/2014/QH13 > Điều 116 > Khoản 1"}
+  - {key: phuong_thuc_cap_duong, ten: "Phương thức cấp dưỡng", can_cu: "52/2014/QH13 > Điều 117"}
+  - {key: quyen_ben_khong_nuoi, ten: "Quyền, nghĩa vụ của bên không trực tiếp nuôi con", can_cu: "52/2014/QH13 > Điều 82 > Khoản 3"}
+  - {key: quyen_ben_nuoi, ten: "Quyền, nghĩa vụ của bên trực tiếp nuôi con", can_cu: "52/2014/QH13 > Điều 83 > Khoản 2"}
+  - {key: thay_doi_nguoi_nuoi, ten: "Thay đổi người trực tiếp nuôi con", can_cu: "52/2014/QH13 > Điều 84 > Khoản 2 > Điểm a", bat_buoc: false}
+muc_khung: []
+ky:
+  thu_tu: [chong, vo]
+  o:
+    - {khoa: chong, vai: "BÊN CHỒNG", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+    - {khoa: vo, vai: "BÊN VỢ", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+truong_tu_facts: {}

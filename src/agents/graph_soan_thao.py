@@ -173,6 +173,14 @@ def requirements(loai: str) -> tuple[list[Rule], Checklist, dict[int, dict]]:
     return load_requirements(get_engine(), loai)
 
 
+@lru_cache
+def provisions_theo_duong_dan(duong_dan: frozenset[str]) -> dict[int, dict]:
+    """Cùng `_requirement_provisions`, cho một khuôn mẫu KHÔNG checklist: điều khoản mà
+    chính mục registry dẫn (`muc[].can_cu`, `can_cu`). Cache như `requirements` — tập
+    điều khoản không đổi theo ngày; lọc hiện/hiệu lực vẫn ở người gọi."""
+    return _requirement_provisions(get_engine(), set(duong_dan))
+
+
 class KhongSoanDuocError(ValueError):
     """Căn cứ gốc của checklist thuộc văn bản ẩn: dừng TRƯỚC lượt LLM trả phí.
     `ValueError` để các cửa đã bắt lời từ chối soạn (`dung_lai`, nhánh sửa của

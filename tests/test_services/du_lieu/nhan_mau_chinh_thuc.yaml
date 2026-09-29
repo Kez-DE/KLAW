@@ -70,3 +70,55 @@ cong_van:
     - {chu: "Họ và tên", ly_do: "cụm giữ chỗ — thành chỗ trống"}
     - {chu: "(ô 13) địa chỉ, thư điện tử, điện thoại, Fax", ly_do: "tuỳ chọn theo chú thích 10 của mẫu (nếu cần) — không dựng"}
     - {chu: "Ghi chú: 1…10", ly_do: "chú thích của mẫu, không phải công văn (D2 §4.1)"}
+don_thuan_tinh_ly_hon:
+  tep_d2: goc/nq04-2018-hdtp_vbpl-153951_VanBanGoc.pdf
+  sha256: cdd2197fc06aea55d2663dfa1e29f78571ac856a51f2f561aa5e85fb7fb9e929
+  # Bản quét: lớp chữ OCR nhiễu ("Địa ch ỉ", "nhân d â n"), nên chữ tĩnh đọc trên ảnh trang
+  # (D2 `png/nq04-goc/p-04.png`) và đối chiếu từng chữ với bản chuyển soạn .doc của Bộ Tư
+  # pháp (`pdf/nq04-2018-hdtp_vbpl-153951.pdf`, bản LibreOffice của tệp .doc, dòng 104–165).
+  lenh: "pdftotext -layout -f 4 -l 4 goc/nq04-2018-hdtp_vbpl-153951_VanBanGoc.pdf - ; pdftotext -layout pdf/nq04-2018-hdtp_vbpl-153951.pdf - | sed -n 104,165p"
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - "ĐƠN YÊU CẦU"
+    - "GIẢI QUYẾT VIỆC DÂN SỰ"
+    - "(V/v: Yêu cầu công nhận thuận tình ly hôn, thỏa thuận nuôi con, chia tài sản khi ly hôn)"
+    - "Kính gửi: Tòa án nhân dân"
+    - "1. Người yêu cầu giải quyết việc dân sự (chồng):"
+    - "Ngày sinh:"
+    - "Số định danh cá nhân:"
+    - "Địa chỉ:"
+    - "Số điện thoại (nếu có): ; Fax (nếu có):"
+    - "Địa chỉ thư điện tử (nếu có):"
+    - "2. Người yêu cầu giải quyết việc dân sự (vợ):"
+    - "Ngày sinh:"
+    - "Số định danh cá nhân:"
+    - "Địa chỉ:"
+    - "Số điện thoại (nếu có): ; Fax (nếu có):"
+    - "Địa chỉ thư điện tử (nếu có):"
+    - "Tôi (chúng tôi) xin trình bày với Tòa án nhân dân việc như sau:"
+    - "- Những vấn đề yêu cầu Tòa án giải quyết:"
+    - "- Lý do, mục đích, căn cứ của việc yêu cầu Tòa án giải quyết đối với những vấn đề nêu trên:"
+    - "- Tên và địa chỉ của những người có liên quan đến những vấn đề yêu cầu Tòa án giải quyết:"
+    - "- Các thông tin khác (nếu có):"
+    - "Tài liệu, chứng cứ kèm theo đơn yêu cầu:"
+    - "1."
+    - "2."
+    - "3."
+    - "Tôi (chúng tôi) cam kết những lời khai trong đơn là đúng sự thật."
+    - ", ngày tháng năm"
+    - "NGƯỜI YÊU CẦU"
+    - "(Chồng)"
+    - "(Ký hoặc điểm chỉ, ghi rõ họ tên)"
+    - "NGƯỜI YÊU CẦU"
+    - "(Vợ)"
+    - "(Ký hoặc điểm chỉ, ghi rõ họ tên)"
+  # Chữ trong `nhan` KHÔNG có trên tệp gốc, mỗi dòng theo đúng một hướng dẫn của chính mẫu.
+  them:
+    - {chu: "Yêu cầu công nhận thuận tình ly hôn, thỏa thuận nuôi con, chia tài sản khi ly hôn", ly_do: "hướng dẫn (1): ô V/v ghi loại việc theo BLTTDS — nguyên văn BLTTDS Đ29 khoản 2"}
+    - {chu: "1. … (chồng) / 2. … (vợ), khối người yêu cầu thứ hai", ly_do: "hướng dẫn (3): nhiều người cùng làm đơn thì đánh số 1, 2 và ghi đủ thông tin từng người; vợ, chồng cùng là người yêu cầu (BLTTDS Đ396.2)"}
+    - {chu: "Ngày sinh: / Số định danh cá nhân:", ly_do: "hướng dẫn (3): cá nhân ghi họ tên, ngày tháng năm sinh và giấy tờ tùy thân"}
+    - {chu: "(Chồng) / (Vợ) / (Ký hoặc điểm chỉ, ghi rõ họ tên), cột ký thứ hai", ly_do: "hướng dẫn (12): nhiều người cùng yêu cầu thì cùng ký và ghi rõ họ tên; cá nhân ký tên hoặc điểm chỉ (BLTTDS Đ362.2 điểm g, Đ396.2)"}
+  bo_qua:
+    - {chu: "Mẫu số 01-VDS (Ban hành kèm theo Nghị quyết số 04/2018/NQ-HĐTP ngày 09 tháng 8 năm 2018 của Hội đồng Thẩm phán Tòa án nhân dân tối cao)", ly_do: "dòng chú thích phụ lục, không phải lá đơn (D2 §4.1; Open decision 7)"}
+    - {chu: "Hướng dẫn sử dụng mẫu số 01-VDS: (1)…(12)", ly_do: "hướng dẫn điền, không phải lá đơn (D2 §4.1)"}

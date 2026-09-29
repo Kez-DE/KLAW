@@ -166,6 +166,16 @@ def _kiem_muc(d: dict, loai: str) -> str | None:
         mau.append(m.get("dong") or "")
     kg = tt.get("kinh_gui") or {}
     mau += [kg.get("dong") or "", tt.get("so") or "", tt.get("ket_thuc") or "", *(tt.get("noi_nhan") or [])]
+    mau += [_chuoi_cua_dong(x) for x in tt.get("ten_loai") or []]
+    # Loại KHÔNG checklist mang điều luật của nó ngay trong mục: `muc` (khoá, tên, điều
+    # khoản căn cứ, bắt buộc hay không) và `can_cu` (điều khoản thêm cho khối căn cứ).
+    luat = d.get("muc") or []
+    if any(not isinstance(m, dict) or not m.get("key") or not m.get("ten") for m in luat):
+        return "muc: mỗi mục cần `key` và `ten`"
+    if len({m["key"] for m in luat}) != len(luat):
+        return "khoá muc trùng"
+    if any(not isinstance(x, str) for x in [*(d.get("can_cu") or []), *(m.get("can_cu", "") for m in luat)]):
+        return "can_cu phải là đường dẫn điều khoản"
     if lech := sorted({o for s in mau for o in _cac_o(s) if o and o not in danh_muc and o != "trich_yeu"}):
         return f"trường lạ trong dòng mẫu {lech}"
     ky = d.get("ky") or {}
@@ -282,24 +292,32 @@ def them_dieu_bat_buoc(dieu: list[dict], loai: str | None, *, tao: bool = True) 
     trên khoá của `dieu` cộng khoá khung đã có, cùng `khong_bat_buoc` với
     `draft_audit`. Lúc TẠO, mỗi mục thiếu được chèn đúng vị trí checklist là một Điều
     tên mục với MỘT đoạn "……": bản thảo luôn đủ điều luật đòi, để trống chứ không bịa.
-    Lúc SỬA không chèn gì — mục thiếu là một phát hiện. `loai` không có checklist:
-    không đòi gì. Trả `(dieu, {thieu, completeness})`."""
+    Lúc SỬA không chèn gì — mục thiếu là một phát hiện. `loai` không checklist: `muc`
+    của chính mục registry (mục `bat_buoc: false` không đòi); không có thì không đòi
+    gì. Trả `(dieu, {thieu, completeness})`."""
     from src.agents.graph_soan_thao import cac_loai as cac_checklist
     from src.agents.graph_soan_thao import load_checklist_cached
     from src.services.checklist import check_completeness
 
-    if not loai or loai not in cac_checklist():
-        return list(dieu), {"thieu": [], "completeness": None}
-    cl = load_checklist_cached(loai)
-    entry = nap(loai) if loai in cac_loai() else {}
+    entry = nap(loai) if loai and loai in cac_loai() else {}
     co = [{"key": k} for k in khoa_khung(entry)] + [{"key": d.get("key")} for d in dieu]
-    comp = check_completeness(cl, co, "thuong_mai")
-    if not tao or not comp.thieu:
-        return list(dieu), {"thieu": comp.thieu, "completeness": comp.ty_le}
-    thu_tu = [m["key"] for m in cl.muc]
-    ten = {m["key"]: m["ten"] for m in cl.muc}
+    if loai and loai in cac_checklist():
+        cl = load_checklist_cached(loai)
+        comp = check_completeness(cl, co, "thuong_mai")
+        muc, thieu, ty_le = cl.muc, comp.thieu, comp.ty_le
+    elif entry.get("muc"):
+        muc = entry["muc"]
+        bat_buoc = [m["key"] for m in muc if m.get("bat_buoc", True)]
+        thieu = [k for k in bat_buoc if k not in {c["key"] for c in co}]
+        ty_le = round((len(bat_buoc) - len(thieu)) / len(bat_buoc), 4) if bat_buoc else 1.0
+    else:
+        return list(dieu), {"thieu": [], "completeness": None}
+    if not tao or not thieu:
+        return list(dieu), {"thieu": thieu, "completeness": ty_le}
+    thu_tu = [m["key"] for m in muc]
+    ten = {m["key"]: m["ten"] for m in muc}
     ra = list(dieu)
-    for k in comp.thieu:
+    for k in thieu:
         moi = {"key": k, "ten": ten.get(k, k), "doan": [CHO], "can_cu": None, "chen": True}
         # Chèn trước điều đầu tiên có vị trí checklist SAU mục này; không có thì cuối.
         vt = thu_tu.index(k) if k in thu_tu else len(thu_tu)
@@ -308,7 +326,7 @@ def them_dieu_bat_buoc(dieu: list[dict], loai: str | None, *, tao: bool = True) 
             len(ra),
         )
         ra.insert(i, moi)
-    return ra, {"thieu": comp.thieu, "completeness": comp.ty_le}
+    return ra, {"thieu": thieu, "completeness": ty_le}
 
 
 # ═══ Chuẩn hoá chữ điều khoản (§6 bước 1, 3, 4) — thuần, dùng chung hai đường ═══
@@ -582,8 +600,18 @@ class _Dung:
             self._ten_loai(truoc=360, ke_trich_yeu=True)
 
     def _ten_loai(self, *, truoc: int, ke_trich_yeu: bool = False) -> None:
-        p = self.doan(self.body, can="center", truoc=truoc, giu_sau=True)
-        p.append(_run(self.spec["tieu_de"], b=True))
+        # Tên loại in theo DÒNG của mẫu khi mẫu ngắt dòng (`the_thuc.ten_loai`; Mẫu 01-VDS:
+        # "ĐƠN YÊU CẦU" / "GIẢI QUYẾT VIỆC DÂN SỰ" / "(V/v: …)" nghiêng). `tieu_de` vẫn là
+        # tên của văn bản (tên tệp, tóm tắt).
+        dong = (self.spec.get("the_thuc") or {}).get("ten_loai")
+        if dong:
+            for k, d in enumerate(dong):
+                mau, nghieng = (d.get("d", ""), bool(d.get("nghieng"))) if isinstance(d, dict) else (d, False)
+                p = self.doan(self.body, can="center", truoc=0 if k else truoc, giu_sau=True)
+                self.dong_mau(p, mau, p, None, b=True, i=nghieng)
+        else:
+            p = self.doan(self.body, can="center", truoc=truoc, giu_sau=True)
+            p.append(_run(self.spec["tieu_de"], b=True))
         if ty := self.spec.get("trich_yeu"):
             p = self.doan(self.body, can="center", giu_sau=True)
             p.append(_run(ty, b=True))
@@ -655,8 +683,9 @@ class _Dung:
     def _muc(self, m: dict, d: dict | None, thut: int) -> list[Any]:
         """Một mục cố định của thân: nhãn nguyên văn của mẫu, rồi đoạn của mô hình;
         không có đoạn nào thì dòng nhãn mang MỘT chỗ trống dẫn chấm (hay `danh_sach`
-        dòng đánh số)."""
-        doan = [x for x in (d or {}).get("doan") or [] if x.strip()]
+        dòng đánh số). Một đoạn chỉ là "……" (mục luật đòi được chèn trống) cũng là mục
+        trống: in đúng hình trống của MẪU (dòng dẫn chấm, "1. … 2. …"), không một dòng "……"."""
+        doan = [x for x in (d or {}).get("doan") or [] if x.strip() and x.strip() != CHO]
         ra = []
         nhan = m.get("nhan")
         if nhan:
@@ -679,9 +708,10 @@ class _Dung:
                 b=bool(m.get("dam")),
             )
         if not doan and m.get("danh_sach"):
+            # `dau_so`: dấu sau số thứ tự đúng như mẫu ("1." của Mẫu 01-VDS, "1" của 23-DS).
             for i in range(1, int(m["danh_sach"]) + 1):
                 p = self.doan(self.body, can="left", trai=thut, sau=0, dong=_DONG)
-                self.dong_mau(p, f"{i} {{}}", p, None, tab=True, trai=thut)
+                self.dong_mau(p, f"{i}{m.get('dau_so', '')} {{}}", p, None, tab=True, trai=thut)
         if not doan and not nhan:
             p = self.doan(self.body, thut_dau=_THUT, sau=_SAU, dong=_DONG)
             self.dong_mau(p, "{}", p, None)
@@ -730,7 +760,8 @@ class _Dung:
 
     def cuoi_ngay(self) -> None:
         if (self.spec.get("the_thuc") or {}).get("ngay") == "cuoi":
-            p = self.doan(self.body, can="right", truoc=240)
+            # Dòng ngày ở cuối đứng ngay trên người ký: cùng trang với khối ký.
+            p = self.doan(self.body, can="right", truoc=240, giu_sau=True)
             self.dong_mau(p, "{}, ngày {} tháng {} năm {}", p, None, i=True)
 
     def khoi_ky(self) -> None:

@@ -455,16 +455,26 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
         co_trich_yeu=bool(entry["the_thuc"].get("vv")) or entry["bo_cuc"] == "hanh_chinh",
     )
     muc = [{"key": m["muc"], "ten": m.get("nhan") or m["muc"], "trich": ""} for m in entry["than"] if "muc" in m]
+    # Điều luật của loại: checklist khi có; không thì `muc`/`can_cu` của chính mục
+    # registry (loại mới như hôn nhân gia đình) — CÙNG bộ lọc hiện/hiệu lực phía dưới.
+    luat = None
     if loai in gst.cac_loai():
-        as_of = as_of_hieu_luc(st.get("as_of_date"))
         _, cl, db = gst.requirements(loai)
+        luat = (cl.muc, set(cl.khong_bat_buoc.get("keys") or []), db)
+    elif entry.get("muc") or entry.get("can_cu"):
+        cua_muc = entry.get("muc") or []
+        dd = frozenset([*(entry.get("can_cu") or []), *(m["can_cu"] for m in cua_muc if m.get("can_cu"))])
+        khong = {m["key"] for m in cua_muc if m.get("bat_buoc") is False}
+        luat = (cua_muc, khong, gst.provisions_theo_duong_dan(dd))
+    if luat:
+        muc_luat, khong_bb, db = luat
+        as_of = as_of_hieu_luc(st.get("as_of_date"))
         hien = gst.chi_van_ban_hien(db, hien_thi_luc(engine, as_of))
         theo_dd = {r["duong_dan"]: r for r in hien.values()}
         khung_co = khuon_mau.khoa_khung(entry)
-        khong_bb = set(cl.khong_bat_buoc.get("keys") or [])
-        ng["bat_buoc"] = [m["key"] for m in cl.muc if m["key"] not in khong_bb and m["key"] not in khung_co]
+        ng["bat_buoc"] = [m["key"] for m in muc_luat if m["key"] not in khong_bb and m["key"] not in khung_co]
         ten_muc = {x["key"]: x for x in muc}
-        for m in cl.muc:
+        for m in muc_luat:
             if m["key"] in khung_co:
                 continue
             r = theo_dd.get(m.get("can_cu"))
