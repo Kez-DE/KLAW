@@ -1,0 +1,65 @@
+# Hợp đồng chuyển nhượng quyền sử dụng đất, dựng TƯƠNG TỰ Phụ lục II Nghị định
+# 96/2024/NĐ-CP (Công báo 939+940, tr. 15–21) — mẫu hợp đồng dân sự gần nhất do Chính
+# phủ ban hành. Theo mẫu đó: quốc hiệu, tiêu ngữ ở giữa; dòng địa danh, ngày tháng ở
+# giữa, TRÊN tên hợp đồng; "Số: ……/……" dưới tên; căn cứ; "Hai bên chúng tôi gồm:"
+# nghiêng; "I. BÊN … (sau đây gọi tắt là Bên …):" đậm, các dòng "- …" thẳng lề chữ thân
+# bài; câu dẫn; "Điều n." đậm; điều khoản cuối về số bản; khối ký hai cột. Khối ký: Bên
+# chuyển nhượng trái (mặc định của thiết kế §7). Hình thức BẮT BUỘC: công chứng hoặc
+# chứng thực (Luật Đất đai 2024 Đ27.3.a), chuyển quyền có hiệu lực từ khi đăng ký (BLDS
+# Đ503) — hai mục bắt buộc của checklist, nên câu kết không ghi ngày hiệu lực.
+loai: hop_dong_chuyen_nhuong_quyen_su_dung_dat
+ten: hợp đồng chuyển nhượng quyền sử dụng đất
+tieu_de: HỢP ĐỒNG CHUYỂN NHƯỢNG QUYỀN SỬ DỤNG ĐẤT
+bo_cuc: hop_dong
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 96/2024/NĐ-CP, Phụ lục II Hợp đồng thuê nhà ở (tham chiếu bố cục)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/7/42491/51289-1-2024939-94096-2024-nd-cp.pdf
+  tep_d2: goc/nd96-2024_congbao-939-940.pdf
+  sha256: 5b41a37fec6af317480a600f70cb4233ae852d6b297613ebe32222f531322174
+  trang: 14
+  ghi_chu: "Không có mẫu hợp đồng chuyển nhượng quyền sử dụng đất giữa người sử dụng đất do Nhà nước ban hành; bố cục theo mẫu hợp đồng dân sự của Chính phủ gần nhất (NĐ 96/2024 Phụ lục II), nội dung bắt buộc theo checklist. Thể thức theo tập quán — NĐ 30/2020 không bắt buộc hợp đồng dân sự."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: "Số: {}/{}"
+  ngay: dau
+  kinh_gui: null
+  can_cu: true
+  noi_nhan: null
+  thut_ben_mm: 12.7
+  ket_thuc: "Hợp đồng này được lập thành {} bản có giá trị pháp lý như nhau, mỗi bên giữ {} bản."
+ben:
+  - khoa: ben_chuyen_nhuong
+    vai: Bên chuyển nhượng
+    tieu_de: "I. BÊN CHUYỂN NHƯỢNG (sau đây gọi tắt là Bên chuyển nhượng):"
+    dong:
+      - "- Họ và tên:{ho_ten}"
+      - "- Ngày sinh:{ngay_sinh}"
+      - "- Số định danh cá nhân:{so_dinh_danh}"
+      - "- Nơi cư trú:{noi_cu_tru}"
+      - "- Số điện thoại:{dien_thoai}"
+      - "- Số tài khoản:{so_tai_khoan}"
+      - "- Tại ngân hàng:{ngan_hang}"
+  - khoa: ben_nhan_chuyen_nhuong
+    vai: Bên nhận chuyển nhượng
+    tieu_de: "II. BÊN NHẬN CHUYỂN NHƯỢNG (sau đây gọi tắt là Bên nhận chuyển nhượng):"
+    dong:
+      - "- Họ và tên:{ho_ten}"
+      - "- Ngày sinh:{ngay_sinh}"
+      - "- Số định danh cá nhân:{so_dinh_danh}"
+      - "- Nơi cư trú:{noi_cu_tru}"
+      - "- Số điện thoại:{dien_thoai}"
+than:
+  - {dong: "Hai bên chúng tôi gồm:", nghieng: true}
+  - {ben: ben_chuyen_nhuong}
+  - {ben: ben_nhan_chuyen_nhuong}
+  - {dong: "Hai bên chúng tôi thống nhất ký kết hợp đồng chuyển nhượng quyền sử dụng đất với các nội dung sau đây:"}
+  - {dieu: dieu}
+muc_khung: []
+ky:
+  thu_tu: [ben_chuyen_nhuong, ben_nhan_chuyen_nhuong]
+  o:
+    - {khoa: ben_chuyen_nhuong, vai: "BÊN CHUYỂN NHƯỢNG", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+    - {khoa: ben_nhan_chuyen_nhuong, vai: "BÊN NHẬN CHUYỂN NHƯỢNG", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+truong_tu_facts: {}

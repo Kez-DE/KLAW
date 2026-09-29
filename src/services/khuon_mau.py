@@ -403,6 +403,9 @@ class _Dung:
         self.le = tuple(round(x * _MM) for x in (tren, duoi, trai, phai))
         self.rong = _A4[0] - self.le[2] - self.le[3]
         self.co = int(tt.get("co_chu", 14)) * 2
+        # Khối các bên thụt bằng lùi đầu dòng của đoạn (NĐ 96/2024 Phụ lục II: "I. BÊN …"
+        # và các dòng "- …" thẳng lề chữ thân bài), thân bài giữ lùi dòng đầu.
+        self.thut_ben = round(float(tt.get("thut_ben_mm", 0)) * _MM)
         self.body = _e("body")
         self.o: dict[Any, list] = {}
         self.ben = {b["khoa"]: b for b in spec.get("ben") or []}
@@ -639,12 +642,15 @@ class _Dung:
 
     def _ben(self, khoa: str, thut: int) -> None:
         b = self.ben[khoa]
+        thut = thut or self.thut_ben
         if b.get("tieu_de"):
             p = self.doan(self.body, can="left", trai=thut, truoc=120, sau=0, dong=_DONG, giu_sau=True)
             p.append(_run(b["tieu_de"], b=True))
         danh_muc = truong()
         nhan = b.get("nhan") or {}
-        dong = list(b.get("dong") or []) or [f"{nhan.get(t) or danh_muc[t]}: {{{t}}}" for t in b.get("truong") or []]
+        # Nhãn sát dấu hai chấm ("Họ và tên:……", như mẫu Chính phủ): bộ áp đặt MỘT dấu
+        # cách trước giá trị chỗ `tab`, nhãn kết bằng dấu cách thì ra hai.
+        dong = list(b.get("dong") or []) or [f"{nhan.get(t) or danh_muc[t]}:{{{t}}}" for t in b.get("truong") or []]
         for k, d in enumerate(dong):
             mau, dam = (d.get("d", ""), bool(d.get("dam"))) if isinstance(d, dict) else (d, False)
             p = self.doan(
@@ -756,8 +762,11 @@ class _Dung:
                 self._noi_nhan(o_trai, noi_nhan)
             else:
                 self.doan(o_trai)
+        # Dòng tên của mọi cột thẳng hàng: cột có nhãn vai + ghi chú ít dòng hơn được đệm
+        # đoạn rỗng (không phải đơn vị) cho bằng cột nhiều dòng nhất.
+        cao = max(_so_dong_ky(k) for k in nguoi) if nguoi else 0
         for tc, k in zip(o, nguoi, strict=True):
-            self._nguoi_ky(tc, k)
+            self._nguoi_ky(tc, k, dem=cao - _so_dong_ky(k))
         # Word luôn giữ một đoạn sau bảng cuối thân bài: dựng sẵn (1 pt, rỗng — không
         # phải đơn vị) để tệp mở ra không phải "sửa".
         self.doan(self.body, sz=2)
@@ -769,7 +778,7 @@ class _Dung:
             p = self.doan(tc, can="left", sz=_CO["noi_nhan"])
             self.dong_mau(p, f"- {d}", tc, None, sz=_CO["noi_nhan"])
 
-    def _nguoi_ky(self, tc: Any, o: dict) -> None:
+    def _nguoi_ky(self, tc: Any, o: dict, *, dem: int = 0) -> None:
         vai = o.get("vai")
         p = self.doan(tc, can="center")
         if vai:
@@ -783,6 +792,8 @@ class _Dung:
         for dong in str(o.get("ghi_chu") or "").split("\n") if o.get("ghi_chu") else ():
             p = self.doan(tc, can="center")
             p.append(_run(dong, i=True))
+        for _ in range(dem):
+            self.doan(tc, can="center")
         if o.get("ho_ten_tu"):
             p = self.doan(tc, can="center", truoc=1300)
             self.dong_mau(p, f"{{{o['ho_ten_tu']}}}", tc, o["khoa"], b=True)
@@ -824,6 +835,11 @@ class _Dung:
                 nut = cha
             ra[("word/document.xml", tuple(reversed(duong)))] = khoa
         return ra
+
+
+def _so_dong_ky(o: dict) -> int:
+    """Số dòng trên tên người ký: nhãn vai (hay chỗ trống chức vụ) cộng ghi chú."""
+    return len(str(o.get("vai") or "x").split("\n")) + (len(str(o["ghi_chu"]).split("\n")) if o.get("ghi_chu") else 0)
 
 
 def _voi_loai(mau: str, tieu_de: str) -> str:
