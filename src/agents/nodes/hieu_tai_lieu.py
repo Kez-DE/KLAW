@@ -4111,7 +4111,15 @@ def _soan_khuon_mau(
         return hong(QUA_DAI_VOI_BAN_THAO, "vuot_tran")
     loai = (
         f"{ng.get('ten') or ng.get('tieu_de')} — loại có sẵn: khung, các bên và căn cứ do hệ thống dựng; bạn chỉ "
-        "viết điều khoản."
+        "viết điều khoản"
+        # Văn bản hành chính có dòng trích yếu ("V/v …", "Về việc …") mà khung dựng
+        # (`kiem_khuon_mau` đọc `trich_yeu` khi `co_trich_yeu`): mô hình viết nội dung.
+        + (
+            ", và `trich_yeu`: nội dung chính của văn bản, không kèm «V/v» hay «Về việc» (ví dụ «bổ nhiệm Phó Giám"
+            " đốc kinh doanh»)."
+            if ng.get("co_trich_yeu")
+            else "."
+        )
         if ng.get("loai")
         else (
             f"Văn bản tự soạn «{(ng.get('khung_cu') or {}).get('tieu_de')}» — giữ tên loại, bố cục và các bên."
