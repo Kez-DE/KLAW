@@ -1,0 +1,50 @@
+# Bản kiểm điểm cá nhân — TỰ DỰNG theo Phụ lục I Nghị định 30/2020/NĐ-CP (khổ, lề, cỡ
+# chữ) và bố cục đơn của cá nhân gửi tổ chức (NĐ 124/2020 Mẫu 01): quốc hiệu giữa,
+# dòng ngày, tên loại, "Kính gửi:", thông tin người viết, các mục tự kiểm điểm, khối ký
+# hai cột (ý kiến của đơn vị quản lý | người viết). Loại người dùng đã hỏi (quyết định
+# 2026-09-29 mục 8). Không có mẫu chung ban hành kèm văn bản quy phạm pháp luật cho
+# mọi trường hợp (học sinh, sinh viên, người lao động); năm mục dưới là các phần mà
+# bản kiểm điểm nào cũng có, mục cuối nêu mức tự xếp loại hay hình thức kỷ luật khi có.
+loai: ban_kiem_diem_ca_nhan
+ten: bản kiểm điểm cá nhân
+tieu_de: BẢN KIỂM ĐIỂM CÁ NHÂN
+bo_cuc: don
+nguon:
+  loai: tu_dung
+  van_ban: "Dựng theo Phụ lục I Nghị định 30/2020/NĐ-CP và bố cục Mẫu số 01 Nghị định 124/2020/NĐ-CP"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  ghi_chu: "Không có mẫu chung chính thức; đơn vị (trường, cơ quan, tổ chức đảng, đoàn) có mẫu riêng thì nên tải mẫu đó lên để dùng đúng 100%."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: dau
+  ngay_truoc_pt: 12
+  kinh_gui: {dong: "Kính gửi: {co_quan_nhan}", can: giua}
+  can_cu: false
+  noi_nhan: null
+  ket_thuc: null
+  dong_nhu_than: true
+ben:
+  - khoa: nguoi_viet
+    vai: Người viết bản kiểm điểm
+    dong:
+      - "Họ và tên:{ho_ten}"
+      - "Ngày sinh:{ngay_sinh}"
+      - "Chức vụ (hoặc lớp):{chuc_vu}"
+      - "Đơn vị công tác (hoặc nơi học tập):{don_vi_cong_tac}"
+  - {khoa: don_vi_quan_ly, vai: "Người đại diện đơn vị quản lý (ghi ý kiến, ký)", truong: []}
+than:
+  - {ben: nguoi_viet}
+  - {muc: uu_diem, nhan: "1. Ưu điểm:", dam: true, ten: "Ưu điểm"}
+  - {muc: khuyet_diem, nhan: "2. Khuyết điểm, hạn chế:", dam: true, ten: "Khuyết điểm, hạn chế (hoặc sự việc vi phạm, nếu có)"}
+  - {muc: nguyen_nhan, nhan: "3. Nguyên nhân:", dam: true, ten: "Nguyên nhân của khuyết điểm, hạn chế"}
+  - {muc: khac_phuc, nhan: "4. Biện pháp khắc phục:", dam: true, ten: "Biện pháp, hướng khắc phục"}
+  - {muc: tu_nhan, nhan: "5. Tự nhận mức xếp loại (hoặc hình thức kỷ luật):{}", dam: true, ten: "Tự nhận mức xếp loại hoặc hình thức kỷ luật (chỉ khi người hỏi nêu)"}
+muc_khung: []
+ky:
+  thu_tu: [don_vi_quan_ly, nguoi_viet]
+  o:
+    - {khoa: don_vi_quan_ly, vai: "Ý KIẾN CỦA\nĐƠN VỊ QUẢN LÝ", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+    - {khoa: nguoi_viet, vai: "NGƯỜI VIẾT\nBẢN KIỂM ĐIỂM", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+truong_tu_facts: {}

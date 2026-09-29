@@ -1,0 +1,65 @@
+# Đơn xin tạm hoãn nghĩa vụ quân sự (đúng tên pháp lý: đề nghị tạm hoãn gọi nhập ngũ,
+# Luật Nghĩa vụ quân sự 78/2015/QH13 Điều 41) — dựng TƯƠNG TỰ Mẫu số 01, Nghị định
+# 124/2020/NĐ-CP (đơn của một cá nhân gửi cơ quan có thẩm quyền).
+#
+# KHÔNG có mẫu đơn chính thức (đã đọc 2026-09-29, nguồn Công báo):
+# - Thông tư 148/2018/TT-BQP (Công báo 1005+1006, 8 trang, bản quét, OCR tesseract-vie):
+#   Điều 5 kê các diện tạm hoãn gọi nhập ngũ "theo quy định tại Điều 41 Luật nghĩa vụ
+#   quân sự năm 2015"; không có phụ lục mẫu nào. Tệp:
+#   congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2018/10/27453/24083-1-20181005-1006148-2018-tt-bqp.pdf
+#   (SHA-256 ed7b72bf7aa5a5029d795efc31d548f7248e8c61191c26fa752d5088ef24e768). Thông tư
+#   68/2025/TT-BQP sửa đổi Thông tư này; chưa đọc nội dung (bản quét).
+# - Nghị định 13/2016/NĐ-CP Điều 3 khoản 2 giao Bộ trưởng Bộ Quốc phòng "hệ thống mẫu
+#   biểu đăng ký nghĩa vụ quân sự" và kê đủ các mẫu (lệnh gọi, phiếu tự khai sức khỏe,
+#   giấy chứng nhận, giấy giới thiệu di chuyển, sổ đăng ký): không có đơn đề nghị tạm hoãn.
+#   Tệp: congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2016/2/19138/13631-1-132016nd-cp13681pdf
+#   (SHA-256 a75077e5aaa147ed6af725676c1d11c6243ea6732303835567289dc1d3b6e730).
+# Luật NVQS (và luật sửa đổi 98/2025/QH15) CHƯA có trong kho, nên khung không in dòng
+# căn cứ nào và mô hình không được dẫn số điều (lưới chặn của §6). "Kính gửi" để trống:
+# người làm đơn ghi đúng cơ quan nơi mình đăng ký nghĩa vụ quân sự.
+loai: don_xin_tam_hoan_nvqs
+ten: đơn xin tạm hoãn nghĩa vụ quân sự
+tieu_de: ĐƠN ĐỀ NGHỊ TẠM HOÃN GỌI NHẬP NGŨ
+bo_cuc: don
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 124/2020/NĐ-CP, Mẫu số 01 (tham chiếu bố cục đơn của cá nhân)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/10/32304/33027-1-20201015-1016124-2020-nd-cp.pdf
+  tep_d2: goc/nd124-2020_congbao-1015-1016.pdf
+  sha256: eec7714c55c73746e1bcc333f2e4354f008419ec26d206d8e97258c934a28f77
+  trang: 32
+  ghi_chu: "Không có mẫu đơn đề nghị tạm hoãn gọi nhập ngũ trong TT 148/2018/TT-BQP (không phụ lục) và trong danh mục mẫu biểu của NĐ 13/2016/NĐ-CP Điều 3.2. Luật NVQS chưa có trong kho: không in căn cứ."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: dau
+  ngay_truoc_pt: 12
+  kinh_gui: {dong: "Kính gửi: {co_quan_nhan}", can: giua}
+  can_cu: false
+  noi_nhan: null
+  ket_thuc: null
+  dong_nhu_than: true
+ben:
+  - khoa: nguoi_lam_don
+    vai: Người làm đơn
+    dong:
+      - "Họ và tên:{ho_ten}"
+      - "Ngày sinh:{ngay_sinh}"
+      - "Số định danh cá nhân:{so_dinh_danh}"
+      - "Nơi cư trú:{noi_cu_tru}"
+      - "Nơi đăng ký nghĩa vụ quân sự:{}"
+      - "Nơi học tập hoặc công tác:{don_vi_cong_tac}"
+      - "Số điện thoại:{dien_thoai}"
+than:
+  - {ben: nguoi_lam_don}
+  - muc: ly_do
+    nhan: "Lý do đề nghị tạm hoãn gọi nhập ngũ:{}"
+    ten: "Lý do đề nghị tạm hoãn gọi nhập ngũ (trường hợp tạm hoãn mà người làm đơn thuộc về, không dẫn số điều)"
+  - {muc: giay_to, nhan: "Giấy tờ kèm theo:{}", ten: "Giấy tờ chứng minh kèm theo"}
+  - {dong: "Tôi cam đoan những nội dung trên là đúng sự thật và xin chịu trách nhiệm trước pháp luật về lời khai của mình."}
+muc_khung: []
+ky:
+  thu_tu: [nguoi_lam_don]
+  o: [{khoa: nguoi_lam_don, vai: "NGƯỜI LÀM ĐƠN", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}]
+truong_tu_facts: {}

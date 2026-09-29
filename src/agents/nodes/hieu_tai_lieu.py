@@ -4071,7 +4071,12 @@ def _khoi_muc_khuon_mau(ngu_canh: dict) -> str:
     muc = ngu_canh.get("muc") or []
     if not muc:
         return ""
-    dong = [f"- `{m['key']}` — {m['ten']}" + (f" (căn cứ: {m['trich']})" if m.get("trich") else "") for m in muc]
+    dong = [
+        f"- `{m['key']}` — {m['ten']}"
+        + (f" (hướng dẫn của mẫu: {m['huong_dan']})" if m.get("huong_dan") else "")
+        + (f" (căn cứ: {m['trich']})" if m.get("trich") else "")
+        for m in muc
+    ]
     dan = (
         "Chỉ viết đúng các mục dưới đây, mỗi mục là một phần tử `dieu` mang `key` của nó (mẫu cố định vị trí):"
         if ngu_canh.get("khoa_than") and not ngu_canh.get("co_dieu")

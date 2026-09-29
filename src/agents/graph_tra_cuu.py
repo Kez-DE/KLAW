@@ -452,9 +452,22 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
         ben=[{"khoa": b["khoa"], "vai": b.get("vai") or b.get("tieu_de")} for b in entry.get("ben") or []],
         khoa_than=khoa_than,
         co_dieu=any("dieu" in m for m in entry["than"]),
-        co_trich_yeu=bool(entry["the_thuc"].get("vv")) or entry["bo_cuc"] == "hanh_chinh",
+        co_trich_yeu=entry["the_thuc"].get(
+            "trich_yeu", bool(entry["the_thuc"].get("vv")) or entry["bo_cuc"] == "hanh_chinh"
+        ),
     )
-    muc = [{"key": m["muc"], "ten": m.get("nhan") or m["muc"], "trich": ""} for m in entry["than"] if "muc" in m]
+    # `ten`: tên mục cho mô hình khi nhãn của mẫu mang chỗ điền `{}` hay không có nhãn;
+    # `huong_dan`: lời hướng dẫn điền của CHÍNH mẫu chính thức (Mẫu 23-DS (11), (14)…).
+    muc = [
+        {
+            "key": m["muc"],
+            "ten": m.get("ten") or m.get("nhan") or m["muc"],
+            "trich": "",
+            "huong_dan": m.get("huong_dan"),
+        }
+        for m in entry["than"]
+        if "muc" in m
+    ]
     if loai in gst.cac_loai():
         as_of = as_of_hieu_luc(st.get("as_of_date"))
         _, cl, db = gst.requirements(loai)

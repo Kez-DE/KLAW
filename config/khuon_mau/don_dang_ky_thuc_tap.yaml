@@ -1,0 +1,58 @@
+# Đơn đăng ký đi thực tập — dựng TƯƠNG TỰ Mẫu số 01, Nghị định 124/2020/NĐ-CP (đơn của
+# một cá nhân gửi một tổ chức): quốc hiệu và tiêu ngữ giữa, dòng ngày, TÊN ĐƠN, "Kính
+# gửi:", thông tin người làm đơn, cơ sở và thời gian thực tập, cam kết; khối ký hai cột
+# xác nhận của khoa (trái) | người làm đơn (phải). Không có mẫu quốc gia: mỗi cơ sở đào
+# tạo tự ban hành. Loại người dùng đã hỏi (quyết định 2026-09-29 mục 8).
+loai: don_dang_ky_thuc_tap
+ten: đơn đăng ký đi thực tập
+tieu_de: ĐƠN ĐĂNG KÝ ĐI THỰC TẬP
+bo_cuc: don
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 124/2020/NĐ-CP, Mẫu số 01 (tham chiếu bố cục đơn của cá nhân)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/10/32304/33027-1-20201015-1016124-2020-nd-cp.pdf
+  tep_d2: goc/nd124-2020_congbao-1015-1016.pdf
+  sha256: eec7714c55c73746e1bcc333f2e4354f008419ec26d206d8e97258c934a28f77
+  trang: 32
+  ghi_chu: "Không có mẫu quốc gia; bố cục theo đơn cá nhân (NĐ 124 Mẫu 01), thêm cột xác nhận của khoa."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: dau
+  ngay_truoc_pt: 12
+  kinh_gui: {dong: "Kính gửi: {co_quan_nhan}", can: giua}
+  can_cu: false
+  noi_nhan: null
+  ket_thuc: null
+  dong_nhu_than: true
+ben:
+  - khoa: sinh_vien
+    vai: Người làm đơn (sinh viên)
+    dong:
+      - "Họ và tên:{ho_ten}"
+      - "Ngày sinh:{ngay_sinh}"
+      - "Mã số sinh viên:{ma_sinh_vien}"
+      - "Lớp:{lop}; Khóa:{khoa_hoc}"
+      - "Ngành:{nganh}"
+      - "Số điện thoại:{dien_thoai}; Thư điện tử:{thu_dien_tu}"
+  - khoa: co_so
+    vai: Cơ sở thực tập
+    dong: ["Tên cơ sở thực tập:{ten_to_chuc}", "Địa chỉ:{dia_chi}"]
+  - {khoa: giang_vien, vai: "Giảng viên hướng dẫn", dong: ["Giảng viên hướng dẫn (nếu có):{ho_ten}"]}
+  - {khoa: khoa_xac_nhan, vai: "Đại diện khoa (ký xác nhận)", truong: []}
+than:
+  - {ben: sinh_vien}
+  - {dong: "Tôi làm đơn này đăng ký đi thực tập như sau:"}
+  - {ben: co_so}
+  - {dong: "Thời gian thực tập: từ ngày {} đến ngày {}"}
+  - {ben: giang_vien}
+  - {muc: noi_dung, nhan: "Nội dung thực tập dự kiến:{}", ten: "Nội dung, vị trí thực tập dự kiến"}
+  - {dong: "Tôi xin cam kết chấp hành nội quy của cơ sở thực tập và các quy định của nhà trường trong thời gian thực tập."}
+muc_khung: []
+ky:
+  thu_tu: [khoa_xac_nhan, sinh_vien]
+  o:
+    - {khoa: khoa_xac_nhan, vai: "XÁC NHẬN CỦA KHOA", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+    - {khoa: sinh_vien, vai: "NGƯỜI LÀM ĐƠN", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+truong_tu_facts: {}
