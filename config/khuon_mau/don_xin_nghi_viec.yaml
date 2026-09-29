@@ -5,7 +5,8 @@
 # (`mau-hien-co.md`: BLLĐ 2019 Đ35.1 chỉ đòi báo trước; TT 10/2020/TT-BLĐTBXH và các
 # Phụ lục của NĐ 145/2020/NĐ-CP không có mẫu cho người lao động báo nghỉ). Nội dung:
 # các mục của `checklist_don_xin_nghi_viec.yaml`, in thành đoạn văn liền của lá đơn
-# (`dieu: doan` — không số, không tên mục); mục luật đòi mà thiếu được chèn "……".
+# (`dieu: doan` — không số, không tên mục); mục luật đòi mà thiếu in thành một dòng
+# mang tên mục và dòng chấm ("Loại hợp đồng lao động đang thực hiện: ……").
 loai: don_xin_nghi_viec
 ten: đơn xin nghỉ việc
 tieu_de: ĐƠN XIN NGHỈ VIỆC

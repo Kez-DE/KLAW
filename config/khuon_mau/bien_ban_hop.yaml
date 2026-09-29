@@ -31,7 +31,10 @@ the_thuc:
   dong_nhu_than: true
   noi_nhan: ["{};", "Lưu: VT, Hồ sơ."]
   noi_nhan_duoi: true
-  ket_thuc: "Cuộc họp (hội nghị, hội thảo) kết thúc vào{} giờ{}, ngày{} tháng{} năm{}"
+  # Mẫu in "vào….. giờ….., ngày…. tháng…." (dãy chấm dính chữ). Chỗ trống "……" giữa dòng
+  # được thay đúng bằng giá trị, nên một dấu cách mỗi bên — như dòng địa danh-ngày của
+  # bộ dựng — để bản đã điền đọc "vào 16 giờ 30, ngày 29 tháng 9", không "vào16 giờ30".
+  ket_thuc: "Cuộc họp (hội nghị, hội thảo) kết thúc vào {} giờ {}, ngày {} tháng {} năm {}"
 ben:
   - {khoa: co_quan, vai: "Cơ quan, tổ chức", truong: [ten_to_chuc]}
   - {khoa: chu_toa, vai: "Chủ trì (chủ tọa)", dong: ["Chủ trì (chủ tọa):{ho_ten}"]}

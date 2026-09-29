@@ -689,7 +689,8 @@ class _Dung:
         for w in rong:
             _con(luoi, "gridCol", w=w)
         sz = self.co - 2
-        for h, hang in enumerate([[{"chu": ten, "dam": True, "can": "center"} for ten, _ in b["cot"]], *b["dong"]]):
+        hang_bang = [[{"chu": ten, "dam": True, "can": "center"} for ten, _ in b["cot"]], *b["dong"]]
+        for h, hang in enumerate(hang_bang):
             tr = _con(tbl, "tr")
             tr_pr = _con(tr, "trPr")
             _con(tr_pr, "cantSplit")
@@ -706,14 +707,22 @@ class _Dung:
                     _con(tc_pr, "gridSpan", val=gop)
                 _con(tc_pr, "vAlign", val="center")
                 cot += gop
-                p = self.doan(tc, can=o.get("can") or ("center" if cot == gop else "left"), sz=sz, dong=240)
+                # Hai hàng cuối đi cùng đoạn sau bảng (và qua nó, khối ký): trang cuối không
+                # bao giờ chỉ có chữ ký (kế hoạch thực tập ba mục, 2026-09-29).
+                p = self.doan(
+                    tc,
+                    can=o.get("can") or ("center" if cot == gop else "left"),
+                    sz=sz,
+                    dong=240,
+                    giu_sau=h >= len(hang_bang) - 2,
+                )
                 if o.get("chu"):
                     self.dong_mau(p, o["chu"], tc, None, b=bool(o.get("dam")), sz=sz)
                 else:
                     self.o[tc] = [None]
         # 6 pt tách bảng khỏi đoạn sau (và khỏi một bảng kế tiếp, Word gộp hai bảng liền
         # nhau). Đoạn rỗng: không phải đơn vị.
-        self.doan(self.body, sz=12, dong=240)
+        self.doan(self.body, sz=12, dong=240, giu_sau=True)
 
     def _ben(self, khoa: str, thut: int) -> None:
         b = self.ben[khoa]
@@ -743,7 +752,7 @@ class _Dung:
         """Một mục cố định của thân: nhãn nguyên văn của mẫu, rồi đoạn của mô hình;
         không có đoạn nào thì dòng nhãn mang MỘT chỗ trống dẫn chấm (hay `danh_sach`
         dòng đánh số)."""
-        doan = [x for x in (d or {}).get("doan") or [] if x.strip()]
+        doan = _doan_that(d)
         ra = []
         nhan = m.get("nhan")
         if nhan and "{}" in nhan:
@@ -839,7 +848,16 @@ class _Dung:
                     p.append(_run(dau, b=True))
                 if ten:
                     p.append(_run(ten, b=True))
-            for x in [x for x in d.get("doan") or [] if x.strip()] or [CHO]:
+            doan = _doan_that(d)
+            if not doan and kieu == "doan" and ten:
+                # Thân lá đơn không in tên mục; mục luật đòi còn trống thì dòng của nó
+                # mang tên mục làm nhãn ("Loại hợp đồng lao động đang thực hiện: ……").
+                p = self.doan(self.body, thut_dau=0 if thut else _THUT, trai=thut, sau=_SAU, dong=_DONG)
+                p.append(_run(f"{ten}:"))
+                self.dong_mau(p, "{}", p, None, tab=True, trai=thut)
+                ra.append(p)
+                continue
+            for x in doan or [CHO]:
                 p = self.doan(self.body, thut_dau=0 if thut else _THUT, trai=thut, sau=_SAU, dong=_DONG)
                 self._chu(p, x)
                 ra.append(p)
@@ -983,6 +1001,13 @@ class _Dung:
                 nut = cha
             ra[("word/document.xml", tuple(reversed(duong)))] = khoa
         return ra
+
+
+def _doan_that(d: dict | None) -> list[str]:
+    """Đoạn có chữ của một điều khoản. Điều khoản chèn vì luật đòi (`them_dieu_bat_buoc`:
+    một đoạn "……") là RỖNG: mục cố định in chỗ trống của chính mẫu, không "……" trơ trọi."""
+    doan = [x for x in (d or {}).get("doan") or [] if x.strip()]
+    return [] if all(x.strip() == CHO for x in doan) else doan
 
 
 def _voi_loai(mau: str, tieu_de: str) -> str:

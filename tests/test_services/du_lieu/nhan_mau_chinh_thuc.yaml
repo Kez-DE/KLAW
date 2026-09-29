@@ -109,7 +109,7 @@ bien_ban_hop:
     - "Chủ trì (chủ tọa):"
     - "Thư ký (người ghi biên bản):"
     - "Nội dung (theo diễn biến cuộc họp/hội nghị/hội thảo):"
-    - "Cuộc họp (hội nghị, hội thảo) kết thúc vào giờ, ngày tháng năm ./."
+    - "Cuộc họp (hội nghị, hội thảo) kết thúc vào giờ , ngày tháng năm ./."
     - "THƯ KÝ"
     - "(Chữ ký)"
     - "CHỦ TỌA"
@@ -125,4 +125,5 @@ bien_ban_hop:
     - {chu: "dòng chấm nối tiếp dưới 'Thành phần tham dự' và dưới 'Nội dung (…)'", ly_do: "dòng chỉ có dấu chấm không phải đơn vị văn bản nên không bấm điền được; chỗ trống nằm ngay trên dòng nhãn"}
     - {chu: "Họ và tên (hai lần, dưới THƯ KÝ và CHỦ TỌA)", ly_do: "cụm giữ chỗ — thành chỗ trống tên thư ký, chủ tọa"}
     - {chu: "Số:.../BB-... và năm..../.", ly_do: "khoảng trắng: một dấu cách sau 'Số:' để số điền vào đúng ví dụ Phụ lục I ('Số: 15/QĐ-BNV'); './.' cách dãy chấm một dấu cách để dấu chấm đầu không thành một phần chỗ trống (`khuon_mau._ket_bang_dau`)"}
+    - {chu: "kết thúc vào….. giờ….., ngày…. tháng…. năm", ly_do: "khoảng trắng: một dấu cách mỗi bên chỗ trống, như dòng địa danh-ngày của bộ dựng — giá trị thay đúng dãy chấm, nên dính chữ thì bản đã điền in 'vào16 giờ30'"}
     - {chu: "Ghi chú: 1…5", ly_do: "chú thích của mẫu, không phải biên bản (D2 §4.1)"}

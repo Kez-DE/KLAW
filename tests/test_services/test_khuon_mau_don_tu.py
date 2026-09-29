@@ -133,18 +133,38 @@ def test_khong_dau_giu_cho_nao_trong_tep(loai):
             assert not re.search(r"[{}⟦⟧¶]|\[[^\]]*\]|<[^>]*>", chu), (ten, chu[:200])
 
 
+def _chu_doan(docx: bytes) -> list[str]:
+    """Chữ từng `w:p`, `w:tab` là "\\t" — `noi_dung` bỏ tab, nên không thấy một giá trị
+    dính chữ đứng sau dòng chấm của nó."""
+    goc = etree.fromstring(zipfile.ZipFile(io.BytesIO(docx)).read("word/document.xml"))
+    return [
+        "".join(
+            (e.text or "") if e.tag == f"{_W}t" else "\t"
+            for r in p.iter(f"{_W}r")
+            for e in r.iter(f"{_W}t", f"{_W}tab")
+        )
+        for p in goc.iter(f"{_W}p")
+    ]
+
+
+@pytest.mark.parametrize("nguon", ["chen_bat_buoc", "co_dieu"])
 @pytest.mark.parametrize("loai", LOAI)
-def test_gia_tri_dien_cach_nhan_dung_mot_dau_cach(loai):
-    """Giá trị điền vào chỗ `tab` cuối dòng (bộ áp thêm một dấu cách) không dính hai dấu
-    cách với nhãn: nhãn của các mẫu mới đứng sát chỗ trống."""
-    docx, ban_do, dv = _dung(loai, [])
-    o = ban_thao.o_truong(dv, ban_do)
-    gia_tri = {(x["ben"], x["truong"]): "Giá Trị" for x in o}
-    phep = ban_thao._gia_tri_o(o, ban_thao.phep_tu_gia_tri(o, gia_tri))
-    ban, _ = ban_thao.ap_phep_sua("docx", docx, dv, phep)
-    chu = [d.noi_dung for d in doc("k.docx", ban).don_vi]
-    if loai != "don_khoi_kien":  # Mẫu 23-DS giữ nguyên văn "Số điện thoại: …(nếu có)"
-        assert not [c for c in chu if "  Giá Trị" in c]
+def test_moi_cho_trong_dien_qua_trang_cach_chu_dung_mot_dau_cach(loai, nguon):
+    """Điền MỌI chỗ trống bộ đọc báo, đúng đường `/o-dien` (`chuan_hoa_dien` → bộ áp):
+    không giá trị nào dính chữ hai bên ("kết thúc vào16 giờ30"), không dòng nào mang hai
+    dấu cách liền (nhãn mẫu giữ dấu cách trước dãy chấm: "Số điện thoại: ……(nếu có)")."""
+    dieu = km.them_dieu_bat_buoc([], loai)[0] if nguon == "chen_bat_buoc" else None
+    docx, _, dv = _dung(loai, dieu)
+    cho = ban_thao.cho_trong_khuon("docx", dv, [])
+    phep = [
+        {"loai": "dien", "don_vi": o["don_vi"], "cho_trong": o["so"], "gia_tri": ban_thao.chuan_hoa_dien("Giá Trị", o)}
+        for o in cho
+    ]
+    ban, bao_cao = ban_thao.ap_phep_sua("docx", docx, dv, phep)
+    assert cho and bao_cao["bo_qua"] == []
+    chu = [c for c in _chu_doan(ban) if "Giá Trị" in c]
+    assert sum(c.count("Giá Trị") for c in chu) == len(cho)
+    assert not [c for c in chu if re.search(r"\wGiá Trị|Giá Trị\w|  ", c)]
 
 
 @pytest.mark.parametrize("loai", [lo for lo in LOAI if lo in cac_checklist()])
@@ -156,12 +176,28 @@ def test_moi_muc_checklist_co_cho_tren_trang(loai):
     cho = km.khoa_khung(e) | km.muc_than(e)
     for m in load_checklist_cached(loai).muc:
         assert co_dieu or m["key"] in cho, m["key"]
-    # Lúc tạo không có điều khoản nào: mục bắt buộc được chèn "……" và HIỆN trên trang.
+
+
+def _khong_ten(dv: list[dict]) -> int:
+    return sum(1 for o in ban_thao.cho_trong_khuon("docx", dv, []) if not o["nhan"])
+
+
+@pytest.mark.parametrize("loai", [lo for lo in LOAI if lo in cac_checklist()])
+def test_muc_chen_vi_luat_doi_in_cho_trong_co_ten(loai):
+    """Lúc tạo không có điều khoản nào: mục luật đòi được chèn một "……" (`them_dieu_bat_buoc`).
+    Trên trang nó là chỗ trống CỦA MẪU (dòng dẫn chấm, "1 ……", nhãn mang `{}`) hay một
+    dòng mang tên mục — không bao giờ một "……" trơ trọi mà trang gọi "Chỗ trống (n)"."""
     dieu, kq = km.them_dieu_bat_buoc([], loai)
+    assert kq["thieu"] and {d["key"] for d in dieu if d.get("chen")} == set(kq["thieu"])
     docx, _, dv = _dung(loai, dieu)
-    assert {d["key"] for d in dieu if d.get("chen")} == set(kq["thieu"])
-    so_cho = sum(d["noi_dung"].count(km.CHO) for d in dv)
-    assert so_cho >= len(kq["thieu"])
+    rong, _, dv_rong = _dung(loai, [])
+    assert _khong_ten(dv) == _khong_ten(dv_rong), [d["noi_dung"] for d in dv]
+    if not any("dieu" in m for m in km.nap(loai)["than"]):
+        # Mẫu chỉ có mục cố định (NĐ 124 Mẫu 01, Mẫu 23-DS): mục chèn trống in ĐÚNG bản trống.
+        assert docx == rong
+    else:
+        ten = {m["key"]: m["ten"] for m in load_checklist_cached(loai).muc}
+        assert {ten[k] for k in kq["thieu"]} <= {o["nhan"] for o in ban_thao.cho_trong_khuon("docx", dv, [])}
 
 
 @pytest.mark.parametrize("loai", LOAI)
@@ -170,6 +206,54 @@ def test_loai_khong_checklist_khong_doi_muc_nao(loai):
         pytest.skip("có checklist")
     dieu = _dieu_mau(loai)
     assert km.them_dieu_bat_buoc(dieu, loai)[1] == {"thieu": [], "completeness": None}
+
+
+@pytest.fixture
+def duong_checklist(monkeypatch):
+    """`dat_khuon_mau` không DB, không LibreOffice (như `test_mang_phep_sang`): yêu cầu
+    checklist rỗng, tệp "lưu" được đọc lại bằng bộ đọc thật."""
+    monkeypatch.setattr(ban_thao.graph_soan_thao, "requirements", lambda loai: ([], None, {}))
+    monkeypatch.setattr(ban_thao, "hien_thi_luc", lambda engine, as_of: frozenset())
+    monkeypatch.setattr(ban_thao, "get_engine", lambda: None)
+    tep: dict = {}
+
+    def _luu(sub, hoi_thoai_id, loai, tieu_de, docx):
+        tep["docx"] = docx
+        dv = [_hang_don_vi(d) for d in doc("k.docx", docx).don_vi]
+        return {"viec_id": "viec-1", "don_vi": dv, "so_trang": 1, "ten_tep": "k.docx"}
+
+    monkeypatch.setattr(ban_thao, "luu_khuon_mau", _luu)
+    return tep
+
+
+@pytest.mark.parametrize("loai", [lo for lo in LOAI if lo in cac_checklist()])
+def test_duong_checklist_bo_dieu_khoan_cua_khoi_khung(loai, duong_checklist):
+    """Đường checklist (`dat_khuon_mau`: drawer dựng lại, phiên checklist mở dở) nhận MỘT
+    điều khoản cho mọi mục checklist, kể cả mục khung đã dựng (các bên, ngày, chữ ký). Mục
+    khung không in thành đoạn thân (trùng khối các bên), không lặng lẽ biến mất khỏi một
+    trang vẫn đếm nó, và không nằm lại trong `clauses` (bản lưu = trang). Không mất dữ kiện
+    nào: checklist này không gom fact nào (`rules: []`), nên `truong_tu_facts` không có gì
+    để ánh xạ và chữ của mục khung chỉ là lời mô hình viết khi không biết gì."""
+    from src.agents.nodes.gom_du_kien import truong_cua
+
+    assert truong_cua(loai) == []
+    muc = load_checklist_cached(loai).muc
+    ket = {
+        "document": "",
+        "clauses": [
+            {"key": m["key"], "ten": m["ten"], "noi_dung": f"Chữ mục {m['key']}.", "can_cu_provision_id": 0}
+            for m in muc
+        ],
+        "audit_report": {"dat": True, "findings": []},
+        "can_cu_co_id": [],
+    }
+    ra = ban_thao.dat_khuon_mau("s", "h", loai, {}, ket)
+    khung = km.khoa_khung(km.nap(loai))
+    chu = "\n".join(_chu_doan(duong_checklist["docx"]))
+    giu = [m["key"] for m in muc if m["key"] not in khung]
+    assert [c["key"] for c in ra["clauses"]] == giu
+    assert [k for k in giu if f"Chữ mục {k}." not in chu] == [], chu
+    assert [k for k in khung if f"Chữ mục {k}." in chu] == []
 
 
 def _seed_provisions(duong_dan: set[str]) -> dict[str, str]:
@@ -277,6 +361,32 @@ def test_trang_that_mot_trang_va_phep_do_dinh_vi_moi_cho_trong(loai):
     _, png, vi_tri = dung_trang.dung("docx", docx, "thu-don-tu", None, ban_thao.ban_do("docx", dv, []))
     moi = {(d["chi_so"], c["so"]) for d in dv for c in d.get("cho_trong") or []}
     assert png and moi <= set(vi_tri), sorted(moi - set(vi_tri))
+
+
+@pytest.mark.skipif(not (shutil.which("soffice") and shutil.which("pdftoppm")), reason="cần LibreOffice và poppler")
+def test_ke_hoach_ba_muc_trang_cuoi_khong_chi_co_khoi_ky():
+    """Kế hoạch ba mục ra hai trang: đuôi bảng tiến độ sang trang cùng ba chữ ký — trang
+    cuối không bao giờ chỉ có khối ký (trang chữ ký rời)."""
+    from src.services import dung_trang
+
+    dieu = [
+        {"key": None, "ten": "Mục tiêu thực tập", "doan": ["Nắm được quy trình phát triển phần mềm tại doanh nghiệp."]},
+        {
+            "key": None,
+            "ten": "Nội dung công việc",
+            "doan": [
+                "Giai đoạn đầu: tìm hiểu cơ cấu tổ chức, nội quy và sản phẩm của công ty.",
+                "Giai đoạn giữa: tham gia viết ca kiểm thử và thực hiện kiểm thử chức năng.",
+                "Giai đoạn cuối: tổng hợp kết quả, viết báo cáo thực tập.",
+            ],
+        },
+        {"key": None, "ten": "Kết quả dự kiến", "doan": ["Hoàn thành báo cáo thực tập và bộ tài liệu kiểm thử."]},
+    ]
+    docx, _, _ = _dung("ke_hoach_thuc_tap", dieu)
+    dv = doc("k.pdf", dung_trang.dung_pdf(docx)).don_vi
+    cuoi = max(d.trang for d in dv)
+    assert cuoi == 2, "kịch bản cần hai trang"
+    assert any(" đến " in d.noi_dung for d in dv if d.trang == cuoi), [d.noi_dung for d in dv if d.trang == cuoi]
 
 
 # ─── Ngữ cảnh của lượt soạn (prompt v3) ─────────────────────────────────────
