@@ -100,6 +100,56 @@ def test_ingest_RAISE_khi_checksums_json_thieu_muc_cho_mot_file_seed(tmp_path):
         ingest(seed)
 
 
+def test_khop_khung_cung_khung_thi_ghi_de_tai_cho_khac_khung_thi_khong():
+    """Văn bản sâu đổi checksum chỉ vì chữ (sửa parser) giữ nguyên khung: ghép theo
+    `thu_tu` rồi kiểm cấp, số hiệu, neo và cha. Khác bất kỳ chỗ nào → None (đường
+    DELETE cũ)."""
+    from scripts.ingest import _khop_khung
+
+    seed = [
+        {
+            "local_id": 0,
+            "parent_local_id": None,
+            "thu_tu": 0,
+            "cap": "dieu",
+            "so_hieu_cap": "1",
+            "duong_dan": "X > Điều 1",
+        },
+        {
+            "local_id": 1,
+            "parent_local_id": 0,
+            "thu_tu": 1,
+            "cap": "khoan",
+            "so_hieu_cap": "1",
+            "duong_dan": "X > Điều 1 > Khoản 1",
+        },
+        {
+            "local_id": 2,
+            "parent_local_id": None,
+            "thu_tu": -1,
+            "cap": "mo_dau",
+            "so_hieu_cap": "",
+            "duong_dan": "X > Mở đầu",
+        },
+    ]
+    db = [
+        {"id": 50, "parent_id": None, "thu_tu": 0, "cap": "dieu", "so_hieu_cap": "1", "duong_dan": "X > Điều 1"},
+        {
+            "id": 51,
+            "parent_id": 50,
+            "thu_tu": 1,
+            "cap": "khoan",
+            "so_hieu_cap": "1",
+            "duong_dan": "X > Điều 1 > Khoản 1",
+        },
+        {"id": 49, "parent_id": None, "thu_tu": -1, "cap": "mo_dau", "so_hieu_cap": "", "duong_dan": "X > Mở đầu"},
+    ]
+    assert _khop_khung(db, seed) == {0: 50, 1: 51, 2: 49}
+    assert _khop_khung(db[:2], seed) is None
+    assert _khop_khung([db[0], dict(db[1], parent_id=None), db[2]], seed) is None
+    assert _khop_khung([dict(db[0], duong_dan="X > Điều 2"), db[1], db[2]], seed) is None
+
+
 def test_ingest_CHAP_NHAN_seed_da_commit(tmp_path):
     """Mặt còn lại: phép kiểm phải xanh trên seed thật, nếu không nó chặn cả
     đường lành. Chỉ chạy phép kiểm toàn vẹn, không cần DB."""
