@@ -196,6 +196,32 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   cache (by design); (e) `GET /mau/{loai}` still names a hidden basis — the
   frame then shows the 404 notice; (f) PDF rows wait for K6; (g) no real-app
   browser check yet.
+- [x] K8 data (2026-09-29, `feat/k8-du-lieu` from `integ/kho-day-du`; backups
+  `backup-truoc-K8-{1-migration,2-van-ban,3-canh,4-dong,5-cong-bao}.dump`).
+  Migrations 039 `canh_doi_chieu` and 040 `documents.link_pdf_ban_ky` +
+  `anh_van_ban`, applied. New deep documents: 283/2026/NĐ-CP (gateway
+  787d3780-…, 1173/1173 verbatim), 129/2025/NĐ-CP (178294, 241/241),
+  158/2025/NĐ-CP upgraded in place (365/368: three formula provisions differ in
+  layout, not in `verified_documents`), 148/2025/QH15 from Công báo `.docx`
+  (`scripts/fetch_congbao.py`, decision item 13; 348/348; no gateway record, so
+  `chua_xac_dinh` and hidden). 66.18/2026/NQ-CP not loaded: its substance is 217
+  annex tables the parser folds into one uncitable `phu_luc` — wait for the
+  gateway copy. Edges: B-E1/2/3/5 (parquet) and B-E2/4/7/9/10 (MOJ) removed via
+  `CANH_SAI`/`CANH_SAI_MOJ` (CSV backups in scratchpad `k8/xoa/`); six edges read
+  from the official text added (283/2026 → 12/2022, 135/2020 → 158/2025 loai 23,
+  71/2025 → 31/2024 loai 20, 153/2016 → 122/2015, 113/2025 → 07/2025, 148/2025 →
+  67/2006). B-E8 (systemic MOJ duplicate rows, 86 keys) and optional B-E11 not
+  done; B-R6 skipped: `sua_doi_dieu_khoan` can only say "bị sửa bởi", not "hết
+  hiệu lực". Evidence: `data/seed/canh_doi_chieu.yaml` (41 edges, quote fragments
+  machine-checked against the source text; `load_incoming_edges` re-applies it),
+  29 overrides in `hieu_luc_ghi_de.yaml` (B-R1–B-R4), 16 vanban.chinhphu.vn links
+  (B-R5). As of 2026-09-28 with this branch's code: **480 → 484 shown** (+135/2020,
+  +31/2024, +129/2025, +283/2026; none lost); hidden in-force-with-link
+  `can_doi_chieu_tay` 72 → 52, `bi_thay_the` 43 → 35, `chua_xac_dinh` 5 → 5.
+  12/2022 now names 283/2026 and 122/2015 names 153/2016; the 145/2020, 29/2019,
+  09/2020 groups, 07/2025, 67/2006 and 135/2020 still name nothing (topic guard,
+  loai-23 naming — K9 on `canh_doi_chieu`). A full parquet reload would add 21
+  unreviewed edges (e.g. 03/2026/NĐ-CP → 129/2025 loai 21): not applied.
 - [ ] K5 after eval, credit.
 
 ## Decisions
