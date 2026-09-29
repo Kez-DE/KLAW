@@ -46,8 +46,13 @@ def test_loi_thoang_qua_thi_thu_lai_voi_backoff_luy_thua(monkeypatch, ma):
     nạp 35 văn bản không được chết giữa chừng vì nó. Nghỉ tăng gấp đôi mỗi lần."""
     nghi: list[float] = []
     monkeypatch.setattr("src.services.moj_client.time.sleep", lambda s: nghi.append(s))
-    lan = iter([httpx.Response(ma, text="tam"), httpx.Response(ma, text="tam"),
-                httpx.Response(200, json={"data": {"id": "1"}})])
+    lan = iter(
+        [
+            httpx.Response(ma, text="tam"),
+            httpx.Response(ma, text="tam"),
+            httpx.Response(200, json={"data": {"id": "1"}}),
+        ]
+    )
     c = _client(lambda req: next(lan))
     c.backoff_base = 2.0
     assert c.fetch_doc("1") == {"id": "1"}

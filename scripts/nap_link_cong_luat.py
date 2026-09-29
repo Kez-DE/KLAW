@@ -165,8 +165,9 @@ def nap_da_kiem(seed: Path, engine: Engine) -> dict[str, int]:
     bay_gio = datetime.now().astimezone()
     with engine.begin() as conn:
         so_db = dict(
-            conn.execute(text("SELECT id, so_ky_hieu FROM documents WHERE id = ANY(:ids)"),
-                         {"ids": [str(k) for k in tho]}).all()
+            conn.execute(
+                text("SELECT id, so_ky_hieu FROM documents WHERE id = ANY(:ids)"), {"ids": [str(k) for k in tho]}
+            ).all()
         )
         thieu = sorted(str(k) for k in tho if str(k) not in so_db)
         if thieu:

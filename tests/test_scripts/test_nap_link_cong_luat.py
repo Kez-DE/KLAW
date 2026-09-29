@@ -80,8 +80,12 @@ def test_da_kiem_co_ly_do_la_truot_tra_None_de_xoa_link_cu():
 
 
 def test_da_kiem_van_ban_khong_co_id_gateway_dung_id_anh_xa():
-    hang = {**DAT, "so_ky_hieu": "02/2011/QH13", "url": "https://vbpl.vn/van-ban/chi-tiet/27325",
-            "canonical": "https://vbpl.vn/van-ban/chi-tiet/luat-khieu-nai-so-02-2011-qh13--27325"}
+    hang = {
+        **DAT,
+        "so_ky_hieu": "02/2011/QH13",
+        "url": "https://vbpl.vn/van-ban/chi-tiet/27325",
+        "canonical": "https://vbpl.vn/van-ban/chi-tiet/luat-khieu-nai-so-02-2011-qh13--27325",
+    }
     assert kiem_hang_da_kiem("cp-162374", hang, "02/2011/QH13", BAY_GIO) == hang["url"]
 
 

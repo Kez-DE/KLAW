@@ -68,8 +68,7 @@ def run(model: str | None = None, dry_run: bool = False, chi_moi: bool = False) 
     run_migrations()
     model = model or s.openrouter_embedding_model_name
 
-    provisions = [p for p in load_provisions(get_engine())
-                  if p["document_id"] not in KHONG_DANH_CHI_MUC]
+    provisions = [p for p in load_provisions(get_engine()) if p["document_id"] not in KHONG_DANH_CHI_MUC]
     chunks = build_chunks(provisions, s.chunk_max_tokens)
     if not chunks:
         raise ValueError("0 chunk — provisions rỗng hoặc chunker lỗi")
@@ -83,9 +82,12 @@ def run(model: str | None = None, dry_run: bool = False, chi_moi: bool = False) 
     thua: list[int] = []
     if chi_moi:
         with get_engine().connect() as conn:
-            co = {(r[0], r[1]): r[2] for r in conn.execute(text(
-                "SELECT provision_id, noi_dung_embed, id FROM chunks WHERE embedding_model = :m"
-            ), {"m": model})}
+            co = {
+                (r[0], r[1]): r[2]
+                for r in conn.execute(
+                    text("SELECT provision_id, noi_dung_embed, id FROM chunks WHERE embedding_model = :m"), {"m": model}
+                )
+            }
         dung = {(c.provision_id, c.noi_dung_embed) for c in chunks}
         thua = [i for k, i in co.items() if k not in dung]
         chunks = [c for c in chunks if (c.provision_id, c.noi_dung_embed) not in co]

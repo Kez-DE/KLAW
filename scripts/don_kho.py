@@ -44,6 +44,7 @@ PHUONG_PHAP = (
     "gộp khoảng trắng và bỏ khoảng trắng trước dấu câu"
 )
 
+
 class _Chu(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
