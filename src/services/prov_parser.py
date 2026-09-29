@@ -593,19 +593,28 @@ def parse_tables(html: str) -> list[str]:
     return [md for tbl in soup.find_all("table") if (md := _bang_md(tbl))]
 
 
-def _noi_dung(nhan: str, than: list[str], bang: list[str]) -> str:
-    """Văn xuôi TRƯỚC, bảng SAU, phân tách bằng dòng trống.
+def _noi_dung(nhan: str, than: list[str], bang: list[tuple[int, str]]) -> str:
+    """Văn xuôi và bảng theo ĐÚNG thứ tự nguồn, phân tách bằng dòng trống.
 
-    Bảng ghép SAU khi `_chuan_hoa` đã chạy trên phần văn xuôi, không trước:
-    `_chuan_hoa` gộp MỌI khoảng trắng (kể cả xuống dòng) nên áp nó lên chuỗi đã
-    ghép sẽ bẹp bảng thành một dòng `| a | b | | c | d |`. Từng Ô đã đi qua
-    `_text()` nên phần bảng vẫn ở dạng ĐƯỢC LƯU (NFC, gộp khoảng trắng trong ô).
+    `bang` là `(vị trí, markdown)`: bảng đứng trước `than[vị trí]`. Văn xuôi sau
+    một bảng ở lại sau bảng đó — dồn nó lên trước sinh ra câu không có trong
+    nguồn ("Phương pháp tính thuế: Trong đó: …", 41 điều khoản đo 2026-09-29).
+    Bảng đứng sau mọi văn xuôi (ca thường) cho đúng chuỗi của bản cũ.
 
-    Ghép ở CUỐI, không ở đầu: bất biến "neo trích dẫn mở đầu bằng nhãn của chính
-    nó" (ruling C1) đọc ký tự đầu của `noi_dung`.
+    `_chuan_hoa` chạy trên TỪNG đoạn văn xuôi, không trên chuỗi đã ghép: nó gộp
+    MỌI khoảng trắng (kể cả xuống dòng) nên sẽ bẹp bảng thành một dòng
+    `| a | b | | c | d |`. Từng Ô đã đi qua `_text()` nên phần bảng vẫn ở dạng
+    ĐƯỢC LƯU (NFC, gộp khoảng trắng trong ô).
+
+    Nhãn luôn mở đầu đoạn văn xuôi đầu tiên: bất biến "neo trích dẫn mở đầu bằng
+    nhãn của chính nó" (ruling C1) đọc ký tự đầu của `noi_dung`.
     """
-    van = _chuan_hoa(" ".join([nhan, *than]))
-    return "\n\n".join(x for x in [van, *bang] if x)
+    khoi, dau, van = [], 0, [nhan]
+    for vi_tri, md in bang:
+        khoi += [_chuan_hoa(" ".join([*van, *than[dau:vi_tri]])), md]
+        dau, van = vi_tri, []
+    khoi.append(_chuan_hoa(" ".join([*van, *than[dau:]])))
+    return "\n\n".join(x for x in khoi if x)
 
 
 def _thu_tu_nhan(cap: Cap, so: str) -> int | None:
@@ -807,7 +816,8 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
     caps: list[Cap] = []
     nhan: list[str] = []
     than: list[list[str]] = []
-    bang: list[list[str]] = []  # markdown của <table> nằm TRONG node này
+    # (vị trí trong `than`, markdown) của <table> nằm TRONG node này
+    bang: list[list[tuple[int, str]]] = []
     src: list[str | None] = []
     parents: list[int | None] = []
     stack: list[int] = []
@@ -863,7 +873,10 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
             tach = (_tach_bang(md) if dinh is not None and caps[dinh] in CITABLE
                     else None)
             if tach is None:
-                (bang[dinh] if dinh is not None else bang_mo_dau).append(md)
+                if dinh is None:
+                    bang_mo_dau.append(md)
+                else:
+                    bang[dinh].append((len(than[dinh]), md))
                 continue
             # Mỗi HÀNG DỮ LIỆU thành một neo trích dẫn riêng. Không tách thì cả
             # bảng là MỘT `noi_dung`: mô hình trích hai trong bốn hàng lương tối
@@ -871,7 +884,7 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
             # đều xanh vì hai citation trỏ cùng một `khop_tai_id` — không có hai
             # anh em nào để phép so tập con đối chiếu (trace cbd9f317).
             dau, hangs = tach
-            bang[dinh].append(dau)
+            bang[dinh].append((len(than[dinh]), dau))
             for nhan_hang, dong in hangs:
                 caps.append(Cap.hang_bang)
                 nhan.append(dong)     # noi_dung = ĐÚNG hàng markdown, vì đó là
@@ -957,7 +970,9 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
         # phải quy phạm. Nó đứng trước thẻ prov-* đầu nên rơi vào đây — cấp
         # KHÔNG trích dẫn được, nên một câu trích lấy từ tiêu ngữ không thể
         # "kiểm chứng thành công" trên một neo Điều.
-        bang.append(bang_mo_dau)
+        # Hai bản ghi cấp tài liệu giữ bảng SAU văn xuôi như bản cũ: không trích
+        # dẫn được, không đối chiếu (`don_kho._BO_QUA`).
+        bang.append([(len(mo_dau), md) for md in bang_mo_dau])
         src.append(None)
         parents.append(None)  # cấp tài liệu, không treo vào cây quy phạm
 
@@ -967,7 +982,7 @@ def parse_provisions(html: str, so_ky_hieu: str) -> list[ProvisionRow]:
         than.append(duoi)  # nếu không phép bảo toàn ký tự sẽ lệch
         # 40 bảng Mẫu số của NĐ 145/2020 và các khối chữ ký nằm sau thẻ prov-*
         # cuối cùng đi vào đây, KHÔNG vào Điều cuối của văn bản.
-        bang.append(bang_duoi)
+        bang.append([(len(duoi), md) for md in bang_duoi])
         src.append(None)
         parents.append(None)  # cấp tài liệu, không treo vào cây quy phạm
 
