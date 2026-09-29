@@ -85,6 +85,14 @@ def _moi_truong(dem: dict | None = None) -> dict:
             "embedding": s.openrouter_embedding_model_name,
             "rerank": s.openrouter_rerank_model_name,
         },
+        # K0/K5 chạy hybrid vì `.env.local` ghi đè mặc định `retrieve_bm25_topk=0`
+        # mà không tệp nào ghi lại (K11) — ghi đúng cấu hình đã chạy.
+        "truy_hoi": {
+            "bm25_topk": s.retrieve_bm25_topk,
+            "dense_topk": s.retrieve_dense_topk,
+            "rrf_k": s.rrf_k,
+            "final_topk": s.retrieve_final_topk,
+        },
         "corpus": _dem_corpus() if dem is None else dem,
         "as_of_date": str(as_of_hieu_luc(None)),
         "cache_ttl_ngay": s.cache_ttl_ngay,

@@ -26,6 +26,20 @@ def test_moi_truong_ghi_model_tung_vai_tu_settings():
     assert mt["model"]["embedding"] == s.openrouter_embedding_model_name
 
 
+def test_moi_truong_ghi_cau_hinh_truy_hoi_da_chay():
+    """K0/K5 chạy hybrid vì `.env.local` ghi đè `retrieve_bm25_topk=0` của code mà
+    không tệp kết quả nào ghi lại — cấu hình truy hồi phải nằm trong tệp kết quả."""
+    from src.config import get_settings
+
+    s = get_settings()
+    assert _moi_truong(dem={})["truy_hoi"] == {
+        "bm25_topk": s.retrieve_bm25_topk,
+        "dense_topk": s.retrieve_dense_topk,
+        "rrf_k": s.rrf_k,
+        "final_topk": s.retrieve_final_topk,
+    }
+
+
 def test_moi_truong_giu_nguyen_so_dem_corpus_duoc_truyen_vao():
     mt = _moi_truong(dem={"chunks": 14770, "provisions": 43720, "documents": 1634})
     assert mt["corpus"] == {"chunks": 14770, "provisions": 43720, "documents": 1634}
