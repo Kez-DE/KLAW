@@ -95,6 +95,38 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "142867": ("deep", "61/2020/QH14"),    # Luật Đầu tư
     "16748":  ("deep", "50/2005/QH11"),    # Luật Sở hữu trí tuệ
     "136036": ("deep", "38/2019/QH14"),    # Luật Quản lý thuế
+
+    # ── K1 2026-09-28 — văn bản mà văn bản trong kho THAY THẾ/BÃI BỎ nhưng kho
+    # thiếu (`docs/plans/active/kho-luat-trich-dan-day-du.md`). Đích của cạnh
+    # MOJ loai 1/12 đi ra từ văn bản deep, lọc theo `linh_vuc_chuan` các văn bản
+    # deep đang dùng. `so_ky_hieu` sinh từ `docNum` của gateway (không gõ tay),
+    # và khớp 33/33 với `metadata.parquet` lẫn `raw_text` của cạnh trỏ tới nó.
+    # Cột chú thích = `effStatus` MOJ ngày fetch — nhiều dòng CHL là SAI (vd
+    # 44/2013 đã bị 145/2020 thay), đúng cái bẫy của 90/2019 ở trên.
+    "154245": ("deep", "38/2022/NĐ-CP"),        # HHL — mắt xích 90/2019 → 38/2022 → 74/2024
+    "33381":  ("deep", "03/2014/NĐ-CP"),        # HHL1P
+    "48298":  ("deep", "05/2015/NĐ-CP"),        # HHL1P
+    "43821":  ("deep", "10/2013/TT-BLĐTBXH"),   # CHL
+    "43819":  ("deep", "11/2013/TT-BLĐTBXH"),   # CHL
+    "131010": ("deep", "121/2018/NĐ-CP"),       # CHL
+    "131643": ("deep", "148/2018/NĐ-CP"),       # CHL
+    "132028": ("deep", "149/2018/NĐ-CP"),       # CHL
+    "34095":  ("deep", "27/2014/NĐ-CP"),        # CHL
+    "141147": ("deep", "28/2020/NĐ-CP"),        # CHL — nguồn viết "2:" ở Điều 56, gộp vào Khoản 1
+    "43992":  ("deep", "40/2014/TT-NHNN"),      # CHL
+    "30472":  ("deep", "41/2013/NĐ-CP"),        # CHL
+    "32526":  ("deep", "44/2013/NĐ-CP"),        # CHL
+    "30460":  ("deep", "45/2013/NĐ-CP"),        # HHL1P
+    "30467":  ("deep", "46/2013/NĐ-CP"),        # HHL1P
+    "30466":  ("deep", "49/2013/NĐ-CP"),        # HHL1P
+    "94345":  ("deep", "54/2015/TT-BLĐTBXH"),   # CHL
+    "30475":  ("deep", "55/2013/NĐ-CP"),        # HHL
+    "36843":  ("deep", "73/2014/NĐ-CP"),        # CHL
+    "84922":  ("deep", "85/2015/NĐ-CP"),        # CHL
+    "37502":  ("deep", "01/2014/TT-BLĐTBXH"),   # CHL
+    "179969": ("deep", "07/2025/UBTVQH15"),     # HHL
+    "12807":  ("deep", "14/2008/QH12"),         # HHL1P
+    "14832":  ("deep", "78/2006/QH11"),         # HHL1P
 }
 
 # Mảnh tiêu đề đối chiếu TRƯỚC KHI GHI file raw — 11/13 id của T1 (169032,
@@ -165,6 +197,24 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
     # văn bản.
     "175027": ("41/2024/QH15", "Điều 38 viết sai chính tả 'Điêu 38' trong HTML "
                "nguồn MOJ — nhãn không khớp regex cấp dieu"),
+    # K1 2026-09-28 — đích thay thế/bãi bỏ trong lĩnh vực của kho, chặn ở cổng
+    # `_soat_va_bam`. Bảy dòng đầu là GIỚI HẠN CỦA NGUỒN + PARSER: HTML MOJ của
+    # văn bản cũ là văn xuôi phẳng, không có thẻ `prov-*` nào, nên không dựng
+    # được cây. `chinhphu_parser.sang_html_prov` suy cấp từ nhãn cho đúng ca này
+    # nhưng chưa ai soát nó trên HTML MOJ — không nối vào đây khi chưa soát.
+    "95650":  ("134/2015/NĐ-CP", "HTML MOJ không có thẻ prov-* nào"),
+    "103067": ("33/2016/NĐ-CP", "HTML MOJ không có thẻ prov-* nào"),
+    "46744":  ("58/2014/QH13", "HTML MOJ không có thẻ prov-* nào"),
+    "46742":  ("65/2014/QH13", "HTML MOJ không có thẻ prov-* nào"),
+    "46749":  ("66/2014/QH13", "HTML MOJ không có thẻ prov-* nào"),
+    "126171": ("06/2017/QH14", "HTML MOJ không có thẻ prov-* nào"),
+    "40742":  ("71/2014/QH13", "HTML MOJ không có thẻ prov-* nào"),
+    # Cùng loại `27325`: khiếm khuyết nguồn thật.
+    "20981":  ("06/2003/PL-UBTVQH11", "hai node cùng neo 'Điều 22' ở cấp trích dẫn được"),
+    "101890": ("106/2016/QH13", "documentContent.content 83 byte, 0 ký tự chữ"),
+    # Không fetch được: gateway trả 400 `invalid.document.entity.not.found` cả
+    # 10 lần (hai đợt, backoff tới 24 s) dù 71/2025/QH15 còn trỏ tới id này.
+    "168687": ("136/2024/QH15", "gateway 400 invalid.document.entity.not.found"),
 }
 
 

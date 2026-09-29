@@ -17,7 +17,7 @@ from collections import Counter
 from sqlalchemy import text
 
 from src.services.db import get_engine
-from src.services.phan_linh_vuc import LINH_VUC, NGANH_LUAT, phan_linh_vuc, phan_nganh_luat
+from src.services.phan_linh_vuc import GHI_DE, LINH_VUC, NGANH_LUAT, phan_linh_vuc, phan_nganh_luat
 
 
 def main() -> None:
@@ -57,6 +57,12 @@ def main() -> None:
 
     nganh = _chay_mot_truc(phan_nganh_luat, NGANH_LUAT, "12 NGÀNH LUẬT")
     linh = _chay_mot_truc(phan_linh_vuc, LINH_VUC, "27 LĨNH VỰC")
+    # `ghi_de` của config/linh_vuc.yaml thắng phép khớp — xem lý do từng dòng ở đó.
+    co = {r["id"] for r in hang}
+    for doc_id, g in GHI_DE.items():
+        if doc_id in co:
+            nganh |= {doc_id: g["nganh_luat"]} if "nganh_luat" in g else {}
+            linh |= {doc_id: g["linh_vuc"]} if "linh_vuc" in g else {}
 
     if not a.that:
         print("\nCHẠY THỬ — chưa ghi gì. Thêm `--that` để ghi.")

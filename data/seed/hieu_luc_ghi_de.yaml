@@ -1,0 +1,18 @@
+# Ghi đè tình trạng hiệu lực CÓ BẰNG CHỨNG (quyết định 2026-09-28 mục 12): khi
+# nguyên văn chính thống cho thấy tình trạng của CSDL quốc gia đã cũ, KLAW ghi đè
+# và lượt làm mới không được ghi ngược lại. Người viết; `scripts.lam_moi_hieu_luc`
+# kiểm (`kiem_ghi_de`) và áp SAU dữ kiện gateway ở mọi lượt nạp, kể cả `--tu-seed`.
+#
+# Khoá là `documents.id`. Cột nào có mặt thì thắng gateway (`ngay_*: null` = xoá
+# ngày gateway ghi sai); cột vắng giữ theo gateway. Bắt buộc: `so_ky_hieu` (bắt
+# dòng lệch id), `dieu_khoan` (điều khoản, nguyên văn), `url` https trên nguồn nhà nước
+# (vbpl.vn, vanban.chinhphu.vn, datafiles.chinhphu.vn, congbao.chinhphu.vn, gateway
+# Bộ Tư pháp), `lay_luc` (thời điểm lấy, có múi giờ). Ví dụ:
+#
+#   "30466":
+#     so_ky_hieu: 49/2013/NĐ-CP
+#     tinh_trang: HHL
+#     dieu_khoan: "145/2020/NĐ-CP Điều 114 khoản 2: bãi bỏ Nghị định số 49/2013/NĐ-CP ..."
+#     url: https://congbao.chinhphu.vn/...
+#     lay_luc: 2026-09-28T10:00:00+07:00
+{}

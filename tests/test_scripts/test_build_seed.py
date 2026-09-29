@@ -56,6 +56,7 @@ def test_build_ghi_du_ba_file_va_checksums(tmp_path, monkeypatch):
     raw.mkdir(parents=True)
     _metadata_rong(tmp_path / "raw")
     (raw / "9001.json").write_text(json.dumps({
+        "docNum": "1/2020/NĐ-CP",
         "title": "Nghị định thử",
         "docType": {"name": "Nghị định"},
         "effStatus": {"code": "CHL"},
@@ -88,6 +89,28 @@ def test_build_ghi_du_ba_file_va_checksums(tmp_path, monkeypatch):
                            ("documents.jsonl", "provisions.jsonl", "references.jsonl")}
 
 
+def test_build_FAIL_khi_so_ky_hieu_khai_bao_lech_docNum_cua_gateway(tmp_path, monkeypatch):
+    """`so_ky_hieu` trong `DOC_IDS` là chữ gõ tay; `docNum` là chữ CSDL quốc gia
+    khai cho ĐÚNG id đó. Lệch nhau nghĩa là id sai hoặc gõ sai — nạp tiếp là
+    đặt toàn văn một văn bản dưới số hiệu của văn bản khác (đo 2026-09-28: 53/53
+    khớp, nên cổng này không chặn văn bản nào đang có)."""
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    (raw / "9004.json").write_text(json.dumps({
+        "docNum": "38/2022/NĐ-CP",
+        "docType": {"name": "Nghị định"}, "effStatus": {"code": "HHL"},
+        "documentContent": {"content":
+            '<div class="WordSection1">'
+            '<p id="a1" class="prov-article"><b>Điều 1. Phạm vi</b></p>'
+            '<p class="prov-clause">1. Nội dung khoản một.</p></div>'},
+    }, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(build_seed, "DOC_IDS", {"9004": ("deep", "90/2019/NĐ-CP")})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    with pytest.raises(ValueError, match="docNum"):
+        build_seed.build(tmp_path / "raw", tmp_path / "seed")
+
+
 def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
     """Mục H: parse_anomalies đã tồn tại, đã có test, CHƯA AI CHẠY trên dữ liệu
     thật — build_seed không gọi nó. Đó là lý do cả bốn lỗi kia lọt được."""
@@ -95,6 +118,7 @@ def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
     raw.mkdir(parents=True)
     _metadata_rong(tmp_path / "raw")
     (raw / "9002.json").write_text(json.dumps({
+        "docNum": "2/2020/NĐ-CP",
         "docType": {"name": "Nghị định"}, "effStatus": {"code": "CHL"},
         "documentContent": {"content":
             '<div class="WordSection1">'
@@ -112,6 +136,56 @@ def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
         build_seed.build(tmp_path / "raw", tmp_path / "seed")
 
 
+def _doc_mot_dieu(so_ky_hieu: str, **them) -> str:
+    return json.dumps({
+        "docNum": so_ky_hieu,
+        "docType": {"name": "Luật"}, "effStatus": {"code": "CHL"},
+        "documentContent": {"content":
+            '<div class="WordSection1">'
+            '<p id="a1" class="prov-article"><b>Điều 1. Phạm vi</b></p>'
+            '<p class="prov-clause">1. Nội dung khoản một.</p></div>'},
+        **them,
+    }, ensure_ascii=False)
+
+
+def test_build_CANH_BAO_khi_gateway_tra_references_null(tmp_path, monkeypatch):
+    """`references: null` KHÁC `[]`. Từ 2026-09-28 gateway trả null cho mọi văn
+    bản — kể cả 161263 và 152668, mà bản cache 2026-09-02 có 8 và 31 quan hệ.
+    Đọc null như rỗng là nạp văn bản với 0 quan hệ cấp văn bản mà không ai hay —
+    cùng lỗi gộp rỗng-với-đổi-shape `MojClient.fetch_related` cấm."""
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    (raw / "9005.json").write_text(_doc_mot_dieu("5/2020/QH14", references=None), encoding="utf-8")
+    (raw / "9006.json").write_text(_doc_mot_dieu("6/2020/QH14", references=[]), encoding="utf-8")
+    monkeypatch.setattr(build_seed, "DOC_IDS", {"9005": ("deep", "5/2020/QH14"),
+                                                "9006": ("deep", "6/2020/QH14")})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    with pytest.warns(UserWarning, match="9005.*references") as bat:
+        build_seed.build(tmp_path / "raw", tmp_path / "seed")
+    assert not any("9006" in str(w.message) for w in bat), "`[]` là rỗng thật, không cảnh báo"
+
+
+def test_build_BO_canh_MOJ_da_doi_chieu_la_sai(tmp_path, monkeypatch):
+    """Mảng `references` của 19/2023/QH15 ghi loai 10 "Sửa đổi, bổ sung" tới
+    BLLĐ 45/2019/QH14, trong khi Điều 78 chỉ sửa BLTTDS 92/2015. Seed không được
+    mang cạnh đó; cạnh thật bên cạnh nó vẫn phải còn."""
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    (raw / "161263.json").write_text(_doc_mot_dieu("19/2023/QH15", references=[
+        {"targetDocument": {"id": 139264, "docNum": "45/2019/QH14"}, "referenceType": 10},
+        {"targetDocument": {"id": 96115, "docNum": "92/2015/QH13"}, "referenceType": 10},
+    ]), encoding="utf-8")
+    monkeypatch.setattr(build_seed, "DOC_IDS", {"161263": ("deep", "19/2023/QH15")})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    out = tmp_path / "seed"
+    build_seed.build(tmp_path / "raw", out)
+    refs = [json.loads(x) for x in (out / "references.jsonl").read_text(encoding="utf-8").splitlines()
+            if x.strip()]
+    assert [(r["to_document_id"], r["loai"]) for r in refs] == [("96115", 10)]
+
+
 def test_checksum_DOI_khi_parser_doi_du_HTML_khong_doi(tmp_path, monkeypatch):
     """Kênh dữ liệu CŨ ÂM THẦM. `ingest` bỏ qua document khi checksum không đổi,
     và checksum chỉ băm HTML nguồn. Nên: sửa parser → rebuild seed → `ingest`
@@ -123,6 +197,7 @@ def test_checksum_DOI_khi_parser_doi_du_HTML_khong_doi(tmp_path, monkeypatch):
     raw.mkdir(parents=True)
     _metadata_rong(tmp_path / "raw")
     (raw / "9003.json").write_text(json.dumps({
+        "docNum": "3/2020/NĐ-CP",
         "docType": {"name": "Nghị định"}, "effStatus": {"code": "CHL"},
         "documentContent": {"content":
             '<div class="WordSection1">'

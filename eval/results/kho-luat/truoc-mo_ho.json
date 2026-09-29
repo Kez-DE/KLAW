@@ -1,0 +1,272 @@
+{
+  "commit_hash": "9a088ae",
+  "chay_luc": "2026-09-28T02:23:44.349422+00:00",
+  "so_cau": 20,
+  "so_cham": 20,
+  "dung": 17,
+  "so_loi": 0,
+  "abstain_oan": 1,
+  "ty_le_dung": 0.85,
+  "chi_tiet": [
+    {
+      "id": "mh-001",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-002",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-003",
+      "dung": false,
+      "result_type": "soan_thao_hoi",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người sử dụng lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-004",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-005",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người sử dụng lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-006",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-007",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người sử dụng lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-008",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-009",
+      "dung": false,
+      "result_type": "abstain",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người sử dụng lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-010",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người sử dụng lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-011",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-012",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người sử dụng lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-013",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-014",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người sử dụng lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-015",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-016",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người sử dụng lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-017",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-018",
+      "dung": false,
+      "result_type": "soan_thao_hoi",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người sử dụng lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-019",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người lao động",
+          "gia_dinh": true
+        }
+      ]
+    },
+    {
+      "id": "mh-020",
+      "dung": true,
+      "result_type": "answer",
+      "ho_so_da_dung": [
+        {
+          "khoa": "chu_the",
+          "nhan": "Vai của bạn",
+          "gia_tri": "người sử dụng lao động",
+          "gia_dinh": true
+        }
+      ]
+    }
+  ]
+}

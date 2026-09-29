@@ -40,6 +40,7 @@ from enum import StrEnum
 from sqlalchemy import Engine, text
 
 from src.agents.nodes.generate_claims import Claim
+from src.models.domain import khoa_so_ky_hieu, sql_khoa_so_ky_hieu
 from src.services.effectivity import (
     Effectivity,
     ap_sua_doi,
@@ -408,8 +409,9 @@ def tien_de_cau_hoi_sai(query: str, engine: Engine) -> str | None:
         for so_ky_hieu, ten, so_dieu in cap:
             ton_tai = conn.execute(text(
                 "SELECT 1 FROM provisions p JOIN documents d ON d.id = p.document_id"
-                " WHERE d.so_ky_hieu = :sk AND p.cap = 'dieu' AND p.so_hieu_cap = :sd LIMIT 1"),
-                {"sk": so_ky_hieu, "sd": so_dieu}).first()
+                f" WHERE {sql_khoa_so_ky_hieu('d.so_ky_hieu')} = :sk"
+                " AND p.cap = 'dieu' AND p.so_hieu_cap = :sd LIMIT 1"),
+                {"sk": khoa_so_ky_hieu(so_ky_hieu), "sd": so_dieu}).first()
             if ton_tai is None:
                 return f"{ten} không có Điều {so_dieu}"
     return None
