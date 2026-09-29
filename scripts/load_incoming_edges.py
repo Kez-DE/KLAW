@@ -91,7 +91,22 @@ CANH_SAI: frozenset[tuple[str, str, str]] = frozenset({
 #   đề "Pháp lệnh Thú y"; 40022 không publicDate, tệp 'ND 33 Huong dan PLTY 15.3.05.doc'.
 # - 60/2020/QH14: 142846 là văn bản Quốc hội thông qua; 153788 là bản sao y
 #   ("SAO Y BẢN CHÍNH … Số: 05/SY-VPCTN") của Văn phòng Chủ tịch nước.
-BAN_TRUNG: dict[str, str] = {"40022": "18451", "153788": "142846"}
+# K12 2026-09-29 (quyết định 2026-09-28 mục 17, chủ dự án chốt hai bản giữ đầu):
+# - 07/2025/NĐ-CP: giữ 174485; 187195 ghi docNum '07/2025/NĐ-СР' (С Р Kirin), cùng
+#   ngày ban hành, tiêu đề, người ký (review K6 vòng 1).
+# - 18/2011/TT-BNNPTNT: giữ 67884; 26419 ghi docNum 'TT- BNNPTNT' (khoảng trắng).
+# - 55/2025/NQ-HĐND: giữ 184706. Cả hai trang vbpl.vn (184706, 185035) qua phép kiểm
+#   link (`lam_moi_hieu_luc.kiem_trang_vbpl`, 2026-09-29 10:34 UTC) và hiện cùng toàn
+#   văn; phá hoà bằng bản ghi gateway: 184706 mang người ký (Lê Văn Hiệu) và
+#   effTo 2030-12-31 đúng Điều 6 khoản 1 ("đến ngày 31 tháng 12 năm 2030"), 185035
+#   ghi người ký "Đang cập nhật" và effTo null.
+BAN_TRUNG: dict[str, str] = {
+    "40022": "18451",
+    "153788": "142846",
+    "187195": "174485",
+    "26419": "67884",
+    "185035": "184706",
+}
 
 # Cùng quan hệ sai ấy trong mảng `references` MOJ của 19/2023/QH15 (loai 10,
 # `raw_text` '45/2019/QH14'): `(from, to, loai)`. `build_seed` bỏ nó khỏi seed,
