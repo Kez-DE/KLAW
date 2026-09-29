@@ -1,0 +1,43 @@
+# Checklist nội dung của HỢP ĐỒNG VẬN CHUYỂN HÀNH KHÁCH (thuê xe theo hợp đồng) —
+# BLDS Đ522–529, kèm Luật Đường bộ 35/2024/QH15 Đ56.10 (quyết định 2026-09-29 mục 3,
+# nghiên cứu `hop-dong.md` §2.4).
+#
+# muc_do_thieu: canh_bao — BLDS không liệt kê nội dung bắt buộc. Nội dung tối thiểu
+# của hợp đồng vận tải hành khách theo nghị định kinh doanh vận tải hiện hành KHÔNG có
+# trong kho, nên checklist chỉ đòi những gì BLDS điều chỉnh riêng.
+#
+# Hình thức: BLDS cho phép văn bản, lời nói, hành vi, vé là bằng chứng (Đ523); nhưng
+# KINH DOANH vận tải hành khách theo hợp đồng bằng xe ô tô phải có hợp đồng vận tải
+# BẰNG VĂN BẢN (Luật Đường bộ Đ56.10) — bản thảo này chính là văn bản đó.
+#
+# Mọi can_cu đã tự tra DB thật (2026-09-29):
+#   SELECT duong_dan FROM provisions
+#    WHERE duong_dan ~ '^91/2015/QH13 > Điều (52[2-9]|398)' OR duong_dan = '35/2024/QH15 > Điều 56 > Khoản 10';
+loai: hop_dong_van_chuyen_hanh_khach
+ten: "hợp đồng vận chuyển hành khách"
+tieu_de: "HỢP ĐỒNG VẬN CHUYỂN HÀNH KHÁCH"
+muc_do_thieu: canh_bao
+
+la_hop_dong: true
+
+rules: []
+
+can_cu_goc: "91/2015/QH13 > Điều 522"
+can_cu_chi_tiet: "35/2024/QH15 > Điều 56 > Khoản 10"
+
+khong_bat_buoc:
+  can_cu: "91/2015/QH13 > Điều 529 > Khoản 2"
+  ghi_chu: >
+    Đơn phương chấm dứt (Đ529) là quyền luật định, có hay không ghi vào hợp đồng cũng
+    không mất; điều khoản giải quyết tranh chấp nằm trong danh mục "có thể có" của
+    Đ398.2. Vắng mặt không được báo là thiếu.
+  keys: [don_phuong_cham_dut, tranh_chap]
+
+muc:
+  - {stt: 1, key: hanh_trinh, ten: "Hành khách, hành lý, lộ trình và phương tiện vận chuyển", can_cu: "91/2015/QH13 > Điều 522", tu_khoa: ["lộ trình", "hành trình", "địa điểm xuất phát", "phương tiện vận chuyển"]}
+  - {stt: 2, key: cuoc_phi, ten: "Cước phí vận chuyển và phương thức thanh toán", can_cu: "91/2015/QH13 > Điều 525 > Khoản 1", tu_khoa: ["cước phí vận chuyển", "giá cước", "tiền thuê xe"]}
+  - {stt: 3, key: nghia_vu_ben_van_chuyen, ten: "Nghĩa vụ của bên vận chuyển", can_cu: "91/2015/QH13 > Điều 524 > Khoản 1", tu_khoa: ["nghĩa vụ của bên vận chuyển", "quyền và nghĩa vụ của bên vận chuyển"]}
+  - {stt: 4, key: nghia_vu_hanh_khach, ten: "Nghĩa vụ của hành khách", can_cu: "91/2015/QH13 > Điều 526 > Khoản 1", tu_khoa: ["nghĩa vụ của hành khách", "quyền và nghĩa vụ của hành khách", "nghĩa vụ của bên thuê vận chuyển"]}
+  - {stt: 5, key: boi_thuong, ten: "Trách nhiệm bồi thường thiệt hại", can_cu: "91/2015/QH13 > Điều 528 > Khoản 1", tu_khoa: ["trách nhiệm bồi thường", "bồi thường thiệt hại"]}
+  - {stt: 6, key: don_phuong_cham_dut, ten: "Đơn phương chấm dứt thực hiện hợp đồng vận chuyển hành khách", can_cu: "91/2015/QH13 > Điều 529 > Khoản 2", tu_khoa: ["đơn phương chấm dứt"]}
+  - {stt: 7, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}

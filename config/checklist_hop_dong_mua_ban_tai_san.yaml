@@ -62,6 +62,12 @@ can_cu_chi_tiet: "91/2015/QH13 > Điều 431"
 #   • giay_to_quyen_tai_san, thoi_diem_chuyen_quyen_tai_san, bao_dam_doi_no
 #     (Đ450) — chỉ đặt ra KHI đối tượng là quyền tài sản. Với một chiếc xe hay
 #     một lô máy móc, ba mục đó vô nghĩa.
+#
+# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm trách
+# nhiệm do vi phạm (Đ398.2.e) và hai mục tuỳ chọn: bảo hành khi các bên thoả thuận
+# (Đ446) và giải quyết tranh chấp (Đ398.2.g).
+# Đã tự tra DB:
+#   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|446)';
 khong_bat_buoc:
   can_cu: "91/2015/QH13 > Điều 450"
   ghi_chu: >
@@ -70,8 +76,10 @@ khong_bat_buoc:
     thoả thuận. Ba mục Đ450 (chuyển giấy tờ, thời điểm chuyển quyền sở hữu đối
     với quyền tài sản, bảo đảm khả năng thanh toán của quyền đòi nợ) chỉ đặt ra
     khi đối tượng hợp đồng là QUYỀN TÀI SẢN. Vắng mặt không được báo là thiếu.
+    Bảo hành (Đ446) chỉ đặt ra khi các bên thoả thuận hoặc pháp luật quy định;
+    giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2.
   keys: [chat_luong, thoi_han, dia_diem_giao, rui_ro,
-         giay_to_quyen_tai_san, thoi_diem_chuyen_quyen_tai_san, bao_dam_doi_no]
+         giay_to_quyen_tai_san, thoi_diem_chuyen_quyen_tai_san, bao_dam_doi_no, bao_hanh, tranh_chap]
 
 muc:
   - {stt: 1, key: doi_tuong, ten: "Đối tượng của hợp đồng (tài sản hoặc quyền tài sản được bán)", can_cu: "91/2015/QH13 > Điều 431 > Khoản 1", tu_khoa: ["đối tượng của hợp đồng", "đối tượng hợp đồng", "tài sản mua bán", "tài sản được bán", "quyền tài sản"]}
@@ -85,3 +93,6 @@ muc:
   - {stt: 9, key: giay_to_quyen_tai_san, ten: "Chuyển giấy tờ và làm thủ tục chuyển quyền sở hữu (khi đối tượng là quyền tài sản)", can_cu: "91/2015/QH13 > Điều 450 > Khoản 1", tu_khoa: ["chuyển giấy tờ", "thủ tục chuyển quyền sở hữu", "bàn giao giấy tờ", "hồ sơ chuyển nhượng", "đăng ký chuyển quyền"]}
   - {stt: 10, key: thoi_diem_chuyen_quyen_tai_san, ten: "Thời điểm chuyển quyền sở hữu đối với quyền tài sản", can_cu: "91/2015/QH13 > Điều 450 > Khoản 3", tu_khoa: ["thời điểm chuyển quyền sở hữu", "thời điểm chuyển giao quyền", "hiệu lực chuyển quyền sở hữu"]}
   - {stt: 11, key: bao_dam_doi_no, ten: "Cam kết bảo đảm khả năng thanh toán của người mắc nợ (khi quyền tài sản là quyền đòi nợ)", can_cu: "91/2015/QH13 > Điều 450 > Khoản 2", tu_khoa: ["khả năng thanh toán của người mắc nợ", "bảo đảm khả năng thanh toán", "quyền đòi nợ", "liên đới chịu trách nhiệm thanh toán"]}
+  - {stt: 12, key: bao_hanh, ten: "Nghĩa vụ bảo hành (nếu có thoả thuận)", can_cu: "91/2015/QH13 > Điều 446", tu_khoa: ["bảo hành"]}
+  - {stt: 13, key: trach_nhiem_vi_pham, ten: "Trách nhiệm do vi phạm hợp đồng", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm e", tu_khoa: ["trách nhiệm do vi phạm", "phạt vi phạm", "bồi thường thiệt hại"]}
+  - {stt: 14, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}

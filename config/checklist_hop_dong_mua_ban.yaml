@@ -43,6 +43,12 @@ can_cu_chi_tiet: "36/2005/QH11 > Điều 24"
 # bán có bảo hành"; Đ57 và Đ62 là quy tắc MẶC ĐỊNH áp dụng khi các bên không
 # thoả thuận khác, nên hợp đồng im lặng vẫn có đủ quy tắc điều chỉnh — im lặng
 # ở đó không phải khuyết thiếu.
+#
+# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm trách
+# nhiệm do vi phạm hợp đồng (BLDS Đ398.2.e) — rule `tran_phat_vi_pham_hop_dong` kiểm
+# MỨC phạt, còn đây là MỤC điều khoản.
+# Đã tự tra DB:
+#   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều 398';
 khong_bat_buoc:
   can_cu: "36/2005/QH11 > Điều 24"
   ghi_chu: >
@@ -62,3 +68,4 @@ muc:
   - {stt: 8, key: bao_hanh, ten: "Bảo hành hàng hoá (nếu hàng hoá có bảo hành)", can_cu: "36/2005/QH11 > Điều 49", tu_khoa: ["bảo hành hàng hoá", "bảo hành hàng hóa", "bảo hành"]}
   - {stt: 9, key: chuyen_rui_ro, ten: "Chuyển rủi ro đối với hàng hoá", can_cu: "36/2005/QH11 > Điều 57", tu_khoa: ["chuyển rủi ro", "rủi ro đối với hàng hoá"]}
   - {stt: 10, key: quyen_so_huu, ten: "Thời điểm chuyển quyền sở hữu hàng hoá", can_cu: "36/2005/QH11 > Điều 62", tu_khoa: ["chuyển quyền sở hữu", "thời điểm chuyển quyền sở hữu"]}
+  - {stt: 11, key: trach_nhiem_vi_pham, ten: "Trách nhiệm do vi phạm hợp đồng", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm e", tu_khoa: ["trách nhiệm do vi phạm", "phạt vi phạm", "bồi thường thiệt hại"]}

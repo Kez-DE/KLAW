@@ -1,0 +1,51 @@
+# Checklist nội dung của HỢP ĐỒNG CHUYỂN NHƯỢNG QUYỀN SỬ DỤNG ĐẤT (giữa người sử dụng
+# đất, ngoài dự án bất động sản) — BLDS Đ500–503, Luật Đất đai 31/2024/QH15 Đ27.3,
+# Đ45.1, Đ133.3 (quyết định 2026-09-29 mục 3 và 8, nghiên cứu `hop-dong.md` §2.3).
+#
+# Luật không liệt kê nội dung bắt buộc cho chuyển nhượng giữa cá nhân; BLDS Đ501.1 cho
+# áp dụng nội dung của hợp đồng thông dụng có liên quan (mua bán tài sản: giá, thanh
+# toán Đ433; thời hạn giao Đ434). Danh mục "phải có" của Luật KDBĐS Đ46.2 CHỈ áp cho đất
+# đã có hạ tầng kỹ thuật trong dự án bất động sản — không mượn sang đây.
+#
+# HÌNH THỨC — bắt buộc, nên là MỤC chứ không chỉ ghi chú: hợp đồng chuyển nhượng quyền
+# sử dụng đất phải được công chứng hoặc chứng thực (Luật Đất đai Đ27.3.a; trừ bên là tổ
+# chức kinh doanh bất động sản, Đ27.3.b); vi phạm hình thức thì vô hiệu (BLDS Đ129).
+# Việc chuyển quyền có hiệu lực từ thời điểm đăng ký (BLDS Đ503); người sử dụng đất phải
+# đăng ký biến động trong 30 ngày (Luật Đất đai Đ133.1.a, Đ133.3).
+#
+# muc_do_thieu: canh_bao. Luật Đất đai 31/2024 đang "hết hiệu lực một phần"; kho không
+# ghi sửa đổi Đ27, Đ45, Đ133 nhưng chưa có văn bản hợp nhất để khẳng định chúng chưa bị
+# sửa — `hien_thi` vẫn hiện và phán quyết mỗi lượt.
+#
+# Mọi can_cu đã tự tra DB thật (2026-09-29):
+#   SELECT duong_dan FROM provisions
+#    WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|43[34]|50[0-3])'
+#       OR duong_dan ~ '^31/2024/QH15 > Điều (27|45|133)';
+loai: hop_dong_chuyen_nhuong_quyen_su_dung_dat
+ten: "hợp đồng chuyển nhượng quyền sử dụng đất"
+tieu_de: "HỢP ĐỒNG CHUYỂN NHƯỢNG QUYỀN SỬ DỤNG ĐẤT"
+muc_do_thieu: canh_bao
+
+la_hop_dong: true
+
+rules: []
+
+can_cu_goc: "91/2015/QH13 > Điều 500"
+can_cu_chi_tiet: "91/2015/QH13 > Điều 501 > Khoản 1"
+
+khong_bat_buoc:
+  can_cu: "91/2015/QH13 > Điều 398 > Khoản 2"
+  ghi_chu: >
+    Điều khoản giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2;
+    vắng mặt không được báo là thiếu.
+  keys: [tranh_chap]
+
+muc:
+  - {stt: 1, key: thua_dat, ten: "Thông tin thửa đất chuyển nhượng", can_cu: "91/2015/QH13 > Điều 501 > Khoản 2", tu_khoa: ["thông tin thửa đất", "thửa đất số", "tờ bản đồ", "đối tượng chuyển nhượng"]}
+  - {stt: 2, key: dieu_kien_chuyen_nhuong, ten: "Cam kết về điều kiện chuyển nhượng quyền sử dụng đất", can_cu: "31/2024/QH15 > Điều 45 > Khoản 1", tu_khoa: ["điều kiện chuyển nhượng", "không có tranh chấp", "không bị kê biên"]}
+  - {stt: 3, key: gia_thanh_toan, ten: "Giá chuyển nhượng và phương thức thanh toán", can_cu: "91/2015/QH13 > Điều 433 > Khoản 1", tu_khoa: ["giá chuyển nhượng", "phương thức thanh toán", "tiền chuyển nhượng"]}
+  - {stt: 4, key: giao_dat, ten: "Thời hạn giao đất và giấy tờ về quyền sử dụng đất", can_cu: "91/2015/QH13 > Điều 434 > Khoản 1", tu_khoa: ["thời hạn giao đất", "bàn giao đất", "giao đất và giấy tờ"]}
+  - {stt: 5, key: cong_chung, ten: "Công chứng, chứng thực hợp đồng", can_cu: "31/2024/QH15 > Điều 27 > Khoản 3 > Điểm a", tu_khoa: ["công chứng, chứng thực", "công chứng hoặc chứng thực"]}
+  - {stt: 6, key: dang_ky, ten: "Đăng ký biến động và thời điểm chuyển quyền sử dụng đất", can_cu: "91/2015/QH13 > Điều 503", tu_khoa: ["đăng ký biến động", "thời điểm chuyển quyền", "đăng ký quyền sử dụng đất"]}
+  - {stt: 7, key: trach_nhiem_vi_pham, ten: "Trách nhiệm do vi phạm hợp đồng", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm e", tu_khoa: ["trách nhiệm do vi phạm", "phạt vi phạm", "bồi thường thiệt hại"]}
+  - {stt: 8, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}

@@ -30,12 +30,21 @@ can_cu_goc: "91/2015/QH13 > Điều 472"
 
 # Cho thuê lại (Đ475) chỉ đặt ra khi các bên muốn cho phép; đặt cọc (Đ328) là
 # một biện pháp bảo đảm TUỲ CHỌN, không phải điều kiện của hợp đồng thuê.
+#
+# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm ba mục
+# có điều luật riêng — bảo đảm quyền sử dụng ổn định (Đ478), bảo quản tài sản thuê
+# (Đ479), trách nhiệm do vi phạm (Đ398.2.e) — và hai mục tuỳ chọn: đơn phương chấm
+# dứt khi không trả tiền thuê ba kỳ liên tiếp (Đ481.2, quyền luật định) và giải quyết
+# tranh chấp (Đ398.2.g, "có thể có"). Đã tự tra DB:
+#   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|47[89]|481)';
 khong_bat_buoc:
   can_cu: "91/2015/QH13 > Điều 475"
   ghi_chu: >
-    Cho thuê lại (Đ475) và đặt cọc (Đ328) là thoả thuận tuỳ chọn. Một hợp đồng
-    thuê không có hai điều khoản này vẫn đầy đủ; vắng mặt không báo là thiếu.
-  keys: [cho_thue_lai, dat_coc]
+    Cho thuê lại (Đ475) và đặt cọc (Đ328) là thoả thuận tuỳ chọn; đơn phương chấm
+    dứt khi bên thuê không trả tiền ba kỳ liên tiếp (Đ481.2) là quyền luật định;
+    giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2. Một hợp đồng
+    thuê không có các điều khoản này vẫn đầy đủ; vắng mặt không báo là thiếu.
+  keys: [cho_thue_lai, dat_coc, don_phuong_cham_dut, tranh_chap]
 
 muc:
   - {stt: 1, key: tai_san_thue, ten: "Tài sản thuê và mục đích thuê", can_cu: "91/2015/QH13 > Điều 472", tu_khoa: ["tài sản thuê", "đối tượng thuê", "đối tượng của hợp đồng thuê", "mặt bằng cho thuê"]}
@@ -44,7 +53,12 @@ muc:
   - {stt: 4, key: tra_tien_thue, ten: "Phương thức và kỳ hạn trả tiền thuê", can_cu: "91/2015/QH13 > Điều 481", tu_khoa: ["trả tiền thuê", "thanh toán tiền thuê", "kỳ hạn thanh toán"]}
   - {stt: 5, key: giao_tai_san, ten: "Giao tài sản thuê", can_cu: "91/2015/QH13 > Điều 476", tu_khoa: ["giao tài sản thuê", "bàn giao tài sản", "bàn giao mặt bằng"]}
   - {stt: 6, key: nghia_vu_ben_cho_thue, ten: "Nghĩa vụ bảo đảm giá trị sử dụng của tài sản thuê", can_cu: "91/2015/QH13 > Điều 477", tu_khoa: ["bảo đảm giá trị sử dụng", "nghĩa vụ của bên cho thuê"]}
-  - {stt: 7, key: nghia_vu_ben_thue, ten: "Nghĩa vụ sử dụng tài sản thuê đúng công dụng, mục đích", can_cu: "91/2015/QH13 > Điều 480", tu_khoa: ["đúng công dụng", "nghĩa vụ của bên thuê", "sử dụng tài sản thuê"]}
-  - {stt: 8, key: tra_lai_tai_san, ten: "Trả lại tài sản thuê khi hết thời hạn", can_cu: "91/2015/QH13 > Điều 482", tu_khoa: ["trả lại tài sản thuê", "hoàn trả mặt bằng", "trả lại mặt bằng"]}
-  - {stt: 9, key: cho_thue_lai, ten: "Cho thuê lại (nếu có thoả thuận)", can_cu: "91/2015/QH13 > Điều 475", tu_khoa: ["cho thuê lại"]}
-  - {stt: 10, key: dat_coc, ten: "Đặt cọc bảo đảm thực hiện hợp đồng (nếu có)", can_cu: "91/2015/QH13 > Điều 328", tu_khoa: ["đặt cọc", "tiền đặt cọc"]}
+  - {stt: 7, key: bao_dam_su_dung, ten: "Bảo đảm quyền sử dụng tài sản ổn định cho bên thuê", can_cu: "91/2015/QH13 > Điều 478 > Khoản 1", tu_khoa: ["bảo đảm quyền sử dụng", "sử dụng tài sản ổn định"]}
+  - {stt: 8, key: nghia_vu_ben_thue, ten: "Nghĩa vụ sử dụng tài sản thuê đúng công dụng, mục đích", can_cu: "91/2015/QH13 > Điều 480", tu_khoa: ["đúng công dụng", "nghĩa vụ của bên thuê", "sử dụng tài sản thuê"]}
+  - {stt: 9, key: bao_quan_tai_san, ten: "Nghĩa vụ bảo quản tài sản thuê", can_cu: "91/2015/QH13 > Điều 479 > Khoản 1", tu_khoa: ["bảo quản tài sản thuê", "sửa chữa nhỏ"]}
+  - {stt: 10, key: tra_lai_tai_san, ten: "Trả lại tài sản thuê khi hết thời hạn", can_cu: "91/2015/QH13 > Điều 482", tu_khoa: ["trả lại tài sản thuê", "hoàn trả mặt bằng", "trả lại mặt bằng"]}
+  - {stt: 11, key: cho_thue_lai, ten: "Cho thuê lại (nếu có thoả thuận)", can_cu: "91/2015/QH13 > Điều 475", tu_khoa: ["cho thuê lại"]}
+  - {stt: 12, key: dat_coc, ten: "Đặt cọc bảo đảm thực hiện hợp đồng (nếu có)", can_cu: "91/2015/QH13 > Điều 328", tu_khoa: ["đặt cọc", "tiền đặt cọc"]}
+  - {stt: 13, key: don_phuong_cham_dut, ten: "Đơn phương chấm dứt khi bên thuê không trả tiền thuê", can_cu: "91/2015/QH13 > Điều 481 > Khoản 2", tu_khoa: ["đơn phương chấm dứt"]}
+  - {stt: 14, key: trach_nhiem_vi_pham, ten: "Trách nhiệm do vi phạm hợp đồng", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm e", tu_khoa: ["trách nhiệm do vi phạm", "phạt vi phạm", "bồi thường thiệt hại"]}
+  - {stt: 15, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}
