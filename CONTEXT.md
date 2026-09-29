@@ -144,6 +144,13 @@ A draft KLAW composes without a checklist. Carries mức kiểm `tong_quat`; nev
 "đã kiểm pháp lý".
 _Avoid_: general draft, template output
 
+**thể thức**:
+The formal elements every document KLAW drafts carries for its type: quốc hiệu
+and tiêu ngữ, tên cơ quan (when an organisation issues it), số và ký hiệu, địa
+danh và thời gian, tên loại và trích yếu, nơi nhận, chữ ký. Unknown values stay
+as "…" for the asker to fill; never invented. Never added to a khuôn gốc.
+_Avoid_: header, format, template, mẫu
+
 **mức kiểm (`muc_kiem`)**:
 How much checking an output has passed: `tong_quat` (composed only),
 `doi_chieu_tai_lieu` (every quan sát anchored), `kiem_phap_ly` (checklist,
@@ -154,7 +161,10 @@ _Avoid_: trust level, quality tier, verified flag
 
 **câu hỏi meta**:
 A question about KLAW itself or about the corpus rather than about the law. It is
-answered from system data by deterministic rules, never by a model.
+answered from system data by deterministic rules, never by a model. A question
+about the Vietnamese legal system itself ("pháp luật Việt Nam chia thành những
+gì") is not one: it is a question about the law, answered from statute with
+citations.
 _Avoid_: small talk, chit-chat, greeting
 
 **khía cạnh (`khia_canh`)**:
