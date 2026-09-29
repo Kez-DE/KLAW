@@ -106,6 +106,17 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   3 in-force shallow rows store the number with a "số" prefix until K6
   re-ingests them from gateway `docNum`; 528 in-force documents still lack
   full text (K6; their full gateway responses are cached).
+  Review fixes (2026-09-29, no DB write): evidence-backed overrides (decision
+  item 12) go in `data/seed/hieu_luc_ghi_de.yaml` and win over the gateway on
+  every load; a disagreeing gateway is reported, not written. Effectivity
+  evidence is committed as `data/seed/hieu_luc_gateway.jsonl` (1,812 rows, built
+  offline from the K2 cache) and `lam_moi_hieu_luc --tu-seed` reloads it with 0
+  requests: the pre-K2-run-2 rows (1,744 unknown) + seed give the K2 state on
+  all 1,822 rows (0 mismatches); on the live DB it changes 0 rows. An outage no
+  longer hides documents: a generic page, 403, 429/5xx or transport error keeps
+  the previous link and evidence, a source is skipped after 5 consecutive
+  failures (K2 had at most 2), and a run that would lose >5 % of checked
+  documents writes nothing.
 - [ ] K3 citation display.
 - [ ] K4 "Căn cứ" in drafts.
 - [ ] K5 after eval, credit.
