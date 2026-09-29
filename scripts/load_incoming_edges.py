@@ -267,7 +267,8 @@ def load_from_parquet(path: Path, engine: Engine, them_van_ban_ngoai: bool = Tru
 
     Sau cạnh parquet (trừ `CANH_SAI`) là `CANH_DOI_CHIEU_NGUYEN_VAN` và cạnh suy
     từ VBHN (`_canh_tu_vbhn`); hai đầu của chúng phải có trong `documents`,
-    thiếu thì RAISE.
+    thiếu thì RAISE. Cuối cùng `canh_doi_chieu` được đặt lại từ seed
+    (`scripts.nap_canh_doi_chieu`), vì id cạnh vừa đổi hết.
     """
     if engine is not None:
         with engine.connect() as c:
@@ -328,6 +329,11 @@ def load_from_parquet(path: Path, engine: Engine, them_van_ban_ngoai: bool = Tru
                 " VALUES (:f, :t, :l, :r)"
             ), {"f": r.from_document_id, "t": r.to_document_id, "l": r.loai, "r": r.raw_text})
             ghi += 1
+        # DELETE ở trên CASCADE bằng chứng đối chiếu (migration 039): đặt lại từ seed,
+        # cùng giao dịch — một cạnh seed nói đã đối chiếu mà nay không còn là LỖI, rollback.
+        from scripts.nap_canh_doi_chieu import doc_seed, nap_vao
+
+        nap_vao(conn, doc_seed())
     return ghi
 
 
