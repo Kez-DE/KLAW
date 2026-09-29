@@ -411,10 +411,11 @@ def test_CHAP_NHAN_sau_nghi_dinh_luong_toi_thieu():
 @pytest.mark.integration
 def test_CHAP_NHAN_ly_do_neu_dich_danh_van_ban_ke_nhiem():
     """Người đọc thấy văn bản kế nhiệm qua `van_ban` (quyết định mục 10: không bao giờ
-    `ly_do`) — phải nêu đích danh, kể cả khi phán quyết đến từ ngày hết hiệu lực (Mức 1)."""
+    `ly_do`) — phải nêu đích danh, kể cả khi phán quyết đến từ ngày hết hiệu lực (Mức 1).
+    K9 (quyết định mục 12): đi hết chuỗi 122/2015 → 153/2016 → … → 38/2022 → 74/2024 tới
+    văn bản CÒN hiệu lực, nên cả bốn nêu 293/2025/NĐ-CP chứ không nêu văn bản thay trực tiếp."""
     engine = get_engine()
-    ke_nhiem = {"92898": "153/2016/NĐ-CP", "126319": "157/2018/NĐ-CP",
-                "132862": "90/2019/NĐ-CP", "139094": "38/2022/NĐ-CP"}
+    ke_nhiem = dict.fromkeys(("92898", "126319", "132862", "139094"), "293/2025/NĐ-CP")
     for doc_id, so_ky_hieu in ke_nhiem.items():
         r = danh_gia_theo_id(engine, doc_id, NGAY_CHAP_NHAN)
         assert so_ky_hieu in [v.so_ky_hieu for v in r.van_ban], f"{doc_id}: {r}"
@@ -525,7 +526,10 @@ def test_luat_quan_ly_thue_78_2006_bi_38_2019_thay():
     r = danh_gia_theo_id(get_engine(), "14832", NGAY_CHAP_NHAN)
     # K8: ghi đè có bằng chứng đặt ngày hết hiệu lực 2020-07-01 ⇒ Mức 1, vẫn nêu kẻ thay thế.
     assert (r.verdict, r.tin_cay) == (V.het_hieu_luc, "cao"), r
-    assert "38/2019/QH14" in [v.so_ky_hieu for v in r.van_ban], r
+    _, canh, _ = nap_ngu_canh(get_engine(), "14832", NGAY_CHAP_NHAN)
+    assert "38/2019/QH14" in [c["from_so_ky_hieu"] for c in canh], canh
+    # K9 (quyết định mục 12): 38/2019/QH14 cũng đã bị 108/2025/QH15 thay — nêu văn bản còn sống.
+    assert [v.so_ky_hieu for v in r.van_ban] == ["108/2025/QH15"], r
 
 
 @pytest.mark.integration
