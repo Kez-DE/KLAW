@@ -544,6 +544,28 @@ def _dieu_doi(cu: list[dict], moi: list[dict]) -> list[str]:
     return ra + [f"Bỏ «{c.get('ten') or 'một điều'}»" for c in cu if (c.get("key"), c.get("ten")) not in con]
 
 
+def _ben_doi(khung_cu: dict, khung: dict) -> dict[str, str]:
+    """Bên tuỳ loại của khung registry đổi loại giữa hai phiên bản: `{khoa: "Bên thuê:
+    tổ chức"}` — loại HIỆU LỰC qua `khuon_mau.chon_ben`, nên khung cũ không ghi loại là
+    `mac_dinh`."""
+    loai = khung.get("loai")
+    if loai not in khuon_mau.cac_loai():
+        return {}
+    entry = khuon_mau.nap(loai)
+    cu, moi = (
+        {
+            b["khoa"]: (b.get("vai") or b.get("tieu_de"), b.get("loai"))
+            for b in khuon_mau.chon_ben(entry, k.get("ben"))["ben"]
+        }
+        for k in (khung_cu, khung)
+    )
+    return {
+        k: f"{vai or k}: {'tổ chức' if lo == 'to_chuc' else 'cá nhân'}"
+        for k, (vai, lo) in moi.items()
+        if lo in khuon_mau.LOAI_BEN and cu.get(k, (None, None))[1] != lo
+    }
+
+
 def _kiem_gia_tri(
     state: dict, x: dict, o: list[dict], don_vi_goc: list, dang_co: list[dict]
 ) -> tuple[list, list, list]:
@@ -695,8 +717,11 @@ def _sua_khuon_mau(state: dict, x: dict, ng: dict, sub: str, hoi_thoai_id: str) 
         clauses = _ap_sua_dieu(clauses_cu, x["sua_dieu"], ng)
     else:
         clauses = clauses_cu
-    doi = _dieu_doi(clauses_cu, clauses)
     khung = {k: khung_cu.get(k) for k in ("loai", "bo_cuc", "tieu_de", "trich_yeu", "ben", "can_cu")}
+    khung["ben"] = (x.get("khung") or {}).get("ben") or khung["ben"]
+    # Một bên tuỳ loại đổi cá nhân ↔ tổ chức: khối các bên và ô ký đổi, dựng lại tệp.
+    ben_doi = _ben_doi(khung_cu, khung)
+    doi = [*ben_doi.values(), *_dieu_doi(clauses_cu, clauses)]
     bo_mang: list = []
     if doi:
         try:
@@ -710,6 +735,11 @@ def _sua_khuon_mau(state: dict, x: dict, ng: dict, sub: str, hoi_thoai_id: str) 
             khung_cu.get("thuoc"),
             moi["thuoc"],
         )
+        # Giá trị cũ không sang khối của bên vừa đổi loại: họ tên một người không phải
+        # tên người đại diện của công ty thay chỗ người ấy.
+        cua_ben_doi = {(z["don_vi"], z["so"]) for z in moi["o"] if z["ben"] in ben_doi}
+        bo_mang += [p for p in mang if (p["don_vi"], p["cho_trong"]) in cua_ben_doi]
+        mang = [p for p in mang if (p["don_vi"], p["cho_trong"]) not in cua_ben_doi]
         giu, bo, khong_dat = _kiem_gia_tri(state, x, moi["o"], moi["don_vi_goc"], mang)
         da_dien = _moi_dien(giu, mang)
         phep = ban_thao.gop_phep_sua(mang, giu, ban_thao.doan_cua_cho(moi["don_vi"]))

@@ -1597,10 +1597,10 @@ def can_cu_khuon_mau(audit: dict | None, clauses: list | None) -> list[dict]:
     khop_tai_id, dieu}]`. Chỉ phần tử có `doc_id` — cả hai đã qua bộ lọc hiện/hiệu lực
     lúc dựng."""
     khung = (audit or {}).get("khung") or {}
+    dong = [x for x in khung.get("can_cu") or [] if isinstance(x, dict) and x.get("doc_id") and x.get("dong")]
     ra = [
         {"nhan": x["dong"], "doc_id": str(x["doc_id"]), "khop_tai_id": None, "dieu": None}
-        for x in khung.get("can_cu") or []
-        if isinstance(x, dict) and x.get("doc_id") and x.get("dong")
+        for x in khuon_mau.can_cu_hien(dong, clauses or [])
     ]
     for i, c in enumerate(clauses or [], 1):
         cc = (c or {}).get("can_cu") if isinstance(c, dict) else None
@@ -1624,7 +1624,7 @@ def tom_tat_khuon_mau(khung: dict, clauses: list, khuon: dict | None) -> str:
     phan = [f"# {' '.join(str(khung.get('tieu_de') or 'VĂN BẢN').split()).upper()}", ""]
     if khung.get("trich_yeu"):
         phan += [str(khung["trich_yeu"]), ""]
-    for x in khung.get("can_cu") or []:
+    for x in khuon_mau.can_cu_hien(khung.get("can_cu") or [], clauses or []):
         phan += [x["dong"], ""]
     for i, c in enumerate(clauses or [], 1):
         doan = "\n\n".join(c.get("doan") or []) or khuon_mau.CHO
@@ -1648,6 +1648,7 @@ def spec_cua_khung(khung: dict, clauses: list) -> dict:
         trich_yeu=khung.get("trich_yeu"),
         can_cu=khung.get("can_cu") or [],
         dieu=[{k: c.get(k) for k in ("key", "ten", "doan", "can_cu")} for c in clauses or []],
+        ben=khung.get("ben"),
     )
 
 

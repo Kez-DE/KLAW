@@ -32,19 +32,28 @@ can_cu_chi_tiet: "91/2015/QH13 > Điều 398"
 # có ghi hay không, nên một hợp đồng không có điều khoản này không khuyết thiếu
 # gì. Cùng lý do với điều khoản giải quyết tranh chấp: Đ398.2.g là một nội dung
 # "có thể có".
+#
+# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm yêu cầu
+# về chất lượng, kết quả dịch vụ (Đ519.4 — căn cứ giảm tiền dịch vụ khi không đạt) và
+# mục TUỲ CHỌN trách nhiệm do vi phạm (Đ398.2.e — danh mục "có thể có", như tranh chấp).
+# Đã tự tra DB:
+#   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|519)';
 khong_bat_buoc:
   can_cu: "91/2015/QH13 > Điều 398 > Khoản 2"
   ghi_chu: >
     Quyền đơn phương chấm dứt (Đ520) là quyền luật định, có hay không ghi vào
-    hợp đồng cũng không mất; điều khoản giải quyết tranh chấp nằm trong danh
-    mục "có thể có" của Đ398.2. Vắng mặt không được báo là thiếu.
-  keys: [don_phuong_cham_dut, tranh_chap]
+    hợp đồng cũng không mất; điều khoản trách nhiệm do vi phạm và giải quyết
+    tranh chấp nằm trong danh mục "có thể có" của Đ398.2 (điểm e, g). Vắng mặt
+    không được báo là thiếu.
+  keys: [don_phuong_cham_dut, trach_nhiem_vi_pham, tranh_chap]
 
 muc:
   - {stt: 1, key: cong_viec_dich_vu, ten: "Đối tượng của hợp đồng: công việc phải thực hiện", can_cu: "91/2015/QH13 > Điều 514", tu_khoa: ["đối tượng của hợp đồng", "công việc dịch vụ", "nội dung dịch vụ", "phạm vi công việc", "phạm vi dịch vụ"]}
-  - {stt: 2, key: thoi_han_dia_diem, ten: "Thời hạn thực hiện và địa điểm thực hiện hợp đồng", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm d", tu_khoa: ["thời hạn thực hiện", "thời hạn, địa điểm", "tiến độ thực hiện", "địa điểm thực hiện"]}
-  - {stt: 3, key: tien_dich_vu, ten: "Tiền dịch vụ và phương thức thanh toán", can_cu: "91/2015/QH13 > Điều 519", tu_khoa: ["tiền dịch vụ", "phí dịch vụ", "giá dịch vụ", "phương thức thanh toán"]}
-  - {stt: 4, key: nghia_vu_ben_su_dung, ten: "Nghĩa vụ của bên sử dụng dịch vụ", can_cu: "91/2015/QH13 > Điều 515", tu_khoa: ["nghĩa vụ của bên sử dụng dịch vụ", "quyền và nghĩa vụ của bên sử dụng"]}
-  - {stt: 5, key: nghia_vu_ben_cung_ung, ten: "Nghĩa vụ của bên cung ứng dịch vụ", can_cu: "91/2015/QH13 > Điều 517", tu_khoa: ["nghĩa vụ của bên cung ứng", "quyền và nghĩa vụ của bên cung ứng"]}
-  - {stt: 6, key: don_phuong_cham_dut, ten: "Đơn phương chấm dứt thực hiện hợp đồng dịch vụ", can_cu: "91/2015/QH13 > Điều 520", tu_khoa: ["đơn phương chấm dứt"]}
-  - {stt: 7, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}
+  - {stt: 2, key: chat_luong_ket_qua, ten: "Yêu cầu về chất lượng, kết quả dịch vụ", can_cu: "91/2015/QH13 > Điều 519 > Khoản 4", tu_khoa: ["yêu cầu về chất lượng", "kết quả dịch vụ", "chất lượng dịch vụ"]}
+  - {stt: 3, key: thoi_han_dia_diem, ten: "Thời hạn thực hiện và địa điểm thực hiện hợp đồng", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm d", tu_khoa: ["thời hạn thực hiện", "thời hạn, địa điểm", "tiến độ thực hiện", "địa điểm thực hiện"]}
+  - {stt: 4, key: tien_dich_vu, ten: "Tiền dịch vụ và phương thức thanh toán", can_cu: "91/2015/QH13 > Điều 519", tu_khoa: ["tiền dịch vụ", "phí dịch vụ", "giá dịch vụ", "phương thức thanh toán"]}
+  - {stt: 5, key: nghia_vu_ben_su_dung, ten: "Nghĩa vụ của bên sử dụng dịch vụ", can_cu: "91/2015/QH13 > Điều 515", tu_khoa: ["nghĩa vụ của bên sử dụng dịch vụ", "quyền và nghĩa vụ của bên sử dụng"]}
+  - {stt: 6, key: nghia_vu_ben_cung_ung, ten: "Nghĩa vụ của bên cung ứng dịch vụ", can_cu: "91/2015/QH13 > Điều 517", tu_khoa: ["nghĩa vụ của bên cung ứng", "quyền và nghĩa vụ của bên cung ứng"]}
+  - {stt: 7, key: don_phuong_cham_dut, ten: "Đơn phương chấm dứt thực hiện hợp đồng dịch vụ", can_cu: "91/2015/QH13 > Điều 520", tu_khoa: ["đơn phương chấm dứt"]}
+  - {stt: 8, key: trach_nhiem_vi_pham, ten: "Trách nhiệm do vi phạm hợp đồng", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm e", tu_khoa: ["trách nhiệm do vi phạm", "phạt vi phạm", "bồi thường thiệt hại"]}
+  - {stt: 9, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}

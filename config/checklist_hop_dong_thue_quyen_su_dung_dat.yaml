@@ -1,0 +1,55 @@
+# Checklist nội dung của HỢP ĐỒNG THUÊ QUYỀN SỬ DỤNG ĐẤT (người sử dụng đất cho thuê,
+# ngoài dự án bất động sản) — BLDS Đ500–502 dẫn sang chế định thuê tài sản Đ472–482
+# (Đ501.1), Luật Đất đai 31/2024/QH15 Đ27.3.b, Đ45.1 (quyết định 2026-09-29 mục 8
+# "thuê đất").
+#
+# Luật không liệt kê nội dung bắt buộc; các mục dưới đây là nội dung có điều luật riêng
+# điều chỉnh (thuê tài sản) cộng điều kiện cho thuê của Luật Đất đai. Nội dung thửa đất
+# không được trái mục đích, thời hạn sử dụng đất (BLDS Đ501.2).
+#
+# HÌNH THỨC: phải lập thành văn bản (BLDS Đ502.1); công chứng, chứng thực THEO YÊU CẦU
+# các bên (Luật Đất đai Đ27.3.b) — nên mục `cong_chung` tuỳ chọn. Cho thuê quyền sử
+# dụng đất ngoài dự án kinh doanh kết cấu hạ tầng không thuộc diện phải đăng ký biến
+# động (Luật Đất đai Đ133.1.a chỉ kể cho thuê "trong dự án xây dựng kinh doanh kết cấu
+# hạ tầng").
+#
+# muc_do_thieu: canh_bao. Luật Đất đai 31/2024 "hết hiệu lực một phần" — xem ghi chú
+# của `checklist_hop_dong_chuyen_nhuong_quyen_su_dung_dat.yaml`.
+#
+# Mọi can_cu đã tự tra DB thật (2026-09-29):
+#   SELECT duong_dan FROM provisions
+#    WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|47[2-9]|48[0-2]|50[0-2])'
+#       OR duong_dan ~ '^31/2024/QH15 > Điều (27|45)';
+loai: hop_dong_thue_quyen_su_dung_dat
+ten: "hợp đồng thuê quyền sử dụng đất"
+tieu_de: "HỢP ĐỒNG THUÊ QUYỀN SỬ DỤNG ĐẤT"
+muc_do_thieu: canh_bao
+
+la_hop_dong: true
+
+rules: []
+
+can_cu_goc: "91/2015/QH13 > Điều 500"
+can_cu_chi_tiet: "91/2015/QH13 > Điều 501 > Khoản 1"
+
+khong_bat_buoc:
+  can_cu: "31/2024/QH15 > Điều 27 > Khoản 3 > Điểm b"
+  ghi_chu: >
+    Hợp đồng cho thuê quyền sử dụng đất được công chứng, chứng thực theo yêu cầu các
+    bên (Luật Đất đai Đ27.3.b); điều khoản trách nhiệm do vi phạm và giải quyết
+    tranh chấp nằm trong danh mục "có thể có" của BLDS Đ398.2 (điểm e, g). Vắng mặt
+    không được báo là thiếu.
+  keys: [cong_chung, trach_nhiem_vi_pham, tranh_chap]
+
+muc:
+  - {stt: 1, key: thua_dat, ten: "Thông tin thửa đất cho thuê và mục đích sử dụng", can_cu: "91/2015/QH13 > Điều 501 > Khoản 2", tu_khoa: ["thông tin thửa đất", "thửa đất số", "tờ bản đồ", "mục đích sử dụng đất"]}
+  - {stt: 2, key: dieu_kien_cho_thue, ten: "Cam kết về điều kiện cho thuê quyền sử dụng đất", can_cu: "31/2024/QH15 > Điều 45 > Khoản 1", tu_khoa: ["điều kiện cho thuê", "không có tranh chấp", "không bị kê biên"]}
+  - {stt: 3, key: thoi_han_thue, ten: "Thời hạn thuê", can_cu: "91/2015/QH13 > Điều 474 > Khoản 1", tu_khoa: ["thời hạn thuê", "thời hạn cho thuê"]}
+  - {stt: 4, key: gia_thue, ten: "Giá thuê", can_cu: "91/2015/QH13 > Điều 473 > Khoản 1", tu_khoa: ["giá thuê", "tiền thuê đất"]}
+  - {stt: 5, key: tra_tien_thue, ten: "Phương thức và kỳ hạn trả tiền thuê", can_cu: "91/2015/QH13 > Điều 481 > Khoản 1", tu_khoa: ["trả tiền thuê", "thanh toán tiền thuê", "kỳ hạn thanh toán"]}
+  - {stt: 6, key: giao_dat, ten: "Giao đất cho thuê", can_cu: "91/2015/QH13 > Điều 476 > Khoản 1", tu_khoa: ["giao đất cho thuê", "bàn giao đất"]}
+  - {stt: 7, key: nghia_vu_ben_thue, ten: "Nghĩa vụ sử dụng đất đúng mục đích của bên thuê", can_cu: "91/2015/QH13 > Điều 480 > Khoản 1", tu_khoa: ["sử dụng đất đúng mục đích", "nghĩa vụ của bên thuê"]}
+  - {stt: 8, key: tra_lai_dat, ten: "Trả lại đất khi chấm dứt hợp đồng", can_cu: "91/2015/QH13 > Điều 482 > Khoản 1", tu_khoa: ["trả lại đất", "hoàn trả đất"]}
+  - {stt: 9, key: cong_chung, ten: "Công chứng, chứng thực hợp đồng (nếu các bên yêu cầu)", can_cu: "31/2024/QH15 > Điều 27 > Khoản 3 > Điểm b", tu_khoa: ["công chứng, chứng thực", "công chứng hoặc chứng thực"]}
+  - {stt: 10, key: trach_nhiem_vi_pham, ten: "Trách nhiệm do vi phạm hợp đồng", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm e", tu_khoa: ["trách nhiệm do vi phạm", "phạt vi phạm", "bồi thường thiệt hại"]}
+  - {stt: 11, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}

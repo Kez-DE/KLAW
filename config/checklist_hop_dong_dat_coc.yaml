@@ -1,0 +1,51 @@
+# Checklist nội dung của HỢP ĐỒNG ĐẶT CỌC — BLDS Đ328 (đặt cọc là một biện pháp
+# bảo đảm, Đ292 khoản 3) và NĐ 21/2021/NĐ-CP Đ37, Đ38 (quyết định 2026-09-29 mục 3,
+# nghiên cứu `hop-dong.md` §2.1).
+#
+# muc_do_thieu: canh_bao — không điều luật nào liệt kê nội dung BẮT BUỘC của hợp đồng
+# đặt cọc; các mục dưới đây là nội dung có điều luật riêng điều chỉnh, thiếu thì hợp
+# đồng sơ sài chứ không trái luật.
+#
+# Hình thức: không điều nào trong kho buộc hợp đồng đặt cọc phải công chứng, chứng
+# thực (BLDS Đ119.1 cho phép lời nói, văn bản, hành vi); hiệu lực đối kháng phát sinh
+# khi bên nhận đặt cọc nắm giữ tài sản (NĐ 21/2021 Đ23.3). Danh mục giao dịch phải
+# công chứng do Bộ Tư pháp đăng tải (Luật Công chứng 46/2024 Đ3.2) chưa đối chiếu,
+# nên đây là kết luận vắng mặt — không in thành lời khẳng định nào trên mẫu.
+#
+# Mọi can_cu đã tự tra DB thật (2026-09-29, không chép từ trí nhớ):
+#   SELECT duong_dan FROM provisions
+#    WHERE duong_dan ~ '^91/2015/QH13 > Điều (328|398)' OR duong_dan ~ '^21/2021/NĐ-CP > Điều 3[78]';
+loai: hop_dong_dat_coc
+ten: "hợp đồng đặt cọc"
+tieu_de: "HỢP ĐỒNG ĐẶT CỌC"
+muc_do_thieu: canh_bao
+
+# Dựng trên chế định HỢP ĐỒNG (BLDS Đ385), nên `GET /mau/{loai}` kèm khối các bên
+# + chỗ ký (`cau_truc.khung_hop_dong`).
+la_hop_dong: true
+
+rules: []
+
+can_cu_goc: "91/2015/QH13 > Điều 328 > Khoản 1"
+can_cu_chi_tiet: "21/2021/NĐ-CP > Điều 37"
+
+khong_bat_buoc:
+  can_cu: "91/2015/QH13 > Điều 398 > Khoản 2"
+  ghi_chu: >
+    Điều khoản giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2;
+    vắng mặt không được báo là thiếu.
+  keys: [tranh_chap]
+
+# `ghi_ro_tien_dat_coc` là rủi ro lớn nhất trong thực tế: khoản tiền không ghi rõ
+# là tiền đặt cọc thì bị coi là tiền trả trước (NĐ 21/2021 Đ37), mất cả cơ chế
+# phạt cọc của Đ328.2.
+muc:
+  - {stt: 1, key: tai_san_dat_coc, ten: "Tài sản đặt cọc và giá trị", can_cu: "91/2015/QH13 > Điều 328 > Khoản 1", tu_khoa: ["tài sản đặt cọc", "số tiền đặt cọc", "khoản tiền đặt cọc", "tiền đặt cọc"]}
+  - {stt: 2, key: muc_dich_dat_coc, ten: "Hợp đồng được bảo đảm và mục đích đặt cọc", can_cu: "91/2015/QH13 > Điều 328 > Khoản 1", tu_khoa: ["mục đích đặt cọc", "hợp đồng được bảo đảm", "bảo đảm giao kết", "bảo đảm thực hiện hợp đồng"]}
+  - {stt: 3, key: thoi_han_dat_coc, ten: "Thời hạn đặt cọc", can_cu: "91/2015/QH13 > Điều 328 > Khoản 1", tu_khoa: ["thời hạn đặt cọc", "thời gian đặt cọc"]}
+  - {stt: 4, key: ghi_ro_tien_dat_coc, ten: "Xác định khoản tiền giao là tiền đặt cọc", can_cu: "21/2021/NĐ-CP > Điều 37", tu_khoa: ["là tiền đặt cọc", "tiền trả trước"]}
+  - {stt: 5, key: xu_ly_tai_san_coc, ten: "Xử lý tài sản đặt cọc khi hợp đồng được giao kết, thực hiện", can_cu: "91/2015/QH13 > Điều 328 > Khoản 2", tu_khoa: ["xử lý tài sản đặt cọc", "trả lại tài sản đặt cọc", "trừ để thực hiện nghĩa vụ"]}
+  - {stt: 6, key: mat_coc, ten: "Bên đặt cọc từ chối giao kết, thực hiện hợp đồng", can_cu: "91/2015/QH13 > Điều 328 > Khoản 2", tu_khoa: ["bên đặt cọc từ chối", "mất tài sản đặt cọc", "mất cọc"]}
+  - {stt: 7, key: phat_coc, ten: "Bên nhận đặt cọc từ chối giao kết, thực hiện hợp đồng", can_cu: "91/2015/QH13 > Điều 328 > Khoản 2", tu_khoa: ["bên nhận đặt cọc từ chối", "phạt cọc", "khoản tiền tương đương"]}
+  - {stt: 8, key: quyen_nghia_vu, ten: "Quyền và nghĩa vụ của các bên đối với tài sản đặt cọc", can_cu: "21/2021/NĐ-CP > Điều 38 > Khoản 2", tu_khoa: ["quyền và nghĩa vụ của các bên", "quyền, nghĩa vụ của các bên", "bảo quản tài sản đặt cọc", "không khai thác tài sản đặt cọc"]}
+  - {stt: 9, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}

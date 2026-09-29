@@ -278,3 +278,72 @@ def test_hanh_chinh_tu_soan_hai_ben_co_dinh_cua_khung_gia_tri_la_vao_khong_dat()
         )
     )
     assert {k for v in ban_do.values() for k in v if k} >= {("nguoi_ky", "ho_ten"), ("co_quan", "ten_to_chuc")}
+
+
+NG_THUE = {
+    "loai": "hop_dong_thue_tai_san",
+    "sua": False,
+    "tieu_de": "HỢP ĐỒNG THUÊ TÀI SẢN",
+    "bo_cuc": "hop_dong",
+    "ben": [
+        {"khoa": "ben_cho_thue", "vai": "Bên cho thuê", "loai": "tuy", "mac_dinh": "ca_nhan"},
+        {"khoa": "ben_thue", "vai": "Bên thuê", "loai": "tuy", "mac_dinh": "ca_nhan"},
+    ],
+    "khoa": [],
+    "bat_buoc": [],
+    "can_cu": [],
+}
+
+
+def _loai_ben(kq: dict) -> dict:
+    return {b["khoa"]: b.get("loai") for b in kq["khung"]["ben"]}
+
+
+def test_ben_tuy_loai_theo_loi_mo_hinh_roi_theo_truong_roi_mac_dinh():
+    # Mô hình nói thẳng: bên thuê là tổ chức.
+    kq = _kiem(_ra(ben=[{"khoa": "ben_thue", "vai": "Bên thuê", "loai": "to_chuc"}]), NG_THUE)
+    assert _loai_ben(kq) == {"ben_cho_thue": "ca_nhan", "ben_thue": "to_chuc"}
+    # Không nói `ben`, nhưng gán tên tổ chức cho bên thuê: suy từ trường.
+    g = [{"ben": "ben_thue", "truong": "ten_to_chuc", "gia_tri": "Công ty TNHH An Phát"}]
+    assert _loai_ben(_kiem(_ra(ben=None, gia_tri=g), NG_THUE))["ben_thue"] == "to_chuc"
+    # Trường chung của hai loại (điện thoại) không nói gì: mặc định.
+    g = [{"ben": "ben_thue", "truong": "dien_thoai", "gia_tri": "0901"}]
+    assert _loai_ben(_kiem(_ra(ben=None, gia_tri=g), NG_THUE)) == {"ben_cho_thue": "ca_nhan", "ben_thue": "ca_nhan"}
+
+
+def test_sua_giu_loai_da_luu_tru_khi_mo_hinh_noi_doi():
+    ng = {
+        **NG_THUE,
+        "sua": True,
+        "khung_cu": {
+            "loai": "hop_dong_thue_tai_san",
+            "ben": [
+                {"khoa": "ben_cho_thue", "vai": "Bên cho thuê", "loai": "ca_nhan"},
+                {"khoa": "ben_thue", "vai": "Bên thuê", "loai": "to_chuc"},
+            ],
+        },
+    }
+    # Một giá trị "họ tên" lẻ không lật bên thuê (đã là tổ chức) sang cá nhân.
+    g = [{"ben": "ben_thue", "truong": "ho_ten", "gia_tri": "An"}]
+    kq = _kiem(_ra(muc_tieu="sua_ban_dang_co", ben=None, gia_tri=g, dieu=None, sua_dieu=[]), ng)
+    assert _loai_ben(kq) == {"ben_cho_thue": "ca_nhan", "ben_thue": "to_chuc"}
+    ra = _ra(
+        muc_tieu="sua_ban_dang_co",
+        ben=[{"khoa": "ben_cho_thue", "vai": "x", "loai": "to_chuc"}],
+        dieu=None,
+        sua_dieu=[],
+    )
+    assert _loai_ben(_kiem(ra, ng))["ben_cho_thue"] == "to_chuc"
+
+
+def test_muc_tuy_chon_ghi_ro_trong_prompt():
+    ng = {
+        "muc": [
+            {"key": "cuoc_phi", "ten": "Cước phí", "trich": ""},
+            {"key": "giay_van_tai", "ten": "Giấy vận tải khi vận tải hàng hoá bằng xe ô tô", "trich": ""},
+        ],
+        "bat_buoc": ["cuoc_phi"],
+    }
+    khoi = h._khoi_muc_khuon_mau(ng)
+    assert "`cuoc_phi` — Cước phí\n" in khoi
+    assert "`giay_van_tai` — Giấy vận tải khi vận tải hàng hoá bằng xe ô tô — TUỲ CHỌN" in khoi

@@ -459,7 +459,15 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
         ten=entry["ten"],
         tieu_de=entry["tieu_de"],
         bo_cuc=entry["bo_cuc"],
-        ben=[{"khoa": b["khoa"], "vai": b.get("vai") or b.get("tieu_de")} for b in entry.get("ben") or []],
+        # Bên `tuy`: mô hình nói cá nhân hay tổ chức (`khuon_mau.chon_ben`).
+        ben=[
+            {
+                "khoa": b["khoa"],
+                "vai": b.get("vai") or b.get("tieu_de"),
+                **({"loai": "tuy", "mac_dinh": b["mac_dinh"]} if b.get("loai") == "tuy" else {}),
+            }
+            for b in entry.get("ben") or []
+        ],
         khoa_than=khoa_than,
         co_dieu=any("dieu" in m for m in entry["than"]),
         co_trich_yeu=bool(entry["the_thuc"].get("vv")) or entry["bo_cuc"] == "hanh_chinh",
@@ -485,7 +493,7 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
             elif not khoa_than or ng["co_dieu"]:
                 muc.append({"key": m["key"], "ten": m["ten"], "trich": trich, "can_cu": cc})
         if entry["the_thuc"].get("can_cu"):
-            ng["can_cu"] = gst.can_cu_van_ban_co_id(engine, hien, as_of)
+            ng["can_cu"] = gst.can_cu_khung(engine, loai, hien, as_of)
     ng["muc"] = muc
     ng["khoa"] = sorted({m["key"] for m in muc})
     return {**st, "khuon_mau_ngu_canh": ng}
