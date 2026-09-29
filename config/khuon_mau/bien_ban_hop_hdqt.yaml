@@ -1,0 +1,72 @@
+# Biên bản họp Hội đồng quản trị — dựng TƯƠNG TỰ Mẫu 1.9 "Biên bản", Nghị định
+# 30/2020/NĐ-CP, Phụ lục III (Công báo 283+284, tr. 58). Không có mẫu chính thức (TT
+# 68/2025/TT-BTC không có biên bản họp của công ty). Mẫu 1.9 là mẫu biên bản chính thức
+# duy nhất; khối ký hai người của nó khớp Luật Doanh nghiệp 2020 Đ158.1.i (chủ tọa và
+# người ghi biên bản). Theo mẫu: hàng Số không có địa danh-ngày ở đầu (thời gian, địa
+# điểm nằm trong thân); dòng trường lùi đầu dòng; "Nội dung (theo diễn biến …)"; câu
+# kết "Cuộc họp … kết thúc vào … giờ …"; THƯ KÝ trái | CHỦ TỌA phải; Nơi nhận DƯỚI hai
+# khối ký. Cụm "(hội nghị, hội thảo)" của mẫu chung bỏ đi: đây luôn là cuộc họp. Địa
+# chỉ trụ sở và mã số doanh nghiệp thêm theo LDN Đ158.1.a. Công ty ngoài nhà nước: tập
+# quán, tham khảo Phụ lục I.
+loai: bien_ban_hop_hdqt
+ten: biên bản họp Hội đồng quản trị
+tieu_de: BIÊN BẢN
+bo_cuc: hanh_chinh
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.9 (tham chiếu bố cục)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  trang: 57
+  ghi_chu: "Trang PDF 57 = Công báo tr. 58. Không có mẫu chính thức cho biên bản họp HĐQT; nội dung bắt buộc theo LDN 2020 Đ158.1."
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: "Số: {}/BB-HĐQT"
+  ngay: khong
+  trich_yeu: "Họp Hội đồng quản trị {trich_yeu}"
+  thut_nhan: true
+  can_cu: false
+  ket_thuc: "Cuộc họp kết thúc vào {} giờ {}, ngày {} tháng {} năm {}"
+  noi_nhan: ["{};", "Lưu: VT, Hồ sơ."]
+  noi_nhan_duoi: true
+ben:
+  - khoa: co_quan
+    vai: "Công ty"
+    dong: ["Địa chỉ trụ sở chính:{dia_chi_tru_so}", "Mã số doanh nghiệp:{ma_so_doanh_nghiep}"]
+  - {khoa: chu_toa, vai: "Chủ tọa", dong: ["Chủ trì (chủ tọa):{ho_ten}"]}
+  - {khoa: thu_ky, vai: "Thư ký", dong: ["Thư ký (người ghi biên bản):{ho_ten}"]}
+than:
+  - {ben: co_quan}
+  - {dong: "Thời gian bắt đầu:{}", tab: true}
+  - {dong: "Địa điểm:{}", tab: true}
+  # "Thành phần tham dự" của Mẫu 1.9, tách theo LDN Đ158.1.d: họ tên từng thành viên
+  # dự họp (hay người được ủy quyền) và cách thức dự họp; thành viên vắng và lý do.
+  - {dong: "Thành phần tham dự:"}
+  - {dong: "Thành viên dự họp và cách thức dự họp:{thanh_vien_du_hop}", tab: true}
+  - {dong: "Thành viên không dự họp và lý do:{thanh_vien_vang}", tab: true}
+  - {ben: chu_toa}
+  - {ben: thu_ky}
+  - {dong: "Nội dung (theo diễn biến cuộc họp):"}
+  - {dieu: so}
+  # LDN Đ158.1.g: kết quả biểu quyết ghi rõ NHỮNG THÀNH VIÊN tán thành, không tán
+  # thành, không có ý kiến — họ tên là trường của khung, không phải chữ điều khoản.
+  - {dong: "Thành viên biểu quyết tán thành:{tan_thanh}", tab: true}
+  - {dong: "Thành viên biểu quyết không tán thành:{khong_tan_thanh}", tab: true}
+  - {dong: "Thành viên không có ý kiến:{khong_y_kien}", tab: true}
+# Khung có: tên, trụ sở, mã số doanh nghiệp (đầu trang + khối công ty); thời gian, địa
+# điểm; thành viên dự họp, vắng; họ tên theo kết quả biểu quyết; chữ ký chủ tọa và thư
+# ký. Chương trình, thảo luận, phát biểu, số phiếu biểu quyết, vấn đề thông qua là điều
+# khoản. Họ tên thành viên là giá trị người dùng nói (`gia_tri`, ben `van_ban`), qua
+# phép kiểm nguồn như mọi giá trị điền — không bao giờ chữ mô hình tự viết.
+muc_khung: [ten_doanh_nghiep, thoi_gian_dia_diem, thanh_vien_du_hop, chu_ky]
+ky:
+  thu_tu: [thu_ky, chu_toa]
+  o:
+    - {khoa: thu_ky, vai: "THƯ KÝ", ghi_chu: "(Chữ ký)", ho_ten_tu: ho_ten}
+    - khoa: chu_toa
+      vai: "CHỦ TỌA"
+      ghi_chu: "(Chữ ký của người có thẩm quyền,\ndấu/chữ ký số của cơ quan, tổ chức (nếu có))"
+      ho_ten_tu: ho_ten
+truong_tu_facts: {}

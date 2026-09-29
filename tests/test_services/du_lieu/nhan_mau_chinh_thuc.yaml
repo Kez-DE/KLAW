@@ -5,6 +5,10 @@
 # trắng. `bo_qua` kể chữ của tệp gốc KHÔNG dựng lại, kèm lý do — không gì bị bỏ lặng lẽ.
 # `test_khuon_mau_registry.py` dựng từng mục (không điều khoản nào) và so dãy đoạn
 # của bản dựng với `nhan`, sau khi bỏ "……" và gộp khoảng trắng như trên.
+# Dấu "." sau chỗ trống cuối của "Theo đề nghị của …" và "- Lưu: VT, …" không vẽ được
+# trên mẫu (dãy chấm chạy tới lề) nhưng CHỮ Phụ lục I đòi (Công báo tr. 25: dòng căn cứ
+# cuối "kết thúc bằng dấu chấm (.)"; tr. 30: dòng "Lưu" của Nơi nhận "cuối cùng là dấu
+# chấm (.)"; Mẫu 1.2 in "- Lưu: VT,...9...10."). Nó giữ được khi điền nhờ `khuon_mau.NOI`.
 don_khoi_kien:
   tep_d2: goc/m23-ds_toaan-TAND279888.pdf
   sha256: 6881d9dda626033de033c120d790a3ef064c301b089ec3b754219cf5228a8a0a
@@ -59,7 +63,7 @@ cong_van:
     - "Nơi nhận:"
     - "- Như trên;"
     - "- ;"
-    - "- Lưu: VT,"
+    - "- Lưu: VT, ."
     - "(Chữ ký của người có thẩm quyền,"
     - "dấu/chữ ký số của cơ quan, tổ chức)"
   bo_qua:
@@ -70,3 +74,80 @@ cong_van:
     - {chu: "Họ và tên", ly_do: "cụm giữ chỗ — thành chỗ trống"}
     - {chu: "(ô 13) địa chỉ, thư điện tử, điện thoại, Fax", ly_do: "tuỳ chọn theo chú thích 10 của mẫu (nếu cần) — không dựng"}
     - {chu: "Ghi chú: 1…10", ly_do: "chú thích của mẫu, không phải công văn (D2 §4.1)"}
+quyet_dinh_bo_nhiem:
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  lenh: "pdftotext -layout -f 48 -l 48 goc/nd30-2020_congbao-283-284.pdf -"
+  # Chỗ trống đứng sau chữ tĩnh một dấu cách ("Căn cứ ……;"): mẫu in dãy chấm liền chữ.
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - "Số: /QĐ-"
+    - ", ngày tháng năm"
+    - "QUYẾT ĐỊNH"
+    - "Về việc"
+    - "Căn cứ ;"
+    - "Theo đề nghị của ."
+    - "QUYẾT ĐỊNH:"
+    - "Nơi nhận:"
+    - "- Như Điều ;"
+    - "- ;"
+    - "- Lưu: VT, ."
+    - "(Chữ ký của người có thẩm quyền,"
+    - "dấu/chữ ký số của cơ quan, tổ chức)"
+  bo_qua:
+    - {chu: "TÊN CQ, TC CHỦ QUẢN", ly_do: "dòng tuỳ chọn theo chú thích 1 của mẫu (nếu có) — không dựng"}
+    - {chu: "TÊN CƠ QUAN, TỔ CHỨC", ly_do: "cụm giữ chỗ — thành chỗ trống (in hoa)"}
+    - {chu: "THẨM QUYỀN BAN HÀNH", ly_do: "cụm giữ chỗ (chú thích 6: chức vụ người đứng đầu hay tên tập thể) — thành chỗ trống in hoa đậm"}
+    - {chu: "Căn cứ…;  (dòng thứ hai)", ly_do: "các dòng 'Căn cứ…;' của mẫu nhận dòng căn cứ của kho (đủ số, ngày); một dòng còn trống cho căn cứ riêng của tổ chức. Bản ghi dựng không dòng kho nào nên còn một dòng"}
+    - {chu: "Điều 1…  Điều…  …/.", ly_do: "nội dung quyết định (ô 8) — mô hình viết, 'Điều n.' đậm đầu đoạn, './.' sau đoạn cuối"}
+    - {chu: "QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ", ly_do: "cụm giữ chỗ — thành chỗ trống in hoa đậm"}
+    - {chu: "Họ và tên", ly_do: "cụm giữ chỗ — thành chỗ trống"}
+    - {chu: "Ghi chú: 1…10", ly_do: "chú thích của mẫu, không phải quyết định (D2 §4.1)"}
+quy_che_noi_bo:
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  lenh: "pdftotext -layout -f 49 -l 50 goc/nd30-2020_congbao-283-284.pdf -"
+  # Trang 49 (Mẫu 1.3, quyết định ban hành) rồi trang 50 (văn bản kèm theo). Chỗ trống
+  # đứng sau chữ tĩnh một dấu cách.
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - "Số: /QĐ-"
+    - ", ngày tháng năm"
+    - "QUYẾT ĐỊNH"
+    - "Ban hành Quy chế"
+    - "Căn cứ ;"
+    - "Theo đề nghị của ."
+    - "QUYẾT ĐỊNH:"
+    - "Điều 1. Ban hành kèm theo Quyết định này Quy chế ."
+    - "Điều 2. Quyết định này có hiệu lực kể từ ngày ."
+    - "Điều 3. chịu trách nhiệm thi hành Quyết định này./."
+    - "Nơi nhận:"
+    - "- Như Điều 3;"
+    - "- ;"
+    - "- Lưu: VT, ."
+    - "(Chữ ký của người có thẩm quyền,"
+    - "dấu/chữ ký số của cơ quan, tổ chức)"
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - "QUY CHẾ"
+    - "(Kèm theo Quyết định số /QĐ- ngày tháng năm của )"
+  bo_qua:
+    - {chu: "TÊN CQ, TC CHỦ QUẢN (hai trang)", ly_do: "dòng tuỳ chọn theo chú thích 1 của Mẫu 1.3 (nếu có) — không dựng"}
+    - {chu: "TÊN CƠ QUAN, TỔ CHỨC (hai trang)", ly_do: "cụm giữ chỗ — thành chỗ trống (in hoa)"}
+    - {chu: "Ban hành (Phê duyệt)", ly_do: "'(Phê duyệt)' là phương án thay của mẫu cho văn bản được phê duyệt; quy chế được BAN HÀNH — dựng 'Ban hành'"}
+    - {chu: "THẨM QUYỀN BAN HÀNH", ly_do: "cụm giữ chỗ (chú thích 6) — thành chỗ trống in hoa đậm"}
+    - {chu: "Căn cứ…;  (dòng thứ hai)", ly_do: "các dòng 'Căn cứ…;' nhận dòng căn cứ của kho; một dòng còn trống cho căn cứ riêng của tổ chức"}
+    - {chu: "QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ / Họ và tên", ly_do: "cụm giữ chỗ — thành chỗ trống"}
+    - {chu: "TÊN LOẠI VĂN BẢN", ly_do: "cụm giữ chỗ — là tên loại 'QUY CHẾ' (NĐ 30 Đ7)"}
+    - {chu: "…1… (trích yếu văn bản kèm theo)", ly_do: "chỗ trống trích yếu — in chữ khi lượt có trích yếu"}
+    - {chu: "…3… (tên chương, hai dòng chấm giữa trang)", ly_do: "chương không dựng: điều khoản là một danh sách phẳng"}
+    - {chu: "Điều 1…  Điều…  …/. (văn bản kèm theo)", ly_do: "nội dung quy chế — mô hình viết; './.' sau đoạn cuối"}
+    - {chu: "Ghi chú (hai trang)", ly_do: "chú thích của mẫu (D2 §4.1)"}
+  # Chữ lấp vào ô của mẫu (không phải chữ tĩnh của tệp gốc) — khung dựng, không mô hình:
+  them:
+    - {chu: "Quy chế (trong 'Ban hành Quy chế' và Điều 1)", ly_do: "ô 5 'trích yếu nội dung quyết định' = tên văn bản kèm theo, cộng trích yếu của nó khi có"}
+    - {chu: "Điều 2. Quyết định này có hiệu lực kể từ ngày ……", ly_do: "lấp ô 'Điều……' của mẫu bằng điều hiệu lực thông dụng, ngày để trống"}
+    - {chu: "Điều 3. …… chịu trách nhiệm thi hành Quyết định này./.", ly_do: "lấp ô 'Điều……' bằng điều thi hành mà dòng Nơi nhận '- Như Điều…' của mẫu dẫn tới"}
+    - {chu: "3 (trong '- Như Điều 3;')", ly_do: "số của điều thi hành ở trên"}

@@ -61,6 +61,11 @@ rules: []
 
 can_cu_goc: "30/2020/NĐ-CP > Điều 8 > Khoản 2"
 can_cu_chi_tiet: "30/2020/NĐ-CP > Điều 7"
+# Căn cứ BAN HÀNH (khối "Căn cứ" của khuôn mẫu), không phải mục — mục 2 ở đầu file:
+# LDN Đ153.2.l (HĐQT "quyết định cơ cấu tổ chức, quy chế quản lý nội bộ của công
+# ty") và Đ162.3.d (Giám đốc kiến nghị quy chế quản lý nội bộ), tra DB 2026-09-29.
+# Trang in một dòng cho cả Luật Doanh nghiệp, đúng với mọi loại hình công ty.
+can_cu_ban_hanh: ["59/2020/QH14 > Điều 153 > Khoản 2 > Điểm l", "59/2020/QH14 > Điều 162 > Khoản 3 > Điểm d"]
 
 muc:
   - {stt: 1, key: quoc_hieu, ten: "Quốc hiệu và Tiêu ngữ", diem: a, can_cu: "30/2020/NĐ-CP > Điều 8 > Khoản 2 > Điểm a", tu_khoa: ["quốc hiệu", "cộng hoà xã hội chủ nghĩa việt nam", "cộng hòa xã hội chủ nghĩa việt nam", "độc lập - tự do - hạnh phúc"]}

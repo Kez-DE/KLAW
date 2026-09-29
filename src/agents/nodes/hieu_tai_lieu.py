@@ -3734,6 +3734,15 @@ MUC_TIEU = ("ban_moi", "sua_ban_dang_co")
 THAO_TAC = ("thay", "them_sau", "xoa")
 # Câu hỏi lại khi lượt sửa không chỉ được Điều nào (§4 bước 5).
 CHUA_RO_DIEU = "Tôi chưa xác định được điều cần sửa — hãy nêu số hoặc tên điều."
+# Quyết định ban hành + văn bản kèm theo (Mẫu 1.3 NĐ 30/2020): trang đầu có "Điều 1–3" của
+# CHÍNH quyết định, khung của mẫu — cùng số với Điều của văn bản kèm theo. Lời người hỏi
+# trích chữ khung ("Quyết định này …") mà mô hình vẫn sửa một Điều thì Điều đó là của
+# văn bản kèm theo, sai chỗ: bỏ phép sửa, nói điền trên trang.
+_RE_KHUNG_BAN_HANH = re.compile(r"\bquyet dinh (?:nay|ban hanh)\b")
+KHUNG_BAN_HANH = (
+    "Chưa sửa điều nào: Điều 1–3 của Quyết định ban hành ở trang đầu là khung của mẫu — ngày hiệu lực và đơn vị"
+    " thi hành điền ngay trên trang; các Điều sửa được bằng lời là Điều của văn bản kèm theo"
+)
 _RE_KHOA_BEN = re.compile(r"[^a-z0-9_]")
 _RE_DIEU_NAY = re.compile(r"\b(?:khoản|điểm)\s+\w+(?:\s*(?:,|và)\s*\w+)*\s+(?:của\s+)?Điều\s+này\b", re.IGNORECASE)
 _THAM_CHIEU_LOAI = ("hợp đồng", "văn bản", "quy chế", "nội quy", "quyết định", "thỏa thuận", "thoả thuận", "đơn")
@@ -4101,6 +4110,9 @@ def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu:
         v = " ".join(str((g or {}).get("gia_tri") or "").split()) if isinstance(g, dict) else ""
         if not v or len(v) > GIA_TRI_TOI_DA:
             continue
+        # Trích yếu đã in thành chữ (`khung.trich_yeu`) thì không còn chỗ trống nào của nó.
+        if g.get("truong") == "trich_yeu" and khung.get("trich_yeu"):
+            continue
         if g.get("ben") in ben_hop_le and g.get("truong") in khuon_mau.truong():
             gia_tri.append({"ben": g["ben"], "truong": g["truong"], "gia_tri": v})
         else:
@@ -4191,7 +4203,24 @@ def _soan_khuon_mau(
         return hong(QUA_DAI_VOI_BAN_THAO, "vuot_tran")
     loai = (
         f"{ng.get('ten') or ng.get('tieu_de')} — loại có sẵn: khung, các bên và căn cứ do hệ thống dựng; bạn chỉ "
-        "viết điều khoản."
+        "viết điều khoản"
+        # Văn bản hành chính có dòng trích yếu ("V/v …", "Về việc …") mà khung dựng
+        # (`kiem_khuon_mau` đọc `trich_yeu` khi `co_trich_yeu`): mô hình viết nội dung.
+        + (
+            ", và `trich_yeu`: nội dung chính của văn bản, không kèm «V/v» hay «Về việc» (ví dụ «bổ nhiệm Phó Giám"
+            " đốc kinh doanh»)."
+            if ng.get("co_trich_yeu")
+            else "."
+        )
+        + (
+            f" Tệp gồm hai văn bản: trang đầu là QUYẾT ĐỊNH ban hành, ba Điều của nó (ban hành, hiệu lực, trách nhiệm"
+            " thi hành) là khung của hệ thống, KHÔNG phải điều khoản — không sửa bằng `dieu`/`sua_dieu`; chỗ trống"
+            " ở đó điền bằng `gia_tri` (ben `van_ban`, ví dụ `ngay_hieu_luc`). Mọi số Điều của `dieu`/`sua_dieu` là"
+            f" số Điều của {ng.get('ten') or 'văn bản'} kèm theo; người hỏi nói về «Quyết định này» mà không có giá"
+            " trị điền được thì đưa yêu cầu vào `khong_dat`."
+            if ng.get("ban_hanh")
+            else ""
+        )
         if ng.get("loai")
         else (
             f"Văn bản tự soạn «{(ng.get('khung_cu') or {}).get('tieu_de')}» — giữ tên loại, bố cục và các bên."
@@ -4235,6 +4264,14 @@ def _soan_khuon_mau(
     kq = kiem_khuon_mau(
         ra, ng, _nguon_soan([], state, [], [], bo_nho_cho_phep), bo_nho_cam, ten_dieu_cua(tai_lieu_cu) if sua else []
     )
+    if (
+        ng.get("ban_hanh")
+        and kq["muc_tieu"] == "sua_ban_dang_co"
+        and (kq["dieu"] is not None or kq["sua_dieu"])
+        and _RE_KHUNG_BAN_HANH.search(_khong_dau(cau_hoi_nguoi))
+    ):
+        # Giá trị điền (ngày hiệu lực của Điều 2 khung) vẫn đi tiếp; chỉ phép sửa Điều bị bỏ.
+        kq = {**kq, "dieu": None, "sua_dieu": None, "ghi_chu": [*kq["ghi_chu"], KHUNG_BAN_HANH]}
     muc_dich = "sua_ban_thao" if kq["muc_tieu"] == "sua_ban_dang_co" else "tao_van_ban"
     return {
         **state,

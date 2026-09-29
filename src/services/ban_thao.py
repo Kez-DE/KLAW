@@ -1626,6 +1626,22 @@ def tom_tat_khuon_mau(khung: dict, clauses: list, khuon: dict | None) -> str:
         phan += [str(khung["trich_yeu"]), ""]
     for x in khuon_mau.can_cu_hien(khung.get("can_cu") or [], clauses or []):
         phan += [x["dong"], ""]
+    loai = khung.get("loai")
+    entry = khuon_mau.nap(loai) if loai in khuon_mau.cac_loai() else {}
+    if dieu_khung := khuon_mau.dieu_khung(entry, tieu_de=khung.get("tieu_de"), trich_yeu=khung.get("trich_yeu")):
+        # Mẫu 1.3: trang đầu có "Điều 1–3" của CHÍNH quyết định ban hành, cùng số với Điều
+        # của văn bản kèm theo. Gắn nhãn cả hai phần để lượt sửa không nhầm số Điều. Dòng
+        # khung là "- Điều n." — không phải tiêu đề "## Điều n." (`ten_dieu_cua`).
+        phan += [
+            "## Quyết định ban hành (trang đầu) — khung của mẫu, không phải điều khoản",
+            "",
+            "Chỉ điền chỗ trống ngay trên trang; không sửa bằng số Điều.",
+            "",
+            *(f"- {d}" for d in dieu_khung),
+            "",
+            f"Các Điều dưới đây là của {' '.join(str(khung.get('tieu_de') or '').split()).lower()} kèm theo.",
+            "",
+        ]
     for i, c in enumerate(clauses or [], 1):
         doan = "\n\n".join(c.get("doan") or []) or khuon_mau.CHO
         phan.append(f"## Điều {i}. {c.get('ten') or ''}".rstrip() + f"\n\n{doan}\n")
@@ -1724,8 +1740,10 @@ def dat_khuon_mau(
     engine = get_engine()
     hien = hien_thi_luc(engine, as_of_hieu_luc(None))
     theo_id = {pid: r for pid, r in graph_soan_thao.chi_van_ban_hien(db, hien).items()}
-    # Mục checklist mà khung đã dựng (khối các bên…): không thành một Điều thứ hai — dữ
-    # kiện của nó đi vào trường của bên qua `truong_tu_facts`.
+    # Mục checklist mà khung đã dựng (khối các bên; mục thể thức `muc_khung`: quốc hiệu,
+    # số, nơi nhận…): không thành một Điều thứ hai — không thì trang in "Điều 1. Quốc
+    # hiệu và Tiêu ngữ" và số Điều của trang lệch số Điều đã lưu. Dữ kiện của khối bên
+    # đi vào trường của bên qua `truong_tu_facts`.
     khung_co = khuon_mau.khoa_khung(entry)
     clauses = [
         {

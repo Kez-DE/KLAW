@@ -25,9 +25,9 @@ the_thuc:
   vv: true
   ngay: cot_phai
   # Mẫu 1.5: "Kính gửi:" bắt đầu ~41 mm từ mép trái khối chữ (D2 layout note).
-  kinh_gui: {dong: "Kính gửi: {co_quan_nhan}", can: thut, thut_mm: 40}
+  kinh_gui: {dong: "Kính gửi:{co_quan_nhan}", can: thut, thut_mm: 40}
   can_cu: false
-  noi_nhan: ["Như trên;", "{};", "Lưu: VT, {}"]
+  noi_nhan: ["Như trên;", "{};", "Lưu: VT, {}."]
   ket_thuc: null
 ben:
   - {khoa: co_quan, vai: "Cơ quan, tổ chức ban hành", truong: [ten_to_chuc]}

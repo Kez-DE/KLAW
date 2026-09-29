@@ -1,0 +1,52 @@
+# Quyết định bổ nhiệm — Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.2 "Quyết định (cá
+# biệt) quy định trực tiếp" (Công báo 283+284, tr. 49). Mẫu CHÍNH THỨC, DỰNG LẠI chứ
+# không dùng thẳng tệp .doc của Công báo: LibreOffice đọc tệp đó ra sai chữ đậm và đẩy
+# mẫu sang hai trang (D2 §3). Chữ tĩnh chép nguyên văn từ bản PDF Công báo
+# (`pdftotext -layout -f 48 -l 48`, 2026-09-29), bỏ dãy chấm (thành chỗ trống), chỉ số
+# chú thích và khung Công báo. Cụm GIỮ CHỖ của mẫu ("TÊN CƠ QUAN, TỔ CHỨC", "THẨM QUYỀN
+# BAN HÀNH", "QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ", "Họ và tên") là chỗ điền: chúng thành
+# chỗ trống. Các dòng "Căn cứ…;" của mẫu nhận dòng căn cứ của kho (đủ số, ngày); MỘT
+# dòng "Căn cứ …;" còn trống cho căn cứ riêng của tổ chức (Điều lệ, quy chế). "Điều 1…",
+# "Điều…" là nội dung quyết định (ô 8): mô hình viết, "Điều n." đậm mở đầu đoạn. Dòng
+# tên cơ quan chủ quản ("nếu có", chú thích 1) không dựng. Nhãn đã ghi ở
+# `tests/test_services/du_lieu/nhan_mau_chinh_thuc.yaml`.
+loai: quyet_dinh_bo_nhiem
+ten: quyết định bổ nhiệm
+tieu_de: QUYẾT ĐỊNH
+bo_cuc: hanh_chinh
+nguon:
+  loai: mau_chinh_thuc
+  van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.2"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  trang: 48
+  ghi_chu: "Trang PDF 48 = Công báo tr. 49. Thể thức bắt buộc với cơ quan, tổ chức nhà nước và doanh nghiệp nhà nước (NĐ 30 Đ2.1); với doanh nghiệp khác là tập quán, tham khảo Phụ lục I."
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: "Số: {}/QĐ-{}"
+  ngay: cot_phai
+  trich_yeu: "Về việc {trich_yeu}"
+  tham_quyen: "{tham_quyen}"
+  can_cu: true
+  can_cu_them: ["Căn cứ {};", "Theo đề nghị của {}."]
+  lenh: "QUYẾT ĐỊNH:"
+  noi_nhan: ["Như Điều {};", "{};", "Lưu: VT, {}."]
+  ket_thuc: null
+ben:
+  - {khoa: co_quan, vai: "Cơ quan, tổ chức ban hành", truong: [ten_to_chuc]}
+  - {khoa: nguoi_ky, vai: "Người ký", truong: [chuc_vu, ho_ten]}
+than:
+  - {dieu: lien}
+# Tám thành phần thể thức của checklist (NĐ 30 Đ8.2) do chính khung dựng; `noi_dung`
+# (người được bổ nhiệm, chức vụ, thời điểm, nhiệm kỳ) là điều khoản.
+muc_khung: [quoc_hieu, ten_co_quan, so_ky_hieu, dia_danh_thoi_gian, trich_yeu, chuc_vu_chu_ky, dau_chu_ky_so, noi_nhan]
+ky:
+  thu_tu: [nguoi_ky]
+  o:
+    - khoa: nguoi_ky
+      vai: null
+      ghi_chu: "(Chữ ký của người có thẩm quyền,\ndấu/chữ ký số của cơ quan, tổ chức)"
+      ho_ten_tu: ho_ten
+truong_tu_facts: {}

@@ -20,3 +20,18 @@ so_tai_khoan: "Số tài khoản"
 ngan_hang: "Tại ngân hàng"
 toa_an: "Tòa án"
 co_quan_nhan: "Cơ quan nhận"
+tham_quyen: "Thẩm quyền ban hành"
+# Trường của cả văn bản (`van_ban`) mà trang in nhiều lần: quyết định ban hành và dòng
+# "(Kèm theo Quyết định số … ngày … của …)" của văn bản kèm theo, trích yếu chưa có.
+# Một giá trị điền mọi bản sao (`ban_thao.phep_tu_gia_tri`).
+so_van_ban: "Số của văn bản"
+viet_tat_co_quan: "Chữ viết tắt tên cơ quan, tổ chức ban hành"
+ngay_ban_hanh: "Ngày ban hành (ngày/tháng/năm)"
+trich_yeu: "Trích yếu nội dung văn bản"
+ngay_hieu_luc: "Ngày có hiệu lực"
+# Biên bản họp Hội đồng quản trị — LDN 2020 Đ158.1 điểm d, g.
+thanh_vien_du_hop: "Họ tên thành viên dự họp (hay người được ủy quyền) và cách thức dự họp"
+thanh_vien_vang: "Họ tên thành viên không dự họp và lý do"
+tan_thanh: "Họ tên thành viên biểu quyết tán thành"
+khong_tan_thanh: "Họ tên thành viên biểu quyết không tán thành"
+khong_y_kien: "Họ tên thành viên không có ý kiến"

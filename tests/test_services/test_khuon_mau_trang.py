@@ -74,11 +74,14 @@ def test_moi_mau_registry_trong_10_trang_quoc_hieu_mot_dong_so_trang_tu_trang_2(
     tu = _tu_pdf(pdf)
     dong_quoc_hieu = {round(hop[1]) for _, chu, hop in tu[1] if chu in ("CỘNG", "NAM")}
     assert len(dong_quoc_hieu) == 1, "quốc hiệu vỡ dòng"
-    # Trang 1 không mang số trang ở lề trên; trang 2 (nếu có) mang "2" ở lề trên.
+    # Trang 1 không mang số trang ở lề trên; trang 2 (nếu có) mang "2" ở lề trên. Văn bản
+    # kèm theo quyết định ban hành (trang 2 trở đi) đếm lại từ 1, trang đầu của nó không số.
     le_tren = 56
-    assert not any(chu == "1" and hop[1] < le_tren for _, chu, hop in tu[1])
-    if len(tu) > 1:
-        assert any(chu == "2" and hop[1] < le_tren for _, chu, hop in tu[2])
+    so = {n: [chu for _, chu, hop in ds if chu.isdigit() and hop[1] < le_tren] for n, ds in tu.items()}
+    thu_hai = 3 if km.nap(loai).get("ban_hanh") else 2
+    assert all(so[n] == [] for n in range(1, thu_hai) if n in so)
+    if thu_hai in so:
+        assert so[thu_hai] == ["2"]
 
 
 def test_phep_do_dinh_vi_moi_cho_trong_cua_cac_ben():

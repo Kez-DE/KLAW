@@ -1,0 +1,68 @@
+# Quy chế nội bộ — Nghị định 30/2020/NĐ-CP, Phụ lục III: Mẫu 1.3 "Quyết định (quy định
+# gián tiếp)" (Công báo 283+284, tr. 50) ban hành, và "Mẫu văn bản (được ban hành, phê
+# duyệt kèm theo quyết định) đối với văn bản giấy" (tr. 51). Mẫu CHÍNH THỨC, DỰNG LẠI
+# (bản .doc của Công báo ra sai chữ đậm, văn bản kèm theo tràn sang trang 3 — D2 §3).
+# Chữ tĩnh chép nguyên văn từ PDF Công báo (`pdftotext -layout -f 49 -l 50`,
+# 2026-09-29), bỏ dãy chấm, chỉ số chú thích, khung Công báo. Một tệp hai phần:
+#   trang 1  QUYẾT ĐỊNH ban hành — căn cứ của kho, thẩm quyền, "QUYẾT ĐỊNH:", Điều 1
+#            "Ban hành kèm theo Quyết định này …", hai điều hiệu lực và thi hành lấp ô
+#            "Điều……" của mẫu, Nơi nhận, người ký;
+#   trang 2+ QUY CHẾ kèm theo — không Số, không ngày, không khối ký; các Điều do mô
+#            hình viết.
+# Nhờ vậy đủ chín thành phần thể thức của checklist (số, ngày, chữ ký, dấu, nơi nhận ở
+# quyết định). "(Phê duyệt)" là phương án thay "Ban hành" của mẫu: dựng "Ban hành".
+# Chương (dòng chấm giữa trang của mẫu) không dựng: điều khoản là một danh sách phẳng.
+loai: quy_che_noi_bo
+ten: quy chế nội bộ
+tieu_de: QUY CHẾ
+bo_cuc: hanh_chinh
+nguon:
+  loai: mau_chinh_thuc
+  van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.3 và mẫu văn bản kèm theo quyết định"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  trang: 49
+  ghi_chu: "Trang PDF 49–50 = Công báo tr. 50–51. Quy chế là loại văn bản hành chính có tên (NĐ 30 Đ7, ký hiệu QC). Bắt buộc với cơ quan nhà nước, DNNN (Đ2.1); doanh nghiệp khác theo tập quán, tham khảo Phụ lục I."
+# Văn bản KÈM THEO (trang sau): đầu hai cột không hàng Số/ngày.
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: null
+  ngay: khong
+  trich_yeu: "{trich_yeu}"
+  kem_theo: "(Kèm theo Quyết định số {so_van_ban}/QĐ-{viet_tat_co_quan} ngày {ngay_ban_hanh} tháng {} năm {} của {tham_quyen})"
+  can_cu: false
+  noi_nhan: null
+  ket_thuc: null
+ben:
+  - {khoa: co_quan, vai: "Cơ quan, tổ chức ban hành", truong: [ten_to_chuc]}
+  - {khoa: nguoi_ky, vai: "Người ký", truong: [chuc_vu, ho_ten]}
+than:
+  - {dieu: dieu}
+ky: {}
+# QUYẾT ĐỊNH ban hành (trang 1), Mẫu 1.3.
+ban_hanh:
+  tieu_de: QUYẾT ĐỊNH
+  the_thuc:
+    so: "Số: {so_van_ban}/QĐ-{viet_tat_co_quan}"
+    ngay: cot_phai
+    trich_yeu: "Ban hành {ten_van_ban}"
+    tham_quyen: "{tham_quyen}"
+    can_cu: true
+    can_cu_them: ["Căn cứ {};", "Theo đề nghị của {}."]
+    lenh: "QUYẾT ĐỊNH:"
+    noi_nhan: ["Như Điều 3;", "{};", "Lưu: VT, {}."]
+  than:
+    - {dong: "Ban hành kèm theo Quyết định này {ten_van_ban}.", dau: "Điều 1. "}
+    - {dong: "Quyết định này có hiệu lực kể từ ngày {ngay_hieu_luc}.", dau: "Điều 2. "}
+    - {dong: "{} chịu trách nhiệm thi hành Quyết định này./.", dau: "Điều 3. "}
+  ky:
+    thu_tu: [nguoi_ky]
+    o:
+      - khoa: nguoi_ky
+        vai: null
+        ghi_chu: "(Chữ ký của người có thẩm quyền,\ndấu/chữ ký số của cơ quan, tổ chức)"
+        ho_ten_tu: ho_ten
+muc_khung: [quoc_hieu, ten_co_quan, so_ky_hieu, dia_danh_thoi_gian, trich_yeu, chuc_vu_chu_ky, dau_chu_ky_so, noi_nhan]
+truong_tu_facts: {}

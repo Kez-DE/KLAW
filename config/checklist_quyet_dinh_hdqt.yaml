@@ -81,6 +81,12 @@ can_cu_goc: "30/2020/NĐ-CP > Điều 8 > Khoản 2"
 # hành chính" nói chung và mẫu này thiếu mắt xích chứng minh nó áp cho đúng
 # loại văn bản đang soạn.
 can_cu_chi_tiet: "30/2020/NĐ-CP > Điều 7"
+# Căn cứ BAN HÀNH (khối "Căn cứ" của khuôn mẫu), không phải mục: NĐ 30 chỉ quy định
+# thể thức nên không in thành căn cứ, và không có dòng này thì nghị quyết ra đời không
+# một căn cứ luật nào. LDN Đ153.3 — "Hội đồng quản trị thông qua nghị quyết, quyết
+# định bằng biểu quyết tại cuộc họp, lấy ý kiến bằng văn bản hoặc hình thức khác do
+# Điều lệ công ty quy định" (tra DB 2026-09-29).
+can_cu_ban_hanh: ["59/2020/QH14 > Điều 153 > Khoản 3"]
 
 # Chín thành phần CHÍNH của Đ8.2. Bốn thành phần BỔ SUNG của Đ8.3 cố ý không có
 # mặt: chính văn Đ8.3 nói "văn bản CÓ THỂ bổ sung".

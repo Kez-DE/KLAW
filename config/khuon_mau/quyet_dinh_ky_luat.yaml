@@ -1,0 +1,51 @@
+# Quyết định xử lý kỷ luật lao động — dựng TƯƠNG TỰ Mẫu 1.2 "Quyết định (cá biệt) quy
+# định trực tiếp", Nghị định 30/2020/NĐ-CP, Phụ lục III (Công báo 283+284, tr. 49).
+# Không có mẫu chính thức: NĐ 145/2020 Đ70 quy định trình tự, Phụ lục IV không có mẫu
+# quyết định kỷ luật. Căn cứ của kho (Bộ luật Lao động, NĐ 145/2020) đi trước; nội quy
+# lao động và biên bản cuộc họp xử lý kỷ luật (BLLĐ Đ122.1.d) là văn bản của chính
+# doanh nghiệp — dòng căn cứ có chỗ trống. Thẩm quyền ban hành (NĐ 145 Đ70.4) là dòng
+# "THẨM QUYỀN BAN HÀNH" và khối ký. Doanh nghiệp tư không thuộc NĐ 30 Đ2.1: tập quán.
+loai: quyet_dinh_ky_luat
+ten: quyết định xử lý kỷ luật lao động
+tieu_de: QUYẾT ĐỊNH
+bo_cuc: hanh_chinh
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.2 (tham chiếu bố cục)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  trang: 48
+  ghi_chu: "Không có mẫu chính thức (NĐ 145/2020 Đ70 chỉ quy định trình tự). Bố cục theo Mẫu 1.2; với doanh nghiệp tư là tập quán, tham khảo Phụ lục I NĐ 30/2020."
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: "Số: {}/QĐ-{}"
+  ngay: cot_phai
+  trich_yeu: "Về việc xử lý kỷ luật lao động"
+  tham_quyen: "{tham_quyen}"
+  can_cu: true
+  can_cu_them:
+    - "Căn cứ Nội quy lao động {};"
+    - "Căn cứ Biên bản cuộc họp xử lý kỷ luật lao động {};"
+    - "Theo đề nghị của {}."
+  lenh: "QUYẾT ĐỊNH:"
+  noi_nhan: ["Như Điều {};", "{};", "Lưu: VT, {}."]
+  ket_thuc: null
+ben:
+  - {khoa: co_quan, vai: "Người sử dụng lao động", truong: [ten_to_chuc]}
+  - {khoa: nguoi_ky, vai: "Người ký", truong: [chuc_vu, ho_ten]}
+than:
+  - {dieu: lien}
+# Biên bản cuộc họp là một dòng căn cứ của khung; thẩm quyền là dòng thẩm quyền + khối
+# ký. Hành vi, căn cứ nội quy, hình thức, thời hiệu, tổ chức đại diện, quyền bào chữa
+# là điều khoản (mỗi mục mang căn cứ mở được của BLLĐ).
+muc_khung: [bien_ban, tham_quyen]
+ky:
+  thu_tu: [nguoi_ky]
+  o:
+    - khoa: nguoi_ky
+      vai: null
+      ghi_chu: "(Chữ ký của người có thẩm quyền,\ndấu/chữ ký số của cơ quan, tổ chức)"
+      ho_ten_tu: ho_ten
+truong_tu_facts: {}

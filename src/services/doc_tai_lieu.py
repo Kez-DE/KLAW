@@ -1863,7 +1863,9 @@ def nhan_sach(nhan: str, truoc: str = "") -> str:
     chữ cái nào ("/", "=") lấy nhãn ô trước: "Số" rồi "Số (sau /)". Rỗng là
     rỗng — giao diện tự gọi "Chỗ trống". Nhãn chỗ `o` làm sạch tên cột, giữ
     " (dòng n)"."""
-    s = " ".join((nhan or "").split())
+    # Khuôn mẫu KLAW dựng đặt U+2060 giữa "……" và dấu chấm hết câu ngay sau nó
+    # (`khuon_mau.NOI`): nhãn của chỗ trống kế tiếp không mở đầu bằng dấu chấm đó.
+    s = " ".join((nhan or "").split()).removeprefix("\u2060.").strip()
     if m := _DONG_O.search(s):
         return nhan_sach(s[: m.start()]) + m[0]
     if not _co_chu_cai(s):

@@ -1183,8 +1183,12 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
         (" ".join(g.rstrip(".") + "." for g in ghi[:3]) + " " if ghi else ""),
         (khong_dat + " " if khong_dat else ""),
         "Bấm vào chỗ trống trên trang để điền; muốn sửa điều nào cứ nói với tôi.",
+        # Văn bản hành chính: NĐ 30/2020 chỉ buộc cơ quan, tổ chức nhà nước và doanh
+        # nghiệp nhà nước (Đ2.1) — với doanh nghiệp khác là tập quán, không phải luật đòi
+        # (quyết định 2026-09-29, "Consequences").
         (
-            ""
+            " Thể thức theo Phụ lục I Nghị định 30/2020/NĐ-CP: bắt buộc với cơ quan, tổ chức nhà nước và doanh"
+            " nghiệp nhà nước; với doanh nghiệp, tổ chức khác là tập quán."
             if khung.get("bo_cuc") == "hanh_chinh"
             else " Thể thức theo tập quán, tham khảo Phụ lục I Nghị định 30/2020/NĐ-CP."
         ),

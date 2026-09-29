@@ -50,12 +50,13 @@ def test_moi_checklist_co_khuon_mau():
 
 
 def _doan_cua_ban_dung(docx: bytes) -> list[str]:
-    """Chữ từng `w:p` của bản dựng theo thứ tự tài liệu, bỏ "……", gộp khoảng trắng."""
+    """Chữ từng `w:p` của bản dựng theo thứ tự tài liệu, bỏ "……" và U+2060 (`km.NOI`, vô
+    hình), gộp khoảng trắng."""
     with zipfile.ZipFile(io.BytesIO(docx)) as z:
         goc = etree.fromstring(z.read("word/document.xml"))
     ra = []
     for p in goc.iter(f"{_W}p"):
-        chu = "".join(t.text or "" for t in p.iter(f"{_W}t")).replace(km.CHO, "")
+        chu = "".join(t.text or "" for t in p.iter(f"{_W}t")).replace(km.CHO, "").replace(km.NOI, "")
         if chu := " ".join(chu.split()):
             ra.append(chu)
     return ra
