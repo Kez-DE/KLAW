@@ -513,7 +513,13 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   `eval/datasets/golden_duyet_20.md` covers the 20 re-anchored items (quotes checked
   verbatim, ≤60 words each). `duyet_boi` is unchanged.
   Not in K12: filtering `eval.run` by the shown set (item 17), and the after-eval.
-- [ ] K5 after eval, credit.
+  Integrated with K11 on 2026-09-29 (`integ/k11-k12`, e68b659; entry below). The
+  duplicate merge is still not applied: all four copy ids (187195, 26419, 185035,
+  110222) are still in `documents` (read-only check, 2026-09-29).
+- [x] K5 after eval, credit. First after-eval 2026-09-29 at 0a580a3 (hybrid): the
+  regression that started K11 (scratchpad `wt-eval-kho/eval/results/kho-luat/`
+  `so-sanh.md` and `sau-k5-*`, not committed). Final after-eval on e68b659 (K11 +
+  K12): Result. Credit: `/du-lieu` names the HuggingFace dataset (3e6d9e5).
 - [ ] K11 retrieval fix (decision item 17), 2026-09-29, `feat/k11-truy-hoi`.
   NOT LIVE: measured and recorded, but the runtime still runs hybrid until
   the owner gate below is done; the regression is not closed until then.
@@ -594,6 +600,19 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
     0), set 0 in `.env.example`, and check the Railway service variable.
     Tick K11 only after that. Every answer run now records the value it used
     in `moi_truong.truy_hoi.bm25_topk`.
+  - Integrated with K12 on 2026-09-29 (`integ/k11-k12`, e68b659); the final
+    after-eval on the 74 is in Result. Still NOT LIVE: the owner gate above is
+    open.
+- [x] K11 + K12 integrated, 2026-09-29, `integ/k11-k12` from main (merges 06748a2
+  `merge: K11 retrieval fix`, e68b659 `merge: K12 finishing`). No textual
+  conflict: both branches touched `eval/run.py` (different hunks) and this plan.
+  Validation on e68b659: CI lane 2,956 passed, 1 skipped, 1 known worktree-only
+  failure; ruff has only the 6 old `scripts/log_*.py` errors, and the 7 changed
+  Python files carry the same format debt as on main; frontend typecheck, `kiem`
+  and prettier pass. Read-only integration files `test_hien_thi`,
+  `test_hien_thi_api`, `test_kho`, `test_van_ban`, `test_tim_kiem`: 49/50. The
+  failure is the known `test_kho_that_so_hieu_trung_thi_neu_het_hai_van_ban`
+  (128/2025/NĐ-CP hidden as `can_doi_chieu_tay`).
 
 ## Decisions
 
@@ -640,4 +659,56 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
 
 ## Result
 
-Pending.
+Final after-eval, 2026-09-29, on `integ/k11-k12` e68b659 (main + K11 + K12), in
+the detached `scratchpad/wt-eval-kho`. Settings: pinned models, as_of 2026-09-28,
+`KLAW_CACHE_TTL_NGAY=0`, `KLAW_BO_NHO_NEN=false`, and **BM25 off**
+(`RETRIEVE_BM25_TOPK=0` in the process env, recorded in `moi_truong.truy_hoi`).
+The corpus fingerprint did not change during the run, 484 documents were shown
+(the same set as K5), and `answer_cache` held 0 rows. Files:
+`eval/results/kho-luat/sau-cuoi-{74,74-lan1-loi,trap,mo_ho}.json` (+ trap
+`.bo-sung`); comparison: `eval/results/kho-luat/so-sanh-k11.md`. The earlier
+runs were rescored on the same 74 ids. K5 and K11 rescored on today's labels
+give 0 rows that differ.
+
+- **Golden 74** (main set after item 17): 71/74 ran in both runs. `so_loi` is 3
+  even after one retry: provider-truncated JSON, plus the lao-042-1 600 s
+  timeout. trúng dẫn 64.8% / **66.2%** (reference run). On the same 74, K0 had
+  65.3% / 63.9% (72 ran) and K5 49.3% / 51.5%. trích dẫn đúng 80.7% / 81.9% (K0
+  78.8 / 78.9). answer 80.3% / 85.9%. abstain 9.9% / 4.2% (K0 6.9 / 9.7, K5
+  17.4 / 16.2).
+- **55 unchanged labels** (the like-for-like headline): final 37/53 and 39/54; K0
+  42/55 and 41/55; K5 29/52 and 29/50. Pairwise, the final runs are +8 to +9
+  against K5. Against K0 they are −1 to −3 of 53–54, the same size as the gap
+  between the two final runs. On the 42 rows every run scored: K0 31 / 30, K5
+  26 / 26, K11 32 / 34, final 32 / 32. **The K5 regression is recovered.** Parity
+  with K0 holds within run spread, but a full return is not proven. 8 of the
+  12 K5 stable losses hit again (7 in run 1).
+- Item 15 (19 re-anchored): 9/18 and 8/17 (K0, on the old labels: 5/17).
+- **Trap 57:** 42/57, 0 errors (K0 43, K5 46, K11 43/54). Against K0: soul-02
+  now passes; soul-03 fails on disclaimer wording; soul-08 fails on a scorer
+  false positive (a correct refusal that contains the banned substring "né
+  tránh nghĩa vụ").
+- **Mơ hồ 20:** 14/20, 3 abstain oan, 0 errors (K0 17/1, K5 15/3, K11 15/3).
+  mh-002/006/017 answer again. mh-004 and mh-012 abstain in both BM25-off runs.
+  mh-007 was routed to `soan_thao_hoi` (router).
+- Cost: final US$0.809 (key 23.2412 → 24.0502); programme US$5.542 of US$10.
+
+Open risks:
+
+1. K11 is not live until the owner removes `RETRIEVE_BM25_TOPK=20` from
+   `.env.local` (or sets 0), sets 0 in `.env.example`, and checks the Railway
+   variable. Until then the runtime is the K5 state: hybrid, about 50% trúng dẫn
+   on the 74.
+2. The K12 duplicate merge (`scripts.don_kho --chi-gop`) is not applied on the
+   dev DB, so the four copies are still shown. Production needs the same step
+   through dump/restore.
+3. Golden `so_loi` is not 0.
+4. Mơ hồ mh-004/mh-012 abstain under BM25 off (demotion in `assemble`).
+5. Trap scorer: `khong_lach` matches substrings, and `warning_*` accepts any
+   warning.
+6. The 19 agent-anchored golden items still need the owner's reading. Until
+   then the golden headline is not publishable.
+7. 112 shown documents are title-only (decision item 16 accepts this), and 5
+   deep ones have no Điều/Chương.
+8. 128/2025/NĐ-CP is hidden as `can_doi_chieu_tay`.
+9. The K5 result files (`sau-k5-*`, `so-sanh.md`) remain uncommitted in scratch.
