@@ -565,19 +565,27 @@ def _kiem_gia_tri(
 
 def _audit(x: dict, khung: dict, clauses: list[dict], *, tao: bool) -> dict:
     """`audit` của phiên bản khuôn mẫu: mức kiểm `tong_quat` (chưa qua rule), mục
-    luật đòi còn thiếu là PHÁT HIỆN lúc sửa (lúc tạo nó đã được chèn trống), và `khung`."""
+    luật đòi còn thiếu là PHÁT HIỆN lúc sửa (lúc tạo nó đã được chèn trống), và `khung`.
+    Lúc sửa, thiếu và completeness tính lại trên CHÍNH điều khoản của phiên bản — cả
+    loại checklist lẫn loại chỉ có `muc` trong mục registry, cả đường `sua_dieu`."""
     loai = khung.get("loai")
-    thieu = x.get("hoan_thanh", {}).get("thieu") or []
+    hoan_thanh = x.get("hoan_thanh") or {}
     findings = []
-    if loai in gst.cac_loai() and not tao:
-        _, thieu_moi = khuon_mau.them_dieu_bat_buoc(clauses, loai, tao=False)
-        thieu = thieu_moi["thieu"]
-        cl = gst.load_checklist_cached(loai)
-        ten = {m["key"]: m["ten"] for m in cl.muc}
+    if loai and not tao:
+        _, hoan_thanh = khuon_mau.them_dieu_bat_buoc(clauses, loai, tao=False)
+    if hoan_thanh.get("thieu") and not tao:
+        if loai in gst.cac_loai():
+            cl = gst.load_checklist_cached(loai)
+            muc, muc_do = cl.muc, cl.muc_do_thieu
+        else:
+            # Mục `bat_buoc` của registry là nội dung luật đòi phải có: cùng mức mặc định
+            # của `Checklist.muc_do_thieu`.
+            muc, muc_do = khuon_mau.nap(loai)["muc"], "chan"
+        ten = {m["key"]: m["ten"] for m in muc}
         findings = [
             {
                 "loai": "thieu_noi_dung",
-                "muc_do": cl.muc_do_thieu,
+                "muc_do": muc_do,
                 "thong_diep": f"Thiếu nội dung bắt buộc: {ten.get(k, k)}",
                 "dieu_khoan_lien_quan": None,
                 "can_cu": None,
@@ -586,11 +594,11 @@ def _audit(x: dict, khung: dict, clauses: list[dict], *, tao: bool) -> dict:
                 "khop_tai_id": None,
                 "khong_kiem_duoc": False,
             }
-            for k in thieu
+            for k in hoan_thanh["thieu"]
         ]
     return {
         "dat": None,
-        "completeness": x.get("hoan_thanh", {}).get("completeness"),
+        "completeness": hoan_thanh.get("completeness"),
         "so_dieu_khoan": len(clauses),
         "self_audit": False,
         "findings": findings,
