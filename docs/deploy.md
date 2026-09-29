@@ -114,6 +114,10 @@ Supabase → Authentication → URL Configuration: thêm `https://klaw-web-produ
   nạp riêng: `python -m scripts.nap_canh_doi_chieu`.
   Thiếu bước này mọi dòng nông ở `chua_xac_dinh` và bị ẩn (quyết định mục 8), còn
   `documents.jsonl` mang tình trạng lúc `build_seed`, không phải lượt làm mới.
+  Một lượt `load_incoming_edges` đầy đủ thay MỌI cạnh loai 20..23 bằng parquet × kho
+  hiện tại (thêm cạnh chưa ai soát, mặc định chèn cả văn bản ngoài kho); chỉ áp sửa
+  cạnh đã đối chiếu (`CANH_SAI`, `CANH_DOI_CHIEU_NGUYEN_VAN`) thì dùng
+  `python -m scripts.load_incoming_edges --chi-danh-sach` (dry-run) rồi thêm `--ghi`.
 - CMS: `scripts/start.sh` tự `payload migrate` và từ chối start nếu còn migration
   pending.
 

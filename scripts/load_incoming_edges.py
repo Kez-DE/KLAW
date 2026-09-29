@@ -25,11 +25,12 @@ cạnh, hàm chèn các văn bản ngoài corpus đó dưới dạng CHỈ-METAD
 đụng tới văn bản THẬT nào của corpus (`ON CONFLICT DO NOTHING`).
 """
 
-from datetime import date, datetime
+import csv
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import Engine, text
+from sqlalchemy import Connection, Engine, text
 
 from scripts.fetch_moj import DOC_IDS
 from src.models.domain import sql_khoa_so_ky_hieu
@@ -341,11 +342,84 @@ def load_from_parquet(path: Path, engine: Engine, them_van_ban_ngoai: bool = Tru
     return ghi
 
 
+def danh_sach_ap(canh_db: list[tuple], them: list[tuple]) -> tuple[list[int], list[tuple]]:
+    """Phần ĐÃ ĐỐI CHIẾU của `load_from_parquet`, tính trên cạnh `(id, from, to, loai)`
+    đang có trong DB: id cạnh khớp `CANH_SAI` phải xoá, và cạnh `them` (dạng
+    `CANH_DOI_CHIEU_NGUYEN_VAN`) còn thiếu phải chèn — mỗi khoá một lần."""
+    sai = {(f, t, QUAN_HE_HIEU_LUC[r]) for f, t, r in CANH_SAI}
+    xoa = [i for i, f, t, loai in canh_db if (f, t, loai) in sai]
+    co = {(f, t, loai) for i, f, t, loai in canh_db if i not in xoa}
+    moi = []
+    for c in them:
+        if c[:3] not in co:
+            co.add(c[:3])
+            moi.append(c)
+    return xoa, moi
+
+
+def ap_danh_sach(conn: Connection, sao_luu: Path | None) -> dict:
+    """Áp RIÊNG `CANH_SAI` + `CANH_DOI_CHIEU_NGUYEN_VAN` + cạnh VBHN lên DB rồi đặt lại
+    `canh_doi_chieu` từ seed, trên `conn` (giao dịch của người gọi). KHÔNG nạp lại
+    parquet: lượt nạp đầy đủ kéo thêm cạnh parquet chưa ai soát vào văn bản mới vào kho
+    và (mặc định) chèn văn bản ngoài kho. Idempotent. Dòng sắp xoá được ghi ra
+    `sao_luu/canh-xoa-<UTC>.csv` (không bao giờ ghi đè) TRƯỚC khi xoá."""
+    dong = [
+        dict(r)
+        for r in conn.execute(
+            text(
+                'SELECT id, from_document_id, to_document_id, loai, raw_text FROM "references"'
+                " WHERE loai BETWEEN 20 AND 23 AND from_provision_id IS NULL ORDER BY id"
+            )
+        ).mappings()
+    ]
+    xoa, moi = danh_sach_ap(
+        [(d["id"], d["from_document_id"], d["to_document_id"], d["loai"]) for d in dong],
+        [*CANH_DOI_CHIEU_NGUYEN_VAN, *_canh_tu_vbhn(conn)],
+    )
+    tep = None
+    if xoa and sao_luu is not None:
+        sao_luu.mkdir(parents=True, exist_ok=True)
+        tep = sao_luu / f"canh-xoa-{datetime.now(UTC):%Y%m%dT%H%M%S%fZ}.csv"
+        with tep.open("x", newline="", encoding="utf-8") as fh:
+            w = csv.DictWriter(fh, list(dong[0]))
+            w.writeheader()
+            w.writerows(d for d in dong if d["id"] in xoa)
+    conn.execute(text('DELETE FROM "references" WHERE id = ANY(:ids)'), {"ids": xoa})
+    them = [
+        conn.execute(
+            text(
+                'INSERT INTO "references" (from_document_id, to_document_id, loai, raw_text)'
+                " VALUES (:f, :t, :l, :r) RETURNING id"
+            ),
+            {"f": f, "t": t, "l": loai, "r": ten},
+        ).scalar_one()
+        for f, t, loai, ten in moi
+    ]
+    from scripts.nap_canh_doi_chieu import doc_seed, nap_vao
+
+    return {
+        "xoa": xoa,
+        "sao_luu": str(tep) if tep else None,
+        "them": list(zip(them, moi, strict=True)),
+        "canh_doi_chieu": nap_vao(conn, doc_seed()),
+    }
+
+
 if __name__ == "__main__":
     import sys
 
     from src.config import get_settings
     from src.services.db import get_engine
+
+    if "--chi-danh-sach" in sys.argv:  # dry-run trừ khi có --ghi
+        ghi = "--ghi" in sys.argv
+        thu_muc = Path(sys.argv[sys.argv.index("--sao-luu") + 1]) if "--sao-luu" in sys.argv else Path("data/sao-luu")
+        with get_engine().connect() as c, c.begin() as tx:
+            print(ap_danh_sach(c, thu_muc if ghi else None))
+            if not ghi:
+                tx.rollback()
+                print("DRY-RUN — ROLLBACK")
+        sys.exit(0)
 
     s = get_settings()
     n = load_from_parquet(Path(s.data_raw_dir) / "relationships.parquet", get_engine(),
