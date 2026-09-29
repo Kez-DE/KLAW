@@ -81,14 +81,104 @@ def test_retrieve_khong_dung_nhanh_bi_tat_bang_topk_0():
     exception mong đợi; test này chặn hồi quy nếu ai đó sau này bỏ guard topk>0."""
     s = overlay_settings({"retrieve_bm25_topk": 20, "retrieve_dense_topk": 0})
     r = Retriever(engine=None, embedder=None, settings=s)
-    r.bm25 = lambda q, topk=None: [3, 1, 2]
+    r.bm25 = lambda q, topk=None, hien=None: [3, 1, 2]
     r.provision_ids = lambda chunk_ids: chunk_ids  # bỏ qua DB thật, không phải điểm cần test ở đây
 
-    def _dense_khong_duoc_goi(q, topk=None):
+    def _dense_khong_duoc_goi(q, topk=None, hien=None):
         raise AssertionError("dense() không được gọi khi retrieve_dense_topk=0")
 
     r.dense = _dense_khong_duoc_goi
     assert _retrieve(r, "q", s) == [3, 1, 2]
+
+
+# ---------------------------------------------------------------------------
+# Tập được hiện — quyết định 2026-09-28 mục 17: eval.run đo đúng tập văn bản
+# người dùng thấy; `--khong-loc-hien` tái lập số thô cũ.
+# ---------------------------------------------------------------------------
+
+
+def test_retrieve_truyen_cung_tap_duoc_hien_cho_ca_hai_nhanh():
+    s = overlay_settings({"retrieve_bm25_topk": 20, "retrieve_dense_topk": 20})
+    r = Retriever(engine=None, embedder=None, settings=s)
+    nhan: dict[str, object] = {}
+
+    def _nhanh(ten: str, ra: list[int]):
+        def f(q, topk=None, hien=None):
+            nhan[ten] = hien
+            return ra
+
+        return f
+
+    r.bm25, r.dense = _nhanh("bm25", [1]), _nhanh("dense", [2])
+    r.provision_ids = lambda chunk_ids: chunk_ids
+    hien = frozenset({"doc-hien"})
+    _retrieve(r, "q", s, hien)
+    assert nhan == {"bm25": hien, "dense": hien}
+
+
+def _evaluate_gia(monkeypatch, tmp_path, **kw) -> tuple[dict, dict]:
+    """evaluate() với DB/API giả — chỉ kiểm dây nối tập được hiện, 0 DB, 0 API."""
+    import eval.run as run_mod
+
+    goi: dict = {}
+
+    def _hien_thi_luc(engine, as_of):
+        goi["as_of"] = as_of
+        return frozenset({"doc-hien"})
+
+    class _RGia:
+        def __init__(self, engine, embedder, settings):
+            self.engine = engine
+
+        def bm25(self, q, topk=None, hien=None):
+            goi["hien"] = hien
+            return [1]
+
+        def provision_ids(self, chunk_ids):
+            return chunk_ids
+
+    cau = [{"id": "x", "cau_hoi": "q", "provision_ids": [1], "duong_dan": ["a"]}]
+    cfg = {"retrieve_bm25_topk": 20, "retrieve_dense_topk": 0, "eval_result_dir": str(tmp_path)}
+    monkeypatch.setattr(run_mod, "load_config", lambda name: cfg)
+    monkeypatch.setattr(run_mod, "get_engine", lambda: None)
+    monkeypatch.setattr(run_mod, "_load_golden_qa", lambda s, engine: (cau, True))
+    monkeypatch.setattr(run_mod, "hien_thi_luc", _hien_thi_luc)
+    monkeypatch.setattr(run_mod, "Retriever", _RGia)
+    monkeypatch.setattr(run_mod, "EmbeddingClient", lambda **k: None)
+    monkeypatch.setattr(run_mod, "_gan_duong_dan_he_thong", lambda engine, per_item: per_item)
+    return run_mod.evaluate("lexical_only", **kw), goi
+
+
+def test_evaluate_mac_dinh_do_tren_tap_duoc_hien(monkeypatch, tmp_path):
+    r, goi = _evaluate_gia(monkeypatch, tmp_path)
+    assert goi["hien"] == frozenset({"doc-hien"})
+    assert r["loc_hien"] is True
+    assert r["so_van_ban_hien"] == 1
+    assert r["as_of_hien"] == str(goi["as_of"])
+
+
+def test_evaluate_khong_loc_hien_do_kho_tho_va_khong_ghi_de_file_loc(monkeypatch, tmp_path):
+    loc, _ = _evaluate_gia(monkeypatch, tmp_path)
+    tho, goi = _evaluate_gia(monkeypatch, tmp_path, loc_hien=False)
+    assert goi["hien"] is None and "as_of" not in goi
+    assert tho["loc_hien"] is False and tho["so_van_ban_hien"] is None
+    assert tho["result_file"] != loc["result_file"], "số thô không được ghi đè số đã lọc"
+    assert Path(loc["result_file"]).exists() and Path(tho["result_file"]).exists()
+
+
+def test_main_co_khong_loc_hien(monkeypatch):
+    import sys
+
+    import eval.run as run_mod
+
+    goi: dict = {}
+    monkeypatch.setattr(run_mod, "evaluate", lambda name, loc_hien=True: goi.update(name=name, loc_hien=loc_hien) or {})
+    monkeypatch.setattr(sys, "argv", ["run", "--config", "dense_only", "--khong-loc-hien"])
+    run_mod.main()
+    assert goi == {"name": "dense_only", "loc_hien": False}
+    monkeypatch.setattr(sys, "argv", ["run", "--config", "dense_only"])
+    run_mod.main()
+    assert goi["loc_hien"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +190,7 @@ def test_loi_retrieval_hien_ro_khong_bi_dem_am_tham_la_recall_0():
     s = overlay_settings({"retrieve_bm25_topk": 20, "retrieve_dense_topk": 0})
     r = Retriever(engine=None, embedder=None, settings=s)
 
-    def _bm25_loi(q, topk=None):
+    def _bm25_loi(q, topk=None, hien=None):
         raise RuntimeError("DB down")
 
     r.bm25 = _bm25_loi
@@ -115,7 +205,7 @@ def test_loi_retrieval_hien_ro_khong_bi_dem_am_tham_la_recall_0():
 def test_run_items_tinh_dung_metric_khi_thanh_cong():
     s = overlay_settings({"retrieve_bm25_topk": 20, "retrieve_dense_topk": 0})
     r = Retriever(engine=None, embedder=None, settings=s)
-    r.bm25 = lambda q, topk=None: [1, 2, 3]
+    r.bm25 = lambda q, topk=None, hien=None: [1, 2, 3]
     r.provision_ids = lambda chunk_ids: chunk_ids
     items = [{"id": "x", "cau_hoi": "q", "provision_ids": [1], "duong_dan": ["a"]}]
     per_item, n_ok = _run_items(r, items, s)
@@ -130,7 +220,7 @@ def test_run_items_mot_cau_loi_khong_lam_hong_cau_con_lai():
     r = Retriever(engine=None, embedder=None, settings=s)
     r.provision_ids = lambda chunk_ids: chunk_ids
 
-    def _bm25(q, topk=None):
+    def _bm25(q, topk=None, hien=None):
         if q == "loi":
             raise RuntimeError("boom")
         return [1]
