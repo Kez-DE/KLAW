@@ -23,7 +23,8 @@ import pytest
 SRC = Path(__file__).resolve().parents[2] / "src"
 THAM_QUYEN = "docs/decisions/2026-09-28-trich-dan-day-du-va-lien-ket-nguon.md mục 8"
 
-_RE_DOC = re.compile(r'\b(?:FROM|JOIN)\s+(?:documents|provisions|chunks|"references")\b')
+# `anh_van_ban`: ảnh trang 1 bản đã ký (migration 040) là nội dung của MỘT văn bản.
+_RE_DOC = re.compile(r'\b(?:FROM|JOIN)\s+(?:documents|provisions|chunks|"references"|anh_van_ban)\b')
 
 # Lý do miễn — một chỗ để đọc cả danh sách ngoại lệ.
 DO_THI = "đồ thị hiệu lực: văn bản ẩn PHẢI còn ở đây để chỉ ra văn bản thay thế (mục 8)"
@@ -89,7 +90,7 @@ DUOC_MIEN: dict[tuple[str, str], tuple[str, str | None]] = {
     },
     **{
         ("api/routes_van_ban.py", n): ("trang một văn bản", "chan_neu_an")
-        for n in ("_SQL_DOC", "_SQL_LIEN_QUAN", "_SQL_NOI_BO")
+        for n in ("_SQL_DOC", "_SQL_LIEN_QUAN", "_SQL_NOI_BO", "_SQL_ANH_XEM_TRUOC")
     },
     **{
         ("api/routes_tim_kiem.py", n): ("trang một văn bản", "chan_neu_an")
@@ -225,6 +226,16 @@ def test_CHUNG_MINH_AM_bat_duoc_truy_van_moi_khong_loc(tmp_path):
     )
     (loi,) = vi_pham(tmp_path, {})
     assert "src/api/moi.py:2 `_SQL_MOI`" in loi and "mục 8" in loi and ":hien" in loi, loi
+
+
+def test_CHUNG_MINH_AM_bat_duoc_anh_van_ban_doc_khong_qua_cong(tmp_path):
+    (tmp_path / "api").mkdir()
+    (tmp_path / "api" / "anh.py").write_text(
+        'from sqlalchemy import text\n_SQL_ANH = text("SELECT png FROM anh_van_ban WHERE doc_id = :i")\n',
+        encoding="utf-8",
+    )
+    (loi,) = vi_pham(tmp_path, {})
+    assert "src/api/anh.py:2 `_SQL_ANH`" in loi, loi
 
 
 def test_CHUNG_MINH_AM_bat_duoc_trang_van_ban_bo_qua_cong(tmp_path):

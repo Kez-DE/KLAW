@@ -596,6 +596,11 @@ class VanBanMetaMixin(TrichDanMixin):
     # Từ `documentIssues[]` của response MOJ đã tải sẵn (migration 015).
     nguoi_ky: str | None = None
     chuc_danh_nguoi_ky: str | None = None
+    # Bản PDF đã ký trên datafiles.chinhphu.vn (quyết định 2026-09-28 mục 9,
+    # migration 040), chỉ khi qua `trich_dan.link_ban_ky`. `co_anh_xem_truoc`:
+    # ảnh trang 1 ở `GET /van-ban/{doc_id}/anh-xem-truoc`, chỉ khi có link đó.
+    link_pdf_ban_ky: str | None = None
+    co_anh_xem_truoc: bool = False
 
 
 class VanBanMucLucResponse(VanBanMetaMixin):
