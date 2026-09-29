@@ -116,8 +116,12 @@ def test_canh_doi_chieu_nguyen_van_dung_chieu_va_chi_dai_tu_suy():
 def test_canh_K8_doi_chieu_nguyen_van_nap_lai_khong_dua_canh_sai_tro_lai():
     """K8 (nghiên cứu K8b): bốn cạnh parquet đọc sai nguyên văn không quay lại khi
     nạp lại; cạnh đúng thay chúng mang đúng chiều/loai; mã MOJ sai bị bỏ khỏi seed."""
-    sai = [("178757", "152734", "Thay thế"), ("179989", "177815", "Thay thế"),
-           ("168381", "177815", "Thay thế"), ("30475", "37502", "Văn bản quy định hết hiệu lực")]
+    sai = [
+        ("178757", "152734", "Thay thế"),
+        ("179989", "177815", "Thay thế"),
+        ("168381", "177815", "Thay thế"),
+        ("30475", "37502", "Văn bản quy định hết hiệu lực"),
+    ]
     rel = pd.DataFrame([{"doc_id": f, "other_doc_id": t, "relationship": r} for f, t, r in sai])
     assert _canh_hieu_luc_di_vao(rel, {"152734", "177815", "37502"}).empty
     assert {
@@ -125,6 +129,7 @@ def test_canh_K8_doi_chieu_nguyen_van_nap_lai_khong_dua_canh_sai_tro_lai():
         ("152734", "178757", 23, "Văn bản quy định hết hiệu lực 1 phần"),  # 158/2025 Điều 44 k2 c
         ("179989", "177815", 20, "Sửa đổi, bổ sung"),  # 71/2025 Điều 49 k5 a
         ("117553", "92898", 21, "Thay thế"),  # 153/2016 Điều 6 k1
+        ("cb-468708", "15066", 21, "Thay thế"),  # 148/2025 Điều 47 k2 (Công báo)
     } <= set(CANH_DOI_CHIEU_NGUYEN_VAN)
     assert {("179989", "177815", 12), ("183939", "178260", 1), ("139094", "179273", 3)} <= CANH_SAI_MOJ
 

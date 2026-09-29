@@ -9,12 +9,13 @@ import pandas as pd
 
 from scripts.fetch_chinhphu import VAN_BAN as VAN_BAN_CHINHPHU
 from scripts.fetch_chinhphu import url_chi_tiet
+from scripts.fetch_congbao import VAN_BAN as VAN_BAN_CONGBAO
 from scripts.fetch_moj import DOC_IDS
 from scripts.load_incoming_edges import CANH_SAI_MOJ
 from scripts.nap_linh_vuc import linh_vuc_tu_hang
 from scripts.nap_nguoi_ky import nguoi_ky_tu_response
 from src.models.domain import DocumentRow
-from src.services.chinhphu_parser import sang_html_prov
+from src.services.chinhphu_parser import docx_sang_html_prov, sang_html_prov
 from src.services.prov_parser import parse_anomalies, parse_provisions
 
 # `CCHL` = "Chưa có hiệu lực" (1/1.648 response gateway, 2026-09-28: 04/2026/QH16).
@@ -203,6 +204,32 @@ def build(raw: Path, out: Path) -> dict[str, int]:
             checksum=checksum,
         ).model_dump(mode="json"))
 
+        for row in prov_rows:
+            row["document_id"] = doc_id
+            provs.append(row)
+
+    # ── Nguồn THỨ BA: Công báo `.docx` (quyết định 2026-09-28 mục 13) ──
+    # Chỉ cho văn bản gateway chưa có. Cùng cổng `_soat_va_bam`, cùng lý do không có
+    # `references`, người ký hay `linh_vuc` như nguồn thứ hai.
+    for cbid, meta in VAN_BAN_CONGBAO.items():
+        p = raw / "congbao" / f"{cbid}.docx"
+        if not p.exists():
+            raise FileNotFoundError(f"chưa fetch congbao/{cbid}; chạy `python -m scripts.fetch_congbao`")
+        doc_id = f"cb-{cbid}"
+        html = docx_sang_html_prov(p.read_bytes())
+        prov_rows, checksum = _soat_va_bam(html, meta["so_ky_hieu"], doc_id, canh_bao_tong)
+        checksums[doc_id] = checksum
+        meta_cot = {k: v for k, v in meta.items() if k != "url"}
+        hang = DocumentRow(
+            id=doc_id,
+            nguoi_ky=None,
+            chuc_danh_nguoi_ky=None,
+            linh_vuc=None,
+            nguon_url=meta["url"],
+            checksum=checksum,
+            **meta_cot,
+        )
+        docs.append(hang.model_dump(mode="json"))
         for row in prov_rows:
             row["document_id"] = doc_id
             provs.append(row)

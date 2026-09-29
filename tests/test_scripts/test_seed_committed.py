@@ -59,9 +59,10 @@ def test_seed_co_du_van_ban_cua_DOC_IDS_va_khong_rong(documents, provisions):
     khai báo, không thừa không thiếu", và `>=` sẽ bỏ lọt một văn bản rơi rụng.
     """
     from scripts.fetch_chinhphu import VAN_BAN
+    from scripts.fetch_congbao import VAN_BAN as VAN_BAN_CONGBAO
     from scripts.fetch_moj import DOC_IDS
 
-    mong_doi = set(DOC_IDS) | {f"cp-{k}" for k in VAN_BAN}
+    mong_doi = set(DOC_IDS) | {f"cp-{k}" for k in VAN_BAN} | {f"cb-{k}" for k in VAN_BAN_CONGBAO}
     assert len(documents) == len(mong_doi), len(documents)
     assert {d["id"] for d in documents} == mong_doi
     assert len(provisions) > 19_000, len(provisions)

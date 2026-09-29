@@ -6,7 +6,8 @@
 # `from` thay `to`; loai 20 `from` sửa `to`; loai 22/23 `to` khai tử (một phần) `from`.
 # `trich` ≤ 400 ký tự, các mảnh nguyên văn nối bằng " … "; `url` là trang chính thống mở
 # được. kiem_boi `doi-chieu-nguyen-van-k8`: từng mảnh là chuỗi con toàn văn gateway Bộ Tư
-# pháp của văn bản khai tử/đi sửa; `ocr-ban-ky-so-k8`: đọc bằng OCR bản ký số (ảnh quét).
+# pháp của văn bản khai tử/đi sửa; `doi-chieu-cong-bao-k8`: chuỗi con toàn văn .docx Công báo
+# (văn bản gateway chưa có); `ocr-ban-ky-so-k8`: đọc bằng OCR bản ký số (ảnh quét).
 - from_so_ky_hieu: 145/2020/NĐ-CP
   to_so_ky_hieu: 49/2013/NĐ-CP
   loai: 21
@@ -327,3 +328,11 @@
   url: https://vbpl.vn/van-ban/chi-tiet/183939
   kiem_boi: doi-chieu-nguyen-van-k8
   kiem_luc: 2026-09-29 03:29:12+00:00
+- from_so_ky_hieu: 148/2025/QH15
+  to_so_ky_hieu: 67/2006/QH11
+  loai: 21
+  dieu_khoan: '148/2025/QH15 Điều 47 khoản 2 (ngày: khoản 1)'
+  trich: Luật Công nghệ thông tin số 67/2006/QH11 đã được sửa đổi, bổ sung một số điều theo Luật số 21/2017/QH14 … hết hiệu kể từ ngày Luật này có hiệu lực thi hành, trừ trường hợp quy định tại khoản 1 và khoản 2 Điều 48 của Luật này … Luật này có hiệu lực thi hành từ ngày 01 tháng 7 năm 2026
+  url: https://congbao.chinhphu.vn/van-ban/luat-so-148-2025-qh15-468708.htm
+  kiem_boi: doi-chieu-cong-bao-k8
+  kiem_luc: 2026-09-29 03:43:18+00:00

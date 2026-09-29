@@ -72,6 +72,7 @@ def test_build_ghi_du_ba_file_va_checksums(tmp_path, monkeypatch):
     monkeypatch.setattr(build_seed, "DOC_IDS", {"9001": ("deep", "1/2020/NĐ-CP")})
     # Nguồn thứ hai tắt: mỗi test ở đây soi RIÊNG vòng lặp MOJ. Không tắt thì
     # build đi tìm data/raw/chinhphu và đỏ vì một lý do không liên quan.
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
     monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
     out = tmp_path / "seed"
     assert build_seed.build(tmp_path / "raw", out) == {
@@ -106,6 +107,7 @@ def test_build_FAIL_khi_so_ky_hieu_khai_bao_lech_docNum_cua_gateway(tmp_path, mo
             '<p class="prov-clause">1. Nội dung khoản một.</p></div>'},
     }, ensure_ascii=False), encoding="utf-8")
     monkeypatch.setattr(build_seed, "DOC_IDS", {"9004": ("deep", "90/2019/NĐ-CP")})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
     monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
     with pytest.raises(ValueError, match="docNum"):
         build_seed.build(tmp_path / "raw", tmp_path / "seed")
@@ -131,6 +133,7 @@ def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
     monkeypatch.setattr(build_seed, "DOC_IDS", {"9002": ("deep", "2/2020/NĐ-CP")})
     # Nguồn thứ hai tắt: mỗi test ở đây soi RIÊNG vòng lặp MOJ. Không tắt thì
     # build đi tìm data/raw/chinhphu và đỏ vì một lý do không liên quan.
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
     monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
     with pytest.raises(ValueError, match="bất thường cấu trúc"):
         build_seed.build(tmp_path / "raw", tmp_path / "seed")
@@ -160,6 +163,7 @@ def test_build_CANH_BAO_khi_gateway_tra_references_null(tmp_path, monkeypatch):
     (raw / "9006.json").write_text(_doc_mot_dieu("6/2020/QH14", references=[]), encoding="utf-8")
     monkeypatch.setattr(build_seed, "DOC_IDS", {"9005": ("deep", "5/2020/QH14"),
                                                 "9006": ("deep", "6/2020/QH14")})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
     monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
     with pytest.warns(UserWarning, match="9005.*references") as bat:
         build_seed.build(tmp_path / "raw", tmp_path / "seed")
@@ -178,6 +182,7 @@ def test_build_BO_canh_MOJ_da_doi_chieu_la_sai(tmp_path, monkeypatch):
         {"targetDocument": {"id": 96115, "docNum": "92/2015/QH13"}, "referenceType": 10},
     ]), encoding="utf-8")
     monkeypatch.setattr(build_seed, "DOC_IDS", {"161263": ("deep", "19/2023/QH15")})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
     monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
     out = tmp_path / "seed"
     build_seed.build(tmp_path / "raw", out)
@@ -207,6 +212,7 @@ def test_checksum_DOI_khi_parser_doi_du_HTML_khong_doi(tmp_path, monkeypatch):
     monkeypatch.setattr(build_seed, "DOC_IDS", {"9003": ("deep", "3/2020/NĐ-CP")})
     # Nguồn thứ hai tắt: mỗi test ở đây soi RIÊNG vòng lặp MOJ. Không tắt thì
     # build đi tìm data/raw/chinhphu và đỏ vì một lý do không liên quan.
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
     monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
 
     def _checksum(out: Path) -> str:
@@ -244,6 +250,7 @@ def test_build_nap_duoc_nguon_chinhphu(tmp_path, monkeypatch):
         "</div></body></html>", encoding="utf-8")
 
     monkeypatch.setattr(build_seed, "DOC_IDS", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
     monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {"777": {
         "so_ky_hieu": "9/2011/QH13", "ten": "Luật thử", "loai_van_ban": "Luật",
         "co_quan_ban_hanh": "Quốc hội", "ngay_ban_hanh": "2011-11-11",
@@ -266,3 +273,59 @@ def test_build_nap_duoc_nguon_chinhphu(tmp_path, monkeypatch):
     dieu = next(p for p in provs if p["cap"] == "dieu")
     assert "CHỦ TỊCH QUỐC HỘI" not in dieu["noi_dung"], \
         "khối chữ ký chui vào Điều — neo trích dẫn giả"
+
+
+
+def test_build_nap_duoc_nguon_cong_bao_docx(tmp_path, monkeypatch):
+    """Nguồn thứ ba (quyết định 2026-09-28 mục 13): `.docx` Công báo → seed qua ĐÚNG cổng
+    `_soat_va_bam`; id tiền tố `cb-`, `nguon_url` là trang Công báo, khối chữ ký ở `phu_luc`."""
+    import io
+    import zipfile
+
+    raw = tmp_path / "raw" / "congbao"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    doan = [
+        "Điều 1. Phạm vi",
+        "1. Nội dung khoản một.",
+        "Luật này được Quốc hội khóa XV thông qua ngày 11 tháng 12 năm 2025.",
+        "CHỦ TỊCH QUỐC HỘI",
+    ]
+    than = "".join(f"<w:p><w:r><w:t>{t}</w:t></w:r></w:p>" for t in doan)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr(
+            "word/document.xml",
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/'
+            f'wordprocessingml/2006/main"><w:body>{than}</w:body></w:document>',
+        )
+    (raw / "888.docx").write_bytes(buf.getvalue())
+    url = "https://congbao.chinhphu.vn/van-ban/luat-so-9-2025-qh15-888.htm"
+    monkeypatch.setattr(build_seed, "DOC_IDS", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    monkeypatch.setattr(
+        build_seed,
+        "VAN_BAN_CONGBAO",
+        {
+            "888": {
+                "url": url,
+                "so_ky_hieu": "9/2025/QH15",
+                "ten": "Luật thử",
+                "loai_van_ban": "Luật",
+                "co_quan_ban_hanh": "Quốc hội",
+                "ngay_ban_hanh": "2025-12-11",
+                "ngay_hieu_luc": "2026-07-01",
+                "ngay_het_hieu_luc": None,
+                "tinh_trang": "chua_xac_dinh",
+                "depth": "deep",
+            }
+        },
+    )
+
+    out = tmp_path / "seed"
+    assert build_seed.build(tmp_path / "raw", out)["documents"] == 1
+    doc = json.loads((out / "documents.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert (doc["id"], doc["nguon_url"]) == ("cb-888", url)
+    provs = [json.loads(x) for x in (out / "provisions.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert next(p for p in provs if p["cap"] == "khoan")["noi_dung"] == "1. Nội dung khoản một."
+    assert "CHỦ TỊCH QUỐC HỘI" in next(p for p in provs if p["cap"] == "phu_luc")["noi_dung"]

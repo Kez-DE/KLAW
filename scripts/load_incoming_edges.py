@@ -148,6 +148,10 @@ CANH_DOI_CHIEU_NGUYEN_VAN: tuple[tuple[str, str, int, str], ...] = (
     ("117553", "92898", 21, "Thay thế"),
     # 113/2025/QH15 Điều 30 khoản 3 (thay hai dòng MOJ loai 1 trong `CANH_SAI_MOJ`).
     ("6fa2fd20-597e-11f1-add2-7717d93a2118", "179969", 21, "Thay thế"),
+    # Luật 148/2025/QH15 Điều 47 khoản 2 (Công báo số 43, `scripts.fetch_congbao`): Luật
+    # Công nghệ thông tin 67/2006/QH11 "hết hiệu kể từ ngày Luật này có hiệu lực thi hành"
+    # (01/7/2026, khoản 1), trừ chuyển tiếp Điều 48 khoản 1, 2.
+    ("cb-468708", "15066", 21, "Thay thế"),
 )
 
 # Văn bản hợp nhất (Công báo) nêu đích danh luật đi sửa từng điều khoản
