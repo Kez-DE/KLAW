@@ -63,6 +63,23 @@ CANH_SAI: frozenset[tuple[str, str, str]] = frozenset({
     # — cùng lỗi bắt nhầm số hiệu; 231/2026/NĐ-CP chỉ "Căn cứ" và thi hành 127/2025.
     ("187601", "187035", "Sửa đổi, bổ sung"),
     ("386e5ad0-7d09-11f1-9c00-f9e84f25c1dc", "187035", "Sửa đổi, bổ sung"),
+    # K8 2026-09-29 (nghiên cứu K8b, `docs/plans/active/kho-luat-trich-dan-day-du.md`):
+    # 158/2025/NĐ-CP KHÔNG thay 135/2020/NĐ-CP (còn hiệu lực). Điều 44 khoản 2 điểm c
+    # chỉ chấm dứt "Khoản 2 Điều 3; các khoản 1, 3 Điều 7 và khoản 2 Điều 8" và Phụ lục
+    # III (Công báo 851+852) — cạnh đúng là loai 23, ở `CANH_DOI_CHIEU_NGUYEN_VAN`.
+    ("178757", "152734", "Thay thế"),
+    # Luật 71/2025/QH15 Điều 49 khoản 5 điểm a chỉ thay một cụm từ tại khoản 22 Điều
+    # 79 và khoản 1 Điều 202 Luật Đất đai 31/2024/QH15 (Công báo 965+966): sửa đổi,
+    # không thay thế — cạnh loai 20 ở `CANH_DOI_CHIEU_NGUYEN_VAN`.
+    ("179989", "177815", "Thay thế"),
+    # Nghị định 71/2024/NĐ-CP không thay thế được Luật Đất đai 31/2024/QH15 (thứ bậc
+    # văn bản, Luật Ban hành VBQPPL); toàn văn 71/2024 chưa đối chiếu nên không thêm
+    # cạnh thay nó.
+    ("168381", "177815", "Thay thế"),
+    # Đọc ra "Thông tư 01/2014/TT-BLĐTBXH quy định Nghị định 55/2013/NĐ-CP hết hiệu
+    # lực" — sai thứ bậc và sai văn bản: 29/2019/NĐ-CP Điều 28 khoản 2 mới chấm dứt
+    # 55/2013 (29.signed.pdf trang 14); cạnh đó (loai 21) đã có.
+    ("30475", "37502", "Văn bản quy định hết hiệu lực"),
 })
 
 # Bản ghi trùng (dòng thừa → dòng giữ): gateway và parquet mang HAI id cho cùng một
@@ -80,6 +97,23 @@ BAN_TRUNG: dict[str, str] = {"40022": "18451", "153788": "142846"}
 # `ingest` xoá nó khỏi DB đã nạp từ seed cũ.
 CANH_SAI_MOJ: frozenset[tuple[str, str, int]] = frozenset({
     ("161263", "139264", 10),
+    # K8 2026-09-29 — mã MOJ 1/12 đi vào đọc là "thay thế" (`effectivity.TAC_DONG`)
+    # ngay khi loader cạnh MOJ được bật; nguyên văn nói khác:
+    # 71/2025/QH15 chỉ thay cụm từ trong 31/2024/QH15 (Điều 49 khoản 5 điểm a).
+    ("179989", "177815", 12),
+    # 293/2025/NĐ-CP Điều 5 khoản 3 chỉ bãi bỏ khoản 7 Điều 15 và Phụ lục I của
+    # 128/2025/NĐ-CP; cạnh đúng loai 23 (128/2025 → 293/2025) đã có.
+    ("183939", "178260", 1),
+    # 113/2025/QH15 Điều 30 khoản 3: Pháp lệnh 06/2003 "đã được sửa đổi, bổ sung theo
+    # Pháp lệnh số 07/2025/UBTVQH15 hết hiệu lực" — hai dòng loai 1 trùng nhau, thay
+    # bằng MỘT cạnh loai 21 ở `CANH_DOI_CHIEU_NGUYEN_VAN` để Mức 2a đọc được.
+    ("6fa2fd20-597e-11f1-add2-7717d93a2118", "179969", 1),
+    # Hai dòng loai 12 trùng của 293/2025 → 74/2024; cạnh loai 21 cùng cặp đã có
+    # (293/2025 Điều 5 khoản 2).
+    ("183939", "168670", 12),
+    # 90/2019/NĐ-CP không thể căn cứ một luật năm 2025 ("74/2025/QH15", đích không có
+    # trong kho); cạnh căn cứ đúng 74/2014/QH13 đã có.
+    ("139094", "179273", 3),
 })
 
 # Cạnh hiệu lực ĐỌC TỪ NGUYÊN VĂN mà parquet không có (0 cạnh hiệu lực nào chạm
@@ -101,6 +135,19 @@ CANH_DOI_CHIEU_NGUYEN_VAN: tuple[tuple[str, str, int, str], ...] = (
     # hiệu lực kể từ ngày Luật này có hiệu lực thi hành". Parquet không có cạnh
     # hiệu lực nào cho 14832 (chỉ hai cạnh MOJ loai 12, Mức 2a không đọc).
     ("136036", "14832", 21, "Thay thế"),
+    # K8 2026-09-29. 283/2026/NĐ-CP Điều 66 khoản 4: "Nghị định số 12/2022/NĐ-CP ...
+    # hết hiệu lực thi hành kể từ ngày Nghị định này có hiệu lực" (10/9/2026, khoản 1).
+    ("787d3780-866f-11f1-8511-612429c9d15e", "153913", 21, "Thay thế"),
+    # 158/2025/NĐ-CP Điều 44 khoản 2 điểm c: chấm dứt MỘT PHẦN 135/2020/NĐ-CP (thay
+    # cạnh sai loai 21 trong `CANH_SAI`). Chiều như parquet: `from` bị khai tử.
+    ("152734", "178757", 23, "Văn bản quy định hết hiệu lực 1 phần"),
+    # Luật 71/2025/QH15 Điều 49 khoản 5 điểm a sửa cụm từ trong 31/2024/QH15.
+    ("179989", "177815", 20, "Sửa đổi, bổ sung"),
+    # 153/2016/NĐ-CP Điều 6 khoản 1: "Nghị định số 122/2015/NĐ-CP ... hết hiệu lực kể
+    # từ ngày Nghị định này có hiệu lực thi hành" (01/01/2017). Parquet thiếu cạnh.
+    ("117553", "92898", 21, "Thay thế"),
+    # 113/2025/QH15 Điều 30 khoản 3 (thay hai dòng MOJ loai 1 trong `CANH_SAI_MOJ`).
+    ("6fa2fd20-597e-11f1-add2-7717d93a2118", "179969", 21, "Thay thế"),
 )
 
 # Văn bản hợp nhất (Công báo) nêu đích danh luật đi sửa từng điều khoản

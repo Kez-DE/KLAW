@@ -16,6 +16,7 @@ from sqlalchemy import text
 
 from scripts.load_incoming_edges import (
     CANH_DOI_CHIEU_NGUYEN_VAN,
+    CANH_SAI_MOJ,
     QUAN_HE_HIEU_LUC,
     _bo_sung,
     _canh_hieu_luc_di_vao,
@@ -110,6 +111,22 @@ def test_canh_doi_chieu_nguyen_van_dung_chieu_va_chi_dai_tu_suy():
     assert ("168670", "154245", 21, "Thay thế") in CANH_DOI_CHIEU_NGUYEN_VAN
     assert all(loai in QUAN_HE_HIEU_LUC.values() and QUAN_HE_HIEU_LUC[ten] == loai
                for _, _, loai, ten in CANH_DOI_CHIEU_NGUYEN_VAN)
+
+
+def test_canh_K8_doi_chieu_nguyen_van_nap_lai_khong_dua_canh_sai_tro_lai():
+    """K8 (nghiên cứu K8b): bốn cạnh parquet đọc sai nguyên văn không quay lại khi
+    nạp lại; cạnh đúng thay chúng mang đúng chiều/loai; mã MOJ sai bị bỏ khỏi seed."""
+    sai = [("178757", "152734", "Thay thế"), ("179989", "177815", "Thay thế"),
+           ("168381", "177815", "Thay thế"), ("30475", "37502", "Văn bản quy định hết hiệu lực")]
+    rel = pd.DataFrame([{"doc_id": f, "other_doc_id": t, "relationship": r} for f, t, r in sai])
+    assert _canh_hieu_luc_di_vao(rel, {"152734", "177815", "37502"}).empty
+    assert {
+        ("787d3780-866f-11f1-8511-612429c9d15e", "153913", 21, "Thay thế"),  # 283/2026 Điều 66 k4
+        ("152734", "178757", 23, "Văn bản quy định hết hiệu lực 1 phần"),  # 158/2025 Điều 44 k2 c
+        ("179989", "177815", 20, "Sửa đổi, bổ sung"),  # 71/2025 Điều 49 k5 a
+        ("117553", "92898", 21, "Thay thế"),  # 153/2016 Điều 6 k1
+    } <= set(CANH_DOI_CHIEU_NGUYEN_VAN)
+    assert {("179989", "177815", 12), ("183939", "178260", 1), ("139094", "179273", 3)} <= CANH_SAI_MOJ
 
 
 def test_load_from_parquet_RAISE_khi_thieu_metadata_khong_am_tham_bo_qua(tmp_path):
