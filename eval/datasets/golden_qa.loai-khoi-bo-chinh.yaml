@@ -1,0 +1,47 @@
+# Câu LOẠI KHỎI bộ golden chính (`golden_qa.yaml`). Không loader nào đọc tệp này:
+# `eval/run.py` và `eval/run_cau_tra_loi.py` chỉ đọc `golden_qa.yaml`.
+#
+# Thẩm quyền: `docs/decisions/2026-09-28-trich-dan-day-du-va-lien-ket-nguon.md`
+# mục 17 (chủ dự án chốt 2026-09-29) — "bỏ lao-035-0/1 và lao-030-1 khỏi bộ golden
+# chính (283/2026/NĐ-CP không còn quy định tương ứng)".
+#
+# Mỗi câu giữ NGUYÊN VĂN như lúc bị loại (câu hỏi, nhãn, `duyet_boi`) để so và để chủ
+# dự án viết lại hoặc khôi phục; `ly_do_loai` nói vì sao. Đối chiếu nguyên văn:
+# `eval/datasets/golden_mapping_12-2022_283-2026.md` (mục lao-030 và lao-035).
+items:
+- id: lao-030-1
+  ly_do_loai: 283/2026/NĐ-CP không còn quy tắc chuyển biên bản vi phạm (12/2022 Điều 59
+    khoản 3, 4); thẩm quyền quyết định xử phạt rải ở nhiều khoản Điều 63 nên không có
+    MỘT neo trả lời được câu hỏi. Nhãn Điều 63 khoản 16 chỉ là tạm (chua-ai).
+  cau_hoi: Em đã bị ghi giấy vì trốn ở lại bên Hàn sau khi hết hạn. Tờ giấy đó rồi
+    chuyển đi đâu và ai là người chốt mức phạt em ạ?
+  duong_dan:
+  - 283/2026/NĐ-CP > Điều 63 > Khoản 16
+  bo_luat: Lao động
+  nguon: llm-gen+agent-viet-lai
+  da_review: false
+  duyet_boi: chua-ai
+- id: lao-035-0
+  ly_do_loai: 283/2026/NĐ-CP không có quy định tương ứng 12/2022 Điều 42 khoản 11 (đưa
+    người lao động không có tên trong danh sách Bộ xác nhận đi Đài Loan, Nhật Bản); nhãn
+    cũ nằm trên văn bản đã hết hiệu lực và bị ẩn.
+  cau_hoi: Nếu tôi lén đưa 5 người đi làm ở Đài Loan mà không có giấy tờ hợp lệ thì
+    bị phạt bao nhiêu tiền?
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 42 > Khoản 11
+  bo_luat: Lao động
+  nguon: llm-gen+agent-duyet
+  da_review: true
+  duyet_boi: nguoi
+- id: lao-035-1
+  ly_do_loai: 283/2026/NĐ-CP không có quy định tương ứng 12/2022 Điều 42 khoản 11 (đưa
+    người lao động không có tên trong danh sách Bộ xác nhận đi Đài Loan, Nhật Bản); nhãn
+    cũ nằm trên văn bản đã hết hiệu lực và bị ẩn.
+  cau_hoi: Công ty tôi bị phát hiện đưa 20 người sang Nhật làm việc chui, không đúng
+    danh sách, thì sẽ bị phạt nặng cỡ nào?
+  duong_dan:
+  - 12/2022/NĐ-CP > Điều 42 > Khoản 11
+  bo_luat: Lao động
+  nguon: llm-gen+agent-duyet
+  da_review: true
+  duyet_boi: nguoi

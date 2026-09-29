@@ -7,6 +7,7 @@ import { NoiDungDieuKhoan } from "@/components/klaw/NoiDungDieuKhoan";
 import { BadgeHieuLuc, MoTaHieuLuc } from "@/components/klaw/BadgeHieuLuc";
 import { BaoLoi, DanhSachThayThe } from "@/components/klaw/BaoLoi";
 import { BanGocCoChuKy } from "@/components/klaw/BanGocCoChuKy";
+import { ChuaCoToanVan } from "@/components/klaw/ChuaCoToanVan";
 import { goi, thamSo } from "@/lib/api";
 import { gomHangBang } from "@/lib/bang";
 import {
@@ -90,15 +91,23 @@ export const Route = createFileRoute("/tra-cuu/$docId")({
   },
   head: ({ loaderData }) => {
     const vb = loaderData?.vanBan;
-    const title = vb === undefined ? "Văn bản — KLAW" : `${vb.so_ky_hieu} — toàn văn | KLAW`;
+    // Văn bản chưa có toàn văn (quyết định 2026-09-28, mục 16): tiêu đề và mô tả
+    // không được hứa "toàn văn".
+    const chiCoTen = vb?.co_toan_van === false;
+    const title =
+      vb === undefined
+        ? "Văn bản — KLAW"
+        : `${vb.so_ky_hieu}${chiCoTen ? "" : " — toàn văn"} | KLAW`;
     const desc =
       vb === undefined
         ? "Đọc toàn văn văn bản pháp luật theo điều, khoản, điểm trên KLAW."
         : `${vb.loai_van_ban} ${vb.so_ky_hieu}${
             vb.co_quan_ban_hanh === null ? "" : ` do ${vb.co_quan_ban_hanh} ban hành`
-          }${
-            vb.ngay_ban_hanh === null ? "" : ` ngày ${ngayVietNam(vb.ngay_ban_hanh)}`
-          }. Đọc toàn văn theo điều, khoản, điểm kèm nhãn hiệu lực của KLAW.`;
+          }${vb.ngay_ban_hanh === null ? "" : ` ngày ${ngayVietNam(vb.ngay_ban_hanh)}`}. ${
+            chiCoTen
+              ? "KLAW chưa có toàn văn của văn bản này."
+              : "Đọc toàn văn theo điều, khoản, điểm kèm nhãn hiệu lực của KLAW."
+          }`;
     return {
       meta: [
         { title },
@@ -498,7 +507,9 @@ function KhoiLienQuan({ lienQuan }: { lienQuan: VanBanLienQuan }) {
                     params={{ docId: vb.doc_id }}
                     className="focus-brass mt-1 inline-block text-[12px] text-[var(--color-brass-600)] hover:underline"
                   >
-                    Mở toàn văn
+                    {/* Không "Mở toàn văn": văn bản liên quan có thể là văn bản
+                        KLAW mới có tên (quyết định 2026-09-28, mục 16). */}
+                    Mở văn bản
                   </Link>
                 )}
               </li>
@@ -588,6 +599,9 @@ function ManDocVanBan() {
   const lienKet = vanBanHopLe(vanBan).lien_ket;
   // Trường NULL = KHÔNG BIẾT, nên cả dòng bỏ đi — không "Không rõ", không "Chưa có".
   const meta = dongThongTin(vanBan);
+  // Được hiện mà KLAW mới có tên (quyết định 2026-09-28, mục 16). Vắng trường
+  // (máy chủ cũ) thì giữ lối cũ.
+  const chiCoTen = vanBan.co_toan_van === false;
 
   const thanhBen = (
     <div>
@@ -617,15 +631,18 @@ function ManDocVanBan() {
 
       {tab === "muc-luc" ? (
         <div className="mt-3">
-          <OLoc docId={docId} onChonDieu={chonDieu} />
+          {/* Không có điều khoản nào để lọc khi KLAW mới có tên văn bản. */}
+          {!chiCoTen && <OLoc docId={docId} onChonDieu={chonDieu} />}
           <nav className="mt-3" aria-label="Mục lục văn bản">
             {vanBan.muc_luc.length === 0 ? (
-              // Nay chỉ còn văn bản TẦNG METADATA rơi vào đây: 0 điều khoản,
-              // nên không có gì để liệt. 11 văn bản không chia Chương/Mục
-              // KHÔNG còn rỗng — backend trả thẳng danh sách Điều.
+              // Hai ca rơi vào đây: văn bản KLAW mới có tên, và văn bản có toàn
+              // văn mà không chia Chương/Mục/Điều (chỉ thị đánh số khoản). 11 văn
+              // bản không chia Chương/Mục KHÔNG còn rỗng — backend trả thẳng
+              // danh sách Điều.
               <p className="m-0 text-[12px] leading-5 text-muted-foreground">
-                Kho chỉ có phần thông tin của văn bản này, chưa có toàn văn máy đọc được — nên không
-                có mục lục để mở.
+                {chiCoTen
+                  ? "KLAW chưa có toàn văn của văn bản này, nên chưa có mục lục."
+                  : "Văn bản này không chia Chương, Mục hay Điều, nên không có mục lục để mở."}
               </p>
             ) : (
               vanBan.muc_luc.map((muc) =>
@@ -765,16 +782,24 @@ function ManDocVanBan() {
                         </dd>
                       </div>
                     )}
-                    <BanGocCoChuKy vanBan={vanBan} />
+                    {/* Văn bản chưa có toàn văn: bản gốc có chữ ký nằm trong khối
+                        "chưa có toàn văn" bên dưới, không lặp lại ở đây. */}
+                    {!chiCoTen && <BanGocCoChuKy vanBan={vanBan} />}
                   </dl>
                 )}
               </div>
 
-              {soDieuTrenUrl === undefined && quanhTrenUrl === undefined && (
-                <p className="mt-8 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                  Chọn một Điều ở mục lục bên trái để đọc nguyên văn. Kho không tải cả văn bản một
-                  lượt: văn bản lớn nhất có 689 Điều.
-                </p>
+              {chiCoTen ? (
+                <ChuaCoToanVan vanBan={vanBan} />
+              ) : (
+                soDieuTrenUrl === undefined &&
+                quanhTrenUrl === undefined &&
+                vanBan.muc_luc.length > 0 && (
+                  <p className="mt-8 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                    Chọn một Điều ở mục lục bên trái để đọc nguyên văn. Kho không tải cả văn bản một
+                    lượt: văn bản lớn nhất có 689 Điều.
+                  </p>
+                )
               )}
               {loiNoiDung !== null && <BaoLoi loi={loiNoiDung} />}
               {(soDieuTrenUrl !== undefined || quanhTrenUrl !== undefined) &&

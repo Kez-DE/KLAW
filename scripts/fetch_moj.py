@@ -599,7 +599,7 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
     ),
     "187195": (
         "07/2025/NĐ-СР",
-        "bản ghi gateway trùng 174485 (07/2025/NĐ-CP, cùng ngày ban hành, tiêu đề, người ký; docNum ghi 'СР' bằng chữ Kirin): hai bản sâu làm trùng neo trích dẫn — đề xuất giữ 174485 (số hiệu Latin, có documentRelatedList), chủ dự án chốt `BAN_TRUNG`",
+        "bản ghi gateway trùng 174485 (07/2025/NĐ-CP, cùng ngày ban hành, tiêu đề, người ký; docNum ghi 'СР' bằng chữ Kirin): chủ dự án giữ 174485 (quyết định 2026-09-28 mục 17); gộp vào 174485 qua `BAN_TRUNG` + `don_kho --chi-gop` (K12)",
     ),
     "168754": (
         "08/2022/NĐ-CP",
@@ -646,7 +646,11 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
         "114/2025/QH15",
         "hai node cùng neo '114/2025/QH15 > Điều 32 > Khoản 1' ở cấp trích dẫn được",
     ),
-    "110222": ("115/1998/TT-BTC", "HTML MOJ không có thẻ prov-* nào"),
+    "110222": (
+        "115/1998/TT-BTC",
+        "bản ghi gateway trùng 7576 (cùng thân bài, cùng 'ngày 19 tháng 8 năm 1998'; issueDate lệch 1 ngày): "
+        "gộp vào 7576 qua `BAN_TRUNG` + `don_kho --chi-gop` (review K12)",
+    ),
     "7576": ("115/1998/TT-BTC", "HTML MOJ không có thẻ prov-* nào"),
     "170131": ("117/2024/NĐ-CP", "hai node cùng neo '117/2024/NĐ-CP > Điều 1 > Khoản 5' ở cấp trích dẫn được"),
     "122826": (
@@ -717,7 +721,7 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
     ),
     "26419": (
         "18/2011/TT- BNNPTNT",
-        "bản ghi gateway trùng 67884 (18/2011/TT-BNNPTNT, cùng ngày ban hành, tiêu đề, cơ quan; docNum có khoảng trắng sau 'TT-'): hai bản sâu làm trùng neo trích dẫn — đề xuất giữ 67884, chủ dự án chốt `BAN_TRUNG`",
+        "bản ghi gateway trùng 67884 (18/2011/TT-BNNPTNT, cùng ngày ban hành, tiêu đề, cơ quan; docNum có khoảng trắng sau 'TT-'): chủ dự án giữ 67884 (quyết định 2026-09-28 mục 17); gộp vào 67884 qua `BAN_TRUNG` + `don_kho --chi-gop` (K12)",
     ),
     "126307": ("18/2017/QH14", "hai node cùng neo '18/2017/QH14 > Điều 32 > Khoản 1' ở cấp trích dẫn được"),
     "187372": ("180/2025/NĐ-CP", "dòng công thức 'n: …' gắn thẻ prov-item thành Điều 29 Khoản 5 Điểm không số hiệu"),
@@ -799,11 +803,11 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
     "167313": ("53/2024/NĐ-CP", "hai node cùng neo '53/2024/NĐ-CP > Điều 28 > Khoản 3 > Điểm b' ở cấp trích dẫn được"),
     "184706": (
         "55/2025/NQ-HĐND",
-        "bản ghi gateway trùng 185035 (cùng số hiệu 55/2025/NQ-HĐND, ngày, tiêu đề; HTML khác nhau vài chỗ): hai bản sâu làm trùng neo trích dẫn — cần chọn bản giữ (`BAN_TRUNG`) trước",
+        "bản giữ của cặp trùng 184706/185035 (K12, `BAN_TRUNG`): chưa nạp sâu — nạp qua đường nâng tầng tại chỗ của K6",
     ),
     "185035": (
         "55/2025/NQ-HĐND",
-        "bản ghi gateway trùng 184706 (cùng số hiệu 55/2025/NQ-HĐND, ngày, tiêu đề; HTML khác nhau vài chỗ): hai bản sâu làm trùng neo trích dẫn — cần chọn bản giữ (`BAN_TRUNG`) trước",
+        "bản ghi gateway trùng 184706 (cùng số hiệu, ngày, tiêu đề; HTML khác nhau vài chỗ): gộp vào 184706 qua `BAN_TRUNG` + `don_kho --chi-gop` (K12)",
     ),
     "97361": ("57/2015/TT-BLĐTBXH", "hai node cùng neo '57/2015/TT-BLĐTBXH > Điều 13 > Khoản 2' ở cấp trích dẫn được"),
     "175425": ("59/2024/QH15", "hai node cùng neo '59/2024/QH15 > Điều 52 > Khoản 1' ở cấp trích dẫn được"),

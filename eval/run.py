@@ -364,7 +364,7 @@ def write_report(results: dict[str, dict]) -> str:
         lines.extend(f"- {c}" for c in canh_bao)
         lines.append("")
 
-    lines.append("## 1. Bảng ablation (77 câu golden_qa)")
+    lines.append(f"## 1. Bảng ablation ({mau_co.get('n_queries', '?')} câu golden_qa)")
     lines.append("")
     mau = next((r for r in results.values() if "bm25_rank_normalization" in r), None)
     if mau:

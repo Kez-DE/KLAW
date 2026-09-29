@@ -8,6 +8,7 @@ import { BaoLoi } from "@/components/klaw/BaoLoi";
 import { Chip, Highlight } from "@/components/legal/VanBanUI";
 import { goi, thamSo } from "@/lib/api";
 import {
+  cauPhamViTimKiem,
   laBoLoc,
   laDanhSachVanBan,
   laTimKiem,
@@ -286,6 +287,11 @@ function TheDong({ dong, q }: { dong: DongTimKiem; q: string }) {
     cachTrichHopLe(dong) ?? trichDieuKhoan(dong.duong_dan, dong.so_ky_hieu),
     vanBanHopLe(dong).lien_ket,
   );
+  // Dòng `mo_dau` là TÊN của một văn bản KLAW chưa có toàn văn (migration 016,
+  // quyết định 2026-09-28 mục 16): không có nguyên văn nào để mở quanh nó, nên
+  // link về trang văn bản, nơi nói thẳng điều đó.
+  const chiCoTen = dong.cap === "mo_dau";
+  const quanh = chiCoTen ? {} : { quanh: String(dong.provision_id) };
   return (
     <article className="rounded-xl border border-border bg-card p-4 transition-colors duration-150 hover:border-[var(--color-brass-500)]/50">
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px] text-muted-foreground">
@@ -341,7 +347,7 @@ function TheDong({ dong, q }: { dong: DongTimKiem; q: string }) {
         <Link
           to="/tra-cuu/$docId"
           params={{ docId: dong.doc_id }}
-          search={{ quanh: String(dong.provision_id) }}
+          search={quanh}
           className="focus-brass rounded hover:underline"
         >
           {dong.tieu_de === "" ? dong.duong_dan : dong.tieu_de}
@@ -363,10 +369,11 @@ function TheDong({ dong, q }: { dong: DongTimKiem; q: string }) {
         <Link
           to="/tra-cuu/$docId"
           params={{ docId: dong.doc_id }}
-          search={{ quanh: String(dong.provision_id) }}
+          search={quanh}
           className="focus-brass inline-flex items-center gap-1 rounded font-medium text-[var(--color-brass-600)] hover:underline"
         >
-          Mở nguyên văn <ArrowRight className="size-3.5" aria-hidden />
+          {chiCoTen ? "Mở trang văn bản" : "Mở nguyên văn"}{" "}
+          <ArrowRight className="size-3.5" aria-hidden />
         </Link>
         <button
           type="button"
@@ -581,17 +588,15 @@ function ManTimKiem() {
               Tìm theo <strong className="font-semibold">từ khoá</strong> tới từng điều, khoản,
               điểm. Không dấu cũng ra.
             </p>
-            {/* Ô này khớp trên `provisions`, nên nó chỉ với tới tầng CÓ TOÀN
-                VĂN. Kho còn một tầng nữa chỉ có thông tin văn bản; gõ tên một
-                văn bản ở tầng đó ra 0 kết quả, và không nói ra điều này thì 0
-                kết quả đọc thành "văn bản đó không có trong kho". Con số lấy từ
-                `/bo-loc`, không viết cứng. */}
+            {/* Ô này khớp trên `chunks` của văn bản được hiện. Văn bản KLAW chưa
+                có toàn văn vẫn được hiện (quyết định 2026-09-28, mục 16) và chỉ
+                khớp được theo tên, nên câu dưới đây tách hai con số — cả hai lấy
+                từ `/bo-loc`, không viết cứng (`cauPhamViTimKiem`). */}
             {boLoc !== null && (
               <p className="mt-1 text-[12.5px] text-muted-foreground">
-                Ô này tìm trong {boLoc.tong_van_ban} văn bản có toàn văn. Kho còn một tầng chỉ có
-                thông tin văn bản, không tìm theo từ khoá được —{" "}
+                {cauPhamViTimKiem(boLoc)}{" "}
                 <Link to="/du-lieu" className="focus-brass rounded underline underline-offset-2">
-                  xem kho lấy từ đâu
+                  Xem kho lấy từ đâu
                 </Link>
                 .
               </p>

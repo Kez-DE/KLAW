@@ -447,6 +447,72 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
     items cannot be compared with earlier baselines. The table is in the
     mapping file. The unfiltered range is tie noise: `Retriever.bm25` orders
     by `ts_rank` with no tiebreak, and near-identical old/new texts tie.
+- [ ] K12 finishing (decision items 16–17), 2026-09-29, `feat/k12-hoan-thien` from main.
+  (1) Title-only pages: `GET /van-ban/{id}` carries `co_toan_van` (a provision other
+  than `mo_dau`, the `/pham-vi` rule) and `/bo-loc` carries `so_co_toan_van`. The
+  document page of a shown title-only document says "KLAW chưa có toàn văn của văn
+  bản này." with the verified link ("Xem toàn văn trên CSDL quốc gia về pháp luật")
+  and the signed-PDF row when there is one (`ChuaCoToanVan`). The title, description,
+  mục lục note and in-document search no longer promise text. The `/tra-cuu` sentence
+  now reads "Ô này tìm trong N văn bản, trong đó M văn bản có toàn văn …; N−M văn
+  bản còn lại KLAW chưa có toàn văn nên chỉ tìm được theo tên" (`cauPhamViTimKiem`,
+  both numbers from `/bo-loc`). Title-only search rows open the document page, not
+  `?quanh=` (which 404s on a `mo_dau` row). Related documents read "Mở văn bản", and
+  `/du-lieu` no longer calls the year range "phần có toàn văn". The chat path already
+  never cites a title-only document: `expand` routes `shallow` hits to `hits_shallow`,
+  which gives `partial_coverage` with no model prose ("tôi mới có tên … chưa có toàn
+  văn"; `test_assemble`, `test_expand`). On the dev DB (read-only, as of 2026-09-28):
+  484 shown, 372 with full text, 112 title-only. 5 shown deep documents have text
+  but no Điều/Chương (24312, 20092, 20093, 14681, 14959), so their pages still open
+  nothing (open).
+  (2) Duplicates: `BAN_TRUNG` += 187195 → 174485, 26419 → 67884, 185035 → 184706,
+  110222 → 7576. Both 55/2025 pages pass `kiem_trang_vbpl` (2026-09-29 10:34 UTC) and
+  render the same text. The tie goes to 184706, whose gateway record has the signer
+  and effTo 2030-12-31 (Điều 6 khoản 1); 185035 has "Đang cập nhật" and no end date.
+  The K12 review found 115/1998/TT-BTC by grouping the shown set on `khoa_so_hieu`.
+  Both gateway texts are the same Thông tư and both say "ngày 19 tháng 8 năm 1998".
+  7576's issueDate (1998-08-19) matches that date, and 110222's (1998-08-18) does
+  not. Both vbpl.vn pages pass the link check (2026-09-29). The only other shown
+  number shared by two documents is 65/2006/QH11: the Luật Luật sư (15076, deep) and
+  the Nghị quyết on its implementation (15074, shallow). These are two different
+  documents, so they are not merged. A citation of that number alone is ambiguous
+  (open).
+  `don_kho._gop` now matches `build_seed.khoa_so_hieu`, dedupes only the edges it
+  re-points, and deletes only document-level self loops. The old query would have
+  deleted every from = to = keeper edge, clause-level internal references included.
+  174485 has 3 of these. It did not cost 60/2020/QH14 anything at K2: the backups
+  before K2, K2-sua and K8-6 show 142846 with 1 provision and 0 internal edges, and
+  it gained its 64 provisions later, through K6's in-place upgrade. It still has 0
+  internal edges, and that is correct. Its "… của Luật này" sentences quote the laws
+  it amends (Điều 10 and Điều 33 are not among its own 3 Điều). The clause-level
+  edges on the dev DB are exactly the set `xref.resolve_all` would write today:
+  7,585 = 7,585, with 0 missing and 0 extra, covering 253 of 408 deep documents. No
+  xref run is needed. A text search for "Điều N … của Luật/Nghị định này" finds more
+  deep documents with no internal edge. 21 of the 24 found this way are amending
+  documents quoting the amended text. `_gop` also refuses when `anh_van_ban` or
+  `canh_doi_chieu` rows would be lost, and writes CSVs of the rows it removes
+  (`--chi-gop`, `--sao-luu`). The dry run for four pairs used one rolled-back
+  transaction. Shown documents went from 484 to 480, and only the 4 copies left.
+  Full text stayed at 372, and title-only went from 112 to 108. Edges went from
+  11,914 to 11,908, chunks from 25,497 to 25,493, and `canh_doi_chieu` stayed at
+  41. The only verdict changes are names in `mo_ta`: 67884 now names its amenders,
+  and 92897 and 172566 stop naming a duplicate twice.
+  **Not applied:** the permission classifier denied the write twice on 2026-09-29.
+  The command, from the worktree, is `python -m scripts.don_kho --chi-gop --sao-luu
+  <dir>`, with `--dry-run` first. Backup `backup-truoc-K12-gop-lan2.dump` was taken
+  11:44 UTC, before the second attempt. Until the command runs, the four copies stay
+  visible everywhere. After it runs, check that `/bo-loc` gives 480 shown and 372
+  with full text, that the four copy ids return 404, and that searching
+  "07/2025/NĐ-СР" or "18/2011/TT- BNNPTNT" returns nothing. Production needs the
+  same step through dump/restore. `link_vbpl_da_kiem.yaml` drops the four copies,
+  as a `lam_moi_hieu_luc` run would after the merge, because `nap_da_kiem` refuses
+  seed ids missing from `documents`.
+  (3) Golden: lao-030-1, lao-035-0 and lao-035-1 moved to
+  `eval/datasets/golden_qa.loai-khoi-bo-chinh.yaml`, each with its reason. The main
+  set now has 74 items, and the `chua-ai` gate is green. The owner review table
+  `eval/datasets/golden_duyet_20.md` covers the 20 re-anchored items (quotes checked
+  verbatim, ≤60 words each). `duyet_boi` is unchanged.
+  Not in K12: filtering `eval.run` by the shown set (item 17), and the after-eval.
 - [ ] K5 after eval, credit.
 - [ ] K11 retrieval fix (decision item 17), 2026-09-29, `feat/k11-truy-hoi`.
   NOT LIVE: measured and recorded, but the runtime still runs hybrid until

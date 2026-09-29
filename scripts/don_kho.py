@@ -1,6 +1,7 @@
 """Dọn kho K2 (2026-09-28, `docs/plans/active/kho-luat-trich-dan-day-du.md`).
 
     python -m scripts.don_kho --cache DIR [--dry-run] [--chi-chua-kiem]
+    python -m scripts.don_kho --chi-gop [--dry-run] [--sao-luu DIR]
 
 `DIR` là thư mục cache của `scripts.lam_moi_hieu_luc` (response gateway trong
 `DIR/moj/<id>.json`); script này không gửi request nào. Ba việc, MỘT transaction,
@@ -8,16 +9,20 @@ chạy lại được:
 
 1. Ghi đè `linh_vuc_chuan`/`nganh_luat` cho các dòng `ghi_de` của
    `config/linh_vuc.yaml` (bằng chứng từng dòng nằm ở đó).
-2. Gộp hai cặp bản ghi trùng (`BAN_TRUNG`): mọi cạnh `references` của dòng thừa
-   được trỏ sang dòng giữ (cạnh trùng hệt sau khi trỏ thì bỏ), provision `mo_dau`
+2. Gộp các cặp bản ghi trùng (`BAN_TRUNG`): mọi cạnh `references` của dòng thừa
+   được trỏ sang dòng giữ (cạnh trùng hệt một cạnh đã có thì bỏ), provision `mo_dau`
    của dòng thừa — bản sao tiêu đề, dòng giữ đã có `mo_dau` riêng — bị xoá (chunk
    của nó đi theo), rồi mới xoá dòng thừa. Dòng thừa còn provision nào khác, hay
-   provision của nó còn bị trỏ tới, là LỖI: dừng, không xoá.
+   provision của nó còn bị trỏ tới, là LỖI: dừng, không xoá. Hai dòng phải cùng
+   `build_seed.khoa_so_hieu` (chữ Kirin đồng hình, khoảng trắng). Khi ghi, mọi dòng
+   sắp xoá hoặc sắp trỏ lại được chép ra `--sao-luu/gop-<id>-<bảng>-<UTC>.csv`
+   (không bao giờ ghi đè) TRƯỚC khi đụng tới. `--chi-gop` chỉ chạy việc này.
 3. Đối chiếu toàn văn mọi văn bản tầng sâu nạp từ gateway với response mới tải
    → `verified_documents` cho văn bản khớp 100%.
 """
 
 import argparse
+import csv
 import json
 import re
 import unicodedata
@@ -27,6 +32,7 @@ from pathlib import Path
 
 from sqlalchemy import text
 
+from scripts.build_seed import khoa_so_hieu
 from scripts.load_incoming_edges import BAN_TRUNG
 from scripts.nap_link_cong_luat import ID_GATEWAY
 from src.services.db import get_engine
@@ -73,11 +79,26 @@ def doi_chieu_toan_van(provisions: list[dict], html_goc: str) -> tuple[int, int,
     return len(xet), len(xet) - len(truot), truot
 
 
-def _gop(c, bo: str, giu: str) -> dict:
+def _luu_csv(sao_luu: Path | None, ten: str, dong: list[dict]) -> str | None:
+    """Chép `dong` ra `sao_luu/<ten>-<UTC>.csv` — mở bằng "x": không bao giờ ghi đè."""
+    if sao_luu is None or not dong:
+        return None
+    sao_luu.mkdir(parents=True, exist_ok=True)
+    tep = sao_luu / f"{ten}-{datetime.now(UTC):%Y%m%dT%H%M%S%fZ}.csv"
+    with tep.open("x", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, list(dong[0]))
+        w.writeheader()
+        w.writerows(dong)
+    return str(tep)
+
+
+def _gop(c, bo: str, giu: str, sao_luu: Path | None = None) -> dict:
     if c.execute(text("SELECT 1 FROM documents WHERE id = :i"), {"i": bo}).first() is None:
         return {"bo": bo, "da_gop_tu_truoc": True}
     sk = dict(c.execute(text("SELECT id, so_ky_hieu FROM documents WHERE id IN (:b, :g)"), {"b": bo, "g": giu}).all())
-    if len(sk) != 2 or sk[bo] != sk[giu]:
+    # Số hiệu LƯU là `docNum` nguyên văn của gateway, nên bản trùng có thể khác byte
+    # (07/2025/NĐ-СР Kirin, 18/2011/TT- BNNPTNT): so bằng khoá của `build_seed`.
+    if len(sk) != 2 or khoa_so_hieu(sk[bo]) != khoa_so_hieu(sk[giu]):
         raise ValueError(f"cặp trùng {bo}/{giu} không cùng số hiệu: {sk}")
     cap_bo = [r[0] for r in c.execute(text("SELECT cap FROM provisions WHERE document_id = :b"), {"b": bo})]
     cap_giu = [r[0] for r in c.execute(text("SELECT cap FROM provisions WHERE document_id = :g"), {"g": giu})]
@@ -100,50 +121,118 @@ def _gop(c, bo: str, giu: str) -> dict:
             " + (SELECT count(*) FROM verified_provisions v JOIN provisions p ON p.id = v.provision_id"
             "    WHERE p.document_id = :b)"
             " + (SELECT count(*) FROM verified_documents WHERE document_id = :b)"
+            " + (SELECT count(*) FROM anh_van_ban WHERE doc_id = :b)"
         ),
         {"b": bo},
     ).scalar_one()
     if neo:
-        raise ValueError(f"{bo}: {neo} dòng sửa đổi/đã kiểm neo vào dòng thừa")
+        raise ValueError(f"{bo}: {neo} dòng sửa đổi/đã kiểm/ảnh bản gốc neo vào dòng thừa")
+
+    canh = [
+        dict(r)
+        for r in c.execute(
+            text('SELECT * FROM "references" WHERE :b IN (from_document_id, to_document_id) ORDER BY id'), {"b": bo}
+        ).mappings()
+    ]
+    ids = [r["id"] for r in canh]
+    sao = {
+        bang: _luu_csv(sao_luu, f"gop-{bo}-{bang}", dong)
+        for bang, dong in (
+            (
+                "documents",
+                [dict(r) for r in c.execute(text("SELECT * FROM documents WHERE id = :b"), {"b": bo}).mappings()],
+            ),
+            (
+                "provisions",
+                [
+                    dict(r)
+                    for r in c.execute(text("SELECT * FROM provisions WHERE document_id = :b"), {"b": bo}).mappings()
+                ],
+            ),
+            (
+                "chunks",
+                [
+                    dict(r)
+                    for r in c.execute(
+                        text(
+                            "SELECT c.* FROM chunks c JOIN provisions p ON p.id = c.provision_id WHERE p.document_id = :b"
+                        ),
+                        {"b": bo},
+                    ).mappings()
+                ],
+            ),
+            ("references", canh),
+        )
+    }
+    bang_chung = c.execute(text("SELECT count(*) FROM canh_doi_chieu")).scalar_one()
+
     tro = sum(
         c.execute(text(f'UPDATE "references" SET {cot} = :g WHERE {cot} = :b'), {"b": bo, "g": giu}).rowcount
         for cot in ("from_document_id", "to_document_id")
     )
+    # Chỉ bỏ cạnh VỪA trỏ lại (`ids`) khi trùng hệt một cạnh khác: cạnh của dòng giữ
+    # (có thể mang bằng chứng `canh_doi_chieu`) ở lại; hai cạnh vừa trỏ trùng nhau thì
+    # giữ id nhỏ. Không đụng cạnh trùng sẵn có của dòng giữ (việc của B-E8).
     bo_trung = c.execute(
         text(
-            'DELETE FROM "references" a USING "references" b WHERE a.id > b.id'
-            " AND :g IN (a.from_document_id, a.to_document_id)"
+            'DELETE FROM "references" a USING "references" b WHERE a.id = ANY(:ids) AND b.id <> a.id'
+            " AND (b.id <> ALL(:ids) OR b.id < a.id)"
             " AND a.from_document_id = b.from_document_id AND a.to_document_id IS NOT DISTINCT FROM b.to_document_id"
             " AND a.loai = b.loai AND a.from_provision_id IS NOT DISTINCT FROM b.from_provision_id"
             " AND a.to_provision_id IS NOT DISTINCT FROM b.to_provision_id"
         ),
-        {"g": giu},
+        {"ids": ids},
     ).rowcount
+    # Cạnh cấp văn bản giữa hai bản sao thành cạnh tự trỏ sau khi trỏ lại. Dẫn chiếu nội
+    # bộ cấp điều khoản của dòng giữ (from = to = giữ, có provision) KHÔNG phải loại này.
     bo_trung += c.execute(
-        text('DELETE FROM "references" WHERE from_document_id = :g AND to_document_id = :g'), {"g": giu}
+        text(
+            'DELETE FROM "references" WHERE id = ANY(:ids) AND from_document_id = :g AND to_document_id = :g'
+            " AND from_provision_id IS NULL AND to_provision_id IS NULL"
+        ),
+        {"ids": ids, "g": giu},
     ).rowcount
+    if (con := c.execute(text("SELECT count(*) FROM canh_doi_chieu")).scalar_one()) != bang_chung:
+        raise ValueError(f"gộp {bo} → {giu} làm mất {bang_chung - con} dòng canh_doi_chieu — dừng")
     xoa_prov = c.execute(text("DELETE FROM provisions WHERE document_id = :b"), {"b": bo}).rowcount
     c.execute(text("DELETE FROM documents WHERE id = :b"), {"b": bo})
     return {
         "so_ky_hieu": sk[giu],
+        "so_ky_hieu_bo": sk[bo],
         "giu": giu,
         "bo": bo,
         "canh_tro_lai": tro,
         "canh_trung_bo": bo_trung,
         "provision_mo_dau_xoa": xoa_prov,
+        "sao_luu": sao,
     }
 
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--cache", type=Path, required=True, help="thư mục cache của scripts.lam_moi_hieu_luc")
+    p.add_argument("--cache", type=Path, help="thư mục cache của scripts.lam_moi_hieu_luc (bắt buộc, trừ --chi-gop)")
     p.add_argument("--dry-run", action="store_true", help="làm hết trong transaction rồi ROLLBACK")
     p.add_argument(
         "--chi-chua-kiem",
         action="store_true",
         help="bước 3 chỉ đối chiếu văn bản tầng sâu CHƯA có dòng verified_documents (dòng cũ giữ nguyên bằng chứng)",
     )
+    p.add_argument("--chi-gop", action="store_true", help="chỉ bước 2 (gộp BAN_TRUNG)")
+    p.add_argument(
+        "--sao-luu", type=Path, default=Path("data/sao-luu"), help="thư mục CSV dòng xoá/trỏ lại (chỉ khi ghi)"
+    )
     a = p.parse_args()
+    if not a.chi_gop and a.cache is None:
+        p.error("--cache là bắt buộc, trừ khi --chi-gop")
+
+    if a.chi_gop:
+        with get_engine().connect() as c, c.begin() as tx:
+            gop = [_gop(c, bo, giu, None if a.dry_run else a.sao_luu) for bo, giu in BAN_TRUNG.items()]
+            print(json.dumps({"gop_ban_trung": gop}, ensure_ascii=False, indent=1))
+            if a.dry_run:
+                tx.rollback()
+                print("DRY-RUN — đã ROLLBACK.")
+        return
 
     with get_engine().connect() as c, c.begin() as tx:
         ghi_de = sum(
@@ -156,7 +245,7 @@ def main() -> None:
             ).rowcount
             for i, g in GHI_DE.items()
         )
-        gop = [_gop(c, bo, giu) for bo, giu in BAN_TRUNG.items()]
+        gop = [_gop(c, bo, giu, None if a.dry_run else a.sao_luu) for bo, giu in BAN_TRUNG.items()]
 
         da_kiem, lech = [], []
         chua_kiem = " AND id NOT IN (SELECT document_id FROM verified_documents)" if a.chi_chua_kiem else ""
