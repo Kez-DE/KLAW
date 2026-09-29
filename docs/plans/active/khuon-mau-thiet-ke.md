@@ -862,6 +862,27 @@ reaches any part (builder test).
 `tuong_tu` and `tu_dung` entries use catalog field lines, with an optional
 `nhan` override per field.
 
+**Party type** (hợp đồng review, 2026-09-29). A party whose type the law does not
+fix is `loai: tuy`, with `mac_dinh` (`ca_nhan` | `to_chuc`) and two blocks
+`ca_nhan:` / `to_chuc:` holding its `dong` or `truong`/`nhan`. Its signer slot
+carries the same two blocks for `vai`/`ghi_chu`/`ho_ten_tu`.
+`khuon_mau.chon_ben(entry, ben)` merges the chosen block. It is called in
+`spec_tu`, so every build path resolves. The model names the type in `ben[].loai`
+(prompt v3 rule 2, "Khoá bên" marks the party). Failing that, `_ben_registry`
+takes, in order, the stored type, then the type implied by the fields `gia_tri`
+assigns, then `mac_dinh`. An edit that changes a party's type rebuilds the file,
+and carried fills on that party are dropped and reported. Fixed parties remain
+where the law fixes them: the passenger carrier (Luật Đường bộ Đ56.10), the
+real-estate service provider (Luật KDBĐS Đ9.5), and the employee.
+
+**Optional-only căn cứ.** `graph_soan_thao.can_cu_khung` tags a frame line
+`tuy_chon` when only the checklist's `khong_bat_buoc` part cites that document.
+`khuon_mau.can_cu_hien` prints the line only while a Điều cites that document,
+and it re-punctuates the block. It is applied in the docx build, the document
+summary, the page's căn cứ list and the chat answer. Today this affects one type:
+Luật Đường bộ in `hop_dong_van_chuyen_tai_san`, cited only by the optional
+Giấy vận tải item. Prompt v3 marks optional items "TUỲ CHỌN".
+
 Example, transcribed from `goc/m23-ds_toaan-TAND279888.pdf` (SHA-256 `6881d9dd…`),
 page 1, `pdftotext -layout`, 2026-09-29. The source's own wording is kept verbatim,
 including "chứng kèm theo" and the missing colon after the second "Địa chỉ"; see
@@ -1259,6 +1280,14 @@ Defaults apply unless the owner decides otherwise. Only decision 3 blocks.
 | 8 | medium: model placeholders and stray ellipses | Deterministic placeholder → "……", and stray `…`/`...`/`---` normalisation. Builder and kiem tests assert no `[` and no unintended blank (§1, §6, §8). |
 | 9 | medium: a >10-page refusal after a paid call | A measured `NGAN_SACH_KY_TU` and tighter caps in the prompt and in kiem, with non-mandatory Điều trimmed and named. Refusal is the last resort. Open decision 3 is a gate before D4c, with a recommendation (§4, §6, Open decisions). |
 | 10 | medium: the e2e test writes to the shared DB | The test is gated until the parallel eval finishes, as a stated Integrate precondition with cleanup. No disposable DB is created by this wave (§8). |
+
+## §10 Review resolution (hợp đồng group, 2026-09-29)
+
+| # | Finding | Resolution |
+|---|---|---|
+| 1 | medium: `trach_nhiem_vi_pham` was mandatory on BLDS Đ398.2.e, a "có thể có" provision | Moved to `khong_bat_buoc` in the nine checklists that added it, with the same Đ398.2 rationale as `tranh_chap`. A ratchet test keeps Đ398.2.e/g optional in every contract checklist except `hop_dong_nguyen_tac`, which is built on Đ398.2 by design. |
+| 2 | medium: every vận chuyển tài sản contract printed "Căn cứ Luật Đường bộ" | Option (b): the optional-only căn cứ rule (§7). The line appears only when a Giấy vận tải Điều is drafted. |
+| 3 | medium: parties fixed as individual or organisation | `loai: tuy` (§7) on every contract party the law does not fix, including the employer in the four labour entries (BLLĐ Đ3.2). Tests build and fill every entry under default, all-individual, all-organisation and mixed choices. |
 
 ## Progress
 
