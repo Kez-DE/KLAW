@@ -311,6 +311,40 @@ def them_dieu_bat_buoc(dieu: list[dict], loai: str | None, *, tao: bool = True) 
     return ra, {"thieu": comp.thieu, "completeness": comp.ty_le}
 
 
+# ═══ Chuẩn hoá chữ điều khoản (§6 bước 1, 3, 4) — thuần, dùng chung hai đường ═══
+
+_RE_SO_DAU = re.compile(r"^\s*(?:(?:điều|ĐIỀU|Điều)\s*\d+\s*[.:–-]?\s*|\d+\s*[.)]\s*)")
+_RE_CHO_MO_HINH = re.compile(r"\[[^\]\n]{0,80}\]|<[^>\n]{0,80}>|\{[^}\n]{0,80}\}")
+_RE_DIEU_KHIEN = re.compile(r"[\x00-\x08\x0b-\x1f\x7f⟦⟧¶]")
+_RE_CHO_Y = re.compile(r"…{2,}|\.{4,}|_{3,}|(?:…\s*\.{1,3}|\.{1,3}\s*…)+")
+_RE_BA_CHAM_LE = re.compile(r"…|(?<!\.)\.\.\.(?!\.)")
+_RE_GACH = re.compile(r"[-–—]{3,}")
+
+
+def bo_so_dau(ten: str) -> str:
+    """Tên một Điều không mang số của mô hình: "Điều 3. Giá thuê" → "Giá thuê" — mã
+    đánh số, không mô hình (§2)."""
+    return _RE_SO_DAU.sub("", str(ten or ""), count=1).strip()
+
+
+def chuan_chu(s: str) -> tuple[str, int]:
+    """Chữ mô hình viết cho một đoạn → chữ bộ dựng ghi được, và số chỗ giữ chỗ của
+    mô hình đã đổi thành "……" (`[Tên Bên A]`, `<…>`, `{…}`, `[…]`).
+
+    Sau hàm này, "……" là dãy chấm DUY NHẤT: hai "…" trở lên, bốn "." trở lên, ba "_"
+    trở lên là một chỗ trống cố ý → "……"; một "…" hay đúng "..." lẻ bị bỏ (cuối đoạn
+    thành "."); ba gạch trở lên bị bỏ. Không thì một "điện, nước…" thành một chỗ
+    trống lạc trên trang (§1)."""
+    s = _RE_DIEU_KHIEN.sub("", str(s or ""))
+    s, n = _RE_CHO_MO_HINH.subn(CHO, s)
+    s = _RE_CHO_Y.sub("\x00", s)
+    s = _RE_BA_CHAM_LE.sub("\x01", s)
+    s = re.sub(r"\s*\x01\s*$", ".", s)
+    s = re.sub(r"\s*\x01\s*", " ", s)
+    s = _RE_GACH.sub("", s).replace("\x00", CHO)
+    return re.sub(r"\s+([,.;:!?)])", r"\1", " ".join(s.split())), n
+
+
 # ═══ Bộ dựng ══════════════════════════════════════════════════════════════
 
 

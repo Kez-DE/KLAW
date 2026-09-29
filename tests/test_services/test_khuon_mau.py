@@ -254,3 +254,18 @@ def test_them_dieu_bat_buoc_don_tinh_khung_la_da_co():
 
 def test_loai_khong_checklist_khong_doi_gi():
     assert km.them_dieu_bat_buoc(DIEU, None) == (DIEU, {"thieu": [], "completeness": None})
+
+
+def test_khuon_goc_tai_len_van_dung_tung_byte_va_khong_mang_can_cu():
+    """Owner: dựng lại một khuôn gốc tải lên vẫn đúng 100%. Không phép nào → CHÍNH bytes
+    vào; một dòng khuôn gốc lưu trước migration 041 (không `nguon`) là tệp tải lên."""
+    from src.services import ban_thao
+
+    goc, _ = km.dung_docx(_spec("don_khoi_kien", DIEU_DON))
+    dv = _don_vi(goc)
+    ban, bao_cao = ban_thao.ap_phep_sua("docx", goc, dv, [])
+    assert ban is goc and bao_cao == {"da_ap": [], "bo_qua": []}
+    k = {"dinh_dang": "docx", "so_trang": 1, "don_vi": dv}
+    assert ban_thao._khuon_tu(k, "v", [])["nguon"] == "tai_len" and "can_cu" not in ban_thao._khuon_tu(k, "v", [])
+    k_mau = {**k, "nguon": "khuon_mau"}
+    assert ban_thao._khuon_tu(k_mau, "v", [], {"audit": {}, "clauses": []})["can_cu"] == []

@@ -9,18 +9,23 @@ import unicodedata
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from difflib import SequenceMatcher
 from pathlib import PurePath
 from typing import Any
 
 from sqlalchemy import text
 from starlette.concurrency import run_in_threadpool
 
+from src.agents import graph_soan_thao
 from src.agents.graph_soan_thao import graph_soan_thao_cached, load_checklist_cached
-from src.config import get_settings
+from src.config import as_of_hieu_luc, get_settings
+from src.services import dung_trang, khuon_mau
+from src.services import tai_lieu as tl
 from src.services.db import get_engine
 from src.services.dien_khuon import ap_dung_docx, danh_dau_docx
 from src.services.dien_khuon_pdf import ap_dung_pdf
-from src.services.doc_tai_lieu import KhongDocDuoc, nhan_sach
+from src.services.doc_tai_lieu import ChuyenDoiKhongSanSang, KhongDocDuoc, doc, nhan_sach
+from src.services.hien_thi import hien_thi_luc
 from src.services.tai_lieu import _cho_trong_tu_hang, _dia_chi_tu_hang, _so_tu_nhien
 from src.services.traces import _ghi_traces
 
@@ -34,6 +39,8 @@ LOI_HET_LAN_SUA = f"Bản thảo này đã sửa {TRAN_SUA} lần. Mở bản m�
 # mà không được nhập ngược một module `agents` (vòng import).
 LOAI_TONG_QUAT = "tong_quat"
 LOI_SUA_TONG_QUAT = "Bản thảo tổng quát sửa bằng cách nói với trợ lý trong cuộc trò chuyện, không qua biểu mẫu dữ kiện."
+# `viec_doc_tai_lieu.nguon` của bản thảo KLAW dựng từ khuôn mẫu (migration 041).
+NGUON_KHUON_MAU = "khuon_mau"
 
 _COT = (
     "id::text AS id, hoi_thoai_id::text AS hoi_thoai_id, loai, facts, document, clauses, audit,"
@@ -128,22 +135,41 @@ _SQL_MOI_NHAT = text(
 # đầy đủ — nó cần `id`/`so_lan_sua`/`clauses` mà bản nhẹ này không có.
 # `:moi_loai` (không lọc) cho `_chuan_bi_phien`; `graph_tra_cuu._nap_ban_thao_dang_mo`
 # lọc theo `viec_id` của lượt, cùng mệnh đề với `_SQL_MOI_NHAT`.
+# Khuôn mẫu (migration 041): LEFT JOIN nói phiên bản đang sống nằm trên tệp tải lên,
+# trên khuôn mẫu KLAW dựng, hay là HTML (`nguon` NULL) — ba loại bản thảo, không truy
+# vấn thêm (thiết kế `khuon-mau-thiet-ke.md` §3). Vị từ không đổi.
 _SQL_MOI_NHAT_NHE = text(
-    "SELECT document, audit, viec_id::text AS viec_id, phep_sua FROM ban_thao WHERE user_sub = CAST(:sub AS uuid)"
+    "SELECT b.document, b.audit, b.viec_id::text AS viec_id, b.phep_sua, v.nguon, v.loai AS loai_khuon"
+    " FROM ban_thao b LEFT JOIN viec_doc_tai_lieu v ON v.id = b.viec_id AND v.user_sub = b.user_sub"
+    " WHERE b.user_sub = CAST(:sub AS uuid)"
+    " AND b.hoi_thoai_id = CAST(:pid AS uuid) AND b.loai = :loai AND b.xoa_luc IS NULL"
+    " AND (:moi_loai OR b.viec_id IS NOT DISTINCT FROM CAST(:viec_id AS uuid))"
+    " ORDER BY b.cap_nhat_luc DESC LIMIT 1"
+)
+# Bản thảo tổng quát MỚI NHẤT của hội thoại mà phiên bản đang sống nằm trên một khuôn
+# mẫu KLAW dựng (`nguon = 'khuon_mau'`) — lookup RIÊNG của loại thứ ba: `viec_id` đổi
+# mỗi lần dựng lại, nên không lọc theo một `viec_id` cố định được, và đường HTML
+# (`viec_id IS NULL`) không bao giờ thấy nó.
+_SQL_MOI_NHAT_KHUON_MAU = text(
+    f"SELECT {_COT} FROM ban_thao WHERE user_sub = CAST(:sub AS uuid)"
     " AND hoi_thoai_id = CAST(:pid AS uuid) AND loai = :loai AND xoa_luc IS NULL"
-    " AND (:moi_loai OR viec_id IS NOT DISTINCT FROM CAST(:viec_id AS uuid))"
+    " AND EXISTS (SELECT 1 FROM viec_doc_tai_lieu v WHERE v.id = ban_thao.viec_id"
+    " AND v.user_sub = ban_thao.user_sub AND v.nguon = 'khuon_mau')"
     " ORDER BY cap_nhat_luc DESC LIMIT 1"
 )
 # `khuon` của một bản thảo: KHÔNG kéo `noi_dung` (bytea, tới 20 MB) — chỉ khổ và
 # `don_vi` để tính ô điền. Chủ sở hữu lọc bằng JOIN như `tai_lieu.khuon_goc_cua`.
 _SQL_KHUON = text(
-    "SELECT k.dinh_dang, k.so_trang, v.don_vi, v.ten_tep FROM khuon_goc k JOIN viec_doc_tai_lieu v ON v.id = k.viec_id"
+    "SELECT k.dinh_dang, k.so_trang, v.don_vi, v.ten_tep, v.nguon, v.loai AS loai_khuon"
+    " FROM khuon_goc k JOIN viec_doc_tai_lieu v ON v.id = k.viec_id"
     " WHERE k.viec_id = CAST(:viec_id AS uuid) AND v.user_sub = CAST(:sub AS uuid)"
 )
 # Bản thảo MỚI NHẤT của tài khoản mà phiên bản đang sống nằm trên một khuôn gốc — của
 # một hội thoại (lời xin xem, G7 Q3) hay của một việc đọc (`GET /tai-lieu/{id}/ban-thao`).
+# Không lọc `loai` (khuôn mẫu, §3): bản thảo checklist dựng thành docx cũng nằm trên
+# một khuôn; tệp tải lên thì chỉ mang bản thảo tổng quát.
 _SQL_MOI_NHAT_KHUON = text(
-    f"SELECT {_COT} FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND loai = :loai AND xoa_luc IS NULL"
+    f"SELECT {_COT} FROM ban_thao WHERE user_sub = CAST(:sub AS uuid) AND xoa_luc IS NULL"
     f" AND {_KHONG_MO_COI} AND viec_id IS NOT NULL"
     " AND (CAST(:pid AS uuid) IS NULL OR hoi_thoai_id = CAST(:pid AS uuid))"
     " AND (CAST(:viec_id AS uuid) IS NULL OR viec_id = CAST(:viec_id AS uuid))"
@@ -151,7 +177,7 @@ _SQL_MOI_NHAT_KHUON = text(
 )
 # Cùng hàng, CÓ bytes — chỉ cho lần áp phép thật (dựng trang, tải về, lưu ô).
 _SQL_KHUON_DAY = text(
-    "SELECT k.dinh_dang, k.noi_dung, k.so_trang, v.don_vi, v.ten_tep FROM khuon_goc k"
+    "SELECT k.dinh_dang, k.noi_dung, k.so_trang, v.don_vi, v.ten_tep, v.nguon, v.loai AS loai_khuon FROM khuon_goc k"
     " JOIN viec_doc_tai_lieu v ON v.id = k.viec_id"
     " WHERE k.viec_id = CAST(:viec_id AS uuid) AND v.user_sub = CAST(:sub AS uuid)"
 )
@@ -179,29 +205,45 @@ def _khuon_goc(c, sub: str, viec_id: str | None, *, bytes_: bool = False) -> dic
     return {**dict(r), **({"noi_dung": bytes(r["noi_dung"])} if bytes_ else {})}
 
 
-def _khuon_tu(k: dict | None, viec_id: str | None, phep_sua: list | None) -> dict | None:
-    """Hàng `_SQL_KHUON` + phép của MỘT phiên bản → `khuon` (hợp đồng BanThaoOut)."""
+def _khuon_tu(k: dict | None, viec_id: str | None, phep_sua: list | None, row: dict | None = None) -> dict | None:
+    """Hàng `_SQL_KHUON` + phép của MỘT phiên bản → `khuon` (hợp đồng BanThaoOut).
+
+    `nguon` (migration 041): `tai_len` cho tệp người dùng tải lên, `khuon_mau` cho
+    bản KLAW dựng. Khuôn mẫu thêm `can_cu` — căn cứ của khung và của từng Điều mở
+    được từ trang (`can_cu_khuon_mau`, đọc `audit`/`clauses` của chính phiên bản
+    `row`)."""
     if k is None:
         return None
+    nguon = k.get("nguon") or "tai_len"
     return {
         "viec_id": viec_id,
         "dinh_dang": k["dinh_dang"],
         "so_trang": k["so_trang"],
+        "nguon": nguon,
         "cho_trong": cho_trong_khuon(k["dinh_dang"], k["don_vi"], phep_sua),
+        **(
+            {"can_cu": can_cu_khuon_mau((row or {}).get("audit"), (row or {}).get("clauses"))}
+            if nguon == NGUON_KHUON_MAU
+            else {}
+        ),
     }
 
 
-def _khuon(c, sub: str, viec_id: str | None, phep_sua: list | None) -> dict | None:
+def _khuon(c, sub: str, viec_id: str | None, phep_sua: list | None, row: dict | None = None) -> dict | None:
     """`khuon` của một phiên bản, hay `None`: không trên khuôn gốc, khuôn gốc đã
     bị xoá cùng hội thoại, hoặc không phải của `sub`. Bản thảo HTML không tốn
     truy vấn nào."""
-    return _khuon_tu(_khuon_goc(c, sub, viec_id), viec_id, phep_sua)
+    return _khuon_tu(_khuon_goc(c, sub, viec_id), viec_id, phep_sua, row)
 
 
 def _voi_khuon(c, sub: str, row: dict) -> dict:
     """Dòng + `khuon` của phiên bản đang sống + `ten_tep` của tệp tải lên (`None`: bản HTML)."""
     k = _khuon_goc(c, sub, row.get("viec_id"))
-    return {**row, "khuon": _khuon_tu(k, row.get("viec_id"), row.get("phep_sua")), "ten_tep": (k or {}).get("ten_tep")}
+    return {
+        **row,
+        "khuon": _khuon_tu(k, row.get("viec_id"), row.get("phep_sua"), row),
+        "ten_tep": (k or {}).get("ten_tep"),
+    }
 
 
 def ten_ban_thao(bt: dict, mac_dinh: str) -> str:
@@ -217,9 +259,7 @@ def moi_nhat_tren_khuon(sub: str, *, hoi_thoai_id: str | None = None, viec_id: s
     truyền) — kèm `khuon` và `ten_tep`; `None` khi không có. 0 lượt mô hình."""
     with get_engine().connect() as c:
         r = (
-            c.execute(
-                _SQL_MOI_NHAT_KHUON, {"sub": sub, "loai": LOAI_TONG_QUAT, "pid": hoi_thoai_id, "viec_id": viec_id}
-            )
+            c.execute(_SQL_MOI_NHAT_KHUON, {"sub": sub, "pid": hoi_thoai_id, "viec_id": viec_id})
             .mappings()
             .one_or_none()
         )
@@ -345,6 +385,19 @@ def moi_nhat_cua_hoi_thoai(sub: str, hoi_thoai_id: str, loai: str, *, viec_id: s
         return _voi_khuon(c, sub, dict(r)) if r is not None else None
 
 
+def moi_nhat_khuon_mau(sub: str, hoi_thoai_id: str) -> dict | None:
+    """Bản thảo tổng quát MỚI NHẤT của hội thoại mà phiên bản đang sống nằm trên một
+    khuôn mẫu KLAW dựng, đầy đủ cột và `khuon` — đích của một lượt sửa bằng lời trên
+    khuôn mẫu (thiết kế §3, "three kinds, three lookups")."""
+    with get_engine().connect() as c:
+        r = (
+            c.execute(_SQL_MOI_NHAT_KHUON_MAU, {"sub": sub, "pid": hoi_thoai_id, "loai": LOAI_TONG_QUAT})
+            .mappings()
+            .one_or_none()
+        )
+        return _voi_khuon(c, sub, dict(r)) if r is not None else None
+
+
 def ban_thao_tong_quat_dang_mo_nhe(
     sub: str, hoi_thoai_id: str, *, viec_id: str | None | object = _MOI_LOAI
 ) -> dict | None:
@@ -410,6 +463,8 @@ def tu_state_soan_thao(st: dict) -> dict:
         "clauses": clauses_dict,
         "audit_report": audit_report,
         "can_cu_van_ban": can_cu,
+        # Cùng khối, kèm `doc_id` từng dòng — khung căn cứ của khuôn mẫu (`dat_khuon_mau`).
+        "can_cu_co_id": list(st.get("can_cu_co_id") or []),
     }
 
 
@@ -483,7 +538,10 @@ def _snap(row: dict, *, doi: list[str] | None = None) -> dict:
     return snap
 
 
-def sua(sub: str, id: str, facts: dict, ket: dict, *, tang: int = 1) -> dict | None:
+def sua(sub: str, id: str, facts: dict, ket: dict, *, tang: int = 1, doi: list[str] | None = None) -> dict | None:
+    """Phiên bản mới của bản thảo `id` từ `ket`. `doi`: những gì đổi, khi người gọi
+    đã tính được (khuôn mẫu dựng lại: "Điều đã đổi" — so ô từng chỗ giữa hai tệp khác
+    nhau không nói gì); không có thì so như cũ (`doi_so_voi`)."""
     # Fix round 1 (Critical) — đọc bằng `_SQL_LAY_KHOA` (FOR UPDATE) TRONG CÙNG
     # transaction với cú ghi bên dưới, không phải `chi_tiet()` trên một
     # connection riêng: xem chú thích ở khai báo `_SQL_LAY_KHOA` — đây là chỗ
@@ -505,9 +563,12 @@ def sua(sub: str, id: str, facts: dict, ket: dict, *, tang: int = 1) -> dict | N
         # phải `facts` (luôn rỗng ở đó). Bản thảo HTML: hai `khuon` là `None`,
         # không truy vấn nào, `doi_so_voi` so `facts` như trước.
         k_moi = _khuon_goc(c, sub, ket.get("viec_id"))
-        khuon_moi = _khuon_tu(k_moi, ket.get("viec_id"), ket.get("phep_sua"))
-        khuon_cu = _khuon(c, sub, cu.get("viec_id"), cu.get("phep_sua"))
-        doi = doi_so_voi({**cu, "khuon": khuon_cu}, {"facts": facts, "khuon": khuon_moi})
+        khuon_moi = _khuon_tu(
+            k_moi, ket.get("viec_id"), ket.get("phep_sua"), {"audit": ket["audit_report"], "clauses": ket["clauses"]}
+        )
+        if doi is None:
+            khuon_cu = _khuon(c, sub, cu.get("viec_id"), cu.get("phep_sua"), cu)
+            doi = doi_so_voi({**cu, "khuon": khuon_cu}, {"facts": facts, "khuon": khuon_moi})
         # Fix round 1 (Important) — SẮP XẾP theo `phien_ban` trước khi cắt còn
         # `TRAN_SUA`: mảng không còn chắc tăng dần một khi `lui` đã giữ lại một
         # nhánh số LỚN hơn bản đang đứng (R2), nên cắt theo VỊ TRÍ mảng (phần tử
@@ -836,7 +897,7 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
         k = _khuon_goc(c, sub, cu["viec_id"], bytes_=True)
         if k is None:
             return LOI_KHONG_PHAI_KHUON
-        khuon_cu = _khuon_tu(k, cu["viec_id"], cu["phep_sua"])
+        khuon_cu = _khuon_tu(k, cu["viec_id"], cu["phep_sua"], cu)
         o_theo_khoa = {(o["don_vi"], o["so"]): o for o in khuon_cu["cho_trong"]}
         moi = []
         for g in gia_tri:
@@ -868,8 +929,19 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
             ]
             o = f" ({', '.join(f'“{t}”' for t in ten)})" if ten else ""
             return LOI_KHONG_AP_DUOC.format(n=len(bao_cao["bo_qua"]), o=o)
-        khuon_moi = _khuon_tu(k, cu["viec_id"], phep)
+        khuon_moi = _khuon_tu(k, cu["viec_id"], phep, cu)
         doi = doi_so_voi({"khuon": khuon_cu}, {"khuon": khuon_moi})
+        la_khuon_mau = khuon_moi.get("nguon") == NGUON_KHUON_MAU
+        # Khuôn mẫu giữ `muc_kiem` và `khung` của bản dựng (điền một ô không đổi điều
+        # khoản nào); tệp tải lên hạ mức kiểm như `sua_tay` (R3, D3).
+        audit_moi = {**(cu["audit"] or {}), "sua_tay": True}
+        if not la_khuon_mau:
+            audit_moi["muc_kiem"] = LOAI_TONG_QUAT
+        document_moi = (
+            tom_tat_khuon_mau((cu["audit"] or {}).get("khung") or {}, cu["clauses"] or [], khuon_moi)
+            if la_khuon_mau
+            else tom_tat_khuon(_tieu_de_tu_document(cu["document"]), khuon_moi)
+        )
         truoc = sorted(
             [*(cu["phien_ban_truoc"] or []), _snap(cu, doi=doi)],
             key=lambda t: t["phien_ban"],
@@ -881,10 +953,9 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
                     "sub": sub,
                     "id": id,
                     "facts": _j(cu["facts"]),
-                    "document": tom_tat_khuon(_tieu_de_tu_document(cu["document"]), khuon_moi),
+                    "document": document_moi,
                     "clauses": _j(cu["clauses"]),
-                    # Cùng luật `sua_tay` (R3, D3): người dùng tự sửa hạ mức kiểm.
-                    "audit": _j({**(cu["audit"] or {}), "muc_kiem": LOAI_TONG_QUAT, "sua_tay": True}),
+                    "audit": _j(audit_moi),
                     "phien_ban": cu["phien_ban_ke_tiep"],
                     "phien_ban_ke_tiep": cu["phien_ban_ke_tiep"] + 1,
                     "truoc": _j(truoc),
@@ -931,7 +1002,14 @@ async def dung_lai(sub: str, id: str, facts: dict, hoi_thoai_id: str | None = No
     st = await graph_soan_thao_cached().ainvoke(
         {"loai": cu["loai"], "loai_van_ban": cu["loai"], "facts": facts, "nganh": "thuong_mai"}
     )
-    bt = await run_in_threadpool(sua, sub, id, facts, tu_state_soan_thao(st))
+    # Khuôn mẫu (§3): bản thảo trong một hội thoại dựng lại thành tệp MỚI, phép điền
+    # mang sang; ngoài hội thoại giữ HTML. "Đổi gì" là các dữ kiện đổi — so ô giữa
+    # hai tệp khác nhau không nói gì.
+    ket = await run_in_threadpool(
+        dat_khuon_mau, sub, cu.get("hoi_thoai_id"), cu["loai"], facts, tu_state_soan_thao(st), cu
+    )
+    doi = doi_so_voi({"facts": cu.get("facts")}, {"facts": facts}) if ket.get("viec_id") else None
+    bt = await run_in_threadpool(lambda: sua(sub, id, facts, ket, doi=doi))
     if bt is None:
         # Bản thảo bị xoá giữa lúc dựng lại (đua với một lượt xoá khác) — fail
         # closed, KHÔNG spread `None`: cùng hợp đồng 404 với mọi hàm khác ở đây.
@@ -949,7 +1027,11 @@ async def dung_lai(sub: str, id: str, facts: dict, hoi_thoai_id: str | None = No
         )
     except Exception:
         logger.exception("ban_thao.dung_lai: không ghi được traces")
-    return {**bt, "ten": load_checklist_cached(cu["loai"]).ten, "doi_so_voi_truoc": doi_so_voi(cu, bt)}
+    return {
+        **bt,
+        "ten": load_checklist_cached(cu["loai"]).ten,
+        "doi_so_voi_truoc": doi if doi is not None else doi_so_voi(cu, bt),
+    }
 
 
 def lui(sub: str, id: str) -> dict | None:
@@ -1066,7 +1148,7 @@ def phien_ban_chi_tiet(sub: str, id: str, so: int) -> dict | None:
         bt = _hang(c, sub, id)
         for t in (bt or {}).get("phien_ban_truoc") or []:
             if t["phien_ban"] == so:
-                return {**t, "khuon": _khuon(c, sub, t.get("viec_id"), t.get("phep_sua"))}
+                return {**t, "khuon": _khuon(c, sub, t.get("viec_id"), t.get("phep_sua"), t)}
     return None
 
 
@@ -1335,3 +1417,315 @@ def mo_ban_thao_khuon(sub: str, viec_id: str) -> tuple[dict, bool] | None:
             .one()
         )
     return {**dict(r), "khuon": khuon, "ten_tep": v["ten_tep"]}, True
+
+
+# ═══ Khuôn mẫu — quyết định 2026-09-29 mục 5–8, thiết kế `khuon-mau-thiet-ke.md` §3 ═══
+# Một bản thảo dựng từ khuôn mẫu là một TỆP: `.docx` KLAW dựng, lưu như một tệp tải
+# lên (`tai_lieu.tao_viec_khuon_mau`, `nguon = 'khuon_mau'`), nên trang, ô điền, tải
+# về, Lùi đi đúng đường khuôn gốc. Sửa nội dung là DỰNG LẠI một tệp mới (phiên bản mới
+# trỏ tệp mới, phép `dien` mang sang); điền là phép `dien` trên tệp đang có.
+
+LOI_KHUON_MAU_BAN = "Máy đang bận dựng một văn bản khác của bạn. Hãy thử lại sau ít phút; lượt này chưa lưu gì."
+LOI_KHUON_MAU_HONG = "Chưa dựng được tệp Word của bản thảo lúc này. Hãy thử lại; lượt này chưa lưu gì."
+LOI_KHUON_MAU_DAI = (
+    "Bản thảo dài {so} trang, quá {tran} trang một bản thảo được lưu, nên lượt này chưa lưu gì. "
+    "Hãy rút gọn {dieu} rồi thử lại."
+)
+
+
+class KhuonMauChuaDungError(ValueError):
+    """Không dựng/lưu được tệp của một khuôn mẫu: máy dựng trang bận, hỏng, hay bản thảo
+    quá trần trang (`so_trang`). Không gì được lưu; câu là lời thường cho người đọc."""
+
+    def __init__(self, thong_diep: str, so_trang: int | None = None) -> None:
+        super().__init__(thong_diep)
+        self.so_trang = so_trang
+
+
+def _ten_tep_khuon_mau(tieu_de: str) -> str:
+    """Tên tệp của bản thảo: tên loại viết thường đầu câu, không ký tự đường dẫn."""
+    s = " ".join(re.sub(r"[\\/:*?\"<>|\x00-\x1f]", " ", tieu_de or "").split()).lower()[:120].strip()
+    return (s[:1].upper() + s[1:] or "Bản thảo") + ".docx"
+
+
+def luu_khuon_mau(sub: str, hoi_thoai_id: str, loai: str | None, tieu_de: str, docx: bytes) -> dict:
+    """Bytes một khuôn mẫu vừa dựng → việc đọc + khuôn gốc: đọc lại bằng CHÍNH bộ đọc
+    của tệp tải lên (`doc_tai_lieu.doc`), MỘT lượt LibreOffice trong suất của tài khoản
+    (`dung_trang._mot_luot`) để có số trang thật, rồi ghi. Trả `{viec_id, don_vi,
+    so_trang, ten_tep}` (`don_vi` là mảng JSON đã lưu). `KhuonMauChuaDungError` khi
+    không dựng được hay quá trần trang — không ghi gì."""
+    ten_tep = _ten_tep_khuon_mau(tieu_de)
+    try:
+        doc_ra = doc(ten_tep, docx)
+        with dung_trang._mot_luot(sub):
+            kho = dung_trang.kho_trang(dung_trang.dung_pdf(docx))
+    except ChuyenDoiKhongSanSang as e:
+        raise KhuonMauChuaDungError(LOI_KHUON_MAU_BAN) from e
+    except KhongDocDuoc as e:
+        raise KhuonMauChuaDungError(LOI_KHUON_MAU_HONG) from e
+    if len(kho) > tl.TRAN_TRANG:
+        raise KhuonMauChuaDungError(
+            LOI_KHUON_MAU_DAI.format(so=len(kho), tran=tl.TRAN_TRANG, dieu="bản thảo"), so_trang=len(kho)
+        )
+    viec_id = tl.tao_viec_khuon_mau(
+        get_engine(),
+        user_sub=sub,
+        hoi_thoai_id=hoi_thoai_id,
+        ten_tep=ten_tep,
+        loai=loai,
+        docx=docx,
+        don_vi=doc_ra.don_vi,
+        kho=kho,
+    )
+    return {
+        "viec_id": viec_id,
+        "don_vi": [tl._hang_don_vi(d) for d in doc_ra.don_vi],
+        "don_vi_goc": doc_ra.don_vi,
+        "so_trang": len(kho),
+        "ten_tep": ten_tep,
+    }
+
+
+def o_truong(don_vi: list[dict], ban_do: dict) -> list[dict]:
+    """Bản đồ của bộ dựng (`khuon_mau.dung_docx`) trên đơn vị bộ đọc đã lưu →
+    `[{don_vi, so, kieu, ben, truong}]`: chỗ trống nào là trường nào của bên nào. Lưu
+    ở `audit.khung.o` của phiên bản, nên một lượt chỉ đổi giá trị không phải dựng lại."""
+    theo = {(d["dia_chi"]["phan"], tuple(d["dia_chi"]["chi_muc"])): d for d in don_vi if d.get("dia_chi")}
+    ra = []
+    for k, ds in ban_do.items():
+        d = theo.get(k)
+        cho = (d or {}).get("cho_trong") or []
+        if d is None or len(cho) != len(ds):
+            # Bộ dựng và bộ đọc không cùng thấy một đơn vị: không gán trường nào ở đó.
+            logger.warning("khuon_mau: đơn vị %s — bản đồ %d chỗ, bộ đọc %d", k, len(ds), len(cho))
+            continue
+        ra += [
+            {"don_vi": d["chi_so"], "so": so, "kieu": cho[so]["kieu"], "ben": kh[0], "truong": kh[1]}
+            for so, kh in enumerate(ds)
+            if kh
+        ]
+    return ra
+
+
+def phep_tu_gia_tri(o: list[dict], gia_tri: dict[tuple[str, str], str]) -> list[dict]:
+    """`{(ben, truong): giá trị}` → phép `dien` lên MỌI chỗ trống của trường đó (tên
+    ở khối các bên và ở khối ký). Giá trị chưa qua phép kiểm nguồn — người gọi kiểm."""
+    ra = []
+    for x in o:
+        v = str(gia_tri.get((x["ben"], x["truong"])) or "").strip()
+        if v:
+            ra.append({"loai": "dien", "don_vi": x["don_vi"], "cho_trong": x["so"], "gia_tri": v})
+    return ra
+
+
+def mang_phep_sang(don_vi_cu: list[dict], don_vi_moi: list[dict], phep_cu: list[dict] | None) -> tuple[list, list]:
+    """Phép `dien` của tệp cũ → tệp vừa dựng lại (`(giữ, bỏ)`). Đơn vị ĐỒNG chữ ở hai
+    bản (`SequenceMatcher` trên dãy chữ đơn vị, cùng số chỗ trống) mang phép sang chỉ
+    số mới; phép trên đơn vị đã đổi chữ bị bỏ — người gọi nêu tên nó. Khung (các bên,
+    ngày, khối ký) không đổi chữ khi chỉ một Điều đổi, nên giá trị các bên luôn mang
+    sang, kể cả khi khối ký dời chỗ."""
+    a = [str(d.get("noi_dung") or "") for d in don_vi_cu]
+    b = [str(d.get("noi_dung") or "") for d in don_vi_moi]
+    sang: dict[int, int] = {}
+    for tag, i1, i2, j1, _ in SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        if tag != "equal":
+            continue
+        for k in range(i2 - i1):
+            cu, moi = don_vi_cu[i1 + k], don_vi_moi[j1 + k]
+            if len(cu.get("cho_trong") or []) == len(moi.get("cho_trong") or []):
+                sang[cu["chi_so"]] = moi["chi_so"]
+    giu, bo = [], []
+    for p in phep_cu or []:
+        if p.get("loai") != "dien" or not str(p.get("gia_tri") or "").strip():
+            continue
+        if p.get("don_vi") in sang:
+            giu.append({**p, "don_vi": sang[p["don_vi"]]})
+        else:
+            bo.append(p)
+    return giu, bo
+
+
+def can_cu_khuon_mau(audit: dict | None, clauses: list | None) -> list[dict]:
+    """Căn cứ mở được từ trang của một khuôn mẫu (§5): dòng căn cứ của khung (mở văn
+    bản) rồi căn cứ của từng Điều (mở nguyên văn điều luật), `[{nhan, doc_id,
+    khop_tai_id, dieu}]`. Chỉ phần tử có `doc_id` — cả hai đã qua bộ lọc hiện/hiệu lực
+    lúc dựng."""
+    khung = (audit or {}).get("khung") or {}
+    ra = [
+        {"nhan": x["dong"], "doc_id": str(x["doc_id"]), "khop_tai_id": None, "dieu": None}
+        for x in khung.get("can_cu") or []
+        if isinstance(x, dict) and x.get("doc_id") and x.get("dong")
+    ]
+    for i, c in enumerate(clauses or [], 1):
+        cc = (c or {}).get("can_cu") if isinstance(c, dict) else None
+        if isinstance(cc, dict) and cc.get("doc_id"):
+            ra.append(
+                {
+                    "nhan": f"Điều {i}. {c.get('ten') or ''} — {cc.get('duong_dan') or ''}".strip(),
+                    "doc_id": str(cc["doc_id"]),
+                    "khop_tai_id": cc.get("khop_tai_id") if type(cc.get("khop_tai_id")) is int else None,
+                    "dieu": i,
+                }
+            )
+    return ra
+
+
+def tom_tat_khuon_mau(khung: dict, clauses: list, khuon: dict | None) -> str:
+    """`document` Markdown của một phiên bản khuôn mẫu: tên loại, căn cứ, các Điều với
+    SỐ HIỆN TẠI, rồi giá trị đã điền — thứ lượt sửa sau đọc làm "bản thảo đang có"
+    (nguồn giá trị của nó) và thứ `can_cu_tu_document`/`_tieu_de_tu_document` đọc.
+    Bản thật là tệp; đây không bao giờ là trang."""
+    phan = [f"# {khung.get('tieu_de') or 'VĂN BẢN'}", ""]
+    if khung.get("trich_yeu"):
+        phan += [str(khung["trich_yeu"]), ""]
+    for x in khung.get("can_cu") or []:
+        phan += [x["dong"], ""]
+    for i, c in enumerate(clauses or [], 1):
+        doan = "\n\n".join(c.get("doan") or []) or khuon_mau.CHO
+        phan.append(f"## Điều {i}. {c.get('ten') or ''}".rstrip() + f"\n\n{doan}\n")
+    dien = tom_tat_khuon(None, khuon).split("\n", 1)[1].strip()
+    if dien:
+        phan += ["## Đã điền", "", dien, ""]
+    return "\n".join(phan)
+
+
+def spec_cua_khung(khung: dict, clauses: list) -> dict:
+    """Spec của bộ dựng từ `khung` đã lưu (`audit.khung`) và `clauses` — dựng lại được
+    đúng tệp của một phiên bản, hay tệp mới với điều khoản đã đổi."""
+    loai = khung.get("loai")
+    entry = khuon_mau.nap(loai) if loai in khuon_mau.cac_loai() else None
+    if entry is None:
+        entry = {**khuon_mau.khung_tong_quat(khung.get("bo_cuc") or "hop_dong", khung.get("ben") or []), "loai": None}
+    return khuon_mau.spec_tu(
+        entry,
+        tieu_de=khung.get("tieu_de"),
+        trich_yeu=khung.get("trich_yeu"),
+        can_cu=khung.get("can_cu") or [],
+        dieu=[{k: c.get(k) for k in ("key", "ten", "doan", "can_cu")} for c in clauses or []],
+    )
+
+
+def dung_khuon_mau(sub: str, hoi_thoai_id: str, khung: dict, clauses: list) -> dict:
+    """Dựng + lưu một tệp khuôn mẫu: `{viec_id, don_vi, so_trang, ten_tep, o, ban_do}`.
+    `khung` mang `loai` (id registry hay `None`), `tieu_de`, `trich_yeu`, `bo_cuc`,
+    `ben`, `can_cu`."""
+    spec = spec_cua_khung(khung, clauses)
+    docx, ban_do_ = khuon_mau.dung_docx(spec)
+    try:
+        luu = luu_khuon_mau(sub, hoi_thoai_id, khung.get("loai"), spec["tieu_de"], docx)
+    except KhuonMauChuaDungError as e:
+        if not (e.so_trang and clauses):
+            raise
+        # Quá trần trang dù đã có ngân sách (§6): gọi tên Điều dài nhất để rút gọn.
+        i, c = max(enumerate(clauses, 1), key=lambda x: sum(len(d) for d in x[1].get("doan") or []))
+        dieu = f"«Điều {i}. {c.get('ten') or ''}»"
+        raise KhuonMauChuaDungError(
+            LOI_KHUON_MAU_DAI.format(so=e.so_trang, tran=tl.TRAN_TRANG, dieu=dieu), so_trang=e.so_trang
+        ) from e
+    return {**luu, "o": o_truong(luu["don_vi"], ban_do_)}
+
+
+def don_vi_khuon(sub: str, viec_id: str | None) -> list[dict]:
+    """Mảng `don_vi` đã lưu của khuôn gốc `viec_id` (của `sub`), `[]` khi không có."""
+    with get_engine().connect() as c:
+        k = _khuon_goc(c, sub, viec_id)
+    return list((k or {}).get("don_vi") or [])
+
+
+def _can_cu_dieu(row: dict | None) -> dict | None:
+    """Dòng `provisions` → căn cứ của một Điều: `{duong_dan, doc_id, khop_tai_id}`."""
+    if not row:
+        return None
+    return {"duong_dan": row["duong_dan"], "doc_id": str(row["document_id"]), "khop_tai_id": row["id"]}
+
+
+def _doan_cua(noi_dung: str) -> list[str]:
+    """`noi_dung` checklist (Markdown thuần) → đoạn của bộ dựng, đã chuẩn hoá chỗ trống."""
+    ra = []
+    for x in re.split(r"\n\s*\n|\n", str(noi_dung or "")):
+        s, _ = khuon_mau.chuan_chu(x)
+        if s:
+            ra.append(s)
+    return ra
+
+
+def _gia_tri_o(o: list[dict], phep: list[dict]) -> list[dict]:
+    """Giá trị `tab` đặt ngay sau nhãn: thêm một dấu cách như `chuan_hoa_dien`."""
+    kieu = {(x["don_vi"], x["so"]): x["kieu"] for x in o}
+    return [
+        {**p, "gia_tri": " " + p["gia_tri"]} if kieu.get((p["don_vi"], p["cho_trong"])) == "tab" else p for p in phep
+    ]
+
+
+def dat_khuon_mau(
+    sub: str, hoi_thoai_id: str | None, loai: str, facts: dict, ket: dict, cu: dict | None = None
+) -> dict:
+    """Bản thảo CHECKLIST thành một tệp khuôn mẫu (§3, "Checklist drafts also become
+    docx") — chạy sau `tu_state_soan_thao` ở `n_dung_ban_thao` (tạo) và `dung_lai`
+    (sửa facts, drawer). Trả `ket` mang `viec_id`/`phep_sua`, `clauses` dạng khuôn mẫu,
+    `document = tom_tat_khuon_mau(…)` và `audit_report.khung`.
+
+    `hoi_thoai_id` `None` (bản thảo ngoài hội thoại): giữ bản HTML — ngoại lệ đã nêu
+    của §5, vì `viec_doc_tai_lieu.hoi_thoai_id` NOT NULL. Loại không có khuôn mẫu cũng
+    giữ HTML. `cu`: phiên bản đang có — phép điền của nó mang sang tệp mới; với mỗi
+    trường, fact vừa đổi thắng giá trị mang sang, giá trị mang sang (điền trên trang,
+    mới hơn) thắng fact không đổi."""
+    if not hoi_thoai_id or loai not in khuon_mau.cac_loai():
+        return ket
+    entry = khuon_mau.nap(loai)
+    _, _, db = graph_soan_thao.requirements(loai)
+    engine = get_engine()
+    hien = hien_thi_luc(engine, as_of_hieu_luc(None))
+    theo_id = {pid: r for pid, r in graph_soan_thao.chi_van_ban_hien(db, hien).items()}
+    clauses = [
+        {
+            "key": c.get("key"),
+            "ten": khuon_mau.bo_so_dau(c.get("ten") or ""),
+            "noi_dung": c.get("noi_dung") or "",
+            "doan": _doan_cua(c.get("noi_dung") or ""),
+            "can_cu": _can_cu_dieu(theo_id.get(c.get("can_cu_provision_id"))),
+            "can_cu_provision_id": c.get("can_cu_provision_id"),
+        }
+        for c in ket.get("clauses") or []
+    ]
+    khung = {
+        "loai": loai,
+        "bo_cuc": entry["bo_cuc"],
+        "tieu_de": entry["tieu_de"],
+        "trich_yeu": None,
+        "ben": [{"khoa": b["khoa"], "vai": b.get("vai") or b.get("tieu_de")} for b in entry.get("ben") or []],
+        "can_cu": [x for x in ket.get("can_cu_co_id") or [] if isinstance(x, dict) and x.get("dong")],
+    }
+    moi = dung_khuon_mau(sub, hoi_thoai_id, khung, clauses)
+    theo_fact = entry.get("truong_tu_facts") or {}
+    phep_fact = _gia_tri_o(
+        moi["o"], phep_tu_gia_tri(moi["o"], {tuple(v): facts.get(k) for k, v in theo_fact.items() if facts.get(k)})
+    )
+    mang, bo = [], []
+    if cu and cu.get("viec_id"):
+        with engine.connect() as c:
+            k_cu = _khuon_goc(c, sub, cu["viec_id"])
+        if k_cu:
+            mang, bo = mang_phep_sang(k_cu["don_vi"] or [], moi["don_vi"], cu.get("phep_sua"))
+    doi_fact = {k for k in theo_fact if str(facts.get(k) or "") != str(((cu or {}).get("facts") or {}).get(k) or "")}
+    o_doi = {
+        (x["don_vi"], x["so"])
+        for x in moi["o"]
+        if any(tuple(theo_fact[k]) == (x["ben"], x["truong"]) for k in doi_fact)
+    }
+    da_mang = {(p["don_vi"], p["cho_trong"]) for p in mang}
+    chon = [
+        p for p in phep_fact if (p["don_vi"], p["cho_trong"]) in o_doi or (p["don_vi"], p["cho_trong"]) not in da_mang
+    ]
+    phep = gop_phep_sua(mang, chon, doan_cua_cho(moi["don_vi"]))
+    khung = {**khung, "o": moi["o"]}
+    audit = {**ket["audit_report"], "khung": khung, **({"khong_mang_sang": len(bo)} if bo else {})}
+    khuon = {"cho_trong": cho_trong_khuon("docx", moi["don_vi"], phep)}
+    return {
+        **ket,
+        "viec_id": moi["viec_id"],
+        "phep_sua": phep,
+        "clauses": clauses,
+        "audit_report": audit,
+        "document": tom_tat_khuon_mau(khung, clauses, khuon),
+    }
