@@ -1,6 +1,6 @@
 """Khuôn mẫu nhóm hôn nhân và gia đình — ba loại KHÔNG checklist (thiết kế
 `khuon-mau-thiet-ke.md` §7 "New types"): đơn yêu cầu công nhận thuận tình ly hôn (Mẫu
-01-VDS NQ 04/2018/NQ-HĐTP), văn bản thỏa thuận phân chia tài sản chung của vợ chồng,
+01-VDS NQ 04/2018/NQ-HĐTP), văn bản thỏa thuận phân chia tài sản chung khi ly hôn,
 văn bản thỏa thuận nuôi con sau khi ly hôn.
 
 Không DB, không mô hình, không LibreOffice (trang thật ở `test_khuon_mau_trang.py`,
