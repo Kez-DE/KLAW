@@ -1575,7 +1575,7 @@ def tom_tat_khuon_mau(khung: dict, clauses: list, khuon: dict | None) -> str:
     SỐ HIỆN TẠI, rồi giá trị đã điền — thứ lượt sửa sau đọc làm "bản thảo đang có"
     (nguồn giá trị của nó) và thứ `can_cu_tu_document`/`_tieu_de_tu_document` đọc.
     Bản thật là tệp; đây không bao giờ là trang."""
-    phan = [f"# {khung.get('tieu_de') or 'VĂN BẢN'}", ""]
+    phan = [f"# {' '.join(str(khung.get('tieu_de') or 'VĂN BẢN').split()).upper()}", ""]
     if khung.get("trich_yeu"):
         phan += [str(khung["trich_yeu"]), ""]
     for x in khung.get("can_cu") or []:
