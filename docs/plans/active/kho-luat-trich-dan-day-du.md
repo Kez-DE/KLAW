@@ -520,9 +520,11 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   regression that started K11 (scratchpad `wt-eval-kho/eval/results/kho-luat/`
   `so-sanh.md` and `sau-k5-*`, not committed). Final after-eval on e68b659 (K11 +
   K12): Result. Credit: `/du-lieu` names the HuggingFace dataset (3e6d9e5).
-- [ ] K11 retrieval fix (decision item 17), 2026-09-29, `feat/k11-truy-hoi`.
-  NOT LIVE: measured and recorded, but the runtime still runs hybrid until
-  the owner gate below is done; the regression is not closed until then.
+- [x] K11 retrieval fix (decision item 17), 2026-09-29, `feat/k11-truy-hoi`.
+  LIVE ON DEV since 2026-09-29: with the owner's approval `.env.local` and
+  `.env.example` now set RETRIEVE_BM25_TOPK=0 (commit 7a21945) and the dev
+  backend was restarted. PRODUCTION PENDING: set the Railway service variable
+  RETRIEVE_BM25_TOPK=0 at the next deploy (owner chose "để lúc deploy").
   Cause: K6 made 372 shown documents deep (17,283 shown chunks, 64% new,
   3.1% labour). `ts_rank` has no IDF and the OR query matches ~96% of the
   pool, so the lexical branch fills its slots with long off-topic chunks, and
