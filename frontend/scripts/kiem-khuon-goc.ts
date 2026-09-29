@@ -64,8 +64,8 @@ const KHUON = {
 };
 
 // ─────────────────────────────────────────────────────────── khuonHopLe
-kiem("khuôn hợp lệ đi qua nguyên hình dạng", () => {
-  assert.deepEqual(khuonHopLe(KHUON), KHUON);
+kiem("khuôn hợp lệ đi qua nguyên hình dạng; máy chủ cũ (không `nguon`) là tệp tải lên", () => {
+  assert.deepEqual(khuonHopLe(KHUON), { ...KHUON, nguon: "tai_len", can_cu: [] });
 });
 kiem("không phải bản ghi → null (bản thảo HTML)", () => {
   for (const x of [null, undefined, "docx", [KHUON], 3]) assert.equal(khuonHopLe(x), null);
@@ -113,7 +113,14 @@ kiem("ô trùng (don_vi, so) chỉ giữ ô ĐẦU — hai ô một khoá là ha
 });
 kiem("khoá ngoài hợp đồng không lọt ra", () => {
   const k = khuonHopLe({ ...KHUON, la: 1, cho_trong: [{ ...o({}), hop: [1, 2, 3, 4] }] });
-  assert.deepEqual(Object.keys(k ?? {}).sort(), ["cho_trong", "dinh_dang", "so_trang", "viec_id"]);
+  assert.deepEqual(Object.keys(k ?? {}).sort(), [
+    "can_cu",
+    "cho_trong",
+    "dinh_dang",
+    "nguon",
+    "so_trang",
+    "viec_id",
+  ]);
   assert.deepEqual(Object.keys(k?.cho_trong[0] ?? {}).sort(), [
     "don_vi",
     "gia_tri",
@@ -121,6 +128,77 @@ kiem("khoá ngoài hợp đồng không lọt ra", () => {
     "nhan",
     "so",
   ]);
+});
+
+// ─────────────────────────────────────── khuôn mẫu: `nguon` và `can_cu`
+// Thiết kế `khuon-mau-thiet-ke.md` §3/§5: bản thảo KLAW dựng thành .docx ngồi
+// trên cùng khung trang với khuôn gốc; `nguon` quyết định lời nói (không "tải
+// lên") và nút "Căn cứ (N)", `can_cu` là thứ nút đó mở.
+kiem("`nguon`: 'khuon_mau' giữ nguyên; vắng hay lạ → 'tai_len' (hành vi cũ)", () => {
+  assert.equal(khuonHopLe({ ...KHUON, nguon: "khuon_mau" })?.nguon, "khuon_mau");
+  for (const nguon of [undefined, null, "tai_len", "KHUON_MAU", 1, ""])
+    assert.equal(khuonHopLe({ ...KHUON, nguon })?.nguon, "tai_len", String(nguon));
+});
+kiem("`can_cu`: vắng / không phải mảng → []", () => {
+  for (const can_cu of [undefined, null, "x", { nhan: "a" }])
+    assert.deepEqual(khuonHopLe({ ...KHUON, nguon: "khuon_mau", can_cu })?.can_cu, []);
+});
+kiem("`can_cu`: dòng lành giữ thứ tự; dòng khung (khop_tai_id null) và dòng điều", () => {
+  const DONG_KHUNG = {
+    nhan: "Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24 tháng 11 năm 2015;",
+    doc_id: "91-2015",
+    khop_tai_id: null,
+    dieu: null,
+  };
+  const DONG_DIEU = {
+    nhan: "Điều 3. Giá thuê — 91/2015/QH13 > Điều 481",
+    doc_id: "91-2015",
+    khop_tai_id: 4812,
+    dieu: 3,
+  };
+  const k = khuonHopLe({
+    ...KHUON,
+    nguon: "khuon_mau",
+    can_cu: [DONG_KHUNG, { ...DONG_DIEU, la: 1 }, { nhan: "Căn cứ X;", doc_id: "x" }],
+  });
+  assert.deepEqual(k?.can_cu, [
+    DONG_KHUNG,
+    DONG_DIEU,
+    { nhan: "Căn cứ X;", doc_id: "x", khop_tai_id: null, dieu: null },
+  ]);
+});
+kiem("`can_cu`: dòng dị dạng bị BỎ từng dòng, không cả danh sách (fail-closed)", () => {
+  const lanh = { nhan: "Căn cứ;", doc_id: "d", khop_tai_id: 7, dieu: 1 };
+  const k = khuonHopLe({
+    ...KHUON,
+    nguon: "khuon_mau",
+    can_cu: [
+      { ...lanh, doc_id: 91 },
+      { ...lanh, doc_id: "" },
+      { ...lanh, doc_id: undefined },
+      { ...lanh, nhan: "" },
+      { ...lanh, nhan: 3 },
+      { ...lanh, khop_tai_id: "7" },
+      { ...lanh, khop_tai_id: 7.5 },
+      { ...lanh, khop_tai_id: -1 },
+      { ...lanh, dieu: "1" },
+      { ...lanh, dieu: 0 },
+      "không phải dòng",
+      null,
+      lanh,
+    ],
+  });
+  assert.deepEqual(k?.can_cu, [lanh]);
+});
+kiem("`can_cu`: dòng trùng (doc_id, dieu) giữ dòng ĐẦU — cặp đó là khoá của danh sách", () => {
+  const khung = { nhan: "Căn cứ A;", doc_id: "a", khop_tai_id: null, dieu: null };
+  const dieu = { nhan: "Điều 1. X — A > Điều 2", doc_id: "a", khop_tai_id: 9, dieu: 1 };
+  const k = khuonHopLe({
+    ...KHUON,
+    nguon: "khuon_mau",
+    can_cu: [khung, dieu, { ...khung, nhan: "Căn cứ A (lặp);" }, { ...dieu, khop_tai_id: 10 }],
+  });
+  assert.deepEqual(k?.can_cu, [khung, dieu]);
 });
 
 // ─────────────────────────────────────────────────────────── laTrangAnh
@@ -193,10 +271,29 @@ kiem("dòng phụ thẻ khuôn: số trang và số chỗ ĐÃ điền (bỏ nul
   const k = khuonHopLe(KHUON)!;
   assert.equal(phuDeKhuon(k), "Biểu mẫu · 2 trang · đã điền 2 chỗ");
   assert.equal(
-    phuDeKhuon({ so_trang: 1, cho_trong: [o({ gia_tri: "  " }), o({ gia_tri: null })] }),
+    phuDeKhuon({
+      nguon: "tai_len",
+      so_trang: 1,
+      cho_trong: [o({ gia_tri: "  " }), o({ gia_tri: null })],
+    }),
     "Biểu mẫu · 1 trang · đã điền 0 chỗ",
   );
 });
+kiem(
+  "dòng phụ thẻ khuôn MẪU: 'Bản thảo', đếm chỗ CÒN trống — không 'Biểu mẫu' người dùng chưa tải lên",
+  () => {
+    const k = khuonHopLe({ ...KHUON, nguon: "khuon_mau" })!;
+    assert.equal(phuDeKhuon(k), "Bản thảo · 2 trang · còn 1 chỗ trống");
+    assert.equal(
+      phuDeKhuon({
+        nguon: "khuon_mau",
+        so_trang: 3,
+        cho_trong: [o({ gia_tri: "  " }), o({ gia_tri: null }), o({ gia_tri: "A" })],
+      }),
+      "Bản thảo · 3 trang · còn 2 chỗ trống",
+    );
+  },
+);
 
 // ─────────────────────────────────────────────────────────────── oDaDoi
 // Chữ gõ trên trang mà chưa lưu xong (bị từ chối, hay còn đang gõ): tải tệp lúc
@@ -413,6 +510,9 @@ kiem("503 = máy chủ bận, cho thử lại; 404 = không hiện được, kh�
   const mat = loiTrang({ kind: "not_found", status: 404, message: "Không tìm thấy" }, banThao);
   assert.equal(mat.thuLai, false);
   assert.match(mat.cau, /không hiển thị được phiên bản này/i);
+  // Cùng khung trang vẽ bản thảo KLAW dựng (khuôn mẫu): câu không được nói về
+  // một tệp người dùng chưa từng tải lên.
+  assert.doesNotMatch(mat.cau, /tải lên/i);
   // Khung "Bản tải lên" không có phiên bản nào: câu 404 của nó không được nhắc tới phiên bản.
   const matTaiLen = loiTrang(
     { kind: "not_found", status: 404, message: "Không tìm thấy" },

@@ -286,12 +286,28 @@ export interface ChoTrongKhuon {
   gia_tri: string | null;
 }
 
-/** `BanThaoOut.khuon` đã qua `khuonHopLe`. */
+/** Một dòng "Căn cứ" của bản thảo khuôn mẫu (`khuon.can_cu`, thiết kế
+ *  `khuon-mau-thiet-ke.md` §5). Dòng khung (một văn bản) có `khop_tai_id`
+ *  `null` và mở trang văn bản; dòng của một Điều mang `khop_tai_id` (khoá mở
+ *  nguyên văn, xem `use-doi-chieu.ts`) và số Điều `dieu`. */
+export interface CanCuKhuon {
+  nhan: string;
+  doc_id: string;
+  khop_tai_id: number | null;
+  dieu: number | null;
+}
+
+/** `BanThaoOut.khuon` đã qua `khuonHopLe`. `nguon`: `tai_len` = khuôn gốc
+ *  người dùng tải lên; `khuon_mau` = tệp .docx KLAW tự dựng cho bản thảo mới
+ *  (quyết định 2026-09-29 mục 5). */
 export interface KhuonBanThao {
   viec_id: string;
   dinh_dang: "docx" | "pdf";
   so_trang: number;
   cho_trong: ChoTrongKhuon[];
+  nguon: "tai_len" | "khuon_mau";
+  /** `[]` ở khuôn gốc tải lên và ở máy chủ cũ. */
+  can_cu: CanCuKhuon[];
 }
 
 /** Thân của `GET /tai-lieu/{id}/trang` và `GET /ban-thao/{id}/trang`: khổ từng
@@ -1639,6 +1655,8 @@ const laSoTuNhien = (x: unknown): x is number => Number.isInteger(x) && (x as nu
  * Fail-closed TỪNG Ô, không cả khuôn: một ô dị dạng bị bỏ, các ô còn lại vẫn
  * điền được. Ô trùng `(don_vi, so)` giữ ô ĐẦU — hai ô cùng khoá là hai ô nhập
  * cùng ghi vào một chỗ. Chỉ khoá của hợp đồng đi ra, không khoá lạ nào lọt.
+ * `nguon` vắng hay lạ là `tai_len` (máy chủ cũ); dòng `can_cu` dị dạng bị bỏ
+ * từng dòng, cùng luật với ô — kể cả dòng trùng `(doc_id, dieu)`: giữ dòng ĐẦU.
  */
 export function khuonHopLe(x: unknown): KhuonBanThao | null {
   if (
@@ -1673,11 +1691,40 @@ export function khuonHopLe(x: unknown): KhuonBanThao | null {
       gia_tri: typeof c["gia_tri"] === "string" ? c["gia_tri"] : null,
     });
   }
+  const soHayNull = (v: unknown, tu: number) =>
+    v === undefined || v === null || (Number.isInteger(v) && (v as number) >= tu);
+  const canCu: CanCuKhuon[] = [];
+  const daCoCanCu = new Set<string>();
+  for (const c of Array.isArray(x["can_cu"]) ? x["can_cu"] : []) {
+    if (
+      !laBanGhi(c) ||
+      typeof c["nhan"] !== "string" ||
+      c["nhan"] === "" ||
+      typeof c["doc_id"] !== "string" ||
+      c["doc_id"] === "" ||
+      !soHayNull(c["khop_tai_id"], 0) ||
+      !soHayNull(c["dieu"], 1)
+    )
+      continue;
+    const dieu = (c["dieu"] as number | null | undefined) ?? null;
+    // `(doc_id, dieu)` là khoá React của danh sách căn cứ trên sân khấu.
+    const khoa = `${c["doc_id"]}:${dieu ?? "khung"}`;
+    if (daCoCanCu.has(khoa)) continue;
+    daCoCanCu.add(khoa);
+    canCu.push({
+      nhan: c["nhan"],
+      doc_id: c["doc_id"],
+      khop_tai_id: (c["khop_tai_id"] as number | null | undefined) ?? null,
+      dieu,
+    });
+  }
   return {
     viec_id: x["viec_id"],
     dinh_dang: x["dinh_dang"],
     so_trang: x["so_trang"] as number,
     cho_trong: choTrong,
+    nguon: x["nguon"] === "khuon_mau" ? "khuon_mau" : "tai_len",
+    can_cu: canCu,
   };
 }
 
