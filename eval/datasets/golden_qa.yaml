@@ -399,12 +399,11 @@ items:
   cau_hoi: Em đã bị ghi giấy vì trốn ở lại bên Hàn sau khi hết hạn. Tờ giấy đó rồi
     chuyển đi đâu và ai là người chốt mức phạt em ạ?
   duong_dan:
-  - 283/2026/NĐ-CP > Điều 5
   - 283/2026/NĐ-CP > Điều 63 > Khoản 16
   bo_luat: Lao động
   nguon: llm-gen+agent-viet-lai
-  da_review: true
-  duyet_boi: agent
+  da_review: false
+  duyet_boi: chua-ai
 - id: lao-031-0
   cau_hoi: Tôi làm việc tự do, có ký hợp đồng điện tử với công ty thì có được bảo
     vệ không?
