@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { NoiDungDieuKhoan } from "@/components/klaw/NoiDungDieuKhoan";
 import { BadgeHieuLuc, MoTaHieuLuc } from "@/components/klaw/BadgeHieuLuc";
 import { BaoLoi, DanhSachThayThe } from "@/components/klaw/BaoLoi";
+import { BanGocCoChuKy } from "@/components/klaw/BanGocCoChuKy";
 import { goi, thamSo } from "@/lib/api";
 import { gomHangBang } from "@/lib/bang";
 import {
@@ -764,6 +765,7 @@ function ManDocVanBan() {
                         </dd>
                       </div>
                     )}
+                    <BanGocCoChuKy vanBan={vanBan} />
                   </dl>
                 )}
               </div>

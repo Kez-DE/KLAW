@@ -23,7 +23,7 @@ import logging
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from sqlalchemy import text
 from starlette.concurrency import run_in_threadpool
 
@@ -224,6 +224,33 @@ async def hieu_luc(doc_id: str, as_of_date: date | None = None) -> VanBanHieuLuc
     KHÔNG có nghĩa là không có phán quyết cấp văn bản.
     """
     return await run_in_threadpool(_hieu_luc_sync, doc_id, as_of_hieu_luc(as_of_date))
+
+
+# ══ GET /van-ban/{doc_id}/anh-xem-truoc ═════════════════════════════════════
+#
+# Ảnh trang 1 của bản PDF đã ký (quyết định 2026-09-28 mục 9, migration 040).
+# Công khai như chính trang văn bản; văn bản bị ẩn trả 404 `khong_hien_thi` như
+# mọi route trang một văn bản.
+_SQL_ANH_XEM_TRUOC = text("SELECT png FROM anh_van_ban WHERE doc_id = :doc_id")
+
+
+def _anh_xem_truoc_sync(doc_id: str) -> bytes:
+    chan_neu_an(get_engine(), doc_id, as_of_hieu_luc(None))
+    with get_engine().connect() as c:
+        png = c.execute(_SQL_ANH_XEM_TRUOC, {"doc_id": doc_id}).scalar_one_or_none()
+    if png is None:
+        raise HTTPException(status_code=404, detail=f"văn bản '{doc_id}' không có ảnh xem trước")
+    return bytes(png)
+
+
+@router.get(
+    "/van-ban/{doc_id}/anh-xem-truoc",
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}}},
+)
+async def anh_xem_truoc(doc_id: str) -> Response:
+    png = await run_in_threadpool(_anh_xem_truoc_sync, doc_id)
+    return Response(png, media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
 
 
 # ══ GET /van-ban/{doc_id}/lien-quan ═════════════════════════════════════════
