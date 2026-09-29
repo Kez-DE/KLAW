@@ -1,6 +1,6 @@
 """Dọn kho K2 (2026-09-28, `docs/plans/active/kho-luat-trich-dan-day-du.md`).
 
-    python -m scripts.don_kho --cache DIR [--dry-run]
+    python -m scripts.don_kho --cache DIR [--dry-run] [--chi-chua-kiem]
 
 `DIR` là thư mục cache của `scripts.lam_moi_hieu_luc` (response gateway trong
 `DIR/moj/<id>.json`); script này không gửi request nào. Ba việc, MỘT transaction,
@@ -138,6 +138,11 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--cache", type=Path, required=True, help="thư mục cache của scripts.lam_moi_hieu_luc")
     p.add_argument("--dry-run", action="store_true", help="làm hết trong transaction rồi ROLLBACK")
+    p.add_argument(
+        "--chi-chua-kiem",
+        action="store_true",
+        help="bước 3 chỉ đối chiếu văn bản tầng sâu CHƯA có dòng verified_documents (dòng cũ giữ nguyên bằng chứng)",
+    )
     a = p.parse_args()
 
     with get_engine().connect() as c, c.begin() as tx:
@@ -154,7 +159,10 @@ def main() -> None:
         gop = [_gop(c, bo, giu) for bo, giu in BAN_TRUNG.items()]
 
         da_kiem, lech = [], []
-        docs = c.execute(text("SELECT id, so_ky_hieu FROM documents WHERE depth = 'deep' ORDER BY id")).all()
+        chua_kiem = " AND id NOT IN (SELECT document_id FROM verified_documents)" if a.chi_chua_kiem else ""
+        docs = c.execute(
+            text(f"SELECT id, so_ky_hieu FROM documents WHERE depth = 'deep'{chua_kiem} ORDER BY id")
+        ).all()
         for doc_id, sk in docs:
             if doc_id in ID_GATEWAY:  # toàn văn không lấy từ gateway (xem ID_GATEWAY)
                 continue
