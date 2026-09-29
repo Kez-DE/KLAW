@@ -421,6 +421,17 @@ at ≤1 request/1.5 s with backoff on HTTP 400. No text from commercial sites.
   153/2016 → 122/2015 edge; the dry run gives 293/2025 for all four.
   `test_kho_that_so_hieu…` is the known 128/2025/NĐ-CP case
   (`can_doi_chieu_tay`: off-topic 219/2025 edge).
+- [x] Golden re-anchor (decision item 15), 2026-09-29, `integ/kho-day-du`.
+  20 of the 22 items on 12/2022/NĐ-CP now anchor 283/2026/NĐ-CP. The texts were
+  compared verbatim from the DB and checked against the gateway text (389/389).
+  The mapping and quotes are in `eval/datasets/golden_mapping_12-2022_283-2026.md`,
+  and the old labels are in `eval/datasets/golden_qa.truoc-k8.yaml`. lao-035-0/1
+  (Taiwan/Japan list, 12/2022 Điều 42 k11) are not re-anchored: 283/2026 has no
+  counterpart, so the owner must choose. lao-030-1 is partial: 283 dropped the
+  record-transfer rule. lao-040 and lao-042 moved to Khoản level, because 283
+  Điều 39 and Điều 51 have no article-level chunk. The 20 changed items are now
+  `duyet_boi: agent`, so `da_nguoi_duyet` is False and K5 reports carry the
+  "not publishable" warning until the owner re-reads them.
 - [ ] K5 after eval, credit.
 
 ## Decisions
