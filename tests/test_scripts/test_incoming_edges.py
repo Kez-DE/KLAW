@@ -147,6 +147,26 @@ def test_canh_K8_doi_chieu_nguyen_van_nap_lai_khong_dua_canh_sai_tro_lai():
     assert {("179989", "177815", 12), ("183939", "178260", 1), ("139094", "179273", 3)} <= CANH_SAI_MOJ
 
 
+def test_canh_F1_nhom_nen_tang_chi_giu_canh_sua_doi_that():
+    """F1: parquet gán văn bản HĐND/UBND tỉnh "sửa/thay" luật 87/2025 và 64/2025, và
+    136/2025/QH15 (chỉ căn cứ) "sửa" Nghị quyết 203/2025. Nạp lại chỉ giữ hai cạnh
+    đọc từ nguyên văn: 87/2025 Điều 1 → 64/2025, 203/2025 Điều 1 → Hiến pháp."""
+    sai = [
+        ("184262", "178717", "Sửa đổi, bổ sung"),
+        ("183018", "178717", "Sửa đổi, bổ sung"),
+        ("183300", "178717", "Thay thế"),
+        ("552ed4e0-6087-11f1-b7fc-b958fe2dd742", "175440", "Sửa đổi, bổ sung"),
+        ("187809", "178314", "Sửa đổi, bổ sung"),
+    ]
+    dung = [("178717", "175440", "Sửa đổi, bổ sung"), ("178314", "32801", "Sửa đổi, bổ sung")]
+    rel = pd.DataFrame([{"doc_id": f, "other_doc_id": t, "relationship": r} for f, t, r in sai + dung])
+    out = _canh_hieu_luc_di_vao(rel, {"178717", "175440", "178314", "32801"})
+    assert sorted(zip(out["from_document_id"], out["to_document_id"])) == [("178314", "32801"), ("178717", "175440")]
+    assert {("178717", "175440", 20, "Sửa đổi, bổ sung"), ("178314", "32801", 20, "Sửa đổi, bổ sung")} <= set(
+        CANH_DOI_CHIEU_NGUYEN_VAN
+    )
+
+
 def test_danh_sach_ap_chi_xoa_canh_sai_va_them_canh_thieu():
     """Đường áp RIÊNG hai danh sách đã đối chiếu (không nạp lại parquet): xoá đúng cạnh
     khớp `CANH_SAI` (quy tên quan hệ về loai), thêm cạnh bổ sung còn thiếu (một lần dù

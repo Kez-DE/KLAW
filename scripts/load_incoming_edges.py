@@ -81,6 +81,17 @@ CANH_SAI: frozenset[tuple[str, str, str]] = frozenset({
     # lực" — sai thứ bậc và sai văn bản: 29/2019/NĐ-CP Điều 28 khoản 2 mới chấm dứt
     # 55/2013 (29.signed.pdf trang 14); cạnh đó (loai 21) đã có.
     ("30475", "37502", "Văn bản quy định hết hiệu lực"),
+    # F1 2026-09-29 — cạnh parquet vào nhóm "nền tảng". Văn bản HĐND, UBND tỉnh không
+    # sửa hay thay được luật của Quốc hội (thứ bậc, 64/2025/QH15 Điều 4 do 87/2025/QH15
+    # sửa). Trang vbpl.vn của 178717 và 175440 (2026-09-29) cũng ghi các quan hệ này:
+    # lỗi có từ CSDL quốc gia, không riêng parquet.
+    ("184262", "178717", "Sửa đổi, bổ sung"),  # 74/2025/QĐ-UBND
+    ("183018", "178717", "Sửa đổi, bổ sung"),  # 27/2025/NQ-HĐND
+    ("183300", "178717", "Thay thế"),  # 146/2025/QĐ-UBND
+    ("552ed4e0-6087-11f1-b7fc-b958fe2dd742", "175440", "Sửa đổi, bổ sung"),  # 28/2026/NQ-HĐND
+    # 136/2025/QH15 nêu 203/2025/QH15 chỉ ở lời căn cứ ("Căn cứ Hiến pháp … đã được sửa
+    # đổi, bổ sung một số điều theo Nghị quyết số 203/2025/QH15"), toàn văn gateway 187809.
+    ("187809", "178314", "Sửa đổi, bổ sung"),
 })
 
 # Bản ghi trùng (dòng thừa → dòng giữ): gateway và parquet mang HAI id cho cùng một
@@ -173,6 +184,12 @@ CANH_DOI_CHIEU_NGUYEN_VAN: tuple[tuple[str, str, int, str], ...] = (
     # Công nghệ thông tin 67/2006/QH11 "hết hiệu kể từ ngày Luật này có hiệu lực thi hành"
     # (01/7/2026, khoản 1), trừ chuyển tiếp Điều 48 khoản 1, 2.
     ("cb-468708", "15066", 21, "Thay thế"),
+    # F1 2026-09-29 (bằng chứng ở `data/seed/canh_doi_chieu.yaml`): Luật 87/2025/QH15
+    # Điều 1 sửa 64/2025/QH15, khoản 1 thay Điều 4; Nghị quyết 203/2025/QH15 Điều 1 sửa
+    # Hiến pháp Điều 9, 10, khoản 1 Điều 84, Điều 110, 111. Parquet có cả hai, nhưng
+    # `--chi-danh-sach` không nạp parquet.
+    ("178717", "175440", 20, "Sửa đổi, bổ sung"),
+    ("178314", "32801", 20, "Sửa đổi, bổ sung"),
 )
 
 # Văn bản hợp nhất (Công báo) nêu đích danh luật đi sửa từng điều khoản

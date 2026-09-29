@@ -153,6 +153,42 @@ def test_build_FAIL_khi_so_ky_hieu_khai_bao_lech_docNum_cua_gateway(tmp_path, mo
         build_seed.build(tmp_path / "raw", tmp_path / "seed")
 
 
+@pytest.mark.parametrize(("khai_bao", "dat"), [("Hiến pháp năm 2013", True), ("Hiến pháp năm 1992", False)])
+def test_gateway_khong_so_hieu_thi_so_ky_hieu_phai_la_tieu_de_gateway(tmp_path, monkeypatch, khai_bao, dat):
+    """Hiến pháp 2013 (gateway 32801) có `docNum` null: số hiệu lưu là tiêu đề gateway
+    nguyên văn, vẫn là chữ CSDL quốc gia chứ không phải chữ gõ tay."""
+    raw = tmp_path / "raw" / "moj"
+    raw.mkdir(parents=True)
+    _metadata_rong(tmp_path / "raw")
+    (raw / "32801.json").write_text(
+        json.dumps(
+            {
+                "docNum": None,
+                "title": "Hiến pháp năm 2013",
+                "docType": {"name": "Hiến pháp"},
+                "effStatus": {"code": "HHL1P"},
+                "documentContent": {
+                    "content": '<div class="WordSection1">'
+                    '<p id="a1" class="prov-article"><b>Điều 1</b></p>'
+                    '<p class="prov-content">Nước Cộng hòa xã hội chủ nghĩa Việt Nam là một nước độc lập.</p></div>'
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(build_seed, "DOC_IDS", {"32801": ("deep", khai_bao)})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CONGBAO", {})
+    monkeypatch.setattr(build_seed, "VAN_BAN_CHINHPHU", {})
+    if not dat:
+        with pytest.raises(ValueError, match="docNum"):
+            build_seed.build(tmp_path / "raw", tmp_path / "seed")
+        return
+    build_seed.build(tmp_path / "raw", tmp_path / "seed")
+    doc = json.loads((tmp_path / "seed" / "documents.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert (doc["so_ky_hieu"], doc["loai_van_ban"]) == ("Hiến pháp năm 2013", "Hiến pháp")
+
+
 def test_build_FAIL_khi_parse_anomalies_bao_bat_thuong(tmp_path, monkeypatch):
     """Mục H: parse_anomalies đã tồn tại, đã có test, CHƯA AI CHẠY trên dữ liệu
     thật — build_seed không gọi nó. Đó là lý do cả bốn lỗi kia lọt được."""

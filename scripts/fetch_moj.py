@@ -469,6 +469,14 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "112157": ("deep", "99/2016/NĐ-CP"),
     "159372": ("deep", "99/2022/NĐ-CP"),
     # ── K6 — HẾT khối sinh máy
+    # ── F1 2026-09-29 — nhóm "nền tảng" (quyết định 2026-09-29 mục 4): câu hỏi về hệ
+    # thống pháp luật trả lời từ luật. Hiến pháp có `docNum` null: số hiệu = tiêu đề
+    # gateway (`build_seed`). Luật HNGĐ (mục 8) đã sâu ở trên (36870); văn bản duy nhất
+    # sửa nó là 81/2025/QH15 (179416, đã sâu) — trang vbpl.vn của 36870, 2026-09-29.
+    "32801": ("deep", "Hiến pháp năm 2013"),
+    "178314": ("deep", "203/2025/QH15"),  # sửa đổi Hiến pháp Điều 9, 10, 84 k1, 110, 111
+    "175440": ("deep", "64/2025/QH15"),  # Luật Ban hành văn bản quy phạm pháp luật
+    "178717": ("deep", "87/2025/QH15"),  # sửa đổi 64/2025, thay Điều 4 (hệ thống văn bản)
 }
 
 # Mảnh tiêu đề đối chiếu TRƯỚC KHI GHI file raw — 11/13 id của T1 (169032,

@@ -379,6 +379,14 @@ def test_so_ky_hieu_lech_thi_khong_ap_bang_chung():
     assert cap_nhat == [] and len(bao["lech_so_ky_hieu"]) == 1
 
 
+def test_gateway_khong_so_hieu_van_ap_bang_chung():
+    """Hiến pháp 2013: `docNum` null, kho lưu tiêu đề gateway làm số hiệu (`build_seed`
+    đã đối chiếu tiêu đề) — không có số nào để lệch, id đã buộc bằng URL."""
+    hp = {**DONG, "so_ky_hieu": "Hiến pháp năm 2013"}
+    cap_nhat, bao = tinh_cot([hp], _bang({**GATEWAY, "docNum": None}), {})
+    assert cap_nhat[0]["tinh_trang"] == "HHL1P" and bao["lech_so_ky_hieu"] == []
+
+
 def test_ghi_de_lech_so_ky_hieu_hay_id_khong_co_trong_db_la_loi():
     with pytest.raises(ValueError, match="so_ky_hieu"):
         tinh_cot([DONG], {}, {"30466": {**GHI_DE, "so_ky_hieu": "50/2013/NĐ-CP"}})

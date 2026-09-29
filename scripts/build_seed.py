@@ -132,7 +132,9 @@ def build(raw: Path, out: Path) -> dict[str, int]:
         # `so_ky_hieu` của `DOC_IDS` là chữ gõ tay; `docNum` là chữ CSDL quốc gia
         # khai cho CHÍNH id này. Lệch = id sai hoặc gõ sai (đo 2026-09-28: 53/53
         # khớp). Không lấy `docNum` đè lên: số hiệu nằm trong mọi `duong_dan`.
-        if d.get("docNum") != so_ky_hieu:
+        # Gateway không có số hiệu (Hiến pháp 2013, `docNum` null): số hiệu lưu là
+        # tiêu đề gateway nguyên văn ("Hiến pháp năm 2013") — vẫn là chữ CSDL quốc gia.
+        if (d.get("docNum") or d.get("title")) != so_ky_hieu:
             raise ValueError(
                 f"doc {doc_id}: so_ky_hieu khai báo {so_ky_hieu!r} lệch docNum gateway "
                 f"{d.get('docNum')!r} — id sai hoặc gõ sai, KHÔNG ghi seed")

@@ -253,6 +253,9 @@ def hien_van_ban(so_ky_hieu: str, ten: str) -> tuple[str, str]:
     """
     so = (so_ky_hieu or "").strip()
     ten = (ten or "").strip()
+    # Hiến pháp 2013: gateway không có số hiệu, kho lưu tiêu đề làm số hiệu.
+    if so == ten:
+        return "", ten
     if any(c.isdigit() for c in so):
         return so, ten
     hau_to = f" số {so}"

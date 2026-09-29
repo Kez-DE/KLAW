@@ -49,15 +49,19 @@ W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 # ── Nhận diện cấp trong thân văn bản ─────────────────────────────────────────
 # `\d+[a-zđ]?` chứ không `\d+`: luật sửa chèn khoản MỚI mang số hiệu có chữ
 # ("8a" ở Điều 154). Ép về "8" là trỏ trích dẫn sang một khoản khác đã có sẵn.
-_RE_DIEU = re.compile(r"^Điều\s+(\d+)\s*[.:]")
+# Hiến pháp (`52/VBHN-VPQH`): điều không có tiêu đề, cả dòng chỉ là "Điều 110" —
+# nên nhận thêm hết dòng, nhưng KHÔNG nhận câu văn "Điều 12 của Luật này …".
+_RE_DIEU = re.compile(r"^Điều\s+(\d+)\s*(?:[.:]|$)")
 _RE_KHOAN = re.compile(r"^(\d+[a-zđ]?)\s*\.")
 _RE_DIEM = re.compile(r"^([a-zđ]\d*)\s*\)")
 
 # ── Khuôn ghi chú sửa đổi ────────────────────────────────────────────────────
 # Đo trên `18/VBHN-VPQH` thật: "được sửa đổi, bổ sung" và "được bổ sung" đều có.
 # Tiền tố `\d*` nuốt marker mà Word lặp lại ở đầu thân footnote ("4 Khoản này…").
+# `54/VBHN-VPQH` có "Đoạn đầu điểm này được sửa đổi…" — sửa một phần của điểm.
 _RE_LA_SUA_DOI = re.compile(
-    r"^\s*\d*\s*(?:Điểm|Khoản|Điều|Mục|Tiểu mục|Chương|Phần|Phụ lục)\s+này\s+được\s+"
+    r"^\s*\d*\s*(?:Đoạn (?:mở )?đầu (?=điểm|khoản|điều))?"
+    r"(?:Điểm|Khoản|Điều|Mục|Tiểu mục|Chương|Phần|Phụ lục|điểm|khoản|điều)\s+này\s+được\s+"
     r"(?:sửa đổi|bổ sung|bãi bỏ|thay thế|hủy bỏ)")
 
 # Số ký hiệu VBQPPL: "113/2025/QH15", "21/2026/TT-BKHCN", "06/2003/PL-UBTVQH11".
@@ -70,7 +74,7 @@ _RE_SO_KY_HIEU = re.compile(r"\b(\d+/\d{4}/[A-ZĐ][A-ZĐ0-9/-]*)")
 # là đường dẫn trong văn bản ĐI SỬA.
 _RE_VI_TRI_NGUON = re.compile(r"theo quy định tại\s+(.+?)\s+của\s")
 _RE_NGAY = re.compile(
-    r"có hiệu lực(?:\s+thi hành)?\s+kể từ ngày\s+(\d{1,2})\s+tháng\s+(\d{1,2})\s+năm\s+(\d{4})")
+    r"có hiệu lực(?:\s+thi hành)?\s+(?:kể\s+)?từ ngày\s+(\d{1,2})\s+tháng\s+(\d{1,2})\s+năm\s+(\d{4})")
 
 
 @dataclass(frozen=True)
