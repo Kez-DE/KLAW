@@ -28,9 +28,9 @@ the_thuc:
   can_cu_them:
     - "Căn cứ Nội quy lao động {};"
     - "Căn cứ Biên bản cuộc họp xử lý kỷ luật lao động {};"
-    - "Theo đề nghị của {}"
+    - "Theo đề nghị của {}."
   lenh: "QUYẾT ĐỊNH:"
-  noi_nhan: ["Như Điều {};", "{};", "Lưu: VT, {}"]
+  noi_nhan: ["Như Điều {};", "{};", "Lưu: VT, {}."]
   ket_thuc: null
 ben:
   - {khoa: co_quan, vai: "Người sử dụng lao động", truong: [ten_to_chuc]}

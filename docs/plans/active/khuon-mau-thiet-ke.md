@@ -169,6 +169,10 @@ stays open only if wave V shows a rebuilt form cannot match its official PNG.
 Rules the builder keeps, so the reader and the applier accept every blank:
 
 - Never put a blank in a paragraph with a field, a text box or a drawing.
+- A "." right after a "……" is preceded by U+2060 WORD JOINER (`khuon_mau.NOI`). The
+  reader joins every `.`/`…` run into one blank ("……." — right for uploaded forms), so
+  without it the sentence's period is lost on fill ("Theo đề nghị của …….", "Lưu: VT,
+  ……." — both end with "." per Phụ lục I, Công báo 283+284 tr. 25, 30).
 - Header and signature tables are borderless (`w:tblBorders` all `none`, no table
   style). They are never data tables and yield no `o` blanks.
 - "……" is the ONLY blank the builder writes. Model text is normalised before the
@@ -283,16 +287,21 @@ The three layouts:
   1. tên loại, trích yếu and a rule (not for công văn);
   2. "Kính gửi:", when `kinh_gui` is set;
   3. the căn cứ lines;
-  4. "Theo đề nghị của ……" and the "QUYẾT ĐỊNH:" line, for quyết định;
+  4. "Theo đề nghị của …….", the last căn cứ line, and the "QUYẾT ĐỊNH:" line, for
+     quyết định;
   5. the body, with "./." after its last paragraph (the Phụ lục III model layout,
-     not a quoted rule);
+     not a quoted rule); the paragraph before the signature block keeps with it
+     (`keepNext` + `keepLines`), so a page never holds only Nơi nhận and signature;
   6. a borderless signature table: the "Nơi nhận:" list on the left | QUYỀN HẠN,
      CHỨC VỤ / (Chữ ký, dấu) / name blank on the right.
 
   Flags cover the Phụ lục III variants:
   - biên bản: no top date; THƯ KÝ | CHỦ TỌA; Nơi nhận below both blocks (D2 §4.4);
   - văn bản kèm theo: no Số and no date; "(Kèm theo Quyết định số …/QĐ-… ngày …
-    tháng … năm … của …)"; no signature.
+    tháng … năm … của …)"; no signature. It is its own section: new page, page
+    numbers restart at 1, first page unnumbered (Phụ lục I, Phần I mục 7; Phần III
+    mục 1.đ by analogy). Số, ký hiệu, ngày ban hành, thẩm quyền and trích yếu are
+    `van_ban` fields, so one value fills the decision and the "(Kèm theo …)" line.
 - **`don`** (Mẫu 23-DS, NĐ 124 Mẫu 01, Mẫu 01-VDS):
   - centred quốc hiệu and tiêu ngữ; no cơ quan and no Số;
   - the date line per `ngay`, then TÊN ĐƠN;

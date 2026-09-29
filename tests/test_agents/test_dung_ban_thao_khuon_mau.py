@@ -429,3 +429,37 @@ def test_nap_khuon_mau_chuan_bi_muc_can_cu_va_nen(monkeypatch):
     tq = g._nap_khuon_mau(None, {"soan_thao_goi_y": {"loai": "hdld"}, "ban_thao_tong_quat_dang_mo": nhe})
     assert tq["khuon_mau_ngu_canh"]["loai"] is None and tq["khuon_mau_ngu_canh"]["sua"] is True
     assert tq["khuon_mau_ngu_canh"]["ben"] == BEN
+
+
+def test_sua_trich_chu_quyet_dinh_ban_hanh_khong_sua_dieu_cua_quy_che(kho, monkeypatch):
+    """Tệp hai phần (Mẫu 1.3 NĐ 30/2020 + quy chế kèm theo): "Điều 2" có ở cả hai trang.
+    Prompt và "Bản thảo đang có" nói rõ hai phần. Người hỏi trích chữ khung ("Quyết định
+    này có hiệu lực …") mà mô hình GIẢ vẫn `thay` Điều 2 — của quy chế: phép sửa bị bỏ,
+    giá trị điền vào chỗ trống khung (ngày hiệu lực) vẫn đi, lời đáp nói điền trên trang."""
+    monkeypatch.setattr(g.gst, "requirements", lambda loai: ([], g.gst.load_checklist_cached(loai), {}))
+    monkeypatch.setattr(g, "hien_thi_luc", lambda engine, as_of: frozenset())
+    monkeypatch.setattr(g.gst, "can_cu_van_ban_co_id", lambda e, d_, a: [])
+    dieu = [
+        {"key": "noi_dung", "ten": "Phạm vi điều chỉnh", "doan": ["Quy chế này quy định việc quản lý tài sản."]},
+        {"key": None, "ten": "Nguyên tắc quản lý tài sản", "doan": ["Tài sản phải được lập sổ theo dõi."]},
+    ]
+    ng = g._nap_khuon_mau(None, {"soan_thao_goi_y": {"loai": "quy_che_noi_bo"}})["khuon_mau_ngu_canh"]
+    tao = _LLM(
+        _ra(tieu_de=None, trich_yeu="quản lý tài sản", bo_cuc=None, ben=None, can_cu=None, gia_tri=[], dieu=dieu)
+    )
+    _luot(_st("Soạn quy chế quản lý tài sản", ng=ng), tao)
+    assert "Tệp gồm hai văn bản" in tao.prompt and "số Điều của quy chế nội bộ kèm theo" in tao.prompt
+    nhe = kho.nhe()
+    assert "khung của mẫu" in nhe["document"] and "- Điều 2. Quyết định này có hiệu lực" in nhe["document"]
+
+    cau = "Sửa Quyết định này có hiệu lực kể từ ngày 01/10/2026"
+    thay = {"thao_tac": "thay", "dieu": 2, "key": None, "ten": "Hiệu lực", "doan": [f"{cau[4:]}."]}
+    gia_tri = [{"ben": "van_ban", "truong": "ngay_hieu_luc", "gia_tri": "01/10/2026"}]
+    sua = _LLM(_ra(muc_tieu="sua_ban_dang_co", dieu=None, sua_dieu=[thay], gia_tri=gia_tri))
+    ng2 = g._nap_khuon_mau(None, {"ban_thao_tong_quat_dang_mo": nhe})["khuon_mau_ngu_canh"]
+    ket = _luot(_st(cau, nhe=nhe, ng=ng2), sua)
+    b = kho.bt["bt-1"]
+    assert [c["ten"] for c in b["clauses"]] == ["Phạm vi điều chỉnh", "Nguyên tắc quản lý tài sản"]
+    assert b["clauses"][1]["doan"] == ["Tài sản phải được lập sổ theo dõi."], "Điều 2 của quy chế giữ nguyên"
+    assert b["phien_ban"] == 2 and "01/10/2026" in _gia_tri(kho)
+    assert h.KHUNG_BAN_HANH.split(":")[0] in ket["answer"]

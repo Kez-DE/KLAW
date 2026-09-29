@@ -5,6 +5,10 @@
 # trắng. `bo_qua` kể chữ của tệp gốc KHÔNG dựng lại, kèm lý do — không gì bị bỏ lặng lẽ.
 # `test_khuon_mau_registry.py` dựng từng mục (không điều khoản nào) và so dãy đoạn
 # của bản dựng với `nhan`, sau khi bỏ "……" và gộp khoảng trắng như trên.
+# Dấu "." sau chỗ trống cuối của "Theo đề nghị của …" và "- Lưu: VT, …" không vẽ được
+# trên mẫu (dãy chấm chạy tới lề) nhưng CHỮ Phụ lục I đòi (Công báo tr. 25: dòng căn cứ
+# cuối "kết thúc bằng dấu chấm (.)"; tr. 30: dòng "Lưu" của Nơi nhận "cuối cùng là dấu
+# chấm (.)"; Mẫu 1.2 in "- Lưu: VT,...9...10."). Nó giữ được khi điền nhờ `khuon_mau.NOI`.
 don_khoi_kien:
   tep_d2: goc/m23-ds_toaan-TAND279888.pdf
   sha256: 6881d9dda626033de033c120d790a3ef064c301b089ec3b754219cf5228a8a0a
@@ -59,7 +63,7 @@ cong_van:
     - "Nơi nhận:"
     - "- Như trên;"
     - "- ;"
-    - "- Lưu: VT,"
+    - "- Lưu: VT, ."
     - "(Chữ ký của người có thẩm quyền,"
     - "dấu/chữ ký số của cơ quan, tổ chức)"
   bo_qua:
@@ -83,12 +87,12 @@ quyet_dinh_bo_nhiem:
     - "QUYẾT ĐỊNH"
     - "Về việc"
     - "Căn cứ ;"
-    - "Theo đề nghị của"
+    - "Theo đề nghị của ."
     - "QUYẾT ĐỊNH:"
     - "Nơi nhận:"
     - "- Như Điều ;"
     - "- ;"
-    - "- Lưu: VT,"
+    - "- Lưu: VT, ."
     - "(Chữ ký của người có thẩm quyền,"
     - "dấu/chữ ký số của cơ quan, tổ chức)"
   bo_qua:
@@ -114,15 +118,15 @@ quy_che_noi_bo:
     - "QUYẾT ĐỊNH"
     - "Ban hành Quy chế"
     - "Căn cứ ;"
-    - "Theo đề nghị của"
+    - "Theo đề nghị của ."
     - "QUYẾT ĐỊNH:"
-    - "Điều 1. Ban hành kèm theo Quyết định này Quy chế"
-    - "Điều 2. Quyết định này có hiệu lực kể từ ngày."
+    - "Điều 1. Ban hành kèm theo Quyết định này Quy chế ."
+    - "Điều 2. Quyết định này có hiệu lực kể từ ngày ."
     - "Điều 3. chịu trách nhiệm thi hành Quyết định này./."
     - "Nơi nhận:"
     - "- Như Điều 3;"
     - "- ;"
-    - "- Lưu: VT,"
+    - "- Lưu: VT, ."
     - "(Chữ ký của người có thẩm quyền,"
     - "dấu/chữ ký số của cơ quan, tổ chức)"
     - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"

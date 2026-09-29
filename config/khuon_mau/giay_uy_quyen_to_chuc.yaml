@@ -26,7 +26,7 @@ the_thuc:
   ngay: cot_phai
   thut_nhan: true
   can_cu: false
-  noi_nhan: ["{};", "{};", "Lưu: VT, {}"]
+  noi_nhan: ["{};", "{};", "Lưu: VT, {}."]
   ket_thuc: null
 ben:
   - khoa: co_quan

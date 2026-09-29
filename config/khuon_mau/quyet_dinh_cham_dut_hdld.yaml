@@ -26,9 +26,9 @@ the_thuc:
   trich_yeu: "Về việc chấm dứt hợp đồng lao động"
   tham_quyen: "{tham_quyen}"
   can_cu: true
-  can_cu_them: ["Căn cứ Hợp đồng lao động {};", "Theo đề nghị của {}"]
+  can_cu_them: ["Căn cứ Hợp đồng lao động {};", "Theo đề nghị của {}."]
   lenh: "QUYẾT ĐỊNH:"
-  noi_nhan: ["Như Điều {};", "{};", "Lưu: VT, {}"]
+  noi_nhan: ["Như Điều {};", "{};", "Lưu: VT, {}."]
   ket_thuc: null
 ben:
   - {khoa: co_quan, vai: "Người sử dụng lao động", truong: [ten_to_chuc]}

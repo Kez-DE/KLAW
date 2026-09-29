@@ -6,8 +6,10 @@ một lượt LibreOffice (~300 MB), chạy tuần tự. Khoá ba điều riêng
 
 1. Phép dò của `/ban-thao/{id}/trang` định vị được mọi chỗ trống của các bên — cả trên
    tệp hai phần (quyết định ban hành + văn bản kèm theo).
-2. Văn bản kèm theo bắt đầu ở trang mới; khối ký của quyết định ở trang trước nó.
+2. Văn bản kèm theo bắt đầu ở trang mới; khối ký của quyết định ở trang trước nó; số
+   trang của văn bản kèm theo đếm lại từ 1, trang đầu của nó không số.
 3. Khối ký hai cột (biên bản, giấy ủy quyền): dòng họ tên hai người thẳng hàng.
+4. Trang có chữ ký luôn có chữ của thân văn bản ("./." của đoạn cuối) phía trên.
 """
 
 import shutil
@@ -19,7 +21,7 @@ from src.services import khuon_mau as km
 from src.services.dien_khuon import ap_dung_docx
 from src.services.doc_tai_lieu import _tu_pdf, doc
 from src.services.tai_lieu import _hang_don_vi
-from tests.test_services.test_khuon_mau_hanh_chinh import _spec
+from tests.test_services.test_khuon_mau_hanh_chinh import C, _spec
 
 pytestmark = pytest.mark.skipif(
     not (shutil.which("soffice") and shutil.which("pdftoppm")), reason="cần LibreOffice và poppler"
@@ -48,6 +50,65 @@ def test_van_ban_kem_theo_bat_dau_trang_moi_sau_khoi_ky_quyet_dinh():
     kem = next(n for n, s in trang.items() if "(Kèm theo Quyết định số" in s)
     assert kem == ky + 1
     assert "NỘI QUY LAO ĐỘNG" in trang[kem] and "QUYẾT ĐỊNH:" not in trang[kem]
+    # Phụ lục I, Phần I mục 7 ("không hiển thị số trang thứ nhất") và Phần III mục 1.đ
+    # (phụ lục "được đánh số riêng"): trang đầu văn bản kèm theo không số, trang sau là "2".
+    so = {n: [chu for _, chu, hop in ds if chu.isdigit() and hop[1] < _LE_TREN] for n, ds in tu.items()}
+    assert so[ky] == [] and so[kem] == []
+    if kem + 1 in so:
+        assert so[kem + 1] == ["2"]
+
+
+# Lề trên (pt): số trang nằm trong lề trên 20 mm (`test_khuon_mau_trang.py`).
+_LE_TREN = 56
+# Bảy điều của một quyết định kỷ luật thật cỡ (bản dựng thử 2026-09-29): đoạn cuối rơi sát
+# chân trang 1, trước khi đoạn cuối giữ cùng trang với khối ký thì trang 2 chỉ có Nơi nhận
+# và chữ ký.
+_KY_LUAT = [
+    (
+        "Hình thức xử lý kỷ luật",
+        f"Thi hành kỷ luật lao động bằng hình thức khiển trách đối với ông (bà) {C}, Nhân viên kho, Phòng Hậu cần.",
+    ),
+    (
+        "Hành vi vi phạm và lỗi",
+        f"Người lao động đã tự ý bỏ vị trí làm việc trong ca trực ngày {C}; hành vi có lỗi cố ý và đã được người lao động thừa nhận tại cuộc họp xử lý kỷ luật.",
+    ),
+    (
+        "Căn cứ nội quy",
+        f"Hành vi trên vi phạm quy định về trật tự tại nơi làm việc tại khoản {C} Điều {C} Nội quy lao động của Công ty.",
+    ),
+    (
+        "Thời hiệu",
+        "Hành vi vi phạm được xử lý trong thời hiệu xử lý kỷ luật lao động theo quy định của pháp luật lao động.",
+    ),
+    (
+        "Tổ chức đại diện người lao động",
+        "Cuộc họp xử lý kỷ luật lao động có sự tham gia của Ban Chấp hành Công đoàn cơ sở Công ty.",
+    ),
+    ("Quyền tự bào chữa", "Người lao động có mặt tại cuộc họp, được tự bào chữa và đã ký biên bản cuộc họp."),
+    (
+        "Hiệu lực và thi hành",
+        "Quyết định này có hiệu lực kể từ ngày ký. Phòng Hành chính - Nhân sự, Phòng Hậu cần và người lao động nêu trên chịu trách nhiệm thi hành Quyết định này.",
+    ),
+]
+_CAN_CU_KY_LUAT = [
+    {"dong": "Căn cứ Bộ luật Lao động số 45/2019/QH14 ngày 20 tháng 11 năm 2019;", "doc_id": "139264"},
+    {
+        "dong": "Căn cứ Nghị định số 145/2020/NĐ-CP ngày 14 tháng 12 năm 2020 của Chính phủ quy định chi tiết và"
+        " hướng dẫn thi hành một số điều của Bộ luật Lao động về điều kiện lao động và quan hệ lao động.",
+        "doc_id": "145",
+    },
+]
+
+
+def test_trang_co_chu_ky_luon_co_chu_cua_than_van_ban():
+    """Owner: "chuẩn chỗ kí, có đầu, giữa, đuôi". Một trang chỉ có Nơi nhận và chữ ký thì
+    ai cũng thay được các trang phía trên: đoạn cuối thân ("./.") phải cùng trang chữ ký."""
+    dieu = [{"key": None, "ten": t, "doan": [x]} for t, x in _KY_LUAT]
+    pdf = dung_trang.dung_pdf(km.dung_docx(_spec("quyet_dinh_ky_luat", dieu=dieu, can_cu=_CAN_CU_KY_LUAT))[0])
+    tu = _tu_pdf(pdf)
+    trang = {n: [chu for _, chu, _ in ds] for n, ds in tu.items()}
+    ky = next(n for n, ds in trang.items() if "(Chữ" in ds and "thẩm" in ds)
+    assert any(chu.endswith("./.") for chu in trang[ky]), trang[ky][:12]
 
 
 @pytest.mark.parametrize(

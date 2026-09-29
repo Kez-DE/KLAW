@@ -181,6 +181,92 @@ def test_dong_can_cu_cua_khung_dien_xong_khong_con_dan_cham():
     assert "Căn cứ Nội quy lao động của Công ty ngày 12 tháng 5 năm 2025;" in chu
 
 
+def _dien_het(docx: bytes) -> list[str]:
+    """Điền MỌI chỗ trống bằng "GT<đơn vị>-<số>" qua bộ đọc + bộ áp thật; chữ từng đơn vị
+    sau khi điền, bỏ U+2060 (vô hình trên trang)."""
+    dv = _don_vi(docx)
+    phep = [
+        {"loai": "dien", "don_vi": d["chi_so"], "cho_trong": c["so"], "gia_tri": f"GT{d['chi_so']}-{c['so']}"}
+        for d in dv
+        for c in d.get("cho_trong") or []
+    ]
+    ban, bao_cao = ap_dung_docx(docx, dv, phep)
+    assert bao_cao["bo_qua"] == []
+    return [x.noi_dung.replace(km.NOI, "") for x in doc("k.docx", ban).don_vi]
+
+
+@pytest.mark.parametrize(
+    "loai", sorted({*QUYET_DINH, *KEM_THEO, "cong_van", "giay_uy_quyen_to_chuc", "van_ban_giai_trinh_to_chuc"})
+)
+def test_dong_can_cu_cuoi_va_dong_luu_ket_bang_dau_cham_ca_khi_da_dien(loai):
+    """Phụ lục I NĐ 30/2020 (Công báo 283+284 tr. 25, 30): dòng căn cứ cuối "kết thúc bằng
+    dấu chấm (.)"; dòng "Lưu" của Nơi nhận "cuối cùng là dấu chấm (.)". Chỗ trống cuối dòng
+    đứng ngay trước dấu chấm đó — điền xong dấu chấm vẫn còn."""
+    chu = _dien_het(km.dung_docx(_spec(loai))[0])
+    assert not any(C in c for c in chu), "còn chỗ trống chưa điền"
+    tt = (km.nap(loai).get("ban_hanh") or km.nap(loai))["the_thuc"]
+    if tt.get("lenh"):
+        truoc_lenh = chu[chu.index(tt["lenh"]) - 1]
+        assert re.search(r"GT\d+-\d+\.$", truoc_lenh), truoc_lenh
+    luu = [x for c in chu for x in re.split(r" (?=- )", c) if x.startswith("- Lưu:")]
+    assert luu and all(x.endswith(".") for x in luu), luu
+
+
+def test_mot_gia_tri_dien_moi_ban_sao_cua_quyet_dinh_ban_hanh():
+    """Tệp hai phần (Mẫu 1.3 + văn bản kèm theo): số, ký hiệu, ngày ban hành, thẩm quyền và
+    trích yếu in nhiều lần — tên loại "Ban hành Quy chế …", Điều 1, dòng trích yếu và dòng
+    "(Kèm theo Quyết định số … của …)". Mỗi thứ là MỘT trường của văn bản, nên một giá trị
+    (chat, `phep_tu_gia_tri`) điền mọi bản sao: quy chế không dẫn sai quyết định."""
+    from src.services import ban_thao
+
+    docx, ban_do = km.dung_docx(_spec("quy_che_noi_bo"))
+    dv = _don_vi(docx)
+    gt = {
+        ("van_ban", "so_van_ban"): "15",
+        ("van_ban", "viet_tat_co_quan"): "ANP",
+        ("van_ban", "ngay_ban_hanh"): "25",
+        ("van_ban", "tham_quyen"): "Giám đốc Công ty",
+        ("van_ban", "trich_yeu"): "quản lý tài sản",
+        ("van_ban", "ngay_hieu_luc"): "01/10/2026",
+    }
+    phep = ban_thao.phep_tu_gia_tri(ban_thao.o_truong(dv, ban_do), gt)
+    ban, bao_cao = ap_dung_docx(docx, dv, phep)
+    assert bao_cao["bo_qua"] == []
+    chu = [x.noi_dung.replace(km.NOI, "") for x in doc("k.docx", ban).don_vi]
+    assert "Số: 15/QĐ-ANP" in chu and "Ban hành Quy chế quản lý tài sản" in chu
+    assert "Điều 1. Ban hành kèm theo Quyết định này Quy chế quản lý tài sản." in chu
+    assert "Điều 2. Quyết định này có hiệu lực kể từ ngày 01/10/2026." in chu
+    assert f"(Kèm theo Quyết định số 15/QĐ-ANP ngày 25 tháng {C} năm {C} của Giám đốc Công ty)" in chu
+    assert chu.count("quản lý tài sản") == 1, "dòng trích yếu của văn bản kèm theo"
+    assert any(", ngày 25 tháng" in c for c in chu), "ngày ban hành ở đầu trang"
+
+
+def test_ngay_ban_hanh_du_tach_ra_ca_hai_bo_ba_ngay():
+    """Một ngày đủ cho trường `ngay_ban_hanh` vào chỗ "ngày" của đầu trang và của dòng "(Kèm
+    theo …)"; phép kiểm tách mỗi chỗ thành ngày, tháng, năm (`_tach_ngay`)."""
+    from src.agents.nodes.hieu_tai_lieu import _tach_ngay
+    from src.services import ban_thao
+
+    docx, ban_do = km.dung_docx(_spec("noi_quy"))
+    goc = doc("k.docx", docx).don_vi
+    phep = ban_thao.phep_tu_gia_tri(
+        ban_thao.o_truong(_don_vi(docx), ban_do), {("van_ban", "ngay_ban_hanh"): "25/9/2026"}
+    )
+    assert len(phep) == 2
+    tach = _tach_ngay(phep, {d.chi_so: d for d in goc})
+    assert sorted(p["gia_tri"] for p in tach) == ["2026", "2026", "25", "25", "9", "9"]
+
+
+def test_nhan_cho_trong_sau_dau_cham_khong_mo_dau_bang_dau_cham():
+    """U+2060 trước dấu chấm hết câu ở lại trong chữ; nhãn của chỗ trống kế tiếp CÙNG
+    đoạn không mở đầu bằng "." (`doc_tai_lieu.nhan_sach`)."""
+    dieu = [{"key": None, "ten": "Hiệu lực", "doan": [f"Có hiệu lực từ ngày {C}. Thời hạn áp dụng {C} năm."]}]
+    d = next(
+        x for x in _don_vi(km.dung_docx(_spec("quyet_dinh_bo_nhiem", dieu=dieu))[0]) if "Thời hạn" in x["noi_dung"]
+    )
+    assert [c["nhan"] for c in d["cho_trong"]] == ["Điều 1. Có hiệu lực từ ngày", "Thời hạn áp dụng"]
+
+
 # ── 3. Điều luật đòi ─────────────────────────────────────────────────────────
 
 
@@ -230,8 +316,8 @@ def test_duong_checklist_bo_muc_the_thuc_khoi_dieu_khoan(monkeypatch):
     assert [c["key"] for c in ra["clauses"]] == ["noi_dung"]
     assert "## Điều 1. Bổ nhiệm" in ra["document"] and "Quốc hiệu" not in ra["document"]
     chu = [d["noi_dung"] for d in _don_vi(dung["docx"])]
-    # "./." tách khỏi chỗ trống cuối câu: "……./." thì dấu chấm dính vào chỗ trống.
-    assert [c for c in chu if c.startswith("Điều ")] == [f"Điều 1. Bổ nhiệm ông (bà) {C} giữ chức vụ {C} ./."]
+    # "./." tách khỏi chỗ trống cuối câu bằng U+2060: "……./." thì dấu chấm dính vào chỗ trống.
+    assert [c for c in chu if c.startswith("Điều ")] == [f"Điều 1. Bổ nhiệm ông (bà) {C} giữ chức vụ {C}{km.NOI}./."]
 
 
 # ── 4. Căn cứ ────────────────────────────────────────────────────────────────
@@ -260,7 +346,36 @@ def test_can_cu_kho_in_nghieng_dong_cuoi_ket_cham_phay_khi_con_dong_khung(loai):
 def test_khong_co_can_cu_trong_kho_thi_khong_in_dong_luat_nao():
     chu = [c for _, c, _ in _doan_than(km.dung_docx(_spec("quyet_dinh_hdqt", can_cu=[]))[0])]
     can_cu = [c for c in chu if c.startswith(("Căn cứ", "Theo đề nghị"))]
-    assert can_cu == ["Căn cứ Điều lệ Công ty;", "Căn cứ Biên bản họp Hội đồng quản trị."]
+    assert can_cu == ["Căn cứ Điều lệ Công ty;", f"Căn cứ Biên bản họp Hội đồng quản trị {C}{km.NOI}."]
+
+
+@pytest.mark.parametrize("loai", sorted(x for x in (*QUYET_DINH, *KEM_THEO) if x in cac_checklist()))
+def test_quyet_dinh_nghi_quyet_luon_co_can_cu_luat_ngoai_nguon_the_thuc(loai):
+    """Quyết định 2026-09-29 mục 7: căn cứ lấy từ kho. NĐ 30/2020 chỉ là nguồn thể thức (không
+    in thành căn cứ), nên checklist và rule chỉ dẫn tới nó thì quyết định ra đời không căn cứ
+    luật nào — `can_cu_ban_hanh` đưa luật trao thẩm quyền ban hành vào khối căn cứ (cùng
+    tập `graph_soan_thao.load_requirements` tra)."""
+    from src.agents.graph_soan_thao import rules_cho
+    from src.services.checklist import cac_can_cu
+
+    tat_ca = cac_can_cu(load_checklist_cached(loai)) | {r.can_cu for r in rules_cho(loai)}
+    luat = {p.split(" > ")[0] for p in tat_ca} - {"30/2020/NĐ-CP"}
+    assert luat, loai
+
+
+def test_nap_khuon_mau_van_ban_kem_theo_lay_can_cu_cua_quyet_dinh_ban_hanh(monkeypatch):
+    """Lượt chat (`graph_tra_cuu._nap_khuon_mau`): quy chế, nội quy có khối căn cứ ở quyết
+    định BAN HÀNH của chúng (`ban_hanh.the_thuc.can_cu`), không ở văn bản kèm theo."""
+    from src.agents import graph_tra_cuu as g
+
+    monkeypatch.setattr(g.gst, "requirements", lambda loai: ([], g.gst.load_checklist_cached(loai), {}))
+    monkeypatch.setattr(g, "hien_thi_luc", lambda engine, as_of: frozenset())
+    monkeypatch.setattr(g.gst, "can_cu_van_ban_co_id", lambda e, d_, a: CAN_CU)
+    for loai in KEM_THEO:
+        ng = g._nap_khuon_mau(None, {"soan_thao_goi_y": {"loai": loai}})["khuon_mau_ngu_canh"]
+        assert ng["can_cu"] == CAN_CU and ng["ban_hanh"] is True, loai
+    ng = g._nap_khuon_mau(None, {"soan_thao_goi_y": {"loai": "quyet_dinh_bo_nhiem"}})["khuon_mau_ngu_canh"]
+    assert ng["ban_hanh"] is False
 
 
 # ── 5. Bố cục từng mẫu ───────────────────────────────────────────────────────
@@ -294,14 +409,15 @@ def test_quyet_dinh_theo_mau_1_1_1_2(loai):
 
 
 def test_dau_ket_sau_cho_trong_cuoi_cau_dien_xong_van_dung():
-    """ "……./." thì dấu chấm của câu thành một phần chỗ trống: điền xong còn "Giám đốc/."."""
+    """ "……./." thì dấu chấm của câu thành một phần chỗ trống: điền xong còn "Giám đốc/.".
+    U+2060 (`km.NOI`, vô hình) tách chúng: trang in "Giám đốc./."."""
     dieu = [{"key": None, "ten": "Bổ nhiệm", "doan": [f"Bổ nhiệm ông (bà) Trần Văn Bình giữ chức vụ {C}."]}]
     docx, _ = km.dung_docx(_spec("quyet_dinh_bo_nhiem", dieu=dieu))
     dv = _don_vi(docx)
     d = next(x for x in dv if x["noi_dung"].startswith("Điều 1."))
     ban, _ = ap_dung_docx(docx, dv, [{"loai": "dien", "don_vi": d["chi_so"], "cho_trong": 0, "gia_tri": "Giám đốc"}])
     chu = [x.noi_dung for x in doc("k.docx", ban).don_vi]
-    assert "Điều 1. Bổ nhiệm ông (bà) Trần Văn Bình giữ chức vụ Giám đốc ./." in chu
+    assert f"Điều 1. Bổ nhiệm ông (bà) Trần Văn Bình giữ chức vụ Giám đốc{km.NOI}./." in chu
 
 
 def test_trich_yeu_mo_hinh_lap_chu_tinh_cua_mau_khong_lap_tren_trang():
@@ -329,9 +445,12 @@ def test_quy_che_noi_quy_la_quyet_dinh_ban_hanh_roi_van_ban_kem_theo(loai):
     entry = km.nap(loai)
     docx, _ = km.dung_docx(_spec(loai))
     than = _doan_than(docx)
-    ngat = next(
-        i for i, (t, _, e) in enumerate(than) if t == "p" and e.find(f".//{_W}br[@{_W}type='page']") is not None
-    )
+    # Văn bản kèm theo là PHÂN ĐOẠN mới: sang trang, số trang đếm lại từ 1, trang đầu không
+    # số (Phụ lục I, Phần I mục 7; Phần III mục 1.đ).
+    ngat = next(i for i, (t, _, e) in enumerate(than) if t == "p" and e.find(f"{_W}pPr/{_W}sectPr") is not None)
+    sect = _goc(docx).find(f"{_W}body/{_W}sectPr")
+    assert sect.find(f"{_W}pgNumType").get(f"{_W}start") == "1" and sect.find(f"{_W}titlePg") is not None
+    assert than[ngat][2].find(f"{_W}pPr/{_W}sectPr/{_W}titlePg") is not None
     truoc, sau = than[:ngat], than[ngat + 1 :]
     chu_truoc = [c for _, c, _ in truoc]
     assert "QUYẾT ĐỊNH" in chu_truoc and "QUYẾT ĐỊNH:" in chu_truoc
@@ -351,8 +470,64 @@ def test_quy_che_noi_quy_la_quyet_dinh_ban_hanh_roi_van_ban_kem_theo(loai):
 def test_ten_van_ban_mang_trich_yeu_quy_che():
     chu = [c for _, c, _ in _doan_than(km.dung_docx(_spec("quy_che_noi_bo", trich_yeu="Quản lý tài sản"))[0])]
     assert "Ban hành Quy chế quản lý tài sản" in chu
-    assert "Điều 1. Ban hành kèm theo Quyết định này Quy chế quản lý tài sản" in chu
+    assert "Điều 1. Ban hành kèm theo Quyết định này Quy chế quản lý tài sản." in chu
     assert chu.count("Quản lý tài sản") == 1, "trích yếu dưới tên loại QUY CHẾ ở văn bản kèm theo"
+
+
+@pytest.mark.parametrize("loai", sorted(HANH_CHINH))
+def test_doan_cuoi_than_di_cung_trang_voi_khoi_ky(loai):
+    """Trang ký không bao giờ chỉ có Nơi nhận và chữ ký (owner: "chuẩn chỗ kí"): đoạn
+    ngay trước khối ký giữ cùng trang với nó và không tách dòng; đoạn cách giữ với hàng
+    ký, hàng ký không tách (trang thật: `test_khuon_mau_hanh_chinh_trang.py`)."""
+    than = [e for _, _, e in _doan_than(km.dung_docx(_spec(loai))[0])]
+    i = next(i for i, e in enumerate(than) if e.tag == f"{_W}tbl" and "(Chữ ký" in _chu(e))
+    cach, cuoi = than[i - 1], than[i - 2]
+    assert _chu(cach) == "" and cach.find(f"{_W}pPr/{_W}keepNext") is not None
+    assert _chu(cuoi), "đoạn cuối thân có chữ"
+    ppr = cuoi.find(f"{_W}pPr")
+    assert [c.tag for c in ppr][:2] == [f"{_W}keepNext", f"{_W}keepLines"], "thứ tự CT_PPr"
+    assert than[i].find(f"{_W}tr/{_W}trPr/{_W}cantSplit") is not None
+
+
+def test_bien_ban_ghi_ho_ten_thanh_vien_theo_ldn_158_d_g():
+    """LDN 2020 Đ158.1.d (họ tên từng thành viên dự họp, cách thức dự họp; thành viên vắng
+    và lý do) và điểm g (NHỮNG THÀNH VIÊN tán thành, không tán thành, không có ý kiến):
+    quy tắc 8 của prompt cấm danh tính trong chữ điều khoản, nên họ tên phải có chỗ trống
+    CỦA KHUNG — một giá trị người dùng nói (`gia_tri`, ben `van_ban`) điền vào đó."""
+    from src.services import ban_thao
+
+    entry = km.nap("bien_ban_hop_hdqt")
+    assert "thanh_vien_du_hop" in entry["muc_khung"]
+    docx, ban_do = km.dung_docx(_spec("bien_ban_hop_hdqt"))
+    truong = ("thanh_vien_du_hop", "thanh_vien_vang", "tan_thanh", "khong_tan_thanh", "khong_y_kien")
+    co = {k for ds in ban_do.values() for k in ds if k}
+    assert {("van_ban", t) for t in truong} <= co
+    dv = _don_vi(docx)
+    o = ban_thao.o_truong(dv, ban_do)
+    gt = {("van_ban", "thanh_vien_du_hop"): "Ông Lê Minh (trực tiếp), bà Phạm Hoa (trực tuyến)"}
+    ban, _ = ap_dung_docx(docx, dv, ban_thao._gia_tri_o(o, ban_thao.phep_tu_gia_tri(o, gt)))
+    chu = [x.noi_dung for x in doc("k.docx", ban).don_vi]
+    assert "Thành viên dự họp và cách thức dự họp: Ông Lê Minh (trực tiếp), bà Phạm Hoa (trực tuyến)" in chu
+    i = _thu_tu(chu, "Thành viên biểu quyết tán thành")[0]
+    assert _thu_tu(chu, "Nội dung (theo diễn biến cuộc họp)")[0] < i < _thu_tu(chu, "Cuộc họp kết thúc vào")[0]
+
+
+def test_tom_tat_quyet_dinh_ban_hanh_gan_nhan_hai_phan():
+    """ "Bản thảo đang có" của tệp hai phần: Điều 1–3 của quyết định ban hành là khung (dòng
+    "- Điều n.", không phải tiêu đề "## Điều n."), số Điều sửa được là của văn bản kèm
+    theo — lượt "sửa Điều 2" không đè nhầm điều của quy chế."""
+    from src.agents.nodes.hieu_tai_lieu import ten_dieu_cua
+    from src.services import ban_thao
+
+    khung = {"loai": "quy_che_noi_bo", "tieu_de": "QUY CHẾ", "trich_yeu": "Quản lý tài sản", "can_cu": CAN_CU}
+    clauses = [{"ten": "Phạm vi", "doan": ["Quy chế này quy định việc quản lý tài sản."]}, {"ten": "Nguyên tắc"}]
+    s = ban_thao.tom_tat_khuon_mau(khung, clauses, None)
+    assert "- Điều 2. Quyết định này có hiệu lực kể từ ngày ……." in s
+    assert "- Điều 1. Ban hành kèm theo Quyết định này Quy chế quản lý tài sản." in s
+    assert ten_dieu_cua(s) == ["Phạm vi", "Nguyên tắc"]
+    assert s.index("khung của mẫu") < s.index("## Điều 1. Phạm vi")
+    assert ban_thao.can_cu_tu_document(s) == [x["dong"] for x in CAN_CU]
+    assert "khung của mẫu" not in ban_thao.tom_tat_khuon_mau({**khung, "loai": "quyet_dinh_bo_nhiem"}, clauses, None)
 
 
 def test_bien_ban_theo_mau_1_9():

@@ -52,6 +52,11 @@ TIEU_NGU = "Độc lập - Tự do - Hạnh phúc"
 # Chỗ trống DUY NHẤT bộ dựng viết giữa dòng (thiết kế §1): hai U+2026, đủ cho
 # `RE_CHO_DIEN`; mọi dãy chấm khác đã bị chuẩn hoá trước khi tới đây (§6).
 CHO = "……"
+# U+2060 WORD JOINER giữa "……" và dấu "." ngay sau nó: bộ đọc gộp mọi dãy `.`/`…` liền
+# nhau thành MỘT chỗ trống ("……." — đúng với biểu mẫu tải lên, xem `_day_cham`), nên
+# không có ký tự này thì dấu chấm hết câu mất khi điền ("Theo đề nghị của Trưởng phòng",
+# "Lưu: VT, HCNS" thiếu "." Phụ lục I đòi). Vô hình, cấm ngắt dòng trước dấu chấm.
+NOI = "\u2060"
 
 # Ngân sách chữ điều khoản của một bản thảo (§6), ĐO trên bản dựng thật (2026-09-29,
 # LibreOffice 26.2, `test_khuon_mau_trang.py`): 25 Điều với đoạn 400 ký tự ra 8 trang
@@ -280,7 +285,7 @@ def khung_tong_quat(bo_cuc: str, ben: list[dict]) -> dict:
             "so": "Số: {}/{}",
             "ngay": "cot_phai",
             "can_cu": True,
-            "noi_nhan": ["{};", "Lưu: {}"],
+            "noi_nhan": ["{};", "Lưu: {}."],
         },
         "ben": [
             {"khoa": "co_quan", "vai": "Cơ quan, tổ chức ban hành", "truong": ["ten_to_chuc"]},
@@ -502,21 +507,26 @@ class _Dung:
         phan = _RE_O.split(mau.replace("{ten_van_ban}", self.ten_van_ban))
         o = [k for k in range(1, len(phan), 2) if phan[k] != "trich_yeu" or not ty]
         moc = []
+        sau_cho = False
         for k, chu in enumerate(phan):
             if k % 2 == 0:
                 if chu:
-                    p.append(_run(chu, b=b, i=i, sz=sz, caps=caps))
+                    p.append(_run(_sau_cho(chu) if sau_cho else chu, b=b, i=i, sz=sz, caps=caps))
                 continue
+            sau_cho = False
             if chu == "trich_yeu" and ty:
                 p.append(_run(_bo_tien_to(ty, phan[k - 1]), b=b, i=i, sz=sz, caps=caps))
                 continue
-            khoa = None if chu in ("", "trich_yeu") else (ben or BEN_VAN_BAN, chu)
+            # Trích yếu chưa có là chỗ trống CỦA VĂN BẢN: mọi bản sao của nó (tên loại,
+            # "Ban hành …", Điều 1 của quyết định ban hành) cùng một trường.
+            khoa = None if not chu else (ben or BEN_VAN_BAN, chu)
             self.o.setdefault(vat, []).append(khoa)
             if tab:
                 p.append(_run_tab(b=b, sz=sz, caps=caps))
                 moc.append(trai + (self.rong - trai) * (o.index(k) + 1) // len(o))
             else:
                 p.append(_run(CHO, b=b, i=i, sz=sz, caps=caps))
+                sau_cho = True
         if moc:
             ppr = p.find(_W + "pPr")
             tabs = _e("tabs")
@@ -614,8 +624,11 @@ class _Dung:
                 vv = tt["vv"] if isinstance(tt["vv"], str) else "V/v {trich_yeu}"
                 self.dong_mau(p, vv, o_trai, None, sz=_CO["vv"])
             if tt.get("ngay") == "cot_phai":
+                # Ngày ban hành là trường của văn bản: "(Kèm theo Quyết định số … ngày …)" của
+                # văn bản kèm theo lặp lại nó. Một ngày đủ ("25/9/2026") tách ra ba chỗ trống
+                # ngày, tháng, năm ở phép kiểm (`hieu_tai_lieu._tach_ngay`).
                 p = self.doan(o_phai, can="center", truoc=120)
-                self.dong_mau(p, "{}, ngày {} tháng {} năm {}", o_phai, None, i=True)
+                self.dong_mau(p, "{}, ngày {ngay_ban_hanh} tháng {} năm {}", o_phai, None, i=True)
             else:
                 self.doan(o_phai, can="center")
         if not tt.get("vv"):
@@ -671,9 +684,9 @@ class _Dung:
                 if k < len(kho):
                     p.append(_run(dong, i=True))
                 else:
-                    # "……" giữa dòng: điền xong không còn dẫn chấm thừa. `{dong, tab}`: chỗ
-                    # trống cuối dòng trước dấu "." — "……." thì dấu chấm thành một phần
-                    # của chỗ trống và mất khi điền, nên dùng dẫn chấm tới lề.
+                    # "……" giữa dòng: điền xong không còn dẫn chấm thừa, và dấu "." hết
+                    # khối căn cứ ngay sau nó còn nguyên (`NOI`). `{dong, tab}`: chỗ trống
+                    # cuối dòng là dẫn chấm tới lề.
                     mau, tab = (dong["dong"], True) if isinstance(dong, dict) else (dong, False)
                     self.dong_mau(p, mau, p, None, tab=tab, i=True)
         if tt.get("lenh"):
@@ -824,7 +837,7 @@ class _Dung:
                 p.append(_run(CHO))
                 self.o.setdefault(p, []).append(None)
             if manh:
-                p.append(_run(manh))
+                p.append(_run(_sau_cho(manh) if k else manh))
 
     def ket_thuc(self) -> Any:
         mau = (self.spec.get("the_thuc") or {}).get("ket_thuc")
@@ -837,6 +850,7 @@ class _Dung:
 
     def cuoi_ngay(self) -> None:
         if (self.spec.get("the_thuc") or {}).get("ngay") == "cuoi":
+            _giu_voi_sau(self.body[-1])
             p = self.doan(self.body, can="right", truoc=240)
             self.dong_mau(p, "{}, ngày {} tháng {} năm {}", p, None, i=True)
 
@@ -850,6 +864,9 @@ class _Dung:
         nn_cot = None if tt.get("noi_nhan_duoi") else noi_nhan
         if not nguoi and not noi_nhan:
             return
+        # Đoạn cuối thân đi cùng trang với khối ký (đoạn cách `keepNext`, hàng ký
+        # `cantSplit`): không bao giờ một trang chỉ có Nơi nhận và chữ ký.
+        _giu_voi_sau(self.body[-1])
         # Khoảng trắng tách thân khỏi khối ký: một đoạn rỗng, không phải đơn vị.
         self.doan(self.body, sau=0, giu_sau=True)
         if nguoi:
@@ -918,17 +935,21 @@ class _Dung:
     # ─── đóng gói ───────────────────────────────────────────────────────
 
     def dung(self) -> tuple[bytes, dict]:
-        if bh := self.spec.get("ban_hanh"):
+        bh = self.spec.get("ban_hanh")
+        if bh:
             # Mẫu 1.3 NĐ 30/2020: QUYẾT ĐỊNH ban hành (căn cứ, khối ký, nơi nhận) ở trang
-            # đầu, rồi sang trang mới là văn bản kèm theo mang điều khoản của lượt.
+            # đầu, rồi văn bản kèm theo mang điều khoản của lượt. Văn bản kèm theo là một
+            # văn bản riêng (tên loại, dòng "(Kèm theo …)" riêng): nó mở một PHÂN ĐOẠN mới
+            # sang trang, số trang đếm lại từ 1, trang đầu không hiện số (Phụ lục I, Phần
+            # I mục 7; phụ lục "được đánh số riêng", Phần III mục 1.đ).
             chinh = self.spec
             self.spec = {**chinh, **bh, "trich_yeu": chinh.get("trich_yeu"), "dieu": [], "ban_hanh": None}
             self._van_ban()
             p = self.body[-1] if self.body[-1].tag == _W + "p" else self.doan(self.body, sz=2)
-            _con(_con(p, "r"), "br", type="page")
+            p.find(_W + "pPr").append(self._sect())
             self.spec = {**chinh, "can_cu": []}
         self._van_ban()
-        self._sect()
+        self.body.append(self._sect(danh_lai=bool(bh)))
         return _dong_goi(self.body), self._ban_do()
 
     def _van_ban(self) -> None:
@@ -945,14 +966,21 @@ class _Dung:
         self.cuoi_ngay()
         self.khoi_ky()
 
-    def _sect(self) -> None:
-        s = _con(self.body, "sectPr")
+    def _sect(self, *, danh_lai: bool = False) -> Any:
+        """`w:sectPr` (thứ tự con theo CT_SectPr): A4, lề, số trang ở lề trên trừ trang
+        đầu (`titlePg`). `danh_lai`: phân đoạn sang trang mới, số trang đếm lại từ 1."""
+        s = _e("sectPr")
         ref = _con(s, "headerReference", type="default")
         ref.set(f"{{{_R_NS}}}id", "rIdKlawH1")
+        if danh_lai:
+            _con(s, "type", val="nextPage")
         _con(s, "pgSz", w=_A4[0], h=_A4[1])
         tren, duoi, trai, phai = self.le
         _con(s, "pgMar", top=tren, right=phai, bottom=duoi, left=trai, header=567, footer=567, gutter=0)
+        if danh_lai:
+            _con(s, "pgNumType", start=1)
         _con(s, "titlePg")
+        return s
 
     def _ban_do(self) -> dict[tuple[str, tuple[int, ...]], list]:
         """Vật chứa → `(part, chi_muc)` đúng như bộ đọc ghim: chỉ số con PHẦN TỬ ở mỗi
@@ -1003,6 +1031,25 @@ def _voi_loai(mau: str, tieu_de: str) -> str:
     return ra[:1].upper() + ra[1:]
 
 
+def _sau_cho(chu: str) -> str:
+    """Chữ tĩnh đứng NGAY sau một "……": dấu "." mở đầu nó cách chỗ trống bằng `NOI`."""
+    return NOI + chu if chu.startswith(".") else chu
+
+
+def _giu_voi_sau(p: Any) -> None:
+    """Đoạn `p` (khi là `w:p`) đi cùng trang với đoạn sau và không tách dòng —
+    `keepNext`, `keepLines` ở đầu `w:pPr` (bộ dựng không dùng `pStyle`)."""
+    if p.tag != _W + "p":
+        return
+    ppr = p.find(_W + "pPr")
+    k = ppr.find(_W + "keepNext")
+    if k is None:
+        k = _e("keepNext")
+        ppr.insert(0, k)
+    if ppr.find(_W + "keepLines") is None:
+        k.addnext(_e("keepLines"))
+
+
 def _ket_bang_dau(p: Any) -> None:
     """ "./." sau đoạn cuối thân văn bản hành chính (mẫu Phụ lục III)."""
     runs = p.findall(_W + "r")
@@ -1011,11 +1058,11 @@ def _ket_bang_dau(p: Any) -> None:
         p.append(_run("./."))
         return
     s = (t.text or "").rstrip()
-    if _chu_doan(p).rstrip().rstrip(".").endswith(CHO):
-        # Đoạn kết bằng chỗ trống (có thể kèm dấu chấm của câu, "giữ chức vụ ……."): dấu
-        # cách tách "./." khỏi chỗ trống — dính vào thì dấu chấm thành một phần của dãy
-        # chấm, và điền xong trang còn "Giám đốc/.".
-        s = s.rstrip(".").rstrip() + " ./."
+    if _chu_doan(p).rstrip().rstrip(".").rstrip(NOI).endswith(CHO):
+        # Đoạn kết bằng chỗ trống (có thể kèm dấu chấm của câu, "giữ chức vụ ……."): `NOI`
+        # tách "./." khỏi chỗ trống — dính vào thì dấu chấm thành một phần của dãy chấm,
+        # và điền xong trang còn "Giám đốc/.".
+        s = s.rstrip(".").rstrip(NOI) + NOI + "./."
     else:
         s = s[:-1] + "./." if s.endswith(".") else s + "./."
     t.text = s
@@ -1105,6 +1152,19 @@ def dung_docx(spec: dict) -> tuple[bytes, dict[tuple[str, tuple[int, ...]], list
     `can_cu: [{dong, doc_id}]`, `dieu: [{key, ten, doan, can_cu}]`) → `(docx, ban_do)`.
     Thuần: cùng `spec` ra cùng bytes."""
     return _Dung(spec).dung()
+
+
+def dieu_khung(entry: dict, *, tieu_de: str | None, trich_yeu: str | None) -> list[str]:
+    """Chữ các Điều của quyết định BAN HÀNH (`ban_hanh.than`, Mẫu 1.3) như trang in,
+    chỗ trống là "……" — khung của mẫu, không phải điều khoản. `[]` khi mục không có
+    quyết định ban hành."""
+    bh = entry.get("ban_hanh") or {}
+    ten = _ten_van_ban(spec_tu(entry, tieu_de=tieu_de, trich_yeu=trich_yeu, can_cu=[], dieu=[]))
+    return [
+        (m.get("dau") or "") + _RE_O.sub(CHO, m["dong"].replace("{ten_van_ban}", ten))
+        for m in bh.get("than") or []
+        if "dong" in m
+    ]
 
 
 def spec_tu(entry: dict, *, tieu_de: str | None, trich_yeu: str | None, can_cu: list[dict], dieu: list[dict]) -> dict:

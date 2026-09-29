@@ -453,6 +453,9 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
         khoa_than=khoa_than,
         co_dieu=any("dieu" in m for m in entry["than"]),
         co_trich_yeu=bool(entry["the_thuc"].get("vv")) or entry["bo_cuc"] == "hanh_chinh",
+        # Quyết định ban hành + văn bản kèm theo (Mẫu 1.3): Điều 1–3 của quyết định là
+        # khung; số Điều của lượt sửa là số Điều của văn bản kèm theo.
+        ban_hanh=bool(entry.get("ban_hanh")),
     )
     muc = [{"key": m["muc"], "ten": m.get("nhan") or m["muc"], "trich": ""} for m in entry["than"] if "muc" in m]
     if loai in gst.cac_loai():
@@ -474,7 +477,8 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
                 ten_muc[m["key"]].update(trich=trich, can_cu=cc)
             elif not khoa_than or ng["co_dieu"]:
                 muc.append({"key": m["key"], "ten": m["ten"], "trich": trich, "can_cu": cc})
-        if entry["the_thuc"].get("can_cu"):
+        # Khối căn cứ của văn bản kèm theo nằm ở quyết định ban hành của nó.
+        if (entry.get("ban_hanh") or entry)["the_thuc"].get("can_cu"):
             ng["can_cu"] = gst.can_cu_van_ban_co_id(engine, hien, as_of)
     ng["muc"] = muc
     ng["khoa"] = sorted({m["key"] for m in muc})

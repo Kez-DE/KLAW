@@ -23,7 +23,7 @@ the_thuc:
   co_quan: true
   so: null
   ngay: khong
-  kem_theo: "(Kèm theo Quyết định số {}/QĐ-{} ngày {} tháng {} năm {} của {})"
+  kem_theo: "(Kèm theo Quyết định số {so_van_ban}/QĐ-{viet_tat_co_quan} ngày {ngay_ban_hanh} tháng {} năm {} của {tham_quyen})"
   can_cu: false
   noi_nhan: null
   ket_thuc: null
@@ -36,17 +36,17 @@ ky: {}
 ban_hanh:
   tieu_de: QUYẾT ĐỊNH
   the_thuc:
-    so: "Số: {}/QĐ-{}"
+    so: "Số: {so_van_ban}/QĐ-{viet_tat_co_quan}"
     ngay: cot_phai
     trich_yeu: "Ban hành {ten_van_ban}"
     tham_quyen: "{tham_quyen}"
     can_cu: true
-    can_cu_them: ["Căn cứ {};", "Theo đề nghị của {}"]
+    can_cu_them: ["Căn cứ {};", "Theo đề nghị của {}."]
     lenh: "QUYẾT ĐỊNH:"
-    noi_nhan: ["Như Điều 3;", "{};", "Lưu: VT, {}"]
+    noi_nhan: ["Như Điều 3;", "{};", "Lưu: VT, {}."]
   than:
     - {dong: "Ban hành kèm theo Quyết định này {ten_van_ban}.", dau: "Điều 1. "}
-    - {dong: "Quyết định này có hiệu lực kể từ ngày{}.", dau: "Điều 2. ", tab: true}
+    - {dong: "Quyết định này có hiệu lực kể từ ngày {ngay_hieu_luc}.", dau: "Điều 2. "}
     - {dong: "{} chịu trách nhiệm thi hành Quyết định này./.", dau: "Điều 3. "}
   ky:
     thu_tu: [nguoi_ky]

@@ -62,3 +62,13 @@ def test_can_cu_cua_moi_dieu_khoan_mo_duoc(loai):
     khung = km.khoa_khung(km.nap(loai))
     thieu = [m["key"] for m in cl.muc if m["key"] not in khung and m["can_cu"] not in co]
     assert thieu == [], f"mục có căn cứ không mở được: {thieu}"
+
+
+@pytest.mark.parametrize(
+    "loai", [lo for lo in LOAI if (km.nap(lo).get("ban_hanh") or km.nap(lo))["the_thuc"].get("lenh")]
+)
+def test_moi_quyet_dinh_nghi_quyet_co_it_nhat_mot_dong_can_cu_luat(loai):
+    """Quyết định 2026-09-29 mục 7: căn cứ lấy từ kho, đủ số, ngày, cơ quan. Quyết định hay
+    nghị quyết ("QUYẾT ĐỊNH:"/"QUYẾT NGHỊ:") ra đời không dòng luật nào là thiếu căn cứ."""
+    _, _, dong, _ = _kho(loai)
+    assert dong, loai

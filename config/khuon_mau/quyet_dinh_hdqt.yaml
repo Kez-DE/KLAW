@@ -25,11 +25,10 @@ the_thuc:
   trich_yeu: "{trich_yeu}"
   tham_quyen: "HỘI ĐỒNG QUẢN TRỊ"
   can_cu: true
-  # Dòng cuối căn cứ kết bằng "." (Phụ lục I): chỗ trống cuối dòng là dẫn chấm, không
-  # để dấu chấm dính vào "……".
-  can_cu_them: ["Căn cứ Điều lệ Công ty;", {dong: "Căn cứ Biên bản họp Hội đồng quản trị{}.", tab: true}]
+  # Dòng cuối căn cứ kết bằng "." (Phụ lục I, Công báo 283+284 tr. 25).
+  can_cu_them: ["Căn cứ Điều lệ Công ty;", "Căn cứ Biên bản họp Hội đồng quản trị {}."]
   lenh: "QUYẾT NGHỊ:"
-  noi_nhan: ["Như Điều {};", "{};", "Lưu: VT, {}"]
+  noi_nhan: ["Như Điều {};", "{};", "Lưu: VT, {}."]
   ket_thuc: null
 ben:
   - {khoa: co_quan, vai: "Công ty", truong: [ten_to_chuc]}
