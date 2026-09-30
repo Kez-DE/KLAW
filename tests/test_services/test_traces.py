@@ -8,6 +8,9 @@ monkeypatch (`test_ghi_traces_khong_chan_event_loop`,
 `st` đầy đủ của graph, không phải logic thuần.
 """
 
+from contextlib import nullcontext
+
+from src.services import traces as tr
 from src.services.traces import _tong_hop_traces
 
 
@@ -81,3 +84,36 @@ def test_tong_hop_traces_thay_lan_goi_LLM_cua_hieu_tai_lieu():
     assert tong["token_in"] == 900
     assert tong["token_out"] == 90
     assert abs(tong["cost_usd"] - 0.009) < 1e-9
+
+
+def test_ghi_traces_ghi_co_dinh_tuyen_va_khia_canh(monkeypatch):
+    """Migration 042 (decision 2026-09-30 item 8): the route guards and the meta
+    facets reach their columns; a turn that never routed writes NULL."""
+    ghi: list[dict] = []
+
+    class Conn:
+        def execute(self, sql, params):
+            ghi.append(params)
+
+    class Engine:
+        def begin(self):
+            return nullcontext(Conn())
+
+    monkeypatch.setattr(tr, "get_engine", lambda: Engine())
+    tr._ghi_traces(
+        "t",
+        "/api/v1/tra-cuu",
+        "bạn là ai",
+        "c",
+        {
+            "result_type": "gioi_thieu",
+            "traces": {"route_ep_meta": True, "route_ep_luat": False, "gioi_thieu_khia_canh": ["danh_tinh"]},
+        },
+        1,
+    )
+    assert ghi[0]["route_ep_meta"] is True and ghi[0]["route_ep_luat"] is False
+    assert ghi[0]["gioi_thieu_khia_canh"] == ["danh_tinh"]
+    tr._ghi_traces("t2", "/api/v1/soat", "x", "c", {"traces": {}}, 1)
+    assert ghi[1]["route_ep_meta"] is None and ghi[1]["gioi_thieu_khia_canh"] is None
+    for cot in ("route_ep_meta", "route_ep_luat", "gioi_thieu_khia_canh"):
+        assert f":{cot}" in str(tr._SQL_INSERT_TRACE)

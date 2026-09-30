@@ -133,11 +133,12 @@ def _tong_hop_traces(traces: dict) -> dict:
 _SQL_INSERT_TRACE = text(
     "INSERT INTO traces (id, endpoint, query, config_name, result_type, retrieved_ids,"
     " claims_raw, claims_after_tier1, claims_after_tier2, latency_ms, token_in, token_out,"
-    " cost_usd, generate_model, judge_model, expand_before, expand_after, cache_hit, user_sub)"
+    " cost_usd, generate_model, judge_model, expand_before, expand_after, cache_hit, user_sub,"
+    " route_ep_meta, route_ep_luat, gioi_thieu_khia_canh)"
     " VALUES (:id, :endpoint, :query, :config_name, :result_type, :retrieved_ids,"
     " :claims_raw, :claims_after_tier1, :claims_after_tier2, :latency_ms, :token_in, :token_out,"
     " :cost_usd, :generate_model, :judge_model, :expand_before, :expand_after, :cache_hit,"
-    " :user_sub)"
+    " :user_sub, :route_ep_meta, :route_ep_luat, :gioi_thieu_khia_canh)"
 )
 
 
@@ -177,6 +178,11 @@ def _ghi_traces(
         "latency_ms": latency_ms,
         "cache_hit": cache_hit,
         "user_sub": user_sub,
+        # Migration 042 (decision 2026-09-30 item 8): the route guards and the
+        # meta facets, NULL when the turn never reached them.
+        "route_ep_meta": traces.get("route_ep_meta"),
+        "route_ep_luat": traces.get("route_ep_luat"),
+        "gioi_thieu_khia_canh": traces.get("gioi_thieu_khia_canh"),
         **_tong_hop_traces(traces),
     }
     with get_engine().begin() as c:
