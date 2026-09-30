@@ -380,14 +380,21 @@ def muc_than(entry: dict) -> set[str]:
     return {m["muc"] for m in entry.get("than") or [] if "muc" in m}
 
 
-def them_dieu_bat_buoc(dieu: list[dict], loai: str | None, *, tao: bool = True) -> tuple[list[dict], dict]:
+def them_dieu_bat_buoc(
+    dieu: list[dict], loai: str | None, *, tao: bool = True, mau: dict[str, str] | None = None
+) -> tuple[list[dict], dict]:
     """Điều khoản luật đòi mà danh sách còn thiếu (§6 bước 7) — `check_completeness`
     trên khoá của `dieu` cộng khoá khung đã có, cùng `khong_bat_buoc` với
     `draft_audit`. Lúc TẠO, mỗi mục thiếu được chèn đúng vị trí checklist là một Điều
-    tên mục với MỘT đoạn "……": bản thảo luôn đủ điều luật đòi, để trống chứ không bịa.
-    Lúc SỬA không chèn gì — mục thiếu là một phát hiện. `loai` không checklist: `muc`
-    của chính mục registry (mục `bat_buoc: false` không đòi); không có thì không đòi
-    gì. Trả `(dieu, {thieu, completeness})`."""
+    tên mục. Điều của HỢP ĐỒNG không bao giờ trống (app thật 2026-09-30: Điều 5 "Giao tài
+    sản thuê" in một "……" trơn): đoạn là `mau[khoá]` — nội dung chuẩn lấy nguyên văn từ
+    căn cứ của mục (`graph_tra_cuu._nap_khuon_mau`) — hay, không có, một câu trung tính để
+    các bên điền; không bịa giá trị, không dẫn số điều luật. Đơn và văn bản hành chính
+    giữ MỘT đoạn "……": đó là chỗ điền của chính mẫu (danh mục tài liệu "1. 2. 3.", nội
+    dung quyết định), không có "các bên" nào thỏa thuận. Lúc SỬA không chèn gì — mục
+    thiếu là một phát hiện. `loai` không checklist: `muc` của chính mục registry (mục
+    `bat_buoc: false` không đòi); không có thì không đòi gì. Trả `(dieu, {thieu,
+    completeness})`."""
     from src.agents.graph_soan_thao import cac_loai as cac_checklist
     from src.agents.graph_soan_thao import load_checklist_cached
     from src.services.checklist import check_completeness
@@ -411,7 +418,13 @@ def them_dieu_bat_buoc(dieu: list[dict], loai: str | None, *, tao: bool = True) 
     ten = {m["key"]: m["ten"] for m in muc}
     ra = list(dieu)
     for k in thieu:
-        moi = {"key": k, "ten": ten.get(k, k), "doan": [CHO], "can_cu": None, "chen": True}
+        t = ten.get(k, k)
+        doan = (
+            ((mau or {}).get(k) or f"Các bên thỏa thuận về {t[:1].lower()}{t[1:]} như sau: {CHO}")
+            if entry.get("bo_cuc") == "hop_dong"
+            else CHO
+        )
+        moi = {"key": k, "ten": t, "doan": [doan], "can_cu": None, "chen": True}
         # Chèn trước điều đầu tiên có vị trí checklist SAU mục này; không có thì cuối.
         vt = thu_tu.index(k) if k in thu_tu else len(thu_tu)
         i = next(

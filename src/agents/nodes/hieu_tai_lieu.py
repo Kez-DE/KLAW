@@ -3924,12 +3924,18 @@ def _chu_giu(i: int) -> str:
     return f"KLAWGIU{s}Q"
 
 
-def _luoi_doan(chu: str, nguon: str, cam: list[str]) -> tuple[str | None, int]:
+# Ranh giới câu (và vế sau ";") của một đoạn điều khoản: đơn vị nhỏ nhất lưới chặn bỏ.
+_RE_CAU = re.compile(r"(?<=[.;!?])\s+")
+
+
+def _luoi_doan(chu: str, nguon: str, cam: list[str]) -> tuple[str | None, int, int]:
     """MỘT đoạn qua hai lưới (§6 bước 5): lưới chặn (`_vuong_luoi_chan` — số điều luật,
-    số hiệu văn bản, dấu vết định danh) BỎ cả đoạn; lưới giá trị (`lam_sach_van_ban`,
-    đoạn là một mục của chính nó) đổi mỗi giá trị không nguồn thành "……". "khoản n
-    Điều này" (dẫn chiếu trong CHÍNH điều) được che trước cả hai lưới rồi trả lại.
-    Trả `(đoạn | None, số giá trị đã thay)`."""
+    số hiệu văn bản, dấu vết định danh) BỎ từng CÂU (vế sau ";") vướng nó, giữ phần còn
+    lại của đoạn (app thật 2026-09-30: một câu dẫn "Điều 476 Bộ luật Dân sự" làm mất cả
+    điều giao tài sản thuê); lưới giá trị (`lam_sach_van_ban`, đoạn là một mục của chính
+    nó) đổi mỗi giá trị không nguồn thành "……". "khoản n Điều này" (dẫn chiếu trong
+    CHÍNH điều) được che trước cả hai lưới rồi trả lại. Trả `(đoạn | None, số giá trị đã
+    thay, số câu đã bỏ)`."""
     giu: list[str] = []
 
     def _che(m: re.Match) -> str:
@@ -3937,18 +3943,26 @@ def _luoi_doan(chu: str, nguon: str, cam: list[str]) -> tuple[str | None, int]:
         return _chu_giu(len(giu) - 1)
 
     an = _RE_DIEU_NAY.sub(_che, chu)
+    bo_cau = 0
     if _vuong_luoi_chan(an):
-        return None, 0
+        cau = [c for c in _RE_CAU.split(an) if c.strip()]
+        con = [c for c in cau if not _vuong_luoi_chan(c)]
+        if not con:
+            return None, 0, 0
+        bo_cau = len(cau) - len(con)
+        an = " ".join(con)
+        if an[-1] in ",;:":
+            an = an[:-1] + "."
     vb, dem = lam_sach_van_ban(
         {"tieu_de": "", "muc": [{"ten": "_", "vung": "than", "khoi": [{"noi_dung": an, "bang": []}]}]}, nguon, None, cam
     )
     khoi = vb["muc"][0]["khoi"] if vb["muc"] else []
     if not khoi:
-        return None, 0
+        return None, 0, 0
     s = _khop_so_chu(khoi[0]["noi_dung"].replace(CHO_TRONG, khuon_mau.CHO), _so_cua(normalize(nguon or "")))
     for i, g in enumerate(giu):
         s = s.replace(_chu_giu(i), g)
-    return khuon_mau.chuan_chu(s)[0], dem["gia_tri_lam_sach"]
+    return khuon_mau.chuan_chu(s)[0], dem["gia_tri_lam_sach"], bo_cau
 
 
 # Số tiền bằng số rồi bằng chữ trong ngoặc: "10.000.000 đồng (Mười triệu đồng)", "……
@@ -4035,12 +4049,15 @@ def _sach_dieu(
         dem["cho_mo_hinh"] += so
         if not x:
             continue
-        sach, so = _luoi_doan(x, nguon, cam)
+        sach, so, bo_cau = _luoi_doan(x, nguon, cam)
         dem["gia_tri_lam_sach"] += so
         if sach is None:
             ghi.append(f"Bỏ 1 đoạn ở Điều {n} vì dẫn số điều luật, số hiệu hay thông tin định danh không kiểm được")
             dem["doan_bo"] += 1
             continue
+        if bo_cau:
+            ghi.append(f"Bỏ phần dẫn số điều luật, số hiệu hay thông tin định danh không kiểm được ở Điều {n}")
+            dem["cau_bo"] += bo_cau
         if len(sach) > khuon_mau.TOI_DA_KY_TU_DOAN:
             sach = sach[: khuon_mau.TOI_DA_KY_TU_DOAN].rsplit(" ", 1)[0].rstrip(",;:") + "."
             ghi.append(f"Cắt bớt một đoạn quá dài ở Điều {n}")
@@ -4102,7 +4119,7 @@ def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu:
         # định) và nêu tên; lưới giá trị để "……" chỗ giá trị không nguồn.
         if not chu:
             return None
-        sach, so = _luoi_doan(chu, nguon, cam)
+        sach, so, _ = _luoi_doan(chu, nguon, cam)
         dem["gia_tri_lam_sach"] += so
         if sach is None:
             ghi.append(f"Bỏ {ten} vì dẫn số điều luật, số hiệu hay thông tin định danh không kiểm được")
@@ -4216,7 +4233,8 @@ def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu:
             dieu = [d for d in dieu if d is not khac[-1]]
     hoan_thanh = {"thieu": [], "completeness": None}
     if dieu is not None and loai:
-        dieu, hoan_thanh = khuon_mau.them_dieu_bat_buoc(dieu, loai, tao=muc_tieu == "ban_moi")
+        mau = {m["key"]: m["mau"] for m in ngu_canh.get("muc") or [] if m.get("mau")}
+        dieu, hoan_thanh = khuon_mau.them_dieu_bat_buoc(dieu, loai, tao=muc_tieu == "ban_moi", mau=mau)
         dieu = [{k: v for k, v in d.items() if k != "chen"} | ({"chen": True} if d.get("chen") else {}) for d in dieu]
     ben_hop_le = {b["khoa"] for b in khung.get("ben") or []} | {khuon_mau.BEN_VAN_BAN}
     gia_tri, khong_cho = [], []

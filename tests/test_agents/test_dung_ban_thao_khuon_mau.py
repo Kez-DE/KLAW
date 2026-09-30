@@ -276,13 +276,18 @@ def test_khuon_mau_co_checklist_moi_dieu_mang_can_cu_mo_duoc(kho):
     ket = _luot(_st("soạn hợp đồng lao động", ng=ng), _LLM(ra))
     cl = kho.bt["bt-1"]["clauses"]
     khoa = [c["key"] for c in cl]
-    # Mọi mục BLLĐ Đ21.1 mà khung chưa có (các bên là khung) đều có mặt; mục thiếu chèn trống.
+    # Mọi mục BLLĐ Đ21.1 mà khung chưa có (các bên là khung) đều có mặt; mục thiếu chèn một
+    # câu trung tính chừa chỗ điền (mục này không mang `mau`) — không bao giờ "……" trơn.
     assert khoa[0] == "cong_viec" and {"thoi_han", "luong", "bao_hiem", "dao_tao"} <= set(khoa)
     assert "nsdld" not in khoa and "nld" not in khoa
     luong = khoa.index("luong") + 1
-    assert cl[0]["can_cu"]["khop_tai_id"] == 7 and cl[luong - 1]["doan"] == [km.CHO]
+    assert cl[0]["can_cu"]["khop_tai_id"] == 7
+    ten = cl[luong - 1]["ten"]
+    assert ten.startswith("Mức lương") and cl[luong - 1]["doan"] == [
+        f"Các bên thỏa thuận về {ten[:1].lower()}{ten[1:]} như sau: {km.CHO}"
+    ]
     assert {c["dieu"] for c in ket["ban_thao"]["khuon"]["can_cu"]} == {1, luong}
-    assert "Điều còn trống vì luật đòi" in ket["answer"]
+    assert "đã đặt nội dung chuẩn để bạn xem lại" in ket["answer"] and "còn trống vì luật đòi" not in ket["answer"]
 
 
 def test_sua_dieu_dung_lai_tep_moi_mang_phep_dien_sang(kho):
@@ -745,3 +750,41 @@ def test_nguoi_hoi_neu_ten_truong_thi_doi_duoc_gia_tri_dang_co(kho):
     ket = _luot(_st(cau, nhe=kho.nhe()), _LLM(ra))
     assert _theo_ben(kho, "ho_ten") == {"ben_a": {"Trần Thị Bình"}, "ben_b": {"Nguyễn Văn An"}}
     assert "Đã điền 4 chỗ trống từ lời bạn nói" in ket["answer"]
+
+
+def test_nap_khuon_mau_noi_dung_chuan_cua_dieu_bat_buoc_la_nghia_vu_luat_dat(monkeypatch):
+    """Nội dung chuẩn (`muc[].mau`) cho một điều luật đòi mà bản soạn để trống: nguyên văn
+    NGHĨA VỤ luật đặt ra ("… phải …") ở căn cứ của mục — Khoản 1 khi dòng Điều chỉ là
+    tiêu đề. Dòng DB thật (2026-09-30): BLDS Điều 476, 473 và Khoản 1 của chúng."""
+    db = {
+        256914: {"id": 256914, "document_id": "95942", "duong_dan": "91/2015/QH13 > Điều 476",
+                 "tieu_de": "Điều 476. Giao tài sản thuê", "noi_dung": "Điều 476. Giao tài sản thuê"},
+        256907: {"id": 256907, "document_id": "95942", "duong_dan": "91/2015/QH13 > Điều 473",
+                 "tieu_de": "Điều 473. Giá thuê", "noi_dung": "Điều 473. Giá thuê"},
+        256906: {"id": 256906, "document_id": "95942", "duong_dan": "91/2015/QH13 > Điều 472",
+                 "tieu_de": "Điều 472. Hợp đồng thuê tài sản", "noi_dung": "Điều 472. Hợp đồng thuê tài sản Hợp đồng"
+                 " thuê tài sản là sự thỏa thuận giữa các bên, theo đó bên cho thuê giao tài sản cho bên thuê để sử"
+                 " dụng trong một thời hạn, bên thuê phải trả tiền thuê."},
+    }  # fmt: skip
+    khoan = {
+        256915: {"id": 256915, "document_id": "95942", "duong_dan": "91/2015/QH13 > Điều 476 > Khoản 1",
+                 "tieu_de": "Khoản 1", "noi_dung": "1. Bên cho thuê phải giao tài sản cho bên thuê đúng số lượng, chất"
+                 " lượng, chủng loại, tình trạng, thời điểm, địa điểm đã thoả thuận và cung cấp thông tin cần thiết"
+                 " về việc sử dụng tài sản đó."},
+        256908: {"id": 256908, "document_id": "95942", "duong_dan": "91/2015/QH13 > Điều 473 > Khoản 1",
+                 "tieu_de": "Khoản 1", "noi_dung": "1. Giá thuê do các bên thoả thuận hoặc do người thứ ba xác định theo"
+                 " yêu cầu của các bên, trừ trường hợp luật có quy định khác."},
+    }  # fmt: skip
+    monkeypatch.setattr(g.gst, "requirements", lambda loai: ([], g.gst.load_checklist_cached(loai), db))
+    monkeypatch.setattr(
+        g.gst, "provisions_theo_duong_dan", lambda dd: {k: r for k, r in khoan.items() if r["duong_dan"] in dd}
+    )
+    monkeypatch.setattr(g, "hien_thi_luc", lambda engine, as_of: frozenset({"95942"}))
+    monkeypatch.setattr(g.gst, "can_cu_khung", lambda *a: [])
+    ng = g._nap_khuon_mau(None, {"soan_thao_goi_y": {"loai": "hop_dong_thue_tai_san"}})["khuon_mau_ngu_canh"]
+    theo = {m["key"]: m for m in ng["muc"]}
+    assert theo["giao_tai_san"]["mau"] == khoan[256915]["noi_dung"][3:]
+    # "Giá thuê do các bên thoả thuận …" không đặt nghĩa vụ: câu trung tính của bộ chèn.
+    assert "mau" not in theo["gia_thue"] and "mau" not in theo["thoi_han_thue"]
+    # Định nghĩa của hợp đồng (Điều 472) có chữ "phải" nhưng không đặt nghĩa vụ cho một bên.
+    assert "mau" not in theo["tai_san_thue"]

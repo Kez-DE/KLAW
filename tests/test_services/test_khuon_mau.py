@@ -242,7 +242,14 @@ def test_them_dieu_bat_buoc_chen_dung_vi_tri_voi_cho_trong_khi_tao():
     assert "nsdld" not in khoa and "nld" not in khoa
     assert khoa.index("cong_viec") < khoa.index("thoi_han") < khoa.index("luong") < khoa.index("nang_luong")
     chen = [d for d in dieu if d.get("chen")]
-    assert {d["key"] for d in chen} == set(kq["thieu"]) and all(d["doan"] == [km.CHO] for d in chen)
+    assert {d["key"] for d in chen} == set(kq["thieu"])
+    # Hợp đồng: điều chèn không bao giờ trống — câu trung tính chừa chỗ điền, hay nội dung
+    # chuẩn (`mau`) khi người gọi có.
+    assert all(
+        d["doan"] == [f"Các bên thỏa thuận về {d['ten'][:1].lower()}{d['ten'][1:]} như sau: {km.CHO}"] for d in chen
+    )
+    co_mau, _ = km.them_dieu_bat_buoc(DIEU, "hdld", mau={"thoi_han": "Hai bên phải thỏa thuận thời hạn."})
+    assert next(d for d in co_mau if d["key"] == "thoi_han")["doan"] == ["Hai bên phải thỏa thuận thời hạn."]
     sua, kq2 = km.them_dieu_bat_buoc(DIEU, "hdld", tao=False)
     assert sua == DIEU and kq2["thieu"] == kq["thieu"]
 

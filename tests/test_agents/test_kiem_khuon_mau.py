@@ -105,11 +105,14 @@ def test_key_la_bi_doc_thanh_null():
     assert "bia" not in khoa and khoa[0] == "cong_viec"
 
 
-def test_tao_chen_muc_bat_buoc_con_thieu_voi_dau_cho():
+def test_tao_chen_muc_bat_buoc_con_thieu_khong_bao_gio_trong():
     kq = _kiem(_ra(dieu=[_dieu("Làm việc tại văn phòng.", ten="Công việc", key="cong_viec")]), NG_HDLD)
     chen = [d for d in kq["dieu"] if d.get("chen")]
     assert {d["key"] for d in chen} >= {"thoi_han", "luong"}
-    assert all(d["doan"] == [km.CHO] for d in chen)
+    # Không mục nào của NG_HDLD mang `mau`: câu trung tính gọi tên mục, chừa chỗ điền.
+    assert all(
+        d["doan"] == [f"Các bên thỏa thuận về {d['ten'][:1].lower()}{d['ten'][1:]} như sau: {km.CHO}"] for d in chen
+    )
 
 
 def test_sua_khong_chen_muc_thieu_chi_la_phat_hien():
@@ -412,3 +415,64 @@ def test_so_tien_bang_so_va_bang_chu_mot_gia_tri(mo_hinh, ra):
 )
 def test_doc_so_bang_chu(chu, so):
     assert h.doc_so_chu(chu) == so
+
+
+# ═══ Điều luật đòi không bao giờ trống (app thật 2026-09-30, bản thảo 91c288d5) ═══
+#
+# Điều 5 "Giao tài sản thuê" in "……": đoạn của mô hình dẫn số điều luật nên lưới chặn
+# bỏ CẢ đoạn, điều không còn gì, và mục bắt buộc được chèn lại với một "……" trơn.
+NG_GIAO = {
+    "loai": "hop_dong_thue_tai_san",
+    "sua": False,
+    "ben": [],
+    "khoa": ["tai_san_thue", "giao_tai_san"],
+    "bat_buoc": ["tai_san_thue", "giao_tai_san"],
+    "can_cu": [],
+    "muc": [
+        {"key": "tai_san_thue", "ten": "Tài sản thuê và mục đích thuê"},
+        {
+            "key": "giao_tai_san",
+            "ten": "Giao tài sản thuê",
+            "mau": "Bên cho thuê phải giao tài sản cho bên thuê đúng số lượng, chất lượng, chủng loại, tình trạng,"
+            " thời điểm, địa điểm đã thoả thuận và cung cấp thông tin cần thiết về việc sử dụng tài sản đó.",
+        },
+    ],
+}
+
+
+def test_dan_so_dieu_luat_chi_bo_cau_do_giu_phan_con_lai_cua_doan():
+    kq = _kiem(
+        _ra(
+            dieu=[
+                _dieu(
+                    "Bên cho thuê giao nhà cho Bên thuê đúng hiện trạng. Việc giao nhận theo Điều 476 Bộ luật Dân sự.",
+                    ten="Giao tài sản thuê",
+                )
+            ]
+        )
+    )
+    assert kq["dieu"][0]["doan"] == ["Bên cho thuê giao nhà cho Bên thuê đúng hiện trạng."]
+    assert any("Điều 1" in g and "Bỏ phần" in g for g in kq["ghi_chu"])
+
+
+def test_dieu_bat_buoc_bi_loc_het_lay_noi_dung_chuan_theo_can_cu():
+    ra = _ra(
+        ben=None,
+        dieu=[
+            _dieu("Bên cho thuê cho thuê căn nhà tại …….", ten="Tài sản thuê", key="tai_san_thue"),
+            _dieu(
+                "Bên cho thuê giao nhà theo quy định tại Điều 476 Bộ luật Dân sự.", ten="Giao nhà", key="giao_tai_san"
+            ),
+        ],
+    )
+    kq = h.kiem_khuon_mau(ra, NG_GIAO, NGUON, [], [])
+    giao = next(d for d in kq["dieu"] if d["key"] == "giao_tai_san")
+    assert giao["doan"] == [NG_GIAO["muc"][1]["mau"]] and giao.get("chen") is True
+    assert "Điều 476" not in " ".join(giao["doan"])
+
+
+def test_dieu_bat_buoc_khong_co_noi_dung_chuan_van_khong_trong():
+    ra = _ra(ben=None, dieu=[_dieu("Bên cho thuê giao nhà đúng hạn.", ten="Giao nhà", key="giao_tai_san")])
+    kq = h.kiem_khuon_mau(ra, NG_GIAO, NGUON, [], [])
+    ts = next(d for d in kq["dieu"] if d["key"] == "tai_san_thue")
+    assert ts["doan"] == [f"Các bên thỏa thuận về tài sản thuê và mục đích thuê như sau: {km.CHO}"]
