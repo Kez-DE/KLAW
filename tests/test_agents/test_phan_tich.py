@@ -20,6 +20,7 @@ from src.agents.nodes.assemble import (
     PHAN_TICH_TIEU_DE,
     ResultType,
     assemble,
+    dung_doi_chieu_them,
     loc_phan_tich,
 )
 from src.agents.nodes.generate_claims import Claim
@@ -92,6 +93,30 @@ NHA_O = {
     "link_chinhphu": None,
 }
 
+# Nghị định có tên nêu đúng luật được trích ("quy định chi tiết … Luật Đất đai") — văn
+# bản câu trả lời CẦN. Kho không có cạnh "hướng dẫn" (`load_incoming_edges` cố ý bỏ),
+# nên tên văn bản là neo duy nhất tới văn bản được trích.
+ND_CHI_TIET = {
+    **NHA_O,
+    "id": 901,
+    "document_id": "169363",
+    "duong_dan": "102/2024/NĐ-CP > Mở đầu",
+    "so_ky_hieu": "102/2024/NĐ-CP",
+    "ten": "Nghị định số 102/2024/NĐ-CP Quy định chi tiết thi hành một số điều của Luật Đất đai",
+    "loai_van_ban": "Nghị định",
+    "link_vbpl": "https://vbpl.vn/van-ban/chi-tiet/169363",
+}
+# Khớp nhiễu của truy hồi: trace b7e7457c (câu thử việc) chạm đúng văn bản này.
+THA_HS = {
+    **NHA_O,
+    "id": 902,
+    "document_id": "187035",
+    "duong_dan": "127/2025/QH15 > Mở đầu",
+    "so_ky_hieu": "127/2025/QH15",
+    "ten": "LUẬT THI HÀNH ÁN HÌNH SỰ SỐ 127/2025/QH15",
+    "link_vbpl": "https://vbpl.vn/van-ban/chi-tiet/187035",
+}
+
 DOAN_SACH = [
     "Chuyện của bạn là tranh chấp đất đai, nên bước đầu tiên là gửi đơn đề nghị Ủy ban nhân dân cấp xã"
     " nơi có đất tổ chức hòa giải, theo Điều 235 Luật Đất đai.",
@@ -134,7 +159,7 @@ def _st(query: str = CAU_NHA_DAT, **kw) -> dict:
         "query": query,
         "abstain_threshold": 0.5,
         "expanded": [DB[235], DB[236], DB[237]],
-        "hits_shallow": [NHA_O],
+        "hits_shallow": [NHA_O, ND_CHI_TIET, THA_HS],
         "tier1": [Tier1Result(c, True, R.ok, EFF) for c in (CLAIM_HOA_GIAI, CLAIM_THAM_QUYEN, CLAIM_BI_BAC)],
         "tier2": [Tier2Verdict(0, True, "ok"), Tier2Verdict(1, True, "ok"), Tier2Verdict(2, False, "không")],
         **kw,
@@ -152,11 +177,13 @@ def test_cau_tranh_chap_nha_dat_co_quy_dinh_trich_dan_phan_tich_va_doi_chieu_the
     assert [c["duong_dan"] for c in st["citations"] if c["k"]] == ["31/2024/QH15 > Điều 235", "31/2024/QH15 > Điều 236"]
     assert st["phan_tich"] == {"tieu_de": PHAN_TICH_TIEU_DE, "doan": DOAN_SACH}
     assert PHAN_TICH_TIEU_DE == "Phân tích cho tình huống của bạn"
+    # Chỉ văn bản có NEO: nghị định nêu tên luật được trích. "nhà đất" không gọi tên
+    # Luật Nhà ở, và luật thi hành án hình sự chỉ là khớp nhiễu của truy hồi.
     assert st["doi_chieu_them"] == [
         {
-            "so_ky_hieu": "27/2023/QH15",
-            "ten_van_ban": "Luật Nhà ở số 27/2023/QH15",
-            "lien_ket": "https://vbpl.vn/van-ban/chi-tiet/169032",
+            "so_ky_hieu": "102/2024/NĐ-CP",
+            "ten_van_ban": ND_CHI_TIET["ten"],
+            "lien_ket": "https://vbpl.vn/van-ban/chi-tiet/169363",
         }
     ]
 
@@ -191,6 +218,13 @@ def test_cau_hoi_dinh_nghia_khong_co_phan_tich_va_khong_goi_them_luot_nao():
         "Công ty tôi muốn sa thải nhân viên đi muộn nhiều lần",
         "em mới đi làm được 2 tháng, nghỉ việc có phải báo trước không",
         "Tôi muốn ly hôn thì cần làm thủ tục gì",
+        # Cách chủ dự án thật sự gõ: không dấu, xưng hô thân mật, viết tắt.
+        "toi dang gap tranh chap nha dat, can nam nhung luat gi",
+        "tui bị công ty nợ lương 2 tháng rồi phải làm sao",
+        "e bị đuổi việc ko báo trước thì có được bồi thường không",
+        "mk bị hàng xóm lấn đất thì kiện ở đâu",
+        "nhà t bị hàng xóm xây lấn sang",
+        "Tớ bị trừ lương vô lý",
     ],
 )
 def test_ke_tinh_huong_nhan_ra_cau_ke_chuyen_cua_chinh_nguoi_hoi(cau):
@@ -204,6 +238,12 @@ def test_ke_tinh_huong_nhan_ra_cau_ke_chuyen_cua_chinh_nguoi_hoi(cau):
         "Cho tôi hỏi thời gian thử việc tối đa là bao lâu?",
         "Tôi muốn biết thủ tục ly hôn gồm những bước nào",
         "Thẩm quyền giải quyết tranh chấp đất đai thuộc cơ quan nào",
+        # Lời nhờ tra và lời cảm ơn không kể chuyện gì — mỗi ca đọc nhầm tốn một lượt gọi.
+        "Bạn giúp tôi tra Điều 235 Luật Đất đai",
+        "Khi Nhà nước thu hồi đất thì người dân được bồi thường gì? Em cảm ơn",
+        "cho toi hoi thoi gian thu viec toi da la bao lau",
+        "Điểm e khoản 1 Điều 36 Bộ luật Lao động quy định gì",
+        "Muốn chứng minh quyền sử dụng đất cần giấy tờ gì",
     ],
 )
 def test_ke_tinh_huong_bo_qua_cau_hoi_chung_va_loi_mo_lich_su(cau):
@@ -249,6 +289,8 @@ CAN_CU = [
     },
 ]
 CHU_CAN_CU = " ".join(c["quote"] for c in CAN_CU)
+# Lời người hỏi mang một tiền đề sai: dữ kiện của họ, không phải căn cứ.
+CHU_NGUOI_HOI = "tôi nghe nói phải khởi kiện trong 15 ngày, có đúng không"
 
 
 @pytest.mark.parametrize(
@@ -262,10 +304,32 @@ CHU_CAN_CU = " ".join(c["quote"] for c in CAN_CU)
         ("Theo Điều 236, bạn chắc chắn thắng kiện.", "phan_quyet:chắc chắn thắng"),
         ("Xem [Điều 235](cite:1) để rõ hơn.", "the_url"),
         ("Đọc thêm tại https://vbpl.vn theo Điều 235.", "the_url"),
+        # Danh sách số Điều: mọi số đều phải có căn cứ, không chỉ số đầu.
+        ("Theo Điều 235 và 237 Luật Đất đai, bạn nên hòa giải.", "dieu:237"),
+        ("Theo các Điều 235, 240 Luật Đất đai, bạn nên hòa giải.", "dieu:240"),
+        # Khoản phải có trong đường dẫn căn cứ của đúng Điều ấy.
+        ("Theo khoản 9 Điều 235 Luật Đất đai, bạn nên hòa giải.", "khoan:9"),
+        ("Theo khoản 1, 2 Điều 236 Luật Đất đai, việc hòa giải không quá 30 ngày.", "khoan:2"),
+        ("Theo điểm c khoản 1 Điều 236 Luật Đất đai, việc hòa giải không quá 30 ngày.", "diem:c"),
+        # Mốc của người hỏi không được nói lại thành quy định.
+        ("Theo Điều 235 Luật Đất đai, bạn phải khởi kiện trong 15 ngày.", "moc:15 ngày"),
+        # Thẩm quyền, cơ quan, "cần": quy định nói bằng lời, không dẫn Điều nào.
+        ("Tranh chấp đất đai không có giấy chứng nhận do Ủy ban nhân dân cấp tỉnh giải quyết.", "khong_dan_dieu"),
+        ("Bạn có thể khởi kiện tại Tòa án nhân dân cấp huyện nơi có đất.", "khong_dan_dieu"),
+        ("Bạn cần khởi kiện tại Toà án nhân dân cấp huyện.", "khong_dan_dieu"),
+        # Kết cục và trách nhiệm mà căn cứ đã trích không nói.
+        (
+            "Theo Điều 235 Luật Đất đai, người lấn chiếm đất có thể bị truy cứu trách nhiệm hình sự.",
+            "phan_quyet:truy cứu",
+        ),
+        ("Theo Điều 236 Luật Đất đai, bạn chắc chắn được Tòa công nhận quyền sử dụng đất.", "phan_quyet:chắc chắn"),
+        ("Theo Điều 236 Luật Đất đai, bạn sẽ được hòa giải trong 30 ngày.", "phan_quyet:sẽ được"),
+        # Chuỗi số dài bị tiêm vào (số điện thoại, tài khoản).
+        ("Hãy gọi 0912 345 678 để được hỗ trợ.", "day_so"),
     ],
 )
 def test_loc_phan_tich_bo_dung_cau_vuot_can_cu(cau, ly_do):
-    giu, bo = loc_phan_tich([f"Bạn nên giữ lại biên bản hòa giải. {cau}"], CAN_CU, CHU_CAN_CU)
+    giu, bo = loc_phan_tich([f"Bạn nên giữ lại biên bản hòa giải. {cau}"], CAN_CU, CHU_CAN_CU, CHU_NGUOI_HOI)
     assert giu == ["Bạn nên giữ lại biên bản hòa giải."]
     assert bo == [ly_do]
 
@@ -273,16 +337,37 @@ def test_loc_phan_tich_bo_dung_cau_vuot_can_cu(cau, ly_do):
 def test_loc_phan_tich_giu_cau_dan_dung_dieu_va_moc_co_trong_can_cu():
     doan = [
         "Theo khoản 1 Điều 236 Luật Đất đai, việc hòa giải không quá 30 ngày.",
+        "Theo Điều 235 và Điều 236 Luật Đất đai, bạn nên gửi đơn hòa giải trước.",
         "Bạn nên chụp lại giấy tờ nhà đất và giữ bản gốc.",
+        # Mốc người hỏi nêu, trong câu KHÔNG nói luật: dữ kiện của họ, được nhắc lại.
+        "Bạn nên ghi lại mốc 15 ngày mà bạn đã nghe nói để hỏi lại khi hòa giải.",
     ]
-    assert loc_phan_tich(doan, CAN_CU, CHU_CAN_CU) == (doan, [])
+    assert loc_phan_tich(doan, CAN_CU, CHU_CAN_CU, CHU_NGUOI_HOI) == (doan, [])
+
+
+def test_phan_tich_neu_dieu_tang_hai_da_bac_bi_cat():
+    """Điều 237 có trong truy hồi nhưng khẳng định của nó bị tầng 2 bác: phần phân tích
+    nêu nó trong một danh sách số Điều vẫn bị cắt (replay của reviewer, 2026-09-30)."""
+    llm = FakeLlm(doan=[DOAN_SACH[0], "Theo Điều 235 và 237 Luật Đất đai, bạn khởi kiện tại Tòa án nhân dân."])
+    st = assemble(_st(), DB, llm, "m")
+    assert [c["duong_dan"] for c in st["citations"] if c["k"]] == ["31/2024/QH15 > Điều 235", "31/2024/QH15 > Điều 236"]
+    assert st["phan_tich"]["doan"] == [DOAN_SACH[0]]
+    assert st["traces"]["assemble_phan_tich"]["bi_bo"] == ["dieu:237"]
+
+
+def test_phan_tich_khong_noi_lai_moc_cua_nguoi_hoi_thanh_quy_dinh():
+    cau = "tôi nghe nói phải khởi kiện tranh chấp đất trong 15 ngày, có đúng không"
+    llm = FakeLlm(doan=[DOAN_SACH[0], "Theo Điều 235 Luật Đất đai, bạn phải khởi kiện trong 15 ngày."])
+    st = assemble(_st(cau), DB, llm, "m")
+    assert st["phan_tich"]["doan"] == [DOAN_SACH[0]]
+    assert st["traces"]["assemble_phan_tich"]["bi_bo"] == ["moc:15 ngày"]
 
 
 # ══ "Nên đối chiếu thêm" — chỉ văn bản ĐƯỢC HIỆN ═════════════════════════════
 
 
 def test_doi_chieu_them_gop_theo_van_ban_va_toi_da_ba():
-    nong = [NHA_O, {**NHA_O, "id": 901}]
+    nong = [ND_CHI_TIET, {**ND_CHI_TIET, "id": 903}]
     for i, so in enumerate(("100/2024/NĐ-CP", "151/2025/NĐ-CP", "88/2024/NĐ-CP")):
         nong.append(
             {
@@ -290,13 +375,32 @@ def test_doi_chieu_them_gop_theo_van_ban_va_toi_da_ba():
                 "id": 910 + i,
                 "document_id": f"d{i}",
                 "so_ky_hieu": so,
-                "ten": f"Nghị định số {so}",
+                "ten": f"Nghị định số {so} hướng dẫn Luật Đất đai",
                 "link_vbpl": None,
             }
         )
     st = assemble(_st(hits_shallow=nong), DB, FakeLlm(), "m")
-    assert [d["so_ky_hieu"] for d in st["doi_chieu_them"]] == ["27/2023/QH15", "100/2024/NĐ-CP", "151/2025/NĐ-CP"]
+    assert [d["so_ky_hieu"] for d in st["doi_chieu_them"]] == ["102/2024/NĐ-CP", "100/2024/NĐ-CP", "151/2025/NĐ-CP"]
     assert st["doi_chieu_them"][1]["lien_ket"] is None, "không có link đã kiểm thì không bịa link"
+
+
+def test_doi_chieu_them_bo_van_ban_nong_khong_neo():
+    """Replay trace b7e7457c: câu thử việc chạm Luật Thi hành án hình sự ở tầng nông.
+    Không tên, không số hiệu trong câu hỏi, tên nó không nêu luật nào được trích."""
+    blld = {"so_ky_hieu": "45/2019/QH14", "bo_luat": "Bộ Luật lao động số 45/2019/QH14"}
+    assert dung_doi_chieu_them([THA_HS, NHA_O], "mình đang thử việc mà bị bắt làm thêm giờ liên tục", [blld]) == []
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        "tôi tranh chấp nhà với anh trai, luật nhà ở quy định sao",
+        "tôi tranh chấp nhà với anh trai, theo luật 27/2023 thì sao",
+    ],
+)
+def test_doi_chieu_them_nhan_van_ban_nguoi_hoi_goi_ten(cau):
+    st = assemble(_st(cau), DB, FakeLlm(), "m")
+    assert [d["so_ky_hieu"] for d in st["doi_chieu_them"]] == ["27/2023/QH15", "102/2024/NĐ-CP"]
 
 
 def test_khong_van_ban_nong_thi_doi_chieu_them_rong():
@@ -379,7 +483,7 @@ def test_phan_tich_va_doi_chieu_them_song_qua_payload_cache_va_TraCuuResponse():
     st = assemble(_st(), DB, FakeLlm(), "m")
     resp = tra_cuu_response(_payload_cache(st, "answer"), "t", "full")
     assert resp.phan_tich.tieu_de == PHAN_TICH_TIEU_DE and resp.phan_tich.doan == DOAN_SACH
-    assert [d.so_ky_hieu for d in resp.doi_chieu_them] == ["27/2023/QH15"]
+    assert [d.so_ky_hieu for d in resp.doi_chieu_them] == ["102/2024/NĐ-CP"]
     # Dòng cache ghi trước bản này không có hai khoá.
     cu = {k: v for k, v in _payload_cache(st, "answer").items() if k not in ("phan_tich", "doi_chieu_them")}
     resp_cu = tra_cuu_response(cu, "t", "full")
