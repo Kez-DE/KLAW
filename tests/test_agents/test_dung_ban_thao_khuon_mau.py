@@ -676,3 +676,97 @@ def test_sua_bo_dieu_bat_buoc_la_mot_phat_hien(loai, hoan_thanh):
     assert a["completeness"] is not None and a["completeness"] < 1
     du_ca = d._audit({"hoan_thanh": hoan_thanh}, {"loai": loai}, du, tao=False)
     assert du_ca["findings"] == [] and du_ca["completeness"] == 1.0
+
+
+# ── Hợp đồng thuê nhà ở (app thật 2026-09-30): Luật Nhà ở 27/2023/QH15 chưa có toàn văn
+# trong kho, nên loại này là chế định thuê tài sản của BLDS mang ĐÚNG tên người hỏi xin,
+# và lời đáp nói thẳng luật nào chưa có — không đổi tên yêu cầu một cách im lặng.
+THUE_NHA = (
+    "Soạn hợp đồng thuê nhà ở giữa bên cho thuê là ông Nguyễn Văn An và bên thuê là bà Trần Thị Bình, "
+    "giá thuê 10 triệu đồng một tháng, thời hạn 12 tháng"
+)
+
+
+def _ng_nha(monkeypatch, st: dict, chua_co: tuple[str, ...] = ("27/2023/QH15",)) -> dict:
+    """`_nap_khuon_mau` thật của hợp đồng thuê nhà ở (registry, không checklist), DB giả;
+    `chua_co`: số hiệu mà kho chưa có toàn văn được hiện."""
+    db = {
+        7: {
+            "id": 7,
+            "document_id": "95942",
+            "duong_dan": "91/2015/QH13 > Điều 472",
+            "noi_dung": "Hợp đồng thuê tài sản là sự thỏa thuận giữa các bên…",
+        }
+    }
+    monkeypatch.setattr(g.gst, "provisions_theo_duong_dan", lambda dd: db)
+    monkeypatch.setattr(g, "hien_thi_luc", lambda engine, as_of: frozenset({"95942"}))
+    monkeypatch.setattr(
+        g.gst,
+        "can_cu_van_ban_co_id",
+        lambda e, d_, a: [
+            {"dong": "Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24 tháng 11 năm 2015.", "doc_id": "95942"}
+        ],
+    )
+    monkeypatch.setattr(g.gst, "chua_toan_van", lambda engine, so, hien: [s for s in so if s in chua_co])
+    return g._nap_khuon_mau(None, st)["khuon_mau_ngu_canh"]
+
+
+def test_thue_nha_o_cung_muc_luat_voi_thue_tai_san():
+    """Nội dung là chế định thuê tài sản: hai danh sách không được lệch nhau."""
+    from src.agents.graph_soan_thao import load_checklist_cached
+
+    cl = load_checklist_cached("hop_dong_thue_tai_san")
+    nha = km.nap("hop_dong_thue_nha_o")
+    assert [(m["key"], m["ten"], m["can_cu"]) for m in nha["muc"]] == [
+        (m["key"], m["ten"], m["can_cu"]) for m in cl.muc
+    ]
+    assert {m["key"] for m in nha["muc"] if m.get("bat_buoc") is False} == set(cl.khong_bat_buoc["keys"])
+    assert nha["ky"]["thu_tu"] == [b["khoa"] for b in nha["ben"]]
+
+
+def test_router_chon_duoc_thue_nha_o_bang_ten():
+    from src.agents.nodes import route
+
+    assert "- `hop_dong_thue_nha_o` — hợp đồng thuê nhà ở" in route.danh_sach_loai().splitlines()
+
+
+def test_thue_nha_o_mang_dung_ten_va_noi_luat_chua_co_trong_kho(kho, monkeypatch):
+    ng = _ng_nha(monkeypatch, {"soan_thao_goi_y": {"loai": "hop_dong_thue_nha_o"}})
+    ra = _ra(
+        tieu_de=None,
+        bo_cuc=None,
+        can_cu=None,
+        ben=None,
+        gia_tri=[
+            {"ben": "ben_cho_thue", "truong": "ho_ten", "gia_tri": "Nguyễn Văn An"},
+            {"ben": "ben_thue", "truong": "ho_ten", "gia_tri": "Trần Thị Bình"},
+        ],
+        dieu=[
+            {"key": "tai_san_thue", "ten": "Nhà ở cho thuê", "doan": ["Bên cho thuê cho Bên thuê thuê nhà ở tại ……"]}
+        ],
+    )
+    ket = _luot(_st(THUE_NHA, ng=ng), _LLM(ra))
+    assert kho.luu_goi[0]["loai"] == "hop_dong_thue_nha_o"
+    assert kho.luu_goi[0]["tieu_de"] == "HỢP ĐỒNG THUÊ NHÀ Ở"
+    chu = _chu_tep(kho.luu_goi[0]["docx"])
+    assert "HỢP ĐỒNG THUÊ NHÀ Ở" in chu and "HỢP ĐỒNG THUÊ TÀI SẢN" not in chu
+    assert "Bản thảo «Hợp đồng thuê nhà ở»" in ket["answer"]
+    assert "Kho chưa có toàn văn Luật Nhà ở số 27/2023/QH15" in ket["answer"]
+    assert "Bộ luật Dân sự số 91/2015/QH13" in ket["answer"]
+    assert "Chưa đặt được" not in ket["answer"]
+    # Lượt sửa sau đó không nhắc lại.
+    assert not _ng_nha(monkeypatch, {"ban_thao_tong_quat_dang_mo": kho.nhe()}).get("thieu_luat")
+
+
+def test_thue_nha_o_khong_noi_thieu_khi_kho_da_co_toan_van(kho, monkeypatch):
+    ng = _ng_nha(monkeypatch, {"soan_thao_goi_y": {"loai": "hop_dong_thue_nha_o"}}, chua_co=())
+    ra = _ra(
+        tieu_de=None,
+        bo_cuc=None,
+        can_cu=None,
+        ben=None,
+        gia_tri=[],
+        dieu=[{"key": "tai_san_thue", "ten": "Nhà ở cho thuê", "doan": ["Nhà ở tại ……"]}],
+    )
+    ket = _luot(_st(THUE_NHA, ng=ng), _LLM(ra))
+    assert "toàn văn" not in ket["answer"]

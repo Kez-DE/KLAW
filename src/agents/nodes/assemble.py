@@ -1196,6 +1196,9 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
         da = sum(1 for o in cho if (o.get("gia_tri") or "").strip())
         dien = f"Đã điền {da}/{len(cho)} chỗ trống. " if da else ""
     can_cu = [_ten_can_cu(c["dong"]) for c in can_cu_hien(khung.get("can_cu") or [], bt.get("clauses") or [])]
+    # Văn bản chuyên ngành kho chưa có toàn văn (`_nap_khuon_mau`, lượt tạo): nói thẳng,
+    # cạnh dòng căn cứ — tên văn bản không được ngầm nói điều khoản đã theo luật đó.
+    thieu_luat = (state.get("khuon_mau_ngu_canh") or {}).get("thieu_luat") or []
     chen = [f"«{c.get('ten')}»" for c in bt.get("clauses") or [] if c.get("chen")]
     khong_dat = _cau_khong_dat({"khong_dat": x.get("khong_dat") or []})
     ghi = list(x.get("ghi_chu") or [])
@@ -1223,6 +1226,12 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
         (
             _liet_ke("Căn cứ: ", can_cu, 220, "văn bản") + ". Bấm «Căn cứ» trên trang để xem nguyên văn. "
             if can_cu
+            else ""
+        )
+        + (
+            f"Kho chưa có toàn văn {', '.join(thieu_luat)}, nên các điều khoản chỉ dựa trên căn cứ"
+            " đang có — chưa đối chiếu với luật đó. "
+            if thieu_luat
             else ""
         ),
         (_liet_ke("Điều còn trống vì luật đòi: ", chen, 160, "điều") + ". " if chen else ""),

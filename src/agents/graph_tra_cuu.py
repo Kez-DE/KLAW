@@ -479,6 +479,13 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
         # khung; số Điều của lượt sửa là số Điều của văn bản kèm theo.
         ban_hanh=bool(entry.get("ban_hanh")),
     )
+    if entry.get("luat_rieng") and not sua:
+        # Văn bản chuyên ngành chi phối loại này mà kho chưa có toàn văn (hợp đồng thuê
+        # nhà ở — Luật Nhà ở): lượt TẠO nói thẳng tên nó, không để tên văn bản gợi ý rằng
+        # điều khoản đã theo luật đó. Tra kho mỗi lượt: câu này tự tắt khi luật được nạp.
+        rieng = entry["luat_rieng"]
+        hien_luc = hien_thi_luc(engine, as_of_hieu_luc(st.get("as_of_date")))
+        ng["thieu_luat"] = [rieng[s] for s in gst.chua_toan_van(engine, list(rieng), hien_luc)]
     # `ten`: tên mục cho mô hình khi nhãn của mẫu mang chỗ điền `{}` hay không có nhãn;
     # `huong_dan`: lời hướng dẫn điền của CHÍNH mẫu chính thức (Mẫu 23-DS (11), (14)…).
     muc = [
