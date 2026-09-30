@@ -136,6 +136,38 @@ def test_tieu_de_chuong_tach_lam_2_the_khong_bi_bo_ro():
     assert dieu1.parent_local_id == chuong_rows[0].local_id
 
 
+def test_tieu_de_chuong_mo_bang_TU_CHUONG_TRINH_la_tiep_noi_khong_phai_nhan():
+    """27/2023/QH15 (gateway 169032) Chương III tách tiêu đề ba thẻ cùng id; dòng
+    thứ ba "CHƯƠNG TRÌNH, KẾ HOẠCH…" mở bằng chữ "chương" của từ ghép "chương
+    trình", không phải nhãn: sau nhãn thật chỉ có số hiệu hoặc hết chữ."""
+    html = """<div class="WordSection1">
+    <p id="c3" class="prov-chapter"><strong>Chương III</strong></p>
+    <p id="c3" class="prov-chapter"><strong>CHIẾN LƯỢC PHÁT TRIỂN NHÀ Ở QUỐC GIA,</strong></p>
+    <p id="c3" class="prov-chapter"><strong>CHƯƠNG TRÌNH, KẾ HOẠCH PHÁT TRIỂN NHÀ Ở CẤP TỈNH</strong></p>
+    <p id="a1" class="prov-article"><strong>Điều 26. Chiến lược phát triển nhà ở quốc gia</strong></p>
+    <p id="c4" class="prov-chapter"><strong>Chương IV</strong></p>
+    <p id="a2" class="prov-article"><strong>Điều 30. Yêu cầu</strong></p></div>"""
+    rows = parse_provisions(html, "27/2023/QH15")
+    chuong = [r for r in rows if r.cap is Cap.chuong]
+    assert [r.so_hieu_cap for r in chuong] == ["III", "IV"]
+    assert "CHƯƠNG TRÌNH, KẾ HOẠCH PHÁT TRIỂN NHÀ Ở CẤP TỈNH" in chuong[0].tieu_de
+    d26 = next(r for r in rows if r.duong_dan == "27/2023/QH15 > Điều 26")
+    assert d26.parent_local_id == chuong[0].local_id
+
+
+def test_AM_TINH_nhan_Chuong_tro_van_mo_node_moi():
+    """BLHS (96122) viết "Chương " trơ rồi "VIII QUYẾT ĐỊNH HÌNH PHẠT" ở thẻ sau:
+    nhãn không kèm số vẫn là node THẬT, không gộp vào Chương VII."""
+    html = """<div class="WordSection1">
+    <p id="c7" class="prov-chapter"><strong>Chương VII </strong></p>
+    <p id="c7" class="prov-chapter"><strong>CÁC BIỆN PHÁP TƯ PHÁP</strong></p>
+    <p id="c8" class="prov-chapter"><strong>Chương </strong></p>
+    <p id="c8" class="prov-chapter"><strong>VIII QUYẾT ĐỊNH HÌNH PHẠT</strong></p>
+    <p id="a1" class="prov-article"><strong>Điều 50. Căn cứ quyết định hình phạt</strong></p></div>"""
+    chuong = [r for r in parse_provisions(html, "100/2015/QH13") if r.cap is Cap.chuong]
+    assert [r.so_hieu_cap for r in chuong] == ["VII", "VIII"]
+
+
 def test_dieu_33a_KHONG_dung_chung_duong_dan_voi_dieu_33():
     """FALSE-POSITIVE VERIFICATION: hai Điều cùng anchor thì verify tầng 1 sẽ
     'kiểm chứng thành công' một trích dẫn sai."""
@@ -1019,6 +1051,22 @@ def test_class_prov_clause_mang_nhan_DIEM_duoc_doc_lai_thanh_diem():
     rows = parse_provisions(html, "13/2023/NĐ-CP")
     assert [r.so_hieu_cap for r in rows if r.cap is Cap.diem] == ["a", "b"]
     assert [r.so_hieu_cap for r in rows if r.cap is Cap.khoan] == ["2"]
+
+
+def test_class_prov_clause_mang_nhan_DIEU_duoc_doc_lai_thanh_dieu():
+    """27/2023/QH15 (gateway 169032): "Điều 14. Đại diện chủ sở hữu…" mang class
+    `prov-clause` → khoản của Điều 14 thành khoản thứ hai cùng neo "Điều 13 >
+    Khoản 1"."""
+    html = (
+        '<div><p class="prov-article"><b>Điều 13. Nhà ở thuộc tài sản công</b></p>'
+        '<p class="prov-clause">1. Nhà ở thuộc tài sản công bao gồm:</p>'
+        '<p class="prov-clause">2. Việc phát triển nhà ở thuộc tài sản công.</p>'
+        '<p class="prov-clause">Điều 14. Đại diện chủ sở hữu nhà ở thuộc tài sản công</p>'
+        '<p class="prov-clause">1. Bộ Xây dựng là đại diện chủ sở hữu.</p></div>'
+    )
+    rows = parse_provisions(html, "27/2023/QH15")
+    assert [r.so_hieu_cap for r in rows if r.cap is Cap.dieu] == ["13", "14"]
+    assert "27/2023/QH15 > Điều 14 > Khoản 1" in {r.duong_dan for r in rows}
 
 
 def test_AM_TINH_manh_tiep_noi_khong_co_nhan_van_duoc_gop_nhu_cu():

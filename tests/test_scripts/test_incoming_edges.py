@@ -9,6 +9,7 @@ và không được đếm chung.
 """
 
 import os
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -27,6 +28,8 @@ from scripts.load_incoming_edges import (
     load_from_parquet,
 )
 from src.services.db import get_engine, run_migrations
+from src.services.effectivity import EffectivityVerdict, danh_gia
+from src.services.hien_thi import VERDICT_HIEN
 
 RAW = Path("data/raw")
 
@@ -165,6 +168,40 @@ def test_canh_F1_nhom_nen_tang_chi_giu_canh_sua_doi_that():
     assert {("178717", "175440", 20, "Sửa đổi, bổ sung"), ("178314", "32801", 20, "Sửa đổi, bổ sung")} <= set(
         CANH_DOI_CHIEU_NGUYEN_VAN
     )
+
+
+def test_101_102_2024_con_an_khi_chua_ghi_duoc_dieu_het_hieu_luc():
+    """N1 2026-09-30 (review): 151/2025/NĐ-CP Điều 21 khoản 4 điểm b, c cho một số điều
+    khoản của 101/2024/NĐ-CP (Điều 21, 22, 28–49, 60 …) và 102/2024/NĐ-CP (Điều 20, 21,
+    23, 44, 45, 48, 49, 51–53, 60, 64, 66, 68, 73, 106, 107 …) hết hiệu lực từ 01/7/2025.
+    KLAW chưa ghi được hết hiệu lực CẤP ĐIỀU KHOẢN, nên hiện hai nghị định là để các điều
+    đó được truy hồi và trích như luật đang áp dụng (đo: 101/2024 Điều 30 khoản 12 hạng 4
+    cho câu tranh chấp nhà đất). Cạnh parquet "thay thế" giữ chúng ẩn (khác chủ đề ⇒
+    `can_doi_chieu_tay`) cho tới khi chủ dự án chốt cơ chế đó."""
+    sai = [("178259", "169188", "Thay thế"), ("178259", "169363", "Thay thế")]
+    rel = pd.DataFrame([{"doc_id": f, "other_doc_id": t, "relationship": r} for f, t, r in sai])
+    assert len(_canh_hieu_luc_di_vao(rel, {"169188", "169363", "178259"})) == 2
+    assert not {c for c in CANH_DOI_CHIEU_NGUYEN_VAN if c[1] == "178259" and c[0] in {"169188", "169363"}}
+    ten = {
+        "169188": "Nghị định số 101/2024/NĐ-CP Quy định về điều tra cơ bản đất đai; đăng ký, cấp Giấy chứng "
+        "nhận quyền sử dụng đất, quyền sở hữu tài sản gắn liền với đất và Hệ thống thông tin đất đai",
+        "169363": "Nghị định số 102/2024/NĐ-CP Quy định chi tiết thi hành một số điều của Luật Đất đai",
+    }
+    canh = {
+        "loai": 21,
+        "from_document_id": "178259",
+        "from_so_ky_hieu": "151/2025/NĐ-CP",
+        "from_loai_van_ban": "Nghị định",
+        "from_ten": "Nghị định số 151/2025/NĐ-CP Quy định về phân định thẩm quyền của chính quyền địa phương 02 "
+        "cấp, phân quyền, phân cấp trong lĩnh vực đất đai",
+        "from_ngay_hieu_luc": date(2025, 7, 1),
+    }
+    # Ẩn vì CHƯA RÕ (`can_doi_chieu_tay`), không phải vì "đã bị thay thế": câu cho người
+    # đọc là "chưa có trong phạm vi tra cứu", không nêu 151/2025 là văn bản thay thế.
+    for i, t in ten.items():
+        doc = {"id": i, "loai_van_ban": "Nghị định", "ten": t, "ngay_hieu_luc": date(2024, 8, 1), "tinh_trang": "HHL1P"}
+        e = danh_gia(doc, [canh], date(2026, 9, 30))
+        assert e.verdict == EffectivityVerdict.can_doi_chieu_tay and e.verdict not in VERDICT_HIEN, i
 
 
 def test_danh_sach_ap_chi_xoa_canh_sai_va_them_canh_thieu():

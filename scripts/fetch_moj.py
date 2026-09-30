@@ -477,6 +477,13 @@ DOC_IDS: dict[str, tuple[str, str]] = {
     "178314": ("deep", "203/2025/QH15"),  # sửa đổi Hiến pháp Điều 9, 10, 84 k1, 110, 111
     "175440": ("deep", "64/2025/QH15"),  # Luật Ban hành văn bản quy phạm pháp luật
     "178717": ("deep", "87/2025/QH15"),  # sửa đổi 64/2025, thay Điều 4 (hệ thống văn bản)
+    # ── N1 2026-09-30 — nhà đất (quyết định 2026-09-30 mục 7). Ba văn bản đang
+    # shallow → nâng tại chỗ. 27/2023/QH15 qua cổng từ khi parser đọc "CHƯƠNG TRÌNH…"
+    # là tiêu đề tiếp nối và "Điều 14." mang class prov-clause là Điều. Cả ba khớp
+    # nguyên văn 100% (100/2024/NĐ-CP, 151/2025/NĐ-CP: xem `KHONG_NAP`).
+    "169032": ("deep", "27/2023/QH15"),  # Luật Nhà ở
+    "169188": ("deep", "101/2024/NĐ-CP"),  # đăng ký, cấp Giấy chứng nhận
+    "169363": ("deep", "102/2024/NĐ-CP"),  # chi tiết thi hành Luật Đất đai
 }
 
 # Mảnh tiêu đề đối chiếu TRƯỚC KHI GHI file raw — 11/13 id của T1 (169032,
@@ -530,12 +537,8 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
     # `id` HTML. `_la_tiep_noi_tieu_de` nhận diện mảnh tiêu đề tiếp nối bằng
     # `not text.lower().startswith("chương")`; dòng tiêu đề thứ hai TỰ NÓ mở
     # đầu bằng "CHƯƠNG TRÌNH" (nghĩa "program", không phải nhãn "Chương") nên
-    # bị đọc nhầm thành một Chương MỚI không số hiệu — cổng `parse_anomalies`
-    # đúng khi chặn. Sửa là việc của người sở hữu `src/services/prov_parser.py`
-    # (ngoài phạm vi T1: chỉ được đụng migration/model/scripts đã liệt kê),
-    # không vá tại đây. Loại khỏi DOC_IDS — domain "Nhà ở" tạm 0 văn bản.
-    "169032": ("27/2023/QH15", "tiêu đề Chương III xuống dòng thành node "
-               "'CHƯƠNG TRÌNH, KẾ HOẠCH...' không số hiệu — parser đọc nhầm nhãn"),
+    # bị đọc nhầm thành một Chương MỚI không số hiệu. N1 2026-09-30: parser đã
+    # sửa (nhãn là một TỪ), 169032 vào `DOC_IDS`.
     # T1 (8 lĩnh vực) — CÙNG loại với `27325`: khiếm khuyết NGUỒN thật, không
     # phải parser. HTML MOJ viết "<strong>Điêu 38. Chậm đóng…</strong>" — thiếu
     # dấu, đúng ra là "Điều 38" (Đ-i-ề-u, không phải Đ-i-ê-u). Nhãn "Điêu" (viết
@@ -616,7 +619,9 @@ KHONG_NAP: dict[str, tuple[str, str]] = {
     "176976": ("10/2025/NĐ-CP", "parser không bảo toàn chữ: HTML 123422 ký tự, provisions 123582"),
     "169712": (
         "100/2024/NĐ-CP",
-        "dòng công thức gắn thẻ prov-item ('n: là số năm…') tách chữ 'Trong đó: Gt…' khỏi Điều 31 Khoản 1/2 Điểm b — neo không là chuỗi con nguyên văn",
+        "dòng giải thích công thức gắn thẻ prov-item: 'n: …' đứng sau thân Điều 31 Khoản 1/2 Điểm b nên bị "
+        "gộp lên trước 'Trong đó: …' (không là chuỗi con nguyên văn), và dưới Điều 33 Khoản 2 thành Điểm không "
+        "số hiệu (đo lại N1 2026-09-30); 7 công thức là ảnh",
     ),
     "21876": (
         "102/2002/TT-BTC",

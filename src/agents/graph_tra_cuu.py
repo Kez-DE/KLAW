@@ -510,12 +510,11 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
         ban_hanh=bool(entry.get("ban_hanh")),
     )
     if entry.get("luat_rieng") and not sua:
-        # Văn bản chuyên ngành chi phối loại này mà kho chưa có toàn văn (hợp đồng thuê
-        # nhà ở — Luật Nhà ở): lượt TẠO nói thẳng tên nó, không để tên văn bản gợi ý rằng
-        # điều khoản đã theo luật đó. Tra kho mỗi lượt: câu này tự tắt khi luật được nạp.
-        rieng = entry["luat_rieng"]
-        hien_luc = hien_thi_luc(engine, as_of_hieu_luc(st.get("as_of_date")))
-        ng["thieu_luat"] = [rieng[s] for s in gst.chua_toan_van(engine, list(rieng), hien_luc)]
+        # Văn bản chuyên ngành chi phối loại này mà điều khoản của mẫu CHƯA theo (hợp đồng
+        # thuê nhà ở — Luật Nhà ở): lượt TẠO nói thẳng tên nó, không để tên văn bản gợi ý
+        # rằng điều khoản đã theo luật đó. Luật có toàn văn trong kho KHÔNG tắt câu này
+        # (review N1 2026-09-30): bỏ `luat_rieng` khi mẫu đã có mục theo luật đó.
+        ng["chua_doi_chieu_luat"] = list(entry["luat_rieng"].values())
     # `ten`: tên mục cho mô hình khi nhãn của mẫu mang chỗ điền `{}` hay không có nhãn;
     # `huong_dan`: lời hướng dẫn điền của CHÍNH mẫu chính thức (Mẫu 23-DS (11), (14)…).
     muc = [

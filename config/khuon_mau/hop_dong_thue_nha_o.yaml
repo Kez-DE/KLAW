@@ -1,15 +1,14 @@
 # Hợp đồng thuê nhà ở — người hỏi xin đúng tên này (app thật 2026-09-30: "Soạn hợp đồng
 # thuê nhà ở …" ra «HỢP ĐỒNG THUÊ TÀI SẢN» và "Chưa đặt được: «Hợp đồng thuê nhà ở»").
 #
-# Luật Nhà ở số 27/2023/QH15 CHƯA có toàn văn trong kho (đo 2026-09-30: `documents.id`
-# 169032, `depth = shallow`, một provision "Mở đầu" chỉ mang tên luật), nên loại này KHÔNG
-# phải một mẫu theo Luật Nhà ở: điều khoản là chế định THUÊ TÀI SẢN của BLDS (Đ472–482,
-# Đ328, Đ398.2), đúng các mục của `checklist_hop_dong_thue_tai_san.yaml`
-# (`test_dung_ban_thao_khuon_mau` khoá hai danh sách bằng nhau), còn tên văn bản là tên
-# người hỏi xin. `luat_rieng`: văn bản chuyên ngành chi phối loại này — mỗi lượt tạo tra
-# kho (`gst.chua_toan_van`) và nói thẳng khi nó chưa có toàn văn.
-# ponytail: khi F1 nạp sâu Luật Nhà ở, câu "chưa có toàn văn" tự tắt; thêm mục theo
-# Luật Nhà ở vào `muc` (plan `khuon-mau-thiet-ke.md` §7, "Blocked until F1").
+# Loại này KHÔNG phải một mẫu theo Luật Nhà ở số 27/2023/QH15: điều khoản là chế định THUÊ
+# TÀI SẢN của BLDS (Đ472–482, Đ328, Đ398.2), đúng các mục của
+# `checklist_hop_dong_thue_tai_san.yaml` (`test_dung_ban_thao_khuon_mau` khoá hai danh sách
+# bằng nhau), còn tên văn bản là tên người hỏi xin. Luật Nhà ở có toàn văn trong kho từ N1
+# (2026-09-30, `documents.id` 169032) nhưng chưa có mục nào theo nó. `luat_rieng`: văn bản
+# chuyên ngành chi phối loại này mà điều khoản CHƯA theo — mỗi lượt tạo nói thẳng điều đó.
+# ponytail: thêm mục theo Luật Nhà ở vào `muc` (plan `khuon-mau-thiet-ke.md` §7) rồi mới
+# bỏ `luat_rieng`.
 #
 # Bố cục TƯƠNG TỰ NĐ 96/2024/NĐ-CP Phụ lục II, như `hop_dong_thue_tai_san`. Khối ký theo
 # chính Phụ lục II (chủ dự án 2026-09-30: "Theo mẫu Nhà nước khi có"): BÊN THUÊ trái,
@@ -25,7 +24,7 @@ nguon:
   tep_d2: goc/nd96-2024_congbao-939-940.pdf
   sha256: 5b41a37fec6af317480a600f70cb4233ae852d6b297613ebe32222f531322174
   trang: 14
-  ghi_chu: "Luật Nhà ở 27/2023/QH15 chưa có toàn văn trong kho; nội dung theo chế định thuê tài sản của BLDS (checklist hop_dong_thue_tai_san). Thể thức theo tập quán — NĐ 30/2020 không bắt buộc hợp đồng dân sự."
+  ghi_chu: "Điều khoản chưa đối chiếu với Luật Nhà ở 27/2023/QH15; nội dung theo chế định thuê tài sản của BLDS (checklist hop_dong_thue_tai_san). Thể thức theo tập quán — NĐ 30/2020 không bắt buộc hợp đồng dân sự."
 luat_rieng:
   "27/2023/QH15": "Luật Nhà ở số 27/2023/QH15"
 the_thuc:

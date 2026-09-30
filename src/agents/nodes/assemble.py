@@ -1263,9 +1263,9 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
     chen = [c for c in bt.get("clauses") or [] if c.get("chen")]
     trong = [f"«{c.get('ten')}»" for c in chen if c["chen"] != "chuan"]
     chuan = [f"«{c.get('ten')}»" for c in chen if c["chen"] == "chuan"]
-    # Văn bản chuyên ngành kho chưa có toàn văn (`_nap_khuon_mau`, lượt tạo): nói thẳng,
-    # cạnh dòng căn cứ — tên văn bản không được ngầm nói điều khoản đã theo luật đó.
-    thieu_luat = (state.get("khuon_mau_ngu_canh") or {}).get("thieu_luat") or []
+    # Văn bản chuyên ngành mà điều khoản của mẫu chưa theo (`_nap_khuon_mau`, lượt tạo):
+    # nói thẳng, cạnh dòng căn cứ — tên văn bản không được ngầm nói điều khoản đã theo luật đó.
+    chua_doi_chieu = (state.get("khuon_mau_ngu_canh") or {}).get("chua_doi_chieu_luat") or []
     khong_dat = _cau_khong_dat({"khong_dat": x.get("khong_dat") or []})
     ghi = list(x.get("ghi_chu") or [])
     if x.get("khong_mang_sang"):
@@ -1295,9 +1295,8 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
             else ""
         )
         + (
-            f"Kho chưa có toàn văn {', '.join(thieu_luat)}, nên các điều khoản chỉ dựa trên căn cứ"
-            " đang có — chưa đối chiếu với luật đó. "
-            if thieu_luat
+            f"Các điều khoản chỉ dựa trên căn cứ đang có — chưa đối chiếu với {', '.join(chua_doi_chieu)}. "
+            if chua_doi_chieu
             else ""
         ),
         (_liet_ke("Điều còn trống vì luật đòi: ", trong, 160, "điều") + ". " if trong else "")
