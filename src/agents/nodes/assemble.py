@@ -59,10 +59,10 @@ from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.agents.nodes.dung_ban_thao_tong_quat import KHONG_SOAN_DUOC, LOAI_TONG_QUAT, TEN_TONG_QUAT, _ket_state
 from src.agents.nodes.gioi_thieu import (
     bang_du_kien,
-    chi_hoi_kho,
     hoi_cau_truc_phap_luat,
     khia_canh,
     khia_canh_kho,
+    khia_canh_luot_kho,
     tra_loi_meta,
 )
 from src.agents.nodes.hieu_tai_lieu import CHO_TRONG, MUC_DICH_SOAN
@@ -1133,11 +1133,8 @@ def _tra_loi_meta(state: dict, llm, model: str) -> dict:
         return _base(state, rt, answer=state["tra_loi_kho"], bang=state["tra_loi_kho_bang"])
     cau = state.get("query") or ""
     cac = state.get("khia_canh_meta") or (khia_canh_kho if rt is ResultType.hoi_ve_kho else khia_canh)(cau)
-    if rt is ResultType.hoi_ve_kho and chi_hoi_kho(cac):
-        # A kho-only turn answers from the SQL summary (`kho.dung_cau_tra_loi`,
-        # which leads with the Bộ luật when asked) — the same text as before the
-        # model wrote it, and the fallback when the model fails.
-        cac = ["kho"]
+    if rt is ResultType.hoi_ve_kho:
+        cac = khia_canh_luot_kho(cac)
     answer, usage, nguon = tra_loi_meta(
         state.get("cau_hoi_goc") or cau,
         state.get("bang_du_kien") or bang_du_kien(cau, None),

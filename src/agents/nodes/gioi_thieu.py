@@ -415,6 +415,15 @@ def chi_hoi_kho(cac_khia_canh: list[str]) -> bool:
     return all(t in _KHIA_CANH_KHO for t in cac_khia_canh)
 
 
+def khia_canh_luot_kho(cac_khia_canh: list[str]) -> list[str]:
+    """Facets a `hoi_ve_kho` turn answers with: a kho-only turn answers from the SQL
+    summary (`kho.dung_cau_tra_loi`, which leads with the Bộ luật when asked) — the
+    same text as before the model wrote it, and the fallback when the model fails.
+    Lives here, not in `assemble`, whose strings are all reader text (decision
+    2026-09-30 item 4, `test_phan_tich.test_loi_cho_nguoi_doc_khong_goi_ten_kho`)."""
+    return ["kho"] if chi_hoi_kho(cac_khia_canh) else cac_khia_canh
+
+
 def can_kho(cac_khia_canh: list[str]) -> bool:
     """Lượt này có cần nạp kho không — chỗ gọi dùng nó để nạp ĐÚNG MỘT LẦN cho
     mọi khía cạnh (FR-014)."""
