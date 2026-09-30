@@ -263,6 +263,8 @@ def test_khuon_mau_co_checklist_moi_dieu_mang_can_cu_mo_duoc(kho):
                     "khop_tai_id": 8,
                 },
             },
+            # Nội dung chuẩn (`mau`, nghĩa vụ luật đặt) chỉ cho mục này.
+            {"key": "bao_hiem", "ten": "Bảo hiểm", "trich": "", "can_cu": None, "mau": "Hai bên phải đóng bảo hiểm."},
         ],
     }
     ra = _ra(
@@ -276,13 +278,24 @@ def test_khuon_mau_co_checklist_moi_dieu_mang_can_cu_mo_duoc(kho):
     ket = _luot(_st("soạn hợp đồng lao động", ng=ng), _LLM(ra))
     cl = kho.bt["bt-1"]["clauses"]
     khoa = [c["key"] for c in cl]
-    # Mọi mục BLLĐ Đ21.1 mà khung chưa có (các bên là khung) đều có mặt; mục thiếu chèn trống.
+    # Mọi mục BLLĐ Đ21.1 mà khung chưa có (các bên là khung) đều có mặt; mục thiếu chèn một
+    # câu trung tính chừa chỗ điền (mục này không mang `mau`) — không bao giờ "……" trơn.
     assert khoa[0] == "cong_viec" and {"thoi_han", "luong", "bao_hiem", "dao_tao"} <= set(khoa)
     assert "nsdld" not in khoa and "nld" not in khoa
     luong = khoa.index("luong") + 1
-    assert cl[0]["can_cu"]["khop_tai_id"] == 7 and cl[luong - 1]["doan"] == [km.CHO]
+    assert cl[0]["can_cu"]["khop_tai_id"] == 7
+    ten = cl[luong - 1]["ten"]
+    assert ten.startswith("Mức lương") and cl[luong - 1]["doan"] == [
+        f"Các bên thỏa thuận về {ten[:1].lower()}{ten[1:]} như sau: {km.CHO}"
+    ]
     assert {c["dieu"] for c in ket["ban_thao"]["khuon"]["can_cu"]} == {1, luong}
-    assert "Điều còn trống vì luật đòi" in ket["answer"]
+    # Câu trung tính vẫn là chỗ chờ điền: lời đáp không nói đã đặt nội dung cho nó (owner:
+    # không nói đã điền khi chưa điền); chỉ điều mang `mau` được nói là nội dung chuẩn.
+    bh = next(c for c in cl if c["key"] == "bao_hiem")
+    assert bh["doan"] == ["Hai bên phải đóng bảo hiểm."] and bh["chen"] == "chuan"
+    chuan = ket["answer"].split("đã đặt nội dung chuẩn để bạn xem lại: ")[1].split(". ")[0]
+    trong = ket["answer"].split("Điều còn trống vì luật đòi: ")[1].split(". ")[0]
+    assert chuan == f"«{bh['ten']}»" and f"«{ten}»" in trong and bh["ten"] not in trong
 
 
 def test_sua_dieu_dung_lai_tep_moi_mang_phep_dien_sang(kho):
@@ -676,3 +689,275 @@ def test_sua_bo_dieu_bat_buoc_la_mot_phat_hien(loai, hoan_thanh):
     assert a["completeness"] is not None and a["completeness"] < 1
     du_ca = d._audit({"hoan_thanh": hoan_thanh}, {"loai": loai}, du, tao=False)
     assert du_ca["findings"] == [] and du_ca["completeness"] == 1.0
+
+
+# ═══ Lượt sửa không dời giá trị đang có (app thật 2026-09-30, bản thảo 91c288d5) ═══
+#
+# Lượt 2 "Sửa Điều 3: giá thuê là 10.000.000 đồng …": câu giải nghĩa (`query`) mang lại
+# tên hai bên của lượt 1, mô hình chép lại `gia_tri` ĐẢO BÊN, và phép gộp cho giá trị
+# mới thắng giá trị đang có — v3 in Bên cho thuê là Trần Thị Bình (kèm ngày sinh người
+# dùng điền cho ông An trên trang), Bên thuê là Nguyễn Văn An, chữ ký đảo theo.
+
+DAO_BEN = [
+    {"ben": "ben_a", "truong": "ho_ten", "gia_tri": "Trần Thị Bình"},
+    {"ben": "ben_b", "truong": "ho_ten", "gia_tri": "Nguyễn Văn An"},
+]
+
+
+def _theo_ben(kho: _Kho, truong: str) -> dict[str, set[str]]:
+    """`{ben: {giá trị}}` của một trường trên bản mới nhất — mọi bản sao (khối bên, khối ký)."""
+    b = list(kho.bt.values())[-1]
+    o = {(x["don_vi"], x["so"]): x["ben"] for x in b["audit"]["khung"]["o"] if x["truong"] == truong}
+    ra: dict[str, set[str]] = {}
+    for p in b["phep_sua"] or []:
+        if k := o.get((p["don_vi"], p["cho_trong"])):
+            ra.setdefault(k, set()).add(p["gia_tri"].strip())
+    return ra
+
+
+def _dien_tren_trang(kho: _Kho, ben: str, truong: str, gia_tri: str) -> None:
+    """Người dùng bấm chỗ trống trên trang và điền (phiên bản mới cùng tệp)."""
+    b = kho.bt["bt-1"]
+    x = next(x for x in b["audit"]["khung"]["o"] if x["ben"] == ben and x["truong"] == truong)
+    b["phep_sua"] = [*b["phep_sua"], {"loai": "dien", "don_vi": x["don_vi"], "cho_trong": x["so"], "gia_tri": gia_tri}]
+
+
+def test_sua_dieu_khong_dao_ben_da_dien_du_mo_hinh_chep_lai_gia_tri_dao(kho):
+    _luot(_st(), _LLM(_ra()))
+    _dien_tren_trang(kho, "ben_a", "ngay_sinh", "15/03/1978")
+    cau = "Sửa Điều 2: giá thuê là 10.000.000 đồng mỗi tháng"
+    giai_nghia = f"{cau} của hợp đồng thuê giữa bà Trần Thị Bình và ông Nguyễn Văn An"
+    thay = {"thao_tac": "thay", "dieu": 2, "key": None, "ten": "Giá thuê", "doan": ["Giá thuê là 10.000.000 đồng."]}
+    ra = _ra(muc_tieu="sua_ban_dang_co", dieu=None, sua_dieu=[thay], gia_tri=DAO_BEN)
+    ket = _luot(_st(cau, nhe=kho.nhe(), query=giai_nghia), _LLM(ra))
+    b = kho.bt["bt-1"]
+    assert b["phien_ban"] == 2 and b["clauses"][1]["doan"] == ["Giá thuê là 10.000.000 đồng."]
+    assert _theo_ben(kho, "ho_ten") == {"ben_a": {"Nguyễn Văn An"}, "ben_b": {"Trần Thị Bình"}}
+    assert _theo_ben(kho, "ngay_sinh") == {"ben_a": {"15/03/1978"}}
+    assert b["doi"] == ["Điều 2. Giá thuê"] and "Đã điền" not in ket["answer"]
+
+
+def test_chi_doi_gia_tri_khong_dao_ben_da_dien(kho):
+    _luot(_st(), _LLM(_ra()))
+    cau = "ngày sinh bên thuê là 02/02/1990"
+    ra = _ra(
+        muc_tieu="sua_ban_dang_co",
+        dieu=None,
+        sua_dieu=[],
+        gia_tri=[*DAO_BEN, {"ben": "ben_b", "truong": "ngay_sinh", "gia_tri": "02/02/1990"}],
+    )
+    _luot(_st(cau, nhe=kho.nhe(), query=f"{cau} (hợp đồng giữa Trần Thị Bình và Nguyễn Văn An)"), _LLM(ra))
+    assert _theo_ben(kho, "ho_ten") == {"ben_a": {"Nguyễn Văn An"}, "ben_b": {"Trần Thị Bình"}}
+    assert _theo_ben(kho, "ngay_sinh") == {"ben_b": {"02/02/1990"}}
+
+
+def test_nguoi_hoi_neu_ten_truong_thi_doi_duoc_gia_tri_dang_co(kho):
+    _luot(_st(), _LLM(_ra()))
+    cau = "Đổi lại: bên cho thuê là Trần Thị Bình, bên thuê là Nguyễn Văn An"
+    ra = _ra(muc_tieu="sua_ban_dang_co", dieu=None, sua_dieu=[], gia_tri=DAO_BEN)
+    ket = _luot(_st(cau, nhe=kho.nhe()), _LLM(ra))
+    assert _theo_ben(kho, "ho_ten") == {"ben_a": {"Trần Thị Bình"}, "ben_b": {"Nguyễn Văn An"}}
+    assert "Đã điền 4 chỗ trống từ lời bạn nói" in ket["answer"]
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        # Câu nhắc tên đầy đủ của MỘT bên (nó có trong câu gõ) không phải lời đổi bên.
+        "Sửa Điều 2: bà Trần Thị Bình trả giá thuê 10.000.000 đồng mỗi tháng",
+        # Nhắc tên cả hai bên mà không gọi vai nào: không dời giá trị nào.
+        "Sửa Điều 2: bà Trần Thị Bình trả cho ông Nguyễn Văn An 10.000.000 đồng mỗi tháng",
+    ],
+    ids=["mot_ten", "hai_ten"],
+)
+def test_sua_dieu_nhac_ten_cac_ben_khong_dao_ben(kho, cau):
+    _luot(_st(), _LLM(_ra()))
+    _dien_tren_trang(kho, "ben_a", "ngay_sinh", "15/03/1978")
+    thay = {"thao_tac": "thay", "dieu": 2, "key": None, "ten": "Giá thuê", "doan": ["Giá thuê là 10.000.000 đồng."]}
+    ra = _ra(muc_tieu="sua_ban_dang_co", dieu=None, sua_dieu=[thay], gia_tri=DAO_BEN)
+    ket = _luot(_st(cau, nhe=kho.nhe(), query=f"{cau} của hợp đồng thuê giữa hai bên"), _LLM(ra))
+    assert _theo_ben(kho, "ho_ten") == {"ben_a": {"Nguyễn Văn An"}, "ben_b": {"Trần Thị Bình"}}
+    assert _theo_ben(kho, "ngay_sinh") == {"ben_a": {"15/03/1978"}} and "Đã điền" not in ket["answer"]
+
+
+def test_hai_ben_khong_bao_gio_cung_mot_dinh_danh(kho):
+    # Câu gọi vai "bên thuê" VÀ có tên ông An — nhưng ông An đang là bên cho thuê: mô hình
+    # đặt ông An vào bên thuê thì hai bên thành cùng một người.
+    _luot(_st(), _LLM(_ra()))
+    cau = "Sửa Điều 2: bên thuê trả tiền thuê cho ông Nguyễn Văn An bằng chuyển khoản"
+    ra = _ra(muc_tieu="sua_ban_dang_co", dieu=None, sua_dieu=[], gia_tri=[DAO_BEN[1]])
+    _luot(_st(cau, nhe=kho.nhe()), _LLM(ra))
+    assert _theo_ben(kho, "ho_ten") == {"ben_a": {"Nguyễn Văn An"}, "ben_b": {"Trần Thị Bình"}}
+
+
+@pytest.mark.parametrize(
+    ("vai", "goi"),
+    [
+        ("Bên cho thuê", ["bên cho thuê"]),
+        ("1. BÊN A: NGƯỜI SỬ DỤNG LAO ĐỘNG", ["bên a", "người sử dụng lao động"]),
+        ("I. BÊN CHO THUÊ (sau đây gọi tắt là Bên cho thuê):", ["bên cho thuê"]),
+        ("Người yêu cầu thứ nhất — người chồng", ["người yêu cầu thứ nhất", "người chồng"]),
+    ],
+)
+def test_cach_goi_vai_mot_ben(vai, goi):
+    assert d._goi_vai(vai) == goi
+
+
+def test_nap_khuon_mau_noi_dung_chuan_cua_dieu_bat_buoc_la_nghia_vu_luat_dat(monkeypatch):
+    """Nội dung chuẩn (`muc[].mau`) cho một điều luật đòi mà bản soạn để trống: nguyên văn
+    NGHĨA VỤ luật đặt ra ("… phải …") ở căn cứ của mục — Khoản 1 khi dòng Điều chỉ là
+    tiêu đề. Dòng DB thật (2026-09-30): BLDS Điều 476, 473 và Khoản 1 của chúng."""
+    db = {
+        256914: {"id": 256914, "document_id": "95942", "duong_dan": "91/2015/QH13 > Điều 476",
+                 "tieu_de": "Điều 476. Giao tài sản thuê", "noi_dung": "Điều 476. Giao tài sản thuê"},
+        256907: {"id": 256907, "document_id": "95942", "duong_dan": "91/2015/QH13 > Điều 473",
+                 "tieu_de": "Điều 473. Giá thuê", "noi_dung": "Điều 473. Giá thuê"},
+        256906: {"id": 256906, "document_id": "95942", "duong_dan": "91/2015/QH13 > Điều 472",
+                 "tieu_de": "Điều 472. Hợp đồng thuê tài sản", "noi_dung": "Điều 472. Hợp đồng thuê tài sản Hợp đồng"
+                 " thuê tài sản là sự thỏa thuận giữa các bên, theo đó bên cho thuê giao tài sản cho bên thuê để sử"
+                 " dụng trong một thời hạn, bên thuê phải trả tiền thuê."},
+    }  # fmt: skip
+    khoan = {
+        256915: {"id": 256915, "document_id": "95942", "duong_dan": "91/2015/QH13 > Điều 476 > Khoản 1",
+                 "tieu_de": "Khoản 1", "noi_dung": "1. Bên cho thuê phải giao tài sản cho bên thuê đúng số lượng, chất"
+                 " lượng, chủng loại, tình trạng, thời điểm, địa điểm đã thoả thuận và cung cấp thông tin cần thiết"
+                 " về việc sử dụng tài sản đó."},
+        256908: {"id": 256908, "document_id": "95942", "duong_dan": "91/2015/QH13 > Điều 473 > Khoản 1",
+                 "tieu_de": "Khoản 1", "noi_dung": "1. Giá thuê do các bên thoả thuận hoặc do người thứ ba xác định theo"
+                 " yêu cầu của các bên, trừ trường hợp luật có quy định khác."},
+    }  # fmt: skip
+    monkeypatch.setattr(g.gst, "requirements", lambda loai: ([], g.gst.load_checklist_cached(loai), db))
+    monkeypatch.setattr(
+        g.gst, "provisions_theo_duong_dan", lambda dd: {k: r for k, r in khoan.items() if r["duong_dan"] in dd}
+    )
+    monkeypatch.setattr(g, "hien_thi_luc", lambda engine, as_of: frozenset({"95942"}))
+    monkeypatch.setattr(g.gst, "can_cu_khung", lambda *a: [])
+    ng = g._nap_khuon_mau(None, {"soan_thao_goi_y": {"loai": "hop_dong_thue_tai_san"}})["khuon_mau_ngu_canh"]
+    theo = {m["key"]: m for m in ng["muc"]}
+    assert theo["giao_tai_san"]["mau"] == khoan[256915]["noi_dung"][3:]
+    # "Giá thuê do các bên thoả thuận …" không đặt nghĩa vụ: câu trung tính của bộ chèn.
+    assert "mau" not in theo["gia_thue"] and "mau" not in theo["thoi_han_thue"]
+    # Định nghĩa của hợp đồng (Điều 472) có chữ "phải" nhưng không đặt nghĩa vụ cho một bên.
+    assert "mau" not in theo["tai_san_thue"]
+
+
+# ── Hợp đồng thuê nhà ở (app thật 2026-09-30): Luật Nhà ở 27/2023/QH15 chưa có toàn văn
+# trong kho, nên loại này là chế định thuê tài sản của BLDS mang ĐÚNG tên người hỏi xin,
+# và lời đáp nói thẳng luật nào chưa có — không đổi tên yêu cầu một cách im lặng.
+THUE_NHA = (
+    "Soạn hợp đồng thuê nhà ở giữa bên cho thuê là ông Nguyễn Văn An và bên thuê là bà Trần Thị Bình, "
+    "giá thuê 10 triệu đồng một tháng, thời hạn 12 tháng"
+)
+
+
+def _ng_nha(monkeypatch, st: dict, chua_co: tuple[str, ...] = ("27/2023/QH15",)) -> dict:
+    """`_nap_khuon_mau` thật của hợp đồng thuê nhà ở (registry, không checklist), DB giả;
+    `chua_co`: số hiệu mà kho chưa có toàn văn được hiện."""
+    db = {
+        7: {
+            "id": 7,
+            "document_id": "95942",
+            "duong_dan": "91/2015/QH13 > Điều 472",
+            "noi_dung": "Hợp đồng thuê tài sản là sự thỏa thuận giữa các bên…",
+        }
+    }
+    monkeypatch.setattr(g.gst, "provisions_theo_duong_dan", lambda dd: db)
+    monkeypatch.setattr(g, "hien_thi_luc", lambda engine, as_of: frozenset({"95942"}))
+    monkeypatch.setattr(
+        g.gst,
+        "can_cu_van_ban_co_id",
+        lambda e, d_, a: [
+            {"dong": "Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24 tháng 11 năm 2015.", "doc_id": "95942"}
+        ],
+    )
+    monkeypatch.setattr(g.gst, "chua_toan_van", lambda engine, so, hien: [s for s in so if s in chua_co])
+    return g._nap_khuon_mau(None, st)["khuon_mau_ngu_canh"]
+
+
+def test_thue_nha_o_cung_muc_luat_voi_thue_tai_san():
+    """Nội dung là chế định thuê tài sản: hai danh sách không được lệch nhau."""
+    from src.agents.graph_soan_thao import load_checklist_cached
+
+    cl = load_checklist_cached("hop_dong_thue_tai_san")
+    nha = km.nap("hop_dong_thue_nha_o")
+    assert [(m["key"], m["ten"], m["can_cu"]) for m in nha["muc"]] == [
+        (m["key"], m["ten"], m["can_cu"]) for m in cl.muc
+    ]
+    assert {m["key"] for m in nha["muc"] if m.get("bat_buoc") is False} == set(cl.khong_bat_buoc["keys"])
+    assert nha["ky"]["thu_tu"] == [b["khoa"] for b in nha["ben"]]
+
+
+def test_router_chon_duoc_thue_nha_o_bang_ten():
+    from src.agents.nodes import route
+
+    assert "- `hop_dong_thue_nha_o` — hợp đồng thuê nhà ở" in route.danh_sach_loai().splitlines()
+
+
+def test_thue_nha_o_mang_dung_ten_va_noi_luat_chua_co_trong_kho(kho, monkeypatch):
+    ng = _ng_nha(monkeypatch, {"soan_thao_goi_y": {"loai": "hop_dong_thue_nha_o"}})
+    ra = _ra(
+        tieu_de=None,
+        bo_cuc=None,
+        can_cu=None,
+        ben=None,
+        gia_tri=[
+            {"ben": "ben_cho_thue", "truong": "ho_ten", "gia_tri": "Nguyễn Văn An"},
+            {"ben": "ben_thue", "truong": "ho_ten", "gia_tri": "Trần Thị Bình"},
+        ],
+        dieu=[
+            {"key": "tai_san_thue", "ten": "Nhà ở cho thuê", "doan": ["Bên cho thuê cho Bên thuê thuê nhà ở tại ……"]}
+        ],
+    )
+    ket = _luot(_st(THUE_NHA, ng=ng), _LLM(ra))
+    assert kho.luu_goi[0]["loai"] == "hop_dong_thue_nha_o"
+    assert kho.luu_goi[0]["tieu_de"] == "HỢP ĐỒNG THUÊ NHÀ Ở"
+    chu = _chu_tep(kho.luu_goi[0]["docx"])
+    assert "HỢP ĐỒNG THUÊ NHÀ Ở" in chu and "HỢP ĐỒNG THUÊ TÀI SẢN" not in chu
+    assert "Bản thảo «Hợp đồng thuê nhà ở»" in ket["answer"]
+    assert "Kho chưa có toàn văn Luật Nhà ở số 27/2023/QH15" in ket["answer"]
+    assert "Bộ luật Dân sự số 91/2015/QH13" in ket["answer"]
+    assert "Chưa đặt được" not in ket["answer"]
+    # Lượt sửa sau đó không nhắc lại.
+    assert not _ng_nha(monkeypatch, {"ban_thao_tong_quat_dang_mo": kho.nhe()}).get("thieu_luat")
+
+
+def test_thue_nha_o_khong_noi_thieu_khi_kho_da_co_toan_van(kho, monkeypatch):
+    ng = _ng_nha(monkeypatch, {"soan_thao_goi_y": {"loai": "hop_dong_thue_nha_o"}}, chua_co=())
+    ra = _ra(
+        tieu_de=None,
+        bo_cuc=None,
+        can_cu=None,
+        ben=None,
+        gia_tri=[],
+        dieu=[{"key": "tai_san_thue", "ten": "Nhà ở cho thuê", "doan": ["Nhà ở tại ……"]}],
+    )
+    ket = _luot(_st(THUE_NHA, ng=ng), _LLM(ra))
+    assert "toàn văn" not in ket["answer"]
+
+
+@pytest.mark.parametrize(
+    ("tieu_de", "con_bao"),
+    [
+        # Replay bản thảo 91c288d5 trên nhánh tích hợp: mô hình vẫn kể tên văn bản người
+        # hỏi xin trong `khong_dat`, dù tiêu đề đã in đúng tên đó.
+        (None, []),
+        # Tên in ra KHÁC tên người hỏi xin: vẫn nói thẳng là chưa đặt được (D5).
+        ("HỢP ĐỒNG THUÊ TÀI SẢN", ["«Hợp đồng thuê nhà ở»"]),
+    ],
+    ids=["dung_ten", "khac_ten"],
+)
+def test_ten_van_ban_da_in_thanh_tieu_de_khong_bao_chua_dat(kho, monkeypatch, tieu_de, con_bao):
+    ng = _ng_nha(monkeypatch, {"soan_thao_goi_y": {"loai": "hop_dong_thue_nha_o"}})
+    ng = {**ng, "tieu_de": tieu_de or ng["tieu_de"]}
+    ra = _ra(
+        tieu_de="Hợp đồng thuê nhà ở",
+        bo_cuc=None,
+        can_cu=None,
+        ben=None,
+        gia_tri=[{"ben": "ben_cho_thue", "truong": "ho_ten", "gia_tri": "Nguyễn Văn An"}],
+        dieu=[{"key": "tai_san_thue", "ten": "Nhà ở cho thuê", "doan": ["Nhà ở tại ……"]}],
+        # "thời hạn 12 tháng" là lời người hỏi mà không chỗ nào nhận: vẫn phải báo.
+        khong_dat=["Hợp đồng thuê nhà ở", "thời hạn 12 tháng"],
+    )
+    ket = _luot(_st(THUE_NHA, ng=ng), _LLM(ra))
+    assert f"Chưa đặt được: {', '.join([*con_bao, '«thời hạn 12 tháng»'])}" in ket["answer"]

@@ -116,15 +116,17 @@ _SQL_HOP = text(
 
 # Bản đồ sửa đổi cấp điều khoản → điều khoản ĐI SỬA. Mệnh đề JOIN hậu duệ giống
 # hệt `effectivity._SQL_SUA_DOI` và vì cùng một lý do: truy hồi trả về "Điều
-# 139" còn bản ghi neo ở "Điều 139 > Khoản 1". Không lấy của TỔ TIÊN (xem ghi
-# chú ở `_SQL_SUA_DOI`).
+# 139" còn bản ghi neo ở "Điều 139 > Khoản 1". Không lấy của TỔ TIÊN, trừ bản ghi
+# phủ trọn tổ tiên đó (xem ghi chú ở `_SQL_SUA_DOI`).
 _SQL_NEO_SUA = text(
     "SELECT DISTINCT s.sua_boi_so_ky_hieu, s.sua_boi_duong_dan"
     " FROM provisions p"
     " JOIN provisions t ON t.id = p.id"
     "   OR (t.document_id = p.document_id AND t.duong_dan LIKE p.duong_dan || ' > %')"
+    "   OR (t.document_id = p.document_id AND p.duong_dan LIKE t.duong_dan || ' > %')"
     " JOIN sua_doi_dieu_khoan s ON s.provision_id = t.id"
     " WHERE p.id = ANY(:ids)"
+    "   AND (p.duong_dan NOT LIKE t.duong_dan || ' > %' OR t.duong_dan LIKE '% > ' || s.vi_tri)"
     "   AND s.sua_boi_so_ky_hieu IS NOT NULL AND s.sua_boi_duong_dan IS NOT NULL"
 )
 

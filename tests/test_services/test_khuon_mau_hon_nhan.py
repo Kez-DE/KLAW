@@ -145,7 +145,9 @@ def test_truong_cac_ben_la_mot_tab_dung_nhan_va_ten_duoi_chu_ky(loai):
 def test_dieu_bat_buoc_luon_co_khi_tao_va_chi_la_phat_hien_khi_sua(loai):
     dieu, kq = km.them_dieu_bat_buoc([], loai)
     assert [d["key"] for d in dieu] == BAT_BUOC[loai] == kq["thieu"]
-    assert all(d["doan"] == [km.CHO] and d.get("chen") for d in dieu)
+    # Đơn giữ chỗ điền của mẫu; điều của một thỏa thuận (bố cục hợp đồng) không bao giờ trống.
+    hop_dong = km.nap(loai)["bo_cuc"] == "hop_dong"
+    assert all(d.get("chen") and (d["doan"] != [km.CHO]) == hop_dong for d in dieu)
     sua, kq2 = km.them_dieu_bat_buoc([], loai, tao=False)
     assert sua == [] and kq2["thieu"] == BAT_BUOC[loai]
     # Một điều mô hình viết (không bắt buộc, có khoá) giữ chỗ; điều thiếu chèn đúng thứ tự.

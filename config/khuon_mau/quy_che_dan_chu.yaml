@@ -10,6 +10,7 @@ loai: quy_che_dan_chu
 ten: quy chế dân chủ ở cơ sở tại nơi làm việc
 tieu_de: QUY CHẾ DÂN CHỦ Ở CƠ SỞ TẠI NƠI LÀM VIỆC
 bo_cuc: hanh_chinh
+linh_vuc: lao_dong  # hồ sơ tài khoản (nền) vào bản thảo loại này — bo_nho.ho_so_theo_linh_vuc
 nguon:
   loai: tuong_tu
   van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.3 và mẫu văn bản kèm theo quyết định (tham chiếu bố cục)"

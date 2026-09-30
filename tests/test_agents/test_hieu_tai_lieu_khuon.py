@@ -2243,3 +2243,23 @@ def test_bm_m05_that_ngay_day_du_tach_va_ap_dung_cho():
     assert dv[20].noi_dung == "Thời gian: từ 01 / 10 / 2026 đến 31 / 12 / 2026"
     assert dv[13].noi_dung.startswith("Thời gian: từ ngày 01 tháng 10 năm 2026 đến ngày …")
     assert dv[14].noi_dung.startswith(", ngày 27 tháng 9 năm 2026")
+
+
+def test_luot_sua_khong_doi_cho_dang_co_gia_tri_tru_khi_cau_go_luot_nay_neu_gia_tri():
+    """Phép kiểm chung của mọi lượt sửa bản thảo (khuôn gốc lẫn khuôn mẫu, app thật
+    2026-09-30): chỗ trống ĐANG có giá trị chỉ đổi khi CHÍNH câu người hỏi gõ lượt này có
+    giá trị mới — nguồn rộng (câu giải nghĩa, hồ sơ, lượt trước) không đủ để dời nó."""
+    t = {"don_vi": DV_M05, "dinh_dang": "docx"}
+    dang_co = [{"loai": "dien", "don_vi": 3, "cho_trong": 0, "gia_tri": "Luật"}]
+    nguon = "ngành Luật kinh tế; điện thoại 0912345678"
+    phep = [
+        {"loai": "dien", "don_vi": 3, "cho_trong": 0, "gia_tri": "Luật kinh tế"},
+        {"loai": "dien", "don_vi": 2, "cho_trong": 0, "gia_tri": "0912345678"},
+    ]
+    giu, bo, _ = h.kiem_phep_sua(phep, t, nguon, [], dang_co, "điện thoại là 0912345678")
+    assert [(p["don_vi"], p["gia_tri"]) for p in giu] == [(2, "0912345678")] and bo == []
+    giu, _, _ = h.kiem_phep_sua(phep, t, nguon, [], dang_co, "sửa ngành thành Luật kinh tế")
+    assert (3, "Luật kinh tế") in [(p["don_vi"], p["gia_tri"]) for p in giu]
+    # Không truyền câu lượt này (đường cũ): hành vi như trước.
+    giu, _, _ = h.kiem_phep_sua(phep, t, nguon, [], dang_co)
+    assert len(giu) == 2

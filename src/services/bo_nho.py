@@ -25,6 +25,7 @@ from src.services.kho import moi_so_hieu_trong
 from src.services.llm import Usage, router_model
 from src.services.llm import from_settings as llm_from_settings
 from src.services.prompts import messages
+from src.services.retrieval import chuan_linh_vuc
 from src.services.traces import _ghi_traces
 
 logger = logging.getLogger(__name__)
@@ -155,6 +156,30 @@ def ho_so_sau_luot(result_type: str | None, cu: dict, moi: dict) -> dict:
     if result_type in KHONG_GOP_HO_SO:
         return dict(cu or {})
     return gop_ho_so(cu, moi, "nguoi_noi")
+
+
+# Dữ kiện NỀN: hồ sơ tài khoản kế thừa vào phiên (`nguon = tai_khoan`, §6.4) mà phiên này
+# chưa ai nói lại. Bảy khoá ở trên là hoàn cảnh LAO ĐỘNG của người hỏi, nên nền chỉ vào
+# một lượt khi lượt đó là câu hỏi lao động — app thật 2026-09-30: «Thực tập sinh ·
+# Ocenpark» dưới một hợp đồng thuê nhà và dưới câu hỏi về hệ thống pháp luật. `tach_nen`
+# gỡ nền khỏi `ho_so` lúc vào graph; `rewrite_query` (bước DUY NHẤT đoán lĩnh vực, không
+# đọc nền) trả nó lại cho câu hỏi lao động, và lượt soạn trả lại theo `linh_vuc` của loại
+# văn bản trong registry khuôn mẫu. Lượt khác (tài liệu, meta) không dùng, không hiện nền.
+# ponytail: nền coi là lao động; lưu lĩnh vực của vụ việc cùng hồ sơ tài khoản khi nền
+# thuộc lĩnh vực khác cần dùng lại.
+LINH_VUC_NEN = "lao_dong"
+
+
+def tach_nen(ho_so: dict) -> tuple[dict, dict]:
+    """`(ho_so của lượt, nền)` — nền là dữ kiện nguồn `tai_khoan`."""
+    nen = {k: v for k, v in (ho_so or {}).items() if isinstance(v, dict) and v.get("nguon") == "tai_khoan"}
+    return {k: v for k, v in (ho_so or {}).items() if k not in nen}, nen
+
+
+def ho_so_theo_linh_vuc(ho_so: dict, nen: dict, linh_vuc: str | None) -> dict:
+    """Hồ sơ của lượt khi đã biết lĩnh vực: nền vào lại cho câu hỏi lao động. Khoá của
+    hai phần không trùng nhau (cùng một dict tách ra), nên gộp không đè gì."""
+    return {**nen, **ho_so} if nen and chuan_linh_vuc(linh_vuc) == LINH_VUC_NEN else dict(ho_so or {})
 
 
 def khoi_tinh_huong(ho_so: dict) -> str:
@@ -289,9 +314,14 @@ def cap_nhat_phien(
         khoang = luot_can_gop(bn["tom_tat_den_thu_tu"], thu_tu_moi)
         luot_gop = hoi_thoai.luot_khoang(hoi_thoai_id, *khoang) if khoang else []
         luot_moi = hoi_thoai.luot_khoang(hoi_thoai_id, thu_tu_moi, thu_tu_moi)
+        # Nền không vào sổ tay của phiên: mô hình chép lại hồ sơ cũ nó được đưa, và một
+        # dữ kiện tài khoản chép lại thành `nguoi_noi` (rồi ghi ngược lên tài khoản với
+        # nguồn là phiên này) sau một lượt không nói gì về nó — phiên 5f5e036b…, 2026-09-30.
+        # Người hỏi nói lại điều đó trong phiên thì mô hình đọc được từ chính lượt.
+        cua_phien, nen = tach_nen(bn["ho_so"])
         prompt = PROMPT_PATH.read_text(encoding="utf-8").format(
             tom_tat_cu=bn["tom_tat"] or "(chưa có)",
-            ho_so_cu=khoi_tinh_huong(bn["ho_so"]),
+            ho_so_cu=khoi_tinh_huong(cua_phien),
             luot_gop=_dung_luot(luot_gop),
             luot_moi=_dung_luot(luot_moi),
         )
@@ -302,7 +332,7 @@ def cap_nhat_phien(
         tom_tat = " ".join(str(ra.get("tom_tat") or "").split())[:TOM_TAT_TOI_DA] or bn["tom_tat"]
         if _vuong_luoi_chan(tom_tat or ""):
             tom_tat = bn["tom_tat"]  # tóm tắt lọt số Điều/số hiệu/định danh cá nhân → giữ bản cũ
-        ho_so = ho_so_sau_luot(result_type, bn["ho_so"], ra.get("ho_so") or {})
+        ho_so = {**nen, **ho_so_sau_luot(result_type, cua_phien, ra.get("ho_so") or {})}
         den = khoang[1] if khoang else bn["tom_tat_den_thu_tu"]
         hoi_thoai.ghi_bo_nho(hoi_thoai_id, tom_tat if (luot_gop or bn["tom_tat"]) else None, den, ho_so)
         # Nhánh meta không gộp gì mới vào ho_so ở trên, nên không có gì để đẩy

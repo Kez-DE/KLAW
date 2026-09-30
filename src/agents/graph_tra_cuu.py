@@ -22,6 +22,7 @@ Ba đường rẽ tắt, tất cả đổ về `assemble`:
 """
 
 import logging
+import re
 import time
 import uuid
 from pathlib import Path
@@ -50,6 +51,7 @@ from src.agents.state import KLawState
 from src.config import as_of_hieu_luc, get_settings
 from src.services import ban_thao, bao_ve, bo_nho_tai_khoan, khuon_mau
 from src.services import tai_lieu as tl
+from src.services.bo_nho import _vuong_luoi_chan, ho_so_theo_linh_vuc
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
@@ -430,6 +432,31 @@ def _nap_ban_thao_dang_mo(st: dict, tai_lieu: list[dict]) -> dict:
     }
 
 
+_RE_SO_MUC_LUAT = re.compile(r"^(?:\d+\.|[a-zđ]\))\s*")
+# Nghĩa vụ luật đặt cho MỘT bên: chủ thể là một bên rồi "phải" ngay trong vế đầu.
+_RE_NGHIA_VU = re.compile(r"^(?:Bên|Người|Hai bên|Các bên)\b[^.;:]{0,80}?\bphải\b")
+
+
+def _than_luat(r: dict | None) -> str:
+    """Thân một dòng `provisions`: bỏ tiêu đề ("Điều 476. Giao tài sản thuê" — `tieu_de`
+    mang cả số Điều) hay số mục của khoản, điểm ("1.", "c)")."""
+    than = " ".join(str((r or {}).get("noi_dung") or "").split())
+    td = " ".join(str((r or {}).get("tieu_de") or "").split())
+    return than[len(td) :].strip() if td and than.startswith(td) else _RE_SO_MUC_LUAT.sub("", than, count=1)
+
+
+def _noi_dung_chuan(r: dict | None) -> str | None:
+    """Nội dung chuẩn của một điều luật đòi mà bản soạn để trống (`khuon_mau.them_dieu_bat_buoc`,
+    app thật 2026-09-30): nguyên văn thân căn cứ khi nó là MỘT NGHĨA VỤ luật đặt cho một
+    bên ("Bên cho thuê phải giao tài sản …") trọn câu, không dẫn số điều luật hay số hiệu.
+    Định nghĩa ("Hợp đồng thuê tài sản là …") hay "do các bên thoả thuận" (giá, thời hạn)
+    không phải điều khoản: `None`, bộ chèn đặt câu trung tính chừa chỗ điền."""
+    than = _than_luat(r)
+    if not _RE_NGHIA_VU.match(than) or not than.endswith(".") or len(than) > khuon_mau.TOI_DA_KY_TU_DOAN:
+        return None
+    return None if _vuong_luoi_chan(than) else than
+
+
 def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
     """Phần DB của lượt soạn khuôn mẫu (thiết kế §4 bước 3), trước node thuần: mục
     registry, mục checklist kèm căn cứ (nguyên văn rút gọn), dòng căn cứ của khung, và
@@ -454,6 +481,9 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
     if loai is None:
         return {**st, "khuon_mau_ngu_canh": {**ng, "ben": khung_cu.get("ben") or []}}
     entry = khuon_mau.nap(loai)
+    # Nền (hồ sơ tài khoản) chỉ vào bản thảo của loại cùng lĩnh vực (`linh_vuc` trong
+    # registry, như phán định của `rewrite_query` cho lượt hỏi): HĐLĐ có, thuê nhà thì không.
+    st = {**st, "ho_so": ho_so_theo_linh_vuc(st.get("ho_so") or {}, st.get("ho_so_nen") or {}, entry.get("linh_vuc"))}
     khoa_than = sorted(khuon_mau.muc_than(entry))
     ng.update(
         ten=entry["ten"],
@@ -479,6 +509,13 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
         # khung; số Điều của lượt sửa là số Điều của văn bản kèm theo.
         ban_hanh=bool(entry.get("ban_hanh")),
     )
+    if entry.get("luat_rieng") and not sua:
+        # Văn bản chuyên ngành chi phối loại này mà kho chưa có toàn văn (hợp đồng thuê
+        # nhà ở — Luật Nhà ở): lượt TẠO nói thẳng tên nó, không để tên văn bản gợi ý rằng
+        # điều khoản đã theo luật đó. Tra kho mỗi lượt: câu này tự tắt khi luật được nạp.
+        rieng = entry["luat_rieng"]
+        hien_luc = hien_thi_luc(engine, as_of_hieu_luc(st.get("as_of_date")))
+        ng["thieu_luat"] = [rieng[s] for s in gst.chua_toan_van(engine, list(rieng), hien_luc)]
     # `ten`: tên mục cho mô hình khi nhãn của mẫu mang chỗ điền `{}` hay không có nhãn;
     # `huong_dan`: lời hướng dẫn điền của CHÍNH mẫu chính thức (Mẫu 23-DS (11), (14)…).
     muc = [
@@ -510,16 +547,37 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
         khung_co = khuon_mau.khoa_khung(entry)
         ng["bat_buoc"] = [m["key"] for m in muc_luat if m["key"] not in khong_bb and m["key"] not in khung_co]
         ten_muc = {x["key"]: x for x in muc}
+        # Dòng Điều chỉ là tiêu đề ("Điều 476. Giao tài sản thuê"): nội dung chuẩn ở Khoản 1.
+        bb = set(ng["bat_buoc"])
+        chi_tieu_de = {
+            r["duong_dan"]
+            for m in muc_luat
+            if m["key"] in bb and (r := theo_dd.get(m.get("can_cu"))) and not _than_luat(r)
+        }
+        khoan_1 = (
+            {
+                r["duong_dan"]: r
+                for r in gst.provisions_theo_duong_dan(frozenset(f"{d} > Khoản 1" for d in chi_tieu_de)).values()
+            }
+            if chi_tieu_de
+            else {}
+        )
         for m in muc_luat:
             if m["key"] in khung_co:
                 continue
             r = theo_dd.get(m.get("can_cu"))
             trich = " ".join(str((r or {}).get("noi_dung") or "").split())[:300]
             cc = {"duong_dan": r["duong_dan"], "doc_id": str(r["document_id"]), "khop_tai_id": r["id"]} if r else None
+            mau = (
+                (_noi_dung_chuan(r) or _noi_dung_chuan(khoan_1.get(f"{r['duong_dan']} > Khoản 1")))
+                if r and m["key"] in bb
+                else None
+            )
+            them = {"trich": trich, "can_cu": cc, **({"mau": mau} if mau else {})}
             if m["key"] in ten_muc:
-                ten_muc[m["key"]].update(trich=trich, can_cu=cc)
+                ten_muc[m["key"]].update(them)
             elif not khoa_than or ng["co_dieu"]:
-                muc.append({"key": m["key"], "ten": m["ten"], "trich": trich, "can_cu": cc})
+                muc.append({"key": m["key"], "ten": m["ten"], **them})
         # Khối căn cứ của văn bản kèm theo nằm ở quyết định ban hành của nó.
         if (entry.get("ban_hanh") or entry)["the_thuc"].get("can_cu"):
             ng["can_cu"] = gst.can_cu_khung(engine, loai, hien, as_of)

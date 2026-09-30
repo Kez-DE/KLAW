@@ -23,7 +23,9 @@ phân biệt được bản thảo đã kiểm với bản thảo chưa kiểm.
 """
 
 import logging
+import re
 import time
+import unicodedata
 import uuid
 from pathlib import Path
 
@@ -506,7 +508,7 @@ def _clauses(dieu: list[dict], ng: dict, cu: list[dict] | None = None) -> list[d
             "ten": d.get("ten") or "",
             "doan": list(d.get("doan") or []),
             "can_cu": theo_muc.get(d.get("key")) or theo_cu.get(d.get("key")) if d.get("key") else None,
-            **({"chen": True} if d.get("chen") else {}),
+            **({"chen": d["chen"]} if d.get("chen") else {}),
         }
         for d in dieu
     ]
@@ -576,13 +578,78 @@ def _kiem_gia_tri(
 
     theo = {(g["ben"], g["truong"]): g["gia_tri"] for g in x.get("gia_tri") or []}
     phep = ban_thao.phep_tu_gia_tri(o, theo)
+    loi = state.get("cau_hoi_goc") or state.get("query") or ""
     giu, bo, gia_tri_bo = kiem_phep_sua(
-        phep, {"don_vi": don_vi_goc, "dinh_dang": "docx"}, x.get("nguon_gia_tri") or "", x.get("cam") or [], dang_co
+        phep,
+        {"don_vi": don_vi_goc, "dinh_dang": "docx"},
+        x.get("nguon_gia_tri") or "",
+        x.get("cam") or [],
+        dang_co,
+        loi,
     )
+    giu = _khong_doi_ben(giu, o, dang_co, (x.get("khung") or {}).get("ben") or [], loi)
     co_cho = {(z["ben"], z["truong"]) for z in o}
     khong_cho = [v for k, v in theo.items() if k not in co_cho]
     khong_dat = _lay_khong_dat([*gia_tri_bo, *khong_cho, *(x.get("khong_dat") or [])], _loi_nguoi_hoi(state), giu)
     return giu, bo, khong_dat
+
+
+# Định danh một bên: hai bên của cùng văn bản không bao giờ cùng một giá trị ở đây.
+_DINH_DANH = ("ho_ten", "so_dinh_danh", "ten_to_chuc", "ma_so_doanh_nghiep")
+
+
+def _goi_vai(vai: str | None) -> list[str]:
+    """Cách người hỏi gọi một bên, đọc từ `vai` của khung (viết thường): "bên cho thuê";
+    tiêu đề khối "1. BÊN A: NGƯỜI SỬ DỤNG LAO ĐỘNG" → "bên a", "người sử dụng lao động"."""
+    s = re.sub(r"\([^)]*\)", " ", unicodedata.normalize("NFC", vai or "").casefold())
+    s = re.sub(r"^\s*(?:[ivx]+|\d+)\.\s*", "", s)
+    return [c for p in re.split(r"[:—]", s) if (c := " ".join(p.split()))]
+
+
+def _neu_vai(loi: str, ben: str, goi: dict[str, list[str]]) -> bool:
+    """Câu `loi` (viết thường) gọi vai của `ben`. Cụm của bên khác chứa cụm của bên này
+    ("bên thuê vận chuyển" ⊃ "bên thuê") được xoá trước khi tìm."""
+    cua = goi.get(ben) or []
+    for k, ds in goi.items():
+        for c in ds:
+            if k != ben and any(x in c for x in cua):
+                loi = loi.replace(c, " ")
+    return any(re.search(rf"(?<!\w){re.escape(c)}(?!\w)", loi) for c in cua)
+
+
+def _khong_doi_ben(giu: list[dict], o: list[dict], dang_co: list[dict], ben: list[dict], loi: str) -> list[dict]:
+    """Lượt sửa không DỜI giá trị giữa các bên (app thật 2026-09-30, v3 của bản 91c288d5:
+    "Sửa Điều 3: giá thuê …" mà mô hình chép lại tên hai bên đảo chỗ). Một giá trị bên
+    khác đang giữ chỉ sang bên này khi CHÍNH câu gõ lượt này gọi vai bên này ("bên cho
+    thuê là …") — nhắc tên một người không đủ; và hai bên không bao giờ cùng một định danh
+    (`_DINH_DANH`). Phép bị bỏ lặng lẽ như cổng `loi_luot` của `kiem_phep_sua`: không
+    phải điều lượt này xin. Chỉ các bên của khung; trường của cả văn bản không có vai.
+    ponytail: vai gọi ở đâu trong câu cũng được, không buộc đi liền giá trị — buộc khi đo
+    thấy mô hình đảo bên dù câu gọi đúng vai."""
+    goi = {b["khoa"]: _goi_vai(b.get("vai")) for b in ben if isinstance(b, dict) and b.get("khoa")}
+    cua = {(z["don_vi"], z["so"]): (z["ben"], z["truong"]) for z in o if z.get("ben") in goi}
+
+    def _v(p: dict) -> str:
+        return str(p.get("gia_tri") or "").strip().casefold()
+
+    dang = {(p["don_vi"], p["cho_trong"]): v for p in dang_co if p.get("loai") == "dien" and (v := _v(p))}
+    if not dang:
+        return giu
+    loi = unicodedata.normalize("NFC", loi).casefold()
+    ra = []
+    for p in giu:
+        b, v = cua.get((p["don_vi"], p["cho_trong"])), _v(p)
+        dang_giu = {cua[s][0] for s, x in dang.items() if x == v and s in cua}
+        if not (b and v and dang_giu - {b[0]} and not _neu_vai(loi, b[0], goi)):
+            ra.append(p)
+    sau = {**dang, **{(p["don_vi"], p["cho_trong"]): _v(p) for p in ra}}
+    cac_ben: dict[tuple, set] = {}
+    for s, x in sau.items():
+        if s in cua and x and cua[s][1] in _DINH_DANH:
+            cac_ben.setdefault((cua[s][1], x), set()).add(cua[s][0])
+    return [
+        p for p in ra if not ((b := cua.get((p["don_vi"], p["cho_trong"]))) and len(cac_ben.get((b[1], _v(p)), ())) > 1)
+    ]
 
 
 def _moi_dien(giu: list[dict], truoc: list | None) -> int:

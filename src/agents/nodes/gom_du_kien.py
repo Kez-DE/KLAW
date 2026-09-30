@@ -11,7 +11,8 @@ import re
 from pathlib import Path
 
 from src.agents.graph_soan_thao import load_checklist_cached, load_facts_meta_cached, rules_cho
-from src.services.bo_nho import khoi_tinh_huong
+from src.services import khuon_mau
+from src.services.bo_nho import ho_so_theo_linh_vuc, khoi_tinh_huong
 from src.services.prompts import messages
 from src.services.rules import mo_ta_facts
 
@@ -78,10 +79,13 @@ def gom_du_kien(state: dict, llm, model: str) -> dict:
         return {**state, "soan_thao_dang_mo": None, "traces": {**prior, "gom_du_kien_nguon": "khong_ro_loai"}}
     facts = dict(dang.get("facts") or {})
     truong = truong_cua(loai)
+    # Nền theo lĩnh vực của loại (registry khuôn mẫu), như `graph_tra_cuu._nap_khuon_mau`.
+    linh_vuc = khuon_mau.nap(loai).get("linh_vuc") if loai in khuon_mau.cac_loai() else None
+    ho_so = ho_so_theo_linh_vuc(state.get("ho_so") or {}, state.get("ho_so_nen") or {}, linh_vuc)
     prompt = PROMPT_PATH.read_text(encoding="utf-8").format(
         ten=load_checklist_cached(loai).ten,
         truong=_dong_truong(truong, facts),
-        tinh_huong=khoi_tinh_huong(state.get("ho_so") or {}),
+        tinh_huong=khoi_tinh_huong(ho_so),
         cau_hoi=state.get("query", ""),
     )
     nguon = "llm"
@@ -104,6 +108,7 @@ def gom_du_kien(state: dict, llm, model: str) -> dict:
     du = not thieu or cu_soan
     return {
         **state,
+        "ho_so": ho_so,
         "soan_thao_dang_mo": {
             **dang,
             "loai": loai,

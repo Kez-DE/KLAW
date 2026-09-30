@@ -73,7 +73,9 @@ def suy_vai(cau: str) -> str | None:
 def suy_dien(state: dict) -> dict:
     ho_so = {k: dict(v) for k, v in (state.get("ho_so") or {}).items() if isinstance(v, dict)}
     vai: str | None = None
-    if not (ho_so.get("chu_the") or {}).get("gia_tri"):
+    # Vai kế thừa từ tài khoản (`ho_so_nen`) vẫn là vai đã biết: không đoán đè lên nó.
+    nen = state.get("ho_so_nen") or {}
+    if not ((ho_so.get("chu_the") or nen.get("chu_the")) or {}).get("gia_tri"):
         vai = suy_vai(state.get("cau_hoi_day_du") or state.get("query") or "")
         if vai:
             ho_so["chu_the"] = {"gia_tri": vai, "nguon": "suy_dien"}

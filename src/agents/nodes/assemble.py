@@ -57,7 +57,7 @@ from typing import TypedDict
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.agents.nodes.dung_ban_thao_tong_quat import KHONG_SOAN_DUOC, LOAI_TONG_QUAT, TEN_TONG_QUAT, _ket_state
-from src.agents.nodes.gioi_thieu import cau_gioi_thieu
+from src.agents.nodes.gioi_thieu import cau_gioi_thieu, hoi_cau_truc_phap_luat
 from src.agents.nodes.hieu_tai_lieu import CHO_TRONG, MUC_DICH_SOAN
 from src.agents.nodes.hoi_lai import bi_loai, cau_hoi_lai_tu_khung, duoi_hoi_them, duoi_tu_khung, hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
@@ -284,6 +284,8 @@ class Citation(TypedDict):
     tin_cay: str | None
     # Số thứ tự căn cứ trong văn xuôi (thẻ `cite:K`) — khớp `schemas.CitationOut.k`.
     k: int | None
+    # Số Điều mà dòng này là lệnh sửa đổi (`dieu_duoc_sua`); rỗng với điều luật thường.
+    dieu_duoc_sua: list[str]
 
 
 def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: bool = False, **kw: object) -> dict:
@@ -348,6 +350,34 @@ def _so_dieu_trong(text: str) -> set[str]:
     return set(_RE_DIEU.findall(normalize(text or "")))
 
 
+# Lệnh sửa đổi MANG nguyên văn mới của một Điều khác: 87/2025/QH15 > Điều 1 >
+# Khoản 1 ("Sửa đổi, bổ sung Điều 4 như sau: “Điều 4. …”") CHÍNH LÀ Điều 4 hiện
+# hành của 64/2025/QH15, và mô hình gọi nó đúng tên "Điều 4" (trace c8a98c3d,
+# 2026-09-30: `cite:15≠['1']`…`cite:23≠['1']` hạ cả câu trả lời 35/35/35). Chỉ
+# đọc phần DẪN tới "như sau": số Điều trong nguyên văn mới, hay trong một dẫn
+# chiếu thường ("theo quy định tại Điều 107"), vẫn là số không căn cứ nào mang.
+_RE_LENH_SUA = re.compile(
+    r"^\s*(?:\d+[a-zđ]*\.|[a-zđ]\))?\s*(?:sửa đổi|bổ sung|thay thế)[^“\"]*?như sau", re.IGNORECASE
+)
+
+
+def dieu_duoc_sua(row_id: int, db: dict[int, dict]) -> list[str]:
+    """Số Điều mà dòng `row_id` là lệnh sửa đổi — đọc cả dòng cha có trong `db`:
+    "a) Sửa đổi, bổ sung khoản 1 như sau" nêu số Điều ở khoản cha của nó."""
+    ra: set[str] = set()
+    p = db.get(row_id)
+    while p:
+        if m := _RE_LENH_SUA.match(normalize(p.get("noi_dung") or "")):
+            ra |= _so_dieu_trong(m.group(0))
+        p = db.get(p.get("parent_id"))
+    return sorted(ra, key=int)
+
+
+def _dieu_cua_can_cu(c: dict) -> set[str]:
+    """Số Điều một căn cứ chống đỡ: Điều ở đường dẫn của nó cộng Điều nó sửa."""
+    return _so_dieu_trong(c.get("duong_dan", "")) | set(c.get("dieu_duoc_sua") or ())
+
+
 def _dieu_khong_duoc_chong_do(answer: str, citations: list) -> list[str]:
     """Số Điều nào NHẮC trong `answer` mà KHÔNG nằm trong tập số Điều của các
     `citations` đã qua tầng 1+2. Rỗng nghĩa là mọi số Điều trong answer đều có
@@ -364,7 +394,7 @@ def _dieu_khong_duoc_chong_do(answer: str, citations: list) -> list[str]:
         return []
     trong_citation: set[str] = set()
     for c in citations:
-        trong_citation |= _so_dieu_trong(c.get("duong_dan", ""))
+        trong_citation |= _dieu_cua_can_cu(c)
     return sorted(trong_answer - trong_citation, key=int)
 
 
@@ -425,7 +455,7 @@ def _the_khong_hop_le(answer: str, citations_prose: list[dict], doc_ids: set[str
             loi.append(f"cite:{khoa}")
             continue
         dieu_the = _so_dieu_trong(chu)
-        dieu_can_cu = _so_dieu_trong(citations_prose[int(khoa) - 1].get("duong_dan", ""))
+        dieu_can_cu = _dieu_cua_can_cu(citations_prose[int(khoa) - 1])
         if dieu_the and not dieu_the <= dieu_can_cu:
             loi.append(f"cite:{khoa}≠{sorted(dieu_can_cu, key=int)}")
     return loi
@@ -802,8 +832,14 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
     # `hoi_lai` là tiền tiêu cho một câu hỏi kém cụ thể hơn — 0 token và cụ thể
     # hơn thắng. Rỗng (rewrite v2 mặc định, hoặc mọi dữ kiện đã biết) ⇒ đường cũ.
     tu_khung = cau_hoi_lai_tu_khung(state.get("khung_yeu_cau"), da_biet)
-    hl = None if tu_khung else hoi_lai(state.get("query", ""), llm, model, da_biet=da_biet)
-    cau = tu_khung or hl.cau
+    # Sáu chiều của `hoi_lai` là dữ kiện một vụ việc LAO ĐỘNG. Câu hỏi về cấu trúc
+    # hệ thống pháp luật, hay ở lĩnh vực khác theo `rewrite_query`, không có vụ việc
+    # đó (trace c8a98c3d hỏi "Chuyện này xảy ra khi nào bạn?"), nên không hỏi. Chỉ
+    # nhắc "luật VN" thì vẫn là vụ việc ("Theo luật VN thì tôi bị nợ lương…").
+    cau_hoi = state.get("cau_hoi_day_du") or state.get("query") or ""
+    hoi_tinh_huong = state.get("linh_vuc_du_doan") in (None, "lao_dong") and not hoi_cau_truc_phap_luat(cau_hoi)
+    hl = None if tu_khung or not hoi_tinh_huong else hoi_lai(state.get("query", ""), llm, model, da_biet=da_biet)
+    cau = tu_khung or (hl.cau if hl else "")
     gt, gt_usage, gt_nguon = (
         giai_thich_chung(state.get("query", ""), llm, model) if giai_thich else (None, None, None)
     )
@@ -818,7 +854,7 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
         **({"answer": gt} if gt else {}),
         **kw,
     )
-    ket["traces"]["assemble_hoi_lai"] = "khung" if tu_khung else hl.nguon
+    ket["traces"]["assemble_hoi_lai"] = "khung" if tu_khung else hl.nguon if hl else "bo_qua"
     if giai_thich:
         ket["traces"]["assemble_giai_thich"] = gt_nguon
     return ket
@@ -1196,7 +1232,15 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
         da = sum(1 for o in cho if (o.get("gia_tri") or "").strip())
         dien = f"Đã điền {da}/{len(cho)} chỗ trống. " if da else ""
     can_cu = [_ten_can_cu(c["dong"]) for c in can_cu_hien(khung.get("can_cu") or [], bt.get("clauses") or [])]
-    chen = [f"«{c.get('ten')}»" for c in bt.get("clauses") or [] if c.get("chen")]
+    # Điều luật đòi mà bản soạn chưa có (`khuon_mau.them_dieu_bat_buoc`): chỉ điều mang
+    # nội dung chuẩn của căn cứ (`chen: "chuan"`) được nói là đã đặt; câu trung tính hay
+    # "……" vẫn là điều còn trống (owner: không nói đã điền khi chưa điền).
+    chen = [c for c in bt.get("clauses") or [] if c.get("chen")]
+    trong = [f"«{c.get('ten')}»" for c in chen if c["chen"] != "chuan"]
+    chuan = [f"«{c.get('ten')}»" for c in chen if c["chen"] == "chuan"]
+    # Văn bản chuyên ngành kho chưa có toàn văn (`_nap_khuon_mau`, lượt tạo): nói thẳng,
+    # cạnh dòng căn cứ — tên văn bản không được ngầm nói điều khoản đã theo luật đó.
+    thieu_luat = (state.get("khuon_mau_ngu_canh") or {}).get("thieu_luat") or []
     khong_dat = _cau_khong_dat({"khong_dat": x.get("khong_dat") or []})
     ghi = list(x.get("ghi_chu") or [])
     if x.get("khong_mang_sang"):
@@ -1224,8 +1268,19 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
             _liet_ke("Căn cứ: ", can_cu, 220, "văn bản") + ". Bấm «Căn cứ» trên trang để xem nguyên văn. "
             if can_cu
             else ""
+        )
+        + (
+            f"Kho chưa có toàn văn {', '.join(thieu_luat)}, nên các điều khoản chỉ dựa trên căn cứ"
+            " đang có — chưa đối chiếu với luật đó. "
+            if thieu_luat
+            else ""
         ),
-        (_liet_ke("Điều còn trống vì luật đòi: ", chen, 160, "điều") + ". " if chen else ""),
+        (_liet_ke("Điều còn trống vì luật đòi: ", trong, 160, "điều") + ". " if trong else "")
+        + (
+            _liet_ke("Điều luật đòi mà bạn chưa nêu, đã đặt nội dung chuẩn để bạn xem lại: ", chuan, 160, "điều") + ". "
+            if chuan
+            else ""
+        ),
         _cau_con_trong(cho, khung),
         (" ".join(g.rstrip(".") + "." for g in ghi[:3]) + " " if ghi else ""),
         (khong_dat + " " if khong_dat else ""),
@@ -1698,6 +1753,9 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             # `None` với prompt sinh v2; giao diện nhóm được căn cứ khi có.
             "vai_tro": r.claim.vai_tro,
             "canh_bao": None,
+            # Nội bộ (không ra HTTP): số Điều dòng này sửa — hai phép kiểm số
+            # Điều cuối hàm đọc nó qua `_dieu_cua_can_cu`.
+            "dieu_duoc_sua": dieu_duoc_sua(row_id, db_provisions),
         })
         if eff and eff.verdict in CANH_BAO_NHAN:
             # Lời cho người đọc (`hien_thi.canh_bao`), nêu đích danh văn bản sửa

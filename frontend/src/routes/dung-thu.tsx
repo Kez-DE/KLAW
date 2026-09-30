@@ -66,7 +66,7 @@ import type {
   TraCuuKetQua,
   TruongFact,
 } from "@/lib/klaw";
-import { chuanHoaLuot, laMau, laNhapPhien, LOAI_TONG_QUAT } from "@/lib/klaw";
+import { chuanHoaLuot, hoSoTrenDong, laMau, laNhapPhien, LOAI_TONG_QUAT } from "@/lib/klaw";
 import type { LuotDaXong } from "@/lib/lich-su";
 import { dungLichSu } from "@/lib/lich-su";
 import { ghiChuHieuLuc } from "@/lib/trich-dan";
@@ -1453,10 +1453,17 @@ function ManHoiKlaw() {
                           return;
                         }
                         const trace = traCuu.ketQua?.trace_id ?? null;
+                        const dong =
+                          hoSoDaSua !== null && hoSoDaSua.trace === trace
+                            ? hoSoDaSua.hoSo
+                            : (traCuu.ketQua?.ho_so_da_dung ?? []);
                         void suaHoSoPhien(id, khoa, giaTri).then((kq) => {
                           if (!kq.ok) toast.error(kq.error.message);
                           else if (trace !== null)
-                            datHoSoDaSua({ trace, hoSo: kq.data.ho_so_da_dung });
+                            datHoSoDaSua({
+                              trace,
+                              hoSo: hoSoTrenDong(dong, kq.data.ho_so_da_dung),
+                            });
                         });
                       }}
                     />
