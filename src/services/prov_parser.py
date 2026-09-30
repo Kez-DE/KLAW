@@ -79,6 +79,10 @@ CONTAINER_CAPS = {Cap.phan, Cap.chuong, Cap.muc, Cap.tieu_muc}
 # chính việc không parse được số. Cùng một luật, hai cách đọc nhãn.
 LABEL_LEVELS = {Cap.phan, Cap.chuong, Cap.muc, Cap.tieu_muc, Cap.dieu}
 
+# Sau nhãn chữ của một node THẬT: hết chữ ("Chương " trơ của BLHS) hoặc số hiệu
+# (La Mã/Ả Rập). Chữ khác = từ ghép mở đầu bằng nhãn ("CHƯƠNG TRÌNH…").
+_RE_SAU_NHAN = re.compile(r"\s*(?:$|[IVXLCDM\d])")
+
 # Cấp phải có số hiệu vì nhãn của chúng LUÔN kèm số trong văn bản nguồn. Rỗng =
 # node rác sẽ nhận nhầm con và làm duong_dan mất neo (Chương VIII của BLHS).
 # `phan` không nằm ở đây: nó theo tiêu chí ĐẠT của brief (dieu/chuong/muc/tieu_muc).
@@ -123,6 +127,9 @@ BANG_CHU_DIEM = ("a", "b", "c", "d", "đ", "e", "g", "h", "i", "k", "l", "m",
 # "thẻ này bị gắn sai class", nên một mảnh tiếp nối mở đầu bằng số ("10 ngày kể
 # từ…") không được phép bị đọc thành Khoản 10.
 _RE_KHOAN_CHAT = re.compile(r"^\d+[a-zA-ZđĐ]*\s*[.)]")
+# Nhãn Điều CHẶT, cùng lý do: "Điều N." rồi tên điều — dạng tiêu đề, không phải câu
+# "Điều 5 được sửa đổi…" của luật sửa đổi.
+_RE_DIEU_CHAT = re.compile(r"^Điều\s+\d+[a-zA-ZđĐ]*\.\s", re.IGNORECASE)
 
 # Chuẩn hoá CHỈ ĐỂ SO KHỚP, không đổi text lưu.
 #   U+200B/U+FEFF: zero-width, vô hình nhưng làm hai chuỗi "khác nhau".
@@ -211,8 +218,12 @@ def _sua_cap_khoan_diem(cap: Cap, text: str) -> Cap:
         mang class `prov-item` → cả Khoản 10 chui vào Điều 1 > Khoản 9 > Điểm c.
       - `13/2023/NĐ-CP`: "a) Biện pháp quản lý do tổ chức…" mang class
         `prov-clause` → Điểm a của Điều 26 Khoản 2 biến mất, dãy còn b…đ.
+    Và lên một tầng: `27/2023/QH15` "Điều 14. Đại diện chủ sở hữu…" mang class
+    `prov-clause` (1 thẻ trên 415 văn bản, đo 2026-09-30).
     """
     t = _khoa(text)
+    if _RE_DIEU_CHAT.match(t):
+        return Cap.dieu
     if cap is Cap.diem and not RE_SO[Cap.diem].match(t) and _RE_KHOAN_CHAT.match(t):
         return Cap.khoan
     if cap is Cap.khoan and not RE_SO[Cap.khoan].match(t) and RE_SO[Cap.diem].match(t):
@@ -392,11 +403,16 @@ def _la_tiep_noi_tieu_de(text: str, cap: Cap, so: str) -> bool:
     Đã đo: BLLĐ Chương I tách 2 thẻ CÙNG id; BLDS/BLHS/BLTTDS/BLTTHS có 75 thẻ
     prov-article tách tiêu đề với id KHÁC nhau; BLDS có 22 thẻ prov-subsection
     tách "Tiểu mục N" khỏi tên; BLHS có "Chương " trơ. Một quy tắc phủ cả bốn.
+
+    Nhãn là một TỪ: sau nó chỉ có số hiệu (dù lạ) hoặc hết chữ. 27/2023/QH15
+    Chương III có dòng tiêu đề "CHƯƠNG TRÌNH, KẾ HOẠCH…" — chữ "chương" của từ
+    ghép "chương trình", không phải nhãn.
     """
     if so:
         return False
     if cap in LABEL_LEVELS:
-        return not _khoa(text).lower().startswith(NHAN[cap].lower())
+        t, nhan = _khoa(text), NHAN[cap]
+        return not (t.lower().startswith(nhan.lower()) and _RE_SAU_NHAN.match(t, len(nhan)))
     # Khoản/Điểm: SỐ HỌC LÀ NHÃN, nên "không parse được số" CHÍNH LÀ dấu hiệu
     # "không mở đầu bằng nhãn" ở trên — cùng một luật, không phải ca riêng thứ
     # sáu. Không gộp thì Khoản cha bị CẮT CỤT (đoạn hai của nó đi sang một node
