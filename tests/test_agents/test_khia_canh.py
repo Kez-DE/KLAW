@@ -91,6 +91,7 @@ def test_hoi_bo_luat_liet_ke_dung_tu_fixture():
     ans = cau_gioi_thieu("có những Bộ luật gì", KHO)
     assert "Tôi hiện có 6 Bộ luật: " + ", ".join(TEN_NGAN[:-1]) + " và " + TEN_NGAN[-1] + "." in ans
     assert "10/2012" not in ans
+    assert ans.count(CAU_GIOI_HAN) == 1, "danh sách Bộ luật là số liệu văn bản"
 
 
 def test_hoi_linh_vuc_liet_ke_dung_linh_vuc_va_do_sau():
@@ -114,7 +115,8 @@ def test_hoi_nguon_chi_tra_nguon_va_gioi_han_lien_quan():
     assert generate_model() not in ans
     for ten in TEN_NGAN:
         assert ten not in ans
-    assert ans.count(CAU_GIOI_HAN) == 1
+    # Quyết định 2026-09-30 mục 5: nguồn dữ liệu không phải số liệu văn bản.
+    assert CAU_GIOI_HAN not in ans
 
 
 def test_hoi_model_chi_tra_model_va_khong_ro_ri():

@@ -260,9 +260,8 @@ NANG_LUC = "\n".join((
 # đường dẫn API dán vào câu trả lời cho người dùng vừa không giúp gì vừa là một
 # giá trị `.env` bị đưa ra ngoài.
 #
-# Đóng bằng chính `kho.CAU_GIOI_HAN` chứ không viết lại: đó là bản DUY NHẤT của
-# câu giới hạn phạm vi, và một bản sao thứ hai sẽ lệch pha đúng vào ngày ai đó
-# sửa một trong hai.
+# KHÔNG đóng bằng `kho.CAU_GIOI_HAN`: nguồn dữ liệu không phải số liệu văn bản
+# (quyết định 2026-09-30 mục 5).
 NGUON = "\n\n".join((
     "Văn bản tôi đọc lấy từ cơ sở dữ liệu quốc gia về văn bản pháp luật — bản "
     "công bố của cơ quan nhà nước, không phải một bản chép lại trên mạng.",
@@ -275,7 +274,6 @@ NGUON = "\n\n".join((
     "chữ câu trích với điều khoản trong chính văn bản luật, tầng hai để một model khác đọc lại "
     "xem điều khoản đó có thật sự chống đỡ được câu đó không. Không qua được thì "
     "tôi nói thẳng là không đủ, không viết cho đủ bài.",
-    CAU_GIOI_HAN,
 ))
 
 
@@ -619,12 +617,9 @@ def cau_gioi_thieu(
             continue
         khoi.append(_mot_khoi(t, cau_hoi, kho))
 
-    # `NGUON` và khối `kho` đều TỰ đóng bằng `CAU_GIOI_HAN`, nên câu ghép cả
-    # hai nói nó hai lần (FR-011). Giữ bản CUỐI để câu giới hạn vẫn đứng sát
-    # cuối phần nội dung, gỡ các bản trước.
-    cuoi = max((i for i, k in enumerate(khoi) if CAU_GIOI_HAN in k), default=-1)
-    van = "\n\n".join(k if i == cuoi else k.removesuffix(CAU_GIOI_HAN).rstrip()
-                      for i, k in enumerate(khoi))
+    # Chỉ khối `kho` bản tóm tắt tự đóng bằng `CAU_GIOI_HAN`, và nó không đi cùng
+    # khối Bộ luật hay lĩnh vực (`_khop`), nên câu giới hạn không lặp (FR-011).
+    van = "\n\n".join(khoi)
 
     # Đúng MỘT lời mời tiếp tục, và nó phải là câu CUỐI — nên quyết định trước
     # khi ghép `CAU_GIOI_HAN` vào: khối cuối tự kết bằng một câu hỏi (`DANH_TINH`)
@@ -633,9 +628,10 @@ def cau_gioi_thieu(
     if hoi and (van.rstrip().endswith("?") or hoi in van):
         hoi = ""
 
-    # Câu giới hạn phạm vi đóng MỘT LẦN, và chỉ khi thật sự có một khối phạm vi
-    # kho để giới hạn. `NGUON` và khối `kho` đã mang sẵn nó.
-    if kho is not None and can_kho(cac) and CAU_GIOI_HAN not in van:
+    # Câu giới hạn phạm vi đóng MỘT LẦN, và chỉ sau số liệu văn bản (quyết định
+    # 2026-09-30 mục 5): danh sách Bộ luật, lĩnh vực. Khối `kho` tự mang nó khi là
+    # bản tóm tắt; câu tra một số hiệu thì không.
+    if kho is not None and ("bo_luat" in cac or "linh_vuc" in cac) and CAU_GIOI_HAN not in van:
         van += "\n\n" + CAU_GIOI_HAN
     if hoi:
         van += "\n\n" + hoi

@@ -173,9 +173,9 @@ def test_loi_dap_con_lai_goi_dung_ten_thu_dang_trich():
 def test_bo_chu_kho_KHONG_duoc_thanh_loi_hua_phu_het_phap_luat_viet_nam():
     """Ranh giới brief đặt ra cho R5: nói "pháp luật Việt Nam quy định…" rồi
     đoán thì tệ hơn lời cũ. Câu đóng phạm vi vẫn phải thú nhận đúng những gì
-    có, và vẫn phải đi kèm MỌI đường trả lời về corpus."""
+    có, và đi kèm câu trả lời về số liệu văn bản (quyết định 2026-09-30 mục 5)."""
     assert "không phải toàn bộ văn bản pháp luật Việt Nam" in kho.CAU_GIOI_HAN
     assert "còn nhiều văn bản tôi chưa có" in kho.CAU_GIOI_HAN
-    for cau_hoi in ("có bao nhiêu bộ luật", "có Nghị định 145/2020 không?",
-                    "có Nghị định 999/2099/NĐ-CP không?"):
-        assert kho.CAU_GIOI_HAN in kho.dung_cau_tra_loi(cau_hoi, _KHO)
+    assert kho.CAU_GIOI_HAN in kho.dung_cau_tra_loi("có bao nhiêu bộ luật", _KHO)
+    for cau_hoi in ("có Nghị định 145/2020 không?", "có Nghị định 999/2099/NĐ-CP không?"):
+        assert kho.CAU_GIOI_HAN not in kho.dung_cau_tra_loi(cau_hoi, _KHO)
