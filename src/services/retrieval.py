@@ -23,6 +23,7 @@ from sqlalchemy import Engine, text
 
 from src.config import Settings
 from src.services.embedding import EmbeddingClient
+from src.services.phan_linh_vuc import phan_nganh_luat
 
 # Hư từ tiếng Việt — danh sách nhỏ, tự viết, CHỈ áp lên truy vấn (corpus không
 # đụng tới). Viết KHÔNG DẤU vì so khớp sau khi bỏ dấu, giống `unaccent()` của
@@ -93,15 +94,30 @@ def chuan_linh_vuc(s: str | None) -> str:
     return "_".join(_bo_dau(s).lower().replace("-", " ").split())
 
 
+def nganh_cua_linh_vuc(linh_vuc: str | None) -> str | None:
+    """Mã lĩnh vực `rewrite_query` đoán ("dat_dai", "thue", "khac") → ngành luật của kho
+    (`documents.nganh_luat`), xếp bằng CHÍNH bộ từ khoá xếp văn bản vào ngành
+    (`phan_linh_vuc.phan_nganh_luat`: "thue" → tai_chinh, "so_huu_tri_tue" → kinh_te) —
+    không có bảng ánh xạ thứ hai. Không xếp được ("khac") → None: không khoanh vùng."""
+    kq = phan_nganh_luat(ten=linh_vuc.replace("_", " ")) if linh_vuc else None
+    return kq.linh_vuc if kq else None
+
+
 def loc_theo_linh_vuc(
-    provision_ids: list[int], linh_vuc_cua: dict[int, str | None], linh_vuc: str | None, toi_thieu: int = 3
+    provision_ids: list[int], nganh_cua: dict[int, str | None], linh_vuc: str | None, toi_thieu: int = 3
 ) -> tuple[list[int], bool]:
     """Khoanh vùng cứng theo lĩnh vực mô hình đoán (spec 2026-09-09 §7.4). Dưới `toi_thieu`
-    kết quả thì mở lại toàn kho và báo `mo_rong=True` để trace đếm được."""
-    if not linh_vuc:
+    kết quả thì mở lại toàn kho và báo `mo_rong=True` để trace đếm được.
+
+    Đọc `nganh_luat` (`Retriever.linh_vuc_cua`), nhãn mà MỌI văn bản được xếp theo cùng một
+    luật, và giữ điều khoản của văn bản CHƯA xếp ngành: không biết không phải là khác ngành
+    (quyết định 2026-09-30 mục 9). Trước đó bộ lọc đọc `linh_vuc` nguyên văn nguồn — 102/2024
+    mang "Đất đai" còn Luật Đất đai 31/2024/QH15 để trống — nên hiện 102/2024 là loại Điều
+    235, 236 của Luật Đất đai khỏi câu tranh chấp nhà đất."""
+    nganh = nganh_cua_linh_vuc(linh_vuc)
+    if nganh is None:
         return provision_ids, False
-    muc = chuan_linh_vuc(linh_vuc)
-    giu = [pid for pid in provision_ids if chuan_linh_vuc(linh_vuc_cua.get(pid)) == muc]
+    giu = [pid for pid in provision_ids if nganh_cua.get(pid) in (None, nganh)]
     return (giu, False) if len(giu) >= toi_thieu else (provision_ids, True)
 
 
@@ -230,13 +246,14 @@ class Retriever:
         return _dedup_giu_hang_tot_nhat(chunk_ids, provision_cua)
 
     def linh_vuc_cua(self, provision_ids: list[int]) -> dict[int, str | None]:
-        """`provisions.id → documents.linh_vuc` (migration 018) cho tập ứng viên."""
+        """`provisions.id → documents.nganh_luat` (migration 029) cho tập ứng viên — nhãn xếp
+        theo cùng một luật cho cả kho; `linh_vuc` (018) là chữ nguồn tự do, 95% rỗng."""
         if not provision_ids:
             return {}
         with self.engine.connect() as c:
             rows = c.execute(
                 text(
-                    "SELECT p.id, d.linh_vuc FROM provisions p"
+                    "SELECT p.id, d.nganh_luat FROM provisions p"
                     " JOIN documents d ON d.id = p.document_id WHERE p.id = ANY(:ids)"
                 ),
                 {"ids": provision_ids},
