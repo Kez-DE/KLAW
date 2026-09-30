@@ -345,6 +345,18 @@ def test_doi_nghia_chi_khi_cau_viet_lai_them_noi_dung():
     assert not doi_nghia("bạn là ai", "Bạn là ai?")
     assert doi_nghia("còn thử việc thì sao", "Thời gian thử việc tối đa theo Bộ luật Lao động là bao lâu")
     assert doi_nghia("liệt kê bảng cho tôi", "Liệt kê thời hạn báo trước khi nghỉ việc dưới dạng bảng")
+    # Review 2026-09-30: a dropped qualifier changes the question too.
+    assert doi_nghia("nghỉ việc khi đang thử việc có phải báo trước không", "Nghỉ việc có phải báo trước không?")
+    assert doi_nghia(
+        "người lao động nữ mang thai bị sa thải có được bồi thường không",
+        "Người lao động bị sa thải có được bồi thường không",
+    )
+    # Accented words are not stoplist words: bán ≠ bạn, nhà ≠ nha, tội ≠ tôi.
+    assert doi_nghia("thế thì sao", "Thế thì bán nhà có được không?")
+    assert doi_nghia("có phạm không", "có phạm tội không")
+    # Abbreviations spelled out are not a change.
+    assert not doi_nghia("bạn giúp tôi đc ko", "KLAW, bạn giúp tôi được không?")
+    assert not doi_nghia("ban giup toi duoc chu", "KLAW, bạn giúp tôi được chứ")
 
 
 class LlmGiaiNghia:
