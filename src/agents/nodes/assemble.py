@@ -57,7 +57,7 @@ from typing import TypedDict
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.agents.nodes.dung_ban_thao_tong_quat import KHONG_SOAN_DUOC, LOAI_TONG_QUAT, TEN_TONG_QUAT, _ket_state
-from src.agents.nodes.gioi_thieu import cau_gioi_thieu, hoi_he_thong_phap_luat
+from src.agents.nodes.gioi_thieu import cau_gioi_thieu, hoi_cau_truc_phap_luat
 from src.agents.nodes.hieu_tai_lieu import CHO_TRONG, MUC_DICH_SOAN
 from src.agents.nodes.hoi_lai import bi_loai, cau_hoi_lai_tu_khung, duoi_hoi_them, duoi_tu_khung, hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
@@ -832,11 +832,12 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
     # `hoi_lai` là tiền tiêu cho một câu hỏi kém cụ thể hơn — 0 token và cụ thể
     # hơn thắng. Rỗng (rewrite v2 mặc định, hoặc mọi dữ kiện đã biết) ⇒ đường cũ.
     tu_khung = cau_hoi_lai_tu_khung(state.get("khung_yeu_cau"), da_biet)
-    # Sáu chiều của `hoi_lai` là dữ kiện một vụ việc LAO ĐỘNG. Câu hỏi về chính hệ
-    # thống pháp luật, hay ở lĩnh vực khác theo `rewrite_query`, không có vụ việc
-    # đó (trace c8a98c3d hỏi "Chuyện này xảy ra khi nào bạn?"), nên không hỏi.
+    # Sáu chiều của `hoi_lai` là dữ kiện một vụ việc LAO ĐỘNG. Câu hỏi về cấu trúc
+    # hệ thống pháp luật, hay ở lĩnh vực khác theo `rewrite_query`, không có vụ việc
+    # đó (trace c8a98c3d hỏi "Chuyện này xảy ra khi nào bạn?"), nên không hỏi. Chỉ
+    # nhắc "luật VN" thì vẫn là vụ việc ("Theo luật VN thì tôi bị nợ lương…").
     cau_hoi = state.get("cau_hoi_day_du") or state.get("query") or ""
-    hoi_tinh_huong = state.get("linh_vuc_du_doan") in (None, "lao_dong") and not hoi_he_thong_phap_luat(cau_hoi)
+    hoi_tinh_huong = state.get("linh_vuc_du_doan") in (None, "lao_dong") and not hoi_cau_truc_phap_luat(cau_hoi)
     hl = None if tu_khung or not hoi_tinh_huong else hoi_lai(state.get("query", ""), llm, model, da_biet=da_biet)
     cau = tu_khung or (hl.cau if hl else "")
     gt, gt_usage, gt_nguon = (

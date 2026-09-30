@@ -410,13 +410,24 @@ def chac_chan_meta(cau_hoi: str) -> bool:
 # out: "có Hiến pháp 2013 không" asks whether the kho holds the document.
 # Written without diacritics and matched on the folded question, so "luat",
 # "luật" and a mistyped tone ("hệ thông") all match.
-_RE_HE_THONG_PHAP_LUAT = re.compile(
-    r"\b(?:luat(?:\s+phap)?|hien\s+phap)\s+(?:(?:cua|o|tai|nuoc)\s+)*(?:viet\s*nam|vn)\b"
-    r"|\bluat(?:\s+phap)?\s+nuoc\s+ta\b"
-    r"|\bhe\s+thong\s+(?:van\s+ban\s+)?(?:quy\s+pham\s+)?phap\s+luat"
+_LUAT_VIET_NAM = (
+    r"(?:\b(?:luat(?:\s+phap)?|hien\s+phap)\s+(?:(?:cua|o|tai|nuoc)\s+)*(?:viet\s*nam|vn)"
+    r"|\bluat(?:\s+phap)?\s+nuoc\s+ta)\b"
+)
+_CAU_TRUC_PHAP_LUAT = (
+    r"\bhe\s+thong\s+(?:van\s+ban\s+)?(?:quy\s+pham\s+)?phap\s+luat"
     r"|\bloai\s+van\s+ban\s+(?:quy\s+pham\s+)?phap\s+luat"
     r"|\bvan\s+ban\s+(?:quy\s+pham\s+)?phap\s+luat\s+(?:duoc\s+)?(?:gom|chia|phan)\b"
     r"|\bnganh\s+luat|\bvb\s*qppl\b"
+)
+_RE_HE_THONG_PHAP_LUAT = re.compile(f"{_LUAT_VIET_NAM}|{_CAU_TRUC_PHAP_LUAT}")
+# "luật VN" / "luật nước ta" alone also opens an ordinary case ("Theo luật VN thì
+# tôi bị nợ lương 3 tháng phải làm sao"). For the dead-end follow-up it counts
+# only when the law itself is what gets divided or listed.
+_RE_CAU_TRUC_PHAP_LUAT = re.compile(
+    rf"{_LUAT_VIET_NAM}\s+(?:hien\s+(?:nay|tai|hanh)\s+)?(?:duoc\s+)?"
+    r"(?:chia|gom|bao\s+gom|phan|co\s+(?:may|nhung|cac|bao\s+nhieu))\b"
+    rf"|\bthu\s+bac\b|{_CAU_TRUC_PHAP_LUAT}"
 )
 # Positive signs that the question addresses KLAW. Not a bare pronoun: "em" is
 # usually the user speaking of themselves ("cho em hỏi"), and "bạn" mostly
@@ -454,6 +465,12 @@ def hoi_he_thong_phap_luat(cau_hoi: str) -> bool:
     if not _RE_HE_THONG_PHAP_LUAT.search(_bo_dau(c)):
         return False
     return not any(r.search(c) for r in (_RE_NOI_VOI_KLAW, _RE_DAU_KHO, _RE_BO_LUAT, _RE_LINH_VUC))
+
+
+def hoi_cau_truc_phap_luat(cau_hoi: str) -> bool:
+    """A legal-system question that asks how the system is built (its parts,
+    kinds of documents, hierarchy), not a case that merely names "luật VN"."""
+    return hoi_he_thong_phap_luat(cau_hoi) and bool(_RE_CAU_TRUC_PHAP_LUAT.search(_bo_dau(_chuan(cau_hoi))))
 
 
 # KLAW-self facets. On a `hoi_ve_kho` turn "là gì", "làm gì", "hoạt động",

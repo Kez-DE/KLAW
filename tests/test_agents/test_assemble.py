@@ -1562,6 +1562,8 @@ def test_dieu_khong_chong_do_tinh_ca_dieu_duoc_sua_cua_can_cu():
     "kw",
     [
         {"query": "hiện tại pháp luật việt nam chia thành những gì"},
+        # bộ nhớ nền kéo lĩnh vực về lao_dong: câu hỏi vẫn không có vụ việc nào
+        {"query": "hiện tại pháp luật việt nam chia thành những gì", "linh_vuc_du_doan": "lao_dong"},
         {"query": "chia tài sản chung khi ly hôn thế nào", "linh_vuc_du_doan": "hon_nhan_gia_dinh"},
     ],
 )
@@ -1575,7 +1577,19 @@ def test_ngo_cut_cau_hoi_khong_ve_lao_dong_KHONG_hoi_tinh_huong(kw):
     assert st["coverage_note"] == KHONG_TIM_DUOC and CAU_DAN not in st["coverage_note"]
 
 
-def test_ngo_cut_cau_hoi_lao_dong_van_hoi_tinh_huong():
+@pytest.mark.parametrize(
+    "query",
+    [
+        "lương thử việc bao nhiêu",
+        # "luật VN" / "luật nước ta" chỉ mở đầu một vụ việc, không hỏi hệ thống
+        # pháp luật được xây thế nào (review 2026-09-30: nhánh trơ của
+        # `hoi_he_thong_phap_luat` từng làm mất câu hỏi lại của các câu này)
+        "Theo luật VN thì tôi bị nợ lương 3 tháng phải làm sao",
+        "Theo pháp luật Việt Nam, công ty sa thải tôi khi đang mang thai có đúng không",
+        "pháp luật nước ta quy định thời gian thử việc tối đa bao lâu",
+    ],
+)
+def test_ngo_cut_cau_hoi_lao_dong_van_hoi_tinh_huong(query):
     llm = FakeLlm()
-    st = assemble(_st(tier2=[], linh_vuc_du_doan="lao_dong"), DB, llm, "m", prompt_path=V3_PROMPT)
+    st = assemble(_st(tier2=[], query=query, linh_vuc_du_doan="lao_dong"), DB, llm, "m", prompt_path=V3_PROMPT)
     assert llm.so_lan_hoi_lai == 1 and st["traces"]["assemble_hoi_lai"] == "llm"
