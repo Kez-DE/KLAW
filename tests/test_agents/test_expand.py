@@ -264,6 +264,14 @@ def test_dieu_khong_co_ban_ghi_sua_doi_KHONG_keo_theo_gi_them():
     assert not [p for p in deep if p["duong_dan"].startswith("113/2025/QH15")]
 
 
+@pytest.mark.integration
+def test_khoan_cua_dieu_bi_sua_ca_dieu_keo_theo_NOI_DUNG_MOI():
+    """Trace c8a98c3d: 64/2025/QH15 Điều 4 bị 87/2025/QH15 sửa CẢ Điều. Chỉ trúng
+    một khoản cũ của nó ("cấp huyện") vẫn phải đưa danh sách mới vào context."""
+    deep, _ = expand([pid("64/2025/QH15 > Điều 4 > Khoản 13")], get_engine(), date(2026, 9, 30), hops=0)
+    assert "87/2025/QH15 > Điều 1 > Khoản 1" in {p["duong_dan"] for p in deep}
+
+
 # ══ Pha 3a (spec 2026-09-02 §7) ══════════════════════════════════════════════
 @pytest.mark.integration
 def test_moi_provision_mang_loai_van_ban_de_generate_claims_ap_thu_bac():

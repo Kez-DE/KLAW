@@ -208,3 +208,26 @@ def test_bon_diem_sua_khao_sat_tim_duoc_deu_co_mat():
         ("45/2019/QH14 > Điều 139 > Khoản 1", "113/2025/QH15"),
         ("45/2019/QH14 > Điều 154", "71/2025/QH15"),   # khoản 8a là khoản MỚI
     } <= thuc
+
+
+# F1 (2026-09-29): 87/2025/QH15 khoản 1 Điều 1 sửa CẢ Điều 4 của 64/2025/QH15
+# (`vi_tri = 'Điều 4'`) — mọi khoản của nó trong CSDL là bản trước sửa (14 khoản,
+# còn "cấp huyện"). Trace c8a98c3d (2026-09-30): khoản 13 chỉ mang
+# `mot_phan_khong_xac_dinh` cạnh danh sách mới, ở bối cảnh sinh luận điểm lẫn trích dẫn.
+DD_4_KHOAN_13 = "64/2025/QH15 > Điều 4 > Khoản 13"
+# Đối chứng: bản ghi "Điều 154 > Khoản 8a" neo ở Điều 154 chỉ vì khoản 8a mới
+# chưa có dòng — chín khoản cũ của Điều 154 không ai đụng tới.
+DD_154_KHOAN_1 = "45/2019/QH14 > Điều 154 > Khoản 1"
+
+
+@pytest.mark.integration
+def test_khoan_cua_dieu_bi_sua_ca_dieu_mang_nhan_cua_dieu():
+    pid = _pid(DD_4_KHOAN_13)
+    bg = nap_sua_doi(get_engine(), [pid]).get(pid)
+    assert bg and {b["sua_boi_so_ky_hieu"] for b in bg} == {"87/2025/QH15"}, bg
+    assert ap_sua_doi(Effectivity(V.con_hieu_luc, "cao", "x"), bg, HOM_NAY).verdict is V.bi_sua_doi
+
+
+@pytest.mark.integration
+def test_ban_ghi_khoan_moi_neo_o_dieu_KHONG_lan_xuong_khoan_cu():
+    assert not nap_sua_doi(get_engine(), [_pid(DD_154_KHOAN_1)])
