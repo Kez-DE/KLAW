@@ -86,18 +86,43 @@ def _meta(cau: str, llm, intent: str = "gioi_thieu", kho=KHO, **them) -> dict:
 
 # ══ Item 2 — a situation question is a legal question ═══════════════════════
 
+DAT_DAI_KHONG_DAU = "toi dang gap su co tranh chap nha dat can nam ro nhung bo luat gi"
 
+
+@pytest.mark.parametrize("cau", [DAT_DAI, DAT_DAI_KHONG_DAU])
 @pytest.mark.parametrize("y_dinh", ["tra_cuu", "gioi_thieu", "hoi_ve_kho"])
-def test_cau_tranh_chap_nha_dat_di_tra_cuu(y_dinh, tmp_path):
+def test_cau_tranh_chap_nha_dat_di_tra_cuu(cau, y_dinh, tmp_path):
     """Trace 88117154: the "những bộ luật gì" branch had no bạn/KLAW/kho anchor,
     so the land dispute got the list of six Bộ luật. Whatever the router says,
-    the asker's own situation makes it a legal question."""
-    assert not gt.chac_chan_meta(DAT_DAI)
-    assert gt.ke_tinh_huong(DAT_DAI)
-    st = _route(DAT_DAI, y_dinh, tmp_path)
+    the asker's own situation makes it a legal question — typed without
+    diacritics too (review 2026-09-30)."""
+    assert not gt.chac_chan_meta(cau)
+    assert gt.ke_tinh_huong(cau)
+    st = _route(cau, y_dinh, tmp_path)
     assert st["intent"] is Intent.tra_cuu
     assert st["traces"]["route_ep_meta"] is False
     assert st["traces"]["route_ep_luat"] is (y_dinh != "tra_cuu")
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        "tôi mới dùng lần đầu, bạn làm được những gì?",
+        "tôi đang hỏi bạn là ai mà",
+        "câu hỏi của tôi là: bạn làm được gì",
+        "tôi đang cần bạn giúp, bạn là ai vậy",
+        "tôi vừa đăng ký tài khoản, KLAW hỗ trợ gì",
+    ],
+)
+def test_ngoi_thu_nhat_khong_co_su_viec_van_la_cau_hoi_meta(cau, tmp_path):
+    """Review 2026-09-30: first-person time words alone ("tôi đang/mới/vừa",
+    "của tôi") vetoed a correct meta verdict and sent these to retrieval — the
+    2026-09-16 failure class. Only a legal event or legal content vetoes."""
+    assert not gt.ke_tinh_huong(cau)
+    st = _route(cau, "gioi_thieu", tmp_path)
+    assert st["intent"] is Intent.gioi_thieu and st["traces"]["route_ep_luat"] is False
+    st = _route(cau, "tra_cuu", tmp_path)
+    assert st["intent"] is Intent.gioi_thieu and st["traces"]["route_ep_meta"] is True
 
 
 @pytest.mark.parametrize(

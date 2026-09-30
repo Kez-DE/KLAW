@@ -278,24 +278,27 @@ _RE_META_MANH = re.compile(
     r"|dữ\s*liệu\s+(?:của\s+bạn\s+)?(?:lấy|từ)"
     r"|bao\s+nhiêu\s+(?:văn\s+bản|bộ\s+luật)"
 )
-_RE_NOI_DUNG_LUAT = re.compile(r"\d|\bđiều\b|\bkhoản\b|nghị\s*định|thông\s*tư")
-# The asker telling their own case, or naming a legal event. "của em" is left
-# out: users also say "khả năng của em" to KLAW; the first-person "m-ì-n-h" too,
-# since no string in this module may carry it (`test_Q1_…_khong_xung_minh`) — the
-# event words catch those cases.
-_RE_TINH_HUONG = re.compile(
-    r"\b(?:tôi|tui|tớ)\s+(?:đang|bị|đã|vừa|mới|sắp)\b|\bcủa\s+(?:tôi|tui)\b"
-    r"|gặp\s+(?:sự\s+cố|vấn\s+đề|chuyện|rắc\s+rối)"
-    r"|tranh\s+chấp|khởi\s+kiện|bị\s+kiện|kiện\s+tụng|sa\s+thải|đuổi\s+việc|nợ\s+lương|trừ\s+lương"
-    r"|ly\s+hôn|thừa\s+kế|lừa\s+đảo|tai\s+nạn|bồi\s+thường|mất\s+quyền\s+lợi"
+# "tài khoản" is an account, not a clause ("tôi vừa đăng ký tài khoản, KLAW hỗ trợ gì").
+_RE_NOI_DUNG_LUAT = re.compile(r"\d|\bđiều\b|(?<!tài )\bkhoản\b|nghị\s*định|thông\s*tư")
+# A legal event in the asker's case. Not first-person words alone: "tôi mới dùng
+# lần đầu, bạn làm được những gì" and "câu hỏi của tôi là: bạn là ai" address
+# KLAW, and vetoing them sent a meta question to retrieval (review 2026-09-30).
+# Written without diacritics and matched on the folded question, so "toi dang
+# gap su co tranh chap nha dat" is the same case; folding is safe here because
+# the veto only ever sends a question to tra_cuu. ponytail: closed event list;
+# a situation it misses is left to the router — a route prompt line for item 2
+# needs a new prompt version (route.v5 is frozen, `test_route_prompt_mac_dinh_v5`).
+_RE_SU_VIEC = re.compile(
+    r"\b(?:tranh\s+chap|khoi\s+kien|bi\s+kien|kien\s+tung|sa\s+thai|duoi\s+viec|no\s+luong|tru\s+luong"
+    r"|ly\s+hon|thua\s+ke|lua\s+dao|tai\s+nan|boi\s+thuong|mat\s+quyen\s+loi)\b"
 )
 
 
 def ke_tinh_huong(cau_hoi: str) -> bool:
-    """True when the question tells the asker's own situation or names a legal
-    event: a question about the law, never a meta one (decision 2026-09-30
-    item 2). `route` turns a meta verdict on such a question back into tra_cuu."""
-    return bool(_RE_TINH_HUONG.search(_chuan(cau_hoi)))
+    """True when the question names a legal event in the asker's case: a
+    question about the law, never a meta one (decision 2026-09-30 item 2).
+    `route` turns a meta verdict on such a question back into tra_cuu."""
+    return bool(_RE_SU_VIEC.search(_bo_dau(_chuan(cau_hoi))))
 
 
 def chac_chan_meta(cau_hoi: str) -> bool:

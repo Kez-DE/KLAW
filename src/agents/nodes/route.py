@@ -250,8 +250,8 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
     if ep_meta:
         intent = Intent.gioi_thieu
     # And the reverse: a legal-system question (decision 2026-09-29 item 4) and
-    # a question telling the asker's own situation (decision 2026-09-30 item 2)
-    # are answered from statute — see gioi_thieu.hoi_he_thong_phap_luat and
+    # a question naming a legal event in the asker's case (decision 2026-09-30
+    # item 2) are answered from statute — see gioi_thieu.hoi_he_thong_phap_luat and
     # gioi_thieu.ke_tinh_huong. Runs after ep_meta so it also undoes a forced
     # gioi_thieu.
     ep_luat = intent in (Intent.gioi_thieu, Intent.hoi_ve_kho) and (
