@@ -184,6 +184,15 @@ class KLawState(TypedDict, total=False):
     # bản thảo đã có: `ban_thao_ket` là chính bản đó, không phiên bản mới.
     # `None` ở mọi lượt khác. Cùng bẫy LangGraph với `van_ban_tong_quat`.
     khuon_tong_quat: dict | None
+    # Khuôn mẫu (thiết kế `khuon-mau-thiet-ke.md` §4). `khuon_mau_ngu_canh`: phần DB
+    # `graph_tra_cuu._nap_khuon_mau` chuẩn bị cho lượt soạn không tài liệu (loại, mục
+    # checklist, căn cứ, nền). `khuon_mau_tong_quat`: điều khoản và giá trị đã làm sạch
+    # của lượt (`hieu_tai_lieu.kiem_khuon_mau`), chờ `dung_ban_thao_tong_quat` dựng tệp.
+    # `khuon_mau_dang_mo`: dòng nhẹ của khuôn mẫu đang mở khi lượt mang ảnh hay tệp
+    # không khuôn gốc (`KHONG_DIEN_TU_ANH`). Cùng bẫy LangGraph với `khuon_tong_quat`.
+    khuon_mau_ngu_canh: dict | None
+    khuon_mau_tong_quat: dict | None
+    khuon_mau_dang_mo: dict | None
     # Lý do KHÔNG dựng được bản thảo tổng quát ở lượt này (hết trần sửa, chưa có
     # bản thảo nào để sửa, mô hình không soạn được mục nào). `assemble` biến nó
     # thành một lượt hỏi lại — một lượt soạn hỏng mà im lặng là tệ nhất.

@@ -1,0 +1,58 @@
+# Giấy ủy quyền (cá nhân ủy quyền) — dựng TƯƠNG TỰ Mẫu số 02 "Giấy ủy quyền khiếu
+# nại", Nghị định 124/2020/NĐ-CP, Phụ lục (Công báo 1015+1016, tr. 34): mẫu chính thức
+# duy nhất cho giấy ủy quyền giữa cá nhân. Không có mẫu giấy ủy quyền chung. Theo mẫu
+# đó: quốc hiệu, tiêu ngữ giữa trang; dòng địa danh-ngày giữa; tên giấy; người ủy quyền
+# rồi người được ủy quyền, mỗi trường một dòng dẫn chấm kết ";"; nội dung ủy quyền; câu
+# cam kết trong ngoặc; khối ký HAI cột NGƯỜI ĐƯỢC ỦY QUYỀN trái | NGƯỜI ỦY QUYỀN phải,
+# "(Chữ ký hoặc điểm chỉ)"; khối xác nhận giữa trang dưới cùng. Chuyển từ khiếu nại sang
+# ủy quyền chung (BLDS 2015 Đ138, Đ140, Đ141): "khiếu nại" bỏ khỏi nhãn; "Số CMND/Hộ
+# chiếu/Thẻ căn cước công dân" thành "Số định danh cá nhân"; thêm thời hạn ủy quyền
+# (Đ140); xác nhận ghi "(nếu có)" — chỉ Mẫu 02 (ủy quyền khiếu nại) đòi. Tổ chức ủy
+# quyền: `giay_uy_quyen_to_chuc` (Mẫu 1.4 NĐ 30/2020).
+loai: giay_uy_quyen
+ten: giấy ủy quyền
+tieu_de: GIẤY ỦY QUYỀN
+bo_cuc: don
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 124/2020/NĐ-CP, Phụ lục, Mẫu số 02 (tham chiếu bố cục)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/10/32304/33027-1-20201015-1016124-2020-nd-cp.pdf
+  tep_d2: goc/nd124-2020_congbao-1015-1016.pdf
+  sha256: eec7714c55c73746e1bcc333f2e4354f008419ec26d206d8e97258c934a28f77
+  trang: 33
+  ghi_chu: "Trang PDF 33 = Công báo tr. 34. Không có mẫu giấy ủy quyền chung; bố cục theo mẫu ủy quyền khiếu nại của NĐ 124/2020, nội dung theo BLDS 2015 Đ138–Đ141."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: dau
+  kinh_gui: null
+  thut_nhan: true
+  can_cu: false
+  noi_nhan: null
+  ket_thuc: null
+# Khoá bên = khoá mục checklist (`ben_uy_quyen`, `ben_duoc_uy_quyen`): khối các bên
+# của khung là hai mục ấy.
+ben:
+  - khoa: ben_uy_quyen
+    vai: "Người ủy quyền"
+    dong: ["Họ và tên người ủy quyền:{ho_ten};", "Địa chỉ:{dia_chi};", "Số định danh cá nhân:{so_dinh_danh};"]
+  - khoa: ben_duoc_uy_quyen
+    vai: "Người được ủy quyền"
+    dong: ["Họ và tên người được ủy quyền:{ho_ten};", "Địa chỉ:{dia_chi};", "Số định danh cá nhân:{so_dinh_danh};"]
+than:
+  - {ben: ben_uy_quyen}
+  - {ben: ben_duoc_uy_quyen}
+  - {muc: pham_vi, nhan: "Nội dung ủy quyền:"}
+  - {muc: thoi_han, nhan: "Thời hạn ủy quyền:"}
+  - {dong: "(Trong quá trình thực hiện việc ủy quyền, người được ủy quyền có trách nhiệm thực hiện đúng nội dung ủy quyền)."}
+muc_khung: [chu_ky]
+ky:
+  thu_tu: [ben_duoc_uy_quyen, ben_uy_quyen]
+  o:
+    - {khoa: ben_duoc_uy_quyen, vai: "NGƯỜI ĐƯỢC ỦY QUYỀN", ghi_chu: "(Chữ ký hoặc điểm chỉ)", ho_ten_tu: ho_ten}
+    - {khoa: ben_uy_quyen, vai: "NGƯỜI ỦY QUYỀN", ghi_chu: "(Chữ ký hoặc điểm chỉ)", ho_ten_tu: ho_ten}
+  duoi:
+    vai: "XÁC NHẬN CỦA CƠ QUAN,\nTỔ CHỨC CÓ THẨM QUYỀN (nếu có)"
+    ghi_chu: "(Chức danh, chữ ký, dấu)"
+truong_tu_facts: {}

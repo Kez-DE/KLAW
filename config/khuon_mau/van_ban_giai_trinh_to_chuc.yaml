@@ -1,0 +1,44 @@
+# Văn bản giải trình của tổ chức vi phạm hành chính — dựng TƯƠNG TỰ Mẫu 1.5 "Công văn",
+# Nghị định 30/2020/NĐ-CP, Phụ lục III (Công báo 283+284, tr. 54). Không có mẫu văn bản
+# giải trình của người vi phạm (NĐ 118/2021 chỉ có mẫu của người có thẩm quyền). Tổ
+# chức gửi người có thẩm quyền xử phạt theo tập quán bằng công văn: đầu hai cột TÊN TỔ
+# CHỨC | quốc hiệu, "Số: …/…" và "V/v giải trình về vi phạm hành chính" | địa danh-ngày,
+# "Kính gửi:" lùi 4 cm, nội dung, "./.", Nơi nhận | người ký. Nội dung theo Luật XLVPHC
+# Đ61 (biên bản làm căn cứ, ý kiến giải trình). Không có checklist riêng — cá nhân dùng
+# `van_ban_giai_trinh`. Doanh nghiệp tư: tập quán.
+loai: van_ban_giai_trinh_to_chuc
+ten: văn bản giải trình của tổ chức
+tieu_de: VĂN BẢN GIẢI TRÌNH
+bo_cuc: hanh_chinh
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.5 (tham chiếu bố cục)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  trang: 53
+  ghi_chu: "Trang PDF 53 = Công báo tr. 54. Không có mẫu chính thức; bố cục công văn NĐ 30/2020, nội dung theo Luật XLVPHC Đ61; doanh nghiệp tư theo tập quán."
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: "Số: {}/{}"
+  vv: "V/v giải trình về vi phạm hành chính"
+  ngay: cot_phai
+  kinh_gui: {dong: "Kính gửi:{co_quan_nhan}", can: thut, thut_mm: 40}
+  can_cu: false
+  noi_nhan: ["Như trên;", "{};", "Lưu: VT, {}."]
+  ket_thuc: null
+ben:
+  - {khoa: co_quan, vai: "Tổ chức giải trình", truong: [ten_to_chuc]}
+  - {khoa: nguoi_ky, vai: "Người ký", truong: [chuc_vu, ho_ten]}
+than:
+  - {dong: "Về Biên bản vi phạm hành chính số {} lập ngày {} tháng {} năm {}, chúng tôi giải trình như sau:"}
+  - {muc: y_kien_giai_trinh}
+ky:
+  thu_tu: [nguoi_ky]
+  o:
+    - khoa: nguoi_ky
+      vai: null
+      ghi_chu: "(Chữ ký của người có thẩm quyền,\ndấu/chữ ký số của cơ quan, tổ chức)"
+      ho_ten_tu: ho_ten
+truong_tu_facts: {}

@@ -1,0 +1,46 @@
+# Văn bản giải trình (cá nhân vi phạm hành chính) — dựng TƯƠNG TỰ Mẫu số 01 "Đơn khiếu
+# nại", Nghị định 124/2020/NĐ-CP, Phụ lục (Công báo 1015+1016, tr. 33). Không có mẫu văn
+# bản giải trình của người vi phạm: phụ lục NĐ 118/2021 (sửa bởi NĐ 190/2025) chỉ có mẫu
+# biên bản, quyết định của người có thẩm quyền; NĐ 118 Đ17.3 chỉ đòi giải trình bằng
+# văn bản. Cá nhân gửi người có thẩm quyền — cùng thế với đơn Mẫu 01: quốc hiệu giữa, dòng
+# địa danh-ngày giữa, tên văn bản, "Kính gửi:" giữa, mỗi trường một dòng dẫn chấm kết
+# ";", khối ký một cột bên phải "(Chữ ký hoặc điểm chỉ)". "Số CMND/Hộ chiếu/Thẻ căn cước
+# công dân" của mẫu thành "Số định danh cá nhân". Tổ chức vi phạm dùng
+# `van_ban_giai_trinh_to_chuc` (công văn Mẫu 1.5 NĐ 30/2020).
+loai: van_ban_giai_trinh
+ten: văn bản giải trình
+tieu_de: VĂN BẢN GIẢI TRÌNH
+bo_cuc: don
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 124/2020/NĐ-CP, Phụ lục, Mẫu số 01 (tham chiếu bố cục)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/10/32304/33027-1-20201015-1016124-2020-nd-cp.pdf
+  tep_d2: goc/nd124-2020_congbao-1015-1016.pdf
+  sha256: eec7714c55c73746e1bcc333f2e4354f008419ec26d206d8e97258c934a28f77
+  trang: 32
+  ghi_chu: "Trang PDF 32 = Công báo tr. 33. Không có mẫu văn bản giải trình của người vi phạm; bố cục đơn của cá nhân theo NĐ 124/2020, nội dung theo Luật XLVPHC Đ61."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: dau
+  kinh_gui: {dong: "Kính gửi: {co_quan_nhan}", can: giua}
+  thut_nhan: true
+  can_cu: false
+  noi_nhan: null
+  ket_thuc: null
+ben:
+  - khoa: nguoi_giai_trinh
+    vai: "Người giải trình"
+    dong: ["Họ và tên người giải trình:{ho_ten};", "Địa chỉ:{dia_chi};", "Số định danh cá nhân:{so_dinh_danh};"]
+than:
+  - {ben: nguoi_giai_trinh}
+  - {dong: "Biên bản vi phạm hành chính số {} lập ngày {} tháng {} năm {};"}
+  - {muc: y_kien_giai_trinh, nhan: "Nội dung giải trình:"}
+  - {dong: "(Tài liệu, chứng cứ kèm theo - nếu có).", nghieng: true}
+# Người có thẩm quyền là dòng "Kính gửi:"; biên bản làm căn cứ là dòng trường số, ngày.
+muc_khung: [nguoi_co_tham_quyen, bien_ban_vphc]
+ky:
+  thu_tu: [nguoi_giai_trinh]
+  o: [{khoa: nguoi_giai_trinh, vai: "NGƯỜI GIẢI TRÌNH", ghi_chu: "(Chữ ký hoặc điểm chỉ)", ho_ten_tu: ho_ten}]
+truong_tu_facts: {}

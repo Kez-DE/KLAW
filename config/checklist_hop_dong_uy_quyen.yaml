@@ -35,17 +35,28 @@ can_cu_goc: "91/2015/QH13 > Điều 562"
 # Uỷ quyền lại (Đ564) chỉ đặt ra khi bên uỷ quyền cho phép; quyền đơn phương
 # chấm dứt (Đ569) là quyền luật định, có hay không ghi vào hợp đồng cũng không
 # mất.
+#
+# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm ba mục
+# tuỳ chọn: thù lao khi có thoả thuận (Đ562), trách nhiệm do vi phạm (Đ398.2.e) và
+# giải quyết tranh chấp (Đ398.2.g).
+# Đã tự tra DB:
+#   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|562)';
 khong_bat_buoc:
   can_cu: "91/2015/QH13 > Điều 564"
   ghi_chu: >
     Uỷ quyền lại (Đ564) là thoả thuận tuỳ chọn; đơn phương chấm dứt (Đ569) là
     quyền luật định. Vắng mặt không được báo là thiếu.
-  keys: [uy_quyen_lai, don_phuong_cham_dut]
+    Thù lao chỉ phải trả khi có thoả thuận hoặc pháp luật quy định (Đ562);
+    trách nhiệm do vi phạm và giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2 (điểm e, g).
+  keys: [uy_quyen_lai, don_phuong_cham_dut, thu_lao, trach_nhiem_vi_pham, tranh_chap]
 
 muc:
   - {stt: 1, key: cong_viec_uy_quyen, ten: "Công việc uỷ quyền và phạm vi uỷ quyền", can_cu: "91/2015/QH13 > Điều 562", tu_khoa: ["phạm vi uỷ quyền", "phạm vi ủy quyền", "công việc uỷ quyền", "công việc ủy quyền", "nội dung uỷ quyền", "nội dung ủy quyền"]}
   - {stt: 2, key: thoi_han_uy_quyen, ten: "Thời hạn uỷ quyền", can_cu: "91/2015/QH13 > Điều 563", tu_khoa: ["thời hạn uỷ quyền", "thời hạn ủy quyền"]}
-  - {stt: 3, key: nghia_vu_ben_duoc_uy_quyen, ten: "Quyền và nghĩa vụ của bên được uỷ quyền", can_cu: "91/2015/QH13 > Điều 565", tu_khoa: ["nghĩa vụ của bên được uỷ quyền", "nghĩa vụ của bên được ủy quyền", "quyền và nghĩa vụ của bên được uỷ quyền", "quyền và nghĩa vụ của bên được ủy quyền"]}
-  - {stt: 4, key: nghia_vu_ben_uy_quyen, ten: "Quyền và nghĩa vụ của bên uỷ quyền", can_cu: "91/2015/QH13 > Điều 567", tu_khoa: ["nghĩa vụ của bên uỷ quyền", "nghĩa vụ của bên ủy quyền", "quyền và nghĩa vụ của bên uỷ quyền", "quyền và nghĩa vụ của bên ủy quyền"]}
-  - {stt: 5, key: uy_quyen_lai, ten: "Uỷ quyền lại (nếu được bên uỷ quyền đồng ý)", can_cu: "91/2015/QH13 > Điều 564", tu_khoa: ["uỷ quyền lại", "ủy quyền lại"]}
-  - {stt: 6, key: don_phuong_cham_dut, ten: "Đơn phương chấm dứt thực hiện hợp đồng uỷ quyền", can_cu: "91/2015/QH13 > Điều 569", tu_khoa: ["đơn phương chấm dứt"]}
+  - {stt: 3, key: thu_lao, ten: "Thù lao (nếu có thoả thuận)", can_cu: "91/2015/QH13 > Điều 562", tu_khoa: ["thù lao"]}
+  - {stt: 4, key: nghia_vu_ben_duoc_uy_quyen, ten: "Quyền và nghĩa vụ của bên được uỷ quyền", can_cu: "91/2015/QH13 > Điều 565", tu_khoa: ["nghĩa vụ của bên được uỷ quyền", "nghĩa vụ của bên được ủy quyền", "quyền và nghĩa vụ của bên được uỷ quyền", "quyền và nghĩa vụ của bên được ủy quyền"]}
+  - {stt: 5, key: nghia_vu_ben_uy_quyen, ten: "Quyền và nghĩa vụ của bên uỷ quyền", can_cu: "91/2015/QH13 > Điều 567", tu_khoa: ["nghĩa vụ của bên uỷ quyền", "nghĩa vụ của bên ủy quyền", "quyền và nghĩa vụ của bên uỷ quyền", "quyền và nghĩa vụ của bên ủy quyền"]}
+  - {stt: 6, key: uy_quyen_lai, ten: "Uỷ quyền lại (nếu được bên uỷ quyền đồng ý)", can_cu: "91/2015/QH13 > Điều 564", tu_khoa: ["uỷ quyền lại", "ủy quyền lại"]}
+  - {stt: 7, key: don_phuong_cham_dut, ten: "Đơn phương chấm dứt thực hiện hợp đồng uỷ quyền", can_cu: "91/2015/QH13 > Điều 569", tu_khoa: ["đơn phương chấm dứt"]}
+  - {stt: 8, key: trach_nhiem_vi_pham, ten: "Trách nhiệm do vi phạm hợp đồng", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm e", tu_khoa: ["trách nhiệm do vi phạm", "phạt vi phạm", "bồi thường thiệt hại"]}
+  - {stt: 9, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}

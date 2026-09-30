@@ -52,6 +52,7 @@ Danh sách gạch đầu dòng thì dùng được — và đó là thứ duy nh
 """
 
 import re
+import unicodedata
 from pathlib import Path
 
 from src.services.kho import (
@@ -114,7 +115,9 @@ _RE_NANG_LUC = re.compile(
 # những Bộ luật gì" ≠ "có những lĩnh vực gì" ≠ "kho có gì".
 _RE_BO_LUAT = re.compile(r"bộ\s*luật|bo\s*luat")
 _RE_LINH_VUC = re.compile(r"lĩnh\s*vực|lãnh\s*vực|linh\s*vuc")
-_RE_KHO = re.compile(r"\bkho\b|bao\s+nhiêu\s+văn\s+bản|những\s+văn\s+bản\s+(?:nào|gì)|văn\s+bản\s+nào")
+# "bao nhiêu điều luật" (trace fa18ddce): an article count is a count over the
+# kho too. Not bare "điều": "bao nhiêu điều kiện" counts conditions.
+_RE_KHO = re.compile(r"\bkho\b|bao\s+nhiêu\s+(?:văn\s+bản|điều\s+luật)|những\s+văn\s+bản\s+(?:nào|gì)|văn\s+bản\s+nào")
 
 # Soạn thảo / rà soát.
 _RE_SOAN_THAO = re.compile(r"soạn|rà\s*soát|soát\s+được")
@@ -355,15 +358,16 @@ def _khop(c: str) -> dict[str, int]:
     return vi
 
 
-def _thu_tu(vi: dict[str, int]) -> list[str]:
-    return sorted(vi, key=lambda t: (vi[t], KHIA_CANH.index(t))) or ["nang_luc"]
+def _thu_tu(vi: dict[str, int], mac_dinh: str = "nang_luc") -> list[str]:
+    return sorted(vi, key=lambda t: (vi[t], KHIA_CANH.index(t))) or [mac_dinh]
 
 
 def khia_canh(cau_hoi: str) -> list[str]:
     """Các khía cạnh trong câu hỏi, THEO THỨ TỰ người hỏi nêu (FR-013).
 
     Mặc định `["nang_luc"]` khi không khớp gì — lời đáp đầy đủ nhất, thay cho
-    màn hình trắng mà cả pha này tồn tại để bỏ đi.
+    màn hình trắng mà cả pha này tồn tại để bỏ đi. Chỉ đúng cho lượt
+    `gioi_thieu`; lượt `hoi_ve_kho` dùng `khia_canh_kho`.
     """
     return _thu_tu(_khop(_chuan(cau_hoi)))
 
@@ -396,6 +400,77 @@ def chac_chan_meta(cau_hoi: str) -> bool:
     overridden to gioi_thieu (0 tokens)."""
     c = _chuan(cau_hoi)
     return bool(_RE_META_MANH.search(c)) and not _RE_NOI_DUNG_LUAT.search(c)
+
+
+# Guard in the other direction (decision 2026-09-29 item 4). Production
+# 2026-09-29: the LLM router labelled "pháp luật Việt Nam chia thành những gì"
+# `hoi_ve_kho` and the user got the KLAW introduction. A question about the
+# Vietnamese legal system is answered from statute, so `route` turns such a
+# meta verdict back into tra_cuu. Bare "hiến pháp"/"văn bản quy phạm" are left
+# out: "có Hiến pháp 2013 không" asks whether the kho holds the document.
+# Written without diacritics and matched on the folded question, so "luat",
+# "luật" and a mistyped tone ("hệ thông") all match.
+_RE_HE_THONG_PHAP_LUAT = re.compile(
+    r"\b(?:luat(?:\s+phap)?|hien\s+phap)\s+(?:(?:cua|o|tai|nuoc)\s+)*(?:viet\s*nam|vn)\b"
+    r"|\bluat(?:\s+phap)?\s+nuoc\s+ta\b"
+    r"|\bhe\s+thong\s+(?:van\s+ban\s+)?(?:quy\s+pham\s+)?phap\s+luat"
+    r"|\bloai\s+van\s+ban\s+(?:quy\s+pham\s+)?phap\s+luat"
+    r"|\bvan\s+ban\s+(?:quy\s+pham\s+)?phap\s+luat\s+(?:duoc\s+)?(?:gom|chia|phan)\b"
+    r"|\bnganh\s+luat|\bvb\s*qppl\b"
+)
+# Positive signs that the question addresses KLAW. Not a bare pronoun: "em" is
+# usually the user speaking of themselves ("cho em hỏi"), and "bạn" mostly
+# opens a polite question ("chào bạn", "bạn có thể cho mình biết", "… vậy bạn").
+# ponytail: accented, plus the unaccented forms that collide with nothing;
+# folding would merge bạn/bản and kho/khó, so "ban co nhung …" typed without
+# diacritics is not recognised. Add forms when a trace shows one forced to
+# tra_cuu.
+_RE_NOI_VOI_KLAW = re.compile(
+    r"\bklaw\b|trợ\s*l[ýí]|\btro\s*ly\b|\bcủa\s+bạn\b"
+    r"|\b(?:app|ứng\s+dụng|ung\s+dung|hệ\s+thống|chương\s+trình|phần\s+mềm|web(?:site)?)\s+(?:này|nay)\b"
+    r"|\b(?:bạn|em)\s+là\s+(?:ai|(?:cái\s+)?gì)\b"
+    r"|\bbạn\s+(?:(?:làm|giúp|hỗ\s*trợ)\s+(?:được\s+)?(?:những\s+)?gì|dùng|chạy"
+    r"|(?:đang\s+)?có\s+(?:những|các|bao\s+nhiêu|mấy))\b"
+    r"|\btra\s+(?:cứu\s+)?được\b|\btra\s+(?:cuu\s+)?duoc\b|\bhỗ\s*trợ\b|\bho\s*tro\b"
+)
+# Explicit corpus markers. Narrower than the kho facets: "văn bản nào" is also
+# how a legal-system question asks ("văn bản nào có hiệu lực cao nhất").
+_RE_DAU_KHO = re.compile(
+    r"\bkho\b|dữ\s*liệu|\bdu\s*lieu\b"
+    r"|bao\s+nhiêu\s+(?:văn\s+bản|điều\s+luật)|\bbao\s+nhieu\s+(?:van\s+ban|dieu\s+luat)\b"
+)
+
+
+def _bo_dau(c: str) -> str:
+    return "".join(k for k in unicodedata.normalize("NFD", c.replace("đ", "d")) if not unicodedata.combining(k))
+
+
+def hoi_he_thong_phap_luat(cau_hoi: str) -> bool:
+    """True when the question asks about the Vietnamese legal system and neither
+    addresses KLAW nor names the corpus (kho, dữ liệu, a document or article
+    count, Bộ luật, lĩnh vực): those stay on the kho data, which answers them
+    and closes with CAU_GIOI_HAN."""
+    c = _chuan(cau_hoi)
+    if not _RE_HE_THONG_PHAP_LUAT.search(_bo_dau(c)):
+        return False
+    return not any(r.search(c) for r in (_RE_NOI_VOI_KLAW, _RE_DAU_KHO, _RE_BO_LUAT, _RE_LINH_VUC))
+
+
+# KLAW-self facets. On a `hoi_ve_kho` turn "là gì", "làm gì", "hoạt động",
+# "mô hình" are ordinary words of a question about the law or the kho, so these
+# answer only a question that addresses KLAW (decision 2026-09-29 item 4).
+_KHIA_CANH_KLAW = ("danh_tinh", "ban_chat", "nang_luc", "model")
+
+
+def khia_canh_kho(cau_hoi: str) -> list[str]:
+    """Facets of a `hoi_ve_kho` turn: KLAW-self facets only when the question
+    addresses KLAW, and `["kho"]` when nothing is left (trace fa18ddce: a kho
+    question naming no facet got the KLAW introduction)."""
+    c = _chuan(cau_hoi)
+    vi = _khop(c)
+    if not _RE_NOI_VOI_KLAW.search(c):
+        vi = {t: v for t, v in vi.items() if t not in _KHIA_CANH_KLAW}
+    return _thu_tu(vi, "kho")
 
 
 def chi_hoi_kho(cac_khia_canh: list[str]) -> bool:
@@ -494,14 +569,16 @@ def _cau_hoi_tiep(cac: list[str]) -> str:
     return ""
 
 
-def cau_gioi_thieu(cau_hoi: str, kho: list[dict] | None = None,
-                   luot_dau: bool = True) -> str:
+def cau_gioi_thieu(
+    cau_hoi: str, kho: list[dict] | None = None, luot_dau: bool = True, cac_khia_canh: list[str] | None = None
+) -> str:
     """Lời đáp ghép từ các khía cạnh câu hỏi nêu, theo đúng thứ tự người hỏi.
 
     `kho` là snapshot đã nạp sẵn (`kho.nap_kho`), truyền vào chứ không tự truy
     vấn: node này là tầng THUẦN, và một lượt chỉ được nạp kho một lần (FR-014).
     `None` nghĩa là chỗ gọi chưa nạp — khi đó khía cạnh kho nhận `THIEU_KHO`
-    chứ KHÔNG nhận một danh sách bịa.
+    chứ KHÔNG nhận một danh sách bịa. `cac_khia_canh` là các khía cạnh chỗ gọi
+    đã tính (`khia_canh_kho` cho lượt `hoi_ve_kho`); `None` thì tính từ câu hỏi.
 
     Chào hỏi và cảm ơn xử lý TRƯỚC phân rã, như bản trước:
     - `_RE_CAM_ON` neo `^` VÀ chỉ ăn khi câu không nêu khía cạnh nào, nên "cảm
@@ -516,7 +593,7 @@ def cau_gioi_thieu(cau_hoi: str, kho: list[dict] | None = None,
     if _RE_CHAO.fullmatch(c):
         return CHAO
 
-    cac = _thu_tu(vi)
+    cac = cac_khia_canh or _thu_tu(vi)
     khoi: list[str] = []
     for t in cac:
         if t in _KHIA_CANH_KHO and kho is None:

@@ -195,11 +195,12 @@ def dong_can_cu(van_ban: dict) -> str:
     return " ".join(x for x in phan if x)
 
 
-def khoi_can_cu(van_ban: Iterable[dict], verdict_cua: Callable[[str], V]) -> list[str]:
-    """Khối "Căn cứ" của bản thảo: mỗi văn bản MỘT dòng, chỉ văn bản còn hiệu lực
-    (`verdict_cua(id)` — cùng phép tính hiệu lực của câu trả lời), trừ nguồn chỉ
-    quy định thể thức (`_CHI_THE_THUC`), xếp theo thứ bậc rồi ngày ban hành; mọi
-    dòng kết bằng ";", dòng cuối bằng "."."""
+def khoi_can_cu_co_id(van_ban: Iterable[dict], verdict_cua: Callable[[str], V]) -> list[dict]:
+    """Khối "Căn cứ" của bản thảo, mỗi dòng kèm văn bản của nó: `[{dong, doc_id}]`.
+    Mỗi văn bản MỘT dòng, chỉ văn bản còn hiệu lực (`verdict_cua(id)` — cùng phép
+    tính hiệu lực của câu trả lời), trừ nguồn chỉ quy định thể thức
+    (`_CHI_THE_THUC`), xếp theo thứ bậc rồi ngày ban hành; mọi dòng kết bằng ";",
+    dòng cuối bằng "."."""
     theo_id = {v["id"]: v for v in van_ban if v.get("so_ky_hieu") not in _CHI_THE_THUC}
     con = [v for i, v in theo_id.items() if verdict_cua(i) in CON_HIEU_LUC]
     con.sort(
@@ -209,5 +210,9 @@ def khoi_can_cu(van_ban: Iterable[dict], verdict_cua: Callable[[str], V]) -> lis
             v.get("so_ky_hieu") or "",
         )
     )
-    dong = [dong_can_cu(v) for v in con]
-    return [f"{d};" for d in dong[:-1]] + [f"{d}." for d in dong[-1:]]
+    return [{"dong": dong_can_cu(v) + (";" if k < len(con) - 1 else "."), "doc_id": v["id"]} for k, v in enumerate(con)]
+
+
+def khoi_can_cu(van_ban: Iterable[dict], verdict_cua: Callable[[str], V]) -> list[str]:
+    """Các dòng của `khoi_can_cu_co_id`."""
+    return [x["dong"] for x in khoi_can_cu_co_id(van_ban, verdict_cua)]

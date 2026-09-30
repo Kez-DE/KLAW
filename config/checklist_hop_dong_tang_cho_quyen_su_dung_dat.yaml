@@ -1,0 +1,42 @@
+# Checklist nội dung của HỢP ĐỒNG TẶNG CHO QUYỀN SỬ DỤNG ĐẤT — BLDS Đ457–462 (tặng cho
+# tài sản) qua Đ500–503 (hợp đồng về quyền sử dụng đất), Luật Đất đai 31/2024/QH15
+# Đ27.3.a, Đ45.1, Đ133.3 (quyết định 2026-09-29 mục 3 và 8; nghiên cứu `hop-dong.md`
+# §2.3 ghi tặng cho quyền sử dụng đất theo Luật Đất đai Đ27.3.a).
+#
+# HÌNH THỨC — bắt buộc, nên là MỤC: hợp đồng tặng cho quyền sử dụng đất phải được công
+# chứng hoặc chứng thực (Luật Đất đai Đ27.3.a); việc chuyển quyền có hiệu lực từ thời
+# điểm đăng ký (BLDS Đ503), đăng ký biến động trong 30 ngày (Luật Đất đai Đ133.3).
+# Tặng cho nhà ở gắn liền với đất còn chịu Luật Nhà ở 27/2023 — chưa có toàn văn trong
+# kho, nên mẫu này chỉ nói về quyền sử dụng đất.
+#
+# muc_do_thieu: canh_bao. Mọi can_cu đã tự tra DB thật (2026-09-29):
+#   SELECT duong_dan FROM provisions
+#    WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|45[7-9]|46[0-2]|50[0-3])'
+#       OR duong_dan ~ '^31/2024/QH15 > Điều (27|45)';
+loai: hop_dong_tang_cho_quyen_su_dung_dat
+ten: "hợp đồng tặng cho quyền sử dụng đất"
+tieu_de: "HỢP ĐỒNG TẶNG CHO QUYỀN SỬ DỤNG ĐẤT"
+muc_do_thieu: canh_bao
+
+la_hop_dong: true
+
+rules: []
+
+can_cu_goc: "91/2015/QH13 > Điều 457"
+can_cu_chi_tiet: "91/2015/QH13 > Điều 501 > Khoản 1"
+
+khong_bat_buoc:
+  can_cu: "91/2015/QH13 > Điều 462 > Khoản 1"
+  ghi_chu: >
+    Điều kiện tặng cho (Đ462) chỉ đặt ra khi bên tặng cho muốn kèm nghĩa vụ; tranh
+    chấp là nội dung "có thể có" của Đ398.2. Vắng mặt không được báo là thiếu.
+  keys: [dieu_kien_tang_cho, tranh_chap]
+
+muc:
+  - {stt: 1, key: thua_dat, ten: "Thông tin thửa đất tặng cho", can_cu: "91/2015/QH13 > Điều 501 > Khoản 2", tu_khoa: ["thông tin thửa đất", "thửa đất số", "tờ bản đồ", "quyền sử dụng đất tặng cho"]}
+  - {stt: 2, key: dieu_kien_tang_cho_dat, ten: "Cam kết về điều kiện tặng cho quyền sử dụng đất", can_cu: "31/2024/QH15 > Điều 45 > Khoản 1", tu_khoa: ["cam kết về điều kiện", "không có tranh chấp", "không bị kê biên"]}
+  - {stt: 3, key: giao_dat, ten: "Giao đất và giấy tờ về quyền sử dụng đất", can_cu: "91/2015/QH13 > Điều 457", tu_khoa: ["giao đất và giấy tờ", "bàn giao đất", "giao đất"]}
+  - {stt: 4, key: cong_chung, ten: "Công chứng, chứng thực hợp đồng", can_cu: "31/2024/QH15 > Điều 27 > Khoản 3 > Điểm a", tu_khoa: ["công chứng, chứng thực", "công chứng hoặc chứng thực"]}
+  - {stt: 5, key: dang_ky, ten: "Đăng ký biến động và thời điểm chuyển quyền sử dụng đất", can_cu: "91/2015/QH13 > Điều 503", tu_khoa: ["đăng ký biến động", "thời điểm chuyển quyền", "đăng ký quyền sử dụng đất"]}
+  - {stt: 6, key: dieu_kien_tang_cho, ten: "Điều kiện tặng cho (nếu có)", can_cu: "91/2015/QH13 > Điều 462 > Khoản 1", tu_khoa: ["điều kiện tặng cho", "tặng cho có điều kiện", "nghĩa vụ của bên được tặng cho"]}
+  - {stt: 7, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}

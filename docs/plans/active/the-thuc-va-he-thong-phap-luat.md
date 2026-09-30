@@ -119,8 +119,65 @@ retired for drafts.
   6144954 for two joint circulars (seed only; checksums unchanged), and two
   link-evidence rows kept the pre-K6 numbers ("số: 34/2024/QH15", "Luật số
   51/2024/QH15"), which stopped `nap_link_cong_luat` for every run.
-- [ ] F2 routing.
-- [ ] V reviews, e2e, eval.
+- [x] F2 routing (`feat/cau-hoi-he-thong`; on `integ/khuon-mau` since ae109e2, not in
+  main). `route` forces tra cứu when `gioi_thieu.hoi_he_thong_phap_luat` matches,
+  after the meta guard. Measured 2026-09-30 (fake route verdicts, 0 paid calls, the
+  F1 cached query vector, DB read-only): "hiện tại pháp luật Việt Nam chia thành những
+  gì" goes to tra cứu whether the model says `gioi_thieu`, `hoi_ve_kho` or `tra_cuu`
+  (`route_ep_luat` True/True/False); "KLAW là gì", "kho của bạn có bao nhiêu văn bản",
+  "trợ lý này dùng mô hình nào" keep `gioi_thieu`/`hoi_ve_kho`/`gioi_thieu`.
+  Retrieval as `n_retrieve` + `n_expand` on the 484 shown (bm25_topk 0, dense 20,
+  final 10): 64/2025 Điều 4 dense 7/20, final 7/10, `bi_sua_doi` by 87/2025 Điều 1
+  khoản 1; 87/2025 Điều 1 khoản 1 dense 18/20, outside the final 10, in the context
+  after expand (10 → 81). Eval re-run still pending (V).
+- [ ] Integrate D3/D4/F2 on `integ/khuon-mau` (2026-09-30; not merged into main). On
+  top of engine, frontend, hợp đồng, hành chính and 2a2c507: đơn từ/thực tập 9acd50c
+  (7 conflicts), hôn nhân gia đình cd82891 (4), F2 ae109e2 (1); main already
+  contained (0929544). Resolutions keep both sides: registry fields and recorded
+  labels are unions; the builder keeps both layout flags (`thut_nhan`,
+  `dong_nhu_than`), both body kinds (`lien`, `doan`), `ky.rong` over the 38/62 split,
+  two-level signer padding, `ten_loai` lines before trích yếu; `trich_yeu: true` is
+  the văn bản `trich_yeu` blank; `_ket_bang_dau` no longer doubles "./." (quyết định
+  ban hành Điều 3); `can_cu_khung` falls back for types without a checklist; the hành
+  chính answer keeps the NĐ 30 scope sentence (decision Consequences). Migration 041
+  applied to the shared DB after `pg_dump -Fc` (25/25 tables): the column was already
+  there, so the run was a no-op (NOTICE "already exists, skipping"; NOT NULL, CHECK
+  present, 70 rows `tai_len`). CI lane 4029 passed, 1 failed (worktree-only
+  `test_data_raw_VAN_bi_gitignore`), 4 skipped, 1 xfailed; write-free integration
+  files by path 60 passed; LibreOffice page tests 84 passed; frontend typecheck, kiem
+  (exit 0) and prettier clean; frontend reads exactly `khuon.{viec_id, dinh_dang,
+  so_trang, nguon, cho_trong, can_cu}`. E2E with fake LLMs over every registered type
+  and one bản thảo tổng quát (48 + 1): real turn code, `/o-dien` (`sua_o_dien`), one
+  `sua_dieu` edit, LibreOffice pages, docx + pdf download — 49/49 without problems,
+  PDF pages equal rendered pages, no "⟦", "{", "[…]" or "…/QH" in docx or pdf text,
+  the filled value carried into the edited version, 196 fake calls, 0 paid, 0 DB
+  writes (draft tables in memory, other reads READ ONLY). 166 of 1,071 blanks have no
+  label and show as "chỗ trống" (header place/date, signer lines).
+- [x] Integration review fixes (2026-09-30, `integ/khuon-mau`). (1) Filling on the page
+  wrote one blank while the template prints a field several times (41 of 48 types:
+  tên cơ quan on both parts of a quyết định ban hành, số/ký hiệu/ngày of the quyết
+  định and its "(Kèm theo …)" line, party name and signer name). `sua_o_dien` now goes
+  through `phep_o_dien`: one value fills every blank with the same `(ben, truong)` in
+  `audit.khung.o`, a copy the request names itself keeps its own value, and the
+  returned `khuon` carries every changed blank, so the page shows them at once (no
+  frontend change). The builder keys the repeated tháng/năm (`thang_ban_hanh`,
+  `nam_ban_hanh`), the place name (`dia_danh`, one date line per document) and "Số:
+  …/QĐ-…" of the quyết định, biên bản and giấy ủy quyền types (`so_van_ban`,
+  `viet_tat_co_quan`); `ngay_ban_hanh` is labelled "Ngày ban hành" (a full date is
+  still split by `_tach_ngay`). (2) Labels: a keyed blank shows the template label when
+  it is a name, else the `_truong.yaml` label; the chat "Còn trống:" names party
+  fields first, then document fields, then lettered labels, one name for all copies,
+  and counts the rest. Pure build of the 48 types, same input before/after: 1,097
+  blanks, unlabelled 166 → 7, "/…" fragments 11 → 0; e2e final pages: 4 of 1,065
+  unlabelled. E2E re-run, 49/49 without
+  problems: 35 rows filled a field printed twice and both copies got the value (field
+  list and docx text), 14 single-copy; chat lines naming "chỗ trống", "/QĐ-", "ngày",
+  "tháng", "năm" or "(sau …)": 0/49; 196 fake calls, 0 paid, 0 DB writes. CI lane 4082
+  passed, 1 failed (worktree-only `test_data_raw_VAN_bi_gitignore`), 4 skipped, 1
+  xfailed; frontend typecheck and kiem exit 0. Open: `cong_van` logs "bản đồ 3 chỗ,
+  bộ đọc 4" when the trích yếu itself holds "……" (the builder prints trích yếu text
+  without mapping its blanks); that cell has no keyed blank, so nothing is lost today.
+- [ ] V reviews, real-app check, eval.
 
 ## Validation
 

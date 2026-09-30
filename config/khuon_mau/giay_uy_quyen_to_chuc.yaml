@@ -1,0 +1,59 @@
+# Giấy ủy quyền của tổ chức — dựng TƯƠNG TỰ Mẫu 1.4 "Văn bản có tên loại", Nghị định
+# 30/2020/NĐ-CP, Phụ lục III (Công báo 283+284, tr. 53): ghi chú 6 của mẫu kể giấy ủy
+# quyền trong các loại dùng mẫu này; ký hiệu GUQ theo Phụ lục III Mục I. Không có mẫu
+# giấy ủy quyền chung; nội dung theo BLDS 2015 Đ138 (hai bên), Đ141 (phạm vi), Đ140
+# (thời hạn). Theo mẫu: đầu hai cột TÊN CƠ QUAN | quốc hiệu, "Số: …/GUQ-…" | địa danh-
+# ngày; tên loại giữa, kẻ ngắn; nội dung; "./."; Nơi nhận | người ký. Tổ chức ủy quyền
+# là cơ quan ban hành (cùng trường tên với đầu trang); người ký là người đại diện theo
+# pháp luật (cùng trường chức vụ, họ tên). Không có checklist riêng — cá nhân ủy quyền
+# dùng `giay_uy_quyen`. Doanh nghiệp tư: tập quán.
+loai: giay_uy_quyen_to_chuc
+ten: giấy ủy quyền của tổ chức
+tieu_de: GIẤY ỦY QUYỀN
+bo_cuc: hanh_chinh
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.4 (tham chiếu bố cục)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  trang: 52
+  ghi_chu: "Trang PDF 52 = Công báo tr. 53. Mẫu 1.4 áp cho giấy ủy quyền của cơ quan, tổ chức (ghi chú 6); nội dung theo BLDS 2015 Đ138–Đ141; doanh nghiệp tư theo tập quán."
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: "Số: {so_van_ban}/GUQ-{viet_tat_co_quan}"
+  ngay: cot_phai
+  thut_nhan: true
+  can_cu: false
+  noi_nhan: ["{};", "{};", "Lưu: VT, {}."]
+  ket_thuc: null
+ben:
+  - khoa: co_quan
+    vai: "Bên ủy quyền"
+    dong:
+      - "Bên ủy quyền:{ten_to_chuc}"
+      - "Địa chỉ trụ sở:{dia_chi_tru_so}"
+      - "Mã số doanh nghiệp:{ma_so_doanh_nghiep}"
+      - "Người đại diện theo pháp luật:{nguoi_dai_dien}"
+      - "Chức vụ:{chuc_vu}"
+  - khoa: ben_duoc_uy_quyen
+    vai: "Bên được ủy quyền"
+    dong:
+      - "Bên được ủy quyền:{ho_ten}"
+      - "Chức vụ:{chuc_vu}"
+      - "Số định danh cá nhân:{so_dinh_danh}"
+      - "Địa chỉ:{dia_chi}"
+than:
+  - {ben: co_quan}
+  - {ben: ben_duoc_uy_quyen}
+  - {muc: pham_vi, nhan: "Nội dung ủy quyền:"}
+  - {muc: thoi_han, nhan: "Thời hạn ủy quyền:"}
+ky:
+  thu_tu: [co_quan]
+  o:
+    - khoa: co_quan
+      vai: null
+      ghi_chu: "(Chữ ký của người có thẩm quyền,\ndấu/chữ ký số của cơ quan, tổ chức)"
+      ho_ten_tu: nguoi_dai_dien
+truong_tu_facts: {}

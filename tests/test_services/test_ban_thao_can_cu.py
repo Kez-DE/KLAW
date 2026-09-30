@@ -210,7 +210,7 @@ def _graph(monkeypatch, loai: str, db: dict, hien: frozenset[str]):
     monkeypatch.setattr(gst, "requirements", lambda _loai: ([], cl, db))
     monkeypatch.setattr(gst, "hien_thi_luc", lambda engine, as_of: hien)
     monkeypatch.setattr(gst, "get_engine", lambda: None)
-    monkeypatch.setattr(gst, "can_cu_van_ban", lambda engine, db, as_of: [])
+    monkeypatch.setattr(gst, "can_cu_van_ban_co_id", lambda engine, db, as_of: [])
     return gst.build_graph_soan_thao(), llm, cl
 
 

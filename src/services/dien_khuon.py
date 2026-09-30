@@ -370,6 +370,10 @@ class _Khuon:
         if k >= len(d.tab_o) or d.tab_o[k] != c.dau or d.tab[k][1].getparent().tag != _R:
             return LyDoBoQua.cho_trong_da_doi
         ra.tab = d.tab[k][1]
+        if hang_tab[c.so] == 0 and c.dau and d.tho[c.dau - 1].isspace() and ra.gia_tri[:1] == " ":
+            # Nhãn đã kết bằng khoảng trắng ("Số điện thoại: <tab>"): dấu cách
+            # `chuan_hoa_dien` thêm trước giá trị `tab` sẽ là dấu cách thứ hai.
+            ra.gia_tri = ra.gia_tri[1:]
         return ra
 
     def _chuan_bi_doan(self, i: int, chi_so: int, vat: Any, phan: str, phep: dict) -> _Phep | LyDoBoQua:

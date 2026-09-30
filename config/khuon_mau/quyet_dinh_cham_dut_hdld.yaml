@@ -1,0 +1,47 @@
+# Quyết định chấm dứt hợp đồng lao động — dựng TƯƠNG TỰ Mẫu 1.2 "Quyết định (cá biệt)
+# quy định trực tiếp", Nghị định 30/2020/NĐ-CP, Phụ lục III (Công báo 283+284, tr. 49).
+# Không có mẫu chính thức: BLLĐ 2019 Đ45.1 chỉ đòi thông báo bằng văn bản. Quyết định
+# cá biệt của người sử dụng lao động nên lấy bố cục Mẫu 1.2 (đầu hai cột, tên loại +
+# trích yếu, thẩm quyền, căn cứ, "QUYẾT ĐỊNH:", "Điều n." đậm đầu đoạn, "./.", Nơi
+# nhận | người ký). Doanh nghiệp tư không thuộc NĐ 30 Đ2.1: đây là tập quán. Căn cứ
+# của kho (Bộ luật Lao động) đi trước; hợp đồng lao động và người đề nghị là văn bản,
+# người của chính doanh nghiệp — chỗ trống.
+loai: quyet_dinh_cham_dut_hdld
+ten: quyết định chấm dứt hợp đồng lao động
+tieu_de: QUYẾT ĐỊNH
+bo_cuc: hanh_chinh
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.2 (tham chiếu bố cục)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  trang: 48
+  ghi_chu: "Không có mẫu chính thức (BLLĐ Đ45.1 chỉ đòi văn bản). Bố cục theo Mẫu 1.2; với doanh nghiệp tư là tập quán, tham khảo Phụ lục I NĐ 30/2020."
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: "Số: {so_van_ban}/QĐ-{viet_tat_co_quan}"
+  ngay: cot_phai
+  trich_yeu: "Về việc chấm dứt hợp đồng lao động"
+  tham_quyen: "{tham_quyen}"
+  can_cu: true
+  can_cu_them: ["Căn cứ Hợp đồng lao động {};", "Theo đề nghị của {}."]
+  lenh: "QUYẾT ĐỊNH:"
+  noi_nhan: ["Như Điều {};", "{};", "Lưu: VT, {}."]
+  ket_thuc: null
+ben:
+  - {khoa: co_quan, vai: "Người sử dụng lao động", truong: [ten_to_chuc]}
+  - {khoa: nguoi_ky, vai: "Người ký", truong: [chuc_vu, ho_ten]}
+than:
+  - {dieu: lien}
+# Checklist chỉ có mục nội dung (BLLĐ Đ34, Đ36, Đ45, Đ46, Đ48): mọi mục là điều khoản.
+muc_khung: []
+ky:
+  thu_tu: [nguoi_ky]
+  o:
+    - khoa: nguoi_ky
+      vai: null
+      ghi_chu: "(Chữ ký của người có thẩm quyền,\ndấu/chữ ký số của cơ quan, tổ chức)"
+      ho_ten_tu: ho_ten
+truong_tu_facts: {}

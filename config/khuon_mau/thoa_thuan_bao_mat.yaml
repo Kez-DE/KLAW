@@ -1,0 +1,67 @@
+# Thoả thuận bảo vệ bí mật kinh doanh, bí mật công nghệ — dựng TƯƠNG TỰ Mẫu số 01/PLV,
+# Nghị định 145/2020/NĐ-CP (Công báo 1205+1206, tr. 41–44), cùng khuôn với `hdld.yaml`:
+# quốc hiệu và tiêu ngữ ở giữa, không Số, không dòng ngày (Open decision 2), căn cứ
+# nghiêng, "1. BÊN A: …" / "2. BÊN B: …" đậm với mỗi dòng một trường, câu dẫn nghiêng,
+# "Điều n." đậm, khối ký hai cột NGƯỜI LAO ĐỘNG (BÊN B) trái, NGƯỜI SỬ DỤNG LAO ĐỘNG
+# (BÊN A) phải. Nhãn trường theo BLLĐ Đ21.1 điểm a, b. Thoả thuận giữa người lao động và
+# người sử dụng lao động (BLLĐ Đ21.2, TT 10/2020 Đ4).
+loai: thoa_thuan_bao_mat
+ten: thoả thuận bảo vệ bí mật kinh doanh, bí mật công nghệ
+tieu_de: THOẢ THUẬN BẢO VỆ BÍ MẬT KINH DOANH, BÍ MẬT CÔNG NGHỆ
+bo_cuc: hop_dong
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 145/2020/NĐ-CP, Phụ lục V, Mẫu số 01/PLV (tham chiếu bố cục)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/12/32732/33809-1-20201205-1206145-2020-nd-cp.pdf
+  tep_d2: goc/nd145-2020_congbao-1205-1206.pdf
+  sha256: 38de13854df47d0e27ee497b86272f874742cea7e68f1be26d81587ff95f170b
+  trang: 40
+  ghi_chu: "Không có mẫu thoả thuận bảo mật do Nhà nước ban hành; bố cục theo mẫu HĐLĐ của Chính phủ gần nhất, nội dung bắt buộc theo TT 10/2020/TT-BLĐTBXH Đ4.2."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: khong
+  kinh_gui: null
+  can_cu: true
+  noi_nhan: null
+  ket_thuc: "Thoả thuận này có hiệu lực từ ngày {} tháng {} năm {} và được lập thành {} bản, mỗi bên giữ {} bản."
+ben:
+  - khoa: nsdld
+    tieu_de: "1. BÊN A: NGƯỜI SỬ DỤNG LAO ĐỘNG"
+    loai: tuy
+    mac_dinh: to_chuc
+    to_chuc:
+      truong: [ten_to_chuc, dia_chi_tru_so, ma_so_doanh_nghiep, nguoi_dai_dien, chuc_vu, dien_thoai]
+      nhan:
+        ten_to_chuc: "Tên người sử dụng lao động"
+        dia_chi_tru_so: "Địa chỉ"
+        ma_so_doanh_nghiep: "Mã số doanh nghiệp"
+        nguoi_dai_dien: "Họ tên người giao kết"
+        chuc_vu: "Chức danh"
+        dien_thoai: "Điện thoại"
+    ca_nhan:
+      truong: [ho_ten, noi_cu_tru, so_dinh_danh, dien_thoai]
+      nhan:
+        ho_ten: "Họ và tên người sử dụng lao động"
+        dien_thoai: "Điện thoại"
+  - khoa: nld
+    tieu_de: "2. BÊN B: NGƯỜI LAO ĐỘNG"
+    truong: [ho_ten, ngay_sinh, gioi_tinh, noi_cu_tru, so_dinh_danh, dien_thoai]
+    nhan:
+      dien_thoai: "Điện thoại"
+than:
+  - {ben: nsdld}
+  - {ben: nld}
+  - {dong: "Hai bên thống nhất ký kết thoả thuận bảo vệ bí mật kinh doanh, bí mật công nghệ với những điều khoản sau đây:", nghieng: true}
+  - {dieu: dieu}
+muc_khung: []
+ky:
+  thu_tu: [nld, nsdld]
+  o:
+    - {khoa: nld, vai: "NGƯỜI LAO ĐỘNG\n(BÊN B)", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+    - khoa: nsdld
+      vai: "NGƯỜI SỬ DỤNG LAO ĐỘNG\n(BÊN A)"
+      to_chuc: {ghi_chu: "(Ký, ghi rõ họ tên, đóng dấu)", ho_ten_tu: nguoi_dai_dien}
+      ca_nhan: {ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+truong_tu_facts: {}

@@ -1,0 +1,262 @@
+# Chữ tĩnh của mỗi khuôn mẫu `nguon.loai: mau_chinh_thuc`, chép từ tệp chính thức
+# (thiết kế `khuon-mau-thiet-ke.md` §7 "Recorded labels"). Mỗi dòng là một đoạn của
+# mẫu theo thứ tự đọc (bảng đầu trang và khối ký: cột trái rồi cột phải), đã bỏ dãy
+# chấm, chỉ số chú thích "(n)", khung Công báo/dòng chú thích phụ lục, và gộp khoảng
+# trắng. `bo_qua` kể chữ của tệp gốc KHÔNG dựng lại, kèm lý do — không gì bị bỏ lặng lẽ.
+# `test_khuon_mau_registry.py` dựng từng mục (không điều khoản nào) và so dãy đoạn
+# của bản dựng với `nhan`, sau khi bỏ "……" và gộp khoảng trắng như trên.
+# Dấu "." sau chỗ trống cuối của "Theo đề nghị của …" và "- Lưu: VT, …" không vẽ được
+# trên mẫu (dãy chấm chạy tới lề) nhưng CHỮ Phụ lục I đòi (Công báo tr. 25: dòng căn cứ
+# cuối "kết thúc bằng dấu chấm (.)"; tr. 30: dòng "Lưu" của Nơi nhận "cuối cùng là dấu
+# chấm (.)"; Mẫu 1.2 in "- Lưu: VT,...9...10."). Nó giữ được khi điền nhờ `khuon_mau.NOI`.
+don_khoi_kien:
+  tep_d2: goc/m23-ds_toaan-TAND279888.pdf
+  sha256: 6881d9dda626033de033c120d790a3ef064c301b089ec3b754219cf5228a8a0a
+  lenh: "pdftotext -layout -f 1 -l 1 goc/m23-ds_toaan-TAND279888.pdf -"
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - ", ngày tháng năm"
+    - "ĐƠN KHỞI KIỆN"
+    - "Kính gửi: Toà án nhân dân"
+    - "Người khởi kiện:"
+    - "Địa chỉ:"
+    - "Số điện thoại: (nếu có); số fax: (nếu có)"
+    - "Địa chỉ thư điện tử: (nếu có)"
+    - "Người bị kiện:"
+    - "Địa chỉ"
+    - "Số điện thoại: (nếu có); số fax: (nếu có)"
+    - "Địa chỉ thư điện tử: (nếu có)"
+    - "Người có quyền, lợi ích được bảo vệ (nếu có)"
+    - "Địa chỉ:"
+    - "Số điện thoại: (nếu có); số fax: (nếu có)"
+    - "Địa chỉ thư điện tử : (nếu có)"
+    - "Người có quyền lợi, nghĩa vụ liên quan (nếu có)"
+    - "Địa chỉ:"
+    - "Số điện thoại: (nếu có); số fax: (nếu có)"
+    - "Địa chỉ thư điện tử: (nếu có)"
+    - "Yêu cầu Tòa án giải quyết những vấn đề sau đây:"
+    - "Người làm chứng (nếu có)"
+    - "Địa chỉ:"
+    - "Số điện thoại: (nếu có); số fax: (nếu có)"
+    - "Địa chỉ thư điện tử: (nếu có)."
+    - "Danh mục tài liệu, chứng kèm theo đơn khởi kiện gồm có:"
+    - "1"
+    - "2"
+    - "(Các thông tin khác mà người khởi kiện xét thấy cần thiết cho việc giải quyết vụ án)"
+    - "Người khởi kiện"
+  bo_qua:
+    - {chu: "Mẫu số 23-DS (Ban hành kèm theo Nghị quyết số 01/2017/NQ-HĐTP ngày 13 tháng 01 năm 2017 của Hội đồng Thẩm phán Tòa án nhân dân tối cao)", ly_do: "dòng chú thích phụ lục, không phải lá đơn (D2 §4.1; Open decision 7)"}
+    - {chu: "Hướng dẫn sử dụng mẫu số 23-DS: (1)…(16)", ly_do: "hướng dẫn điền, không phải lá đơn (D2 §4.1)"}
+cong_van:
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  lenh: "pdftotext -layout -f 53 -l 53 goc/nd30-2020_congbao-283-284.pdf -"
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - "Số: /-"
+    - "V/v"
+    - ", ngày tháng năm"
+    - "Kính gửi:"
+    - "./."
+    - "Nơi nhận:"
+    - "- Như trên;"
+    - "- ;"
+    - "- Lưu: VT, ."
+    - "(Chữ ký của người có thẩm quyền,"
+    - "dấu/chữ ký số của cơ quan, tổ chức)"
+  bo_qua:
+    - {chu: "TÊN CQ, TC CHỦ QUẢN", ly_do: "cụm giữ chỗ; dòng tuỳ chọn theo chú thích 1 của mẫu (nếu có) — không dựng"}
+    - {chu: "TÊN CƠ QUAN, TỔ CHỨC", ly_do: "cụm giữ chỗ — thành chỗ trống"}
+    - {chu: "- ;  /  -  (hai dòng nơi nhận dưới Kính gửi)", ly_do: "biến thể nhiều nơi nhận; dựng biến thể MỘT nơi nhận cùng dòng (Phụ lục I, ô 9a)"}
+    - {chu: "QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ", ly_do: "cụm giữ chỗ — thành chỗ trống"}
+    - {chu: "Họ và tên", ly_do: "cụm giữ chỗ — thành chỗ trống"}
+    - {chu: "(ô 13) địa chỉ, thư điện tử, điện thoại, Fax", ly_do: "tuỳ chọn theo chú thích 10 của mẫu (nếu cần) — không dựng"}
+    - {chu: "Ghi chú: 1…10", ly_do: "chú thích của mẫu, không phải công văn (D2 §4.1)"}
+quyet_dinh_bo_nhiem:
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  lenh: "pdftotext -layout -f 48 -l 48 goc/nd30-2020_congbao-283-284.pdf -"
+  # Chỗ trống đứng sau chữ tĩnh một dấu cách ("Căn cứ ……;"): mẫu in dãy chấm liền chữ.
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - "Số: /QĐ-"
+    - ", ngày tháng năm"
+    - "QUYẾT ĐỊNH"
+    - "Về việc"
+    - "Căn cứ ;"
+    - "Theo đề nghị của ."
+    - "QUYẾT ĐỊNH:"
+    - "Nơi nhận:"
+    - "- Như Điều ;"
+    - "- ;"
+    - "- Lưu: VT, ."
+    - "(Chữ ký của người có thẩm quyền,"
+    - "dấu/chữ ký số của cơ quan, tổ chức)"
+  bo_qua:
+    - {chu: "TÊN CQ, TC CHỦ QUẢN", ly_do: "dòng tuỳ chọn theo chú thích 1 của mẫu (nếu có) — không dựng"}
+    - {chu: "TÊN CƠ QUAN, TỔ CHỨC", ly_do: "cụm giữ chỗ — thành chỗ trống (in hoa)"}
+    - {chu: "THẨM QUYỀN BAN HÀNH", ly_do: "cụm giữ chỗ (chú thích 6: chức vụ người đứng đầu hay tên tập thể) — thành chỗ trống in hoa đậm"}
+    - {chu: "Căn cứ…;  (dòng thứ hai)", ly_do: "các dòng 'Căn cứ…;' của mẫu nhận dòng căn cứ của kho (đủ số, ngày); một dòng còn trống cho căn cứ riêng của tổ chức. Bản ghi dựng không dòng kho nào nên còn một dòng"}
+    - {chu: "Điều 1…  Điều…  …/.", ly_do: "nội dung quyết định (ô 8) — mô hình viết, 'Điều n.' đậm đầu đoạn, './.' sau đoạn cuối"}
+    - {chu: "QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ", ly_do: "cụm giữ chỗ — thành chỗ trống in hoa đậm"}
+    - {chu: "Họ và tên", ly_do: "cụm giữ chỗ — thành chỗ trống"}
+    - {chu: "Ghi chú: 1…10", ly_do: "chú thích của mẫu, không phải quyết định (D2 §4.1)"}
+quy_che_noi_bo:
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  lenh: "pdftotext -layout -f 49 -l 50 goc/nd30-2020_congbao-283-284.pdf -"
+  # Trang 49 (Mẫu 1.3, quyết định ban hành) rồi trang 50 (văn bản kèm theo). Chỗ trống
+  # đứng sau chữ tĩnh một dấu cách.
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - "Số: /QĐ-"
+    - ", ngày tháng năm"
+    - "QUYẾT ĐỊNH"
+    - "Ban hành Quy chế"
+    - "Căn cứ ;"
+    - "Theo đề nghị của ."
+    - "QUYẾT ĐỊNH:"
+    - "Điều 1. Ban hành kèm theo Quyết định này Quy chế ."
+    - "Điều 2. Quyết định này có hiệu lực kể từ ngày ."
+    - "Điều 3. chịu trách nhiệm thi hành Quyết định này./."
+    - "Nơi nhận:"
+    - "- Như Điều 3;"
+    - "- ;"
+    - "- Lưu: VT, ."
+    - "(Chữ ký của người có thẩm quyền,"
+    - "dấu/chữ ký số của cơ quan, tổ chức)"
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - "QUY CHẾ"
+    - "(Kèm theo Quyết định số /QĐ- ngày tháng năm của )"
+  bo_qua:
+    - {chu: "TÊN CQ, TC CHỦ QUẢN (hai trang)", ly_do: "dòng tuỳ chọn theo chú thích 1 của Mẫu 1.3 (nếu có) — không dựng"}
+    - {chu: "TÊN CƠ QUAN, TỔ CHỨC (hai trang)", ly_do: "cụm giữ chỗ — thành chỗ trống (in hoa)"}
+    - {chu: "Ban hành (Phê duyệt)", ly_do: "'(Phê duyệt)' là phương án thay của mẫu cho văn bản được phê duyệt; quy chế được BAN HÀNH — dựng 'Ban hành'"}
+    - {chu: "THẨM QUYỀN BAN HÀNH", ly_do: "cụm giữ chỗ (chú thích 6) — thành chỗ trống in hoa đậm"}
+    - {chu: "Căn cứ…;  (dòng thứ hai)", ly_do: "các dòng 'Căn cứ…;' nhận dòng căn cứ của kho; một dòng còn trống cho căn cứ riêng của tổ chức"}
+    - {chu: "QUYỀN HẠN, CHỨC VỤ CỦA NGƯỜI KÝ / Họ và tên", ly_do: "cụm giữ chỗ — thành chỗ trống"}
+    - {chu: "TÊN LOẠI VĂN BẢN", ly_do: "cụm giữ chỗ — là tên loại 'QUY CHẾ' (NĐ 30 Đ7)"}
+    - {chu: "…1… (trích yếu văn bản kèm theo)", ly_do: "chỗ trống trích yếu — in chữ khi lượt có trích yếu"}
+    - {chu: "…3… (tên chương, hai dòng chấm giữa trang)", ly_do: "chương không dựng: điều khoản là một danh sách phẳng"}
+    - {chu: "Điều 1…  Điều…  …/. (văn bản kèm theo)", ly_do: "nội dung quy chế — mô hình viết; './.' sau đoạn cuối"}
+    - {chu: "Ghi chú (hai trang)", ly_do: "chú thích của mẫu (D2 §4.1)"}
+  # Chữ lấp vào ô của mẫu (không phải chữ tĩnh của tệp gốc) — khung dựng, không mô hình:
+  them:
+    - {chu: "Quy chế (trong 'Ban hành Quy chế' và Điều 1)", ly_do: "ô 5 'trích yếu nội dung quyết định' = tên văn bản kèm theo, cộng trích yếu của nó khi có"}
+    - {chu: "Điều 2. Quyết định này có hiệu lực kể từ ngày ……", ly_do: "lấp ô 'Điều……' của mẫu bằng điều hiệu lực thông dụng, ngày để trống"}
+    - {chu: "Điều 3. …… chịu trách nhiệm thi hành Quyết định này./.", ly_do: "lấp ô 'Điều……' bằng điều thi hành mà dòng Nơi nhận '- Như Điều…' của mẫu dẫn tới"}
+    - {chu: "3 (trong '- Như Điều 3;')", ly_do: "số của điều thi hành ở trên"}
+don_khieu_nai:
+  tep_d2: goc/nd124-2020_congbao-1015-1016.pdf
+  sha256: eec7714c55c73746e1bcc333f2e4354f008419ec26d206d8e97258c934a28f77
+  lenh: "pdftotext -layout -f 32 -l 32 goc/nd124-2020_congbao-1015-1016.pdf -"
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - ", ngày tháng năm"
+    - "ĐƠN KHIẾU NẠI"
+    - "Kính gửi:"
+    - "Họ và tên người khiếu nại: ;"
+    - "Địa chỉ:;"
+    - "Số CMND/Hộ chiếu/Thẻ căn cước công dân , ngày cấp , nơi cấp: ."
+    - "Tên của cơ quan, tổ chức, cá nhân bị khiếu nại: ;"
+    - "Địa chỉ: ;"
+    - "Khiếu nại về việc: ;"
+    - "Nội dung khiếu nại:."
+    - "(Tài liệu, chứng cứ kèm theo - nếu có)."
+    - "NGƯỜI KHIẾU NẠI"
+    - "(Chữ ký hoặc điểm chỉ)"
+  bo_qua:
+    - {chu: "Mẫu số 01", ly_do: "dòng chú thích phụ lục, không phải lá đơn (D2 §4.1)"}
+    - {chu: "Họ và tên", ly_do: "cụm giữ chỗ dưới chữ ký — thành chỗ trống tên người khiếu nại"}
+    - {chu: "Ghi chú: (1)…(6)", ly_do: "hướng dẫn điền, không phải lá đơn; lời (5), (6) đi vào `huong_dan` của mục"}
+bien_ban_hop:
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  lenh: "pdftotext -layout -f 57 -l 57 goc/nd30-2020_congbao-283-284.pdf -"
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - "Số: /BB-"
+    - "BIÊN BẢN"
+    - "Thời gian bắt đầu:"
+    - "Địa điểm:"
+    - "Thành phần tham dự:"
+    - "Chủ trì (chủ tọa):"
+    - "Thư ký (người ghi biên bản):"
+    - "Nội dung (theo diễn biến cuộc họp/hội nghị/hội thảo):"
+    - "Cuộc họp (hội nghị, hội thảo) kết thúc vào giờ , ngày tháng năm ./."
+    - "THƯ KÝ"
+    - "(Chữ ký)"
+    - "CHỦ TỌA"
+    - "(Chữ ký của người có thẩm quyền,"
+    - "dấu/chữ ký số của cơ quan, tổ chức (nếu có))"
+    - "Nơi nhận:"
+    - "- ;"
+    - "- Lưu: VT, Hồ sơ."
+  bo_qua:
+    - {chu: "TÊN CQ, TC CHỦ QUẢN", ly_do: "cụm giữ chỗ; dòng tuỳ chọn theo chú thích 1 của mẫu (nếu có) — không dựng, như cong_van"}
+    - {chu: "TÊN CƠ QUAN, TỔ CHỨC", ly_do: "cụm giữ chỗ — thành chỗ trống"}
+    - {chu: "...........4............ (tên cuộc họp)", ly_do: "cụm giữ chỗ (chú thích 4) — là trích yếu, chỗ trống khi chưa biết"}
+    - {chu: "dòng chấm nối tiếp dưới 'Thành phần tham dự' và dưới 'Nội dung (…)'", ly_do: "dòng chỉ có dấu chấm không phải đơn vị văn bản nên không bấm điền được; chỗ trống nằm ngay trên dòng nhãn"}
+    - {chu: "Họ và tên (hai lần, dưới THƯ KÝ và CHỦ TỌA)", ly_do: "cụm giữ chỗ — thành chỗ trống tên thư ký, chủ tọa"}
+    - {chu: "Số:.../BB-... và năm..../.", ly_do: "khoảng trắng: một dấu cách sau 'Số:' để số điền vào đúng ví dụ Phụ lục I ('Số: 15/QĐ-BNV'); './.' cách dãy chấm một dấu cách để dấu chấm đầu không thành một phần chỗ trống (`khuon_mau._ket_bang_dau`)"}
+    - {chu: "kết thúc vào….. giờ….., ngày…. tháng…. năm", ly_do: "khoảng trắng: một dấu cách mỗi bên chỗ trống, như dòng địa danh-ngày của bộ dựng — giá trị thay đúng dãy chấm, nên dính chữ thì bản đã điền in 'vào16 giờ30'"}
+    - {chu: "Ghi chú: 1…5", ly_do: "chú thích của mẫu, không phải biên bản (D2 §4.1)"}
+don_thuan_tinh_ly_hon:
+  tep_d2: goc/nq04-2018-hdtp_vbpl-153951_VanBanGoc.pdf
+  sha256: cdd2197fc06aea55d2663dfa1e29f78571ac856a51f2f561aa5e85fb7fb9e929
+  # Bản quét: lớp chữ OCR nhiễu ("Địa ch ỉ", "nhân d â n"), nên chữ tĩnh đọc trên ảnh trang
+  # (D2 `png/nq04-goc/p-04.png`) và đối chiếu từng chữ với bản chuyển soạn .doc của Bộ Tư
+  # pháp (`pdf/nq04-2018-hdtp_vbpl-153951.pdf`, bản LibreOffice của tệp .doc, dòng 104–165).
+  lenh: "pdftotext -layout -f 4 -l 4 goc/nq04-2018-hdtp_vbpl-153951_VanBanGoc.pdf - ; pdftotext -layout pdf/nq04-2018-hdtp_vbpl-153951.pdf - | sed -n 104,165p"
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - "ĐƠN YÊU CẦU"
+    - "GIẢI QUYẾT VIỆC DÂN SỰ"
+    - "(V/v: Yêu cầu công nhận thuận tình ly hôn, thỏa thuận nuôi con, chia tài sản khi ly hôn)"
+    - "Kính gửi: Tòa án nhân dân"
+    - "1. Người yêu cầu giải quyết việc dân sự (chồng):"
+    - "Ngày sinh:"
+    - "Số định danh cá nhân:"
+    - "Địa chỉ:"
+    - "Số điện thoại (nếu có): ; Fax (nếu có):"
+    - "Địa chỉ thư điện tử (nếu có):"
+    - "2. Người yêu cầu giải quyết việc dân sự (vợ):"
+    - "Ngày sinh:"
+    - "Số định danh cá nhân:"
+    - "Địa chỉ:"
+    - "Số điện thoại (nếu có): ; Fax (nếu có):"
+    - "Địa chỉ thư điện tử (nếu có):"
+    - "Tôi (chúng tôi) xin trình bày với Tòa án nhân dân việc như sau:"
+    - "- Những vấn đề yêu cầu Tòa án giải quyết:"
+    - "- Lý do, mục đích, căn cứ của việc yêu cầu Tòa án giải quyết đối với những vấn đề nêu trên:"
+    - "- Tên và địa chỉ của những người có liên quan đến những vấn đề yêu cầu Tòa án giải quyết:"
+    - "- Các thông tin khác (nếu có):"
+    - "Tài liệu, chứng cứ kèm theo đơn yêu cầu:"
+    - "1."
+    - "2."
+    - "3."
+    - "Tôi (chúng tôi) cam kết những lời khai trong đơn là đúng sự thật."
+    - ", ngày tháng năm"
+    - "NGƯỜI YÊU CẦU"
+    - "(Chồng)"
+    - "(Ký hoặc điểm chỉ, ghi rõ họ tên)"
+    - "NGƯỜI YÊU CẦU"
+    - "(Vợ)"
+    - "(Ký hoặc điểm chỉ, ghi rõ họ tên)"
+  # Chữ trong `nhan` KHÔNG có trên tệp gốc, mỗi dòng theo đúng một hướng dẫn của chính mẫu.
+  them:
+    - {chu: "Yêu cầu công nhận thuận tình ly hôn, thỏa thuận nuôi con, chia tài sản khi ly hôn", ly_do: "hướng dẫn (1): ô V/v ghi loại việc theo BLTTDS — nguyên văn BLTTDS Đ29 khoản 2"}
+    - {chu: "1. … (chồng) / 2. … (vợ), khối người yêu cầu thứ hai", ly_do: "hướng dẫn (3): nhiều người cùng làm đơn thì đánh số 1, 2 và ghi đủ thông tin từng người; vợ, chồng cùng là người yêu cầu (BLTTDS Đ396.2)"}
+    - {chu: "Ngày sinh: / Số định danh cá nhân:", ly_do: "hướng dẫn (3): cá nhân ghi họ tên, ngày tháng năm sinh và giấy tờ tùy thân"}
+    - {chu: "(Chồng) / (Vợ) / (Ký hoặc điểm chỉ, ghi rõ họ tên), cột ký thứ hai", ly_do: "hướng dẫn (12): nhiều người cùng yêu cầu thì cùng ký và ghi rõ họ tên; cá nhân ký tên hoặc điểm chỉ (BLTTDS Đ362.2 điểm g, Đ396.2)"}
+  bo_qua:
+    - {chu: "Mẫu số 01-VDS (Ban hành kèm theo Nghị quyết số 04/2018/NQ-HĐTP ngày 09 tháng 8 năm 2018 của Hội đồng Thẩm phán Tòa án nhân dân tối cao)", ly_do: "dòng chú thích phụ lục, không phải lá đơn (D2 §4.1; Open decision 7)"}
+    - {chu: "Hướng dẫn sử dụng mẫu số 01-VDS: (1)…(12)", ly_do: "hướng dẫn điền, không phải lá đơn (D2 §4.1)"}

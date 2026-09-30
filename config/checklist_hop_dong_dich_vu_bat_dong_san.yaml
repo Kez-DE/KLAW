@@ -1,0 +1,40 @@
+# Checklist nội dung của HỢP ĐỒNG DỊCH VỤ BẤT ĐỘNG SẢN (môi giới, tư vấn, quản lý bất
+# động sản, dịch vụ sàn giao dịch — Luật KDBĐS 29/2023/QH15 Đ44.2) — Đ46.4 (quyết định
+# 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §2.5).
+#
+# muc_do_thieu: chan — Đ46.4 dùng chữ "PHẢI có các nội dung chính sau đây", và chín
+# mục dưới đây là ĐÚNG chín điểm a–i của khoản đó, không hơn. Điểm a (tên, địa chỉ các
+# bên) do khối các bên của khung đáp ứng (`muc_khung` của khuôn mẫu).
+#
+# Hình thức: hợp đồng kinh doanh dịch vụ bất động sản có ít nhất một bên là doanh
+# nghiệp kinh doanh bất động sản được công chứng, chứng thực THEO YÊU CẦU các bên
+# (Đ44.4) — không bắt buộc. Luật KDBĐS 29/2023 đang "hết hiệu lực một phần"; kho không
+# ghi sửa đổi Đ44, Đ46.
+#
+# Mọi can_cu đã tự tra DB thật (2026-09-29):
+#   SELECT duong_dan FROM provisions
+#    WHERE duong_dan ~ '^29/2023/QH15 > Điều (44|46) > Khoản [24]' OR duong_dan = '91/2015/QH13 > Điều 513';
+loai: hop_dong_dich_vu_bat_dong_san
+ten: "hợp đồng dịch vụ bất động sản"
+tieu_de: "HỢP ĐỒNG DỊCH VỤ BẤT ĐỘNG SẢN"
+muc_do_thieu: chan
+
+la_hop_dong: true
+
+rules: []
+
+can_cu_goc: "29/2023/QH15 > Điều 46 > Khoản 4"
+# Hợp đồng kinh doanh dịch vụ bất động sản (Đ44.2) là một hợp đồng dịch vụ của BLDS
+# (Đ513): khung căn cứ in cả Bộ luật Dân sự lẫn Luật KDBĐS.
+can_cu_chi_tiet: "91/2015/QH13 > Điều 513"
+
+muc:
+  - {stt: 1, key: cac_ben, ten: "Tên, địa chỉ của các bên", diem: a, can_cu: "29/2023/QH15 > Điều 46 > Khoản 4 > Điểm a", tu_khoa: ["tên, địa chỉ của các bên", "thông tin các bên"]}
+  - {stt: 2, key: doi_tuong_noi_dung, ten: "Đối tượng và nội dung dịch vụ", diem: b, can_cu: "29/2023/QH15 > Điều 46 > Khoản 4 > Điểm b", tu_khoa: ["đối tượng và nội dung dịch vụ", "nội dung dịch vụ", "bất động sản môi giới"]}
+  - {stt: 3, key: yeu_cau_ket_qua, ten: "Yêu cầu và kết quả dịch vụ", diem: c, can_cu: "29/2023/QH15 > Điều 46 > Khoản 4 > Điểm c", tu_khoa: ["yêu cầu và kết quả dịch vụ", "kết quả dịch vụ"]}
+  - {stt: 4, key: thoi_han, ten: "Thời hạn thực hiện dịch vụ", diem: d, can_cu: "29/2023/QH15 > Điều 46 > Khoản 4 > Điểm d", tu_khoa: ["thời hạn thực hiện dịch vụ", "thời hạn dịch vụ"]}
+  - {stt: 5, key: phi_dich_vu, ten: "Phí dịch vụ, thù lao, hoa hồng dịch vụ", diem: đ, can_cu: "29/2023/QH15 > Điều 46 > Khoản 4 > Điểm đ", tu_khoa: ["phí dịch vụ", "thù lao", "hoa hồng"]}
+  - {stt: 6, key: thanh_toan, ten: "Phương thức và thời hạn thanh toán", diem: e, can_cu: "29/2023/QH15 > Điều 46 > Khoản 4 > Điểm e", tu_khoa: ["phương thức và thời hạn thanh toán", "phương thức thanh toán", "thời hạn thanh toán"]}
+  - {stt: 7, key: quyen_nghia_vu, ten: "Quyền, nghĩa vụ của các bên", diem: g, can_cu: "29/2023/QH15 > Điều 46 > Khoản 4 > Điểm g", tu_khoa: ["quyền, nghĩa vụ của các bên", "quyền và nghĩa vụ của các bên"]}
+  - {stt: 8, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", diem: h, can_cu: "29/2023/QH15 > Điều 46 > Khoản 4 > Điểm h", tu_khoa: ["giải quyết tranh chấp"]}
+  - {stt: 9, key: hieu_luc, ten: "Thời điểm có hiệu lực của hợp đồng", diem: i, can_cu: "29/2023/QH15 > Điều 46 > Khoản 4 > Điểm i", tu_khoa: ["thời điểm có hiệu lực", "hiệu lực của hợp đồng"]}

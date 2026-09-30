@@ -1,0 +1,46 @@
+# Nghị quyết của Hội đồng quản trị — dựng TƯƠNG TỰ Mẫu 1.1 "Nghị quyết (cá biệt)",
+# Nghị định 30/2020/NĐ-CP, Phụ lục III (Công báo 283+284, tr. 48). Không có mẫu chính
+# thức cho nghị quyết HĐQT (TT 68/2025/TT-BTC không có); Mẫu 1.1 là mẫu gần nhất, chỉ
+# bắt buộc khi công ty là doanh nghiệp nhà nước. Tập thể ban hành nên ký "TM." trước
+# tên tập thể (Phụ lục I, II.7.b); chức vụ Chủ tịch là tập quán — Luật Doanh nghiệp
+# 2020 chưa kiểm về người ký (mau-hien-co.md). Điều lệ và biên bản cuộc họp là văn bản
+# của chính công ty: dòng căn cứ có chỗ trống.
+loai: quyet_dinh_hdqt
+ten: nghị quyết của Hội đồng quản trị
+tieu_de: NGHỊ QUYẾT
+bo_cuc: hanh_chinh
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.1 (tham chiếu bố cục)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  trang: 47
+  ghi_chu: "Trang PDF 47 = Công báo tr. 48. Không có mẫu chính thức cho nghị quyết HĐQT; bố cục theo Mẫu 1.1, với công ty ngoài nhà nước là tập quán."
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: "Số: {so_van_ban}/NQ-HĐQT"
+  ngay: cot_phai
+  trich_yeu: "{trich_yeu}"
+  tham_quyen: "HỘI ĐỒNG QUẢN TRỊ"
+  can_cu: true
+  # Dòng cuối căn cứ kết bằng "." (Phụ lục I, Công báo 283+284 tr. 25).
+  can_cu_them: ["Căn cứ Điều lệ Công ty;", "Căn cứ Biên bản họp Hội đồng quản trị {}."]
+  lenh: "QUYẾT NGHỊ:"
+  noi_nhan: ["Như Điều {};", "{};", "Lưu: VT, {}."]
+  ket_thuc: null
+ben:
+  - {khoa: co_quan, vai: "Công ty", truong: [ten_to_chuc]}
+  - {khoa: nguoi_ky, vai: "Chủ tịch Hội đồng quản trị", truong: [ho_ten]}
+than:
+  - {dieu: lien}
+muc_khung: [quoc_hieu, ten_co_quan, so_ky_hieu, dia_danh_thoi_gian, trich_yeu, chuc_vu_chu_ky, dau_chu_ky_so, noi_nhan]
+ky:
+  thu_tu: [nguoi_ky]
+  o:
+    - khoa: nguoi_ky
+      vai: "TM. HỘI ĐỒNG QUẢN TRỊ\nCHỦ TỊCH"
+      ghi_chu: "(Chữ ký của người có thẩm quyền,\ndấu/chữ ký số của cơ quan, tổ chức)"
+      ho_ten_tu: ho_ten
+truong_tu_facts: {}

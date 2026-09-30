@@ -27,19 +27,30 @@ can_cu_chi_tiet: "36/2005/QH11 > Điều 179"
 # Đ550 (chậm giao, chậm nhận sản phẩm) và Đ551 (đơn phương chấm dứt) là quy tắc
 # luật định áp dụng dù hợp đồng có nhắc hay không — im lặng ở đó không để lại
 # khoảng trống nào.
+#
+# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm ba mục
+# tuỳ chọn: giữ bí mật quy trình gia công (Đ546.4), trách nhiệm do vi phạm (Đ398.2.e)
+# và giải quyết tranh chấp (Đ398.2.g).
+# Đã tự tra DB:
+#   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều (398|546)';
 khong_bat_buoc:
   can_cu: "91/2015/QH13 > Điều 542"
   ghi_chu: >
     Chậm giao/chậm nhận sản phẩm (Đ550) và đơn phương chấm dứt (Đ551) là quy tắc
     luật định, áp dụng dù hợp đồng không nhắc. Vắng mặt không báo là thiếu.
-  keys: [cham_giao_cham_nhan, don_phuong_cham_dut]
+    Giữ bí mật quy trình gia công (Đ546.4) là nghĩa vụ luật định của bên nhận;
+    trách nhiệm do vi phạm và giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2 (điểm e, g).
+  keys: [cham_giao_cham_nhan, don_phuong_cham_dut, bi_mat, trach_nhiem_vi_pham, tranh_chap]
 
 muc:
   - {stt: 1, key: doi_tuong_gia_cong, ten: "Đối tượng của hợp đồng: sản phẩm gia công", can_cu: "91/2015/QH13 > Điều 543", tu_khoa: ["sản phẩm gia công", "đối tượng gia công", "đối tượng của hợp đồng"]}
   - {stt: 2, key: nguyen_vat_lieu, ten: "Nguyên vật liệu và định mức nguyên vật liệu", can_cu: "91/2015/QH13 > Điều 544", tu_khoa: ["nguyên vật liệu", "nguyên liệu, vật liệu", "định mức nguyên vật liệu"]}
   - {stt: 3, key: nghia_vu_ben_nhan, ten: "Quyền và nghĩa vụ của bên nhận gia công", can_cu: "91/2015/QH13 > Điều 546", tu_khoa: ["nghĩa vụ của bên nhận gia công", "quyền và nghĩa vụ của bên nhận gia công"]}
-  - {stt: 4, key: tien_cong, ten: "Tiền công gia công và phương thức thanh toán", can_cu: "91/2015/QH13 > Điều 552", tu_khoa: ["tiền công gia công", "thù lao gia công", "tiền công", "phí gia công"]}
-  - {stt: 5, key: giao_nhan_san_pham, ten: "Giao, nhận sản phẩm gia công", can_cu: "91/2015/QH13 > Điều 549", tu_khoa: ["giao, nhận sản phẩm", "giao sản phẩm gia công", "bàn giao sản phẩm", "giao nhận sản phẩm"]}
-  - {stt: 6, key: chiu_rui_ro, ten: "Trách nhiệm chịu rủi ro", can_cu: "91/2015/QH13 > Điều 548", tu_khoa: ["chịu rủi ro", "trách nhiệm chịu rủi ro"]}
-  - {stt: 7, key: cham_giao_cham_nhan, ten: "Chậm giao, chậm nhận sản phẩm gia công", can_cu: "91/2015/QH13 > Điều 550", tu_khoa: ["chậm giao", "chậm nhận sản phẩm"]}
-  - {stt: 8, key: don_phuong_cham_dut, ten: "Đơn phương chấm dứt thực hiện hợp đồng gia công", can_cu: "91/2015/QH13 > Điều 551", tu_khoa: ["đơn phương chấm dứt"]}
+  - {stt: 4, key: bi_mat, ten: "Giữ bí mật thông tin về quy trình gia công", can_cu: "91/2015/QH13 > Điều 546 > Khoản 4", tu_khoa: ["giữ bí mật", "bí mật thông tin"]}
+  - {stt: 5, key: tien_cong, ten: "Tiền công gia công và phương thức thanh toán", can_cu: "91/2015/QH13 > Điều 552", tu_khoa: ["tiền công gia công", "thù lao gia công", "tiền công", "phí gia công"]}
+  - {stt: 6, key: giao_nhan_san_pham, ten: "Giao, nhận sản phẩm gia công", can_cu: "91/2015/QH13 > Điều 549", tu_khoa: ["giao, nhận sản phẩm", "giao sản phẩm gia công", "bàn giao sản phẩm", "giao nhận sản phẩm"]}
+  - {stt: 7, key: chiu_rui_ro, ten: "Trách nhiệm chịu rủi ro", can_cu: "91/2015/QH13 > Điều 548", tu_khoa: ["chịu rủi ro", "trách nhiệm chịu rủi ro"]}
+  - {stt: 8, key: cham_giao_cham_nhan, ten: "Chậm giao, chậm nhận sản phẩm gia công", can_cu: "91/2015/QH13 > Điều 550", tu_khoa: ["chậm giao", "chậm nhận sản phẩm"]}
+  - {stt: 9, key: don_phuong_cham_dut, ten: "Đơn phương chấm dứt thực hiện hợp đồng gia công", can_cu: "91/2015/QH13 > Điều 551", tu_khoa: ["đơn phương chấm dứt"]}
+  - {stt: 10, key: trach_nhiem_vi_pham, ten: "Trách nhiệm do vi phạm hợp đồng", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm e", tu_khoa: ["trách nhiệm do vi phạm", "phạt vi phạm", "bồi thường thiệt hại"]}
+  - {stt: 11, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}

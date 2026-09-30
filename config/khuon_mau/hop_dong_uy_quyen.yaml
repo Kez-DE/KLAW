@@ -1,0 +1,87 @@
+# Hợp đồng uỷ quyền, dựng TƯƠNG TỰ Phụ lục II Nghị định 96/2024/NĐ-CP (Công báo 939+940,
+# tr. 15–21) — mẫu hợp đồng dân sự gần nhất do Chính phủ ban hành. Theo mẫu đó: quốc
+# hiệu, tiêu ngữ ở giữa; dòng địa danh, ngày tháng ở giữa, TRÊN tên hợp đồng; "Số:
+# ……/……" dưới tên; căn cứ; "Hai bên chúng tôi gồm:" nghiêng; "I. BÊN … (sau đây gọi tắt
+# là Bên …):" đậm, các dòng "- …" thẳng lề chữ thân bài; câu dẫn; "Điều n." đậm; điều
+# khoản cuối về số bản; khối ký hai cột. Khối ký: Bên uỷ quyền trái (mặc định của thiết
+# kế §7).
+loai: hop_dong_uy_quyen
+ten: hợp đồng uỷ quyền
+tieu_de: HỢP ĐỒNG UỶ QUYỀN
+bo_cuc: hop_dong
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 96/2024/NĐ-CP, Phụ lục II Hợp đồng thuê nhà ở (tham chiếu bố cục)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/7/42491/51289-1-2024939-94096-2024-nd-cp.pdf
+  tep_d2: goc/nd96-2024_congbao-939-940.pdf
+  sha256: 5b41a37fec6af317480a600f70cb4233ae852d6b297613ebe32222f531322174
+  trang: 14
+  ghi_chu: "Không có mẫu hợp đồng uỷ quyền do Nhà nước ban hành; bố cục theo mẫu hợp đồng dân sự của Chính phủ gần nhất (NĐ 96/2024 Phụ lục II), nội dung bắt buộc theo checklist. Thể thức theo tập quán — NĐ 30/2020 không bắt buộc hợp đồng dân sự."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: "Số: {}/{}"
+  ngay: dau
+  kinh_gui: null
+  can_cu: true
+  noi_nhan: null
+  thut_ben_mm: 12.7
+  ket_thuc: "Hợp đồng này có hiệu lực kể từ ngày {} tháng {} năm {}; được lập thành {} bản có giá trị pháp lý như nhau, mỗi bên giữ {} bản."
+ben:
+  - khoa: ben_uy_quyen
+    vai: Bên uỷ quyền
+    tieu_de: "I. BÊN UỶ QUYỀN (sau đây gọi tắt là Bên uỷ quyền):"
+    loai: tuy
+    mac_dinh: ca_nhan
+    ca_nhan:
+      dong:
+        - "- Họ và tên:{ho_ten}"
+        - "- Ngày sinh:{ngay_sinh}"
+        - "- Số định danh cá nhân:{so_dinh_danh}"
+        - "- Nơi cư trú:{noi_cu_tru}"
+        - "- Số điện thoại:{dien_thoai}"
+    to_chuc:
+      dong:
+        - "- Tên tổ chức:{ten_to_chuc}"
+        - "- Mã số doanh nghiệp:{ma_so_doanh_nghiep}"
+        - "- Địa chỉ trụ sở:{dia_chi_tru_so}"
+        - "- Người đại diện theo pháp luật:{nguoi_dai_dien}"
+        - "- Chức vụ:{chuc_vu}"
+        - "- Số điện thoại:{dien_thoai}"
+  - khoa: ben_duoc_uy_quyen
+    vai: Bên được uỷ quyền
+    tieu_de: "II. BÊN ĐƯỢC UỶ QUYỀN (sau đây gọi tắt là Bên được uỷ quyền):"
+    loai: tuy
+    mac_dinh: ca_nhan
+    ca_nhan:
+      dong:
+        - "- Họ và tên:{ho_ten}"
+        - "- Ngày sinh:{ngay_sinh}"
+        - "- Số định danh cá nhân:{so_dinh_danh}"
+        - "- Nơi cư trú:{noi_cu_tru}"
+        - "- Số điện thoại:{dien_thoai}"
+    to_chuc:
+      dong:
+        - "- Tên tổ chức:{ten_to_chuc}"
+        - "- Mã số doanh nghiệp:{ma_so_doanh_nghiep}"
+        - "- Địa chỉ trụ sở:{dia_chi_tru_so}"
+        - "- Người đại diện theo pháp luật:{nguoi_dai_dien}"
+        - "- Chức vụ:{chuc_vu}"
+        - "- Số điện thoại:{dien_thoai}"
+than:
+  - {dong: "Hai bên chúng tôi gồm:", nghieng: true}
+  - {ben: ben_uy_quyen}
+  - {ben: ben_duoc_uy_quyen}
+  - {dong: "Hai bên chúng tôi thống nhất ký kết hợp đồng uỷ quyền với các nội dung sau đây:"}
+  - {dieu: dieu}
+muc_khung: []
+ky:
+  thu_tu: [ben_uy_quyen, ben_duoc_uy_quyen]
+  o:
+    - khoa: ben_uy_quyen
+      ca_nhan: {vai: "BÊN UỶ QUYỀN", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+      to_chuc: {vai: "ĐẠI DIỆN\nBÊN UỶ QUYỀN", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
+    - khoa: ben_duoc_uy_quyen
+      ca_nhan: {vai: "BÊN ĐƯỢC UỶ QUYỀN", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+      to_chuc: {vai: "ĐẠI DIỆN\nBÊN ĐƯỢC UỶ QUYỀN", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
+truong_tu_facts: {}

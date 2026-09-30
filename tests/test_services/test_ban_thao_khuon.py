@@ -280,6 +280,65 @@ def test_o_tren_trang_PDF_la_hop_da_luu_tren_trang_cua_don_vi_ke_ca_khi_da_dien(
     assert [(o["trang"], o["hop"]) for o in ban_thao.o_tren_trang("pdf", khong_trang, [])] == [(None, None)]
 
 
+def _o_khuon_mau(loai: str) -> tuple[list[dict], list[dict]]:
+    """Đơn vị bộ đọc thấy trên tệp một khuôn mẫu vừa dựng, và bản đồ trường (`khung.o`)."""
+    from src.services import khuon_mau as km
+    from src.services.doc_tai_lieu import doc
+    from src.services.tai_lieu import _hang_don_vi
+
+    e = km.nap(loai)
+    dieu = [{"key": m["key"], "ten": m["ten"], "doan": [f"{m['ten']}: nội dung."]} for m in e.get("muc") or []]
+    spec = km.spec_tu(
+        e, tieu_de=None, trich_yeu=None, can_cu=[], dieu=[*dieu, {"key": None, "ten": "Chung", "doan": ["x"]}]
+    )
+    docx, ban_do = km.dung_docx(spec)
+    dv = [_hang_don_vi(d) for d in doc("k.docx", docx).don_vi]
+    return dv, ban_thao.o_truong(dv, ban_do)
+
+
+def _loai_khuon_mau() -> list[str]:
+    from src.services import khuon_mau as km
+
+    return sorted(km.cac_loai())
+
+
+@pytest.mark.parametrize("loai", _loai_khuon_mau())
+def test_nhan_o_khuon_mau_la_ten_truong_khong_phai_manh_dong_mau(loai):
+    """Ô bộ dựng biết tên (`khung.o`) mang một tên đọc được — nhãn in trên trang khi nó là
+    tên ("Họ tên người giao kết hợp đồng"), không thì tên ở `_truong.yaml`: ô không nhãn
+    (tên cơ quan ở đầu trang, tên dưới chữ ký), mảnh ký hiệu ("/QĐ-"), chữ của dòng ngày.
+    Chat ("Còn trống: …") và ô điền trên trang cùng đọc nhãn này."""
+    import re
+
+    dv, o = _o_khuon_mau(loai)
+    khoa = {(x["don_vi"], x["so"]) for x in o}
+    cho = cho_trong_khuon("docx", dv, [], o)
+    for c in cho:
+        if (c["don_vi"], c["so"]) in khoa:
+            assert c["nhan"][:1].isupper() and "(sau " not in c["nhan"], c
+        assert not c["nhan"].startswith("/"), c
+    # Dòng địa danh – ngày của khung ("……, ngày …… tháng …… năm ……"): chỗ đầu là "Địa danh".
+    ngay = {d["chi_so"] for d in dv if re.fullmatch(r"……, ngày …… tháng …… năm ……", d["noi_dung"].strip())}
+    assert all(c["nhan"] == "Địa danh" for c in cho if c["don_vi"] in ngay and c["so"] == 0)
+
+
+def test_nhan_quyet_dinh_ban_hanh_theo_danh_muc_truong():
+    from src.services import khuon_mau as km
+
+    dv, o = _o_khuon_mau("noi_quy")
+    nhan = {(x["ben"], x["truong"]): set() for x in o}
+    theo = {(x["don_vi"], x["so"]): (x["ben"], x["truong"]) for x in o}
+    for c in cho_trong_khuon("docx", dv, [], o):
+        if (c["don_vi"], c["so"]) in theo:
+            nhan[theo[c["don_vi"], c["so"]]].add(c["nhan"])
+    ten = km.truong()
+    for t in ("so_van_ban", "viet_tat_co_quan", "ngay_ban_hanh", "thang_ban_hanh", "nam_ban_hanh", "dia_danh"):
+        assert nhan["van_ban", t] == {ten[t]}, t
+    assert nhan["co_quan", "ten_to_chuc"] == {ten["ten_to_chuc"]}
+    assert nhan["nguoi_ky", "ho_ten"] == {ten["ho_ten"]} and nhan["nguoi_ky", "chuc_vu"] == {ten["chuc_vu"]}
+    assert [c["nhan"] for c in cho_trong_khuon("docx", dv, [])][:3] == ["", "Số", "/QĐ-"], "không bản đồ: nhãn bộ đọc"
+
+
 def test_cho_trong_don_vi_rong_hay_sai_hinh_dang():
     assert cho_trong_khuon("docx", [], []) == []
     assert cho_trong_khuon("docx", [None, {"chi_so": "x"}], None) == []

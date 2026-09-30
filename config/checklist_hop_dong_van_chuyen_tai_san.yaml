@@ -1,0 +1,46 @@
+# Checklist nội dung của HỢP ĐỒNG VẬN CHUYỂN TÀI SẢN — BLDS Đ530–541, kèm Luật Đường
+# bộ 35/2024/QH15 Đ61 cho vận tải hàng hoá bằng xe ô tô (quyết định 2026-09-29 mục 3,
+# nghiên cứu `hop-dong.md` §2.2). Vận chuyển đường biển (Bộ luật Hàng hải 95/2015)
+# có chế định riêng — ngoài phạm vi mẫu chung này.
+#
+# muc_do_thieu: canh_bao — BLDS không liệt kê nội dung bắt buộc; các mục dưới đây là
+# nội dung có điều luật riêng điều chỉnh.
+#
+# Hình thức: văn bản, lời nói hoặc hành vi (Đ531.1); vận đơn hoặc chứng từ tương
+# đương là bằng chứng của hợp đồng (Đ531.2). Không có yêu cầu công chứng.
+#
+# Mọi can_cu đã tự tra DB thật (2026-09-29):
+#   SELECT duong_dan FROM provisions
+#    WHERE duong_dan ~ '^91/2015/QH13 > Điều (5[34][0-9]|398)' OR duong_dan ~ '^35/2024/QH15 > Điều 61';
+loai: hop_dong_van_chuyen_tai_san
+ten: "hợp đồng vận chuyển tài sản"
+tieu_de: "HỢP ĐỒNG VẬN CHUYỂN TÀI SẢN"
+muc_do_thieu: canh_bao
+
+la_hop_dong: true
+
+rules: []
+
+can_cu_goc: "91/2015/QH13 > Điều 530"
+can_cu_chi_tiet: "91/2015/QH13 > Điều 531 > Khoản 1"
+
+# Giấy vận tải (Luật Đường bộ Đ61) là giấy tờ đi theo chuyến hàng bằng ô tô, không
+# phải điều kiện của hợp đồng; tranh chấp là nội dung "có thể có" của Đ398.2.
+khong_bat_buoc:
+  can_cu: "35/2024/QH15 > Điều 61 > Khoản 1"
+  ghi_chu: >
+    Giấy vận tải chỉ đặt ra khi vận tải hàng hoá bằng xe ô tô (Luật Đường bộ Đ61);
+    điều khoản giải quyết tranh chấp nằm trong danh mục "có thể có" của BLDS Đ398.2.
+    Vắng mặt không được báo là thiếu.
+  keys: [giay_van_tai, tranh_chap]
+
+muc:
+  - {stt: 1, key: tai_san_van_chuyen, ten: "Tài sản vận chuyển, địa điểm đến và người có quyền nhận", can_cu: "91/2015/QH13 > Điều 530", tu_khoa: ["tài sản vận chuyển", "hàng hoá vận chuyển", "hàng hóa vận chuyển", "đối tượng vận chuyển"]}
+  - {stt: 2, key: giao_tai_san, ten: "Giao tài sản cho bên vận chuyển", can_cu: "91/2015/QH13 > Điều 532 > Khoản 1", tu_khoa: ["giao tài sản cho bên vận chuyển", "quy cách đóng gói"]}
+  - {stt: 3, key: cuoc_phi, ten: "Cước phí vận chuyển và thời hạn thanh toán", can_cu: "91/2015/QH13 > Điều 533 > Khoản 2", tu_khoa: ["cước phí vận chuyển", "cước vận chuyển", "giá cước"]}
+  - {stt: 4, key: nghia_vu_ben_van_chuyen, ten: "Nghĩa vụ của bên vận chuyển", can_cu: "91/2015/QH13 > Điều 534 > Khoản 1", tu_khoa: ["nghĩa vụ của bên vận chuyển", "quyền và nghĩa vụ của bên vận chuyển"]}
+  - {stt: 5, key: nghia_vu_ben_thue, ten: "Nghĩa vụ của bên thuê vận chuyển", can_cu: "91/2015/QH13 > Điều 536 > Khoản 2", tu_khoa: ["nghĩa vụ của bên thuê vận chuyển", "quyền và nghĩa vụ của bên thuê vận chuyển"]}
+  - {stt: 6, key: giao_ben_nhan, ten: "Giao tài sản cho bên nhận tài sản", can_cu: "91/2015/QH13 > Điều 538 > Khoản 2", tu_khoa: ["giao tài sản cho bên nhận", "bên nhận tài sản", "người nhận hàng"]}
+  - {stt: 7, key: boi_thuong, ten: "Trách nhiệm bồi thường thiệt hại", can_cu: "91/2015/QH13 > Điều 541 > Khoản 1", tu_khoa: ["trách nhiệm bồi thường", "bồi thường thiệt hại", "bất khả kháng"]}
+  - {stt: 8, key: giay_van_tai, ten: "Giấy vận tải khi vận tải hàng hoá bằng xe ô tô", can_cu: "35/2024/QH15 > Điều 61 > Khoản 1", tu_khoa: ["giấy vận tải", "vận đơn"]}
+  - {stt: 9, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}

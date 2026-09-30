@@ -44,6 +44,11 @@ can_cu_goc: "145/2020/NĐ-CP > Điều 37 > Khoản 2"
 # Đ48.1 là điều buộc ban hành quy chế này; không có nó thì Đ37.2 chỉ là một
 # danh sách nội dung của một văn bản chưa ai bắt phải tồn tại.
 can_cu_chi_tiet: "145/2020/NĐ-CP > Điều 48 > Khoản 1"
+# Căn cứ BAN HÀNH: Đ37.2 tự nói nó quy định "theo quy định tại khoản 2 Điều 63 của
+# Bộ luật Lao động" — luật mà Nghị định hướng dẫn phải đứng trong khối "Căn cứ" (tra
+# DB 2026-09-29: BLLĐ Đ63.2 "Người sử dụng lao động phải tổ chức đối thoại tại nơi
+# làm việc trong trường hợp sau đây").
+can_cu_ban_hanh: ["45/2019/QH14 > Điều 63 > Khoản 2"]
 
 # Điểm g của chính Đ37.2 ghi "Nội dung khác (NẾU CÓ)" — luật tự đánh dấu nó là
 # tuỳ nghi, nên vắng mặt không được báo là thiếu.

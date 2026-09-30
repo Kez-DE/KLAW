@@ -29,12 +29,19 @@ can_cu_goc: "91/2015/QH13 > Điều 463"
 
 # Đ467 mở đầu bằng "Các bên CÓ THỂ thỏa thuận về việc tài sản vay phải được sử
 # dụng đúng mục đích vay" — luật tự đánh dấu là tuỳ nghi.
+#
+# 2026-09-29 (quyết định 2026-09-29 mục 3, nghiên cứu `hop-dong.md` §3): thêm hai mục
+# tuỳ chọn trách nhiệm do vi phạm (Đ398.2.e) và giải quyết tranh chấp (Đ398.2.g) —
+# danh mục "có thể có".
+# Đã tự tra DB:
+#   SELECT duong_dan FROM provisions WHERE duong_dan ~ '^91/2015/QH13 > Điều 398';
 khong_bat_buoc:
   can_cu: "91/2015/QH13 > Điều 467"
   ghi_chu: >
     Thoả thuận về mục đích sử dụng tài sản vay là tuỳ nghi theo chính văn Đ467
     ("các bên có thể thỏa thuận"). Vắng mặt không được báo là thiếu.
-  keys: [muc_dich_su_dung]
+    Trách nhiệm do vi phạm và giải quyết tranh chấp nằm trong danh mục "có thể có" của Đ398.2 (điểm e, g).
+  keys: [muc_dich_su_dung, trach_nhiem_vi_pham, tranh_chap]
 
 muc:
   - {stt: 1, key: tai_san_vay, ten: "Tài sản vay: số tiền hoặc tài sản cho vay", can_cu: "91/2015/QH13 > Điều 463", tu_khoa: ["tài sản vay", "tài sản cho vay", "số tiền vay", "khoản tiền vay", "đối tượng của hợp đồng vay"]}
@@ -43,3 +50,5 @@ muc:
   - {stt: 4, key: nghia_vu_tra_no, ten: "Nghĩa vụ trả nợ của bên vay", can_cu: "91/2015/QH13 > Điều 466", tu_khoa: ["nghĩa vụ trả nợ", "hoàn trả khoản vay", "trả nợ gốc"]}
   - {stt: 5, key: nghia_vu_ben_cho_vay, ten: "Nghĩa vụ của bên cho vay", can_cu: "91/2015/QH13 > Điều 465", tu_khoa: ["nghĩa vụ của bên cho vay", "quyền và nghĩa vụ của bên cho vay"]}
   - {stt: 6, key: muc_dich_su_dung, ten: "Mục đích sử dụng tài sản vay (nếu có thoả thuận)", can_cu: "91/2015/QH13 > Điều 467", tu_khoa: ["mục đích sử dụng", "mục đích vay"]}
+  - {stt: 7, key: trach_nhiem_vi_pham, ten: "Trách nhiệm do vi phạm hợp đồng", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm e", tu_khoa: ["trách nhiệm do vi phạm", "phạt vi phạm", "bồi thường thiệt hại"]}
+  - {stt: 8, key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", tu_khoa: ["giải quyết tranh chấp"]}

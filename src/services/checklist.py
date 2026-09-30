@@ -140,6 +140,11 @@ class Checklist:
     la_hop_dong: bool = False
     rules: list[str] = field(default_factory=list)
     can_cu_chi_tiet: str | None = None
+    # Điều luật trao THẨM QUYỀN ban hành văn bản (LDN Đ153.3: HĐQT thông qua nghị quyết)
+    # khi các mục chỉ dẫn tới nguồn thể thức (NĐ 30/2020, không in thành căn cứ): văn
+    # bản của chúng vào khối "Căn cứ" của khuôn mẫu (quyết định 2026-09-29 mục 7), không
+    # là mục nào của checklist.
+    can_cu_ban_hanh: list[str] = field(default_factory=list)
     nganh_duoc_giam: dict[str, Any] = field(default_factory=dict)
     khong_bat_buoc: dict[str, Any] = field(default_factory=dict)
     quy_tac_dinh_dang: dict[str, Any] = field(default_factory=dict)
@@ -186,6 +191,7 @@ def load_checklist(path: Path) -> Checklist:
         la_hop_dong=bool(d.get("la_hop_dong")),
         rules=list(d.get("rules") or []),
         can_cu_chi_tiet=d.get("can_cu_chi_tiet"),
+        can_cu_ban_hanh=list(d.get("can_cu_ban_hanh") or []),
         nganh_duoc_giam=d.get("nganh_duoc_giam") or {},
         khong_bat_buoc=d.get("khong_bat_buoc") or {},
         quy_tac_dinh_dang=d.get("quy_tac_dinh_dang") or {},
@@ -198,7 +204,7 @@ def _key_trung_lap(keys: list[str]) -> list[str]:
 
 def cac_can_cu(cl: Checklist) -> set[str]:
     """Mọi can_cu mà checklist này trích dẫn: từng mục + mọi khối ngoại lệ CÓ
-    khai báo + can_cu gốc/chi tiết cấp checklist. Dùng bởi
+    khai báo + can_cu gốc/chi tiết/ban hành cấp checklist. Dùng bởi
     `kiem_tra_can_cu_ton_tai` — một khối ngoại lệ vắng mặt không đóng góp can_cu
     nào, chứ không phải một can_cu rỗng lọt qua phép kiểm.
     """
@@ -206,6 +212,7 @@ def cac_can_cu(cl: Checklist) -> set[str]:
     return {
         cl.can_cu_goc,
         *([cl.can_cu_chi_tiet] if cl.can_cu_chi_tiet else []),
+        *cl.can_cu_ban_hanh,
         *(k["can_cu"] for k in ngoai_le if k.get("can_cu")),
         *(m["can_cu"] for m in cl.muc),
     }
