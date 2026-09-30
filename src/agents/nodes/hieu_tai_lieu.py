@@ -1109,6 +1109,54 @@ _RE_GIA_TRI = re.compile(r"\S+@\S+|\d[\d.,/:\-]*\d|\d")
 # "01/10/2026" không vào đây: `tinh` sẽ đọc dấu `/` thành phép chia và một ngày
 # tháng bịa sẽ khớp một con số có thật.
 _RE_SO_THUAN = re.compile(r"\d[\d.,]*\d|\d")
+# Đơn vị hàng sau một con số: "10 triệu" người hỏi nói và "10.000.000" mô hình viết là
+# CÙNG một giá trị (app thật 2026-09-30: lưới giá trị đọc "10 triệu" là 10 và xoá
+# "10.000.000" khỏi điều giá thuê).
+_DON_VI_SO = {"nghìn": 10**3, "ngàn": 10**3, "triệu": 10**6, "tỷ": 10**9, "tỉ": 10**9}
+_RE_SO_DON_VI = re.compile(r"(\d[\d.,]*\d|\d)\s*(nghìn|ngàn|triệu|tỷ|tỉ)(?!\w)", re.IGNORECASE)
+
+
+def _so_cua(nguon: str) -> list:
+    """Các số của `nguon` đọc bằng `tinh`, cộng giá trị ĐỦ của mỗi số kèm đơn vị hàng.
+    ponytail: "1 tỷ 200 triệu" là hai số (1e9, 2e8), không phải 1,2e9 — ghép khi đo thấy."""
+    so = [v for m in _RE_SO_THUAN.findall(nguon) if (v := tinh(m)) is not None]
+    return so + [v * _DON_VI_SO[m[2].lower()] for m in _RE_SO_DON_VI.finditer(nguon) if (v := tinh(m[1])) is not None]
+
+
+_CHU_SO = {
+    "không": 0, "một": 1, "mốt": 1, "hai": 2, "ba": 3, "bốn": 4, "tư": 4, "năm": 5, "lăm": 5, "nhăm": 5,
+    "sáu": 6, "bảy": 7, "bẩy": 7, "tám": 8, "chín": 9,
+}  # fmt: skip
+
+
+def doc_so_chu(chu: str) -> int | None:
+    """Số viết bằng chữ ("hai mươi lăm triệu năm trăm nghìn đồng") → số nguyên; `None`
+    khi chữ không phải một số — không đoán. Bỏ "bằng chữ:" đầu và "đồng"/"chẵn" cuối.
+    ponytail: đơn vị hàng phải giảm dần ("một nghìn tỷ" là `None`) — đủ cho số tiền của
+    một hợp đồng; nâng khi đo thấy."""
+    tu = re.findall(r"\w+", unicodedata.normalize("NFC", chu).casefold())
+    if tu[:2] == ["bằng", "chữ"]:
+        tu = tu[2:]
+    while tu and tu[-1] in ("đồng", "chẵn", "vnđ", "vnd"):
+        tu.pop()
+    if not tu:
+        return None
+    tong, nhom, so = 0, 0, None
+    for t in tu:
+        if t in _CHU_SO and so is None:
+            so = _CHU_SO[t]
+        elif t == "mười" and so is None:
+            nhom += 10
+        elif t in ("mươi", "trăm") and so is not None:
+            nhom, so = nhom + so * (10 if t == "mươi" else 100), None
+        elif t in ("linh", "lẻ"):
+            continue
+        elif t in _DON_VI_SO and nhom + (so or 0):
+            tong, nhom, so = tong + (nhom + (so or 0)) * _DON_VI_SO[t], 0, None
+        else:
+            return None
+    return tong + nhom + (so or 0)
+
 
 # ── Thể thức hành chính của một văn bản KLAW TỰ SOẠN ────────────────────────
 #
@@ -2032,7 +2080,7 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
     phép thay theo cụm dùng chung, thay vì một hàm bool.
     """
     nguon = normalize(nguon or "")
-    so_nguon = [v for m in _RE_SO_THUAN.findall(nguon) if (v := tinh(m)) is not None]
+    so_nguon = _so_cua(nguon)
     bang_theo_nhan = _bang_theo_nhan(goi or [])
     # Phase 9 U1/U5 — hai lưới đối chiếu 0 token khác, cùng nguồn `goi`: tên
     # mục có phải chữ THẬT của tài liệu (`_nhan_that`), và mỗi dòng của tài
@@ -3087,7 +3135,7 @@ def kiem_phep_sua(
     lẽ (G5) — không đi traces hay `bo`.
     """
     nguon_kh = _khong_hoa(nguon or "")
-    so_nguon = [v for m in _RE_SO_THUAN.findall(nguon_kh) if (v := tinh(m)) is not None]
+    so_nguon = _so_cua(nguon_kh)
     cam_bo = {_khong_hoa(v) for v in cam if v and _khong_hoa(v) not in nguon_kh}
     theo_chi_so = {d.chi_so: d for d in t["don_vi"]}
     da_co = {_khoa_giong(q) for q in dang_co or []}
@@ -3865,10 +3913,44 @@ def _luoi_doan(chu: str, nguon: str, cam: list[str]) -> tuple[str | None, int]:
     khoi = vb["muc"][0]["khoi"] if vb["muc"] else []
     if not khoi:
         return None, 0
-    s = khoi[0]["noi_dung"].replace(CHO_TRONG, khuon_mau.CHO)
+    s = _khop_so_chu(khoi[0]["noi_dung"].replace(CHO_TRONG, khuon_mau.CHO), _so_cua(normalize(nguon or "")))
     for i, g in enumerate(giu):
         s = s.replace(_chu_giu(i), g)
     return khuon_mau.chuan_chu(s)[0], dem["gia_tri_lam_sach"]
+
+
+# Số tiền bằng số rồi bằng chữ trong ngoặc: "10.000.000 đồng (Mười triệu đồng)", "……
+# đồng (bằng chữ: mười triệu đồng)". Phần số đã qua lưới giá trị; phần chữ không có chữ
+# số nên lưới không thấy nó.
+_RE_SO_VA_CHU = re.compile(
+    r"(?P<so>\d[\d.,]*\d|\d|" + re.escape(khuon_mau.CHO) + r")(?P<hang>\s*(?:nghìn|ngàn|triệu|tỷ|tỉ)(?!\w))?"
+    r"(?P<giua>\s*(?:đồng|VNĐ|VND|đ)?\s*)\((?P<dau>\s*bằng chữ\s*:?\s*)?(?P<chu>[^()\d…]+)\)",
+    re.IGNORECASE,
+)
+
+
+def _khop_so_chu(s: str, so_nguon: list) -> str:
+    """Một số tiền, hai dạng, MỘT giá trị: phần chữ nói đúng phần số thì giữ; phần số
+    trống mà phần chữ là một số CÓ NGUỒN thì phần số điền từ đó; phần chữ không nguồn hay
+    lệch phần số thành "……" — một số bịa không sống sót ở dạng chữ. Ngoặc không đọc được
+    thành số (`doc_so_chu` là `None`: "(đã gồm thuế)") không bị đụng."""
+
+    def _mot(m: re.Match) -> str:
+        w = doc_so_chu(m["chu"])
+        if w is None:
+            return m[0]
+        hang = _DON_VI_SO[m["hang"].strip().lower()] if m["hang"] else 1
+        so, chu = m["so"], m["chu"]
+        f = tinh(so) if so != khuon_mau.CHO else None
+        if f is not None:
+            chu = chu if abs(f * hang - w) <= SAI_SO else khuon_mau.CHO
+        elif any(abs(w - x) <= SAI_SO for x in so_nguon) and w % hang == 0:
+            so = f"{w // hang:,}".replace(",", ".")
+        else:
+            chu = khuon_mau.CHO
+        return f"{so}{m['hang'] or ''}{m['giua']}({m['dau'] or ''}{chu})"
+
+    return _RE_SO_VA_CHU.sub(_mot, s)
 
 
 def _viet_thuong_dau(s: str) -> str:

@@ -347,3 +347,68 @@ def test_muc_tuy_chon_ghi_ro_trong_prompt():
     khoi = h._khoi_muc_khuon_mau(ng)
     assert "`cuoc_phi` — Cước phí\n" in khoi
     assert "`giay_van_tai` — Giấy vận tải khi vận tải hàng hoá bằng xe ô tô — TUỲ CHỌN" in khoi
+
+
+# ═══ Số tiền bằng số và bằng chữ là MỘT giá trị (app thật 2026-09-30, bản thảo 91c288d5) ═══
+#
+# Lượt 1 nói "giá thuê 10 triệu đồng một tháng"; Điều 3 in "Giá thuê là …… đồng (Mười
+# triệu đồng) mỗi tháng": lưới giá trị đọc "10 triệu" là 10 nên xoá "10.000.000", còn
+# phần chữ (không chữ số) lọt qua. Một giá trị của người hỏi phải điền cả hai dạng, và
+# một số không nguồn không được sống sót ở dạng chữ.
+NGUON_THUE = (
+    "Soạn hợp đồng thuê nhà ở giữa bên cho thuê là ông Nguyễn Văn An và bên thuê là bà Trần Thị Bình,"
+    " giá thuê 10 triệu đồng một tháng, thời hạn 12 tháng"
+)
+
+
+def _doan_thue(chu: str) -> list[str]:
+    return h.kiem_khuon_mau(_ra(dieu=[_dieu(chu)]), NG_TQ, NGUON_THUE, [], [])["dieu"][0]["doan"]
+
+
+@pytest.mark.parametrize(
+    ("mo_hinh", "ra"),
+    [
+        # Số và chữ cùng là giá trị người hỏi nói: giữ cả hai.
+        (
+            "Giá thuê là 10.000.000 đồng (Mười triệu đồng) mỗi tháng.",
+            "Giá thuê là 10.000.000 đồng (Mười triệu đồng) mỗi tháng.",
+        ),
+        # Mô hình để trống phần số mà viết phần chữ: phần số điền từ cùng giá trị ấy.
+        (
+            f"Giá thuê là {km.CHO} đồng (Mười triệu đồng) mỗi tháng.",
+            "Giá thuê là 10.000.000 đồng (Mười triệu đồng) mỗi tháng.",
+        ),
+        (
+            f"Giá thuê là {km.CHO} đồng (bằng chữ: mười triệu đồng).",
+            "Giá thuê là 10.000.000 đồng (bằng chữ: mười triệu đồng).",
+        ),
+        # Số không nguồn: phần số thành chỗ trống, phần chữ cũng vậy — không lọt ở dạng chữ.
+        ("Tiền đặt cọc là 20.000.000 đồng (Hai mươi triệu đồng).", f"Tiền đặt cọc là {km.CHO} đồng ({km.CHO})."),
+        # Phần chữ nói một số khác phần số: phần chữ thành chỗ trống.
+        ("Giá thuê là 10.000.000 đồng (Một trăm triệu đồng).", f"Giá thuê là 10.000.000 đồng ({km.CHO})."),
+        # Ngoặc không phải số bằng chữ: không đụng.
+        (
+            "Giá thuê là 10.000.000 đồng (đã gồm thuế) mỗi tháng.",
+            "Giá thuê là 10.000.000 đồng (đã gồm thuế) mỗi tháng.",
+        ),
+    ],
+    ids=["khop", "so_trong_chu_co_nguon", "bang_chu_nhan", "khong_nguon", "chu_lech_so", "ngoac_khac"],
+)
+def test_so_tien_bang_so_va_bang_chu_mot_gia_tri(mo_hinh, ra):
+    assert _doan_thue(mo_hinh) == [ra]
+
+
+@pytest.mark.parametrize(
+    ("chu", "so"),
+    [
+        ("Mười triệu đồng", 10_000_000),
+        ("hai mươi lăm triệu năm trăm nghìn đồng chẵn", 25_500_000),
+        ("một tỷ hai trăm triệu", 1_200_000_000),
+        ("một trăm linh năm nghìn", 105_000),
+        ("ba mươi mốt", 31),
+        ("đã gồm thuế", None),
+        ("hai ba triệu", None),
+    ],
+)
+def test_doc_so_bang_chu(chu, so):
+    assert h.doc_so_chu(chu) == so
