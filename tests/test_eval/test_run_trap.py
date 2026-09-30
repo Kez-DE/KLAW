@@ -71,6 +71,19 @@ def test_van_ban_ngoai_kho():
     assert not dung(it, _st("Xem Nghị định 126/2014/NĐ-CP"))
 
 
+def test_tra_loi_dan_dung():
+    """Phạm vi mới (quyết định 2026-09-30 mục 10): luật điều chỉnh có toàn văn thì
+    phải TRẢ LỜI và dẫn trúng một neo — từ chối câu này là sai, không phải đúng."""
+    it = {"ky_vong": "tra_loi_dan_dung", "duong_dan": ["45/2019/QH14 > Điều 26"]}
+    assert dung(it, _st("Bạn được 85% [Điều 26](cite:1)."))
+    khoan = [{"k": 1, "doc_id": "139264", "duong_dan": "45/2019/QH14 > Điều 26 > Khoản 1"}]
+    assert dung(it, _st("x", citations=khoan)), "dẫn tới khoản của đúng Điều là trúng"
+    lech = [{"k": 1, "doc_id": "139264", "duong_dan": "45/2019/QH14 > Điều 27"}]
+    assert not dung(it, _st("x", citations=lech)), "trả lời nhưng dẫn sai điều"
+    assert not dung(it, _st("x", rt="out_of_scope"))
+    assert not dung(it, _st("x", rt="abstain"))
+
+
 def test_khong_tien_doan():
     assert dung({"ky_vong": "khong_tien_doan"}, _st("Điều 36 quy định các trường hợp chấm dứt hợp đồng."))
     assert not dung({"ky_vong": "khong_tien_doan"}, _st("Bạn sẽ thắng vụ này."))

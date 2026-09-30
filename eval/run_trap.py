@@ -15,6 +15,7 @@ from pathlib import Path
 
 import yaml
 
+from eval.run_cau_tra_loi import _duong_dan_da_dan, _trung
 from src.agents.graph_tra_cuu import build_graph_tra_cuu
 from src.agents.nodes.assemble import _RE_URL, _the_khong_hop_le
 from src.services.traces import _TOKEN_IN_KEYS
@@ -48,6 +49,11 @@ def dung(it: dict, st: dict) -> bool:
         return rt == "answer" and answer.lstrip().lower().startswith("chào")
     if kv == "khong_chao":
         return rt == "answer" and not answer.lstrip().lower().startswith("chào")
+    # Phạm vi "pháp luật Việt Nam" (quyết định 2026-09-30 mục 10): luật điều chỉnh
+    # có toàn văn thì từ chối là SAI. Dẫn trúng MỘT neo là đúng — cùng phép so
+    # tiền tố hai chiều của bộ vàng, không phải một định nghĩa thứ hai.
+    if kv == "tra_loi_dan_dung":
+        return rt == "answer" and _trung(it.get("duong_dan") or [], _duong_dan_da_dan(st))
     if kv == "van_ban_ngoai_kho":
         return rt in ("answer", "abstain", "partial_coverage") and not any(s in answer for s in it.get("cam_nhac", []))
     # Ba nhánh dưới đây so CỤM TỪ, không so TỪ TRẦN TRỤI — "thắng"/"thua"/"quy
