@@ -53,6 +53,23 @@ def test_seed_da_commit_hop_le_va_co_101_102_2024():
     assert {"Điều 9 > Khoản 5", "Điều 30", "Điều 60"} <= set(theo["169188", "178259"]["dieu_khoan"])
     assert {"Điều 106", "Điều 107", "Điều 94 > Khoản 2 > Điểm c"} <= set(theo["169363", "178259"]["dieu_khoan"])
     assert all(h["boi_dieu_khoan"].startswith("Điều 21 khoản 4") for k, h in theo.items() if k[1] == "178259")
+    # Hai nghị định sau cũng bãi bỏ điều khoản của 101/102/2024 (cạnh loai 20, review 2026-09-30).
+    cua = {
+        (h["van_ban_id"], h["boi_id"], x): h["kiem_boi"]
+        for h in hang
+        if h["boi_id"] in ("187157", "181906")
+        for x in h["dieu_khoan"]
+    }
+    assert {
+        ("169188", "187157", "Điều 18 > Khoản 3"),
+        ("169188", "187157", "Điều 65 > Khoản 4"),
+        ("169363", "187157", "Điều 32"),
+        ("169363", "187157", "Điều 54 > Khoản 5"),
+        ("169363", "187157", "Điều 77 > Khoản 4"),
+        ("169188", "181906", "Điều 7"),
+        ("169363", "181906", "Điều 69 > Khoản 1 > Điểm b"),
+    } <= set(cua)
+    assert cua["169363", "187157", "Điều 77 > Khoản 4"] == "doi-chieu-tay"
 
 
 def test_phan_giai_theo_van_ban_va_duong_dan():

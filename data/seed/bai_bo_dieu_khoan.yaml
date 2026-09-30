@@ -1,6 +1,6 @@
 # Điều khoản BỊ BÃI BỎ bởi văn bản khác (quyết định 2026-09-30 mục 9, migration 043).
 # Sinh bằng `python -m scripts.trich_bai_bo --ghi`; nạp bằng
-# `python -m scripts.nap_bai_bo_dieu_khoan --ghi` (chạy lại sau mỗi lượt `ingest`).
+# `python -m scripts.nap_bai_bo_dieu_khoan --ghi` (`ingest` tự nạp lại sau mỗi lượt).
 # `trich`: nguyên văn (khoảng trắng đã gộp) văn bản đi bãi bỏ, câu dẫn/tiêu đề " … " câu;
 # `dieu_khoan`: phần sau số hiệu của `provisions.duong_dan`; `tu_ngay`: ngày câu tự nêu,
 # không có thì ngày hiệu lực của văn bản đi bãi bỏ.
@@ -16,7 +16,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/175635
   tu_ngay: 2025-04-08
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 07/2016/TT-BNNPTNT
   van_ban_id: '106202'
   boi: 01/2020/TT-BNNPTNT
@@ -40,7 +40,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/142035
   tu_ngay: 2020-03-05
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 100/2016/NĐ-CP
   van_ban_id: '112489'
   boi: 360/2025/NĐ-CP
@@ -54,7 +54,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/186980
   tu_ngay: 2026-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 100/2016/NĐ-CP
   van_ban_id: '112489'
   boi: 181/2025/NĐ-CP
@@ -68,7 +68,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/187347
   tu_ngay: 2025-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 83/2016/TT-BTC
   van_ban_id: '112967'
   boi: 18/2021/NĐ-CP
@@ -83,7 +83,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/151157
   tu_ngay: 2021-04-25
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 143/2016/NĐ-CP
   van_ban_id: '114476'
   boi: 140/2018/NĐ-CP
@@ -97,7 +97,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/131493
   tu_ngay: 2018-10-08
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 143/2016/NĐ-CP
   van_ban_id: '114476'
   boi: 140/2018/NĐ-CP
@@ -110,7 +110,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/131493
   tu_ngay: 2018-10-08
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 143/2016/NĐ-CP
   van_ban_id: '114476'
   boi: 140/2018/NĐ-CP
@@ -124,7 +124,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/131493
   tu_ngay: 2018-10-08
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 143/2016/NĐ-CP
   van_ban_id: '114476'
   boi: 140/2018/NĐ-CP
@@ -138,7 +138,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/131493
   tu_ngay: 2018-10-08
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 143/2016/NĐ-CP
   van_ban_id: '114476'
   boi: 140/2018/NĐ-CP
@@ -154,7 +154,64 @@
   url: https://vbpl.vn/van-ban/chi-tiet/131493
   tu_ngay: 2018-10-08
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 143/2016/NĐ-CP
+  van_ban_id: '114476'
+  boi: 15/2019/NĐ-CP
+  boi_id: '134195'
+  boi_dieu_khoan: Điều 45 khoản 6 điểm b
+  dieu_khoan:
+  - Điều 14 > Khoản 2 > Điểm đ
+  trich: '6. Sửa đổi Điều 14 của Nghị định số 143/2016/NĐ-CP ngày 14 tháng 10 năm 2016 của Chính phủ quy
+    định điều kiện đầu tư và hoạt động trong lĩnh vực giáo dục nghề nghiệp như sau: … b) Bãi bỏ điểm đ
+    khoản 2 Điều 14.'
+  url: https://vbpl.vn/van-ban/chi-tiet/134195
+  tu_ngay: 2019-03-20
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 13/2016/TT-BNNPTNT
+  van_ban_id: '114551'
+  boi: 18/2018/TT-BNNPTNT
+  boi_id: '133964'
+  boi_dieu_khoan: Điều 1 khoản 12
+  dieu_khoan:
+  - Điều 35
+  trich: Điều 1. Sửa đổi, bổ sung, bãi bỏ một số điều của Thông tư số 13/2016/TT-BNNPTNT ngày 02/6/2016
+    của Bộ trưởng Bộ Nông nghiệp và Phát triển nông thôn quy định về quản lý thuốc thú y … 12. Bãi bỏ
+    Điều 35.
+  url: https://vbpl.vn/van-ban/chi-tiet/133964
+  tu_ngay: 2019-02-14
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 13/2016/TT-BNNPTNT
+  van_ban_id: '114551'
+  boi: 13/2022/TT-BNNPTNT
+  boi_id: '156126'
+  boi_dieu_khoan: Điều 3 khoản 3
+  dieu_khoan:
+  - Điều 3 > Khoản 3 > Điểm p
+  trich: Điều 3. Sửa đổi, bổ sung một số điều của Thông tư số 13/2016/TT-BNNPTNT ngày 02/6/2016 của Bộ
+    trưởng Bộ Nông nghiệp và Phát triển nông thôn về quản lý thuốc thú y … 3. Bãi bỏ điểm p khoản 3 Điều
+    3.
+  url: https://vbpl.vn/van-ban/chi-tiet/156126
+  tu_ngay: 2022-11-12
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 13/2016/TT-BNNPTNT
+  van_ban_id: '114551'
+  boi: 13/2022/TT-BNNPTNT
+  boi_id: '156126'
+  boi_dieu_khoan: Điều 3 khoản 4
+  dieu_khoan:
+  - Điều 3 > Khoản 6 > Điểm d
+  - Điều 3 > Khoản 6 > Điểm đ
+  trich: Điều 3. Sửa đổi, bổ sung một số điều của Thông tư số 13/2016/TT-BNNPTNT ngày 02/6/2016 của Bộ
+    trưởng Bộ Nông nghiệp và Phát triển nông thôn về quản lý thuốc thú y … 4. Bãi bỏ điểm d, điểm đ khoản
+    6 Điều 3.
+  url: https://vbpl.vn/van-ban/chi-tiet/156126
+  tu_ngay: 2022-11-12
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 28/2009/QH12
   van_ban_id: '11761'
   boi: 68/2020/QH14
@@ -166,7 +223,44 @@
   url: https://vbpl.vn/van-ban/chi-tiet/146648
   tu_ngay: 2021-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 44/2016/NĐ-CP
+  van_ban_id: '117760'
+  boi: 140/2018/NĐ-CP
+  boi_id: '131493'
+  boi_dieu_khoan: Điều 2
+  dieu_khoan:
+  - Điều 9 > Khoản 2
+  - Điều 11 > Khoản 4
+  - Điều 12 > Khoản 2 > Điểm d
+  - Điều 12 > Khoản 3 > Điểm b
+  - Điều 15 > Khoản 3
+  - Điều 15 > Khoản 6
+  - Điều 18 > Khoản 5 > Điểm c
+  - Điều 24 > Khoản 3
+  trich: Điều 2. Bãi bỏ Khoản 2 Điều 9; Khoản 4 Điều 11; điểm d Khoản 2 và điểm b khoản 3 Điều 12; khoản
+    3 và khoản 6 Điều 15; điểm c Khoản 5 Điều 18; Khoản 3 Điều 24 Nghị định số 44/2016/NĐ-CP ngày 15 tháng
+    5 năm 2016 của Chính phủ quy định chi tiết một số điều của Luật an toàn, vệ sinh lao động về hoạt
+    động kiểm định kỹ thuật an toàn lao động, huấn luyện an toàn, vệ sinh lao động và quan trắc môi trường
+    lao động
+  url: https://vbpl.vn/van-ban/chi-tiet/131493
+  tu_ngay: 2018-10-08
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 44/2016/NĐ-CP
+  van_ban_id: '117760'
+  boi: 04/2023/NĐ-CP
+  boi_id: '159806'
+  boi_dieu_khoan: Điều 4
+  dieu_khoan:
+  - Điều 11 > Khoản 5
+  trich: Điều 4. Bãi bỏ khoản 5 Điều 11 Nghị định số 44/2016/NĐ-CP ngày 15 tháng 5 năm 2016 của Chính
+    phủ quy định chi tiết một số điều của Luật An toàn, vệ sinh lao động về hoạt động kiểm định kỹ thuật
+    an toàn lao động, huấn luyện an toàn, vệ sinh lao động và quan trắc môi trường lao động
+  url: https://vbpl.vn/van-ban/chi-tiet/159806
+  tu_ngay: 2023-02-13
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 10/2017/NĐ-CP
   van_ban_id: '119077'
   boi: 49/2022/NĐ-CP
@@ -180,7 +274,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/155137
   tu_ngay: 2022-09-12
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 134/2016/NĐ-CP
   van_ban_id: '119757'
   boi: 05/2025/NĐ-CP
@@ -194,7 +288,20 @@
   url: https://vbpl.vn/van-ban/chi-tiet/176645
   tu_ngay: 2025-01-06
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 134/2016/NĐ-CP
+  van_ban_id: '119757'
+  boi: 182/2025/NĐ-CP
+  boi_id: 5a100a90-6f7a-11f1-b30f-9993cb99e536
+  boi_dieu_khoan: Điều 2 khoản 1
+  dieu_khoan:
+  - Điều 19
+  trich: 1. Bãi bỏ Điều 19 Nghị định số 134/2016/NĐ-CP ngày 01 tháng 9 năm 2016 của Chính phủ quy định
+    chi tiết một số điều và biện pháp thi hành Luật Thuế xuất khẩu, thuế nhập khẩu.
+  url: https://vbpl.vn/van-ban/chi-tiet/5a100a90-6f7a-11f1-b30f-9993cb99e536
+  tu_ngay: 2025-07-01
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 23/2017/QĐ-TTG
   van_ban_id: '122584'
   boi: 45/2021/NĐ-CP
@@ -217,7 +324,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/151161
   tu_ngay: 2021-05-15
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 25/2008/QH12
   van_ban_id: '12326'
   boi: 46/2014/QH13
@@ -230,7 +337,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/36793
   tu_ngay: 2015-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 25/2008/QH12
   van_ban_id: '12326'
   boi: 46/2014/QH13
@@ -244,7 +351,20 @@
   url: https://vbpl.vn/van-ban/chi-tiet/36793
   tu_ngay: 2015-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 07/2017/QH14
+  van_ban_id: '123514'
+  boi: 16/2023/QH15
+  boi_id: '167565'
+  boi_dieu_khoan: Điều 73 khoản 11 điểm b
+  dieu_khoan:
+  - Điều 48 > Khoản 2
+  trich: '11. Sửa đổi, bổ sung, bãi bỏ một số điều của Luật Chuyển giao công nghệ số 07/2017/QH14 như
+    sau: … b) Bãi bỏ khoản 2 Điều 48.'
+  url: https://vbpl.vn/van-ban/chi-tiet/167565
+  tu_ngay: 2024-07-01
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 93/2017/TT-BTC
   van_ban_id: '125398'
   boi: 69/2025/TT-BTC
@@ -260,7 +380,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/187346
   tu_ngay: 2025-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 146/2017/NĐ-CP
   van_ban_id: '126410'
   boi: 181/2025/NĐ-CP
@@ -274,7 +394,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/187347
   tu_ngay: 2025-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 144/2017/NĐ-CP
   van_ban_id: '127300'
   boi: 18/2026/NĐ-CP
@@ -287,7 +407,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/187582
   tu_ngay: 2026-01-15
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 142/2017/NĐ-CP
   van_ban_id: '128550'
   boi: 123/2021/NĐ-CP
@@ -312,7 +432,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/153339
   tu_ngay: 2022-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 25/2018/TT-BTC
   van_ban_id: '128846'
   boi: 69/2025/TT-BTC
@@ -328,7 +448,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/187346
   tu_ngay: 2025-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 162/2018/NĐ-CP
   van_ban_id: '132374'
   boi: 123/2021/NĐ-CP
@@ -347,7 +467,33 @@
   url: https://vbpl.vn/van-ban/chi-tiet/153339
   tu_ngay: 2022-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 162/2018/NĐ-CP
+  van_ban_id: '132374'
+  boi: 17/2026/NĐ-CP
+  boi_id: '186426'
+  boi_dieu_khoan: Điều 8 khoản 1 điểm a
+  dieu_khoan:
+  - Điều 35
+  trich: a) Bãi bỏ Điều 35 Nghị định số 162/2018/NĐ-CP;
+  url: https://vbpl.vn/van-ban/chi-tiet/186426
+  tu_ngay: 2026-03-01
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 20/2018/TT-BNNPTNT
+  van_ban_id: '133920'
+  boi: 01/2022/TT-BNNPTNT
+  boi_id: '152678'
+  boi_dieu_khoan: Điều 2 khoản 3
+  dieu_khoan:
+  - Điều 15 > Khoản 3 > Điểm đ
+  trich: 'Điều 2. Sửa đổi, bổ sung một số điều của Thông tư số 20/2018/TT- BNNPTNT ngày 15/11/2018 của
+    Bộ trưởng Bộ Nông nghiệp và Phát triển nông thôn quy định về trang phục, biểu trưng, cờ hiệu, cờ truyền
+    thống, thẻ kiểm ngư và màu sơn tàu, xuồng kiểm ngư như sau: … 3. Bãi bỏ điểm đ khoản 3 Điều 15.'
+  url: https://vbpl.vn/van-ban/chi-tiet/152678
+  tu_ngay: 2022-03-04
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 117/2007/NĐ-CP
   van_ban_id: '13851'
   boi: 42/2017/NĐ-CP
@@ -360,7 +506,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/121324
   tu_ngay: 2017-06-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 23/2020/NĐ-CP
   van_ban_id: '141055'
   boi: 08/2022/NĐ-CP
@@ -374,7 +520,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/168754
   tu_ngay: 2022-01-10
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 23/2020/NĐ-CP
   van_ban_id: '141055'
   boi: 10/2025/NĐ-CP
@@ -387,7 +533,21 @@
   url: https://vbpl.vn/van-ban/chi-tiet/176976
   tu_ngay: 2025-03-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 11/2021/NĐ-CP
+  van_ban_id: '146676'
+  boi: 42/2024/NĐ-CP
+  boi_id: '167334'
+  boi_dieu_khoan: Điều 12 khoản 2 điểm a
+  dieu_khoan:
+  - Điều 6 > Khoản 4
+  trich: '2. Sửa đổi, bổ sung một số điều của Nghị định số 11/2021/NĐ-CP ngày 10 tháng 02 năm 2021 của
+    Chính phủ quy định việc giao các khu vực biển nhất định cho tổ chức, cá nhân khai thác, sử dụng tài
+    nguyên biển như sau: … a) Bãi bỏ khoản 4 Điều 6;'
+  url: https://vbpl.vn/van-ban/chi-tiet/167334
+  tu_ngay: 2024-04-16
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 14/2021/NĐ-CP
   van_ban_id: '148195'
   boi: 07/2022/NĐ-CP
@@ -400,7 +560,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/153251
   tu_ngay: 2022-01-10
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 246/2006/QĐ-TTg
   van_ban_id: '15038'
   boi: 45/2021/NĐ-CP
@@ -426,7 +586,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/151161
   tu_ngay: 2021-05-15
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 65/2006/QH11
   van_ban_id: '15076'
   boi: 20/2012/QH13
@@ -440,7 +600,33 @@
   url: https://vbpl.vn/van-ban/chi-tiet/28019
   tu_ngay: 2013-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 45/2021/NĐ-CP
+  van_ban_id: '151161'
+  boi: 253/2025/NĐ-CP
+  boi_id: '187818'
+  boi_dieu_khoan: Điều 2 khoản 4
+  dieu_khoan:
+  - Điều 53
+  trich: 4. Bãi bỏ Điều 53 Nghị định số 45/2021/NĐ-CP.
+  url: https://vbpl.vn/van-ban/chi-tiet/187818
+  tu_ngay: 2025-09-26
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 118/2021/NĐ-CP
+  van_ban_id: '151943'
+  boi: 68/2025/NĐ-CP
+  boi_id: '176454'
+  boi_dieu_khoan: Điều 2 khoản 2
+  dieu_khoan:
+  - Điều 15 > Khoản 3
+  - Điều 17 > Khoản 4
+  - Điều 37 > Khoản 2 > Điểm b
+  trich: 2. Bãi bỏ khoản 3 Điều 15, khoản 4 Điều 17 và điểm b khoản 2 Điều 37 của Nghị định số 118/2021/NĐ-CP.
+  url: https://vbpl.vn/van-ban/chi-tiet/176454
+  tu_ngay: 2025-05-02
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 01/2022/TT-BNNPTNT
   van_ban_id: '152678'
   boi: 01/2024/TT-BNNPTNT
@@ -453,7 +639,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/166384
   tu_ngay: 2024-03-20
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 01/2022/TT-BNNPTNT
   van_ban_id: '152678'
   boi: 88/2025/TT-BNNMT
@@ -466,7 +652,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/186303
   tu_ngay: 2026-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 01/2022/TT-BNNPTNT
   van_ban_id: '152678'
   boi: 81/2025/TT-BNNMT
@@ -479,7 +665,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/186332
   tu_ngay: 2026-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 135/2020/NĐ-CP
   van_ban_id: '152734'
   boi: 158/2025/NĐ-CP
@@ -496,7 +682,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/178757
   tu_ngay: 2025-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 70/2022/NĐ-CP
   van_ban_id: '157020'
   boi: 165/2024/NĐ-CP
@@ -509,7 +695,55 @@
   url: https://vbpl.vn/van-ban/chi-tiet/173895
   tu_ngay: 2025-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 08/2022/QH15
+  van_ban_id: '163515'
+  boi: 139/2025/QH15
+  boi_id: '187047'
+  boi_dieu_khoan: Điều 2 khoản 7
+  dieu_khoan:
+  - Điều 64 > Khoản 1 > Điểm a
+  - Điều 64 > Khoản 4
+  - Điều 69
+  - Điều 71 > Khoản 3
+  - Điều 117 > Khoản 3
+  - Điều 133 > Khoản 1 > Điểm a
+  - Điều 133 > Khoản 4
+  trich: Điều 2. Thay thế, bỏ cụm từ, bãi bỏ một số điều, khoản, điểm của Luật Kinh doanh bảo hiểm … 7.
+    Bãi bỏ điểm a khoản 1 và khoản 4 Điều 64, Điều 69, khoản 3 Điều 71, khoản 3 Điều 117, điểm a khoản
+    1 và khoản 4 Điều 133.
+  url: https://vbpl.vn/van-ban/chi-tiet/187047
+  tu_ngay: 2026-01-01
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 08/2022/QH15
+  van_ban_id: '163515'
+  boi: 139/2025/QH15
+  boi_id: '187047'
+  boi_dieu_khoan: Điều 2 khoản 8
+  dieu_khoan:
+  - Điều 143
+  - Điều 155
+  trich: Điều 2. Thay thế, bỏ cụm từ, bãi bỏ một số điều, khoản, điểm của Luật Kinh doanh bảo hiểm … 8.
+    Bãi bỏ Điều 143 và Điều 155.
+  url: https://vbpl.vn/van-ban/chi-tiet/187047
+  tu_ngay: 2026-01-01
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 20/2023/QH15
+  van_ban_id: '165913'
+  boi: 60/2024/QH15
+  boi_id: '174877'
+  boi_dieu_khoan: Điều 44 khoản 2 điểm b
+  dieu_khoan:
+  - Điều 3 > Khoản 8
+  - Điều 41
+  trich: '2. Sửa đổi, bổ sung, bãi bỏ một số điểm, khoản, điều của Luật Giao dịch điện tử số 20/2023/QH15
+    như sau: … b) Bãi bỏ khoản 8 Điều 3 và Điều 41.'
+  url: https://vbpl.vn/van-ban/chi-tiet/174877
+  tu_ngay: 2025-07-01
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 34/2024/NĐ-CP
   van_ban_id: '166653'
   boi: 105/2025/NĐ-CP
@@ -522,7 +756,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/177733
   tu_ngay: 2025-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 30/2023/QH15
   van_ban_id: '168904'
   boi: 51/2024/QH15
@@ -535,7 +769,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/172923
   tu_ngay: 2025-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 101/2024/NĐ-CP
   van_ban_id: '169188'
   boi: 151/2025/NĐ-CP
@@ -578,7 +812,52 @@
   url: https://vbpl.vn/van-ban/chi-tiet/178259
   tu_ngay: 2025-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 101/2024/NĐ-CP
+  van_ban_id: '169188'
+  boi: 226/2025/NĐ-CP
+  boi_id: '181906'
+  boi_dieu_khoan: Điều 7 khoản 3 điểm c
+  dieu_khoan:
+  - Điều 7
+  trich: '3. Thay thế, bổ sung, bãi bỏ các điều, từ, cụm từ tại Nghị định số 101/2024/NĐ-CP … c) Bãi bỏ
+    điều, các từ, cụm từ như sau: … - Điều 7;'
+  url: https://vbpl.vn/van-ban/chi-tiet/181906
+  tu_ngay: 2025-08-15
+  kiem_boi: doi-chieu-tay
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 101/2024/NĐ-CP
+  van_ban_id: '169188'
+  boi: 49/2026/NĐ-CP
+  boi_id: '187157'
+  boi_dieu_khoan: Điều 16 khoản 3 điểm b
+  dieu_khoan:
+  - Điều 18 > Khoản 3
+  - Điều 24 > Khoản 1 > Điểm d
+  - Điều 24 > Khoản 2 > Điểm d
+  - Điều 65 > Khoản 3
+  - Điều 65 > Khoản 4
+  trich: '3. Các quy định sau đây hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành: … b) Khoản
+    3 Điều 18; điểm d khoản 1 và điểm d khoản 2 Điều 24; khoản 3 và khoản 4 Điều 65 của Nghị định số 101/2024/NĐ-CP;'
+  url: https://vbpl.vn/van-ban/chi-tiet/187157
+  tu_ngay: 2026-01-31
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 102/2024/NĐ-CP
+  van_ban_id: '169363'
+  boi: 175/2024/NĐ-CP
+  boi_id: '173849'
+  boi_dieu_khoan: Điều 124 khoản 3 điểm b
+  dieu_khoan:
+  - Điều 111 > Khoản 3 > Điểm b
+  - Điều 111 > Khoản 3 > Điểm c
+  trich: '3. Bãi bỏ một số điều, khoản của các Nghị định sau đây: … b) Điểm b, điểm c khoản 3 Điều 111
+    Nghị định số 102/2024/NĐ-CP ngày 30 tháng 7 năm 2024 của Chính phủ quy định chi tiết thi hành một
+    số điều của Luật Đất đai.'
+  url: https://vbpl.vn/van-ban/chi-tiet/173849
+  tu_ngay: 2024-12-30
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 102/2024/NĐ-CP
   van_ban_id: '169363'
   boi: 151/2025/NĐ-CP
@@ -618,7 +897,53 @@
   url: https://vbpl.vn/van-ban/chi-tiet/178259
   tu_ngay: 2025-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 102/2024/NĐ-CP
+  van_ban_id: '169363'
+  boi: 226/2025/NĐ-CP
+  boi_id: '181906'
+  boi_dieu_khoan: Điều 7 khoản 4 điểm c
+  dieu_khoan:
+  - Điều 69 > Khoản 1 > Điểm b
+  trich: '4. Thay thế, bổ sung, bãi bỏ các điểm, từ, cụm từ, mẫu tại Nghị định số 102/2024/NĐ-CP … c)
+    Bãi bỏ một số điểm, khoản, cụm từ, mẫu như sau: … - Điểm b khoản 1 Điều 69;'
+  url: https://vbpl.vn/van-ban/chi-tiet/181906
+  tu_ngay: 2025-08-15
+  kiem_boi: doi-chieu-tay
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 102/2024/NĐ-CP
+  van_ban_id: '169363'
+  boi: 49/2026/NĐ-CP
+  boi_id: '187157'
+  boi_dieu_khoan: Điều 16 khoản 3 điểm c
+  dieu_khoan:
+  - Điều 30 > Khoản 2
+  - Điều 32
+  - Điều 33
+  - Điều 34
+  - Điều 50
+  - Điều 54 > Khoản 5
+  - Điều 65
+  trich: '3. Các quy định sau đây hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành: … c) Khoản
+    2 Điều 30; Điều 32; Điều 33; Điều 34; Điều 50; khoản 5 Điều 54 và Điều 65 của Nghị định số 102/2024/NĐ-CP;'
+  url: https://vbpl.vn/van-ban/chi-tiet/187157
+  tu_ngay: 2026-01-31
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 102/2024/NĐ-CP
+  van_ban_id: '169363'
+  boi: 49/2026/NĐ-CP
+  boi_id: '187157'
+  boi_dieu_khoan: Điều 16 khoản 3 điểm d
+  dieu_khoan:
+  - Điều 77 > Khoản 4
+  trich: '3. Các quy định sau đây hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành: … d) Khoản
+    4 Điều 77 của Nghị định số 102/2024/NĐ-CP (đã được sửa đổi, bổ sung tại khoản 12 Điều 4 của Nghị định
+    số 226/2025/NĐ-CP);'
+  url: https://vbpl.vn/van-ban/chi-tiet/187157
+  tu_ngay: 2026-01-31
+  kiem_boi: doi-chieu-tay
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 57/2005/QH11
   van_ban_id: '17065'
   boi: 13/2008/QH12
@@ -631,7 +956,21 @@
   url: https://vbpl.vn/van-ban/chi-tiet/12806
   tu_ngay: 2009-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 161/2024/NĐ-CP
+  van_ban_id: '174139'
+  boi: 105/2025/NĐ-CP
+  boi_id: '177733'
+  boi_dieu_khoan: Điều 44 khoản 4 điểm a
+  dieu_khoan:
+  - Điều 14 > Khoản 1
+  - Điều 19
+  trich: '4. Sửa đổi, bổ sung một số điều của Nghị định số 161/2024/NĐ-CP: … a) Bãi bỏ khoản 1 Điều 14
+    và Điều 19;'
+  url: https://vbpl.vn/van-ban/chi-tiet/177733
+  tu_ngay: 2025-07-01
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 07/2025/NĐ-CP
   van_ban_id: '174485'
   boi: 280/2025/NĐ-CP
@@ -644,7 +983,22 @@
   url: https://vbpl.vn/van-ban/chi-tiet/185124
   tu_ngay: 2025-11-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 34/2025/QĐ-UBND
+  van_ban_id: '177613'
+  boi: 52/2025/QĐ-UBND
+  boi_id: '181854'
+  boi_dieu_khoan: Điều 3 khoản 2
+  dieu_khoan:
+  - Điều 4 > Khoản 4
+  trich: Điều 3. Sửa đổi, bổ sung một số điều của Quyết định số 34/2025/QĐ- UBND ngày 07/5/2025 của Ủy
+    ban nhân dân thành phố Hà Nội quy định việc lập, phê duyệt danh mục và bố trí kinh phí sửa chữa công
+    trình tài sản công sử dụng nguồn kinh phí chi thường xuyên của ngân sách thành phố Hà Nội. … 2. Bãi
+    bỏ khoản 4 Điều 4.
+  url: https://vbpl.vn/van-ban/chi-tiet/181854
+  tu_ngay: 2025-09-19
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 104/2025/NĐ-CP
   van_ban_id: '178104'
   boi: 280/2025/NĐ-CP
@@ -657,7 +1011,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/185124
   tu_ngay: 2025-11-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 120/2025/NĐ-CP
   van_ban_id: '178265'
   boi: 280/2025/NĐ-CP
@@ -676,7 +1030,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/185124
   tu_ngay: 2025-11-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 10/2025/TT-BNNMT
   van_ban_id: '178653'
   boi: 88/2025/TT-BNNMT
@@ -693,7 +1047,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/186303
   tu_ngay: 2026-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 05/2025/TT-BNNMT
   van_ban_id: '178681'
   boi: 81/2025/TT-BNNMT
@@ -706,7 +1060,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/186332
   tu_ngay: 2026-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 30/2025/TT-BNNMT
   van_ban_id: '179713'
   boi: 88/2025/TT-BNNMT
@@ -720,7 +1074,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/186303
   tu_ngay: 2026-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 282/2025/NĐ-CP
   van_ban_id: '185254'
   boi: 17/2026/NĐ-CP
@@ -734,7 +1088,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/186426
   tu_ngay: 2026-03-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 18/2026/NĐ-CP
   van_ban_id: '187582'
   boi: 65/2026/NĐ-CP
@@ -748,7 +1102,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/187585
   tu_ngay: 2026-03-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 79/2009/NĐ-CP
   van_ban_id: '23603'
   boi: 100/2018/NĐ-CP
@@ -761,7 +1115,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/130011
   tu_ngay: 2018-09-15
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 69/2008/NĐ-CP
   van_ban_id: '24581'
   boi: 59/2014/NĐ-CP
@@ -775,7 +1129,28 @@
   url: https://vbpl.vn/van-ban/chi-tiet/36572
   tu_ngay: 2014-08-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 65/2010/NĐ-CP
+  van_ban_id: '25402'
+  boi: 43/2026/NĐ-CP
+  boi_id: '186739'
+  boi_dieu_khoan: Điều 40 khoản 2 điểm a
+  dieu_khoan:
+  - Điều 3
+  - Điều 4
+  - Điều 5
+  - Điều 6
+  - Điều 7 > Khoản 5
+  - Điều 11
+  - Điều 17
+  trich: '2. Các quy định sau đây hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành: … a) Điều
+    3, Điều 4, Điều 5, Điều 6, khoản 5 Điều 7, Điều 11, Điều 17 Nghị định số 65/2010/NĐ-CP ngày 11 tháng
+    6 năm 2010 của Chính phủ quy định chi tiết và hướng dẫn thi hành một số điều của Luật Đa dạng sinh
+    học;'
+  url: https://vbpl.vn/van-ban/chi-tiet/186739
+  tu_ngay: 2026-01-26
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 19/2011/TT- BNNPTNT
   van_ban_id: '26420'
   boi: 13/2020/NĐ-CP
@@ -795,7 +1170,28 @@
   url: https://vbpl.vn/van-ban/chi-tiet/140558
   tu_ngay: 2020-03-05
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 47/2011/NĐ-CP
+  van_ban_id: '26637'
+  boi: 25/2022/NĐ-CP
+  boi_id: '153552'
+  boi_dieu_khoan: Điều 2 khoản 2
+  dieu_khoan:
+  - Điều 3
+  - Điều 5
+  - Điều 6 > Khoản 3 > Điểm g
+  - Điều 7 > Khoản 2 > Điểm c
+  - Điều 12 > Khoản 2 > Điểm c
+  - Điều 13 > Khoản 2
+  - Điều 15 > Khoản 5
+  trich: Điều 2. Thay thế, bãi bỏ một số quy định của Nghị định số 47/2011/NĐ-CP ngày 17 tháng 6 năm 2011
+    của Chính phủ quy định chi tiết thi hành một số nội dung của Luật Bưu chính … 2. Bãi bỏ Điều 3; Điều
+    5; điểm g khoản 3 Điều 6; điểm c khoản 2 Điều 7; điểm c khoản 2 Điều 12; khoản 2 Điều 13; khoản 5
+    Điều 15; Phụ lục VI; Phụ lục IX; Phụ lục X.
+  url: https://vbpl.vn/van-ban/chi-tiet/153552
+  tu_ngay: 2022-06-01
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 08/2012/QH13
   van_ban_id: '27706'
   boi: 74/2014/QH13
@@ -811,7 +1207,19 @@
   url: https://vbpl.vn/van-ban/chi-tiet/46822
   tu_ngay: 2015-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 48/2012/TT-BNNPTNT
+  van_ban_id: '27840'
+  boi: 06/2018/TT-BNNPTN
+  boi_id: '130771'
+  boi_dieu_khoan: Điều 2 khoản 2
+  dieu_khoan:
+  - Điều 4 > Khoản 2
+  trich: Điều 2. Bãi bỏ một số nội dung của Thông tư số 48/2012/TT-BNNPTNT … 2. Bãi bỏ khoản 2 Điều 4.
+  url: https://vbpl.vn/van-ban/chi-tiet/130771
+  tu_ngay: 2018-08-06
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 11/2013/NĐ-CP
   van_ban_id: '28073'
   boi: 100/2018/NĐ-CP
@@ -824,7 +1232,70 @@
   url: https://vbpl.vn/van-ban/chi-tiet/130011
   tu_ngay: 2018-09-15
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 11/2013/NĐ-CP
+  van_ban_id: '28073'
+  boi: 31/2021/NĐ-CP
+  boi_id: '147720'
+  boi_dieu_khoan: Điều 111 khoản 2
+  dieu_khoan:
+  - Điều 20
+  - Điều 21
+  - Điều 22
+  - Điều 23
+  - Điều 24
+  - Điều 25
+  - Điều 26
+  - Điều 27
+  - Điều 28
+  - Điều 30
+  - Điều 33
+  - Điều 41 > Khoản 8
+  - Điều 41 > Khoản 9
+  - Điều 51
+  trich: 'Điều 111. Sửa đổi, bổ sung một số điều của Nghị định số 11/2013/NĐ-CP ngày 14 tháng 01 năm 2013
+    của Chính phủ về quản lý đầu tư phát triển đô thị … 2. Bãi bỏ các điều, khoản sau: Điều 20, Điều 21,
+    Điều 22, Điều 23, Điều 24, Điều 25, Điều 26, Điều 27, Điều 28, Điều 30, Điều 33, các khoản 8 và 9
+    Điều 41 và Điều 51.'
+  url: https://vbpl.vn/van-ban/chi-tiet/147720
+  tu_ngay: 2021-03-26
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 11/2013/NĐ-CP
+  van_ban_id: '28073'
+  boi: 35/2023/NĐ-CP
+  boi_id: '160908'
+  boi_dieu_khoan: Điều 4 khoản 10
+  dieu_khoan:
+  - Điều 2 > Khoản 11
+  - Điều 4 > Khoản 1
+  - Điều 7 > Khoản 2
+  - Điều 7 > Khoản 3
+  - Điều 7 > Khoản 4
+  - Điều 7 > Khoản 5
+  - Điều 9 > Khoản 1 > Điểm a
+  - Điều 9 > Khoản 1 > Điểm c
+  - Điều 19
+  - Điều 31
+  - Điều 32
+  - Điều 36
+  - Điều 37
+  - Điều 40 > Khoản 2
+  - Điều 40 > Khoản 3
+  - Điều 40 > Khoản 4
+  - Điều 40 > Khoản 5
+  - Điều 41 > Khoản 5
+  - Điều 41 > Khoản 6
+  - Điều 50 > Khoản 3
+  trich: 'Điều 4. Sửa đổi, bổ sung một số điều của Nghị định số 11/2013/NĐ-CP ngày 14 tháng 01 năm 2013
+    của Chính phủ về quản lý đầu tư phát triển đô thị … 10. Bãi bỏ các điều, khoản, điểm sau: khoản 11
+    Điều 2; khoản 1 Điều 4; khoản 2, khoản 3, khoản 4, khoản 5 Điều 7; điểm a, điểm c khoản 1 Điều 9;
+    Điều 19; Điều 31; Điều 32; Điều 36; Điều 37; khoản 2, khoản 3, khoản 4, khoản 5 Điều 40; khoản 5,
+    khoản 6 Điều 41; khoản 3 Điều 50.'
+  url: https://vbpl.vn/van-ban/chi-tiet/160908
+  tu_ngay: 2023-06-20
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 24/2013/NĐ-CP
   van_ban_id: '30386'
   boi: 123/2015/NĐ-CP
@@ -840,7 +1311,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/92897
   tu_ngay: 2016-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 123/2013/NĐ-CP
   van_ban_id: '32496'
   boi: 137/2018/NĐ-CP
@@ -853,7 +1324,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/131573
   tu_ngay: 2018-11-25
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 52/2014/NĐ-CP
   van_ban_id: '36141'
   boi: 140/2018/NĐ-CP
@@ -868,7 +1339,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/131493
   tu_ngay: 2018-10-08
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 80/2014/NĐ-CP
   van_ban_id: '36921'
   boi: 08/2022/NĐ-CP
@@ -883,7 +1354,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/168754
   tu_ngay: 2022-01-10
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 151/2014/TT-BTC
   van_ban_id: '37430'
   boi: 71/2021/TT-BTC
@@ -897,7 +1368,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/151078
   tu_ngay: 2021-11-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 119/2014/TT-BTC
   van_ban_id: '46289'
   boi: 69/2025/TT-BTC
@@ -915,7 +1386,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/187346
   tu_ngay: 2025-07-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 210/1999/QĐ-TTg
   van_ban_id: '6728'
   boi: 31/2015/QĐ-TTg
@@ -928,7 +1399,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/73839
   tu_ngay: 2015-10-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 21/2015/TT-BNNPTNT
   van_ban_id: '67763'
   boi: 43/2018/TT-BNNPTNT
@@ -941,7 +1412,7 @@
   url: https://vbpl.vn/van-ban/chi-tiet/133151
   tu_ngay: 2019-01-01
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 21/2015/TT-BNNPTNT
   van_ban_id: '67763'
   boi: 01/2025/TT-BNNPTNT
@@ -963,7 +1434,36 @@
   url: https://vbpl.vn/van-ban/chi-tiet/175635
   tu_ngay: 2025-04-08
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 21/2015/TT-BNNPTNT
+  van_ban_id: '67763'
+  boi: 12/2025/TT-BNNMT
+  boi_id: '178655'
+  boi_dieu_khoan: Điều 26 khoản 4
+  dieu_khoan:
+  - Điều 80 > Khoản 2 > Điểm b
+  - Điều 80 > Khoản 4
+  - Điều 80 > Khoản 9
+  trich: Điều 26. Sửa đổi, bổ sung một số điều của Thông tư số 21/2015/TT-BNNPTNT ngày 08 tháng 6 năm
+    2015 về quản lý thuốc bảo vệ thực vật … 4. Bãi bỏ điểm b khoản 2, khoản 4 và khoản 9 Điều 80.
+  url: https://vbpl.vn/van-ban/chi-tiet/178655
+  tu_ngay: 2025-07-01
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 105/2015/NĐ-CP
+  van_ban_id: '92155'
+  boi: 157/2024/NĐ-CP
+  boi_id: '174967'
+  boi_dieu_khoan: Điều 2 khoản 2
+  dieu_khoan:
+  - Điều 9 > Khoản 2
+  trich: Điều 2. Thay thế, bãi bỏ một số từ, cụm từ, khoản, điều tại Nghị định số 105/2015/NĐ-CP ngày
+    20 tháng 10 năm 2015 của Chính phủ quy định chi tiết thi hành một số điều của Pháp lệnh Cảnh sát môi
+    trường … 2. Bãi bỏ khoản 2 Điều 9.
+  url: https://vbpl.vn/van-ban/chi-tiet/174967
+  tu_ngay: 2024-12-20
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
 - van_ban: 123/2015/NĐ-CP
   van_ban_id: '92897'
   boi: 07/2025/NĐ-CP
@@ -976,4 +1476,30 @@
   url: https://vbpl.vn/van-ban/chi-tiet/174485
   tu_ngay: 2025-01-09
   kiem_boi: trich-bai-bo
-  kiem_luc: 2026-09-30 12:35:56+00:00
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 92/2015/QH13
+  van_ban_id: '96115'
+  boi: 45/2019/QH14
+  boi_id: '139264'
+  boi_dieu_khoan: Điều 219 khoản 2 điểm b
+  dieu_khoan:
+  - Điều 32 > Khoản 2
+  trich: '2. Sửa đổi, bổ sung Điều 32 của Bộ luật Tố tụng dân sự số 92/2015/QH13 như sau: … b) Bãi bỏ
+    khoản 2 Điều 32.'
+  url: https://vbpl.vn/van-ban/chi-tiet/139264
+  tu_ngay: 2021-01-01
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
+- van_ban: 100/2015/QH13
+  van_ban_id: '96122'
+  boi: 12/2017/QH14
+  boi_id: '122826'
+  boi_dieu_khoan: Điều 1 khoản 141
+  dieu_khoan:
+  - Điều 292
+  trich: Điều 1. Sửa đổi, bổ sung, bãi bỏ một số điều của Bộ luật Hình sự số 100/2015/QH13 … 141. Bãi
+    bỏ Điều 292 .
+  url: https://vbpl.vn/van-ban/chi-tiet/122826
+  tu_ngay: 2018-01-01
+  kiem_boi: trich-bai-bo
+  kiem_luc: 2026-09-30 13:42:19+00:00
