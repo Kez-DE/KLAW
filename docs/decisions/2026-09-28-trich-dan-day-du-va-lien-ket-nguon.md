@@ -98,6 +98,17 @@ Kiểm kho ngày 2026-09-28 (chỉ đọc):
     chính (283/2026/NĐ-CP không còn quy định tương ứng); 20 câu neo lại chờ chủ dự án
     duyệt. Bản sao trùng trên CSDL quốc gia: giữ 174485 (07/2025/NĐ-CP) và 67884
     (18/2011/TT-BNNPTNT), bản kia không hiện ở đâu.
+18. **Câu trả lời chỉ nêu bản hiện hành, đủ danh sách** (chủ dự án chốt 2026-09-30: "Chỉ
+    nêu bản hiện hành, đủ danh sách"; trace c8a98c3d "hiện tại pháp luật việt nam chia
+    thành những gì", nơi 64/2025/QH15 Điều 4 bị 87/2025/QH15 Điều 1 khoản 1 thay trọn).
+    (a) Một khẳng định dựa trên điều khoản đã bị sửa đổi, khi chính điều khoản đi sửa
+    (theo bản đồ sửa đổi cấp điều khoản) cũng nằm trong căn cứ dùng để viết câu trả lời,
+    không được viết vào câu trả lời; nó ở lại danh sách căn cứ và khung đối chiếu với
+    nhãn "đã sửa đổi". Khi điều khoản đi sửa không được dẫn, giữ như trước: nêu trong câu
+    trả lời kèm cảnh báo. (b) Trần 4 gạch đầu dòng (FR-007 của spec
+    `2026-09-16-tra-loi-ngan-dung-muc-tieu`) không cắt một phép liệt kê mà mọi gạch đều
+    dẫn cùng một Điều (ví dụ 15 loại văn bản của Điều 4 mới); câu trả lời khác giữ trần,
+    và khi trần còn cắt, câu trả lời nói số ý chưa nêu và chỉ tới mục "Căn cứ pháp lý".
 
 ## Alternatives Considered
 

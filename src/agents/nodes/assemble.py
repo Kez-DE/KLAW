@@ -439,6 +439,31 @@ def cat_gach_thua(answer: str, tran: int = TRAN_GACH) -> tuple[str, int]:
     return "\n".join(giu), bo
 
 
+# Câu nối sau các gạch còn lại khi trần 4 gạch đã cắt (chủ dự án chốt 2026-09-30: phép
+# cắt không được im lặng). Căn cứ của các gạch bị bỏ vẫn nằm trong `citations`.
+CON_Y_BI_CAT = "Còn {so} ý nữa chưa nêu ở đây; các căn cứ đầy đủ ở mục Căn cứ pháp lý bên dưới."
+
+_RE_DIEU_GOC = re.compile(r".*?Điều \S+")
+
+
+def _liet_ke_mot_dieu(answer: str, citations_prose: list[dict]) -> bool:
+    """Mọi gạch cấp một đều mang thẻ `cite`, và mọi thẻ ấy trỏ về MỘT Điều: một phép liệt
+    kê lấy từ một điều khoản (15 mục trong một khoản, hay các khoản của một Điều), thứ
+    trần 4 gạch không được cắt. Gạch không thẻ thì không biết nó từ đâu — không miễn.
+    Chỉ gọi SAU `_the_khong_hop_le`: mọi `cite:K` khi đó là số trong [1, n]."""
+    dieu: set[str] = set()
+    for dong in (answer or "").split("\n"):
+        if not dong.startswith("- "):
+            continue
+        k = [int(khoa) for _, loai, khoa in _RE_THE.findall(dong) if loai == "cite"]
+        if not k:
+            return False
+        for i in k:
+            dd = citations_prose[i - 1]["duong_dan"]
+            dieu.add(m.group(0) if (m := _RE_DIEU_GOC.match(dd)) else dd)
+    return len(dieu) == 1
+
+
 def _the_khong_hop_le(answer: str, citations_prose: list[dict], doc_ids: set[str]) -> list[str]:
     """Danh sách lỗi; rỗng = hợp lệ. Mỗi mục là nhãn tra được trong traces:
     `url`, `doc:<ID>`, `cite:<K>`, `cite:<K>≠[<Điều của căn cứ K>]`."""
@@ -1785,6 +1810,24 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             dung_cho_prose.append(r)
             citations_dung_cho_prose.append(citations[-1])
 
+    # Chủ dự án chốt 2026-09-30 ("Chỉ nêu bản hiện hành, đủ danh sách"): bản TRƯỚC sửa
+    # đổi không được viết thành câu khi chính điều khoản đi sửa (`Effectivity.sua_boi`)
+    # cũng nằm trong căn cứ dùng cho prose — trace c8a98c3d kể cả "cấp huyện" của
+    # 64/2025/QH15 Điều 4 cạnh danh sách hiện hành ở 87/2025/QH15 Điều 1 khoản 1. Nó ở
+    # lại `citations` (`k=None`) với nhãn "đã sửa đổi", như nguồn lạc đề. Điều khoản đi
+    # sửa KHÔNG được dẫn thì bản cũ là thứ duy nhất đang cầm: giữ nó kèm cảnh báo.
+    dan_prose = {c["duong_dan"] for c in citations_dung_cho_prose}
+    ban_cu = {
+        i
+        for i, r in enumerate(dung_cho_prose)
+        if r.effectivity
+        and r.effectivity.verdict is V.bi_sua_doi
+        and any(dd == s or dd.startswith(s + " > ") for s in r.effectivity.sua_boi for dd in dan_prose)
+    }
+    ban_cu_khoi_prose = [c["duong_dan"] for i, c in enumerate(citations_dung_cho_prose) if i in ban_cu]
+    dung_cho_prose = [r for i, r in enumerate(dung_cho_prose) if i not in ban_cu]
+    citations_dung_cho_prose = [c for i, c in enumerate(citations_dung_cho_prose) if i not in ban_cu]
+
     # Toàn bộ nguồn dùng-được-cho-prose đã bị lọc (mọi citation đều bi_thay_the/
     # het_hieu_luc và câu hỏi không neo văn bản nào) → KHÔNG dựng câu trả lời
     # tự tin. LLM HÀNH VĂN không được gọi ở đây: đã biết trước không có gì hợp
@@ -1798,6 +1841,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
                        ghi_chu=_ly_do_moi_nguon_bi_thay(verified) if nguon_bi_loc else LAC_DE)
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
         ket["traces"]["assemble_lac_de"] = lac_de
+        ket["traces"]["assemble_ban_cu_khoi_prose"] = ban_cu_khoi_prose
         return ket
 
     # Kèm `duong_dan` ĐÃ XÁC MINH của từng khẳng định: prompt hành văn nay cho
@@ -1912,6 +1956,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         ket["traces"]["assemble_dieu_bi_loai"] = []
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
         ket["traces"]["assemble_lac_de"] = lac_de
+        ket["traces"]["assemble_ban_cu_khoi_prose"] = ban_cu_khoi_prose
         return ket
 
     # Phép kiểm thứ năm — xem docstring `_dieu_khong_duoc_chong_do`. Chạy SAU
@@ -1934,6 +1979,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
         ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
         ket["traces"]["assemble_the_loi"] = []
         ket["traces"]["assemble_lac_de"] = lac_de
+        ket["traces"]["assemble_ban_cu_khoi_prose"] = ban_cu_khoi_prose
         return ket
 
     # Phép kiểm thứ MƯỜI MỘT (QT-1) — chỉ gác lượt ĐỐI CHIẾU LUẬT, tức lượt duy
@@ -1969,6 +2015,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             ket["traces"]["assemble_the_loi"] = []
             ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
             ket["traces"]["assemble_lac_de"] = lac_de
+            ket["traces"]["assemble_ban_cu_khoi_prose"] = ban_cu_khoi_prose
             return ket
 
     # Phép kiểm thứ mười — hình dạng, 0 token. Chạy SAU hai phép kiểm thẻ và số
@@ -1976,16 +2023,28 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     # phát hành ra vẫn là tập con của văn bản đã qua kiểm. Làm ngược lại thì một
     # gạch mang thẻ hỏng có thể bị cắt đi và thoát khỏi lưới.
     do_dai_truoc = len(answer)
-    answer, gach_bo = cat_gach_thua(answer)
+    cat, gach_bo = cat_gach_thua(answer)
+    # Chủ dự án chốt 2026-09-30 ("đủ danh sách"): một phép liệt kê lấy từ MỘT Điều không
+    # bị trần cắt — replay trace c8a98c3d: 15 loại văn bản của Điều 4 mới còn 4 gạch, không
+    # một chữ nào nói phần còn lại. Trần còn áp thì câu trả lời NÓI số ý đã bỏ.
+    mien_tran = bool(gach_bo) and _liet_ke_mot_dieu(answer, citations_dung_cho_prose)
+    if gach_bo and not mien_tran:
+        answer = f"{cat}\n\n{CON_Y_BI_CAT.format(so=gach_bo)}"
     # `do_dai_truoc` là độ dài mô hình VIẾT RA, `do_dai` là độ dài PHÁT HÀNH. Giữ
     # cả hai để một lượt đo duy nhất nói được cả hiệu quả của prompt lẫn hiệu quả
     # của phép cắt — không cần một lượt đo riêng cho bản chưa có phép cắt.
-    hinh_dang = {"gach_bo": gach_bo, "do_dai_truoc": do_dai_truoc,
-                 "do_dai": len(answer), "vuot_tran": len(answer) > TRAN_KY_TU}
-    if gach_bo or hinh_dang["vuot_tran"]:
+    hinh_dang = {
+        "gach_bo": 0 if mien_tran else gach_bo,
+        "do_dai_truoc": do_dai_truoc,
+        "do_dai": len(answer),
+        "vuot_tran": len(answer) > TRAN_KY_TU,
+        "mien_tran": mien_tran,
+    }
+    if hinh_dang["gach_bo"] or hinh_dang["vuot_tran"]:
         logger.warning(
             "assemble: hình dạng vượt trần (bỏ %d gạch, %d ký tự) — ghi nhận, KHÔNG xén chữ",
-            gach_bo, hinh_dang["do_dai"],
+            hinh_dang["gach_bo"],
+            hinh_dang["do_dai"],
         )
 
     ket = _base(state, ResultType.answer, usage=usage, degraded=degraded,
@@ -1995,6 +2054,7 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
     ket["traces"]["assemble_the_loi"] = []
     ket["traces"]["assemble_lac_de"] = lac_de
+    ket["traces"]["assemble_ban_cu_khoi_prose"] = ban_cu_khoi_prose
     ket["traces"]["assemble_muc_chac"] = muc_chac
     # Task 15: bảng so sánh chỉ dựng khi router (v3) đã đoán người hỏi xin so
     # sánh (`dang_tra_loi == "bang"`) — dựng TỪ `dung_cho_prose`/

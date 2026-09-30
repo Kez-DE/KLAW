@@ -208,6 +208,22 @@ retired for drafts.
   items and `TRAN_GACH` drops the 87/2025 ones from the prose (sources still list
   them); a one-word quote "Hiến pháp." fails tier 1 as `quote_qua_ngan`. Both
   need the owner decision above and a paid real-app check.
+- [x] Owner decision 2026-09-30 ("Chỉ nêu bản hiện hành, đủ danh sách"; decision record
+  item 18), `fix/khuon-mau-ky-va-hien-hanh`. `Effectivity.sua_boi` carries the amending
+  provision of a `bi_sua_doi` verdict; `assemble` keeps a pre-amendment claim out of the
+  prose prompt when that provision is among the prose citations (the claim stays in
+  `citations`, `k=None`, label and warning; `traces.assemble_ban_cu_khoi_prose`), else
+  prose + warning as before. `TRAN_GACH` no longer cuts a list whose every bullet cites
+  one Điều (`assemble_hinh_dang.mien_tran`); when it cuts, the answer ends with
+  `CON_Y_BI_CAT` ("Còn N ý nữa…"). Offline replay (expand 205 = trace, 29 reconstructed
+  claims: 14 on 64/2025 Điều 4, 15 on 87/2025 Điều 1 khoản 1; fake writer, one bullet per
+  claim shown; 0 paid calls, DB read-only): before → 4 bullets, all 64/2025 (13 of 28
+  claims in the prompt were pre-amendment, "cấp huyện" among them), 24 cut silently;
+  after → the 15 current kinds in order, every bullet cites 87/2025 Điều 1 khoản 1, no
+  "huyện", the 13 64/2025 citations in sources as `bi_sua_doi`. Without 87/2025 claims
+  the 13 pre-amendment kinds are published with the warning (the rule's other branch).
+  One-word quote "Hiến pháp." still fails tier 1 (`quote_qua_ngan`); a paid real-app
+  check of this question is still open.
 - [ ] V reviews, real-app check, eval.
 
 ## Validation

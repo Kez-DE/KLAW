@@ -61,6 +61,18 @@ def test_ban_ghi_da_hieu_luc_doi_nhan_va_neu_dich_danh_van_ban_va_ngay():
     assert r.tin_cay == "cao"
 
 
+def test_ban_ghi_da_hieu_luc_mang_duong_dan_dieu_khoan_di_sua():
+    """Quyết định 2026-09-30: văn xuôi bỏ bản trước sửa đổi khi chính điều khoản đi sửa
+    cũng được dẫn — `assemble` so bằng `duong_dan` của kho, nên phán quyết mang đúng dạng
+    đó. Bản ghi chưa tới ngày không mang: nguyên văn gốc hôm nay vẫn đúng."""
+    moi = _bg(sua_boi_so_ky_hieu="87/2025/QH15", sua_boi_duong_dan="điểm a khoản 14 Điều 1")
+    assert ap_sua_doi(MOT_PHAN, [_bg(), moi], HOM_NAY).sua_boi == (
+        "113/2025/QH15 > Điều 29 > Khoản 1",
+        "87/2025/QH15 > Điều 1 > Khoản 14",
+    )
+    assert ap_sua_doi(MOT_PHAN, [_bg(tu_ngay=date(2027, 1, 1))], HOM_NAY).sua_boi == ()
+
+
 def test_ly_do_dan_nguon_congbao():
     """Công báo yêu cầu ghi rõ nguồn khi phát hành lại thông tin."""
     assert "congbao.chinhphu.vn" in ap_sua_doi(MOT_PHAN, [_bg()], HOM_NAY).ly_do

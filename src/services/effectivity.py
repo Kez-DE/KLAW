@@ -42,6 +42,8 @@ from typing import NamedTuple
 
 from sqlalchemy import Engine, text
 
+from src.services.xref import find_xrefs
+
 logger = logging.getLogger(__name__)
 
 # ── Bảng tác động: (chiều, loai) → cạnh này nói gì về SỐ PHẬN của `doc` ──────
@@ -138,6 +140,10 @@ class Effectivity:
     van_ban: tuple[VanBanNeu, ...] = ()
     # Ngày hiệu lực của chính văn bản khi phán quyết là `chua_hieu_luc`.
     tu_ngay: date | None = None
+    # `bi_sua_doi`: điều khoản ĐI SỬA, dạng `duong_dan` của kho ("87/2025/QH15 > Điều 1 >
+    # Khoản 1"). `assemble` bỏ bản trước sửa đổi khỏi văn xuôi khi điều khoản này cũng
+    # được dẫn (chủ dự án chốt 2026-09-30).
+    sua_boi: tuple[str, ...] = ()
 
 
 def _chuan_hoa(s: str | None) -> str:
@@ -773,7 +779,8 @@ def ap_sua_doi(base: Effectivity, ban_ghi: Sequence[dict], as_of: date) -> Effec
             EffectivityVerdict.bi_sua_doi, _tin_cay_thap_nhat(da_toi),
             f"{ke} (nguồn: {_nguon(da_toi)}). Nguyên văn trong CSDL là bản TRƯỚC sửa đổi — "
             "trích dẫn đúng văn bản gốc nhưng KHÔNG phải bản hiện hành",
-            van_ban=_sua_boi(da_toi))
+            van_ban=_sua_boi(da_toi),
+            sua_boi=_dieu_khoan_sua(da_toi))
 
     if chua_ro_ngay:
         ke = "; ".join(f"{b['vi_tri']} bị sửa bởi {_ke_sua_boi(b)}" for b in chua_ro_ngay)
@@ -794,6 +801,20 @@ def _sua_boi(ban_ghi: Sequence[dict]) -> tuple[VanBanNeu, ...]:
     """Văn bản đi sửa mà bản ghi nêu được số hiệu — không số hiệu thì không nêu."""
     return tuple(dict.fromkeys(
         VanBanNeu(None, b["sua_boi_so_ky_hieu"]) for b in ban_ghi if b.get("sua_boi_so_ky_hieu")))
+
+
+def _dieu_khoan_sua(ban_ghi: Sequence[dict]) -> tuple[str, ...]:
+    """`("87/2025/QH15", "điểm a khoản 14 Điều 1")` → `"87/2025/QH15 > Điều 1 > Khoản 14"`.
+    Dừng ở cấp khoản (`xref.find_xrefs` không đọc điểm): điểm là hậu duệ của khoản, nên
+    nơi so bằng tiền tố `duong_dan` vẫn khớp. Không đọc được số Điều thì không nêu."""
+    return tuple(
+        dict.fromkeys(
+            f"{b['sua_boi_so_ky_hieu']} > Điều {h.so_dieu}{h.hau_to}" + (f" > Khoản {h.so_khoan}" if h.so_khoan else "")
+            for b in ban_ghi
+            if b.get("sua_boi_so_ky_hieu")
+            for h in find_xrefs(b.get("sua_boi_duong_dan") or "")[:1]
+        )
+    )
 
 
 def _tin_cay_thap_nhat(ban_ghi: Sequence[dict]) -> str:

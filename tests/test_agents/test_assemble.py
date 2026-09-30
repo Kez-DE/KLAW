@@ -514,17 +514,96 @@ def test_bi_sua_doi_sinh_warning_neu_dich_danh_van_ban_sua():
     assert "2026-07-01" not in w and "VBHN" not in w, w
 
 
-def test_bi_sua_doi_KHONG_bi_loc_khoi_prose():
-    """Điều khoản bị sửa vẫn là điều khoản CÓ THẬT và trích dẫn nguyên văn của
-    nó vẫn đúng nguồn gốc — chỉ kèm cảnh báo. Chỉ văn bản CHẾT HẲN
-    (`bi_thay_the`/`het_hieu_luc`) mới bị loại khỏi prose."""
-    eff = Effectivity(V.bi_sua_doi, "trung_binh", "... 113/2025/QH15 từ 2026-07-01")
-    t1 = Tier1Result(Claim("x", 11, "85%"), True, R.ok, eff)
-    st = assemble({"intent": "tra_cuu", "expanded": [DB[11]], "tier1": [t1],
-                   "tier2": [Tier2Verdict(0, True, "ok")], "abstain_threshold": 0.5},
-                  DB, FakeLlm(), "m")
+# ══ Bản trước sửa đổi và bản hiện hành (chủ dự án chốt 2026-09-30) ══════════
+# "Chỉ nêu bản hiện hành, đủ danh sách" — trace c8a98c3d: 64/2025/QH15 Điều 4 bị
+# 87/2025/QH15 Điều 1 khoản 1 thay trọn, và câu trả lời liệt kê cả "cấp huyện" đã bỏ.
+
+DB_HIEN_HANH = {
+    11: {
+        "id": 11,
+        "document_id": "175440",
+        "duong_dan": "64/2025/QH15 > Điều 4 > Khoản 13",
+        "so_ky_hieu": "64/2025/QH15",
+        "ten": "Luật Ban hành văn bản quy phạm pháp luật",
+        "noi_dung": "13. Nghị quyết của Hội đồng nhân dân huyện (sau đây gọi chung là cấp huyện).",
+    },
+    12: {
+        "id": 12,
+        "document_id": "178717",
+        "duong_dan": "87/2025/QH15 > Điều 1 > Khoản 1",
+        "so_ky_hieu": "87/2025/QH15",
+        "ten": "Luật sửa đổi Luật Ban hành văn bản quy phạm pháp luật",
+        "noi_dung": "1. Sửa đổi, bổ sung Điều 4 như sau: “Điều 4. … 14. Nghị quyết của Hội đồng "
+        "nhân dân xã (sau đây gọi chung là cấp xã).”.",
+    },
+}
+EFF_SUA = Effectivity(
+    V.bi_sua_doi,
+    "cao",
+    "Điều 4 bị sửa bởi khoản 1 Điều 1 của 87/2025/QH15",
+    van_ban=(VanBanNeu(None, "87/2025/QH15"),),
+    sua_boi=("87/2025/QH15 > Điều 1 > Khoản 1",),
+)
+T1_CU = Tier1Result(Claim("Nghị quyết của HĐND cấp huyện.", 11, "cấp huyện"), True, R.ok, EFF_SUA)
+T1_MOI = Tier1Result(Claim("Nghị quyết của HĐND cấp xã.", 12, "cấp xã"), True, R.ok, EFF)
+
+
+def _tra_sua(t1: list, db: dict = DB_HIEN_HANH) -> tuple[dict, str]:
+    """`(kết quả, lời nhắc hành văn)` — lời nhắc là thứ duy nhất nói claim nào vào prose."""
+    class GhiPrompt(FakeLlm):
+        prompt = ""
+
+        def chat(self, model, messages, json_schema=None):
+            if json_schema is ANSWER_SCHEMA:
+                self.prompt = messages[-1]["content"]
+            return super().chat(model, messages, json_schema)
+
+    llm = GhiPrompt()
+    st = assemble(
+        {
+            "intent": "tra_cuu",
+            "query": "hiện tại pháp luật việt nam chia thành những gì",
+            "expanded": list(db.values()),
+            "tier1": t1,
+            "tier2": [Tier2Verdict(i, True, "ok") for i in range(len(t1))],
+            "abstain_threshold": 0.5,
+        },
+        db,
+        llm,
+        "m",
+    )
+    return st, llm.prompt
+
+
+def test_bi_sua_doi_khong_co_ban_hien_hanh_thi_van_vao_prose_kem_canh_bao():
+    """Điều khoản đi sửa KHÔNG có trong căn cứ: điều khoản bị sửa vẫn CÓ THẬT, nguyên văn
+    vẫn đúng nguồn gốc, nên nó vào prose kèm cảnh báo — nói nó còn hơn im lặng. Chỉ văn
+    bản CHẾT HẲN (`bi_thay_the`/`het_hieu_luc`) mới bị loại vô điều kiện."""
+    st, prompt = _tra_sua([T1_CU])
     assert st["result_type"] is ResultType.answer
-    assert st["citations"], "trích dẫn vẫn phải được phát ra"
+    (c,) = st["citations"]
+    assert c["k"] == 1 and "cấp huyện" in prompt
+    assert st["warnings"] and c["canh_bao"]
+    assert st["traces"]["assemble_ban_cu_khoi_prose"] == []
+
+
+def test_bi_sua_doi_co_ban_hien_hanh_trong_can_cu_thi_chi_ban_hien_hanh_vao_prose():
+    """Điều khoản đi sửa CÓ trong căn cứ dùng cho prose: bản trước sửa đổi không được viết
+    thành câu — nó ở lại nguồn (`k=None`) với nhãn "đã sửa đổi", như nguồn lạc đề."""
+    st, prompt = _tra_sua([T1_CU, T1_MOI])
+    assert st["result_type"] is ResultType.answer
+    cu, moi = st["citations"]
+    assert "cấp huyện" not in prompt and "cấp xã" in prompt
+    assert moi["k"] == 1
+    assert cu["k"] is None and cu["hieu_luc"] == "bi_sua_doi" and cu["canh_bao"], "bản cũ vẫn ở nguồn, kèm nhãn"
+    assert st["traces"]["assemble_ban_cu_khoi_prose"] == ["64/2025/QH15 > Điều 4 > Khoản 13"]
+
+
+def test_khoan_khac_cua_luat_sua_khong_thay_duoc_ban_truoc_sua_doi():
+    """Khoản 13 bắt đầu bằng đúng chuỗi "Khoản 1" nhưng là một điều khoản đi sửa khác."""
+    db = {**DB_HIEN_HANH, 12: {**DB_HIEN_HANH[12], "duong_dan": "87/2025/QH15 > Điều 1 > Khoản 13"}}
+    st, prompt = _tra_sua([T1_CU, T1_MOI], db)
+    assert "cấp huyện" in prompt and st["citations"][0]["k"] == 1
 
 
 def test_hoi_ve_kho_dung_chuoi_da_tinh_san_va_KHONG_goi_LLM():

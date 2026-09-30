@@ -17,6 +17,7 @@ import json
 from pathlib import Path
 
 from src.agents.nodes.assemble import (
+    CON_Y_BI_CAT,
     MO_DAU_LUOT_DAU,
     TRAN_GACH,
     TRAN_KY_TU,
@@ -112,6 +113,65 @@ def test_assemble_cat_gach_thu_nam_va_ghi_lai_so_da_cat():
     assert st["result_type"] == ResultType.answer
     assert st["answer"].count("\n- ") == TRAN_GACH
     assert st["traces"]["assemble_hinh_dang"]["gach_bo"] == 2
+    # Chủ dự án 2026-09-30: phép cắt không bao giờ im lặng với người đọc.
+    assert st["answer"].endswith(CON_Y_BI_CAT.format(so=2))
+
+
+# ══ Liệt kê lấy từ MỘT Điều (chủ dự án 2026-09-30: "đủ danh sách") ══════════
+# Replay trace c8a98c3d: danh sách 15 loại văn bản của Điều 4 (87/2025/QH15 Điều 1 khoản
+# 1) bị trần 4 gạch cắt còn 4, không một chữ nào nói phần còn lại.
+
+DB_DIEU = {
+    i: {
+        "id": i,
+        "document_id": "175440",
+        "cap": "khoan",
+        "duong_dan": dd,
+        "so_ky_hieu": "64/2025/QH15",
+        "ten": "Luật Ban hành văn bản quy phạm pháp luật",
+        "noi_dung": "…",
+    }
+    for i, dd in (
+        (21, "64/2025/QH15 > Điều 4 > Khoản 1"),
+        (22, "64/2025/QH15 > Điều 4 > Khoản 2"),
+        (23, "64/2025/QH15 > Điều 5"),
+    )
+}
+
+
+def _liet_ke(pids: list[int]) -> tuple[dict, str]:
+    """`(kết quả, câu mô hình viết)`: một gạch mỗi claim, thẻ `cite` trỏ đúng claim đó."""
+    eff = Effectivity(V.con_hieu_luc, "trung_binh", "x")
+    viet = "Gồm:\n" + "\n".join(f"- loại {k} [Điều {5 if p == 23 else 4}](cite:{k})" for k, p in enumerate(pids, 1))
+    st = assemble(
+        {
+            **_trang_thai(),
+            "expanded": list(DB_DIEU.values()),
+            "tier1": [Tier1Result(Claim(f"Loại {k}.", p, "…"), True, R.ok, eff) for k, p in enumerate(pids, 1)],
+            "tier2": [Tier2Verdict(i, True, "ok") for i in range(len(pids))],
+        },
+        DB_DIEU,
+        LlmTra(viet),
+        "m",
+        prompt_path=Path("prompts/assemble.v3.md"),
+    )
+    return st, viet
+
+
+def test_liet_ke_moi_gach_dan_cung_mot_dieu_thi_khong_cat():
+    """Khoản 1, khoản 2 của cùng Điều 4 là MỘT phép liệt kê — cũng như 15 mục trong một khoản."""
+    st, viet = _liet_ke([21, 22, 21, 22, 21, 22])
+    assert st["result_type"] == ResultType.answer
+    assert st["answer"] == viet, "đủ 6 gạch, không thêm câu nào"
+    hd = st["traces"]["assemble_hinh_dang"]
+    assert hd["gach_bo"] == 0 and hd["mien_tran"] is True
+
+
+def test_liet_ke_tu_hai_dieu_van_cat_va_noi_ra():
+    st, _ = _liet_ke([21, 22, 23, 21, 22, 23])
+    assert st["answer"].count("\n- ") == TRAN_GACH
+    assert st["answer"].endswith(CON_Y_BI_CAT.format(so=2))
+    assert st["traces"]["assemble_hinh_dang"]["mien_tran"] is False
 
 
 def test_assemble_ghi_nhan_cau_vuot_tran_ky_tu_ma_khong_xen_chu():
