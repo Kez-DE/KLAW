@@ -489,6 +489,12 @@ export interface TraCuuKetQua {
    */
   cau_hoi_day_du: string | null;
   /**
+   * Máy chủ quyết định có hiện dòng "Tôi hiểu câu hỏi của bạn là…" không (quyết
+   * định 2026-09-30 mục 8): chỉ khi câu viết lại đổi nghĩa đáng kể, không bao giờ
+   * với câu hỏi về KLAW. Vắng (response cũ) nghĩa là không hiện.
+   */
+  hien_cau_hoi_day_du?: boolean;
+  /**
    * Hai bảng của nhánh xin bảng, `[]` ở mọi nhánh khác. Máy chủ nay LUÔN gửi
    * khoá này, nhưng `laTraCuuKetQua` vẫn khoan dung khi nó vắng mặt — một
    * response cũ nằm trong cache (dựng trước khi trường này tồn tại) phải đọc
