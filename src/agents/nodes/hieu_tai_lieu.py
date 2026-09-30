@@ -4266,8 +4266,13 @@ def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu:
             # Bên hay trường không có trên tệp: không có chỗ trống nào nhận — báo "chưa
             # đặt được" (người gọi lọc theo lời người hỏi), không bỏ im.
             khong_cho.append(v)
+    # Tên văn bản người hỏi xin mà tiêu đề đã in đúng nó ("Hợp đồng thuê nhà ở" dưới
+    # «HỢP ĐỒNG THUÊ NHÀ Ở») là đã đặt; tiêu đề khác tên đó thì vẫn báo chưa đặt được.
+    ten = _khong_dau(" ".join(str(khung.get("tieu_de") or "").split()))
     khong_dat = [
-        " ".join(x.split()) for x in [*(ra.get("khong_dat") or []), *khong_cho] if isinstance(x, str) and x.strip()
+        " ".join(x.split())
+        for x in [*(ra.get("khong_dat") or []), *khong_cho]
+        if isinstance(x, str) and x.strip() and _khong_dau(" ".join(x.split())) != ten
     ][:8]
     return {
         "muc_tieu": muc_tieu,

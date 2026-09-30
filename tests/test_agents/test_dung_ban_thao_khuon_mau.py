@@ -933,3 +933,31 @@ def test_thue_nha_o_khong_noi_thieu_khi_kho_da_co_toan_van(kho, monkeypatch):
     )
     ket = _luot(_st(THUE_NHA, ng=ng), _LLM(ra))
     assert "toàn văn" not in ket["answer"]
+
+
+@pytest.mark.parametrize(
+    ("tieu_de", "con_bao"),
+    [
+        # Replay bản thảo 91c288d5 trên nhánh tích hợp: mô hình vẫn kể tên văn bản người
+        # hỏi xin trong `khong_dat`, dù tiêu đề đã in đúng tên đó.
+        (None, []),
+        # Tên in ra KHÁC tên người hỏi xin: vẫn nói thẳng là chưa đặt được (D5).
+        ("HỢP ĐỒNG THUÊ TÀI SẢN", ["«Hợp đồng thuê nhà ở»"]),
+    ],
+    ids=["dung_ten", "khac_ten"],
+)
+def test_ten_van_ban_da_in_thanh_tieu_de_khong_bao_chua_dat(kho, monkeypatch, tieu_de, con_bao):
+    ng = _ng_nha(monkeypatch, {"soan_thao_goi_y": {"loai": "hop_dong_thue_nha_o"}})
+    ng = {**ng, "tieu_de": tieu_de or ng["tieu_de"]}
+    ra = _ra(
+        tieu_de="Hợp đồng thuê nhà ở",
+        bo_cuc=None,
+        can_cu=None,
+        ben=None,
+        gia_tri=[{"ben": "ben_cho_thue", "truong": "ho_ten", "gia_tri": "Nguyễn Văn An"}],
+        dieu=[{"key": "tai_san_thue", "ten": "Nhà ở cho thuê", "doan": ["Nhà ở tại ……"]}],
+        # "thời hạn 12 tháng" là lời người hỏi mà không chỗ nào nhận: vẫn phải báo.
+        khong_dat=["Hợp đồng thuê nhà ở", "thời hạn 12 tháng"],
+    )
+    ket = _luot(_st(THUE_NHA, ng=ng), _LLM(ra))
+    assert f"Chưa đặt được: {', '.join([*con_bao, '«thời hạn 12 tháng»'])}" in ket["answer"]
