@@ -1,0 +1,65 @@
+# Phiếu đánh giá quá trình thực tập — TỰ DỰNG theo Phụ lục I Nghị định 30/2020/NĐ-CP
+# (khổ, lề, cỡ chữ, bảng đầu trang tên cơ quan | quốc hiệu). Cơ sở thực tập là nơi lập
+# phiếu nên đứng ở ô tên cơ quan. Không có mẫu quốc gia: mỗi cơ sở đào tạo tự ban hành
+# phiếu của mình (điểm tối đa, thang điểm). Vì vậy bảng tiêu chí để TRỐNG cột điểm —
+# KLAW không tự đặt thang điểm hay trọng số nào (quyết định 2026-09-29 mục 2); năm tiêu
+# chí là các mặt mà phiếu đánh giá thực tập nào cũng chấm, lời do KLAW viết. Loại người
+# dùng đã hỏi (quyết định 2026-09-29 mục 8); trường có phiếu riêng thì tải phiếu đó lên
+# để dùng đúng 100%.
+loai: phieu_danh_gia_thuc_tap
+ten: phiếu đánh giá quá trình thực tập
+tieu_de: PHIẾU ĐÁNH GIÁ QUÁ TRÌNH THỰC TẬP
+bo_cuc: hanh_chinh
+nguon:
+  loai: tu_dung
+  van_ban: "Dựng theo Phụ lục I Nghị định 30/2020/NĐ-CP"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  ghi_chu: "Không có mẫu quốc gia; cột điểm để trống cho cơ sở đào tạo ghi thang điểm của mình."
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: null
+  ngay: cot_phai
+  trich_yeu: false
+  kinh_gui: null
+  can_cu: false
+  dong_nhu_than: true
+  noi_nhan: null
+  ket_thuc: null
+ben:
+  - {khoa: co_quan, vai: "Cơ sở thực tập (nơi lập phiếu)", truong: [ten_to_chuc]}
+  - khoa: sinh_vien
+    vai: Sinh viên thực tập
+    dong:
+      - "Họ và tên sinh viên:{ho_ten}"
+      - "Mã số sinh viên:{ma_sinh_vien}; Lớp:{lop}"
+      - "Ngành:{nganh}; Khóa:{khoa_hoc}"
+      - "Cơ sở đào tạo:{co_so_dao_tao}"
+  - khoa: nguoi_huong_dan
+    vai: Người hướng dẫn tại cơ sở thực tập
+    dong: ["Người hướng dẫn tại cơ sở:{ho_ten}", "Chức vụ của người hướng dẫn:{chuc_vu}"]
+  - {khoa: dai_dien, vai: "Đại diện cơ sở thực tập (ký, đóng dấu)", truong: [chuc_vu, ho_ten]}
+than:
+  - {ben: sinh_vien}
+  - {dong: "Bộ phận thực tập:{}", tab: true}
+  - {dong: "Thời gian thực tập: từ ngày {} đến ngày {}"}
+  - {ben: nguoi_huong_dan}
+  - {dong: "I. ĐÁNH GIÁ THEO TIÊU CHÍ", dam: true}
+  - bang:
+      cot: [["TT", 7], ["Tiêu chí đánh giá", 61], ["Điểm tối đa", 14], ["Điểm đánh giá", 18]]
+      dong:
+        - ["1", "Ý thức kỷ luật, chấp hành nội quy của cơ sở", "", ""]
+        - ["2", "Tinh thần, thái độ đối với công việc được giao", "", ""]
+        - ["3", "Vận dụng kiến thức, kỹ năng chuyên môn", "", ""]
+        - ["4", "Kỹ năng giao tiếp, phối hợp, làm việc nhóm", "", ""]
+        - ["5", "Khối lượng, chất lượng công việc hoàn thành", "", ""]
+        - [{chu: "Tổng điểm", gop: 2, dam: true, can: center}, "", ""]
+  - {muc: nhan_xet, nhan: "II. Nhận xét chung của cơ sở thực tập:", dam: true, ten: "Nhận xét chung của cơ sở thực tập về sinh viên"}
+  - {muc: xep_loai, nhan: "III. Xếp loại:{}", dam: true, ten: "Xếp loại (chỉ khi người hỏi nêu)"}
+muc_khung: []
+ky:
+  thu_tu: [nguoi_huong_dan, dai_dien]
+  o:
+    - {khoa: nguoi_huong_dan, vai: "NGƯỜI HƯỚNG DẪN", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+    - {khoa: dai_dien, vai: "XÁC NHẬN CỦA\nCƠ SỞ THỰC TẬP", ghi_chu: "(Ký, ghi rõ họ tên, đóng dấu)", ho_ten_tu: ho_ten}
+truong_tu_facts: {}

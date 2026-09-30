@@ -1,0 +1,53 @@
+# Đơn xin nghỉ việc — dựng TƯƠNG TỰ Mẫu số 01, Nghị định 124/2020/NĐ-CP (đơn của một cá
+# nhân gửi một tổ chức): quốc hiệu và tiêu ngữ giữa trang, không tên cơ quan, không
+# Số, dòng địa danh-ngày giữa dưới tiêu ngữ, TÊN ĐƠN, "Kính gửi:" giữa, mỗi trường một
+# đoạn lùi đầu dòng có dòng chấm, người làm đơn ký bên phải. Không có mẫu chính thức
+# (`mau-hien-co.md`: BLLĐ 2019 Đ35.1 chỉ đòi báo trước; TT 10/2020/TT-BLĐTBXH và các
+# Phụ lục của NĐ 145/2020/NĐ-CP không có mẫu cho người lao động báo nghỉ). Nội dung:
+# các mục của `checklist_don_xin_nghi_viec.yaml`, in thành đoạn văn liền của lá đơn
+# (`dieu: doan` — không số, không tên mục); mục luật đòi mà thiếu in thành một dòng
+# mang tên mục và dòng chấm ("Loại hợp đồng lao động đang thực hiện: ……").
+loai: don_xin_nghi_viec
+ten: đơn xin nghỉ việc
+tieu_de: ĐƠN XIN NGHỈ VIỆC
+bo_cuc: don
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 124/2020/NĐ-CP, Mẫu số 01 (tham chiếu bố cục đơn của cá nhân)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/10/32304/33027-1-20201015-1016124-2020-nd-cp.pdf
+  tep_d2: goc/nd124-2020_congbao-1015-1016.pdf
+  sha256: eec7714c55c73746e1bcc333f2e4354f008419ec26d206d8e97258c934a28f77
+  trang: 32
+  ghi_chu: "Không có mẫu chính thức cho đơn xin nghỉ việc; bố cục theo đơn của cá nhân gửi tổ chức (NĐ 124 Mẫu 01), nội dung bắt buộc theo BLLĐ 2019 Đ35.1."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: dau
+  ngay_truoc_pt: 12
+  kinh_gui: {dong: "Kính gửi: {co_quan_nhan}", can: giua}
+  can_cu: false
+  noi_nhan: null
+  ket_thuc: null
+  dong_nhu_than: true
+ben:
+  - khoa: nguoi_lam_don
+    vai: Người làm đơn (người lao động)
+    # Nhãn dính dãy chấm như NĐ 124 Mẫu 01 ("Họ và tên người khiếu nại:……"): giá trị
+    # điền vào chỉ cách nhãn một dấu cách.
+    dong:
+      - "Tôi tên là:{ho_ten}"
+      - "Ngày sinh:{ngay_sinh}"
+      - "Số định danh cá nhân:{so_dinh_danh}"
+      - "Chức danh, vị trí công việc:{chuc_vu}"
+      - "Bộ phận công tác:{don_vi_cong_tac}"
+      - "Số điện thoại:{dien_thoai}"
+than:
+  - {ben: nguoi_lam_don}
+  - {dieu: doan}
+  - {dong: "Tôi xin chân thành cảm ơn."}
+muc_khung: []
+ky:
+  thu_tu: [nguoi_lam_don]
+  o: [{khoa: nguoi_lam_don, vai: "NGƯỜI LÀM ĐƠN", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}]
+truong_tu_facts: {}

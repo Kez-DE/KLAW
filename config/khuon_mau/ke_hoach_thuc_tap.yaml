@@ -1,0 +1,70 @@
+# Kế hoạch thực tập tại cơ sở — dựng TƯƠNG TỰ Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu
+# 1.4 "Văn bản có tên loại" (ghi chú 6 của mẫu kể "kế hoạch"): bảng đầu trang tên cơ
+# quan | quốc hiệu, địa danh-ngày ở cột phải, TÊN LOẠI, nội dung chia mục đánh số. Ô
+# tên cơ quan là cơ sở đào tạo (khoa) quản lý người học. Không có "Số" (kế hoạch cá nhân
+# của người học, không vào sổ văn bản đi) và không "Nơi nhận". Sau các mục là bảng tiến
+# độ để ghi kết quả từng giai đoạn; ba người ký: giảng viên hướng dẫn, người hướng dẫn
+# tại cơ sở, sinh viên. Loại người dùng đã hỏi (quyết định 2026-09-29 mục 8).
+loai: ke_hoach_thuc_tap
+ten: kế hoạch thực tập tại cơ sở
+tieu_de: KẾ HOẠCH THỰC TẬP TẠI CƠ SỞ
+bo_cuc: hanh_chinh
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.4 (tham chiếu bố cục văn bản có tên loại: kế hoạch)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  trang: 52
+  ghi_chu: "Không có mẫu quốc gia cho kế hoạch thực tập của người học; bố cục theo văn bản có tên loại (Mẫu 1.4), bỏ Số và Nơi nhận."
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: null
+  ngay: cot_phai
+  trich_yeu: false
+  kinh_gui: null
+  can_cu: false
+  dong_nhu_than: true
+  noi_nhan: null
+  ket_thuc: null
+ben:
+  - {khoa: co_quan, vai: "Cơ sở đào tạo, khoa quản lý người học", truong: [ten_to_chuc]}
+  - khoa: sinh_vien
+    vai: Sinh viên thực tập
+    dong:
+      - "Họ và tên sinh viên:{ho_ten}"
+      - "Mã số sinh viên:{ma_sinh_vien}; Lớp:{lop}"
+      - "Ngành:{nganh}; Khóa:{khoa_hoc}"
+  - khoa: co_so
+    vai: Cơ sở thực tập
+    dong: ["Cơ sở thực tập:{ten_to_chuc}", "Địa chỉ:{dia_chi}"]
+  - {khoa: nguoi_huong_dan, vai: "Người hướng dẫn tại cơ sở", dong: ["Người hướng dẫn tại cơ sở:{ho_ten}"]}
+  - {khoa: giang_vien, vai: "Giảng viên hướng dẫn", dong: ["Giảng viên hướng dẫn:{ho_ten}"]}
+than:
+  - {ben: sinh_vien}
+  - {ben: co_so}
+  - {ben: nguoi_huong_dan}
+  - {ben: giang_vien}
+  - {dong: "Thời gian thực tập: từ ngày {} đến ngày {}"}
+  # Các mục của kế hoạch do mô hình viết, đánh số "1.", "2." (mục tiêu, nội dung công
+  # việc theo giai đoạn, kết quả dự kiến…).
+  - {dieu: so}
+  - {dong: "Tiến độ thực hiện:", dam: true}
+  - bang:
+      cot: [["TT", 7], ["Thời gian", 23], ["Nội dung công việc", 32], ["Kết quả thực hiện", 24], ["Ghi chú", 14]]
+      dong:
+        - ["1", "Từ {} đến {}", "", "", ""]
+        - ["2", "Từ {} đến {}", "", "", ""]
+        - ["3", "Từ {} đến {}", "", "", ""]
+        - ["4", "Từ {} đến {}", "", "", ""]
+        - ["5", "Từ {} đến {}", "", "", ""]
+        - ["6", "Từ {} đến {}", "", "", ""]
+muc_khung: []
+ky:
+  thu_tu: [giang_vien, nguoi_huong_dan, sinh_vien]
+  o:
+    - {khoa: giang_vien, vai: "GIẢNG VIÊN\nHƯỚNG DẪN", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+    - {khoa: nguoi_huong_dan, vai: "NGƯỜI HƯỚNG DẪN\nTẠI CƠ SỞ", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+    - {khoa: sinh_vien, vai: "SINH VIÊN\nTHỰC TẬP", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+truong_tu_facts: {}

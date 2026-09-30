@@ -1,0 +1,73 @@
+# Đơn khiếu nại — Mẫu số 01, Nghị định 124/2020/NĐ-CP (Công báo 1015+1016, tr. 33).
+# Mẫu CHÍNH THỨC: NĐ 124 Điều 3 khoản 1 "Đơn khiếu nại được thực hiện theo Mẫu số 01
+# ban hành kèm theo Nghị định này". Mọi chữ tĩnh chép nguyên văn từ bản PDF Công báo
+# (`pdftotext -layout -f 32 -l 32`, 2026-09-29), đúng thứ tự, đúng cả khoảng trắng
+# quanh dãy chấm; chỉ bỏ dãy chấm (thành chỗ trống), chỉ số chú thích "(n)", dòng
+# "Mẫu số 01" và khung Công báo. "Họ và tên" dưới chữ ký là cụm GIỮ CHỖ — thành chỗ
+# trống tên người khiếu nại. Giữ nguyên văn "Số CMND/Hộ chiếu/Thẻ căn cước công dân"
+# (Open decision 4, mặc định nguyên văn). Nhãn đã ghi ở
+# `tests/test_services/du_lieu/nhan_mau_chinh_thuc.yaml`. Phần "Ghi chú" (1)–(6) của
+# mẫu không in (không phải lá đơn); lời của nó đi vào `huong_dan` của từng mục để
+# mô hình viết đúng điều mẫu đòi.
+loai: don_khieu_nai
+ten: đơn khiếu nại
+tieu_de: ĐƠN KHIẾU NẠI
+bo_cuc: don
+nguon:
+  loai: mau_chinh_thuc
+  van_ban: "Nghị định 124/2020/NĐ-CP, Mẫu số 01"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/10/32304/33027-1-20201015-1016124-2020-nd-cp.pdf
+  tep_d2: goc/nd124-2020_congbao-1015-1016.pdf
+  sha256: eec7714c55c73746e1bcc333f2e4354f008419ec26d206d8e97258c934a28f77
+  trang: 32
+  ghi_chu: "Trang PDF 32 = Công báo tr. 33. Khiếu nại hành chính (Luật Khiếu nại 02/2011/QH13). Ghi chú (1)–(6) của mẫu nằm ở `huong_dan`."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: dau
+  # Mẫu: dòng ngày cách tiêu ngữ một dòng trống (tr. 33: 42,4 → 55,2 mm).
+  ngay_truoc_pt: 12
+  kinh_gui: {dong: "Kính gửi: {co_quan_nhan}", can: giua}
+  can_cu: false
+  noi_nhan: null
+  ket_thuc: null
+  # Mỗi trường một đoạn lùi đầu dòng, dòng chấm tới lề phải (tr. 33).
+  dong_nhu_than: true
+ben:
+  - khoa: nguoi_khieu_nai
+    vai: Người khiếu nại
+    dong:
+      - "Họ và tên người khiếu nại:{ho_ten} ;"
+      - "Địa chỉ:{dia_chi};"
+      - {d: "Số CMND/Hộ chiếu/Thẻ căn cước công dân {so_dinh_danh} , ngày cấp {ngay_cap} , nơi cấp: {noi_cap}.", cham: true}
+  - khoa: nguoi_bi_khieu_nai
+    vai: Cơ quan, tổ chức, cá nhân bị khiếu nại
+    dong:
+      - "Tên của cơ quan, tổ chức, cá nhân bị khiếu nại:{ten_to_chuc} ;"
+      - "Địa chỉ:{dia_chi} ;"
+# Thứ tự của mẫu. Khoá mục = khoá checklist (`checklist_don_khieu_nai.yaml`) khi có;
+# `ve_viec` là dòng "Khiếu nại về việc" riêng của mẫu. Mẫu gộp yêu cầu giải quyết vào
+# "Nội dung khiếu nại" (ghi chú 6) — mục `yeu_cau` của checklist đứng ngay sau, không nhãn.
+than:
+  - {ben: nguoi_khieu_nai}
+  - {ben: nguoi_bi_khieu_nai}
+  - muc: ve_viec
+    nhan: "Khiếu nại về việc: {};"
+    ten: "Khiếu nại về việc"
+    huong_dan: "(5) Khiếu nại quyết định hành chính, hành vi hành chính về việc gì (ghi rõ khiếu nại lần đầu hoặc lần hai)."
+  - muc: noi_dung_ly_do
+    nhan: "Nội dung khiếu nại:{}."
+    ten: "Nội dung khiếu nại"
+    huong_dan: "(6) Ghi tóm tắt nội dung khiếu nại; ghi rõ cơ sở của việc khiếu nại; yêu cầu giải quyết khiếu nại."
+  - muc: yeu_cau
+    cho: false
+    ten: "Yêu cầu giải quyết khiếu nại"
+    huong_dan: "(6) … yêu cầu giải quyết khiếu nại."
+  - {muc: tai_lieu, nhan: "(Tài liệu, chứng cứ kèm theo - nếu có).", nghieng: true, cho: false, ten: "Tài liệu, chứng cứ kèm theo"}
+# Ngày khiếu nại (dòng ngày) và chữ ký hoặc điểm chỉ (khối ký) do khung dựng.
+muc_khung: [ngay_thang, ky_ten]
+ky:
+  thu_tu: [nguoi_khieu_nai]
+  o: [{khoa: nguoi_khieu_nai, vai: "NGƯỜI KHIẾU NẠI", ghi_chu: "(Chữ ký hoặc điểm chỉ)", ho_ten_tu: ho_ten}]
+truong_tu_facts: {}

@@ -4152,6 +4152,7 @@ def _khoi_muc_khuon_mau(ngu_canh: dict) -> str:
     dong = [
         f"- `{m['key']}` — {m['ten']}"
         + (" — TUỲ CHỌN: chỉ viết khi hợp với yêu cầu của người hỏi" if m["key"] in tuy else "")
+        + (f" (hướng dẫn của mẫu: {m['huong_dan']})" if m.get("huong_dan") else "")
         + (f" (căn cứ: {m['trich']})" if m.get("trich") else "")
         for m in muc
     ]

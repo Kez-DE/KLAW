@@ -168,6 +168,16 @@ def test_tab_dan_cham_gia_tri_dung_TRUOC_w_tab_voi_rPr_cua_run_giu_tab():
     assert _run(p) == [("", "Company name:"), ("i", _TEN), ("", " ")]
 
 
+def test_tab_sau_nhan_da_co_dau_cach_khong_thanh_hai_dau_cach():
+    """`chuan_hoa_dien` luôn thêm một dấu cách trước giá trị `tab` (bộ đọc `strip` nhãn).
+    Nhãn đã kết bằng khoảng trắng ("Số điện thoại: <tab>(nếu có)") thì bộ áp bỏ dấu cách
+    đó — không thì trang in "Số điện thoại:  0912…"."""
+    _, ra, bc = _ap(_p(_r("Điện thoại: "), _TAB, _r("(nếu có)"), ppr=_MOC_CHAM), [_dien(0, 0, f" {_SDT}")])
+    assert bc["da_ap"] == [0] and _noi_dung(ra) == [f"Điện thoại: {_SDT}(nếu có)"]
+    _, ra, _ = _ap(_p(_r("Điện thoại:"), _TAB, ppr=_MOC_CHAM), [_dien(0, 0, f" {_SDT}")])
+    assert _noi_dung(ra) == [f"Điện thoại: {_SDT}"]
+
+
 def test_tab_va_cham_CUNG_offset_dien_ca_hai_dung_cho():
     _, ra, bc = _ap(_p(_r("Tên:"), _TAB, _r("……"), ppr=_MOC_CHAM), [_dien(0, 1, _NGAY), _dien(0, 0, _TEN)])
     assert bc["da_ap"] == [0, 1]

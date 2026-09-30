@@ -1740,10 +1740,11 @@ def dat_khuon_mau(
     engine = get_engine()
     hien = hien_thi_luc(engine, as_of_hieu_luc(None))
     theo_id = {pid: r for pid, r in graph_soan_thao.chi_van_ban_hien(db, hien).items()}
-    # Mục checklist mà khung đã dựng (khối các bên; mục thể thức `muc_khung`: quốc hiệu,
-    # số, nơi nhận…): không thành một Điều thứ hai — không thì trang in "Điều 1. Quốc
-    # hiệu và Tiêu ngữ" và số Điều của trang lệch số Điều đã lưu. Dữ kiện của khối bên
-    # đi vào trường của bên qua `truong_tu_facts`.
+    # `draft_generate` viết một điều khoản cho MỌI mục checklist, kể cả mục khung đã dựng
+    # (khối các bên; mục thể thức `muc_khung`: quốc hiệu, số, ngày, chữ ký, nơi nhận…):
+    # không thành một Điều thứ hai — không thì trang in "Điều 1. Quốc hiệu và Tiêu ngữ",
+    # trùng khối các bên, và số Điều của trang lệch số Điều đã lưu. Không mất dữ kiện:
+    # dữ kiện của khối bên đi vào trường của bên qua `truong_tu_facts`.
     khung_co = khuon_mau.khoa_khung(entry)
     clauses = [
         {

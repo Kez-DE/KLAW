@@ -1,0 +1,63 @@
+# Giấy tiếp nhận thực tập (thực hành) — dựng TƯƠNG TỰ Nghị định 30/2020/NĐ-CP, Phụ lục
+# III, Mẫu 1.8 "Giấy giới thiệu" (Công báo 283+284, tr. 57): cùng họ "giấy" một cơ quan
+# cấp về một người. Theo mẫu đó: bảng đầu trang tên cơ quan | quốc hiệu, "Số:" và
+# địa danh-ngày cùng hàng, TÊN LOẠI, câu mở "<tên cơ quan> …:", các dòng thông tin
+# người được tiếp nhận có dòng chấm, "Nơi nhận" trái | quyền hạn, chức vụ người ký phải.
+# Không có trích yếu và "Kính gửi" (Phụ lục I chỉ dành "Kính gửi" cho công văn, tờ
+# trình, báo cáo). Loại người dùng đã hỏi (quyết định 2026-09-29 mục 8). Ký hiệu "Số"
+# để trống: Phụ lục III không có chữ viết tắt cho giấy tiếp nhận.
+loai: giay_tiep_nhan_thuc_tap
+ten: giấy tiếp nhận thực tập
+tieu_de: GIẤY TIẾP NHẬN THỰC TẬP
+bo_cuc: hanh_chinh
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.8 (tham chiếu bố cục giấy do cơ quan cấp)"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  trang: 56
+  ghi_chu: "Không có mẫu chính thức cho giấy tiếp nhận thực tập. Thể thức NĐ 30 bắt buộc với cơ quan nhà nước; với doanh nghiệp là tham khảo."
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: "Số: {}/{}"
+  ngay: cot_phai
+  trich_yeu: false
+  kinh_gui: null
+  can_cu: false
+  dong_nhu_than: true
+  noi_nhan: ["{};", "Lưu: VT."]
+  ket_thuc: null
+ben:
+  - khoa: co_quan
+    vai: Cơ quan, đơn vị tiếp nhận
+    # Tên ở bảng đầu trang (bộ dựng) và ở câu mở này là CÙNG một trường: điền một lần.
+    dong: [{d: "{ten_to_chuc} đồng ý tiếp nhận:", cham: true}]
+  - khoa: nguoi_thuc_tap
+    vai: Người được tiếp nhận thực tập
+    dong:
+      - "Ông (bà):{ho_ten}"
+      - "Ngày sinh:{ngay_sinh}"
+      - "Sinh viên (học viên) lớp:{lop}"
+      - "Mã số sinh viên (học viên):{ma_sinh_vien}"
+      - "Ngành:{nganh}"
+      - "Cơ sở đào tạo:{co_so_dao_tao}"
+  - {khoa: nguoi_ky, vai: "Người ký (thủ trưởng cơ quan, đơn vị tiếp nhận)", truong: [chuc_vu, ho_ten]}
+than:
+  - {ben: co_quan}
+  - {ben: nguoi_thuc_tap}
+  - {dong: "Đến thực tập (thực hành) tại bộ phận:{}", tab: true}
+  - {dong: "Thời gian thực tập: từ ngày {} đến ngày {}"}
+  - {dong: "Người hướng dẫn tại đơn vị:{}", tab: true}
+  - {muc: noi_dung, nhan: "Nội dung công việc được giao:", ten: "Nội dung công việc được giao"}
+  - {dong: "Đề nghị cơ sở đào tạo phối hợp theo dõi, quản lý người thực tập trong thời gian nêu trên."}
+muc_khung: []
+ky:
+  thu_tu: [nguoi_ky]
+  o:
+    - khoa: nguoi_ky
+      vai: null
+      ghi_chu: "(Chữ ký của người có thẩm quyền,\ndấu/chữ ký số của cơ quan, tổ chức)"
+      ho_ten_tu: ho_ten
+truong_tu_facts: {}

@@ -151,3 +151,60 @@ quy_che_noi_bo:
     - {chu: "Điều 2. Quyết định này có hiệu lực kể từ ngày ……", ly_do: "lấp ô 'Điều……' của mẫu bằng điều hiệu lực thông dụng, ngày để trống"}
     - {chu: "Điều 3. …… chịu trách nhiệm thi hành Quyết định này./.", ly_do: "lấp ô 'Điều……' bằng điều thi hành mà dòng Nơi nhận '- Như Điều…' của mẫu dẫn tới"}
     - {chu: "3 (trong '- Như Điều 3;')", ly_do: "số của điều thi hành ở trên"}
+don_khieu_nai:
+  tep_d2: goc/nd124-2020_congbao-1015-1016.pdf
+  sha256: eec7714c55c73746e1bcc333f2e4354f008419ec26d206d8e97258c934a28f77
+  lenh: "pdftotext -layout -f 32 -l 32 goc/nd124-2020_congbao-1015-1016.pdf -"
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - ", ngày tháng năm"
+    - "ĐƠN KHIẾU NẠI"
+    - "Kính gửi:"
+    - "Họ và tên người khiếu nại: ;"
+    - "Địa chỉ:;"
+    - "Số CMND/Hộ chiếu/Thẻ căn cước công dân , ngày cấp , nơi cấp: ."
+    - "Tên của cơ quan, tổ chức, cá nhân bị khiếu nại: ;"
+    - "Địa chỉ: ;"
+    - "Khiếu nại về việc: ;"
+    - "Nội dung khiếu nại:."
+    - "(Tài liệu, chứng cứ kèm theo - nếu có)."
+    - "NGƯỜI KHIẾU NẠI"
+    - "(Chữ ký hoặc điểm chỉ)"
+  bo_qua:
+    - {chu: "Mẫu số 01", ly_do: "dòng chú thích phụ lục, không phải lá đơn (D2 §4.1)"}
+    - {chu: "Họ và tên", ly_do: "cụm giữ chỗ dưới chữ ký — thành chỗ trống tên người khiếu nại"}
+    - {chu: "Ghi chú: (1)…(6)", ly_do: "hướng dẫn điền, không phải lá đơn; lời (5), (6) đi vào `huong_dan` của mục"}
+bien_ban_hop:
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  lenh: "pdftotext -layout -f 57 -l 57 goc/nd30-2020_congbao-283-284.pdf -"
+  nhan:
+    - "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+    - "Độc lập - Tự do - Hạnh phúc"
+    - "Số: /BB-"
+    - "BIÊN BẢN"
+    - "Thời gian bắt đầu:"
+    - "Địa điểm:"
+    - "Thành phần tham dự:"
+    - "Chủ trì (chủ tọa):"
+    - "Thư ký (người ghi biên bản):"
+    - "Nội dung (theo diễn biến cuộc họp/hội nghị/hội thảo):"
+    - "Cuộc họp (hội nghị, hội thảo) kết thúc vào giờ , ngày tháng năm ./."
+    - "THƯ KÝ"
+    - "(Chữ ký)"
+    - "CHỦ TỌA"
+    - "(Chữ ký của người có thẩm quyền,"
+    - "dấu/chữ ký số của cơ quan, tổ chức (nếu có))"
+    - "Nơi nhận:"
+    - "- ;"
+    - "- Lưu: VT, Hồ sơ."
+  bo_qua:
+    - {chu: "TÊN CQ, TC CHỦ QUẢN", ly_do: "cụm giữ chỗ; dòng tuỳ chọn theo chú thích 1 của mẫu (nếu có) — không dựng, như cong_van"}
+    - {chu: "TÊN CƠ QUAN, TỔ CHỨC", ly_do: "cụm giữ chỗ — thành chỗ trống"}
+    - {chu: "...........4............ (tên cuộc họp)", ly_do: "cụm giữ chỗ (chú thích 4) — là trích yếu, chỗ trống khi chưa biết"}
+    - {chu: "dòng chấm nối tiếp dưới 'Thành phần tham dự' và dưới 'Nội dung (…)'", ly_do: "dòng chỉ có dấu chấm không phải đơn vị văn bản nên không bấm điền được; chỗ trống nằm ngay trên dòng nhãn"}
+    - {chu: "Họ và tên (hai lần, dưới THƯ KÝ và CHỦ TỌA)", ly_do: "cụm giữ chỗ — thành chỗ trống tên thư ký, chủ tọa"}
+    - {chu: "Số:.../BB-... và năm..../.", ly_do: "khoảng trắng: một dấu cách sau 'Số:' để số điền vào đúng ví dụ Phụ lục I ('Số: 15/QĐ-BNV'); './.' cách dãy chấm một dấu cách để dấu chấm đầu không thành một phần chỗ trống (`khuon_mau._ket_bang_dau`)"}
+    - {chu: "kết thúc vào….. giờ….., ngày…. tháng…. năm", ly_do: "khoảng trắng: một dấu cách mỗi bên chỗ trống, như dòng địa danh-ngày của bộ dựng — giá trị thay đúng dãy chấm, nên dính chữ thì bản đã điền in 'vào16 giờ30'"}
+    - {chu: "Ghi chú: 1…5", ly_do: "chú thích của mẫu, không phải biên bản (D2 §4.1)"}

@@ -1,0 +1,62 @@
+# Biên bản họp — Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.9 "Biên bản" (Công báo
+# 283+284, tr. 58). Mẫu CHÍNH THỨC, DỰNG LẠI (tệp .doc của Công báo in sai chữ đậm, D2
+# §3). Chữ tĩnh chép nguyên văn từ bản PDF (`pdftotext -layout -f 57 -l 57`,
+# 2026-09-29), đúng thứ tự và khoảng trắng quanh dãy chấm; bỏ dãy chấm (thành chỗ
+# trống), chỉ số chú thích và khung Công báo. Cụm GIỮ CHỖ của mẫu ("TÊN CƠ QUAN, TỔ
+# CHỨC", tên cuộc họp ở chú thích 4, "Họ và tên" dưới hai chữ ký) thành chỗ trống. Dòng
+# tên cơ quan chủ quản (chú thích 1, "nếu có") không dựng, như `cong_van`. Riêng Mẫu
+# 1.9: không có dòng địa danh-ngày ở đầu, THƯ KÝ trái / CHỦ TỌA phải, "Nơi nhận" ở DƯỚI
+# hai khối ký (D2 §4.4). Nhãn đã ghi ở `tests/test_services/du_lieu/nhan_mau_chinh_thuc.yaml`.
+loai: bien_ban_hop
+ten: biên bản họp
+tieu_de: BIÊN BẢN
+bo_cuc: hanh_chinh
+nguon:
+  loai: mau_chinh_thuc
+  van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.9"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2020/3/30858/30246-1-2020283-28430-2020-nd-cp.pdf
+  tep_d2: goc/nd30-2020_congbao-283-284.pdf
+  sha256: 698e45e0aae921a20c0e31ffa87c50fd0324f640e70a6eca8d49e4f51045c7bb
+  trang: 57
+  ghi_chu: "Trang PDF 57 = Công báo tr. 58. Thể thức bắt buộc với cơ quan nhà nước (NĐ 30 Đ2.1); với doanh nghiệp, đoàn thể, lớp học là tham khảo. Biên bản họp Hội đồng quản trị có loại riêng `bien_ban_hop_hdqt`."
+the_thuc:
+  dong_mau: null
+  co_quan: true
+  so: "Số: {}/BB-{}"
+  ngay: khong
+  # Dòng tên cuộc họp dưới "BIÊN BẢN" (chú thích 4): chỗ trống khi người hỏi chưa nêu.
+  trich_yeu: true
+  kinh_gui: null
+  can_cu: false
+  dong_nhu_than: true
+  noi_nhan: ["{};", "Lưu: VT, Hồ sơ."]
+  noi_nhan_duoi: true
+  # Mẫu in "vào….. giờ….., ngày…. tháng…." (dãy chấm dính chữ). Chỗ trống "……" giữa dòng
+  # được thay đúng bằng giá trị, nên một dấu cách mỗi bên — như dòng địa danh-ngày của
+  # bộ dựng — để bản đã điền đọc "vào 16 giờ 30, ngày 29 tháng 9", không "vào16 giờ30".
+  ket_thuc: "Cuộc họp (hội nghị, hội thảo) kết thúc vào {} giờ {}, ngày {} tháng {} năm {}"
+ben:
+  - {khoa: co_quan, vai: "Cơ quan, tổ chức", truong: [ten_to_chuc]}
+  - {khoa: chu_toa, vai: "Chủ trì (chủ tọa)", dong: ["Chủ trì (chủ tọa):{ho_ten}"]}
+  - {khoa: thu_ky, vai: "Thư ký (người ghi biên bản)", dong: ["Thư ký (người ghi biên bản):{ho_ten}"]}
+than:
+  - {dong: "Thời gian bắt đầu:{}", tab: true}
+  - {dong: "Địa điểm:{}", tab: true}
+  - {dong: "Thành phần tham dự:{}", tab: true}
+  - {ben: chu_toa}
+  - {ben: thu_ky}
+  - muc: noi_dung
+    nhan: "Nội dung (theo diễn biến cuộc họp/hội nghị/hội thảo):"
+    ten: "Nội dung theo diễn biến cuộc họp (vấn đề trình bày, ý kiến, kết luận)"
+muc_khung: []
+ky:
+  thu_tu: [thu_ky, chu_toa]
+  # Cột theo mẫu (tr. 58): THƯ KÝ hẹp bên trái, CHỦ TỌA rộng bên phải cho ghi chú hai dòng.
+  rong: [35, 65]
+  o:
+    - {khoa: thu_ky, vai: "THƯ KÝ", ghi_chu: "(Chữ ký)", ho_ten_tu: ho_ten}
+    - khoa: chu_toa
+      vai: "CHỦ TỌA"
+      ghi_chu: "(Chữ ký của người có thẩm quyền,\ndấu/chữ ký số của cơ quan, tổ chức (nếu có))"
+      ho_ten_tu: ho_ten
+truong_tu_facts: {}
