@@ -1,0 +1,26 @@
+{
+  "commit_hash": "19436f0dd1f8270139c600fe71ad383db64d2596",
+  "theo_nhom": {
+    "trong_pham_vi": [
+      0,
+      2
+    ]
+  },
+  "chi_tiet": [
+    {
+      "id": "trap-oos-03",
+      "nhom": "trong_pham_vi",
+      "dung": false,
+      "result_type": "abstain",
+      "token_in": 19826
+    },
+    {
+      "id": "trap-oos-06",
+      "nhom": "trong_pham_vi",
+      "dung": false,
+      "result_type": "answer",
+      "token_in": 41017
+    }
+  ],
+  "token_in_tong": 60843
+}

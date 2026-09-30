@@ -1,0 +1,61 @@
+{
+  "trap-oos-03": {
+    "da_dan": [],
+    "so_canh_bao": 0,
+    "khong_hien_thi": false,
+    "tra_loi_dau": "",
+    "warnings": [],
+    "result_type": "abstain",
+    "dung_moi": false,
+    "ky_vong_cu": "out_of_scope",
+    "dung_cu": false,
+    "tra_loi": ""
+  },
+  "trap-oos-06": {
+    "da_dan": [
+      "123/2015/NĐ-CP > Điều 39 > Khoản 1 > Điểm a",
+      "123/2015/NĐ-CP > Điều 39 > Khoản 1 > Điểm b",
+      "123/2015/NĐ-CP > Điều 39 > Khoản 2 > Điểm a",
+      "123/2015/NĐ-CP > Điều 39 > Khoản 2 > Điểm b",
+      "126/2014/NĐ-CP > Điều 20 > Khoản 1 > Điểm a",
+      "126/2014/NĐ-CP > Điều 20 > Khoản 1 > Điểm b",
+      "126/2014/NĐ-CP > Điều 20 > Khoản 1 > Điểm c",
+      "126/2014/NĐ-CP > Điều 20 > Khoản 1 > Điểm d",
+      "126/2014/NĐ-CP > Điều 20 > Khoản 1 > Điểm đ",
+      "126/2014/NĐ-CP > Điều 28 > Khoản 1 > Điểm a",
+      "126/2014/NĐ-CP > Điều 28 > Khoản 1 > Điểm b",
+      "126/2014/NĐ-CP > Điều 28 > Khoản 1 > Điểm c",
+      "126/2014/NĐ-CP > Điều 43 > Khoản 1 > Điểm a",
+      "126/2014/NĐ-CP > Điều 43 > Khoản 1 > Điểm c",
+      "126/2014/NĐ-CP > Điều 43 > Khoản 1 > Điểm d",
+      "126/2014/NĐ-CP > Điều 44 > Khoản 1 > Điểm a",
+      "126/2014/NĐ-CP > Điều 44 > Khoản 1 > Điểm b",
+      "126/2014/NĐ-CP > Điều 44 > Khoản 1 > Điểm c",
+      "126/2014/NĐ-CP > Điều 44 > Khoản 1 > Điểm d",
+      "126/2014/NĐ-CP > Điều 44 > Khoản 2",
+      "24/2013/NĐ-CP > Điều 15 > Khoản 1 > Điểm a",
+      "24/2013/NĐ-CP > Điều 15 > Khoản 1 > Điểm b",
+      "24/2013/NĐ-CP > Điều 15 > Khoản 1 > Điểm c",
+      "24/2013/NĐ-CP > Điều 27 > Khoản 1 > Điểm a",
+      "24/2013/NĐ-CP > Điều 7 > Khoản 1 > Điểm a",
+      "24/2013/NĐ-CP > Điều 7 > Khoản 1 > Điểm b",
+      "24/2013/NĐ-CP > Điều 7 > Khoản 1 > Điểm c",
+      "24/2013/NĐ-CP > Điều 7 > Khoản 1 > Điểm d",
+      "24/2013/NĐ-CP > Điều 7 > Khoản 1 > Điểm đ",
+      "24/2013/NĐ-CP > Điều 7 > Khoản 2 > Điểm b"
+    ],
+    "so_canh_bao": 3,
+    "khong_hien_thi": false,
+    "tra_loi_dau": "Chào bạn, thủ tục ly hôn đơn phương cần chuẩn bị Tờ khai theo mẫu quy định và bản sao giấy tờ ly hôn đã có hiệu lực pháp luật [Điều 39](cite:1). Trong thời hạn 05 ngày làm việc, công chức hộ tịch sẽ kiểm tra hồ sơ. Nếu hồ sơ hợp lệ và không vi phạm, Trưởng phòng Tư pháp sẽ ghi vào sổ và cấp bản chín",
+    "warnings": [
+      "123/2015/NĐ-CP còn hiệu lực một phần. Đã được sửa đổi, bổ sung bởi 104/2022/NĐ-CP, 07/2025/NĐ-CP, 18/2026/NĐ-CP.",
+      "126/2014/NĐ-CP còn hiệu lực một phần. Đã được sửa đổi, bổ sung bởi 123/2015/NĐ-CP.",
+      "24/2013/NĐ-CP còn hiệu lực một phần."
+    ],
+    "result_type": "answer",
+    "dung_moi": false,
+    "ky_vong_cu": "out_of_scope",
+    "dung_cu": false,
+    "tra_loi": "Chào bạn, thủ tục ly hôn đơn phương cần chuẩn bị Tờ khai theo mẫu quy định và bản sao giấy tờ ly hôn đã có hiệu lực pháp luật [Điều 39](cite:1). Trong thời hạn 05 ngày làm việc, công chức hộ tịch sẽ kiểm tra hồ sơ. Nếu hồ sơ hợp lệ và không vi phạm, Trưởng phòng Tư pháp sẽ ghi vào sổ và cấp bản chính trích lục hộ tịch. Trường hợp cần xác minh, thời gian giải quyết không quá 10 ngày làm việc [Điều 39](cite:3). Nếu yêu cầu ghi chú ly hôn vi phạm quy định, Trưởng phòng Tư pháp sẽ báo cáo Chủ tịch Ủy ban nhân dân cấp huyện để từ chối [Điều 39](cite:4). Riêng việc ghi chú ly hôn đã được giải quyết ở nước ngoài sẽ cần thêm bản sao bản án, quyết định ly hôn của Tòa án nước ngoài hoặc bản thỏa thuận ly hôn đã có hiệu lực, cùng giấy tờ tùy thân và giấy tờ chứng minh thẩm quyền [Điều 44](cite:5). Nếu bạn cần tra cứu cụ thể về thủ tục ghi chú ly hôn đã được giải quyết ở nước ngoài, cứ hỏi tiếp."
+  }
+}
