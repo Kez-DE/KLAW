@@ -341,6 +341,74 @@ def test_doi_chieu_tay_123_2015_diem_dd_va_126_2014_bai_bo_tru():
     assert set(t.dieu_khoan) | set(d.dieu_khoan) == {f"Điều {n}" for n in range(1, 46)}
 
 
+# Năm câu đối chiếu tay bổ sung (chủ dự án duyệt 2026-09-30), nguyên văn toàn văn gateway: 167/2013/NĐ-CP
+# Điều 72 (32600), 69/2025/TT-BTC Điều 10 (187346), 201/2013/NĐ-CP Điều 48 (32649), 18/2021/NĐ-CP Điều 2 (151157).
+_167 = [
+    "Điều 72. Hiệu lực thi hành",
+    "1. Nghị định này có hiệu lực thi hành kể từ ngày 28 tháng 12 năm 2013.",
+    "2. Các Điều 14, 15, 16, 17, 18, 19, 20 Chương 3 Nghị định số 178/2004/NĐ-CP ngày 15 tháng 10 năm 2004 quy định"
+    " chi tiết thi hành một số điều của Pháp lệnh phòng, chống mại dâm, Nghị định số 110/2009/NĐ-CP ngày 10 tháng 12"
+    " năm 2009 quy định xử phạt vi phạm hành chính trong lĩnh vực phòng, chống bạo lực gia đình, Nghị định số"
+    " 73/2010/NĐ-CP ngày 12 tháng 7 năm 2010 quy định xử phạt vi phạm hành chính trong lĩnh vực an ninh và trật tự,"
+    " an toàn xã hội, Nghị định số 52/2012/NĐ-CP ngày 14 tháng 6 năm 2012 quy định xử phạt vi phạm hành chính trong"
+    " lĩnh vực phòng cháy và chữa cháy hết hiệu lực, kể từ ngày Nghị định này có hiệu lực thi hành.",
+]
+_69 = [
+    "Điều 10. Hiệu lực thi hành",
+    "1. Thông tư này có hiệu lực thi hành từ ngày 01 tháng 7 năm 2025.",
+    "3. Bãi bỏ quy định tại:",
+    "a) Chương 2 Thông tư số 09/2011/TT-BTC ngày 21 tháng 01 năm 2011 của Bộ trưởng Bộ Tài chính hướng dẫn về thuế"
+    " giá trị gia tăng, thuế thu nhập doanh nghiệp đối với lĩnh vực kinh doanh bảo hiểm.",
+    "đ) Chương II Thông tư số 151/2014/TT-BTC ngày 10 tháng 10 năm 2014 của Bộ trưởng Bộ Tài chính hướng dẫn thi hành"
+    " Nghị định số 91/2014/NĐ-CP ngày 01 tháng 10 năm 2014 của Chính phủ về việc sửa đổi, bổ sung một số điều tại các"
+    " Nghị định quy định về thuế.",
+]
+_201 = [
+    "Điều 48. Hiệu lực thi hành",
+    "Nghị định này có hiệu lực thi hành kể từ ngày 01 tháng 02 năm 2014.",
+    "Các Nghị định: số 179/1999/NĐ-CP ngày 30 tháng 12 năm 1999 hướng dẫn thi hành Luật tài nguyên nước; số"
+    " 149/2004/NĐ-CP ngày 27 tháng 7 năm 2004 quy định việc cấp phép tài nguyên nước và Điều 2 của Nghị định số"
+    " 38/2011/NĐ-CP ngày 26 tháng 5 năm 2011 sửa đổi, bổ sung một số điều quy định về thủ tục hành chính của Nghị định"
+    " số 181/2004/NĐ-CP ngày 29 tháng 10 năm 2004, số 149/2004/NĐ-CP ngày 27 tháng 7 năm 2004 và số 160/2005/NĐ-CP"
+    " ngày 27 tháng 12 năm 2005 hết hiệu lực thi hành kể từ ngày Nghị định này có hiệu lực.",
+]
+_18 = [
+    "Điều 2. Tổ chức thực hiện",
+    "1. Nghị định này có hiệu lực thi hành từ ngày 25 tháng 4 năm 2021.",
+    "2. Nghị định này bãi bỏ, bổ sung, thay thế:",
+    "a) Bãi bỏ một số nội dung tại Nghị định số 134/2016/NĐ-CP gồm:",
+    "Điểm c khoản 3 Điều 8, điểm b khoản 4 Điều 20, khoản 1 Điều 29 Nghị định số 134/2016/NĐ-CP;",
+]
+
+
+@pytest.mark.parametrize(
+    ("dong", "so", "d", "r", "vi_tri", "dieu_khoan"),
+    [
+        # Động từ ĐỨNG SAU danh sách ("… hết hiệu lực"), kèm "Chương 3".
+        (_167, "178/2004/NĐ-CP", "19141", "32600", "Điều 72 khoản 2", [f"Điều {n}" for n in range(14, 21)]),
+        # Bãi bỏ cả Chương: kho — Chương II của 09/2011 là Điều 3–10, của 151/2014 là Điều 8–10.
+        (_69, "09/2011/TT-BTC", "26112", "187346", "Điều 10 khoản 3 điểm a", [f"Điều {n}" for n in range(3, 11)]),
+        (_69, "151/2014/TT-BTC", "37430", "187346", "Điều 10 khoản 3 điểm đ", ["Điều 8", "Điều 9", "Điều 10"]),
+        # Đoạn không đánh số, động từ đứng sau.
+        (_201, "38/2011/NĐ-CP", "26444", "32649", "Điều 48", ["Điều 2"]),
+        # Câu dẫn "một số nội dung … gồm:" rồi đoạn không đánh số chỉ nêu điều khoản.
+        (
+            _18,
+            "134/2016/NĐ-CP",
+            "119757",
+            "151157",
+            "Điều 2 khoản 2 điểm a",
+            ["Điều 8 > Khoản 3 > Điểm c", "Điều 20 > Khoản 4 > Điểm b", "Điều 29 > Khoản 1"],
+        ),
+    ],
+)
+def test_doi_chieu_tay_bo_sung_nam_cau_parser_bo(dong, so, d, r, vi_tri, dieu_khoan):
+    assert trich_van_ban(dong, so) == []
+    (t,) = trich_tay(dong, d, r)
+    assert (t.vi_tri, t.dieu_khoan, t.kiem_boi, t.tu_ngay) == (vi_tri, dieu_khoan, "doi-chieu-tay", None)
+    assert so.split("/")[0] in t.trich and len(t.trich) <= 2000
+
+
 def test_doi_chieu_tay_dung_khi_nguyen_van_khong_con_khop():
     lech = [x.replace("- Điều 7;", "- Điều 8;") for x in _49_226]
     with pytest.raises(ValueError, match="nguyên văn"):
