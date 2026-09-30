@@ -9,7 +9,6 @@
 # pháp của văn bản khai tử/đi sửa; `doi-chieu-cong-bao-k8`: chuỗi con toàn văn .docx Công báo
 # (văn bản gateway chưa có); `ocr-ban-ky-so-k8`: đọc bằng OCR bản ký số (ảnh quét).
 # `doi-chieu-nguyen-van-f1`: như `-k8`, đợt F1 (luật nền tảng, quyết định 2026-09-29 mục 4, 8).
-# `doi-chieu-nguyen-van-n1`: như `-k8`, đợt N1 (nhà đất, quyết định 2026-09-30 mục 7).
 - from_so_ky_hieu: 145/2020/NĐ-CP
   to_so_ky_hieu: 49/2013/NĐ-CP
   loai: 21
@@ -362,19 +361,3 @@
   url: https://vbpl.vn/van-ban/chi-tiet/179416
   kiem_boi: doi-chieu-nguyen-van-f1
   kiem_luc: 2026-09-29 14:10:00+00:00
-- from_so_ky_hieu: 101/2024/NĐ-CP
-  to_so_ky_hieu: 151/2025/NĐ-CP
-  loai: 23
-  dieu_khoan: 151/2025/NĐ-CP Điều 21 khoản 4 điểm b
-  trich: 'Các quy định sau đây hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành … b) Khoản 5 và khoản 11 Điều 9; khoản 1 Điều 19; khoản 3 Điều 20; các Điều 21, 22, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 60; … Nghị định số 101/2024/NĐ-CP'
-  url: https://vbpl.vn/van-ban/chi-tiet/178259
-  kiem_boi: doi-chieu-nguyen-van-n1
-  kiem_luc: 2026-09-30 07:59:47+00:00
-- from_so_ky_hieu: 102/2024/NĐ-CP
-  to_so_ky_hieu: 151/2025/NĐ-CP
-  loai: 23
-  dieu_khoan: 151/2025/NĐ-CP Điều 21 khoản 4 điểm c
-  trich: 'Các quy định sau đây hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành … c) Khoản 1 Điều 14; khoản 1 và khoản 5 Điều 54; điểm c khoản 2 và điểm a khoản 3 Điều 94; khoản 4 và khoản 6 Điều 99; khoản 3 Điều 100; điểm b khoản 6 Điều 101; các Điều 20, 21, 23, 44, 45, 48, 49, 51, 52, 53, 60, 64, 66, 68, 73, 106, 107 Nghị định số 102/2024/NĐ-CP'
-  url: https://vbpl.vn/van-ban/chi-tiet/178259
-  kiem_boi: doi-chieu-nguyen-van-n1
-  kiem_luc: 2026-09-30 07:59:47+00:00
