@@ -52,6 +52,7 @@ from src.services import ban_thao, bao_ve, bo_nho, cache_tra_loi
 from src.services import hoi_thoai as hoi_thoai_svc
 from src.services import tai_lieu as tl
 from src.services.bao_ve import cong_bao_ve, cong_bao_ve_khach, cong_nhe
+from src.services.bo_nho import tach_nen
 from src.services.checklist import KHUNG_HOP_DONG, Checklist
 from src.services.db import get_engine
 from src.services.hien_thi import chan_neu_an, hien_thi_luc
@@ -190,7 +191,11 @@ def _state_vao(
 
     `ban_thao_tong_quat` (Phase 3 Half B, R5) — bản thảo tổng quát mới nhất
     của hội thoại (`_chuan_bi_phien`), xem `KLawState.ban_thao_tong_quat_dang_mo`.
+
+    `ho_so_nen` — dữ kiện kế thừa từ tài khoản, tách khỏi `ho_so` (`bo_nho.tach_nen`):
+    chỉ `rewrite_query` trả nó vào lượt, khi lượt là câu hỏi lao động.
     """
+    ho_so, nen = tach_nen((bo_nho or {}).get("ho_so") or {})
     return {
         "query": req.query,
         "tai_lieu_ids": [str(i) for i in req.tai_lieu_ids],
@@ -200,7 +205,8 @@ def _state_vao(
         "as_of_date": as_of,
         "trace_id": trace_id,
         "tom_tat": (bo_nho or {}).get("tom_tat"),
-        "ho_so": dict((bo_nho or {}).get("ho_so") or {}),
+        "ho_so": ho_so,
+        "ho_so_nen": nen,
         "user_sub": user_sub,
         "hoi_thoai_id": hoi_thoai_id,
         "soan_thao_dang_mo": soan_thao,

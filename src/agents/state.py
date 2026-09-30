@@ -21,6 +21,9 @@ class KLawState(TypedDict, total=False):
     # định nào.
     tom_tat: str | None
     ho_so: dict
+    # Dữ kiện kế thừa từ tài khoản (`bo_nho.tach_nen`), ngoài `ho_so` cho tới khi
+    # `rewrite_query` đoán lượt là câu hỏi lao động. Khai ở đây vì LangGraph bỏ khoá lạ.
+    ho_so_nen: dict
     ho_so_da_dung: list[dict]
     as_of_date: object            # date | None
     config_name: str
