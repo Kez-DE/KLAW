@@ -18,7 +18,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
-from src.agents.nodes.gioi_thieu import chac_chan_meta, hoi_he_thong_phap_luat
+from src.agents.nodes.gioi_thieu import chac_chan_meta, hoi_he_thong_phap_luat, ke_tinh_huong
 from src.services import khuon_mau
 from src.services.kho import xin_dang_bang
 
@@ -249,10 +249,14 @@ def route(state: dict, llm, model: str, prompt_path: Path | None = None) -> dict
     ep_meta = intent not in (Intent.gioi_thieu, Intent.hoi_ve_kho) and chac_chan_meta(state["query"])
     if ep_meta:
         intent = Intent.gioi_thieu
-    # And the reverse: a legal-system question is answered from statute (decision
-    # 2026-09-29 item 4) — see gioi_thieu.hoi_he_thong_phap_luat. Runs after
-    # ep_meta so it also undoes a forced gioi_thieu.
-    ep_luat = intent in (Intent.gioi_thieu, Intent.hoi_ve_kho) and hoi_he_thong_phap_luat(state["query"])
+    # And the reverse: a legal-system question (decision 2026-09-29 item 4) and
+    # a question telling the asker's own situation (decision 2026-09-30 item 2)
+    # are answered from statute — see gioi_thieu.hoi_he_thong_phap_luat and
+    # gioi_thieu.ke_tinh_huong. Runs after ep_meta so it also undoes a forced
+    # gioi_thieu.
+    ep_luat = intent in (Intent.gioi_thieu, Intent.hoi_ve_kho) and (
+        hoi_he_thong_phap_luat(state["query"]) or ke_tinh_huong(state["query"])
+    )
     if ep_luat:
         intent, ep_meta = Intent.tra_cuu, False
     y_dinh_phu = data.get("y_dinh_phu") if la_v3 else None

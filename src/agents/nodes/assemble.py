@@ -57,7 +57,14 @@ from typing import TypedDict
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.agents.nodes.dung_ban_thao_tong_quat import KHONG_SOAN_DUOC, LOAI_TONG_QUAT, TEN_TONG_QUAT, _ket_state
-from src.agents.nodes.gioi_thieu import cau_gioi_thieu, hoi_cau_truc_phap_luat
+from src.agents.nodes.gioi_thieu import (
+    bang_du_kien,
+    chi_hoi_kho,
+    hoi_cau_truc_phap_luat,
+    khia_canh,
+    khia_canh_kho,
+    tra_loi_meta,
+)
 from src.agents.nodes.hieu_tai_lieu import CHO_TRONG, MUC_DICH_SOAN
 from src.agents.nodes.hoi_lai import bi_loai, cau_hoi_lai_tu_khung, duoi_hoi_them, duoi_tu_khung, hoi_lai
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
@@ -253,6 +260,7 @@ class ResultType(StrEnum):
 # từ chữ trong tài liệu, không từ hồ sơ tình huống.
 _KHONG_DUNG_HO_SO = frozenset({ResultType.gioi_thieu, ResultType.hoi_ve_kho, ResultType.out_of_scope,
                                ResultType.tai_lieu})
+_META = frozenset({ResultType.gioi_thieu, ResultType.hoi_ve_kho})
 
 
 class Citation(TypedDict):
@@ -294,9 +302,10 @@ def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: boo
     trị mặc định, nó là BẰNG CHỨNG đo được cho tuyên bố "0 TOKEN" trong docstring
     module, không phải một lời khẳng định suông.
 
-    Bốn nhánh còn 0 token sau Pha 2: `out_of_scope`, `gioi_thieu`,
-    `huong_dan_soan_thao`, `hoi_ve_kho`. Các ngõ cụt (`abstain`,
-    `partial_coverage`) nay tiêu một lượt sinh câu hỏi lại — xem `_ngo_cut`.
+    Nhánh còn 0 token: `out_of_scope`, `huong_dan_soan_thao`, và lượt `hoi_ve_kho`
+    xin bảng. Các ngõ cụt (`abstain`, `partial_coverage`) tiêu một lượt sinh câu
+    hỏi lại — xem `_ngo_cut`; `gioi_thieu`/`hoi_ve_kho` tiêu một lượt viết lời đáp
+    từ bảng dữ kiện (quyết định 2026-09-30 mục 1).
     """
     prior_traces = state.get("traces") or {}
     return {
@@ -314,6 +323,9 @@ def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: boo
         # rt in _KHONG_DUNG_HO_SO never reads the profile, so showing "Dựa
         # trên" would be false provenance (ex.md FR-007).
         "ho_so_da_dung": [] if rt in _KHONG_DUNG_HO_SO else ho_so_da_dung(state.get("ho_so") or {}),
+        # Decision 2026-09-30 item 8: "Tôi hiểu câu hỏi của bạn là…" only when the
+        # rewrite changed the question (`giai_nghia.doi_nghia`), never for a meta answer.
+        "hien_cau_hoi_day_du": bool(state.get("cau_hoi_doi_nghia")) and rt not in _META,
         "traces": {
             **prior_traces,
             "assemble_result_type": rt.value,
@@ -885,11 +897,37 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
     return ket
 
 
-# Câu trả lời cho `intent == gioi_thieu` sống ở `nodes/gioi_thieu.py`, KHÔNG ở
-# đây. Trước 2026-09-02 nó là một hằng số `GIOI_THIEU` duy nhất, và hai câu hỏi
-# khác nhau ("bạn làm được những gì" 09:21:36, "model của bạn là gì" 09:22:22 —
-# bảng `traces`) nhận về đúng cùng 1.104 ký tự đó, từng chữ một. Nay câu hỏi được
-# tách thành dạng bằng quy tắc; đây vẫn là MỘT `result_type`, chỉ `answer` đổi.
+def _tra_loi_meta(state: dict, llm, model: str) -> dict:
+    """`gioi_thieu` / `hoi_ve_kho` — lời đáp sống ở `nodes/gioi_thieu.py`; đây chỉ
+    nối state vào nó. Vẫn MỘT `result_type` mỗi ý định, chỉ `answer` đổi.
+
+    `graph_tra_cuu.n_assemble` (nơi có `engine`) nạp kho một lần và đặt sẵn
+    `bang_du_kien` + `khia_canh_meta`; chỗ gọi trực tiếp không có chúng thì bảng
+    không có số liệu nào (`bang_du_kien(…, None)`), không bịa. Lượt xin bảng
+    (`tra_loi_kho_bang`) giữ câu dẫn tất định: số liệu nằm ở chính hai bảng.
+    """
+    rt = ResultType(state["intent"])
+    if state.get("tra_loi_kho_bang"):
+        return _base(state, rt, answer=state["tra_loi_kho"], bang=state["tra_loi_kho_bang"])
+    cau = state.get("query") or ""
+    cac = state.get("khia_canh_meta") or (khia_canh_kho if rt is ResultType.hoi_ve_kho else khia_canh)(cau)
+    if rt is ResultType.hoi_ve_kho and chi_hoi_kho(cac):
+        # A kho-only turn answers from the SQL summary (`kho.dung_cau_tra_loi`,
+        # which leads with the Bộ luật when asked) — the same text as before the
+        # model wrote it, and the fallback when the model fails.
+        cac = ["kho"]
+    answer, usage, nguon = tra_loi_meta(
+        state.get("cau_hoi_goc") or cau,
+        state.get("bang_du_kien") or bang_du_kien(cau, None),
+        cac,
+        llm,
+        model,
+        cau_hoi_day_du=state.get("cau_hoi_day_du"),
+        luot_dau=not (state.get("lich_su") or state.get("tom_tat")),
+    )
+    ket = _base(state, rt, usage=usage, answer=answer, bang=[])
+    ket["traces"]["gioi_thieu_nguon"] = nguon
+    return ket
 
 
 # Phase 14 (owner D14-B) — không còn lời đáp nào chỉ người dùng sang biểu mẫu
@@ -1556,47 +1594,11 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             },
         )
 
-    if state.get("intent") == "gioi_thieu":
-        # Xem chú thích ở nhánh `soan_thao` ngay trên: rẻ được là nhờ đường rẽ
-        # tắt trong `graph_tra_cuu`, không nhờ riêng khâu này không gọi LLM.
-        # ĐO ĐƯỢC 2026-09-02, TRƯỚC khi có đường rẽ: nhánh này tiêu 8.975 token
-        # và dựng 15 luận điểm qua cả hai tầng rồi vứt sạch.
-        #
-        # `cau_gioi_thieu` chọn lời đáp theo DẠNG câu hỏi bằng quy tắc — vẫn 0
-        # token, và cố ý KHÔNG nhận `llm`: model không biết nó đang chạy trên
-        # model nào hay kho có gì, nên để nó tự sinh câu trả lời về chính mình
-        # là mời đúng loại ảo giác hai tầng kiểm không bắt được (không có trích
-        # dẫn nào để đối chiếu).
-        #
-        # `.get(...) or ""` chứ không phải `state["query"]`: câu rỗng rơi về bài
-        # năng lực — mặc định an toàn — thay vì nổ ở một nhánh vốn không cần
-        # truy vấn gì. Khác `tra_loi_kho` ngay dưới, nơi khoá thiếu LÀ lỗi nối
-        # dây và một `answer` rỗng chính là chế độ hỏng cần nổ ra.
-        # `tra_loi_gioi_thieu` is composed in `graph_tra_cuu.n_assemble` (it
-        # owns the engine and the one `nap_kho`); direct callers without it
-        # still get the kho-less answer.
-        return _base(state, ResultType.gioi_thieu,
-                     answer=state.get("tra_loi_gioi_thieu") or cau_gioi_thieu(state.get("query") or ""))
-
-    if state.get("intent") == "hoi_ve_kho":
-        # Chuỗi do `graph_tra_cuu.n_assemble` tính SẴN bằng SQL — khâu này chỉ
-        # dán nó vào `answer`. Xem chú thích ở `n_assemble` để biết vì sao SQL
-        # nằm ở đó chứ không ở đây (tóm lại: `assemble` không có `engine`, và
-        # hợp đồng hiện hành đã là "node lo phần DB, assemble lo phần dựng lời"
-        # — `db_provisions` cũng do node nạp sẵn).
-        #
-        # `state["tra_loi_kho"]` chứ không phải `.get(...) or ""`: thiếu khoá
-        # này là một lỗi NỐI DÂY, và một `answer` rỗng chính là chế độ hỏng mà
-        # cả nhánh này tồn tại để bỏ đi. Thà nổ ra một KeyError nhìn thấy được
-        # còn hơn trả lại đúng cái màn hình trắng cũ.
-        #
-        # `bang` (T4) NGƯỢC LẠI dùng `.get(...) or []`: khác `answer`, một
-        # `bang` rỗng là giá trị ĐÚNG cho phần lớn lượt hỏi về kho (câu hỏi
-        # không xin bảng) — thiếu khoá không phải chế độ hỏng cần nổ ra, và
-        # test cũ gọi `assemble()` với state chưa mang khoá này (trước T4)
-        # vẫn phải chạy được.
-        return _base(state, ResultType.hoi_ve_kho, answer=state["tra_loi_kho"],
-                     bang=state.get("tra_loi_kho_bang") or [])
+    if state.get("intent") in ("gioi_thieu", "hoi_ve_kho"):
+        # Rẻ được là nhờ đường rẽ tắt trong `graph_tra_cuu` (`_RE_TAT`): không truy
+        # hồi, không sinh luận điểm, đúng MỘT lượt model viết lời đáp từ bảng dữ
+        # kiện — quyết định 2026-09-30 mục 1, xem `gioi_thieu.tra_loi_meta`.
+        return _tra_loi_meta(state, llm, model)
 
     if state.get("intent") == "ngoai_pham_vi":
         return _base(state, ResultType.out_of_scope, coverage_note=NGOAI_PHAM_VI)

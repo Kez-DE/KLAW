@@ -55,6 +55,11 @@ class KLawState(TypedDict, total=False):
     # sai là chế độ hỏng chắc chắn xảy ra, và không có dòng đó thì người dùng
     # nhận câu trả lời cho một câu họ không hỏi mà không có cách nào biết.
     cau_hoi_day_du: str | None
+    # Decision 2026-09-30 item 8: `giai_nghia` sets whether the rewrite adds
+    # content (`doi_nghia`); `assemble._base` turns it into the reader-facing flag,
+    # never for a meta answer. Declared so LangGraph carries them across nodes.
+    cau_hoi_doi_nghia: bool
+    hien_cau_hoi_day_du: bool
     result_type: object
     answer: str | None
     citations: list[dict]

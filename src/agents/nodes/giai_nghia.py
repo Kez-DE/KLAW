@@ -43,10 +43,12 @@ NGOÀI `try`, đúng khuôn `route.py`; chỉ ĐẦU RA dị dạng của model 
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import NamedTuple
 
 from src.agents.nodes.assemble import _so_dieu_trong
+from src.agents.nodes.gioi_thieu import _bo_dau
 from src.agents.nodes.hoi_lai import moc_phap_ly_trong
 from src.services.kho import moi_so_hieu_trong
 from src.services.llm import Usage
@@ -159,6 +161,25 @@ def dinh_danh_bia(cau_da_giai: str, cau_goc: str, lich_su: list[dict], tom_tat: 
     return [f"Điều {d}" for d in dieu] + so_hieu + moc
 
 
+# Chủ thể và tiểu từ giai_nghia hay thêm vào mà không đổi nghĩa câu: "bạn giúp tôi
+# được chứ" → "KLAW, bạn giúp tôi được chứ" (trace 2cfaa33a). Viết không dấu vì
+# phép so chạy trên câu đã bỏ dấu.
+_TU_KHONG_DOI_NGHIA = frozenset(
+    "klaw ban toi minh em tro ly nguoi hoi a nhe nha vay thi la co khong duoc chu va".split()
+)
+
+
+def doi_nghia(goc: str, day_du: str) -> bool:
+    """Câu đã giải nghĩa có thêm NỘI DUNG so với câu người dùng gõ không —
+    quyết định 2026-09-30 mục 8: dòng "Tôi hiểu câu hỏi của bạn là…" chỉ hiện khi
+    có. So tập từ đã bỏ dấu, nên thêm dấu hay chấm câu không tính là đổi nghĩa."""
+
+    def tu(x: str) -> set[str]:
+        return set(re.findall(r"\w+", _bo_dau(x.lower())))
+
+    return bool(tu(day_du) - tu(goc) - _TU_KHONG_DOI_NGHIA)
+
+
 def _goi(cau_hoi: str, lich_su: list[dict], llm, model: str, tom_tat: str | None = None) -> KetQuaGiaiNghia:
     """Một lượt giải nghĩa. Tầng gần LLM nhất, tách khỏi phần ghi state để phần
     dựng prompt và lưới chặn kiểm được mà không cần một `KLawState`."""
@@ -225,6 +246,7 @@ def giai_nghia(state: dict, llm, model: str) -> dict:
         **state,
         "cau_hoi_goc": goc,
         "cau_hoi_day_du": ket.cau_hoi_day_du,
+        "cau_hoi_doi_nghia": bool(ket.cau_hoi_day_du) and doi_nghia(goc, ket.cau_hoi_day_du),
         # Không giải nghĩa được thì KHÔNG sửa câu hỏi. `_re_sau_giai_nghia` rẽ
         # lượt đó sang `assemble` (đường ngõ cụt đã có), nên `query` ở đây chỉ
         # còn phục vụ `hoi_lai` — và nó phải hỏi lại về đúng câu người ta gõ.

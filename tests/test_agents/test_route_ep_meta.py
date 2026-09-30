@@ -156,12 +156,16 @@ def test_cau_hoi_ve_kho_hay_klaw_giu_nguyen_y_dinh(cau, y_dinh, tmp_path):
 
 def test_hoi_danh_sach_bo_luat_van_tra_so_lieu_kho(tmp_path):
     """Listing documents ("có những bộ luật nào") is a count over the kho: no
-    statute enumerates the codes. It stays on the kho list, which closes with
-    CAU_GIOI_HAN, instead of abstaining until the foundational laws load."""
+    statute enumerates the codes, so a meta verdict on it stays on the kho list.
+    Decision 2026-09-30 item 2: without an anchor naming KLAW or the kho the guard
+    no longer PINS it — the router decides."""
     cau = "pháp luật việt nam có những bộ luật nào"
-    st = _route(cau, LlmTraCuu(), tmp_path)
-    assert st["intent"] is Intent.gioi_thieu
-    assert st["traces"]["route_ep_meta"] is True and st["traces"]["route_ep_luat"] is False
+    assert not chac_chan_meta(cau)
+    st = _route(cau, LlmY("hoi_ve_kho"), tmp_path)
+    assert st["intent"] is Intent.hoi_ve_kho
+    assert st["traces"]["route_ep_meta"] is False and st["traces"]["route_ep_luat"] is False
+    st = _route("bạn có những bộ luật nào", LlmTraCuu(), tmp_path)
+    assert st["intent"] is Intent.gioi_thieu and st["traces"]["route_ep_meta"] is True
 
 
 def test_guard_khong_dung_toi_cau_router_da_cho_tra_cuu(tmp_path):

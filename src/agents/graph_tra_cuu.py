@@ -39,7 +39,7 @@ from src.agents.nodes.dung_ban_thao_tong_quat import dung_ban_thao_tong_quat
 from src.agents.nodes.expand import expand
 from src.agents.nodes.generate_claims import generate_claims
 from src.agents.nodes.giai_nghia import giai_nghia
-from src.agents.nodes.gioi_thieu import can_kho, cau_gioi_thieu, chi_hoi_kho, khia_canh, khia_canh_kho
+from src.agents.nodes.gioi_thieu import bang_du_kien, chi_hoi_kho, co_khia_canh, khia_canh, khia_canh_kho
 from src.agents.nodes.gom_du_kien import gom_du_kien
 from src.agents.nodes.hieu_tai_lieu import MUC_DICH_SOAN, co_khuon, hieu_tai_lieu
 from src.agents.nodes.rewrite_query import rewrite_query
@@ -56,7 +56,7 @@ from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
 from src.services.hien_thi import hien_thi_luc, van_ban_an_duoc_nhac
-from src.services.kho import dung_bang, loi_dan_bang, nap_kho, tra_loi_ve_kho, xin_dang_bang
+from src.services.kho import dung_bang, loi_dan_bang, nap_kho, xin_dang_bang
 from src.services.llm import from_settings as llm_from_settings
 from src.services.llm import generate_model, judge_model, router_model
 from src.services.retrieval import Retriever, cong_diem_linh_vuc, loc_theo_linh_vuc
@@ -846,66 +846,39 @@ def build_graph_tra_cuu():
         return {**st, "tier2": verdicts, "traces": traces}
 
     def n_assemble(st: KLawState) -> KLawState:
-        # ex.md §3.2–3.3: one facet pass for both meta intents. Corpus-only
-        # questions keep the existing `hoi_ve_kho` text/table path below;
-        # anything naming the assistant composes from one `nap_kho` snapshot
-        # (FR-014), loaded only when a corpus facet is present.
+        # Meta turns (decision 2026-09-30 item 1): the node owns the DB half —
+        # facets and ONE `nap_kho` for the fact sheet — and `assemble` has the one
+        # model call. Facets come from the question as typed when it names one
+        # (trace 8eb13b06: the rewrite of "bạn là ai" added a capability facet).
         y_dinh = st.get("intent")
         if y_dinh in (Intent.gioi_thieu, Intent.hoi_ve_kho):
-            cau_hoi_meta = st.get("cau_hoi_day_du") or st["query"]
+            goc = st.get("cau_hoi_goc") or st["query"]
+            # Câu ĐÃ GIẢI NGHĨA khi có: một lượt nối tiếp như "cho tôi dạng bảng"
+            # chỉ tự đứng được sau bước đó; lượt đầu `cau_hoi_day_du` luôn None.
+            day_du = st.get("cau_hoi_day_du") or st["query"]
             # A kho turn keeps the kho verdict: the introduction only for a
             # question that addresses KLAW (see gioi_thieu.khia_canh_kho).
-            cac = khia_canh_kho(cau_hoi_meta) if y_dinh == Intent.hoi_ve_kho else khia_canh(cau_hoi_meta)
-            if not (y_dinh == Intent.hoi_ve_kho and chi_hoi_kho(cac)):
-                kho = nap_kho(engine, as_of_hieu_luc(st.get("as_of_date"))) if can_kho(cac) else None
-                tra_loi = cau_gioi_thieu(
-                    cau_hoi_meta, kho=kho, luot_dau=not (st.get("lich_su") or st.get("tom_tat")),
-                    cac_khia_canh=cac,
-                )
-                st = {**st, "tra_loi_gioi_thieu": tra_loi, "tra_loi_kho": tra_loi, "tra_loi_kho_bang": [],
-                      "traces": {**(st.get("traces") or {}), "gioi_thieu_khia_canh": cac}}
-                if y_dinh == Intent.gioi_thieu:
-                    return assemble(st, {}, llm, generate_model(), prompt_path=Path(s.assemble_prompt))
-        if y_dinh == Intent.hoi_ve_kho and "tra_loi_gioi_thieu" not in st:
-            # SQL cho câu hỏi về kho chạy Ở ĐÂY, không trong `assemble`.
-            #
-            # `assemble` KHÔNG có `engine` — và đúng ra là không nên có: nó đã
-            # nhận `db_provisions` do chính node này nạp sẵn, tức hợp đồng hiện
-            # hành là "node lo phần DB, assemble lo phần dựng lời". Đưa chuỗi
-            # đã tính vào state là CÙNG hình dạng với `db_provisions`; truyền
-            # thêm `engine` xuống thì đổi chữ ký mà hơn 40 chỗ gọi `assemble`
-            # trong test đang dùng, để phục vụ đúng một nhánh. Chọn cách không
-            # đụng chữ ký nào.
-            #
-            # `as_of_hieu_luc` chứ không phải `date.today()`: cùng một chủ sở
-            # hữu quy tắc mốc hiệu lực với `n_expand` và với khoá cache (xem
-            # chú thích ở `n_expand`) — số Bộ luật "đang dùng" phụ thuộc mốc
-            # thời gian, nên hai bản sao của quy tắc sẽ cho hai con số khác
-            # nhau mà không tầng nào báo lỗi.
-            as_of = as_of_hieu_luc(st.get("as_of_date"))
-            # Ý "xin bảng" (T4) chạy trên câu ĐÃ GIẢI NGHĨA khi có — một lượt
-            # nối tiếp như "cho tôi dạng bảng" chỉ tự đứng được sau bước đó;
-            # lượt đầu không qua `giai_nghia` nên `cau_hoi_day_du` luôn None,
-            # rơi về `query`.
-            cau_hoi = st.get("cau_hoi_day_du") or st["query"]
-            if xin_dang_bang(cau_hoi):
-                # `nap_kho` MỘT LẦN, y hệt `tra_loi_ve_kho` bên dưới — nhánh
-                # nào chạy cũng chỉ một truy vấn kho, không phải hai.
-                bang = dung_bang(cau_hoi, nap_kho(engine, as_of))
-                tra_loi = loi_dan_bang()
+            tinh = khia_canh_kho if y_dinh == Intent.hoi_ve_kho else khia_canh
+            cac = tinh(goc if co_khia_canh(goc) else day_du)
+            # `as_of_hieu_luc` chứ không phải `date.today()`: cùng một chủ sở hữu
+            # quy tắc mốc hiệu lực với `n_expand` và với khoá cache — số văn bản
+            # "đang dùng" phụ thuộc mốc thời gian.
+            kho = nap_kho(engine, as_of_hieu_luc(st.get("as_of_date")))
+            st = {**st, "khia_canh_meta": cac, "traces": {**(st.get("traces") or {}), "gioi_thieu_khia_canh": cac}}
+            if y_dinh == Intent.hoi_ve_kho and chi_hoi_kho(cac) and xin_dang_bang(day_du):
+                # Pydantic → dict THUẦN trước khi vào state, cùng quy ước
+                # `_state_vao` đã lập cho `LuotTruoc`: LangGraph state là dữ liệu
+                # thuần, và một `Bang` lẫn vào đó không tuần tự hoá được thẳng
+                # bằng `json.dumps` ở tầng cache (`cache_tra_loi`).
+                st = {
+                    **st,
+                    "tra_loi_kho": loi_dan_bang(),
+                    "tra_loi_kho_bang": [b.model_dump() for b in dung_bang(day_du, kho)],
+                }
             else:
-                bang = []
-                # `st["query"]` NGUYÊN VĂN, không phải `cau_hoi` ở trên: đổi
-                # biến ở đây đổi luôn văn xuôi mà ba mươi test của
-                # `test_kho.py` đang canh — một hồi quy không nhánh bảng nào
-                # đòi hỏi.
-                tra_loi = tra_loi_ve_kho(engine, st["query"], as_of)
-            # Pydantic → dict THUẦN trước khi vào state, cùng quy ước
-            # `_state_vao` đã lập cho `LuotTruoc` (`lich_su`): LangGraph state
-            # là dữ liệu thuần, và một `Bang` lẫn vào đó không tuần tự hoá
-            # được thẳng bằng `json.dumps` ở tầng cache (`cache_tra_loi`).
-            st = {**st, "tra_loi_kho": tra_loi,
-                  "tra_loi_kho_bang": [b.model_dump() for b in bang]}
+                st = {**st, "bang_du_kien": bang_du_kien(day_du, kho)}
+            if y_dinh == Intent.gioi_thieu:
+                return assemble(st, {}, llm, generate_model(), prompt_path=Path(s.assemble_prompt))
         ids = [r.claim.provision_id for r in (st.get("tier1") or [])]
         ket = assemble(
             {**st, "abstain_threshold": s.abstain_threshold},
