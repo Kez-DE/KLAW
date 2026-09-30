@@ -210,6 +210,7 @@ def test_chi_id_KHONG_embed_KHONG_xoa_chunk_cua_van_ban_khac(monkeypatch):
     monkeypatch.setattr(bc, "run_migrations", lambda: None)
     monkeypatch.setattr(bc, "get_engine", Engine)
     monkeypatch.setattr(bc, "load_provisions", lambda e: prov)
+    monkeypatch.setattr(bc, "dieu_khoan_an", lambda e, as_of: frozenset())
     monkeypatch.setattr(bc, "EmbeddingClient", EmbedderGia)
 
     assert (run(model=_MODEL_GIA, dry_run=True, chi_moi=True) | {})["thua"] == 1
@@ -256,6 +257,50 @@ def test_van_ban_sau_khong_sinh_chunk_nao_thi_DUNG_truoc_khi_embed(monkeypatch):
     monkeypatch.setattr(bc, "run_migrations", lambda: None)
     monkeypatch.setattr(bc, "get_engine", lambda: None)
     monkeypatch.setattr(bc, "load_provisions", lambda e: prov)
+    monkeypatch.setattr(bc, "dieu_khoan_an", lambda e, as_of: frozenset())
     monkeypatch.setattr(bc, "EmbeddingClient", Embedder)
     with pytest.raises(ValueError, match=r"\['B'\]"):
         run(model=_MODEL_GIA, dry_run=True)
+
+
+def test_run_bo_chu_dieu_khoan_bi_bai_bo_ke_ca_chi_moi(monkeypatch):
+    """Quyết định 2026-09-30 mục 9(e): mọi lượt dựng chunk dùng tập bãi bỏ của app
+    (`dieu_khoan_an`). Không thì `--chi-moi` sau lượt nhúng lại sẽ khôi phục chữ đã bãi bỏ —
+    xoá chunk mới, trả tiền nhúng lại chunk cũ — mà không báo gì. $0, không DB."""
+    dieu = {
+        "id": 1,
+        "document_id": "A",
+        "parent_id": None,
+        "cap": "dieu",
+        "so_hieu_cap": "1",
+        "noi_dung": "Điều 1. Nội dung.",
+        "duong_dan": "1/2020/NĐ-CP > Điều 1",
+        "depth": "deep",
+    }
+    khoan = dict(
+        dieu, id=2, parent_id=1, cap="khoan", noi_dung="1. Chữ đã bãi bỏ.", duong_dan="1/2020/NĐ-CP > Điều 1 > Khoản 1"
+    )
+    cu = "1/2020/NĐ-CP > Điều 1\nĐiều 1. Nội dung. 1. Chữ đã bãi bỏ."
+
+    class Conn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def execute(self, sql, params=None):
+            return [(1, cu, 99)]
+
+    class Engine:
+        connect = staticmethod(Conn)
+
+    monkeypatch.setattr(bc, "run_migrations", lambda: None)
+    monkeypatch.setattr(bc, "get_engine", Engine)
+    monkeypatch.setattr(bc, "load_provisions", lambda e: [dieu, khoan])
+    monkeypatch.setattr(bc, "dieu_khoan_an", lambda e, as_of: frozenset({2}))
+    info = run(model=_MODEL_GIA, dry_run=True, chi_moi=True)
+    assert (info["moi"], info["thua"]) == (1, 1), info
+    monkeypatch.setattr(bc, "dieu_khoan_an", lambda e, as_of: frozenset())
+    info = run(model=_MODEL_GIA, dry_run=True, chi_moi=True)
+    assert (info["moi"], info["thua"]) == (0, 0), info

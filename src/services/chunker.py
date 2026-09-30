@@ -43,7 +43,12 @@ def _text_of(p: dict) -> str:
     return (p.get("noi_dung") or "").strip()
 
 
-def build_chunks(provisions: list[dict], max_tokens: int) -> list[ChunkRow]:
+def build_chunks(provisions: list[dict], max_tokens: int, an: frozenset[int] = frozenset()) -> list[ChunkRow]:
+    """`an`: điều khoản bị bãi bỏ kèm hậu duệ (`hien_thi.dieu_khoan_an`, quyết định 2026-09-30
+    mục 9(e)). Chữ của chúng không vào chunk neo ở điều khoản CÒN hiệu lực — không thì chữ đã bãi
+    bỏ vẫn góp vào điểm BM25/dense của Điều cha. Chunk neo ở chính điều khoản bị ẩn giữ nguyên
+    chữ (truy hồi lọc nó bằng `:bai_bo`), và cắt theo Khoản hay không tính trên chữ ĐẦY ĐỦ: bãi
+    bỏ chỉ đổi chữ của chunk, không đổi neo."""
     # TẦNG NÔNG trước, và nó KHÔNG đi qua `citable`: một văn bản tầng nông là
     # văn bản ta biết là có mà không có toàn văn máy đọc được, nên thứ duy nhất
     # đánh chỉ mục được là TÊN nó, nằm ở hàng `mo_dau`. Không có hàng này thì
@@ -74,19 +79,23 @@ def build_chunks(provisions: list[dict], max_tokens: int) -> list[ChunkRow]:
         if p.get("parent_id") is not None:
             con.setdefault(p["parent_id"], []).append(p)
 
-    def gom(p: dict) -> str:
-        """Text của p + toàn bộ con, theo thứ tự."""
+    def gom(p: dict, bo: frozenset[int] = frozenset()) -> str:
+        """Text của p + toàn bộ con không thuộc `bo`, theo thứ tự."""
         acc = [_text_of(p)]
         for c in con.get(p["id"], []):
-            acc.append(gom(c))
+            if c["id"] not in bo:
+                acc.append(gom(c, bo))
         return " ".join(x for x in acc if x).strip()
+
+    def bo_cua(neo: dict) -> frozenset[int]:
+        return frozenset() if neo["id"] in an else an
 
     id_citable = {p["id"] for p in citable}
     for p in citable:
         if p["cap"] == "khoan" and p.get("parent_id") not in id_citable:
             # Khoản không có Điều cha (07/2007/NQ-CP, 62/2008/TT-BNN đánh số thẳng):
             # chính nó là gốc, không thì văn bản sâu đó có 0 chunk.
-            if full := gom(p):
+            if full := gom(p, bo_cua(p)):
                 body = f"{p['duong_dan']}\n{full}"
                 out.append(ChunkRow(p["id"], body, dem_token(body)))
             continue
@@ -97,9 +106,10 @@ def build_chunks(provisions: list[dict], max_tokens: int) -> list[ChunkRow]:
             continue
         header = p["duong_dan"]
         body = f"{header}\n{full}"
+        loc = f"{header}\n{gom(p, bo_cua(p))}"  # chữ của chunk; cắt hay không vẫn theo `body`
 
         if dem_token(body) <= max_tokens:
-            out.append(ChunkRow(p["id"], body, dem_token(body)))
+            out.append(ChunkRow(p["id"], loc, dem_token(loc)))
             continue
 
         # Quá dài → cắt theo Khoản. Header mỗi mảnh = duong_dan của chính Khoản
@@ -113,11 +123,11 @@ def build_chunks(provisions: list[dict], max_tokens: int) -> list[ChunkRow]:
         # chunk và trùng lặp, đúng thứ mà việc cắt theo Khoản sinh ra để tránh.
         khoans = [c for c in con.get(p["id"], []) if c["cap"] == "khoan"]
         if not khoans:
-            out.append(ChunkRow(p["id"], body, dem_token(body)))
+            out.append(ChunkRow(p["id"], loc, dem_token(loc)))
             continue
         dan = _text_of(p)
         for k in khoans:
-            ktext = gom(k)
+            ktext = gom(k, bo_cua(k))
             if not ktext:
                 continue
             kbody = "\n".join(x for x in (k["duong_dan"], dan, ktext) if x)
