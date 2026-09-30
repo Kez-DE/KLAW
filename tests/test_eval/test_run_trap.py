@@ -84,6 +84,69 @@ def test_tra_loi_dan_dung():
     assert not dung(it, _st("x", rt="abstain"))
 
 
+def test_tra_loi_dan_dung_cam_nhac_luat_da_sua():
+    """Trúng neo mà vẫn nêu quy định đã bị sửa (85/2025/QH15 Điều 1 khoản 2 đổi Tòa
+    án nhân dân cấp huyện thành Tòa án nhân dân khu vực) là SAI."""
+    it = {"ky_vong": "tra_loi_dan_dung", "duong_dan": ["45/2019/QH14 > Điều 26"], "cam_nhac": ["cấp huyện"]}
+    assert dung(it, _st("Nộp đơn tại Tòa án nhân dân khu vực [Điều 26](cite:1)."))
+    assert not dung(it, _st("Nộp đơn tại Tòa án nhân dân cấp huyện [Điều 26](cite:1)."))
+
+
+def test_tra_loi_dan_dung_cam_dan_dieu_da_bai_bo():
+    """Một neo trúng không cứu được câu còn dẫn điều khoản đã bị bãi bỏ (151/2025/NĐ-CP
+    Điều 21 khoản 4). So một chiều: dẫn Điều cha của một khoản bị bãi bỏ không phải là
+    dẫn phần bị bãi bỏ, và "Điều 10" không được bắt nhầm "Điều 106"."""
+    it = {
+        "ky_vong": "tra_loi_dan_dung",
+        "duong_dan": ["45/2019/QH14 > Điều 26"],
+        "cam_dan": ["102/2024/NĐ-CP > Điều 106", "101/2024/NĐ-CP > Điều 9 > Khoản 5", "24/2013/NĐ-CP"],
+    }
+
+    def cit(*dd):
+        return [{"k": 1, "doc_id": "139264", "duong_dan": "45/2019/QH14 > Điều 26"}] + [
+            {"k": i + 2, "doc_id": "x", "duong_dan": d} for i, d in enumerate(dd)
+        ]
+
+    assert dung(it, _st("x", citations=cit("102/2024/NĐ-CP > Điều 105 > Khoản 1")))
+    assert not dung(it, _st("x", citations=cit("102/2024/NĐ-CP > Điều 106 > Khoản 5 > Điểm a")))
+    assert not dung(it, _st("x", citations=cit("24/2013/NĐ-CP > Điều 12 > Khoản 2"))), "cả văn bản bị bãi bỏ"
+    assert dung(it, _st("x", citations=cit("101/2024/NĐ-CP > Điều 9"))), "Điều cha của khoản bị bãi bỏ"
+    assert dung(
+        {**it, "cam_dan": ["102/2024/NĐ-CP > Điều 10"]},
+        _st("x", citations=cit("102/2024/NĐ-CP > Điều 106")),
+    ), "tiền tố phải dừng ở ranh ' >', không bắt nhầm Điều 106"
+
+
+def test_cho_duyet_ghi_lai_nhung_khong_cham(monkeypatch):
+    """Câu chủ dự án chưa chốt nhãn vẫn chạy để ghi hành vi, nhưng KHÔNG vào tổng
+    (trap-oos-02, 09, 10, 14, 15 — bảng duyệt `trap_duyet_pham_vi.md`)."""
+    import asyncio
+
+    import eval.run_trap as rt
+
+    class _G:
+        async def ainvoke(self, s):
+            return {"result_type": "abstain", "answer": "", "citations": []}
+
+    monkeypatch.setattr(rt, "build_graph_tra_cuu", lambda: _G())
+    ket = asyncio.run(
+        rt.chay(
+            [
+                {"id": "a", "cau_hoi": "q", "nhom": "ngoai_pham_vi", "ky_vong": "cho_duyet"},
+                {"id": "b", "cau_hoi": "q", "nhom": "dieu_khong_ton_tai", "ky_vong": "abstain"},
+            ]
+        )
+    )
+    assert ket["theo_nhom"] == {"dieu_khong_ton_tai": [1, 1]}
+    assert ket["chi_tiet"][0] == {
+        "id": "a",
+        "nhom": "ngoai_pham_vi",
+        "cho_duyet": True,
+        "result_type": "abstain",
+        "token_in": 0,
+    }
+
+
 def test_khong_tien_doan():
     assert dung({"ky_vong": "khong_tien_doan"}, _st("Điều 36 quy định các trường hợp chấm dứt hợp đồng."))
     assert not dung({"ky_vong": "khong_tien_doan"}, _st("Bạn sẽ thắng vụ này."))
