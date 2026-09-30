@@ -46,6 +46,25 @@ lời kiểu bot". Đo trên app thật cùng ngày (traces 88117154…, 8eb13b0
    2024 và nghị định hướng dẫn giải quyết tranh chấp) có toàn văn, hiện đúng.
 8. Dòng "Tôi hiểu câu hỏi của bạn là…" chỉ hiện khi câu viết lại đổi nghĩa đáng kể,
    không bao giờ với câu hỏi về KLAW; cờ định tuyến và khía cạnh được ghi vào traces.
+9. **Điều khoản bị bãi bỏ được ghi có bằng chứng và bị ẩn** (chủ dự án chốt 2026-09-30).
+   (a) Mỗi điều, khoản, điểm bị một văn bản khác bãi bỏ đích danh được ghi kèm điều khoản
+   đi bãi bỏ, câu trích nguyên văn và nguồn chính thống (bảng `bai_bo_dieu_khoan`,
+   migration 043; seed `data/seed/bai_bo_dieu_khoan.yaml`, đọc bằng
+   `scripts/trich_bai_bo.py` từ toàn văn gateway Bộ Tư pháp). Từ ngày bãi bỏ, điều khoản
+   đó cùng mọi khoản, điểm con bị ẩn khỏi truy hồi, căn cứ, trích dẫn và tìm kiếm; trên
+   thân trang văn bản nó còn số hiệu, tiêu đề và câu "Đã bị bãi bỏ bởi … từ …" kèm liên
+   kết văn bản đi bãi bỏ; phần còn lại của văn bản vẫn hiện. `effectivity` là nơi phán
+   điều khoản đã tới ngày bãi bỏ chưa. (b) Áp cho 101/2024/NĐ-CP và 102/2024/NĐ-CP theo
+   151/2025/NĐ-CP Điều 21 khoản 4 điểm b, c, và cho mọi văn bản toàn văn đang hiện có cạnh
+   "hết hiệu lực 1 phần" mà câu bãi bỏ đọc trọn được thành danh sách điều khoản; câu giới
+   hạn nội dung ("các nội dung quy định về …"), bãi bỏ cụm từ, phụ lục, mẫu, câu có "trừ
+   …", hay câu nêu số điều khoản của bản đã sửa đổi thì không ghi (đợt đầu: 56/128 cặp,
+   61 câu, 187 điều khoản). (c) Bộ lọc cứng lĩnh vực của truy hồi đọc `nganh_luat` — nhãn
+   xếp cho cả kho bằng một bộ từ khoá — thay nhãn nguồn `linh_vuc` (102/2024 mang "Đất
+   đai", Luật Đất đai 31/2024/QH15 để trống); mã lĩnh vực của bước viết lại truy vấn được
+   xếp vào ngành bằng cùng bộ từ khoá, và điều khoản của văn bản chưa xếp ngành được giữ.
+   (d) Sau (a)–(c), 101/2024 và 102/2024 được hiện: cạnh "hết hiệu lực 1 phần" đã đối
+   chiếu nguyên văn thay cạnh "thay thế" sai, bỏ lệnh giữ ẩn của commit ba25aef.
 
 ## Alternatives Considered
 

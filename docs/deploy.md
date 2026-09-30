@@ -95,7 +95,7 @@ Supabase → Authentication → URL Configuration: thêm `https://klaw-web-produ
 - Sau đó: API tự áp `MIGRATIONS_KHOI_DONG` (019+) lúc khởi động; migration mới thêm
   vào tuple đó trong `src/main.py` (test guard bắt buộc).
 - Kho luật: sao chép từ DB local (đã có embedding, không tốn OpenRouter):
-  `docker exec klaw-db-1 pg_dump -U klaw -d klaw --data-only --no-owner --no-privileges -t documents -t provisions -t '"references"' -t chunks -t sua_doi_dieu_khoan -t canh_doi_chieu -t anh_van_ban > corpus.sql`
+  `docker exec klaw-db-1 pg_dump -U klaw -d klaw --data-only --no-owner --no-privileges -t documents -t provisions -t '"references"' -t chunks -t sua_doi_dieu_khoan -t canh_doi_chieu -t anh_van_ban -t bai_bo_dieu_khoan > corpus.sql`
   rồi `railway run -s pgvector -- sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction -q -f corpus.sql'`
   (240 MB, vài phút). `canh_doi_chieu` (039, bằng chứng cạnh đã đối chiếu nguyên văn)
   khoá theo `references.id` — COPY giữ nguyên id nên chép cùng lượt là đúng; `anh_van_ban`
@@ -111,7 +111,9 @@ Supabase → Authentication → URL Configuration: thêm `https://klaw-web-produ
   `python -m scripts.lam_moi_hieu_luc --tu-seed` (0 request): nạp tình trạng hiệu
   lực từ `data/seed/hieu_luc_gateway.jsonl` + `hieu_luc_ghi_de.yaml`. Bằng chứng cạnh
   (`data/seed/canh_doi_chieu.yaml`) được `load_incoming_edges` đặt lại ở cuối mỗi lượt;
-  nạp riêng: `python -m scripts.nap_canh_doi_chieu`.
+  nạp riêng: `python -m scripts.nap_canh_doi_chieu`. Điều khoản bị bãi bỏ (quyết định
+  2026-09-30 mục 9, bảng 043) khoá theo `provisions.id`, nên sau MỖI lần `ingest` chạy
+  `python -m scripts.nap_bai_bo_dieu_khoan` (dry-run) rồi thêm `--ghi`.
   Bản PDF đã ký và ảnh trang 1 (quyết định mục 9): `python -m scripts.nap_pdf_ban_ky
   --cache DIR --as-of YYYY-MM-DD` (dry-run, ghi `data/seed/pdf_ban_ky.yaml`) rồi thêm
   `--ghi`; cache trống thì tra lại vanban.chinhphu.vn (≤1 request/giây, ~10 giây/văn bản).

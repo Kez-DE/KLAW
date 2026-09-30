@@ -196,6 +196,13 @@ ask about KLAW's documents; a legal answer names a law it cannot cite as one to
 "đối chiếu thêm", never as missing from the kho.
 _Avoid_: corpus, database, knowledge base
 
+**điều khoản bị bãi bỏ**:
+A provision that another document repealed by name, recorded with the repealing provision,
+a verbatim quote and the official source. From its repeal date it and its sub-provisions
+are never retrieved, cited or searched; the document page shows its number, title and
+"Đã bị bãi bỏ bởi … từ …". The rest of the document stays shown.
+_Avoid_: hết hiệu lực một phần (a document label), xoá, sửa đổi
+
 ### Outcomes
 
 **abstain**:
