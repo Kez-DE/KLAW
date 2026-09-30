@@ -177,6 +177,18 @@ retired for drafts.
   xfailed; frontend typecheck and kiem exit 0. Open: `cong_van` logs "bản đồ 3 chỗ,
   bộ đọc 4" when the trích yếu itself holds "……" (the builder prints trích yếu text
   without mapping its blanks); that cell has no keyed blank, so nothing is lost today.
+- [x] Real-app D2 (2026-09-30, `fix/tra-loi-he-thong-2`): "hiện tại pháp luật việt nam
+  chia thành những gì" (trace c8a98c3d, 35/35/35 claims) was demoted by
+  `_the_khong_hop_le`: `cite:15≠['1']`…`cite:23≠['1']` (uvicorn log) — the model
+  tagged 87/2025/QH15 > Điều 1 > Khoản 1 as "Điều 4", the article that clause
+  re-enacts. The tag and Điều checks now accept the Điều an amending clause carries
+  (lead-in up to "như sau" only; cross-references still rejected). The khoản of a
+  wholly amended Điều now carry the amendment record (64/2025 Điều 4 khoản 13 was
+  `mot_phan_khong_xac_dinh`, now `bi_sua_doi` by 87/2025), and expand follows it.
+  Dead ends of a legal-system or non-lao_dong question ask no labour follow-up.
+  Offline replay on the dev DB (expand 205 = trace, 0 LLM calls): main → abstain with
+  the nine tags; branch → answer. mh-004 ("Điều 108", check 5) and mh-012 (a doc id
+  spliced from two UUIDs) are other causes, left open.
 - [ ] V reviews, real-app check, eval.
 
 ## Validation
