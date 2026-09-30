@@ -85,7 +85,10 @@ Active. Owner decision (A) 2026-09-30, recorded as item 9 of
   requires a `MIEN_BAI_BO` reason for every provisions/chunks reader; soft bonus compares
   `nganh_luat`; `ingest` re-syncs the table. Proof re-run: 0 repealed at every step, 31/2024
   Điều 236 rank 1 and kept.
-- [ ] Integrate: merge, paid eval, real-app check of a 101/102 document page.
+- [ ] Integrate: merge, paid eval, real-app check of a 101/102 document page. Merged and
+  measured on `integ/bai-bo-nhan-trap` (19436f0, not in main): results and open items in
+  `docs/plans/active/tra-loi-tu-nhien.md` and `eval/results/kho-luat/so-sanh-bb.md`; the
+  document page body was checked in-process only (no running server).
 
 ## Validation
 
