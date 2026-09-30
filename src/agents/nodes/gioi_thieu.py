@@ -569,8 +569,9 @@ def _cau_hoi_tiep(cac: list[str]) -> str:
     return ""
 
 
-def cau_gioi_thieu(cau_hoi: str, kho: list[dict] | None = None,
-                   luot_dau: bool = True, cac_khia_canh: list[str] | None = None) -> str:
+def cau_gioi_thieu(
+    cau_hoi: str, kho: list[dict] | None = None, luot_dau: bool = True, cac_khia_canh: list[str] | None = None
+) -> str:
     """Lời đáp ghép từ các khía cạnh câu hỏi nêu, theo đúng thứ tự người hỏi.
 
     `kho` là snapshot đã nạp sẵn (`kho.nap_kho`), truyền vào chứ không tự truy
