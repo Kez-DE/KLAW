@@ -3191,12 +3191,17 @@ def kiem_phep_sua(
     return giu, bo, gia_tri_bo
 
 
+# Danh xưng người hỏi đặt trước tên ("bà Trần Thị Bình"); chỗ họ tên nhận tên trơn.
+_RE_DANH_XUNG = re.compile(r"^(?:ông|bà|anh|chị)\s+", re.IGNORECASE)
+
+
 def _lay_khong_dat(tho: object, loi_nguoi: str, phep: list[dict]) -> list[str]:
     """Giá trị của các phép bị bỏ, rồi `khuon.khong_dat` của mô hình → giá trị người
     hỏi đưa mà chưa đặt được vào chỗ nào. Chỉ giữ mục là CHUỖI CON của lời người hỏi
     (không phân biệt hoa/thường, dấu — `_khong_dau`): lời đáp nhắc lại nó, nên một
     mục mô hình tự nghĩ ra không được lên đó. Bỏ trùng, bỏ mục đã nằm trong một phép
-    vừa giữ (mô hình vừa đặt vừa kể)."""
+    của `phep` (mô hình vừa đặt vừa kể) — kể cả khi chỉ khác danh xưng đầu: «Bà Trần
+    Thị Bình» khi chỗ họ tên đã in "Trần Thị Bình" (app thật 2026-09-30)."""
     nguon = _khong_dau(" ".join(loi_nguoi.split()))
     da_dat = [_khong_dau(" ".join(str(p.get("gia_tri") or p.get("noi_dung") or "").split())) for p in phep]
     ra: list[str] = []
@@ -3204,8 +3209,11 @@ def _lay_khong_dat(tho: object, loi_nguoi: str, phep: list[dict]) -> list[str]:
     for x in tho if isinstance(tho, list) else []:
         v = " ".join(x.split()) if isinstance(x, str) else ""
         k = _khong_dau(v)
+        # Bỏ danh xưng thì phải BẰNG một giá trị đã đặt, không chỉ nằm trong nó: "Anh Thư"
+        # còn "thu", chuỗi con của "Nguyễn Thị Thu".
+        ten = _khong_dau(_RE_DANH_XUNG.sub("", unicodedata.normalize("NFC", v)))
         # 120 ký tự: một giá trị điền là một dòng; dài hơn là một câu, không phải giá trị.
-        if v and len(v) <= 120 and k in nguon and k not in da and not any(k in s for s in da_dat):
+        if v and len(v) <= 120 and k in nguon and k not in da and not any(k in s for s in da_dat) and ten not in da_dat:
             da.add(k)
             ra.append(v)
     return ra

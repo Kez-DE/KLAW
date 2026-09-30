@@ -964,3 +964,49 @@ def test_ten_van_ban_da_in_thanh_tieu_de_khong_bao_chua_dat(kho, monkeypatch, ti
     )
     ket = _luot(_st(THUE_NHA, ng=ng), _LLM(ra))
     assert f"Chưa đặt được: {', '.join([*con_bao, '«thời hạn 12 tháng»'])}" in ket["answer"]
+
+
+@pytest.mark.parametrize(
+    ("gia_tri", "con_bao"),
+    [
+        # App thật 2026-09-30, bản thảo c53f6ef8: tên hai bên đã in ở khối các bên và khối
+        # ký, mô hình vẫn kể chúng kèm danh xưng người hỏi nói ("bà …") trong `khong_dat`.
+        ([("ben_cho_thue", "Nguyễn Văn An"), ("ben_thue", "Trần Thị Bình")], []),
+        # Tên bên thuê không chỗ nào nhận: vẫn nói thẳng là chưa đặt được.
+        ([("ben_cho_thue", "Nguyễn Văn An")], ["«Bà Trần Thị Bình»"]),
+    ],
+    ids=["da_in", "chua_in"],
+)
+def test_ten_kem_danh_xung_da_in_khong_bao_chua_dat(kho, monkeypatch, gia_tri, con_bao):
+    ng = _ng_nha(monkeypatch, {"soan_thao_goi_y": {"loai": "hop_dong_thue_nha_o"}})
+    ra = _ra(
+        tieu_de=None,
+        bo_cuc=None,
+        can_cu=None,
+        ben=None,
+        gia_tri=[{"ben": b, "truong": "ho_ten", "gia_tri": v} for b, v in gia_tri],
+        dieu=[{"key": "tai_san_thue", "ten": "Nhà ở cho thuê", "doan": ["Nhà ở tại ……"]}],
+        khong_dat=["Bà Trần Thị Bình", "Ông Nguyễn Văn An", "thời hạn 12 tháng"],
+    )
+    ket = _luot(_st(THUE_NHA, ng=ng), _LLM(ra))
+    assert _gia_tri(kho) == {v for _, v in gia_tri}
+    assert f"Chưa đặt được: {', '.join([*con_bao, '«thời hạn 12 tháng»'])} —" in ket["answer"]
+
+
+def test_ten_da_tren_phien_ban_khong_bao_chua_dat_o_luot_sua(kho):
+    # Tên đã điền ở phiên bản 1 mang sang tệp dựng lại: lượt sửa không đặt lại nó (phép y
+    # hệt không phải giá trị mới), nhưng nó vẫn nằm trên trang.
+    _luot(_st(), _LLM(_ra()))
+    them = {"thao_tac": "them_sau", "dieu": 2, "key": None, "ten": "Phạt vi phạm", "doan": ["Bên vi phạm chịu phạt."]}
+    ra = _ra(
+        muc_tieu="sua_ban_dang_co",
+        dieu=None,
+        gia_tri=[],
+        sua_dieu=[them],
+        khong_dat=["bà Trần Thị Bình", "thời hạn 12 tháng"],
+    )
+    ket = _luot(
+        _st("thêm điều phạt vi phạm, thời hạn 12 tháng; bên thuê vẫn là bà Trần Thị Bình", nhe=kho.nhe()), _LLM(ra)
+    )
+    assert kho.bt["bt-1"]["phien_ban"] == 2 and "Trần Thị Bình" in _gia_tri(kho)
+    assert "Chưa đặt được: «thời hạn 12 tháng» —" in ket["answer"]
