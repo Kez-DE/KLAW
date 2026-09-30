@@ -295,6 +295,16 @@ def test_cau_gioi_han_chi_di_voi_cau_hoi_so_lieu_van_ban():
     assert ans.endswith("Bạn muốn xem lĩnh vực nào?"), "the invitation stays last"
 
 
+@pytest.mark.parametrize("llm", [LlmViet("Tôi có Luật Nhà ở số 27/2023/QH15."), LlmHong()])
+def test_tra_so_hieu_khong_mang_cau_gioi_han(llm):
+    """Item 5 with the kho rule (`kho.dung_cau_tra_loi`): a number lookup already
+    says whether the document is held — it is not a document-count answer, on the
+    model path or the fallback."""
+    ans = _meta("có luật nhà ở 27/2023/QH15 không", llm, intent="hoi_ve_kho")["answer"]
+    assert "27/2023/QH15" in ans
+    assert CAU_GIOI_HAN not in ans
+
+
 def _giu(cau_hoi: str, cau: str, kho=KHO) -> bool:
     """Does the sheet check keep this one model sentence?"""
     bang = gt.bang_du_kien(cau_hoi, kho)

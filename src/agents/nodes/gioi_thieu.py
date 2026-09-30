@@ -588,6 +588,15 @@ def _cau_hoi_tiep(cac: list[str]) -> str:
     return ""
 
 
+def _ve_so_lieu(cau_hoi: str, bang: dict[str, str], cac: list[str]) -> bool:
+    """Lời đáp nói SỐ LIỆU văn bản — chỉ khi đó mới đóng bằng `CAU_GIOI_HAN` (quyết
+    định 2026-09-30 mục 5): danh sách Bộ luật, lĩnh vực, bản tóm tắt. Câu tra một số
+    hiệu đã tự nói có hay chưa có văn bản đó, như `kho.dung_cau_tra_loi`."""
+    return "kho" in bang and (
+        "bo_luat" in cac or "linh_vuc" in cac or ("kho" in cac and not moi_so_hieu_trong(cau_hoi))
+    )
+
+
 def _du_phong(cau_hoi: str, bang: dict[str, str], cac: list[str], luot_dau: bool = True) -> str:
     """Câu dự phòng — các dòng của bảng cho các khía cạnh được hỏi, theo thứ tự
     người hỏi, rồi câu giới hạn (chỉ khi hỏi về văn bản và bảng có số liệu) và
@@ -599,7 +608,7 @@ def _du_phong(cau_hoi: str, bang: dict[str, str], cac: list[str], luot_dau: bool
         return f"Chào bạn. {bang['vai_tro']}\n\n{HOI_TIEP_NANG_LUC}"
     khoa = dict.fromkeys(k for t in cac for k in _DONG_CUA[t])
     van = "\n\n".join(dict.fromkeys(bang.get(k, THIEU_KHO) for k in khoa))
-    if "kho" in bang and can_kho(cac):
+    if _ve_so_lieu(cau_hoi, bang, cac):
         van += "\n\n" + CAU_GIOI_HAN
     if hoi := _cau_hoi_tiep(cac):
         van += "\n\n" + hoi
@@ -952,7 +961,7 @@ def tra_loi_meta(
     if not van:
         logger.warning("gioi_thieu: không câu nào của model được bảng đỡ — dùng câu dự phòng: %r", tho[:200])
         return du_phong, usage, "du_phong"
-    if "kho" in bang and can_kho(cac) and CAU_GIOI_HAN not in van:
+    if _ve_so_lieu(cau_hoi, bang, cac) and CAU_GIOI_HAN not in van:
         dau, _, cuoi = van.rpartition("\n\n")
         van = f"{dau}\n\n{CAU_GIOI_HAN}\n\n{cuoi}" if dau and cuoi.endswith("?") else f"{van}\n\n{CAU_GIOI_HAN}"
     return van, usage, "llm"
