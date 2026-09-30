@@ -79,8 +79,8 @@ def test_11_van_ban_T1_dung_bo_ba_va_doc_id_toan_so(documents):
     thành hai node) và `175027` (Luật Bảo hiểm xã hội, lỗi chính tả nguồn
     "Điêu 38") bị cổng cấu trúc `parse_anomalies` chặn khi build seed — KHÔNG
     phải id sai — nên bị loại khỏi `DOC_IDS`/`TIEU_DE_DOI_CHIEU`. Xem
-    `KHONG_NAP` ở `scripts/fetch_moj.py`. Domain "Nhà ở" và "Bảo hiểm xã hội"
-    tạm 0 văn bản mới.
+    `KHONG_NAP` ở `scripts/fetch_moj.py`. N1 2026-09-30: parser đã sửa, `169032`
+    vào `DOC_IDS` (bảng đối chiếu tiêu đề giữ 11).
 
     Bộ ba (doc_id, so_ky_hieu, loai_van_ban): doc_id+so_ky_hieu đối chiếu
     `DOC_IDS`; `loai_van_ban == "Luật"` là lưới an toàn cấu trúc THỨ HAI cho
