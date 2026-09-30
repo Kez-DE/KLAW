@@ -185,7 +185,14 @@ retired for drafts.
   (lead-in up to "như sau" only; cross-references still rejected). The khoản of a
   wholly amended Điều now carry the amendment record (64/2025 Điều 4 khoản 13 was
   `mot_phan_khong_xac_dinh`, now `bi_sua_doi` by 87/2025), and expand follows it.
-  Dead ends of a legal-system or non-lao_dong question ask no labour follow-up.
+  Dead ends of a legal-system structure question (`hoi_cau_truc_phap_luat`) or a
+  non-lao_dong question ask no labour follow-up; review fix: a case that only names
+  "luật VN"/"luật nước ta" ("Theo luật VN thì tôi bị nợ lương…") still asks. Open,
+  owner decision: the pre-amendment khoản of 64/2025 Điều 4 are `bi_sua_doi` and stay
+  in prose with a warning (policy test `test_bi_sua_doi_KHONG_bi_loc_khoi_prose`), so
+  the answer may list abolished kinds ("HĐND cấp huyện") beside 87/2025; and
+  `TRAN_GACH` 4 cuts a 15-item list without telling the reader. Needs a paid real-app
+  check of this question.
   Offline replay on the dev DB (expand 205 = trace, 0 LLM calls): main → abstain with
   the nine tags; branch → answer. mh-004 ("Điều 108", check 5) and mh-012 (a doc id
   spliced from two UUIDs) are other causes, left open.
