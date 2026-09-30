@@ -13,7 +13,8 @@ Active. Owner decision (A) 2026-09-30, recorded as item 9 of
 1. Every article/khoản/điểm that another document repealed by name, where the repealing
    sentence reads as a full provision list, is recorded with the repealing provision, a
    verbatim quote and the official URL; from its repeal date it and its sub-provisions are
-   never retrieved, expanded into căn cứ, cited or found by search, and the document page
+   never retrieved, expanded into căn cứ, cited (nor matched as a quote under a live parent)
+   or found by search, and the document page
    shows its number, title and "Đã bị bãi bỏ bởi … từ …" with a link.
 2. The retrieval hard field filter reads `nganh_luat` and keeps unclassified documents, so
    showing 102/2024 cannot drop Luật Đất đai 31/2024/QH15 Điều 235/236.
@@ -24,6 +25,10 @@ Active. Owner decision (A) 2026-09-30, recorded as item 9 of
 
 - Table `bai_bo_dieu_khoan` (migration 043), sibling of `sua_doi_dieu_khoan` so no
   amendment reader mistakes a repeal for an amendment.
+- Candidates: loai 23 edges out of, and loai 20 edges into, a shown deep document (an amending
+  document also repeals: 49/2026, 226/2025 → 101/102/2024), plus `CAP_THEM`/`DOI_CHIEU_TAY`.
+  `DOI_CHIEU_TAY`: sentences the parser deliberately skips, verified by hand, re-checked
+  verbatim against the gateway text on every seed run (`kiem_boi: doi-chieu-tay`).
 - `scripts/trich_bai_bo.py`: deterministic parser over gateway full text → seed
   `data/seed/bai_bo_dieu_khoan.yaml`; `scripts/nap_bai_bo_dieu_khoan.py` loads it
   (dry-run default, `--ghi`), keyed by (document id, `duong_dan`).
@@ -41,8 +46,18 @@ Active. Owner decision (A) 2026-09-30, recorded as item 9 of
   Re-hide: `.claude/worktrees/_scratch/du-lieu-n1/giu_an_101_102.py --ghi` (edges only).
 - Full rollback: `pg_restore --clean` from
   `.claude/worktrees/_scratch/backup-truoc-bai-bo-20260930.dump`.
-- An `ingest` that rewrites provision ids cascades the repeal rows away: rerun
-  `python -m scripts.nap_bai_bo_dieu_khoan --ghi` (runbook note in `docs/deploy.md`).
+- An `ingest` that rewrites provision ids cascades the repeal rows away: `ingest` now re-syncs
+  the table from the seed after `resolve_all` (fails loudly if a seed row no longer resolves).
+- Field filter (ADR 9(c)) now filters every question: BLDS 91/2015 Điều 248 drops from the
+  land question; cross-field căn cứ (BLDS/BLTTDS) can drop. Zero-cost golden proxy loses 0/18
+  gold. Recommended: do not merge before the paid Integrate eval (golden + trap + land question
+  with real rewrite variants); fallback `KLAW_LINH_VUC_LOC=false`.
+- Ranking-only leak (ADR 9(e)): 93 chunk anchors (98 chunks) still embed repealed descendant
+  text; fix = re-chunk + re-embed those anchors (small paid embed, owner approval).
+- Not recorded: 6 pairs whose repealing text is PDF-only or 400 at the gateway (ADR 9(b)
+  list), and every sentence the parser cannot read in full.
+- Soạn thảo checklist provisions are not filtered by `:bai_bo` (0 repealed on 2026-09-30,
+  `MIEN_BAI_BO` note); filter in `chi_van_ban_hien` once one is.
 
 ## Progress
 
@@ -60,6 +75,16 @@ Active. Owner decision (A) 2026-09-30, recorded as item 9 of
   the raw query, not filtered out). Main's code on the same DB: 101/2024 Điều 30 khoản 12
   (repealed) at rank 4 and the raw-label filter keeps only 4 provisions of 102/2024,
   dropping Điều 236.
+- [x] Review round 2026-09-30 (6 findings): candidates from loai 20 too, `DOI_CHIEU_TAY`
+  (49/2026 Điều 16 khoản 3 điểm d; 226/2025 Điều 7 khoản 3, 4 điểm c), same-day repeal
+  allowed (BLHS Điều 292), 6 more gateway texts fetched (5 PDF-only, 1 HTTP 400). Seed 86/363
+  pairs, 94 sentences, 296 provisions. Data stage: backup
+  `_scratch/backup-truoc-bai-bo-loai20-20260930.dump`; loader dry-run (187 → 296) then `--ghi`
+  twice (idempotent); 1,614 provisions hidden, shown set 486. Tier-1 tree excludes repealed
+  descendants (`nap_provisions(..., bai_bo)`, `_db_provisions` requires it); invariant test
+  requires a `MIEN_BAI_BO` reason for every provisions/chunks reader; soft bonus compares
+  `nganh_luat`; `ingest` re-syncs the table. Proof re-run: 0 repealed at every step, 31/2024
+  Điều 236 rank 1 and kept.
 - [ ] Integrate: merge, paid eval, real-app check of a 101/102 document page.
 
 ## Validation
@@ -70,5 +95,6 @@ Active. Owner decision (A) 2026-09-30, recorded as item 9 of
   `tests/test_services/test_retrieval_linh_vuc.py`,
   `tests/test_services/test_hien_thi_bat_bien.py`,
   `tests/test_scripts/test_incoming_edges.py` (pure part).
-- Integration: `tests/test_services/test_migration_043.py` (explicit path).
+- Integration: `tests/test_services/test_migration_043.py` (explicit path);
+  `tests/test_agents/test_verify_tier1.py -m integration` (repealed-quote case).
 - Repository-required checks: CI lane, ruff, frontend `npm run kiem`.
