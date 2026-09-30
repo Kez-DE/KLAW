@@ -206,7 +206,6 @@ def _nap(monkeypatch, loai: str, **st) -> dict:
 
     monkeypatch.setattr(g.gst, "requirements", lambda loai: ([], g.gst.load_checklist_cached(loai), {}))
     monkeypatch.setattr(g.gst, "provisions_theo_duong_dan", lambda dd: {})
-    monkeypatch.setattr(g.gst, "chua_toan_van", lambda engine, so, hien: [])
     monkeypatch.setattr(g, "hien_thi_luc", lambda engine, as_of: frozenset())
     monkeypatch.setattr(g.gst, "can_cu_van_ban_co_id", lambda e, d_, a: [])
     vao = _vao("soạn hợp đồng", HO_SO_TAI_KHOAN)
