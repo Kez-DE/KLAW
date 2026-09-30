@@ -902,8 +902,8 @@ def _tra_loi_meta(state: dict, llm, model: str) -> dict:
     nối state vào nó. Vẫn MỘT `result_type` mỗi ý định, chỉ `answer` đổi.
 
     `graph_tra_cuu.n_assemble` (nơi có `engine`) nạp kho một lần và đặt sẵn
-    `bang_du_kien` + `khia_canh_meta`; chỗ gọi trực tiếp không có chúng thì bảng
-    không có số liệu nào (`bang_du_kien(…, None)`), không bịa. Lượt xin bảng
+    `bang_du_kien`, `van_ban_bang` + `khia_canh_meta`; chỗ gọi trực tiếp không có
+    chúng thì bảng không có số liệu nào (`bang_du_kien(…, None)`), không bịa. Lượt xin bảng
     (`tra_loi_kho_bang`) giữ câu dẫn tất định: số liệu nằm ở chính hai bảng.
     """
     rt = ResultType(state["intent"])
@@ -924,6 +924,7 @@ def _tra_loi_meta(state: dict, llm, model: str) -> dict:
         model,
         cau_hoi_day_du=state.get("cau_hoi_day_du"),
         luot_dau=not (state.get("lich_su") or state.get("tom_tat")),
+        van_ban=state.get("van_ban_bang"),
     )
     ket = _base(state, rt, usage=usage, answer=answer, bang=[])
     ket["traces"]["gioi_thieu_nguon"] = nguon

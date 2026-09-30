@@ -81,7 +81,11 @@ class LlmHong:
 
 
 def _meta(cau: str, llm, intent: str = "gioi_thieu", kho=KHO, **them) -> dict:
-    return assemble({"query": cau, "intent": intent, "bang_du_kien": gt.bang_du_kien(cau, kho), **them}, {}, llm, "m")
+    bang = gt.bang_du_kien(cau, kho)
+    van_ban = gt.van_ban_cua_bang(bang, kho) if kho is not None else {}
+    return assemble(
+        {"query": cau, "intent": intent, "bang_du_kien": bang, "van_ban_bang": van_ban, **them}, {}, llm, "m"
+    )
 
 
 # ══ Item 2 — a situation question is a legal question ═══════════════════════
@@ -289,6 +293,151 @@ def test_cau_gioi_han_chi_di_voi_cau_hoi_so_lieu_van_ban():
     )["answer"]
     assert ans.count(CAU_GIOI_HAN) == 1
     assert ans.endswith("Bạn muốn xem lĩnh vực nào?"), "the invitation stays last"
+
+
+def _giu(cau_hoi: str, cau: str, kho=KHO) -> bool:
+    """Does the sheet check keep this one model sentence?"""
+    bang = gt.bang_du_kien(cau_hoi, kho)
+    van_ban = gt.van_ban_cua_bang(bang, kho) if kho is not None else {}
+    return bool(gt.loc_theo_bang(cau, bang, cho_phep_kho=True, van_ban=van_ban))
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        # Counts must match the noun they count (sheet: 4 shown, 3 full text, 1 Bộ luật).
+        "Tôi hiện có 2 Bộ luật: Lao động và Dân sự.",
+        "Tôi hiện có ba Bộ luật.",
+        "Tôi đọc được 4 văn bản có toàn văn.",
+        "Tôi đọc được 3 văn bản pháp luật, 4 văn bản có toàn văn.",
+        # Identity and limits the sheet contradicts.
+        "Tôi là luật sư AI của bạn.",
+        "Câu trả lời của tôi có giá trị pháp lý như ý kiến luật sư.",
+        "Dữ liệu của tôi luôn là bản hợp nhất mới nhất.",
+        "Tôi cam kết bạn sẽ không mất quyền lợi.",
+        # Vendors and models the config does not name.
+        "Tôi chạy trên GPT-4 của OpenAI.",
+        "Tôi dùng model Claude của Anthropic.",
+        "Tôi dùng Gemini 2.5 Pro để hành văn.",
+        # Capabilities the sheet does not list; KLAW as the actor of advice.
+        "Tôi sẽ nhắc bạn khi sắp hết thời hiệu khởi kiện.",
+        "Tôi lưu trữ hồ sơ vĩnh viễn.",
+        "Bạn nên để tôi đại diện cho bạn ra tòa.",
+        # A list item after a positive clause borrows no negation.
+        "Tôi tra cứu luật, đại diện cho bạn tại tòa.",
+    ],
+)
+def test_cau_bang_khong_do_bi_bo(cau):
+    """Review 2026-09-30, probes against the real sheet: every one was kept."""
+    assert not _giu("bạn là ai, có bao nhiêu văn bản", cau)
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        "Tôi đọc được 4 văn bản pháp luật Việt Nam, trong đó 3 văn bản có toàn văn.",
+        "Tôi hiện có 1 Bộ luật: Lao động.",
+        "Tôi không phải luật sư, và câu trả lời của tôi không thay thế tư vấn của luật sư.",
+        "Tôi đọc bản gốc, không phải bản hợp nhất.",
+        f"Tôi hành văn bằng {generate_model()}.",
+        "Tôi nhớ các lượt trước trong cùng cuộc trò chuyện.",
+        "Việc quan trọng thì bạn nên hỏi thêm luật sư.",
+        "Tôi không phải luật sư, thẩm phán hay cơ quan nhà nước.",
+    ],
+)
+def test_cau_bang_do_duoc_van_giu(cau):
+    assert _giu("bạn là ai, có bao nhiêu văn bản", cau)
+
+
+KHO_TEN_TRUNG_VIEC = [
+    *KHO,
+    _vb("65/2006/QH11", "Luật Luật sư số 65/2006/QH11", linh_vuc="Tư pháp"),
+    _vb("100/2024/NĐ-CP", "Nghị định 100/2024/NĐ-CP về cấp Giấy chứng nhận và bảo đảm", loai="Nghị định"),
+    _vb("01/2020/VBHN", "Văn bản hợp nhất 01/2020", loai="Văn bản hợp nhất", depth="shallow"),
+]
+
+
+@pytest.mark.parametrize(
+    "cau_hoi",
+    [
+        "bạn là ai",
+        "kho có bao nhiêu văn bản",
+        "có luật luật sư 65/2006 không",
+        "có nghị định 100/2024 không",
+        "có nghị định 102/2024 và 01/2020 không",
+        "model của bạn là gì",
+        "bạn soạn được gì",
+    ],
+)
+def test_moi_cau_cua_bang_qua_duoc_phep_loc(cau_hoi):
+    """The check never drops the sheet's own sentences — titles that carry claim
+    words ("Luật Luật sư", "Giấy chứng nhận", "Văn bản hợp nhất") and the negated
+    list "không phải luật sư, thẩm phán hay…" included (self-check on the real
+    sheet, 2026-09-30: 16 sentences lost before the verbatim window)."""
+    bang = gt.bang_du_kien(cau_hoi, KHO_TEN_TRUNG_VIEC)
+    van_ban = gt.van_ban_cua_bang(bang, KHO_TEN_TRUNG_VIEC)
+    for dong in "\n".join(bang.values()).splitlines():
+        for cau in gt._RE_CAU.split(dong.strip().removeprefix("- ").strip()):
+            if cau:
+                # `**` is stripped by design (the UI does not render markdown).
+                assert gt.loc_theo_bang(cau, bang, cho_phep_kho=True, van_ban=van_ban) == cau.replace("**", ""), cau
+
+
+KHO_DAT = [
+    *KHO,
+    {
+        **_vb("101/2024/NĐ-CP", "Nghị định 101/2024/NĐ-CP", loai="Nghị định", depth="shallow", linh_vuc="Đất đai"),
+        "hien": False,
+        "cau_an": "Nghị định số 101/2024/NĐ-CP hiện chưa có trong phạm vi tra cứu.",
+    },
+]
+
+
+@pytest.mark.parametrize(
+    ("cau_hoi", "cau", "giu"),
+    [
+        # Absent: a yes answer is flipped.
+        ("bạn có nghị định 102/2024 không", "Có, tôi có Nghị định 102/2024/NĐ-CP với đầy đủ toàn văn.", False),
+        ("bạn có nghị định 102/2024 không", "Tôi không có văn bản nào mang số hiệu 102/2024.", True),
+        # Shallow: full text is not claimed, in the same sentence or the next.
+        ("có luật nhà ở 27/2023/QH15 không", "Tôi có toàn văn Luật Nhà ở số 27/2023/QH15.", False),
+        (
+            "có luật nhà ở 27/2023/QH15 không",
+            "Tôi có Luật Nhà ở số 27/2023/QH15. Văn bản này có toàn văn, tra được tới từng điều.",
+            False,
+        ),
+        ("có luật nhà ở 27/2023/QH15 không", "Tôi có Luật Nhà ở số 27/2023/QH15 nhưng chưa có toàn văn.", True),
+        # Deep: absence and shallowness are not claimed.
+        ("có luật đất đai 31/2024 không", "Tôi có toàn văn Luật Đất đai số 31/2024/QH15.", True),
+        ("có luật đất đai 31/2024 không", "Tôi không có Luật Đất đai số 31/2024/QH15.", False),
+        # Hidden: not shown, so not "có".
+        ("có nghị định 101/2024 không", "Tôi có Nghị định 101/2024/NĐ-CP.", False),
+        ("có nghị định 101/2024 không", "Nghị định 101/2024/NĐ-CP hiện chưa có trong phạm vi tra cứu.", True),
+        # A document number the sheet never names.
+        ("có luật đất đai 31/2024 không", "Tôi cũng có Nghị định 102/2024/NĐ-CP.", False),
+    ],
+)
+def test_so_hieu_khop_dong_kho(cau_hoi, cau, giu):
+    """Review 2026-09-30: a paraphrased document lookup passed with its yes/no or
+    its depth flipped. Every document number the model names is checked against
+    the kho row: present and shown, and at the depth claimed."""
+    ans = gt.loc_theo_bang(
+        cau,
+        gt.bang_du_kien(cau_hoi, KHO_DAT),
+        cho_phep_kho=True,
+        van_ban=gt.van_ban_cua_bang(gt.bang_du_kien(cau_hoi, KHO_DAT), KHO_DAT),
+    )
+    assert (ans == cau) is giu, ans
+
+
+def test_tra_cuu_so_hieu_qua_do_thi_lat_co_khong_ve_cau_du_phong(monkeypatch):
+    """End to end: the node hands the kho facts to the check; a flipped lookup
+    falls back to the deterministic kho row."""
+    llm = LlmDoThi("hoi_ve_kho", tra_loi="Có, tôi có Nghị định 102/2024/NĐ-CP với đầy đủ toàn văn.")
+    st = _do_thi(monkeypatch, llm).invoke({"query": "bạn có nghị định 102/2024 không"})
+    assert st["result_type"] is ResultType.hoi_ve_kho
+    assert st["answer"].startswith("Tôi không có văn bản nào mang số hiệu 102/2024.")
+    assert st["traces"]["gioi_thieu_nguon"] == "du_phong"
 
 
 def test_khong_url_khong_markdown():

@@ -39,7 +39,14 @@ from src.agents.nodes.dung_ban_thao_tong_quat import dung_ban_thao_tong_quat
 from src.agents.nodes.expand import expand
 from src.agents.nodes.generate_claims import generate_claims
 from src.agents.nodes.giai_nghia import giai_nghia
-from src.agents.nodes.gioi_thieu import bang_du_kien, chi_hoi_kho, co_khia_canh, khia_canh, khia_canh_kho
+from src.agents.nodes.gioi_thieu import (
+    bang_du_kien,
+    chi_hoi_kho,
+    co_khia_canh,
+    khia_canh,
+    khia_canh_kho,
+    van_ban_cua_bang,
+)
 from src.agents.nodes.gom_du_kien import gom_du_kien
 from src.agents.nodes.hieu_tai_lieu import MUC_DICH_SOAN, co_khuon, hieu_tai_lieu
 from src.agents.nodes.rewrite_query import rewrite_query
@@ -876,7 +883,10 @@ def build_graph_tra_cuu():
                     "tra_loi_kho_bang": [b.model_dump() for b in dung_bang(day_du, kho)],
                 }
             else:
-                st = {**st, "bang_du_kien": bang_du_kien(day_du, kho)}
+                bang = bang_du_kien(day_du, kho)
+                # Có/không và mức phủ của mọi số hiệu bảng nêu: `loc_theo_bang` so
+                # từng số hiệu model nêu với đây (review 2026-09-30).
+                st = {**st, "bang_du_kien": bang, "van_ban_bang": van_ban_cua_bang(bang, kho)}
             if y_dinh == Intent.gioi_thieu:
                 return assemble(st, {}, llm, generate_model(), prompt_path=Path(s.assemble_prompt))
         ids = [r.claim.provision_id for r in (st.get("tier1") or [])]

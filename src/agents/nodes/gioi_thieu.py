@@ -12,9 +12,10 @@ Model KHÔNG BIẾT nó chạy trên model nào, đọc được bao nhiêu văn
 loại nào — hỏi thẳng thì nó bịa, và không trích dẫn nào để hai tầng kiểm đối
 chiếu. Nên mọi sự thật đi vào từ `bang_du_kien` (dựng từ `nap_kho`, registry
 khuôn mẫu, `config/checklist_*.yaml`, `llm.*_model()`), và `loc_theo_bang` bỏ
-mọi câu mà bảng không đỡ: con số không có trong bảng, việc làm được bảng không
-ghi, loại văn bản soạn thảo không có trong registry, URL, chữ "kho" khi người ta
-không hỏi về văn bản. Không câu nào sống sót (hoặc model lỗi) thì trả câu dự
+mọi câu mà bảng không đỡ: con số không đứng cạnh đúng danh từ nó đếm, việc hay
+vai bảng không ghi, tên model config không có, loại văn bản soạn thảo không có
+trong registry, số hiệu văn bản nói sai có/không hay mức phủ so với dòng kho,
+URL, chữ "kho" khi người ta không hỏi về văn bản. Không câu nào sống sót (hoặc model lỗi) thì trả câu dự
 phòng ghép từ chính các dòng của bảng (`cau_gioi_thieu`) — không bao giờ rỗng.
 
 ## Vì sao tên model TRA TỪ CONFIG, không viết cứng
@@ -34,14 +35,17 @@ import logging
 import re
 import unicodedata
 from pathlib import Path
+from typing import NamedTuple
 
 from src.services import khuon_mau
 from src.services.kho import (
     CAU_GIOI_HAN,
     DO_SAU_CHI_LUAT_GOC,
     DO_SAU_DU_BA_TANG,
+    _khop_so_hieu,
     danh_sach_bo_luat,
     dung_cau_tra_loi,
+    moi_so_hieu_trong,
     tom_tat_linh_vuc,
 )
 from src.services.llm import Usage, generate_model, judge_model, router_model
@@ -548,6 +552,17 @@ def bang_du_kien(cau_hoi: str, kho: list[dict] | None) -> dict[str, str]:
     return bang
 
 
+def van_ban_cua_bang(bang: dict[str, str], kho: list[dict]) -> dict[str, str]:
+    """Số hiệu → độ sâu của văn bản ĐƯỢC HIỆN mang số hiệu đó ("deep", "shallow",
+    cả hai cách nhau dấu phẩy), "" khi không văn bản nào được hiện — cho MỌI số
+    hiệu bảng nêu. `loc_theo_bang` so từng số hiệu model nêu với đây: bảng là văn
+    xuôi, nên có/không và mức phủ phải tra ngược về dòng kho mới kiểm được."""
+    return {
+        so: ",".join(sorted({r["depth"] for r in kho if r.get("hien", True) and _khop_so_hieu(so, r["so_ky_hieu"])}))
+        for so in moi_so_hieu_trong("\n".join(bang.values()))
+    }
+
+
 # Dòng của bảng mà mỗi khía cạnh cần — câu dự phòng ghép đúng các dòng này, mỗi
 # dòng MỘT lần kể cả khi hai khía cạnh cùng cần nó (FR-011).
 _DONG_CUA = {
@@ -616,15 +631,17 @@ _RE_CHU_KHO = re.compile(r"\bkho\b", re.IGNORECASE)
 _RE_CAU = re.compile(r"(?<=[.!?…])\s+")
 _RE_VE = re.compile(r"[,;:—–]|\s-\s|\s(?:nhưng|còn|song)\s")
 _RE_PHU_DINH = re.compile(r"\b(?:không|chưa|chẳng)\b")
-# Lời khuyên cho người hỏi ("bạn nên liên hệ luật sư") không phải việc KLAW tự nhận.
+# Lời khuyên cho người hỏi ("bạn nên liên hệ luật sư") không phải việc KLAW tự
+# nhận — trừ khi KLAW là người làm ("bạn nên để tôi đại diện cho bạn ra tòa").
 _RE_KHUYEN = re.compile(r"\b(?:bạn|anh|chị)\s+(?:nên|cần)\b|\bhãy\b|\bnên\b")
+_RE_TOI_LAM = re.compile(r"\bđể\s+tôi\b|\btôi\s+(?:sẽ|có\s+thể)\b")
 _RE_RO_RI = re.compile(r"https?:|www\.|\bsk-|api[\s_]?key")
-# Việc KLAW có thể tự nhận. Một câu khẳng định (không phủ định) mang một cụm ở
-# đây phải khớp CÙNG biểu thức đó trong các dòng việc làm được của bảng; câu phủ
-# định chỉ cần khớp ở đâu đó trong bảng ("không đại diện cho bạn tại tòa").
-# ponytail: danh sách đóng, bắt lớp bịa hay gặp (việc bảng không ghi, loại văn
-# bản không có khuôn); một việc bịa nằm ngoài danh sách thì lọt — thêm cụm khi
-# trace cho thấy một câu như thế.
+# Việc và vai KLAW có thể tự nhận, MỖI CỤM MỘT BIỂU THỨC: một câu khẳng định (không
+# phủ định) mang cụm nào thì chính cụm đó phải có trong các dòng việc làm được của
+# bảng — "lưu trữ" không còn được "nhớ" đỡ (review 2026-09-30); câu phủ định chỉ
+# cần cụm đó ở đâu đó trong bảng ("không phải luật sư", "không phải bản hợp nhất").
+# ponytail: danh sách đóng, bắt lớp bịa hay gặp (việc bảng không ghi, vai bảng phủ
+# nhận); một việc bịa nằm ngoài danh sách thì lọt — thêm cụm khi trace cho thấy.
 _VIEC = tuple(
     re.compile(p)
     for p in (
@@ -632,28 +649,74 @@ _VIEC = tuple(
         r"trích\s*dẫn",
         r"soạn",
         r"rà\s*soát",
-        r"tải\s+(?:lên|về|xuống)|upload|download|đính\s+kèm",
-        r"\.docx|\bword\b",
+        r"tải\s+lên",
+        r"tải\s+về",
+        r"tải\s+xuống",
+        r"upload",
+        r"download",
+        r"đính\s+kèm",
+        r"\.docx",
+        r"\bword\b",
         r"\bpdf\b",
         r"tư\s*vấn",
-        r"đại\s*diện|bào\s*chữa|tranh\s*tụng",
-        r"phán\s*quyết|xét\s+xử",
+        r"đại\s*diện",
+        r"bào\s*chữa",
+        r"tranh\s*tụng",
+        r"phán\s*quyết",
+        r"xét\s+xử",
         r"\bnộp\b",
-        r"\bemail\b|thư\s+điện\s+tử|\bsms\b|tin\s+nhắn",
-        r"nhắc\s+(?:lịch|hạn)|đặt\s+lịch|lịch\s+hẹn",
-        r"dịch\s+(?:sang|ra|thuật)|tiếng\s+anh|phiên\s+dịch",
-        r"\bký\s+(?:số|điện\s+tử|thay)",
-        r"\bin\s+(?:ra|văn\s+bản)",
-        r"thanh\s+toán|chuyển\s+khoản",
-        r"dự\s*đoán|thắng\s+kiện",
-        r"ghi\s*nhớ|\bnhớ\b|lưu\s+(?:lại|trữ)",
-        r"\bảnh\b|hình\s+ảnh|chụp",
-        r"giọng\s+nói|gọi\s+điện",
-        r"liên\s+hệ|kết\s+nối",
+        r"\bemail\b",
+        r"thư\s+điện\s+tử",
+        r"\bsms\b",
+        r"tin\s+nhắn",
+        r"\bnhắc\b",
+        r"đặt\s+lịch",
+        r"lịch\s+hẹn",
+        r"dịch\s+sang",
+        r"dịch\s+ra",
+        r"dịch\s+thuật",
+        r"tiếng\s+anh",
+        r"phiên\s+dịch",
+        r"\bký\s+số",
+        r"\bký\s+điện\s+tử",
+        r"\bký\s+thay",
+        r"\bin\s+ra",
+        r"\bin\s+văn\s+bản",
+        r"thanh\s+toán",
+        r"chuyển\s+khoản",
+        r"dự\s*đoán",
+        r"thắng\s+kiện",
+        r"\bnhớ\b",
+        r"lưu\s+lại",
+        r"lưu\s+trữ",
+        r"\bảnh\b",
+        r"hình\s+ảnh",
+        r"chụp",
+        r"giọng\s+nói",
+        r"gọi\s+điện",
+        r"liên\s+hệ",
+        r"kết\s+nối",
         r"cập\s*nhật",
         r"\bđiền\b",
-        r"tính\s+(?:toán|tiền|thuế|lương|giúp)",
-        r"đọc\s+(?:tệp|file|tài\s+liệu)",
+        r"tính\s+toán",
+        r"tính\s+tiền",
+        r"tính\s+thuế",
+        r"tính\s+lương",
+        r"tính\s+giúp",
+        r"đọc\s+tệp",
+        r"đọc\s+file",
+        r"đọc\s+tài\s+liệu",
+        # Vai và giới hạn: "tôi là luật sư AI", "có giá trị pháp lý", "luôn là bản
+        # hợp nhất mới nhất", "tôi cam kết bạn không mất quyền lợi".
+        r"luật\s*sư",
+        r"thẩm\s*phán",
+        r"công\s*chứng",
+        r"giá\s+trị\s+pháp\s+lý",
+        r"chứng\s+nhận",
+        r"cam\s+kết",
+        r"bảo\s+đảm",
+        r"đảm\s+bảo",
+        r"hợp\s+nhất",
     )
 )
 _DONG_VIEC = ("viec", "soan_thao")
@@ -668,6 +731,74 @@ _TU_NOI = frozenset(
     "va hoac hay cho cua theo nhu nay do nao gi cac nhung mau duoc khac moi o tren roi de voi ban toi".split()
 )
 
+# Số đếm đi với danh từ nó đếm (review 2026-09-30). Bản trước chỉ đòi con số có
+# ở ĐÂU ĐÓ trong bảng, nên "8 Bộ luật" qua vì bảng có số 8 ở chỗ khác. Nay "N <danh
+# từ>" phải có trong bảng, và từ định tính theo sau ("có toàn văn", "khuôn mẫu")
+# phải đứng cạnh ĐÚNG con số đó trong bảng: "486 văn bản có toàn văn" không qua
+# khi bảng ghi 486 văn bản, 379 có toàn văn. Số viết bằng chữ ("sáu Bộ luật") đổi
+# ra số trước; "một" không đổi — nó còn là mạo từ.
+_DANH_DEM = (
+    r"bộ\s+luật|văn\s+bản|lĩnh\s+vực|loại|hợp\s+đồng|đơn\s+từ|đơn|quyết\s+định|quy\s+chế"
+    r"|model|mô\s+hình|tầng|nghị\s+định|thông\s+tư|luật|điều"
+)
+_RE_DEM = re.compile(rf"(?<![\w/.,-])(\d+)\s+({_DANH_DEM})\b([^\d.!?\n]*)")
+_KEM_DEM = ("toàn văn", "luật gốc", "khuôn mẫu", "checklist")
+_SO_CHU = dict(zip("hai ba bốn năm sáu bảy tám chín mười".split(), map(str, range(2, 11)), strict=True))
+_RE_SO_CHU = re.compile(rf"\b({'|'.join(_SO_CHU)})\s+(?=(?:{_DANH_DEM})\b)")
+_RE_NGOAC = re.compile(r"\([^)]*\)")
+
+# Tên hãng / model phải là một đoạn của dòng model trong bảng: "GPT-4", "Claude",
+# "Gemini 2.5 Pro" không qua khi config là gemini-2.5-flash-lite.
+_RE_HANG = re.compile(
+    r"\b(?:chat\s*gpt|gpt|openai|claude|anthropic|llama|google|gemini|deepseek|mistral|qwen|grok)[\w.:/-]*"
+    r"(?:\s+(?:\d[\w.]*|pro|flash|lite|mini|nano|ultra|turbo|small|medium|large|instruct|sonnet|opus|haiku)\b)*"
+)
+
+# Số hiệu văn bản model nêu (review 2026-09-30): phải là số hiệu bảng nêu, và câu
+# phải nói đúng dòng kho của nó — có hay không (văn bản ẩn là không), có toàn văn
+# hay chưa. Mệnh đề không có chữ số mà nói có/không/toàn văn thì nói về số hiệu nêu
+# gần nhất ("Tôi có Luật Nhà ở 27/2023/QH15. Văn bản này có toàn văn…").
+_RE_KHONG_CO = re.compile(
+    r"\b(?:không|chưa)\s+(?:có|đọc|tìm\s+thấy|nạp|nằm|thuộc)\b"
+    r"(?!\s+(?:được\s+)?(?:toàn\s+văn|đầy\s+đủ|nội\s+dung|điều|hiệu\s+lực))"
+)
+_RE_CO = re.compile(r"^\s*có\b|\btôi\s+(?:\w+\s+)?(?:có|đọc|nạp)\b|\bcó\s+(?:trong|sẵn)\b")
+_RE_NONG = re.compile(
+    r"\b(?:không|chưa)\s+(?:\w+\s+){0,2}?(?:toàn\s+văn|đầy\s+đủ|từng\s+điều)|\b(?:mới|chỉ)\s+có\s+(?:số\s+hiệu|tên)"
+)
+_RE_SAU = re.compile(r"toàn\s+văn|đầy\s+đủ|từng\s+điều")
+
+
+# Vế của một câu KÈM vị trí (cùng chỗ cắt với `_RE_VE`), để `_chep_tu_bang` nhìn
+# được dấu phẩy đứng trước vế.
+_RE_DOAN_VE = re.compile(rf"(?:(?!{_RE_VE.pattern}).)+")
+_RE_TU = re.compile(r"\w+|[^\w\s]")
+
+
+def _chep_tu_bang(t: str, dau: int, cuoi: int, phang: str) -> bool:
+    """Cụm `t[dau:cuoi]` nằm trong một đoạn CHÉP NGUYÊN từ bảng: tên văn bản ("Giấy
+    chứng nhận quyền sử dụng đất", "Văn bản hợp nhất: 1") hay một vế liệt kê sau
+    phủ định ("không phải luật sư, thẩm phán hay…"). Một ký hiệu trước, cụm, một ký
+    hiệu sau phải có nguyên văn trong bảng — "tôi đại diện cho" không có, dù bảng
+    có "không đại diện cho". ponytail: cửa sổ một ký hiệu mỗi bên; một câu bịa
+    mượn đúng cả ba thì lọt."""
+    truoc = [x.start() for x in _RE_TU.finditer(t, 0, dau)]
+    sau = [x.end() for x in _RE_TU.finditer(t, cuoi)]
+    return " ".join(t[truoc[-1] if truoc else dau : sau[0] if sau else cuoi].split()) in phang
+
+
+class _Bang(NamedTuple):
+    """Bảng dữ kiện đã tính sẵn cho phép lọc — một lần mỗi lời đáp."""
+
+    toan: str
+    phang: str
+    viec: str
+    so: set[str]
+    tu_soan: set[str]
+    dem: list[tuple[str, str, str]]
+    model: str
+    cho_phep_kho: bool
+
 
 def _so(t: str) -> set[str]:
     """Mọi dãy chữ số, bỏ dấu phân cách hàng nghìn/thập phân: "1.825" và "1825",
@@ -675,31 +806,95 @@ def _so(t: str) -> set[str]:
     return set(re.findall(r"\d+", re.sub(r"(?<=\d)[.,](?=\d)", "", t)))
 
 
-def _cau_duoc_do(cau: str, toan: str, viec: str, so_bang: set[str], tu_soan: set[str], cho_phep_kho: bool) -> bool:
-    t = cau.lower()
-    if _RE_RO_RI.search(t) or (not cho_phep_kho and _RE_CHU_KHO.search(t)) or not _so(t) <= so_bang:
-        return False
+def _dem(t: str) -> list[tuple[str, str, str]]:
+    """`(số, danh từ đếm, phần sau tới chữ số kế tiếp hay hết câu)` trong chữ thường `t`."""
+    t = _RE_SO_CHU.sub(lambda m: _SO_CHU[m.group(1)] + " ", re.sub(r"(?<=\d)[.,](?=\d)", "", t))
+    return [(so, " ".join(danh.split()), " ".join(sau.split())) for so, danh, sau in _RE_DEM.findall(t)]
+
+
+def _dem_duoc_do(t: str, dem_bang: list[tuple[str, str, str]]) -> bool:
+    for so, danh, sau in _dem(t):
+        kem = [k for k in _KEM_DEM if k in re.split(r"[,;:—–]", sau)[0]]
+        if not any((so, danh) == (s, d) and all(k in sb for k in kem) for s, d, sb in dem_bang):
+            return False
+    return True
+
+
+def _van_ban_duoc_do(t: str, van_ban: dict[str, str], cuoi: list[str]) -> tuple[bool, list[str]]:
+    """`(câu nói đúng dòng kho, số hiệu nêu gần nhất)` cho câu chữ thường `t`."""
+    dung = True
     for ve in _RE_VE.split(t):
-        if _RE_KHUYEN.search(ve):
+        sos = moi_so_hieu_trong(ve)
+        if sos:
+            cuoi = sos
+        elif not cuoi or re.search(r"\d", ve):
+            continue
+        khong, nong = bool(_RE_KHONG_CO.search(ve)), bool(_RE_NONG.search(ve))
+        day = bool(_RE_SAU.search(ve)) and not nong
+        for so in sos or cuoi:
+            do_sau = van_ban.get(so)
+            if do_sau is None:
+                dung = False
+            elif not do_sau:
+                dung = dung and (khong or not (_RE_CO.search(ve) or nong or day))
+            else:
+                dung = dung and not (khong or (nong and "shallow" not in do_sau) or (day and "deep" not in do_sau))
+    return dung, cuoi
+
+
+def _cau_duoc_do(cau: str, b: _Bang) -> bool:
+    t = cau.lower()
+    if (
+        _RE_RO_RI.search(t)
+        or (not b.cho_phep_kho and _RE_CHU_KHO.search(t))
+        or not _so(t) <= b.so
+        or not _dem_duoc_do(t, b.dem)
+        or not all(re.sub(r"\s+", "-", m.group(0)).rstrip(".:/-") in b.model for m in _RE_HANG.finditer(t))
+    ):
+        return False
+    for doan in _RE_DOAN_VE.finditer(t):
+        ve = doan.group()
+        if _RE_KHUYEN.search(ve) and not _RE_TOI_LAM.search(ve):
             continue
         for r in _VIEC:
-            if (m := r.search(ve)) and not r.search(toan if _RE_PHU_DINH.search(ve[: m.start()]) else viec):
+            if (
+                (m := r.search(ve))
+                and not r.search(b.toan if _RE_PHU_DINH.search(ve[: m.start()]) else b.viec)
+                and not _chep_tu_bang(t, doan.start() + m.start(), doan.start() + m.end(), b.phang)
+            ):
                 return False
         if _RE_SOAN.search(ve) and not _RE_PHU_DINH.search(ve):
             for m in _RE_LOAI_VB.finditer(ve):
-                if any(w not in tu_soan for w in _bo_dau(m.group(1)).split() if w not in _TU_NOI):
+                if any(w not in b.tu_soan for w in _bo_dau(m.group(1)).split() if w not in _TU_NOI):
                     return False
     return True
 
 
-def loc_theo_bang(tho: str, bang: dict[str, str], cho_phep_kho: bool = False) -> str:
+def loc_theo_bang(
+    tho: str, bang: dict[str, str], cho_phep_kho: bool = False, van_ban: dict[str, str] | None = None
+) -> str:
     """Giữ đúng những câu bảng dữ kiện đỡ được, mỗi câu MỘT lần, giữ nguyên đoạn
     và gạch đầu dòng. Bỏ câu có: URL hay khoá; chữ "kho" khi không hỏi về văn bản;
-    con số không có trong bảng; việc làm được bảng không ghi; loại văn bản soạn
-    thảo không có trong bảng. Rỗng nghĩa là không còn câu nào."""
+    con số không có trong bảng, hay không đứng cạnh đúng danh từ nó đếm; việc hay
+    vai bảng không ghi; tên model không có trong bảng; loại văn bản soạn thảo không
+    có trong bảng; số hiệu văn bản bảng không nêu, hay nói sai có/không và mức phủ
+    so với dòng kho (`van_ban`, từ `van_ban_cua_bang`; thiếu thì mọi số hiệu đều bị
+    bỏ). Rỗng nghĩa là không còn câu nào."""
     toan = "\n".join(bang.values()).lower()
-    viec = "\n".join(bang[k] for k in _DONG_VIEC if k in bang).lower()
-    so_bang, tu_soan = _so(toan), set(re.findall(r"\w+", _bo_dau(bang.get("soan_thao", "").lower())))
+    b = _Bang(
+        toan=toan,
+        phang=" ".join(toan.split()),
+        viec="\n".join(bang[k] for k in _DONG_VIEC if k in bang).lower(),
+        so=_so(toan),
+        tu_soan=set(re.findall(r"\w+", _bo_dau(bang.get("soan_thao", "").lower()))),
+        # Hai lượt: "27 loại văn bản (12 hợp đồng, …) theo checklist" — số trong
+        # ngoặc đếm riêng, số ngoài ngoặc đọc tiếp qua ngoặc.
+        dem=_dem(toan) + _dem(_RE_NGOAC.sub("", toan)),
+        model=bang.get("model", "").lower(),
+        cho_phep_kho=cho_phep_kho,
+    )
+    van_ban = van_ban or {}
+    cuoi: list[str] = []
     da_co: set[str] = set()
     ra: list[str] = []
     for dong in tho.replace("**", "").replace("`", "").splitlines():
@@ -707,7 +902,8 @@ def loc_theo_bang(tho: str, bang: dict[str, str], cho_phep_kho: bool = False) ->
         giu = []
         for cau in _RE_CAU.split(dong.strip().removeprefix("- ").strip()):
             khoa = " ".join(cau.lower().split())
-            if khoa and khoa not in da_co and _cau_duoc_do(cau, toan, viec, so_bang, tu_soan, cho_phep_kho):
+            dung_kho, cuoi = _van_ban_duoc_do(cau.lower(), van_ban, cuoi)
+            if khoa and khoa not in da_co and dung_kho and _cau_duoc_do(cau, b):
                 da_co.add(khoa)
                 giu.append(cau)
         if giu:
@@ -725,6 +921,7 @@ def tra_loi_meta(
     model: str,
     cau_hoi_day_du: str | None = None,
     luot_dau: bool = True,
+    van_ban: dict[str, str] | None = None,
 ) -> tuple[str, Usage | None, str]:
     """`(lời đáp, usage, nguon)` — `nguon` ∈ {"llm", "du_phong", "loi"}.
 
@@ -751,7 +948,7 @@ def tra_loi_meta(
             "gioi_thieu: model không viết được lời đáp (%s: %s) — dùng câu dự phòng từ bảng", type(e).__name__, e
         )
         return du_phong, usage, "loi"
-    van = loc_theo_bang(tho, bang, cho_phep_kho=can_kho(cac))
+    van = loc_theo_bang(tho, bang, cho_phep_kho=can_kho(cac), van_ban=van_ban)
     if not van:
         logger.warning("gioi_thieu: không câu nào của model được bảng đỡ — dùng câu dự phòng: %r", tho[:200])
         return du_phong, usage, "du_phong"
