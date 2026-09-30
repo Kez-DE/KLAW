@@ -32,6 +32,13 @@ The public page of a document on an official legal database, shown only after a
 check. Absent when no page has passed the check; never a placeholder.
 _Avoid_: link, nguon_url
 
+**phân tích**:
+KLAW's application of the cited rules to the asker's own situation (what applies,
+steps to take, what to keep), written by the model in its own labelled part of an
+answer. It never states a rule that the cited part does not carry, and is never
+presented as legal advice.
+_Avoid_: tư vấn, kết luận, advice, suy luận (reserved for tài liệu)
+
 ### Reasoning
 
 **claim**:
@@ -167,11 +174,13 @@ _Avoid_: trust level, quality tier, verified flag
 ### Meta answers
 
 **câu hỏi meta**:
-A question about KLAW itself or about the corpus rather than about the law. It is
-answered from system data by deterministic rules, never by a model. A question
-about the Vietnamese legal system itself ("pháp luật Việt Nam chia thành những
-gì") is not one: it is a question about the law, answered from statute with
-citations.
+A question about KLAW itself or about the corpus rather than about the law. The
+model answers it in its own words, but only from a fact sheet that code builds from
+system data; a sentence the sheet does not support is dropped. A question about the
+Vietnamese legal system itself ("pháp luật Việt Nam chia thành những gì"), or about
+which laws govern the asker's own situation ("tôi đang tranh chấp nhà đất, cần nắm
+những luật gì"), is not one: it is a question about the law, answered from statute
+with citations.
 _Avoid_: small talk, chit-chat, greeting
 
 **khía cạnh (`khia_canh`)**:
@@ -182,7 +191,9 @@ _Avoid_: facet, intent, sub-question
 
 **kho**:
 The set of legal documents KLAW has loaded for this thesis, with each document's
-effectivity verdict. Never "the law of Vietnam".
+effectivity verdict. Never "the law of Vietnam". Readers see it named only when they
+ask about KLAW's documents; a legal answer names a law it cannot cite as one to
+"đối chiếu thêm", never as missing from the kho.
 _Avoid_: corpus, database, knowledge base
 
 ### Outcomes
