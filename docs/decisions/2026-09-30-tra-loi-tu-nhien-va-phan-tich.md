@@ -46,6 +46,16 @@ lời kiểu bot". Đo trên app thật cùng ngày (traces 88117154…, 8eb13b0
    2024 và nghị định hướng dẫn giải quyết tranh chấp) có toàn văn, hiện đúng.
 8. Dòng "Tôi hiểu câu hỏi của bạn là…" chỉ hiện khi câu viết lại đổi nghĩa đáng kể,
    không bao giờ với câu hỏi về KLAW; cờ định tuyến và khía cạnh được ghi vào traces.
+10. **Nhãn tập bẫy theo phạm vi pháp luật Việt Nam** (chủ dự án chốt 2026-09-30): câu
+    `ngoai_pham_vi` của `eval/datasets/trap.yaml` có luật điều chỉnh được hiện kèm toàn
+    văn chuyển sang nhóm `trong_pham_vi`, kỳ vọng "trả lời, dẫn đúng"
+    (`tra_loi_dan_dung`: `answer` dẫn trúng một neo `duong_dan`, so tiền tố như bộ vàng;
+    không neo điều khoản đã bị bãi bỏ). Câu thật sự ngoài phạm vi (luật nước ngoài, đoán
+    kết quả xét xử, không phải pháp luật) giữ `out_of_scope`. Đo DB 2026-09-30: đổi 10/15
+    câu (oos-01, 03–08, 11–13); 5 câu hỏi luật Việt Nam mà luật điều chỉnh chưa được hiện
+    hoặc chưa có toàn văn (oos-02, 09, 10, 14, 15) giữ nhãn cũ, chờ chủ dự án. Nhãn cũ
+    giữ ở `eval/datasets/trap.truoc-pham-vi.yaml`; bảng duyệt
+    `eval/datasets/trap_duyet_pham_vi.md`.
 
 ## Alternatives Considered
 
