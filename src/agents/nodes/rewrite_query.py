@@ -134,10 +134,14 @@ def rewrite_query(state: dict, llm, model: str, prompt_path: Path | None = None)
     prior_traces = state.get("traces") or {}
     goc = state["query"]
     mau = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8")
-    # Bước này ĐỌC cả nền (`ho_so_nen`): nó là thứ phân định lĩnh vực của một câu mơ hồ
-    # ("hết hợp đồng thì sao") — rồi nền chỉ ở lại lượt khi lĩnh vực là lao động.
+    # Nền (`ho_so_nen`) KHÔNG vào prompt: mô hình dùng khối tình huống để viết truy vấn, và
+    # chính bước này phán định lĩnh vực — đọc nền ở đây là để ký ức lao động lái truy hồi
+    # rồi tự quyết nó có liên quan không (trace c8a98c3d: 9 điều BLLĐ từ hai biến thể cho
+    # câu hỏi về hệ thống pháp luật). Nền chỉ vào lượt SAU phán định, khi là lao động.
+    # ponytail: câu lao động của người có nền được viết truy vấn không có vai từ nền; gọi
+    # lại lần hai có nền khi đo được recall hụt ở ca đó.
     ho_so, nen = state.get("ho_so") or {}, state.get("ho_so_nen") or {}
-    prompt = mau.format(cau_hoi=goc, tinh_huong=khoi_tinh_huong({**nen, **ho_so}))
+    prompt = mau.format(cau_hoi=goc, tinh_huong=khoi_tinh_huong(ho_so))
     # Template nhắc tới `quan_he` là template v2 — chọn schema theo NỘI DUNG
     # template, không theo tên file, để một bản v3 cùng hình dạng vẫn chạy.
     la_v3 = "muc_tieu" in mau

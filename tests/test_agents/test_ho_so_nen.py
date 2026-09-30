@@ -98,12 +98,91 @@ def test_cau_hoi_lao_dong_dung_nen(tmp_path):
     assert "Ocenpark" in {d["gia_tri"] for d in _base(st, ResultType.answer)["ho_so_da_dung"]}
 
 
-def test_rewrite_doc_ca_nen_de_phan_dinh_linh_vuc(tmp_path):
-    """Nền là thứ để PHÂN ĐỊNH lĩnh vực của một câu mơ hồ ("hết hợp đồng thì sao") — bước
-    đó đọc hồ sơ đầy đủ; chỉ các bước SAU nó mới bị giới hạn theo phán định."""
-    llm = Llm(_v2("hanh_chinh"))
-    rewrite_query(_vao(HE_THONG, HO_SO_TAI_KHOAN), llm, "m", prompt_path=_mau(tmp_path))
-    assert "Ocenpark" in llm.prompt[0]
+class LlmDocTinhHuong:
+    """Rewrite giả chỉ dùng điều nó được thấy: khối tình huống nói tới hợp đồng lao động
+    thì nó phán định lao động và viết truy vấn chấm dứt HĐLĐ — đúng hướng mô hình thật đã
+    đi ở trace c8a98c3d (hạng 11–22 của truy hồi: 9 điều BLLĐ về chấm dứt hợp đồng, từ hai
+    biến thể của rewrite; hạng 1–10 của câu gốc không có điều nào của BLLĐ)."""
+
+    def __init__(self):
+        self.prompt: list[str] = []
+
+    def chat(self, model, messages, json_schema=None):
+        p = messages[-1]["content"]
+        self.prompt.append(p)
+        # Chỉ khối tình huống: thân prompt v2 tự có ví dụ "chấm dứt hợp đồng lao động".
+        tinh_huong = p.split("TÌNH HUỐNG CỦA NGƯỜI HỎI")[-1].split("CÂU HỎI:")[0]
+        lao_dong = "hợp đồng lao động" in tinh_huong
+        ra = {
+            "quan_he": "chấm dứt hợp đồng lao động" if lao_dong else "hệ thống pháp luật",
+            "vai": "người lao động" if lao_dong else "chưa rõ",
+            "linh_vuc": "lao_dong" if lao_dong else "khac",
+            "ba_lop": ["nguyen_tac"],
+            "du_kien_van_ban": [],
+            "queries": (
+                ["các trường hợp chấm dứt hợp đồng lao động", "trợ cấp thôi việc khi hết hạn hợp đồng lao động"]
+                if lao_dong
+                else ["hệ thống văn bản quy phạm pháp luật", "hiệu lực pháp lý của Hiến pháp"]
+            ),
+        }
+        return json.dumps(ra, ensure_ascii=False), Usage(1, 1, 0.0)
+
+
+def test_rewrite_khong_doc_nen_nen_truy_van_khong_lech_sang_lao_dong():
+    """Phát lại câu HE_THONG với hồ sơ tài khoản thật, prompt rewrite THẬT (v2 mặc định).
+    Nền không được vào khối tình huống của rewrite: mô hình dùng khối đó để chọn vai và
+    quan hệ khi viết truy vấn, và CHÍNH nó là bước phán định lĩnh vực — đọc nền ở đây là
+    để ký ức lao động vừa lái truy hồi vừa tự quyết mình có liên quan hay không."""
+    from pathlib import Path
+
+    from src.agents.nodes.generate_claims import generate_claims
+    from src.config import Settings
+
+    llm = LlmDocTinhHuong()
+    st = rewrite_query(_vao(HE_THONG, HO_SO_TAI_KHOAN), llm, "m", prompt_path=Path(Settings().rewrite_prompt))
+    assert "Ocenpark" not in llm.prompt[0] and "Sắp kết thúc hợp đồng lao động" not in llm.prompt[0]
+    assert not [q for q in st["queries"] if "lao động" in q]
+    assert st["linh_vuc_du_doan"] != "lao_dong" and st["ho_so"] == {}
+
+    class Gen:
+        def chat(self, model, messages, json_schema=None):
+            self.prompt = messages[-1]["content"]
+            return json.dumps({"insufficient_evidence": True, "claims": []}), Usage(1, 1, 0.0)
+
+    gen = Gen()
+    prov = {
+        "id": 1,
+        "document_id": "d",
+        "duong_dan": "Hiến pháp năm 2013 > Điều 2",
+        "tieu_de": "Điều 2.",
+        "noi_dung": "Nhà nước Cộng hòa xã hội chủ nghĩa Việt Nam…",
+        "so_ky_hieu": "Hiến pháp năm 2013",
+    }
+    generate_claims({**st, "expanded": [prov]}, gen, "m")
+    assert "Ocenpark" not in gen.prompt and "Thực tập sinh" not in gen.prompt
+
+
+def test_cau_hoi_lao_dong_van_nhan_nen_sau_phan_dinh():
+    """Chiều ngược lại của cùng bản sửa: câu hỏi lao động được phán định KHÔNG cần nền, rồi
+    nền vào lại lượt (generate, assemble, hỏi lại) như trước."""
+    from pathlib import Path
+
+    from src.config import Settings
+
+    class LaoDong(LlmDocTinhHuong):
+        def chat(self, model, messages, json_schema=None):
+            raw, u = super().chat(model, messages, json_schema)
+            return json.dumps({**json.loads(raw), "linh_vuc": "lao_dong"}, ensure_ascii=False), u
+
+    llm = LaoDong()
+    st = rewrite_query(
+        _vao("hết hạn hợp đồng thì công ty có phải trả trợ cấp không", HO_SO_TAI_KHOAN),
+        llm,
+        "m",
+        prompt_path=Path(Settings().rewrite_prompt),
+    )
+    assert "Ocenpark" not in llm.prompt[0]
+    assert st["ho_so"] == HO_SO_TAI_KHOAN
 
 
 def test_suy_dien_khong_doan_vai_khi_nen_da_co_vai():
