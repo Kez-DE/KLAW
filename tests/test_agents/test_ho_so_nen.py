@@ -185,6 +185,74 @@ def test_cau_hoi_lao_dong_van_nhan_nen_sau_phan_dinh():
     assert st["ho_so"] == HO_SO_TAI_KHOAN
 
 
+# ── Bản thảo: nền vào theo LOẠI văn bản (không qua rewrite). Loại lao động = loại có căn cứ
+# gốc là BLLĐ 45/2019/QH14 hay văn bản hướng dẫn nó; khai `linh_vuc: lao_dong` trong
+# registry khuôn mẫu (`config/khuon_mau/<loai>.yaml`).
+_HO_BLLD = ("45/2019/QH14", "145/2020/NĐ-CP", "10/2020/TT-BLĐTBXH")
+
+
+def test_loai_lao_dong_trong_registry_khop_can_cu_goc_cua_checklist():
+    from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
+    from src.services import khuon_mau as km
+
+    for loai in sorted(km.cac_loai() & cac_loai()):
+        goc = load_checklist_cached(loai).can_cu_goc
+        assert (km.nap(loai).get("linh_vuc") == "lao_dong") == goc.startswith(_HO_BLLD), loai
+    assert km.nap("hop_dong_thue_nha_o").get("linh_vuc") is None
+
+
+def _nap(monkeypatch, loai: str, **st) -> dict:
+    from src.agents import graph_tra_cuu as g
+
+    monkeypatch.setattr(g.gst, "requirements", lambda loai: ([], g.gst.load_checklist_cached(loai), {}))
+    monkeypatch.setattr(g.gst, "provisions_theo_duong_dan", lambda dd: {})
+    monkeypatch.setattr(g.gst, "chua_toan_van", lambda engine, so, hien: [])
+    monkeypatch.setattr(g, "hien_thi_luc", lambda engine, as_of: frozenset())
+    monkeypatch.setattr(g.gst, "can_cu_van_ban_co_id", lambda e, d_, a: [])
+    vao = _vao("soạn hợp đồng", HO_SO_TAI_KHOAN)
+    return g._nap_khuon_mau(None, {**vao, "soan_thao_goi_y": {"loai": loai}, **st})
+
+
+def test_ban_thao_hdld_dung_nen_cua_tai_khoan(monkeypatch):
+    st = _nap(monkeypatch, "hdld")
+    assert st["ho_so"] == HO_SO_TAI_KHOAN
+    assert "Ocenpark" in {d["gia_tri"] for d in _base(st, ResultType.ban_thao)["ho_so_da_dung"]}
+
+
+def test_ban_thao_thue_nha_o_khong_dung_nen(monkeypatch):
+    st = _nap(monkeypatch, "hop_dong_thue_nha_o")
+    assert st["ho_so"] == {} and _base(st, ResultType.ban_thao)["ho_so_da_dung"] == []
+
+
+def test_luot_sua_hdld_dang_mo_dung_nen(monkeypatch):
+    """Lượt sửa lấy loại từ khung đã lưu, không từ router — cùng một luật."""
+    nhe = {"nguon": "khuon_mau", "loai_khuon": "hdld", "audit": {"khung": {"loai": "hdld", "ben": []}}}
+    st = _nap(monkeypatch, "hdld", soan_thao_goi_y={}, ban_thao_tong_quat_dang_mo=nhe)
+    assert st["khuon_mau_ngu_canh"]["sua"] is True and st["ho_so"] == HO_SO_TAI_KHOAN
+
+
+def _gom(loai: str) -> tuple[dict, str]:
+    from src.agents.nodes import gom_du_kien as gd
+
+    class L:
+        def chat(self, model, messages, json_schema=None):
+            self.prompt = messages[-1]["content"]
+            return json.dumps({"du": False, "ghi_chu": ""}), Usage(1, 1, 0.0)
+
+    llm = L()
+    st = gd.gom_du_kien({**_vao("bên kia đồng ý rồi", HO_SO_TAI_KHOAN), "soan_thao_dang_mo": {"loai": loai}}, llm, "m")
+    return st, llm.prompt
+
+
+def test_checklist_lao_dong_dang_mo_do_gom_du_kien_doc_nen():
+    """`gom_du_kien` (checklist mở dở từ `/sang-soan-thao`) là bước soạn DUY NHẤT mà prompt
+    đọc hồ sơ tình huống: loại lao động đọc nền, loại khác không."""
+    st, prompt = _gom("hdld")
+    assert "Ocenpark" in prompt and st["ho_so"] == HO_SO_TAI_KHOAN
+    st, prompt = _gom("hop_dong_thue_tai_san")
+    assert "Ocenpark" not in prompt and st["ho_so"] == {}
+
+
 def test_suy_dien_khong_doan_vai_khi_nen_da_co_vai():
     st = suy_dien(_vao("tôi bị công ty cho nghỉ việc", HO_SO_TAI_KHOAN))
     assert "chu_the" not in st["ho_so"]

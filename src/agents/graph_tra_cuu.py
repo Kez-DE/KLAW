@@ -50,6 +50,7 @@ from src.agents.state import KLawState
 from src.config import as_of_hieu_luc, get_settings
 from src.services import ban_thao, bao_ve, bo_nho_tai_khoan, khuon_mau
 from src.services import tai_lieu as tl
+from src.services.bo_nho import ho_so_theo_linh_vuc
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
@@ -454,6 +455,9 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
     if loai is None:
         return {**st, "khuon_mau_ngu_canh": {**ng, "ben": khung_cu.get("ben") or []}}
     entry = khuon_mau.nap(loai)
+    # Nền (hồ sơ tài khoản) chỉ vào bản thảo của loại cùng lĩnh vực (`linh_vuc` trong
+    # registry, như phán định của `rewrite_query` cho lượt hỏi): HĐLĐ có, thuê nhà thì không.
+    st = {**st, "ho_so": ho_so_theo_linh_vuc(st.get("ho_so") or {}, st.get("ho_so_nen") or {}, entry.get("linh_vuc"))}
     khoa_than = sorted(khuon_mau.muc_than(entry))
     ng.update(
         ten=entry["ten"],

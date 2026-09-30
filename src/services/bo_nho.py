@@ -162,8 +162,9 @@ def ho_so_sau_luot(result_type: str | None, cu: dict, moi: dict) -> dict:
 # chưa ai nói lại. Bảy khoá ở trên là hoàn cảnh LAO ĐỘNG của người hỏi, nên nền chỉ vào
 # một lượt khi lượt đó là câu hỏi lao động — app thật 2026-09-30: «Thực tập sinh ·
 # Ocenpark» dưới một hợp đồng thuê nhà và dưới câu hỏi về hệ thống pháp luật. `tach_nen`
-# gỡ nền khỏi `ho_so` lúc vào graph; chỉ `rewrite_query` (bước DUY NHẤT đoán lĩnh vực)
-# trả nó lại. Lượt không qua bước đó (soạn thảo, tài liệu, meta) không dùng, không hiện nền.
+# gỡ nền khỏi `ho_so` lúc vào graph; `rewrite_query` (bước DUY NHẤT đoán lĩnh vực, không
+# đọc nền) trả nó lại cho câu hỏi lao động, và lượt soạn trả lại theo `linh_vuc` của loại
+# văn bản trong registry khuôn mẫu. Lượt khác (tài liệu, meta) không dùng, không hiện nền.
 # ponytail: nền coi là lao động; lưu lĩnh vực của vụ việc cùng hồ sơ tài khoản khi nền
 # thuộc lĩnh vực khác cần dùng lại.
 LINH_VUC_NEN = "lao_dong"
