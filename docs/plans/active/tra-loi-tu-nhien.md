@@ -38,11 +38,43 @@ Active. Owner decisions accepted 2026-09-30; decision record
 ## Progress
 
 - [x] Decisions; decision record; this plan.
-- [ ] N1 data.
-- [ ] N2 routing + meta.
-- [ ] N3 answer composition.
-- [ ] N4 UI copy.
-- [ ] V reviews, real-app check, eval.
+- [x] N1 data (`feat/tra-loi-du-lieu`). Code merged. **DB not in the committed state**:
+  the shared dev DB still holds the two N1 loai 23 edges 169188/169363 -> 178259 that
+  ba25aef says to replace with the parquet loai 21 edges (keep 101/2024, 102/2024
+  hidden). Both decrees are shown (486 shown at 2026-09-28) and their repealed articles
+  are retrievable: dense replay of the land question (saved query vector, 0 cost) ranks
+  101/2024 Điều 30 k12 #4 and 102/2024 Điều 108 #3, #5, #8. Script and backups:
+  `.claude/worktrees/_scratch/du-lieu-n1/giu_an_101_102.py`,
+  `backup-truoc-giu-an-101-102-20260930.dump`. Needs an authorised run.
+- [x] N2 routing + meta (`feat/tra-loi-meta`). Migration 042: the three `traces`
+  columns exist on the shared DB (checked in `information_schema`); a re-apply from the
+  integration stage was refused by the permission layer, backup taken first
+  (`_scratch/klaw-truoc-042-20260930-163309.dump`).
+- [x] N3 answer composition (`feat/tra-loi-phan-tich`).
+- [x] N4 UI copy (`feat/tra-loi-giao-dien`).
+- [ ] V reviews, real-app check, eval. Integration `integ/tra-loi-tu-nhien` (not merged
+  into main):
+  - Conflicts: `gioi_thieu.py` kept the model-written meta rewrite; the lease note kept
+    "chưa đối chiếu với Luật Nhà ở…" (the law is deep now, so "chưa trích dẫn được
+    nguyên văn" would be false); UI kept the analysis/check-further superset.
+  - Integration fixes: scope sentence only on count answers on the meta path too
+    (number lookups no longer carry it); the `["kho"]` facet collapse moved from
+    `assemble` into `gioi_thieu.khia_canh_luot_kho`; FE/BE key parity made strict.
+  - CI lane on 9e8f452: 4323 passed, 1 failed (known worktree-only
+    `test_data_raw_VAN_bi_gitignore`);
+    ruff clean on changed files, no new format debt; frontend typecheck, `kiem`,
+    prettier pass.
+  - Replay with fake LLMs (0 paid): land question routed to tra_cuu whatever the
+    router says (`route_ep_luat` true on a gioi_thieu verdict), answer with citations
+    and an analysis part, invented Điều dropped; "bạn làm được những gì, bạn là ai" and
+    "Bạn là ai và bạn làm được những gì" give one model block, facets
+    danh_tinh+nang_luc, invented "luật sư AI" sentence dropped; "bạn giúp tôi được chứ"
+    no echo line; "pháp luật việt nam chia thành những gì" to tra_cuu; "trong KLAW có
+    bao nhiêu bộ luật" hoi_ve_kho with the scope sentence. No "kho" in legal answers.
+  - Eval (`eval/results/kho-luat/so-sanh-tl.md`, US$0.6475): golden 71/74 ran,
+    trúng dẫn 64.8% (final 66.2% / 64.8%), trích dẫn đúng 85.1% (81.9%), abstain
+    11.3% (4.2% / 9.9%); trap 40/57 (42/57), `ngoai_pham_vi` 4/15 (8/15); mơ hồ 15/19
+    scored (14/20). Not isolated to this wave (85 main commits since the baseline).
 
 ## Result
 
