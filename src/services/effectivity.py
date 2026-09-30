@@ -813,7 +813,10 @@ def _nguon(ban_ghi: Sequence[dict]) -> str:
 # lại neo ở "Điều 139 > Khoản 1"; tra đúng `provision_id` thôi thì claim dẫn cấp
 # Điều đi qua mà không một cảnh báo nào — đúng lỗ hổng im lặng mà Mức 4 tồn tại
 # để bịt. Vì sao KHÔNG lấy của tổ tiên: khoản 8a mới thêm neo về Điều 154 cha;
-# lan ngược xuống sẽ dán nhãn "bị sửa" lên cả 9 khoản không ai đụng tới.
+# lan ngược xuống sẽ dán nhãn "bị sửa" lên cả 9 khoản không ai đụng tới. Trừ bản
+# ghi PHỦ TRỌN tổ tiên (`vi_tri` là chính vị trí của nó): 87/2025/QH15 sửa cả
+# "Điều 4" của 64/2025/QH15, nên mọi khoản con trong CSDL là bản trước sửa —
+# trace c8a98c3d thấy khoản 13 ("cấp huyện") chỉ mang `mot_phan_khong_xac_dinh`.
 #
 # `duong_dan` là đường dẫn phân cấp có thật (`"45/2019/QH14 > Điều 139 > Khoản 1"`)
 # nên tiền tố + `' > '` là phép "là hậu duệ của". Nối thêm `' > '` chứ không chỉ
@@ -825,8 +828,10 @@ _SQL_SUA_DOI = text(
     " FROM provisions p"
     " JOIN provisions t ON t.id = p.id"
     "   OR (t.document_id = p.document_id AND t.duong_dan LIKE p.duong_dan || ' > %')"
+    "   OR (t.document_id = p.document_id AND p.duong_dan LIKE t.duong_dan || ' > %')"
     " JOIN sua_doi_dieu_khoan s ON s.provision_id = t.id"
     " WHERE p.id = ANY(:ids)"
+    "   AND (p.duong_dan NOT LIKE t.duong_dan || ' > %' OR t.duong_dan LIKE '% > ' || s.vi_tri)"
 )
 
 
@@ -834,6 +839,8 @@ _SQL_SUA_DOI = text(
 # ngược: từ 4 dòng `sua_doi_dieu_khoan` của MỘT văn bản ra tập điều khoản bị ảnh
 # hưởng, thay vì từ một tập id cho trước. `/van-ban/{id}/hieu-luc` cần chiều này
 # — nó không biết trước điều khoản nào bị sửa, đó chính là câu hỏi nó trả lời.
+# Khoản con của một bản ghi phủ trọn Điều (ngoại lệ ở `_SQL_SUA_DOI`) không được
+# liệt kê riêng: dòng của chính Điều đó đã mang bản ghi.
 #
 # Quy tắc tiền tố nằm ở ĐÂY, cạnh `_SQL_SUA_DOI`, chứ không ở tầng route: hai
 # bản sao của phép "là hậu duệ" sẽ lệch nhau ở đúng ca `"Điều 13"` là tiền tố
