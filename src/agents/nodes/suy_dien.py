@@ -61,6 +61,25 @@ _RE_NLD = re.compile(
 )
 
 
+# Lời mở lịch sự không kể chuyện gì ("cho tôi hỏi", "tôi muốn biết") — gỡ trước khi
+# tìm ngôi thứ nhất trong `ke_tinh_huong`.
+_RE_LOI_MO = re.compile(
+    rf"\b(?:cho|giúp)\s+{_NGOI_1}\s+(?:hỏi|biết)\b|{_NGOI_1}\s+(?:xin\s+|muốn\s+|cần\s+)?(?:hỏi|biết|tìm\s+hiểu)\b",
+    re.IGNORECASE,
+)
+_RE_NGOI_1 = re.compile(_NGOI_1, re.IGNORECASE)
+
+
+def ke_tinh_huong(cau: str) -> bool:
+    """Câu hỏi kể tình huống của chính người hỏi: còn ngôi thứ nhất sau khi gỡ lời mở
+    lịch sự. `assemble` chỉ viết phần phân tích cho câu này (quyết định 2026-09-30 mục 3).
+
+    ponytail: quy tắc chữ — "anh em", "con em" đọc thành ngôi thứ nhất. Lượt phân tích
+    tự trả rỗng cho câu hỏi chung (prompt quy tắc 7), nên đọc nhầm chỉ tốn một lượt gọi;
+    thêm ngoại lệ khi trace cho thấy nó xảy ra."""
+    return bool(_RE_NGOI_1.search(_RE_LOI_MO.sub(" ", " ".join((cau or "").split()))))
+
+
 def suy_vai(cau: str) -> str | None:
     c = " ".join((cau or "").split())
     if _RE_NSDLD.search(c):

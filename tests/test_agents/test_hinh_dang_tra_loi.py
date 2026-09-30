@@ -17,6 +17,7 @@ import json
 from pathlib import Path
 
 from src.agents.nodes.assemble import (
+    ANSWER_SCHEMA,
     CON_Y_BI_CAT,
     MO_DAU_LUOT_DAU,
     TRAN_GACH,
@@ -47,7 +48,9 @@ class LlmTra:
         self.prompt = ""
 
     def chat(self, model, messages, json_schema=None):
-        self.prompt = "\n".join(m["content"] for m in messages)
+        # Chỉ lượt HÀNH VĂN: câu kể tình huống còn một lượt phân tích sau nó.
+        if json_schema is ANSWER_SCHEMA:
+            self.prompt = "\n".join(m["content"] for m in messages)
         return json.dumps({"answer": self.answer}), Usage(1, 1, 0.0)
 
 

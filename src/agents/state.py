@@ -50,6 +50,9 @@ class KLawState(TypedDict, total=False):
     # ra
     # Văn bản ẩn mà câu hỏi nêu số hiệu (`hien_thi.van_ban_an_duoc_nhac`).
     van_ban_khong_hien_thi: list[dict]
+    # Quyết định 2026-09-30 mục 3–4 (`assemble._phan_tich`, `dung_doi_chieu_them`).
+    phan_tich: dict | None
+    doi_chieu_them: list[dict]
     # `None` = lượt đầu, hoặc không giải nghĩa được. Giao diện chỉ hiện dòng
     # "Mình hiểu câu hỏi của bạn là: …" khi nó KHÁC `cau_hoi_goc` — giải nghĩa
     # sai là chế độ hỏng chắc chắn xảy ra, và không có dòng đó thì người dùng

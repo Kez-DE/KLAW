@@ -59,7 +59,15 @@ from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.agents.nodes.dung_ban_thao_tong_quat import KHONG_SOAN_DUOC, LOAI_TONG_QUAT, TEN_TONG_QUAT, _ket_state
 from src.agents.nodes.gioi_thieu import cau_gioi_thieu, hoi_cau_truc_phap_luat
 from src.agents.nodes.hieu_tai_lieu import CHO_TRONG, MUC_DICH_SOAN
-from src.agents.nodes.hoi_lai import bi_loai, cau_hoi_lai_tu_khung, duoi_hoi_them, duoi_tu_khung, hoi_lai
+from src.agents.nodes.hoi_lai import (
+    bi_loai,
+    cau_hoi_lai_tu_khung,
+    duoi_hoi_them,
+    duoi_tu_khung,
+    hoi_lai,
+    moc_phap_ly_trong,
+)
+from src.agents.nodes.suy_dien import ke_tinh_huong
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
 from src.models.schemas import Bang
 from src.services import khuon_mau
@@ -822,6 +830,141 @@ def giai_thich_chung(cau_hoi: str, llm, model: str) -> tuple[str | None, Usage |
                        "— loại cả lời, không tới người đọc: %r", chuan[:200])
         return None, usage, "bi_loc"
     return loi_giai_thich, usage, "llm"
+
+
+# ══ Quyết định 2026-09-30 mục 3–4 — phần phân tích, "Nên đối chiếu thêm" ══════
+# Vai THỨ TƯ của mô hình trong node này: áp các căn cứ ĐÃ QUA hai tầng vào tình
+# huống của chính người hỏi, trong một phần ghi nhãn riêng (CONTEXT.md "phân
+# tích"). Lượt gọi RIÊNG, không nới lượt hành văn: prompt hành văn đang được đo
+# giữ nguyên từng chữ cho mọi câu hỏi, lượt này chỉ tốn tiền khi câu hỏi kể tình
+# huống, và nó hỏng thì câu trả lời đã kiểm vẫn đi nguyên vẹn.
+PHAN_TICH_PATH = Path("prompts/phan_tich.v1.md")
+PHAN_TICH_TIEU_DE = "Phân tích cho tình huống của bạn"
+PHAN_TICH_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["doan"],
+    "properties": {"doan": {"type": "array", "maxItems": 5, "items": {"type": "string"}}},
+}
+
+# Chữ nói LUẬT quy định gì. Câu mang nó phải dẫn một Điều của căn cứ — mọi mệnh đề
+# pháp lý của phần phân tích neo vào một điều khoản đã trích (quyết định mục 3).
+# "phải" cố ý có mặt: lời khuyên viết bằng "nên" (prompt quy tắc 3).
+_RE_NOI_LUAT = re.compile(
+    r"\b(?:(?:pháp\s+)?luật(?!\s+sư)|quy\s+định|bắt\s+buộc|phải|không\s+được|bị\s+cấm|nghiêm\s+cấm"
+    r"|có\s+quyền|được\s+quyền|có\s+nghĩa\s+vụ|có\s+trách\s+nhiệm|thẩm\s+quyền|thời\s+hiệu|thời\s+hạn)\b",
+    re.IGNORECASE,
+)
+_RE_HET_CAU = re.compile(r"(?<=[.!?])\s+")
+
+
+def _vuot_can_cu(cau: str, dieu: set[str], so_hieu: set[str], moc: set[str], can_cu: list[dict]) -> str | None:
+    """Lý do câu `cau` (đã chuẩn hoá) nói quá căn cứ, hoặc None. Tra bảng, 0 token —
+    cùng các bộ nhận diện của lưới văn xuôi và lời giải thích chung, không bản thứ hai."""
+    if _RE_THE.search(cau) or _RE_URL.search(cau):
+        return "the_url"
+    if thua := sorted(_so_dieu_trong(cau) - dieu, key=int):
+        return "dieu:" + ",".join(thua)
+    if thua := [s for s in moi_so_hieu_trong(cau) if s not in so_hieu]:
+        return "so_hieu:" + ",".join(thua)
+    if thua := sorted(moc_phap_ly_trong(cau) - moc):
+        return "moc:" + ",".join(thua)
+    if cum := cau_phan_quyet(cau, can_cu):
+        return f"phan_quyet:{cum}"
+    if _RE_NOI_LUAT.search(cau) and not _so_dieu_trong(cau):
+        return "khong_dan_dieu"
+    return None
+
+
+def loc_phan_tich(doan: list[str], can_cu: list[dict], chu_duoc_phep: str) -> tuple[list[str], list[str]]:
+    """`(đoạn giữ lại, lý do từng câu bị bỏ)`. Bỏ theo CÂU, không theo cả phần: một câu
+    vượt căn cứ không kéo theo những câu đúng. `can_cu` là trích dẫn dùng cho văn xuôi;
+    `chu_duoc_phep` là chữ mà một mốc (số + đơn vị) được phép lấy từ đó — khẳng định,
+    nguyên văn trích, và chính lời người hỏi (dữ kiện của họ, không phải quy định).
+
+    Giới hạn đã biết, như `_dieu_khong_duoc_chong_do`: so số Điều, không so cặp (văn
+    bản, số); và không bắt được một quy định nói bằng lời không có số hay chữ pháp lý."""
+    dieu = {d for c in can_cu for d in _dieu_cua_can_cu(c)}
+    so_hieu = {"/".join((c.get("so_ky_hieu") or "").split("/")[:2]) for c in can_cu}
+    moc = moc_phap_ly_trong(normalize(chu_duoc_phep))
+    giu: list[str] = []
+    bo: list[str] = []
+    for d in doan:
+        con = []
+        for cau in _RE_HET_CAU.split(" ".join(str(d).split())):
+            if ly_do := _vuot_can_cu(normalize(cau), dieu, so_hieu, moc, can_cu):
+                bo.append(ly_do)
+            elif cau:
+                con.append(cau)
+        if con:
+            giu.append(" ".join(con))
+    return giu, bo
+
+
+def _phan_tich(
+    state: dict, dung_cho_prose: list, citations_prose: list[dict], llm, model: str
+) -> tuple[dict | None, Usage | None, dict]:
+    """`(phan_tich | None, usage, vết cho traces)`. KHÔNG BAO GIỜ raise (cùng hợp đồng
+    `giai_thich_chung`): phần THÊM vào một câu trả lời đã kiểm. Mô hình chỉ thấy câu
+    hỏi, hồ sơ tình huống và các căn cứ dùng cho văn xuôi — không thấy khẳng định bị
+    tầng 2 bác hay nguồn bị lọc."""
+    cau_hoi = state.get("cau_hoi_day_du") or state.get("query") or ""
+    if not (ke_tinh_huong(cau_hoi) or ke_tinh_huong(state.get("query") or "")):
+        return None, None, {"nguon": "bo_qua", "bi_bo": []}
+    tinh_huong = khoi_tinh_huong(state.get("ho_so") or {})
+    can_cu = "\n".join(
+        f'- {c["duong_dan"]} — {c["bo_luat"]}\n  {r.claim.text}\n  Nguyên văn: "{c["quote"]}"'
+        for r, c in zip(dung_cho_prose, citations_prose, strict=True)
+    )
+    prompt = PHAN_TICH_PATH.read_text(encoding="utf-8").format(cau_hoi=cau_hoi, tinh_huong=tinh_huong, can_cu=can_cu)
+    usage: Usage | None = None
+    try:
+        raw, usage = llm.chat(model, messages(prompt), json_schema=PHAN_TICH_SCHEMA)
+        doan = json.loads(raw)["doan"]
+        if not isinstance(doan, list):
+            raise TypeError(f"doan là {type(doan).__name__}, không phải danh sách")
+    except Exception as e:
+        logger.warning(
+            "assemble: không sinh được phần phân tích (%s: %s) — câu trả lời đi không kèm nó", type(e).__name__, e
+        )
+        return None, usage, {"nguon": "loi", "bi_bo": []}
+    chu = " ".join(
+        [*(r.claim.text for r in dung_cho_prose), *(c["quote"] for c in citations_prose), cau_hoi, tinh_huong]
+    )
+    giu, bo = loc_phan_tich(doan[:5], citations_prose, chu)
+    if bo:
+        logger.warning("assemble: phần phân tích nói quá căn cứ — bỏ %d câu: %s", len(bo), bo)
+    if not giu:
+        return None, usage, {"nguon": "rong", "bi_bo": bo}
+    return {"tieu_de": PHAN_TICH_TIEU_DE, "doan": giu}, usage, {"nguon": "llm", "bi_bo": bo}
+
+
+# "Nên đối chiếu thêm: <văn bản> (chưa trích dẫn được nguyên văn)" — giao diện dựng
+# câu từ các dòng này; ở đây chỉ có dữ liệu, không câu nào gọi tên kho (mục 4).
+TOI_DA_DOI_CHIEU = 3
+
+
+def dung_doi_chieu_them(shallow: list[dict]) -> list[dict]:
+    """Văn bản ĐƯỢC HIỆN mà truy hồi chạm tới nhưng mới có tên (hàng `mo_dau`,
+    migration 016), theo thứ hạng truy hồi, gộp theo văn bản. `hits_shallow` đã lọc
+    theo quy tắc hiển thị (`expand`, `hien_thi`): văn bản ẩn không bao giờ vào đây —
+    nó chỉ hiện khi người hỏi nêu số hiệu (`gan_van_ban_khong_hien_thi`).
+
+    ponytail: thứ hạng truy hồi là tín hiệu liên quan duy nhất; lọc theo chủ đề khi
+    đo được một văn bản lạc đề lọt vào."""
+    ra: list[dict] = []
+    da: set[str] = set()
+    for p in shallow:
+        doc = str(p.get("document_id") or "")
+        so, _ = hien_van_ban(p.get("so_ky_hieu") or "", p.get("ten") or "")
+        truong = truong_trich_dan(p)
+        if not doc or doc in da or not (so or truong["ten_van_ban"]):
+            continue
+        da.add(doc)
+        ra.append({"so_ky_hieu": so, "ten_van_ban": truong["ten_van_ban"], "lien_ket": truong["lien_ket"]})
+        if len(ra) == TOI_DA_DOI_CHIEU:
+            break
+    return ra
 
 
 def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None = None,
@@ -2047,8 +2190,23 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             hinh_dang["do_dai"],
         )
 
-    ket = _base(state, ResultType.answer, usage=usage, degraded=degraded,
-                answer=answer, citations=citations, warnings=warnings, documents=documents)
+    # Quyết định 2026-09-30 mục 3–4: chỉ câu trả lời ĐÃ qua mọi lưới trên mới được
+    # mang phần phân tích (nó áp chính các căn cứ dùng cho văn xuôi) và danh sách
+    # văn bản nên đối chiếu thêm.
+    phan_tich, pt_usage, pt_vet = _phan_tich(state, dung_cho_prose, citations_dung_cho_prose, llm, model)
+    ket = _base(
+        state,
+        ResultType.answer,
+        usage=_gop_usage(usage, pt_usage),
+        degraded=degraded,
+        answer=answer,
+        citations=citations,
+        warnings=warnings,
+        documents=documents,
+        phan_tich=phan_tich,
+        doi_chieu_them=dung_doi_chieu_them(shallow),
+    )
+    ket["traces"]["assemble_phan_tich"] = pt_vet
     ket["traces"]["assemble_hinh_dang"] = hinh_dang
     ket["traces"]["assemble_dieu_bi_loai"] = []
     ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc
