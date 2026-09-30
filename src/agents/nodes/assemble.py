@@ -1196,11 +1196,12 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
         da = sum(1 for o in cho if (o.get("gia_tri") or "").strip())
         dien = f"Đã điền {da}/{len(cho)} chỗ trống. " if da else ""
     can_cu = [_ten_can_cu(c["dong"]) for c in can_cu_hien(khung.get("can_cu") or [], bt.get("clauses") or [])]
-    # Điều luật đòi mà bản soạn chưa có (`khuon_mau.them_dieu_bat_buoc`): nay mang nội dung
-    # chuẩn hay câu chừa chỗ điền; bản cũ còn "……" trơn thì vẫn nói là còn trống.
+    # Điều luật đòi mà bản soạn chưa có (`khuon_mau.them_dieu_bat_buoc`): chỉ điều mang
+    # nội dung chuẩn của căn cứ (`chen: "chuan"`) được nói là đã đặt; câu trung tính hay
+    # "……" vẫn là điều còn trống (owner: không nói đã điền khi chưa điền).
     chen = [c for c in bt.get("clauses") or [] if c.get("chen")]
-    trong = [f"«{c.get('ten')}»" for c in chen if (c.get("doan") or [khuon_mau.CHO]) == [khuon_mau.CHO]]
-    chuan = [f"«{c.get('ten')}»" for c in chen if (c.get("doan") or [khuon_mau.CHO]) != [khuon_mau.CHO]]
+    trong = [f"«{c.get('ten')}»" for c in chen if c["chen"] != "chuan"]
+    chuan = [f"«{c.get('ten')}»" for c in chen if c["chen"] == "chuan"]
     khong_dat = _cau_khong_dat({"khong_dat": x.get("khong_dat") or []})
     ghi = list(x.get("ghi_chu") or [])
     if x.get("khong_mang_sang"):

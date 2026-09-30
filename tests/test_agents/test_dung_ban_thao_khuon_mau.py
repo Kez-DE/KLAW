@@ -263,6 +263,8 @@ def test_khuon_mau_co_checklist_moi_dieu_mang_can_cu_mo_duoc(kho):
                     "khop_tai_id": 8,
                 },
             },
+            # Nội dung chuẩn (`mau`, nghĩa vụ luật đặt) chỉ cho mục này.
+            {"key": "bao_hiem", "ten": "Bảo hiểm", "trich": "", "can_cu": None, "mau": "Hai bên phải đóng bảo hiểm."},
         ],
     }
     ra = _ra(
@@ -287,7 +289,13 @@ def test_khuon_mau_co_checklist_moi_dieu_mang_can_cu_mo_duoc(kho):
         f"Các bên thỏa thuận về {ten[:1].lower()}{ten[1:]} như sau: {km.CHO}"
     ]
     assert {c["dieu"] for c in ket["ban_thao"]["khuon"]["can_cu"]} == {1, luong}
-    assert "đã đặt nội dung chuẩn để bạn xem lại" in ket["answer"] and "còn trống vì luật đòi" not in ket["answer"]
+    # Câu trung tính vẫn là chỗ chờ điền: lời đáp không nói đã đặt nội dung cho nó (owner:
+    # không nói đã điền khi chưa điền); chỉ điều mang `mau` được nói là nội dung chuẩn.
+    bh = next(c for c in cl if c["key"] == "bao_hiem")
+    assert bh["doan"] == ["Hai bên phải đóng bảo hiểm."] and bh["chen"] == "chuan"
+    chuan = ket["answer"].split("đã đặt nội dung chuẩn để bạn xem lại: ")[1].split(". ")[0]
+    trong = ket["answer"].split("Điều còn trống vì luật đòi: ")[1].split(". ")[0]
+    assert chuan == f"«{bh['ten']}»" and f"«{ten}»" in trong and bh["ten"] not in trong
 
 
 def test_sua_dieu_dung_lai_tep_moi_mang_phep_dien_sang(kho):
@@ -750,6 +758,49 @@ def test_nguoi_hoi_neu_ten_truong_thi_doi_duoc_gia_tri_dang_co(kho):
     ket = _luot(_st(cau, nhe=kho.nhe()), _LLM(ra))
     assert _theo_ben(kho, "ho_ten") == {"ben_a": {"Trần Thị Bình"}, "ben_b": {"Nguyễn Văn An"}}
     assert "Đã điền 4 chỗ trống từ lời bạn nói" in ket["answer"]
+
+
+@pytest.mark.parametrize(
+    "cau",
+    [
+        # Câu nhắc tên đầy đủ của MỘT bên (nó có trong câu gõ) không phải lời đổi bên.
+        "Sửa Điều 2: bà Trần Thị Bình trả giá thuê 10.000.000 đồng mỗi tháng",
+        # Nhắc tên cả hai bên mà không gọi vai nào: không dời giá trị nào.
+        "Sửa Điều 2: bà Trần Thị Bình trả cho ông Nguyễn Văn An 10.000.000 đồng mỗi tháng",
+    ],
+    ids=["mot_ten", "hai_ten"],
+)
+def test_sua_dieu_nhac_ten_cac_ben_khong_dao_ben(kho, cau):
+    _luot(_st(), _LLM(_ra()))
+    _dien_tren_trang(kho, "ben_a", "ngay_sinh", "15/03/1978")
+    thay = {"thao_tac": "thay", "dieu": 2, "key": None, "ten": "Giá thuê", "doan": ["Giá thuê là 10.000.000 đồng."]}
+    ra = _ra(muc_tieu="sua_ban_dang_co", dieu=None, sua_dieu=[thay], gia_tri=DAO_BEN)
+    ket = _luot(_st(cau, nhe=kho.nhe(), query=f"{cau} của hợp đồng thuê giữa hai bên"), _LLM(ra))
+    assert _theo_ben(kho, "ho_ten") == {"ben_a": {"Nguyễn Văn An"}, "ben_b": {"Trần Thị Bình"}}
+    assert _theo_ben(kho, "ngay_sinh") == {"ben_a": {"15/03/1978"}} and "Đã điền" not in ket["answer"]
+
+
+def test_hai_ben_khong_bao_gio_cung_mot_dinh_danh(kho):
+    # Câu gọi vai "bên thuê" VÀ có tên ông An — nhưng ông An đang là bên cho thuê: mô hình
+    # đặt ông An vào bên thuê thì hai bên thành cùng một người.
+    _luot(_st(), _LLM(_ra()))
+    cau = "Sửa Điều 2: bên thuê trả tiền thuê cho ông Nguyễn Văn An bằng chuyển khoản"
+    ra = _ra(muc_tieu="sua_ban_dang_co", dieu=None, sua_dieu=[], gia_tri=[DAO_BEN[1]])
+    _luot(_st(cau, nhe=kho.nhe()), _LLM(ra))
+    assert _theo_ben(kho, "ho_ten") == {"ben_a": {"Nguyễn Văn An"}, "ben_b": {"Trần Thị Bình"}}
+
+
+@pytest.mark.parametrize(
+    ("vai", "goi"),
+    [
+        ("Bên cho thuê", ["bên cho thuê"]),
+        ("1. BÊN A: NGƯỜI SỬ DỤNG LAO ĐỘNG", ["bên a", "người sử dụng lao động"]),
+        ("I. BÊN CHO THUÊ (sau đây gọi tắt là Bên cho thuê):", ["bên cho thuê"]),
+        ("Người yêu cầu thứ nhất — người chồng", ["người yêu cầu thứ nhất", "người chồng"]),
+    ],
+)
+def test_cach_goi_vai_mot_ben(vai, goi):
+    assert d._goi_vai(vai) == goi
 
 
 def test_nap_khuon_mau_noi_dung_chuan_cua_dieu_bat_buoc_la_nghia_vu_luat_dat(monkeypatch):

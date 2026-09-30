@@ -419,12 +419,11 @@ def them_dieu_bat_buoc(
     ra = list(dieu)
     for k in thieu:
         t = ten.get(k, k)
-        doan = (
-            ((mau or {}).get(k) or f"Các bên thỏa thuận về {t[:1].lower()}{t[1:]} như sau: {CHO}")
-            if entry.get("bo_cuc") == "hop_dong"
-            else CHO
-        )
-        moi = {"key": k, "ten": t, "doan": [doan], "can_cu": None, "chen": True}
+        hop_dong = entry.get("bo_cuc") == "hop_dong"
+        chuan = (mau or {}).get(k) if hop_dong else None
+        doan = chuan or (f"Các bên thỏa thuận về {t[:1].lower()}{t[1:]} như sau: {CHO}" if hop_dong else CHO)
+        # `chen: "chuan"` — đoạn là nội dung chuẩn của căn cứ; `True` — điều còn chờ điền.
+        moi = {"key": k, "ten": t, "doan": [doan], "can_cu": None, "chen": "chuan" if chuan else True}
         # Chèn trước điều đầu tiên có vị trí checklist SAU mục này; không có thì cuối.
         vt = thu_tu.index(k) if k in thu_tu else len(thu_tu)
         i = next(
