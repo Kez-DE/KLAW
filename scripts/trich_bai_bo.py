@@ -6,9 +6,11 @@ chính thống; điều khoản đó bị ẩn khỏi truy hồi, trích dẫn v
 
     python -m scripts.trich_bai_bo [--ghi]      # mặc định: chỉ in báo cáo
 
-Đầu vào: cạnh loai 23 ("hết hiệu lực 1 phần") đi ra từ văn bản deep đang được hiện,
-cộng các cặp đã đối chiếu tay (`CAP_THEM`). Nguyên văn văn bản đi bãi bỏ lấy từ JSON
-gateway Bộ Tư pháp (thư mục `--tho`), không có thì từ `provisions` của nó trong DB.
+Đầu vào: cạnh loai 23 ("hết hiệu lực 1 phần") đi ra và cạnh loai 20 ("sửa đổi, bổ sung")
+đi vào văn bản deep đang được hiện — văn bản đi sửa cũng bãi bỏ điều khoản ("12. Bãi bỏ
+khoản 5 Điều 6") —, cộng các cặp đã đối chiếu tay (`CAP_THEM`, `DOI_CHIEU_TAY`). Nguyên văn
+văn bản đi bãi bỏ lấy từ JSON gateway Bộ Tư pháp (các thư mục `--tho`, thư mục trước thắng),
+không có thì từ `provisions` của nó trong DB.
 Đầu ra: `data/seed/bai_bo_dieu_khoan.yaml` (nạp bằng `scripts.nap_bai_bo_dieu_khoan`).
 
 Parser THUẦN, tất định, 0 model. Ba dạng câu được nhận, mọi dạng khác bị bỏ:
@@ -167,6 +169,7 @@ class Trich:
     trich: str  # nguyên văn (câu dẫn/tiêu đề " … " câu), khoảng trắng đã gộp
     dieu_khoan: list[str] = field(default_factory=list)  # "Điều 9 > Khoản 5" …
     tu_ngay: date | None = None  # ngày câu tự nêu; None = ngày hiệu lực của văn bản
+    kiem_boi: str = "trich-bai-bo"  # "doi-chieu-tay": dòng `DOI_CHIEU_TAY`
 
 
 def _cap(dong: str) -> int | None:
@@ -338,20 +341,80 @@ def _la_cau_dan(dong: str) -> bool:
     )
 
 
-# ── Chạy: cạnh loai 23 của văn bản được hiện → seed ───────────────────────────
+# ── Chạy: cạnh loai 20/23 của văn bản được hiện → seed ────────────────────────
 SEED = Path("data/seed/bai_bo_dieu_khoan.yaml")
 THU_MUC_THO = (Path("data/raw/moj"),)
 # Cặp (bị bãi bỏ, đi bãi bỏ) đã đối chiếu tay mà đồ thị chưa có cạnh loai 23 lúc chạy (N1:
 # cạnh parquet ghi nhầm "thay thế"; `load_incoming_edges.CANH_DOI_CHIEU_NGUYEN_VAN` sửa).
 CAP_THEM = (("169188", "178259"), ("169363", "178259"))
+# Câu bãi bỏ mà parser CỐ Ý không đọc (mục 9(b)), đã đối chiếu tay với toàn văn gateway:
+# (id bị bãi bỏ, id đi bãi bỏ, điều khoản đi bãi bỏ, điều khoản bị bãi bỏ, các dòng nguyên văn
+# nối " … "). `trich_tay` kiểm từng dòng còn NGUYÊN VĂN, đúng thứ tự, mỗi lần sinh seed.
+DOI_CHIEU_TAY: tuple[tuple[str, str, str, tuple[str, ...], tuple[str, ...]], ...] = (
+    # 49/2026/NĐ-CP: "(đã được sửa đổi …)" là câu parser bỏ; khoản 12 Điều 4 của 226/2025/NĐ-CP
+    # "Sửa đổi, bổ sung khoản 4 và bổ sung khoản 5 vào Điều 77" — khoản 4 có trong bản gốc kho giữ.
+    (
+        "169363",
+        "187157",
+        "Điều 16 khoản 3 điểm d",
+        ("Điều 77 > Khoản 4",),
+        (
+            "3. Các quy định sau đây hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành:",
+            "d) Khoản 4 Điều 77 của Nghị định số 102/2024/NĐ-CP (đã được sửa đổi, bổ sung tại khoản 12 Điều 4"
+            " của Nghị định số 226/2025/NĐ-CP);",
+        ),
+    ),
+    # 226/2025/NĐ-CP Điều 7: gạch đầu dòng dưới câu dẫn bãi bỏ cả cụm từ lẫn điều khoản; mục gạch
+    # không nêu số hiệu nên parser không đọc. Chỉ mục đọc trọn thành điều khoản được ghi.
+    (
+        "169188",
+        "181906",
+        "Điều 7 khoản 3 điểm c",
+        ("Điều 7",),
+        (
+            "3. Thay thế, bổ sung, bãi bỏ các điều, từ, cụm từ tại Nghị định số 101/2024/NĐ-CP",
+            "c) Bãi bỏ điều, các từ, cụm từ như sau:",
+            "- Điều 7;",
+        ),
+    ),
+    (
+        "169363",
+        "181906",
+        "Điều 7 khoản 4 điểm c",
+        ("Điều 69 > Khoản 1 > Điểm b",),
+        (
+            "4. Thay thế, bổ sung, bãi bỏ các điểm, từ, cụm từ, mẫu tại Nghị định số 102/2024/NĐ-CP",
+            "c) Bãi bỏ một số điểm, khoản, cụm từ, mẫu như sau:",
+            "- Điểm b khoản 1 Điều 69;",
+        ),
+    ),
+)
 _DAU_SEED = """\
 # Điều khoản BỊ BÃI BỎ bởi văn bản khác (quyết định 2026-09-30 mục 9, migration 043).
 # Sinh bằng `python -m scripts.trich_bai_bo --ghi`; nạp bằng
-# `python -m scripts.nap_bai_bo_dieu_khoan --ghi` (chạy lại sau mỗi lượt `ingest`).
+# `python -m scripts.nap_bai_bo_dieu_khoan --ghi` (`ingest` tự nạp lại sau mỗi lượt).
 # `trich`: nguyên văn (khoảng trắng đã gộp) văn bản đi bãi bỏ, câu dẫn/tiêu đề " … " câu;
 # `dieu_khoan`: phần sau số hiệu của `provisions.duong_dan`; `tu_ngay`: ngày câu tự nêu,
 # không có thì ngày hiệu lực của văn bản đi bãi bỏ.
 """
+
+
+def trich_tay(dong: list[str], d: str, r: str) -> list[Trich]:
+    """Dòng `DOI_CHIEU_TAY` của cặp (`d` bị bãi bỏ, `r` đi bãi bỏ). Mỗi dòng trích phải có
+    NGUYÊN VĂN, đúng thứ tự, trong toàn văn `dong` của `r` — lệch là `ValueError`, không ghi."""
+    dong = [_chuan(x) for x in dong]
+    ra = []
+    for dd, rr, vi_tri, dieu_khoan, cac_dong in DOI_CHIEU_TAY:
+        if (dd, rr) != (d, r):
+            continue
+        i = -1
+        for x in cac_dong:
+            try:
+                i = dong.index(_chuan(x), i + 1)
+            except ValueError:
+                raise ValueError(f"DOI_CHIEU_TAY {r} {vi_tri}: không thấy nguyên văn {x!r}") from None
+        ra.append(Trich(vi_tri, " … ".join(map(_chuan, cac_dong)), list(dieu_khoan), None, "doi-chieu-tay"))
+    return ra
 
 
 def dong_nguyen_van(conn, doc_id: str, thu_muc: tuple[Path, ...]) -> list[str]:
@@ -397,14 +460,17 @@ def hang_seed(conn, cap: list[tuple[str, str]], thu_muc: tuple[Path, ...], kiem_
             for dd in conn.execute(text("SELECT duong_dan FROM provisions WHERE document_id = :i"), {"i": d}).scalars()
             if " > " in dd
         }
-        trich = trich_van_ban(dong_nguyen_van(conn, r, thu_muc), vd["so_ky_hieu"])
+        dong = dong_nguyen_van(conn, r, thu_muc)
+        trich = trich_van_ban(dong, vd["so_ky_hieu"]) + trich_tay(dong, d, r)
         if not trich:
             bo.append((vd["so_ky_hieu"], vr["so_ky_hieu"], "không có câu bãi bỏ trọn điều khoản đọc được"))
         for t in trich:
             tu_ngay = t.tu_ngay or vr["ngay_hieu_luc"]
             if thieu := [x for x in t.dieu_khoan if x not in co]:
                 bo.append((vd["so_ky_hieu"], vr["so_ky_hieu"], f"{t.vi_tri}: không có trong kho {thieu}"))
-            elif tu_ngay is None or (vd["ngay_hieu_luc"] and tu_ngay <= vd["ngay_hieu_luc"]):
+            # Cùng ngày là hợp lệ: luật sửa trước khi luật gốc có hiệu lực (12/2017/QH14 bãi bỏ
+            # BLHS 100/2015/QH13 Điều 292 từ đúng 01/01/2018). TRƯỚC ngày đó là đọc nhầm văn bản.
+            elif tu_ngay is None or (vd["ngay_hieu_luc"] and tu_ngay < vd["ngay_hieu_luc"]):
                 bo.append((vd["so_ky_hieu"], vr["so_ky_hieu"], f"{t.vi_tri}: ngày {tu_ngay} không sau văn bản"))
             else:
                 link = vr["link_vbpl"] or ""
@@ -419,11 +485,19 @@ def hang_seed(conn, cap: list[tuple[str, str]], thu_muc: tuple[Path, ...], kiem_
                         "trich": t.trich,
                         "url": link if link.startswith("https://vbpl.vn/") else f"https://vbpl.vn/van-ban/chi-tiet/{r}",
                         "tu_ngay": tu_ngay,
-                        "kiem_boi": "trich-bai-bo",
+                        "kiem_boi": t.kiem_boi,
                         "kiem_luc": kiem_luc,
                     }
                 )
     return ra, bo
+
+
+def cap_ung_vien(canh: list[tuple[int, str, str]], hien: frozenset[str]) -> list[tuple[str, str]]:
+    """Cạnh `(loai, from, to)` → cặp (bị bãi bỏ, đi bãi bỏ) mà bị bãi bỏ đang được hiện: loai 23
+    đọc xuôi (`to` khai tử `from` một phần), loai 20 đọc ngược (`from` sửa `to`) — cùng chiều
+    của `effectivity._SQL_CANH`. Cộng các cặp đối chiếu tay."""
+    cap = {(f, t) if loai == 23 else (t, f) for loai, f, t in canh}
+    return sorted({c for c in cap if c[0] in hien} | set(CAP_THEM) | {(d, r) for d, r, *_ in DOI_CHIEU_TAY})
 
 
 def _cap_ung_vien(engine, as_of: date) -> list[tuple[str, str]]:
@@ -431,15 +505,15 @@ def _cap_ung_vien(engine, as_of: date) -> list[tuple[str, str]]:
 
     from src.services.hien_thi import hien_thi_luc
 
-    hien = hien_thi_luc(engine, as_of)
     with engine.connect() as c:
         canh = c.execute(
             text(
-                'SELECT DISTINCT r.from_document_id, r.to_document_id FROM "references" r'
-                " JOIN documents d ON d.id = r.from_document_id WHERE r.loai = 23 AND d.depth = 'deep'"
+                'SELECT DISTINCT r.loai, r.from_document_id, r.to_document_id FROM "references" r'
+                " JOIN documents d ON d.id = CASE r.loai WHEN 23 THEN r.from_document_id ELSE r.to_document_id END"
+                " WHERE r.loai IN (20, 23) AND d.depth = 'deep'"
             )
         ).all()
-    return sorted({(f, t) for f, t in canh if f in hien} | set(CAP_THEM))
+    return cap_ung_vien(canh, hien_thi_luc(engine, as_of))
 
 
 if __name__ == "__main__":

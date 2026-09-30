@@ -6,11 +6,12 @@ chép từ toàn văn gateway Bộ Tư pháp. Chặt hơn là đủ: câu nào k
 danh sách điều khoản thì bỏ, không đoán.
 """
 
-from datetime import date
+import json
+from datetime import UTC, date, datetime
 
 import pytest
 
-from scripts.trich_bai_bo import muc_tieu, trich_van_ban
+from scripts.trich_bai_bo import DOI_CHIEU_TAY, cap_ung_vien, hang_seed, muc_tieu, trich_tay, trich_van_ban
 
 # 151/2025/NĐ-CP Điều 21 (gateway 178259), nguyên văn.
 _151 = [
@@ -239,3 +240,130 @@ def test_cau_dan_co_dau_hai_cham_va_ngay_rieng():
     assert t.dieu_khoan == ["Điều 3 > Khoản 2", "Điều 7 > Khoản 1", "Điều 7 > Khoản 3", "Điều 8 > Khoản 2"]
     assert t.tu_ngay == date(2025, 7, 1)
     assert trich_van_ban(_151, "101/2024/NĐ-CP")[0].tu_ngay is None  # "kể từ ngày Nghị định này có hiệu lực"
+
+
+# ── Ứng viên: văn bản đi SỬA cũng bãi bỏ điều khoản (loai 20) ────────────────
+
+
+def test_ung_vien_doc_ca_loai_20_nguoc_chieu_va_loai_23_xuoi_chieu():
+    """49/2026/NĐ-CP và 226/2025/NĐ-CP bãi bỏ điều khoản của 101/102/2024 qua cạnh loai 20 (from SỬA
+    to); loai 23 thì from bị to khai tử một phần. Cặp luôn là (bị bãi bỏ, đi bãi bỏ), bị bãi bỏ phải hiện."""
+    canh = [
+        (23, "169188", "178259"),
+        (20, "187157", "169188"),
+        (20, "187157", "168381"),  # 71/2024/NĐ-CP không được hiện
+        (23, "168381", "178259"),
+    ]
+    cap = cap_ung_vien(canh, frozenset({"169188", "169363"}))
+    assert ("169188", "178259") in cap and ("169188", "187157") in cap
+    assert not any(d == "168381" for d, _ in cap)
+    assert {(d, r) for d, r, *_ in DOI_CHIEU_TAY} <= set(cap)
+
+
+# ── Đối chiếu tay: câu parser cố ý không đọc, kiểm lại nguyên văn mỗi lần sinh seed ──
+
+# 49/2026/NĐ-CP Điều 16 (gateway 187157) và 226/2025/NĐ-CP Điều 7 (gateway 181906), nguyên văn.
+_49_226 = [
+    "Điều 16. Hiệu lực thi hành",
+    "3. Các quy định sau đây hết hiệu lực kể từ ngày Nghị định này có hiệu lực thi hành:",
+    "c) Khoản 2 Điều 30; Điều 32; Điều 33; Điều 34; Điều 50; khoản 5 Điều 54 và Điều 65 của Nghị định số"
+    " 102/2024/NĐ-CP;",
+    "d) Khoản 4 Điều 77 của Nghị định số 102/2024/NĐ-CP (đã được sửa đổi, bổ sung tại khoản 12 Điều 4 của Nghị"
+    " định số 226/2025/NĐ-CP);",
+    "3. Thay thế, bổ sung, bãi bỏ các điều, từ, cụm từ tại Nghị định số 101/2024/NĐ-CP",
+    "c) Bãi bỏ điều, các từ, cụm từ như sau:",
+    "- Điều 7;",
+    "- Cụm từ “cơ quan có chức năng quản lý đất đai cấp huyện” tại điểm b khoản 1 Điều 8;",
+    "4. Thay thế, bổ sung, bãi bỏ các điểm, từ, cụm từ, mẫu tại Nghị định số 102/2024/NĐ-CP",
+    "c) Bãi bỏ một số điểm, khoản, cụm từ, mẫu như sau:",
+    "- Điểm b khoản 1 Điều 69;",
+]
+
+
+def test_doi_chieu_tay_49_2026_diem_d_va_226_2025_gach_dau_dong():
+    # Parser bỏ đúng ba câu này: "(đã được sửa đổi …)" và mục gạch đầu dòng không nêu số hiệu.
+    assert [t.dieu_khoan for t in trich_van_ban(_49_226, "102/2024/NĐ-CP")] == [
+        ["Điều 30 > Khoản 2", "Điều 32", "Điều 33", "Điều 34", "Điều 50", "Điều 54 > Khoản 5", "Điều 65"]
+    ]
+    assert trich_van_ban(_49_226, "101/2024/NĐ-CP") == []
+    (d,) = trich_tay(_49_226, "169363", "187157")
+    assert (d.vi_tri, d.dieu_khoan, d.kiem_boi) == ("Điều 16 khoản 3 điểm d", ["Điều 77 > Khoản 4"], "doi-chieu-tay")
+    assert d.trich.startswith("3. Các quy định sau đây hết hiệu lực") and d.trich.endswith("226/2025/NĐ-CP);")
+    (a,) = trich_tay(_49_226, "169188", "181906")
+    assert (a.vi_tri, a.dieu_khoan) == ("Điều 7 khoản 3 điểm c", ["Điều 7"])
+    assert a.trich.endswith("c) Bãi bỏ điều, các từ, cụm từ như sau: … - Điều 7;")
+    (b,) = trich_tay(_49_226, "169363", "181906")
+    assert b.dieu_khoan == ["Điều 69 > Khoản 1 > Điểm b"]
+    assert trich_tay(_49_226, "169188", "187157") == []
+
+
+def test_doi_chieu_tay_dung_khi_nguyen_van_khong_con_khop():
+    lech = [x.replace("- Điều 7;", "- Điều 8;") for x in _49_226]
+    with pytest.raises(ValueError, match="nguyên văn"):
+        trich_tay(lech, "169188", "181906")
+
+
+# ── `hang_seed` trên một kết nối giả: ngày, đối chiếu tay, kiem_boi ─────────
+
+
+class _KetQua(list):
+    def mappings(self):
+        return self
+
+    def scalars(self):
+        return self
+
+
+class _Conn:
+    """Đủ hai truy vấn của `hang_seed`; toàn văn đi bãi bỏ đọc từ tệp JSON gateway."""
+
+    def __init__(self, van_ban, duong_dan):
+        self.van_ban, self.duong_dan = van_ban, duong_dan
+
+    def execute(self, sql, p):
+        if "FROM documents" in str(sql):
+            return _KetQua(self.van_ban[i] for i in p["ids"])
+        return _KetQua(self.duong_dan[p["i"]])
+
+
+def _gateway(thu_muc, doc_id, dong):
+    html = "".join(f"<p>{x}</p>" for x in dong)
+    (thu_muc / f"{doc_id}.json").write_text(json.dumps({"documentContent": {"content": html}}), encoding="utf-8")
+
+
+def _vb(i, so, ngay):
+    return {"id": i, "so_ky_hieu": so, "ngay_hieu_luc": ngay, "link_vbpl": f"https://vbpl.vn/van-ban/chi-tiet/{i}"}
+
+
+def test_hang_seed_nhan_bai_bo_cung_ngay_hieu_luc_va_dong_doi_chieu_tay(tmp_path):
+    """12/2017/QH14 bãi bỏ BLHS 100/2015/QH13 Điều 292 từ 01/01/2018 — đúng ngày BLHS có hiệu lực:
+    cùng ngày là hợp lệ; chỉ ngày TRƯỚC văn bản mới là dấu hiệu đọc nhầm."""
+    _gateway(
+        tmp_path,
+        "122826",
+        [
+            "Điều 1. Sửa đổi, bổ sung, bãi bỏ một số điều của Bộ luật Hình sự số 100/2015/QH13",
+            "141. Bãi bỏ Điều 292 .",
+        ],
+    )
+    _gateway(tmp_path, "181906", _49_226)
+    conn = _Conn(
+        {
+            "96122": _vb("96122", "100/2015/QH13", date(2018, 1, 1)),
+            "122826": _vb("122826", "12/2017/QH14", date(2018, 1, 1)),
+            "169188": _vb("169188", "101/2024/NĐ-CP", date(2024, 8, 1)),
+            "181906": _vb("181906", "226/2025/NĐ-CP", date(2025, 8, 15)),
+        },
+        {"96122": ["100/2015/QH13 > Điều 292"], "169188": ["101/2024/NĐ-CP > Điều 7"]},
+    )
+    hang, bo = hang_seed(
+        conn, [("96122", "122826"), ("169188", "181906")], (tmp_path,), datetime(2026, 9, 30, tzinfo=UTC)
+    )
+    assert bo == []
+    assert [(h["van_ban"], h["dieu_khoan"], h["tu_ngay"], h["kiem_boi"]) for h in hang] == [
+        ("100/2015/QH13", ["Điều 292"], date(2018, 1, 1), "trich-bai-bo"),
+        ("101/2024/NĐ-CP", ["Điều 7"], date(2025, 8, 15), "doi-chieu-tay"),
+    ]
+    conn.van_ban["122826"]["ngay_hieu_luc"] = date(2017, 12, 31)
+    hang, bo = hang_seed(conn, [("96122", "122826")], (tmp_path,), datetime(2026, 9, 30, tzinfo=UTC))
+    assert hang == [] and "không sau văn bản" in bo[0][2]
