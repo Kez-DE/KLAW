@@ -23,7 +23,7 @@ the_thuc:
   co_quan: true
   so: null
   ngay: khong
-  kem_theo: "(Kèm theo Quyết định số {so_van_ban}/QĐ-{viet_tat_co_quan} ngày {ngay_ban_hanh} tháng {} năm {} của {tham_quyen})"
+  kem_theo: "(Kèm theo Quyết định số {so_van_ban}/QĐ-{viet_tat_co_quan} ngày {ngay_ban_hanh} tháng {thang_ban_hanh} năm {nam_ban_hanh} của {tham_quyen})"
   can_cu: false
   noi_nhan: null
   ket_thuc: null

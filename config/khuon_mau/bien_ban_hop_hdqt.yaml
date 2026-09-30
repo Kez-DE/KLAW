@@ -23,7 +23,7 @@ nguon:
 the_thuc:
   dong_mau: null
   co_quan: true
-  so: "Số: {}/BB-HĐQT"
+  so: "Số: {so_van_ban}/BB-HĐQT"
   ngay: khong
   trich_yeu: "Họp Hội đồng quản trị {trich_yeu}"
   thut_nhan: true

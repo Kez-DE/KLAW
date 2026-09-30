@@ -257,6 +257,82 @@ def test_ngay_ban_hanh_du_tach_ra_ca_hai_bo_ba_ngay():
     assert sorted(p["gia_tri"] for p in tach) == ["2026", "2026", "25", "25", "9", "9"]
 
 
+def test_moi_ban_sao_tren_trang_cua_quyet_dinh_ban_hanh_mang_cung_khoa():
+    """Bộ dựng ghi khoá trường vào MỌI bản sao in trên trang — tên cơ quan ở đầu hai phần;
+    số, ký hiệu, ngày, tháng, năm, thẩm quyền của quyết định và của dòng "(Kèm theo …)" —
+    để điền trên trang (`ban_thao.phep_o_dien`) nối được các bản sao với nhau."""
+    from collections import Counter
+
+    _, ban_do = km.dung_docx(_spec("noi_quy"))
+    dem = Counter(k for ds in ban_do.values() for k in ds if k)
+    for t in ("so_van_ban", "viet_tat_co_quan", "ngay_ban_hanh", "thang_ban_hanh", "nam_ban_hanh", "tham_quyen"):
+        assert dem["van_ban", t] == 2, t
+    assert dem["co_quan", "ten_to_chuc"] == 2 and dem["van_ban", "dia_danh"] == 1
+
+
+def _o_cua(o: list[dict], ben: str, truong: str) -> list[tuple[int, int]]:
+    return [(x["don_vi"], x["so"]) for x in o if (x["ben"], x["truong"]) == (ben, truong)]
+
+
+def test_dien_tren_trang_mot_cho_dien_moi_ban_sao_cua_truong():
+    """Điền tên cơ quan ở trang 1 của nội quy thì đầu trang 2 cũng có; số, ký hiệu, ngày,
+    tháng, năm của quyết định sang dòng "(Kèm theo …)" — hai bản không bao giờ lệch nhau
+    (`_truong.yaml`: "Một giá trị điền mọi bản sao"). Chỗ lần gửi tự nêu giữ giá trị của nó."""
+    from src.services import ban_thao
+
+    docx, ban_do = km.dung_docx(_spec("noi_quy"))
+    dv = _don_vi(docx)
+    o = ban_thao.o_truong(dv, ban_do)
+    cho = ban_thao.cho_trong_khuon("docx", dv, [], o)
+    gia_tri = {
+        "ten_to_chuc": ("co_quan", "Công ty ANP"),
+        "so_van_ban": ("van_ban", "15"),
+        "viet_tat_co_quan": ("van_ban", "ANP"),
+        "ngay_ban_hanh": ("van_ban", "25"),
+        "thang_ban_hanh": ("van_ban", "9"),
+        "nam_ban_hanh": ("van_ban", "2026"),
+    }
+    gui = [
+        {"don_vi": d, "cho_trong": s, "gia_tri": v} for t, (ben, v) in gia_tri.items() for d, s in _o_cua(o, ben, t)[:1]
+    ]
+    phep = ban_thao.phep_o_dien(cho, o, gui)
+    assert len(phep) == 2 * len(gui)
+    ban, bao_cao = ap_dung_docx(docx, dv, phep)
+    assert bao_cao["bo_qua"] == []
+    chu = [x.noi_dung.replace(km.NOI, "") for x in doc("k.docx", ban).don_vi]
+    assert sum(c.count("Công ty ANP") for c in chu) == 2, "tên cơ quan ở đầu cả hai phần"
+    assert "Số: 15/QĐ-ANP" in chu and any(", ngày 25 tháng 9 năm 2026" in c for c in chu)
+    assert f"(Kèm theo Quyết định số 15/QĐ-ANP ngày 25 tháng 9 năm 2026 của {C})" in chu
+
+    hai = _o_cua(o, "co_quan", "ten_to_chuc")
+    tu_neu = [{"don_vi": d, "cho_trong": s, "gia_tri": v} for (d, s), v in zip(hai, ("A", "B"), strict=True)]
+    assert sorted(p["gia_tri"] for p in ban_thao.phep_o_dien(cho, o, tu_neu)) == ["A", "B"]
+    assert len(ban_thao.phep_o_dien(cho, None, gui[:1])) == 1, "tệp tải lên: không có khoá trường"
+    with pytest.raises(ValueError, match=ban_thao.LOI_O_KHONG_THAY):
+        ban_thao.phep_o_dien(cho, o, [{"don_vi": 999, "cho_trong": 0, "gia_tri": "x"}])
+
+
+def test_dien_ho_ten_o_khoi_cac_ben_sang_ten_duoi_chu_ky():
+    """Họ tên ở khối các bên và tên dưới chữ ký là MỘT trường: điền một chỗ trên trang thì
+    chỗ kia cũng có, mỗi chỗ chuẩn hoá theo kiểu của nó (`tab` thêm một dấu cách)."""
+    from src.services import ban_thao
+
+    docx, ban_do = km.dung_docx(_spec("hdld"))
+    dv = _don_vi(docx)
+    o = ban_thao.o_truong(dv, ban_do)
+    cho = ban_thao.cho_trong_khuon("docx", dv, [], o)
+    ten = _o_cua(o, "nld", "ho_ten")
+    assert len(ten) == 2
+    phep = ban_thao.phep_o_dien(cho, o, [{"don_vi": ten[-1][0], "cho_trong": ten[-1][1], "gia_tri": "Trần Thị Bình"}])
+    assert {(p["don_vi"], p["cho_trong"]) for p in phep} == set(ten)
+    kieu = {(c["don_vi"], c["so"]): c["kieu"] for c in cho}
+    for p in phep:
+        assert p["gia_tri"] == (" " if kieu[p["don_vi"], p["cho_trong"]] == "tab" else "") + "Trần Thị Bình"
+    ban, bao_cao = ap_dung_docx(docx, dv, phep)
+    assert bao_cao["bo_qua"] == []
+    assert sum(x.noi_dung.count("Trần Thị Bình") for x in doc("k.docx", ban).don_vi) == 2
+
+
 def test_nhan_cho_trong_sau_dau_cham_khong_mo_dau_bang_dau_cham():
     """U+2060 trước dấu chấm hết câu ở lại trong chữ; nhãn của chỗ trống kế tiếp CÙNG
     đoạn không mở đầu bằng "." (`doc_tai_lieu.nhan_sach`)."""

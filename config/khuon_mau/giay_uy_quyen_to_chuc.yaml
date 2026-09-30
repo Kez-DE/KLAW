@@ -22,7 +22,7 @@ nguon:
 the_thuc:
   dong_mau: null
   co_quan: true
-  so: "Số: {}/GUQ-{}"
+  so: "Số: {so_van_ban}/GUQ-{viet_tat_co_quan}"
   ngay: cot_phai
   thut_nhan: true
   can_cu: false

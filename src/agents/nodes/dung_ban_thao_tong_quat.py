@@ -685,7 +685,7 @@ def dung_khuon_mau(state: dict, sub: str, hoi_thoai_id: str) -> dict:
     giu, bo, khong_dat = _kiem_gia_tri(state, x, moi["o"], moi["don_vi_goc"], [])
     phep = ban_thao.gop_phep_sua([], giu, ban_thao.doan_cua_cho(moi["don_vi"]))
     khung = {**khung, "o": moi["o"], "thuoc": moi["thuoc"]}
-    khuon = {"cho_trong": ban_thao.cho_trong_khuon("docx", moi["don_vi"], phep)}
+    khuon = {"cho_trong": ban_thao.cho_trong_khuon("docx", moi["don_vi"], phep, moi["o"])}
     ket = {
         "document": ban_thao.tom_tat_khuon_mau(khung, clauses, khuon),
         "clauses": clauses,
@@ -769,7 +769,7 @@ def _sua_khuon_mau(state: dict, x: dict, ng: dict, sub: str, hoi_thoai_id: str) 
                 "ban_thao_tong_quat_loi": None,
             }
     khung = {**khung, "o": o, "thuoc": thuoc}
-    khuon = {"cho_trong": ban_thao.cho_trong_khuon("docx", don_vi, phep)}
+    khuon = {"cho_trong": ban_thao.cho_trong_khuon("docx", don_vi, phep, o)}
     ket = {
         "document": ban_thao.tom_tat_khuon_mau(khung, clauses, khuon),
         "clauses": clauses,

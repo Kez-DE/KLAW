@@ -1012,10 +1012,16 @@ TRAN_KHONG_DAT = 160
 DUOI_KHONG_DAT = " — hãy nói rõ chỗ cần điền hoặc bấm vào chỗ trống trên trang."
 
 
-def _liet_ke(dau: str, ten: list[str], tran_ky_tu: int, loai: str = "chỗ") -> str:
-    """`dau` + tối đa `TRAN_GACH` tên, cắt để vừa `tran_ky_tu`; phần cắt nói bằng SỐ."""
+def _liet_ke(
+    dau: str, ten: list[str], tran_ky_tu: int, loai: str = "chỗ", so: list[int] | None = None, tong: int | None = None
+) -> str:
+    """`dau` + tối đa `TRAN_GACH` tên, cắt để vừa `tran_ky_tu`; phần cắt nói bằng SỐ.
+    `so`: mỗi tên đứng cho bao nhiêu thứ (mặc định 1); `tong`: tổng số thứ, kể cả thứ
+    không tên nào gọi (mặc định tổng `so`)."""
+    so = so or [1] * len(ten)
+    tong = sum(so) if tong is None else tong
     for n in range(min(len(ten), TRAN_GACH), -1, -1):
-        du = len(ten) - n
+        du = tong - sum(so[:n])
         s = dau + ", ".join(ten[:n]) + ((" và " if n else "") + f"{du} {loai} khác" if du else "")
         if len(s) <= tran_ky_tu:
             return s
@@ -1149,6 +1155,30 @@ def _cau_the_thuc(khung: dict) -> str:
     return " Thể thức theo tập quán, tham khảo Phụ lục I Nghị định 30/2020/NĐ-CP."
 
 
+def _cau_con_trong(cho: list[dict], khung: dict) -> str:
+    """Câu "Còn trống: «…»." gọi tên chỗ người đọc hiểu: trường của các bên trước (`khung.o`),
+    rồi trường của văn bản, rồi chỗ có nhãn chữ; MỘT tên cho mọi bản sao. Ô không nhãn và
+    nhãn là mảnh dòng mẫu ("/QĐ-", "ngày", "… (sau -)") chỉ vào số "N chỗ khác". Rỗng khi
+    không còn chỗ trống."""
+    con = [o for o in cho if not (o.get("gia_tri") or "").strip()]
+    if not con:
+        return ""
+    ben = {(x.get("don_vi"), x.get("so")): x.get("ben") for x in khung.get("o") or []}
+
+    def hang(o: dict) -> int:
+        b = ben.get((o["don_vi"], o["so"]))
+        return 2 if b is None else 1 if b == khuon_mau.BEN_VAN_BAN else 0
+
+    dem: dict[str, int] = {}
+    for o in sorted(con, key=hang):
+        n = (o.get("nhan") or "").strip()
+        if n[:1].isupper() and "(sau " not in n:
+            dem[n] = dem.get(n, 0) + 1
+    if not dem:
+        return f"Còn trống {len(con)} chỗ. "
+    return _liet_ke("Còn trống: ", [f"«{t}»" for t in dem], 200, so=list(dem.values()), tong=len(con)) + ". "
+
+
 def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
     """Lời đáp cho một bản thảo trên KHUÔN MẪU (tệp .docx KLAW dựng), đọc thẳng từ
     phiên bản vừa lưu (`bt`: `khuon`, `audit_report.khung`, `clauses`) và ghi chú của
@@ -1158,7 +1188,6 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
     ten = bt.get("ten") or "văn bản"
     khung = (bt.get("audit_report") or {}).get("khung") or {}
     cho = k.get("cho_trong") or []
-    con = [f"«{o['nhan'] or 'chỗ trống'}»" for o in cho if not (o.get("gia_tri") or "").strip()]
     # Lượt chat (`khuon_mau_tong_quat.da_dien`): chỉ chỗ LƯỢT NÀY điền từ lời người hỏi.
     # Đường checklist không có số đó: nói tổng của phiên bản, không nói nguồn.
     if "da_dien" in x:
@@ -1197,7 +1226,7 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
             else ""
         ),
         (_liet_ke("Điều còn trống vì luật đòi: ", chen, 160, "điều") + ". " if chen else ""),
-        (_liet_ke("Còn trống: ", con, 200) + ". " if con else ""),
+        _cau_con_trong(cho, khung),
         (" ".join(g.rstrip(".") + "." for g in ghi[:3]) + " " if ghi else ""),
         (khong_dat + " " if khong_dat else ""),
         "Bấm vào chỗ trống trên trang để điền; muốn sửa điều nào cứ nói với tôi.",

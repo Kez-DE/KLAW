@@ -22,11 +22,16 @@ toa_an: "Tòa án"
 co_quan_nhan: "Cơ quan nhận"
 tham_quyen: "Thẩm quyền ban hành"
 # Trường của cả văn bản (`van_ban`) mà trang in nhiều lần: quyết định ban hành và dòng
-# "(Kèm theo Quyết định số … ngày … của …)" của văn bản kèm theo, trích yếu chưa có.
-# Một giá trị điền mọi bản sao (`ban_thao.phep_tu_gia_tri`).
+# "(Kèm theo Quyết định số … ngày … tháng … năm … của …)" của văn bản kèm theo, trích yếu
+# chưa có. Một giá trị điền mọi bản sao — lời trong chat (`ban_thao.phep_tu_gia_tri`) và
+# điền trên trang (`ban_thao.phep_o_dien`). Một ngày đủ cho `ngay_ban_hanh` tách ra ba
+# chỗ ngày, tháng, năm (`hieu_tai_lieu._tach_ngay`).
 so_van_ban: "Số của văn bản"
 viet_tat_co_quan: "Chữ viết tắt tên cơ quan, tổ chức ban hành"
-ngay_ban_hanh: "Ngày ban hành (ngày/tháng/năm)"
+dia_danh: "Địa danh"
+ngay_ban_hanh: "Ngày ban hành"
+thang_ban_hanh: "Tháng ban hành"
+nam_ban_hanh: "Năm ban hành"
 trich_yeu: "Trích yếu nội dung văn bản"
 ngay_hieu_luc: "Ngày có hiệu lực"
 # Biên bản họp Hội đồng quản trị — LDN 2020 Đ158.1 điểm d, g.

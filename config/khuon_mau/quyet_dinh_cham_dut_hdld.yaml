@@ -21,7 +21,7 @@ nguon:
 the_thuc:
   dong_mau: null
   co_quan: true
-  so: "Số: {}/QĐ-{}"
+  so: "Số: {so_van_ban}/QĐ-{viet_tat_co_quan}"
   ngay: cot_phai
   trich_yeu: "Về việc chấm dứt hợp đồng lao động"
   tham_quyen: "{tham_quyen}"

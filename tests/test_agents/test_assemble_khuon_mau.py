@@ -75,6 +75,26 @@ def test_khong_dien_gi_thi_khong_noi_da_dien():
     assert "Đã điền" not in a and "Còn trống: «Họ và tên», «Ngày sinh»" in a
 
 
+def test_con_trong_goi_ten_truong_cac_ben_truoc_khong_goi_o_khong_nhan_hay_manh():
+    """Chat "Còn trống:" gọi tên chỗ người đọc hiểu: trường của các bên trước (khung.o),
+    rồi trường của văn bản, rồi chỗ có nhãn chữ; một tên cho mọi bản sao. Ô không nhãn và
+    nhãn là mảnh dòng mẫu ("/QĐ-", "ngày", "Điều 3. (sau -)") chỉ vào số "chỗ khác"."""
+    bt = _bt(phep_sua=[])
+    bt["audit_report"]["khung"]["o"] = [
+        {"don_vi": 1, "so": 0, "kieu": "cham", "ben": "van_ban", "truong": "so_van_ban"},
+        {"don_vi": 5, "so": 0, "kieu": "tab", "ben": "ben_a", "truong": "ho_ten"},
+        {"don_vi": 9, "so": 0, "kieu": "cham", "ben": "ben_a", "truong": "ho_ten"},
+    ]
+    nhan = [(0, 0, ""), (1, 0, "Số của văn bản"), (1, 1, "/QĐ-"), (2, 0, "ngày"), (2, 1, "tháng")]
+    nhan += [(3, 0, "Điều 3. (sau -)"), (5, 0, "Họ và tên"), (7, 0, "Giá thuê"), (9, 0, "Họ và tên")]
+    bt["khuon"]["cho_trong"] = [{"don_vi": d, "so": s, "kieu": "cham", "nhan": n, "gia_tri": None} for d, s, n in nhan]
+    a = _dap(bt)["answer"]
+    assert "Còn trống: «Họ và tên», «Số của văn bản», «Giá thuê» và 5 chỗ khác." in a
+    assert "«chỗ trống»" not in a and "«/QĐ-»" not in a and "«ngày»" not in a
+    bt["khuon"]["cho_trong"] = [{**c, "nhan": ""} for c in bt["khuon"]["cho_trong"]]
+    assert "Còn trống 9 chỗ." in _dap(bt)["answer"]
+
+
 def test_chi_noi_da_dien_cho_luot_nay_dien_khong_dem_gia_tri_mang_sang():
     """Owner: không bao giờ nói đã điền khi chưa điền. Phiên bản có một chỗ đã điền (mang
     sang hay điền trên trang), lượt này không điền gì: không câu "Đã điền"."""

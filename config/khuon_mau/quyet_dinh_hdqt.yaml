@@ -20,7 +20,7 @@ nguon:
 the_thuc:
   dong_mau: null
   co_quan: true
-  so: "Số: {}/NQ-HĐQT"
+  so: "Số: {so_van_ban}/NQ-HĐQT"
   ngay: cot_phai
   trich_yeu: "{trich_yeu}"
   tham_quyen: "HỘI ĐỒNG QUẢN TRỊ"

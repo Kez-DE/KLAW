@@ -22,7 +22,7 @@ nguon:
 the_thuc:
   dong_mau: null
   co_quan: true
-  so: "Số: {}/BB-{}"
+  so: "Số: {so_van_ban}/BB-{viet_tat_co_quan}"
   ngay: khong
   # Dòng tên cuộc họp dưới "BIÊN BẢN" (chú thích 4): chỗ trống khi người hỏi chưa nêu.
   trich_yeu: true

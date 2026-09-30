@@ -404,7 +404,7 @@ async def trang(
         {
             "kho": kho,
             "trang": [base64.b64encode(p).decode("ascii") for p in png],
-            "o": ban_thao.o_tren_trang(k["dinh_dang"], k["don_vi"], k["phep_sua"], vi_tri),
+            "o": ban_thao.o_tren_trang(k["dinh_dang"], k["don_vi"], k["phep_sua"], vi_tri, k.get("o")),
         },
         headers={
             "X-Content-Type-Options": "nosniff",

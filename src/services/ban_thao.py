@@ -220,7 +220,9 @@ def _khuon_tu(k: dict | None, viec_id: str | None, phep_sua: list | None, row: d
         "dinh_dang": k["dinh_dang"],
         "so_trang": k["so_trang"],
         "nguon": nguon,
-        "cho_trong": cho_trong_khuon(k["dinh_dang"], k["don_vi"], phep_sua),
+        "cho_trong": cho_trong_khuon(
+            k["dinh_dang"], k["don_vi"], phep_sua, o_khung(row) if nguon == NGUON_KHUON_MAU else None
+        ),
         **(
             {"can_cu": can_cu_khuon_mau((row or {}).get("audit"), (row or {}).get("clauses"))}
             if nguon == NGUON_KHUON_MAU
@@ -857,7 +859,10 @@ def khuon_cua_phien_ban(sub: str, id: str, phien_ban: int | None = None) -> dict
             else next((t for t in bt["phien_ban_truoc"] or [] if t["phien_ban"] == phien_ban), None)
         )
         k = _khuon_goc(c, sub, (ban or {}).get("viec_id"), bytes_=True)
-    return None if k is None else {**k, "phep_sua": ban.get("phep_sua"), "phien_ban": ban["phien_ban"]}
+    if k is None:
+        return None
+    o = o_khung(ban) if k.get("nguon") == NGUON_KHUON_MAU else None
+    return {**k, "phep_sua": ban.get("phep_sua"), "phien_ban": ban["phien_ban"], "o": o}
 
 
 def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict | str | None:
@@ -869,7 +874,9 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
     lần thứ 11. `so_lan_sua` không tăng (`tang` 0), lượt sửa bằng lời vẫn đếm; lịch
     sử vẫn chỉ giữ `TRAN_SUA` bản gần nhất (`[-TRAN_SUA:]`).
 
-    `gia_tri`: `[{don_vi, cho_trong, gia_tri}]`, `gia_tri` rỗng gỡ ô. Trả `dict`
+    `gia_tri`: `[{don_vi, cho_trong, gia_tri}]`, `gia_tri` rỗng gỡ ô; trên khuôn mẫu
+    một ô điền cả các bản sao của trường ấy (`phep_o_dien`), và `khuon` trả về mang
+    mọi ô đã đổi để giao diện hiện ngay. Trả `dict`
     (bản thảo, kể cả KHÔNG đổi gì — khi đó không tốn phiên bản), chuỗi lỗi tiếng
     Việt (422: phiên bản đã đổi, không trên khuôn gốc, ô lạ, giá trị nhiều dòng,
     bộ áp bỏ một phép), `None` khi không thấy/không phải chủ (404).
@@ -899,16 +906,11 @@ def sua_o_dien(sub: str, id: str, phien_ban: int, gia_tri: list[dict]) -> dict |
             return LOI_KHONG_PHAI_KHUON
         khuon_cu = _khuon_tu(k, cu["viec_id"], cu["phep_sua"], cu)
         o_theo_khoa = {(o["don_vi"], o["so"]): o for o in khuon_cu["cho_trong"]}
-        moi = []
-        for g in gia_tri:
-            o = o_theo_khoa.get((g.get("don_vi"), g.get("cho_trong")))
-            if o is None:
-                return LOI_O_KHONG_THAY
-            try:
-                gia_tri_o = chuan_hoa_dien(g.get("gia_tri"), o)
-            except ValueError as e:
-                return str(e)
-            moi.append({"loai": "dien", "don_vi": o["don_vi"], "cho_trong": o["so"], "gia_tri": gia_tri_o})
+        truong_o = o_khung(cu) if khuon_cu["nguon"] == NGUON_KHUON_MAU else None
+        try:
+            moi = phep_o_dien(khuon_cu["cho_trong"], truong_o, gia_tri)
+        except ValueError as e:
+            return str(e)
         doan = doan_cua_cho(k["don_vi"])
         phep = gop_phep_sua(cu["phep_sua"], moi, doan)
         if phep == (cu["phep_sua"] or []):
@@ -1270,20 +1272,41 @@ def gop_phep_sua(
     ]
 
 
-def cho_trong_khuon(dinh_dang: str, don_vi: list | None, phep_sua: list | None) -> list[dict]:
+def o_khung(row: dict | None) -> list[dict]:
+    """Bản đồ trường của một phiên bản khuôn mẫu (`audit.khung.o`, `o_truong`): `[]`
+    khi phiên bản không có (tệp tải lên, bản HTML)."""
+    o = (((row or {}).get("audit") or {}).get("khung") or {}).get("o")
+    return [x for x in o if isinstance(x, dict)] if isinstance(o, list) else []
+
+
+def _nhan_truong(nhan: str, ben: str, truong: str) -> str:
+    """Nhãn của một ô bộ dựng biết tên: nhãn in trên trang khi nó là một tên ("Họ tên
+    người giao kết hợp đồng"), không thì tên ở `_truong.yaml` — trường của văn bản ("Số",
+    "/QĐ-", "ngày" chỉ là mảnh của dòng mẫu), ô không nhãn (tên cơ quan đầu trang, tên
+    dưới chữ ký), nhãn cụt ("nếu có); số fax") hay suy từ ô trước ("… (sau -)")."""
+    if ben != khuon_mau.BEN_VAN_BAN and nhan[:1].isupper() and "(sau " not in nhan:
+        return nhan
+    return khuon_mau.truong().get(truong) or nhan
+
+
+def cho_trong_khuon(
+    dinh_dang: str, don_vi: list | None, phep_sua: list | None, truong_o: list[dict] | None = None
+) -> list[dict]:
     """Các ô điền được của MỘT phiên bản: `[{don_vi, so, kieu, nhan, gia_tri}]`,
     `gia_tri` là giá trị phiên bản đó đã điền hay `None` (còn dãy chấm).
 
     Chỉ ô bộ áp tới được: DOCX cần đơn vị có `dia_chi` và chỗ trống kiểu DOCX,
     PDF cần chỗ trống có `hop`. Đơn vị đã bị `thay`/`xoa` (hay ĐOẠN đã bị `thay`
     theo `doan`) không còn dãy chấm nào, nên ô của nó không được mời điền — một
-    lần lưu chắc chắn bị bỏ."""
+    lần lưu chắc chắn bị bỏ. `truong_o`: bản đồ trường của khuôn mẫu (`o_khung`) — ô trong
+    đó mang tên trường (`_nhan_truong`) thay cho nhãn bộ đọc."""
     phep = gop_phep_sua([], phep_sua, doan_cua_cho(don_vi))
     doan_doi = {(p["don_vi"], p["doan"]) for p in phep if p["loai"] == "thay" and _so_tu_nhien(p.get("doan"))}
     da_doi = {
         p["don_vi"] for p in phep if p["loai"] == "xoa" or (p["loai"] == "thay" and not _so_tu_nhien(p.get("doan")))
     }
     gia_tri = {(p["don_vi"], p["cho_trong"]): p["gia_tri"] for p in phep if p["loai"] == "dien"}
+    khoa = {(x.get("don_vi"), x.get("so")): (x.get("ben"), x.get("truong")) for x in truong_o or []}
     ra = []
     nhan = ""  # `nhan_sach` lại trên hàng đã lưu: tài liệu cũ mang nhãn thô
     for d in don_vi or []:
@@ -1294,8 +1317,40 @@ def cho_trong_khuon(dinh_dang: str, don_vi: list | None, phep_sua: list | None) 
         for c in _cho_trong_tu_hang(d.get("cho_trong")):
             if (c.hop is not None) == (dinh_dang == "pdf") and (d["chi_so"], c.doan) not in doan_doi:
                 nhan = nhan_sach(c.nhan, nhan)
-                o = {"don_vi": d["chi_so"], "so": c.so, "kieu": c.kieu, "nhan": nhan}
+                k = khoa.get((d["chi_so"], c.so))
+                ten = _nhan_truong(nhan, *k) if k else nhan
+                o = {"don_vi": d["chi_so"], "so": c.so, "kieu": c.kieu, "nhan": ten}
                 ra.append({**o, "gia_tri": gia_tri.get((d["chi_so"], c.so))})
+    return ra
+
+
+def phep_o_dien(cho: list[dict], truong_o: list[dict] | None, gia_tri: list[dict]) -> list[dict]:
+    """Giá trị người dùng gõ vào ô điền (`[{don_vi, cho_trong, gia_tri}]`) → phép `dien`:
+    một cho mỗi ô gửi lên, cộng một cho MỖI bản sao của trường ấy trên trang (`truong_o`: cùng
+    `(ben, truong)` — tên cơ quan ở đầu hai phần, số và ngày của quyết định ban hành và
+    của dòng "(Kèm theo …)", họ tên ở khối các bên và dưới chữ ký) mà lần gửi không tự
+    nêu. Mỗi giá trị chuẩn hoá theo kiểu của ô nó vào (`chuan_hoa_dien`). `cho`: ô điền
+    được của phiên bản (`cho_trong_khuon`). `ValueError` (câu cho người đọc) khi một ô
+    không có hay giá trị không hợp lệ."""
+    theo = {(c["don_vi"], c["so"]): c for c in cho}
+    khoa = {(x.get("don_vi"), x.get("so")): (x.get("ben"), x.get("truong")) for x in truong_o or []}
+    gui = {(g.get("don_vi"), g.get("cho_trong")) for g in gia_tri}
+    ra = []
+    for g in gia_tri:
+        c = theo.get((g.get("don_vi"), g.get("cho_trong")))
+        if c is None:
+            raise ValueError(LOI_O_KHONG_THAY)
+        k = khoa.get((c["don_vi"], c["so"]))
+        ban_sao = [x for x, t in khoa.items() if k and t == k and x not in gui and x in theo]
+        for x in [theo[c["don_vi"], c["so"]], *(theo[x] for x in ban_sao)]:
+            ra.append(
+                {
+                    "loai": "dien",
+                    "don_vi": x["don_vi"],
+                    "cho_trong": x["so"],
+                    "gia_tri": chuan_hoa_dien(g.get("gia_tri"), x),
+                }
+            )
     return ra
 
 
@@ -1309,11 +1364,18 @@ def ban_do(dinh_dang: str, don_vi: list | None, phep_sua: list | None):
     return lambda docx: danh_dau_docx(docx, don_vi or [], o)
 
 
-def o_tren_trang(dinh_dang: str, don_vi: list | None, phep_sua: list | None, vi_tri: dict | None = None) -> list[dict]:
+def o_tren_trang(
+    dinh_dang: str,
+    don_vi: list | None,
+    phep_sua: list | None,
+    vi_tri: dict | None = None,
+    truong_o: list[dict] | None = None,
+) -> list[dict]:
     """Khoá `o` của hai route trang: mỗi ô `cho_trong_khuon` của phiên bản, theo
     thứ tự đọc, `{don_vi, so, trang, hop, nhan, gia_tri}` — `trang` chỉ số từ 0
     vào `trang` của phản hồi, `hop` bằng điểm gốc trên-trái như `kho`, `gia_tri`
-    đã `strip` hay `None`.
+    đã `strip` hay `None`. `truong_o`: bản đồ trường của khuôn mẫu, cùng nhãn với
+    `khuon.cho_trong`.
 
     PDF: hộp bộ đọc đã lưu, trên trang của đơn vị (ô đã điền giữ hộp của nó).
     DOCX: `vi_tri` đo trên chính trang vừa dựng (`dung_trang.vi_tri_o`). Không
@@ -1326,7 +1388,7 @@ def o_tren_trang(dinh_dang: str, don_vi: list | None, phep_sua: list | None, vi_
                     if c.hop is not None:
                         vi_tri[(d["chi_so"], c.so)] = (d["trang"] - 1, list(c.hop))
     ra = []
-    for o in cho_trong_khuon(dinh_dang, don_vi, phep_sua):
+    for o in cho_trong_khuon(dinh_dang, don_vi, phep_sua, truong_o):
         trang, hop = (vi_tri or {}).get((o["don_vi"], o["so"]), (None, None))
         gia_tri = (o["gia_tri"] or "").strip() or None
         ra.append(
@@ -1375,7 +1437,8 @@ def _doi_o(a: dict | None, b: dict | None) -> list[str]:
         x, y = (cu.get(k) or {}).get("gia_tri"), (moi.get(k) or {}).get("gia_tri")
         if x != y:
             ra.append(f"{ten[k]}: {(x or '').strip() or '…'} → {(y or '').strip() or '…'}")
-    return ra
+    # Bản sao của một trường (khuôn mẫu, `phep_o_dien`) đổi cùng nhau: một dòng.
+    return list(dict.fromkeys(ra))
 
 
 def tom_tat_khuon(tieu_de: str | None, khuon: dict | None) -> str:
@@ -1791,7 +1854,7 @@ def dat_khuon_mau(
     phep = gop_phep_sua(mang, chon, doan_cua_cho(moi["don_vi"]))
     khung = {**khung, "o": moi["o"], "thuoc": moi["thuoc"]}
     audit = {**ket["audit_report"], "khung": khung, **({"khong_mang_sang": len(bo)} if bo else {})}
-    khuon = {"cho_trong": cho_trong_khuon("docx", moi["don_vi"], phep)}
+    khuon = {"cho_trong": cho_trong_khuon("docx", moi["don_vi"], phep, moi["o"])}
     return {
         **ket,
         "viec_id": moi["viec_id"],

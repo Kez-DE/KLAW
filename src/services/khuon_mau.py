@@ -508,6 +508,12 @@ def _run_tab(*, b: bool = False, sz: int | None = None, caps: bool = False) -> A
     return r
 
 
+# Dòng địa danh – ngày của đơn, hợp đồng (một dòng mỗi văn bản): địa danh là trường của
+# văn bản (nhãn "Địa danh" cho ô điền); ngày, tháng, năm là chỗ trống của dòng — không
+# phải "ngày ban hành" của văn bản hành chính (`_dau_hanh_chinh`).
+_DIA_DANH_NGAY = "{dia_danh}, ngày {} tháng {} năm {}"
+
+
 class _Dung:
     """Trạng thái của MỘT lần dựng: thân bài, bản đồ chỗ trống, hình học trang."""
 
@@ -685,7 +691,7 @@ class _Dung:
         if tt.get("ngay") == "dau":
             # Mẫu 23-DS: sát dưới tiêu ngữ; NĐ 124 Mẫu 01: cách một dòng (`ngay_truoc_pt`).
             p = self.doan(self.body, can="center", truoc=round(float(tt.get("ngay_truoc_pt", 3)) * 20))
-            self.dong_mau(p, "{}, ngày {} tháng {} năm {}", p, None, i=True)
+            self.dong_mau(p, _DIA_DANH_NGAY, p, None, i=True)
         self._ten_loai(truoc=240)
         if tt.get("so"):
             p = self.doan(self.body, can="center", sz=_CO["so"])
@@ -716,11 +722,12 @@ class _Dung:
                 vv = tt["vv"] if isinstance(tt["vv"], str) else "V/v {trich_yeu}"
                 self.dong_mau(p, vv, o_trai, None, sz=_CO["vv"])
             if tt.get("ngay") == "cot_phai":
-                # Ngày ban hành là trường của văn bản: "(Kèm theo Quyết định số … ngày …)" của
-                # văn bản kèm theo lặp lại nó. Một ngày đủ ("25/9/2026") tách ra ba chỗ trống
-                # ngày, tháng, năm ở phép kiểm (`hieu_tai_lieu._tach_ngay`).
+                # Địa danh và ngày ban hành là trường của văn bản: "(Kèm theo Quyết định số …
+                # ngày … tháng … năm …)" của văn bản kèm theo lặp lại ngày, tháng, năm. Một
+                # ngày đủ ("25/9/2026") tách ra ba chỗ ở phép kiểm (`hieu_tai_lieu._tach_ngay`).
                 p = self.doan(o_phai, can="center", truoc=120)
-                self.dong_mau(p, "{}, ngày {ngay_ban_hanh} tháng {} năm {}", o_phai, None, i=True)
+                mau = "{dia_danh}, ngày {ngay_ban_hanh} tháng {thang_ban_hanh} năm {nam_ban_hanh}"
+                self.dong_mau(p, mau, o_phai, None, i=True)
             else:
                 self.doan(o_phai, can="center")
         if not tt.get("vv"):
@@ -1101,7 +1108,7 @@ class _Dung:
             _giu_voi_sau(self.body[-1])
             # Dòng ngày ở cuối đứng ngay trên người ký: cùng trang với khối ký.
             p = self.doan(self.body, can="right", truoc=240, giu_sau=True)
-            self.dong_mau(p, "{}, ngày {} tháng {} năm {}", p, None, i=True)
+            self.dong_mau(p, _DIA_DANH_NGAY, p, None, i=True)
 
     def khoi_ky(self) -> None:
         ky = self.spec.get("ky") or {}
