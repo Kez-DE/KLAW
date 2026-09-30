@@ -915,6 +915,71 @@ def nap_sua_doi(engine: Engine, provision_ids: Sequence[int]) -> dict[int, list[
     return ra
 
 
+# ══ Mức 5 — điều khoản BỊ BÃI BỎ (quyết định 2026-09-30 mục 9) ══════════════
+#
+# Mức 1–4 không bao giờ nói một điều khoản ĐÃ CHẾT: văn bản còn hiệu lực một phần vẫn
+# được hiện, và mọi điều của nó được truy hồi, trích như luật đang áp dụng — kể cả điều
+# mà một văn bản khác đã bãi bỏ đích danh (151/2025/NĐ-CP Điều 21 khoản 4 điểm c bãi bỏ
+# 102/2024/NĐ-CP Điều 106, 107 từ 01/7/2025). Bảng `bai_bo_dieu_khoan` (migration 043)
+# ghi từng câu bãi bỏ đã đọc từ nguyên văn; ở đây phán nó đã tới ngày chưa. Bản ghi của
+# một điều khoản phủ mọi HẬU DUỆ của nó (bãi bỏ Điều 21 là bãi bỏ mọi khoản của nó) — cùng
+# phép tiền tố `duong_dan` + `' > '` của `_SQL_SUA_DOI`.
+
+
+class BaiBo(NamedTuple):
+    """Điều khoản (hoặc tổ tiên `goc` của nó) bị `boi_dieu_khoan` của `boi` bãi bỏ từ `tu_ngay`."""
+
+    boi: VanBanNeu
+    boi_dieu_khoan: str
+    tu_ngay: date
+    goc: int
+
+
+_SQL_BAI_BO = text(
+    "SELECT p.id AS provision_id, b.provision_id AS goc, b.boi_document_id, d.so_ky_hieu AS boi_so_ky_hieu,"
+    " b.boi_dieu_khoan, b.tu_ngay"
+    " FROM bai_bo_dieu_khoan b"
+    " JOIN provisions t ON t.id = b.provision_id"
+    " JOIN provisions p ON p.document_id = t.document_id"
+    "   AND (p.id = t.id OR p.duong_dan LIKE t.duong_dan || ' > %')"
+    " JOIN documents d ON d.id = b.boi_document_id"
+)
+
+
+def bai_bo_tai(ban_ghi: Sequence[dict], as_of: date) -> dict[int, BaiBo]:
+    """`provisions.id` → lần bãi bỏ ĐẦU TIÊN đã tới ngày tại `as_of`. Cùng ngày thì bản ghi
+    nêu đích danh chính điều khoản thắng bản ghi của tổ tiên. Chưa tới ngày thì điều khoản
+    còn nguyên — cùng lệ "sẽ bị sửa" của `ap_sua_doi`."""
+    ra: dict[int, BaiBo] = {}
+    for b in sorted(ban_ghi, key=lambda b: (b["tu_ngay"], b["goc"] != b["provision_id"])):
+        if b["tu_ngay"] <= as_of:
+            so = re.sub(r"^\s*số\s*:?\s*", "", b["boi_so_ky_hieu"] or "", flags=re.IGNORECASE)
+            ra.setdefault(
+                b["provision_id"],
+                BaiBo(VanBanNeu(b["boi_document_id"], so), b["boi_dieu_khoan"], b["tu_ngay"], b["goc"]),
+            )
+    return ra
+
+
+_cache_bai_bo: dict[tuple[str, date], tuple[float, dict[int, BaiBo]]] = {}
+
+
+def dieu_khoan_bai_bo(engine: Engine, as_of: date) -> dict[int, BaiBo]:
+    """`bai_bo_tai` trên toàn bảng, memo 60 s theo (engine, as_of) như `danh_gia_toan_bo`:
+    truy hồi, mở rộng, tìm kiếm và trang văn bản đều hỏi nó mỗi request."""
+    khoa = (str(engine.url), as_of)
+    bay_gio = time.monotonic()
+    with _khoa_cache_toan_bo:
+        hit = _cache_bai_bo.get(khoa)
+        if hit is not None and bay_gio - hit[0] < _TTL_TOAN_BO_GIAY:
+            return hit[1]
+    with engine.connect() as conn:
+        ket_qua = bai_bo_tai([dict(r) for r in conn.execute(_SQL_BAI_BO).mappings()], as_of)
+    with _khoa_cache_toan_bo:
+        _cache_bai_bo[khoa] = (bay_gio, ket_qua)
+    return ket_qua
+
+
 # ══ Phán quyết HÀNG LOẠT — một lượt cho cả corpus ═══════════════════════════
 #
 # `danh_gia_theo_id` chạy 3 truy vấn cho MỘT văn bản. `/tim-kiem` cần phán quyết
@@ -993,6 +1058,7 @@ def xoa_cache_danh_gia_toan_bo() -> None:
     """Cho script seed và test: quên mọi phán quyết đã memo."""
     with _khoa_cache_toan_bo:
         _cache_toan_bo.clear()
+        _cache_bai_bo.clear()
 
 
 def danh_gia_toan_bo(engine: Engine, as_of: date) -> dict[str, Effectivity]:

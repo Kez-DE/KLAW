@@ -55,7 +55,8 @@ from src.services.bao_ve import cong_bao_ve, cong_bao_ve_khach, cong_nhe
 from src.services.bo_nho import tach_nen
 from src.services.checklist import KHUNG_HOP_DONG, Checklist
 from src.services.db import get_engine
-from src.services.hien_thi import chan_neu_an, hien_thi_luc
+from src.services.effectivity import dieu_khoan_bai_bo
+from src.services.hien_thi import bai_bo_tren_trang, chan_neu_an, hien_thi_luc
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
 
 # _tong_hop_traces re-exported here: test_tra_cuu.py imports it from routes, not services.traces.
@@ -913,7 +914,10 @@ def _van_ban_sync(
     Văn bản bị ẩn (`services/hien_thi`) trả 404 `khong_hien_thi` ở MỌI dạng,
     trước cả truy vấn đầu tiên của trang.
     """
-    chan_neu_an(get_engine(), doc_id, as_of_hieu_luc(None))
+    as_of = as_of_hieu_luc(None)
+    hien = chan_neu_an(get_engine(), doc_id, as_of)
+    # Điều khoản bị bãi bỏ (quyết định 2026-09-30 mục 9): còn số hiệu, tiêu đề và câu bãi bỏ.
+    bai_bo = dieu_khoan_bai_bo(get_engine(), as_of)
     with get_engine().connect() as conn:
         doc = conn.execute(_SQL_VAN_BAN_DOC, {"doc_id": doc_id}).mappings().one_or_none()
         if doc is None:
@@ -935,7 +939,8 @@ def _van_ban_sync(
                     f"provision {trong_chuong} có cap='{goc['cap']}' — trong_chuong chỉ nhận "
                     f"cấp chứa Điều: {', '.join(_CAP_CHUA_DIEU)}"
                 ))
-            rows = conn.execute(_SQL_DIEU_TRONG_CHUONG, {"goc": trong_chuong}).mappings().all()
+            rows = [dict(r) for r in conn.execute(_SQL_DIEU_TRONG_CHUONG, {"goc": trong_chuong}).mappings()]
+            rows = bai_bo_tren_trang(conn, rows, bai_bo, hien)
             return VanBanProvisionsResponse(
                 **_meta(doc_id, doc),
                 # `la_tam=False` cho tất cả: đang DUYỆT mục lục, chưa chọn Điều
@@ -988,8 +993,9 @@ def _van_ban_sync(
 
         provisions: list[ProvisionOut] = []
         for dieu_id in dieu_ids:
-            rows = conn.execute(_SQL_VAN_BAN_CAY_DIEU, {"dieu_id": dieu_id}).mappings().all()
-            provisions.extend(ProvisionOut(**dict(r), la_tam=(dieu_id == tam_id)) for r in rows)
+            rows = [dict(r) for r in conn.execute(_SQL_VAN_BAN_CAY_DIEU, {"dieu_id": dieu_id}).mappings()]
+            rows = bai_bo_tren_trang(conn, rows, bai_bo, hien)
+            provisions.extend(ProvisionOut(**r, la_tam=(dieu_id == tam_id)) for r in rows)
 
         return VanBanProvisionsResponse(**_meta(doc_id, doc), provisions=provisions)
 

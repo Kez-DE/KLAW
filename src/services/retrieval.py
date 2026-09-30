@@ -125,10 +125,13 @@ def cong_diem_linh_vuc(
 # mục 8): văn bản ẩn không bao giờ được truy hồi làm căn cứ. Lọc TRONG SQL để
 # top-k lấp bằng văn bản được hiện, không bị văn bản ẩn chiếm chỗ. `hien=None`
 # = không lọc, chỉ cho phép đo truy hồi thô (`eval/run.py --khong-loc-hien`);
-# đường trả lời luôn truyền tập được hiện (`graph_tra_cuu.n_retrieve`).
+# đường trả lời luôn truyền tập được hiện (`graph_tra_cuu.n_retrieve`). Trong tập đó, điều
+# khoản bị bãi bỏ (`hien_thi.dieu_khoan_an`, quyết định 2026-09-30 mục 9) cũng không bao giờ
+# được truy hồi.
 _CHI_HIEN = (
     " AND (CAST(:hien AS text[]) IS NULL OR c.provision_id IN"
-    " (SELECT p.id FROM provisions p WHERE p.document_id = ANY(CAST(:hien AS text[]))))"
+    " (SELECT p.id FROM provisions p WHERE p.document_id = ANY(CAST(:hien AS text[]))"
+    " AND NOT (p.id = ANY(CAST(:bai_bo AS bigint[])))))"
 )
 
 
@@ -142,7 +145,9 @@ class Retriever:
         self.embedder = embedder
         self.s = settings
 
-    def bm25(self, q: str, topk: int | None = None, hien: frozenset[str] | None = None) -> list[int]:
+    def bm25(
+        self, q: str, topk: int | None = None, hien: frozenset[str] | None = None, bai_bo: frozenset[int] = frozenset()
+    ) -> list[int]:
         # plainto_tsquery nối lexeme bằng AND — một câu hỏi tự nhiên gần như
         # không bao giờ chứa ĐỦ mọi từ của điều luật, nên AND luôn cho rỗng
         # trên truy vấn thật và làm hybrid() thoái hoá thành dense thuần.
@@ -176,11 +181,14 @@ class Retriever:
                     "m": self.embedder.model,
                     "norm": self.s.bm25_rank_normalization,
                     "hien": _mang(hien),
+                    "bai_bo": sorted(bai_bo),
                 },
             ).all()
         return [r[0] for r in rows]
 
-    def dense(self, q: str, topk: int | None = None, hien: frozenset[str] | None = None) -> list[int]:
+    def dense(
+        self, q: str, topk: int | None = None, hien: frozenset[str] | None = None, bai_bo: frozenset[int] = frozenset()
+    ) -> list[int]:
         topk = topk or self.s.retrieve_dense_topk
         # embed_query lỗi phải nổ ở đây, KHÔNG bắt — một nhánh chết âm thầm sẽ
         # làm hybrid tụt về BM25 thuần mà bảng ablation Task 9 không biết.
@@ -194,12 +202,12 @@ class Retriever:
                     + " ORDER BY c.embedding <=> CAST(:v AS vector)"
                     " LIMIT :k"
                 ),
-                {"v": str(vec), "k": topk, "m": self.embedder.model, "hien": _mang(hien)},
+                {"v": str(vec), "k": topk, "m": self.embedder.model, "hien": _mang(hien), "bai_bo": sorted(bai_bo)},
             ).all()
         return [r[0] for r in rows]
 
-    def hybrid(self, q: str, hien: frozenset[str] | None = None) -> list[int]:
-        fused = rrf([self.bm25(q, hien=hien), self.dense(q, hien=hien)], k=self.s.rrf_k)
+    def hybrid(self, q: str, hien: frozenset[str] | None = None, bai_bo: frozenset[int] = frozenset()) -> list[int]:
+        fused = rrf([self.bm25(q, hien=hien, bai_bo=bai_bo), self.dense(q, hien=hien, bai_bo=bai_bo)], k=self.s.rrf_k)
         return [cid for cid, _ in fused[: self.s.retrieve_final_topk]]
 
     def provision_ids(self, chunk_ids: list[int]) -> list[int]:

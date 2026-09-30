@@ -98,12 +98,16 @@ def test_tim_kiem_KHONG_giu_ket_noi_khi_xin_ket_noi_thu_hai(engine_dem, monkeypa
         routes_tim_kiem, "danh_gia_toan_bo",
         lambda engine, as_of: thay.append(engine_dem.dang_mo) or {},
     )
+    # Cùng luật cho tập điều khoản bị bãi bỏ (quyết định 2026-09-30 mục 9): nó cũng tự mở kết nối.
+    monkeypatch.setattr(
+        routes_tim_kiem, "dieu_khoan_an", lambda engine, as_of: thay.append(engine_dem.dang_mo) or frozenset()
+    )
 
     routes_tim_kiem._tim_kiem_sync(
         "thử việc", None, None, None, None, "lien_quan", 20, 0, date(2026, 1, 1)
     )
 
-    assert thay == [0], f"đang giữ {thay} kết nối lúc gọi danh_gia_toan_bo"
+    assert thay == [0, 0], f"đang giữ {thay} kết nối lúc gọi danh_gia_toan_bo / dieu_khoan_an"
 
 
 def test_mot_request_tim_kiem_chi_chiem_MOT_suat_pool(engine_dem, monkeypatch):
@@ -117,6 +121,7 @@ def test_mot_request_tim_kiem_chi_chiem_MOT_suat_pool(engine_dem, monkeypatch):
         # `danh_gia_toan_bo` thật mở kết nối của nó — mô phỏng đúng việc đó.
         lambda engine, as_of: _mo_roi_dong(engine) or {},
     )
+    monkeypatch.setattr(routes_tim_kiem, "dieu_khoan_an", lambda engine, as_of: _mo_roi_dong(engine) or frozenset())
 
     routes_tim_kiem._tim_kiem_sync(
         "thử việc", None, None, None, None, "lien_quan", 20, 0, date(2026, 1, 1)

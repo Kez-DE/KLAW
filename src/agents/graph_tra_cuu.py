@@ -62,7 +62,7 @@ from src.services.bo_nho import _vuong_luoi_chan, ho_so_theo_linh_vuc
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
-from src.services.hien_thi import hien_thi_luc, van_ban_an_duoc_nhac
+from src.services.hien_thi import dieu_khoan_an, hien_thi_luc, van_ban_an_duoc_nhac
 from src.services.kho import dung_bang, loi_dan_bang, nap_kho, xin_dang_bang
 from src.services.llm import from_settings as llm_from_settings
 from src.services.llm import generate_model, judge_model, router_model
@@ -772,10 +772,11 @@ def build_graph_tra_cuu():
     def n_retrieve(st: KLawState) -> KLawState:
         # Quy tắc hiển thị (`services/hien_thi`) — MỘT lần mỗi lượt, `expand`
         # dùng lại: văn bản ẩn không bao giờ được truy hồi làm căn cứ.
-        hien = hien_thi_luc(engine, as_of_hieu_luc(st.get("as_of_date")))
+        as_of = as_of_hieu_luc(st.get("as_of_date"))
+        hien, bai_bo = hien_thi_luc(engine, as_of), dieu_khoan_an(engine, as_of)
         ids: list[int] = []
         for q in st.get("queries") or [st["query"]]:
-            ids += retriever.provision_ids(retriever.hybrid(q, hien))
+            ids += retriever.provision_ids(retriever.hybrid(q, hien, bai_bo))
         ids = list(dict.fromkeys(ids))
         # Spec 2026-09-06 §6 — cộng điểm mềm theo lĩnh vực mô hình đoán. Mặc
         # định `linh_vuc_bonus = 0` (tắt) cho tới khi đo được trên golden.
@@ -800,7 +801,8 @@ def build_graph_tra_cuu():
         # `hien_thi` vắng chỉ khi lượt không qua `retrieve` (không có gì để mở
         # rộng) — tính lại chứ không mở cửa cho văn bản ẩn.
         hien = frozenset(st["hien_thi"]) if "hien_thi" in st else hien_thi_luc(engine, as_of)
-        deep, shallow = expand(before, engine, as_of, s.expand_reference_hops, hien)
+        # Điều khoản bị bãi bỏ: cùng memo 60 s mà `retrieve` vừa đọc (`effectivity.dieu_khoan_bai_bo`).
+        deep, shallow = expand(before, engine, as_of, s.expand_reference_hops, hien, dieu_khoan_an(engine, as_of))
         prior_traces = st.get("traces") or {}
         # Kích thước tập TRƯỚC/SAU expand — dữ liệu chương đánh giá (đo đóng góp
         # của bước mở rộng, xem task-7-report.md). `after` = len(deep): đây là
