@@ -424,6 +424,76 @@ DOI_CHIEU_TAY: tuple[tuple[str, str, str, tuple[str, ...], tuple[str, ...]], ...
             " Hộ tịch có hiệu lực.",
         ),
     ),
+    # Năm câu chủ dự án duyệt 2026-09-30 (quét mọi cặp ứng viên). Mọi câu bãi bỏ "kể từ ngày Nghị định/
+    # Thông tư này có hiệu lực" — ngày câu nêu trùng `ngay_hieu_luc` của văn bản đi bãi bỏ.
+    # 167/2013/NĐ-CP: động từ ĐỨNG SAU danh sách ("… hết hiệu lực"), kèm "Chương 3" (kho: Chương III = Điều 14–24).
+    (
+        "19141",
+        "32600",
+        "Điều 72 khoản 2",
+        tuple(f"Điều {n}" for n in range(14, 21)),
+        (
+            "2. Các Điều 14, 15, 16, 17, 18, 19, 20 Chương 3 Nghị định số 178/2004/NĐ-CP ngày 15 tháng 10 năm 2004 quy"
+            " định chi tiết thi hành một số điều của Pháp lệnh phòng, chống mại dâm, Nghị định số 110/2009/NĐ-CP ngày"
+            " 10 tháng 12 năm 2009 quy định xử phạt vi phạm hành chính trong lĩnh vực phòng, chống bạo lực gia đình,"
+            " Nghị định số 73/2010/NĐ-CP ngày 12 tháng 7 năm 2010 quy định xử phạt vi phạm hành chính trong lĩnh vực an"
+            " ninh và trật tự, an toàn xã hội, Nghị định số 52/2012/NĐ-CP ngày 14 tháng 6 năm 2012 quy định xử phạt vi"
+            " phạm hành chính trong lĩnh vực phòng cháy và chữa cháy hết hiệu lực, kể từ ngày Nghị định này có hiệu"
+            " lực thi hành.",
+        ),
+    ),
+    # 69/2025/TT-BTC: bãi bỏ cả Chương — kho: Chương II của 09/2011/TT-BTC là Điều 3–10, của 151/2014/TT-BTC
+    # là Điều 8–10 (Chương III mở ở Điều 11).
+    (
+        "26112",
+        "187346",
+        "Điều 10 khoản 3 điểm a",
+        tuple(f"Điều {n}" for n in range(3, 11)),
+        (
+            "3. Bãi bỏ quy định tại:",
+            "a) Chương 2 Thông tư số 09/2011/TT-BTC ngày 21 tháng 01 năm 2011 của Bộ trưởng Bộ Tài chính hướng dẫn về"
+            " thuế giá trị gia tăng, thuế thu nhập doanh nghiệp đối với lĩnh vực kinh doanh bảo hiểm.",
+        ),
+    ),
+    (
+        "37430",
+        "187346",
+        "Điều 10 khoản 3 điểm đ",
+        ("Điều 8", "Điều 9", "Điều 10"),
+        (
+            "3. Bãi bỏ quy định tại:",
+            "đ) Chương II Thông tư số 151/2014/TT-BTC ngày 10 tháng 10 năm 2014 của Bộ trưởng Bộ Tài chính hướng dẫn thi"
+            " hành Nghị định số 91/2014/NĐ-CP ngày 01 tháng 10 năm 2014 của Chính phủ về việc sửa đổi, bổ sung một số"
+            " điều tại các Nghị định quy định về thuế.",
+        ),
+    ),
+    # 201/2013/NĐ-CP Điều 48: đoạn không đánh số, động từ đứng sau.
+    (
+        "26444",
+        "32649",
+        "Điều 48",
+        ("Điều 2",),
+        (
+            "Các Nghị định: số 179/1999/NĐ-CP ngày 30 tháng 12 năm 1999 hướng dẫn thi hành Luật tài nguyên nước; số"
+            " 149/2004/NĐ-CP ngày 27 tháng 7 năm 2004 quy định việc cấp phép tài nguyên nước và Điều 2 của Nghị định số"
+            " 38/2011/NĐ-CP ngày 26 tháng 5 năm 2011 sửa đổi, bổ sung một số điều quy định về thủ tục hành chính của"
+            " Nghị định số 181/2004/NĐ-CP ngày 29 tháng 10 năm 2004, số 149/2004/NĐ-CP ngày 27 tháng 7 năm 2004 và số"
+            " 160/2005/NĐ-CP ngày 27 tháng 12 năm 2005 hết hiệu lực thi hành kể từ ngày Nghị định này có hiệu lực.",
+        ),
+    ),
+    # 18/2021/NĐ-CP: câu dẫn "một số nội dung … gồm:" (parser coi là giới hạn nội dung) rồi đoạn không đánh số
+    # chỉ nêu điều khoản; đoạn cụm từ ngay sau đó không ghi.
+    (
+        "119757",
+        "151157",
+        "Điều 2 khoản 2 điểm a",
+        ("Điều 8 > Khoản 3 > Điểm c", "Điều 20 > Khoản 4 > Điểm b", "Điều 29 > Khoản 1"),
+        (
+            "2. Nghị định này bãi bỏ, bổ sung, thay thế:",
+            "a) Bãi bỏ một số nội dung tại Nghị định số 134/2016/NĐ-CP gồm:",
+            "Điểm c khoản 3 Điều 8, điểm b khoản 4 Điều 20, khoản 1 Điều 29 Nghị định số 134/2016/NĐ-CP;",
+        ),
+    ),
 )
 _DAU_SEED = """\
 # Điều khoản BỊ BÃI BỎ bởi văn bản khác (quyết định 2026-09-30 mục 9, migration 043).

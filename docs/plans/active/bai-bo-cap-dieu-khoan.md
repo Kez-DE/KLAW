@@ -56,10 +56,10 @@ Active. Owner decision (A) 2026-09-30, recorded as item 9 of
   text; fix = re-chunk + re-embed those anchors (small paid embed, owner approval). Code ready on
   `feat/bai-bo-bo-sung` (`scripts/nhung_lai_bai_bo.py`); the paid `--ghi` must run AFTER the seed is
   loaded (it refuses otherwise). Rollback: restore the `chunks` backup taken just before.
-- Seed reproducibility: `trich_bai_bo` needs five `--tho` folders to regenerate the committed seed,
-  two of them under an ephemeral `/private/tmp/…/scratchpad/kho-cache/` session dir (exact list in
-  `_scratch/bai-bo-bs/dry-run.txt`); if they vanish, a regeneration fails on `DOI_CHIEU_TAY` or drops
-  rows. Copy them to a durable folder before the next regeneration.
+- Seed reproducibility: `trich_bai_bo` needs five `--tho` folders to regenerate the committed seed;
+  the two that lived in an ephemeral session dir now have durable copies under
+  `.claude/worktrees/_scratch/kho-cache/` (exact command in `_scratch/bai-bo-bs/dry-run.txt`). All five
+  are outside the repo: losing one makes a regeneration fail on `DOI_CHIEU_TAY` or drop rows.
 - Not recorded: 6 pairs whose repealing text is PDF-only or 400 at the gateway (ADR 9(b)
   list), and every sentence the parser cannot read in full.
 - Soạn thảo checklist provisions are not filtered by `:bai_bo` (0 repealed on 2026-09-30,
@@ -102,12 +102,23 @@ Active. Owner decision (A) 2026-09-30, recorded as item 9 of
   other-shape sentences listed for the owner, not recorded (`_scratch/bai-bo-bs/dry-run.txt`). Loader
   now reports `them`/`bot`. READ ONLY preview on the dev DB: +75, −0. Not loaded: the loader's own
   dry-run was blocked for the agent (writes then rolls back); controller runs backup, dry-run, `--ghi`.
+  Controller loaded it (table 371 rows, 2,037 hidden).
+- [x] Supplement round 2 (owner-approved): the five other-shape sentences as `DOI_CHIEU_TAY` —
+  178/2004/NĐ-CP Điều 14–20 ← 167/2013/NĐ-CP Điều 72 khoản 2 (verb after the list); 09/2011/TT-BTC
+  Chương 2 = Điều 3–10 and 151/2014/TT-BTC Chương II = Điều 8–10 ← 69/2025/TT-BTC Điều 10 khoản 3
+  điểm a, đ; 38/2011/NĐ-CP Điều 2 ← 201/2013/NĐ-CP Điều 48; 134/2016/NĐ-CP Điều 8 khoản 3 điểm c,
+  Điều 20 khoản 4 điểm b, Điều 29 khoản 1 ← 18/2021/NĐ-CP Điều 2 khoản 2 điểm a. Each repeals from the
+  repealing document's effective date, which equals the date its own text states. Seed 101 sentences
+  (10 hand-checked), 393 provisions; READ ONLY preview vs the live 371-row table: +22, −0; hidden
+  2,037 → 2,141. Not loaded: controller runs backup, dry-run, `--ghi` (`_scratch/bai-bo-bs/dry-run.txt`).
 - [x] Chunk text (ADR 9(e)): `build_chunks(…, an)` drops repealed descendants from live anchors and
   keeps anchors (split decision on the full text; hidden anchors unchanged); `build_chunks.run`
   passes `dieu_khoan_an`, so a later `--chi-moi` cannot restore the text. `scripts/nhung_lai_bai_bo.py`
   re-embeds only the changed chunks, UPDATE in place, refuses if the table differs from the seed.
   Offline dry-run (`_scratch/bai-bo-bs/re-embed-dry-run.txt`): 94 voyage-4-lite chunks (93 today +
-  126/2014 Điều 63), ~42.5k tokens, ~US$0.0008 (ceiling US$0.004). Paid `--ghi` not run.
+  126/2014 Điều 63), ~42.5k tokens, ~US$0.0008 (ceiling US$0.004). Controller ran `--ghi`: the
+  dry-run now reports `da_xong` 94. Round 2 adds 3 chunks (134/2016/NĐ-CP Điều 8, 20, 29), ~1.8k
+  tokens, ~US$0.00004 (ceiling US$0.00017); `--ghi` after the round-2 load.
 - [ ] Integrate: merge, paid eval, real-app check of a 101/102 document page. Merged and
   measured on `integ/bai-bo-nhan-trap` (19436f0, not in main): results and open items in
   `docs/plans/active/tra-loi-tu-nhien.md` and `eval/results/kho-luat/so-sanh-bb.md`; the

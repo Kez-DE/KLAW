@@ -85,6 +85,27 @@ def test_seed_co_bai_bo_126_2014_va_24_2013():
     assert theo["30386", "92897", "Điều 45 khoản 2 điểm d"]["dieu_khoan"] == ["Điều 3", "Điều 5", "Điều 44"]
 
 
+@pytest.mark.parametrize(
+    ("khoa", "dieu_khoan", "tu_ngay"),
+    [
+        (("19141", "32600", "Điều 72 khoản 2"), [f"Điều {n}" for n in range(14, 21)], date(2013, 12, 28)),
+        (("26112", "187346", "Điều 10 khoản 3 điểm a"), [f"Điều {n}" for n in range(3, 11)], date(2025, 7, 1)),
+        (("37430", "187346", "Điều 10 khoản 3 điểm đ"), ["Điều 8", "Điều 9", "Điều 10"], date(2025, 7, 1)),
+        (("26444", "32649", "Điều 48"), ["Điều 2"], date(2014, 2, 1)),
+        (
+            ("119757", "151157", "Điều 2 khoản 2 điểm a"),
+            ["Điều 8 > Khoản 3 > Điểm c", "Điều 20 > Khoản 4 > Điểm b", "Điều 29 > Khoản 1"],
+            date(2021, 4, 25),
+        ),
+    ],
+)
+def test_seed_co_nam_cau_doi_chieu_tay_bo_sung(khoa, dieu_khoan, tu_ngay):
+    """Chủ dự án duyệt 2026-09-30: năm câu parser không đọc (động từ sau danh sách, bãi bỏ cả Chương, câu dẫn
+    "một số nội dung … gồm:"). `tu_ngay` là ngày văn bản đi bãi bỏ có hiệu lực — đúng ngày câu tự nêu."""
+    h = {(h["van_ban_id"], h["boi_id"], h["boi_dieu_khoan"]): h for h in doc_seed(SEED)}[khoa]
+    assert (h["dieu_khoan"], h["tu_ngay"], h["kiem_boi"]) == (dieu_khoan, tu_ngay, "doi-chieu-tay")
+
+
 def test_phan_giai_theo_van_ban_va_duong_dan():
     dieu_khoan = {("169188", "Điều 9 > Khoản 5"): [11], ("169188", "Điều 21"): [22]}
     ra = phan_giai([HANG], dieu_khoan, {"169188": "101/2024/NĐ-CP", "178259": "151/2025/NĐ-CP"})
