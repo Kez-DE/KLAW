@@ -170,38 +170,40 @@ def test_canh_F1_nhom_nen_tang_chi_giu_canh_sua_doi_that():
     )
 
 
-def test_101_102_2024_con_an_khi_chua_ghi_duoc_dieu_het_hieu_luc():
-    """N1 2026-09-30 (review): 151/2025/NĐ-CP Điều 21 khoản 4 điểm b, c cho một số điều
-    khoản của 101/2024/NĐ-CP (Điều 21, 22, 28–49, 60 …) và 102/2024/NĐ-CP (Điều 20, 21,
-    23, 44, 45, 48, 49, 51–53, 60, 64, 66, 68, 73, 106, 107 …) hết hiệu lực từ 01/7/2025.
-    KLAW chưa ghi được hết hiệu lực CẤP ĐIỀU KHOẢN, nên hiện hai nghị định là để các điều
-    đó được truy hồi và trích như luật đang áp dụng (đo: 101/2024 Điều 30 khoản 12 hạng 4
-    cho câu tranh chấp nhà đất). Cạnh parquet "thay thế" giữ chúng ẩn (khác chủ đề ⇒
-    `can_doi_chieu_tay`) cho tới khi chủ dự án chốt cơ chế đó."""
+def test_101_102_2024_hien_va_151_2025_chi_bai_bo_mot_so_dieu():
+    """N1 + quyết định 2026-09-30 mục 9: 151/2025/NĐ-CP Điều 21 khoản 4 điểm b, c cho một số
+    điều khoản của 101/2024/NĐ-CP và 102/2024/NĐ-CP hết hiệu lực từ 01/7/2025 — không thay
+    hai nghị định. Nạp lại không đưa cạnh parquet "thay thế" trở lại; cạnh đúng là loai 23
+    (`from` bị khai tử), đã đối chiếu nguyên văn, nên hai nghị định được HIỆN với nhãn "còn
+    hiệu lực một phần"; các điều bị bãi bỏ nằm ở `data/seed/bai_bo_dieu_khoan.yaml` và bị ẩn
+    khỏi truy hồi, trích dẫn (`tests/test_scripts/test_nap_bai_bo_dieu_khoan.py`)."""
     sai = [("178259", "169188", "Thay thế"), ("178259", "169363", "Thay thế")]
     rel = pd.DataFrame([{"doc_id": f, "other_doc_id": t, "relationship": r} for f, t, r in sai])
-    assert len(_canh_hieu_luc_di_vao(rel, {"169188", "169363", "178259"})) == 2
-    assert not {c for c in CANH_DOI_CHIEU_NGUYEN_VAN if c[1] == "178259" and c[0] in {"169188", "169363"}}
+    assert _canh_hieu_luc_di_vao(rel, {"169188", "169363", "178259"}).empty
+    assert {
+        ("169188", "178259", 23, "Văn bản quy định hết hiệu lực 1 phần"),
+        ("169363", "178259", 23, "Văn bản quy định hết hiệu lực 1 phần"),
+    } <= set(CANH_DOI_CHIEU_NGUYEN_VAN)
     ten = {
         "169188": "Nghị định số 101/2024/NĐ-CP Quy định về điều tra cơ bản đất đai; đăng ký, cấp Giấy chứng "
         "nhận quyền sử dụng đất, quyền sở hữu tài sản gắn liền với đất và Hệ thống thông tin đất đai",
         "169363": "Nghị định số 102/2024/NĐ-CP Quy định chi tiết thi hành một số điều của Luật Đất đai",
     }
     canh = {
-        "loai": 21,
+        "loai": 23,
+        "chieu": "di_ra",
         "from_document_id": "178259",
         "from_so_ky_hieu": "151/2025/NĐ-CP",
         "from_loai_van_ban": "Nghị định",
         "from_ten": "Nghị định số 151/2025/NĐ-CP Quy định về phân định thẩm quyền của chính quyền địa phương 02 "
         "cấp, phân quyền, phân cấp trong lĩnh vực đất đai",
         "from_ngay_hieu_luc": date(2025, 7, 1),
+        "da_doi_chieu": True,
     }
-    # Ẩn vì CHƯA RÕ (`can_doi_chieu_tay`), không phải vì "đã bị thay thế": câu cho người
-    # đọc là "chưa có trong phạm vi tra cứu", không nêu 151/2025 là văn bản thay thế.
     for i, t in ten.items():
         doc = {"id": i, "loai_van_ban": "Nghị định", "ten": t, "ngay_hieu_luc": date(2024, 8, 1), "tinh_trang": "HHL1P"}
         e = danh_gia(doc, [canh], date(2026, 9, 30))
-        assert e.verdict == EffectivityVerdict.can_doi_chieu_tay and e.verdict not in VERDICT_HIEN, i
+        assert e.verdict == EffectivityVerdict.mot_phan_khong_xac_dinh and e.verdict in VERDICT_HIEN, i
 
 
 def test_danh_sach_ap_chi_xoa_canh_sai_va_them_canh_thieu():

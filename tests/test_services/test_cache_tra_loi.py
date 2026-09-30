@@ -70,3 +70,27 @@ def test_chi_cache_answer_va_partial_coverage():
     assert KET_QUA_DUOC_CACHE == frozenset({"answer", "partial_coverage"})
     assert "abstain" not in KET_QUA_DUOC_CACHE
     assert "out_of_scope" not in KET_QUA_DUOC_CACHE
+
+
+def test_corpus_checksum_doi_khi_nap_dieu_khoan_bai_bo(monkeypatch):
+    """Quyết định 2026-09-30 mục 9: nạp `bai_bo_dieu_khoan` không đổi tập văn bản được hiện,
+    nhưng câu trả lời đã cache có thể đang trích chính điều vừa bị bãi bỏ. Chưa có dòng nào
+    thì dấu giữ nguyên như trước (không làm trượt cache vô cớ)."""
+    import hashlib
+    from contextlib import nullcontext
+    from datetime import datetime
+
+    from src.services import cache_tra_loi as ct
+
+    class _C:
+        def execute(self, sql):
+            return type("R", (), {"one": lambda self: (19135, datetime(2026, 8, 30))})()
+
+    monkeypatch.setattr(ct, "get_engine", lambda: type("E", (), {"connect": lambda self: nullcontext(_C())})())
+    monkeypatch.setattr(ct, "hien_thi_luc", lambda engine, as_of: frozenset({"a", "b"}))
+    an: frozenset[int] = frozenset()
+    monkeypatch.setattr(ct, "dieu_khoan_an", lambda engine, as_of: an)
+    rong = ct.corpus_checksum(date(2026, 9, 30))
+    assert rong.endswith(hashlib.sha256(b"a\x1fb").hexdigest()[:16])
+    an = frozenset({7, 11})
+    assert ct.corpus_checksum(date(2026, 9, 30)) != rong

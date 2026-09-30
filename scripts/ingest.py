@@ -251,6 +251,14 @@ def ingest(seed: Path, dry_run: bool = False, khong_xoa: bool = False) -> dict:
     # Idempotent (có test riêng): chạy hai lần ra cùng số cạnh, không nhân đôi.
     written["canh_dieu_khoan"] = resolve_all(eng)
 
+    # Cùng bệnh, bảng khác: FK CASCADE của `bai_bo_dieu_khoan` (043) xoá dòng bãi bỏ của mọi
+    # văn bản vừa đi đường DELETE-rồi-INSERT — điều khoản đã bãi bỏ sẽ hiện lại không một tín
+    # hiệu (quyết định 2026-09-30 mục 9). Nạp lại từ seed, khoá bằng `duong_dan`; một dòng seed
+    # không còn phân giải được thì `nap` nổ ở đây. Import muộn: kéo theo `lam_moi_hieu_luc`.
+    from scripts.nap_bai_bo_dieu_khoan import nap as nap_bai_bo
+
+    written["bai_bo_dieu_khoan"] = nap_bai_bo(eng, ghi=True)
+
     return written
 
 

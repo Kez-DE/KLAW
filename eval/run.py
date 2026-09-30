@@ -31,7 +31,7 @@ from eval.metrics import mrr_at_k, ndcg_at_k, recall_at_k
 from src.config import Settings, as_of_hieu_luc, get_settings
 from src.services.db import get_engine
 from src.services.embedding import EmbeddingClient
-from src.services.hien_thi import hien_thi_luc
+from src.services.hien_thi import dieu_khoan_an, hien_thi_luc
 from src.services.retrieval import Retriever, rrf
 
 CONFIG_DIR = Path("eval/configs")
@@ -114,12 +114,14 @@ def _commit_hash() -> str:
         return "unknown"
 
 
-def _retrieve(r: Retriever, q: str, s: Settings, hien: frozenset[str] | None = None) -> list[int]:
+def _retrieve(
+    r: Retriever, q: str, s: Settings, hien: frozenset[str] | None = None, bai_bo: frozenset[int] = frozenset()
+) -> list[int]:
     branches: list[list[int]] = []
     if s.retrieve_bm25_topk > 0:
-        branches.append(r.bm25(q, s.retrieve_bm25_topk, hien))
+        branches.append(r.bm25(q, s.retrieve_bm25_topk, hien, bai_bo))
     if s.retrieve_dense_topk > 0:
-        branches.append(r.dense(q, s.retrieve_dense_topk, hien))
+        branches.append(r.dense(q, s.retrieve_dense_topk, hien, bai_bo))
     if not branches:
         raise ValueError("cả hai nhánh retrieval đều tắt (topk=0) — config sai")
     fused = rrf(branches, k=s.rrf_k)
@@ -128,7 +130,11 @@ def _retrieve(r: Retriever, q: str, s: Settings, hien: frozenset[str] | None = N
 
 
 def _run_items(
-    r: Retriever, items: list[dict], s: Settings, hien: frozenset[str] | None = None
+    r: Retriever,
+    items: list[dict],
+    s: Settings,
+    hien: frozenset[str] | None = None,
+    bai_bo: frozenset[int] = frozenset(),
 ) -> tuple[list[dict], int]:
     """Chạy retrieval + tính metric cho từng câu golden_qa.
 
@@ -141,7 +147,7 @@ def _run_items(
     for it in items:
         gold = set(it["provision_ids"])
         try:
-            got = _retrieve(r, it["cau_hoi"], s, hien)
+            got = _retrieve(r, it["cau_hoi"], s, hien, bai_bo)
         except Exception as e:  # noqa: BLE001 - cố ý bắt rộng để KHÔNG làm sập cả batch, xem docstring
             print(f"[eval] LỖI câu {it['id']!r}: {type(e).__name__}: {e}", file=sys.stderr)
             per_item.append(
@@ -245,6 +251,8 @@ def evaluate(config_name: str, loc_hien: bool = True) -> dict:
     items, da_duyet = _load_golden_qa(s, engine)
     as_of = as_of_hieu_luc(s.as_of_date)
     hien = hien_thi_luc(engine, as_of) if loc_hien else None
+    # Điều khoản bị bãi bỏ (quyết định 2026-09-30 mục 9): cũng không có trên đường trả lời.
+    bai_bo = dieu_khoan_an(engine, as_of) if loc_hien else frozenset()
 
     embedder = EmbeddingClient(
         api_key=s.openrouter_api_key,
@@ -254,7 +262,7 @@ def evaluate(config_name: str, loc_hien: bool = True) -> dict:
     )
     r = Retriever(engine, embedder, s)
 
-    per_item, n_ok = _run_items(r, items, s, hien)
+    per_item, n_ok = _run_items(r, items, s, hien, bai_bo)
     per_item = _gan_duong_dan_he_thong(r.engine, per_item)
 
     n = len(items)
@@ -276,6 +284,7 @@ def evaluate(config_name: str, loc_hien: bool = True) -> dict:
         "loc_hien": loc_hien,
         "as_of_hien": str(as_of) if loc_hien else None,
         "so_van_ban_hien": len(hien) if hien is not None else None,
+        "so_dieu_khoan_bai_bo": len(bai_bo),
         "commit_hash": _commit_hash(),
         "ts": datetime.now(UTC).isoformat(),
         "golden_qa_da_review": da_duyet,

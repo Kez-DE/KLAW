@@ -25,6 +25,7 @@ import logging
 import re
 import time
 import uuid
+from datetime import date
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -62,7 +63,7 @@ from src.services.bo_nho import _vuong_luoi_chan, ho_so_theo_linh_vuc
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
-from src.services.hien_thi import hien_thi_luc, van_ban_an_duoc_nhac
+from src.services.hien_thi import dieu_khoan_an, hien_thi_luc, van_ban_an_duoc_nhac
 from src.services.kho import dung_bang, loi_dan_bang, nap_kho, xin_dang_bang
 from src.services.llm import from_settings as llm_from_settings
 from src.services.llm import generate_model, judge_model, router_model
@@ -72,7 +73,7 @@ from src.services.traces import _ghi_traces
 logger = logging.getLogger(__name__)
 
 
-def _db_provisions(ids: list[int], engine: Engine) -> dict[int, dict]:
+def _db_provisions(ids: list[int], engine: Engine, as_of: date) -> dict[int, dict]:
     """`provisions.id` → dòng, DÙNG CHUNG cho tier1/tier2/assemble — MỘT hình
     dạng thay vì ba, để `khop_tai` (có thể là Khoản/Điểm con của claim) luôn có
     mặt trong kết quả ở cả ba nơi dùng nó.
@@ -90,8 +91,14 @@ def _db_provisions(ids: list[int], engine: Engine) -> dict[int, dict]:
     `nap_provisions` không mang (nó chỉ chọn cột của `provisions`) — join thêm
     `documents` Ở ĐÂY thay vì sửa `nap_provisions` (đã test ở Task 5, không đụng
     module đã verify).
+
+    `as_of` BẮT BUỘC: cây kiểm chứng không mang khoản bị bãi bỏ tại mốc đó
+    (`hien_thi.dieu_khoan_an`, quyết định 2026-09-30 mục 9), nên `khop_tai` của cả ba nơi
+    không bao giờ là luật đã chết. Không có id thì không chạm DB (lượt meta, 0 claim).
     """
-    goc = nap_provisions(engine, ids)
+    if not ids:
+        return {}
+    goc = nap_provisions(engine, ids, dieu_khoan_an(engine, as_of))
     if not goc:
         return {}
     doc_ids = {r["document_id"] for r in goc.values()}
@@ -772,10 +779,11 @@ def build_graph_tra_cuu():
     def n_retrieve(st: KLawState) -> KLawState:
         # Quy tắc hiển thị (`services/hien_thi`) — MỘT lần mỗi lượt, `expand`
         # dùng lại: văn bản ẩn không bao giờ được truy hồi làm căn cứ.
-        hien = hien_thi_luc(engine, as_of_hieu_luc(st.get("as_of_date")))
+        as_of = as_of_hieu_luc(st.get("as_of_date"))
+        hien, bai_bo = hien_thi_luc(engine, as_of), dieu_khoan_an(engine, as_of)
         ids: list[int] = []
         for q in st.get("queries") or [st["query"]]:
-            ids += retriever.provision_ids(retriever.hybrid(q, hien))
+            ids += retriever.provision_ids(retriever.hybrid(q, hien, bai_bo))
         ids = list(dict.fromkeys(ids))
         # Spec 2026-09-06 §6 — cộng điểm mềm theo lĩnh vực mô hình đoán. Mặc
         # định `linh_vuc_bonus = 0` (tắt) cho tới khi đo được trên golden.
@@ -800,7 +808,8 @@ def build_graph_tra_cuu():
         # `hien_thi` vắng chỉ khi lượt không qua `retrieve` (không có gì để mở
         # rộng) — tính lại chứ không mở cửa cho văn bản ẩn.
         hien = frozenset(st["hien_thi"]) if "hien_thi" in st else hien_thi_luc(engine, as_of)
-        deep, shallow = expand(before, engine, as_of, s.expand_reference_hops, hien)
+        # Điều khoản bị bãi bỏ: cùng memo 60 s mà `retrieve` vừa đọc (`effectivity.dieu_khoan_bai_bo`).
+        deep, shallow = expand(before, engine, as_of, s.expand_reference_hops, hien, dieu_khoan_an(engine, as_of))
         prior_traces = st.get("traces") or {}
         # Kích thước tập TRƯỚC/SAU expand — dữ liệu chương đánh giá (đo đóng góp
         # của bước mở rộng, xem task-7-report.md). `after` = len(deep): đây là
@@ -817,7 +826,7 @@ def build_graph_tra_cuu():
 
     def n_tier1(st: KLawState) -> KLawState:
         claims = st.get("draft_claims") or []
-        dbp = _db_provisions([c.provision_id for c in claims], engine)
+        dbp = _db_provisions([c.provision_id for c in claims], engine, as_of_hieu_luc(st.get("as_of_date")))
         # expand() ĐÃ tính effectivity cho từng provision (đi qua cạnh đi vào
         # thật của Task 2) — DÙNG LẠI. Tính lại ở đây bằng cách gọi
         # effectivity_qua_provision(engine, dbp, as_of) sẽ ăn `canh_di_vao` RỖNG
@@ -844,7 +853,7 @@ def build_graph_tra_cuu():
         if not s.verify_tier2_enabled:
             return {**st, "tier2": []}
         t1 = st.get("tier1") or []
-        dbp = _db_provisions([r.claim.provision_id for r in t1 if r.ok], engine)
+        dbp = _db_provisions([r.claim.provision_id for r in t1 if r.ok], engine, as_of_hieu_luc(st.get("as_of_date")))
         verdicts, traces = verify_tier2_and_trace(
             t1, dbp, llm, judge_model(), st.get("traces"),
             prompt_path=Path(s.tier2_prompt), khung_yeu_cau=st.get("khung_yeu_cau"), cau_hoi=st["query"],
@@ -891,7 +900,7 @@ def build_graph_tra_cuu():
         ids = [r.claim.provision_id for r in (st.get("tier1") or [])]
         ket = assemble(
             {**st, "abstain_threshold": s.abstain_threshold},
-            _db_provisions(ids, engine),
+            _db_provisions(ids, engine, as_of_hieu_luc(st.get("as_of_date"))),
             llm,
             generate_model(),
             prompt_path=Path(s.assemble_prompt),

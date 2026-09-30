@@ -32,7 +32,15 @@ from datetime import date
 from fastapi import HTTPException
 from sqlalchemy import Connection, Engine, text
 
-from src.services.effectivity import DA_CHET, Effectivity, VanBanNeu, danh_gia_toan_bo, ke_nhiem_con_song
+from src.services.effectivity import (
+    DA_CHET,
+    BaiBo,
+    Effectivity,
+    VanBanNeu,
+    danh_gia_toan_bo,
+    dieu_khoan_bai_bo,
+    ke_nhiem_con_song,
+)
 from src.services.effectivity import EffectivityVerdict as V
 from src.services.kho import _khop_so_hieu
 from src.services.trich_dan import cach_trich, lien_ket, truong_trich_dan
@@ -80,6 +88,71 @@ def hien_thi_luc(engine: Engine, as_of: date) -> frozenset[str]:
     eff = danh_gia_toan_bo(engine, as_of)
     with engine.connect() as c:
         return tap_hien_thi(c, eff)
+
+
+# ── Điều khoản bị bãi bỏ (quyết định 2026-09-30 mục 9) ───────────────────────
+# Văn bản được hiện vẫn có thể mang điều khoản mà văn bản khác đã bãi bỏ đích danh
+# (`effectivity.dieu_khoan_bai_bo`). Điều khoản đó — cùng mọi hậu duệ — không bao giờ được
+# truy hồi, mở rộng làm căn cứ, trích dẫn hay tìm thấy (`:bai_bo` trong SQL của các đường
+# đó); trên thân trang văn bản nó còn số hiệu, tiêu đề và câu "Đã bị bãi bỏ bởi … từ …".
+
+
+def dieu_khoan_an(engine: Engine, as_of: date) -> frozenset[int]:
+    """`provisions.id` bị bãi bỏ tại `as_of`, kèm hậu duệ — tham số `:bai_bo` của mọi đường đọc."""
+    return frozenset(dieu_khoan_bai_bo(engine, as_of))
+
+
+def bai_bo_ra(b: BaiBo, van_ban: dict | None, hien: frozenset[str]) -> dict:
+    """`schemas.BaiBoOut`: điều khoản đi bãi bỏ, tên gọi văn bản ("Nghị định số 151/2025/NĐ-CP"),
+    ngày, và văn bản đó kèm link (`doc_id` chỉ khi nó được hiện, cùng luật `nap_van_ban_dan`)."""
+    t = truong_trich_dan(van_ban) if van_ban else {}
+    goi = van_ban and cach_trich(
+        None, van_ban.get("loai_van_ban"), van_ban.get("so_ky_hieu"), None, None, van_ban.get("ten")
+    )
+    return {
+        "boi_dieu_khoan": b.boi_dieu_khoan,
+        "ten_goi": goi or b.boi.so_ky_hieu,
+        "tu_ngay": b.tu_ngay,
+        "van_ban": {
+            "doc_id": b.boi.doc_id if b.boi.doc_id in hien else None,
+            "so_ky_hieu": b.boi.so_ky_hieu,
+            "ten_van_ban": t.get("ten_van_ban"),
+            "lien_ket": t.get("lien_ket"),
+        },
+    }
+
+
+def an_bai_bo_tren_trang(rows: list[dict], bai_bo: Mapping[int, BaiBo], ra_bai_bo) -> list[dict]:
+    """Thân trang văn bản (THUẦN): điều khoản bị bãi bỏ giữ số hiệu và tiêu đề, `noi_dung`
+    rỗng, `bai_bo = ra_bai_bo(b)`; hậu duệ của nó bị bỏ khi tổ tiên đó có trên trang (không
+    có thì chính nó mang câu bãi bỏ — nội dung đã bãi bỏ không lộ qua đường nào)."""
+    tren_trang = {r["id"] for r in rows}
+    ra = []
+    for r in rows:
+        b = bai_bo.get(r["id"])
+        if b is None:
+            ra.append(r)
+        elif b.goc == r["id"] or b.goc not in tren_trang:
+            ra.append({**r, "noi_dung": "", "bai_bo": ra_bai_bo(b)})
+    return ra
+
+
+_SQL_VAN_BAN_BAI_BO = text(
+    "SELECT id, so_ky_hieu, ten, loai_van_ban, link_vbpl, link_chinhphu FROM documents"
+    " WHERE id = ANY(CAST(:ids AS text[]))"
+)
+
+
+def bai_bo_tren_trang(
+    conn: Connection, rows: list[dict], bai_bo: Mapping[int, BaiBo], hien: frozenset[str]
+) -> list[dict]:
+    """`an_bai_bo_tren_trang` với văn bản đi bãi bỏ đọc từ DB — MỘT truy vấn, và chỉ khi trang
+    có điều khoản bị bãi bỏ."""
+    ids = sorted({bai_bo[r["id"]].boi.doc_id for r in rows if r["id"] in bai_bo})
+    if not ids:
+        return rows
+    vb = {r["id"]: dict(r) for r in conn.execute(_SQL_VAN_BAN_BAI_BO, {"ids": ids}).mappings()}
+    return an_bai_bo_tren_trang(rows, bai_bo, lambda b: bai_bo_ra(b, vb.get(b.boi.doc_id), hien))
 
 
 # ── Lời cho người đọc ────────────────────────────────────────────────────────

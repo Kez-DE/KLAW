@@ -12,6 +12,13 @@ bằng AST — không chạy truy vấn nào, 0 DB. Hợp lệ: chuỗi mang `:h
 tập được hiện, `services/hien_thi.tap_hien_thi`). Ngoại lệ: `DUOC_MIEN`, mỗi
 dòng một lý do; loại `sau_chan` còn bị kiểm thêm là MỌI hàm dùng nó phải gọi
 cổng tương ứng (`chan_neu_an` cho trang một văn bản).
+
+Bất biến thứ hai (`docs/decisions/2026-09-30-tra-loi-tu-nhien-va-phan-tich.md` mục 9):
+điều khoản bị bãi bỏ không bao giờ được truy hồi, trích dẫn, tìm thấy hay hiện nội
+dung trên trang văn bản. MỌI truy vấn đọc `provisions`/`chunks` phải mang `:bai_bo`
+(`services/hien_thi.dieu_khoan_an`) hoặc đi qua `bai_bo_tren_trang` (`CONG_BAI_BO`, trang
+một văn bản trả `noi_dung`); ngoại lệ ở `MIEN_BAI_BO`, mỗi dòng một lý do — miễn `:hien`
+(`DUOC_MIEN`) không kéo theo miễn `:bai_bo` (review 2026-09-30: cây kiểm chứng tier 1).
 """
 
 import ast
@@ -48,6 +55,7 @@ DUOC_MIEN: dict[tuple[str, str], tuple[str, str | None]] = {
             "_SQL_SUA_DOI_VAN_BAN",
             "_SQL_DOC_TAT_CA",
             "_SQL_CANH_TAT_CA",
+            "_SQL_BAI_BO",
         )
     },
     ("agents/nodes/verify_tier1.py", "_SQL_CAY"): (KIEM_CHUNG, None),
@@ -61,7 +69,7 @@ DUOC_MIEN: dict[tuple[str, str], tuple[str, str | None]] = {
     ("services/retrieval.py", "linh_vuc_cua"): (TRUNG_GIAN, None),
     **{
         ("services/hien_thi.py", n): (TAP_HIEN, None)
-        for n in ("_SQL_UNG_VIEN", "_SQL_VAN_BAN_NEU", "_SQL_DOC", "_SQL_THEO_SO")
+        for n in ("_SQL_UNG_VIEN", "_SQL_VAN_BAN_NEU", "_SQL_DOC", "_SQL_THEO_SO", "_SQL_VAN_BAN_BAI_BO")
     },
     ("services/kho.py", "_SQL_KHO"): ("mỗi dòng mang cờ `hien`; mọi con số và danh sách lọc bằng nó", "gan_hien_thi"),
     ("agents/graph_soan_thao.py", "_SQL_PROVISIONS_BY_DUONG_DAN"): (SOAN_THAO, None),
@@ -96,6 +104,58 @@ DUOC_MIEN: dict[tuple[str, str], tuple[str, str | None]] = {
         ("api/routes_tim_kiem.py", n): ("trang một văn bản", "chan_neu_an")
         for n in ("_SQL_TIM_TRONG_VB", "_SQL_TIM_TRONG_VB_DEM", "_SQL_TIM_TRONG_VB_TRANG", "_SQL_DOC_TOI_THIEU")
     },
+}
+
+
+THAM_QUYEN_BAI_BO = "docs/decisions/2026-09-30-tra-loi-tu-nhien-va-phan-tich.md mục 9"
+_RE_DIEU_KHOAN = re.compile(r"\b(?:FROM|JOIN)\s+(?:provisions|chunks)\b")
+
+# Đọc điều khoản mà không cần `:bai_bo` — (file, chủ) → lý do.
+TRUNG_GIAN_BAI_BO = "chỉ ra id trung gian; tập cuối lọc ở truy vấn mang :bai_bo của cùng đường"
+DIEU_HUONG = "trang một văn bản: số hiệu, tiêu đề, điều hướng — điều khoản bị bãi bỏ vẫn còn số hiệu và tiêu đề"
+MIEN_BAI_BO: dict[tuple[str, str], str] = {
+    ("api/routes.py", "_SQL_PHAM_VI"): "đếm điều khoản theo văn bản cho trang phạm vi; không trả nội dung",
+    ("api/routes_tim_kiem.py", "_SQL_BO_LOC"): "chỉ hỏi văn bản có toàn văn hay không",
+    **{
+        ("agents/nodes/expand.py", n): TRUNG_GIAN_BAI_BO + " (`_SQL_PROV`)"
+        for n in ("_SQL_PARENT", "_SQL_CHILDREN", "_SQL_NEO_SUA", "_SQL_THEO_DUONG_DAN")
+    },
+    ("services/retrieval.py", "provision_ids"): TRUNG_GIAN_BAI_BO + " (chunk đã lọc ở `_CHI_HIEN`)",
+    ("services/retrieval.py", "linh_vuc_cua"): TRUNG_GIAN_BAI_BO + " (chỉ đọc nhãn ngành)",
+    ("agents/nodes/verify_tier1.py", "tien_de_cau_hoi_sai"): TIEN_DE,
+    **{
+        ("services/effectivity.py", n): "đồ thị hiệu lực: chính phép đọc sửa đổi/bãi bỏ"
+        for n in ("_SQL_SUA_DOI", "_SQL_SUA_DOI_VAN_BAN", "_SQL_BAI_BO")
+    },
+    ("services/cache_tra_loi.py", "_SQL_CHECKSUM"): DAU_CACHE + "; tập bãi bỏ đã vào dấu (`corpus_checksum`)",
+    ("services/checklist.py", "kiem_tra_can_cu_ton_tai"): NAP,
+    ("services/rules.py", "kiem_tra_can_cu_ton_tai"): NAP,
+    ("services/xref.py", "resolve_all"): NAP,
+    # ponytail: chunk neo ở Điều còn hiệu lực vẫn nhúng chữ khoản con bị bãi bỏ — lệch XẾP HẠNG
+    # (BM25/dense), không lệch nội dung hiện ra; dựng lại chunk + nhúng lại các neo đó khi chủ dự
+    # án duyệt lượt nhúng trả phí (quyết định 2026-09-30 mục 9(e)).
+    ("services/chunker.py", "load_provisions"): NAP,
+    # ponytail: tập checklist cấu hình tay; 0 điều khoản checklist bị bãi bỏ (đo 2026-09-30, seed
+    # 296 điều khoản). Lọc trong `chi_van_ban_hien` khi một căn cứ checklist bị bãi bỏ.
+    ("agents/graph_soan_thao.py", "_SQL_PROVISIONS_BY_DUONG_DAN"): SOAN_THAO,
+    ("api/routes_van_ban.py", "_SQL_NOI_BO"): "đếm cạnh nội bộ của trang một văn bản; không trả nội dung",
+    **{
+        ("api/routes.py", n): DIEU_HUONG
+        for n in (
+            "_SQL_VAN_BAN_DOC",
+            "_SQL_VAN_BAN_MUC_LUC",
+            "_SQL_VAN_BAN_DIEU_PHANG",
+            "_SQL_VAN_BAN_DIEU_BY_SO_HIEU",
+            "_SQL_VAN_BAN_PROVISION_GOC",
+            "_SQL_VAN_BAN_DIEU_CHA",
+            "_SQL_VAN_BAN_DIEU_TRUOC",
+            "_SQL_VAN_BAN_DIEU_SAU",
+        )
+    },
+}
+# Trang một văn bản: thân trang đi qua cổng này thay cho `:bai_bo` trong SQL.
+CONG_BAI_BO: dict[tuple[str, str], str] = {
+    ("api/routes.py", n): "bai_bo_tren_trang" for n in ("_SQL_VAN_BAN_CAY_DIEU", "_SQL_DIEU_TRONG_CHUONG")
 }
 
 
@@ -200,8 +260,43 @@ def vi_pham(goc: Path, mien: dict) -> list[str]:
     return loi
 
 
+def vi_pham_bai_bo(goc: Path, mien: dict, cong: dict, duoc_mien: dict) -> list[str]:
+    loi, thay = [], set()
+    for file, dong, chu, sql in quet(goc):
+        khoa = (file, chu)
+        if not _RE_DIEU_KHOAN.search(sql) or ":bai_bo" in sql:
+            continue
+        trang = (duoc_mien.get(khoa) or (None, None))[1] == "chan_neu_an" and re.search(r"\bnoi_dung\b", sql)
+        if khoa in mien:
+            thay.add(khoa)
+        elif khoa in cong and trang:
+            thay.add(khoa)
+            cay = ast.parse((goc / file).read_text(encoding="utf-8"))
+            loi += [
+                f"src/{file}: hàm `{f.name}` dùng `{chu}` mà không gọi `{cong[khoa]}` — {THAM_QUYEN_BAI_BO}: điều "
+                f"khoản bị bãi bỏ không được hiện nội dung. Đưa các dòng qua `{cong[khoa]}` trước khi trả."
+                for f in _ham_dung(cay, chu)
+                if not _goi(f, cong[khoa])
+            ]
+        else:
+            loi.append(
+                f"src/{file}:{dong} `{chu}` đọc provisions/chunks mà không loại điều khoản bị bãi bỏ (`:bai_bo`) — "
+                f"{THAM_QUYEN_BAI_BO}. Thêm `AND NOT (p.id = ANY(CAST(:bai_bo AS bigint[])))` với "
+                "`services/hien_thi.dieu_khoan_an`, hoặc thêm vào MIEN_BAI_BO kèm lý do (miễn `:hien` không đủ)."
+            )
+    loi += [
+        f"MIEN_BAI_BO/CONG_BAI_BO có `{f}:{c}` nhưng không còn truy vấn đó — gỡ dòng cũ."
+        for f, c in {*mien, *cong} - thay
+    ]
+    return loi
+
+
 def test_moi_duong_doc_van_ban_deu_loc_tap_duoc_hien_hoac_duoc_mien_co_ly_do():
     assert vi_pham(SRC, DUOC_MIEN) == []
+
+
+def test_moi_duong_doc_dieu_khoan_deu_loai_dieu_khoan_bi_bai_bo():
+    assert vi_pham_bai_bo(SRC, MIEN_BAI_BO, CONG_BAI_BO, DUOC_MIEN) == []
 
 
 def test_duong_tra_loi_truyen_tap_duoc_hien_vao_truy_hoi_va_mo_rong():
@@ -211,8 +306,11 @@ def test_duong_tra_loi_truyen_tap_duoc_hien_vao_truy_hoi_va_mo_rong():
     goi = [x for x in ast.walk(cay) if isinstance(x, ast.Call)]
     hybrid = [x for x in goi if getattr(x.func, "attr", None) == "hybrid"]
     expand = [x for x in goi if getattr(x.func, "id", None) == "expand"]
-    assert hybrid and all(len(x.args) + len(x.keywords) >= 2 for x in hybrid), "retriever.hybrid(q, hien)"
-    assert expand and all(len(x.args) + len(x.keywords) >= 5 for x in expand), "expand(..., hien)"
+    assert hybrid and all(len(x.args) + len(x.keywords) >= 3 for x in hybrid), "retriever.hybrid(q, hien, bai_bo)"
+    assert expand and all(len(x.args) + len(x.keywords) >= 6 for x in expand), "expand(..., hien, bai_bo)"
+    # Cây kiểm chứng của tier 1/tier 2/assemble: khoản bị bãi bỏ không được làm chỗ khớp quote.
+    db = [x for x in goi if getattr(x.func, "id", None) == "_db_provisions"]
+    assert db and all(len(x.args) + len(x.keywords) == 3 for x in db), "_db_provisions(ids, engine, as_of)"
 
 
 # ─────────────────────────────────── chứng minh hai chiều (encoding-invariants §4)
@@ -265,3 +363,59 @@ def test_CHUNG_MINH_DUONG_truy_van_loc_bang_hien_thi_qua(tmp_path, sql):
         encoding="utf-8",
     )
     assert vi_pham(tmp_path, {}) == []
+
+
+def test_CHUNG_MINH_AM_bat_duoc_truy_hoi_khong_loai_dieu_khoan_bai_bo(tmp_path):
+    (tmp_path / "m.py").write_text(
+        "from sqlalchemy import text\n"
+        '_SQL = text("SELECT c.id FROM chunks c WHERE c.provision_id IN'
+        ' (SELECT p.id FROM provisions p WHERE p.document_id = ANY(CAST(:hien AS text[]))))")\n',
+        encoding="utf-8",
+    )
+    (loi,) = vi_pham_bai_bo(tmp_path, {}, {}, {})
+    assert "src/m.py:2 `_SQL`" in loi and ":bai_bo" in loi and "mục 9" in loi, loi
+
+
+def test_CHUNG_MINH_AM_bat_duoc_duong_mien_hien_doc_dieu_khoan_khong_ly_do_bai_bo(tmp_path):
+    """Review 2026-09-30: `_SQL_CAY` của tier 1 được miễn `:hien` (KIEM_CHUNG) nên từng lọt cả
+    bất biến thứ hai, và khoản bị bãi bỏ làm chỗ khớp quote. Miễn `:hien` KHÔNG kéo theo miễn
+    `:bai_bo`: mỗi đường đọc điều khoản phải có lý do riêng trong MIEN_BAI_BO."""
+    (tmp_path / "m.py").write_text(
+        "from sqlalchemy import text\n"
+        '_SQL_CAY = text("SELECT id, noi_dung FROM provisions WHERE parent_id = ANY(:ids)")\n',
+        encoding="utf-8",
+    )
+    duoc_mien = {("m.py", "_SQL_CAY"): (KIEM_CHUNG, None)}
+    (loi,) = vi_pham_bai_bo(tmp_path, {}, {}, duoc_mien)
+    assert "src/m.py:2 `_SQL_CAY`" in loi and "MIEN_BAI_BO" in loi, loi
+    assert vi_pham_bai_bo(tmp_path, {("m.py", "_SQL_CAY"): "lý do"}, {}, duoc_mien) == []
+
+
+def test_CHUNG_MINH_AM_bat_duoc_trang_van_ban_bo_qua_cong_bai_bo(tmp_path):
+    (tmp_path / "api").mkdir()
+    (tmp_path / "api" / "trang.py").write_text(
+        "from sqlalchemy import text\n"
+        '_SQL_CAY = text("SELECT id, noi_dung FROM provisions WHERE parent_id = :i")\n'
+        "def xem(conn, i):\n"
+        "    return conn.execute(_SQL_CAY, {'i': i}).all()\n",
+        encoding="utf-8",
+    )
+    trang = {("api/trang.py", "_SQL_CAY"): ("trang một văn bản", "chan_neu_an")}
+    (loi,) = vi_pham_bai_bo(tmp_path, {}, {}, trang)
+    assert "`_SQL_CAY`" in loi and ":bai_bo" in loi, loi
+    (loi,) = vi_pham_bai_bo(tmp_path, {}, {("api/trang.py", "_SQL_CAY"): "bai_bo_tren_trang"}, trang)
+    assert "hàm `xem` dùng `_SQL_CAY` mà không gọi `bai_bo_tren_trang`" in loi, loi
+
+
+def test_CHUNG_MINH_DUONG_truy_van_mang_bai_bo_hoac_qua_cong(tmp_path):
+    (tmp_path / "m.py").write_text(
+        "from sqlalchemy import text\n"
+        '_SQL = text("SELECT p.id FROM provisions p WHERE p.document_id = ANY(CAST(:hien AS text[]))'
+        ' AND NOT (p.id = ANY(CAST(:bai_bo AS bigint[])))")\n'
+        '_SQL_CAY = text("SELECT id, noi_dung FROM provisions WHERE parent_id = :i")\n'
+        "def xem(conn, i, b):\n"
+        "    return bai_bo_tren_trang(conn, conn.execute(_SQL_CAY, {'i': i}).all(), b, frozenset())\n",
+        encoding="utf-8",
+    )
+    trang = {("m.py", "_SQL_CAY"): ("trang một văn bản", "chan_neu_an")}
+    assert vi_pham_bai_bo(tmp_path, {}, {("m.py", "_SQL_CAY"): "bai_bo_tren_trang"}, trang) == []
