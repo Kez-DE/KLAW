@@ -370,3 +370,45 @@ def test_cap_nhat_phien_meta_khong_gop_ho_so_nhung_van_chay_tom_tat(monkeypatch)
     bo_nho.cap_nhat_phien("pid", "u1", llm=llm_answer, model="gia", result_type="answer")
     _, _, ho_so_answer = ghi_goi[-1]
     assert ho_so_answer["vu_viec"]["gia_tri"] == "Mới tìm hiểu khả năng của KLAW"  # answer vẫn gộp bình thường
+
+
+def test_cap_nhat_phien_khong_bien_du_kien_tai_khoan_thanh_loi_nguoi_noi(monkeypatch):
+    """App thật 2026-09-30, phiên 5f5e036b…: MỘT lượt hỏi "pháp luật việt nam chia thành
+    những gì" (abstain) đổi cả năm dữ kiện kế thừa từ tài khoản sang `nguoi_noi` và ghi
+    NGƯỢC lên tài khoản với nguồn là phiên đó — người hỏi không nói điều nào. Mô hình ghi
+    sổ nhận hồ sơ cũ làm ngữ cảnh rồi chép lại; một dữ kiện NỀN không được vào prompt
+    ấy, và thứ mô hình không nói tới giữ nguyên nguồn `tai_khoan`."""
+    nen = {
+        "chu_the": {"gia_tri": "Thực tập sinh", "nguon": "tai_khoan"},
+        "vung_luong": {"gia_tri": "Ocenpark", "nguon": "tai_khoan"},
+    }
+    bn = {"user_sub": "u1", "khong_ghi_nho": False, "tom_tat": "", "tom_tat_den_thu_tu": 0, "ho_so": nen}
+    monkeypatch.setattr(hoi_thoai, "bo_nho_cua_phien", lambda pid: bn)
+    monkeypatch.setattr(hoi_thoai, "dem_luot", lambda pid: 1)
+    monkeypatch.setattr(
+        hoi_thoai,
+        "luot_khoang",
+        lambda pid, tu, den: [
+            {"thu_tu": 1, "cau_hoi": "hiện tại pháp luật việt nam chia thành những gì", "tra_loi": "..."}
+        ],
+    )
+    monkeypatch.setattr(bao_ve, "plan_hieu_luc", lambda sub: "pro")
+    monkeypatch.setattr(bo_nho, "doc_ghi_nho", lambda sub: True)
+    monkeypatch.setattr(bo_nho, "_ghi_traces", lambda *a, **k: None)
+    ghi, len_tk = [], []
+    monkeypatch.setattr(hoi_thoai, "ghi_bo_nho", lambda pid, tom_tat, den, ho_so: ghi.append(ho_so))
+    monkeypatch.setattr(bo_nho, "gop_vao_tai_khoan", lambda sub, ho_so, pid: len_tk.append(ho_so))
+
+    class LlmChepLai(LlmGia):
+        # Cơ chế thật: mô hình ghi sổ chép lại hồ sơ cũ nó ĐƯỢC ĐƯA, không bịa cái nó không thấy.
+        def chat(self, model, messages, json_schema=None):
+            self.da_goi.append(messages)
+            thay = messages[-1]["content"]
+            ho_so = {k: v for k, v in self.tra["ho_so"].items() if v in thay}
+            return json.dumps({**self.tra, "ho_so": ho_so}, ensure_ascii=False), Usage(1, 1, 0.0)
+
+    llm = LlmChepLai({"tom_tat": "x", "ho_so": {"chu_the": "Thực tập sinh", "vung_luong": "Ocenpark"}})
+    bo_nho.cap_nhat_phien("pid", "u1", llm=llm, model="gia", result_type="abstain")
+    assert "Ocenpark" not in llm.da_goi[0][-1]["content"]
+    assert ghi[-1] == nen
+    assert all(v["nguon"] == "tai_khoan" for v in len_tk[-1].values())

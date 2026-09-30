@@ -51,7 +51,7 @@ from src.agents.state import KLawState
 from src.config import as_of_hieu_luc, get_settings
 from src.services import ban_thao, bao_ve, bo_nho_tai_khoan, khuon_mau
 from src.services import tai_lieu as tl
-from src.services.bo_nho import _vuong_luoi_chan
+from src.services.bo_nho import _vuong_luoi_chan, ho_so_theo_linh_vuc
 from src.services.db import get_engine
 from src.services.effectivity import Effectivity, EffectivityVerdict
 from src.services.embedding import from_settings as embedder_from_settings
@@ -481,6 +481,9 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
     if loai is None:
         return {**st, "khuon_mau_ngu_canh": {**ng, "ben": khung_cu.get("ben") or []}}
     entry = khuon_mau.nap(loai)
+    # Nền (hồ sơ tài khoản) chỉ vào bản thảo của loại cùng lĩnh vực (`linh_vuc` trong
+    # registry, như phán định của `rewrite_query` cho lượt hỏi): HĐLĐ có, thuê nhà thì không.
+    st = {**st, "ho_so": ho_so_theo_linh_vuc(st.get("ho_so") or {}, st.get("ho_so_nen") or {}, entry.get("linh_vuc"))}
     khoa_than = sorted(khuon_mau.muc_than(entry))
     ng.update(
         ten=entry["ten"],
@@ -506,6 +509,13 @@ def _nap_khuon_mau(engine: Engine, st: dict) -> dict:
         # khung; số Điều của lượt sửa là số Điều của văn bản kèm theo.
         ban_hanh=bool(entry.get("ban_hanh")),
     )
+    if entry.get("luat_rieng") and not sua:
+        # Văn bản chuyên ngành chi phối loại này mà kho chưa có toàn văn (hợp đồng thuê
+        # nhà ở — Luật Nhà ở): lượt TẠO nói thẳng tên nó, không để tên văn bản gợi ý rằng
+        # điều khoản đã theo luật đó. Tra kho mỗi lượt: câu này tự tắt khi luật được nạp.
+        rieng = entry["luat_rieng"]
+        hien_luc = hien_thi_luc(engine, as_of_hieu_luc(st.get("as_of_date")))
+        ng["thieu_luat"] = [rieng[s] for s in gst.chua_toan_van(engine, list(rieng), hien_luc)]
     # `ten`: tên mục cho mô hình khi nhãn của mẫu mang chỗ điền `{}` hay không có nhãn;
     # `huong_dan`: lời hướng dẫn điền của CHÍNH mẫu chính thức (Mẫu 23-DS (11), (14)…).
     muc = [

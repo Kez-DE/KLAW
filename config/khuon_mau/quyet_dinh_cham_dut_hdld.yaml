@@ -10,6 +10,7 @@ loai: quyet_dinh_cham_dut_hdld
 ten: quyết định chấm dứt hợp đồng lao động
 tieu_de: QUYẾT ĐỊNH
 bo_cuc: hanh_chinh
+linh_vuc: lao_dong  # hồ sơ tài khoản (nền) vào bản thảo loại này — bo_nho.ho_so_theo_linh_vuc
 nguon:
   loai: tuong_tu
   van_ban: "Nghị định 30/2020/NĐ-CP, Phụ lục III, Mẫu 1.2 (tham chiếu bố cục)"

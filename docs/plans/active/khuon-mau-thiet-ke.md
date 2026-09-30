@@ -1043,7 +1043,10 @@ Mapping, from `mau-hien-co.md` and D2. Each row gives `bo_cuc` and the source:
   without a checklist, unless a law lists their contents.
 - Blocked until F1 loads the law:
   - `hop_dong_thue_nha_o` and `hop_dong_mua_ban_nha_o` (Luật Nhà ở 27/2023 is
-    shallow);
+    shallow). Interim since 2026-09-30: `hop_dong_thue_nha_o` exists with the
+    BLDS thuê tài sản clauses under its own title, and a create turn states
+    that the kho lacks the full text of Luật Nhà ở (`luat_rieng`, checked
+    against the kho each turn). Its Luật Nhà ở clauses still wait for F1;
   - the hôn nhân gia đình types (Luật Hôn nhân và gia đình). Among them is
     thuận tình ly hôn, which files on Mẫu 01-VDS: NQ 04/2018 has no dedicated
     form (D2 §1).

@@ -11,6 +11,7 @@ loai: don_xin_nghi_viec
 ten: đơn xin nghỉ việc
 tieu_de: ĐƠN XIN NGHỈ VIỆC
 bo_cuc: don
+linh_vuc: lao_dong  # hồ sơ tài khoản (nền) vào bản thảo loại này — bo_nho.ho_so_theo_linh_vuc
 nguon:
   loai: tuong_tu
   van_ban: "Nghị định 124/2020/NĐ-CP, Mẫu số 01 (tham chiếu bố cục đơn của cá nhân)"

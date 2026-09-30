@@ -26,7 +26,7 @@ import re
 from pathlib import Path
 
 from src.agents.nodes.hoi_lai import bi_loai
-from src.services.bo_nho import _vuong_luoi_chan, khoi_tinh_huong
+from src.services.bo_nho import _vuong_luoi_chan, ho_so_theo_linh_vuc, khoi_tinh_huong
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,14 @@ def rewrite_query(state: dict, llm, model: str, prompt_path: Path | None = None)
     prior_traces = state.get("traces") or {}
     goc = state["query"]
     mau = (prompt_path or PROMPT_PATH).read_text(encoding="utf-8")
-    prompt = mau.format(cau_hoi=goc, tinh_huong=khoi_tinh_huong(state.get("ho_so") or {}))
+    # Nền (`ho_so_nen`) KHÔNG vào prompt: mô hình dùng khối tình huống để viết truy vấn, và
+    # chính bước này phán định lĩnh vực — đọc nền ở đây là để ký ức lao động lái truy hồi
+    # rồi tự quyết nó có liên quan không (trace c8a98c3d: 9 điều BLLĐ từ hai biến thể cho
+    # câu hỏi về hệ thống pháp luật). Nền chỉ vào lượt SAU phán định, khi là lao động.
+    # ponytail: câu lao động của người có nền được viết truy vấn không có vai từ nền; gọi
+    # lại lần hai có nền khi đo được recall hụt ở ca đó.
+    ho_so, nen = state.get("ho_so") or {}, state.get("ho_so_nen") or {}
+    prompt = mau.format(cau_hoi=goc, tinh_huong=khoi_tinh_huong(ho_so))
     # Template nhắc tới `quan_he` là template v2 — chọn schema theo NỘI DUNG
     # template, không theo tên file, để một bản v3 cùng hình dạng vẫn chạy.
     la_v3 = "muc_tieu" in mau
@@ -153,8 +160,9 @@ def rewrite_query(state: dict, llm, model: str, prompt_path: Path | None = None)
             lv = data.get("linh_vuc")
             linh_vuc = lv.strip() if isinstance(lv, str) and lv.strip() else None
             nhan_dien = {k: data.get(k) for k in _KHOA_NHAN_DIEN}
+        ho_so = ho_so_theo_linh_vuc(ho_so, nen, linh_vuc)
         if la_v3:
-            khung = khung_yeu_cau_tu(data, state.get("ho_so"))
+            khung = khung_yeu_cau_tu(data, ho_so)
     except Exception as e:
         logger.warning(
             "rewrite_query: lỗi khi gọi LLM (%s: %s) — bỏ qua, fallback về query gốc, không bịa biến thể",
@@ -167,6 +175,7 @@ def rewrite_query(state: dict, llm, model: str, prompt_path: Path | None = None)
         **state,
         "queries": queries,
         "linh_vuc_du_doan": linh_vuc,
+        "ho_so": ho_so,
         "khung_yeu_cau": khung,
         "traces": {
             **prior_traces,
