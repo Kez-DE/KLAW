@@ -25,6 +25,7 @@ import logging
 import re
 import time
 import uuid
+from datetime import date
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -72,7 +73,7 @@ from src.services.traces import _ghi_traces
 logger = logging.getLogger(__name__)
 
 
-def _db_provisions(ids: list[int], engine: Engine) -> dict[int, dict]:
+def _db_provisions(ids: list[int], engine: Engine, as_of: date) -> dict[int, dict]:
     """`provisions.id` → dòng, DÙNG CHUNG cho tier1/tier2/assemble — MỘT hình
     dạng thay vì ba, để `khop_tai` (có thể là Khoản/Điểm con của claim) luôn có
     mặt trong kết quả ở cả ba nơi dùng nó.
@@ -90,8 +91,14 @@ def _db_provisions(ids: list[int], engine: Engine) -> dict[int, dict]:
     `nap_provisions` không mang (nó chỉ chọn cột của `provisions`) — join thêm
     `documents` Ở ĐÂY thay vì sửa `nap_provisions` (đã test ở Task 5, không đụng
     module đã verify).
+
+    `as_of` BẮT BUỘC: cây kiểm chứng không mang khoản bị bãi bỏ tại mốc đó
+    (`hien_thi.dieu_khoan_an`, quyết định 2026-09-30 mục 9), nên `khop_tai` của cả ba nơi
+    không bao giờ là luật đã chết. Không có id thì không chạm DB (lượt meta, 0 claim).
     """
-    goc = nap_provisions(engine, ids)
+    if not ids:
+        return {}
+    goc = nap_provisions(engine, ids, dieu_khoan_an(engine, as_of))
     if not goc:
         return {}
     doc_ids = {r["document_id"] for r in goc.values()}
@@ -819,7 +826,7 @@ def build_graph_tra_cuu():
 
     def n_tier1(st: KLawState) -> KLawState:
         claims = st.get("draft_claims") or []
-        dbp = _db_provisions([c.provision_id for c in claims], engine)
+        dbp = _db_provisions([c.provision_id for c in claims], engine, as_of_hieu_luc(st.get("as_of_date")))
         # expand() ĐÃ tính effectivity cho từng provision (đi qua cạnh đi vào
         # thật của Task 2) — DÙNG LẠI. Tính lại ở đây bằng cách gọi
         # effectivity_qua_provision(engine, dbp, as_of) sẽ ăn `canh_di_vao` RỖNG
@@ -846,7 +853,7 @@ def build_graph_tra_cuu():
         if not s.verify_tier2_enabled:
             return {**st, "tier2": []}
         t1 = st.get("tier1") or []
-        dbp = _db_provisions([r.claim.provision_id for r in t1 if r.ok], engine)
+        dbp = _db_provisions([r.claim.provision_id for r in t1 if r.ok], engine, as_of_hieu_luc(st.get("as_of_date")))
         verdicts, traces = verify_tier2_and_trace(
             t1, dbp, llm, judge_model(), st.get("traces"),
             prompt_path=Path(s.tier2_prompt), khung_yeu_cau=st.get("khung_yeu_cau"), cau_hoi=st["query"],
@@ -893,7 +900,7 @@ def build_graph_tra_cuu():
         ids = [r.claim.provision_id for r in (st.get("tier1") or [])]
         ket = assemble(
             {**st, "abstain_threshold": s.abstain_threshold},
-            _db_provisions(ids, engine),
+            _db_provisions(ids, engine, as_of_hieu_luc(st.get("as_of_date"))),
             llm,
             generate_model(),
             prompt_path=Path(s.assemble_prompt),

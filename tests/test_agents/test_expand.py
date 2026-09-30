@@ -307,6 +307,6 @@ def test_db_provisions_mang_cot_trich_dan_day_du():
 
     with get_engine().connect() as c:
         pid = c.execute(text("SELECT id FROM provisions WHERE document_id = '139264' LIMIT 1")).scalar_one()
-    p = _db_provisions([pid], get_engine())[pid]
+    p = _db_provisions([pid], get_engine(), date(2026, 9, 30))[pid]
     assert (p["co_quan_ban_hanh"], p["ngay_ban_hanh"]) == ("Quốc hội", date(2019, 11, 20))
     assert "ngay_hieu_luc" in p and "link_vbpl" in p

@@ -409,6 +409,26 @@ def test_DIEU_127_that_trong_DB_di_qua_duoc_phep_kiem_3():
 
 
 @pytest.mark.integration
+def test_quote_tu_khoan_BI_BAI_BO_duoi_dieu_con_hieu_luc_KHONG_qua_phep_kiem_3():
+    """Review 2026-09-30 (quyết định 2026-09-30 mục 9): cây con của một Điều còn hiệu lực vẫn mang
+    khoản đã bị bãi bỏ, nên mô hình nhớ nguyên văn khoản 5 Điều 9 của 101/2024/NĐ-CP (151/2025/NĐ-CP
+    Điều 21 khoản 4 điểm b bãi bỏ từ 01/7/2025) và dẫn dưới Điều 9 là được đóng dấu đã kiểm chứng."""
+    from src.agents.nodes.verify_tier1 import nap_provisions
+    from src.services.db import get_engine
+    from src.services.hien_thi import dieu_khoan_an
+
+    e = get_engine()
+    d9, k5 = pid("101/2024/NĐ-CP > Điều 9"), pid("101/2024/NĐ-CP > Điều 9 > Khoản 5")
+    an = dieu_khoan_an(e, date(2026, 9, 30))
+    assert k5 in an and d9 not in an
+    quote = nap_provisions(e, [k5])[k5]["noi_dung"]
+    db = nap_provisions(e, [d9], an)
+    assert d9 in db and not (an & set(db)), "không hậu duệ bị bãi bỏ nào trong cây kiểm chứng"
+    r = verify_tier1([Claim("x", d9, quote)], [db[d9]], db, _eff)[0]
+    assert (r.ok, r.reason) == (False, R.quote_khong_khop)
+
+
+@pytest.mark.integration
 def test_hieu_luc_doc_qua_danh_gia_theo_id_chu_khong_qua_tinh_trang():
     """Task 2 tồn tại vì `documents.tinh_trang` SAI 4/6 trên chuỗi nghị định
     lương tối thiểu. Adapter phải đi qua `danh_gia_theo_id`."""
