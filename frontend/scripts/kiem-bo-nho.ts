@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import {
   TOI_DA_LUOT_LICH_SU,
+  hoSoTrenDong,
   laBoNhoTaiKhoan,
   laDanhSachDaNho,
   laHoSoPhienOut,
@@ -34,4 +35,18 @@ assert.ok(laHoSoPhienOut({ ho_so_da_dung: [] }));
 assert.ok(laDanhSachDaNho({ muc: [] }));
 assert.ok(laDanhSachDaNho({ muc: [{ id: "x", nhan: "Họ và tên", gia_tri: "Nguyễn Văn Thử" }] }));
 assert.ok(!laDanhSachDaNho({ muc: [{ nhan: "Họ và tên", gia_tri: "Nguyễn Văn Thử" }] }));
-console.log("kiem-bo-nho: 8/8 OK");
+// Sửa một chip: PATCH trả hồ sơ CẢ PHIÊN, kể cả nền tài khoản mà lượt đó không dùng
+// (bản thảo thuê nhà). Dòng của lượt chỉ giữ khoá nó đang hiện; khoá bị xoá thì rơi.
+const d = (khoa: string, gia_tri: string) => ({ khoa, nhan: khoa, gia_tri, gia_dinh: false });
+const phien = [
+  d("chu_the", "người thuê nhà"),
+  d("vung_luong", "Ocenpark"),
+  d("tham_nien", "12 tháng"),
+];
+assert.deepEqual(hoSoTrenDong([d("chu_the", "người cho thuê")], phien), [
+  d("chu_the", "người thuê nhà"),
+]);
+assert.deepEqual(hoSoTrenDong([d("chu_the", "x"), d("thoi_diem", "y")], phien), [
+  d("chu_the", "người thuê nhà"),
+]);
+console.log("kiem-bo-nho: 10/10 OK");

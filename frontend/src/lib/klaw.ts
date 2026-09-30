@@ -1495,6 +1495,14 @@ export function laHoSoPhienOut(x: unknown): x is { ho_so_da_dung: HoSoDaDung[] }
   return laBanGhi(x) && Array.isArray(x["ho_so_da_dung"]);
 }
 
+/** Dòng "Dựa trên" của MỘT lượt sau khi sửa một chip: `PATCH …/ho-so` trả hồ sơ cả phiên,
+ *  kể cả hồ sơ tài khoản mà lượt ấy không dùng (bản thảo thuê nhà không dùng dữ kiện lao
+ *  động), nên chỉ giữ các khoá dòng đang hiện — chip vừa sửa luôn nằm trong đó. */
+export function hoSoTrenDong(dong: HoSoDaDung[], phien: HoSoDaDung[]): HoSoDaDung[] {
+  const khoa = new Set(dong.map((d) => d.khoa));
+  return phien.filter((d) => khoa.has(d.khoa));
+}
+
 export function laChiTietPhien(x: unknown): x is ChiTietPhien {
   return laBanGhi(x) && typeof x["id"] === "string" && Array.isArray(x["luot"]);
 }
