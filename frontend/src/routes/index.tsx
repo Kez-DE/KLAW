@@ -96,16 +96,15 @@ const STEPS = [
   },
 ];
 
-// Sáu lĩnh vực này là phạm vi corpus THẬT theo PRODUCT.md. Bản Lovable liệt 12,
-// trong đó Đất đai, Hôn nhân & Gia đình, Thuế, Sở hữu trí tuệ, Đầu tư và Doanh
-// nghiệp là đúng những lĩnh vực PRODUCT.md nói KHÔNG phủ.
-//
-// Danh sách TÊN vẫn viết cứng, và đó là chỗ đúng của nó: phạm vi sản phẩm do
-// PRODUCT.md quyết, không phải do dữ liệu hôm nay. Còn SỐ ĐẾM thì đi qua API —
-// xem `PhamViKho` ngay dưới danh sách này.
+// Vài lĩnh vực hay gặp, KHÔNG phải danh sách đủ: phạm vi là pháp luật Việt Nam,
+// sâu nhất ở lao động (PRODUCT.md "Phạm vi corpus", quyết định 2026-09-30 mục 6).
+// Mọi mục ở đây đều có văn bản có toàn văn. Chỉ Lao động mang nhãn độ sâu — nhãn
+// "chỉ bộ luật" cũ đã sai với dữ liệu (đếm 2026-09-30) nên bị gỡ, không thay
+// bằng một nhãn viết cứng khác. SỐ ĐẾM đi qua API — xem `PhamViKho` ngay dưới.
 const AREAS = [
   { ten: "Lao động", sau: true },
   { ten: "Dân sự", sau: false },
+  { ten: "Đất đai", sau: false },
   { ten: "Hình sự", sau: false },
   { ten: "Tố tụng dân sự", sau: false },
   { ten: "Tố tụng hình sự", sau: false },
@@ -336,9 +335,10 @@ function Landing() {
                 </h2>
                 <p className="mt-4 leading-relaxed text-muted-foreground">
                   KLAW truy hồi trên một kho văn bản pháp luật Việt Nam có giới hạn rõ ràng, không
-                  phải một mô hình được huấn luyện trên toàn bộ pháp luật. Chiều sâu không đều: cụm
-                  Lao động có luật, nghị định, thông tư và chế tài; năm bộ luật còn lại hiện chỉ có
-                  bản thân bộ luật. Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn kiểm chứng.
+                  phải một mô hình được huấn luyện trên toàn bộ pháp luật. Chiều sâu không đều: sâu
+                  nhất là lĩnh vực lao động, có đủ luật, nghị định, thông tư và chế tài; các lĩnh
+                  vực khác sâu cạn khác nhau. Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn
+                  kiểm chứng.
                 </p>
                 <Link
                   to="/dung-thu"
@@ -357,9 +357,9 @@ function Landing() {
                     data-reveal-delay={i * 45}
                   >
                     {a.ten}
-                    <span className="ml-1.5 text-xs text-muted-foreground">
-                      {a.sau ? "luật + văn bản dưới luật" : "chỉ bộ luật"}
-                    </span>
+                    {a.sau && (
+                      <span className="ml-1.5 text-xs text-muted-foreground">sâu nhất</span>
+                    )}
                   </li>
                 ))}
               </ul>

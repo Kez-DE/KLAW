@@ -1288,6 +1288,10 @@ const LOAI_KET_QUA: readonly string[] = [
   "tai_lieu",
 ];
 
+/** Hai loại trả lời câu hỏi về CHÍNH KLAW: không bao giờ kèm dòng "Tôi hiểu câu
+ *  hỏi của bạn là…" (quyết định 2026-09-30 mục 8). */
+export const LOAI_VE_KLAW: ReadonlySet<ResultType> = new Set(["gioi_thieu", "hoi_ve_kho"]);
+
 /**
  * Một `Bang` hợp lệ: `dong` phải khớp SỐ CỘT của `cot`, hàng nào lệch bị loại
  * ở đây — xem lời gọi trong `laTraCuuKetQua`.

@@ -9,7 +9,13 @@ import type {
   VanBanBiAn,
   VanBanTraLoi,
 } from "@/lib/klaw";
-import { chuanHoaDoiChieuThem, chuanHoaPhanTich, chuanHoaVanBanBiAn, khuonHopLe } from "@/lib/klaw";
+import {
+  chuanHoaDoiChieuThem,
+  chuanHoaPhanTich,
+  chuanHoaVanBanBiAn,
+  khuonHopLe,
+  LOAI_VE_KLAW,
+} from "@/lib/klaw";
 import { mauTheoId, slugCuaLoai } from "@/lib/mau-van-ban";
 import {
   cachTrichHopLe,
@@ -574,6 +580,7 @@ interface TheKetQuaProps {
  * `hien_cau_hoi_day_du` (câu viết lại ĐỔI NGHĨA đáng kể, không bao giờ với câu
  * hỏi về KLAW — quyết định 2026-09-30 mục 8), và câu đó KHÁC câu người dùng gõ.
  * Cờ vắng thì ẩn: dòng này từng hiện cho cả những câu viết lại chỉ đổi chữ.
+ * Câu hỏi về KLAW (`LOAI_VE_KLAW`) bị chặn cả ở nơi gọi, không dựa riêng vào cờ.
  *
  * Vì sao bắt buộc có: một lượt hỏi nối tiếp ("liệt kê bảng cho tôi") được máy
  * chủ viết lại thành một câu tự đứng được trước khi đi tra. Giải nghĩa sai là
@@ -633,7 +640,9 @@ export function TheKetQua(props: TheKetQuaProps) {
       <CauHoiDaHieu
         goc={props.cauHoiGoc}
         dayDu={props.ketQua.cau_hoi_day_du}
-        hien={props.ketQua.hien_cau_hoi_day_du === true}
+        hien={
+          props.ketQua.hien_cau_hoi_day_du === true && !LOAI_VE_KLAW.has(props.ketQua.result_type)
+        }
       />
       <DuaTren
         muc={props.ketQua.ho_so_da_dung ?? []}
@@ -740,9 +749,13 @@ function NoiDungKetQua({
             <p className="mt-2 mb-0 text-[14px] leading-6 text-muted-foreground">{ghiChuPhamVi}</p>
           )}
         </KhayTrungTinh>
+        {/* Câu phạm vi DUY NHẤT của thẻ là `coverage_note` của máy chủ: giao diện
+            tự nêu thêm một phạm vi là hai câu, và hai câu đó lệch nhau ngay khi
+            một bên đổi. Chữ ở đây chỉ nói chuyện đã xảy ra: nhánh này rẽ tắt
+            trước truy hồi (`_RE_TAT`), nên không điều luật nào được tra. */}
         <p className="mt-4 mb-0 text-[14px] leading-6 text-foreground">
-          Tôi tra cứu pháp luật Việt Nam, sâu nhất ở lĩnh vực lao động, và soạn thảo văn bản pháp
-          lý. Bạn thử hỏi về một quy định hay một tình huống pháp lý cụ thể.
+          Vì vậy tôi không tra điều luật nào cho câu này, thay vì trả lời bằng một quy định chưa
+          kiểm chứng được.
         </p>
       </section>
     );

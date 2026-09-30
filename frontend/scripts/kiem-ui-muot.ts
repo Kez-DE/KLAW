@@ -4077,11 +4077,36 @@ const napKhongRouter = async <T>(duong: string): Promise<T> =>
   assert.match(khung.textContent, new RegExp(`^Tôi hiểu câu hỏi của bạn là: ${DAY_DU}`));
   await ve(ketQuaTN("answer", { cau_hoi_day_du: ` ${GOC_HOI} `, hien_cau_hoi_day_du: true }));
   assert.doesNotMatch(khung.textContent, /Tôi hiểu câu hỏi của bạn là/, "câu y hệt: ẩn");
+  // Không bao giờ với câu hỏi về KLAW (mục 8), kể cả khi cờ bật nhầm: giao diện
+  // chặn cả phía mình, không dựa riêng vào máy chủ.
+  for (const loai of ["gioi_thieu", "hoi_ve_kho"]) {
+    await ve(
+      ketQuaTN(loai, { answer: "Tôi là KLAW.", cau_hoi_day_du: DAY_DU, hien_cau_hoi_day_du: true }),
+    );
+    assert.doesNotMatch(khung.textContent, /Tôi hiểu câu hỏi của bạn là/, `${loai}: ẩn`);
+  }
 
-  // (e) `out_of_scope` không còn danh sách phạm vi viết cứng đã sai.
-  await ve(ketQuaTN("out_of_scope", { citations: [] }));
-  assert.doesNotMatch(khung.textContent, /6 Bộ luật|chưa phủ|đất đai/);
-  assert.match(khung.textContent, /pháp luật Việt Nam/);
+  // (e) `out_of_scope` vẽ ĐÚNG MỘT câu phạm vi: `coverage_note` THẬT của máy chủ
+  //     (`NGOAI_PHAM_VI`, đọc thẳng từ `assemble.py` để thẻ ở đây là thẻ người
+  //     dùng thấy). Chữ của giao diện chỉ nói chuyện gì đã xảy ra — không tự nêu
+  //     một phạm vi thứ hai để mâu thuẫn với câu đó, và không bảo người vừa hỏi
+  //     một câu pháp luật đi hỏi lại một câu pháp luật.
+  const py = readFileSync(join(goc, "../src/agents/nodes/assemble.py"), "utf8");
+  const khoiNgoai = /^NGOAI_PHAM_VI = (.*(?:\n[ \t]+.*)*)/m.exec(py);
+  assert.ok(khoiNgoai, "không thấy NGOAI_PHAM_VI trong assemble.py — đổi tên?");
+  const NGOAI = [...khoiNgoai[1]!.matchAll(/"([^"]*)"/g)].map((m) => m[1]).join("");
+  assert.ok(NGOAI.length > 0, "NGOAI_PHAM_VI rỗng?");
+  await ve(ketQuaTN("out_of_scope", { citations: [], coverage_note: NGOAI }));
+  const theNgoai = khung.textContent;
+  assert.equal(theNgoai.split(NGOAI).length, 2, "câu phạm vi của máy chủ hiện đúng một lần");
+  const chuGiaoDien = theNgoai.replace(NGOAI, "");
+  assert.doesNotMatch(
+    chuGiaoDien,
+    /Bộ luật|lao động|pháp luật Việt Nam|lĩnh vực/iu,
+    "tự nêu phạm vi",
+  );
+  assert.doesNotMatch(chuGiaoDien, /hỏi về một quy định|tình huống pháp lý cụ thể/u, "bảo hỏi lại");
+  assert.match(chuGiaoDien, /không tra điều luật nào/u, "nói chuyện gì đã xảy ra");
   await act(() => root.unmount());
 
   // (f) Chữ cho người đọc không còn nói KLAW chỉ tra pháp luật lao động, hay
@@ -4089,7 +4114,7 @@ const napKhongRouter = async <T>(duong: string): Promise<T> =>
   const boChuThich = (s: string) =>
     s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(?<![:"'])\/\/[^\n]*/g, "");
   const CU =
-    /pháp luật lao động Việt Nam|tra cứu pháp luật lao động|Hỏi pháp luật lao động|trong pháp luật lao động|văn bản pháp luật lao động|tập trung vào pháp luật lao động|6 Bộ luật|không phủ thuế|chưa phủ|cụm văn bản dưới luật về Lao động/u;
+    /pháp luật lao động Việt Nam|tra cứu pháp luật lao động|Hỏi pháp luật lao động|trong pháp luật lao động|văn bản pháp luật lao động|tập trung vào pháp luật lao động|6 Bộ luật|không phủ thuế|chưa phủ|cụm văn bản dưới luật về Lao động|chỉ bộ luật|năm bộ luật còn lại/iu;
   const vuong = [
     "src/components/klaw/ManChao.tsx",
     "src/components/klaw/TheKetQua.tsx",
