@@ -196,6 +196,18 @@ retired for drafts.
   Offline replay on the dev DB (expand 205 = trace, 0 LLM calls): main → abstain with
   the nine tags; branch → answer. mh-004 ("Điều 108", check 5) and mh-012 (a doc id
   spliced from two UUIDs) are other causes, left open.
+- [x] Integrated 2026-09-30 on `integ/sua-loi-app-that` (not in main) with the
+  drafting and memory fixes. Offline replay (expand 205 = trace, 24 reconstructed
+  claims — `traces` keeps counts only): integration → answer, no bad tag, no
+  labour follow-up, no background chips (account facts no longer reach the
+  rewrite prompt); main → abstain with `cite:N≠['1']`, the two labour questions
+  and five chips, as in the app. With an answer that leads with the current list,
+  Hiến pháp and each item cite 87/2025 Điều 1 Khoản 1 and 64/2025 Điều 4 carries
+  the "đã được sửa đổi" warning. Open: the context lists the 13 pre-amendment
+  khoản first, so an answer that follows that order publishes four superseded
+  items and `TRAN_GACH` drops the 87/2025 ones from the prose (sources still list
+  them); a one-word quote "Hiến pháp." fails tier 1 as `quote_qua_ngan`. Both
+  need the owner decision above and a paid real-app check.
 - [ ] V reviews, real-app check, eval.
 
 ## Validation

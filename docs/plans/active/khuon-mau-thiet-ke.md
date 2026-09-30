@@ -1403,3 +1403,20 @@ Defaults apply unless the owner decides otherwise. Only decision 3 blocks.
       mandatory clause gets the statute text; amount words with "đồng Việt Nam" /
       "đồng/tháng" tails; no split at ";" and no dropping of a lone condition or
       exception sentence.
+- [x] Integrated 2026-09-30 on `integ/sua-loi-app-that` (not in main):
+      `fix/soan-thao-app-that-2`, `fix/tra-loi-he-thong-2`, `fix/thue-nha-bo-nho-2`.
+      Offline replay of draft 91c288d5 (real `_nap_khuon_mau` and căn cứ SELECTs,
+      fake model returning the stored v1/v3 output, fake storage, LibreOffice
+      render): with router `hop_dong_thue_nha_o`, v1 is «HỢP ĐỒNG THUÊ NHÀ Ở»,
+      Điều 3 "10.000.000 đồng (Mười triệu đồng)", Điều 5 carries BLDS Điều 476
+      khoản 1, no background chips; after the on-page fill and "Sửa Điều 3…" with
+      the model's swapped names, v3 keeps An (15/03/1978) as Bên cho thuê and Bình
+      as Bên thuê, signatures BÊN CHO THUÊ | BÊN THUÊ. Main replays every defect.
+      Replay fix: the model still listed the requested name in `khong_dat`, so
+      "Chưa đặt được: «Hợp đồng thuê nhà ở»" sat under the right title; a name
+      equal to the printed title is now placed. Open: the fix depends on the
+      router choosing `hop_dong_thue_nha_o` (routing set, paid); with
+      `hop_dong_thue_tai_san` the title stays THUÊ TÀI SẢN, the answer says the
+      name is not placed, and the signature columns stay BÊN THUÊ | BÊN CHO THUÊ
+      (Open decision 9). `hop_dong_thue_nha_o` already puts the first party left
+      although it cites the same NĐ 96/2024 Phụ lục II layout as thuê tài sản.
