@@ -1395,3 +1395,161 @@ def test_CitationOut_NguonOut_DocumentOut_nhan_truong_moi_va_payload_cu_van_hop_
     assert c.model_dump(mode="json")["ngay_ban_hanh"] == "2019-11-20"
     assert NguonOut(doc_id="1", so_ky_hieu="s", bo_luat="b").lien_ket is None
     assert DocumentOut(doc_id="1", ten="t", so_ky_hieu="s", loai_van_ban="Luật").ngay_hieu_luc is None
+
+
+# ══ Lệnh sửa đổi mang nguyên văn mới của một Điều khác (trace c8a98c3d) ═══════
+# "hiện tại pháp luật việt nam chia thành những gì", 2026-09-30: 35/35/35 claim
+# qua hai tầng, rồi `_the_khong_hop_le` hạ cả lượt xuống abstain với
+# `cite:15≠['1']` … `cite:23≠['1']` (uvicorn log; `traces` không lưu chữ claim).
+# Căn cứ Điều 1 trong tập truy hồi là 87/2025/QH15 > Điều 1 > Khoản 1 — "Sửa đổi,
+# bổ sung Điều 4 như sau: “Điều 4 …”" — tức CHÍNH Điều 4 hiện hành của
+# 64/2025/QH15, và mô hình gọi nó "Điều 4". Replay trên CSDL dev (expand thật ra
+# đúng 205 dòng như trace) tái lập đúng chín thẻ `≠['1']` đó.
+# Dòng dưới đây chép từ CSDL dev (SELECT, id thật), nguyên văn khoản 1 rút gọn.
+K1_87 = (
+    "1. Sửa đổi, bổ sung Điều 4 như sau: “Điều 4. Hệ thống văn bản quy phạm pháp luật "
+    "1. Hiến pháp. 2. Bộ luật, luật (sau đây gọi chung là luật), nghị quyết của Quốc hội. "
+    "15. Quyết định của Ủy ban nhân dân cấp xã.”."
+)
+_VB_87 = {
+    "document_id": "178717",
+    "so_ky_hieu": "87/2025/QH15",
+    "loai_van_ban": "Luật",
+    "ten": "Luật Sửa đổi, bổ sung một số điều của luật ban hành văn bản quy phạm pháp luật số 87/2025/QH15",
+}
+DB_SUA = {
+    337734: {
+        **_VB_87,
+        "id": 337734,
+        "parent_id": None,
+        "duong_dan": "87/2025/QH15 > Điều 1",
+        "noi_dung": "Điều 1. Sửa đổi, bổ sung một số điều của Luật Ban hành văn bản quy phạm pháp luật",
+    },
+    337735: {
+        **_VB_87,
+        "id": 337735,
+        "parent_id": 337734,
+        "duong_dan": "87/2025/QH15 > Điều 1 > Khoản 1",
+        "noi_dung": K1_87,
+    },
+    337743: {
+        **_VB_87,
+        "id": 337743,
+        "parent_id": 337734,
+        "duong_dan": "87/2025/QH15 > Điều 1 > Khoản 9",
+        "noi_dung": "9. Sửa đổi, bổ sung một số điểm, khoản của Điều 31 như sau:",
+    },
+    337744: {
+        **_VB_87,
+        "id": 337744,
+        "parent_id": 337743,
+        "duong_dan": "87/2025/QH15 > Điều 1 > Khoản 9 > Điểm a",
+        "noi_dung": "a) Sửa đổi, bổ sung khoản 1 như sau: “1. Bộ Tư pháp chủ trì, phối hợp với Bộ Tài chính.”",
+    },
+    # Đối chứng: một điều luật THƯỜNG dẫn chiếu Điều khác (ca mh-004, "Điều 108").
+    162173: {
+        "id": 162173,
+        "parent_id": None,
+        "document_id": "139264",
+        "so_ky_hieu": "45/2019/QH14",
+        "loai_van_ban": "Bộ luật",
+        "ten": "Bộ Luật lao động số 45/2019/QH14",
+        "duong_dan": "45/2019/QH14 > Điều 108",
+        "noi_dung": "Điều 108. Làm thêm giờ trong trường hợp đặc biệt Người sử dụng lao động có quyền "
+        "yêu cầu người lao động làm thêm giờ vào bất kỳ ngày nào mà không bị giới hạn về số "
+        "giờ làm thêm theo quy định tại Điều 107 của Bộ luật này",
+    },
+}
+
+
+def test_dieu_duoc_sua_doc_lenh_sua_doi_va_dong_cha_khong_doc_dan_chieu_thuong():
+    from src.agents.nodes.assemble import dieu_duoc_sua
+
+    assert dieu_duoc_sua(337735, DB_SUA) == ["4"]
+    assert dieu_duoc_sua(337744, DB_SUA) == ["31"], "điểm a sửa khoản 1 CỦA Điều 31 — số nằm ở khoản cha"
+    assert dieu_duoc_sua(337734, DB_SUA) == [], "tiêu đề Điều 1 không phải lệnh sửa"
+    assert dieu_duoc_sua(162173, DB_SUA) == [], "dẫn chiếu thường ('theo Điều 107') KHÔNG được bạch hoá"
+    cho_nguyen_van = {1: {"id": 1, "noi_dung": "3. Sửa đổi, bổ sung Điều 21 như sau: “Điều 21. … theo Điều 5 …”"}}
+    assert dieu_duoc_sua(1, cho_nguyen_van) == ["21"], "số Điều trong NGUYÊN VĂN MỚI không tính"
+
+
+def _st_he_thong(*claims):
+    return {
+        "intent": "tra_cuu",
+        "query": "hiện tại pháp luật việt nam chia thành những gì",
+        "expanded": [DB_SUA[337735]],
+        "tier1": list(claims),
+        "tier2": [Tier2Verdict(i, True, "ok") for i in range(len(claims))],
+        "abstain_threshold": 0.5,
+    }
+
+
+_HIEN_PHAP = Tier1Result(
+    Claim("Hiến pháp đứng đầu hệ thống.", 337734, "1. Hiến pháp."), True, R.ok, EFF, khop_tai=337735
+)
+_LUAT = Tier1Result(
+    Claim(
+        "Sau đó là luật, nghị quyết của Quốc hội.",
+        337735,
+        "2. Bộ luật, luật (sau đây gọi chung là luật), nghị quyết của Quốc hội.",
+    ),
+    True,
+    R.ok,
+    EFF,
+)
+
+
+def test_the_goi_dieu_ma_lenh_sua_doi_mang_nguyen_van_thi_giu_cau_tra_loi():
+    """Replay trace c8a98c3d: thẻ `[Khoản N Điều 4](cite:K)` trên căn cứ
+    87/2025/QH15 > Điều 1 > Khoản 1 là ĐÚNG — không được hạ cả lượt."""
+    answer = (
+        "Chào bạn, hệ thống văn bản quy phạm pháp luật hiện hành theo "
+        "[Luật số 87/2025/QH15](doc:178717) đứng đầu là Hiến pháp [Khoản 1 Điều 4](cite:1), "
+        "rồi tới luật và nghị quyết của Quốc hội [Khoản 2 Điều 4](cite:2)."
+    )
+    st = assemble(_st_he_thong(_HIEN_PHAP, _LUAT), DB_SUA, LlmTraLoi(answer), "m", prompt_path=V3_PROMPT)
+    assert st["result_type"] is ResultType.answer, st["coverage_note"]
+    assert st["traces"]["assemble_the_loi"] == [] and st["traces"]["assemble_dieu_bi_loai"] == []
+    assert [(c["duong_dan"], c["k"]) for c in st["citations"]] == [
+        ("87/2025/QH15 > Điều 1 > Khoản 1", 1),
+        ("87/2025/QH15 > Điều 1 > Khoản 1", 2),
+    ]
+    assert st["answer"] == answer
+
+
+@pytest.mark.parametrize(
+    "answer, the_loi, dieu_loai",
+    [
+        # Điều khác Điều mà lệnh sửa mang — vẫn là số lạ.
+        ("Đứng đầu là Hiến pháp [Khoản 1 Điều 5](cite:1).", ["cite:1≠['1', '4']"], []),
+        ("Theo Điều 5, đứng đầu là Hiến pháp.", [], ["5"]),
+    ],
+)
+def test_lenh_sua_doi_chi_bach_hoa_dung_dieu_no_sua(answer, the_loi, dieu_loai):
+    st = assemble(_st_he_thong(_HIEN_PHAP), DB_SUA, LlmTraLoi(answer), "m", prompt_path=V3_PROMPT)
+    assert st["result_type"] is ResultType.abstain
+    assert st["traces"]["assemble_the_loi"] == the_loi
+    assert st["traces"]["assemble_dieu_bi_loai"] == dieu_loai
+
+
+@pytest.mark.parametrize(
+    "answer", ["Trừ trường hợp đặc biệt [Điều 107](cite:1).", "Trừ trường hợp đặc biệt theo Điều 107."]
+)
+def test_dan_chieu_thuong_van_bi_ha_nhu_cu(answer):
+    """Ca mh-004 (K11): điều luật thường nhắc Điều khác KHÔNG làm số đó thành căn cứ."""
+    t1 = Tier1Result(Claim("Làm thêm giờ đặc biệt.", 162173, "không bị giới hạn về số giờ làm thêm"), True, R.ok, EFF)
+    st = assemble(
+        {**_st_he_thong(t1), "query": "làm thêm giờ đặc biệt", "expanded": [DB_SUA[162173]]},
+        DB_SUA,
+        LlmTraLoi(answer),
+        "m",
+        prompt_path=V3_PROMPT,
+    )
+    assert st["result_type"] is ResultType.abstain
+
+
+def test_dieu_khong_chong_do_tinh_ca_dieu_duoc_sua_cua_can_cu():
+    cits = [{"duong_dan": "87/2025/QH15 > Điều 1 > Khoản 1", "dieu_duoc_sua": ["4"]}]
+    assert _dieu_khong_duoc_chong_do("Điều 4 liệt kê 15 loại văn bản.", cits) == []
+    assert _dieu_khong_duoc_chong_do("Điều 5 liệt kê 15 loại văn bản.", cits) == ["5"]
+

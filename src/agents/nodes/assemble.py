@@ -284,6 +284,8 @@ class Citation(TypedDict):
     tin_cay: str | None
     # Số thứ tự căn cứ trong văn xuôi (thẻ `cite:K`) — khớp `schemas.CitationOut.k`.
     k: int | None
+    # Số Điều mà dòng này là lệnh sửa đổi (`dieu_duoc_sua`); rỗng với điều luật thường.
+    dieu_duoc_sua: list[str]
 
 
 def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: bool = False, **kw: object) -> dict:
@@ -348,6 +350,34 @@ def _so_dieu_trong(text: str) -> set[str]:
     return set(_RE_DIEU.findall(normalize(text or "")))
 
 
+# Lệnh sửa đổi MANG nguyên văn mới của một Điều khác: 87/2025/QH15 > Điều 1 >
+# Khoản 1 ("Sửa đổi, bổ sung Điều 4 như sau: “Điều 4. …”") CHÍNH LÀ Điều 4 hiện
+# hành của 64/2025/QH15, và mô hình gọi nó đúng tên "Điều 4" (trace c8a98c3d,
+# 2026-09-30: `cite:15≠['1']`…`cite:23≠['1']` hạ cả câu trả lời 35/35/35). Chỉ
+# đọc phần DẪN tới "như sau": số Điều trong nguyên văn mới, hay trong một dẫn
+# chiếu thường ("theo quy định tại Điều 107"), vẫn là số không căn cứ nào mang.
+_RE_LENH_SUA = re.compile(
+    r"^\s*(?:\d+[a-zđ]*\.|[a-zđ]\))?\s*(?:sửa đổi|bổ sung|thay thế)[^“\"]*?như sau", re.IGNORECASE
+)
+
+
+def dieu_duoc_sua(row_id: int, db: dict[int, dict]) -> list[str]:
+    """Số Điều mà dòng `row_id` là lệnh sửa đổi — đọc cả dòng cha có trong `db`:
+    "a) Sửa đổi, bổ sung khoản 1 như sau" nêu số Điều ở khoản cha của nó."""
+    ra: set[str] = set()
+    p = db.get(row_id)
+    while p:
+        if m := _RE_LENH_SUA.match(normalize(p.get("noi_dung") or "")):
+            ra |= _so_dieu_trong(m.group(0))
+        p = db.get(p.get("parent_id"))
+    return sorted(ra, key=int)
+
+
+def _dieu_cua_can_cu(c: dict) -> set[str]:
+    """Số Điều một căn cứ chống đỡ: Điều ở đường dẫn của nó cộng Điều nó sửa."""
+    return _so_dieu_trong(c.get("duong_dan", "")) | set(c.get("dieu_duoc_sua") or ())
+
+
 def _dieu_khong_duoc_chong_do(answer: str, citations: list) -> list[str]:
     """Số Điều nào NHẮC trong `answer` mà KHÔNG nằm trong tập số Điều của các
     `citations` đã qua tầng 1+2. Rỗng nghĩa là mọi số Điều trong answer đều có
@@ -364,7 +394,7 @@ def _dieu_khong_duoc_chong_do(answer: str, citations: list) -> list[str]:
         return []
     trong_citation: set[str] = set()
     for c in citations:
-        trong_citation |= _so_dieu_trong(c.get("duong_dan", ""))
+        trong_citation |= _dieu_cua_can_cu(c)
     return sorted(trong_answer - trong_citation, key=int)
 
 
@@ -425,7 +455,7 @@ def _the_khong_hop_le(answer: str, citations_prose: list[dict], doc_ids: set[str
             loi.append(f"cite:{khoa}")
             continue
         dieu_the = _so_dieu_trong(chu)
-        dieu_can_cu = _so_dieu_trong(citations_prose[int(khoa) - 1].get("duong_dan", ""))
+        dieu_can_cu = _dieu_cua_can_cu(citations_prose[int(khoa) - 1])
         if dieu_the and not dieu_the <= dieu_can_cu:
             loi.append(f"cite:{khoa}≠{sorted(dieu_can_cu, key=int)}")
     return loi
@@ -1698,6 +1728,9 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             # `None` với prompt sinh v2; giao diện nhóm được căn cứ khi có.
             "vai_tro": r.claim.vai_tro,
             "canh_bao": None,
+            # Nội bộ (không ra HTTP): số Điều dòng này sửa — hai phép kiểm số
+            # Điều cuối hàm đọc nó qua `_dieu_cua_can_cu`.
+            "dieu_duoc_sua": dieu_duoc_sua(row_id, db_provisions),
         })
         if eff and eff.verdict in CANH_BAO_NHAN:
             # Lời cho người đọc (`hien_thi.canh_bao`), nêu đích danh văn bản sửa
