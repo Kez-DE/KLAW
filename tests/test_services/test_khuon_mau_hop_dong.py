@@ -165,11 +165,12 @@ def test_khoi_cac_ben_thut_bang_le_chu_than_bai_nd96(loai):
     doan = _doan(km.dung_docx(_spec(loai))[0])
     ben = [p for p in doan if "".join(t.text or "" for t in p.iter(f"{_W}t")).startswith(("I. BÊN", "II. BÊN", "- "))]
     assert ben and all(int(p.find(f"{_W}pPr/{_W}ind").get(f"{_W}left")) == thut for p in ben)
-    # Đoạn thân Điều (canh đều) — không phải dòng tên dưới chữ ký (canh giữa).
+    # Đoạn thân Điều (canh đều; điều chèn là câu trung tính kết bằng chỗ điền) — không phải
+    # dòng tên dưới chữ ký (canh giữa).
     dieu = [
         p
         for p in doan
-        if "".join(t.text or "" for t in p.iter(f"{_W}t")) == km.CHO
+        if "".join(t.text or "" for t in p.iter(f"{_W}t")).startswith("Các bên thỏa thuận về ")
         and p.find(f"{_W}pPr/{_W}jc").get(f"{_W}val") == "both"
     ]
     assert dieu and all(p.find(f"{_W}pPr/{_W}ind").get(f"{_W}left") == "0" for p in dieu)

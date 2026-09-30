@@ -1196,7 +1196,12 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
         da = sum(1 for o in cho if (o.get("gia_tri") or "").strip())
         dien = f"Đã điền {da}/{len(cho)} chỗ trống. " if da else ""
     can_cu = [_ten_can_cu(c["dong"]) for c in can_cu_hien(khung.get("can_cu") or [], bt.get("clauses") or [])]
-    chen = [f"«{c.get('ten')}»" for c in bt.get("clauses") or [] if c.get("chen")]
+    # Điều luật đòi mà bản soạn chưa có (`khuon_mau.them_dieu_bat_buoc`): chỉ điều mang
+    # nội dung chuẩn của căn cứ (`chen: "chuan"`) được nói là đã đặt; câu trung tính hay
+    # "……" vẫn là điều còn trống (owner: không nói đã điền khi chưa điền).
+    chen = [c for c in bt.get("clauses") or [] if c.get("chen")]
+    trong = [f"«{c.get('ten')}»" for c in chen if c["chen"] != "chuan"]
+    chuan = [f"«{c.get('ten')}»" for c in chen if c["chen"] == "chuan"]
     khong_dat = _cau_khong_dat({"khong_dat": x.get("khong_dat") or []})
     ghi = list(x.get("ghi_chu") or [])
     if x.get("khong_mang_sang"):
@@ -1225,7 +1230,12 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
             if can_cu
             else ""
         ),
-        (_liet_ke("Điều còn trống vì luật đòi: ", chen, 160, "điều") + ". " if chen else ""),
+        (_liet_ke("Điều còn trống vì luật đòi: ", trong, 160, "điều") + ". " if trong else "")
+        + (
+            _liet_ke("Điều luật đòi mà bạn chưa nêu, đã đặt nội dung chuẩn để bạn xem lại: ", chuan, 160, "điều") + ". "
+            if chuan
+            else ""
+        ),
         _cau_con_trong(cho, khung),
         (" ".join(g.rstrip(".") + "." for g in ghi[:3]) + " " if ghi else ""),
         (khong_dat + " " if khong_dat else ""),

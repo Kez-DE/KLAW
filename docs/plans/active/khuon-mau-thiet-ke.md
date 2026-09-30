@@ -794,9 +794,21 @@ is required, with `null` when unused:
    acts on one paragraph). A value not in `_nguon_soan` becomes "……": user words,
    hồ sơ, allowed memory, the base's `document`. Then the paragraph goes through
    `bo_nho._vuong_luoi_chan`:
-   - a paragraph it still catches (an external article number, a document number,
-     an identity trace) is dropped, and named in the answer ("Bỏ 1 đoạn ở Điều 5
-     vì dẫn số điều luật không kiểm được");
+   - only the sentences (split at ". ! ?", never at ";") it still catches (an
+     external article number, a document number, an identity trace) are dropped,
+     and named ("Bỏ phần dẫn số điều luật … ở Điều 5"); a paragraph with nothing
+     left is dropped ("Bỏ 1 đoạn ở Điều 5 …"). Real app 2026-09-30: one "theo
+     Điều 476 Bộ luật Dân sự" sentence used to empty the whole Điều;
+   - when a caught sentence opens with a condition, exception or limit ("trừ",
+     "trường hợp", "nếu", "với điều kiện", "khi", "tuy nhiên", "riêng"), the
+     whole paragraph is dropped instead: dropping only it would turn a
+     conditional right into an absolute one. A mandatory Điều then falls back to
+     step 7;
+   - an amount written as figure and words ("10.000.000 đồng (Mười triệu đồng)")
+     is one value: "10 triệu" in the source also sources "10.000.000"; a blank
+     figure takes its sourced words; unsourced or mismatched words become "……".
+     The words are read up to the first currency word, so "đồng Việt Nam",
+     "đồng/tháng" and "đồng một tháng" read the same;
    - a Điều is dropped only when no paragraph remains;
    - `ten` is checked the same way.
 6. **Caps and budget.**
@@ -810,8 +822,16 @@ is required, with `null` when unused:
    helper `khuon_mau.them_dieu_bat_buoc(dieu, loai)` also serves the checklist
    path.
    - On create, each missing mandatory `muc` is inserted at its checklist position
-     as "Điều n. <muc.ten>", with one "……" paragraph. The draft always has every
-     clause the law requires, empty rather than invented.
+     as "Điều n. <muc.ten>". A contract clause is never empty (real app
+     2026-09-30): its paragraph is the căn cứ's own text when that text is a duty
+     the law puts on a party ("Bên cho thuê phải giao tài sản …", BLDS Đ476.1;
+     `graph_tra_cuu._noi_dung_chuan`), else "Các bên thỏa thuận về <muc> như sau:
+     ……". No value and no article number is invented. Đơn and hành chính keep one
+     "……": it is the form's own blank. Only the statute text is marked
+     `chen: "chuan"`; the neutral sentence and "……" stay `chen: true`.
+   - On create, a contract's mandatory Điều whose every paragraph is only a
+     placeholder ("[Nội dung giao tài sản]" → "……") counts as missing, so it gets
+     the same text.
    - On edit, nothing is re-added; a missing clause is a finding.
 
    The result is `audit_report = {dat, completeness, so_dieu_khoan, findings (with
@@ -839,7 +859,9 @@ The prompt states the budget in characters and in pages.
 - "Căn cứ: <document names from `audit.khung.can_cu`>. Bấm «Căn cứ» trên trang để
   xem nguyên văn."
 - "Còn trống: «…»", from `khuon.cho_trong` minus the version's `dien`.
-- "Điều còn trống vì luật đòi: «…»".
+- "Điều luật đòi mà bạn chưa nêu, đã đặt nội dung chuẩn để bạn xem lại: «…»" for
+  `chen: "chuan"`, and "Điều còn trống vì luật đòi: «…»" for every other
+  inserted clause (the neutral sentence is still a blank to fill).
 - The dropped paragraphs, cut Điều and dropped fills.
 - For types NĐ 30 does not bind, the private-document note "Thể thức theo tập
   quán, tham khảo Phụ lục I Nghị định 30/2020/NĐ-CP".
@@ -1068,13 +1090,21 @@ Focused tests, with no DB and no paid model (fake LLMs), in TDD order:
 - "theo quy định tại khoản 2 Điều này" keeps the paragraph, and its "2" is not
   blanked.
 - "nghĩa vụ tại Điều 4 Hợp đồng này" → "nghĩa vụ tại Điều về <ten of 4>".
-- "theo Điều 473 Bộ luật Dân sự" drops only that paragraph, and names it.
+- "theo Điều 473 Bộ luật Dân sự" drops only that sentence (the paragraph when
+  nothing else remains), and names it.
 - `[Tên Bên A]`, `[Thông tin về Bên A…]`, `[số tiền]`, `<…>` → "……".
 - "điện, nước, internet…" → "điện, nước, internet.". "………" → "……".
 - An unsourced number → "……".
 - Unknown `key` → null.
-- A missing mandatory `muc` is inserted with "……" on create, and is only a finding
-  on edit.
+- A missing mandatory `muc` is inserted on create (contracts: statute duty text or
+  a neutral fill-in sentence; đơn/hành chính: "……"), and is only a finding on edit.
+- On an edit turn a filled blank changes only when the value is in the message
+  the user typed this turn (`kiem_phep_sua(loi_luot=…)`): the rewritten question
+  and hồ sơ never move a value already on the draft. A value another party holds
+  moves to a party only when that message names the party's role ("bên cho thuê
+  là …"); naming a person is not enough. Two parties never share an identity
+  value (`ho_ten`, `so_dinh_danh`, `ten_to_chuc`, `ma_so_doanh_nghiep`)
+  (`dung_ban_thao_tong_quat._khong_doi_ben`).
 - A total over budget drops non-mandatory Điều from the end and names them;
   mandatory Điều are kept.
 - `gia_tri` not in the user's words is dropped and named.
@@ -1280,6 +1310,16 @@ Defaults apply unless the owner decides otherwise. Only decision 3 blocks.
 8. **Image text as a value source** for filling a khuôn gốc or khuôn mẫu. The
    default is no, like `_nguon_nguoi` today; the turn answers
    `KHONG_DIEN_TU_ANH`.
+9. **Signature column order of contracts** (real app 2026-09-30, D6). Seven
+   types put the second party left because the State form they follow does:
+   `hop_dong_thue_tai_san`, `hop_dong_thue_quyen_su_dung_dat` (NĐ 96/2024 Phụ
+   lục II: BÊN THUÊ | BÊN CHO THUÊ), `hop_dong_mua_ban_tai_san` (NĐ 96/2024 Mẫu
+   Ia: BÊN MUA | BÊN BÁN), `hdld`, `hop_dong_thu_viec`, `thoa_thuan_bao_mat`,
+   `thoa_thuan_cham_dut_hdld` (NĐ 145/2020 Mẫu 01/PLV: NGƯỜI LAO ĐỘNG | NGƯỜI SỬ
+   DỤNG LAO ĐỘNG). The other contract types already put the first party left.
+   Default: keep the form's order (§7, decision item 6). The alternative is
+   first party left for every contract: a `ky.thu_tu` change in those seven
+   registry files.
 
 ## §9 Review resolution (round 1, 2026-09-29)
 
@@ -1348,3 +1388,15 @@ Defaults apply unless the owner decides otherwise. Only decision 3 blocks.
 - [ ] Integrate: migration 041, integration tests by path; the e2e API test after
       the eval finishes.
 - [ ] V: real-app check, Word check, routing set, eval re-run.
+- [x] Real-app fixes 2026-09-30 (draft 91c288d5), `fix/soan-thao-app-that-2`: an
+      edit turn no longer swaps filled party values (D1); figure and words of an
+      amount are one value (D3); a contract's mandatory clause is never empty (D4).
+      Not changed, owner decision needed (D6, Open decision 9): signature columns
+      follow the cited State form (NĐ 96/2024 Phụ lục II and Mẫu Ia, NĐ 145/2020
+      Mẫu 01/PLV put the second party left), which §7 and decision item 6
+      prescribe; "first party left for every contract" would depart from those
+      forms. Review round 1 fixes: the party-move rule and identity guard (D1); a
+      neutral inserted clause is no longer called "nội dung chuẩn"; a placeholder-only
+      mandatory clause gets the statute text; amount words with "đồng Việt Nam" /
+      "đồng/tháng" tails; no split at ";" and no dropping of a lone condition or
+      exception sentence.

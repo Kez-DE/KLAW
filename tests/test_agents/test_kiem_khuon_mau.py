@@ -105,11 +105,17 @@ def test_key_la_bi_doc_thanh_null():
     assert "bia" not in khoa and khoa[0] == "cong_viec"
 
 
-def test_tao_chen_muc_bat_buoc_con_thieu_voi_dau_cho():
+def test_tao_chen_muc_bat_buoc_con_thieu_khong_bao_gio_trong():
     kq = _kiem(_ra(dieu=[_dieu("Làm việc tại văn phòng.", ten="Công việc", key="cong_viec")]), NG_HDLD)
     chen = [d for d in kq["dieu"] if d.get("chen")]
     assert {d["key"] for d in chen} >= {"thoi_han", "luong"}
-    assert all(d["doan"] == [km.CHO] for d in chen)
+    # Không mục nào của NG_HDLD mang `mau`: câu trung tính gọi tên mục, chừa chỗ điền —
+    # vẫn là điều chờ điền (`chen` True), không phải nội dung chuẩn.
+    assert all(
+        d["chen"] is True
+        and d["doan"] == [f"Các bên thỏa thuận về {d['ten'][:1].lower()}{d['ten'][1:]} như sau: {km.CHO}"]
+        for d in chen
+    )
 
 
 def test_sua_khong_chen_muc_thieu_chi_la_phat_hien():
@@ -347,3 +353,192 @@ def test_muc_tuy_chon_ghi_ro_trong_prompt():
     khoi = h._khoi_muc_khuon_mau(ng)
     assert "`cuoc_phi` — Cước phí\n" in khoi
     assert "`giay_van_tai` — Giấy vận tải khi vận tải hàng hoá bằng xe ô tô — TUỲ CHỌN" in khoi
+
+
+# ═══ Số tiền bằng số và bằng chữ là MỘT giá trị (app thật 2026-09-30, bản thảo 91c288d5) ═══
+#
+# Lượt 1 nói "giá thuê 10 triệu đồng một tháng"; Điều 3 in "Giá thuê là …… đồng (Mười
+# triệu đồng) mỗi tháng": lưới giá trị đọc "10 triệu" là 10 nên xoá "10.000.000", còn
+# phần chữ (không chữ số) lọt qua. Một giá trị của người hỏi phải điền cả hai dạng, và
+# một số không nguồn không được sống sót ở dạng chữ.
+NGUON_THUE = (
+    "Soạn hợp đồng thuê nhà ở giữa bên cho thuê là ông Nguyễn Văn An và bên thuê là bà Trần Thị Bình,"
+    " giá thuê 10 triệu đồng một tháng, thời hạn 12 tháng"
+)
+
+
+def _doan_thue(chu: str) -> list[str]:
+    return h.kiem_khuon_mau(_ra(dieu=[_dieu(chu)]), NG_TQ, NGUON_THUE, [], [])["dieu"][0]["doan"]
+
+
+@pytest.mark.parametrize(
+    ("mo_hinh", "ra"),
+    [
+        # Số và chữ cùng là giá trị người hỏi nói: giữ cả hai.
+        (
+            "Giá thuê là 10.000.000 đồng (Mười triệu đồng) mỗi tháng.",
+            "Giá thuê là 10.000.000 đồng (Mười triệu đồng) mỗi tháng.",
+        ),
+        # Mô hình để trống phần số mà viết phần chữ: phần số điền từ cùng giá trị ấy.
+        (
+            f"Giá thuê là {km.CHO} đồng (Mười triệu đồng) mỗi tháng.",
+            "Giá thuê là 10.000.000 đồng (Mười triệu đồng) mỗi tháng.",
+        ),
+        (
+            f"Giá thuê là {km.CHO} đồng (bằng chữ: mười triệu đồng).",
+            "Giá thuê là 10.000.000 đồng (bằng chữ: mười triệu đồng).",
+        ),
+        # Số không nguồn: phần số thành chỗ trống, phần chữ cũng vậy — không lọt ở dạng chữ.
+        ("Tiền đặt cọc là 20.000.000 đồng (Hai mươi triệu đồng).", f"Tiền đặt cọc là {km.CHO} đồng ({km.CHO})."),
+        # Phần chữ nói một số khác phần số: phần chữ thành chỗ trống.
+        ("Giá thuê là 10.000.000 đồng (Một trăm triệu đồng).", f"Giá thuê là 10.000.000 đồng ({km.CHO})."),
+        # Ngoặc không phải số bằng chữ: không đụng.
+        (
+            "Giá thuê là 10.000.000 đồng (đã gồm thuế) mỗi tháng.",
+            "Giá thuê là 10.000.000 đồng (đã gồm thuế) mỗi tháng.",
+        ),
+        # Đuôi thông dụng sau "đồng" trong phần chữ vẫn là cùng một số.
+        (
+            "Tiền đặt cọc là 20.000.000 đồng (Hai mươi triệu đồng Việt Nam).",
+            f"Tiền đặt cọc là {km.CHO} đồng ({km.CHO}).",
+        ),
+        (
+            f"Giá thuê là {km.CHO} đồng (Mười triệu đồng Việt Nam) mỗi tháng.",
+            "Giá thuê là 10.000.000 đồng (Mười triệu đồng Việt Nam) mỗi tháng.",
+        ),
+        (
+            f"Giá thuê là {km.CHO} đồng (Mười triệu đồng/tháng).",
+            "Giá thuê là 10.000.000 đồng (Mười triệu đồng/tháng).",
+        ),
+        (
+            "Giá thuê là 10.000.000 đồng (Mười triệu đồng một tháng).",
+            "Giá thuê là 10.000.000 đồng (Mười triệu đồng một tháng).",
+        ),
+    ],
+    ids=[
+        "khop",
+        "so_trong_chu_co_nguon",
+        "bang_chu_nhan",
+        "khong_nguon",
+        "chu_lech_so",
+        "ngoac_khac",
+        "duoi_viet_nam_khong_nguon",
+        "duoi_viet_nam_so_trong",
+        "duoi_tren_thang",
+        "duoi_mot_thang",
+    ],
+)
+def test_so_tien_bang_so_va_bang_chu_mot_gia_tri(mo_hinh, ra):
+    assert _doan_thue(mo_hinh) == [ra]
+
+
+@pytest.mark.parametrize(
+    ("chu", "so"),
+    [
+        ("Mười triệu đồng", 10_000_000),
+        ("hai mươi lăm triệu năm trăm nghìn đồng chẵn", 25_500_000),
+        ("một tỷ hai trăm triệu", 1_200_000_000),
+        ("một trăm linh năm nghìn", 105_000),
+        ("ba mươi mốt", 31),
+        ("đã gồm thuế", None),
+        ("hai ba triệu", None),
+        # Chữ sau đơn vị tiền không phải phần của số.
+        ("Hai mươi triệu đồng Việt Nam", 20_000_000),
+        ("mười triệu đồng một tháng", 10_000_000),
+        ("hai bên đồng ý", None),
+    ],
+)
+def test_doc_so_bang_chu(chu, so):
+    assert h.doc_so_chu(chu) == so
+
+
+# ═══ Điều luật đòi không bao giờ trống (app thật 2026-09-30, bản thảo 91c288d5) ═══
+#
+# Điều 5 "Giao tài sản thuê" in "……": đoạn của mô hình dẫn số điều luật nên lưới chặn
+# bỏ CẢ đoạn, điều không còn gì, và mục bắt buộc được chèn lại với một "……" trơn.
+NG_GIAO = {
+    "loai": "hop_dong_thue_tai_san",
+    "sua": False,
+    "ben": [],
+    "khoa": ["tai_san_thue", "giao_tai_san"],
+    "bat_buoc": ["tai_san_thue", "giao_tai_san"],
+    "can_cu": [],
+    "muc": [
+        {"key": "tai_san_thue", "ten": "Tài sản thuê và mục đích thuê"},
+        {
+            "key": "giao_tai_san",
+            "ten": "Giao tài sản thuê",
+            "mau": "Bên cho thuê phải giao tài sản cho bên thuê đúng số lượng, chất lượng, chủng loại, tình trạng,"
+            " thời điểm, địa điểm đã thoả thuận và cung cấp thông tin cần thiết về việc sử dụng tài sản đó.",
+        },
+    ],
+}
+
+
+def test_dan_so_dieu_luat_chi_bo_cau_do_giu_phan_con_lai_cua_doan():
+    kq = _kiem(
+        _ra(
+            dieu=[
+                _dieu(
+                    "Bên cho thuê giao nhà cho Bên thuê đúng hiện trạng. Việc giao nhận theo Điều 476 Bộ luật Dân sự.",
+                    ten="Giao tài sản thuê",
+                )
+            ]
+        )
+    )
+    assert kq["dieu"][0]["doan"] == ["Bên cho thuê giao nhà cho Bên thuê đúng hiện trạng."]
+    assert any("Điều 1" in g and "Bỏ phần" in g for g in kq["ghi_chu"])
+
+
+def test_dieu_bat_buoc_bi_loc_het_lay_noi_dung_chuan_theo_can_cu():
+    ra = _ra(
+        ben=None,
+        dieu=[
+            _dieu("Bên cho thuê cho thuê căn nhà tại …….", ten="Tài sản thuê", key="tai_san_thue"),
+            _dieu(
+                "Bên cho thuê giao nhà theo quy định tại Điều 476 Bộ luật Dân sự.", ten="Giao nhà", key="giao_tai_san"
+            ),
+        ],
+    )
+    kq = h.kiem_khuon_mau(ra, NG_GIAO, NGUON, [], [])
+    giao = next(d for d in kq["dieu"] if d["key"] == "giao_tai_san")
+    assert giao["doan"] == [NG_GIAO["muc"][1]["mau"]] and giao.get("chen") == "chuan"
+    assert "Điều 476" not in " ".join(giao["doan"])
+
+
+@pytest.mark.parametrize("doan", ["[Nội dung giao tài sản]", "……"], ids=["giu_cho", "dau_cho"])
+def test_dieu_bat_buoc_mo_hinh_chi_viet_giu_cho_lay_noi_dung_chuan(doan):
+    """Mô hình viết điều bắt buộc mà chỉ là chỗ giữ (quyết định 2026-09-29 mục 5 đã gặp
+    "[Thông tin về Bên A…]"): điều đó coi như thiếu, không in một "……" trơn."""
+    ra = _ra(
+        ben=None,
+        dieu=[
+            _dieu("Bên cho thuê cho thuê căn nhà tại …….", ten="Tài sản thuê", key="tai_san_thue"),
+            _dieu(doan, ten="Giao tài sản", key="giao_tai_san"),
+        ],
+    )
+    giao = next(d for d in h.kiem_khuon_mau(ra, NG_GIAO, NGUON, [], [])["dieu"] if d["key"] == "giao_tai_san")
+    assert giao["doan"] == [NG_GIAO["muc"][1]["mau"]] and giao["chen"] == "chuan"
+
+
+@pytest.mark.parametrize(
+    "chu",
+    [
+        # Điều kiện sau ";" là một phần của quyền: bỏ nó biến quyền có điều kiện thành tuyệt đối.
+        "Bên thuê được đơn phương chấm dứt hợp đồng; trường hợp theo Điều 132 Luật Nhà ở thì phải báo trước.",
+        # Câu ngoại lệ vướng lưới chặn: bỏ riêng nó biến câu miễn trừ thành tuyệt đối.
+        "Bên cho thuê không phải chịu trách nhiệm về hư hỏng. Trừ trường hợp quy định tại Điều 477 Bộ luật Dân sự.",
+        "Bên thuê được cho thuê lại. Tuy nhiên, theo Điều 475 Bộ luật Dân sự phải được bên cho thuê đồng ý.",
+    ],
+    ids=["dieu_kien_sau_cham_phay", "cau_ngoai_le", "cau_tuy_nhien"],
+)
+def test_bo_phan_dan_so_dieu_luat_khong_duoc_doi_nghia_dieu_khoan(chu):
+    kq = _kiem(_ra(dieu=[_dieu(chu, ten="Chấm dứt hợp đồng")]))
+    assert kq["dieu"] == [] and any("Bỏ 1 đoạn ở Điều 1" in g for g in kq["ghi_chu"])
+
+
+def test_dieu_bat_buoc_khong_co_noi_dung_chuan_van_khong_trong():
+    ra = _ra(ben=None, dieu=[_dieu("Bên cho thuê giao nhà đúng hạn.", ten="Giao nhà", key="giao_tai_san")])
+    kq = h.kiem_khuon_mau(ra, NG_GIAO, NGUON, [], [])
+    ts = next(d for d in kq["dieu"] if d["key"] == "tai_san_thue")
+    assert ts["doan"] == [f"Các bên thỏa thuận về tài sản thuê và mục đích thuê như sau: {km.CHO}"]

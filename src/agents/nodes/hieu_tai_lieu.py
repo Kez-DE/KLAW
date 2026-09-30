@@ -1109,6 +1109,57 @@ _RE_GIA_TRI = re.compile(r"\S+@\S+|\d[\d.,/:\-]*\d|\d")
 # "01/10/2026" không vào đây: `tinh` sẽ đọc dấu `/` thành phép chia và một ngày
 # tháng bịa sẽ khớp một con số có thật.
 _RE_SO_THUAN = re.compile(r"\d[\d.,]*\d|\d")
+# Đơn vị hàng sau một con số: "10 triệu" người hỏi nói và "10.000.000" mô hình viết là
+# CÙNG một giá trị (app thật 2026-09-30: lưới giá trị đọc "10 triệu" là 10 và xoá
+# "10.000.000" khỏi điều giá thuê).
+_DON_VI_SO = {"nghìn": 10**3, "ngàn": 10**3, "triệu": 10**6, "tỷ": 10**9, "tỉ": 10**9}
+_RE_SO_DON_VI = re.compile(r"(\d[\d.,]*\d|\d)\s*(nghìn|ngàn|triệu|tỷ|tỉ)(?!\w)", re.IGNORECASE)
+
+
+def _so_cua(nguon: str) -> list:
+    """Các số của `nguon` đọc bằng `tinh`, cộng giá trị ĐỦ của mỗi số kèm đơn vị hàng.
+    ponytail: "1 tỷ 200 triệu" là hai số (1e9, 2e8), không phải 1,2e9 — ghép khi đo thấy."""
+    so = [v for m in _RE_SO_THUAN.findall(nguon) if (v := tinh(m)) is not None]
+    return so + [v * _DON_VI_SO[m[2].lower()] for m in _RE_SO_DON_VI.finditer(nguon) if (v := tinh(m[1])) is not None]
+
+
+_CHU_SO = {
+    "không": 0, "một": 1, "mốt": 1, "hai": 2, "ba": 3, "bốn": 4, "tư": 4, "năm": 5, "lăm": 5, "nhăm": 5,
+    "sáu": 6, "bảy": 7, "bẩy": 7, "tám": 8, "chín": 9,
+}  # fmt: skip
+
+
+def doc_so_chu(chu: str) -> int | None:
+    """Số viết bằng chữ ("hai mươi lăm triệu năm trăm nghìn đồng") → số nguyên; `None`
+    khi chữ không phải một số — không đoán. Bỏ "bằng chữ:" đầu, và cắt ở chữ tiền tệ đầu
+    tiên: phần sau nó ("đồng Việt Nam", "đồng/tháng", "đồng một tháng", "chẵn") không
+    phải phần của số.
+    ponytail: đơn vị hàng phải giảm dần ("một nghìn tỷ" là `None`) — đủ cho số tiền của
+    một hợp đồng; nâng khi đo thấy."""
+    tu = re.findall(r"\w+", unicodedata.normalize("NFC", chu).casefold())
+    if tu[:2] == ["bằng", "chữ"]:
+        tu = tu[2:]
+    tu = tu[: next((i for i, t in enumerate(tu) if t in ("đồng", "vnđ", "vnd")), len(tu))]
+    if tu[-1:] == ["chẵn"]:
+        tu.pop()
+    if not tu:
+        return None
+    tong, nhom, so = 0, 0, None
+    for t in tu:
+        if t in _CHU_SO and so is None:
+            so = _CHU_SO[t]
+        elif t == "mười" and so is None:
+            nhom += 10
+        elif t in ("mươi", "trăm") and so is not None:
+            nhom, so = nhom + so * (10 if t == "mươi" else 100), None
+        elif t in ("linh", "lẻ"):
+            continue
+        elif t in _DON_VI_SO and nhom + (so or 0):
+            tong, nhom, so = tong + (nhom + (so or 0)) * _DON_VI_SO[t], 0, None
+        else:
+            return None
+    return tong + nhom + (so or 0)
+
 
 # ── Thể thức hành chính của một văn bản KLAW TỰ SOẠN ────────────────────────
 #
@@ -2032,7 +2083,7 @@ def lam_sach_van_ban(van_ban: dict, nguon: str, goi: list[dict] | None = None,
     phép thay theo cụm dùng chung, thay vì một hàm bool.
     """
     nguon = normalize(nguon or "")
-    so_nguon = [v for m in _RE_SO_THUAN.findall(nguon) if (v := tinh(m)) is not None]
+    so_nguon = _so_cua(nguon)
     bang_theo_nhan = _bang_theo_nhan(goi or [])
     # Phase 9 U1/U5 — hai lưới đối chiếu 0 token khác, cùng nguồn `goi`: tên
     # mục có phải chữ THẬT của tài liệu (`_nhan_that`), và mỗi dòng của tài
@@ -3066,7 +3117,12 @@ def _gia_tri_cua(p: object, theo_chi_so: dict[int, DonViVanBan]) -> list[str]:
 
 
 def kiem_phep_sua(
-    phep: object, t: dict, nguon: str, cam: list[str], dang_co: list[dict] | None = None
+    phep: object,
+    t: dict,
+    nguon: str,
+    cam: list[str],
+    dang_co: list[dict] | None = None,
+    loi_luot: str | None = None,
 ) -> tuple[list[dict], list[dict], list[str]]:
     """Phép sửa mô hình trả cho tài liệu `t` → `(giữ, bỏ, giá trị bỏ)`. Hàm THUẦN, 0 token.
 
@@ -3085,12 +3141,26 @@ def kiem_phep_sua(
     `giá trị bỏ` (`_gia_tri_cua` của mỗi phép bị bỏ, theo thứ tự) CHỈ cho
     `_lay_khong_dat`: giá trị người hỏi đưa mà phép của nó bị bỏ không được mất lặng
     lẽ (G5) — không đi traces hay `bo`.
+
+    `loi_luot` (lượt sửa): CHÍNH câu người hỏi gõ lượt này (`cau_hoi_goc`), không câu
+    giải nghĩa, không hồ sơ. Một chỗ trống ĐANG có giá trị trong `dang_co` chỉ đổi
+    giá trị khi giá trị mới có trong câu đó — lượt sửa chỉ đổi điều nó nói (app thật
+    2026-09-30: "Sửa Điều 3: giá thuê …" mà câu giải nghĩa mang lại tên hai bên của lượt
+    trước, mô hình chép lại đảo bên và bên cho thuê thành người thuê). Bỏ lặng lẽ như
+    phép y hệt: không phải điều lượt này xin.
     """
     nguon_kh = _khong_hoa(nguon or "")
-    so_nguon = [v for m in _RE_SO_THUAN.findall(nguon_kh) if (v := tinh(m)) is not None]
+    so_nguon = _so_cua(nguon_kh)
     cam_bo = {_khong_hoa(v) for v in cam if v and _khong_hoa(v) not in nguon_kh}
     theo_chi_so = {d.chi_so: d for d in t["don_vi"]}
     da_co = {_khoa_giong(q) for q in dang_co or []}
+    dang_dien = {
+        (q.get("don_vi"), q.get("cho_trong"))
+        for q in dang_co or []
+        if isinstance(q, dict) and q.get("loai") == "dien" and str(q.get("gia_tri") or "").strip()
+    }
+    loi_kh = _khong_hoa(loi_luot or "")
+    so_loi = _so_cua(loi_kh)
     giu: list[dict] = []
     bo: list[dict] = []
     gia_tri_bo: list[str] = []
@@ -3099,6 +3169,14 @@ def kiem_phep_sua(
             continue
         ra = _mot_phep(p, theo_chi_so, t["dinh_dang"], nguon_kh, so_nguon, cam_bo)
         if isinstance(ra, dict):
+            if (
+                loi_luot is not None
+                and ra["loai"] == "dien"
+                and (ra["don_vi"], ra["cho_trong"]) in dang_dien
+                and (v := ra["gia_tri"].strip())
+                and not _co_trong_nguon(v.casefold(), loi_kh, so_loi)
+            ):
+                continue
             giu.append(ra)
             continue
         gia_tri_bo += _gia_tri_cua(p, theo_chi_so)
@@ -3526,7 +3604,12 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         yeu_cau = k_ra.get("yeu_cau") if k_ra.get("yeu_cau") in YEU_CAU else "dien_sua"
         de_xuat = k_ra.get("phep_sua") if isinstance(k_ra.get("phep_sua"), list) else []
         phep, bo, gia_tri_bo = kiem_phep_sua(
-            de_xuat, t_k, _nguon_nguoi(state, bo_nho_cho_phep), bo_nho_cam, _phep_dang_mo(ban_thao_dang_co, t_k["id"])
+            de_xuat,
+            t_k,
+            _nguon_nguoi(state, bo_nho_cho_phep),
+            bo_nho_cam,
+            _phep_dang_mo(ban_thao_dang_co, t_k["id"]),
+            cau_hoi_nguoi,
         )
         # G7 (owner 2026-09-28, Q4): trên khuôn gốc, lượt soạn hay không quyết định bằng
         # chứng cứ tất định — thay cho gác router ở trên, CHỈ ở đây.
@@ -3844,12 +3927,27 @@ def _chu_giu(i: int) -> str:
     return f"KLAWGIU{s}Q"
 
 
-def _luoi_doan(chu: str, nguon: str, cam: list[str]) -> tuple[str | None, int]:
+# Ranh giới câu của một đoạn điều khoản: đơn vị nhỏ nhất lưới chặn bỏ. Không tách ở ";":
+# vế sau nó thường là điều kiện của chính quyền, nghĩa vụ ở vế trước.
+_RE_CAU = re.compile(r"(?<=[.!?])\s+")
+# Câu mở đầu bằng điều kiện, ngoại lệ hay giới hạn: bỏ riêng nó là đổi nghĩa phần còn lại
+# (quyền có điều kiện thành tuyệt đối, câu miễn trừ mất ngoại lệ).
+_RE_CAU_DIEU_KIEN = re.compile(
+    r"^\W*(?:trừ|ngoại trừ|trường hợp|trong trường hợp|nếu|với điều kiện|khi|tuy nhiên|riêng)(?!\w)", re.IGNORECASE
+)
+
+
+def _luoi_doan(chu: str, nguon: str, cam: list[str]) -> tuple[str | None, int, int]:
     """MỘT đoạn qua hai lưới (§6 bước 5): lưới chặn (`_vuong_luoi_chan` — số điều luật,
-    số hiệu văn bản, dấu vết định danh) BỎ cả đoạn; lưới giá trị (`lam_sach_van_ban`,
-    đoạn là một mục của chính nó) đổi mỗi giá trị không nguồn thành "……". "khoản n
-    Điều này" (dẫn chiếu trong CHÍNH điều) được che trước cả hai lưới rồi trả lại.
-    Trả `(đoạn | None, số giá trị đã thay)`."""
+    số hiệu văn bản, dấu vết định danh) BỎ từng CÂU vướng nó, giữ phần còn lại của đoạn
+    (app thật 2026-09-30: một câu dẫn "Điều 476 Bộ luật Dân sự" làm mất cả điều giao tài
+    sản thuê) — trừ khi câu bị bỏ là điều kiện hay ngoại lệ (`_RE_CAU_DIEU_KIEN`): khi đó
+    bỏ cả đoạn, không để điều khoản đổi nghĩa; lưới giá trị (`lam_sach_van_ban`, đoạn là
+    một mục của chính nó) đổi mỗi giá trị không nguồn thành "……". "khoản n Điều này" (dẫn
+    chiếu trong CHÍNH điều) được che trước cả hai lưới rồi trả lại. Trả `(đoạn | None, số
+    giá trị đã thay, số câu đã bỏ)`.
+    ponytail: câu giữ lại mà trỏ về câu bị bỏ ("Việc này …") vẫn được giữ — thêm luật khi
+    đo thấy."""
     giu: list[str] = []
 
     def _che(m: re.Match) -> str:
@@ -3857,18 +3955,58 @@ def _luoi_doan(chu: str, nguon: str, cam: list[str]) -> tuple[str | None, int]:
         return _chu_giu(len(giu) - 1)
 
     an = _RE_DIEU_NAY.sub(_che, chu)
+    bo_cau = 0
     if _vuong_luoi_chan(an):
-        return None, 0
+        cau = [c for c in _RE_CAU.split(an) if c.strip()]
+        con = [c for c in cau if not _vuong_luoi_chan(c)]
+        if not con or any(_RE_CAU_DIEU_KIEN.match(c) for c in cau if _vuong_luoi_chan(c)):
+            return None, 0, 0
+        bo_cau = len(cau) - len(con)
+        an = " ".join(con)
     vb, dem = lam_sach_van_ban(
         {"tieu_de": "", "muc": [{"ten": "_", "vung": "than", "khoi": [{"noi_dung": an, "bang": []}]}]}, nguon, None, cam
     )
     khoi = vb["muc"][0]["khoi"] if vb["muc"] else []
     if not khoi:
-        return None, 0
-    s = khoi[0]["noi_dung"].replace(CHO_TRONG, khuon_mau.CHO)
+        return None, 0, 0
+    s = _khop_so_chu(khoi[0]["noi_dung"].replace(CHO_TRONG, khuon_mau.CHO), _so_cua(normalize(nguon or "")))
     for i, g in enumerate(giu):
         s = s.replace(_chu_giu(i), g)
-    return khuon_mau.chuan_chu(s)[0], dem["gia_tri_lam_sach"]
+    return khuon_mau.chuan_chu(s)[0], dem["gia_tri_lam_sach"], bo_cau
+
+
+# Số tiền bằng số rồi bằng chữ trong ngoặc: "10.000.000 đồng (Mười triệu đồng)", "……
+# đồng (bằng chữ: mười triệu đồng)". Phần số đã qua lưới giá trị; phần chữ không có chữ
+# số nên lưới không thấy nó.
+_RE_SO_VA_CHU = re.compile(
+    r"(?P<so>\d[\d.,]*\d|\d|" + re.escape(khuon_mau.CHO) + r")(?P<hang>\s*(?:nghìn|ngàn|triệu|tỷ|tỉ)(?!\w))?"
+    r"(?P<giua>\s*(?:đồng|VNĐ|VND|đ)?\s*)\((?P<dau>\s*bằng chữ\s*:?\s*)?(?P<chu>[^()\d…]+)\)",
+    re.IGNORECASE,
+)
+
+
+def _khop_so_chu(s: str, so_nguon: list) -> str:
+    """Một số tiền, hai dạng, MỘT giá trị: phần chữ nói đúng phần số thì giữ; phần số
+    trống mà phần chữ là một số CÓ NGUỒN thì phần số điền từ đó; phần chữ không nguồn hay
+    lệch phần số thành "……" — một số bịa không sống sót ở dạng chữ. Ngoặc không đọc được
+    thành số (`doc_so_chu` là `None`: "(đã gồm thuế)") không bị đụng."""
+
+    def _mot(m: re.Match) -> str:
+        w = doc_so_chu(m["chu"])
+        if w is None:
+            return m[0]
+        hang = _DON_VI_SO[m["hang"].strip().lower()] if m["hang"] else 1
+        so, chu = m["so"], m["chu"]
+        f = tinh(so) if so != khuon_mau.CHO else None
+        if f is not None:
+            chu = chu if abs(f * hang - w) <= SAI_SO else khuon_mau.CHO
+        elif any(abs(w - x) <= SAI_SO for x in so_nguon) and w % hang == 0:
+            so = f"{w // hang:,}".replace(",", ".")
+        else:
+            chu = khuon_mau.CHO
+        return f"{so}{m['hang'] or ''}{m['giua']}({m['dau'] or ''}{chu})"
+
+    return _RE_SO_VA_CHU.sub(_mot, s)
 
 
 def _viet_thuong_dau(s: str) -> str:
@@ -3921,12 +4059,15 @@ def _sach_dieu(
         dem["cho_mo_hinh"] += so
         if not x:
             continue
-        sach, so = _luoi_doan(x, nguon, cam)
+        sach, so, bo_cau = _luoi_doan(x, nguon, cam)
         dem["gia_tri_lam_sach"] += so
         if sach is None:
             ghi.append(f"Bỏ 1 đoạn ở Điều {n} vì dẫn số điều luật, số hiệu hay thông tin định danh không kiểm được")
             dem["doan_bo"] += 1
             continue
+        if bo_cau:
+            ghi.append(f"Bỏ phần dẫn số điều luật, số hiệu hay thông tin định danh không kiểm được ở Điều {n}")
+            dem["cau_bo"] += bo_cau
         if len(sach) > khuon_mau.TOI_DA_KY_TU_DOAN:
             sach = sach[: khuon_mau.TOI_DA_KY_TU_DOAN].rsplit(" ", 1)[0].rstrip(",;:") + "."
             ghi.append(f"Cắt bớt một đoạn quá dài ở Điều {n}")
@@ -3988,7 +4129,7 @@ def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu:
         # định) và nêu tên; lưới giá trị để "……" chỗ giá trị không nguồn.
         if not chu:
             return None
-        sach, so = _luoi_doan(chu, nguon, cam)
+        sach, so, _ = _luoi_doan(chu, nguon, cam)
         dem["gia_tri_lam_sach"] += so
         if sach is None:
             ghi.append(f"Bỏ {ten} vì dẫn số điều luật, số hiệu hay thông tin định danh không kiểm được")
@@ -4102,8 +4243,14 @@ def kiem_khuon_mau(ra: dict, ngu_canh: dict, nguon: str, cam: list[str], ten_cu:
             dieu = [d for d in dieu if d is not khac[-1]]
     hoan_thanh = {"thieu": [], "completeness": None}
     if dieu is not None and loai:
-        dieu, hoan_thanh = khuon_mau.them_dieu_bat_buoc(dieu, loai, tao=muc_tieu == "ban_moi")
-        dieu = [{k: v for k, v in d.items() if k != "chen"} | ({"chen": True} if d.get("chen") else {}) for d in dieu]
+        if muc_tieu == "ban_moi" and loai in khuon_mau.cac_loai() and khuon_mau.nap(loai)["bo_cuc"] == "hop_dong":
+            # Điều bắt buộc mô hình viết mà chỉ còn chỗ giữ ("[Nội dung giao tài sản]" →
+            # "……") coi như thiếu: bộ chèn đặt nội dung chuẩn hay câu trung tính thay cho
+            # một "……" trơn. Đơn, văn bản hành chính: "……" là chỗ điền của chính mẫu.
+            dieu = [d for d in dieu if d["key"] not in bat_buoc or any(x != khuon_mau.CHO for x in d["doan"])]
+        mau = {m["key"]: m["mau"] for m in ngu_canh.get("muc") or [] if m.get("mau")}
+        dieu, hoan_thanh = khuon_mau.them_dieu_bat_buoc(dieu, loai, tao=muc_tieu == "ban_moi", mau=mau)
+        dieu = [{k: v for k, v in d.items() if k != "chen" or v} for d in dieu]
     ben_hop_le = {b["khoa"] for b in khung.get("ben") or []} | {khuon_mau.BEN_VAN_BAN}
     gia_tri, khong_cho = [], []
     for g in ra.get("gia_tri") or []:
