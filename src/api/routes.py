@@ -122,6 +122,8 @@ def _payload_cache(st: dict, rt: str) -> dict:
         # payload là MỘT hình dạng cho cả hai đường, và `tra_cuu_response` đọc
         # đúng dict này. Ở đường không-cache nó luôn là `None`.
         "cau_hoi_day_du": st.get("cau_hoi_day_du"),
+        # Decision 2026-09-30 item 8 — decided in `assemble._base`, read by the UI.
+        "hien_cau_hoi_day_du": bool(st.get("hien_cau_hoi_day_du")),
         # `bang` (T4) — list[dict] THUẦN (assemble/graph_tra_cuu đã gọi
         # `model_dump()`), nên `json.dumps` ở `cache_tra_loi.ghi_cache` tuần
         # tự hoá được thẳng, không cần bước chuyển nào ở đây.
@@ -685,6 +687,7 @@ def tra_cuu_response(payload: dict, trace_id: str, config_name: str) -> TraCuuRe
         # có khoá này trong JSON, và một KeyError ở đây sẽ biến mọi cache hit cũ
         # thành HTTP 500 cho tới khi TTL 7 ngày trôi hết.
         cau_hoi_day_du=payload.get("cau_hoi_day_du"),
+        hien_cau_hoi_day_du=bool(payload.get("hien_cau_hoi_day_du")),
         # Cùng lý do `cau_hoi_day_du`: một dòng cache ghi TRƯỚC T4 không có
         # khoá `bang`. Pydantic tự dựng lại `list[Bang]` từ list[dict] này
         # (cùng cách `citations=payload["citations"]` dựng `list[CitationOut]`).

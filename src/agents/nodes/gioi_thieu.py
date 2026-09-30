@@ -1,69 +1,66 @@
-"""Câu trả lời về CHÍNH TRỢ LÝ — nhận diện bằng QUY TẮC, trả lời bằng TRA BẢNG,
-0 token LLM.
+"""Câu trả lời về CHÍNH TRỢ LÝ và về các văn bản nó đọc được — model viết, chỉ
+từ một BẢNG DỮ KIỆN do mã dựng.
 
-ĐO ĐƯỢC trên UI 2026-09-02, hai dòng liền nhau trong bảng `traces`:
+Quyết định 2026-09-30 (`docs/decisions/2026-09-30-tra-loi-tu-nhien-va-phan-tich.md`
+mục 1) thay quy tắc cũ "đoạn cố định, 0 token". Đo trên app thật cùng ngày: "bạn
+là ai / bạn làm được gì" nhận hai đoạn cố định trùng nội dung, còn ghi "chỉ lao
+động"; chủ dự án: "KLAW lại trả lời kiểu bot".
 
-    09:21:36  "bạn làm được những gì"  → gioi_thieu
-    09:22:22  "model của bạn là gì"    → gioi_thieu
+## Vì sao model viết mà vẫn không bịa được
 
-Hai câu hỏi KHÁC NHAU nhận về đúng cùng một đoạn văn 1.104 ký tự, TỪNG CHỮ MỘT
-— hằng số `GIOI_THIEU` cũ trong `assemble.py`. Đoạn đó mở bằng "Chào bạn." rồi
-liệt kê năng lực: hợp lý cho câu thứ nhất, vô nghĩa cho câu thứ hai, và vô nghĩa
-cho một lời chào đơn thuần. Chủ dự án đọc xong nói "vẫn máy móc".
-
-## Vì sao KHÔNG để model tự sinh câu trả lời về chính mình
-
-Nguyên tắc trung tâm của đề tài: mọi đường trả lời phải kết thúc ở MỘT TRONG HAI
-— một phép tra bảng xác định, hoặc một claim đã qua đủ hai tầng kiểm. "Model tự
-suy ra" không phải một đường trả lời.
-
-Câu hỏi về chính trợ lý là chỗ nguyên tắc ấy dễ bị bỏ qua nhất, vì nó trông như
-một câu tán gẫu. Nhưng model KHÔNG BIẾT nó đang chạy trên model nào, kho có gì,
-hay ở đây làm được việc gì — nó sẽ bịa, và đây là loại ảo giác verifier KHÔNG
-bắt được: không có trích dẫn nào để đối chiếu từng chữ. Cùng lớp lỗi mà
-`services/kho.py` đã giải đúng cho câu hỏi về kho, nên giải cùng một cách.
-
-## Vì sao tách DẠNG chứ không thêm `result_type`
-
-`gioi_thieu` vẫn là MỘT loại kết quả; chỉ nội dung `answer` đổi theo dạng câu
-hỏi. Một loại mới phải sửa đồng bộ bảy chỗ (`Intent`, prompt route, `_RE_TAT`,
-`ResultType`, `assemble`, `schemas.py`, `klaw.ts`) và đó là lớp lỗi đã sập bốn
-lần trong dự án này. Bảy chỗ kia không đổi một dòng nào vì việc này.
+Model KHÔNG BIẾT nó chạy trên model nào, đọc được bao nhiêu văn bản, soạn được
+loại nào — hỏi thẳng thì nó bịa, và không trích dẫn nào để hai tầng kiểm đối
+chiếu. Nên mọi sự thật đi vào từ `bang_du_kien` (dựng từ `nap_kho`, registry
+khuôn mẫu, `config/checklist_*.yaml`, `llm.*_model()`), và `loc_theo_bang` bỏ
+mọi câu mà bảng không đỡ: con số không đứng cạnh đúng danh từ nó đếm, việc hay
+vai bảng không ghi, tên model config không có, loại văn bản soạn thảo không có
+trong registry, số hiệu văn bản nói sai có/không hay mức phủ so với dòng kho,
+URL, chữ "kho" khi người ta không hỏi về văn bản. Không câu nào sống sót (hoặc model lỗi) thì trả câu dự
+phòng ghép từ chính các dòng của bảng (`cau_gioi_thieu`) — không bao giờ rỗng.
 
 ## Vì sao tên model TRA TỪ CONFIG, không viết cứng
 
-Config đang chạy `deepseek/deepseek-v4-flash-0731` cho vai sinh — khác hẳn mặc
-định trong `config.py`. Một chuỗi viết cứng sẽ nói sai tên model ngay hôm nay,
-và sai kiểu không test nào đỏ. `router_model()`/`generate_model()`/`judge_model()`
-là cùng ba hàm mà `graph_tra_cuu` gọi để chọn model thật, nên không có đường thứ
-hai để lệch pha.
-
-CHỈ tên model được nêu. Không API key, không base URL, không một giá trị nào
-khác từ `.env` — `test_cau_hoi_ve_model_KHONG_ro_ri_gi_ngoai_TEN_MODEL` canh
-điều đó trên máy ĐANG CÓ key thật trong `.env.local`, nên phép canh ấy đo được
-chứ không phải một lời hứa.
+Một chuỗi viết cứng sẽ nói sai tên model ngay lần đổi `.env` đầu tiên, và sai
+kiểu không test nào đỏ. CHỈ tên model vào bảng — không API key, không base URL.
 
 ## Vì sao không dùng cú pháp markdown
 
 Giao diện KHÔNG dịch markdown: `frontend/src/lib/van-xuoi.ts` chỉ cắt đoạn và
-nhận dòng mở bằng "- " thành danh sách, phần còn lại vào thẳng `<p>` dưới dạng
-chữ thô. Nên dấu nháy ngược quanh tên model sẽ hiện ra nguyên trên màn hình.
-Danh sách gạch đầu dòng thì dùng được — và đó là thứ duy nhất dùng được.
+nhận dòng mở bằng "- " thành danh sách. Dấu `**` hay nháy ngược hiện nguyên trên
+màn hình, nên `loc_theo_bang` gỡ chúng.
 """
 
+import json
+import logging
 import re
 import unicodedata
 from pathlib import Path
+from typing import NamedTuple
 
+from src.services import khuon_mau
 from src.services.kho import (
     CAU_GIOI_HAN,
     DO_SAU_CHI_LUAT_GOC,
     DO_SAU_DU_BA_TANG,
+    _khop_so_hieu,
     danh_sach_bo_luat,
     dung_cau_tra_loi,
+    moi_so_hieu_trong,
     tom_tat_linh_vuc,
 )
-from src.services.llm import generate_model, judge_model, router_model
+from src.services.llm import Usage, generate_model, judge_model, router_model
+from src.services.prompts import messages
+
+logger = logging.getLogger(__name__)
+
+PROMPT_PATH = Path("prompts/gioi_thieu.v1.md")
+
+META_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["tra_loi"],
+    "properties": {"tra_loi": {"type": "string"}},
+}
 
 # ══ Nhận diện dạng câu hỏi — QUY TẮC, 0 token ════════════════════════════════
 #
@@ -74,12 +71,11 @@ from src.services.llm import generate_model, judge_model, router_model
 
 # Model / công nghệ. `\bai\s+(?:nào|gì)\b` chứ không phải `ai` trần: "ai" trong
 # tiếng Việt là đại từ nghi vấn. "bạn là ai" giờ rơi về `_RE_LA_AI` (hỏi VAI —
-# danh tính), KHÔNG còn rơi về bài năng lực như bản trước (T3 tách riêng, xem
-# `DANH_TINH`) — pattern ở đây chỉ bắt "AI" theo nghĩa công nghệ khi đi kèm
-# "nào"/"gì" ("AI nào", "AI gì"). `_RE_MODEL` luôn được thử TRƯỚC
-# `_RE_LA_AI`/`_RE_BAN_CHAT` trong `cau_gioi_thieu`, nên "model của bạn là ai"
-# và "bạn chạy bằng mô hình gì" vẫn ra bảng model — ba biểu thức không tranh
-# nhau vì THỨ TỰ kiểm quyết định, không phải vì tự loại trừ nhau trong mẫu.
+# danh tính), KHÔNG còn rơi về khía cạnh năng lực như bản trước (T3 tách riêng)
+# — pattern ở đây chỉ bắt "AI" theo nghĩa công nghệ khi đi kèm "nào"/"gì" ("AI
+# nào", "AI gì"). `_khop` gỡ `_RE_LA_AI`/`_RE_BAN_CHAT` khi chúng đứng SAU một
+# dấu hiệu model/nguồn, nên "model của bạn là ai" và "bạn chạy bằng mô hình gì"
+# vẫn chỉ ra khía cạnh model.
 _RE_MODEL = re.compile(
     r"\bmodel\b|mô\s*hình|\bllm\b|\bgpt\b|chatgpt|\bclaude\b|gemini|deepseek|"
     r"chạy\s+(?:bằng|trên)|dùng\s+(?:model|mô\s*hình|công\s*nghệ)|"
@@ -114,6 +110,14 @@ _RE_NANG_LUC = re.compile(
 # Phạm vi kho — ba khía cạnh RIÊNG vì người hỏi phân biệt được chúng: "có
 # những Bộ luật gì" ≠ "có những lĩnh vực gì" ≠ "kho có gì".
 _RE_BO_LUAT = re.compile(r"bộ\s*luật|bo\s*luat")
+# The `bo_luat` facet only when the question asks what KLAW holds ("có những Bộ
+# luật gì", "bao nhiêu bộ luật") — decision 2026-09-30 item 2: "cần nắm những bộ
+# luật gì" asks which laws govern a case, and a bare name ("Bộ luật Hàng hải có
+# hiệu lực không") is a kho lookup, not the list.
+_RE_HOI_BO_LUAT = re.compile(
+    r"(?:\bcó|gồm|chứa|phủ|đọc(?:\s+được)?)\s+(?:(?:những|các|bao\s+nhiêu|mấy)\s+)?bộ\s*luật"
+    r"|bao\s+nhiêu\s+bộ\s*luật|danh\s+sách\s+(?:các\s+)?bộ\s*luật"
+)
 _RE_LINH_VUC = re.compile(r"lĩnh\s*vực|lãnh\s*vực|linh\s*vuc")
 # "bao nhiêu điều luật" (trace fa18ddce): an article count is a count over the
 # kho too. Not bare "điều": "bao nhiêu điều kiện" counts conditions.
@@ -150,59 +154,13 @@ def _chuan(cau_hoi: str) -> str:
     return _RE_KHONG_PHAI_CHU.sub(" ", cau_hoi.lower()).strip()
 
 
-# ══ Lời đáp từng dạng ════════════════════════════════════════════════════════
+# ══ Bảng dữ kiện và câu dự phòng ═════════════════════════════════════════════
 
-# Dạng 1 — chào hỏi đơn thuần. NGẮN, cộng một câu mời hỏi.
-#
-# Không dội bài năng lực vào mặt người ta: một lời chào là một lời chào, và
-# `test_loi_chao_KHONG_doi_ca_bai_nang_luc_vao_mat_nguoi_ta` khoá tỉ lệ độ dài
-# (< 1/3 bài năng lực) thay vì khoá lời, để sửa câu chữ không làm nó đỏ oan.
-CHAO = (
-    "Chào bạn. Tôi tra cứu pháp luật lao động Việt Nam và soạn thảo văn bản pháp "
-    "lý lao động.\n"
-    "\n"
-    "Bạn cứ kể thẳng chuyện đang gặp, càng cụ thể càng tốt — tôi trả lời kèm điều "
-    "luật bạn bấm được để đọc nguyên văn. Muốn biết tôi làm được những gì thì hỏi "
-    "luôn câu đó."
-)
-
-# Dạng 5 — cảm ơn.
+# Cảm ơn, khi model không viết được: câu dự phòng cố định, đúng sự thật.
 CAM_ON = (
     "Không có gì. Chỗ nào trong câu trả lời bạn thấy chưa chắc thì bấm vào trích "
     "dẫn để đọc nguyên văn điều luật — hoặc hỏi tiếp, tôi còn ở đây."
 )
-
-# Dạng 6 — danh tính ("là ai" hỏi VAI). Mở đúng câu chủ dự án yêu cầu nguyên
-# văn. Ba việc nêu ra đều có đường thật trong mã — tra cứu là `/api/v1/tra-cuu`,
-# soạn thảo là `/api/v1/soan-thao`, rà soát là `/api/v1/soat` — không phải
-# quảng cáo, và KHÔNG thêm việc thứ tư.
-DANH_TINH = "\n\n".join((
-    "Xin chào! Tôi là KLAW — trợ lý AI chuyên về pháp luật Việt Nam.",
-    "Tôi giúp bạn ba việc:",
-    "\n".join((
-        "- 📖 Tra cứu pháp luật — nêu quy định kèm trích dẫn tới đúng điều, khoản, điểm của văn bản gốc.",
-        "- 📝 Soạn thảo văn bản — hợp đồng lao động, nội quy lao động, quyết định kỷ luật.",
-        "- 🔍 Rà soát văn bản — đối chiếu nội dung bắt buộc theo luật và chỉ ra điều khoản trái luật.",
-    )),
-    # Đoạn "Điều tôi khác các trợ lý khác…" đã gỡ (ex.md §4.2): người hỏi "bạn
-    # là ai" không hỏi điểm khác biệt, và cùng đoạn đó còn nằm trong `NGUON` —
-    # một câu ghép hai khía cạnh sẽ nói nó hai lần (FR-011).
-    "Bạn đang cần tra cứu vấn đề gì, hay cần soạn văn bản nào?",
-))
-
-# Dạng 7 — bản chất ("là gì" hỏi BẢN CHẤT). Khác `DANH_TINH` đúng ở đoạn thứ
-# hai: một bản tham chiếu không tự thuật được CƠ CHẾ chống ảo giác (hai tầng
-# kiểm), và đó là lý do dạng này tồn tại riêng thay vì dội bài danh tính hay
-# bài năng lực vào câu hỏi "là gì". Đừng cắt đoạn đó cho ngắn.
-BAN_CHAT = "\n\n".join((
-    "Về bản chất, tôi là một chương trình — một trợ lý AI làm riêng cho pháp luật Việt Nam, tên KLAW.",
-    "\n".join((
-        "- Tôi không phải luật sư, không phải thẩm phán, không phải cơ quan nhà nước. Tôi không có quyền ra phán quyết, và không đại diện cho bạn tại toà.",
-        "- Tôi chạy trên mô hình ngôn ngữ, nhưng câu trả lời không thành hình vì mô hình tự tin. Mỗi trích dẫn phải qua hai tầng kiểm mới được hiện ra: tầng một so từng chữ câu trích với nguyên văn điều khoản trong chính văn bản luật — một phép so chuỗi thuần, nó không có cách nào tự thuyết phục được chính nó; tầng hai để một model khác họ đọc lại xem điều khoản đó có chống đỡ được câu đó không.",
-        "- Không đủ căn cứ thì tôi nói thẳng là không đủ, không viết cho đủ bài.",
-    )),
-    "Việc quan trọng thì bạn vẫn nên đưa trích dẫn tôi dẫn cho luật sư xem cùng.",
-))
 
 _TIEN_TO_CHECKLIST = "checklist_"
 # Cùng thư mục `config/` mà `graph_soan_thao.cac_loai()` đã glob — không import
@@ -214,8 +172,8 @@ _CONFIG_DIR = Path(__file__).resolve().parents[3] / "config"
 
 def _loai_soan_thao() -> str:
     """Đếm & nhóm loại văn bản soạn thảo từ `config/checklist_*.yaml` LÚC GỌI,
-    không phải hằng số đóng băng lúc import — cùng lý do `_model()` tra tên
-    model từ config thay vì viết cứng: bản trước ghi cứng "ba loại" trong khi
+    không phải hằng số đóng băng lúc import — cùng lý do tên model tra từ
+    config thay vì viết cứng: bản trước ghi cứng "ba loại" trong khi
     kho đã có 27 file, và một con số cũ nằm trong lời tự giới thiệu là kiểu sai
     không test nào tự bắt được.
 
@@ -234,79 +192,6 @@ def _loai_soan_thao() -> str:
     return f"{len(ten)} loại văn bản ({ke}, và vài loại khác)"
 
 
-# Khía cạnh `nang_luc` — làm được gì. MẶC ĐỊNH: câu không khớp khía cạnh nào
-# rơi về đây.
-#
-# Bản trước (`_NANG_LUC_MAU`) trộn bốn mục đích trong một đoạn: năng lực, điểm
-# khác biệt, danh sách phạm vi VIẾT CỨNG (sáu tên Bộ luật, bốn tên lĩnh vực) và
-# cảnh báo độ sâu. Mọi câu hỏi về năng lực nhận cả bốn, và danh sách viết cứng
-# lệch khỏi DB ngay lần nạp kho sau (ex.md §2.4, §2.5). Ba khía cạnh kia nay có
-# khối riêng, dựng từ `kho.py` lúc chạy.
-#
-# CỐ Ý không nhúng số liệu corpus nào ở đây — kể cả số loại văn bản soạn thảo:
-# nó thuộc khía cạnh `soan_thao`, chỉ nói khi người ta hỏi (ex.md §4.2).
-NANG_LUC = "\n".join((
-    "KLAW hiện làm ba việc chính:",
-    "- Tra cứu và giải thích quy định theo tình huống của bạn, kèm trích dẫn mở được.",
-    "- Soạn và rà soát văn bản pháp lý lao động theo checklist.",
-    # "không đủ căn cứ" chứ không phải cụm cùng nghĩa bắt đầu bằng "chưa":
-    # `test_giong_tra_loi.CUM_BI_CAM` cấm cụm kia vì đó là giọng bản abstain cũ.
-    "- Nói rõ khi không đủ căn cứ, thay vì đoán luật hoặc kết quả vụ việc.",
-))
-
-# Dạng 4 — dữ liệu lấy từ đâu / có tin được không.
-#
-# Nêu TÊN nguồn, không in URL: `MOJ_API_BASE` là một endpoint nội bộ, và một
-# đường dẫn API dán vào câu trả lời cho người dùng vừa không giúp gì vừa là một
-# giá trị `.env` bị đưa ra ngoài.
-#
-# Đóng bằng chính `kho.CAU_GIOI_HAN` chứ không viết lại: đó là bản DUY NHẤT của
-# câu giới hạn phạm vi, và một bản sao thứ hai sẽ lệch pha đúng vào ngày ai đó
-# sửa một trong hai.
-NGUON = "\n\n".join((
-    "Văn bản tôi đọc lấy từ cơ sở dữ liệu quốc gia về văn bản pháp luật — bản "
-    "công bố của cơ quan nhà nước, không phải một bản chép lại trên mạng.",
-    "Hai điều bạn nên biết trước khi tin:",
-    "- Tôi đọc bản GỐC của văn bản, không phải bản hợp nhất. Tôi bảo đảm trích đúng nguyên "
-    "văn và đúng nguồn, và gắn nhãn hiệu lực cho từng trích dẫn — nhưng bản gốc "
-    "không tự mang theo các lần sửa đổi về sau, nên việc quan trọng thì bạn vẫn "
-    "nên đối chiếu bản hiện hành.\n"
-    "- Mỗi câu tôi nói phải qua hai tầng kiểm mới được hiện ra: tầng một so từng "
-    "chữ câu trích với điều khoản trong chính văn bản luật, tầng hai để một model khác đọc lại "
-    "xem điều khoản đó có thật sự chống đỡ được câu đó không. Không qua được thì "
-    "tôi nói thẳng là không đủ, không viết cho đủ bài.",
-    CAU_GIOI_HAN,
-))
-
-
-def _model() -> str:
-    """Dạng 3 — model nào / chạy bằng gì. TRA TỪ CONFIG, dựng lúc chạy.
-
-    Không phải hằng số ở cấp module, và đó là chủ đích: một hằng số được đóng
-    băng lúc import sẽ nói sai ngay sau lần đổi model đầu tiên.
-
-    Nêu VAI của từng model chứ không chỉ liệt kê ba cái tên, vì điểm đáng nói ở
-    đây là quan hệ giữa chúng: model thẩm định cố ý khác họ với model sinh
-    (`llm.judge_model` cảnh báo khi hai cái trùng họ). Đó là một quyết định
-    chống ảo giác, không phải một chi tiết kỹ thuật.
-    """
-    return "\n\n".join((
-        "Tôi không phải một model. Tôi là một đường trả lời có ba model đứng ở ba "
-        "vai khác nhau:",
-        "\n".join((
-            f"- Định tuyến câu hỏi: {router_model()}",
-            f"- Sinh luận điểm và hành văn: {generate_model()}",
-            f"- Thẩm định lại từng luận điểm: {judge_model()}",
-        )),
-        "Chỗ đáng nói không phải ba cái tên mà là dòng thứ ba: model thẩm định cố ý "
-        "khác HỌ với model sinh. Một model đọc lại bài của chính họ thì thiên "
-        "vị chính nó, và tầng thẩm định trở thành một sự yên tâm giả.",
-        "Tầng kiểm trước đó thì không phải model nào cả: mỗi câu trích được so từng "
-        "chữ với nguyên văn điều khoản trong chính văn bản luật. Đó là một phép so chuỗi — nó không "
-        "có cách nào tự thuyết phục được chính nó.",
-    ))
-
-
 # ══ Phân rã KHÍA CẠNH — một câu hỏi mang được nhiều ý ════════════════════════
 #
 # Bản trước kiểm các biểu thức theo thứ tự rồi TRẢ NGAY kết quả đầu tiên. Hợp
@@ -323,7 +208,7 @@ _RE_KHIA_CANH = {
     "danh_tinh": _RE_LA_AI,
     "ban_chat": _RE_BAN_CHAT,
     "nang_luc": _RE_NANG_LUC,
-    "bo_luat": _RE_BO_LUAT,
+    "bo_luat": _RE_HOI_BO_LUAT,
     "linh_vuc": _RE_LINH_VUC,
     "kho": _RE_KHO,
     "soan_thao": _RE_SOAN_THAO,
@@ -382,6 +267,12 @@ TOI_DA_LINH_VUC = 6
 # narrow: second-person "bạn/KLAW làm được gì / là ai / là gì", "những bộ
 # luật|lĩnh vực gì|nào", "kho có/phủ", "model của bạn", "dữ liệu lấy". A
 # digit or an article/decree word means a real legal question — never pinned.
+#
+# Decision 2026-09-30 item 2: a branch alone no longer pins. The question must
+# also address KLAW or its documents (`_RE_NOI_VOI_KLAW`, `_RE_NEO_KHO`), and the
+# asker's own situation vetoes the pin (`ke_tinh_huong`). Trace 88117154: "tôi
+# đang gặp sự cố tranh chấp nhà đất, cần nắm rõ những bộ luật gì" matched the
+# anchorless "những bộ luật gì" branch and got the list of six Bộ luật.
 _RE_META_MANH = re.compile(
     r"\b(?:bạn|klaw)\s+(?:làm|giúp|hỗ\s*trợ)\s+(?:được\s+)?(?:những\s+)?gì"
     r"|\b(?:bạn|klaw)\s+là\s+(?:ai|(?:cái\s+)?gì)\b"
@@ -391,15 +282,40 @@ _RE_META_MANH = re.compile(
     r"|dữ\s*liệu\s+(?:của\s+bạn\s+)?(?:lấy|từ)"
     r"|bao\s+nhiêu\s+(?:văn\s+bản|bộ\s+luật)"
 )
-_RE_NOI_DUNG_LUAT = re.compile(r"\d|\bđiều\b|\bkhoản\b|nghị\s*định|thông\s*tư")
+# "tài khoản" is an account, not a clause ("tôi vừa đăng ký tài khoản, KLAW hỗ trợ gì").
+_RE_NOI_DUNG_LUAT = re.compile(r"\d|\bđiều\b|(?<!tài )\bkhoản\b|nghị\s*định|thông\s*tư")
+# A legal event in the asker's case. Not first-person words alone: "tôi mới dùng
+# lần đầu, bạn làm được những gì" and "câu hỏi của tôi là: bạn là ai" address
+# KLAW, and vetoing them sent a meta question to retrieval (review 2026-09-30).
+# Written without diacritics and matched on the folded question, so "toi dang
+# gap su co tranh chap nha dat" is the same case; folding is safe here because
+# the veto only ever sends a question to tra_cuu. ponytail: closed event list;
+# a situation it misses is left to the router — a route prompt line for item 2
+# needs a new prompt version (route.v5 is frozen, `test_route_prompt_mac_dinh_v5`).
+_RE_SU_VIEC = re.compile(
+    r"\b(?:tranh\s+chap|khoi\s+kien|bi\s+kien|kien\s+tung|sa\s+thai|duoi\s+viec|no\s+luong|tru\s+luong"
+    r"|ly\s+hon|thua\s+ke|lua\s+dao|tai\s+nan|boi\s+thuong|mat\s+quyen\s+loi)\b"
+)
+
+
+def ke_tinh_huong(cau_hoi: str) -> bool:
+    """True when the question names a legal event in the asker's case: a
+    question about the law, never a meta one (decision 2026-09-30 item 2).
+    `route` turns a meta verdict on such a question back into tra_cuu."""
+    return bool(_RE_SU_VIEC.search(_bo_dau(_chuan(cau_hoi))))
 
 
 def chac_chan_meta(cau_hoi: str) -> bool:
-    """True when the question is unmistakably about KLAW or the corpus and
-    carries no legal-content marker; the router's LLM verdict is then
-    overridden to gioi_thieu (0 tokens)."""
+    """True when the question is unmistakably about KLAW or the corpus: a meta
+    branch, an anchor naming KLAW or its documents, no legal-content marker and
+    no situation. The router's LLM verdict is then overridden to gioi_thieu."""
     c = _chuan(cau_hoi)
-    return bool(_RE_META_MANH.search(c)) and not _RE_NOI_DUNG_LUAT.search(c)
+    return (
+        bool(_RE_META_MANH.search(c))
+        and bool(_RE_NOI_VOI_KLAW.search(c) or _RE_NEO_KHO.search(c))
+        and not _RE_NOI_DUNG_LUAT.search(c)
+        and not ke_tinh_huong(cau_hoi)
+    )
 
 
 # Guard in the other direction (decision 2026-09-29 item 4). Production
@@ -450,6 +366,9 @@ _RE_DAU_KHO = re.compile(
     r"\bkho\b|dữ\s*liệu|\bdu\s*lieu\b"
     r"|bao\s+nhiêu\s+(?:văn\s+bản|điều\s+luật)|\bbao\s+nhieu\s+(?:van\s+ban|dieu\s+luat)\b"
 )
+# The pin's anchor (decision 2026-09-30 item 2) names the kho itself; a document
+# count alone ("có bao nhiêu văn bản hướng dẫn luật đất đai") is left to the router.
+_RE_NEO_KHO = re.compile(r"\bkho\b|dữ\s*liệu|\bdu\s*lieu\b")
 
 
 def _bo_dau(c: str) -> str:
@@ -542,7 +461,7 @@ def _khoi_linh_vuc(kho: list[dict]) -> str:
     # Real corpus: 55 MOJ labels, most documents unclassified. Name the largest
     # TOI_DA_LINH_VUC (already sorted by count) and count the rest — ex.md §4.2
     # caps a scope list at six items.
-    ten = [d["linh_vuc"] for d in lv[:TOI_DA_LINH_VUC]]
+    ten = [f"{d['linh_vuc']} ({d['so_van_ban']} văn bản)" for d in lv[:TOI_DA_LINH_VUC]]
     con = len(lv) - len(ten)
     cau = f"Các lĩnh vực đang phủ gồm {_liet_ke(ten)}" + (f" và {con} lĩnh vực khác." if con else ".")
     sau = [d["linh_vuc"] for d in lv if d["do_sau"] == DO_SAU_DU_BA_TANG]
@@ -555,25 +474,108 @@ def _khoi_linh_vuc(kho: list[dict]) -> str:
     return cau
 
 
-def _mot_khoi(t: str, cau_hoi: str, kho: list[dict] | None) -> str:
-    if t == "danh_tinh":
-        return DANH_TINH
-    if t == "ban_chat":
-        return BAN_CHAT
-    if t == "nang_luc":
-        return NANG_LUC
-    if t == "bo_luat":
-        return _khoi_bo_luat(kho)
-    if t == "linh_vuc":
-        return _khoi_linh_vuc(kho)
-    if t == "kho":
-        return dung_cau_tra_loi(cau_hoi, kho)
-    if t == "soan_thao":
-        return (f"Tôi soạn được {_loai_soan_thao()}; hỏi cụ thể loại nào để xem "
-                "checklist chi tiết.")
-    if t == "nguon":
-        return NGUON
-    return _model()
+def _pham_vi(kho: list[dict]) -> str:
+    """Số văn bản được HIỆN (cùng tập với `kho._tom_tat` và trang Tra cứu) và số
+    văn bản có toàn văn. Dòng không mang cờ `hien` (bảng dựng tay trong test) là
+    được hiện, như `kho._duoc_hien`."""
+    hien = [r for r in kho if r.get("hien", True)]
+    sau = sum(1 for r in hien if r["depth"] == "deep")
+    return (
+        f"Tôi đọc được {len(hien)} văn bản pháp luật Việt Nam, trong đó {sau} văn bản có toàn văn "
+        "tra được tới từng điều khoản; phần sâu nhất là pháp luật lao động."
+    )
+
+
+def _soan_thao() -> str:
+    """Loại có khuôn mẫu Word (registry `khuon_mau`, đọc LÚC GỌI) cộng số loại
+    checklist — một loại mới thêm vào registry tự có mặt ở đây."""
+    ten = sorted({khuon_mau.nap(loai)["ten"] for loai in khuon_mau.cac_loai()})
+    return (
+        f"Tôi soạn được {len(ten)} loại văn bản có khuôn mẫu Word: {', '.join(ten)}. "
+        f"Tôi rà soát được {_loai_soan_thao()} theo checklist nội dung bắt buộc. "
+        "Loại khác thì tôi vẫn soạn theo yêu cầu của bạn."
+    )
+
+
+def bang_du_kien(cau_hoi: str, kho: list[dict] | None) -> dict[str, str]:
+    """BẢNG DỮ KIỆN — nguồn duy nhất của lời đáp về KLAW (quyết định 2026-09-30
+    mục 1, 6). Mỗi dòng là một câu người đọc thấy được nguyên văn (qua model hay
+    qua câu dự phòng), nên không dòng nào gọi corpus là "kho".
+
+    `kho` là snapshot `nap_kho` đã nạp sẵn; `None` (chỗ gọi chưa nạp) thì bảng
+    KHÔNG có dòng số liệu nào — thà thiếu còn hơn bịa. `cau_hoi` chỉ dùng cho dòng
+    `kho` (`dung_cau_tra_loi` tra đúng số hiệu người hỏi nêu).
+    """
+    bang = {
+        "vai_tro": "Tôi là KLAW, trợ lý AI tra cứu pháp luật Việt Nam, sâu nhất ở pháp luật lao động.",
+        "viec": "\n".join(
+            (
+                "- Tra cứu pháp luật theo tình huống của bạn: mỗi quy định kèm trích dẫn tới đúng điều, khoản, "
+                "điểm, bấm vào là đọc được nguyên văn.",
+                "- Soạn thảo văn bản ngay trên trang: bấm vào chỗ trống để điền, rồi tải về tệp Word (.docx); "
+                "cần đăng nhập để lưu bản thảo.",
+                "- Rà soát văn bản: đối chiếu nội dung bắt buộc theo luật và chỉ ra điều khoản trái luật.",
+                "- Đọc tệp Word (.docx, .doc) hoặc PDF bạn tải lên ở chế độ nền, rồi trả lời câu hỏi về tệp đó "
+                "ngay trong khung chat.",
+                "- Nhớ các lượt trước trong cùng cuộc trò chuyện để hiểu câu hỏi nối tiếp.",
+            )
+        ),
+        "soan_thao": _soan_thao(),
+        "ban_chat": (
+            "Tôi là một chương trình chạy trên mô hình ngôn ngữ, không phải luật sư, thẩm phán hay cơ "
+            "quan nhà nước: tôi không ra phán quyết, không đại diện cho bạn tại tòa, và câu trả lời của "
+            "tôi không thay thế tư vấn của luật sư."
+        ),
+        "kiem_chung": (
+            "Mỗi trích dẫn phải qua hai tầng kiểm mới được hiện ra: tầng một so từng chữ câu trích "
+            "với nguyên văn điều khoản trong chính văn bản luật; tầng hai để một model khác họ đọc lại "
+            "xem điều khoản đó có chống đỡ được câu đó không. Không đủ căn cứ thì tôi nói thẳng là "
+            "không đủ, không đoán luật hay kết quả vụ việc."
+        ),
+        "nguon": (
+            "Văn bản tôi đọc lấy từ Cơ sở dữ liệu quốc gia về văn bản pháp luật — bản công bố của cơ quan "
+            "nhà nước. Tôi đọc bản gốc, không phải bản hợp nhất, và gắn nhãn hiệu lực cho từng trích dẫn; "
+            "việc quan trọng thì bạn nên đối chiếu bản hiện hành."
+        ),
+        # Chỉ TÊN model, từ chính ba hàm `graph_tra_cuu` gọi để chọn model thật.
+        "model": (
+            f"Ba model ở ba vai: định tuyến câu hỏi {router_model()}; sinh luận điểm và hành văn "
+            f"{generate_model()}; thẩm định lại từng luận điểm {judge_model()} — model thẩm định cố ý "
+            "khác họ với model sinh."
+        ),
+    }
+    if kho is not None:
+        bang["pham_vi"] = _pham_vi(kho)
+        bang["bo_luat"] = _khoi_bo_luat(kho)
+        bang["linh_vuc"] = _khoi_linh_vuc(kho)
+        bang["kho"] = dung_cau_tra_loi(cau_hoi, kho).removesuffix(CAU_GIOI_HAN).rstrip()
+    return bang
+
+
+def van_ban_cua_bang(bang: dict[str, str], kho: list[dict]) -> dict[str, str]:
+    """Số hiệu → độ sâu của văn bản ĐƯỢC HIỆN mang số hiệu đó ("deep", "shallow",
+    cả hai cách nhau dấu phẩy), "" khi không văn bản nào được hiện — cho MỌI số
+    hiệu bảng nêu. `loc_theo_bang` so từng số hiệu model nêu với đây: bảng là văn
+    xuôi, nên có/không và mức phủ phải tra ngược về dòng kho mới kiểm được."""
+    return {
+        so: ",".join(sorted({r["depth"] for r in kho if r.get("hien", True) and _khop_so_hieu(so, r["so_ky_hieu"])}))
+        for so in moi_so_hieu_trong("\n".join(bang.values()))
+    }
+
+
+# Dòng của bảng mà mỗi khía cạnh cần — câu dự phòng ghép đúng các dòng này, mỗi
+# dòng MỘT lần kể cả khi hai khía cạnh cùng cần nó (FR-011).
+_DONG_CUA = {
+    "danh_tinh": ("vai_tro",),
+    "ban_chat": ("ban_chat", "kiem_chung"),
+    "nang_luc": ("viec",),
+    "bo_luat": ("bo_luat",),
+    "linh_vuc": ("linh_vuc",),
+    "kho": ("kho",),
+    "soan_thao": ("soan_thao",),
+    "nguon": ("nguon", "kiem_chung"),
+    "model": ("model",),
+}
 
 
 def _cau_hoi_tiep(cac: list[str]) -> str:
@@ -581,65 +583,376 @@ def _cau_hoi_tiep(cac: list[str]) -> str:
         return HOI_TIEP_KHO
     if "soan_thao" in cac:
         return HOI_TIEP_SOAN
-    if "nang_luc" in cac:
+    if any(t in cac for t in ("nang_luc", "danh_tinh", "ban_chat")):
         return HOI_TIEP_NANG_LUC
     return ""
+
+
+def _du_phong(cau_hoi: str, bang: dict[str, str], cac: list[str], luot_dau: bool = True) -> str:
+    """Câu dự phòng — các dòng của bảng cho các khía cạnh được hỏi, theo thứ tự
+    người hỏi, rồi câu giới hạn (chỉ khi hỏi về văn bản và bảng có số liệu) và
+    đúng MỘT lời mời tiếp."""
+    c = _chuan(cau_hoi)
+    if _RE_CAM_ON.search(c) and not _khop(c):
+        return CAM_ON
+    if _RE_CHAO.fullmatch(c):
+        return f"Chào bạn. {bang['vai_tro']}\n\n{HOI_TIEP_NANG_LUC}"
+    khoa = dict.fromkeys(k for t in cac for k in _DONG_CUA[t])
+    van = "\n\n".join(dict.fromkeys(bang.get(k, THIEU_KHO) for k in khoa))
+    if "kho" in bang and can_kho(cac):
+        van += "\n\n" + CAU_GIOI_HAN
+    if hoi := _cau_hoi_tiep(cac):
+        van += "\n\n" + hoi
+    if luot_dau and _RE_MO_DAU_CHAO.match(c):
+        van = "Chào bạn. " + van
+    return van
 
 
 def cau_gioi_thieu(
     cau_hoi: str, kho: list[dict] | None = None, luot_dau: bool = True, cac_khia_canh: list[str] | None = None
 ) -> str:
-    """Lời đáp ghép từ các khía cạnh câu hỏi nêu, theo đúng thứ tự người hỏi.
+    """Câu dự phòng dựng thẳng từ câu hỏi và snapshot kho — cho chỗ gọi không có
+    model, và để test đọc được sự thật của từng khía cạnh. `kho=None` thì khía
+    cạnh kho nhận `THIEU_KHO`, KHÔNG nhận một danh sách bịa."""
+    return _du_phong(cau_hoi, bang_du_kien(cau_hoi, kho), cac_khia_canh or khia_canh(cau_hoi), luot_dau)
 
-    `kho` là snapshot đã nạp sẵn (`kho.nap_kho`), truyền vào chứ không tự truy
-    vấn: node này là tầng THUẦN, và một lượt chỉ được nạp kho một lần (FR-014).
-    `None` nghĩa là chỗ gọi chưa nạp — khi đó khía cạnh kho nhận `THIEU_KHO`
-    chứ KHÔNG nhận một danh sách bịa. `cac_khia_canh` là các khía cạnh chỗ gọi
-    đã tính (`khia_canh_kho` cho lượt `hoi_ve_kho`); `None` thì tính từ câu hỏi.
 
-    Chào hỏi và cảm ơn xử lý TRƯỚC phân rã, như bản trước:
-    - `_RE_CAM_ON` neo `^` VÀ chỉ ăn khi câu không nêu khía cạnh nào, nên "cảm
-      ơn, mà dữ liệu lấy ở đâu" vẫn đi vào khối nguồn.
-    - `_RE_CHAO` dùng `fullmatch` nên nó chỉ bắt lời chào ĐƠN THUẦN; "chào bạn,
-      bạn làm được những gì" là một câu HỎI có lời chào dẫn vào.
-    """
-    c = _chuan(cau_hoi)
-    vi = _khop(c)
-    if _RE_CAM_ON.search(c) and not vi:
-        return CAM_ON
-    if _RE_CHAO.fullmatch(c):
-        return CHAO
+def co_khia_canh(cau_hoi: str) -> bool:
+    """Câu có nêu khía cạnh nào không. Lượt nối tiếp dùng nó để tính khía cạnh
+    trên câu NGƯỜI DÙNG GÕ khi câu đó tự nói được, không trên câu đã giải nghĩa:
+    trace 8eb13b06, "bạn là ai" viết lại thành "KLAW là ai và làm được gì" thêm
+    một khía cạnh không ai hỏi."""
+    return bool(_khop(_chuan(cau_hoi)))
 
-    cac = cac_khia_canh or _thu_tu(vi)
-    khoi: list[str] = []
-    for t in cac:
-        if t in _KHIA_CANH_KHO and kho is None:
-            if THIEU_KHO not in khoi:
-                khoi.append(THIEU_KHO)
+
+# ══ Lọc lời model theo bảng ════════════════════════════════════════════════════
+
+_RE_CHU_KHO = re.compile(r"\bkho\b", re.IGNORECASE)
+_RE_CAU = re.compile(r"(?<=[.!?…])\s+")
+_RE_VE = re.compile(r"[,;:—–]|\s-\s|\s(?:nhưng|còn|song)\s")
+_RE_PHU_DINH = re.compile(r"\b(?:không|chưa|chẳng)\b")
+# Lời khuyên cho người hỏi ("bạn nên liên hệ luật sư") không phải việc KLAW tự
+# nhận — trừ khi KLAW là người làm ("bạn nên để tôi đại diện cho bạn ra tòa").
+_RE_KHUYEN = re.compile(r"\b(?:bạn|anh|chị)\s+(?:nên|cần)\b|\bhãy\b|\bnên\b")
+_RE_TOI_LAM = re.compile(r"\bđể\s+tôi\b|\btôi\s+(?:sẽ|có\s+thể)\b")
+_RE_RO_RI = re.compile(r"https?:|www\.|\bsk-|api[\s_]?key")
+# Việc và vai KLAW có thể tự nhận, MỖI CỤM MỘT BIỂU THỨC: một câu khẳng định (không
+# phủ định) mang cụm nào thì chính cụm đó phải có trong các dòng việc làm được của
+# bảng — "lưu trữ" không còn được "nhớ" đỡ (review 2026-09-30); câu phủ định chỉ
+# cần cụm đó ở đâu đó trong bảng ("không phải luật sư", "không phải bản hợp nhất").
+# ponytail: danh sách đóng, bắt lớp bịa hay gặp (việc bảng không ghi, vai bảng phủ
+# nhận); một việc bịa nằm ngoài danh sách thì lọt — thêm cụm khi trace cho thấy.
+_VIEC = tuple(
+    re.compile(p)
+    for p in (
+        r"tra\s*cứu",
+        r"trích\s*dẫn",
+        r"soạn",
+        r"rà\s*soát",
+        r"tải\s+lên",
+        r"tải\s+về",
+        r"tải\s+xuống",
+        r"upload",
+        r"download",
+        r"đính\s+kèm",
+        r"\.docx",
+        r"\bword\b",
+        r"\bpdf\b",
+        r"tư\s*vấn",
+        r"đại\s*diện",
+        r"bào\s*chữa",
+        r"tranh\s*tụng",
+        r"phán\s*quyết",
+        r"xét\s+xử",
+        r"\bnộp\b",
+        r"\bemail\b",
+        r"thư\s+điện\s+tử",
+        r"\bsms\b",
+        r"tin\s+nhắn",
+        r"\bnhắc\b",
+        r"đặt\s+lịch",
+        r"lịch\s+hẹn",
+        r"dịch\s+sang",
+        r"dịch\s+ra",
+        r"dịch\s+thuật",
+        r"tiếng\s+anh",
+        r"phiên\s+dịch",
+        r"\bký\s+số",
+        r"\bký\s+điện\s+tử",
+        r"\bký\s+thay",
+        r"\bin\s+ra",
+        r"\bin\s+văn\s+bản",
+        r"thanh\s+toán",
+        r"chuyển\s+khoản",
+        r"dự\s*đoán",
+        r"thắng\s+kiện",
+        r"\bnhớ\b",
+        r"lưu\s+lại",
+        r"lưu\s+trữ",
+        r"\bảnh\b",
+        r"hình\s+ảnh",
+        r"chụp",
+        r"giọng\s+nói",
+        r"gọi\s+điện",
+        r"liên\s+hệ",
+        r"kết\s+nối",
+        r"cập\s*nhật",
+        r"\bđiền\b",
+        r"tính\s+toán",
+        r"tính\s+tiền",
+        r"tính\s+thuế",
+        r"tính\s+lương",
+        r"tính\s+giúp",
+        r"đọc\s+tệp",
+        r"đọc\s+file",
+        r"đọc\s+tài\s+liệu",
+        # Vai và giới hạn: "tôi là luật sư AI", "có giá trị pháp lý", "luôn là bản
+        # hợp nhất mới nhất", "tôi cam kết bạn không mất quyền lợi".
+        r"luật\s*sư",
+        r"thẩm\s*phán",
+        r"công\s*chứng",
+        r"giá\s+trị\s+pháp\s+lý",
+        r"chứng\s+nhận",
+        r"cam\s+kết",
+        r"bảo\s+đảm",
+        r"đảm\s+bảo",
+        r"hợp\s+nhất",
+    )
+)
+_DONG_VIEC = ("viec", "soan_thao")
+# Một câu nhận soạn/rà soát một LOẠI văn bản: hai từ sau danh từ loại phải có
+# trong dòng soạn thảo ("đơn ly hôn" qua, "đơn xin visa" không).
+_RE_SOAN = re.compile(r"soạn|viết|lập|rà\s*soát|\bmẫu\b")
+_RE_LOAI_VB = re.compile(
+    r"\b(?:hợp\s+đồng|đơn|nội\s+quy|quyết\s+định|biên\s+bản|thỏa\s+ước|thoả\s+ước"
+    r"|thỏa\s+thuận|thoả\s+thuận|quy\s+chế|giấy|công\s+văn|di\s+chúc)((?:\s+\w+){0,2})"
+)
+_TU_NOI = frozenset(
+    "va hoac hay cho cua theo nhu nay do nao gi cac nhung mau duoc khac moi o tren roi de voi ban toi".split()
+)
+
+# Số đếm đi với danh từ nó đếm (review 2026-09-30). Bản trước chỉ đòi con số có
+# ở ĐÂU ĐÓ trong bảng, nên "8 Bộ luật" qua vì bảng có số 8 ở chỗ khác. Nay "N <danh
+# từ>" phải có trong bảng, và từ định tính theo sau ("có toàn văn", "khuôn mẫu")
+# phải đứng cạnh ĐÚNG con số đó trong bảng: "486 văn bản có toàn văn" không qua
+# khi bảng ghi 486 văn bản, 379 có toàn văn. Số viết bằng chữ ("sáu Bộ luật") đổi
+# ra số trước; "một" không đổi — nó còn là mạo từ.
+_DANH_DEM = (
+    r"bộ\s+luật|văn\s+bản|lĩnh\s+vực|loại|hợp\s+đồng|đơn\s+từ|đơn|quyết\s+định|quy\s+chế"
+    r"|model|mô\s+hình|tầng|nghị\s+định|thông\s+tư|luật|điều"
+)
+_RE_DEM = re.compile(rf"(?<![\w/.,-])(\d+)\s+({_DANH_DEM})\b([^\d.!?\n]*)")
+_KEM_DEM = ("toàn văn", "luật gốc", "khuôn mẫu", "checklist")
+_SO_CHU = dict(zip("hai ba bốn năm sáu bảy tám chín mười".split(), map(str, range(2, 11)), strict=True))
+_RE_SO_CHU = re.compile(rf"\b({'|'.join(_SO_CHU)})\s+(?=(?:{_DANH_DEM})\b)")
+_RE_NGOAC = re.compile(r"\([^)]*\)")
+
+# Tên hãng / model phải là một đoạn của dòng model trong bảng: "GPT-4", "Claude",
+# "Gemini 2.5 Pro" không qua khi config là gemini-2.5-flash-lite.
+_RE_HANG = re.compile(
+    r"\b(?:chat\s*gpt|gpt|openai|claude|anthropic|llama|google|gemini|deepseek|mistral|qwen|grok)[\w.:/-]*"
+    r"(?:\s+(?:\d[\w.]*|pro|flash|lite|mini|nano|ultra|turbo|small|medium|large|instruct|sonnet|opus|haiku)\b)*"
+)
+
+# Số hiệu văn bản model nêu (review 2026-09-30): phải là số hiệu bảng nêu, và câu
+# phải nói đúng dòng kho của nó — có hay không (văn bản ẩn là không), có toàn văn
+# hay chưa. Mệnh đề không có chữ số mà nói có/không/toàn văn thì nói về số hiệu nêu
+# gần nhất ("Tôi có Luật Nhà ở 27/2023/QH15. Văn bản này có toàn văn…").
+_RE_KHONG_CO = re.compile(
+    r"\b(?:không|chưa)\s+(?:có|đọc|tìm\s+thấy|nạp|nằm|thuộc)\b"
+    r"(?!\s+(?:được\s+)?(?:toàn\s+văn|đầy\s+đủ|nội\s+dung|điều|hiệu\s+lực))"
+)
+_RE_CO = re.compile(r"^\s*có\b|\btôi\s+(?:\w+\s+)?(?:có|đọc|nạp)\b|\bcó\s+(?:trong|sẵn)\b")
+_RE_NONG = re.compile(
+    r"\b(?:không|chưa)\s+(?:\w+\s+){0,2}?(?:toàn\s+văn|đầy\s+đủ|từng\s+điều)|\b(?:mới|chỉ)\s+có\s+(?:số\s+hiệu|tên)"
+)
+_RE_SAU = re.compile(r"toàn\s+văn|đầy\s+đủ|từng\s+điều")
+
+
+# Vế của một câu KÈM vị trí (cùng chỗ cắt với `_RE_VE`), để `_chep_tu_bang` nhìn
+# được dấu phẩy đứng trước vế.
+_RE_DOAN_VE = re.compile(rf"(?:(?!{_RE_VE.pattern}).)+")
+_RE_TU = re.compile(r"\w+|[^\w\s]")
+
+
+def _chep_tu_bang(t: str, dau: int, cuoi: int, phang: str) -> bool:
+    """Cụm `t[dau:cuoi]` nằm trong một đoạn CHÉP NGUYÊN từ bảng: tên văn bản ("Giấy
+    chứng nhận quyền sử dụng đất", "Văn bản hợp nhất: 1") hay một vế liệt kê sau
+    phủ định ("không phải luật sư, thẩm phán hay…"). Một ký hiệu trước, cụm, một ký
+    hiệu sau phải có nguyên văn trong bảng — "tôi đại diện cho" không có, dù bảng
+    có "không đại diện cho". ponytail: cửa sổ một ký hiệu mỗi bên; một câu bịa
+    mượn đúng cả ba thì lọt."""
+    truoc = [x.start() for x in _RE_TU.finditer(t, 0, dau)]
+    sau = [x.end() for x in _RE_TU.finditer(t, cuoi)]
+    return " ".join(t[truoc[-1] if truoc else dau : sau[0] if sau else cuoi].split()) in phang
+
+
+class _Bang(NamedTuple):
+    """Bảng dữ kiện đã tính sẵn cho phép lọc — một lần mỗi lời đáp."""
+
+    toan: str
+    phang: str
+    viec: str
+    so: set[str]
+    tu_soan: set[str]
+    dem: list[tuple[str, str, str]]
+    model: str
+    cho_phep_kho: bool
+
+
+def _so(t: str) -> set[str]:
+    """Mọi dãy chữ số, bỏ dấu phân cách hàng nghìn/thập phân: "1.825" và "1825",
+    "2.5" và "25" là cùng một con số với phép so này."""
+    return set(re.findall(r"\d+", re.sub(r"(?<=\d)[.,](?=\d)", "", t)))
+
+
+def _dem(t: str) -> list[tuple[str, str, str]]:
+    """`(số, danh từ đếm, phần sau tới chữ số kế tiếp hay hết câu)` trong chữ thường `t`."""
+    t = _RE_SO_CHU.sub(lambda m: _SO_CHU[m.group(1)] + " ", re.sub(r"(?<=\d)[.,](?=\d)", "", t))
+    return [(so, " ".join(danh.split()), " ".join(sau.split())) for so, danh, sau in _RE_DEM.findall(t)]
+
+
+def _dem_duoc_do(t: str, dem_bang: list[tuple[str, str, str]]) -> bool:
+    for so, danh, sau in _dem(t):
+        kem = [k for k in _KEM_DEM if k in re.split(r"[,;:—–]", sau)[0]]
+        if not any((so, danh) == (s, d) and all(k in sb for k in kem) for s, d, sb in dem_bang):
+            return False
+    return True
+
+
+def _van_ban_duoc_do(t: str, van_ban: dict[str, str], cuoi: list[str]) -> tuple[bool, list[str]]:
+    """`(câu nói đúng dòng kho, số hiệu nêu gần nhất)` cho câu chữ thường `t`."""
+    dung = True
+    for ve in _RE_VE.split(t):
+        sos = moi_so_hieu_trong(ve)
+        if sos:
+            cuoi = sos
+        elif not cuoi or re.search(r"\d", ve):
             continue
-        khoi.append(_mot_khoi(t, cau_hoi, kho))
+        khong, nong = bool(_RE_KHONG_CO.search(ve)), bool(_RE_NONG.search(ve))
+        day = bool(_RE_SAU.search(ve)) and not nong
+        for so in sos or cuoi:
+            do_sau = van_ban.get(so)
+            if do_sau is None:
+                dung = False
+            elif not do_sau:
+                dung = dung and (khong or not (_RE_CO.search(ve) or nong or day))
+            else:
+                dung = dung and not (khong or (nong and "shallow" not in do_sau) or (day and "deep" not in do_sau))
+    return dung, cuoi
 
-    # `NGUON` và khối `kho` đều TỰ đóng bằng `CAU_GIOI_HAN`, nên câu ghép cả
-    # hai nói nó hai lần (FR-011). Giữ bản CUỐI để câu giới hạn vẫn đứng sát
-    # cuối phần nội dung, gỡ các bản trước.
-    cuoi = max((i for i, k in enumerate(khoi) if CAU_GIOI_HAN in k), default=-1)
-    van = "\n\n".join(k if i == cuoi else k.removesuffix(CAU_GIOI_HAN).rstrip()
-                      for i, k in enumerate(khoi))
 
-    # Đúng MỘT lời mời tiếp tục, và nó phải là câu CUỐI — nên quyết định trước
-    # khi ghép `CAU_GIOI_HAN` vào: khối cuối tự kết bằng một câu hỏi (`DANH_TINH`)
-    # thì không thêm câu thứ hai.
-    hoi = _cau_hoi_tiep(cac)
-    if hoi and (van.rstrip().endswith("?") or hoi in van):
-        hoi = ""
+def _cau_duoc_do(cau: str, b: _Bang) -> bool:
+    t = cau.lower()
+    if (
+        _RE_RO_RI.search(t)
+        or (not b.cho_phep_kho and _RE_CHU_KHO.search(t))
+        or not _so(t) <= b.so
+        or not _dem_duoc_do(t, b.dem)
+        or not all(re.sub(r"\s+", "-", m.group(0)).rstrip(".:/-") in b.model for m in _RE_HANG.finditer(t))
+    ):
+        return False
+    for doan in _RE_DOAN_VE.finditer(t):
+        ve = doan.group()
+        if _RE_KHUYEN.search(ve) and not _RE_TOI_LAM.search(ve):
+            continue
+        for r in _VIEC:
+            if (
+                (m := r.search(ve))
+                and not r.search(b.toan if _RE_PHU_DINH.search(ve[: m.start()]) else b.viec)
+                and not _chep_tu_bang(t, doan.start() + m.start(), doan.start() + m.end(), b.phang)
+            ):
+                return False
+        if _RE_SOAN.search(ve) and not _RE_PHU_DINH.search(ve):
+            for m in _RE_LOAI_VB.finditer(ve):
+                if any(w not in b.tu_soan for w in _bo_dau(m.group(1)).split() if w not in _TU_NOI):
+                    return False
+    return True
 
-    # Câu giới hạn phạm vi đóng MỘT LẦN, và chỉ khi thật sự có một khối phạm vi
-    # kho để giới hạn. `NGUON` và khối `kho` đã mang sẵn nó.
-    if kho is not None and can_kho(cac) and CAU_GIOI_HAN not in van:
-        van += "\n\n" + CAU_GIOI_HAN
-    if hoi:
-        van += "\n\n" + hoi
 
-    if luot_dau and _RE_MO_DAU_CHAO.match(c):
-        van = "Chào bạn. " + van
-    return van
+def loc_theo_bang(
+    tho: str, bang: dict[str, str], cho_phep_kho: bool = False, van_ban: dict[str, str] | None = None
+) -> str:
+    """Giữ đúng những câu bảng dữ kiện đỡ được, mỗi câu MỘT lần, giữ nguyên đoạn
+    và gạch đầu dòng. Bỏ câu có: URL hay khoá; chữ "kho" khi không hỏi về văn bản;
+    con số không có trong bảng, hay không đứng cạnh đúng danh từ nó đếm; việc hay
+    vai bảng không ghi; tên model không có trong bảng; loại văn bản soạn thảo không
+    có trong bảng; số hiệu văn bản bảng không nêu, hay nói sai có/không và mức phủ
+    so với dòng kho (`van_ban`, từ `van_ban_cua_bang`; thiếu thì mọi số hiệu đều bị
+    bỏ). Rỗng nghĩa là không còn câu nào."""
+    toan = "\n".join(bang.values()).lower()
+    b = _Bang(
+        toan=toan,
+        phang=" ".join(toan.split()),
+        viec="\n".join(bang[k] for k in _DONG_VIEC if k in bang).lower(),
+        so=_so(toan),
+        tu_soan=set(re.findall(r"\w+", _bo_dau(bang.get("soan_thao", "").lower()))),
+        # Hai lượt: "27 loại văn bản (12 hợp đồng, …) theo checklist" — số trong
+        # ngoặc đếm riêng, số ngoài ngoặc đọc tiếp qua ngoặc.
+        dem=_dem(toan) + _dem(_RE_NGOAC.sub("", toan)),
+        model=bang.get("model", "").lower(),
+        cho_phep_kho=cho_phep_kho,
+    )
+    van_ban = van_ban or {}
+    cuoi: list[str] = []
+    da_co: set[str] = set()
+    ra: list[str] = []
+    for dong in tho.replace("**", "").replace("`", "").splitlines():
+        dau = "- " if dong.lstrip().startswith("- ") else ""
+        giu = []
+        for cau in _RE_CAU.split(dong.strip().removeprefix("- ").strip()):
+            khoa = " ".join(cau.lower().split())
+            dung_kho, cuoi = _van_ban_duoc_do(cau.lower(), van_ban, cuoi)
+            if khoa and khoa not in da_co and dung_kho and _cau_duoc_do(cau, b):
+                da_co.add(khoa)
+                giu.append(cau)
+        if giu:
+            ra.append(dau + " ".join(giu))
+        elif not dong.strip():
+            ra.append("")
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(ra)).strip()
+
+
+def tra_loi_meta(
+    cau_hoi: str,
+    bang: dict[str, str],
+    cac: list[str],
+    llm,
+    model: str,
+    cau_hoi_day_du: str | None = None,
+    luot_dau: bool = True,
+    van_ban: dict[str, str] | None = None,
+) -> tuple[str, Usage | None, str]:
+    """`(lời đáp, usage, nguon)` — `nguon` ∈ {"llm", "du_phong", "loi"}.
+
+    MỘT lượt model viết lời đáp cho đúng câu người dùng GÕ (`cau_hoi`; câu đã
+    giải nghĩa chỉ để hiểu ngữ cảnh), chỉ từ `bang`, rồi `loc_theo_bang`. KHÔNG
+    BAO GIỜ raise, cùng hợp đồng `assemble.giai_thich_chung`: lỗi model hay không
+    câu nào sống sót thì trả câu dự phòng từ bảng. `usage` trả cả khi hỏng — tiền
+    đã trả phải vào trace. Câu giới hạn phạm vi do mã thêm, chỉ khi hỏi về văn bản
+    (quyết định 2026-09-30 mục 5), đứng trước lời mời tiếp nếu đoạn cuối là câu hỏi.
+    """
+    du_phong = _du_phong(cau_hoi, bang, cac, luot_dau)
+    prompt = PROMPT_PATH.read_text(encoding="utf-8").format(
+        cau_hoi=cau_hoi,
+        cau_hoi_day_du=cau_hoi_day_du or cau_hoi,
+        luot="đầu cuộc trò chuyện" if luot_dau else "nối tiếp — không chào lại",
+        bang_du_kien="\n\n".join(bang.values()),
+    )
+    usage: Usage | None = None
+    try:
+        raw, usage = llm.chat(model, messages(prompt, co_soul=False), json_schema=META_SCHEMA)
+        tho = str(json.loads(raw)["tra_loi"])
+    except Exception as e:
+        logger.warning(
+            "gioi_thieu: model không viết được lời đáp (%s: %s) — dùng câu dự phòng từ bảng", type(e).__name__, e
+        )
+        return du_phong, usage, "loi"
+    van = loc_theo_bang(tho, bang, cho_phep_kho=can_kho(cac), van_ban=van_ban)
+    if not van:
+        logger.warning("gioi_thieu: không câu nào của model được bảng đỡ — dùng câu dự phòng: %r", tho[:200])
+        return du_phong, usage, "du_phong"
+    if "kho" in bang and can_kho(cac) and CAU_GIOI_HAN not in van:
+        dau, _, cuoi = van.rpartition("\n\n")
+        van = f"{dau}\n\n{CAU_GIOI_HAN}\n\n{cuoi}" if dau and cuoi.endswith("?") else f"{van}\n\n{CAU_GIOI_HAN}"
+    return van, usage, "llm"

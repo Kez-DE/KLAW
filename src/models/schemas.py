@@ -505,6 +505,10 @@ class TraCuuResponse(BaseModel):
     # cách nào sửa. Mặc định `None` để một dòng cache ghi trước bản này (payload
     # không có khoá này) vẫn tuần tự hoá được.
     cau_hoi_day_du: str | None = None
+    # Decision 2026-09-30 item 8: show the "Tôi hiểu câu hỏi của bạn là…" line
+    # only when this is True — the rewrite changed the question materially, and
+    # the answer is not a meta one. `False` for cache rows written before it.
+    hien_cau_hoi_day_du: bool = False
     # Văn bản người hỏi NÊU TÊN mà không được hiện (quyết định 2026-09-28 mục 8):
     # cùng hình dạng với 404 `khong_hien_thi` của trang văn bản, để giao diện nói
     # "không còn hiệu lực" và mở văn bản thay thế bằng MỘT thành phần. Mặc định

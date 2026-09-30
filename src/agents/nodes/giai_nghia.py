@@ -43,10 +43,13 @@ NGOÀI `try`, đúng khuôn `route.py`; chỉ ĐẦU RA dị dạng của model 
 
 import json
 import logging
+import re
+import unicodedata
 from pathlib import Path
 from typing import NamedTuple
 
 from src.agents.nodes.assemble import _so_dieu_trong
+from src.agents.nodes.gioi_thieu import _bo_dau
 from src.agents.nodes.hoi_lai import moc_phap_ly_trong
 from src.services.kho import moi_so_hieu_trong
 from src.services.llm import Usage
@@ -159,6 +162,33 @@ def dinh_danh_bia(cau_da_giai: str, cau_goc: str, lich_su: list[dict], tom_tat: 
     return [f"Điều {d}" for d in dieu] + so_hieu + moc
 
 
+# Chủ thể, tiểu từ và chữ viết tắt giai_nghia hay thêm, bỏ hay viết đủ mà không
+# đổi nghĩa câu: "bạn giúp tôi được chứ" → "KLAW, bạn giúp tôi được chứ" (trace
+# 2cfaa33a), "đc ko" → "được không". CÓ DẤU: bỏ dấu thì bạn/bán/bản, tôi/tội,
+# nha/nhà, vậy/vay, chủ/chứ trùng nhau (review 2026-09-30).
+_TU_KHONG_DOI_NGHIA = frozenset(
+    "klaw bạn tôi mình em trợ lý người hỏi à ạ nhé nha nhỉ ơi vậy thì là có không ko k được đc dc chứ và".split()
+)
+
+
+def doi_nghia(goc: str, day_du: str) -> bool:
+    """Câu đã giải nghĩa có thêm hay BỚT nội dung so với câu người dùng gõ không —
+    quyết định 2026-09-30 mục 8: dòng "Tôi hiểu câu hỏi của bạn là…" chỉ hiện khi
+    có. So từ CÓ DẤU; một từ người dùng gõ không dấu khớp bản có dấu của nó
+    ("tien" ~ "tiền"), nên thêm dấu hay chấm câu không tính là đổi nghĩa, còn bỏ
+    một ý ("khi đang thử việc") thì tính."""
+
+    def tu(x: str) -> set[str]:
+        return set(re.findall(r"\w+", unicodedata.normalize("NFC", x.lower())))
+
+    g, d = tu(goc), tu(day_du)
+    g_khong_dau = {t for t in g if _bo_dau(t) == t}
+    d_bo_dau = {_bo_dau(t) for t in d}
+    them = {t for t in d - g if _bo_dau(t) not in g_khong_dau}
+    bot = {t for t in g - d if not (t in g_khong_dau and t in d_bo_dau)}
+    return bool((them | bot) - _TU_KHONG_DOI_NGHIA)
+
+
 def _goi(cau_hoi: str, lich_su: list[dict], llm, model: str, tom_tat: str | None = None) -> KetQuaGiaiNghia:
     """Một lượt giải nghĩa. Tầng gần LLM nhất, tách khỏi phần ghi state để phần
     dựng prompt và lưới chặn kiểm được mà không cần một `KLawState`."""
@@ -225,6 +255,7 @@ def giai_nghia(state: dict, llm, model: str) -> dict:
         **state,
         "cau_hoi_goc": goc,
         "cau_hoi_day_du": ket.cau_hoi_day_du,
+        "cau_hoi_doi_nghia": bool(ket.cau_hoi_day_du) and doi_nghia(goc, ket.cau_hoi_day_du),
         # Không giải nghĩa được thì KHÔNG sửa câu hỏi. `_re_sau_giai_nghia` rẽ
         # lượt đó sang `assemble` (đường ngõ cụt đã có), nên `query` ở đây chỉ
         # còn phục vụ `hoi_lai` — và nó phải hỏi lại về đúng câu người ta gõ.

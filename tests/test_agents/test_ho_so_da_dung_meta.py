@@ -37,9 +37,9 @@ def _pass(pid=11):
 
 
 def test_gioi_thieu_khong_dung_ho_so(monkeypatch):
-    # Cô lập khỏi `gioi_thieu.cau_gioi_thieu`: phép kiểm này canh gating của
-    # `_base`, không phải nội dung câu đáp (module đó đang bị agent khác sửa).
-    monkeypatch.setattr(assemble_mod, "cau_gioi_thieu", lambda cau_hoi: "x")
+    # Cô lập khỏi `gioi_thieu.tra_loi_meta`: phép kiểm này canh gating của
+    # `_base`, không phải nội dung câu đáp.
+    monkeypatch.setattr(assemble_mod, "tra_loi_meta", lambda *a, **k: ("x", None, "llm"))
     st = assemble({"query": "bạn làm được gì", "intent": "gioi_thieu", "ho_so": HO_SO}, {}, None, "")
     assert st["result_type"] is ResultType.gioi_thieu
     assert st["ho_so_da_dung"] == []

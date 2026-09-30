@@ -522,8 +522,10 @@ interface TheKetQuaProps {
 }
 
 /**
- * "Mình hiểu câu hỏi của bạn là…" — chỉ hiện khi máy chủ ĐÃ giải nghĩa lại câu
- * hỏi, và câu đó KHÁC câu người dùng gõ.
+ * "Tôi hiểu câu hỏi của bạn là…" — chỉ hiện khi máy chủ nói câu viết lại ĐỔI
+ * NGHĨA đáng kể (`hien_cau_hoi_day_du`, quyết định 2026-09-30 mục 8: không khi
+ * chỉ thêm chủ ngữ, không bao giờ với câu hỏi về KLAW), và câu đó KHÁC câu người
+ * dùng gõ.
  *
  * Vì sao bắt buộc có: một lượt hỏi nối tiếp ("liệt kê bảng cho tôi") được máy
  * chủ viết lại thành một câu tự đứng được trước khi đi tra. Giải nghĩa sai là
@@ -535,8 +537,16 @@ interface TheKetQuaProps {
  * duy nhất là một dấu cách cuối câu vẫn sẽ hiện một dòng nói "mình hiểu là" kèm
  * đúng câu người ta vừa gõ — nhiễu, không phải thông tin.
  */
-function CauHoiDaHieu({ goc, dayDu }: { goc: string | undefined; dayDu: string | null }) {
-  if (dayDu === null || dayDu.trim() === "") return null;
+function CauHoiDaHieu({
+  goc,
+  dayDu,
+  hien,
+}: {
+  goc: string | undefined;
+  dayDu: string | null;
+  hien: boolean;
+}) {
+  if (!hien || dayDu === null || dayDu.trim() === "") return null;
   const gon = (x: string) => x.trim().replace(/\s+/g, " ");
   if (goc !== undefined && gon(goc) === gon(dayDu)) return null;
   return (
@@ -572,7 +582,11 @@ export function TheKetQua(props: TheKetQuaProps) {
     .filter((v) => v !== null);
   return (
     <>
-      <CauHoiDaHieu goc={props.cauHoiGoc} dayDu={props.ketQua.cau_hoi_day_du} />
+      <CauHoiDaHieu
+        goc={props.cauHoiGoc}
+        dayDu={props.ketQua.cau_hoi_day_du}
+        hien={props.ketQua.hien_cau_hoi_day_du === true}
+      />
       <DuaTren
         muc={props.ketQua.ho_so_da_dung ?? []}
         {...(props.onSuaHoSo ? { onSua: props.onSuaHoSo } : {})}
