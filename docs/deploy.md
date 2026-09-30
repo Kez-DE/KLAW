@@ -112,7 +112,8 @@ Supabase → Authentication → URL Configuration: thêm `https://klaw-web-produ
   lực từ `data/seed/hieu_luc_gateway.jsonl` + `hieu_luc_ghi_de.yaml`. Bằng chứng cạnh
   (`data/seed/canh_doi_chieu.yaml`) được `load_incoming_edges` đặt lại ở cuối mỗi lượt;
   nạp riêng: `python -m scripts.nap_canh_doi_chieu`. Điều khoản bị bãi bỏ (quyết định
-  2026-09-30 mục 9, bảng 043) khoá theo `provisions.id`, nên sau MỖI lần `ingest` chạy
+  2026-09-30 mục 9, bảng 043) khoá theo `provisions.id`: `ingest` tự nạp lại bảng từ seed
+  ở cuối mỗi lượt; nạp riêng (sau khi sinh lại seed hay chép DB):
   `python -m scripts.nap_bai_bo_dieu_khoan` (dry-run) rồi thêm `--ghi`.
   Bản PDF đã ký và ảnh trang 1 (quyết định mục 9): `python -m scripts.nap_pdf_ban_ky
   --cache DIR --as-of YYYY-MM-DD` (dry-run, ghi `data/seed/pdf_ban_ky.yaml`) rồi thêm

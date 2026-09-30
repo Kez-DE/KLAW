@@ -7,7 +7,7 @@ câu trích nguyên văn và nguồn chính thống.
 
 Seed do `scripts.trich_bai_bo` viết ra, khoá bằng (id văn bản, `duong_dan` điều khoản) và
 văn bản đi bãi bỏ — không bằng `provisions.id`, vì `ingest` có thể đổi id (CASCADE xoá dòng
-của bảng này): chạy lại script sau mỗi lượt `ingest`. Bảng được ĐỒNG BỘ với seed. Kiểm HẾT
+của bảng này): `scripts.ingest` gọi `nap` ở cuối mỗi lượt. Bảng được ĐỒNG BỘ với seed. Kiểm HẾT
 rồi mới ghi, một giao dịch; một điều khoản không phân giải được đúng một dòng là LỖI.
 """
 

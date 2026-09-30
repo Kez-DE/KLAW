@@ -97,3 +97,26 @@ def test_phan_giai_theo_van_ban_va_duong_dan():
 def test_phan_giai_khong_doan(dieu_khoan, van_ban, loi):
     with pytest.raises(ValueError, match=loi):
         phan_giai([HANG], dieu_khoan, van_ban)
+
+
+def test_ingest_nap_lai_bang_bai_bo_sau_khi_ghi():
+    """Review 2026-09-30: `ingest` đi đường DELETE-rồi-INSERT khi khung provision đổi, và FK
+    CASCADE (043) xoá mọi dòng bãi bỏ của văn bản đó — điều khoản đã bãi bỏ hiện lại, không lỗi,
+    không tín hiệu. `ingest` tự nạp lại bảng từ seed (khoá `duong_dan`) SAU `resolve_all`, cùng
+    lệ nó dựng lại cạnh cấp điều khoản; seed không phân giải được thì `nap` nổ ngay tại đó."""
+    import ast
+    import inspect
+
+    from scripts import ingest
+
+    f = next(
+        n
+        for n in ast.walk(ast.parse(inspect.getsource(ingest)))
+        if isinstance(n, ast.FunctionDef) and n.name == "ingest"
+    )
+    goi = {getattr(x.func, "id", None): x for x in ast.walk(f) if isinstance(x, ast.Call)}
+    tu = [x for x in ast.walk(f) if isinstance(x, ast.ImportFrom) and x.module == "scripts.nap_bai_bo_dieu_khoan"]
+    assert tu and [a.asname or a.name for a in tu[0].names] == ["nap_bai_bo"], "from scripts.nap_bai_bo_dieu_khoan …"
+    nap = goi["nap_bai_bo"]
+    assert nap.lineno > goi["resolve_all"].lineno
+    assert any(k.arg == "ghi" and getattr(k.value, "value", None) is True for k in nap.keywords)
