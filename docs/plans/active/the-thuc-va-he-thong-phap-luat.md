@@ -153,6 +153,30 @@ retired for drafts.
   the filled value carried into the edited version, 196 fake calls, 0 paid, 0 DB
   writes (draft tables in memory, other reads READ ONLY). 166 of 1,071 blanks have no
   label and show as "chỗ trống" (header place/date, signer lines).
+- [x] Integration review fixes (2026-09-30, `integ/khuon-mau`). (1) Filling on the page
+  wrote one blank while the template prints a field several times (41 of 48 types:
+  tên cơ quan on both parts of a quyết định ban hành, số/ký hiệu/ngày of the quyết
+  định and its "(Kèm theo …)" line, party name and signer name). `sua_o_dien` now goes
+  through `phep_o_dien`: one value fills every blank with the same `(ben, truong)` in
+  `audit.khung.o`, a copy the request names itself keeps its own value, and the
+  returned `khuon` carries every changed blank, so the page shows them at once (no
+  frontend change). The builder keys the repeated tháng/năm (`thang_ban_hanh`,
+  `nam_ban_hanh`), the place name (`dia_danh`, one date line per document) and "Số:
+  …/QĐ-…" of the quyết định, biên bản and giấy ủy quyền types (`so_van_ban`,
+  `viet_tat_co_quan`); `ngay_ban_hanh` is labelled "Ngày ban hành" (a full date is
+  still split by `_tach_ngay`). (2) Labels: a keyed blank shows the template label when
+  it is a name, else the `_truong.yaml` label; the chat "Còn trống:" names party
+  fields first, then document fields, then lettered labels, one name for all copies,
+  and counts the rest. Pure build of the 48 types, same input before/after: 1,097
+  blanks, unlabelled 166 → 7, "/…" fragments 11 → 0; e2e final pages: 4 of 1,065
+  unlabelled. E2E re-run, 49/49 without
+  problems: 35 rows filled a field printed twice and both copies got the value (field
+  list and docx text), 14 single-copy; chat lines naming "chỗ trống", "/QĐ-", "ngày",
+  "tháng", "năm" or "(sau …)": 0/49; 196 fake calls, 0 paid, 0 DB writes. CI lane 4082
+  passed, 1 failed (worktree-only `test_data_raw_VAN_bi_gitignore`), 4 skipped, 1
+  xfailed; frontend typecheck and kiem exit 0. Open: `cong_van` logs "bản đồ 3 chỗ,
+  bộ đọc 4" when the trích yếu itself holds "……" (the builder prints trích yếu text
+  without mapping its blanks); that cell has no keyed blank, so nothing is lost today.
 - [ ] V reviews, real-app check, eval.
 
 ## Validation
