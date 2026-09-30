@@ -27,7 +27,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "KLAW tra cứu pháp luật lao động Việt Nam theo điều, khoản, điểm — mỗi câu trả lời kèm trích dẫn kiểm chứng được và nhãn hiệu lực — và soạn thảo văn bản pháp lý đúng thể thức.",
+          "KLAW tra cứu pháp luật Việt Nam theo điều, khoản, điểm, sâu nhất ở lĩnh vực lao động — mỗi câu trả lời kèm trích dẫn kiểm chứng được và nhãn hiệu lực — và soạn thảo văn bản pháp lý đúng thể thức.",
       },
       {
         property: "og:title",
@@ -96,16 +96,15 @@ const STEPS = [
   },
 ];
 
-// Sáu lĩnh vực này là phạm vi corpus THẬT theo PRODUCT.md. Bản Lovable liệt 12,
-// trong đó Đất đai, Hôn nhân & Gia đình, Thuế, Sở hữu trí tuệ, Đầu tư và Doanh
-// nghiệp là đúng những lĩnh vực PRODUCT.md nói KHÔNG phủ.
-//
-// Danh sách TÊN vẫn viết cứng, và đó là chỗ đúng của nó: phạm vi sản phẩm do
-// PRODUCT.md quyết, không phải do dữ liệu hôm nay. Còn SỐ ĐẾM thì đi qua API —
-// xem `PhamViKho` ngay dưới danh sách này.
+// Vài lĩnh vực hay gặp, KHÔNG phải danh sách đủ: phạm vi là pháp luật Việt Nam,
+// sâu nhất ở lao động (PRODUCT.md "Phạm vi corpus", quyết định 2026-09-30 mục 6).
+// Mọi mục ở đây đều có văn bản có toàn văn. Chỉ Lao động mang nhãn độ sâu — nhãn
+// "chỉ bộ luật" cũ đã sai với dữ liệu (đếm 2026-09-30) nên bị gỡ, không thay
+// bằng một nhãn viết cứng khác. SỐ ĐẾM đi qua API — xem `PhamViKho` ngay dưới.
 const AREAS = [
   { ten: "Lao động", sau: true },
   { ten: "Dân sự", sau: false },
+  { ten: "Đất đai", sau: false },
   { ten: "Hình sự", sau: false },
   { ten: "Tố tụng dân sự", sau: false },
   { ten: "Tố tụng hình sự", sau: false },
@@ -123,7 +122,7 @@ const FAQS = [
   },
   {
     q: "KLAW dựa trên nguồn nào?",
-    a: "KLAW truy hồi trên một kho văn bản gốc lấy từ Cơ sở dữ liệu quốc gia về văn bản quy phạm pháp luật, tập trung vào pháp luật lao động, và luôn nêu tên văn bản kèm điều, khoản, điểm để bạn tự kiểm chứng. Kho là văn bản GỐC, không phải bản hợp nhất — KLAW bảo đảm đúng nguyên văn, không bảo đảm đó là bản hiện hành, và chỉ hiện văn bản còn hiệu lực.",
+    a: "KLAW truy hồi trên một kho văn bản gốc lấy từ Cơ sở dữ liệu quốc gia về văn bản quy phạm pháp luật, sâu nhất ở pháp luật lao động, và luôn nêu tên văn bản kèm điều, khoản, điểm để bạn tự kiểm chứng. Kho là văn bản GỐC, không phải bản hợp nhất — KLAW bảo đảm đúng nguyên văn, không bảo đảm đó là bản hiện hành, và chỉ hiện văn bản còn hiệu lực.",
   },
   {
     q: "Tôi có cần biết thuật ngữ pháp lý không?",
@@ -209,9 +208,9 @@ function Landing() {
               </h1>
 
               <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-                KLAW đọc câu hỏi của bạn, dẫn chiếu đúng điều, khoản, điểm trong pháp luật lao động
-                Việt Nam kèm nhãn hiệu lực, và soạn thảo văn bản pháp lý đúng thể thức. Một lượt trả
-                lời thường mất 10–60 giây.
+                KLAW đọc câu hỏi của bạn, dẫn chiếu đúng điều, khoản, điểm trong pháp luật Việt Nam
+                kèm nhãn hiệu lực, và soạn thảo văn bản pháp lý đúng thể thức. Một lượt trả lời
+                thường mất 10–60 giây.
               </p>
 
               <div className="pointer-events-auto mt-9 flex flex-wrap items-center gap-3">
@@ -336,9 +335,10 @@ function Landing() {
                 </h2>
                 <p className="mt-4 leading-relaxed text-muted-foreground">
                   KLAW truy hồi trên một kho văn bản pháp luật Việt Nam có giới hạn rõ ràng, không
-                  phải một mô hình được huấn luyện trên toàn bộ pháp luật. Chiều sâu không đều: cụm
-                  Lao động có luật, nghị định, thông tư và chế tài; năm bộ luật còn lại hiện chỉ có
-                  bản thân bộ luật. Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn kiểm chứng.
+                  phải một mô hình được huấn luyện trên toàn bộ pháp luật. Chiều sâu không đều: sâu
+                  nhất là lĩnh vực lao động, có đủ luật, nghị định, thông tư và chế tài; các lĩnh
+                  vực khác sâu cạn khác nhau. Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn
+                  kiểm chứng.
                 </p>
                 <Link
                   to="/dung-thu"
@@ -357,9 +357,9 @@ function Landing() {
                     data-reveal-delay={i * 45}
                   >
                     {a.ten}
-                    <span className="ml-1.5 text-xs text-muted-foreground">
-                      {a.sau ? "luật + văn bản dưới luật" : "chỉ bộ luật"}
-                    </span>
+                    {a.sau && (
+                      <span className="ml-1.5 text-xs text-muted-foreground">sâu nhất</span>
+                    )}
                   </li>
                 ))}
               </ul>

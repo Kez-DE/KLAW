@@ -676,6 +676,38 @@ def test_FE_biet_moi_gia_tri_ResultType_cua_backend():
     assert not thieu_union, f"thiếu trong union ResultType của TS: {sorted(thieu_union)}"
 
 
+def test_khoa_TraCuuKetQua_cua_FE_khop_TraCuuResponse():
+    """Cùng biên với test ngay trên, cho TÊN KHOÁ thay vì giá trị `result_type`.
+
+    Một khoá FE đọc mà máy chủ không bao giờ gửi thì nhánh giao diện của nó tắt
+    VĨNH VIỄN và không ai biết — `hien_cau_hoi_day_du` vắng nghĩa là dòng "Tôi
+    hiểu câu hỏi của bạn là…" không bao giờ hiện, mất đúng lưới an toàn cho câu
+    nối tiếp bị viết lại sai (review N4, 2026-09-30). Chiều ngược lại: máy chủ
+    đặt tên khác cho cùng khoá thì tên đó thành khoá FE không biết.
+    """
+    import re
+    from pathlib import Path
+
+    from src.models.schemas import TraCuuResponse
+
+    ts = Path(__file__).resolve().parents[2] / "frontend/src/lib/klaw.ts"
+    khoi = re.search(r"export interface TraCuuKetQua \{\n(.*?)\n\}\n", ts.read_text(encoding="utf-8"), re.S)
+    assert khoi, "không tìm thấy interface TraCuuKetQua trong klaw.ts — đổi tên?"
+    o_fe = set(re.findall(r"^  ([a-z_]+)\??:", khoi.group(1), re.M))
+    o_be = set(TraCuuResponse.model_fields)
+    # Chỉ để đo/eval, giao diện không đọc.
+    chi_may_chu = {"config_name"}
+    # Khoá FE của đợt 2026-09-30 mà `TraCuuResponse` nhận ở nhánh khác (N2: cờ dòng
+    # "Tôi hiểu"; N3: hai phần mới). Gộp nhánh đó xong thì assert cuối đỏ: xoá khoá
+    # khỏi đây, để từ đó phép so là chặt. Nhánh kia đặt tên khác thì assert thứ hai
+    # đỏ ngay lúc gộp — đúng lỗi review nêu.
+    cho_may_chu = {"hien_cau_hoi_day_du", "phan_tich", "doi_chieu_them"}
+
+    assert not o_fe - o_be - cho_may_chu, f"FE đọc khoá máy chủ không gửi: {sorted(o_fe - o_be - cho_may_chu)}"
+    assert not o_be - o_fe - chi_may_chu, f"máy chủ gửi khoá FE không khai: {sorted(o_be - o_fe - chi_may_chu)}"
+    assert not cho_may_chu & o_be, f"{sorted(cho_may_chu & o_be)} đã có trong TraCuuResponse — xoá khỏi cho_may_chu"
+
+
 async def test_k_va_documents_khong_bi_loc_o_bien_HTTP(client, monkeypatch):
     """Spec 2026-09-06 §3.2: hai trường mới của thẻ bấm được phải sống qua
     pydantic ở biên HTTP — cùng lớp lỗi `khop_tai_id`/`doc_id`/`bang`/`nguon`."""

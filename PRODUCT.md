@@ -49,7 +49,7 @@ trên, đầy đủ ở lớp dưới khi người dùng muốn đào sâu. Khô
 | `answer` | có căn cứ, đã qua cả hai tầng kiểm |
 | `partial_coverage` | chỉ trúng tầng nông — nêu văn bản, **không** diễn giải. **Đã sống từ 2026-09-01** (xem dưới) |
 | `abstain` | không đủ căn cứ |
-| `out_of_scope` | ngoài phạm vi 6 Bộ luật + cụm Lao động |
+| `out_of_scope` | câu hỏi pháp luật mà bộ định tuyến xếp ngoài phạm vi; không tra điều luật nào |
 
 **`abstain` là hành vi ĐÚNG, được tính điểm trong đánh giá — không phải lỗi.** Giao
 diện phải thể hiện đúng như vậy: màu trung tính, giọng bình thường. Một hệ thống thà
@@ -96,16 +96,17 @@ phải **thấy được**, không nằm trong metadata.
 
 ## Phạm vi corpus
 
-21 văn bản, 19.135 điều khoản.
+Pháp luật Việt Nam, sâu nhất ở lao động (quyết định 2026-09-30 mục 6). Số văn bản và
+số điều khoản đếm từ DB qua `GET /pham-vi`; không chép con số vào đây, vì nó đổi sau
+mỗi đợt nạp (bản cũ ghi "21 văn bản" rất lâu sau khi kho đã lớn hơn nhiều).
 
-- **Sáu Bộ luật**: Dân sự (689 Điều), Tố tụng dân sự (517), Tố tụng hình sự (510), Hình sự (426), Hàng hải (341), Lao động (220)
-- **Cụm Lao động** 15 văn bản dưới luật: nghị định hướng dẫn, xử phạt, an toàn vệ sinh lao động, tuổi nghỉ hưu, thời giờ làm việc, 6 nghị định lương tối thiểu
+- **Sáu Bộ luật** có toàn văn: Dân sự, Tố tụng dân sự, Tố tụng hình sự, Hình sự, Hàng hải, Lao động.
+- **Lao động** có đủ luật, nghị định hướng dẫn, thông tư và chế tài xử phạt.
+- Các lĩnh vực khác (đất đai, hôn nhân và gia đình, thuế, doanh nghiệp, đầu tư…) sâu cạn
+  khác nhau: có văn bản đã có toàn văn, có văn bản mới chỉ có thông tin văn bản.
 
-Chiều sâu **không đều**: Lao động có luật + nghị định + thông tư + chế tài; năm Bộ
-luật còn lại chỉ có bản thân bộ luật. Giao diện không được ngụ ý mọi lĩnh vực được
-phủ như nhau.
-
-Không phủ: thuế, đất đai, hôn nhân gia đình, doanh nghiệp, đầu tư, sở hữu trí tuệ.
+Chiều sâu **không đều**. Giao diện không được ngụ ý mọi lĩnh vực được phủ như nhau, và
+không được viết cứng một danh sách "không phủ" — danh sách đó đã sai một lần.
 
 ## Thuật ngữ
 

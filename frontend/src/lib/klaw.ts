@@ -489,11 +489,20 @@ export interface TraCuuKetQua {
    */
   cau_hoi_day_du: string | null;
   /**
-   * Máy chủ quyết định có hiện dòng "Tôi hiểu câu hỏi của bạn là…" không (quyết
-   * định 2026-09-30 mục 8): chỉ khi câu viết lại đổi nghĩa đáng kể, không bao giờ
-   * với câu hỏi về KLAW. Vắng (response cũ) nghĩa là không hiện.
+   * Cờ của máy chủ: câu viết lại ĐỔI NGHĨA đáng kể so với câu đã gõ, nên dòng
+   * "Tôi hiểu câu hỏi của bạn là…" phải hiện (quyết định 2026-09-30 mục 8).
+   * Vắng hoặc `false` thì ẩn — kể cả với payload lưu trước khi cờ tồn tại.
    */
   hien_cau_hoi_day_du?: boolean;
+  /**
+   * "Phân tích cho tình huống của bạn" (quyết định 2026-09-30 mục 3): model áp
+   * các quy định ĐÃ trích vào tình huống người hỏi kể. Chỉ ở câu kể tình huống
+   * của chính người hỏi; vắng/null ở mọi lượt khác. Đọc qua `chuanHoaPhanTich`.
+   */
+  phan_tich?: { tieu_de: string; doan: string[] } | null;
+  /** Văn bản câu trả lời cần mà chưa trích dẫn được nguyên văn (mục 4). Đọc qua
+   *  `chuanHoaDoiChieuThem`. */
+  doi_chieu_them?: VanBanDoiChieuThem[] | null;
   /**
    * Hai bảng của nhánh xin bảng, `[]` ở mọi nhánh khác. Máy chủ nay LUÔN gửi
    * khoá này, nhưng `laTraCuuKetQua` vẫn khoan dung khi nó vắng mặt — một
@@ -534,6 +543,13 @@ export interface TraCuuKetQua {
    * vì payload lưu trước trường này không có.
    */
   van_ban_khong_hien_thi?: VanBanKhongHienThi[];
+}
+
+/** Một dòng "Nên đối chiếu thêm": không `doc_id` — văn bản này không trích được. */
+export interface VanBanDoiChieuThem {
+  so_ky_hieu: string;
+  ten_van_ban: string | null;
+  lien_ket: string | null;
 }
 
 /** `VanBanAnOut` của `src/models/schemas.py`: 404 `khong_hien_thi` cộng tên văn bản. */
@@ -1272,6 +1288,10 @@ const LOAI_KET_QUA: readonly string[] = [
   "tai_lieu",
 ];
 
+/** Hai loại trả lời câu hỏi về CHÍNH KLAW: không bao giờ kèm dòng "Tôi hiểu câu
+ *  hỏi của bạn là…" (quyết định 2026-09-30 mục 8). */
+export const LOAI_VE_KLAW: ReadonlySet<ResultType> = new Set(["gioi_thieu", "hoi_ve_kho"]);
+
 /**
  * Một `Bang` hợp lệ: `dong` phải khớp SỐ CỘT của `cot`, hàng nào lệch bị loại
  * ở đây — xem lời gọi trong `laTraCuuKetQua`.
@@ -1424,6 +1444,31 @@ export function chuanHoaVanBanBiAn(d: unknown): VanBanBiAn | null {
     thay_the: Array.isArray(d["thay_the"]) ? d["thay_the"].filter(laVanBanDan) : [],
   };
   return laVanBanBiAn(chuanHoa) ? chuanHoa : null;
+}
+
+/**
+ * Các đoạn của `TraCuuKetQua.phan_tich`, đoạn rỗng/không phải chuỗi bị loại;
+ * `[]` khi vắng hoặc dị dạng — thẻ khi đó không vẽ mục phân tích nào.
+ * `tieu_de` cố ý KHÔNG đọc: nhãn của phần này là hằng số giao diện (như dòng
+ * ⚖️), để không chữ nào từ máy chủ đổi được tên nó thành một "quy định".
+ */
+export function chuanHoaPhanTich(x: unknown): string[] {
+  const doan = laBanGhi(x) ? x["doan"] : null;
+  return Array.isArray(doan)
+    ? doan.filter((d): d is string => typeof d === "string" && d.trim() !== "")
+    : [];
+}
+
+/** `TraCuuKetQua.doi_chieu_them`: phần tử thiếu số hiệu bị loại, chuỗi rỗng → `null`. */
+export function chuanHoaDoiChieuThem(x: unknown): VanBanDoiChieuThem[] {
+  if (!Array.isArray(x)) return [];
+  const chuoi = (v: unknown) => (typeof v === "string" && v.trim() !== "" ? v.trim() : null);
+  return x.flatMap((v) => {
+    const so = laBanGhi(v) ? chuoi(v["so_ky_hieu"]) : null;
+    return laBanGhi(v) && so !== null
+      ? [{ so_ky_hieu: so, ten_van_ban: chuoi(v["ten_van_ban"]), lien_ket: chuoi(v["lien_ket"]) }]
+      : [];
+  });
 }
 
 export function laVanBanLienQuan(x: unknown): x is VanBanLienQuan {

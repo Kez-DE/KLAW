@@ -9,7 +9,13 @@ import type {
   VanBanBiAn,
   VanBanTraLoi,
 } from "@/lib/klaw";
-import { chuanHoaVanBanBiAn, khuonHopLe } from "@/lib/klaw";
+import {
+  chuanHoaDoiChieuThem,
+  chuanHoaPhanTich,
+  chuanHoaVanBanBiAn,
+  khuonHopLe,
+  LOAI_VE_KLAW,
+} from "@/lib/klaw";
 import { mauTheoId, slugCuaLoai } from "@/lib/mau-van-ban";
 import {
   cachTrichHopLe,
@@ -24,7 +30,7 @@ import {
 } from "@/lib/trich-dan";
 import { cn } from "@/lib/utils";
 import { catDoan, catManh, type Manh } from "@/lib/van-xuoi";
-import { BadgeHieuLuc } from "./BadgeHieuLuc";
+import { BadgeHieuLuc, LinkVanBanDan } from "./BadgeHieuLuc";
 import { BangKetQua } from "./BangKetQua";
 import { DanhSachThayThe } from "./BaoLoi";
 import { DuaTren } from "./DuaTren";
@@ -49,24 +55,6 @@ import { KhoiNeoTaiLieu, TheTaiLieu } from "./TheTaiLieu";
  *
  * Đỏ chỉ dành cho luật đã bị thay thế hoặc hết hiệu lực.
  */
-
-/** Phạm vi kho, chép từ PRODUCT.md. Không suy đoán thêm lĩnh vực nào. */
-const SAU_BO_LUAT = [
-  "Dân sự",
-  "Tố tụng dân sự",
-  "Tố tụng hình sự",
-  "Hình sự",
-  "Hàng hải",
-  "Lao động",
-];
-const KHONG_PHU = [
-  "thuế",
-  "đất đai",
-  "hôn nhân gia đình",
-  "doanh nghiệp",
-  "đầu tư",
-  "sở hữu trí tuệ",
-];
 
 const GOI_Y_DIEN_DAT_LAI = [
   "Nêu rõ vai trò trong quan hệ lao động: người lao động hay người sử dụng lao động.",
@@ -234,6 +222,72 @@ function KhoiCanCuPhapLy({
           );
         })}
       </ol>
+    </section>
+  );
+}
+
+/**
+ * "Phân tích cho tình huống của bạn" (quyết định 2026-09-30 mục 3): model áp các
+ * quy định ĐÃ trích vào tình huống người hỏi kể. Đứng tách khỏi câu trả lời có
+ * trích dẫn, mang nhãn và lời tự khai của nó — cùng cách khối "Suy luận của mô
+ * hình" của `TheTaiLieu` tự khai. Nhãn là hằng số giao diện (`chuanHoaPhanTich`).
+ * Thẻ `cite:K` trong đoạn vẫn mở đúng trích dẫn đã kiểm, như trong câu trả lời.
+ */
+function KhoiPhanTich({
+  ketQua,
+  onChon,
+}: {
+  ketQua: TraCuuKetQua;
+  onChon: (chiSo: number) => void;
+}) {
+  const doan = chuanHoaPhanTich(ketQua.phan_tich);
+  if (doan.length === 0) return null;
+  return (
+    <section
+      aria-label="Phân tích cho tình huống của bạn"
+      className="mt-4 rounded-xl border-l-2 bg-[var(--color-paper-50)] py-3 pr-4 pl-4"
+      style={{ borderLeftColor: "var(--color-brass-500)" }}
+    >
+      <h3 className="m-0 text-[13px] leading-5 font-medium text-foreground">
+        Phân tích cho tình huống của bạn
+      </h3>
+      <div className="doc-prose mt-1.5 text-foreground">
+        <KhoiVanXuoi chu={doan.join("\n\n")} ketQua={ketQua} onChon={onChon} />
+      </div>
+      <p className="mt-2 mb-0 text-[12px] text-muted-foreground">
+        Phần này là cách KLAW áp các quy định đã trích vào tình huống của bạn, không phải tư vấn
+        pháp lý.
+      </p>
+    </section>
+  );
+}
+
+/**
+ * Văn bản câu trả lời cần mà chưa trích dẫn được nguyên văn (quyết định
+ * 2026-09-30 mục 4) — ghi ở cuối, link chính thống khi có, qua đúng
+ * `LinkVanBanDan` của danh sách văn bản thay thế. Không `doc_id`: không có trang
+ * nội bộ nào để mở, và đây không phải căn cứ đã kiểm.
+ */
+function KhoiDoiChieuThem({ ketQua }: { ketQua: TraCuuKetQua }) {
+  const vanBan = chuanHoaDoiChieuThem(ketQua.doi_chieu_them);
+  if (vanBan.length === 0) return null;
+  return (
+    <section aria-label="Nên đối chiếu thêm" className="mt-4">
+      <h3 className="m-0 text-[13px] leading-5 text-muted-foreground">
+        Nên đối chiếu thêm (chưa trích dẫn được nguyên văn)
+      </h3>
+      <ul className="mt-1 mb-0 list-disc pl-5 text-[13px] leading-6">
+        {vanBan.map((vb) => (
+          <li key={`${vb.so_ky_hieu}-${vb.ten_van_ban ?? ""}`} className="mt-1 first:mt-0">
+            <LinkVanBanDan vanBan={{ ...vb, doc_id: null }}>
+              <span className="font-jetbrains">{vb.so_ky_hieu}</span>
+            </LinkVanBanDan>
+            {vb.ten_van_ban !== null && (
+              <span className="text-muted-foreground"> — {vb.ten_van_ban}</span>
+            )}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -522,10 +576,11 @@ interface TheKetQuaProps {
 }
 
 /**
- * "Tôi hiểu câu hỏi của bạn là…" — chỉ hiện khi máy chủ nói câu viết lại ĐỔI
- * NGHĨA đáng kể (`hien_cau_hoi_day_du`, quyết định 2026-09-30 mục 8: không khi
- * chỉ thêm chủ ngữ, không bao giờ với câu hỏi về KLAW), và câu đó KHÁC câu người
- * dùng gõ.
+ * "Tôi hiểu câu hỏi của bạn là…" — chỉ hiện khi máy chủ bật cờ
+ * `hien_cau_hoi_day_du` (câu viết lại ĐỔI NGHĨA đáng kể, không bao giờ với câu
+ * hỏi về KLAW — quyết định 2026-09-30 mục 8), và câu đó KHÁC câu người dùng gõ.
+ * Cờ vắng thì ẩn: dòng này từng hiện cho cả những câu viết lại chỉ đổi chữ.
+ * Câu hỏi về KLAW (`LOAI_VE_KLAW`) bị chặn cả ở nơi gọi, không dựa riêng vào cờ.
  *
  * Vì sao bắt buộc có: một lượt hỏi nối tiếp ("liệt kê bảng cho tôi") được máy
  * chủ viết lại thành một câu tự đứng được trước khi đi tra. Giải nghĩa sai là
@@ -585,7 +640,9 @@ export function TheKetQua(props: TheKetQuaProps) {
       <CauHoiDaHieu
         goc={props.cauHoiGoc}
         dayDu={props.ketQua.cau_hoi_day_du}
-        hien={props.ketQua.hien_cau_hoi_day_du === true}
+        hien={
+          props.ketQua.hien_cau_hoi_day_du === true && !LOAI_VE_KLAW.has(props.ketQua.result_type)
+        }
       />
       <DuaTren
         muc={props.ketQua.ho_so_da_dung ?? []}
@@ -665,6 +722,7 @@ function NoiDungKetQua({
           </ul>
         </div>
         {daiNeo}
+        <KhoiDoiChieuThem ketQua={ketQua} />
       </section>
     );
   }
@@ -691,16 +749,14 @@ function NoiDungKetQua({
             <p className="mt-2 mb-0 text-[14px] leading-6 text-muted-foreground">{ghiChuPhamVi}</p>
           )}
         </KhayTrungTinh>
-        <div className="mt-4 text-[14px] leading-6 text-foreground">
-          <p className="m-0">
-            Tôi tra được <strong className="font-semibold">6 Bộ luật</strong>:{" "}
-            {SAU_BO_LUAT.join(", ")} — cùng cụm văn bản dưới luật về Lao động.
-          </p>
-          <p className="mt-2 mb-0 text-muted-foreground">
-            Tôi chưa phủ: {KHONG_PHU.join(", ")}. Chiều sâu cũng không đều giữa các lĩnh vực: chỉ
-            riêng Lao động có đủ luật, nghị định, thông tư và chế tài.
-          </p>
-        </div>
+        {/* Câu phạm vi DUY NHẤT của thẻ là `coverage_note` của máy chủ: giao diện
+            tự nêu thêm một phạm vi là hai câu, và hai câu đó lệch nhau ngay khi
+            một bên đổi. Chữ ở đây chỉ nói chuyện đã xảy ra: nhánh này rẽ tắt
+            trước truy hồi (`_RE_TAT`), nên không điều luật nào được tra. */}
+        <p className="mt-4 mb-0 text-[14px] leading-6 text-foreground">
+          Vì vậy tôi không tra điều luật nào cho câu này, thay vì trả lời bằng một quy định chưa
+          kiểm chứng được.
+        </p>
       </section>
     );
   }
@@ -790,6 +846,7 @@ function NoiDungKetQua({
             giả từ chuỗi coverage_note. */}
         <KhoiCanCu ketQua={ketQua} chiSoDangMo={chiSoDangMo} onChon={chon} />
         {daiNeo}
+        <KhoiDoiChieuThem ketQua={ketQua} />
         <NhacMienTru />
       </section>
     );
@@ -831,7 +888,9 @@ function NoiDungKetQua({
           ))}
         </div>
       )}
+      <KhoiPhanTich ketQua={ketQua} onChon={chon} />
       <KhoiCanCuPhapLy ketQua={ketQua} chiSoDangMo={chiSoDangMo} onChon={onChonTrichDan} />
+      <KhoiDoiChieuThem ketQua={ketQua} />
       <NhacMienTru />
     </section>
   );

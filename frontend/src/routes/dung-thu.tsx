@@ -1273,7 +1273,7 @@ function ManHoiKlaw() {
                 tiên, nên nâng nó lên h1 sẽ để lại một trang không có h1 đúng
                 lúc trang có nhiều nội dung nhất. Trình đọc màn hình nhảy theo
                 h1 để biết mình đang ở đâu. */}
-        <h1 className="sr-only">Trợ lý KLAW — tra cứu pháp luật lao động</h1>
+        <h1 className="sr-only">Trợ lý KLAW — tra cứu pháp luật Việt Nam</h1>
         {/* Hai lời báo cấp trang, đứng TRÊN dòng chat vì cả hai đều đúng kể
                 cả khi chưa có lượt nào: gói vừa hết hạn, và đoạn chat thử không
                 mang sang được. Nằm ngoài nhánh `chuaHoiGiCa` nên không biến mất
@@ -1776,7 +1776,7 @@ export const Route = createFileRoute("/dung-thu")({
   },
   component: ManHoiKlaw,
   head: () => {
-    const title = "Hỏi KLAW — tra cứu pháp luật lao động có trích dẫn kiểm chứng được";
+    const title = "Hỏi KLAW — tra cứu pháp luật Việt Nam có trích dẫn kiểm chứng được";
     const description =
       "Đặt câu hỏi pháp lý và nhận câu trả lời kèm điều, khoản, điểm, nhãn hiệu lực và nguyên văn để tự đối chiếu. Hệ thống dừng lại khi không đủ căn cứ thay vì suy đoán.";
     return {
