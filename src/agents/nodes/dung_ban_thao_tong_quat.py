@@ -590,7 +590,13 @@ def _kiem_gia_tri(
     giu = _khong_doi_ben(giu, o, dang_co, (x.get("khung") or {}).get("ben") or [], loi)
     co_cho = {(z["ben"], z["truong"]) for z in o}
     khong_cho = [v for k, v in theo.items() if k not in co_cho]
-    khong_dat = _lay_khong_dat([*gia_tri_bo, *khong_cho, *(x.get("khong_dat") or [])], _loi_nguoi_hoi(state), giu)
+    # Đã đặt là trên CẢ phiên bản: giá trị mang sang hay điền trên trang từ trước vẫn nằm
+    # trên trang, dù lượt này không đặt lại nó (phép y hệt bị bỏ qua).
+    khong_dat = _lay_khong_dat(
+        [*gia_tri_bo, *khong_cho, *(x.get("khong_dat") or [])],
+        _loi_nguoi_hoi(state),
+        ban_thao.gop_phep_sua(dang_co, giu),
+    )
     return giu, bo, khong_dat
 
 
