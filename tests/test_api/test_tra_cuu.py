@@ -697,15 +697,8 @@ def test_khoa_TraCuuKetQua_cua_FE_khop_TraCuuResponse():
     o_be = set(TraCuuResponse.model_fields)
     # Chỉ để đo/eval, giao diện không đọc.
     chi_may_chu = {"config_name"}
-    # Khoá FE của đợt 2026-09-30 mà `TraCuuResponse` nhận ở nhánh khác (N2: cờ dòng
-    # "Tôi hiểu"; N3: hai phần mới). Gộp nhánh đó xong thì assert cuối đỏ: xoá khoá
-    # khỏi đây, để từ đó phép so là chặt. Nhánh kia đặt tên khác thì assert thứ hai
-    # đỏ ngay lúc gộp — đúng lỗi review nêu.
-    cho_may_chu = {"hien_cau_hoi_day_du", "phan_tich", "doi_chieu_them"}
-
-    assert not o_fe - o_be - cho_may_chu, f"FE đọc khoá máy chủ không gửi: {sorted(o_fe - o_be - cho_may_chu)}"
+    assert not o_fe - o_be, f"FE đọc khoá máy chủ không gửi: {sorted(o_fe - o_be)}"
     assert not o_be - o_fe - chi_may_chu, f"máy chủ gửi khoá FE không khai: {sorted(o_be - o_fe - chi_may_chu)}"
-    assert not cho_may_chu & o_be, f"{sorted(cho_may_chu & o_be)} đã có trong TraCuuResponse — xoá khỏi cho_may_chu"
 
 
 async def test_k_va_documents_khong_bi_loc_o_bien_HTTP(client, monkeypatch):
