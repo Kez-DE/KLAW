@@ -1,0 +1,1155 @@
+{
+  "commit_hash": "19436f0",
+  "moi_truong": {
+    "model": {
+      "chinh": "google/gemini-2.5-flash-lite",
+      "generate": "google/gemini-2.5-flash-lite",
+      "judge": "mistralai/mistral-small-3.2-24b-instruct",
+      "embedding": "voyageai/voyage-4-lite",
+      "rerank": "cohere/rerank-4-fast"
+    },
+    "truy_hoi": {
+      "bm25_topk": 0,
+      "dense_topk": 20,
+      "rrf_k": 60,
+      "final_topk": 10
+    },
+    "corpus": {
+      "documents": 1825,
+      "provisions": 113758,
+      "chunks": 26321
+    },
+    "as_of_date": "2026-09-28",
+    "cache_ttl_ngay": 0,
+    "song_song": 5,
+    "tran_giay": 600.0
+  },
+  "prompt": "prompts/assemble.v3.md",
+  "so_cau": 74,
+  "so_chay_duoc": 50,
+  "so_loi": 24,
+  "trung_dan": 0.6,
+  "trich_dan_dung": 0.846651293151293,
+  "abstain": 0.14,
+  "answer": 0.78,
+  "co_tang_4": 0.0,
+  "co_tang_5": 0.0,
+  "do_dai_tb": 757.94,
+  "chi_phi_tong": 0.10008863999999999,
+  "latency_p95": 54.53,
+  "hang": [
+    {
+      "id": "lao-000-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 2,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 421,
+      "chi_phi": 0.0015842,
+      "latency_s": 21.54,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 74",
+        "145/2020/NĐ-CP > Điều 74 > Khoản 1"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, tôi hiểu bạn là người sử dụng lao động. Công ty bạn có 50 nhân viên, trong đó có 30 nữ, chiếm 60% tổng số lao động. Theo quy định, công ty bạn được xem là có sử dụng nhiều lao động nữ vì thuộc trường hợp sử dụng từ 10 đến dưới 100 lao động nữ và tỷ lệ lao động nữ chiếm từ 50% trở lên [Điều"
+    },
+    {
+      "id": "lao-000-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 1,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 558,
+      "chi_phi": 0.0015418,
+      "latency_s": 17.108,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 74 > Khoản 1"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, tôi hiểu bạn là người sử dụng lao động. Công ty bạn có 150 nhân viên, trong đó có 50 nữ, không được coi là sử dụng nhiều lao động nữ theo quy định [Nghị định số 145/2020/NĐ-CP](doc:152668).\n- Tỷ lệ lao động nữ trong công ty bạn là 33.33%, không đạt mức 50% trở lên so với tổng số lao động ["
+    },
+    {
+      "id": "lao-001-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 3,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 305,
+      "chi_phi": 0.0024167,
+      "latency_s": 24.033,
+      "da_dan": [
+        "45/2019/QH14 > Điều 127 > Khoản 1",
+        "45/2019/QH14 > Điều 6 > Khoản 2 > Điểm a",
+        "45/2019/QH14 > Điều 8 > Khoản 2"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Người sử dụng lao động có nghĩa vụ tôn trọng danh dự, nhân phẩm của người lao động. Các hành vi bị nghiêm cấm trong lĩnh vực lao động bao gồm ngược đãi người lao động. Các hành vi bị nghiêm cấm khi xử lý kỷ luật lao động bao gồm xâm phạm sức khỏe, danh dự, tính mạng, uy tín, nhân phẩm của người lao "
+    },
+    {
+      "id": "lao-001-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 5,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 1005,
+      "chi_phi": 0.002862,
+      "latency_s": 30.567,
+      "da_dan": [
+        "45/2019/QH14 > Điều 102 > Khoản 3",
+        "45/2019/QH14 > Điều 127 > Khoản 2",
+        "45/2019/QH14 > Điều 94 > Khoản 1",
+        "45/2019/QH14 > Điều 94 > Khoản 2",
+        "45/2019/QH14 > Điều 95 > Khoản 3"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, công ty không được trừ thẳng tiền lương của bạn vì đi muộn, trừ khi đó là một phần của quy trình xử lý kỷ luật lao động và tuân thủ các quy định về khấu trừ. Việc xử lý kỷ luật lao động không được thực hiện bằng cách phạt tiền hoặc cắt lương thay thế [Điều 127](cite:1). Nếu có khấu trừ lươ"
+    },
+    {
+      "id": "lao-002-0",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.6666666666666666,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.00037325,
+      "latency_s": 23.211,
+      "da_dan": [],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": ""
+    },
+    {
+      "id": "lao-002-1",
+      "loi": "JSONDecodeError: Expecting ',' delimiter: line 6 column 29 (char 534)"
+    },
+    {
+      "id": "lao-004-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 1,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 259,
+      "chi_phi": 0.0011349,
+      "latency_s": 14.681,
+      "da_dan": [
+        "45/2019/QH14 > Điều 23"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, hợp đồng lao động có hiệu lực kể từ ngày hai bên giao kết, trừ trường hợp có thỏa thuận khác hoặc pháp luật có quy định khác [Điều 23](cite:1).\n\nNếu bạn và công ty không có thỏa thuận nào khác, ngày bạn bắt đầu đi làm chính thức là ngày ký hợp đồng."
+    },
+    {
+      "id": "lao-004-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 2,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 402,
+      "chi_phi": 0.0015638,
+      "latency_s": 15.691,
+      "da_dan": [
+        "337/2025/NĐ-CP > Điều 7",
+        "45/2019/QH14 > Điều 23"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Hợp đồng lao động có hiệu lực kể từ ngày hai bên giao kết, trừ trường hợp hai bên có thỏa thuận hoặc pháp luật có quy định khác. Hợp đồng lao động điện tử có hiệu lực kể từ thời điểm bên sau cùng ký số, dấu thời gian gắn kèm chữ ký số của các chủ thể tham gia giao kết và chứng thực thông điệp dữ liệ"
+    },
+    {
+      "id": "lao-005-0",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 5 column 15 (char 70)"
+    },
+    {
+      "id": "lao-005-1",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.7777777777777778,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.00264263,
+      "latency_s": 27.35,
+      "da_dan": [],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": ""
+    },
+    {
+      "id": "lao-006-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 4,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 615,
+      "chi_phi": 0.00229373,
+      "latency_s": 29.891,
+      "da_dan": [
+        "283/2026/NĐ-CP > Điều 28 > Khoản 1 > Điểm a",
+        "283/2026/NĐ-CP > Điều 28 > Khoản 2 > Điểm b",
+        "283/2026/NĐ-CP > Điều 28 > Khoản 3 > Điểm a",
+        "283/2026/NĐ-CP > Điều 28 > Khoản 3 > Điểm b"
+      ],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Nếu bạn thuê người giúp việc mà không giao kết hợp đồng lao động bằng văn bản, bạn có thể bị phạt cảnh cáo. Nếu bạn tiếp tục vi phạm sau khi đã bị xử phạt cảnh cáo về hành vi không giao kết hợp đồng lao động bằng văn bản với người giúp việc gia đình, bạn có thể bị phạt tiền từ 1.000.000 đồng đến 3.0"
+    },
+    {
+      "id": "lao-006-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 3,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 722,
+      "chi_phi": 0.00242006,
+      "latency_s": 24.927,
+      "da_dan": [
+        "283/2026/NĐ-CP > Điều 28 > Khoản 1 > Điểm b",
+        "283/2026/NĐ-CP > Điều 28 > Khoản 2",
+        "283/2026/NĐ-CP > Điều 28 > Khoản 5 > Điểm b"
+      ],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, người sử dụng lao động có thể bị phạt nếu không trả tiền xe về quê cho người giúp việc khi họ thôi việc. Mức phạt có thể là cảnh cáo hoặc phạt tiền từ 1.000.000 đồng đến 3.000.000 đồng, tùy thuộc vào tình huống cụ thể, theo [Nghị định số 283/2026/NĐ-CP](doc:787d3780-866f-11f1-8511-612429c9"
+    },
+    {
+      "id": "lao-009-0",
+      "result_type": "out_of_scope",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0,
+      "latency_s": 1.137,
+      "da_dan": [],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": ""
+    },
+    {
+      "id": "lao-009-1",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 5 column 15 (char 70)"
+    },
+    {
+      "id": "lao-010-0",
+      "loi": "JSONDecodeError: Expecting property name enclosed in double quotes: line 5 column 79 (char 134)"
+    },
+    {
+      "id": "lao-010-1",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 7 column 16 (char 181)"
+    },
+    {
+      "id": "lao-011-0",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 5 column 7 (char 62)"
+    },
+    {
+      "id": "lao-011-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 1,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 554,
+      "chi_phi": 0.0022166,
+      "latency_s": 19.127,
+      "da_dan": [
+        "283/2026/NĐ-CP > Điều 22 > Khoản 3 > Điểm a"
+      ],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, tôi hiểu bạn là người sử dụng lao động. Công ty bạn có thể bị phạt tiền từ 10.000.000 đồng đến 15.000.000 đồng nếu từ chối thương lượng tập thể khi nhận được yêu cầu [Điều 22, Khoản 3, Điểm a](cite:1) theo [Nghị định số 283/2026/NĐ-CP Quy định xử phạt vi phạm hành chính trong lĩnh vực lao "
+    },
+    {
+      "id": "lao-013-0",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 5 column 15 (char 70)"
+    },
+    {
+      "id": "lao-013-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 3,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 1259,
+      "chi_phi": 0.0035513,
+      "latency_s": 32.226,
+      "da_dan": [
+        "129/2025/NĐ-CP > Điều 71",
+        "145/2020/NĐ-CP > Điều 4 > Khoản 2",
+        "35/2022/NĐ-CP > Điều 73 > Khoản 1"
+      ],
+      "so_canh_bao": 3,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Định kỳ 06 tháng (trước ngày 05 tháng 6) và hằng năm (trước ngày 05 tháng 12), người sử dụng lao động phải báo cáo tình hình thay đổi lao động đến Sở Lao động - Thương binh và Xã hội thông qua Cổng Dịch vụ công Quốc gia. Định kỳ 06 tháng (trước ngày 05 tháng 6) và hằng năm (trước ngày 05 tháng 12), "
+    },
+    {
+      "id": "lao-014-0",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 25 column 16 (char 1929)"
+    },
+    {
+      "id": "lao-014-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 6,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 791,
+      "chi_phi": 0.0021414,
+      "latency_s": 27.49,
+      "da_dan": [
+        "124/2025/QH15 > Điều 34 > Khoản 5",
+        "124/2025/QH15 > Điều 43 > Khoản 1 > Điểm b",
+        "15/2019/NĐ-CP > Điều 42 > Khoản 2 > Điểm d",
+        "15/2019/NĐ-CP > Điều 43 > Khoản 6",
+        "45/2019/QH14 > Điều 61 > Khoản 3",
+        "45/2019/QH14 > Điều 61 > Khoản 5"
+      ],
+      "so_canh_bao": 4,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, nếu bạn đi học nghề tại công ty và có tham gia lao động, bạn sẽ được trả lương theo thỏa thuận. Mức lương này do hai bên doanh nghiệp và bạn tự thỏa thuận với nhau [Điều 61](cite:1).\n\nDoanh nghiệp có quyền thỏa thuận với bạn về mức lương và phương thức trả lương trong thời gian đào tạo, nế"
+    },
+    {
+      "id": "lao-015-0",
+      "result_type": "answer",
+      "trung_dan": false,
+      "so_trich_dan": 4,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 2266,
+      "chi_phi": 0.0018956,
+      "latency_s": 43.83,
+      "da_dan": [
+        "283/2026/NĐ-CP > Điều 23 > Khoản 2",
+        "283/2026/NĐ-CP > Điều 23 > Khoản 5 > Điểm a",
+        "45/2019/QH14 > Điều 94 > Khoản 1",
+        "45/2019/QH14 > Điều 94 > Khoản 2"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Người sử dụng lao động phải trả lương trực tiếp, đầy đủ, đúng hạn cho người lao động. Trường hợp người lao động không thể nhận lương trực tiếp thì người sử dụng lao động có thể trả lương cho người được người lao động ủy quyền hợp pháp. Người sử dụng lao động không được hạn chế hoặc can thiệp vào quy"
+    },
+    {
+      "id": "lao-015-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 3,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 463,
+      "chi_phi": 0.0035816,
+      "latency_s": 24.064,
+      "da_dan": [
+        "124/2025/QH15 > Điều 25 > Khoản 2 > Điểm a",
+        "45/2019/QH14 > Điều 61 > Khoản 3",
+        "45/2019/QH14 > Điều 61 > Khoản 5"
+      ],
+      "so_canh_bao": 3,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Người sử dụng lao động không được thu học phí của người học nghề, tập nghề để làm việc cho mình. Trong thời gian học nghề, tập nghề, nếu người học nghề, người tập nghề trực tiếp hoặc tham gia lao động thì được người sử dụng lao động trả lương theo mức do hai bên thỏa thuận. Người học nghề, người tập"
+    },
+    {
+      "id": "lao-017-0",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 5 column 15 (char 70)"
+    },
+    {
+      "id": "lao-017-1",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 5 column 15 (char 70)"
+    },
+    {
+      "id": "lao-018-0",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 7 column 16 (char 356)"
+    },
+    {
+      "id": "lao-018-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 3,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 608,
+      "chi_phi": 0.001565,
+      "latency_s": 26.233,
+      "da_dan": [
+        "45/2019/QH14 > Điều 219 > Khoản 1 > Điểm a",
+        "84/2015/QH13 > Điều 50 > Khoản 1",
+        "84/2015/QH13 > Điều 58 > Khoản 3"
+      ],
+      "so_canh_bao": 2,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, người lao động bị nhiễm HIV do tai nạn rủi ro nghề nghiệp có thể được hưởng lương hưu theo quy định của pháp luật [Bộ Luật lao động số 45/2019/QH14](doc:139264).\n- Bạn có thể được hưởng trợ cấp từ tháng được cấp Giấy chứng nhận nhiễm HIV do tai nạn rủi ro nghề nghiệp [Điều 50](cite:2).\n- G"
+    },
+    {
+      "id": "lao-020-0",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 17 column 15 (char 984)"
+    },
+    {
+      "id": "lao-020-1",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0043211,
+      "latency_s": 33.046,
+      "da_dan": [],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": ""
+    },
+    {
+      "id": "lao-022-0",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 5 column 7 (char 62)"
+    },
+    {
+      "id": "lao-022-1",
+      "result_type": "answer",
+      "trung_dan": false,
+      "so_trich_dan": 8,
+      "trich_dan_dung": 0.9166666666666666,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 3193,
+      "chi_phi": 0.0027738,
+      "latency_s": 40.476,
+      "da_dan": [
+        "283/2026/NĐ-CP > Điều 23 > Khoản 2",
+        "45/2019/QH14 > Điều 29 > Khoản 1",
+        "45/2019/QH14 > Điều 29 > Khoản 2",
+        "45/2019/QH14 > Điều 29 > Khoản 3",
+        "45/2019/QH14 > Điều 90 > Khoản 2",
+        "45/2019/QH14 > Điều 93 > Khoản 1",
+        "45/2019/QH14 > Điều 94 > Khoản 2",
+        "45/2019/QH14 > Điều 95 > Khoản 1"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Khi gặp khó khăn đột xuất do thiên tai, hỏa hoạn, dịch bệnh nguy hiểm, áp dụng biện pháp ngăn ngừa, khắc phục tai nạn lao động, bệnh nghề nghiệp, sự cố điện, nước hoặc do nhu cầu sản xuất, kinh doanh, người sử dụng lao động có quyền tạm thời chuyển người lao động làm công việc khác so với hợp đồng l"
+    },
+    {
+      "id": "lao-023-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 10,
+      "trich_dan_dung": 0.9230769230769231,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 2643,
+      "chi_phi": 0.0035031,
+      "latency_s": 54.53,
+      "da_dan": [
+        "141/2005/NĐ-CP > Điều 11 > Khoản 2",
+        "141/2005/NĐ-CP > Điều 22 > Khoản 4",
+        "141/2005/NĐ-CP > Điều 22 > Khoản 5",
+        "141/2005/NĐ-CP > Điều 9 > Khoản 1",
+        "141/2005/NĐ-CP > Điều 9 > Khoản 3",
+        "283/2026/NĐ-CP > Điều 50 > Khoản 2",
+        "283/2026/NĐ-CP > Điều 50 > Khoản 6 > Điểm c",
+        "84/2015/QH13 > Điều 67 > Khoản 2 > Điểm a",
+        "84/2015/QH13 > Điều 67 > Khoản 2 > Điểm b",
+        "84/2015/QH13 > Điều 67 > Khoản 2 > Điểm c"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Công ty có thể bị phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng cho mỗi người lao động nếu không đảm bảo người lao động được kiểm tra sức khỏe định kỳ, bao gồm cả sức khỏe sinh sản, và khám bệnh, chữa bệnh trong trường hợp người lao động bị ốm đau, tai nạn khi làm việc ở nước ngoài. Mức phạt tối đa"
+    },
+    {
+      "id": "lao-023-1",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 37 column 16 (char 2796)"
+    },
+    {
+      "id": "lao-024-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 3,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 512,
+      "chi_phi": 0.00036331,
+      "latency_s": 47.109,
+      "da_dan": [
+        "45/2019/QH14 > Điều 99 > Khoản 1",
+        "45/2019/QH14 > Điều 99 > Khoản 3 > Điểm a",
+        "45/2019/QH14 > Điều 99 > Khoản 3 > Điểm b"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Trong trường hợp ngừng việc từ 14 ngày làm việc trở xuống vì lý do kinh tế, tiền lương ngừng việc được thỏa thuận nhưng không thấp hơn mức lương tối thiểu. Trong trường hợp phải ngừng việc trên 14 ngày làm việc vì lý do kinh tế, tiền lương ngừng việc do hai bên thỏa thuận nhưng phải bảo đảm tiền lươ"
+    },
+    {
+      "id": "lao-024-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 4,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 1070,
+      "chi_phi": 0.0009886,
+      "latency_s": 32.016,
+      "da_dan": [
+        "45/2019/QH14 > Điều 99 > Khoản 1",
+        "45/2019/QH14 > Điều 99 > Khoản 3",
+        "45/2019/QH14 > Điều 99 > Khoản 3 > Điểm a",
+        "45/2019/QH14 > Điều 99 > Khoản 3 > Điểm b"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, nếu công ty bị ngập nước và bạn không thể đi làm, bạn có thể được trả lương ngừng việc. Tiền lương này sẽ được hai bên thỏa thuận, nhưng không thấp hơn mức lương tối thiểu nếu thời gian ngừng việc dưới 14 ngày, theo [Bộ Luật lao động số 45/2019/QH14](doc:139264).\n- Nếu việc ngừng việc xảy "
+    },
+    {
+      "id": "lao-025-0",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 41 column 15 (char 4007)"
+    },
+    {
+      "id": "lao-026-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 5,
+      "trich_dan_dung": 0.8571428571428571,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 1109,
+      "chi_phi": 0.0016906,
+      "latency_s": 29.488,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 24",
+        "145/2020/NĐ-CP > Điều 24 > Khoản 5",
+        "145/2020/NĐ-CP > Điều 25 > Khoản 1",
+        "145/2020/NĐ-CP > Điều 25 > Khoản 3",
+        "145/2020/NĐ-CP > Điều 25 > Khoản 4"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, để mở công ty cho thuê lại lao động, bạn cần chuẩn bị hồ sơ và nộp đến Sở Lao động - Thương binh và Xã hội nơi doanh nghiệp đặt trụ sở chính. Thời gian để có giấy phép là khoảng 27 ngày làm việc. \n\nThủ tục này được quy định tại [Nghị định số 145/2020/NĐ-CP (số 145/2020/NĐ-CP)](doc:152668)."
+    },
+    {
+      "id": "lao-026-1",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 2 column 3 (char 4)"
+    },
+    {
+      "id": "lao-028-0",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.3333333333333333,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0012923,
+      "latency_s": 24.203,
+      "da_dan": [],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": ""
+    },
+    {
+      "id": "lao-028-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 6,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 893,
+      "chi_phi": 0.0022639,
+      "latency_s": 32.374,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 89 > Khoản 1 > Điểm d",
+        "45/2019/QH14 > Điều 125 > Khoản 4",
+        "45/2019/QH14 > Điều 36 > Khoản 1 > Điểm a",
+        "45/2019/QH14 > Điều 36 > Khoản 2 > Điểm a",
+        "45/2019/QH14 > Điều 36 > Khoản 2 > Điểm b",
+        "45/2019/QH14 > Điều 36 > Khoản 2 > Điểm c"
+      ],
+      "so_canh_bao": 2,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, công ty có thể sa thải bạn nếu bạn thường xuyên không hoàn thành công việc theo hợp đồng, dựa trên tiêu chí đánh giá của họ, nhưng phải báo trước theo quy định của pháp luật [Điều 36](cite:1).\n- Nếu là hợp đồng không xác định thời hạn, công ty phải báo trước ít nhất 45 ngày [Khoản 2 Điều 3"
+    },
+    {
+      "id": "lao-029-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 3,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 465,
+      "chi_phi": 0.003317,
+      "latency_s": 34.009,
+      "da_dan": [
+        "283/2026/NĐ-CP > Điều 56 > Khoản 1 > Điểm b",
+        "283/2026/NĐ-CP > Điều 56 > Khoản 1 > Điểm d",
+        "283/2026/NĐ-CP > Điều 63 > Khoản 1"
+      ],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, tôi hiểu bạn là người lao động đi làm việc ở nước ngoài. Ông đứng đầu Cục Quản lý lao động ngoài nước có thẩm quyền phạt tiền đến 100.000.000 đồng đối với hành vi vi phạm hành chính trong lĩnh vực này [Điều 56, Khoản 1, Điểm b](cite:1). Mức phạt này áp dụng cho một hành vi vi phạm của cá n"
+    },
+    {
+      "id": "lao-029-1",
+      "result_type": "answer",
+      "trung_dan": false,
+      "so_trich_dan": 7,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 840,
+      "chi_phi": 0.0046846,
+      "latency_s": 31.978,
+      "da_dan": [
+        "141/2005/NĐ-CP > Điều 24 > Khoản 3",
+        "141/2005/NĐ-CP > Điều 24 > Khoản 3 > Điểm a",
+        "141/2005/NĐ-CP > Điều 24 > Khoản 3 > Điểm b",
+        "141/2005/NĐ-CP > Điều 24 > Khoản 3 > Điểm c",
+        "141/2005/NĐ-CP > Điều 24 > Khoản 3 > Điểm d",
+        "141/2005/NĐ-CP > Điều 24 > Khoản 3 > Điểm đ",
+        "141/2005/NĐ-CP > Điều 27 > Khoản 2"
+      ],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Ngoài việc bị xử phạt chính (cảnh cáo hoặc phạt tiền), tổ chức, cá nhân vi phạm hành chính còn có thể bị áp dụng các biện pháp khắc phục hậu quả. Các biện pháp khắc phục hậu quả có thể bao gồm việc tạm đình chỉ hoặc đình chỉ thực hiện hợp đồng đưa người lao động đi làm việc ở nước ngoài. Tổ chức đưa"
+    },
+    {
+      "id": "lao-030-0",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.5,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0017909,
+      "latency_s": 29.49,
+      "da_dan": [],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": ""
+    },
+    {
+      "id": "lao-031-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 9,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 1257,
+      "chi_phi": 0.0033496,
+      "latency_s": 31.824,
+      "da_dan": [
+        "337/2025/NĐ-CP > Điều 19 > Khoản 2 > Điểm a",
+        "337/2025/NĐ-CP > Điều 4 > Khoản 1",
+        "337/2025/NĐ-CP > Điều 4 > Khoản 2",
+        "337/2025/NĐ-CP > Điều 7",
+        "84/2015/QH13 > Điều 6 > Khoản 1 > Điểm a",
+        "84/2015/QH13 > Điều 6 > Khoản 2 > Điểm a",
+        "Hiến pháp năm 2013 > Điều 35 > Khoản 1",
+        "Hiến pháp năm 2013 > Điều 35 > Khoản 2",
+        "Hiến pháp năm 2013 > Điều 57 > Khoản 2"
+      ],
+      "so_canh_bao": 2,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, việc bạn ký hợp đồng lao động điện tử với công ty sẽ được pháp luật bảo vệ theo các quy định về lao động và giao dịch điện tử. Hợp đồng lao động điện tử có giá trị pháp lý tương đương hợp đồng lao động bằng giấy và phải tuân thủ các quy định chung về lao động, an toàn, vệ sinh lao động [Ng"
+    },
+    {
+      "id": "lao-031-1",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 5 column 7 (char 62)"
+    },
+    {
+      "id": "lao-033-0",
+      "result_type": "answer",
+      "trung_dan": false,
+      "so_trich_dan": 6,
+      "trich_dan_dung": 0.75,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 867,
+      "chi_phi": 0.0021891,
+      "latency_s": 44.884,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 113 > Khoản 1",
+        "145/2020/NĐ-CP > Điều 113 > Khoản 2",
+        "45/2019/QH14 > Điều 197 > Khoản 4",
+        "45/2019/QH14 > Điều 201 > Khoản 1",
+        "45/2019/QH14 > Điều 202 > Khoản 3",
+        "45/2019/QH14 > Điều 207 > Khoản 2"
+      ],
+      "so_canh_bao": 2,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, tôi hiểu bạn là người sử dụng lao động. Khi tranh chấp lao động tập thể về lợi ích không giải quyết được qua hòa giải hoặc Hội đồng trọng tài lao động, và các bên không thực hiện thỏa thuận, tổ chức đại diện người lao động có quyền tiến hành thủ tục để đình công [Điều 197](cite:1).\n- Trước"
+    },
+    {
+      "id": "lao-033-1",
+      "result_type": "answer",
+      "trung_dan": false,
+      "so_trich_dan": 4,
+      "trich_dan_dung": 0.8333333333333334,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 691,
+      "chi_phi": 0.0019251,
+      "latency_s": 24.206,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 113 > Khoản 1",
+        "45/2019/QH14 > Điều 182 > Khoản 2 > Điểm b",
+        "45/2019/QH14 > Điều 186",
+        "45/2019/QH14 > Điều 197 > Khoản 4"
+      ],
+      "so_canh_bao": 2,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Khi tranh chấp lao động đang được cơ quan, tổ chức, cá nhân có thẩm quyền giải quyết, không bên nào được hành động đơn phương chống lại bên kia. Trong quá trình giải quyết tranh chấp lao động, các bên có nghĩa vụ chấp hành thỏa thuận đã đạt được, quyết định của Ban trọng tài lao động, bản án, quyết "
+    },
+    {
+      "id": "lao-034-0",
+      "result_type": "answer",
+      "trung_dan": false,
+      "so_trich_dan": 2,
+      "trich_dan_dung": 0.75,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 886,
+      "chi_phi": 0.0016377,
+      "latency_s": 26.935,
+      "da_dan": [
+        "141/2005/NĐ-CP > Điều 12",
+        "45/2019/QH14 > Điều 16 > Khoản 1"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, khi giao kết hợp đồng lao động, công ty có nghĩa vụ cung cấp cho bạn thông tin trung thực về công việc, điều kiện làm việc, tiền lương và các vấn đề khác liên quan trực tiếp đến hợp đồng [Điều 16](cite:1). Nếu bạn đi làm việc ở nước ngoài, bạn cần tìm hiểu kỹ các thông tin về chính sách, p"
+    },
+    {
+      "id": "lao-034-1",
+      "result_type": "soan_thao_hoi",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 30,
+      "chi_phi": 0.0,
+      "latency_s": 2.98,
+      "da_dan": [],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Cần đăng nhập để soạn văn bản."
+    },
+    {
+      "id": "lao-036-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 2,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 501,
+      "chi_phi": 0.0020864,
+      "latency_s": 26.075,
+      "da_dan": [
+        "45/2019/QH14 > Điều 109 > Khoản 1",
+        "45/2019/QH14 > Điều 109 > Khoản 2"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, người lao động làm việc từ 6 giờ trở lên trong một ngày thì được nghỉ giữa giờ ít nhất 30 phút liên tục, theo [Bộ luật Lao động 2019 (số 45/2019/QH14)](doc:139264).\n- Thời gian nghỉ này có thể dài hơn 30 phút nếu người sử dụng lao động quy định trong nội quy lao động [Khoản 2 Điều 109](cit"
+    },
+    {
+      "id": "lao-036-1",
+      "result_type": "answer",
+      "trung_dan": false,
+      "so_trich_dan": 5,
+      "trich_dan_dung": 0.8333333333333334,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 712,
+      "chi_phi": 0.0015406,
+      "latency_s": 63.824,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 64 > Khoản 1",
+        "145/2020/NĐ-CP > Điều 64 > Khoản 2",
+        "45/2019/QH14 > Điều 106",
+        "45/2019/QH14 > Điều 110",
+        "45/2019/QH14 > Điều 98 > Khoản 2"
+      ],
+      "so_canh_bao": 2,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, người lao động làm ca đêm được trả thêm lương và có thời gian nghỉ giữa giờ dài hơn. Cụ thể, bạn được trả thêm ít nhất 30% tiền lương của ngày làm việc bình thường khi làm ca đêm, theo [Bộ luật Lao động 2019 (số 45/2019/QH14)](doc:139264).\n- Thời gian nghỉ giữa giờ ít nhất 45 phút liên tục"
+    },
+    {
+      "id": "lao-037-0",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 5,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 751,
+      "chi_phi": 0.0023819,
+      "latency_s": 25.904,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 37 > Khoản 1",
+        "145/2020/NĐ-CP > Điều 37 > Khoản 2 > Điểm c",
+        "145/2020/NĐ-CP > Điều 39 > Khoản 1",
+        "145/2020/NĐ-CP > Điều 47 > Khoản 1",
+        "45/2019/QH14 > Điều 63 > Khoản 2 > Điểm a"
+      ],
+      "so_canh_bao": 2,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, người sử dụng lao động có nghĩa vụ tổ chức đối thoại tại nơi làm việc định kỳ ít nhất mỗi năm một lần với ban chấp hành công đoàn hoặc nhóm đại diện đối thoại của người lao động. [Bộ luật Lao động 2019 (số 45/2019/QH14)](doc:139264).\n- Người sử dụng lao động phải phối hợp với tổ chức đại d"
+    },
+    {
+      "id": "lao-037-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 3,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 1405,
+      "chi_phi": 0.00148755,
+      "latency_s": 40.759,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 38 > Khoản 1",
+        "145/2020/NĐ-CP > Điều 38 > Khoản 2 > Điểm a",
+        "145/2020/NĐ-CP > Điều 39 > Khoản 4"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Số lượng thành viên đại diện cho bên người lao động tham gia đối thoại phải bảo đảm ít nhất 03 người nếu người sử dụng lao động sử dụng dưới 50 người lao động. Số lượng thành viên đại diện cho bên người lao động tham gia đối thoại phải bảo đảm từ 04 người đến 08 người nếu người sử dụng lao động sử d"
+    },
+    {
+      "id": "lao-039-0",
+      "result_type": "soan_thao_hoi",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 30,
+      "chi_phi": 0.0,
+      "latency_s": 1.568,
+      "da_dan": [],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Cần đăng nhập để soạn văn bản."
+    },
+    {
+      "id": "lao-039-1",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0018767,
+      "latency_s": 22.149,
+      "da_dan": [],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": ""
+    },
+    {
+      "id": "lao-040-0",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 3 column 19 (char 43)"
+    },
+    {
+      "id": "lao-040-1",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 5 column 15 (char 70)"
+    },
+    {
+      "id": "lao-041-0",
+      "loi": "JSONDecodeError: Expecting property name enclosed in double quotes: line 10 column 6 (char 626)"
+    },
+    {
+      "id": "lao-041-1",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 6,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 1017,
+      "chi_phi": 0.0020553,
+      "latency_s": 30.779,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 43 > Khoản 1 > Điểm b",
+        "145/2020/NĐ-CP > Điều 48 > Khoản 1",
+        "145/2020/NĐ-CP > Điều 48 > Khoản 2",
+        "283/2026/NĐ-CP > Điều 23 > Khoản 1 > Điểm a",
+        "283/2026/NĐ-CP > Điều 23 > Khoản 1 > Điểm c",
+        "45/2019/QH14 > Điều 93 > Khoản 3"
+      ],
+      "so_canh_bao": 2,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, tôi hiểu bạn là người sử dụng lao động. Công ty bạn cần tham khảo ý kiến của tổ chức đại diện người lao động trước khi áp dụng bảng lương mới, và phải công bố công khai bảng lương này tại nơi làm việc. Việc này được quy định trong [Bộ Luật Lao động 2019 (số 45/2019/QH14)](doc:139264) và [N"
+    },
+    {
+      "id": "lao-042-0",
+      "result_type": "out_of_scope",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 0,
+      "chi_phi": 0.0,
+      "latency_s": 1.478,
+      "da_dan": [],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": ""
+    },
+    {
+      "id": "lao-042-1",
+      "loi": "TimeoutError: "
+    },
+    {
+      "id": "lao-043-0",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 5 column 15 (char 70)"
+    },
+    {
+      "id": "lao-043-1",
+      "loi": "JSONDecodeError: Unterminated string starting at: line 13 column 16 (char 726)"
+    },
+    {
+      "id": "lao-044-0",
+      "result_type": "answer",
+      "trung_dan": false,
+      "so_trich_dan": 2,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 285,
+      "chi_phi": 0.00045411,
+      "latency_s": 19.003,
+      "da_dan": [
+        "91/2015/QH13 > Điều 357 > Khoản 1",
+        "91/2015/QH13 > Điều 357 > Khoản 2"
+      ],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, bạn có thể yêu cầu bên môi giới trả lại khoản tiền đã thu vượt quá mức cho phép, kèm theo lãi suất phát sinh từ thời điểm họ thu quá hạn [Điều 357](cite:1). Lãi suất này sẽ được tính theo quy định của pháp luật nếu hai bên không có thỏa thuận khác [Khoản 2 Điều 357](cite:2)."
+    },
+    {
+      "id": "lao-044-1",
+      "result_type": "abstain",
+      "trung_dan": false,
+      "so_trich_dan": 0,
+      "trich_dan_dung": 0.8571428571428571,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 848,
+      "chi_phi": 0.0026722,
+      "latency_s": 20.356,
+      "da_dan": [],
+      "so_canh_bao": 0,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, tôi hiểu bạn đang gặp khó khăn về vấn đề này. Khi một công ty môi giới dịch vụ đưa người lao động đi làm việc ở nước ngoài mà làm sai hồ sơ dẫn đến thiệt hại cho người lao động như mất lương, mất tiền vé, thì về nguyên tắc, người lao động có quyền yêu cầu công ty môi giới bồi thường thiệt "
+    },
+    {
+      "id": "lao-hand-01",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 9,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 1192,
+      "chi_phi": 0.0020596,
+      "latency_s": 32.308,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 60 > Khoản 1",
+        "145/2020/NĐ-CP > Điều 60 > Khoản 2",
+        "145/2020/NĐ-CP > Điều 60 > Khoản 4",
+        "18/2021/TT-BLĐTBXH > Điều 6 > Khoản 1",
+        "18/2021/TT-BLĐTBXH > Điều 6 > Khoản 2 > Điểm a",
+        "18/2021/TT-BLĐTBXH > Điều 6 > Khoản 2 > Điểm b",
+        "18/2021/TT-BLĐTBXH > Điều 6 > Khoản 3",
+        "45/2019/QH14 > Điều 105 > Khoản 1",
+        "45/2019/QH14 > Điều 105 > Khoản 2"
+      ],
+      "so_canh_bao": 2,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Thời giờ làm việc bình thường không quá 08 giờ trong 01 ngày và không quá 48 giờ trong 01 tuần. Người sử dụng lao động có quyền quy định thời giờ làm việc theo ngày hoặc tuần nhưng phải thông báo cho người lao động biết. Nếu quy định theo tuần thì thời giờ làm việc bình thường không quá 10 giờ trong"
+    },
+    {
+      "id": "lao-hand-02",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 6,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 1412,
+      "chi_phi": 0.0023103,
+      "latency_s": 38.01,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 7 > Khoản 2 > Điểm a",
+        "145/2020/NĐ-CP > Điều 7 > Khoản 2 > Điểm b",
+        "145/2020/NĐ-CP > Điều 89 > Khoản 1 > Điểm d",
+        "45/2019/QH14 > Điều 35 > Khoản 1 > Điểm a",
+        "45/2019/QH14 > Điều 35 > Khoản 1 > Điểm b",
+        "45/2019/QH14 > Điều 35 > Khoản 1 > Điểm c"
+      ],
+      "so_canh_bao": 2,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, tôi hiểu bạn là người lao động. Thời gian bạn cần báo trước khi nghỉ việc phụ thuộc vào loại hợp đồng lao động bạn đang có, với các mốc phổ biến là 45 ngày, 30 ngày, hoặc 03 ngày làm việc. Ngoài ra, có những trường hợp đặc thù yêu cầu thời gian báo trước dài hơn hoặc không cần báo trước. \n"
+    },
+    {
+      "id": "lao-hand-03",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 16,
+      "trich_dan_dung": 0.9090909090909091,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 2108,
+      "chi_phi": 0.0029306,
+      "latency_s": 54.83,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 55 > Khoản 1 > Điểm b",
+        "145/2020/NĐ-CP > Điều 60 > Khoản 1",
+        "145/2020/NĐ-CP > Điều 60 > Khoản 2",
+        "145/2020/NĐ-CP > Điều 60 > Khoản 4",
+        "18/2021/TT-BLĐTBXH > Điều 6 > Khoản 1",
+        "18/2021/TT-BLĐTBXH > Điều 6 > Khoản 2 > Điểm a",
+        "18/2021/TT-BLĐTBXH > Điều 6 > Khoản 2 > Điểm b",
+        "18/2021/TT-BLĐTBXH > Điều 6 > Khoản 3",
+        "45/2019/QH14 > Điều 105 > Khoản 1",
+        "45/2019/QH14 > Điều 107 > Khoản 2 > Điểm b",
+        "45/2019/QH14 > Điều 107 > Khoản 2 > Điểm c",
+        "45/2019/QH14 > Điều 107 > Khoản 3",
+        "45/2019/QH14 > Điều 98 > Khoản 1",
+        "45/2019/QH14 > Điều 98 > Khoản 1 > Điểm a",
+        "45/2019/QH14 > Điều 98 > Khoản 1 > Điểm b",
+        "45/2019/QH14 > Điều 98 > Khoản 1 > Điểm c"
+      ],
+      "so_canh_bao": 2,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Người lao động làm thêm giờ được trả lương tính theo đơn giá tiền lương hoặc tiền lương thực trả theo công việc đang làm. Tiền lương làm thêm giờ vào ngày thường ít nhất bằng 150% tiền lương giờ thực trả của công việc đang làm vào ngày làm việc bình thường. Tiền lương làm thêm giờ vào ngày nghỉ hằng"
+    },
+    {
+      "id": "lao-hand-04",
+      "result_type": "answer",
+      "trung_dan": false,
+      "so_trich_dan": 2,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 728,
+      "chi_phi": 0.0025844,
+      "latency_s": 17.175,
+      "da_dan": [
+        "145/2020/NĐ-CP > Điều 73",
+        "45/2019/QH14 > Điều 131"
+      ],
+      "so_canh_bao": 2,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Khi bị xử lý kỷ luật lao động, bị tạm đình chỉ công việc hoặc phải bồi thường theo chế độ trách nhiệm vật chất mà thấy không thỏa đáng, người lao động có quyền khiếu nại với người sử dụng lao động, với cơ quan có thẩm quyền theo quy định của Chính phủ về giải quyết khiếu nại trong lĩnh vực lao động "
+    },
+    {
+      "id": "lao-hand-05",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 6,
+      "trich_dan_dung": 1.0,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 573,
+      "chi_phi": 0.0019076,
+      "latency_s": 25.872,
+      "da_dan": [
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1 > Vùng I",
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1 > Vùng II",
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1 > Vùng III",
+        "293/2025/NĐ-CP > Điều 3 > Khoản 1 > Vùng IV",
+        "45/2019/QH14 > Điều 91 > Khoản 1",
+        "45/2019/QH14 > Điều 91 > Khoản 2"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, mức lương tối thiểu tháng theo vùng hiện nay được quy định tại [Nghị định số 293/2025/NĐ-CP Quy định mức lương tối thiểu đối với người lao động làm việc theo hợp đồng lao động](doc:183939).\n- Vùng I: 5.310.000 đồng/tháng [Điều 3](cite:1).\n- Vùng II: 4.730.000 đồng/tháng [Điều 3](cite:2).\n-"
+    },
+    {
+      "id": "lao-hand-06",
+      "loi": "JSONDecodeError: Expecting property name enclosed in double quotes: line 31 column 7 (char 1877)"
+    },
+    {
+      "id": "lao-hand-07",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 4,
+      "trich_dan_dung": 0.625,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 1100,
+      "chi_phi": 0.0024319,
+      "latency_s": 24.198,
+      "da_dan": [
+        "159/2025/NĐ-CP > Điều 11 > Khoản 2 > Điểm c",
+        "45/2019/QH14 > Điều 169 > Khoản 2",
+        "97/2022/NĐ-CP > Điều 3 > Khoản 2",
+        "97/2022/NĐ-CP > Điều 3 > Khoản 3"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, tuổi nghỉ hưu của bạn phụ thuộc vào giới tính và lộ trình tăng tuổi nghỉ hưu theo quy định của pháp luật. Kể từ năm 2021, tuổi nghỉ hưu trong điều kiện lao động bình thường tăng dần theo từng năm. Cụ thể, năm 2024, tuổi nghỉ hưu là 60 tuổi 09 tháng đối với nam và 55 tuổi 08 tháng đối với n"
+    },
+    {
+      "id": "lao-hand-08",
+      "result_type": "answer",
+      "trung_dan": true,
+      "so_trich_dan": 4,
+      "trich_dan_dung": 0.8,
+      "co_tang_4": false,
+      "co_tang_5": false,
+      "do_dai": 551,
+      "chi_phi": 0.0014342,
+      "latency_s": 25.097,
+      "da_dan": [
+        "18/2021/TT-BLĐTBXH > Điều 6 > Khoản 2 > Điểm b",
+        "18/2021/TT-BLĐTBXH > Điều 6 > Khoản 3",
+        "45/2019/QH14 > Điều 107 > Khoản 2 > Điểm b",
+        "45/2019/QH14 > Điều 107 > Khoản 2 > Điểm c"
+      ],
+      "so_canh_bao": 1,
+      "khong_hien_thi": false,
+      "tra_loi_dau": "Chào bạn, người lao động làm công việc gia công theo đơn đặt hàng có thể được tăng ca tối đa 40 giờ trong một tháng, theo [Thông tư số 18/2021/TT-BLĐTBXH Quy định về thời giờ làm việc, thời giờ nghỉ ngơi đối với người lao động làm các công việc sản xuất có tính thời vụ, công việc gia công theo đơn đ"
+    }
+  ]
+}

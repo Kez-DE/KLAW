@@ -46,7 +46,7 @@ from src.models.schemas import (
 from src.services.db import get_engine
 from src.services.effectivity import bac_con_song, danh_gia_toan_bo
 from src.services.embedding import from_settings as embedder_from_settings
-from src.services.hien_thi import chan_neu_an, hieu_luc_ra, nap_van_ban_dan, tap_hien_thi
+from src.services.hien_thi import chan_neu_an, dieu_khoan_an, hieu_luc_ra, nap_van_ban_dan, tap_hien_thi
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +162,8 @@ _KHOP = (
     # Chỉ văn bản được hiện (`services/hien_thi`) — trong SQL, để hai con số
     # tổng và phân trang đếm đúng tập người dùng thấy.
     "  JOIN documents d ON d.id = p.document_id AND d.id = ANY(CAST(:hien AS text[]))"
+    # … và không có điều khoản bị bãi bỏ nào (quyết định 2026-09-30 mục 9).
+    "   AND NOT (p.id = ANY(CAST(:bai_bo AS bigint[])))"
     # `CAST(... AS text[]) IS NULL` ở CẢ hai vế: psycopg gửi tham số không kèm
     # kiểu, và một `$n IS NULL` trần làm Postgres không suy được kiểu ⇒
     # AmbiguousParameter. Ép kiểu ở vế kiểm NULL, không chỉ ở vế so sánh.
@@ -271,6 +273,7 @@ def _tim_kiem_sync(
     # `/api/v1/bo-loc` — endpoint không liên quan, bình thường 0,005s — bị kéo
     # lên 29,832s vì cạn pool làm chết đói toàn bộ tầng DB.
     eff = danh_gia_toan_bo(get_engine(), as_of)
+    tham_so["bai_bo"] = sorted(dieu_khoan_an(get_engine(), as_of))
 
     with get_engine().connect() as c:
         hien = tap_hien_thi(c, eff)
@@ -372,6 +375,9 @@ async def tim_kiem(
 _SQL_TIM_TRONG_VB = (
     " FROM provisions p"
     " WHERE p.document_id = :doc_id"
+    # Điều khoản bị bãi bỏ không được tìm thấy (quyết định 2026-09-30 mục 9); thân trang
+    # văn bản chỉ còn câu "Đã bị bãi bỏ bởi …" cho nó.
+    "   AND NOT (p.id = ANY(CAST(:bai_bo AS bigint[])))"
     "   AND unaccent(p.tieu_de || ' ' || p.noi_dung)"
     "       ILIKE '%' || unaccent(:q) || '%' ESCAPE '\\'"
 )
@@ -397,12 +403,14 @@ def _thoat_like(q: str) -> str:
 
 def _tim_trong_van_ban_sync(doc_id: str, q: str, limit: int) -> TimTrongVanBanResponse:
     mau = _thoat_like(q)
-    chan_neu_an(get_engine(), doc_id, as_of_hieu_luc(None))
+    as_of = as_of_hieu_luc(None)
+    chan_neu_an(get_engine(), doc_id, as_of)
+    bai_bo = sorted(dieu_khoan_an(get_engine(), as_of))
     with get_engine().connect() as c:
         so_ky_hieu = c.execute(_SQL_DOC_TOI_THIEU, {"doc_id": doc_id}).scalar_one_or_none()
         if so_ky_hieu is None:
             raise HTTPException(status_code=404, detail=f"văn bản '{doc_id}' không tồn tại")
-        tham_so = {"doc_id": doc_id, "q": mau}
+        tham_so = {"doc_id": doc_id, "q": mau, "bai_bo": bai_bo}
         tong = c.execute(_SQL_TIM_TRONG_VB_DEM, tham_so).scalar_one()
         rows = c.execute(
             _SQL_TIM_TRONG_VB_TRANG, {**tham_so, "limit": limit}

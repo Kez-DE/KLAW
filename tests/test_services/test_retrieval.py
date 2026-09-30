@@ -75,22 +75,22 @@ def test_dense_khong_nuot_loi_embedding():
 
 def test_hybrid_khong_nuot_loi_tu_nhanh_dense():
     r = Retriever(engine=None, embedder=_embedder_loi(), settings=_settings())
-    r.bm25 = lambda q, topk=None, hien=None: [1, 2, 3]  # bỏ qua DB, nhánh bm25 không phải điểm cần test
+    r.bm25 = lambda q, **_: [1, 2, 3]  # bỏ qua DB, nhánh bm25 không phải điểm cần test
     with pytest.raises(httpx.HTTPStatusError):
         r.hybrid("truy vấn")
 
 
 def test_hybrid_dung_duoc_khi_bm25_rong():
     r = Retriever(engine=None, embedder=None, settings=_settings())
-    r.bm25 = lambda q, topk=None, hien=None: []
-    r.dense = lambda q, topk=None, hien=None: [5, 6, 7]
+    r.bm25 = lambda q, topk=None, hien=None, bai_bo=frozenset(): []
+    r.dense = lambda q, topk=None, hien=None, bai_bo=frozenset(): [5, 6, 7]
     assert r.hybrid("toàn stopword") == [5, 6, 7]
 
 
 def test_hybrid_hop_nhat_hai_nhanh_theo_rrf():
     r = Retriever(engine=None, embedder=None, settings=_settings())
-    r.bm25 = lambda q, topk=None, hien=None: [1, 2, 3]
-    r.dense = lambda q, topk=None, hien=None: [2, 1, 3]
+    r.bm25 = lambda q, topk=None, hien=None, bai_bo=frozenset(): [1, 2, 3]
+    r.dense = lambda q, topk=None, hien=None, bai_bo=frozenset(): [2, 1, 3]
     ky_vong = [cid for cid, _ in rrf([[1, 2, 3], [2, 1, 3]], k=60)]
     assert r.hybrid("q") == ky_vong
 
@@ -280,7 +280,7 @@ def test_hybrid_provisions_khu_trung_giu_thu_tu_rank_tren_db_that(chunks_that):
     # vector truy vấn trùng chunk[0] (provision p1) hơn chunk[2] (provision p2)
     embedder = _embedder_gia({"q": _vec(0)})
     r = Retriever(engine=get_engine(), embedder=embedder, settings=settings)
-    r.bm25 = lambda q, topk=None, hien=None: [ids[0], ids[1], ids[2]]  # cả 2 chunk của p1 đứng trước p2
+    r.bm25 = lambda q, **_: [ids[0], ids[1], ids[2]]  # cả 2 chunk của p1 đứng trước p2
     out = r.hybrid_provisions("q")
     assert out == [p1, p2], "p1 phải xuất hiện đúng một lần, đứng trước p2"
 
@@ -342,17 +342,29 @@ def test_cong_diem_linh_vuc_tat_khi_bonus_0_hoac_khong_co_linh_vuc():
     from src.services.retrieval import cong_diem_linh_vuc
 
     ids = [3, 1, 2]
-    lv = {3: "Dân sự", 1: "Lao động", 2: None}
+    lv = {3: "dan_su", 1: "lao_dong", 2: None}
     assert cong_diem_linh_vuc(ids, lv, "lao_dong", 0.0) == ids
     assert cong_diem_linh_vuc(ids, lv, None, 0.5) == ids
+    assert cong_diem_linh_vuc(ids, lv, "khac", 0.5) == ids  # không xếp được ngành
+
+
+def test_cong_diem_linh_vuc_so_cung_nganh_luat_voi_bo_loc_cung():
+    """`Retriever.linh_vuc_cua` trả `nganh_luat` (quyết định 2026-09-30 mục 9(c)): mã rewrite
+    "thue" là ngành `tai_chinh` — cùng phép xếp `nganh_cua_linh_vuc` của `loc_theo_linh_vuc`,
+    không so chuỗi "thue" với "tai_chinh"."""
+    from src.services.retrieval import cong_diem_linh_vuc
+
+    ids = [3, 2, 1]
+    lv = {3: "dan_su", 2: None, 1: "tai_chinh"}
+    assert cong_diem_linh_vuc(ids, lv, "thue", 0.5) == [3, 1, 2]
 
 
 def test_cong_diem_linh_vuc_day_cung_linh_vuc_len_va_giu_thu_tu_on_dinh():
     from src.services.retrieval import cong_diem_linh_vuc
 
-    # hạng 0..3 → điểm 1, 1/2, 1/3, 1/4; bonus 0.5 cho "Lao động"
+    # hạng 0..3 → điểm 1, 1/2, 1/3, 1/4; bonus 0.5 cho ngành lao_dong
     ids = [3, 1, 2, 4]
-    lv = {3: "Dân sự", 1: "Lao động", 2: None, 4: "Lao động"}
+    lv = {3: "dan_su", 1: "lao_dong", 2: None, 4: "lao_dong"}
     ra = cong_diem_linh_vuc(ids, lv, "lao_dong", 0.5)
     # 1: 0.5+0.5=1.0 ; 3: 1.0 ; 4: 0.25+0.5=0.75 ; 2: 0.333
     assert ra == [3, 1, 4, 2], "bằng điểm (3 và 1) giữ thứ tự cũ; 4 vượt 2 nhờ bonus; không loại ai"

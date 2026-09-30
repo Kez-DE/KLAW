@@ -36,7 +36,7 @@ from sqlalchemy import text
 from src.agents.nodes.verify_tier1 import normalize
 from src.config import get_settings
 from src.services.db import get_engine
-from src.services.hien_thi import hien_thi_luc
+from src.services.hien_thi import dieu_khoan_an, hien_thi_luc
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,11 @@ def corpus_checksum(as_of: date | None = None) -> str:
     goc = f"{n}:{moc.isoformat() if moc else 'chua-crawl'}"
     if as_of is None:
         return goc
-    dau = hashlib.sha256("\x1f".join(sorted(hien_thi_luc(get_engine(), as_of))).encode()).hexdigest()[:16]
+    # … và của tập điều khoản bị bãi bỏ (quyết định 2026-09-30 mục 9): nạp bảng đó không đổi
+    # tập văn bản được hiện, nhưng câu trả lời đã cache có thể đang trích chính điều bị bãi bỏ.
+    an = ",".join(map(str, sorted(dieu_khoan_an(get_engine(), as_of))))
+    phan = [*sorted(hien_thi_luc(get_engine(), as_of)), *([an] if an else [])]
+    dau = hashlib.sha256("\x1f".join(phan).encode()).hexdigest()[:16]
     return f"{goc}:{dau}"
 
 

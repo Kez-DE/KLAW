@@ -46,6 +46,8 @@ Active. Owner decisions accepted 2026-09-30; decision record
   101/2024 Điều 30 k12 #4 and 102/2024 Điều 108 #3, #5, #8. Script and backups:
   `.claude/worktrees/_scratch/du-lieu-n1/giu_an_101_102.py`,
   `backup-truoc-giu-an-101-102-20260930.dump`. Needs an authorised run.
+  Superseded by decision A (ADR item 9, `feat/bai-bo-cap-dieu`): the verified loai 23 edges are
+  now the committed state and both decrees are shown with their repealed provisions hidden.
 - [x] N2 routing + meta (`feat/tra-loi-meta`). Migration 042: the three `traces`
   columns exist on the shared DB (checked in `information_schema`); a re-apply from the
   integration stage was refused by the permission layer, backup taken first
@@ -75,6 +77,31 @@ Active. Owner decisions accepted 2026-09-30; decision record
     trúng dẫn 64.8% (final 66.2% / 64.8%), trích dẫn đúng 85.1% (81.9%), abstain
     11.3% (4.2% / 9.9%); trap 40/57 (42/57), `ngoai_pham_vi` 4/15 (8/15); mơ hồ 15/19
     scored (14/20). Not isolated to this wave (85 main commits since the baseline).
+- [ ] Decisions A and B (ADR items 9, 10). Integration `integ/bai-bo-nhan-trap` (main 37b4458 +
+  `feat/bai-bo-cap-dieu` + `feat/nhan-trap-pham-vi`, merge 19436f0; not merged into main):
+  - Conflict: only the ADR, both items kept (9 repeal, 10 trap labels). Semantic check (DB
+    read-only): every trap anchor resolves and none is hidden; the oos-03/04 `cam_dan` lists
+    (NĐ 151/2025 repeals) resolve to 0 citable provisions; 102/2024 Điều 105 counts again.
+    Stale "hidden" remarks corrected in `trap.yaml` and `trap_duyet_pham_vi.md`.
+  - Migration 043 is already on the shared DB (table, PK, FKs, CHECKs match; 296 rows); nothing
+    to apply. Document page body checked in-process (0 cost): 101/2024 Điều 9 khoản 5, 11 and
+    Điều 30, 102/2024 Điều 54 khoản 1, 5 and Điều 106 show "bãi bỏ bởi Nghị định số
+    151/2025/NĐ-CP Điều 21 khoản 4 điểm b/c từ 2025-07-01" with a link; the rest shows.
+  - CI lane on 19436f0: 4407 passed, 1 failed (known worktree-only
+    `test_data_raw_VAN_bi_gitignore`); pure `test_run_trap.py` + `test_trap_yaml.py` 18 passed;
+    read-only integration `test_trap_yaml` anchor test and `test_verify_tier1.py -m integration`
+    (10) pass; ruff clean, no new format debt; frontend `npm run kiem` and prettier pass.
+  - Eval (`eval/results/kho-luat/so-sanh-bb.md`, US$0.7070, final key usage 25.5283): golden
+    run 1 lost 24/74 rows to provider `finish_reason=error` and is not compared; run 2 71/74 ran,
+    trúng dẫn 66.2% (tl 64.8%, pairwise +1 on 69), trích dẫn đúng 84.3% (85.1%), abstain 11.3%
+    (11.3%); trap old labels 41/55 (tl 40/57), new labels 38/50 (tl re-scored 38/52),
+    `trong_pham_vi` 2/8 (oos-04 now passes via 102/2024 Điều 105); mơ hồ 16/20 (15/19); land
+    question cites Luật Đất đai Điều 235, 236 and Luật Nhà ở, no BLDS/BLTTDS, no analysis part.
+    No row cites a provision recorded as repealed.
+  - Open: owner labels for the five `cho_duyet` items; 126/2014 Điều 19–50 and most of 24/2013
+    still citable (repeals not recorded; the oos-06 re-run cited 126/2014 Điều 20); the field
+    filter drops BLDS/BLTTDS from the land answer (keep, widen or `KLAW_LINH_VUC_LOC=false`);
+    real-app check on a running server after merge.
 
 ## Result
 

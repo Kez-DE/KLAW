@@ -432,6 +432,15 @@ class VanBanDan(BaseModel):
     lien_ket: str | None
 
 
+class BaiBoOut(BaseModel):
+    """Một điều khoản đã bị bãi bỏ, cho thân trang văn bản (`hien_thi.bai_bo_ra`)."""
+
+    boi_dieu_khoan: str  # "Điều 21 khoản 4 điểm c"
+    ten_goi: str  # "Nghị định số 151/2025/NĐ-CP"
+    tu_ngay: date
+    van_ban: VanBanDan
+
+
 class VanBanAnOut(BaseModel):
     ma: Literal["khong_hien_thi"] = "khong_hien_thi"
     so_ky_hieu: str
@@ -587,6 +596,9 @@ class ProvisionOut(BaseModel):
     # True cho Điều đang hỏi (`so_dieu`/`around`) VÀ mọi Khoản/Điểm con của
     # nó; False cho tối đa 4 Điều lân cận (dạng `around`) và con của chúng.
     la_tam: bool
+    # Điều khoản bị văn bản khác bãi bỏ (quyết định 2026-09-30 mục 9): `noi_dung` rỗng,
+    # hậu duệ không có trong danh sách, giao diện hiện "Đã bị bãi bỏ bởi … từ …".
+    bai_bo: BaiBoOut | None = None
 
 
 class VanBanMetaMixin(TrichDanMixin):

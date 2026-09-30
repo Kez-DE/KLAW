@@ -607,6 +607,19 @@ export interface Provision {
    * đang xem, không phải một dòng đơn lẻ. false cho các Điều lân cận.
    */
   la_tam: boolean;
+  /**
+   * Điều khoản bị văn bản khác bãi bỏ (quyết định 2026-09-30 mục 9): `noi_dung` rỗng,
+   * con của nó không có trong danh sách; hiện câu "Đã bị bãi bỏ bởi … từ …".
+   */
+  bai_bo?: BaiBo | null;
+}
+
+/** `schemas.BaiBoOut`. `tu_ngay` là ngày ISO. */
+export interface BaiBo {
+  boi_dieu_khoan: string;
+  ten_goi: string;
+  tu_ngay: string;
+  van_ban: VanBanDan;
 }
 
 /** Nguyên văn quanh một điều cho khung đối chiếu. Trường trích dẫn đầy đủ là

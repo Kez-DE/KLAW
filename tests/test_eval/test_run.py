@@ -81,10 +81,10 @@ def test_retrieve_khong_dung_nhanh_bi_tat_bang_topk_0():
     exception mong đợi; test này chặn hồi quy nếu ai đó sau này bỏ guard topk>0."""
     s = overlay_settings({"retrieve_bm25_topk": 20, "retrieve_dense_topk": 0})
     r = Retriever(engine=None, embedder=None, settings=s)
-    r.bm25 = lambda q, topk=None, hien=None: [3, 1, 2]
+    r.bm25 = lambda q, topk=None, hien=None, bai_bo=frozenset(): [3, 1, 2]
     r.provision_ids = lambda chunk_ids: chunk_ids  # bỏ qua DB thật, không phải điểm cần test ở đây
 
-    def _dense_khong_duoc_goi(q, topk=None, hien=None):
+    def _dense_khong_duoc_goi(q, topk=None, hien=None, bai_bo=frozenset()):
         raise AssertionError("dense() không được gọi khi retrieve_dense_topk=0")
 
     r.dense = _dense_khong_duoc_goi
@@ -103,17 +103,17 @@ def test_retrieve_truyen_cung_tap_duoc_hien_cho_ca_hai_nhanh():
     nhan: dict[str, object] = {}
 
     def _nhanh(ten: str, ra: list[int]):
-        def f(q, topk=None, hien=None):
-            nhan[ten] = hien
+        def f(q, topk=None, hien=None, bai_bo=frozenset()):
+            nhan[ten] = (hien, bai_bo)
             return ra
 
         return f
 
     r.bm25, r.dense = _nhanh("bm25", [1]), _nhanh("dense", [2])
     r.provision_ids = lambda chunk_ids: chunk_ids
-    hien = frozenset({"doc-hien"})
-    _retrieve(r, "q", s, hien)
-    assert nhan == {"bm25": hien, "dense": hien}
+    hien, bai_bo = frozenset({"doc-hien"}), frozenset({7})
+    _retrieve(r, "q", s, hien, bai_bo)
+    assert nhan == {"bm25": (hien, bai_bo), "dense": (hien, bai_bo)}
 
 
 def _evaluate_gia(monkeypatch, tmp_path, **kw) -> tuple[dict, dict]:
@@ -130,8 +130,8 @@ def _evaluate_gia(monkeypatch, tmp_path, **kw) -> tuple[dict, dict]:
         def __init__(self, engine, embedder, settings):
             self.engine = engine
 
-        def bm25(self, q, topk=None, hien=None):
-            goi["hien"] = hien
+        def bm25(self, q, topk=None, hien=None, bai_bo=frozenset()):
+            goi["hien"], goi["bai_bo"] = hien, bai_bo
             return [1]
 
         def provision_ids(self, chunk_ids):
@@ -143,6 +143,7 @@ def _evaluate_gia(monkeypatch, tmp_path, **kw) -> tuple[dict, dict]:
     monkeypatch.setattr(run_mod, "get_engine", lambda: None)
     monkeypatch.setattr(run_mod, "_load_golden_qa", lambda s, engine: (cau, True))
     monkeypatch.setattr(run_mod, "hien_thi_luc", _hien_thi_luc)
+    monkeypatch.setattr(run_mod, "dieu_khoan_an", lambda engine, as_of: frozenset({7}))
     monkeypatch.setattr(run_mod, "Retriever", _RGia)
     monkeypatch.setattr(run_mod, "EmbeddingClient", lambda **k: None)
     monkeypatch.setattr(run_mod, "_gan_duong_dan_he_thong", lambda engine, per_item: per_item)
@@ -151,8 +152,8 @@ def _evaluate_gia(monkeypatch, tmp_path, **kw) -> tuple[dict, dict]:
 
 def test_evaluate_mac_dinh_do_tren_tap_duoc_hien(monkeypatch, tmp_path):
     r, goi = _evaluate_gia(monkeypatch, tmp_path)
-    assert goi["hien"] == frozenset({"doc-hien"})
-    assert r["loc_hien"] is True
+    assert goi["hien"] == frozenset({"doc-hien"}) and goi["bai_bo"] == frozenset({7})
+    assert r["loc_hien"] is True and r["so_dieu_khoan_bai_bo"] == 1
     assert r["so_van_ban_hien"] == 1
     assert r["as_of_hien"] == str(goi["as_of"])
 
@@ -160,7 +161,7 @@ def test_evaluate_mac_dinh_do_tren_tap_duoc_hien(monkeypatch, tmp_path):
 def test_evaluate_khong_loc_hien_do_kho_tho_va_khong_ghi_de_file_loc(monkeypatch, tmp_path):
     loc, _ = _evaluate_gia(monkeypatch, tmp_path)
     tho, goi = _evaluate_gia(monkeypatch, tmp_path, loc_hien=False)
-    assert goi["hien"] is None and "as_of" not in goi
+    assert goi["hien"] is None and goi["bai_bo"] == frozenset() and "as_of" not in goi
     assert tho["loc_hien"] is False and tho["so_van_ban_hien"] is None
     assert tho["result_file"] != loc["result_file"], "số thô không được ghi đè số đã lọc"
     assert Path(loc["result_file"]).exists() and Path(tho["result_file"]).exists()
@@ -190,7 +191,7 @@ def test_loi_retrieval_hien_ro_khong_bi_dem_am_tham_la_recall_0():
     s = overlay_settings({"retrieve_bm25_topk": 20, "retrieve_dense_topk": 0})
     r = Retriever(engine=None, embedder=None, settings=s)
 
-    def _bm25_loi(q, topk=None, hien=None):
+    def _bm25_loi(q, topk=None, hien=None, bai_bo=frozenset()):
         raise RuntimeError("DB down")
 
     r.bm25 = _bm25_loi
@@ -205,7 +206,7 @@ def test_loi_retrieval_hien_ro_khong_bi_dem_am_tham_la_recall_0():
 def test_run_items_tinh_dung_metric_khi_thanh_cong():
     s = overlay_settings({"retrieve_bm25_topk": 20, "retrieve_dense_topk": 0})
     r = Retriever(engine=None, embedder=None, settings=s)
-    r.bm25 = lambda q, topk=None, hien=None: [1, 2, 3]
+    r.bm25 = lambda q, topk=None, hien=None, bai_bo=frozenset(): [1, 2, 3]
     r.provision_ids = lambda chunk_ids: chunk_ids
     items = [{"id": "x", "cau_hoi": "q", "provision_ids": [1], "duong_dan": ["a"]}]
     per_item, n_ok = _run_items(r, items, s)
@@ -220,7 +221,7 @@ def test_run_items_mot_cau_loi_khong_lam_hong_cau_con_lai():
     r = Retriever(engine=None, embedder=None, settings=s)
     r.provision_ids = lambda chunk_ids: chunk_ids
 
-    def _bm25(q, topk=None, hien=None):
+    def _bm25(q, topk=None, hien=None, bai_bo=frozenset()):
         if q == "loi":
             raise RuntimeError("boom")
         return [1]

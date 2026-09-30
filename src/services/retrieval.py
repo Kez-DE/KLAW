@@ -23,6 +23,7 @@ from sqlalchemy import Engine, text
 
 from src.config import Settings
 from src.services.embedding import EmbeddingClient
+from src.services.phan_linh_vuc import phan_nganh_luat
 
 # Hư từ tiếng Việt — danh sách nhỏ, tự viết, CHỈ áp lên truy vấn (corpus không
 # đụng tới). Viết KHÔNG DẤU vì so khớp sau khi bỏ dấu, giống `unaccent()` của
@@ -93,15 +94,30 @@ def chuan_linh_vuc(s: str | None) -> str:
     return "_".join(_bo_dau(s).lower().replace("-", " ").split())
 
 
+def nganh_cua_linh_vuc(linh_vuc: str | None) -> str | None:
+    """Mã lĩnh vực `rewrite_query` đoán ("dat_dai", "thue", "khac") → ngành luật của kho
+    (`documents.nganh_luat`), xếp bằng CHÍNH bộ từ khoá xếp văn bản vào ngành
+    (`phan_linh_vuc.phan_nganh_luat`: "thue" → tai_chinh, "so_huu_tri_tue" → kinh_te) —
+    không có bảng ánh xạ thứ hai. Không xếp được ("khac") → None: không khoanh vùng."""
+    kq = phan_nganh_luat(ten=linh_vuc.replace("_", " ")) if linh_vuc else None
+    return kq.linh_vuc if kq else None
+
+
 def loc_theo_linh_vuc(
-    provision_ids: list[int], linh_vuc_cua: dict[int, str | None], linh_vuc: str | None, toi_thieu: int = 3
+    provision_ids: list[int], nganh_cua: dict[int, str | None], linh_vuc: str | None, toi_thieu: int = 3
 ) -> tuple[list[int], bool]:
     """Khoanh vùng cứng theo lĩnh vực mô hình đoán (spec 2026-09-09 §7.4). Dưới `toi_thieu`
-    kết quả thì mở lại toàn kho và báo `mo_rong=True` để trace đếm được."""
-    if not linh_vuc:
+    kết quả thì mở lại toàn kho và báo `mo_rong=True` để trace đếm được.
+
+    Đọc `nganh_luat` (`Retriever.linh_vuc_cua`), nhãn mà MỌI văn bản được xếp theo cùng một
+    luật, và giữ điều khoản của văn bản CHƯA xếp ngành: không biết không phải là khác ngành
+    (quyết định 2026-09-30 mục 9). Trước đó bộ lọc đọc `linh_vuc` nguyên văn nguồn — 102/2024
+    mang "Đất đai" còn Luật Đất đai 31/2024/QH15 để trống — nên hiện 102/2024 là loại Điều
+    235, 236 của Luật Đất đai khỏi câu tranh chấp nhà đất."""
+    nganh = nganh_cua_linh_vuc(linh_vuc)
+    if nganh is None:
         return provision_ids, False
-    muc = chuan_linh_vuc(linh_vuc)
-    giu = [pid for pid in provision_ids if chuan_linh_vuc(linh_vuc_cua.get(pid)) == muc]
+    giu = [pid for pid in provision_ids if nganh_cua.get(pid) in (None, nganh)]
     return (giu, False) if len(giu) >= toi_thieu else (provision_ids, True)
 
 
@@ -110,12 +126,13 @@ def cong_diem_linh_vuc(
 ) -> list[int]:
     """Spec 2026-09-06 §6 — sau RRF, KHÔNG loại ai. `provision_ids` chỉ có thứ
     tự, không có điểm, nên điểm dựng lại từ vị trí: 1/(hạng+1); cộng `bonus`
-    cho provision cùng lĩnh vực; `sorted` ổn định nên bằng điểm giữ thứ tự cũ."""
-    if not linh_vuc or bonus <= 0:
+    cho provision cùng ngành (`nganh_cua_linh_vuc`, cùng phép của `loc_theo_linh_vuc`);
+    `sorted` ổn định nên bằng điểm giữ thứ tự cũ."""
+    muc = nganh_cua_linh_vuc(linh_vuc)
+    if muc is None or bonus <= 0:
         return list(provision_ids)
-    muc = chuan_linh_vuc(linh_vuc)
     diem = {
-        pid: 1.0 / (hang + 1) + (bonus if chuan_linh_vuc(linh_vuc_cua.get(pid)) == muc else 0.0)
+        pid: 1.0 / (hang + 1) + (bonus if linh_vuc_cua.get(pid) == muc else 0.0)
         for hang, pid in enumerate(provision_ids)
     }
     return sorted(provision_ids, key=lambda pid: -diem[pid])
@@ -125,10 +142,13 @@ def cong_diem_linh_vuc(
 # mục 8): văn bản ẩn không bao giờ được truy hồi làm căn cứ. Lọc TRONG SQL để
 # top-k lấp bằng văn bản được hiện, không bị văn bản ẩn chiếm chỗ. `hien=None`
 # = không lọc, chỉ cho phép đo truy hồi thô (`eval/run.py --khong-loc-hien`);
-# đường trả lời luôn truyền tập được hiện (`graph_tra_cuu.n_retrieve`).
+# đường trả lời luôn truyền tập được hiện (`graph_tra_cuu.n_retrieve`). Trong tập đó, điều
+# khoản bị bãi bỏ (`hien_thi.dieu_khoan_an`, quyết định 2026-09-30 mục 9) cũng không bao giờ
+# được truy hồi.
 _CHI_HIEN = (
     " AND (CAST(:hien AS text[]) IS NULL OR c.provision_id IN"
-    " (SELECT p.id FROM provisions p WHERE p.document_id = ANY(CAST(:hien AS text[]))))"
+    " (SELECT p.id FROM provisions p WHERE p.document_id = ANY(CAST(:hien AS text[]))"
+    " AND NOT (p.id = ANY(CAST(:bai_bo AS bigint[])))))"
 )
 
 
@@ -142,7 +162,9 @@ class Retriever:
         self.embedder = embedder
         self.s = settings
 
-    def bm25(self, q: str, topk: int | None = None, hien: frozenset[str] | None = None) -> list[int]:
+    def bm25(
+        self, q: str, topk: int | None = None, hien: frozenset[str] | None = None, bai_bo: frozenset[int] = frozenset()
+    ) -> list[int]:
         # plainto_tsquery nối lexeme bằng AND — một câu hỏi tự nhiên gần như
         # không bao giờ chứa ĐỦ mọi từ của điều luật, nên AND luôn cho rỗng
         # trên truy vấn thật và làm hybrid() thoái hoá thành dense thuần.
@@ -176,11 +198,14 @@ class Retriever:
                     "m": self.embedder.model,
                     "norm": self.s.bm25_rank_normalization,
                     "hien": _mang(hien),
+                    "bai_bo": sorted(bai_bo),
                 },
             ).all()
         return [r[0] for r in rows]
 
-    def dense(self, q: str, topk: int | None = None, hien: frozenset[str] | None = None) -> list[int]:
+    def dense(
+        self, q: str, topk: int | None = None, hien: frozenset[str] | None = None, bai_bo: frozenset[int] = frozenset()
+    ) -> list[int]:
         topk = topk or self.s.retrieve_dense_topk
         # embed_query lỗi phải nổ ở đây, KHÔNG bắt — một nhánh chết âm thầm sẽ
         # làm hybrid tụt về BM25 thuần mà bảng ablation Task 9 không biết.
@@ -194,12 +219,12 @@ class Retriever:
                     + " ORDER BY c.embedding <=> CAST(:v AS vector)"
                     " LIMIT :k"
                 ),
-                {"v": str(vec), "k": topk, "m": self.embedder.model, "hien": _mang(hien)},
+                {"v": str(vec), "k": topk, "m": self.embedder.model, "hien": _mang(hien), "bai_bo": sorted(bai_bo)},
             ).all()
         return [r[0] for r in rows]
 
-    def hybrid(self, q: str, hien: frozenset[str] | None = None) -> list[int]:
-        fused = rrf([self.bm25(q, hien=hien), self.dense(q, hien=hien)], k=self.s.rrf_k)
+    def hybrid(self, q: str, hien: frozenset[str] | None = None, bai_bo: frozenset[int] = frozenset()) -> list[int]:
+        fused = rrf([self.bm25(q, hien=hien, bai_bo=bai_bo), self.dense(q, hien=hien, bai_bo=bai_bo)], k=self.s.rrf_k)
         return [cid for cid, _ in fused[: self.s.retrieve_final_topk]]
 
     def provision_ids(self, chunk_ids: list[int]) -> list[int]:
@@ -222,13 +247,14 @@ class Retriever:
         return _dedup_giu_hang_tot_nhat(chunk_ids, provision_cua)
 
     def linh_vuc_cua(self, provision_ids: list[int]) -> dict[int, str | None]:
-        """`provisions.id → documents.linh_vuc` (migration 018) cho tập ứng viên."""
+        """`provisions.id → documents.nganh_luat` (migration 029) cho tập ứng viên — nhãn xếp
+        theo cùng một luật cho cả kho; `linh_vuc` (018) là chữ nguồn tự do, 95% rỗng."""
         if not provision_ids:
             return {}
         with self.engine.connect() as c:
             rows = c.execute(
                 text(
-                    "SELECT p.id, d.linh_vuc FROM provisions p"
+                    "SELECT p.id, d.nganh_luat FROM provisions p"
                     " JOIN documents d ON d.id = p.document_id WHERE p.id = ANY(:ids)"
                 ),
                 {"ids": provision_ids},

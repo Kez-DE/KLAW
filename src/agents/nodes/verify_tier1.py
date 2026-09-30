@@ -255,6 +255,12 @@ def citation_precision(results: list[Tier1Result]) -> float:
 # `UNION` chứ không `UNION ALL`: `parent_id` vòng làm `UNION ALL` chạy vô hạn
 # trong Postgres, còn `UNION` khử trùng nên vòng tự cạn. Cây một Điều chỉ vài
 # chục dòng, phần khử trùng không đáng kể.
+#
+# Bước đệ quy KHÔNG đi vào điều khoản bị bãi bỏ (`:bai_bo`, `hien_thi.dieu_khoan_an`,
+# quyết định 2026-09-30 mục 9): khoản đã bãi bỏ dưới một Điều còn hiệu lực không được
+# làm chỗ khớp quote (`khop_tai`) — không thì mô hình nhớ nguyên văn luật đã chết và
+# vẫn được đóng dấu đã kiểm chứng. Gốc (`:ids`) luôn được lấy, để phép kiểm 1 vẫn nói
+# đúng "có tồn tại"; gốc bị bãi bỏ đã không có trong context (phép kiểm 2).
 _SQL_CAY = text(
     "WITH RECURSIVE cay AS ("
     "  SELECT id, parent_id, document_id, duong_dan, noi_dung"
@@ -262,12 +268,16 @@ _SQL_CAY = text(
     "  UNION"
     "  SELECT p.id, p.parent_id, p.document_id, p.duong_dan, p.noi_dung"
     "    FROM provisions p JOIN cay c ON p.parent_id = c.id"
+    "   WHERE NOT (p.id = ANY(CAST(:bai_bo AS bigint[])))"
     ") SELECT * FROM cay"
 )
 
 
-def nap_provisions(engine: Engine, provision_ids: Iterable[int]) -> dict[int, dict]:
-    """`provisions.id` → dòng, KÈM toàn bộ hậu duệ — nguyên liệu của phép kiểm 1 và 3.
+def nap_provisions(
+    engine: Engine, provision_ids: Iterable[int], bai_bo: frozenset[int] = frozenset()
+) -> dict[int, dict]:
+    """`provisions.id` → dòng, KÈM toàn bộ hậu duệ còn hiệu lực (trừ `bai_bo` và cây con
+    của nó) — nguyên liệu của phép kiểm 1 và 3.
 
     Truyền vào id của MỌI claim cộng id của tập đã truy hồi, để phép kiểm 1 và
     phép kiểm 2 tách được nhau (xem `verify_tier1`). Id không có trong CSDL đơn
@@ -279,7 +289,9 @@ def nap_provisions(engine: Engine, provision_ids: Iterable[int]) -> dict[int, di
     if not ids:
         return {}
     with engine.connect() as conn:
-        return {r["id"]: dict(r) for r in conn.execute(_SQL_CAY, {"ids": ids}).mappings().all()}
+        return {
+            r["id"]: dict(r) for r in conn.execute(_SQL_CAY, {"ids": ids, "bai_bo": sorted(bai_bo)}).mappings().all()
+        }
 
 
 def effectivity_qua_provision(

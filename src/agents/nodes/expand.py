@@ -100,6 +100,9 @@ _SQL_PROV = text(
     # cha/con/hop/điều đi sửa ở các bước trên có thể với sang văn bản ẩn, và văn
     # bản ẩn không bao giờ vào căn cứ. `hien=None` = không lọc (đo truy hồi thô).
     " AND (CAST(:hien AS text[]) IS NULL OR p.document_id = ANY(CAST(:hien AS text[])))"
+    # Điều khoản bị bãi bỏ (quyết định 2026-09-30 mục 9) cũng vậy: bước #2 kéo con của
+    # một Điều còn hiệu lực, và khoản con đã bị bãi bỏ không được theo vào.
+    " AND NOT (p.id = ANY(CAST(:bai_bo AS bigint[])))"
 )
 
 _SQL_PARENT = text(
@@ -199,7 +202,12 @@ def _chia_deep_shallow(rows: list[dict], eff, uu_tien: dict[int, int]) -> tuple[
 
 
 def expand(
-    provision_ids: list[int], engine: Engine, as_of: date, hops: int, hien: frozenset[str] | None = None
+    provision_ids: list[int],
+    engine: Engine,
+    as_of: date,
+    hops: int,
+    hien: frozenset[str] | None = None,
+    bai_bo: frozenset[int] = frozenset(),
 ) -> tuple[list[dict], list[dict]]:
     """`(expanded_deep, hits_shallow)` — xem docstring module. Chỉ lo TRUY VẤN;
     logic gộp cha/con/chia deep-shallow nằm ở ba hàm thuần phía trên.
@@ -239,7 +247,7 @@ def expand(
             ids.update(frontier)
 
         rows = [dict(r) for r in conn.execute(
-            _SQL_PROV, {"ids": list(ids), "hien": None if hien is None else list(hien)}
+            _SQL_PROV, {"ids": list(ids), "hien": None if hien is None else list(hien), "bai_bo": sorted(bai_bo)}
         ).mappings().all()]
 
     db_provisions = {r["id"]: r for r in rows}

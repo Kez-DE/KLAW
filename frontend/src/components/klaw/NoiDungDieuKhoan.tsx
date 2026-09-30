@@ -2,7 +2,8 @@ import { Link } from "@tanstack/react-router";
 import type { Provision } from "@/lib/klaw";
 import { soCot, tachDoan, type O } from "@/lib/bang";
 import { vungTrichDan, type VungTrichDan } from "@/lib/trich-dan";
-import { cn } from "@/lib/utils";
+import { cn, ngayVietNam } from "@/lib/utils";
+import { LinkVanBanDan } from "./BadgeHieuLuc";
 
 /**
  * Nguyên văn MỘT dòng điều khoản: văn xuôi ra `<p>`, bảng ra `<table>` thật.
@@ -211,6 +212,28 @@ export function NoiDungDieuKhoan({
   docId = null,
   style,
 }: NoiDungDieuKhoanProps) {
+  // Điều khoản đã bị bãi bỏ: backend không gửi nội dung, chỉ câu bãi bỏ. Một chỗ cho cả
+  // khung đối chiếu lẫn màn đọc toàn văn (quyết định 2026-09-30 mục 9).
+  const baiBo = dieuKhoan.bai_bo;
+  if (baiBo) {
+    const so =
+      dieuKhoan.cap === "khoan"
+        ? `${dieuKhoan.so_hieu_cap}. `
+        : dieuKhoan.cap === "diem"
+          ? `${dieuKhoan.so_hieu_cap}) `
+          : "";
+    return (
+      <p
+        data-bai-bo
+        style={style}
+        className="my-2 text-[15px] leading-[1.75] text-muted-foreground italic"
+      >
+        {so}Đã bị bãi bỏ bởi {baiBo.boi_dieu_khoan}{" "}
+        <LinkVanBanDan vanBan={baiBo.van_ban}>{baiBo.ten_goi}</LinkVanBanDan> từ ngày{" "}
+        {ngayVietNam(baiBo.tu_ngay)}.
+      </p>
+    );
+  }
   const doan = tachDoan(noiDung);
   const vung = vungTrichDan(noiDung, quote);
 
