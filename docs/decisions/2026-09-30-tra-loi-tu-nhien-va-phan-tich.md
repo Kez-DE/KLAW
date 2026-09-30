@@ -89,6 +89,20 @@ lời kiểu bot". Đo trên app thật cùng ngày (traces 88117154…, 8eb13b0
    lại các chunk đó không kèm hậu duệ bị bãi bỏ rồi nhúng lại — một lượt nhúng trả phí nhỏ,
    chờ chủ dự án duyệt. (f) `ingest` tự nạp lại bảng từ seed sau mỗi lượt ghi: FK CASCADE
    của 043 xoá dòng bãi bỏ của văn bản đi đường xoá-rồi-chèn.
+10. **Nhãn tập bẫy theo phạm vi pháp luật Việt Nam** (chủ dự án chốt 2026-09-30): câu
+    `ngoai_pham_vi` của `eval/datasets/trap.yaml` có luật điều chỉnh được hiện kèm toàn
+    văn chuyển sang nhóm `trong_pham_vi`, kỳ vọng "trả lời, dẫn đúng"
+    (`tra_loi_dan_dung`: `answer` dẫn trúng một neo `duong_dan`, so tiền tố như bộ vàng,
+    không nêu cụm `cam_nhac` của luật đã sửa, không dẫn tiền tố `cam_dan` đã bãi bỏ).
+    Neo chỉ là bản đang lưu còn đúng câu trả lời hiện hành: điều đã bị viết lại thì neo
+    khoản đi sửa, không neo bản gốc hay bản trung gian — không có cơ chế nào tự đưa bản
+    hiện hành lên cho các điều này (`sua_doi_dieu_khoan` không có dòng nào). Câu thật sự
+    ngoài phạm vi (luật nước ngoài, đoán kết quả xét xử, không phải pháp luật) giữ
+    `out_of_scope`. Đo DB 2026-09-30: đổi 10/15 câu (oos-01, 03–08, 11–13); 5 câu hỏi
+    luật Việt Nam mà luật điều chỉnh chưa được hiện hoặc chưa có toàn văn (oos-02, 09,
+    10, 14, 15) là `cho_duyet` — vẫn chạy, ghi lại, không chấm, không vào tổng — tới khi
+    chủ dự án chọn nhãn. Nhãn cũ giữ ở `eval/datasets/trap.truoc-pham-vi.yaml`; bảng
+    duyệt `eval/datasets/trap_duyet_pham_vi.md`.
 
 ## Alternatives Considered
 

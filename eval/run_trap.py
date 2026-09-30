@@ -15,6 +15,7 @@ from pathlib import Path
 
 import yaml
 
+from eval.run_cau_tra_loi import _duong_dan_da_dan, _trung
 from src.agents.graph_tra_cuu import build_graph_tra_cuu
 from src.agents.nodes.assemble import _RE_URL, _the_khong_hop_le
 from src.services.traces import _TOKEN_IN_KEYS
@@ -48,6 +49,20 @@ def dung(it: dict, st: dict) -> bool:
         return rt == "answer" and answer.lstrip().lower().startswith("chào")
     if kv == "khong_chao":
         return rt == "answer" and not answer.lstrip().lower().startswith("chào")
+    # Phạm vi "pháp luật Việt Nam" (quyết định 2026-09-30 mục 10): luật điều chỉnh
+    # có toàn văn thì từ chối là SAI. Dẫn trúng MỘT neo là đúng — cùng phép so
+    # tiền tố hai chiều của bộ vàng, không phải một định nghĩa thứ hai. Một neo
+    # trúng không cứu được câu vẫn nêu luật đã sửa (`cam_nhac`, như
+    # `van_ban_ngoai_kho`) hoặc còn dẫn điều khoản đã bãi bỏ (`cam_dan`, so MỘT
+    # chiều: dẫn Điều cha của một khoản bị bãi bỏ không phải dẫn phần bị bãi bỏ).
+    if kv == "tra_loi_dan_dung":
+        da_dan = _duong_dan_da_dan(st)
+        return (
+            rt == "answer"
+            and _trung(it.get("duong_dan") or [], da_dan)
+            and not any(s in answer for s in it.get("cam_nhac", []))
+            and not any(d == c or d.startswith(c + " >") for c in it.get("cam_dan", []) for d in da_dan)
+        )
     if kv == "van_ban_ngoai_kho":
         return rt in ("answer", "abstain", "partial_coverage") and not any(s in answer for s in it.get("cam_nhac", []))
     # Ba nhánh dưới đây so CỤM TỪ, không so TỪ TRẦN TRỤI — "thắng"/"thua"/"quy
@@ -152,6 +167,11 @@ async def chay(items: list[dict]) -> dict:
             )
             continue
         rt = st["result_type"].value if hasattr(st["result_type"], "value") else st["result_type"]
+        if it["ky_vong"] == "cho_duyet":  # chủ dự án chưa chốt nhãn: ghi hành vi, không chấm, không vào tổng
+            chi_tiet.append(
+                {"id": it["id"], "nhom": it["nhom"], "cho_duyet": True, "result_type": rt, "token_in": token_in_cua(st)}
+            )
+            continue
         d = dung(it, st)
         cap = theo_nhom.setdefault(it["nhom"], [0, 0])
         cap[0] += int(d)
@@ -190,6 +210,9 @@ def main() -> None:
     if tong_cau:
         print(f"TỔNG: {tong_dung}/{tong_cau} = {tong_dung / tong_cau:.0%}")
     print(f"token_in tổng: {ket['token_in_tong']}")
+    cho = [c["id"] for c in ket["chi_tiet"] if c.get("cho_duyet")]
+    if cho:
+        print(f"CHỜ DUYỆT: {len(cho)} câu ghi lại, KHÔNG chấm — " + ", ".join(cho))
     loi = [c for c in ket["chi_tiet"] if "error" in c]
     if loi:
         print(

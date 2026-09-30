@@ -2,7 +2,7 @@
 # (câu hỏi thật, muốn hệ thống trả lời đúng). Đây là tập BÁO CÁO — không tinh
 # chỉnh ABSTAIN_THRESHOLD trên tập này (Global Constraint, xem AGENTS.md/report).
 #
-# Năm nhóm, 20+15+10+9+3 = 57:
+# Sáu nhóm, 20+5+10+10+9+3 = 57:
 #   dieu_khong_ton_tai — số Điều vượt quá số Điều thật của chính Bộ luật đó
 #     (đo trực tiếp trên DB, `MAX(so_hieu_cap::int)` theo từng Bộ luật deep:
 #     Lao động 45/2019/QH14=220, Dân sự 91/2015/QH13=689, Hình sự
@@ -13,9 +13,19 @@
 #     review round 2 — H2) dùng trật tự NGƯỢC "[văn bản] ... Điều N" — cả 15
 #     câu đầu tình cờ cùng một trật tự từ nên không chứng minh được phép kiểm
 #     thứ sáu hoạt động cho cách viết ngược, cách người thật cũng hay viết.
-#   ngoai_pham_vi — thuế, đất đai, hôn nhân gia đình, hành chính, y tế, giáo
-#     dục: KHÔNG Bộ luật nào trong corpus phủ. Hành vi đúng là out_of_scope —
-#     đây là kết luận ĐÚNG, không phải từ chối oan.
+#   ngoai_pham_vi / trong_pham_vi — 15 câu thuế, đất đai, hôn nhân gia đình,
+#     hộ tịch, y tế, giáo dục, cùng chấm `out_of_scope` tới 2026-09-30. Phạm vi
+#     nay là pháp luật Việt Nam (quyết định 2026-09-30 mục 10; nhãn cũ giữ ở
+#     `trap.truoc-pham-vi.yaml`, bảng duyệt `trap_duyet_pham_vi.md`):
+#     trong_pham_vi — luật điều chỉnh được HIỆN kèm toàn văn (đo DB 2026-09-30
+#       bằng `hien_thi.hien_thi_luc`, số điều khoản > 1). Từ chối là SAI; đúng
+#       là `answer` dẫn trúng một neo `duong_dan` (so tiền tố như bộ vàng), không
+#       nêu cụm `cam_nhac` và không dẫn tiền tố `cam_dan`. Neo chỉ là bản đang lưu
+#       còn đúng câu trả lời hiện hành (điều đã bị viết lại → neo khoản đi sửa);
+#       `cam_dan` là điều khoản đã bãi bỏ (vd. 151/2025/NĐ-CP Điều 21 khoản 4).
+#     ngoai_pham_vi — luật điều chỉnh không được hiện hoặc chưa có toàn văn;
+#       `cho_duyet`: chạy và ghi lại, KHÔNG chấm tới khi chủ dự án chọn nhãn.
+#     Giữ id `trap-oos-*` cho cả hai nhóm: id là khoá nối các lượt đo cũ.
 #   van_ban_bi_thay — chuỗi nghị định lương tối thiểu vùng mà MOJ đánh sai
 #     "còn hiệu lực" (đo được ở Task 2/Plan 2, xác nhận lại bằng
 #     `danh_gia_theo_id` trước khi viết file này):
@@ -134,67 +144,158 @@ items:
     nhom: dieu_khong_ton_tai
     ky_vong: abstain
 
-  # ── Nhóm 2: NGOÀI PHẠM VI (15 câu) — route phải nhận ra → out_of_scope ────
+  # ── Nhóm 2: PHẠM VI (15 câu) — quyết định 2026-09-30 mục 10. Luật điều chỉnh
+  #    hiện kèm toàn văn → `trong_pham_vi`, phải trả lời và dẫn trúng một neo.
+  #    Neo chỉ nhận bản ĐANG LƯU còn đúng câu trả lời hiện hành: điều đã bị viết
+  #    lại thì neo khoản đi sửa, không neo bản gốc hay bản trung gian (bảng
+  #    `sua_doi_dieu_khoan` không có dòng nào cho các điều này, nên không có gì tự
+  #    đưa bản hiện hành lên). `cam_nhac` bắt câu nêu luật đã sửa; `cam_dan` bắt
+  #    câu còn dẫn điều khoản đã bãi bỏ. Năm câu luật Việt Nam mà luật điều chỉnh
+  #    chưa có toàn văn: `cho_duyet`, ghi lại nhưng không chấm tới khi chủ dự án
+  #    chọn nhãn (bảng duyệt `trap_duyet_pham_vi.md`). ─────────────────────────
   - id: trap-oos-01
     cau_hoi: "thu nhập bao nhiêu thì phải đóng thuế thu nhập cá nhân"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: trong_pham_vi
+    ky_vong: tra_loi_dan_dung
+    duong_dan:          # Luật Thuế TNCN 2025: giảm trừ gia cảnh, biểu thuế; ngưỡng kinh doanh
+      - "109/2025/QH15 > Điều 10"
+      - "109/2025/QH15 > Điều 9"
+      - "09/2026/QH16 > Điều 1"   # viết lại Điều 7 khoản 1 (500 triệu → mức Chính phủ quy định) từ 01/01/2026
   - id: trap-oos-02
     cau_hoi: "thuế giá trị gia tăng hiện nay là bao nhiêu phần trăm"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: ngoai_pham_vi   # Luật Thuế GTGT 48/2024/QH15 không có trong kho
+    ky_vong: cho_duyet
   - id: trap-oos-03
     cau_hoi: "mua bán nhà đất cần những giấy tờ gì"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: trong_pham_vi
+    ky_vong: tra_loi_dan_dung
+    duong_dan:          # Luật Đất đai 2024, Luật Nhà ở 2023
+      - "31/2024/QH15 > Điều 27 > Khoản 3"
+      - "31/2024/QH15 > Điều 45"
+      - "31/2024/QH15 > Điều 133"
+      - "27/2023/QH15 > Điều 160"
+      - "27/2023/QH15 > Điều 164"
+    # 151/2025/NĐ-CP Điều 21 khoản 4 điểm b, c (gateway 178259): hết hiệu lực từ 01/7/2025
+    cam_dan: &bai_bo_151_2025 [
+        "101/2024/NĐ-CP > Điều 9 > Khoản 5", "101/2024/NĐ-CP > Điều 9 > Khoản 11",
+        "101/2024/NĐ-CP > Điều 19 > Khoản 1", "101/2024/NĐ-CP > Điều 20 > Khoản 3", "101/2024/NĐ-CP > Điều 21",
+        "101/2024/NĐ-CP > Điều 22", "101/2024/NĐ-CP > Điều 28", "101/2024/NĐ-CP > Điều 29",
+        "101/2024/NĐ-CP > Điều 30", "101/2024/NĐ-CP > Điều 31", "101/2024/NĐ-CP > Điều 32",
+        "101/2024/NĐ-CP > Điều 33", "101/2024/NĐ-CP > Điều 34", "101/2024/NĐ-CP > Điều 35",
+        "101/2024/NĐ-CP > Điều 36", "101/2024/NĐ-CP > Điều 37", "101/2024/NĐ-CP > Điều 38",
+        "101/2024/NĐ-CP > Điều 39", "101/2024/NĐ-CP > Điều 40", "101/2024/NĐ-CP > Điều 41",
+        "101/2024/NĐ-CP > Điều 42", "101/2024/NĐ-CP > Điều 43", "101/2024/NĐ-CP > Điều 44",
+        "101/2024/NĐ-CP > Điều 45", "101/2024/NĐ-CP > Điều 46", "101/2024/NĐ-CP > Điều 47",
+        "101/2024/NĐ-CP > Điều 48", "101/2024/NĐ-CP > Điều 49", "101/2024/NĐ-CP > Điều 60",
+        "102/2024/NĐ-CP > Điều 14 > Khoản 1", "102/2024/NĐ-CP > Điều 54 > Khoản 1",
+        "102/2024/NĐ-CP > Điều 54 > Khoản 5", "102/2024/NĐ-CP > Điều 94 > Khoản 2 > Điểm c",
+        "102/2024/NĐ-CP > Điều 94 > Khoản 3 > Điểm a", "102/2024/NĐ-CP > Điều 99 > Khoản 4",
+        "102/2024/NĐ-CP > Điều 99 > Khoản 6", "102/2024/NĐ-CP > Điều 100 > Khoản 3",
+        "102/2024/NĐ-CP > Điều 101 > Khoản 6 > Điểm b", "102/2024/NĐ-CP > Điều 20", "102/2024/NĐ-CP > Điều 21",
+        "102/2024/NĐ-CP > Điều 23", "102/2024/NĐ-CP > Điều 44", "102/2024/NĐ-CP > Điều 45",
+        "102/2024/NĐ-CP > Điều 48", "102/2024/NĐ-CP > Điều 49", "102/2024/NĐ-CP > Điều 51",
+        "102/2024/NĐ-CP > Điều 52", "102/2024/NĐ-CP > Điều 53", "102/2024/NĐ-CP > Điều 60",
+        "102/2024/NĐ-CP > Điều 64", "102/2024/NĐ-CP > Điều 66", "102/2024/NĐ-CP > Điều 68",
+        "102/2024/NĐ-CP > Điều 73", "102/2024/NĐ-CP > Điều 106", "102/2024/NĐ-CP > Điều 107"
+      ]
   - id: trap-oos-04
     cau_hoi: "tranh chấp ranh giới đất đai giữa hai hộ gia đình giải quyết ở đâu"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: trong_pham_vi
+    ky_vong: tra_loi_dan_dung
+    duong_dan:          # 102/2024 Điều 105 không trong danh sách bãi bỏ; văn bản đang ẩn chờ quyết định A
+      - "31/2024/QH15 > Điều 235"
+      - "31/2024/QH15 > Điều 236 > Khoản 1"   # không neo khoản 3 điểm a, khoản 4: thẩm quyền của
+      - "31/2024/QH15 > Điều 236 > Khoản 2"   # Chủ tịch UBND cấp huyện chuyển về cấp xã (151/2025 Điều 5 khoản 2 điểm g)
+      - "102/2024/NĐ-CP > Điều 105"
+    cam_nhac: ["cấp huyện"]
+    cam_dan: *bai_bo_151_2025
   - id: trap-oos-05
     cau_hoi: "sổ đỏ và sổ hồng khác nhau thế nào"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: trong_pham_vi
+    ky_vong: tra_loi_dan_dung
+    duong_dan:          # định nghĩa Giấy chứng nhận; giấy chứng nhận cấp trước vẫn có giá trị
+      - "31/2024/QH15 > Điều 3 > Khoản 21"
+      - "31/2024/QH15 > Điều 256 > Khoản 3"
   - id: trap-oos-06
     cau_hoi: "thủ tục ly hôn đơn phương cần chuẩn bị giấy tờ gì"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: trong_pham_vi
+    ky_vong: tra_loi_dan_dung
+    duong_dan:
+      - "92/2015/QH13 > Điều 189"
+      - "52/2014/QH13 > Điều 56"
+      - "52/2014/QH13 > Điều 51"
+    cam_nhac: ["cấp huyện"]   # 85/2025/QH15 Điều 1 khoản 2: Tòa án nhân dân khu vực
   - id: trap-oos-07
     cau_hoi: "muốn ly hôn thuận tình thì nộp đơn ở đâu"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: trong_pham_vi
+    ky_vong: tra_loi_dan_dung
+    duong_dan:          # không neo Điều 35 bản lưu ("cấp huyện"): 85/2025/QH15 đã viết lại
+      - "92/2015/QH13 > Điều 39 > Khoản 2 > Điểm h"
+      - "85/2025/QH15 > Điều 1 > Khoản 2"
+      - "92/2015/QH13 > Điều 29 > Khoản 2"
+      - "92/2015/QH13 > Điều 396"
+    cam_nhac: ["cấp huyện"]
   - id: trap-oos-08
     cau_hoi: "đăng ký kết hôn cần thủ tục gì"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: trong_pham_vi
+    ky_vong: tra_loi_dan_dung
+    duong_dan:          # Luật Hộ tịch không có trong kho; 123/2015 Điều 10 dẫn lại Điều 18 của luật đó
+      - "123/2015/NĐ-CP > Điều 10"
+      - "52/2014/QH13 > Điều 9"
+      - "52/2014/QH13 > Điều 8"
+      - "18/2026/NĐ-CP > Điều 13 > Khoản 1"   # viết lại 123/2015 Điều 2 khoản 1 (bản lưu còn CMND)
+    # 24/2013 hết hiệu lực (126/2014 Điều 65 khoản 2, 123/2015 Điều 45 khoản 2 điểm d); 126/2014
+    # Điều 19–50 bãi bỏ (123/2015 Điều 45 khoản 2 điểm đ); 123/2015 Điều 10 khoản 1 bãi bỏ (07/2025 Điều 2 khoản 10)
+    cam_dan: [
+        "24/2013/NĐ-CP", "126/2014/NĐ-CP > Điều 19", "126/2014/NĐ-CP > Điều 20", "126/2014/NĐ-CP > Điều 21",
+        "126/2014/NĐ-CP > Điều 22", "126/2014/NĐ-CP > Điều 23", "126/2014/NĐ-CP > Điều 24",
+        "126/2014/NĐ-CP > Điều 25", "126/2014/NĐ-CP > Điều 26", "126/2014/NĐ-CP > Điều 27",
+        "126/2014/NĐ-CP > Điều 28", "126/2014/NĐ-CP > Điều 29", "126/2014/NĐ-CP > Điều 30",
+        "126/2014/NĐ-CP > Điều 31", "126/2014/NĐ-CP > Điều 32", "126/2014/NĐ-CP > Điều 33",
+        "126/2014/NĐ-CP > Điều 34", "126/2014/NĐ-CP > Điều 35", "126/2014/NĐ-CP > Điều 36",
+        "126/2014/NĐ-CP > Điều 37", "126/2014/NĐ-CP > Điều 38", "126/2014/NĐ-CP > Điều 39",
+        "126/2014/NĐ-CP > Điều 40", "126/2014/NĐ-CP > Điều 41", "126/2014/NĐ-CP > Điều 42",
+        "126/2014/NĐ-CP > Điều 43", "126/2014/NĐ-CP > Điều 44", "126/2014/NĐ-CP > Điều 45",
+        "126/2014/NĐ-CP > Điều 46", "126/2014/NĐ-CP > Điều 47", "126/2014/NĐ-CP > Điều 48",
+        "126/2014/NĐ-CP > Điều 49", "126/2014/NĐ-CP > Điều 50", "123/2015/NĐ-CP > Điều 10 > Khoản 1"
+      ]
   - id: trap-oos-09
     cau_hoi: "cấp lại căn cước công dân bị mất cần làm gì"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: ngoai_pham_vi   # Luật Căn cước 26/2023/QH15, NĐ 70/2024 không có trong kho
+    ky_vong: cho_duyet
   - id: trap-oos-10
     cau_hoi: "đăng ký kinh doanh hộ cá thể cần thủ tục gì"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: ngoai_pham_vi   # NĐ 168/2025 được hiện nhưng chưa có toàn văn (chỉ dòng tên)
+    ky_vong: cho_duyet
   - id: trap-oos-11
     cau_hoi: "đăng ký khai sinh cho con cần giấy tờ gì"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: trong_pham_vi
+    ky_vong: tra_loi_dan_dung
+    duong_dan:          # Luật Hộ tịch không có trong kho; 123/2015 Điều 9 khoản 1 dẫn lại Điều 16 của luật đó
+      - "123/2015/NĐ-CP > Điều 9 > Khoản 1"
+      - "07/2025/NĐ-CP > Điều 2 > Khoản 5"    # viết lại Điều 9 khoản 2 (bỏ giấy chứng nhận kết hôn)
+      - "18/2026/NĐ-CP > Điều 13 > Khoản 1"   # viết lại Điều 2 khoản 1 (bản lưu còn CMND)
   - id: trap-oos-12
     cau_hoi: "khám bảo hiểm y tế trái tuyến có được thanh toán không"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: trong_pham_vi
+    ky_vong: tra_loi_dan_dung
+    duong_dan:          # Điều 22 hiện hành; bản 2008 và bản 46/2014 Điều 1 khoản 15 đã bị thay
+      - "51/2024/QH15 > Điều 1 > Khoản 17"
   - id: trap-oos-13
     cau_hoi: "trẻ dưới sáu tuổi được cấp thẻ bảo hiểm y tế miễn phí không"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: trong_pham_vi
+    ky_vong: tra_loi_dan_dung
+    duong_dan:
+      - "51/2024/QH15 > Điều 1 > Khoản 10"   # Điều 12 hiện hành: khoản 3 điểm h trẻ em dưới 6 tuổi
+      - "46/2014/QH13 > Điều 1 > Khoản 10"   # Điều 16 khoản 3 điểm d (72 tháng) — 51/2024 chỉ viết lại điểm c
   - id: trap-oos-14
     cau_hoi: "thủ tục nhập học lớp một cần giấy tờ gì"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: ngoai_pham_vi   # Luật Giáo dục 43/2019 chưa có toàn văn; Điều lệ trường tiểu học không có trong kho
+    ky_vong: cho_duyet
   - id: trap-oos-15
     cau_hoi: "miễn giảm học phí đại học áp dụng cho đối tượng nào"
-    nhom: ngoai_pham_vi
-    ky_vong: out_of_scope
+    nhom: ngoai_pham_vi   # NĐ 81/2021, 238/2025 (học phí) không có trong kho
+    ky_vong: cho_duyet
 
   # ── Nhóm 3: văn bản ĐÃ BỊ THAY THẾ (10 câu) — quan trọng nhất, xem đầu file ─
   # doc_id_bay = document_id THẬT của văn bản bẫy; ky_vong đã xác nhận bằng
