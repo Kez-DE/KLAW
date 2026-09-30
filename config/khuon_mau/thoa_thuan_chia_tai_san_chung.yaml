@@ -1,0 +1,84 @@
+# Văn bản thỏa thuận phân chia tài sản chung khi ly hôn — KHÔNG có mẫu chính thức. Luật
+# HNGĐ 52/2014/QH13 Đ59.1: "việc giải quyết tài sản do các bên thỏa thuận"; BLTTDS Đ396.3
+# đòi tài liệu chứng minh thỏa thuận chia tài sản kèm đơn thuận tình ly hôn
+# (`don_thuan_tinh_ly_hon`). KHÔNG phải chia tài sản chung TRONG thời kỳ hôn nhân (Đ38,
+# Đ39 — thể chế khác, chưa có loại). Dựng TƯƠNG TỰ mẫu hợp đồng Nhà nước gần nhất,
+# NĐ 96/2024 Phụ lục II (D2 §4.9): quốc hiệu và tiêu ngữ giữa trang; dòng địa danh-ngày nghiêng giữa trang
+# TRÊN tên văn bản; tên văn bản in hoa đậm; căn cứ mỗi dòng một đoạn; "Hai bên chúng tôi
+# gồm:" nghiêng; "I. BÊN …:" đậm với các dòng "- trường: …"; câu dẫn; "Điều n." đậm;
+# khối ký hai cột ngay sau. Không dòng "Số": văn bản giữa hai vợ chồng, không phải hợp
+# đồng của một tổ chức (Open decision 2).
+#
+# Không checklist: điều luật của từng điều nằm ở `muc` (thiết kế §7 "New types"). Căn cứ
+# đã tra kho thật 2026-09-29: 52/2014/QH13 (id 36870) và 91/2015/QH13 (id 95942) đều được
+# hiện, còn hiệu lực; mọi đường dẫn dưới đây có trong `provisions`.
+loai: thoa_thuan_chia_tai_san_chung
+ten: văn bản thỏa thuận phân chia tài sản chung khi ly hôn
+tieu_de: VĂN BẢN THỎA THUẬN PHÂN CHIA TÀI SẢN CHUNG KHI LY HÔN
+bo_cuc: hop_dong
+nguon:
+  loai: tuong_tu
+  van_ban: "Nghị định 96/2024/NĐ-CP, Phụ lục II (tham chiếu bố cục); thể thức theo Phụ lục I Nghị định 30/2020/NĐ-CP"
+  url: https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/7/42491/51289-1-2024939-94096-2024-nd-cp.pdf
+  tep_d2: goc/nd96-2024_congbao-939-940.pdf
+  sha256: 5b41a37fec6af317480a600f70cb4233ae852d6b297613ebe32222f531322174
+  trang: 14
+  ghi_chu: "Không có mẫu chính thức cho thỏa thuận chia tài sản chung khi ly hôn; nội dung theo Luật HNGĐ Đ33, Đ59, Đ60 và BLDS Đ213. Trang PDF 14 = Công báo tr. 15 (đầu Phụ lục II)."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: dau
+  ten_loai:
+    - "VĂN BẢN THỎA THUẬN"
+    - "PHÂN CHIA TÀI SẢN CHUNG KHI LY HÔN"
+  kinh_gui: null
+  can_cu: true
+  noi_nhan: null
+  ket_thuc: "Văn bản thỏa thuận này được lập thành {} bản, mỗi bên giữ {} bản, có giá trị pháp lý như nhau."
+ben:
+  - khoa: chong
+    vai: "Bên chồng"
+    tieu_de: "I. BÊN CHỒNG:"
+    dong:
+      - "- Họ và tên: {ho_ten}"
+      - "- Ngày sinh: {ngay_sinh}"
+      - "- Số định danh cá nhân: {so_dinh_danh}"
+      - "- Nơi cư trú: {noi_cu_tru}"
+      - "- Số điện thoại: {dien_thoai}"
+  - khoa: vo
+    vai: "Bên vợ"
+    tieu_de: "II. BÊN VỢ:"
+    dong:
+      - "- Họ và tên: {ho_ten}"
+      - "- Ngày sinh: {ngay_sinh}"
+      - "- Số định danh cá nhân: {so_dinh_danh}"
+      - "- Nơi cư trú: {noi_cu_tru}"
+      - "- Số điện thoại: {dien_thoai}"
+than:
+  - {dong: "Hai bên chúng tôi gồm:", nghieng: true}
+  - {ben: chong}
+  - {ben: vo}
+  - {dong: "Hai bên là vợ chồng theo Giấy chứng nhận kết hôn số {} do {} cấp ngày {} tháng {} năm {}."}
+  - {dong: "Hai bên chúng tôi thống nhất lập văn bản thỏa thuận phân chia tài sản chung khi ly hôn với các nội dung sau đây:"}
+  - {dieu: dieu}
+# Điều khoản làm căn cứ cho CẢ văn bản (ngoài các điều của `muc`): Đ59.1 — tài sản khi
+# ly hôn do các bên thỏa thuận.
+can_cu: ["52/2014/QH13 > Điều 59 > Khoản 1"]
+# Nội dung luật đòi: tài sản nào là tài sản chung được chia (Luật HNGĐ Đ33.1) và phần
+# mỗi bên được nhận (BLDS Đ213.4: tài sản chung của vợ chồng phân chia theo thỏa thuận).
+# Nghĩa vụ với người thứ ba: luật có quy tắc mặc định (Luật HNGĐ Đ60.1) nên không bắt
+# buộc. Không có mục hiệu lực: Đ39.1 chỉ nói về chia TRONG thời kỳ hôn nhân, và chưa tra
+# được điều luật riêng cho hiệu lực của thỏa thuận chia tài sản khi ly hôn.
+muc:
+  - {key: tai_san_chung, ten: "Tài sản chung được phân chia", can_cu: "52/2014/QH13 > Điều 33 > Khoản 1"}
+  - {key: phan_chong, ten: "Phần tài sản bên chồng được nhận", can_cu: "91/2015/QH13 > Điều 213 > Khoản 4"}
+  - {key: phan_vo, ten: "Phần tài sản bên vợ được nhận", can_cu: "91/2015/QH13 > Điều 213 > Khoản 4"}
+  - {key: nghia_vu_nguoi_thu_ba, ten: "Quyền, nghĩa vụ về tài sản đối với người thứ ba", can_cu: "52/2014/QH13 > Điều 60 > Khoản 1", bat_buoc: false}
+muc_khung: []
+ky:
+  thu_tu: [chong, vo]
+  o:
+    - {khoa: chong, vai: "BÊN CHỒNG", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+    - {khoa: vo, vai: "BÊN VỢ", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+truong_tu_facts: {}

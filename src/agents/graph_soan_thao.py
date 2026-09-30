@@ -174,6 +174,14 @@ def requirements(loai: str) -> tuple[list[Rule], Checklist, dict[int, dict]]:
     return load_requirements(get_engine(), loai)
 
 
+@lru_cache
+def provisions_theo_duong_dan(duong_dan: frozenset[str]) -> dict[int, dict]:
+    """Cùng `_requirement_provisions`, cho một khuôn mẫu KHÔNG checklist: điều khoản mà
+    chính mục registry dẫn (`muc[].can_cu`, `can_cu`). Cache như `requirements` — tập
+    điều khoản không đổi theo ngày; lọc hiện/hiệu lực vẫn ở người gọi."""
+    return _requirement_provisions(get_engine(), set(duong_dan))
+
+
 class KhongSoanDuocError(ValueError):
     """Căn cứ gốc của checklist thuộc văn bản ẩn: dừng TRƯỚC lượt LLM trả phí.
     `ValueError` để các cửa đã bắt lời từ chối soạn (`dung_lai`, nhánh sửa của
@@ -213,7 +221,11 @@ def can_cu_khung(engine: Engine, loai: str, db_provisions: dict[int, dict], as_o
     mang `tuy_chon: True` — `khuon_mau.can_cu_hien` chỉ in nó khi một Điều dẫn văn bản
     ấy. Không thế thì mọi hợp đồng vận chuyển tài sản, cả đường sắt hay đường hàng
     không, "Căn cứ Luật Đường bộ" chỉ vì mục Giấy vận tải tuỳ chọn. Văn bản không phần
-    nào dẫn tới (luật trao thẩm quyền ban hành, `can_cu_ban_hanh`) luôn in."""
+    nào dẫn tới (luật trao thẩm quyền ban hành, `can_cu_ban_hanh`) luôn in. Loại không
+    checklist (điều luật trong `muc` của mục registry, như hôn nhân gia đình): mọi văn
+    bản của `db_provisions`, không phần tuỳ chọn."""
+    if loai not in cac_loai():
+        return can_cu_van_ban_co_id(engine, db_provisions, as_of)
     cl = load_checklist_cached(loai)
     tuy = set(cl.khong_bat_buoc.get("keys") or [])
     ngoai_le = (cl.nganh_duoc_giam, cl.quy_tac_dinh_dang)

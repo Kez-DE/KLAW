@@ -1,0 +1,94 @@
+# Đơn yêu cầu công nhận thuận tình ly hôn, thỏa thuận nuôi con, chia tài sản khi ly
+# hôn — trên Mẫu số 01-VDS (đơn yêu cầu giải quyết việc dân sự), Nghị quyết
+# 04/2018/NQ-HĐTP. NQ 04/2018 KHÔNG có mẫu riêng cho thuận tình ly hôn: danh mục 33 mẫu
+# chỉ có Mẫu 01-VDS (đơn chung, ô (1) ghi loại việc) và Mẫu 31-VDS (quyết định công nhận
+# của Tòa) — D2 `tt/mau-that/index.md` §1. Người yêu cầu nộp trên Mẫu 01-VDS.
+#
+# Mẫu CHÍNH THỨC. Bố cục theo bản quét văn bản gốc (bản Word Bộ Tư pháp chuyển soạn
+# không giữ bố cục — D2); chữ tĩnh chép nguyên văn bản quét, đối chiếu từng chữ với bản
+# chuyển soạn .doc (`pdftotext -layout`, 2026-09-29). Chỉ bỏ dãy chấm (thành chỗ trống),
+# chỉ số chú thích "(n)" và dòng chú thích phụ lục (Open decision 7). Áp đúng hướng dẫn
+# của CHÍNH mẫu, không thêm gì ngoài đó:
+#   (1)  V/v ghi loại việc theo BLTTDS — Đ29 khoản 2 "Yêu cầu công nhận thuận tình ly
+#        hôn, thỏa thuận nuôi con, chia tài sản khi ly hôn".
+#   (3)  nhiều người cùng làm đơn thì đánh số 1, 2 và ghi họ tên, ngày tháng năm sinh,
+#        giấy tờ tùy thân của từng người: vợ và chồng CÙNG là người yêu cầu (BLTTDS
+#        Đ396.2). Ghi "(chồng)"/"(vợ)" để hai khối không lẫn.
+#   (12) nhiều người cùng yêu cầu thì cùng ký và ghi rõ họ tên — hai cột ký; cá nhân ký
+#        tên hoặc điểm chỉ (BLTTDS Đ362.2 điểm g, Đ396.2).
+# Nhãn đã ghi, kể cả chữ thêm theo hướng dẫn, ở `tests/test_services/du_lieu/nhan_mau_chinh_thuc.yaml`.
+#
+# Không checklist: điều luật của từng mục nằm ở `muc` bên dưới (thiết kế §7 "New
+# types"). Mẫu 01-VDS không có khối căn cứ nên khung không in dòng căn cứ nào; căn cứ
+# mở được theo từng mục (Luật HNGĐ Đ55, BLTTDS Đ362, Đ396).
+loai: don_thuan_tinh_ly_hon
+ten: đơn yêu cầu công nhận thuận tình ly hôn
+tieu_de: ĐƠN YÊU CẦU CÔNG NHẬN THUẬN TÌNH LY HÔN
+bo_cuc: don
+nguon:
+  loai: mau_chinh_thuc
+  van_ban: "Nghị quyết 04/2018/NQ-HĐTP, Mẫu số 01-VDS"
+  url: https://vbpl-bientap-gateway.moj.gov.vn/api/qtdc/public/doc/minio/buckets/vbpl/153951/VanBanGoc_NQ%2004.2018.NQ-H%C4%90TP.PDF/download
+  tep_d2: goc/nq04-2018-hdtp_vbpl-153951_VanBanGoc.pdf
+  sha256: cdd2197fc06aea55d2663dfa1e29f78571ac856a51f2f561aa5e85fb7fb9e929
+  trang: 4
+  ghi_chu: "Văn bản gốc (bản quét) trên cổng Bộ Tư pháp, vbpl.vn id 153951; NQ 04/2018 còn hiệu lực (cổng Bộ Tư pháp, 30/03/2026). Bản chuyển soạn đối chiếu: nq04-2018-hdtp_vbpl-153951.doc, SHA-256 9100f4495c591cd4bc3961593fc9c1a5bf691b00a6d95b4727abd36801cadddc. Tên Tòa án để trống cho người yêu cầu ghi (hướng dẫn (2) và (5) của mẫu)."
+the_thuc:
+  dong_mau: null
+  co_quan: false
+  so: null
+  ngay: cuoi
+  ten_loai:
+    - "ĐƠN YÊU CẦU"
+    - "GIẢI QUYẾT VIỆC DÂN SỰ"
+    - {d: "(V/v: Yêu cầu công nhận thuận tình ly hôn, thỏa thuận nuôi con, chia tài sản khi ly hôn)", nghieng: true}
+  kinh_gui: {dong: "Kính gửi: Tòa án nhân dân {toa_an}", can: giua}
+  can_cu: false
+  noi_nhan: null
+  # Câu cam kết cuối đơn là câu kết: đi cùng trang với dòng ngày và hai cột ký.
+  ket_thuc: "Tôi (chúng tôi) cam kết những lời khai trong đơn là đúng sự thật."
+ben:
+  - khoa: chong
+    vai: "Người yêu cầu thứ nhất — người chồng"
+    dong:
+      - "1. Người yêu cầu giải quyết việc dân sự (chồng): {ho_ten}"
+      - "Ngày sinh: {ngay_sinh}"
+      - "Số định danh cá nhân: {so_dinh_danh}"
+      - "Địa chỉ: {dia_chi}"
+      - "Số điện thoại (nếu có): {dien_thoai}; Fax (nếu có): {fax}"
+      - "Địa chỉ thư điện tử (nếu có): {thu_dien_tu}"
+  - khoa: vo
+    vai: "Người yêu cầu thứ hai — người vợ"
+    dong:
+      - "2. Người yêu cầu giải quyết việc dân sự (vợ): {ho_ten}"
+      - "Ngày sinh: {ngay_sinh}"
+      - "Số định danh cá nhân: {so_dinh_danh}"
+      - "Địa chỉ: {dia_chi}"
+      - "Số điện thoại (nếu có): {dien_thoai}; Fax (nếu có): {fax}"
+      - "Địa chỉ thư điện tử (nếu có): {thu_dien_tu}"
+# Thứ tự của mẫu. Tên Tòa án ở câu trình bày là CÙNG trường với dòng Kính gửi.
+than:
+  - {ben: chong}
+  - {ben: vo}
+  - {dong: "Tôi (chúng tôi) xin trình bày với Tòa án nhân dân {toa_an} việc như sau:"}
+  - {muc: yeu_cau, nhan: "- Những vấn đề yêu cầu Tòa án giải quyết:"}
+  - {muc: ly_do, nhan: "- Lý do, mục đích, căn cứ của việc yêu cầu Tòa án giải quyết đối với những vấn đề nêu trên:"}
+  - {muc: nguoi_lien_quan, nhan: "- Tên và địa chỉ của những người có liên quan đến những vấn đề yêu cầu Tòa án giải quyết:"}
+  - {muc: thong_tin_khac, nhan: "- Các thông tin khác (nếu có):"}
+  - {muc: tai_lieu, nhan: "Tài liệu, chứng cứ kèm theo đơn yêu cầu:", danh_sach: 3, dau_so: "."}
+# Nội dung luật đòi của đơn (BLTTDS Đ362.2 điểm d–e, Đ396; Luật HNGĐ Đ55). Khoá trùng
+# khoá mục thân: mô hình viết vào đúng mục của mẫu. Mọi `can_cu` đã tra kho thật:
+#   SELECT duong_dan FROM provisions WHERE duong_dan IN (…)  -- 2026-09-29, đủ 5 dòng
+muc:
+  - {key: yeu_cau, ten: "Những vấn đề yêu cầu Tòa án giải quyết", can_cu: "52/2014/QH13 > Điều 55"}
+  - {key: ly_do, ten: "Lý do, mục đích, căn cứ của việc yêu cầu", can_cu: "92/2015/QH13 > Điều 362 > Khoản 2 > Điểm d"}
+  - {key: nguoi_lien_quan, ten: "Những người có liên quan", can_cu: "92/2015/QH13 > Điều 362 > Khoản 2 > Điểm đ", bat_buoc: false}
+  - {key: thong_tin_khac, ten: "Các thông tin khác", can_cu: "92/2015/QH13 > Điều 362 > Khoản 2 > Điểm e", bat_buoc: false}
+  - {key: tai_lieu, ten: "Tài liệu, chứng cứ kèm theo đơn yêu cầu", can_cu: "92/2015/QH13 > Điều 396 > Khoản 3"}
+muc_khung: []
+ky:
+  thu_tu: [chong, vo]
+  o:
+    - {khoa: chong, vai: "NGƯỜI YÊU CẦU\n(Chồng)", in_hoa: false, ghi_chu: "(Ký hoặc điểm chỉ, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+    - {khoa: vo, vai: "NGƯỜI YÊU CẦU\n(Vợ)", in_hoa: false, ghi_chu: "(Ký hoặc điểm chỉ, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+truong_tu_facts: {}

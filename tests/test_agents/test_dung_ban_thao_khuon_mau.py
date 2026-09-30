@@ -651,3 +651,28 @@ def test_sua_trich_chu_quyet_dinh_ban_hanh_khong_sua_dieu_cua_quy_che(kho, monke
     assert b["clauses"][1]["doan"] == ["Tài sản phải được lập sổ theo dõi."], "Điều 2 của quy chế giữ nguyên"
     assert b["phien_ban"] == 2 and "01/10/2026" in _gia_tri(kho)
     assert h.KHUNG_BAN_HANH.split(":")[0] in ket["answer"]
+
+
+@pytest.mark.parametrize(
+    ("loai", "hoan_thanh"),
+    [
+        # Đường `dieu`: `hieu_tai_lieu` đã tính trên điều mô hình viết.
+        ("thoa_thuan_nuoi_con", {"thieu": ["nguoi_truc_tiep_nuoi"], "completeness": 0.8}),
+        # Đường `sua_dieu`: `dieu` là None nên `hieu_tai_lieu` không tính gì.
+        ("thoa_thuan_nuoi_con", {"thieu": [], "completeness": None}),
+        ("hdld", {"thieu": [], "completeness": None}),
+    ],
+    ids=["registry_dieu", "registry_sua_dieu", "checklist_sua_dieu"],
+)
+def test_sua_bo_dieu_bat_buoc_la_mot_phat_hien(loai, hoan_thanh):
+    """§6 bước 7: lúc sửa không chèn lại gì, điều luật đòi bị bỏ là MỘT phát hiện — cho
+    loại có checklist lẫn loại chỉ có `muc` trong mục registry."""
+    du, _ = km.them_dieu_bat_buoc([], loai)
+    bo = du[0]["key"]
+    con = [c for c in du if c["key"] != bo]
+    a = d._audit({"hoan_thanh": hoan_thanh}, {"loai": loai}, con, tao=False)
+    assert [f["loai"] for f in a["findings"]] == ["thieu_noi_dung"]
+    assert a["findings"][0]["thong_diep"] == f"Thiếu nội dung bắt buộc: {du[0]['ten']}"
+    assert a["completeness"] is not None and a["completeness"] < 1
+    du_ca = d._audit({"hoan_thanh": hoan_thanh}, {"loai": loai}, du, tao=False)
+    assert du_ca["findings"] == [] and du_ca["completeness"] == 1.0
