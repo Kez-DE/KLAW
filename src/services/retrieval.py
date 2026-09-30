@@ -126,12 +126,13 @@ def cong_diem_linh_vuc(
 ) -> list[int]:
     """Spec 2026-09-06 §6 — sau RRF, KHÔNG loại ai. `provision_ids` chỉ có thứ
     tự, không có điểm, nên điểm dựng lại từ vị trí: 1/(hạng+1); cộng `bonus`
-    cho provision cùng lĩnh vực; `sorted` ổn định nên bằng điểm giữ thứ tự cũ."""
-    if not linh_vuc or bonus <= 0:
+    cho provision cùng ngành (`nganh_cua_linh_vuc`, cùng phép của `loc_theo_linh_vuc`);
+    `sorted` ổn định nên bằng điểm giữ thứ tự cũ."""
+    muc = nganh_cua_linh_vuc(linh_vuc)
+    if muc is None or bonus <= 0:
         return list(provision_ids)
-    muc = chuan_linh_vuc(linh_vuc)
     diem = {
-        pid: 1.0 / (hang + 1) + (bonus if chuan_linh_vuc(linh_vuc_cua.get(pid)) == muc else 0.0)
+        pid: 1.0 / (hang + 1) + (bonus if linh_vuc_cua.get(pid) == muc else 0.0)
         for hang, pid in enumerate(provision_ids)
     }
     return sorted(provision_ids, key=lambda pid: -diem[pid])

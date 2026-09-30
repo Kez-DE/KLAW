@@ -342,17 +342,29 @@ def test_cong_diem_linh_vuc_tat_khi_bonus_0_hoac_khong_co_linh_vuc():
     from src.services.retrieval import cong_diem_linh_vuc
 
     ids = [3, 1, 2]
-    lv = {3: "Dân sự", 1: "Lao động", 2: None}
+    lv = {3: "dan_su", 1: "lao_dong", 2: None}
     assert cong_diem_linh_vuc(ids, lv, "lao_dong", 0.0) == ids
     assert cong_diem_linh_vuc(ids, lv, None, 0.5) == ids
+    assert cong_diem_linh_vuc(ids, lv, "khac", 0.5) == ids  # không xếp được ngành
+
+
+def test_cong_diem_linh_vuc_so_cung_nganh_luat_voi_bo_loc_cung():
+    """`Retriever.linh_vuc_cua` trả `nganh_luat` (quyết định 2026-09-30 mục 9(c)): mã rewrite
+    "thue" là ngành `tai_chinh` — cùng phép xếp `nganh_cua_linh_vuc` của `loc_theo_linh_vuc`,
+    không so chuỗi "thue" với "tai_chinh"."""
+    from src.services.retrieval import cong_diem_linh_vuc
+
+    ids = [3, 2, 1]
+    lv = {3: "dan_su", 2: None, 1: "tai_chinh"}
+    assert cong_diem_linh_vuc(ids, lv, "thue", 0.5) == [3, 1, 2]
 
 
 def test_cong_diem_linh_vuc_day_cung_linh_vuc_len_va_giu_thu_tu_on_dinh():
     from src.services.retrieval import cong_diem_linh_vuc
 
-    # hạng 0..3 → điểm 1, 1/2, 1/3, 1/4; bonus 0.5 cho "Lao động"
+    # hạng 0..3 → điểm 1, 1/2, 1/3, 1/4; bonus 0.5 cho ngành lao_dong
     ids = [3, 1, 2, 4]
-    lv = {3: "Dân sự", 1: "Lao động", 2: None, 4: "Lao động"}
+    lv = {3: "dan_su", 1: "lao_dong", 2: None, 4: "lao_dong"}
     ra = cong_diem_linh_vuc(ids, lv, "lao_dong", 0.5)
     # 1: 0.5+0.5=1.0 ; 3: 1.0 ; 4: 0.25+0.5=0.75 ; 2: 0.333
     assert ra == [3, 1, 4, 2], "bằng điểm (3 và 1) giữ thứ tự cũ; 4 vượt 2 nhờ bonus; không loại ai"
