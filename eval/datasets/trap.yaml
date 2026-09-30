@@ -202,7 +202,7 @@ items:
     cau_hoi: "tranh chấp ranh giới đất đai giữa hai hộ gia đình giải quyết ở đâu"
     nhom: trong_pham_vi
     ky_vong: tra_loi_dan_dung
-    duong_dan:          # 102/2024 Điều 105 không trong danh sách bãi bỏ; văn bản đang ẩn chờ quyết định A
+    duong_dan:          # 102/2024 Điều 105 không trong danh sách bãi bỏ; văn bản hiện lại theo quyết định A (mục 9)
       - "31/2024/QH15 > Điều 235"
       - "31/2024/QH15 > Điều 236 > Khoản 1"   # không neo khoản 3 điểm a, khoản 4: thẩm quyền của
       - "31/2024/QH15 > Điều 236 > Khoản 2"   # Chủ tịch UBND cấp huyện chuyển về cấp xã (151/2025 Điều 5 khoản 2 điểm g)

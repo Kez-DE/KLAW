@@ -79,6 +79,41 @@ Superseded paths that are no longer anchors, each with its replacement:
 | 25/2008/QH12 Điều 16 khoản 3 | rewritten by 46/2014; 51/2024 rewrote điểm c again, so the stored "điểm c" now names a different rule | 46/2014/QH13 Điều 1 khoản 10 |
 | 25/2008/QH12 Điều 17 khoản 2 | the children's dossier rule was removed by 46/2014 Điều 1 khoản 11; 51/2024 Điều 1 khoản 15 is the current Điều 17 | — (no current text answers the question) |
 
+## After integration with decision A (2026-09-30, `integ/bai-bo-nhan-trap`)
+
+This section supersedes the "hidden" remarks above (evidence list, the oos-04 row, note 2).
+
+- 101/2024/NĐ-CP and 102/2024/NĐ-CP are shown again (486 shown at as_of 2026-09-28), with the
+  provisions that NĐ 151/2025, 175/2024, 226/2025 and 49/2026 repealed hidden (decision item 9).
+  Read-only check on the dev DB: every anchor of the ten `trong_pham_vi` items resolves and none
+  is hidden; every `cam_dan` prefix of oos-03 and oos-04 resolves to 0 citable provisions.
+  102/2024 Điều 105 is not repealed, so it now counts as an oos-04 anchor.
+- Still citable: most of the oos-08 `cam_dan` list. 24/2013/NĐ-CP keeps 261 of its 273
+  provisions: the seed records 123/2015 Điều 45 khoản 2 điểm d only for its Điều 3, 5 and 44, and
+  not the earlier 126/2014 Điều 65 khoản 2 repeal (an "except …" sentence the parser skips).
+  126/2014/NĐ-CP Điều 19–50 keep all theirs: 123/2015 Điều 45 khoản 2 điểm đ is not recorded
+  (note 4). The live re-run of oos-06 cited 126/2014 Điều 20.
+- Live run on commit 19436f0 (`eval/results/kho-luat/so-sanh-bb.md`), both label sets scored on
+  the same answer:
+
+| id | Expectation (new) | Result | Verdict, new label | Verdict, old label | Cited (first 3) |
+|---|---|---|---|---|---|
+| trap-oos-01 | tra_loi_dan_dung | abstain | SAI | SAI | — |
+| trap-oos-02 | cho_duyet | out_of_scope | — | ok | — |
+| trap-oos-03 | tra_loi_dan_dung | error (JSONDecodeError); re-run: abstain | SAI | SAI | — |
+| trap-oos-04 | tra_loi_dan_dung | answer | ok | SAI | 102/2024/NĐ-CP > Điều 105 > Khoản 1 > Điểm a; 31/2024/QH15 > Điều 235 > Khoản 2; 31/2024/QH15 > Điều 236 > Khoản 1 |
+| trap-oos-05 | tra_loi_dan_dung | abstain | SAI | SAI | — |
+| trap-oos-06 | tra_loi_dan_dung | error (JSONDecodeError); re-run: answer | SAI | SAI | 123/2015/NĐ-CP > Điều 39 > Khoản 1 > Điểm a; 123/2015/NĐ-CP > Điều 39 > Khoản 1 > Điểm b; 123/2015/NĐ-CP > Điều 39 > Khoản 2 > Điểm a |
+| trap-oos-07 | tra_loi_dan_dung | answer | SAI | SAI | 123/2015/NĐ-CP > Điều 38 > Khoản 1; 52/2014/QH13 > Điều 55 |
+| trap-oos-08 | tra_loi_dan_dung | abstain | SAI | SAI | — |
+| trap-oos-09 | cho_duyet | out_of_scope | — | ok | — |
+| trap-oos-10 | cho_duyet | answer | — | SAI | 59/2020/QH14 > Điều 19 > Khoản 1; 59/2020/QH14 > Điều 19 > Khoản 2; 59/2020/QH14 > Điều 26 > Khoản 5 |
+| trap-oos-11 | tra_loi_dan_dung | out_of_scope | SAI | ok | — |
+| trap-oos-12 | tra_loi_dan_dung | answer | ok | SAI | 15/2023/QH15 > Điều 18 > Khoản 1; 15/2023/QH15 > Điều 18 > Khoản 2; 25/2008/QH12 > Điều 21 > Khoản 1 > Điểm a |
+| trap-oos-13 | tra_loi_dan_dung | abstain | SAI | SAI | — |
+| trap-oos-14 | cho_duyet | out_of_scope | — | ok | — |
+| trap-oos-15 | cho_duyet | out_of_scope | — | ok | — |
+
 ## Open for the owner
 
 1. **Five Vietnamese-law items whose law is not shown with full text** (oos-02, 09, 10,
