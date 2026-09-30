@@ -131,9 +131,9 @@ MIEN_BAI_BO: dict[tuple[str, str], str] = {
     ("services/checklist.py", "kiem_tra_can_cu_ton_tai"): NAP,
     ("services/rules.py", "kiem_tra_can_cu_ton_tai"): NAP,
     ("services/xref.py", "resolve_all"): NAP,
-    # ponytail: chunk neo ở Điều còn hiệu lực vẫn nhúng chữ khoản con bị bãi bỏ — lệch XẾP HẠNG
-    # (BM25/dense), không lệch nội dung hiện ra; dựng lại chunk + nhúng lại các neo đó khi chủ dự
-    # án duyệt lượt nhúng trả phí (quyết định 2026-09-30 mục 9(e)).
+    # Đọc cả điều khoản bị bãi bỏ: `build_chunks(…, an)` bỏ chữ của chúng khỏi chunk neo còn hiệu
+    # lực, giữ nguyên chunk neo ở chính chúng (truy hồi lọc bằng `:bai_bo`) — quyết định 2026-09-30
+    # mục 9(e); chunk đã nhúng đổi theo bằng `scripts.nhung_lai_bai_bo --ghi`.
     ("services/chunker.py", "load_provisions"): NAP,
     # ponytail: tập checklist cấu hình tay; 0 điều khoản checklist bị bãi bỏ (đo 2026-09-30, seed
     # 296 điều khoản). Lọc trong `chi_van_ban_hien` khi một căn cứ checklist bị bãi bỏ.

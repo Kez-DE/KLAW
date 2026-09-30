@@ -163,3 +163,39 @@ def test_khoan_KHONG_co_dieu_cha_van_thanh_chunk():
         == "07/2007/NQ-CP > Khoản 1\n1. Tiếp tục cải cách thủ tục hành chính. a) Rà soát thủ tục;"
     )
     assert build_chunks([DIEU, KHOAN_1], max_tokens=1500)[0].provision_id == 10, "khoản dưới Điều vẫn đi theo Điều"
+
+
+# ══ Điều khoản bị bãi bỏ (quyết định 2026-09-30 mục 9(e)) ═════════════════════
+
+
+def test_chu_khoan_con_bi_bai_bo_khong_vao_chunk_dieu_con_hieu_luc():
+    """Chunk neo ở Điều còn hiệu lực gom cả Khoản con: Khoản con bị bãi bỏ vẫn góp vào điểm
+    BM25/dense của Điều. `an` (`hien_thi.dieu_khoan_an`: bị bãi bỏ kèm hậu duệ) bỏ chữ đó."""
+    k2 = dict(KHOAN_1, id=12, so_hieu_cap="2", duong_dan="45/2019/QH14 > Điều 25 > Khoản 2", noi_dung="Chữ đã bãi bỏ.")
+    (c,) = build_chunks([DIEU, KHOAN_1, k2], max_tokens=1500, an=frozenset({12}))
+    assert c.provision_id == 10 and "180 ngày" in c.noi_dung_embed and "đã bãi bỏ" not in c.noi_dung_embed
+    # Neo ở chính điều khoản bị ẩn giữ nguyên chữ: truy hồi đã lọc nó bằng `:bai_bo`.
+    assert build_chunks([DIEU, KHOAN_1, k2], 1500, an=frozenset({10, 11, 12})) == build_chunks(
+        [DIEU, KHOAN_1, k2], 1500
+    )
+
+
+def test_bai_bo_khong_doi_neo_cua_dieu_da_cat_theo_khoan():
+    """Cắt theo Khoản hay không tính trên chữ ĐẦY ĐỦ: bỏ chữ bị bãi bỏ chỉ đổi chữ của chunk,
+    không gộp các chunk Khoản thành một chunk Điều — neo (và chunk của Khoản bị ẩn) giữ nguyên."""
+    dieu = dict(DIEU, noi_dung="Điều 25. " + "tiêu đề " * 10)
+    k1 = dict(KHOAN_1, noi_dung="1. " + "alpha " * 10)
+    diem = {
+        "id": 13,
+        "cap": "diem",
+        "so_hieu_cap": "a",
+        "parent_id": 11,
+        "noi_dung": "a) Điểm đã bãi bỏ.",
+        "duong_dan": "45/2019/QH14 > Điều 25 > Khoản 1 > Điểm a",
+    }
+    k2 = dict(KHOAN_1, id=12, so_hieu_cap="2", duong_dan="45/2019/QH14 > Điều 25 > Khoản 2", noi_dung="beta " * 60)
+    cu = build_chunks([dieu, k1, diem, k2], max_tokens=100)
+    moi = build_chunks([dieu, k1, diem, k2], max_tokens=100, an=frozenset({12, 13}))
+    assert [c.provision_id for c in moi] == [c.provision_id for c in cu] == [11, 12]
+    assert "Điểm đã bãi bỏ" in cu[0].noi_dung_embed and "Điểm đã bãi bỏ" not in moi[0].noi_dung_embed
+    assert moi[1] == cu[1]

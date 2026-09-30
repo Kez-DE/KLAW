@@ -297,6 +297,50 @@ def test_doi_chieu_tay_49_2026_diem_d_va_226_2025_gach_dau_dong():
     assert trich_tay(_49_226, "169188", "187157") == []
 
 
+# 123/2015/NĐ-CP Điều 45 (92897) và 126/2014/NĐ-CP Điều 65 (47412), nguyên văn `provisions` trong DB.
+_123 = [
+    "Điều 45. Hiệu lực thi hành",
+    "1. Nghị định này có hiệu lực thi hành kể từ ngày 01 tháng 01 năm 2016.",
+    "2. Bãi bỏ các văn bản quy phạm pháp luật và các điều khoản sau đây:",
+    "d) Các Điều 3, 5 và 44 của Nghị định số 24/2013/NĐ-CP ngày 28 tháng 3 năm 2013 của Chính phủ quy định chi tiết"
+    " thi hành Luật Hôn nhân và gia đình về quan hệ hôn nhân và gia đình có yếu tố nước ngoài;",
+    "đ) Từ Mục 1 đến Mục 6 Chương III gồm các điều từ Điều 19 đến Điều 50 và Điểm a Khoản 1 Điều 63 của Nghị định số"
+    " 126/2014/NĐ-CP ngày 31 tháng 12 năm 2014 của Chính phủ quy định chi tiết một số điều và biện pháp thi hành Luật"
+    " Hôn nhân và gia đình.",
+]
+_126 = [
+    "Điều 65. Hiệu lực thi hành",
+    "1. Nghị định này có hiệu lực thi hành kể từ ngày 15 tháng 02 năm 2015.",
+    "2. Bãi bỏ Nghị định số 70/2001/NĐ-CP ngày 03 tháng 10 năm 2001 của Chính phủ quy định chi tiết thi hành Luật Hôn"
+    " nhân và gia đình; Nghị định số 32/2002/NĐ-CP ngày 27 tháng 3 năm 2002 của Chính phủ quy định việc áp dụng Luật"
+    " Hôn nhân và gia đình đối với các dân tộc thiểu số; Điều 2 Nghị định số 06/2012/NĐ-CP ngày 02 tháng 02 năm 2012"
+    " của Chính phủ sửa đổi, bổ sung một số điều của các Nghị định về hộ tịch, hôn nhân và gia đình và chứng thực;"
+    " Nghị định số 24/2013/NĐ-CP ngày 28 tháng 3 năm 2013 của Chính phủ quy định chi tiết thi hành một số điều của"
+    " Luật Hôn nhân và gia đình về quan hệ hôn nhân và gia đình có yếu tố nước ngoài, trừ các quy định về hợp pháp"
+    " hóa lãnh sự, chứng thực chữ ký người dịch, chứng thực bản sao giấy tờ, giấy tờ đối với người không quốc tịch,"
+    " người có nhiều quốc tịch nước ngoài, công dân Việt Nam định cư ở nước ngoài và lệ phí được tiếp tục áp dụng"
+    " đến khi Nghị định quy định chi tiết thi hành Luật Hộ tịch có hiệu lực.",
+]
+
+
+def test_doi_chieu_tay_123_2015_diem_dd_va_126_2014_bai_bo_tru():
+    """Parser bỏ đúng hai câu: "Từ Mục 1 đến Mục 6 Chương III gồm …" (Mục/Chương ngoài văn phạm) và "…, trừ các
+    quy định về …" (phần trừ nêu NỘI DUNG, không nêu số hiệu). Phần trừ khớp nguyên văn tên Điều 3, 5, 44 của
+    24/2013 — đúng ba Điều 123/2015 (Nghị định chi tiết Luật Hộ tịch) điểm d bãi bỏ sau."""
+    assert trich_van_ban(_123, "126/2014/NĐ-CP") == []
+    assert trich_van_ban(_126, "24/2013/NĐ-CP") == []
+    (dd,) = trich_tay(_123, "47412", "92897")
+    assert (dd.vi_tri, dd.kiem_boi) == ("Điều 45 khoản 2 điểm đ", "doi-chieu-tay")
+    assert dd.dieu_khoan == [*(f"Điều {n}" for n in range(19, 51)), "Điều 63 > Khoản 1 > Điểm a"]
+    assert dd.trich.startswith("2. Bãi bỏ các văn bản") and " … đ) Từ Mục 1 đến Mục 6 Chương III" in dd.trich
+    (t,) = trich_tay(_126, "30386", "47412")
+    assert t.vi_tri == "Điều 65 khoản 2" and t.trich == _126[2] and len(t.trich) <= 2000
+    (d,) = trich_van_ban(_123, "24/2013/NĐ-CP")
+    assert d.dieu_khoan == ["Điều 3", "Điều 5", "Điều 44"]
+    assert not set(t.dieu_khoan) & set(d.dieu_khoan)
+    assert set(t.dieu_khoan) | set(d.dieu_khoan) == {f"Điều {n}" for n in range(1, 46)}
+
+
 def test_doi_chieu_tay_dung_khi_nguyen_van_khong_con_khop():
     lech = [x.replace("- Điều 7;", "- Điều 8;") for x in _49_226]
     with pytest.raises(ValueError, match="nguyên văn"):

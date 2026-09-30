@@ -8,10 +8,11 @@ import sys
 
 from sqlalchemy import text
 
-from src.config import get_settings
+from src.config import as_of_hieu_luc, get_settings
 from src.services.chunker import build_chunks, load_provisions
 from src.services.db import get_engine, run_migrations
 from src.services.embedding import EmbeddingClient
+from src.services.hien_thi import dieu_khoan_an
 
 # Server OpenRouter nhận lô tối đa 100 text/request (đã kiểm ở Task 3) — lô
 # lớn hơn mặc định EmbeddingClient.batch=32 để giảm số request cho ~3.283 chunk.
@@ -81,7 +82,9 @@ def run(
         for p in load_provisions(get_engine())
         if p["document_id"] not in KHONG_DANH_CHI_MUC and (chi_id is None or p["document_id"] in chi_id)
     ]
-    chunks = build_chunks(provisions, s.chunk_max_tokens)
+    # Chữ điều khoản bị bãi bỏ không vào chunk neo còn hiệu lực (quyết định 2026-09-30 mục 9(e)),
+    # cùng mốc ngày của app — `--chi-moi` sau `scripts.nhung_lai_bai_bo` không khôi phục chữ đó.
+    chunks = build_chunks(provisions, s.chunk_max_tokens, dieu_khoan_an(get_engine(), as_of_hieu_luc(None)))
     if not chunks:
         raise ValueError("0 chunk — provisions rỗng hoặc chunker lỗi")
     # Văn bản tầng sâu không có chunk nào thì vô hình với truy hồi mà mọi phép đếm

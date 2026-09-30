@@ -388,6 +388,42 @@ DOI_CHIEU_TAY: tuple[tuple[str, str, str, tuple[str, ...], tuple[str, ...]], ...
             "- Điểm b khoản 1 Điều 69;",
         ),
     ),
+    # 123/2015/NĐ-CP Điều 45 khoản 2 điểm đ: "Từ Mục 1 đến Mục 6 Chương III gồm các điều từ Điều 19 đến Điều 50"
+    # — Mục/Chương ngoài văn phạm của parser; kho: Mục 1 mở ở Điều 19, Mục 7 mở ở Điều 51.
+    (
+        "47412",
+        "92897",
+        "Điều 45 khoản 2 điểm đ",
+        (*(f"Điều {n}" for n in range(19, 51)), "Điều 63 > Khoản 1 > Điểm a"),
+        (
+            "2. Bãi bỏ các văn bản quy phạm pháp luật và các điều khoản sau đây:",
+            "đ) Từ Mục 1 đến Mục 6 Chương III gồm các điều từ Điều 19 đến Điều 50 và Điểm a Khoản 1 Điều 63 của Nghị"
+            " định số 126/2014/NĐ-CP ngày 31 tháng 12 năm 2014 của Chính phủ quy định chi tiết một số điều và biện pháp"
+            " thi hành Luật Hôn nhân và gia đình.",
+        ),
+    ),
+    # 126/2014/NĐ-CP Điều 65 khoản 2 bãi bỏ 24/2013/NĐ-CP "trừ các quy định về …": phần trừ nêu NỘI DUNG, khớp
+    # nguyên văn tên Điều 3 (hợp pháp hóa lãnh sự, chứng thực …), Điều 5 (lệ phí), Điều 44 (giấy tờ đối với người
+    # không quốc tịch …) — đúng ba Điều mà 123/2015/NĐ-CP (Nghị định chi tiết Luật Hộ tịch) Điều 45 khoản 2 điểm d
+    # bãi bỏ sau. Ghi mọi Điều còn lại.
+    (
+        "30386",
+        "47412",
+        "Điều 65 khoản 2",
+        tuple(f"Điều {n}" for n in range(1, 46) if n not in (3, 5, 44)),
+        (
+            "2. Bãi bỏ Nghị định số 70/2001/NĐ-CP ngày 03 tháng 10 năm 2001 của Chính phủ quy định chi tiết thi hành"
+            " Luật Hôn nhân và gia đình; Nghị định số 32/2002/NĐ-CP ngày 27 tháng 3 năm 2002 của Chính phủ quy định"
+            " việc áp dụng Luật Hôn nhân và gia đình đối với các dân tộc thiểu số; Điều 2 Nghị định số 06/2012/NĐ-CP"
+            " ngày 02 tháng 02 năm 2012 của Chính phủ sửa đổi, bổ sung một số điều của các Nghị định về hộ tịch, hôn"
+            " nhân và gia đình và chứng thực; Nghị định số 24/2013/NĐ-CP ngày 28 tháng 3 năm 2013 của Chính phủ quy"
+            " định chi tiết thi hành một số điều của Luật Hôn nhân và gia đình về quan hệ hôn nhân và gia đình có yếu"
+            " tố nước ngoài, trừ các quy định về hợp pháp hóa lãnh sự, chứng thực chữ ký người dịch, chứng thực bản sao"
+            " giấy tờ, giấy tờ đối với người không quốc tịch, người có nhiều quốc tịch nước ngoài, công dân Việt Nam"
+            " định cư ở nước ngoài và lệ phí được tiếp tục áp dụng đến khi Nghị định quy định chi tiết thi hành Luật"
+            " Hộ tịch có hiệu lực.",
+        ),
+    ),
 )
 _DAU_SEED = """\
 # Điều khoản BỊ BÃI BỎ bởi văn bản khác (quyết định 2026-09-30 mục 9, migration 043).

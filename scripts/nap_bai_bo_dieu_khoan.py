@@ -133,7 +133,8 @@ def nap_vao(conn: Connection, hang: list[dict]) -> dict[str, int]:
         ).all()
     )
     dong = phan_giai(hang, dieu_khoan, van_ban)
-    truoc = conn.execute(text("SELECT count(*) FROM bai_bo_dieu_khoan")).scalar_one()
+    cu = set(conn.execute(text("SELECT provision_id, boi_document_id FROM bai_bo_dieu_khoan")).tuples())
+    moi = {(r["provision_id"], r["boi_document_id"]) for r in dong}
     conn.execute(text("DELETE FROM bai_bo_dieu_khoan"))
     for r in dong:
         conn.execute(
@@ -144,7 +145,14 @@ def nap_vao(conn: Connection, hang: list[dict]) -> dict[str, int]:
             ),
             r,
         )
-    return {"dong_seed": len(hang), "dieu_khoan": len(dong), "truoc": truoc}
+    # `them`/`bot`: điều khoản (khoá bảng) thêm/bớt so với bảng trước lượt này — dry-run cho thấy đúng thay đổi.
+    return {
+        "dong_seed": len(hang),
+        "dieu_khoan": len(dong),
+        "truoc": len(cu),
+        "them": len(moi - cu),
+        "bot": len(cu - moi),
+    }
 
 
 def nap(engine: Engine, seed: Path = SEED, ghi: bool = False) -> dict[str, int]:
