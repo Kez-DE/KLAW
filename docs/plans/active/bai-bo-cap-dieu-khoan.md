@@ -53,7 +53,13 @@ Active. Owner decision (A) 2026-09-30, recorded as item 9 of
   gold. Recommended: do not merge before the paid Integrate eval (golden + trap + land question
   with real rewrite variants); fallback `KLAW_LINH_VUC_LOC=false`.
 - Ranking-only leak (ADR 9(e)): 93 chunk anchors (98 chunks) still embed repealed descendant
-  text; fix = re-chunk + re-embed those anchors (small paid embed, owner approval).
+  text; fix = re-chunk + re-embed those anchors (small paid embed, owner approval). Code ready on
+  `feat/bai-bo-bo-sung` (`scripts/nhung_lai_bai_bo.py`); the paid `--ghi` must run AFTER the seed is
+  loaded (it refuses otherwise). Rollback: restore the `chunks` backup taken just before.
+- Seed reproducibility: `trich_bai_bo` needs five `--tho` folders to regenerate the committed seed,
+  two of them under an ephemeral `/private/tmp/…/scratchpad/kho-cache/` session dir (exact list in
+  `_scratch/bai-bo-bs/dry-run.txt`); if they vanish, a regeneration fails on `DOI_CHIEU_TAY` or drops
+  rows. Copy them to a durable folder before the next regeneration.
 - Not recorded: 6 pairs whose repealing text is PDF-only or 400 at the gateway (ADR 9(b)
   list), and every sentence the parser cannot read in full.
 - Soạn thảo checklist provisions are not filtered by `:bai_bo` (0 repealed on 2026-09-30,
@@ -85,6 +91,23 @@ Active. Owner decision (A) 2026-09-30, recorded as item 9 of
   requires a `MIEN_BAI_BO` reason for every provisions/chunks reader; soft bonus compares
   `nganh_luat`; `ingest` re-syncs the table. Proof re-run: 0 repealed at every step, 31/2024
   Điều 236 rank 1 and kept.
+- [x] Supplement 2026-09-30 (`feat/bai-bo-bo-sung`, owner-approved): `DOI_CHIEU_TAY` +2 sentences —
+  123/2015/NĐ-CP Điều 45 khoản 2 điểm đ ("Từ Mục 1 đến Mục 6 Chương III gồm các điều từ Điều 19 đến
+  Điều 50 và Điểm a Khoản 1 Điều 63" of 126/2014/NĐ-CP; the request said điểm d, the text says đ) and
+  126/2014 Điều 65 khoản 2 (24/2013/NĐ-CP repealed "trừ các quy định về …": the exceptions are the
+  titles of Điều 3, 5, 44, which 123/2015 điểm d repealed later, so all 42 others are recorded). The
+  "trừ" exception names content, not provisions, so no parser rule generalises (other "whole law …,
+  trừ …" targets are shallow). Seed 96 sentences, 371 provisions (hidden 1,614 → 2,037). Scan of all
+  363 pairs: no other skipped range/"trừ" sentence in a shown deep document; five verifiable
+  other-shape sentences listed for the owner, not recorded (`_scratch/bai-bo-bs/dry-run.txt`). Loader
+  now reports `them`/`bot`. READ ONLY preview on the dev DB: +75, −0. Not loaded: the loader's own
+  dry-run was blocked for the agent (writes then rolls back); controller runs backup, dry-run, `--ghi`.
+- [x] Chunk text (ADR 9(e)): `build_chunks(…, an)` drops repealed descendants from live anchors and
+  keeps anchors (split decision on the full text; hidden anchors unchanged); `build_chunks.run`
+  passes `dieu_khoan_an`, so a later `--chi-moi` cannot restore the text. `scripts/nhung_lai_bai_bo.py`
+  re-embeds only the changed chunks, UPDATE in place, refuses if the table differs from the seed.
+  Offline dry-run (`_scratch/bai-bo-bs/re-embed-dry-run.txt`): 94 voyage-4-lite chunks (93 today +
+  126/2014 Điều 63), ~42.5k tokens, ~US$0.0008 (ceiling US$0.004). Paid `--ghi` not run.
 - [ ] Integrate: merge, paid eval, real-app check of a 101/102 document page. Merged and
   measured on `integ/bai-bo-nhan-trap` (19436f0, not in main): results and open items in
   `docs/plans/active/tra-loi-tu-nhien.md` and `eval/results/kho-luat/so-sanh-bb.md`; the
@@ -97,7 +120,8 @@ Active. Owner decision (A) 2026-09-30, recorded as item 9 of
   `tests/test_services/test_bai_bo_dieu_khoan.py`,
   `tests/test_services/test_retrieval_linh_vuc.py`,
   `tests/test_services/test_hien_thi_bat_bien.py`,
-  `tests/test_scripts/test_incoming_edges.py` (pure part).
+  `tests/test_scripts/test_incoming_edges.py` (pure part), `tests/test_services/test_chunker.py`,
+  `tests/test_scripts/test_nhung_lai_bai_bo.py`, `tests/test_scripts/test_build_chunks.py` (pure part).
 - Integration: `tests/test_services/test_migration_043.py` (explicit path);
   `tests/test_agents/test_verify_tier1.py -m integration` (repealed-quote case).
 - Repository-required checks: CI lane, ruff, frontend `npm run kiem`.
