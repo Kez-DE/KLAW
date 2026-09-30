@@ -38,7 +38,7 @@ export const GOI_CARD: Record<
   free: {
     nhan: "Miễn phí",
     tieuDe: "Dùng thử KLAW",
-    moTa: "Hỏi pháp luật lao động và nhận câu trả lời có căn cứ kiểm chứng được, soạn văn bản mẫu, tra cứu luật.",
+    moTa: "Hỏi pháp luật Việt Nam và nhận câu trả lời có căn cứ kiểm chứng được, soạn văn bản mẫu, tra cứu luật.",
     gia: "₫0 / tháng",
     tieuDeDanhSach: "Bắt đầu với những điều cơ bản:",
     danhSach: [

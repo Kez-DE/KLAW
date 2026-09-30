@@ -116,15 +116,15 @@ function TrangMienTru() {
 
         <Muc tieuDe="Chiều sâu không đều giữa các lĩnh vực">
           <p className="m-0">
-            Riêng cụm Lao động có đủ luật, nghị định hướng dẫn, thông tư và chế tài xử phạt. Các
-            lĩnh vực còn lại phần lớn chỉ có bản thân bộ luật, không có văn bản dưới luật. Một câu
-            trả lời về lao động và một câu trả lời về lĩnh vực khác{" "}
-            <strong className="font-semibold">không có cùng độ tin cậy</strong>, dù giao diện trình
-            bày chúng giống nhau.
+            Sâu nhất là lĩnh vực lao động: đủ luật, nghị định hướng dẫn, thông tư và chế tài xử
+            phạt. Các lĩnh vực khác sâu cạn khác nhau — có văn bản đã có toàn văn, có văn bản mới
+            chỉ có thông tin văn bản. Một câu trả lời về lao động và một câu trả lời về lĩnh vực
+            khác <strong className="font-semibold">không có cùng độ tin cậy</strong>, dù giao diện
+            trình bày chúng giống nhau.
           </p>
           <p>
-            KLAW không phủ thuế, đất đai, hôn nhân gia đình, doanh nghiệp, đầu tư, sở hữu trí tuệ.
-            Hỏi về chúng, hệ thống trả lời “ngoài phạm vi” thay vì đoán.
+            Văn bản mà câu trả lời cần nhưng KLAW chưa trích dẫn được nguyên văn được ghi ở cuối câu
+            trả lời, mục “Nên đối chiếu thêm”, thay vì đoán nội dung của nó.
           </p>
         </Muc>
 

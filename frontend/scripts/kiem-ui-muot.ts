@@ -3940,4 +3940,167 @@ const napKhongRouter = async <T>(duong: string): Promise<T> =>
   await act(() => rootThe.unmount());
 }
 
+// ───── 20. TRẢ LỜI TỰ NHIÊN: phần phân tích, "Nên đối chiếu thêm", dòng "Tôi hiểu" ─
+// Quyết định 2026-09-30 (`docs/decisions/2026-09-30-tra-loi-tu-nhien-va-phan-tich.md`),
+// mục 3, 4, 6, 8: phân tích đứng SAU câu trả lời có trích dẫn, TRƯỚC "Căn cứ pháp
+// lý", mang nhãn riêng và lời nói rõ nó không phải tư vấn; văn bản chưa trích
+// được ghi ở cuối, link chính thống khi có; dòng "Tôi hiểu câu hỏi của bạn là"
+// chỉ hiện khi máy chủ bật cờ; không chỗ nào còn nói KLAW chỉ phủ lao động.
+{
+  const { TheKetQua } = await napKhongRouter<typeof import("../src/components/klaw/TheKetQua.tsx")>(
+    "src/components/klaw/TheKetQua.tsx",
+  );
+  const laThe = (ten: string) => (n: Nut) => n.nodeType === 1 && n.tagName === ten;
+  const theoNhan = (nhan: string) => (n: Nut) => n.getAttribute?.("aria-label") === nhan;
+  const GOC_HOI = "tôi đang tranh chấp nhà đất, cần nắm luật gì";
+  const TRA_LOI = "Tranh chấp đất đai phải hòa giải ở Ủy ban nhân dân cấp xã [Điều 235](cite:1).";
+  const ketQuaTN = (loai: string, them: Record<string, unknown> = {}) =>
+    ({
+      result_type: loai,
+      answer: loai === "answer" ? TRA_LOI : null,
+      citations: [
+        {
+          provision_id: 1,
+          khop_tai_id: 1,
+          doc_id: "177815",
+          duong_dan: "31/2024/QH15 > Điều 235",
+          bo_luat: "Luật Đất đai",
+          so_ky_hieu: "31/2024/QH15",
+          quote: "câu trích",
+          hieu_luc: "con_hieu_luc",
+          tin_cay: "cao",
+          k: 1,
+        },
+      ],
+      nguon: [],
+      warnings: [],
+      coverage_note: null,
+      trace_id: "t-tn",
+      cau_hoi_day_du: null,
+      bang: [],
+      documents: [],
+      ...them,
+    }) as unknown as Parameters<typeof TheKetQua>[0]["ketQua"];
+  const { khung, root } = taoRoot();
+  const ve = (ketQua: ReturnType<typeof ketQuaTN>) =>
+    act(() => root.render(h(TheKetQua, { ketQua, cauHoiGoc: GOC_HOI })));
+  const DOAN = [
+    "Bạn nên đề nghị hòa giải ở Ủy ban nhân dân cấp xã trước [Điều 235](cite:1).",
+    "- Giữ lại giấy tờ về quyền sử dụng đất\n- Ghi lại thời điểm phát sinh tranh chấp",
+  ];
+  const LAN = "https://vbpl.vn/van-ban/chi-tiet/169032";
+
+  // (a) Đủ cả hai: phân tích sau câu trả lời, trước "Căn cứ pháp lý"; "Nên đối
+  //     chiếu thêm" sau "Căn cứ pháp lý", trước lời miễn trừ.
+  await ve(
+    ketQuaTN("answer", {
+      phan_tich: { tieu_de: "Phân tích cho tình huống của bạn", doan: DOAN },
+      doi_chieu_them: [
+        { so_ky_hieu: "27/2023/QH15", ten_van_ban: "Luật Nhà ở", lien_ket: LAN },
+        { so_ky_hieu: "102/2024/NĐ-CP", ten_van_ban: null, lien_ket: "https://evil.example/x" },
+        { so_ky_hieu: " ", ten_van_ban: "rỗng", lien_ket: null },
+        "rác",
+      ],
+    }),
+  );
+  const pt = tim(khung, theoNhan("Phân tích cho tình huống của bạn"));
+  assert.ok(pt !== null, "có mục phân tích");
+  assert.equal(tim(pt, laThe("H3"))?.textContent, "Phân tích cho tình huống của bạn");
+  assert.match(pt.textContent, /đề nghị hòa giải ở Ủy ban nhân dân cấp xã/);
+  assert.equal(timTatNut(pt, laThe("LI")).length, 2, "gạch đầu dòng của phân tích thành danh sách");
+  assert.match(pt.textContent, /không phải tư vấn pháp lý/, "lời nói rõ phần này là của KLAW");
+  assert.ok(tim(pt, laThe("BUTTON")) !== null, "thẻ cite trong phân tích bấm được");
+  const chu = khung.textContent;
+  const viTri = (s: string) => {
+    const i = chu.indexOf(s);
+    assert.ok(i >= 0, `thiếu "${s}"`);
+    return i;
+  };
+  assert.ok(viTri("Tranh chấp đất đai phải hòa giải") < viTri("Phân tích cho tình huống"));
+  assert.ok(viTri("Phân tích cho tình huống") < viTri("Căn cứ pháp lý"));
+  assert.ok(viTri("Căn cứ pháp lý") < viTri("Nên đối chiếu thêm"));
+  assert.ok(viTri("Nên đối chiếu thêm") < viTri("⚖️"));
+  const dct = tim(khung, theoNhan("Nên đối chiếu thêm"))!;
+  assert.match(dct.textContent, /chưa trích dẫn được nguyên văn/);
+  const muc = timTatNut(dct, laThe("LI"));
+  assert.equal(muc.length, 2, "phần tử dị dạng bị loại");
+  assert.equal(muc[0]!.textContent.replace(" (mở tab mới)", ""), "27/2023/QH15 — Luật Nhà ở");
+  const a = tim(muc[0]!, laThe("A"))!;
+  assert.deepEqual(
+    [a.getAttribute("href"), a.getAttribute("target"), a.getAttribute("rel")],
+    [LAN, "_blank", "noopener noreferrer"],
+  );
+  assert.equal(tim(muc[1]!, laThe("A")), null, "link ngoài hai cổng chính thống: chữ trần");
+  assert.equal(muc[1]!.textContent, "102/2024/NĐ-CP");
+  assert.doesNotMatch(chu, /(?<![\p{L}\p{N}])kho(?![\p{L}\p{N}])/iu, "không chữ “kho”");
+
+  // (b) Vắng hoặc dị dạng: thẻ không đổi so với khi không có hai trường này.
+  await ve(ketQuaTN("answer"));
+  const khongCo = khung.textContent;
+  assert.doesNotMatch(khongCo, /Phân tích cho tình huống|Nên đối chiếu thêm/);
+  for (const xau of [
+    { phan_tich: null, doi_chieu_them: null },
+    { phan_tich: { tieu_de: "x", doan: [] }, doi_chieu_them: [] },
+    { phan_tich: { tieu_de: "x", doan: [" ", 3] }, doi_chieu_them: [{ ten_van_ban: "x" }] },
+    { phan_tich: "Phân tích", doi_chieu_them: "27/2023/QH15" },
+  ]) {
+    await ve(ketQuaTN("answer", xau));
+    assert.equal(khung.textContent, khongCo, `dị dạng không vẽ gì: ${JSON.stringify(xau)}`);
+  }
+  // Nhãn là hằng số giao diện: tiêu đề thiếu vẫn có nhãn, tiêu đề lạ không đổi
+  // được tên phần này thành một "quy định".
+  for (const phan_tich of [{ doan: ["Một đoạn."] }, { tieu_de: "Quy định", doan: ["Một đoạn."] }]) {
+    await ve(ketQuaTN("answer", { phan_tich }));
+    const nhan = tim(khung, theoNhan("Phân tích cho tình huống của bạn"));
+    assert.equal(tim(nhan!, laThe("H3"))?.textContent, "Phân tích cho tình huống của bạn");
+  }
+
+  // (c) Câu không có trích dẫn nào: vẫn có chỗ ghi văn bản cần đối chiếu thêm.
+  for (const loai of ["abstain", "partial_coverage"]) {
+    await ve(
+      ketQuaTN(loai, {
+        citations: [],
+        doi_chieu_them: [{ so_ky_hieu: "27/2023/QH15", ten_van_ban: "Luật Nhà ở", lien_ket: null }],
+      }),
+    );
+    assert.match(khung.textContent, /Nên đối chiếu thêm[\s\S]*27\/2023\/QH15 — Luật Nhà ở/, loai);
+  }
+
+  // (d) Dòng "Tôi hiểu câu hỏi của bạn là": cờ vắng → ẩn (mặc định), cờ bật →
+  //     hiện, cờ bật nhưng câu y hệt câu đã gõ → vẫn ẩn.
+  const DAY_DU = "Tranh chấp nhà đất cần nắm những luật nào để bảo vệ quyền lợi?";
+  await ve(ketQuaTN("answer", { cau_hoi_day_du: DAY_DU }));
+  assert.doesNotMatch(khung.textContent, /Tôi hiểu câu hỏi của bạn là/, "cờ vắng: ẩn");
+  await ve(ketQuaTN("answer", { cau_hoi_day_du: DAY_DU, hien_cau_hoi_day_du: false }));
+  assert.doesNotMatch(khung.textContent, /Tôi hiểu câu hỏi của bạn là/, "cờ tắt: ẩn");
+  await ve(ketQuaTN("answer", { cau_hoi_day_du: DAY_DU, hien_cau_hoi_day_du: true }));
+  assert.match(khung.textContent, new RegExp(`^Tôi hiểu câu hỏi của bạn là: ${DAY_DU}`));
+  await ve(ketQuaTN("answer", { cau_hoi_day_du: ` ${GOC_HOI} `, hien_cau_hoi_day_du: true }));
+  assert.doesNotMatch(khung.textContent, /Tôi hiểu câu hỏi của bạn là/, "câu y hệt: ẩn");
+
+  // (e) `out_of_scope` không còn danh sách phạm vi viết cứng đã sai.
+  await ve(ketQuaTN("out_of_scope", { citations: [] }));
+  assert.doesNotMatch(khung.textContent, /6 Bộ luật|chưa phủ|đất đai/);
+  assert.match(khung.textContent, /pháp luật Việt Nam/);
+  await act(() => root.unmount());
+
+  // (f) Chữ cho người đọc không còn nói KLAW chỉ tra pháp luật lao động, hay
+  //     liệt kê những lĩnh vực "không phủ" mà kho nay đã có (mục 6).
+  const boChuThich = (s: string) =>
+    s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(?<![:"'])\/\/[^\n]*/g, "");
+  const CU =
+    /pháp luật lao động Việt Nam|tra cứu pháp luật lao động|Hỏi pháp luật lao động|trong pháp luật lao động|văn bản pháp luật lao động|tập trung vào pháp luật lao động|6 Bộ luật|không phủ thuế|chưa phủ|cụm văn bản dưới luật về Lao động/u;
+  const vuong = [
+    "src/components/klaw/ManChao.tsx",
+    "src/components/klaw/TheKetQua.tsx",
+    "src/lib/goi.ts",
+    "src/routes/index.tsx",
+    "src/routes/dung-thu.tsx",
+    "src/routes/tra-cuu.index.tsx",
+    "src/routes/tra-cuu.$docId.tsx",
+    "src/routes/mien-tru.tsx",
+  ].filter((t) => CU.test(boChuThich(readFileSync(join(goc, t), "utf8")).replace(/\s+/g, " ")));
+  assert.deepEqual(vuong, [], "chữ phạm vi cũ còn nói chỉ lao động");
+}
+
 console.log("kiem-ui-muot: OK");
