@@ -1295,8 +1295,8 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
             else ""
         )
         + (
-            f"Kho chưa có toàn văn {', '.join(thieu_luat)}, nên các điều khoản chỉ dựa trên căn cứ"
-            " đang có — chưa đối chiếu với luật đó. "
+            f"Tôi chưa trích dẫn được nguyên văn {', '.join(thieu_luat)}, nên các điều khoản chỉ dựa"
+            " trên căn cứ đang có — nên đối chiếu thêm luật đó. "
             if thieu_luat
             else ""
         ),

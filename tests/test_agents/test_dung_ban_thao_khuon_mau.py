@@ -5,6 +5,7 @@ còn chỗ lưu (`ban_thao.tao/sua/…`, việc đọc) là một kho trong bộ
 """
 
 import json
+import re
 
 import pytest
 
@@ -917,7 +918,11 @@ def test_thue_nha_o_mang_dung_ten_va_noi_luat_chua_co_trong_kho(kho, monkeypatch
     chu = _chu_tep(kho.luu_goi[0]["docx"])
     assert "HỢP ĐỒNG THUÊ NHÀ Ở" in chu and "HỢP ĐỒNG THUÊ TÀI SẢN" not in chu
     assert "Bản thảo «Hợp đồng thuê nhà ở»" in ket["answer"]
-    assert "Kho chưa có toàn văn Luật Nhà ở số 27/2023/QH15" in ket["answer"]
+    # Quyết định 2026-09-30 mục 4: văn bản chưa trích được nguyên văn được gọi tên để
+    # "đối chiếu thêm", không bao giờ như thứ kho còn thiếu.
+    assert "chưa trích dẫn được nguyên văn Luật Nhà ở số 27/2023/QH15" in ket["answer"]
+    assert "nên đối chiếu thêm luật đó" in ket["answer"]
+    assert not re.search(r"\bkho\b", ket["answer"], re.IGNORECASE)
     assert "Bộ luật Dân sự số 91/2015/QH13" in ket["answer"]
     assert "Chưa đặt được" not in ket["answer"]
     # Lượt sửa sau đó không nhắc lại.
