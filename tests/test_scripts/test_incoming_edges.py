@@ -167,6 +167,19 @@ def test_canh_F1_nhom_nen_tang_chi_giu_canh_sua_doi_that():
     )
 
 
+def test_canh_N1_151_2025_chi_cham_dut_mot_phan_101_102_2024():
+    """N1: parquet ghi 151/2025/NĐ-CP "thay thế" 101/2024 và 102/2024; Điều 21 khoản 4
+    điểm b, c chỉ cho một số điều khoản của chúng hết hiệu lực. Nạp lại không đưa cạnh
+    loai 21 trở lại; cạnh đúng là loai 23, `from` bị khai tử."""
+    sai = [("178259", "169188", "Thay thế"), ("178259", "169363", "Thay thế")]
+    rel = pd.DataFrame([{"doc_id": f, "other_doc_id": t, "relationship": r} for f, t, r in sai])
+    assert _canh_hieu_luc_di_vao(rel, {"169188", "169363", "178259"}).empty
+    assert {
+        ("169188", "178259", 23, "Văn bản quy định hết hiệu lực 1 phần"),
+        ("169363", "178259", 23, "Văn bản quy định hết hiệu lực 1 phần"),
+    } <= set(CANH_DOI_CHIEU_NGUYEN_VAN)
+
+
 def test_danh_sach_ap_chi_xoa_canh_sai_va_them_canh_thieu():
     """Đường áp RIÊNG hai danh sách đã đối chiếu (không nạp lại parquet): xoá đúng cạnh
     khớp `CANH_SAI` (quy tên quan hệ về loai), thêm cạnh bổ sung còn thiếu (một lần dù

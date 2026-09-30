@@ -92,6 +92,12 @@ CANH_SAI: frozenset[tuple[str, str, str]] = frozenset({
     # 136/2025/QH15 nêu 203/2025/QH15 chỉ ở lời căn cứ ("Căn cứ Hiến pháp … đã được sửa
     # đổi, bổ sung một số điều theo Nghị quyết số 203/2025/QH15"), toàn văn gateway 187809.
     ("187809", "178314", "Sửa đổi, bổ sung"),
+    # N1 2026-09-30: 151/2025/NĐ-CP (phân định thẩm quyền 2 cấp, đất đai) KHÔNG thay
+    # 101/2024/NĐ-CP hay 102/2024/NĐ-CP. Điều 21 khoản 4 điểm b, c (toàn văn gateway
+    # 178259) chỉ cho một số khoản, điều, mẫu của hai nghị định hết hiệu lực — cạnh
+    # đúng là loai 23, ở `CANH_DOI_CHIEU_NGUYEN_VAN`.
+    ("178259", "169188", "Thay thế"),
+    ("178259", "169363", "Thay thế"),
 })
 
 # Bản ghi trùng (dòng thừa → dòng giữ): gateway và parquet mang HAI id cho cùng một
@@ -190,6 +196,11 @@ CANH_DOI_CHIEU_NGUYEN_VAN: tuple[tuple[str, str, int, str], ...] = (
     # `--chi-danh-sach` không nạp parquet.
     ("178717", "175440", 20, "Sửa đổi, bổ sung"),
     ("178314", "32801", 20, "Sửa đổi, bổ sung"),
+    # N1 2026-09-30: 151/2025/NĐ-CP Điều 21 khoản 4 điểm b, c chấm dứt MỘT PHẦN
+    # 101/2024/NĐ-CP và 102/2024/NĐ-CP (thay hai cạnh sai loai 21 trong `CANH_SAI`).
+    # Chiều như parquet: `from` bị khai tử.
+    ("169188", "178259", 23, "Văn bản quy định hết hiệu lực 1 phần"),
+    ("169363", "178259", 23, "Văn bản quy định hết hiệu lực 1 phần"),
 )
 
 # Văn bản hợp nhất (Công báo) nêu đích danh luật đi sửa từng điều khoản
