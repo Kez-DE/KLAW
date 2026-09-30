@@ -17,7 +17,8 @@ Kho là một tập được CHỌN cho đề tài, không phải một cuộc t
 kho của mình hiện có 6 Bộ luật" là sự thật kiểm được bằng SQL; "Việt Nam hiện có
 6 Bộ luật" là ảo giác — và là loại verifier **không bắt được**, vì không có
 trích dẫn nào để đối chiếu từng chữ. Nên `CAU_GIOI_HAN` là HẰNG SỐ trong mã,
-đi kèm mọi nhánh, không do model sinh: model không được phép quên nó.
+không do model sinh, đóng mọi câu trả lời về SỐ LIỆU văn bản (quyết định
+2026-09-30 mục 5): model không được phép quên nó.
 
 ## Vì sao lọc bằng verdict hiệu lực, không bằng cột nào của `documents`
 
@@ -55,10 +56,10 @@ from src.models.schemas import Bang
 from src.services.effectivity import Effectivity, danh_gia_toan_bo
 from src.services.effectivity import EffectivityVerdict as V
 
-# Câu đóng — HẰNG SỐ, không do model sinh. Mọi nhánh trả lời đều ghép nó vào
-# cuối; `test_moi_duong_tra_loi_deu_dong_bang_cau_gioi_han_pham_vi` canh điều đó
-# bằng cách so với chính hằng số này, nên sửa lời ở đây không làm test đỏ oan —
-# chỉ gỡ nó khỏi một nhánh mới làm.
+# Câu đóng — HẰNG SỐ, không do model sinh. Chỉ câu trả lời về SỐ LIỆU văn bản
+# (tóm tắt, bảng) ghép nó vào cuối (quyết định 2026-09-30 mục 5): câu tra một số
+# hiệu đã tự nói có hay chưa có văn bản đó. `test_cau_gioi_han_pham_vi_chi_dong_
+# cau_tra_loi_ve_so_lieu` so với chính hằng số này, nên sửa lời không làm test đỏ.
 #
 # Cố ý KHÔNG chứa cụm "Việt Nam có <số>": nó nói kho KHÔNG phải nền pháp luật,
 # chứ không phát biểu gì về nền pháp luật.
@@ -350,12 +351,8 @@ def _dong_van_ban(r: dict) -> str:
 
 
 def _khoi_mot_so(so: str, kho: list[dict]) -> list[str]:
-    """Các đoạn trả lời cho MỘT số hiệu, KHÔNG kèm `CAU_GIOI_HAN`.
-
-    Tách khỏi `_mot_van_ban` để câu hỏi ghép nhiều số hiệu dùng lại được mà chỉ
-    đóng bằng MỘT câu giới hạn phạm vi — lặp câu đó sau mỗi khối làm nó thành
-    tiếng ồn, và một câu cảnh báo bị đọc như tiếng ồn thì không còn cảnh báo gì.
-    """
+    """Các đoạn trả lời cho MỘT số hiệu. Tách khỏi `_mot_van_ban` để câu hỏi ghép
+    nhiều số hiệu dùng lại được."""
     tat_ca = [r for r in kho if _khop_so_hieu(so, r["so_ky_hieu"])]
     khop = _duoc_hien(tat_ca)
     if not khop and tat_ca:
@@ -389,7 +386,7 @@ def _khoi_mot_so(so: str, kho: list[dict]) -> list[str]:
 
 
 def _mot_van_ban(so: str, kho: list[dict]) -> str:
-    return "\n\n".join((*_khoi_mot_so(so, kho), CAU_GIOI_HAN))
+    return "\n\n".join(_khoi_mot_so(so, kho))
 
 
 def _nhieu_van_ban(sos: list[str], kho: list[dict]) -> str:
@@ -404,7 +401,6 @@ def _nhieu_van_ban(sos: list[str], kho: list[dict]) -> str:
     for so in sos:
         khoi.append(f"**{so}**")
         khoi.extend(_khoi_mot_so(so, kho))
-    khoi.append(CAU_GIOI_HAN)
     return "\n\n".join(khoi)
 
 
@@ -545,7 +541,7 @@ def dung_cau_tra_loi(cau_hoi: str, kho: list[dict]) -> str:
 
 # Câu dẫn khi câu hỏi xin bảng — NGẮN, không lặp lại số liệu của bảng thành
 # văn xuôi (người đọc không cần cùng một con số hai lần). Ghép với
-# `CAU_GIOI_HAN` y hệt mọi nhánh khác của module này (`loi_dan_bang`).
+# `CAU_GIOI_HAN` như bản tóm tắt: bảng là số liệu văn bản (`loi_dan_bang`).
 CAU_DAN_BANG = (
     "Tôi dựng hai bảng dưới đây từ những văn bản tôi hiện có: một bảng phân theo "
     "loại văn bản, một bảng phân theo lĩnh vực."
@@ -554,7 +550,7 @@ CAU_DAN_BANG = (
 
 def loi_dan_bang() -> str:
     """`answer` cho lượt xin bảng — câu dẫn ngắn ở trên rồi đóng bằng
-    `CAU_GIOI_HAN`, cùng khuôn `_mot_van_ban`/`_nhieu_van_ban`/`_tom_tat`."""
+    `CAU_GIOI_HAN`, cùng khuôn `_tom_tat`."""
     return "\n\n".join((CAU_DAN_BANG, CAU_GIOI_HAN))
 
 

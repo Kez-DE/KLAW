@@ -61,6 +61,33 @@ _RE_NLD = re.compile(
 )
 
 
+# Ngôi thứ nhất của `ke_tinh_huong` — RỘNG hơn `_NGOI_1` của `suy_vai`: người hỏi gõ
+# không dấu và thân mật ("toi", "tui", "tớ", "mk", "e", "t"; review 2026-09-30 đo 6/25
+# câu kiểu thật bị hụt). Không có "minh": trùng "chứng minh" gõ không dấu; "toi" không
+# dấu trùng "tối đa"/"tối thiểu". "e"/"t" một chữ cái không được đứng sau "điểm" (điểm
+# e, điểm t là trích dẫn) hay trước "-" (e-mail).
+_NGOI_1_KE = r"\b(?:tôi|toi(?!\s+(?:da|thieu)\b)|tui|tớ|em|mình|mk|(?<!điểm )(?:e|t)(?!-))\b"
+# Lời mở lịch sự, lời nhờ tra và lời cảm ơn không kể chuyện gì ("cho tôi hỏi", "tôi
+# muốn biết", "giúp tôi tra Điều 235", "em cảm ơn") — gỡ trước khi tìm ngôi thứ nhất.
+_RE_LOI_MO = re.compile(
+    rf"\b(?:cho|giúp|giup)\s+{_NGOI_1_KE}\s+(?:hỏi|hoi|biết|biet|tra|xem|tìm|tim)\b"
+    rf"|{_NGOI_1_KE}\s+(?:xin\s+|muốn\s+|muon\s+|cần\s+|can\s+)?(?:hỏi|hoi|biết|biet|tìm\s+hiểu|tim\s+hieu)\b"
+    rf"|{_NGOI_1_KE}\s+(?:xin\s+)?(?:cảm|cám|cam)\s+(?:ơn|on)\b",
+    re.IGNORECASE,
+)
+_RE_NGOI_1 = re.compile(_NGOI_1_KE, re.IGNORECASE)
+
+
+def ke_tinh_huong(cau: str) -> bool:
+    """Câu hỏi kể tình huống của chính người hỏi: còn ngôi thứ nhất sau khi gỡ lời mở
+    lịch sự. `assemble` chỉ viết phần phân tích cho câu này (quyết định 2026-09-30 mục 3).
+
+    ponytail: quy tắc chữ — "anh em", "con em" đọc thành ngôi thứ nhất. Lượt phân tích
+    tự trả rỗng cho câu hỏi chung (prompt quy tắc 7), nên đọc nhầm chỉ tốn một lượt gọi;
+    thêm ngoại lệ khi trace cho thấy nó xảy ra."""
+    return bool(_RE_NGOI_1.search(_RE_LOI_MO.sub(" ", " ".join((cau or "").split()))))
+
+
 def suy_vai(cau: str) -> str | None:
     c = " ".join((cau or "").split())
     if _RE_NSDLD.search(c):

@@ -142,6 +142,8 @@ def _payload_cache(st: dict, rt: str) -> dict:
         "tai_lieu": st.get("tai_lieu"),
         "tai_lieu_neo": st.get("tai_lieu_neo") or [],
         "van_ban_khong_hien_thi": st.get("van_ban_khong_hien_thi") or [],
+        "phan_tich": st.get("phan_tich"),
+        "doi_chieu_them": st.get("doi_chieu_them") or [],
         # NỘI BỘ — dùng để ghi giả định của `suy_dien` vào phiên sau khi lượt
         # này lưu xong (xem `luu_suy_dien` ở `tra_cuu`/`_chay_nen`). KHÔNG đi
         # vào `TraCuuResponse`: `tra_cuu_response` không đọc khoá này.
@@ -707,6 +709,9 @@ def tra_cuu_response(payload: dict, trace_id: str, config_name: str) -> TraCuuRe
         tai_lieu_neo=payload.get("tai_lieu_neo") or [],
         # Cùng lý do `.get` của `bang`: dòng cache ghi trước bản này không có khoá.
         van_ban_khong_hien_thi=payload.get("van_ban_khong_hien_thi") or [],
+        # Cùng lý do `.get` của `bang`: dòng cache ghi trước bản này không có khoá.
+        phan_tich=payload.get("phan_tich"),
+        doi_chieu_them=payload.get("doi_chieu_them") or [],
         trace_id=trace_id, config_name=config_name,
     )
 

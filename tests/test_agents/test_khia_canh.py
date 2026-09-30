@@ -94,6 +94,7 @@ def test_hoi_bo_luat_liet_ke_dung_tu_fixture():
     ans = cau_gioi_thieu("có những Bộ luật gì", KHO)
     assert "Tôi hiện có 6 Bộ luật: " + ", ".join(TEN_NGAN[:-1]) + " và " + TEN_NGAN[-1] + "." in ans
     assert "10/2012" not in ans
+    assert ans.count(CAU_GIOI_HAN) == 1, "danh sách Bộ luật là số liệu văn bản"
 
 
 def test_hoi_linh_vuc_liet_ke_dung_linh_vuc_va_do_sau():

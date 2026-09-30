@@ -5,6 +5,7 @@ còn chỗ lưu (`ban_thao.tao/sua/…`, việc đọc) là một kho trong bộ
 """
 
 import json
+import re
 
 import pytest
 
@@ -922,6 +923,8 @@ def test_thue_nha_o_mang_dung_ten_va_noi_dieu_khoan_chua_doi_chieu_luat_nha_o(kh
         "Các điều khoản chỉ dựa trên căn cứ đang có — chưa đối chiếu với Luật Nhà ở số 27/2023/QH15." in ket["answer"]
     )
     assert "toàn văn" not in ket["answer"]
+    # Quyết định 2026-09-30 mục 4: không bao giờ nói như thứ kho còn thiếu.
+    assert not re.search(r"\bkho\b", ket["answer"], re.IGNORECASE)
     assert "Bộ luật Dân sự số 91/2015/QH13" in ket["answer"]
     assert "Chưa đặt được" not in ket["answer"]
     # Lượt sửa sau đó không nhắc lại.
