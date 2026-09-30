@@ -606,19 +606,22 @@ def test_khoan_khac_cua_luat_sua_khong_thay_duoc_ban_truoc_sua_doi():
     assert "cấp huyện" in prompt and st["citations"][0]["k"] == 1
 
 
-def test_hoi_ve_kho_dung_chuoi_da_tinh_san_va_KHONG_goi_LLM():
-    """Số liệu về kho là một phép tra bảng, không phải một lượt suy luận: chuỗi
-    do `graph_tra_cuu.n_assemble` tính bằng SQL (nơi có `engine`) rồi đưa vào
-    state. `assemble` chỉ dán nó vào `answer` — 0 token, và không con số nào do
-    model sinh ra."""
+def test_hoi_ve_kho_xin_bang_dung_chuoi_da_tinh_san_va_KHONG_goi_LLM():
+    """Lượt xin BẢNG về kho: hai bảng do `graph_tra_cuu.n_assemble` tính bằng SQL
+    (nơi có `engine`), câu dẫn tất định — 0 token, không con số nào do model sinh.
+    Mọi lượt `hoi_ve_kho` khác do model viết từ bảng dữ kiện (quyết định
+    2026-09-30 mục 1, `test_tra_loi_meta.py`)."""
+
     class Never(FakeLlm):
         def chat(self, *a, **k):
-            raise AssertionError("câu hỏi về kho phải là nhánh 0 token")
+            raise AssertionError("lượt xin bảng phải là nhánh 0 token")
 
-    st = assemble({"intent": "hoi_ve_kho", "tra_loi_kho": "Trong kho của mình…"},
-                  DB, Never(), "m")
+    bang = [{"tieu_de": "Phân theo loại văn bản", "cot": ["Loại"], "hang": [["Luật"]]}]
+    st = assemble(
+        {"intent": "hoi_ve_kho", "tra_loi_kho": "Tôi dựng hai bảng…", "tra_loi_kho_bang": bang}, DB, Never(), "m"
+    )
     assert st["result_type"] is ResultType.hoi_ve_kho
-    assert st["answer"] == "Trong kho của mình…"
+    assert st["answer"] == "Tôi dựng hai bảng…" and st["bang"] == bang
     assert st["traces"]["assemble_token_in"] == 0
 
 

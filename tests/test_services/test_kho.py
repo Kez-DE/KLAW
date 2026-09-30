@@ -148,10 +148,12 @@ def test_khong_bao_gio_phat_bieu_thay_nen_phap_luat_viet_nam(cau_hoi):
 
 
 @pytest.mark.parametrize("cau_hoi", MOI_DANG_CAU_HOI)
-def test_moi_duong_tra_loi_deu_dong_bang_cau_gioi_han_pham_vi(cau_hoi):
-    """So với HẰNG SỐ, không hardcode lại chuỗi: nếu ai đó sửa lời câu đóng thì
-    test này vẫn canh đúng bất biến (mọi nhánh đều mang nó), thay vì đỏ vì lời."""
-    assert CAU_GIOI_HAN in dung_cau_tra_loi(cau_hoi, KHO)
+def test_cau_gioi_han_pham_vi_chi_dong_cau_tra_loi_ve_so_lieu(cau_hoi):
+    """Quyết định 2026-09-30 mục 5: câu giới hạn phạm vi chỉ đi kèm câu trả lời về
+    SỐ LIỆU văn bản (tóm tắt, bảng). Câu tra một số hiệu đã tự nói nó có hay chưa có
+    văn bản đó, và câu "chưa có" đã tự nói văn bản có thể tồn tại. So với HẰNG SỐ,
+    không hardcode lại chuỗi: sửa lời câu đóng không làm test đỏ oan."""
+    assert (CAU_GIOI_HAN in dung_cau_tra_loi(cau_hoi, KHO)) is not bool(moi_so_hieu_trong(cau_hoi))
 
 
 @pytest.mark.parametrize("cau_hoi", MOI_DANG_CAU_HOI)
@@ -345,7 +347,7 @@ def test_mot_so_nam_khop_NHIEU_van_ban_thi_neu_HET():
     for r in _TRUNG_SO_HIEU:
         assert r["so_ky_hieu"] in out, f"thiếu {r['so_ky_hieu']}"
         assert r["ten"] in out
-    assert CAU_GIOI_HAN in out
+    assert CAU_GIOI_HAN not in out, "tra số hiệu không phải câu trả lời về số liệu"
 
 
 @pytest.mark.integration
@@ -409,8 +411,8 @@ def test_cau_hoi_ghep_NHIEU_so_hieu_duoc_tra_loi_ve_TAT_CA():
     out = dung_cau_tra_loi("có nghị định 145/2020 và nghị định 90/2019 không?", KHO)
     assert "145/2020" in out
     assert "90/2019" in out, f"bỏ mất số hiệu thứ hai:\n{out}"
-    # Vẫn đúng một câu giới hạn phạm vi ở cuối, không lặp lại mỗi khối.
-    assert out.count(CAU_GIOI_HAN) == 1, f"lặp câu giới hạn {out.count(CAU_GIOI_HAN)} lần"
+    # Tra số hiệu không mang câu giới hạn phạm vi (quyết định 2026-09-30 mục 5).
+    assert CAU_GIOI_HAN not in out
 
 
 def test_cau_hoi_ghep_mot_co_mot_khong_noi_dung_ca_hai():

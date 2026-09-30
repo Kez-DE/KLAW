@@ -57,9 +57,24 @@ from typing import TypedDict
 
 from src.agents.graph_soan_thao import cac_loai, load_checklist_cached
 from src.agents.nodes.dung_ban_thao_tong_quat import KHONG_SOAN_DUOC, LOAI_TONG_QUAT, TEN_TONG_QUAT, _ket_state
-from src.agents.nodes.gioi_thieu import cau_gioi_thieu, hoi_cau_truc_phap_luat
+from src.agents.nodes.gioi_thieu import (
+    bang_du_kien,
+    hoi_cau_truc_phap_luat,
+    khia_canh,
+    khia_canh_kho,
+    khia_canh_luot_kho,
+    tra_loi_meta,
+)
 from src.agents.nodes.hieu_tai_lieu import CHO_TRONG, MUC_DICH_SOAN
-from src.agents.nodes.hoi_lai import bi_loai, cau_hoi_lai_tu_khung, duoi_hoi_them, duoi_tu_khung, hoi_lai
+from src.agents.nodes.hoi_lai import (
+    bi_loai,
+    cau_hoi_lai_tu_khung,
+    duoi_hoi_them,
+    duoi_tu_khung,
+    hoi_lai,
+    moc_phap_ly_trong,
+)
+from src.agents.nodes.suy_dien import ke_tinh_huong
 from src.agents.nodes.verify_tier1 import normalize, van_ban_neo_boi_ten
 from src.models.schemas import Bang
 from src.services import khuon_mau
@@ -253,6 +268,7 @@ class ResultType(StrEnum):
 # từ chữ trong tài liệu, không từ hồ sơ tình huống.
 _KHONG_DUNG_HO_SO = frozenset({ResultType.gioi_thieu, ResultType.hoi_ve_kho, ResultType.out_of_scope,
                                ResultType.tai_lieu})
+_META = frozenset({ResultType.gioi_thieu, ResultType.hoi_ve_kho})
 
 
 class Citation(TypedDict):
@@ -294,9 +310,10 @@ def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: boo
     trị mặc định, nó là BẰNG CHỨNG đo được cho tuyên bố "0 TOKEN" trong docstring
     module, không phải một lời khẳng định suông.
 
-    Bốn nhánh còn 0 token sau Pha 2: `out_of_scope`, `gioi_thieu`,
-    `huong_dan_soan_thao`, `hoi_ve_kho`. Các ngõ cụt (`abstain`,
-    `partial_coverage`) nay tiêu một lượt sinh câu hỏi lại — xem `_ngo_cut`.
+    Nhánh còn 0 token: `out_of_scope`, `huong_dan_soan_thao`, và lượt `hoi_ve_kho`
+    xin bảng. Các ngõ cụt (`abstain`, `partial_coverage`) tiêu một lượt sinh câu
+    hỏi lại — xem `_ngo_cut`; `gioi_thieu`/`hoi_ve_kho` tiêu một lượt viết lời đáp
+    từ bảng dữ kiện (quyết định 2026-09-30 mục 1).
     """
     prior_traces = state.get("traces") or {}
     return {
@@ -314,6 +331,9 @@ def _base(state: dict, rt: ResultType, usage: Usage | None = None, degraded: boo
         # rt in _KHONG_DUNG_HO_SO never reads the profile, so showing "Dựa
         # trên" would be false provenance (ex.md FR-007).
         "ho_so_da_dung": [] if rt in _KHONG_DUNG_HO_SO else ho_so_da_dung(state.get("ho_so") or {}),
+        # Decision 2026-09-30 item 8: "Tôi hiểu câu hỏi của bạn là…" only when the
+        # rewrite changed the question (`giai_nghia.doi_nghia`), never for a meta answer.
+        "hien_cau_hoi_day_du": bool(state.get("cau_hoi_doi_nghia")) and rt not in _META,
         "traces": {
             **prior_traces,
             "assemble_result_type": rt.value,
@@ -550,7 +570,9 @@ PHAN_QUYET_MO_DAU = (
 )
 
 
-def cau_phan_quyet(answer: str, citations: list[dict] | None = None) -> str | None:
+def cau_phan_quyet(
+    answer: str, citations: list[dict] | None = None, cum_ds: tuple[str, ...] = CUM_PHAN_QUYET
+) -> str | None:
     """Cụm phán quyết đầu tiên trong `answer`, hoặc `None` khi văn xuôi sạch.
 
     Miễn trừ đúng MỘT đường: cụm nằm nguyên trong `quote` của một căn cứ ĐÃ QUA
@@ -562,10 +584,12 @@ def cau_phan_quyet(answer: str, citations: list[dict] | None = None) -> str | No
     `normalize` (cùng hàm của tầng 1) cộng `lower`: so trên NỘI DUNG, không trên
     cách gõ. Ở đây hạ chữ hoa là an toàn — khác tầng 1, phép so này không đóng
     dấu "đã kiểm chứng" cho gì cả, nó chỉ chặn.
+
+    `cum_ds`: phần phân tích truyền `CUM_PHAN_QUYET_PHAN_TICH`, văn xuôi giữ mặc định.
     """
     van = normalize(answer or "").lower()
     trich = " ".join(normalize(c.get("quote") or "").lower() for c in (citations or []))
-    return next((cum for cum in CUM_PHAN_QUYET if cum in van and cum not in trich), None)
+    return next((cum for cum in cum_ds if cum in van and cum not in trich), None)
 
 
 def _neu_luat_thay_phan_quyet(dung_cho_prose: list, citations_prose: list[dict],
@@ -824,6 +848,216 @@ def giai_thich_chung(cau_hoi: str, llm, model: str) -> tuple[str | None, Usage |
     return loi_giai_thich, usage, "llm"
 
 
+# ══ Quyết định 2026-09-30 mục 3–4 — phần phân tích, "Nên đối chiếu thêm" ══════
+# Vai THỨ TƯ của mô hình trong node này: áp các căn cứ ĐÃ QUA hai tầng vào tình
+# huống của chính người hỏi, trong một phần ghi nhãn riêng (CONTEXT.md "phân
+# tích"). Lượt gọi RIÊNG, không nới lượt hành văn: prompt hành văn đang được đo
+# giữ nguyên từng chữ cho mọi câu hỏi, lượt này chỉ tốn tiền khi câu hỏi kể tình
+# huống, và nó hỏng thì câu trả lời đã kiểm vẫn đi nguyên vẹn.
+PHAN_TICH_PATH = Path("prompts/phan_tich.v1.md")
+PHAN_TICH_TIEU_DE = "Phân tích cho tình huống của bạn"
+PHAN_TICH_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["doan"],
+    "properties": {"doan": {"type": "array", "maxItems": 5, "items": {"type": "string"}}},
+}
+
+# Chữ nói LUẬT quy định gì. Câu mang nó phải dẫn một Điều của căn cứ — mọi mệnh đề
+# pháp lý của phần phân tích neo vào một điều khoản đã trích (quyết định mục 3).
+# "phải"/"cần" cố ý có mặt: lời khuyên viết bằng "nên" (prompt quy tắc 3). Cơ quan và
+# thẩm quyền ("do … giải quyết", Tòa án, Ủy ban) là quy định nói bằng lời không có số.
+_RE_NOI_LUAT = re.compile(
+    r"\b(?:(?:pháp\s+)?luật(?!\s+sư)|quy\s+định|bắt\s+buộc|phải|cần(?!\s+thiết)|không\s+được|bị\s+cấm"
+    r"|nghiêm\s+cấm|có\s+quyền|được\s+quyền|có\s+nghĩa\s+vụ|trách\s+nhiệm|truy\s+cứu|thẩm\s+quyền"
+    r"|thời\s+hiệu|thời\s+hạn|t(?:òa|oà)|(?:ủy|uỷ)\s+ban|do\b.{0,60}?\bgiải\s+quyết)\b",
+    re.IGNORECASE,
+)
+_RE_HET_CAU = re.compile(r"(?<=[.!?])\s+")
+# Kết cục và trách nhiệm mà phần phân tích không được tự nói, thêm vào `CUM_PHAN_QUYET`
+# chỉ cho phần này (văn xuôi chính giữ danh sách đã đo). Miễn trừ như cũ: cụm nằm
+# nguyên trong câu trích thì được đọc lại.
+CUM_PHAN_QUYET_PHAN_TICH = (*CUM_PHAN_QUYET, "chắc chắn", "sẽ được", "công nhận", "truy cứu")
+# Một DANH SÁCH số sau "Điều"/"khoản" ("Điều 235 và 236", "các Điều 235, 240", "khoản 1,
+# 2 Điều 236"): `_RE_DIEU` chỉ đọc số đầu — đủ cho văn xuôi, nơi thẻ cite:K đối chiếu
+# từng Điều, không đủ cho phần phân tích, nơi chữ là neo duy nhất.
+_NOI_SO = r"\s*(?:,|và|hoặc|đến|tới|-|–)\s*"
+_RE_DS_DIEU = re.compile(rf"\bđiều\s*(\d+(?:{_NOI_SO}(?:điều\s*)?\d+)*)", re.IGNORECASE)
+_RE_DS_KHOAN = re.compile(rf"\bkhoản\s*(\d+(?:{_NOI_SO}(?:khoản\s*)?\d+)*)", re.IGNORECASE)
+_RE_DIEM = re.compile(r"\bđiểm\s+([a-zđ])\b", re.IGNORECASE)
+_RE_VI_TRI = re.compile(r"Điều\s+(\d+)(?:\s*>\s*Khoản\s+(\d+))?(?:\s*>\s*Điểm\s+([a-zđ]))?")
+# Chuỗi số dài (điện thoại, tài khoản) không có trong căn cứ: chữ bị tiêm, không phải luật.
+_RE_DAY_SO = re.compile(r"\d(?:[\s.-]?\d){8,}")
+
+
+def _so_trong(r: re.Pattern, cau: str) -> set[str]:
+    return {so for m in r.finditer(cau) for so in re.findall(r"\d+", m.group(1))}
+
+
+def _vuot_can_cu(cau: str, cho: dict) -> str | None:
+    """Lý do câu `cau` (đã chuẩn hoá) nói quá căn cứ, hoặc None. Tra bảng, 0 token —
+    cùng các bộ nhận diện của lưới văn xuôi và lời giải thích chung. `cho` là các tập
+    `loc_phan_tich` dựng từ căn cứ."""
+    if _RE_THE.search(cau) or _RE_URL.search(cau):
+        return "the_url"
+    if any(m.group(0) not in cho["chu"] for m in _RE_DAY_SO.finditer(cau)):
+        return "day_so"
+    dieu = _so_trong(_RE_DS_DIEU, cau)
+    if thua := sorted(dieu - cho["dieu"], key=int):
+        return "dieu:" + ",".join(thua)
+    # Khoản/điểm phải nằm trong đường dẫn căn cứ của đúng một Điều câu nêu: căn cứ là cả
+    # Điều thì không đỡ một khoản nào (không đọc được Điều có bao nhiêu khoản).
+    if thua := sorted(
+        (k for k in _so_trong(_RE_DS_KHOAN, cau) if not any((d, k) in cho["khoan"] for d in dieu)), key=int
+    ):
+        return "khoan:" + ",".join(thua)
+    if thua := sorted({e.lower() for e in _RE_DIEM.findall(cau)} - {e for d, e in cho["diem"] if d in dieu}):
+        return "diem:" + ",".join(thua)
+    if thua := [s for s in moi_so_hieu_trong(cau) if s not in cho["so_hieu"]]:
+        return "so_hieu:" + ",".join(thua)
+    noi_luat = bool(dieu) or bool(_RE_NOI_LUAT.search(cau))
+    # Mốc người hỏi nêu chỉ được nhắc lại trong câu KHÔNG nói luật: "bạn phải khởi kiện
+    # trong 15 ngày" từ câu hỏi "nghe nói 15 ngày" là tiền đề sai nói lại thành quy định.
+    if thua := sorted(moc_phap_ly_trong(cau) - (cho["moc"] if noi_luat else cho["moc"] | cho["moc_nguoi_hoi"])):
+        return "moc:" + ",".join(thua)
+    if cum := cau_phan_quyet(cau, cho["can_cu"], CUM_PHAN_QUYET_PHAN_TICH):
+        return f"phan_quyet:{cum}"
+    if noi_luat and not dieu:
+        return "khong_dan_dieu"
+    return None
+
+
+def loc_phan_tich(
+    doan: list[str], can_cu: list[dict], chu_can_cu: str, chu_nguoi_hoi: str = ""
+) -> tuple[list[str], list[str]]:
+    """`(đoạn giữ lại, lý do từng câu bị bỏ)`. Bỏ theo CÂU, không theo cả phần: một câu
+    vượt căn cứ không kéo theo những câu đúng. `can_cu` là trích dẫn dùng cho văn xuôi;
+    `chu_can_cu` (khẳng định + nguyên văn trích) là nơi một mốc hay chuỗi số được phép
+    lấy; `chu_nguoi_hoi` (câu hỏi, hồ sơ tình huống) chỉ cấp mốc cho câu không nói luật.
+
+    Giới hạn đã biết — lưới chữ, không đọc nghĩa:
+    * so số Điều, không so cặp (văn bản, số), như `_dieu_khong_duoc_chong_do`;
+    * một câu dẫn đúng Điều đã trích vẫn mang được lời mà Điều ấy không nói, trừ các
+      cụm `CUM_PHAN_QUYET_PHAN_TICH` — bắt được nó cần tầng 2 (mô hình họ khác) chấm
+      từng câu với căn cứ, một lượt gọi trả tiền mỗi câu trả lời: chờ chủ dự án chốt;
+    * một quy định nói bằng lời không có số, chữ pháp lý hay tên cơ quan nào lọt qua."""
+    cho: dict = {"can_cu": can_cu, "chu": normalize(chu_can_cu), "dieu": set(), "khoan": set(), "diem": set()}
+    for c in can_cu:
+        cho["dieu"] |= _dieu_cua_can_cu(c)
+        for d, k, e in _RE_VI_TRI.findall(normalize(c.get("duong_dan") or "")):
+            if k:
+                cho["khoan"].add((d, k))
+            if e:
+                cho["diem"].add((d, e.lower()))
+    cho["so_hieu"] = {"/".join((c.get("so_ky_hieu") or "").split("/")[:2]) for c in can_cu}
+    cho["moc"] = moc_phap_ly_trong(cho["chu"])
+    cho["moc_nguoi_hoi"] = moc_phap_ly_trong(normalize(chu_nguoi_hoi))
+    giu: list[str] = []
+    bo: list[str] = []
+    for d in doan:
+        con = []
+        for cau in _RE_HET_CAU.split(" ".join(str(d).split())):
+            if ly_do := _vuot_can_cu(normalize(cau), cho):
+                bo.append(ly_do)
+            elif cau:
+                con.append(cau)
+        if con:
+            giu.append(" ".join(con))
+    return giu, bo
+
+
+def _phan_tich(
+    state: dict, dung_cho_prose: list, citations_prose: list[dict], llm, model: str
+) -> tuple[dict | None, Usage | None, dict]:
+    """`(phan_tich | None, usage, vết cho traces)`. KHÔNG BAO GIỜ raise (cùng hợp đồng
+    `giai_thich_chung`): phần THÊM vào một câu trả lời đã kiểm. Mô hình chỉ thấy câu
+    hỏi, hồ sơ tình huống và các căn cứ dùng cho văn xuôi — không thấy khẳng định bị
+    tầng 2 bác hay nguồn bị lọc."""
+    cau_hoi = state.get("cau_hoi_day_du") or state.get("query") or ""
+    if not (ke_tinh_huong(cau_hoi) or ke_tinh_huong(state.get("query") or "")):
+        return None, None, {"nguon": "bo_qua", "bi_bo": []}
+    tinh_huong = khoi_tinh_huong(state.get("ho_so") or {})
+    can_cu = "\n".join(
+        f'- {c["duong_dan"]} — {c["bo_luat"]}\n  {r.claim.text}\n  Nguyên văn: "{c["quote"]}"'
+        for r, c in zip(dung_cho_prose, citations_prose, strict=True)
+    )
+    prompt = PHAN_TICH_PATH.read_text(encoding="utf-8").format(cau_hoi=cau_hoi, tinh_huong=tinh_huong, can_cu=can_cu)
+    usage: Usage | None = None
+    try:
+        raw, usage = llm.chat(model, messages(prompt), json_schema=PHAN_TICH_SCHEMA)
+        doan = json.loads(raw)["doan"]
+        if not isinstance(doan, list):
+            raise TypeError(f"doan là {type(doan).__name__}, không phải danh sách")
+    except Exception as e:
+        logger.warning(
+            "assemble: không sinh được phần phân tích (%s: %s) — câu trả lời đi không kèm nó", type(e).__name__, e
+        )
+        return None, usage, {"nguon": "loi", "bi_bo": []}
+    chu = " ".join([*(r.claim.text for r in dung_cho_prose), *(c["quote"] for c in citations_prose)])
+    giu, bo = loc_phan_tich(doan[:5], citations_prose, chu, f"{cau_hoi} {state.get('query') or ''} {tinh_huong}")
+    if bo:
+        logger.warning("assemble: phần phân tích nói quá căn cứ — bỏ %d câu: %s", len(bo), bo)
+    if not giu:
+        return None, usage, {"nguon": "rong", "bi_bo": bo}
+    return {"tieu_de": PHAN_TICH_TIEU_DE, "doan": giu}, usage, {"nguon": "llm", "bi_bo": bo}
+
+
+# "Nên đối chiếu thêm: <văn bản> (chưa trích dẫn được nguyên văn)" — giao diện dựng
+# câu từ các dòng này; ở đây chỉ có dữ liệu, không câu nào gọi tên kho (mục 4).
+TOI_DA_DOI_CHIEU = 3
+
+
+# "Luật Nhà ở số 27/2023/QH15" → "luật nhà ở": tên một Luật/Bộ luật như người ta gọi nó
+# trong câu. Nghị định, thông tư không có tên gọi riêng — chúng được gọi bằng số hiệu.
+_RE_TEN_LUAT = re.compile(r"^((?:bộ\s+)?luật\s+.+?)(?:\s+số\s+\S+)?$")
+
+
+def _ten_luat(ten: str) -> str | None:
+    m = _RE_TEN_LUAT.match(" ".join(normalize(ten or "").lower().split()))
+    return m.group(1) if m else None
+
+
+def dung_doi_chieu_them(shallow: list[dict], cau_hoi: str = "", can_cu: list[dict] | None = None) -> list[dict]:
+    """Văn bản ĐƯỢC HIỆN mà truy hồi chạm tới nhưng mới có tên (hàng `mo_dau`,
+    migration 016), theo thứ hạng truy hồi, gộp theo văn bản — chỉ khi có NEO:
+
+    * câu hỏi gọi nó: số hiệu (`moi_so_hieu_trong`) hay tên luật ("luật nhà ở");
+    * tên nó nêu một luật đang được trích ("Quy định chi tiết … của Luật Đất đai").
+      Đây là cạnh "hướng dẫn" đọc từ tiêu đề: kho không có cạnh đó (`load_incoming_edges`
+      chỉ nạp cạnh hiệu lực 20..23).
+
+    Truy hồi tầng nông khớp nhiễu (replay review 2026-09-30: câu thử việc chạm Luật Thi
+    hành án hình sự), nên thứ hạng không phải bằng chứng một văn bản là cần. `hits_shallow`
+    đã lọc theo quy tắc hiển thị (`expand`, `hien_thi`): văn bản ẩn không bao giờ vào đây.
+
+    ponytail: so tên bằng chuỗi con — "Luật Đầu tư" được trích thì nghị định nêu "Luật
+    Đầu tư công" cũng neo; tách theo ranh giới tên khi đo được ca đó."""
+    q = " ".join(normalize(cau_hoi).lower().split())
+    so_hoi = set(moi_so_hieu_trong(q))
+    luat_trich = {t for c in can_cu or [] if (t := _ten_luat(c.get("bo_luat") or ""))}
+    ra: list[dict] = []
+    da: set[str] = set()
+    for p in shallow:
+        doc = str(p.get("document_id") or "")
+        so, _ = hien_van_ban(p.get("so_ky_hieu") or "", p.get("ten") or "")
+        truong = truong_trich_dan(p)
+        if not doc or doc in da or not (so or truong["ten_van_ban"]):
+            continue
+        ten = " ".join(normalize(p.get("ten") or "").lower().split())
+        ten_goi = _ten_luat(ten)
+        if not (
+            "/".join(so.split("/")[:2]) in so_hoi
+            or (ten_goi and ten_goi in q)
+            or any(t in ten for t in luat_trich if t != ten_goi)
+        ):
+            continue
+        da.add(doc)
+        ra.append({"so_ky_hieu": so, "ten_van_ban": truong["ten_van_ban"], "lien_ket": truong["lien_ket"]})
+        if len(ra) == TOI_DA_DOI_CHIEU:
+            break
+    return ra
+
+
 def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None = None,
              usage: Usage | None = None, degraded: bool = False, giai_thich: bool = False, **kw: object) -> dict:
     """MỌI nhánh không có câu trả lời đi qua đây — hai nửa, không có ngoại lệ.
@@ -885,11 +1119,35 @@ def _ngo_cut(state: dict, llm, model: str, rt: ResultType, ghi_chu: str | None =
     return ket
 
 
-# Câu trả lời cho `intent == gioi_thieu` sống ở `nodes/gioi_thieu.py`, KHÔNG ở
-# đây. Trước 2026-09-02 nó là một hằng số `GIOI_THIEU` duy nhất, và hai câu hỏi
-# khác nhau ("bạn làm được những gì" 09:21:36, "model của bạn là gì" 09:22:22 —
-# bảng `traces`) nhận về đúng cùng 1.104 ký tự đó, từng chữ một. Nay câu hỏi được
-# tách thành dạng bằng quy tắc; đây vẫn là MỘT `result_type`, chỉ `answer` đổi.
+def _tra_loi_meta(state: dict, llm, model: str) -> dict:
+    """`gioi_thieu` / `hoi_ve_kho` — lời đáp sống ở `nodes/gioi_thieu.py`; đây chỉ
+    nối state vào nó. Vẫn MỘT `result_type` mỗi ý định, chỉ `answer` đổi.
+
+    `graph_tra_cuu.n_assemble` (nơi có `engine`) nạp kho một lần và đặt sẵn
+    `bang_du_kien`, `van_ban_bang` + `khia_canh_meta`; chỗ gọi trực tiếp không có
+    chúng thì bảng không có số liệu nào (`bang_du_kien(…, None)`), không bịa. Lượt xin bảng
+    (`tra_loi_kho_bang`) giữ câu dẫn tất định: số liệu nằm ở chính hai bảng.
+    """
+    rt = ResultType(state["intent"])
+    if state.get("tra_loi_kho_bang"):
+        return _base(state, rt, answer=state["tra_loi_kho"], bang=state["tra_loi_kho_bang"])
+    cau = state.get("query") or ""
+    cac = state.get("khia_canh_meta") or (khia_canh_kho if rt is ResultType.hoi_ve_kho else khia_canh)(cau)
+    if rt is ResultType.hoi_ve_kho:
+        cac = khia_canh_luot_kho(cac)
+    answer, usage, nguon = tra_loi_meta(
+        state.get("cau_hoi_goc") or cau,
+        state.get("bang_du_kien") or bang_du_kien(cau, None),
+        cac,
+        llm,
+        model,
+        cau_hoi_day_du=state.get("cau_hoi_day_du"),
+        luot_dau=not (state.get("lich_su") or state.get("tom_tat")),
+        van_ban=state.get("van_ban_bang"),
+    )
+    ket = _base(state, rt, usage=usage, answer=answer, bang=[])
+    ket["traces"]["gioi_thieu_nguon"] = nguon
+    return ket
 
 
 # Phase 14 (owner D14-B) — không còn lời đáp nào chỉ người dùng sang biểu mẫu
@@ -1263,9 +1521,9 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
     chen = [c for c in bt.get("clauses") or [] if c.get("chen")]
     trong = [f"«{c.get('ten')}»" for c in chen if c["chen"] != "chuan"]
     chuan = [f"«{c.get('ten')}»" for c in chen if c["chen"] == "chuan"]
-    # Văn bản chuyên ngành kho chưa có toàn văn (`_nap_khuon_mau`, lượt tạo): nói thẳng,
-    # cạnh dòng căn cứ — tên văn bản không được ngầm nói điều khoản đã theo luật đó.
-    thieu_luat = (state.get("khuon_mau_ngu_canh") or {}).get("thieu_luat") or []
+    # Văn bản chuyên ngành mà điều khoản của mẫu chưa theo (`_nap_khuon_mau`, lượt tạo):
+    # nói thẳng, cạnh dòng căn cứ — tên văn bản không được ngầm nói điều khoản đã theo luật đó.
+    chua_doi_chieu = (state.get("khuon_mau_ngu_canh") or {}).get("chua_doi_chieu_luat") or []
     khong_dat = _cau_khong_dat({"khong_dat": x.get("khong_dat") or []})
     ghi = list(x.get("ghi_chu") or [])
     if x.get("khong_mang_sang"):
@@ -1295,9 +1553,8 @@ def _ban_thao_khuon_mau(state: dict, bt: dict) -> dict:
             else ""
         )
         + (
-            f"Kho chưa có toàn văn {', '.join(thieu_luat)}, nên các điều khoản chỉ dựa trên căn cứ"
-            " đang có — chưa đối chiếu với luật đó. "
-            if thieu_luat
+            f"Các điều khoản chỉ dựa trên căn cứ đang có — chưa đối chiếu với {', '.join(chua_doi_chieu)}. "
+            if chua_doi_chieu
             else ""
         ),
         (_liet_ke("Điều còn trống vì luật đòi: ", trong, 160, "điều") + ". " if trong else "")
@@ -1556,47 +1813,11 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             },
         )
 
-    if state.get("intent") == "gioi_thieu":
-        # Xem chú thích ở nhánh `soan_thao` ngay trên: rẻ được là nhờ đường rẽ
-        # tắt trong `graph_tra_cuu`, không nhờ riêng khâu này không gọi LLM.
-        # ĐO ĐƯỢC 2026-09-02, TRƯỚC khi có đường rẽ: nhánh này tiêu 8.975 token
-        # và dựng 15 luận điểm qua cả hai tầng rồi vứt sạch.
-        #
-        # `cau_gioi_thieu` chọn lời đáp theo DẠNG câu hỏi bằng quy tắc — vẫn 0
-        # token, và cố ý KHÔNG nhận `llm`: model không biết nó đang chạy trên
-        # model nào hay kho có gì, nên để nó tự sinh câu trả lời về chính mình
-        # là mời đúng loại ảo giác hai tầng kiểm không bắt được (không có trích
-        # dẫn nào để đối chiếu).
-        #
-        # `.get(...) or ""` chứ không phải `state["query"]`: câu rỗng rơi về bài
-        # năng lực — mặc định an toàn — thay vì nổ ở một nhánh vốn không cần
-        # truy vấn gì. Khác `tra_loi_kho` ngay dưới, nơi khoá thiếu LÀ lỗi nối
-        # dây và một `answer` rỗng chính là chế độ hỏng cần nổ ra.
-        # `tra_loi_gioi_thieu` is composed in `graph_tra_cuu.n_assemble` (it
-        # owns the engine and the one `nap_kho`); direct callers without it
-        # still get the kho-less answer.
-        return _base(state, ResultType.gioi_thieu,
-                     answer=state.get("tra_loi_gioi_thieu") or cau_gioi_thieu(state.get("query") or ""))
-
-    if state.get("intent") == "hoi_ve_kho":
-        # Chuỗi do `graph_tra_cuu.n_assemble` tính SẴN bằng SQL — khâu này chỉ
-        # dán nó vào `answer`. Xem chú thích ở `n_assemble` để biết vì sao SQL
-        # nằm ở đó chứ không ở đây (tóm lại: `assemble` không có `engine`, và
-        # hợp đồng hiện hành đã là "node lo phần DB, assemble lo phần dựng lời"
-        # — `db_provisions` cũng do node nạp sẵn).
-        #
-        # `state["tra_loi_kho"]` chứ không phải `.get(...) or ""`: thiếu khoá
-        # này là một lỗi NỐI DÂY, và một `answer` rỗng chính là chế độ hỏng mà
-        # cả nhánh này tồn tại để bỏ đi. Thà nổ ra một KeyError nhìn thấy được
-        # còn hơn trả lại đúng cái màn hình trắng cũ.
-        #
-        # `bang` (T4) NGƯỢC LẠI dùng `.get(...) or []`: khác `answer`, một
-        # `bang` rỗng là giá trị ĐÚNG cho phần lớn lượt hỏi về kho (câu hỏi
-        # không xin bảng) — thiếu khoá không phải chế độ hỏng cần nổ ra, và
-        # test cũ gọi `assemble()` với state chưa mang khoá này (trước T4)
-        # vẫn phải chạy được.
-        return _base(state, ResultType.hoi_ve_kho, answer=state["tra_loi_kho"],
-                     bang=state.get("tra_loi_kho_bang") or [])
+    if state.get("intent") in ("gioi_thieu", "hoi_ve_kho"):
+        # Rẻ được là nhờ đường rẽ tắt trong `graph_tra_cuu` (`_RE_TAT`): không truy
+        # hồi, không sinh luận điểm, đúng MỘT lượt model viết lời đáp từ bảng dữ
+        # kiện — quyết định 2026-09-30 mục 1, xem `gioi_thieu.tra_loi_meta`.
+        return _tra_loi_meta(state, llm, model)
 
     if state.get("intent") == "ngoai_pham_vi":
         return _base(state, ResultType.out_of_scope, coverage_note=NGOAI_PHAM_VI)
@@ -2047,8 +2268,25 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
             hinh_dang["do_dai"],
         )
 
-    ket = _base(state, ResultType.answer, usage=usage, degraded=degraded,
-                answer=answer, citations=citations, warnings=warnings, documents=documents)
+    # Quyết định 2026-09-30 mục 3–4: chỉ câu trả lời ĐÃ qua mọi lưới trên mới được
+    # mang phần phân tích (nó áp chính các căn cứ dùng cho văn xuôi) và danh sách
+    # văn bản nên đối chiếu thêm.
+    phan_tich, pt_usage, pt_vet = _phan_tich(state, dung_cho_prose, citations_dung_cho_prose, llm, model)
+    ket = _base(
+        state,
+        ResultType.answer,
+        usage=_gop_usage(usage, pt_usage),
+        degraded=degraded,
+        answer=answer,
+        citations=citations,
+        warnings=warnings,
+        documents=documents,
+        phan_tich=phan_tich,
+        doi_chieu_them=dung_doi_chieu_them(
+            shallow, f"{state.get('query') or ''} {state.get('cau_hoi_day_du') or ''}", citations_dung_cho_prose
+        ),
+    )
+    ket["traces"]["assemble_phan_tich"] = pt_vet
     ket["traces"]["assemble_hinh_dang"] = hinh_dang
     ket["traces"]["assemble_dieu_bi_loai"] = []
     ket["traces"]["assemble_nguon_bi_loc_khoi_prose"] = nguon_bi_loc

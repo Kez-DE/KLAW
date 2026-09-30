@@ -134,8 +134,7 @@ function KhongCoVanBan({ data }: { data?: unknown }) {
         </h1>
         {biAn === null ? (
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            Kho của KLAW gồm 6 Bộ luật cùng cụm văn bản dưới luật về Lao động. Mã văn bản trên đường
-            dẫn không trỏ tới văn bản nào trong kho.
+            Mã văn bản trên đường dẫn không trỏ tới văn bản nào trong kho của KLAW.
           </p>
         ) : (
           <div className="mx-auto inline-block text-left">

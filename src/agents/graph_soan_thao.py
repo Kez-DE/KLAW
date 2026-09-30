@@ -249,22 +249,6 @@ def can_cu_khung(engine: Engine, loai: str, db_provisions: dict[int, dict], as_o
     ]
 
 
-_SQL_TOAN_VAN = text(
-    "SELECT so_ky_hieu FROM documents WHERE so_ky_hieu = ANY(:so) AND depth = 'deep' AND id = ANY(CAST(:hien AS text[]))"
-)
-
-
-def chua_toan_van(engine: Engine, so_hieu: list[str], hien: frozenset[str]) -> list[str]:
-    """Số hiệu trong `so_hieu` mà kho CHƯA có toàn văn được hiện (`depth = 'deep'` — mức
-    `kho._CO_TOAN_VAN` — và thuộc `hien`), giữ thứ tự: văn bản chỉ có tên (`shallow`),
-    bị ẩn hay không có trong kho đều không làm căn cứ được."""
-    if not so_hieu:
-        return []
-    with engine.connect() as c:
-        co = set(c.execute(_SQL_TOAN_VAN, {"so": list(so_hieu), "hien": sorted(hien)}).scalars())
-    return [s for s in so_hieu if s not in co]
-
-
 _SQL_VAN_BAN_THEO_SO = text(
     "SELECT id, so_ky_hieu, ten, loai_van_ban, ngay_ban_hanh, co_quan_ban_hanh FROM documents"
     " WHERE so_ky_hieu = ANY(:so) AND id = ANY(CAST(:hien AS text[]))"

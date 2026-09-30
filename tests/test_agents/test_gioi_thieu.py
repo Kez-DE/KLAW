@@ -10,8 +10,11 @@ Hai câu này khác hẳn nhau và trước bản này dùng chung một lời �
   "Thuế thu nhập cá nhân tính thế nào?"  → ngoài phạm vi THẬT, từ chối là đúng
   "bạn làm được những gì"                → hỏi về chính trợ lý, phải trả lời
 
-`gioi_thieu` tách hai thứ đó. Nó KHÔNG gọi LLM để dựng câu trả lời — nội dung
-là sự thật về hệ thống, đọc từ DB, nên 0 token cho khâu hành văn.
+`gioi_thieu` tách hai thứ đó. Từ quyết định 2026-09-30 mục 1, lời đáp do model
+viết trong MỘT lượt, chỉ từ bảng dữ kiện mã dựng (`test_tra_loi_meta.py`). Các
+test ở đây gọi `assemble(..., llm=None)`: không có model thì lời đáp là câu dự
+phòng ghép từ chính các dòng của bảng — và các test canh sự thật của từng dạng
+trên chính câu đó.
 """
 
 from pathlib import Path
@@ -22,7 +25,7 @@ from src.agents.nodes.assemble import ResultType, assemble
 from src.agents.nodes.gioi_thieu import cau_gioi_thieu
 from src.agents.nodes.route import Intent
 from src.config import get_settings
-from src.services.llm import generate_model, judge_model, router_model
+from src.services.llm import Usage, generate_model, judge_model, router_model
 
 
 def test_intent_co_nhanh_gioi_thieu():
@@ -59,11 +62,12 @@ def test_gioi_thieu_tra_loi_thay_vi_tu_choi():
     assert "Hàng hải" not in ans, "không còn tên Bộ luật viết cứng trong bài năng lực"
 
 
-def test_gioi_thieu_khong_ton_token():
-    """0 token: `llm=None` ở trên đã chứng minh — gọi LLM sẽ nổ AttributeError."""
+def test_khong_co_model_van_tra_loi_tu_bang_va_ghi_ly_do():
+    """Không có model (hay model lỗi) không phải HTTP 500: lời đáp là câu dự
+    phòng từ bảng, và trace nói vì sao (`gioi_thieu_nguon`)."""
     st = assemble({"query": "klaw là gì", "intent": "gioi_thieu"}, {}, None, "")
+    assert st["answer"] and st["traces"]["gioi_thieu_nguon"] == "loi"
     assert st["traces"]["assemble_token_in"] == 0
-    assert st["traces"]["assemble_token_out"] == 0
 
 
 def test_ngoai_pham_vi_van_tu_choi_nhu_cu():
@@ -201,7 +205,7 @@ def test_la_ai_va_la_gi_khac_nhau_chi_mot_tu():
     trước bản này cả hai đều rơi về `NANG_LUC`."""
     danh_tinh, ban_chat = _tra_loi(DANG["danh_tinh"]), _tra_loi(DANG["ban_chat"])
     assert danh_tinh != ban_chat
-    assert danh_tinh.startswith("Xin chào! Tôi là KLAW")
+    assert danh_tinh.startswith("Tôi là KLAW")
     assert "luật sư" in ban_chat.lower() and "không phải" in ban_chat.lower()
 
 
@@ -242,14 +246,24 @@ def test_soan_thao_neu_dung_so_loai_van_ban_dem_luc_chay():
     )
 
 
+class _DemLuot:
+    def __init__(self):
+        self.luot = 0
+
+    def chat(self, model, messages, json_schema=None):
+        self.luot += 1
+        return '{"tra_loi": "Tôi là KLAW."}', Usage(30, 10, 0.0001)
+
+
 @pytest.mark.parametrize("cau_hoi", list(DANG.values()), ids=list(DANG))
-def test_moi_dang_deu_giu_0_TOKEN(cau_hoi):
-    """`llm=None` là bằng chứng, không phải giả định: một lượt gọi LLM ở nhánh
-    này sẽ nổ AttributeError chứ không lặng lẽ tốn token."""
-    st = assemble({"query": cau_hoi, "intent": "gioi_thieu"}, {}, None, "")
+def test_moi_dang_dung_MOT_luot_model_va_tien_vao_trace(cau_hoi):
+    """Quyết định 2026-09-30, Consequences: câu hỏi về KLAW tốn đúng MỘT lượt
+    model — không truy hồi, không sinh luận điểm — và lượt đó phải đếm được."""
+    llm = _DemLuot()
+    st = assemble({"query": cau_hoi, "intent": "gioi_thieu"}, {}, llm, "m")
     assert st["result_type"] == ResultType.gioi_thieu
-    assert st["traces"]["assemble_token_in"] == 0
-    assert st["traces"]["assemble_token_out"] == 0
+    assert llm.luot == 1
+    assert st["traces"]["assemble_token_in"] == 30 and st["traces"]["assemble_token_out"] == 10
 
 
 def test_Q1_moi_chuoi_hien_thi_xung_toi_khong_xung_minh():

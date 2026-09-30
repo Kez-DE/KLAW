@@ -120,7 +120,7 @@ export const Route = createFileRoute("/tra-cuu/")({
       {
         name: "description",
         content:
-          "Tìm theo từ khoá tới từng điều, khoản, điểm trong kho văn bản pháp luật lao động của KLAW, kèm nhãn hiệu lực do hệ thống tự đánh giá.",
+          "Tìm theo từ khoá tới từng điều, khoản, điểm trong kho văn bản pháp luật Việt Nam của KLAW, kèm nhãn hiệu lực do hệ thống tự đánh giá.",
       },
       { property: "og:title", content: "Tìm kiếm điều khoản — KLAW" },
       {

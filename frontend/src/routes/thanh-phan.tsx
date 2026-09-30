@@ -179,6 +179,7 @@ const BON_KET_QUA: { nhan: string; ketQua: TraCuuKetQua }[] = [
       trace_id: "mau-answer",
       cau_hoi_day_du:
         "liệt kê bảng tóm lại thời hạn báo trước khi đơn phương chấm dứt hợp đồng lao động theo từng loại hợp đồng cho tôi",
+      hien_cau_hoi_day_du: true,
       // Hình dạng THẬT của `dung_bang` (`src/services/kho.py:492`): luôn HAI
       // bảng. Bảng lĩnh vực ở đây cố ý mang một nhãn dài 76 ký tự (đo trên kho
       // thật) và một hàng "lĩnh vực chưa biết" (`linh_vuc IS NULL` gộp về ô

@@ -134,9 +134,12 @@ _KHO = [_vb("45/2019/QH14", "Bộ Luật lao động số 45/2019/QH14"),
 def _moi_loi_dap_nguoi_doc() -> dict[str, str]:
     """Mọi bề mặt từng gọi corpus là "kho" TRONG LỜI người dùng đọc.
 
-    Đi qua `_mot_khoi` cho ĐỦ chín khía cạnh thay vì đoán vài câu hỏi mẫu: một
-    khía cạnh thứ mười thêm vào mà quên sửa lời sẽ đỏ ở đây."""
-    ra = {f"gioi_thieu.{t}": gt._mot_khoi(t, "kho của bạn phủ những gì", _KHO) for t in gt.KHIA_CANH}
+    Đi qua MỌI dòng của bảng dữ kiện (model viết lời đáp từ đó, câu dự phòng ghép
+    thẳng từ đó) và câu dự phòng của ĐỦ chín khía cạnh, thay vì đoán vài câu hỏi
+    mẫu: một dòng hay khía cạnh thêm vào mà quên sửa lời sẽ đỏ ở đây."""
+    cau = "kho của bạn phủ những gì"
+    ra = {f"gioi_thieu.{k}": v for k, v in gt.bang_du_kien(cau, _KHO).items()}
+    ra.update({f"gioi_thieu.du_phong.{t}": gt.cau_gioi_thieu(cau, _KHO, cac_khia_canh=[t]) for t in gt.KHIA_CANH})
     ra["gioi_thieu.THIEU_KHO"] = gt.THIEU_KHO
     ra["kho.tom_tat"] = kho.dung_cau_tra_loi("có bao nhiêu bộ luật", _KHO)
     ra["kho.co_van_ban"] = kho.dung_cau_tra_loi("có Nghị định 145/2020 không?", _KHO)
@@ -167,15 +170,15 @@ def test_loi_dap_con_lai_goi_dung_ten_thu_dang_trich():
     assert "Bộ Luật lao động số 45/2019/QH14" in loi["kho.tom_tat"]
     assert "văn bản pháp luật Việt Nam" in loi["kho.tom_tat"]
     assert "145/2020/NĐ-CP" in loi["kho.co_van_ban"]
-    assert "văn bản luật" in loi["gioi_thieu.ban_chat"], "tầng một so chữ với CHÍNH văn bản luật"
+    assert "văn bản luật" in loi["gioi_thieu.kiem_chung"], "tầng một so chữ với CHÍNH văn bản luật"
 
 
 def test_bo_chu_kho_KHONG_duoc_thanh_loi_hua_phu_het_phap_luat_viet_nam():
     """Ranh giới brief đặt ra cho R5: nói "pháp luật Việt Nam quy định…" rồi
     đoán thì tệ hơn lời cũ. Câu đóng phạm vi vẫn phải thú nhận đúng những gì
-    có, và vẫn phải đi kèm MỌI đường trả lời về corpus."""
+    có, và đi kèm câu trả lời về số liệu văn bản (quyết định 2026-09-30 mục 5)."""
     assert "không phải toàn bộ văn bản pháp luật Việt Nam" in kho.CAU_GIOI_HAN
     assert "còn nhiều văn bản tôi chưa có" in kho.CAU_GIOI_HAN
-    for cau_hoi in ("có bao nhiêu bộ luật", "có Nghị định 145/2020 không?",
-                    "có Nghị định 999/2099/NĐ-CP không?"):
-        assert kho.CAU_GIOI_HAN in kho.dung_cau_tra_loi(cau_hoi, _KHO)
+    assert kho.CAU_GIOI_HAN in kho.dung_cau_tra_loi("có bao nhiêu bộ luật", _KHO)
+    for cau_hoi in ("có Nghị định 145/2020 không?", "có Nghị định 999/2099/NĐ-CP không?"):
+        assert kho.CAU_GIOI_HAN not in kho.dung_cau_tra_loi(cau_hoi, _KHO)

@@ -31,7 +31,8 @@ def test_bang_du_11_id_va_khong_manh_nao_rong():
     """11/13: `169032` (Luật Nhà ở, giới hạn parser) và `175027` (Luật Bảo
     hiểm xã hội, lỗi chính tả nguồn "Điêu 38") bị `parse_anomalies` chặn ở
     tầng `build_seed` — không phải id sai — nên loại khỏi
-    `DOC_IDS`/`TIEU_DE_DOI_CHIEU`. Xem `KHONG_NAP` ở `scripts/fetch_moj.py`."""
+    `DOC_IDS`/`TIEU_DE_DOI_CHIEU`. Xem `KHONG_NAP` ở `scripts/fetch_moj.py`.
+    N1 2026-09-30: parser đã sửa, `169032` vào `DOC_IDS` (bảng này giữ 11)."""
     assert len(TIEU_DE_DOI_CHIEU) == 11
     assert all(doc_id.isdigit() for doc_id in TIEU_DE_DOI_CHIEU)
     assert all(manh.strip() for manh in TIEU_DE_DOI_CHIEU.values())

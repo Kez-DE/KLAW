@@ -5,6 +5,7 @@ còn chỗ lưu (`ban_thao.tao/sua/…`, việc đọc) là một kho trong bộ
 """
 
 import json
+import re
 
 import pytest
 
@@ -841,18 +842,17 @@ def test_nap_khuon_mau_noi_dung_chuan_cua_dieu_bat_buoc_la_nghia_vu_luat_dat(mon
     assert "mau" not in theo["tai_san_thue"]
 
 
-# ── Hợp đồng thuê nhà ở (app thật 2026-09-30): Luật Nhà ở 27/2023/QH15 chưa có toàn văn
-# trong kho, nên loại này là chế định thuê tài sản của BLDS mang ĐÚNG tên người hỏi xin,
-# và lời đáp nói thẳng luật nào chưa có — không đổi tên yêu cầu một cách im lặng.
+# ── Hợp đồng thuê nhà ở (app thật 2026-09-30): điều khoản là chế định thuê tài sản của BLDS
+# mang ĐÚNG tên người hỏi xin, chưa theo Luật Nhà ở 27/2023/QH15, và lời đáp nói thẳng điều
+# đó — không đổi tên yêu cầu một cách im lặng.
 THUE_NHA = (
     "Soạn hợp đồng thuê nhà ở giữa bên cho thuê là ông Nguyễn Văn An và bên thuê là bà Trần Thị Bình, "
     "giá thuê 10 triệu đồng một tháng, thời hạn 12 tháng"
 )
 
 
-def _ng_nha(monkeypatch, st: dict, chua_co: tuple[str, ...] = ("27/2023/QH15",)) -> dict:
-    """`_nap_khuon_mau` thật của hợp đồng thuê nhà ở (registry, không checklist), DB giả;
-    `chua_co`: số hiệu mà kho chưa có toàn văn được hiện."""
+def _ng_nha(monkeypatch, st: dict) -> dict:
+    """`_nap_khuon_mau` thật của hợp đồng thuê nhà ở (registry, không checklist), DB giả."""
     db = {
         7: {
             "id": 7,
@@ -870,7 +870,6 @@ def _ng_nha(monkeypatch, st: dict, chua_co: tuple[str, ...] = ("27/2023/QH15",))
             {"dong": "Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24 tháng 11 năm 2015.", "doc_id": "95942"}
         ],
     )
-    monkeypatch.setattr(g.gst, "chua_toan_van", lambda engine, so, hien: [s for s in so if s in chua_co])
     return g._nap_khuon_mau(None, st)["khuon_mau_ngu_canh"]
 
 
@@ -896,7 +895,10 @@ def test_router_chon_duoc_thue_nha_o_bang_ten():
     assert "- `hop_dong_thue_nha_o` — hợp đồng thuê nhà ở" in route.danh_sach_loai().splitlines()
 
 
-def test_thue_nha_o_mang_dung_ten_va_noi_luat_chua_co_trong_kho(kho, monkeypatch):
+def test_thue_nha_o_mang_dung_ten_va_noi_dieu_khoan_chua_doi_chieu_luat_nha_o(kho, monkeypatch):
+    """N1 2026-09-30 nạp sâu Luật Nhà ở, nhưng điều khoản của mẫu vẫn là chế định thuê tài
+    sản của BLDS: có toàn văn không có nghĩa là đã đối chiếu, nên lượt tạo vẫn nói thẳng
+    (review: câu này từng tự tắt theo `depth`)."""
     ng = _ng_nha(monkeypatch, {"soan_thao_goi_y": {"loai": "hop_dong_thue_nha_o"}})
     ra = _ra(
         tieu_de=None,
@@ -917,25 +919,16 @@ def test_thue_nha_o_mang_dung_ten_va_noi_luat_chua_co_trong_kho(kho, monkeypatch
     chu = _chu_tep(kho.luu_goi[0]["docx"])
     assert "HỢP ĐỒNG THUÊ NHÀ Ở" in chu and "HỢP ĐỒNG THUÊ TÀI SẢN" not in chu
     assert "Bản thảo «Hợp đồng thuê nhà ở»" in ket["answer"]
-    assert "Kho chưa có toàn văn Luật Nhà ở số 27/2023/QH15" in ket["answer"]
+    assert (
+        "Các điều khoản chỉ dựa trên căn cứ đang có — chưa đối chiếu với Luật Nhà ở số 27/2023/QH15." in ket["answer"]
+    )
+    assert "toàn văn" not in ket["answer"]
+    # Quyết định 2026-09-30 mục 4: không bao giờ nói như thứ kho còn thiếu.
+    assert not re.search(r"\bkho\b", ket["answer"], re.IGNORECASE)
     assert "Bộ luật Dân sự số 91/2015/QH13" in ket["answer"]
     assert "Chưa đặt được" not in ket["answer"]
     # Lượt sửa sau đó không nhắc lại.
-    assert not _ng_nha(monkeypatch, {"ban_thao_tong_quat_dang_mo": kho.nhe()}).get("thieu_luat")
-
-
-def test_thue_nha_o_khong_noi_thieu_khi_kho_da_co_toan_van(kho, monkeypatch):
-    ng = _ng_nha(monkeypatch, {"soan_thao_goi_y": {"loai": "hop_dong_thue_nha_o"}}, chua_co=())
-    ra = _ra(
-        tieu_de=None,
-        bo_cuc=None,
-        can_cu=None,
-        ben=None,
-        gia_tri=[],
-        dieu=[{"key": "tai_san_thue", "ten": "Nhà ở cho thuê", "doan": ["Nhà ở tại ……"]}],
-    )
-    ket = _luot(_st(THUE_NHA, ng=ng), _LLM(ra))
-    assert "toàn văn" not in ket["answer"]
+    assert not _ng_nha(monkeypatch, {"ban_thao_tong_quat_dang_mo": kho.nhe()}).get("chua_doi_chieu_luat")
 
 
 @pytest.mark.parametrize(

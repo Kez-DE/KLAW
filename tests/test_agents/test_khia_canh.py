@@ -9,7 +9,9 @@ chuỗi VIẾT CỨNG trong mẫu. Hai ý sau của người hỏi rơi mất, v
 nói sai ngay lần nạp kho tiếp theo.
 
 Nhóm test này canh hai thứ, tách khỏi `test_gioi_thieu.py` (vốn canh từng dạng
-câu đơn): bộ phân rã khía cạnh, và bộ ghép khối đọc dữ liệu kho lúc chạy.
+câu đơn): bộ phân rã khía cạnh, và câu dự phòng ghép từ bảng dữ kiện đọc kho lúc
+chạy (`cau_gioi_thieu`). Từ quyết định 2026-09-30 mục 1 model viết lời đáp từ
+chính bảng đó; câu dự phòng là thứ người đọc thấy khi model lỗi hay bị lọc hết.
 
 Fixture kho dựng tại chỗ bằng đúng hình dạng dòng của `nap_kho` — KHÔNG import
 từ `test_kho.py`: một test file import một test file khác thì một thay đổi
@@ -22,6 +24,7 @@ from src.agents.nodes.assemble import ResultType, assemble
 from src.agents.nodes.gioi_thieu import (
     HOI_TIEP_KHO,
     THIEU_KHO,
+    bang_du_kien,
     can_kho,
     cau_gioi_thieu,
     khia_canh,
@@ -91,6 +94,7 @@ def test_hoi_bo_luat_liet_ke_dung_tu_fixture():
     ans = cau_gioi_thieu("có những Bộ luật gì", KHO)
     assert "Tôi hiện có 6 Bộ luật: " + ", ".join(TEN_NGAN[:-1]) + " và " + TEN_NGAN[-1] + "." in ans
     assert "10/2012" not in ans
+    assert ans.count(CAU_GIOI_HAN) == 1, "danh sách Bộ luật là số liệu văn bản"
 
 
 def test_hoi_linh_vuc_liet_ke_dung_linh_vuc_va_do_sau():
@@ -114,7 +118,9 @@ def test_hoi_nguon_chi_tra_nguon_va_gioi_han_lien_quan():
     assert generate_model() not in ans
     for ten in TEN_NGAN:
         assert ten not in ans
-    assert ans.count(CAU_GIOI_HAN) == 1
+    # Quyết định 2026-09-30 mục 5: câu giới hạn phạm vi chỉ đi với câu trả lời về
+    # số liệu văn bản — hỏi nguồn không phải hỏi số liệu.
+    assert CAU_GIOI_HAN not in ans
 
 
 def test_hoi_model_chi_tra_model_va_khong_ro_ri():
@@ -133,7 +139,7 @@ def test_cau_mau_tra_du_ba_y_dung_thu_tu():
     """§7.2.1 — chính câu hỏi mở ra cả đợt này."""
     assert khia_canh(CAU_MAU) == ["nang_luc", "bo_luat", "linh_vuc"]
     ans = cau_gioi_thieu(CAU_MAU, KHO)
-    assert ans.startswith("KLAW hiện làm ba việc chính:")
+    assert ans.startswith(bang_du_kien(CAU_MAU, KHO)["viec"])
     for ten in TEN_NGAN:
         assert ten in ans, f"thiếu Bộ luật {ten}"
     for lv in (_LV_SAU, _LV_GOC, _LV_NONG):
@@ -262,11 +268,9 @@ def test_can_kho_dung_cho_ba_khia_canh_kho():
     assert not can_kho(["nang_luc", "nguon", "model", "soan_thao", "danh_tinh"])
 
 
-def test_assemble_van_0_TOKEN_voi_cau_hoi_ghep():
-    """Đường meta không được thêm một lượt model nào (FR-005), kể cả khi
-    `assemble` gọi `cau_gioi_thieu` mà chưa nạp kho."""
+def test_assemble_khong_co_model_van_tra_loi_cau_hoi_ghep():
+    """Chỗ gọi trực tiếp không có model và chưa nạp kho: vẫn một lời đáp từ bảng,
+    khía cạnh kho nhận `THIEU_KHO` (quyết định 2026-09-30 mục 1 thay FR-005)."""
     st = assemble({"query": CAU_MAU, "intent": "gioi_thieu"}, {}, None, "")
     assert st["result_type"] == ResultType.gioi_thieu
-    assert st["answer"]
-    assert st["traces"]["assemble_token_in"] == 0
-    assert st["traces"]["assemble_token_out"] == 0
+    assert st["answer"] and THIEU_KHO in st["answer"]

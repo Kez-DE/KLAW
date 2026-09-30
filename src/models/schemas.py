@@ -440,6 +440,23 @@ class VanBanAnOut(BaseModel):
     thay_the: list[VanBanDan]
 
 
+class PhanTichOut(BaseModel):
+    """Phần "Phân tích cho tình huống của bạn" (quyết định 2026-09-30 mục 3): văn xuôi
+    thuần, không thẻ, mỗi mệnh đề pháp lý nêu số Điều của một căn cứ đã trích."""
+
+    tieu_de: str
+    doan: list[str]
+
+
+class DoiChieuThemOut(BaseModel):
+    """Văn bản câu trả lời cần mà chưa trích được nguyên văn (quyết định 2026-09-30
+    mục 4) — giao diện ghi "Nên đối chiếu thêm: … (chưa trích dẫn được nguyên văn)"."""
+
+    so_ky_hieu: str
+    ten_van_ban: str | None = None
+    lien_ket: str | None = None
+
+
 class TraCuuResponse(BaseModel):
     # Phải khớp ĐỦ `ResultType` ở `assemble.py`. Một loại có ở enum mà thiếu ở
     # đây thì graph dựng đúng kết quả rồi chết ở khâu tuần tự hoá — đã xảy ra
@@ -505,11 +522,19 @@ class TraCuuResponse(BaseModel):
     # cách nào sửa. Mặc định `None` để một dòng cache ghi trước bản này (payload
     # không có khoá này) vẫn tuần tự hoá được.
     cau_hoi_day_du: str | None = None
+    # Decision 2026-09-30 item 8: show the "Tôi hiểu câu hỏi của bạn là…" line
+    # only when this is True — the rewrite changed the question materially, and
+    # the answer is not a meta one. `False` for cache rows written before it.
+    hien_cau_hoi_day_du: bool = False
     # Văn bản người hỏi NÊU TÊN mà không được hiện (quyết định 2026-09-28 mục 8):
     # cùng hình dạng với 404 `khong_hien_thi` của trang văn bản, để giao diện nói
     # "không còn hiệu lực" và mở văn bản thay thế bằng MỘT thành phần. Mặc định
     # `[]` cùng lý do `bang`: payload cache cũ không có khoá này.
     van_ban_khong_hien_thi: list[VanBanAnOut] = []
+    # Chỉ `answer` của câu kể tình huống mang `phan_tich`; `doi_chieu_them` chỉ ở
+    # `answer`. Mặc định `None`/`[]` cùng lý do `bang`: payload cache cũ không có khoá.
+    phan_tich: PhanTichOut | None = None
+    doi_chieu_them: list[DoiChieuThemOut] = []
     trace_id: str
     config_name: str
 

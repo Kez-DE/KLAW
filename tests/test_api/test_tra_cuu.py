@@ -434,8 +434,9 @@ def test_hoi_ve_kho_di_het_duong_graph_ra_HTTP_khong_ton_mot_token(monkeypatch):
     năm chỗ trong một lượt — kể cả chế độ hỏng đặc trưng: traces ghi xanh còn
     HTTP trả 500, vì traces được ghi TRƯỚC khi response được serialize.
 
-    0 token: `route` bị thay bằng một hàm thuần, và `hoi_ve_kho` rẽ tắt ngay sau
-    đó nên không node nào gọi LLM. Cái duy nhất thật ở đây là Postgres — đúng
+    0 token trả tiền: `route` bị thay bằng một hàm thuần, và lượt viết lời đáp
+    (quyết định 2026-09-30 mục 1) đi vào một model giả HỎNG — người đọc nhận câu
+    dự phòng ghép từ bảng dữ kiện. Cái duy nhất thật ở đây là Postgres — đúng
     thứ câu trả lời về kho được dựng từ.
     """
     import src.agents.graph_tra_cuu as g
@@ -443,6 +444,11 @@ def test_hoi_ve_kho_di_het_duong_graph_ra_HTTP_khong_ton_mot_token(monkeypatch):
     from src.api.routes import _payload_cache, tra_cuu_response
     from src.services.kho import CAU_GIOI_HAN
 
+    class ModelHong:
+        def chat(self, *a, **k):
+            raise RuntimeError("không gọi model thật trong test này")
+
+    monkeypatch.setattr(g, "llm_from_settings", lambda: ModelHong())
     monkeypatch.setattr(g, "route", lambda st, llm, model, prompt_path=None: {
         **st, "intent": Intent.hoi_ve_kho, "traces": {"route_token_in": 0}})
 
@@ -668,6 +674,31 @@ def test_FE_biet_moi_gia_tri_ResultType_cua_backend():
     # thiếu ở union thì `tsc` không cảnh báo chỗ nào quên xử lý loại mới.
     thieu_union = [v for v in o_be if f'"{v}"' not in noi_dung.split("const LOAI_KET_QUA")[0]]
     assert not thieu_union, f"thiếu trong union ResultType của TS: {sorted(thieu_union)}"
+
+
+def test_khoa_TraCuuKetQua_cua_FE_khop_TraCuuResponse():
+    """Cùng biên với test ngay trên, cho TÊN KHOÁ thay vì giá trị `result_type`.
+
+    Một khoá FE đọc mà máy chủ không bao giờ gửi thì nhánh giao diện của nó tắt
+    VĨNH VIỄN và không ai biết — `hien_cau_hoi_day_du` vắng nghĩa là dòng "Tôi
+    hiểu câu hỏi của bạn là…" không bao giờ hiện, mất đúng lưới an toàn cho câu
+    nối tiếp bị viết lại sai (review N4, 2026-09-30). Chiều ngược lại: máy chủ
+    đặt tên khác cho cùng khoá thì tên đó thành khoá FE không biết.
+    """
+    import re
+    from pathlib import Path
+
+    from src.models.schemas import TraCuuResponse
+
+    ts = Path(__file__).resolve().parents[2] / "frontend/src/lib/klaw.ts"
+    khoi = re.search(r"export interface TraCuuKetQua \{\n(.*?)\n\}\n", ts.read_text(encoding="utf-8"), re.S)
+    assert khoi, "không tìm thấy interface TraCuuKetQua trong klaw.ts — đổi tên?"
+    o_fe = set(re.findall(r"^  ([a-z_]+)\??:", khoi.group(1), re.M))
+    o_be = set(TraCuuResponse.model_fields)
+    # Chỉ để đo/eval, giao diện không đọc.
+    chi_may_chu = {"config_name"}
+    assert not o_fe - o_be, f"FE đọc khoá máy chủ không gửi: {sorted(o_fe - o_be)}"
+    assert not o_be - o_fe - chi_may_chu, f"máy chủ gửi khoá FE không khai: {sorted(o_be - o_fe - chi_may_chu)}"
 
 
 async def test_k_va_documents_khong_bi_loc_o_bien_HTTP(client, monkeypatch):

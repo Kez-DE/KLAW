@@ -36,8 +36,9 @@ export function ManChao({ onChonGoiY }: { onChonGoiY: (cau: string) => void }) {
       </span>
       <h2 className="font-display mt-5 text-3xl font-bold text-primary">Xin chào, tôi là KLAW</h2>
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-        Tôi tra cứu quy định pháp luật lao động Việt Nam theo điều, khoản, điểm và soạn thảo văn bản
-        pháp lý. Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn tự kiểm chứng.
+        Tôi tra cứu quy định pháp luật Việt Nam theo điều, khoản, điểm — sâu nhất ở lĩnh vực lao
+        động — và soạn thảo văn bản pháp lý. Mỗi câu trả lời nêu rõ văn bản và điều khoản để bạn tự
+        kiểm chứng.
       </p>
       <div className="mt-8 grid w-full gap-3 sm:grid-cols-2">
         {GOI_Y.map((g) => (
