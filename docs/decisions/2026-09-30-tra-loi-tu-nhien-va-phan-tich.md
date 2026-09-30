@@ -65,8 +65,11 @@ lời kiểu bot". Đo trên app thật cùng ngày (traces 88117154…, 8eb13b0
    gạch đầu dòng không nêu số hiệu thì parser không ghi, trừ khi đã đối chiếu tay với toàn
    văn (`DOI_CHIEU_TAY`, `kiem_boi: doi-chieu-tay`, kiểm lại nguyên văn mỗi lần sinh seed).
    Bãi bỏ có hiệu lực cùng ngày với văn bản bị bãi bỏ là hợp lệ (12/2017/QH14 bãi bỏ BLHS
-   100/2015/QH13 Điều 292 từ 01/01/2018). Đợt 2026-09-30: 86/363 cặp, 94 câu (3 đối chiếu
-   tay), 296 điều khoản; 1.614 điều khoản bị ẩn kể cả hậu duệ. Chưa ghi được: 6 cặp mà
+   100/2015/QH13 Điều 292 từ 01/01/2018). Đợt 2026-09-30: 93/363 cặp, 101 câu (10 đối
+   chiếu tay; 7 câu bổ sung chủ dự án duyệt cùng ngày sau khi quét mọi cặp: bãi bỏ "trừ …"
+   nêu nội dung, "Từ Mục … đến Mục …", động từ đứng sau danh sách, bãi bỏ cả Chương, câu dẫn
+   "một số nội dung … gồm:"), 393 điều khoản; 2.141 điều khoản bị ẩn kể cả hậu duệ.
+   Chưa ghi được: 6 cặp mà
    gateway chỉ có PDF hoặc trả lỗi (BLTTHS 101/2015/QH13 ← 105/2025/QH15, 67/2025/QH15 ←
    141/2025/QH15, 45/2013/TT-BTC ← 147/2016/TT-BTC và 28/2017/TT-BTC, 77/2014/TT-BTC ←
    11/2018/TT-BTC, 36/2018/TT-BNNPTNT ← 11/2019/TT-BNNPTNT), và mọi câu parser không đọc
