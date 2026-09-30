@@ -1553,3 +1553,29 @@ def test_dieu_khong_chong_do_tinh_ca_dieu_duoc_sua_cua_can_cu():
     assert _dieu_khong_duoc_chong_do("Điều 4 liệt kê 15 loại văn bản.", cits) == []
     assert _dieu_khong_duoc_chong_do("Điều 5 liệt kê 15 loại văn bản.", cits) == ["5"]
 
+
+# ── Ngõ cụt của câu hỏi không về một vụ việc lao động (trace c8a98c3d) ───────
+# "pháp luật việt nam chia thành những gì" nhận "Chuyện này xảy ra khi nào bạn?"
+# và "Bạn có giấy tờ gì về việc này?": sáu chiều của `hoi_lai` là dữ kiện một vụ
+# việc lao động, và câu hỏi này không có vụ việc nào để hỏi.
+@pytest.mark.parametrize(
+    "kw",
+    [
+        {"query": "hiện tại pháp luật việt nam chia thành những gì"},
+        {"query": "chia tài sản chung khi ly hôn thế nào", "linh_vuc_du_doan": "hon_nhan_gia_dinh"},
+    ],
+)
+def test_ngo_cut_cau_hoi_khong_ve_lao_dong_KHONG_hoi_tinh_huong(kw):
+    from src.agents.nodes.hoi_lai import CAU_DAN
+
+    llm = FakeLlm()
+    st = assemble(_st(tier2=[], **kw), DB, llm, "m", prompt_path=V3_PROMPT)
+    assert st["result_type"] is ResultType.abstain
+    assert llm.so_lan_hoi_lai == 0 and st["traces"]["assemble_hoi_lai"] == "bo_qua"
+    assert st["coverage_note"] == KHONG_TIM_DUOC and CAU_DAN not in st["coverage_note"]
+
+
+def test_ngo_cut_cau_hoi_lao_dong_van_hoi_tinh_huong():
+    llm = FakeLlm()
+    st = assemble(_st(tier2=[], linh_vuc_du_doan="lao_dong"), DB, llm, "m", prompt_path=V3_PROMPT)
+    assert llm.so_lan_hoi_lai == 1 and st["traces"]["assemble_hoi_lai"] == "llm"
