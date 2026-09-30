@@ -1323,6 +1323,15 @@ Defaults apply unless the owner decides otherwise. Only decision 3 blocks.
    Default: keep the form's order (§7, decision item 6). The alternative is
    first party left for every contract: a `ky.thu_tu` change in those seven
    registry files.
+   **Decided 2026-09-30** (owner: "Theo mẫu Nhà nước khi có"): a type whose
+   layout follows an official State form uses that form's signature column
+   order; a type without a State form keeps the first party left. The seven
+   keep the form's order; `hop_dong_thue_nha_o` (NĐ 96/2024 Phụ lục II, added
+   2026-09-30 with the first party left) now signs BÊN THUÊ | BÊN CHO THUÊ.
+   Types that only borrow the Phụ lục II layout for other parties (đặt cọc,
+   vay, dịch vụ, …) keep the first party left.
+   `test_loai_theo_nd96_phu_luc_ii_ky_theo_cot_cua_mau` pins it for every type
+   citing Phụ lục II with the form's two parties.
 
 ## §9 Review resolution (round 1, 2026-09-29)
 
@@ -1420,3 +1429,5 @@ Defaults apply unless the owner decides otherwise. Only decision 3 blocks.
       name is not placed, and the signature columns stay BÊN THUÊ | BÊN CHO THUÊ
       (Open decision 9). `hop_dong_thue_nha_o` already puts the first party left
       although it cites the same NĐ 96/2024 Phụ lục II layout as thuê tài sản.
+      Decision 9 decided 2026-09-30: `hop_dong_thue_nha_o` now signs BÊN THUÊ |
+      BÊN CHO THUÊ, like the form.

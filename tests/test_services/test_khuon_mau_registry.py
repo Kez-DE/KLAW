@@ -76,6 +76,22 @@ def test_moi_mau_chinh_thuc_co_nhan_da_ghi():
     assert chinh_thuc == set(NHAN)
 
 
+def test_loai_theo_nd96_phu_luc_ii_ky_theo_cot_cua_mau():
+    """Chủ dự án 2026-09-30, "Theo mẫu Nhà nước khi có": loại dựng theo NĐ 96/2024 Phụ lục
+    II (hợp đồng thuê nhà ở, hàng ký "BÊN THUÊ | BÊN CHO THUÊ") ký theo đúng cột của mẫu,
+    như `hop_dong_thue_tai_san`. Chỉ so loại mang đúng hai bên của mẫu: loại khác chỉ mượn
+    bố cục, không có mẫu Nhà nước của chính nó, nên giữ bên thứ nhất bên trái."""
+    mau = km.nap("hop_dong_thue_tai_san")["ky"]["thu_tu"]
+    theo_mau = {}
+    for lo in km.cac_loai():
+        d = km.nap(lo)
+        thu_tu = (d.get("ky") or {}).get("thu_tu") or []
+        if re.search(r"96/2024.*Phụ lục II\b", str(d["nguon"].get("van_ban") or "")) and set(thu_tu) == set(mau):
+            theo_mau[lo] = thu_tu
+    assert "hop_dong_thue_nha_o" in theo_mau
+    assert {lo: t for lo, t in theo_mau.items() if t != mau} == {}
+
+
 @pytest.mark.parametrize(
     ("sua", "loi"),
     [

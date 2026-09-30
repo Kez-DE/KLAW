@@ -12,7 +12,8 @@
 # Luật Nhà ở vào `muc` (plan `khuon-mau-thiet-ke.md` §7, "Blocked until F1").
 #
 # Bố cục TƯƠNG TỰ NĐ 96/2024/NĐ-CP Phụ lục II, như `hop_dong_thue_tai_san`. Khối ký theo
-# thứ tự các bên (I. Bên cho thuê trái, II. Bên thuê phải).
+# chính Phụ lục II (chủ dự án 2026-09-30: "Theo mẫu Nhà nước khi có"): BÊN THUÊ trái,
+# BÊN CHO THUÊ phải — khác thứ tự các bên ở phần đầu (I. Bên cho thuê, II. Bên thuê).
 loai: hop_dong_thue_nha_o
 ten: hợp đồng thuê nhà ở
 tieu_de: HỢP ĐỒNG THUÊ NHÀ Ở
@@ -108,12 +109,12 @@ muc:
   - {key: tranh_chap, ten: "Phương thức giải quyết tranh chấp", can_cu: "91/2015/QH13 > Điều 398 > Khoản 2 > Điểm g", bat_buoc: false}
 muc_khung: []
 ky:
-  thu_tu: [ben_cho_thue, ben_thue]
+  thu_tu: [ben_thue, ben_cho_thue]
   o:
-    - khoa: ben_cho_thue
-      ca_nhan: {vai: "BÊN CHO THUÊ", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
-      to_chuc: {vai: "ĐẠI DIỆN BÊN CHO THUÊ", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
     - khoa: ben_thue
       ca_nhan: {vai: "BÊN THUÊ", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
       to_chuc: {vai: "ĐẠI DIỆN BÊN THUÊ", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
+    - khoa: ben_cho_thue
+      ca_nhan: {vai: "BÊN CHO THUÊ", ghi_chu: "(Ký, ghi rõ họ tên)", ho_ten_tu: ho_ten}
+      to_chuc: {vai: "ĐẠI DIỆN BÊN CHO THUÊ", ghi_chu: "(Ký, ghi rõ họ tên, chức vụ\nvà đóng dấu)", ho_ten_tu: nguoi_dai_dien}
 truong_tu_facts: {}

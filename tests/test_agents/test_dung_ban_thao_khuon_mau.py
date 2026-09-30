@@ -884,7 +884,10 @@ def test_thue_nha_o_cung_muc_luat_voi_thue_tai_san():
         (m["key"], m["ten"], m["can_cu"]) for m in cl.muc
     ]
     assert {m["key"] for m in nha["muc"] if m.get("bat_buoc") is False} == set(cl.khong_bat_buoc["keys"])
-    assert nha["ky"]["thu_tu"] == [b["khoa"] for b in nha["ben"]]
+    # Khối ký theo cột của NĐ 96/2024 Phụ lục II (chủ dự án 2026-09-30), không theo thứ tự
+    # các bên ở phần đầu.
+    assert nha["ky"]["thu_tu"] == km.nap("hop_dong_thue_tai_san")["ky"]["thu_tu"]
+    assert set(nha["ky"]["thu_tu"]) == {b["khoa"] for b in nha["ben"]}
 
 
 def test_router_chon_duoc_thue_nha_o_bang_ten():
