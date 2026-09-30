@@ -676,3 +676,72 @@ def test_sua_bo_dieu_bat_buoc_la_mot_phat_hien(loai, hoan_thanh):
     assert a["completeness"] is not None and a["completeness"] < 1
     du_ca = d._audit({"hoan_thanh": hoan_thanh}, {"loai": loai}, du, tao=False)
     assert du_ca["findings"] == [] and du_ca["completeness"] == 1.0
+
+
+# ═══ Lượt sửa không dời giá trị đang có (app thật 2026-09-30, bản thảo 91c288d5) ═══
+#
+# Lượt 2 "Sửa Điều 3: giá thuê là 10.000.000 đồng …": câu giải nghĩa (`query`) mang lại
+# tên hai bên của lượt 1, mô hình chép lại `gia_tri` ĐẢO BÊN, và phép gộp cho giá trị
+# mới thắng giá trị đang có — v3 in Bên cho thuê là Trần Thị Bình (kèm ngày sinh người
+# dùng điền cho ông An trên trang), Bên thuê là Nguyễn Văn An, chữ ký đảo theo.
+
+DAO_BEN = [
+    {"ben": "ben_a", "truong": "ho_ten", "gia_tri": "Trần Thị Bình"},
+    {"ben": "ben_b", "truong": "ho_ten", "gia_tri": "Nguyễn Văn An"},
+]
+
+
+def _theo_ben(kho: _Kho, truong: str) -> dict[str, set[str]]:
+    """`{ben: {giá trị}}` của một trường trên bản mới nhất — mọi bản sao (khối bên, khối ký)."""
+    b = list(kho.bt.values())[-1]
+    o = {(x["don_vi"], x["so"]): x["ben"] for x in b["audit"]["khung"]["o"] if x["truong"] == truong}
+    ra: dict[str, set[str]] = {}
+    for p in b["phep_sua"] or []:
+        if k := o.get((p["don_vi"], p["cho_trong"])):
+            ra.setdefault(k, set()).add(p["gia_tri"].strip())
+    return ra
+
+
+def _dien_tren_trang(kho: _Kho, ben: str, truong: str, gia_tri: str) -> None:
+    """Người dùng bấm chỗ trống trên trang và điền (phiên bản mới cùng tệp)."""
+    b = kho.bt["bt-1"]
+    x = next(x for x in b["audit"]["khung"]["o"] if x["ben"] == ben and x["truong"] == truong)
+    b["phep_sua"] = [*b["phep_sua"], {"loai": "dien", "don_vi": x["don_vi"], "cho_trong": x["so"], "gia_tri": gia_tri}]
+
+
+def test_sua_dieu_khong_dao_ben_da_dien_du_mo_hinh_chep_lai_gia_tri_dao(kho):
+    _luot(_st(), _LLM(_ra()))
+    _dien_tren_trang(kho, "ben_a", "ngay_sinh", "15/03/1978")
+    cau = "Sửa Điều 2: giá thuê là 10.000.000 đồng mỗi tháng"
+    giai_nghia = f"{cau} của hợp đồng thuê giữa bà Trần Thị Bình và ông Nguyễn Văn An"
+    thay = {"thao_tac": "thay", "dieu": 2, "key": None, "ten": "Giá thuê", "doan": ["Giá thuê là 10.000.000 đồng."]}
+    ra = _ra(muc_tieu="sua_ban_dang_co", dieu=None, sua_dieu=[thay], gia_tri=DAO_BEN)
+    ket = _luot(_st(cau, nhe=kho.nhe(), query=giai_nghia), _LLM(ra))
+    b = kho.bt["bt-1"]
+    assert b["phien_ban"] == 2 and b["clauses"][1]["doan"] == ["Giá thuê là 10.000.000 đồng."]
+    assert _theo_ben(kho, "ho_ten") == {"ben_a": {"Nguyễn Văn An"}, "ben_b": {"Trần Thị Bình"}}
+    assert _theo_ben(kho, "ngay_sinh") == {"ben_a": {"15/03/1978"}}
+    assert b["doi"] == ["Điều 2. Giá thuê"] and "Đã điền" not in ket["answer"]
+
+
+def test_chi_doi_gia_tri_khong_dao_ben_da_dien(kho):
+    _luot(_st(), _LLM(_ra()))
+    cau = "ngày sinh bên thuê là 02/02/1990"
+    ra = _ra(
+        muc_tieu="sua_ban_dang_co",
+        dieu=None,
+        sua_dieu=[],
+        gia_tri=[*DAO_BEN, {"ben": "ben_b", "truong": "ngay_sinh", "gia_tri": "02/02/1990"}],
+    )
+    _luot(_st(cau, nhe=kho.nhe(), query=f"{cau} (hợp đồng giữa Trần Thị Bình và Nguyễn Văn An)"), _LLM(ra))
+    assert _theo_ben(kho, "ho_ten") == {"ben_a": {"Nguyễn Văn An"}, "ben_b": {"Trần Thị Bình"}}
+    assert _theo_ben(kho, "ngay_sinh") == {"ben_b": {"02/02/1990"}}
+
+
+def test_nguoi_hoi_neu_ten_truong_thi_doi_duoc_gia_tri_dang_co(kho):
+    _luot(_st(), _LLM(_ra()))
+    cau = "Đổi lại: bên cho thuê là Trần Thị Bình, bên thuê là Nguyễn Văn An"
+    ra = _ra(muc_tieu="sua_ban_dang_co", dieu=None, sua_dieu=[], gia_tri=DAO_BEN)
+    ket = _luot(_st(cau, nhe=kho.nhe()), _LLM(ra))
+    assert _theo_ben(kho, "ho_ten") == {"ben_a": {"Trần Thị Bình"}, "ben_b": {"Nguyễn Văn An"}}
+    assert "Đã điền 4 chỗ trống từ lời bạn nói" in ket["answer"]

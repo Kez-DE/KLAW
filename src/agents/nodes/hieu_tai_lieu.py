@@ -3114,7 +3114,12 @@ def _gia_tri_cua(p: object, theo_chi_so: dict[int, DonViVanBan]) -> list[str]:
 
 
 def kiem_phep_sua(
-    phep: object, t: dict, nguon: str, cam: list[str], dang_co: list[dict] | None = None
+    phep: object,
+    t: dict,
+    nguon: str,
+    cam: list[str],
+    dang_co: list[dict] | None = None,
+    loi_luot: str | None = None,
 ) -> tuple[list[dict], list[dict], list[str]]:
     """Phép sửa mô hình trả cho tài liệu `t` → `(giữ, bỏ, giá trị bỏ)`. Hàm THUẦN, 0 token.
 
@@ -3133,12 +3138,26 @@ def kiem_phep_sua(
     `giá trị bỏ` (`_gia_tri_cua` của mỗi phép bị bỏ, theo thứ tự) CHỈ cho
     `_lay_khong_dat`: giá trị người hỏi đưa mà phép của nó bị bỏ không được mất lặng
     lẽ (G5) — không đi traces hay `bo`.
+
+    `loi_luot` (lượt sửa): CHÍNH câu người hỏi gõ lượt này (`cau_hoi_goc`), không câu
+    giải nghĩa, không hồ sơ. Một chỗ trống ĐANG có giá trị trong `dang_co` chỉ đổi
+    giá trị khi giá trị mới có trong câu đó — lượt sửa chỉ đổi điều nó nói (app thật
+    2026-09-30: "Sửa Điều 3: giá thuê …" mà câu giải nghĩa mang lại tên hai bên của lượt
+    trước, mô hình chép lại đảo bên và bên cho thuê thành người thuê). Bỏ lặng lẽ như
+    phép y hệt: không phải điều lượt này xin.
     """
     nguon_kh = _khong_hoa(nguon or "")
     so_nguon = _so_cua(nguon_kh)
     cam_bo = {_khong_hoa(v) for v in cam if v and _khong_hoa(v) not in nguon_kh}
     theo_chi_so = {d.chi_so: d for d in t["don_vi"]}
     da_co = {_khoa_giong(q) for q in dang_co or []}
+    dang_dien = {
+        (q.get("don_vi"), q.get("cho_trong"))
+        for q in dang_co or []
+        if isinstance(q, dict) and q.get("loai") == "dien" and str(q.get("gia_tri") or "").strip()
+    }
+    loi_kh = _khong_hoa(loi_luot or "")
+    so_loi = _so_cua(loi_kh)
     giu: list[dict] = []
     bo: list[dict] = []
     gia_tri_bo: list[str] = []
@@ -3147,6 +3166,14 @@ def kiem_phep_sua(
             continue
         ra = _mot_phep(p, theo_chi_so, t["dinh_dang"], nguon_kh, so_nguon, cam_bo)
         if isinstance(ra, dict):
+            if (
+                loi_luot is not None
+                and ra["loai"] == "dien"
+                and (ra["don_vi"], ra["cho_trong"]) in dang_dien
+                and (v := ra["gia_tri"].strip())
+                and not _co_trong_nguon(v.casefold(), loi_kh, so_loi)
+            ):
+                continue
             giu.append(ra)
             continue
         gia_tri_bo += _gia_tri_cua(p, theo_chi_so)
@@ -3574,7 +3601,12 @@ def hieu_tai_lieu(state: dict, tai_lieu: list[dict], llm, model: str,
         yeu_cau = k_ra.get("yeu_cau") if k_ra.get("yeu_cau") in YEU_CAU else "dien_sua"
         de_xuat = k_ra.get("phep_sua") if isinstance(k_ra.get("phep_sua"), list) else []
         phep, bo, gia_tri_bo = kiem_phep_sua(
-            de_xuat, t_k, _nguon_nguoi(state, bo_nho_cho_phep), bo_nho_cam, _phep_dang_mo(ban_thao_dang_co, t_k["id"])
+            de_xuat,
+            t_k,
+            _nguon_nguoi(state, bo_nho_cho_phep),
+            bo_nho_cam,
+            _phep_dang_mo(ban_thao_dang_co, t_k["id"]),
+            cau_hoi_nguoi,
         )
         # G7 (owner 2026-09-28, Q4): trên khuôn gốc, lượt soạn hay không quyết định bằng
         # chứng cứ tất định — thay cho gác router ở trên, CHỈ ở đây.

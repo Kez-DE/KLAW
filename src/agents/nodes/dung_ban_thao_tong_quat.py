@@ -577,7 +577,12 @@ def _kiem_gia_tri(
     theo = {(g["ben"], g["truong"]): g["gia_tri"] for g in x.get("gia_tri") or []}
     phep = ban_thao.phep_tu_gia_tri(o, theo)
     giu, bo, gia_tri_bo = kiem_phep_sua(
-        phep, {"don_vi": don_vi_goc, "dinh_dang": "docx"}, x.get("nguon_gia_tri") or "", x.get("cam") or [], dang_co
+        phep,
+        {"don_vi": don_vi_goc, "dinh_dang": "docx"},
+        x.get("nguon_gia_tri") or "",
+        x.get("cam") or [],
+        dang_co,
+        state.get("cau_hoi_goc") or state.get("query") or "",
     )
     co_cho = {(z["ben"], z["truong"]) for z in o}
     khong_cho = [v for k, v in theo.items() if k not in co_cho]
