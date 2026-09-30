@@ -72,6 +72,19 @@ def test_seed_da_commit_hop_le_va_co_101_102_2024():
     assert cua["169363", "187157", "Điều 77 > Khoản 4"] == "doi-chieu-tay"
 
 
+def test_seed_co_bai_bo_126_2014_va_24_2013():
+    """Bổ sung 2026-09-30 (đối chiếu tay): 123/2015/NĐ-CP Điều 45 khoản 2 điểm đ bãi bỏ 126/2014/NĐ-CP Điều 19–50
+    và điểm a khoản 1 Điều 63; 126/2014 Điều 65 khoản 2 bãi bỏ 24/2013/NĐ-CP trừ Điều 3, 5, 44."""
+    theo = {(h["van_ban_id"], h["boi_id"], h["boi_dieu_khoan"]): h for h in doc_seed(SEED)}
+    a = theo["47412", "92897", "Điều 45 khoản 2 điểm đ"]
+    assert a["dieu_khoan"] == [*(f"Điều {n}" for n in range(19, 51)), "Điều 63 > Khoản 1 > Điểm a"]
+    assert (a["kiem_boi"], a["tu_ngay"]) == ("doi-chieu-tay", date(2016, 1, 1))
+    b = theo["30386", "47412", "Điều 65 khoản 2"]
+    assert set(b["dieu_khoan"]) == {f"Điều {n}" for n in range(1, 46)} - {"Điều 3", "Điều 5", "Điều 44"}
+    assert (b["kiem_boi"], b["tu_ngay"]) == ("doi-chieu-tay", date(2015, 2, 15))
+    assert theo["30386", "92897", "Điều 45 khoản 2 điểm d"]["dieu_khoan"] == ["Điều 3", "Điều 5", "Điều 44"]
+
+
 def test_phan_giai_theo_van_ban_va_duong_dan():
     dieu_khoan = {("169188", "Điều 9 > Khoản 5"): [11], ("169188", "Điều 21"): [22]}
     ra = phan_giai([HANG], dieu_khoan, {"169188": "101/2024/NĐ-CP", "178259": "151/2025/NĐ-CP"})
