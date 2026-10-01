@@ -192,10 +192,12 @@ _TRO_LY = (
 _TRUOC = tuple(
     re.compile(p + r"$")
     for p in (
-        # Là: "tôi là Gemini", "đúng, tôi chính là mô hình ngôn ngữ do Google…".
-        rf"{_TOI}\s+(?:(?:chính|cũng|đúng|thực\s+ra|vốn|hiện)\s+)?(?:là|chính\s+là)\s+(?:(?:một|1)\s+)?{_CUM_AI}",
+        # Là: "tôi là Gemini", "đúng, tôi chính là mô hình ngôn ngữ do Google…". Cả lời chối
+        # ("tôi không phải Gemini"): vẫn là lời về mô hình của KLAW (vòng kiểm 3).
+        rf"{_TOI}\s+(?:(?:chính|cũng|đúng|thực\s+ra|vốn|hiện)\s+)?(?:là|chính\s+là|(?:không|chẳng)\s+phải(?:\s+là)?)\s+"
+        rf"(?:(?:một|1)\s+)?{_CUM_AI}",
         rf"\b(?:i\s+am|i'm|i’m|i\s+was|this\s+is|you\s+are\s+(?:talking|chatting|speaking)\s+(?:to|with))\s+"
-        rf"(?:(?:a|an|the)\s+)?{_CUM_AI}",
+        rf"(?:not\s+)?(?:(?:a|an|the)\s+)?{_CUM_AI}",
         rf"\bbạn\s+đang\s+(?:trò|nói)\s+chuyện\s+(?:với|cùng)\s+{_CUM_AI}",
         # Trợ lý là/dùng: "Trợ lý AI đọc tài liệu này là Gemini", "Mô hình AI tôi đang dùng là
         # Gemini", "Tên mô hình AI tôi dùng: Gemini".
@@ -209,8 +211,9 @@ _TRUOC = tuple(
         rf"|thiết\s+kế|làm\s+ra|lập\s+trình|vận\s+hành|cung\s+cấp|triển\s+khai|host|lưu\s+trữ|lưu|đặt|chạy)\s+"
         rf"(?:bởi|từ|trên|dựa\s+trên|bằng|ở|tại)\s+{_CUM_AI}",
         # Chạy trên / dùng: "tôi chạy trên Gemini", "tôi dùng Claude", "tôi đang dùng là Gemini".
-        rf"{_TOI}\s+(?:(?:đang|hiện|chỉ|vẫn)\s+)*(?:chạy|dựa|hoạt\s+động)\s+(?:trên|bằng|vào|nhờ)\s+(?:nền\s+tảng\s+)?{_CUM_AI}",
-        rf"{_TOI}\s+(?:(?:đang|hiện|chỉ|vẫn|có)\s+)*(?:dùng|sử\s+dụng|xài)\s+(?:(?:là|chính\s+là)\s+)?{_CUM_AI}",
+        rf"{_TOI}\s+(?:(?:đang|hiện|chỉ|vẫn|không|chẳng|chưa)\s+)*(?:chạy|dựa|hoạt\s+động)\s+(?:trên|bằng|vào|nhờ)\s+"
+        rf"(?:nền\s+tảng\s+)?{_CUM_AI}",
+        rf"{_TOI}\s+(?:(?:đang|hiện|chỉ|vẫn|có|không|chẳng|chưa)\s+)*(?:dùng|sử\s+dụng|xài)\s+(?:(?:là|chính\s+là)\s+)?{_CUM_AI}",
         # Việc của KLAW làm bằng mô hình: "tôi đọc tài liệu bằng Gemini qua OpenRouter".
         rf"{_TOI}\s+(?:\S+\s+){{0,2}}?(?:đọc|viết|soạn|trả\s+lời|xử\s+lý|phân\s+tích|tạo|dịch|tóm\s+tắt|kiểm\s+chứng"
         rf"|thẩm\s+định|chấm)\b[^.!?;\n]{{0,40}}?\b(?:bằng|qua|nhờ)\s+{_CUM_AI}",

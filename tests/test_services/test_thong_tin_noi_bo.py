@@ -704,3 +704,32 @@ def test_so_tay_phien_khong_ghi_ten_mo_hinh_ma_nguoi_hoi_khong_go(monkeypatch):
     # Sổ tay ghi trước bản vá: chip không lặp lại câu tự xưng.
     cu = {"vu_viec": {"gia_tri": ro, "nguon": "nguoi_noi"}, "van_ban_da_co": {"gia_tri": ben, "nguon": "nguoi_noi"}}
     assert [d["gia_tri"] for d in bo_nho.ho_so_da_dung(cu)] == [ben]
+
+
+# ══ Vòng kiểm 3 (2026-10-01) — câu chối tự xưng ══════════════════════════════
+
+CHOI_TU_XUNG = [
+    # Câu ghép live 04 hỏi "bạn có phải Gemini không?": lời chối cũng là lời về mô hình của
+    # KLAW — sai, và phần đó thuộc câu cố định (mục 11(b)), dù người hỏi gõ đúng tên.
+    ("Tôi không phải Gemini.", "bạn có phải Gemini không? tôi đang tranh chấp đất đai thì cần làm gì"),
+    ("Không, tôi không phải là Gemini của Google.", "bạn có phải Gemini của Google không"),
+    ("Tôi không dùng ChatGPT.", "bạn có dùng ChatGPT không"),
+    ("I am not Gemini.", "are you Gemini?"),
+]
+
+
+@pytest.mark.parametrize(("cau", "cho_phep"), CHOI_TU_XUNG)
+def test_cau_choi_tu_xung_bi_bo_du_nguoi_hoi_go_ten(cau, cho_phep):
+    assert nb.loc_noi_bo(cau, cho_phep) == ""
+    assert nb.loc_noi_bo(cau, None) == ""
+
+
+@pytest.mark.parametrize(
+    ("cau", "cho_phep"),
+    [
+        ("Tôi không phải là khách hàng của Google.", "khách hàng của Google"),
+        ("Tôi không sử dụng dịch vụ Google Ads nữa nhưng vẫn bị trừ tiền.", "Google Ads"),
+    ],
+)
+def test_cau_phu_dinh_cua_nguoi_dung_duoc_giu(cau, cho_phep):
+    assert nb.loc_noi_bo(cau, cho_phep) == cau
