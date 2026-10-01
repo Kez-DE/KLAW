@@ -102,6 +102,19 @@ Active. Owner decisions accepted 2026-09-30; decision record
     still citable (repeals not recorded; the oos-06 re-run cited 126/2014 Điều 20); the field
     filter drops BLDS/BLTTDS from the land answer (keep, widen or `KLAW_LINH_VUC_LOC=false`);
     real-app check on a running server after merge.
+- [ ] Decision C (ADR item 11, internal information; `feat/bao-mat-noi-bo`, not merged into
+  main): "model của bạn là gì" got the three model ids from the fact sheet. Code: one shared
+  filter `src/services/thong_tin_noi_bo.py`; the fact sheet has no model line and describes
+  verification as "hai tầng kiểm chứng"; the `noi_bo` facet answers with the fixed sentence,
+  0 model calls; internal-info questions (VN/EN) are pinned to the meta branch. The filter
+  runs at the end of `assemble`, in `hieu_tai_lieu` (answers, quan sát, suy luận, HTML and
+  khuôn mẫu drafts), `draft_generate`, `gom_du_kien`, `rut_du_kien`, one HTTP error handler,
+  the SSE error event, cache hits, and stored turns read back from history. Progress label for tier 2
+  and two fixed strings naming infrastructure changed. Fake-LLM tests for every path
+  (`tests/test_services/test_thong_tin_noi_bo.py`, `tests/test_agents/test_thong_tin_noi_bo.py`,
+  `tests/test_api/test_thong_tin_noi_bo_api.py`). Open: real-app check; drafts stored before
+  the fix are not re-filtered; a vendor name the asker types in a legal question may be
+  echoed.
 
 ## Result
 

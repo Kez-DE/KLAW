@@ -185,9 +185,18 @@ _Avoid_: small talk, chit-chat, greeting
 
 **khía cạnh (`khia_canh`)**:
 One thing a câu hỏi meta asks for: identity, nature, capabilities, codes,
-domains, corpus, drafting, sources, models. One question may carry several,
-answered in the order asked.
+domains, corpus, drafting, sources, thông tin nội bộ. One question may carry
+several, answered in the order asked.
 _Avoid_: facet, intent, sub-question
+
+**thông tin nội bộ**:
+KLAW's own technical internals: which AI models and versions it runs, its vendors
+and providers, its system instructions, how verification is wired (thresholds, who
+judges), its infrastructure, its costs and its keys. Never told to users: asked for
+it, KLAW answers with one fixed sentence; verification is described only as "hai
+tầng kiểm chứng"; a sentence naming a model, vendor or infrastructure the asker did
+not bring is dropped from every answer and draft. Internal records keep it.
+_Avoid_: bí mật, cấu hình, model info, tech stack
 
 **kho**:
 The set of legal documents KLAW has loaded for this thesis, with each document's
