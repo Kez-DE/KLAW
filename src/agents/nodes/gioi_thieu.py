@@ -8,20 +8,22 @@ là ai / bạn làm được gì" nhận hai đoạn cố định trùng nội d
 
 ## Vì sao model viết mà vẫn không bịa được
 
-Model KHÔNG BIẾT nó chạy trên model nào, đọc được bao nhiêu văn bản, soạn được
-loại nào — hỏi thẳng thì nó bịa, và không trích dẫn nào để hai tầng kiểm đối
-chiếu. Nên mọi sự thật đi vào từ `bang_du_kien` (dựng từ `nap_kho`, registry
-khuôn mẫu, `config/checklist_*.yaml`, `llm.*_model()`), và `loc_theo_bang` bỏ
-mọi câu mà bảng không đỡ: con số không đứng cạnh đúng danh từ nó đếm, việc hay
-vai bảng không ghi, tên model config không có, loại văn bản soạn thảo không có
-trong registry, số hiệu văn bản nói sai có/không hay mức phủ so với dòng kho,
-URL, chữ "kho" khi người ta không hỏi về văn bản. Không câu nào sống sót (hoặc model lỗi) thì trả câu dự
-phòng ghép từ chính các dòng của bảng (`cau_gioi_thieu`) — không bao giờ rỗng.
+Model KHÔNG BIẾT nó đọc được bao nhiêu văn bản, soạn được loại nào — hỏi thẳng
+thì nó bịa, và không trích dẫn nào để hai tầng kiểm đối chiếu. Nên mọi sự thật đi
+vào từ `bang_du_kien` (dựng từ `nap_kho`, registry khuôn mẫu,
+`config/checklist_*.yaml`), và `loc_theo_bang` bỏ mọi câu mà bảng không đỡ: con
+số không đứng cạnh đúng danh từ nó đếm, việc hay vai bảng không ghi, tên mô hình
+hay nhà cung cấp, loại văn bản soạn thảo không có trong registry, số hiệu văn bản
+nói sai có/không hay mức phủ so với dòng kho, URL, chữ "kho" khi người ta không hỏi
+về văn bản. Không câu nào sống sót (hoặc model lỗi) thì trả câu dự phòng ghép từ
+chính các dòng của bảng (`cau_gioi_thieu`) — không bao giờ rỗng.
 
-## Vì sao tên model TRA TỪ CONFIG, không viết cứng
+## Vì sao bảng không có tên model
 
-Một chuỗi viết cứng sẽ nói sai tên model ngay lần đổi `.env` đầu tiên, và sai
-kiểu không test nào đỏ. CHỈ tên model vào bảng — không API key, không base URL.
+Quyết định 2026-09-30 mục 11: tên và phiên bản mô hình, nhà cung cấp, lời nhắc hệ
+thống, chi tiết kiểm chứng, hạ tầng, chi phí và khoá là thông tin nội bộ. Khía cạnh
+`noi_bo` nhận câu hỏi về chúng và trả `thong_tin_noi_bo.CAU_NOI_BO` do mã viết, không
+gọi model; kiểm chứng chỉ được kể là "hai tầng kiểm chứng".
 
 ## Vì sao không dùng cú pháp markdown
 
@@ -48,8 +50,9 @@ from src.services.kho import (
     moi_so_hieu_trong,
     tom_tat_linh_vuc,
 )
-from src.services.llm import Usage, generate_model, judge_model, router_model
+from src.services.llm import Usage
 from src.services.prompts import messages
+from src.services.thong_tin_noi_bo import CAU_NOI_BO, CAU_NOI_BO_MOI, RE_HOI_NOI_BO, TEN_HANG, co_noi_bo, hoi_noi_bo
 
 logger = logging.getLogger(__name__)
 
@@ -69,22 +72,24 @@ META_SCHEMA = {
 # phải tự phân biệt "hỏi về trợ lý" với "hỏi nội dung luật" — chỉ phải tách
 # DẠNG trong một câu đã biết là hỏi về trợ lý.
 
-# Model / công nghệ. `\bai\s+(?:nào|gì)\b` chứ không phải `ai` trần: "ai" trong
-# tiếng Việt là đại từ nghi vấn. "bạn là ai" giờ rơi về `_RE_LA_AI` (hỏi VAI —
-# danh tính), KHÔNG còn rơi về khía cạnh năng lực như bản trước (T3 tách riêng)
-# — pattern ở đây chỉ bắt "AI" theo nghĩa công nghệ khi đi kèm "nào"/"gì" ("AI
-# nào", "AI gì"). `_khop` gỡ `_RE_LA_AI`/`_RE_BAN_CHAT` khi chúng đứng SAU một
-# dấu hiệu model/nguồn, nên "model của bạn là ai" và "bạn chạy bằng mô hình gì"
-# vẫn chỉ ra khía cạnh model.
-_RE_MODEL = re.compile(
-    r"\bmodel\b|mô\s*hình|\bllm\b|\bgpt\b|chatgpt|\bclaude\b|gemini|deepseek|"
-    r"chạy\s+(?:bằng|trên)|dùng\s+(?:model|mô\s*hình|công\s*nghệ)|"
-    r"\bai\s+(?:nào|gì)\b|công\s+nghệ\s+(?:nào|gì)"
+# Thông tin nội bộ (quyết định 2026-09-30 mục 11): model, nhà cung cấp, lời nhắc,
+# hạ tầng, chi phí vận hành, khoá, ngưỡng kiểm chứng. `\bai\s+(?:nào|gì)\b` chứ không
+# phải `ai` trần: "ai" trong tiếng Việt là đại từ nghi vấn, nên "bạn là ai" rơi về
+# `_RE_LA_AI` (danh tính). Rộng được vì chỉ chạy trên câu đã biết là hỏi về trợ lý;
+# `RE_HOI_NOI_BO` (chặt, đòi câu gọi KLAW) thêm cách hỏi tiếng Anh. `_khop` gỡ
+# `_RE_LA_AI`/`_RE_BAN_CHAT` khi chúng đứng SAU dấu hiệu này, nên "model của bạn là
+# ai" và "bạn chạy bằng mô hình gì" chỉ ra khía cạnh `noi_bo`.
+_RE_NOI_BO = re.compile(
+    r"\bmodel\b|mô\s*hình|\bllm\b|chạy\s+(?:bằng|trên)|dùng\s+(?:model|mô\s*hình|công\s*nghệ)"
+    r"|\bai\s+(?:nào|gì)\b|công\s+nghệ\s+(?:nào|gì)|\bprompt\b|lời\s+nhắc|\binstructions?\b"
+    r"|máy\s+chủ|\bserver\b|\bhost(?:ing)?\b|\bdatabase\b|hạ\s+tầng|api\s*key|khoá\s+api|khóa\s+api|\btoken\b"
+    r"|chi\s+phí\s+(?:vận\s+hành|api|token|model|mô\s*hình)|nhà\s+cung\s+cấp|\bprovider\b|ngưỡng|\bthreshold\b"
+    rf"|\b(?:{TEN_HANG})|{RE_HOI_NOI_BO.pattern}"
 )
 
-# Nguồn dữ liệu / có tin được không.
+# Nguồn dữ liệu / có tin được không. "đặt/host/chạy ở đâu" hỏi hạ tầng (`noi_bo`), không hỏi nguồn.
 _RE_NGUON = re.compile(
-    r"dữ\s*liệu|nguồn|lấy\s+(?:từ\s+)?đâu|ở\s+đâu|tin\s+(?:được|cậy)|đáng\s+tin|"
+    r"dữ\s*liệu|nguồn|lấy\s+(?:từ\s+)?đâu|(?<!đặt\s)(?<!host\s)(?<!chạy\s)ở\s+đâu|tin\s+(?:được|cậy)|đáng\s+tin|"
     r"cập\s+nhật|hợp\s+nhất|\bvbpl\b"
 )
 
@@ -95,7 +100,7 @@ _RE_LA_AI = re.compile(r"\blà\s+ai\b|tên\s+(?:là\s+)?gì\b|giới\s+thiệu")
 
 # Bản chất — "là gì" hỏi BẢN CHẤT: "bạn là gì", "bạn là cái gì", "klaw là gì",
 # "bản chất của bạn là gì" (khớp qua "là gì"), "bạn có phải luật sư/người thật
-# không". Không cần loại trừ `_RE_MODEL`/`_RE_NGUON` bằng tay ở đây: hai biểu
+# không". Không cần loại trừ `_RE_NOI_BO`/`_RE_NGUON` bằng tay ở đây: hai biểu
 # thức đó được thử TRƯỚC trong `cau_gioi_thieu`, nên "model của bạn là gì" và
 # "dữ liệu ... là gì" đã rẽ nhánh trước khi tới đây.
 _RE_BAN_CHAT = re.compile(r"\blà\s+(?:cái\s+)?gì\b|\bcó\s+phải\b")
@@ -202,7 +207,7 @@ def _loai_soan_thao() -> str:
 
 # Thứ tự mặc định khi hai khía cạnh khớp cùng một vị trí (FR-013).
 KHIA_CANH = ("danh_tinh", "ban_chat", "nang_luc", "bo_luat", "linh_vuc", "kho",
-             "soan_thao", "nguon", "model")
+             "soan_thao", "nguon", "noi_bo")
 
 _RE_KHIA_CANH = {
     "danh_tinh": _RE_LA_AI,
@@ -213,7 +218,7 @@ _RE_KHIA_CANH = {
     "kho": _RE_KHO,
     "soan_thao": _RE_SOAN_THAO,
     "nguon": _RE_NGUON,
-    "model": _RE_MODEL,
+    "noi_bo": _RE_NOI_BO,
 }
 
 # Ba khía cạnh phải đọc kho thật mới trả lời được.
@@ -225,12 +230,12 @@ def _khop(c: str) -> dict[str, int]:
     câu không nêu khía cạnh nào (→ mặc định `nang_luc` ở `khia_canh`)."""
     vi = {ten: m.start() for ten, bt in _RE_KHIA_CANH.items() if (m := bt.search(c))}
 
-    # `model`/`nguon` là dấu hiệu HẸP hơn "là ai"/"là gì". Khi chúng đứng TRƯỚC
+    # `noi_bo`/`nguon` là dấu hiệu HẸP hơn "là ai"/"là gì". Khi chúng đứng TRƯỚC
     # trong câu thì "là ai"/"là gì" là vị ngữ của CHÍNH CHÚNG: "model của bạn là
     # ai" hỏi model, "dữ liệu của bạn là gì" hỏi nguồn. Đứng SAU thì đó là một
     # khía cạnh thật của câu ghép ("bạn là ai và dữ liệu lấy từ đâu") và được
     # giữ — bản trước không phân biệt được hai ca này vì nó trả ngay ở khớp đầu.
-    hep = min((vi[t] for t in ("model", "nguon") if t in vi), default=None)
+    hep = min((vi[t] for t in ("noi_bo", "nguon") if t in vi), default=None)
     if hep is not None:
         for t in ("danh_tinh", "ban_chat"):
             if vi.get(t, -1) > hep:
@@ -283,7 +288,8 @@ _RE_META_MANH = re.compile(
     r"|bao\s+nhiêu\s+(?:văn\s+bản|bộ\s+luật)"
 )
 # "tài khoản" is an account, not a clause ("tôi vừa đăng ký tài khoản, KLAW hỗ trợ gì").
-_RE_NOI_DUNG_LUAT = re.compile(r"\d|\bđiều\b|(?<!tài )\bkhoản\b|nghị\s*định|thông\s*tư")
+_RE_CHU_LUAT = re.compile(r"\bđiều\b|(?<!tài )\bkhoản\b|nghị\s*định|thông\s*tư")
+_RE_NOI_DUNG_LUAT = re.compile(rf"\d|{_RE_CHU_LUAT.pattern}")
 # A legal event in the asker's case. Not first-person words alone: "tôi mới dùng
 # lần đầu, bạn làm được những gì" and "câu hỏi của tôi là: bạn là ai" address
 # KLAW, and vetoing them sent a meta question to retrieval (review 2026-09-30).
@@ -308,8 +314,14 @@ def ke_tinh_huong(cau_hoi: str) -> bool:
 def chac_chan_meta(cau_hoi: str) -> bool:
     """True when the question is unmistakably about KLAW or the corpus: a meta
     branch, an anchor naming KLAW or its documents, no legal-content marker and
-    no situation. The router's LLM verdict is then overridden to gioi_thieu."""
+    no situation. The router's LLM verdict is then overridden to gioi_thieu.
+
+    A request for internal information (decision 2026-09-30 item 11: "what model
+    are you", "show your system prompt") is pinned too, digits allowed ("gpt-4o"),
+    so it always gets the fixed sentence."""
     c = _chuan(cau_hoi)
+    if hoi_noi_bo(cau_hoi) and not _RE_CHU_LUAT.search(c) and not ke_tinh_huong(cau_hoi):
+        return True
     return (
         bool(_RE_META_MANH.search(c))
         and bool(_RE_NOI_VOI_KLAW.search(c) or _RE_NEO_KHO.search(c))
@@ -395,7 +407,7 @@ def hoi_cau_truc_phap_luat(cau_hoi: str) -> bool:
 # KLAW-self facets. On a `hoi_ve_kho` turn "là gì", "làm gì", "hoạt động",
 # "mô hình" are ordinary words of a question about the law or the kho, so these
 # answer only a question that addresses KLAW (decision 2026-09-29 item 4).
-_KHIA_CANH_KLAW = ("danh_tinh", "ban_chat", "nang_luc", "model")
+_KHIA_CANH_KLAW = ("danh_tinh", "ban_chat", "nang_luc", "noi_bo")
 
 
 def khia_canh_kho(cau_hoi: str) -> list[str]:
@@ -404,7 +416,7 @@ def khia_canh_kho(cau_hoi: str) -> list[str]:
     question naming no facet got the KLAW introduction)."""
     c = _chuan(cau_hoi)
     vi = _khop(c)
-    if not _RE_NOI_VOI_KLAW.search(c):
+    if not (_RE_NOI_VOI_KLAW.search(c) or hoi_noi_bo(cau_hoi)):
         vi = {t: v for t, v in vi.items() if t not in _KHIA_CANH_KLAW}
     return _thu_tu(vi, "kho")
 
@@ -535,22 +547,18 @@ def bang_du_kien(cau_hoi: str, kho: list[dict] | None) -> dict[str, str]:
             "quan nhà nước: tôi không ra phán quyết, không đại diện cho bạn tại tòa, và câu trả lời của "
             "tôi không thay thế tư vấn của luật sư."
         ),
+        # Quyết định 2026-09-30 mục 11: chỉ "hai tầng kiểm chứng" — không ai chấm, không
+        # model, không hãng.
         "kiem_chung": (
-            "Mỗi trích dẫn phải qua hai tầng kiểm mới được hiện ra: tầng một so từng chữ câu trích "
-            "với nguyên văn điều khoản trong chính văn bản luật; tầng hai để một model khác họ đọc lại "
-            "xem điều khoản đó có chống đỡ được câu đó không. Không đủ căn cứ thì tôi nói thẳng là "
-            "không đủ, không đoán luật hay kết quả vụ việc."
+            "Mỗi trích dẫn phải qua hai tầng kiểm chứng mới được hiện ra: tầng một so từng chữ câu "
+            "trích với nguyên văn điều khoản trong chính văn bản luật; tầng hai đọc lại xem điều khoản "
+            "đó có đỡ được câu đó không. Không đủ căn cứ thì tôi nói thẳng là không đủ, không đoán luật "
+            "hay kết quả vụ việc."
         ),
         "nguon": (
             "Văn bản tôi đọc lấy từ Cơ sở dữ liệu quốc gia về văn bản pháp luật — bản công bố của cơ quan "
             "nhà nước. Tôi đọc bản gốc, không phải bản hợp nhất, và gắn nhãn hiệu lực cho từng trích dẫn; "
             "việc quan trọng thì bạn nên đối chiếu bản hiện hành."
-        ),
-        # Chỉ TÊN model, từ chính ba hàm `graph_tra_cuu` gọi để chọn model thật.
-        "model": (
-            f"Ba model ở ba vai: định tuyến câu hỏi {router_model()}; sinh luận điểm và hành văn "
-            f"{generate_model()}; thẩm định lại từng luận điểm {judge_model()} — model thẩm định cố ý "
-            "khác họ với model sinh."
         ),
     }
     if kho is not None:
@@ -583,7 +591,8 @@ _DONG_CUA = {
     "kho": ("kho",),
     "soan_thao": ("soan_thao",),
     "nguon": ("nguon", "kiem_chung"),
-    "model": ("model",),
+    # Không phải dòng của bảng: câu cố định, model không thấy nó (`_du_phong`).
+    "noi_bo": ("noi_bo",),
 }
 
 
@@ -616,7 +625,8 @@ def _du_phong(cau_hoi: str, bang: dict[str, str], cac: list[str], luot_dau: bool
     if _RE_CHAO.fullmatch(c):
         return f"Chào bạn. {bang['vai_tro']}\n\n{HOI_TIEP_NANG_LUC}"
     khoa = dict.fromkeys(k for t in cac for k in _DONG_CUA[t])
-    van = "\n\n".join(dict.fromkeys(bang.get(k, THIEU_KHO) for k in khoa))
+    dong = {**bang, "noi_bo": CAU_NOI_BO}
+    van = CAU_NOI_BO_MOI if cac == ["noi_bo"] else "\n\n".join(dict.fromkeys(dong.get(k, THIEU_KHO) for k in khoa))
     if _ve_so_lieu(cau_hoi, bang, cac):
         van += "\n\n" + CAU_GIOI_HAN
     if hoi := _cau_hoi_tiep(cac):
@@ -765,13 +775,6 @@ _SO_CHU = dict(zip("hai ba bốn năm sáu bảy tám chín mười".split(), ma
 _RE_SO_CHU = re.compile(rf"\b({'|'.join(_SO_CHU)})\s+(?=(?:{_DANH_DEM})\b)")
 _RE_NGOAC = re.compile(r"\([^)]*\)")
 
-# Tên hãng / model phải là một đoạn của dòng model trong bảng: "GPT-4", "Claude",
-# "Gemini 2.5 Pro" không qua khi config là gemini-2.5-flash-lite.
-_RE_HANG = re.compile(
-    r"\b(?:chat\s*gpt|gpt|openai|claude|anthropic|llama|google|gemini|deepseek|mistral|qwen|grok)[\w.:/-]*"
-    r"(?:\s+(?:\d[\w.]*|pro|flash|lite|mini|nano|ultra|turbo|small|medium|large|instruct|sonnet|opus|haiku)\b)*"
-)
-
 # Số hiệu văn bản model nêu (review 2026-09-30): phải là số hiệu bảng nêu, và câu
 # phải nói đúng dòng kho của nó — có hay không (văn bản ẩn là không), có toàn văn
 # hay chưa. Mệnh đề không có chữ số mà nói có/không/toàn văn thì nói về số hiệu nêu
@@ -814,7 +817,6 @@ class _Bang(NamedTuple):
     so: set[str]
     tu_soan: set[str]
     dem: list[tuple[str, str, str]]
-    model: str
     cho_phep_kho: bool
 
 
@@ -867,7 +869,8 @@ def _cau_duoc_do(cau: str, b: _Bang) -> bool:
         or (not b.cho_phep_kho and _RE_CHU_KHO.search(t))
         or not _so(t) <= b.so
         or not _dem_duoc_do(t, b.dem)
-        or not all(re.sub(r"\s+", "-", m.group(0)).rstrip(".:/-") in b.model for m in _RE_HANG.finditer(t))
+        # Quyết định 2026-09-30 mục 11: lời về chính KLAW không nêu tên model hay hãng nào.
+        or co_noi_bo(cau)
     ):
         return False
     for doan in _RE_DOAN_VE.finditer(t):
@@ -894,7 +897,7 @@ def loc_theo_bang(
     """Giữ đúng những câu bảng dữ kiện đỡ được, mỗi câu MỘT lần, giữ nguyên đoạn
     và gạch đầu dòng. Bỏ câu có: URL hay khoá; chữ "kho" khi không hỏi về văn bản;
     con số không có trong bảng, hay không đứng cạnh đúng danh từ nó đếm; việc hay
-    vai bảng không ghi; tên model không có trong bảng; loại văn bản soạn thảo không
+    vai bảng không ghi; tên model hay hãng (`thong_tin_noi_bo`); loại văn bản soạn thảo không
     có trong bảng; số hiệu văn bản bảng không nêu, hay nói sai có/không và mức phủ
     so với dòng kho (`van_ban`, từ `van_ban_cua_bang`; thiếu thì mọi số hiệu đều bị
     bỏ). Rỗng nghĩa là không còn câu nào."""
@@ -908,7 +911,6 @@ def loc_theo_bang(
         # Hai lượt: "27 loại văn bản (12 hợp đồng, …) theo checklist" — số trong
         # ngoặc đếm riêng, số ngoài ngoặc đọc tiếp qua ngoặc.
         dem=_dem(toan) + _dem(_RE_NGOAC.sub("", toan)),
-        model=bang.get("model", "").lower(),
         cho_phep_kho=cho_phep_kho,
     )
     van_ban = van_ban or {}
@@ -949,8 +951,13 @@ def tra_loi_meta(
     câu nào sống sót thì trả câu dự phòng từ bảng. `usage` trả cả khi hỏng — tiền
     đã trả phải vào trace. Câu giới hạn phạm vi do mã thêm, chỉ khi hỏi về văn bản
     (quyết định 2026-09-30 mục 5), đứng trước lời mời tiếp nếu đoạn cuối là câu hỏi.
+
+    Thông tin nội bộ (mục 11): câu CHỈ hỏi nó nhận `CAU_NOI_BO_MOI`, 0 lượt model; câu
+    ghép nhận lời model cho các khía cạnh khác cộng `CAU_NOI_BO` do mã thêm.
     """
     du_phong = _du_phong(cau_hoi, bang, cac, luot_dau)
+    if cac == ["noi_bo"]:
+        return du_phong, None, "noi_bo"
     prompt = PROMPT_PATH.read_text(encoding="utf-8").format(
         cau_hoi=cau_hoi,
         cau_hoi_day_du=cau_hoi_day_du or cau_hoi,
@@ -971,6 +978,13 @@ def tra_loi_meta(
         logger.warning("gioi_thieu: không câu nào của model được bảng đỡ — dùng câu dự phòng: %r", tho[:200])
         return du_phong, usage, "du_phong"
     if _ve_so_lieu(cau_hoi, bang, cac) and CAU_GIOI_HAN not in van:
-        dau, _, cuoi = van.rpartition("\n\n")
-        van = f"{dau}\n\n{CAU_GIOI_HAN}\n\n{cuoi}" if dau and cuoi.endswith("?") else f"{van}\n\n{CAU_GIOI_HAN}"
+        van = _chen_truoc_loi_moi(van, CAU_GIOI_HAN)
+    if "noi_bo" in cac and CAU_NOI_BO not in van:
+        van = _chen_truoc_loi_moi(van, CAU_NOI_BO)
     return van, usage, "llm"
+
+
+def _chen_truoc_loi_moi(van: str, cau: str) -> str:
+    """`cau` thành một đoạn riêng, đứng trước lời mời tiếp nếu đoạn cuối là câu hỏi."""
+    dau, _, cuoi = van.rpartition("\n\n")
+    return f"{dau}\n\n{cau}\n\n{cuoi}" if dau and cuoi.endswith("?") else f"{van}\n\n{cau}"

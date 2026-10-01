@@ -185,9 +185,10 @@ def test_bang_du_kien_dung_tu_du_lieu_he_thong():
     # Real counts: 4 shown documents, 3 with full text.
     assert "4 văn bản" in bang["pham_vi"] and "3 văn bản" in bang["pham_vi"]
     assert "Lao động - Thương binh và Xã hội (2 văn bản)" in bang["linh_vuc"]
-    # Model names from config, with their roles.
+    # Decision 2026-09-30 item 11: no model or vendor name, no row for them.
+    assert "model" not in bang
     for ten in (router_model(), generate_model(), judge_model()):
-        assert ten in bang["model"]
+        assert all(phan not in toan for phan in ten.split("/"))
     # Every registered khuôn mẫu type is named.
     for loai in khuon_mau.cac_loai():
         assert khuon_mau.nap(loai)["ten"] in bang["soan_thao"]
@@ -329,6 +330,8 @@ def _giu(cau_hoi: str, cau: str, kho=KHO) -> bool:
         "Tôi chạy trên GPT-4 của OpenAI.",
         "Tôi dùng model Claude của Anthropic.",
         "Tôi dùng Gemini 2.5 Pro để hành văn.",
+        # Item 11: not even the configured one.
+        f"Tôi hành văn bằng {generate_model()}.",
         # Capabilities the sheet does not list; KLAW as the actor of advice.
         "Tôi sẽ nhắc bạn khi sắp hết thời hiệu khởi kiện.",
         "Tôi lưu trữ hồ sơ vĩnh viễn.",
@@ -349,7 +352,6 @@ def test_cau_bang_khong_do_bi_bo(cau):
         "Tôi hiện có 1 Bộ luật: Lao động.",
         "Tôi không phải luật sư, và câu trả lời của tôi không thay thế tư vấn của luật sư.",
         "Tôi đọc bản gốc, không phải bản hợp nhất.",
-        f"Tôi hành văn bằng {generate_model()}.",
         "Tôi nhớ các lượt trước trong cùng cuộc trò chuyện.",
         "Việc quan trọng thì bạn nên hỏi thêm luật sư.",
         "Tôi không phải luật sư, thẩm phán hay cơ quan nhà nước.",
@@ -452,9 +454,9 @@ def test_tra_cuu_so_hieu_qua_do_thi_lat_co_khong_ve_cau_du_phong(monkeypatch):
 
 def test_khong_url_khong_markdown():
     ans = _meta(
-        "model của bạn là gì", LlmViet(f"Tôi dùng **{generate_model()}** để hành văn. Xem https://openrouter.ai nhé.")
+        "bạn là ai", LlmViet("Tôi là **KLAW**, trợ lý AI tra cứu pháp luật Việt Nam. Xem https://klaw.vn nhé.")
     )["answer"]
-    assert "**" not in ans and "http" not in ans and generate_model() in ans
+    assert "**" not in ans and "http" not in ans and ans.startswith("Tôi là KLAW, trợ lý AI")
 
 
 # ══ The four real questions through the real graph ═══════════════════════════

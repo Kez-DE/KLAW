@@ -26,6 +26,7 @@ from src.agents.nodes.gioi_thieu import cau_gioi_thieu
 from src.agents.nodes.route import Intent
 from src.config import get_settings
 from src.services.llm import Usage, generate_model, judge_model, router_model
+from src.services.thong_tin_noi_bo import CAU_NOI_BO_MOI
 
 
 def test_intent_co_nhanh_gioi_thieu():
@@ -103,7 +104,7 @@ def _tra_loi(cau_hoi: str) -> str:
 DANG = {
     "chao": "chào bạn",
     "nang_luc": "bạn làm được những gì",
-    "model": "model của bạn là gì",
+    "noi_bo": "model của bạn là gì",
     "nguon": "dữ liệu của bạn lấy từ đâu",
     "cam_on": "cảm ơn bạn nhiều",
     "danh_tinh": "bạn là ai",
@@ -121,18 +122,15 @@ def test_moi_dang_cau_hoi_cho_MOT_cau_tra_loi_RIENG():
     assert trung == {}, f"các dạng dùng chung một lời đáp: {trung}"
 
 
-def test_cau_hoi_ve_model_neu_TEN_MODEL_tu_config():
-    """Tên model TRA TỪ CONFIG THẬT, không viết cứng: config đang chạy
-    `deepseek/deepseek-v4-flash-0731` cho vai sinh, khác hẳn mặc định trong mã —
-    một chuỗi viết cứng sẽ nói sai mà không test nào đỏ."""
-    ans = _tra_loi(DANG["model"])
-    for vai, ten in (("định tuyến", router_model()),
-                     ("sinh", generate_model()),
-                     ("thẩm định", judge_model())):
-        assert ten in ans, f"thiếu tên model vai {vai}: {ten}"
-        assert vai in ans.lower(), f"nêu tên model mà không nêu vai {vai}"
-    # Điểm đáng nói không phải tên model mà là việc hai vai KHÁC HỌ nhau.
-    assert "họ" in ans.lower()
+def test_cau_hoi_ve_model_tra_cau_co_dinh_khong_ten_model():
+    """ĐỔI HỢP ĐỒNG (quyết định 2026-09-30 mục 11): bản trước nêu tên ba model tra từ
+    config; chủ dự án chốt đó là thông tin nội bộ. Nay là một câu cố định, và không
+    tên model nào của config đang chạy — kể cả từng phần của nó — có mặt."""
+    ans = _tra_loi(DANG["noi_bo"])
+    assert ans == CAU_NOI_BO_MOI
+    for ten in (router_model(), generate_model(), judge_model()):
+        for phan in ten.split("/"):
+            assert phan not in ans, phan
 
 
 def test_cau_hoi_ve_model_KHONG_ro_ri_gi_ngoai_TEN_MODEL():
@@ -140,7 +138,7 @@ def test_cau_hoi_ve_model_KHONG_ro_ri_gi_ngoai_TEN_MODEL():
     Key thật ĐANG có trong `.env.local` của máy chạy, nên phép kiểm này đo được
     chứ không phải giả định."""
     s = get_settings()
-    for cau in (DANG["model"], "bạn chạy bằng gì", "bạn dùng AI gì"):
+    for cau in (DANG["noi_bo"], "bạn chạy bằng gì", "bạn dùng AI gì"):
         ans = _tra_loi(cau)
         assert "sk-" not in ans
         assert "OPENROUTER_API_KEY" not in ans
@@ -213,7 +211,7 @@ def test_model_va_nguon_khong_bi_la_ai_la_gi_cuop_mat():
     """`model của bạn là ai` phải vẫn ra bảng model (không phải `DANH_TINH`), và
     `bạn chạy bằng mô hình gì` phải vẫn ra bảng model (không phải `BAN_CHAT`) —
     ba biểu thức không tranh nhau nhờ thứ tự kiểm trong `cau_gioi_thieu`."""
-    bang_model = _tra_loi(DANG["model"])
+    bang_model = _tra_loi(DANG["noi_bo"])
     tu_la_ai = _tra_loi("model của bạn là ai")
     tu_la_gi = _tra_loi("bạn chạy bằng mô hình gì")
     assert tu_la_ai == bang_model and tu_la_ai != _tra_loi(DANG["danh_tinh"])
@@ -255,10 +253,13 @@ class _DemLuot:
         return '{"tra_loi": "Tôi là KLAW."}', Usage(30, 10, 0.0001)
 
 
-@pytest.mark.parametrize("cau_hoi", list(DANG.values()), ids=list(DANG))
+@pytest.mark.parametrize(
+    "cau_hoi", [c for t, c in DANG.items() if t != "noi_bo"], ids=[t for t in DANG if t != "noi_bo"]
+)
 def test_moi_dang_dung_MOT_luot_model_va_tien_vao_trace(cau_hoi):
     """Quyết định 2026-09-30, Consequences: câu hỏi về KLAW tốn đúng MỘT lượt
-    model — không truy hồi, không sinh luận điểm — và lượt đó phải đếm được."""
+    model — không truy hồi, không sinh luận điểm — và lượt đó phải đếm được. Thông
+    tin nội bộ (mục 11) là câu cố định, 0 lượt: `test_thong_tin_noi_bo.py`."""
     llm = _DemLuot()
     st = assemble({"query": cau_hoi, "intent": "gioi_thieu"}, {}, llm, "m")
     assert st["result_type"] == ResultType.gioi_thieu
