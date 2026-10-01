@@ -1,0 +1,818 @@
+{
+ "tag": "lan1",
+ "summary": {
+  "loi21-kt": {
+   "dense_voyage": {
+    "74": {
+     "recall@5": 0.6419,
+     "recall@10": 0.6689,
+     "mrr@5": 0.4917,
+     "mrr@10": 0.4949,
+     "ndcg@5": 0.5242,
+     "ndcg@10": 0.5335,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.6169,
+     "recall@10": 0.6429,
+     "mrr@5": 0.4725,
+     "mrr@10": 0.4756,
+     "ndcg@5": 0.5038,
+     "ndcg@10": 0.5127,
+     "n": 77
+    }
+   },
+   "dense_bge": {
+    "74": {
+     "recall@5": 0.527,
+     "recall@10": 0.6149,
+     "mrr@5": 0.3874,
+     "mrr@10": 0.3999,
+     "ndcg@5": 0.4174,
+     "ndcg@10": 0.448,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.5065,
+     "recall@10": 0.5909,
+     "mrr@5": 0.3723,
+     "mrr@10": 0.3844,
+     "ndcg@5": 0.4011,
+     "ndcg@10": 0.4305,
+     "n": 77
+    }
+   },
+   "hybrid_bge": {
+    "74": {
+     "recall@5": 0.4459,
+     "recall@10": 0.5203,
+     "mrr@5": 0.2964,
+     "mrr@10": 0.3054,
+     "ndcg@5": 0.3284,
+     "ndcg@10": 0.353,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.4286,
+     "recall@10": 0.5,
+     "mrr@5": 0.2848,
+     "mrr@10": 0.2935,
+     "ndcg@5": 0.3156,
+     "ndcg@10": 0.3392,
+     "n": 77
+    }
+   },
+   "lexical": {
+    "74": {
+     "recall@5": 0.2095,
+     "recall@10": 0.2365,
+     "mrr@5": 0.127,
+     "mrr@10": 0.1306,
+     "ndcg@5": 0.1476,
+     "ndcg@10": 0.1564,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.2013,
+     "recall@10": 0.2273,
+     "mrr@5": 0.1221,
+     "mrr@10": 0.1255,
+     "ndcg@5": 0.1419,
+     "ndcg@10": 0.1503,
+     "n": 77
+    }
+   },
+   "hybrid_voyage": {
+    "74": {
+     "recall@5": 0.5338,
+     "recall@10": 0.6014,
+     "mrr@5": 0.3518,
+     "mrr@10": 0.3601,
+     "ndcg@5": 0.3935,
+     "ndcg@10": 0.4161,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.513,
+     "recall@10": 0.5779,
+     "mrr@5": 0.3381,
+     "mrr@10": 0.3461,
+     "ndcg@5": 0.3782,
+     "ndcg@10": 0.3999,
+     "n": 77
+    }
+   }
+  },
+  "loi21-dt": {
+   "dense_voyage": {
+    "74": {
+     "recall@5": 0.6284,
+     "recall@10": 0.6554,
+     "mrr@5": 0.4782,
+     "mrr@10": 0.4813,
+     "ndcg@5": 0.5107,
+     "ndcg@10": 0.52,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.6039,
+     "recall@10": 0.6299,
+     "mrr@5": 0.4595,
+     "mrr@10": 0.4626,
+     "ndcg@5": 0.4908,
+     "ndcg@10": 0.4997,
+     "n": 77
+    }
+   },
+   "dense_bge": {
+    "74": {
+     "recall@5": 0.527,
+     "recall@10": 0.6149,
+     "mrr@5": 0.3705,
+     "mrr@10": 0.383,
+     "ndcg@5": 0.4047,
+     "ndcg@10": 0.4353,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.5065,
+     "recall@10": 0.5909,
+     "mrr@5": 0.3561,
+     "mrr@10": 0.3681,
+     "ndcg@5": 0.389,
+     "ndcg@10": 0.4183,
+     "n": 77
+    }
+   },
+   "hybrid_bge": {
+    "74": {
+     "recall@5": 0.4459,
+     "recall@10": 0.5203,
+     "mrr@5": 0.3032,
+     "mrr@10": 0.3122,
+     "ndcg@5": 0.3334,
+     "ndcg@10": 0.358,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.4286,
+     "recall@10": 0.5,
+     "mrr@5": 0.2913,
+     "mrr@10": 0.3,
+     "ndcg@5": 0.3204,
+     "ndcg@10": 0.344,
+     "n": 77
+    }
+   },
+   "lexical": {
+    "74": {
+     "recall@5": 0.1824,
+     "recall@10": 0.223,
+     "mrr@5": 0.1108,
+     "mrr@10": 0.1158,
+     "ndcg@5": 0.1289,
+     "ndcg@10": 0.1415,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.1753,
+     "recall@10": 0.2143,
+     "mrr@5": 0.1065,
+     "mrr@10": 0.1113,
+     "ndcg@5": 0.1239,
+     "ndcg@10": 0.136,
+     "n": 77
+    }
+   },
+   "hybrid_voyage": {
+    "74": {
+     "recall@5": 0.5338,
+     "recall@10": 0.6014,
+     "mrr@5": 0.3484,
+     "mrr@10": 0.3567,
+     "ndcg@5": 0.3908,
+     "ndcg@10": 0.4134,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.513,
+     "recall@10": 0.5779,
+     "mrr@5": 0.3348,
+     "mrr@10": 0.3428,
+     "ndcg@5": 0.3756,
+     "ndcg@10": 0.3973,
+     "n": 77
+    }
+   }
+  },
+  "kho-kt": {
+   "dense_voyage": {
+    "74": {
+     "recall@5": 0.8108,
+     "recall@10": 0.9054,
+     "mrr@5": 0.5977,
+     "mrr@10": 0.6088,
+     "ndcg@5": 0.6468,
+     "ndcg@10": 0.6785,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.7792,
+     "recall@10": 0.8701,
+     "mrr@5": 0.5745,
+     "mrr@10": 0.5851,
+     "ndcg@5": 0.6216,
+     "ndcg@10": 0.6521,
+     "n": 77
+    }
+   },
+   "dense_bge": {
+    "74": {
+     "recall@5": 0.5946,
+     "recall@10": 0.7703,
+     "mrr@5": 0.4439,
+     "mrr@10": 0.4691,
+     "ndcg@5": 0.4802,
+     "ndcg@10": 0.5387,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.5714,
+     "recall@10": 0.7403,
+     "mrr@5": 0.4266,
+     "mrr@10": 0.4509,
+     "ndcg@5": 0.4615,
+     "ndcg@10": 0.5178,
+     "n": 77
+    }
+   },
+   "hybrid_bge": {
+    "74": {
+     "recall@5": 0.5203,
+     "recall@10": 0.6486,
+     "mrr@5": 0.3563,
+     "mrr@10": 0.3749,
+     "ndcg@5": 0.3948,
+     "ndcg@10": 0.4387,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.5,
+     "recall@10": 0.6234,
+     "mrr@5": 0.3424,
+     "mrr@10": 0.3603,
+     "ndcg@5": 0.3795,
+     "ndcg@10": 0.4216,
+     "n": 77
+    }
+   },
+   "lexical": {
+    "74": {
+     "recall@5": 0.2635,
+     "recall@10": 0.3311,
+     "mrr@5": 0.1777,
+     "mrr@10": 0.1873,
+     "ndcg@5": 0.199,
+     "ndcg@10": 0.2226,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.2532,
+     "recall@10": 0.3182,
+     "mrr@5": 0.1708,
+     "mrr@10": 0.18,
+     "ndcg@5": 0.1913,
+     "ndcg@10": 0.2139,
+     "n": 77
+    }
+   },
+   "hybrid_voyage": {
+    "74": {
+     "recall@5": 0.6486,
+     "recall@10": 0.8041,
+     "mrr@5": 0.4306,
+     "mrr@10": 0.452,
+     "ndcg@5": 0.4839,
+     "ndcg@10": 0.5351,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.6234,
+     "recall@10": 0.7727,
+     "mrr@5": 0.4139,
+     "mrr@10": 0.4344,
+     "ndcg@5": 0.465,
+     "ndcg@10": 0.5142,
+     "n": 77
+    }
+   }
+  },
+  "kho-dt": {
+   "dense_voyage": {
+    "74": {
+     "recall@5": 0.7703,
+     "recall@10": 0.8514,
+     "mrr@5": 0.5579,
+     "mrr@10": 0.567,
+     "ndcg@5": 0.6068,
+     "ndcg@10": 0.634,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.7403,
+     "recall@10": 0.8182,
+     "mrr@5": 0.5361,
+     "mrr@10": 0.5449,
+     "ndcg@5": 0.5832,
+     "ndcg@10": 0.6093,
+     "n": 77
+    }
+   },
+   "dense_bge": {
+    "74": {
+     "recall@5": 0.5135,
+     "recall@10": 0.7162,
+     "mrr@5": 0.3804,
+     "mrr@10": 0.4091,
+     "ndcg@5": 0.4124,
+     "ndcg@10": 0.4796,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.4935,
+     "recall@10": 0.6883,
+     "mrr@5": 0.3656,
+     "mrr@10": 0.3932,
+     "ndcg@5": 0.3963,
+     "ndcg@10": 0.4609,
+     "n": 77
+    }
+   },
+   "hybrid_bge": {
+    "74": {
+     "recall@5": 0.4527,
+     "recall@10": 0.5541,
+     "mrr@5": 0.2854,
+     "mrr@10": 0.2998,
+     "ndcg@5": 0.3246,
+     "ndcg@10": 0.3591,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.4351,
+     "recall@10": 0.5325,
+     "mrr@5": 0.2742,
+     "mrr@10": 0.2881,
+     "ndcg@5": 0.3119,
+     "ndcg@10": 0.3451,
+     "n": 77
+    }
+   },
+   "lexical": {
+    "74": {
+     "recall@5": 0.1419,
+     "recall@10": 0.2095,
+     "mrr@5": 0.0847,
+     "mrr@10": 0.0946,
+     "ndcg@5": 0.0986,
+     "ndcg@10": 0.1224,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.1364,
+     "recall@10": 0.2013,
+     "mrr@5": 0.0814,
+     "mrr@10": 0.0909,
+     "ndcg@5": 0.0947,
+     "ndcg@10": 0.1177,
+     "n": 77
+    }
+   },
+   "hybrid_voyage": {
+    "74": {
+     "recall@5": 0.5811,
+     "recall@10": 0.75,
+     "mrr@5": 0.3495,
+     "mrr@10": 0.3726,
+     "ndcg@5": 0.4059,
+     "ndcg@10": 0.4614,
+     "n": 74
+    },
+    "77": {
+     "recall@5": 0.5584,
+     "recall@10": 0.7208,
+     "mrr@5": 0.3359,
+     "mrr@10": 0.3581,
+     "ndcg@5": 0.3901,
+     "ndcg@10": 0.4434,
+     "n": 77
+    }
+   }
+  }
+ },
+ "mcnemar": [
+  {
+   "hieu_ung": "doi cach hoi, loi21 (bao cao: cu-cu vs cu-moi)",
+   "tap": "74",
+   "n": 74,
+   "theo_cau_hinh": {
+    "dense_voyage": {
+     "xau_di": 1,
+     "tot_len": 0,
+     "p": 1.0,
+     "n": 74
+    },
+    "dense_bge": {
+     "xau_di": 0,
+     "tot_len": 0,
+     "p": 1.0,
+     "n": 74
+    },
+    "hybrid_bge": {
+     "xau_di": 0,
+     "tot_len": 0,
+     "p": 1.0,
+     "n": 74
+    },
+    "lexical": {
+     "xau_di": 2,
+     "tot_len": 0,
+     "p": 0.5,
+     "n": 74
+    }
+   },
+   "gop": {
+    "xau_di": 3,
+    "tot_len": 0,
+    "p": 0.25
+   },
+   "ngoai_gop": {
+    "hybrid_voyage": {
+     "xau_di": 0,
+     "tot_len": 0,
+     "p": 1.0,
+     "n": 74
+    }
+   }
+  },
+  {
+   "hieu_ung": "mo kho, giong ky thuat (bao cao: cu-cu vs moi-cu)",
+   "tap": "gold trong loi21",
+   "n": 55,
+   "theo_cau_hinh": {
+    "dense_voyage": {
+     "xau_di": 5,
+     "tot_len": 0,
+     "p": 0.0625,
+     "n": 55
+    },
+    "dense_bge": {
+     "xau_di": 6,
+     "tot_len": 0,
+     "p": 0.03125,
+     "n": 55
+    },
+    "hybrid_bge": {
+     "xau_di": 9,
+     "tot_len": 1,
+     "p": 0.021484375,
+     "n": 55
+    },
+    "lexical": {
+     "xau_di": 7,
+     "tot_len": 0,
+     "p": 0.015625,
+     "n": 55
+    }
+   },
+   "gop": {
+    "xau_di": 27,
+    "tot_len": 1,
+    "p": 2.1606683731079102e-07
+   },
+   "ngoai_gop": {
+    "hybrid_voyage": {
+     "xau_di": 7,
+     "tot_len": 1,
+     "p": 0.0703125,
+     "n": 55
+    }
+   }
+  },
+  {
+   "hieu_ung": "mo kho, giong ky thuat, ca 74",
+   "tap": "74",
+   "n": 74,
+   "theo_cau_hinh": {
+    "dense_voyage": {
+     "xau_di": 5,
+     "tot_len": 17,
+     "p": 0.01690053939819336,
+     "n": 74
+    },
+    "dense_bge": {
+     "xau_di": 6,
+     "tot_len": 11,
+     "p": 0.332305908203125,
+     "n": 74
+    },
+    "hybrid_bge": {
+     "xau_di": 9,
+     "tot_len": 14,
+     "p": 0.4048728942871094,
+     "n": 74
+    },
+    "lexical": {
+     "xau_di": 7,
+     "tot_len": 10,
+     "p": 0.629058837890625,
+     "n": 74
+    }
+   },
+   "gop": {
+    "xau_di": 27,
+    "tot_len": 52,
+    "p": 0.006553297670283774
+   },
+   "ngoai_gop": {
+    "hybrid_voyage": {
+     "xau_di": 7,
+     "tot_len": 16,
+     "p": 0.0931396484375,
+     "n": 74
+    }
+   }
+  },
+  {
+   "hieu_ung": "doi cach hoi, kho hien tai (moi-cu vs moi-moi)",
+   "tap": "74",
+   "n": 74,
+   "theo_cau_hinh": {
+    "dense_voyage": {
+     "xau_di": 4,
+     "tot_len": 1,
+     "p": 0.375,
+     "n": 74
+    },
+    "dense_bge": {
+     "xau_di": 7,
+     "tot_len": 1,
+     "p": 0.0703125,
+     "n": 74
+    },
+    "hybrid_bge": {
+     "xau_di": 6,
+     "tot_len": 1,
+     "p": 0.125,
+     "n": 74
+    },
+    "lexical": {
+     "xau_di": 9,
+     "tot_len": 0,
+     "p": 0.00390625,
+     "n": 74
+    }
+   },
+   "gop": {
+    "xau_di": 26,
+    "tot_len": 3,
+    "p": 1.5236437320709229e-05
+   },
+   "ngoai_gop": {
+    "hybrid_voyage": {
+     "xau_di": 5,
+     "tot_len": 0,
+     "p": 0.0625,
+     "n": 74
+    }
+   }
+  },
+  {
+   "hieu_ung": "mo kho, giong doi thuong",
+   "tap": "gold trong loi21",
+   "n": 55,
+   "theo_cau_hinh": {
+    "dense_voyage": {
+     "xau_di": 4,
+     "tot_len": 0,
+     "p": 0.125,
+     "n": 55
+    },
+    "dense_bge": {
+     "xau_di": 7,
+     "tot_len": 0,
+     "p": 0.015625,
+     "n": 55
+    },
+    "hybrid_bge": {
+     "xau_di": 10,
+     "tot_len": 1,
+     "p": 0.01171875,
+     "n": 55
+    },
+    "lexical": {
+     "xau_di": 8,
+     "tot_len": 0,
+     "p": 0.0078125,
+     "n": 55
+    }
+   },
+   "gop": {
+    "xau_di": 29,
+    "tot_len": 1,
+    "p": 5.774199962615967e-08
+   },
+   "ngoai_gop": {
+    "hybrid_voyage": {
+     "xau_di": 8,
+     "tot_len": 1,
+     "p": 0.0390625,
+     "n": 55
+    }
+   }
+  }
+ ],
+ "mcnemar_cau_hinh": [
+  {
+   "o": "kho-kt",
+   "tu": "dense_bge",
+   "sang": "dense_voyage",
+   "xau_di": 5,
+   "tot_len": 21,
+   "p": 0.002493917942047119,
+   "n": 74
+  },
+  {
+   "o": "kho-kt",
+   "tu": "hybrid_bge",
+   "sang": "dense_bge",
+   "xau_di": 2,
+   "tot_len": 9,
+   "p": 0.0654296875,
+   "n": 74
+  },
+  {
+   "o": "kho-kt",
+   "tu": "lexical",
+   "sang": "dense_voyage",
+   "xau_di": 2,
+   "tot_len": 43,
+   "p": 5.88897819397971e-11,
+   "n": 74
+  },
+  {
+   "o": "kho-kt",
+   "tu": "lexical",
+   "sang": "hybrid_bge",
+   "xau_di": 1,
+   "tot_len": 21,
+   "p": 1.0967254638671875e-05,
+   "n": 74
+  },
+  {
+   "o": "kho-kt",
+   "tu": "hybrid_voyage",
+   "sang": "dense_voyage",
+   "xau_di": 3,
+   "tot_len": 15,
+   "p": 0.007537841796875,
+   "n": 74
+  },
+  {
+   "o": "kho-dt",
+   "tu": "dense_bge",
+   "sang": "dense_voyage",
+   "xau_di": 3,
+   "tot_len": 22,
+   "p": 0.00015652179718017578,
+   "n": 74
+  },
+  {
+   "o": "kho-dt",
+   "tu": "hybrid_bge",
+   "sang": "dense_bge",
+   "xau_di": 3,
+   "tot_len": 9,
+   "p": 0.14599609375,
+   "n": 74
+  },
+  {
+   "o": "kho-dt",
+   "tu": "lexical",
+   "sang": "dense_voyage",
+   "xau_di": 0,
+   "tot_len": 47,
+   "p": 1.4210854715202004e-14,
+   "n": 74
+  },
+  {
+   "o": "kho-dt",
+   "tu": "lexical",
+   "sang": "hybrid_bge",
+   "xau_di": 0,
+   "tot_len": 24,
+   "p": 1.1920928955078125e-07,
+   "n": 74
+  },
+  {
+   "o": "kho-dt",
+   "tu": "hybrid_voyage",
+   "sang": "dense_voyage",
+   "xau_di": 1,
+   "tot_len": 15,
+   "p": 0.000518798828125,
+   "n": 74
+  },
+  {
+   "o": "loi21-kt",
+   "tu": "dense_bge",
+   "sang": "dense_voyage",
+   "xau_di": 3,
+   "tot_len": 12,
+   "p": 0.03515625,
+   "n": 74
+  },
+  {
+   "o": "loi21-kt",
+   "tu": "hybrid_bge",
+   "sang": "dense_bge",
+   "xau_di": 2,
+   "tot_len": 9,
+   "p": 0.0654296875,
+   "n": 74
+  },
+  {
+   "o": "loi21-kt",
+   "tu": "lexical",
+   "sang": "dense_voyage",
+   "xau_di": 0,
+   "tot_len": 33,
+   "p": 2.3283064365386963e-10,
+   "n": 74
+  },
+  {
+   "o": "loi21-kt",
+   "tu": "lexical",
+   "sang": "hybrid_bge",
+   "xau_di": 0,
+   "tot_len": 18,
+   "p": 7.62939453125e-06,
+   "n": 74
+  },
+  {
+   "o": "loi21-kt",
+   "tu": "hybrid_voyage",
+   "sang": "dense_voyage",
+   "xau_di": 1,
+   "tot_len": 10,
+   "p": 0.01171875,
+   "n": 74
+  },
+  {
+   "o": "loi21-dt",
+   "tu": "dense_bge",
+   "sang": "dense_voyage",
+   "xau_di": 4,
+   "tot_len": 12,
+   "p": 0.076812744140625,
+   "n": 74
+  },
+  {
+   "o": "loi21-dt",
+   "tu": "hybrid_bge",
+   "sang": "dense_bge",
+   "xau_di": 2,
+   "tot_len": 9,
+   "p": 0.0654296875,
+   "n": 74
+  },
+  {
+   "o": "loi21-dt",
+   "tu": "lexical",
+   "sang": "dense_voyage",
+   "xau_di": 0,
+   "tot_len": 34,
+   "p": 1.1641532182693481e-10,
+   "n": 74
+  },
+  {
+   "o": "loi21-dt",
+   "tu": "lexical",
+   "sang": "hybrid_bge",
+   "xau_di": 0,
+   "tot_len": 20,
+   "p": 1.9073486328125e-06,
+   "n": 74
+  },
+  {
+   "o": "loi21-dt",
+   "tu": "hybrid_voyage",
+   "sang": "dense_voyage",
+   "xau_di": 2,
+   "tot_len": 10,
+   "p": 0.03857421875,
+   "n": 74
+  }
+ ],
+ "n_gold_trong_loi21_74": 55
+}
