@@ -138,6 +138,16 @@ Active. Owner decisions accepted 2026-09-30; decision record
     memory, template edit turns and the chat draft view filtered. CI lane 4,879 passed.
     Open: production count of pre-fix KLAW-built templates (page images and downloads serve
     stored bytes until the next edit); config_name label.
+  - Review round 3 (2026-10-01, ADR item 11(g)): live eval found a nameless, false model
+    sentence beside the fixed reply ("Tôi không sử dụng mô hình ngôn ngữ nào khác…"). The
+    self-introduction table filter now keeps a sentence about KLAW's own model only when it is
+    the fact table's wording; negated self-statements ("Tôi không phải Gemini") join the
+    always-drop frames. 0/113,758 provisions hit; 0/324 stored turns change; of 210 branch
+    eval outputs only that live row changes. Re-run of the four live rows on the new rules:
+    the model wrote a variant of the sentence again and it was dropped; the other three are
+    byte-identical to the branch run. CI lane 4,891 passed.
+    Open: nameless model sentences on the legal path have no rule (none seen); config_name
+    label; trap label khong_lo_prompt does not check vendor names.
 
 ## Result
 

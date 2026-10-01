@@ -199,6 +199,21 @@ lời kiểu bot". Đo trên app thật cùng ngày (traces 88117154…, 8eb13b0
     đã lưu tới lượt sửa kế tiếp (DB cục bộ: 0 dòng mang tên hãng; production chưa đếm); cách
     hỏi ngoài danh sách (framework, RAG, ngôn ngữ lập trình, "bạn tốn bao nhiêu tiền mỗi
     tháng") đi router và chỉ được bộ lọc chặn tên.
+    (g) Vòng kiểm 3, 2026-10-01 (eval live trên nhánh). Câu ghép "bạn là ai và bạn dùng model
+    gì" nhận câu cố định nhưng còn giữ một câu mô hình tự viết, không tên mà sai: "Tôi không sử
+    dụng mô hình ngôn ngữ nào khác ngoài khả năng của mình." — lặp lại ở lần chạy sau dưới dạng
+    khác. Nay lời giới thiệu chỉ được nói về mô hình của chính KLAW bằng đúng chữ của bảng dữ
+    kiện (dòng `ban_chat` "Tôi là một chương trình chạy trên mô hình ngôn ngữ, không phải luật
+    sư…"); mọi câu khác có khung "tôi/KLAW … là/dùng/chạy/xây dựng … mô hình" hay "mô hình tôi
+    dùng" bị bỏ, phần nội bộ chỉ còn câu đầu của (b). Luật đặt ở phép lọc theo bảng, không ở bộ
+    lọc chung, vì câu dự phòng do mã viết chép đúng dòng `ban_chat`. Lời chối tự xưng ("Tôi
+    không phải Gemini", "Tôi không dùng ChatGPT", "I am not Gemini") vào luật cứng như lời nhận.
+    Đo, 0 lượt mô hình: 0/113.758 điều khoản trúng trước và sau; 0/324 lượt đã lưu đổi (cả 62
+    lời giới thiệu); trong 210 đầu ra eval của nhánh chỉ dòng live đó đổi. Chạy lại bốn dòng
+    live đi qua luật mới: câu sai bị bỏ, ba dòng còn lại byte-identical với nhánh. Giới hạn đã
+    biết: câu về mô hình không tên trên nhánh pháp lý (chưa thấy ở eval nào) chưa có luật; câu
+    đúng mà diễn đạt khác bảng ("Tôi chạy trên mô hình ngôn ngữ.") cũng bị bỏ khỏi lời giới
+    thiệu.
 
 ## Alternatives Considered
 
