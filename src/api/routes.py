@@ -58,7 +58,7 @@ from src.services.db import get_engine
 from src.services.effectivity import dieu_khoan_bai_bo
 from src.services.hien_thi import bai_bo_tren_trang, chan_neu_an, hien_thi_luc
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
-from src.services.thong_tin_noi_bo import loc_ket
+from src.services.thong_tin_noi_bo import LOI_CHUNG, loc_ket, loc_noi_bo
 
 # _tong_hop_traces re-exported here: test_tra_cuu.py imports it from routes, not services.traces.
 from src.services.traces import _ghi_traces, _tong_hop_traces, dau_van_ban  # noqa: F401
@@ -1215,7 +1215,7 @@ async def soan_thao(
     except KhongSoanDuocError as e:
         # Dừng trước lượt LLM (căn cứ gốc thuộc văn bản ẩn): lời thường, 4xx để
         # giao diện hiện `detail`; không chi phí nào để ghi.
-        raise HTTPException(status_code=422, detail=str(e)) from e
+        raise HTTPException(status_code=422, detail=loc_noi_bo(str(e)) or LOI_CHUNG) from e
     except (httpx.HTTPStatusError, httpx.TransportError, OperationalError) as e:
         # Cùng phân loại lỗi hạ tầng nhất thời như tra_cuu() — xem docstring ở đó.
         loi = type(e).__name__

@@ -145,11 +145,17 @@ async def lifespan(app: FastAPI):
     print("Shutting down...")
 
 
+# Quyết định 2026-09-30 mục 11: /docs, /redoc, /openapi.json không cần đăng nhập và in
+# nguyên docstring của route ("gọi LLM tối đa 5 lần … $0,00735 một request", "Supabase",
+# tên framework) — chỉ mở ở máy dev. Không thành phần nào của repo đọc chúng.
+_TAI_LIEU_API = get_settings().app_env == "development"
 app = FastAPI(
     title="KLAW API",
-    description="AI Agent built with LangGraph",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url="/docs" if _TAI_LIEU_API else None,
+    redoc_url="/redoc" if _TAI_LIEU_API else None,
+    openapi_url="/openapi.json" if _TAI_LIEU_API else None,
 )
 
 # 2 MB. Mọi payload HỢP LỆ nhỏ hơn thế rất nhiều: `SoatRequest.text` tối đa
@@ -333,11 +339,13 @@ async def loi_xac_thuc_khong_phan_chieu(request, exc: RequestValidationError):
 
 @app.exception_handler(StarletteHTTPException)
 async def loi_http_khong_lo_noi_bo(request, exc: StarletteHTTPException):
-    """MỌI `detail` chữ của API đi qua đây (quyết định 2026-09-30 mục 11): một câu nêu
-    tên model, nhà cung cấp hay hạ tầng bị bỏ. Ca đo được: `routes_ban_thao` trả 429 với
-    `str(e)` của một ValueError, và `llm.py` viết tên model vào thông điệp đó. Chi tiết
-    sạch đi qua nguyên vẹn, rồi tới handler mặc định của FastAPI."""
-    if isinstance(exc.detail, str) and (sach := loc_noi_bo(exc.detail)) != exc.detail:
+    """Lưới cuối cho `detail` chữ của lỗi 5xx (quyết định 2026-09-30 mục 11): một câu nêu
+    tên model, nhà cung cấp hay hạ tầng bị bỏ. Không lọc 4xx: chúng do mã viết, và có cái
+    lặp lại chữ người dùng ("«Hop-dong-Google.pdf» có 35 trang…") — lọc không nguồn sẽ thay
+    một lỗi vĩnh viễn bằng "thử lại sau". Ba chỗ đặt `str(e)` vào 4xx tự lọc
+    (`routes_ban_thao.dung`, `routes.soan_thao`: `llm.py` viết tên model vào ValueError).
+    Chi tiết sạch đi qua nguyên vẹn, rồi tới handler mặc định của FastAPI."""
+    if exc.status_code >= 500 and isinstance(exc.detail, str) and (sach := loc_noi_bo(exc.detail)) != exc.detail:
         exc = StarletteHTTPException(exc.status_code, sach or LOI_CHUNG, exc.headers)
     return await http_exception_handler(request, exc)
 
