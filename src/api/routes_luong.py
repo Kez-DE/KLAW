@@ -55,6 +55,7 @@ from src.models.schemas import TraCuuRequest
 from src.services import bo_nho
 from src.services import hoi_thoai as hoi_thoai_svc
 from src.services.bao_ve import cong_bao_ve_khach
+from src.services.thong_tin_noi_bo import LOI_CHUNG, loc_noi_bo
 
 logger = logging.getLogger(__name__)
 
@@ -189,8 +190,11 @@ async def _chay_nen(
     except HTTPException as e:
         # `chay_tra_cuu` đã phân loại 503 (hạ tầng nhất thời) / 500 (bug thật)
         # và `detail` của nó chỉ mang TÊN loại ngoại lệ, không mang `str(e)`.
+        # Stream đã mở nên handler HTTP chung (`main.loi_http_khong_lo_noi_bo`) không
+        # tới được đây: cùng bộ lọc, áp tại chỗ (quyết định 2026-09-30 mục 11).
+        chi_tiet = (loc_noi_bo(e.detail) or LOI_CHUNG) if isinstance(e.detail, str) else e.detail
         await hang.put(("loi", {
-            "status": e.status_code, "detail": e.detail, "trace_id": trace_id,
+            "status": e.status_code, "detail": chi_tiet, "trace_id": trace_id,
         }))
     except Exception:
         logger.exception("tra_cuu_luong: lỗi ngoài dự kiến (trace_id=%s)", trace_id)

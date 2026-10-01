@@ -58,6 +58,7 @@ from src.services.db import get_engine
 from src.services.effectivity import dieu_khoan_bai_bo
 from src.services.hien_thi import bai_bo_tren_trang, chan_neu_an, hien_thi_luc
 from src.services.rules import Rule, enum_facts, mo_ta_facts, ten_tham_so
+from src.services.thong_tin_noi_bo import loc_ket
 
 # _tong_hop_traces re-exported here: test_tra_cuu.py imports it from routes, not services.traces.
 from src.services.traces import _ghi_traces, _tong_hop_traces, dau_van_ban  # noqa: F401
@@ -365,7 +366,8 @@ BUOC_TRA_CUU: tuple[tuple[str, str], ...] = (
     ("expand", "Mở rộng dẫn chiếu"),
     ("generate", "Sinh luận điểm"),
     ("tier1", "Kiểm chứng tầng 1 — đối chiếu nguyên văn"),
-    ("tier2", "Kiểm chứng tầng 2 — mô hình thẩm định"),
+    # Quyết định 2026-09-30 mục 11: không nói ai chấm tầng 2.
+    ("tier2", "Kiểm chứng tầng 2 — đọc lại điều khoản"),
     ("assemble", "Dựng câu trả lời"),
 )
 
@@ -566,6 +568,10 @@ async def chay_tra_cuu(
         )
         tu_cache = payload is not None
         if tu_cache:
+            # Dòng cache không đi qua `assemble`, có thể lưu TRƯỚC quyết định 2026-09-30
+            # mục 11: cùng bộ lọc lời đáp. Cache chỉ đọc khi lượt không có lịch sử, hồ sơ
+            # hay tài liệu, nên câu hỏi là toàn bộ chữ người hỏi đưa vào.
+            payload = loc_ket(payload, req.query)
             st = _st_tu_cache(payload)
             if phat is not None:
                 # Giả vờ chạy chín node cho một lượt 3ms là dựng một thanh tiến
@@ -774,7 +780,8 @@ async def tra_cuu(
 @router.get("/status")
 async def agent_status():
     """Kiểm tra trạng thái agent."""
-    return {"status": "ready", "agent": "LangGraph Agent v1.0"}
+    # Không nêu framework hay hạ tầng (quyết định 2026-09-30 mục 11).
+    return {"status": "ready", "agent": "KLAW"}
 
 
 # ══ GET /van-ban/{doc_id} (Task 7, step 2) — ba dạng LAZY ═══════════════════

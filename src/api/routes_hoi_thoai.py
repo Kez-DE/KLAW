@@ -27,6 +27,7 @@ from src.models.schemas import (
 )
 from src.services import bo_nho, hoi_thoai
 from src.services.bao_ve import han_muc, nguoi_dung_bat_buoc, plan_hieu_luc
+from src.services.thong_tin_noi_bo import loc_ket
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -83,7 +84,11 @@ async def chi_tiet(id: str, nguoi: dict = Depends(nguoi_dung_bat_buoc)) -> ChiTi
     # Xoá song song giữa `_phien_mo_duoc` và truy vấn này → `None`; 404 chứ không TypeError 500.
     if ct is None:
         raise HTTPException(status_code=404, detail=hoi_thoai.LOI_KHONG_THAY)
-    return ChiTietPhienResponse(**{**ct, "luot": [LuotDaLuuOut(**lu) for lu in ct["luot"]]})
+    # Lượt lưu TRƯỚC quyết định 2026-09-30 mục 11 có thể mang tên model: đọc lại qua cùng
+    # bộ lọc lời đáp, chữ người hỏi của phiên là thứ duy nhất được lặp lại. Dòng DB giữ nguyên.
+    hoi = "\n".join(lu["cau_hoi"] for lu in ct["luot"])
+    luot = [LuotDaLuuOut(**{**lu, "tra_loi": loc_ket(lu["tra_loi"], hoi)}) for lu in ct["luot"]]
+    return ChiTietPhienResponse(**{**ct, "luot": luot})
 
 
 @router.patch("/hoi-thoai/{id}", response_model=PhienTomTatOut)

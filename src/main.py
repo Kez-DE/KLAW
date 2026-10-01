@@ -3,10 +3,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.datastructures import Headers
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.agents import graph_soan_thao as soan_thao_graph
 from src.api.routes import router
@@ -23,6 +25,7 @@ from src.services import checklist as checklist_svc
 from src.services import db as db_svc
 from src.services import rules as rules_svc
 from src.services.tai_lieu import TRAN_BYTE
+from src.services.thong_tin_noi_bo import LOI_CHUNG, loc_noi_bo
 
 logger = logging.getLogger(__name__)
 
@@ -326,6 +329,17 @@ async def loi_xac_thuc_khong_phan_chieu(request, exc: RequestValidationError):
             )
         },
     )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def loi_http_khong_lo_noi_bo(request, exc: StarletteHTTPException):
+    """MỌI `detail` chữ của API đi qua đây (quyết định 2026-09-30 mục 11): một câu nêu
+    tên model, nhà cung cấp hay hạ tầng bị bỏ. Ca đo được: `routes_ban_thao` trả 429 với
+    `str(e)` của một ValueError, và `llm.py` viết tên model vào thông điệp đó. Chi tiết
+    sạch đi qua nguyên vẹn, rồi tới handler mặc định của FastAPI."""
+    if isinstance(exc.detail, str) and (sach := loc_noi_bo(exc.detail)) != exc.detail:
+        exc = StarletteHTTPException(exc.status_code, sach or LOI_CHUNG, exc.headers)
+    return await http_exception_handler(request, exc)
 
 
 @app.get("/health")

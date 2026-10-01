@@ -64,8 +64,8 @@ GHI_CHU_CACHE = (
     "Lượt trả lời từ bộ đệm, câu ngoài phạm vi và lượt lỗi không tính. Tra cứu luật, soát văn bản không bao giờ tính."
 )
 GHI_CHU_TAT = (
-    "Hạn mức theo người dùng chưa bật trên bản triển khai này (Supabase auth chưa "
-    "cấu hình), nên hệ thống không đếm lượt theo tài khoản. Trần chi phí ngày và "
+    "Hạn mức theo người dùng chưa bật trên bản triển khai này (chưa cấu hình xác "
+    "thực), nên hệ thống không đếm lượt theo tài khoản. Trần chi phí ngày và "
     "giới hạn tần suất vẫn hoạt động."
 )
 
@@ -241,9 +241,7 @@ async def nguoi_dung(request: Request) -> NguoiDungResponse:
         # KHÔNG 200 với một `sub` bịa: đó là dữ liệu rác vĩnh viễn trong đúng
         # bảng mà hạn mức tháng đếm theo. 501 nói đúng sự thật — tính năng này
         # cần một thứ bản triển khai hiện tại không có.
-        raise HTTPException(
-            status_code=501, detail=("Chưa cấu hình xác thực (Supabase) — không có danh tính nào để ghi nhận.")
-        )
+        raise HTTPException(status_code=501, detail="Chưa cấu hình xác thực — không có danh tính nào để ghi nhận.")
     try:
         plan = await run_in_threadpool(bao_ve.ghi_nhan_nguoi_dung, nguoi["sub"], nguoi["email"])
     except Exception as e:

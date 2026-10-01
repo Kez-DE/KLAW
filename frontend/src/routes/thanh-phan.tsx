@@ -105,7 +105,7 @@ const CHIN_BUOC: BuocKhai[] = [
   { buoc: "expand", nhan: "Mở rộng dẫn chiếu", thu_tu: 5 },
   { buoc: "generate", nhan: "Sinh luận điểm", thu_tu: 6 },
   { buoc: "tier1", nhan: "Kiểm chứng tầng 1 — đối chiếu nguyên văn", thu_tu: 7 },
-  { buoc: "tier2", nhan: "Kiểm chứng tầng 2 — mô hình thẩm định", thu_tu: 8 },
+  { buoc: "tier2", nhan: "Kiểm chứng tầng 2 — đọc lại điều khoản", thu_tu: 8 },
   { buoc: "assemble", nhan: "Dựng câu trả lời", thu_tu: 9 },
 ];
 
