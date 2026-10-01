@@ -1161,3 +1161,38 @@ def test_loi_chao_tu_nhien_cua_mo_hinh_o_lai():
     tra = "Chào bạn! Bạn cứ kể chuyện đang gặp và tôi sẽ tìm quy định liên quan cho bạn."
     st = assemble({"query": "chào bạn", "intent": "gioi_thieu"}, {}, _Dem({"tra_loi": tra}), "m")
     assert st["answer"] == tra
+
+
+# ── Vòng kiểm 2: bản thảo khuôn mẫu lưu trước bản vá ───────────────────────────
+
+kho = km.kho  # fixture kho khuôn mẫu trong bộ nhớ
+
+
+def _chu_docx(b: bytes) -> str:
+    import io
+    import re
+    import zipfile
+
+    return re.sub(r"<[^>]+>", "", zipfile.ZipFile(io.BytesIO(b)).read("word/document.xml").decode("utf-8"))
+
+
+def test_luot_sua_khuon_mau_khong_chep_cau_cu_sang_tep_moi(kho):
+    """tai-lieu-soan-r2-5: lượt sửa dựng tệp mới từ điều khoản đã lọc."""
+    km._luot(km._st(), km._LLM(km._ra()))
+    cu = "Hợp đồng này do Gemini 2.5 Flash Lite (Google) soạn tự động qua OpenRouter."
+    kho.bt["bt-1"]["clauses"].append({"key": None, "ten": "Ghi chú", "doan": [cu], "can_cu": None})
+    them = {
+        "thao_tac": "them_sau",
+        "dieu": 2,
+        "key": None,
+        "ten": "Phạt vi phạm",
+        "doan": ["Bên vi phạm chịu phạt theo thỏa thuận."],
+    }
+    km._luot(
+        km._st("thêm điều về phạt vi phạm", nhe=kho.nhe()),
+        km._LLM(km._ra(muc_tieu="sua_ban_dang_co", dieu=None, gia_tri=[], sua_dieu=[them])),
+    )
+    b = kho.bt["bt-1"]
+    assert b["phien_ban"] == 2 and "Gemini" not in json.dumps(b["clauses"], ensure_ascii=False)
+    docx = _chu_docx(kho.luu_goi[-1]["docx"])
+    assert "Gemini" not in docx and "Bên vi phạm chịu phạt theo thỏa thuận." in docx

@@ -37,6 +37,7 @@ from src.services import ban_thao, bao_ve, khuon_mau
 from src.services import tai_lieu as tl
 from src.services.ban_thao import LOAI_TONG_QUAT
 from src.services.db import get_engine
+from src.services.thong_tin_noi_bo import loc_cay
 from src.services.traces import _ghi_traces
 
 logger = logging.getLogger(__name__)
@@ -791,7 +792,11 @@ def _sua_khuon_mau(state: dict, x: dict, ng: dict, sub: str, hoi_thoai_id: str) 
     except ValueError as e:
         return _loi(state, str(e))
     khung_cu = (cu.get("audit") or {}).get("khung") or {}
-    clauses_cu = list(cu.get("clauses") or [])
+    # Quyết định 2026-09-30 mục 11 (vòng kiểm 2): một bản lưu trước bản vá có thể mang câu ghi
+    # tác giả là mô hình. Lượt sửa dựng tệp mới từ điều khoản đã lọc (`doi` so với bản lưu, nên
+    # câu bị bỏ cũng làm tệp được dựng lại) thay vì chép nó sang phiên bản sau.
+    clauses_luu = list(cu.get("clauses") or [])
+    clauses_cu = loc_cay(clauses_luu, None)
     if x.get("dieu") is not None:
         clauses = _clauses(x["dieu"], ng, clauses_cu)
     elif x.get("sua_dieu"):
@@ -802,7 +807,7 @@ def _sua_khuon_mau(state: dict, x: dict, ng: dict, sub: str, hoi_thoai_id: str) 
     khung["ben"] = (x.get("khung") or {}).get("ben") or khung["ben"]
     # Một bên tuỳ loại đổi cá nhân ↔ tổ chức: khối các bên và ô ký đổi, dựng lại tệp.
     ben_doi = _ben_doi(khung_cu, khung)
-    doi = [*ben_doi.values(), *_dieu_doi(clauses_cu, clauses)]
+    doi = [*ben_doi.values(), *_dieu_doi(clauses_luu, clauses)]
     bo_mang: list = []
     if doi:
         try:

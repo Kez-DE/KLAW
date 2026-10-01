@@ -3,6 +3,7 @@ và SSE, nhãn tiến trình, chuỗi cố định, và lượt đã lưu đọc
 0 lượt mô hình.
 """
 
+import json
 from datetime import UTC, datetime
 
 import pytest
@@ -259,3 +260,27 @@ def test_tai_lieu_api_cong_khai_tat_ngoai_may_dev():
             [sys.executable, "-c", ma], capture_output=True, text=True, check=True, env={**os.environ, "APP_ENV": env}
         ).stdout.strip()
         assert ra.startswith("None None None") and "LangGraph" not in ra, (env, ra)
+
+
+async def test_chat_xem_ban_thao_khuon_mau_cu_qua_loc(monkeypatch):
+    """api-sse-r2-02: lối tắt "xem bản thảo" trả bản lưu trước graph — cùng lưới đọc lại."""
+    from src.api import routes
+    from src.models.schemas import TraCuuRequest
+
+    cau = "Văn bản này do google/gemini-2.5-flash-lite soạn qua OpenRouter."
+    bt = {
+        "id": PID,
+        "loai": "hop_dong_dich_vu",
+        "phien_ban": 1,
+        "document": f"# HỢP ĐỒNG DỊCH VỤ\n\n{BEN}\n\n{cau}\n",
+        "clauses": [{"key": "muc_1", "noi_dung": cau}],
+        "audit": {},
+        "facts": {},
+        "viec_id": PID,
+        "phep_sua": [],
+        "ten_tep": "",
+        "khuon": {"nguon": "khuon_mau", "dinh_dang": "docx", "cho_trong": [], "viec_id": PID, "so_trang": 1},
+    }
+    monkeypatch.setattr(routes.ban_thao, "moi_nhat_tren_khuon", lambda sub, hoi_thoai_id=None: dict(bt))
+    xem = await routes._xem_ban_thao(TraCuuRequest(query="xem bản thảo"), "u-1", PID, {"viec_id": PID})
+    assert BEN in xem["ban_thao"]["document"] and "gemini" not in json.dumps(xem["ban_thao"], ensure_ascii=False)

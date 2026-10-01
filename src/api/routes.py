@@ -463,7 +463,8 @@ async def _xem_ban_thao(
     if not (user_sub and hoi_thoai_id and moi_nhat_la_khuon) or req.tai_lieu_ids or not xin_xem_ban_thao(req.query):
         return None
     bt = await run_in_threadpool(ban_thao.moi_nhat_tren_khuon, user_sub, hoi_thoai_id=hoi_thoai_id)
-    return xem_ban_thao_khuon(bt) if bt and bt.get("khuon") else None
+    # Bản lưu, không qua `assemble`: cùng lưới đọc lại với drawer (quyết định 2026-09-30 mục 11).
+    return loc_ket(xem_ban_thao_khuon(bt), None) if bt and bt.get("khuon") else None
 
 
 async def chay_tra_cuu(

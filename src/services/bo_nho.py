@@ -26,6 +26,7 @@ from src.services.llm import Usage, router_model
 from src.services.llm import from_settings as llm_from_settings
 from src.services.prompts import messages
 from src.services.retrieval import chuan_linh_vuc
+from src.services.thong_tin_noi_bo import co_noi_bo
 from src.services.traces import _ghi_traces
 
 logger = logging.getLogger(__name__)
@@ -192,10 +193,12 @@ def khoi_tinh_huong(ho_so: dict) -> str:
 
 
 def ho_so_da_dung(ho_so: dict) -> list[dict]:
+    """Dữ kiện hiện cạnh câu trả lời ("Dựa trên: …"). Giá trị sổ tay ghi trước vòng kiểm 2
+    của quyết định 2026-09-30 mục 11 có thể là câu tự xưng do mô hình viết — không hiện."""
     return [
         {"khoa": k, "nhan": NHAN_HO_SO[k], "gia_tri": v["gia_tri"], "gia_dinh": v.get("nguon") == "suy_dien"}
         for k in KHOA_HO_SO
-        if (v := (ho_so or {}).get(k)) and v.get("gia_tri")
+        if (v := (ho_so or {}).get(k)) and v.get("gia_tri") and not co_noi_bo(v["gia_tri"], None)
     ]
 
 
@@ -332,7 +335,13 @@ def cap_nhat_phien(
         tom_tat = " ".join(str(ra.get("tom_tat") or "").split())[:TOM_TAT_TOI_DA] or bn["tom_tat"]
         if _vuong_luoi_chan(tom_tat or ""):
             tom_tat = bn["tom_tat"]  # tóm tắt lọt số Điều/số hiệu/định danh cá nhân → giữ bản cũ
-        ho_so = {**nen, **ho_so_sau_luot(result_type, cua_phien, ra.get("ho_so") or {})}
+        # Quyết định 2026-09-30 mục 11 (vòng kiểm 2): sổ tay là lời MÔ HÌNH viết, mà nó hiện lại
+        # như chip "Dựa trên: …", gộp vào hồ sơ tài khoản, và cấp phép tên cho câu trả lời sau
+        # (`assemble._loi_nguoi_hoi`) như thể người hỏi đã nói. Một tên chỉ vào sổ tay khi chính
+        # người hỏi đã gõ nó trong các lượt đang gộp.
+        cho = json.dumps([r.get("cau_hoi") for r in (*luot_gop, *luot_moi)], ensure_ascii=False)
+        moi = {k: v for k, v in (ra.get("ho_so") or {}).items() if not co_noi_bo(str(v), cho)}
+        ho_so = {**nen, **ho_so_sau_luot(result_type, cua_phien, moi)}
         den = khoang[1] if khoang else bn["tom_tat_den_thu_tu"]
         hoi_thoai.ghi_bo_nho(hoi_thoai_id, tom_tat if (luot_gop or bn["tom_tat"]) else None, den, ho_so)
         # Nhánh meta không gộp gì mới vào ho_so ở trên, nên không có gì để đẩy
