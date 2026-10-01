@@ -1,838 +1,105 @@
 {
-  "commit_hash": "107b2c95961c1c0c336ec70e2b0bea466573274f",
-  "so_tep": 12,
+  "commit_hash": "962a08b5bc537be2198ef713e0f1402f339442e1",
+  "so_tep": 8,
   "chi_tiet": [
     {
-      "tep": "bien-ban-tiem-lenh.docx",
+      "tep": "BM.M05. Giay tiep nhan thuc hanh. thuc tap (1).docx",
       "muc": {
         "cau_truc": {
-          "khai": 6,
-          "khop": 6,
+          "khai": 56,
+          "khop": 56,
           "chua_cai": false,
           "thieu": [],
           "diem": 1.0
         },
         "vien_bang_co_net": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "vien_bang_tung_canh": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "chieu_cao_hang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "chieu_cao_hang_hrule": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "can_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "dinh_dang_run": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "gian_cach_thut_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "le_trang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "media": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        }
-      }
-    },
-    {
-      "tep": "hop-dong-thu-viec-90.docx",
-      "muc": {
-        "cau_truc": {
-          "khai": 5,
-          "khop": 5,
+          "khai": 1,
+          "khop": 1,
           "chua_cai": false,
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang_co_net": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
         "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "chieu_cao_hang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "chieu_cao_hang_hrule": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "can_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "dinh_dang_run": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "gian_cach_thut_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "le_trang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "media": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        }
-      }
-    },
-    {
-      "tep": "noi-quy-ban-a.docx",
-      "muc": {
-        "cau_truc": {
-          "khai": 4,
-          "khop": 4,
+          "khai": 2,
+          "khop": 2,
           "chua_cai": false,
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang_co_net": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "vien_bang_tung_canh": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "chieu_cao_hang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
         "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "can_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "dinh_dang_run": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "gian_cach_thut_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "le_trang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "media": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        }
-      }
-    },
-    {
-      "tep": "noi-quy-ban-b.docx",
-      "muc": {
-        "cau_truc": {
-          "khai": 4,
-          "khop": 4,
+          "khai": 44,
+          "khop": 44,
           "chua_cai": false,
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang_co_net": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "vien_bang_tung_canh": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "chieu_cao_hang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "chieu_cao_hang_hrule": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "can_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
         "dinh_dang_run": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "gian_cach_thut_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "le_trang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "media": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        }
-      }
-    },
-    {
-      "tep": "phieu-cham-lech-tong.docx",
-      "muc": {
-        "cau_truc": {
-          "khai": 20,
-          "khop": 20,
+          "khai": 150,
+          "khop": 150,
           "chua_cai": false,
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang_co_net": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "vien_bang_tung_canh": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "chieu_cao_hang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "chieu_cao_hang_hrule": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "can_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "dinh_dang_run": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
         "gian_cach_thut_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "le_trang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "media": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        }
-      }
-    },
-    {
-      "tep": "phieu-cham-trang.docx",
-      "muc": {
-        "cau_truc": {
-          "khai": 34,
-          "khop": 34,
+          "khai": 193,
+          "khop": 193,
           "chua_cai": false,
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang_co_net": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "vien_bang_tung_canh": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "chieu_cao_hang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "chieu_cao_hang_hrule": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "can_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "dinh_dang_run": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "gian_cach_thut_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
         "le_trang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "media": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        }
-      }
-    },
-    {
-      "tep": "hdld-co-dieu-khoan-trai-luat.docx",
-      "muc": {
-        "cau_truc": {
-          "khai": 11,
-          "khop": 11,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": 1.0
-        },
-        "vien_bang_co_net": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "vien_bang_tung_canh": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "chieu_cao_hang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "chieu_cao_hang_hrule": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "can_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "dinh_dang_run": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "gian_cach_thut_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "le_trang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "media": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        }
-      }
-    },
-    {
-      "tep": "hdld-so-viet-bang-chu.docx",
-      "muc": {
-        "cau_truc": {
-          "khai": 9,
-          "khop": 9,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": 1.0
-        },
-        "vien_bang_co_net": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "vien_bang_tung_canh": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "chieu_cao_hang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "chieu_cao_hang_hrule": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "can_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "dinh_dang_run": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "gian_cach_thut_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "le_trang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "media": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        }
-      }
-    },
-    {
-      "tep": "hdld-vung1-thu-viec-60.docx",
-      "muc": {
-        "cau_truc": {
-          "khai": 9,
-          "khop": 9,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": 1.0
-        },
-        "vien_bang_co_net": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "vien_bang_tung_canh": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "chieu_cao_hang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "chieu_cao_hang_hrule": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "can_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "dinh_dang_run": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "gian_cach_thut_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "le_trang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "media": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        }
-      }
-    },
-    {
-      "tep": "hdld-vung2-thu-viec-30.docx",
-      "muc": {
-        "cau_truc": {
-          "khai": 9,
-          "khop": 9,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": 1.0
-        },
-        "vien_bang_co_net": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "vien_bang_tung_canh": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "chieu_cao_hang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "chieu_cao_hang_hrule": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "can_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "dinh_dang_run": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "gian_cach_thut_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "le_trang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "media": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        }
-      }
-    },
-    {
-      "tep": "thu-viec-cao-dang-60.docx",
-      "muc": {
-        "cau_truc": {
           "khai": 7,
           "khop": 7,
           "chua_cai": false,
           "thieu": [],
           "diem": 1.0
         },
-        "vien_bang_co_net": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "vien_bang_tung_canh": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "chieu_cao_hang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "chieu_cao_hang_hrule": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "can_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "dinh_dang_run": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": false,
-          "thieu": [],
-          "diem": null
-        },
-        "gian_cach_thut_le": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
-        "le_trang": {
-          "khai": 0,
-          "khop": 0,
-          "chua_cai": true,
-          "thieu": [],
-          "diem": 0.0
-        },
         "media": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
+          "diem": null
+        },
+        "dong_chay_trang": {
+          "khai": 1,
+          "khop": 1,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "hinh_ve_hop_chu": {
+          "khai": 2,
+          "khop": 0,
+          "chua_cai": true,
+          "thieu": [
+            "than/khung0",
+            "than/khung1"
+          ],
           "diem": 0.0
         }
       }
     },
     {
-      "tep": "thu-viec-thieu-luong-chinh-thuc.docx",
+      "tep": "BM.ĐT.18.03. Đơn đăng ký đi thực tập tốt nghiệp Ver 02.docx",
       "muc": {
         "cau_truc": {
-          "khai": 6,
-          "khop": 6,
+          "khai": 23,
+          "khop": 23,
           "chua_cai": false,
           "thieu": [],
           "diem": 1.0
@@ -847,9 +114,285 @@
         "vien_bang_tung_canh": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang": {
+          "khai": 2,
+          "khop": 2,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "chieu_cao_hang_hrule": {
+          "khai": 1,
+          "khop": 1,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "can_le": {
+          "khai": 17,
+          "khop": 17,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "dinh_dang_run": {
+          "khai": 165,
+          "khop": 165,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "gian_cach_thut_le": {
+          "khai": 80,
+          "khop": 80,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "le_trang": {
+          "khai": 7,
+          "khop": 7,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "media": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "dong_chay_trang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "hinh_ve_hop_chu": {
+          "khai": 2,
+          "khop": 0,
+          "chua_cai": true,
+          "thieu": [
+            "than/khung0",
+            "than/khung1"
+          ],
           "diem": 0.0
+        }
+      }
+    },
+    {
+      "tep": "BM.ĐT.18.05. Kế hoạch thực tập tại cơ sở Ver 02.docx",
+      "muc": {
+        "cau_truc": {
+          "khai": 43,
+          "khop": 43,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "vien_bang_co_net": {
+          "khai": 1,
+          "khop": 1,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "vien_bang_tung_canh": {
+          "khai": 50,
+          "khop": 50,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "chieu_cao_hang": {
+          "khai": 7,
+          "khop": 7,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "chieu_cao_hang_hrule": {
+          "khai": 1,
+          "khop": 1,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "can_le": {
+          "khai": 20,
+          "khop": 20,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "dinh_dang_run": {
+          "khai": 258,
+          "khop": 258,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "gian_cach_thut_le": {
+          "khai": 137,
+          "khop": 137,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "le_trang": {
+          "khai": 7,
+          "khop": 7,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "media": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "dong_chay_trang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "hinh_ve_hop_chu": {
+          "khai": 3,
+          "khop": 0,
+          "chua_cai": true,
+          "thieu": [
+            "than/khung0",
+            "than/khung1",
+            "than/khung2"
+          ],
+          "diem": 0.0
+        }
+      }
+    },
+    {
+      "tep": "BM.ĐT.18.11. Phiếu đánh giá quá trình thực tập tốt nghiệp của sinh viên tại cơ sở thực tập Ver 02 (1).docx",
+      "muc": {
+        "cau_truc": {
+          "khai": 41,
+          "khop": 41,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "vien_bang_co_net": {
+          "khai": 1,
+          "khop": 1,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "vien_bang_tung_canh": {
+          "khai": 6,
+          "khop": 6,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "chieu_cao_hang": {
+          "khai": 7,
+          "khop": 7,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "chieu_cao_hang_hrule": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "can_le": {
+          "khai": 27,
+          "khop": 27,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "dinh_dang_run": {
+          "khai": 260,
+          "khop": 260,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "gian_cach_thut_le": {
+          "khai": 137,
+          "khop": 137,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "le_trang": {
+          "khai": 7,
+          "khop": 7,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "media": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "dong_chay_trang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "hinh_ve_hop_chu": {
+          "khai": 1,
+          "khop": 0,
+          "chua_cai": true,
+          "thieu": [
+            "than/khung0"
+          ],
+          "diem": 0.0
+        }
+      }
+    },
+    {
+      "tep": "Evaluation Form.docx",
+      "muc": {
+        "cau_truc": {
+          "khai": 262,
+          "khop": 262,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
         },
         "chieu_cao_hang": {
           "khai": 0,
@@ -861,43 +404,329 @@
         "chieu_cao_hang_hrule": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
-          "diem": 0.0
+          "diem": null
         },
         "can_le": {
-          "khai": 0,
-          "khop": 0,
+          "khai": 230,
+          "khop": 230,
           "chua_cai": false,
           "thieu": [],
-          "diem": null
+          "diem": 1.0
         },
         "dinh_dang_run": {
+          "khai": 2800,
+          "khop": 2800,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "gian_cach_thut_le": {
+          "khai": 750,
+          "khop": 750,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "le_trang": {
+          "khai": 7,
+          "khop": 7,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "media": {
+          "khai": 3,
+          "khop": 3,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "dong_chay_trang": {
           "khai": 0,
           "khop": 0,
           "chua_cai": false,
           "thieu": [],
           "diem": null
         },
-        "gian_cach_thut_le": {
+        "hinh_ve_hop_chu": {
           "khai": 0,
           "khop": 0,
           "chua_cai": true,
           "thieu": [],
           "diem": 0.0
+        }
+      }
+    },
+    {
+      "tep": "Report_cover.docx",
+      "muc": {
+        "cau_truc": {
+          "khai": 4,
+          "khop": 4,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang": {
+          "khai": 2,
+          "khop": 2,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "chieu_cao_hang_hrule": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "can_le": {
+          "khai": 1,
+          "khop": 1,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "dinh_dang_run": {
+          "khai": 49,
+          "khop": 49,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "gian_cach_thut_le": {
+          "khai": 69,
+          "khop": 69,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
         },
         "le_trang": {
+          "khai": 7,
+          "khop": 7,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "media": {
+          "khai": 3,
+          "khop": 3,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "dong_chay_trang": {
           "khai": 0,
           "khop": 0,
-          "chua_cai": true,
+          "chua_cai": false,
           "thieu": [],
+          "diem": null
+        },
+        "hinh_ve_hop_chu": {
+          "khai": 2,
+          "khop": 0,
+          "chua_cai": true,
+          "thieu": [
+            "than/khung0",
+            "than/khung1"
+          ],
           "diem": 0.0
+        }
+      }
+    },
+    {
+      "tep": "Report_instruction.docx",
+      "muc": {
+        "cau_truc": {
+          "khai": 49,
+          "khop": 49,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "vien_bang_co_net": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "vien_bang_tung_canh": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "chieu_cao_hang_hrule": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "can_le": {
+          "khai": 49,
+          "khop": 49,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "dinh_dang_run": {
+          "khai": 75,
+          "khop": 75,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "gian_cach_thut_le": {
+          "khai": 210,
+          "khop": 210,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "le_trang": {
+          "khai": 6,
+          "khop": 6,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
         },
         "media": {
           "khai": 0,
           "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "dong_chay_trang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "hinh_ve_hop_chu": {
+          "khai": 0,
+          "khop": 0,
           "chua_cai": true,
           "thieu": [],
+          "diem": 0.0
+        }
+      }
+    },
+    {
+      "tep": "phiếu đánh giá thực tập công nghiệp.docx",
+      "muc": {
+        "cau_truc": {
+          "khai": 41,
+          "khop": 41,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "vien_bang_co_net": {
+          "khai": 1,
+          "khop": 1,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "vien_bang_tung_canh": {
+          "khai": 6,
+          "khop": 6,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "chieu_cao_hang": {
+          "khai": 7,
+          "khop": 7,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "chieu_cao_hang_hrule": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "can_le": {
+          "khai": 27,
+          "khop": 27,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "dinh_dang_run": {
+          "khai": 251,
+          "khop": 251,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "gian_cach_thut_le": {
+          "khai": 137,
+          "khop": 137,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "le_trang": {
+          "khai": 7,
+          "khop": 7,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": 1.0
+        },
+        "media": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "dong_chay_trang": {
+          "khai": 0,
+          "khop": 0,
+          "chua_cai": false,
+          "thieu": [],
+          "diem": null
+        },
+        "hinh_ve_hop_chu": {
+          "khai": 1,
+          "khop": 0,
+          "chua_cai": true,
+          "thieu": [
+            "than/khung0"
+          ],
           "diem": 0.0
         }
       }
@@ -905,65 +734,77 @@
   ],
   "tong_hop": {
     "cau_truc": {
-      "khai": 124,
-      "khop": 124,
+      "khai": 519,
+      "khop": 519,
       "chua_cai": false,
       "diem": 1.0
     },
     "vien_bang_co_net": {
-      "khai": 0,
-      "khop": 0,
+      "khai": 4,
+      "khop": 4,
       "chua_cai": false,
-      "diem": null
+      "diem": 1.0
     },
     "vien_bang_tung_canh": {
-      "khai": 0,
-      "khop": 0,
-      "chua_cai": true,
-      "diem": 0.0
+      "khai": 62,
+      "khop": 62,
+      "chua_cai": false,
+      "diem": 1.0
     },
     "chieu_cao_hang": {
-      "khai": 0,
-      "khop": 0,
+      "khai": 27,
+      "khop": 27,
       "chua_cai": false,
-      "diem": null
+      "diem": 1.0
     },
     "chieu_cao_hang_hrule": {
-      "khai": 0,
-      "khop": 0,
-      "chua_cai": true,
-      "diem": 0.0
+      "khai": 2,
+      "khop": 2,
+      "chua_cai": false,
+      "diem": 1.0
     },
     "can_le": {
-      "khai": 0,
-      "khop": 0,
+      "khai": 415,
+      "khop": 415,
       "chua_cai": false,
-      "diem": null
+      "diem": 1.0
     },
     "dinh_dang_run": {
-      "khai": 0,
-      "khop": 0,
+      "khai": 4008,
+      "khop": 4008,
       "chua_cai": false,
-      "diem": null
+      "diem": 1.0
     },
     "gian_cach_thut_le": {
-      "khai": 0,
-      "khop": 0,
-      "chua_cai": true,
-      "diem": 0.0
+      "khai": 1713,
+      "khop": 1713,
+      "chua_cai": false,
+      "diem": 1.0
     },
     "le_trang": {
-      "khai": 0,
-      "khop": 0,
-      "chua_cai": true,
-      "diem": 0.0
+      "khai": 55,
+      "khop": 55,
+      "chua_cai": false,
+      "diem": 1.0
     },
     "media": {
-      "khai": 0,
+      "khai": 6,
+      "khop": 6,
+      "chua_cai": false,
+      "diem": 1.0
+    },
+    "dong_chay_trang": {
+      "khai": 1,
+      "khop": 1,
+      "chua_cai": false,
+      "diem": 1.0
+    },
+    "hinh_ve_hop_chu": {
+      "khai": 11,
       "khop": 0,
       "chua_cai": true,
       "diem": 0.0
     }
   },
-  "tong": 0.16666666666666666
+  "tong": 0.9166666666666666
 }
