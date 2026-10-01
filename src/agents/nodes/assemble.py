@@ -86,7 +86,7 @@ from src.services.kho import hien_van_ban, moi_so_hieu_trong
 from src.services.khuon_mau import can_cu_hien
 from src.services.llm import Usage
 from src.services.prompts import messages
-from src.services.thong_tin_noi_bo import loc_ket
+from src.services.thong_tin_noi_bo import CAU_NOI_BO, hoi_noi_bo, loc_ket
 from src.services.trich_dan import truong_trich_dan
 
 logger = logging.getLogger(__name__)
@@ -1698,9 +1698,18 @@ def assemble(state: dict, db_provisions: dict[int, dict], llm, model: str, promp
     """Node cuối của MỌI nhánh graph tra cứu. Quyết định 2026-09-30 mục 11: lời model viết
     rời graph ở đây, nên đây là chỗ thông tin nội bộ (tên model, nhà cung cấp, hạ tầng)
     bị bỏ khỏi `answer`, `coverage_note`, phần phân tích, bảng, câu đã giải nghĩa và
-    lời mời biểu mẫu (`thong_tin_noi_bo.loc_ket`). Nguyên văn căn cứ không đổi."""
+    lời mời biểu mẫu (`thong_tin_noi_bo.loc_ket`). Nguyên văn căn cứ không đổi.
+
+    Câu hỏi ghép luật với thông tin nội bộ ("tôi tranh chấp đất đai… à bạn dùng model
+    gì") đi nhánh pháp lý; phần nội bộ nhận `CAU_NOI_BO` do mã viết, 0 token, như câu ghép
+    của nhánh giới thiệu (`gioi_thieu.tra_loi_meta`)."""
     ket = _dung_ket(state, db_provisions, llm, model, prompt_path)
-    return loc_ket(ket, _loi_nguoi_hoi(ket))
+    ket = loc_ket(ket, _loi_nguoi_hoi(ket))
+    if ket.get("result_type") not in _META and hoi_noi_bo(state.get("cau_hoi_goc") or state.get("query") or ""):
+        k = "answer" if ket.get("answer") else "coverage_note"
+        if CAU_NOI_BO not in (ket.get(k) or ""):
+            ket[k] = f"{ket[k]}\n\n{CAU_NOI_BO}" if ket.get(k) else CAU_NOI_BO
+    return ket
 
 
 def _dung_ket(state: dict, db_provisions: dict[int, dict], llm, model: str, prompt_path: Path | None = None) -> dict:

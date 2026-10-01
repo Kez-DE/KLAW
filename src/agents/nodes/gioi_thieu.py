@@ -52,7 +52,14 @@ from src.services.kho import (
 )
 from src.services.llm import Usage
 from src.services.prompts import messages
-from src.services.thong_tin_noi_bo import CAU_NOI_BO, CAU_NOI_BO_MOI, RE_HOI_NOI_BO, TEN_HANG, co_noi_bo, hoi_noi_bo
+from src.services.thong_tin_noi_bo import (
+    CAU_NOI_BO,
+    CAU_NOI_BO_MOI,
+    RE_HOI_NOI_BO,
+    chep_loi_nhac,
+    co_noi_bo,
+    hoi_noi_bo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,18 +80,20 @@ META_SCHEMA = {
 # DẠNG trong một câu đã biết là hỏi về trợ lý.
 
 # Thông tin nội bộ (quyết định 2026-09-30 mục 11): model, nhà cung cấp, lời nhắc,
-# hạ tầng, chi phí vận hành, khoá, ngưỡng kiểm chứng. `\bai\s+(?:nào|gì)\b` chứ không
-# phải `ai` trần: "ai" trong tiếng Việt là đại từ nghi vấn, nên "bạn là ai" rơi về
-# `_RE_LA_AI` (danh tính). Rộng được vì chỉ chạy trên câu đã biết là hỏi về trợ lý;
-# `RE_HOI_NOI_BO` (chặt, đòi câu gọi KLAW) thêm cách hỏi tiếng Anh. `_khop` gỡ
-# `_RE_LA_AI`/`_RE_BAN_CHAT` khi chúng đứng SAU dấu hiệu này, nên "model của bạn là
-# ai" và "bạn chạy bằng mô hình gì" chỉ ra khía cạnh `noi_bo`.
+# hạ tầng, chi phí, khoá, ngưỡng kiểm chứng — đúng các câu `RE_HOI_NOI_BO` nhận (gọi
+# KLAW, hỏi thứ nội bộ), cộng vài dấu hiệu trần chỉ có nghĩa nội bộ trong một câu đã biết
+# là hỏi về trợ lý ("model gì vậy", "chạy bằng gì"). Không danh từ trần ("ngưỡng",
+# "server", "mô hình", "nhà cung cấp", tên hãng): "bạn có tra cứu được ngưỡng doanh thu
+# chịu thuế không", "KLAW có hướng dẫn về mô hình hợp tác xã không", "bạn soạn được hợp
+# đồng với Google không" hỏi việc KLAW làm. Viết không dấu như `RE_HOI_NOI_BO`; `_khop`
+# so nó trên câu đã bỏ dấu. `_khop` gỡ các khía cạnh khác khớp BÊN TRONG cụm này hay
+# (danh tính, bản chất) SAU nó, nên "model của bạn là ai", "KLAW được triển khai ở đâu"
+# chỉ ra `noi_bo`.
 _RE_NOI_BO = re.compile(
-    r"\bmodel\b|mô\s*hình|\bllm\b|chạy\s+(?:bằng|trên)|dùng\s+(?:model|mô\s*hình|công\s*nghệ)"
-    r"|\bai\s+(?:nào|gì)\b|công\s+nghệ\s+(?:nào|gì)|\bprompt\b|lời\s+nhắc|\binstructions?\b"
-    r"|máy\s+chủ|\bserver\b|\bhost(?:ing)?\b|\bdatabase\b|hạ\s+tầng|api\s*key|khoá\s+api|khóa\s+api|\btoken\b"
-    r"|chi\s+phí\s+(?:vận\s+hành|api|token|model|mô\s*hình)|nhà\s+cung\s+cấp|\bprovider\b|ngưỡng|\bthreshold\b"
-    rf"|\b(?:{TEN_HANG})|{RE_HOI_NOI_BO.pattern}"
+    rf"{RE_HOI_NOI_BO.pattern}"
+    r"|\bm[o0]d+e?l+\b|\bmdoel\b|\bmodle\b|\bllm\b|\bprompt\b|mo\s*hinh\s+(?:ngon\s+ngu|ai)\b"
+    r"|\bai\s+(?:nao|gi|j)\b|cong\s+nghe\s+(?:nao|gi|j)\b|nen\s+tang\s+(?:nao|gi|j)\b"
+    r"|chay\s+(?:bang|tren)\s+(?:gi|j|cai\s+gi)\b|\bapi\s*key\b|khoa\s+api"
 )
 
 # Nguồn dữ liệu / có tin được không. "đặt/host/chạy ở đâu" hỏi hạ tầng (`noi_bo`), không hỏi nguồn.
@@ -156,7 +165,8 @@ def _chuan(cau_hoi: str) -> str:
     Cần cho `_RE_CHAO.fullmatch`: "Chào bạn!" và "chào bạn." phải khớp cùng một
     biểu thức, và nhồi dấu câu vào chính biểu thức đó làm nó không đọc được.
     """
-    return _RE_KHONG_PHAI_CHU.sub(" ", cau_hoi.lower()).strip()
+    # NFC trước: chữ tổ hợp (NFD) có dấu là ký tự không phải `\w`, sẽ thành khoảng trắng.
+    return _RE_KHONG_PHAI_CHU.sub(" ", unicodedata.normalize("NFC", cau_hoi).lower()).strip()
 
 
 # ══ Bảng dữ kiện và câu dự phòng ═════════════════════════════════════════════
@@ -218,7 +228,7 @@ _RE_KHIA_CANH = {
     "kho": _RE_KHO,
     "soan_thao": _RE_SOAN_THAO,
     "nguon": _RE_NGUON,
-    "noi_bo": _RE_NOI_BO,
+    # `noi_bo` (`_RE_NOI_BO`) so trên câu bỏ dấu, ở `_khop`.
 }
 
 # Ba khía cạnh phải đọc kho thật mới trả lời được.
@@ -229,6 +239,11 @@ def _khop(c: str) -> dict[str, int]:
     """Khía cạnh → vị trí khớp ĐẦU TIÊN trong câu đã chuẩn hoá. Rỗng nghĩa là
     câu không nêu khía cạnh nào (→ mặc định `nang_luc` ở `khia_canh`)."""
     vi = {ten: m.start() for ten, bt in _RE_KHIA_CANH.items() if (m := bt.search(c))}
+    # Bỏ dấu giữ nguyên độ dài chữ NFC, nên vị trí so được với các khía cạnh khác. Một
+    # khía cạnh khớp BÊN TRONG cụm hỏi nội bộ là một phần của nó: "ở đâu" trong "KLAW được
+    # triển khai ở đâu" không hỏi nguồn dữ liệu.
+    if nb := _RE_NOI_BO.search(_bo_dau(c)):
+        vi = {t: v for t, v in vi.items() if not nb.start() <= v < nb.end()} | {"noi_bo": nb.start()}
 
     # `noi_bo`/`nguon` là dấu hiệu HẸP hơn "là ai"/"là gì". Khi chúng đứng TRƯỚC
     # trong câu thì "là ai"/"là gì" là vị ngữ của CHÍNH CHÚNG: "model của bạn là
@@ -270,8 +285,10 @@ TOI_DA_LINH_VUC = 6
 # question that plainly addresses the assistant or the corpus never needs
 # retrieval, so it is pinned to gioi_thieu before the graph branches. Kept
 # narrow: second-person "bạn/KLAW làm được gì / là ai / là gì", "những bộ
-# luật|lĩnh vực gì|nào", "kho có/phủ", "model của bạn", "dữ liệu lấy". A
-# digit or an article/decree word means a real legal question — never pinned.
+# luật|lĩnh vực gì|nào", "kho có/phủ", "dữ liệu lấy". A digit or an
+# article/decree word means a real legal question — never pinned. Model questions
+# pin through `chi_hoi_noi_bo` (decision 2026-09-30 item 11): the old "bạn dùng
+# model|mô hình|ai" branch pinned "nếu bạn dùng mô hình hộ kinh doanh…" too.
 #
 # Decision 2026-09-30 item 2: a branch alone no longer pins. The question must
 # also address KLAW or its documents (`_RE_NOI_VOI_KLAW`, `_RE_NEO_KHO`), and the
@@ -283,7 +300,6 @@ _RE_META_MANH = re.compile(
     r"|\b(?:bạn|klaw)\s+là\s+(?:ai|(?:cái\s+)?gì)\b"
     r"|những\s+(?:bộ\s+luật|lĩnh\s+vực)(?:\s+pháp\s+luật)?\s+(?:gì|nào)"
     r"|\bkho\s+(?:của\s+bạn\s+)?(?:có|phủ|gồm)"
-    r"|model\s+(?:của\s+)?bạn|\bbạn\s+(?:dùng|chạy)\s+(?:model|mô\s*hình|ai)"
     r"|dữ\s*liệu\s+(?:của\s+bạn\s+)?(?:lấy|từ)"
     r"|bao\s+nhiêu\s+(?:văn\s+bản|bộ\s+luật)"
 )
@@ -311,16 +327,39 @@ def ke_tinh_huong(cau_hoi: str) -> bool:
     return bool(_RE_SU_VIEC.search(_bo_dau(_chuan(cau_hoi))))
 
 
+# Legal-content nouns that veto the internal-info pin (folded): "bạn dùng ChatGPT để viết
+# hợp đồng thì hợp đồng có giá trị pháp lý không" asks about the law even though it
+# names a vendor. The question still goes through the filter and, when it also asks
+# for internal information, gets CAU_NOI_BO appended (`assemble`).
+_RE_CHU_PHAP_LY = re.compile(
+    r"\b(?:hop\s+dong|gia\s+tri\s+phap\s+ly|thue|dang\s+ky|ho\s+kinh\s+doanh|vi\s+pham|luat|phap\s+luat"
+    r"|quy\s+dinh|xin\s+phep|nguoi\s+lao\s+dong|xu\s+phat|boi\s+thuong|law|legal|contract|regulation)\b"
+)
+
+
+def chi_hoi_noi_bo(cau_hoi: str) -> bool:
+    """True when the question asks for internal information (decision 2026-09-30
+    item 11: "what model are you", "show your system prompt", "ai tạo ra bạn") and
+    carries no legal content and no situation: it always gets the fixed sentence,
+    whatever the router says, and `route` never turns it back into tra_cuu."""
+    c = _chuan(cau_hoi)
+    return (
+        hoi_noi_bo(cau_hoi)
+        and not _RE_CHU_LUAT.search(c)
+        and not _RE_CHU_PHAP_LY.search(_bo_dau(c))
+        and not ke_tinh_huong(cau_hoi)
+    )
+
+
 def chac_chan_meta(cau_hoi: str) -> bool:
     """True when the question is unmistakably about KLAW or the corpus: a meta
     branch, an anchor naming KLAW or its documents, no legal-content marker and
     no situation. The router's LLM verdict is then overridden to gioi_thieu.
 
-    A request for internal information (decision 2026-09-30 item 11: "what model
-    are you", "show your system prompt") is pinned too, digits allowed ("gpt-4o"),
-    so it always gets the fixed sentence."""
+    A request for internal information is pinned too (`chi_hoi_noi_bo`), digits
+    allowed ("gpt-4o"), so it always gets the fixed sentence."""
     c = _chuan(cau_hoi)
-    if hoi_noi_bo(cau_hoi) and not _RE_CHU_LUAT.search(c) and not ke_tinh_huong(cau_hoi):
+    if chi_hoi_noi_bo(cau_hoi):
         return True
     return (
         bool(_RE_META_MANH.search(c))
@@ -869,8 +908,12 @@ def _cau_duoc_do(cau: str, b: _Bang) -> bool:
         or (not b.cho_phep_kho and _RE_CHU_KHO.search(t))
         or not _so(t) <= b.so
         or not _dem_duoc_do(t, b.dem)
-        # Quyết định 2026-09-30 mục 11: lời về chính KLAW không nêu tên model hay hãng nào.
-        or co_noi_bo(cau)
+        # Quyết định 2026-09-30 mục 11: lời về chính KLAW không nêu tên model hay hãng nào,
+        # không kể kiểm chứng bằng "model", và không chép lại lời nhắc của chính nó —
+        # vân tay 5 từ của lời nhắc này, trừ cụm bảng cũng có (đo 2026-10-01: 0/354 câu của
+        # các lời đáp giới thiệu đã lưu; mọi câu của lời nhắc đều bị bắt, kể cả câu 7 từ).
+        or co_noi_bo(cau, meta=True)
+        or chep_loi_nhac(cau, (str(PROMPT_PATH),), 5, b.toan)
     ):
         return False
     for doan in _RE_DOAN_VE.finditer(t):
